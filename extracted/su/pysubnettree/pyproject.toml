@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools"]
+
+[project]
+name = "pysubnettree"
+description = "Map subnets in CIDR notation to Python objects"
+dynamic = ["version"]
+license = { text = "3-clause BSD License" }
+
+# We would like to include the README here to be rendered on pypi
+# except that pypi refuses to accept that our RST is correct and
+# valid. 'twine check' says it's valid locally, but pypi refuses
+# to accept it when uploaded.
+
+requires-python = ">=3.10"
+
+classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'Environment :: Console',
+    'License :: OSI Approved :: BSD License',
+    'Operating System :: POSIX :: Linux',
+    'Operating System :: POSIX :: BSD :: FreeBSD',
+    'Operating System :: MacOS :: MacOS X',
+    'Programming Language :: Python :: 3',
+    'Topic :: System :: Networking',
+    'Topic :: Utilities',
+]
+
+[project.urls]
+Repository = "https://github.com/zeek/pysubnettree"
+
+[[project.maintainers]]
+name = "The Zeek Team"
+email = "info@zeek.org"
+
+[tool.ruff]
+exclude = ["SubnetTree.py"]
+
+[tool.ruff.lint]
+select = ["C4", "F", "I", "ISC", "UP"]

@@ -1,0 +1,2514 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""Handler for the live event-chain canary (OMN-16773).
+
+What this proves that nothing else did
+--------------------------------------
+``delegation-seam-gate.yml`` already drives the delegation seam at PR time
+over ``InMemoryTransport``, and it was green the entire time the live chain
+was dead. It has to be: an in-memory seam test constructs its own wiring, so
+it cannot see a *deployed* wiring arm choosing the wrong dispatch path.
+
+OMN-16767 is exactly that failure. An omnimarket contract change on
+2026-08-23 gave ``node_delegation_routing_reducer`` a ``db_io`` block; the
+runtime's ``_prepare_handler_wiring`` selects the projection dispatch arm on
+``db_io.db_tables`` alone, so a typed def-B handler started receiving a raw
+projection dict, raised ``AttributeError``, and every delegation fell into
+the platform quarantine sink. Zero terminals for four days. Nobody noticed,
+because the only thing that exercised the live chain was a human running a
+recorded recipe by hand.
+
+So this node runs that recipe on a schedule. It fires ONE delegation class
+through the real deployed ingress and asserts two things a green unit suite
+cannot: a terminal came back inside a budget, and the run's own correlation
+id did not land in quarantine.
+
+Design constraints worth stating
+--------------------------------
+* **Fresh correlation id, minted here, not settable by the caller.** A
+  canary that can be handed a fixed id is a canary whose results can be
+  confused across runs. ``uuid4()`` per ``handle()`` call, and that same id
+  is what goes on the wire and what the quarantine scan asks about.
+* **The quarantine leg is a tail scan.** The sink held ~8,878,924 records
+  when OMN-16767 was diagnosed. Reading it whole is not an option, and is
+  not the question anyway — the canary only needs the window its own
+  request just landed in. Aggregate sink depth is OMN-16769's job.
+* **An unconfigured check reports itself.** ``SKIPPED_NOT_CONFIGURED`` is
+  not ``CLEAN``. The whole reason this ticket exists is that a check nobody
+  ran looked exactly like a check that passed.
+* **No node ever asserts a lane it did not probe.** ``probe_url`` is
+  required with no default (Rule 8). The dev lane is the pre-authorized
+  mutable lane; stability-test, judge, and prod are out of scope here and
+  this node makes no claim about them.
+
+What OMN-16931 changed, and why
+-------------------------------
+The first cut of this handler derived ``terminal_landed`` from the
+synchronous ``/skill`` HTTP response. That is a CLAIM made by the request
+path about the chain, not evidence from the chain, and it failed in both
+directions on the live lane:
+
+* **False RED.** Run 33251822642 (2026-08-29T12:10:26Z) reported
+  ``terminal_missing`` at 4,369 ms of a 120,000 ms budget because the
+  ingress carried ``ok=false`` — a provider 429 on an escalation rung the
+  local model had already answered three times (OMN-16932). The runtime log
+  for that run's own correlation id shows the terminal published to
+  ``delegate-skill-completed.v1`` at 12:10:23. The chain was alive. The
+  canary sent whoever read it hunting a dead chain.
+* **False GREEN.** OMN-15468 is the standing live proof that this lane can
+  answer ``ok=true`` with a terminal name while the FAILED run's SUCCESS
+  terminal is what actually got republished. An ingress-derived verdict
+  cannot see that at all.
+
+So the terminal now comes off the broker: a correlation-scoped readback of
+the contract-declared terminal topics, running for the remainder of the
+budget. ``TERMINAL_MISSING`` is reported only when that readback finds
+nothing. An unconfigured readback is RED (``TERMINAL_READBACK_NOT_CONFIGURED``)
+rather than a fallback to the ingress — the fallback is the defect.
+
+The second half of OMN-16931 is honesty about scope. OMN-16025 is a
+FIVE-link gate; this probe has legs for three of those links and none for
+link 2 (projection readback, owed by OMN-16963) or link 5 (ledger chain +
+replay, owed by OMN-16964). A single scalar verdict let run 33215999994's
+GREEN read as a five-link proof. The receipt now carries a status per link,
+``links_proven``/``links_total``, and ``chain_proof_complete`` — which is
+False on the best run this probe can currently produce.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import os
+import sys
+import time
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
+from uuid import UUID, uuid4
+
+import httpx
+
+from omnibase_core.enums.enum_delegation_traffic_class import (
+    EnumDelegationTrafficClass,
+)
+from omnibase_core.models.delegation.wire import ModelDelegationProvenance
+from omnibase_infra.enums import EnumHandlerType, EnumHandlerTypeCategory
+from omnibase_infra.nodes.node_chain_canary_effect.deploy_agent_window import (
+    deploys_in_window,
+    lane_ready_via_httpx,
+    read_deploy_agent_via_httpx,
+)
+from omnibase_infra.nodes.node_chain_canary_effect.lane_transport import (
+    dsn_shaped_argv_flags,
+)
+from omnibase_infra.nodes.node_chain_canary_effect.models.enum_chain_canary_verdict import (
+    EnumChainCanaryVerdict,
+)
+from omnibase_infra.nodes.node_chain_canary_effect.models.enum_chain_link import (
+    EnumChainLink,
+)
+from omnibase_infra.nodes.node_chain_canary_effect.models.enum_chain_link_status import (
+    EnumChainLinkStatus,
+)
+from omnibase_infra.nodes.node_chain_canary_effect.models.enum_deploy_window_status import (
+    EnumDeployWindowStatus,
+)
+from omnibase_infra.nodes.node_chain_canary_effect.models.enum_ledger_replay_status import (
+    EnumLedgerReplayStatus,
+)
+from omnibase_infra.nodes.node_chain_canary_effect.models.enum_projection_readback_status import (
+    EnumProjectionReadbackStatus,
+)
+from omnibase_infra.nodes.node_chain_canary_effect.models.enum_quarantine_check_status import (
+    EnumQuarantineCheckStatus,
+)
+from omnibase_infra.nodes.node_chain_canary_effect.models.enum_terminal_readback_status import (
+    EnumTerminalReadbackStatus,
+)
+from omnibase_infra.nodes.node_chain_canary_effect.models.model_chain_canary_request import (
+    ModelChainCanaryRequest,
+)
+from omnibase_infra.nodes.node_chain_canary_effect.models.model_chain_canary_result import (
+    ModelChainCanaryResult,
+)
+from omnibase_infra.nodes.node_chain_canary_effect.models.model_chain_link_verdict import (
+    ModelChainLinkVerdict,
+)
+from omnibase_infra.nodes.node_chain_canary_effect.models.model_deploy_agent_snapshot import (
+    ModelDeployAgentSnapshot,
+)
+from omnibase_infra.nodes.node_chain_canary_effect.models.model_deploy_window_evidence import (
+    ModelDeployWindowEvidence,
+)
+from omnibase_infra.nodes.node_chain_canary_effect.models.model_projection_readback_outcome import (
+    DELEGATION_TRAFFIC_CLASSES,
+    ModelProjectionReadbackOutcome,
+    TypeDelegationTrafficClass,
+)
+from omnibase_infra.topics.topic_namespace import apply_topic_namespace_all
+from omnibase_infra.utils.util_error_sanitization import sanitize_error_message
+
+logger = logging.getLogger(__name__)
+
+__all__ = ["HandlerChainCanary"]
+
+# Kill switch, checked first and unconditionally. A SEPARATE variable from
+# every other sweep's switch on purpose: silencing one canary must never
+# silently silence another.
+_KILL_SWITCH_ENV_VAR = "ONEX_CHAIN_CANARY_DISABLED"
+_KILL_SWITCH_TRUTHY_VALUES = frozenset({"1", "true", "yes", "on"})
+
+# Extra client-side slack over the runtime's own budget. Without it the HTTP
+# client can abort first and every slow-but-working chain reads as
+# INGRESS_UNREACHABLE — a false RED that would teach people to ignore this
+# canary, which is the one outcome worse than not having it.
+_CLIENT_SLACK_SECONDS = 15.0
+
+# (response_json, transport_error, elapsed_ms)
+TypeIngressPost = Callable[
+    [str, dict[str, object], float],
+    Awaitable[tuple[dict[str, object] | None, str, int]],
+]
+# (url, body, api_key, timeout_s) -> (response_json, transport_error, elapsed_ms)
+# Separate from TypeIngressPost because the authenticated route carries a
+# credential and the tenant-less one does not; widening the shared signature
+# with an api_key nobody passes would make the legacy route look like it had
+# one (OMN-18421).
+TypeGatewayPost = Callable[
+    [str, dict[str, object], str, float],
+    Awaitable[tuple[dict[str, object] | None, str, int]],
+]
+# (env var name) -> value, or "" when unset.
+TypeGatewayKeyLookup = Callable[[str], str]
+# (found, records_scanned, error) — found is None when undeterminable.
+TypeQuarantineScan = Callable[
+    [str, str, str, int, float],
+    Awaitable[tuple[bool | None, int, str]],
+]
+# (bootstrap, topics, correlation_id, max_records, window_s)
+#   -> (topic_found, records_scanned, error)
+# topic_found is "" for "read and not there" and None for "could not read" —
+# the same three-state convention as the quarantine scan, for the same
+# reason: a check that could not run is not a check that passed.
+TypeTerminalReadback = Callable[
+    [str, tuple[str, ...], str, int, float],
+    Awaitable[tuple[str | None, int, str]],
+]
+# (dsn, correlation_id, timeout_s) -> ModelProjectionReadbackOutcome
+#
+# A typed outcome rather than the two-state tuple the broker legs use
+# (OMN-18060). The other legs only ever have two things to say -- found, or
+# could not read -- but this one now also declines: a DSN whose role carries
+# SUPERUSER / BYPASSRLS is REFUSED, not ERROR, because "the store did not
+# answer" and "I would not ask that question with that identity" send a reader
+# to two different places.
+TypeProjectionReadback = Callable[
+    [str, str, float],
+    Awaitable[ModelProjectionReadbackOutcome],
+]
+# (environment variable name) -> environment variable value.
+TypeProjectionDsnLookup = Callable[[str], str]
+
+# Same shape as the projection lookup, kept as its own alias rather than
+# shared: the two legs resolve two independent lane declarations, and a single
+# alias would quietly suggest one variable serves both by design rather than
+# by this lane's current topology (OMN-16964).
+TypeLedgerDsnLookup = Callable[[str], str]
+
+# (source, correlation_id, timeout_s) -> (hops, replay_green, verdict, error)
+# hops is None when the ledger could not be read at all. The transport returns
+# raw facts rather than a verdict so the SKIP != PASS classification lives here
+# — a transport that returned a ready-made status could report SKIP as green
+# and nothing downstream would notice.
+TypeLedgerReplay = Callable[
+    [str, str, float],
+    Awaitable[tuple[tuple[str, ...] | None, bool, str, str]],
+]
+
+# OMN-19811: (agent_url, timeout_s, observed_at) -> snapshot. Never raises; an
+# unreadable agent is a snapshot with readable=False, never "no deploy".
+TypeDeployAgentRead = Callable[
+    [str, float, datetime],
+    Awaitable[ModelDeployAgentSnapshot],
+]
+# OMN-19811: (base_url, timeout_s) -> GET {base_url}/health answered 200.
+TypeLaneReady = Callable[[str, float], Awaitable[bool]]
+# OMN-19811: injectable so the deploy-window waits are testable without sleeping.
+TypeClock = Callable[[], datetime]
+TypeSleep = Callable[[float], Awaitable[None]]
+
+# How often the deploy-window wait re-reads the deploy agent (OMN-19811). The
+# agent's jobs take minutes (mean ~956 s on .201, 2026-09-26), so a 15 s poll
+# costs a handful of local HTTP reads per deploy and notices convergence well
+# inside the retry's budget.
+_DEPLOY_POLL_SECONDS: float = 15.0
+# Per-read HTTP timeout for the deploy agent and the lane readiness routes.
+_DEPLOY_READ_TIMEOUT_SECONDS: float = 10.0
+# The verdicts a redeploy of the lane produces on a healthy chain (OMN-19811),
+# and so the only ones a deploy in the window can earn a retry for.
+# TERMINAL_MISSING is run 36202173467: omninode-runtime recreated mid-budget.
+# INGRESS_UNREACHABLE is this change's own lab run 36279784915
+# (2026-09-26T23:54Z): fired while deploy 3d3f4b1a recreated onex-api, so the
+# submission route refused the connection. Every other verdict names a fault a
+# redeploy does not explain and is never retried.
+_DEPLOY_EXPLICABLE_VERDICTS: frozenset[EnumChainCanaryVerdict] = frozenset(
+    {
+        EnumChainCanaryVerdict.TERMINAL_MISSING,
+        EnumChainCanaryVerdict.INGRESS_UNREACHABLE,
+    }
+)
+
+
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
+# The tier-2 verifier's own word for "I did not run the check". Kept as its own
+# token rather than folded into failure: OMN-16025 says SKIP != PASS, and the
+# distinction is only enforceable if SKIP survives as itself this far.
+_VERIFIER_SKIP = "skip"
+_VERIFIER_PASS = "pass"
+
+# OMN-18389: how often link 5 re-reads `ledger_chain` while it waits for the
+# writer whose output it grades.
+#
+# The canary and `node_delegation_chain_ledger_effect` are two processes racing
+# the same terminal event. The writer is dispatched BY that terminal, then
+# settles for up to 20 x 250 ms waiting on the ledger projection, and only then
+# writes. The canary's link-5 read used to fire once, immediately. Measured on
+# the .201 dev lane: run 35016830667's own correlation had five `ledger_chain`
+# rows persisted at 21:16:56 -- one second AFTER the read at 21:16:55, which
+# reported all four hops missing. On the 20:42 scheduled run the gap was 55
+# seconds. A read that lands before the write reports a complete chain as
+# incomplete, and that is a statement about the canary's timing, not about the
+# chain.
+#
+# A fixed sleep would be the wrong shape twice over: too short and the race is
+# still live, too long and every green run pays for the worst case. The wait is
+# keyed on the EXPECTED HOP COUNT instead -- it stops the instant every declared
+# hop is present, and otherwise runs out the readback window that link 4 is
+# already holding open, so it costs no additional wall-clock in the common case.
+_LEDGER_POLL_INTERVAL_SECONDS = 2.0
+
+_CANARY_DELEGATION_PROVENANCE = ModelDelegationProvenance(
+    source="external-client",
+    traffic_class=EnumDelegationTrafficClass.SYNTHETIC,
+    source_surface="scheduled-chain-canary",
+    requested_by="chain-canary",
+)
+
+# The FSM states that count as terminal in delegation_workflow_state. Anything
+# else that exists as a row is stranded mid-flight — OMN-14843 measured
+# INFERENCE_COMPLETED, RECEIVED and ROUTED, but the set is defined by what IS
+# terminal rather than by enumerating what is not, so a new intermediate state
+# is stranded by default instead of silently passing.
+_TERMINAL_FSM_STATES: frozenset[str] = frozenset({"COMPLETED", "FAILED"})
+
+# How often the link-2 bounded poll re-reads the projection (OMN-18872). The
+# interval is a floor on how quickly a row can be noticed and a ceiling on how
+# many queries a run costs: at one second, a 120 s window is at most ~120
+# single-row indexed lookups spread across two minutes, which is noise beside
+# the projection writer's own traffic. It is deliberately NOT a request field.
+# The thing a caller might reasonably want to tune is the DEADLINE, and that
+# already exists as the readback window every other leg is measured against --
+# a second knob would let a run narrow the poll without narrowing the window it
+# claims to have waited, which is the shape of a false red.
+_PROJECTION_POLL_INTERVAL_SECONDS: float = 1.0
+
+
+def _is_terminal_fsm_state(state: object) -> bool:
+    """Is this ``delegation_workflow_state.state`` value a terminal one?
+
+    One predicate for both the OMN-18872 poll's stop condition and the
+    classification that follows it. Two copies of "is this terminal" would be
+    free to disagree, and the disagreement would be silent: a poll that stops
+    on a state the classifier then calls stranded reports a stuck chain for a
+    row that finished.
+    """
+    return str(state or "").strip().upper() in _TERMINAL_FSM_STATES
+
+
+# The role probe the projection readback runs BEFORE its first read
+# (OMN-18060). `current_user` is resolved by the server from the authenticated
+# connection, so this is a fact about the DSN that was actually used -- not a
+# claim the caller could supply. The two attributes are the ones that would
+# exempt the canary from the isolation the projection enforces.
+_CURRENT_ROLE_PRIVILEGE_QUERY = (
+    "SELECT rolname, rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user"
+)
+
+
+def _delegation_traffic_class_from_row(
+    value: object,
+) -> TypeDelegationTrafficClass | None:
+    if value is None:
+        return "unclassified"
+    if value == "unclassified":
+        return "unclassified"
+    if value == "organic":
+        return "organic"
+    if value == "synthetic":
+        return "synthetic"
+    return None
+
+
+def _terminal_topics(request: ModelChainCanaryRequest) -> tuple[str, ...]:
+    """Success and failure terminals, read on one pass.
+
+    Both are needed: a failure terminal still discharges link 4 (the
+    emission was outbox-confirmed on the bus) while failing link 3
+    (execution did not complete). Scanning only the success topic would
+    report a cleanly-failed delegation as a missing terminal — the same
+    misdiagnosis class OMN-16931 exists to remove.
+    """
+    return tuple(request.terminal_success_topics) + tuple(
+        request.terminal_failure_topics
+    )
+
+
+def _readback_window_seconds(
+    request: ModelChainCanaryRequest, elapsed_ms: int
+) -> float:
+    """How long link 4 is entitled to wait for the terminal.
+
+    OMN-16025 link 4 is scoped "inside the budget", so the window is
+    whatever is LEFT of the budget once the ingress has answered — not
+    the ingress's own elapsed time. Run 33251822642 gave up at 4,369 ms
+    of 120,000 ms; that is the whole bug in one number. The configured
+    timeout is a floor, for the case where the ingress itself consumed
+    the entire budget and there would otherwise be no window at all.
+    """
+    remaining_s = max(0.0, (request.budget_ms - elapsed_ms) / 1000.0)
+    return max(float(request.terminal_readback_timeout_seconds), remaining_s)
+
+
+async def _post_skill_via_httpx(
+    url: str, body: dict[str, object], timeout_s: float
+) -> tuple[dict[str, object] | None, str, int]:
+    """POST the delegation command to the runtime's generic /skill edge."""
+    started = time.monotonic()
+    try:
+        async with httpx.AsyncClient(timeout=timeout_s) as client:
+            response = await client.post(url, json=body)
+    except Exception as exc:  # noqa: BLE001 - transport failures are a verdict
+        elapsed_ms = int((time.monotonic() - started) * 1000)
+        return None, sanitize_error_message(exc), elapsed_ms
+    elapsed_ms = int((time.monotonic() - started) * 1000)
+
+    # A non-2xx is still an answer from the ingress, and its body usually
+    # carries the typed error. Decode first, classify on content.
+    try:
+        decoded = response.json()
+    except ValueError as exc:
+        return (
+            None,
+            f"ingress returned HTTP {response.status_code} with a non-JSON "
+            f"body: {sanitize_error_message(exc)}",
+            elapsed_ms,
+        )
+    if not isinstance(decoded, dict):
+        return (
+            None,
+            f"ingress returned HTTP {response.status_code} with a non-object body",
+            elapsed_ms,
+        )
+    return decoded, "", elapsed_ms
+
+
+async def _post_workflow_via_gateway(
+    url: str, body: dict[str, object], api_key: str, timeout_s: float
+) -> tuple[dict[str, object] | None, str, int]:
+    """Submit the delegation through the AUTHENTICATED gateway (OMN-18421).
+
+    Why this exists beside ``_post_skill_via_httpx`` rather than replacing it
+    inline: the two surfaces answer different questions. ``/skill`` answers
+    "did the runtime accept a command", with no identity attached to anything.
+    ``POST /v1/workflows`` answers "did an AUTHENTICATED TENANT's submission
+    reach the bus", and the gateway resolves the tenant from the credential and
+    stamps it on the published envelope. That stamp is the entire point: it is
+    the field omnimarket's delegation projection writer reads, and without it
+    every event the chain publishes is refused fail-closed, forever, however
+    healthy the chain itself is.
+
+    THE RESPONSE IS AN ACK, NOT A VERDICT, and this function deliberately does
+    not dress it up as one. A 202 says the envelope was published; it says
+    nothing about whether the chain terminalized. The returned dict therefore
+    carries ``ok`` and never a terminal-event key, so ``_extract_terminal``
+    reports nothing and the run's verdict comes, as it must, from the
+    correlation-scoped broker readback (OMN-16931). The gateway's publish path
+    is fail-open on an absent topic (it still answers 202), which is a second,
+    independent reason never to read a verdict off this response.
+
+    The API key is passed as an argument and sent in a header. It is never
+    logged, never echoed into the returned dict, and never placed on a command
+    line.
+    """
+    started = time.monotonic()
+    try:
+        async with httpx.AsyncClient(timeout=timeout_s) as client:
+            response = await client.post(url, json=body, headers={"X-API-Key": api_key})
+    except Exception as exc:  # noqa: BLE001 - transport failures are a verdict
+        elapsed_ms = int((time.monotonic() - started) * 1000)
+        return None, sanitize_error_message(exc), elapsed_ms
+    elapsed_ms = int((time.monotonic() - started) * 1000)
+
+    try:
+        decoded = response.json()
+    except ValueError as exc:
+        return (
+            None,
+            f"gateway returned HTTP {response.status_code} with a non-JSON "
+            f"body: {sanitize_error_message(exc)}",
+            elapsed_ms,
+        )
+    if not isinstance(decoded, dict):
+        return (
+            None,
+            f"gateway returned HTTP {response.status_code} with a non-object body",
+            elapsed_ms,
+        )
+
+    if response.status_code != 202:
+        # A refusal is an answer, not a transport failure, and its body carries
+        # the typed reason (`fenced: true` for a fenced catalog entry, a
+        # field-level list for a schema refusal, 401/403 for the credential).
+        # Returned in the shared ingress shape so the receipt renders it the
+        # same way it renders a `/skill` error.
+        return (
+            {
+                "ok": False,
+                "error": {
+                    "code": f"gateway_http_{response.status_code}",
+                    "message": json.dumps(decoded, sort_keys=True)[:600],
+                },
+            },
+            "",
+            elapsed_ms,
+        )
+
+    # Deliberately NOT the gateway's own correlation_id: the probe minted one
+    # and sent it, and the whole readback is keyed on the minted value. Echoing
+    # the gateway's is only useful as a cross-check, so it rides as a separate
+    # field rather than as the identifier anything reads.
+    return (
+        {
+            "ok": True,
+            "gateway_accepted": True,
+            "gateway_workflow_id": str(decoded.get("workflow_id", "")),
+            "gateway_echoed_correlation_id": str(decoded.get("correlation_id", "")),
+        },
+        "",
+        elapsed_ms,
+    )
+
+
+async def _scan_topics_for_correlation(
+    bootstrap: str,
+    topics: tuple[str, ...],
+    correlation_id: str,
+    max_records: int,
+    timeout_s: float,
+    *,
+    wait_for_arrival: bool,
+) -> tuple[str | None, int, str]:
+    """Read ``topics`` for ``correlation_id`` and say which topic carried it.
+
+    Returns ``(topic, scanned, "")`` on a hit, ``("", scanned, "")`` when the
+    topics were read and the id was not there, and ``(None, scanned, error)``
+    when the scan could not be completed — the caller turns that last one
+    into a failing verdict rather than a pass. A check that could not run is
+    not a check that passed.
+
+    ``wait_for_arrival`` is the difference between the two legs that use
+    this. The quarantine leg asks a question about the PAST ("did my request
+    already land in the sink"), so it stops as soon as every partition is
+    read up to its high-water mark. The terminal readback (OMN-16931) asks a
+    question about a window that is still open ("does the terminal arrive
+    inside the budget"), so it keeps polling until the deadline. Both seek
+    backwards first: run 33251822642's terminal was published THREE SECONDS
+    BEFORE the ingress answered, so a forward-only consumer would have
+    missed the very record it exists to find.
+    """
+    from aiokafka import AIOKafkaConsumer
+
+    from omnibase_infra.event_bus.kafka_auth import (
+        build_aiokafka_auth_kwargs_from_env,
+    )
+
+    if not topics:
+        return None, 0, "no topics were declared for this scan"
+
+    needle = correlation_id.encode()
+    # The topic is passed to the CONSTRUCTOR, not assigned afterwards. A
+    # bare consumer + assign() looked like the tidier shape and does not
+    # work: partitions_for_topic() reads CACHED cluster metadata, and a
+    # topic this consumer never subscribed to is absent from that cache. On
+    # the first live run (2026-08-27, .201 dev lane) topics() listed all
+    # 1626 topics INCLUDING this one, while partitions_for_topic() returned
+    # None for it — so the scan fail-closed on a topic that plainly existed
+    # and was sitting at 8,878,933 records. Subscribing at construction
+    # makes aiokafka fetch that topic's metadata and auto-assign its
+    # partitions (no group_id, so no coordinator and no group churn).
+    consumer = AIOKafkaConsumer(
+        *apply_topic_namespace_all(topics),
+        bootstrap_servers=bootstrap,
+        enable_auto_commit=False,
+        auto_offset_reset="latest",
+        **build_aiokafka_auth_kwargs_from_env(),
+    )
+    scanned = 0
+    try:
+        await asyncio.wait_for(consumer.start(), timeout=timeout_s)
+    except Exception as exc:  # noqa: BLE001
+        return None, 0, f"consumer start failed: {sanitize_error_message(exc)}"
+
+    try:
+        partitions = sorted(
+            consumer.assignment(), key=lambda tp: (tp.topic, tp.partition)
+        )
+        if not partitions:
+            return (
+                None,
+                0,
+                f"topics {list(topics)!r} resolved no partitions "
+                "(absent from the broker, or not readable by this client)",
+            )
+        end_offsets = await consumer.end_offsets(partitions)
+        # The backward seek is clamped to each partition's OWN log start, not
+        # to 0. A partition whose retention has already reclaimed its head has
+        # a log start above 0, and a seek below it is OFFSET_OUT_OF_RANGE: the
+        # broker rejects the fetch and `auto_offset_reset="latest"` silently
+        # repositions the consumer to the high watermark, past every record
+        # already written -- including the terminal this scan exists to find.
+        # Nothing raises and nothing is logged; the run reports NOT_FOUND,
+        # which reads identically to a chain that never emitted.
+        #
+        # Measured on the .201 dev lane 2026-09-06: the canary had been RED on
+        # every 2h run of the day with `terminal_missing` while the terminal
+        # for each run's own correlation id was on the bus. At 18:2xZ
+        # delegate-skill-completed.v1 stood at LOG-START 67 / HIGH-WATERMARK
+        # 218 and delegate-skill-failed.v1 at 0 / 35; `max(0, 218 - 250)` = 0
+        # was out of range, so the completed partition contributed ZERO records
+        # and the receipt's `terminal_readback_records_scanned` was exactly 35
+        # -- the failed topic, end to end, and nothing else.
+        begin_offsets = await consumer.beginning_offsets(partitions)
+
+        # Split the record budget across partitions so one hot partition
+        # cannot consume the whole window and hide the record we want.
+        per_partition = max(1, max_records // len(partitions))
+        empty = True
+        for partition in partitions:
+            end = end_offsets[partition]
+            start = max(begin_offsets[partition], end - per_partition)
+            if start < end:
+                empty = False
+            consumer.seek(partition, start)
+        if empty and not wait_for_arrival:
+            # Every partition is empty: nothing there, definitively.
+            return "", 0, ""
+
+        deadline = time.monotonic() + timeout_s
+        while time.monotonic() < deadline:
+            if not wait_for_arrival and scanned >= max_records:
+                break
+            batches = await consumer.getmany(timeout_ms=1_000, max_records=500)
+            if not batches:
+                # In arrival-waiting mode an empty poll means "not yet", not
+                # "not coming" — the whole point of link 4 is that the
+                # terminal may still be in flight when the ingress answers.
+                if wait_for_arrival:
+                    continue
+                break
+            for topic_partition, records in batches.items():
+                for record in records:
+                    scanned += 1
+                    if record.value and needle in record.value:
+                        return topic_partition.topic, scanned, ""
+            # Stop once every partition has been read up to its high-water
+            # mark; otherwise a quiet topic would burn the whole timeout.
+            # Written as an explicit loop on purpose: `position()` is a
+            # coroutine, and folding it into an all(...) generator builds an
+            # async generator that all() cannot iterate ("TypeError:
+            # 'async_generator' object is not iterable" — hit live on
+            # 2026-08-27, after the scan had already read its 300 records).
+            if wait_for_arrival:
+                continue
+            caught_up = True
+            for partition in partitions:
+                if await consumer.position(partition) < end_offsets[partition]:
+                    caught_up = False
+                    break
+            if caught_up:
+                break
+        return "", scanned, ""
+    except Exception as exc:  # noqa: BLE001
+        return None, scanned, f"topic scan failed: {sanitize_error_message(exc)}"
+    finally:
+        # aiokafka's coordinator shutdown cancels its own background tasks
+        # and surfaces the CancelledError out of stop(). That is teardown
+        # noise, not a verdict — catching only Exception here lets it
+        # escape (CancelledError is a BaseException since 3.8) and destroys
+        # an otherwise complete scan result. Observed live 2026-08-27
+        # against the .201 dev-lane broker.
+        try:
+            await consumer.stop()
+        except (Exception, asyncio.CancelledError) as exc:  # noqa: BLE001
+            logger.warning("canary consumer stop failed: %s", exc)
+
+
+async def _scan_quarantine_tail_via_aiokafka(
+    bootstrap: str,
+    topic: str,
+    correlation_id: str,
+    max_records: int,
+    timeout_s: float,
+) -> tuple[bool | None, int, str]:
+    """Quarantine leg: did this correlation id already land in the sink?
+
+    A question about the past, so no arrival wait. Boolean-shaped because
+    the quarantine sink is one topic and the caller only needs the fact.
+    """
+    found, scanned, error = await _scan_topics_for_correlation(
+        bootstrap,
+        (topic,),
+        correlation_id,
+        max_records,
+        timeout_s,
+        wait_for_arrival=False,
+    )
+    if found is None:
+        return None, scanned, error
+    return bool(found), scanned, error
+
+
+async def _readback_terminal_via_aiokafka(
+    bootstrap: str,
+    topics: tuple[str, ...],
+    correlation_id: str,
+    max_records: int,
+    timeout_s: float,
+) -> tuple[str | None, int, str]:
+    """Link-4 leg (OMN-16931): is the terminal on the bus for this run?
+
+    Waits for arrival, because the question is about a window that is still
+    open when the ingress answers.
+    """
+    return await _scan_topics_for_correlation(
+        bootstrap,
+        topics,
+        correlation_id,
+        max_records,
+        timeout_s,
+        wait_for_arrival=True,
+    )
+
+
+async def _readback_projection_via_asyncpg(
+    dsn: str,
+    correlation_id: str,
+    timeout_s: float,
+) -> ModelProjectionReadbackOutcome:
+    """Link-2 leg (OMN-16963): what state does the PROJECTION hold for this run?
+
+    Reads ``delegation_workflow_state`` scoped to the probe's own correlation
+    id. This is the readback OMN-16025 link 2 asks for — from the projection,
+    not from logs and not from the publish return.
+
+    **The read is a bounded poll against ``timeout_s``, not one sample
+    (OMN-18872).** It used to be a single ``SELECT`` fired the instant the
+    ingress answered, which was sound only while the ingress BLOCKED until the
+    chain finished. The OMN-18421 move to the tenant-bearing gateway made the
+    submission asynchronous — the route answers ``202`` in a few hundred
+    milliseconds — so the one sample started landing tens of seconds before the
+    projection wrote anything, and every run reported ``ROW_ABSENT`` against a
+    row that appeared shortly afterwards and reached ``COMPLETED`` well before
+    the verdict was published. Run 35482636275 is the measured case: submitted
+    ``01:56:17.26``, row created ``01:56:50.60``, ``COMPLETED`` at
+    ``01:57:14.11``, verdict "carries NO row" at ``01:58:17.98``.
+
+    **It polls to a TERMINAL state rather than to first sight of the row**, and
+    that distinction is the whole correctness of the fix. A row is created
+    non-terminal — ``RECEIVED`` and ``ROUTED`` both occur live — and reaches
+    ``COMPLETED`` a second or two later, so returning on first sight would have
+    replaced a wrong ``ROW_ABSENT`` with a wrong ``STRANDED`` and left the
+    canary just as red for just as wrong a reason. ``STRANDED`` is reported
+    only when the deadline expires with the row still non-terminal, which is
+    the OMN-14843 condition it was written to catch, and the last state seen is
+    what gets reported.
+
+    There is no blind sleep anywhere in this leg: it returns as soon as the
+    projection is terminal, and only a genuinely absent or genuinely stuck row
+    costs the full window.
+
+    Before it reads anything it asks the connection who it is (OMN-18060). A
+    canary is a READER, and ``SELECT rolsuper, rolbypassrls FROM pg_roles
+    WHERE rolname = current_user`` is the only un-forgeable way to establish
+    that the DSN it was handed is one: a caller-supplied claim about the role
+    is worth nothing, and the attributes are exactly the two that would exempt
+    this probe from the row-level isolation the projection enforces. A DSN
+    that turns out to be privileged is REFUSED rather than used — the read
+    would have succeeded, and its green would have meant less than it looked.
+
+    The DSN is a parameter and never a module-level default: it is resolved
+    from the environment by the caller, under the NAME the lane declares.
+    """
+    try:
+        import asyncpg
+    except ImportError as exc:  # pragma: no cover - asyncpg is a hard dep
+        return ModelProjectionReadbackOutcome(
+            status=EnumProjectionReadbackStatus.ERROR,
+            error=f"asyncpg unavailable: {exc}",
+        )
+
+    # ONE deadline across connect AND query, not timeout_s applied to each.
+    # Applied per-call, this leg could hold asyncio.gather() for ~2x the
+    # window it was budgeted, which defeats the "costs no extra wall-clock"
+    # property that justifies running it as a concurrent leg at all.
+    deadline = time.monotonic() + timeout_s
+
+    def _remaining() -> float:
+        return deadline - time.monotonic()
+
+    connection = None
+    try:
+        if _remaining() <= 0:
+            return ModelProjectionReadbackOutcome(
+                status=EnumProjectionReadbackStatus.ERROR,
+                error="projection readback budget exhausted before connect",
+            )
+        connection = await asyncio.wait_for(asyncpg.connect(dsn), timeout=_remaining())
+        if _remaining() <= 0:
+            return ModelProjectionReadbackOutcome(
+                status=EnumProjectionReadbackStatus.ERROR,
+                error="projection readback budget exhausted after connect",
+            )
+        # Identity first. A privileged DSN must not be allowed to run the
+        # query at all -- discovering the privilege after reading the row
+        # would still have exercised the read with the wrong identity.
+        identity = await asyncio.wait_for(
+            connection.fetchrow(_CURRENT_ROLE_PRIVILEGE_QUERY),
+            timeout=_remaining(),
+        )
+        if identity is None:
+            return ModelProjectionReadbackOutcome(
+                status=EnumProjectionReadbackStatus.REFUSED,
+                error=(
+                    "pg_roles carries no row for current_user, so the "
+                    "connecting role's SUPERUSER / BYPASSRLS attributes could "
+                    "not be established. Refusing rather than assuming the "
+                    "identity is least-privilege"
+                ),
+            )
+        escalations = [
+            attribute
+            for attribute in ("rolsuper", "rolbypassrls")
+            if bool(identity[attribute])
+        ]
+        if escalations:
+            return ModelProjectionReadbackOutcome(
+                status=EnumProjectionReadbackStatus.REFUSED,
+                error=(
+                    f"the projection DSN authenticates as role "
+                    f"{identity['rolname']!r}, which carries "
+                    f"{', '.join(escalations)}. The chain canary is a reader: "
+                    "a role with either attribute is exempt from the "
+                    "row-level isolation the projection enforces, so a green "
+                    "read through it is not evidence the projection is "
+                    "readable by anything else. Point the readback at a "
+                    "least-privilege reader"
+                ),
+            )
+        if _remaining() <= 0:
+            return ModelProjectionReadbackOutcome(
+                status=EnumProjectionReadbackStatus.ERROR,
+                error="projection readback budget exhausted after the role probe",
+            )
+        # The bounded poll. `row` carries the last read on the way out, so the
+        # deadline arms are written once below rather than duplicated here.
+        row = None
+        attempts = 0
+        while True:
+            remaining = _remaining()
+            if remaining <= 0:
+                # The deadline decides the outcome, so it must be checked
+                # BEFORE the read rather than handed to it. Passing a
+                # non-positive timeout to `wait_for` raises, and the except
+                # arm below would report ERROR — an expired window rendered
+                # as "the store did not answer", which is the wrong layer and
+                # exactly the confusion the status enum exists to prevent.
+                break
+            attempts += 1
+            row = await asyncio.wait_for(
+                connection.fetchrow(
+                    "SELECT state, traffic_class FROM delegation_workflow_state "
+                    "WHERE correlation_id = $1",
+                    correlation_id,
+                ),
+                timeout=remaining,
+            )
+            if row is not None and _is_terminal_fsm_state(row["state"]):
+                break
+            sleep_s = min(_PROJECTION_POLL_INTERVAL_SECONDS, _remaining())
+            if sleep_s <= 0:
+                break
+            await asyncio.sleep(sleep_s)
+    except Exception as exc:  # noqa: BLE001 - fails closed, never to a verdict
+        return ModelProjectionReadbackOutcome(
+            status=EnumProjectionReadbackStatus.ERROR,
+            error=sanitize_error_message(exc),
+        )
+    finally:
+        # cleanup-resilience-ok: a failure to close must not replace the
+        # unreadable-projection outcome this function returns, nor propagate
+        # out of asyncio.gather() and abort the sibling legs. The connection
+        # is discarded either way; the read outcome is the only fact worth
+        # reporting.
+        if connection is not None:
+            try:
+                await connection.close()
+            except Exception as close_exc:  # noqa: BLE001
+                logger.debug(
+                    "chain canary: projection connection close failed: %s",
+                    sanitize_error_message(close_exc),
+                )
+
+    # How long the poll actually ran, so a non-passing outcome says what it
+    # waited rather than leaving the reader to assume it sampled once. An
+    # absence reported after 0.2 s and one reported after 118 s are different
+    # findings, and telling them apart is what this leg got wrong.
+    waited_s = max(0.0, timeout_s - max(0.0, _remaining()))
+    waited = f"polled for {waited_s:.1f}s across {attempts} read(s)"
+
+    if row is None:
+        return ModelProjectionReadbackOutcome(
+            status=EnumProjectionReadbackStatus.ROW_ABSENT,
+            error=f"no row appeared: {waited}",
+        )
+    state = str(row["state"] or "")
+    traffic_class = _delegation_traffic_class_from_row(row["traffic_class"])
+    if traffic_class is None:
+        return ModelProjectionReadbackOutcome(
+            status=EnumProjectionReadbackStatus.ERROR,
+            error=(
+                "delegation_workflow_state.traffic_class carried a value outside "
+                "the canonical OMN-18172 traffic-class enum"
+            ),
+        )
+    if not state:
+        return ModelProjectionReadbackOutcome(
+            status=EnumProjectionReadbackStatus.ROW_ABSENT,
+            error=f"a row exists but carries no FSM state: {waited}",
+        )
+    if _is_terminal_fsm_state(state):
+        return ModelProjectionReadbackOutcome(
+            status=EnumProjectionReadbackStatus.TERMINAL,
+            state=state,
+            traffic_class=traffic_class,
+        )
+    return ModelProjectionReadbackOutcome(
+        status=EnumProjectionReadbackStatus.STRANDED,
+        state=state,
+        traffic_class=traffic_class,
+        error=f"still non-terminal at the deadline: {waited}",
+    )
+
+
+async def _replay_ledger_chain_via_asyncpg(
+    source: str,
+    correlation_id: str,
+    timeout_s: float,
+) -> tuple[tuple[str, ...] | None, bool, str, str]:
+    """Link-5 leg (OMN-16964): assemble, replay and tier-2 verify this chain.
+
+    Returns the hops assembled for the probe's own correlation id, whether the
+    replay was green, and the tier-2 verifier's own word (``pass`` / ``fail``
+    / ``skip``). The verifier's verdict is returned verbatim rather than
+    pre-collapsed into a boolean: OMN-16025 requires SKIP to be distinguishable
+    from PASS, and a boolean cannot carry that distinction.
+
+    ``hops`` is ``None`` when the ledger could not be read at all — a read that
+    failed is not a chain that was found to be empty.
+    """
+    try:
+        import asyncpg
+    except ImportError as exc:  # pragma: no cover - asyncpg is a hard dep
+        return None, False, "", f"asyncpg unavailable: {exc}"
+
+    # ONE deadline across connect AND query, not timeout_s applied to each.
+    # Applied per-call, this leg could hold asyncio.gather() for ~2x the window
+    # it was budgeted, which defeats the "costs no extra wall-clock" property
+    # that justifies running it as a concurrent leg at all.
+    deadline = time.monotonic() + timeout_s
+
+    def _remaining() -> float:
+        return deadline - time.monotonic()
+
+    connection = None
+    try:
+        if _remaining() <= 0:
+            return None, False, "", "ledger replay budget exhausted before connect"
+        connection = await asyncio.wait_for(
+            asyncpg.connect(source), timeout=_remaining()
+        )
+        if _remaining() <= 0:
+            return None, False, "", "ledger replay budget exhausted after connect"
+        rows = await asyncio.wait_for(
+            connection.fetch(
+                "SELECT hop, replay_green, verifier_verdict FROM ledger_chain "
+                "WHERE correlation_id = $1 ORDER BY hop_index",
+                correlation_id,
+            ),
+            timeout=_remaining(),
+        )
+    except Exception as exc:  # noqa: BLE001 - fails closed, never to a verdict
+        return None, False, "", sanitize_error_message(exc)
+    finally:
+        # cleanup-resilience-ok: a failure to close must not replace the
+        # unreadable-ledger tuple this function returns, nor propagate out of
+        # asyncio.gather() and abort the sibling legs. The connection is
+        # discarded either way; the read outcome is the only fact worth
+        # reporting.
+        if connection is not None:
+            try:
+                await connection.close()
+            except Exception as close_exc:  # noqa: BLE001
+                logger.debug(
+                    "chain canary: ledger connection close failed: %s",
+                    sanitize_error_message(close_exc),
+                )
+
+    hops = tuple(str(row["hop"]) for row in rows)
+    replay_green = all(bool(row["replay_green"]) for row in rows) if rows else False
+    verdict = str(rows[-1]["verifier_verdict"] or "") if rows else ""
+    return hops, replay_green, verdict, ""
+
+
+def _extract_error(response: dict[str, object]) -> tuple[str, str]:
+    """Pull (code, message) out of the ingress's typed error block."""
+    error = response.get("error")
+    if isinstance(error, dict):
+        code = str(error.get("code", "") or "")
+        message = str(error.get("message", "") or "")
+        return code, message
+    if isinstance(error, str) and error:
+        return "", error
+    return "", ""
+
+
+def _extract_terminal(response: dict[str, object]) -> str:
+    """Return the terminal event type, or '' when there is none.
+
+    ``terminal_event`` is sometimes a bare string and sometimes an object
+    carrying the type — accept both rather than reporting a real terminal as
+    missing on a shape difference.
+    """
+    terminal = response.get("terminal_event")
+    if isinstance(terminal, str):
+        return terminal
+    if isinstance(terminal, dict):
+        for key in ("event_type", "type", "name"):
+            value = terminal.get(key)
+            if isinstance(value, str) and value:
+                return value
+        return "terminal_event"  # present but unnamed — still a terminal
+    return ""
+
+
+def _kill_switch_engaged(raw: str) -> bool:
+    return raw.strip().lower() in _KILL_SWITCH_TRUTHY_VALUES
+
+
+def _lookup_gateway_api_key(name: str) -> str:
+    return os.environ.get(name, "")  # ONEX_EXCLUDE
+
+
+def _lookup_projection_dsn_env(name: str) -> str:
+    return os.environ.get(name, "")  # ONEX_EXCLUDE
+
+
+def _lookup_ledger_dsn_env(name: str) -> str:
+    return os.environ.get(name, "")  # ONEX_EXCLUDE
+
+
+class HandlerChainCanary:
+    """Fire one live delegation and report whether the chain carried it."""
+
+    def __init__(
+        self,
+        ingress: TypeIngressPost | None = None,
+        gateway_ingress: TypeGatewayPost | None = None,
+        gateway_key_lookup: TypeGatewayKeyLookup | None = None,
+        quarantine_scan: TypeQuarantineScan | None = None,
+        terminal_readback: TypeTerminalReadback | None = None,
+        projection_readback: TypeProjectionReadback | None = None,
+        projection_dsn_lookup: TypeProjectionDsnLookup | None = None,
+        ledger_replay: TypeLedgerReplay | None = None,
+        ledger_dsn_lookup: TypeLedgerDsnLookup | None = None,
+        kill_switch_disabled: bool | None = None,
+        deploy_agent_read: TypeDeployAgentRead | None = None,
+        lane_ready: TypeLaneReady | None = None,
+        clock: TypeClock | None = None,
+        sleep: TypeSleep | None = None,
+        deploy_poll_seconds: float = _DEPLOY_POLL_SECONDS,
+    ) -> None:
+        self._ingress: TypeIngressPost = ingress or _post_skill_via_httpx
+        self._gateway_ingress: TypeGatewayPost = (
+            gateway_ingress or _post_workflow_via_gateway
+        )
+        self._gateway_key_lookup: TypeGatewayKeyLookup = (
+            gateway_key_lookup or _lookup_gateway_api_key
+        )
+        self._quarantine_scan: TypeQuarantineScan = (
+            quarantine_scan or _scan_quarantine_tail_via_aiokafka
+        )
+        self._terminal_readback: TypeTerminalReadback = (
+            terminal_readback or _readback_terminal_via_aiokafka
+        )
+        self._projection_readback: TypeProjectionReadback = (
+            projection_readback or _readback_projection_via_asyncpg
+        )
+        self._projection_dsn_lookup: TypeProjectionDsnLookup = (
+            projection_dsn_lookup or _lookup_projection_dsn_env
+        )
+        self._ledger_replay: TypeLedgerReplay = (
+            ledger_replay or _replay_ledger_chain_via_asyncpg
+        )
+        self._ledger_dsn_lookup: TypeLedgerDsnLookup = (
+            ledger_dsn_lookup or _lookup_ledger_dsn_env
+        )
+        self._deploy_agent_read: TypeDeployAgentRead = (
+            deploy_agent_read or read_deploy_agent_via_httpx
+        )
+        self._lane_ready: TypeLaneReady = lane_ready or lane_ready_via_httpx
+        self._clock: TypeClock = clock or _utc_now
+        self._sleep: TypeSleep = sleep or asyncio.sleep
+        self._deploy_poll_seconds = deploy_poll_seconds
+        # Read at construction, overridable for tests, re-read in handle()
+        # so a zero-arg contract-driven construction cannot miss it.
+        # ONEX_EXCLUDE below: a scheduled canary's own *_DISABLED kill switch,
+        # the same shape and rationale already accepted for
+        # node_dlq_depth_monitor_effect, node_sync_revert_watchdog_effect and
+        # node_evidence_autoclose_sweep_effect. The switch must be able to stop a
+        # runtime that is ALREADY wired, so it cannot arrive through container
+        # config resolved once at startup.
+        env_disabled = _kill_switch_engaged(
+            os.environ.get(_KILL_SWITCH_ENV_VAR, "")  # ONEX_EXCLUDE
+        )
+        self._kill_switch_ctor = (
+            kill_switch_disabled if kill_switch_disabled is not None else env_disabled
+        )
+
+    @property
+    def handler_type(self) -> EnumHandlerType:
+        return EnumHandlerType.INFRA_HANDLER
+
+    @property
+    def handler_category(self) -> EnumHandlerTypeCategory:
+        return EnumHandlerTypeCategory.EFFECT
+
+    async def handle(self, request: ModelChainCanaryRequest) -> ModelChainCanaryResult:
+        # Re-read per run (ONEX_EXCLUDE, same rationale as the constructor): the
+        # runtime builds handlers once and the canary then fires on a schedule for
+        # the life of that process, so a value frozen at construction would make
+        # the switch inert until a redeploy.
+        env_disabled = _kill_switch_engaged(
+            os.environ.get(_KILL_SWITCH_ENV_VAR, "")  # ONEX_EXCLUDE
+        )
+        if self._kill_switch_ctor or env_disabled:
+            logger.warning(
+                "%s is set — chain canary disabled, zero I/O performed.",
+                _KILL_SWITCH_ENV_VAR,
+            )
+            return ModelChainCanaryResult(
+                correlation_id=request.correlation_id,
+                probe_correlation_id=uuid4(),
+                verdict=EnumChainCanaryVerdict.SKIPPED_DISABLED,
+                success=True,
+                kill_switch_engaged=True,
+                detail=(
+                    f"{_KILL_SWITCH_ENV_VAR} set; no probe fired and no claim "
+                    "is made about the chain."
+                ),
+                probe_url=request.probe_url,
+                runtime_command=request.runtime_command,
+                task_type=request.task_type,
+                budget_ms=request.budget_ms,
+                link_verdicts=_all_links_unevaluated(
+                    f"{_KILL_SWITCH_ENV_VAR} set — no probe fired"
+                ),
+                links_proven=0,
+                links_total=len(EnumChainLink),
+                chain_proof_complete=False,
+            )
+
+        return await self._probe_around_deploys(request)
+
+    # -- OMN-19811: the deploy window ---------------------------------------
+
+    async def _probe_around_deploys(
+        self, request: ModelChainCanaryRequest
+    ) -> ModelChainCanaryResult:
+        """Fire the probe, and retry ONCE when a deploy explains its RED.
+
+        Run 36202173467 (2026-09-25T23:44Z) reported ``terminal_missing``
+        because deploy-agent job 193cfeda recreated ``omninode-runtime`` inside
+        the 120 s budget. The chain was healthy; the lane was being replaced
+        under the probe. So:
+
+        1. Before firing, read the deploy agent. If it is busy, wait (bounded by
+           ``deploy_wait_seconds``) for it to go idle and the lane's readiness
+           routes to answer, then fire -- or fire anyway when the wait runs out.
+        2. If the attempt ends ``TERMINAL_MISSING`` or ``INGRESS_UNREACHABLE``
+           (the two verdicts a redeploy produces on a healthy chain), read the
+           agent again and
+           ask whether a deploy job was accepted, running or completed inside
+           the attempt's window. Only then, and only if the lane converges
+           inside what is left of the wait budget, fire ONE more time. The
+           run's verdict is the retry's verdict, whatever it is.
+
+        What this never does: retry on any other verdict, retry twice, or
+        retry when the agent is unreadable or reports no deploy in the
+        window. A ``TERMINAL_MISSING`` or ``INGRESS_UNREACHABLE`` with no
+        deploy behind it is exactly the dead chain or lane this canary exists
+        to catch, and it stays RED.
+        """
+        agent_url = request.deploy_agent_url
+        if not agent_url:
+            result = await self._probe_once(request)
+            return result.model_copy(
+                update={
+                    "deploy_window": ModelDeployWindowEvidence(
+                        status=EnumDeployWindowStatus.NOT_CONFIGURED,
+                        detail=(
+                            "no deploy_agent_url configured; no claim is made "
+                            "about deploys and no retry is available"
+                        ),
+                    )
+                }
+            )
+
+        budget_s = float(request.deploy_wait_seconds)
+        preflight = await self._deploy_agent_read(
+            agent_url, _DEPLOY_READ_TIMEOUT_SECONDS, self._clock()
+        )
+        preflight_cid: UUID | None = None
+        preflight_waited = 0.0
+        preflight_converged = True
+        if preflight.readable and preflight.busy:
+            # Name only a job that is actually the reason for the wait: the one
+            # in flight, or the last one while it is still settling. A wait
+            # caused only by commands queued behind an idle agent names none,
+            # and preflight_queued_commands says why it waited.
+            preflight_cid = preflight.active_correlation_id or (
+                preflight.last_correlation_id if preflight.last_settling else None
+            )
+            preflight_converged, preflight_waited = await self._wait_for_convergence(
+                request, budget_s
+            )
+            logger.info(
+                "chain canary: deploy agent busy at pre-fire (job %s, %s queued); "
+                "waited %.0fs, converged=%s",
+                preflight_cid,
+                preflight.queued_commands,
+                preflight_waited,
+                preflight_converged,
+            )
+
+        base_evidence = {
+            "agent_url": agent_url,
+            "preflight_deploy_correlation_id": preflight_cid,
+            "preflight_waited_seconds": preflight_waited,
+            "preflight_converged": preflight_converged,
+            "preflight_queued_commands": preflight.queued_commands,
+            "preflight_agent_error": "" if preflight.readable else preflight.error,
+        }
+
+        window_started_at = self._clock()
+        first = await self._probe_once(request)
+        window_ended_at = self._clock()
+        window = {
+            "window_started_at": window_started_at.isoformat(),
+            "window_ended_at": window_ended_at.isoformat(),
+        }
+
+        def _attach(
+            result: ModelChainCanaryResult, **evidence: object
+        ) -> ModelChainCanaryResult:
+            return result.model_copy(
+                update={
+                    "deploy_window": ModelDeployWindowEvidence.model_validate(
+                        {**base_evidence, **window, **evidence}
+                    )
+                }
+            )
+
+        if first.verdict not in _DEPLOY_EXPLICABLE_VERDICTS:
+            return _attach(
+                first,
+                status=EnumDeployWindowStatus.NOT_NEEDED,
+                detail=(
+                    f"first attempt ended {first.verdict.value}, which a "
+                    "redeploy does not explain; the window was not examined "
+                    "for a retry"
+                ),
+            )
+        red = first.verdict.value
+
+        first_attempt = {
+            "first_attempt_probe_correlation_id": first.probe_correlation_id,
+            "first_attempt_verdict": first.verdict,
+            "first_attempt_detail": first.detail,
+        }
+        after = await self._deploy_agent_read(
+            agent_url, _DEPLOY_READ_TIMEOUT_SECONDS, self._clock()
+        )
+        if not after.readable:
+            return _attach(
+                first,
+                **first_attempt,
+                status=EnumDeployWindowStatus.AGENT_UNREADABLE,
+                detail=(
+                    f"the deploy agent at {agent_url} could not be read after "
+                    f"the attempt ({after.error}); with no evidence of a deploy "
+                    f"the {red} stands and no retry was made"
+                ),
+            )
+
+        deploy_ids = deploys_in_window(after, window_started_at, window_ended_at)
+        if not deploy_ids:
+            return _attach(
+                first,
+                **first_attempt,
+                status=EnumDeployWindowStatus.NO_DEPLOY_IN_WINDOW,
+                detail=(
+                    f"the deploy agent at {agent_url} reports no job accepted, "
+                    "running or completed inside the attempt's window; the "
+                    f"{red} is not explained by a deploy and stands"
+                ),
+            )
+
+        remaining = max(0.0, budget_s - preflight_waited)
+        converged, waited = await self._wait_for_convergence(request, remaining)
+        if not converged:
+            return _attach(
+                first,
+                **first_attempt,
+                deploy_correlation_ids=deploy_ids,
+                convergence_waited_seconds=waited,
+                status=EnumDeployWindowStatus.DEPLOY_IN_WINDOW_NOT_CONVERGED,
+                detail=(
+                    f"deploy job(s) {', '.join(str(i) for i in deploy_ids)} overlapped the "
+                    f"attempt, and the lane had not converged after {waited:.0f}s "
+                    f"of the {remaining:.0f}s left in the wait budget; no retry "
+                    f"was made and the {red} stands"
+                ),
+            )
+
+        logger.info(
+            "chain canary: %s overlapped deploy job(s) %s; lane "
+            "converged after %.0fs; retrying once",
+            red,
+            ", ".join(str(i) for i in deploy_ids),
+            waited,
+        )
+        retry = await self._probe_once(request)
+        note = (
+            f"[OMN-19811 retry: the first attempt "
+            f"({first.probe_correlation_id}) ended {red} while deploy "
+            f"job(s) {', '.join(str(i) for i in deploy_ids)} ran inside its window; this is the "
+            "single retry after the lane converged]"
+        )
+        return _attach(
+            retry.model_copy(update={"detail": f"{retry.detail} {note}".strip()}),
+            **first_attempt,
+            deploy_correlation_ids=deploy_ids,
+            convergence_waited_seconds=waited,
+            retried=True,
+            status=EnumDeployWindowStatus.DEPLOY_IN_WINDOW_RETRIED,
+            detail=(
+                f"deploy job(s) {', '.join(str(i) for i in deploy_ids)} overlapped the first "
+                f"attempt; the lane converged after {waited:.0f}s and the probe "
+                f"was fired once more, ending {retry.verdict.value}"
+            ),
+        )
+
+    async def _wait_for_convergence(
+        self, request: ModelChainCanaryRequest, budget_s: float
+    ) -> tuple[bool, float]:
+        """Wait for the agent to be idle and the lane's readiness routes to answer.
+
+        Converged means: the agent is readable, has no job in flight, is not
+        settling, reports ``state`` idle, and ``{probe_url}/health`` (plus
+        ``{gateway_url}/health`` when the tenant-bearing route is declared)
+        answers 200. An unreadable agent is never converged. Always reads at
+        least once, so a zero budget still recognises a lane that is already
+        converged. Returns ``(converged, seconds waited)``.
+        """
+        started = self._clock()
+        while True:
+            snapshot = await self._deploy_agent_read(
+                request.deploy_agent_url, _DEPLOY_READ_TIMEOUT_SECONDS, self._clock()
+            )
+            if snapshot.readable and not snapshot.busy:
+                ready = await self._lane_ready(
+                    request.probe_url, _DEPLOY_READ_TIMEOUT_SECONDS
+                )
+                if ready and request.gateway_url:
+                    ready = await self._lane_ready(
+                        request.gateway_url, _DEPLOY_READ_TIMEOUT_SECONDS
+                    )
+                if ready:
+                    return True, (self._clock() - started).total_seconds()
+            waited = (self._clock() - started).total_seconds()
+            if waited >= budget_s:
+                return False, waited
+            await self._sleep(min(self._deploy_poll_seconds, budget_s - waited))
+
+    async def _probe_once(
+        self, request: ModelChainCanaryRequest
+    ) -> ModelChainCanaryResult:
+        """One probe: submit, then read the chain back. No retry of any kind."""
+        # AC1: minted here, per run, never caller-supplied.
+        probe_correlation_id = uuid4()
+
+        # OMN-18421: the TENANT-BEARING route when one is declared.
+        #
+        # There is deliberately no fallback from here to the tenant-less
+        # `/skill` ingress. A canary that quietly submits the unattributed way
+        # when the authenticated way is unavailable reports PROBE-GREEN on a
+        # chain whose every event the delegation projection writer refuses
+        # fail-closed for want of attribution -- which is exactly the
+        # false-clean that let the malformed sink take continuous arrivals
+        # while this probe said the chain was alive. A missing prerequisite is
+        # RED, naming what is missing.
+        submission_url = (
+            f"{request.gateway_url}/v1/workflows"
+            if request.gateway_url
+            else f"{request.probe_url}/skill"
+        )
+        base_probe_url = request.gateway_url or request.probe_url
+
+        if request.gateway_url:
+            api_key = self._gateway_key_lookup(request.gateway_api_key_env)
+            if not api_key:
+                return self._submission_route_not_configured(
+                    request,
+                    probe_correlation_id,
+                    submission_url,
+                    base_probe_url,
+                    detail=(
+                        f"the tenant-bearing submission route {submission_url} is "
+                        f"declared, and the environment variable it names for the "
+                        f"gateway credential, {request.gateway_api_key_env!r}, is "
+                        f"unset or empty in this process. Nothing was published and "
+                        f"no claim is made about the chain. Injecting the value "
+                        f"under that name is the whole repair; submitting through "
+                        f"the tenant-less {request.probe_url}/skill ingress instead "
+                        f"would produce a chain that is refused fail-closed by the "
+                        f"delegation projection writer on every hop, which is what "
+                        f"this route exists to stop."
+                    ),
+                )
+            response, transport_error, elapsed_ms = await self._gateway_ingress(
+                submission_url,
+                self._build_gateway_body(request, str(probe_correlation_id)),
+                api_key,
+                (request.budget_ms / 1000.0) + _CLIENT_SLACK_SECONDS,
+            )
+        else:
+            response, transport_error, elapsed_ms = await self._ingress(
+                submission_url,
+                self._build_body(request, str(probe_correlation_id)),
+                (request.budget_ms / 1000.0) + _CLIENT_SLACK_SECONDS,
+            )
+
+        base = {
+            "correlation_id": request.correlation_id,
+            "probe_correlation_id": probe_correlation_id,
+            # The surface actually probed, so a receipt cannot name a route the
+            # run did not take.
+            "probe_url": base_probe_url,
+            "runtime_command": request.runtime_command,
+            "task_type": request.task_type,
+            "budget_ms": request.budget_ms,
+            "elapsed_ms": elapsed_ms,
+            "quarantine_topic": request.quarantine_topic,
+        }
+
+        if response is None:
+            return ModelChainCanaryResult(
+                **base,  # type: ignore[arg-type]
+                verdict=EnumChainCanaryVerdict.INGRESS_UNREACHABLE,
+                success=False,
+                ingress_error_message=transport_error,
+                detail=(
+                    f"could not reach the submission ingress at "
+                    f"{submission_url}: {transport_error}"
+                ),
+                link_verdicts=_build_link_verdicts(
+                    request=request,
+                    ingress_reachable=False,
+                    terminal_readback_status=EnumTerminalReadbackStatus.SKIPPED_NOT_CONFIGURED,
+                    terminal_topic="",
+                    quarantine_status=EnumQuarantineCheckStatus.SKIPPED_NOT_CONFIGURED,
+                    projection_readback_status=EnumProjectionReadbackStatus.SKIPPED_NOT_CONFIGURED,
+                    projection_state="",
+                    projection_traffic_class="unclassified",
+                    projection_error="",
+                    ledger_status=EnumLedgerReplayStatus.SKIPPED_NOT_CONFIGURED,
+                    ledger_detail="",
+                ),
+                links_proven=0,
+                links_total=len(EnumChainLink),
+                chain_proof_complete=False,
+            )
+
+        ingress_ok = bool(response.get("ok", False))
+        error_code, error_message = _extract_error(response)
+        ingress_terminal_event = _extract_terminal(response)
+
+        # Both broker legs run CONCURRENTLY. The terminal readback holds its
+        # consumer open for the remainder of the budget, and running the
+        # quarantine tail scan behind it would push that scan up to two
+        # minutes past the event it is sampling for — on a sink that held
+        # ~8.9M records when OMN-16767 was diagnosed, a 500-record tail can
+        # roll well past the window in that time.
+        readback_window_s = _readback_window_seconds(request, elapsed_ms)
+        (
+            (
+                terminal_readback_status,
+                terminal_topic,
+                terminal_scanned,
+                terminal_error,
+            ),
+            (
+                quarantine_status,
+                scanned,
+                quarantine_error,
+            ),
+            (
+                projection_readback_status,
+                projection_state,
+                projection_traffic_class,
+                projection_error,
+            ),
+            (
+                ledger_status,
+                ledger_detail,
+            ),
+        ) = await asyncio.gather(
+            self._readback_terminal(
+                request, str(probe_correlation_id), readback_window_s
+            ),
+            self._check_quarantine(request, str(probe_correlation_id)),
+            self._readback_projection(
+                request, str(probe_correlation_id), readback_window_s
+            ),
+            self._replay_ledger(request, str(probe_correlation_id), readback_window_s),
+        )
+
+        verdict, detail = self._decide(
+            request=request,
+            terminal_readback_status=terminal_readback_status,
+            terminal_topic=terminal_topic,
+            terminal_readback_error=terminal_error,
+            readback_window_s=readback_window_s,
+            ingress_ok=ingress_ok,
+            ingress_terminal_event=ingress_terminal_event,
+            error_code=error_code,
+            error_message=error_message,
+            elapsed_ms=elapsed_ms,
+            quarantine_status=quarantine_status,
+            quarantine_error=quarantine_error,
+            projection_readback_status=projection_readback_status,
+            projection_state=projection_state,
+            projection_error=projection_error,
+            ledger_status=ledger_status,
+            ledger_detail=ledger_detail,
+        )
+
+        link_verdicts = _build_link_verdicts(
+            request=request,
+            ingress_reachable=True,
+            terminal_readback_status=terminal_readback_status,
+            terminal_topic=terminal_topic,
+            quarantine_status=quarantine_status,
+            projection_readback_status=projection_readback_status,
+            projection_state=projection_state,
+            projection_traffic_class=projection_traffic_class,
+            projection_error=projection_error,
+            ledger_status=ledger_status,
+            ledger_detail=ledger_detail,
+        )
+        links_proven = sum(
+            1 for link in link_verdicts if link.status is EnumChainLinkStatus.PASS
+        )
+
+        return ModelChainCanaryResult(
+            **base,  # type: ignore[arg-type]
+            verdict=verdict,
+            success=verdict
+            in (
+                EnumChainCanaryVerdict.GREEN,
+                EnumChainCanaryVerdict.SKIPPED_DISABLED,
+            ),
+            detail=detail,
+            ingress_ok=ingress_ok,
+            ingress_error_code=error_code,
+            ingress_error_message=error_message,
+            ingress_terminal_event=ingress_terminal_event,
+            terminal_event=terminal_topic,
+            terminal_readback_status=terminal_readback_status,
+            terminal_topic=terminal_topic,
+            terminal_topics_scanned=_terminal_topics(request),
+            terminal_readback_records_scanned=terminal_scanned,
+            terminal_readback_window_seconds=readback_window_s,
+            terminal_readback_error=terminal_error,
+            projection_traffic_class=projection_traffic_class,
+            quarantine_status=quarantine_status,
+            quarantine_records_scanned=scanned,
+            quarantine_error=quarantine_error,
+            link_verdicts=link_verdicts,
+            links_proven=links_proven,
+            links_total=len(EnumChainLink),
+            chain_proof_complete=links_proven == len(EnumChainLink),
+        )
+
+    # -- internals ---------------------------------------------------------
+
+    def _submission_route_not_configured(
+        self,
+        request: ModelChainCanaryRequest,
+        probe_correlation_id: object,
+        submission_url: str,
+        base_probe_url: str,
+        *,
+        detail: str,
+    ) -> ModelChainCanaryResult:
+        """RED, with zero I/O performed and every link unevaluated.
+
+        Deliberately shaped like the kill-switch result rather than like a
+        failure: nothing was published, so there is nothing to have observed,
+        and every link reports unevaluated rather than FAIL. The difference
+        matters to a reader -- FAIL on link 1 would say the ingress refused the
+        submission, which is a claim about the lane; this says the canary could
+        not make the submission it is supposed to make, which is a claim about
+        the canary's own wiring. ``success`` is False either way.
+        """
+        return ModelChainCanaryResult(
+            correlation_id=request.correlation_id,
+            probe_correlation_id=probe_correlation_id,  # type: ignore[arg-type]
+            verdict=EnumChainCanaryVerdict.SUBMISSION_ROUTE_NOT_CONFIGURED,
+            success=False,
+            probe_url=base_probe_url,
+            runtime_command=request.runtime_command,
+            task_type=request.task_type,
+            budget_ms=request.budget_ms,
+            elapsed_ms=0,
+            quarantine_topic=request.quarantine_topic,
+            detail=detail,
+            link_verdicts=_all_links_unevaluated(
+                f"no submission was made: {submission_url} is declared and "
+                "its credential is not configured"
+            ),
+            links_proven=0,
+            links_total=len(EnumChainLink),
+            chain_proof_complete=False,
+        )
+
+    @staticmethod
+    def _build_gateway_body(
+        request: ModelChainCanaryRequest, probe_correlation_id: str
+    ) -> dict[str, object]:
+        """The gateway submission shape (``ModelWorkflowSubmitRequest``).
+
+        Three top-level keys and nothing else. ``ModelWorkflowSubmitRequest`` is
+        ``extra="forbid"``, and the catalog's ``payload_schema`` declares
+        ``additionalProperties: false`` -- both deliberately, so a caller cannot
+        smuggle a ``topic``, a ``command_topic`` or a ``tenant_id`` into a
+        submission. Users submit workflows, not routing instructions, and the
+        tenant is resolved from the credential, never accepted from the body.
+
+        That is why this builder is SMALLER than ``_build_body`` above rather
+        than a superset of it. The ``/skill`` shape carries ``command_name``,
+        ``timeout_ms``, ``provenance``, ``wait`` and ``metadata``; none of those
+        are the gateway's to accept, and passing any of them is a 400 rather
+        than a field the gateway ignores. The probe's minted correlation id
+        rides at the TOP level, which is where ``ModelWorkflowSubmitRequest``
+        declares it, and the gateway copies it onto both the envelope and the
+        payload -- so the correlation-scoped readbacks key on the same value
+        they always have.
+        """
+        return {
+            "workflow_type": request.gateway_workflow_type,
+            "correlation_id": probe_correlation_id,
+            "payload": {
+                "prompt": request.prompt,
+                "task_type": request.task_type,
+                "source": _CANARY_DELEGATION_PROVENANCE.source,
+                "max_tokens": request.max_tokens,
+            },
+        }
+
+    @staticmethod
+    def _build_body(
+        request: ModelChainCanaryRequest, probe_correlation_id: str
+    ) -> dict[str, object]:
+        """The recorded dispatch shape (omnidash server/routes.ts:216-234).
+
+        Kept deliberately identical to what the dashboard sends, so a green
+        canary is evidence about the path real callers take rather than
+        about a bespoke probe-only path that could drift away from it.
+        """
+        provenance = _CANARY_DELEGATION_PROVENANCE
+        return {
+            "command_name": request.runtime_command,
+            "correlation_id": probe_correlation_id,
+            "timeout_ms": request.budget_ms,
+            "payload": {
+                "prompt": request.prompt,
+                "task_type": request.task_type,
+                "source": provenance.source,
+                "provenance": provenance.model_dump(mode="json"),
+                "wait": True,
+                "correlation_id": probe_correlation_id,
+                "max_tokens": request.max_tokens,
+                "metadata": {
+                    "requested_by": provenance.requested_by,
+                    "source_surface": provenance.source_surface,
+                },
+            },
+        }
+
+    async def _replay_ledger(
+        self,
+        request: ModelChainCanaryRequest,
+        probe_correlation_id: str,
+        window_s: float,
+    ) -> tuple[EnumLedgerReplayStatus, str]:
+        """Assemble, replay and tier-2 verify the chain for this run.
+
+        Completeness is checked against the request's declared
+        ``expected_ledger_hops`` rather than against whatever the ledger
+        returned, so a chain that is short by a hop cannot look complete
+        simply because every row present was well-formed.
+        """
+        declared_name = request.ledger_source_env.strip()
+        if not declared_name:
+            return EnumLedgerReplayStatus.SKIPPED_NOT_CONFIGURED, ""
+
+        # A DSN on the command line is refused whatever flag carried it. The
+        # model validator already refuses one passed as this field's own
+        # value; this catches the DSN that arrived on some other flag, which
+        # is the same disclosure with a different spelling. Same refusal the
+        # projection leg makes, for the same reason (OMN-18060).
+        offending_flags = dsn_shaped_argv_flags(sys.argv)
+        if offending_flags:
+            return (
+                EnumLedgerReplayStatus.REFUSED,
+                (
+                    "a Postgres connection string was passed on the command "
+                    f"line ({', '.join(offending_flags)}). argv is readable "
+                    "from /proc by every process on this host and the "
+                    "dispatch step echoes what it ran into the run log. The "
+                    "DSN reaches this node through the environment, under the "
+                    "name the lane declares — never through a flag"
+                ),
+            )
+
+        source = self._ledger_dsn_lookup(declared_name)
+        if not source.strip():
+            return (
+                EnumLedgerReplayStatus.SKIPPED_NOT_CONFIGURED,
+                (
+                    f"the lane declares its ledger DSN under {declared_name}, "
+                    "and that variable is unset or empty in this process. No "
+                    "claim is made about link 5"
+                ),
+            )
+
+        # OMN-18389: WAIT for the writer this leg grades, bounded by the
+        # readback window, keyed on the expected hop count -- never a fixed
+        # sleep. The loop exits the instant every declared hop is present, so a
+        # healthy chain pays only its own latency; an absent hop costs the
+        # window that link 4 is holding open concurrently anyway.
+        deadline = time.monotonic() + window_s
+        attempts = 0
+        missing: tuple[str, ...] = ()
+        while True:
+            attempts += 1
+            remaining = max(0.0, deadline - time.monotonic())
+            hops, replay_green, verdict, error = await self._ledger_replay(
+                source,
+                probe_correlation_id,
+                remaining,
+            )
+            if hops is None:
+                # A read that FAILED is not a chain found to be short, and
+                # retrying an unreadable ledger would convert a precise ERROR
+                # into a vague incompleteness. Report it as itself, once.
+                return EnumLedgerReplayStatus.ERROR, error or "ledger replay failed"
+
+            missing = tuple(h for h in request.expected_ledger_hops if h not in hops)
+            if not missing:
+                break
+            if time.monotonic() + _LEDGER_POLL_INTERVAL_SECONDS >= deadline:
+                break
+            await asyncio.sleep(_LEDGER_POLL_INTERVAL_SECONDS)
+
+        if missing:
+            # The wait is part of the finding. "Missing after one look" and
+            # "missing after the whole window" are different facts about the
+            # chain, and a reader cannot tell them apart from a bare hop list.
+            return (
+                EnumLedgerReplayStatus.CHAIN_INCOMPLETE,
+                (
+                    f"missing hops: {', '.join(missing)} "
+                    f"(still absent after {attempts} read(s) over "
+                    f"{window_s:.1f}s)"
+                ),
+            )
+        if not replay_green:
+            return EnumLedgerReplayStatus.REPLAY_FAILED, ""
+        if verdict.strip().lower() == _VERIFIER_SKIP:
+            return EnumLedgerReplayStatus.VERIFIER_SKIPPED, ""
+        if verdict.strip().lower() != _VERIFIER_PASS:
+            return (
+                EnumLedgerReplayStatus.REPLAY_FAILED,
+                f"tier-2 verifier returned {verdict or 'no verdict'}",
+            )
+        return EnumLedgerReplayStatus.VERIFIED, ""
+
+    async def _readback_projection(
+        self,
+        request: ModelChainCanaryRequest,
+        probe_correlation_id: str,
+        window_s: float,
+    ) -> tuple[
+        EnumProjectionReadbackStatus,
+        str,
+        TypeDelegationTrafficClass,
+        str,
+    ]:
+        """Read delegation_workflow_state for this run's correlation id.
+
+        Never consults the bus terminal. That separation is the point of the
+        ticket: the broker says what landed on the topic, the projection says
+        what the FSM did with it, and OMN-14843 is the proof those can
+        disagree — 26 of 38 correlations stranded mid-FSM while the topic
+        layer was healthy at the same moment.
+
+        Scoped to the probe's own correlation id, never table-wide: a
+        table-wide check would go green on somebody else's terminal row.
+
+        The DSN is resolved HERE, out of the environment, under the NAME the
+        lane declared (OMN-18060). Three properties fall out of that and none
+        of them is incidental: the value never enters the request model, so it
+        is never serialised onto the bus or into the event log; it never
+        enters argv, so it is not readable from ``/proc`` by every process on
+        the host; and the thing that IS committed and reviewed — the lane
+        declaration — is a name, which cannot leak anything.
+        """
+        declared_name = request.projection_dsn_env.strip()
+        if not declared_name:
+            return (
+                EnumProjectionReadbackStatus.SKIPPED_NOT_CONFIGURED,
+                "",
+                "unclassified",
+                "",
+            )
+
+        # A DSN on the command line is refused whatever flag carried it. The
+        # model validator already refuses one passed as this field's own
+        # value; this catches the DSN that arrived on some other flag, which
+        # is the same disclosure with a different spelling.
+        offending_flags = dsn_shaped_argv_flags(sys.argv)
+        if offending_flags:
+            return (
+                EnumProjectionReadbackStatus.REFUSED,
+                "",
+                "unclassified",
+                (
+                    "a Postgres connection string was passed on the command "
+                    f"line ({', '.join(offending_flags)}). argv is readable "
+                    "from /proc by every process on this host and the "
+                    "dispatch step echoes what it ran into the run log. The "
+                    "DSN reaches this node through the environment, under the "
+                    "name the lane declares — never through a flag"
+                ),
+            )
+
+        dsn = self._projection_dsn_lookup(declared_name)
+        if not dsn.strip():
+            return (
+                EnumProjectionReadbackStatus.SKIPPED_NOT_CONFIGURED,
+                "",
+                "unclassified",
+                (
+                    f"the lane declares its projection DSN under {declared_name}, "
+                    "and that variable is unset or empty in this process. No "
+                    "claim is made about link 2"
+                ),
+            )
+
+        outcome = await self._projection_readback(
+            dsn,
+            probe_correlation_id,
+            window_s,
+        )
+        return outcome.status, outcome.state, outcome.traffic_class, outcome.error
+
+    async def _readback_terminal(
+        self,
+        request: ModelChainCanaryRequest,
+        probe_correlation_id: str,
+        window_s: float,
+    ) -> tuple[EnumTerminalReadbackStatus, str, int, str]:
+        """Read the declared terminal topics for this run's correlation id.
+
+        Never consults the ingress response. That separation is the point of
+        the ticket: the ingress says what the request path believes, the
+        broker says what actually landed, and only the second one is
+        evidence.
+        """
+        if not request.terminal_bootstrap_servers.strip():
+            return EnumTerminalReadbackStatus.SKIPPED_NOT_CONFIGURED, "", 0, ""
+
+        found, scanned, error = await self._terminal_readback(
+            request.terminal_bootstrap_servers,
+            _terminal_topics(request),
+            probe_correlation_id,
+            request.terminal_scan_records,
+            window_s,
+        )
+        if found is None:
+            return (
+                EnumTerminalReadbackStatus.ERROR,
+                "",
+                scanned,
+                error or "terminal readback failed",
+            )
+        if found:
+            return EnumTerminalReadbackStatus.FOUND, found, scanned, ""
+        return EnumTerminalReadbackStatus.NOT_FOUND, "", scanned, ""
+
+    async def _check_quarantine(
+        self, request: ModelChainCanaryRequest, probe_correlation_id: str
+    ) -> tuple[EnumQuarantineCheckStatus, int, str]:
+        if not request.quarantine_bootstrap_servers.strip():
+            return EnumQuarantineCheckStatus.SKIPPED_NOT_CONFIGURED, 0, ""
+
+        # The DLQ write happens after the handler raises, so scanning the
+        # instant the ingress answers can miss a record that is about to
+        # appear — and a missed record downgrades a precise QUARANTINED
+        # verdict into a vague TERMINAL_MISSING one.
+        if request.settle_seconds > 0:
+            await asyncio.sleep(request.settle_seconds)
+
+        found, scanned, error = await self._quarantine_scan(
+            request.quarantine_bootstrap_servers,
+            request.quarantine_topic,
+            probe_correlation_id,
+            request.quarantine_scan_records,
+            request.quarantine_timeout_seconds,
+        )
+        if found is None:
+            return EnumQuarantineCheckStatus.ERROR, scanned, error or "scan failed"
+        if found:
+            return EnumQuarantineCheckStatus.FOUND, scanned, ""
+        return EnumQuarantineCheckStatus.CLEAN, scanned, ""
+
+    @staticmethod
+    def _decide(
+        *,
+        request: ModelChainCanaryRequest,
+        terminal_readback_status: EnumTerminalReadbackStatus,
+        terminal_topic: str,
+        terminal_readback_error: str,
+        readback_window_s: float,
+        ingress_ok: bool,
+        ingress_terminal_event: str,
+        error_code: str,
+        error_message: str,
+        elapsed_ms: int,
+        quarantine_status: EnumQuarantineCheckStatus,
+        quarantine_error: str,
+        projection_readback_status: EnumProjectionReadbackStatus,
+        projection_state: str,
+        projection_error: str,
+        ledger_status: EnumLedgerReplayStatus,
+        ledger_detail: str,
+    ) -> tuple[EnumChainCanaryVerdict, str]:
+        """Rank the verdicts. Most specific diagnosis wins.
+
+        QUARANTINED outranks everything because in the OMN-16767 incident
+        several symptoms are true at once and only that one names the
+        defect. A canary that reported "timed out" there would have sent
+        someone looking at latency instead of at the dispatch seam.
+
+        Below that, the ranking is: can we read the bus at all (fail closed
+        if not) → is the terminal on the bus → what does the PROJECTION say
+        the FSM did with it → and only then does the ingress response
+        matter, and only to distinguish "the chain worked and the request
+        path reported an error" from "the chain worked cleanly". The ingress
+        response is never allowed to decide whether a terminal exists
+        (OMN-16931).
+
+        Link 2 is ranked below the terminal checks and above the ingress
+        ones. Below, because a terminal that never landed is the larger fact
+        and the projection has nothing to disagree with. Above, because when
+        the terminal IS on the bus and the FSM is still stranded, that
+        disagreement is the diagnosis — it is what OMN-14843 measured, and
+        it is invisible to every other leg.
+
+        OMN-16963: before this ticket ``_decide`` never saw the projection at
+        all, so an unconfigured or stranded link 2 still returned GREEN with
+        ``success=True``. The per-link status was honest and the scalar was
+        not, which is the same over-reading as a three-link probe rendering
+        as a five-link proof — one level up.
+        """
+        if quarantine_status is EnumQuarantineCheckStatus.FOUND:
+            return (
+                EnumChainCanaryVerdict.QUARANTINED,
+                (
+                    "the probe's own correlation id was found in the "
+                    f"quarantine sink {request.quarantine_topic} — a handler "
+                    "received this event and refused or errored on it"
+                    + (f" (ingress reported {error_code})" if error_code else "")
+                ),
+            )
+        if quarantine_status is EnumQuarantineCheckStatus.ERROR:
+            return (
+                EnumChainCanaryVerdict.QUARANTINE_PROBE_FAILED,
+                (
+                    "the quarantine check was configured but could not run: "
+                    f"{quarantine_error}. Failing closed — an unrunnable "
+                    "check is not a passing one."
+                ),
+            )
+        if (
+            terminal_readback_status
+            is EnumTerminalReadbackStatus.SKIPPED_NOT_CONFIGURED
+        ):
+            return (
+                EnumChainCanaryVerdict.TERMINAL_READBACK_NOT_CONFIGURED,
+                (
+                    "no broker was configured for the terminal readback, so "
+                    "this run has NO evidence about the terminal. Reporting "
+                    "red rather than falling back to the ingress response: "
+                    "that fallback is the OMN-16931 defect."
+                ),
+            )
+        if terminal_readback_status is EnumTerminalReadbackStatus.ERROR:
+            return (
+                EnumChainCanaryVerdict.TERMINAL_READBACK_FAILED,
+                (
+                    "the terminal readback was configured but could not run: "
+                    f"{terminal_readback_error}. Failing closed — an "
+                    "unrunnable check is not a passing one."
+                ),
+            )
+        if terminal_readback_status is EnumTerminalReadbackStatus.NOT_FOUND:
+            if ingress_ok and ingress_terminal_event:
+                reason = (
+                    "the ingress claimed terminal "
+                    f"{ingress_terminal_event!r} that the bus never carried — "
+                    "the ok=true-without-a-durable-terminal shape (OMN-15468)"
+                )
+            elif not ingress_ok and elapsed_ms >= request.budget_ms:
+                # OMN-15504: `ok=false` here is NOT an ingress fault, and saying
+                # so cost a diagnosis. An ingress that consumed its ENTIRE
+                # budget and then reported a timeout accepted the request,
+                # published it, and waited for a terminal nobody produced --
+                # its own log and the command topic both show the publish. The
+                # previous wording ("ingress also returned ok=false ...") named
+                # the one component that had demonstrably done its whole job,
+                # and the 2026-09-10 investigation spent its first pass on the
+                # ingress while the delegate-skill consumer sat in a rebalance
+                # livelock one hop downstream. Attribute the silence to the
+                # chain, which is where it is.
+                reason = (
+                    f"the ingress accepted the request and waited its full "
+                    f"{request.budget_ms} ms budget before reporting "
+                    f"{error_code or 'no code'} — that is the ingress "
+                    "observing the same silence this readback did, NOT an "
+                    "ingress fault. Nothing downstream produced a terminal; "
+                    "look at the consumer for the command topic, not at the "
+                    "ingress"
+                )
+            elif not ingress_ok:
+                reason = (
+                    f"ingress returned ok=false ({error_code or 'no code'}: "
+                    f"{error_message or 'no message'}) after "
+                    f"{elapsed_ms} ms, inside its {request.budget_ms} ms "
+                    "budget — the ingress refused this request rather than "
+                    "waiting out a downstream silence"
+                )
+            else:
+                reason = "ingress returned ok=true and named no terminal"
+            return (
+                EnumChainCanaryVerdict.TERMINAL_MISSING,
+                (
+                    "the probe's correlation id was not on any declared "
+                    f"terminal topic after reading the bus for "
+                    f"{readback_window_s:.0f}s (budget {request.budget_ms} ms, "
+                    f"ingress answered at {elapsed_ms} ms): {reason}"
+                ),
+            )
+
+        # Terminal IS on the bus. Before asking what the request path
+        # claimed, ask what the FSM actually did with the event — those two
+        # disagree in exactly the condition this ticket exists to catch.
+        if projection_readback_status is EnumProjectionReadbackStatus.STRANDED:
+            return (
+                EnumChainCanaryVerdict.PROJECTION_STRANDED,
+                (
+                    f"the terminal IS on the bus ({terminal_topic}) for this "
+                    "correlation id, but delegation_workflow_state holds "
+                    f"{projection_state!r} — not a terminal FSM state"
+                    f"{f' ({projection_error})' if projection_error else ''}. "
+                    "The chain carried the event and the FSM did not finish "
+                    "with it (OMN-14843). Link 4 passing while link 2 fails is "
+                    "the disagreement, not a contradiction."
+                ),
+            )
+        if projection_readback_status is EnumProjectionReadbackStatus.ROW_ABSENT:
+            return (
+                EnumChainCanaryVerdict.PROJECTION_ROW_ABSENT,
+                (
+                    f"the terminal IS on the bus ({terminal_topic}) for this "
+                    "correlation id, but delegation_workflow_state carries NO "
+                    "row for it"
+                    f"{f' ({projection_error})' if projection_error else ''}. "
+                    "Either the projection never consumed the event or it "
+                    "never wrote — a different layer from a row that stopped "
+                    "mid-FSM, which is why this is not reported as stranded."
+                ),
+            )
+        if projection_readback_status is EnumProjectionReadbackStatus.REFUSED:
+            return (
+                EnumChainCanaryVerdict.PROJECTION_READBACK_REFUSED,
+                (
+                    "the projection readback was configured and this node "
+                    f"declined to run it: {projection_error}. A refusal is "
+                    "not a result — reporting red rather than a green that "
+                    "would have been obtained the wrong way."
+                ),
+            )
+        if projection_readback_status is EnumProjectionReadbackStatus.ERROR:
+            return (
+                EnumChainCanaryVerdict.PROJECTION_READBACK_FAILED,
+                (
+                    "the projection readback was configured but could not "
+                    f"run: {projection_error}. Failing closed — an unrunnable "
+                    "check is not a passing one."
+                ),
+            )
+        if (
+            projection_readback_status
+            is EnumProjectionReadbackStatus.SKIPPED_NOT_CONFIGURED
+        ):
+            return (
+                EnumChainCanaryVerdict.PROJECTION_READBACK_NOT_CONFIGURED,
+                (
+                    "no DSN reference resolved for the projection readback, "
+                    "so this run has NO evidence about link 2"
+                    f"{f' ({projection_error})' if projection_error else ''}. "
+                    "Reporting red rather than green-with-a-caveat: link 2 is "
+                    "one of the five OMN-16025 chain links, and a run that "
+                    "cannot see it is the three-links-rendered-as-five defect "
+                    "itself."
+                ),
+            )
+
+        # Links 2 and 4 have both passed. The ledger is the last thing left
+        # that can disprove the run, and it is ranked here for the same reason
+        # link 2 sits above the ingress checks: it is evidence about the chain,
+        # and the ingress response is only ever a claim about the request path.
+        if ledger_status is EnumLedgerReplayStatus.CHAIN_INCOMPLETE:
+            return (
+                EnumChainCanaryVerdict.LEDGER_CHAIN_INCOMPLETE,
+                (
+                    "the terminal is on the bus and the projection "
+                    "terminalized, but the assembled ledger chain has a gap — "
+                    f"there is nothing complete to replay: {ledger_detail}"
+                ),
+            )
+        if ledger_status is EnumLedgerReplayStatus.REPLAY_FAILED:
+            return (
+                EnumChainCanaryVerdict.LEDGER_REPLAY_FAILED,
+                (
+                    "a COMPLETE ledger chain was assembled and replayed for "
+                    "this correlation id, and the replay was not green. "
+                    "Distinct from an incomplete chain: the replay ran and "
+                    "disagreed, rather than having nothing to run on."
+                ),
+            )
+        if ledger_status is EnumLedgerReplayStatus.VERIFIER_SKIPPED:
+            return (
+                EnumChainCanaryVerdict.LEDGER_VERIFIER_SKIPPED,
+                (
+                    "the tier-2 verifier returned SKIP — it was pointed at "
+                    "this run and checked nothing. OMN-16025 counts that as "
+                    "not proven, and reporting it as green is the SKIP-reads-"
+                    "as-PASS defect this ticket exists to end."
+                ),
+            )
+        if ledger_status is EnumLedgerReplayStatus.REFUSED:
+            return (
+                EnumChainCanaryVerdict.LEDGER_REPLAY_REFUSED,
+                (
+                    "the ledger replay was refused rather than run: "
+                    f"{ledger_detail}. A refusal is not a pass, and it is not "
+                    "an error either — the store was never asked."
+                ),
+            )
+        if ledger_status is EnumLedgerReplayStatus.ERROR:
+            return (
+                EnumChainCanaryVerdict.LEDGER_REPLAY_UNREADABLE,
+                (
+                    "the ledger chain was configured but could not be "
+                    f"assembled, replayed or verified: {ledger_detail}. "
+                    "Failing closed — an unrunnable check is not a passing one."
+                ),
+            )
+        if ledger_status is EnumLedgerReplayStatus.SKIPPED_NOT_CONFIGURED:
+            return (
+                EnumChainCanaryVerdict.LEDGER_REPLAY_NOT_CONFIGURED,
+                (
+                    "no source was configured for the ledger replay, so this "
+                    "run has NO evidence about link 5. Red on the same terms "
+                    "as link 2: link 5 is one of the five OMN-16025 chain "
+                    "links, not a supplementary check."
+                ),
+            )
+
+        # Every leg agrees. The only remaining question is whether the request
+        # path also reported success.
+        quarantine_suffix = (
+            " (quarantine check not configured — no claim made about the "
+            "quarantine sink)"
+            if quarantine_status is EnumQuarantineCheckStatus.SKIPPED_NOT_CONFIGURED
+            else " and the quarantine sink is clean for this correlation id"
+        )
+        if not ingress_ok:
+            return (
+                EnumChainCanaryVerdict.INGRESS_ERROR_TERMINAL_PRESENT,
+                (
+                    f"the terminal IS on the bus ({terminal_topic}) for this "
+                    "correlation id, but the ingress reported an error "
+                    f"({error_code or 'no code'}: "
+                    f"{error_message or 'no message'}). The chain carried the "
+                    "request; the failure is in the request path, not a dead "
+                    f"chain{quarantine_suffix}"
+                ),
+            )
+        return (
+            EnumChainCanaryVerdict.GREEN,
+            (
+                f"terminal read back off {terminal_topic} for this run's "
+                f"correlation id; ingress answered ok in {elapsed_ms} ms "
+                f"(budget {request.budget_ms} ms){quarantine_suffix}"
+            ),
+        )
+
+
+# -- per-link verdicts -------------------------------------------------
+
+
+def _all_links_unevaluated(reason: str) -> tuple[ModelChainLinkVerdict, ...]:
+    return tuple(
+        ModelChainLinkVerdict(
+            link=link,
+            status=EnumChainLinkStatus.NOT_EVALUATED,
+            detail=reason,
+            owning_ticket="",
+        )
+        for link in EnumChainLink
+    )
+
+
+def _build_link_verdicts(
+    *,
+    request: ModelChainCanaryRequest,
+    ingress_reachable: bool,
+    terminal_readback_status: EnumTerminalReadbackStatus,
+    terminal_topic: str,
+    quarantine_status: EnumQuarantineCheckStatus,
+    projection_readback_status: EnumProjectionReadbackStatus,
+    projection_state: str,
+    projection_traffic_class: TypeDelegationTrafficClass,
+    projection_error: str,
+    ledger_status: EnumLedgerReplayStatus,
+    ledger_detail: str,
+) -> tuple[ModelChainLinkVerdict, ...]:
+    """One status per OMN-16025 link, so a 4/5 probe cannot read as 5/5.
+
+    The remaining NO_LEG row is the honest part. It is not a failure and
+    not a pass — it is a link this probe has no instrument for, and it
+    names the ticket that owes the instrument.
+    """
+    link5, link5_detail = _link_five(ledger_status, ledger_detail)
+    link2, link2_detail = _link_two(
+        projection_readback_status,
+        projection_state,
+        projection_traffic_class,
+        projection_error,
+    )
+    link4, link4_detail = _link_four(terminal_readback_status, terminal_topic)
+    link3, link3_detail = _link_three(
+        request=request,
+        terminal_readback_status=terminal_readback_status,
+        terminal_topic=terminal_topic,
+        quarantine_status=quarantine_status,
+    )
+    if not ingress_reachable:
+        link2 = link3 = link4 = link5 = EnumChainLinkStatus.NOT_EVALUATED
+        link2_detail = link3_detail = link4_detail = link5_detail = (
+            "not evaluated — the ingress was unreachable, so nothing "
+            "downstream of it was observed"
+        )
+
+    return (
+        ModelChainLinkVerdict(
+            link=EnumChainLink.INGRESS_ACCEPTED,
+            status=(
+                EnumChainLinkStatus.PASS
+                if ingress_reachable
+                else EnumChainLinkStatus.FAIL
+            ),
+            detail=(
+                (
+                    # OMN-18421: name the route that was taken, and say which
+                    # kind it was. A receipt that says only "the ingress
+                    # answered" cannot distinguish an authenticated submission
+                    # from a tenant-less one, and that distinction is the whole
+                    # difference between a chain that projects and a chain
+                    # that is refused on every hop.
+                    f"the live tenant-bearing gateway at "
+                    f"{request.gateway_url}/v1/workflows accepted the "
+                    "submission and the probe's correlation id went on the wire"
+                    if request.gateway_url
+                    else f"the live {request.probe_url}/skill ingress answered "
+                    "and the probe's correlation id went on the wire -- this "
+                    "route carries NO tenant, so every event the resulting "
+                    "chain publishes is unattributed and is refused by the "
+                    "delegation projection writer (OMN-18421)"
+                )
+                if ingress_reachable
+                else "the live ingress could not be reached at all"
+            ),
+        ),
+        ModelChainLinkVerdict(
+            link=EnumChainLink.ROUTING_PROJECTED,
+            status=link2,
+            detail=link2_detail,
+        ),
+        ModelChainLinkVerdict(
+            link=EnumChainLink.DELEGATED_EXECUTION,
+            status=link3,
+            detail=link3_detail,
+        ),
+        ModelChainLinkVerdict(
+            link=EnumChainLink.TERMINAL_ON_BUS,
+            status=link4,
+            detail=link4_detail,
+        ),
+        ModelChainLinkVerdict(
+            link=EnumChainLink.LEDGER_REPLAY,
+            status=link5,
+            detail=link5_detail,
+        ),
+    )
+
+
+def _link_five(
+    ledger_status: EnumLedgerReplayStatus, ledger_detail: str
+) -> tuple[EnumChainLinkStatus, str]:
+    """Link 5: complete ledger chain + replay through an HONEST tier-2 verifier.
+
+    ``VERIFIER_SKIPPED`` maps to FAIL, not to PASS and not to NOT_CONFIGURED.
+    A verifier that ran and declined to check is the precise failure the gate's
+    "SKIP != PASS" wording exists to catch: unlike an unconfigured leg, this
+    one WAS pointed at the run and still produced no evidence, so it is a
+    result rather than an absence.
+    """
+    if ledger_status is EnumLedgerReplayStatus.VERIFIED:
+        return (
+            EnumChainLinkStatus.PASS,
+            "complete ledger chain replayed green and a tier-2 verifier "
+            "actually ran and passed for this run's own correlation id",
+        )
+    if ledger_status is EnumLedgerReplayStatus.CHAIN_INCOMPLETE:
+        return (
+            EnumChainLinkStatus.FAIL,
+            f"the assembled ledger chain has a gap, so there is nothing "
+            f"complete to replay: {ledger_detail}",
+        )
+    if ledger_status is EnumLedgerReplayStatus.REPLAY_FAILED:
+        return (
+            EnumChainLinkStatus.FAIL,
+            "a complete chain was replayed and the replay was not green",
+        )
+    if ledger_status is EnumLedgerReplayStatus.VERIFIER_SKIPPED:
+        return (
+            EnumChainLinkStatus.FAIL,
+            "the tier-2 verifier returned SKIP — it was pointed at this run "
+            "and checked nothing, which OMN-16025 counts as not proven",
+        )
+    if ledger_status is EnumLedgerReplayStatus.REFUSED:
+        return (
+            EnumChainLinkStatus.ERROR,
+            "the ledger replay was refused rather than run, so no claim is "
+            f"made about it: {ledger_detail}",
+        )
+    if ledger_status is EnumLedgerReplayStatus.ERROR:
+        return (
+            EnumChainLinkStatus.ERROR,
+            "the ledger chain could not be assembled, replayed or verified, "
+            f"so no claim is made about it: {ledger_detail}",
+        )
+    return (
+        EnumChainLinkStatus.NOT_CONFIGURED,
+        "no ledger source configured for the chain replay — SKIP is not PASS",
+    )
+
+
+def _link_two(
+    projection_readback_status: EnumProjectionReadbackStatus,
+    projection_state: str,
+    projection_traffic_class: TypeDelegationTrafficClass,
+    projection_error: str,
+) -> tuple[EnumChainLinkStatus, str]:
+    """Link 2: routing decision PUBLISHED and PROJECTED.
+
+    Read from ``delegation_workflow_state`` for this run's own correlation id.
+    STRANDED is the OMN-14843 signature and is the reason this leg exists: a
+    lane can terminalize on the bus while the projection leaves the row
+    mid-FSM, and every other leg of this canary watches the layer that stays
+    healthy in that condition.
+    """
+    if projection_readback_status is EnumProjectionReadbackStatus.TERMINAL:
+        return (
+            EnumChainLinkStatus.PASS,
+            f"delegation_workflow_state reached {projection_state} for this "
+            "run's own correlation id with stored traffic_class="
+            f"{projection_traffic_class} — projection evidence, not logs",
+        )
+    if projection_readback_status is EnumProjectionReadbackStatus.STRANDED:
+        return (
+            EnumChainLinkStatus.FAIL,
+            f"the projection row for this correlation id stopped at "
+            f"{projection_state} — the OMN-14843 signature, and invisible to "
+            "every other leg of this probe",
+        )
+    if projection_readback_status is EnumProjectionReadbackStatus.ROW_ABSENT:
+        return (
+            EnumChainLinkStatus.FAIL,
+            "delegation_workflow_state carried no row at all for this "
+            "correlation id, so no routing decision was projected",
+        )
+    if projection_readback_status is EnumProjectionReadbackStatus.REFUSED:
+        return (
+            EnumChainLinkStatus.ERROR,
+            "the projection readback was refused before it ran, so no claim "
+            f"is made about the routing decision: {projection_error}",
+        )
+    if projection_readback_status is EnumProjectionReadbackStatus.ERROR:
+        return (
+            EnumChainLinkStatus.ERROR,
+            "the projection readback could not be completed, so no claim is "
+            f"made about the routing decision: {projection_error}",
+        )
+    return (
+        EnumChainLinkStatus.NOT_CONFIGURED,
+        (
+            "no projection DSN reference resolved for the readback — SKIP is "
+            f"not PASS{f': {projection_error}' if projection_error else ''}"
+        ),
+    )
+
+
+def _link_four(
+    terminal_readback_status: EnumTerminalReadbackStatus, terminal_topic: str
+) -> tuple[EnumChainLinkStatus, str]:
+    """Link 4: emission OUTBOX-CONFIRMED via broker readback."""
+    if terminal_readback_status is EnumTerminalReadbackStatus.FOUND:
+        return (
+            EnumChainLinkStatus.PASS,
+            f"read back off {terminal_topic} for this run's own "
+            "correlation id — broker evidence, not publish-return",
+        )
+    if terminal_readback_status is EnumTerminalReadbackStatus.NOT_FOUND:
+        return (
+            EnumChainLinkStatus.FAIL,
+            "the declared terminal topics were read for the budget "
+            "window and carried nothing for this correlation id",
+        )
+    if terminal_readback_status is EnumTerminalReadbackStatus.ERROR:
+        return (
+            EnumChainLinkStatus.ERROR,
+            "the broker readback could not be completed, so no claim is "
+            "made about the terminal",
+        )
+    return (
+        EnumChainLinkStatus.NOT_CONFIGURED,
+        "no broker configured for the terminal readback — SKIP is not PASS",
+    )
+
+
+def _link_three(
+    *,
+    request: ModelChainCanaryRequest,
+    terminal_readback_status: EnumTerminalReadbackStatus,
+    terminal_topic: str,
+    quarantine_status: EnumQuarantineCheckStatus,
+) -> tuple[EnumChainLinkStatus, str]:
+    """Link 3: delegated execution completes.
+
+    Derived from WHICH terminal topic carried the correlation id, plus
+    the quarantine leg. Stated with its own caveat rather than sold as
+    more than it is: OMN-15468 is live proof that on this lane a FAILED
+    run can be republished onto the SUCCESS terminal, so arrival topic
+    is strong evidence, not proof. Closing OMN-15468 is what upgrades
+    this row.
+    """
+    if quarantine_status is EnumQuarantineCheckStatus.FOUND:
+        return (
+            EnumChainLinkStatus.FAIL,
+            "a handler received this event and refused or errored on it "
+            f"({request.quarantine_topic})",
+        )
+    if terminal_readback_status is EnumTerminalReadbackStatus.ERROR:
+        return (
+            EnumChainLinkStatus.ERROR,
+            "the terminal readback could not run, so execution status is unknown",
+        )
+    if terminal_readback_status is EnumTerminalReadbackStatus.SKIPPED_NOT_CONFIGURED:
+        return (
+            EnumChainLinkStatus.NOT_CONFIGURED,
+            "no broker configured, so execution status is unknown",
+        )
+    if terminal_topic in tuple(request.terminal_failure_topics):
+        return (
+            EnumChainLinkStatus.FAIL,
+            f"the terminal landed on the failure topic {terminal_topic}",
+        )
+    if terminal_topic in tuple(request.terminal_success_topics):
+        return (
+            EnumChainLinkStatus.PASS,
+            f"the terminal landed on the success topic {terminal_topic} "
+            "(arrival topic is strong evidence, not proof, while "
+            "OMN-15468 is open)",
+        )
+    return (
+        EnumChainLinkStatus.FAIL,
+        "no terminal was read back for this correlation id",
+    )
+
+
+def render_receipt(result: ModelChainCanaryResult) -> str:
+    """Render the run receipt as pretty JSON for the workflow job summary."""
+    return json.dumps(result.model_dump(mode="json"), indent=2, sort_keys=True)

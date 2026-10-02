@@ -1,0 +1,134 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# OMN-18781 / OMN-18795 — every module-level, env-gated test skip, and where it runs.
+#
+# WHY THIS FILE EXISTS
+# --------------------
+# Two integration suites carried a module-level `pytest.mark.skipif` on an opt-in
+# environment variable that no workflow in this repository set. They were
+# collected on every pull request, skipped in full, and reported green. One of
+# them was the event bus's own integration proof, and it had never executed in
+# CI. Nothing surfaced it, because a skipped test and a deselected test look
+# identical from outside the run.
+#
+# This file is the answer to "where does this suite actually run?", asked of
+# every module-level skip whose condition reads an environment variable.
+# `tests/ci/test_env_gated_skip_registry_omn18781.py` enforces it in both
+# directions: an unregistered skip fails, and a stale entry fails.
+#
+# WHAT THE RATCHET PROVES, AND WHAT IT DOES NOT
+# ---------------------------------------------
+# For a `workflow:` entry the ratchet proves that the named workflow file
+# PROVABLY SETS every variable the skip reads — a YAML env key, a `$GITHUB_ENV`
+# write, or a `--env` on a container. That is a real, mechanical fact, and it is
+# what caught the original defect.
+#
+# It does NOT prove that the workflow SELECTS the module: pytest selection is a
+# command line, not a declaration, and reproducing pytest's marker algebra here
+# would be a second implementation to keep in sync. The `job:` and `selected_by:`
+# fields below are therefore documentation, verified by a human at the dates
+# given, not by the test. An entry may be honest about the variable and wrong
+# about the selection; the way to check the second is to read the run.
+#
+# It also does NOT prove the named workflow PASSES. See the nightly note below —
+# that distinction turned out to matter.
+#
+# WHERE THE OTHER NINE WENT (OMN-18795)
+# -------------------------------------
+# This file used to carry nine entries under a heading "Suites with NO execution
+# path", each one a real gap with the cost of leaving it unrun stated. Those nine
+# are gone from this file, and none of them was closed by relabelling:
+#
+#   * SIX now execute on every pull request in ci.yml's `service-integration-suites`
+#     job, which gained a Memgraph and a migrated Postgres alongside the Redpanda
+#     and Qdrant it already ran: the DLQ proof, the reward-binder effect, the graph
+#     handler, the correlation propagation proofs, and three of the four
+#     registration E2E files.
+#   * ONE now executes in ci.yml's `migration-integration` job, the third member of
+#     a REQUIRE_PG family whose other two had run there all along.
+#   * TWO execute in `reusable-runtime-boot.yml`, the only workflow that boots a
+#     runtime — which is what they need, and what this file previously failed to
+#     say about the build-loop one.
+#   * ONE was DELETED in part: the two `--execute` tests in the register-repo suite
+#     needed a live Infisical plus a minted admin credential. Its three dry-run
+#     tests need no infrastructure and run on every pull request.
+#
+# They do not appear below because each is now selected BY MARKER and gated by
+# `tests/helpers/service_env.py`, which FAILS in CI rather than skipping. A suite
+# that cannot silently skip has nothing to register here. That is the intended
+# end state of an entry in this file, not an evasion of it: the ratchet's
+# stale-entry direction is what forces the entry out once the skip is gone.
+#
+# `unprovisioned_ticket:` is not a suppression. It is a statement that a suite
+# has NO execution path today, carrying the ticket that owns closing it. Adding
+# one is a decision to leave a suite unrun; it is never a way to quiet the test.
+# There are none left in this file.
+suites:
+  # ---------------------------------------------------------------------------
+  # Suites whose execution path is the nightly integration sweep
+  # ---------------------------------------------------------------------------
+  #
+  # HONEST LIMIT, measured 2026-09-19 (OMN-18795): `nightly-integration.yml` sets
+  # these variables — that much the ratchet proves — but its single test job has
+  # FAILED on twelve consecutive nights, 2026-09-07 through 2026-09-18 (runs
+  # 34083330908 … 35307101936). It is not failing to boot: run 35307101936 reports
+  # `30 failed, 3032 passed, 371 skipped, 3 deselected, 1 xfailed, 47 errors`. So
+  # these four suites DO execute; their result simply lands in a job that has been
+  # red long enough that nobody can distinguish a new failure from the standing
+  # thirty. That is why OMN-18795 routed the nine it repaired to pull-request jobs
+  # instead, and it is a finding in its own right under epic OMN-18775 rather than
+  # something this file can fix.
+  tests/integration/event_bus/test_adapter_protocol_event_publisher_kafka.py:
+    env_vars: [KAFKA_BOOTSTRAP_SERVERS]
+    workflow: .github/workflows/nightly-integration.yml
+    job: nightly-integration / "Run integration tests"
+    selected_by: >-
+      pytest tests/integration/ -m "integration and not bastion" — the module is kafka-marked and integration-marked, and the nightly filter selects both. The broker is the dockerized e2e stack's Redpanda; KAFKA_BOOTSTRAP_SERVERS is written to $GITHUB_ENV by the "Resolve reachable e2e connectivity host" step. Verified 2026-09-18.
+  tests/integration/runtime/test_golden_chain_live_runtime.py:
+    env_vars: [KAFKA_BOOTSTRAP_SERVERS]
+    workflow: .github/workflows/nightly-integration.yml
+    job: nightly-integration / "Run integration tests"
+    selected_by: >-
+      Same selection and same broker as the adapter suite above. Verified 2026-09-18.
+  tests/integration/runtime/test_kafka_contract_source_integration.py:
+    env_vars: [KAFKA_BOOTSTRAP_SERVERS]
+    workflow: .github/workflows/nightly-integration.yml
+    job: nightly-integration / "Run integration tests"
+    selected_by: >-
+      Same selection and same broker as the adapter suite above. Verified 2026-09-18.
+  tests/integration/services/mcp/test_service_mcp_tool_sync.py:
+    env_vars: [KAFKA_BOOTSTRAP_SERVERS]
+    workflow: .github/workflows/nightly-integration.yml
+    job: nightly-integration / "Run integration tests"
+    selected_by: >-
+      Same selection and same broker as the adapter suite above. Verified 2026-09-18.
+  # ---------------------------------------------------------------------------
+  # The REQUIRE_PG migration-proof family — all three members, on every PR
+  # ---------------------------------------------------------------------------
+  #
+  # These three keep a module-level env-gated skip DELIBERATELY, and are the
+  # reason this file's `workflow:` half exists rather than everything migrating
+  # to the fail-closed helper. The idiom is: skip when no Postgres is in hand, so
+  # a laptop can run the tree; turn every skip into a hard failure when
+  # <TICKET>_REQUIRE_PG is set, so the one job that DOES own a Postgres cannot go
+  # vacuously green. The flag name carries the ticket number, which is precisely
+  # how the third of them was missed for as long as it was.
+  tests/integration/migrations/test_node_migration_shape_drift_omn15376.py:
+    env_vars: [OMN15376_REQUIRE_PG]
+    workflow: .github/workflows/ci.yml
+    job: migration-integration
+    selected_by: >-
+      Named by path in that job's pytest invocation, which provisions Postgres and sets OMN15376_REQUIRE_PG=1 so a Postgres-absent run FAILS instead of skipping. This is the repository's existing idiom for a fail-closed service requirement, and OMN-18781 follows it. Verified 2026-09-18.
+  tests/integration/migrations/test_omn17316_role_set_membership_guard.py:
+    env_vars: [OMN17316_REQUIRE_PG]
+    workflow: .github/workflows/ci.yml
+    job: migration-integration
+    selected_by: >-
+      Named by path in that job's pytest invocation, same fail-closed idiom as the shape-drift proof above. Verified 2026-09-18.
+  tests/integration/migrations/test_omn15683_mixed_representation_conversion.py:
+    env_vars: [OMN15683_REQUIRE_PG]
+    workflow: .github/workflows/ci.yml
+    job: migration-integration
+    selected_by: >-
+      Named by path in that job's pytest invocation, alongside its two siblings, with OMN15683_REQUIRE_PG=1 and OMN15683_ALLOW_REMOTE_PG=1. OMN-18795 moved this entry out of the "no execution path" section: the job it needed was already running the other two members of its own family, and nobody had set the third flag. Getting it to pass there also took a real repair — the suite creates throwaway LOGIN roles and applies migrations AS them, but created them with no password and dialled them with the superuser's, which authenticates only against the hermetic trust cluster its fallback path builds. Against a real server every such test failed on `password authentication failed`. Measured green 2026-09-19: 12 passed, 0 skipped, against a real PostgreSQL 16.

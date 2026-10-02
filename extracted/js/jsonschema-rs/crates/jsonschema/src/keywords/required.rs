@@ -11,6 +11,7 @@ use crate::{
     validator::{Validate, ValidationContext},
     Json, Node, Object, SerdeJson,
 };
+use referencing::Vocabulary;
 use serde_json::{Map, Value};
 
 /// Longest `required` array scanned in one pass; beyond it the comparisons outgrow the lookups.
@@ -477,8 +478,11 @@ pub(crate) fn compile<'a, F: Json>(
     parent: &'a Map<String, Value>,
     schema: &'a Value,
 ) -> Option<CompilationResult<'a, F>> {
-    // Check if fused validators handle this case
-    if let Value::Array(items) = schema {
+    // Fused validators compile under the applicator vocabulary only
+    if let Some(items) = schema
+        .as_array()
+        .filter(|_| ctx.has_vocabulary(&Vocabulary::Applicator))
+    {
         let has_properties = parent.contains_key("properties");
         let has_pattern_properties = parent.contains_key("patternProperties");
         let additional_props_false =
@@ -607,6 +611,18 @@ mod tests {
     #[test_case(&json!({"required": ["a", "b", "c"]}), &json!({}), "/required")]
     fn location(schema: &Value, instance: &Value, expected: &str) {
         tests_util::assert_schema_location(schema, instance, expected);
+    }
+
+    #[test_case(&json!({"required": 5}), "5 is not of type \"array\""; "not array")]
+    #[test_case(&json!({"required": [1]}), "1 is not of type \"string\""; "one")]
+    #[test_case(&json!({"required": ["a", 1]}), "1 is not of type \"string\""; "two second")]
+    #[test_case(&json!({"required": [1, "a"]}), "1 is not of type \"string\""; "two first")]
+    #[test_case(&json!({"required": ["a", "b", 1]}), "1 is not of type \"string\""; "three third")]
+    #[test_case(&json!({"required": ["a", 1, "c"]}), "1 is not of type \"string\""; "three second")]
+    #[test_case(&json!({"required": [1, "b", "c"]}), "1 is not of type \"string\""; "three first")]
+    #[test_case(&json!({"required": ["a", "b", "c", 1]}), "1 is not of type \"string\""; "many")]
+    fn malformed(schema: &Value, message: &str) {
+        tests_util::assert_compile_error(schema, message, "/required");
     }
 
     // Required names and instance keys that agree on length and on long prefixes
@@ -811,5 +827,31 @@ mod tests {
             .map(|name| (name.clone(), json!(1)))
             .collect();
         assert_eq!(crate::is_valid(&schema, &Value::Object(instance)), expected);
+    }
+
+    fn missing(names: &[&str]) -> (bool, Vec<(String, String)>) {
+        let errors = names
+            .iter()
+            .map(|name| {
+                (
+                    "/required".to_string(),
+                    format!("\"{name}\" is a required property"),
+                )
+            })
+            .collect();
+        (false, errors)
+    }
+
+    // `properties` and `additionalProperties` are inert, while `required` still applies.
+    #[test_case(&json!({"properties": {"a": false}, "required": ["a", "b"]}), &["a", "b"]; "properties two names")]
+    #[test_case(&json!({"properties": {"a": false}, "additionalProperties": false, "required": ["b"]}), &["b"]; "properties additional false one name")]
+    #[test_case(&json!({"properties": {"a": false}, "required": ["a", "b", "c"]}), &["a", "b", "c"]; "properties three names")]
+    #[test_case(&json!({"required": ["a", "b"]}), &["a", "b"]; "required alone")]
+    fn required_without_applicator_vocabulary(schema: &Value, expected_missing: &[&str]) {
+        let instances = [json!({}), json!({"a": 1, "b": 1, "c": 1})];
+        assert_eq!(
+            tests_util::outcomes_with_only_vocabulary("validation", schema, &instances),
+            [missing(expected_missing), (true, Vec::new())]
+        );
     }
 }

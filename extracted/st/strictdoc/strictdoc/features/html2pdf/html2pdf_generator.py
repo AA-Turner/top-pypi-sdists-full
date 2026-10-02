@@ -1,0 +1,142 @@
+"""
+@relation(SDOC-SRS-51, scope=file)
+"""
+
+import os
+from pathlib import Path
+from typing import List, Tuple
+
+from strictdoc.core.project_config import ProjectConfig
+from strictdoc.core.traceability_index import TraceabilityIndex
+from strictdoc.export.html.html_generator import HTMLGenerator
+from strictdoc.export.html.html_templates import HTMLTemplates
+from strictdoc.export.html.renderers.link_renderer import LinkRenderer
+from strictdoc.export.html.renderers.markup_renderer import MarkupRenderer
+from strictdoc.features.html2pdf.generator import (
+    DocumentHTML2PDFGenerator,
+)
+from strictdoc.features.html2pdf.pdf_print_driver import PDFPrintDriver
+from strictdoc.helpers.exception import StrictDocException
+from strictdoc.helpers.git_client import GitClient
+from strictdoc.helpers.timing import measure_performance
+
+
+class HTML2PDFGenerator:
+    @staticmethod
+    def export_tree(
+        project_config: ProjectConfig,
+        traceability_index: TraceabilityIndex,
+        html_templates: HTMLTemplates,
+        output_html2pdf_root: str,
+        flat_assets: bool = False,
+    ) -> None:
+        if not project_config.is_activated_html2pdf():
+            raise StrictDocException("HTML2PDF feature is not enabled")
+
+        git_client: GitClient = GitClient()
+
+        path_to_output_pdf_html_dir = os.path.join(output_html2pdf_root, "html")
+        path_to_output_pdf_pdf_dir = os.path.join(output_html2pdf_root, "pdf")
+
+        HTMLGenerator.export_strictdoc_assets(
+            project_config=project_config,
+            html_templates=html_templates,
+            export_output_html_root=path_to_output_pdf_html_dir,
+        )
+        HTMLGenerator.export_project_assets(
+            traceability_index=traceability_index,
+            export_output_html_root=path_to_output_pdf_html_dir,
+            flat_assets=flat_assets,
+        )
+
+        paths_to_print: List[Tuple[str, str]] = []
+
+        for document_ in traceability_index.document_tree.document_list:
+            assert document_.meta is not None
+
+            # Skip generating the included documents, unless the option is provided.
+            if not project_config.export_included_documents:
+                if document_.document_is_included():
+                    continue
+
+            root_path = document_.meta.get_root_path_prefix()
+
+            link_renderer = LinkRenderer(
+                root_path=root_path,
+                static_path=project_config.dir_for_sdoc_assets,
+            )
+            # The document meta's output_document_dir_full_path points to the
+            # regular HTML output directory, but html2pdf copies assets to a
+            # separate html2pdf/html/ tree. Pass the correct directory so that
+            # RST wildcard image resolution (image.*) finds assets at the right
+            # location. For the bundle (flat_assets=True) all assets sit at the
+            # root of path_to_output_pdf_html_dir; for individual documents they
+            # sit inside each document's own subdirectory.
+            if flat_assets:
+                rst_reference_path = path_to_output_pdf_html_dir
+            else:
+                rst_reference_path = os.path.join(
+                    path_to_output_pdf_html_dir,
+                    document_.meta.output_document_dir_rel_path.relative_path,
+                )
+            markup_renderer = MarkupRenderer.create(
+                markup=document_.config.get_markup(),
+                traceability_index=traceability_index,
+                link_renderer=link_renderer,
+                html_templates=html_templates,
+                config=project_config,
+                context_document=document_,
+                flat_assets=flat_assets,
+                reference_path_override=rst_reference_path,
+            )
+
+            with measure_performance("Generating printable HTML document"):
+                document_content = DocumentHTML2PDFGenerator.export(
+                    project_config=project_config,
+                    document=document_,
+                    traceability_index=traceability_index,
+                    markup_renderer=markup_renderer,
+                    link_renderer=link_renderer,
+                    git_client=git_client,
+                    html_templates=html_templates,
+                )
+
+            path_to_output_html_doc_dir = os.path.join(
+                path_to_output_pdf_html_dir,
+                document_.meta.output_document_dir_rel_path.relative_path,
+            )
+            Path(path_to_output_html_doc_dir).mkdir(parents=True, exist_ok=True)
+            Path(path_to_output_pdf_pdf_dir).mkdir(parents=True, exist_ok=True)
+
+            path_to_output_html_doc = os.path.join(
+                path_to_output_html_doc_dir,
+                document_.meta.document_filename_base + "-PDF.html",
+            )
+
+            with open(
+                path_to_output_html_doc, "w", encoding="utf8"
+            ) as output_html_doc_file_:
+                output_html_doc_file_.write(document_content)
+
+            path_to_output_pdf_dir = os.path.join(
+                path_to_output_pdf_pdf_dir,
+                document_.meta.input_doc_dir_rel_path.relative_path,
+            )
+            Path(path_to_output_pdf_dir).mkdir(parents=True, exist_ok=True)
+
+            path_to_output_pdf = os.path.join(
+                path_to_output_pdf_dir,
+                document_.meta.document_filename_base + ".pdf",
+            )
+
+            paths_to_print.append((path_to_output_html_doc, path_to_output_pdf))
+
+        pdf_print_driver = PDFPrintDriver()
+        try:
+            pdf_print_driver.get_pdf_from_html(
+                project_config,
+                paths_to_print,
+                path_to_output_pdf_html_dir,
+            )
+        except TimeoutError:
+            print("error: HTML2PDF: timeout error.")  # noqa: T201

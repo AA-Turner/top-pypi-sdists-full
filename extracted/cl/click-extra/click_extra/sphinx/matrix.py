@@ -471,10 +471,15 @@ def _spans_full_major(
     tag of that newer group, or `None`. The `.0` start guards against a
     floored partial major (`4.9.x` onward is not `4.x`), and the higher-major
     successor guards against a major that is split across several groups.
+
+    A bare major carries no minor to read, and `9` starts major 9 just as
+    `9.0` does. {func}`_column_candidates` builds one from a `>=9` floor
+    whenever the release list is empty, which is the documented offline path.
     """
     first = first_tag.lstrip("v").split(".")
     last = last_tag.lstrip("v").split(".")
-    if first[0] != last[0] or first[1] != "0":
+    first_minor = first[1] if len(first) > 1 else "0"
+    if first[0] != last[0] or first_minor != "0":
         return False
     if next_first_tag is None:
         return True
@@ -934,10 +939,19 @@ PYPI_JSON_URL: str = "https://pypi.org/pypi/{name}/json"
 """PyPI's JSON API endpoint for a project, formatted with its normalized name."""
 
 PYPI_TIMEOUT: float = 10
-"""Seconds to wait for PyPI before a table goes without the columns it adds."""
+"""Seconds to wait for PyPI before the release lookup gives up."""
 
 
-def _pypi_releases(dep_name: str) -> tuple[Version, ...]:
+class ReleasesUnreadable(Exception):
+    """PyPI could not answer for a distribution's releases.
+
+    Raised by {func}`_pypi_releases` only when its caller asked for the read to
+    be required, which the source refresh in {func}`_regenerate` does. Live
+    rendering never asks, and keeps the fallback columns.
+    """
+
+
+def _pypi_releases(dep_name: str, *, required: bool = False) -> tuple[Version, ...]:
     """Return every stable release of `dep_name` on PyPI, oldest first.
 
     Reads the `releases` mapping of PyPI's JSON API. A release stays when at
@@ -948,6 +962,9 @@ def _pypi_releases(dep_name: str) -> tuple[Version, ...]:
     No cooldown applies. The matrix states what an installer accepts, and an
     installer applies no cooldown by default, so a release is installable as
     soon as it is published. Reading its version number installs nothing.
+
+    :param required: raise {class}`ReleasesUnreadable` instead of returning
+        nothing, for a caller that cannot use the fallback table.
     """
     url = PYPI_JSON_URL.format(name=canonicalize_name(dep_name))
     try:
@@ -975,6 +992,8 @@ def _pypi_releases(dep_name: str) -> tuple[Version, ...]:
             dep_name,
             error,
         )
+        if required:
+            raise ReleasesUnreadable(dep_name) from error
         return ()
     return tuple(stable)
 
@@ -1080,6 +1099,7 @@ def dependency_matrix_table(
     version_floor: str = "",
     column_order: str = NEWEST_FIRST,
     row_order: str = NEWEST_FIRST,
+    require_releases: bool = False,
 ) -> str:
     """Render the `dep_name` compatibility matrix as a markdown table.
 
@@ -1103,8 +1123,12 @@ def dependency_matrix_table(
         {data}`NEWEST_FIRST` (default) or {data}`OLDEST_FIRST`.
     :param row_order: top-to-bottom ordering of the release rows:
         {data}`NEWEST_FIRST` (default) or {data}`OLDEST_FIRST`.
+    :param require_releases: refuse the offline fallback columns, for a caller
+        comparing the result against a checked-in table.
     :return: rendered markdown table, or `""` when nothing was collected.
     :raises ValueError: on an unrecognized `column_order` or `row_order`.
+    :raises ReleasesUnreadable: under `require_releases`, when PyPI cannot
+        answer for `dep_name`.
     """
     _validate_order(column_order, "column-order")
     _validate_order(row_order, "row-order")
@@ -1121,7 +1145,7 @@ def dependency_matrix_table(
     spec_sets = [_to_specifier_set(spec) for spec in specs]
     candidates = _column_candidates(
         specs,
-        _pypi_releases(dep_name),
+        _pypi_releases(dep_name, required=require_releases),
         _latest_locked_version(project_root, dep_name),
     )
     bins = _dependency_columns(spec_sets, candidates)
@@ -1226,7 +1250,13 @@ def _resolve_root(path_opt: str | None, base_dir: Path) -> Path:
     return candidate.resolve()
 
 
-def _render_block(axis: str, options: Mapping[str, str], base_dir: Path) -> str:
+def _render_block(
+    axis: str,
+    options: Mapping[str, str],
+    base_dir: Path,
+    *,
+    require_releases: bool = False,
+) -> str:
     """Render the table for a ``{matrix} <axis>`` block.
 
     Dispatches on `axis`: `"python"` renders the interpreter matrix; any
@@ -1234,6 +1264,9 @@ def _render_block(axis: str, options: Mapping[str, str], base_dir: Path) -> str:
     by {class}`MatrixDirective` (live rendering) and {func}`update_matrix_blocks`
     (offline source refresh) so both resolve the package, path, and floors
     identically.
+
+    `require_releases` reaches the dependency axis alone: the Python axis reads
+    git history and a static table, so it renders the same answer offline.
     """
     root = _resolve_root(options.get("path"), base_dir)
     package = options.get("package") or root.name
@@ -1262,6 +1295,7 @@ def _render_block(axis: str, options: Mapping[str, str], base_dir: Path) -> str:
         tag_pattern=tag_pattern,
         column_order=column_order,
         row_order=row_order,
+        require_releases=require_releases,
     )
 
 
@@ -1403,10 +1437,16 @@ def _parse_marker_options(tokens: Iterable[str]) -> dict[str, str]:
 
 
 def _regenerate(axis: str, options: Mapping[str, str], base_dir: Path) -> str:
-    """Render a block, returning `""` on any git/OS failure (non-destructive)."""
+    """Render a block, returning `""` on any git/OS failure (non-destructive).
+
+    An unreadable PyPI counts as such a failure here, where it does not for
+    live rendering: the caller writes this table into the source, or compares
+    it against what is already there, and the fallback columns would drift
+    every checked-in dependency block whenever the network hiccups.
+    """
     try:
-        return _render_block(axis, options, base_dir)
-    except (OSError, subprocess.SubprocessError):
+        return _render_block(axis, options, base_dir, require_releases=True)
+    except (OSError, ReleasesUnreadable, subprocess.SubprocessError):
         return ""
 
 
@@ -1498,7 +1538,7 @@ def _rewrite_matrix_blocks(text: str, base_dir: Path) -> str:
     table is replaced. The walk is fence-aware: a ``{matrix}`` example nested
     inside a longer code fence is a documented illustration, copied verbatim and
     never refreshed. A block whose generation fails (non-repository path,
-    missing git, no data) is left byte-for-byte untouched.
+    missing git, unreadable PyPI, no data) is left byte-for-byte untouched.
     """
     lines = text.splitlines()
     spans = fence_spans(lines)

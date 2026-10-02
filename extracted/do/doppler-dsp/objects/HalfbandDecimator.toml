@@ -1,0 +1,35 @@
+[HalfbandDecimator]
+arg_type = "float _Complex"
+return_type = "float _Complex"
+mutable = "false"
+no_state = "true"
+no_step = "true"
+serializable = "true"
+depends_on = [{ name = "hbdecim", link = true }, { name = "hbdecim_r2c", link = true }]
+
+[[HalfbandDecimator.init_params]]
+name = "h"
+type = "float[]"
+
+[[HalfbandDecimator.methods]]
+name = "execute"
+arg_type = "void"
+return_type = "float _Complex"
+variable_output = true
+params = [{name = "x", type = "float _Complex[]"}]
+# Kernel is told its write limit (jm gh-138): an under-reporting
+# max_out truncates the emission instead of overrunning `out`.
+pass_capacity = true
+
+[[HalfbandDecimator.methods]]
+name = "reset"
+arg_type = "void"
+return_type = "void"
+
+[[HalfbandDecimator.properties]]
+name = "rate"
+type = "double"
+
+[[HalfbandDecimator.properties]]
+name = "num_taps"
+type = "size_t"

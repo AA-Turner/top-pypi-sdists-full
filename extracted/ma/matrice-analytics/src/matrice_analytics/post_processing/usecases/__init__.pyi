@@ -10,6 +10,7 @@ from ...clients.bootstrap import get_action_id, get_session
 from ...clients.lpr_client import LPRClient
 from ...clients.models import LprServer, build_detection
 from ...clients.response import CallFailure, ConnectionLost, RateLimited
+from ..Trackers import ConfigDrivenTracker, FrameTimestampReader, TrackerInitializationError, TrackerProfile, record_untracked_frame, record_update_failure
 from ..Trackers import ConfigDrivenTracker, TrackerProfile
 from ..Trackers import ConfigDrivenTracker, TrackerProfile, legacy_sort_tracker_overrides
 from ..Trackers import ConfigDrivenTracker, get_effective_tracking_method
@@ -33,6 +34,7 @@ from ..core.config import CustomerServiceConfig, ZoneConfig
 from ..core.config import IntrusionAdvancedTrackerConfig, IntrusionConfig, ZoneConfig
 from ..core.config import LineConfig, PeopleTrackingConfig
 from ..core.config import PeopleCountingConfig
+from ..core.config import PeopleCountingConfig, PeopleCountingExtendedConfig
 from ..core.config import ProximityConfig
 from ..core.config import ZoneConfig
 from ..face_reg.face_recognition import FaceRecognitionEmbeddingConfig, FaceRecognitionEmbeddingUseCase
@@ -109,6 +111,9 @@ from .hazard_zone_entry import PostProcessingConfigClient
 from .license_plate_monitoring import LicensePlateMonitorConfig, LicensePlateMonitorUseCase
 from .overcrowding_detection import PostProcessingConfigClient, lift_ai_camera_zones_into_post_processing
 from .people_counting import PeopleCountingUseCase
+from .reid.gallery import ReIDGallery
+from .reid.model import EMBEDDING_DIM, get_shared_embedder
+from .reid.worker import EmbedWorker
 from .vehicle_speed_estimation_config import FACTORS, UNIT_LABELS, VEHICLE_SPEED_ESTIMATION_SCHEMA, VehicleSpeedEstimationConfig
 from .vehicle_type_classification_stats_utils import build_count_lists, build_detection_objects
 
@@ -154,6 +159,7 @@ OCR_SOURCE_LOCAL: str = ...  # From lpr_ocr_source
 OCR_SOURCE_UPSTREAM: str = ...  # From lpr_ocr_source
 VALID_OCR_SOURCES: Tuple[Any, ...] = ...  # From lpr_ocr_source
 MASK_CATEGORY_AGGREGATION: Dict[Any, Any] = ...  # From mask_detection
+logger: Any = ...  # From people_counting_extended
 logger: Any = ...  # From phone_screen_defect_detection
 logger: Any = ...  # From pipe_corrosion_detection
 logger: Any = ...  # From pipe_gas_leak_detection
@@ -3769,180 +3775,19 @@ class PeopleCountingUseCase:
         ...
 
 
-# From people_counting_bckp
-class PeopleCountingUseCase:
-    # People counting use case with zone analysis and alerting.
+# From people_counting_extended
+class PeopleCountingExtendedUseCase:
+    # ``people_counting`` plus long-horizon person re-identification.
 
-    def __init__(self: Any) -> None:
-        """
-        Initialize people counting use case.
-        """
-        ...
+    def __init__(self: Any) -> None: ...
 
-    def clear_current_frame_tracking(self: Any) -> int:
-        """
-        MANUAL USE ONLY: Clear only current frame tracking data while preserving cumulative totals.
-        
-         This method is NOT called automatically anywhere in the code.
-        
-        This is the SAFE method to use for manual clearing of stale/expired current frame data.
-        The cumulative total (self._total_count) is always preserved.
-        
-        In streaming scenarios, you typically don't need to call this at all.
-        
-        Returns:
-            Number of current frame tracks cleared
-        """
-        ...
+    def process(self: Any, data: Any, config: Any, input_bytes: Optional[Any] = None, context: Optional[Any] = None, stream_info: Optional[Dict[str, Any]] = None) -> Any: ...
 
-    def clear_expired_tracks(self: Any, max_age_seconds: float = 300.0) -> int:
-        """
-        MANUAL USE ONLY: Clear current frame tracking data if no updates for a while.
-        
-          This method is NOT called automatically anywhere in the code.
-        It's provided as a utility function for manual cleanup if needed.
-        
-        In streaming scenarios, you typically don't need to call this at all.
-        The cumulative total should keep growing as new unique people are detected.
-        
-        This method only clears current frame tracking data while preserving
-        the cumulative total count. The cumulative total should never decrease.
-        
-        Args:
-            max_age_seconds: Maximum age in seconds before clearing current frame tracks
-        
-        Returns:
-            Number of current frame tracks cleared
-        """
-        ...
+    def reid_stats(self: Any) -> Dict[str, Any]: ...
 
-    def create_default_config(self: Any, **overrides: Any) -> Any:
+    def reset(self: Any) -> None:
         """
-        Create default configuration with optional overrides.
-        """
-        ...
-
-    def get_all_zone_counts(self: Any) -> Dict[str, Dict[str, int]]:
-        """
-        Get current and total counts for all zones.
-        """
-        ...
-
-    def get_config_schema(self: Any) -> Dict[str, Any]:
-        """
-        Get configuration schema for people counting.
-        """
-        ...
-
-    def get_current_frame_count(self: Any) -> int:
-        """
-        Get the count of people in the current frame.
-        """
-        ...
-
-    def get_frame_info(self: Any) -> Dict[str, Any]:
-        """
-        Get detailed information about frame processing and global frame offset.
-        """
-        ...
-
-    def get_global_frame_id(self: Any, local_frame_id: str) -> str:
-        """
-        Convert local frame ID to global frame ID.
-        """
-        ...
-
-    def get_global_frame_offset(self: Any) -> int:
-        """
-        Get the current global frame offset.
-        """
-        ...
-
-    def get_total_count(self: Any) -> int:
-        """
-        Get the total count of unique people tracked across all calls.
-        """
-        ...
-
-    def get_total_frames_processed(self: Any) -> int:
-        """
-        Get the total number of frames processed across all calls.
-        """
-        ...
-
-    def get_track_ids_info(self: Any) -> Dict[str, Any]:
-        """
-        Get detailed information about track IDs.
-        """
-        ...
-
-    def get_tracking_debug_info(self: Any) -> Dict[str, Any]:
-        """
-        Get detailed debugging information about tracking state.
-        """
-        ...
-
-    def get_zone_current_count(self: Any, zone_name: str) -> int:
-        """
-        Get current count of people in a specific zone.
-        """
-        ...
-
-    def get_zone_total_count(self: Any, zone_name: str) -> int:
-        """
-        Get total count of people who have been in a specific zone.
-        """
-        ...
-
-    def get_zone_tracking_info(self: Any) -> Dict[str, Dict[str, Any]]:
-        """
-        Get detailed zone tracking information.
-        """
-        ...
-
-    def process(self: Any, data: Any, config: Any, context: Optional[Any] = None, stream_info: Optional[Any] = None) -> Any:
-        """
-        Process people counting use case - automatically detects single or multi-frame structure.
-        
-        Args:
-            data: Raw model output (detection or tracking format)
-            config: People counting configuration
-            context: Processing context
-            stream_info: Stream information containing frame details (optional)
-        
-        Returns:
-            ProcessingResult: Processing result with standardized agg_summary structure
-        """
-        ...
-
-    def reset_frame_counter(self: Any) -> None:
-        """
-        Reset only the frame counter.
-        """
-        ...
-
-    def reset_tracking_state(self: Any) -> None:
-        """
-        WARNING: This completely resets ALL tracking data including cumulative totals!
-        
-        This should ONLY be used when:
-        - Starting a completely new tracking session
-        - Switching to a different video/stream
-        - Manual reset requested by user
-        
-        For clearing expired/stale tracks, use clear_current_frame_tracking() instead.
-        """
-        ...
-
-    def set_global_frame_offset(self: Any, offset: int) -> None:
-        """
-        Set the global frame offset for video chunk processing.
-        """
-        ...
-
-    def update_global_frame_offset(self: Any, frames_in_chunk: int) -> None:
-        """
-        Update global frame offset after processing a chunk.
+        Release ReID resources. Safe to call repeatedly.
         """
         ...
 
@@ -3985,184 +3830,6 @@ class PeopleCountingInZoneUseCase:
 
 
 # From people_tracking
-class PeopleTrackingUseCase:
-    # People counting use case with zone analysis and alerting.
-
-    def __init__(self: Any) -> None:
-        """
-        Initialize people counting use case.
-        """
-        ...
-
-    def clear_current_frame_tracking(self: Any) -> int:
-        """
-        MANUAL USE ONLY: Clear only current frame tracking data while preserving cumulative totals.
-        
-         This method is NOT called automatically anywhere in the code.
-        
-        This is the SAFE method to use for manual clearing of stale/expired current frame data.
-        The cumulative total (self._total_count) is always preserved.
-        
-        In streaming scenarios, you typically don't need to call this at all.
-        
-        Returns:
-            Number of current frame tracks cleared
-        """
-        ...
-
-    def clear_expired_tracks(self: Any, max_age_seconds: float = 300.0) -> int:
-        """
-        MANUAL USE ONLY: Clear current frame tracking data if no updates for a while.
-        
-          This method is NOT called automatically anywhere in the code.
-        It's provided as a utility function for manual cleanup if needed.
-        
-        In streaming scenarios, you typically don't need to call this at all.
-        The cumulative total should keep growing as new unique people are detected.
-        
-        This method only clears current frame tracking data while preserving
-        the cumulative total count. The cumulative total should never decrease.
-        
-        Args:
-            max_age_seconds: Maximum age in seconds before clearing current frame tracks
-        
-        Returns:
-            Number of current frame tracks cleared
-        """
-        ...
-
-    def create_default_config(self: Any, **overrides: Any) -> Any:
-        """
-        Create default configuration with optional overrides.
-        """
-        ...
-
-    def get_all_zone_counts(self: Any) -> Dict[str, Dict[str, int]]:
-        """
-        Get current and total counts for all zones.
-        """
-        ...
-
-    def get_config_schema(self: Any) -> Dict[str, Any]:
-        """
-        Get configuration schema for people counting.
-        """
-        ...
-
-    def get_current_frame_count(self: Any) -> int:
-        """
-        Get the count of people in the current frame.
-        """
-        ...
-
-    def get_frame_info(self: Any) -> Dict[str, Any]:
-        """
-        Get detailed information about frame processing and global frame offset.
-        """
-        ...
-
-    def get_global_frame_id(self: Any, local_frame_id: str) -> str:
-        """
-        Convert local frame ID to global frame ID.
-        """
-        ...
-
-    def get_global_frame_offset(self: Any) -> int:
-        """
-        Get the current global frame offset.
-        """
-        ...
-
-    def get_total_count(self: Any) -> int:
-        """
-        Get the total count of unique people tracked across all calls.
-        """
-        ...
-
-    def get_total_frames_processed(self: Any) -> int:
-        """
-        Get the total number of frames processed across all calls.
-        """
-        ...
-
-    def get_track_ids_info(self: Any) -> Dict[str, Any]:
-        """
-        Get detailed information about track IDs.
-        """
-        ...
-
-    def get_tracking_debug_info(self: Any) -> Dict[str, Any]:
-        """
-        Get detailed debugging information about tracking state.
-        """
-        ...
-
-    def get_zone_current_count(self: Any, zone_name: str) -> int:
-        """
-        Get current count of people in a specific zone.
-        """
-        ...
-
-    def get_zone_total_count(self: Any, zone_name: str) -> int:
-        """
-        Get total count of people who have been in a specific zone.
-        """
-        ...
-
-    def get_zone_tracking_info(self: Any) -> Dict[str, Dict[str, Any]]:
-        """
-        Get detailed zone tracking information.
-        """
-        ...
-
-    def process(self: Any, data: Any, config: Any, context: Optional[Any] = None, stream_info: Optional[Any] = None) -> Any:
-        """
-        Process people counting use case - automatically detects single or multi-frame structure.
-        
-        Args:
-            data: Raw model output (detection or tracking format)
-            config: People counting configuration
-            context: Processing context
-            stream_info: Stream information containing frame details (optional)
-        
-        Returns:
-            ProcessingResult: Processing result with standardized agg_summary structure
-        """
-        ...
-
-    def reset_frame_counter(self: Any) -> None:
-        """
-        Reset only the frame counter.
-        """
-        ...
-
-    def reset_tracking_state(self: Any) -> None:
-        """
-        WARNING: This completely resets ALL tracking data including cumulative totals!
-        
-        This should ONLY be used when:
-        - Starting a completely new tracking session
-        - Switching to a different video/stream
-        - Manual reset requested by user
-        
-        For clearing expired/stale tracks, use clear_current_frame_tracking() instead.
-        """
-        ...
-
-    def set_global_frame_offset(self: Any, offset: int) -> None:
-        """
-        Set the global frame offset for video chunk processing.
-        """
-        ...
-
-    def update_global_frame_offset(self: Any, frames_in_chunk: int) -> None:
-        """
-        Update global frame offset after processing a chunk.
-        """
-        ...
-
-
-# From people_tracking_bkcp
 class PeopleTrackingUseCase:
     # People counting use case with zone analysis and alerting.
 
@@ -6073,4 +5740,4 @@ class WoundSegmentationUseCase:
         ...
 
 
-from . import Histopathological_Cancer_Detection_img, _lazy_exports, _typing_surface, abandoned_object_detection, accident_detection, advanced_customer_service, age_detection, age_gender_detection, alerts_verification, animal_detection, anti_spoofing_detection, area_utilization, assembly_line_detection, banana_defect_detection, basic_counting_tracking, blood_cancer_detection_img, bottle_defect_detection, burglary_detection, car_damage_detection, car_part_segmentation, car_service, cardiomegaly_classification, cell_microscopy_segmentation, chicken_pose_detection, child_monitoring, claude_people_counting_usecase, color_detection, color_map_utils, concrete_crack_detection, crop_weed_detection, crowd_density_heatmaps, crowdflow, customer_service, deep_oc_sort, defect_detection_products, distracted_driver_detection, drone_detection, drone_traffic_monitoring, drowsy_driver_detection, dwell_detection, emergency_vehicle_detection, face_covering_detection_pose, face_emotion, face_recognition, fall_detection, fashion_detection, fast_people_counting, fence_climbing_detection, fence_climbing_detection_pose, fence_climbing_with_zone, field_mapping, fire_detection, flare_analysis, flood_detection, flower_segmentation, footfall, footfall_bkcp, fr_access_control, fr_surveillance, gas_leak_detection, gender_detection, gloves_boots_detection, hazard_zone_entry, heatmaps, human_activity_recognition, illegal_parking_detection, intrusion_detection, landslide_detection, leaf, leaf_disease, leak_detection, license_plate_detection, license_plate_monitoring, liquid_leak_detection, litter_monitoring, loitering_detection, lpr_access_control, lpr_ocr_source, lpr_surveillance, mask_detection, mask_type_detection, natural_disaster, overcrowding_detection, package_detection, parking, parking_lot_analytics, parking_space_detection, pcb_defect_detection, pedestrian_detection, people_counting, people_counting_bckp, people_counting_in_zone, people_tracking, people_tracking_bkcp, phone_screen_defect_detection, pipe_corrosion_detection, pipe_gas_leak_detection, pipeline_detection, plaque_segmentation_img, pothole_detection, pothole_segmentation, ppe_compliance, price_tag_detection, proximity_detection, road_lane_detection, road_traffic_density, road_view_segmentation, running_detection, shelf_inventory_detection, shoplifting_detection, shopping_cart_analysis, skin_cancer_classification_img, smoker_detection, solar_panel, stopped_vehicle_monitoring, street_vendor_detection, suspicious_activity_detection, tailgating_detection, template_usecase, theft_detection, traffic_sign_monitoring, unauthorized_encampment_detection, underground_pipeline_defect_detection, underwater_pollution_detection, unwanted_animal_detection, vegetable_detection, vehicle_color_detection, vehicle_monitoring, vehicle_monitoring_drone_view, vehicle_monitoring_parking_lot, vehicle_monitoring_wrong_way, vehicle_segmentation, vehicle_speed_estimation, vehicle_speed_estimation_config, vehicle_type_classification, vehicle_type_classification_stats_utils, violence_detection, violence_detection_testing, warehouse_object_segmentation, waterbody_segmentation, weapon_detection, weapon_human_detection, weld_defect_detection, wildlife_monitoring, windmill_maintenance, wound_segmentation
+from . import Histopathological_Cancer_Detection_img, _lazy_exports, _typing_surface, abandoned_object_detection, accident_detection, advanced_customer_service, age_detection, age_gender_detection, alerts_verification, animal_detection, anti_spoofing_detection, area_utilization, assembly_line_detection, banana_defect_detection, basic_counting_tracking, blood_cancer_detection_img, bottle_defect_detection, burglary_detection, car_damage_detection, car_part_segmentation, car_service, cardiomegaly_classification, cell_microscopy_segmentation, chicken_pose_detection, child_monitoring, claude_people_counting_usecase, color_detection, color_map_utils, concrete_crack_detection, crop_weed_detection, crowd_density_heatmaps, crowdflow, customer_service, deep_oc_sort, defect_detection_products, distracted_driver_detection, drone_detection, drone_traffic_monitoring, drowsy_driver_detection, dwell_detection, emergency_vehicle_detection, face_covering_detection_pose, face_emotion, face_recognition, fall_detection, fashion_detection, fast_people_counting, fence_climbing_detection, fence_climbing_detection_pose, fence_climbing_with_zone, field_mapping, fire_detection, flare_analysis, flood_detection, flower_segmentation, footfall, footfall_bkcp, fr_access_control, fr_surveillance, gas_leak_detection, gender_detection, gloves_boots_detection, hazard_zone_entry, heatmaps, human_activity_recognition, illegal_parking_detection, intrusion_detection, landslide_detection, leaf, leaf_disease, leak_detection, license_plate_detection, license_plate_monitoring, liquid_leak_detection, litter_monitoring, loitering_detection, lpr_access_control, lpr_ocr_source, lpr_surveillance, mask_detection, mask_type_detection, natural_disaster, overcrowding_detection, package_detection, parking, parking_lot_analytics, parking_space_detection, pcb_defect_detection, pedestrian_detection, people_counting, people_counting_extended, people_counting_in_zone, people_tracking, phone_screen_defect_detection, pipe_corrosion_detection, pipe_gas_leak_detection, pipeline_detection, plaque_segmentation_img, pothole_detection, pothole_segmentation, ppe_compliance, price_tag_detection, proximity_detection, road_lane_detection, road_traffic_density, road_view_segmentation, running_detection, shelf_inventory_detection, shoplifting_detection, shopping_cart_analysis, skin_cancer_classification_img, smoker_detection, solar_panel, stopped_vehicle_monitoring, street_vendor_detection, suspicious_activity_detection, tailgating_detection, template_usecase, theft_detection, traffic_sign_monitoring, unauthorized_encampment_detection, underground_pipeline_defect_detection, underwater_pollution_detection, unwanted_animal_detection, vegetable_detection, vehicle_color_detection, vehicle_monitoring, vehicle_monitoring_drone_view, vehicle_monitoring_parking_lot, vehicle_monitoring_wrong_way, vehicle_segmentation, vehicle_speed_estimation, vehicle_speed_estimation_config, vehicle_type_classification, vehicle_type_classification_stats_utils, violence_detection, violence_detection_testing, warehouse_object_segmentation, waterbody_segmentation, weapon_detection, weapon_human_detection, weld_defect_detection, wildlife_monitoring, windmill_maintenance, wound_segmentation

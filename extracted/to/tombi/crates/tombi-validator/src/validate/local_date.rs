@@ -129,7 +129,7 @@ async fn validate_local_date(
     let mut assertion_failed = false;
     let mut match_evidence = Box::<crate::MatchEvidence>::default();
     let value_string = local_date_value.value().to_string();
-    let range = local_date_value.range();
+    let span = local_date_value.span();
 
     if let Some(const_value) = &local_date_schema.const_value {
         let matched = value_string == *const_value;
@@ -151,7 +151,7 @@ async fn validate_local_date(
                     expected: const_value.clone(),
                     actual: value_string.clone(),
                 }),
-                range,
+                span,
             }
             .push_diagnostic_with_level(level, &mut diagnostics);
         }
@@ -183,7 +183,7 @@ async fn validate_local_date(
                     expected: r#enum.iter().map(ToString::to_string).collect(),
                     actual: value_string.clone(),
                 }),
-                range,
+                span,
             }
             .push_diagnostic_with_level(level, &mut diagnostics);
         }

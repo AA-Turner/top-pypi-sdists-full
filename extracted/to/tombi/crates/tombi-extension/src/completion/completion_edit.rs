@@ -25,8 +25,8 @@ pub enum CompletionTextEdit {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InsertReplaceEdit {
     pub new_text: String,
-    pub insert: tombi_text::Range,
-    pub replace: tombi_text::Range,
+    pub insert: tombi_text::Span,
+    pub replace: tombi_text::Span,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -39,21 +39,21 @@ pub struct CompletionEdit {
 impl CompletionEdit {
     pub fn new_literal(
         label: &str,
-        position: tombi_text::Position,
+        offset: tombi_text::Offset,
         completion_hint: Option<CompletionHint>,
     ) -> Option<Self> {
         match completion_hint {
             Some(
-                CompletionHint::DotTrigger { cleanup_range, .. }
-                | CompletionHint::EqualTrigger { cleanup_range, .. },
+                CompletionHint::DotTrigger { cleanup_span, .. }
+                | CompletionHint::EqualTrigger { cleanup_span, .. },
             ) => Some(Self {
                 text_edit: CompletionTextEdit::Edit(TextEdit {
                     new_text: format!(" = {label}"),
-                    range: tombi_text::Range::at(position),
+                    span: tombi_text::Span::empty(offset),
                 }),
                 insert_text_format: None,
                 additional_text_edits: Some(vec![TextEdit {
-                    range: cleanup_range,
+                    span: cleanup_span,
                     new_text: "".to_string(),
                 }]),
             }),
@@ -66,12 +66,12 @@ impl CompletionEdit {
                     None => format!("${{0:{label}}}"),
                 };
                 let additional_text_edits =
-                    head_comma_text_edits(add_leading_comma, add_trailing_comma, position);
+                    head_comma_text_edits(add_leading_comma, add_trailing_comma, offset);
 
                 Some(Self {
                     text_edit: CompletionTextEdit::Edit(TextEdit {
                         new_text,
-                        range: tombi_text::Range::at(position),
+                        span: tombi_text::Span::empty(offset),
                     }),
                     insert_text_format: Some(InsertTextFormat::SNIPPET),
                     additional_text_edits,
@@ -83,21 +83,21 @@ impl CompletionEdit {
 
     pub fn new_selectable_literal(
         label: &str,
-        position: tombi_text::Position,
+        offset: tombi_text::Offset,
         completion_hint: Option<CompletionHint>,
     ) -> Option<Self> {
         match completion_hint {
             Some(
-                CompletionHint::DotTrigger { cleanup_range, .. }
-                | CompletionHint::EqualTrigger { cleanup_range, .. },
+                CompletionHint::DotTrigger { cleanup_span, .. }
+                | CompletionHint::EqualTrigger { cleanup_span, .. },
             ) => Some(Self {
                 text_edit: CompletionTextEdit::Edit(TextEdit {
                     new_text: format!(" = ${{0:{label}}}"),
-                    range: tombi_text::Range::at(position),
+                    span: tombi_text::Span::empty(offset),
                 }),
                 insert_text_format: Some(InsertTextFormat::SNIPPET),
                 additional_text_edits: Some(vec![TextEdit {
-                    range: cleanup_range,
+                    span: cleanup_span,
                     new_text: "".to_string(),
                 }]),
             }),
@@ -107,21 +107,21 @@ impl CompletionEdit {
 
     pub fn new_string_literal(
         quote: &str,
-        position: tombi_text::Position,
+        offset: tombi_text::Offset,
         completion_hint: Option<CompletionHint>,
     ) -> Option<Self> {
         match completion_hint {
             Some(
-                CompletionHint::DotTrigger { cleanup_range, .. }
-                | CompletionHint::EqualTrigger { cleanup_range, .. },
+                CompletionHint::DotTrigger { cleanup_span, .. }
+                | CompletionHint::EqualTrigger { cleanup_span, .. },
             ) => Some(Self {
                 text_edit: CompletionTextEdit::Edit(TextEdit {
                     new_text: format!(" = {quote}$1{quote}$0"),
-                    range: tombi_text::Range::at(position),
+                    span: tombi_text::Span::empty(offset),
                 }),
                 insert_text_format: Some(InsertTextFormat::SNIPPET),
                 additional_text_edits: Some(vec![TextEdit {
-                    range: cleanup_range,
+                    span: cleanup_span,
                     new_text: "".to_string(),
                 }]),
             }),
@@ -134,12 +134,12 @@ impl CompletionEdit {
                     None => format!("{quote}$1{quote}$0"),
                 };
                 let additional_text_edits =
-                    head_comma_text_edits(add_leading_comma, add_trailing_comma, position);
+                    head_comma_text_edits(add_leading_comma, add_trailing_comma, offset);
 
                 Some(Self {
                     text_edit: CompletionTextEdit::Edit(TextEdit {
                         new_text,
-                        range: tombi_text::Range::at(position),
+                        span: tombi_text::Span::empty(offset),
                     }),
                     insert_text_format: Some(InsertTextFormat::SNIPPET),
                     additional_text_edits,
@@ -149,7 +149,7 @@ impl CompletionEdit {
                 Some(Self {
                     text_edit: CompletionTextEdit::Edit(TextEdit {
                         new_text: format!("{quote}$1{quote}$0"),
-                        range: tombi_text::Range::at(position),
+                        span: tombi_text::Span::empty(offset),
                     }),
                     insert_text_format: Some(InsertTextFormat::SNIPPET),
                     additional_text_edits: None,
@@ -160,12 +160,12 @@ impl CompletionEdit {
 
     pub fn new_string_literal_while_editing(
         label: &str,
-        value_range: tombi_text::Range,
+        value_span: tombi_text::Span,
     ) -> Option<Self> {
         Some(Self {
             text_edit: CompletionTextEdit::Edit(TextEdit {
                 new_text: label.to_string(),
-                range: value_range,
+                span: value_span,
             }),
             insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
             additional_text_edits: None,
@@ -173,21 +173,21 @@ impl CompletionEdit {
     }
 
     pub fn new_array_literal(
-        position: tombi_text::Position,
+        offset: tombi_text::Offset,
         completion_hint: Option<CompletionHint>,
     ) -> Option<Self> {
         match completion_hint {
             Some(
-                CompletionHint::DotTrigger { cleanup_range, .. }
-                | CompletionHint::EqualTrigger { cleanup_range, .. },
+                CompletionHint::DotTrigger { cleanup_span, .. }
+                | CompletionHint::EqualTrigger { cleanup_span, .. },
             ) => Some(Self {
                 text_edit: CompletionTextEdit::Edit(TextEdit {
                     new_text: " = [$1]$0".to_string(),
-                    range: tombi_text::Range::at(position),
+                    span: tombi_text::Span::empty(offset),
                 }),
                 insert_text_format: Some(InsertTextFormat::SNIPPET),
                 additional_text_edits: Some(vec![TextEdit {
-                    range: cleanup_range,
+                    span: cleanup_span,
                     new_text: "".to_string(),
                 }]),
             }),
@@ -200,12 +200,12 @@ impl CompletionEdit {
                     None => "[$1]$0".to_string(),
                 };
                 let additional_text_edits =
-                    head_comma_text_edits(add_leading_comma, add_trailing_comma, position);
+                    head_comma_text_edits(add_leading_comma, add_trailing_comma, offset);
 
                 Some(Self {
                     text_edit: CompletionTextEdit::Edit(TextEdit {
                         new_text,
-                        range: tombi_text::Range::at(position),
+                        span: tombi_text::Span::empty(offset),
                     }),
                     insert_text_format: Some(InsertTextFormat::SNIPPET),
                     additional_text_edits,
@@ -215,7 +215,7 @@ impl CompletionEdit {
                 Some(Self {
                     text_edit: CompletionTextEdit::Edit(TextEdit {
                         new_text: "[$1]$0".to_string(),
-                        range: tombi_text::Range::at(position),
+                        span: tombi_text::Span::empty(offset),
                     }),
                     insert_text_format: Some(InsertTextFormat::SNIPPET),
                     additional_text_edits: None,
@@ -225,21 +225,21 @@ impl CompletionEdit {
     }
 
     pub fn new_inline_table(
-        position: tombi_text::Position,
+        offset: tombi_text::Offset,
         completion_hint: Option<CompletionHint>,
     ) -> Option<Self> {
         match completion_hint {
             Some(
-                CompletionHint::DotTrigger { cleanup_range, .. }
-                | CompletionHint::EqualTrigger { cleanup_range, .. },
+                CompletionHint::DotTrigger { cleanup_span, .. }
+                | CompletionHint::EqualTrigger { cleanup_span, .. },
             ) => Some(Self {
                 text_edit: CompletionTextEdit::Edit(TextEdit {
                     new_text: " = { $1 }$0".to_string(),
-                    range: tombi_text::Range::at(position),
+                    span: tombi_text::Span::empty(offset),
                 }),
                 insert_text_format: Some(InsertTextFormat::SNIPPET),
                 additional_text_edits: Some(vec![TextEdit {
-                    range: cleanup_range,
+                    span: cleanup_span,
                     new_text: "".to_string(),
                 }]),
             }),
@@ -252,12 +252,12 @@ impl CompletionEdit {
                     None => "{ $1 }$0".to_string(),
                 };
                 let additional_text_edits =
-                    head_comma_text_edits(add_leading_comma, add_trailing_comma, position);
+                    head_comma_text_edits(add_leading_comma, add_trailing_comma, offset);
 
                 Some(Self {
                     text_edit: CompletionTextEdit::Edit(TextEdit {
                         new_text,
-                        range: tombi_text::Range::at(position),
+                        span: tombi_text::Span::empty(offset),
                     }),
                     insert_text_format: Some(InsertTextFormat::SNIPPET),
                     additional_text_edits,
@@ -267,7 +267,7 @@ impl CompletionEdit {
             Some(CompletionHint::Comma { .. }) | None => Some(Self {
                 text_edit: CompletionTextEdit::Edit(TextEdit {
                     new_text: "{ $1 }$0".to_string(),
-                    range: tombi_text::Range::at(position),
+                    span: tombi_text::Span::empty(offset),
                 }),
                 insert_text_format: Some(InsertTextFormat::SNIPPET),
                 additional_text_edits: None,
@@ -277,7 +277,7 @@ impl CompletionEdit {
 
     pub fn new_key(
         key_name: &str,
-        key_range: tombi_text::Range,
+        key_span: tombi_text::Span,
         completion_hint: Option<CompletionHint>,
     ) -> Option<Self> {
         match completion_hint {
@@ -290,36 +290,36 @@ impl CompletionEdit {
                     None => format!("{{ {key_name}$1 }}$0"),
                 };
                 let additional_text_edits =
-                    head_comma_text_edits(add_leading_comma, add_trailing_comma, key_range.start);
+                    head_comma_text_edits(add_leading_comma, add_trailing_comma, key_span.start);
 
                 Some(Self {
                     text_edit: CompletionTextEdit::Edit(TextEdit {
                         new_text,
-                        range: key_range,
+                        span: key_span,
                     }),
                     insert_text_format: Some(InsertTextFormat::SNIPPET),
                     additional_text_edits,
                 })
             }
-            Some(CompletionHint::EqualTrigger { cleanup_range, .. }) => Some(Self {
+            Some(CompletionHint::EqualTrigger { cleanup_span, .. }) => Some(Self {
                 text_edit: CompletionTextEdit::Edit(TextEdit {
                     new_text: format!(" = {{ {key_name}$1 }}$0"),
-                    range: tombi_text::Range::at(cleanup_range.end),
+                    span: tombi_text::Span::empty(cleanup_span.end),
                 }),
                 insert_text_format: Some(InsertTextFormat::SNIPPET),
                 additional_text_edits: Some(vec![TextEdit {
-                    range: cleanup_range,
+                    span: cleanup_span,
                     new_text: "".to_string(),
                 }]),
             }),
-            Some(CompletionHint::DotTrigger { cleanup_range, .. }) => Some(Self {
+            Some(CompletionHint::DotTrigger { cleanup_span, .. }) => Some(Self {
                 text_edit: CompletionTextEdit::Edit(TextEdit {
                     new_text: format!(".{key_name}"),
-                    range: tombi_text::Range::at(cleanup_range.end),
+                    span: tombi_text::Span::empty(cleanup_span.end),
                 }),
                 insert_text_format: None,
                 additional_text_edits: Some(vec![TextEdit {
-                    range: cleanup_range,
+                    span: cleanup_span,
                     new_text: "".to_string(),
                 }]),
             }),
@@ -327,7 +327,7 @@ impl CompletionEdit {
                 Some(Self {
                     text_edit: CompletionTextEdit::Edit(TextEdit {
                         new_text: key_name.to_string(),
-                        range: key_range,
+                        span: key_span,
                     }),
                     insert_text_format: None,
                     additional_text_edits: None,
@@ -338,7 +338,7 @@ impl CompletionEdit {
 
     pub fn new_key_with_literal(
         key_name: &str,
-        key_range: tombi_text::Range,
+        key_span: tombi_text::Span,
         value_label: &str,
         completion_hint: Option<CompletionHint>,
     ) -> Option<Self> {
@@ -352,43 +352,43 @@ impl CompletionEdit {
                     None => format!("{{ {key_name} = {value_label} }}$0"),
                 };
                 let additional_text_edits =
-                    head_comma_text_edits(add_leading_comma, add_trailing_comma, key_range.start);
+                    head_comma_text_edits(add_leading_comma, add_trailing_comma, key_span.start);
 
                 Some(Self {
                     text_edit: CompletionTextEdit::Edit(TextEdit {
                         new_text,
-                        range: key_range,
+                        span: key_span,
                     }),
                     insert_text_format: Some(InsertTextFormat::SNIPPET),
                     additional_text_edits,
                 })
             }
-            Some(CompletionHint::EqualTrigger { cleanup_range, .. }) => Some(Self {
+            Some(CompletionHint::EqualTrigger { cleanup_span, .. }) => Some(Self {
                 text_edit: CompletionTextEdit::Edit(TextEdit {
                     new_text: format!(" = {{ {key_name} = {value_label} }}"),
-                    range: tombi_text::Range::at(cleanup_range.end),
+                    span: tombi_text::Span::empty(cleanup_span.end),
                 }),
                 insert_text_format: None,
                 additional_text_edits: Some(vec![TextEdit {
-                    range: cleanup_range,
+                    span: cleanup_span,
                     new_text: "".to_string(),
                 }]),
             }),
-            Some(CompletionHint::DotTrigger { cleanup_range, .. }) => Some(Self {
+            Some(CompletionHint::DotTrigger { cleanup_span, .. }) => Some(Self {
                 text_edit: CompletionTextEdit::Edit(TextEdit {
                     new_text: format!(".{key_name} = {value_label}"),
-                    range: tombi_text::Range::at(cleanup_range.end),
+                    span: tombi_text::Span::empty(cleanup_span.end),
                 }),
                 insert_text_format: None,
                 additional_text_edits: Some(vec![TextEdit {
-                    range: cleanup_range,
+                    span: cleanup_span,
                     new_text: "".to_string(),
                 }]),
             }),
             Some(CompletionHint::Comma { .. }) | None => Some(Self {
                 text_edit: CompletionTextEdit::Edit(TextEdit {
                     new_text: format!("{key_name} = {value_label}"),
-                    range: key_range,
+                    span: key_span,
                 }),
                 insert_text_format: None,
                 additional_text_edits: None,
@@ -399,7 +399,7 @@ impl CompletionEdit {
 
     pub fn new_additional_key(
         key_name: &str,
-        key_range: tombi_text::Range,
+        key_span: tombi_text::Span,
         completion_hint: Option<CompletionHint>,
     ) -> Option<Self> {
         match completion_hint {
@@ -412,36 +412,36 @@ impl CompletionEdit {
                     None => format!("{{ ${{1:{key_name}}} }}$0"),
                 };
                 let additional_text_edits =
-                    head_comma_text_edits(add_leading_comma, add_trailing_comma, key_range.start);
+                    head_comma_text_edits(add_leading_comma, add_trailing_comma, key_span.start);
 
                 Some(Self {
                     text_edit: CompletionTextEdit::Edit(TextEdit {
                         new_text,
-                        range: key_range,
+                        span: key_span,
                     }),
                     insert_text_format: Some(InsertTextFormat::SNIPPET),
                     additional_text_edits,
                 })
             }
-            Some(CompletionHint::EqualTrigger { cleanup_range, .. }) => Some(Self {
+            Some(CompletionHint::EqualTrigger { cleanup_span, .. }) => Some(Self {
                 text_edit: CompletionTextEdit::Edit(TextEdit {
                     new_text: format!(" = {{ ${{1:{key_name}}} }}$0"),
-                    range: tombi_text::Range::at(cleanup_range.end),
+                    span: tombi_text::Span::empty(cleanup_span.end),
                 }),
                 insert_text_format: Some(InsertTextFormat::SNIPPET),
                 additional_text_edits: Some(vec![TextEdit {
-                    range: cleanup_range,
+                    span: cleanup_span,
                     new_text: "".to_string(),
                 }]),
             }),
-            Some(CompletionHint::DotTrigger { cleanup_range, .. }) => Some(Self {
+            Some(CompletionHint::DotTrigger { cleanup_span, .. }) => Some(Self {
                 text_edit: CompletionTextEdit::Edit(TextEdit {
                     new_text: format!(".${{0:{key_name}}}"),
-                    range: tombi_text::Range::at(cleanup_range.end),
+                    span: tombi_text::Span::empty(cleanup_span.end),
                 }),
                 insert_text_format: None,
                 additional_text_edits: Some(vec![TextEdit {
-                    range: cleanup_range,
+                    span: cleanup_span,
                     new_text: "".to_string(),
                 }]),
             }),
@@ -449,7 +449,7 @@ impl CompletionEdit {
                 Some(Self {
                     text_edit: CompletionTextEdit::Edit(TextEdit {
                         new_text: format!("${{0:{key_name}}}"),
-                        range: key_range,
+                        span: key_span,
                     }),
                     insert_text_format: Some(InsertTextFormat::SNIPPET),
                     additional_text_edits: None,
@@ -458,11 +458,11 @@ impl CompletionEdit {
         }
     }
 
-    pub fn new_magic_trigger(trigger: &str, position: tombi_text::Position) -> Option<Self> {
+    pub fn new_magic_trigger(trigger: &str, offset: tombi_text::Offset) -> Option<Self> {
         Some(Self {
             text_edit: CompletionTextEdit::Edit(TextEdit {
                 new_text: trigger.to_string(),
-                range: tombi_text::Range::at(position),
+                span: tombi_text::Span::empty(offset),
             }),
             insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
             additional_text_edits: None,
@@ -470,8 +470,8 @@ impl CompletionEdit {
     }
 
     pub fn new_schema_comment_directive(
-        position: tombi_text::Position,
-        comment_range: tombi_text::Range,
+        offset: tombi_text::Offset,
+        comment_span: tombi_text::Span,
         text_document_uri: &tombi_uri::Uri,
     ) -> Option<Self> {
         let file_name = std::path::Path::new(text_document_uri.path())
@@ -489,11 +489,11 @@ impl CompletionEdit {
         Some(Self {
             text_edit: CompletionTextEdit::Edit(TextEdit {
                 new_text: format!("#:schema ${{0:{schema_uri}}}"),
-                range: tombi_text::Range::at(position),
+                span: tombi_text::Span::empty(offset),
             }),
             insert_text_format: Some(InsertTextFormat::SNIPPET),
             additional_text_edits: Some(vec![TextEdit {
-                range: comment_range,
+                span: comment_span,
                 new_text: "".to_string(),
             }]),
         })
@@ -501,45 +501,33 @@ impl CompletionEdit {
 
     pub fn new_comment_directive(
         directive_name: &str,
-        position: tombi_text::Position,
-        comment_range: tombi_text::Range,
+        offset: tombi_text::Offset,
+        comment_span: tombi_text::Span,
     ) -> Option<Self> {
         Some(Self {
             text_edit: CompletionTextEdit::Edit(TextEdit {
                 new_text: format!("#:{directive_name} "),
-                range: tombi_text::Range::at(position),
+                span: tombi_text::Span::empty(offset),
             }),
             insert_text_format: None,
             additional_text_edits: Some(vec![TextEdit {
-                range: comment_range,
+                span: comment_span,
                 new_text: "".to_string(),
             }]),
         })
     }
 
-    pub fn with_position(mut self, position: tombi_text::Position) -> Self {
-        fn offset(range: tombi_text::Range, position: tombi_text::Position) -> tombi_text::Range {
-            let start = tombi_text::Position::new(
-                range.start.line + position.line,
-                range.start.column + position.column,
-            );
-            let end = tombi_text::Position::new(
-                range.end.line + position.line,
-                range.end.column + position.column,
-            );
-
-            tombi_text::Range::new(start, end)
-        }
-
+    /// Shifts the edits by `offset`, for an edit computed in a text embedded at `offset`.
+    pub fn with_offset(mut self, offset: tombi_text::Offset) -> Self {
         self.text_edit = match self.text_edit {
             CompletionTextEdit::Edit(text_edit) => CompletionTextEdit::Edit(TextEdit {
-                range: offset(text_edit.range, position),
+                span: text_edit.span + offset,
                 new_text: text_edit.new_text,
             }),
             CompletionTextEdit::InsertAndReplace(insert_replace_edit) => {
                 CompletionTextEdit::InsertAndReplace(InsertReplaceEdit {
-                    insert: offset(insert_replace_edit.insert, position),
-                    replace: offset(insert_replace_edit.replace, position),
+                    insert: insert_replace_edit.insert + offset,
+                    replace: insert_replace_edit.replace + offset,
                     new_text: insert_replace_edit.new_text,
                 })
             }
@@ -547,7 +535,7 @@ impl CompletionEdit {
 
         if let Some(edits) = &mut self.additional_text_edits {
             for edit in edits {
-                edit.range = offset(edit.range, position);
+                edit.span += offset;
             }
         }
 
@@ -558,25 +546,26 @@ impl CompletionEdit {
 fn head_comma_text_edits(
     add_leading_comma: Option<AddLeadingComma>,
     _add_trailing_comma: Option<AddTrailingComma>,
-    cursor_position: tombi_text::Position,
+    cursor_offset: tombi_text::Offset,
 ) -> Option<Vec<TextEdit>> {
-    if let Some(AddLeadingComma { start_position }) = add_leading_comma {
-        let new_text = if start_position.line == cursor_position.line {
+    if let Some(AddLeadingComma {
+        start_offset,
+        line_breaks,
+        indent,
+    }) = add_leading_comma
+    {
+        let new_text = if line_breaks == 0 {
             ", ".to_string()
         } else {
             format!(
                 ",{newlines}{spaces}",
-                newlines = "\n"
-                    .repeat((cursor_position.line.saturating_sub(start_position.line)) as usize),
-                spaces = " ".repeat(cursor_position.column as usize)
+                newlines = "\n".repeat(line_breaks as usize),
+                spaces = " ".repeat(indent as usize)
             )
         };
 
         Some(vec![TextEdit {
-            range: tombi_text::Range {
-                start: start_position,
-                end: cursor_position,
-            },
+            span: tombi_text::Span::new(start_offset, cursor_offset),
             new_text,
         }])
     } else {

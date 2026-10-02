@@ -53,7 +53,6 @@ from launchpadlib.credentials import (
 )
 from launchpadlib import uris
 
-
 # Import old constants for backwards compatibility
 from launchpadlib.uris import (  # noqa: F401
     STAGING_SERVICE_ROOT,
@@ -239,14 +238,14 @@ class Launchpad(ServiceRoot):
         return {"SUDO_USER", "SUDO_UID", "SUDO_GID"} & set(os.environ.keys())
 
     @classmethod
-    def authorization_engine_factory(cls, *args):
+    def authorization_engine_factory(cls, **kwargs):
         if cls._is_sudo():
             # Do not try to open browser window under sudo;
             # we probably don't have access to the X session,
             # and some browsers (e.g. chromium) won't run as root
             # LP: #1825014
-            return AuthorizeRequestTokenWithURL(*args)
-        return AuthorizeRequestTokenWithBrowser(*args)
+            return AuthorizeRequestTokenWithURL(**kwargs)
+        return AuthorizeRequestTokenWithBrowser(**kwargs)
 
     @classmethod
     def credential_store_factory(cls, credential_save_failed):
@@ -314,7 +313,9 @@ class Launchpad(ServiceRoot):
         )
         if authorization_engine is None:
             authorization_engine = cls.authorization_engine_factory(
-                service_root, consumer_name, allow_access_levels
+                service_root=service_root,
+                application_name=consumer_name,
+                allow_access_levels=allow_access_levels,
             )
         if credential_store is None:
             credential_store = cls.credential_store_factory(
@@ -416,7 +417,9 @@ class Launchpad(ServiceRoot):
         credentials.consumer = consumer
         if authorization_engine is None:
             authorization_engine = cls.authorization_engine_factory(
-                service_root, consumer_name, None, allow_access_levels
+                service_root=service_root,
+                consumer_name=consumer_name,
+                allow_access_levels=allow_access_levels,
             )
         if credential_store is None:
             credential_store = cls.credential_store_factory(
@@ -438,6 +441,17 @@ class Launchpad(ServiceRoot):
         cached_credentials = credential_store.load(
             authorization_engine.unique_consumer_id
         )
+        if cached_credentials is not None and not cls._may_reuse_credentials(
+            cached_credentials, authorization_engine.consumer
+        ):
+            # The cached credentials were issued to a consumer we can't
+            # reuse them as, so discard them and authorize afresh. This
+            # matters mostly for UnencryptedFileCredentialStore, whose
+            # load() ignores the unique consumer id and returns whatever
+            # token is in the file; reusing a token issued to a different
+            # consumer (that may be expired) would fail with a bad-token
+            # error and trigger a confusing failing reauthorization.
+            cached_credentials = None
         if cached_credentials is None:
             # They're not there. Acquire new credentials using the
             # authorization engine.
@@ -464,6 +478,38 @@ class Launchpad(ServiceRoot):
             proxy_info,
             version,
         )
+
+    @staticmethod
+    def _may_reuse_credentials(cached_credentials, requested_consumer):
+        """Decide whether cached credentials may be reused for a login.
+
+        Cached credentials are only reused when they clearly belong to
+        the consumer we're authorizing as:
+
+        * the cached consumer key matches the one we're logging in with
+          (the same named consumer, or the same system-wide consumer on
+          this host), or
+        * both the cached and the requested consumer are system-wide.
+          System-wide consumers are keyed by hostname.
+
+        :param cached_credentials: The `Credentials` loaded from the
+            credential store.
+        :param requested_consumer: The consumer we are authorizing as.
+        :return: True if the cached credentials may be reused.
+        """
+        cached_consumer = cached_credentials.consumer
+        if cached_consumer is None:
+            return False
+        if cached_consumer.key == requested_consumer.key:
+            return True
+        # A credential loaded from storage is always reconstructed as a
+        # plain Consumer, even when its key is a system-wide one, so we
+        # can't use isinstance() to recognise a cached system-wide
+        # consumer. Detect it by the system-wide key format instead.
+        system_wide_prefix = SystemWideConsumer.KEY_FORMAT.split("%s", 1)[0]
+        return isinstance(
+            requested_consumer, SystemWideConsumer
+        ) and cached_consumer.key.startswith(system_wide_prefix)
 
     @classmethod
     def login_anonymously(
@@ -661,10 +707,10 @@ class Launchpad(ServiceRoot):
 
         if authorization_engine is None:
             authorization_engine = cls.authorization_engine_factory(
-                service_root,
-                application_name,
-                consumer_name,
-                allow_access_levels,
+                service_root=service_root,
+                allow_access_levels=allow_access_levels,
+                application_name=application_name,
+                consumer_name=consumer_name,
             )
         else:
             # An authorization engine was passed in, so we won't be

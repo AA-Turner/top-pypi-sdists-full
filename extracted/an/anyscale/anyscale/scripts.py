@@ -97,8 +97,7 @@ class AliasedGroup(click.Group):
     no_args_is_help=True,
     cls=AliasedGroup,
     context_settings={"help_option_names": ["-h", "--help"]},
-    help="Manage Anyscale jobs, services, workspaces, clouds, and compute "
-    "from the command line.",
+    help="Manage Anyscale jobs, services, workspaces, clouds, and compute from the command line.",
 )
 @click.option(
     "--version",
@@ -162,9 +161,7 @@ def cli(ctx: Any, version_flag: bool, show_json: bool) -> None:
     show_default=True,
     help="Output format for the result.",
 )
-@click.option(
-    "--json", "show_json", is_flag=True, default=False, help="Return output as json."
-)
+@click.option("--json", "show_json", is_flag=True, default=False, help="Return output as json.")
 def version_cli(show_json: bool, output_format: str = OutputFormat.TEXT.value) -> None:
     if show_json:
         warn_deprecated_flag("--json", "-o json")
@@ -175,9 +172,7 @@ def version_cli(show_json: bool, output_format: str = OutputFormat.TEXT.value) -
         print(anyscale.__version__)
 
 
-@cli.command(
-    name="help", help="Display help documentation for anyscale CLI.", hidden=True
-)
+@cli.command(name="help", help="Display help documentation for anyscale CLI.", hidden=True)
 @click.pass_context
 def anyscale_help(ctx: Any) -> None:
     print(ctx.parent.get_help())

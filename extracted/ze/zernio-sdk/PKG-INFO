@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: zernio-sdk
-Version: 1.4.1048
+Version: 1.4.1067
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -288,6 +288,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | Method | Description |
 |--------|-------------|
 | `analytics.get_analytics()` | Get post analytics |
+| `analytics.get_analytics_dashboard()` | Get an analytics dashboard |
 | `analytics.get_analytics_delta()` | Analytics changed since a cursor |
 | `analytics.get_best_time_to_post()` | Get best times to post |
 | `analytics.get_content_decay()` | Get content performance decay |
@@ -775,6 +776,11 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `calls.list_calls()` | List all calls (unified history) |
 | `calls.get_call()` | Get a call (any channel) |
 | `calls.get_call_recording()` | Get a call recording |
+
+### Changelog
+| Method | Description |
+|--------|-------------|
+| `changelog.list_changelog()` | List API changelog entries |
 
 ### Comment Automations
 | Method | Description |

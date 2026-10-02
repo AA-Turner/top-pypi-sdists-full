@@ -1,0 +1,92 @@
+name: Codex PR Review
+
+on:
+  pull_request:
+    types: [labeled]
+
+jobs:
+  codex:
+    # Three gates, all required:
+    #   1. The "codex-review" label was the one just applied. (Label
+    #      application requires triage permission, but that grant is too
+    #      coarse for spending OPENAI_API_KEY on arbitrary PR code.)
+    #   2. The PR head is in this repo, not a fork. Fork PRs would not get
+    #      the secret anyway, and rejecting them up front avoids noisy
+    #      failure runs.
+    #   3. The user who applied the label is on the explicit ai-engine
+    #      allow-list below. This is the actual access gate — only humans
+    #      authorized to spend Codex budget can trigger a run on otherwise
+    #      arbitrary PR code. Refresh from `gh api orgs/mixpanel/teams/
+    #      ai-engine/members --jq '.[].login'` when the team changes.
+    if: |
+      github.event.label.name == 'codex-review' &&
+      github.event.pull_request.head.repo.fork == false &&
+      contains(fromJSON('["xxx","sumitngupta","msiebert","gslopez","micaww","jaredmixpanel","joshua-koehler"]'), github.event.sender.login)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      final_message: ${{ steps.run_codex.outputs.final-message }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
+
+      - name: Pre-fetch base and head refs
+        run: |
+          git fetch --no-tags origin \
+            ${{ github.event.pull_request.base.ref }} \
+            +refs/pull/${{ github.event.pull_request.number }}/head
+
+      - name: Restore trusted Codex config from base
+        # The PR's checkout includes any PR-supplied changes to the Codex
+        # prompt and config. A malicious same-repo PR could rewrite
+        # `.github/codex/prompts/review.md` to instruct the LLM to
+        # exfiltrate `OPENAI_API_KEY` or take other unauthorized actions
+        # the moment an ai-engine reviewer applies the label without
+        # noticing the prompt diff. Restore the entire `.github/codex/`
+        # tree from the merge target so codex always reads the trusted
+        # base copy regardless of what the PR changed.
+        run: |
+          git checkout "origin/${{ github.event.pull_request.base.ref }}" -- .github/codex/
+
+      - name: Run Codex
+        id: run_codex
+        uses: openai/codex-action@52fe01ec70a42f454c9d2ebd47598f9fd6893d56 # v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: .github/codex/prompts/review.md
+          output-file: codex-output.md
+          safety-strategy: drop-sudo
+          sandbox: workspace-write
+
+      - name: Upload Codex output
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: codex-output
+          path: codex-output.md
+          if-no-files-found: ignore
+
+  post_feedback:
+    runs-on: ubuntu-latest
+    needs: codex
+    if: needs.codex.outputs.final_message != ''
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Post Codex feedback
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: process.env.CODEX_FINAL_MESSAGE,
+            });
+        env:
+          CODEX_FINAL_MESSAGE: ${{ needs.codex.outputs.final_message }}

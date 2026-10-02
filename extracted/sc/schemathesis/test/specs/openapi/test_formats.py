@@ -2,7 +2,7 @@ from base64 import b64decode
 
 import jsonschema_rs
 import pytest
-from hypothesis import HealthCheck, given, settings
+from hypothesis import HealthCheck, find, given, settings
 from hypothesis import strategies as st
 
 from schemathesis.config import GenerationConfig
@@ -91,6 +91,30 @@ def test_byte_format_is_base64(data):
 @SETTINGS
 def test_binary_format_carries_bytes(data):
     assert isinstance(data.draw(FORMATS["binary"]), Binary)
+
+
+SIGNATURES = (b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff", b"GIF87a", b"RIFF", b"%PDF-", b"PK\x03\x04")
+FILE_SIGNATURES = pytest.mark.parametrize("signature", SIGNATURES, ids=["png", "jpeg", "gif", "webp", "pdf", "zip"])
+
+
+@FILE_SIGNATURES
+def test_binary_format_draws_real_files(signature):
+    # Upload handlers that parse the file reject random bytes before reaching their own logic.
+    find(FORMATS["binary"], lambda value: value.data.startswith(signature), settings=SETTINGS)
+
+
+@FILE_SIGNATURES
+def test_length_bounded_binary_format_draws_real_files(signature):
+    built = _canonical_strategy(
+        {"type": "string", "format": "binary", "minLength": 1, "maxLength": 1000},
+        GenerationConfig(),
+        jsonschema_rs.Draft202012Validator,
+    )
+    find(built, lambda value: value.data.startswith(signature), settings=SETTINGS)
+
+
+def test_binary_format_still_draws_arbitrary_bytes():
+    find(FORMATS["binary"], lambda value: value.data and not value.data.startswith(SIGNATURES), settings=SETTINGS)
 
 
 @pytest.mark.parametrize("name", ["_header_value", "_basic_auth", "_bearer_auth", "_if_match_header"])
@@ -210,7 +234,7 @@ def test_canonical_strategy_cache_respects_header_exclusions():
     ids=["pattern", "minLength", "maxLength"],
 )
 def test_binary_format_with_string_keywords(keywords):
-    # A binary payload is not a JSON string, so the keywords around it have no say over its bytes.
+    # Keywords written for JSON strings must not turn a binary payload into text.
     built = _canonical_strategy(
         {"type": "string", "format": "binary", **keywords},
         GenerationConfig(),
@@ -249,5 +273,39 @@ def test_length_narrowed_domain_carries_a_dot(name):
     @SETTINGS
     def test(value):
         assert "." in value.rsplit("@", 1)[-1], value
+
+    test()
+
+
+@pytest.mark.parametrize(
+    ("media_type", "keywords", "low", "high"),
+    [
+        ("application/octet-stream", {"minLength": 5, "maxLength": 5}, 5, 5),
+        ("application/octet-stream", {"minLength": 1}, 1, float("inf")),
+        ("application/octet-stream", {"maxLength": 3}, 0, 3),
+        ("application/json", {"minLength": 2, "maxLength": 4}, 2, 4),
+    ],
+    ids=["exact", "min-only", "max-only", "json"],
+)
+def test_binary_format_respects_length_keywords(ctx, media_type, keywords, low, high):
+    # An empty body for `minLength: 1` reads as a missing body to servers.
+    schema = ctx.openapi.load_schema(
+        {
+            "/upload": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {media_type: {"schema": {"type": "string", "format": "binary", **keywords}}},
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+
+    @given(schema["/upload"]["POST"].as_strategy(generation_mode=GenerationMode.POSITIVE))
+    @settings(max_examples=10, deadline=None, database=None, suppress_health_check=list(HealthCheck))
+    def test(case):
+        assert low <= len(case.body.data) <= high, case.body
 
     test()

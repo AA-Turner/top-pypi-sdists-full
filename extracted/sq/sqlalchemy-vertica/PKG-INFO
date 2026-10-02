@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlalchemy-vertica
-Version: 1.0.1
+Version: 1.0.2
 Summary: Vertica dialect for SQLAlchemy 2.0+ with Async & Alembic support
 Author-email: Luis Villamarin <luis@lv10.me>
 License-Expression: MIT

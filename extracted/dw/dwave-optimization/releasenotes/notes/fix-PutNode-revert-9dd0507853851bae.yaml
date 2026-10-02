@@ -1,3 +1,0 @@
----
-fixes:
-  - Correctly update the state of the mask when reverting a ``PutNode``.

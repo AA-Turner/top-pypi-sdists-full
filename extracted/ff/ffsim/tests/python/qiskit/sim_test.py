@@ -1,0 +1,583 @@
+# (C) Copyright IBM 2025.
+#
+# This code is licensed under the Apache License, Version 2.0. You may
+# obtain a copy of this license in the LICENSE.txt file in the root directory
+# of this source tree or at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# Any modifications or derivative works of this code must retain this
+# copyright notice, and modified files need to carry a notice indicating
+# that they have been altered from the originals.
+
+"""Tests for state vector simulation of Qiskit circuits."""
+
+from __future__ import annotations
+
+import itertools
+import random
+
+import numpy as np
+import pytest
+from qiskit.circuit import QuantumCircuit, QuantumRegister
+from qiskit.circuit.library import (
+    CCZGate,
+    CPhaseGate,
+    CRZGate,
+    CSdgGate,
+    CSGate,
+    CSwapGate,
+    CZGate,
+    DiagonalGate,
+    GlobalPhaseGate,
+    IGate,
+    InnerProductGate,
+    MCPhaseGate,
+    PermutationGate,
+    PhaseGate,
+    PhaseOracleGate,
+    RZGate,
+    RZZGate,
+    SdgGate,
+    SGate,
+    SwapGate,
+    TdgGate,
+    TGate,
+    UCRZGate,
+    XGate,
+    XXPlusYYGate,
+    ZGate,
+    iSwapGate,
+)
+from qiskit.quantum_info import Statevector
+
+import ffsim
+
+RNG = np.random.default_rng(26315741277058578238401729559131932765)
+
+
+def _brickwork(norb: int, n_layers: int):
+    for i in range(n_layers):
+        for j in range(i % 2, norb - 1, 2):
+            yield (j, j + 1)
+
+
+@pytest.mark.parametrize(
+    "norb, nelec",
+    ffsim.testing.generate_norb_nelec(exhaustive=False, include_norb_zero=False),
+)
+def test_random_gates_spinful(norb: int, nelec: tuple[int, int]):
+    """Test with random gates."""
+    # Initialize test objects
+    orbital_rotation = ffsim.random.random_unitary(norb, seed=RNG)
+    diag_coulomb_mat = ffsim.random.random_real_symmetric_matrix(norb, seed=RNG)
+    ucj_op_balanced = ffsim.random.random_ucj_op_spin_balanced(
+        norb, n_reps=2, with_final_orbital_rotation=True, seed=RNG
+    )
+    ucj_op_unbalanced = ffsim.random.random_ucj_op_spin_unbalanced(
+        norb, n_reps=2, with_final_orbital_rotation=True, seed=RNG
+    )
+    df_hamiltonian_num_rep = ffsim.random.random_double_factorized_hamiltonian(
+        norb, rank=3, z_representation=False, seed=RNG
+    )
+    df_hamiltonian_z_rep = ffsim.random.random_double_factorized_hamiltonian(
+        norb, rank=3, z_representation=True, seed=RNG
+    )
+    interaction_pairs = list(_brickwork(norb, norb))
+    thetas = RNG.uniform(-np.pi, np.pi, size=len(interaction_pairs))
+    phis = RNG.uniform(-np.pi, np.pi, size=len(interaction_pairs))
+    phase_angles = RNG.uniform(-np.pi, np.pi, size=norb)
+    givens_ansatz_op = ffsim.GivensAnsatzOp(
+        norb, interaction_pairs, thetas, phis=phis, phase_angles=phase_angles
+    )
+
+    # Construct circuit
+    qubits = QuantumRegister(2 * norb)
+    circuit = QuantumCircuit(qubits)
+    circuit.append(ffsim.qiskit.PrepareHartreeFockJW(norb, nelec), qubits)
+    for q in qubits:
+        circuit.append(IGate(), [q])
+    circuit.append(ffsim.qiskit.OrbitalRotationJW(norb, orbital_rotation), qubits)
+    circuit.append(
+        ffsim.qiskit.DiagCoulombEvolutionJW(norb, diag_coulomb_mat, time=1.0), qubits
+    )
+    circuit.append(ffsim.qiskit.GivensAnsatzOpJW(givens_ansatz_op), qubits)
+    circuit.append(ffsim.qiskit.UCJOpSpinBalancedJW(ucj_op_balanced), qubits)
+    circuit.append(ffsim.qiskit.UCJOpSpinUnbalancedJW(ucj_op_unbalanced), qubits)
+    circuit.append(
+        ffsim.qiskit.SimulateTrotterDoubleFactorizedJW(
+            df_hamiltonian_num_rep, time=1.0
+        ),
+        qubits,
+    )
+    circuit.append(
+        ffsim.qiskit.SimulateTrotterDoubleFactorizedJW(df_hamiltonian_z_rep, time=1.0),
+        qubits,
+    )
+
+    # Compute state vector using ffsim
+    ffsim_vec = ffsim.qiskit.final_state_vector(circuit)
+
+    # Compute state vector using Qiskit
+    qiskit_vec = ffsim.qiskit.qiskit_vec_to_ffsim_vec(
+        Statevector(circuit).data, norb=norb, nelec=nelec
+    )
+
+    # Check that the state vectors match
+    np.testing.assert_allclose(ffsim_vec, qiskit_vec)
+
+
+@pytest.mark.parametrize(
+    "norb, nocc",
+    ffsim.testing.generate_norb_nocc(exhaustive=False, include_norb_zero=False),
+)
+def test_random_gates_spinless(norb: int, nocc: int):
+    """Test with random spinless gates."""
+    # Initialize test objects
+    orbital_rotation = ffsim.random.random_unitary(norb, seed=RNG)
+    interaction_pairs = list(_brickwork(norb, norb))
+    thetas = RNG.uniform(-np.pi, np.pi, size=len(interaction_pairs))
+    phis = RNG.uniform(-np.pi, np.pi, size=len(interaction_pairs))
+    phase_angles = RNG.uniform(-np.pi, np.pi, size=norb)
+    givens_ansatz_op = ffsim.GivensAnsatzOp(
+        norb, interaction_pairs, thetas, phis=phis, phase_angles=phase_angles
+    )
+    ucj_op = ffsim.random.random_ucj_op_spinless(
+        norb, n_reps=2, with_final_orbital_rotation=True, seed=RNG
+    )
+
+    # Construct circuit
+    qubits = QuantumRegister(norb)
+    circuit = QuantumCircuit(qubits)
+    circuit.append(ffsim.qiskit.PrepareHartreeFockSpinlessJW(norb, nocc), qubits)
+    for q in qubits:
+        circuit.append(IGate(), [q])
+    circuit.append(
+        ffsim.qiskit.OrbitalRotationSpinlessJW(norb, orbital_rotation), qubits
+    )
+    circuit.append(ffsim.qiskit.GivensAnsatzOpSpinlessJW(givens_ansatz_op), qubits)
+    circuit.append(ffsim.qiskit.UCJOpSpinlessJW(ucj_op), qubits)
+
+    # Compute state vector using ffsim
+    ffsim_vec = ffsim.qiskit.final_state_vector(circuit)
+
+    # Compute state vector using Qiskit
+    qiskit_vec = ffsim.qiskit.qiskit_vec_to_ffsim_vec(
+        Statevector(circuit).data, norb=norb, nelec=nocc
+    )
+
+    # Check that the state vectors match
+    np.testing.assert_allclose(ffsim_vec, qiskit_vec)
+
+
+@pytest.mark.parametrize(
+    "norb, nelec",
+    [
+        (norb, nelec)
+        for norb, nelec in ffsim.testing.generate_norb_nelec(
+            exhaustive=False, include_norb_zero=False
+        )
+        if nelec != (0, 0)
+    ],
+)
+def test_qiskit_gates_spinful(norb: int, nelec: tuple[int, int]):
+    """Test with Qiskit gates, spinful."""
+    prng = random.Random(RNG.bytes(16))
+    pairs = list(itertools.combinations(range(norb), 2))
+    prng.shuffle(pairs)
+    big_pairs = list(itertools.combinations(range(2 * norb), 2))
+    prng.shuffle(big_pairs)
+    triples = list(itertools.combinations(range(2 * norb), 3))
+    prng.shuffle(triples)
+    quadruples = list(itertools.combinations(range(2 * norb), 4))
+    prng.shuffle(quadruples)
+
+    # Construct circuit
+    qubits = QuantumRegister(2 * norb)
+    circuit = QuantumCircuit(qubits)
+    n_alpha, n_beta = nelec
+    for i in range(n_alpha):
+        circuit.append(XGate(), [qubits[i]])
+    for i in range(n_beta):
+        circuit.append(XGate(), [qubits[norb + i]])
+    for q in qubits:
+        circuit.append(IGate(), [q])
+    for i, j in prng.choices(pairs, k=len(pairs) // 2):
+        circuit.append(
+            XXPlusYYGate(RNG.uniform(-10, 10), RNG.uniform(-10, 10)),
+            [qubits[i], qubits[j]],
+        )
+        circuit.append(
+            XXPlusYYGate(RNG.uniform(-10, 10), RNG.uniform(-10, 10)),
+            [qubits[norb + j], qubits[norb + i]],
+        )
+    for q in qubits:
+        circuit.append(PhaseGate(RNG.uniform(-10, 10)), [q])
+    if norb == 1:
+        circuit.append(
+            PhaseOracleGate("x0 ^ x1", var_order=["x0", "x1"]),
+            [qubits[1], qubits[0]],
+        )
+    else:
+        circuit.append(
+            PhaseOracleGate("x0 ^ x1 ^ x2", var_order=["x0", "x1", "x2"]),
+            [qubits[norb], qubits[0], qubits[norb + 1]],
+        )
+    for i, j in prng.choices(big_pairs, k=len(big_pairs) // 2):
+        circuit.append(CPhaseGate(RNG.uniform(-10, 10)), [qubits[i], qubits[j]])
+    for i, j in prng.choices(big_pairs, k=len(big_pairs) // 2):
+        circuit.append(
+            MCPhaseGate(RNG.uniform(-10, 10), 1, ctrl_state=prng.randrange(2)),
+            [qubits[i], qubits[j]],
+        )
+    for i, j, k in prng.choices(triples, k=len(triples) // 2):
+        circuit.append(
+            MCPhaseGate(RNG.uniform(-10, 10), 2, ctrl_state=prng.randrange(4)),
+            [qubits[i], qubits[j], qubits[k]],
+        )
+    for i, j, k, m in prng.choices(quadruples, k=len(quadruples) // 2):
+        circuit.append(
+            MCPhaseGate(RNG.uniform(-10, 10), 3, ctrl_state=prng.randrange(8)),
+            [qubits[i], qubits[j], qubits[k], qubits[m]],
+        )
+    for i, j in prng.choices(big_pairs, k=len(big_pairs) // 2):
+        circuit.append(CRZGate(RNG.uniform(-10, 10)), [qubits[i], qubits[j]])
+    for q in prng.choices(qubits, k=min(len(qubits), 3)):
+        circuit.append(UCRZGate([RNG.uniform(-10, 10)]), [q])
+    for q_target, q_control in prng.choices(big_pairs, k=min(len(big_pairs), 3)):
+        circuit.append(
+            UCRZGate(list(RNG.uniform(-10, 10, size=2))),
+            [qubits[q_target], qubits[q_control]],
+        )
+    for q_target, q_control_0, q_control_1 in prng.choices(
+        triples, k=min(len(triples), 3)
+    ):
+        circuit.append(
+            UCRZGate(list(RNG.uniform(-10, 10, size=4))),
+            [qubits[q_target], qubits[q_control_0], qubits[q_control_1]],
+        )
+    for i, j in prng.choices(big_pairs, k=len(big_pairs) // 2):
+        circuit.append(CZGate(), [qubits[i], qubits[j]])
+    for i, j in prng.choices(big_pairs, k=len(big_pairs) // 2):
+        circuit.append(CSGate(), [qubits[i], qubits[j]])
+    for i, j in prng.choices(big_pairs, k=len(big_pairs) // 2):
+        circuit.append(CSdgGate(), [qubits[i], qubits[j]])
+    for i, j, k in prng.choices(triples, k=len(triples) // 2):
+        circuit.append(CCZGate(), [qubits[i], qubits[j], qubits[k]])
+    for c, i, j in prng.choices(triples, k=len(triples) // 2):
+        if (i < norb) == (j < norb):
+            circuit.append(CSwapGate(), [qubits[c], qubits[i], qubits[j]])
+    for i, j in prng.choices(pairs, k=len(pairs) // 2):
+        circuit.append(iSwapGate(), [qubits[i], qubits[j]])
+        circuit.append(iSwapGate(), [qubits[norb + i], qubits[norb + j]])
+    for q in qubits:
+        circuit.append(RZGate(RNG.uniform(-10, 10)), [q])
+    for i, j in prng.choices(big_pairs, k=len(big_pairs) // 2):
+        circuit.append(RZZGate(RNG.uniform(-10, 10)), [qubits[i], qubits[j]])
+    for i, j in prng.choices(pairs, k=len(pairs) // 2):
+        circuit.append(
+            XXPlusYYGate(RNG.uniform(-10, 10), RNG.uniform(-10, 10)),
+            [qubits[i], qubits[j]],
+        )
+        circuit.append(
+            XXPlusYYGate(RNG.uniform(-10, 10), RNG.uniform(-10, 10)),
+            [qubits[norb + i], qubits[norb + j]],
+        )
+        circuit.append(SwapGate(), [qubits[i], qubits[j]])
+        circuit.append(SwapGate(), [qubits[norb + i], qubits[norb + j]])
+    chosen = RNG.choice(2 * norb, size=min(3, 2 * norb), replace=False)
+    diag = np.exp(1j * RNG.uniform(-np.pi, np.pi, size=1 << len(chosen)))
+    circuit.append(DiagonalGate(diag), [qubits[i] for i in chosen])
+    diag = np.exp(1j * RNG.uniform(-np.pi, np.pi, size=1 << 2 * norb))
+    circuit.append(DiagonalGate(diag), qubits)
+    circuit.append(InnerProductGate(norb), qubits)
+    circuit.append(PermutationGate(list(RNG.permutation(norb))), qubits[:norb])
+    circuit.append(PermutationGate(list(RNG.permutation(norb))), qubits[norb:])
+    circuit.append(GlobalPhaseGate(RNG.uniform(-10, 10)))
+
+    # Compute state vector using ffsim
+    ffsim_vec = ffsim.qiskit.final_state_vector(circuit, norb=norb, nelec=nelec)
+
+    # Compute state vector using Qiskit
+    qiskit_vec = ffsim.qiskit.qiskit_vec_to_ffsim_vec(
+        Statevector(circuit).data, norb=norb, nelec=nelec
+    )
+
+    # Check that the state vectors match
+    np.testing.assert_allclose(ffsim_vec, qiskit_vec, atol=1e-12)
+
+
+@pytest.mark.parametrize(
+    "norb, nocc",
+    [
+        (norb, nocc)
+        for norb, nocc in ffsim.testing.generate_norb_nocc(
+            exhaustive=False, include_norb_zero=False
+        )
+        if nocc
+    ],
+)
+def test_qiskit_gates_spinless(norb: int, nocc: int):
+    """Test with Qiskit gates, spinless."""
+    prng = random.Random(RNG.bytes(16))
+    pairs = list(itertools.combinations(range(norb), 2))
+    prng.shuffle(pairs)
+    triples = list(itertools.combinations(range(norb), 3))
+    prng.shuffle(triples)
+
+    # Construct circuit
+    qubits = QuantumRegister(norb)
+    circuit = QuantumCircuit(qubits)
+    for i in range(nocc):
+        circuit.append(XGate(), [qubits[i]])
+    for q in qubits:
+        circuit.append(IGate(), [q])
+    for i, j in prng.choices(pairs, k=len(pairs) // 2):
+        circuit.append(
+            XXPlusYYGate(RNG.uniform(-10, 10), RNG.uniform(-10, 10)),
+            [qubits[i], qubits[j]],
+        )
+    for q in qubits:
+        circuit.append(PhaseGate(RNG.uniform(-10, 10)), [q])
+    if norb == 1:
+        circuit.append(PhaseOracleGate("x0", var_order=["x0"]), [qubits[0]])
+    elif norb == 2:
+        circuit.append(PhaseOracleGate("x0 ^ x1", var_order=["x0", "x1"]), qubits[::-1])
+    else:
+        circuit.append(
+            PhaseOracleGate("(x0 & ~x1) | x2", var_order=["x0", "x1", "x2"]),
+            [qubits[2], qubits[0], qubits[1]],
+        )
+    for i, j in prng.choices(pairs, k=len(pairs) // 2):
+        circuit.append(CPhaseGate(RNG.uniform(-10, 10)), [qubits[i], qubits[j]])
+    for i, j in prng.choices(pairs, k=len(pairs) // 2):
+        circuit.append(
+            MCPhaseGate(RNG.uniform(-10, 10), 1, ctrl_state=prng.randrange(2)),
+            [qubits[i], qubits[j]],
+        )
+    for i, j, k in prng.choices(triples, k=len(triples) // 2):
+        circuit.append(
+            MCPhaseGate(RNG.uniform(-10, 10), 2, ctrl_state=prng.randrange(4)),
+            [qubits[i], qubits[j], qubits[k]],
+        )
+    if norb >= 4:
+        circuit.append(
+            MCPhaseGate(RNG.uniform(-10, 10), 3, ctrl_state=prng.randrange(8)),
+            qubits,
+        )
+    for i, j in prng.choices(pairs, k=len(pairs) // 2):
+        circuit.append(CRZGate(RNG.uniform(-10, 10)), [qubits[i], qubits[j]])
+    for q in prng.choices(qubits, k=min(len(qubits), 3)):
+        circuit.append(UCRZGate([RNG.uniform(-10, 10)]), [q])
+    for q_target, q_control in prng.choices(pairs, k=min(len(pairs), 3)):
+        circuit.append(
+            UCRZGate(list(RNG.uniform(-10, 10, size=2))),
+            [qubits[q_target], qubits[q_control]],
+        )
+    for q_target, q_control_0, q_control_1 in prng.choices(
+        triples, k=min(len(triples), 3)
+    ):
+        circuit.append(
+            UCRZGate(list(RNG.uniform(-10, 10, size=4))),
+            [qubits[q_target], qubits[q_control_0], qubits[q_control_1]],
+        )
+    for i, j in prng.choices(pairs, k=len(pairs) // 2):
+        circuit.append(CZGate(), [qubits[i], qubits[j]])
+    for i, j in prng.choices(pairs, k=len(pairs) // 2):
+        circuit.append(CSGate(), [qubits[i], qubits[j]])
+    for i, j in prng.choices(pairs, k=len(pairs) // 2):
+        circuit.append(CSdgGate(), [qubits[i], qubits[j]])
+    for i, j in prng.choices(pairs, k=len(pairs) // 2):
+        circuit.append(iSwapGate(), [qubits[i], qubits[j]])
+    for i, j, k in prng.choices(triples, k=len(triples) // 2):
+        circuit.append(CCZGate(), [qubits[i], qubits[j], qubits[k]])
+    for c, i, j in prng.choices(triples, k=len(triples) // 2):
+        circuit.append(CSwapGate(), [qubits[c], qubits[i], qubits[j]])
+    for q in qubits:
+        circuit.append(RZGate(RNG.uniform(-10, 10)), [q])
+    for i, j in prng.choices(pairs, k=len(pairs) // 2):
+        circuit.append(RZZGate(RNG.uniform(-10, 10)), [qubits[i], qubits[j]])
+        circuit.append(
+            XXPlusYYGate(RNG.uniform(-10, 10), RNG.uniform(-10, 10)),
+            [qubits[i], qubits[j]],
+        )
+    for i, j in prng.choices(pairs, k=len(pairs) // 2):
+        circuit.append(SwapGate(), [qubits[i], qubits[j]])
+    chosen = RNG.choice(norb, size=min(3, norb), replace=False)
+    diag = np.exp(1j * RNG.uniform(-np.pi, np.pi, size=1 << len(chosen)))
+    circuit.append(DiagonalGate(diag), [qubits[i] for i in chosen])
+    diag = np.exp(1j * RNG.uniform(-np.pi, np.pi, size=1 << norb))
+    circuit.append(DiagonalGate(diag), qubits)
+    if norb >= 2:
+        circuit.append(InnerProductGate(norb // 2), qubits[: 2 * (norb // 2)])
+    circuit.append(PermutationGate(list(RNG.permutation(norb))), qubits)
+    circuit.append(GlobalPhaseGate(RNG.uniform(-10, 10)))
+
+    # Compute state vector using ffsim
+    ffsim_vec = ffsim.qiskit.final_state_vector(circuit, norb=norb, nelec=nocc)
+
+    # Compute state vector using Qiskit
+    qiskit_vec = ffsim.qiskit.qiskit_vec_to_ffsim_vec(
+        Statevector(circuit).data, norb=norb, nelec=nocc
+    )
+
+    # Check that the state vectors match
+    np.testing.assert_allclose(ffsim_vec, qiskit_vec, atol=1e-12)
+
+
+@pytest.mark.parametrize(
+    "norb, nelec",
+    [
+        (norb, nelec)
+        for norb, nelec in ffsim.testing.generate_norb_nelec(
+            exhaustive=False, include_norb_zero=False
+        )
+        if nelec != (0, 0)
+    ],
+)
+def test_z_s_t_gates_spinful(norb: int, nelec: tuple[int, int]):
+    """Test Z, S, and T gates, spinful."""
+    qubits = QuantumRegister(2 * norb)
+    n_alpha, n_beta = nelec
+    for gate in [ZGate, SGate, SdgGate, TGate, TdgGate]:
+        circuit = QuantumCircuit(qubits)
+        for i in range(n_alpha):
+            circuit.append(XGate(), [qubits[i]])
+        for i in range(n_beta):
+            circuit.append(XGate(), [qubits[norb + i]])
+        for i, j in _brickwork(norb, 2):
+            circuit.append(
+                XXPlusYYGate(RNG.uniform(-10, 10), RNG.uniform(-10, 10)),
+                [qubits[i], qubits[j]],
+            )
+            circuit.append(
+                XXPlusYYGate(RNG.uniform(-10, 10), RNG.uniform(-10, 10)),
+                [qubits[norb + i], qubits[norb + j]],
+            )
+        for q in qubits:
+            circuit.append(gate(), [q])
+        ffsim_vec = ffsim.qiskit.final_state_vector(circuit, norb=norb, nelec=nelec)
+        qiskit_vec = ffsim.qiskit.qiskit_vec_to_ffsim_vec(
+            Statevector(circuit).data, norb=norb, nelec=nelec
+        )
+        np.testing.assert_allclose(ffsim_vec, qiskit_vec)
+
+
+@pytest.mark.parametrize(
+    "norb, nocc",
+    [
+        (norb, nocc)
+        for norb, nocc in ffsim.testing.generate_norb_nocc(
+            exhaustive=False, include_norb_zero=False
+        )
+        if nocc
+    ],
+)
+def test_z_s_t_gates_spinless(norb: int, nocc: int):
+    """Test Z, S, and T gates, spinless."""
+    qubits = QuantumRegister(norb)
+    for gate in [ZGate, SGate, SdgGate, TGate, TdgGate]:
+        circuit = QuantumCircuit(qubits)
+        for i in range(nocc):
+            circuit.append(XGate(), [qubits[i]])
+        for i, j in _brickwork(norb, 2):
+            circuit.append(
+                XXPlusYYGate(RNG.uniform(-10, 10), RNG.uniform(-10, 10)),
+                [qubits[i], qubits[j]],
+            )
+        for q in qubits:
+            circuit.append(gate(), [q])
+        ffsim_vec = ffsim.qiskit.final_state_vector(circuit, norb=norb, nelec=nocc)
+        qiskit_vec = ffsim.qiskit.qiskit_vec_to_ffsim_vec(
+            Statevector(circuit).data, norb=norb, nelec=nocc
+        )
+        np.testing.assert_allclose(ffsim_vec, qiskit_vec)
+
+
+def test_qiskit_gates_norb_nelec():
+    """Test Qiskit gates passing different values for norb and nelec."""
+    norb = 4
+    nelec = (2, 2)
+
+    # Construct circuit
+    qubits = QuantumRegister(2 * norb)
+    circuit = QuantumCircuit(qubits)
+    n_alpha, n_beta = nelec
+    for i in range(n_alpha):
+        circuit.append(XGate(), [qubits[i]])
+    for i in range(n_beta):
+        circuit.append(XGate(), [qubits[norb + i]])
+    for i, j in _brickwork(norb, norb):
+        circuit.append(
+            XXPlusYYGate(RNG.uniform(-10, 10), RNG.uniform(-10, 10)),
+            [qubits[i], qubits[j]],
+        )
+        circuit.append(
+            XXPlusYYGate(RNG.uniform(-10, 10), RNG.uniform(-10, 10)),
+            [qubits[norb + j], qubits[norb + i]],
+        )
+
+    # Compute state vector using Qiskit
+    qiskit_vec_spinful = ffsim.qiskit.qiskit_vec_to_ffsim_vec(
+        Statevector(circuit).data, norb=norb, nelec=nelec
+    )
+    qiskit_vec_spinless = ffsim.qiskit.qiskit_vec_to_ffsim_vec(
+        Statevector(circuit).data, norb=2 * norb, nelec=sum(nelec)
+    )
+
+    # Not passing norb and nelec should give spinless result
+    ffsim_vec = ffsim.qiskit.final_state_vector(circuit)
+    np.testing.assert_allclose(ffsim_vec, qiskit_vec_spinless)
+
+    # Passing norb and nelec should give spinful result
+    ffsim_vec = ffsim.qiskit.final_state_vector(circuit, norb=norb, nelec=nelec)
+    np.testing.assert_allclose(ffsim_vec, qiskit_vec_spinful)
+
+    # Pass only norb
+    ffsim_vec = ffsim.qiskit.final_state_vector(circuit, norb=2 * norb)
+    np.testing.assert_allclose(ffsim_vec, qiskit_vec_spinless)
+
+    # Pass only nelec
+    ffsim_vec = ffsim.qiskit.final_state_vector(circuit, nelec=nelec)
+    np.testing.assert_allclose(ffsim_vec, qiskit_vec_spinful)
+    ffsim_vec = ffsim.qiskit.final_state_vector(circuit, nelec=sum(nelec))
+    np.testing.assert_allclose(ffsim_vec, qiskit_vec_spinless)
+
+    # Pass wrong norb
+    with pytest.raises(ValueError, match="norb"):
+        ffsim_vec = ffsim.qiskit.final_state_vector(circuit, norb=2 * norb, nelec=nelec)
+
+    # Pass wrong nelec
+    with pytest.raises(ValueError, match="nelec"):
+        ffsim_vec = ffsim.qiskit.final_state_vector(circuit, norb=norb, nelec=(2, 1))
+
+
+def test_permutation_gate_cross_spin_error():
+    """PermutationGate must preserve spin sectors."""
+    norb = 1
+    nelec = (1, 0)
+
+    qubits = QuantumRegister(2 * norb)
+    circuit = QuantumCircuit(qubits)
+    circuit.append(ffsim.qiskit.PrepareHartreeFockJW(norb, nelec), qubits)
+    circuit.append(PermutationGate([1, 0]), qubits)
+
+    with pytest.raises(ValueError, match="same spin"):
+        ffsim.qiskit.final_state_vector(circuit, norb=norb, nelec=nelec)
+
+
+def test_permutation_gate_large_spinful():
+    """PermutationGate handles large bit positions without overflow."""
+    norb = 63
+    nelec = (1, 1)
+
+    qubits = QuantumRegister(2 * norb)
+    circuit = QuantumCircuit(qubits)
+    circuit.append(ffsim.qiskit.PrepareHartreeFockJW(norb, nelec), qubits)
+
+    perm = list(range(2 * norb))
+    perm[0], perm[norb - 1] = perm[norb - 1], perm[0]
+    perm[norb], perm[2 * norb - 1] = perm[2 * norb - 1], perm[norb]
+    circuit.append(PermutationGate(perm), qubits)
+
+    ffsim_vec = ffsim.qiskit.final_state_vector(circuit, norb=norb, nelec=nelec)
+    expected = ffsim.slater_determinant(norb, ([norb - 1], [norb - 1]))
+    np.testing.assert_allclose(ffsim_vec, expected)

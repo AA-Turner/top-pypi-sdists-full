@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "scim2-models"
-version = "0.10.1"
+version = "0.10.2"
 description = "SCIM2 models serialization and validation with pydantic"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -119,11 +119,7 @@ ignore-words-list = "selectin"
 [tool.mypy]
 plugins = ["pydantic.mypy"]
 python_version = "3.14"
-warn_unused_ignores = true
-exclude = [
-    "tests/",
-    "conftest.py",
-]
+files = ["scim2_models"]
 strict = true
 
 [tool.pydantic-mypy]

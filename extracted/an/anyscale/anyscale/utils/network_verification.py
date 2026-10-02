@@ -40,9 +40,7 @@ class CapacityThreshold:
                 f" but this {self.resource_type} only has {cidr_block.num_addresses}. Please reach out to"
                 f" support if this is an issue!"
             )
-            logger.log_resource_error(
-                self.cloud_resource, CloudSetupError.CIDR_BLOCK_TOO_SMALL
-            )
+            logger.log_resource_error(self.cloud_resource, CloudSetupError.CIDR_BLOCK_TOO_SMALL)
             return False
         elif cidr_block.num_addresses < warn_hosts:
             logger.warning(
@@ -138,7 +136,6 @@ def check_inbound_firewall_permissions(
 ) -> bool:
     ports_remaining = ports.copy() if ports is not None else set(range(1, 65536))
     for rule in rules:
-
         if (
             rule.direction != Direction.INGRESS
             or not isinstance(source_range, type(rule.network))

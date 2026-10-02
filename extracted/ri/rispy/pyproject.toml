@@ -1,0 +1,104 @@
+[project]
+name = "rispy"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Maik Derstappen", email = "md@derico.de" }
+]
+maintainers = [
+    { name = "Andy Shapiro", email = "shapiromatron@gmail.com" }
+]
+readme = "README.md"
+dynamic = ["version", "description"]
+keywords = ["RIS", "parser", "bibliograph"]
+classifiers = [
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+requires-python = ">=3.9"
+
+[project.urls]
+"Source" = "https://github.com/mrtango/rispy"
+"Changes" = "https://github.com/MrTango/rispy/blob/main/HISTORY.md"
+"Issue Tracker" = "https://github.com/MrTango/rispy/issues"
+"Download" = "https://pypi.org/project/rispy/"
+
+[project.optional-dependencies]
+dev = [
+    "poethepoet ~= 0.34.0",
+    "pytest ~=8.3.5",
+    "pytest-benchmark ~= 5.1.0",
+    "flit ~= 3.12.0",
+    "ruff ~= 0.11.10",
+    "coverage ~= 7.8.0",
+]
+
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.coverage.run]
+omit = [
+    "tests/*",
+]
+
+[tool.coverage.report]
+fail_under=99.5
+precision=1
+exclude_also = [
+  "@abstractmethod",
+]
+
+[tool.flit.sdist]
+exclude = [".github", "tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["F", "E", "W", "I", "UP", "S", "B", "T20", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"test_*.py" = ["S101"]
+
+[tool.pytest.ini_options]
+addopts = "--doctest-glob='*.md'"
+
+[tool.poe.tasks.lint]
+help = "Check for formatting issues"
+sequence = [
+  {cmd = "ruff format . --check"},
+  {cmd = "ruff check ."},
+]
+
+[tool.poe.tasks.format]
+help = "Fix formatting issues (where possible)"
+sequence = [
+  {cmd = "ruff format ."},
+  {cmd = "ruff check . --fix --show-fixes"},
+]
+
+[tool.poe.tasks.test]
+help = "Run tests"
+cmd = "pytest --benchmark-skip"
+
+[tool.poe.tasks.bench]
+help = "Run benchmark tests"
+cmd = "pytest --benchmark-only"
+
+[tool.poe.tasks.coverage]
+help = "Generate test coverage report"
+sequence = [
+  {cmd = "coverage run -m pytest --benchmark-skip"},
+  {cmd = "coverage html"},
+]
+
+[tool.poe.tasks.build]
+help = "Build wheel package"
+cmd = "uv build"

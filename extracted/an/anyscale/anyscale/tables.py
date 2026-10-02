@@ -15,7 +15,7 @@ TR = TypeVar("TR")
 
 
 class AbstractTable(ABC, Generic[TR]):
-    """An Abstract table class """
+    """An Abstract table class"""
 
     entity_name = "object"
 

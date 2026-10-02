@@ -18,10 +18,12 @@ from chalk._gen.chalk.container.v1 import service_pb2 as chalk_dot_container_dot
 from chalk._gen.chalk.models.v1 import model_version_pb2 as chalk_dot_models_dot_v1_dot_model__version__pb2
 from chalk._gen.chalk.runtime.v1 import remote_python_call_pb2 as chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2
 from chalk._gen.chalk.scalinggroup.v1 import service_pb2 as chalk_dot_scalinggroup_dot_v1_dot_service__pb2
+from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
+from google.protobuf import field_mask_pb2 as google_dot_protobuf_dot_field__mask__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n&chalk/modeldeployment/v1/service.proto\x12\x18\x63halk.modeldeployment.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a chalk/container/v1/service.proto\x1a#chalk/models/v1/model_version.proto\x1a)chalk/runtime/v1/remote_python_call.proto\x1a#chalk/scalinggroup/v1/service.proto"\xaa\x06\n\x12ModelContainerSpec\x12J\n\x04tags\x18\x01 \x03(\x0b\x32\x36.chalk.modeldeployment.v1.ModelContainerSpec.TagsEntryR\x04tags\x12\x45\n\tresources\x18\x02 \x01(\x0b\x32".chalk.container.v1.ResourceLimitsH\x00R\tresources\x88\x01\x01\x12T\n\x08\x65nv_vars\x18\x03 \x03(\x0b\x32\x39.chalk.modeldeployment.v1.ModelContainerSpec.EnvVarsEntryR\x07\x65nvVars\x12\x39\n\x07volumes\x18\x04 \x03(\x0b\x32\x1f.chalk.container.v1.VolumeMountR\x07volumes\x12\x1d\n\x07routing\x18\x05 \x01(\tH\x01R\x07routing\x88\x01\x01\x12+\n\x0e\x61uthentication\x18\x06 \x01(\tH\x02R\x0e\x61uthentication\x88\x01\x01\x12>\n\x0bsecret_refs\x18\x07 \x03(\x0b\x32\x1d.chalk.container.v1.SecretRefR\nsecretRefs\x12P\n\x0freadiness_probe\x18\x08 \x01(\x0b\x32".chalk.container.v1.ReadinessProbeH\x03R\x0ereadinessProbe\x88\x01\x01\x12J\n\rstartup_probe\x18\t \x01(\x0b\x32 .chalk.container.v1.StartupProbeH\x04R\x0cstartupProbe\x88\x01\x01\x1a\x37\n\tTagsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x1a:\n\x0c\x45nvVarsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42\x0c\n\n_resourcesB\n\n\x08_routingB\x11\n\x0f_authenticationB\x12\n\x10_readiness_probeB\x10\n\x0e_startup_probe"\x88\x03\n\x1e\x43reateModelScalingGroupRequest\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x1d\n\nmodel_name\x18\x02 \x01(\tR\tmodelName\x12G\n\nidentifier\x18\x03 \x01(\x0b\x32\'.chalk.models.v1.ModelVersionIdentifierR\nidentifier\x12S\n\x0e\x63ontainer_spec\x18\x04 \x01(\x0b\x32,.chalk.modeldeployment.v1.ModelContainerSpecR\rcontainerSpec\x12\x45\n\x0cscaling_spec\x18\x05 \x01(\x0b\x32".chalk.scalinggroup.v1.ScalingSpecR\x0bscalingSpec\x12\x1d\n\x07handler\x18\x06 \x01(\tH\x00R\x07handler\x88\x01\x01\x12\x19\n\x05image\x18\x07 \x01(\tH\x01R\x05image\x88\x01\x01\x42\n\n\x08_handlerB\x08\n\x06_image"s\n\x1f\x43reateModelScalingGroupResponse\x12P\n\rscaling_group\x18\x01 \x01(\x0b\x32+.chalk.scalinggroup.v1.ScalingGroupResponseR\x0cscalingGroup"~\n\x14ModelVersionSelector\x12\x1d\n\nmodel_name\x18\x01 \x01(\tR\tmodelName\x12G\n\nidentifier\x18\x02 \x01(\x0b\x32\'.chalk.models.v1.ModelVersionIdentifierR\nidentifier"\x8b\x01\n\x1dListModelScalingGroupsRequest\x12X\n\rmodel_version\x18\x01 \x01(\x0b\x32..chalk.modeldeployment.v1.ModelVersionSelectorH\x00R\x0cmodelVersion\x88\x01\x01\x42\x10\n\x0e_model_version"t\n\x1eListModelScalingGroupsResponse\x12R\n\x0escaling_groups\x18\x01 \x03(\x0b\x32+.chalk.scalinggroup.v1.ScalingGroupResponseR\rscalingGroups"\xb5\x02\n\x10\x43\x61llModelRequest\x12S\n\rmodel_version\x18\x01 \x01(\x0b\x32..chalk.modeldeployment.v1.ModelVersionSelectorR\x0cmodelVersion\x12W\n\x13remote_call_request\x18\x02 \x01(\x0b\x32%.chalk.runtime.v1.CallFunctionRequestH\x00R\x11remoteCallRequest\x12k\n\x1b\x65nqueue_remote_call_request\x18\x03 \x01(\x0b\x32*.chalk.runtime.v1.EnqueueRemoteCallRequestH\x00R\x18\x65nqueueRemoteCallRequestB\x06\n\x04\x62ody"\xe7\x01\n\x11\x43\x61llModelResponse\x12Z\n\x14remote_call_response\x18\x01 \x01(\x0b\x32&.chalk.runtime.v1.CallFunctionResponseH\x00R\x12remoteCallResponse\x12n\n\x1c\x65nqueue_remote_call_response\x18\x02 \x01(\x0b\x32+.chalk.runtime.v1.EnqueueRemoteCallResponseH\x00R\x19\x65nqueueRemoteCallResponseB\x06\n\x04\x62ody2\xac\x03\n\x16ModelDeploymentService\x12\x93\x01\n\x17\x43reateModelScalingGroup\x12\x38.chalk.modeldeployment.v1.CreateModelScalingGroupRequest\x1a\x39.chalk.modeldeployment.v1.CreateModelScalingGroupResponse"\x03\x80}\x0c\x12\x90\x01\n\x16ListModelScalingGroups\x12\x37.chalk.modeldeployment.v1.ListModelScalingGroupsRequest\x1a\x38.chalk.modeldeployment.v1.ListModelScalingGroupsResponse"\x03\x80}\x0b\x12i\n\tCallModel\x12*.chalk.modeldeployment.v1.CallModelRequest\x1a+.chalk.modeldeployment.v1.CallModelResponse"\x03\x80}\x0e\x42\xd4\x01\n\x1c\x63om.chalk.modeldeployment.v1B\x0cServiceProtoP\x01Z$modeldeployment/v1;modeldeploymentv1\xa2\x02\x03\x43MX\xaa\x02\x18\x43halk.Modeldeployment.V1\xca\x02\x18\x43halk\\Modeldeployment\\V1\xe2\x02$Chalk\\Modeldeployment\\V1\\GPBMetadata\xea\x02\x1a\x43halk::Modeldeployment::V1b\x06proto3'
+    b'\n&chalk/modeldeployment/v1/service.proto\x12\x18\x63halk.modeldeployment.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a chalk/container/v1/service.proto\x1a#chalk/models/v1/model_version.proto\x1a)chalk/runtime/v1/remote_python_call.proto\x1a#chalk/scalinggroup/v1/service.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a google/protobuf/field_mask.proto"\xae\x07\n\x12ModelContainerSpec\x12J\n\x04tags\x18\x01 \x03(\x0b\x32\x36.chalk.modeldeployment.v1.ModelContainerSpec.TagsEntryR\x04tags\x12\x45\n\tresources\x18\x02 \x01(\x0b\x32".chalk.container.v1.ResourceLimitsH\x00R\tresources\x88\x01\x01\x12T\n\x08\x65nv_vars\x18\x03 \x03(\x0b\x32\x39.chalk.modeldeployment.v1.ModelContainerSpec.EnvVarsEntryR\x07\x65nvVars\x12\x39\n\x07volumes\x18\x04 \x03(\x0b\x32\x1f.chalk.container.v1.VolumeMountR\x07volumes\x12\x1d\n\x07routing\x18\x05 \x01(\tH\x01R\x07routing\x88\x01\x01\x12+\n\x0e\x61uthentication\x18\x06 \x01(\tH\x02R\x0e\x61uthentication\x88\x01\x01\x12>\n\x0bsecret_refs\x18\x07 \x03(\x0b\x32\x1d.chalk.container.v1.SecretRefR\nsecretRefs\x12P\n\x0freadiness_probe\x18\x08 \x01(\x0b\x32".chalk.container.v1.ReadinessProbeH\x03R\x0ereadinessProbe\x88\x01\x01\x12J\n\rstartup_probe\x18\t \x01(\x0b\x32 .chalk.container.v1.StartupProbeH\x04R\x0cstartupProbe\x88\x01\x01\x12\x66\n\x17\x63halk_workload_identity\x18\n \x01(\x0b\x32).chalk.container.v1.ChalkWorkloadIdentityH\x05R\x15\x63halkWorkloadIdentity\x88\x01\x01\x1a\x37\n\tTagsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x1a:\n\x0c\x45nvVarsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42\x0c\n\n_resourcesB\n\n\x08_routingB\x11\n\x0f_authenticationB\x12\n\x10_readiness_probeB\x10\n\x0e_startup_probeB\x1a\n\x18_chalk_workload_identity"\xe5\x03\n\x1e\x43reateModelScalingGroupRequest\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x43\n\x04spec\x18\x08 \x01(\x0b\x32/.chalk.modeldeployment.v1.ModelScalingGroupSpecR\x04spec\x12!\n\nmodel_name\x18\x02 \x01(\tB\x02\x18\x01R\tmodelName\x12K\n\nidentifier\x18\x03 \x01(\x0b\x32\'.chalk.models.v1.ModelVersionIdentifierB\x02\x18\x01R\nidentifier\x12W\n\x0e\x63ontainer_spec\x18\x04 \x01(\x0b\x32,.chalk.modeldeployment.v1.ModelContainerSpecB\x02\x18\x01R\rcontainerSpec\x12I\n\x0cscaling_spec\x18\x05 \x01(\x0b\x32".chalk.scalinggroup.v1.ScalingSpecB\x02\x18\x01R\x0bscalingSpec\x12!\n\x07handler\x18\x06 \x01(\tB\x02\x18\x01H\x00R\x07handler\x88\x01\x01\x12\x1d\n\x05image\x18\x07 \x01(\tB\x02\x18\x01H\x01R\x05image\x88\x01\x01\x42\n\n\x08_handlerB\x08\n\x06_image"s\n\x1f\x43reateModelScalingGroupResponse\x12P\n\rscaling_group\x18\x01 \x01(\x0b\x32+.chalk.scalinggroup.v1.ScalingGroupResponseR\x0cscalingGroup"~\n\x14ModelVersionSelector\x12\x1d\n\nmodel_name\x18\x01 \x01(\tR\tmodelName\x12G\n\nidentifier\x18\x02 \x01(\x0b\x32\'.chalk.models.v1.ModelVersionIdentifierR\nidentifier"\xd8\x02\n\x15ModelScalingGroupSpec\x12S\n\rmodel_version\x18\x01 \x01(\x0b\x32..chalk.modeldeployment.v1.ModelVersionSelectorR\x0cmodelVersion\x12S\n\x0e\x63ontainer_spec\x18\x02 \x01(\x0b\x32,.chalk.modeldeployment.v1.ModelContainerSpecR\rcontainerSpec\x12\x45\n\x0cscaling_spec\x18\x03 \x01(\x0b\x32".chalk.scalinggroup.v1.ScalingSpecR\x0bscalingSpec\x12\x1d\n\x07handler\x18\x04 \x01(\tH\x00R\x07handler\x88\x01\x01\x12\x19\n\x05image\x18\x05 \x01(\tH\x01R\x05image\x88\x01\x01\x42\n\n\x08_handlerB\x08\n\x06_image"n\n\x18ModelScalingGroupTraffic\x12R\n\x07targets\x18\x01 \x03(\x0b\x32\x38.chalk.modeldeployment.v1.ModelScalingGroupTrafficTargetR\x07targets"\xd8\x01\n\x1eModelScalingGroupTrafficTarget\x12\x46\n\x1fmodel_scaling_group_revision_id\x18\x01 \x01(\tH\x00R\x1bmodelScalingGroupRevisionId\x12\x41\n\x0flatest_revision\x18\x02 \x01(\x0b\x32\x16.google.protobuf.EmptyH\x00R\x0elatestRevision\x12\x18\n\x07percent\x18\x03 \x01(\rR\x07percentB\x11\n\x0frevision_target"\xfd\x02\n\x1eUpdateModelScalingGroupRequest\x12\x35\n\x16model_scaling_group_id\x18\x01 \x01(\tH\x00R\x13modelScalingGroupId\x12\x39\n\x18model_scaling_group_name\x18\x02 \x01(\tH\x00R\x15modelScalingGroupName\x12\x43\n\x04spec\x18\x03 \x01(\x0b\x32/.chalk.modeldeployment.v1.ModelScalingGroupSpecR\x04spec\x12L\n\x07traffic\x18\x04 \x01(\x0b\x32\x32.chalk.modeldeployment.v1.ModelScalingGroupTrafficR\x07traffic\x12;\n\x0bupdate_mask\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskR\nupdateMaskB\x19\n\x17model_scaling_group_key"s\n\x1fUpdateModelScalingGroupResponse\x12P\n\rscaling_group\x18\x01 \x01(\x0b\x32+.chalk.scalinggroup.v1.ScalingGroupResponseR\x0cscalingGroup"\xec\x01\n\x1bGetModelScalingGroupRequest\x12\x35\n\x16model_scaling_group_id\x18\x01 \x01(\tH\x00R\x13modelScalingGroupId\x12\x39\n\x18model_scaling_group_name\x18\x02 \x01(\tH\x00R\x15modelScalingGroupName\x12,\n\x0finclude_deleted\x18\x03 \x01(\x08H\x01R\x0eincludeDeleted\x88\x01\x01\x42\x19\n\x17model_scaling_group_keyB\x12\n\x10_include_deleted"p\n\x1cGetModelScalingGroupResponse\x12P\n\rscaling_group\x18\x01 \x01(\x0b\x32+.chalk.scalinggroup.v1.ScalingGroupResponseR\x0cscalingGroup"\xb2\x04\n\x1dListModelScalingGroupsRequest\x12X\n\rmodel_version\x18\x01 \x01(\x0b\x32..chalk.modeldeployment.v1.ModelVersionSelectorH\x00R\x0cmodelVersion\x88\x01\x01\x12\x1b\n\x06\x63ursor\x18\x02 \x01(\tH\x01R\x06\x63ursor\x88\x01\x01\x12\x19\n\x05limit\x18\x03 \x01(\x05H\x02R\x05limit\x88\x01\x01\x12,\n\x0finclude_deleted\x18\x04 \x01(\x08H\x03R\x0eincludeDeleted\x88\x01\x01\x12Q\n\x07\x66ilters\x18\x05 \x01(\x0b\x32\x37.chalk.modeldeployment.v1.ListModelScalingGroupsFiltersR\x07\x66ilters\x12\x16\n\x06search\x18\x06 \x01(\tR\x06search\x12V\n\x0bsort_column\x18\x07 \x01(\x0e\x32\x35.chalk.modeldeployment.v1.ModelScalingGroupSortColumnR\nsortColumn\x12S\n\nsort_order\x18\x08 \x01(\x0e\x32\x34.chalk.modeldeployment.v1.ModelScalingGroupSortOrderR\tsortOrderB\x10\n\x0e_model_versionB\t\n\x07_cursorB\x08\n\x06_limitB\x12\n\x10_include_deleted"\x86\x01\n\x1dListModelScalingGroupsFilters\x12\x1a\n\x08statuses\x18\x01 \x03(\tR\x08statuses\x12\x16\n\x06images\x18\x02 \x03(\tR\x06images\x12"\n\nmodel_name\x18\x03 \x01(\tH\x00R\tmodelName\x88\x01\x01\x42\r\n\x0b_model_name"\xaa\x01\n\x1eListModelScalingGroupsResponse\x12R\n\x0escaling_groups\x18\x01 \x03(\x0b\x32+.chalk.scalinggroup.v1.ScalingGroupResponseR\rscalingGroups\x12$\n\x0bnext_cursor\x18\x02 \x01(\tH\x00R\nnextCursor\x88\x01\x01\x42\x0e\n\x0c_next_cursor"\xad\x01\n\x1e\x44\x65leteModelScalingGroupRequest\x12\x35\n\x16model_scaling_group_id\x18\x01 \x01(\tH\x00R\x13modelScalingGroupId\x12\x39\n\x18model_scaling_group_name\x18\x02 \x01(\tH\x00R\x15modelScalingGroupNameB\x19\n\x17model_scaling_group_key"s\n\x1f\x44\x65leteModelScalingGroupResponse\x12P\n\rscaling_group\x18\x01 \x01(\x0b\x32+.chalk.scalinggroup.v1.ScalingGroupResponseR\x0cscalingGroup"\x95\x02\n#GetModelScalingGroupRevisionRequest\x12\x35\n\x16model_scaling_group_id\x18\x01 \x01(\tH\x00R\x13modelScalingGroupId\x12\x39\n\x18model_scaling_group_name\x18\x02 \x01(\tH\x00R\x15modelScalingGroupName\x12\x1f\n\x0brevision_id\x18\x03 \x01(\tR\nrevisionId\x12,\n\x0finclude_deleted\x18\x04 \x01(\x08H\x01R\x0eincludeDeleted\x88\x01\x01\x42\x19\n\x17model_scaling_group_keyB\x12\n\x10_include_deleted"w\n$GetModelScalingGroupRevisionResponse\x12O\n\x08revision\x18\x01 \x01(\x0b\x32\x33.chalk.scalinggroup.v1.ScalingGroupRevisionResponseR\x08revision"\xc3\x02\n%ListModelScalingGroupRevisionsRequest\x12\x35\n\x16model_scaling_group_id\x18\x01 \x01(\tH\x00R\x13modelScalingGroupId\x12\x39\n\x18model_scaling_group_name\x18\x02 \x01(\tH\x00R\x15modelScalingGroupName\x12\x1b\n\x06\x63ursor\x18\x03 \x01(\tH\x01R\x06\x63ursor\x88\x01\x01\x12\x19\n\x05limit\x18\x04 \x01(\x05H\x02R\x05limit\x88\x01\x01\x12,\n\x0finclude_deleted\x18\x05 \x01(\x08H\x03R\x0eincludeDeleted\x88\x01\x01\x42\x19\n\x17model_scaling_group_keyB\t\n\x07_cursorB\x08\n\x06_limitB\x12\n\x10_include_deleted"\xb1\x01\n&ListModelScalingGroupRevisionsResponse\x12Q\n\trevisions\x18\x01 \x03(\x0b\x32\x33.chalk.scalinggroup.v1.ScalingGroupRevisionResponseR\trevisions\x12$\n\x0bnext_cursor\x18\x02 \x01(\tH\x00R\nnextCursor\x88\x01\x01\x42\x0e\n\x0c_next_cursor"\xc2\x03\n\x10\x43\x61llModelRequest\x12S\n\rmodel_version\x18\x01 \x01(\x0b\x32..chalk.modeldeployment.v1.ModelVersionSelectorR\x0cmodelVersion\x12\x35\n\x16model_scaling_group_id\x18\x04 \x01(\tH\x00R\x13modelScalingGroupId\x12\x39\n\x18model_scaling_group_name\x18\x05 \x01(\tH\x00R\x15modelScalingGroupName\x12W\n\x13remote_call_request\x18\x02 \x01(\x0b\x32%.chalk.runtime.v1.CallFunctionRequestH\x01R\x11remoteCallRequest\x12k\n\x1b\x65nqueue_remote_call_request\x18\x03 \x01(\x0b\x32*.chalk.runtime.v1.EnqueueRemoteCallRequestH\x01R\x18\x65nqueueRemoteCallRequestB\x19\n\x17model_scaling_group_keyB\x06\n\x04\x62ody"\xe7\x01\n\x11\x43\x61llModelResponse\x12Z\n\x14remote_call_response\x18\x01 \x01(\x0b\x32&.chalk.runtime.v1.CallFunctionResponseH\x00R\x12remoteCallResponse\x12n\n\x1c\x65nqueue_remote_call_response\x18\x02 \x01(\x0b\x32+.chalk.runtime.v1.EnqueueRemoteCallResponseH\x00R\x19\x65nqueueRemoteCallResponseB\x06\n\x04\x62ody*\xae\x01\n\x1bModelScalingGroupSortColumn\x12/\n+MODEL_SCALING_GROUP_SORT_COLUMN_UNSPECIFIED\x10\x00\x12.\n*MODEL_SCALING_GROUP_SORT_COLUMN_CREATED_AT\x10\x01\x12.\n*MODEL_SCALING_GROUP_SORT_COLUMN_UPDATED_AT\x10\x02*\x9d\x01\n\x1aModelScalingGroupSortOrder\x12.\n*MODEL_SCALING_GROUP_SORT_ORDER_UNSPECIFIED\x10\x00\x12\'\n#MODEL_SCALING_GROUP_SORT_ORDER_DESC\x10\x01\x12&\n"MODEL_SCALING_GROUP_SORT_ORDER_ASC\x10\x02\x32\xb5\t\n\x16ModelDeploymentService\x12\x93\x01\n\x17\x43reateModelScalingGroup\x12\x38.chalk.modeldeployment.v1.CreateModelScalingGroupRequest\x1a\x39.chalk.modeldeployment.v1.CreateModelScalingGroupResponse"\x03\x80}\x0c\x12\x93\x01\n\x17UpdateModelScalingGroup\x12\x38.chalk.modeldeployment.v1.UpdateModelScalingGroupRequest\x1a\x39.chalk.modeldeployment.v1.UpdateModelScalingGroupResponse"\x03\x80}\x0e\x12\x8a\x01\n\x14GetModelScalingGroup\x12\x35.chalk.modeldeployment.v1.GetModelScalingGroupRequest\x1a\x36.chalk.modeldeployment.v1.GetModelScalingGroupResponse"\x03\x80}\x0b\x12\x90\x01\n\x16ListModelScalingGroups\x12\x37.chalk.modeldeployment.v1.ListModelScalingGroupsRequest\x1a\x38.chalk.modeldeployment.v1.ListModelScalingGroupsResponse"\x03\x80}\x0b\x12\x93\x01\n\x17\x44\x65leteModelScalingGroup\x12\x38.chalk.modeldeployment.v1.DeleteModelScalingGroupRequest\x1a\x39.chalk.modeldeployment.v1.DeleteModelScalingGroupResponse"\x03\x80}\x0e\x12\xa2\x01\n\x1cGetModelScalingGroupRevision\x12=.chalk.modeldeployment.v1.GetModelScalingGroupRevisionRequest\x1a>.chalk.modeldeployment.v1.GetModelScalingGroupRevisionResponse"\x03\x80}\x0b\x12\xa8\x01\n\x1eListModelScalingGroupRevisions\x12?.chalk.modeldeployment.v1.ListModelScalingGroupRevisionsRequest\x1a@.chalk.modeldeployment.v1.ListModelScalingGroupRevisionsResponse"\x03\x80}\x0b\x12i\n\tCallModel\x12*.chalk.modeldeployment.v1.CallModelRequest\x1a+.chalk.modeldeployment.v1.CallModelResponse"\x03\x80}\x0e\x42\xd4\x01\n\x1c\x63om.chalk.modeldeployment.v1B\x0cServiceProtoP\x01Z$modeldeployment/v1;modeldeploymentv1\xa2\x02\x03\x43MX\xaa\x02\x18\x43halk.Modeldeployment.V1\xca\x02\x18\x43halk\\Modeldeployment\\V1\xe2\x02$Chalk\\Modeldeployment\\V1\\GPBMetadata\xea\x02\x1a\x43halk::Modeldeployment::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -36,32 +38,90 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_MODELCONTAINERSPEC_TAGSENTRY"]._serialized_options = b"8\001"
     _globals["_MODELCONTAINERSPEC_ENVVARSENTRY"]._options = None
     _globals["_MODELCONTAINERSPEC_ENVVARSENTRY"]._serialized_options = b"8\001"
+    _globals["_CREATEMODELSCALINGGROUPREQUEST"].fields_by_name["model_name"]._options = None
+    _globals["_CREATEMODELSCALINGGROUPREQUEST"].fields_by_name["model_name"]._serialized_options = b"\030\001"
+    _globals["_CREATEMODELSCALINGGROUPREQUEST"].fields_by_name["identifier"]._options = None
+    _globals["_CREATEMODELSCALINGGROUPREQUEST"].fields_by_name["identifier"]._serialized_options = b"\030\001"
+    _globals["_CREATEMODELSCALINGGROUPREQUEST"].fields_by_name["container_spec"]._options = None
+    _globals["_CREATEMODELSCALINGGROUPREQUEST"].fields_by_name["container_spec"]._serialized_options = b"\030\001"
+    _globals["_CREATEMODELSCALINGGROUPREQUEST"].fields_by_name["scaling_spec"]._options = None
+    _globals["_CREATEMODELSCALINGGROUPREQUEST"].fields_by_name["scaling_spec"]._serialized_options = b"\030\001"
+    _globals["_CREATEMODELSCALINGGROUPREQUEST"].fields_by_name["handler"]._options = None
+    _globals["_CREATEMODELSCALINGGROUPREQUEST"].fields_by_name["handler"]._serialized_options = b"\030\001"
+    _globals["_CREATEMODELSCALINGGROUPREQUEST"].fields_by_name["image"]._options = None
+    _globals["_CREATEMODELSCALINGGROUPREQUEST"].fields_by_name["image"]._serialized_options = b"\030\001"
     _globals["_MODELDEPLOYMENTSERVICE"].methods_by_name["CreateModelScalingGroup"]._options = None
     _globals["_MODELDEPLOYMENTSERVICE"].methods_by_name["CreateModelScalingGroup"]._serialized_options = b"\200}\014"
+    _globals["_MODELDEPLOYMENTSERVICE"].methods_by_name["UpdateModelScalingGroup"]._options = None
+    _globals["_MODELDEPLOYMENTSERVICE"].methods_by_name["UpdateModelScalingGroup"]._serialized_options = b"\200}\016"
+    _globals["_MODELDEPLOYMENTSERVICE"].methods_by_name["GetModelScalingGroup"]._options = None
+    _globals["_MODELDEPLOYMENTSERVICE"].methods_by_name["GetModelScalingGroup"]._serialized_options = b"\200}\013"
     _globals["_MODELDEPLOYMENTSERVICE"].methods_by_name["ListModelScalingGroups"]._options = None
     _globals["_MODELDEPLOYMENTSERVICE"].methods_by_name["ListModelScalingGroups"]._serialized_options = b"\200}\013"
+    _globals["_MODELDEPLOYMENTSERVICE"].methods_by_name["DeleteModelScalingGroup"]._options = None
+    _globals["_MODELDEPLOYMENTSERVICE"].methods_by_name["DeleteModelScalingGroup"]._serialized_options = b"\200}\016"
+    _globals["_MODELDEPLOYMENTSERVICE"].methods_by_name["GetModelScalingGroupRevision"]._options = None
+    _globals["_MODELDEPLOYMENTSERVICE"].methods_by_name[
+        "GetModelScalingGroupRevision"
+    ]._serialized_options = b"\200}\013"
+    _globals["_MODELDEPLOYMENTSERVICE"].methods_by_name["ListModelScalingGroupRevisions"]._options = None
+    _globals["_MODELDEPLOYMENTSERVICE"].methods_by_name[
+        "ListModelScalingGroupRevisions"
+    ]._serialized_options = b"\200}\013"
     _globals["_MODELDEPLOYMENTSERVICE"].methods_by_name["CallModel"]._options = None
     _globals["_MODELDEPLOYMENTSERVICE"].methods_by_name["CallModel"]._serialized_options = b"\200}\016"
-    _globals["_MODELCONTAINERSPEC"]._serialized_start = 253
-    _globals["_MODELCONTAINERSPEC"]._serialized_end = 1063
-    _globals["_MODELCONTAINERSPEC_TAGSENTRY"]._serialized_start = 865
-    _globals["_MODELCONTAINERSPEC_TAGSENTRY"]._serialized_end = 920
-    _globals["_MODELCONTAINERSPEC_ENVVARSENTRY"]._serialized_start = 922
-    _globals["_MODELCONTAINERSPEC_ENVVARSENTRY"]._serialized_end = 980
-    _globals["_CREATEMODELSCALINGGROUPREQUEST"]._serialized_start = 1066
-    _globals["_CREATEMODELSCALINGGROUPREQUEST"]._serialized_end = 1458
-    _globals["_CREATEMODELSCALINGGROUPRESPONSE"]._serialized_start = 1460
-    _globals["_CREATEMODELSCALINGGROUPRESPONSE"]._serialized_end = 1575
-    _globals["_MODELVERSIONSELECTOR"]._serialized_start = 1577
-    _globals["_MODELVERSIONSELECTOR"]._serialized_end = 1703
-    _globals["_LISTMODELSCALINGGROUPSREQUEST"]._serialized_start = 1706
-    _globals["_LISTMODELSCALINGGROUPSREQUEST"]._serialized_end = 1845
-    _globals["_LISTMODELSCALINGGROUPSRESPONSE"]._serialized_start = 1847
-    _globals["_LISTMODELSCALINGGROUPSRESPONSE"]._serialized_end = 1963
-    _globals["_CALLMODELREQUEST"]._serialized_start = 1966
-    _globals["_CALLMODELREQUEST"]._serialized_end = 2275
-    _globals["_CALLMODELRESPONSE"]._serialized_start = 2278
-    _globals["_CALLMODELRESPONSE"]._serialized_end = 2509
-    _globals["_MODELDEPLOYMENTSERVICE"]._serialized_start = 2512
-    _globals["_MODELDEPLOYMENTSERVICE"]._serialized_end = 2940
+    _globals["_MODELSCALINGGROUPSORTCOLUMN"]._serialized_start = 6288
+    _globals["_MODELSCALINGGROUPSORTCOLUMN"]._serialized_end = 6462
+    _globals["_MODELSCALINGGROUPSORTORDER"]._serialized_start = 6465
+    _globals["_MODELSCALINGGROUPSORTORDER"]._serialized_end = 6622
+    _globals["_MODELCONTAINERSPEC"]._serialized_start = 316
+    _globals["_MODELCONTAINERSPEC"]._serialized_end = 1258
+    _globals["_MODELCONTAINERSPEC_TAGSENTRY"]._serialized_start = 1032
+    _globals["_MODELCONTAINERSPEC_TAGSENTRY"]._serialized_end = 1087
+    _globals["_MODELCONTAINERSPEC_ENVVARSENTRY"]._serialized_start = 1089
+    _globals["_MODELCONTAINERSPEC_ENVVARSENTRY"]._serialized_end = 1147
+    _globals["_CREATEMODELSCALINGGROUPREQUEST"]._serialized_start = 1261
+    _globals["_CREATEMODELSCALINGGROUPREQUEST"]._serialized_end = 1746
+    _globals["_CREATEMODELSCALINGGROUPRESPONSE"]._serialized_start = 1748
+    _globals["_CREATEMODELSCALINGGROUPRESPONSE"]._serialized_end = 1863
+    _globals["_MODELVERSIONSELECTOR"]._serialized_start = 1865
+    _globals["_MODELVERSIONSELECTOR"]._serialized_end = 1991
+    _globals["_MODELSCALINGGROUPSPEC"]._serialized_start = 1994
+    _globals["_MODELSCALINGGROUPSPEC"]._serialized_end = 2338
+    _globals["_MODELSCALINGGROUPTRAFFIC"]._serialized_start = 2340
+    _globals["_MODELSCALINGGROUPTRAFFIC"]._serialized_end = 2450
+    _globals["_MODELSCALINGGROUPTRAFFICTARGET"]._serialized_start = 2453
+    _globals["_MODELSCALINGGROUPTRAFFICTARGET"]._serialized_end = 2669
+    _globals["_UPDATEMODELSCALINGGROUPREQUEST"]._serialized_start = 2672
+    _globals["_UPDATEMODELSCALINGGROUPREQUEST"]._serialized_end = 3053
+    _globals["_UPDATEMODELSCALINGGROUPRESPONSE"]._serialized_start = 3055
+    _globals["_UPDATEMODELSCALINGGROUPRESPONSE"]._serialized_end = 3170
+    _globals["_GETMODELSCALINGGROUPREQUEST"]._serialized_start = 3173
+    _globals["_GETMODELSCALINGGROUPREQUEST"]._serialized_end = 3409
+    _globals["_GETMODELSCALINGGROUPRESPONSE"]._serialized_start = 3411
+    _globals["_GETMODELSCALINGGROUPRESPONSE"]._serialized_end = 3523
+    _globals["_LISTMODELSCALINGGROUPSREQUEST"]._serialized_start = 3526
+    _globals["_LISTMODELSCALINGGROUPSREQUEST"]._serialized_end = 4088
+    _globals["_LISTMODELSCALINGGROUPSFILTERS"]._serialized_start = 4091
+    _globals["_LISTMODELSCALINGGROUPSFILTERS"]._serialized_end = 4225
+    _globals["_LISTMODELSCALINGGROUPSRESPONSE"]._serialized_start = 4228
+    _globals["_LISTMODELSCALINGGROUPSRESPONSE"]._serialized_end = 4398
+    _globals["_DELETEMODELSCALINGGROUPREQUEST"]._serialized_start = 4401
+    _globals["_DELETEMODELSCALINGGROUPREQUEST"]._serialized_end = 4574
+    _globals["_DELETEMODELSCALINGGROUPRESPONSE"]._serialized_start = 4576
+    _globals["_DELETEMODELSCALINGGROUPRESPONSE"]._serialized_end = 4691
+    _globals["_GETMODELSCALINGGROUPREVISIONREQUEST"]._serialized_start = 4694
+    _globals["_GETMODELSCALINGGROUPREVISIONREQUEST"]._serialized_end = 4971
+    _globals["_GETMODELSCALINGGROUPREVISIONRESPONSE"]._serialized_start = 4973
+    _globals["_GETMODELSCALINGGROUPREVISIONRESPONSE"]._serialized_end = 5092
+    _globals["_LISTMODELSCALINGGROUPREVISIONSREQUEST"]._serialized_start = 5095
+    _globals["_LISTMODELSCALINGGROUPREVISIONSREQUEST"]._serialized_end = 5418
+    _globals["_LISTMODELSCALINGGROUPREVISIONSRESPONSE"]._serialized_start = 5421
+    _globals["_LISTMODELSCALINGGROUPREVISIONSRESPONSE"]._serialized_end = 5598
+    _globals["_CALLMODELREQUEST"]._serialized_start = 5601
+    _globals["_CALLMODELREQUEST"]._serialized_end = 6051
+    _globals["_CALLMODELRESPONSE"]._serialized_start = 6054
+    _globals["_CALLMODELRESPONSE"]._serialized_end = 6285
+    _globals["_MODELDEPLOYMENTSERVICE"]._serialized_start = 6625
+    _globals["_MODELDEPLOYMENTSERVICE"]._serialized_end = 7830
 # @@protoc_insertion_point(module_scope)

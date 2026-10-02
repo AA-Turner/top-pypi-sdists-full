@@ -1,0 +1,9 @@
+targets:
+  main:
+    resources:
+      RemotePlace:
+        name: dedi
+    drivers:
+      DeditecRelaisDriver: {}
+options:
+  coordinator_address: 'labgrid:20408'

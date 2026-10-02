@@ -23,9 +23,9 @@ IDLE_TERMINATION_DIR = os.environ.get(
 
 class CommandPersister:
     """
-        CommandPersister manages persisting the
-        state of all commands to our backend.
-        It functions as a queue.
+    CommandPersister manages persisting the
+    state of all commands to our backend.
+    It functions as a queue.
     """
 
     def __init__(self, cli_token: str, host: str, session_id: str):
@@ -130,21 +130,21 @@ class CommandPersister:
 
     def enqueue_command(self, cmd: Command) -> None:
         """
-            enqueue_command adds a Command object to be persisted to our backend.
-            Only enqueue the command to be peristed if it is
-                - just created (therefore not in self.running_commands)
-                  we need to create the entry on the backend.
-                - finished
-                  we need to update the entry on the backend.
+        enqueue_command adds a Command object to be persisted to our backend.
+        Only enqueue the command to be peristed if it is
+            - just created (therefore not in self.running_commands)
+              we need to create the entry on the backend.
+            - finished
+              we need to update the entry on the backend.
         """
         if cmd.scid not in self.running_commands or cmd.finished:
             self.queue.append(cmd)
 
     def kill_running_commands_for_terminal(self, term_name: str) -> None:
         """
-            When we exit a terminal tab, the zsh process is killed and
-            all of its children process are also killed. This function then
-            enqueues them to be marked as finished.
+        When we exit a terminal tab, the zsh process is killed and
+        all of its children process are also killed. This function then
+        enqueues them to be marked as finished.
         """
         commands = list(self.running_commands.values())
         for c in commands:
@@ -155,8 +155,8 @@ class CommandPersister:
 
 def update_idle_termination_status(timestamp):
     """
-        Updates the idle termination status for the web-terminal by storing the last
-        activity date as the last finished time of a successful command.
+    Updates the idle termination status for the web-terminal by storing the last
+    activity date as the last finished time of a successful command.
     """
     if not os.path.exists(IDLE_TERMINATION_DIR) or not timestamp:
         return

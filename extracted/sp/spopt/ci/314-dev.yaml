@@ -1,0 +1,37 @@
+name: test
+channels:
+  - conda-forge
+dependencies:
+  - python=3.14
+  - fast_hdbscan # for sa3
+  - folium # for geopandas.explore()
+  - matplotlib # for geopandas.explore()
+  - numba # for sa3
+  - tqdm
+
+  # testing
+  - codecov
+  - coverage
+  - pytest
+  - pytest-cov
+  - pytest-xdist
+  
+  # with pip
+  - pip
+  - pip:
+    # dev versions of packages
+    - --pre \
+      --index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple  \
+      --extra-index-url https://pypi.org/simple
+    - networkx
+    - numpy
+    - pandas
+    - pulp<4
+    - scikit-learn
+    - scipy
+    - shapely
+    - git+https://github.com/geopandas/geopandas.git
+    - git+https://github.com/pysal/libpysal.git
+    - git+https://github.com/pysal/mapclassify.git
+    - git+https://github.com/pysal/pointpats.git
+    - git+https://github.com/pysal/spaghetti.git

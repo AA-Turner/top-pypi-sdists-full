@@ -1,0 +1,90 @@
+[project]
+name = "pylic"
+version = "5.0.1"
+description = "A Python license checker"
+readme = "README.md"
+authors = [
+    { name = "Sandro Huber", email = "sandrochuber@gmail.com" }
+]
+keywords = ["cli", "license", "checker", "spdx"]
+license = "MIT"
+requires-python = ">=3.9"
+dependencies = [
+    "license-expression>=30.4.1",
+    "toml>=0.10.2",
+    "typer>=0.15.2",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.15.0",
+    "pytest>=8.3.5",
+    "pytest-mock>=3.14.0",
+    "ruff>=0.9.10",
+    "taskipy>=1.14.1",
+    "types-toml>=0.10.8.20240310",
+]
+
+[project.scripts]
+pylic = "pylic.main:main"
+
+[tool.pylic]
+safe_licenses = [
+    "Apache-2.0",
+    "Apache Software License",
+    "BSD License",
+    "BSD-2-Clause",
+    "MIT",
+    "MIT License",
+    "Python Software Foundation License",
+    "ISC License (ISCL)"
+]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "ERA",
+    "YTT",
+    "ANN",
+    "BLE",
+    "B",
+    "C4",
+    "ISC",
+    "G",
+    "PYI",
+    "Q",
+    "RET",
+    "SIM",
+    "TC",
+    "ARG",
+    "PTH",
+    "I",
+    "E",
+    "W",
+    "F",
+    "UP",
+    "FURB",
+    "RUF"
+]
+
+[tool.mypy]
+explicit_package_bases = true
+namespace_packages = true
+mypy_path = "src"
+
+[tool.taskipy.tasks]
+check-format = "echo 'Checking formatting ...' && ruff format --diff --quiet ."
+check-lint = "echo 'Checking linting ...' && ruff check --quiet ."
+check-types = "echo 'Checking types ...' && mypy --pretty --no-error-summary ."
+check-licenses = "echo 'Checking licenses ...' && python -m pylic check --quiet"
+check = "task check-format && task check-lint && task check-types && task check-licenses && echo ✅"
+fix-format = "echo 'Fixing formatting ...' && ruff format ."
+fix-lint = "echo 'Fixing linting ...' && ruff check --fix ."
+fix = "task fix-format ; task fix-lint"
+test = "pytest"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

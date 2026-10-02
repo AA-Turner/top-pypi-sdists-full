@@ -1,0 +1,370 @@
+"""Tests for the Anthropic adapter's request shaping.
+
+Focused on raw ``params`` passthrough and on the multi-turn round-trip
+of provider-executed tool parts.
+"""
+
+from __future__ import annotations
+
+import importlib
+from typing import Any, cast
+
+import anthropic
+import pytest
+
+import ai
+from ai.providers.anthropic import protocol
+from ai.types import messages
+
+from .conftest import FakeAnthropicClient
+
+httpx = importlib.import_module(
+    "httpx2" if int(anthropic.__version__.partition(".")[0]) >= 1 else "httpx"
+)
+
+
+class _RaisingMessages:
+    def __init__(self, exc: anthropic.AnthropicError) -> None:
+        self._exc = exc
+
+    def stream(self, **kwargs: Any) -> Any:
+        raise self._exc
+
+
+class _RaisingAnthropicClient:
+    def __init__(self, exc: anthropic.AnthropicError) -> None:
+        self.messages = _RaisingMessages(exc)
+        self.closed = False
+
+    async def close(self) -> None:
+        self.closed = True
+
+
+def _patch_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[anthropic.AsyncAnthropic, dict[str, Any]]:
+    _ = monkeypatch
+    captured: dict[str, Any] = {}
+    fake = FakeAnthropicClient(captured)
+    return cast("anthropic.AsyncAnthropic", fake), captured
+
+
+_MODEL = ai.Model(id="claude-sonnet-4-6", provider=ai.get_provider("anthropic"))
+
+
+async def _drain(stream: Any) -> None:
+    async for _ in stream:
+        pass
+
+
+async def test_multiple_system_messages_are_preserved(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake, captured = _patch_client(monkeypatch)
+
+    await _drain(
+        protocol.stream(
+            fake,
+            _MODEL,
+            [
+                ai.system_message("First instruction."),
+                ai.user_message("Hi"),
+                ai.system_message("Second instruction."),
+            ],
+            provider="anthropic",
+        )
+    )
+
+    assert captured["system"] == "First instruction.\n\nSecond instruction."
+    assert captured["messages"] == [{"role": "user", "content": "Hi"}]
+
+
+async def test_params_translate_to_sdk_kwargs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake, captured = _patch_client(monkeypatch)
+
+    await _drain(
+        protocol.stream(
+            fake,
+            _MODEL,
+            [ai.user_message("Hi")],
+            params=ai.InferenceRequestParams(
+                output=ai.OutputParams(max_tokens=123, reasoning_summary=None),
+                reasoning=ai.ReasoningParams(effort="high"),
+                context_management=ai.ContextManagementParams(
+                    compaction=ai.TokenThreshold(120_000)
+                ),
+                tool_calling=ai.ToolCallingParams(
+                    tool_choice=ai.ToolChoiceMode.AUTO,
+                    parallel_tool_calls=False,
+                ),
+                extra_body={
+                    "speed": "fast",
+                    "future_option": {"enabled": True},
+                },
+                extra_headers={"x-anthropic-feature": "enabled"},
+            ),
+            provider="anthropic",
+        )
+    )
+
+    assert captured["max_tokens"] == 123
+    # reasoning_summary=None omits the summary but keeps thinking on.
+    assert captured["thinking"] == {"type": "adaptive", "display": "omitted"}
+    assert captured["output_config"] == {
+        "effort": "high",
+    }
+    assert captured["tool_choice"] == {
+        "type": "auto",
+        "disable_parallel_tool_use": True,
+    }
+    assert captured["extra_body"] == {
+        "context_management": {
+            "edits": [
+                {
+                    "type": "compact_20260112",
+                    "trigger": {"type": "input_tokens", "value": 120_000},
+                }
+            ]
+        },
+        "speed": "fast",
+        "future_option": {"enabled": True},
+    }
+    assert captured["extra_headers"] == {
+        "anthropic-beta": "compact-2026-01-12,context-management-2025-06-27",
+        "x-anthropic-feature": "enabled",
+    }
+
+
+async def test_non_inference_params_rejected_by_adapter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake, _ = _patch_client(monkeypatch)
+
+    stream = protocol.stream(
+        fake,
+        _MODEL,
+        [ai.user_message("Hi")],
+        params=cast(Any, [{"speed": "fast"}]),
+        provider="anthropic",
+    )
+
+    with pytest.raises(TypeError, match="InferenceRequestParams"):
+        await _drain(stream)
+
+
+async def test_seed_rejected_by_adapter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake, _ = _patch_client(monkeypatch)
+
+    stream = protocol.stream(
+        fake,
+        _MODEL,
+        [ai.user_message("Hi")],
+        params=ai.InferenceRequestParams(
+            sampling={ai.SeedSamplerParams: ai.SeedSamplerParams(seed=123)}
+        ),
+        provider="anthropic",
+    )
+
+    with pytest.raises(ValueError, match="seed"):
+        await _drain(stream)
+
+
+async def test_random_seed_omitted_by_adapter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake, captured = _patch_client(monkeypatch)
+
+    await _drain(
+        protocol.stream(
+            fake,
+            _MODEL,
+            [ai.user_message("Hi")],
+            params=ai.InferenceRequestParams(
+                sampling={ai.SeedSamplerParams: ai.SeedSamplerParams(seed=-1)}
+            ),
+            provider="anthropic",
+        )
+    )
+
+    assert "seed" not in captured
+
+
+async def test_reasoning_signature_round_trips_from_provider_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake, captured = _patch_client(monkeypatch)
+
+    await _drain(
+        protocol.stream(
+            fake,
+            _MODEL,
+            [
+                ai.assistant_message(
+                    ai.thinking(
+                        "hidden",
+                        provider_metadata={"anthropic": {"signature": "sig"}},
+                    )
+                ),
+                ai.user_message("Hi"),
+            ],
+            provider="anthropic",
+        )
+    )
+
+    assert captured["messages"][0] == {
+        "role": "assistant",
+        "content": [
+            {
+                "type": "thinking",
+                "thinking": "hidden",
+                "signature": "sig",
+            }
+        ],
+    }
+
+
+async def test_builtin_tool_parts_round_trip(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Built-in tool parts serialize back to wire."""
+    fake, captured = _patch_client(monkeypatch)
+
+    call = messages.BuiltinToolCallPart(
+        tool_call_id="srvtoolu_1",
+        tool_name="web_search",
+        tool_args='{"query":"weather"}',
+        provider_metadata={"anthropic": {}},
+    )
+    result = messages.BuiltinToolReturnPart(
+        tool_call_id="srvtoolu_1",
+        tool_name="web_search",
+        result=[{"title": "Forecast", "url": "https://example.com"}],
+        provider_metadata={
+            "anthropic": {"resultType": "web_search_tool_result"},
+        },
+    )
+    convo = [
+        ai.user_message("What's the weather?"),
+        messages.Message(role="assistant", parts=[call, result]),
+        ai.user_message("Thanks"),
+    ]
+
+    await _drain(protocol.stream(fake, _MODEL, convo, provider="anthropic"))
+
+    assistant = next(
+        m for m in captured["messages"] if m["role"] == "assistant"
+    )
+    assert assistant["content"] == [
+        {
+            "type": "server_tool_use",
+            "id": "srvtoolu_1",
+            "name": "web_search",
+            "input": {"query": "weather"},
+        },
+        {
+            "type": "web_search_tool_result",
+            "tool_use_id": "srvtoolu_1",
+            "content": [{"title": "Forecast", "url": "https://example.com"}],
+        },
+    ]
+
+
+async def test_sdk_errors_are_mapped_to_provider_hierarchy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _ = monkeypatch
+    response = httpx.Response(
+        529,
+        request=httpx.Request("POST", "https://anthropic.test/v1/messages"),
+        headers={"request-id": "req-anthropic"},
+    )
+    sdk_error = anthropic.APIStatusError(
+        "overloaded",
+        response=response,
+        body={"error": {"type": "overloaded_error"}},
+    )
+    fake = _RaisingAnthropicClient(sdk_error)
+
+    with pytest.raises(ai.ProviderOverloadedError) as exc_info:
+        await _drain(
+            protocol.stream(
+                cast("anthropic.AsyncAnthropic", fake),
+                _MODEL,
+                [ai.user_message("Hi")],
+                provider="anthropic",
+            )
+        )
+
+    exc = exc_info.value
+    assert exc.provider == "anthropic"
+    assert exc.http_context is not None
+    assert exc.http_context.status_code == 529
+    assert exc.http_context.request is response.request
+    assert exc.http_context.response is response
+    assert exc.request_id == "req-anthropic"
+    assert exc.type == "overloaded_error"
+    assert exc.__cause__ is sdk_error
+
+
+async def test_model_404_is_mapped_to_model_not_found(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _ = monkeypatch
+    response = httpx.Response(
+        404,
+        request=httpx.Request("POST", "https://anthropic.test/v1/messages"),
+    )
+    sdk_error = anthropic.NotFoundError(
+        "model not found",
+        response=response,
+        body={"error": {"type": "not_found_error"}},
+    )
+    fake = _RaisingAnthropicClient(sdk_error)
+
+    with pytest.raises(ai.ProviderModelNotFoundError) as exc_info:
+        await _drain(
+            protocol.stream(
+                cast("anthropic.AsyncAnthropic", fake),
+                _MODEL,
+                [ai.user_message("Hi")],
+                provider="anthropic",
+            )
+        )
+
+    exc = exc_info.value
+    assert isinstance(exc, ai.ProviderNotFoundError)
+    assert exc.model_id == _MODEL.id
+    assert exc.http_context is not None
+    assert exc.http_context.status_code == 404
+    assert exc.http_context.request is response.request
+    assert exc.http_context.response is response
+    assert exc.__cause__ is sdk_error
+
+
+async def test_messages_to_anthropic_repairs_history() -> None:
+    """Conversion runs history_utils.repair: internal messages are dropped
+    and orphaned tool calls get a synthetic error result."""
+    msgs = [
+        messages.Message(
+            role="internal",
+            parts=[messages.TextPart(text="app-only")],
+        ),
+        messages.Message(
+            role="assistant",
+            parts=[
+                messages.ToolCallPart(
+                    tool_call_id="tc-1", tool_name="search", tool_args="{}"
+                )
+            ],
+        ),
+    ]
+    _, wire = await protocol._messages_to_anthropic(msgs)
+    assert [m["role"] for m in wire] == ["assistant", "user"]
+    (tool_result,) = wire[1]["content"]
+    assert tool_result["type"] == "tool_result"
+    assert tool_result["tool_use_id"] == "tc-1"
+    assert tool_result["is_error"] is True

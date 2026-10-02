@@ -15,6 +15,8 @@ import numpy as np
 import pandas as pd
 
 from geocif import __version__
+from geocif.ml.stage_labels import latest_stage_rows
+from geocif.viz._outlook_db import dedup_upserts
 
 logger = logging.getLogger(__name__)
 
@@ -67,11 +69,17 @@ def _query_forecast(db_path, table, model, experiment_name, forecast_year, min_y
             logger.warning(f"Table '{table}' missing Predicted yield column")
             return pd.DataFrame()
 
+        # Stage Window Display (calendar-order window, since 0.4.788) and
+        # Time are fetched when present: the former ranks stages, the
+        # latter orders upsert copies. Both are dropped again below.
+        cols = ['"Country"', '"Region"', '"Season"', '"Harvest Year"',
+                '"Stage Name"', '"Date"', f'"{pred_col}"']
+        cols += [f'"{c}"' for c in ("Stage Window Display", "Time")
+                 if c in table_cols]
+        select = f'SELECT {", ".join(cols)} FROM "{table}" '
         if min_year is not None and min_year < forecast_year:
             df = pd.read_sql(
-                f'SELECT "Country", "Region", "Season", "Harvest Year", '
-                f'"Stage Name", "Date", "{pred_col}" '
-                f'FROM "{table}" '
+                f'{select}'
                 f'WHERE "Experiment Name" = ? AND "Model" = ? '
                 f'AND "Harvest Year" >= ? AND "Harvest Year" <= ?',
                 con,
@@ -79,9 +87,7 @@ def _query_forecast(db_path, table, model, experiment_name, forecast_year, min_y
             )
         else:
             df = pd.read_sql(
-                f'SELECT "Country", "Region", "Season", "Harvest Year", '
-                f'"Stage Name", "Date", "{pred_col}" '
-                f'FROM "{table}" '
+                f'{select}'
                 f'WHERE "Experiment Name" = ? AND "Model" = ? '
                 f'AND "Harvest Year" = ?',
                 con,
@@ -94,6 +100,14 @@ def _query_forecast(db_path, table, model, experiment_name, forecast_year, min_y
         con.close()
 
     if not df.empty:
+        # A8: a re-run into the same DB appends a SECOND copy of every
+        # logical row (the upsert key includes the wall-clock Time). Keep
+        # the most recently written copy per logical key.
+        df = dedup_upserts(
+            df, ["Country", "Region", "Season", "Harvest Year", "Stage Name"],
+            f"{db_path.name}:{table}:{model}",
+        )
+        df = df.drop(columns=[c for c in ("Time",) if c in df.columns])
         # Rename to canonical form so downstream code keeps using the
         # canonical column name regardless of rename_target config.
         if pred_col and pred_col != _CANON_PRED:
@@ -102,6 +116,111 @@ def _query_forecast(db_path, table, model, experiment_name, forecast_year, min_y
         df["Season"] = pd.to_numeric(df["Season"], errors="coerce").astype("Int64")
         df[_CANON_PRED] = pd.to_numeric(df[_CANON_PRED], errors="coerce")
     return df
+
+
+def _latest_stage_per(df, keys):
+    """One row per ``keys`` group: the CHRONOLOGICALLY latest stage (A7).
+
+    ``sort_values("Stage Name").groupby(keys).last()`` ordered the labels as
+    text, so "May 1-Mar 31" beat "Jul 1-Mar 31" and "Sep" beat "Oct" —
+    the export then carried a mid-season forecast as the final one. Key
+    names absent from ``df`` are ignored, so ``Season`` can always be
+    passed (multi-season countries keep one row per season).
+    """
+    out = latest_stage_rows(df, by=keys, keep="last")
+    return out.reset_index(drop=True) if out is not None else out
+
+
+def _hvstat_calendar_row(hvstat_crop, season=None):
+    """``(planting_month, harvest_month, season_name)`` from the hvstat rows
+    of one crop.
+
+    With a CID ``season`` (1 = primary, 2 = secondary) the row of the
+    matching HarvestStat season is used — season 1 resolves to the first
+    ``PRIMARY_SEASON_NAMES`` entry present, season 2 to the first
+    ``SECONDARY_SEASON_NAMES`` entry — so a multi-season country's second
+    season gets its own calendar instead of the primary season's. Without a
+    season (or when it does not resolve) the highest-priority primary
+    season wins, as before.
+    """
+    from geocif.report_lite import _resolve_season_name
+    from geocif.utils import PRIMARY_SEASON_NAMES as _PRIMARY
+
+    hv = hvstat_crop.copy()
+    if season is not None and pd.notna(season):
+        names = set(hv["season_name"].dropna().astype(str))
+        picked = _resolve_season_name(names, int(season))
+        if picked is not None:
+            hv = hv[hv["season_name"].astype(str) == picked]
+    hv["_rank"] = hv["season_name"].map(
+        lambda s: _PRIMARY.index(s) if s in _PRIMARY else len(_PRIMARY)
+    )
+    hv = hv.sort_values("_rank", kind="mergesort")
+    return (hv["planting_month"].iloc[0], hv["harvest_month"].iloc[0],
+            hv["season_name"].iloc[0])
+
+
+def _join_hvstat_calendar(df_merged, df_hvstat_crop):
+    """Attach ``planting_month`` / ``harvest_month`` / ``season_name`` from
+    the hvstat rows of one crop to the forecast rows (joined on ``ADM_ID``).
+
+    Single-season predictions: one hvstat row per fnid, preferring primary
+    seasons (Main, Long, ...) over Annual, as before. Multi-season
+    predictions (Somalia Gu = 1 / Deyr = 2): each row joins ITS season's
+    hvstat row, so the two rows per region-year carry their own planting /
+    harvest months and ``crop_season`` label instead of both inheriting the
+    primary season's.
+    """
+    from geocif.report_lite import _resolve_season_name
+    from geocif.utils import PRIMARY_SEASON_NAMES as _PRIMARY
+
+    hv = df_hvstat_crop.copy()
+    # Resolve season names and calendars from THIS country's rows only: the
+    # Africa-wide file lists Kenya's Long/Short before Somalia's Gu/Deyr in
+    # the priority lists, so an all-country name set mapped Somalia's seasons
+    # to names its own rows never carry (2026-10-01 review).
+    if "country" in hv.columns and "Country" in df_merged.columns:
+        def _norm_country(value):
+            return str(value).strip().lower().replace("_", " ")
+        wanted = {_norm_country(c) for c in df_merged["Country"].dropna().unique()}
+        hv_country = hv[hv["country"].map(_norm_country).isin(wanted)]
+        if not hv_country.empty:
+            hv = hv_country
+    hv["_rank"] = hv["season_name"].map(
+        lambda s: _PRIMARY.index(s) if s in _PRIMARY else len(_PRIMARY)
+    )
+    seasons_db = (
+        sorted(int(s) for s in df_merged["Season"].dropna().unique())
+        if "Season" in df_merged.columns else []
+    )
+    if len(seasons_db) > 1:
+        names = set(hv["season_name"].dropna().astype(str))
+        season_map = {s: _resolve_season_name(names, s) for s in seasons_db}
+        if all(v is not None for v in season_map.values()):
+            hv_s = (
+                hv.sort_values("_rank", kind="mergesort")
+                .drop_duplicates(subset=["fnid", "season_name"], keep="first")
+                .drop(columns=["_rank"])
+                .rename(columns={"fnid": "ADM_ID"})
+            )
+            left = df_merged.assign(
+                season_name=df_merged["Season"].map(
+                    lambda s: season_map.get(int(s)) if pd.notna(s) else None
+                )
+            )
+            return left.merge(hv_s, on=["ADM_ID", "season_name"], how="left")
+        logger.warning(
+            f"FDW export: CID seasons {seasons_db} do not all resolve to a "
+            f"HarvestStat season_name (available: {sorted(names)}); using "
+            f"the primary season's calendar for every row"
+        )
+    hv_1 = (
+        hv.sort_values("_rank", kind="mergesort")
+        .drop_duplicates(subset=["fnid"], keep="first")
+        .drop(columns=["_rank"])
+        .rename(columns={"fnid": "ADM_ID"})
+    )
+    return df_merged.merge(hv_1, on="ADM_ID", how="left")
 
 
 def _load_hvstat(parser):
@@ -352,12 +471,12 @@ def export_forecast(
                 )
                 continue
 
-            # Keep latest stage per (Country, Region, Harvest Year)
-            df_latest = (
-                df_pred.sort_values("Stage Name")
-                .groupby(["Country", "Region", "Harvest Year"])
-                .last()
-                .reset_index()
+            # Keep the chronologically latest stage per (Country, Region,
+            # Season, Harvest Year). Season is part of the key: grouping on
+            # region-year alone collapsed a multi-season country (Somalia
+            # Gu/Deyr) to one arbitrary season per region-year.
+            df_latest = _latest_stage_per(
+                df_pred, ["Country", "Region", "Season", "Harvest Year"]
             )
 
             # Join with shapefile to get FNID
@@ -381,22 +500,9 @@ def export_forecast(
                 ].copy()
 
                 if not df_hvstat_crop.empty:
-                    # Deduplicate to one row per fnid: prefer primary seasons
-                    # (Main, Long, etc.) over Annual, mirroring stats.py logic.
-                    from geocif.utils import PRIMARY_SEASON_NAMES as _PRIMARY
-                    df_hvstat_crop["_rank"] = df_hvstat_crop["season_name"].map(
-                        lambda s: _PRIMARY.index(s) if s in _PRIMARY else len(_PRIMARY)
-                    )
-                    df_hvstat_crop = (
-                        df_hvstat_crop.sort_values("_rank")
-                        .drop_duplicates(subset=["fnid"], keep="first")
-                        .drop(columns=["_rank"])
-                    )
-                    df_merged = df_merged.merge(
-                        df_hvstat_crop.rename(columns={"fnid": "ADM_ID"}),
-                        on="ADM_ID",
-                        how="left",
-                    )
+                    # One hvstat row per fnid (primary season preferred), or
+                    # per (fnid, season) for multi-season predictions.
+                    df_merged = _join_hvstat_calendar(df_merged, df_hvstat_crop)
                 else:
                     df_merged["planting_month"] = np.nan
                     df_merged["harvest_month"] = np.nan
@@ -555,13 +661,10 @@ def export_national_forecast(
             if df_pred.empty:
                 continue
 
-            # Keep latest stage per (Country, Region)
-            df_latest = (
-                df_pred.sort_values("Stage Name")
-                .groupby(["Country", "Region"])
-                .last()
-                .reset_index()
-            )
+            # Keep the chronologically latest stage per (Country, Region,
+            # Season) — one national row per season for multi-season
+            # countries instead of an arbitrary season per region.
+            df_latest = _latest_stage_per(df_pred, ["Country", "Region", "Season"])
 
             # Parse model run date
             date_model_run = ""
@@ -580,19 +683,27 @@ def export_national_forecast(
                 logger.warning(f"No area weights for {country_crop} {model} — skipping national yield")
                 continue
 
-            # Compute national yield per country
+            # Compute national yield per country (and per season when the
+            # predictions carry more than one: summing Gu and Deyr
+            # production over a doubled area is neither season's yield).
             df_weighted["_production"] = df_weighted[pred_col] * df_weighted["avg_area"]
+            multi_season = (
+                "Season" in df_weighted.columns
+                and df_weighted["Season"].dropna().nunique() > 1
+            )
+            nat_keys = ["Country", "Season"] if multi_season else ["Country"]
             national = (
-                df_weighted.groupby("Country")
+                df_weighted.groupby(nat_keys, dropna=False)
                 .agg({"_production": "sum", "avg_area": "sum", "Harvest Year": "first"})
                 .reset_index()
             )
             national["national_yield"] = national["_production"] / national["avg_area"]
 
-            # Build one row per country
+            # Build one row per country (x season)
             for _, nat_row in national.iterrows():
                 country_name = nat_row["Country"]
                 harvest_year = nat_row["Harvest Year"]
+                season_val = nat_row["Season"] if multi_season else None
 
                 # Get planting/harvest months from hvstat for planted_year computation
                 planting_month = np.nan
@@ -603,19 +714,22 @@ def export_national_forecast(
                     hvstat_country = df_hvstat[
                         df_hvstat["product"].str.lower() == crop_title.lower()
                     ]
-                    if not hvstat_country.empty:
-                        _PRIMARY = [
-                            "Long", "Gu", "Season A", "First", "1st Season",
-                            "Main", "Meher", "Main harvest", "Summer", "Wet",
+                    # Restrict to THIS country's rows when the column is
+                    # there (the crop filter alone took the first country
+                    # in the file); fall back to all rows when no name
+                    # matches so the calendar is never blanked by spelling.
+                    if "country" in hvstat_country.columns:
+                        _cn = str(country_name).lower().replace("_", " ").strip()
+                        _mine = hvstat_country[
+                            hvstat_country["country"].astype(str).str.lower()
+                            .str.replace("_", " ", regex=False).str.strip() == _cn
                         ]
-                        hvstat_country = hvstat_country.copy()
-                        hvstat_country["_rank"] = hvstat_country["season_name"].map(
-                            lambda s: _PRIMARY.index(s) if s in _PRIMARY else len(_PRIMARY)
+                        if not _mine.empty:
+                            hvstat_country = _mine
+                    if not hvstat_country.empty:
+                        planting_month, harvest_month, season_name = (
+                            _hvstat_calendar_row(hvstat_country, season_val)
                         )
-                        hvstat_country = hvstat_country.sort_values("_rank")
-                        planting_month = hvstat_country["planting_month"].iloc[0]
-                        harvest_month = hvstat_country["harvest_month"].iloc[0]
-                        season_name = hvstat_country["season_name"].iloc[0]
 
                 fdw_row = {
                     "source_name_version": snv,
@@ -851,13 +965,19 @@ def export_accuracy(
                 df = df.dropna(subset=[obs_col, pred_col])
                 df = df[df[obs_col] != 0]
 
-                # Use latest stage per (Region, Harvest Year) if multi-step
+                # Chronologically latest stage per (Region[, Season], Harvest
+                # Year) if multi-step (A7).
                 if "Stage Name" in df.columns:
-                    df = df.sort_values("Stage Name").groupby(
-                        ["Region", "Harvest Year"], as_index=False
-                    ).last()
+                    df = _latest_stage_per(df, ["Region", "Season", "Harvest Year"])
 
-                for region, rdf in df.groupby("Region"):
+                # One accuracy row per region AND season: pooling Gu and
+                # Deyr year-pairs inflated r2 with the between-season offset
+                # (2026-10-01 review).
+                _grp_cols = ["Region", "Season"] if "Season" in df.columns else ["Region"]
+                for _gkey, rdf in df.groupby(_grp_cols, dropna=False):
+                    _gkey = _gkey if isinstance(_gkey, tuple) else (_gkey,)
+                    region = _gkey[0]
+                    _season_num = _gkey[1] if len(_gkey) > 1 else None
                     if len(rdf) < 2:
                         continue
 
@@ -918,6 +1038,14 @@ def export_accuracy(
                         ]
                         if not hv_match2.empty:
                             season_name = hv_match2["season_name"].values[0]
+                            if _season_num is not None and pd.notna(_season_num):
+                                from geocif.report_lite import _resolve_season_name
+                                _resolved = _resolve_season_name(
+                                    set(hv_match2["season_name"].dropna().astype(str)),
+                                    int(_season_num),
+                                )
+                                if _resolved:
+                                    season_name = _resolved
 
                     fdw_row = {
                         "source_id": source_id,

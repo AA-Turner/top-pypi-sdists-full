@@ -1,0 +1,155 @@
+# SPDX-License-Identifier: BSD-2-Clause
+# Copyright 2018 Linaro Ltd.
+# Copyright 2018-2019 Arm Ltd.
+%YAML 1.2
+---
+$id: http://devicetree.org/meta-schemas/core.yaml#
+$schema: https://json-schema.org/draft/2019-09/schema
+description: Metaschema for devicetree binding documentation
+
+allOf:
+  - $ref: http://devicetree.org/meta-schemas/base.yaml#
+  - description: Either unevaluatedProperties or additionalProperties must be present
+    oneOf:
+      - required: [ unevaluatedProperties ]
+      - required: [ additionalProperties ]
+
+definitions:
+  unit-suffix-properties:
+    $ref: cell.yaml#/array
+    propertyNames:
+      description: Standard unit suffix properties don't need a type $ref
+      not:
+        const: $ref
+
+
+  all-properties:
+    allOf:
+      - $ref: '#/definitions/core-properties'
+      - $ref: clocks.yaml#
+      - $ref: dma.yaml#
+      - $ref: gpios.yaml#
+      - $ref: hwlock.yaml#
+      - $ref: iio.yaml#
+      - $ref: interrupts.yaml#
+      - $ref: iommu.yaml#
+      - $ref: mailbox.yaml#
+      - $ref: nvmem.yaml#
+      - $ref: phy.yaml#
+      - $ref: power-domain.yaml#
+      - $ref: pwm.yaml#
+      - $ref: reset.yaml#
+      - $ref: mailbox.yaml#
+      - $ref: vendor-props.yaml#
+  core-properties:
+    properties:
+      ranges:
+        $ref: cell.yaml#/array
+      reg:
+        $ref: cell.yaml#/array
+      compatible:
+        $ref: string-array.yaml
+      $nodename:
+        $ref: string-array.yaml
+      memory-region:
+        $ref: cell.yaml#/array
+      memory-region-names:
+        $ref: string-array.yaml
+    patternProperties:
+      '.*-names$':
+        $ref: string-array.yaml
+
+      '^#.*-cells$':
+        $ref: cell.yaml#/single
+
+      '-supply$':
+        propertyNames:
+          enum: [ description, deprecated ]
+
+      '-(bps|kBps|percent|bp|db|mhz|hz|sec|us|ns|ps|mm|nanoamp|microamp(-hours)?|micro-ohms|microwatt-hours|microvolt|(femto|pico)farads|(milli)?celsius|kelvin|k?pascal)$':
+        $ref: '#/definitions/unit-suffix-properties'
+
+      # Some special cases which don't match the normal size.
+      '(?<!ti,[xy]-plate)-ohms$':
+        $ref: '#/definitions/unit-suffix-properties'
+
+      '(?<!ti,reset)-bits$':
+        $ref: '#/definitions/unit-suffix-properties'
+
+      # Really is "marvell,wakeup-gap-ms", but look-behind requires a fixed width pattern
+      '(?<!(rvell,wakeup-gap|refresh-interval))-ms$':
+        $ref: '#/definitions/unit-suffix-properties'
+
+      '^.*$':
+        properties:
+          # 'boolean' and 'object' are the only native types allowed
+          type:
+            enum: [ boolean, object ]
+          properties:
+            $ref: '#/definitions/all-properties'
+          patternProperties:
+            $ref: '#/definitions/all-properties'
+          $ref:
+            pattern: '(#$|#\/)?'
+
+        allOf:
+          - if:
+              type: object
+              properties:
+                type:
+                  const: object
+              required:
+                - type
+            then:
+              $ref: nodes.yaml#
+          - if:
+              required: [ properties ]
+            then:
+              description: node schemas must have a type or $ref
+              anyOf:
+                - required: [ type ]
+                - required: [ $ref ]
+
+    dependentRequired:
+      '#size-cells': [ '#address-cells' ]
+      memory-region-names: [ memory-region ]
+      reg-names: [ reg ]
+
+properties:
+  patternProperties:
+    $ref: '#/definitions/all-properties'
+  properties:
+    $ref: '#/definitions/all-properties'
+  allOf:
+    items:
+      properties:
+        properties:
+          $ref: '#/definitions/all-properties'
+        patternProperties:
+          $ref: '#/definitions/all-properties'
+  anyOf:
+    items:
+      properties:
+        properties:
+          $ref: '#/definitions/all-properties'
+        patternProperties:
+          $ref: '#/definitions/all-properties'
+  oneOf:
+    items:
+      properties:
+        properties:
+          $ref: '#/definitions/all-properties'
+        patternProperties:
+          $ref: '#/definitions/all-properties'
+  if:
+    properties:
+      properties:
+        $ref: '#/definitions/all-properties'
+      patternProperties:
+        $ref: '#/definitions/all-properties'
+
+anyOf:
+  - required:
+      - properties
+  - required:
+      - patternProperties

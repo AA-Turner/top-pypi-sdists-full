@@ -903,6 +903,11 @@ class Primitive(Protocol):
 
     def process(self, ctx: FrameContext) -> PrimitiveOutput:
         """Handle one frame, in one zone.  No I/O, no threads, no models (``09`` §6)."""
+        # One sanctioned exception, first-party only: ``verification`` delegates its VLM call
+        # to the engine-owned worker in ``engine/verify`` (one bounded, joinable thread per
+        # process, closed by ``EngineBackend.close()``).  The stage itself still does no I/O and
+        # spawns nothing -- it submits and polls without blocking.  Custom code gets no such
+        # exception (see ``CustomPrimitive``; PY-15).
         ...
 
     def window(self, frames: Sequence[PrimitiveOutput]) -> WindowOutput:
@@ -1034,7 +1039,7 @@ class PrimitiveRegistry:
     and constructs it with the stage's already-validated config and a scoped state store.
 
     The key set is closed -- it is
-    :data:`matrice_analytics.engine.manifest.models.PRIMITIVES`, the same 17 names the
+    :data:`matrice_analytics.engine.manifest.models.PRIMITIVES`, the same names the
     manifest schema accepts.  Registering anything else raises, because a primitive no
     manifest can name is dead code and a manifest naming a primitive that is not here must
     fail loudly at load, not silently emit nothing.

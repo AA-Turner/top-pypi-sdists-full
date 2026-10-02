@@ -1,0 +1,147 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Contract: node_navigation_history_reducer
+# Reduces navigation history events into aggregated session context
+
+name: node_navigation_history_reducer
+contract_version: {major: 0, minor: 1, patch: 0}
+node_version: {major: 0, minor: 1, patch: 0}
+node_type: reducer
+input_model: "ModelNavigationHistoryRequest"
+output_model: "ModelNavigationHistoryResponse"
+description: |
+  Reduces navigation history events into aggregated session context.
+  Requires pg_dsn, qdrant, and embedding parameters at runtime.
+
+handler:
+  module: omnimarket.nodes.node_navigation_history_reducer.handlers.handler_navigation_history_reducer
+  class: HandlerNavigationHistoryReducer
+
+handler_config:
+  handler_class: "HandlerNavigationHistoryReducer"
+  handler_module: "omnimarket.nodes.node_navigation_history_reducer.handlers.handler_navigation_history_reducer"
+
+handler_routing:
+  routing_strategy: payload_type_match
+  handlers:
+    - handler:
+        name: HandlerNavigationHistoryReducer
+        module: omnimarket.nodes.node_navigation_history_reducer.handlers.handler_navigation_history_reducer
+      event_model:
+        name: ModelNavigationHistoryRequest
+        module: omnimarket.nodes.node_navigation_history_reducer.models.model_navigation_history_request
+
+runtime_dispatch:
+  addressable: false
+  invocation_mode: projection_reducer
+  reason: "Reducer consumes navigation-session-completed events and materializes navigation history."
+
+event_bus:
+  subscribe_topics:
+    - onex.evt.omnimemory.navigation-session-completed.v1
+  publish_topics:
+    - onex.evt.omnimemory.navigation-history-reduced.v1
+    - onex.evt.omnimemory.navigation-history-reduce-failed.v1
+
+externally_consumed_topics:
+  - onex.evt.omnimemory.navigation-history-reduced.v1
+  - onex.evt.omnimemory.navigation-history-reduce-failed.v1
+
+env_dependencies:
+  LLM_EMBEDDING_URL:
+    required: false
+    description: "Embedding model endpoint URL (OpenAI-compatible /v1/embeddings)"
+  QDRANT_HOST:
+    required: false
+    description: "Qdrant host for navigation history vector storage. Node is a no-op when unset."
+  QDRANT_PORT:
+    required: false
+    description: "Qdrant port (default 6333)."
+  OMNIMEMORY_PG_DSN:
+    required: false
+    description: "PostgreSQL DSN for navigation history persistence; module-level default used when not provided via DI"
+
+tags:
+  - memory
+  - reducer
+  - navigation
+
+metadata:
+  transport_type: postgres
+  description: "Navigation history reducer — aggregates session context from navigation events"
+  author: "OmniNode Team"
+
+config:
+  OMNIMEMORY_PG_DSN:
+    description: "PostgreSQL DSN for navigation history persistence."
+    required: false
+  QDRANT_HOST:
+    description: "Qdrant host for navigation history vector storage."
+    required: false
+  QDRANT_PORT:
+    description: "Qdrant port (default 6333)."
+    required: false
+  LLM_EMBEDDING_URL:
+    description: "Embedding model endpoint URL."
+    required: false
+
+# OMN-13734: machine-readable FSM (transcribed from authoritative handler/model logic).
+state_machine:
+  version: {major: 1, minor: 0, patch: 0}
+  state_machine_name: navigation_history_fsm
+  state_machine_version: {major: 1, minor: 0, patch: 0}
+  description: "navigation_history_fsm"
+  initial_state: idle
+  terminal_states: [failed]
+  error_states: []
+  persistence_enabled: false
+  states:
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: idle
+      state_type: operational
+      description: "No navigation history folded yet."
+      required_data: []
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: reduced
+      state_type: operational
+      description: "Navigation history projection materialized."
+      required_data: []
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: failed
+      state_type: terminal
+      description: "Navigation history reduction failed (terminal)."
+      is_terminal: true
+      is_recoverable: false
+      required_data: []
+  transitions:
+    # Session completed; fold into history.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: idle_to_reduced_on_navigation_session_completed
+      from_state: idle
+      to_state: reduced
+      trigger: navigation_session_completed
+    # Fold another completed session.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: reduced_to_reduced_on_navigation_session_completed
+      from_state: reduced
+      to_state: reduced
+      trigger: navigation_session_completed
+    # Re-observe own projection (idempotent).
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: reduced_to_reduced_on_navigation_history_reduced
+      from_state: reduced
+      to_state: reduced
+      trigger: navigation_history_reduced
+    # Reduction failed before any projection.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: idle_to_failed_on_navigation_history_reduce_failed
+      from_state: idle
+      to_state: failed
+      trigger: navigation_history_reduce_failed
+    # Reduction failed.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: reduced_to_failed_on_navigation_history_reduce_failed
+      from_state: reduced
+      to_state: failed
+      trigger: navigation_history_reduce_failed

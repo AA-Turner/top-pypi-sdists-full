@@ -1,0 +1,819 @@
+//! Fast Django-compatible template engine
+//!
+//! This crate provides a high-performance template engine that is compatible
+//! with Django template syntax, including variables, filters, tags, and
+//! template inheritance.
+
+// PyResult type annotations are required by PyO3 API
+#![allow(clippy::useless_conversion)]
+
+use djust_core::{Context, DjangoRustError, Result, Value};
+use once_cell::sync::Lazy;
+use pyo3::prelude::*;
+use regex::Regex;
+use std::collections::{HashMap, HashSet};
+use std::sync::OnceLock;
+
+pub mod filter_arity;
+pub mod filter_lexer;
+pub mod filter_registry;
+pub mod filters;
+pub mod floatformat;
+pub mod htmlparser;
+pub mod inheritance;
+pub mod lexer;
+pub mod loop_cache;
+pub mod markdown;
+pub mod parser;
+pub mod pprint;
+pub mod registry;
+pub mod registry_scope;
+pub mod render_env;
+pub mod renderer;
+pub mod stringformat;
+pub mod tags;
+pub mod textwrap;
+pub mod timezone;
+pub mod truncate;
+mod urlquote;
+
+pub use markdown::render_markdown;
+
+use inheritance::{build_inheritance_chain, build_inheritance_chain_from, TemplateLoader};
+use parser::Node;
+
+// Re-export for JIT auto-serialization
+pub use parser::extract_template_variables;
+
+// Re-export for the dj-model mass-assignment allowlist (CWE-915, finding #3):
+// derives the bindable-field set from developer-authored template TEXT, which
+// attacker data can never reach (immune to rendered-output poisoning).
+pub use parser::{collect_dj_model_fields, extract_dj_model_fields};
+
+// These regexes may be used in future template parsing improvements
+#[allow(dead_code)]
+static VAR_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\{\{([^}]+)\}\}").unwrap());
+
+#[allow(dead_code)]
+static TAG_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\{%([^%]+)%\}").unwrap());
+
+/// Cached result of `{% extends %}` inheritance resolution.
+struct ResolvedInheritance {
+    final_nodes: Vec<Node>,
+    final_node_deps: Vec<HashSet<String>>,
+}
+
+/// Flattened nodes for partial rendering: `{% block %}` children promoted to top-level.
+/// This gives finer-grained fragments so the partial render can skip more nodes.
+struct FlattenedNodes {
+    nodes: Vec<Node>,
+    node_deps: Vec<HashSet<String>>,
+}
+
+/// Expose pure block children as separate nodes for partial rendering.
+/// Blocks containing context-mutating or opaque nodes must retain their
+/// lexical scope so assignments cannot escape into following siblings.
+fn flatten_blocks(nodes: Vec<Node>) -> Vec<Node> {
+    let mut result = Vec::new();
+    for node in nodes {
+        match node {
+            Node::Block {
+                name,
+                nodes: children,
+            } => {
+                if parser::extract_per_node_deps(&children)
+                    .iter()
+                    .any(|deps| deps.contains("*"))
+                {
+                    result.push(Node::Block {
+                        name,
+                        nodes: children,
+                    });
+                } else {
+                    result.extend(flatten_blocks(children));
+                }
+            }
+            other => result.push(other),
+        }
+    }
+    result
+}
+
+/// An immutable compiled template retained by a Python backend template.
+#[pyclass(frozen)]
+pub struct CompiledTemplate {
+    pub template: std::sync::Arc<Template>,
+}
+
+impl CompiledTemplate {
+    pub fn nodes(&self) -> Vec<Node> {
+        self.template.nodes.clone()
+    }
+}
+
+/// A compiled Django template
+#[pyclass]
+pub struct Template {
+    nodes: Vec<Node>,
+    source: String,
+    /// Per-node dependency sets for partial rendering optimisation.
+    node_deps: Vec<HashSet<String>>,
+    /// Lazily resolved inheritance: final merged nodes + deps for `{% extends %}` templates.
+    resolved: OnceLock<ResolvedInheritance>,
+    /// Lazily flattened nodes: blocks expanded for finer partial rendering.
+    flattened: OnceLock<FlattenedNodes>,
+}
+
+impl Template {
+    pub fn new(source: &str) -> Result<Self> {
+        // Spanned so a parse failure carries the byte position of the token
+        // that caused it — the position Django keeps on `Token.position` and
+        // turns into the `template_debug` its technical-500 page renders
+        // (#2557). `tokenize` is this same tokenizer with the spans dropped.
+        let (tokens, spans) = lexer::tokenize_spanned(source)?;
+        // Use `parse_with_source*` so the boundary-marker ID prefix
+        // (`<!--dj-if id="if-<prefix>-N"-->`) is derived from this
+        // template's own source. Prevents ID collisions when a
+        // parent template via `{% extends %}` or a child template
+        // via `{% include %}` is parsed independently with its own
+        // counter (Stage 11 finding on PR #1363, #1358 Iter 1).
+        let nodes = parser::parse_with_source_spanned(&tokens, &spans, source)?;
+        let node_deps = parser::extract_per_node_deps(&nodes);
+
+        Ok(Self {
+            nodes,
+            source: source.to_string(),
+            node_deps,
+            resolved: OnceLock::new(),
+            flattened: OnceLock::new(),
+        })
+    }
+
+    /// Validate syntax that depends on the defining template's origin.
+    pub fn validate_relative_references(&self, name: &str) -> Result<()> {
+        inheritance::validate_relative_references(&self.nodes, name)
+    }
+
+    /// Per-node dependency sets (top-level context variable names each node uses).
+    pub fn node_deps(&self) -> &[HashSet<String>] {
+        &self.node_deps
+    }
+
+    /// Returns `true` if this template uses `{% extends %}` inheritance.
+    pub fn uses_extends(&self) -> bool {
+        self.nodes
+            .iter()
+            .any(|node| matches!(node, Node::Extends(_)))
+    }
+
+    /// Does this template's `{% extends %}` target start with `./` or `../`?
+    ///
+    /// A relative target resolves against the CURRENT template's name, so its
+    /// merged result is name-dependent and must not be served from the
+    /// source-keyed `resolved` cache — two templates with identical source
+    /// loaded under different names resolve to different parents.
+    fn extends_is_relative(&self) -> bool {
+        self.nodes.iter().any(|node| match node {
+            Node::Extends(target) => {
+                // The token keeps its quotes (#2517); strip before testing.
+                let t = target.trim_matches(|c| c == '"' || c == '\'');
+                t.starts_with("./") || t.starts_with("../")
+            }
+            _ => false,
+        })
+    }
+
+    /// Resolve `{% extends %}` inheritance and cache the final merged nodes.
+    /// No-op for templates without `{% extends %}`.
+    /// Thread-safe: `OnceLock` ensures only one thread resolves.
+    pub fn resolve_inheritance<L: TemplateLoader>(&self, loader: &L) -> Result<()> {
+        if !self.uses_extends() || self.resolved.get().is_some() {
+            return Ok(());
+        }
+        let chain = build_inheritance_chain(self.nodes.clone(), loader, 10)?;
+        let root_nodes = chain.get_root_nodes();
+        let final_nodes = chain.apply_block_overrides(root_nodes);
+        let final_node_deps = parser::extract_per_node_deps(&final_nodes);
+        // OnceLock::set returns Err if already set (race), which is fine
+        let _ = self.resolved.set(ResolvedInheritance {
+            final_nodes,
+            final_node_deps,
+        });
+        Ok(())
+    }
+
+    /// Ensure flattened nodes are computed (lazy, thread-safe).
+    fn ensure_flattened(&self) {
+        if self.flattened.get().is_some() {
+            return;
+        }
+        // Only flatten when blocks exist and extends is NOT used
+        // (inheritance keeps its own resolved node tree)
+        let has_blocks = self.nodes.iter().any(|n| matches!(n, Node::Block { .. }));
+        if has_blocks && !self.uses_extends() {
+            let flat = flatten_blocks(self.nodes.clone());
+            let deps = parser::extract_per_node_deps(&flat);
+            let _ = self.flattened.set(FlattenedNodes {
+                nodes: flat,
+                node_deps: deps,
+            });
+        }
+    }
+
+    /// Get the effective nodes for rendering.
+    /// Priority: resolved (extends) > flattened (block expansion) > original.
+    fn effective_nodes(&self) -> &[Node] {
+        if let Some(resolved) = self.resolved.get() {
+            return &resolved.final_nodes;
+        }
+        self.ensure_flattened();
+        if let Some(flat) = self.flattened.get() {
+            return &flat.nodes;
+        }
+        &self.nodes
+    }
+
+    /// Get the effective node deps for partial rendering.
+    fn effective_node_deps(&self) -> &[HashSet<String>] {
+        if let Some(resolved) = self.resolved.get() {
+            return &resolved.final_node_deps;
+        }
+        self.ensure_flattened();
+        if let Some(flat) = self.flattened.get() {
+            return &flat.node_deps;
+        }
+        &self.node_deps
+    }
+
+    pub fn render(&self, context: &Context) -> Result<String> {
+        self.render_with_loader(context, &NoOpTemplateLoader)
+    }
+
+    /// Render all nodes, returning full HTML and per-node fragment cache.
+    pub fn render_with_loader_collecting<L: TemplateLoader>(
+        &self,
+        context: &Context,
+        loader: &L,
+    ) -> Result<(String, Vec<String>)> {
+        let _includes = inheritance::IncludeRenderGuard::new();
+        renderer::render_nodes_collecting(self.effective_nodes(), context, Some(loader))
+    }
+
+    /// Partial render: re-render only nodes whose deps intersect `changed_keys`.
+    ///
+    /// Falls back to a full collecting render when `{% extends %}` hasn't been resolved.
+    /// Returns `(full_html, new_fragment_cache, changed_node_indices)`.
+    pub fn render_with_loader_partial<L: TemplateLoader>(
+        &self,
+        context: &Context,
+        loader: &L,
+        changed_keys: &HashSet<String>,
+        node_html_cache: &[String],
+    ) -> Result<(String, Vec<String>, Vec<usize>)> {
+        let _includes = inheritance::IncludeRenderGuard::new();
+        if self.uses_extends() && self.resolved.get().is_none() {
+            // Extends not yet resolved — fall back to full render
+            let (html, fragments) =
+                renderer::render_nodes_collecting(&self.nodes, context, Some(loader))?;
+            let changed: Vec<usize> = (0..fragments.len()).collect();
+            return Ok((html, fragments, changed));
+        }
+
+        renderer::render_nodes_partial(
+            self.effective_nodes(),
+            self.effective_node_deps(),
+            context,
+            Some(loader),
+            changed_keys,
+            node_html_cache,
+        )
+    }
+
+    /// Render with a custom template loader for inheritance and {% include %} support
+    pub fn render_with_loader<L: TemplateLoader>(
+        &self,
+        context: &Context,
+        loader: &L,
+    ) -> Result<String> {
+        self.render_with_loader_named(context, loader, None)
+    }
+
+    /// [`Self::render_with_loader`] that knows this template's own name, so a
+    /// relative `{% extends %}` can resolve against it (#2517).
+    pub fn render_with_loader_named<L: TemplateLoader>(
+        &self,
+        context: &Context,
+        loader: &L,
+        template_name: Option<&str>,
+    ) -> Result<String> {
+        self.render_with_loader_named_mut(&mut context.clone(), loader, template_name)
+    }
+
+    /// Render into a caller-owned context so surviving assignments can be exported.
+    pub fn render_with_loader_named_mut<L: TemplateLoader>(
+        &self,
+        context: &mut Context,
+        loader: &L,
+        template_name: Option<&str>,
+    ) -> Result<String> {
+        let _includes = inheritance::IncludeRenderGuard::new();
+        // Use cached resolved nodes if available. Skipped for a RELATIVE
+        // `{% extends %}`: that resolution depends on the template's name and
+        // the cache is keyed by source (#2517).
+        if template_name.is_none() && !self.extends_is_relative() {
+            if let Some(resolved) = self.resolved.get() {
+                return renderer::render_nodes_with_loader_mut(
+                    &resolved.final_nodes,
+                    context,
+                    Some(loader),
+                );
+            }
+        }
+
+        // Check if template uses inheritance
+        if self.uses_extends() {
+            // Build inheritance chain (not cached — call resolve_inheritance() first)
+            let chain = build_inheritance_chain_from(
+                self.nodes.clone(),
+                loader,
+                10,
+                template_name,
+                Some(context),
+            )?;
+            let root_nodes = chain.get_root_nodes();
+            let final_nodes = chain.apply_block_overrides(root_nodes);
+            renderer::render_nodes_with_loader_mut(&final_nodes, context, Some(loader))
+        } else {
+            if let Some(name) = template_name {
+                let mut nodes = self.nodes.clone();
+                inheritance::set_include_origins(&mut nodes, name)?;
+                inheritance::set_ifchanged_origins(
+                    &mut nodes,
+                    &loader
+                        .template_origin(name)
+                        .unwrap_or_else(|| name.to_string()),
+                );
+                renderer::render_nodes_with_loader_mut(&nodes, context, Some(loader))
+            } else {
+                renderer::render_nodes_with_loader_mut(&self.nodes, context, Some(loader))
+            }
+        }
+    }
+}
+
+/// No-op template loader for templates without inheritance
+struct NoOpTemplateLoader;
+
+impl TemplateLoader for NoOpTemplateLoader {
+    fn shared_handle(&self) -> std::sync::Arc<dyn TemplateLoader + Send + Sync> {
+        std::sync::Arc::new(NoOpTemplateLoader)
+    }
+
+    fn load_template(&self, name: &str) -> Result<Vec<Node>> {
+        Err(DjangoRustError::TemplateError(format!(
+            "Template loader not configured. Cannot load parent template: {name}"
+        )))
+    }
+}
+
+#[pymethods]
+impl Template {
+    #[new]
+    fn py_new(source: &str) -> PyResult<Self> {
+        Ok(Template::new(source)?)
+    }
+
+    /// A Python caller of the templates crate directly is by definition not
+    /// the LiveView differ, so the `<!--dj-if-->` VDOM markers are switched
+    /// OFF here exactly as on `render_template` below and on both plain
+    /// entries in `djust_live` (#2519, #2537). Only the LiveView render path
+    /// keeps `Context`'s default of `true`.
+    fn py_render(&self, context_dict: HashMap<String, Value>) -> PyResult<String> {
+        let mut context = Context::from_dict(context_dict);
+        context.set_emit_dj_if_markers(false);
+        Ok(self.render(&context)?)
+    }
+
+    #[getter]
+    fn source(&self) -> String {
+        self.source.clone()
+    }
+}
+
+/// Fast template rendering function for Python (standalone, no VDOM).
+///
+/// The `<!--dj-if-->` VDOM markers are switched OFF on the render context
+/// (#2519) — the markers are framework-internal metadata for LiveView
+/// diffing, not user-visible HTML, so standalone rendering yields Django's
+/// bytes. They are never built; nothing is stripped after the fact (the old
+/// post-render regex strip was the second mechanism that let the plain
+/// `render_template_with_dirs` entry ship without either).
+#[pyfunction]
+fn render_template(source: String, context: HashMap<String, Value>) -> PyResult<String> {
+    let template = Template::new(&source)?;
+    let mut ctx = Context::from_dict(context);
+    ctx.set_emit_dj_if_markers(false);
+    Ok(template.render(&ctx)?)
+}
+
+/// Python module for template functionality
+#[pymodule]
+fn djust_templates(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_class::<Template>()?;
+    m.add_function(wrap_pyfunction!(render_template, m)?)?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// #2537: the Python-facing entries of this crate never emit VDOM
+    /// markers; only a bare `Context` (the LiveView path) does.
+    #[test]
+    fn python_facing_entries_emit_no_dj_if_markers() {
+        let source = "{% if flag %}<b>yes</b>{% endif %}";
+        let template = Template::new(source).unwrap();
+        let mut ctx = HashMap::new();
+        ctx.insert("flag".to_string(), Value::Bool(true));
+
+        let via_method = template.py_render(ctx.clone()).unwrap();
+        let via_function = render_template(source.to_string(), ctx.clone()).unwrap();
+        assert_eq!(via_method, "<b>yes</b>");
+        assert_eq!(via_method, via_function);
+
+        // The LiveView-shaped render (a bare Context) still carries the marker,
+        // so the assertion above is about the entry, not about the tag.
+        let live = template.render(&Context::from_dict(ctx)).unwrap();
+        assert!(live.contains("<b>yes</b>"));
+        // Marker emission itself is gated on the `liveview` feature: without
+        // it a bare Context never emits, so the non-vacuity check inverts.
+        #[cfg(feature = "liveview")]
+        assert!(
+            live.contains("<!--dj-if"),
+            "LiveView path lost its marker: {live}"
+        );
+        #[cfg(not(feature = "liveview"))]
+        assert_eq!(
+            live, "<b>yes</b>",
+            "no liveview feature, yet a marker: {live}"
+        );
+    }
+
+    #[test]
+    fn test_simple_variable() {
+        let template = Template::new("Hello {{ name }}!").unwrap();
+        let mut context = Context::new();
+        context.set("name".to_string(), Value::String("World".to_string()));
+
+        let result = template.render(&context).unwrap();
+        assert_eq!(result, "Hello World!");
+    }
+
+    #[test]
+    fn test_missing_variable() {
+        let template = Template::new("Hello {{ name }}!").unwrap();
+        let context = Context::new();
+
+        let result = template.render(&context).unwrap();
+        assert_eq!(result, "Hello !");
+    }
+
+    // In-memory template loader for testing
+    #[derive(Clone)]
+    struct TestTemplateLoader {
+        templates: HashMap<String, String>,
+    }
+
+    impl TestTemplateLoader {
+        fn new() -> Self {
+            Self {
+                templates: HashMap::new(),
+            }
+        }
+
+        fn add(&mut self, name: &str, source: &str) {
+            self.templates.insert(name.to_string(), source.to_string());
+        }
+    }
+
+    impl TemplateLoader for TestTemplateLoader {
+        fn shared_handle(&self) -> std::sync::Arc<dyn TemplateLoader + Send + Sync> {
+            std::sync::Arc::new(self.clone())
+        }
+
+        fn load_template(&self, name: &str) -> Result<Vec<Node>> {
+            if let Some(source) = self.templates.get(name) {
+                let tokens = lexer::tokenize(source)?;
+                // Match the production loader: use `parse_with_source`
+                // so each template's `Node::If` boundary-marker IDs
+                // get a per-source prefix and don't collide across
+                // parent/child/included templates (#1358 Iter 1).
+                parser::parse_with_source(&tokens, source)
+            } else {
+                Err(DjangoRustError::TemplateError(format!(
+                    "Template not found: {name}"
+                )))
+            }
+        }
+    }
+
+    #[test]
+    fn test_basic_inheritance() {
+        let mut loader = TestTemplateLoader::new();
+
+        // Base template
+        loader.add(
+            "base.html",
+            "<html><head>{% block title %}Default{% endblock %}</head><body>{% block content %}{% endblock %}</body></html>",
+        );
+
+        // Child template
+        let child_source =
+            "{% extends \"base.html\" %}{% block title %}My Page{% endblock %}{% block content %}Hello World{% endblock %}";
+        let child_template = Template::new(child_source).unwrap();
+
+        let context = Context::new();
+        let result = child_template
+            .render_with_loader(&context, &loader)
+            .unwrap();
+
+        // Should have child's blocks in parent's structure
+        assert!(result.contains("<html>"));
+        assert!(result.contains("My Page"));
+        assert!(result.contains("Hello World"));
+    }
+
+    #[test]
+    fn test_inheritance_block_override() {
+        let mut loader = TestTemplateLoader::new();
+
+        loader.add(
+            "base.html",
+            "Header {% block content %}Default content{% endblock %} Footer",
+        );
+
+        let child = Template::new(
+            "{% extends \"base.html\" %}{% block content %}Child content{% endblock %}",
+        )
+        .unwrap();
+
+        let context = Context::new();
+        let result = child.render_with_loader(&context, &loader).unwrap();
+
+        assert!(result.contains("Header"));
+        assert!(result.contains("Child content"));
+        assert!(!result.contains("Default content"));
+        assert!(result.contains("Footer"));
+    }
+
+    #[test]
+    fn test_no_inheritance() {
+        let template = Template::new("<html>{% block content %}Test{% endblock %}</html>").unwrap();
+        let context = Context::new();
+        let result = template.render(&context).unwrap();
+
+        // Should render normally without inheritance
+        assert_eq!(result, "<html>Test</html>");
+    }
+
+    #[test]
+    fn test_multi_level_inheritance() {
+        let mut loader = TestTemplateLoader::new();
+
+        // Grandparent template
+        loader.add(
+            "grandparent.html",
+            "{% block header %}Grandparent Header{% endblock %} | {% block content %}Grandparent Content{% endblock %}",
+        );
+
+        // Parent template extends grandparent, overrides only header
+        loader.add(
+            "parent.html",
+            "{% extends \"grandparent.html\" %}{% block header %}Parent Header{% endblock %}",
+        );
+
+        // Child template extends parent, overrides only content
+        let child_source =
+            "{% extends \"parent.html\" %}{% block content %}Child Content{% endblock %}";
+        let child_template = Template::new(child_source).unwrap();
+
+        let context = Context::new();
+        let result = child_template
+            .render_with_loader(&context, &loader)
+            .unwrap();
+
+        // Should have parent's header and child's content
+        assert!(result.contains("Parent Header"));
+        assert!(result.contains("Child Content"));
+        assert!(!result.contains("Grandparent Header"));
+        assert!(!result.contains("Grandparent Content"));
+    }
+
+    #[test]
+    fn test_inheritance_with_variables() {
+        let mut loader = TestTemplateLoader::new();
+
+        loader.add(
+            "base.html",
+            "{% block title %}{{ site_name }}{% endblock %} | {% block content %}{% endblock %}",
+        );
+
+        let child_source =
+            "{% extends \"base.html\" %}{% block content %}Welcome {{ user }}{% endblock %}";
+        let child_template = Template::new(child_source).unwrap();
+
+        let mut context = Context::new();
+        context.set(
+            "site_name".to_string(),
+            Value::String("My Site".to_string()),
+        );
+        context.set("user".to_string(), Value::String("John".to_string()));
+
+        let result = child_template
+            .render_with_loader(&context, &loader)
+            .unwrap();
+
+        assert!(result.contains("My Site"));
+        assert!(result.contains("Welcome John"));
+    }
+
+    #[test]
+    fn test_empty_block_override() {
+        let mut loader = TestTemplateLoader::new();
+
+        loader.add(
+            "base.html",
+            "Before {% block content %}Default Content{% endblock %} After",
+        );
+
+        // Child overrides with empty block
+        let child_source = "{% extends \"base.html\" %}{% block content %}{% endblock %}";
+        let child_template = Template::new(child_source).unwrap();
+
+        let context = Context::new();
+        let result = child_template
+            .render_with_loader(&context, &loader)
+            .unwrap();
+
+        assert_eq!(result, "Before  After");
+        assert!(!result.contains("Default Content"));
+    }
+
+    #[test]
+    fn test_inheritance_with_for_loop() {
+        let mut loader = TestTemplateLoader::new();
+
+        loader.add("base.html", "<ul>{% block items %}{% endblock %}</ul>");
+
+        let child_source = "{% extends \"base.html\" %}{% block items %}{% for item in items %}<li>{{ item }}</li>{% endfor %}{% endblock %}";
+        let child_template = Template::new(child_source).unwrap();
+
+        let mut context = Context::new();
+        context.set(
+            "items".to_string(),
+            Value::List(vec![
+                Value::String("A".to_string()),
+                Value::String("B".to_string()),
+                Value::String("C".to_string()),
+            ]),
+        );
+
+        let result = child_template
+            .render_with_loader(&context, &loader)
+            .unwrap();
+
+        assert!(result.contains("<ul>"));
+        assert!(result.contains("<li>A</li>"));
+        assert!(result.contains("<li>B</li>"));
+        assert!(result.contains("<li>C</li>"));
+        assert!(result.contains("</ul>"));
+    }
+
+    // ── Partial rendering tests ──────────────────────────────────────
+
+    #[test]
+    fn test_extract_per_node_deps() {
+        let source = "Hello {{ name }}! {% if active %}Active{% endif %}{% for item in items %}{{ item }}{% endfor %}";
+        let template = Template::new(source).unwrap();
+        let deps = template.node_deps();
+
+        // Node 0: Text("Hello ") — no deps
+        assert!(deps[0].is_empty(), "Text node should have no deps");
+        // Node 1: Variable("name") — deps = {"name"}
+        assert!(
+            deps[1].contains("name"),
+            "Variable node should depend on 'name'"
+        );
+        // Node 2: Text("! ") — no deps
+        assert!(deps[2].is_empty());
+        // Node 3: If { condition: "active" ... } — deps include "active"
+        assert!(deps[3].contains("active"));
+        // Node 4: For { iterable: "items" ... } — deps include "items"
+        assert!(deps[4].contains("items"));
+    }
+
+    #[test]
+    fn test_render_nodes_collecting() {
+        let source = "<p>{{ greeting }}</p> <span>{{ name }}</span>";
+        let template = Template::new(source).unwrap();
+
+        let mut context = Context::new();
+        context.set("greeting".to_string(), Value::String("Hello".to_string()));
+        context.set("name".to_string(), Value::String("World".to_string()));
+
+        let (full, fragments) = template
+            .render_with_loader_collecting(&context, &NoOpTemplateLoader)
+            .unwrap();
+
+        // Fragments should concatenate to full HTML
+        let concatenated: String = fragments.iter().cloned().collect();
+        assert_eq!(full, concatenated);
+        assert!(full.contains("Hello"));
+        assert!(full.contains("World"));
+    }
+
+    #[test]
+    fn test_render_nodes_partial_skips_unchanged() {
+        let source = "<p>{{ greeting }}</p><span>{{ name }}</span>";
+        let template = Template::new(source).unwrap();
+
+        let mut context = Context::new();
+        context.set("greeting".to_string(), Value::String("Hello".to_string()));
+        context.set("name".to_string(), Value::String("World".to_string()));
+
+        // First: full collecting render to populate cache
+        let (_full, fragments) = template
+            .render_with_loader_collecting(&context, &NoOpTemplateLoader)
+            .unwrap();
+
+        // Now change only "name"
+        context.set("name".to_string(), Value::String("Rust".to_string()));
+        let changed_keys: HashSet<String> = ["name".to_string()].into_iter().collect();
+
+        let (partial_html, new_fragments, changed_indices) = template
+            .render_with_loader_partial(&context, &NoOpTemplateLoader, &changed_keys, &fragments)
+            .unwrap();
+
+        // The output should contain the new name
+        assert!(partial_html.contains("Rust"));
+        // The greeting node should NOT have been re-rendered (not in changed_indices)
+        // Text nodes and the greeting variable node should be skipped
+        // Only the name variable node should be in changed_indices
+        assert!(
+            !changed_indices.is_empty(),
+            "At least one node should have been re-rendered"
+        );
+        // The "greeting" variable node (index 1) should NOT be in changed_indices
+        assert!(
+            !changed_indices.contains(&1),
+            "greeting node should be cached, not re-rendered"
+        );
+
+        // Verify the partial render matches what a full render would produce
+        let full_html = template
+            .render_with_loader(&context, &NoOpTemplateLoader)
+            .unwrap();
+        assert_eq!(partial_html, full_html);
+
+        // Verify new_fragments concatenate to the full output
+        let concatenated: String = new_fragments.iter().cloned().collect();
+        assert_eq!(partial_html, concatenated);
+    }
+
+    #[test]
+    fn test_partial_render_text_nodes_never_rerender() {
+        let source = "Static text {{ dynamic }}";
+        let template = Template::new(source).unwrap();
+
+        let mut context = Context::new();
+        context.set("dynamic".to_string(), Value::String("v1".to_string()));
+
+        let (_full, fragments) = template
+            .render_with_loader_collecting(&context, &NoOpTemplateLoader)
+            .unwrap();
+
+        context.set("dynamic".to_string(), Value::String("v2".to_string()));
+        let changed_keys: HashSet<String> = ["dynamic".to_string()].into_iter().collect();
+
+        let (_html, _new_frags, changed_indices) = template
+            .render_with_loader_partial(&context, &NoOpTemplateLoader, &changed_keys, &fragments)
+            .unwrap();
+
+        // Text node (index 0) should NOT be re-rendered
+        assert!(
+            !changed_indices.contains(&0),
+            "Text node should never re-render"
+        );
+    }
+
+    #[test]
+    fn test_uses_extends() {
+        let plain = Template::new("<p>Hello</p>").unwrap();
+        assert!(!plain.uses_extends());
+
+        let extending =
+            Template::new("{% extends \"base.html\" %}{% block content %}X{% endblock %}").unwrap();
+        assert!(extending.uses_extends());
+    }
+}

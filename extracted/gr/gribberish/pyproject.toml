@@ -1,0 +1,51 @@
+[build-system]
+requires = ["maturin>=1.5,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "gribberish"
+requires-python = ">=3.12"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dynamic = ["version"]
+
+dependencies = ["numpy >= 2"]
+
+[project.optional-dependencies]
+xarray = ["xarray>=2025.6.0", "obstore"]
+zarr = ["zarr>=3.1.1"]
+virtualizarr = ["virtualizarr>=2.6", "zarr>=3.1.1", "obstore"]
+dev = [
+    "matplotlib",
+    "cf_xarray",
+    "zarr>=3.1.1",
+    "virtualizarr>=2.6",
+    "obstore",
+    "ujson",
+    "dask[complete]",
+    "ipywidgets",
+    "scipy",
+    "cfgrib",
+    "pyproj",
+    "xoak",
+    "scikit-learn",
+    "pytest",
+    "pytest-asyncio",
+]
+
+[project.entry-points."xarray.backends"]
+gribberish = "gribberish.gribberish_backend:GribberishBackend"
+
+[project.entry-points."zarr.codecs"]
+gribberish = "gribberish.zarr:GribberishCodec"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+module-name = "gribberish._gribberish_python"
+manifest-path = "python/Cargo.toml"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

@@ -46,7 +46,9 @@ class ProductionServiceV2VersionModel(object):
         'compute_config_id': 'str',
         'production_job_ids': 'list[str]',
         'connection_ids': 'list[str]',
-        'current_state': 'ServiceVersionState'
+        'current_state': 'ServiceVersionState',
+        'global_target_capacity': 'float',
+        'placements': 'list[ServiceVersionPlacement]'
     }
 
     attribute_map = {
@@ -63,10 +65,12 @@ class ProductionServiceV2VersionModel(object):
         'compute_config_id': 'compute_config_id',
         'production_job_ids': 'production_job_ids',
         'connection_ids': 'connection_ids',
-        'current_state': 'current_state'
+        'current_state': 'current_state',
+        'global_target_capacity': 'global_target_capacity',
+        'placements': 'placements'
     }
 
-    def __init__(self, id=None, created_at=None, weight=None, current_weight=None, target_weight=None, version=None, ray_serve_config=None, ray_gcs_external_storage_config=None, tracing_config=None, build_id=None, compute_config_id=None, production_job_ids=None, connection_ids=None, current_state=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, created_at=None, weight=None, current_weight=None, target_weight=None, version=None, ray_serve_config=None, ray_gcs_external_storage_config=None, tracing_config=None, build_id=None, compute_config_id=None, production_job_ids=None, connection_ids=None, current_state=None, global_target_capacity=None, placements=None, local_vars_configuration=None):  # noqa: E501
         """ProductionServiceV2VersionModel - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -86,6 +90,8 @@ class ProductionServiceV2VersionModel(object):
         self._production_job_ids = None
         self._connection_ids = None
         self._current_state = None
+        self._global_target_capacity = None
+        self._placements = None
         self.discriminator = None
 
         self.id = id
@@ -107,6 +113,10 @@ class ProductionServiceV2VersionModel(object):
         if connection_ids is not None:
             self.connection_ids = connection_ids
         self.current_state = current_state
+        if global_target_capacity is not None:
+            self.global_target_capacity = global_target_capacity
+        if placements is not None:
+            self.placements = placements
 
     @property
     def id(self):
@@ -445,6 +455,52 @@ class ProductionServiceV2VersionModel(object):
             raise ValueError("Invalid value for `current_state`, must not be `None`")  # noqa: E501
 
         self._current_state = current_state
+
+    @property
+    def global_target_capacity(self):
+        """Gets the global_target_capacity of this ProductionServiceV2VersionModel.  # noqa: E501
+
+        The percentage of the service version's full capacity that the rollout targets, summed across the cloud resources it is placed on. Null when unknown.  # noqa: E501
+
+        :return: The global_target_capacity of this ProductionServiceV2VersionModel.  # noqa: E501
+        :rtype: float
+        """
+        return self._global_target_capacity
+
+    @global_target_capacity.setter
+    def global_target_capacity(self, global_target_capacity):
+        """Sets the global_target_capacity of this ProductionServiceV2VersionModel.
+
+        The percentage of the service version's full capacity that the rollout targets, summed across the cloud resources it is placed on. Null when unknown.  # noqa: E501
+
+        :param global_target_capacity: The global_target_capacity of this ProductionServiceV2VersionModel.  # noqa: E501
+        :type: float
+        """
+
+        self._global_target_capacity = global_target_capacity
+
+    @property
+    def placements(self):
+        """Gets the placements of this ProductionServiceV2VersionModel.  # noqa: E501
+
+        The cloud resources the service version is placed on, as last observed by the service reconciler. Empty when unknown.  # noqa: E501
+
+        :return: The placements of this ProductionServiceV2VersionModel.  # noqa: E501
+        :rtype: list[ServiceVersionPlacement]
+        """
+        return self._placements
+
+    @placements.setter
+    def placements(self, placements):
+        """Sets the placements of this ProductionServiceV2VersionModel.
+
+        The cloud resources the service version is placed on, as last observed by the service reconciler. Empty when unknown.  # noqa: E501
+
+        :param placements: The placements of this ProductionServiceV2VersionModel.  # noqa: E501
+        :type: list[ServiceVersionPlacement]
+        """
+
+        self._placements = placements
 
     def to_dict(self):
         """Returns the model properties as a dict"""

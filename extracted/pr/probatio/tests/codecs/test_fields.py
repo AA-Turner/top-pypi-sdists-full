@@ -1,0 +1,677 @@
+"""Tests for to_field_list(): the voluptuous-serialize field-list shape.
+
+The structural cases are differential-tested: the same schema is built in both
+libraries, serialized by each, and the output compared. probatio.to_field_list must
+match voluptuous-serialize so config-flow frontends and tool exporters work on
+probatio schemas unchanged.
+"""
+
+from __future__ import annotations
+
+import collections
+import decimal
+import enum
+from dataclasses import dataclass
+from typing import Any, TypedDict
+
+import pytest
+import voluptuous
+import voluptuous_serialize
+
+import probatio
+from probatio import (
+    UNSUPPORTED,
+    All,
+    Alpha,
+    AsDate,
+    AsDatetime,
+    AsTime,
+    Base64,
+    DataclassSchema,
+    Duration,
+    EnsureList,
+    FromEpoch,
+    HexInt,
+    IPAddress,
+    Match,
+    MultipleOf,
+    NonEmpty,
+    Optional,
+    Percentage,
+    Port,
+    Required,
+    Schema,
+    Secret,
+    TypedDictSchema,
+    create_dataclass_schema,
+    from_json_schema,
+    to_field_list,
+)
+from probatio import Any as ProbAny
+
+
+def mapping(lib: Any) -> Any:
+    """A mapping exercising types, defaults, descriptions, In, All, and bounds."""
+    return lib.Schema(
+        {
+            lib.Required("name"): str,
+            lib.Optional("port", default=8080): lib.All(
+                lib.Coerce(int),
+                lib.Range(min=1, max=65535),
+            ),
+            lib.Optional("mode"): lib.In(["auto", "manual"]),
+            lib.Optional("note", description="a note"): str,
+            lib.Optional("count"): int,
+            lib.Optional("label"): lib.All(str, lib.Length(min=1, max=20)),
+        },
+    )
+
+
+def test_mapping_matches_voluptuous_serialize() -> None:
+    """The field list matches voluptuous-serialize for a realistic mapping."""
+    assert to_field_list(mapping(probatio)) == voluptuous_serialize.convert(
+        mapping(voluptuous),
+    )
+
+
+def test_single_type_matches() -> None:
+    """A bare type serializes to the same value dict as voluptuous-serialize."""
+    assert to_field_list(Schema(str)) == voluptuous_serialize.convert(
+        voluptuous.Schema(str),
+    )
+
+
+def test_datetime_matches() -> None:
+    """A Datetime value serializes with type and format like the oracle."""
+    assert to_field_list(Schema(probatio.Datetime())) == voluptuous_serialize.convert(
+        voluptuous.Schema(voluptuous.Datetime()),
+    )
+
+
+def test_as_parsers_serialize_as_datetime_fields() -> None:
+    """The As* parsers serialize as a datetime field; ISO carries no strptime format."""
+    assert to_field_list(Schema(AsDate())) == {"type": "datetime"}
+    assert to_field_list(Schema(AsTime())) == {"type": "datetime"}
+    assert to_field_list(Schema(AsDatetime())) == {"type": "datetime"}
+
+
+def test_as_parser_with_format_serializes_the_format() -> None:
+    """An explicit strptime format is carried into the serialized datetime field."""
+    assert to_field_list(Schema(AsDate(format="%d-%m-%Y"))) == {
+        "type": "datetime",
+        "format": "%d-%m-%Y",
+    }
+
+
+def test_epoch_serializes_as_a_float_field() -> None:
+    """FromEpoch takes an int or fractional-second float, so it serializes as float."""
+    assert to_field_list(Schema(FromEpoch())) == {"type": "float"}
+
+
+def test_bare_key_is_not_optional() -> None:
+    """A bare key is required:false with no optional flag, matching the oracle."""
+    assert to_field_list(Schema({"x": int})) == voluptuous_serialize.convert(
+        voluptuous.Schema({"x": int}),
+    )
+
+
+def test_any_value_serializes_first_option() -> None:
+    """An Any value serializes using its first usable alternative."""
+    assert to_field_list(Schema(ProbAny(int, str))) == {"type": "integer"}
+
+
+def test_coerce_of_non_type_is_open() -> None:
+    """Coerce of a non-type callable serializes to an open dict."""
+    assert to_field_list(Schema(probatio.Coerce(str.strip))) == {}
+
+
+@pytest.mark.parametrize("value", [5, "abc", 3.14, True])
+def test_literal_value_serializes_as_a_constant(value: object) -> None:
+    """A literal mapping value renders as a constant field, like the oracle."""
+    assert to_field_list(
+        Schema({Required("n"): value})
+    ) == voluptuous_serialize.convert(
+        voluptuous.Schema({voluptuous.Required("n"): value}),
+    )
+
+
+def test_bare_literal_serializes_as_a_constant() -> None:
+    """A bare literal schema renders as a constant value, like the oracle."""
+    assert to_field_list(Schema(5)) == voluptuous_serialize.convert(
+        voluptuous.Schema(5)
+    )
+
+
+def test_unsupported_value_raises() -> None:
+    """An un-serializable value raises, matching voluptuous-serialize."""
+    with pytest.raises(ValueError, match="unable to serialize"):
+        to_field_list(Schema([str]))
+
+
+def test_unhashable_callable_value_raises_cleanly() -> None:
+    """An unhashable callable value raises ValueError, not a leaked TypeError."""
+
+    class _Unhashable:
+        __hash__ = None
+
+        def __call__(self, value: Any) -> Any:
+            return value
+
+    with pytest.raises(ValueError, match="unable to serialize"):
+        to_field_list(Schema({Required("k"): _Unhashable()}))
+
+
+def test_custom_serializer_overrides_and_defers() -> None:
+    """A custom serializer can override a node or defer with UNSUPPORTED."""
+    sentinel = object()
+
+    def custom(node: Any) -> Any:
+        if node is sentinel:
+            return {"type": "custom"}
+        return UNSUPPORTED
+
+    schema = Schema({Optional("a"): sentinel, Optional("b"): int})
+    result = to_field_list(schema, custom_serializer=custom)
+
+    by_name = {field["name"]: field for field in result}
+    assert by_name["a"]["type"] == "custom"
+    assert by_name["b"]["type"] == "integer"
+
+
+def test_unsupported_repr() -> None:
+    """The UNSUPPORTED sentinel renders clearly in debug output."""
+    assert repr(UNSUPPORTED) == "UNSUPPORTED"
+
+
+def test_serialize_accepts_a_raw_schema_node() -> None:
+    """serialize works on a bare schema node, not only on a Schema instance."""
+    assert to_field_list({"x": int}) == voluptuous_serialize.convert(
+        voluptuous.Schema({"x": int}),
+    )
+
+
+def test_unsupported_type_raises() -> None:
+    """A type with no serialize mapping raises, like an unknown value."""
+    with pytest.raises(ValueError, match="unable to serialize"):
+        to_field_list(Schema(dict))
+
+
+def test_any_skips_empty_alternatives() -> None:
+    """Any skips alternatives that serialize to an empty dict, using the next."""
+    schema = Schema(ProbAny(probatio.Coerce(str.strip), int))
+    assert to_field_list(schema) == {"type": "integer"}
+
+
+def test_any_of_only_open_alternatives_is_open() -> None:
+    """Any of only open alternatives serializes to an open dict."""
+    assert to_field_list(Schema(ProbAny(probatio.Coerce(str.strip)))) == {}
+
+
+def test_range_one_sided_bounds() -> None:
+    """Range with a single bound emits only that bound."""
+    assert to_field_list(Schema(probatio.Range(min=1))) == {"valueMin": 1}
+    assert to_field_list(Schema(probatio.Range(max=9))) == {"valueMax": 9}
+
+
+def test_clamp_serializes_like_voluptuous_serialize() -> None:
+    """Clamp emits valueMin/valueMax, matching voluptuous-serialize."""
+    schema = Schema(probatio.Clamp(min=0, max=5))
+    assert to_field_list(schema) == {"valueMin": 0, "valueMax": 5}
+    assert to_field_list(schema) == voluptuous_serialize.convert(
+        voluptuous.Schema(voluptuous.Clamp(min=0, max=5)),
+    )
+
+
+def test_length_one_sided_bounds() -> None:
+    """Length with a single bound emits only that bound."""
+    assert to_field_list(Schema(probatio.Length(min=1))) == {"lengthMin": 1}
+    assert to_field_list(Schema(probatio.Length(max=9))) == {"lengthMax": 9}
+
+
+def test_new_validators_serialize_to_fields() -> None:
+    """The probatio-only validators serialize to frontend fields instead of raising."""
+    fields = to_field_list(
+        Schema(
+            {
+                Required("ip"): IPAddress(),
+                Required("port"): Port(),
+                Required(Secret("pw")): str,
+                Required("pct"): Percentage(),
+            },
+        ),
+    )
+
+    by_name = {field["name"]: field for field in fields}
+    assert by_name["ip"]["type"] == "string"
+    assert by_name["port"] == {
+        "type": "integer",
+        "valueMin": 1,
+        "valueMax": 65535,
+        "name": "port",
+        "required": True,
+    }
+    assert by_name["pw"]["type"] == "string"
+    assert by_name["pw"]["secret"] is True
+    assert by_name["pct"] == {
+        "valueMin": 0,
+        "valueMax": 100,
+        "name": "pct",
+        "required": True,
+    }
+
+
+def test_percentage_keeps_the_coerced_type() -> None:
+    """Percentage carries bounds only, so a paired Coerce still sets the type."""
+    assert to_field_list(Schema(probatio.All(probatio.Coerce(int), Percentage()))) == {
+        "type": "integer",
+        "valueMin": 0,
+        "valueMax": 100,
+    }
+    assert to_field_list(
+        Schema(probatio.All(probatio.Coerce(float), Percentage()))
+    ) == {
+        "type": "float",
+        "valueMin": 0,
+        "valueMax": 100,
+    }
+
+
+def test_from_percentage_serializes_as_a_float() -> None:
+    """FromPercentage parses to a float, so it does assert the type."""
+    assert to_field_list(Schema(probatio.FromPercentage())) == {
+        "type": "float",
+        "valueMin": 0,
+        "valueMax": 100,
+    }
+
+
+@pytest.mark.parametrize(
+    "validator", [MultipleOf(5), Duration(), EnsureList(), HexInt()]
+)
+def test_validators_without_a_frontend_shape_serialize_empty(validator: object) -> None:
+    """A validator with no field-list equivalent serializes to an empty value, not an error."""
+    field = to_field_list(Schema({Optional("v"): validator}))[0]
+    assert field["name"] == "v"
+
+
+def test_string_and_no_shape_validators_serialize() -> None:
+    """The new string validators serialize to a string field, NonEmpty to a minimum length."""
+    fields = to_field_list(
+        Schema(
+            {Required("a"): Alpha(), Required("b"): Base64(), Required("c"): NonEmpty()}
+        ),
+    )
+
+    by_name = {field["name"]: field for field in fields}
+    assert by_name["a"]["type"] == "string"
+    assert by_name["b"]["type"] == "string"
+    assert "type" not in by_name["c"]
+    assert by_name["c"]["lengthMin"] == 1
+
+
+@pytest.mark.parametrize(
+    ("validator", "expected"),
+    [
+        pytest.param(
+            probatio.All(probatio.Length(min=5), NonEmpty()),
+            {"lengthMin": 5},
+            id="non_empty_does_not_widen_a_length",
+        ),
+        pytest.param(
+            probatio.All(NonEmpty(), probatio.Length(min=5)),
+            {"lengthMin": 5},
+            id="non_empty_first",
+        ),
+        pytest.param(
+            probatio.All(probatio.Range(min=5), probatio.Range(min=1)),
+            {"valueMin": 5},
+            id="narrowest_lower_bound",
+        ),
+        pytest.param(
+            probatio.All(probatio.Range(max=99), probatio.Range(max=10)),
+            {"valueMax": 10},
+            id="narrowest_upper_bound",
+        ),
+        pytest.param(
+            probatio.All(probatio.Length(min=1, max=20), probatio.Length(max=5)),
+            {"lengthMin": 1, "lengthMax": 5},
+            id="bounds_fold_independently",
+        ),
+        pytest.param(
+            probatio.All(probatio.Coerce(int), probatio.Coerce(float)),
+            {"type": "float"},
+            id="a_non_bound_key_is_overwritten",
+        ),
+    ],
+)
+def test_all_intersects_the_serialized_bounds(
+    validator: object, expected: dict[str, object]
+) -> None:
+    """All() is an intersection, so the narrowest bound reaches the frontend.
+
+    A member that widens a bound would otherwise offer the user a value the
+    schema rejects, and the result must not depend on the member order.
+    """
+    assert to_field_list(Schema(validator)) == expected
+
+
+@pytest.mark.parametrize(
+    "validator",
+    [
+        pytest.param(
+            probatio.All(probatio.Range(min=10), probatio.Clamp(min=0, max=5)),
+            id="flat",
+        ),
+        pytest.param(
+            probatio.All(
+                probatio.Range(min=10), probatio.All(probatio.Clamp(min=0, max=5))
+            ),
+            id="clamp_nested",
+        ),
+        pytest.param(
+            probatio.All(
+                probatio.Range(min=10),
+                probatio.All(probatio.All(probatio.Clamp(min=0, max=5))),
+            ),
+            id="clamp_nested_twice",
+        ),
+        pytest.param(
+            probatio.All(
+                probatio.All(probatio.Range(min=10)), probatio.Clamp(min=0, max=5)
+            ),
+            id="range_nested",
+        ),
+    ],
+)
+def test_a_clamp_replaces_the_bounds_it_follows(validator: object) -> None:
+    """Clamp bends the value, so its bounds replace rather than narrow.
+
+    ``All(Range(min=10), Clamp(min=0, max=5))`` accepts 10 and returns 5.
+    Intersecting the two would advertise 10 to 5, an interval no value is in.
+    Nesting an All() means the same chain, so it must mean the same bounds.
+    """
+    schema = Schema(validator)
+
+    assert schema(10) == 5
+    assert to_field_list(schema) == {"valueMin": 0, "valueMax": 5}
+
+
+def test_nesting_does_not_change_an_intersection() -> None:
+    """A member with no Clamp inside still narrows, however deeply it is nested."""
+    assert to_field_list(
+        Schema(probatio.All(probatio.Length(min=5), probatio.All(NonEmpty())))
+    ) == {"lengthMin": 5}
+
+
+def test_a_clamp_only_replaces_the_bounds_it_emits() -> None:
+    """A Clamp inside a nested All does not hand its exemption to the rest of the group.
+
+    ``Clamp(max=20)`` says nothing about the lower bound, so the ``Range(min=0)``
+    behind it still narrows against the ``Range(min=10)`` in front of the group,
+    exactly as the same chain written flat does.
+    """
+    nested = probatio.All(
+        probatio.Range(min=10),
+        probatio.All(probatio.Clamp(max=20), probatio.Range(min=0)),
+    )
+    flat = probatio.All(
+        probatio.Range(min=10), probatio.Clamp(max=20), probatio.Range(min=0)
+    )
+
+    assert to_field_list(Schema(nested)) == {"valueMin": 10, "valueMax": 20}
+    assert to_field_list(Schema(nested)) == to_field_list(Schema(flat))
+
+
+def test_bounds_of_different_types_do_not_raise() -> None:
+    """An All() that changes domains between two bounds serializes the later one.
+
+    Comparing the two would raise, and the value reaching the later bound is the
+    converted one, so that bound is the one describing what may be submitted.
+    """
+    schema = Schema(
+        probatio.All(
+            probatio.Range(min=5), probatio.Coerce(str), probatio.Range(min="7")
+        )
+    )
+
+    assert schema(8) == "8"
+    assert to_field_list(schema) == {"type": "string", "valueMin": "7"}
+
+
+def test_a_custom_serializer_still_owns_a_nested_all() -> None:
+    """Flattening skips a nested All() the hook renders itself."""
+    claimed = probatio.All(probatio.Range(min=1), probatio.Range(min=99))
+
+    def hook(node: object) -> object:
+        return {"type": "custom_thing"} if node is claimed else UNSUPPORTED
+
+    schema = Schema(probatio.All(probatio.Range(min=5), claimed))
+
+    assert to_field_list(schema, custom_serializer=hook) == {
+        "valueMin": 5,
+        "type": "custom_thing",
+    }
+
+
+def test_a_custom_serializer_sees_each_node_once() -> None:
+    """Asking the hook whether it owns a nested All() is not a second visit.
+
+    A hook that counts, caches or otherwise carries state would answer a
+    different thing the second time and lose its own override.
+    """
+    claimed = probatio.All(probatio.Range(min=1))
+    seen: collections.Counter[int] = collections.Counter()
+
+    def hook(node: object) -> object:
+        seen[id(node)] += 1
+        return {"type": "claimed"} if node is claimed else UNSUPPORTED
+
+    schema = Schema(probatio.All(probatio.Range(min=5), claimed))
+
+    assert to_field_list(schema, custom_serializer=hook) == {
+        "valueMin": 5,
+        "type": "claimed",
+    }
+    assert max(seen.values()) == 1
+
+
+def test_a_deferring_hook_still_flattens_a_nested_all() -> None:
+    """A hook that defers on a nested All() leaves it to be flattened as usual."""
+    schema = Schema(
+        probatio.All(probatio.Range(min=5), probatio.All(probatio.Range(min=9)))
+    )
+
+    def defer(_node: object) -> object:
+        return UNSUPPORTED
+
+    assert to_field_list(schema, custom_serializer=defer) == {"valueMin": 9}
+
+
+def test_bounds_that_raise_on_comparison_do_not_escape() -> None:
+    """A comparison can raise something other than TypeError, and must not kill the list.
+
+    ``Decimal("NaN")`` raises ``InvalidOperation`` rather than refusing the type,
+    so the guard answers the same way it does for a mismatched type.
+    """
+    schema = Schema(
+        probatio.All(
+            probatio.Range(min=decimal.Decimal("NaN")),
+            probatio.Range(min=decimal.Decimal(1)),
+        )
+    )
+
+    assert to_field_list(schema) == {"valueMin": decimal.Decimal(1)}
+
+
+def test_non_empty_matches_an_explicit_minimum_length() -> None:
+    """NonEmpty and Length(min=1) describe the same field to a frontend."""
+    assert to_field_list(Schema(NonEmpty())) == to_field_list(
+        Schema(probatio.Length(min=1))
+    )
+
+
+class _Color(enum.Enum):
+    """A small enum shared by both libraries in the parity cases.
+
+    The member values differ from the lowercased names on purpose, so the select
+    options pin ``member.value`` and not ``member.name.lower()``.
+    """
+
+    RED = "r"
+    GREEN = "green"
+
+
+def _parity_build(lib: Any) -> dict[str, Any]:
+    """Schemas exercising the constructs serialize must match the oracle on."""
+    req, opt = lib.Required, lib.Optional
+    return {
+        "in_dict": {req("k"): lib.In({"x": "X", "y": "Y"})},
+        "in_list": {req("k"): lib.In(["a", "b"])},
+        "email": {req("k"): lib.Email},
+        "url": {req("k"): lib.Url},
+        "fqdnurl": {req("k"): lib.FqdnUrl},
+        "lower": {req("k"): lib.Lower},
+        "upper": {req("k"): lib.Upper},
+        "capitalize": {req("k"): lib.Capitalize},
+        "title": {req("k"): lib.Title},
+        "strip": {req("k"): lib.Strip},
+        "maybe": {req("k"): lib.Maybe(int)},
+        "any_none_first": {req("k"): lib.Any(None, str)},
+        "enum_class": {req("k"): _Color},
+        "coerce_enum": {req("k"): lib.Coerce(_Color)},
+        "coerce_int": {req("k"): lib.Coerce(int)},
+        "empty_description": {opt("k", description=""): int},
+        "none_description": {opt("k", description=None): int},
+    }
+
+
+@pytest.mark.parametrize("case", list(_parity_build(voluptuous)))
+def test_serialize_matches_voluptuous_serialize(case: str) -> None:
+    """serialize matches voluptuous-serialize byte for byte across these constructs."""
+    got = to_field_list(Schema(_parity_build(probatio)[case]))
+    want = voluptuous_serialize.convert(
+        voluptuous.Schema(_parity_build(voluptuous)[case])
+    )
+
+    assert got == want
+
+
+def test_serialize_marks_allow_none_for_either_any_order() -> None:
+    """A nullable ``Any`` serializes to allow_none whether None is first or last.
+
+    voluptuous-serialize only handled ``Any(None, X)``; probatio also recognizes
+    ``Any(X, None)`` as the same nullable shape rather than dropping the None.
+    """
+    assert to_field_list(Schema(ProbAny(None, str))) == {
+        "type": "string",
+        "allow_none": True,
+    }
+    assert to_field_list(Schema(ProbAny(str, None))) == {
+        "type": "string",
+        "allow_none": True,
+    }
+
+
+def test_dataclass_schema_serializes_like_its_typeddict_twin() -> None:
+    """A dataclass schema describes the same fields as the equivalent TypedDict."""
+
+    @dataclass
+    class Server:
+        name: str
+        port: int = 8080
+
+    class ServerDict(TypedDict):
+        name: str
+        port: int
+
+    fields = to_field_list(DataclassSchema(Server))
+    assert [field["name"] for field in fields] == ["name", "port"]
+    assert fields[0] == to_field_list(TypedDictSchema(ServerDict))[0]
+    assert fields[1]["default"] == 8080
+
+
+def test_create_dataclass_schema_serializes_too() -> None:
+    """The functional builder returns a plain Schema, which serializes the same."""
+
+    @dataclass
+    class Server:
+        name: str
+
+    assert to_field_list(create_dataclass_schema(Server)) == to_field_list(
+        DataclassSchema(Server)
+    )
+
+
+def test_all_without_a_constructor_is_left_alone() -> None:
+    """Only a constructing schema is unwrapped; any other All is serialized as one."""
+    assert to_field_list(Schema(All(str, Alpha()))) == {"type": "string"}
+
+
+def test_match_serializes_as_a_string_field() -> None:
+    """A Match renders as a string field, where voluptuous-serialize raises."""
+    assert to_field_list(Schema({Required("pin"): Match(r"^\d{6}$")})) == [
+        {"type": "string", "name": "pin", "required": True}
+    ]
+
+    # The deviation, pinned: the oracle refuses the same schema outright.
+    with pytest.raises(ValueError, match="Unable to convert schema"):
+        voluptuous_serialize.convert(
+            voluptuous.Schema(
+                {voluptuous.Required("pin"): voluptuous.Match(r"^\d{6}$")}
+            )
+        )
+
+
+def test_match_inside_all_keeps_the_other_members() -> None:
+    """A Match in an All no longer takes down the field the rest described."""
+    selector = object()
+
+    def custom(node: Any) -> Any:
+        if node is selector:
+            return {"selector": {"text": {"type": "password"}}}
+        return UNSUPPORTED
+
+    schema = Schema({Required("pin"): All(selector, Match(r"^\d{6}$"))})
+
+    assert to_field_list(schema, custom_serializer=custom) == [
+        {
+            "selector": {"text": {"type": "password"}},
+            "type": "string",
+            "name": "pin",
+            "required": True,
+        }
+    ]
+
+
+def test_bytes_match_still_raises() -> None:
+    """A bytes pattern rejects every string a form submits, so it is not a field."""
+    with pytest.raises(ValueError, match="unable to serialize"):
+        to_field_list(Schema(Match(rb"^\d+$")))
+
+
+def test_decoded_json_pattern_serializes_as_a_string_field() -> None:
+    """A pattern decoded from JSON Schema renders as a string field, like Match."""
+    schema = from_json_schema(
+        {
+            "type": "object",
+            "properties": {"code": {"type": "string", "pattern": "ab"}},
+            "required": ["code"],
+        }
+    )
+
+    assert to_field_list(schema) == [
+        {"type": "string", "name": "code", "required": True}
+    ]
+
+
+def test_nested_mapping_still_raises() -> None:
+    """A nested mapping has no field-list shape, matching voluptuous-serialize."""
+    nested = Schema({Required("outer"): {Required("inner"): int}})
+    with pytest.raises(ValueError, match="unable to serialize"):
+        to_field_list(nested)
+    with pytest.raises(ValueError, match="Unable to convert nested mapping"):
+        voluptuous_serialize.convert(
+            voluptuous.Schema(
+                {voluptuous.Required("outer"): {voluptuous.Required("inner"): int}}
+            )
+        )

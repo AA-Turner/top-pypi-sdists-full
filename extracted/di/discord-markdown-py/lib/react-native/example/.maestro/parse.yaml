@@ -1,0 +1,41 @@
+# Drives the example app the way a user would and checks the rendered AST. Run with
+# maestro test -e APP_ID=<android or ios app id> .maestro/parse.yaml
+appId: ${APP_ID}
+---
+- launchApp:
+    clearState: true
+
+# A release build cold starting on a two-core emulator can take a while to render, and the
+# default element timeout is short enough to lose that race.
+- extendedWaitUntil:
+    visible:
+      id: "input"
+    timeout: 30000
+
+# The default content exercises a heading, bold, and a snowflake mention; the mention id must
+# round-trip as a BigInt ("…n" suffix) with full precision.
+- copyTextFrom:
+    id: "ast"
+- assertTrue: "${maestro.copiedText.indexOf('\"type\": \"heading\"') !== -1}"
+- assertTrue: "${maestro.copiedText.indexOf('\"873227248453443624n\"') !== -1}"
+
+# The same content unparses back to exactly what was typed. This is the only check that the
+# native unparse path works on a device, BigInt re-wrapping included.
+- copyTextFrom:
+    id: "unparsed"
+- assertTrue: "${maestro.copiedText === '# Hello **world** <@873227248453443624>'}"
+
+# Type new content and check the AST updates. Clear through the button rather than erasing:
+# tapping a filled input leaves the caret wherever the tap landed, and eraseText only deletes
+# backwards from there, so the tail of the old content would survive.
+- tapOn:
+    id: "clear"
+- tapOn:
+    id: "input"
+- inputText: "> quote me"
+- copyTextFrom:
+    id: "ast"
+- assertTrue: "${maestro.copiedText.indexOf('\"type\": \"quote\"') !== -1}"
+- copyTextFrom:
+    id: "unparsed"
+- assertTrue: "${maestro.copiedText === '> quote me'}"

@@ -27,6 +27,7 @@ from typing import Annotated, Any, Literal
 from pydantic import Field, RootModel, field_validator
 
 from matrx_ai.tools.arg_models._coercion import (
+    coerce_field_values,
     coerce_json_container,
     coerce_list,
     coerce_object,
@@ -93,7 +94,9 @@ class DatasetUpdateRowWire(ToolArgs):
     @field_validator("data", mode="before")
     @classmethod
     def _coerce_data(cls, v: Any) -> Any:
-        return coerce_json_container(v)
+        # One row's {field: value}: its JSON-string form and a list of
+        # {"field", "value"} pairs are the same row (the 2026-10-01 Compass run).
+        return coerce_field_values(v)
 
 
 class DatasetDeleteRowWire(ToolArgs):

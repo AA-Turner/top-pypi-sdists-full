@@ -1,16 +1,24 @@
 """GKE utils for deploying and managing the Pathways proxy."""
 
-import json
+import datetime
+import functools
 import logging
+import os
 import re
 import socket
 import subprocess
 import time
+from typing import Any
 import urllib.parse
 
+from kubernetes import client
+from kubernetes import config as k8s_config
 import portpicker
 
 _logger = logging.getLogger(__name__)
+
+# Default size of the time window covered by Cloud Logging links.
+LOG_LINK_WINDOW = datetime.timedelta(minutes=10)
 
 # TODO(b/456189271): Evaluate and replace the subprocess calls with Kubernetes
 # Python API for kubectl calls.
@@ -236,21 +244,165 @@ def check_pod_ready(pod_name: str, timeout: int = 30) -> str:
   return pod_name
 
 
-def get_log_link(*, cluster: str, project: str, job_name: str) -> str:
-  """Returns a link to Cloud Logging for the given cluster and job name."""
+def _format_log_timestamp(timestamp: str | datetime.datetime) -> str:
+  """Formats a timestamp for use in a Cloud Logging query URL.
+
+  Args:
+    timestamp: An ISO-8601 string or a datetime. Naive datetimes are assumed to
+      be UTC.
+
+  Returns:
+    The timestamp as an ISO-8601 string, or the unmodified string input.
+  """
+  if not isinstance(timestamp, datetime.datetime):
+    return str(timestamp)
+
+  if timestamp.tzinfo is None:
+    timestamp = timestamp.replace(tzinfo=datetime.timezone.utc)
+  timestamp = timestamp.astimezone(datetime.timezone.utc)
+  return timestamp.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def _parse_log_timestamp(
+    timestamp: str | datetime.datetime,
+) -> datetime.datetime:
+  """Parses a timestamp into a timezone-aware datetime.
+
+  Args:
+    timestamp: An ISO-8601 string or a datetime. Naive values are assumed to be
+      UTC.
+
+  Returns:
+    A timezone-aware datetime.
+
+  Raises:
+    ValueError: If the string is not a valid ISO-8601 timestamp.
+  """
+  if isinstance(timestamp, datetime.datetime):
+    parsed = timestamp
+  else:
+    # `fromisoformat` does not accept a trailing "Z" before Python 3.11.
+    parsed = datetime.datetime.fromisoformat(
+        re.sub(r"[Zz]$", "+00:00", timestamp)
+    )
+  if parsed.tzinfo is None:
+    parsed = parsed.replace(tzinfo=datetime.timezone.utc)
+  return parsed
+
+
+def get_log_link(
+    *,
+    cluster: str,
+    project: str,
+    job_name: str,
+    namespace: str = "default",
+    start_time: str | datetime.datetime | None = None,
+    end_time: str | datetime.datetime | None = None,
+    duration: str | None = "PT1H",
+) -> str:
+  """Returns a link to Cloud Logging for the given cluster and job name.
+
+  Args:
+    cluster: The name of the GKE cluster.
+    project: The GCP project ID.
+    job_name: The name of the job or jobset.
+    namespace: The Kubernetes namespace. Defaults to "default".
+    start_time: The start time for the time window (ISO-8601 string or
+      datetime). If provided without end_time, the end time is set to
+      `LOG_LINK_WINDOW` after start_time.
+    end_time: The end time for the time window (ISO-8601 string or datetime).
+      If provided without start_time, the start time is set to
+      `LOG_LINK_WINDOW` before end_time.
+    duration: The duration string (e.g. "PT1H") used when neither start_time
+      nor end_time is provided.
+
+  Returns:
+    The Cloud Logging query URL.
+
+  Raises:
+    ValueError: If only one of start_time and end_time is provided and it is a
+      string that is not a valid ISO-8601 timestamp.
+  """
   log_filter = (
       'resource.type="k8s_container"\n'
       f'resource.labels.cluster_name="{cluster}"\n'
-      'resource.labels.namespace_name="default"\n'
+      f'resource.labels.namespace_name="{namespace}"\n'
       f'labels.k8s-pod/job-name:"{job_name}"'
   )
+
+  if start_time is not None and end_time is None:
+    end_time = _parse_log_timestamp(start_time) + LOG_LINK_WINDOW
+  elif end_time is not None and start_time is None:
+    start_time = _parse_log_timestamp(end_time) - LOG_LINK_WINDOW
+
+  if start_time is not None and end_time is not None:
+    start_time_str = _format_log_timestamp(start_time)
+    end_time_str = _format_log_timestamp(end_time)
+    time_param = f"startTime={start_time_str};endTime={end_time_str}"
+  elif duration is not None:
+    time_param = f"duration={duration}"
+  else:
+    time_param = ""
+
   encoded_filter = urllib.parse.quote(log_filter, safe="")
 
+  time_part = f";{time_param}" if time_param else ""
   return (
       "https://console.cloud.google.com/logs/query;"
-      f"query={encoded_filter};duration=PT1H"
+      f"query={encoded_filter}{time_part}"
       f"?project={project}"
   )
+
+
+def get_current_kube_context() -> tuple[str | None, str | None, str | None]:
+  """Reads the cluster targeted by the active kube config context.
+
+  Only the kube config is consulted; no environment variable fallbacks are
+  applied. Contexts written by `gcloud container clusters get-credentials` are
+  named `gke_<project>_<location>_<cluster>`.
+
+  Returns:
+    A (cluster, project, location) tuple. All three are populated for a GKE
+    context. For any other context, only the context name is returned as the
+    cluster and the project and location are None. All three are None if the
+    active context cannot be read or is a malformed GKE context.
+  """
+  try:
+    _, active_context = k8s_config.list_kube_config_contexts()
+  except Exception as e:  # pylint: disable=broad-except
+    _logger.debug("Could not read the current kube config context: %s", e)
+    return None, None, None
+
+  if not active_context:
+    return None, None, None
+
+  context_data = active_context.get("context", {})
+  cluster_context = (
+      context_data.get("cluster") or active_context.get("name", "")
+  )
+
+  if cluster_context.startswith("gke_"):
+    parts = cluster_context.split("_", 3)
+    if len(parts) != 4:
+      return None, None, None
+    _, project, location, cluster = parts
+    return cluster, project, location
+
+  return cluster_context or None, None, None
+
+
+def get_current_cluster_and_project() -> tuple[str | None, str | None]:
+  """Extracts cluster name and project ID from current kubeconfig or environment."""
+  cluster, project, _ = get_current_kube_context()
+
+  if not cluster:
+    cluster = os.environ.get("GKE_CLUSTER") or os.environ.get("CLUSTER")
+  if not project:
+    project = os.environ.get("PROJECT") or os.environ.get(
+        "GOOGLE_CLOUD_PROJECT"
+    )
+
+  return cluster, project
 
 
 def wait_for_pod(job_name: str) -> str:
@@ -288,12 +440,12 @@ def _test_remote_connection(port: int) -> None:
     raise RuntimeError("Could not connect to the pod.") from exc
 
 
-def enable_port_forwarding(
+def start_port_forwarding(
     remote_server: str,
     server_port: int,
     namespace: str = "default",
 ) -> tuple[int, subprocess.Popen[str]]:
-  """Enables port forwarding for the given pod.
+  """Starts port forwarding for the given pod or service in the background.
 
   Args:
     remote_server: The name of the pod or service.
@@ -301,10 +453,10 @@ def enable_port_forwarding(
     namespace: The namespace of the pod.
 
   Returns:
-    A tuple containing the pod port and the port forwarding process.
+    A tuple containing the picked local port and the port forwarding process.
+
   Raises:
-    RuntimeError: If port forwarding fails to start or the pod connection
-      cannot be established.
+    RuntimeError: If finding a free port or starting port forwarding fails.
   """
   try:
     local_port = portpicker.pick_unused_port()
@@ -350,6 +502,23 @@ def enable_port_forwarding(
     _logger.exception("Error enabling port forwarding for the pod: %r", e)
     raise
 
+  return (local_port, port_forward_process)
+
+
+def wait_for_port_forwarding(
+    port_forward_process: subprocess.Popen[str],
+    local_port: int,
+) -> None:
+  """Blocks until the port forwarding process is ready and reachable.
+
+  Args:
+    port_forward_process: The running port forwarding subprocess.
+    local_port: The local port forwarded to.
+
+  Raises:
+    RuntimeError: If port forwarding fails to start or the pod connection
+      cannot be established.
+  """
   # Check that the port forwarding is ready.
   if port_forward_process.stdout is None:
     _logger.error("Port-forward process stdout is None. Terminating.")
@@ -360,7 +529,17 @@ def enable_port_forwarding(
         f"STDERR: {stderr}"
     )
 
-  ready_line = port_forward_process.stdout.readline()
+  try:
+    ready_line = port_forward_process.stdout.readline()
+  except BaseException:
+    _logger.warning(
+        "Terminating port forwarding process (PID %s) due to interrupt while"
+        " waiting for readiness.",
+        getattr(port_forward_process, "pid", "unknown"),
+    )
+    terminate_process(port_forward_process, process_name="Port forwarding")
+    raise
+
   if "Forwarding from" in ready_line:
     _logger.info("Port-forward is ready: %s", ready_line.strip())
   else:
@@ -377,11 +556,93 @@ def enable_port_forwarding(
 
   try:
     _test_remote_connection(local_port)
-  except Exception:
-    port_forward_process.terminate()
+  except BaseException:
+    _logger.warning(
+        "Terminating port forwarding process (PID %s) due to connection error"
+        " or interrupt.",
+        getattr(port_forward_process, "pid", "unknown"),
+    )
+    terminate_process(port_forward_process, process_name="Port forwarding")
     raise
 
+
+def enable_port_forwarding(
+    remote_server: str,
+    server_port: int,
+    namespace: str = "default",
+) -> tuple[int, subprocess.Popen[str]]:
+  """Enables port forwarding for the given pod.
+
+  Args:
+    remote_server: The name of the pod or service.
+    server_port: The port of the server to forward to.
+    namespace: The namespace of the pod.
+
+  Returns:
+    A tuple containing the pod port and the port forwarding process.
+
+  Raises:
+    RuntimeError: If port forwarding fails to start or the pod connection
+      cannot be established.
+  """
+  local_port, port_forward_process = start_port_forwarding(
+      remote_server, server_port, namespace
+  )
+  wait_for_port_forwarding(port_forward_process, local_port)
   return (local_port, port_forward_process)
+
+
+def terminate_process(
+    process: subprocess.Popen[Any] | None,
+    timeout: float = 5,
+    process_name: str = "process",
+) -> None:
+  """Terminates a process gracefully with SIGTERM, falling back to SIGKILL.
+
+  Args:
+    process: The process to terminate. If None, this function is a no-op.
+    timeout: The time in seconds to wait for the process to terminate before
+      killing it.
+    process_name: A human-understandable name for the process (e.g. "Port
+      forwarding").
+  """
+  if process is None:
+    return
+
+  pid = getattr(process, "pid", "unknown")
+  proc_label = (
+      f"{process_name} (PID {pid})"
+      if process_name.endswith("process")
+      else f"{process_name} process (PID {pid})"
+  )
+  try:
+    process.terminate()
+    try:
+      process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+      _logger.warning(
+          "%s did not terminate within %s seconds. Sending SIGKILL.",
+          proc_label,
+          timeout,
+      )
+      try:
+        process.kill()
+        process.wait(timeout=timeout)
+      except (ProcessLookupError, OSError):
+        return
+      except subprocess.TimeoutExpired:
+        _logger.exception(
+            "%s failed to terminate after SIGKILL within %s seconds.",
+            proc_label,
+            timeout,
+        )
+      except Exception as kill_err:  # pylint: disable=broad-exception-caught
+        _logger.exception("Failed to kill %s: %r", proc_label, kill_err)
+  except (ProcessLookupError, OSError):
+    # Process has already terminated.
+    return
+  except Exception as e:  # pylint: disable=broad-exception-caught
+    _logger.exception("Failed to terminate %s: %r", proc_label, e)
 
 
 def stream_pod_logs(pod_name: str) -> subprocess.Popen[str]:
@@ -477,57 +738,116 @@ def is_local_port_free(port: int) -> bool:
   return portpicker.is_port_free(port)
 
 
-def get_worker_sidecar_image(
+@functools.lru_cache(maxsize=1)
+def _init_k8s_config() -> None:
+  """Initializes the Kubernetes configuration."""
+  try:
+    k8s_config.load_kube_config()
+  except Exception:  # pylint: disable=broad-except
+    try:
+      k8s_config.load_incluster_config()
+    except Exception as e:
+      raise RuntimeError("Failed to load Kubernetes configuration") from e
+
+
+@functools.lru_cache(maxsize=1)
+def _get_k8s_core_api() -> client.CoreV1Api:
+  """Initializes and returns the Kubernetes CoreV1Api client."""
+  _init_k8s_config()
+  return client.CoreV1Api()
+
+
+@functools.lru_cache(maxsize=1)
+def _get_k8s_custom_objects_api() -> client.CustomObjectsApi:
+  """Initializes and returns the Kubernetes CustomObjectsApi client."""
+  _init_k8s_config()
+  return client.CustomObjectsApi()
+
+
+def get_pathways_service_images(
     pathways_service: str, namespace: str = "default"
-) -> str | None:
-  """Gets the image of the sidecar container used by the workers."""
+) -> tuple[str, str | None]:
+  """Gets the server image and optional worker sidecar image from the JobSet."""
   pathways_head_hostname = pathways_service.split(":")[0]
   _validate_k8s_name(namespace)
 
   # Try to extract the jobset name from the Pathways service hostname.
-  jobset_name = None
-  if "-pathways-head" in pathways_head_hostname:
-    jobset_name = pathways_head_hostname.split("-pathways-head")[0]
-
-  command = ["kubectl", "get", "pods", "-n", namespace, "-o", "json"]
-  try:
-    result = subprocess.run(
-        command,
-        check=True,
-        capture_output=True,
-        text=True,
+  if "-pathways-head" not in pathways_head_hostname:
+    raise ValueError(
+        "Failed to extract jobset name from Pathways service hostname:"
+        f" {pathways_head_hostname}. Expected prefix format:"
+        " <jobset_name>-pathways-head"
     )
-  except subprocess.CalledProcessError as e:
-    _logger.exception("Failed to get pods. kubectl output:\n%r", e.stderr)
-    return None
+  jobset_name = pathways_head_hostname.split("-pathways-head")[0]
 
   try:
-    pods_data = json.loads(result.stdout)
-  except json.JSONDecodeError as e:
-    _logger.exception("Failed to parse kubectl get pods output: %r", e)
-    return None
+    custom_api = _get_k8s_custom_objects_api()
+    jobset = custom_api.get_namespaced_custom_object(
+        group="jobset.x-k8s.io",
+        version="v1alpha2",
+        namespace=namespace,
+        plural="jobsets",
+        name=jobset_name,
+    )
+  except Exception as e:
+    _logger.exception("Failed to get JobSet: %r", e)
+    raise
 
-  items = pods_data.get("items", [])
+  server_image = None
+  sidecar_image = None
 
-  # Look for pods belonging to the jobset and having the sidecar
-  # container/initContainer.
-  if jobset_name:
-    for pod in items:
-      metadata = pod.get("metadata", {})
-      labels = metadata.get("labels", {})
-      pod_jobset_name = labels.get("jobset.sigs.k8s.io/jobset-name")
-      pod_name = metadata.get("name", "")
+  # Find the worker job and extract both images
+  for job in jobset.get("spec", {}).get("replicatedJobs", []):
+    if job.get("name") in ("pathways-worker", "worker"):
+      spec = (
+          job.get("template", {})
+          .get("spec", {})
+          .get("template", {})
+          .get("spec", {})
+      )
+      containers = spec.get("containers", []) + spec.get("initContainers", [])
+      for c in containers:
+        if c.get("name") == "pathways-worker" and c.get("image"):
+          server_image = c["image"]
+        elif c.get("name") == "colocated-python-sidecar" and c.get("image"):
+          sidecar_image = c["image"]
+      break
 
-      if pod_jobset_name == jobset_name or pod_name.startswith(jobset_name):
-        spec = pod.get("spec", {})
-        for container in spec.get("initContainers", []) + spec.get(
-            "containers", []
-        ):
-          if container.get("name") == "colocated-python-sidecar":
-            image = container.get("image")
-            if image:
-              return image
+  if not server_image:
+    raise RuntimeError(
+        "Failed to get server image of the worker job for Pathways service:"
+        f" {pathways_service} in namespace: {namespace}"
+    )
 
-  return None
+  return (server_image, sidecar_image)
+
+
+def get_compatible_proxy_server_image(server_image: str) -> str:
+  """Converts a Pathways server image to its compatible proxy server image."""
+  if not server_image:
+    return server_image
+
+  # Extract tag or digest if present.
+  if "@" in server_image:
+    repo, tag_or_digest = server_image.split("@", 1)
+    sep = "@"
+  else:
+    last_slash = server_image.rfind("/")
+    if ":" in server_image[last_slash + 1:]:
+      repo, tag_or_digest = server_image.rsplit(":", 1)
+      sep = ":"
+    else:
+      repo = server_image
+      tag_or_digest = None
+      sep = ""
+
+  prefix, sep_slash, last_component = repo.rpartition("/")
+  new_last_component = last_component.replace("server", "proxy_server")
+
+  new_repo = f"{prefix}{sep_slash}{new_last_component}"
+  if tag_or_digest is not None:
+    return f"{new_repo}{sep}{tag_or_digest}"
+  return new_repo
+
 
 

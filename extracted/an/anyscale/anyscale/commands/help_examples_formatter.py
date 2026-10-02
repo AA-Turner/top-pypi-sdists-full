@@ -1,4 +1,5 @@
 """Rendering of command examples for inline --help output."""
+
 from typing import Any, Dict, Iterable, List, Optional
 
 from anyscale.commands.output_format import (
@@ -36,7 +37,8 @@ def format_flag_for_command(command: Any) -> str:
 
 
 def render_examples_for_help(
-    doc_metadata: Optional[Dict[str, Any]], output_flag: str = _OUTPUT_FORMAT_FLAG,
+    doc_metadata: Optional[Dict[str, Any]],
+    output_flag: str = _OUTPUT_FORMAT_FLAG,
 ) -> str:
     """Render the --help Examples block from a command's doc_metadata."""
     meta = doc_metadata or {}
@@ -101,9 +103,7 @@ def _has_output_flag(command: str, output_flag: str = _OUTPUT_FORMAT_FLAG) -> bo
         aliases.add(OUTPUT_FLAG_LONG)
     tokens = command.split()
     return any(
-        token == alias or token.startswith(f"{alias}=")
-        for token in tokens
-        for alias in aliases
+        token == alias or token.startswith(f"{alias}=") for token in tokens for alias in aliases
     )
 
 

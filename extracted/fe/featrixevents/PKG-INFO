@@ -1,0 +1,26 @@
+Metadata-Version: 2.4
+Name: featrixevents
+Version: 2.0.13125
+Summary: Post events to the Featrix platform.
+Home-page: https://github.com/Featrix/sphere
+Author: Featrix
+Author-email: support@featrix.com
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.8
+Description-Content-Type: text/plain
+Requires-Dist: requests>=2.20.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+Post events to the Featrix platform. See https://docs.featrix.com

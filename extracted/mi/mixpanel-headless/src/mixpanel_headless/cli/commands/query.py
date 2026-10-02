@@ -1,0 +1,1420 @@
+"""Query commands for live Mixpanel API queries.
+
+This module provides commands for querying data:
+- segmentation: Live segmentation query
+- funnel: Live funnel analysis
+- retention: Live retention analysis
+- event-counts: Multi-event time series
+- property-counts: Property breakdown
+- activity-feed: User activity history
+- saved-report: Saved reports (Insights, Retention, Funnel)
+- flows: Saved flows reports
+- frequency: Event frequency distribution
+- segmentation-numeric: Numeric property bucketing
+- segmentation-sum: Numeric sum aggregation
+- segmentation-average: Numeric average aggregation
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Annotated, Any, Final
+
+import typer
+from rich.markup import escape as rich_escape
+
+from mixpanel_headless._literal_types import TimeUnit
+from mixpanel_headless.cli.options import FormatOption, JqOption
+from mixpanel_headless.cli.utils import (
+    ExitCode,
+    err_console,
+    get_workspace,
+    handle_errors,
+    output_result,
+    present_result,
+    status_spinner,
+)
+from mixpanel_headless.cli.validators import (
+    validate_count_type,
+    validate_hour_day_unit,
+    validate_json_object,
+    validate_time_unit,
+)
+from mixpanel_headless.exceptions import MixpanelHeadlessError
+
+if TYPE_CHECKING:
+    from mixpanel_headless.cli.utils import ResultWithTableAndDict
+    from mixpanel_headless.workspace import Workspace
+
+# 045-report-links: an ``--on`` value that contains any of these tokens is a
+# filter expression (``properties["x"]``, ``user["x"]``, a comparison, or a
+# typed-cast call such as ``number(x)``), not a bare property name, so
+# ``--link`` cannot reproduce it in Insights params. Bare words are not
+# listed: a plain name may contain spaces, ``$``, Unicode, parentheses, and
+# words such as ``and``, ``or``, or ``defined`` ("Terms and Conditions",
+# "Price (USD)"). A plain name that itself contains a bracket, a quote, a
+# comparison operator, or one of the call tokens is refused with a warning.
+NON_BARE_ON_TOKENS: Final[tuple[str, ...]] = (
+    "[",
+    "]",
+    '"',
+    "'",
+    "==",
+    "!=",
+    "<",
+    ">",
+    "&&",
+    "||",
+    "boolean(",
+    "number(",
+    "string(",
+    "datetime(",
+    "list(",
+    "defined(",
+)
+
+LinkOption = Annotated[
+    bool,
+    typer.Option(
+        "--link",
+        help="Add report_url: a Mixpanel URL that opens this report in the browser.",
+    ),
+]
+
+
+def _is_bare_property(value: str) -> bool:
+    """Return whether an ``--on`` value is a bare property name.
+
+    Args:
+        value: The raw ``--on`` string.
+
+    Returns:
+        ``True`` when the value contains none of :data:`NON_BARE_ON_TOKENS`.
+    """
+    return not any(token in value for token in NON_BARE_ON_TOKENS)
+
+
+@dataclass(frozen=True)
+class LinkOutcome:
+    """What the ``--link`` flag produced for one query.
+
+    Attributes:
+        url: The report URL, or ``None`` when the link was omitted.
+        error: Why the link was omitted, or ``None`` when ``url`` is set.
+    """
+
+    url: str | None
+    error: str | None
+
+
+def _omit_link(reason: str) -> LinkOutcome:
+    """Warn on stderr and return an omitted-link outcome.
+
+    Args:
+        reason: The reason, printed after ``warning:`` and stored as ``error``.
+
+    Returns:
+        A :class:`LinkOutcome` with no URL.
+    """
+    err_console.print(f"[yellow]warning:[/yellow] {rich_escape(reason)}; link omitted")
+    return LinkOutcome(url=None, error=reason)
+
+
+def _guarded_link(build: Callable[[], str]) -> LinkOutcome:
+    """Run a link builder so that no library error can fail the query.
+
+    Every ``--link`` call site goes through this guard. The query result is
+    already computed when the guard runs, so a failure here, including an
+    auth, rate-limit, or server error, becomes a stderr warning plus a
+    ``report_url_error`` value. It never changes the exit code.
+
+    Args:
+        build: Zero-argument callable that returns the report URL.
+
+    Returns:
+        A :class:`LinkOutcome` with the URL, or with the error message.
+    """
+    try:
+        return LinkOutcome(url=build(), error=None)
+    except MixpanelHeadlessError as exc:
+        err_console.print(
+            f"[yellow]warning:[/yellow] could not create report link: "
+            f"{rich_escape(exc.message)}"
+        )
+        return LinkOutcome(url=None, error=exc.message)
+
+
+def _segmentation_link(
+    workspace: Workspace,
+    *,
+    event: str,
+    from_date: str,
+    to_date: str,
+    unit: TimeUnit,
+    on: str | None,
+    where: str | None,
+) -> LinkOutcome:
+    """Create the ``--link`` URL for a segmentation query, or warn and omit it.
+
+    The link is an approximation: it reproduces the event, dates, unit, and a
+    bare ``--on`` breakdown through the Insights engine. A ``--where`` filter
+    or an expression in ``--on`` has no clean Insights mapping, so the link is
+    omitted with a stderr warning. Any library error goes through
+    :func:`_guarded_link`, so the query itself never fails because of the flag.
+
+    Args:
+        workspace: The active Workspace.
+        event: Event name.
+        from_date: Start date.
+        to_date: End date.
+        unit: Validated time unit.
+        on: Optional ``--on`` value.
+        where: Optional ``--where`` value.
+
+    Returns:
+        The link outcome.
+    """
+    if where is not None:
+        return _omit_link("--link is not supported with --where")
+    if on and not _is_bare_property(on):
+        return _omit_link("--link supports a bare property name for --on only")
+
+    def build() -> str:
+        """Build the Insights params and store them as a report link.
+
+        Returns:
+            The report URL.
+        """
+        params = workspace.build_params(
+            event,
+            from_date=from_date,
+            to_date=to_date,
+            unit=unit,
+            group_by=on or None,
+        )
+        return workspace.create_report_link(params).url
+
+    return _guarded_link(build)
+
+
+def _with_link(data: dict[str, object], outcome: LinkOutcome) -> dict[str, object]:
+    """Add the ``report_url`` keys to a result dict.
+
+    ``report_url`` is always present when ``--link`` was passed, so a
+    ``--jq .report_url`` consumer sees the URL or ``null``.
+    ``report_url_error`` is present only when the link was omitted.
+
+    Args:
+        data: The result dict to extend in place.
+        outcome: The link outcome.
+
+    Returns:
+        The same dict.
+    """
+    data["report_url"] = outcome.url
+    if outcome.error is not None:
+        data["report_url_error"] = outcome.error
+    return data
+
+
+def _output_dict_with_link(
+    ctx: typer.Context,
+    data: dict[str, Any],
+    format: str,
+    jq_filter: str | None,
+    outcome: LinkOutcome | None,
+) -> None:
+    """Print a result dict, adding the ``report_url`` keys when ``--link`` was passed.
+
+    The dict twin of :func:`_present_with_link`, for results that have no
+    ``to_table_dict()``. Table and plain output keep the result unchanged
+    and print a produced URL as a separate ``report_url:`` line; every other
+    format gets the keys from :func:`_with_link`.
+
+    Args:
+        ctx: Typer context.
+        data: The result dict.
+        format: Output format.
+        jq_filter: Optional jq filter expression.
+        outcome: The link outcome, or ``None`` when ``--link`` was not passed.
+    """
+    if outcome is None:
+        output_result(ctx, data, format=format, jq_filter=jq_filter)
+        return
+    if format in ("table", "plain"):
+        output_result(ctx, data, format=format, jq_filter=jq_filter)
+        if outcome.url is not None:
+            typer.echo(f"report_url: {outcome.url}")
+        return
+    output_result(ctx, _with_link(data, outcome), format=format, jq_filter=jq_filter)
+
+
+def _present_with_link(
+    ctx: typer.Context,
+    result: ResultWithTableAndDict,
+    format: str,
+    jq_filter: str | None,
+    outcome: LinkOutcome | None,
+) -> None:
+    """Print a result, adding the ``report_url`` keys when ``--link`` was passed.
+
+    For dict formats the keys come from :func:`_with_link`. For the table
+    format, which is a list of rows, and for the plain format, which prints
+    one value only, a produced URL is printed on its own line after the
+    result; an omitted link was already announced on stderr.
+
+    Args:
+        ctx: Typer context.
+        result: A result with ``to_dict()`` and ``to_table_dict()``.
+        format: Output format.
+        jq_filter: Optional jq filter expression.
+        outcome: The link outcome, or ``None`` when ``--link`` was not passed.
+    """
+    if outcome is None:
+        present_result(ctx, result, format, jq_filter=jq_filter)
+        return
+    if format in ("table", "plain"):
+        present_result(ctx, result, format, jq_filter=jq_filter)
+        if outcome.url is not None:
+            typer.echo(f"report_url: {outcome.url}")
+        return
+    output_result(
+        ctx, _with_link(result.to_dict(), outcome), format=format, jq_filter=jq_filter
+    )
+
+
+query_app = typer.Typer(
+    name="query",
+    help="Query Mixpanel data.",
+    epilog="""Live (calls Mixpanel API):
+  segmentation, funnel, retention, event-counts,
+  property-counts, activity-feed, saved-report, flows, frequency,
+  segmentation-numeric, segmentation-sum, segmentation-average""",
+    no_args_is_help=True,
+    rich_markup_mode="markdown",
+)
+
+
+@query_app.command("segmentation")
+@handle_errors
+def query_segmentation(
+    ctx: typer.Context,
+    event: Annotated[
+        str,
+        typer.Option("--event", "-e", help="Event name."),
+    ],
+    from_date: Annotated[
+        str,
+        typer.Option("--from", help="Start date (YYYY-MM-DD)."),
+    ],
+    to_date: Annotated[
+        str,
+        typer.Option("--to", help="End date (YYYY-MM-DD)."),
+    ],
+    on: Annotated[
+        str | None,
+        typer.Option(
+            "--on",
+            "-o",
+            help="Property to segment by (bare name or expression).",
+        ),
+    ] = None,
+    unit: Annotated[
+        str,
+        typer.Option("--unit", "-u", help="Time unit: day, week, month."),
+    ] = "day",
+    where: Annotated[
+        str | None,
+        typer.Option("--where", "-w", help="Filter expression."),
+    ] = None,
+    link: LinkOption = False,
+    format: FormatOption = "json",
+    jq_filter: JqOption = None,
+) -> None:
+    """Run live segmentation query against Mixpanel API.
+
+    Returns time-series event counts, optionally segmented by a property.
+    Without --on, returns total counts per time period. With --on, breaks
+    down counts by property values (e.g., --on country shows counts per country).
+
+    The --on parameter accepts bare property names (e.g., 'country') or full
+    filter expressions (e.g., 'properties["country"] == "US"').
+
+    **Output Structure (JSON):**
+
+        {
+          "event": "Sign Up",
+          "from_date": "2025-01-01",
+          "to_date": "2025-01-07",
+          "unit": "day",
+          "segment_property": "country",
+          "total": 1850,
+          "series": {
+            "US": {"2025-01-01": 150, "2025-01-02": 175, ...},
+            "UK": {"2025-01-01": 75, "2025-01-02": 80, ...}
+          }
+        }
+
+    **Examples:**
+
+        mp query segmentation -e "Sign Up" --from 2025-01-01 --to 2025-01-31
+        mp query segmentation -e "Purchase" --from 2025-01-01 --to 2025-01-31 --on country
+        mp query segmentation -e "Login" --from 2025-01-01 --to 2025-01-07 --unit week
+
+    **jq Examples:**
+
+        --jq '.total'                    # Total event count
+        --jq '.series | keys'            # List segment names
+        --jq '.series["US"] | add'       # Sum counts for one segment
+
+    **--link:** adds `report_url`, a Mixpanel URL that opens an Insights report
+    with the same event, dates, unit, and a bare `--on` property. It is an
+    approximation of the legacy segmentation query. With `--where`, or with an
+    expression in `--on`, the link is omitted with a warning. A link failure
+    never fails the query: `report_url` is then `null` and `report_url_error`
+    holds the reason.
+
+        mp query segmentation -e Login --from 2025-01-01 --to 2025-01-31 --link --jq .report_url
+    """
+    validated_unit = validate_time_unit(unit)
+    workspace = get_workspace(ctx)
+
+    with status_spinner(ctx, "Running segmentation query..."):
+        result = workspace.segmentation(
+            event=event,
+            from_date=from_date,
+            to_date=to_date,
+            on=on,
+            unit=validated_unit,
+            where=where,
+        )
+
+    outcome = (
+        _segmentation_link(
+            workspace,
+            event=event,
+            from_date=from_date,
+            to_date=to_date,
+            unit=validated_unit,
+            on=on,
+            where=where,
+        )
+        if link
+        else None
+    )
+    _present_with_link(ctx, result, format, jq_filter, outcome)
+
+
+@query_app.command("funnel")
+@handle_errors
+def query_funnel(
+    ctx: typer.Context,
+    funnel_id: Annotated[
+        int,
+        typer.Argument(help="Funnel ID."),
+    ],
+    from_date: Annotated[
+        str,
+        typer.Option("--from", help="Start date (YYYY-MM-DD)."),
+    ],
+    to_date: Annotated[
+        str,
+        typer.Option("--to", help="End date (YYYY-MM-DD)."),
+    ],
+    unit: Annotated[
+        str | None,
+        typer.Option("--unit", "-u", help="Time unit: day, week, month."),
+    ] = None,
+    on: Annotated[
+        str | None,
+        typer.Option("--on", "-o", help="Property to segment by."),
+    ] = None,
+    link: LinkOption = False,
+    format: FormatOption = "json",
+    jq_filter: JqOption = None,
+) -> None:
+    """Run live funnel analysis against Mixpanel API.
+
+    Analyzes conversion through a saved funnel's steps. The funnel_id can be
+    found in the Mixpanel UI URL when viewing the funnel, or via 'mp inspect funnels'.
+
+    **Output Structure (JSON):**
+
+        {
+          "funnel_id": 12345,
+          "funnel_name": "Onboarding Funnel",
+          "from_date": "2025-01-01",
+          "to_date": "2025-01-31",
+          "conversion_rate": 0.23,
+          "steps": [
+            {"event": "Sign Up", "count": 10000, "conversion_rate": 1.0},
+            {"event": "Verify Email", "count": 7500, "conversion_rate": 0.75},
+            {"event": "Complete Profile", "count": 4200, "conversion_rate": 0.56},
+            {"event": "First Purchase", "count": 2300, "conversion_rate": 0.55}
+          ]
+        }
+
+    **Examples:**
+
+        mp query funnel 12345 --from 2025-01-01 --to 2025-01-31
+        mp query funnel 12345 --from 2025-01-01 --to 2025-01-31 --unit week
+        mp query funnel 12345 --from 2025-01-01 --to 2025-01-31 --on country
+
+    **jq Examples:**
+
+        --jq '.conversion_rate'              # Overall conversion rate
+        --jq '.steps | length'               # Number of funnel steps
+        --jq '.steps[-1].count'              # Users completing the funnel
+        --jq '.steps[] | {event, rate: .conversion_rate}'
+
+    **--link:** adds `report_url`, the saved funnel's URL in the Mixpanel web
+    app (no network call).
+
+        mp query funnel 12345 --from 2025-01-01 --to 2025-01-31 --link --jq .report_url
+    """
+    workspace = get_workspace(ctx)
+
+    with status_spinner(ctx, "Running funnel query..."):
+        result = workspace.funnel(
+            funnel_id=funnel_id,
+            from_date=from_date,
+            to_date=to_date,
+            unit=unit,
+            on=on,
+        )
+
+    outcome = (
+        _guarded_link(
+            lambda: workspace.saved_report_link(funnel_id, report_type="funnels")
+        )
+        if link
+        else None
+    )
+    _present_with_link(ctx, result, format, jq_filter, outcome)
+
+
+@query_app.command("retention")
+@handle_errors
+def query_retention(
+    ctx: typer.Context,
+    born: Annotated[
+        str,
+        typer.Option("--born", "-b", help="Birth event."),
+    ],
+    return_event: Annotated[
+        str,
+        typer.Option("--return", "-r", help="Return event."),
+    ],
+    from_date: Annotated[
+        str,
+        typer.Option("--from", help="Start date (YYYY-MM-DD)."),
+    ],
+    to_date: Annotated[
+        str,
+        typer.Option("--to", help="End date (YYYY-MM-DD)."),
+    ],
+    born_where: Annotated[
+        str | None,
+        typer.Option("--born-where", help="Birth event filter."),
+    ] = None,
+    return_where: Annotated[
+        str | None,
+        typer.Option("--return-where", help="Return event filter."),
+    ] = None,
+    interval: Annotated[
+        int | None,
+        typer.Option("--interval", "-i", help="Bucket size."),
+    ] = None,
+    intervals: Annotated[
+        int | None,
+        typer.Option("--intervals", "-n", help="Number of buckets."),
+    ] = None,
+    unit: Annotated[
+        str,
+        typer.Option("--unit", "-u", help="Time unit: day, week, month."),
+    ] = "day",
+    format: FormatOption = "json",
+    jq_filter: JqOption = None,
+) -> None:
+    """Run live retention analysis against Mixpanel API.
+
+    Measures how many users return after their first action (birth event).
+    Users are grouped into cohorts by when they first did the birth event,
+    then tracked for how many returned to do the return event.
+
+    The --interval and --intervals options control bucket granularity:
+    --interval is the bucket size (default 1), --intervals is the number
+    of buckets to track (default 10). Combined with --unit, this defines
+    the retention window (e.g., --unit day --interval 1 --intervals 7
+    tracks daily retention for 7 days).
+
+    **Output Structure (JSON):**
+
+        {
+          "born_event": "Sign Up",
+          "return_event": "Login",
+          "from_date": "2025-01-01",
+          "to_date": "2025-01-31",
+          "unit": "day",
+          "cohorts": [
+            {"date": "2025-01-01", "size": 500, "retention": [1.0, 0.65, 0.45, 0.38]},
+            {"date": "2025-01-02", "size": 480, "retention": [1.0, 0.62, 0.41, 0.35]},
+            {"date": "2025-01-03", "size": 520, "retention": [1.0, 0.68, 0.48, 0.40]}
+          ]
+        }
+
+    **Examples:**
+
+        mp query retention --born "Sign Up" --return "Login" --from 2025-01-01 --to 2025-01-31
+        mp query retention --born "Sign Up" --return "Purchase" --from 2025-01-01 --to 2025-01-31 --unit week
+        mp query retention --born "Sign Up" --return "Login" --from 2025-01-01 --to 2025-01-31 --intervals 7
+
+    **jq Examples:**
+
+        --jq '.cohorts | length'                   # Number of cohorts
+        --jq '.cohorts[0].retention'               # First cohort retention curve
+        --jq '.cohorts[] | {date, size, day7: .retention[7]}'
+    """
+    validated_unit = validate_time_unit(unit)
+    workspace = get_workspace(ctx)
+
+    # Use defaults if not provided
+    actual_interval = interval if interval is not None else 1
+    actual_interval_count = intervals if intervals is not None else 10
+
+    with status_spinner(ctx, "Running retention query..."):
+        result = workspace.retention(
+            born_event=born,
+            return_event=return_event,
+            from_date=from_date,
+            to_date=to_date,
+            born_where=born_where,
+            return_where=return_where,
+            interval=actual_interval,
+            interval_count=actual_interval_count,
+            unit=validated_unit,
+        )
+
+    present_result(ctx, result, format, jq_filter=jq_filter)
+
+
+@query_app.command("event-counts")
+@handle_errors
+def query_event_counts(
+    ctx: typer.Context,
+    events: Annotated[
+        str,
+        typer.Option("--events", "-e", help="Comma-separated event names."),
+    ],
+    from_date: Annotated[
+        str,
+        typer.Option("--from", help="Start date (YYYY-MM-DD)."),
+    ],
+    to_date: Annotated[
+        str,
+        typer.Option("--to", help="End date (YYYY-MM-DD)."),
+    ],
+    type_: Annotated[
+        str,
+        typer.Option("--type", "-t", help="Count type: general, unique, average."),
+    ] = "general",
+    unit: Annotated[
+        str,
+        typer.Option("--unit", "-u", help="Time unit: day, week, month."),
+    ] = "day",
+    format: FormatOption = "json",
+    jq_filter: JqOption = None,
+) -> None:
+    """Query event counts over time for multiple events.
+
+    Compares multiple events on the same time series. Pass comma-separated
+    event names to --events (e.g., --events "Sign Up,Login,Purchase").
+
+    The --type option controls how counts are calculated:
+    - general: Total event occurrences (default)
+    - unique: Unique users who triggered the event
+    - average: Average events per user
+
+    **Output Structure (JSON):**
+
+        {
+          "events": ["Sign Up", "Login", "Purchase"],
+          "from_date": "2025-01-01",
+          "to_date": "2025-01-07",
+          "unit": "day",
+          "type": "general",
+          "series": {
+            "Sign Up": {"2025-01-01": 150, "2025-01-02": 175, ...},
+            "Login": {"2025-01-01": 520, "2025-01-02": 610, ...},
+            "Purchase": {"2025-01-01": 45, "2025-01-02": 52, ...}
+          }
+        }
+
+    **Examples:**
+
+        mp query event-counts --events "Sign Up,Login,Purchase" --from 2025-01-01 --to 2025-01-31
+        mp query event-counts --events "Sign Up,Purchase" --from 2025-01-01 --to 2025-01-31 --type unique
+        mp query event-counts --events "Login" --from 2025-01-01 --to 2025-01-31 --unit week
+
+    **jq Examples:**
+
+        --jq '.series | keys'                # List event names
+        --jq '.series["Login"] | add'        # Sum counts for one event
+        --jq '.series["Login"]["2025-01-01"]'  # Count for specific date
+        --jq '[.series | to_entries[] | {event: .key, total: (.value | add)}]'
+    """
+    validated_type = validate_count_type(type_)
+    validated_unit = validate_time_unit(unit)
+
+    # Parse events
+    events_list = [e.strip() for e in events.split(",")]
+
+    workspace = get_workspace(ctx)
+
+    with status_spinner(ctx, "Running event counts query..."):
+        result = workspace.event_counts(
+            events=events_list,
+            from_date=from_date,
+            to_date=to_date,
+            type=validated_type,
+            unit=validated_unit,
+        )
+
+    present_result(ctx, result, format, jq_filter=jq_filter)
+
+
+@query_app.command("property-counts")
+@handle_errors
+def query_property_counts(
+    ctx: typer.Context,
+    event: Annotated[
+        str,
+        typer.Option("--event", "-e", help="Event name."),
+    ],
+    property_name: Annotated[
+        str,
+        typer.Option("--property", "-p", help="Property name."),
+    ],
+    from_date: Annotated[
+        str,
+        typer.Option("--from", help="Start date (YYYY-MM-DD)."),
+    ],
+    to_date: Annotated[
+        str,
+        typer.Option("--to", help="End date (YYYY-MM-DD)."),
+    ],
+    type_: Annotated[
+        str,
+        typer.Option("--type", "-t", help="Count type: general, unique, average."),
+    ] = "general",
+    unit: Annotated[
+        str,
+        typer.Option("--unit", "-u", help="Time unit: day, week, month."),
+    ] = "day",
+    limit: Annotated[
+        int,
+        typer.Option("--limit", "-l", help="Max property values to return."),
+    ] = 10,
+    format: FormatOption = "json",
+    jq_filter: JqOption = None,
+) -> None:
+    """Query event counts broken down by property values.
+
+    Shows how event counts vary across different values of a property.
+    For example, --property country shows event counts per country.
+
+    The --type option controls how counts are calculated:
+    - general: Total event occurrences (default)
+    - unique: Unique users who triggered the event
+    - average: Average events per user
+
+    The --limit option controls how many property values to return
+    (default 10, ordered by count descending).
+
+    **Output Structure (JSON):**
+
+        {
+          "event": "Purchase",
+          "property_name": "country",
+          "from_date": "2025-01-01",
+          "to_date": "2025-01-07",
+          "unit": "day",
+          "type": "general",
+          "series": {
+            "US": {"2025-01-01": 150, "2025-01-02": 175, ...},
+            "UK": {"2025-01-01": 75, "2025-01-02": 80, ...},
+            "DE": {"2025-01-01": 45, "2025-01-02": 52, ...}
+          }
+        }
+
+    **Examples:**
+
+        mp query property-counts -e "Purchase" -p country --from 2025-01-01 --to 2025-01-31
+        mp query property-counts -e "Sign Up" -p "utm_source" --from 2025-01-01 --to 2025-01-31 --limit 20
+        mp query property-counts -e "Login" -p browser --from 2025-01-01 --to 2025-01-31 --type unique
+
+    **jq Examples:**
+
+        --jq '.series | keys'                # List property values
+        --jq '.series["US"] | add'           # Sum counts for one value
+        --jq '.series | to_entries | sort_by(.value | add) | reverse'
+        --jq '[.series | to_entries[] | {value: .key, total: (.value | add)}]'
+    """
+    validated_type = validate_count_type(type_)
+    validated_unit = validate_time_unit(unit)
+    workspace = get_workspace(ctx)
+
+    with status_spinner(ctx, "Running property counts query..."):
+        result = workspace.property_counts(
+            event=event,
+            property_name=property_name,
+            from_date=from_date,
+            to_date=to_date,
+            type=validated_type,
+            unit=validated_unit,
+            limit=limit,
+        )
+
+    present_result(ctx, result, format, jq_filter=jq_filter)
+
+
+@query_app.command("activity-feed")
+@handle_errors
+def query_activity_feed(
+    ctx: typer.Context,
+    users: Annotated[
+        str,
+        typer.Option("--users", "-U", help="Comma-separated distinct IDs."),
+    ],
+    from_date: Annotated[
+        str | None,
+        typer.Option("--from", help="Start date (YYYY-MM-DD)."),
+    ] = None,
+    to_date: Annotated[
+        str | None,
+        typer.Option("--to", help="End date (YYYY-MM-DD)."),
+    ] = None,
+    limit: Annotated[
+        int | None,
+        typer.Option("--limit", help="Max events to return (raw mode; ceiling 15000)."),
+    ] = None,
+    include_event: Annotated[
+        list[str] | None,
+        typer.Option("--include-event", help="Only include this event (repeatable)."),
+    ] = None,
+    exclude_event: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--exclude-event",
+            help="Exclude this event (repeatable; not with --include-event).",
+        ),
+    ] = None,
+    paging_window: Annotated[
+        int | None,
+        typer.Option("--paging-window", help="Days (<=30) bounding each page."),
+    ] = None,
+    sentinel_event: Annotated[
+        str | None,
+        typer.Option(
+            "--sentinel-event",
+            help="JSON pagination cursor from a prior result's sentinel_event.",
+        ),
+    ] = None,
+    search: Annotated[
+        str | None,
+        typer.Option("--search", help="Full-text search within events."),
+    ] = None,
+    use_custom_events: Annotated[
+        bool,
+        typer.Option("--use-custom-events", help="Label matching custom events."),
+    ] = False,
+    format: FormatOption = "json",
+    jq_filter: JqOption = None,
+) -> None:
+    """Query user activity feed for specific users.
+
+    Retrieves the event history for one or more users identified by their
+    distinct_id. Pass comma-separated IDs to --users.
+
+    Optionally filter by date range with --from and --to. Without date
+    filters, defaults to the last 30 days. Narrow events with --include-event /
+    --exclude-event (repeatable) or --search, and cap results with --limit.
+
+    For large feeds, paginate: when a response includes a non-null
+    "sentinel_event", pass that JSON object back via --sentinel-event to fetch
+    the next page (repeat until "sentinel_event" is null).
+
+    **Output Structure (JSON):**
+
+        {
+          "distinct_ids": ["user123", "user456"],
+          "from_date": "2025-01-01",
+          "to_date": "2025-01-31",
+          "event_count": 47,
+          "events": [
+            {
+              "event": "Login",
+              "time": "2025-01-15T10:30:00+00:00",
+              "properties": {"$browser": "Chrome", "$city": "San Francisco", ...}
+            }
+          ],
+          "sentinel_event": {...}
+        }
+
+    Events are returned in chronological (oldest-first) order. "sentinel_event"
+    is always present: a JSON object while more pages remain, or null on the
+    final page.
+
+    **Examples:**
+
+        mp query activity-feed --users "user123"
+        mp query activity-feed --users "user123,user456" --from 2025-01-01 --to 2025-01-31
+        mp query activity-feed --users "user123" --include-event Login --limit 50
+        mp query activity-feed --users "user123" --search "san francisco"
+        mp query activity-feed --users "user123" --sentinel-event "$(... prior .sentinel_event ...)"
+
+    **jq Examples:**
+
+        --jq '.event_count'                  # Total number of events
+        --jq '.events | length'              # Same as above
+        --jq '.events[].event'               # List all event names
+        --jq '.sentinel_event'               # Cursor to pass to --sentinel-event
+    """
+    # Parse users
+    user_list = [u.strip() for u in users.split(",")]
+    if include_event and exclude_event:
+        err_console.print(
+            "[red]Error:[/red] --include-event and --exclude-event "
+            "are mutually exclusive."
+        )
+        raise typer.Exit(ExitCode.INVALID_ARGS)
+    parsed_sentinel = (
+        validate_json_object(sentinel_event, "--sentinel-event")
+        if sentinel_event is not None
+        else None
+    )
+
+    workspace = get_workspace(ctx)
+
+    with status_spinner(ctx, "Fetching activity feed..."):
+        result = workspace.activity_feed(
+            distinct_ids=user_list,
+            from_date=from_date,
+            to_date=to_date,
+            limit=limit,
+            include_events=include_event,
+            exclude_events=exclude_event,
+            paging_window=paging_window,
+            sentinel_event=parsed_sentinel,
+            search=search,
+            use_custom_events=use_custom_events,
+        )
+
+    present_result(ctx, result, format, jq_filter=jq_filter)
+
+
+@query_app.command("saved-report")
+@handle_errors
+def query_saved_report(
+    ctx: typer.Context,
+    bookmark_id: Annotated[
+        int,
+        typer.Argument(help="Saved report bookmark ID."),
+    ],
+    link: LinkOption = False,
+    format: FormatOption = "json",
+    jq_filter: JqOption = None,
+) -> None:
+    """Query a saved report (Insights, Retention, or Funnel) by bookmark ID.
+
+    Retrieves data from a saved report in Mixpanel. The bookmark_id
+    can be found in the URL when viewing a report (the numeric ID
+    after /insights/, /retention/, or /funnels/).
+
+    The report type is automatically detected from the response headers.
+
+    **Output Structure (JSON):**
+
+    Insights report:
+
+        {
+          "bookmark_id": 12345,
+          "computed_at": "2025-01-15T10:30:00Z",
+          "from_date": "2025-01-01",
+          "to_date": "2025-01-31",
+          "headers": ["$event"],
+          "series": {
+            "Sign Up": {"2025-01-01": 150, "2025-01-02": 175, ...},
+            "Login": {"2025-01-01": 520, "2025-01-02": 610, ...}
+          },
+          "report_type": "insights"
+        }
+
+    Funnel/Retention reports have different series structures based on
+    the saved report configuration.
+
+    **Examples:**
+
+        mp query saved-report 12345
+        mp query saved-report 12345 --format table
+
+    **jq Examples:**
+
+        --jq '.report_type'                  # Report type (insights/retention/funnel)
+        --jq '.series | keys'                # List series names
+        --jq '.headers'                      # Report column headers
+        --jq '.series | to_entries | map({name: .key, total: (.value | add)})'
+
+    **--link:** adds `report_url`, the saved report's URL in the Mixpanel web
+    app, using the detected report type (no network call).
+
+        mp query saved-report 12345 --link --jq .report_url
+    """
+    workspace = get_workspace(ctx)
+
+    with status_spinner(ctx, "Querying saved report..."):
+        result = workspace.query_saved_report(bookmark_id=bookmark_id)
+
+    outcome = (
+        _guarded_link(
+            lambda: workspace.saved_report_link(
+                bookmark_id, report_type=result.report_type
+            )
+        )
+        if link
+        else None
+    )
+    _output_dict_with_link(ctx, result.to_dict(), format, jq_filter, outcome)
+
+
+@query_app.command("flows")
+@handle_errors
+def query_flows(
+    ctx: typer.Context,
+    bookmark_id: Annotated[
+        int,
+        typer.Argument(help="Saved flows report bookmark ID."),
+    ],
+    link: LinkOption = False,
+    format: FormatOption = "json",
+    jq_filter: JqOption = None,
+) -> None:
+    """Query a saved Flows report by bookmark ID.
+
+    Retrieves data from a saved Flows report in Mixpanel. The bookmark_id
+    can be found in the URL when viewing a flows report (the numeric ID
+    after /flows/).
+
+    Flows reports show user paths through a sequence of events with
+    step-by-step conversion rates and path breakdowns.
+
+    **Output Structure (JSON):**
+
+        {
+          "bookmark_id": 12345,
+          "computed_at": "2025-01-15T10:30:00Z",
+          "steps": [
+            {"step": 1, "event": "Sign Up", "count": 10000},
+            {"step": 2, "event": "Verify Email", "count": 7500},
+            {"step": 3, "event": "Complete Profile", "count": 4200}
+          ],
+          "breakdowns": [
+            {"path": ["Sign Up", "Verify Email", "Complete Profile"], "count": 3800},
+            {"path": ["Sign Up", "Verify Email", "Drop Off"], "count": 3300}
+          ],
+          "overall_conversion_rate": 0.42,
+          "metadata": {...}
+        }
+
+    **Examples:**
+
+        mp query flows 12345
+        mp query flows 12345 --format table
+
+    **jq Examples:**
+
+        --jq '.overall_conversion_rate'      # End-to-end conversion rate
+        --jq '.steps | length'               # Number of flow steps
+        --jq '.steps[] | {event, count}'     # Event and count per step
+        --jq '.breakdowns | sort_by(.count) | reverse | .[0]'
+
+    **--link:** adds `report_url`, the saved flows report's URL in the Mixpanel
+    web app (no network call).
+
+        mp query flows 12345 --link --jq .report_url
+    """
+    workspace = get_workspace(ctx)
+
+    with status_spinner(ctx, "Querying flows report..."):
+        result = workspace.query_saved_flows(bookmark_id=bookmark_id)
+
+    outcome = (
+        _guarded_link(
+            lambda: workspace.saved_report_link(bookmark_id, report_type="flows")
+        )
+        if link
+        else None
+    )
+    _present_with_link(ctx, result, format, jq_filter, outcome)
+
+
+@query_app.command("frequency")
+@handle_errors
+def query_frequency(
+    ctx: typer.Context,
+    from_date: Annotated[
+        str,
+        typer.Option("--from", help="Start date (YYYY-MM-DD)."),
+    ],
+    to_date: Annotated[
+        str,
+        typer.Option("--to", help="End date (YYYY-MM-DD)."),
+    ],
+    event: Annotated[
+        str | None,
+        typer.Option("--event", "-e", help="Event name (all events if omitted)."),
+    ] = None,
+    unit: Annotated[
+        str,
+        typer.Option("--unit", "-u", help="Time unit: day, week, month."),
+    ] = "day",
+    addiction_unit: Annotated[
+        str,
+        typer.Option("--addiction-unit", help="Addiction unit: hour, day."),
+    ] = "hour",
+    where: Annotated[
+        str | None,
+        typer.Option("--where", "-w", help="Filter expression."),
+    ] = None,
+    format: FormatOption = "json",
+    jq_filter: JqOption = None,
+) -> None:
+    """Analyze event frequency distribution (addiction analysis).
+
+    Shows how many users performed an event N times within each time period.
+    Useful for understanding user engagement depth and "power user" distribution.
+
+    The --addiction-unit controls granularity of frequency buckets (hour or day).
+    For example, with --addiction-unit hour, the data shows how many users
+    performed the event 1 time, 2 times, 3 times, etc. per hour.
+
+    **Output Structure (JSON):**
+
+        {
+          "event": "Login",
+          "from_date": "2025-01-01",
+          "to_date": "2025-01-07",
+          "unit": "day",
+          "addiction_unit": "hour",
+          "data": {
+            "2025-01-01": [500, 250, 125, 60, 30, 15],
+            "2025-01-02": [520, 260, 130, 65, 32, 16],
+            ...
+          }
+        }
+
+    Each array shows user counts by frequency (index 0 = 1x, index 1 = 2x, etc.).
+
+    **Examples:**
+
+        mp query frequency --from 2025-01-01 --to 2025-01-31
+        mp query frequency -e "Login" --from 2025-01-01 --to 2025-01-31
+        mp query frequency -e "Login" --from 2025-01-01 --to 2025-01-31 --addiction-unit day
+
+    **jq Examples:**
+
+        --jq '.data | keys'                  # List all dates
+        --jq '.data["2025-01-01"][0]'        # Users who did it once on Jan 1
+        --jq '.data["2025-01-01"] | add'     # Total active users on Jan 1
+        --jq '.data | to_entries | map({date: .key, power_users: .value[4:] | add})'
+    """
+    validated_unit = validate_time_unit(unit)
+    validated_addiction_unit = validate_hour_day_unit(
+        addiction_unit, "--addiction-unit"
+    )
+    workspace = get_workspace(ctx)
+
+    with status_spinner(ctx, "Running frequency query..."):
+        result = workspace.frequency(
+            from_date=from_date,
+            to_date=to_date,
+            event=event,
+            unit=validated_unit,
+            addiction_unit=validated_addiction_unit,
+            where=where,
+        )
+
+    present_result(ctx, result, format, jq_filter=jq_filter)
+
+
+@query_app.command("segmentation-numeric")
+@handle_errors
+def query_segmentation_numeric(
+    ctx: typer.Context,
+    event: Annotated[
+        str,
+        typer.Option("--event", "-e", help="Event name."),
+    ],
+    on: Annotated[
+        str,
+        typer.Option(
+            "--on",
+            "-o",
+            help="Numeric property to bucket (bare name or expression).",
+        ),
+    ],
+    from_date: Annotated[
+        str,
+        typer.Option("--from", help="Start date (YYYY-MM-DD)."),
+    ],
+    to_date: Annotated[
+        str,
+        typer.Option("--to", help="End date (YYYY-MM-DD)."),
+    ],
+    type_: Annotated[
+        str,
+        typer.Option("--type", "-t", help="Count type: general, unique, average."),
+    ] = "general",
+    unit: Annotated[
+        str,
+        typer.Option("--unit", "-u", help="Time unit: hour, day."),
+    ] = "day",
+    where: Annotated[
+        str | None,
+        typer.Option("--where", "-w", help="Filter expression."),
+    ] = None,
+    format: FormatOption = "json",
+    jq_filter: JqOption = None,
+) -> None:
+    """Bucket events by numeric property ranges.
+
+    Groups events into buckets based on a numeric property's value.
+    Mixpanel automatically determines optimal bucket ranges based on
+    the property's value distribution.
+
+    For example, --on price might create buckets like "0-10", "10-50", "50+".
+
+    The --type option controls how counts are calculated:
+    - general: Total event occurrences (default)
+    - unique: Unique users who triggered the event
+    - average: Average events per user
+
+    **Output Structure (JSON):**
+
+        {
+          "event": "Purchase",
+          "from_date": "2025-01-01",
+          "to_date": "2025-01-07",
+          "property_expr": "amount",
+          "unit": "day",
+          "series": {
+            "0-50": {"2025-01-01": 120, "2025-01-02": 135, ...},
+            "50-100": {"2025-01-01": 85, "2025-01-02": 92, ...},
+            "100-500": {"2025-01-01": 45, "2025-01-02": 52, ...},
+            "500+": {"2025-01-01": 12, "2025-01-02": 15, ...}
+          }
+        }
+
+    **Examples:**
+
+        mp query segmentation-numeric -e "Purchase" --on amount --from 2025-01-01 --to 2025-01-31
+        mp query segmentation-numeric -e "Purchase" --on amount --from 2025-01-01 --to 2025-01-31 --type unique
+
+    **jq Examples:**
+
+        --jq '.series | keys'                # List bucket ranges
+        --jq '.series["100-500"] | add'      # Sum counts for a bucket
+        --jq '[.series | to_entries[] | {bucket: .key, total: (.value | add)}]'
+        --jq '.series | to_entries | sort_by(.value | add) | reverse'
+    """
+    validated_type = validate_count_type(type_)
+    validated_unit = validate_hour_day_unit(unit)
+    workspace = get_workspace(ctx)
+
+    with status_spinner(ctx, "Running numeric segmentation..."):
+        result = workspace.segmentation_numeric(
+            event=event,
+            on=on,
+            from_date=from_date,
+            to_date=to_date,
+            type=validated_type,
+            unit=validated_unit,
+            where=where,
+        )
+
+    present_result(ctx, result, format, jq_filter=jq_filter)
+
+
+@query_app.command("segmentation-sum")
+@handle_errors
+def query_segmentation_sum(
+    ctx: typer.Context,
+    event: Annotated[
+        str,
+        typer.Option("--event", "-e", help="Event name."),
+    ],
+    on: Annotated[
+        str,
+        typer.Option(
+            "--on",
+            "-o",
+            help="Numeric property to sum (bare name or expression).",
+        ),
+    ],
+    from_date: Annotated[
+        str,
+        typer.Option("--from", help="Start date (YYYY-MM-DD)."),
+    ],
+    to_date: Annotated[
+        str,
+        typer.Option("--to", help="End date (YYYY-MM-DD)."),
+    ],
+    unit: Annotated[
+        str,
+        typer.Option("--unit", "-u", help="Time unit: hour, day."),
+    ] = "day",
+    where: Annotated[
+        str | None,
+        typer.Option("--where", "-w", help="Filter expression."),
+    ] = None,
+    format: FormatOption = "json",
+    jq_filter: JqOption = None,
+) -> None:
+    """Calculate sum of numeric property over time.
+
+    Sums the values of a numeric property across all matching events.
+    Useful for tracking totals like revenue, quantity, or duration.
+
+    For example, --event Purchase --on revenue calculates total revenue
+    per time period.
+
+    **Output Structure (JSON):**
+
+        {
+          "event": "Purchase",
+          "from_date": "2025-01-01",
+          "to_date": "2025-01-07",
+          "property_expr": "revenue",
+          "unit": "day",
+          "results": {
+            "2025-01-01": 15234.50,
+            "2025-01-02": 18456.75,
+            "2025-01-03": 12890.25,
+            ...
+          }
+        }
+
+    **Examples:**
+
+        mp query segmentation-sum -e "Purchase" --on revenue --from 2025-01-01 --to 2025-01-31
+        mp query segmentation-sum -e "Purchase" --on quantity --from 2025-01-01 --to 2025-01-31 --unit hour
+
+    **jq Examples:**
+
+        --jq '.results | add'                # Total sum across all dates
+        --jq '.results | to_entries | max_by(.value)'  # Highest day
+        --jq '.results | to_entries | min_by(.value)'  # Lowest day
+        --jq '[.results | to_entries[] | {date: .key, revenue: .value}]'
+    """
+    validated_unit = validate_hour_day_unit(unit)
+    workspace = get_workspace(ctx)
+
+    with status_spinner(ctx, "Running sum query..."):
+        result = workspace.segmentation_sum(
+            event=event,
+            on=on,
+            from_date=from_date,
+            to_date=to_date,
+            unit=validated_unit,
+            where=where,
+        )
+
+    present_result(ctx, result, format, jq_filter=jq_filter)
+
+
+@query_app.command("segmentation-average")
+@handle_errors
+def query_segmentation_average(
+    ctx: typer.Context,
+    event: Annotated[
+        str,
+        typer.Option("--event", "-e", help="Event name."),
+    ],
+    on: Annotated[
+        str,
+        typer.Option(
+            "--on",
+            "-o",
+            help="Numeric property to average (bare name or expression).",
+        ),
+    ],
+    from_date: Annotated[
+        str,
+        typer.Option("--from", help="Start date (YYYY-MM-DD)."),
+    ],
+    to_date: Annotated[
+        str,
+        typer.Option("--to", help="End date (YYYY-MM-DD)."),
+    ],
+    unit: Annotated[
+        str,
+        typer.Option("--unit", "-u", help="Time unit: hour, day."),
+    ] = "day",
+    where: Annotated[
+        str | None,
+        typer.Option("--where", "-w", help="Filter expression."),
+    ] = None,
+    format: FormatOption = "json",
+    jq_filter: JqOption = None,
+) -> None:
+    """Calculate average of numeric property over time.
+
+    Calculates the mean value of a numeric property across all matching events.
+    Useful for tracking averages like order value, session duration, or scores.
+
+    For example, --event Purchase --on order_value calculates average order
+    value per time period.
+
+    **Output Structure (JSON):**
+
+        {
+          "event": "Purchase",
+          "from_date": "2025-01-01",
+          "to_date": "2025-01-07",
+          "property_expr": "order_value",
+          "unit": "day",
+          "results": {
+            "2025-01-01": 85.50,
+            "2025-01-02": 92.75,
+            "2025-01-03": 78.25,
+            ...
+          }
+        }
+
+    **Examples:**
+
+        mp query segmentation-average -e "Purchase" --on order_value --from 2025-01-01 --to 2025-01-31
+        mp query segmentation-average -e "Session" --on duration --from 2025-01-01 --to 2025-01-31 --unit hour
+
+    **jq Examples:**
+
+        --jq '.results | add / length'       # Overall average
+        --jq '.results | to_entries | max_by(.value)'  # Highest day
+        --jq '.results | to_entries | min_by(.value)'  # Lowest day
+        --jq '[.results | to_entries[] | {date: .key, avg: .value}]'
+    """
+    validated_unit = validate_hour_day_unit(unit)
+    workspace = get_workspace(ctx)
+
+    with status_spinner(ctx, "Running average query..."):
+        result = workspace.segmentation_average(
+            event=event,
+            on=on,
+            from_date=from_date,
+            to_date=to_date,
+            unit=validated_unit,
+            where=where,
+        )
+
+    present_result(ctx, result, format, jq_filter=jq_filter)

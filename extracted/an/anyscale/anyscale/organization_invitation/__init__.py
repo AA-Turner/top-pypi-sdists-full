@@ -33,29 +33,31 @@ class OrganizationInvitationSDK:
         )
 
     @sdk_docs(
-        doc_py_example=_CREATE_EXAMPLE, arg_docstrings=_CREATE_ARG_DOCSTRINGS,
+        doc_py_example=_CREATE_EXAMPLE,
+        arg_docstrings=_CREATE_ARG_DOCSTRINGS,
     )
     def create(  # noqa: F811
-        self, emails: List[str],
+        self,
+        emails: List[str],
     ):
-        """Creates organization invitations for the provided emails
-        """
+        """Creates organization invitations for the provided emails"""
         return self._private_sdk.create(emails=emails)
 
     @sdk_docs(
-        doc_py_example=_LIST_EXAMPLE, arg_docstrings=_LIST_ARG_DOCSTRINGS,
+        doc_py_example=_LIST_EXAMPLE,
+        arg_docstrings=_LIST_ARG_DOCSTRINGS,
     )
     def list(self):  # noqa: F811
-        """Lists organization invitations
-        """
+        """Lists organization invitations"""
         return self._private_sdk.list()
 
     @sdk_docs(
-        doc_py_example=_DELETE_EXAMPLE, arg_docstrings=_DELETE_ARG_DOCSTRINGS,
+        doc_py_example=_DELETE_EXAMPLE,
+        arg_docstrings=_DELETE_ARG_DOCSTRINGS,
     )
     def delete(  # noqa: F811
-        self, email: str,
+        self,
+        email: str,
     ):
-        """Deletes an organization invitation
-        """
+        """Deletes an organization invitation"""
         return self._private_sdk.delete(email=email)

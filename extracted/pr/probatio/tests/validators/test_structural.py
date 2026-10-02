@@ -1,0 +1,474 @@
+"""Tests for ExactSequence, Unique, Maybe, and Msg."""
+
+from __future__ import annotations
+
+from collections import namedtuple
+from collections.abc import Callable, Collection, Iterable, Iterator
+from decimal import Decimal
+from typing import Any, Self, get_args, get_origin, get_overloads, get_type_hints
+
+import pytest
+
+from probatio import (
+    Dedupe,
+    EnsureList,
+    ExactSequence,
+    First,
+    Join,
+    Last,
+    Maybe,
+    Msg,
+    MultipleInvalid,
+    Schema,
+    SchemaError,
+    Set,
+    Sort,
+    Sorted,
+    Split,
+    Unique,
+    Unordered,
+    Without,
+)
+from probatio.error import ExactSequenceInvalid, Invalid, TypeInvalid, ValueInvalid
+
+
+def _mentions(annotation: Any, type_param: Any) -> bool:
+    """Report whether a type parameter appears anywhere inside an annotation."""
+    if annotation is type_param:
+        return True
+    return any(_mentions(argument, type_param) for argument in get_args(annotation))
+
+
+def test_exact_sequence_matches_positionally() -> None:
+    """ExactSequence validates each position against its own schema."""
+    assert Schema(ExactSequence([int, str]))([1, "a"]) == [1, "a"]
+
+
+def test_exact_sequence_rejects_wrong_length() -> None:
+    """A sequence of the wrong length is rejected."""
+    with pytest.raises(MultipleInvalid) as caught:
+        Schema(ExactSequence([int, str]))([1])
+    assert isinstance(caught.value.errors[0], ExactSequenceInvalid)
+
+
+def test_exact_sequence_keeps_the_type() -> None:
+    """A tuple in yields a tuple out."""
+    result = Schema(ExactSequence([int, int]))((1, 2))
+    assert result == (1, 2)
+    assert isinstance(result, tuple)
+
+
+def test_exact_sequence_rebuilds_a_namedtuple() -> None:
+    """A namedtuple is rebuilt with positional fields, not leaked as a TypeError.
+
+    ``Point(result)`` would pass the list as a single field; a namedtuple needs its
+    fields spread positionally.
+    """
+    point = namedtuple("Point", "x y")  # noqa: PYI024 - a runtime namedtuple fixture
+
+    result = Schema(ExactSequence([int, int]))(point(1, 2))
+
+    assert result == point(1, 2)
+    assert isinstance(result, point)
+
+
+def test_exact_sequence_falls_back_when_a_subclass_cannot_rebuild() -> None:
+    """A list/tuple subclass with a non-(iterable) constructor rebuilds to the base type."""
+
+    class TaggedList(list):
+        def __init__(self, items: object, tag: object) -> None:
+            super().__init__(items)  # type: ignore[arg-type]
+            self.tag = tag
+
+    class Pair(tuple):
+        __slots__ = ()
+
+        def __new__(cls, a: object, b: object) -> Self:
+            return super().__new__(cls, (a, b))
+
+    from_list = Schema(ExactSequence([int]))(TaggedList([1], "x"))
+    assert from_list == [1]
+    assert type(from_list) is list
+
+    from_tuple = Schema(ExactSequence([int, int]))(Pair(1, 2))
+    assert from_tuple == (1, 2)
+    assert type(from_tuple) is tuple
+
+
+def test_exact_sequence_item_error_has_index() -> None:
+    """A bad item reports its index in the path."""
+    with pytest.raises(MultipleInvalid) as caught:
+        Schema(ExactSequence([int, str]))([1, 2])
+    assert caught.value.errors[0].path == [1]
+
+
+def test_unique_accepts_distinct_items() -> None:
+    """Unique passes a list with no duplicates."""
+    assert Schema(Unique())([1, 2, 3]) == [1, 2, 3]
+
+
+def test_unique_rejects_duplicates() -> None:
+    """Unique rejects a list containing a duplicate."""
+    with pytest.raises(MultipleInvalid) as caught:
+        Schema(Unique())([1, 2, 1])
+    assert isinstance(caught.value.errors[0], Invalid)
+
+
+def test_unique_lists_the_duplicates() -> None:
+    """The duplicate-items message names the offending value."""
+    with pytest.raises(MultipleInvalid) as caught:
+        Schema(Unique())([1, 1, 2])
+    assert caught.value.errors[0].error_message == "contains duplicate items: [1]"
+
+
+def test_unique_reports_unhashable_as_type_error() -> None:
+    """An unhashable element is a TypeInvalid, not a leaked TypeError."""
+    with pytest.raises(MultipleInvalid) as caught:
+        Schema(Unique())([{1, 2}, {3, 4}])
+    assert isinstance(caught.value.errors[0], TypeInvalid)
+
+
+def test_set_converts_a_list() -> None:
+    """Set turns an iterable into a set, dropping duplicates."""
+    assert Schema(Set())([1, 2, 2]) == {1, 2}
+
+
+def test_set_rejects_unhashable_items() -> None:
+    """A list of unhashable items cannot become a set."""
+    with pytest.raises(MultipleInvalid) as caught:
+        Schema(Set())([{1, 2}])
+    assert isinstance(caught.value.errors[0], TypeInvalid)
+
+
+def test_unordered_matches_in_any_order() -> None:
+    """Unordered accepts the items in any order against the validators."""
+    assert Schema(Unordered([str, int]))([1, "a"]) == [1, "a"]
+    assert Schema(Unordered([str, int]))(["a", 1]) == ["a", 1]
+
+
+def test_unordered_rejects_a_non_sequence() -> None:
+    """A value that is not a list or tuple is rejected."""
+    with pytest.raises(MultipleInvalid) as caught:
+        Schema(Unordered([str, int]))("ab")
+    assert caught.value.errors[0].error_message == "expected a sequence"
+
+
+def test_unordered_rejects_a_length_mismatch() -> None:
+    """The sequence length must equal the validator count."""
+    with pytest.raises(MultipleInvalid) as caught:
+        Schema(Unordered([str, int]))([1])
+    assert caught.value.errors[0].error_message == "expected a sequence of 2 items"
+
+
+def test_unordered_reports_one_unmatched_element() -> None:
+    """A single unmatched element names its index in the message."""
+    with pytest.raises(MultipleInvalid) as caught:
+        Schema(Unordered([str, int]))([1, 2])
+    assert (
+        "item 1 (2) does not match any validator"
+        in caught.value.errors[0].error_message
+    )
+
+
+def test_unordered_reports_several_unmatched_elements() -> None:
+    """Several unmatched elements each get their own error."""
+    with pytest.raises(MultipleInvalid) as caught:
+        Schema(Unordered([str, str]))([1, 2])
+    assert len(caught.value.errors) == 2
+
+
+def test_maybe_allows_none() -> None:
+    """Maybe lets None through and otherwise validates."""
+    assert Schema(Maybe(int))(None) is None
+    assert Schema(Maybe(int))(5) == 5
+
+
+def test_maybe_rejects_a_bad_non_none_value() -> None:
+    """A non-None value still has to satisfy the wrapped validator."""
+    with pytest.raises(MultipleInvalid):
+        Schema(Maybe(int))("x")
+
+
+def test_maybe_custom_message() -> None:
+    """A msg on Maybe replaces the failure message for non-None values."""
+    with pytest.raises(MultipleInvalid) as caught:
+        Schema(Maybe(int, msg="optional whole number"))("x")
+    assert caught.value.errors[0].error_message == "optional whole number"
+
+
+@pytest.mark.parametrize("wrapper", [Maybe, Msg], ids=lambda cls: cls.__name__)
+def test_a_wrapper_carries_the_wrapped_validators_type(wrapper: type) -> None:
+    """Maybe and Msg are generic in whatever the validator they wrap produces."""
+    (type_param,) = wrapper.__type_params__
+    # ``Callable`` is imported for typing only, and the parameter is scoped to the
+    # class, so resolving the annotations needs both in the local namespace.
+    namespace = {"Callable": Callable, type_param.__name__: type_param}
+
+    # The first overload binds the parameter from a callable schema; the second
+    # covers a schema that says nothing about its output, such as a mapping.
+    binds_output, says_nothing = get_overloads(wrapper.__init__)
+    assert _mentions(
+        get_type_hints(binds_output, localns=namespace)["validator"], type_param
+    )
+    assert get_args(get_type_hints(says_nothing, localns=namespace)["self"]) == (Any,)
+
+    returned = get_type_hints(wrapper.__call__, localns=namespace)["return"]
+    if wrapper is Maybe:
+        # None is always allowed, so it joins whatever the validator produces.
+        assert get_args(returned) == (type_param, type(None))
+    else:
+        assert returned is type_param
+
+
+def test_msg_replaces_the_error_message() -> None:
+    """Msg overrides the failure message of its validator."""
+    with pytest.raises(MultipleInvalid) as caught:
+        Schema(Msg(int, "must be a whole number"))("x")
+    assert caught.value.errors[0].error_message == "must be a whole number"
+
+
+def test_unique_fails_cleanly_on_non_iterable() -> None:
+    """Unique reports Invalid, not a raw TypeError, on a non-iterable value."""
+    with pytest.raises(MultipleInvalid) as caught:
+        Schema(Unique())(5)
+    assert isinstance(caught.value.errors[0], Invalid)
+
+
+def test_unique_handles_a_generator_without_leaking() -> None:
+    """Unique on an unsized iterable (a generator) does not leak a TypeError."""
+
+    def gen_dupe() -> object:
+        yield 1
+        yield 1
+
+    with pytest.raises(MultipleInvalid) as caught:
+        Schema(Unique())(gen_dupe())
+    assert isinstance(caught.value.errors[0], Invalid)
+
+    def gen_ok() -> object:
+        yield 1
+        yield 2
+
+    # A unique generator passes (materialized to a list so the result is usable).
+    assert Schema(Unique())(gen_ok()) == [1, 2]
+
+
+def test_unique_keeps_the_collection_type() -> None:
+    """Unique overloads __call__ so a caller keeps the type it handed in."""
+    sized_case, iterator_case, fallback_case = (
+        # A type parameter is scoped to its own overload, and the collection
+        # protocols are imported only for typing, so resolving the annotations
+        # needs both in the local namespace.
+        get_type_hints(
+            overload,
+            localns={
+                "Collection": Collection,
+                "Iterator": Iterator,
+                **{param.__name__: param for param in overload.__type_params__},
+            },
+        )
+        for overload in get_overloads(Unique.__call__)
+    )
+
+    # A collection is handed back as it came, down to its own type.
+    assert sized_case["value"] is sized_case["return"]
+    # An iterator has no length, so it is materialized: the item type survives.
+    assert get_args(iterator_case["value"])[0] is get_args(iterator_case["return"])[0]
+    assert iterator_case["return"].__origin__ is list
+    # Anything else still type-checks, and still fails cleanly at runtime.
+    assert fallback_case == {"value": Any, "return": Any}
+
+
+def test_ensure_list_wraps_a_scalar() -> None:
+    """EnsureList wraps a scalar into a single-item list."""
+    assert Schema(EnsureList())("x") == ["x"]
+
+
+def test_ensure_list_passes_a_list_through() -> None:
+    """An existing list is returned unchanged."""
+    assert Schema(EnsureList())([1, 2]) == [1, 2]
+
+
+def test_ensure_list_turns_none_into_empty() -> None:
+    """None becomes an empty list."""
+    assert Schema(EnsureList())(None) == []
+
+
+def test_ensure_list_keeps_the_element_type() -> None:
+    """EnsureList overloads __call__ so a caller keeps its element type."""
+    none_case, list_case, union_case = (
+        # A type parameter is scoped to its own overload, so resolving the
+        # annotations needs it in the local namespace.
+        get_type_hints(
+            overload,
+            localns={param.__name__: param for param in overload.__type_params__},
+        )
+        for overload in get_overloads(EnsureList.__call__)
+    )
+
+    assert none_case == {"value": type(None), "return": list[Any]}
+    # The element type that goes in is the element type that comes back out.
+    assert get_args(list_case["value"])[0] is get_args(list_case["return"])[0]
+    # The last overload takes the shape the validator exists to normalize: one
+    # value or a list of them, both yielding a list of that element type.
+    element = get_args(union_case["return"])[0]
+    assert get_args(union_case["value"]) == (list[element], element)
+
+
+@pytest.mark.parametrize(
+    ("validator", "container"),
+    [
+        (Sort, list),
+        (Dedupe, list),
+        (Without, list),
+        (Set, set),
+        # First and Last pick one item out, so the item type is the return type.
+        (First, None),
+        (Last, None),
+    ],
+    ids=lambda argument: getattr(argument, "__name__", argument),
+)
+def test_a_collection_shaper_keeps_the_element_type(
+    validator: type, container: type | None
+) -> None:
+    """A shaper overloads __call__ so the items it hands back keep their type."""
+    # The first overload is the typed one; the second is the catch-all that keeps
+    # the validator callable with anything, as the safe contract promises.
+    typed_case, catch_all = get_overloads(validator.__call__)
+
+    (type_param,) = typed_case.__type_params__
+    hints = get_type_hints(
+        typed_case,
+        localns={"Iterable": Iterable, type_param.__name__: type_param},
+    )
+    assert _mentions(hints["value"], type_param)
+
+    if container is None:
+        assert hints["return"] is type_param
+    else:
+        assert get_origin(hints["return"]) is container
+        assert get_args(hints["return"]) == (type_param,)
+
+    assert not catch_all.__type_params__
+
+
+def test_sorted_accepts_ordered_and_rejects_unordered() -> None:
+    """Sorted accepts an ascending sequence and rejects an unordered one."""
+    assert Schema(Sorted())([1, 2, 3]) == [1, 2, 3]
+
+    with pytest.raises(MultipleInvalid) as caught:
+        Schema(Sorted())([3, 1, 2])
+    assert isinstance(caught.value.errors[0], ValueInvalid)
+
+
+def test_sorted_rejects_an_unsortable_value() -> None:
+    """A non-iterable or incomparable value raises ValueInvalid, not a TypeError."""
+    with pytest.raises(MultipleInvalid) as caught:
+        Schema(Sorted())(5)
+    assert isinstance(caught.value.errors[0], ValueInvalid)
+
+
+def test_split_divides_a_string() -> None:
+    """Split cuts a delimited string, stripping pieces and dropping empties by default."""
+    assert Schema(Split(","))("a, b ,c") == ["a", "b", "c"]
+    assert Schema(Split(",", drop_empty=False))("a,,c") == ["a", "", "c"]
+    assert Schema(Split(",", strip=False))(" a , b ") == [" a ", " b "]
+
+
+def test_split_rejects_a_non_string() -> None:
+    """A non-string cannot be split, so it is rejected."""
+    with pytest.raises(MultipleInvalid) as caught:
+        Schema(Split())(5)
+    assert isinstance(caught.value.errors[0], ValueInvalid)
+
+
+def test_join_builds_a_string() -> None:
+    """Join renders each element and joins them with the separator."""
+    assert Schema(Join(","))([1, 2, 3]) == "1,2,3"
+    assert Schema(Join("-"))(["a", "b"]) == "a-b"
+
+
+def test_split_and_join_reject_a_bad_separator_at_build_time() -> None:
+    """A non-string (or, for Split, empty) separator is a schema error, raised early.
+
+    Split and Join are called directly (safe validators), so a bad separator would
+    otherwise leak a raw ValueError/TypeError from str.split/str.join at call time.
+    """
+    with pytest.raises(SchemaError):
+        Split("")
+    with pytest.raises(SchemaError):
+        Split(5)  # type: ignore[arg-type]
+    with pytest.raises(SchemaError):
+        Join(5)  # type: ignore[arg-type]
+
+
+def test_sort_orders_the_sequence() -> None:
+    """Sort returns a new ordered list, ascending by default and descending on request."""
+    assert Schema(Sort())([3, 1, 2]) == [1, 2, 3]
+    assert Schema(Sort(reverse=True))([1, 3, 2]) == [3, 2, 1]
+
+
+def test_sort_rejects_incomparable_items() -> None:
+    """Items that cannot be ordered are reported cleanly, not leaked as a TypeError."""
+    with pytest.raises(MultipleInvalid) as caught:
+        Schema(Sort())([1, "a"])
+    assert isinstance(caught.value.errors[0], ValueInvalid)
+
+
+def test_dedupe_drops_repeats_keeping_order() -> None:
+    """Dedupe removes duplicates, keeping the first-seen order."""
+    assert Schema(Dedupe())([1, 2, 1, 3, 2]) == [1, 2, 3]
+
+
+def test_dedupe_rejects_an_unhashable_item() -> None:
+    """An unhashable item cannot be deduplicated, so it is reported cleanly."""
+    with pytest.raises(MultipleInvalid) as caught:
+        Schema(Dedupe())([[1], [1]])
+    assert isinstance(caught.value.errors[0], ValueInvalid)
+
+
+def test_first_and_last_pick_an_element() -> None:
+    """First returns value[0] and Last returns value[-1]."""
+    assert Schema(First())([1, 2, 3]) == 1
+    assert Schema(Last())([1, 2, 3]) == 3
+
+
+def test_first_rejects_an_empty_sequence() -> None:
+    """An empty sequence has no first item, so it is rejected."""
+    with pytest.raises(MultipleInvalid) as caught:
+        Schema(First())([])
+    assert isinstance(caught.value.errors[0], ValueInvalid)
+
+
+def test_without_drops_the_listed_values() -> None:
+    """Without removes every element equal to one of the given values."""
+    assert Schema(Without(None, 0))([1, None, 0, 2]) == [1, 2]
+    assert Schema(Without(None))([1, None, 2]) == [1, 2]
+
+
+def test_without_contains_a_hostile_comparison() -> None:
+    """An item whose equality raises (a signaling Decimal) is reported cleanly."""
+    with pytest.raises(MultipleInvalid) as caught:
+        Schema(Without(0))([Decimal("sNaN")])
+    assert isinstance(caught.value.errors[0], ValueInvalid)
+
+
+@pytest.mark.parametrize(
+    "shaper", [Join(), Sort(), Dedupe(), First(), Last(), Without(0)]
+)
+def test_collection_shapers_reject_a_non_sequence(shaper: object) -> None:
+    """A value that is not a list or tuple is rejected rather than mishandled."""
+    with pytest.raises(MultipleInvalid) as caught:
+        Schema(shaper)("not a sequence")
+    assert isinstance(caught.value.errors[0], ValueInvalid)
+
+
+def test_collection_shaper_reprs() -> None:
+    """Each collection shaper renders as a constructor call for introspection."""
+    assert repr(Split(";")) == "Split(sep=';', strip=True, drop_empty=True)"
+    assert repr(Join("-")) == "Join('-')"
+    assert repr(Sort(reverse=True)) == "Sort(reverse=True)"
+    assert repr(Dedupe()) == "Dedupe()"
+    assert repr(First()) == "First()"
+    assert repr(Last()) == "Last()"
+    assert repr(Without(None, 0)) == "Without(None, 0)"

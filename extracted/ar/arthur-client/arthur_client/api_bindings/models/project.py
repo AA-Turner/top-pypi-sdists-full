@@ -18,7 +18,7 @@ import re  # noqa: F401
 import json
 
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
@@ -34,7 +34,8 @@ class Project(BaseModel):
     description: Optional[StrictStr] = None
     workspace_id: StrictStr = Field(description="ID of the parent workspace.")
     total_artifacts: StrictInt = Field(description="Count of artifacts in the project. Current supported artifacts are: models, including shield tasks and bench test suites.")
-    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "name", "description", "workspace_id", "total_artifacts"]
+    system_project: StrictBool = Field(description="Whether this is the workspace's system project: created with the workspace, one per workspace, and the project its discovery jobs run under.")
+    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "name", "description", "workspace_id", "total_artifacts", "system_project"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -98,7 +99,8 @@ class Project(BaseModel):
             "name": obj.get("name"),
             "description": obj.get("description"),
             "workspace_id": obj.get("workspace_id"),
-            "total_artifacts": obj.get("total_artifacts")
+            "total_artifacts": obj.get("total_artifacts"),
+            "system_project": obj.get("system_project")
         })
         return _obj
 

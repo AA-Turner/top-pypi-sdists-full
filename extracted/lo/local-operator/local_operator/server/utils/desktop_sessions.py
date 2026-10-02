@@ -1,0 +1,7458 @@
+"""HTTP viewers of canonical runtimes, never a second execution host.
+
+One bridge is shared by concurrent HTTP operations and event subscribers. Its
+receipt sequence is deliberately independent of the runtime's frontend revision:
+a snapshot covers paint state, not semantic receipts such as steering delivery.
+The last reader detaches; neither socket disposal nor HTTP shutdown stops work.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import base64
+import contextlib
+import json
+import logging
+import os
+import re
+import sqlite3
+import sys
+import time
+import uuid
+from collections import deque
+from collections.abc import AsyncGenerator, AsyncIterator, Callable, Mapping, Sequence
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Literal, cast
+
+from anyio import CancelScope
+from fastapi import HTTPException
+
+from local_operator.harness.jobs import TRAJECTORY_SEQ_KEY
+from local_operator.harness.types import ModelSpec
+from local_operator.resume import (
+    ORIGIN_AGENT_CONFIG,
+    ORIGIN_SUBAGENT,
+    SessionRow,
+    is_user_session,
+    mark_session_origin,
+    read_session_attachment,
+    session_origin,
+    session_preview,
+    write_session_attachment,
+)
+from local_operator.server.models.desktop_sessions import AdmissionStatus, MoveReceipt
+from local_operator.server.retire import RETIRING_MESSAGE, DaemonRetiring
+
+# The derived per-session index behind the checkpoint rail (design D1/D8/D9):
+# one module owns the scan, its cache and its invalidation, and this adapter is
+# only the door. Imported as a module so tests can drive its decision paths off
+# the bridge without a second seam.
+from local_operator.session import transcript_find, transcript_index
+
+# The pin store is the sidebar's OWN module, reused rather than re-implemented —
+# for the reason the `move_targets` import above cites, which is also that
+# module's stated model: it imports no Textual, so a non-Textual frontend can
+# read the pins without a terminal. A second pin format here would be two
+# surfaces disagreeing about which conversations are pinned, and the file would
+# have two writers with two sets of rules for the cap and the prune.
+# `tests/unit/test_import_graph.py` pins the absence of `textual`/`rich` on this
+# module's own import graph, so the reuse cannot quietly start costing the
+# server a terminal stack.
+#
+# ``set_pin`` is aliased only because this adapter's own method of that name is
+# the caller's entry point; the store function stays the single writer.
+from local_operator.session.archived import set_archived as set_session_archived
+from local_operator.session.attached import (
+    DESKTOP_CONTROL_ATTACH_S,
+    READ_ATTACH_BUDGET_S,
+    READ_FIRST_FRAME_GRACE_S,
+    AttachedSession,
+)
+from local_operator.session.attachments import ATTACHMENTS_DIRNAME, AttachmentStore
+from local_operator.session.attention import AttentionStore
+from local_operator.session.catalog import (
+    DECORATION_ATTENTION,
+    CatalogueScope,
+    ScopeCensus,
+    catalogue_page,
+)
+from local_operator.session.cleanup import delete_session
+from local_operator.session.cold_model import resolve_birth_effort
+
+# The merge taxonomy the subscriber fold shares with the runtime's own queue
+# fold. Imported from the zero-import leaf module rather than re-spelled here:
+# two spellings of "which frames are one stream" is exactly how the two folds
+# would drift apart (see ``session/delta_merge.py``).
+from local_operator.session.delta_merge import (
+    mergeable_delta_key,
+    mergeable_snapshot_key,
+)
+from local_operator.session.errors import MoveIndeterminate
+from local_operator.session.frontend_state import (
+    FrontendSync,
+    FrontendUpdate,
+    job_trajectory_wire_value,
+    sync_wire_payload,
+)
+from local_operator.session.model_selection import session_uses_test_hosting
+from local_operator.session.page_cache import load_transcript_page
+
+# The ownership stamp and the local default: read once per row to publish the
+# mesh's placement fields, and imported at module level because this module
+# already carries the whole desktop bridge (mesh-session-mobility.md §9.2).
+from local_operator.session.placement import local_placement, read_stamp
+from local_operator.session.restored_rows import record_field, roster_records
+from local_operator.session.retention import (
+    DESKTOP_MARKER_NAME,
+    DESKTOP_PURPOSE_KEY,
+    read_desktop_purpose,
+    session_activity,
+)
+from local_operator.session.runtime import registry
+from local_operator.session.session_search import search_store
+from local_operator.session.transcript import (
+    TRANSCRIPT_FILENAME,
+    read_latest_custom,
+    read_latest_custom_entry,
+    validate_page_request,
+)
+
+# The move shares the TUI's own `/move` machinery rather than a second resolver:
+# `expand_path` resolves a relative target against the SESSION's directory and
+# keeps symlinks, which is the rule a move must follow (`resolve_working_directory`
+# below deliberately resolves against THIS process's cwd, which is right for
+# `sessions.create`, whose session does not exist yet, and wrong for a move).
+# The module is widget-free by design, so a non-Textual frontend can reuse it.
+from local_operator.tui.move_targets import (
+    expand_path,
+    format_label,
+    remember_recent,
+    validate_target,
+)
+from local_operator.tui.sidebar_pins import read_pins
+from local_operator.tui.sidebar_pins import set_pin as set_sidebar_pin
+
+logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    # Import-time only, so the server module's own import graph gains nothing at
+    # runtime: the class is needed to NAME what the trajectory count is taken on
+    # (see ``DesktopSessionBridge._owner_connection``), and ``AttachedSession``
+    # already reaches this module's graph through ``session.attached``.
+    from local_operator.mobile.attach_client import AttachClient
+
+#: The page ceiling one child read may ask for, in ONE place. The route declares
+#: it on the wire (FastAPI answers a bigger ``limit`` with 422 before the
+#: handler runs) and the adapter refuses a direct caller the same way, so the
+#: sentence and the number cannot drift apart (review round 1, R1-6).
+CHILD_PAGE_LIMIT = 500
+
+SESSION_ID = re.compile(r"^[a-f0-9]{12}$")
+
+#: A JOB id. Byte-identical to :data:`SESSION_ID` on purpose rather than by
+#: coincidence — the job manager mints ids as ``uuid.uuid4().hex[:12]`` — and
+#: kept as its own NAME so the two questions stay legible at the call site:
+#: "is this a session directory" and "is this a job row" are different
+#: questions, and the child reader's route asks the second one.
+JOB_ID = SESSION_ID
+
+#: The job type whose children record a trajectory (``harness/subagent.py``
+#: materialises ``job.trajectory`` for exactly these) and therefore the only
+#: type the child reader's live window can follow. Named rather than inlined
+#: because the desktop side asks the question in two places — the route adapter
+#: and the ``unsupported`` answer — and a second spelling would let them
+#: disagree about which jobs are followable.
+SUBAGENT_JOB_TYPE = "task"
+REPLAY_COUNT = 256
+REPLAY_BYTES = 8 * 1024 * 1024
+
+#: The largest frame a subscriber-queue fold may produce. A MERGE THAT WOULD
+#: NOT FIT IS REFUSED (both frames stay, in order), because a frame
+#: past this ceiling stops being one the stream's consumers are built to carry:
+#: the runtime's own compaction refuses above its ``_MAX_LINE_BYTES`` (1 MiB,
+#: the same value here) and the desktop relay silently drops anything past
+#: ``MAX_FRAME_BYTES`` (8 MiB, ``local-operator-ui`` ``src/main/desktop-stream.ts``)
+#: -- a silent drop would strand the client's receipt cursor, which is the one
+#: failure both folds exist to avoid. Deliberately far under that ceiling.
+MERGE_CAP_BYTES = 1 << 20
+SUBSCRIBER_COUNT = 32
+BRIDGE_COUNT = 64
+
+#: How long a READ waits for its attach when the conversation is ANOTHER DEVICE'S.
+#:
+#: ``AttachedSession.READ_FIRST_FRAME_GRACE_S`` (50 ms) is the right envelope for a
+#: LOCAL session and the wrong one for a remote one, which is why this exists
+#: beside it rather than replacing it: a local read has already answered from the
+#: journal on this disk, so waiting buys nothing, while a peer's transcript has no
+#: local copy at all — 50 ms there is a first paint with nothing in it, and the
+#: renderer pays a second round trip (``/history``) to reconcile. Sized to the read
+#: attempt's own budget (``READ_ATTACH_BUDGET_S``): the same envelope the attempt
+#: lives inside, so a snapshot waits at most as long as the dial it is waiting for.
+#: A peer that does not answer inside it gets the cold paint and the ``attaching``
+#: flag exactly as before.
+REMOTE_READ_FIRST_FRAME_GRACE_S = READ_ATTACH_BUDGET_S
+
+#: How long ``POST /warm`` will wait for the owner to ANSWER before it declines
+#: to call the session warm (``DesktopSessionBridge.warm``).
+#:
+#: WHY THIS EXISTS AT ALL. The receipt used to be ``if not remote.is_cold: return
+#: "warm"``, and ``is_cold`` is a purely LOCAL predicate
+#: (``session/attached.py``): a viewer whose socket is still open reads live even
+#: when the owner is frozen, because a SIGSTOPped process sends no FIN and
+#: nothing the viewer can read locally changes. Measured on the in-tree rig with
+#: the owner SIGSTOPped, 4/4 rows answered ``200 {"state": "warm"}`` while the
+#: truth took a ``POST /messages`` and 15.0-15.6 s to surface. A fast wrong answer
+#: is worse than a slow honest one, because the slowness at least signals that
+#: something is wrong.
+#:
+#: ONE SECOND, not the 15 s an ack would otherwise allow. A healthy owner answers
+#: ``ping`` synchronously — the op is exempt from the runtime's op chain
+#: precisely so a health probe is not queued behind mutations
+#: (``session/runtime/server.py`` ``_UNCHAINED_OPS``) — so the honest case costs
+#: a round trip on loopback and the dishonest case is bounded well inside the two
+#: seconds the not-stale contract requires a viewer to learn the truth in. A
+#: budget near ``ACK_TIMEOUT_S`` would turn every stopped-owner warm into a
+#: 15 s hang on the first keystroke, which is the failure mode this route's
+#: "first keystroke must feel instant" design is built to avoid.
+WARM_VERIFY_BUDGET_S = 1.0
+
+#: How many recent one-shot announcements a bridge remembers by correlation id
+#: (see ``DesktopSessionBridge.publish_once``). Sized like the other bounded
+#: memories on this path rather than derived from a measurement: the window only
+#: has to outlast a client's retry of ONE submit, and the cost of being wrong is a
+#: duplicate NOTICE, never a duplicate turn — the turn's own at-most-once guard is
+#: the receipt journal and the runtime's ``command_id`` reservation.
+ANNOUNCED_ADMISSION_HISTORY = 64
+
+#: The two session-stream frames that BOOKEND a submit's admission, published by
+#: ``DesktopSessions.announce_admission`` / ``announce_admission_failure``. They
+#: live here, beside the other frames this layer composes (``attention``,
+#: ``notification``, ``frontend.replace``), because the pool is what gives them
+#: their one property: a session-scoped frame delivered to whatever viewer is
+#: attached, acquired without a bridge and so without spawning anything.
+#:
+#: THE PAIR IS THE POINT. ``admission.accepted`` is emitted BEFORE the engage,
+#: so every refusal that follows — an unreachable runtime, an owner that leaves
+#: mid-admission, a daemon that latches — lands with an acknowledgement already
+#: on the viewer's stream; a viewer (or a second viewer, from the replay) that
+#: never receives the outcome holds a promise that does not resolve. Both frames
+#: carry the caller's own ``request_id``, so a renderer correlates them with each
+#: other and with the HTTP receipt.
+#:
+#: WHAT ``admission.accepted`` CLAIMS, EXACTLY, because a frame a renderer paints
+#: as success must not overstate: this host has RECORDED the request and has
+#: started engaging a runtime for it. It is NOT the runtime's acknowledgement —
+#: that is the HTTP receipt (``status: admitted``), which may be seconds away —
+#: and it does not promise the turn ran.
+#:
+#: BOTH ARE DELIVERED THROUGH THE BRIDGE rather than as a bespoke write, which is
+#: what makes them idempotent on reconnect: each takes the bridge's own monotone
+#: ``seq`` and enters its replay buffer, so a viewer that reconnects with the
+#: epoch and cursor of the connection it lost receives each exactly once instead
+#: of not at all. (A FRESH attach replays nothing by design — ``events`` gaps a
+#: subscriber that supplies no epoch — and gets the snapshot instead; these frames
+#: are about a reconnect mid-admission, which is exactly the case the replay
+#: covers.)
+#:
+#: AND EACH IS BOUNDED, in two ways a reader should not have to reverse-engineer:
+#: at most once per request id PER BRIDGE (``publish_once``,
+#: ``ANNOUNCED_ADMISSION_HISTORY``), and only for the life of the attachment —
+#: the bridge's replay is cleared on an epoch change, so a viewer that arrives
+#: after the session went cold reads the durable transcript and the receipt
+#: instead. Neither is a durable record of anything.
+ADMISSION_ACCEPTED_FRAME = "admission.accepted"
+ADMISSION_FAILED_FRAME = "admission.failed"
+FAILED_ADMISSION_STATUS: AdmissionStatus = "failed"
+
+#: The BRIDGE's subscription lease: what the renderer renews with a heartbeat,
+#: and how long a bridge-backed warm intent lives with no beat behind it.
+#:
+#: NOT the runtime's lifetime, which is the runtime-side
+#: ``DESKTOP_WATCH_LEASE_S`` (``session/runtime/types.py``), read a third time by
+#: the dial (``attached.py::_dial``). The two are 45 s by agreement rather than by
+#: construction, and since a live visible lease now CREATES the runtime, a
+#: mismatch is not cosmetic: if this one were raised alone the bridge would keep
+#: a lease it calls live while the reaper had already stopped counting the
+#: viewer, so the warmed runtime would idle out under a window still waiting to
+#: use it. Change them together, or make one derive from the other (review round
+#: 1: the architect's cross-reference nit on these two constants).
+WATCH_TTL = 45.0
+
+#: How long a bridge outlives its last viewer's transport, in seconds.
+#:
+#: THE PROBLEM IT SOLVES: the desktop stream is the bridge's only reference
+#: (``DesktopSessions.session`` acquires before the headers and releases in its
+#: ``finally``), so a transport break is a detach, and a detach disposes the
+#: facade and rotates the epoch -- i.e. a full repaint on a reconnect the client
+#: makes ~500 ms later. This window keeps the bridge working ACROSS that break,
+#: which is what turns the reopen's ``gap:false`` into a statement the replay can
+#: actually honour instead of a promise the bridge cannot keep.
+#:
+#: SIZED AGAINST THE CLIENT'S OWN BUDGET, not chosen: the renderer retries at
+#: 500, 1000, 2000, 4000, 8000, 8000 ms (``local-operator-ui``
+#: ``use-canonical-session.ts``), and 20 s covers its first five attempts
+#: (cumulatively 15.5 s) with margin while staying strictly inside ``WATCH_TTL``
+#: below -- one presence assertion carries the whole window, so a dwell longer
+#: than the lease would let presence lapse mid-window.
+#:
+#: ZERO MEANS "NO DWELL", AND IT IS CONTRACT RATHER THAN A TEST HOOK. At zero the
+#: subscription is popped and the last release detaches, in the same call, byte
+#: for byte the old behaviour -- no task is created, ``dwelling`` is never set,
+#: and there is no window in which ``_evictable`` says no. Every existing test
+#: that asserts "the last release detaches" is written against this value, and
+#: ``tests/unit/server/test_desktop_stream_dwell.py`` is what makes it a contract
+#: rather than a convention.
+RECONNECT_DWELL_S = 20.0
+
+#: How often the dwell re-reads the module clock before it lets go.
+#:
+#: The dwell is deadline-driven rather than one ``asyncio.sleep`` precisely so
+#: its expiry is observable from an INJECTED clock: the desktop-session tests
+#: already replace ``module.time`` with a stub, and that is the switch a test
+#: uses to move a dwell into the past instead of waiting one out. Shrinking this
+#: constant with it keeps such a test to a few milliseconds.
+DWELL_TICK_S = 0.25
+
+#: Pace of the lease-driven warm, in three parts, because a warm that cannot
+#: succeed must not become a spawn per heartbeat.
+#:
+#: A heartbeat is 15 s and a lease is 45 s, so an attempt left on that cadence
+#: is a child spawn every beat for a session whose runtime cannot start
+#: (provider credential gone, an MCP hang, an unwritable config dir). That is
+#: not a latency optimisation any more, it is an unattended loop, so a FAILED
+#: attempt — one that really did try to spawn and left the viewer cold — waits
+#: out ``_LEASE_WARM_BACKOFF_S`` and doubles from there to the ceiling. The
+#: honest cost of the doubling is that a transient failure is not retried for
+#: 30 s; the fallback is the cold bind that shipped before this feature, while
+#: the alternative is a machine running out of RAM because a window is open.
+#: The ceiling is not a give-up point: the loop keeps re-asking at 120 s for as
+#: long as the lease lives, because that is the same intent the beat expressed,
+#: at 1/120 of the rate — and it is logged, since a bind that cannot start has
+#: no other surface on this path.
+#:
+#: An attempt that did NO WORK (the facade was in owner recovery, or an engage
+#: was already in flight) is explicitly not a failure and does not spend the
+#: backoff: it is retried at ``_LEASE_WARM_POLL_S``, which is what carries the
+#: intent across the ~8 s recovery window that used to swallow a warm until the
+#: next beat. Keep it well under a heartbeat: a click inside that window pays
+#: the cold bind this feature exists to remove.
+_LEASE_WARM_BACKOFF_S = 30.0
+_LEASE_WARM_BACKOFF_CAP_S = 120.0
+_LEASE_WARM_POLL_S = 1.0
+
+#: How long a snapshot waits for the attention store before it answers with the
+#: last known receipt state (B-F6). An uncontended read of ``attention.db``
+#: is ~1 ms, so this is only ever spent against a writer holding the lock; the
+#: refresh keeps going and publishes an ``attention`` frame when it lands.
+ATTENTION_SNAPSHOT_WAIT_S = 0.05
+
+#: The completion kinds the DESKTOP BRIDGE may put on the wire as a
+#: ``notification`` frame. Narrower than ``NotificationKind`` on purpose.
+#:
+#: ``ask``/``approval`` are absent because they already reach the desktop as
+#: ``pending_gate`` in the snapshot and update frames, and a second channel for
+#: the same card is the duplicate this whole contract exists to prevent.
+#:
+#: ``interrupted`` is absent because the user pressed Ctrl+C or Esc a moment
+#: ago and already knows — telling them their own stop worked is the definition
+#: of a notification nobody wants, which is the same call the TUI already
+#: makes. The counter-argument (on the desktop an interruption can come from
+#: another surface) is real but undecidable here: ``AgentEndEvent`` carries
+#: ``aborted`` with no actor. One frozenset entry away if that ever changes.
+#:
+#: ``retired`` JOINS (retire-for-build arm, 2026-09-29; seed 7e797aaaf6e7): a
+#: turn was cut for an update and the user needs to know — the whole point of
+#: that arm is that the transition is announced truthfully, in warning ink,
+#: rather than framed as a failure or quietly dropped.
+BRIDGE_NOTIFIABLE_KINDS = frozenset({"complete", "error", "retired"})
+
+
+async def _no_takeover() -> None:
+    raise RuntimeError("Desktop viewers cannot own a runtime")
+
+
+def _never_retiring() -> bool:
+    """The default admission probe: a host with no retirement watching it.
+
+    Returning False is the whole of the contract — a ``DesktopSessions`` built
+    by a test or a reduced app (there are many) must behave exactly as it did
+    before this probe existed, and only the daemon's lifespan wires the real
+    one (``routes/desktop_sessions.py::host``).
+    """
+    return False
+
+
+def resolve_working_directory(cwd: str) -> Path:
+    """The directory ``cwd`` names, or ``ValueError`` (→ 409) if it is not one.
+
+    Shared by ``DesktopSessions.create`` and the desktop's draft preview, so the
+    SAME body gets the same answer from either route. A working directory that
+    does not exist cannot start a session, so a strip describing one would be
+    reporting readings for a session that could never be created — which is
+    exactly what the preview's own contract refuses for an unresolvable profile.
+    """
+    directory = Path(cwd).expanduser().resolve()
+    if not directory.is_dir():
+        raise ValueError("Choose an existing working directory")
+    return directory
+
+
+#: The ``desktop.json`` key carrying the model a draft was CREATED on. Additive
+#: on purpose: a marker written before this key existed (``{"version": 1,
+#: "cwd": ...}``) must keep loading exactly as it did, and every other reader of
+#: the marker (``session.catalog``, ``DesktopSessionBridge``'s cwd lookup) reads
+#: the keys it knows and ignores the rest.
+DRAFT_MODEL_KEY = "model"
+
+
+#: The three fields the draft selection travels with, on the HTTP wire and inside
+#: the marker: the same shape the canonical frontend state publishes for a
+#: conversation's model, so the picker's row can be handed back unmodified.
+DRAFT_MODEL_FIELDS = ("provider", "model_id", "reasoning_effort")
+
+
+def _door_may_open(path: Path) -> bool:
+    """Whether the desktop door may open the session directory ``path``.
+
+    THE DOOR's admission predicate, factored out of ``locate`` so the widening
+    below is stated once and can be asserted on its own (the pairing of "a run is
+    reachable" with "a subagent is still refused" is the whole safety of it).
+
+    ``is_user_session`` is the historical rule and stays the first arm. The second
+    arm is the ONE-ORIGIN WIDENING a configuration run needs: its origin is
+    deliberately kept out of ``USER_ORIGINS`` (so it is absent from every listing,
+    the attention feed, the phone and the first-run scan), and the desktop door is
+    the one place where "hidden" must mean "unlisted" rather than "unreachable" —
+    the run is a real session the page watches by id.
+
+    IT MUST NOT GENERALISE, and that is a property of its SHAPE rather than of a
+    list someone has to maintain: the arm names exactly one origin, so
+    ``subagent``, ``agent-shell`` and every future hidden value are refused by
+    construction. A rewrite to ``session_origin(path) not in HIDDEN`` or any
+    "hidden but reachable" catch-all would silently admit every machine-made
+    session in the store, which is why the equality is spelled out here rather
+    than expressed as a negation.
+    """
+    if is_user_session(path):
+        return True
+    return session_origin(path) == ORIGIN_AGENT_CONFIG
+
+
+def read_desktop_marker(session_dir: Path) -> dict[str, Any] | None:
+    """Parse ``desktop.json``, or ``None`` when it is absent or unusable.
+
+    Tolerant on the same terms as :func:`local_operator.resume.read_session_attachment`
+    and for the same reason: this file is written by a process that can be killed
+    mid-write, and a marker that cannot be read must cost the caller the value it
+    was after — never the session. A caller that has no use for an unreadable
+    marker (a cwd lookup) falls back exactly as it did when the file was missing.
+    """
+    try:
+        raw = (session_dir / DESKTOP_MARKER_NAME).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    try:
+        payload = json.loads(raw)
+    except ValueError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def stored_draft_model(marker: dict[str, Any] | None) -> dict[str, str | None] | None:
+    """The draft selection a marker carries, or ``None`` when it carries none.
+
+    Every field is re-checked here rather than trusted: the marker is a plain
+    JSON document that a hand edit, an interrupted write or an older build can
+    shape arbitrarily, and the value this feeds (a model the child runtime will
+    run on) must not depend on it having been written by this code.
+    """
+    choice = (marker or {}).get(DRAFT_MODEL_KEY)
+    if not isinstance(choice, dict):
+        return None
+    provider = choice.get("provider")
+    model_id = choice.get("model_id")
+    if not isinstance(provider, str) or not provider:
+        return None
+    if not isinstance(model_id, str) or not model_id:
+        return None
+    effort = choice.get("reasoning_effort")
+    return {
+        "provider": provider,
+        "model_id": model_id,
+        "reasoning_effort": effort if isinstance(effort, str) and effort else None,
+    }
+
+
+def draft_birth_selection(root: Path, session_id: str) -> ModelSpec | None:
+    """The selection a session was CREATED on, or ``None`` to use today's answer.
+
+    This is the ONE place the birth choice is turned into a spec, and it returns
+    ``None`` — meaning "no seed, resolve from config/journal exactly as before" —
+    in every case where seeding would be wrong or impossible:
+
+    * the marker carries no selection (every session created by an older build,
+      by the TUI, or by a desktop create that omitted ``model``): the launch is
+      then byte-for-byte today's;
+    * the session's own journal already owns a selection. ``read_model_selection``
+      is consulted here rather than left to :func:`cold_model.resolve_conversation_model`
+      because the birth seed travels with ``model_selection_override``, and an
+      override applied to a conversation that later switched models would drag it
+      back to its birth model on the next open. The journal's precedence is only
+      real if the override is never set in the first place;
+    * the stored provider is gone from the registry, or the stored model id is no
+      longer served by that provider's catalogue: a vanished pair must degrade to
+      the configured default, never fail a resume or 400 the first turn;
+    * the pair cannot be resolved into a spec at all (metadata is best-effort by
+      contract, and a missing window is not worth a failed open).
+
+    A stored level of ``null`` is the one case that seeds the PAIR and the
+    machine's CONFIGURED level: the marker records a model the user picked and no
+    choice about its reasoning effort, so the level is the one every launch that
+    named no level resolves (R1). The marker itself keeps the ``null`` — the
+    reading here is what the first turn will RUN at, not a choice that was made.
+
+    Runs OFF the event loop: it reads the marker, the journal and — for an
+    unshipped model — the provider's cached listing. The journal scan is guarded
+    by the marker check above, so a session that carries no birth choice (the
+    overwhelming majority) pays nothing for this.
+    """
+    choice = stored_draft_model(read_desktop_marker(root / "sessions" / session_id))
+    if choice is None:
+        return None
+    from local_operator.providers.registry import get_provider_definition
+
+    provider = str(choice["provider"])
+    model_id = str(choice["model_id"])
+    if get_provider_definition(provider) is None:
+        logger.info("draft birth model names an unknown provider; using the default")
+        return None
+    from local_operator.providers.registry import is_decision_only
+
+    if is_decision_only(provider):
+        # Same door as the pick boundary and the journal validator, for the same
+        # reason: a marker written before this build refused the pair names a model
+        # that rejects ``chat/completions``, so adopting it as the birth model would
+        # open the pane on a session that cannot answer. ``None`` here means "fall
+        # back to the default", which is what every other unusable marker does.
+        logger.info("draft birth model names a decision-only provider; using the default")
+        return None
+    from local_operator.model.discovery import offered_model_ids
+
+    known = offered_model_ids(provider)
+    if known is not None and model_id not in known:
+        logger.info("draft birth model is no longer served; using the default")
+        return None
+    from local_operator.session.model_selection import read_model_selection
+
+    if read_model_selection(root / "sessions" / session_id) is not None:
+        return None
+    from local_operator.model.configure import build_model_spec
+
+    try:
+        spec = build_model_spec(provider, model_id)
+    except Exception:  # noqa: BLE001 — metadata is never worth a failed open
+        logger.debug("draft birth model could not be resolved", exc_info=True)
+        return None
+    # The level the first turn will RUN at: the stored choice clipped to today's
+    # ladder, or — for a marker that stored ``null`` ("this model, no level") — the
+    # machine's configured level, and the model's own seed only when the config has
+    # no opinion. See :func:`session.cold_model.resolve_birth_effort` — the ONE
+    # resolver, which the preview answers through the same synthesis, so the pane and
+    # the first cold frame cannot disagree.
+    #
+    # ``spec`` still carries its SEED here (it is ``build_model_spec``'s result),
+    # which that function's third case requires.
+    resolved = resolve_birth_effort(spec, choice["reasoning_effort"], root)
+    if resolved != spec.reasoning_effort:
+        spec = spec.model_copy(update={"reasoning_effort": resolved})
+    return spec
+
+
+def write_desktop_marker(
+    path: Path,
+    directory: Path,
+    *,
+    model: dict[str, Any] | None = None,
+    purpose: str | None = None,
+) -> None:
+    """Write the desktop draft marker in the session directory ``path``.
+
+    ONE WRITER FUNCTION, TWO CALLERS, and that is why it exists as a function.
+    ``catalog.py`` justifies skipping a stat in its scan with "``desktop.json``
+    has exactly ONE writer — ``DesktopSessions.create``"; a move is the second
+    CALLER, and what keeps that scan's saving sound is that no other module ever
+    writes this file. Factoring the write out keeps the claim true in the form
+    the scan can still benefit from — and the comment there now states it that
+    way, because a stale "exactly one writer" is a lie the next reader believes.
+
+    Synchronous, because both callers already hop to a worker thread for it
+    (``asyncio.to_thread``): the desktop route is on the event loop and this is
+    a filesystem write. The bytes are the contract ``locate()`` reads back
+    (``{"version": 1, "cwd": …}``) and 0600 is its permission — a directory
+    name is the user's data like any other.
+
+    ``model`` is the DRAFT's chosen model (:data:`DRAFT_MODEL_KEY`), written only
+    when the caller has one. A move has no opinion about the model and passes the
+    one it read back, because ``cwd`` is the only field it is changing: a writer
+    that reproduced the whole document from its own arguments would silently drop
+    the choice the window made, which is the failure the additive-key comment on
+    :data:`DRAFT_MODEL_KEY` exists to prevent.
+    """
+    marker = path / DESKTOP_MARKER_NAME
+    payload: dict[str, Any] = {"version": 1, "cwd": str(directory)}
+    if model is not None:
+        payload[DRAFT_MODEL_KEY] = {field: model.get(field) for field in DRAFT_MODEL_FIELDS}
+    if purpose is not None:
+        # ADDITIVE, exactly like the model above: a marker written without it is
+        # the document every earlier build wrote, and the marker's readers take
+        # the keys they know. This is the key the RUNTIME reads to learn that it
+        # is a configuration run (`retention.read_desktop_purpose`), and it
+        # travels here rather than through the spawn environment because the
+        # document outlives the request: a run resumed hours later, or booted by
+        # a successor daemon, is shaped identically without anyone having to
+        # remember to pass a flag.
+        payload[DESKTOP_PURPOSE_KEY] = purpose
+    # ATOMIC, and the mode is applied BEFORE publication (review R2). The old
+    # ``write_text`` then ``chmod`` truncated the authoritative file in place,
+    # so a failure between the two left a world-readable marker and a crash
+    # mid-write left it torn; and because the truncate happens first, a reader
+    # racing the write sees an empty document rather than either answer.
+    _stage_and_replace(marker, json.dumps(payload).encode())
+
+
+def write_desktop_marker_bytes(marker: Path, data: bytes) -> None:
+    """Atomically replace ``marker`` with already-rendered bytes, mode 0600.
+
+    The ROLLBACK half of the marker contract, and a function rather than two
+    lines inline because the ordering it enforces is the same one
+    :func:`write_desktop_marker` needs (they share
+    :func:`_stage_and_replace`): stage in the SAME directory, apply 0600 BEFORE
+    publication, then ``os.replace``. A rollback that truncated the live marker
+    and then chmodded it would leave a window where the authoritative file is
+    empty or world-readable — and the rollback is exactly the moment nothing
+    else is watching (review R2 / QA Q2).
+    """
+    _stage_and_replace(marker, data)
+
+
+def _stage_and_replace(marker: Path, data: bytes) -> None:
+    """Publish ``data`` at ``marker`` atomically, 0600, temp in the SAME dir.
+
+    The one writer both halves of the marker contract go through, so the
+    ordering is stated once: write the whole document to a unique staging file
+    in the marker's own directory (``os.replace`` is only atomic within a
+    filesystem), ``flush`` and ``fsync`` it so the rename cannot be ordered
+    ahead of the bytes on a crash, apply 0600 BEFORE the file is reachable
+    under the authoritative name, replace, then fsync the directory itself so
+    the rename survives a power loss — the discipline ``config.py`` states for
+    its own file. The directory fsync is best-effort: it is a durability
+    upgrade attempted after the replacement ALREADY succeeded, so a filesystem
+    that refuses ``O_RDONLY`` on a directory must not turn a good write into a
+    failure.
+
+    A stage that fails is removed rather than left behind: it is ours and
+    unreferenced, it would otherwise accumulate in the session directory, and
+    the marker name it is prefixed with is one a reader globs for.
+    """
+    staged = marker.parent / f".{marker.name}.{uuid.uuid4().hex}.tmp"
+    try:
+        # CREATED 0600, not chmodded afterwards (review round 2, N5): ``open``
+        # applies the umask, so the staging file was briefly group/other
+        # readable and its content is this session's working directory. The
+        # exclusive create also cannot collide with a concurrent writer's stage.
+        descriptor = os.open(staged, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(staged, marker)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            staged.unlink(missing_ok=True)
+        raise
+    try:
+        directory_fd = os.open(str(marker.parent), os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    except OSError:
+        pass
+
+
+def _same_directory(left: str, right: str) -> bool:
+    """Whether two paths name the SAME DIRECTORY, symlinks and all.
+
+    A move to where the session already is must be a no-op, and comparing the
+    spellings alone misses the case that matters on macOS: ``/tmp/x`` and
+    ``/private/tmp/x`` are one directory, so a user who types the other spelling
+    got a full retire-and-respawn — a ~1-3 s rebuild of a runtime that had not
+    moved anywhere (QA round 1, Q3 on the shared move route). The fast path stays
+    a string compare because that is the common case and it costs nothing; the
+    identity check is ``os.path.samefile``, which is the filesystem's own answer
+    rather than a second path-normalisation rule to keep in step with
+    ``expand_path``'s deliberate symlink preservation.
+
+    Both paths are directories that exist by the time this is asked (the target
+    is validated first, the session's own is where it works), but ``samefile``
+    raises ``OSError`` when one of them has vanished underneath us — in which
+    case the honest answer is "not the same": the move proceeds and its own
+    validation decides.
+    """
+    if not left or not right:
+        return False
+    if os.path.normpath(left) == os.path.normpath(right):
+        return True
+    try:
+        return os.path.samefile(left, right)
+    except OSError:
+        return False
+
+
+def _live_owner_cwd(root: Path, session_id: str) -> str | None:
+    """The directory the LIVE owner of ``session_id`` reports, or ``None``.
+
+    Discovery IS the owner's own account of where it works: ``SessionRecord.cwd``
+    is written by the runtime process at publish and carried on every heartbeat,
+    so it is not a value this server wrote about itself. That is exactly why the
+    settlement below asks it — the copies a failed operation leaves behind are
+    all its own, and comparing them to each other can only ever confirm its own
+    belief (review round 2, N1).
+
+    A record whose pid is gone is dropped as stale, and a wedged owner still
+    holds its control socket and its directory, so it counts: the question is
+    "which directory is this session working in", not "is it healthy".
+    """
+    for record, state in registry.scan(root):
+        if state != "stale" and record.session_id == session_id:
+            return str(getattr(record, "cwd", "") or "")
+    return None
+
+
+def _cwd_is_unconfirmed(root: Path, session_id: str, marker_cwd: str | None, resolved: str) -> bool:
+    """Whether a bridge being BUILT must treat ``resolved`` as unconfirmed.
+
+    WHY THIS EXISTS AT ALL (review round 3, MAJOR-1). The doubt used to live
+    only in the bridge that watched the unknown outcome fail, and that is a copy
+    in one process's memory: an eviction at ``BRIDGE_COUNT`` or a plain server
+    restart rebuilt the bridge from the MARKER — the very copy the failed
+    operation wrote — so the doubt was discarded on exactly the path the finding
+    named, and the next move resolved a relative target against it and rewrote
+    the durable marker from that base. A successor could then be engaged in a
+    directory no party confirmed, while the docs promised the doubt was settled
+    against the owner.
+
+    The signature of a half-applied move is durable and readable here: a marker
+    that names a DIFFERENT directory from the one the session's LIVE owner
+    reports in its own record (``registry.scan``; not a value this server wrote).
+    An owner still running in ``before`` while the marker says ``after`` can only
+    mean the move did not take — a move is honoured by retiring the owner, and a
+    definite refusal restores every copy — so the marker is a failed write and
+    the bridge must reconcile before it acts on it.
+
+    Deliberately NARROW, because a false positive costs a move: the doubt is only
+    reconstructed when a marker exists and carries a cwd, and when a live owner
+    disagrees with the resolved directory. A cold session (no record), a settled
+    session (record == marker) and a checkpoint-only directory (no marker to
+    doubt) all stay confirmed. The one conservative direction is an owner in the
+    seconds of its own retirement: the outgoing record can still name the old
+    directory while the successor has not published yet, which flags the doubt
+    for that window. That refuses the next move with a reconcile sentence instead
+    of acting on a possibly-stale copy, and it clears as soon as the successor's
+    own record lands — the safe side of the line this finding is about.
+
+    No separate read is needed for the two arguments: ``marker_cwd`` is the
+    cwd the caller already got from the marker (``None`` when the directory came
+    from the checkpoint fallback), and ``resolved`` is the directory the bridge
+    will run with, so this asks only the question the marker cannot answer.
+    """
+    if not marker_cwd:
+        return False
+    owner = _live_owner_cwd(root, session_id)
+    return bool(owner) and not _same_directory(owner, resolved)
+
+
+async def _settle_unconfirmed_move(
+    bridge: DesktopSessionBridge, marker_dir: Path, read_marker: Callable[[], bytes | None]
+) -> None:
+    """Settle which directory is in force after an UNKNOWN or half-applied move.
+
+    Contract §A: an outcome whose answer never came back, or a rollback that
+    could not run, is NEITHER a refusal nor a success, so the next operation must
+    finish that reconciliation under the move lock instead of acting on an
+    optimistic ``_cwd``.
+
+    WHY THE OWNER IS ASKED, AND WHY COMPARING OUR OWN COPIES WAS NOT ENOUGH. The
+    durable marker and ``bridge.cwd`` are BOTH written by the same failed
+    operation from the same ``resolved`` value, so they agree by construction —
+    a guard comparing only those two always reads "settled" and never sees the
+    divergence it exists for. The facade is the second self-written copy, but it
+    is the one that carries the OWNER'S answer (a definite refusal restores it to
+    the directory the owner kept), so it disagrees far more often than the marker
+    does. The authoritative account of where a live session works is the owner's
+    own record, which is what :func:`_live_owner_cwd` reads.
+
+    Three outcomes, and every one of them acts only on what a party confirms:
+
+    * **The live owner confirms the facade, and the durable copy is the odd one
+      out.** A move is honoured only by retiring the owner, so an owner that is
+      still live — and whose own record names the directory the facade rolled
+      back to — never accepted it. Both parties agree against the marker, which
+      is therefore PROVABLY stale: it is repaired to the owner's directory, under
+      the move lock, through the same atomic writer the move path uses, and the
+      move proceeds. This is the case that used to leave a restart or a bridge
+      eviction spawning a successor in a directory the move was REFUSED for.
+    * **Every party agrees.** The durable target governs the successor and the
+      base a relative new target resolves against; the doubt is settled and the
+      flag clears.
+    * **Anything else** — a live owner that disagrees with the marker while the
+      facade also disagrees, an unreadable payload, an owner-side observation
+      that matches neither copy — is genuinely unresolved. It is REPORTED for the
+      caller to reconcile (503, the indeterminate class) and never resolved by
+      preferring one copy, which is how the previous behaviour overwrote a
+      committed move with a stale one.
+
+    The three readbacks are logged at the refusal, so the state that needed
+    reconciling is recorded rather than reconstructed later.
+    """
+    if not bridge.cwd_unconfirmed:
+        return
+    raw = await asyncio.to_thread(read_marker)
+    durable = ""
+    if raw is not None:
+        try:
+            payload = json.loads(raw)
+        except ValueError:
+            payload = None
+        if isinstance(payload, dict):
+            durable = str(payload.get("cwd", ""))
+    remote = bridge.remote
+    facade = str(getattr(remote, "cwd", "") or "") if remote is not None else ""
+    owner = await asyncio.to_thread(_live_owner_cwd, bridge.root, bridge.session_id)
+    observed = f"marker={durable!r} bridge={bridge.cwd!r} facade={facade!r} owner={owner!r}"
+
+    if owner and owner == facade and owner != durable:
+        # The write is wrapped because this branch is entered PRECISELY when the
+        # same file could not be written a moment ago: a second failure escaped
+        # as a raw ``OSError`` out of the route, which answers 500 in a ladder
+        # where every neighbour is a mapped 409/503 and the route's own contract
+        # is that the failure classes below are the ladder's (review round 3,
+        # MINOR-1). The state is unresolved either way, so it is reported as
+        # such — never as a refusal, which would tell the client to act on a
+        # directory nobody confirmed.
+        try:
+            await asyncio.to_thread(
+                write_desktop_marker,
+                marker_dir,
+                Path(owner),
+                model=stored_draft_model(read_desktop_marker(marker_dir)),
+            )
+        except OSError as error:
+            logger.error(
+                "could not repair the unconfirmed move for %s in %s: %s",
+                bridge.session_id,
+                marker_dir,
+                observed,
+                exc_info=True,
+            )
+            raise MoveIndeterminate(observed) from error
+        bridge.cwd = owner
+        bridge.cwd_unconfirmed = False
+        logger.warning(
+            "unconfirmed move settled from the live owner's own record for %s: %s",
+            bridge.session_id,
+            observed,
+        )
+        return
+
+    if (
+        bool(durable)
+        and all(copy == durable for copy in (bridge.cwd, facade))
+        and (owner is None or owner == durable)
+    ):
+        bridge.cwd_unconfirmed = False
+        return
+
+    logger.error("unconfirmed move left unresolved for %s: %s", bridge.session_id, observed)
+    raise MoveIndeterminate(
+        observed,
+        message=(
+            "The session's working directory could not be confirmed after an "
+            "interrupted move. Reconnect, then reconcile it before moving again."
+        ),
+    )
+
+
+async def move_session(bridge: DesktopSessionBridge, requested: str) -> MoveReceipt:
+    # The facade's bind lock does not cover the marker write or its rollback.
+    # Serialize the whole transaction so a refused request cannot restore its
+    # old marker over a different request's successful move.
+    async with bridge.move_lock:
+        # THE FENCE'S LIFETIME IS THE TRANSACTION'S (contract §C): set before the
+        # first mutation and cleared only after the publication below, so a
+        # legacy viewer can neither mount across the replacement frame nor be
+        # admitted behind the precondition check that refused the move.
+        bridge.move_in_progress = True
+        try:
+            return await _move_session(bridge, requested)
+        finally:
+            bridge.move_in_progress = False
+
+
+async def _move_session(bridge: DesktopSessionBridge, requested: str) -> MoveReceipt:
+    """Point a desktop session at ``requested``; own every side effect of doing so.
+
+    Validation, durability and the retire are ONE ordering, which is why this is
+    a function rather than three calls in the route. The order is the rule
+    :meth:`AttachedSession.set_working_directory` already states for ``_cwd``
+    ("the field is set FIRST, before joining… so the successor cannot be engaged
+    before the field it reads is set") applied to the two other copies of that
+    field: the session's durable marker and the bridge's own ``cwd``. A
+    successor spawned mid-move reads the marker when this bridge has been
+    evicted and the bridge field when it has not, so both must be set before the
+    retire makes either reachable.
+
+    The three copies are kept AGREEING, and the previous bytes are what makes
+    that possible: a DEFINITE refusal (a turn that arrived during the retire, a
+    runtime too old to move, a missing capability) restores the marker and the
+    bridge field, so a failure leaves the session working where it did rather
+    than half moved. An UNKNOWN owner outcome is deliberately the other case —
+    the owner may already have accepted, so nothing is restored and the bridge
+    is marked unconfirmed for the next operation to reconcile (contract §A).
+    """
+    remote = bridge.remote
+    assert remote is not None, "a move runs against an acquired bridge"
+    # DURABILITY FIRST, the marker before the bridge field, and both before the
+    # retire. `locate()` prefers the marker over the canonical checkpoint when
+    # this bridge has been evicted or the HTTP server restarted; the bridge field
+    # is what a re-``acquire()`` on THIS bridge passes to ``cold(cwd=…)``.
+    # Defined ABOVE the resolution base below because an unconfirmed previous
+    # move has to be settled before anything reads the optimistic cwd.
+    marker_dir = bridge.root / "sessions" / bridge.session_id
+    marker_path = marker_dir / DESKTOP_MARKER_NAME
+
+    def read_marker() -> bytes | None:
+        """The existing marker bytes, or ``None`` ONLY when it is not there.
+
+        ``FileNotFoundError`` is the sole "absent" answer (contract §A). Every
+        other read failure is raised with its real cause: the previous
+        ``except OSError`` treated an unreadable or permission-denied marker as
+        absence, so the rollback below would then DELETE the authoritative
+        record of where the session works (review R2 / QA Q2).
+        """
+        try:
+            return marker_path.read_bytes()
+        except FileNotFoundError:
+            return None
+        except OSError as error:
+            raise HTTPException(
+                409, f"cannot read the session's working-directory marker: {error}"
+            ) from None
+
+    def restore_marker(previous_bytes: bytes | None) -> None:
+        """Put the marker back atomically, and REPORT a failure to do so.
+
+        A rollback that cannot run is not a log line beside an ordinary refusal:
+        the durable copy would then name a directory the session is not in, so
+        the caller turns this into an explicit indeterminate-state error rather
+        than a warning followed by a confident-looking refusal (contract §A).
+        ``MoveIndeterminate`` is the honest class: the filesystem and the owner
+        now disagree and only a reconciliation settles which one is in force.
+        """
+        try:
+            if previous_bytes is None:
+                marker_path.unlink(missing_ok=True)
+                return
+            write_desktop_marker_bytes(marker_path, previous_bytes)
+        except OSError as error:
+            # LOGGED HERE, where the errno and the path still exist as a cause:
+            # the class keeps the detail off the wire (it names directories), so
+            # without this the operator sees a generic "reconcile" and no trace
+            # of a failed rollback (review round 2, N3).
+            logger.error(
+                "could not restore the working-directory marker for %s: %s",
+                bridge.session_id,
+                error,
+                exc_info=True,
+            )
+            raise MoveIndeterminate(
+                f"could not restore the working-directory marker for {bridge.session_id}: {error}"
+            ) from error
+
+    await _settle_unconfirmed_move(bridge, marker_dir, lambda: read_marker())
+    # The VIEWER's live value, not ``bridge.cwd``: the bridge field is written by
+    # THIS function and read at `acquire()`, so after a first move it is the
+    # older of the two and a relative path resolved from it would name the wrong
+    # sibling.
+    previous = remote.cwd
+    try:
+        directory = validate_target(expand_path(requested, cwd=previous))
+    except OSError as error:
+        # A path on an unmounted volume, or a symlink loop. The TUI answers this
+        # class of case in the same words (``_apply_move``), and it is NOT left to
+        # the route's ``errors()`` ladder: that ladder's ``OSError`` arm claims
+        # ONLY the disk-full errnos (ENOSPC/EDQUOT) and re-raises the rest, so
+        # this one would reach the user as a 500 rather than as the path it is.
+        raise HTTPException(409, f"cannot move to {requested}: {error}") from None
+
+    resolved = str(directory)
+    if _same_directory(resolved, previous):
+        # NOTHING is written and nothing is retired. This is the TUI's "already in
+        # ~/x", and it is also what makes a retried move idempotent: the receipt
+        # journal admits a second POST with the same request id, and a move that
+        # had already landed must not retire the runtime a second time.
+        # ``will_wait`` is False rather than sampled: no transition is about to
+        # happen, so there is no wait for it to have been a hint about.
+        #
+        # The receipt reports the SESSION's own spelling and label, not the
+        # typed one: for a no-op through a symlink those are two names for one
+        # directory, and the stream the renderer reconciles against reports the
+        # session's. The TUI's symlink-PRESERVING spelling is still what a real
+        # move is labelled with, below — this is only what "you are already
+        # here" answers with.
+        return MoveReceipt(
+            cwd=previous,
+            label=format_label(previous),
+            outcome="unchanged",
+            will_wait=False,
+        )
+
+    # Sampled BEFORE the call, exactly as ``_apply_move`` does, because after it
+    # the answer is about a transition that has already happened — and this is a
+    # HINT for an operator reading a receipt, never a gate.
+    will_wait = remote.move_will_wait()
+    # The TUI's own home-aware rendering of the directory being moved TO, kept
+    # symlink-preserving on purpose: a user who moved into `~/current-project`
+    # means the symlink, and printing its target back at them would read as the
+    # move having gone somewhere else.
+    label = format_label(directory)
+
+    # PRECONDITIONS, BEFORE ANY MUTATION (contract §A). Both refuse while the
+    # durable copy and the owner are still untouched, so a refusal costs the user
+    # a sentence and never a half-applied move:
+    #
+    # * the OWNER must advertise the exclusivity fence, or it would ignore the
+    #   flag and retire unguarded while a sibling facade is attached (review R3);
+    # * no MOUNTED desktop viewer may predate ``frontend.replace``, because that
+    #   frame is the only thing that repaints an already-mounted widget (review
+    #   R4).
+    if not remote.supports_exclusive_move:
+        raise RuntimeError("this session's runtime is too old to be moved; /reload first")
+    bridge.refuse_if_incompatible_subscribers()
+
+    # The draft's stored model is CARRIED ACROSS, never re-derived: a move
+    # changes ``cwd`` and nothing else, and the model key is the window's choice
+    # for a conversation that has not run yet (``draft_birth_selection``). Read
+    # through the same helpers every other marker reader uses, so a marker this
+    # route could not parse degrades here exactly as it does there.
+    #
+    # ``purpose`` IS CARRIED FOR THE SAME REASON AND AT HIGHER STAKES. This is the
+    # marker's SECOND writer (the create site is the first), and the purpose key is
+    # what tells the runtime child that a session is a configuration run — the run's
+    # tool declaration and preamble are keyed on it. A move that dropped it would
+    # leave a session that is still HIDDEN from every listing (its ``origin.json`` is
+    # untouched) and no longer BOUNDED: the next boot would build the full builtin
+    # inventory, shell and file tools included, with nothing anywhere saying so.
+    # The bytes are the contract the two writers share; a field only one of them
+    # knows about is a field the other silently erases.
+    previous_model = await asyncio.to_thread(
+        lambda: stored_draft_model(read_desktop_marker(marker_dir))
+    )
+    previous_purpose = await asyncio.to_thread(read_desktop_purpose, marker_dir)
+    previous_marker = await asyncio.to_thread(read_marker)
+    try:
+        await asyncio.to_thread(
+            write_desktop_marker,
+            marker_dir,
+            directory,
+            model=previous_model,
+            purpose=previous_purpose or None,
+        )
+    except OSError as error:
+        # THE FIRST MUTATION REFUSES WITH ITS REAL CAUSE, and there is nothing
+        # to roll back (review R2). ``_stage_and_replace`` writes the whole
+        # document to a staging file and only then replaces the marker, so the
+        # authoritative bytes are never partially written and a failed write
+        # cannot have changed them; the stage is removed on the way out. That
+        # is exactly why this is a 409 refusal carrying the filesystem's own
+        # message rather than a 500: the user's session is intact and the
+        # actionable fact is that the marker could not be written. It is
+        # deliberately NOT ``MoveIndeterminate`` either — nothing reached an
+        # owner and no state is in doubt.
+        raise HTTPException(
+            409, f"cannot write the session's working-directory marker: {error}"
+        ) from None
+    bridge.cwd = resolved
+    try:
+        # The receipt's ``outcome`` IS this call's return vocabulary: the facade
+        # documents exactly ``"cold"`` and ``"rebound"`` and nothing else, and
+        # ``MoveReceipt`` spells the same two words plus the route-level
+        # ``"unchanged"`` above. The cast narrows a ``str`` the protocol cannot
+        # express (``RemoteSession.set_working_directory -> str``) to the Literal
+        # the wire model owns, rather than the model being widened to ``str`` and
+        # losing the fact a renderer switches on.
+        #
+        # ``exclusive=True`` is the desktop's endorsement of the owner fence
+        # checked above: this call is what makes the move REFUSE while another
+        # actual attach is registered rather than racing it.
+        outcome = cast(
+            Literal["cold", "rebound"],
+            await remote.set_working_directory(resolved, exclusive=True),
+        )
+    except MoveIndeterminate:
+        # NO ROLLBACK, and that is the whole point of the class: the owner may
+        # already have accepted the move, so restoring the previous bytes would
+        # overwrite a committed move with a stale one and the successor could
+        # then spawn in the old path while the receipt said otherwise. The
+        # marker deliberately stays at the accepted target and the route answers
+        # "reconcile" (contract §A).
+        #
+        # The bridge is marked UNCONFIRMED rather than being trusted: the next
+        # operation reconciles the durable copy against this belief under the
+        # move lock before it resolves anything against it.
+        bridge.cwd_unconfirmed = True
+        raise
+    except BaseException:
+        # BaseException, not Exception: a CANCELLED move is the same hazard as a
+        # refused one — the retire may already be in flight while this call's
+        # caller went away — and `set_working_directory` rolls its own field back
+        # on the same terms (review MINOR-2 there). Restoring the OTHER two copies
+        # is this function's half of that invariant. A cancelled HTTP waiter no
+        # longer reaches here at all (the route owns and joins this operation),
+        # so this is the shutdown path.
+        try:
+            await asyncio.to_thread(restore_marker, previous_marker)
+        except MoveIndeterminate:
+            # The rollback could not run, so the durable copy and this bridge
+            # now disagree about where the session works. That is the same
+            # reconcile-before-acting state the unknown owner outcome produces,
+            # and the next move settles it the same way.
+            bridge.cwd_unconfirmed = True
+            raise
+        bridge.cwd = previous
+        raise
+
+    # Best effort by contract, and off the loop because it is a read, a write and
+    # an atomic replace. Sharing the recents list with the TUI is a bonus of
+    # sharing the file, not the point of writing it here.
+    await asyncio.to_thread(remember_recent, bridge.root, directory)
+
+    # A DEFINITE accepted move is itself the reconciliation: both the durable
+    # copy and this bridge now name one directory, so any earlier doubt is
+    # settled.
+    bridge.cwd_unconfirmed = False
+    return MoveReceipt(cwd=resolved, label=label, outcome=outcome, will_wait=will_wait)
+
+
+class LegacySubscriberDuringMove(Exception):
+    """A legacy viewer tried to mount during a move; see ``subscribe``.
+
+    Its own class rather than a ``ValueError`` because the events route must
+    answer it differently: a full subscriber table is a 404-shaped "no room",
+    while this is "your build cannot follow a move in flight" — a 409 the
+    renderer can act on by updating rather than by retrying blindly.
+    """
+
+
+@dataclass(eq=False)
+class DesktopSubscription:
+    id: str = field(default_factory=lambda: uuid.uuid4().hex)
+    queue: asyncio.Queue[tuple[dict[str, Any], int] | None] = field(
+        default_factory=lambda: asyncio.Queue(maxsize=REPLAY_COUNT)
+    )
+    queued_bytes: int = 0
+    visible: bool = False
+    can_notify: bool = False
+    #: Whether this subscriber's renderer can consume ``frontend.replace``.
+    #: False for every existing caller, which is what makes the move path
+    #: refuse rather than silently leave a mounted viewer stale.
+    frontend_replace: bool = False
+    expires: float = 0.0
+    overflow: bool = False
+    #: False until ``events`` has finished the OPEN handshake -- i.e. until the
+    #: snapshot, and the frames published after its watermark, have been handed
+    #: to the transport. Before that the queue holds only frames the snapshot
+    #: supersedes, so a full queue is EVICTION, not failure (see ``publish``).
+    opened: bool = False
+    #: True once this subscription has lost its transport but is still holding
+    #: the bridge open (see ``_arm_dwell``). A dwelling subscription has no
+    #: reader, so ``publish`` skips it, it keeps its place in ``subscribers``
+    #: (it is what ``refresh_watch`` asserts residency from), and it is not
+    #: evictable.
+    dwelling: bool = False
+    #: When the dwell lets go, on the module's own clock (``time.monotonic()``
+    #: offset). Carried on the subscription rather than inside the task so the
+    #: deadline is INSPECTABLE: a test asserts it and moves it past, instead of
+    #: waiting ``RECONNECT_DWELL_S`` out.
+    dwell_until: float = 0.0
+
+
+def visible_transcript_rows(rows: list[Any]) -> list[Any]:
+    """Drop the rows a human transcript must never serve.
+
+    TWO classes, one predicate each, shared with the TUI's folds: a hidden wake
+    delivery (a patience fire — §8.2.2 item 4) and a hidden tool row (the
+    ``patience`` arm's ledger pair — UX round 1, U2). Filtering SERVER-side is
+    the point: the client reducer has no filter of its own, so an older build
+    would paint exactly what a current one hides (agent review round 1, R1 /
+    QA round 1, Q1). Rows arrive here in their serialized shape
+    (``{type, payload}``), which is what the predicates duck-type.
+    """
+    from collections.abc import Mapping as _Mapping
+
+    from local_operator.harness.rows import is_hidden_tool_row, is_hidden_wake_delivery
+
+    out: list[Any] = []
+    for row in rows:
+        payload = row.get("payload") if isinstance(row, _Mapping) else None
+        if isinstance(payload, _Mapping) and is_hidden_wake_delivery(payload):
+            continue
+        if is_hidden_tool_row(row):
+            continue
+        out.append(row)
+    return out
+
+
+class DesktopSessionBridge:
+    def __init__(
+        self,
+        root: Path,
+        session_id: str,
+        cwd: str,
+        *,
+        retiring: Callable[[], bool] | None = None,
+        cwd_unconfirmed: bool = False,
+        remote_row: SessionRow | None = None,
+        draft: _Draft | None = None,
+    ) -> None:
+        self.root, self.session_id, self.cwd = root, session_id, cwd
+        #: A ``resume.SessionRow`` when ANOTHER DEVICE holds this conversation,
+        #: ``None`` for one on this disk. THE ONE FACT THAT MAKES THIS BRIDGE
+        #: REMOTE, and it is read twice below: the facade it builds (a viewer whose
+        #: owner is the peer — never a second writer here, INV-1) and the two reads
+        #: that must NOT be answered from this device's disk (progress receipts and
+        #: the durable transcript).
+        #:
+        #: Taken as the ROW rather than a device id, because the row is what the
+        #: viewer needs seeded: the peer's name for the conversation, its model and
+        #: its cwd come from this one read, and a second lookup would be a second
+        #: chance for the two to disagree.
+        self.remote_row = remote_row
+        # Why this bridge must not start a runtime, asked of the daemon's own
+        # state rather than cached: the flag flips ONCE, mid-life, when the
+        # retirement poll runs (``server/retire.py``), and a bridge built before
+        # that must see it too. Defaulted so every direct construction — the
+        # tests', a reduced app's — is an ordinary admitting bridge.
+        self.retiring_probe = retiring or _never_retiring
+        self.remote: AttachedSession | None = None
+        self.epoch = uuid.uuid4().hex
+        self.sequence = 0
+        self.replay: deque[tuple[dict[str, Any], int]] = deque()
+        self.replay_bytes = 0
+        #: Recent one-shot announcements (see :meth:`publish_once`), oldest first.
+        #: Cleared with the replay on every epoch change, because a new epoch is a
+        #: connection whose cursor cannot reach the old frames anyway.
+        self.announced: deque[str] = deque()
+        self.subscribers: dict[str, DesktopSubscription] = {}
+        #: The in-flight dwell timers, keyed by subscription id (see
+        #: ``_arm_dwell``). Held so teardown can cancel them: a forgotten bridge
+        #: must leave no task asserting presence on its behalf.
+        self._dwell_tasks: dict[str, asyncio.Task[None]] = {}
+        #: When the last subscriber STREAM ended, and whether the bridge itself
+        #: revoked that stream (overflow). The dwell's policy evaluated from a
+        #: TIMESTAMP rather than from a generator's ``finally`` -- see
+        #: ``note_stream_ended`` and ``_within_stream_grace``. ``None`` until a
+        #: stream has ended, which is what keeps a response that was never
+        #: consumed (the route's ``BackgroundTask`` path) detaching immediately.
+        self.stream_ended_at: float | None = None
+        self.stream_ended_overflowed = False
+        self.users = 0
+        #: Whether :meth:`close` has run for this bridge. Read only by the
+        #: subscriber-stream end log (C5), to name "bridge dispose" instead of
+        #: the "client disconnect" every ordinary SSE teardown would report:
+        #: ``close`` ends every subscriber through the same ``_disconnect`` a
+        #: slow-client overflow uses, so the cause is not recoverable from the
+        #: subscription alone. No behaviour reads it.
+        self._closing = False
+        self.touched = time.monotonic()
+        self.lock = asyncio.Lock()
+        self.watch_lock = asyncio.Lock()
+        self.move_lock = asyncio.Lock()
+        self.unsubscribers: list[Any] = []
+        #: Per-JOB reference count of the trajectory subscriptions this bridge
+        #: holds on its owner connection — the desktop child reader's live path
+        #: (see :meth:`watch_trajectory` and :meth:`load_child_trajectory`).
+        #:
+        #: WHY REFCOUNTED, AND WHY IT LIVES HERE. One bridge is shared by every
+        #: window, tab and feed watching this session (``self.subscribers``, all
+        #: reading ONE attach connection), so the owner-side ``watch_job`` is not
+        #: something a caller can own alone. An un-refcounted unload has a
+        #: failure mode that is silent and invisible on screen: window A closes
+        #: the reader, the unload releases the subscription, and window B's page
+        #: simply stops growing. Every row B already holds stays correct, so
+        #: nothing says anything is wrong until someone notices the child did
+        #: work that never appeared. The count is what makes A's close a no-op
+        #: for B — the single most likely regression in this feature.
+        #:
+        #: Keyed by JOB id rather than by the child's session id: the retained
+        #: window lives on the job, and a child with a superseded attempt has
+        #: two job ids over one session directory, one of which the reader
+        #: holds.
+        #:
+        #: COUNTS BELONG TO A CONNECTION, which is what
+        #: :attr:`_trajectory_watch_client` records: a reconnect rebinds this
+        #: bridge's owner IN PLACE (the same facade, the same store, a new
+        #: ``_client``), and the connection that carried the ``watch_job`` calls
+        #: away takes their counts with it. See
+        #: :meth:`_drop_counts_from_a_replaced_connection`.
+        self._trajectory_watches: dict[str, int] = {}
+        #: The owner connection (:attr:`_owner_connection`) the counts above
+        #: were taken on, or ``None`` before the first one. Compared by OBJECT
+        #: IDENTITY because that is the only handle this side has on "the
+        #: connection I subscribed on": ``AttachedSession`` exposes no epoch for
+        #: the attach socket, and it builds a fresh ``AttachClient`` per connect.
+        self._trajectory_watch_client: AttachClient | None = None
+        self.watch_task: asyncio.Task[None] | None = None
+        #: The in-flight speculative engage started by :meth:`warm`, held so
+        #: the event loop keeps a strong reference to it. A bare
+        #: ``create_task`` with no referent may be garbage collected mid-flight
+        #: (asyncio only holds a weak reference), which would make the warm
+        #: silently do nothing on an arbitrary subset of requests — the worst
+        #: possible failure for a latency optimisation, because the slow path
+        #: it leaves behind is the correct one.
+        self.warm_task: asyncio.Task[None] | None = None
+        #: The lease-driven warm's retry loop (see :meth:`_lease_warm_loop`).
+        #: Separate from ``warm_task`` because it outlives one engage: it holds
+        #: the LEASE's intent across attempts, while ``warm_task`` is the single
+        #: engage it (or the ``/warm`` route) has in flight at any moment.
+        self.lease_warm_task: asyncio.Task[None] | None = None
+        #: The READ envelope's attach attempt, single-flight per bridge and run
+        #: OUTSIDE ``self.lock`` (see :meth:`acquire`). Held for the same reason
+        #: ``warm_task`` is: asyncio keeps only a weak reference to a bare task.
+        self.read_attach_task: asyncio.Task[bool] | None = None
+        #: The attempts some read ANSWERED ahead of, i.e. painted the cold facade
+        #: an attempt may be about to replace. Only those attempts owe a
+        #: ``frontend.replace`` when they settle (see :meth:`_read_attach_settled`):
+        #: an attach that landed inside the grace was already in the frame that
+        #: read served.
+        #:
+        #: KEYED BY ATTEMPT, NOT A BRIDGE FLAG (review round 1, F3). One flag reset
+        #: by every new attempt lost a correction: reader A outruns T1, T1 settles
+        #: with its done-callback still queued, reader B finds T1 done and starts
+        #: T2 (clearing the flag), and T1's callback then saw nothing to publish,
+        #: leaving A's pane on the cold view with no transition. An attempt's own
+        #: membership here cannot be cleared by a later one.
+        self.read_attach_outran: set[asyncio.Task[bool]] = set()
+        #: The runtime pid the lease-driven warm last left the viewer BOUND to, so
+        #: the next cold period can ask how that runtime ended before it decides
+        #: whether to pace (see :meth:`_lease_warm_loop`). ``None`` is "unknown",
+        #: which is charged, never excused.
+        self.warm_served_pid: int | None = None
+        #: Whether a warm has been SERVED on this intent. Distinct from the pid,
+        #: which may legitimately be unknown for a served attempt.
+        self.warm_served = False
+        #: The served pid whose exit was already probed, so the probe runs once
+        #: per served runtime rather than once per pacing pass (see
+        #: :meth:`_probe_served_runtime`).
+        self.warm_probed_pid: int | None = None
+        #: The in-flight attention read shared by the snapshot and the poll loop,
+        #: so a contended store is asked once rather than once per caller.
+        self.attention_refresh: asyncio.Task[dict[str, Any]] | None = None
+        #: Whether a snapshot went out with attention state it could not confirm
+        #: in time, so the refresh that lands afterwards must publish the
+        #: ``attention`` frame even when this bridge had no baseline before.
+        self.attention_served_stale = False
+        #: Pace for the next lease-driven attempt, valid only between an attempt
+        #: that failed and the retry it earned; ``warm_not_before`` is the
+        #: monotonic deadline, ``warm_backoff_s`` the value it was set from so
+        #: the next failure can double it. Both reset when the intent is served
+        #: or the bridge detaches, so a fresh intent starts from the base.
+        self.warm_backoff_s = 0.0
+        self.warm_not_before = 0.0
+        self.attention_task: asyncio.Task[None] | None = None
+        self.attention: dict[str, Any] = {}
+        self.attention_poll_key: tuple[Any, bool] | None = None
+        #: Set for the duration of ``_move_session`` (contract §C). Read by
+        #: :meth:`subscribe` so a legacy viewer can neither be left stale by an
+        #: in-flight move nor admitted behind its precondition check.
+        self.move_in_progress = False
+        #: Set when a move ended with an UNKNOWN owner outcome (contract §A), so
+        #: the next operation settles which directory is in force before it
+        #: resolves anything against this bridge: see
+        #: :func:`_settle_unconfirmed_move`. Never a retry token — the receipt
+        #: journal is what makes the request at-most-once.
+        #:
+        #: ALSO RECONSTRUCTED AT CONSTRUCTION by the pool, from the durable
+        #: evidence (``marker != the live owner's record``, see
+        #: :func:`_cwd_is_unconfirmed`), because a doubt that lives only in the
+        #: bridge that watched the failure is discarded by the eviction and
+        #: restart paths this flag exists to cover (review round 3, MAJOR-1).
+        self.cwd_unconfirmed = cwd_unconfirmed
+        #: The registered draft this bridge was built for, or ``None`` for a
+        #: session resolved from its own directory (spec §1.3). Read ONLY by
+        #: :meth:`_ensure_facade`, for the birth selection: a draft has no marker
+        #: yet — ``create`` writes it later — so the spec MINTED with, which
+        #: ``create`` is about to persist, is what the first engage must be born
+        #: on. Scoped to this bridge's life: a later bridge for the same id
+        #: resolves through the marker create wrote.
+        self.draft = draft
+
+    def has_legacy_subscriber(self) -> bool:
+        """Whether any LIVE subscriber cannot consume ``frontend.replace``."""
+        return any(not sub.frontend_replace for sub in self.subscribers.values())
+
+    def refuse_if_incompatible_subscribers(self) -> None:
+        """Refuse a move, before it mutates, if a mounted viewer cannot repaint.
+
+        The replacement frame is the ONLY thing that carries the accepted
+        directory to an already-mounted desktop viewer in the COLD case — there
+        is no successor runtime to publish it — so moving with such a subscriber
+        attached would leave it showing the old directory while the receipt
+        claimed success (review R4). Refusing is the honest answer, and the
+        sentence names the action.
+        """
+        if self.has_legacy_subscriber():
+            raise RuntimeError(
+                "This session is open in an older desktop window. Update the desktop "
+                "app, then move again."
+            )
+
+    def publish_frontend_replace(self) -> None:
+        """Publish this bridge's CURRENT frontend projection as a replacement.
+
+        Desktop-only, and NOT an ordinary ``frontend.update`` — that is the whole
+        point (review R4). A local move installs state without touching the
+        owner's clock, so a delta would carry the owner's UNCHANGED epoch and
+        sequence, and the shipped renderer rejects a same-sequence update as
+        stale (measured against the real reducer, which drops it and leaves a
+        cold viewer on the old directory forever). This frame is ordered by the
+        BRIDGE's own outer cursor instead, and the renderer consumes it as the
+        authoritative projection. It carries no history field, so it neither
+        creates a gap nor invalidates a history cursor.
+        """
+        if self.remote is None:
+            return
+        self.publish(
+            # The whole bounded ``FrontendSync`` from ``state()``, not just its
+            # ``snapshot``: the consumer needs the owner's epoch alongside the
+            # state, and sending the sync payload keeps this frame's ``frontend``
+            # field the same shape as the bootstrap snapshot's.
+            "frontend.replace",
+            {"frontend": self.state(), **self._cold_fields()},
+        )
+
+    def _cold_fields(self) -> dict[str, Any]:
+        """The cold contract as the wire states it — see ``docs/DESKTOP_API.md``.
+
+        ``cold`` is the boolean every existing renderer reads; ``cold_reason`` is
+        the TOKEN that says which of the three cases it is, and ``attaching`` says
+        an authenticated dial is retained and its canonical state has not arrived
+        yet. Computed together, deliberately, so no frame can state one and
+        contradict another — a frame claiming ``cold: false`` while a dial sat
+        unsynced is the exact conflation these tokens exist to remove.
+
+        Three facts the bridge can actually establish, and no copy: the token is
+        the contract and the sentence belongs to the surface (the same discipline
+        the routes' error ``code`` already follows). ``no-runtime`` for a facade
+        with no remote at all; otherwise the facade classifies it (see
+        ``AttachedSession.cold_reason``), defaulting to ``no-runtime`` for a cold
+        facade no read has classified — which is what makes the field safely
+        ADDITIVE for a reader that predates it, since
+        ``cold ? "no-runtime" : null`` is the documented fallback.
+        """
+        remote = self.remote
+        if remote is None:
+            return {"cold": True, "cold_reason": "no-runtime", "attaching": False}
+        # An attach that is IN FLIGHT behind a served read is ``attaching`` too:
+        # the frame that answered first is cold only because the paint did not
+        # wait for it, and the frame the attempt publishes when it settles
+        # (``_read_attach_settled``) carries the verdict. Reporting ``False``
+        # there would say "nothing is coming" over an attach that is.
+        in_flight = self.read_attach_task is not None and not self.read_attach_task.done()
+        verified_at = remote.verified_at
+        if remote.is_cold or verified_at is None:
+            # NOTHING REPORTS LIVE WITHOUT AN ANSWERED ROUND TRIP (§6 rule 1).
+            # ``is_cold`` alone cannot carry that claim: it is three local
+            # disjuncts with no round trip in it, so a facade whose owner has
+            # been SIGSTOPped reads live for as long as its socket stays open —
+            # the measured false-live this rule exists to remove.
+            #
+            # ``owner-silent`` is the closed-vocabulary token for exactly this
+            # state and the docstring above already defines it: "a pid DOES hold
+            # the lease ... and did not deliver canonical state inside the
+            # read's budget". ``remote.cold_reason`` returns ``None`` on a
+            # non-cold facade (it is derived from ``is_cold``), so this branch
+            # supplies the token rather than publishing a null reason with a
+            # cold verdict.
+            #
+            # ``attaching`` is True here even when ``is_cold`` is False — a dial
+            # exists and its state is not verified — which keeps §6 rule 4
+            # (``cold: false`` and ``attaching: true`` mutually exclusive) true
+            # by construction rather than by inspection.
+            return {
+                "cold": True,
+                "cold_reason": remote.cold_reason or "owner-silent",
+                "attaching": remote.attaching or in_flight or not remote.is_cold,
+            }
+        return {
+            "cold": False,
+            "cold_reason": None,
+            "attaching": False,
+            # Published ONLY with the live half, so "a cold facade never carries
+            # ``verified_at``" is a property of the frame rather than a hope, and
+            # a reader that needs "now" has the stamp it must age itself (§6
+            # rule 2: age is the reader's, never the writer's).
+            #
+            # WHAT THIS STAMP DOES NOT YET DO, and the next reader of this
+            # function is the one who needs it: **no shipped client reads
+            # ``verified_at``** — `git grep verified_at origin/main` in
+            # `local-operator-ui` returns nothing, and so does a search for
+            # ``"(warm|warming)"`` — so nothing ages this stamp in the field.
+            # A frozen owner therefore still yields a live frame, and it was
+            # measured: a frame served **21.0/21.1 s** after the owner was
+            # SIGSTOPped still carried `cold:false, cold_reason:null,
+            # attaching:false, verified_at=<the old stamp>`, with nothing
+            # degrading it. The rule this site enforces is "no live claim
+            # WITHOUT an answered round trip", which holds; "no live claim on a
+            # STALE round trip" is the passive-frame aging budget (R10) and is
+            # deliberately not here. Until R10 lands, a passive frame can still
+            # show a frozen owner as live. The reader's own budget, when one
+            # exists, is ``session/runtime/types.py``'s
+            # ``LIVE_FRESHNESS_BUDGET_S``; the control route does not wait for
+            # that budget — ``DesktopSessionBridge.warm`` asks and bounds the
+            # ask at ``WARM_VERIFY_BUDGET_S``.
+            "verified_at": verified_at,
+        }
+
+    async def acquire(self, *, read: bool = False) -> AttachedSession:
+        """Take one reference on this bridge, binding the owner if it is cold.
+
+        ``read`` is the READ envelope, and it is a property of the ROUTE rather
+        than of the facade: reading state must never be able to fail because an
+        existing runtime was too busy to answer, because the durable answer is on
+        disk in the same process (``snapshot``/``history``). Read mode therefore
+        bounds its one attempt at ``READ_ATTACH_BUDGET_S`` and answers cold when
+        it does not land, keeping the authenticated dial for the rollover. The
+        CONTROL envelope (the default) is one attempt bounded at
+        ``DESKTOP_CONTROL_ATTACH_S``, and a raise the route ladder turns into a
+        named refusal — a write that was not admitted must say so rather than be
+        reported as a served read.
+
+        THE ATTACH RUNS OUTSIDE ``self.lock``, in both envelopes, and that is
+        the fix for the reported 17-20 s reads. The lock orders what it has to —
+        the reference count, facade construction, the epoch/replay reset and
+        ``_detach`` — and used to be held across ``attach_existing`` as well, so
+        every read of a conversation queued behind a control call's 15 s attach
+        and then paid its own 2 s (measured with a SIGSTOPped owner: 16.9-20.0 s,
+        which the renderer's 20 s deadline cut into "the backend could not
+        complete this request"). Holding a reference is what makes leaving the
+        lock safe: ``_detach`` runs only at ``users == 0``, so the facade cannot
+        be disposed under a caller that is still attaching it, and
+        ``attach_existing`` serialises dials on the facade's own ``_bind_lock``.
+
+        A READ DOES NOT WAIT FOR ITS ATTACH beyond ``READ_FIRST_FRAME_GRACE_S``.
+        The attempt is a single-flight task (``read_attach_task``): a healthy
+        owner lands inside the grace, so its first frame is live exactly as
+        before, and a busy one answers cold at once while the attach carries on
+        behind the paint and announces its outcome as a ``frontend.replace``
+        (see :meth:`_read_attach_settled`).
+        """
+        task: asyncio.Task[bool] | None = None
+        async with self.lock:
+            self.users += 1
+            self.touched = time.monotonic()
+            try:
+                remote = await self._ensure_facade()
+            except BaseException:
+                self.users -= 1
+                if self.users == 0 and not self.dwelling:
+                    await self._detach()
+                raise
+            if read:
+                task = self._start_read_attach(remote)
+        try:
+            if read:
+                if task is not None:
+                    # ``asyncio.wait`` rather than ``wait_for``: this caller stops
+                    # WAITING at the grace, while the attempt belongs to the bridge
+                    # and must not be cancelled with the request that started it
+                    # (``wait`` never cancels what it waits on; a cancelled request
+                    # leaves the task running for the other readers and the
+                    # stream).
+                    #
+                    # A PEER'S CONVERSATION GETS A LONGER GRACE, and the reason is
+                    # that the grace exists for the OPPOSITE situation. 50 ms is
+                    # right when the durable answer is already on this disk: the
+                    # paint cannot be improved by waiting, because the journal was
+                    # read synchronously a moment ago. For a conversation on
+                    # another device there IS no local durable answer -- the wire
+                    # is the only source -- so a first paint that stops waiting at
+                    # 50 ms is a first paint with NOTHING IN IT, and the renderer
+                    # then spends a second round trip reconciling through
+                    # ``/history``. Waiting up to the read attempt's own budget
+                    # buys the whole transcript in the frame the click asked for,
+                    # and a peer that does not answer inside it still gets the cold
+                    # paint and its ``attaching`` flag exactly as before.
+                    grace = (
+                        REMOTE_READ_FIRST_FRAME_GRACE_S
+                        if self.remote_row is not None
+                        else READ_FIRST_FRAME_GRACE_S
+                    )
+                    done, _ = await asyncio.wait({task}, timeout=grace)
+                    if not done:
+                        self.read_attach_outran.add(task)
+            else:
+                await remote.attach_existing(control_budget=DESKTOP_CONTROL_ATTACH_S)
+        except BaseException:
+            # SHIELDED, the shape the routes' ``_give_the_bridge_back`` settled in
+            # review rounds 2 and 3 (review round 1 of this change, F4).
+            # ``release`` awaits the bridge lock, which every other route on this
+            # session contends, and ``_detach`` awaits the owner connection's
+            # tear-down; a cancellation delivered at either await propagates into
+            # an unshielded release and leaves ``users`` incremented for good —
+            # ``release`` is the only thing that drops it, and eviction only ever
+            # considers ``users == 0``. Shielded, the request unwinds promptly
+            # while the release runs to completion exactly once; shield's own
+            # callback retrieves the release's failure when nobody is left to
+            # raise it to.
+            await asyncio.shield(self.release())
+            raise
+        if self.attention_task is None:
+            self.attention_task = asyncio.create_task(self._poll_attention())
+        return remote
+
+    def _start_read_attach(self, remote: AttachedSession) -> asyncio.Task[bool] | None:
+        """The bridge's one read-envelope attach attempt, started if none is live.
+
+        ``None`` when there is nothing to wait for: a facade that is already
+        attached (every read of a live conversation), or one whose attempt is
+        already running — the second reader joins it rather than dialling again,
+        which is what used to serialise two reads into 4 s. Called under
+        ``self.lock`` so two readers cannot both find no task.
+        """
+        running = self.read_attach_task
+        if running is not None and not running.done():
+            return running
+        if not remote.is_cold:
+            return None
+        task = asyncio.create_task(remote.attach_existing(budget=READ_ATTACH_BUDGET_S))
+        self.read_attach_task = task
+        task.add_done_callback(lambda settled: self._read_attach_settled(remote, settled))
+        return task
+
+    def _read_attach_settled(self, remote: AttachedSession, task: asyncio.Task[bool]) -> None:
+        """Tell the stream how an attach that outlived its read ended.
+
+        ``frontend.replace`` IN ADDITION to the owner's rollover
+        ``frontend.update`` (which ``AttachedSession._bind_to`` now publishes
+        after the sync finishes, so it too says ``cold: false``): the shipped
+        renderer takes ``cold`` from the snapshot and from this frame only, and
+        applies a rollover update's fields without it. The replace is ordered by
+        the bridge's own cursor, carries the whole bounded projection plus the
+        cold triple, and is the frame the
+        renderer already applies as authoritative (contract §C) — so an attach
+        that lands after the first paint moves the panel to live, and one that
+        fails moves it from ``attaching`` to its classified ``cold_reason``.
+
+        Published only when a read actually answered during the flight: an
+        attach inside the grace was already in the frame that read served.
+        """
+        if task.cancelled():
+            return
+        if task.exception() is not None:
+            # ``attach_existing`` absorbs every failure in read mode; anything
+            # that still escapes is a bug to log, never a crash of the loop.
+            logger.debug("read attach for %s failed", self.session_id, exc_info=task.exception())
+        # Membership is THIS attempt's own fact: a later attempt cannot clear it
+        # (see ``read_attach_outran``), and discarding it here is what makes the
+        # correction exactly once per attempt.
+        outran = task in self.read_attach_outran
+        self.read_attach_outran.discard(task)
+        if self.remote is not remote or not outran:
+            return
+        # PUBLISHED FOR A RETAINED DIAL TOO. The served frame may predate the
+        # attempt's CLASSIFICATION, not only its outcome: under load the
+        # registry read that decides ``owner-silent``/``owner-leaving`` runs in a
+        # worker thread that can outlast the grace, so the first frame carries
+        # the documented unclassified default (``no-runtime`` with
+        # ``attaching: true``). This frame is the correction; a retained dial's
+        # own late rollover still follows if the owner answers.
+        self.publish_frontend_replace()
+
+    async def _ensure_facade(self) -> AttachedSession:
+        """This bridge's facade, constructed cold on first use. Caller holds the lock."""
+        if self.remote is None:
+            if self.remote_row is not None:
+                # A PEER'S CONVERSATION IS OPENED AS ITS VIEWER, through the ONE
+                # seam that turns a peer row into a facade
+                # (``session.remote_open.open_remote_viewer``) — the same call the
+                # TUI's sidebar pick, its ``/resume`` and the shared session
+                # factory make, so the desktop does not get a second spelling of
+                # "another device's session, opened here" that can drift from the
+                # one the mesh tests already drive.
+                #
+                # COLD, WHICH IS THE WHOLE CONTRACT: nothing runs on the peer
+                # until this device does something. The first act that needs a
+                # runtime binds it through the remote owner, and the desktop's own
+                # watch lease is what warms it — never this construction.
+                #
+                # THE THREE THINGS THIS FACADE MUST NOT DO, all of which follow
+                # from the owner being the peer and not this process:
+                # ``cwd=""``, because a directory here means nothing there and an
+                # empty cwd is what lets the peer default to its own; a
+                # ``takeover`` that refuses, because a remote owner sets
+                # ``_can_go_cold`` so owner loss leaves the viewer cold rather
+                # than making this device a SECOND WRITER of somebody else's
+                # transcript (INV-1); and no local transcript read, because a
+                # directory on this disk is at best absent and at worst a
+                # DIFFERENT conversation wearing the same id
+                # (``mesh-session-mobility.md`` §3.4).
+                from local_operator.session.remote_open import open_remote_viewer
+
+                remote_viewer = await open_remote_viewer(
+                    self.session_id,
+                    config_dir=self.root,
+                    takeover=_no_takeover,
+                    row=self.remote_row,
+                    surface="desktop",
+                )
+                if remote_viewer is None:
+                    # The row was resolved a moment ago and the projection has
+                    # moved on since (a move home, a peer that stopped listing
+                    # it). Naming that is the honest answer; the alternative —
+                    # a local facade for an id this device does not hold — is the
+                    # two-writer case the seam exists to prevent.
+                    raise ConnectionError(
+                        f"{self.session_id} is no longer listed on the device that held it"
+                    )
+                remote = remote_viewer
+            else:
+                # The birth selection this draft was created with, and the
+                # deliberate override that makes the child PIN it (a config
+                # edit must not re-select a conversation the user chose a
+                # model for). Both are ``None``/``False`` for every session
+                # that carries no stored choice, which is every session an
+                # older build created — and for one whose own journal already
+                # owns a selection, so a switched conversation is never
+                # dragged back to the model it was born on (see
+                # :func:`draft_birth_selection`).
+                #
+                # FOR A DRAFT the marker this read would consult does not exist
+                # yet (``create`` has not run), so the spec minted WITH the draft
+                # is the answer: the exact value create will persist into the
+                # marker, validated at the mint by the same authority. Reading
+                # ``session_id`` here instead would birth the first turn on the
+                # configured default — the one outcome the draft's model pick
+                # exists to avoid.
+                if self.draft is not None:
+                    birth = self.draft.model
+                else:
+                    birth = await asyncio.to_thread(
+                        draft_birth_selection, self.root, self.session_id
+                    )
+                remote = await AttachedSession.cold(
+                    self.session_id,
+                    config_dir=self.root,
+                    cwd=self.cwd,
+                    takeover_factory=_no_takeover,
+                    surface="desktop",
+                    initial_model=birth,
+                    model_selection_override=birth is not None,
+                )
+            self.remote = remote
+            # A detached interval has no receipt feed. A new epoch makes
+            # that gap explicit even when the runtime itself never died.
+            self.epoch = uuid.uuid4().hex
+            self.sequence = 0
+            self.replay.clear()
+            self.replay_bytes = 0
+            # The same argument as the replay's: a reconnecting client's
+            # cursor cannot address the old epoch's announcements, so
+            # holding the ids would only suppress a notice the new
+            # connection has never seen.
+            self.announced.clear()
+            # The engage's refresh hook, installed HERE because this is the only
+            # seam that owns this facade for its whole life.
+            #
+            # WHY IT IS NEEDED AT ALL: `retiring` means "a successor is owed,
+            # engage one" — the frame a move ends with, and a client-side build
+            # refresh too — and the facade answers it with `_go_cold(refresh=True)`,
+            # which fires this callback. The TUI installs one
+            # (`_on_runtime_refreshed`); without one the desktop viewer simply sat
+            # cold until the user's next send engaged, so a moved session's chip
+            # stayed on the OLD directory with nothing to settle it. (A
+            # WHOLE-DAEMON retirement is a different case with its own mechanism,
+            # `server/retire.py`: the callback still fires there and declines in
+            # `_schedule_warm`, because the daemon leaving needs no successor
+            # spawned inside it.) Nothing else can take this job:
+            # `attach_existing()` only adopts an EXISTING owner record (there is
+            # none after a retire), and warm()/prompt()/command only re-engage when
+            # the user next acts.
+            #
+            # WHY THE CALLBACK AND NOT "warm() after the move route returns": at
+            # the moment `set_working_directory` returns, the outgoing client is
+            # usually STILL connected (`retire_now` is acked before the EOF), so an
+            # engage issued there samples `is_cold` as False and returns without
+            # doing anything — silently. This callback runs on the exact frame
+            # that flips the viewer cold, which is the only moment that is not a
+            # race. It fires from `_on_disconnected` inside the client's pump, i.e.
+            # on the event loop, so `_schedule_warm` may create its task directly.
+            remote.set_refresh_callback(self._on_runtime_retired)
+            # THE LOCAL REPLACEMENT SEAM (contract §C). A move installs an
+            # accepted directory on the facade WITHOUT the owner's
+            # epoch/sequence moving, so telling desktop subscribers as an
+            # ordinary ``frontend.update`` would present a same-sequence
+            # delta the renderer discards — the frame is published here
+            # instead, through the bridge's own outer cursor.
+            remote.set_local_cwd_callback(lambda _cwd: self.publish_frontend_replace())
+            self.unsubscribers = [
+                remote.subscribe(self._event),
+                remote.subscribe_frontend(self._frontend).unsubscribe,
+            ]
+        return self.remote
+
+    async def prepare_peer_images(self, images: list[dict[str, str]]) -> list[dict[str, str]]:
+        """What a PEER-bound prompt must SEND, having staged the same bytes here.
+
+        WHY THE DEVICE THAT SENDS MUST ALSO HOLD. A turn's images are
+        content-addressed: the row the OWNER journals references
+        ``{"attachment": <digest>}`` (``transcript._externalize_attachments``),
+        and the only store ``attachment()`` reads on this side is this device's
+        own. A peer-bound prompt's bytes therefore existed nowhere this device
+        can reach — the peer's runtime is another process on another machine and
+        externalises into ITS config dir (``attachments.store_for_transcript_dir``
+        states that rule) — so the conversation the user is LOOKING AT painted a
+        placeholder over the picture they had just sent, one 200 saying
+        ``prompt admitted`` later.
+
+        THE CALLER MUST SEND WHAT THIS RETURNS, not the body it passed in, and
+        that is the whole contract: the owner journals the digest of what it
+        RECEIVES, so the bytes staged here and the bytes sent have to be the same
+        bytes. See :func:`prepare_images_for_owner` for the transform and the
+        invariant it rests on.
+
+        NOTHING HAPPENS FOR A LOCAL SESSION, and the list comes back untouched:
+        this device's runtime externalises into this very store, so bounding here
+        would be work whose only effect is to change bytes the owner was going to
+        bound anyway. Identity rather than ``[]`` so a caller cannot lose an
+        attachment by forgetting which branch it took.
+
+        Runs off the loop: it decodes and re-encodes each image (the same work
+        the owner's ingest does, once per pass) and writes one file per image.
+        """
+        if self.remote_row is None or not images:
+            return images
+        return await asyncio.to_thread(prepare_images_for_owner, self.root, images)
+
+    async def stage_ingested_images(self, payloads: list[dict[str, str]]) -> None:
+        """Stage payloads that are ALREADY the owner's ingest output.
+
+        The third door (``/command``, ``routes/desktop_sessions.py``) does not
+        hand the owner a composer body: it decodes the images with
+        ``decode_images`` — ``image_blocks`` itself — and sends THOSE, so they
+        are already a fixed point and re-running the ingest over them would be a
+        second decode for an answer we hold. Only the write is owed.
+
+        Gated exactly like its sibling: a local conversation's runtime writes this
+        store itself.
+        """
+        if self.remote_row is None or not payloads:
+            return
+        await asyncio.to_thread(stage_images_in_store, self.root, payloads)
+
+    def note_stream_ended(self, sub: DesktopSubscription) -> None:
+        """Record that ``sub``'s stream just ended, for the order-independent guard.
+
+        CALLED BY THE ROUTE'S WRAPPER, NOT BY ``events``'s ``finally``, and the
+        placement is the point (F-B). The route's ``finally`` is the one that
+        always runs -- it is the frame that owes the pool a release, so a
+        cancellation cannot skip it -- whereas the generator's ``finally`` is at
+        the mercy of a finalizer that can be late, skipped, or destroyed. This
+        method is therefore the bridge's own record of "a stream ended here, just
+        now", and ``release``/``_end_dwell`` consult ``_within_stream_grace`` to
+        refuse the detach that would rotate the epoch under a reconnecting client.
+
+        WITHOUT THE LOCK, deliberately: it writes two scalars and awaits nothing,
+        so there is no suspension point for a reader to interleave with. Taking
+        ``self.lock`` here would mean the release it is meant to precede could
+        queue behind a detach already in progress, which is the ordering this
+        exists to remove.
+        """
+        self.stream_ended_at = time.monotonic()
+        self.stream_ended_overflowed = sub.overflow
+
+    def _within_stream_grace(self) -> bool:
+        """Whether the dwell window still covers this bridge, read from the clock.
+
+        F-B, and the belt to F-A's braces. ``release``/``_end_dwell`` ask this
+        before detaching at ``users == 0``, so the policy survives a generator
+        finalizer that never runs -- the failure mode that produced 31 epochs from
+        35 opens, where the dwell armed *after* the release had already detached.
+
+        FOUR BOUNDS, each of which is a detach that must still happen:
+
+        * **Zero disables it**, exactly as ``RECONNECT_DWELL_S == 0`` disables the
+          dwell: no window, no grace, detach immediately. Contract, not a hook.
+        * **An overflowed end is excluded.** Reusing the same ``sub.overflow`` the
+          dwell arm uses, because an overflowing subscriber is one the BRIDGE
+          revoked -- it must still be disconnected, and holding the bridge alive
+          for it would invert the relief valve.
+        * **``close()`` beats the window**, structurally rather than by a check:
+          ``close`` calls ``_detach`` directly and neither consults this, so a
+          session delete or a plane shutdown detaches even if the last stream
+          ended a millisecond ago.
+        * **It is a release-time policy, never a property of the bridge.** Nothing
+          in ``_evictable``, ``_live_leases`` or ``in_flight_reason`` reads it, so
+          a 20 s timestamp can never pin a build update or reserve a pool slot
+          against an ordinary idle bridge.
+        """
+        if RECONNECT_DWELL_S <= 0 or self.stream_ended_at is None:
+            return False
+        if self.stream_ended_overflowed:
+            return False
+        return time.monotonic() - self.stream_ended_at < RECONNECT_DWELL_S
+
+    async def release(self) -> None:
+        async with self.lock:
+            self.users -= 1
+            self.touched = time.monotonic()
+            # NOT WHILE A DWELL HOLDS THE BRIDGE. A dwelling subscription has
+            # already lost its transport and is still holding the facade, the
+            # presence assertion and the runtime on the viewer's behalf; a
+            # detach here would dispose exactly what the dwell exists to keep.
+            # See RECONNECT_DWELL_S.
+            #
+            # AND NOT WITHIN THE WINDOW OF A STREAM THAT JUST ENDED, even when no
+            # dwell flag was ever armed. This is the order-independent half: the
+            # generator's ``finally`` may not have run yet (or at all) when a
+            # cancelled teardown releases, and the detach it would cause rotates
+            # the epoch under a client that is reconnecting this second. See
+            # ``note_stream_ended``.
+            if self.users == 0 and not self.dwelling and not self._within_stream_grace():
+                await self._detach()
+
+    async def _arm_dwell(self, sub: DesktopSubscription) -> None:
+        """Hold the bridge open across one viewer's lost transport.
+
+        Called from ``events``'s ``finally`` when the generator ends for a
+        subscription the bridge did NOT revoke -- a dropped socket, a cancelled
+        ASGI scope, a relay watchdog. See ``RECONNECT_DWELL_S`` for why the
+        window exists and why zero disables it.
+        """
+        sub.dwell_until = time.monotonic() + RECONNECT_DWELL_S
+        self._dwell_tasks[sub.id] = asyncio.create_task(self._end_dwell(sub))
+
+    async def _end_dwell(self, sub: DesktopSubscription) -> None:
+        """Let go when the deadline passes, and detach if nobody came back."""
+        try:
+            # DEADLINE-DRIVEN, ON THE MODULE CLOCK, so an injected clock moves
+            # the expiry instead of a test sleeping the window out: the tick is
+            # what makes ``sub.dwell_until`` observable rather than a private
+            # sleep's business. See DWELL_TICK_S.
+            while True:
+                remaining = sub.dwell_until - time.monotonic()
+                if remaining <= 0:
+                    break
+                await asyncio.sleep(min(remaining, DWELL_TICK_S))
+            async with self.lock:
+                # Identity, not membership: a re-acquire inside the window keeps
+                # the SAME subscription registered (the viewer returned), and a
+                # pop by id would then evict a live viewer's own subscription.
+                if self.subscribers.get(sub.id) is sub:
+                    self.subscribers.pop(sub.id, None)
+                # The same two refusals as ``release``, and they are NOT equally
+                # load-bearing. ``not self.dwelling`` is the one that decides
+                # here: a second viewer that arrived inside this window armed its
+                # own dwell, so it is still held. The grace term is DEFENSIVE and
+                # is not independently reachable as a decider -- at every wake the
+                # grace has already expired for the stream that armed THIS dwell,
+                # because the stamp is taken before the close and therefore before
+                # the deadline it is compared with (see the route's ``stream``),
+                # and any LATER stream end either armed its own dwell or was an
+                # overflow, which this term excludes as well. It is kept because
+                # the refusal it makes is the correct one if that ordering ever
+                # changes, and MEASURED as unpinned: deleting it fails no case in
+                # ``tests/unit/server/test_desktop_stream_teardown.py``, which is
+                # recorded in the PR body rather than implied by this comment.
+                if self.users == 0 and not self.dwelling and not self._within_stream_grace():
+                    await self._detach()
+            with contextlib.suppress(ConnectionError, RuntimeError):
+                await self.refresh_watch()
+        finally:
+            self._dwell_tasks.pop(sub.id, None)
+
+    async def _detach(self) -> None:
+        # A DWELL CANNOT OUTLIVE THE FACADE IT WAS HOLDING. Every dwell task is
+        # cancelled before anything is disposed, because a surviving one would
+        # wake on a bridge that no longer holds a runtime, pop a subscription
+        # from a pool entry a later open has rebuilt, and assert presence for a
+        # viewer nobody can reach. `close()` routes through here too.
+        self._cancel_dwells()
+        if self.watch_task is not None:
+            self.watch_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self.watch_task
+            self.watch_task = None
+        # THE LOOP GOES FIRST, before the engage it may be awaiting. Cancelling
+        # the engage alone would resume the loop on a cancellation it did not
+        # ask for and leave it to interpret that; cancelling the observer first
+        # removes the question. `BaseException` rather than `CancelledError`
+        # because awaiting a task that already died re-raises its exception, and
+        # neither shape may abort teardown midway.
+        #
+        # Its backoff is forgotten here too: the facade it was armed against is
+        # being disposed, so the next life of this bridge starts a fresh intent
+        # from the base pace rather than inheriting a dead viewer's.
+        if self.lease_warm_task is not None:
+            self.lease_warm_task.cancel()
+            with contextlib.suppress(BaseException):
+                await self.lease_warm_task
+            self.lease_warm_task = None
+        self._clear_warm_backoff()
+        # The read attach goes with the facade it was dialling for: a dial that
+        # lands after ``dispose()`` is refused by the facade anyway, but a task
+        # left running would still hold a socket until it noticed.
+        if self.read_attach_task is not None:
+            self.read_attach_task.cancel()
+            with contextlib.suppress(BaseException):
+                await self.read_attach_task
+            self.read_attach_task = None
+        self.read_attach_outran.clear()
+        # BEFORE `dispose()`, and suppressing the task's own failure as well as
+        # the cancellation: an engage that lands after the facade is gone would
+        # otherwise hold a freshly spawned runtime resident with no viewer to
+        # release it. The facade already refuses a disposed bind and closes a
+        # client that arrives late, so this is belt-and-braces — but the TUI
+        # needed exactly this cancel for exactly this reason (a swap's engage
+        # landing afterwards kept the old runtime up for the process's life),
+        # and a bridge detaching mid-warm is the same shape by a different
+        # route.
+        #
+        # KNOWN COST, not fixable from here (review round 1, MINOR-2). A
+        # cancel that lands mid-engage leaks the spawn's capture tempfile
+        # (``lop-runtime-*.log``): ``engage_runtime`` unlinks it on every
+        # normal exit but has no ``finally``, and the path is a local of that
+        # function -- nothing outside it can see, let alone unlink, the file.
+        # The mechanism is pre-existing and its own docstring names it ("a
+        # cancelled task would leak that tempfile"); the TUI's engage cancel
+        # is the other trigger. Closing it means a ``try/finally`` inside the
+        # shared launch loop, which would fix both surfaces at once -- and is
+        # deliberately NOT done from this PR's new path, because a partial fix
+        # here would be a second unlink site that disagrees with the first.
+        # Bounded to one small file per navigate-away-during-warm, never a
+        # live process (the spawned child is left to the residency drain).
+        if self.warm_task is not None:
+            self.warm_task.cancel()
+            with contextlib.suppress(BaseException):
+                await self.warm_task
+            self.warm_task = None
+        for unsubscribe in self.unsubscribers:
+            unsubscribe()
+        self.unsubscribers.clear()
+        remote, self.remote = self.remote, None
+        if remote is not None:
+            await remote.dispose()
+        # LAST, and suppressing the task's OWN failure rather than only
+        # CancelledError: awaiting a task that already died re-raises its
+        # exception, and with this block ahead of `dispose()` a store error
+        # aborted teardown midway -- leaking the runtime's session and its
+        # subscriptions while `users` had already reached 0, so a later
+        # `acquire()` reused a half-torn bridge. A read receipt must never
+        # strand a session runtime.
+        if self.attention_task is not None:
+            self.attention_task.cancel()
+            with contextlib.suppress(BaseException):
+                await self.attention_task
+            self.attention_task = None
+        # The shared refresh a snapshot stopped waiting on is this bridge's too:
+        # it runs in a worker thread that cannot be interrupted, so cancelling
+        # only drops the result, and a publish from a detached bridge is moot.
+        if self.attention_refresh is not None:
+            self.attention_refresh.cancel()
+            with contextlib.suppress(BaseException):
+                await self.attention_refresh
+            self.attention_refresh = None
+        self.attention_served_stale = False
+
+    async def close(self) -> None:
+        self._closing = True
+        for sub in self.subscribers.values():
+            self._disconnect(sub)
+        self._cancel_dwells()
+        async with self.lock:
+            await self._detach()
+
+    @property
+    def dwelling(self) -> bool:
+        """Whether any subscription is holding this bridge across a lost transport.
+
+        Read by ``release``/``acquire`` (do not detach under a dwell) and by
+        ``DesktopSessions._evictable`` (a dwelling bridge is the LAST resort, see
+        ``_evict_one``). False whenever the dwell is disabled, because nothing
+        ever sets the flag at ``RECONNECT_DWELL_S == 0``.
+        """
+        return any(sub.dwelling for sub in self.subscribers.values())
+
+    def _cancel_dwells(self) -> None:
+        """Drop every dwelling subscription and cancel its timer.
+
+        Called by teardown (``close``/``_detach``) rather than by the dwell
+        itself: a bridge being disposed must leave nothing asserting presence on
+        its behalf, and a dwell task outliving ``_detach`` would re-pop a
+        subscription from a pool a later open has already rebuilt.
+        """
+        for task in self._dwell_tasks.values():
+            task.cancel()
+        self._dwell_tasks.clear()
+        for sub_id in [s.id for s in self.subscribers.values() if s.dwelling]:
+            self.subscribers.pop(sub_id, None)
+
+    def _disconnect(self, sub: DesktopSubscription) -> None:
+        sub.overflow = True
+        sub.visible = sub.can_notify = False
+        while not sub.queue.empty():
+            sub.queue.get_nowait()
+        sub.queued_bytes = 0
+        sub.queue.put_nowait(None)
+
+    def _evict_oldest(self, sub: DesktopSubscription) -> None:
+        """Drop the OLDEST frame from ``sub``'s queue, freeing its bytes.
+
+        The pre-open half of the overflow policy: every frame such a subscriber
+        holds is at or below the watermark the snapshot it is still waiting for
+        will carry, so the oldest one is SUPERSEDED rather than lost. It can
+        never meet the ``None`` sentinel -- a disconnected subscriber has
+        ``overflow = True`` and is skipped by the caller.
+        """
+        item = sub.queue.get_nowait()
+        # The `None` sentinel cannot reach here -- a disconnected subscriber has
+        # `overflow = True` and the caller skips it -- but the queue's item type
+        # admits it, so the guard is written where the reader can see it rather
+        # than left to the comment above.
+        assert item is not None
+        _, size = item
+        sub.queued_bytes -= size
+
+    def _compact_subscriber_queue(self, sub: DesktopSubscription, incoming_size: int) -> bool:
+        """Fold ``sub``'s queued delta runs to try to make room for one frame.
+
+        THE SECOND CHANCE BEFORE THE RELIEF VALVE. A viewer is disconnected
+        when its queue cannot take a frame, and the families that in fact
+        overflow a viewer's queue are the delta-grade streaming bursts --
+        measured, a reasoning burst reaches the count arm holding ~62-150 KB of
+        the 8 MiB budget, while frame sizes for those families sit at 243-583 B.
+        The three families fold under their own contracts: ``message_update``
+        and ``reasoning_delta`` CONCATENATE (a later update already carries the
+        earlier text; fragments are append-only), while
+        ``tool_execution_update`` KEEPS THE NEWEST -- a frame re-sends the
+        tool's current live view (a bounded tail for ``bash``, a bounded
+        display for ``eval``, never the whole transcript), and the family's
+        self-replacing contract is that the newest frame supersedes the earlier
+        ones, with the settled result riding ``tool_execution_end``. This is
+        the same fold the runtime already runs on its own attach FIFO
+        (``session/runtime/server.py::_compact_event_queue``) and for the same
+        reason: without it a stalled viewer's queue fills with incompressible
+        fragments. Only when folding cannot make room is the subscriber
+        disconnected, so a genuinely slow reader on non-foldable frames keeps
+        the documented relief-valve path.
+
+        THE HEAD OF A FOLDED RUN KEEPS THE LATER FRAME'S ``seq``. The client
+        tracks its receipt cursor by ``seq``; giving the merged content the
+        earlier seq would leave the cursor behind every subsequent frame, and
+        nothing folded is ever re-delivered by replay (replay is untouched and
+        keeps the ORIGINAL, unfolded frames). With the later seq riding, a
+        client that received the merge is already past everything folded into
+        it.
+
+        A merge is refused when the result would pass ``MERGE_CAP_BYTES``
+        (both frames stay, in order), and a refusal that leaves no room falls
+        through to the valve. Running sizes are computed as
+        ``encoded(incoming) + escaped_bytes(prior accumulated delta)`` -- exact
+        while the incoming ``delta`` is a ``str`` (both delta families publish
+        ``delta: str`` from their event models, so no real producer can break
+        it; a hand-built non-``str`` delta would drift the stored size) --
+        because JSON escaping is per-character and replacing a string value
+        changes only its escaped bytes. No merge ever re-dumps an accumulated
+        frame; measuring the whole frame per merge is what made the runtime's
+        pass quadratic before it split the measurement. Every size stored here
+        is the frame's exact encoded length, because ``events`` subtracts that
+        stored size on dequeue.
+
+        CUT-1 SCOPE, STATED SO "THE STREAMING FAMILIES" IS NOT READ AS
+        EXHAUSTIVE: the two residual families the runtime folds on its own wire
+        -- ``aside_delta`` (keyed by its ``req``) and the keep-newest
+        ``tool_call_compose`` -- are NOT in this fold, so a queue full of them
+        still rides the count arm and still takes the valve; extending the fold
+        to them needs its own measurement and review round. Folding is also
+        ADJACENT-ONLY: distinct streams interleaved at short run lengths are
+        rescued far less -- measured, two interleaved reasoning streams at runs
+        of two are still cut, at ~512 frames rather than ~260 with the fold
+        off -- so this is relief for bursts, not a guarantee for arbitrarily
+        interleaved traffic.
+
+        SYNC ON THE EVENT LOOP, like every other queue mutation in this file:
+        drain and re-put happen with no awaits between them, so the reader (an
+        ``events`` generator pacing on ``await queue.get()``) cannot see a
+        half-compacted queue. The ``None`` sentinel cannot be present for a
+        non-overflowed subscriber -- see :meth:`_evict_oldest` for the same
+        guard -- so the drain asserts instead of handling it.
+
+        Returns whether ``sub`` can take a frame of ``incoming_size`` bytes
+        afterwards; ``False`` means the valve, exactly as before this fold
+        existed.
+        """
+        drained: list[tuple[dict[str, Any], int]] = []
+        while True:
+            try:
+                item = sub.queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+            # The `None` sentinel cannot reach here -- a disconnected
+            # subscriber has `overflow = True` and the caller skips it -- but
+            # the queue's item type admits it, so the guard is written where
+            # the reader can see it (mirroring ``_evict_oldest``).
+            assert item is not None
+            drained.append(item)
+
+        compacted: list[tuple[dict[str, Any], int]] = []
+        #: Merge key of ``compacted[-1]``, or ``None`` when that frame's family
+        #: is not foldable. Keys come from ``session/delta_merge`` -- the one
+        #: spelling this fold shares with the runtime's.
+        head_keys: list[str | None] = []
+        #: Escaped bytes of the delta ``compacted[-1]`` currently carries,
+        #: excluding its quotes. Grows with every accepted concat, and the next
+        #: candidate's encoded size is this value plus the incoming frame's own
+        #: -- seeding it with the head's own delta, then ACCUMULATING, is what
+        #: keeps the arithmetic exact past the second merge of a run.
+        head_delta_esc: list[int] = []
+
+        for frame, size in drained:
+            payload = frame.get("payload") or {}
+            key = mergeable_delta_key(payload)
+            snapshot = False
+            if key is None:
+                key = mergeable_snapshot_key(payload)
+                snapshot = key is not None
+            if compacted and key is not None and key == head_keys[-1]:
+                if snapshot:
+                    # The newer frame REPLACES the run outright: the family
+                    # re-sends its current live view, and by contract the newest
+                    # frame supersedes the earlier ones; its seq is the one the
+                    # cursor must advance to.
+                    compacted[-1] = (frame, size)
+                    continue
+                own_delta = str(payload.get("delta", ""))
+                candidate = size + head_delta_esc[-1]
+                if candidate <= MERGE_CAP_BYTES:
+                    prior_payload = compacted[-1][0].get("payload") or {}
+                    merged_payload = dict(payload)
+                    merged_payload["delta"] = str(prior_payload.get("delta", "")) + own_delta
+                    compacted[-1] = ({**frame, "payload": merged_payload}, candidate)
+                    head_delta_esc[-1] += len(json.dumps(own_delta).encode()) - 2
+                    continue
+                # A MERGE THAT WOULD NOT FIT IS REFUSED: above the cap the
+                # frame stops being one the stream's consumers carry, and the
+                # refusal keeps both frames -- the incoming one becomes a new
+                # head below, order preserved.
+            compacted.append((frame, size))
+            head_keys.append(key)
+            head_delta_esc.append(len(json.dumps(str(payload.get("delta", ""))).encode()) - 2)
+
+        sub.queued_bytes = 0
+        for frame, size in compacted:
+            sub.queue.put_nowait((frame, size))
+            sub.queued_bytes += size
+        return not sub.queue.full() and sub.queued_bytes + incoming_size <= REPLAY_BYTES
+
+    def publish(self, kind: str, payload: dict[str, Any], *, replay: bool = True) -> None:
+        """Put one frame on every live subscriber, and normally into replay.
+
+        ``replay=False`` publishes LIVE ONLY. It exists for the ``notification``
+        frame, whose whole value is timeliness: replaying it on reconnect toasts
+        the user about a turn that finished while their laptop lid was shut,
+        possibly hours later. The durable signal for "you missed something" is
+        not lost — the ``attention`` frame and the sidebar's unseen mark both
+        survive a reconnect and are the right surface for it.
+
+        THE SEQUENCE STILL ADVANCES for a non-replayed frame, and that is
+        load-bearing rather than incidental. :meth:`events` computes ``gap``
+        from ``after_seq < first - 1`` where ``first`` is the oldest RETAINED
+        frame's seq, so a skipped seq simply never becomes ``first`` and a
+        client reconnecting at the notification's own cursor still satisfies
+        the test against the next retained frame. Not incrementing would
+        instead make ``seq`` non-monotonic across the two paths and break the
+        receipt cursor every renderer keeps.
+        """
+        self.sequence += 1
+        frame = {
+            "session_id": self.session_id,
+            "epoch": self.epoch,
+            "seq": self.sequence,
+            "type": kind,
+            "payload": payload,
+        }
+        size = len(json.dumps(frame, separators=(",", ":")).encode())
+        if replay:
+            self.replay.append((frame, size))
+            self.replay_bytes += size
+            while self.replay and (
+                len(self.replay) > REPLAY_COUNT or self.replay_bytes > REPLAY_BYTES
+            ):
+                _, removed = self.replay.popleft()
+                self.replay_bytes -= removed
+        for sub in self.subscribers.values():
+            if sub.overflow or sub.dwelling:
+                continue
+            if sub.queue.full() or sub.queued_bytes + size > REPLAY_BYTES:
+                if sub.opened:
+                    # A READER that is behind: first try to FOLD the queued
+                    # delta runs (``_compact_subscriber_queue``) -- the
+                    # families that in fact overflow this queue fold under
+                    # their own contracts, so a cut is for a reader that
+                    # folding cannot help. Then the relief valve, unchanged:
+                    # closing forces an authoritative gap snapshot on
+                    # reconnect, and revokes presence -- which is why a
+                    # subscription the bridge revoked this way must never
+                    # dwell (see ``events``).
+                    if self._compact_subscriber_queue(sub, size):
+                        sub.queue.put_nowait((frame, size))
+                        sub.queued_bytes += size
+                    else:
+                        self._disconnect(sub)
+                else:
+                    # A subscriber still waiting for its OPEN handshake. Every
+                    # frame it holds is at or below the watermark that snapshot
+                    # will carry, because ``snapshot()`` reads its state and its
+                    # sequence with nothing awaiting between them -- so the
+                    # oldest frame here is SUPERSEDED by the snapshot, not a
+                    # semantic event this policy silently discards.
+                    #
+                    # WITHOUT THIS, A COLD ENGAGE KILLS ITS OWN STREAM: the
+                    # subscriber is registered before the response headers exist
+                    # and nothing reads its queue until the handshake has built
+                    # its snapshot, so the engage's burst (hundreds to thousands
+                    # of frames) fills a 256-slot queue that has no reader, the
+                    # server disconnects, and the client's reconnect pays a fresh
+                    # cold engage that publishes the next burst.
+                    self._evict_oldest(sub)
+                    sub.queue.put_nowait((frame, size))
+                    sub.queued_bytes += size
+            else:
+                sub.queue.put_nowait((frame, size))
+                sub.queued_bytes += size
+
+    def publish_to_subscription(
+        self, kind: str, payload: dict[str, Any], *, subscription_id: str
+    ) -> bool:
+        """Put one LIVE-ONLY frame on ONE subscriber's FIFO, and on no other.
+
+        WHY THIS EXISTS BESIDE :meth:`publish`. The aside's ``aside_delta``
+        frames are the one family on this bridge that is PRIVATE TO THE VIEWER
+        THAT ASKED: the exchange they describe is off the record, and the
+        runtime seam already refuses to fan an aside out (``_aside_delta_sink``
+        — "the frame goes to the CONNECTION THAT ASKED"). Routing them through
+        :meth:`publish` undid that one hop later: every other window's stream on
+        the same session received another viewer's aside text, and paid for it
+        in its own queue and byte budget. A viewer is not a subscriber of an
+        aside it did not ask for, so the fan-out is not a wider delivery — it is
+        a leak. The frame is addressed by ``aside_id`` on top of that, so this
+        is a second lock rather than the only one.
+
+        NEVER REPLAYED, for the reason :meth:`publish` gives for its own
+        ``replay=False`` path (and the reason the aside is live-only end to
+        end): a delta replayed on reconnect repaints progress for a request the
+        client already has the settled answer to. The SEQUENCE still advances —
+        the cursor argument in :meth:`publish` applies unchanged, and ``events``
+        computes ``gap`` from retained frames only, so the skipped seq is simply
+        never ``first``. Immaterial for this family, since a caller that missed
+        a delta already has the whole answer in the POST's ``text``.
+
+        Returns whether the named subscription was live and took the frame. A
+        false answer is NOT an error to the caller — the aside is already being
+        answered for it by the POST — which is why this returns rather than
+        raising (see the asides route).
+        """
+        sub = self.subscribers.get(subscription_id)
+        if sub is None or sub.overflow:
+            return False
+        self.sequence += 1
+        frame = {
+            "session_id": self.session_id,
+            "epoch": self.epoch,
+            "seq": self.sequence,
+            "type": kind,
+            "payload": payload,
+        }
+        size = len(json.dumps(frame, separators=(",", ":")).encode())
+        if sub.queue.full() or sub.queued_bytes + size > REPLAY_BYTES:
+            # The SAME relief valve every other publication in this file uses,
+            # on the same accounting: a subscriber that cannot take the frame is
+            # disconnected so its reconnect reconciles, rather than being fed a
+            # queue whose bytes this method stopped counting. The fold runs
+            # first, exactly as in ``publish`` — and only for an OPENED
+            # subscriber, because before the handshake the queue's policy is
+            # eviction, not folding (see ``publish``). This frame is not itself
+            # a foldable family, but the queue it lands on may hold runs that
+            # are, so the attempt is the same one.
+            if sub.opened and self._compact_subscriber_queue(sub, size):
+                sub.queue.put_nowait((frame, size))
+                sub.queued_bytes += size
+                return True
+            self._disconnect(sub)
+            return False
+        sub.queue.put_nowait((frame, size))
+        sub.queued_bytes += size
+        return True
+
+    def publish_once(self, kind: str, payload: dict[str, Any], *, dedupe_key: str) -> bool:
+        """Publish ``kind`` unless this bridge already announced ``dedupe_key``.
+
+        THE EXACTLY-ONCE HALF of an announcement published OUTSIDE the receipt
+        that admits the work. A submit's acknowledgement has to leave before the
+        bridge is even ACQUIRED (see :meth:`DesktopSessions.announce` for the
+        measured second that waits there), which puts it ahead of the receipt
+        journal's own at-most-once guard — so the guard has to exist here too, or
+        a retried submit would be announced twice for one turn.
+
+        ``dedupe_key`` is the caller's correlation id (the request id), never the
+        payload: two DIFFERENT requests that happen to carry the same text are
+        two announcements, and only a repeated ID is one.
+
+        Bounded, deliberately: this is a memory of what the CURRENT connection
+        has already been told, not a ledger. History older than
+        ``ANNOUNCED_ADMISSION_HISTORY`` announces again rather than growing
+        without bound — by then the client's own cursor has moved past it, and a
+        duplicate notice is a smaller wrong than an unbounded map on the hottest
+        path in the app.
+        """
+        if dedupe_key in self.announced:
+            return False
+        self.announced.append(dedupe_key)
+        while len(self.announced) > ANNOUNCED_ADMISSION_HISTORY:
+            self.announced.popleft()
+        self.publish(kind, payload)
+        return True
+
+    def _event(self, event: Any) -> None:
+        self.publish("event", event.model_dump(mode="json"))
+
+    @property
+    def watched_trajectory_jobs(self) -> frozenset[str]:
+        """Job ids whose trajectory deltas this bridge's connection follows.
+
+        The set :meth:`_frontend` filters against, exposed so a caller (and a
+        test) can ask what this bridge is following without reaching into the
+        count. Read-only: the count is owned by the two methods below.
+        """
+        self._drop_counts_from_a_replaced_connection()
+        return frozenset(self._trajectory_watches)
+
+    def _owner_connection(self) -> AttachClient | None:
+        """The attach connection this bridge's trajectory counts would be taken on now.
+
+        An IDENTITY rather than a flag, because a reconnect rebinds the facade
+        in place: ``AttachedSession`` keeps the same object and the same store
+        and swaps ``self._client`` under it (``session/attached.py``, in the
+        block that re-asserts the parking mute across a reconnect), and it keeps
+        no record of the jobs it has watched (``watch_job`` appears once, inside
+        :meth:`AttachedSession.load_job_trajectory`). So nothing on this side can
+        be TOLD that the owner it subscribed on has been replaced, and a count
+        taken on the old connection describes a subscription that went with it.
+        """
+        return getattr(self.remote, "_client", None)
+
+    def _drop_counts_from_a_replaced_connection(self) -> None:
+        """Discard counts taken on an owner connection this bridge no longer holds.
+
+        WHY THIS IS NEEDED AT ALL. ``watch_trajectory`` short-circuits on a
+        non-zero count, so a count left behind after a rebind is not merely
+        stale bookkeeping: the re-open neither re-subscribes nor re-fetches, and
+        the reader gets ``available: true`` over a window that has stopped
+        growing — the failure the count's own docstring names as this feature's
+        most likely regression, reached here by the RECONNECT path rather than
+        by an unload. The new connection's watcher set is empty, so treating the
+        old counts as ZERO is the safe direction: the next load re-subscribes
+        and re-seeds, and a release finds nothing to release (it must not reach
+        an owner it no longer holds).
+
+        Called from every path that reads or writes the count rather than from a
+        reconnect hook, for two reasons: there is no such hook on this side, and
+        the check itself is a comparison against the current client — cheap
+        enough for the frame filter, which is the path that matters most because
+        it is where a stale count would keep passing rows nobody subscribed to.
+        """
+        client = self._owner_connection()
+        if client is not self._trajectory_watch_client:
+            self._trajectory_watches.clear()
+            self._trajectory_watch_client = client
+
+    async def _release_owner_watch(self, job_id: str) -> None:
+        """Best-effort owner-side release for a count this bridge has given back.
+
+        ``AttachedSession.load_job_trajectory`` issues ``watch_job`` BEFORE it
+        pages the window (deliberately: subscribing first means events emitted
+        during the fetch are relayed rather than lost), so a load that fails
+        after that point — a dropped socket, a cancellation, an eviction — has
+        already armed a subscription on the owner while this bridge holds no
+        count for it. The runtime keeps that job in its ``watched_jobs``
+        (computing and relaying rows this side then drops, because the count is
+        what passes them), which no user can observe but which is cost with no
+        reader and a docstring that would not be true.
+
+        Owner-side op only, and best effort by construction: the subscription is
+        not the work, so a release that cannot land must not raise into a caller
+        already handling a failed load.
+        """
+        client = self._owner_connection()
+        if client is None:
+            return
+        try:
+            await client.unwatch_job(job_id)
+        except (ConnectionError, RuntimeError):
+            pass
+
+    def roster_jobs(self) -> tuple[Any, ...]:
+        """This follower's canonical roster rows, or ``()`` before its first sync.
+
+        An UNSYNCHRONIZED facade has no roster rather than an empty one, and both
+        the containment proof and the seed reply read through here so the two
+        cannot disagree about a bridge that is merely cold. Read once per call
+        rather than per row: ``frontend_state`` clones the roster, which costs
+        ~30 ms of a cold sidebar frame on a 22-job session.
+        """
+        remote = self.remote
+        if remote is None:
+            return ()
+        try:
+            return tuple(remote.frontend_state.jobs)
+        except RuntimeError:
+            # "frontend state has not synchronized" — a cold facade, not a fault.
+            return ()
+
+    def trajectory_window(self, job_id: str) -> dict[str, Any] | None:
+        """The window this follower HOLDS for one job, in the reply's own shape.
+
+        Read back OUT of canonical state rather than kept from the fetch, and
+        that is the point rather than a convenience: ``load_job_trajectory``
+        seeds the fetched page INTO the state the live append stream extends, so
+        what this returns is the very list the deltas will grow — one
+        accumulator, never two. ``base_seq`` is the identity stamp of the first
+        row, which is what lets a reader merge an append that overtook this
+        reply without splicing it twice.
+
+        ``None`` when the job is no longer on the roster (it settled and was
+        swept while the fetch was in flight), which the caller answers rather
+        than reporting an empty window as a successful seed.
+        """
+        for job in self.roster_jobs():
+            if job.id != job_id:
+                continue
+            rows = _first_occurrence_window(job_trajectory_wire_value(job.trajectory))
+            first = rows[0] if rows else None
+            base_seq = first.get(TRAJECTORY_SEQ_KEY) if isinstance(first, dict) else None
+            # ``trajectory_length`` is what the runtime retains, floored by what
+            # this reply carries — see the class docstring for why the floor is
+            # the honest direction rather than a decoration: a roster row's own
+            # count is the follower's copy of the runtime's number and can lag
+            # the window this call just read, and a reply that published the
+            # stale number reported a count matching neither its rows nor the
+            # runtime's (measured).
+            # BOTH COUNTS ARE ABOUT THIS REPLY, and the roster row's own
+            # ``trajectory_length`` is deliberately NOT reused — it is the
+            # follower's copy of the runtime's number rather than a reading of the
+            # rows in hand, and it drifts in both directions: it lags the window
+            # this call just read, and it is INFLATED by the very duplicated rows
+            # :func:`_first_occurrence_window` drops (measured: a reply that
+            # published it reported a count matching neither its rows nor the
+            # runtime's, in a window that was over-full rather than partial).
+            # The reply is the whole retained window — the pager loops to the end
+            # of it — so the two numbers answer the same question here, and a
+            # client that wants the runtime's own figure reads the roster row.
+            count = len(rows)
+            return {
+                "rows": rows,
+                "base_seq": base_seq if isinstance(base_seq, int) else None,
+                "total": count,
+                "trajectory_length": count,
+            }
+        return None
+
+    async def watch_trajectory(self, job_id: str) -> int:
+        """Load one job's retained window AND subscribe to its appends.
+
+        Returns the number of readers holding this job's subscription once the
+        call returns, and ``0`` when nothing was subscribed — the caller's
+        ``no-owner`` answer. The count is what lets a reply say whether an open
+        OPENED the window or merely JOINED a live one, which is the only way a
+        client can see a reference it did not mean to leave behind (a re-seed on
+        rotation, a double mount).
+
+        The count is taken BEFORE the load, with no ``await`` between the read
+        and the write — so the pair is atomic on the loop — because the seed is
+        not the only thing carrying this child's events: the owner starts
+        relaying the moment ``watch_job`` lands, and a delta that arrived while
+        the page fetch was in flight would be dropped by :meth:`_frontend`'s
+        pass-through if the count were still zero. (``AttachedSession
+        .load_job_trajectory`` issues the subscribe before the read for the same
+        reason, from the other end.)
+
+        A failed load gives the count back AND releases whatever the failed
+        attempt had already armed (see :meth:`_release_owner_watch`): a caller
+        that retries — the reader does, on its pulse — must not be refused by a
+        count left behind for a watch that never armed, and must not leave the
+        owner relaying a window nobody will read.
+        """
+        remote = self.remote
+        if remote is None:
+            return 0
+        self._drop_counts_from_a_replaced_connection()
+        if self._trajectory_watches.get(job_id, 0) == 0:
+            self._trajectory_watches[job_id] = 1
+            try:
+                loaded = await remote.load_job_trajectory(job_id)
+            except BaseException:
+                # Including a CANCELLED request: the count must not outlive the
+                # attempt that took it, or the count is a promise this bridge is
+                # still reading a window it never subscribed to.
+                self._trajectory_watches.pop(job_id, None)
+                try:
+                    await self._release_owner_watch(job_id)
+                except BaseException:
+                    # A cancelled request delivers its cancellation again at this
+                    # await. The release is best effort; the exception being
+                    # handled is the one that must reach the caller.
+                    pass
+                raise
+            if not loaded:
+                self._trajectory_watches.pop(job_id, None)
+                await self._release_owner_watch(job_id)
+                return 0
+            return 1
+        self._trajectory_watches[job_id] += 1
+        return self._trajectory_watches[job_id]
+
+    async def unwatch_trajectory(self, job_id: str) -> int:
+        """Release ONE caller's subscription; return the count still held.
+
+        Only the last release reaches the owner, which is what keeps another
+        window's stream alive (see ``self._trajectory_watches``). Even then the
+        rows stay cached on both sides — reopening the same page is common and
+        the next open re-seeds anyway — and nothing about the CHILD changes: a
+        viewer is not load-bearing on a child's execution, unlike the desktop
+        visibility lease.
+
+        A count of zero is an ordinary answer rather than an error: the release
+        is what a client sends on unmount, and a reopen after a bridge eviction
+        legitimately reaches here with nothing to give back.
+
+        A count taken on a REPLACED owner connection is not this bridge's to
+        release either: the identity check at the top (
+        :meth:`_drop_counts_from_a_replaced_connection`) drops it, and the answer
+        is the same zero — the owner the subscription was taken on is gone, and
+        the connection in its place has that job in no watcher set at all.
+        """
+        self._drop_counts_from_a_replaced_connection()
+        held = self._trajectory_watches.get(job_id, 0)
+        if held == 0:
+            return 0
+        if held > 1:
+            self._trajectory_watches[job_id] = held - 1
+            return held - 1
+        del self._trajectory_watches[job_id]
+        remote = self.remote
+        if remote is not None:
+            await remote.unload_job_trajectory(job_id)
+        return 0
+
+    async def load_child_trajectory(self, child_id: str) -> dict[str, Any]:
+        """Seed AND SUBSCRIBE to one child JOB's live trajectory window.
+
+        The child reader's live half (design § 1). ``child_id`` is a JOB id, not
+        the child's session id: the retained window lives on the job, every
+        lookup path beneath this method is job-keyed, and a child that ran more
+        than one attempt has several job ids over one directory — the reader
+        holds one of them. The reply IS the seed (see
+        :class:`~local_operator.server.models.desktop_sessions
+        .ChildTrajectoryWindow`), because a client that had to fetch and then
+        subscribe would lose whatever landed between the two calls.
+
+        The subscription this opens must be closed by the ``DELETE`` of the same
+        path, and the reply says what this open did to the count: ``watchers``
+        is how many readers hold this child's window after the call (``1`` for an
+        open, more when it joined one a sibling window already had live) and
+        ``joined`` is its boolean form. Every POST increments and one DELETE
+        releases one, so a client that re-seeds without unmounting accumulates a
+        reference; stating the count is what makes that observable instead of
+        invisible.
+
+        THE CALLER HAS ALREADY TAKEN THIS BRIDGE, in the read envelope, and that
+        split is deliberate: a subscribe is not work, so a cold conversation must
+        not be STARTED by someone opening a child's page, and a busy owner must
+        not fail the read. The envelope therefore belongs to the route that owns
+        the door, while everything below it — the containment proof, the job-type
+        question and the seed — needs a bridge and reads it here.
+
+        THE REFERENCE IS COUNTED PER JOB ON THIS BRIDGE (see
+        :meth:`watch_trajectory`): one bridge is shared by every window watching
+        the session, so an unload that was not counted would silently freeze
+        another window's reader. The matching release is the ``DELETE`` route.
+
+        A CONTAINMENT PROOF RUNS FOR EVERY CHILD JOB (:func:`_contained_child_job`),
+        so a job id that is not one of this conversation's own children is refused
+        rather than subscribed: the route takes ids and never a path, and the
+        proof — not the caller — decides that this job belongs to this parent. It
+        sits behind the job-type question below, which is a different question
+        rather than a way around it.
+
+        Three answers, and the distinctions are load-bearing:
+
+        * a refusal (404 ``child_not_found``) for an id that does not name one of
+          this conversation's child jobs;
+        * ``available: false, reason: "unsupported"`` for a job type that records
+          no trajectory at all — the reader stops asking;
+        * ``available: false, reason: "no-owner"`` when there is nothing live to
+          read the window from — no owner is attached, the owner is too old for
+          the subscription op, or the connection dropped mid-fetch. Retryable, so
+          the reader keeps its pulse.
+        """
+        roster = self.roster_jobs()
+        if not roster:
+            # NO CANONICAL STATE YET, so membership cannot be proved and there is
+            # nothing to subscribe to. The ids are still checked, because a
+            # crafted value must be refused here exactly as it is below; the
+            # "parent is the user's own conversation" clause is NOT repeated for
+            # the same reason the child routes do not repeat it — the session
+            # door resolved this id to a real conversation before this bridge
+            # existed, and it refuses a subagent or a fork there. What the empty
+            # roster costs is the MEMBERSHIP clause, which is the one no
+            # roster-free reader can answer.
+            if not SESSION_ID.fullmatch(self.session_id) or not JOB_ID.fullmatch(child_id):
+                raise SubagentChildUnavailable()
+            return _unavailable_child_trajectory("no-owner")
+        row = next((job for job in roster if str(getattr(job, "id", "")) == child_id), None)
+        if row is None:
+            # Not a job of this conversation at all: the containment refusal,
+            # which is the same answer every other child route gives for a pair
+            # this conversation never named.
+            raise SubagentChildUnavailable()
+        if str(getattr(row, "type", "") or "") != SUBAGENT_JOB_TYPE:
+            # A job type that records no trajectory: ``AsyncJob.trajectory`` is
+            # ``None`` for it and only a ``task`` child's is a list. The wire
+            # cannot state that distinction — the roster row's ``trajectory`` is
+            # a list on both sides, and its ``trajectory_length`` is 0 for "none"
+            # and "none yet" alike — so this job's TYPE is the only signal the
+            # follower has, read from the owner's own roster row rather than
+            # guessed from a request.
+            #
+            # ASKED BEFORE CONTAINMENT, deliberately, and it is not a shortcut
+            # around it: a background ``bash`` job of this conversation's own
+            # session has no child directory to contain, so the child proof could
+            # only refuse it — turning "this job type has nothing to follow" into
+            # "this job is not yours", which is the one answer the reader must
+            # not act on. Nothing is handed over here, and the row is one the
+            # caller may already read through ``/snapshot``.
+            return _unavailable_child_trajectory("unsupported")
+        await asyncio.to_thread(_contained_child_job, self.root, self.session_id, child_id, roster)
+        watchers = await self.watch_trajectory(child_id)
+        if watchers == 0:
+            return _unavailable_child_trajectory("no-owner")
+        window = self.trajectory_window(child_id)
+        if window is None:
+            # The job left the roster between the load and this read — it settled
+            # and was swept. Give the reference back so the count cannot outlive
+            # the job it described, and tell the reader the same thing the next
+            # open will see.
+            await self.unwatch_trajectory(child_id)
+            return _unavailable_child_trajectory("no-owner")
+        return {
+            "available": True,
+            "reason": None,
+            # What this open did to the count, stated so a client can SEE an
+            # accumulation rather than infer it from a release it never sent:
+            # ``watchers`` is the count after this call and ``joined`` says
+            # whether it opened the window or joined a live one. A repeat POST
+            # without an unmount is legitimate (a re-seed on rotation) but it is
+            # also the shape that leaks a reference — every POST increments and
+            # one DELETE releases one — and a reply that said nothing left that
+            # invisible until the job settled.
+            "watchers": watchers,
+            "joined": watchers > 1,
+            **window,
+        }
+
+    def _frontend(self, update: FrontendUpdate) -> None:
+        # Keep the runtime's field deltas, not a full snapshot per streamed token.
+        # Large roster/usage fields still pass through the shared wire budget; the
+        # two trajectory fields below are the exception and are handled there.
+        payload = update.model_dump(mode="json")
+        # THE COLD PAIR RIDES THIS FRAME TOO, and it is the frame that makes the
+        # difference: a read that attached cold and retained its dial learns the
+        # owner came back through the ROLLOVER this store publishes on
+        # ``_install_frontend(..., publish=True)`` (a new epoch, full changes). A
+        # renderer told only by the opening snapshot would keep painting the
+        # cold/attaching row over a live conversation for the rest of its life.
+        # Additive: the same three fields the snapshot carries, so a renderer that
+        # knows the pair reads it here and one that does not ignores them.
+        payload.update(self._cold_fields())
+        # Receipt revisions outlive a runtime epoch. Only the independent durable
+        # projection below may update them; a delayed runtime delta must not undo
+        # a read made through another process while this stream stays mounted.
+        payload["changes"].pop("attention", None)
+        # THE CHILD READER'S HALF OF THIS FRAME, and the only change to it. Both
+        # fields are OPT-IN PER JOB: they pass through for the jobs THIS bridge
+        # has loaded and are empty otherwise, so a frame from a session nobody is
+        # reading stays byte-identical to the one this bridge has always
+        # published — the unconditional emptiness was a deliberate guarantee and
+        # it survives as a filter rather than as a constant.
+        #
+        # NO BOUNDING IS ADDED HERE, deliberately. The owner already scopes and
+        # byte-bounds these rows for THIS connection (``filter_update_
+        # trajectories``, per its ``watched_jobs``), keeping the newest rows
+        # against a per-frame byte share and naming in ``replacements`` every job
+        # that lost one; a second copy of that arithmetic here would restate a
+        # floor/ceiling rule this side cannot reproduce, and the two would drift.
+        #
+        # The replacements list is filtered the same way and never dropped
+        # wholesale: the marker is what says the window is a REPLACEMENT rather
+        # than a suffix, so shipping the rows without it would leave a hole in
+        # the follower's list permanently.
+        #
+        # The filter runs over the DUMPED payload rather than over the update's
+        # own fields, so what goes back on the wire is exactly what
+        # ``model_dump`` produced: nothing here can reintroduce a value JSON
+        # cannot write, and the frame an unwatched session publishes is
+        # byte-identical to the one this bridge has always published.
+        #
+        # The counts are bound to the connection they were taken on first, so a
+        # frame published after the owner was replaced stops passing a job the
+        # NEW connection was never asked to watch. This is the path where a
+        # stale count would matter most: it is the only thing standing between
+        # the runtime's rows and every subscriber's frame.
+        self._drop_counts_from_a_replaced_connection()
+        watched = self._trajectory_watches.__contains__
+        payload["job_trajectory_appends"] = {
+            job_id: rows
+            for job_id, rows in (payload.get("job_trajectory_appends") or {}).items()
+            if watched(job_id)
+        }
+        payload["job_trajectory_replacements"] = [
+            job_id
+            for job_id in (payload.get("job_trajectory_replacements") or [])
+            if watched(job_id)
+        ]
+        if {"jobs", "usage_components"} & update.changes.keys():
+            bounded = self.state()["snapshot"]
+            for key in ("jobs", "usage_components"):
+                if key in payload["changes"]:
+                    payload["changes"][key] = bounded[key]
+        self.publish("frontend.update", payload)
+
+    async def refresh_attention(self) -> dict[str, Any]:
+        state = await self._read_attention()
+        remote = self.remote
+        state["supported"] = bool(
+            remote is not None
+            and (remote.is_cold or getattr(remote, "supports_completion_ack", False))
+        )
+        if state != self.attention:
+            previous = self.attention
+            self.attention = state
+            # The initial snapshot owns the baseline; later changes have their
+            # own receipt clock rather than borrowing a runtime sequence. A
+            # snapshot that went out WITHOUT confirmed attention (the store was
+            # contended past ``ATTENTION_SNAPSHOT_WAIT_S``) did not own one, so
+            # the read that lands afterwards is published as the correction.
+            stale, self.attention_served_stale = self.attention_served_stale, False
+            if previous or stale:
+                self.publish("attention", state)
+                # THE NOTIFICATION EDGE, published AFTER the attention frame so
+                # a reader that toasts already holds the receipt state that
+                # explains the toast. The same `previous` baseline rule governs
+                # both: a bridge's FIRST read is the session's history, not
+                # news, and opening a conversation must not announce the
+                # completion it ended on last week.
+                await self._maybe_publish_notification(previous, state)
+        return state
+
+    async def _read_attention(self) -> dict[str, Any]:
+        """This conversation's completion receipts, from whichever device owns it.
+
+        A PEER'S RECEIPTS COME OFF THE WIRE, and the reason is not symmetry: the
+        local store is keyed ``session/<id>`` on THIS disk, so for a conversation
+        another device holds it is empty by construction -- and publishing that
+        empty read as the session's attention claims "nothing unseen here" about a
+        completion that arrived on the peer, which is exactly the claim the push
+        path is built on. The owner's own state travels in the frontend sync
+        (``FrontendSessionState.attention``), so that is what this bridge reports.
+        Nothing is written to a receipt store here either: ``/seen`` answers a
+        peer's id with the ordinary 404, because acknowledging a peer's completion
+        on this device would clear a mark the peer still holds.
+        """
+        if self.remote_row is not None:
+            remote = self.remote
+            if remote is None:
+                return {}
+            return dict(getattr(remote.frontend_state, "attention", {}) or {})
+        return await asyncio.to_thread(
+            AttentionStore(self.root / "attention.db").state, f"session/{self.session_id}"
+        )
+
+    async def _maybe_publish_notification(
+        self, previous: dict[str, Any], state: dict[str, Any]
+    ) -> None:
+        """Turn a newly published, unseen completion into one notification frame.
+
+        THE AUTHORITY IS THE ATTENTION PUBLICATION, not any engine event. A
+        `completions` row exists only because ``Session._publish_attention_
+        outcome`` decided the turn produced a notifiable outcome — in the
+        process that owns the job manager, using the same delegated-children
+        check the TUI uses (``job.type == "task" and job.status == "running"``).
+        A delegating parent's premature ``agent_end`` writes an ``eligible:
+        False`` marker and publishes nothing, so there is simply no row for the
+        bridge to see, and each settled child re-enters as a fresh turn whose
+        own completion publishes normally.
+
+        That is why this method asks no questions about jobs, ``agent_end`` or
+        ``turn_end``: reconstructing the decision here would mean making it
+        again in a process with less information, which is how a frontend ends
+        up disagreeing with the TUI about whether a turn finished. The bridge
+        OBSERVES the decision; it does not judge it.
+
+        NO CLAIM IS TAKEN HERE. ``claim_delivery`` is claim-then-deliver, and
+        the claimant must be the deliverer — between this frame and an OS
+        banner lie an SSE socket, the Electron main process, a support check
+        and a focus gate. A claim taken here that the renderer then suppresses
+        would mark the completion delivered while nobody was told, for good. A
+        frame is an OFFER; the renderer claims through ``POST /notified``
+        immediately before it shows the banner.
+
+        NO OFFER IS MADE FROM A SILENCED PROCESS EITHER, and the swap is
+        deliberate: a frame nobody may raise is worth neither the compose nor
+        the round trip, and the renderer's own banner is what the operator
+        complains about. Same two questions as the machine-wide feed (see
+        ``desktop_feed._emit_notifications``): the process switch settles
+        whether THIS backend may notify, the per-session read settles whether
+        the conversation was ever run on the mock — the case here being a
+        session a rig left in a store this backend serves.
+
+        THE IDENTITY TEST IS ASKED HERE TOO, for the reason it is asked on the
+        feed: this frame becomes a banner under the ATTACHED APP's identity, so
+        a backend running under a redirected ``HOME`` must not extend the offer
+        at all (``desktop_belongs_to_this_process``).
+
+        §14's origin-aware flag is read the same way and from the same read:
+        the SESSION computed it once per run and the row carries it
+        (``state["notify"]``), so a quiet wake/monitor completion is offered to
+        nobody without this method knowing what a wake is. The ``.get``
+        default keeps an older runtime's rows — and an older remote state —
+        exactly as loud as they were.
+
+        Guarded end to end: a notification is chrome, and this runs inside the
+        1 s attention poll whose loop already treats a store error as costing
+        one tick rather than the feature.
+        """
+        from local_operator.tui.notify import (
+            desktop_belongs_to_this_process,
+            notifications_enabled,
+        )
+
+        if not notifications_enabled():
+            return
+        if not desktop_belongs_to_this_process():
+            return
+        token = state.get("completion_token")
+        if (
+            not token
+            or token == previous.get("completion_token")
+            or not state.get("unseen")
+            or state.get("kind") not in BRIDGE_NOTIFIABLE_KINDS
+            or not state.get("notify", True)
+        ):
+            return
+        # OFF THE LOOP, like every neighbouring store read in this method's poll
+        # loop: the journal walk is 57-745 ms on this operator's largest
+        # sessions (`session_uses_test_hosting`'s docstring carries the
+        # measurements), and it is memoised on `(mtime_ns, size)` so only a miss
+        # pays it.
+        if await asyncio.to_thread(
+            session_uses_test_hosting, self.root / "sessions" / self.session_id
+        ):
+            return
+        try:
+            # The payload builder calls the PUBLIC composer
+            # (`notifications.compose`), which is the seam T-B13 patches, so a
+            # composer that raises is caught here and costs the BANNER — never
+            # the attention frame published above, which is the sync this bridge
+            # exists for.
+            from local_operator.notifications import notification_payload
+
+            # The LIVE name wins over the sidecar: a rename reaches frontend
+            # state before it reaches `title.json`, and `compose` falls back to
+            # the stored title on its own when this is empty (a cold bridge has
+            # no runtime to ask).
+            remote = self.remote
+            session_name = ""
+            if remote is not None:
+                session_name = getattr(remote.frontend_state, "conversation_title", "") or ""
+            # `compose` reads up to 128 KiB for the title and 64 KB for the
+            # preview, and `refresh_attention` runs on the event loop. Off-loop
+            # for the same reason the store read above is.
+            #
+            # THE PAYLOAD IS BUILT BY THE SHARED BUILDER, not inline. The feed
+            # ships the same payload for the same completion and the desktop
+            # collapses the pair on `dedupe_key`; two dict literals would be one
+            # field away from two banners for one turn. The bridge takes the
+            # default `focus_policy` (`when_unfocused`) because this stream
+            # exists only while an app is DISPLAYING the session — the card is
+            # on screen already, so a banner on top of it is the interruption
+            # the policy exists to prevent. The feed derives `always` instead:
+            # its frames are about sessions nobody is looking at.
+            payload = await asyncio.to_thread(
+                notification_payload,
+                state["kind"],
+                session_dir=self.root / "sessions" / self.session_id,
+                token=token,
+                session_id=self.session_id,
+                session_name=session_name,
+            )
+            self.publish("notification", payload, replay=False)
+        except Exception:  # noqa: BLE001 — chrome must not cost the attention poll
+            logger.debug("notification compose failed for %s", self.session_id, exc_info=True)
+
+    async def _poll_attention(self) -> None:
+        # Read-only polling is shared by every subscriber of this bridge and
+        # independent of watch leases. It also works while no runtime is running.
+        #
+        # The body is guarded because this store has other writers: a `database
+        # is locked` that outlives its 2 s timeout is routine contention, and
+        # letting it end the loop stopped cross-process read sync for the life
+        # of the bridge -- the phone and the TUI would clear an unread
+        # completion while the desktop kept showing it, silently and forever.
+        # A transient store error must cost one poll, not the feature. Matches
+        # the suppression `_expire_watches` already uses for the same reason.
+        store = AttentionStore(self.root / "attention.db")
+        failing = 0
+        while True:
+            try:
+                # `revision()` exists for exactly this loop and is far cheaper
+                # than the full per-conversation read; the steady state is a
+                # store nothing has written since the last tick.
+                #
+                # The runtime's own state is part of the key because `supported`
+                # is derived from it, not from the store: a runtime starting or
+                # going cold changes that answer while the store is untouched,
+                # so gating on the revision alone would pin `supported` to
+                # whatever happened to be true when the bridge attached.
+                remote = self.remote
+                supported = bool(
+                    remote is not None
+                    and (remote.is_cold or getattr(remote, "supports_completion_ack", False))
+                )
+                key: Any
+                if self.remote_row is not None:
+                    # A PEER'S KEY IS THE STATE ITSELF, not this device's store
+                    # revision. The revision is a cheap change-token for a CONTENDED
+                    # SQLite sidecar (whose read can spend 10.8 s of retries), and for
+                    # a remote bridge the read is a dict already in memory -- keying
+                    # on the revision would pay a store read every second to learn
+                    # nothing about the peer.
+                    key = json.dumps(await self._read_attention(), sort_keys=True, default=str)
+                else:
+                    key = await asyncio.to_thread(store.revision)
+                if (key, supported) != self.attention_poll_key:
+                    await self._shared_attention_refresh()
+                    self.attention_poll_key = (key, supported)
+                if failing:
+                    logger.info(
+                        "attention poll recovered for %s after %d failure(s)",
+                        self.session_id,
+                        failing,
+                    )
+                    failing = 0
+            except Exception as error:
+                # Log the TRANSITION, not the tick. A transient error costs one
+                # line, but a persistent one (corrupt schema, permissions, full
+                # disk) would otherwise write ~3,600 identical warnings an hour
+                # per bridge, across up to BRIDGE_COUNT bridges, burying
+                # whatever else the operator needs to read. Recovery is logged
+                # too, so the pair brackets the outage rather than leaving a
+                # single warning of unknown duration.
+                failing += 1
+                if failing == 1:
+                    logger.warning(
+                        "attention poll failed for %s (further failures quiet "
+                        "until it recovers): %s",
+                        self.session_id,
+                        error,
+                    )
+            await asyncio.sleep(1)
+
+    def state(self) -> dict[str, Any]:
+        assert self.remote is not None
+        # A PEER'S ATTENTION IS THE OWNER'S, NOT THIS DEVICE'S LAST READ. The
+        # override below publishes the RECEIPT state, and for a remote conversation
+        # the author of that state is the peer's runtime: this bridge's own
+        # ``attention`` copy is only ever the wire's value echoed back (see
+        # ``_read_attention``), so reading it through would be a copy of a copy --
+        # one sync behind at the exact moment a completion moves it, which is the
+        # moment the renderer paints its unread mark.
+        attention = (
+            dict(getattr(self.remote.frontend_state, "attention", {}) or {})
+            if self.remote_row is not None
+            else self.attention
+        )
+        state = self.remote.frontend_state.model_copy(update={"attention": attention})
+        return sync_wire_payload(
+            FrontendSync(
+                epoch=state.epoch,
+                sequence=state.sequence,
+                snapshot=state,
+                live_cursor=state.history_cursor,
+            )
+        )
+
+    def _shared_attention_refresh(self) -> asyncio.Task[dict[str, Any]]:
+        """The one in-flight attention read, started if none is running.
+
+        Shared by the snapshot and the poll loop so a contended store is asked
+        once per bridge rather than once per caller — each read can spend the
+        store's whole retry window (``_BUSY_TIMEOUT_MS`` x 2 attempts, 10.8 s
+        measured worst case) and N readers stacking N of them is what turns a
+        busy sidecar into a slow machine. The task's own failure is retrieved
+        here so a snapshot that stopped waiting does not leave it unobserved.
+        """
+        running = self.attention_refresh
+        if running is not None and not running.done():
+            return running
+        task = asyncio.create_task(self.refresh_attention())
+        task.add_done_callback(lambda done: None if done.cancelled() else done.exception())
+        self.attention_refresh = task
+        return task
+
+    async def snapshot(self) -> dict[str, Any]:
+        # Decorative, so a busy or damaged receipt sidecar cannot stop a
+        # conversation from OPENING. Before this field existed the snapshot
+        # never touched `attention.db`; letting it raise here turned routine
+        # write contention into a failure of the primary read path. The last
+        # known state is kept rather than blanked -- it is what the previous
+        # successful poll actually saw.
+        #
+        # AND IT IS NO LONGER WAITED ON PAST A GLANCE (B-F6). The store is the
+        # most contended file on the machine (~25 sessions publish into it with
+        # ``BEGIN IMMEDIATE``), and since the WAL adoption a writer no longer
+        # blocks its readers: a reader takes a snapshot and proceeds even while
+        # the write lock is held. Writer-against-writer serialization remains,
+        # which is what the store's own bounded retry budget (two 5 s windows,
+        # ~10.2 s worst case) is sized for -- and the wait below stays
+        # deliberately shorter than even that: an uncontended read answers in
+        # ~1 ms, so the ordinary open still carries fresh receipts; a contended
+        # one serves the last known state now and the refresh publishes the
+        # ``attention`` frame the renderer already consumes when it lands.
+        # Shielded so the refresh survives the snapshot giving up on it.
+        refresh = self._shared_attention_refresh()
+        try:
+            await asyncio.wait_for(asyncio.shield(refresh), timeout=ATTENTION_SNAPSHOT_WAIT_S)
+        except TimeoutError:
+            self.attention_served_stale = True
+        except (sqlite3.Error, OSError):
+            pass
+        # THE GATE READS THE STORE'S OWN FIELD RATHER THAN A STATE CLONE, because
+        # the clone is now taken LAST (see the watermark note above the return).
+        # ``self.remote.frontend_state`` is the store object itself
+        # (``session/attached.py``) and ``history_cursor`` is a real field on it,
+        # so this is the same predicate the clone answered.
+        remote = self.remote
+        cursor = remote.frontend_state.history_cursor if remote is not None else None
+        history: dict[str, Any] = {"entries": [], "has_more": False, "cursor_missing": False}
+        # The gate is about the STATE, not about bounding the page, and the empty
+        # page it produces is a signal a reader ACTS on: "no history cursor, so
+        # reconcile through /history". That promise lives in the other repository
+        # (``local-operator-ui`` reconciles on an empty page or ``cursor_missing``),
+        # which is why it is stated here and in ``docs/DESKTOP_API.md`` rather than
+        # left to be inferred -- and why this branch is the one place where the
+        # snapshot still serves something not derived from the journal.
+        #
+        # A COLD FACADE GETS THE PAGE TOO. Its state has no cursor by
+        # construction (nothing refreshed it from a live session), so the gate
+        # above skipped the page on every cold open and first paint became this
+        # frame PLUS a serial ``/history`` round trip for the very same tail.
+        # The page served here IS that tail (``history()``, the method the route
+        # calls), so the reader loses nothing by painting from it; a renderer
+        # that sees a non-empty page beside ``cold_reason`` knows this backend
+        # fills it and skips the duplicate fetch, and an older one reconciles
+        # on an empty page only, which a cold open with rows no longer is.
+        # A PEER'S PAGE IS SERVED WHATEVER THE CURSOR SAYS, and the difference is
+        # where the rows come from. The cursor gate above exists because this method
+        # must not bound the page it reads from the journal by a FRONTEND watermark
+        # -- so when a live owner has published no cursor yet, the honest answer is
+        # to serve nothing and let the reader reconcile. A conversation on another
+        # device has no journal here at all: its page is the WIRE's own window
+        # (``_remote_history``), which is the same rows the paired state was built
+        # from, so there is nothing that could be "inconsistent" with a cursor that
+        # does not exist yet -- and gating it means every first open of a peer's row
+        # pays a second round trip (``/history``) for the transcript the click had
+        # already asked for. Merging is by row id on both sides, which is the rule a
+        # live local owner's snapshot already relies on.
+        if cursor or (remote is not None and (remote.is_cold or self.remote_row is not None)):
+            # THE PAGE IS THE JOURNAL'S TAIL. Its upper bound is NOT the frontend
+            # cursor above, and that is the fix rather than a detail: this is a
+            # read of the TRANSCRIPT, while ``history_cursor`` is a FRONTEND
+            # refresh watermark -- ``transcript.entries()[-1].id`` as of the
+            # owning store's last ``refresh_from_session``
+            # (``frontend_state.py``), which a turn advances only at its message,
+            # tool and turn boundaries and which a checkpoint persists verbatim.
+            #
+            # Bounding one source's read by another source's watermark silently
+            # LOSES rows. Any row durable past the watermark is outside the page,
+            # and because the bound row itself is still on disk
+            # ``read_transcript_page`` reports no ``cursor_missing`` -- so a
+            # reader that reconciles only for an empty page or a missing cursor
+            # (the desktop client does exactly that) accepts the short page as
+            # complete and never learns the rows exist. Measured on the reported
+            # flow: a steer drained mid-turn pins the watermark at the steer row,
+            # every later row of that turn is then outside the page, and the user
+            # sees a transcript that stops at their own steer. A viewer that lost
+            # its owner (`_can_go_cold`) or a state restored from a checkpoint
+            # that predates the rows reaches the same short page with no error.
+            #
+            # The cursor keeps its real job, and one job only: it is the
+            # ``live_cursor`` DEDUPE watermark on the wire, telling a reader which
+            # rows the paired frontend state has already accounted for. It is not
+            # a pairing field for this read and never was one that needed the
+            # truncation -- ``/history`` serves this very same unbounded tail, so
+            # the page and the state were already paired on rows, not on the
+            # bound. Nothing is dropped from the contract by not cutting at it,
+            # and reads stay bounded by their OWN source's cut: see
+            # ``read_transcript_page`` for the inclusive-boundary rule it still
+            # applies when a caller asks for one.
+            history = await self.history()
+        # THE WATERMARK IS READ WITH THE STATE IT DESCRIBES, AND NOTHING AWAITS
+        # BETWEEN THEM. Both reads used to sit ABOVE the ``history()`` await, so
+        # this frame's ``seq`` was a watermark older than the last suspension in
+        # its own construction -- and a subscriber that dropped everything at or
+        # below it would have dropped frames the snapshot does not contain.
+        #
+        # That ordering is what makes the pre-open supersession in :meth:`events`
+        # provably lossless rather than merely plausible: at the moment this
+        # returns, every frame still in a subscriber's queue was published before
+        # the ``self.state()`` below (no await follows it, so ``publish`` cannot
+        # interleave), hence every one of them has ``seq <= this frame's seq`` and
+        # is already inside ``frontend``. Do NOT introduce an await between these
+        # two lines and the ``return``; ``tests/unit/server/test_desktop_sessions.py``
+        # pins it.
+        state = self.state()
+        seq, epoch = self.sequence, self.epoch
+        return {
+            "session_id": self.session_id,
+            "epoch": epoch,
+            "seq": seq,
+            "type": "snapshot",
+            "payload": {
+                "frontend": state,
+                "history": history,
+                **self._cold_fields(),
+            },
+        }
+
+    async def history(
+        self,
+        *,
+        before_id: str | None = None,
+        through_id: str | None = None,
+        around_id: str | None = None,
+        before: int | None = None,
+        after: int | None = None,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        """One page of the durable journal.
+
+        ``through_id`` is the transcript-level inclusive cut and stays part of
+        this method's contract, but NO DESKTOP CALLER PASSES IT ANY MORE: the
+        snapshot used to bind the page to the paired frontend ``history_cursor``
+        and that bound was the defect (a state watermark is not a visibility
+        boundary over the journal -- see :meth:`snapshot`). Do not restore it
+        here without that argument; a page that stops short of the journal loses
+        rows silently, because the bound row is still on disk so
+        ``read_transcript_page`` cannot report them missing. ``before_id``
+        backward paging and this cut's direct use by
+        ``read_transcript_page``'s own tests are what keep the parameter alive.
+
+        ``around_id`` is the anchored mode (design §D4): one page centred on an
+        entry id, ``before`` rows older and ``after`` newer, for the renderer's
+        far jump. It is the READER's mode, not a second implementation here —
+        the same page cache, the same single-flight, the same reconciliation
+        rules — and the response gains ``has_newer`` with it, because the
+        anchored page is the only read whose contract bounds its newer edge
+        (see ``HistoryPage``).
+
+        Through ``load_transcript_page`` rather than a bare ``to_thread`` around
+        the reader: the SSE open frame asks for THIS read seconds after this
+        method already did (see ``events``), and the renderer's reconcile walk
+        asks again for pages it has, so the second request for unchanged rows
+        should cost a dict lookup rather than a second decode of the same bytes.
+        The reader's contract, its special returns and its ``FileNotFoundError``
+        are unchanged; only who pays for the read is.
+
+        A PEER'S CONVERSATION TAKES A DIFFERENT READER (see
+        :meth:`_remote_history`), and it is a different reader rather than a
+        branch inside this one because the two answer from different places: the
+        journal here, the wire there. The contract above -- ``entries``,
+        ``has_more``, ``cursor_missing``, a backward ``before_id`` -- is the same
+        on both, so no caller changes.
+
+        THE PRECONDITIONS ARE CHECKED BEFORE EITHER READER IS CHOSEN (remediation
+        round 1, R1-1): the remote reader validates nothing itself, so without
+        this a malformed combination (before/after with no anchor, an anchor
+        named with a cursor) would answer 409 on a local session and 200 on a
+        peer — the same request failing two ways depending only on where the
+        conversation happens to live. The local path validates again inside
+        ``load_transcript_page``; that duplicate is deliberate, because the
+        façade is a door other callers reach directly and its own contract must
+        not depend on this method having run first.
+        """
+        validate_page_request(before_id, through_id, around_id, before, after, limit)
+        if self.remote_row is not None:
+            if around_id is not None:
+                # V1 CANNOT ANCHOR A PEER'S WINDOW (design §D4; the exact remote
+                # behaviour is pinned by spike S2). The wire carries messages,
+                # not journal rows, so there is no row to locate by id and no
+                # forward half to read — and the empty page is the contract's
+                # existing word for "this request cannot be satisfied here" (the
+                # same answer ``_remote_history`` gives a ``before_id`` the
+                # window no longer holds). Serving some OTHER window instead is
+                # the one thing forbidden. ``cursor_missing`` is True rather than
+                # the remote reader's usual False so an empty page cannot be
+                # misread as "the conversation is empty"; ``has_newer`` stays
+                # None — the question was never answered.
+                return {
+                    "entries": [],
+                    "has_more": False,
+                    "cursor_missing": True,
+                    "has_newer": None,
+                }
+            return await self._remote_history(
+                before_id=before_id, through_id=through_id, limit=limit
+            )
+        try:
+            page = await load_transcript_page(
+                self.root / "sessions" / self.session_id,
+                before_id=before_id,
+                through_id=through_id,
+                around_id=around_id,
+                before=before,
+                after=after,
+                limit=limit,
+            )
+        except FileNotFoundError:
+            return {
+                "entries": [],
+                "has_more": False,
+                "cursor_missing": bool(before_id or through_id or around_id),
+            }
+        return {
+            "entries": visible_transcript_rows([json.loads(row.to_json()) for row in page.entries]),
+            "has_more": page.has_more,
+            "cursor_missing": page.reconciled,
+            "has_newer": page.has_newer,
+        }
+
+    async def _remote_history(
+        self, *, before_id: str | None, through_id: str | None, limit: int
+    ) -> dict[str, Any]:
+        """One page of a PEER's transcript, read off the WIRE.
+
+        WHY NOT ``load_transcript_page``. That reader opens
+        ``<root>/sessions/<id>/transcript.jsonl`` -- which, for a conversation on
+        another device, is either ABSENT or a DIFFERENT conversation wearing the
+        same id, and painting either one is the single local read
+        ``mesh-session-mobility.md`` §3.4 forbids by name ("history comes from the
+        wire, and only the wire"). The peer's own rows are already reachable: the
+        attach's canonical sync carries the newest display window and the owner
+        serves older pages on request, so this projects THAT --
+        ``AttachedSession.history()``, the same list the TUI paints a remote
+        conversation from -- through the entry shape the desktop contract already
+        publishes.
+
+        THE COLD CASE IS AN EMPTY PAGE, NOT A REFUSAL, and that is the renderer's
+        contract rather than leniency: an empty page is its signal to reconcile
+        through ``/history`` (which is this method), and the snapshot beside it
+        carries the ``cold``/``cold_reason``/``attaching`` triple that says WHY
+        there is nothing to paint yet. The attempt below is the SAME bounded read
+        envelope the snapshot pays (``READ_ATTACH_BUDGET_S``), and it never
+        engages: ``attach_existing`` dials an owner that already exists, so a peer
+        with no runtime keeps none -- the desktop's own watch lease is what warms
+        one (:meth:`refresh_watch`).
+
+        ``ts`` IS THE SERVE TIME, AND THAT IS A STATED LIMIT RATHER THAN A CLAIM.
+        The wire carries MESSAGES, not journal rows, and a message has no entry
+        time of its own: decorating one here with the moment this device happened
+        to read it dates the user's own message to whenever they opened the
+        window, and stamping zero paints 1970. The desktop renderer's own
+        ``history_delta`` producer already makes this choice for wire-sourced rows
+        (one arrival stamp per frame, with the follow-up written down in
+        ``transcript-reducer.ts``), so this matches the neighbouring surface
+        instead of inventing a third rule. The fix is an entry ``ts`` on the
+        window DTO, which cannot ride this change: that DTO is ``extra="forbid"``,
+        so a new key breaks every older viewer's validation.
+        """
+        remote = self.remote
+        if remote is None:
+            return {
+                "entries": [],
+                "has_more": False,
+                "cursor_missing": False,
+                "has_newer": None,
+            }
+        if remote.is_cold:
+            with contextlib.suppress(ConnectionError, OSError, TimeoutError):
+                await remote.attach_existing(budget=READ_ATTACH_BUDGET_S)
+        rows = self._remote_rows(remote, before_id=before_id, through_id=through_id)
+        page, has_more = _remote_page(rows, limit=limit)
+        if not has_more and remote.history_before_token:
+            # ONE OLDER PAGE PER CALL, not a drain: a reader that scrolls asks
+            # again with the ``before_id`` of its oldest painted row, which is the
+            # same shape the TUI's backward scroll uses. Without this the page
+            # would stop at the loaded window and REPORT that as the end of the
+            # conversation -- rows silently unreachable, which is the defect the
+            # local reader's own ``has_more`` exists to prevent.
+            try:
+                await remote.load_older_display_page()
+            except (RuntimeError, ConnectionError, TimeoutError):
+                pass
+            else:
+                rows = self._remote_rows(remote, before_id=before_id, through_id=through_id)
+                page, has_more = _remote_page(rows, limit=limit)
+                has_more = has_more or remote.history_before_token is not None
+        stamp = time.time()
+        return {
+            "entries": [
+                {
+                    "id": str(getattr(row, "id", "") or ""),
+                    "ts": stamp,
+                    "type": "message",
+                    "payload": _wire_row_payload(row),
+                }
+                for row in page
+            ],
+            "has_more": has_more,
+            "cursor_missing": False,
+            "has_newer": None,
+        }
+
+    def _remote_rows(
+        self, remote: AttachedSession, *, before_id: str | None, through_id: str | None
+    ) -> list[Any]:
+        """The peer's loaded rows, cut to ``before_id``/``through_id``.
+
+        ``cursor_missing`` is answered FALSE by the caller rather than here: a
+        ``before_id`` the peer's window no longer holds is a real miss, and the
+        contract's word for it is the page being empty. What must NOT happen is
+        the local reader's other answer for the same call -- a page cut short at a
+        cursor -- because there is no local cursor to cut at.
+        """
+        try:
+            rows = list(remote.history())
+        except RuntimeError:
+            # Not hydrated: a peer whose runtime has not answered yet, or one too
+            # old to serve a display window at all (the facade refuses the local
+            # fallback by name). The empty page above is the contract's answer.
+            return []
+        if through_id:
+            cut = next((index for index, row in enumerate(rows) if row.id == through_id), None)
+            if cut is not None:
+                rows = rows[: cut + 1]
+        if before_id:
+            cut = next((index for index, row in enumerate(rows) if row.id == before_id), None)
+            rows = rows[:cut] if cut is not None else []
+        return rows
+
+    async def checkpoints(self) -> dict[str, Any]:
+        """The checkpoint rail's manifest (design D1/D9), derived per session.
+
+        LOCAL sessions only, deliberately: the derivation reads THIS device's
+        journal, and a peer conversation's journal is not here. v1 answers
+        ``state: "unsupported"`` for a peer (D4) and the renderer falls back to
+        near-jump; that is a fact about where the bytes are, not a failure.
+
+        Everything else — the fresh read, the background build, the first-paint
+        wait — lives in :mod:`local_operator.session.transcript_index`, which
+        also documents the cache format and its invalidation rules. This method
+        is the door, and it never blocks on a full scan: a cold or stale cache
+        answers ``building`` while the refresh task runs (22 s for the
+        operator's 272 MB journal, S1), so the rail's first paint is immediate.
+        """
+        if self.remote_row is not None:
+            return {
+                "session_id": self.session_id,
+                "index": {"state": "unsupported"},
+                "checkpoints": [],
+            }
+        return await transcript_index.checkpoints_view(self.root, self.session_id)
+
+    async def checkpoints_warm(
+        self, *, ids: list[str] | None = None, limit: int | None = None
+    ) -> dict[str, Any]:
+        """Ask the owner to buy names for this conversation's checkpoints (D2/D9).
+
+        Generation must run where the session's provider and errand tier live
+        — ``AttachedSession.complete_once`` refuses outright ("provider
+        errands run on the session owner") — so this rides the same
+        shared-slash seam the desktop's other owner-side calls use
+        (``desktop_mcp``, ``wake``, ``fork``); the owner schedules the work as
+        background tasks and answers the receipt immediately, never waiting
+        on a provider call.
+
+        A COLD conversation answers an empty acceptance rather than an error.
+        There is no owner to run the errand, and starting one is not worth it
+        for decoration: the rail falls back to "Turn N"/message text, and the
+        next gesture after the pane's own watch-lease warm lands can try
+        again. A PEER conversation answers the same empty receipt — v1 names
+        on the device that holds the journal only (D4), the same fact the
+        manifest beside it reports as ``unsupported``.
+        """
+        if self.remote_row is not None:
+            return {"accepted": [], "pending": []}
+        remote = self.remote
+        if remote is None or not remote.owner_reachable:
+            return {"accepted": [], "pending": []}
+        payload = json.dumps({"ids": list(ids) if ids is not None else None, "limit": limit})
+        outcome = await remote.route_shared_slash("checkpoints_warm", payload)
+        data = outcome.get("data") if isinstance(outcome, Mapping) else None
+        if not isinstance(data, Mapping):
+            # Nothing usable came back (an older owner that does not know the
+            # word, or a shape that is not a SlashResult). Not an error the
+            # user should read: the rail's fallback text is the same answer.
+            return {"accepted": [], "pending": []}
+        return {
+            "accepted": [str(item) for item in (data.get("accepted") or [])],
+            "pending": [str(item) for item in (data.get("pending") or [])],
+        }
+
+    async def find(self, query: str, limit: int) -> dict[str, Any]:
+        """In-thread search over THIS conversation's message docs (D3/D9).
+
+        LOCAL sessions only, for ``checkpoints``' reason one method up: the
+        index is derived from this device's journal, and a peer's journal is
+        not here. A peer answers ``state: "unsupported"`` (D4) — a fact about
+        where the bytes are, not a failure — and the renderer hides find for
+        remote conversations.
+
+        Everything else — the tiered pipeline and the warm/cold ladder — lives
+        in :mod:`local_operator.session.transcript_find`, which reuses the
+        same index view ``checkpoints`` rides: the two surfaces cannot
+        disagree about whether the index is warm.
+        """
+        if self.remote_row is not None:
+            return {
+                "query": query,
+                "state": "unsupported",
+                "partial": False,
+                "hits": [],
+                "truncated": False,
+            }
+        return await transcript_find.find_view(self.root, self.session_id, query=query, limit=limit)
+
+    async def watch(self, subscription_id: str, *, visible: bool, can_notify: bool) -> None:
+        sub = self.subscribers.get(subscription_id)
+        if sub is None or sub.overflow:
+            raise KeyError("This event subscription is no longer connected")
+        sub.visible, sub.can_notify = visible, can_notify
+        sub.expires = time.monotonic() + WATCH_TTL
+        await self.refresh_watch()
+        if self.watch_task is None or self.watch_task.done():
+            self.watch_task = asyncio.create_task(self._expire_watches())
+
+    def _live_leases(self, *, include_dwelling: bool = False) -> list[DesktopSubscription]:
+        """The subscriptions holding a LIVE lease. Caller holds ``watch_lock``.
+
+        Extracted rather than inlined into :meth:`refresh_watch`, because the
+        lease-driven warm's retry loop has to re-ask exactly this question on
+        every pass — a second copy of the filter is how the trigger and its
+        retry would come to disagree about what "a live visible lease" means.
+
+        A DWELLING SUBSCRIPTION IS EXCLUDED BY DEFAULT, and the flag is the
+        whole reason this is a question rather than a list. :meth:`refresh_watch`
+        asks "who is this bridge still asserting to the owner", and during a
+        dwell the answer must INCLUDE the returning viewer, or the runtime exits
+        under the window the dwell exists to cover. ``in_flight_reason`` asks
+        "may this daemon leave", and a viewer that has ALREADY lost its
+        transport may not pin a build update for ``RECONNECT_DWELL_S``: the
+        successor daemon serves the reconnect, and the announcement is what the
+        client is already reacting to. Counting the dwell there would make every
+        update wait the dwell out, per session — and ``server/retire.py``'s drain
+        is exactly what a dwell would then be holding shut.
+        """
+        now = time.monotonic()
+        live: list[DesktopSubscription] = []
+        for sub in self.subscribers.values():
+            if sub.overflow:
+                continue
+            if sub.dwelling:
+                # A VIEWER THAT HAS LOST ITS TRANSPORT IS NOT A LIVE LEASE,
+                # whatever its lease clock still says. This is why the flag is a
+                # parameter rather than a filter on `expires`: a dwelling
+                # subscription keeps the lease it was given while the relay was
+                # up, so excluding it only once `expires` had passed would let a
+                # dwell pin a build update for the REST OF THE LEASE -- up to
+                # WATCH_TTL, more than twice the dwell itself.
+                #
+                # `tests/unit/server/test_serve_retire.py` is the end-to-end form
+                # of that, and it is what caught this: a route-held relay's own
+                # lease made the drain unemptiable, which is the circular valve
+                # that file exists to prevent ("the record could not say let go
+                # until the client had let go").
+                if include_dwelling:
+                    live.append(sub)
+                continue
+            if sub.expires > now:
+                live.append(sub)
+        return live
+
+    async def refresh_watch(self) -> None:
+        """Recompute the aggregate watch lease, and warm for a VISIBLE one.
+
+        Two jobs, because they are one policy: what the owner is told about
+        presence, and — for a live VISIBLE lease on a viewer with no runtime
+        yet — that a runtime is created for it, off the request path. The
+        second is the change argued in the branch below; the first is the
+        existing contract, and the record is written on EVERY beat rather than
+        only on the way into a warm (see the comment at the write).
+
+        Two things this beat does NOT do, both of which used to be wrong: it
+        creates nothing for a lease that is not live and visible (unchanged),
+        and it creates nothing for a session someone deliberately STOPPED — a
+        stopped session stays stopped until a user action re-opens it
+        (round-2 review MAJOR-1, argued at the gate below).
+        """
+        async with self.watch_lock:
+            live = self._live_leases(include_dwelling=True)
+            remote = self.remote
+            if remote is None:
+                return
+            # WHAT A DWELL ASSERTS, AND WHAT IT REFUSES TO CLAIM. The dwell
+            # exists to keep the runtime resident across a lost transport, and
+            # term 3 of the runtime's own residency rule wants a fresh lease AND
+            # `desktop_visible or desktop_can_notify`. So the aggregate has to
+            # come from the dwelling sub -- but claiming `visible` for a viewer
+            # that has GONE would tell the notification ladder a person is
+            # reading a session they have walked away from, and suppress exactly
+            # the rung that matters most here: "a turn finished while my window
+            # was reconnecting". `can_notify` is the half that keeps the runtime
+            # alive without making that claim, and `_visible_attach_surfaces`
+            # stays empty.
+            visible = any(s.visible for s in live if not s.dwelling)
+            can_notify = any(s.can_notify for s in live if not s.dwelling) or any(
+                s.dwelling for s in live
+            )
+            # RECORDED ON EVERY BEAT, COLD OR NOT, and gating only the WARM on
+            # `visible` is what makes the record correct rather than sloppy.
+            # `_dial` re-asserts whatever was recorded last (TTL-bounded), so a
+            # cold facade that skipped the write leaves the PREVIOUS pair
+            # standing: hide the window during the ~1 s a spawn takes and the
+            # runtime this warm creates counts a viewer who has gone, until the
+            # next beat corrects it (≤15 s) or the runtime-side lease expires
+            # (≤45 s, then the 3 s drain) — one idle runtime (~82 MB) held for
+            # an absent viewer. Against that, the write is a field assignment
+            # while cold (its RPC half is guarded by a connected client), and it
+            # keeps `_desktop_seen` fresh as well as truthful.
+            # NO ``timeout`` HERE, and that is the documented envelope rather
+            # than an oversight: the re-assert's bound is ``_DESKTOP_WATCH_ACK_BOUND_S``
+            # (5 s), which belongs to the LEASE — its TTL is 45 s and the beat that
+            # renews it is 15 s, so this hint's patience is the lease's business and
+            # not a read's. A read narrows it through ``update_desktop_watch``'s
+            # ``timeout`` so the hint can never lengthen a read; a BEAT is not a
+            # read, and clamping it to the remainder of one request's budget would
+            # make the renewal's patience depend on which request happened to
+            # arrive first. ``docs/DESKTOP_API.md`` states the resulting envelope
+            # (≤ 2 s attach + ≤ 5 s hint) for this one route.
+            await remote.update_desktop_watch(visible=visible, can_notify=can_notify)
+            if not visible:
+                # NO LIVE VISIBLE LEASE, so the intent that earned any standing
+                # pace is gone with it and the pace must not charge the next
+                # one. Cleared HERE and not only in the loop, because the loop
+                # that earned it has usually already returned by the time the
+                # viewer leaves: a served attempt keeps its charge standing
+                # (see `_lease_warm_loop`), and this beat — the first with no
+                # live visible lease — is the moment a fresh intent can be told
+                # apart from the last one's continuation (QA round 2, Q2).
+                self._clear_warm_backoff()
+                return
+            if not remote.is_cold:
+                return
+            # A DELIBERATE STOP IS NOT A COLD VIEWER TO BE WARMED (review
+            # round 2, MAJOR-1). `_recover_runtime` already refuses on this
+            # fact, with the rationale "it is what keeps the takeover from
+            # resurrecting a session a kill switch just ended"
+            # (`session/attached.py`), and the desktop stop's own copy promises
+            # the same thing — `/resume` reopens a stopped conversation, so
+            # nothing else may. Without this guard the user stops a session in a
+            # focused window, the runtime exits, and the next beat — within
+            # 15 s, at ~82 MB idle — silently starts a fresh runtime for the
+            # session they just ended, which also clears the `stopped_at`
+            # marker the stop wrote.
+            #
+            # ITS LIMIT, stated so the guard is not read as complete: this is
+            # "not proven stopped", not proof of life — the marker is this
+            # facade's own flag, OR the durable `stopped_at` written only for a
+            # session that HAS wakes (see `session_was_stopped`'s docstring). A
+            # stop this facade issued is always caught; a stop from another
+            # surface on a wake-less session is not. Closing that arm means
+            # stamping the marker unconditionally in the stop path, which is a
+            # change to the stop contract rather than to the warm.
+            if await remote.session_was_stopped():
+                self._clear_warm_backoff()
+                return
+            # A VISIBLE LEASED VIEWER CREATES RESIDENCY, it no longer only
+            # preserves it, and that is the whole policy change here.
+            #
+            # Term 3 of `process._should_exit` already argues from "a user
+            # looking at the session is about to type", and a desktop
+            # viewer counts as one only while this lease is live AND the
+            # window says visible (`server.py::attach_clients`). That
+            # premise used to reach only a runtime that ALREADY existed, so
+            # the first session-scoped action after one exited paid the
+            # whole child spawn + handshake inline inside the user's click
+            # (measured 1415 ms median against 119 ms warm). Warming on the
+            # same lease closes that gap with the policy's own signal
+            # rather than a new one: the viewer the reaper would have kept
+            # alive now also causes one.
+            #
+            # PRESENCE IS RECORDED BEFORE THE WARM IS ARMED, and that is
+            # correctness, not bookkeeping. `_ensure_bound`'s dial
+            # re-asserts whatever `update_desktop_watch` last recorded, so
+            # recording it here is what makes the runtime this warm is
+            # about to create count the viewer from its FIRST tick.
+            # `update_desktop_watch` needs no client to record it (the RPC
+            # half is skipped while cold). Without it, the new runtime's
+            # `attach_clients()` is 0 for the whole handshake, the 3 s idle
+            # drain (`DEFAULT_GRACE_S`) runs against a viewer nothing ever
+            # asserted, and the runtime exits moments after the bind
+            # returns — whereupon the renderer's next 15 s heartbeat starts
+            # another. A spawn/exit cycle per heartbeat is strictly worse
+            # than the stall this removes, and the RAM it costs is the part
+            # that actually shows up.
+            #
+            # BOUNDS, because "create a runtime for anyone watching" is a
+            # residency change and unbounded residency is the failure mode.
+            # The first two are the existing ones; the third is this trigger's
+            # own, and the fourth is what keeps a failure from becoming a loop.
+            #
+            # * ONE RUNTIME PER SESSION, held by the EXISTING lock. Every
+            #   attempt is `warm()` — the single engage path that is
+            #   `_ensure_bound`, the only place a viewer creates a process — so
+            #   a command arriving mid-warm and two attempts contending all
+            #   serialise on `_bind_lock` and the loser returns at its own
+            #   `is_cold` check. No second spawn path, and no per-subscriber
+            #   multiplication: the bridge is per-session and one task per
+            #   bridge is `warm()`'s own rule.
+            # * THE LEASE IS THE LIFETIME, and the constant that decides it is
+            #   the RUNTIME-side `DESKTOP_WATCH_LEASE_S`
+            #   (`session/runtime/types.py`) — the same value as `WATCH_TTL`
+            #   (45 s) by agreement today rather than by construction, read a
+            #   third time by the dial (`attached.py::_dial`). `WATCH_TTL` here
+            #   is the BRIDGE's subscription lease, which is what the renderer
+            #   renews. Stop heartbeating — window closed, killed, navigated
+            #   away — and the lease expires, the runtime falls out of term 3,
+            #   and the existing drain reaps it exactly as it reaps one this
+            #   change did not start; nothing here holds a process past the
+            #   lease.
+            # * THE AGGREGATE IS THE FOCUSED WINDOW, NOT ONE RUNTIME. One
+            #   runtime per session says nothing about how many SESSIONS can be
+            #   warm at once: `BRIDGE_COUNT` (64) sessions can hold a bridge
+            #   while their event stream is open, and only eviction at
+            #   `users == 0` bounds them. What makes "no cap" safe is that
+            #   `visible` is `visibilityState === "visible" && hasFocus()` and
+            #   the app mounts ONE lease-bearing chat view per focused window,
+            #   so the warm is one runtime at a time — measured here at ~82 MB
+            #   idle for the runtime, against the ~283 MB `process.py` budgets
+            #   for one. A future that mounts several lease-bearing views at
+            #   once (a split pane, a per-pane lease, a "watching" surface that
+            #   asserts `visible` without focus) multiplies that by the number
+            #   of panes and NEEDS a real cap; the cap today is this gate, and
+            #   it is a consequence of the UI rather than of this code.
+            # * AN ATTEMPT THAT FAILED IS PACED. The retry loop (see
+            #   `_lease_warm_loop`) keeps a live lease's intent across attempts,
+            #   but a bind that could not start — the failing-spawn shape — waits
+            #   out a doubling backoff rather than re-engaging on every beat,
+            #   and an attempt that was refused before doing any work is retried
+            #   at the poll pace instead. Both numbers are argued on their
+            #   constants.
+            # * NOTHING ELSE CREATES ANYTHING. A hidden or notify-only
+            #   viewer is the `not visible` return above: `can_notify` is
+            #   delivery reachability, not attention, and a window nobody
+            #   is looking at is not about to type. Deliberately NARROWER
+            #   than term 3, which still counts `visible or can_notify` to
+            #   preserve an existing runtime — that policy is untouched.
+            #
+            # OFF THE REQUEST PATH: `_arm_lease_warm` schedules a task and
+            # returns, so `/watch` answers in the ~10 ms it always did and the
+            # heartbeat never pays the engage it triggers.
+            self._arm_lease_warm(remote)
+
+    def _arm_lease_warm(self, remote: AttachedSession) -> None:
+        """Start the lease-driven warm's retry loop, unless it is already running.
+
+        Called by :meth:`refresh_watch` while it holds ``watch_lock``. The
+        ``create_task`` has no ``await`` in front of it, which is what keeps the
+        heartbeat off the engage it triggers; the loop's first step engages.
+
+        ONE TASK PER BRIDGE, AND IT OUTLIVES THE BEAT THAT ARMED IT: the intent
+        it holds is the LEASE's, not the request's, so a heartbeat arriving
+        while an attempt is in flight — or inside a failure's backoff — must
+        leave the running task alone rather than start a second one. The
+        freshness of the lease is not sampled here for the same reason: the loop
+        re-asks it every pass, which is what lets a withdrawn lease end the
+        retries instead of being noticed only at the next beat.
+        """
+        if self.lease_warm_task is not None and not self.lease_warm_task.done():
+            return
+        self.lease_warm_task = asyncio.create_task(self._lease_warm_loop(remote))
+
+    def _clear_warm_backoff(self) -> None:
+        """Forget the pace of an intent that is over, so the next one is fresh.
+
+        Called when the intent is ABANDONED rather than served: the lease that
+        held it lapsed or withdrew, the facade was replaced, `_detach` dropped
+        the bridge, or a deliberate stop ended it. Cleared rather than left to
+        expire so the NEXT intent — a fresh cold period, on the same or a new
+        runtime — starts from the base backoff instead of from whatever the last
+        one had grown to (QA round 2, Q2: a viewer returning 12 s into a 30 s
+        pace paid the remaining 15.9 s before its first child appeared).
+
+        DELIBERATELY NOT called when an attempt left the viewer bound. That
+        charge is what bounds a runtime that boots and then dies — the
+        crash-loop of review round 2 MINOR-1 — and dropping it on the way out
+        would re-spawn one per heartbeat, which is the unattended loop this
+        pacing exists to prevent. A beat with no live visible lease clears it
+        instead (`refresh_watch`), so a viewer who genuinely leaves is not
+        charged for a runtime that died while it was still looking.
+        """
+        self.warm_backoff_s = 0.0
+        self.warm_not_before = 0.0
+        self.warm_served = False
+        self.warm_served_pid = None
+        self.warm_probed_pid = None
+
+    async def _probe_served_runtime(self) -> bool:
+        """Whether the served runtime exited cleanly, memoising a FINAL verdict (N1).
+
+        This sits inside the pacing loop, so an unmemoised probe runs on every
+        ``_LEASE_WARM_POLL_S`` pass (a worker thread plus a ``ps`` fork). Only a
+        verdict that cannot change is memoised: once the pid is gone the boot
+        record decides for good, clean or not. A pid that is still ALIVE is not a
+        verdict — that runtime may yet exit cleanly and must then drop the pace
+        — so it is re-asked, which costs at most one probe a second and only
+        while a viewer is cold over a runtime that is still running (a resync, a
+        wedged socket), a state the loop leaves as soon as it binds or the lease
+        lapses. The next SERVED warm records a new pid and earns a fresh probe.
+        """
+        verdict = await asyncio.to_thread(self._served_runtime_exited_cleanly)
+        if verdict is None:
+            return False
+        self.warm_probed_pid = self.warm_served_pid
+        return verdict
+
+    def _served_runtime_exited_cleanly(self) -> bool | None:
+        """Whether the runtime the last SERVED warm bound to left through its exit path.
+
+        A pid that is still alive has not exited at all (a viewer can go cold
+        over a live runtime — a resync, a wedged socket), and an unknown pid is
+        not evidence of anything. An unknown pid answers False (final) and a
+        live one ``None`` (undecided, see :meth:`_probe_served_runtime`); both
+        keep the pace, which is the conservative side of this question. Runs off
+        the loop: it stats a file under the run directory.
+        """
+        pid = self.warm_served_pid
+        # ``check_zombie`` IS REQUIRED HERE, not a nicety: THIS process spawned
+        # the runtime (the lease warm's engage), and nothing in ``serve`` reaps
+        # a detached child, so a runtime that exited cleanly sits as a zombie
+        # that signal-0 reports alive. Measured over real ``serve``: after a
+        # SIGTERM the served runtime's pid is ``ps`` state ``Z`` with its boot
+        # record withdrawn, ``pid_alive`` answers True and only the zombie probe
+        # answers False — without it every served warm still paced the next
+        # cold period its full ~26 s. The probe's ``ps`` fork (~4 ms) runs off
+        # the loop, only after a served warm, and once per served runtime once
+        # it has exited (see :meth:`_probe_served_runtime` for the live case).
+        if pid is None:
+            return False
+        if registry.pid_alive(pid, check_zombie=True):
+            return None
+        from local_operator.session.runtime import journal
+
+        return journal.read_boot_record(pid, self.root) is None
+
+    async def _lease_warm_loop(self, remote: AttachedSession) -> None:
+        """Keep a live VISIBLE lease's warm until it is served or withdrawn.
+
+        WHY A LOOP RATHER THAN ONE ATTEMPT PER BEAT, which is how this started.
+        Two ways one attempt is silently lost, both ending in the cold bind the
+        warm exists to remove:
+
+        * **The facade cannot engage yet.** `_ensure_bound` returns at its own
+          ``_recovering`` guard — no error, and no task to report it — and a
+          viewer that has just lost its runtime sits there for up to
+          ``COLD_FALLBACK_S`` (8 s; ~9.4 s measured end to end on this path,
+          because the loop pays dial pacing on the way out). An attempt landing
+          in that window does NOTHING, and the renderer's next beat is 15 s
+          away while the user usually clicks first. What marks this as not a
+          failure is exactly that it did no work.
+        * **An engage is already in flight** (`engage_in_flight`) — the lock
+          held by another subscriber's `attach_existing`, say — so `warm()`
+          starts no task and, again, nothing retries for a whole beat.
+
+        AN ATTEMPT THAT ACTUALLY RAN is the third case and is handled
+        differently, because it DID work: it spawned. Retrying that on the beat
+        is the spawn loop a heartbeat alone could drive, so it pays a doubling
+        backoff (base and ceiling argued on the constants) and the failure is
+        logged, since a bind that keeps failing has no other surface on this
+        path. The charge follows the ATTEMPT, not its outcome at the post-await
+        check: a runtime that comes up and then dies passes that check and would
+        otherwise be re-spawned by the next beat, one failure shape over from
+        the case this pacing was built for (review round 2, MINOR-1).
+
+        NOT A SECOND SPAWN PATH: every attempt is `warm()`, the ordinary
+        background engage through `_ensure_bound` and the one `_bind_lock`. This
+        loop decides only WHEN to ask, never how.
+
+        BOUNDED BY THE LEASE, WHICH IS THE POINT. It exits the moment the viewer
+        is bound, the facade is replaced, no live visible lease remains, or the
+        session has been deliberately stopped — and it re-asks all four on every
+        pass rather than trusting the state at arm time, which is also why a
+        backoff is waited out in slices rather than in one long sleep: a lease
+        withdrawn during the wait ends the retries within one slice instead of
+        after up to two minutes of them.
+
+        EVERY EXIT THAT IS NOT "the viewer is bound" IS AN ABANDONED INTENT and
+        drops the pace with it; the bound exit keeps its charge, for the
+        crash-loop reason above.
+        """
+        while True:
+            if self.remote is not remote:
+                # A replacement viewer owns the bridge now: the intent (and its
+                # pace) belonged to the facade that just left.
+                self._clear_warm_backoff()
+                return
+            if not remote.is_cold:
+                self._clear_warm_backoff()
+                return
+            async with self.watch_lock:
+                visible = any(s.visible for s in self._live_leases())
+            if not visible:
+                # ABANDONED, NOT SERVED: the lease that expressed this intent
+                # has lapsed or withdrawn, so the intent ends and its pace goes
+                # with it — see `_clear_warm_backoff`.
+                self._clear_warm_backoff()
+                return
+            if await remote.session_was_stopped():
+                # The same question `refresh_watch` asks before it arms, where
+                # the rationale and the marker's limit are written (review
+                # round 2, MAJOR-1). Re-asked here because a stop can land while
+                # the loop is still pacing, and a loop armed before the stop
+                # must not be the thing that resurrects the stopped session.
+                self._clear_warm_backoff()
+                return
+            if (
+                self.warm_served
+                and self.warm_probed_pid != self.warm_served_pid
+                and await self._probe_served_runtime()
+            ):
+                # A SERVED WARM IS NOT A FAILURE (B-F1). The charge below stands
+                # after a served attempt so a runtime that boots and then DIES is
+                # paced; it used to stand for the runtime that simply finished —
+                # the idle drain reaps a warmed runtime seconds after the user
+                # looks away — so switching back inside 30 s waited out the rest
+                # of the pace cold (reproduced: 26.2-26.8 s p95 watch->live).
+                # The two are told apart by the boot record, which the runtime
+                # withdraws on EVERY clean exit and which an unclean death leaves
+                # behind (``process._clear_boot_record``), so the crash-loop case
+                # keeps its pace exactly.
+                self._clear_warm_backoff()
+            remaining = self.warm_not_before - time.monotonic()
+            if remaining > 0:
+                await asyncio.sleep(min(remaining, _LEASE_WARM_POLL_S))
+                continue
+            if remote.recovering or remote.engage_in_flight:
+                # REFUSED, NOT FAILED. No task was created (or one is already
+                # running that an attempt would only join) and no process was
+                # started, so this does not spend the failure backoff: the poll
+                # is what carries the intent across a recovery window.
+                await asyncio.sleep(_LEASE_WARM_POLL_S)
+                continue
+            try:
+                await self.warm()
+            except DaemonRetiring:
+                # The daemon announced its retirement while this lease was live.
+                # A warm is not admissible any more and the refusal is one-way,
+                # so the intent ENDS here: looping would spin a spawn attempt a
+                # beat against a refusal that cannot resolve, and the retry
+                # exists to serve a viewer, not to keep a dying daemon busy.
+                self._clear_warm_backoff()
+                return
+            task = self.warm_task
+            if task is not None:
+                # Cancellation is deliberately NOT suppressed: `_detach` cancels
+                # this loop and the engage under it, and a cancelled engage must
+                # end this loop rather than be read as a settled failure.
+                with contextlib.suppress(Exception):
+                    await task
+            # THE ATTEMPT IS CHARGED, NOT ITS OUTCOME (review round 2, MINOR-1).
+            # Charging only when the post-await check finds the viewer cold let a
+            # runtime that boots and then dies — a late boot failure, an OOM, a
+            # build-stamp restart gone wrong — be re-spawned on every beat, with
+            # `warm_backoff_s` still 0.0 (reproduced: 4 beats -> 4 attempts).
+            # The pace prices the spawn that was actually made, whether or not
+            # the check below happens to catch the shape. A runtime that STAYS
+            # up is unaffected: this loop returns and no other arms until a beat
+            # finds the viewer cold with a live visible lease, and the charge is
+            # dropped by the first beat with no live visible lease
+            # (`refresh_watch`), so a window that leaves and returns starts from
+            # the base.
+            self.warm_backoff_s = min(
+                self.warm_backoff_s * 2 if self.warm_backoff_s else _LEASE_WARM_BACKOFF_S,
+                _LEASE_WARM_BACKOFF_CAP_S,
+            )
+            self.warm_not_before = time.monotonic() + self.warm_backoff_s
+            if not remote.is_cold:
+                # SERVED: the runtime is up. The charge stands (above) so a
+                # runtime that dies in the next few seconds is paced rather than
+                # re-spawned at the next beat — and it is dropped at the next
+                # cold period if that runtime turns out to have exited cleanly
+                # (the check at the top of this loop).
+                self.warm_served = True
+                self.warm_served_pid = remote.runtime_pid
+                return
+            logger.debug(
+                "lease-driven warm for %s left the viewer cold; next attempt in %.0fs",
+                self.session_id,
+                self.warm_backoff_s,
+            )
+
+    def assert_admitting(self) -> None:
+        """Raise ``DaemonRetiring`` when the daemon serving this bridge has LATCHED.
+
+        THE SAME QUESTION the pool's door asks (``DesktopSessions.session``, which
+        every route comes through), kept as a bridge method for the callers that
+        never arrive through a route: ``warm``'s own speculation, the lease-warm
+        loop, and anything else this process starts on its own behalf. Those may
+        not delegate to a route's refusals, so the question has to be askable
+        here.
+
+        The per-route history is why the DOOR, not this method, is now the
+        enforcement: this check reached the three routes that called it
+        (``/messages``, ``/commands``, ``/answers``) and the routes that did not
+        (``/mcp``, ``/credentials``, ``/fork``, ``/asides``, ``/adopt``) reached
+        ``bind_runtime()`` on a latched daemon instead (review round 2, MAJOR-1).
+        The bridge-level call is a second pair of eyes, not the mechanism.
+
+        Delegates the QUESTION to the pool's probe rather than reading a flag of
+        its own, for the reason the probe exists: the answer changes once, mid-
+        life, in the daemon rather than in any bridge.
+        """
+        if self.retiring_probe():
+            raise DaemonRetiring(RETIRING_MESSAGE)
+
+    async def warm(self) -> str:
+        """Start a runtime for this session without submitting any work.
+
+        REFUSED WHILE LATCHED, before anything else: this is the one path that
+        SPAWNS a session runtime from this process (``warm_runtime`` below), and
+        a daemon that is about to exit must not start a runtime whose viewer
+        would follow it onto a dead address. The refusal is typed so the route
+        answers a named 503 rather than a 500 (see ``DaemonRetiring``), and it
+        is checked before the ``remote is None``/cold branches so a latched
+        daemon refuses uniformly rather than only when it happens to be cold.
+        The decision itself lives in :meth:`assert_admitting`, which this bridge
+        shares with the pool's door (``DesktopSessions.session``) — the routes
+        reach that door, this loop reaches this method, and both read one probe.
+
+        Returns the state at RETURN TIME — ``"warm"``, ``"warming"`` — never the
+        eventual outcome, because every caller fires this speculatively (a
+        keystroke, or a live visible watch lease) and has nothing to do with an
+        answer either way.
+
+        FIRE AND FORGET, DELIBERATELY. The engage runs in a detached task so the
+        HTTP response returns in the ~12-40 ms a warm send costs while the spawn
+        proceeds behind it. Awaiting the engage here would not remove the
+        ~1.15 s cold cost, it would only move it from the send to the warm — and
+        onto a request the renderer issues while the user is still typing.
+
+        IDEMPOTENT, AND ITS SAFETY IS THE LOCK'S, NOT THIS CHECK'S. Both early
+        returns are cost avoidance: an already-bound viewer needs no task, and
+        an engage already in flight needs no second one. If two warms raced past
+        ``engage_in_flight`` anyway, ``_ensure_bound``'s ``_bind_lock``
+        serialises them and the loser returns at its own ``is_cold`` check, so
+        two warms can never spawn two runtimes. Do not "strengthen" this into a
+        lock of its own: a second lock beside the one that already decides the
+        question is how the two answers drift apart.
+
+        THE ENGAGE LIVES ONLY AS LONG AS THE BRIDGE, which constrains the
+        CALLER and is not visible from this method alone. A bridge is
+        reference-counted; ``_detach()`` cancels the warm below so a spawn
+        cannot outlive the facade it was started against. The warm request is
+        itself a user of that bridge, so a warm issued while nobody else holds
+        one is cancelled the instant its own request releases — correct, and
+        also useless. It is not a problem for the real caller because the
+        renderer warms from a composer inside a mounted session panel, which
+        holds an events subscription for its whole life. A future change that
+        moves the warm outside that panel, or a probe that warms with no
+        subscription open, gets a warm that does nothing and a send that still
+        pays the full cold engage.
+
+        TWO CALLERS, ONE SPAWN PATH, AND ONE RETRY RULE. The renderer asks for
+        it explicitly (``POST /warm``, first keystroke — a user action, so this
+        path is never paced) and the lease-driven retry loop
+        (:meth:`_lease_warm_loop`, armed by :meth:`refresh_watch`) asks on
+        behalf of a live VISIBLE watch lease, so a session being looked at is
+        warm before the first click rather than after it. Both go through the
+        guards below and through ``_ensure_bound``; a third one is how two
+        answers to "is a runtime needed" would drift apart. The ``done()``
+        clause below is what lets the loop tell a settled attempt from a live
+        one, and it is deliberately NOT where the pacing lives: a retry that
+        no user is behind belongs to the loop, which owns the backoff.
+
+        THERE IS NO ``retire_if_unused`` COUNTERPART HERE, and its absence is a
+        decision rather than an oversight. The TUI offers its runtime back
+        because the TUI QUITS and must hand over before its socket dies. The
+        desktop app does not: a desktop attach only counts as an interactive
+        viewer while its watch lease is live AND the window says visible or
+        notifiable, so a warmed session the user navigates away from stops
+        counting and the runtime's own residency drain reaps it seconds later.
+        Calling ``retire_if_unused`` here would be a second mechanism beside a
+        working one, and a strictly worse one — it answers "no runtime attached"
+        whenever the client is None, which is precisely the state a bridge in
+        the middle of a warm is in.
+        """
+        self.assert_admitting()
+        remote = self.remote
+        assert remote is not None
+        if not remote.is_cold:
+            # A RESIDENT FACADE IS NOT EVIDENCE, and this is the receipt the
+            # operator's complaint turns on: with the owner SIGSTOPped a viewer's
+            # socket stays open, ``is_cold`` stays False, and this route answered
+            # ``200 {"state": "warm"}`` on 4/4 rows. A frozen process answers
+            # nothing, so the probe is what separates "warm" from "was warm when
+            # we last spoke" — and it is the SAME op the runtime already serves
+            # for liveness, not a second mechanism beside it.
+            #
+            # ``warming`` rather than a refusal on an unanswered probe: the
+            # session does have an owner and the engage is genuinely owed, so the
+            # honest answer is the one the cold arm already gives. What changes is
+            # that the receipt no longer claims the owner is CURRENT.
+            if await remote.verify_live(WARM_VERIFY_BUDGET_S):
+                return "warm"
+            # ``warming`` WITHOUT scheduling an engage, and the omission is the
+            # point: this facade already HAS an owner (that is what ``is_cold``
+            # False means) which merely did not answer. ``_schedule_warm`` would
+            # start a second engage for a session that already has a runtime —
+            # trading a false "warm" for a duplicated runtime, which is worse.
+            # What the receipt gives up is the CLAIM, not the dialect: the route
+            # still reports a state a renderer can act on.
+            return "warming"
+        self._schedule_warm()
+        return "warming"
+
+    def _schedule_warm(self) -> None:
+        """Start this session's speculative engage, unless one is already owed.
+
+        THE BODY OF :meth:`warm`, factored out for its SECOND caller: the retire
+        frame (:meth:`_on_runtime_retired`). Both callers need exactly the same
+        guards and the same one-task discipline — a copy of them beside
+        ``warm()`` is how two answers to "does this session need a runtime"
+        drift apart. A method of its own rather than a flag on ``warm()``
+        because a retire has no response to compose and no state to report: its
+        caller is a frame handler, not a route.
+
+        Returns nothing, deliberately. What an engage becomes is not knowable
+        here (that is `warm()`'s own docstring), and the retire path has nobody
+        to tell either way.
+
+        IT ASKS :meth:`assert_admitting` ITSELF rather than relying on its
+        callers, because one of them is a frame handler with no refusal to
+        compose: a daemon latched for retirement must not start a session
+        runtime from EITHER caller (``warm``'s own docstring states why). The
+        ``DaemonRetiring`` that raises is each caller's to handle — the route
+        answers its named 503, the lease loop ends its intent, and
+        :meth:`_on_runtime_retired` declines, because a daemon being replaced
+        owes this viewer no successor.
+        """
+        self.assert_admitting()
+        remote = self.remote
+        # ``None`` only while detached. `_detach()` clears the facade and cancels
+        # any task this could have started, so a frame arriving after it must not
+        # re-arm a spawn with no viewer left to release it — the leak the
+        # ``warm_task`` field is spent to prevent.
+        if remote is None or not remote.is_cold:
+            return
+        # TWO conditions, because they answer different questions and the
+        # second is not implied by the first. `engage_in_flight` samples the
+        # facade's bind lock; this one asks whether THIS BRIDGE already owns a
+        # live warm task. A second warm arriving while the first task exists
+        # but has not yet taken the lock -- a second HTTP request resumed out
+        # of `acquire()` ahead of the first task's first step, which two tabs
+        # make ordinary -- passes the predicate, and overwriting `warm_task`
+        # would orphan the first: it escapes `_detach()`'s cancel and is left
+        # to the weak-reference hazard the field's own comment names. Keeping
+        # exactly one referenced task is the point; `done()` lets a settled
+        # warm be retried, which matters because a failed engage leaves the
+        # viewer cold and the next keystroke should be free to try again.
+        if remote.engage_in_flight or (self.warm_task is not None and not self.warm_task.done()):
+            return
+        self.warm_task = asyncio.create_task(remote.warm_runtime())
+
+    def _on_runtime_retired(self) -> None:
+        """The runtime retired itself; engage its successor now.
+
+        Reached from ``AttachedSession._go_cold(refresh=True)``, i.e. from the
+        ``retiring`` frame, which the runtime sends with THE SAME MEANING for a
+        move and for a client-side build refresh: "a successor is owed; engage
+        one". The TUI has answered it since the build-refresh work landed
+        (``_on_runtime_refreshed``, installed at the same seam); the desktop had
+        no callback installed at all, so a retired runtime left the viewer cold
+        and the chip showing the OLD directory until the user's next send
+        happened to engage — the gap this feature's own move exposed.
+
+        A MOVE IS THE CASE THIS EXISTS FOR, AND IT IS THE ONE NOBODY ELSE
+        COVERS. A whole-daemon retirement (``server/retire.py``, a build update)
+        has its own mechanism and this callback deliberately declines during it:
+        ``_schedule_warm`` asks ``assert_admitting`` and the daemon being
+        replaced needs no successor spawned inside it. A session runtime retired
+        by the VIEWER — which is exactly what a move is — has nothing else: the
+        daemon is healthy, nobody is going to replace it, and the successor is
+        owed by this frame alone.
+
+        EAGER rather than lazy, for the reason the TUI is: the next prompt would
+        engage anyway (``_ensure_bound``), but nothing on the desktop surface
+        repaints the chip in the meantime, and the successor's own bind is what
+        publishes the new ``frontend.cwd``. Deferring the engage defers the one
+        event that settles the chip.
+
+        Runs ON THE EVENT LOOP, which is what lets it create a task directly:
+        it is called by the attach client's pump (`_on_disconnected` → this),
+        an async method on the loop thread. Cancellation stays correct because
+        the task it may create is the bridge's own ``warm_task``, which
+        ``_detach()`` cancels.
+        """
+        try:
+            self._schedule_warm()
+        except DaemonRetiring:
+            # The DAEMON is going, not just this runtime: it latched for
+            # retirement and a replacement is on its way. Engaging here would
+            # spawn a runtime whose viewer follows it onto a dead address, and
+            # the app reconnects to whatever replaces the daemon instead.
+            logger.debug("not re-engaging %s; the daemon is retiring", self.session_id)
+
+    async def _expire_watches(self) -> None:
+        while True:
+            remaining = [
+                s.expires
+                for s in self.subscribers.values()
+                if not s.overflow and s.expires > time.monotonic()
+            ]
+            if not remaining:
+                # LAST lease has expired. Returning here without a final
+                # refresh left the runtime holding whatever presence the
+                # previous pass asserted -- visible, notifiable -- for the rest
+                # of the session, because nothing else recomputes it once the
+                # loop is gone. The expiry that ends the loop is exactly the
+                # one the runtime still needs to be told about, and since
+                # round 3 it is told in the STRONGEST available form: the
+                # explicit withdrawal (see ``_withdraw_last_lease``), not a
+                # ``(False, False)`` renewal whose shape a transient stream
+                # end also carries.
+                with contextlib.suppress(ConnectionError, RuntimeError):
+                    await self._withdraw_last_lease()
+                return
+            await asyncio.sleep(max(0, min(remaining) - time.monotonic()))
+            with contextlib.suppress(ConnectionError, RuntimeError):
+                await self.refresh_watch()
+
+    async def _withdraw_last_lease(self) -> None:
+        """No live lease is left: withdraw it EXPLICITLY rather than by lapse.
+
+        THE EARLIEST MOMENT THIS LAYER CAN HONESTLY SAY "the pane left". A
+        transient renderer stream end is indistinguishable from a leave at the
+        stream boundary -- both close the subscriber -- and that churn is the
+        very incident this fix exists for, so the withdrawal waits for the
+        lease to run out: 45 s with no beat, with every beat in between keeping
+        the loop alive and cancelling this outcome. Sending it at the stream
+        pop instead would clear the runtime's session-scoped attach memory on
+        every restart and re-open the incident (and would flap the persisted
+        interactivity block on a host with no notification channel, whose live
+        hidden pane beats ``(False, False)``).
+
+        WHAT IT RECORDS OUTLIVES THE SEND: ``AttachedSession`` keeps the
+        withdrawal as the desired state for the next dial, so a runtime engaged
+        after the pane left starts detached instead of resurrecting a 45 s
+        attachment nobody holds (``session/attached.py::_dial``). The warm
+        intent is cleared here for the same reason the not-visible branch
+        clears it: no live lease means no pace is owed.
+        """
+        self._clear_warm_backoff()
+        remote = self.remote
+        if remote is None:
+            return
+        await remote.withdraw_desktop_watch()
+
+    def subscribe(self, *, frontend_replace: bool = False) -> DesktopSubscription:
+        """Register one event subscriber.
+
+        ``frontend_replace`` records whether this subscriber's renderer
+        understands the desktop-only ``frontend.replace`` frame. It defaults to
+        False, so a caller that does not know the flag negotiates nothing and
+        the move path treats it as a viewer that must not be left stale.
+        """
+        if len(self.subscribers) >= SUBSCRIBER_COUNT:
+            raise ValueError("Too many event subscribers")
+        if self.move_in_progress and not frontend_replace:
+            # FENCE DURING A MOVE (contract §C). A legacy subscriber arriving
+            # while the move is between its preconditions and its publication
+            # would be mounted across the one frame that tells a viewer the
+            # accepted directory, and would then be silently stale for the rest
+            # of its life. Refused rather than admitted: after publication the
+            # move is over and a fresh subscription gets the normal snapshot.
+            raise LegacySubscriberDuringMove(
+                "A working-directory move is in progress; this viewer cannot follow it. "
+                "Update the desktop app, then reconnect."
+            )
+        sub = DesktopSubscription(frontend_replace=frontend_replace)
+        self.subscribers[sub.id] = sub
+        return sub
+
+    async def events(
+        self, sub: DesktopSubscription, *, epoch: str | None, after_seq: int
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        try:
+            cutoff = self.sequence
+            first = self.replay[0][0]["seq"] if self.replay else cutoff + 1
+            gap = epoch != self.epoch or after_seq < first - 1 or after_seq > cutoff
+            replay = (
+                [f for f, _ in self.replay if after_seq < f["seq"] <= cutoff] if not gap else []
+            )
+            snapshot = await self.snapshot()
+            # THE PRE-OPEN WINDOW ENDS HERE, AND IT IS CLOSED SYNCHRONOUSLY.
+            # ``snapshot()``'s state and sequence are its last reads with nothing
+            # awaiting between them, so no frame can have been published after
+            # the watermark this loop compares against -- which is what makes the
+            # split below exact rather than a race: everything at or below the
+            # watermark is already inside ``frontend`` and is dropped as
+            # superseded, and anything above it is newer than the snapshot and
+            # must be delivered after it.
+            #
+            # The frames are drained BEFORE ``open`` is yielded, and ``opened``
+            # is set before the first yield of the handshake, so the overflow
+            # policy switches to backpressure at the same moment the subscriber
+            # stops being able to lose anything by eviction.
+            disconnected = False
+            # NOT `pending`: `events`'s `finally` uses that name for the
+            # exception still propagating through it (main's C5 diagnostic), and
+            # two different values under one name in one function is the kind of
+            # trap a reader pays for later. The rename is this branch's, so
+            # main's block stays byte-identical.
+            pending_frames: list[dict[str, Any]] = []
+            while True:
+                try:
+                    item = sub.queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    break
+                if item is None:  # ``close()``/``_disconnect`` ran mid-build
+                    disconnected = True
+                    break
+                frame, size = item
+                sub.queued_bytes -= size
+                if frame["seq"] > snapshot["seq"]:
+                    pending_frames.append(frame)
+            sub.opened = True
+            yield {
+                "session_id": self.session_id,
+                "epoch": self.epoch,
+                "seq": cutoff,
+                "type": "open",
+                "payload": {
+                    "subscription_id": sub.id,
+                    "gap": gap,
+                    "watch_ttl_seconds": WATCH_TTL,
+                },
+            }
+            # Replay receipts BEFORE the authoritative snapshot so cumulative
+            # record updates cannot repaint newer snapshot text with old deltas.
+            # The open frame is metadata, NOT permission to skip this replay.
+            for frame in replay:
+                yield frame
+            yield snapshot
+            for frame in pending_frames:
+                yield frame
+            if disconnected:
+                yield {"type": "gap", "session_id": self.session_id}
+                return
+            while True:
+                try:
+                    item = await asyncio.wait_for(sub.queue.get(), timeout=15)
+                except asyncio.TimeoutError:
+                    yield {"type": "heartbeat", "session_id": self.session_id}
+                    continue
+                if item is None:
+                    yield {"type": "gap", "session_id": self.session_id}
+                    return
+                frame, size = item
+                sub.queued_bytes -= size
+                if frame["seq"] > cutoff:
+                    yield frame
+        finally:
+            # ONE LINE PER ENDED SUBSCRIBER STREAM, NAMING THE REASON (C5).
+            # The drop storm this fix addresses had no readable cause anywhere:
+            # the runtime logged the socket dying, the app logged nothing, and
+            # "who ended the stream" had to be inferred from write-only
+            # bookkeeping. The reason is read from THIS frame's own state --
+            # the bridge closing, a subscriber marked overflowed by
+            # ``_disconnect``, or the exception (if any) still propagating
+            # through this ``finally``: ``GeneratorExit``/``CancelledError``
+            # are the ordinary client teardown, anything else is a relay
+            # error. Instrumentation only, and the POP is the only part of the
+            # cleanup this branch changed: where C5 logged and then dropped the
+            # subscription, the dwell below may now HOLD it instead (see
+            # RECONNECT_DWELL_S). The reason vocabulary is unchanged and still
+            # says what ended the stream; what happens next is the dwell's
+            # business.
+            pending = sys.exc_info()[1]
+            if self._closing:
+                reason = "bridge dispose"
+            elif sub.overflow:
+                reason = "subscriber overflow"
+            elif pending is not None and not isinstance(
+                pending, (GeneratorExit, asyncio.CancelledError)
+            ):
+                reason = f"relay error: {type(pending).__name__}"
+            else:
+                reason = "client disconnect"
+            # WARNING, NOT INFO, FOR THE REASON ``server/retire.py`` ALREADY
+            # RECORDS: the daemon's console logging runs at ``LOG_LEVEL``'s
+            # default WARNING, so three of these four reasons were written and
+            # never captured -- measured on the operator's daemon, 0 ``[INFO]
+            # local_operator`` lines in ``backend-service.log`` against 9,687
+            # WARNING+ ones. A line nobody sees is not a notice, and there is no
+            # second log to read: the daemon's stdout and stderr both land in that
+            # one file, and ``serve-1111.log`` does not exist.
+            #
+            # WHY NOT THE TWO OTHER ROUTES TO IT. ``LOG_LEVEL=INFO``
+            # (``local_operator/logger.py``, applied to the root logger by
+            # ``configure_console_logging``) would also capture the line, at the
+            # price of capturing every INFO line in the package to answer one
+            # question on a machine nobody reconfigures. A switch of this module's
+            # own is worse (F-C): this package has exactly one reader of the
+            # desktop environment -- ``desktop.desktop_posture`` -- and
+            # ``tests/unit/server/test_desktop_claim.py`` asserts it mechanically;
+            # a second read beside it, even for a trace flag, is the shape that
+            # guard exists to stop. Promoting the one line that carries the answer
+            # is the smallest of the three.
+            #
+            # WHAT IT SETTLES. The stream churn has two candidate drivers and on
+            # the operator's machine they are INDISTINGUISHABLE: the relief valve
+            # disconnecting a viewer (``subscriber overflow``) and the
+            # cancelled-teardown ordering that destroyed the facade before the
+            # dwell could arm (``client disconnect`` at the storm's cadence). Both
+            # rotate the epoch through the same ``_detach``, and the shipped client
+            # names the SSE close cause nowhere, so neither leaves a client-side
+            # trace. The words below are that discriminator, and the vocabulary is
+            # deliberately unchanged -- what changes is only whether it survives to
+            # a log.
+            #
+            # ONE LINE PER STREAM END, NEVER PER FRAME, AND DELIBERATELY NOT
+            # DAMPED: the RATE is the signal here -- the answer is a count of
+            # ``client disconnect`` against ``subscriber overflow`` over a window,
+            # so an interval that quieted repeats would sample the ratio this line
+            # exists to report. The rate is bounded by the churn itself (the
+            # measured storm: ~4 stream ends a minute, 60 opens over 14.6 minutes)
+            # and the file by its owner: the desktop app's log transport caps
+            # ``backend-service.log`` at 10 MB and rotates the overflow to
+            # ``backend-service.old.log`` (measured: 10.03 MiB beside the fresh
+            # file). If a future shape ever outran that bound, the pattern to
+            # reach for is the attention poll's transition damping above, not an
+            # interval on this line.
+            logger.warning(
+                "desktop stream ended for %s (sub=%s): %s",
+                self.session_id,
+                sub.id[:8],
+                reason,
+            )
+            # THE TRANSPORT IS GONE; THE BRIDGE NEED NOT BE. The stream is the
+            # bridge's only reference, so before the dwell this pop WAS a detach:
+            # the facade disposed, the epoch rotated and the client's ~500 ms
+            # reconnect paid for a full re-engage and a mandatory gap. Holding the
+            # subscription for RECONNECT_DWELL_S is what makes the reopen's
+            # `gap:false` a statement the replay can honour.
+            #
+            # `not sub.overflow` is not tidiness: an overflowed subscription is one
+            # the BRIDGE revoked -- a reader that fell behind, or a bridge closing
+            # -- and dwelling on it would invert the relief valve and keep a
+            # closing bridge alive. What dwells is a subscription that lost its
+            # transport with nothing against it. `sub.id in self.subscribers`
+            # excludes one another path already removed.
+            if RECONNECT_DWELL_S > 0 and not sub.overflow and sub.id in self.subscribers:
+                sub.dwelling = True
+                await self._arm_dwell(sub)
+            else:
+                self.subscribers.pop(sub.id, None)
+            # ASGI disconnect runs inside a cancelled anyio scope. Cleanup must
+            # still reach the runtime; otherwise a dead renderer leaves presence
+            # asserted until TTL expiry and the bridge never releases its socket.
+            with CancelScope(shield=True), contextlib.suppress(ConnectionError, RuntimeError):
+                await self.refresh_watch()
+
+
+@dataclass(frozen=True)
+class _LocatedSession:
+    """What one cold lookup resolved: a LOCAL directory, or a PEER's row.
+
+    ONE OBJECT RATHER THAN A TUPLE, because the remote case is not a second kind
+    of cwd: it is a different PLACEMENT, and the two readers below must be able
+    to tell them apart. A sentinel in ``marker_cwd`` (``""``, a magic string)
+    would be a spelling every later reader has to know, and the first one to
+    forget it is the one that starts reading a local transcript for an id whose
+    conversation is on another machine — the read ``mesh-session-mobility.md``
+    §3.4 forbids by name.
+
+    ``remote_row`` is a ``resume.SessionRow`` when a peer holds the id: the row
+    carries the owner device, the reachability verdict and the values the viewer
+    is seeded with (name, model, cwd), so the placement and the seed come from
+    ONE read rather than from two that can disagree.
+    """
+
+    cwd: str
+    #: The MARKER's own cwd, or ``None`` when the directory's value came from the
+    #: checkpoint fallback. Provenance, not decoration — see ``locate()``.
+    marker_cwd: str | None
+    #: Set when a PEER holds this conversation; ``None`` for one on this disk.
+    remote_row: SessionRow | None = None
+
+
+def _remote_page(rows: list[Any], *, limit: int) -> tuple[list[Any], bool]:
+    """The newest ``limit`` rows of ``rows``, and whether older ones remain.
+
+    The same shape ``read_transcript_page`` returns, expressed over the wire's
+    rows: a page is the TAIL of what the caller may see, and ``has_more`` means
+    "rows older than this page exist", never "this page is partial".
+    """
+    page = rows[-limit:] if len(rows) > limit else list(rows)
+    return page, len(rows) > len(page)
+
+
+def _wire_row_payload(row: Any) -> dict[str, Any]:
+    """One wire row projected into the desktop's transcript-entry payload.
+
+    THE SHAPE IS THE DURABLE ENCODER'S, not a new one: ``encode_message_payload``
+    writes every local journal row's payload (``exclude_defaults``, the id left to
+    the entry envelope that carries it, a ``kind`` telling a user/agent message
+    from a host-authored custom row), and the renderer already projects that shape
+    for both its durable pages and its wire deltas. A second spelling here would
+    be a second vocabulary for one screen.
+
+    THE IMAGE BYTES STAY INLINE, deliberately, and this is the one place the shape
+    differs from a local row's: a local row externalises a large block into THIS
+    device's store and leaves a digest, and this device has no digest to resolve
+    for a peer's conversation (that store is on the peer). The wire carried the
+    bytes inline for exactly that reason, so leaving them inline is what keeps the
+    image visible instead of degrading it to the "no longer in the transcript"
+    placeholder.
+    """
+    from local_operator.harness.types import CustomMessage
+    from local_operator.session.transcript import (
+        CUSTOM_KIND_CUSTOM,
+        CUSTOM_KIND_MESSAGE,
+    )
+
+    kind = CUSTOM_KIND_CUSTOM if isinstance(row, CustomMessage) else CUSTOM_KIND_MESSAGE
+    payload = row.model_dump(mode="json", exclude_defaults=True, exclude={"id"})
+    return {"kind": kind, **payload}
+
+
+class PeerSessionUnreachable(Exception):
+    """A PEER holds this conversation and this device cannot reach that device.
+
+    THE ONE CASE THE DESKTOP STILL REFUSES TO OPEN, and it is a refusal rather
+    than a failure on purpose (``mesh-ui.md`` §1.3): the row is visible, the
+    conversation exists, and a viewer built for it could never bind — so the
+    answer names the device, the reason in words and the remedy, and the route
+    maps it to the 409 ``session_is_remote`` the row already had.
+
+    TYPED HERE RATHER THAN RAISED AS AN HTTP EXCEPTION, because the pool is not a
+    route: the desktop routes, the phone daemon and the tests all reach it, and
+    the status belongs to whoever is speaking HTTP. ``service/routes`` maps it;
+    the sentence it carries is ``remote_open.unreachable_peer_sentence``, which is
+    the SAME composer the TUI refuses this exact state with — one situation,
+    one description, two surfaces.
+    """
+
+    code = "session_is_remote"
+
+    def __init__(self, session_id: str, row: SessionRow) -> None:
+        from local_operator.session.remote_open import unreachable_peer_sentence
+
+        super().__init__(unreachable_peer_sentence(session_id, row))
+        self.session_id = session_id
+        self.row = row
+
+
+class PeerAttachmentUnavailable(Exception):
+    """A row references an attachment that lives on the PEER's disk.
+
+    An image block in a peer's conversation references a digest in the store of
+    the device that holds the conversation, and this device cannot read that
+    store: the durable read here is the LOCAL content-addressed store, which is
+    empty for an id no local session directory exists for. So the answer is a
+    sentence rather than a traceback — a broken ``<img>`` beside a 500 tells the
+    user nothing, while this names the device and the reason the bytes are not
+    here.
+
+    DISTINCT FROM THE ORDINARY 404, which stays for a digest that resolves
+    nowhere at all on a LOCAL conversation: this one is about where the
+    conversation lives, not about a missing file.
+    """
+
+    code = "attachment_on_peer"
+
+    def __init__(self, session_id: str, row: SessionRow) -> None:
+        from local_operator.resume import UNNAMED_DEVICE
+
+        device = row.owner_label or UNNAMED_DEVICE
+        super().__init__(
+            f"{session_id}'s images are kept on {device}, which holds that "
+            "conversation; this desktop can only read attachments out of its "
+            "own store today, so this one cannot be shown here yet."
+        )
+        self.session_id = session_id
+        self.row = row
+
+
+#: How many times the OWNER's own ingest may be re-applied before the bytes this
+#: device sends are declared a fixed point of it.
+#:
+#: TWO IS THE MEASURED NORM: one pass bounds the image (``IMAGE_INGEST_MAX_EDGE``
+#: / the byte cap / a baked-in EXIF rotation), the second confirms the result is
+#: what the ladder returns for itself. The third is headroom for the one corner
+#: that is not obviously idempotent on inspection — line art, whose edge cap is
+#: ``IMAGE_MAX_EDGE`` and which could in principle come back as a JPEG that no
+#: longer reads as line art. Rather than argue the corner away, the loop is
+#: bounded and the corner is handled by :func:`_settle_on_the_owner_ingest`'s
+#: fallback below.
+_INGEST_SETTLE_PASSES = 3
+
+
+def _owner_ingest_once(payload: dict[str, str]) -> dict[str, str] | None:
+    """The bytes the OWNER's runtime would keep for this payload, or ``None``.
+
+    THE ONE DEFINITION OF THE TRANSFORM, imported rather than restated, and that
+    is the whole point of this function: ``session.runtime.server.image_blocks``
+    is what every incoming image goes through before admission
+    (``serving._image_blocks_async``), so asking IT what the owner will keep
+    cannot drift from what the owner actually keeps. It is also where the mime
+    comes from — the CONTENT, never the client's declared type.
+
+    ``None`` means the owner would DISCARD this image (``image_blocks`` drops
+    undecodable entries rather than failing the turn), which is a fact the caller
+    needs: sending bytes the owner will throw away is an attachment the user
+    watched leave and will never see again.
+
+    Lazy import, for the reason ``routes/desktop_sessions.decode_images`` states
+    about its own: the runtime's server module is a boot cost this one must not
+    add for every desktop backend.
+    """
+    from local_operator.session.runtime.server import image_blocks
+
+    blocks = image_blocks([{"data_b64": payload["data_b64"], "mime_type": payload["mime_type"]}])
+    if not blocks:
+        return None
+    block = blocks[0]
+    return {"data_b64": block.data, "mime_type": block.mime_type}
+
+
+def _settle_on_the_owner_ingest(
+    payload: dict[str, str],
+) -> tuple[dict[str, str], tuple[dict[str, str], ...]] | None:
+    """``(bytes to send, extra payloads to stage)`` for one image, or ``None``.
+
+    WHY A FIXED POINT RATHER THAN ONE PASS. The invariant the read depends on is
+    that the digest this device stages EQUALS the digest the owner journals, and
+    the owner journals ``image_blocks(what we sent)``. So what we send must be a
+    fixed point of that function: then the owner's ingest returns our bytes
+    unchanged, and the two digests are the same name by CONSTRUCTION rather than
+    by the coincidence that the shipped composer happens to bound at the same
+    1024 px (``bound-image.ts``'s ``IMAGE_MAX_EDGE``). One pass gets most images
+    there — including the 1025 px screenshot and the EXIF-rotated JPEG, whose
+    re-encode bakes the rotation into the pixels — and the second pass is the
+    proof rather than an assumption.
+
+    THE FALLBACK, for the pass bound being reached: the bytes to send are still
+    the last output, and the ONE payload the owner would make of them is staged
+    alongside, so whichever of the two names the owner's row carries resolves
+    here. It costs one blob in a corner nothing has reached, and it is strictly
+    better than a read that 409s on some photos.
+    """
+    current = dict(payload)
+    for _ in range(_INGEST_SETTLE_PASSES):
+        settled = _owner_ingest_once(current)
+        if settled is None:
+            return None
+        if settled == current:
+            return current, ()
+        current = settled
+    return current, ((_owner_ingest_once(current) or current),)
+
+
+def stage_images_in_store(root: Path | None, payloads: list[dict[str, str]]) -> None:
+    """Write already-owner-shaped payloads into ``root``'s attachment store.
+
+    THE READERS THIS IS FOR are ``DesktopSessions.attachment`` and its per-child
+    twin, and neither is a decoration: they are how a transcript row that carries
+    ``{"attachment": <digest>}`` becomes pixels on this device. A row written on
+    a PEER carries a digest whose bytes live in the peer's store (its runtime
+    externalised them into its own config dir — see
+    ``attachments.store_for_transcript_dir``), so a prompt this device SENT is a
+    picture this device could no longer show.
+
+    ONLY WHAT THE OWNER WILL EXTERNALIZE, gated by the same floor the transcript's
+    writer uses (``transcript._ATTACHMENT_FLOOR_BYTES``) rather than by a second
+    copy of the number. Under the floor the payload stays INLINE in the row and
+    every reader already has it; staging it would be a blob nothing references —
+    exactly the churn that floor exists to prevent.
+
+    Best effort, and silent: ``AttachmentStore.put`` is documented to answer
+    ``None`` instead of raising for undecodable input, a read-only home or a full
+    disk, and a mirror that could not be written must not fail a prompt the owner
+    would have admitted. The consequence of a miss is the refusal this device
+    answers with today (``PeerAttachmentUn``), never a lost turn.
+    """
+    from local_operator.session.transcript import _ATTACHMENT_FLOOR_BYTES
+
+    store = AttachmentStore(Path(root) / ATTACHMENTS_DIRNAME if root is not None else None)
+    for payload in payloads:
+        data = payload.get("data_b64") or ""
+        if not isinstance(data, str) or len(data) < _ATTACHMENT_FLOOR_BYTES:
+            continue
+        try:
+            store.put(data, str(payload.get("mime_type") or "image/png"))
+        except OSError as exc:  # noqa: PERF203 — one bad image costs that image
+            logger.debug("peer image could not be staged locally: %s", exc)
+
+
+def prepare_images_for_owner(
+    root: Path | None, images: list[dict[str, str]]
+) -> list[dict[str, str]]:
+    """Bound every wire image as the OWNER will, stage that, and hand back what to send.
+
+    THE RETURN VALUE IS THE FIX. This is not a mirror bolted beside the request —
+    it is the request's images, transformed on the way out: what this returns is
+    what the caller must put in the frame, and it is the same bytes that were
+    staged. Staging the raw wire payload instead was the round-1 defect: the
+    owner does not promise to keep what it is given, so for anything over
+    ``IMAGE_INGEST_MAX_EDGE`` (1024 px) or carrying an EXIF ``Orientation`` tag it
+    journals the digest of its OWN re-encode, and the device that sent the
+    picture still could not read it back.
+
+    THE INVARIANT, stated so a future reader can check it rather than trust it:
+    the digest IS the content key, and the bytes we send are a fixed point of the
+    owner's ingest (see :func:`_settle_on_the_owner_ingest`), so the name written
+    here and the name the owner's row carries are the same name for the same
+    bytes. What would break it: a reference that is not the content key (a
+    per-install id, a path); a store rooted where ``attachment`` does not look;
+    or the owner's ingest gaining a transform that is not a fixed point of
+    itself — a new ladder rung that re-encodes what it is given — which would
+    make this side's settled bytes diverge again.
+
+    An image the owner would DISCARD is dropped here rather than sent, because
+    the alternative is the same silent loss one layer down.
+
+    ``marker`` rides along when the producer knew one, so a sender-side refusal
+    still names the chip the user is looking at (``attach_client._refit_images``
+    reads it). The bytes it maps to are the bounded ones, which is what the
+    owner journals — the marker is a UI fact, not a payload one.
+    """
+    prepared: list[dict[str, str]] = []
+    for image in images:
+        if not isinstance(image, dict):
+            continue
+        data = image.get("data_b64") or image.get("data")
+        if not isinstance(data, str) or not data:
+            continue
+        settled = _settle_on_the_owner_ingest(
+            {"data_b64": data, "mime_type": str(image.get("mime_type") or "image/png")}
+        )
+        if settled is None:
+            logger.debug("a peer-bound image was dropped: the owner's ingest refuses it")
+            continue
+        send, extra = settled
+        stage_images_in_store(root, [send, *extra])
+        if image.get("marker") is not None:
+            send = {**send, "marker": image["marker"]}
+        prepared.append(send)
+    return prepared
+
+
+class SessionDeletionRefused(ValueError):
+    """A hard guard refused an explicit deletion, and nothing was removed.
+
+    A ``ValueError`` so it rides the route ladder's existing 409 arm rather than
+    adding a second refusal path beside it — that arm already answers typed
+    refusals with ``{"code", "message"}``, and this is one of them.
+
+    ``code`` is the machine contract and ``message`` is the SENTENCE the store
+    composed, and the two say different things on purpose: the code names the
+    condition (a client keys on it, and it does not vary by which guard fired),
+    while the sentence names the specific remedy — stop the session, cancel the
+    wake, read the mail, or reconcile a store whose guard could not be read.
+    A client that rendered the code would have to invent those four sentences
+    itself; a client that rendered only a status would tell the user nothing.
+
+    The same shape ``MoveIndeterminate`` and ``SubagentChildUnavailable`` use
+    one arm up, for the same reason: the reader distinguishes conditions by a
+    stable token and reads a human sentence beside it.
+    """
+
+    code = "session_delete_refused"
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+
+
+class SubagentChildUnavailable(Exception):
+    """A child-route URL does not name a readable child of that conversation.
+
+    ONE refusal for every containment failure — a malformed id, a parent that
+    is not the user's session, a child the parent never launched, a directory
+    whose origin marker is not ``subagent``, a record pointing outside
+    ``sessions/``. The caller learns that this pair is unreadable and nothing
+    else, which is the point: separate refusals would let an authenticated
+    renderer walk ids and use the difference between "no such session" and "not
+    a child of this one" to enumerate the machine's session store.
+
+    ``child_not_found`` is the code design § 9.1 fixes, and it is RETRYABLE: a
+    runtime snapshots its roster asynchronously, so a child launched inside the
+    last write window is briefly missing from the persisted record. A reader
+    that re-probes on its next pulse (the sidebar's 1 Hz child read) resolves
+    that case without any special handling, which is why the route does not
+    distinguish it from a permanent refusal.
+    """
+
+    code = "child_not_found"
+
+    def __init__(self) -> None:
+        super().__init__("That subagent does not belong to this conversation.")
+
+
+def _persisted_children(parent_dir: Path) -> list[Any]:
+    """The records of the children a conversation launched, from its own store.
+
+    The roster is the ownership record for a child read (design § 9.1), and it
+    is read the way every other reader reads it rather than through a query of
+    this module's invention:
+
+    * the roster SIDECAR, replaced atomically by
+      ``Session._persist_subagent_roster`` on every roster move — the store a
+      current runtime writes; then
+    * the legacy ``subagent_roster`` transcript custom entry, written once by
+      builds that predate the sidecar, so a conversation last run by one of
+      those still opens its children — **accepted only when it was appended
+      after this session's fork boundary**.
+
+    That is exactly ``Session._load_subagent_roster``'s order AND its fork
+    guard, deliberately not re-derived here: two readers of one ownership
+    record that disagree is the defect ``session/restored_rows.py`` exists to
+    prevent, and the fork case is where this reader used to be the one that
+    disagreed (review round 1, R1-1). ``fork_session`` CLONES the parent's
+    transcript — so the parent's entry is present VERBATIM in the fork — while
+    ``fork.EXCLUDED_SIDECARS`` leaves the sidecar behind. Without the guard a
+    fork inherits the original's children as its own and can read them through
+    its own route; with it, only a fork's OWN roster (written after
+    ``forked_at``) counts. Re-stamping the sidecar happens on the fork's first
+    roster move, so the fallback is what a fresh fork rides until then.
+
+    The design's ``subagent_roster`` custom-entry wording predates the v0.40.0
+    sidecar; the sidecar holds the same ``records`` list and is newer, so it is
+    consulted first and the entry is the fallback, never the other way round.
+
+    Runs off the event loop like every other reader here. It used to construct a
+    ``Transcript`` for the legacy fallback, which parsed the parent's whole
+    journal; it now takes the same backward one-row read the rest of this module
+    does (``read_latest_custom_entry``), so the roster read is bounded by the
+    distance from EOF to the newest roster row rather than by the journal, and a
+    roster read must not block the loop a streaming turn is using either way.
+    """
+    from local_operator.fork import fork_instant
+    from local_operator.session.session import (
+        SUBAGENT_ROSTER_CUSTOM_TYPE,
+        SUBAGENT_ROSTER_SIDECAR,
+        _read_roster_sidecar,
+    )
+
+    payload = _read_roster_sidecar(parent_dir / SUBAGENT_ROSTER_SIDECAR)
+    if payload is None:
+        # The entry's TIMESTAMP is the half of the fork rule the sidecar makes
+        # unnecessary: an entry at or before ``forked_at`` belongs to the
+        # conversation this one was cloned from.
+        entry = read_latest_custom_entry(parent_dir, SUBAGENT_ROSTER_CUSTOM_TYPE)
+        forked_at = fork_instant(parent_dir)
+        if entry is None or (forked_at is not None and not entry.ts > forked_at):
+            return []
+        payload = dict(entry.payload.get("details", {}))
+    return list(roster_records(payload))
+
+
+def _contained_child_dir(root: Path, session_id: str, child_id: str) -> Path:
+    """The directory of ``child_id`` as a child of ``session_id``, or refuse.
+
+    This is the whole containment proof of the child read route (design § 9.1),
+    and every clause carries weight. It is a new READ PATH ACROSS A TRUST
+    BOUNDARY — the renderer holds an absolute ``session_dir`` on the wire and
+    must never be able to ask for one — so the route proves membership here, in
+    the server, and the caller asserts nothing:
+
+    * **Both ids are ids, never paths.** The same 12-hex-character shape the
+      whole desktop surface validates a session on. Checked before any path is
+      built, so a crafted value cannot reach ``sessions/`` through ``..`` (a
+      directory name is not a legal id).
+    * **The parent is the user's own conversation.** A child route scoped to a
+      subagent or a fork would make the graph reachable from either end; only a
+      conversation the user opened may name its children (``is_user_session``).
+    * **The parent's persisted roster names this child.** Membership is not
+      inferred from the directory layout, because every session directory looks
+      alike on disk; the parent has to have recorded the launch. The record's
+      ``session_dir`` must point at exactly ``sessions/<child_id>`` with the
+      resolved sessions root as its parent, so a hand-edited record cannot
+      redirect a read outside the store.
+    * **The target resolves inside the store.** The id cannot be a path, but the
+      DIRECTORY it names can be a link, and the store is writable by anything
+      running as the user — so a symlinked ``sessions/<12-hex>`` would take the
+      read (and the checks below) out of the store while every clause above
+      still passed (review round 1, R1-2). The path is resolved and the
+      resolved path is what the rest of this function — and the caller — then
+      treats as the child, so the thing checked is the thing read. That is the
+      same gate ``session/cleanup.py`` applies before it removes a directory
+      and the legacy chat route applies before it opens a file.
+    * **A child that is still on disk is marked a subagent.** Reversing the
+      parent's rule: a user conversation or a fork must be unreadable through
+      this route even if it somehow appears in a roster. A directory that is
+      ABSENT is not refused here — the caller answers that with the derived
+      ``gone`` state, which is the one case where the absence itself is the
+      answer. A path that EXISTS and is not a directory is not a child session
+      at all, so it is refused too rather than reported as ``gone``: it claims
+      a deletion that never happened (review round 1, R1-5).
+
+    Deliberately does NOT acquire a desktop bridge: answering must never start,
+    attach to or wake a runtime. The live comms graph may *confirm* membership
+    when the runtime happens to be attached, but nothing here reads it — a
+    route that a paused session answers identically is a route with no second
+    behaviour to test.
+    """
+    sessions = root / "sessions"
+    if not SESSION_ID.fullmatch(session_id) or not SESSION_ID.fullmatch(child_id):
+        raise SubagentChildUnavailable()
+    parent_dir = sessions / session_id
+    if not parent_dir.is_dir() or not is_user_session(parent_dir):
+        raise SubagentChildUnavailable()
+    resolved_root = sessions.resolve()
+    try:
+        child_dir = (sessions / child_id).resolve()
+    except (OSError, RuntimeError):
+        # A path that cannot be resolved (a symlink loop) is not a child.
+        raise SubagentChildUnavailable() from None
+    if not child_dir.is_relative_to(resolved_root):
+        raise SubagentChildUnavailable()
+    named = False
+    for record in _persisted_children(parent_dir):
+        raw_dir = record_field(record, "session_dir")
+        if not raw_dir:
+            continue
+        candidate = Path(str(raw_dir).rstrip("/"))
+        if candidate.name == child_id and candidate.parent.resolve() == resolved_root:
+            named = True
+            break
+    if not named:
+        raise SubagentChildUnavailable()
+    if child_dir.exists() and (
+        not child_dir.is_dir() or session_origin(child_dir) != ORIGIN_SUBAGENT
+    ):
+        raise SubagentChildUnavailable()
+    return child_dir
+
+
+def _persisted_child_for_job(parent_dir: Path, job_id: str) -> str:
+    """The child SESSION id the parent's own record gives for one job, or ``""``.
+
+    The second half of the job containment proof (see
+    :func:`_contained_child_job`), and it exists for exactly one case: a job row
+    whose live lineage is GONE. The comms registry is where a roster row's
+    ``session_id`` comes from, and a child that settled long enough ago may have
+    been swept out of it while its transcript — and therefore a reader's right to
+    open it — is still on disk. A row with no child id would otherwise be refused
+    as unreadable, which is a false refusal about a child the parent itself
+    launched and recorded.
+
+    The record's ``session_dir`` is reduced to its NAME rather than trusted as a
+    path, and the caller then resolves ``sessions/<name>`` and re-applies the
+    containment and origin checks. A hand-edited record can therefore name only
+    another directory inside ``sessions/`` — and a name that points at a
+    non-child is refused there, by the check that is load-bearing regardless of
+    which roster supplied the id.
+    """
+    for record in _persisted_children(parent_dir):
+        if str(record_field(record, "job_id", "") or "") != job_id:
+            continue
+        named = str(record_field(record, "session_id", "") or "")
+        if named:
+            return named
+        raw_dir = record_field(record, "session_dir")
+        if raw_dir:
+            return Path(str(raw_dir).rstrip("/")).name
+    return ""
+
+
+def _contained_child_job(root: Path, session_id: str, job_id: str, roster: Sequence[Any]) -> Any:
+    """The roster row of ``job_id`` as a contained child JOB of ``session_id``, or refuse.
+
+    The job-keyed sibling of :func:`_contained_child_dir`, and the two answer
+    different questions: that one proves "this session directory is a child this
+    conversation launched", which is what needs a page of its transcript; this
+    one proves "this JOB row is one of this conversation's children", which is
+    what needs a subscription to its live events. Keying the subscription on the
+    child's session id instead would force the bridge to resolve "the job for
+    this child" itself, and a child with a superseded attempt has TWO job ids over
+    one directory — the reader holds one of them and would be shown the other
+    attempt's events, silently.
+
+    Every clause carries the weight that function's docstring states, and two of
+    them differ on purpose:
+
+    * **Membership comes from the parent's LIVE roster first** (``roster``, the
+      session's own canonical job rows as its owner published them) and from the
+      parent's persisted record second (:func:`_persisted_child_for_job`). The
+      live half is the stronger witness where it exists — it is the running
+      session's own job table, so a launch is in it the moment it is admitted,
+      with no write window — and it is the only half that can answer for a child
+      whose directory is not materialised yet. What the roster must never be is
+      the CALLER's claim: it is read from the owner's canonical state, never from
+      the request.
+    * **The child's directory may be absent.** A trajectory lives on the JOB, in
+      memory, so a child that has not written a directory yet is still
+      followable. As in :func:`_contained_child_dir`, an ABSENT directory is not
+      a refusal; what is refused is a path that exists and is not a subagent
+      child.
+
+    Deliberately does NOT read the filesystem beyond the paths above: this is the
+    gate in front of a subscription, so it runs before anything is attached,
+    fetched or woken.
+    """
+    sessions = root / "sessions"
+    if not SESSION_ID.fullmatch(session_id) or not JOB_ID.fullmatch(job_id):
+        raise SubagentChildUnavailable()
+    parent_dir = sessions / session_id
+    if not parent_dir.is_dir() or not is_user_session(parent_dir):
+        raise SubagentChildUnavailable()
+    row = next((job for job in roster if str(getattr(job, "id", "")) == job_id), None)
+    child_id = str(getattr(row, "session_id", "") or "") if row is not None else ""
+    if not SESSION_ID.fullmatch(child_id):
+        child_id = _persisted_child_for_job(parent_dir, job_id)
+    if not SESSION_ID.fullmatch(child_id):
+        raise SubagentChildUnavailable()
+    resolved_root = sessions.resolve()
+    try:
+        child_dir = (sessions / child_id).resolve()
+    except (OSError, RuntimeError):
+        # A path that cannot be resolved (a symlink loop) is not a child.
+        raise SubagentChildUnavailable() from None
+    if not child_dir.is_relative_to(resolved_root):
+        raise SubagentChildUnavailable()
+    if child_dir.exists() and (
+        not child_dir.is_dir() or session_origin(child_dir) != ORIGIN_SUBAGENT
+    ):
+        raise SubagentChildUnavailable()
+    if row is None:
+        # A job only the persisted record knows cannot be followed: the live
+        # roster is what carries the row a subscription is keyed on, so an
+        # answer here would be a subscription nobody could read the result of.
+        raise SubagentChildUnavailable()
+    return row
+
+
+def _absent_child_page(state: str, *, before_id: str | None = None) -> dict[str, Any]:
+    """The envelope for a child with no readable rows: ``pending`` or ``gone``.
+
+    ``cursor_missing`` mirrors ``DesktopSessionBridge.history``'s
+    ``FileNotFoundError`` branch instead of being hardcoded ``False``: a caller
+    that paged backwards from a cursor into a transcript that is no longer
+    there is in the same position as one whose cursor a compaction replaced,
+    and the envelope's documented answer to both is "re-read the tail and
+    dedupe by id".
+    """
+    return {
+        "entries": [],
+        "has_more": False,
+        "cursor_missing": bool(before_id),
+        "state": state,
+    }
+
+
+def _first_occurrence_window(rows: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One retained window with each ``_lo_seq`` kept once, at its first position.
+
+    WHY THIS EXISTS (measured, not theorised). The seed a reader receives is read
+    back out of the follower's canonical window, and that window is grown by the
+    SAME attach connection that is relaying the deltas: ``watch_job`` lands
+    before the page fetch, and the owner computes each delta against ITS previous
+    published window, so a run of rows emitted between the owner's last publish
+    and the seed's install arrives twice — once inside the seed and once as an
+    append. 16 opens on a live child reproduced it on every open after the first
+    (17 rows for 15 distinct stamps, ``[(12,'turn_start'), (13,'message_start'),
+    (12,'turn_start'), (13,'message_start')]``), and a client that folds the rows
+    as delivered paints the repeated ones twice. The row a reader cannot lose
+    twice is ``message_update``: the reducer has no content-based dedupe by
+    design ("the the" is legitimate text).
+
+    FIRST OCCURRENCE WINS, and that is the whole rule: the extra copy is always
+    the LATER one (the append that overtook the seed), so keeping the first
+    occurrence keeps the window's own order — the seed is deduplicated, never
+    re-ordered and never re-stamped. Rows WITHOUT a stamp (an older runtime, a
+    restored roster row, a hand-built fixture, which readers must tolerate) are
+    kept as they are: identity is what makes the rule possible, and position
+    stays the documented fallback for a reader holding them.
+
+    Only the SEED goes through this. An append may still repeat a row the seed
+    already carried — the owner re-delivers from its own last published window
+    and does not know what a given reader has — which is exactly why the
+    documented rule is a stamp watermark rather than a position.
+    """
+    seen: set[int] = set()
+    window: list[dict[str, Any]] = []
+    for row in rows:
+        stamp = row.get(TRAJECTORY_SEQ_KEY)
+        if isinstance(stamp, int):
+            if stamp in seen:
+                continue
+            seen.add(stamp)
+        window.append(row)
+    return window
+
+
+def _unavailable_child_trajectory(reason: str) -> dict[str, Any]:
+    """The reply for a child job whose live window cannot be handed over.
+
+    One shape for both reasons, with the reason a TOKEN: the reader decides
+    between "retry on the next pulse" (``no-owner``) and "stop asking"
+    (``unsupported``), and a client that had to match prose would decide wrong
+    the first time the copy changed.
+    """
+    return {
+        "rows": [],
+        "base_seq": None,
+        "total": 0,
+        "trajectory_length": 0,
+        "watchers": 0,
+        "joined": False,
+        "available": False,
+        "reason": reason,
+    }
+
+
+@dataclass(frozen=True)
+class SessionPage:
+    """One page of rows, and the pinned conversations the page does not carry.
+
+    WHY A SECOND POPULATION EXISTS. Older than the page means unrendered, and
+    a pin is the one fact in a listing that the user chose rather than the
+    recency window produced: on a store bigger than the client's page — which
+    is the ordinary case, not an edge one — a pin made on an older conversation
+    would otherwise have no row anywhere in the app, with no count and no trace
+    of it. The operator's store is the measured case: 5,267 sessions against a
+    500-row page.
+
+    The TUI reports the same FACT differently, which is why this is not simply
+    the desktop half of one promise. A TUI SIDEBAR holds its whole listing and
+    draws only a window of it, so an off-page pin is COUNTED there —
+    ``+N more pinned — scroll`` — and reachable by scrolling; it does not draw
+    its row either. A client that holds one page has no scroll to offer and no
+    listing to count against, so the row itself has to come with the answer.
+    (``pinned_hidden_ids``, the parameter that sentence is usually about, is the
+    other axis entirely: it keeps a HIDDEN session resolvable in the entries a
+    sidebar scrolls, where a hidden id is absent because the catalogue never
+    built it. An off-page id IS built and is dropped by the ``limit`` slice.)
+
+    TWO LISTS, NOT ONE, and the route concatenates them for the wire. They are
+    kept apart here because they answer different questions and only the caller
+    knows how it wants them framed: ``rows`` is the page a ``limit`` describes,
+    ``pinned_off_page`` is everything below it that the user pinned. The wire
+    answer is their concatenation, which is also RANK ORDER — every extra ranks
+    below every page row by construction — so a client that renders the two as
+    one list needs no sort and no marker field.
+
+    ``truncated`` keeps its original meaning — the ranking held more rows than
+    the page — and deliberately says nothing about the extras: a client uses it
+    to know whether more history exists, and an appended pin is a row it may
+    already be holding rather than history it has not seen.
+    """
+
+    rows: list[dict[str, Any]]
+    pinned_off_page: list[dict[str, Any]]
+    truncated: bool
+    #: The sessions OTHER devices hold, present only for a listing that asked for
+    #: them (``include_peers``). A SEPARATE FIELD rather than concatenated here, and
+    #: the route concatenates: ``rows`` is the page a ``limit`` describes and
+    #: ``truncated`` is a verdict about it, so folding a population that no ``limit``
+    #: governs into the same list would make the count mean two things — the trap
+    #: ``pinned_off_page`` already documents one level up. ``truncated`` says nothing
+    #: about these rows, deliberately: a peer's catalogue is not this device's history.
+    remote: list[dict[str, Any]] = field(default_factory=list)
+    #: The position to resume this page from, or ``None`` at the end of the scope.
+    #: Defaulted rather than required so a caller that only reads ``rows`` (the
+    #: existing tests and the TUI's own path) keeps constructing this unchanged.
+    next_cursor: str | None = None
+    #: The request carried a cursor that could not be used, so this page is the
+    #: scope's FIRST one. Not an error -- see ``SessionList.cursor_missing``.
+    cursor_missing: bool = False
+    #: The per-group census, present only when the caller asked for it, already in
+    #: the wire shape (``SessionList.counts``): the adapter owns every row's wire
+    #: shape, and the counts are one more answer about the same rows.
+    counts: dict[str, Any] | None = None
+
+
+def _counts_payload(census: ScopeCensus | None) -> dict[str, Any] | None:
+    """The census in the wire shape (``ScopeCounts``), or ``None`` if unasked.
+
+    Mapped HERE rather than in the route, for the reason every other wire shape on
+    this path lives here: the adapter owns what an answer looks like, and the
+    counts are one more answer about the same rows. ``None`` stays ``None`` rather
+    than becoming an empty census, so "this request did not ask" and "this store
+    holds nothing" stay different answers (the second is ``total: 0``).
+    """
+    if census is None:
+        return None
+    return {
+        "total": census.total,
+        "active": census.active,
+        "unbound": census.unbound,
+        # Order is the census's own (``-total, kind, name``) and is NOT re-sorted
+        # here: a second ordering authority is how two readers come to disagree
+        # about what "the biggest group" is.
+        "scopes": [
+            {
+                "kind": tally.kind,
+                "name": tally.name,
+                "total": tally.total,
+                "active": tally.active,
+            }
+            for tally in census.scopes
+        ],
+    }
+
+
+#: How long a minted draft stays resolvable, in seconds. Long enough to cover a
+#: user typing a first message (the mint fires on the pane's first keystroke),
+#: short enough that an abandoned pane's registry entry does not outlive the
+#: runtime a warm for it started (that runtime's own idle drain is the shorter
+#: clock; this is the backstop for a pane that closed before any warm).
+DRAFT_TTL_S = 1800.0
+
+#: How many registered drafts ONE daemon holds. Minting at the cap evicts the
+#: OLDEST, the same "bounded, and the newest is the one in use" reasoning as
+#: ``BRIDGE_COUNT`` — with the same honest cost: an evicted draft's warm is
+#: wasted (its runtime drains unowned) and its ``create`` falls back to a fresh
+#: id, exactly as an expired one does.
+DRAFT_COUNT_MAX = 32
+
+
+@dataclass
+class _Draft:
+    """One minted, not-yet-materialised new-chat pane; in-memory only.
+
+    THE STATE IS DELIBERATELY MINIMAL (spec §1.2): the birth selection ``create``
+    will persist into the marker, the cwd the pane's bridge opens on, and when
+    it was minted. A minted but never-warmed pane costs one dict entry — no
+    directory, no marker, no runtime record (mint writes no files).
+
+    NO ``target``, AND NO ``request_id``, DELIBERATELY (round-1 review N1). The
+    create body stays authoritative for ``cwd``/``target``/``model`` — the
+    draft supplies the ID and the warm and nothing else (spec §1.4) — and retry
+    safety is the ROUTE's receipt row (``draft:<request_id>``), which a replay
+    answers without ever touching this registry. Storing either would read as
+    load-bearing state that nothing loads; ``target`` is still VALIDATED by
+    ``mint_draft`` (its admission is a parameter, not a stored field) because
+    the mint documents the same refusals ``create`` gives.
+
+    ``model`` is the NORMALISED spec (``_draft_model_spec``'s answer), never the
+    raw wire selection: it is the same type ``draft_birth_selection`` reads back
+    out of the marker after ``create`` writes it, and it is handed to the facade
+    in exactly that shape.
+    """
+
+    draft_id: str
+    cwd: str
+    model: ModelSpec | None
+    created: float
+
+
+class DraftAlreadyMaterialised(ValueError):
+    """``create`` named a draft id whose session already exists on disk.
+
+    THE REFUSAL, not a fallback: minting fresh here would answer a create that
+    named a conversation with a DIFFERENT, empty one, and "create onto an
+    existing conversation" must never answer with someone else's id (spec
+    §1.4). The draft cannot be "used" either — it was consumed by the create
+    that materialised it — so the only honest answer is to say so.
+
+    A ``ValueError`` so it rides the route ladder's refusal arms, with its own
+    child of that ladder rendering it as the 422 the spec fixes; ``code`` is the
+    machine contract and the sentence names the remedy (open the conversation
+    the draft already became).
+    """
+
+    code = "draft_already_materialised"
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+
+
+class DesktopSessions:
+    """Bounded adapter cache; canonical identity lives in the session directory."""
+
+    def __init__(self, root: Path, *, retiring: Callable[[], bool] | None = None) -> None:
+        self.root = root
+        self.bridges: dict[str, DesktopSessionBridge] = {}
+        self.lock = asyncio.Lock()
+        #: Session ids with at least one caller inside the HANDOUT window — from
+        #: the moment this pool resolves a bridge for them to the moment that
+        #: caller's first ``acquire()`` returns. Eviction skips a session in this
+        #: window (``_evictable``), which is what replaced "the pool lock is held
+        #: across ``acquire()``, so no other caller can run evict". Counted per
+        #: session rather than flagged on the bridge because a caller is in the
+        #: window BEFORE its bridge exists (the cold path) and because two
+        #: concurrent callers for one session must not clear each other's claim.
+        #: Mutated only from the event loop, and never across an ``await``.
+        self._handouts: dict[str, int] = {}
+        #: The COLD LOOKUP single-flight: ``session id -> (loop, task)`` for a
+        #: ``locate()`` that is already running. The task is the pool's own
+        #: ``asyncio.to_thread(locate)``, so a second caller for the same cold
+        #: session awaits the read instead of starting a second one — and, since
+        #: the read is what constructs the opening ``cwd``, one session cannot be
+        #: built twice. The loop is carried so an entry left behind by a torn-down
+        #: test loop reads as ABSENT rather than as a future bound to a dead loop
+        #: (the ``RuntimeError`` ``tests/unit/tui`` would otherwise hit
+        #: intermittently); the done-callback removes the entry, which is what
+        #: makes a cancelled LEADER harmless — the task itself is never cancelled
+        #: by a waiter (``asyncio.shield``), so it still settles and still
+        #: publishes.
+        self._locate_flights: dict[
+            str, tuple[asyncio.AbstractEventLoop, asyncio.Task[_LocatedSession]]
+        ] = {}
+        # Whether the DAEMON this pool serves has LATCHED against new work, asked
+        # rather than cached: the answer changes once, mid-life, and both the
+        # refusal (``assert_admitting``) and every bridge this pool hands out
+        # must see it. Defaulted so the many reduced ``DesktopSessions(root)``
+        # constructions (tests, embedded apps) behave exactly as before.
+        self.retiring_probe = retiring or _never_retiring
+        #: This daemon's registered DRAFTS, by draft id (spec §1.2). IN-MEMORY
+        #: ONLY and lost on restart by design — a draft is a warm intent, not
+        #: durable state, so the UI's stale id simply hits the "unknown" rule
+        #: and its create mints fresh. Mutated only from the event loop and
+        #: never across an ``await`` (mint, ``create``'s consume, TTL pruning),
+        #: so every read-then-write is atomic on the loop and no lock is needed
+        #: — the pool lock answers a different question (which bridges are
+        #: resident), and taking it here would put a dict lookup on every
+        #: ordinary door call behind it.
+        self.drafts: dict[str, _Draft] = {}
+        #: Ids whose create has CONSUMED the draft and not yet published the
+        #: marker (added at consumption, discarded when ``persist`` returns or
+        #: raises). The window is sub-millisecond-to-low-milliseconds here
+        #: (round-2 review R2-1) and it exists so a door ask inside it keeps
+        #: serving the pane's resident bridge: without it, ``session()``'s
+        #: dead-draft branch read "entry gone, no marker" as death while the
+        #: truthful reading was "create is in flight". Loop-only mutation, like
+        #: ``self.drafts``.
+        self._materialising: set[str] = set()
+
+    def assert_admitting(self) -> None:
+        """Raise ``DaemonRetiring`` when this daemon has LATCHED against new work.
+
+        THE ADMISSION PATH for everything session-scoped, and the only one: this
+        pool's ``session()`` — the door EVERY desktop route obtains its bridge
+        through, so the whole plane is covered by construction (review round 2,
+        MAJOR-1) — and ``create`` (a new session, which needs no bridge) ask this
+        question, so "what does a retiring daemon refuse" has exactly one answer.
+        ``DesktopSessionBridge.assert_admitting`` is the same question for the
+        callers that never come through a route (``warm``'s lease loop).
+
+        NOT raised while the daemon is merely ANNOUNCED: the announcement's only
+        job is to tell an attached client to let go, and a daemon that refused
+        work the instant it announced would be unusable for however long that
+        client took to react. The latch follows the empty drain
+        (``server/retire.py``).
+
+        ONCE LATCHED IT REFUSES READS AS WELL, because a session-scoped request
+        handed to a process that has told its readers to leave can only be served
+        by the build it is leaving; the record plane (``GET /v1/desktop/sessions``,
+        ``GET /health``, the record file) is a different surface and keeps
+        answering until the clean exit removes it, which is what lets a reader
+        observe the handover.
+        """
+        if self.retiring_probe():
+            raise DaemonRetiring(RETIRING_MESSAGE)
+
+    def in_flight_reason(self) -> str | None:
+        """Why the DESKTOP plane is still using this daemon, or ``None``.
+
+        Multiple terms, all things an exit would CUT rather than pause, all read
+        off the live bridges:
+
+        * **An in-flight HTTP operation** — any bridge with ``users > 0``. Every
+          desktop route runs inside ``session()``, which brackets the request
+          with ``acquire()``/``release()`` (``DesktopSessionBridge.acquire``),
+          so a non-zero count means a client is holding this bridge open RIGHT
+          NOW. For a request that is building a response that is a few tens of
+          milliseconds; for the app's event stream it is the whole life of the
+          view (see below), and this docstring used to claim the first while
+          meaning only it.
+        * **A STANDING attachment** — the same ``users`` term, held by
+          ``GET /v1/desktop/sessions/{id}/events``, which acquires the bridge
+          before it returns response headers and releases it only when the
+          stream tears down: an unbounded, replayable relay with no turn
+          boundary and no TTL. This is the term that decides the SHAPE of the
+          daemon's retirement — the announcement has to precede the drain,
+          because this stream is only released when the client decides to
+          (``server/retire.py``'s module docstring).
+        * **An open attach with a LIVE watch lease** — a window is looking at
+          this session (``DesktopSessionBridge._live_leases``, renewed by
+          ``watch`` and expiring after ``WATCH_TTL``, which the app renews every
+          15 s): the operator's "a viewer is never pulled out from under" rule
+          applied to the process that serves it. Counts whether or not the
+          window is visible or focused.
+        * **A runtime being started** — a bridge with a warm task still
+          running (``DesktopSessionBridge.warm_task``, set by ``warm`` and by
+          the lease-driven retry loop). A spawn is a handshake with a child
+          process that takes ~1.2 s; exiting in the middle of one leaves the
+          engage unfinished against a successor that has no idea it was
+          running. Bounded by the engage's own attempt budget, and not covered
+          by ``users`` — ``warm`` is fire-and-forget and answers the request
+          before the handshake completes.
+
+        Read WITHOUT ``watch_lock`` on purpose, and that is safe: this is a
+        synchronous filter over an in-process dict on the event loop, so it
+        cannot interleave with a mutation. The lock ``_live_leases``'s other
+        callers take guards the ACTIONS they then take on the result, not the
+        read itself — and taking it here would let a busy warm hold up the
+        retirement poll.
+        """
+        for bridge in list(self.bridges.values()):
+            if bridge.users:
+                return f"{bridge.users} in-flight desktop request(s) on {bridge.session_id}"
+            if bridge._live_leases():
+                return f"a desktop window watching session {bridge.session_id}"
+            if bridge.warm_task is not None and not bridge.warm_task.done():
+                return f"a runtime being started for session {bridge.session_id}"
+        return None
+
+    def reload_blocker(self) -> str | None:
+        """Why an in-place RELOAD should wait, or ``None``.
+
+        DELIBERATELY NARROWER THAN :meth:`in_flight_reason`, and the difference is
+        the whole reason this method exists rather than that one being reused. A
+        reload keeps this process's pid, socket, cwd and environment and only
+        replaces its code image, so the terms that matter are the ones a
+        replacement CANNOT recover:
+
+        * **A runtime being started** — the engage is a ~1.2 s handshake with a
+          child process whose conversation, journal and first advertisement live
+          in the half of it that has already happened. Both the spawn and the
+          handshake are this process's, so cutting it in the middle loses work
+          that a reconnect cannot rebuild.
+
+        NOT listed, on purpose:
+
+        * **An in-flight HTTP operation.** An ordinary desktop request is tens of
+          milliseconds and a client retries it; the long ones on this plane are
+          the relays, below.
+        * **A standing attachment** — ``GET /v1/desktop/sessions/{id}/events``
+          holds a bridge for the whole life of the view, and the watch lease
+          beside it is renewed every 15 s. Those are EXACTLY what a reload is
+          allowed to cut and a latch is not: the app re-opens the relay and
+          re-reads history, and the turn itself is running inside the runtime,
+          which never stopped. Gating on them would mean a reload that never
+          fires on the only machine it exists for — an app-attached daemon is
+          never idle by ``in_flight_reason``'s own definition.
+
+        Read without ``watch_lock``, exactly as :meth:`in_flight_reason` is and
+        for its reason: a synchronous filter over an in-process dict on the event
+        loop, so it cannot interleave with a mutation.
+        """
+        for bridge in list(self.bridges.values()):
+            if bridge.warm_task is not None and not bridge.warm_task.done():
+                return f"a runtime being started for session {bridge.session_id}"
+        return None
+
+    async def acknowledge_attention(self, session_id: str, token: str) -> dict[str, Any]:
+        """A read receipt never admits work, binds a viewer, or starts a runtime.
+
+        Validate the same durable user-session namespace as the bridge, but do
+        not enter its acquire path: a completed cold conversation is readable
+        even when its runtime and the mobile daemon are both stopped.
+        """
+
+        def acknowledge() -> dict[str, Any]:
+            if not SESSION_ID.fullmatch(session_id):
+                raise KeyError("Unknown session")
+            path = self.root / "sessions" / session_id
+            if not path.is_dir() or not is_user_session(path):
+                raise KeyError("Unknown session")
+            return AttentionStore(self.root / "attention.db").acknowledge(
+                f"session/{session_id}", token
+            )
+
+        return await asyncio.to_thread(acknowledge)
+
+    async def set_pin(self, session_id: str, pinned: bool) -> dict[str, Any]:
+        """Put a session's pin into the state the caller asked for.
+
+        DESIRED STATE RATHER THAN A TOGGLE, which is the whole reason this takes
+        a flag: this backs an HTTP route, and a toggle is not idempotent over a
+        link that can drop a response and retry. A retried toggle flips the pin
+        BACK, which the user reports as "the pin keeps un-pinning itself" — a bug
+        in the one feature whose entire value is that the pin stays put. A retry
+        of this call lands on the same state.
+
+        VALIDATION DELIBERATELY DIFFERS FROM ``acknowledge_attention`` ABOVE,
+        which is the closest neighbour and the trap here. That method requires
+        ``is_user_session(path)``; this one must NOT, because the sidebar pins
+        DELEGATED RUNS too — a delegated run is a HIDDEN session, and pins are
+        kept resolvable across BOTH visibility axes (``pinned_hidden_ids`` for
+        the hidden one, ``pinned_off_page`` for a visible session outside a
+        page) — and a desktop pin the user cannot remove is the worst shape of
+        bug in this feature: the remedy for an unwanted pin is the thing such a
+        check would refuse. A delegated run lives in `sessions/` like every other
+        session, so the id-shape check plus the is-dir check is the whole
+        admission test.
+
+        Cold like its neighbour: no bridge, no runtime, no receipt. The write is
+        a small file replace, and a receipt would buy at-most-once for a call
+        that is already idempotent by construction.
+
+        Returns the answer the route publishes, whose ``pinned`` is the state the
+        store settled on. Today that is always the requested state — with ONE
+        exception worth naming, because the response reads as a durability claim
+        and is not one: on a config root this process cannot write,
+        ``_write_pins`` swallows its ``OSError`` by the never-raise contract the
+        store inherits from ``toggle_pin``, so this echoes the request over a file
+        that did not change and the client renders a pin the store does not hold
+        until its next catalogue read settles the row. Deliberately not fixed
+        here: escaping the failure would break that pinned contract, and a
+        read-back would reintroduce the race between the two writers that the
+        store documents as accepted. A backend whose config root is read-only
+        cannot serve this feature at all, and "the state the store settled on"
+        is not a claim that every ``os.replace`` succeeded.
+        """
+
+        def apply() -> dict[str, Any]:
+            if not SESSION_ID.fullmatch(session_id):
+                raise KeyError("Unknown session")
+            if not (self.root / "sessions" / session_id).is_dir():
+                raise KeyError("Unknown session")
+            return {
+                "session_id": session_id,
+                "pinned": set_sidebar_pin(self.root, session_id, pinned),
+            }
+
+        return await asyncio.to_thread(apply)
+
+    async def set_archived(self, session_id: str, archived: bool) -> dict[str, Any]:
+        """Put a session's archive into the state the caller asked for.
+
+        ``set_pin``'s method, field for field, because it is the same verb on
+        the same address: a per-session flag the client reconciles its row on,
+        idempotent by construction and therefore receipt-free.
+
+        DESIRED STATE RATHER THAN A TOGGLE, for the reason ``set_pin`` gives: a
+        toggle is not idempotent over a link that can drop a response and retry,
+        and a retried toggle would flip the archive back — the user reporting
+        "the archive keeps un-archiving itself".
+
+        ADMISSION IS ID SHAPE AND IS-DIR, deliberately NOT ``is_user_session``:
+        the archive is REVERSIBLE, so the cost of being permissive is a flag that
+        can be unset, and the sidebar can pin a delegated run — a route that
+        refused to archive one would leave a state the user can see and cannot
+        change. ``/v1/desktop/sessions/{id}`` DELETE takes the stricter admission
+        for exactly the opposite reason (see ``delete`` below); the asymmetry is
+        deliberate and this is where it is written down.
+
+        A no-op writes nothing (the store's own contract), so re-archiving an
+        archived session does not rewrite the index — which is also what keeps a
+        retry from reordering it.
+        """
+
+        def apply() -> dict[str, Any]:
+            if not SESSION_ID.fullmatch(session_id):
+                raise KeyError("Unknown session")
+            if not (self.root / "sessions" / session_id).is_dir():
+                raise KeyError("Unknown session")
+            return {
+                "session_id": session_id,
+                "archived": set_session_archived(self.root, session_id, archived),
+            }
+
+        return await asyncio.to_thread(apply)
+
+    async def delete(self, session_id: str) -> dict[str, Any]:
+        """Permanently remove ONE conversation, or refuse with a sentence.
+
+        THREE ANSWERS, and the shape of each is the interface:
+
+        * **200** with ``{"session_id", "deleted": True}`` when it happened.
+        * **404** (``KeyError``, through the route's shared ladder) for an
+          unknown or malformed id — INCLUDING a session the user did not open.
+          A delegated subagent run resolves by id like anything else, but it is
+          not a conversation anyone opened, so an id that is not
+          ``is_user_session`` is answered as unknown rather than deleted.
+          Deleting is irreversible and the user cannot see the row they are
+          naming; the reversible verb above keeps the looser admission, and that
+          asymmetry is the point.
+        * **409** (:class:`SessionDeletionRefused`, the guard sentence) when a
+          hard guard refuses: a live claim or lease, an armed wake, unread
+          spooled mail, or a guard that could not be evaluated. NOT 404, because
+          the conversation exists and the user can see it; NOT 500, because
+          nothing failed — the machine is in a state the user can clear, and the
+          sentence says which one.
+
+        Runs the whole decision on a WORKER THREAD: the guards stat records,
+        read the wake index and touch spooled mail, and the removal itself walks
+        a directory — none of which may block the loop a streaming turn is using.
+
+        Receipt-free, like ``set_pin`` and unlike the mutating routes around it.
+        A receipt buys at-most-once for calls that ADMIT WORK; this one either
+        removed the directory or did not, and a retry after a lost response finds
+        the id gone and answers 404 — which is the truth, because the deletion is
+        requested by explicit id and removing an already-removed conversation is
+        the same end state the caller asked for.
+
+        THE DAEMON FORGETS THE SESSION on the way out, and that is a consistency
+        requirement rather than tidiness: this pool serves a conversation it has
+        already opened from a resident bridge without re-reading the directory, so
+        without the drop this process would keep answering 200 for an id a fresh
+        daemon 404s (desktop QA round 2, PR #390). Only after the removal landed,
+        never before — a bridge whose directory still exists is what serves its
+        readers.
+        """
+
+        def apply() -> dict[str, Any]:
+            outcome = delete_session(self.root, session_id, actor="desktop")
+            if not outcome.found:
+                raise KeyError("Unknown session")
+            if outcome.refusal:
+                raise SessionDeletionRefused(outcome.refusal)
+            return {"session_id": session_id, "deleted": True}
+
+        result = await asyncio.to_thread(apply)
+        # BEST-EFFORT, and it cannot be anything else: the directory is already
+        # gone, so letting a failure out of here would answer 500 for a deletion
+        # that HAPPENED — telling the client the act failed when the conversation
+        # is destroyed, and inviting a retry the docstring two paragraphs up says
+        # must find the id gone. What a close that fails costs is one resident
+        # bridge until the next delete or restart, which the log line names.
+        try:
+            await self.forget(session_id)
+        except Exception:
+            logger.exception("desktop pool could not drop the deleted session %s", session_id)
+        return result
+
+    async def acknowledge_attention_many(self, items: Sequence[tuple[str, str]]) -> dict[str, Any]:
+        """Clear the unread completion marks a CLIENT enumerated, in one write.
+
+        The machine-wide sibling of :meth:`acknowledge_attention`, and cold for
+        the same reason: a read receipt never admits work, binds a viewer or
+        starts a runtime, so this takes no bridge and no runtime spawn. It exists
+        because the per-session route can only clear what it is told, one call at
+        a time, and the desktop sidebar's pile of marks is thousands of
+        conversations the user would have to open one by one.
+
+        NOT a sweep, and the distinction is the whole safety story. The caller
+        sends the completions it actually RENDERED, each ``(session_id,
+        token)``; the store's own compare (:meth:`AttentionStore.
+        acknowledge_many`) runs inside the write transaction against each
+        item's CURRENT token, so a completion published after the client's
+        render is not in the batch and stays unread. There is deliberately no
+        "mark everything read" form: that would advance watermarks by the
+        daemon's MAX(sequence) and silently clear results nobody saw.
+
+        The conversation identity is DERIVED here (``session/<id>``) and never
+        taken from the caller -- the client names a session id and nothing else,
+        so it cannot write receipts for identities it cannot enumerate. An item
+        whose id is malformed, whose directory is gone, or which is not one of
+        the user's own sessions is answered ``unknown`` FOR THAT ITEM rather
+        than refused for the call: one stale row in a batch of forty must not
+        cost the other thirty-nine their receipt.
+
+        Returns the three verdict buckets, in input order within each bucket::
+
+            {"read": [state, ...], "superseded": [session_id, ...],
+             "unknown": [session_id, ...]}
+
+        ``read`` entries are the store's own post-write state dicts, which is
+        what the list route already publishes per row -- the caller needs no
+        second read to learn what its rows now say. ``superseded`` and
+        ``unknown`` are the two verdicts that mean "not cleared", so a consumer
+        can name the remainder instead of reporting a clean sweep it did not
+        get.
+
+        ONE worker hop for the whole batch, and ONE transaction inside it: the
+        per-item validation is a directory stat, so doing it per item on the
+        event loop would be a blocking ladder, while splitting the write would
+        expose a partially applied batch. A ``sqlite3.Error`` propagates to the
+        shared failure ladder (``session/store_failures``), which splits it
+        by condition -- contention answers the retryable 503, an unreadable or
+        corrupt store the 500 that says retrying will not help -- and the single
+        transaction guarantees nothing was written on either path.
+        """
+
+        def acknowledge() -> dict[str, Any]:
+            store = AttentionStore(self.root / "attention.db")
+            # Every item gets a slot first, so the buckets below can be filled in
+            # INPUT order -- including the items rejected before the store is
+            # ever consulted, which is also the order a caller's own listing is
+            # in.
+            outcomes: list[tuple[str, dict[str, Any] | None]] = [("unknown", None) for _ in items]
+            batched: list[int] = []
+            for index, (session_id, token) in enumerate(items):
+                path = self.root / "sessions" / session_id
+                if (
+                    not SESSION_ID.fullmatch(session_id)
+                    or not path.is_dir()
+                    or not is_user_session(path)
+                ):
+                    continue
+                batched.append(index)
+            verdicts = store.acknowledge_many(
+                [(f"session/{items[index][0]}", items[index][1]) for index in batched]
+            )
+            for index, verdict in zip(batched, verdicts):
+                outcomes[index] = (verdict["status"], verdict["state"])
+            result: dict[str, Any] = {"read": [], "superseded": [], "unknown": []}
+            for (session_id, _token), (status, state) in zip(items, outcomes):
+                if status == "read":
+                    result["read"].append(state)
+                else:
+                    result[status].append(session_id)
+            return result
+
+        return await asyncio.to_thread(acknowledge)
+
+    def bridged_notify_sessions(self) -> set[str]:
+        """The FEED's key domain for sessions whose bridge will announce them.
+
+        REVIEW ROUND 1, R10. The feed's ``bridged`` hook compares against
+        ``session/<id>`` keys, and the route used to hand it ``set(pool.bridges)``
+        — bare session ids. The two never intersected, so the exclusion was
+        silently dead and every bridged session got a second, machine-wide
+        banner composed for it. Returning the prefixed form from HERE rather
+        than letting the feed normalise is deliberate: the pool is the thing that
+        knows its own keys, and a conversion at the consumer would have to be
+        repeated for every future consumer that gets it wrong the same way.
+
+        A BRIDGE ALONE IS NOT ENOUGH, and that is the second half of the finding.
+        A pooled bridge can be retained after its last subscriber left — that is
+        what ``BRIDGE_COUNT`` and ``bridge.users`` exist for — and such a bridge
+        publishes to nobody, so excluding it would open a background-notification
+        HOLE where the prefix fix had just closed a duplicate-banner one. The
+        predicate is therefore a LIVE, non-overflowing subscriber that can
+        actually notify: the same filter ``_live_leases`` applies, plus
+        ``can_notify``. Deliberately NOT ``_live_leases`` itself — that one
+        requires ``watch_lock`` and is read under it, while this runs from the
+        feed's poller, which must never take a lock the runtime's watch path can
+        hold.
+        """
+        now = time.monotonic()
+        return {
+            f"session/{session_id}"
+            for session_id, bridge in list(self.bridges.items())
+            if any(
+                not sub.overflow and sub.expires > now and sub.can_notify
+                for sub in list(bridge.subscribers.values())
+            )
+        }
+
+    async def claim_notification(self, session_id: str, token: str) -> bool:
+        """Claim the right to TOAST ``token``; exactly one surface ever wins.
+
+        NOTIFYING IS NOT READING, and this is the boundary that keeps the two
+        watermarks apart. ``claim_delivery`` writes ``deliveries`` only: the
+        sidebar's unseen mark and ``receipts.acknowledged`` are untouched, so a
+        session the user was merely *told about* stays unread until they
+        actually open it. Routing this through :meth:`acknowledge_attention`
+        instead would clear the mark for a conversation nobody looked at, which
+        is the one thing ``docs/ATTENTION.md`` forbids outright.
+
+        Cold path, exactly like :meth:`acknowledge_attention`: same session-id
+        validation, no bridge acquire, no runtime spawn. A completion worth
+        announcing is usually one whose owner has already exited, and a banner
+        is never a reason to start a process.
+
+        ``backend="desktop"`` names the claimant. The column is diagnostics
+        only — no decision may read it, because a claim that consulted anything
+        beyond the monotonic sequence would stop being clock-free — but naming
+        it correctly is what makes a store dump readable when two surfaces
+        disagree about who toasted.
+
+        Returns ``False`` for an unknown or foreign token rather than raising:
+        the caller's next step is "show or do not show a banner", and a
+        surface that cannot claim simply stays quiet.
+        """
+
+        def claim() -> bool:
+            if not SESSION_ID.fullmatch(session_id):
+                raise KeyError("Unknown session")
+            path = self.root / "sessions" / session_id
+            if not path.is_dir() or not is_user_session(path):
+                raise KeyError("Unknown session")
+            return AttentionStore(self.root / "attention.db").claim_delivery(
+                f"session/{session_id}", token, "desktop"
+            )
+
+        return await asyncio.to_thread(claim)
+
+    async def attachment(self, session_id: str, digest: str) -> tuple[bytes, str]:
+        """Decoded bytes and mime type for one content-addressed attachment.
+
+        Durable transcript rows reference images by digest, not by payload:
+        ``transcript._externalize_attachments`` strips ``data`` from any block
+        over 1 KiB of base64 and leaves ``{"attachment": <digest>,
+        "mime_type": ...}`` behind. ``/history`` serves those rows verbatim,
+        so a reading surface can see that an image WAS there and has no way to
+        fetch it. This is that way.
+
+        Deliberately outside :meth:`session`, exactly like
+        :meth:`acknowledge_attention` and for the same reason: reading a
+        screenshot out of a finished conversation must not start a runtime
+        process. The session id is still validated against the same durable
+        user-session namespace, so the route cannot be used to probe arbitrary
+        directories, and the store is shared rather than per-session because
+        the digest IS the content key.
+
+        ``KeyError`` for an unknown session or an unresolvable digest — the
+        store's own contract is that a miss is ordinary (an interrupted write,
+        a hand-pruned store) and callers degrade to a placeholder rather than
+        treating it as a fault.
+
+        The session id is an EXISTENCE check, not a binding: it proves *a* user
+        conversation by that name is on this machine, never that this digest
+        belongs to it. The store is content-addressed and shared across
+        conversations by design, so any valid user session id resolves any
+        digest in it. The bearer already authorises the whole desktop surface,
+        so this is not an escalation — but it is not per-session scoping
+        either, and the URL shape reads as though it were.
+
+        A PEER'S CONVERSATION GETS A SENTENCE, NOT A 404 (see
+        :class:`PeerAttachmentUnavailable`). Its images live in the store of the
+        device that HOLDS it, and the durable read here is this device's own
+        store, which is empty for an id no local directory exists for — so the
+        honest answer names the device and says the bytes are not here, which is
+        what a broken ``<img>`` beside a 500 never did. The route still resolves
+        the digest from THIS store first, because a conversation that has ever
+        held a local copy (a moved session, a synced replica) serves its images
+        here exactly as a local one does.
+        """
+
+        def read() -> tuple[bytes, str]:
+            # Both halves of this gate carry weight and neither is redundant.
+            # The shape check keeps a crafted id from escaping the sessions
+            # namespace through ``..`` before a path is ever built; the origin
+            # check keeps this route out of SUBAGENT conversations, which are a
+            # machine's delegated runs the user never opened and which the
+            # desktop surface does not list. Dropping either is a one-token
+            # edit, so each has a named test standing on it.
+            if not SESSION_ID.fullmatch(session_id):
+                raise KeyError("Unknown session")
+            path = self.root / "sessions" / session_id
+            if not path.is_dir() or not is_user_session(path):
+                from local_operator.session.remote_open import remote_row_for
+
+                row = remote_row_for(session_id, self.root)
+                if row is None:
+                    raise KeyError("Unknown session")
+                # THIS DEVICE'S STORE FIRST: the digest is content-addressed, so a
+                # session that moved here (or one this device holds a copy of)
+                # has the bytes under the same name, so hanging the lookup on
+                # the id's placement before looking would take a working image
+                # away from a conversation that can serve it.
+                resolved_elsewhere = AttachmentStore(self.root / ATTACHMENTS_DIRNAME).get(digest)
+                if resolved_elsewhere is None:
+                    raise PeerAttachmentUnavailable(session_id, row)
+                data_b64, mime_type = resolved_elsewhere
+                return base64.b64decode(data_b64), mime_type
+            resolved = AttachmentStore(self.root / ATTACHMENTS_DIRNAME).get(digest)
+            if resolved is None:
+                raise KeyError("Unknown attachment")
+            data_b64, mime_type = resolved
+            return base64.b64decode(data_b64), mime_type
+
+        return await asyncio.to_thread(read)
+
+    async def child_transcript(
+        self,
+        session_id: str,
+        child_id: str,
+        *,
+        before_id: str | None = None,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        """One page of a child's RAW transcript, in the parent's envelope.
+
+        The rows come from ``read_transcript_page`` on the child's own
+        directory and go out VERBATIM, which is what lets the renderer fold
+        them through the same reducer it uses for the parent's history. Not
+        ``hub op='peek'``: peek renders numbered single-string steps under a
+        parent-agent context budget (``PEEK_MAX_STEPS = 50``,
+        ``PEEK_STEP_CHARS = 600``) and DROPS compaction and bookkeeping rows,
+        so a sidebar built on it would show neither the child's real
+        conversation nor its structure (design § 9.1).
+
+        The derived ``state`` is the only thing added, and it is derived from
+        the FILESYSTEM because only the filesystem separates the two absences:
+        ``pending`` (directory present, ``transcript.jsonl`` not written yet)
+        is a child that may still speak, while ``gone`` (directory missing) is
+        final. A row's persisted status cannot tell them apart, and a reader
+        that guesses either says "gone" about a child that has not started or
+        promises a transcript that will never come.
+
+        NO bridge is acquired and no runtime is started — the containment proof
+        refuses before anything else runs, and the FILESYSTEM half (containment,
+        the two absence probes) still rides a worker thread because it stats
+        paths. The PAGE itself now comes from ``load_transcript_page``, which
+        runs the read in a worker of its own and shares the result with any other
+        surface asking for the same rows — the child panel here is on a 1 Hz
+        timer per open child, and re-decoding an unchanged journal sixty times a
+        minute to answer the same question is what that seam exists to stop.
+
+        ``limit`` is checked here as well as in the route's ``Query``: a route
+        is not the only caller of an adapter, and a page ceiling that exists
+        only in a declaration is one a second caller can walk around.
+        """
+        if not 1 <= limit <= CHILD_PAGE_LIMIT:
+            raise ValueError(f"limit must be between 1 and {CHILD_PAGE_LIMIT}")
+
+        def probe() -> Path | dict[str, Any]:
+            child_dir = _contained_child_dir(self.root, session_id, child_id)
+            if not child_dir.is_dir():
+                # `gone` carries the cursor exactly as `pending` does below and
+                # as `/history` does when the whole file is absent: a caller
+                # that paged into a transcript which is no longer there is in
+                # the same position either way, and the envelope's answer to
+                # both is "re-read the tail and dedupe by id" (review round 1,
+                # R1-3).
+                return _absent_child_page("gone", before_id=before_id)
+            if not (child_dir / TRANSCRIPT_FILENAME).exists():
+                return _absent_child_page("pending", before_id=before_id)
+            return child_dir
+
+        child_dir = await asyncio.to_thread(probe)
+        if isinstance(child_dir, dict):
+            return child_dir
+        try:
+            page = await load_transcript_page(child_dir, before_id=before_id, limit=limit)
+        except FileNotFoundError:
+            # Vanished between the probe above and the open: the same fact as
+            # "never written", and an ordinary race rather than a 500. The probe
+            # is deliberately KEPT rather than left to the reader's own absent
+            # answer, because it is what distinguishes `pending` from `gone`.
+            return _absent_child_page("pending", before_id=before_id)
+        return {
+            "entries": [json.loads(row.to_json()) for row in page.entries],
+            "has_more": page.has_more,
+            "cursor_missing": page.reconciled,
+            "state": "ready",
+        }
+
+    async def unload_child_trajectory(self, session_id: str, child_id: str) -> dict[str, Any]:
+        """Release ONE reader's subscription to a child job's live window.
+
+        A RELEASE, never an unconditional unsubscribe: the count is per job on the
+        shared bridge, so another window reading the same child keeps its stream
+        (see ``DesktopSessionBridge.unwatch_trajectory``). The answer states what
+        is left, so a client can see that its release was not the last one.
+
+        NO BRIDGE IS BUILT FOR THIS. A release must not be the request that
+        materialises a session's bridge — that is the cost and the side effect
+        (an attach, a warm task) a cleanup should never pay — and a session with
+        no resident bridge has no subscriptions to release, which is already the
+        release's own answer. So an unknown or evicted session answers
+        ``{watching: false, watchers: 0}`` rather than being refused: the caller's
+        intent is achieved either way. The id SHAPES are still checked, because a
+        value that could not name a child is a refusal this surface already makes
+        and not a cleanup target.
+
+        The rows stay cached on both sides afterwards — reopening the same page is
+        common and the next open re-seeds — and nothing about the CHILD changes: a
+        reader was never load-bearing on its execution.
+        """
+        if not SESSION_ID.fullmatch(session_id) or not JOB_ID.fullmatch(child_id):
+            raise SubagentChildUnavailable()
+        bridge = await self._resident_bridge(session_id)
+        if bridge is None:
+            return {"watching": False, "watchers": 0}
+        held = await bridge.unwatch_trajectory(child_id)
+        return {"watching": held > 0, "watchers": held}
+
+    async def child_attachment(
+        self, session_id: str, child_id: str, digest: str
+    ) -> tuple[bytes, str]:
+        """Decoded bytes and mime type for one attachment in a CHILD transcript.
+
+        The mirror of :meth:`attachment`, and the same containment proof runs
+        before the store is touched (:func:`_contained_child_dir`) so a child
+        read cannot become a way to enumerate another conversation's media. The
+        store itself is content-addressed and shared across conversations by
+        design (see the parent route's docstring), so this is a membership gate,
+        not a per-conversation partition: what it rejects is an unknown parent,
+        a child its parent never launched, and a child that is still on disk
+        without the subagent marker.
+        """
+
+        def read() -> tuple[bytes, str]:
+            _contained_child_dir(self.root, session_id, child_id)
+            resolved = AttachmentStore(self.root / ATTACHMENTS_DIRNAME).get(digest)
+            if resolved is None:
+                raise KeyError("Unknown attachment")
+            data_b64, mime_type = resolved
+            return base64.b64decode(data_b64), mime_type
+
+        return await asyncio.to_thread(read)
+
+    async def create(
+        self,
+        cwd: str,
+        *,
+        target: dict[str, str] | None = None,
+        model: dict[str, str | None] | None = None,
+        draft_id: str | None = None,
+        purpose: str | None = None,
+    ) -> str:
+        """Create a draft session's record, optionally materialising a warm draft.
+
+        ``draft_id`` is the id a mint handed the pane (spec §1.4). It supplies
+        the ID and the already-running warm — NOTHING else: ``cwd``/``target``/
+        ``model`` stay the body's, and admissions above re-run for them exactly
+        as before. Resolution is single-use with three outcomes:
+
+        * REGISTERED (and unexpired) → the id is used and consumed HERE, before
+          any write, so a second create naming it can never reuse it;
+        * unknown/expired/evicted/lost → a fresh id is minted and the create
+          proceeds: the warm was wasted, the send still works;
+        * unregistered but already MATERIALISED (a create ran for it and its
+          marker is on disk — e.g. the renderer re-sent after a daemon restart)
+          → refused with :class:`DraftAlreadyMaterialised`, because both
+          alternatives answer wrongly: minting fresh would answer a request
+          that named a conversation with a different, empty one.
+
+        ``model`` is the caller-validated birth selection (see the route), stored
+        in the session's own marker so the FIRST turn can be born on it. It is
+        additive and optional: an omitted ``model`` writes the marker byte-for-byte
+        as before, which is what makes an older client's create identical.
+
+        ``purpose`` stamps the session's HIDDEN ORIGIN and records the purpose in
+        the marker, in that order (see ``persist`` below for why the order is the
+        contract). It is additive in the same way ``model`` is: omitted, this
+        method writes exactly the bytes it wrote before, and every existing caller
+        passes nothing.
+        """
+        self.assert_admitting()
+        directory = resolve_working_directory(cwd)
+        binding = {"agent": "", "team": ""}
+        if target:
+            from local_operator.agents import AgentRegistry
+            from local_operator.server.utils.desktop_profiles import validate_target
+            from local_operator.teams import TeamRegistry
+
+            binding[target["kind"]] = await asyncio.to_thread(
+                validate_target,
+                AgentRegistry(self.root),
+                TeamRegistry(self.root),
+                target["kind"],
+                target["name"],
+            )
+        session_id: str | None = None
+        from_draft = False
+        if draft_id is not None:
+            if self._draft_for(draft_id) is not None:
+                # Consumed BEFORE the write, so no later create can REUSE the id.
+                # A second create racing this one on a DIFFERENT request id (the
+                # same id is the receipt journal's business) sees an unregistered
+                # id and mints fresh until the marker lands, when it gets the
+                # typed refusal — the MARKER, not the registry entry, is what
+                # makes an id materialised.
+                del self.drafts[draft_id]
+                session_id = draft_id
+                from_draft = True
+                # R2-1: the materialising window OPENS here — the entry is gone
+                # but the marker is not published until ``persist`` returns,
+                # and ``session()`` must not read that gap as death (see the
+                # field's comment).
+                self._materialising.add(draft_id)
+            else:
+                self.assert_draft_unmaterialised(draft_id)
+        if session_id is None:
+            session_id = uuid.uuid4().hex[:12]
+        path = self.root / "sessions" / session_id
+
+        def persist() -> None:
+            # ``exist_ok`` ONLY for a materialising draft: the deferred engage
+            # may already have written the session directory's residue
+            # (``.execution-lease`` + ``.session.pid``; measured — the engage
+            # boots the runtime in the draft's own directory, and the warm is
+            # the entire point of the draft). The marker written below is what
+            # MATERIALISES the session. A fresh id keeps today's exclusivity
+            # and refuses a directory it did not expect.
+            path.mkdir(parents=True, mode=0o700, exist_ok=from_draft)
+            if purpose is not None:
+                # ORIGIN **FIRST**, AND THIS ORDER IS THE CONTRACT.
+                #
+                # The desktop marker is what MATERIALISES a session (see the
+                # draft branch above: "the MARKER, not the registry entry, is what
+                # makes an id materialised"), and the machine's listing surfaces
+                # memoise the user-session verdict per id (``desktop_feed``'s
+                # ``_user_cache``, the catalogue's row scan). So a session whose
+                # origin is written SECOND can be classified as the operator's own
+                # by a scan or a feed tick that lands in the gap — and that
+                # verdict is then CACHED, which is what makes the race permanent
+                # rather than self-correcting. One file below is unreadable by any
+                # of them during the window; the marker is the publication.
+                #
+                # The stamp is best-effort by its own contract
+                # (``resume.mark_session_origin``), so its RESULT is checked
+                # here rather than assumed: a configuration run exists precisely
+                # by being hidden, and a run that could not be stamped would be
+                # listed among the operator's conversations... which is the leak
+                # the whole mechanism exists to prevent. The check turns "hidden
+                # failed" into a refusal instead of into a visible session. It
+                # is reached only on a partial write failure (the marker write
+                # below fails on the same read-only storage and refuses anyway),
+                # and the refusal rides the route ladder's ValueError arm.
+                mark_session_origin(path, ORIGIN_AGENT_CONFIG)
+                if session_origin(path) != ORIGIN_AGENT_CONFIG:
+                    raise ValueError(
+                        "This run could not be hidden from your session lists, so it was "
+                        "not created. Retry after checking storage."
+                    )
+            if target:
+                write_session_attachment(path, **binding, goal="")
+                stored = read_session_attachment(path)
+                if (
+                    stored is None
+                    or stored.agent != binding["agent"]
+                    or stored.team != binding["team"]
+                ):
+                    # Never publish desktop.json after a best-effort writer lost
+                    # the attachment. No possibly admitted work is deleted.
+                    raise ValueError(
+                        "The selected profile could not be saved. Retry after checking storage."
+                    )
+            # An explicitly created desktop draft needs an identity after an
+            # HTTP restart, unlike the TUI's uncommitted welcome-screen draft.
+            # The chosen model is ADDITIVE: a marker written without it is the
+            # document every earlier build wrote, and every reader here reads
+            # ``cwd`` by key. A stored pair is what makes the choice survive the
+            # window that chose it — the record outlives the request, and the
+            # first turn is born from it (``draft_birth_selection``).
+            #
+            # Through the shared writer, which carries the model key too, so the
+            # MOVE route's second call site and this one cannot disagree about
+            # the bytes, the mode or the fields.
+            write_desktop_marker(path, directory, model=model, purpose=purpose)
+
+        try:
+            await asyncio.to_thread(persist)
+        finally:
+            # The materialising window CLOSES here, on success or failure
+            # (R2-1): until the marker is on disk the id is neither a draft
+            # (consumed) nor a session (unmaterialised), and a door ask in
+            # between keeps serving the pane's resident bridge. On failure the
+            # id stays spent and NOT materialising — the next ask drops the
+            # dead bridge and 404s, and a retried create mints fresh — which is
+            # the correct end state for a consume that will never publish.
+            if from_draft and session_id is not None:
+                self._materialising.discard(session_id)
+        return session_id
+
+    async def mint_draft(
+        self,
+        cwd: str,
+        *,
+        target: dict[str, str] | None = None,
+        model: ModelSpec | None = None,
+    ) -> str:
+        """Register one new-chat draft; return the id a create may name.
+
+        THE MINT WRITES NOTHING AND STARTS NOTHING (spec §0.2): the engage is the
+        pane's own warm request once its events subscription holds the bridge,
+        through the one lifetime that already exists. A mint that started an
+        engage would need a second lifetime (pool-owned) to get right and would
+        buy no latency the warm does not already buy — and it would make
+        abandonment semantics a new problem instead of the existing one
+        (detach cancels an in-flight warm; the runtime drains unowned).
+
+        The admissions ``create`` applies are re-run here rather than trusted
+        from the route — this callable's own contract, stated beside ``create``'s
+        identical copy. ``target`` validation builds the registries ``create``
+        would build anyway; the cwd check is a pure ``stat``.
+
+        NO ``request_id`` PARAMETER, AND NO STORED COPY (round-1 review N1):
+        retry safety is the ROUTE's receipt row (``draft:<request_id>``), and a
+        replayed mint answers from that journal without this registry ever
+        being consulted — the stored value had no reader anywhere.
+
+        THE CWD IS STORED RESOLVED (the same value ``create`` writes into the
+        marker): the bridge this draft later resolves opens on it, and the warm
+        dials it. A relative path resolved against whatever cwd the daemon
+        happens to hold at some later request would be a second answer to a
+        question the marker already answers one way.
+        """
+        self.assert_admitting()
+        directory = resolve_working_directory(cwd)
+        if target:
+            from local_operator.agents import AgentRegistry
+            from local_operator.server.utils.desktop_profiles import validate_target
+            from local_operator.teams import TeamRegistry
+
+            await asyncio.to_thread(
+                validate_target,
+                AgentRegistry(self.root),
+                TeamRegistry(self.root),
+                target["kind"],
+                target["name"],
+            )
+        self._prune_drafts()
+        while len(self.drafts) >= DRAFT_COUNT_MAX:
+            oldest = min(self.drafts.values(), key=lambda draft: draft.created)
+            del self.drafts[oldest.draft_id]
+        draft_id = uuid.uuid4().hex[:12]
+        self.drafts[draft_id] = _Draft(
+            draft_id=draft_id,
+            cwd=str(directory),
+            model=model,
+            created=time.monotonic(),
+        )
+        return draft_id
+
+    def active_config_run(self) -> str | None:
+        """The live CONFIGURATION RUN for this config root, or ``None``.
+
+        THE SINGLE-FLIGHT READ, and the answer to both questions the feature asks
+        of it: a second create is refused with this id (409, so a second window
+        joins the run instead of starting a rival), and a page that mounts
+        mid-run asks the same question to re-attach. Nothing is persisted on the
+        renderer side — the run is a real session this server owns — so this
+        method is where both answers come from.
+
+        TWO TERMS, each excluding a way of being wrong:
+
+        * the session's ORIGIN is ``agent-config``, read through the same
+          predicate the door and every listing read (``session_origin``), so this
+          cannot disagree with them about which sessions are runs;
+        * its owner RECORD is live and ``busy`` — a turn is in flight. Busy
+          rather than merely "resident", because what a second run would race is
+          a WRITE, and a runtime sitting between turns is not writing: a run whose
+          turn has settled frees the flight, which is what makes the page's
+          "start a new one" a real action rather than one the previous run has to
+          be stopped to allow.
+
+        Stale and absent records are skipped alike: a run whose runtime has
+        exited is over. Read-only, and cheap by the standard of the sidebar's own
+        poll — one registry scan plus one marker read per LIVE record (the scan
+        is what the picker pays anyway).
+        """
+        for record, state in registry.scan(self.root):
+            if state == "stale" or not record.busy:
+                continue
+            directory = self.root / "sessions" / record.session_id
+            if session_origin(directory) == ORIGIN_AGENT_CONFIG:
+                return record.session_id
+        return None
+
+    def assert_draft_unmaterialised(self, draft_id: str) -> None:
+        """Refuse a ``draft_id`` that names an ALREADY-MATERIALISED session.
+
+        READ-ONLY (no durable effect), and public for ``create``'s route: its
+        pre-flight asks this BEFORE the receipt is claimed, so a refused create
+        leaves no pending row behind — the route's own contract — while
+        ``create`` re-asks it for any caller that reaches the pool directly.
+        One predicate, so the two call sites cannot drift.
+
+        A REGISTERED draft passes: it is unmaterialised by definition, and
+        consuming it belongs to ``create`` itself — a probe must never spend a
+        draft. Materialisation is read off the MARKER (``desktop.json``), not
+        the directory: the engage's residue directory holds no marker (measured:
+        exactly ``.execution-lease`` + ``.session.pid``), so "a directory
+        exists" would refuse every warmed draft its create — the one path this
+        whole feature exists to serve.
+        """
+        if self._draft_for(draft_id) is not None:
+            return
+        if (self.root / "sessions" / draft_id / DESKTOP_MARKER_NAME).is_file():
+            raise DraftAlreadyMaterialised(
+                "This draft already became a conversation. Open it instead of creating it again."
+            )
+
+    def _prune_drafts(self) -> None:
+        """Drop every expired draft.
+
+        Called by ``mint_draft`` BEFORE the cap does its work, so eviction only
+        ever takes an entry that is still alive and the two rules cannot combine
+        to drop a useable draft while a dead one sits in the registry.
+        Loop-only mutation, never across an await (``self.drafts``).
+        """
+        deadline = time.monotonic() - DRAFT_TTL_S
+        for draft_id in [key for key, draft in self.drafts.items() if draft.created < deadline]:
+            del self.drafts[draft_id]
+
+    def _draft_for(self, session_id: str) -> _Draft | None:
+        """The registered, unexpired draft ``session_id`` names, or ``None``.
+
+        EXPIRY IS ANSWERED WHERE IT IS ASKED (spec §1.2's "resolved as
+        unknown"): a draft older than :data:`DRAFT_TTL_S` is dropped here rather
+        than by a sweeper, so the registry ages out even when nobody mints
+        again. Loop-only mutation, never across an await (``self.drafts``).
+        """
+        draft = self.drafts.get(session_id)
+        if draft is None:
+            return None
+        if time.monotonic() - draft.created > DRAFT_TTL_S:
+            del self.drafts[session_id]
+            return None
+        return draft
+
+    def _draft_listing_exclusions(self) -> set[str]:
+        """Ids no listing may carry: drafts not yet materialised, however known.
+
+        spec §1.6's "never listed" must hold for the WARM window too (QA round
+        2, Q-2): the catalogue's live branch (``decorate_rows(include_live=True)``)
+        appends a row for any id with a runtime record and a session directory,
+        and a bound draft has both — so a bound warm was listed as "Untitled
+        conversation" while the doors called the id unknown. The exclusion is
+        computed HERE rather than inside the catalogue because the pool is what
+        knows a draft, in two states:
+
+        * REGISTERED entries, resolved through ``_draft_for`` so an expired one
+          is not kept alive by this read (the listing is a place expiry is
+          asked — the same rule the doors follow);
+        * DRAFT-BORN RESIDENT BRIDGES whose marker has not appeared — the pane's
+          ``/events`` hold keeps one for an id whose registry entry may already
+          be gone.
+
+        The MARKER is the one fact that says the draft became a conversation:
+        once it exists the id lists by the ordinary rules, whatever a stale
+        bridge reference still says. Loop-only, like every read of these two
+        fields. ``list()`` calls it at the LISTING BOUNDARY and passes the set
+        into ``catalogue_page``'s ranking→window step, so the exclusion and the
+        scan see one moment and a page refills from behind an excluded row
+        (round-2 review C1).
+        """
+        excluded: set[str] = set()
+        for session_id in list(self.drafts):
+            if self._draft_for(session_id) is not None:
+                excluded.add(session_id)
+        for session_id, bridge in self.bridges.items():
+            if (
+                bridge.draft is not None
+                and not (self.root / "sessions" / session_id / DESKTOP_MARKER_NAME).is_file()
+            ):
+                excluded.add(session_id)
+        return excluded
+
+    async def binding(self, session_id: str) -> dict[str, str | None]:
+        def read() -> dict[str, str | None]:
+            stored = read_session_attachment(self.root / "sessions" / session_id)
+            return {
+                "agent": stored.agent or None if stored else None,
+                "team": stored.team or None if stored else None,
+            }
+
+        return await asyncio.to_thread(read)
+
+    async def list(
+        self,
+        limit: int,
+        status_stamps: tuple[str, dict[str, int]] | None = None,
+        *,
+        include_archived: bool = False,
+        include_peers: bool = False,
+        scope: CatalogueScope | None = None,
+        cursor: str | None = None,
+        with_counts: bool = False,
+    ) -> SessionPage:
+        """One page of rows, plus the pinned rows the page does not carry.
+
+        ``include_peers`` appends the sessions OTHER devices hold, as
+        ``SessionPage.remote`` — the transport's federated catalogue
+        (``session.peer_rows``, the same TTL-cached projection the sidebar's peer
+        heading groups on). It is FALSE by default and the default is the contract:
+        a client that did not ask for peers receives the byte-identical answer it
+        always did, which is what lets a pre-mesh renderer and every existing test
+        keep reading this route unchanged.
+
+        ``limit`` IS THE PAGE SIZE and the truncation verdict is computed here,
+        because the two are one question: the caller used to ask for
+        ``limit + 1`` rows and slice them itself to learn whether the store held
+        more, and that trick cannot survive rows that are deliberately appended
+        BEYOND the page (see ``SessionPage.pinned_off_page``) — the count would
+        no longer mean what it is read to mean.
+
+        The catalogue itself refuses rather than lying when the store cannot be
+        walked (``load_catalog`` is strict), so everything below is about the
+        DECORATION: a row that could not have its live state or wake index read
+        says so in ``degraded`` instead of presenting the defaults as verdicts.
+        The field is always present and always a list, so a client can read it
+        without a presence check; ``attention`` below stays sparse because it
+        is a per-row fact rather than a read-level one — and when THAT read is
+        the one that failed, the affected rows name it in ``degraded``, so an
+        absent ``attention`` key is never published as "nothing unread".
+
+        ``status_stamps`` is ``(epoch, {session_id: revision})`` from the desktop
+        feed, and it exists because TWO writers now ship the same fact: this row's
+        ``status`` and the feed's ``session_status`` frame. A response computed
+        before a frame this client already applied would otherwise clobber it —
+        and the in-app marker effect fires a list on exactly the transition the
+        frames speed up, so the race is the normal path rather than a
+        hypothetical. A row whose session the feed has never published for is
+        stamped with NEITHER key, and a client reads that as "no comparison
+        available, take the list's value".
+
+        The two facts TRAVEL TOGETHER and neither may displace the other:
+        ``degraded`` says which read behind a row failed, the stamps say whether
+        the row predates a frame this client has already applied, and a listing
+        can be fully stamped and still be degraded — the stamps are per-row and
+        optional, the marker is per-row and always present.
+
+        Additive and defaulted: nothing else that lists sessions reads it, and an
+        unstamped response is byte-identical to what this returned before.
+        ``SessionRow`` is ``extra="allow"``, so the two keys serialize without a
+        model change.
+
+        ``scope``/``cursor``/``with_counts`` are the SCOPED, paged half of the
+        listing (``session.catalog.catalogue_page``), all three defaulted so that
+        a caller that passes none of them gets byte-for-byte the answer this
+        returned before: the head page, the whole visible ranking, the append-
+        below-the-page pins, and no cursor and no counts.
+
+        THE PINS ARE APPENDED ON THE HEAD ANSWER ONLY. ``pinned_off_page`` exists
+        because a client that holds one page cannot otherwise render a pin made on
+        an older conversation, and that argument is about the listing as a whole —
+        which only the head request speaks for. A scoped answer carrying them
+        would be handing the client rows belonging to other teams under this
+        team, and the client gates its pin facts on the head answer for exactly
+        this reason.
+        """
+
+        # DRAFTS ARE NEVER LISTED (spec §1.6; QA round 2's Q-2). The exclusion
+        # set is computed HERE, on the loop — ``_draft_for`` prunes an expired
+        # entry, which is loop-only mutation — and passed into the catalogue's
+        # ranking→window step inside the worker thread below, so the exclusion
+        # and the scan describe one moment.
+        excluded_drafts = self._draft_listing_exclusions()
+
+        def rows() -> SessionPage:
+            # IMPORTED HERE, not at module scope: the desktop's mesh reads pull the
+            # network package onto every ``lop serve`` boot, and a listing that did
+            # not ask for peers must not pay for it (the same rule ``routes/auth.py``
+            # states for its own lazy imports).
+            from local_operator.server.utils.desktop_mesh import remote_session_rows
+
+            # ONE ``read_pins`` per request, and it is read BEFORE the catalogue
+            # so the catalogue can resolve the pins the page will not carry.
+            # `read_pins` already applies both the store's own read-time prune
+            # (an id whose directory is gone is not a pin) and the id-shape
+            # rule, so neither is re-implemented here — and one read means every
+            # row of one answer describes the same pin set, which two reads a
+            # millisecond apart would not guarantee.
+            pins = set(read_pins(self.root))
+            # THE CATALOGUE, SCOPED AND PAGED — one call, and the same one the
+            # head page makes: `catalogue_page` with no scope, no cursor and no
+            # counts IS `load_catalog` plus the truncation verdict this method
+            # used to derive from a ``limit + 1`` probe. The probe now lives inside
+            # the catalogue (it is a rank position there, not a second scan), so
+            # the two shapes of this listing cannot drift apart.
+            page = catalogue_page(
+                self.root,
+                scope=scope,
+                cursor=cursor,
+                limit=limit,
+                pinned_off_page=tuple(pins) if scope is None else (),
+                # THE ARCHIVE FILTER, at the one choke point the two surfaces
+                # share. ``catalogue_page`` reaches the predicate through
+                # ``_scan_sessions``, so this route and the TUI sidebar cannot
+                # disagree about which conversations exist to be offered — and
+                # a pinned ARCHIVED conversation is filtered with the rest, so
+                # it cannot come back through the off-page pinned resolution
+                # below as a phantom row with no section to belong to.
+                include_archived=include_archived,
+                with_counts=with_counts,
+                # DRAFTS ARE NEVER LISTED (spec §1.6; QA round 2's Q-2), and the
+                # exclusion is handed INTO the catalogue's ranking→window step:
+                # the window, the truncation verdict, ``next_cursor`` and the
+                # census are all computed over the filtered list, so a page
+                # REFILLS from behind an excluded row (round-2 review C1 — a
+                # post-hoc filter over the assembled page answered a store with
+                # 4 sessions + 1 bound draft with 1 row at ``limit=2`` and an
+                # EMPTY page at ``limit=1``). A cursor stays a rank POSITION, so
+                # the walk tolerates this set changing between pages exactly as
+                # it already tolerated deletions.
+                exclude_ids=excluded_drafts,
+            )
+            entries = page.entries
+            page_entries = entries[:limit]
+            # A PINNED ROW THE PAGE DOES NOT CARRY, and the filter is on the id
+            # rather than on the projected row's flag so it runs before the
+            # projection. Everything from the page bound onwards is a candidate:
+            # the probe row belongs here when it is itself pinned, because the
+            # page does not carry it either. A pinned id that resolved to no
+            # entry at all — a deleted directory, or a hidden delegated run the
+            # catalogue never builds — is simply not among them, which is the
+            # outcome `load_catalog` documents and the one a listing wants.
+            extra_entries = [entry for entry in entries[limit:] if entry.id in pins]
+            attention: dict[str, dict[str, Any]] = {}
+            # NOT ``contextlib.suppress``: the suppression was silent, so this
+            # route answered ``degraded: []`` -- "everything about this page was
+            # read" -- while the ``attention`` key it could not build was simply
+            # absent, which a client renders as "nothing unread". That is the
+            # same confidently-wrong negative the catalogue's own attention read
+            # is written to stop (``session.catalog.load_catalog``), one read
+            # further out: the catalogue reads this store for the ROW's unseen
+            # mark, and this is a second read of it for the wire's per-row
+            # ``attention`` object, so a transient SQLITE_BUSY can hit one and
+            # not the other.
+            #
+            # The failure is named on the rows rather than carried beside them
+            # for the reason the catalogue states: every consumer walks the rows,
+            # and a sibling value is a second channel a caller can forget.
+            attention_degraded = False
+            try:
+                attention = AttentionStore(self.root / "attention.db").state_many(
+                    f"session/{entry.id}" for entry in (*page_entries, *extra_entries)
+                )
+            except (sqlite3.Error, OSError):
+                logger.warning("desktop listing could not read attention state", exc_info=True)
+                attention_degraded = True
+            # ONE PROJECTION for both populations, keyed by id: a pinned row off
+            # the page carries exactly the fields a page row carries -- the same
+            # attention object, the same status stamps, the same binding and
+            # preview -- because the client renders them side by side in one
+            # list and a second projector would be a second place for them to
+            # disagree.
+            projected: dict[str, dict[str, Any]] = {}
+            for entry in (*page_entries, *extra_entries):
+                row = entry.row._asdict()
+                stored = read_session_attachment(self.root / "sessions" / entry.id)
+                # Read once per row: the ownership stamp is the durable carrier of
+                # placement, and its ABSENCE is the statement "no mesh has ever
+                # governed this session" — which is the value the row publishes
+                # rather than a guess (§1.2).
+                stamp = read_stamp(self.root, entry.id)
+                row.update(
+                    {
+                        "active": entry.active,
+                        "status": {"code": entry.status_code, "label": entry.status},
+                        "binding": {
+                            "agent": stored.agent or None if stored else None,
+                            "team": stored.team or None if stored else None,
+                        },
+                        "preview": session_preview(self.root / "sessions" / entry.id),
+                        # ALWAYS PRESENT, BOTH VALUES. See `SessionRow.pinned`:
+                        # the renderer's merge reads an absent key as "no claim",
+                        # so a `false` here is load-bearing and omitting it would
+                        # let a stale optimistic pin outlive a successful unpin.
+                        "pinned": entry.id in pins,
+                        # Same rule, second axis: `archived` is always present and
+                        # carries the scan's own answer rather than a re-read, so
+                        # a row cannot be filtered out of the catalogue and still
+                        # claim to be un-hidden by the row it came from.
+                        "archived": bool(entry.row.archived),
+                        # ``_asdict`` already carried this through as a tuple;
+                        # spelled as a list here rather than left to the
+                        # serializer, because JSON has one array type and a
+                        # client deriving the listing-level ``degraded`` should
+                        # not have to handle both.
+                        "degraded": list(entry.row.degraded),
+                        # -- the mesh's fields, from the session's own stamp
+                        # (mesh-session-mobility.md §9.2). A device with no network
+                        # writes the LOCAL answer rather than omitting them, so
+                        # the shape is stable and a renderer never branches on key
+                        # existence. The peer half of the federation is the
+                        # transport's ``include_peers`` (§9.5); the KEYS are this
+                        # document's, and they are here so a remote row needs no
+                        # second shape when that lands.
+                        "locality": "local",
+                        # The nested block is the TRANSPORT's shape and stays for
+                        # the surfaces that read it (the TUI's rows); the desktop
+                        # groups from the FLAT fields below (Addendum 2 B), and a
+                        # local row publishes them as the local answer rather than
+                        # omitting them — for the reason ``pinned`` gives, a row
+                        # that moved home must be able to UNSET a stale remote mark.
+                        "peer": None,
+                        "owner_device": "",
+                        "owner_device_name": "",
+                        "reachable": True,
+                        "unreachable_reason": "",
+                        "placement": (
+                            stamp.placement.to_json()
+                            if stamp is not None
+                            else local_placement().to_json()
+                        ),
+                        "origin": (
+                            dict(stamp.origin) if stamp is not None and stamp.origin else None
+                        ),
+                        "last_synced_at": None,
+                    }
+                )
+                if attention_degraded and DECORATION_ATTENTION not in row["degraded"]:
+                    # Deduped rather than appended blindly: the catalogue's own
+                    # read of this store may already have named it on the row,
+                    # and a source listed twice is a renderer that has to guess
+                    # whether it means anything.
+                    row["degraded"].append(DECORATION_ATTENTION)
+                if f"session/{entry.id}" in attention:
+                    row["attention"] = attention[f"session/{entry.id}"]
+                if status_stamps is not None:
+                    epoch, revisions = status_stamps
+                    revision = revisions.get(entry.id)
+                    if revision is not None:
+                        row["status_epoch"] = epoch
+                        row["status_revision"] = revision
+                projected[entry.id] = row
+            return SessionPage(
+                rows=[projected[entry.id] for entry in page_entries],
+                pinned_off_page=[projected[entry.id] for entry in extra_entries],
+                # MORE ROWS THAN THE PAGE, which is the original question and is
+                # still the right one -- and it IS ``next_cursor``: the catalogue
+                # answers "is there more" once, as the position that more can be
+                # read from, because a boolean beside it would state one fact in
+                # two fields and they could then be stated two ways. What this
+                # field is for is the CLIENT's question ("has history run out?"),
+                # and the invariant the model documents ties the two together on
+                # every answer.
+                truncated=page.next_cursor is not None,
+                next_cursor=page.next_cursor,
+                cursor_missing=page.cursor_missing,
+                counts=_counts_payload(page.counts),
+                # THE PEER HALF, read in THIS worker thread and only when asked:
+                # the projection dials this device's relay, which is a socket read
+                # the request's own loop must not pay, and a listing that did not
+                # ask for peers costs nothing at all — not even the module import.
+                # ``pins`` is the request's own read, so a remote row's pin and a
+                # local row's pin come from one snapshot.
+                remote=(remote_session_rows(self.root, pins=pins) if include_peers else []),
+            )
+
+        return await asyncio.to_thread(rows)
+
+    async def search(
+        self,
+        query: str,
+        limit: int,
+        *,
+        include_archived: bool = False,
+        include_peers: bool = False,
+    ) -> list[dict[str, Any]]:
+        """Past conversations matching ``query``, each carrying its pin state.
+
+        The projection lives here rather than in the route for the reason
+        :meth:`list`'s does: the adapter is what owns the config root, and this
+        is the only place that knows a row's wire shape needs the pin store read
+        at all.
+
+        ONE ``read_pins`` PER REQUEST — a membership test per match, not a file
+        read per match — and both reads sit in the SAME worker thread as the
+        scan, so a request costs one store walk and one pin-file read however
+        many rows it answers. ``read_pins`` already applies the store's read-time
+        prune (an id whose directory is gone is not a pin) and the id-shape rule,
+        so neither is re-implemented here, and a pinned-but-unresolvable id
+        simply does not match anything to begin with.
+        """
+
+        def rows() -> list[dict[str, Any]]:
+            # Lazy for ``list``'s reason: the mesh projection drags the network
+            # package in, and a search that did not ask for peers must not pay it.
+            from local_operator.server.utils.desktop_mesh import remote_session_rows
+
+            matches = search_store(self.root, query, limit=limit, include_archived=include_archived)
+            pins = set(read_pins(self.root))
+            hits = [
+                {
+                    "id": match.row.id,
+                    "name": match.row.name,
+                    "mtime": match.row.mtime,
+                    "forked": match.row.forked,
+                    "rank": match.rank,
+                    "body_match": match.body_match,
+                    # ALWAYS PRESENT, BOTH VALUES — see `SessionSearchRow.pinned`:
+                    # a client synthesising a row from this answer reads an
+                    # absent key as "no claim", and a pinned conversation would
+                    # then render outside the Pinned section with no way back.
+                    "pinned": match.row.id in pins,
+                    # Same rule, and on this surface it is the ONLY way the
+                    # client learns a hit is archived: the default search does
+                    # not return one at all, so every hit of a default search is
+                    # `false` and the key exists for the answer that is not.
+                    "archived": bool(match.row.archived),
+                    # THE FLAT LOCALITY FIELDS, local values included — the same
+                    # six keys the catalogue carries them on, for the same merge
+                    # reason: a search hit is the one row a client can SYNTHESISE
+                    # the catalogue never sent, and a synthesised row with no
+                    # ``locality`` would keep whatever mark the row it replaces had.
+                    "locality": "local",
+                    "owner_device": "",
+                    "owner_device_name": "",
+                    "reachable": True,
+                    "unreachable_reason": "",
+                }
+                for match in matches
+            ]
+            if not include_peers:
+                return hits
+            # THE PEER HALF, and it is a FILTER rather than a second search: a
+            # peer's transcript is not on this disk, so a remote hit can only ever
+            # match by name or id (``body_match`` stays False — never a body match
+            # this device cannot prove) and is ranked with the same tiers the local
+            # half uses: name is rank 0, id is rank 1. Appended AFTER the local
+            # hits, so every remote row sorts below every row this device searched.
+            needle = query.strip().casefold()
+            for row in remote_session_rows(self.root, pins=pins, query=query):
+                hits.append(
+                    {
+                        "id": row["id"],
+                        "name": row["name"],
+                        "mtime": row["mtime"],
+                        "rank": 0 if needle and needle in str(row["name"]).casefold() else 1,
+                        "body_match": False,
+                        "pinned": bool(row.get("pinned")),
+                        "archived": bool(row.get("archived")),
+                        "locality": "remote",
+                        "owner_device": row.get("owner_device") or "",
+                        "owner_device_name": row.get("owner_device_name") or "",
+                        "reachable": bool(row.get("reachable")),
+                        "unreachable_reason": row.get("unreachable_reason") or "",
+                    }
+                )
+            return hits
+
+        return await asyncio.to_thread(rows)
+
+    def _take_handout(self, session_id: str) -> None:
+        """Enter this session's eviction-protected window. Call under the pool lock."""
+        self._handouts[session_id] = self._handouts.get(session_id, 0) + 1
+
+    def _end_handout(self, session_id: str) -> None:
+        """Leave it. Safe to call unconditionally, including after a failed lock."""
+        remaining = self._handouts.get(session_id, 1) - 1
+        if remaining > 0:
+            self._handouts[session_id] = remaining
+        else:
+            self._handouts.pop(session_id, None)
+
+    def _evictable(self, bridge: DesktopSessionBridge) -> bool:
+        """Whether eviction may take ``bridge`` — asked with the pool lock held.
+
+        ``users == 0`` alone is not enough once the slow halves run outside the
+        lock: a bridge that has been resolved and not yet acquired also has
+        ``users == 0``, and evicting it hands the next request for that session a
+        SECOND bridge, since the pool no longer holds the first one. The handout
+        count is that window, and asking here keeps the reservation explicit
+        instead of leaving it implied by lock ownership.
+
+        A DWELLING BRIDGE IS NOT EVICTABLE, and without that term the dwell leaks
+        in the shape ``_handouts`` exists to prevent: such a bridge has
+        ``users == 0``, so ``BRIDGE_COUNT`` pressure could delete it from the pool
+        while the dwell still holds a facade, a presence assertion and a runtime
+        that nothing can reach. See ``_evict_one`` -- a dwelling bridge is still
+        the LAST resort when the pool is genuinely full, but it is taken
+        deliberately, and taking it ends its dwell rather than leaking it.
+        """
+        return (
+            bridge.users == 0 and not bridge.dwelling and not self._handouts.get(bridge.session_id)
+        )
+
+    def _evict_one(self) -> DesktopSessionBridge | None:
+        """The bridge to drop for pool room, or ``None``. Caller holds the lock.
+
+        TWO TIERS, and the order is the point. An ordinary idle bridge
+        (``users == 0``, no handout, not dwelling) has nothing to lose. A
+        DWELLING bridge is the LAST RESORT -- it is holding a runtime for a
+        viewer that may be reconnecting this very second -- so it is taken only
+        when nothing else is available, and taking it ENDS its dwell: the caller
+        closes it, so its viewer gets one honest gap on reconnect instead of
+        being refused the open outright.
+
+        WHY THE SECOND TIER IS NOT OPTIONAL ONCE THE DWELL LANDS: before it,
+        ``users == 0`` implied evictable, so a pool at the cap always had a
+        victim unless ``BRIDGE_COUNT`` sessions were streaming at once. A
+        dwelling bridge can now be unevictable AND idle for ``RECONNECT_DWELL_S``,
+        which makes the refusal arm reachable in a state that used to be
+        impossible -- the buyer of a 20 s reconnect window would become a new way
+        to fail to open a conversation. This trades that refusal for one gap on a
+        viewer that had already lost its transport.
+
+        NOT THE FIX FOR THE REPORTED DEFECT, and it must not be read as one:
+        measured pool occupancy is 25 of 64 at its worst and every daemon restart
+        resets the pool. This closes a pre-existing leak (the plain ``del`` never
+        closed the victim) and keeps this change from adding a refusal.
+        """
+        idle = [b for b in self.bridges.values() if self._evictable(b)]
+        if not idle:
+            idle = [b for b in self.bridges.values() if b.dwelling and not b.users]
+        if not idle:
+            return None
+        victim = min(idle, key=lambda b: b.touched)
+        del self.bridges[victim.session_id]
+        return victim
+
+    def _make_room(self) -> DesktopSessionBridge | None:
+        """Free one bridge slot, returning the bridge it dropped for the CALLER to close.
+
+        Caller holds the pool lock. ``_evictable`` is what makes "idle" safe to
+        take (the handout window); a pool full of pinned bridges refuses with the
+        ValueError its two callers already render as a refusal — the same answer
+        whether the incoming bridge is an ordinary session or a draft's.
+
+        IT RETURNS THE VICTIM RATHER THAN CLOSING IT. ``close()`` awaits the
+        bridge's own lock and the owner connection's teardown, and this runs with
+        the POOL lock held, so closing here would hold every other session's open
+        behind one teardown — the multi-second open ``forget``'s own docstring
+        exists to prevent. Both callers are arms of ``session()``, and that
+        method's ``finally`` -- outside the lock -- is what closes it, on the
+        success path and on a failure path alike.
+
+        THE CHOICE IS ``_evict_one``'s, two tiers and all: an ordinary idle bridge
+        first, a DWELLING bridge only as the last resort, and a dwelling victim's
+        dwell ends with it. Main's version of this method made the choice inline
+        and dropped the victim with a bare ``del`` that never closed it -- the
+        pre-existing leak the design's §12 closes -- and with TWO callers now that
+        leak would have had two doors, which is why the choice and the drop live
+        in one place rather than two.
+        """
+        if len(self.bridges) < BRIDGE_COUNT:
+            return None
+        victim = self._evict_one()
+        if victim is None:
+            raise ValueError("Too many active desktop sessions")
+        return victim
+
+    def _locate_flight(
+        self, session_id: str, locate: Callable[[], _LocatedSession]
+    ) -> asyncio.Task[_LocatedSession]:
+        """The cold LOOKUP for ``session_id``, shared by every concurrent caller.
+
+        Call under the pool lock, so two callers cannot both decide they are the
+        leader. IT MUST STAY AWAIT-FREE AND NON-BLOCKING: the caller holds the
+        pool-wide lock across this call, so an ``await`` or a blocking syscall
+        added here would hold every other session's open behind one session's
+        cold lookup — the defect this method exists to remove, reintroduced one
+        level down. ``locate`` is the caller's own closure (it is defined beside
+        the path it resolves), and the task is created on the RUNNING loop — an
+        entry whose loop is not this one is treated as absent rather than
+        awaited, see ``_locate_flights``.
+        """
+        loop = asyncio.get_running_loop()
+        entry = self._locate_flights.get(session_id)
+        if entry is not None and entry[0] is loop:
+            return entry[1]
+        task = asyncio.create_task(asyncio.to_thread(locate))
+        self._locate_flights[session_id] = (loop, task)
+
+        def forget(settled: asyncio.Task[_LocatedSession]) -> None:
+            # Identity-checked: a later caller may already have replaced this
+            # entry on a fresh loop, and dropping THAT one would lose its flight.
+            current = self._locate_flights.get(session_id)
+            if current is not None and current[1] is settled:
+                del self._locate_flights[session_id]
+
+        task.add_done_callback(forget)
+        return task
+
+    async def announce_admission(self, session_id: str, *, request_id: str, mode: str) -> bool:
+        """Tell an ALREADY-ATTACHED viewer THIS HOST took a submit, before engaging.
+
+        WHY THIS IS NOT A ROUTE THAT PUBLISHES FOR ITSELF. The honest place to
+        acknowledge a submit is immediately after the receipt claims it and
+        before anything is engaged — which is where this frame was first
+        published. Measured on a cold session, that is ~1.0 s late, and the
+        second is not the engage: it is ``DesktopSessionBridge.acquire`` waiting
+        on the bind lock while a SPECULATIVE WARM from the visible ``/watch``
+        lease holds it, yielding only after ``_BACKGROUND_YIELD_BUDGET_S``
+        (``session/attached.py``). The user's own view is already mounted in
+        exactly that case — the lease is what armed the warm — so the one person
+        who most needs to be told something waits the full second for it. A
+        frame that answers "did anything hear me" must not queue behind a spawn
+        it does not depend on.
+
+        SO IT TAKES NO REFERENCE AT ALL. It resolves the RESIDENT bridge under
+        the pool lock and publishes on it, which is the whole mechanism:
+
+        * No acquire, so no bind lock and nothing to wait for behind a warm.
+        * No build, no lookup, no ``attach_existing``, and therefore NO SPAWN —
+          a session with no runtime stays without one, which is the same
+          property ``server/utils/desktop_feed.py`` is built around.
+        * ``False`` when there is no resident bridge, and that is not a failure
+          to report: a bridge exists exactly while something holds one (a
+          route, or the ``/events`` subscription a renderer reads), so "no
+          bridge" means there is no reader to tell. The caller's own request
+          proceeds exactly as it would have.
+
+        The pool lock is held only for the lookup, never across the publish:
+        ``publish`` is synchronous and takes the bridge's own state, so holding
+        pool state here would be the same defect ``session`` documents.
+        """
+        bridge = await self._resident_bridge(session_id)
+        if bridge is None:
+            return False
+        # A LATCHED DAEMON ANNOUNCES NOTHING. The refusal itself is the DOOR's
+        # (``assert_admitting`` below, which ``session`` raises), and this is the
+        # same fact read rather than swallowed: a frame saying "taken" followed
+        # by a 503 saying "leaving" is the one contradiction an acknowledgement
+        # must never produce. Read BEFORE the publish, and only ever a decline —
+        # the caller's request still reaches the door and is refused there.
+        #
+        # THE OUTCOME FRAME BELOW IS DELIBERATELY NOT GATED ON THIS: a daemon
+        # that latches AFTER the acknowledgement is the very case the viewer
+        # needs resolved, and suppressing that outcome would leave the
+        # acknowledgement hanging on exactly the refusal it exists for.
+        if self.retiring_probe():
+            return False
+        return bridge.publish_once(
+            ADMISSION_ACCEPTED_FRAME,
+            {"request_id": request_id, "mode": mode},
+            dedupe_key=f"accepted:{request_id}",
+        )
+
+    async def announce_admission_failure(
+        self, session_id: str, *, request_id: str, mode: str, detail: str
+    ) -> bool:
+        """Resolve an acknowledgement this host already made, on the same stream.
+
+        THE OTHER HALF OF :meth:`announce_admission`, and the half whose absence
+        was a defect rather than a missing nicety: the acknowledgement is
+        published BEFORE the door, so every refusal that can follow it — a
+        runtime that cannot be reached, an owner that leaves mid-admission, a
+        daemon that latches — happens with an ``admission.accepted`` already on
+        the viewer's stream. Without this frame the viewer holds a promise that
+        never resolves, and a SECOND viewer of the same session inherits it from
+        the replay. Published through the same reference-free path, so it works
+        in the state the acknowledge failed in (the door is exactly what is
+        broken) and cannot start anything.
+
+        ``detail`` is the VETTED sentence (``_admission_failure_detail``),
+        never a transport's own text — this crosses to a renderer.
+
+        Its dedupe key is per-purpose, so publishing the outcome never consumes
+        the acknowledgement's key and vice versa.
+        """
+        bridge = await self._resident_bridge(session_id)
+        if bridge is None:
+            return False
+        return bridge.publish_once(
+            ADMISSION_FAILED_FRAME,
+            {
+                "request_id": request_id,
+                "mode": mode,
+                "status": FAILED_ADMISSION_STATUS,
+                "detail": detail,
+            },
+            dedupe_key=f"failed:{request_id}",
+        )
+
+    async def _resident_bridge(self, session_id: str) -> DesktopSessionBridge | None:
+        """The bridge this session ALREADY has, or ``None`` — never a new one.
+
+        The shared half of the two announcements above, and the reason both can
+        be called from a request that has not acquired anything: the pool lock
+        is held for the lookup alone (a dict read), so no caller waits on another
+        session's open and nothing is built, bound or spawned. A bridge exists
+        exactly while something holds one — a route or the ``/events``
+        subscription a renderer reads — so ``None`` means there is no reader, not
+        that the session is unknown.
+        """
+        async with self.lock:
+            return self.bridges.get(session_id)
+
+    @contextlib.asynccontextmanager
+    async def session(
+        self, session_id: str, *, read: bool = False, allow_draft: bool = False
+    ) -> AsyncIterator[DesktopSessionBridge]:
+        """Hand out this session's bridge — or refuse, once the daemon has LATCHED.
+
+        ``read`` says the caller is READING state (``snapshot``, ``history``,
+        ``events``, the ``/watch`` presence beat), and it is threaded down to
+        ``bridge.acquire(read=True)`` so the one attempt to attach to an existing
+        owner is bounded and its failure is a cold answer rather than a refusal.
+        It belongs to the door rather than to a flag each route sets on its own:
+        the envelope is a property of WHAT THE CALLER IS DOING, and this method is
+        where every desktop route already declares that.
+
+        THE GATE IS HERE, AT THE DOOR, AND THAT IS THE WHOLE MECHANISM (review
+        round 2, MAJOR-1). Every desktop route obtains its bridge here and this
+        method builds every bridge the process hands out (the only
+        ``DesktopSessionBridge(...)`` construction in the tree — pinned by
+        ``test_serve_retire.py``'s walk), so one refusal covers every path that
+        can admit or start work: the five round 1 gated, the five
+        ``routes/desktop_lifecycle.py`` handlers review round 2 measured reaching
+        ``bind_runtime()`` unrefused (``/mcp``, ``/credentials``, ``/fork`` and
+        its child admission, ``/asides``, ``/adopt``), and every route a later
+        edit adds.
+
+        WHY THE DOOR RATHER THAN THE ROUTES. A list of gated routes is the defect
+        this replaces, not the fix: ``/messages`` was gated, ``/commands`` was
+        gated, and ``/mcp`` was not — three answers to one question, drifting
+        apart exactly as fast as routes are added. The route-by-route
+        enumeration survives only as a TEST (the refusal matrix and the walk in
+        ``tests/unit/server/test_serve_retire.py``), where a new route shows up
+        as a missing row instead of as a silently ungated path.
+
+        READS ARE REFUSED TOO, and that is a deliberate narrowing of what this
+        module used to claim. A session-scoped request handed to a process that
+        has already told its readers to leave can only be served by the build it
+        is leaving, and the typed refusal is the one answer that moves the client
+        on (``DaemonRetiring``'s message says to reconnect to the successor).
+        What stays readable is the RECORD plane, which is not this method and not
+        this pool: ``GET /v1/desktop/sessions``, ``GET /health`` and the record
+        file itself keep answering until the clean exit removes them, which is
+        what lets any reader observe the handover.
+
+        THE 404 BELONGS TO THE LOOKUP, NOT TO THE REFUSAL, so it is decided
+        first: an unknown session is unknown whether or not this daemon is
+        leaving, and keeping that answer stable is what makes "the 503 is the
+        LATCH answering" a readable control in the evidence rather than an
+        artefact of routing.
+
+        ``allow_draft`` opts THIS CALLER into resolving a REGISTERED draft id
+        (spec §1.3). Off is the default and off is the containment: an id that
+        names a registered draft is refused exactly as an unknown one, so only
+        the five routes that pass the flag — ``snapshot``, ``history``,
+        ``watch``, ``warm`` and ``events``, the pane's own read, lease and
+        engage legs — can ever see a draft. A draft id unlocks nothing else:
+        every other route stays refused, ``create`` remains the only writer,
+        and every refusal ladder still runs against the materialised session.
+        The id is not an authorization surface.
+
+        When the flag is on and the id IS a registered draft, the bridge is
+        built from the draft's own spec instead of ``locate()``: there is no
+        directory to read (mint writes none), and nothing durable to confirm
+        until ``create`` materialises the id — which is also what lets the
+        pane's ``/events`` subscription hold the bridge, and therefore the
+        engage, across the warm.
+
+        WHAT THE POOL LOCK DECIDES, AND WHAT IT NO LONGER DOES. ``self.lock`` is
+        the pool's single answer to one question — *which bridges are resident,
+        and which of them may be evicted* — and it is held only for the frames
+        that read or change that: the handout reservation, the cached lookup, the
+        ``BRIDGE_COUNT`` eviction and the insertion. It is deliberately NOT held
+        across either slow half of opening a session. Holding it there is what let
+        one conversation's open become every other conversation's wait: measured on
+        the operator's live backend, a 642-byte session's snapshot answered in
+        **25 ms alone but 829 ms** while the 261 MB session's open was in flight,
+        and the 261 MB open itself took 32.1 s (with a 96 MB open returning 503
+        after 25.4 s) because a cold open queues behind the pool. Two mechanisms
+        replace the lock's old reach here, and neither is a second lock: the
+        ``_handouts`` count keeps a resolved-but-not-yet-acquired bridge out of the
+        eviction path (``_evictable``), and ``_locate_flights`` single-flights a
+        cold session's lookup so racing callers share one journal read. The bridge
+        keeps its OWN lock for its own state — that one answers a different
+        question and always did.
+
+        Reproduced in isolation against a COPY of that 261 MB journal (never the
+        operator's store): the same 642-byte session's snapshot took 29 ms alone
+        and **7909 ms** — the whole 7.9 s open — while the cold open ran, and
+        exactly ONE request completed in that window. On this change the open
+        takes 2453 ms and **24** requests complete inside it (median 70 ms, worst
+        308 ms). See ``docs/evidence/session-load-central-cache``.
+        """
+        if not SESSION_ID.fullmatch(session_id):
+            raise KeyError("Unknown session")
+        bridge: DesktopSessionBridge | None = None
+        flight: asyncio.Task[_LocatedSession] | None = None
+        # ``taken`` rather than an unconditional release in the ``finally``: a
+        # caller whose LOCK ACQUISITION is cancelled never incremented the count,
+        # and decrementing anyway would release ANOTHER caller's reservation —
+        # the count is per session, not per caller.
+        taken = False
+        # The bridge this open had to drop for pool room, closed AFTER the lock
+        # below is released -- see the close site for why the ordering is not
+        # negotiable. None on every path that did not hit the cap.
+        evicted: DesktopSessionBridge | None = None
+        try:
+            async with self.lock:
+                # THE HANDOUT IS TAKEN FIRST, while the pool lock is still held,
+                # and it is what the eviction path reads instead of the lock
+                # itself: a bridge this pool has resolved must survive until its
+                # caller's first ``acquire()`` returns, even though both halves of
+                # that wait — the cold lookup and the attach — now run with the
+                # pool lock RELEASED. Taken inside this ``try`` for a reason the
+                # review found: the WARM path's refusal (``assert_admitting``)
+                # raises from inside this block, and a reservation stranded there
+                # would make that session's bridge permanently unevictable and
+                # turn the pool into one that can only refuse at ``BRIDGE_COUNT``.
+                self._take_handout(session_id)
+                taken = True
+                # THE DRAFT REGISTRY IS ASKED BEFORE THE CACHED LOOKUP, and the
+                # containment check gates BOTH branches below: a door that did
+                # not opt in must refuse a registered draft even when its bridge
+                # is already resident (the pane's /events built one), and it must
+                # refuse it rather than let the cold lookup decide — a warmed
+                # draft's residue directory would otherwise resolve through the
+                # checkpoint fallback with the WRONG cwd. For every ordinary id
+                # this is one dict lookup.
+                draft = self._draft_for(session_id)
+                if draft is not None and not allow_draft:
+                    raise KeyError("Unknown session")
+                bridge = self.bridges.get(session_id)
+                doomed: DesktopSessionBridge | None = None
+                if bridge is not None and draft is None and bridge.draft is not None:
+                    # M1 (round-1 review): THE BRIDGE OUTLIVING ITS DRAFT. A
+                    # draft-born bridge stays resident while its pane keeps the
+                    # /events stream open (or a beat's lease holds it), and
+                    # ``_draft_for`` DELETES the entry the moment it is expired —
+                    # after which the containment above cannot fire and this
+                    # branch used to serve a NON-opted caller: snapshot/history
+                    # 200, commands/interrupt/working-directory 200, and ``POST
+                    # messages`` reached ``_ensure_bound(foreground=True)``,
+                    # i.e. a mutating route engaging a materialising draft
+                    # (measured by round-1 review, repro_expired_draft_bridge.py).
+                    #
+                    # THE THIRD STATE, ADDED BY ROUND-2 REVIEW (R2-1): CREATE
+                    # IN FLIGHT. Consumption deletes the entry a beat before the
+                    # marker is published, and in that window neither fact below
+                    # is true — the draft is not dead and the marker is not late
+                    # — so ``_materialising`` (set at consumption, cleared when
+                    # persist returns or fails) suppresses both outcomes and the
+                    # ask keeps serving this bridge, which also keeps
+                    # ``bridge.draft`` for the facade's birth spec until the
+                    # marker can answer for it.
+                    #
+                    # MATERIALISED (the marker is on disk) is the opposite fact:
+                    # the draft BECAME a conversation and the id is an ordinary
+                    # session from here, so the dead reference is cleared and
+                    # the marker is the birth source for any later facade.
+                    # Otherwise the bridge is dropped with ``forget``'s own
+                    # consequences — nothing may serve the id, exactly as on the
+                    # expiry row — and its close runs AFTER this lock, for
+                    # ``forget``'s reason (the close takes the bridge's lock).
+                    if session_id not in self._materialising:
+                        if (self.root / "sessions" / session_id / DESKTOP_MARKER_NAME).is_file():
+                            bridge.draft = None
+                        else:
+                            self.bridges.pop(session_id, None)
+                            self._locate_flights.pop(session_id, None)
+                            doomed, bridge = bridge, None
+                if doomed is not None:
+                    # Refused below, where the owed close can run outside this lock.
+                    pass
+                elif bridge is not None:
+                    # Asked on the WARM path too, and that is not redundancy: the cache
+                    # is a cache of the same door, so without this a refusal would be
+                    # one a client could walk past by never having gone cold.
+                    self.assert_admitting()
+                elif draft is not None:
+                    # THE DRAFT'S OWN BUILD, under the pool lock and with no I/O
+                    # at all: mint writes no directory, and once the engage has
+                    # made its residue there is still nothing ``locate()`` could
+                    # answer that the registered spec does not — the draft IS the
+                    # evidence while it is registered. The bridge is ordinary
+                    # from here (evictable once unheld, counted by BRIDGE_COUNT),
+                    # and the engage it may start runs through the ordinary
+                    # lifetime: the pane's /events subscription and /watch beats
+                    # are what hold it across the warm.
+                    self.assert_admitting()
+                    # CAPTURED, NOT DROPPED ON THE FLOOR. This arm's victim is
+                    # closed by `session()`'s own `finally`, outside the pool
+                    # lock, exactly as the ordinary arm's is -- main added this
+                    # second door and the close has to be behind both of them.
+                    evicted = self._make_room()
+                    bridge = DesktopSessionBridge(
+                        self.root,
+                        session_id,
+                        draft.cwd,
+                        retiring=self.retiring_probe,
+                        draft=draft,
+                    )
+                    self.bridges[session_id] = bridge
+                else:
+                    path = self.root / "sessions" / session_id
+
+                    def locate() -> _LocatedSession:
+                        """This session's opening directory — or the PEER that holds it.
+
+                        The marker element is provenance, not decoration: it is what
+                        lets the caller ask
+                        :func:`_cwd_is_unconfirmed` whether the directory is a
+                        durable claim a failed move could have written (the marker),
+                        or the checkpoint fallback for a pre-checkpoint transcript,
+                        which has no marker to doubt.
+
+                        THE REMOTE ARM IS HERE, and this is the ONLY place the pool
+                        decides that a session is another device's: every desktop
+                        route resolves a session through this method, so one
+                        decision covers the snapshot, the history page, the event
+                        stream, the send path and the control verbs — the same
+                        argument ``_ensure_facade`` makes for holding the only
+                        bridge construction in the tree.
+
+                        WHAT IT DOES NOT COST. A LOCAL ID NEVER DIALS: the
+                        directory is checked first, and that is the order the
+                        session's own durability asks for (a conversation moved home
+                        has a directory HERE, and the peer cache can still hold a
+                        listing for it for one TTL). ``remote_row_for`` is
+                        cache-first, so the row the sidebar's poll already read is a
+                        tuple scan, and a miss pays ONE cached projection read —
+                        which is the read the route in front of this method used to
+                        make on EVERY snapshot call, including the local ones. On a
+                        machine in no network it answers ``None`` without opening a
+                        socket, so an unknown id still costs one ``is_dir`` and still
+                        answers the shared 404.
+                        """
+                        if path.is_dir() and _door_may_open(path):
+                            # Through the TOLERANT reader, not ``json.loads``: a marker this
+                            # code cannot parse (a hand edit, an interrupted write, a
+                            # directory where the document should be) is a document with no
+                            # cwd, and a session whose marker has no readable cwd still opens
+                            # here — on the checkpoint fallback below — instead of failing the
+                            # open with a 409/404 raised out of a parse error. Round 1 of
+                            # #1110 wrote the coverage for a malformed marker and found the
+                            # strict read behind it (R3).
+                            stored = read_desktop_marker(path)
+                            if (
+                                not (path / DESKTOP_MARKER_NAME).exists()
+                                and session_activity(path) is None
+                            ):
+                                # M1's SECOND LEG (round-1 review): a directory with NO
+                                # marker document at all, no transcript and no mail
+                                # spool must not open as a session. That is what a
+                                # draft's engage leaves behind (residue measured as
+                                # ``.execution-lease`` + ``.session.pid``, or the empty
+                                # directory a drained runtime leaves), and before this
+                                # check the checkpoint fallback below answered such a
+                                # directory with a phantom bridge on ``root.parent`` —
+                                # 200s on every door for an id no create can ever make
+                                # a session again (measured: ``probe_residue_locate``).
+                                #
+                                # EXISTENCE OF THE MARKER PATH, not readability: a
+                                # marker that is present but unreadable — garbage, an
+                                # interrupted write, a directory where the document
+                                # should be — keeps its own contract (the tolerant
+                                # reader answers it on the fallback below, review
+                                # round 1 of #1110), so only the document's total
+                                # ABSENCE is evidence of nothing.
+                                raise KeyError("Unknown session")
+                            marker_cwd = (stored or {}).get("cwd")
+                            if isinstance(marker_cwd, str) and marker_cwd:
+                                return _LocatedSession(marker_cwd, marker_cwd)
+                            # The cold facade restores cwd from the durable canonical
+                            # checkpoint. This fallback is only used by pre-checkpoint
+                            # transcripts, whose historical launch directory is unknown.
+                            from local_operator.session.frontend_state import (
+                                FRONTEND_CHECKPOINT_CUSTOM_TYPE,
+                            )
+
+                            # A ONE-ROW read, not a ``Transcript(path)``: constructing the
+                            # transcript JSON-decodes the whole journal (2059.5 ms on the
+                            # operator's 261 MB conversation — the A/B table in
+                            # ``docs/evidence/session-load-central-cache``), and this branch
+                            # runs on every bridge creation for a session that carries no
+                            # ``desktop.json`` marker. The reader answers from the tail
+                            # backward and never creates the directory.
+                            checkpoint = read_latest_custom(path, FRONTEND_CHECKPOINT_CUSTOM_TYPE)
+                            return _LocatedSession(
+                                str(
+                                    (checkpoint or {}).get("state", {}).get("cwd")
+                                    or self.root.parent
+                                ),
+                                None,
+                            )
+                        from local_operator.session.remote_open import remote_row_for
+
+                        row = remote_row_for(session_id, self.root)
+                        if row is None:
+                            raise KeyError("Unknown session")
+                        if not row.reachable:
+                            # REFUSED BEFORE ANYTHING IS BUILT, and with the SAME
+                            # sentence the TUI refuses the same state with (the
+                            # composer lives in ``remote_open``): a viewer built for
+                            # an unreachable peer can never bind, so the honest
+                            # answer is the one that names the device, the reason and
+                            # the diagnosing command. The route maps it to the same
+                            # 409 ``session_is_remote`` this id answered before the
+                            # open path existed.
+                            raise PeerSessionUnreachable(session_id, row)
+                        # cwd="" and NOT a local path: a directory on this machine
+                        # means nothing on the peer, and an empty cwd is what lets the
+                        # peer default to its own (``RemoteOwner.engage`` forwards
+                        # nothing when the caller supplied nothing).
+                        return _LocatedSession("", None, row)
+
+                    # THE LOOKUP FIRST, so an unknown session stays 404 on a latched
+                    # daemon too: that is what lets "the 503 is the LATCH answering" be
+                    # read as a control in the evidence rather than as an artefact of
+                    # routing. It is also the read that parses the journal when the
+                    # session has no marker, so it is SHARED rather than repeated: a
+                    # second request for the same cold session awaits this one read
+                    # instead of paying a second full parse, and one session therefore
+                    # cannot be built twice.
+                    flight = self._locate_flight(session_id, locate)
+            if doomed is not None:
+                # M1's close, outside the pool lock (``forget``'s rule): the
+                # draft this bridge was born of is gone and the id never became
+                # a conversation, so a resident bridge nothing can reach would
+                # be the leak ``forget`` exists to prevent. Refused exactly as
+                # an unknown id is, on every door.
+                await doomed.close()
+                raise KeyError("Unknown session")
+            if flight is not None:
+                # THE SLOW HALVES, BOTH OUTSIDE THE POOL LOCK. This is the change
+                # that stops one conversation's open from being every other
+                # conversation's wait: a 25 ms request for a 642-byte session was
+                # measured at 829 ms while the 261 MB session's open was in flight
+                # — 33x for a read that is trivial — because the whole lookup and
+                # attach held the pool-wide lock. Nothing below touches pool state
+                # except in the guarded section, and the handout taken above is
+                # what keeps this bridge out of the eviction path meanwhile.
+                located = await asyncio.shield(flight)
+                self.assert_admitting()  # THE REFUSAL, before anything is built
+                # THE BRIDGE THE SHARED LOOKUP WENT ON TO BUILD, read WITHOUT the
+                # pool lock — and that read is safe precisely because of the
+                # handout taken above: a bridge this pool has handed out cannot
+                # be evicted out from under it, so no lock is needed to keep the
+                # answer true. A FOLLOWER therefore stops here: no second lookup,
+                # no second confirmation read, no lock at all. Sharing the flight
+                # is what buys that; sharing the lock never could.
+                bridge = self.bridges.get(session_id)
+                if bridge is None:
+                    # Reconstructed from the durable evidence BEFORE the bridge can
+                    # be handed out, so the doubt survives the eviction and restart
+                    # paths that rebuild it (review round 3, MAJOR-1). Off the loop
+                    # — it reads the run directory through discovery — and off the
+                    # lock, because it is I/O on the path this method exists to
+                    # shorten. Only reached when this caller is the one that builds
+                    # the bridge (or lost the race to build it).
+                    unconfirmed = await asyncio.to_thread(
+                        _cwd_is_unconfirmed,
+                        self.root,
+                        session_id,
+                        located.marker_cwd,
+                        located.cwd,
+                    )
+                    async with self.lock:
+                        # Re-read rather than assume: two concurrent cold callers both
+                        # reach here and only the first may build. The second finds the
+                        # bridge and reuses it, which is what makes the single-flight a
+                        # single flight rather than a single LOOKUP.
+                        bridge = self.bridges.get(session_id)
+                        if bridge is None:
+                            # THE DIRECTORY IS RE-CHECKED HERE, at INSERT time, not
+                            # at lookup time (round 3, R3-1). ``forget`` drops the
+                            # resident bridge and the shared flight, but a caller
+                            # already parked on that flight resumes with a result
+                            # that PREDATES the delete — so without this read it
+                            # re-inserts a bridge for a directory that is gone, and
+                            # the removed conversation is served (and resident)
+                            # again for the whole cold-open window, which this
+                            # module's own evidence file puts at seconds on a large
+                            # journal. One stat, inside a lock already held for
+                            # bookkeeping frames only, and it asks the same question
+                            # ``locate()`` asks — so a conversation RE-CREATED under
+                            # the same id passes it exactly as it did the first time.
+                            #
+                            # A REMOTE ID HAS NO DIRECTORY TO RE-CHECK, deliberately:
+                            # the peer holds it, the projection this lookup read is
+                            # the only evidence there is, and a stat here would be a
+                            # second, weaker answer about another device's disk. What
+                            # can move in the same window is the placement itself (a
+                            # ``/move`` home landing between the lookup and here),
+                            # and that is a race the cache's own TTL closes with the
+                            # peer's next listing — the peer is the authority on what
+                            # it holds, and a session that arrives home is opened
+                            # locally from the next request on.
+                            if (
+                                located.remote_row is None
+                                and not (self.root / "sessions" / session_id).is_dir()
+                            ):
+                                raise KeyError("Unknown session")
+                            evicted = self._make_room()
+                            bridge = DesktopSessionBridge(
+                                self.root,
+                                session_id,
+                                located.cwd,
+                                retiring=self.retiring_probe,
+                                cwd_unconfirmed=unconfirmed,
+                                remote_row=located.remote_row,
+                            )
+                            self.bridges[session_id] = bridge
+            assert bridge is not None  # resolved above: either found or built
+            await bridge.acquire(read=read)
+        finally:
+            # The window closes when acquire() returns, success or failure: from
+            # here on the bridge is an ordinary resident one, and ``users`` (which
+            # acquire/release maintain) is what says whether anyone is using it.
+            if taken:
+                self._end_handout(session_id)
+            if evicted is not None:
+                # AFTER THE POOL LOCK, AND NOT ONE LINE EARLIER. ``close()``
+                # awaits the bridge's own lock and the owner connection's
+                # teardown, and holding the pool lock across either is the
+                # multi-second open ``forget``'s own docstring exists to prevent.
+                # The ``async with self.lock`` above has already exited by the
+                # time this runs, which is what makes that true.
+                #
+                # IT CLOSES ON THE FAILURE PATH TOO, AND THAT IS WHY IT IS IN A
+                # ``finally`` AT ALL (agent review round 1, MAJOR 3). Sitting
+                # after the ``try`` meant a raise from ``acquire`` -- a failed
+                # bind, a refused handshake -- unwound straight past it, so a
+                # victim evicted for room was left resident with nothing holding
+                # it: the pool no longer knew it, and a later open of that session
+                # built a SECOND bridge while the first still held a facade and a
+                # runtime. Nearly inert for an idle tier-1 victim, and not inert
+                # at all for a tier-2 DWELLING one, whose facade, runtime and
+                # presence assertion would then be unreachable until its dwell
+                # expired.
+                #
+                # Closing is also what the bare ``del`` never did, on either path.
+                # For a dwelling victim it is what ends the dwell (``_evict_one``).
+                with contextlib.suppress(ConnectionError, RuntimeError):
+                    await evicted.close()
+        try:
+            yield bridge
+        finally:
+            with CancelScope(shield=True):
+                await bridge.release()
+
+    async def forget(self, session_id: str) -> bool:
+        """Drop a removed conversation's resident bridge; True if one existed.
+
+        WHY A SESSION EVER HAS TO BE FORGOTTEN (desktop QA round 2, PR #390):
+        ``session()`` hands out a RESIDENT bridge without re-checking the
+        directory — that lookup is the expensive half of every read (see
+        ``docs/evidence/session-load-central-cache``) — so a conversation this
+        process had already opened kept answering ``sessions.get``, ``/history``
+        and ``/mcp`` with 200 after its directory was deleted. Measured: the
+        deleting daemon answered 200 where a FRESH one answered 404 for the same
+        store, so a client that reloaded onto the removed id never saw the 404 its
+        tombstone is written against. The delete is the only event that makes
+        residency wrong, so it is the only caller.
+
+        CLOSED AS WELL AS DROPPED, and the order matters: dropping the reference
+        alone would leave the bridge's facade, subscribers and (after a watch
+        beat) its lease running with nothing able to reach them — an orphan that
+        this pool's own ``close()`` would no longer find, which is the leak this
+        method exists to avoid as much as the wrong 200. The close is awaited
+        AFTER the pool lock, because it takes the BRIDGE's lock and this pool's
+        lock is held for frames only.
+
+        The single-flight lookup is dropped with the bridge: a locate still in
+        flight was started for a directory that is now gone, and leaving it in
+        place would hand its answer to a later caller.
+        """
+        async with self.lock:
+            bridge = self.bridges.pop(session_id, None)
+            self._locate_flights.pop(session_id, None)
+        if bridge is None:
+            return False
+        await bridge.close()
+        return True
+
+    async def close(self) -> None:
+        await asyncio.gather(*(bridge.close() for bridge in self.bridges.values()))
+        self.bridges.clear()

@@ -1,0 +1,574 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Schema tests for .github/workflows/reusable-runtime-boot.yml (OMN-9250).
+
+Validates the reusable workflow's YAML shape so Tier-1 smoke (OMN-9251) and
+Tier-2 regression (OMN-9252) can safely call it via `workflow_call`. Asserts:
+
+* `on.workflow_call.inputs.mode` is required + string + constrained to real|compose
+* `on.workflow_call.inputs.runtime_host` default == 'localhost'
+* `on.workflow_call.inputs.pg_port` default == '5436' (real mode)
+* `on.workflow_call.inputs.compose_pg_port` default == '5433' (compose mode,
+  matches POSTGRES_PORT in docker/docker-compose.e2e.yml)
+* `on.workflow_call.inputs.real_ssh_user` present (empty default, falls back to
+  `whoami` on the runner — avoids hardcoded operator identity)
+* `jobs.boot.runs-on` uses the fork-safe OMNI_RUNNER_SELECTOR_V1 expression
+  shared with ci.yml
+* `jobs.boot.steps` contains checkout, uv setup, conditional compose bring-up,
+  launch + hard-gate checks for both runtime (`:8085`) and runtime-effects
+  (`:8086`) health (matches health_checker.py::_handle_health response shape),
+  60s hold with both PIDs alive + both health checks (compose) / flapping
+  tolerance (real), startup log gating for duplicate dispatcher /
+  auto-wiring / service-resolution failures (OMN-9458), psql
+  registration_projections liveness query, deterministic runtime consumer-group
+  liveness check, and smoke-result.json artifact upload guarded against missing
+  intermediate files.
+"""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any
+
+import pytest
+import yaml
+
+pytestmark = pytest.mark.unit
+
+WORKFLOW_PATH = (
+    Path(__file__).resolve().parents[2]
+    / ".github"
+    / "workflows"
+    / "reusable-runtime-boot.yml"
+)
+
+Workflow = dict[str, Any]
+Step = dict[str, Any]
+
+
+def _on_block(workflow: Workflow) -> dict[str, Any]:
+    # PyYAML parses the `on:` key as the Python bool True (YAML 1.1 "on"
+    # boolean alias). Accept either spelling so the test is agnostic to the
+    # underlying loader quirk. Cast keys to `Any` so mypy's dict overload
+    # accepts the bool fallback key.
+    typed_workflow: dict[Any, Any] = workflow
+    block = typed_workflow.get("on", typed_workflow.get(True))
+    assert isinstance(block, dict), "workflow missing `on` trigger"
+    return block
+
+
+def _inputs(workflow: Workflow) -> dict[str, Any]:
+    inputs = _on_block(workflow)["workflow_call"]["inputs"]
+    assert isinstance(inputs, dict)
+    return inputs
+
+
+def _boot_job(workflow: Workflow) -> dict[str, Any]:
+    job = workflow["jobs"]["boot"]
+    assert isinstance(job, dict)
+    return job
+
+
+def _boot_steps(workflow: Workflow) -> list[Step]:
+    steps = _boot_job(workflow)["steps"]
+    assert isinstance(steps, list)
+    return steps
+
+
+@pytest.fixture(scope="module")
+def workflow() -> Workflow:
+    assert WORKFLOW_PATH.exists(), f"workflow missing: {WORKFLOW_PATH}"
+    with WORKFLOW_PATH.open() as fh:
+        loaded = yaml.safe_load(fh)
+    assert isinstance(loaded, dict)
+    return loaded
+
+
+def test_workflow_is_workflow_call_reusable(workflow: Workflow) -> None:
+    assert "workflow_call" in _on_block(workflow), "workflow must expose workflow_call"
+
+
+def test_mode_input_required_string(workflow: Workflow) -> None:
+    inputs = _inputs(workflow)
+    assert "mode" in inputs, "mode input missing"
+    mode = inputs["mode"]
+    assert mode.get("required") is True, "mode must be required"
+    assert mode.get("type") == "string", "mode must be string"
+
+
+def test_mode_restricted_to_real_or_compose(workflow: Workflow) -> None:
+    """Restriction may be via `options` (enum) or a description-documented pattern.
+
+    GitHub's workflow_call does not support enum-typed inputs natively; the
+    plan accepts either `options` (forward-compat) or a description that
+    documents the `real | compose` contract. A runtime guard in the first
+    job step is not required to be asserted here — it's covered by the
+    step-level validation tests.
+    """
+    mode = _inputs(workflow)["mode"]
+    description = (mode.get("description") or "").lower()
+    options = mode.get("options") or []
+    documented = "real" in description and "compose" in description
+    enumerated = set(options) == {"real", "compose"}
+    assert documented or enumerated, (
+        "mode must be constrained to real|compose via `options` or description"
+    )
+
+
+def test_runtime_host_input_defaults_localhost(workflow: Workflow) -> None:
+    inputs = _inputs(workflow)
+    assert "runtime_host" in inputs
+    assert inputs["runtime_host"].get("type") == "string"
+    assert inputs["runtime_host"].get("default") == "localhost"
+
+
+def test_pg_port_input_defaults_5436(workflow: Workflow) -> None:
+    """Real-mode default — matches CLAUDE.md infra topology for .201."""
+    inputs = _inputs(workflow)
+    assert "pg_port" in inputs
+    assert inputs["pg_port"].get("type") == "string"
+    assert inputs["pg_port"].get("default") == "5436"
+
+
+def test_compose_pg_port_input_defaults_5433(workflow: Workflow) -> None:
+    """Compose-mode default — matches POSTGRES_PORT in docker/docker-compose.e2e.yml."""
+    inputs = _inputs(workflow)
+    assert "compose_pg_port" in inputs, (
+        "compose_pg_port input missing — needed to avoid port collision with real mode"
+    )
+    assert inputs["compose_pg_port"].get("type") == "string"
+    assert inputs["compose_pg_port"].get("default") == "5433"
+
+
+def test_compose_env_is_selected_after_network_probe(workflow: Workflow) -> None:
+    """Compose DNS names are valid only after the runner joins the compose network."""
+    steps = _boot_steps(workflow)
+    resolve_steps = [
+        s for s in steps if "resolve mode-specific postgres port" in _step_text(s)
+    ]
+    assert resolve_steps, "resolve-pg step missing"
+    resolve_text = "\n".join(_step_text(s) for s in resolve_steps)
+    assert "redpanda:9092" not in resolve_text
+    assert "omnibase-infra-postgres" not in resolve_text
+
+    compose_steps = [s for s in steps if "bring up compose stack" in _step_text(s)]
+    assert compose_steps, "compose bring-up step missing"
+    compose_text = "\n".join(_step_text(s) for s in compose_steps)
+    assert 'docker network connect "${omnibase_infra_network}"' in compose_text
+    assert "runner_on_compose_network=true" in compose_text
+    assert "e2e_redpanda_advertise_host" in compose_text
+    assert "compose service endpoints reachable by docker dns" in compose_text
+    assert (
+        "compose service endpoints reachable by generated container names"
+        in compose_text
+    )
+    assert "compose service endpoints reachable by host-published ports" in compose_text
+    assert "compose service endpoints reachable by docker host gateway" in compose_text
+    assert (
+        "unreachable from the runner by docker dns, localhost, or docker host gateway"
+        in compose_text
+    )
+    assert "capture_compose_infra_diagnostics" in compose_text
+    assert "redpanda logs tail" in compose_text
+    assert "rpk topic list --brokers redpanda:9092" in compose_text
+    assert "compose services not healthy after 150s" in compose_text
+    assert "kafka_bootstrap_servers=redpanda:9092" in compose_text
+    assert (
+        "kafka_bootstrap_servers=${omnibase_infra_redpanda_container}:9092"
+        in compose_text
+    )
+    assert "kafka_bootstrap_servers=localhost:${kafka_port}" in compose_text
+    assert (
+        "kafka_bootstrap_servers=${e2e_redpanda_advertise_host}:${kafka_port}"
+        in compose_text
+    )
+    assert "postgres:5432" in compose_text
+    assert "${omnibase_infra_postgres_container}:5432" in compose_text
+    assert "localhost:${postgres_port}" in compose_text
+    assert "${e2e_redpanda_advertise_host}:${postgres_port}" in compose_text
+    assert compose_text.index("compose infra healthy after") < compose_text.index(
+        "compose service endpoints reachable by docker dns"
+    )
+
+
+def test_e2e_redpanda_internal_listener_advertises_generated_container_name() -> None:
+    compose_text = (
+        Path(__file__).resolve().parents[2] / "docker" / "docker-compose.e2e.yml"
+    ).read_text(encoding="utf-8")
+
+    assert (
+        "--advertise-kafka-addr internal://${OMNIBASE_INFRA_REDPANDA_CONTAINER:-redpanda}:9092"
+        in compose_text
+    )
+
+
+def test_e2e_redpanda_uses_epoll_reactor_backend() -> None:
+    """Compose smoke Redpanda must not depend on scarce host libaio slots."""
+    compose_text = (
+        Path(__file__).resolve().parents[2] / "docker" / "docker-compose.e2e.yml"
+    ).read_text(encoding="utf-8")
+
+    redpanda_block = re.search(
+        r"(?ms)^  redpanda:\n(.*?)(?=^  [A-Za-z0-9_-]+:|\Z)",
+        compose_text,
+    )
+    assert redpanda_block is not None
+    assert "--reactor-backend=epoll" in redpanda_block.group(1)
+
+
+def test_real_ssh_user_input_has_empty_default(workflow: Workflow) -> None:
+    """SSH user must be parameterized, not hardcoded to `jonah`."""
+    inputs = _inputs(workflow)
+    assert "real_ssh_user" in inputs, (
+        "real_ssh_user input missing — avoids hardcoded operator identity"
+    )
+    assert inputs["real_ssh_user"].get("type") == "string"
+    # Empty default → caller opts into a specific user or the runner falls
+    # back to its own `whoami`. Not an assertion on portability — it's the
+    # absence of a hardcoded operator name.
+    assert inputs["real_ssh_user"].get("default", "") == ""
+
+
+def test_boot_job_runs_on_uses_self_hosted_conditional(workflow: Workflow) -> None:
+    """runs-on must keep public forks off trusted self-hosted runners."""
+    runs_on = _boot_job(workflow)["runs-on"]
+    assert isinstance(runs_on, str), "runs-on must be a string expression"
+    normalized = " ".join(runs_on.split())
+    assert "github.event_name == 'pull_request'" in normalized
+    assert "github.event.pull_request.head.repo.full_name != github.repository" in (
+        normalized
+    )
+    assert "vars.OMNI_PUBLIC_PR_RUNS_ON_JSON" in normalized
+    assert "vars.OMNI_TRUSTED_CI_RUNS_ON_JSON" in normalized
+    assert "fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '[\"ubuntu-latest\"]')" in (
+        normalized
+    )
+    # OMN-18205: this job executes docker, so its placement is governed by
+    # OMNI_DOCKER_CI_RUNS_ON_JSON before the general trusted seam. The property
+    # this test defends -- fork pull requests never reach a trusted self-hosted
+    # runner -- is untouched by that: the fork branch above is unchanged, and the
+    # narrower variable sits only inside the trusted branch. The assertion is the
+    # full chain rather than the single-variable spelling it replaced, so it is
+    # exactly as strict: the self-hosted literal is still only ever the last
+    # fallback, and inserting anything else into this chain still fails here.
+    assert (
+        "fromJSON(vars.OMNI_DOCKER_CI_RUNS_ON_JSON || "
+        'vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || \'["self-hosted","omnibase-ci"]\')'
+    ) in normalized
+
+
+def test_boot_env_parameterizes_runtime_host_and_pg_port(workflow: Workflow) -> None:
+    env = _boot_job(workflow)["env"]
+    assert env.get("RUNTIME_HOST") == "${{ inputs.runtime_host }}"
+    assert env.get("PG_PORT") == "${{ inputs.pg_port }}"
+
+
+def _step_text(step: Step) -> str:
+    parts = [
+        str(step.get("name", "")),
+        str(step.get("uses", "")),
+        str(step.get("run", "")),
+    ]
+    return "\n".join(parts).lower()
+
+
+def _has_step(steps: list[Step], predicate: Callable[[Step], bool]) -> bool:
+    return any(predicate(step) for step in steps)
+
+
+def test_boot_has_checkout_step(workflow: Workflow) -> None:
+    steps = _boot_steps(workflow)
+    assert _has_step(steps, lambda s: "actions/checkout" in str(s.get("uses", "")))
+
+
+def test_boot_has_uv_setup_step(workflow: Workflow) -> None:
+    steps = _boot_steps(workflow)
+    assert _has_step(
+        steps,
+        lambda s: "astral-sh/setup-uv" in str(s.get("uses", ""))
+        or "uv" in _step_text(s),
+    )
+
+
+def test_boot_disables_uv_cache_cleanup(workflow: Workflow) -> None:
+    steps = _boot_steps(workflow)
+    setup_step = next(
+        s for s in steps if "astral-sh/setup-uv" in str(s.get("uses", ""))
+    )
+    assert setup_step["with"]["enable-cache"] is False
+
+
+def test_compose_mode_installs_docker_compose_plugin(workflow: Workflow) -> None:
+    job = _boot_job(workflow)
+    assert job["env"]["DOCKER_COMPOSE_VERSION"] == "v2.40.3"
+
+    steps = _boot_steps(workflow)
+    install_steps = [
+        s for s in steps if "install docker compose plugin" in _step_text(s)
+    ]
+    assert install_steps, "Docker Compose plugin install step missing"
+    install_step = install_steps[0]
+    assert str(install_step.get("if", "")) == "inputs.mode == 'compose'"
+    install_text = _step_text(install_step)
+    assert "docker compose version" in install_text
+    assert "docker_compose_version" in install_text
+    assert "docker-compose-linux-x86_64" in install_text
+
+    compose_steps = [s for s in steps if "bring up compose stack" in _step_text(s)]
+    assert compose_steps, "compose bring-up step missing"
+    assert steps.index(install_step) < steps.index(compose_steps[0])
+
+
+def test_boot_has_conditional_compose_bringup(workflow: Workflow) -> None:
+    steps = _boot_steps(workflow)
+    matched = [
+        s
+        for s in steps
+        if "docker compose" in _step_text(s) or "docker-compose" in _step_text(s)
+    ]
+    assert matched, "compose bring-up step missing"
+    for step in matched:
+        cond = str(step.get("if", ""))
+        assert "inputs.mode" in cond and "compose" in cond, (
+            f"compose step must be gated on mode=='compose': {step}"
+        )
+
+
+def test_boot_resolves_compose_frontend_for_runner_variants(
+    workflow: Workflow,
+) -> None:
+    """Self-hosted runners may expose Compose as either docker compose or docker-compose."""
+    steps = _boot_steps(workflow)
+    all_text = "\n".join(_step_text(s) for s in steps)
+    assert "docker_compose_cmd" in all_text
+    assert "docker compose version" in all_text
+    assert "docker-compose" in all_text
+    # OMN-20147: a runner with neither front end fails the boot, never skips.
+    assert "runtime_boot_skip_reason" not in all_text
+    assert "failing rather than skipping (omn-20147)" in all_text
+    assert 'read -r -a compose_cmd <<< "${docker_compose_cmd}"' in all_text
+    assert '"${compose_cmd[@]}" -p "${omnibase_infra_compose_project}"' in all_text
+    assert (
+        '"${compose_cmd[@]}" -p "${omnibase_infra_compose_project:-omnibase-infra}"'
+        in all_text
+    )
+    assert '"${docker_compose_cmd:-docker compose}"' not in all_text
+
+
+def test_compose_runtime_boot_has_no_skip_path(
+    workflow: Workflow,
+) -> None:
+    """Missing runner Compose tooling FAILS the smoke; nothing can skip it.
+
+    OMN-20147 made ``Runtime Boot Smoke (compose)`` strict in CI Summary on
+    merge_group, so the old skip variable (OMN-12563), which let the job
+    complete green having booted nothing (OMN-18811 AC4), is gone: the
+    compose-dependent steps are gated on the mode alone and the hard gates
+    carry no ``if:`` at all.
+    """
+    steps = _boot_steps(workflow)
+    compose_dependent_steps = [
+        step
+        for step in steps
+        if step.get("name")
+        in {
+            "Bring up compose stack (postgres + redpanda)",
+            "Run database migrations (compose mode)",
+            "Pre-warm Redpanda metadata (compose mode)",
+            "Stage contracts outside /home (compose mode)",
+            "Launch runtime (compose mode)",
+            "Launch runtime-effects (compose mode)",
+        }
+    ]
+    assert len(compose_dependent_steps) == 6, "compose-dependent steps missing"
+    for step in compose_dependent_steps:
+        assert step.get("if") == "inputs.mode == 'compose'"
+
+    hard_gate_steps = [
+        step
+        for step in steps
+        if step.get("name")
+        in {
+            "Wait for runtime and runtime-effects health (hard gate)",
+            "Hold 60s — runtime and runtime-effects stability",
+            "Fail on startup auto-wiring or registration errors",
+            "Query registration_projections for active/fresh rows",
+            "Assert runtime consumer groups are active",
+        }
+    ]
+    assert len(hard_gate_steps) == 5, "runtime hard-gate steps missing"
+    for step in hard_gate_steps:
+        assert "if" not in step
+
+    artifact_step = next(
+        step for step in steps if step.get("name") == "Emit smoke-result.json artifact"
+    )
+    artifact_text = _step_text(artifact_step)
+    assert "skipped:" not in artifact_text
+    assert "skip_reason" not in artifact_text
+
+
+def test_boot_health_wait_uses_jq_hard_gate(workflow: Workflow) -> None:
+    """Health-wait step must assert the actual shape from health_checker.py:
+    top-level `.status == "healthy"` AND `.details.is_running == true`, AND
+    must probe runtime-effects on :8086 as a hard gate (OMN-9458).
+    """
+    steps = _boot_steps(workflow)
+    matched = [s for s in steps if "8085/health" in _step_text(s)]
+    assert matched, "health-wait step missing"
+    step_texts = "\n".join(_step_text(s) for s in matched)
+    # Probe the real JSON shape emitted by health_checker.py::_handle_health.
+    assert ".status ==" in step_texts, (
+        "must assert top-level .status field (see health_checker.py)"
+    )
+    assert '"healthy"' in step_texts or "'healthy'" in step_texts
+    assert ".details.is_running" in step_texts, (
+        "is_running lives under .details, not top-level (see health_checker.py)"
+    )
+    assert "true" in step_texts
+    assert "8086/health" in step_texts, "runtime-effects health gate missing (OMN-9458)"
+
+
+def test_boot_health_wait_distinguishes_degraded_from_never_responded(
+    workflow: Workflow,
+) -> None:
+    """OMN-9458: degraded /health must emit a distinct error message from the
+    generic "never reported healthy" timeout — degraded = reachable but
+    reporting a startup regression.
+    """
+    steps = _boot_steps(workflow)
+    matched = [s for s in steps if "8085/health" in _step_text(s)]
+    assert matched, "health-wait step missing"
+    step_texts = "\n".join(_step_text(s) for s in matched)
+    assert "degraded" in step_texts, (
+        "health-wait must explicitly handle status=degraded (OMN-9458)"
+    )
+
+
+def test_boot_emits_subscriber_warning_not_hard_gate(workflow: Workflow) -> None:
+    """subscriber_count<300 must emit `::warning::` — NOT fail the job."""
+    steps = _boot_steps(workflow)
+    all_text = "\n".join(_step_text(s) for s in steps)
+    assert "subscriber_count" in all_text, "subscriber_count observation missing"
+    assert "::warning::" in all_text, "subscriber_count must emit ::warning:: not fail"
+
+
+def test_boot_holds_60s_with_stability_check(workflow: Workflow) -> None:
+    """60s hold step must assert runtime and runtime-effects liveness.
+
+    In compose mode both runtimes are background Python processes launched via
+    `uv run`, not containers — so `docker inspect RestartCount` is
+    inapplicable. The step must instead assert both PIDs are still alive and
+    both /health endpoints still healthy. In real mode we fall back to a
+    flapping-tolerance check over both /health endpoints (OMN-9458).
+    """
+    steps = _boot_steps(workflow)
+    matched = [
+        s for s in steps if "sleep 60" in _step_text(s) or "60s hold" in _step_text(s)
+    ]
+    assert matched, "60s-hold stability step missing"
+    step_texts = "\n".join(_step_text(s) for s in matched)
+    assert "kill -0" in step_texts or "runtime_pid" in step_texts, (
+        "compose-mode branch must assert runtime PID is alive (kill -0) — "
+        "RestartCount on a host Python process is meaningless"
+    )
+    assert "runtime_effects_pid" in step_texts, (
+        "compose-mode branch must assert runtime-effects PID is alive too (OMN-9458)"
+    )
+
+
+def test_boot_fails_on_startup_auto_wiring_errors(workflow: Workflow) -> None:
+    """OMN-9458: hard-fail step must scan startup logs for the five regression
+    patterns that the 2026-04-22 .201 refresh surfaced as currently
+    warn-only or indirect signals.
+    """
+    steps = _boot_steps(workflow)
+    matched = [
+        s for s in steps if "startup auto-wiring" in _step_text(s).replace("_", " ")
+    ]
+    assert matched, "startup log gating step missing (OMN-9458)"
+    step_texts = "\n".join(_step_text(s) for s in matched)
+    assert "cannot register duplicate dispatcher id" in step_texts
+    assert "auto-wiring failed for" in step_texts
+    assert (
+        "asyncio\\.run\\(\\) cannot be called from a running event loop" in step_texts
+    )
+    assert "runtimehosterror" in step_texts
+    assert "serviceresolutionerror" in step_texts
+    assert "load_runtime_config" in step_texts
+
+
+def test_boot_has_psql_registration_projections_query(workflow: Workflow) -> None:
+    steps = _boot_steps(workflow)
+    matched = [
+        s
+        for s in steps
+        if "psql" in _step_text(s) and "registration_projections" in _step_text(s)
+    ]
+    assert matched, "psql registration_projections liveness query missing"
+    # Must scope to active + recent heartbeat (60s window) per plan.
+    step_texts = "\n".join(_step_text(s) for s in matched)
+    assert "active" in step_texts
+    assert "last_heartbeat_at" in step_texts
+
+
+def test_boot_has_rpk_group_list_step(workflow: Workflow) -> None:
+    steps = _boot_steps(workflow)
+    matched = [s for s in steps if "rpk group list" in _step_text(s)]
+    assert matched, "rpk group list check missing"
+    step_texts = "\n".join(_step_text(s) for s in matched)
+    assert "consumer_count" in step_texts
+    assert "local\\.omnibase_infra" in step_texts
+    assert "local\\.runtime_config" in step_texts
+    assert "onex-runtime" not in step_texts
+
+
+def test_boot_uploads_smoke_result_artifact(workflow: Workflow) -> None:
+    steps = _boot_steps(workflow)
+    matched = [
+        s
+        for s in steps
+        if "actions/upload-artifact" in str(s.get("uses", ""))
+        or "smoke-result" in _step_text(s)
+    ]
+    assert matched, "smoke-result.json artifact output missing"
+    # OMN-9458: artifact payload must include effects_health so downstream
+    # tooling can discriminate runtime vs runtime-effects startup regressions.
+    raw = WORKFLOW_PATH.read_text()
+    assert "effects_health" in raw
+    assert "compose_infra_diagnostics" in raw
+
+
+def test_boot_has_nine_steps_minimum(workflow: Workflow) -> None:
+    steps = _boot_steps(workflow)
+    # Plan enumerates 9 ordered steps; implementation may add minor helpers
+    # (e.g. a jq/kcat install step). Enforce >= 9 to catch accidental drops.
+    assert len(steps) >= 9, f"boot job must have >= 9 steps, found {len(steps)}"
+
+
+def test_no_hardcoded_user_paths(workflow: Workflow) -> None:
+    raw = WORKFLOW_PATH.read_text()
+    assert "/Users/" not in raw, "no /Users/ absolute paths in workflow YAML"
+    assert "/Volumes/" not in raw, "no /Volumes/ absolute paths in workflow YAML"
+
+
+def test_boot_teardown_is_unconditional_and_removes_network(
+    workflow: Workflow,
+) -> None:
+    """OMN-12566: the compose teardown must run on success AND failure, and
+    must explicitly remove the per-run network so it never leaks into the
+    runner's address pool — `compose down` alone is insufficient when the
+    network survives partial bring-up."""
+    steps = _boot_steps(workflow)
+    teardown = [s for s in steps if "tear down compose network" in _step_text(s)]
+    assert teardown, "missing unconditional compose-network teardown step"
+    step = teardown[0]
+    # always() so it fires even when an earlier hard gate failed.
+    assert "always()" in str(step.get("if", "")), "teardown must use always()"
+    text = str(step.get("run", ""))
+    assert "down -v --remove-orphans" in text, "teardown must run compose down -v"
+    # Bounded explicit removal fallback — never a blanket prune.
+    assert "docker network rm" in text, "teardown must explicitly remove the network"
+    assert "network prune" not in text, "teardown must NOT blanket-prune networks"

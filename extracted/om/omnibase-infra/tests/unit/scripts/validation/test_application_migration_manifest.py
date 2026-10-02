@@ -1,0 +1,1238 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""RED/green proof for the deterministic application migration manifest."""
+
+from __future__ import annotations
+
+import importlib.util
+import sys
+from pathlib import Path
+from types import ModuleType
+from typing import Any
+
+import pytest
+
+pytestmark = pytest.mark.unit
+
+REPO_ROOT = Path(__file__).resolve().parents[4]
+VALIDATOR_PATH = (
+    REPO_ROOT / "scripts" / "validation" / "validate_application_migration_manifest.py"
+)
+MIGRATIONS_DIR = REPO_ROOT / "docker" / "migrations" / "forward"
+LEDGER_DIR = MIGRATIONS_DIR / "_ledger"
+
+
+def _load_validator() -> ModuleType:
+    spec = importlib.util.spec_from_file_location(
+        "validate_application_migration_manifest", VALIDATOR_PATH
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+validator = _load_validator()
+
+
+def _validate(
+    migrations_dir: Path = MIGRATIONS_DIR,
+    ledger_dir: Path = LEDGER_DIR,
+    *,
+    require_complete: bool = False,
+) -> Any:
+    return validator.validate_manifests(
+        migrations_dir,
+        ledger_dir / "application-migrations.tsv",
+        ledger_dir / "application-migration-blocks.tsv",
+        ledger_dir / "legacy-node-migrations.tsv",
+        ledger_dir / "verified-checksum-adoptions.tsv",
+        ledger_dir / "verified-divergent-adoptions.tsv",
+        ledger_dir / "verified-cross-source-adoptions.tsv",
+        ledger_dir / "cloud-migration-aliases.tsv",
+        require_complete=require_complete,
+    )
+
+
+def _minimal_fixture(tmp_path: Path) -> tuple[Path, Path]:
+    migrations_dir = tmp_path / "forward"
+    ledger_dir = migrations_dir / "_ledger"
+    artifact = migrations_dir / "nodes" / "node_example" / "0001.sql"
+    artifact.parent.mkdir(parents=True)
+    ledger_dir.mkdir(parents=True)
+    artifact.write_text("SELECT 1;\n", encoding="utf-8")
+    checksum = validator._content_sha256(artifact)
+    (ledger_dir / "application-migrations.tsv").write_text(
+        "\t".join(
+            (
+                "nodes/node_example/0001.sql",
+                "node:node_example",
+                "node:node_example",
+                "omninode_internal",
+                "node:node_example:0001.sql",
+                checksum,
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    blocked_artifact = migrations_dir / "nodes" / "node_example" / "0002.sql"
+    blocked_artifact.write_text("SELECT 2;\n", encoding="utf-8")
+    blocked_checksum = validator._content_sha256(blocked_artifact)
+    (ledger_dir / "application-migration-blocks.tsv").write_text(
+        "\t".join(
+            (
+                "nodes/node_example/0002.sql",
+                "node:node_example:0002.sql",
+                blocked_checksum,
+                "OMN-99999",
+                "classification pending",
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (ledger_dir / "cloud-migration-aliases.tsv").write_text(
+        "20260101_example\t20260101_example.sql\n", encoding="utf-8"
+    )
+    (ledger_dir / "legacy-node-migrations.tsv").write_text("", encoding="utf-8")
+    (ledger_dir / "verified-checksum-adoptions.tsv").write_text("", encoding="utf-8")
+    (ledger_dir / "verified-divergent-adoptions.tsv").write_text("", encoding="utf-8")
+    (ledger_dir / "verified-cross-source-adoptions.tsv").write_text(
+        "", encoding="utf-8"
+    )
+    return migrations_dir, ledger_dir
+
+
+def _non_empty_tsv_row_count(path: Path) -> int:
+    """Row count derived live from a checked-in TSV, never a hand-maintained literal.
+
+    OMN-19899: a hardcoded count in this file had to be bumped, with a fresh
+    comment paragraph appended, on every single migration-adding PR -- the
+    identical PR set that also appends a row to ``application-migrations.tsv``,
+    so the two collided as a matched pair of hot files. Deriving every count in
+    this test from the checked-in tree removes this file from that set without
+    weakening the assertion: ``validate_manifests`` already proves
+    ``declared|blocked == filesystem`` file-for-file, and the counts below just
+    read the same checked-in tree the validator read.
+    """
+    return sum(
+        1 for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+    )
+
+
+def test_checked_in_manifest_is_exact_and_all_blockers_are_explicit() -> None:
+    result = _validate()
+
+    # FROZEN HISTORY (OMN-19899): the paragraphs below record why each migration
+    # up to and including OMN-17886 was added. Landing a new migration no longer
+    # requires appending a new paragraph here -- the counts this test asserts are
+    # now derived live from the checked-in tree (see _non_empty_tsv_row_count and
+    # the glob below), so do not add a new dated entry for a migration landed
+    # after OMN-19899. This removed a second, adjacent hot file from every
+    # migration-adding PR: this comment block used to be edited on the exact
+    # same PRs that also appended a row to application-migrations.tsv.
+    #
+    # 98 as of OMN-15819 (rebased onto OMN-15717): 97 from OMN-15717 (94 from
+    # the OMN-14894 vendor-parity repair -- the manifest mirrors the vendored
+    # node migration tree after restoring the nine house-tenant RLS
+    # migrations that are still source-owned in omnimarket dev -- +2 for
+    # node_canary_score_reducer/0003 and node_projection_registration/0004,
+    # see OMN-15361 exemption fix above for why these are the
+    # deadlock-triggering vendor files, +1 for OMN-15717's legacy-declared
+    # node_pr_review_bot/001_create_review_bot_bypass_log.sql), +1 for
+    # nodes/node_projection_live_events/0002_create_omninode_internal_live_events.sql
+    # -- the node-owned replacement that delivers omninode_internal.live_events
+    # through the node-owned loop, since the flat
+    # 099_create_omninode_internal_live_events.sql migration has no execution
+    # path in the k8s Job that applies flat migrations (cross-DB \connect),
+    # +1 for OMN-15846's nodes/node_log_persistence_effect/0000_create_log_entries.sql
+    # -- the node-owned replacement that delivers log_entries through the
+    # node-owned loop, since the flat 083_create_log_entries.sql migration has
+    # the same no-execution-path defect (cross-DB \connect),
+    # +2 for OMN-16090's node_hook_event_capture pair --
+    # 0001_create_hook_events.sql (the table; applies unfenced) and
+    # 0002_hook_events_tenant_rls.sql (the RLS posture; FENCED on arrival in
+    # fenced-node-migrations.yaml, because the forward runner refuses any new
+    # unfenced FORCE-RLS migration). Both are DECLARED here regardless of the
+    # fence: a fenced migration is skipped by the runner, not undeclared --
+    # dropping its declaration would make the eventual un-fence land an
+    # unbound file.
+    # +1 for OMN-16146's node_projection_registration/0005_create_projection_watermarks.sql
+    # -- vendors the watermark-persistence table BaseProjectionRunner's shared
+    # _update_watermark() path needs; landed in omnibase_infra first per the
+    # node-migration-vendor-parity-gate ordering, ahead of omnimarket#2092.
+    # +1 for OMN-15631's node_delegation_routing_reducer/0001_create_delegation_routing_tenant_overlay.sql
+    # -- vendors the v1(a) per-tenant delegation routing overlay table (tenant
+    # domain, additive, no RLS in v1(a)); landed in omnibase_infra first per
+    # the node-migration-vendor-parity-gate ordering, ahead of omnimarket#2116.
+    # +1 for OMN-16316's
+    # node_projection_tenant_credentials/0000_create_tenant_inference_credentials.sql
+    # -- vendors the BYOK inference-credential-ref catalog table, domain
+    # `tenant` (per-tenant credential data, not omninode_internal per the
+    # house-tenant ruling); landed in omnibase_infra first per the
+    # node-migration-vendor-parity-gate ordering, ahead of omnimarket#2117.
+    # +1 for OMN-16293's node_savings_estimation_compute/0001_create_savings_signal_tables.sql
+    # -- new node-owned migration creating savings_injection_signals /
+    # savings_validator_catch_signals, the Postgres "projection surface" the
+    # savings-correlation periodic batch reads instead of an in-memory buffer.
+    # +1 for OMN-15683's
+    # node_projection_delegation/0031_delegation_events_tenant_id_to_uuid.sql
+    # -- converts delegation_events.tenant_id from a legacy TEXT slug to the
+    # canonical UUID identity (domain `tenant`, same class as
+    # node_canary_score_reducer/0003_capability_scores_tenant_id_to_uuid.sql);
+    # landed in omnibase_infra first per the node-migration-vendor-parity-gate
+    # ordering, ahead of omnimarket#2106.
+    # +1 for OMN-14751's nodes/node_projection_intent_classification/
+    # 0001_intent_classification_agent_source.sql -- adds the nullable
+    # agent_source column to intent_classification_events (the projection
+    # half of the OMN-14749 parity seam; the producer half, OMN-14750,
+    # landed the field on the wire in omnibase_core). A separate forward
+    # migration rather than an edit to 0000_create_intent_classification_events.sql
+    # because that file's content SHA-256 is already pinned in the ledger.
+    # +1 for OMN-16324's
+    # node_projection_tenant_credentials/0001_relax_name_provider_not_null.sql
+    # -- relaxes name/provider to nullable so a revoke-before-register
+    # tombstone row (revoke arriving on a ref this projection has not yet
+    # seen a register for) can persist without violating NOT NULL; landed in
+    # omnibase_infra first per the node-migration-vendor-parity-gate
+    # ordering, ahead of omnimarket#2144.
+    # +1 for OMN-15533's
+    # node_projection_savings/084_validate_savings_estimates_token_constraints.sql
+    # -- validates the token-count CHECK constraints in a separate migration
+    # transaction after 082 adds them as NOT VALID.
+    # +2 for OMN-16705's additive repair of the append-only violation in
+    # OMN-16450 (#2866): node_delegation_routing_reducer/0002_overlay_positive_
+    # bound_constraints.sql and node_projection_tenant_credentials/0002_
+    # credential_identity_not_null.sql. Their two parents (routing 0001,
+    # credentials 0000) were rewritten in place AFTER the .201 dev lane had
+    # applied them, so bootstrap.sql raised "conflicting migration checksum in
+    # canonical node history" and exited every forward-migration run; both are
+    # restored to their applied bytes here and the deltas re-expressed as new
+    # ordinals. Vendored into omnibase_infra first per the
+    # node-migration-vendor-parity-gate ordering, ahead of the omnimarket PR.
+    # +1 for OMN-16759's
+    # node_gateway_link_health_write_effect/0001_create_gateway_link_health.sql
+    # -- the gateway_link_health projection, re-homed from flat migration 100
+    # onto the node loop. The flat loop reaches only omnibase_infra, which has
+    # no omninode_internal schema and whose migration role holds no CREATE on
+    # the database (both read live from the managed instance), so 100's
+    # CREATE SCHEMA failed with "permission denied for database
+    # omnibase_infra" and blocked every staging deploy. The node loop connects
+    # to the application database, where that schema exists and where the
+    # runtime's own DSN points.
+    # +1 for OMN-16777's
+    # node_projection_consumer_flow/0000_create_consumer_flow_windows.sql --
+    # the per-(consumer_group, topic) throughput read model plus its
+    # upstream-production tally (Phase 1 of the platform-observability epic
+    # OMN-16776). Vendored here first per the node-migration-vendor-parity-gate
+    # ordering, ahead of the omnimarket PR that owns the source file.
+    # +1 for OMN-16773's additive 0001 reconciliation migration for
+    # node_projection_consumer_flow after the guarded-create-table invariant
+    # started requiring explicit ADD COLUMN IF NOT EXISTS guards beside 0000.
+    # +1 for OMN-16777's
+    # node_projection_consumer_flow/0002_reconcile_consumer_flow_window_shapes.sql
+    # -- the OMN-16705 new-ordinal successor that authorises correcting 0000 and
+    # 0001, both of which spelled their guarded adds `... NOT NULL` and so could
+    # not reconcile a drifted table holding rows (Postgres: "contains null
+    # values", ON_ERROR_STOP=1, exit 3). The static gate was green while the
+    # failure class stayed open; 0002 re-expresses the corrected, nullable
+    # reconciliation additively.
+    # +1 for OMN-15425's
+    # node_projection_delegation_inference_response/0004_grant_tenant_projection_writer.sql
+    # -- the tenant-schema/table authorization half of the
+    # `tenant_projection_writer` identity cut. It rides the node-owned loop
+    # rather than the flat corpus because the flat corpus is one-database and
+    # carries no `\connect`, while these grants are per-database inside
+    # omnidash_analytics (the role itself is created cluster-wide by the flat
+    # migration 102).
+    # +1 for OMN-16993's
+    # node_projection_session_replay/0002_grant_omninode_runtime_session_replay_snapshots.sql
+    # -- the topology-derived grant the three topology instances already
+    # declare for `omninode_runtime` on `public.session_replay_snapshots` but
+    # which no migration in either repo ever issued, so the projection failed
+    # `InsufficientPrivilege` on every write once OMN-16993's LOGIN half let it
+    # authenticate at all. Vendored here first per the
+    # node-migration-vendor-parity-gate ordering, ahead of the omnimarket PR
+    # (#2214) that owns the source file.
+    # +1 for OMN-16180's
+    # node_projection_work_events/0001_create_work_events.sql -- the CREATE
+    # TABLE for omninode_internal.work_events, the L1 work-ledger surface of
+    # the OMN-16176 ladder. Vendored here first for the same
+    # node-migration-vendor-parity-gate reason as the two entries above: an
+    # omnimarket PR touching src/omnimarket/nodes/*/migrations/*.sql cannot
+    # land until omnibase_infra@dev already carries a byte-identical copy. The
+    # tsv row is what makes that infra-ahead-by-one state legal rather than
+    # drift -- sync-node-migrations.sh --check reads it as preserved history
+    # via the OMN-15717 legacy-declared exemption. Unlike every prior node
+    # relation created in the legacy default schema, this one is created
+    # directly in omninode_internal and issues its own omninode_runtime grant,
+    # so it needs no OMN-15359 cutover entry and cannot repeat the
+    # OMN-16993 grant-missing failure by construction.
+    # +1 for OMN-16180's node_projection_work_events/0002_work_events_summary_
+    # bound.sql = 121, over the 120 already on dev (which includes
+    # node_projection_delegation_inference_response/0004_grant_tenant_projection_
+    # writer.sql, vendored and declared by omnibase_infra#3014 for OMN-15425 --
+    # NOT by this branch, which carried a now-superseded copy of it before the
+    # rebase onto that merge). 0002 exists for two reasons, both recorded in the
+    # file: it adds the CHECK that makes ModelWorkEventRow's 2000-char summary
+    # bound a property of the DATA rather than of the writer, and it is the
+    # successor named by the migration-supersessions.tsv row authorising 0001's
+    # comment-only scrub of an internal LAN address (which omnimarket's
+    # leaked-literals gate blocks, while its vendor-parity gate requires the
+    # source file to be byte-identical to the copy vendored here).
+    # +2 for OMN-16930's registry-resolving replacement of the fenced 0031:
+    # node_projection_tenant_registry/0000_create_tenant_registry_mirror.sql
+    # (the runtime-populated slug->uuid relation, classified omninode_internal
+    # and deliberately RLS-free so the migrate identity can read it) and
+    # node_projection_delegation/0032_delegation_events_tenant_id_uuid_via_registry.sql
+    # (the superseding conversion, which JOINs that relation instead of inlining
+    # a literal CASE). 0031's own declaration is untouched -- its bytes are
+    # immutable, the .201 dev lane holds its content_sha256, and supersession is
+    # recorded in _ledger/migration-supersessions.tsv rather than by editing it.
+    # +1 for OMN-17019's node_projection_open_obligations/
+    # 0001_create_open_obligations.sql, the C9 open-obligations projection
+    # of the OMN-16176 ledger ladder. Like node_projection_work_events above it
+    # CREATEs directly in omninode_internal and issues its own omninode_runtime
+    # grant, so it needs no OMN-15359 cutover entry and cannot repeat the
+    # OMN-16993 grant-missing failure by construction. It is a NET-NEW file --
+    # never applied in any lane -- so vendoring it is purely additive and is not
+    # the in-place rewrite of an already-applied migration that caused OMN-17139.
+    # The grant it issues is deliberately SELECT/INSERT/UPDATE and NOT DELETE:
+    # an obligation leaves the open set only via a recorded terminal event.
+    # +1 for OMN-17288's node_projection_delegation/
+    # 0033_delegation_events_uuid_via_registry_single_transaction.sql, which
+    # supersedes 0032. 0032 put DROP POLICY / CREATE POLICY / GRANT after its
+    # DO block, and both of its defects follow from that: `RETURN` exits the
+    # block and not the file, so the documented "table absent, nothing to
+    # convert" path ran those trailing statements anyway and aborted on
+    # `relation "delegation_events" does not exist`; and `END$$` COMMITS -- the
+    # runner is `psql -v ON_ERROR_STOP=1 -f` with NO --single-transaction -- so
+    # the table was committed with RLS enabled and ZERO policies until the
+    # standalone CREATE POLICY landed, an interruption in that window denying
+    # every application read. 0033 moves the recreate and the app_dashboard
+    # GRANT inside the guarded block. Both defects are proven against 0032's
+    # real bytes on a scratch Postgres in omnimarket
+    # tests/test_omn17288_migration_policy_atomicity.py.
+    #
+    # 0032's OWN declaration also moves in this change -- its checksum, not its
+    # ordinal -- because a prose comment in it quoted a live customer's tenant
+    # slug and this repository is PUBLIC (OMN-17288 finding 2). That edit is
+    # authorised by the supersession row above, which is the only escape
+    # check_migration_append_only.py accepts. It is safe on the facts as well
+    # as on the rule: probed read-only 2026-08-31 against
+    # platform_catalog.schema_migrations, 0032 is applied on NO lane -- dev
+    # holds 0030+0031, stability-test holds 0030, prod and judge carry no
+    # platform_catalog ledger at all.
+    #
+    # OMN-17298 moves this count 125 -> 126 by ADDING one declaration:
+    # nodes/node_canary_score_reducer/0004_capability_scores_policy_atomic_restatement.sql.
+    # 0003 is the THIRD instance of the 0032 shape -- it drops tenant_isolation
+    # inside its DO block (line 127) and recreates it after `END$$` (163-164),
+    # so `END$$` commits with the relation enforcing row-level security and
+    # zero policies. It is also the FIRST of the three that actually ran:
+    # applied on the .201 dev lane 2026-08-17 02:30:59.157734+00. 0003's bytes
+    # are NOT edited here (it is applied with a recorded content_sha256, so an
+    # in-place edit would raise 'conflicting migration checksum in canonical
+    # node history'); 0004 restates the policy and the OMN-14894 GRANT inside
+    # one block. It was found by scripts/validation/
+    # check_migration_rls_policy_atomicity.py on its first run, not by review.
+    #
+    # +1 again for OMN-17316's node_projection_delegation/
+    # 0034_delegation_events_uuid_via_registry_role_set_guard.sql, which
+    # supersedes 0033. 0033 guarded its role switch with
+    # `pg_has_role(current_user, v_owner, 'USAGE')` and then performed the
+    # switch two statements later via `set_config('role', ...)`. Since
+    # PostgreSQL 16 INHERIT and SET are INDEPENDENT membership options, so a
+    # membership granted `WITH INHERIT TRUE, SET FALSE` passes that guard and
+    # aborts on a bare `permission denied to set role` -- the opaque refusal
+    # the guard exists to replace. 0034 tests BOTH predicates before the
+    # switch, naming which one failed; 0033's body is carried over verbatim.
+    # Proven by execution against the real vendored bytes in
+    # tests/integration/migrations/test_omn17316_role_set_membership_guard.py.
+    #
+    # 0033's own declaration does NOT move: unlike 0032 in the change above, it
+    # is retired in place and its bytes are untouched. Probed read-only
+    # 2026-08-31 against platform_catalog.schema_migrations in
+    # omnidash_analytics on all four .201 lanes, 0033 is applied on none --
+    # dev CLEAN (0030, 0031), stability-test CLEAN (0030), prod and judge
+    # NO_LEDGER. Neither fact is what admits the change: the append-only gate
+    # keys on manifest DECLARATION rather than lane application, and it is
+    # satisfied here by 0034 being an ADD next to an untouched 0033. What the
+    # lane probe and the gate jointly settled is that the repair could not be
+    # an in-place edit to 0033.
+    #
+    # OMN-15533 moves this count 127 -> 130 by ADDING three declarations under
+    # nodes/node_projection_savings/, all domain `tenant` to match 080-084 on
+    # the same relation (savings_estimates carries tenant_id + RLS since
+    # 080/081):
+    #   085_savings_estimates_provenance.sql adds savings_method /
+    #     usage_source / pricing_manifest_version -- nullable, no DEFAULT, and
+    #     CHECK-constrained NOT VALID to the consumer contract's vocabulary. A
+    #     DEFAULT would manufacture a provenance claim the source never made,
+    #     so NULL is retained as "the source stated nothing" and the view reads
+    #     it back as a refusal.
+    #   086_validate_savings_estimates_provenance_constraints.sql VALIDATEs
+    #     those constraints outside the definition transaction -- the same
+    #     split 084 already makes for the token-count constraints added in 082.
+    #   087_savings_views_read_persisted_provenance.sql CREATE OR REPLACEs both
+    #     delegation-savings views so they read the persisted columns instead
+    #     of inferring a provenance from token counts.
+    #
+    # 083's declaration does NOT move and its bytes are untouched. This is the
+    # same constraint 0032/0033 hit from the other direction: 083 is applied on
+    # the .201 dev lane with a recorded content_sha256, so correcting it in
+    # place would raise 'conflicting migration checksum in canonical node
+    # history'. 087 is therefore a forward CREATE OR REPLACE rather than an
+    # edit -- which is sound here precisely because both views hold no data.
+    #
+    # OMN-17374 moves this count 131 -> 132 by ADDING one declaration,
+    # nodes/node_projection_tenant_registry/0001_grant_omninode_runtime_tenant_registry_mirror.sql,
+    # domain `omninode_internal` to match 0000 on the same relation. It issues
+    # the SELECT/INSERT/UPDATE grant the topology has always declared for
+    # `omninode_runtime` on `tenant_registry_mirror` and that no migration ever
+    # issued -- the absence that refused BOTH the delegation writer's identity
+    # lookup and this node's own INSERT, which is why the mirror sat at zero
+    # rows at consumer LAG 0. 0000's bytes are untouched: it is applied on the
+    # .201 dev lane with a recorded content_sha256, so repairing its grant
+    # block in place would raise 'conflicting migration checksum in canonical
+    # node history' -- the same constraint 083/087 hit above. The grant is
+    # therefore a forward ADD, which is also where it belongs under the
+    # node_projection_session_replay/0002 convention (one grant, in the lineage
+    # that owns the relation).
+    # +1 again, 130 -> 131, for OMN-17379's node_pr_merged_projection/
+    # 0002_grant_omninode_runtime_pr_merged_events.sql, a pure ADD next to an
+    # untouched 0001. It grants the topology-declared omninode_runtime writer
+    # on public.pr_merged_events AND on the sequence its BIGSERIAL primary key
+    # drives -- the half `GRANT INSERT ON TABLE` does not reach, because a
+    # BIGSERIAL column is a plain nextval() DEFAULT over a standalone sequence
+    # whose own acl Postgres checks on every INSERT. Without it every write
+    # failed `InsufficientPrivilege: permission denied for sequence
+    # pr_merged_events_projection_cursor_seq` while the runtime swallowed the
+    # error and committed the offset anyway, so the projection sat 24 days
+    # behind its topic at TOTAL-LAG 0. Proven live on the .201 dev lane
+    # 2026-08-31 by rewinding the group to offset 94 and re-consuming 94..96 on
+    # the real wired path: three errors, three quarantine records, zero rows.
+    # OMN-17440 moves this count 132 -> 140 by ADDING eight declarations, one
+    # per owning node lineage, all domain `omninode_internal` to match the
+    # migration that creates each relation:
+    #
+    #   node_contract_registry/0001                (contract_registry)
+    #   node_merge_state_projection/0002           (merge_state_transitions)
+    #   node_omnigate_projection/0001              (gate_activity, gate_metrics)
+    #   node_pr_lifecycle_state_reducer/0002       (pr_lifecycle_ledger_entries)
+    #   node_projection_baselines/0003             (breakdown, comparisons,
+    #                                               snapshots, trend)
+    #   node_projection_intent_classification/0002 (intent_classification_events)
+    #   node_projection_overnight/0002             (session_phases, sessions)
+    #   node_projection_receipt_gate/0001          (receipt_gate_rows)
+    #
+    # Thirteen relations in total, each declared for `omninode_runtime` by the
+    # generated topology since it was generated and issued by NO migration
+    # until now. Every one is a pure forward ADD next to an untouched creating
+    # file, for the same reason the OMN-17374 and OMN-17379 rows above are:
+    # those creating migrations are applied on the .201 dev lane with recorded
+    # content_sha256 values, so repairing a grant block in place would raise
+    # 'conflicting migration checksum in canonical node history'.
+    #
+    # The tranche is the BIGSERIAL/SERIAL-keyed set specifically, because those
+    # are the relations where the TABLE grant alone still cannot write -- the
+    # INSERT fails at the sequence first, which is precisely the failure
+    # OMN-17379 proved on pr_merged_events. The sequence half is OMN-17447.
+    # OMN-17447 moves this count 140 -> 150 by ADDING ten more, the SEQUENCE
+    # half of the same defect class. A SERIAL/BIGSERIAL key is a nextval()
+    # DEFAULT over a STANDALONE sequence whose own acl PostgreSQL checks on
+    # every INSERT, so a relation can hold a complete TABLE grant and still
+    # refuse every write -- which is what kept pr_merged_events 24 days behind
+    # its topic at consumer LAG 0 (OMN-17379).
+    #
+    # Seven for omninode_runtime (contract_registry, gate_activity,
+    # intent_classification_events, merge_state_transitions,
+    # overnight_session_phases, pr_lifecycle_ledger_entries, receipt_gate_rows)
+    # and three for tenant_projection_writer (capability_scores,
+    # delegation_routing_tenant_overlay, dep_health_findings) -- the latter
+    # three found by DERIVING the requirement from declared INSERT grants plus
+    # the corpus's own column shapes, rather than from OMN-17447's hand list,
+    # which was scoped to omninode_runtime and never looked at them.
+    #
+    # Each resolves its sequence via pg_get_serial_sequence rather than
+    # spelling <table>_<column>_seq, RAISEs if the column is not sequence-backed
+    # instead of no-oping into another silent half-grant, and asserts
+    # has_sequence_privilege post-grant.
+    #
+    # OMN-17440 tranche 2 moves this count 150 -> 171 by ADDING twenty-one
+    # declarations, one per owning node lineage, every one a pure ADD next to an
+    # untouched creating migration and every one domain `omninode_internal` to
+    # match the migration that creates its relation (checked against the
+    # existing rows for all twenty-one lineages, including
+    # node_projection_delegation, whose `generation_*` files are
+    # omninode_internal while its `delegation_*` files are `tenant`):
+    #
+    #   node_deployment_evidence_reducer/0002       (deployment_evidence_projection,
+    #                                                deployment_readiness_projection)
+    #   node_evidence_dashboard_reducer/0002        (evidence_correlation_trace_projection,
+    #                                                evidence_dashboard_projection,
+    #                                                evidence_readiness_aggregate_projection)
+    #   node_llm_delegation_projection/0002         (llm_delegation_daily_projection)
+    #   node_nightly_loop_controller/002            (nightly_loop_decisions,
+    #                                                nightly_loop_iterations)
+    #   node_projection_baselines_quality/003       (baselines_quality_snapshots)
+    #   node_projection_baselines_roi/003           (baselines_roi_snapshots)
+    #   node_projection_capsule_store/080           (capsule_store)
+    #   node_projection_consumer_flow/0003          (omninode_internal.consumer_flow_windows,
+    #                                                omninode_internal.topic_produce_windows)
+    #   node_projection_cost_by_repo/0002           (cost_by_repo_snapshots)
+    #   node_projection_delegation/0035             (generation_events)
+    #   node_projection_event_chain/0002            (event_chain)
+    #   node_projection_llm_cost/0002               (llm_call_metrics)
+    #   node_projection_llm_routing/0002            (llm_routing_decisions)
+    #   node_projection_mcp_tools/0002              (mcp_tools)
+    #   node_projection_registration/0006           (node_service_registry)
+    #   node_projection_sandbox_decisions/0002      (sandbox_decisions)
+    #   node_projection_session_outcome/0022        (session_outcomes)
+    #   node_projection_swarm/0002                  (swarm_runs)
+    #   node_projection_traces/0002                 (traces)
+    #   node_projection_voice_sessions/0002         (voice_sessions)
+    #   node_renderer_capability_projection/0002    (renderer_capability_projection)
+    #
+    # Together these issue the 26 remaining topology-declared TABLE grants that
+    # no migration in either repo has ever issued, taking
+    # check_topology_grant_delivery.py's MAX_UNDELIVERED from 27 to 1 -- the one
+    # relation (nightly_loop_configs) that has no CREATE TABLE anywhere in the
+    # corpus and so no lineage to land a grant in.
+    #
+    # Not a bulk grant file, for the OMN-15701 reason the tranche-1 files state:
+    # a shared cross-node grant block is how a relation added to a node later
+    # silently misses its grant.
+    #
+    # No creating migration is edited. Each of the twenty-one parents is applied
+    # on the `.201` dev lane with a recorded content_sha256, so an in-place
+    # repair would raise "conflicting migration checksum in canonical node
+    # history" (the OMN-16705 constraint that 083/087 and 0032/0033 already hit).
+    #
+    # Vendored into omnibase_infra first per the node-migration-vendor-parity-
+    # gate ordering, ahead of the omnimarket source PR: an omnimarket PR
+    # touching src/omnimarket/nodes/*/migrations/*.sql cannot land until
+    # omnibase_infra@dev already carries a byte-identical copy. These tsv rows
+    # are what make that infra-ahead-by-one state legal rather than drift --
+    # sync-node-migrations.sh --check reads them as preserved history via the
+    # OMN-15717 legacy-declared exemption.
+    #
+    # 171 -> 172 for OMN-16770's
+    # nodes/node_savings_estimation_compute/
+    # 0002_create_savings_correlation_finalizations.sql, which creates
+    # omninode_internal.savings_correlation_finalizations -- the node's own
+    # record of which sessions it has published an estimate for. It replaces
+    # the readiness anti-join's cross-domain read of `savings_estimates`, a
+    # TENANT relation under FORCE ROW LEVEL SECURITY that the correlation
+    # pool's principal (`omninode_runtime`, NOSUPERUSER / NOBYPASSRLS /
+    # non-owner) could never read truthfully, so the OMN-16770 seam refused
+    # the batch on every 60s tick. Net-new file, no parent edited, ownership
+    # declared first in omnimarket's application-relation-ownership.yaml.
+    #
+    # 172 -> 173 for OMN-15683's
+    # nodes/node_projection_delegation/
+    # 0036_delegation_events_uuid_mixed_representation.sql, the successor that
+    # supersedes 0034. 0034 resolves tenant identity on m.tenant_slug alone and
+    # has no branch for a tenant_id that is already the canonical UUID, so it
+    # cannot convert the mixed-representation column that live write-time UUID
+    # stamping (OMN-16804) produces -- measured read-only on onex-dev, 26 of 229
+    # rows across 3 values, every one of them present in tenant_registry_mirror
+    # under tenant_uuid. 0036 resolves on both forms and is fail-closed on
+    # neither. Net-new file; 0034's bytes are NOT edited, it is retired in place
+    # by a row in _ledger/migration-supersessions.tsv, exactly as 0034 retired
+    # 0033.
+    #
+    # 173 -> 174 for OMN-15683's
+    # nodes/node_projection_delegation/
+    # 0037_delegation_events_uuid_mixed_representation_guard_before_set_role.sql,
+    # the successor that supersedes 0036. 0036 reads tenant_registry_mirror
+    # AFTER set_config('role', <delegation_events' owner>, true), and the mirror
+    # is owned by a DIFFERENT role: on onex-dev its ACL is
+    # {role_omnidash=arwdDxt, app_dashboard=r, omninode_runtime=arw, jake_ro=r}
+    # with role_omninode_owner absent, so
+    # has_table_privilege('role_omninode_owner','tenant_registry_mirror',
+    # 'SELECT') is false. Staging deploy run 34281092205 ran 0036's blindness
+    # reconciliation and debris DELETE correctly and then aborted with
+    # `permission denied for table tenant_registry_mirror` at inline_code_block
+    # line 262, rolling the whole transaction back. 0037 copies the mirror into
+    # a session-local TEMP table as the MIGRATE IDENTITY, before the role
+    # switch, and joins that snapshot in every guard below. Net-new file;
+    # 0036's bytes are NOT edited, it is retired in place by a row in
+    # _ledger/migration-supersessions.tsv, exactly as 0036 retired 0034.
+    #
+    # 174 -> 175 for OMN-18140's
+    # nodes/node_projection_delegation/
+    # 0038_delegation_events_writer_identity.sql, which adds a durable WRITER
+    # ATTESTATION to delegation_events: `writer_identity TEXT DEFAULT
+    # CURRENT_USER` and `written_at TIMESTAMPTZ DEFAULT NOW()`. Neither exists
+    # today, and `delegated_by` -- the closest existing column -- answers a
+    # different question: it names the DELEGATOR carried on the inbound event,
+    # a value the writing process chooses, not the database principal that
+    # performed the write. Both new columns are NULLABLE and unbackfilled on
+    # purpose: `NOT NULL DEFAULT CURRENT_USER` would rewrite the table and
+    # stamp every historical row with the MIGRATION runner's identity, which is
+    # a fabricated attestation for rows it did not write. Net-new file, no
+    # parent edited and nothing superseded -- it neither reads nor rewrites
+    # tenant_id, so it is independent of the 0031->0037 conversion chain above
+    # and does not participate in its supersession ledger.
+    #
+    # 175 -> 176 for OMN-18043's
+    # nodes/node_projection_consumer_flow/
+    # 0001_add_projection_cursor.sql, which adds the database-assigned,
+    # monotonic cursor required by the consumer-flow projection API. The
+    # omnimarket source PR must wait for this vendored migration to land in
+    # omnibase_infra first, so the node-migration vendor parity gate can prove
+    # a clean redeploy will create the projection column before the handler
+    # starts returning it.
+    #
+    # 176 -> 177 for OMN-18159's
+    # nodes/node_projection_delegation/
+    # 0039_delegation_aggregate_views_per_tenant.sql, which re-groups the four
+    # delegation aggregate views on tenant_id. They previously aggregated the
+    # whole table and depended on the reader arriving with a row-level-security
+    # session scope for the numbers to mean anything; a reader that derives its
+    # scope from a tenant filter cannot do that, saw no rows, and published
+    # zeros that read as a quiet period rather than as a fault. Same ordering
+    # as the row above -- the omnimarket source PR waits on this vendored
+    # migration, so the vendor parity gate can prove a clean redeploy creates
+    # the grouped views before the publisher reads them.
+    #
+    # 177 -> 178 for OMN-18159's
+    # nodes/node_projection_delegation/
+    # 0040_delegation_aggregate_views_owner_realign.sql. 0039 had to DROP and
+    # CREATE each of those four views -- a replace cannot change the column
+    # list -- and a DROP discards the view's OWNER. The role reaching 0039 is
+    # not the one that created them (0032, 0033 and 0034 each RESET ROLE), so
+    # they came back owned by the migration runner, a superuser, and a view
+    # reads its base tables as its owner. A superuser bypasses row-level
+    # security unconditionally, so every read through the four returned all
+    # tenants' rows regardless of app.tenant_id. 0040 realigns the owner back
+    # to delegation_events'. 0039's bytes are frozen (applied on the .201 dev
+    # lane with a recorded content_sha256 and declared here), so the repair is
+    # additive, which is also what makes it correct for a lane that already
+    # applied 0039.
+    #
+    # 178 -> 179 for OMN-18159 Phase 2's
+    # nodes/node_projection_savings/088_savings_views_invoker_scoped.sql. A
+    # read-only readback of onex-dev found TWO MORE views over delegation_events
+    # with security_invoker unset -- projection_delegation_savings and
+    # _savings_series -- missed only because they belong to a different node with
+    # a different migration lineage, not because anything about them differs.
+    # Two ALTER VIEW statements and nothing else: their shape does not change, so
+    # nothing needs dropping, and a DROP is what re-owns a view to whoever ran
+    # the migration, which is the defect 0040 above records.
+    #
+    # 179 -> 180 for OMN-17426's
+    # nodes/node_projection_savings/089_savings_aggregate_views_per_tenant.sql,
+    # which converts the two savings aggregate exposures the customer arrival
+    # page reads. It re-groups both views on tenant_id and APPENDS the column
+    # last, so CREATE OR REPLACE VIEW suffices -- Postgres permits an append and
+    # refuses a rename, a retype or a reorder -- and no grant and no view option
+    # is discarded. It also sets security_invoker on
+    # projection_cost_savings_overview, which 088 above left behind because that
+    # view read only savings_estimates at the time and reads delegation_events
+    # as of this migration.
+    #
+    # 180 -> 181 for OMN-18353's
+    # nodes/node_projection_consumer_flow/0004_grant_omninode_runtime_consumer_
+    # flow_cursor_sequence.sql, which grants USAGE on the standalone sequence
+    # OMN-18043's `projection_cursor BIGSERIAL` created. A BIGSERIAL column is a
+    # nextval() DEFAULT over a sequence whose own ACL Postgres checks on every
+    # INSERT, and GRANT INSERT ON TABLE does not reach it -- so the table grant
+    # 0003 delivers was complete and the writer still failed every write. It is
+    # declared here, and therefore resident in this repo rather than omnimarket,
+    # under the same OMN-15717 exemption its sibling 0003 already uses.
+    #
+    # 181 -> 182 for OMN-14894's
+    # nodes/node_projection_delegation/0041_delegation_budget_state_rls_tenant_
+    # isolation.sql. 0023 put ENABLE + FORCE ROW LEVEL SECURITY and a
+    # tenant_isolation policy on delegation_events AND delegation_budget_state
+    # in one file. delegation_events was converted to a uuid tenant_id and
+    # recovered its posture from the operative 0037; 0023 is fenced as a
+    # superseded id that now aborts against that column, and
+    # delegation_budget_state recovered nothing -- measured 2026-09-14 as
+    # relrowsecurity=f, relforcerowsecurity=f, 0 policies on both the .201
+    # compose dev lane and the onex-dev RDS. 0041 is 0023's second half
+    # re-landed alone. It is declared here, and fenced on arrival, because it
+    # enables FORCE ROW LEVEL SECURITY and cannot be grandfathered.
+    #
+    # 182 -> 183 for OMN-17201's
+    # nodes/node_hook_event_capture/0003_add_hook_events_envelope_id.sql.
+    # The new nullable UUID is a delivery trace beside the existing content
+    # identity; it has no backfill or uniqueness rule, so historical rows keep
+    # their honest absence of an envelope identifier.
+    #
+    # 183 -> 184 for OMN-18079's
+    # nodes/node_delegation_routing_reducer/0004_add_delegation_routing_tenant_overlay_provider.sql,
+    # vendored from omnimarket so the routing overlay can carry the provider
+    # identity a BYOK route was registered against. Additive and nullable, so
+    # rows written before provenance existed keep their honest NULL.
+    #
+    # 184 -> 185 for OMN-18079's
+    # nodes/node_delegation_routing_reducer/0005_backfill_delegation_routing_tenant_overlay_provider.sql.
+    # "Honest NULL" above turned out not to be honest but STRANDING: the same
+    # change that made 0004's column nullable also made the routing resolver
+    # REFUSE a blank provider, so every row written before provenance existed
+    # stopped routing the moment that resolver rolled out. All 33 rows on
+    # onex-dev carried NULL and the staging business proof went red on
+    # 2026-09-16T00:40:04Z. 0005 backfills the column by inverting the declared
+    # byok_provider_backends.v1.yaml binding, and leaves an uncatalogued
+    # backend NULL -- there the absence really is honest, and still refused.
+    #
+    # 185 -> 186 for OMN-18565's
+    # nodes/node_projection_delegation/0042_delegation_events_drop_house_tenant_default.sql,
+    # which removes the house-tenant column DEFAULT from delegation_events.
+    # tenant_id. That DEFAULT turned a write saying NOTHING about its tenant
+    # into a write ASSERTING one, authored by the schema rather than by any
+    # writer. delegation_events rows for one correlation are written by two
+    # independent subscriptions, so a tenant-less quality-gate verdict that won
+    # the race CREATED the row under the house tenant, and the real terminal's
+    # ON CONFLICT DO UPDATE was then refused by the tenant_isolation policy's
+    # USING half under FORCE ROW LEVEL SECURITY -- roughly three of sixteen
+    # staging proof runs passed over 24 hours on 2026-09-17. It drops a DEFAULT
+    # and rewrites no row; NOT NULL is deliberately kept, and the migration
+    # RAISES rather than proceeding on a lane where that column is nullable, so
+    # it can never trade a wrong tenant for a NULL one.
+    #
+    # 186 -> 188 for OMN-18774's pair,
+    # nodes/node_projection_delegation/0043_generation_events_drop_tenant_posture.sql
+    # and
+    # nodes/node_projection_registration/0007_node_service_registry_drop_tenant_posture.sql.
+    # Both relations are declared `schema: omninode_internal` by their owning
+    # contracts, so the runtime writes them through an operation class that
+    # refuses a tenant_id key and issues no set_config('app.tenant_id') at all --
+    # yet both carried a tenant_isolation policy predicated on exactly that GUC
+    # and a tenant_id column defaulting to the house tenant. The predicate was
+    # one no declared writer could satisfy, surviving only because the
+    # connection owns the table and relforcerowsecurity is off, and because it
+    # could not be satisfied the DDL authored the attribution instead. The
+    # operator ruled the end state on 2026-09-14
+    # (docs/tracking/ROLLING_WORK_LEDGER.md:654): an internal-classified
+    # relation receives no tenant stamping and no row-level security. Each
+    # migration drops the policy, disables RLS and drops the column inside ONE
+    # DO block, so the OMN-17288 window of "RLS enforcing, zero policies" cannot
+    # open between statements.
+    # 188 -> 190 for OMN-18768: two new node-owned migrations,
+    # nodes/node_projection_runner_fleet/0000_create_runner_fleet_liveness.sql,
+    # vendored from omnimarket by scripts/sync-node-migrations.sh. The count is
+    # asserted rather than derived on purpose -- it is what makes a vendored
+    # migration that arrives WITHOUT its declaration a red test here instead of
+    # a fail-closed surprise at bootstrap deploy time.
+    # 190 -> 195 for OMN-18693: five new GRANT-only migrations ordering the
+    # dogfood lane's tenant_projection_writer role onto five house-tenant
+    # relations ahead of the writer's own DDL --
+    # nodes/node_projection_dep_health/004_grant_tenant_projection_writer_dep_health_findings.sql,
+    # nodes/node_projection_pattern_learning/002_grant_tenant_projection_writer_pattern_learning_artifacts.sql,
+    # nodes/node_projection_routing_decision/0023_grant_tenant_projection_writer_agent_routing_decisions.sql,
+    # nodes/node_projection_savings/090_grant_tenant_projection_writer_savings_estimates.sql,
+    # nodes/node_projection_tenant_credentials/003_grant_tenant_projection_writer_tenant_inference_credentials.sql.
+    # 195 -> 196 for OMN-18851: one node-owned migration,
+    # nodes/node_projection_savings/090_savings_aggregate_excludes_model_text.sql,
+    # vendored from omnimarket by scripts/sync-node-migrations.sh. It redefines
+    # projection_delegation_savings so the aggregate stops embedding each
+    # session's full prompt_text and response_text -- the snapshot the savings
+    # writer republishes after every applied event had reached 2,548,602 bytes
+    # against a 1,048,588-byte producer limit and was crash-looping the writer.
+    #
+    # It shares the 090 prefix with the OMN-18693 GRANT migration listed just
+    # above, in the same node directory, and that is fine rather than an
+    # oversight: the forward runner applies these under namespaced ids
+    # (node:<node>:<filename>), which is why sync-node-migrations.sh's header
+    # records that no renumber is ever needed. The two are independent -- one
+    # grants on savings_estimates, the other redefines a view -- so their
+    # relative order cannot matter, and it is deterministic regardless.
+    # 196 -> 198 for OMN-18770: two more node-owned migrations,
+    # nodes/node_projection_runtime_error_fingerprints/0000_create_runtime_error_fingerprints.sql
+    # and its 0001_grant_omninode_runtime_runtime_error_fingerprints.sql, vendored
+    # from omnimarket by the same script. The grant file is a separate declaration
+    # rather than folded into the create, because the create runs as the migration
+    # role and the grant names the runtime role explicitly -- the OMN-17379 half
+    # whose absence left the projection writer unable to write.
+    #
+    # 198 -> 200 for OMN-18769 (C2 of epic OMN-18767), which adds TWO
+    # node-owned migrations: 0000_create_lab_lane_health.sql, the projection
+    # table folding the lane census, runtime health and lab-pass receipt facts
+    # the lab observability tab reads, and 0001_grant_omninode_runtime_lab_
+    # lane_health.sql, which ISSUES the grants the topology only declares.
+    # The grant rides in the owning node's own lineage rather than a shared
+    # file, so it is a second declaration here rather than an edit to the
+    # first -- the same shape as node_projection_runner_fleet's pair above.
+    #
+    # 200 -> 202 for OMN-18900 (decision 3 of the 2026-09-20 decision-workflow
+    # eval plan), which adds TWO node-owned migrations in the same shape:
+    # 0000_create_dod_verify_runs.sql, one durable row per
+    # definition-of-done verification run keyed on ticket, correlation id and
+    # completion time, and 0001_grant_omninode_runtime_dod_verify_runs.sql,
+    # which ISSUES the grants the topology only declares -- the table half and
+    # the BIGSERIAL cursor's own standalone sequence, both asserted.
+    #
+    # 202 -> 203 for OMN-19031, which adds ONE node-owned migration:
+    # node_projection_consumer_flow/0005_add_node_id_ingest_index.sql. It
+    # indexes (node_id, ingest_sequence DESC) on
+    # omninode_internal.consumer_flow_windows, the predicate
+    # ConsumerFlowProjectionWriter runs once per heartbeat event. No index
+    # covered node_id, so the plan was a Parallel Seq Scan; measured on
+    # onex-dev at 10,352,358 rows / 5,842 MB it took 38.8s against the asyncpg
+    # pool's command_timeout of 30, and the writer wrote nothing for seven
+    # days. The ordinal is 0005 rather than the source tree's own next free
+    # 0002 because THIS tree carries four files the node tree does not, and
+    # 0002_reconcile_consumer_flow_window_shapes.sql is the one that does
+    # ADD COLUMN IF NOT EXISTS node_id UUID -- files apply in sort order, so a
+    # 0002 index would sort before the reconcile that guarantees its column.
+    #
+    # 203 -> 205 for OMN-18993 (blocking child of OMN-18887), which vendors TWO
+    # node-owned migrations in the pair shape used above for
+    # node_projection_lab_lane_health and node_projection_dod_verdict:
+    # node_delegate_skill_orchestrator/0001_delegate_skill_command_claims.sql,
+    # the durable correlation-keyed claim that stops a redelivered
+    # delegate-skill command from re-running the inference and billing it
+    # twice, and 0001_grant_omninode_runtime_delegate_skill_command_claims.sql,
+    # which ISSUES the grants the topology only declares. The grant rides in
+    # the owning node's own lineage rather than a shared file, so it is a
+    # second declaration here rather than an edit to the first.
+    #
+    # Domain omninode_internal, not tenant: per-node control state carrying no
+    # row-level security, so a tenant posture would assert an isolation the
+    # schema does not enforce. Vendored into omnibase_infra FIRST per the
+    # node-migration-vendor-parity ordering, ahead of omnimarket#2744.
+    #
+    # 205 -> 207 for OMN-18999 (surface 2 of 4 under OMN-18946), which vendors
+    # TWO node-owned migrations in the same pair shape as OMN-18900 directly
+    # above: 0000_create_prod_promotion_gate_decisions.sql, one durable row per
+    # prod-promotion-gate evaluation keyed on the redeploy run, so that a
+    # refusal leaves a queryable row instead of only a return value, and
+    # 0001_grant_omninode_runtime_prod_promotion_gate_decisions.sql, which
+    # ISSUES the grants the topology only declares -- the table half and the
+    # BIGSERIAL cursor's own standalone sequence, both asserted. The grant
+    # rides in the owning node's own lineage, so it is a second declaration
+    # here rather than an edit to the first.
+    # 207 -> 209 for OMN-18987: the append-only 0043z predecessor and the
+    # immutable 0044 delegation-shadow-comparisons restoration migration.
+    #
+    # 209 -> 211 for OMN-18903 (decision 2 of epic OMN-18850), which vendors
+    # TWO node-owned migrations in the same pair shape as every pair above:
+    # node_projection_ci_attempt_outcome/0000_create_ci_attempt_outcome.sql,
+    # the read model holding one row per (repository, pull request, head
+    # commit, check, run attempt) with its cause code, and
+    # 0001_grant_omninode_runtime_ci_attempt_outcome.sql, which ISSUES the
+    # grants the topology only declares. Two declarations rather than one for
+    # the same reason as every pair above: the create runs as the migration
+    # role and the grant names the runtime role.
+    #
+    # Vendored into omnibase_infra FIRST per the node-migration
+    # vendor-parity ordering, ahead of omnimarket#2730.
+    #
+    # 211 -> 212 for OMN-19013: the append-only delegation quality-reader
+    # correction must be a first-class vendored application migration. Its
+    # exact source bytes and manifest binding are pinned separately by
+    # test_omn19013_terminal_construction_vendor.py.
+    #
+    # 212 -> 213 for OMN-18930: node_projection_delegation/0046 adds the three
+    # nullable delegation_events cohort-key columns (additive, expand-only).
+    # Vendored FIRST, ahead of the omnimarket source, per the vendor-parity
+    # ordering.
+    # 213 -> 214 for OMN-19438: one node-owned migration,
+    # nodes/node_projection_savings/091_savings_estimates_house_tenant_uuid_backfill.sql,
+    # vendored here FIRST per the node-migration vendor-parity ordering. It moves
+    # savings_estimates rows stored under the house slug to the house tenant's
+    # UUID and makes the UUID the column default, after the writer fix is live.
+    # 214 -> 216 for OMN-19514: node_projection_delegation/0047 adds the
+    # nullable delegation_events.ticket_id column, and
+    # node_projection_dod_verdict/0002 adds the nullable
+    # dod_verify_runs.delegation_correlation_id column, so a delegation run
+    # joins to its ticket and to the DoD verdict that judged it. Both additive
+    # (expand-only), vendored FIRST per the vendor-parity ordering.
+    # 216 -> 217 for OMN-19721: node_projection_runtime_error_fingerprints/0002
+    # adds the nullable runtime_error_fingerprints.last_applied_event_id column,
+    # so a broker redelivery of one runtime-error event is counted once.
+    # 217 -> 218 for OMN-19550: node_projection_session_content/0001 creates
+    # omninode_internal.session_content and grants the projection writer role.
+    # Additive (expand-only), vendored FIRST per the vendor-parity ordering.
+    # 217 -> 219 for OMN-19716: node_projection_topic_activity/0000 creates the
+    # topic_activity table and 0001 grants the runtime role SELECT, INSERT and
+    # UPDATE on it. Vendored FIRST per the vendor-parity ordering.
+    # 219 -> 220 for OMN-19860: node_projection_delegation/0048 adds the
+    # nullable delegation_events.caller_lane column, so a delegation row names
+    # the ledger lane that issued it. Additive (expand-only), vendored FIRST
+    # per the vendor-parity ordering.
+    # 220 -> 222 for OMN-19833: node_projection_pr_landing/0000 creates the
+    # pr_landing_state and pr_landing_transitions read models and 0001 grants
+    # the runtime role on both. Vendored FIRST per the vendor-parity ordering,
+    # ahead of omnimarket#3000.
+    # 222 -> 223 for OMN-19550: node_projection_session_content/0001 creates
+    # omninode_internal.session_content and grants the projection writer role.
+    # Additive (expand-only), vendored FIRST per the vendor-parity ordering.
+    # 223 -> 224 for OMN-17886: node_gateway_link_health_write_effect/0002
+    # revokes the runtime role's privileges on the gateway_link_health_status
+    # view. The node lives in omnibase_infra, so nothing is vendored.
+    # OMN-19899: counts below are derived live from the checked-in tree, not a
+    # hardcoded literal -- see _non_empty_tsv_row_count. The comment block above
+    # is frozen history and no longer needs a new paragraph per migration; a
+    # drift between the declaration count and the actual node .sql files is
+    # already caught inside validate_manifests() itself (filesystem_paths ==
+    # manifest_paths), so this is a second, independent read of the same tree.
+    # OMN-17887 (node_projection_tenant_credentials/004_drop_empty_tenant_schema.sql)
+    # is covered by this live derivation and needs no paragraph or literal here.
+    live_node_sql_count = len(list((MIGRATIONS_DIR / "nodes").glob("*/*.sql")))
+    assert len(result.declarations) + len(result.blocked) == live_node_sql_count
+    assert result.blocked == ()
+    assert len(result.legacy_node_declarations) == _non_empty_tsv_row_count(
+        LEDGER_DIR / "legacy-node-migrations.tsv"
+    )
+    #
+    # cloud_aliases 30 -> 43 for OMN-18553. These 13 are not new migrations; they
+    # are names omninode_infra's corpus had ALREADY written into omninode_cloud's
+    # migrations_log and that this declaration had never caught up with. Nothing
+    # had noticed because nothing had ever applied that corpus far enough: once
+    # OMN-18544 let it apply in full on the .201 dev lane, all 13 surfaced at once
+    # and aborted the forward-migration one-shot at exit 3. Measured on the lane:
+    # 42 distinct log names, 29 declared, 13 not.
+    assert len(result.cloud_aliases) == _non_empty_tsv_row_count(
+        LEDGER_DIR / "cloud-migration-aliases.tsv"
+    )
+
+
+def test_completion_gate_is_green_after_domain_classification_is_complete() -> None:
+    result = _validate(require_complete=True)
+
+    assert result.blocked == ()
+
+
+def test_empty_block_set_is_valid_after_all_artifacts_are_classified(
+    tmp_path: Path,
+) -> None:
+    migrations_dir, ledger_dir = _minimal_fixture(tmp_path)
+    (migrations_dir / "nodes" / "node_example" / "0002.sql").unlink()
+    (ledger_dir / "application-migration-blocks.tsv").write_text("", encoding="utf-8")
+
+    result = _validate(migrations_dir, ledger_dir, require_complete=True)
+
+    assert result.blocked == ()
+
+
+@pytest.mark.parametrize(
+    ("field_index", "replacement", "signature"),
+    [
+        (1, "unknown-stream", "unknown migration stream"),
+        (3, "unknown_domain", "unknown domain"),
+        (5, "0" * 64, "conflicting checksum"),
+    ],
+)
+def test_active_declaration_drift_fails_closed(
+    tmp_path: Path,
+    field_index: int,
+    replacement: str,
+    signature: str,
+) -> None:
+    migrations_dir, ledger_dir = _minimal_fixture(tmp_path)
+    declaration_path = ledger_dir / "application-migrations.tsv"
+    fields = declaration_path.read_text(encoding="utf-8").strip().split("\t")
+    fields[field_index] = replacement
+    declaration_path.write_text("\t".join(fields) + "\n", encoding="utf-8")
+
+    with pytest.raises(validator.ManifestError, match=signature):
+        _validate(migrations_dir, ledger_dir)
+
+
+def test_active_and_blocked_double_declaration_fails_closed(tmp_path: Path) -> None:
+    migrations_dir, ledger_dir = _minimal_fixture(tmp_path)
+    active_path = ledger_dir / "application-migrations.tsv"
+    active_fields = active_path.read_text(encoding="utf-8").strip().split("\t")
+    blocked_path = ledger_dir / "application-migration-blocks.tsv"
+    blocked_path.write_text(
+        "\t".join(
+            (
+                active_fields[0],
+                active_fields[4],
+                active_fields[5],
+                "OMN-99999",
+                "duplicate declaration RED",
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(validator.ManifestError, match="double migration declaration"):
+        _validate(migrations_dir, ledger_dir)
+
+
+def test_duplicate_cloud_alias_fails_closed(tmp_path: Path) -> None:
+    migrations_dir, ledger_dir = _minimal_fixture(tmp_path)
+    alias_path = ledger_dir / "cloud-migration-aliases.tsv"
+    alias_path.write_text(
+        "20260101_example\t20260101_example.sql\n"
+        "20260101_example\t20260102_other.sql\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        validator.ManifestError, match="duplicate cloud migration alias"
+    ):
+        _validate(migrations_dir, ledger_dir)
+
+
+def test_legacy_node_declaration_cannot_shadow_an_active_artifact(
+    tmp_path: Path,
+) -> None:
+    migrations_dir, ledger_dir = _minimal_fixture(tmp_path)
+    (ledger_dir / "legacy-node-migrations.tsv").write_text(
+        "\t".join(
+            (
+                "node:node_example",
+                "node:node_example",
+                "omninode_internal",
+                "node:node_example:0001.sql",
+                "hotfix-applied-by-codex",
+                "OMN-15717",
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        validator.ManifestError, match="legacy declaration has vendored artifact"
+    ):
+        _validate(migrations_dir, ledger_dir)
+
+
+def test_legacy_node_declaration_requires_a_valid_source_record(tmp_path: Path) -> None:
+    migrations_dir, ledger_dir = _minimal_fixture(tmp_path)
+    (ledger_dir / "legacy-node-migrations.tsv").write_text(
+        "\t".join(
+            (
+                "node:node_history",
+                "node:node_history",
+                "omninode_internal",
+                "node:node_history:0001_removed.sql",
+                "raw checksum with spaces",
+                "OMN-15717",
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        validator.ManifestError, match="malformed legacy source checksum"
+    ):
+        _validate(migrations_dir, ledger_dir)
+
+
+CAPTURED_OMN15717_FIXTURE = (
+    Path(__file__).parents[3]
+    / "fixtures"
+    / "omn15717"
+    / "001_create_review_bot_bypass_log.sql.captured"
+)
+
+
+class TestOmn15717IncidentReplay:
+    """Incident replay case (OMN-15547 registry): drives THIS validator
+    against the exact captured bytes of node_pr_review_bot's
+    001_create_review_bot_bypass_log.sql (git-object:OmniNode-ai/omnimarket@
+    cedd24311ed320d34cc5ab5f8f79f5b04e9abf25:src/omnimarket/nodes/
+    node_pr_review_bot/migrations/001_create_review_bot_bypass_log.sql),
+    vendored with NO manifest declaration -- reproducing the exact pre-fix
+    tree shape. This validator existed, unwired, the whole time; had it been
+    wired the omission would have failed a PR instead of a live
+    bootstrap.sql deploy weeks later ("unknown migration stream/domain:
+    adopted node version node:node_pr_review_bot:001_create_review_bot_bypass_log.sql
+    has no checked-in declaration", .201:/tmp/refresh_stability_lane_20260805.log).
+    """
+
+    def test_captured_undeclared_migration_is_rejected(self, tmp_path: Path) -> None:
+        assert CAPTURED_OMN15717_FIXTURE.is_file(), (
+            f"incident replay fixture missing: {CAPTURED_OMN15717_FIXTURE}"
+        )
+        migrations_dir, ledger_dir = _minimal_fixture(tmp_path)
+        undeclared_artifact = (
+            migrations_dir
+            / "nodes"
+            / "node_pr_review_bot"
+            / "001_create_review_bot_bypass_log.sql"
+        )
+        undeclared_artifact.parent.mkdir(parents=True)
+        undeclared_artifact.write_bytes(CAPTURED_OMN15717_FIXTURE.read_bytes())
+
+        with pytest.raises(
+            validator.ManifestError,
+            match="migration declaration set differs from the vendored node tree",
+        ) as excinfo:
+            _validate(migrations_dir, ledger_dir)
+
+        assert "nodes/node_pr_review_bot/001_create_review_bot_bypass_log.sql" in str(
+            excinfo.value
+        )
+
+
+# ---------------------------------------------------------------------------
+# OMN-15857: verified checksum adoptions
+# ---------------------------------------------------------------------------
+#
+# An adoption row tells bootstrap.sql to accept a hand-written sentinel checksum
+# for one version, on the strength of a mechanical schema-equivalence proof. The
+# row is only trustworthy while every fact it pins is still true, so the
+# validator re-checks all of them at PR time rather than at deploy time.
+
+_ADOPTION_RECEIPT = "b" * 64
+
+
+def _write_adoption(ledger_dir: Path, *fields: str) -> None:
+    (ledger_dir / "verified-checksum-adoptions.tsv").write_text(
+        "\t".join(fields) + "\n", encoding="utf-8"
+    )
+
+
+def _adoption_fields(ledger_dir: Path, **overrides: str) -> tuple[str, ...]:
+    declared = next(
+        line.split("\t")
+        for line in (ledger_dir / "application-migrations.tsv")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    )
+    row = {
+        "version": declared[4],
+        "source_checksum": "hotfix-applied-by-codex",
+        "manifest_checksum": declared[5],
+        "ticket": "OMN-15857",
+        "receipt_sha256": _ADOPTION_RECEIPT,
+        "verified_at": "2026-08-28",
+    }
+    row.update(overrides)
+    return tuple(row.values())
+
+
+def test_checked_in_verified_adoptions_are_valid() -> None:
+    result = _validate()
+
+    assert len(result.verified_adoptions) >= 1
+    for adoption in result.verified_adoptions:
+        assert adoption.ticket.startswith("OMN-")
+        assert len(adoption.receipt_sha256) == 64
+
+
+def test_a_valid_verified_adoption_passes(tmp_path: Path) -> None:
+    migrations_dir, ledger_dir = _minimal_fixture(tmp_path)
+    _write_adoption(ledger_dir, *_adoption_fields(ledger_dir))
+
+    result = _validate(migrations_dir, ledger_dir)
+
+    assert len(result.verified_adoptions) == 1
+
+
+def test_verified_adoption_for_an_undeclared_version_is_rejected(
+    tmp_path: Path,
+) -> None:
+    """An adoption can only restate a checksum the manifest already owns."""
+    migrations_dir, ledger_dir = _minimal_fixture(tmp_path)
+    _write_adoption(
+        ledger_dir,
+        *_adoption_fields(ledger_dir, version="node:node_ghost:0001_missing.sql"),
+    )
+
+    with pytest.raises(
+        validator.ManifestError, match="has no active migration declaration"
+    ):
+        _validate(migrations_dir, ledger_dir)
+
+
+def test_verified_adoption_pinned_to_stale_content_is_rejected(tmp_path: Path) -> None:
+    """The load-bearing check: rewriting the file invalidates the proof.
+
+    Without this, an adoption written against one version of a migration would
+    silently keep vouching for whatever bytes replaced it -- reintroducing the
+    OMN-16705 class of failure through a new door.
+    """
+    migrations_dir, ledger_dir = _minimal_fixture(tmp_path)
+    _write_adoption(
+        ledger_dir, *_adoption_fields(ledger_dir, manifest_checksum="a" * 64)
+    )
+
+    with pytest.raises(validator.ManifestError, match="was proven against content"):
+        _validate(migrations_dir, ledger_dir)
+
+
+def test_verified_adoption_of_a_canonical_checksum_is_rejected(tmp_path: Path) -> None:
+    """A 64-hex source checksum needs no adoption; bootstrap compares it."""
+    migrations_dir, ledger_dir = _minimal_fixture(tmp_path)
+    fields = _adoption_fields(ledger_dir)
+    _write_adoption(
+        ledger_dir, *_adoption_fields(ledger_dir, source_checksum=fields[2])
+    )
+
+    with pytest.raises(validator.ManifestError, match="carries a 64-hex source"):
+        _validate(migrations_dir, ledger_dir)
+
+
+def test_verified_adoption_of_the_runner_literal_is_rejected(tmp_path: Path) -> None:
+    """``applied-by-runner`` is already adopted; declaring it adds only noise."""
+    migrations_dir, ledger_dir = _minimal_fixture(tmp_path)
+    _write_adoption(
+        ledger_dir, *_adoption_fields(ledger_dir, source_checksum="applied-by-runner")
+    )
+
+    with pytest.raises(validator.ManifestError, match="carries the runner literal"):
+        _validate(migrations_dir, ledger_dir)
+
+
+def test_verified_adoption_requires_a_receipt_hash(tmp_path: Path) -> None:
+    """The receipt hash is what makes the claim chaseable, so it must be a hash."""
+    migrations_dir, ledger_dir = _minimal_fixture(tmp_path)
+    _write_adoption(
+        ledger_dir, *_adoption_fields(ledger_dir, receipt_sha256="see-the-ticket")
+    )
+
+    with pytest.raises(validator.ManifestError, match="malformed receipt sha256"):
+        _validate(migrations_dir, ledger_dir)
+
+
+def test_verified_adoption_requires_a_ticket_and_a_date(tmp_path: Path) -> None:
+    migrations_dir, ledger_dir = _minimal_fixture(tmp_path)
+
+    _write_adoption(ledger_dir, *_adoption_fields(ledger_dir, ticket="hotfix"))
+    with pytest.raises(validator.ManifestError, match="invalid adoption ticket"):
+        _validate(migrations_dir, ledger_dir)
+
+    _write_adoption(ledger_dir, *_adoption_fields(ledger_dir, verified_at="yesterday"))
+    with pytest.raises(validator.ManifestError, match="malformed verified_at"):
+        _validate(migrations_dir, ledger_dir)
+
+
+def test_duplicate_verified_adoptions_are_rejected(tmp_path: Path) -> None:
+    migrations_dir, ledger_dir = _minimal_fixture(tmp_path)
+    row = "\t".join(_adoption_fields(ledger_dir))
+    (ledger_dir / "verified-checksum-adoptions.tsv").write_text(
+        row + "\n" + row + "\n", encoding="utf-8"
+    )
+
+    with pytest.raises(
+        validator.ManifestError, match="duplicate verified checksum adoption"
+    ):
+        _validate(migrations_dir, ledger_dir)
+
+
+@pytest.mark.parametrize(
+    "filename",
+    ["0000_create_work_ledger.sql", "0001_grant_omninode_runtime_work_ledger.sql"],
+)
+def test_work_ledger_migrations_are_declared_in_the_internal_domain(
+    filename: str,
+) -> None:
+    """OMN-19513: both migrations from omnimarket#3050 are checksum-bound."""
+    artifact_path = f"nodes/node_projection_work_ledger/{filename}"
+    declarations = [
+        declaration
+        for declaration in _validate(require_complete=True).declarations
+        if declaration.artifact_path == artifact_path
+    ]
+    assert len(declarations) == 1
+    declaration = declarations[0]
+    assert declaration.domain == "omninode_internal"
+    assert declaration.checksum == validator._content_sha256(
+        MIGRATIONS_DIR / artifact_path
+    )

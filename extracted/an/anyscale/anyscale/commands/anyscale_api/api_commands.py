@@ -10,9 +10,7 @@ from anyscale.commands.anyscale_api.session_operations_commands import (
 from anyscale.commands.anyscale_api.sessions_commands import sessions
 
 
-@click.group(
-    "api", hidden=True, help="Various commands to interact with the Anyscale API."
-)
+@click.group("api", hidden=True, help="Various commands to interact with the Anyscale API.")
 def anyscale_api() -> None:
     pass
 

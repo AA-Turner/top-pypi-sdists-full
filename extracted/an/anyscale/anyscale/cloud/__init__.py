@@ -41,7 +41,9 @@ class CloudSDK:
         arg_docstrings=_ADD_COLLABORATORS_ARG_DOCSTRINGS,
     )
     def add_collaborators(
-        self, cloud: str, collaborators: List[CreateCloudCollaborator],
+        self,
+        cloud: str,
+        collaborators: List[CreateCloudCollaborator],
     ) -> None:
         """
         Batch add collaborators to a cloud.
@@ -52,10 +54,13 @@ class CloudSDK:
         self._private_sdk.add_collaborators(cloud, collaborators)
 
     @sdk_docs(
-        doc_py_example=_GET_EXAMPLE, arg_docstrings=_GET_ARG_DOCSTRINGS,
+        doc_py_example=_GET_EXAMPLE,
+        arg_docstrings=_GET_ARG_DOCSTRINGS,
     )
     def get_cloud(
-        self, id: Optional[str], name: Optional[str],  # noqa: A002
+        self,
+        id: Optional[str],  # noqa: A002
+        name: Optional[str],
     ) -> Optional[Cloud]:
         """
         Retrieve a cloud by its name or ID.
@@ -67,7 +72,8 @@ class CloudSDK:
         return self._private_sdk.get(id=id, name=name)
 
     @sdk_docs(
-        doc_py_example=_GET_DEFAULT_EXAMPLE, arg_docstrings={},
+        doc_py_example=_GET_DEFAULT_EXAMPLE,
+        arg_docstrings={},
     )
     def get_default_cloud(self) -> Optional[Cloud]:
         """

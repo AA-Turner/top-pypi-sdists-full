@@ -2,24 +2,24 @@ use tombi_ast_syntax::DanglingCommentGroupOr;
 
 use super::{AppendSemanticTokens, SemanticTokensBuilder, TokenType};
 
-impl AppendSemanticTokens for tombi_ast_syntax::Table {
+impl AppendSemanticTokens for tombi_ast_syntax::Table<'_> {
     fn append_semantic_tokens(&self, builder: &mut SemanticTokensBuilder) {
         for comment in self.header_leading_comments() {
             comment.append_semantic_tokens(builder);
         }
 
         if let Some(token) = self.bracket_start() {
-            builder.add_token(TokenType::OPERATOR, token.range())
+            builder.add_token(TokenType::OPERATOR, token.span())
         }
 
         if let Some(header) = self.header() {
             for key in header.keys() {
-                builder.add_token(TokenType::TABLE, key.range());
+                builder.add_token(TokenType::TABLE, key.span());
             }
         }
 
         if let Some(token) = self.bracket_end() {
-            builder.add_token(TokenType::OPERATOR, token.range())
+            builder.add_token(TokenType::OPERATOR, token.span())
         }
 
         if let Some(comment) = self.header_trailing_comment() {

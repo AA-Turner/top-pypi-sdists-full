@@ -12,8 +12,18 @@ from chalk._gen.chalk.modeldeployment.v1.service_pb2 import (
     CallModelResponse,
     CreateModelScalingGroupRequest,
     CreateModelScalingGroupResponse,
+    DeleteModelScalingGroupRequest,
+    DeleteModelScalingGroupResponse,
+    GetModelScalingGroupRequest,
+    GetModelScalingGroupResponse,
+    GetModelScalingGroupRevisionRequest,
+    GetModelScalingGroupRevisionResponse,
+    ListModelScalingGroupRevisionsRequest,
+    ListModelScalingGroupRevisionsResponse,
     ListModelScalingGroupsRequest,
     ListModelScalingGroupsResponse,
+    UpdateModelScalingGroupRequest,
+    UpdateModelScalingGroupResponse,
 )
 from grpc import (
     Channel,
@@ -28,12 +38,37 @@ class ModelDeploymentServiceStub:
         CreateModelScalingGroupRequest,
         CreateModelScalingGroupResponse,
     ]
-    """CreateModelScalingGroup creates a scaling group for a model version"""
+    """Creates a model deployment or appends and selects a revision on redeploy."""
+    UpdateModelScalingGroup: UnaryUnaryMultiCallable[
+        UpdateModelScalingGroupRequest,
+        UpdateModelScalingGroupResponse,
+    ]
+    """UpdateModelScalingGroup updates a model scaling group's spec, traffic, or both."""
+    GetModelScalingGroup: UnaryUnaryMultiCallable[
+        GetModelScalingGroupRequest,
+        GetModelScalingGroupResponse,
+    ]
+    """GetModelScalingGroup retrieves a model-owned scaling group."""
     ListModelScalingGroups: UnaryUnaryMultiCallable[
         ListModelScalingGroupsRequest,
         ListModelScalingGroupsResponse,
     ]
     """ListModelScalingGroups lists model scaling groups, optionally filtered to a model version"""
+    DeleteModelScalingGroup: UnaryUnaryMultiCallable[
+        DeleteModelScalingGroupRequest,
+        DeleteModelScalingGroupResponse,
+    ]
+    """DeleteModelScalingGroup deletes a model scaling group and its Kubernetes resources."""
+    GetModelScalingGroupRevision: UnaryUnaryMultiCallable[
+        GetModelScalingGroupRevisionRequest,
+        GetModelScalingGroupRevisionResponse,
+    ]
+    """GetModelScalingGroupRevision retrieves one model deployment revision."""
+    ListModelScalingGroupRevisions: UnaryUnaryMultiCallable[
+        ListModelScalingGroupRevisionsRequest,
+        ListModelScalingGroupRevisionsResponse,
+    ]
+    """ListModelScalingGroupRevisions lists a model deployment's revisions."""
     CallModel: UnaryUnaryMultiCallable[
         CallModelRequest,
         CallModelResponse,
@@ -47,7 +82,21 @@ class ModelDeploymentServiceServicer(metaclass=ABCMeta):
         request: CreateModelScalingGroupRequest,
         context: ServicerContext,
     ) -> CreateModelScalingGroupResponse:
-        """CreateModelScalingGroup creates a scaling group for a model version"""
+        """Creates a model deployment or appends and selects a revision on redeploy."""
+    @abstractmethod
+    def UpdateModelScalingGroup(
+        self,
+        request: UpdateModelScalingGroupRequest,
+        context: ServicerContext,
+    ) -> UpdateModelScalingGroupResponse:
+        """UpdateModelScalingGroup updates a model scaling group's spec, traffic, or both."""
+    @abstractmethod
+    def GetModelScalingGroup(
+        self,
+        request: GetModelScalingGroupRequest,
+        context: ServicerContext,
+    ) -> GetModelScalingGroupResponse:
+        """GetModelScalingGroup retrieves a model-owned scaling group."""
     @abstractmethod
     def ListModelScalingGroups(
         self,
@@ -55,6 +104,27 @@ class ModelDeploymentServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> ListModelScalingGroupsResponse:
         """ListModelScalingGroups lists model scaling groups, optionally filtered to a model version"""
+    @abstractmethod
+    def DeleteModelScalingGroup(
+        self,
+        request: DeleteModelScalingGroupRequest,
+        context: ServicerContext,
+    ) -> DeleteModelScalingGroupResponse:
+        """DeleteModelScalingGroup deletes a model scaling group and its Kubernetes resources."""
+    @abstractmethod
+    def GetModelScalingGroupRevision(
+        self,
+        request: GetModelScalingGroupRevisionRequest,
+        context: ServicerContext,
+    ) -> GetModelScalingGroupRevisionResponse:
+        """GetModelScalingGroupRevision retrieves one model deployment revision."""
+    @abstractmethod
+    def ListModelScalingGroupRevisions(
+        self,
+        request: ListModelScalingGroupRevisionsRequest,
+        context: ServicerContext,
+    ) -> ListModelScalingGroupRevisionsResponse:
+        """ListModelScalingGroupRevisions lists a model deployment's revisions."""
     @abstractmethod
     def CallModel(
         self,

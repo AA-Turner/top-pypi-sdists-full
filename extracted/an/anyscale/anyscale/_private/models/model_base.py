@@ -38,8 +38,7 @@ class ModelEnumType(EnumMeta):
 
         # Assert that all enum values have docstrings.
         if not isinstance(new_cls.__docstrings__, dict) or not all(
-            isinstance(k, str) and isinstance(v, str)
-            for k, v in new_cls.__docstrings__.items()
+            isinstance(k, str) and isinstance(v, str) for k, v in new_cls.__docstrings__.items()
         ):
             raise TypeError(
                 f"ModelEnum '{new_cls.__name__}.__docstrings__' is the wrong type. "
@@ -85,13 +84,8 @@ class ModelBaseType(type):
 class ModelBase(metaclass=ModelBaseType):
     def __new__(cls, *_args, **_kwargs):
         """Validate that the subclass is a conforming dataclass."""
-        if (
-            not hasattr(cls, "__dataclass_params__")
-            or not cls.__dataclass_params__.frozen
-        ):
-            raise TypeError(
-                "Subclasses of `ModelBase` must be dataclasses with `frozen=True`."
-            )
+        if not hasattr(cls, "__dataclass_params__") or not cls.__dataclass_params__.frozen:
+            raise TypeError("Subclasses of `ModelBase` must be dataclasses with `frozen=True`.")
 
         return super().__new__(cls)
 
@@ -158,12 +152,8 @@ class ModelBase(metaclass=ModelBaseType):
             return cls.from_dict(args)
 
     @classmethod
-    def parse_from_internal_model(
-        cls: Type[TModelBase], _internal_model: Any
-    ) -> TModelBase:
-        raise NotImplementedError(
-            f"{cls.__name__}.parse_from_internal_model must be implemented"
-        )
+    def parse_from_internal_model(cls: Type[TModelBase], _internal_model: Any) -> TModelBase:
+        raise NotImplementedError(f"{cls.__name__}.parse_from_internal_model must be implemented")
 
     def to_dict(self, *, exclude_none: bool = True) -> Dict[str, Any]:
         """Convert the model to a dictionary representation.
@@ -204,9 +194,7 @@ class ModelBase(metaclass=ModelBaseType):
                 final_v = v
                 if isinstance(v, ModelEnum):
                     final_v = v.value
-                elif k in converted_fields and isinstance(
-                    converted_fields[k], (dict, list)
-                ):
+                elif k in converted_fields and isinstance(converted_fields[k], (dict, list)):
                     final_v = converted_fields[k]
                 d[k] = final_v
 
@@ -226,9 +214,7 @@ class ModelBase(metaclass=ModelBaseType):
             for field in fields(self)  # type: ignore[arg-type]
         }
         if len(kwargs) > 0:
-            raise ValueError(
-                f"Unexpected values passed to '.options': {list(kwargs.keys())}."
-            )
+            raise ValueError(f"Unexpected values passed to '.options': {list(kwargs.keys())}.")
 
         return type(self)(**new_instance_kwargs)
 
@@ -368,7 +354,8 @@ class ResultIterator(Generic[RT]):
 
     @staticmethod
     async def _process_items_async(
-        items: List[Any], parser: Callable[[Any], Awaitable[RT]],
+        items: List[Any],
+        parser: Callable[[Any], Awaitable[RT]],
     ) -> List[RT]:
         if not items:
             return []

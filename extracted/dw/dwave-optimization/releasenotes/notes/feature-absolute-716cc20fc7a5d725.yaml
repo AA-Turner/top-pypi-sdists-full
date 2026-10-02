@@ -1,3 +1,0 @@
----
-features:
-  - Add ``absolute`` function as an alias for the built-in ``abs``.

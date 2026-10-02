@@ -1,0 +1,149 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Runtime Configuration Contract
+#
+# This file configures the ONEX runtime kernel. It is loaded by kernel.py
+# during bootstrap to configure the RuntimeHostProcess.
+#
+# =============================================================================
+# CONFIGURATION PRIORITY:
+# =============================================================================
+# When this file exists, contract values are loaded and used directly.
+# Only ONEX_ENVIRONMENT overrides a contract value at runtime (applied by
+# bootstrap after config loading).
+#
+# event_bus.type specifically is resolved by ONE authority shared with the
+# `onex delegate` CLI path (omnibase_infra/backends/auto_configure.py ::
+# resolve_bus_type, OMN-16678/OMN-16693/OMN-17304). Its order, highest first:
+#
+#   1. explicit argument   -- `--bus <x>` at the CLI, bus_type= in-process
+#   2. event_bus.type      -- the value declared below (the configured
+#                             authority; every runtime has one — an
+#                             unconfigured install resolves the SHIPPED
+#                             tier-0 default, src/omnibase_infra/runtime/
+#                             tier0_runtime_config.yaml: inmemory, local
+#                             profile)
+#   3. live broker probe   -- only for callers with no config at all;
+#                             structurally unreachable for config-resolved
+#                             runtimes
+#
+# ONEX_EVENT_BUS_TYPE holds NO tier (OMN-17304): env vars may bootstrap WHERE
+# configuration is found (ONEX_CONTRACTS_DIR), never WHAT the transport is.
+# A set value is ignored, with a warning, so the export gets deleted rather
+# than silently going dead.
+#
+# event_bus.profile (OMN-17304) selects the validation profile: "lane" (the
+# fail-closed default — what this file's omission means) rejects the
+# in-memory bus; "local" accepts it. This lane config deliberately does not
+# declare the field.
+#
+# A declared event_bus.type is honoured WITHOUT probing the broker: an
+# unreachable broker no longer silently downgrades a `kafka` contract to the
+# in-memory transport, and a transient broker-metadata timeout no longer fails
+# boot on an otherwise unambiguous contract. An unrecognised value on ANY tier
+# raises at boot rather than falling through to the probe.
+#
+# When this file does NOT exist, the kernel resolves the shipped tier-0
+# default runtime config (ONEX_GROUP_ID still overrides the consumer group).
+# Topics are ALWAYS derived from contract event_bus declarations (OMN-8784);
+# there is no env-var override for topics.
+#
+# =============================================================================
+# ENVIRONMENT VARIABLES:
+# =============================================================================
+# Runtime overrides (always applied, even when this file is present):
+#   ONEX_ENVIRONMENT    - Override event_bus.environment
+#   ONEX_LOG_LEVEL      - Logging level (used directly by kernel, not
+#                         through this contract)
+#
+# Fallback defaults (only when this file is absent):
+#   ONEX_GROUP_ID       - Default group_id
+#
+# Removed from transport resolution (OMN-17304) — set-and-ignored warns:
+#   ONEX_EVENT_BUS_TYPE - no longer overrides event_bus.type
+#
+# Removed (OMN-8784) — kernel hard-fails if set:
+#   ONEX_INPUT_TOPIC, ONEX_OUTPUT_TOPIC
+#
+# =============================================================================
+# FIELD STATUS LEGEND:
+# =============================================================================
+#   [ACTIVE]   - Currently used by kernel.py
+#   [RESERVED] - Defined for forward compatibility, not yet implemented
+#
+# =============================================================================
+# Contract metadata [RESERVED - for versioning and discovery]
+contract_version: "1.0.0"
+name: "runtime_config"
+description: "Configuration for ONEX runtime kernel"
+# Topic configuration [ACTIVE - used by RuntimeHostProcess]
+# These values take precedence when this file is loaded. Topics are ALWAYS
+# derived from contract declarations — ONEX_INPUT_TOPIC / ONEX_OUTPUT_TOPIC
+# were removed (OMN-8784). Only ONEX_GROUP_ID is accepted as a fallback
+# default when this config file is absent (see load_runtime_config in
+# service_kernel.py).
+input_topic: "onex.evt.platform.node-introspection.v1"
+output_topic: "onex.evt.platform.registration-completed.v1"
+group_id: "onex-runtime"
+# Event bus configuration [ACTIVE - used by ServiceKernel]
+# The kernel uses this configuration to wire the event bus via the registry.
+event_bus:
+  # [ACTIVE] type selects the event bus implementation
+  # - "kafka": Production event bus using Redpanda/Kafka (default)
+  # - "inmemory": In-memory event bus for testing/development
+  type: "kafka"
+  # [ACTIVE] environment is used for topic prefixing and consumer group naming
+  # Can be overridden by ONEX_ENVIRONMENT env var
+  environment: "local"
+  # [ACTIVE] max_history configures event history buffer size (inmemory only)
+  max_history: 1000
+  # [ACTIVE] circuit_breaker_threshold configures fault tolerance behavior
+  circuit_breaker_threshold: 5
+# Contract registry configuration [ACTIVE - used by ServiceKernel]
+# The contract registry manages contract staleness checks and persistence.
+contract_registry:
+  # [ACTIVE] enabled controls whether the contract registry is active
+  # When true, the kernel wires contract persistence and staleness checking
+  enabled: true
+  # [ACTIVE] tick_interval_seconds controls periodic staleness check frequency
+  # The registry will check for stale contracts at this interval (in seconds)
+  tick_interval_seconds: 60
+# Local runtime ingress configuration [ACTIVE - used by RuntimeHostProcess]
+# Enables the runtime-owned Unix-socket ingress for host-local clients.
+local_ingress:
+  enabled: true
+  socket_path: "/run/onex-runtime/onex-runtime.sock"
+  package_names:
+    - omnibase_infra
+    - omnimarket
+  enabled_profiles:
+    - main
+# Pattern B broker configuration [ACTIVE - used by RuntimeHostProcess]
+# The command topic is aligned with the OmniMarket Codex runtime adapter.
+pattern_b_broker:
+  enabled: true
+  command_topic: "onex.cmd.omnimarket.pattern-b-dispatch.v1"
+  package_names:
+    - omnibase_infra
+    - omnimarket
+  enabled_profiles:
+    - main
+# Handler configuration [RESERVED - not currently used]
+# Future: Will be used for dynamic protocol loading and configuration
+handlers:
+  # Handlers are wired via the wiring module
+  # This section can be extended for handler-specific config
+  enabled:
+    - http
+    - db
+# Logging configuration [RESERVED - not currently used]
+# Note: kernel.py currently uses ONEX_LOG_LEVEL env var directly
+# Future: Will support contract-driven logging configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+# Shutdown configuration [RESERVED - not currently used]
+# Future: Will configure graceful shutdown timeout
+shutdown:
+  grace_period_seconds: 30

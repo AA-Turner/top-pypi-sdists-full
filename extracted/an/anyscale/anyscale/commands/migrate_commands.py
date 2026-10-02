@@ -108,7 +108,10 @@ def config_convert(
 @click.argument("cluster-env-yaml-file", type=click.File("rb"), required=True)
 @click.argument("compute-config-yaml-file", type=click.File("rb"), required=True)
 @click.option(
-    "--name", "-n", help="Name for both configs", required=True,
+    "--name",
+    "-n",
+    help="Name for both configs",
+    required=True,
 )
 def upload_configs(
     cluster_env_yaml_file: IO[bytes], compute_config_yaml_file: IO[bytes], name: str

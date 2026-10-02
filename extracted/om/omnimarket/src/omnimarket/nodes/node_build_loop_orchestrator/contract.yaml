@@ -1,0 +1,482 @@
+---
+name: build_loop_orchestrator
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: orchestrator
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  Top-level orchestrator composing 6 sub-handlers via FSM reducer. Takes
+  protocol-based ProtocolCloseoutHandler, ProtocolVerifyHandler,
+  ProtocolRsdFillHandler, ProtocolTicketClassifyHandler,
+  ProtocolBuildDispatchHandler, plus the HandlerBuildLoop FSM. Emits phase
+  transition events. Synchronous sub-handler calls, in-process state ownership.
+
+  FSM: IDLE -> CLOSING_OUT -> VERIFYING -> FILLING -> CLASSIFYING -> BUILDING -> COMPLETE
+  Circuit breaker trips after 3 consecutive failures -> FAILED.
+
+# OMN-15002: this contract previously declared 3 additional handler_routing
+# entries (linear_fill/AdapterLinearFill, llm_classify/AdapterLlmClassify,
+# llm_dispatch/AdapterLlmDispatch). Those adapters are legacy composition-only
+# classes consumed exclusively by the non-canonical assemble_live.py script
+# (constructed directly in Python, never resolved via contract dispatch) --
+# the live DI path (_ensure_sub_handlers()) always uses the real sub-handler
+# implementations declared under sub_handler_dependencies below
+# (HandlerRsdFill/HandlerTicketClassify/HandlerBuildDispatch from their own
+# node packages). Because none of those 3 entries declared an event_model,
+# omnibase_infra's auto-wiring (_topics_for_handler_entry) granted each of
+# them EVERY contract subscribe_topic unconditionally, so all 3 were
+# auto-wired as independent Kafka consumers of
+# onex.cmd.omnimarket.build-loop-orchestrator-start.v1 alongside the real
+# handler below. Every live dispatch fanned out to all 4 handlers; the 3 dead
+# adapters threw ValidationError/TypeError on the mismatched payload shape,
+# the aggregate failure was swallowed by the auto-wiring boundary catch-all
+# (no DLQ on this lane), and HandlerBuildLoopOrchestrator.handle() -- the only
+# real dispatcher -- never ran. Result: the daily build-loop trigger was a
+# 100% silent no-op for 6+ consecutive days. Removing the 3 dead entries
+# makes HandlerBuildLoopOrchestrator the SOLE handler_routing entry, so it
+# deterministically owns both subscribe_topics again (the pre-existing
+# single-handler rule in _topics_for_handler_entry). See OMN-15002/OMN-15001
+# for the full forensic trace.
+# OMN-18013 / OMN-16939 — routing_strategy is topic_match with ONE entry per topic, each
+# declaring its own message_category. handler_wiring derives an entry's category ONCE
+# (explicit message_category, else _derive_message_category(subscribe_topics[0])) and
+# stamps it on every route that entry registers, so a single entry spanning both a .cmd.
+# and a .evt. topic registers ALL of them under subscribe_topics[0]'s category and every
+# topic of the other category matches zero routes: consumed, DLQ'd and COMMITTED on every
+# message, at LAG 0, forever. Setting `topic:` alone is NOT sufficient — that picks WHICH
+# topic an entry owns; `message_category:` picks which category it registers under.
+handler_routing:
+  routing_strategy: topic_match
+  handlers:
+    - topic: onex.cmd.omnimarket.build-loop-orchestrator-start.v1
+      message_category: command
+      operation: build_loop_orchestrator
+      event_model:
+        name: ModelOrchestratorStartCommand
+        module: omnimarket.nodes.node_build_loop_orchestrator.models.model_orchestrator_start_command
+      handler:
+        name: HandlerBuildLoopOrchestrator
+        module: omnimarket.nodes.node_build_loop_orchestrator.handlers.handler_build_loop_orchestrator
+      description: "Build-loop start command."
+    - topic: onex.evt.omnimarket.overseer-verifier-completed.v1
+      message_category: event
+      operation: build_loop_orchestrator
+      handler:
+        name: HandlerBuildLoopOrchestrator
+        module: omnimarket.nodes.node_build_loop_orchestrator.handlers.handler_build_loop_orchestrator
+      description: "Overseer verification fact (_topic_overseer_verification_completed branch)."
+
+
+descriptor:
+  node_archetype: orchestrator
+  purity: effectful
+  runtime_profiles:
+    - effects
+  idempotent: false
+  timeout_ms: 300000
+
+inputs:
+  correlation_id:
+    type: uuid
+    description: "Unique cycle ID"
+    required: true
+  max_cycles:
+    type: int
+    description: "Maximum number of build loop cycles to run"
+    required: false
+    default: 1
+  skip_closeout:
+    type: bool
+    description: "Skip the CLOSING_OUT phase"
+    required: false
+    default: false
+  dry_run:
+    type: bool
+    description: "Run without side effects"
+    required: false
+    default: false
+
+outputs:
+  cycles_completed:
+    type: int
+    description: "Number of cycles that completed successfully"
+  cycles_failed:
+    type: int
+    description: "Number of cycles that failed"
+  total_tickets_dispatched:
+    type: int
+    description: "Total tickets dispatched across all cycles"
+
+env_dependencies:
+  LLM_CODER_URL:
+    required: false
+    description: "Primary local coder endpoint URL"
+  LLM_CODER_MODEL_NAME:
+    required: false
+    description: "Served model ID for LLM_CODER_URL"
+  LLM_CODER_FAST_URL:
+    required: false
+    description: "Fast local endpoint URL used for ticket classification"
+  LLM_CODER_FAST_MODEL_NAME:
+    required: false
+    description: "Served model ID for LLM_CODER_FAST_URL"
+  LLM_GLM_URL:
+    required: false
+    description: "Cloud frontier API base URL"
+  LLM_GLM_MODEL_NAME:
+    required: false
+    description: "Primary frontier served model ID for LLM_GLM_URL"
+  LLM_GLM_REVIEW_MODEL_NAME:
+    required: false
+    description: "Review frontier served model ID for LLM_GLM_URL"
+  LLM_DEEPSEEK_R1_URL:
+    required: false
+    description: "Local reasoning endpoint URL"
+  LLM_DEEPSEEK_R1_MODEL_NAME:
+    required: false
+    description: "Served model ID for LLM_DEEPSEEK_R1_URL"
+  LLM_GOOGLE_URL:
+    required: false
+    description: "Google frontier OpenAI-compatible endpoint URL"
+  LLM_GOOGLE_MODEL_NAME:
+    required: false
+    description: "Served model ID for LLM_GOOGLE_URL"
+  GEMINI_CLI_MODEL_NAME:
+    required: false
+    description: "Served model/profile ID for the Gemini CLI transport adapter"
+  LLM_OPENAI_URL:
+    required: false
+    description: "OpenAI-compatible frontier endpoint URL"
+  LLM_OPENAI_MODEL_NAME:
+    required: false
+    description: "Served model ID for LLM_OPENAI_URL"
+  BUILD_LOOP_OUTPUT_DIR:
+    required: false
+    description: "Directory path for build loop output artifacts (defaults to empty string)"
+  LINEAR_TEAM_ID:
+    required: false
+    description: "Linear team ID used by adapter_linear_fill for ticket queries"
+  LINEAR_TEAM_KEY:
+    required: false
+    description: "Linear team key used by adapter_linear_fill (defaults to 'OMN')"
+  LINEAR_ACTIVE_SPRINT_PROJECT_ID:
+    required: false
+    description: "Linear project ID for the active sprint; used to filter tickets"
+  OMNI_WORKTREES_ROOT:
+    required: false
+    description: "Root directory for git worktrees; used by assemble_live to locate per-ticket worktrees"
+
+config:
+  LLM_CODER_URL:
+    description: "Primary local coder endpoint URL"
+    required: false
+  LLM_CODER_MODEL_NAME:
+    description: "Served model ID for LLM_CODER_URL"
+    required: false
+  LLM_CODER_FAST_URL:
+    description: "Fast local endpoint URL used for ticket classification"
+    required: false
+  LLM_CODER_FAST_MODEL_NAME:
+    description: "Served model ID for LLM_CODER_FAST_URL"
+    required: false
+  LLM_GLM_URL:
+    description: "Cloud frontier API base URL"
+    required: false
+  LLM_GLM_MODEL_NAME:
+    description: "Primary frontier served model ID for LLM_GLM_URL"
+    required: false
+  LLM_GLM_REVIEW_MODEL_NAME:
+    description: "Review frontier served model ID for LLM_GLM_URL"
+    required: false
+  LLM_DEEPSEEK_R1_URL:
+    description: "Local reasoning endpoint URL"
+    required: false
+  LLM_DEEPSEEK_R1_MODEL_NAME:
+    description: "Served model ID for LLM_DEEPSEEK_R1_URL"
+    required: false
+  LLM_GOOGLE_URL:
+    description: "Google frontier OpenAI-compatible endpoint URL"
+    required: false
+  LLM_GOOGLE_MODEL_NAME:
+    description: "Served model ID for LLM_GOOGLE_URL"
+    required: false
+  GEMINI_CLI_MODEL_NAME:
+    description: "Served model/profile ID for the Gemini CLI transport adapter"
+    required: false
+  LLM_OPENAI_URL:
+    description: "OpenAI-compatible frontier endpoint URL"
+    required: false
+  LLM_OPENAI_MODEL_NAME:
+    description: "Served model ID for LLM_OPENAI_URL"
+    required: false
+  BUILD_LOOP_OUTPUT_DIR:
+    description: "Directory path for build loop output artifacts"
+    required: false
+  LINEAR_TEAM_ID:
+    description: "Linear team ID for ticket queries"
+    required: false
+  LINEAR_TEAM_KEY:
+    description: "Linear team key (defaults to 'OMN')"
+    required: false
+  LINEAR_ACTIVE_SPRINT_PROJECT_ID:
+    description: "Linear project ID for the active sprint; used to filter tickets"
+    required: false
+  OMNI_WORKTREES_ROOT:
+    description: "Root directory for git worktrees; used by assemble_live to locate per-ticket worktrees"
+    required: false
+
+sub_handler_dependencies:
+  - name: closeout
+    protocol: omnimarket.nodes.node_build_loop_orchestrator.protocols.protocol_sub_handlers.ProtocolCloseoutHandler
+    default_impl: omnimarket.nodes.node_closeout_effect.handlers.handler_closeout.HandlerCloseout
+    optional: true
+  - name: verify
+    protocol: omnimarket.nodes.node_build_loop_orchestrator.protocols.protocol_sub_handlers.ProtocolVerifyHandler
+    default_impl: omnimarket.nodes.node_verify_effect.handlers.handler_verify.HandlerVerify
+    optional: true
+  - name: rsd_fill
+    protocol: omnimarket.nodes.node_build_loop_orchestrator.protocols.protocol_sub_handlers.ProtocolRsdFillHandler
+    default_impl: omnimarket.nodes.node_rsd_fill_compute.handlers.handler_rsd_fill.HandlerRsdFill
+    optional: true
+  - name: classify
+    protocol: omnimarket.nodes.node_build_loop_orchestrator.protocols.protocol_sub_handlers.ProtocolTicketClassifyHandler
+    default_impl: omnimarket.nodes.node_ticket_classify_compute.handlers.handler_ticket_classify.HandlerTicketClassify
+    optional: true
+  - name: dispatch
+    protocol: omnimarket.nodes.node_build_loop_orchestrator.protocols.protocol_sub_handlers.ProtocolBuildDispatchHandler
+    default_impl: omnimarket.nodes.node_build_dispatch_effect.handlers.handler_build_dispatch.HandlerBuildDispatch
+    optional: true
+
+terminal_event: onex.evt.omnimarket.build-loop-orchestrator-completed.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.build-loop-orchestrator-start.v1
+    # Canonical topic from node_overseer_verifier/contract.yaml (OMN-8025)
+    - onex.evt.omnimarket.overseer-verifier-completed.v1
+  publish_topics:
+    - onex.evt.omnimarket.build-loop-orchestrator-phase-transition.v1
+    - onex.evt.omnimarket.build-loop-orchestrator-completed.v1
+    - onex.evt.omnimarket.delegation-attempt.v1
+    - onex.evt.omnimarket.delegation-metrics.v1
+    - onex.cmd.omnimarket.delegation-request.v1
+    - onex.evt.omnimarket.build-loop-started.v1
+    - onex.evt.omnimarket.build-loop-fill-completed.v1
+    - onex.evt.omnimarket.build-loop-classify-completed.v1
+    - onex.evt.omnimarket.build-loop-closeout-completed.v1
+    - onex.evt.omnimarket.build-loop-build-completed.v1
+    - onex.evt.omnimarket.build-loop-failed.v1
+    - onex.evt.omnimarket.build-loop-dod-checked.v1
+    # Canonical topic from node_overseer_verifier/contract.yaml (OMN-8025)
+    - onex.cmd.omnimarket.overseer-verify.v1
+# OMN-18013 — explicit SINK declaration. node_platform_readiness names this topic in
+# SOW_PHASE2_REQUIRED_TOPICS (handler_platform_readiness.py:28) and PROBES it off the
+# broker as a readiness dimension. It never consumed it through a subscription -- the
+# subscribe declaration it used to carry resolved to zero dispatchers and DLQ'd every
+# message. The probe is the real consumer, and it lives outside the contract corpus.
+externally_consumed_topics:
+  - onex.evt.omnimarket.build-loop-dod-checked.v1
+  - onex.cmd.omnimarket.delegation-request.v1
+  - onex.evt.omnimarket.build-loop-orchestrator-phase-transition.v1
+  # referenced outside the node graph at omnimarket/src/omnimarket/nodes/node_build_loop_orchestrator/handlers/adapter_llm_dispatch.py
+  - onex.evt.omnimarket.delegation-attempt.v1
+  # referenced outside the node graph at omnimarket/src/omnimarket/nodes/node_build_loop_orchestrator/handlers/adapter_llm_dispatch.py
+  - onex.evt.omnimarket.delegation-metrics.v1
+
+
+state_machine:
+  version: {major: 1, minor: 0, patch: 0}
+  state_machine_name: build_loop_orchestrator
+  state_machine_version: {major: 1, minor: 0, patch: 0}
+  description: "Build loop cycle as advanced by node_build_loop HandlerBuildLoop.advance for the orchestrator's modes (build, close_out, full, observe). A failed phase below the circuit-breaker threshold stays in place for a retry; at the threshold it fails."
+  initial_state: IDLE
+  terminal_states: [COMPLETE, FAILED]
+  error_states: [FAILED]
+  states:
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: IDLE
+      state_type: operational
+      description: "No cycle started."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: CLOSING_OUT
+      state_type: operational
+      description: "Close-out sub-handler."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: VERIFYING
+      state_type: operational
+      description: "Verification sub-handler."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: FILLING
+      state_type: operational
+      description: "Ticket fill sub-handler."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: CLASSIFYING
+      state_type: operational
+      description: "Ticket classification sub-handler."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: BUILDING
+      state_type: operational
+      description: "Build dispatch sub-handler."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: RELEASING
+      state_type: operational
+      description: "Release phase of the close_out and full modes. The orchestrator has no sub-handler for it (_execute_phase returns Unknown phase), so it can only retry and then fail; OMN-19548 records this."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: COMPLETE
+      state_type: terminal
+      description: "The mode's phase sequence finished."
+      is_terminal: true
+      is_recoverable: false
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: FAILED
+      state_type: terminal
+      description: "Circuit breaker tripped after consecutive phase failures."
+      is_terminal: true
+      is_recoverable: false
+  transitions:
+    # start command received
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: idle_to_closing_out
+      from_state: IDLE
+      to_state: CLOSING_OUT
+      trigger: start_received
+    # start command with skip_closeout, or observe mode (sequence starts at VERIFYING)
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: idle_to_verifying
+      from_state: IDLE
+      to_state: VERIFYING
+      trigger: start_received_skip_closeout
+    # closeout completed
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: closing_out_to_verifying
+      from_state: CLOSING_OUT
+      to_state: VERIFYING
+      trigger: closeout_completed
+    # verification passed (build and full modes)
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: verifying_to_filling
+      from_state: VERIFYING
+      to_state: FILLING
+      trigger: verification_passed
+    # fill completed
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: filling_to_classifying
+      from_state: FILLING
+      to_state: CLASSIFYING
+      trigger: fill_completed
+    # classification completed
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: classifying_to_building
+      from_state: CLASSIFYING
+      to_state: BUILDING
+      trigger: classification_completed
+    # build dispatch completed (build mode)
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: building_to_complete
+      from_state: BUILDING
+      to_state: COMPLETE
+      trigger: build_dispatch_completed
+    # OMN-19548: observe mode's sequence is VERIFYING alone, so a passed
+    # verification completes the cycle. Taken by next_phase(); not declared before.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: verifying_to_complete
+      from_state: VERIFYING
+      to_state: COMPLETE
+      trigger: verification_passed_observe
+    # OMN-19548: close_out mode continues to RELEASING after VERIFYING (next_phase).
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: verifying_to_releasing
+      from_state: VERIFYING
+      to_state: RELEASING
+      trigger: verification_passed_close_out
+    # OMN-19548: full mode continues to RELEASING after BUILDING (next_phase).
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: building_to_releasing
+      from_state: BUILDING
+      to_state: RELEASING
+      trigger: build_dispatch_completed_full
+    # OMN-19548: a phase failure below the circuit-breaker threshold stays in
+    # the same phase for a retry (HandlerBuildLoop.advance emits from == to).
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: closing_out_to_closing_out
+      from_state: CLOSING_OUT
+      to_state: CLOSING_OUT
+      trigger: phase_failure_retry
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: verifying_to_verifying
+      from_state: VERIFYING
+      to_state: VERIFYING
+      trigger: phase_failure_retry
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: filling_to_filling
+      from_state: FILLING
+      to_state: FILLING
+      trigger: phase_failure_retry
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: classifying_to_classifying
+      from_state: CLASSIFYING
+      to_state: CLASSIFYING
+      trigger: phase_failure_retry
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: building_to_building
+      from_state: BUILDING
+      to_state: BUILDING
+      trigger: phase_failure_retry
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: releasing_to_releasing
+      from_state: RELEASING
+      to_state: RELEASING
+      trigger: phase_failure_retry
+    # consecutive phase failures reached the circuit-breaker threshold
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: closing_out_to_failed
+      from_state: CLOSING_OUT
+      to_state: FAILED
+      trigger: error
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: verifying_to_failed
+      from_state: VERIFYING
+      to_state: FAILED
+      trigger: error
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: filling_to_failed
+      from_state: FILLING
+      to_state: FAILED
+      trigger: error
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: classifying_to_failed
+      from_state: CLASSIFYING
+      to_state: FAILED
+      trigger: error
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: building_to_failed
+      from_state: BUILDING
+      to_state: FAILED
+      trigger: error
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: releasing_to_failed
+      from_state: RELEASING
+      to_state: FAILED
+      trigger: error
+
+metadata:
+  transport_type: kafka
+  description: "Build loop orchestrator composing 6 sub-handlers via FSM reducer"
+  author: "OmniNode Platform Team"
+  created: "2026-04-07"
+  tags:
+    - "orchestrator"
+    - "build-loop"
+    - "fsm"
+    - "workflow"
+    - "OMN-7583"
+    - "OMN-7575"
+  related_tickets:
+    - "OMN-7583"
+    - "OMN-7575"
+    - "OMN-5113"
+    - "OMN-8025"
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.build-loop-orchestrator-start.v1

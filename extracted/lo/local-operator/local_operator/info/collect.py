@@ -1,0 +1,1664 @@
+"""The ``/info`` probes: fill :mod:`local_operator.info.model`'s shapes from the
+real system.
+
+**Every heavyweight import here is function-local**, following ``update.py``'s
+``import httpx`` inside ``_fetch_pypi_version`` and ``cli.py``'s deferred
+imports, for the reason ``session/runtime/types.py`` states outright: modules on
+the CLI startup path are paid for by every ``lop`` invocation including
+``--version``. This module reaches ``mobile.resources``, ``browser_bridge``,
+``credentials``, ``agents`` and ``teams``; none of that may become importable
+cost for anyone who is not looking at the screen.
+
+**Two collection phases, and the split is load-bearing.**
+
+:func:`collect_live` reads only in-memory state (the subagent graph, the job
+manager's capacity, the theme, the terminal size) and runs ON the event loop,
+before the screen yields. :func:`collect_snapshot` does every blocking probe and
+runs in a worker thread. The reason is the same rule
+``SessionDiagnostics.capture`` states at ``session_panel.py``: a ``/new`` or
+``/resume`` landing during the disk read must not put a NEW subagent tree under
+an OLD header. The blocking half is disk- and process-bound work —
+``session_resource_usage`` measured **879.5 ms** for 12 pids on this host while
+its macOS path shelled ``top -l1`` for the whole system, and reads **7-42 ms**
+over the same pids in the passes recorded since (``bench/info-snapshot-after.json``
+and the QA pass it cites — the width of that range is the machine's load, not
+the read) — which is far past a frame, so it cannot be anywhere near the paint
+path.
+
+**No probe here may reach the network.** ``update.check_latest()`` is banned on
+this path and :func:`collect_install` calls ``update.cached_latest()`` instead;
+``tests/unit/info/test_collect.py`` pins that with a raising fake rather than a
+timing bound. See ``cached_latest``'s own docstring for the measurement.
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+import sys
+import time
+from collections import defaultdict
+from pathlib import Path
+from typing import Any, Callable, Iterable, Sequence, TypeVar
+
+from local_operator.info.model import (
+    AgentsInfo,
+    EnvInfo,
+    InfoSnapshot,
+    InstallInfo,
+    ProcessInfo,
+    SessionLine,
+    SessionsInfo,
+    SubagentLine,
+)
+from local_operator.session.runtime.types import reported_subagent_count
+
+logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
+
+#: How deep the tree is walked before the remainder is folded into a summary
+#: row. Matches the renderer's cap: nesting past three is rare, and at that
+#: point the COUNT is the fact that matters rather than the indentation.
+MAX_TREE_DEPTH = 3
+
+#: Environment markers that identify the terminal multiplexer, most specific
+#: first. PRESENCE only — a marker's VALUE can carry a socket path or a
+#: workspace id, both identifying, and this screen is pasted into issues.
+#:
+#: Spelled as module-level constants rather than as string literals inside the
+#: tuple because ``tests/unit/test_ambient_env_isolation.py`` resolves env reads
+#: through the AST: it follows a ``NAME = "VAR"`` constant but cannot see a name
+#: buried in a tuple-of-tuples literal. Written the other way, three of these
+#: reads were invisible to the audit that exists to catch exactly that, so the
+#: names went unaccounted while looking accounted for (QA round 1, Q4).
+_ENV_CMUX_SOCKET_PATH = "CMUX_SOCKET_PATH"
+_ENV_CMUX_WORKSPACE_ID = "CMUX_WORKSPACE_ID"
+_ENV_TMUX = "TMUX"
+_ENV_STY = "STY"
+_ENV_ZELLIJ = "ZELLIJ"
+_ENV_WEZTERM_PANE = "WEZTERM_PANE"
+
+_MULTIPLEXER_MARKERS: tuple[tuple[str, str], ...] = (
+    (_ENV_CMUX_SOCKET_PATH, "cmux"),
+    (_ENV_CMUX_WORKSPACE_ID, "cmux"),
+    (_ENV_TMUX, "tmux"),
+    (_ENV_STY, "screen"),
+    (_ENV_ZELLIJ, "zellij"),
+    (_ENV_WEZTERM_PANE, "wezterm"),
+)
+
+
+def _safe(name: str, fn: Callable[[], T], default: T, errors: list[tuple[str, str]]) -> T:
+    """Run one probe; a failure becomes ``default`` plus a NAMED reason.
+
+    A whole-snapshot ``try/except`` is what this exists to prevent. ``/info`` is
+    opened when something is already wrong, so one unreadable probe must cost
+    exactly its own field — a single broken read must never erase the version
+    number, which is the field a bug report most needs.
+
+    The reason is KEPT rather than swallowed the way this codebase's other
+    best-effort paths swallow theirs, because a bare ``cache dir  —`` sends the
+    reporter back for a second round trip to find out whether the field does not
+    apply or the screen is broken.
+    """
+    try:
+        return fn()
+    except Exception as exc:  # noqa: BLE001 — a diagnostic screen never raises
+        logger.debug("info: %s probe failed", name, exc_info=True)
+        errors.append((name, f"{type(exc).__name__}: {exc}"[:120]))
+        return default
+
+
+def _resolved_import_path() -> str:
+    """Where ``import local_operator`` ACTUALLY came from, resolved.
+
+    ``__file__`` is the package's ``__init__.py``; its parent is the directory a
+    reader can compare against the install prefix, and it is the exact command
+    AGENTS.md prescribes for settling this by hand
+    (``python -c "import local_operator; print(local_operator.__file__)"``).
+    Symlinks are resolved so a linked venv cannot report the path it was reached
+    THROUGH rather than the tree it actually reads.
+    """
+    import local_operator
+
+    return str(Path(local_operator.__file__).resolve().parent)
+
+
+def _import_path_is_foreign(import_path: str, prefix: str) -> bool:
+    """Whether the running code sits outside the install it claims to be.
+
+    A containment test rather than equality: an install's package legitimately
+    lives several directories under its prefix
+    (``<prefix>/lib/python3.12/site-packages/local_operator``), so equality
+    would flag every healthy install and this warning would mean nothing.
+
+    An EDITABLE install is the one legitimate divergence — its package is the
+    checkout by design — but it is not special-cased here, because the case this
+    exists to catch is indistinguishable from it at this level and the renderer
+    has ``kind`` in hand to word the two differently.
+    """
+    if not import_path or not prefix:
+        return False
+    try:
+        return not Path(import_path).is_relative_to(Path(prefix).resolve())
+    except (OSError, ValueError):
+        # An unresolvable path is not evidence of a foreign import; claiming a
+        # warning state from a failed comparison would be a false alarm on the
+        # screen whose job is to be trusted.
+        return False
+
+
+def collect_install(errors: list[tuple[str, str]]) -> InstallInfo:
+    """Which build this is and where it came from. No network, ever."""
+    import platform
+
+    from local_operator import update
+
+    version = _safe("install.version", update.installed_version, "", errors)
+    kind = _safe("install.kind", lambda: update.install_kind().value, "", errors)
+    latest, latest_age = _safe(
+        # NOT ``check_latest``: that is the upgrade path and its TTL miss makes a
+        # live 5 s HTTP call and rewrites the cache. See ``update.cached_latest``.
+        "install.latest",
+        update.cached_latest,
+        (None, None),
+        errors,
+    )
+    import_path = _safe("install.import_path", _resolved_import_path, "", errors)
+    return InstallInfo(
+        version=version,
+        kind=kind,
+        prefix=sys.prefix,
+        executable=sys.executable,
+        import_path=import_path,
+        import_path_foreign=_import_path_is_foreign(import_path, sys.prefix),
+        is_git_snapshot=_safe("install.snapshot", update.is_git_snapshot, False, errors),
+        source_ref=_safe("install.source_ref", update.source_ref, "", errors),
+        build_age_s=_safe("install.build_age", update.build_marker_age_s, None, errors),
+        latest_known=latest,
+        latest_age_s=latest_age,
+        behind=update.is_behind(version, latest),
+        python_version=platform.python_version(),
+        python_implementation=platform.python_implementation(),
+        # ~15 ms, measured. CPython memoizes ``platform.uname()`` but NOT
+        # ``platform.platform()``, which re-formats on every call, so this is
+        # paid each time rather than once (review round 1, N4 — the earlier
+        # comment here asserted a caching behaviour that does not exist). Cheap
+        # either way on the worker thread.
+        platform=_safe("install.platform", platform.platform, "", errors),
+        machine=_safe("install.machine", platform.machine, "", errors),
+    )
+
+
+def own_control_port(root: Path | None = None) -> int | None:
+    """This process's own control-socket port, read from its published record.
+
+    Read HERE rather than carried on :class:`SessionLine`, which is kept to
+    exactly the shape ``lop sessions`` publishes plus ``is_self``. The port
+    itself is safe to render — a port number is not a credential and it is the
+    useful half for debugging an attach — but the record it sits in also holds
+    ``control_key``, so the narrow read is the one that cannot grow a leak by
+    someone later adding "the whole record" to the session dataclass.
+    """
+    import json
+
+    from local_operator.session.runtime import registry
+
+    raw = json.loads(registry.record_path(os.getpid(), root).read_text(encoding="utf-8"))
+    port = raw.get("control_port")
+    return int(port) if isinstance(port, (int, float)) else None
+
+
+def collect_process(
+    live: "LiveState",
+    *,
+    self_line: SessionLine | None,
+    errors: list[tuple[str, str]],
+    root: Path | None = None,
+) -> ProcessInfo:
+    """This runtime, and the four directories it actually resolved.
+
+    ``config_dir`` and ``cache_dir`` are both reported because they are derived
+    INDEPENDENTLY — the cache root comes off ``$HOME`` whatever
+    ``LOCAL_OPERATOR_CONFIG_DIR`` says — and AGENTS.md records that divergence
+    as one that silently produces a plausible wrong answer. Seeing the two
+    side by side is the whole diagnostic.
+
+    ``uptime_s`` prefers this process's own published ``SessionRecord``, matched
+    on pid by the scan that :func:`collect_sessions` already ran, so ``/info``
+    and ``lop sessions`` cannot report two different uptimes for one session.
+    """
+    from local_operator import paths, update
+    from local_operator.session.runtime.types import PROTOCOL_VERSION
+
+    return ProcessInfo(
+        pid=os.getpid(),
+        session_id=live.session_id,
+        conversation_name=live.conversation_name,
+        cwd=_safe("process.cwd", os.getcwd, "", errors),
+        model_label=live.model_label,
+        effective_model=live.effective_model,
+        uptime_s=self_line.uptime_s if self_line is not None else live.uptime_s,
+        config_dir=_safe("process.config_dir", lambda: str(paths.config_dir()), "", errors),
+        config_dir_redirected=bool(os.environ.get(paths.CONFIG_DIR_ENV)),
+        agent_home=_safe("process.agent_home", lambda: str(paths.agent_home_dir()), "", errors),
+        agent_home_redirected=bool(os.environ.get(paths.AGENT_HOME_ENV)),
+        cache_dir=_safe("process.cache_dir", lambda: str(update.default_cache_dir()), "", errors),
+        log_dir=_safe("process.log_dir", lambda: str(paths.log_dir()), "", errors),
+        # Absent for a runtime that never published a record (exec mode, a
+        # test harness): that is a legitimate state, not a failure, so it is
+        # not recorded in ``degraded``.
+        control_port=(
+            _safe("process.control_port", lambda: own_control_port(root), None, errors)
+            if self_line is not None
+            else None
+        ),
+        protocol=PROTOCOL_VERSION,
+        kind=self_line.kind if self_line is not None else live.kind,
+    )
+
+
+#: The count rule itself lives with the fields it validates —
+#: ``session.runtime.types.reported_subagent_count`` — because three readers apply
+#: it (this module's fleet tally, the sidebar's ``resume._counted``, and the
+#: desktop listing's response model) and they must agree about which values are
+#: believable (review round 1, R4). Its docstring carries this screen's own case
+#: for refusing a value rather than sanitising it: one corrupt record cost the
+#: entire sessions block here, because ``_safe`` guards whole sections.
+
+
+def collect_sessions(
+    root: Path | None = None,
+    *,
+    scan: Callable[..., list[tuple[Any, str]]] | None = None,
+    usage: Callable[..., dict[int, Any]] | None = None,
+    self_pid: int | None = None,
+    now: float | None = None,
+    include_stored: bool = False,
+    stored_limit: int | None = None,
+    stored_kinds: frozenset[str] | None = None,
+) -> SessionsInfo:
+    """Every session on this machine, as ``lop sessions`` already describes them.
+
+    **This is the ONE implementation.** ``cli.sessions_command`` calls it for
+    both its table and its ``--json`` output; a second copy of "which sessions
+    exist and what do they cost" is precisely the drift this codebase writes
+    essays about avoiding. Two specific details make the duplication dangerous
+    rather than merely untidy:
+
+    * the ``getattr(rec, ..., default)`` spellings below exist because a record
+      written by an OLDER runtime lacks those fields entirely. That rule has to
+      hold in both readers, or ``/info`` raises mid-table on a host that is
+      mid-upgrade — the exact host ``/info`` is opened on.
+    * ``state`` is subtle: ``stale`` means ``registry.scan`` just DELETED the
+      record file, not that the session is idle. A second implementation would
+      have got the counters wrong.
+
+    ``scan`` / ``usage`` / ``now`` are injectable seams so the tests can pin the
+    degradation matrix without a real machine's sessions under them.
+
+    ``include_stored`` folds in sessions that are NOT running — directories
+    under ``config_dir()/sessions/`` with no live record — as ``stored`` rows
+    carrying only ``session_id`` / ``conversation_name`` / ``last_activity_s``
+    (the process-level fields are meaningless for a dead session and stay at
+    their defaults). It is the ``lop sessions --all`` opt-in: the default path
+    stays exactly the live-only listing every consumer already reads, and the
+    /info panel — which is about the running fleet's cost — never asks for it.
+    Stored rows come from the same ``resume.recent_session_rows`` scan the
+    ``/resume`` picker uses, so a session is named here by the title the picker
+    would show, and a directory the picker hides (subagent scratch) is not a
+    session for messaging either. ``stored_limit`` is the CLI's ``--limit``
+    verbatim; ``None`` (no flag passed) becomes
+    :data:`STORED_SESSIONS_DEFAULT_LIMIT` inside ``_stored_lines``.
+
+    ``stored_kinds`` (keyword, optional) restricts the STORED half to the
+    sessions whose latest recorded outcome kind is in the given set — the
+    ``--failed`` / ``--paused`` listing flags, whose vocabulary and
+    filter-before-limit rule live at :func:`stored_sessions_by_outcome`. It
+    says nothing about the LIVE half here; a caller asking a SET question drops
+    the live rows itself (``session_rows`` does — a running session is not a
+    member of any set), and a caller that wants the full listing passes
+    ``None``.
+    """
+    from local_operator.mobile.resources import session_resource_usage
+    from local_operator.session.runtime import registry
+
+    scan_fn = scan or registry.scan
+    usage_fn = usage or session_resource_usage
+    scanned = scan_fn(root)
+    stamp = time.time() if now is None else now
+    live_pids = [rec.pid for rec, state in scanned if state == "live"]
+    measured = usage_fn(live_pids)
+    # Read ONCE for the whole listing, beside the usage measurement and for the same
+    # reason: these scans answer a per-row question and a per-row file scan would be
+    # the cost ``session_rows`` already pays once. THE MAPS RATHER THAN THE PID SETS,
+    # because ``stall_dump`` publishes the FILE the search found: the path is a fact
+    # only the scan holds, and a caller composing one from its own log directory
+    # names a file that does not exist for a fire in another store (review round 1,
+    # MAJOR-1 / QA round 1, Q-1). Both rows below build their two fields from this
+    # one pair, so the panel and the JSON cannot disagree about a dead pid.
+    from local_operator.session.runtime import stall_watchdog
+
+    held_dumps = stall_watchdog.held_dumps()
+    fired_dumps = stall_watchdog.fired_dumps()
+
+    lines: list[SessionLine] = []
+    for rec, state in scanned:
+        # THIS LIFE'S OWN ARTIFACTS, resolved once per row: a dump written for a pid an
+        # EARLIER life drew is not this row's evidence, and the test is the artifact's
+        # mtime against the record's own start (``dump_is_current``). Unfenced, the
+        # widened search marked a live, healthy session ``bound held; lop stop`` off a
+        # recycled pid's leftover dump (QA round 1, Q-2) and published a ``stall_dump``
+        # path that does not exist (review round 1, MAJOR-1 / Q-1).
+        dump = fired_dumps.get(rec.pid)
+        if not stall_watchdog.dump_is_current(dump, rec.started_at):
+            dump = None
+        held = stall_watchdog.dump_is_current(held_dumps.get(rec.pid), rec.started_at)
+        use = measured.get(rec.pid)
+        lines.append(
+            SessionLine(
+                state=state,
+                pid=rec.pid,
+                kind=rec.kind,
+                conversation_name=rec.conversation_name,
+                session_id=rec.session_id,
+                model_label=rec.model_label,
+                cwd=rec.cwd,
+                rss_bytes=use.rss_bytes if use else None,
+                footprint_bytes=use.footprint_bytes if use else None,
+                uptime_s=max(0.0, stamp - rec.started_at),
+                heartbeat_age_s=max(0.0, stamp - rec.heartbeat_at),
+                # Live state from the record. Defaulted through getattr so a
+                # record written by an OLDER runtime (which has no such fields)
+                # lists cleanly rather than raising mid-table.
+                pending=getattr(rec, "pending", None),
+                busy=bool(getattr(rec, "busy", False)),
+                # The runtime's own statement that it is leaving and finishing
+                # work first. Defaulted like the two fields above so a record
+                # written by an OLDER runtime lists cleanly rather than raising
+                # mid-table — `lop sessions` is the surface a host mid-upgrade
+                # is inspected WITH.
+                leaving=getattr(rec, "leaving", "") or "",
+                # The same getattr defaulting, for the same mid-upgrade reason: a
+                # record written by an OLDER runtime has no window field, and
+                # ``lop sessions`` is the surface a host mid-upgrade is inspected
+                # WITH. The pair is printed in the row's own column and is what a
+                # rotation script reads to tell "which of these is moving".
+                updating=getattr(rec, "updating", "") or "",
+                # The failed half of the same window, defaulted identically. A record
+                # written by a runtime that stayed after its bound expired carries it,
+                # and the reader must be able to see that the session is still on the
+                # build it loaded (design review round 1, D1).
+                update_failed=getattr(rec, "update_failed", "") or "",
+                # WHAT THE LAST BEAT MEASURED, defaulted through getattr for the
+                # same mid-upgrade reason as every live-state field above: a record
+                # written by an OLDER runtime has no such field, and ``None`` there
+                # means "this build does not report" rather than a zero reading.
+                beat_lag_s=getattr(rec, "beat_lag_s", None),
+                cpu_since_beat_s=getattr(rec, "cpu_since_beat_s", None),
+                detached=bool(getattr(rec, "detached", False)),
+                # THE THIRD STATE, carried onto the LINE so a rendered surface can show
+                # it (design review round 1, D1): the row dict has had it since this
+                # branch, and until the panel read it the only place it existed was the
+                # JSON.
+                # FENCED ON LIVENESS (design review round 2, D8): the scan says nothing
+                # about whether the process is still there, so a held runtime that a
+                # person later stopped kept the phrase "still running, needs you" on a
+                # row whose pid is gone — the panel rendered ``bound held`` beside
+                # ``stale``. A held dump is a live-state fact, so it is published only
+                # for a pid the registry does not call stale.
+                # ...AND FENCED ON THE RECORD'S OWN LIFE (QA round 1, Q-2): with the
+                # search widened to every store a writer can have used, a leftover held
+                # dump on a RECYCLED pid turned a live, healthy session (6 s uptime, 1 s
+                # heartbeat) into ``bound held; lop stop`` on the real CLI table. The
+                # artifact's mtime against this record's own start is what separates the
+                # two.
+                stall_held=held and state != "stale",
+                # THE FILE, NOT A COMPOSED PATH — see the maps above (MAJOR-1 / Q-1).
+                stall_dump=str(dump) if dump is not None else None,
+                started_at=rec.started_at,
+                # Which build each runtime is running, for diagnosing skew
+                # across a host that replaces its install several times a day.
+                # Same getattr defaulting as the live-state fields above.
+                version=getattr(rec, "version", "") or "",
+                source_ref=getattr(rec, "source_ref", "") or "",
+                # NOT coerced to 0 — see ``reported_subagent_count``. The default is
+                # ``None`` and stays ``None``: a runtime predating these fields
+                # has not told us it has no subagents, and ``or 0`` here would
+                # silently turn every older peer into a confident zero in the
+                # fleet total.
+                subagents_running=reported_subagent_count(getattr(rec, "subagents_running", None)),
+                subagents_queued=reported_subagent_count(getattr(rec, "subagents_queued", None)),
+                is_self=self_pid is not None and rec.pid == self_pid,
+            )
+        )
+
+    if include_stored and root is not None:
+        lines.extend(
+            _stored_lines(
+                root,
+                {line.session_id for line in lines},
+                stored_limit,
+                kinds=stored_kinds,
+            )
+        )
+
+    lines = _with_stored_outcomes(lines, root)
+
+    # The roll-up counters describe the RUNNING fleet, so they count only the
+    # rows the registry published. A ``stored`` row (``include_stored``) names a
+    # session that is not running; counting it under ``total``/``live`` would
+    # make the /info header report sessions that have no runtime, the exact
+    # misreading those counters exist to prevent. ``lines`` keeps them (the
+    # listing is the point of the flag); the counters ignore them.
+    live_only = [line for line in lines if line.state != "stored"]
+    builds = {(line.version, line.source_ref) for line in live_only if line.state == "live"}
+    builds.discard(("", ""))
+
+    # The population is every RUNNING PROCESS: ``live`` and ``wedged`` both
+    # name a pid that exists, and a runtime that has merely gone quiet for 45 s
+    # can still have children burning tokens — dropping it would under-report
+    # exactly the fleet somebody opens this screen to understand. It serves its
+    # last published counts and the renderer's caveat says they are as of its
+    # last heartbeat. A ``stale`` record is excluded outright: the scan above
+    # just DELETED its file because the pid is gone, so it is not a runtime.
+    live_lines = [line for line in live_only if line.state in ("live", "wedged")]
+    reporting = [line for line in live_lines if line.subagents_running is not None]
+    fleet_running = sum(line.subagents_running or 0 for line in reporting)
+    # Session trajectories and subagent trajectories are DISJOINT by
+    # construction, which is what makes adding them legal: a subagent never
+    # publishes a SessionRecord of its own (``harness.subagent`` builds a bare
+    # Session with no registrant), so nothing is counted both as a runtime's
+    # own turn and as somebody's child.
+    session_trajectories = sum(1 for line in live_lines if line.busy)
+    return SessionsInfo(
+        lines=tuple(lines),
+        total=len(live_only),
+        live=sum(1 for line in live_only if line.state == "live"),
+        wedged=sum(1 for line in live_only if line.state == "wedged"),
+        stale=sum(1 for line in live_only if line.state == "stale"),
+        busy=sum(1 for line in live_only if line.busy),
+        pending=sum(1 for line in live_only if line.pending),
+        detached=sum(1 for line in live_only if line.detached),
+        build_skew=len(builds) > 1,
+        # "Nothing measured at all" is a different fact from "this pid could
+        # not be measured", and only the first should suppress the column.
+        usage_available=not live_pids
+        or any(line.rss_bytes is not None or line.footprint_bytes is not None for line in lines),
+        subagents_reporting=len(reporting),
+        subagents_unreported=len(live_lines) - len(reporting),
+        fleet_subagents_running=fleet_running,
+        fleet_subagents_queued=sum(line.subagents_queued or 0 for line in reporting),
+        fleet_session_trajectories=session_trajectories,
+        fleet_trajectories=session_trajectories + fleet_running,
+    )
+
+
+def _outcome_states(root: Path | None, session_ids: Iterable[str]) -> dict[str, dict[str, Any]]:
+    """Latest stored outcome STATE per session id, on ONE batched store read.
+
+    THE ONE IMPLEMENTATION both the listing's outcome columns and its
+    ``--paused`` / ``--failed`` set membership read through, so the two cannot
+    RESOLVE a row's kind differently.
+
+    Resolution, not snapshot: with a filter active the listing issues two reads
+    (the candidate-set read, then the enrichment read for the rows it kept),
+    each its own connection and its own ``state_many`` snapshot. A row could in
+    principle be selected under one state and enriched with another if an
+    outcome landed between them — benign and sub-millisecond, and stated here
+    rather than implied by "one read" (review round 1, R4).
+
+    ONE READ PER CALL: ``state_many`` chunks its SQL parameters over one
+    connection, so a fleet of forty sessions costs what one costs. The read is
+    also why the fields come from the store and not from the record — see
+    :attr:`SessionLine.completion_kind` for why the OUTCOME is what answers
+    "why did this die".
+
+    THE STORE IS KEYED BY CONVERSATION IDENTITY, not by session id: a row's
+    completion lives under ``session/<id>`` or ``agent/<id>``, and which one it
+    is is a property of the conversation's DIRECTORY (``conversation_identity``
+    reads the parent's name), not of the discovery record — a record in one run
+    namespace can name either kind of conversation. Both spellings are therefore
+    asked for in the same chunked read and ``session/`` wins a tie, which cannot
+    normally happen: ids are uuid4. An id whose identity is in neither — or
+    whose row carries no ``kind`` — is simply absent from the answer.
+
+    TOLERANT, like every other read on this path and for the same reason an
+    older runtime's record is: ``lop sessions`` is what a host mid-upgrade is
+    inspected WITH, so an unreadable or missing store yields ``{}`` (each
+    caller treats absence as "no recorded outcome" — an empty column, or
+    membership in neither set) and the listing otherwise intact. The store's
+    own reader already degrades to "no completion" states for a database that
+    predates the ``reason``/``cause`` columns, so no version handling is
+    repeated here.
+
+    NO AMBIENT FALLBACK WHEN ``root`` IS NONE, deliberately: unlike
+    ``AttentionStore()``'s own default, a listing built for a caller that named
+    no root must not acquire the outcome of whatever store happens to be on the
+    operator's machine. A caller that wants the read passes the root it read
+    the rows from — the CLI and ``/info`` both do.
+    """
+    from local_operator.session.attention import AttentionStore
+
+    if root is None:
+        return {}
+    ids = [session_id for session_id in dict.fromkeys(session_ids) if session_id]
+    if not ids:
+        return {}
+    # The store is opened against the SAME root the rows came from.
+    store = AttentionStore(root / "attention.db")
+    try:
+        states = store.state_many(
+            [f"{namespace}/{sid}" for sid in ids for namespace in ("session", "agent")]
+        )
+    except Exception:  # noqa: BLE001 — a listing must survive an unreadable store
+        logger.debug("attention store unavailable for the sessions listing", exc_info=True)
+        return {}
+    resolved: dict[str, dict[str, Any]] = {}
+    for session_id in ids:
+        state = states.get(f"session/{session_id}") or {}
+        if not state.get("kind"):
+            state = states.get(f"agent/{session_id}") or {}
+        if state.get("kind"):
+            resolved[session_id] = state
+    return resolved
+
+
+def _with_stored_outcomes(lines: list[SessionLine], root: Path | None) -> list[SessionLine]:
+    """Each session's last stored outcome (kind and reason) attached to its row.
+
+    The enrichment half of :func:`_outcome_states`, which owns the one batched
+    store read and every tolerance around it; this function only decides what
+    an absent outcome means for the ROW — empty fields, so a pre-taxonomy
+    record still renders exactly as it always has.
+
+    REBUILT RATHER THAN MUTATED, because ``SessionLine`` is ``frozen=True`` and
+    that is a tested redaction invariant, not a habit (see the model's own
+    note): the row is the shape that must never grow a field a dump can reach,
+    so a second field-carrying constructor call is the cheap and legal way to
+    enrich it.
+    """
+    from dataclasses import replace
+
+    if root is None:
+        return lines
+    states = _outcome_states(root, (line.session_id for line in lines))
+    if not states:
+        return lines
+    enriched: list[SessionLine] = []
+    for line in lines:
+        state = states.get(line.session_id) or {}
+        enriched.append(
+            replace(
+                line,
+                completion_kind=str(state.get("kind") or ""),
+                completion_reason=str(state.get("reason") or ""),
+            )
+        )
+    return enriched
+
+
+#: How many stored sessions ``lop sessions --all`` lists when no ``--limit`` is
+#: given. The store grows without bound on a well-used machine, so the listing
+#: caps the rows it shows to the most recent rather than printing a wall; the
+#: flag is an opt-in and the cap is named so a consumer can see where it is
+#: chosen. Applied inside ``_stored_lines`` — the CLI passes ``None`` for
+#: "no --limit given" and relies on this default; a caller that wants a
+#: different number passes its own at its own call site, and there is no
+#: uncapped spelling (review round 1, MAJOR-2: the constant shipped unwired
+#: and ``--all`` listed the entire store).
+STORED_SESSIONS_DEFAULT_LIMIT = 50
+
+#: The outcome kinds behind the ``--failed`` and ``--paused`` listing sets.
+#:
+#: THE VOCABULARY IS THE ATTENTION STORE'S OWN (``attention.py``'s completion
+#: kinds), so a listing can never quietly diverge from the receipts every other
+#: surface paints. The mapping to the two words an operator uses, and why each
+#: side of the line is where it is:
+#:
+#: * ``FAILED`` is ``error`` alone — the taxonomy's involuntary half: a cut-off
+#:   with no positive evidence of a deliberate act (a killed runtime, a death
+#:   nobody can explain). It is the half whose receipt reads as a failure on
+#:   every surface.
+#: * ``PAUSED`` is ``interrupted`` AND ``retired`` — the two kinds the product
+#:   ALREADY paints together as "Unseen interruption" (``catalog._stop_label``):
+#:   a deliberate stop (the stop ladder, ``/stop``, ``user-stop``) and a build
+#:   retirement (the update handover, "the runtime retired so the next engage
+#:   would run a newer build"). Both are UNFINISHED WORK that somebody resumes,
+#:   which is the question these sets exist to answer — and neither is a
+#:   failure, which is why ``error`` is not in this set.
+#:
+#: NOTHING ELSE IS IN EITHER SET, deliberately: ``complete`` is done, and
+#: ``closed`` is the neutral disposal receipt ("a receipt, not a verdict") that
+#: the taxonomy keeps out of every failure family; an id with no recorded
+#: outcome is in neither set, because the honest reading of "no row" is "not
+#: known" and a set a resume path selects from must never promote that into
+#: membership.
+FAILED_OUTCOME_KINDS = frozenset({"error"})
+PAUSED_OUTCOME_KINDS = frozenset({"interrupted", "retired"})
+
+
+def stored_sessions_by_outcome(
+    root: Path,
+    kinds: frozenset[str] | set[str],
+    *,
+    exclude_ids: set[str] | None = None,
+    limit: int | None = None,
+) -> list[tuple[str, float]]:
+    """``(id, mtime)`` for stored sessions whose LAST outcome kind is in ``kinds``.
+
+    THE FILTER-BEFORE-LIMIT RULE LIVES HERE, and it is a correctness
+    requirement, not an optimisation: a ``--failed`` listing must find a failed
+    session older than the newest fifty, so the candidates are enumerated
+    UNCAPPED (``recent_sessions(root, None)`` — the same single store walker
+    every listing uses, without paying for names), outcomes are read for the
+    whole set in one batched :func:`_outcome_states` read, and only then is the
+    recency cap applied to the MEMBERS. Filtering a capped list instead would
+    silently drop exactly the rows an operator most needs to find.
+
+    ``exclude_ids`` drops ids the caller knows are LIVE before the cap: a
+    running session is not "stored" and is not offered for resumption, and
+    letting one consume a cap slot would push a real member off the page.
+
+    ``limit=None`` is UNCAPPED — for a caller selecting a set to ACT on (the
+    bulk-resume path); a listing passes its own resolved cap. The order is
+    ``recent_sessions``'s own (newest first, id ascending on equal stamps), so
+    a capped answer is the newest members of the set.
+
+    ONE HONEST LIMIT, stated where a selector will read it: membership is the
+    attention store's latest RECORDED outcome, so a death whose outcome was
+    never imported is in neither set (and shows no WHY row anywhere). "Latest
+    recorded" also means a session resumed after its failure stays a member
+    until its next turn ends — the sets describe the last completed turn, not
+    liveness, which is why callers that act on them pass ``exclude_ids``.
+    """
+    from local_operator.resume import recent_sessions
+
+    candidates = recent_sessions(root, None)
+    if exclude_ids:
+        candidates = [candidate for candidate in candidates if candidate[0] not in exclude_ids]
+    states = _outcome_states(root, (session_id for session_id, _ in candidates))
+    matched = [
+        (session_id, mtime)
+        for session_id, mtime in candidates
+        if (states.get(session_id) or {}).get("kind") in kinds
+    ]
+    return matched[:limit] if limit is not None else matched
+
+
+def _stored_lines(
+    root: Path,
+    live_ids: set[str],
+    limit: int | None,
+    *,
+    kinds: frozenset[str] | None = None,
+) -> list[SessionLine]:
+    """One ``SessionLine`` per STORED session: a directory with no live record.
+
+    Read from the same ``resume.recent_session_rows`` scan the ``/resume``
+    picker uses, so a session is named here by the title the picker would show
+    and a directory the picker hides (subagent scratch) is not offered for
+    messaging either. The scan is newest-first on the transcript activity clock
+    (``session.retention.session_activity``) — the recency a human recognises
+    — so the cap truncates the tail of an ordering that is already useful.
+
+    Only the durable identity fields are filled: ``pid``, RSS, uptime and
+    heartbeat age are properties of a RUNNING process and are meaningless for a
+    dead session, so they keep the empty defaults the renderer turns into ``—``.
+    ``last_activity_s`` carries the transcript mtime in their place.
+
+    Best-effort, never a gate: a store that cannot be read yields no stored rows
+    rather than failing a listing whose first job is the LIVE fleet.
+
+    ``limit`` is the CLI's ``--limit`` verbatim when given; ``None`` means no
+    flag was passed and becomes :data:`STORED_SESSIONS_DEFAULT_LIMIT` HERE
+    rather than in argparse, so the number a consumer reads out of the listing
+    is the number this module chose and advertises in ``--limit``'s help. The
+    caller validates positivity; a given value is forwarded as-is because
+    ``recent_session_rows`` owns slicing semantics.
+
+    ``kinds`` restricts the rows to the outcome SETS a filter asked for — the
+    membership rule and the filter-before-limit rule both live at
+    :func:`stored_sessions_by_outcome`. This path names only the MATCHED rows:
+    the candidates are enumerated uncapped WITHOUT names, and ``session_name``
+    runs on the survivors alone, because a set filter exists precisely to find
+    rows outside the newest page and paying a name read per skipped candidate
+    would make the search cost track the whole store rather than the answer.
+    """
+    from local_operator.resume import recent_session_rows
+
+    resolved = STORED_SESSIONS_DEFAULT_LIMIT if limit is None else limit
+    try:
+        if kinds is None:
+            candidates = [
+                (row.id, row.name, row.mtime) for row in recent_session_rows(root, resolved)
+            ]
+        else:
+            from local_operator.resume import session_name
+
+            matched = stored_sessions_by_outcome(root, kinds, exclude_ids=live_ids, limit=resolved)
+            candidates = [
+                (session_id, session_name(root / "sessions" / session_id), mtime)
+                for session_id, mtime in matched
+            ]
+    except Exception:  # noqa: BLE001 — a listing must not fail on the store
+        return []
+    lines: list[SessionLine] = []
+    for session_id, name, mtime in candidates:
+        # Live wins: a session the registry just published for is not "stored",
+        # and listing it twice would double-count one conversation in the
+        # output the operator reads to decide what to send where.
+        if session_id in live_ids:
+            continue
+        lines.append(
+            SessionLine(
+                pid=0,
+                state="stored",
+                session_id=session_id,
+                conversation_name=name,
+                last_activity_s=mtime,
+            )
+        )
+    return lines
+
+
+def session_rows(
+    root: Path | None = None,
+    *,
+    include_stored: bool = False,
+    stored_limit: int | None = None,
+    stored_kinds: frozenset[str] | None = None,
+) -> list[dict[str, Any]]:
+    """``lop sessions --json``'s rows, in its established key order.
+
+    The CLI's ``--json`` contract is a published surface, so the key order and
+    the key names are pinned here (``tests/unit/info/test_sessions_extraction.py``
+    compares against the pre-extraction literal) rather than derived from
+    ``dataclasses.asdict``, which would leak ``is_self`` — a field the CLI never
+    had — into it.
+
+    ``include_stored`` appends ``stored`` rows for sessions with a directory but
+    no live record (the ``--all`` opt-in). The published shape is EXTENDED, not
+    broken: the established keys stay first and in order, and the stored-only
+    ``last_activity_s`` rides at the END so every existing key position is
+    preserved. It is present on every row (``None`` on a live one) because a
+    consumer that must branch on key EXISTENCE per row is a worse contract than
+    a stable shape with one nullable field. The extraction test asserts exactly
+    this order, so the expectation is updated in the same change.
+
+    ``stored_kinds`` is the ``--failed`` / ``--paused`` SET filter, and when it
+    is given the answer is exactly the matched STORED rows: the live half is
+    dropped, because a running session is not a member of either set (it cannot
+    be resumed, and its receipt describes a turn that has ended) — so
+    ``lop sessions --failed`` answers the set question and nothing else. The
+    cap applies AFTER the filter (see :func:`stored_sessions_by_outcome`),
+    which is the difference between "a failed session older than the newest
+    fifty still shows" and a silently wrong answer.
+    """
+    from local_operator.session.placement import local_placement
+
+    info = collect_sessions(
+        root,
+        include_stored=include_stored,
+        stored_limit=stored_limit,
+        stored_kinds=stored_kinds,
+    )
+    lines: Sequence[SessionLine] = info.lines
+    if stored_kinds is not None:
+        # A SET FILTER ANSWERS A SET QUESTION: exactly the matched stored rows,
+        # nothing else. Membership in the sets is about the LAST COMPLETED TURN
+        # (see the kind constants), so a live row carrying a matching receipt is
+        # a session that has since been resumed — listing it beside the set
+        # would imply the resume path would touch it.
+        lines = tuple(line for line in lines if line.state == "stored")
+    # THE FLEET'S OWN STALL BOUND, and what it left behind — READ OFF THE LINES rather
+    # than scanned again here. ``collect_sessions`` does the one scan a listing needs
+    # (the marker has to be read out of each candidate file, so a per-row call would
+    # re-glob and re-read every store once per session) and fences each row's artifacts
+    # against that runtime's own life. That fence is also why the published
+    # ``stall_dump`` is the path the SCAN found: composed here from this process's own
+    # log directory it named a file that does not exist for a fire in another store
+    # (review round 1, MAJOR-1 / QA round 1, Q-1).
+    return [
+        {
+            "state": line.state,
+            "pid": line.pid,
+            "kind": line.kind,
+            "conversation_name": line.conversation_name,
+            "session_id": line.session_id,
+            "model_label": line.model_label,
+            "cwd": line.cwd,
+            "rss_bytes": line.rss_bytes,
+            "footprint_bytes": line.footprint_bytes,
+            "uptime_s": line.uptime_s,
+            "heartbeat_age_s": line.heartbeat_age_s,
+            "pending": line.pending,
+            "busy": line.busy,
+            "detached": line.detached,
+            "version": line.version,
+            "source_ref": line.source_ref,
+            # Added deliberately, not incidentally: ``--json`` is a published
+            # surface whose key list is pinned against a pre-extraction
+            # snapshot, so adding keys breaks that test BY DESIGN and the
+            # expectation is updated in the same change. A fleet consumer
+            # counting trajectories across a host wants these, and ``null``
+            # (not 0) is what an older runtime contributes — the same
+            # unreported-vs-zero distinction the screen makes.
+            "subagents_running": line.subagents_running,
+            "subagents_queued": line.subagents_queued,
+            # The stored row's only clock (transcript activity mtime); ``None``
+            # on every live/wedged/stale row, which carries ``uptime_s`` and
+            # ``heartbeat_age_s`` instead. Last in the dict so the pinned order
+            # above is untouched.
+            "last_activity_s": line.last_activity_s,
+            # THE LAST OUTCOME, and the one key that answers "why did this die"
+            # without a log hunt: the attention store's kind and the reason the
+            # harness recorded (``the runtime disappeared without exiting
+            # cleanly…``, or the deliberate stop's sentence with the rung and
+            # the killer). Appended at the END for the same reason
+            # ``last_activity_s`` is — the established key order is a published
+            # contract, and this EXTENDS it rather than re-flowing it. Empty
+            # string, never ``None``: the store's own readers use "" for "no
+            # reason was recorded" so no consumer has to branch on key
+            # existence per row.
+            "completion_kind": line.completion_kind,
+            "completion_reason": line.completion_reason,
+            # WHETHER THIS RUNTIME IS FINISHING A TURN BEFORE LEAVING, and why:
+            # appended at the END for the same reason the two keys above are —
+            # the established key order is a published contract and this EXTENDS
+            # it. Empty string, never ``None``, matching its neighbours so no
+            # consumer branches on key existence per row.
+            #
+            # It rides here rather than only on the record because the record is
+            # the runtime's own file: a consumer diagnosing a fleet (or
+            # scripting a rotation) reads this table or its JSON, and "which of
+            # these is leaving" has to be answerable without opening a config
+            # root per session. ``lop sessions`` also prints it (its own LEAVING
+            # column, present only when some row carries one).
+            "leaving": line.leaving,
+            # -- the mesh's five keys, appended for the same reason every key
+            # above was: the established order is a published contract and this
+            # EXTENDS it (mesh-session-mobility.md §9.3). They are present on
+            # EVERY row, local or remote, so a consumer never branches on key
+            # existence — and on a device with no network they are the local
+            # answer rather than an absent one.
+            #
+            # ``locality``/``peer`` are the transport's two required fields:
+            # ``peer`` is ``None`` on a local row and the peer block on a remote
+            # one, which is what lets a client group by device without ever
+            # inferring remoteness from an id's shape.
+            "locality": "local",
+            "peer": None,
+            # From the session's own ``mesh.json``, and the LOCAL default
+            # (``mode: "local"``) when there is none: the field is always
+            # present so a reader can tell "local" from "written by a build
+            # that does not know about the mesh" (§5.1).
+            "placement": (
+                stamp.placement.to_json() if stamp is not None else local_placement().to_json()
+            ),
+            "origin": (dict(stamp.origin) if stamp is not None and stamp.origin else None),
+            # R22's visible half: a ``--keep`` copy's last pull. Never set by a
+            # device that owns the session, which is why it is ``None`` here —
+            # this listing is the store's own rows.
+            "last_synced_at": None,
+            # WHETHER THIS RUNTIME IS MOVING TO THE BUILD ON DISK RIGHT NOW, and to
+            # which one: appended at the END for the same reason the two keys above
+            # are — the established key order is a published contract and this
+            # EXTENDS it. Empty string, never ``None``, matching its neighbours so
+            # no consumer branches on key existence per row.
+            #
+            # It rides here rather than only on the record for the reason the
+            # ``leaving`` key spells out: the record is the runtime's own file, and
+            # a consumer diagnosing a fleet reads this table or its JSON.
+            "updating": line.updating,
+            # THE FAILED WINDOW, appended after the field above for the same
+            # append-only reason. ``lop sessions`` renders the cell from the pair of
+            # these two through ``types.update_phase``, so a row whose only news is a
+            # failed update lists as such instead of as an ordinary idle session — the
+            # gap design review round 1 (D1) measured against the real renderer.
+            "update_failed": line.update_failed,
+            # WHAT THE LAST BEAT MEASURED: seconds of no progress, and this
+            # process's own CPU time over the same gap. Appended at the END for the
+            # same append-only reason as the keys above — the established key order
+            # is a published contract and this EXTENDS it. They ride here because
+            # ``wedged`` alone is one ambiguous word for three situations (starved
+            # by its own work / starved by the host / not running), and these are the
+            # two readings that tell them apart; ``None`` means a runtime that does
+            # not report them, exactly as ``subagents_queued``'s ``None`` does.
+            "beat_lag_s": line.beat_lag_s,
+            "cpu_since_beat_s": line.cpu_since_beat_s,
+            # WHERE THIS SESSION'S OWN STALL DUMP IS, when its bound fired: the
+            # path, or ``None`` for every row whose runtime never tripped it.
+            # Appended at the END for the same append-only reason as the keys
+            # above. It rides here because the dump is the ONE artifact a reader
+            # needs after a freeze and the runtime that wrote it is gone by
+            # definition — a listing is where they arrive (``stall_watchdog``
+            # owns the naming, so the path is never composed twice).
+            "stall_dump": line.stall_dump,
+            # THE THIRD STATE, on the surface a person looks at first. A row whose
+            # bound fired is two different situations now, and this is what tells
+            # them apart: WITHOUT it the runtime is gone and the dump is a
+            # post-mortem; WITH it the runtime SURVIVED the fire, is still holding
+            # whatever it was doing, and the way out is ``lop stop`` — so a reader
+            # who cannot see this would take a stalled-but-alive session for a dead
+            # one, which is the operator's question answered backwards. Appended
+            # after ``stall_dump`` for the append-only reason every key above it
+            # states, and ``False`` rather than ``None`` when no bound fired: this
+            # is a question with a yes/no answer on every row.
+            # ...and fenced the same way here, so the two surfaces cannot disagree
+            # about a dead pid's leftover dump (design review round 2, D8).
+            "stall_held": line.stall_held,
+        }
+        for line, stamp in zip(lines, _stamps(lines, root), strict=True)
+    ]
+
+
+def _stamps(lines: Sequence[Any], root: Path | None) -> list[Any]:
+    """Each row's ownership stamp, or ``None`` — one small file per row.
+
+    Read here rather than carried on the row because the row is the CONTRACT and
+    the stamp is durable state: a session with no stamp must list exactly as it
+    did before the mesh existed, and ``None`` is how this function says so.
+    """
+    from local_operator.session.placement import read_stamp
+
+    if root is None:
+        return [None for _ in lines]
+    return [read_stamp(root, str(getattr(line, "session_id", "") or "")) for line in lines]
+
+
+def build_subagent_tree(
+    nodes: Sequence[Any],
+    *,
+    max_depth: int = MAX_TREE_DEPTH,
+) -> tuple[tuple[SubagentLine, ...], int, int]:
+    """Flatten a comms roster into ``(rows, max_depth_seen, nodes_below_cap)``.
+
+    Built from ``comms.nodes()`` plus ``parent_job_id``, NOT by recursing job
+    managers, because nested launches land in the ROOT session's single records
+    map tagged with their true parent's job id — ``nodes()``' own docstring says
+    consumers need the complete roster since the root event stream "can only
+    ever describe direct children". So one flat read already contains every
+    depth.
+
+    The walk carries a ``seen`` set for the same reason ``comms.ancestors()``
+    does: a restored snapshot can carry a malformed edge, and a cycle here would
+    hang the screen rather than merely misdraw it. Orphans — a node whose parent
+    is not in the roster, which the settled-record eviction can produce — are
+    walked from the root rather than silently dropped, since a running subagent
+    missing from a "what is running" screen is the worst possible error.
+
+    Ordering is running first, then queued, then everything settled: that is the
+    question being asked, mirroring ``sort_needs_you_first``'s urgency-first
+    principle.
+    """
+    # Function-local like every other cross-package import here (see the module
+    # docstring). ``runtime.types`` is stdlib-only by contract, but the
+    # convention is what keeps that true.
+    from local_operator.session.runtime.types import RUNNING_SUBAGENT_STATUSES
+
+    children: dict[str | None, list[Any]] = defaultdict(list)
+    known = {getattr(node, "job_id", "") for node in nodes}
+    for node in nodes:
+        parent = getattr(node, "parent_job_id", None)
+        # An orphan is re-parented to the root: its parent record was evicted,
+        # not its existence.
+        children[parent if parent in known else None].append(node)
+
+    def rank(node: Any) -> tuple[int, str]:
+        # The SHARED predicate, not a local literal: the header counts
+        # ``pausing`` as a running trajectory, so a local tuple that omitted it
+        # sorted a counted-as-running child below the settled rows — the tree
+        # disagreeing with the tally directly above it, which is the one error
+        # this section must never make.
+        status = str(getattr(node, "status", "") or "")
+        order = 0 if status in RUNNING_SUBAGENT_STATUSES else 1 if status == "queued" else 2
+        return order, str(getattr(node, "label", "") or "")
+
+    rows: list[SubagentLine] = []
+    seen: set[str] = set()
+    deepest = 0
+    below_cap = 0
+
+    def walk(parent: str | None, depth: int) -> None:
+        nonlocal deepest, below_cap
+        for node in sorted(children.get(parent, ()), key=rank):
+            job_id = str(getattr(node, "job_id", "") or "")
+            if job_id in seen:
+                continue
+            seen.add(job_id)
+            deepest = max(deepest, depth)
+            if depth >= max_depth:
+                below_cap += 1
+            else:
+                rows.append(
+                    SubagentLine(
+                        job_id=job_id,
+                        label=str(getattr(node, "label", "") or ""),
+                        status=str(getattr(node, "status", "") or ""),
+                        depth=depth,
+                        agent_role=str(getattr(node, "agent_role", "") or ""),
+                        effort=str(getattr(node, "effort", "") or ""),
+                        parent_job_id=getattr(node, "parent_job_id", None),
+                        session_id=getattr(node, "session_id", None),
+                        live=bool(getattr(node, "live", False)),
+                    )
+                )
+            walk(job_id, depth + 1)
+
+    walk(None, 0)
+
+    # A CYCLE reaches nothing from the root: every node's parent is present, so
+    # nothing buckets under ``None`` and the walk above iterates an empty list.
+    # The ``seen`` set stops the hang but does not restore the nodes, so the
+    # header said "2 running" over an empty tree — one screen contradicting
+    # itself, and by this function's own docstring the worst error it can make
+    # (review round 1, M1). Anything still unreached is emitted at depth 0, the
+    # same treatment an orphan gets: a malformed edge costs indentation, never
+    # existence.
+    for node in sorted(nodes, key=rank):
+        job_id = str(getattr(node, "job_id", "") or "")
+        if job_id in seen:
+            continue
+        seen.add(job_id)
+        rows.append(
+            SubagentLine(
+                job_id=job_id,
+                label=str(getattr(node, "label", "") or ""),
+                status=str(getattr(node, "status", "") or ""),
+                depth=0,
+                agent_role=str(getattr(node, "agent_role", "") or ""),
+                effort=str(getattr(node, "effort", "") or ""),
+                parent_job_id=getattr(node, "parent_job_id", None),
+                session_id=getattr(node, "session_id", None),
+                live=bool(getattr(node, "live", False)),
+            )
+        )
+
+    return tuple(rows), deepest, below_cap
+
+
+def _require_root(root: Path) -> Path:
+    """``root``, or RAISE when it is the unreadable sentinel.
+
+    Some registries walk a missing directory and return an empty list instead of
+    raising, which turns "we could not resolve the config dir" into an
+    authoritative-looking ``0``. Forcing the failure here routes those probes
+    through :func:`_safe` like every other one, so the field renders as unknown
+    and is named in the degraded block (QA round 2, Q8).
+    """
+    if root == _UNREADABLE_ROOT:
+        raise OSError("config dir could not be resolved")
+    return root
+
+
+def collect_agents(
+    live: "LiveState",
+    errors: list[tuple[str, str]],
+    sessions: SessionsInfo | None = None,
+) -> AgentsInfo:
+    """Profile and team counts (filesystem walks) over the live tree.
+
+    The TREE itself is not read here — it was captured on the event loop by
+    :func:`collect_live`, deliberately, so a ``/new`` during this ~900 ms
+    snapshot cannot swap the session under an already-painted header.
+
+    ``sessions`` is the already-completed scan, threaded in only to answer
+    whether anyone ELSE reported subagent counts. It is optional so this stays
+    callable on its own, and its absence means "no fleet knowledge", which is
+    the honest reading of not having looked.
+    """
+    from local_operator.agents import AgentRegistry
+    from local_operator.paths import config_dir
+    from local_operator.teams import TeamRegistry
+
+    # Guarded like any other probe: `config_dir()` is `Path.home() / ...` and
+    # `Path.home()` RAISES when the home directory cannot be resolved, so a bare
+    # call here escaped the block and crashed the app (review round 1, B1).
+    # `_UNREADABLE_ROOT` rather than `Path(".")` — see `collect_env`.
+    root = _safe("agents.config_dir", config_dir, _UNREADABLE_ROOT, errors)
+    return AgentsInfo(
+        # 12.1 ms and 2.3 ms respectively on this host: filesystem walks, hence
+        # the worker thread rather than the paint path.
+        profiles=_safe(
+            "agents.profiles",
+            lambda: len(AgentRegistry(_require_root(root)).list_agents()),
+            0,
+            errors,
+        ),
+        # `_require_root` rather than a bare call: `TeamRegistry.list_teams()`
+        # does NOT raise on a directory that does not exist, it returns 0. So on
+        # an unresolvable home `teams` was a plausible zero with NO degraded
+        # entry naming it anywhere — the one field on the screen with no honest
+        # marker at all, where `profiles` and `credentials` at least raised and
+        # were caught (QA round 2, Q8). A count read out of a config root we
+        # could not resolve is not a measurement, whatever the walk returns.
+        teams=_safe(
+            "agents.teams", lambda: len(TeamRegistry(_require_root(root)).list_teams()), 0, errors
+        ),
+        tree=live.tree,
+        running=live.running,
+        queued=live.queued,
+        settled=live.settled,
+        max_running=live.max_running,
+        at_capacity=live.at_capacity,
+        max_depth=live.max_depth,
+        deeper=live.deeper,
+        roster_unread=bool(getattr(live, "roster_unread", False)),
+        # Whether at least one OTHER live runtime reported its counts — not
+        # whether the feature exists. The note this gates claims knowledge of
+        # other windows, so on a single-session host, or one where every peer
+        # runs an older build, it must stay False and the screen must keep
+        # saying only this session is visible.
+        cross_session_known=(
+            sessions is not None
+            and any(
+                # The same population the roll-ups use: a running pid, whether
+                # or not it has gone quiet. A ``stale`` record's process is
+                # gone, so its counts describe nothing.
+                line.state in ("live", "wedged")
+                and not line.is_self
+                and line.subagents_running is not None
+                for line in sessions.lines
+            )
+        ),
+    )
+
+
+def collect_env(live: "LiveState", errors: list[tuple[str, str]]) -> EnvInfo:
+    """The bug-report extras. Names only — never a credential value."""
+    from local_operator.browser_bridge import state as bridge_state
+    from local_operator.guides.discovery import discover_guides
+    from local_operator.paths import config_dir
+
+    # Same guard as `collect_agents`, for the same reason (review round 1, B1).
+    # The fallback is `_UNREADABLE_ROOT`, NOT `Path(".")`: the retired
+    # `CredentialManager` CREATED a `credentials.env` on construction, so a
+    # relative fallback made this read-only diagnostic write one into whatever
+    # directory the user happened to be in — observed for real while testing the
+    # B1 guard. A diagnostic that mutates the machine it is describing is the
+    # same class of fault as `check_latest()` rewriting the cache, which §2.1
+    # bans, and the guard stays now that the recreator is deleted (PR2b): the
+    # equivalent future mistake is one line away in any path-rooted helper.
+    root = _safe("env.config_dir", config_dir, _UNREADABLE_ROOT, errors)
+
+    def browser() -> tuple[str, str, bool]:
+        # The FILE classification (0.06 ms, cannot hang), not
+        # ``backend.bridge_browser_reachable``, which issues a bounded loopback
+        # request on the STALE branch and is async. A diagnostic reports what the
+        # file says and labels the uncertainty; resolving it is /browser's job.
+        kind, current = bridge_state.liveness(root)
+        label = {
+            bridge_state.Liveness.FRESH: "extension",
+            bridge_state.Liveness.STALE: "extension (stale)",
+        }.get(kind, "none")
+        return (
+            label,
+            getattr(current, "browser_name", "") or "",
+            bool(getattr(current, "paired", False)),
+        )
+
+    def mobile() -> tuple[bool, bool, int | None]:
+        # NOT ``install.status()``: it costs 37.2 ms because it also does
+        # ``_bundle_state()`` and its OWN ``registry.scan()`` — a second scan
+        # this snapshot already paid for — and shells ``launchctl`` on some
+        # paths. These two targeted calls are 0.83 ms combined.
+        from local_operator.mobile import install as mobile_install
+
+        installed = mobile_install.plist_path().exists()
+        # The port is only a MEASUREMENT when something is installed to listen
+        # on it. Publishing the module default regardless made an unconfigured
+        # host report a plausible number for a relay it does not run — the
+        # "absent is not a measured value" rule this screen inherits from
+        # ``/session`` (review round 1, N2).
+        port = mobile_install.DEFAULT_PORT if installed else None
+        healthy = bool(installed and port and mobile_install.health(port))
+        return installed, healthy, port
+
+    backend, browser_name, paired = _safe("env.browser", browser, ("none", "", False), errors)
+    installed, healthy, port = _safe("env.mobile", mobile, (False, False, None), errors)
+    return EnvInfo(
+        mcp_configured=live.mcp_configured,
+        mcp_connected=live.mcp_connected,
+        mcp_failed=live.mcp_failed,
+        mcp_settling=live.mcp_settling,
+        mcp_failures=live.mcp_failures,
+        approval_mode=live.approval_mode,
+        theme=live.theme,
+        terminal_size=live.terminal_size,
+        term=os.environ.get("TERM", ""),
+        colorterm=os.environ.get("COLORTERM", ""),
+        multiplexer=_multiplexer(),
+        is_tty=_safe("env.tty", sys.stdout.isatty, False, errors),
+        browser_backend=backend,
+        browser_name=browser_name,
+        browser_paired=paired,
+        mobile_installed=installed,
+        mobile_healthy=healthy,
+        mobile_port=port,
+        # KEY NAMES ONLY. A name answers the diagnostic question ("is it even
+        # set?") and a value answers nothing this screen asks; this screen is
+        # pasted into issues. Read through ``_credential_key_names``, which opens
+        # the store read-only and creates nothing — see that function.
+        credential_keys=_safe("env.credentials", lambda: _credential_key_names(root), (), errors),
+        guides=_safe("env.guides", lambda: len(discover_guides()), 0, errors),
+        skills=live.skills,
+    )
+
+
+def _credential_key_names(root: Path) -> tuple[str, ...]:
+    """Credential KEY NAMES from the encrypted store, read WITHOUT creating it.
+
+    The store is the consolidated home for credentials — an operator's agent
+    secrets and the provider-class rows a login or ``lop credential update``
+    writes — so this probe reads it directly (the same enumeration ``lop secret
+    list`` performs). Provider rows are reported in their env-key spelling
+    (``LOP_PROVIDER_OPENROUTER_API_KEY`` → ``OPENROUTER_API_KEY``), matching the
+    credentials route, so the name answers the diagnostic question directly.
+
+    The legacy ``credentials.env`` names were unioned here during the migration;
+    that union is GONE (PR2a) — the file is no longer a credential source, so a
+    name only the file holds would be one no reader could resolve.
+
+    Nothing here is created or rewritten. On this path a WRITE on a read would
+    be the fault: ``/info`` exists to describe a host — including a broken one —
+    and leaving new state on it is the same fault class as ``check_latest()``
+    rewriting the cache, which this module's docstring bans outright. So the
+    store is opened only when it already exists, and the plaintext
+    ``credentials.env`` reader this module used to reach is GONE (PR2a) — the
+    file is no longer a credential source at all, and PR2b deleted the module
+    that held its reader.
+
+    ``_require_root`` FIRST, and it is load-bearing rather than defensive. The
+    previous form short-circuited on ``is_file()``, which is False on the
+    unresolvable-root sentinel, so the probe returned ``()`` — indistinguishable
+    to ``_safe`` from a genuinely empty store. ``env.credentials`` therefore
+    dropped out of the degraded block and the panel stated "no credentials"
+    about a host it had never managed to look at (review round 2, F2). Raising
+    here is the disclosure ``profiles`` and ``teams`` already get.
+    """
+    resolved = _require_root(root)
+    names: set[str] = set()
+    # The encrypted store, when there is one. An absent store is "no secrets
+    # recorded" and returns nothing rather than being created here.
+    from local_operator.secrets.access import open_store
+    from local_operator.secrets.errors import SecretStoreError
+    from local_operator.secrets.keys import store_path
+    from local_operator.secrets.store import PROVIDER_SECRET_PREFIX
+
+    # An errno comparison rather than ``is_file()``/``exists()``, for a reason
+    # worth keeping in view: a path probe answers
+    # ``False`` for `ENOENT` AND for `ENOTDIR`, `ELOOP` and `EACCES`, so an
+    # untraversable root or a symlink loop would read as "no store" and this
+    # probe would state an authoritative empty list about a host it never looked
+    # at. ``ENOENT`` alone is "no store"; every other errno is raised so ``_safe``
+    # names the field in the degraded block.
+    store_file = store_path(resolved)
+    try:
+        store_file.stat()
+    except FileNotFoundError:
+        return ()
+    try:
+        for record in open_store(resolved).list():
+            name = record.name
+            if name.startswith(PROVIDER_SECRET_PREFIX):
+                name = name[len(PROVIDER_SECRET_PREFIX) :]
+            names.add(name)
+    except (SecretStoreError, OSError, ValueError):
+        # A damaged store is still a host that has one; reporting nothing rather
+        # than inventing names is the honest degraded answer.
+        pass
+    return tuple(sorted(names))
+
+
+#: Stand-in config root for when `config_dir()` itself cannot be resolved.
+#: Deliberately a path that cannot exist and cannot be created, so a probe whose
+#: constructor would otherwise MATERIALISE a store fails into `_safe` and is
+#: reported as degraded, instead of silently writing into the process's current
+#: directory.
+#:
+#: What `/info` may leave behind on the host it describes is nothing
+#: credential-shaped: the credential store is neither created nor re-tightened,
+#: because the probe opens it only when it already exists (review round 2, F3),
+#: and the legacy ``credentials.env`` file is no longer read at all (PR2a). The
+#: registry scan this same snapshot runs is a different case and is accepted as
+#: it stands — ``registry.scan`` is the ONE implementation ``lop sessions`` also
+#: calls, and reading a shared registry means doing its housekeeping: it creates
+#: ``<config>/run/mobile/`` (0700, idempotent) and reaps records whose pid is
+#: gone. The claim here is only that this read does not write the things it
+#: reads, not that an absolute no-touch of the host is achievable.
+#:
+#: The credential probe still needs this sentinel even though it no longer
+#: reads the plaintext file: on an unresolvable root it must RAISE (see
+#: :func:`_credential_key_names`) so ``_safe`` names it in the degraded block,
+#: rather than reporting an authoritative empty list about a host it never
+#: looked at. ``AgentRegistry`` and the other probes still construct their
+#: stores here, so the sentinel keeps its original job for them.
+_UNREADABLE_ROOT = Path("/nonexistent/local-operator-info-unreadable-config-root")
+
+
+def _multiplexer() -> str:
+    """Which multiplexer this terminal is inside, by marker PRESENCE only.
+
+    A marker's value carries a socket path or a workspace id; neither is
+    diagnostic and both are identifying, so only presence is consulted and the
+    value is never read, never stored and never rendered.
+
+    Each read is spelled out rather than looped over
+    :data:`_MULTIPLEXER_MARKERS`, because the ambient-environment audit resolves
+    reads through the AST and cannot follow a loop variable — written as a loop,
+    these reads were invisible to the guard that exists to account for exactly
+    them (QA round 1, Q4). The tuple remains the ORDER of preference (most
+    specific first) and this function is checked against it by
+    ``test_every_multiplexer_marker_is_probed``, so the two cannot drift.
+    """
+    if os.environ.get(_ENV_CMUX_SOCKET_PATH) is not None:
+        return "cmux"
+    if os.environ.get(_ENV_CMUX_WORKSPACE_ID) is not None:
+        return "cmux"
+    if os.environ.get(_ENV_TMUX) is not None:
+        return "tmux"
+    if os.environ.get(_ENV_STY) is not None:
+        return "screen"
+    if os.environ.get(_ENV_ZELLIJ) is not None:
+        return "zellij"
+    if os.environ.get(_ENV_WEZTERM_PANE) is not None:
+        return "wezterm"
+    return ""
+
+
+class LiveState:
+    """In-memory state captured ON the event loop, before the worker yields.
+
+    Every field here is a scalar or an immutable tuple read from a live object
+    in one synchronous pass — the same rule, and for the same reason, as
+    ``SessionDiagnostics.capture``: "never hold a mutable session across a disk
+    read". The subagent tree in particular MUST be captured here rather than in
+    the worker. It is an in-memory dict walk (free), and a ``/new`` or
+    ``/resume`` arriving during the ~900 ms session probe would otherwise put a
+    brand-new tree under a header describing the old session.
+    """
+
+    __slots__ = (
+        "session_id",
+        "conversation_name",
+        "model_label",
+        "effective_model",
+        "kind",
+        "uptime_s",
+        "tree",
+        "running",
+        "queued",
+        "settled",
+        "max_running",
+        "at_capacity",
+        "max_depth",
+        "deeper",
+        "roster_unread",
+        "errors",
+        "mcp_configured",
+        "mcp_connected",
+        "mcp_failed",
+        "mcp_settling",
+        "mcp_failures",
+        "approval_mode",
+        "theme",
+        "terminal_size",
+        "skills",
+    )
+
+    def __init__(self, **values: Any) -> None:
+        for name in self.__slots__:
+            setattr(self, name, values.get(name, _LIVE_DEFAULTS[name]))
+
+
+#: Defaults chosen so a ``LiveState()`` with nothing supplied renders a screen
+#: of ``—`` and crashes nothing — the same contract ``model.py`` states.
+_LIVE_DEFAULTS: dict[str, Any] = {
+    "session_id": "",
+    "conversation_name": "",
+    "model_label": "",
+    "effective_model": "",
+    "kind": "tui",
+    "uptime_s": None,
+    "tree": (),
+    "running": 0,
+    "queued": 0,
+    "settled": 0,
+    "max_running": None,
+    "at_capacity": False,
+    "max_depth": 0,
+    "deeper": 0,
+    #: The roster could not be READ, which is not the same fact as an empty
+    #: roster. Held on the live capture because the tree is drawn from it on
+    #: the first frame, before the worker's snapshot exists.
+    "roster_unread": False,
+    #: Probe failures from the live pass, forwarded into the snapshot's
+    #: ``degraded`` block. They used to be collected and DROPPED — the list was
+    #: local to ``collect_live`` and had nowhere to go — so a live probe that
+    #: failed left the screen with a default and no disclosure anywhere.
+    "errors": (),
+    "mcp_configured": 0,
+    "mcp_connected": 0,
+    "mcp_failed": 0,
+    "mcp_settling": False,
+    "mcp_failures": (),
+    "approval_mode": "",
+    "theme": "",
+    "terminal_size": None,
+    "skills": 0,
+}
+
+
+def collect_live(
+    session: Any,
+    *,
+    approve_all: bool = False,
+    theme: str = "",
+    size: tuple[int, int] | None = None,
+    skills: int = 0,
+) -> LiveState:
+    """Snapshot the live objects synchronously. Safe on the paint path.
+
+    Everything read here is an in-memory attribute or dict walk. Nothing touches
+    the filesystem, a socket or a subprocess — that is what makes it legitimate
+    on the event loop, and what the caller relies on when it pushes the screen
+    before starting the worker.
+    """
+    # Function-local like every other cross-package import here (see the
+    # module docstring). ``runtime.types`` is stdlib-only by contract, but the
+    # convention is what keeps that true.
+    from local_operator.session.runtime.types import RUNNING_SUBAGENT_STATUSES
+
+    errors: list[tuple[str, str]] = []
+    tree: tuple[SubagentLine, ...] = ()
+    deepest = 0
+    deeper = 0
+    running = queued = settled = 0
+    max_running: int | None = None
+    at_capacity = False
+
+    # ``_attr`` and not a bare ``getattr``: every one of these is a PROPERTY on
+    # the real Session, and a property on an unhealthy session can raise. A bare
+    # getattr would let that propagate out of a function whose entire contract
+    # is "safe on the paint path", turning a wedged session into a crash on the
+    # one screen that exists to describe it.
+    comms = _attr(session, "subagent_comms", None) if session is not None else None
+    roster_unread = False
+    if session is not None and comms is None:
+        # A session object that cannot answer for its own roster. This was
+        # silent: the branch below was skipped, the counts stayed 0 and NOTHING
+        # was recorded, so the screen stated "no subagents have been launched"
+        # about a session it had never asked. That is the one failure mode
+        # ``_safe`` does not catch, because nothing raised — the default was
+        # simply returned and believed. Named here so it renders as UNKNOWN and
+        # appears in the degraded block, like every probe that fails loudly.
+        roster_unread = True
+        errors.append(("live.subagents", "session exposes no subagent_comms"))
+    elif comms is not None:
+        # ``lambda: comms.nodes()`` and not ``comms.nodes``: the bare attribute
+        # is resolved as an ARGUMENT, before ``_safe`` enters its try, so a
+        # comms object lacking the method raised straight out of a function
+        # whose whole contract is "safe on the paint path".
+        nodes = _safe("live.subagents", lambda: list(comms.nodes()), None, errors)
+        if nodes is None:
+            # The read was attempted and failed. ``_safe`` already named it in
+            # ``errors``; the flag is what stops the renderer printing a
+            # confident zero over a roster nobody managed to read.
+            roster_unread = True
+            nodes = []
+        tree, deepest, deeper = build_subagent_tree(nodes)
+        for node in nodes:
+            status = str(getattr(node, "status", "") or "")
+            # The shared predicate, not a local literal: the runtime publishes
+            # ``subagents_running`` from the same set, and a divergence would
+            # put a fleet total on the header that disagrees with the tree
+            # drawn directly beneath it.
+            if status in RUNNING_SUBAGENT_STATUSES:
+                running += 1
+            elif status == "queued":
+                queued += 1
+            else:
+                settled += 1
+
+    jobs = _attr(session, "jobs", None) if session is not None else None
+    if jobs is not None:
+        # A follower's ``jobs`` is ``SnapshotJobs`` — a minimal facade that only
+        # knows the roster, NOT the capacity fields the owner's
+        # ``AsyncJobManager`` carries. Probing them unconditionally on a follower
+        # surfaced two "Could not read: AttributeError" rows on a HEALTHY
+        # screen, which is exactly the false alarm this collector exists to
+        # prevent. Leaving both at their defaults instead keeps the panel
+        # honest: ``max_running=None`` hides the "Subagent capacity" row rather
+        # than asserting the built-in cap the owner may have overridden, and
+        # ``at_capacity=False`` simply declines to warn.
+        if hasattr(jobs, "max_running"):
+            max_running = _safe("live.max_running", lambda: int(jobs.max_running), None, errors)
+            at_capacity = _safe("live.at_capacity", lambda: bool(jobs.at_capacity()), False, errors)
+
+    startup = _attr(session, "mcp_startup", None) if session is not None else None
+    failures: dict[str, str] = dict(_attr(startup, "failures", {}) or {})
+    return LiveState(
+        session_id=_attr(session, "session_id", ""),
+        conversation_name=_attr(session, "conversation_name", ""),
+        model_label=_attr(session, "model_label", ""),
+        effective_model=_attr(session, "effective_model_label", ""),
+        uptime_s=None,
+        tree=tree,
+        running=running,
+        queued=queued,
+        settled=settled,
+        max_running=max_running,
+        at_capacity=at_capacity,
+        max_depth=deepest,
+        deeper=deeper,
+        roster_unread=roster_unread,
+        errors=tuple(errors),
+        mcp_configured=len(getattr(startup, "configured", ()) or ()),
+        mcp_connected=len(getattr(startup, "connected", ()) or ()),
+        mcp_failed=len(failures),
+        mcp_settling=bool(getattr(startup, "settling", False)),
+        # Server NAMES and the failure MESSAGE only, truncated: a message can
+        # quote a command line, and the ones that matter ("command not found:
+        # gh") are short.
+        mcp_failures=tuple((name, str(text)[:120]) for name, text in sorted(failures.items())),
+        approval_mode="auto" if approve_all else "ask",
+        theme=theme,
+        terminal_size=tuple(size) if size else None,  # type: ignore[arg-type]
+        skills=skills,
+    )
+
+
+def _attr(obj: Any, name: str, default: T) -> T:
+    """Read one public attribute, tolerating a facade that lacks it or a property
+    that RAISES.
+
+    The raising case is the one that matters and the one a bare ``getattr``
+    misses: ``session_id``, ``model_label`` and ``subagent_comms`` are all
+    properties on the real ``Session``, so a session that is itself unhealthy —
+    exactly the session someone opens ``/info`` about — would otherwise take the
+    screen down with it.
+    """
+    try:
+        value = getattr(obj, name, default)
+    except Exception:  # noqa: BLE001 — an unhealthy session still gets a screen
+        return default
+    return default if value is None else value
+
+
+def collect_snapshot(live: LiveState, *, root: Path | None = None) -> InfoSnapshot:
+    """Every blocking probe, on a worker thread. Never call this on the loop.
+
+    Blocking is the point: this half forks ``ps``, walks the session registry
+    and scans agent/config metadata. ``session_resource_usage`` alone measured
+    879.5 ms for 12 pids while its macOS path shelled ``top -l1`` for the whole
+    system; the same pids read 14.0 ms median at load 166 and 41.8 ms in
+    ``bench/info-snapshot-after.json`` (35x load) now that the footprint is a
+    direct per-pid ``proc_pid_rusage`` read, with that dump kept for the pids the
+    direct read cannot cover and that still exist (``mobile/resources.py``).
+    Each block is guarded independently so one wedged filesystem costs its own
+    section and nothing else.
+    """
+    # Seeded with the LIVE pass's failures rather than starting empty: those
+    # probes ran on the event loop where this function cannot reach them, and
+    # dropping them meant a failure with a named reason vanished before the
+    # degraded block that exists to print it.
+    errors: list[tuple[str, str]] = list(getattr(live, "errors", ()) or ())
+    self_pid = os.getpid()
+    sessions = _safe(
+        "sessions",
+        lambda: collect_sessions(root, self_pid=self_pid),
+        SessionsInfo(available=False),
+        errors,
+    )
+    self_line = next((line for line in sessions.lines if line.is_self), None)
+    # EVERY block call is wrapped, not just the probes inside them. The
+    # individual `_safe`s within each collector guard only what is inside their
+    # lambdas; a block function's own prologue — its function-local imports and
+    # its `config_dir()` call — was bare, so an unresolvable home
+    # (`Path.home()` raises `RuntimeError`) or a broken submodule propagated out
+    # of here. That is worse than an empty screen: `run_worker` defaults to
+    # `exit_on_error=True`, so the exception took the whole APP down, on exactly
+    # the broken host `/info` exists to describe (review round 1, B1). The
+    # fallbacks are all-defaults instances, which `model.py` guarantees render.
+    return InfoSnapshot(
+        install=_safe("install", lambda: collect_install(errors), InstallInfo(), errors),
+        process=_safe(
+            "process",
+            lambda: collect_process(live, self_line=self_line, errors=errors, root=root),
+            ProcessInfo(),
+            errors,
+        ),
+        sessions=sessions,
+        agents=_safe(
+            "agents", lambda: collect_agents(live, errors, sessions), AgentsInfo(), errors
+        ),
+        env=_safe("env", lambda: collect_env(live, errors), EnvInfo(), errors),
+        degraded=tuple(errors),
+        captured_at=time.time(),
+    )
+
+
+def collect_info(
+    session: Any = None,
+    *,
+    approve_all: bool = False,
+    theme: str = "",
+    size: tuple[int, int] | None = None,
+    root: Path | None = None,
+) -> InfoSnapshot:
+    """Both phases at once — for the CLI and for tests, never for the TUI.
+
+    The TUI must keep the two apart (``collect_live`` on the loop,
+    ``collect_snapshot`` in a worker) so the screen paints before the 900 ms
+    probe. A non-interactive caller has no frame to protect and can pay for both
+    in one go.
+    """
+    live = collect_live(session, approve_all=approve_all, theme=theme, size=size)
+    return collect_snapshot(live, root=root)
+
+
+def degraded_names(errors: Iterable[tuple[str, str]]) -> tuple[str, ...]:
+    """Just the field names that failed, for a compact footnote."""
+    return tuple(name for name, _ in errors)

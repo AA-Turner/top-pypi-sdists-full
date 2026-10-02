@@ -101,7 +101,8 @@ def list_user_groups(max_items: int, output_format: str) -> None:
         return
 
     table = tabulate.tabulate(
-        [(ug.id, ug.name) for ug in user_groups], headers=["ID", "Name"],
+        [(ug.id, ug.name) for ug in user_groups],
+        headers=["ID", "Name"],
     )
     rprint(table)
 
@@ -144,9 +145,7 @@ def list_user_groups(max_items: int, output_format: str) -> None:
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice(
-        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
-    ),
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
     help="Output format for the result.",
@@ -230,9 +229,7 @@ def membership_cli() -> None:
 @click.option(
     "--output-format",
     "output_format",
-    type=click.Choice(
-        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
-    ),
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
     help="Output format for the result. Ignored when writing to a file.",

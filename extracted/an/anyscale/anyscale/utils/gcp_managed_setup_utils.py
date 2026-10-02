@@ -121,9 +121,7 @@ def get_project_number(factory: GoogleCloudClientFactory, project_id: str):
         project = project_client.get_project(name=f"projects/{project_id}")
         return project.name  # format: "/projects/{project_number}"
     except (NotFound, PermissionDenied, Forbidden) as e:
-        raise ClickException(
-            f"Error occurred when trying to access the project {project_id}: {e}"
-        )
+        raise ClickException(f"Error occurred when trying to access the project {project_id}: {e}")
 
 
 def append_project_iam_policy(
@@ -150,8 +148,7 @@ def enable_project_apis(
     logger: CloudSetupLogger,
     enable_head_node_fault_tolerance: bool = False,
 ):
-    """ Automatically enable APIs that Anyscale needs.
-    """
+    """Automatically enable APIs that Anyscale needs."""
     try:
         service_usage_client = factory.build("serviceusage", "v1")
         api_list = copy.deepcopy(GCP_REQUIRED_APIS)
@@ -161,7 +158,8 @@ def enable_project_apis(
         response = (
             service_usage_client.services()
             .batchEnable(
-                parent="projects/" + project_id, body={"serviceIds": api_list},
+                parent="projects/" + project_id,
+                body={"serviceIds": api_list},
             )
             .execute()
         )
@@ -180,7 +178,9 @@ def enable_project_apis(
 
 
 def get_workload_identity_pool(
-    factory: GoogleCloudClientFactory, project_id: str, pool_id: str,
+    factory: GoogleCloudClientFactory,
+    project_id: str,
+    pool_id: str,
 ):
     workload_identity_pool_client = (
         factory.build("iam", "v1").projects().locations().workloadIdentityPools()
@@ -200,7 +200,8 @@ def get_workload_identity_pool(
 
 
 def get_anyscale_gcp_access_service_acount(
-    factory: GoogleCloudClientFactory, anyscale_access_service_account: str,
+    factory: GoogleCloudClientFactory,
+    anyscale_access_service_account: str,
 ):
     service_account_client = factory.build("iam", "v1").projects().serviceAccounts()
 
@@ -242,14 +243,12 @@ def get_deployment_resources(
         if resource["type"] == "gcp-types/file-v1beta1:projects.locations.instances":
             # get filestore location and instance
             cloud_resources["filestore_instance"] = resource_props["instanceId"]
-            cloud_resources["filestore_location"] = resource_props["parent"].split("/")[
-                -1
-            ]
+            cloud_resources["filestore_location"] = resource_props["parent"].split("/")[-1]
         if resource["type"] == "gcp-types/redis-v1:projects.locations.instances":
             # get redis instance
-            cloud_resources[
-                "memorystore_name"
-            ] = f'{resource_props["parent"]}/instances/{resource_props["instanceId"]}'
+            cloud_resources["memorystore_name"] = (
+                f"{resource_props['parent']}/instances/{resource_props['instanceId']}"
+            )
 
         cloud_resources[resource["type"]] = resource["name"]
 
@@ -264,7 +263,7 @@ def create_workload_identity_pool(
     display_name: str = "a workload identity pool",
     description: str = "a workload identity pool",
 ):
-    """ Create a GCP Workload Identity Provider Pool. The functionality is not
+    """Create a GCP Workload Identity Provider Pool. The functionality is not
     currently supported by GCP Deployment Manager.
     """
     workload_identity_pool_client = (
@@ -292,9 +291,7 @@ def create_workload_identity_pool(
         return workload_identity_pool
     except HttpError as e:
         if e.status_code == 409:
-            logger.error(
-                f"Provider Pool {pool_id} already exists in project {project_id}."
-            )
+            logger.error(f"Provider Pool {pool_id} already exists in project {project_id}.")
         else:
             logger.error(
                 f"Error occurred when trying to build Workload Identity Provider Pool. Detailed: {e}"
@@ -311,15 +308,11 @@ def create_anyscale_aws_provider(
     display_name: str,
     logger: CloudSetupLogger,
 ):
-    """ Create a GCP Workload Identity Provider for Anyscale cross account access.
+    """Create a GCP Workload Identity Provider for Anyscale cross account access.
     The functionality is notcurrently supported by GCP Deployment Manager.
     """
     provider_client = (
-        factory.build("iam", "v1")
-        .projects()
-        .locations()
-        .workloadIdentityPools()
-        .providers()
+        factory.build("iam", "v1").projects().locations().workloadIdentityPools().providers()
     )
 
     parent = pool_id
@@ -382,9 +375,7 @@ def generate_deployment_manager_config(  # noqa: PLR0913
     file_path = (
         os.path.join(anyscale.conf.ROOT_DIR_PATH, "anyscale-cloud-setup-gcp.yaml")
         if not vpc_name
-        else os.path.join(
-            anyscale.conf.ROOT_DIR_PATH, "anyscale-cloud-setup-gcp-oa.yaml"
-        )
+        else os.path.join(anyscale.conf.ROOT_DIR_PATH, "anyscale-cloud-setup-gcp-oa.yaml")
     )
     with open(file_path) as f:
         body = f.read()
@@ -433,8 +424,7 @@ def configure_firewall_policy(
     firewall_policy: str,
     subnet_cidr: str = "10.0.0.0/20",
 ):
-    """ Add VPC association and necessary firewall rules to a firewall policy.
-    """
+    """Add VPC association and necessary firewall rules to a firewall policy."""
     association = FirewallPolicyAssociation(
         name=f"{firewall_policy}-for-{vpc_name}",
         attachment_target=f"projects/{project_id}/global/networks/{vpc_name}",
@@ -483,17 +473,13 @@ def configure_firewall_policy(
             response = client.wait(project=project_id, operation=operation.name)
             if response.status != Operation.Status.DONE:
                 # timeout
-                raise ClickException(
-                    "Timeout when trying to configure firewall policy."
-                )
+                raise ClickException("Timeout when trying to configure firewall policy.")
             if response.error:
                 raise ClickException(
                     f"Failed to configure firewall policy {firewall_policy}. {response.error}"
                 )
     except (NotFound, BadRequest) as e:
-        raise ClickException(
-            f"Failed to configure firewall policy {firewall_policy}. {e}"
-        )
+        raise ClickException(f"Failed to configure firewall policy {firewall_policy}. {e}")
 
 
 def delete_workload_identity_pool(
@@ -528,10 +514,7 @@ def wait_for_operation_completion(
     start_time = time.time()
     while time.time() - start_time < timeout:
         current_operation = service.operations().get(**request).execute()
-        if (
-            current_operation.get("done", False)
-            or current_operation.get("status", None) == "DONE"
-        ):
+        if current_operation.get("done", False) or current_operation.get("status", None) == "DONE":
             if "error" in current_operation:
                 raise ClickException(
                     f"{description} encountered an error: {current_operation['error']}"
@@ -545,7 +528,9 @@ def wait_for_operation_completion(
 
 
 def delete_gcp_deployment(
-    factory: GoogleCloudClientFactory, project_id: str, deployment_name: str,
+    factory: GoogleCloudClientFactory,
+    project_id: str,
+    deployment_name: str,
 ):
     """
     Get the GCP Deployment and try to delete the deployment if it exists.
@@ -584,10 +569,11 @@ def delete_gcp_deployment(
 
 
 def abandon_gcp_deployment(
-    factory: GoogleCloudClientFactory, project_id: str, deployment_name: str,
+    factory: GoogleCloudClientFactory,
+    project_id: str,
+    deployment_name: str,
 ):
-    """Remove the DM deployment record without deleting the underlying GCP resources.
-    """
+    """Remove the DM deployment record without deleting the underlying GCP resources."""
     deployment_client = factory.build("deploymentmanager", "v2")
     try:
         deployment_client.deployments().get(
@@ -602,7 +588,9 @@ def abandon_gcp_deployment(
         response = (
             deployment_client.deployments()
             .delete(
-                project=project_id, deployment=deployment_name, deletePolicy="ABANDON",
+                project=project_id,
+                deployment=deployment_name,
+                deletePolicy="ABANDON",
             )
             .execute()
         )
@@ -617,7 +605,9 @@ def abandon_gcp_deployment(
 
 
 def update_deployment_with_bucket_only(
-    factory: GoogleCloudClientFactory, project_id: str, deployment_name: str,
+    factory: GoogleCloudClientFactory,
+    project_id: str,
+    deployment_name: str,
 ):
     """
     Update all resources in the deployment except the bucket.
@@ -629,9 +619,7 @@ def update_deployment_with_bucket_only(
     config = yaml.safe_load(gcp_deployment.config_content)
 
     # build a resource config with only the bucket
-    resources = list(
-        filter(lambda r: r["type"] == "storage.v1.bucket", config["resources"])
-    )
+    resources = list(filter(lambda r: r["type"] == "storage.v1.bucket", config["resources"]))
 
     # update the deployment
     updated_config_content = yaml.dump({"resources": resources})
@@ -645,7 +633,9 @@ def update_deployment_with_bucket_only(
 
 
 def remove_firewall_policy_associations(
-    factory: GoogleCloudClientFactory, project_id: str, firewall_policy_name: str,
+    factory: GoogleCloudClientFactory,
+    project_id: str,
+    firewall_policy_name: str,
 ):
     """
     Remove the firewall policy associations if exist
@@ -690,28 +680,18 @@ def remove_firewall_policy_associations(
         response = operation_client.wait(project=project_id, operation=operation.name)
         if response.status != Operation.Status.DONE:
             # timeout
-            raise ClickException(
-                "Timeout when trying to remove firewall policy association."
-            )
+            raise ClickException("Timeout when trying to remove firewall policy association.")
         if response.error:
-            raise ClickException(
-                f"Failed to remove firewall policy association. {response.error}"
-            )
+            raise ClickException(f"Failed to remove firewall policy association. {response.error}")
 
 
-def delete_gcp_tls_certificates(
-    factory: GoogleCloudClientFactory, project_id: str, cloud_id: str
-):
+def delete_gcp_tls_certificates(factory: GoogleCloudClientFactory, project_id: str, cloud_id: str):
 
     # Initialize the Compute Engine client
-    certificate_manager_client = (
-        factory.certificate_manager_v1.CertificateManagerClient()
-    )
+    certificate_manager_client = factory.certificate_manager_v1.CertificateManagerClient()
 
     try:
-        location_path = certificate_manager_client.common_location_path(
-            project_id, "global"
-        )
+        location_path = certificate_manager_client.common_location_path(project_id, "global")
     except NotFound:
         # no certificate
         return
@@ -719,9 +699,7 @@ def delete_gcp_tls_certificates(
         raise ClickException(f"Failed to delete tls certificate. {e}")
 
     try:
-        certificate_objects = certificate_manager_client.list_certificates(
-            parent=location_path
-        )
+        certificate_objects = certificate_manager_client.list_certificates(parent=location_path)
 
         certificate_maps_objects = certificate_manager_client.list_certificate_maps(
             parent=location_path
@@ -743,8 +721,10 @@ def delete_gcp_tls_certificates(
                 certificate_map_entry_path = certificate_manager_client.certificate_map_path(
                     project_id, "global", certificate_name
                 )
-                certificate_map_entry_objects = certificate_manager_client.list_certificate_map_entries(
-                    parent=certificate_map_entry_path
+                certificate_map_entry_objects = (
+                    certificate_manager_client.list_certificate_map_entries(
+                        parent=certificate_map_entry_path
+                    )
                 )
             except NotFound:
                 # no certificate_map
@@ -755,15 +735,11 @@ def delete_gcp_tls_certificates(
             certificate_map_entries = list(certificate_map_entry_objects)
             all_certificate_map_entries.extend(certificate_map_entries)
 
-    all_certificate_map_entries = filter_resources(
-        all_certificate_map_entries, cloud_id
-    )
+    all_certificate_map_entries = filter_resources(all_certificate_map_entries, cloud_id)
 
     wait_on_operation(
         [
-            certificate_manager_client.delete_certificate_map_entry(
-                name=certificate_map_entry
-            )
+            certificate_manager_client.delete_certificate_map_entry(name=certificate_map_entry)
             for certificate_map_entry in all_certificate_map_entries
         ]
     )
@@ -846,9 +822,9 @@ def get_or_create_memorystore_gcp(
         "REGION": region,
         "PROJECT_ID": project_id,
     }
-    gcp_memorystore_instance = Template(
-        GCP_MEMORYSTORE_RESOURCE_CONFIG_TEMPLATE
-    ).substitute(params)
+    gcp_memorystore_instance = Template(GCP_MEMORYSTORE_RESOURCE_CONFIG_TEMPLATE).substitute(
+        params
+    )
     updated_config_content = gcp_deployment.config_content + gcp_memorystore_instance
 
     # update the deployment
@@ -871,9 +847,7 @@ def get_or_create_memorystore_gcp(
         # Get the fingerprint
         gcp_deployment = get_deployment_config(factory, project_id, deployment_name)
         # To update a deployment in preview, we must set the config_content to None
-        update_deployment(
-            factory, project_id, deployment_name, gcp_deployment.fingerprint, None
-        )
+        update_deployment(factory, project_id, deployment_name, gcp_deployment.fingerprint, None)
 
     # Get redis from deployment
     redis_instance = get_deployment_resource(
@@ -888,12 +862,13 @@ def get_or_create_memorystore_gcp(
 
 
 def _get_im_deployment_outputs(
-    infra_manager: Any, project_id: str, region: str, infrastructure_manager_id: str,
+    infra_manager: Any,
+    project_id: str,
+    region: str,
+    infrastructure_manager_id: str,
 ) -> Dict[str, Any]:
     name = f"projects/{project_id}/locations/{region}/deployments/{infrastructure_manager_id}"
-    deployment = (
-        infra_manager.projects().locations().deployments().get(name=name).execute()
-    )
+    deployment = infra_manager.projects().locations().deployments().get(name=name).execute()
     outputs = {}
     latest_revision = deployment.get("latestRevision")
     if latest_revision:
@@ -923,9 +898,7 @@ def get_or_create_memorystore_gcp_im(
     infra_manager = factory.build("config", "v1")
     name = f"projects/{project_id}/locations/{region}/deployments/{infrastructure_manager_id}"
 
-    deployment = (
-        infra_manager.projects().locations().deployments().get(name=name).execute()
-    )
+    deployment = infra_manager.projects().locations().deployments().get(name=name).execute()
     if deployment.get("state") != "ACTIVE":
         raise ClickException(
             f"Deployment {infrastructure_manager_id} is not ACTIVE (state={deployment.get('state')})."
@@ -947,9 +920,7 @@ def get_or_create_memorystore_gcp_im(
         .get(name=latest_revision)
         .execute()
     )
-    blueprint = (
-        revision.get("terraformBlueprint") or revision.get("terraform_blueprint") or {}
-    )
+    blueprint = revision.get("terraformBlueprint") or revision.get("terraform_blueprint") or {}
     input_values = blueprint.get("inputValues") or blueprint.get("input_values") or {}
     if not input_values:
         raise ClickException(
@@ -997,9 +968,7 @@ def get_or_create_memorystore_gcp_im(
             )
             if op.get("done"):
                 if "error" in op:
-                    raise ClickException(
-                        f"Infrastructure Manager failed: {op['error']}"
-                    )
+                    raise ClickException(f"Infrastructure Manager failed: {op['error']}")
                 break
             time.sleep(10)
         else:
@@ -1108,7 +1077,9 @@ def get_deployment_config(
         manifest = (
             deployment_client.manifests()
             .get(
-                project=project_id, deployment=deployment_name, manifest=manifest_name,
+                project=project_id,
+                deployment=deployment_name,
+                manifest=manifest_name,
             )
             .execute()
         )
@@ -1133,7 +1104,8 @@ INFRA_MANAGER_TIMEOUT_SECONDS = 1800  # 30 minutes
 
 
 def _get_or_create_infra_manager_service_account(
-    factory: GoogleCloudClientFactory, project_id: str,
+    factory: GoogleCloudClientFactory,
+    project_id: str,
 ) -> str:
     """Get or create a dedicated service account for Infrastructure Manager with required roles. Returns the SA email."""
     sa_id = "anyscale-infra-manager"
@@ -1149,9 +1121,7 @@ def _get_or_create_infra_manager_service_account(
                 name=f"projects/{project_id}",
                 body={
                     "accountId": sa_id,
-                    "serviceAccount": {
-                        "displayName": "Anyscale Infrastructure Manager SA"
-                    },
+                    "serviceAccount": {"displayName": "Anyscale Infrastructure Manager SA"},
                 },
             ).execute()
             # Wait for the SA to propagate before granting roles
@@ -1191,23 +1161,17 @@ def _get_or_create_infra_manager_service_account(
     return sa_email
 
 
-def _grant_iam_roles(
-    factory: GoogleCloudClientFactory, project_id: str, member: str, roles: list
-):
+def _grant_iam_roles(factory: GoogleCloudClientFactory, project_id: str, member: str, roles: list):
     """Grant IAM roles to a member on a project."""
     rm = factory.build("cloudresourcemanager", "v1")
     policy = rm.projects().getIamPolicy(resource=project_id, body={}).execute()
     for role in roles:
-        existing = next(
-            (b for b in policy.get("bindings", []) if b.get("role") == role), None
-        )
+        existing = next((b for b in policy.get("bindings", []) if b.get("role") == role), None)
         if existing:
             if member not in existing.get("members", []):
                 existing["members"].append(member)
         else:
-            policy.setdefault("bindings", []).append(
-                {"role": role, "members": [member]}
-            )
+            policy.setdefault("bindings", []).append({"role": role, "members": [member]})
     rm.projects().setIamPolicy(resource=project_id, body={"policy": policy}).execute()
 
 
@@ -1228,8 +1192,7 @@ def run_infra_manager_deployment(  # noqa: PLR0913
     resource_id_override: Optional[str] = None,
     firewall_policy_name: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Create GCP resources via Infrastructure Manager and return outputs.
-    """
+    """Create GCP resources via Infrastructure Manager and return outputs."""
     # Upload Terraform config to staging bucket
     staging_bucket = f"anyscale-infra-bucket-{project_id}"[:63]
     gcs_prefix = f"infra-manager/{deployment_name}"
@@ -1284,11 +1247,7 @@ def run_infra_manager_deployment(  # noqa: PLR0913
     start_time = time.time()
     while time.time() - start_time < timeout:
         op = (
-            infra_manager.projects()
-            .locations()
-            .operations()
-            .get(name=operation["name"])
-            .execute()
+            infra_manager.projects().locations().operations().get(name=operation["name"]).execute()
         )
         if op.get("done"):
             if "error" in op:
@@ -1303,9 +1262,7 @@ def run_infra_manager_deployment(  # noqa: PLR0913
         infra_manager.projects()
         .locations()
         .deployments()
-        .get(
-            name=f"projects/{project_id}/locations/{region}/deployments/{deployment_name}"
-        )
+        .get(name=f"projects/{project_id}/locations/{region}/deployments/{deployment_name}")
         .execute()
     )
 
@@ -1359,11 +1316,7 @@ def delete_infra_manager_deployment(
         start = time.time()
         while time.time() - start < 600:
             result = (
-                infra_manager.projects()
-                .locations()
-                .operations()
-                .get(name=op["name"])
-                .execute()
+                infra_manager.projects().locations().operations().get(name=op["name"]).execute()
             )
             if result.get("done"):
                 break
@@ -1393,8 +1346,7 @@ def _build_im_input_values(  # noqa: PLR0913
         "region": region,
         "cloud_id": cloud_id_dash,
         "cloud_id_underscore": cloud_id_underscore,
-        "resource_id": resource_id_override
-        or f"{cloud_id_dash[:12]}-{secrets.token_hex(4)}",
+        "resource_id": resource_id_override or f"{cloud_id_dash[:12]}-{secrets.token_hex(4)}",
         "anyscale_access_service_account": anyscale_access_service_account_name,
         "workload_identity_pool_name": workload_identity_pool_name,
         "anyscale_aws_account": anyscale_aws_account,
@@ -1486,44 +1438,30 @@ def run_infra_manager_preview(  # noqa: PLR0913, PLR0912, PLR0911, C901
     start_time = time.time()
     while time.time() - start_time < timeout:
         op = (
-            infra_manager.projects()
-            .locations()
-            .operations()
-            .get(name=operation["name"])
-            .execute()
+            infra_manager.projects().locations().operations().get(name=operation["name"]).execute()
         )
         if op.get("done"):
             if "error" in op:
-                raise ClickException(
-                    f"Infrastructure Manager preview failed: {op['error']}"
-                )
+                raise ClickException(f"Infrastructure Manager preview failed: {op['error']}")
             break
         time.sleep(10)
     else:
-        raise ClickException(
-            f"Infrastructure Manager preview timed out after {timeout}s"
-        )
+        raise ClickException(f"Infrastructure Manager preview timed out after {timeout}s")
 
     preview_name = f"projects/{project_id}/locations/{region}/previews/{preview_id}"
-    preview = (
-        infra_manager.projects().locations().previews().get(name=preview_name).execute()
-    )
+    preview = infra_manager.projects().locations().previews().get(name=preview_name).execute()
 
     state = preview.get("state", "")
     if state == "FAILED":
         err = preview.get("errorStatus") or preview.get("tfErrors") or "Unknown error"
-        raise ClickException(
-            f"Infrastructure Manager preview failed (state={state}): {err}"
-        )
+        raise ClickException(f"Infrastructure Manager preview failed (state={state}): {err}")
     if state != "SUCCEEDED":
         raise ClickException(
             f"Infrastructure Manager preview did not succeed (state={state}). "
             "Check the preview in Google Cloud Console."
         )
 
-    logs_path = preview.get("logs") or (preview.get("previewArtifacts") or {}).get(
-        "artifacts"
-    )
+    logs_path = preview.get("logs") or (preview.get("previewArtifacts") or {}).get("artifacts")
     if not logs_path or not isinstance(logs_path, str):
         return ""
 
@@ -1544,9 +1482,7 @@ def run_infra_manager_preview(  # noqa: PLR0913, PLR0912, PLR0911, C901
             b = log_bucket.blob(f"{path}/{name}" if path else name)
             if b.exists():
                 return _blob_text(b)
-        blobs = list(
-            log_bucket.list_blobs(max_results=50, prefix=path + "/" if path else "")
-        )
+        blobs = list(log_bucket.list_blobs(max_results=50, prefix=path + "/" if path else ""))
         for b in blobs:
             if b.name.endswith(".txt") or "log" in b.name or "plan" in b.name:
                 content = _blob_text(b)
@@ -1555,9 +1491,7 @@ def run_infra_manager_preview(  # noqa: PLR0913, PLR0912, PLR0911, C901
         if blobs:
             return _blob_text(blobs[0])
     except Exception as e:  # noqa: BLE001
-        raise ClickException(
-            f"Could not fetch preview logs from {logs_path}: {e}"
-        ) from e
+        raise ClickException(f"Could not fetch preview logs from {logs_path}: {e}") from e
     return ""
 
 
@@ -1571,10 +1505,7 @@ def parse_terraform_plan_for_migration(plan_log: str) -> Tuple[bool, str]:
         return False, "No plan output available."
 
     plan_log_lower = plan_log.lower()
-    if (
-        "no changes" in plan_log_lower
-        and "your infrastructure matches" in plan_log_lower
-    ):
+    if "no changes" in plan_log_lower and "your infrastructure matches" in plan_log_lower:
         return True, "No changes. Your infrastructure matches the configuration."
 
     match = re.search(
@@ -1626,15 +1557,11 @@ def validate_migration_resource_names(
     # Names DM actually created (None means the key is absent → skip that check).
     dm_names = {
         "VPC (google_compute_network.vpc)": dm_resources.get("compute.v1.network"),
-        "Subnet (google_compute_subnetwork.subnet)": dm_resources.get(
-            "compute.v1.subnetwork"
-        ),
+        "Subnet (google_compute_subnetwork.subnet)": dm_resources.get("compute.v1.subnetwork"),
         "Firewall policy (google_compute_network_firewall_policy.policy)": dm_resources.get(
             "gcp-types/compute-v1:networkFirewallPolicies"
         ),
-        "Storage bucket (google_storage_bucket.bucket)": dm_resources.get(
-            "storage.v1.bucket"
-        ),
+        "Storage bucket (google_storage_bucket.bucket)": dm_resources.get("storage.v1.bucket"),
         "Cluster node SA (google_service_account.cluster_node)": dm_resources.get(
             "iam.v1.serviceAccount"
         ),
@@ -1666,8 +1593,7 @@ def generate_migration_imports_tf(
     dm_resources: Dict[str, str],
     anyscale_access_service_account_name: str,
 ) -> str:
-    """Generate the content of imports.tf for migrating a DM-managed cloud to IM.
-    """
+    """Generate the content of imports.tf for migrating a DM-managed cloud to IM."""
 
     vpc_name = dm_resources.get("compute.v1.network", f"vpc-{cloud_id_dash}")
     subnet_name = dm_resources.get("compute.v1.subnetwork", f"subnet-{cloud_id_dash}")
@@ -1675,19 +1601,13 @@ def generate_migration_imports_tf(
         "gcp-types/compute-v1:networkFirewallPolicies",
         f"firewall-policy-{cloud_id_dash}",
     )
-    bucket_name = dm_resources.get(
-        "storage.v1.bucket", f"storage-bucket-{cloud_id_dash}"
-    )
-    cluster_node_sa_account_id = dm_resources.get(
-        "iam.v1.serviceAccount", cloud_id_dash
-    )
+    bucket_name = dm_resources.get("storage.v1.bucket", f"storage-bucket-{cloud_id_dash}")
+    cluster_node_sa_account_id = dm_resources.get("iam.v1.serviceAccount", cloud_id_dash)
 
     anyscale_access_sa_email = (
         f"{anyscale_access_service_account_name}@{project_id}.iam.gserviceaccount.com"
     )
-    cluster_node_sa_email = (
-        f"{cluster_node_sa_account_id}@{project_id}.iam.gserviceaccount.com"
-    )
+    cluster_node_sa_email = f"{cluster_node_sa_account_id}@{project_id}.iam.gserviceaccount.com"
     # Association name was set by configure_firewall_policy as "{policy}-for-{vpc}"
     association_name = f"{firewall_policy_name}-for-{vpc_name}"
 
@@ -1704,7 +1624,8 @@ def generate_migration_imports_tf(
             f"projects/{project_id}/global/networks/{vpc_name}",
         ),
         import_block(
-            "google_compute_subnetwork.subnet", f"{project_id}/{region}/{subnet_name}",
+            "google_compute_subnetwork.subnet",
+            f"{project_id}/{region}/{subnet_name}",
         ),
         import_block(
             "google_compute_network_firewall_policy.policy",

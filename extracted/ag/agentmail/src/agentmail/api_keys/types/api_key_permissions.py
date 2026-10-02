@@ -37,6 +37,11 @@ class ApiKeyPermissions(UncheckedBaseModel):
     Read messages. Also required to read threads.
     """
 
+    message_reply: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Reply and reply-all when the request is signed with a registered public key. Bearer keys reply with `message_send`.
+    """
+
     message_send: typing.Optional[bool] = pydantic.Field(default=None)
     """
     Send messages.
@@ -177,21 +182,21 @@ class ApiKeyPermissions(UncheckedBaseModel):
     Delete API keys.
     """
 
-    provider_connect: typing.Optional[bool] = pydantic.Field(default=None)
+    app_connect: typing.Optional[bool] = pydantic.Field(default=None)
     """
-    Sign in to providers as an inbox: connect a provider, authorize an inbox, and mint the
+    Sign in to apps as an inbox: connect an app, authorize an inbox, and mint the
     sign-in keys. Omitted on a new bearer key means false, whatever else the key holds.
     """
 
-    provider_share_owner: typing.Optional[bool] = pydantic.Field(default=None)
+    app_share_owner: typing.Optional[bool] = pydantic.Field(default=None)
     """
-    Share the organization owner's name and email with providers at sign-in. One permission
+    Share the organization owner's name and email with apps at sign-in. One permission
     for both values.
     """
 
     account_update: typing.Optional[bool] = pydantic.Field(default=None)
     """
-    Update accounts: disable or re-enable an inbox's sign-in at a provider. Reading accounts
+    Update accounts: disable or re-enable an inbox's sign-in at an app. Reading accounts
     needs only `inbox_read`.
     """
 

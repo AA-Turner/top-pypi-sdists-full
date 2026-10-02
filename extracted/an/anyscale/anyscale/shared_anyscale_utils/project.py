@@ -10,6 +10,4 @@ import yaml
 with open(os.path.join(os.path.dirname(__file__), "default_anyscale_aws.yaml")) as f:
     CLUSTER_YAML_TEMPLATE = f.read()
 
-CLUSTER_CONFIG_TEMPLATE_STR = json.dumps(
-    yaml.load(CLUSTER_YAML_TEMPLATE, Loader=yaml.SafeLoader)
-)
+CLUSTER_CONFIG_TEMPLATE_STR = json.dumps(yaml.load(CLUSTER_YAML_TEMPLATE, Loader=yaml.SafeLoader))

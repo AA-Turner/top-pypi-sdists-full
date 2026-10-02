@@ -93,7 +93,7 @@ pub(crate) fn project_schema_for_concrete_value(
 }
 
 pub(crate) async fn resolve_accessors_for_document_or_schema(
-    document_tree: &DocumentTree,
+    document_tree: &DocumentTree<'_>,
     accessors: Vec<Accessor>,
     schema_context: &SchemaContext<'_>,
 ) -> (Vec<Accessor>, Option<CurrentSchema<'static>>) {
@@ -113,7 +113,7 @@ pub(crate) async fn resolve_accessors_for_document_or_schema(
 /// A trailing Array index whose value is a leaf is popped so dispatch
 /// happens from the enclosing Array rather than the inner leaf.
 fn align_with_document_tree(
-    document_tree: &DocumentTree,
+    document_tree: &DocumentTree<'_>,
     accessors: Vec<Accessor>,
 ) -> Vec<Accessor> {
     let mut resolved_accessors = accessors;
@@ -154,7 +154,7 @@ fn is_leaf_array_element(value: &Value) -> bool {
 }
 
 async fn resolve_current_schema(
-    document_tree: &DocumentTree,
+    document_tree: &DocumentTree<'_>,
     accessors: &[Accessor],
     schema_context: &SchemaContext<'_>,
 ) -> Option<CurrentSchema<'static>> {
@@ -392,7 +392,7 @@ fn resolve_composite_schema_with_accessors<'a: 'b, 'b>(
                         current_schema
                             .semantic_schema
                             .as_ref()
-                            .map_or(Default::default(), |schema| schema.range()),
+                            .map_or(Default::default(), |schema| schema.span()),
                     ))
                 });
                 let referables = candidates
@@ -424,6 +424,7 @@ fn resolve_composite_schema_with_accessors<'a: 'b, 'b>(
                     schema_uri: current_schema.schema_uri,
                     schema_base_uri: current_schema.schema_base_uri,
                     schema_document_uri: current_schema.schema_document_uri,
+                    line_index: current_schema.line_index,
                     definitions: current_schema.definitions,
                     strict: current_schema.strict,
                     dynamic_scope: current_schema.dynamic_scope,
@@ -434,10 +435,10 @@ fn resolve_composite_schema_with_accessors<'a: 'b, 'b>(
     .boxed()
 }
 
-pub(crate) fn remaining_keys<'a>(
-    keys: &'a [tombi_document_tree_syntax::Key],
+pub(crate) fn remaining_keys<'a, 't>(
+    keys: &'a [tombi_document_tree_syntax::Key<'t>],
     accessors: &[Accessor],
-) -> &'a [tombi_document_tree_syntax::Key] {
+) -> &'a [tombi_document_tree_syntax::Key<'t>] {
     let resolved_key_count = accessors
         .iter()
         .filter(|accessor| accessor.as_key().is_some())

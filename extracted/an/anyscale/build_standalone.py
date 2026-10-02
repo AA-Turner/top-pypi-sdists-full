@@ -129,7 +129,10 @@ def build():
 
     try:
         result = subprocess.run(
-            [str(binary_path), "--version"], capture_output=True, text=True, check=True,
+            [str(binary_path), "--version"],
+            capture_output=True,
+            text=True,
+            check=True,
         )
     except subprocess.CalledProcessError as e:
         sys.exit(f"Binary verification failed: {e.stderr}")

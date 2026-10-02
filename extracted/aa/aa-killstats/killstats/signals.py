@@ -64,10 +64,10 @@ def worker_shutdown_handler(sender, **kwargs):  # pylint: disable=unused-argumen
     try:
         # Import the tasks module lazily to avoid side effects at import time
         tasks_mod = import_module("killstats.tasks")
-        run_zkb_task = getattr(tasks_mod, "run_zkb_r2z2", None)
+        run_zkb_task = getattr(tasks_mod, "run_tracker_zkb", None)
 
         if run_zkb_task is None or not hasattr(run_zkb_task, "name"):
-            logger.debug("run_zkb_r2z2 task not found or has no name attribute")
+            logger.debug("run_tracker_zkb task not found or has no name attribute")
             return
 
         # The celery-once key format (used by celery_once/helpers.queue_once_key)
@@ -83,4 +83,4 @@ def worker_shutdown_handler(sender, **kwargs):  # pylint: disable=unused-argumen
         )
         logger.debug("Worker shutdown signal successfully processed for %s", sender)
     except Exception:  # pylint: disable=broad-exception-caught
-        logger.exception("Failed to clear QueueOnce lock for run_zkb_r2z2")
+        logger.exception("Failed to clear QueueOnce lock for run_tracker_zkb")

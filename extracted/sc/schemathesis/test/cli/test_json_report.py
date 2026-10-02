@@ -3,6 +3,9 @@ import json
 import pytest
 from _pytest.main import ExitCode
 
+import schemathesis
+from schemathesis.cli.events import LoadingFinished
+
 
 @pytest.fixture
 def json_path(tmp_path):
@@ -132,3 +135,89 @@ def test_engine_never_started(cli, json_path, tmp_path):
     assert report["running_time"] is None
     assert report["complete"] is False
     assert report["operations"] is None
+
+
+def test_report_for_filters_matching_nothing(ctx, cli, json_path):
+    api = ctx.openapi.apps.success()
+    cli.run_and_assert(
+        api.schema_url,
+        f"--report-json-path={json_path}",
+        "--include-path=/does-not-exist",
+        exit_code=2,
+    )
+    report = load_report(json_path)
+    assert (report["exit_code"], report["complete"], report["operations"]) == (
+        2,
+        True,
+        {"total": 1, "selected": 0, "tested": 0, "errored": 0, "skipped": 0, "skip_reasons": []},
+    )
+
+
+LOADING_ERRORS = [{"title": "Schema Loading Error", "count": 1}]
+
+
+@pytest.fixture
+def schema_files(ctx, tmp_path):
+    malformed = tmp_path / "broken.json"
+    malformed.write_text('{"openapi": "3.0.0", "info": {', encoding="utf-8")
+    valid = ctx.openapi.write_schema({"/users": {"get": {"responses": {"200": {"description": "OK"}}}}})
+    return {"malformed": str(malformed), "valid": str(valid)}
+
+
+@pytest.mark.parametrize("command", ["run", "fuzz"])
+@pytest.mark.parametrize(
+    ("args", "errors"),
+    [
+        pytest.param(("{malformed}", "--url=http://127.0.0.1:1"), LOADING_ERRORS, id="malformed-schema"),
+        pytest.param(("http://127.0.0.1:1/openapi.json",), LOADING_ERRORS, id="unreachable-schema"),
+        pytest.param(
+            ("http://127.0.0.1:1/openapi.json", "--wait-for-schema=1"), LOADING_ERRORS, id="wait-for-schema-timeout"
+        ),
+        # A usage error, not a run error: the terminal prints it without an error title.
+        pytest.param(("{valid}",), [], id="missing-base-url"),
+    ],
+)
+def test_fatal_error_records_process_exit_code(cli, json_path, schema_files, command, args, errors):
+    args = [arg.format(**schema_files) for arg in args]
+    result = cli.main(command, *args, f"--report-json-path={json_path}")
+    report = load_report(json_path)
+    assert (result.exit_code, report["exit_code"], report["stop_reason"], report["errors"]) == (
+        2,
+        2,
+        "error",
+        errors,
+    ), result.stdout
+
+
+@pytest.mark.parametrize("command", [("run", "--max-examples=1"), ("fuzz", "--max-time=1")], ids=["run", "fuzz"])
+def test_handler_error_records_process_exit_code(ctx, cli, json_path, command):
+    @schemathesis.cli.handler()
+    class Broken(schemathesis.cli.EventHandler):
+        def handle_event(self, run_ctx, event) -> None:
+            if isinstance(event, LoadingFinished):
+                raise RuntimeError("oops")
+
+    api = ctx.openapi.apps.success()
+    result = cli.main(command[0], api.schema_url, command[1], f"--report-json-path={json_path}")
+    assert "CLI Handler Error" in result.stdout
+    report = load_report(json_path)
+    assert (result.exit_code, report["exit_code"], report["stop_reason"]) == (2, 2, "error")
+
+
+def test_hook_error_records_process_exit_code(ctx, cli, json_path):
+    module = ctx.write_pymodule(
+        """
+@schemathesis.hook
+def after_load_schema(context, schema):
+    raise ZeroDivisionError("oops")
+"""
+    )
+    api = ctx.openapi.apps.success()
+    result = cli.main("run", api.schema_url, f"--report-json-path={json_path}", hooks=module)
+    report = load_report(json_path)
+    assert (result.exit_code, report["exit_code"], report["stop_reason"], report["errors"]) == (
+        2,
+        2,
+        "error",
+        [{"title": "Hook Error", "count": 1}],
+    ), result.stdout

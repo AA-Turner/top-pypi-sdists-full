@@ -22,6 +22,7 @@ from airbyte_ops_mcp.human_in_the_loop import (
     validate_hitl_message,
     validate_person_id,
 )
+from airbyte_ops_mcp.human_in_the_loop_ci import main as hitl_ci_main
 from airbyte_ops_mcp.mcp.human_in_the_loop import (
     _NEWSLETTER_CHANNELS,
     RequestType,
@@ -44,6 +45,79 @@ _build_slack_blocks = slack_posting._build_hitl_blocks
 _format_mention = slack_posting._format_mention
 _resolve_to_slack_id = slack_posting._resolve_to_slack_id
 send_hitl_notification = slack_posting.send_hitl_notification
+
+
+@pytest.mark.unit
+@patch("airbyte_ops_mcp.human_in_the_loop_ci._write_github_outputs")
+@patch("airbyte_ops_mcp.human_in_the_loop_ci.send_hitl_notification")
+@patch("airbyte_ops_mcp.human_in_the_loop_ci._load_roster", return_value=[])
+def test_hitl_cli_without_agent_session_url(
+    mock_load_roster: MagicMock,
+    mock_send_notification: MagicMock,
+    mock_write_outputs: MagicMock,
+) -> None:
+    mock_send_notification.return_value = slack_posting.SlackPostResult(
+        channel_id="C123",
+        ts="123.456",
+    )
+
+    with patch(
+        "sys.argv",
+        [
+            "human_in_the_loop_ci",
+            "--roster-file",
+            "roster.json",
+            "--target-person",
+            "reporter@airbyte.io",
+            "--message",
+            "Feedback without a session URL.",
+        ],
+    ):
+        hitl_ci_main()
+
+    mock_load_roster.assert_called_once_with("roster.json")
+    mock_send_notification.assert_called_once()
+    assert mock_send_notification.call_args.kwargs["agent_session_url"] is None
+    mock_write_outputs.assert_called_once_with(mock_send_notification.return_value)
+
+
+@pytest.mark.unit
+@patch("airbyte_ops_mcp.human_in_the_loop_ci._write_github_outputs")
+@patch("airbyte_ops_mcp.human_in_the_loop_ci.send_hitl_notification")
+@patch("airbyte_ops_mcp.human_in_the_loop_ci._load_roster", return_value=[])
+def test_hitl_cli_with_agent_session_url(
+    mock_load_roster: MagicMock,
+    mock_send_notification: MagicMock,
+    mock_write_outputs: MagicMock,
+) -> None:
+    mock_send_notification.return_value = slack_posting.SlackPostResult(
+        channel_id="C123",
+        ts="123.456",
+    )
+
+    with patch(
+        "sys.argv",
+        [
+            "human_in_the_loop_ci",
+            "--roster-file",
+            "roster.json",
+            "--target-person",
+            "reporter@airbyte.io",
+            "--message",
+            "Feedback with a session URL.",
+            "--agent-session-url",
+            "https://app.devin.ai/sessions/abc",
+        ],
+    ):
+        hitl_ci_main()
+
+    mock_load_roster.assert_called_once_with("roster.json")
+    mock_send_notification.assert_called_once()
+    assert (
+        mock_send_notification.call_args.kwargs["agent_session_url"]
+        == "https://app.devin.ai/sessions/abc"
+    )
+    mock_write_outputs.assert_called_once_with(mock_send_notification.return_value)
 
 
 def _find_actions_block(blocks: list[dict]) -> dict | None:

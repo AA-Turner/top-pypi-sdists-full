@@ -38,9 +38,7 @@ TELEMETRY_DEBUG = os.getenv("ANYSCALE_DEBUG") == "1"
 # (Each CLI invocation gets its own interpreter, so this never crosses commands.)
 _trace_id_var: ContextVar[Optional[str]] = ContextVar("_trace_id_var", default=None)
 _session_id_var: ContextVar[Optional[str]] = ContextVar("_session_id_var", default=None)
-_skip_click_patch_var: ContextVar[bool] = ContextVar(
-    "_skip_click_patch_var", default=False
-)
+_skip_click_patch_var: ContextVar[bool] = ContextVar("_skip_click_patch_var", default=False)
 
 logger = BlockLogger()
 
@@ -67,7 +65,7 @@ def get_traceparent() -> Optional[str]:
         tid = _trace_id_var.get()
         if not tid:
             return None
-        return f"00-{tid}-{'0'*16}-01"
+        return f"00-{tid}-{'0' * 16}-01"
     except Exception:  # noqa: BLE001
         return None
 
@@ -117,10 +115,7 @@ def _get_user_options(ctx: click.Context) -> List[str]:
         opts: List[str] = []
         for name in ctx.params:
             try:
-                if (
-                    ctx.get_parameter_source(name)
-                    is click.core.ParameterSource.COMMANDLINE
-                ):
+                if ctx.get_parameter_source(name) is click.core.ParameterSource.COMMANDLINE:
                     opts.append(name)
             except Exception:  # noqa: BLE001
                 opts.append(name)
@@ -381,11 +376,7 @@ def _patch_click() -> None:
 
         @functools.wraps(original_invoke)
         def instrumented_invoke(self, ctx, *args, **kwargs):
-            if (
-                isinstance(self, click.Group)
-                or SAMPLE_RATE <= 0
-                or random.random() > SAMPLE_RATE
-            ):
+            if isinstance(self, click.Group) or SAMPLE_RATE <= 0 or random.random() > SAMPLE_RATE:
                 return original_invoke(self, ctx, *args, **kwargs)
 
             try:

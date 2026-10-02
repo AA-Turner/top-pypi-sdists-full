@@ -1,0 +1,4351 @@
+"""Unit tests for MixpanelAPIClient.
+
+Tests use httpx.MockTransport for deterministic HTTP mocking.
+"""
+
+from __future__ import annotations
+
+import json
+import time
+from collections.abc import Callable, Iterator
+from datetime import date, timedelta
+from typing import Any
+
+import httpx
+import pytest
+from httpx._types import SyncByteStream
+from pydantic import SecretStr
+
+from mixpanel_headless._internal.api_client import (
+    APP_API_SERVER_DEADLINE_S,
+    DEFAULT_APP_TIMEOUT_S,
+    DEFAULT_QUERY_TIMEOUT_S,
+    ENDPOINTS,
+    QUERY_API_SERVER_DEADLINE_S,
+    MixpanelAPIClient,
+    _iter_jsonl_lines,
+)
+from mixpanel_headless._internal.auth.account import ServiceAccount
+from mixpanel_headless._internal.auth.session import Session
+from mixpanel_headless.exceptions import (
+    AuthenticationError,
+    MixpanelHeadlessError,
+    ParamValidationError,
+    QueryError,
+    RateLimitError,
+)
+from tests.conftest import make_session
+
+
+@pytest.fixture
+def test_credentials() -> Session:
+    """Create test credentials."""
+    return make_session(
+        username="test_user",
+        secret="test_secret",
+        project_id="12345",
+        region="us",
+    )
+
+
+@pytest.fixture
+def eu_credentials() -> Session:
+    """Create EU region test credentials."""
+    return make_session(
+        username="test_user",
+        secret="test_secret",
+        project_id="12345",
+        region="eu",
+    )
+
+
+@pytest.fixture
+def india_credentials() -> Session:
+    """Create India region test credentials."""
+    return make_session(
+        username="test_user",
+        secret="test_secret",
+        project_id="12345",
+        region="in",
+    )
+
+
+def create_mock_client(
+    credentials: Session,
+    handler: Any,
+) -> MixpanelAPIClient:
+    """Create a client with mock transport."""
+    transport = httpx.MockTransport(handler)
+    return MixpanelAPIClient(session=credentials, _transport=transport)
+
+
+# =============================================================================
+# Phase 2: Foundational Tests
+# =============================================================================
+
+
+class TestEndpoints:
+    """Test ENDPOINTS configuration."""
+
+    def test_us_endpoints_defined(self) -> None:
+        """US endpoints should be defined."""
+        assert "us" in ENDPOINTS
+        assert "query" in ENDPOINTS["us"]
+        assert "export" in ENDPOINTS["us"]
+        assert "engage" in ENDPOINTS["us"]
+
+    def test_eu_endpoints_defined(self) -> None:
+        """EU endpoints should be defined."""
+        assert "eu" in ENDPOINTS
+        assert "query" in ENDPOINTS["eu"]
+        assert "export" in ENDPOINTS["eu"]
+
+    def test_india_endpoints_defined(self) -> None:
+        """India endpoints should be defined."""
+        assert "in" in ENDPOINTS
+        assert "query" in ENDPOINTS["in"]
+        assert "export" in ENDPOINTS["in"]
+
+    def test_engage_uses_query_api_path(self) -> None:
+        """Engage endpoint should use the documented /api/query/engage path.
+
+        The Mixpanel Query API spec documents Engage profile queries under
+        ``https://{regionAndDomain}.com/api/query/engage``. The analytics
+        request handler accepts both ``/api/query/`` and ``/api/2.0/`` as
+        equivalent prefixes, but we follow the documented contract.
+        """
+        assert ENDPOINTS["us"]["engage"] == "https://mixpanel.com/api/query/engage"
+        assert ENDPOINTS["eu"]["engage"] == "https://eu.mixpanel.com/api/query/engage"
+        assert ENDPOINTS["in"]["engage"] == "https://in.mixpanel.com/api/query/engage"
+
+
+class TestServerDeadlineAccommodation:
+    """Route-aware default timeouts sized to outlast the server's deadline.
+
+    Mixpanel's edge enforces read deadlines per route family (nginx
+    ``proxy_read_timeout``): ~120s for App API routes and 488s for query
+    routes. The client-side defaults must exceed those deadlines so a slow
+    request is always resolved by the server's own answer (success or 5xx),
+    never pre-empted by a client read timeout. An explicit ``timeout``
+    (constructor or per-call) still wins.
+    """
+
+    @staticmethod
+    def _capture_client(
+        test_credentials: Session,
+        seen: dict[str, Any],
+        **kwargs: Any,
+    ) -> MixpanelAPIClient:
+        """Build a client whose transport records the per-request timeout.
+
+        Args:
+            test_credentials: Session fixture for the client.
+            seen: Dict the handler writes the request timeout into.
+            **kwargs: Extra MixpanelAPIClient constructor arguments.
+
+        Returns:
+            A client wired to the capturing MockTransport.
+        """
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen["timeout"] = request.extensions.get("timeout")
+            return httpx.Response(200, json={"results": []})
+
+        return MixpanelAPIClient(
+            session=test_credentials,
+            _transport=httpx.MockTransport(handler),
+            **kwargs,
+        )
+
+    def test_default_constants_outlast_server_deadlines(self) -> None:
+        """Each route default strictly exceeds the matching server deadline."""
+        assert DEFAULT_APP_TIMEOUT_S > APP_API_SERVER_DEADLINE_S
+        assert DEFAULT_QUERY_TIMEOUT_S > QUERY_API_SERVER_DEADLINE_S
+
+    def test_default_export_timeout_outlasts_query_deadline(
+        self, test_credentials: Session
+    ) -> None:
+        """The export tier (used by long gathers) also outlasts 488s."""
+        client = MixpanelAPIClient(session=test_credentials)
+        assert client._export_timeout > QUERY_API_SERVER_DEADLINE_S
+        client.close()
+
+    def test_app_request_outlasts_app_deadline(self, test_credentials: Session) -> None:
+        """App API requests default to the app-route read timeout."""
+        seen: dict[str, Any] = {}
+        client = self._capture_client(test_credentials, seen)
+        client.app_request("GET", "/projects/12345/dashboards")
+        assert seen["timeout"]["read"] == DEFAULT_APP_TIMEOUT_S
+
+    def test_query_request_outlasts_query_deadline(
+        self, test_credentials: Session
+    ) -> None:
+        """Query-host requests default to the query-route read timeout."""
+        seen: dict[str, Any] = {}
+        client = self._capture_client(test_credentials, seen)
+        client.request("GET", f"{ENDPOINTS['us']['query']}/segmentation")
+        assert seen["timeout"]["read"] == DEFAULT_QUERY_TIMEOUT_S
+
+    def test_explicit_constructor_timeout_wins_everywhere(
+        self, test_credentials: Session
+    ) -> None:
+        """A constructor timeout overrides the route-aware defaults."""
+        seen: dict[str, Any] = {}
+        client = self._capture_client(test_credentials, seen, timeout=42.0)
+        client.app_request("GET", "/projects/12345/dashboards")
+        assert seen["timeout"]["read"] == 42.0
+        client.request("GET", f"{ENDPOINTS['us']['query']}/segmentation")
+        assert seen["timeout"]["read"] == 42.0
+
+    def test_per_call_timeout_wins_over_defaults(
+        self, test_credentials: Session
+    ) -> None:
+        """A per-call timeout overrides both defaults and the constructor."""
+        seen: dict[str, Any] = {}
+        client = self._capture_client(test_credentials, seen, timeout=42.0)
+        client.request("GET", f"{ENDPOINTS['us']['query']}/segmentation", timeout=7.0)
+        assert seen["timeout"]["read"] == 7.0
+
+
+class TestClientInit:
+    """Test client initialization."""
+
+    def test_init_with_credentials(self, test_credentials: Session) -> None:
+        """Client should accept a Session."""
+        client = MixpanelAPIClient(session=test_credentials)
+        assert client._session == test_credentials
+        client.close()
+
+    def test_init_with_custom_timeout(self, test_credentials: Session) -> None:
+        """Client should accept custom timeout."""
+        client = MixpanelAPIClient(session=test_credentials, timeout=60.0)
+        assert client._timeout == 60.0
+        client.close()
+
+    def test_init_with_custom_export_timeout(self, test_credentials: Session) -> None:
+        """Client should accept custom export timeout."""
+        client = MixpanelAPIClient(session=test_credentials, export_timeout=600.0)
+        assert client._export_timeout == 600.0
+        client.close()
+
+    def test_init_with_max_retries(self, test_credentials: Session) -> None:
+        """Client should accept max retries."""
+        client = MixpanelAPIClient(session=test_credentials, max_retries=5)
+        assert client._max_retries == 5
+        client.close()
+
+
+class TestClientLifecycle:
+    """Test client lifecycle methods."""
+
+    def test_context_manager(self, test_credentials: Session) -> None:
+        """Client should work as context manager."""
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json=["event1"])
+
+        with create_mock_client(test_credentials, handler) as client:
+            assert client._client is not None
+        assert client._client is None
+
+    def test_close_releases_resources(self, test_credentials: Session) -> None:
+        """Close should release HTTP client."""
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json=[])
+
+        client = create_mock_client(test_credentials, handler)
+        client._ensure_client()
+        assert client._client is not None
+        client.close()
+        assert client._client is None
+
+
+class TestAuthHeader:
+    """Test auth header generation."""
+
+    def test_auth_header_format(self, test_credentials: Session) -> None:
+        """Auth header should be Base64 encoded Basic auth."""
+        client = MixpanelAPIClient(session=test_credentials)
+        header = client._get_auth_header()
+        assert header.startswith("Basic ")
+        # Decode and verify
+        import base64
+
+        encoded = header.replace("Basic ", "")
+        decoded = base64.b64decode(encoded).decode()
+        assert decoded == "test_user:test_secret"
+        client.close()
+
+    def test_oauth_session_resolves_bearer_per_request(self) -> None:
+        """Fix 18: session-bound OAuth re-resolves the bearer on each call.
+
+        With a fresh-token-on-every-call resolver stub, two consecutive
+        ``_get_auth_header()`` calls return DIFFERENT bearers — proving
+        the bearer is not cached at construction time.
+        """
+        from mixpanel_headless._internal.auth.account import (
+            OAuthBrowserAccount,
+            Region,
+            TokenResolver,
+        )
+        from mixpanel_headless._internal.auth.session import Project, Session
+
+        class _CountingResolver(TokenResolver):
+            """Returns a new bearer on each call so we can assert per-request resolution."""
+
+            def __init__(self) -> None:
+                """Track call count starting at 0."""
+                self.calls = 0
+
+            def get_browser_token(self, name: str, region: Region) -> str:
+                """Return ``tok-N`` where N increments on each call."""
+                self.calls += 1
+                return f"tok-{self.calls}"
+
+            def get_static_token(self, account: object) -> str:  # pragma: no cover
+                """Not exercised in this test."""
+                raise AssertionError("static token path should not be hit")
+
+        account: OAuthBrowserAccount = OAuthBrowserAccount(
+            name="alice",
+            region="us",
+            default_project="12345",
+        )
+        session = Session(account=account, project=Project(id="12345"))
+        resolver = _CountingResolver()
+        client = MixpanelAPIClient(session=session, token_resolver=resolver)
+        try:
+            # OAuth bearers are not cached: every _get_auth_header call hits
+            # the resolver, so a refreshed token surfaces on the next request.
+            assert resolver.calls == 0
+            first = client._get_auth_header()
+            second = client._get_auth_header()
+            assert first == "Bearer tok-1"
+            assert second == "Bearer tok-2"
+            assert resolver.calls == 2
+            # current_auth_header (public) routes through the same per-request path.
+            assert client.current_auth_header == "Bearer tok-3"
+            assert resolver.calls == 3
+        finally:
+            client.close()
+
+    def test_service_account_session_uses_basic_auth_no_resolver_call(self) -> None:
+        """Service-account session keeps Basic auth + no per-request resolver call."""
+        from mixpanel_headless._internal.auth.account import (
+            Region,
+            ServiceAccount,
+            TokenResolver,
+        )
+        from mixpanel_headless._internal.auth.session import Project, Session
+
+        class _NeverCalledResolver(TokenResolver):
+            """Asserts neither token method is called for service-account sessions."""
+
+            def get_browser_token(
+                self, name: str, region: Region
+            ) -> str:  # pragma: no cover
+                """Should never run — service accounts are Basic auth."""
+                raise AssertionError("browser token path should not run for SA")
+
+            def get_static_token(self, account: object) -> str:  # pragma: no cover
+                """Should never run — service accounts are Basic auth."""
+                raise AssertionError("static token path should not run for SA")
+
+        sa = ServiceAccount(
+            name="team",
+            region="us",
+            username="sa-user",
+            secret=SecretStr("sa-secret"),
+            default_project="12345",
+        )
+        session = Session(account=sa, project=Project(id="12345"))
+        client = MixpanelAPIClient(
+            session=session, token_resolver=_NeverCalledResolver()
+        )
+        try:
+            header = client._get_auth_header()
+            assert header.startswith("Basic ")
+        finally:
+            client.close()
+
+
+class TestBuildUrl:
+    """Test URL building."""
+
+    def test_build_query_url_us(self, test_credentials: Session) -> None:
+        """Should build correct US query URL."""
+        client = MixpanelAPIClient(session=test_credentials)
+        url = client._build_url("query", "/segmentation")
+        assert url == "https://mixpanel.com/api/query/segmentation"
+        client.close()
+
+    def test_build_query_url_eu(self, eu_credentials: Session) -> None:
+        """Should build correct EU query URL."""
+        client = MixpanelAPIClient(session=eu_credentials)
+        url = client._build_url("query", "/segmentation")
+        assert url == "https://eu.mixpanel.com/api/query/segmentation"
+        client.close()
+
+    def test_build_query_url_india(self, india_credentials: Session) -> None:
+        """Should build correct India query URL."""
+        client = MixpanelAPIClient(session=india_credentials)
+        url = client._build_url("query", "/segmentation")
+        assert url == "https://in.mixpanel.com/api/query/segmentation"
+        client.close()
+
+    def test_build_export_url_us(self, test_credentials: Session) -> None:
+        """Should build correct US export URL."""
+        client = MixpanelAPIClient(session=test_credentials)
+        url = client._build_url("export", "/export")
+        assert url == "https://data.mixpanel.com/api/2.0/export"
+        client.close()
+
+    def test_build_export_url_eu(self, eu_credentials: Session) -> None:
+        """Should build correct EU export URL."""
+        client = MixpanelAPIClient(session=eu_credentials)
+        url = client._build_url("export", "/export")
+        assert url == "https://data-eu.mixpanel.com/api/2.0/export"
+        client.close()
+
+    def test_build_url_adds_leading_slash(self, test_credentials: Session) -> None:
+        """Should add leading slash if missing."""
+        client = MixpanelAPIClient(session=test_credentials)
+        url = client._build_url("query", "segmentation")
+        assert url == "https://mixpanel.com/api/query/segmentation"
+        client.close()
+
+
+# =============================================================================
+# User Story 1: Authenticated API Requests
+# =============================================================================
+
+
+class TestAuthenticatedRequests:
+    """Test authenticated request handling (US1)."""
+
+    def test_auth_header_sent(self, test_credentials: Session) -> None:
+        """Auth header should be sent with requests."""
+        captured_headers: dict[str, str] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured_headers.update(dict(request.headers))
+            return httpx.Response(200, json=["event1"])
+
+        with create_mock_client(test_credentials, handler) as client:
+            client.get_events()
+
+        assert "authorization" in captured_headers
+        assert captured_headers["authorization"].startswith("Basic ")
+
+    def test_project_id_in_query_params(self, test_credentials: Session) -> None:
+        """Project ID should be in query params."""
+        captured_url: str = ""
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal captured_url
+            captured_url = str(request.url)
+            return httpx.Response(200, json=["event1"])
+
+        with create_mock_client(test_credentials, handler) as client:
+            client.get_events()
+
+        assert "project_id=12345" in captured_url
+
+    def test_authentication_error_on_401(self, test_credentials: Session) -> None:
+        """Should raise AuthenticationError on 401."""
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(401, json={"error": "Invalid credentials"})
+
+        with (
+            create_mock_client(test_credentials, handler) as client,
+            pytest.raises(AuthenticationError) as exc_info,
+        ):
+            client.get_events()
+
+        assert "credentials" in str(exc_info.value).lower()
+
+    def test_credentials_not_in_error_messages(self, test_credentials: Session) -> None:
+        """Credentials should never appear in error messages."""
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(401, json={"error": "Auth failed"})
+
+        with (
+            create_mock_client(test_credentials, handler) as client,
+            pytest.raises(AuthenticationError) as exc_info,
+        ):
+            client.get_events()
+
+        error_str = str(exc_info.value)
+        assert "test_secret" not in error_str
+        assert "test_user" not in error_str
+
+    def test_regional_routing_us(self, test_credentials: Session) -> None:
+        """US region should use US endpoints."""
+        captured_url: str = ""
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal captured_url
+            captured_url = str(request.url)
+            return httpx.Response(200, json=["event1"])
+
+        with create_mock_client(test_credentials, handler) as client:
+            client.get_events()
+
+        assert "mixpanel.com" in captured_url
+
+    def test_regional_routing_eu(self, eu_credentials: Session) -> None:
+        """EU region should use EU endpoints."""
+        captured_url: str = ""
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal captured_url
+            captured_url = str(request.url)
+            return httpx.Response(200, json=["event1"])
+
+        with create_mock_client(eu_credentials, handler) as client:
+            client.get_events()
+
+        assert "eu.mixpanel.com" in captured_url
+
+    def test_regional_routing_india(self, india_credentials: Session) -> None:
+        """India region should use India endpoints."""
+        captured_url: str = ""
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal captured_url
+            captured_url = str(request.url)
+            return httpx.Response(200, json=["event1"])
+
+        with create_mock_client(india_credentials, handler) as client:
+            client.get_events()
+
+        assert "in.mixpanel.com" in captured_url
+
+
+# =============================================================================
+# User Story 2: Rate Limiting
+# =============================================================================
+
+
+class TestRateLimiting:
+    """Test rate limit handling (US2)."""
+
+    def test_retry_on_429_with_retry_after(self, test_credentials: Session) -> None:
+        """Should retry on 429 with Retry-After header."""
+        call_count = 0
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return httpx.Response(429, headers={"Retry-After": "0"})
+            return httpx.Response(200, json=["event1"])
+
+        with create_mock_client(test_credentials, handler) as client:
+            result = client.get_events()
+
+        assert call_count == 2
+        assert result == ["event1"]
+
+    def test_exponential_backoff_without_retry_after(
+        self, test_credentials: Session
+    ) -> None:
+        """Should use exponential backoff without Retry-After."""
+        call_count = 0
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return httpx.Response(429)  # No Retry-After
+            return httpx.Response(200, json=["event1"])
+
+        # Use low max_retries for faster test
+        transport = httpx.MockTransport(handler)
+        client = MixpanelAPIClient(
+            session=test_credentials, max_retries=2, _transport=transport
+        )
+
+        with client:
+            result = client.get_events()
+
+        assert call_count == 2
+        assert result == ["event1"]
+
+    def test_rate_limit_error_after_max_retries(
+        self, test_credentials: Session
+    ) -> None:
+        """Should raise RateLimitError after max retries."""
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(429, headers={"Retry-After": "0"})
+
+        transport = httpx.MockTransport(handler)
+        client = MixpanelAPIClient(
+            session=test_credentials, max_retries=1, _transport=transport
+        )
+
+        with client, pytest.raises(RateLimitError) as exc_info:
+            client.get_events()
+
+        assert exc_info.value.retry_after == 0
+        # Carries the active project_id for the rate-limit lead-collection form.
+        assert exc_info.value.project_id == "12345"
+
+    def test_execute_with_retry_fallthrough_carries_project_id(
+        self, test_credentials: Session
+    ) -> None:
+        """The defensive _execute_with_retry fallthrough carries project_id.
+
+        That raise is reached only when the retry loop is empty (max_retries
+        below zero); the test locks the project_id wiring on the
+        type-checker-satisfying site so it can't silently regress.
+        """
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200)
+
+        transport = httpx.MockTransport(handler)
+        client = MixpanelAPIClient(
+            session=test_credentials, max_retries=-1, _transport=transport
+        )
+
+        with client, pytest.raises(RateLimitError) as exc_info:
+            client.get_events()
+
+        assert exc_info.value.project_id == "12345"
+
+    def test_successful_response_after_retry(self, test_credentials: Session) -> None:
+        """Should return successful response after retry."""
+        call_count = 0
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 3:
+                return httpx.Response(429, headers={"Retry-After": "0"})
+            return httpx.Response(200, json={"data": "success"})
+
+        transport = httpx.MockTransport(handler)
+        client = MixpanelAPIClient(
+            session=test_credentials, max_retries=3, _transport=transport
+        )
+
+        with client:
+            result = client.segmentation("event", "2024-01-01", "2024-01-31")
+
+        assert call_count == 3
+        assert result == {"data": "success"}
+
+
+# =============================================================================
+# User Story 3: Stream Large Event Exports
+# =============================================================================
+
+
+class TestEventExport:
+    """Test event export streaming (US3)."""
+
+    def test_export_events_returns_iterator(self, test_credentials: Session) -> None:
+        """export_events should return an iterator."""
+        mock_data = b'{"event":"A","properties":{"time":1}}\n{"event":"B","properties":{"time":2}}\n'
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, content=mock_data)
+
+        with create_mock_client(test_credentials, handler) as client:
+            result = client.export_events("2024-01-01", "2024-01-31")
+            # Should be an iterator
+            assert hasattr(result, "__iter__")
+            assert hasattr(result, "__next__")
+
+    def test_jsonl_parsing_line_by_line(self, test_credentials: Session) -> None:
+        """Should parse JSONL line by line."""
+        mock_data = b'{"event":"A","properties":{"time":1}}\n{"event":"B","properties":{"time":2}}\n'
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, content=mock_data)
+
+        with create_mock_client(test_credentials, handler) as client:
+            events = list(client.export_events("2024-01-01", "2024-01-31"))
+
+        assert len(events) == 2
+        assert events[0]["event"] == "A"
+        assert events[1]["event"] == "B"
+
+    def test_on_batch_callback(self, test_credentials: Session) -> None:
+        """Should invoke on_batch callback."""
+        # Create enough events to trigger callback
+        events_data = "\n".join(
+            json.dumps({"event": f"E{i}", "properties": {"time": i}})
+            for i in range(1500)
+        )
+        mock_data = events_data.encode() + b"\n"
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, content=mock_data)
+
+        batch_counts: list[int] = []
+
+        def on_batch(count: int) -> None:
+            batch_counts.append(count)
+
+        with create_mock_client(test_credentials, handler) as client:
+            list(client.export_events("2024-01-01", "2024-01-31", on_batch=on_batch))
+
+        # Should have called on_batch at 1000 and final count
+        assert 1000 in batch_counts
+        assert 1500 in batch_counts
+
+    def test_event_name_filtering(self, test_credentials: Session) -> None:
+        """Should filter by event names."""
+        captured_url: str = ""
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal captured_url
+            captured_url = str(request.url)
+            return httpx.Response(200, content=b"")
+
+        with create_mock_client(test_credentials, handler) as client:
+            list(
+                client.export_events(
+                    "2024-01-01", "2024-01-31", events=["Purchase", "View"]
+                )
+            )
+
+        # Events should be JSON-encoded in URL
+        assert "event=" in captured_url
+
+    def test_malformed_json_skipped(self, test_credentials: Session) -> None:
+        """Should skip malformed JSON lines with warning."""
+        mock_data = b'{"event":"A","properties":{"time":1}}\nNOT JSON\n{"event":"B","properties":{"time":2}}\n'
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, content=mock_data)
+
+        with create_mock_client(test_credentials, handler) as client:
+            events = list(client.export_events("2024-01-01", "2024-01-31"))
+
+        # Should have skipped malformed line
+        assert len(events) == 2
+        assert events[0]["event"] == "A"
+        assert events[1]["event"] == "B"
+
+    def test_export_events_with_limit(self, test_credentials: Session) -> None:
+        """Should pass limit parameter to API."""
+        captured_url: str = ""
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal captured_url
+            captured_url = str(request.url)
+            return httpx.Response(200, content=b"")
+
+        with create_mock_client(test_credentials, handler) as client:
+            list(client.export_events("2024-01-01", "2024-01-31", limit=1000))
+
+        assert "limit=1000" in captured_url
+
+    def test_export_events_without_limit(self, test_credentials: Session) -> None:
+        """Should not include limit parameter when None."""
+        captured_url: str = ""
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal captured_url
+            captured_url = str(request.url)
+            return httpx.Response(200, content=b"")
+
+        with create_mock_client(test_credentials, handler) as client:
+            list(client.export_events("2024-01-01", "2024-01-31"))
+
+        assert "limit=" not in captured_url
+
+    def test_export_events_limit_with_other_params(
+        self, test_credentials: Session
+    ) -> None:
+        """Should combine limit with other filter parameters."""
+        captured_url: str = ""
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal captured_url
+            captured_url = str(request.url)
+            return httpx.Response(200, content=b"")
+
+        with create_mock_client(test_credentials, handler) as client:
+            list(
+                client.export_events(
+                    "2024-01-01",
+                    "2024-01-31",
+                    events=["Purchase"],
+                    where='properties["amount"] > 100',
+                    limit=500,
+                )
+            )
+
+        assert "limit=500" in captured_url
+        assert "event=" in captured_url
+        assert "where=" in captured_url
+
+
+# =============================================================================
+# User Story 4: Segmentation Queries
+# =============================================================================
+
+
+class TestSegmentation:
+    """Test segmentation queries (US4)."""
+
+    def test_segmentation_basic(self, test_credentials: Session) -> None:
+        """Should make basic segmentation query."""
+        captured_params: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            for key, value in request.url.params.items():
+                captured_params[key] = value
+            return httpx.Response(200, json={"data": {"values": {}}})
+
+        with create_mock_client(test_credentials, handler) as client:
+            client.segmentation("Purchase", "2024-01-01", "2024-01-31")
+
+        assert captured_params["event"] == "Purchase"
+        assert captured_params["from_date"] == "2024-01-01"
+        assert captured_params["to_date"] == "2024-01-31"
+
+    def test_segmentation_with_on(self, test_credentials: Session) -> None:
+        """Should include 'on' parameter."""
+        captured_params: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            for key, value in request.url.params.items():
+                captured_params[key] = value
+            return httpx.Response(200, json={"data": {}})
+
+        with create_mock_client(test_credentials, handler) as client:
+            client.segmentation(
+                "Purchase", "2024-01-01", "2024-01-31", on='properties["country"]'
+            )
+
+        assert captured_params["on"] == 'properties["country"]'
+
+    def test_segmentation_with_where(self, test_credentials: Session) -> None:
+        """Should include 'where' filter."""
+        captured_params: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            for key, value in request.url.params.items():
+                captured_params[key] = value
+            return httpx.Response(200, json={"data": {}})
+
+        with create_mock_client(test_credentials, handler) as client:
+            client.segmentation(
+                "Purchase",
+                "2024-01-01",
+                "2024-01-31",
+                where='properties["amount"] > 100',
+            )
+
+        assert "where" in captured_params
+
+
+# =============================================================================
+# User Story 5: Discovery
+# =============================================================================
+
+
+class TestDiscovery:
+    """Test discovery APIs (US5)."""
+
+    def test_get_events(self, test_credentials: Session) -> None:
+        """Should list events with widest defaults (type=general, limit=5000, wide date range)."""
+        captured_params: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            for key, value in request.url.params.items():
+                captured_params[key] = value
+            return httpx.Response(200, json=["event1", "event2", "event3"])
+
+        with create_mock_client(test_credentials, handler) as client:
+            events = client.get_events()
+
+        assert events == ["event1", "event2", "event3"]
+        assert captured_params["type"] == "general"
+        assert captured_params["limit"] == "5000"
+        assert captured_params["from_date"] == "2000-01-01"
+        # to_date defaults to today; just assert it's present and well-formed.
+        assert "to_date" in captured_params
+        assert len(captured_params["to_date"]) == 10
+
+    def test_get_events_caller_overrides(self, test_credentials: Session) -> None:
+        """Caller-supplied limit/from_date/to_date should override the wide defaults."""
+        captured_params: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            for key, value in request.url.params.items():
+                captured_params[key] = value
+            return httpx.Response(200, json=["a", "b"])
+
+        with create_mock_client(test_credentials, handler) as client:
+            events = client.get_events(
+                limit=42, from_date="2024-01-01", to_date="2024-12-31"
+            )
+
+        assert events == ["a", "b"]
+        assert captured_params["limit"] == "42"
+        assert captured_params["from_date"] == "2024-01-01"
+        assert captured_params["to_date"] == "2024-12-31"
+
+    def test_get_events_falls_back_on_date_range_403(
+        self, test_credentials: Session
+    ) -> None:
+        """A 403 'Date range exceeds N days' should retry with today - N days."""
+        captured_from_dates: list[str] = []
+        call_count = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal call_count
+            call_count += 1
+            captured_from_dates.append(request.url.params["from_date"])
+            if call_count == 1:
+                return httpx.Response(
+                    403,
+                    json={"error": "Date range exceeds 90 days into the past"},
+                )
+            return httpx.Response(200, json=["e1"])
+
+        with create_mock_client(test_credentials, handler) as client:
+            events = client.get_events()
+
+        assert events == ["e1"]
+        assert call_count == 2
+        assert captured_from_dates[0] == "2000-01-01"
+        expected_retry = (date.today() - timedelta(days=90)).isoformat()
+        assert captured_from_dates[1] == expected_retry
+
+    def test_get_events_does_not_retry_when_caller_set_from_date(
+        self, test_credentials: Session
+    ) -> None:
+        """Explicit from_date should not be silently overridden on a 403."""
+        call_count = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal call_count
+            call_count += 1
+            return httpx.Response(
+                403,
+                json={"error": "Date range exceeds 30 days into the past"},
+            )
+
+        with (
+            create_mock_client(test_credentials, handler) as client,
+            pytest.raises(QueryError),
+        ):
+            client.get_events(from_date="1999-01-01")
+
+        assert call_count == 1
+
+    def test_get_events_does_not_retry_on_unrelated_403(
+        self, test_credentials: Session
+    ) -> None:
+        """A 403 unrelated to the date-range gate should propagate as QueryError."""
+        call_count = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal call_count
+            call_count += 1
+            return httpx.Response(403, json={"error": "Permission denied"})
+
+        with (
+            create_mock_client(test_credentials, handler) as client,
+            pytest.raises(QueryError),
+        ):
+            client.get_events()
+
+        assert call_count == 1
+
+    def test_get_events_does_not_retry_on_non_403_with_matching_text(
+        self, test_credentials: Session
+    ) -> None:
+        """A 400 whose message coincidentally matches the gate text must not retry.
+
+        Guards against an over-eager retry triggered by any QueryError whose
+        message happens to contain ``exceeds N days``.
+        """
+        call_count = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal call_count
+            call_count += 1
+            return httpx.Response(
+                400,
+                json={"error": "Query exceeds 90 days lookback in custom filter"},
+            )
+
+        with (
+            create_mock_client(test_credentials, handler) as client,
+            pytest.raises(QueryError),
+        ):
+            client.get_events()
+
+        assert call_count == 1
+
+    def test_get_events_empty_string_from_date_is_not_replaced(
+        self, test_credentials: Session
+    ) -> None:
+        """``from_date=""`` is passed through as-is, not silently defaulted.
+
+        Locks the ``is None`` check: callers who pass a falsy-but-non-None
+        value should get whatever the server returns (probably a 400), not
+        the library's default ``2000-01-01``.
+        """
+        captured_params: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            for key, value in request.url.params.items():
+                captured_params[key] = value
+            return httpx.Response(200, json=[])
+
+        with create_mock_client(test_credentials, handler) as client:
+            client.get_events(from_date="", to_date="")
+
+        assert captured_params["from_date"] == ""
+        assert captured_params["to_date"] == ""
+
+    def test_get_event_properties(self, test_credentials: Session) -> None:
+        """Should list event properties from /events/properties/top endpoint."""
+        captured_params: dict[str, Any] = {}
+        captured_path: str = ""
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal captured_path
+            captured_path = request.url.path
+            for key, value in request.url.params.items():
+                captured_params[key] = value
+            # /events/properties/top returns dict with property names as keys
+            return httpx.Response(200, json={"prop1": 100.0, "prop2": 50.5})
+
+        with create_mock_client(test_credentials, handler) as client:
+            props = client.get_event_properties("Purchase")
+
+        assert captured_path.endswith("/events/properties/top")
+        assert captured_params["event"] == "Purchase"
+        assert set(props) == {"prop1", "prop2"}
+
+    def test_get_property_values(self, test_credentials: Session) -> None:
+        """Should list property values with limit."""
+        captured_params: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            for key, value in request.url.params.items():
+                captured_params[key] = value
+            return httpx.Response(200, json=["value1", "value2"])
+
+        with create_mock_client(test_credentials, handler) as client:
+            values = client.get_property_values("country", limit=10)
+
+        assert captured_params["name"] == "country"
+        assert captured_params["limit"] == "10"
+        assert values == ["value1", "value2"]
+
+
+# =============================================================================
+# User Story 6: Profile Export
+# =============================================================================
+
+
+class TestProfileExport:
+    """Test profile export (US6)."""
+
+    def test_export_profiles_returns_iterator(self, test_credentials: Session) -> None:
+        """export_profiles should return an iterator."""
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "results": [{"$distinct_id": "u1", "$properties": {}}],
+                    "session_id": None,
+                },
+            )
+
+        with create_mock_client(test_credentials, handler) as client:
+            result = client.export_profiles()
+            assert hasattr(result, "__iter__")
+
+    def test_pagination_with_session_id(self, test_credentials: Session) -> None:
+        """Should handle pagination with session_id."""
+        call_count = 0
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return httpx.Response(
+                    200,
+                    json={
+                        "results": [{"$distinct_id": "u1"}],
+                        "session_id": "abc123",
+                    },
+                )
+            return httpx.Response(
+                200,
+                json={"results": [], "session_id": None},
+            )
+
+        with create_mock_client(test_credentials, handler) as client:
+            profiles = list(client.export_profiles())
+
+        assert len(profiles) == 1
+        assert call_count == 2
+
+    def test_where_filter(self, test_credentials: Session) -> None:
+        """Should include where filter."""
+        captured_body: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.content:
+                nonlocal captured_body
+                captured_body = json.loads(request.content)
+            return httpx.Response(200, json={"results": []})
+
+        with create_mock_client(test_credentials, handler) as client:
+            list(client.export_profiles(where='properties["plan"] == "premium"'))
+
+        assert "where" in captured_body
+
+    def test_cohort_id_filter(self, test_credentials: Session) -> None:
+        """Should include filter_by_cohort when cohort_id provided."""
+        captured_body: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.content:
+                nonlocal captured_body
+                captured_body = json.loads(request.content)
+            return httpx.Response(200, json={"results": []})
+
+        with create_mock_client(test_credentials, handler) as client:
+            list(client.export_profiles(cohort_id="12345"))
+
+        # filter_by_cohort requires JSON object format {"id": cohort_id}
+        assert captured_body.get("filter_by_cohort") == '{"id": "12345"}'
+
+    def test_output_properties_filter(self, test_credentials: Session) -> None:
+        """Should include output_properties as JSON array string."""
+        captured_body: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.content:
+                nonlocal captured_body
+                captured_body = json.loads(request.content)
+            return httpx.Response(200, json={"results": []})
+
+        with create_mock_client(test_credentials, handler) as client:
+            list(client.export_profiles(output_properties=["$email", "$name", "plan"]))
+
+        # output_properties should be serialized as JSON array string
+        output_props = captured_body.get("output_properties")
+        assert output_props is not None
+        assert json.loads(output_props) == ["$email", "$name", "plan"]
+
+    def test_cohort_id_and_output_properties_together(
+        self, test_credentials: Session
+    ) -> None:
+        """Should include both cohort_id and output_properties."""
+        captured_body: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.content:
+                nonlocal captured_body
+                captured_body = json.loads(request.content)
+            return httpx.Response(200, json={"results": []})
+
+        with create_mock_client(test_credentials, handler) as client:
+            list(
+                client.export_profiles(
+                    cohort_id="cohort_abc",
+                    output_properties=["$email"],
+                )
+            )
+
+        # filter_by_cohort requires JSON object format {"id": cohort_id}
+        assert captured_body.get("filter_by_cohort") == '{"id": "cohort_abc"}'
+        assert json.loads(captured_body.get("output_properties", "[]")) == ["$email"]
+
+    def test_no_cohort_id_when_none(self, test_credentials: Session) -> None:
+        """Should not include filter_by_cohort when cohort_id is None."""
+        captured_body: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.content:
+                nonlocal captured_body
+                captured_body = json.loads(request.content)
+            return httpx.Response(200, json={"results": []})
+
+        with create_mock_client(test_credentials, handler) as client:
+            list(client.export_profiles())
+
+        assert "filter_by_cohort" not in captured_body
+
+    def test_no_output_properties_when_none(self, test_credentials: Session) -> None:
+        """Should not include output_properties when None."""
+        captured_body: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.content:
+                nonlocal captured_body
+                captured_body = json.loads(request.content)
+            return httpx.Response(200, json={"results": []})
+
+        with create_mock_client(test_credentials, handler) as client:
+            list(client.export_profiles())
+
+        assert "output_properties" not in captured_body
+
+
+# =============================================================================
+# User Story 7: Funnel and Retention
+# =============================================================================
+
+
+class TestFunnelAndRetention:
+    """Test funnel and retention queries (US7)."""
+
+    def test_funnel(self, test_credentials: Session) -> None:
+        """Should execute funnel query."""
+        captured_params: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            for key, value in request.url.params.items():
+                captured_params[key] = value
+            return httpx.Response(200, json={"data": []})
+
+        with create_mock_client(test_credentials, handler) as client:
+            client.funnel(12345, "2024-01-01", "2024-01-31")
+
+        assert captured_params["funnel_id"] == "12345"
+
+    def test_retention(self, test_credentials: Session) -> None:
+        """Should execute retention query."""
+        captured_params: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            for key, value in request.url.params.items():
+                captured_params[key] = value
+            return httpx.Response(200, json={"data": {}})
+
+        with create_mock_client(test_credentials, handler) as client:
+            client.retention("Signup", "Purchase", "2024-01-01", "2024-01-31")
+
+        assert captured_params["born_event"] == "Signup"
+        assert captured_params["event"] == "Purchase"
+
+    def test_retention_default_interval_sends_unit_only(
+        self, test_credentials: Session
+    ) -> None:
+        """Regression: with default interval=1, should send 'unit' but NOT 'interval'.
+
+        Bug: Mixpanel API rejects requests with both 'unit' and 'interval' set together,
+        returning "Validate failed: unit and interval both set".
+        Fix: Only send 'interval' when != 1, otherwise send 'unit'.
+        """
+        captured_params: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            for key, value in request.url.params.items():
+                captured_params[key] = value
+            return httpx.Response(200, json={})
+
+        with create_mock_client(test_credentials, handler) as client:
+            # Default interval is 1
+            client.retention(
+                "Signup",
+                "Purchase",
+                "2024-01-01",
+                "2024-01-31",
+                unit="day",
+                interval=1,  # Default value
+            )
+
+        # Should send 'unit' for standard periods
+        assert "unit" in captured_params
+        assert captured_params["unit"] == "day"
+        # Should NOT send 'interval' when it's the default value of 1
+        assert "interval" not in captured_params
+
+    def test_retention_custom_interval_sends_interval_only(
+        self, test_credentials: Session
+    ) -> None:
+        """Regression: with custom interval!=1, should send 'interval' but NOT 'unit'.
+
+        Bug: Mixpanel API rejects requests with both 'unit' and 'interval' set together,
+        returning "Validate failed: unit and interval both set".
+        Fix: Only send 'interval' when != 1, otherwise send 'unit'.
+        """
+        captured_params: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            for key, value in request.url.params.items():
+                captured_params[key] = value
+            return httpx.Response(200, json={})
+
+        with create_mock_client(test_credentials, handler) as client:
+            # Custom interval of 7 days
+            client.retention(
+                "Signup",
+                "Purchase",
+                "2024-01-01",
+                "2024-01-31",
+                unit="day",
+                interval=7,  # Custom value
+            )
+
+        # Should send 'interval' for custom intervals
+        assert "interval" in captured_params
+        assert captured_params["interval"] == "7"
+        # Should NOT send 'unit' when using custom interval
+        assert "unit" not in captured_params
+
+    def test_retention_unit_and_interval_mutually_exclusive(
+        self, test_credentials: Session
+    ) -> None:
+        """Regression: 'unit' and 'interval' params must never be sent together.
+
+        Bug: Mixpanel API rejects requests with both 'unit' and 'interval' set together,
+        returning "Validate failed: unit and interval both set".
+        This test verifies that regardless of input, only one is sent.
+        """
+        captured_params: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            for key, value in request.url.params.items():
+                captured_params[key] = value
+            return httpx.Response(200, json={})
+
+        # Test with various interval values
+        for interval in [1, 2, 7, 14, 30]:
+            captured_params.clear()
+            with create_mock_client(test_credentials, handler) as client:
+                client.retention(
+                    "Signup",
+                    "Purchase",
+                    "2024-01-01",
+                    "2024-01-31",
+                    unit="day",
+                    interval=interval,
+                )
+
+            # Only one of 'unit' or 'interval' should be present, never both
+            has_unit = "unit" in captured_params
+            has_interval = "interval" in captured_params
+            assert not (has_unit and has_interval), (
+                f"Both 'unit' and 'interval' sent for interval={interval}"
+            )
+            # At least one should be present
+            assert has_unit or has_interval, (
+                f"Neither 'unit' nor 'interval' sent for interval={interval}"
+            )
+
+
+class TestErrorHandling:
+    """Test error handling."""
+
+    def test_query_error_on_400(self, test_credentials: Session) -> None:
+        """Should raise QueryError on 400."""
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(400, json={"error": "Invalid query"})
+
+        with (
+            create_mock_client(test_credentials, handler) as client,
+            pytest.raises(QueryError) as exc_info,
+        ):
+            client.get_events()
+
+        assert "Invalid query" in str(exc_info.value)
+
+    def test_query_error_on_400_with_plain_text(
+        self, test_credentials: Session
+    ) -> None:
+        """Should raise QueryError with plain text response on 400."""
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(400, text="Bad request: missing required field")
+
+        with (
+            create_mock_client(test_credentials, handler) as client,
+            pytest.raises(QueryError) as exc_info,
+        ):
+            client.get_events()
+
+        assert "Bad request: missing required field" in str(exc_info.value)
+
+    def test_query_error_on_412_preserves_body(self, test_credentials: Session) -> None:
+        """A 412 (or other unhandled 4xx) maps to QueryError with body preserved.
+
+        Regression: removing the JQL-specific 412 branch must not let 4xx
+        responses fall through to a generic HTTP error that drops status code
+        and response body.
+        """
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(412, json={"error": "Precondition failed"})
+
+        with (
+            create_mock_client(test_credentials, handler) as client,
+            pytest.raises(QueryError) as exc_info,
+        ):
+            client.get_events()
+
+        exc = exc_info.value
+        assert exc.status_code == 412
+        assert "Precondition failed" in str(exc)
+        assert exc.response_body == {"error": "Precondition failed"}
+
+
+class TestServerErrors:
+    """Test 5xx server error handling."""
+
+    def test_server_error_with_dict_body(self, test_credentials: Session) -> None:
+        """Should raise ServerError with error message from dict."""
+        from mixpanel_headless.exceptions import ServerError
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(500, json={"error": "Internal database error"})
+
+        with (
+            create_mock_client(test_credentials, handler) as client,
+            pytest.raises(ServerError) as exc_info,
+        ):
+            client.get_events()
+
+        assert "Internal database error" in str(exc_info.value)
+        assert exc_info.value.status_code == 500
+
+    def test_server_error_with_string_body(self, test_credentials: Session) -> None:
+        """Should raise ServerError with truncated string body."""
+        from mixpanel_headless.exceptions import ServerError
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(503, text="Service temporarily unavailable")
+
+        with (
+            create_mock_client(test_credentials, handler) as client,
+            pytest.raises(ServerError) as exc_info,
+        ):
+            client.get_events()
+
+        assert "Service temporarily unavailable" in str(exc_info.value)
+        assert exc_info.value.status_code == 503
+
+    def test_server_error_with_empty_body(self, test_credentials: Session) -> None:
+        """Should raise ServerError with status code only."""
+        from mixpanel_headless.exceptions import ServerError
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(502, text="")
+
+        with (
+            create_mock_client(test_credentials, handler) as client,
+            pytest.raises(ServerError) as exc_info,
+        ):
+            client.get_events()
+
+        assert "Server error: 502" in str(exc_info.value)
+
+
+# =============================================================================
+# Regression Tests: Request Encoding
+# =============================================================================
+
+
+class TestRequestEncodingRegression:
+    """Regression tests for request encoding.
+
+    These tests verify that request bodies are encoded correctly and would
+    catch issues like double-serialization of JSON data.
+    """
+
+    def test_profile_export_uses_json_body(self, test_credentials: Session) -> None:
+        """Profile export should use JSON body (not form-encoded).
+
+        Ensures we correctly distinguish which APIs need which encoding.
+        """
+        captured_content_type: str = ""
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal captured_content_type
+            captured_content_type = request.headers.get("content-type", "")
+            return httpx.Response(200, json={"results": []})
+
+        with create_mock_client(test_credentials, handler) as client:
+            list(client.export_profiles())
+
+        # Profile export uses JSON body
+        assert "application/json" in captured_content_type
+
+
+# =============================================================================
+# Regression Tests: State Reset in Retry Scenarios
+# =============================================================================
+
+
+class TestRetryStateResetRegression:
+    """Regression tests for state reset during retry scenarios.
+
+    These tests verify that internal state is properly reset between retry
+    attempts, preventing state accumulation bugs.
+    """
+
+    def test_batch_count_resets_on_retry(self, test_credentials: Session) -> None:
+        """Batch count should reset to zero on each retry attempt.
+
+        Regression: batch_count was not reset between retries, causing
+        accumulated counts across retry attempts.
+        """
+        attempt = 0
+        batch_counts_per_attempt: list[list[int]] = []
+        current_attempt_counts: list[int] = []
+
+        # Create enough events to trigger on_batch callback
+        events_data = "\n".join(
+            json.dumps({"event": f"E{i}", "properties": {"time": i}})
+            for i in range(1500)
+        )
+        mock_data = events_data.encode() + b"\n"
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            nonlocal attempt, current_attempt_counts, batch_counts_per_attempt
+            attempt += 1
+
+            # Save counts from previous attempt
+            if current_attempt_counts:
+                batch_counts_per_attempt.append(current_attempt_counts.copy())
+            current_attempt_counts.clear()
+
+            if attempt == 1:
+                # First attempt: rate limited
+                return httpx.Response(429, headers={"Retry-After": "0"})
+            # Second attempt: success
+            return httpx.Response(200, content=mock_data)
+
+        def on_batch(count: int) -> None:
+            current_attempt_counts.append(count)
+
+        transport = httpx.MockTransport(handler)
+        client = MixpanelAPIClient(
+            session=test_credentials, max_retries=3, _transport=transport
+        )
+
+        with client:
+            list(client.export_events("2024-01-01", "2024-01-31", on_batch=on_batch))
+
+        # Save final attempt counts
+        if current_attempt_counts:
+            batch_counts_per_attempt.append(current_attempt_counts.copy())
+
+        # Verify second attempt counts start from 0, not accumulated
+        assert len(batch_counts_per_attempt) >= 1
+        last_attempt_counts = batch_counts_per_attempt[-1]
+
+        # First batch count should be 1000 (batch size), not accumulated
+        assert 1000 in last_attempt_counts
+        # Final count should be 1500, not 1500 + whatever was counted before
+        assert 1500 in last_attempt_counts
+
+    def test_profile_page_count_resets_on_retry(
+        self, test_credentials: Session
+    ) -> None:
+        """Profile page count should reset on retry attempt.
+
+        Verifies that pagination state doesn't accumulate across retries.
+        """
+        attempt = 0
+        page_counts_per_attempt: list[list[int]] = []
+        current_attempt_counts: list[int] = []
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            nonlocal attempt, current_attempt_counts, page_counts_per_attempt
+            attempt += 1
+
+            if attempt == 1:
+                # First attempt: rate limited
+                return httpx.Response(429, headers={"Retry-After": "0"})
+
+            # Subsequent attempts: paginated response
+            if attempt == 2:
+                return httpx.Response(
+                    200,
+                    json={
+                        "results": [{"$distinct_id": "u1"}],
+                        "session_id": "abc123",
+                    },
+                )
+            return httpx.Response(
+                200,
+                json={"results": [], "session_id": None},
+            )
+
+        def on_batch(count: int) -> None:
+            current_attempt_counts.append(count)
+
+        transport = httpx.MockTransport(handler)
+        client = MixpanelAPIClient(
+            session=test_credentials, max_retries=3, _transport=transport
+        )
+
+        with client:
+            profiles = list(client.export_profiles(on_batch=on_batch))
+
+        # Should have gotten profiles from retry
+        assert len(profiles) == 1
+
+        # on_batch should have been called with counts starting fresh
+        # If state wasn't reset, counts would be wrong
+        assert current_attempt_counts == [1]
+
+    def test_multiple_retries_dont_accumulate_state(
+        self, test_credentials: Session
+    ) -> None:
+        """Multiple retry attempts should each start fresh.
+
+        Verifies no state leakage across multiple retry cycles.
+        """
+        attempts = 0
+
+        # Small event set to keep test fast
+        events_data = "\n".join(
+            json.dumps({"event": f"E{i}", "properties": {"time": i}}) for i in range(5)
+        )
+        mock_data = events_data.encode() + b"\n"
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            nonlocal attempts
+            attempts += 1
+            if attempts < 3:
+                return httpx.Response(429, headers={"Retry-After": "0"})
+            return httpx.Response(200, content=mock_data)
+
+        transport = httpx.MockTransport(handler)
+        client = MixpanelAPIClient(
+            session=test_credentials, max_retries=3, _transport=transport
+        )
+
+        with client:
+            events = list(client.export_events("2024-01-01", "2024-01-31"))
+
+        # Should have made 3 attempts (2 rate-limited + 1 success)
+        assert attempts == 3
+
+        # Should have exactly 5 events (not accumulated across attempts)
+        assert len(events) == 5
+
+    def test_stream_rate_limit_error_carries_project_id(
+        self, test_credentials: Session
+    ) -> None:
+        """Stream export RateLimitError should carry the active project_id."""
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(429, headers={"Retry-After": "0"})
+
+        transport = httpx.MockTransport(handler)
+        client = MixpanelAPIClient(
+            session=test_credentials, max_retries=1, _transport=transport
+        )
+
+        with client, pytest.raises(RateLimitError) as exc_info:
+            list(client.export_events("2024-01-01", "2024-01-31"))
+
+        assert exc_info.value.project_id == "12345"
+
+
+# =============================================================================
+# Public request() Method - Escape Hatch for Arbitrary APIs
+# =============================================================================
+
+
+class TestPublicRequest:
+    """Test the public request() method for arbitrary API calls."""
+
+    def test_request_sends_auth_header(self, test_credentials: Session) -> None:
+        """request() should send authentication header."""
+        captured_headers: dict[str, str] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured_headers.update(dict(request.headers))
+            return httpx.Response(200, json={"result": "ok"})
+
+        with create_mock_client(test_credentials, handler) as client:
+            client.request("GET", "https://mixpanel.com/api/app/test")
+
+        assert "authorization" in captured_headers
+        assert captured_headers["authorization"].startswith("Basic ")
+
+    def test_request_with_query_params(self, test_credentials: Session) -> None:
+        """request() should include query parameters."""
+        captured_url: str = ""
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal captured_url
+            captured_url = str(request.url)
+            return httpx.Response(200, json={})
+
+        with create_mock_client(test_credentials, handler) as client:
+            client.request(
+                "GET",
+                "https://mixpanel.com/api/app/test",
+                params={"foo": "bar", "limit": 10},
+            )
+
+        assert "foo=bar" in captured_url
+        assert "limit=10" in captured_url
+
+    def test_request_with_json_body(self, test_credentials: Session) -> None:
+        """request() should send JSON body for POST requests."""
+        captured_body: dict[str, Any] = {}
+        captured_content_type: str = ""
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal captured_body, captured_content_type
+            captured_content_type = request.headers.get("content-type", "")
+            if request.content:
+                captured_body = json.loads(request.content)
+            return httpx.Response(200, json={"created": True})
+
+        with create_mock_client(test_credentials, handler) as client:
+            client.request(
+                "POST",
+                "https://mixpanel.com/api/app/projects/12345/data",
+                json_body={
+                    "name": "test",
+                    "value": 123,
+                    "query_origin": "mixpanel-headless",
+                },
+            )
+
+        assert "application/json" in captured_content_type
+        assert captured_body == {
+            "name": "test",
+            "value": 123,
+            "query_origin": "mixpanel-headless",
+        }
+
+    def test_request_with_custom_headers(self, test_credentials: Session) -> None:
+        """request() should merge custom headers with auth."""
+        captured_headers: dict[str, str] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured_headers.update(dict(request.headers))
+            return httpx.Response(200, json={})
+
+        with create_mock_client(test_credentials, handler) as client:
+            client.request(
+                "GET",
+                "https://mixpanel.com/api/app/test",
+                headers={"X-Custom-Header": "custom-value"},
+            )
+
+        # Should have both auth and custom headers
+        assert "authorization" in captured_headers
+        assert captured_headers["x-custom-header"] == "custom-value"
+
+    def test_request_auto_injects_query_origin(self, test_credentials: Session) -> None:
+        """request() should auto-inject query_origin even when caller omits it.
+
+        Locks the literal value so a future typo or accidental deletion of
+        the telemetry tag is caught at PR time rather than silently
+        corrupting Mixpanel-internal analytics dashboards.
+        """
+        captured_params: dict[str, str] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured_params.update(dict(request.url.params))
+            return httpx.Response(200, json={})
+
+        with create_mock_client(test_credentials, handler) as client:
+            client.request(
+                "GET",
+                "https://mixpanel.com/api/app/test",
+            )
+
+        assert captured_params["query_origin"] == "mixpanel-headless"
+
+    def test_canonical_query_origin_wins_over_caller(
+        self, test_credentials: Session
+    ) -> None:
+        """Caller-supplied ``query_origin`` cannot override the canonical value.
+
+        The telemetry tag is non-negotiable: even if a caller passes a spoofed
+        ``query_origin`` in ``params``, the canonical ``mixpanel-headless``
+        value must win.
+        """
+        captured_params: dict[str, str] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured_params.update(dict(request.url.params))
+            return httpx.Response(200, json={})
+
+        with create_mock_client(test_credentials, handler) as client:
+            client.request(
+                "GET",
+                "https://mixpanel.com/api/app/test",
+                params={"query_origin": "spoofed-by-caller"},
+            )
+
+        assert captured_params["query_origin"] == "mixpanel-headless"
+
+    def test_request_does_not_inject_project_id(
+        self, test_credentials: Session
+    ) -> None:
+        """request() should NOT automatically inject project_id (user controls URL)."""
+        captured_url: str = ""
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal captured_url
+            captured_url = str(request.url)
+            return httpx.Response(200, json={})
+
+        with create_mock_client(test_credentials, handler) as client:
+            client.request("GET", "https://mixpanel.com/api/app/test")
+
+        # project_id should NOT be automatically added
+        assert "project_id" not in captured_url
+
+    def test_request_returns_json_response(self, test_credentials: Session) -> None:
+        """request() should return parsed JSON response."""
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={"data": {"events": ["A", "B"]}, "status": "ok"},
+            )
+
+        with create_mock_client(test_credentials, handler) as client:
+            result = client.request("GET", "https://mixpanel.com/api/app/test")
+
+        assert result == {"data": {"events": ["A", "B"]}, "status": "ok"}
+
+    def test_request_handles_401(self, test_credentials: Session) -> None:
+        """request() should raise AuthenticationError on 401."""
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(401, json={"error": "Invalid token"})
+
+        with (
+            create_mock_client(test_credentials, handler) as client,
+            pytest.raises(AuthenticationError),
+        ):
+            client.request("GET", "https://mixpanel.com/api/app/test")
+
+    def test_request_handles_400(self, test_credentials: Session) -> None:
+        """request() should raise QueryError on 400."""
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(400, json={"error": "Bad request"})
+
+        with (
+            create_mock_client(test_credentials, handler) as client,
+            pytest.raises(QueryError) as exc_info,
+        ):
+            client.request("GET", "https://mixpanel.com/api/app/test")
+
+        assert "Bad request" in str(exc_info.value)
+
+    def test_request_handles_429_with_retry(self, test_credentials: Session) -> None:
+        """request() should retry on 429."""
+        call_count = 0
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return httpx.Response(429, headers={"Retry-After": "0"})
+            return httpx.Response(200, json={"success": True})
+
+        with create_mock_client(test_credentials, handler) as client:
+            result = client.request("GET", "https://mixpanel.com/api/app/test")
+
+        assert call_count == 2
+        assert result == {"success": True}
+
+    def test_request_raises_rate_limit_after_max_retries(
+        self, test_credentials: Session
+    ) -> None:
+        """request() should raise RateLimitError after max retries."""
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(429, headers={"Retry-After": "0"})
+
+        transport = httpx.MockTransport(handler)
+        client = MixpanelAPIClient(
+            session=test_credentials, max_retries=1, _transport=transport
+        )
+
+        with client, pytest.raises(RateLimitError) as exc_info:
+            client.request("GET", "https://mixpanel.com/api/app/test")
+
+        assert exc_info.value.retry_after == 0
+
+    def test_request_lexicon_schemas_example(self, test_credentials: Session) -> None:
+        """Example: Fetch event schema from Lexicon API."""
+        captured_url: str = ""
+        captured_method: str = ""
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal captured_url, captured_method
+            captured_url = str(request.url)
+            captured_method = request.method
+            return httpx.Response(
+                200,
+                json={
+                    "entityType": "event",
+                    "name": "Added To Cart",
+                    "schemaJson": {"properties": {}},
+                },
+            )
+
+        with create_mock_client(test_credentials, handler) as client:
+            project_id = client.project_id
+            result = client.request(
+                "GET",
+                f"https://mixpanel.com/api/app/projects/{project_id}/schemas/event/Added%20To%20Cart",
+            )
+
+        assert captured_method == "GET"
+        assert "/projects/12345/schemas/event/Added%20To%20Cart" in captured_url
+        assert result["entityType"] == "event"
+        assert result["name"] == "Added To Cart"
+
+
+class TestAPIClientProperties:
+    """Test project_id and region properties on MixpanelAPIClient."""
+
+    def test_project_id_property(self, test_credentials: Session) -> None:
+        """project_id property should return credentials project_id."""
+        client = MixpanelAPIClient(session=test_credentials)
+        assert client.project_id == "12345"
+        client.close()
+
+    def test_region_property_us(self, test_credentials: Session) -> None:
+        """region property should return US for US credentials."""
+        client = MixpanelAPIClient(session=test_credentials)
+        assert client.region == "us"
+        client.close()
+
+    def test_region_property_eu(self, eu_credentials: Session) -> None:
+        """region property should return EU for EU credentials."""
+        client = MixpanelAPIClient(session=eu_credentials)
+        assert client.region == "eu"
+        client.close()
+
+    def test_region_property_india(self, india_credentials: Session) -> None:
+        """region property should return IN for India credentials."""
+        client = MixpanelAPIClient(session=india_credentials)
+        assert client.region == "in"
+        client.close()
+
+
+# =============================================================================
+# Engage API Parameter Validation Tests (018-engage-api-params)
+# =============================================================================
+
+
+class TestEngageParameterValidation:
+    """Test parameter validation for Engage API export_profiles method.
+
+    These tests verify that mutually exclusive parameters and
+    parameter dependencies are correctly validated.
+    """
+
+    def test_distinct_id_distinct_ids_mutually_exclusive(
+        self, test_credentials: Session
+    ) -> None:
+        """Should raise ValueError when both distinct_id and distinct_ids provided.
+
+        T003: These parameters are mutually exclusive - providing both should
+        fail fast with a clear error message.
+        """
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"results": []})
+
+        with (
+            create_mock_client(test_credentials, handler) as client,
+            pytest.raises(ValueError) as exc_info,
+        ):
+            list(
+                client.export_profiles(
+                    distinct_id="user_123",
+                    distinct_ids=["user_456", "user_789"],
+                )
+            )
+
+        assert "distinct_id" in str(exc_info.value).lower()
+        assert "mutually exclusive" in str(exc_info.value).lower()
+
+    def test_behaviors_cohort_id_mutually_exclusive(
+        self, test_credentials: Session
+    ) -> None:
+        """Should raise ValueError when both behaviors and cohort_id provided.
+
+        T004: These parameters are mutually exclusive - providing both should
+        fail fast with a clear error message.
+        """
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"results": []})
+
+        with (
+            create_mock_client(test_credentials, handler) as client,
+            pytest.raises(ValueError) as exc_info,
+        ):
+            list(
+                client.export_profiles(
+                    behaviors=[{"event": "Purchase", "within": 30}],
+                    cohort_id="cohort_123",
+                )
+            )
+
+        assert "behaviors" in str(exc_info.value).lower()
+        assert "cohort" in str(exc_info.value).lower()
+
+    def test_include_all_users_requires_cohort_id(
+        self, test_credentials: Session
+    ) -> None:
+        """Should raise ValueError when include_all_users without cohort_id.
+
+        T005: include_all_users only makes sense in the context of a cohort query.
+        Using it without cohort_id should fail fast.
+        """
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"results": []})
+
+        with (
+            create_mock_client(test_credentials, handler) as client,
+            pytest.raises(ValueError) as exc_info,
+        ):
+            list(client.export_profiles(include_all_users=True))
+
+        assert "include_all_users" in str(exc_info.value).lower()
+        assert "cohort" in str(exc_info.value).lower()
+
+
+class TestEngageParameterEdgeCases:
+    """Test edge cases for Engage API parameters.
+
+    These tests verify behavior for unusual but valid inputs.
+    """
+
+    def test_empty_distinct_ids_list_returns_empty(
+        self, test_credentials: Session
+    ) -> None:
+        """Should return empty results for empty distinct_ids list.
+
+        T005a: An empty list is a valid but degenerate case that should
+        return no results without making an API call.
+        """
+        call_count = 0
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            nonlocal call_count
+            call_count += 1
+            return httpx.Response(200, json={"results": []})
+
+        with create_mock_client(test_credentials, handler) as client:
+            result = list(client.export_profiles(distinct_ids=[]))
+
+        # Should return empty without making API call
+        assert result == []
+        assert call_count == 0
+
+    def test_distinct_ids_deduplicates_input(self, test_credentials: Session) -> None:
+        """Should deduplicate distinct_ids before sending to API.
+
+        T005b: Duplicate IDs in the list should be deduplicated to avoid
+        redundant API work.
+        """
+        captured_body: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.content:
+                nonlocal captured_body
+                captured_body = json.loads(request.content)
+            return httpx.Response(200, json={"results": [], "session_id": None})
+
+        with create_mock_client(test_credentials, handler) as client:
+            list(
+                client.export_profiles(
+                    distinct_ids=["user_1", "user_2", "user_1", "user_3", "user_2"]
+                )
+            )
+
+        # Should have sent deduplicated list (order may vary)
+        sent_ids = json.loads(captured_body.get("distinct_ids", "[]"))
+        assert len(sent_ids) == 3
+        assert set(sent_ids) == {"user_1", "user_2", "user_3"}
+
+    def test_invalid_behaviors_expression_raises_error(
+        self, test_credentials: Session
+    ) -> None:
+        """Should raise ValueError for invalid behaviors structure.
+
+        T005c: Behaviors must be a list of dicts with required fields.
+        Invalid structure should fail fast with validation error.
+        """
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"results": []})
+
+        with (
+            create_mock_client(test_credentials, handler) as client,
+            pytest.raises(ValueError) as exc_info,
+        ):
+            # Invalid: behaviors should be list of dicts, not a string
+            list(client.export_profiles(behaviors="Purchase"))  # type: ignore[arg-type]
+
+        assert "behaviors" in str(exc_info.value).lower()
+
+    def test_as_of_timestamp_in_future_raises_error(
+        self, test_credentials: Session
+    ) -> None:
+        """Should raise ValueError for as_of_timestamp in the future.
+
+        T005d: as_of_timestamp must be in the past to query historical state.
+        Future timestamps are invalid and should fail fast.
+        """
+        import time
+
+        future_timestamp = int(time.time()) + 86400  # Tomorrow
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"results": []})
+
+        with (
+            create_mock_client(test_credentials, handler) as client,
+            pytest.raises(ValueError) as exc_info,
+        ):
+            list(client.export_profiles(as_of_timestamp=future_timestamp))
+
+        assert "as_of_timestamp" in str(exc_info.value).lower()
+        assert "future" in str(exc_info.value).lower()
+
+
+class TestEngageDistinctIdParameter:
+    """Test distinct_id parameter for export_profiles.
+
+    User Story 1: Fetch specific profiles by ID.
+    """
+
+    def test_export_profiles_with_distinct_id(self, test_credentials: Session) -> None:
+        """Should include distinct_id in request body.
+
+        T006: When distinct_id is provided, it should be passed to the API
+        to fetch a specific user's profile.
+        """
+        captured_body: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.content:
+                nonlocal captured_body
+                captured_body = json.loads(request.content)
+            return httpx.Response(
+                200,
+                json={
+                    "results": [{"$distinct_id": "user_123", "$properties": {}}],
+                    "session_id": None,
+                },
+            )
+
+        with create_mock_client(test_credentials, handler) as client:
+            profiles = list(client.export_profiles(distinct_id="user_123"))
+
+        assert captured_body.get("distinct_id") == "user_123"
+        assert len(profiles) == 1
+
+    def test_export_profiles_with_distinct_ids(self, test_credentials: Session) -> None:
+        """Should include distinct_ids as JSON array in request body.
+
+        T007: When distinct_ids is provided, it should be serialized as
+        a JSON array and passed to the API.
+        """
+        captured_body: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.content:
+                nonlocal captured_body
+                captured_body = json.loads(request.content)
+            return httpx.Response(
+                200,
+                json={
+                    "results": [
+                        {"$distinct_id": "user_1", "$properties": {}},
+                        {"$distinct_id": "user_2", "$properties": {}},
+                    ],
+                    "session_id": None,
+                },
+            )
+
+        with create_mock_client(test_credentials, handler) as client:
+            profiles = list(client.export_profiles(distinct_ids=["user_1", "user_2"]))
+
+        # distinct_ids should be serialized as JSON array string
+        sent_ids = json.loads(captured_body.get("distinct_ids", "[]"))
+        assert set(sent_ids) == {"user_1", "user_2"}
+        assert len(profiles) == 2
+
+    def test_distinct_ids_json_serialization(self, test_credentials: Session) -> None:
+        """Should properly JSON-serialize distinct_ids.
+
+        T008: distinct_ids must be serialized as a JSON array string,
+        not just passed as a Python list.
+        """
+        captured_body: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.content:
+                nonlocal captured_body
+                captured_body = json.loads(request.content)
+            return httpx.Response(200, json={"results": [], "session_id": None})
+
+        with create_mock_client(test_credentials, handler) as client:
+            list(client.export_profiles(distinct_ids=["id_with_special!@#", "normal"]))
+
+        # Verify JSON serialization format
+        raw_value = captured_body.get("distinct_ids")
+        assert raw_value is not None
+        parsed = json.loads(raw_value)
+        assert isinstance(parsed, list)
+        assert "id_with_special!@#" in parsed
+
+
+class TestEngageGroupIdParameter:
+    """Test group_id (data_group_id) parameter for export_profiles.
+
+    User Story 2: Query group profiles.
+    """
+
+    def test_export_profiles_with_group_id(self, test_credentials: Session) -> None:
+        """Should include data_group_id in request body when group_id provided.
+
+        T027: When group_id is provided, it should be passed as 'data_group_id'
+        to the API to fetch group profiles instead of user profiles.
+        """
+        captured_body: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.content:
+                nonlocal captured_body
+                captured_body = json.loads(request.content)
+            return httpx.Response(
+                200,
+                json={
+                    "results": [{"$distinct_id": "company_123", "$properties": {}}],
+                    "session_id": None,
+                },
+            )
+
+        with create_mock_client(test_credentials, handler) as client:
+            profiles = list(client.export_profiles(group_id="companies"))
+
+        assert captured_body.get("data_group_id") == "companies"
+        assert len(profiles) == 1
+
+
+class TestEngageBehaviorsParameter:
+    """Test behaviors and as_of_timestamp parameters for export_profiles.
+
+    User Story 3: Behavioral profile filtering.
+    """
+
+    def test_export_profiles_with_behaviors(self, test_credentials: Session) -> None:
+        """Should include behaviors in request body.
+
+        T039: When behaviors is provided, it should be serialized as JSON
+        and passed to the API for behavioral filtering.
+        """
+        captured_body: dict[str, Any] = {}
+        behaviors: list[dict[str, Any]] = [
+            {"event": "Purchase", "within": 30},
+            {"event": "Page View", "count": {"gte": 5}},
+        ]
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.content:
+                nonlocal captured_body
+                captured_body = json.loads(request.content)
+            return httpx.Response(200, json={"results": [], "session_id": None})
+
+        with create_mock_client(test_credentials, handler) as client:
+            list(client.export_profiles(behaviors=behaviors))
+
+        # behaviors should be serialized as JSON string
+        raw_behaviors = captured_body.get("behaviors")
+        assert raw_behaviors is not None
+        parsed = json.loads(raw_behaviors)
+        assert len(parsed) == 2
+        assert parsed[0]["event"] == "Purchase"
+
+    def test_export_profiles_with_as_of_timestamp(
+        self, test_credentials: Session
+    ) -> None:
+        """Should include as_of_timestamp in request body.
+
+        T047: When as_of_timestamp is provided, it should be passed to the
+        API to query profile state at that point in time.
+        """
+        captured_body: dict[str, Any] = {}
+        timestamp = 1704067200  # 2024-01-01 00:00:00 UTC
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.content:
+                nonlocal captured_body
+                captured_body = json.loads(request.content)
+            return httpx.Response(200, json={"results": [], "session_id": None})
+
+        with create_mock_client(test_credentials, handler) as client:
+            list(client.export_profiles(as_of_timestamp=timestamp))
+
+        assert captured_body.get("as_of_timestamp") == timestamp
+
+
+class TestEngageIncludeAllUsersParameter:
+    """Test include_all_users parameter for export_profiles.
+
+    User Story 4: Cohort membership analysis.
+    """
+
+    def test_export_profiles_include_all_users_with_cohort(
+        self, test_credentials: Session
+    ) -> None:
+        """Should include include_all_users when used with cohort_id.
+
+        T059: When include_all_users is True and cohort_id is provided,
+        both should be passed to the API.
+        """
+        captured_body: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.content:
+                nonlocal captured_body
+                captured_body = json.loads(request.content)
+            return httpx.Response(200, json={"results": [], "session_id": None})
+
+        with create_mock_client(test_credentials, handler) as client:
+            list(
+                client.export_profiles(
+                    cohort_id="cohort_123",
+                    include_all_users=True,
+                )
+            )
+
+        # filter_by_cohort requires JSON object format {"id": cohort_id}
+        assert captured_body.get("filter_by_cohort") == '{"id": "cohort_123"}'
+        assert captured_body.get("include_all_users") is True
+
+    def test_export_profiles_include_all_users_false_sent_with_cohort(
+        self, test_credentials: Session
+    ) -> None:
+        """Should explicitly send include_all_users=False with cohort_id.
+
+        T060: When include_all_users is False and cohort_id is provided,
+        the parameter must be sent explicitly because the API defaults to True.
+        Without sending False, users cannot exclude non-members from cohort queries.
+
+        Regression test for bug where include_all_users=False was not sent,
+        causing the API to default to True and return all users.
+        """
+        captured_body: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.content:
+                nonlocal captured_body
+                captured_body = json.loads(request.content)
+            return httpx.Response(200, json={"results": [], "session_id": None})
+
+        with create_mock_client(test_credentials, handler) as client:
+            list(
+                client.export_profiles(
+                    cohort_id="cohort_123",
+                    include_all_users=False,
+                )
+            )
+
+        # filter_by_cohort requires JSON object format {"id": cohort_id}
+        assert captured_body.get("filter_by_cohort") == '{"id": "cohort_123"}'
+        assert captured_body.get("include_all_users") is False
+
+    def test_export_profiles_include_all_users_not_sent_without_cohort(
+        self, test_credentials: Session
+    ) -> None:
+        """Should not send include_all_users when no cohort_id is provided.
+
+        T061: The include_all_users parameter is only meaningful in the context
+        of a cohort query. Without cohort_id, it should not be included in the
+        request body regardless of its value.
+        """
+        captured_body: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.content:
+                nonlocal captured_body
+                captured_body = json.loads(request.content)
+            return httpx.Response(200, json={"results": [], "session_id": None})
+
+        with create_mock_client(test_credentials, handler) as client:
+            # Note: This would normally raise ValueError due to validation,
+            # but we're testing the raw API behavior here. The validation
+            # is tested separately in TestEngageParameterValidation.
+            # For this test, we just verify the parameter isn't sent
+            # when fetching without cohort.
+            list(client.export_profiles())
+
+        assert "include_all_users" not in captured_body
+
+
+# =============================================================================
+# Parallel Profile Fetch (Phase 019) - export_profiles_page
+# =============================================================================
+
+
+class TestExportProfilesPage:
+    """Tests for export_profiles_page API method."""
+
+    def test_first_page_without_session_id(self, test_credentials: Session) -> None:
+        """Should fetch first page without session_id."""
+        captured_body: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal captured_body
+            if request.content:
+                captured_body = json.loads(request.content)
+            return httpx.Response(
+                200,
+                json={
+                    "results": [
+                        {"$distinct_id": "user1", "$properties": {"name": "Alice"}},
+                        {"$distinct_id": "user2", "$properties": {"name": "Bob"}},
+                    ],
+                    "session_id": "session_abc",
+                    "total": 5000,
+                    "page_size": 1000,
+                },
+            )
+
+        with create_mock_client(test_credentials, handler) as client:
+            result = client.export_profiles_page(page=0)
+
+        assert captured_body.get("page") == 0
+        assert "session_id" not in captured_body
+        assert len(result.profiles) == 2
+        assert result.session_id == "session_abc"
+        assert result.page == 0
+        assert result.has_more is True
+
+    def test_subsequent_page_with_session_id(self, test_credentials: Session) -> None:
+        """Should fetch subsequent page with session_id."""
+        captured_body: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal captured_body
+            if request.content:
+                captured_body = json.loads(request.content)
+            return httpx.Response(
+                200,
+                json={
+                    "results": [{"$distinct_id": "user3"}],
+                    "session_id": "session_abc",
+                    "total": 5000,
+                    "page_size": 1000,
+                },
+            )
+
+        with create_mock_client(test_credentials, handler) as client:
+            result = client.export_profiles_page(page=1, session_id="session_abc")
+
+        assert captured_body.get("page") == 1
+        assert captured_body.get("session_id") == "session_abc"
+        assert len(result.profiles) == 1
+        assert result.page == 1
+
+    def test_last_page_no_more_results(self, test_credentials: Session) -> None:
+        """Should detect last page when no session_id is returned."""
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "results": [],
+                    "session_id": None,
+                    "total": 5000,
+                    "page_size": 1000,
+                },
+            )
+
+        with create_mock_client(test_credentials, handler) as client:
+            result = client.export_profiles_page(page=5, session_id="session_abc")
+
+        assert result.profiles == []
+        assert result.session_id is None
+        assert result.has_more is False
+
+    def test_with_filter_parameters(self, test_credentials: Session) -> None:
+        """Should pass filter parameters to the API."""
+        captured_body: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal captured_body
+            if request.content:
+                captured_body = json.loads(request.content)
+            return httpx.Response(
+                200,
+                json={"results": [], "session_id": None, "total": 0, "page_size": 1000},
+            )
+
+        with create_mock_client(test_credentials, handler) as client:
+            client.export_profiles_page(
+                page=0,
+                where='properties["plan"] == "premium"',
+                output_properties=["$name", "$email"],
+            )
+
+        assert captured_body.get("where") == 'properties["plan"] == "premium"'
+        assert captured_body.get("output_properties") == '["$name", "$email"]'
+
+    def test_with_cohort_id(self, test_credentials: Session) -> None:
+        """Should pass cohort_id filter to the API."""
+        captured_body: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal captured_body
+            if request.content:
+                captured_body = json.loads(request.content)
+            return httpx.Response(
+                200,
+                json={"results": [], "session_id": None, "total": 0, "page_size": 1000},
+            )
+
+        with create_mock_client(test_credentials, handler) as client:
+            client.export_profiles_page(
+                page=0,
+                cohort_id="cohort_123",
+            )
+
+        assert captured_body.get("filter_by_cohort") == '{"id": "cohort_123"}'
+
+    def test_with_behaviors(self, test_credentials: Session) -> None:
+        """Should pass behaviors filter to the API."""
+        captured_body: dict[str, Any] = {}
+        behaviors = [
+            {
+                "window": "30d",
+                "name": "purchased",
+                "event_selectors": [{"event": "Purchase"}],
+            }
+        ]
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal captured_body
+            if request.content:
+                captured_body = json.loads(request.content)
+            return httpx.Response(
+                200,
+                json={"results": [], "session_id": None, "total": 0, "page_size": 1000},
+            )
+
+        with create_mock_client(test_credentials, handler) as client:
+            client.export_profiles_page(
+                page=0,
+                behaviors=behaviors,
+            )
+
+        assert "behaviors" in captured_body
+
+    def test_result_type(self, test_credentials: Session) -> None:
+        """Should return ProfilePageResult type."""
+        from mixpanel_headless.types import ProfilePageResult
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "results": [{"$distinct_id": "user1"}],
+                    "session_id": "session_abc",
+                    "total": 1000,
+                    "page_size": 1000,
+                },
+            )
+
+        with create_mock_client(test_credentials, handler) as client:
+            result = client.export_profiles_page(page=0)
+
+        assert isinstance(result, ProfilePageResult)
+
+    def test_has_more_true_when_session_id_present(
+        self, test_credentials: Session
+    ) -> None:
+        """has_more should be True when session_id is returned."""
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "results": [{"$distinct_id": "user1"}],
+                    "session_id": "session_abc",
+                    "total": 5000,
+                    "page_size": 1000,
+                },
+            )
+
+        with create_mock_client(test_credentials, handler) as client:
+            result = client.export_profiles_page(page=0)
+
+        assert result.has_more is True
+
+    def test_has_more_false_when_no_session_id(self, test_credentials: Session) -> None:
+        """has_more should be False when no session_id is returned."""
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "results": [{"$distinct_id": "user1"}],
+                    "session_id": None,
+                    "total": 1,
+                    "page_size": 1000,
+                },
+            )
+
+        with create_mock_client(test_credentials, handler) as client:
+            result = client.export_profiles_page(page=0)
+
+        assert result.has_more is False
+
+    def test_empty_results_with_no_session(self, test_credentials: Session) -> None:
+        """Should handle empty results with no session_id."""
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "results": [],
+                    "session_id": None,
+                    "total": 0,
+                    "page_size": 1000,
+                },
+            )
+
+        with create_mock_client(test_credentials, handler) as client:
+            result = client.export_profiles_page(page=0)
+
+        assert result.profiles == []
+        assert result.session_id is None
+        assert result.has_more is False
+
+
+class TestExportProfilesPagePagination:
+    """Tests for total and page_size extraction from API response.
+
+    The Mixpanel Engage API returns total and page_size in every response,
+    which enables pre-computing the total number of pages for parallel fetching.
+    """
+
+    def test_extracts_total_from_response(self, test_credentials: Session) -> None:
+        """Should extract total from API response.
+
+        The total field indicates how many profiles match the query across
+        all pages, enabling calculation of num_pages.
+        """
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "results": [{"$distinct_id": "user1"}],
+                    "session_id": "session_abc",
+                    "total": 5432,
+                    "page_size": 1000,
+                    "page": 0,
+                },
+            )
+
+        with create_mock_client(test_credentials, handler) as client:
+            result = client.export_profiles_page(page=0)
+
+        assert result.total == 5432
+
+    def test_extracts_page_size_from_response(self, test_credentials: Session) -> None:
+        """Should extract page_size from API response.
+
+        The page_size field indicates profiles per page (typically 1000).
+        """
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "results": [],
+                    "session_id": "session_abc",
+                    "total": 500,
+                    "page_size": 500,
+                    "page": 0,
+                },
+            )
+
+        with create_mock_client(test_credentials, handler) as client:
+            result = client.export_profiles_page(page=0)
+
+        assert result.page_size == 500
+
+    def test_defaults_total_to_zero_when_missing(
+        self, test_credentials: Session
+    ) -> None:
+        """Should default total to 0 when not in response.
+
+        Defensive handling for unexpected API responses.
+        """
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "results": [],
+                    "session_id": None,
+                    # total field missing
+                    "page_size": 1000,
+                },
+            )
+
+        with create_mock_client(test_credentials, handler) as client:
+            result = client.export_profiles_page(page=0)
+
+        assert result.total == 0
+
+    def test_defaults_page_size_to_1000_when_missing(
+        self, test_credentials: Session
+    ) -> None:
+        """Should default page_size to 1000 when not in response.
+
+        1000 is the standard Mixpanel page size for Engage API.
+        """
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "results": [],
+                    "session_id": None,
+                    "total": 0,
+                    # page_size field missing
+                },
+            )
+
+        with create_mock_client(test_credentials, handler) as client:
+            result = client.export_profiles_page(page=0)
+
+        assert result.page_size == 1000
+
+    def test_num_pages_computed_correctly(self, test_credentials: Session) -> None:
+        """num_pages property should be computed from total and page_size.
+
+        Verifies end-to-end that extraction and property work together.
+        """
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "results": [{"$distinct_id": f"user{i}"} for i in range(1000)],
+                    "session_id": "session_abc",
+                    "total": 5432,
+                    "page_size": 1000,
+                    "page": 0,
+                },
+            )
+
+        with create_mock_client(test_credentials, handler) as client:
+            result = client.export_profiles_page(page=0)
+
+        # ceil(5432/1000) = 6
+        assert result.num_pages == 6
+
+
+class _IterableByteStream(SyncByteStream):
+    """Helper stream that yields chunks individually for testing chunk boundaries.
+
+    Unlike httpx.ByteStream which may combine data, this stream yields each
+    chunk from the input list as a separate iteration, allowing tests to
+    verify correct handling of data split across chunk boundaries.
+    """
+
+    def __init__(self, chunks: list[bytes]) -> None:
+        """Initialize with a list of byte chunks to yield.
+
+        Args:
+            chunks: List of byte chunks to yield individually.
+        """
+        self._chunks = chunks
+
+    def __iter__(self) -> Any:
+        """Iterate over chunks.
+
+        Returns:
+            Iterator over byte chunks.
+        """
+        return iter(self._chunks)
+
+    def close(self) -> None:
+        """Close the stream (no-op for this implementation)."""
+
+
+class TestIterJsonlLines:
+    """Tests for the _iter_jsonl_lines buffered line reader.
+
+    This function handles chunk boundary issues in httpx streaming responses
+    where iter_lines() can incorrectly split lines at chunk boundaries.
+    """
+
+    def test_simple_lines(self) -> None:
+        """Should yield complete lines from a simple response.
+
+        Tests basic functionality with single-chunk response containing
+        multiple JSON lines.
+        """
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            content = b'{"event":"a"}\n{"event":"b"}\n{"event":"c"}\n'
+            return httpx.Response(200, content=content)
+
+        with (
+            httpx.Client(transport=httpx.MockTransport(handler)) as client,
+            client.stream("GET", "http://test.example.com") as response,
+        ):
+            lines = list(_iter_jsonl_lines(response))
+
+        assert lines == ['{"event":"a"}', '{"event":"b"}', '{"event":"c"}']
+
+    def test_line_without_trailing_newline(self) -> None:
+        """Should handle final line that doesn't end with newline.
+
+        Some responses may not have a trailing newline after the last JSON object.
+        """
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            content = b'{"event":"a"}\n{"event":"b"}'
+            return httpx.Response(200, content=content)
+
+        with (
+            httpx.Client(transport=httpx.MockTransport(handler)) as client,
+            client.stream("GET", "http://test.example.com") as response,
+        ):
+            lines = list(_iter_jsonl_lines(response))
+
+        assert lines == ['{"event":"a"}', '{"event":"b"}']
+
+    def test_empty_lines_skipped(self) -> None:
+        """Should skip empty lines in the response.
+
+        Empty lines between JSON objects should not be yielded.
+        """
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            content = b'{"event":"a"}\n\n{"event":"b"}\n\n\n{"event":"c"}\n'
+            return httpx.Response(200, content=content)
+
+        with (
+            httpx.Client(transport=httpx.MockTransport(handler)) as client,
+            client.stream("GET", "http://test.example.com") as response,
+        ):
+            lines = list(_iter_jsonl_lines(response))
+
+        assert lines == ['{"event":"a"}', '{"event":"b"}', '{"event":"c"}']
+
+    def test_utf8_content(self) -> None:
+        """Should correctly handle UTF-8 encoded content.
+
+        Multi-byte UTF-8 characters should be properly decoded.
+        """
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            content = '{"event":"日本語"}\n{"event":"한국어"}\n'.encode()
+            return httpx.Response(200, content=content)
+
+        with (
+            httpx.Client(transport=httpx.MockTransport(handler)) as client,
+            client.stream("GET", "http://test.example.com") as response,
+        ):
+            lines = list(_iter_jsonl_lines(response))
+
+        assert lines == ['{"event":"日本語"}', '{"event":"한국어"}']
+
+    def test_chunk_boundary_handling(self) -> None:
+        """Should correctly reassemble lines split across chunk boundaries.
+
+        This tests the core bug fix: when a line is split across multiple chunks,
+        the buffer should accumulate bytes until a complete line is found.
+        """
+        # Simulate chunks that split a line in the middle
+        chunks = [
+            b'{"event":"first"}\n{"eve',  # First line complete, second partial
+            b'nt":"second"}\n{"event":"th',  # Second complete, third partial
+            b'ird"}\n',  # Third complete
+        ]
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            # Use _IterableByteStream to yield each chunk separately
+            return httpx.Response(200, stream=_IterableByteStream(chunks))
+
+        with (
+            httpx.Client(transport=httpx.MockTransport(handler)) as client,
+            client.stream("GET", "http://test.example.com") as response,
+        ):
+            lines = list(_iter_jsonl_lines(response))
+
+        assert lines == [
+            '{"event":"first"}',
+            '{"event":"second"}',
+            '{"event":"third"}',
+        ]
+
+    def test_utf8_split_across_chunks(self) -> None:
+        """Should handle multi-byte UTF-8 characters split across chunk boundaries.
+
+        When a multi-byte UTF-8 character is split between chunks (e.g., the 3-byte
+        sequence for a CJK character), the buffer must accumulate the complete
+        sequence before decoding. Uses errors='replace' to handle any invalid
+        sequences gracefully.
+        """
+        # "日本語" in UTF-8: 日=\xe6\x97\xa5, 本=\xe6\x9c\xac, 語=\xe8\xaa\x9e
+        # Split in the middle of "本" (after first byte \xe6)
+        chunks = [
+            b'{"event":"\xe6\x97\xa5\xe6',  # "日" complete, first byte of "本"
+            b'\x9c\xac\xe8\xaa\x9e"}\n',  # rest of "本" and "語" complete
+        ]
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, stream=_IterableByteStream(chunks))
+
+        with (
+            httpx.Client(transport=httpx.MockTransport(handler)) as client,
+            client.stream("GET", "http://test.example.com") as response,
+        ):
+            lines = list(_iter_jsonl_lines(response))
+
+        assert lines == ['{"event":"日本語"}']
+
+    def test_empty_response(self) -> None:
+        """Should handle empty response gracefully.
+
+        An empty response should yield no lines.
+        """
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, content=b"")
+
+        with (
+            httpx.Client(transport=httpx.MockTransport(handler)) as client,
+            client.stream("GET", "http://test.example.com") as response,
+        ):
+            lines = list(_iter_jsonl_lines(response))
+
+        assert lines == []
+
+    def test_whitespace_only_lines_skipped(self) -> None:
+        """Should skip lines that contain only whitespace.
+
+        Lines with only spaces or tabs should not be yielded.
+        """
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            content = b'{"event":"a"}\n   \n{"event":"b"}\n\t\t\n{"event":"c"}\n'
+            return httpx.Response(200, content=content)
+
+        with (
+            httpx.Client(transport=httpx.MockTransport(handler)) as client,
+            client.stream("GET", "http://test.example.com") as response,
+        ):
+            lines = list(_iter_jsonl_lines(response))
+
+        assert lines == ['{"event":"a"}', '{"event":"b"}', '{"event":"c"}']
+
+
+# =============================================================================
+# Phase 7: with_project() factory (T073)
+# =============================================================================
+
+
+class TestWithProject:
+    """T073: Tests for MixpanelAPIClient.with_project()."""
+
+    def test_with_project_creates_new_client(self, test_credentials: Session) -> None:
+        """with_project should return a new MixpanelAPIClient instance."""
+        original = MixpanelAPIClient(session=test_credentials)
+        new_client = original.with_project("9999999")
+        assert new_client is not original
+        assert new_client._session.project.id == "9999999"
+
+    def test_with_project_preserves_auth(self, test_credentials: Session) -> None:
+        """with_project should keep the same account."""
+        from mixpanel_headless._internal.auth.account import ServiceAccount
+
+        original = MixpanelAPIClient(session=test_credentials)
+        new_client = original.with_project("9999999")
+        assert isinstance(new_client._session.account, ServiceAccount)
+        assert isinstance(test_credentials.account, ServiceAccount)
+        assert new_client._session.account.username == test_credentials.account.username
+        assert (
+            new_client._session.account.secret.get_secret_value()
+            == test_credentials.account.secret.get_secret_value()
+        )
+
+    def test_with_project_preserves_region(self, eu_credentials: Session) -> None:
+        """with_project should keep the same region."""
+        original = MixpanelAPIClient(session=eu_credentials)
+        new_client = original.with_project("9999999")
+        assert new_client._session.account.region == "eu"
+
+    def test_with_project_sets_workspace_id(self, test_credentials: Session) -> None:
+        """with_project should set workspace_id when provided."""
+        original = MixpanelAPIClient(session=test_credentials)
+        new_client = original.with_project("9999999", workspace_id=42)
+        assert new_client.workspace_id == 42
+
+    def test_with_project_no_workspace_id(self, test_credentials: Session) -> None:
+        """with_project without workspace_id should leave it as None."""
+        original = MixpanelAPIClient(session=test_credentials)
+        new_client = original.with_project("9999999")
+        assert new_client.workspace_id is None
+
+    def test_with_project_preserves_timeouts(self, test_credentials: Session) -> None:
+        """with_project should copy timeout and export_timeout."""
+        original = MixpanelAPIClient(
+            session=test_credentials, timeout=30.0, export_timeout=300.0
+        )
+        new_client = original.with_project("9999999")
+        assert new_client._timeout == 30.0
+        assert new_client._export_timeout == 300.0
+
+    def test_with_project_preserves_max_retries(
+        self, test_credentials: Session
+    ) -> None:
+        """with_project should copy max_retries."""
+        original = MixpanelAPIClient(session=test_credentials, max_retries=5)
+        new_client = original.with_project("9999999")
+        assert new_client._max_retries == 5
+
+    def test_with_project_shares_transport(self, test_credentials: Session) -> None:
+        """with_project should share the HTTP transport."""
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"ok": True})
+
+        transport = httpx.MockTransport(handler)
+        original = MixpanelAPIClient(session=test_credentials, _transport=transport)
+        new_client = original.with_project("9999999")
+        assert new_client._transport is transport
+
+    def test_with_project_preserves_oauth_credentials(self) -> None:
+        """with_project should preserve the OAuth account."""
+        from mixpanel_headless._internal.auth.account import OAuthTokenAccount
+
+        oauth_creds = make_session(
+            project_id="12345", region="us", oauth_token="my-oauth-token"
+        )
+        original = MixpanelAPIClient(session=oauth_creds)
+        new_client = original.with_project("9999999")
+        assert isinstance(new_client._session.account, OAuthTokenAccount)
+        assert new_client._session.account.token is not None
+        assert new_client._session.account.token.get_secret_value() == "my-oauth-token"
+
+
+# =============================================================================
+# Client identification headers (User-Agent)
+# =============================================================================
+
+
+class TestClientIdentificationHeaders:
+    """User-Agent stamping on every outbound request path."""
+
+    @pytest.fixture(autouse=True)
+    def _reset_entry_point(self) -> Iterator[None]:
+        """Force ``"lib"`` for each test, then restore the prior value.
+
+        Other test modules may import ``cli.main``, which flips the
+        process-wide entry point to ``"cli"`` at import time. Pin to
+        ``"lib"`` for deterministic assertions; restore on teardown.
+        """
+        from mixpanel_headless._internal.client_metadata import (
+            get_entry_point,
+            set_entry_point,
+        )
+
+        original = get_entry_point()
+        set_entry_point("lib")
+        yield
+        set_entry_point(original)
+
+    def test_user_agent_set_on_standard_request(
+        self, test_credentials: Session
+    ) -> None:
+        """Standard query-API requests carry the library User-Agent."""
+        captured_headers: dict[str, str] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured_headers.update(dict(request.headers))
+            return httpx.Response(200, json=["event1"])
+
+        with create_mock_client(test_credentials, handler) as client:
+            client.get_events()
+
+        assert captured_headers["user-agent"].startswith("mixpanel-headless/")
+        assert "entry=lib" in captured_headers["user-agent"]
+        assert "python/" in captured_headers["user-agent"]
+
+    def test_user_agent_set_on_app_request(self, test_credentials: Session) -> None:
+        """App API requests carry the library User-Agent."""
+        captured_headers: dict[str, str] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured_headers.update(dict(request.headers))
+            return httpx.Response(200, json={"results": []})
+
+        with create_mock_client(test_credentials, handler) as client:
+            client.app_request("GET", "/projects/12345/dashboards")
+
+        assert captured_headers["user-agent"].startswith("mixpanel-headless/")
+
+    def test_user_agent_set_on_export_stream(self, test_credentials: Session) -> None:
+        """Streaming export requests carry the library User-Agent."""
+        captured_headers: dict[str, str] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured_headers.update(dict(request.headers))
+            return httpx.Response(
+                200, content=b'{"event":"A","properties":{"time":1}}\n'
+            )
+
+        with create_mock_client(test_credentials, handler) as client:
+            list(client.export_events("2024-01-01", "2024-01-31"))
+
+        assert captured_headers["user-agent"].startswith("mixpanel-headless/")
+
+    def test_user_agent_reflects_cli_entry_point(
+        self, test_credentials: Session
+    ) -> None:
+        """After set_entry_point("cli"), outbound UA tags entry=cli."""
+        from mixpanel_headless._internal.client_metadata import set_entry_point
+
+        captured_headers: dict[str, str] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured_headers.update(dict(request.headers))
+            return httpx.Response(200, json=["event1"])
+
+        set_entry_point("cli")
+        with create_mock_client(test_credentials, handler) as client:
+            client.get_events()
+
+        assert "entry=cli" in captured_headers["user-agent"]
+
+    def test_session_headers_override_user_agent(self) -> None:
+        """Session.headers wins over the default User-Agent."""
+        from mixpanel_headless._internal.auth.session import Project
+
+        captured_headers: dict[str, str] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured_headers.update(dict(request.headers))
+            return httpx.Response(200, json=["event1"])
+
+        session = Session(
+            account=ServiceAccount(
+                name="team",
+                region="us",
+                username="team.sa",
+                secret=SecretStr("team-secret"),
+            ),
+            project=Project(id="12345"),
+            headers={"User-Agent": "custom-tester/1.0"},
+        )
+        transport = httpx.MockTransport(handler)
+        client = MixpanelAPIClient(session=session, _transport=transport)
+        with client:
+            client.get_events()
+
+        assert captured_headers["user-agent"] == "custom-tester/1.0"
+
+    def test_mp_custom_header_can_override_user_agent(
+        self,
+        test_credentials: Session,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """MP_CUSTOM_HEADER_* env can override the default User-Agent."""
+        monkeypatch.setenv("MP_CUSTOM_HEADER_NAME", "User-Agent")
+        monkeypatch.setenv("MP_CUSTOM_HEADER_VALUE", "env-ua/2.0")
+
+        captured_headers: dict[str, str] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured_headers.update(dict(request.headers))
+            return httpx.Response(200, json=["event1"])
+
+        with create_mock_client(test_credentials, handler) as client:
+            client.get_events()
+
+        assert captured_headers["user-agent"] == "env-ua/2.0"
+
+    def test_caller_extra_header_overrides_default_user_agent(
+        self, test_credentials: Session
+    ) -> None:
+        """Caller-supplied User-Agent via request() wins over the default."""
+        captured_headers: dict[str, str] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured_headers.update(dict(request.headers))
+            return httpx.Response(200, json={})
+
+        with create_mock_client(test_credentials, handler) as client:
+            client.request(
+                "GET",
+                "https://mixpanel.com/api/app/test",
+                headers={"User-Agent": "caller-ua/3.0"},
+            )
+
+        assert captured_headers["user-agent"] == "caller-ua/3.0"
+
+
+# =============================================================================
+# Activity Feed — stream/bookmark migration
+# =============================================================================
+
+
+class TestActivityFeed:
+    """Tests for MixpanelAPIClient.activity_feed() on the stream/bookmark endpoint.
+
+    The activity feed was migrated off the deprecated stream/query endpoint
+    (GET, query params) onto stream/bookmark (POST, JSON body). These tests lock
+    the request contract: POST verb, endpoint path, the empty-``entries`` "all
+    events" trick, the dateRange mapping, and the optional pass-through params.
+    """
+
+    @staticmethod
+    def _capturing_handler(
+        captured: dict[str, Any],
+    ) -> Callable[[httpx.Request], httpx.Response]:
+        """Build a mock handler that records the request into ``captured``.
+
+        Args:
+            captured: Dict populated with the request ``method``, ``path``, and
+                (when present) the parsed JSON ``body``.
+
+        Returns:
+            An httpx mock handler returning an empty raw-mode bookmark response.
+        """
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            """Record method/path/body, then return an OK raw-mode response."""
+            captured["method"] = request.method
+            captured["path"] = request.url.path
+            if request.content:
+                captured["body"] = json.loads(request.content)
+            return httpx.Response(
+                200,
+                json={
+                    "status": "ok",
+                    "results": {"events": [], "sentinel_event": None},
+                },
+            )
+
+        return handler
+
+    def test_posts_to_stream_bookmark_endpoint(self, test_credentials: Session) -> None:
+        """activity_feed() should POST to the /stream/bookmark path."""
+        captured: dict[str, Any] = {}
+
+        with create_mock_client(
+            test_credentials, self._capturing_handler(captured)
+        ) as client:
+            client.set_workspace_id(99999)
+            client.activity_feed(
+                ["user_1"], from_date="2026-05-01", to_date="2026-06-01"
+            )
+
+        assert captured["method"] == "POST"
+        assert captured["path"].endswith("/stream/bookmark")
+
+    def test_body_uses_empty_entries_and_raw_mode(
+        self, test_credentials: Session
+    ) -> None:
+        """The JSON body should request all events (empty entries) in raw mode."""
+        captured: dict[str, Any] = {}
+
+        with create_mock_client(
+            test_credentials, self._capturing_handler(captured)
+        ) as client:
+            client.set_workspace_id(99999)
+            client.activity_feed(
+                ["user_1"], from_date="2026-05-01", to_date="2026-06-01"
+            )
+
+        body = captured["body"]
+        assert body["bookmark"]["entries"] == []
+        assert body["mode"] == "raw"
+        assert body["distinct_ids"] == ["user_1"]
+        assert body["project_id"] == "12345"
+        assert body["workspace_id"] == 99999
+
+    def test_between_date_range_when_both_dates(
+        self, test_credentials: Session
+    ) -> None:
+        """Both dates should map to a 'between' dateRange."""
+        captured: dict[str, Any] = {}
+
+        with create_mock_client(
+            test_credentials, self._capturing_handler(captured)
+        ) as client:
+            client.set_workspace_id(99999)
+            client.activity_feed(
+                ["user_1"], from_date="2026-05-01", to_date="2026-06-01"
+            )
+
+        assert captured["body"]["bookmark"]["dateRange"] == {
+            "type": "between",
+            "from": "2026-05-01",
+            "to": "2026-06-01",
+        }
+
+    def test_since_date_range_when_only_from_date(
+        self, test_credentials: Session
+    ) -> None:
+        """A lone from_date should map to a 'since' dateRange."""
+        captured: dict[str, Any] = {}
+
+        with create_mock_client(
+            test_credentials, self._capturing_handler(captured)
+        ) as client:
+            client.set_workspace_id(99999)
+            client.activity_feed(["user_1"], from_date="2026-05-01")
+
+        assert captured["body"]["bookmark"]["dateRange"] == {
+            "type": "since",
+            "from": "2026-05-01",
+        }
+
+    def test_defaults_to_last_30_days_when_no_dates(
+        self, test_credentials: Session
+    ) -> None:
+        """No dates should default to a relative last-30-days window."""
+        captured: dict[str, Any] = {}
+
+        with create_mock_client(
+            test_credentials, self._capturing_handler(captured)
+        ) as client:
+            client.set_workspace_id(99999)
+            client.activity_feed(["user_1"])
+
+        assert captured["body"]["bookmark"]["dateRange"] == {
+            "type": "relative_after",
+            "window": {"unit": "day", "value": 30},
+        }
+
+    def test_only_to_date_builds_30_day_between_window(
+        self, test_credentials: Session
+    ) -> None:
+        """A lone to_date should produce a 30-day 'between' window ending at it."""
+        captured: dict[str, Any] = {}
+
+        with create_mock_client(
+            test_credentials, self._capturing_handler(captured)
+        ) as client:
+            client.set_workspace_id(99999)
+            client.activity_feed(["user_1"], to_date="2026-06-01")
+
+        date_range = captured["body"]["bookmark"]["dateRange"]
+        assert date_range["type"] == "between"
+        assert date_range["to"] == "2026-06-01"
+        assert date_range["from"] == "2026-05-02"
+
+    def test_optional_params_absent_by_default(self, test_credentials: Session) -> None:
+        """Optional knobs should be omitted from the body unless supplied."""
+        captured: dict[str, Any] = {}
+
+        with create_mock_client(
+            test_credentials, self._capturing_handler(captured)
+        ) as client:
+            client.set_workspace_id(99999)
+            client.activity_feed(
+                ["user_1"], from_date="2026-05-01", to_date="2026-06-01"
+            )
+
+        body = captured["body"]
+        assert body["mode"] == "raw"
+        for key in (
+            "limit",
+            "include_events",
+            "exclude_events",
+            "sentinel_event",
+            "paging_window",
+            "search",
+            "search_properties",
+            "use_custom_events",
+        ):
+            assert key not in body
+
+    def test_passes_through_optional_params(self, test_credentials: Session) -> None:
+        """limit, include_events, sentinel_event, paging_window pass into the body."""
+        captured: dict[str, Any] = {}
+        sentinel = {"event": "X", "properties": {"time": 1, "$insert_id": "i"}}
+
+        with create_mock_client(
+            test_credentials, self._capturing_handler(captured)
+        ) as client:
+            client.set_workspace_id(99999)
+            client.activity_feed(
+                ["user_1"],
+                from_date="2026-05-01",
+                to_date="2026-06-01",
+                limit=500,
+                include_events=["Sign Up", "Purchase"],
+                sentinel_event=sentinel,
+                paging_window=7,
+            )
+
+        body = captured["body"]
+        assert body["limit"] == 500
+        assert body["include_events"] == ["Sign Up", "Purchase"]
+        assert body["sentinel_event"] == sentinel
+        assert body["paging_window"] == 7
+
+    def test_exclude_events_passes_through(self, test_credentials: Session) -> None:
+        """exclude_events should appear in the body when supplied alone."""
+        captured: dict[str, Any] = {}
+
+        with create_mock_client(
+            test_credentials, self._capturing_handler(captured)
+        ) as client:
+            client.set_workspace_id(99999)
+            client.activity_feed(
+                ["user_1"],
+                from_date="2026-05-01",
+                to_date="2026-06-01",
+                exclude_events=["Heartbeat"],
+            )
+
+        assert captured["body"]["exclude_events"] == ["Heartbeat"]
+
+    def test_include_and_exclude_events_together_raises(
+        self, test_credentials: Session
+    ) -> None:
+        """Passing both include_events and exclude_events should raise QueryError."""
+        with create_mock_client(
+            test_credentials, self._capturing_handler({})
+        ) as client:
+            client.set_workspace_id(99999)
+            with pytest.raises(QueryError):
+                client.activity_feed(
+                    ["user_1"],
+                    from_date="2026-05-01",
+                    to_date="2026-06-01",
+                    include_events=["A"],
+                    exclude_events=["B"],
+                )
+
+    def test_search_params_pass_through(self, test_credentials: Session) -> None:
+        """search and search_properties should pass into the body when supplied."""
+        captured: dict[str, Any] = {}
+        search_props = [{"value": "$city", "resourceType": "event"}]
+
+        with create_mock_client(
+            test_credentials, self._capturing_handler(captured)
+        ) as client:
+            client.set_workspace_id(99999)
+            client.activity_feed(
+                ["user_1"],
+                from_date="2026-05-01",
+                to_date="2026-06-01",
+                search="san francisco",
+                search_properties=search_props,
+            )
+
+        body = captured["body"]
+        assert body["search"] == "san francisco"
+        assert body["search_properties"] == search_props
+
+    def test_use_custom_events_in_body(self, test_credentials: Session) -> None:
+        """use_custom_events=True should appear in the body."""
+        captured: dict[str, Any] = {}
+
+        with create_mock_client(
+            test_credentials, self._capturing_handler(captured)
+        ) as client:
+            client.set_workspace_id(99999)
+            client.activity_feed(
+                ["user_1"],
+                from_date="2026-05-01",
+                to_date="2026-06-01",
+                use_custom_events=True,
+            )
+
+        assert captured["body"]["use_custom_events"] is True
+
+    def test_invalid_to_date_only_raises_query_error(
+        self, test_credentials: Session
+    ) -> None:
+        """A malformed to_date-only window should raise QueryError, not ValueError."""
+        with create_mock_client(
+            test_credentials, self._capturing_handler({})
+        ) as client:
+            client.set_workspace_id(99999)
+            with pytest.raises(QueryError):
+                client.activity_feed(["user_1"], to_date="06/01/2026")
+
+    def test_extremely_early_to_date_raises_query_error(
+        self, test_credentials: Session
+    ) -> None:
+        """A to_date too close to datetime.min should raise QueryError, not crash."""
+        with create_mock_client(
+            test_credentials, self._capturing_handler({})
+        ) as client:
+            client.set_workspace_id(99999)
+            with pytest.raises(QueryError):
+                client.activity_feed(["user_1"], to_date="0001-01-10")
+
+    def test_invalid_from_date_raises_query_error(
+        self, test_credentials: Session
+    ) -> None:
+        """A malformed from_date should raise QueryError (symmetric with to_date)."""
+        with create_mock_client(
+            test_credentials, self._capturing_handler({})
+        ) as client:
+            client.set_workspace_id(99999)
+            with pytest.raises(QueryError):
+                client.activity_feed(
+                    ["user_1"], from_date="06/01/2026", to_date="2026-06-30"
+                )
+
+    def test_mutex_error_carries_request_params(
+        self, test_credentials: Session
+    ) -> None:
+        """The include/exclude mutex error should carry structured request_params."""
+        with create_mock_client(
+            test_credentials, self._capturing_handler({})
+        ) as client:
+            client.set_workspace_id(99999)
+            with pytest.raises(QueryError) as exc:
+                client.activity_feed(
+                    ["user_1"], include_events=["A"], exclude_events=["B"]
+                )
+        assert exc.value.request_params == {
+            "include_events": ["A"],
+            "exclude_events": ["B"],
+        }
+
+    def test_search_properties_without_search_raises(
+        self, test_credentials: Session
+    ) -> None:
+        """search_properties without a search string should raise QueryError."""
+        with create_mock_client(
+            test_credentials, self._capturing_handler({})
+        ) as client:
+            client.set_workspace_id(99999)
+            with pytest.raises(QueryError):
+                client.activity_feed(
+                    ["user_1"],
+                    search_properties=[{"value": "$city", "resourceType": "event"}],
+                )
+
+
+# =============================================================================
+# Retry-After hardening (hostile / invalid header values)
+# =============================================================================
+
+
+@pytest.fixture
+def recorded_sleeps(monkeypatch: pytest.MonkeyPatch) -> list[float]:
+    """Capture every ``time.sleep`` call made by the api_client module.
+
+    The retry paths sleep for whatever the server asks; the tests need to see
+    the exact duration without actually waiting for it.
+
+    Args:
+        monkeypatch: pytest monkeypatch fixture (restores ``time.sleep``).
+
+    Returns:
+        A list that accumulates the seconds passed to each ``time.sleep``
+        call, in order.
+    """
+    calls: list[float] = []
+
+    def fake_sleep(seconds: float) -> None:
+        """Record a sleep instead of performing it.
+
+        Args:
+            seconds: Requested sleep duration.
+        """
+        calls.append(seconds)
+
+    monkeypatch.setattr(time, "sleep", fake_sleep)
+    return calls
+
+
+class TestParseRetryAfter:
+    """Test ``_parse_retry_after`` header validation."""
+
+    def test_parses_positive_integer(self, test_credentials: Session) -> None:
+        """A well-formed integer header is returned as an int."""
+        client = MixpanelAPIClient(session=test_credentials)
+        response = httpx.Response(429, headers={"Retry-After": "7"})
+        assert client._parse_retry_after(response) == 7
+
+    def test_parses_zero(self, test_credentials: Session) -> None:
+        """``Retry-After: 0`` means "retry immediately" and is preserved."""
+        client = MixpanelAPIClient(session=test_credentials)
+        response = httpx.Response(429, headers={"Retry-After": "0"})
+        assert client._parse_retry_after(response) == 0
+
+    def test_missing_header_returns_none(self, test_credentials: Session) -> None:
+        """An absent Retry-After header yields None."""
+        client = MixpanelAPIClient(session=test_credentials)
+        assert client._parse_retry_after(httpx.Response(429)) is None
+
+    @pytest.mark.parametrize(
+        "raw",
+        ["abc", "5.5", "", "Wed, 21 Oct 2015 07:28:00 GMT", "1e3", "0x10", "nan"],
+    )
+    def test_unparseable_header_returns_none(
+        self, test_credentials: Session, raw: str
+    ) -> None:
+        """Non-integer header values are treated as absent.
+
+        Args:
+            test_credentials: Session fixture.
+            raw: A Retry-After value Python's ``int()`` cannot parse.
+        """
+        client = MixpanelAPIClient(session=test_credentials)
+        response = httpx.Response(429, headers={"Retry-After": raw})
+        assert client._parse_retry_after(response) is None
+
+    @pytest.mark.parametrize("raw", ["-1", "-3600"])
+    def test_negative_header_returns_none(
+        self, test_credentials: Session, raw: str
+    ) -> None:
+        """A negative Retry-After is invalid and must not reach ``time.sleep``.
+
+        ``time.sleep(-1)`` raises ValueError, so a hostile server could crash
+        the retry loop with a one-character header.
+
+        Args:
+            test_credentials: Session fixture.
+            raw: A negative Retry-After value.
+        """
+        client = MixpanelAPIClient(session=test_credentials)
+        response = httpx.Response(429, headers={"Retry-After": raw})
+        assert client._parse_retry_after(response) is None
+
+
+class TestRetryWaitSeconds:
+    """Test ``_retry_wait_seconds`` clamping and backoff fallback."""
+
+    def test_none_falls_back_to_backoff(self, test_credentials: Session) -> None:
+        """Without a header the exponential backoff value is used."""
+        client = MixpanelAPIClient(session=test_credentials)
+        assert client._retry_wait_seconds(None, 0) == pytest.approx(
+            client._calculate_backoff(0), rel=0.2
+        )
+
+    def test_honors_reasonable_header(self, test_credentials: Session) -> None:
+        """A header below the cap is honored verbatim."""
+        client = MixpanelAPIClient(session=test_credentials)
+        assert client._retry_wait_seconds(5, 3) == 5.0
+
+    def test_zero_header_is_honored(self, test_credentials: Session) -> None:
+        """``Retry-After: 0`` sleeps zero seconds rather than backing off."""
+        client = MixpanelAPIClient(session=test_credentials)
+        assert client._retry_wait_seconds(0, 5) == 0.0
+
+    @pytest.mark.parametrize("retry_after", [61, 3600, 86400, 2**40])
+    def test_huge_header_is_capped(
+        self, test_credentials: Session, retry_after: int
+    ) -> None:
+        """A huge Retry-After is capped at the backoff ceiling, not slept off.
+
+        Args:
+            test_credentials: Session fixture.
+            retry_after: An implausibly large Retry-After value.
+        """
+        client = MixpanelAPIClient(session=test_credentials)
+        assert client._retry_wait_seconds(retry_after, 0) == 60.0
+
+    def test_wait_never_exceeds_cap_for_late_attempts(
+        self, test_credentials: Session
+    ) -> None:
+        """The backoff fallback still honors its own ceiling plus jitter."""
+        client = MixpanelAPIClient(session=test_credentials)
+        assert client._retry_wait_seconds(None, 40) <= 66.0
+
+
+class TestRetryAfterHardening:
+    """End-to-end retry behavior with hostile Retry-After headers."""
+
+    @staticmethod
+    def _rate_limited_then_ok(
+        header: dict[str, str], payload: Any
+    ) -> Callable[[httpx.Request], httpx.Response]:
+        """Build a handler that 429s once and then succeeds.
+
+        Args:
+            header: Response headers for the 429.
+            payload: JSON payload returned on the second call.
+
+        Returns:
+            An httpx.MockTransport handler.
+        """
+        state = {"calls": 0}
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            """Return 429 on the first call, then the payload.
+
+            Args:
+                _request: The outgoing request (unused).
+
+            Returns:
+                The mocked response.
+            """
+            state["calls"] += 1
+            if state["calls"] == 1:
+                return httpx.Response(429, headers=header)
+            return httpx.Response(200, json=payload)
+
+        return handler
+
+    def test_negative_retry_after_uses_backoff(
+        self,
+        test_credentials: Session,
+        recorded_sleeps: list[float],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """A negative Retry-After must not be passed to ``time.sleep``.
+
+        Args:
+            test_credentials: Session fixture.
+            recorded_sleeps: Captured sleep durations.
+            monkeypatch: Used to pin the backoff to a known value.
+        """
+        transport = httpx.MockTransport(
+            self._rate_limited_then_ok({"Retry-After": "-5"}, ["event1"])
+        )
+        client = MixpanelAPIClient(
+            session=test_credentials, max_retries=2, _transport=transport
+        )
+        monkeypatch.setattr(client, "_calculate_backoff", lambda _attempt: 0.125)
+
+        with client:
+            assert client.get_events() == ["event1"]
+
+        assert recorded_sleeps == [0.125]
+
+    def test_huge_retry_after_is_capped(
+        self, test_credentials: Session, recorded_sleeps: list[float]
+    ) -> None:
+        """A day-long Retry-After is clamped to the 60s backoff ceiling.
+
+        Args:
+            test_credentials: Session fixture.
+            recorded_sleeps: Captured sleep durations.
+        """
+        transport = httpx.MockTransport(
+            self._rate_limited_then_ok({"Retry-After": "86400"}, ["event1"])
+        )
+        client = MixpanelAPIClient(
+            session=test_credentials, max_retries=2, _transport=transport
+        )
+
+        with client:
+            assert client.get_events() == ["event1"]
+
+        assert recorded_sleeps == [60.0]
+
+    def test_garbage_retry_after_uses_backoff(
+        self,
+        test_credentials: Session,
+        recorded_sleeps: list[float],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """An unparseable Retry-After falls back to exponential backoff.
+
+        Args:
+            test_credentials: Session fixture.
+            recorded_sleeps: Captured sleep durations.
+            monkeypatch: Used to pin the backoff to a known value.
+        """
+        transport = httpx.MockTransport(
+            self._rate_limited_then_ok({"Retry-After": "soon"}, ["event1"])
+        )
+        client = MixpanelAPIClient(
+            session=test_credentials, max_retries=2, _transport=transport
+        )
+        monkeypatch.setattr(client, "_calculate_backoff", lambda _attempt: 0.25)
+
+        with client:
+            assert client.get_events() == ["event1"]
+
+        assert recorded_sleeps == [0.25]
+
+    def test_negative_retry_after_omitted_from_error(
+        self, test_credentials: Session, recorded_sleeps: list[float]
+    ) -> None:
+        """A negative header is not echoed as ``retry_after`` on the error.
+
+        ``RateLimitError``'s documented usage is ``time.sleep(e.retry_after or
+        60)``, which a negative value would break in caller code too.
+
+        Args:
+            test_credentials: Session fixture.
+            recorded_sleeps: Captured sleep durations (unused, guards timing).
+        """
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            """Always rate limit with a negative Retry-After.
+
+            Args:
+                _request: The outgoing request (unused).
+
+            Returns:
+                A 429 response.
+            """
+            return httpx.Response(429, headers={"Retry-After": "-5"})
+
+        transport = httpx.MockTransport(handler)
+        client = MixpanelAPIClient(
+            session=test_credentials, max_retries=0, _transport=transport
+        )
+
+        with client, pytest.raises(RateLimitError) as exc_info:
+            client.get_events()
+
+        assert exc_info.value.retry_after is None
+        assert "Retry after" not in str(exc_info.value)
+
+    def test_huge_retry_after_reported_verbatim_on_error(
+        self, test_credentials: Session
+    ) -> None:
+        """The cap applies to sleeping, not to what the server is reported to say."""
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            """Always rate limit with a large Retry-After.
+
+            Args:
+                _request: The outgoing request (unused).
+
+            Returns:
+                A 429 response.
+            """
+            return httpx.Response(429, headers={"Retry-After": "3600"})
+
+        transport = httpx.MockTransport(handler)
+        client = MixpanelAPIClient(
+            session=test_credentials, max_retries=0, _transport=transport
+        )
+
+        with client, pytest.raises(RateLimitError) as exc_info:
+            client.get_events()
+
+        assert exc_info.value.retry_after == 3600
+
+    def test_app_request_negative_retry_after_uses_backoff(
+        self,
+        test_credentials: Session,
+        recorded_sleeps: list[float],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """app_request's inline retry validates Retry-After too.
+
+        Args:
+            test_credentials: Session fixture.
+            recorded_sleeps: Captured sleep durations.
+            monkeypatch: Used to pin the backoff to a known value.
+        """
+        transport = httpx.MockTransport(
+            self._rate_limited_then_ok({"Retry-After": "-1"}, {"results": [1]})
+        )
+        client = MixpanelAPIClient(
+            session=test_credentials, max_retries=2, _transport=transport
+        )
+        monkeypatch.setattr(client, "_calculate_backoff", lambda _attempt: 0.5)
+
+        with client:
+            assert client.app_request("GET", "/projects/12345/dashboards") == [1]
+
+        assert recorded_sleeps == [0.5]
+
+    def test_app_request_huge_retry_after_is_capped(
+        self, test_credentials: Session, recorded_sleeps: list[float]
+    ) -> None:
+        """app_request clamps an oversized Retry-After to the backoff ceiling.
+
+        Args:
+            test_credentials: Session fixture.
+            recorded_sleeps: Captured sleep durations.
+        """
+        transport = httpx.MockTransport(
+            self._rate_limited_then_ok({"Retry-After": "99999"}, {"results": [1]})
+        )
+        client = MixpanelAPIClient(
+            session=test_credentials, max_retries=2, _transport=transport
+        )
+
+        with client:
+            assert client.app_request("GET", "/projects/12345/dashboards") == [1]
+
+        assert recorded_sleeps == [60.0]
+
+    def test_export_events_negative_retry_after_uses_backoff(
+        self,
+        test_credentials: Session,
+        recorded_sleeps: list[float],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """The export stream retry validates Retry-After as well.
+
+        Args:
+            test_credentials: Session fixture.
+            recorded_sleeps: Captured sleep durations.
+            monkeypatch: Used to pin the backoff to a known value.
+        """
+        calls = {"n": 0}
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            """Rate limit once with a negative Retry-After, then stream one event.
+
+            Args:
+                _request: The outgoing request (unused).
+
+            Returns:
+                The mocked response.
+            """
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return httpx.Response(429, headers={"Retry-After": "-30"})
+            return httpx.Response(
+                200, content=b'{"event":"A","properties":{"time":1}}\n'
+            )
+
+        transport = httpx.MockTransport(handler)
+        client = MixpanelAPIClient(
+            session=test_credentials, max_retries=2, _transport=transport
+        )
+        monkeypatch.setattr(client, "_calculate_backoff", lambda _attempt: 0.75)
+
+        with client:
+            events = list(client.export_events("2024-01-01", "2024-01-31"))
+
+        assert len(events) == 1
+        assert recorded_sleeps == [0.75]
+
+
+# =============================================================================
+# Error-message fallbacks for blank error bodies
+# =============================================================================
+
+
+class TestBlankErrorBodyFallbacks:
+    """A response with no usable error text must not produce a blank message."""
+
+    @staticmethod
+    def _client(credentials: Session, response: httpx.Response) -> MixpanelAPIClient:
+        """Build a client whose transport always returns ``response``.
+
+        Args:
+            credentials: Session fixture value.
+            response: The response to return for every request.
+
+        Returns:
+            A client wired to a single-response mock transport.
+        """
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            """Return the canned response.
+
+            Args:
+                _request: The outgoing request (unused).
+
+            Returns:
+                The canned response.
+            """
+            return response
+
+        return create_mock_client(credentials, handler)
+
+    def test_400_with_blank_text_body(self, test_credentials: Session) -> None:
+        """A 400 whose body is only whitespace falls back to a default message."""
+        with (
+            self._client(test_credentials, httpx.Response(400, text="   ")) as client,
+            pytest.raises(QueryError) as exc_info,
+        ):
+            client.get_events()
+
+        assert exc_info.value.message.strip() == "Unknown error"
+
+    def test_400_with_blank_error_field(self, test_credentials: Session) -> None:
+        """A 400 body of ``{"error": ""}`` falls back to a default message."""
+        with (
+            self._client(
+                test_credentials, httpx.Response(400, json={"error": ""})
+            ) as client,
+            pytest.raises(QueryError) as exc_info,
+        ):
+            client.get_events()
+
+        assert exc_info.value.message == "Unknown error"
+
+    def test_403_with_blank_error_field(self, test_credentials: Session) -> None:
+        """A 403 body of ``{"error": ""}`` falls back to "Permission denied"."""
+        with (
+            self._client(
+                test_credentials, httpx.Response(403, json={"error": ""})
+            ) as client,
+            pytest.raises(QueryError) as exc_info,
+        ):
+            client.get_events()
+
+        assert exc_info.value.message == "Permission denied"
+
+    def test_404_with_blank_error_field(self, test_credentials: Session) -> None:
+        """A 404 body of ``{"error": ""}`` falls back to "Resource not found"."""
+        with (
+            self._client(
+                test_credentials, httpx.Response(404, json={"error": ""})
+            ) as client,
+            pytest.raises(QueryError) as exc_info,
+        ):
+            client.get_events()
+
+        assert exc_info.value.message == "Resource not found"
+
+    def test_generic_4xx_with_blank_error_field(
+        self, test_credentials: Session
+    ) -> None:
+        """A 412 body of ``{"error": ""}`` falls back to "Request failed"."""
+        with (
+            self._client(
+                test_credentials, httpx.Response(412, json={"error": ""})
+            ) as client,
+            pytest.raises(QueryError) as exc_info,
+        ):
+            client.get_events()
+
+        assert exc_info.value.message == "Request failed"
+
+    def test_400_with_structured_error_value(self, test_credentials: Session) -> None:
+        """A non-string ``error`` value is stringified, never leaked as a dict."""
+        with (
+            self._client(
+                test_credentials,
+                httpx.Response(400, json={"error": {"code": "BAD_SEGMENT"}}),
+            ) as client,
+            pytest.raises(QueryError) as exc_info,
+        ):
+            client.get_events()
+
+        assert isinstance(exc_info.value.message, str)
+        assert "BAD_SEGMENT" in exc_info.value.message
+
+    def test_500_with_blank_error_field(self, test_credentials: Session) -> None:
+        """A 5xx body of ``{"error": ""}`` still names the status code."""
+        from mixpanel_headless.exceptions import ServerError
+
+        with (
+            self._client(
+                test_credentials, httpx.Response(500, json={"error": ""})
+            ) as client,
+            pytest.raises(ServerError) as exc_info,
+        ):
+            client.get_events()
+
+        assert exc_info.value.message == "Server error: 500"
+
+    def test_400_message_preserved_when_present(
+        self, test_credentials: Session
+    ) -> None:
+        """A usable message is passed through untouched (no stripping)."""
+        with (
+            self._client(
+                test_credentials, httpx.Response(400, json={"error": " boom "})
+            ) as client,
+            pytest.raises(QueryError) as exc_info,
+        ):
+            client.get_events()
+
+        assert exc_info.value.message == " boom "
+
+
+# =============================================================================
+# Request-context symmetry across error branches
+# =============================================================================
+
+
+class TestErrorContextSymmetry:
+    """Every error branch should carry the same request context."""
+
+    def test_401_carries_request_body(self, test_credentials: Session) -> None:
+        """A 401 echoes the request body, like the 400/403/404 branches do."""
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            """Return an unauthenticated response.
+
+            Args:
+                _request: The outgoing request (unused).
+
+            Returns:
+                A 401 response.
+            """
+            return httpx.Response(401, json={"error": "nope"})
+
+        with (
+            create_mock_client(test_credentials, handler) as client,
+            pytest.raises(AuthenticationError) as exc_info,
+        ):
+            client.request(
+                "POST",
+                "https://mixpanel.com/api/app/test",
+                json_body={"name": "dash"},
+            )
+
+        exc = exc_info.value
+        assert exc.request_body == {"name": "dash"}
+        assert exc.details["request_body"] == {"name": "dash"}
+        assert exc.request_params is not None
+
+    def test_app_request_422_carries_request_params(
+        self, test_credentials: Session
+    ) -> None:
+        """The 422 branch carries query params, like every other error branch."""
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            """Return a validation failure.
+
+            Args:
+                _request: The outgoing request (unused).
+
+            Returns:
+                A 422 response.
+            """
+            return httpx.Response(422, json={"error": "bad field"})
+
+        with (
+            create_mock_client(test_credentials, handler) as client,
+            pytest.raises(QueryError) as exc_info,
+        ):
+            client.app_request(
+                "POST",
+                "/projects/12345/dashboards",
+                params={"workspace_id": "77"},
+                json_body={"title": "x"},
+            )
+
+        exc = exc_info.value
+        assert exc.request_params == {"workspace_id": "77"}
+        assert exc.request_body == {"title": "x"}
+
+    def test_app_request_rate_limit_carries_request_params(
+        self, test_credentials: Session, recorded_sleeps: list[float]
+    ) -> None:
+        """The app_request 429 exhaustion error carries query params.
+
+        Args:
+            test_credentials: Session fixture.
+            recorded_sleeps: Captured sleep durations (keeps the test fast).
+        """
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            """Always rate limit.
+
+            Args:
+                _request: The outgoing request (unused).
+
+            Returns:
+                A 429 response.
+            """
+            return httpx.Response(429)
+
+        transport = httpx.MockTransport(handler)
+        client = MixpanelAPIClient(
+            session=test_credentials, max_retries=0, _transport=transport
+        )
+
+        with client, pytest.raises(RateLimitError) as exc_info:
+            client.app_request(
+                "GET", "/projects/12345/dashboards", params={"workspace_id": "77"}
+            )
+
+        assert exc_info.value.request_params == {"workspace_id": "77"}
+        assert exc_info.value.project_id == "12345"
+
+    def test_app_request_http_error_details_carry_request_params(
+        self, test_credentials: Session
+    ) -> None:
+        """Transport failures report the params that were in flight."""
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            """Fail at the transport layer.
+
+            Args:
+                _request: The outgoing request (unused).
+
+            Raises:
+                httpx.ConnectError: Always.
+            """
+            raise httpx.ConnectError("connection refused")
+
+        with (
+            create_mock_client(test_credentials, handler) as client,
+            pytest.raises(MixpanelHeadlessError) as exc_info,
+        ):
+            client.app_request(
+                "GET", "/projects/12345/dashboards", params={"workspace_id": "77"}
+            )
+
+        assert exc_info.value.details["request_params"] == {"workspace_id": "77"}
+
+
+# =============================================================================
+# Coded guard errors — AC2–AC6 export_profiles guards (E2 pass, design §1.6)
+# =============================================================================
+
+
+class TestCodedExportProfilesCodes:
+    """Coded-guard tests for the export_profiles AC* sites (design §1.6).
+
+    Assertions are class + ``.code`` only — never message text (R5.4).
+    """
+
+    @staticmethod
+    def _client(credentials: Session) -> MixpanelAPIClient:
+        """Build a client whose transport returns an empty profile page.
+
+        Args:
+            credentials: Session to bind the client to.
+
+        Returns:
+            MixpanelAPIClient with a mock transport (never reached by
+            the guard tests — all guards fire pre-transport).
+        """
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            """Return an empty engage results page."""
+            return httpx.Response(200, json={"results": []})
+
+        return create_mock_client(credentials, handler)
+
+    def test_ac2_single_ids_raise_coded_error(self, test_credentials: Session) -> None:
+        """distinct_id together with distinct_ids raises AC2."""
+        with self._client(test_credentials) as client:
+            with pytest.raises(ParamValidationError) as excinfo:
+                list(client.export_profiles(distinct_id="u1", distinct_ids=["u2"]))
+            assert excinfo.value.code == "AC2_DISTINCT_ID_CONFLICT"
+
+    def test_ac2_many_ids_raise_coded_error(self, test_credentials: Session) -> None:
+        """AC2 fires regardless of how many distinct_ids are supplied."""
+        with self._client(test_credentials) as client:
+            with pytest.raises(ParamValidationError) as excinfo:
+                list(
+                    client.export_profiles(
+                        distinct_id="u1", distinct_ids=["u2", "u3", "u4"]
+                    )
+                )
+            assert excinfo.value.code == "AC2_DISTINCT_ID_CONFLICT"
+
+    def test_ac3_behaviors_with_cohort_raise_coded_error(
+        self, test_credentials: Session
+    ) -> None:
+        """behaviors together with cohort_id raises AC3."""
+        with self._client(test_credentials) as client:
+            with pytest.raises(ParamValidationError) as excinfo:
+                list(
+                    client.export_profiles(
+                        behaviors=[{"event": "Purchase"}], cohort_id="c1"
+                    )
+                )
+            assert excinfo.value.code == "AC3_BEHAVIORS_COHORT_CONFLICT"
+
+    def test_ac3_empty_behaviors_with_cohort_raise_coded_error(
+        self, test_credentials: Session
+    ) -> None:
+        """An empty behaviors list still conflicts with cohort_id (AC3)."""
+        with self._client(test_credentials) as client:
+            with pytest.raises(ParamValidationError) as excinfo:
+                list(client.export_profiles(behaviors=[], cohort_id="c1"))
+            assert excinfo.value.code == "AC3_BEHAVIORS_COHORT_CONFLICT"
+
+    def test_ac4_include_all_users_alone_raises_coded_error(
+        self, test_credentials: Session
+    ) -> None:
+        """include_all_users without cohort_id raises AC4."""
+        with self._client(test_credentials) as client:
+            with pytest.raises(ParamValidationError) as excinfo:
+                list(client.export_profiles(include_all_users=True))
+            assert excinfo.value.code == "AC4_INCLUDE_ALL_USERS_REQUIRES_COHORT"
+
+    def test_ac4_include_all_users_with_where_raises_coded_error(
+        self, test_credentials: Session
+    ) -> None:
+        """AC4 fires even when other engage params are present."""
+        with self._client(test_credentials) as client:
+            with pytest.raises(ParamValidationError) as excinfo:
+                list(
+                    client.export_profiles(
+                        include_all_users=True,
+                        where='properties["plan"] == "premium"',
+                    )
+                )
+            assert excinfo.value.code == "AC4_INCLUDE_ALL_USERS_REQUIRES_COHORT"
+
+    def test_ac5_behaviors_string_raises_coded_error(
+        self, test_credentials: Session
+    ) -> None:
+        """A string behaviors value raises AC5."""
+        with self._client(test_credentials) as client:
+            with pytest.raises(ParamValidationError) as excinfo:
+                list(client.export_profiles(behaviors="not-a-list"))  # type: ignore[arg-type]
+            assert excinfo.value.code == "AC5_BEHAVIORS_NOT_LIST"
+
+    def test_ac5_behaviors_dict_raises_coded_error(
+        self, test_credentials: Session
+    ) -> None:
+        """A bare dict behaviors value raises AC5."""
+        with self._client(test_credentials) as client:
+            with pytest.raises(ParamValidationError) as excinfo:
+                list(client.export_profiles(behaviors={"event": "P"}))  # type: ignore[arg-type]
+            assert excinfo.value.code == "AC5_BEHAVIORS_NOT_LIST"
+
+    def test_ac6_near_future_timestamp_raises_coded_error(
+        self, test_credentials: Session
+    ) -> None:
+        """An as_of_timestamp slightly in the future raises AC6."""
+        with self._client(test_credentials) as client:
+            with pytest.raises(ParamValidationError) as excinfo:
+                list(client.export_profiles(as_of_timestamp=int(time.time()) + 10_000))
+            assert excinfo.value.code == "AC6_AS_OF_TIMESTAMP_FUTURE"
+
+    def test_ac6_far_future_timestamp_raises_coded_error(
+        self, test_credentials: Session
+    ) -> None:
+        """An as_of_timestamp far in the future raises AC6."""
+        with self._client(test_credentials) as client:
+            with pytest.raises(ParamValidationError) as excinfo:
+                list(
+                    client.export_profiles(
+                        as_of_timestamp=int(time.time()) + 10_000_000
+                    )
+                )
+            assert excinfo.value.code == "AC6_AS_OF_TIMESTAMP_FUTURE"
+
+    def test_ac_guards_stay_catchable_as_value_error(
+        self, test_credentials: Session
+    ) -> None:
+        """Converted AC* guards remain catchable via bare ValueError."""
+        with self._client(test_credentials) as client:
+            with pytest.raises(ValueError) as excinfo:
+                list(client.export_profiles(include_all_users=True))
+            assert isinstance(excinfo.value, ParamValidationError)
+            assert excinfo.value.code == "AC4_INCLUDE_ALL_USERS_REQUIRES_COHORT"

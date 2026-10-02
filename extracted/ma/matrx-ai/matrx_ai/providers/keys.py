@@ -175,6 +175,16 @@ def resolve_api_key(*env_names: str, required: bool = False) -> str | None:
     return None
 
 
+#: ``max_retries`` for every provider SDK client an adapter builds. OUR loops own
+#: retries — the executor's provider retry (schedules, the visible "retrying"
+#: state, admission's 429 accounting) and aidream's ``transcribe_audio`` — and
+#: billing classification decides what may be retried. The Stainless SDKs'
+#: silent default of 2 stacked beneath them bought a timed-out paid call up to
+#: 9 times and hid 429s from admission (2026-10-01). Guard:
+#: ``tests/test_sdk_clients_never_retry_beneath_our_loop.py``.
+NO_SDK_RETRIES = 0
+
+
 class keyed_provider_client:  # noqa: N801 — descriptor, used like a property
     """Data descriptor that memoizes a provider SDK client ON THE RESOLVED KEY.
 

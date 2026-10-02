@@ -1,3 +1,0 @@
----
-features:
-  - Add ``Graph::pop_decision()`` and ``Graph::swap_decisions()`` methods.

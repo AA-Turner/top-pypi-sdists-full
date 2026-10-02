@@ -1,0 +1,407 @@
+Metadata-Version: 2.4
+Name: fraiseql-confiture
+Version: 1.29.0
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Database
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Dist: typer>=0.12.0
+Requires-Dist: rich>=13.7.0
+Requires-Dist: pydantic>=2.5.0
+Requires-Dist: pyyaml>=6.0.1
+Requires-Dist: psycopg[binary,pool]>=3.1.0
+Requires-Dist: sqlglot>=28.0
+Requires-Dist: pglast>=6.0
+Requires-Dist: pytest>=8.0.0 ; extra == 'testing'
+Requires-Dist: pytest-asyncio>=0.23.0 ; extra == 'testing'
+Requires-Dist: pytest-cov>=4.1.0 ; extra == 'testing'
+Requires-Dist: pytest-json-report>=1.5.0 ; extra == 'testing'
+Requires-Dist: pytest-xdist>=3.0.0 ; extra == 'testing'
+Requires-Dist: pytest>=8.0.0 ; extra == 'dev'
+Requires-Dist: pytest-asyncio>=0.23.0 ; extra == 'dev'
+Requires-Dist: pytest-cov>=4.1.0 ; extra == 'dev'
+Requires-Dist: pytest-xdist>=3.0.0 ; extra == 'dev'
+Requires-Dist: pytest-watch>=4.2.0 ; extra == 'dev'
+Requires-Dist: pytest-json-report>=1.5.0 ; extra == 'dev'
+Requires-Dist: ruff>=0.6.0 ; extra == 'dev'
+Requires-Dist: ty>=0.0.7 ; extra == 'dev'
+Requires-Dist: maturin>=1.7.0 ; extra == 'dev'
+Requires-Dist: fastapi>=0.111 ; extra == 'dev'
+Requires-Dist: httpx>=0.27 ; extra == 'dev'
+Requires-Dist: jsonschema>=4 ; extra == 'dev'
+Requires-Dist: fraiseql-uuid>=0.1.3 ; extra == 'seed-uuid'
+Requires-Dist: fastapi>=0.111 ; extra == 'mcp-http'
+Requires-Dist: uvicorn[standard]>=0.29 ; extra == 'mcp-http'
+Requires-Dist: mkdocs>=1.6 ; extra == 'docs'
+Requires-Dist: mkdocs-material>=9.5 ; extra == 'docs'
+Requires-Dist: mkdocstrings[python]>=0.26 ; extra == 'docs'
+Requires-Dist: pymdown-extensions>=10.0 ; extra == 'docs'
+Requires-Dist: jinja2>=3.1 ; extra == 'notifications'
+Provides-Extra: testing
+Provides-Extra: dev
+Provides-Extra: fraiseql
+Provides-Extra: seed-uuid
+Provides-Extra: ast
+Provides-Extra: mcp-http
+Provides-Extra: docs
+Provides-Extra: notifications
+License-File: LICENSE
+Summary: PostgreSQL migrations, sweetly done: build from DDL, migrate, preflight, sync 🍓
+Keywords: postgresql,migration,database,schema,ddl,schema-diff,drift-detection,seed-data
+Home-Page: https://github.com/fraiseql/confiture
+Author-email: evoludigit <lionel.hamayon@evolution-digitale.fr>
+License: MIT
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Homepage, https://github.com/fraiseql/confiture
+Project-URL: Documentation, https://github.com/fraiseql/confiture
+Project-URL: Repository, https://github.com/fraiseql/confiture
+Project-URL: Issues, https://github.com/fraiseql/confiture/issues
+Project-URL: FraiseQL, https://github.com/fraiseql/fraiseql
+
+# Confiture 🍓
+
+**PostgreSQL migrations, sweetly done.**
+
+Build from DDL. Adopt on day one against a database that already has migrations applied. Preflight every deploy by replaying the pending migrations against a parallel database, rolled back. Sync production data with PII anonymization.
+
+[![PyPI](https://img.shields.io/pypi/v/fraiseql-confiture.svg?logo=python&logoColor=white)](https://pypi.org/project/fraiseql-confiture/)
+[![Quality Gate](https://github.com/fraiseql/confiture/actions/workflows/quality-gate.yml/badge.svg)](https://github.com/fraiseql/confiture/actions/workflows/quality-gate.yml)
+[![Python Version Matrix](https://github.com/fraiseql/confiture/actions/workflows/python-version-matrix.yml/badge.svg)](https://github.com/fraiseql/confiture/actions/workflows/python-version-matrix.yml)
+[![Examples](https://github.com/fraiseql/confiture/actions/workflows/examples.yml/badge.svg)](https://github.com/fraiseql/confiture/actions/workflows/examples.yml)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue)](https://www.python.org/)
+[![PostgreSQL 14+](https://img.shields.io/badge/PostgreSQL-14%2B-blue)](https://www.postgresql.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+---
+
+## In 30 seconds
+
+```bash
+# 1. You already have a database at migration 004 (applied by hand or by another tool).
+#    Tell Confiture about that history without re-running the SQL:
+$ confiture migrate baseline --through 004 -c db/environments/production.yaml
+  ✅ 001 create_users (marked as applied)
+  ✅ 002 create_orders (marked as applied)
+  ✅ 003 add_user_email (marked as applied)
+  ✅ 004 add_user_preferences (marked as applied)
+✅ Marked 4 migration(s) as applied, skipped 0 already applied
+
+# 2. Machine-readable proof that the tracking is healthy:
+$ confiture migrate status -c db/environments/production.yaml --format json | jq '.applied | length'
+4
+
+# 3. Preflight: replay the pending migrations on a parallel DB, inside a rollback.
+$ confiture migrate preflight --against "$PREFLIGHT_URL" -c db/environments/production.yaml
+Execution check: 1 migration(s) against postgresql://preflight-host/app
+
+  ✓  20260520143015  add_user_bio                              (0.02s)
+
+  ✓ All 1 migration(s) passed.
+  (Rolled back — preflight DB unchanged)
+exit 0
+```
+
+That's the loop. **Baseline once → status to confirm → preflight every deploy.**
+
+---
+
+## Already have migrations?
+
+The single biggest reason migration tools fail adoption is the day-one cliff: existing tables already exist, so any tool that tries to apply migrations from scratch crashes on the first `CREATE TABLE`. Confiture's answer is `migrate baseline`:
+
+```bash
+confiture migrate baseline --through <last-applied-version>
+```
+
+The walkthrough — including failure modes, the integration test that backs the recipe, and what `tb_confiture` ends up looking like — is in [docs/guides/legacy-bootstrap.md](docs/guides/legacy-bootstrap.md).
+
+---
+
+## No `db/schema/` directory? That works too.
+
+`confiture migrate up`, `down`, `down-to`, `status`, `current`, `baseline`,
+and `preflight` are the migration runner — they don't require a `db/schema/`
+directory (`migrate current` prints the latest applied revision as a narrow
+"what's deployed?" contract; `migrate down --steps N` rolls back relatively
+while `migrate down-to <revision>` rolls back to a specific revision, refusing
+atomically if any required `.down.sql` is missing). The
+"Build from DDL" pitch above the fold sells one of confiture's four
+strategies; the other three (incremental migrations, production sync,
+schema-to-schema FDW migration) work against a project whose only source
+of truth is the migration chain itself.
+
+If you're evaluating confiture against Flyway / Alembic / dbmate / sqlx-cli
+as a pure migration runner, skip `confiture build` and use everything else.
+Walkthrough: [docs/guides/02-incremental-migrations.md](docs/guides/02-incremental-migrations.md).
+
+---
+
+## When to use Confiture?
+
+| Capability | Confiture | Flyway | Alembic | dbmate | sqlx-cli | plain psql |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| Source of truth | DDL files *or* migration chain | migration chain | model classes | migration chain | migration chain | DDL files |
+| Tracking table | yes | yes | yes | yes | yes | no |
+| Rollback (`down.sql`) | yes | paid | yes | yes | yes | no |
+| Preflight against a copy DB | **yes (replayed, rolled back)** | no | no | no | no | no |
+| Build from scratch in <1s | **yes** | no | no | no | no | yes (manual) |
+| Production sync + anonymization | **yes** | no | no | no | no | no |
+| Zero-downtime via FDW | **yes** | no | no | no | no | no |
+| Ecosystem maturity / stars | early | very mature | mature | mature | mature | n/a |
+
+> **Note on "source of truth":** confiture can run as a pure migration tool against a project that has no `db/schema/` directory — the DDL workflow is opt-in. See [No `db/schema/` directory?](#no-dbschema-directory-that-works-too) above.
+
+Confiture wins on **build-from-DDL**, **replayed preflight**, and **production sync**. It loses on ecosystem age — Flyway and Alembic have a decade of community knowledge. Pick honestly.
+
+### Adoption checklist
+
+| Situation | Recommended tool |
+|---|---|
+| 1 environment + 1 contributor, schema rarely changes | plain `psql` |
+| 2+ environments, schema changes weekly | Confiture, Flyway, Alembic, or dbmate |
+| Multi-agent / AI-driven development on shared schemas | Confiture with the pgGit plugin ([`plugins/fraiseql-confiture-pggit/`](plugins/fraiseql-confiture-pggit/README.md)) |
+| You have a migration chain (no `db/schema/`) and want preflight + tracking | **Confiture** (use everything except `confiture build`) |
+| You want `db/schema/` to be source of truth, not a migration chain | **Confiture** |
+| You need zero-downtime schema swaps with `postgres_fdw` | **Confiture** (Medium 4) |
+| You're committed to SQLAlchemy ORM | Alembic |
+| You're committed to a JVM stack | Flyway |
+
+---
+
+## CI integration
+
+A `migrate preflight` gate on every PR, a `migrate up` step on deploy. Exit codes are semantic, so the CI configuration stays simple:
+
+```yaml
+# .github/workflows/db.yml
+name: DB
+
+on:
+  pull_request:
+    paths:
+      - 'db/**'
+  push:
+    branches: [main]
+
+jobs:
+  preflight:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: x }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - run: uv pip install --system fraiseql-confiture
+      - name: Restore production snapshot to preflight DB
+        run: ./scripts/restore-snapshot.sh   # your own; pg_restore from S3/GCS
+      - name: Confiture preflight
+        env:
+          PREFLIGHT_URL: postgresql://postgres:x@localhost:5432/preflight
+        run: |
+          confiture migrate preflight \
+            --against "$PREFLIGHT_URL" \
+            -c db/environments/preflight.yaml \
+            --format json --output preflight.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: preflight-report
+          path: preflight.json
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - run: uv pip install --system fraiseql-confiture
+      # No YAML needed in CI — the migrate family reads DATABASE_URL directly
+      # (or pass --database-url "$DSN"). See the connection-source docs below.
+      - run: confiture migrate up
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+```
+
+`migrate up`/`down`/`status`/`verify`/`preflight` accept `--database-url <dsn>` (or read `CONFITURE_DATABASE_URL` / `DATABASE_URL`) so runtime-resolved DSNs need no temp YAML — precedence and details in [the CLI reference](docs/reference/cli.md#connection-source-and-precedence).
+
+Exit codes are a documented stability contract — see [the exit-code reference](docs/reference/exit-codes.md). The most operationally important: `2` tracking table absent, `3` DB connection failed, `5` config invalid, `6` lock contention. For `migrate preflight`'s drift-gate codes specifically, see [the dry-run guide](docs/guides/dry-run.md).
+
+> Migrations that open their own SAVEPOINTs, use `psycopg`'s
+> `conn.transaction()`, or wrap `DO $$ … EXCEPTION WHEN … $$` blocks
+> are supported under all three modes. The rules a migration body must
+> follow for the SAVEPOINT-based rollback to stay clean are documented
+> in [the transaction & SAVEPOINT contract](docs/reference/transaction-contract.md).
+
+---
+
+## Python project snippet
+
+Add Confiture as a dev dependency. `pglast` (PostgreSQL's own parser) comes with it since 0.50.0.
+
+```toml
+# pyproject.toml
+[dependency-groups]
+dev = [
+  "fraiseql-confiture>=0.50",
+  "pytest>=8",
+]
+```
+
+```just
+# justfile
+default:
+    just --list
+
+db-build:
+    confiture build --env local
+
+db-up:
+    confiture migrate up
+
+db-status:
+    confiture migrate status
+
+db-preflight:
+    confiture migrate preflight --against "$PREFLIGHT_URL"
+```
+
+Or as a `Makefile`:
+
+```makefile
+db-build:
+	confiture build --env local
+
+db-up:
+	confiture migrate up
+
+db-status:
+	confiture migrate status
+```
+
+---
+
+## Library API
+
+Confiture is a CLI first, but the migrator is fully usable from Python:
+
+```python
+from confiture import Migrator
+
+with Migrator.from_config("db/environments/prod.yaml") as m:
+    status = m.status()
+    if status.has_pending:
+        result = m.up()
+        print(f"Applied {len(result.applied)} migrations")
+```
+
+## Building on confiture
+
+What confiture knows about a schema is a public seam, `confiture.platform`: read a schema
+from DDL or from a live database into one model, diff two schemas into typed changes,
+order tables by their foreign keys, say which columns a writer supplies and what each must
+respect, and write, apply and validate seed files. Every name and signature is pinned by a
+contract test, and no signature exposes a parser or driver type.
+
+```python
+from confiture.platform import dependency_order, parse_schema, writable_columns
+
+model = parse_schema(env="local")
+for table in dependency_order(model):
+    print(table.display, [c.name for c in writable_columns(model, table)])
+```
+
+`confiture schema dump-model` writes the same model as byte-stable JSON. Its consumers:
+[fraisier](https://github.com/fraiseql/fraisier), which drives confiture at deploy time
+through the [adapter contract](docs/reference/fraisier-adapter-contract.md), and
+fraiseql-semis (in development), which generates seed data on the seam. See
+[Building on confiture](docs/guides/building-on-confiture.md) and the
+[platform API reference](docs/reference/platform-api.md).
+
+---
+
+## The Four Strategies
+
+| Strategy | Use Case | Command |
+|---|---|---|
+| **Build from DDL** | Fresh databases, testing, CI | `confiture build --env local` |
+| **Incremental Migrations** | Existing databases, production | `confiture migrate up` |
+| **Production Sync** | Copy data with PII anonymization | `confiture sync --from prod --anonymize users.email` |
+| **Zero-Downtime** | Complex migrations via FDW | `confiture migrate schema-to-schema` |
+
+---
+
+## Documentation
+
+**Start here**
+- [Getting started](docs/getting-started.md) — first 5 minutes.
+- [Legacy bootstrap guide](docs/guides/legacy-bootstrap.md) — adopting on an existing database.
+- [Prerequisites](docs/reference/prerequisites.md) — PostgreSQL version, roles, secret stores.
+
+**Guides**
+- [Build from DDL](docs/guides/01-build-from-ddl.md)
+- [Incremental Migrations](docs/guides/02-incremental-migrations.md) — `up`, `down`, rollback.
+- [Parallel, cacheable CI provisioning](docs/guides/parallel-ci-provisioning.md) — `build --dump` artifacts, `test-db` template/clone, per-worker xdist fixtures, slim seed profiles.
+- [Production Data Sync](docs/guides/03-production-sync.md)
+- [Zero-Downtime Migrations](docs/guides/04-schema-to-schema.md)
+- [Dry-Run + Preflight](docs/guides/dry-run.md)
+- [Replica-safe migrations](docs/guides/replica-safe-migrations.md) — `replica_001` / `PFLIGHT_REPLICA_*` forward-compatibility lint under streaming replication.
+- [Bootstrap](docs/guides/bootstrap.md) — `confiture bootstrap` for one-shot env ownership setup.
+- [Superuser Migrations](docs/guides/superuser-migrations.md) — `requires_superuser = True` + `migrate apply-as` recovery workflow.
+- [Function Uniqueness](docs/guides/function-uniqueness.md) — `func_001` catches duplicate `CREATE FUNCTION` across DDL files.
+- [Security-Definer Lint](docs/guides/security-definer-lint.md) — `sec_002` flags `SECURITY DEFINER` functions/procedures that don't pin `search_path` (CVE-2018-1058); static DDL scan and live `pg_proc` path; `--emit-remediation` generates ALTER scripts.
+- [Named Schemas](docs/guides/named-schemas.md)
+- [Hooks](docs/guides/hooks.md)
+- [pgGit branching and multi-agent coordination](plugins/fraiseql-confiture-pggit/README.md) — a plugin since 1.16, not part of confiture's core.
+
+**Reference**
+- [Tracking table (`tb_confiture`)](docs/reference/tracking-table.md)
+- [Transaction & SAVEPOINT contract](docs/reference/transaction-contract.md) — what migration bodies may and may not do under the wrapping transaction.
+- [Exit-code convention](docs/reference/exit-codes.md) — the stable, wrapper-facing exit codes.
+- [CLI](docs/reference/cli.md)
+- [Configuration YAML](docs/reference/configuration.md)
+- [Complete feature list](docs/features/overview.md)
+
+**For agents and tooling**
+- JSON schemas are published for the `--format json` output of every command, which `tests/unit/json_schemas/test_every_json_command_has_a_schema.py` holds to. They ship in the package (`python/confiture/schemas/`) and are mirrored under [`docs/reference/json-schemas/`](docs/reference/json-schemas/), one section per command in [`docs/reference/json-schemas.md`](docs/reference/json-schemas.md); a test asserts the mirror equals the packaged source, and each schema is validated against payloads the command wrote.
+- On an **error path** in `--format json` mode, the migrate family emits a structured error envelope on stdout — `{"ok": false, "error": {code, message, severity, actionable, details, migration, file, line}}` — and exits with the [exit code](docs/reference/exit-codes.md) for that error. The full code list and the envelope schema are in the [error-code codebook](docs/reference/error-codes.md).
+- `confiture migrate validate --list-patterns --format json` exposes the full idempotency-detection catalog (read-only, no DB / config / migrations directory needed).
+- Quiet-success ambiguities surface advisory hints in `payload["hints"]` (or on stderr in text mode) — exit codes are unaffected.
+
+---
+
+## Contributing
+
+```bash
+git clone https://github.com/fraiseql/confiture.git
+cd confiture
+uv sync --all-extras
+uv run pytest
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [CLAUDE.md](CLAUDE.md).
+
+---
+
+## Author & License
+
+**Vibe-engineered by [Lionel Hamayon](https://github.com/LionelHamayon)** 🍓
+
+MIT License — Copyright (c) 2025 Lionel Hamayon
+
+---
+
+*Making jam from strawberries, one migration at a time.* 🍓→🍯
+

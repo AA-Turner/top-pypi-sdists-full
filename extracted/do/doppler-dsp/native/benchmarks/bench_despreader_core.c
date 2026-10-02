@@ -1,0 +1,76 @@
+/* bench_despreader_core.c — the full Costas+DLL continuous despreader.
+ *
+ *   steps — end-to-end throughput (MSa/s) of the shared per-sample carrier
+ *           wipe-off + E/P/L correlate + per-period dual-loop update over a
+ *           64k burst (the headline: composing two loops costs no extra pass).
+ */
+#include "doppler/despreader/despreader_core.h"
+#include "doppler/dp_complex.h"
+#include "jm_bench.h"
+#include <math.h>
+#include <stdlib.h>
+#include <time.h>
+
+#define BENCH_N 65536
+#define ITERATIONS 200
+#define SF 127
+#define SPS 8
+
+int
+main (void)
+{
+  uint8_t  code[SF];
+  uint32_t st = 1u;
+  for (int i = 0; i < SF; i++)
+    {
+      st ^= st << 13;
+      st ^= st >> 17;
+      st ^= st << 5;
+      code[i] = (st & 1u);
+    }
+  float _Complex *rx  = malloc (BENCH_N * sizeof (*rx));
+  float _Complex *out = malloc (BENCH_N * sizeof (*out));
+  if (!rx || !out)
+    return 1;
+  double cph = 0.0, phase = 0.0, w = 5e-5 * 2.0 * M_PI;
+  for (int k = 0; k < BENCH_N; k++)
+    {
+      size_t idx = (size_t)cph % SF;
+      float  c   = (code[idx] & 1u) ? -1.0f : 1.0f;
+      rx[k]      = c * cexpf ((float)phase * I);
+      cph += 1.0 / SPS;
+      phase += w;
+    }
+
+  uint64_t   t0, t1;
+  jm_bench_t _bench = { 0 };
+
+  printf ("=== despreader benchmark ===\n");
+  printf ("block = %d samples,  %d iterations\n\n", BENCH_N, ITERATIONS);
+
+  dp_despreader_state_t *ch = dp_despreader_create (
+      code, SF, SPS, 0.0, 0.0, 0.05, 0.005, 0.0, 0.707, 0.5, 1);
+  dp_despreader_steps (ch, rx, SF * SPS * 2, out, BENCH_N); /* warmup */
+
+  double times[ITERATIONS];
+  for (int r = 0; r < ITERATIONS; r++)
+    {
+      dp_despreader_reset (ch);
+      t0 = jm_bench_now_ns ();
+      dp_despreader_steps (ch, rx, BENCH_N, out, BENCH_N);
+      t1       = jm_bench_now_ns ();
+      times[r] = jm_bench_elapsed_sec (t0, t1);
+    }
+  jm_bench_add (&_bench, "steps", times, ITERATIONS, BENCH_N);
+  double sum = 0.0;
+  for (int r = 0; r < ITERATIONS; r++)
+    sum += times[r];
+  printf ("  steps    %8.1f MSa/s\n",
+          (double)BENCH_N / (sum / ITERATIONS) / 1e6);
+
+  jm_bench_write_json (&_bench, "despreader");
+  dp_despreader_destroy (ch);
+  free (rx);
+  free (out);
+  return 0;
+}

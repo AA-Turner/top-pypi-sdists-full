@@ -270,7 +270,10 @@ class ProxyConfigurationError(RuntimeError):
 
 
 class ProxyPoolExhaustedError(RuntimeError):
-    """Every configured proxy failed the same fetch attempt."""
+    """Every configured proxy refused a request AND no proxy has carried any
+    request within `proxy_health.REFUSAL_MEMORY_SECONDS` — the pool itself is
+    down. A full-pool refusal of one destination while other hosts flow is a
+    per-host vendor refusal (`proxy_health` `refused_hosts`), never this."""
 
 
 _proxy_pool_exhausted = False
@@ -1278,6 +1281,7 @@ async def fetch_normally_with_proxy(
 
     if response.failed_primary_reason != FailureReason.PROXY_ERROR:
         _proxy_pool_exhausted = False
+        proxy_health.record_proxy_carried()
         if not response.failed:
             proxy_health.record_proxy_success(url)
 
@@ -1305,6 +1309,7 @@ async def fetch_normally_with_proxy(
         )
         if response.failed_primary_reason != FailureReason.PROXY_ERROR:
             _proxy_pool_exhausted = False
+            proxy_health.record_proxy_carried()
         if not response.failed:
             vcprint(f"[RETRY] ALT PROXY WORKED: {redact_url_secrets(url)}", color="green")
             proxy_health.record_proxy_success(url)
@@ -1318,6 +1323,16 @@ async def fetch_normally_with_proxy(
         f"[RETRY] Proxy retries exhausted for: {redact_url_secrets(url)} ({response.failed_primary_reason})",
         color="yellow",
     )
+    # Every proxy refused THIS request. That is pool exhaustion only when the
+    # pool is carrying nothing at all; when it carried another host inside the
+    # refusal window, the vendor is declining this one destination — a fact
+    # `record_proxy_refusal` keeps per host on `/health/ready`, never a red
+    # system_error. Decided BEFORE the direct attempt so a dead pool whose
+    # pages are all rescued directly still reports itself (system_error
+    # 586170ad, 2026-10-01: a healthy pool — 51/72 proxied successes — was
+    # reported "exhausted" because one city site refused proxy AND direct).
+    pool_exhausted = all_proxy_errors and not proxy_health.pool_carried_recently()
+    direct_rescued: bool | None = None
     if all_proxy_errors and direct_fallback_enabled():
         # EVERY configured proxy refused to carry this request. That is our
         # vendor declining the destination, not the destination declining us —
@@ -1336,19 +1351,19 @@ async def fetch_normally_with_proxy(
         direct = await fetch(url, RequestType.NORMAL, None, user_agent=user_agent)
         direct.proxy_bypassed = True
         proxy_health.record_direct_fallback(rescued=not direct.failed)
-        if not direct.failed:
+        direct_rescued = not direct.failed
+        if direct_rescued:
             vcprint(
                 f"[PROXY] DIRECT RESCUED a proxy-refused URL: {redact_url_secrets(url)}",
                 color="green",
             )
-            return direct
-        # Direct failed too. Return the DIRECT response: its failure is the
-        # site's own answer, which is the true one — `proxy_error` here would
-        # blame our vendor for a wall the site put up. The proxy outage is not
-        # lost: it is counted in proxy_health and captured below.
+        # Return the DIRECT response either way: when it failed, its failure
+        # is the site's own answer (status code and all), which is the true
+        # one — `proxy_error` here would blame our vendor for a wall the site
+        # put up.
         response = direct
 
-    if all_proxy_errors and not _proxy_pool_exhausted:
+    if pool_exhausted and not _proxy_pool_exhausted:
         # A pool outage affects every URL in flight. Capture its transition once,
         # then re-arm only after a proxy returns a non-proxy outcome.
         _proxy_pool_exhausted = True
@@ -1360,6 +1375,7 @@ async def fetch_normally_with_proxy(
                 "failure_reason": response.failed_primary_reason.value
                 if response.failed_primary_reason
                 else None,
+                "direct_rescued": direct_rescued,
                 "proxy_pool": proxy_health.proxy_health_snapshot(),
             },
         )

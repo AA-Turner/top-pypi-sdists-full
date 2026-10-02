@@ -22,7 +22,7 @@ from matrx_ai.config import (
     serialize_provider_usage,
 )
 from matrx_ai.context.emitter_protocol import Emitter
-from matrx_ai.providers.keys import keyed_provider_client
+from matrx_ai.providers.keys import NO_SDK_RETRIES, keyed_provider_client
 from matrx_ai.providers.outbound_capture import (
     make_capture_http_client,
     stamp_call_meta,
@@ -53,6 +53,7 @@ class GroqChat:
         "GROQ_API_KEY",
         factory=lambda api_key: AsyncGroq(
             api_key=api_key,
+            max_retries=NO_SDK_RETRIES,
             http_client=make_capture_http_client(sdk=groq_sdk),
         ),
     )
@@ -246,8 +247,6 @@ class GroqChat:
 
             unified_response = UnifiedResponse(messages=[msg], usage=usage)
 
-            from matrx_connect.context.data_types import MediaBlockData
-            from matrx_connect.context.media_block import cloud_file_to_media_block
             synthetic_record = {
                 "id": envelope.file_id,
                 "storage_uri": envelope.storage_uri,
@@ -266,11 +265,13 @@ class GroqChat:
                 "url": envelope.url, "cdn_url": envelope.cdn_url,
                 "download_url": envelope.download_url,
             }
-            await emitter.send_data(MediaBlockData(
-                block=cloud_file_to_media_block(
-                    synthetic_record, url_set=url_set, kind_override="audio",
-                )
-            ))
+            from matrx_ai.providers.media_frames import fitted_media_block
+
+            # Sheds speech_script from the LIVE event only if it would outgrow
+            # the journal frame; the persisted part keeps it.
+            await emitter.send_data(
+                fitted_media_block(synthetic_record, url_set=url_set, kind_override="audio")
+            )
             await asyncio.sleep(0)
 
             return unified_response

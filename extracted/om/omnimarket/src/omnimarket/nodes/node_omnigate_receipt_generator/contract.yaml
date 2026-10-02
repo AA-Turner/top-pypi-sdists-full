@@ -1,0 +1,42 @@
+---
+name: node_omnigate_receipt_generator
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: compute
+runtime_profiles: [main]
+node_version: {major: 1, minor: 0, patch: 0}
+description: >
+  Generates canonical OmniGate receipts bound to diff hash, config hash, repository authority, and commit SHAs.
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: omnigate_receipt_generator
+      handler:
+        name: HandlerReceiptGenerator
+        module: omnimarket.nodes.node_omnigate_receipt_generator.handlers.handler_receipt_generator
+
+handler:
+  module: omnimarket.nodes.node_omnigate_receipt_generator.handlers.handler_receipt_generator
+  class: HandlerReceiptGenerator
+  input_model: omnimarket.nodes.node_omnigate_receipt_generator.models.model_receipt_generator_input.ModelReceiptGeneratorInput
+
+descriptor:
+  node_archetype: compute
+  purity: impure
+  idempotent: true
+  timeout_ms: 120000
+
+terminal_event: onex.evt.omnimarket.omnigate-receipt-generated.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.omnigate-generate-receipt.v1
+  publish_topics:
+    - onex.evt.omnimarket.omnigate-receipt-generated.v1
+
+metadata:
+  transport_type: kafka
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.omnigate-generate-receipt.v1

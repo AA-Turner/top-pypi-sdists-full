@@ -150,7 +150,7 @@ def decision_wire(monkeypatch):
     monkeypatch.setattr(resolve_mod, "resolve_tts_call_profile", _profile)
     monkeypatch.setattr(runner, "ensure_pricing_lookup", _pricing)
     monkeypatch.setattr(runner.TokenUsage, "calculate_catalog_cost", lambda *_a: 0.00008)
-    monkeypatch.setattr(runner, "admit_provider_call", lambda _p: _Admission())
+    monkeypatch.setattr("matrx_ai.providers.admission.admit_provider_call", lambda _p: _Admission())
 
     captured: dict = {}
 

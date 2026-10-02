@@ -1,0 +1,185 @@
+Metadata-Version: 2.4
+Name: gravitas-md2gdocs
+Version: 0.1.0
+Summary: Convert Markdown to Google Docs API requests
+Project-URL: Homepage, https://github.com/significant-gravitas/gravitas-md2gdocs
+Project-URL: Documentation, https://github.com/significant-gravitas/gravitas-md2gdocs#readme
+Project-URL: Repository, https://github.com/significant-gravitas/gravitas-md2gdocs
+Project-URL: Issues, https://github.com/significant-gravitas/gravitas-md2gdocs/issues
+Author-email: Nicholas Tindle <nicholastindle@agpt.co>
+License-Expression: MIT
+License-File: LICENSE
+Keywords: converter,google-api,google-docs,markdown
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Text Processing :: Markup
+Requires-Python: >=3.10
+Provides-Extra: dev
+Requires-Dist: google-auth-oauthlib>=1.0.0; extra == 'dev'
+Requires-Dist: pytest-cov>=4.0.0; extra == 'dev'
+Requires-Dist: pytest>=7.0.0; extra == 'dev'
+Requires-Dist: python-dotenv>=1.0.0; extra == 'dev'
+Requires-Dist: ruff>=0.1.0; extra == 'dev'
+Provides-Extra: google
+Requires-Dist: google-api-python-client>=2.0.0; extra == 'google'
+Requires-Dist: google-auth>=2.0.0; extra == 'google'
+Description-Content-Type: text/markdown
+
+# gravitas-md2gdocs
+
+[![CI](https://github.com/significant-gravitas/gravitas-md2gdocs/actions/workflows/ci.yml/badge.svg)](https://github.com/significant-gravitas/gravitas-md2gdocs/actions/workflows/ci.yml)
+[![PyPI version](https://badge.fury.io/py/gravitas-md2gdocs.svg)](https://badge.fury.io/py/gravitas-md2gdocs)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+Convert Markdown to Google Docs API requests.
+
+## Installation
+
+```bash
+pip install gravitas-md2gdocs
+```
+
+To use the Google API helper functions:
+
+```bash
+pip install gravitas-md2gdocs[google]
+```
+
+## Usage
+
+### Basic: Get API Requests
+
+```python
+from gravitas_md2gdocs import to_requests
+
+markdown = """
+# My Document
+
+This is **bold** and *italic* text.
+
+- Bullet one
+- Bullet two
+
+> A blockquote
+"""
+
+requests = to_requests(markdown)
+
+# Use with your own Google Docs API client
+docs_service.documents().batchUpdate(
+    documentId=doc_id,
+    body={'requests': requests}
+).execute()
+```
+
+### Insert at a Specific Position
+
+```python
+requests = to_requests(markdown, start_index=50)
+```
+
+### Helper Functions (requires `gravitas-md2gdocs[google]`)
+
+```python
+from gravitas_md2gdocs import append, replace, insert_at, replace_range
+
+# Append to end of document
+append(docs_service, doc_id, "## New Section\n\nMore content")
+
+# Replace entire document
+replace(docs_service, doc_id, new_markdown)
+
+# Insert at specific position
+insert_at(docs_service, doc_id, "**inserted**", index=25)
+
+# Replace a range (characters 10-50)
+replace_range(docs_service, doc_id, "**replacement**", start=10, end=50)
+```
+
+## Supported Markdown
+
+| Syntax | Example |
+|--------|---------|
+| Headers | `# H1` through `###### H6` |
+| Bold | `**bold**` or `__bold__` |
+| Italic | `*italic*` or `_italic_` |
+| Bold + Italic | `***both***` |
+| Strikethrough | `~~struck~~` |
+| Inline code | `` `code` `` |
+| Code blocks | ` ```code``` ` |
+| Links | `[text](url)` |
+| Bullet lists | `- item` or `* item` |
+| Numbered lists | `1. item` |
+| Blockquotes | `> quote` |
+
+## Setting Up Google Docs API
+
+1. Create a project in [Google Cloud Console](https://console.cloud.google.com/)
+2. Enable the Google Docs API
+3. Create credentials (OAuth 2.0 or Service Account)
+4. Install the client library: `pip install google-api-python-client google-auth`
+
+Example setup:
+
+```python
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+
+credentials = service_account.Credentials.from_service_account_file(
+    'service-account.json',
+    scopes=['https://www.googleapis.com/auth/documents']
+)
+
+docs_service = build('docs', 'v1', credentials=credentials)
+
+# Create a new doc
+doc = docs_service.documents().create(body={'title': 'My Doc'}).execute()
+doc_id = doc['documentId']
+
+# Add content
+from gravitas_md2gdocs import to_requests
+
+requests = to_requests("# Hello World\n\nThis is **markdown**!")
+docs_service.documents().batchUpdate(
+    documentId=doc_id,
+    body={'requests': requests}
+).execute()
+```
+
+## Alternative: Google Drive API with Native Markdown
+
+As of July 2024, Google Drive API supports uploading markdown directly:
+
+```python
+from googleapiclient.http import MediaInMemoryUpload
+
+media = MediaInMemoryUpload(
+    markdown_text.encode('utf-8'),
+    mimetype='text/markdown'
+)
+
+file = drive_service.files().create(
+    body={
+        'name': 'My Document',
+        'mimeType': 'application/vnd.google-apps.document'
+    },
+    media_body=media
+).execute()
+```
+
+Use `gravitas-md2gdocs` when you need to:
+- Append/insert into existing documents
+- Replace specific sections
+- Have fine-grained control over formatting
+
+## License
+
+MIT

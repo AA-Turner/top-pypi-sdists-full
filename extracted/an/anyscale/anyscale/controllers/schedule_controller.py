@@ -92,7 +92,8 @@ def get_local_timezone() -> str:
 
 class ScheduleController(BaseController):
     def __init__(
-        self, log: Optional[LogsLogger] = None,
+        self,
+        log: Optional[LogsLogger] = None,
     ):
         if log is None:
             log = LogsLogger()
@@ -117,17 +118,14 @@ class ScheduleController(BaseController):
         self.log.info(f"Schedule {id} has been updated successfully.")
         return id
 
-    def _resolve_config(
-        self, schedule_config_file: str, **overrides
-    ) -> CreateScheduleConfig:
-        schedule_config_dict = load_yaml_file_with_overrides(
-            schedule_config_file, **overrides
-        )
+    def _resolve_config(self, schedule_config_file: str, **overrides) -> CreateScheduleConfig:
+        schedule_config_dict = load_yaml_file_with_overrides(schedule_config_file, **overrides)
         validate_job_config_dict(schedule_config_dict, self.api_client)
 
         # If running in a workspace, auto-populate unspecified fields.
         schedule_config_dict = populate_unspecified_cluster_configs_from_current_workspace(
-            schedule_config_dict, self.anyscale_api_client,
+            schedule_config_dict,
+            self.anyscale_api_client,
         )
 
         schedule_config: CreateScheduleConfig = CreateScheduleConfig.parse_obj(
@@ -177,9 +175,7 @@ class ScheduleController(BaseController):
             str: the id of the schedule
         """
 
-        assert_single_parameter(
-            schedule_config_file=schedule_config_file, id=id, name=name
-        )
+        assert_single_parameter(schedule_config_file=schedule_config_file, id=id, name=name)
 
         if id:
             try:
@@ -195,13 +191,9 @@ class ScheduleController(BaseController):
                 return schedules[0].id
             elif len(schedules) > 1:
                 self.log.error(str(SchedulesTable(schedules)))
-                raise click.ClickException(
-                    f"Found multiple schedules matching the name {name}"
-                )
+                raise click.ClickException(f"Found multiple schedules matching the name {name}")
             else:
-                raise click.ClickException(
-                    f"Found no schedules matching the name {name}"
-                )
+                raise click.ClickException(f"Found no schedules matching the name {name}")
         elif schedule_config_file:
             config = self._resolve_config(schedule_config_file)
             name = config.name
@@ -297,7 +289,8 @@ class ScheduleApi:
 
 def format_schedule_config(schedule: ScheduleConfig):
     return APIScheduleConfig(
-        cron_expression=schedule.cron_expression, timezone=schedule.timezone,
+        cron_expression=schedule.cron_expression,
+        timezone=schedule.timezone,
     )
 
 
@@ -328,6 +321,4 @@ def assert_single_parameter(**kwargs) -> None:
             f"At least one of the following flags must be set: {kwargs.keys()}"
         )
     if len(keys_not_none) > 1:
-        raise click.ClickException(
-            f"Only one of the following flags can be set: {keys_not_none}"
-        )
+        raise click.ClickException(f"Only one of the following flags can be set: {keys_not_none}")

@@ -1,0 +1,294 @@
+from __future__ import annotations
+
+import concurrent.futures
+import json
+import subprocess
+import time
+from dataclasses import dataclass
+from dataclasses import field
+from typing import NamedTuple
+
+from devservices.constants import HEALTHCHECK_INTERVAL
+from devservices.constants import HEALTHCHECK_TIMEOUT
+from devservices.exceptions import ContainerHealthcheckFailedError
+from devservices.exceptions import DockerDaemonNotRunningError
+from devservices.exceptions import DockerError
+from devservices.utils.console import Console
+from devservices.utils.console import Status
+
+
+class ContainerNames(NamedTuple):
+    name: str
+    short_name: str
+
+
+def check_docker_daemon_running() -> None:
+    """Checks if the Docker daemon is running. Raises DockerDaemonNotRunningError if not."""
+    console = Console()
+    try:
+        subprocess.run(
+            ["docker", "info"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return
+    except subprocess.CalledProcessError:
+        console.info("Docker daemon is not running. Checking if colima is available")
+    try:
+        subprocess.run(["devenv", "colima", "start"], check=True)
+    except subprocess.CalledProcessError as e:
+        console.failure("Failed to start colima")
+        raise DockerDaemonNotRunningError from e
+
+
+def check_all_containers_healthy(
+    status: Status,
+    containers: list[ContainerNames],
+    timeout: int = HEALTHCHECK_TIMEOUT,
+) -> None:
+    """Ensures all containers are healthy."""
+    status.info("Waiting for all containers to be healthy")
+    with concurrent.futures.ThreadPoolExecutor() as healthcheck_executor:
+        futures = [
+            healthcheck_executor.submit(wait_for_healthy, container, status, timeout)
+            for container in containers
+        ]
+        for future in concurrent.futures.as_completed(futures):
+            future.result()
+
+
+def wait_for_healthy(
+    container: ContainerNames,
+    status: Status,
+    timeout: int = HEALTHCHECK_TIMEOUT,
+) -> None:
+    """
+    Polls a Docker container's health status until it becomes healthy or a timeout is reached.
+    """
+    status.info(
+        f"Waiting for {container.short_name} to be healthy (timeout: {timeout}s)"
+    )
+    start = time.time()
+    while time.time() - start < timeout:
+        # Run docker inspect to get the container's health status
+        try:
+            # For containers with no healthchecks, the output will be "unknown"
+            result = subprocess.check_output(
+                [
+                    "docker",
+                    "inspect",
+                    "-f",
+                    "{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}",
+                    container.name,
+                ],
+                stderr=subprocess.DEVNULL,
+                text=True,
+            ).strip()
+        except subprocess.CalledProcessError as e:
+            raise DockerError(
+                command=f"docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}' {container.name}",
+                returncode=e.returncode,
+                stdout=e.stdout,
+                stderr=e.stderr,
+            ) from e
+
+        if result == "healthy":
+            status.info(f"{container.short_name} is healthy")
+            return
+        if result == "unknown":
+            status.warning(
+                f"WARNING: Container {container.short_name} does not have a healthcheck"
+            )
+            return
+
+        # If not healthy, wait and try again
+        time.sleep(HEALTHCHECK_INTERVAL)
+
+    raise ContainerHealthcheckFailedError(container.short_name, timeout)
+
+
+@dataclass
+class HealthCheckEntry:
+    exit_code: int
+    output: str
+
+
+@dataclass
+class ContainerHealth:
+    name: str
+    status: str  # "healthy", "unhealthy", "starting", or "none"
+    log: list[HealthCheckEntry] = field(default_factory=list)
+
+
+def get_container_health(container_names: list[str]) -> list[ContainerHealth]:
+    """Return health check status and last log entries for each container."""
+    if not container_names:
+        return []
+    try:
+        raw = subprocess.check_output(
+            ["docker", "inspect", *container_names],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+    except subprocess.CalledProcessError:
+        return []
+
+    results = []
+    for c in json.loads(raw):
+        name = c["Name"].lstrip("/")
+        health = c["State"].get("Health")
+        if health is None:
+            results.append(ContainerHealth(name=name, status="none"))
+        else:
+            entries = [
+                HealthCheckEntry(exit_code=e["ExitCode"], output=e["Output"].strip())
+                for e in health.get("Log", [])
+            ]
+            results.append(
+                ContainerHealth(name=name, status=health["Status"], log=entries)
+            )
+    return results
+
+
+def get_matching_containers(labels: list[str]) -> list[str]:
+    """
+    Returns a list of container names with the given label
+    """
+    check_docker_daemon_running()
+    filters = []
+    for label in labels:
+        filters.extend(["--filter", f"label={label}"])
+    try:
+        return (
+            subprocess.check_output(
+                [
+                    "docker",
+                    "ps",
+                    "-a",
+                    "-q",
+                ]
+                + filters,
+                text=True,
+                stderr=subprocess.DEVNULL,
+            )
+            .strip()
+            .splitlines()
+        )
+    except subprocess.CalledProcessError as e:
+        raise DockerError(
+            command=f"docker ps -a -q {' '.join(filters)}",
+            returncode=e.returncode,
+            stdout=e.stdout,
+            stderr=e.stderr,
+        ) from e
+
+
+def get_matching_networks(name: str) -> list[str]:
+    """
+    Returns a list of network IDs with the given name
+    """
+    check_docker_daemon_running()
+    try:
+        return (
+            subprocess.check_output(
+                [
+                    "docker",
+                    "network",
+                    "ls",
+                    "--filter",
+                    f"name={name}",
+                    "--format",
+                    "{{.ID}}",
+                ],
+                text=True,
+                stderr=subprocess.DEVNULL,
+            )
+            .strip()
+            .splitlines()
+        )
+    except subprocess.CalledProcessError as e:
+        raise DockerError(
+            command=f"docker network ls --filter name={name} --format '{{.ID}}'",
+            returncode=e.returncode,
+            stdout=e.stdout,
+            stderr=e.stderr,
+        ) from e
+
+
+def get_volumes_for_containers(containers: list[str]) -> set[str]:
+    """
+    Returns a set of volume names for the given containers.
+    """
+    if len(containers) == 0:
+        return set()
+    try:
+        return {
+            volume
+            for volume in subprocess.check_output(
+                [
+                    "docker",
+                    "inspect",
+                    "--format",
+                    "{{ range .Mounts }}{{ .Name }}\n{{ end }}",
+                    *containers,
+                ],
+                text=True,
+                stderr=subprocess.DEVNULL,
+            )
+            .strip()
+            .splitlines()
+            if volume
+        }
+    except subprocess.CalledProcessError as e:
+        raise DockerError(
+            command=f"docker inspect --format '{{ range .Mounts }}{{ .Name }}\n{{ end }}' {' '.join(containers)}",
+            returncode=e.returncode,
+            stdout=e.stdout,
+            stderr=e.stderr,
+        ) from e
+
+
+def stop_containers(containers: list[str], should_remove: bool = False) -> None:
+    """
+    Stops the given containers.
+    If should_remove is True, the containers will be removed.
+    """
+    if len(containers) == 0:
+        return
+    try:
+        subprocess.run(
+            ["docker", "stop"] + containers,
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+        )
+    except subprocess.CalledProcessError as e:
+        raise DockerError(
+            command=f"docker stop {' '.join(containers)}",
+            returncode=e.returncode,
+            stdout=e.stdout,
+            stderr=e.stderr,
+        ) from e
+    if should_remove:
+        remove_docker_resources("container", containers)
+
+
+def remove_docker_resources(resource_type: str, resources: list[str]) -> None:
+    """
+    Removes the given Docker resources.
+    """
+    try:
+        subprocess.run(
+            ["docker", resource_type, "rm", *resources],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+        )
+    except subprocess.CalledProcessError as e:
+        raise DockerError(
+            command=f"docker {resource_type} rm {' '.join(resources)}",
+            returncode=e.returncode,
+            stdout=e.stdout,
+            stderr=e.stderr,
+        ) from e

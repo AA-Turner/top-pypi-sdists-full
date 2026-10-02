@@ -1,0 +1,40 @@
+name: infisical
+description: Secrets management for runtime config prefetch (optional)
+image: infisical/infisical:v0.146.0-postgres
+layer: infrastructure
+container_name: omnibase-infra-infisical
+required_env:
+  - POSTGRES_PASSWORD
+  - INFISICAL_REDIS_URL
+  - INFISICAL_ENCRYPTION_KEY
+  - INFISICAL_AUTH_SECRET
+hardcoded_env:
+  DB_CONNECTION_URI: 'postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}@postgres:5432/infisical?sslmode=disable'
+  REDIS_URL: '${INFISICAL_REDIS_URL:?INFISICAL_REDIS_URL must be set in ~/.omnibase/.env}'
+  ENCRYPTION_KEY: '${INFISICAL_ENCRYPTION_KEY}'
+  AUTH_SECRET: '${INFISICAL_AUTH_SECRET}'
+  TELEMETRY_ENABLED: 'false'
+operational_defaults:
+  # OMN-13417: dev lane host port is 8881 so `onex up core` no longer collides
+  # with the stability-test lane infisical (host 8880) on a shared host.
+  SITE_URL: http://localhost:8881
+ports:
+  external: 8881
+  internal: 8080
+healthcheck:
+  test: wget -q --spider http://localhost:8080/api/status
+  interval_s: 30
+  timeout_s: 10
+  retries: 3
+  start_period_s: 60
+volumes: []
+depends_on:
+  - service: postgres
+    condition: service_healthy
+  - service: valkey
+    condition: service_healthy
+restart: unless-stopped
+resources: null
+labels:
+  com.omninode.service: infisical
+  com.omninode.layer: infrastructure

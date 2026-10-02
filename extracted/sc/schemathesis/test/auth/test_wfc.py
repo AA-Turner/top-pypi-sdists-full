@@ -6,7 +6,7 @@ import os
 import pytest
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
-from flask import Flask, jsonify, redirect
+from flask import Flask, jsonify, redirect, request
 
 import schemathesis
 from schemathesis.auths import AuthContext
@@ -1061,6 +1061,58 @@ def test_escalation_walks_the_chain_on_401(cli, ctx, tmp_path):
     cli.run(api.schema_url, "--max-examples=8", f"--auth-wfc={auth}", "--phases=fuzzing")
 
     assert _identities(api, "DELETE", "/api/admin-only") == {"viewer", "", "editor", "admin"}
+
+
+def test_denials_count_against_the_identity_that_was_sent(cli, ctx, tmp_path):
+    # Coverage cases carry their identity from generation, so many refusals of one user arrive at once.
+    api = ctx.openapi.apps.wfc_role_gated()
+    auth = _write(
+        tmp_path,
+        {"auth": [ROLE_AUTH["auth"][0], ROLE_AUTH["auth"][2], ROLE_AUTH["auth"][1]]},
+    )
+
+    cli.run(api.schema_url, "--max-examples=8", f"--auth-wfc={auth}", "--phases=coverage,fuzzing")
+
+    assert "admin" in _identities(api, "DELETE", "/api/admin-only")
+
+
+def test_content_type_probe_refusal_does_not_move_the_identity(cli, ctx, tmp_path):
+    # A server may refuse a malformed request before authorizing it; that says nothing about the identity.
+    app, _ = ctx.openapi.make_flask_app(
+        {"/items": {"get": {"responses": {"200": {"description": "OK"}, "403": {"description": "Forbidden"}}}}}
+    )
+    sent = []
+
+    @app.route("/items")
+    def items():
+        sent.append(request.headers.get("Authorization", ""))
+        content_type = request.headers.get("Content-Type", "")
+        if content_type.startswith("multipart/form-data") and "boundary=" not in content_type:
+            return jsonify({}), 403
+        return jsonify({}), 200
+
+    auth = _write(tmp_path, ROLE_AUTH)
+    cli.run_openapi_app(app, "--max-examples=5", f"--auth-wfc={auth}", "--phases=coverage,fuzzing")
+
+    assert set(sent) == {"ApiKey viewer"}
+
+
+def test_identity_refused_before_accounts_exist_is_retried(cli, ctx, tmp_path):
+    # An API may create its accounts mid-run, so a 401 from before then says nothing about the identity.
+    api = ctx.openapi.apps.wfc_accounts_seeded_later()
+    auth = _write(tmp_path, {"auth": [ROLE_AUTH["auth"][2], ROLE_AUTH["auth"][0], ROLE_AUTH["auth"][1]]})
+
+    cli.run(
+        api.schema_url, "--max-examples=8", f"--auth-wfc={auth}", "--phases=coverage,fuzzing", "--continue-on-failure"
+    )
+
+    seen = [
+        (r.headers.get("Authorization") or "").removeprefix("ApiKey ")
+        for r in api.requests
+        if r.method == "DELETE" and r.path.startswith("/api/admin-only")
+    ]
+    assert seen, "operation was never dispatched"
+    assert seen[-1] == "admin", f"never retried the identity refused before seeding: {seen}"
 
 
 def test_a_missing_resource_does_not_settle_the_identity(cli, ctx, tmp_path):

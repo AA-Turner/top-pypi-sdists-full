@@ -1,0 +1,191 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Golden chain tests for node_projection_dep_health."""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from pathlib import Path
+
+import pytest
+
+from omnimarket.nodes.node_dependency_health_sweep.models.model_dep_health_finding import (
+    EnumDepHealthFindingType,
+    EnumDepHealthSeverity,
+    ModelDepHealthFinding,
+)
+from omnimarket.nodes.node_dependency_health_sweep.models.model_dep_health_sweep_completed_event import (
+    ModelDepHealthSweepCompletedEvent,
+)
+from omnimarket.nodes.node_projection_dep_health.handlers.handler_projection_dep_health import (
+    HandlerProjectionDepHealth,
+)
+from omnimarket.projection.protocol_database import InmemoryDatabaseAdapter
+
+HANDLER = HandlerProjectionDepHealth()
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+_NOW = datetime(2025, 5, 15, 12, 0, 0, tzinfo=UTC)
+
+_FINDING_A = ModelDepHealthFinding(
+    finding_type=EnumDepHealthFindingType.MISSING_TOPIC_EDGE,
+    severity=EnumDepHealthSeverity.CRITICAL,
+    repo="omnimarket",
+    file_path="src/omnimarket/nodes/node_foo/contract.yaml",
+    symbol=None,
+    detail="Command topic onex.cmd.omnimarket.foo.v1 has no consumer.",
+    rule_id="MISSING_TOPIC_EDGE",
+    rule_version="v1",
+)
+
+_FINDING_B = ModelDepHealthFinding(
+    finding_type=EnumDepHealthFindingType.UNTESTED_HANDLER,
+    severity=EnumDepHealthSeverity.MAJOR,
+    repo="omnimarket",
+    file_path="src/omnimarket/nodes/node_foo/handlers/handler_foo.py",
+    symbol="HandlerFoo",
+    detail="Handler referenced in contract has no test coverage.",
+    rule_id="UNTESTED_HANDLER",
+    rule_version="v1",
+)
+
+
+def _make_event(
+    findings: list[ModelDepHealthFinding],
+    run_id: str = "run-001",
+) -> ModelDepHealthSweepCompletedEvent:
+    return ModelDepHealthSweepCompletedEvent(
+        run_id=run_id,
+        findings=findings,
+        summary={str(f.finding_type): 1 for f in findings},
+        captured_at=_NOW,
+    )
+
+
+class TestProjectionDepHealth:
+    def test_project_two_findings(self) -> None:
+        db = InmemoryDatabaseAdapter()
+        event = _make_event([_FINDING_A, _FINDING_B])
+        result = HANDLER.project(event, db)
+        assert result.rows_upserted == 2
+        rows = db.query("dep_health_findings")
+        assert len(rows) == 2
+
+    def test_row_fields_correct(self) -> None:
+        db = InmemoryDatabaseAdapter()
+        event = _make_event([_FINDING_A])
+        HANDLER.project(event, db)
+        rows = db.query("dep_health_findings")
+        assert len(rows) == 1
+        row = rows[0]
+        assert row["run_id"] == "run-001"
+        assert row["finding_type"] == EnumDepHealthFindingType.MISSING_TOPIC_EDGE
+        assert row["severity"] == EnumDepHealthSeverity.CRITICAL
+        assert row["repo"] == "omnimarket"
+        assert row["file_path"] == "src/omnimarket/nodes/node_foo/contract.yaml"
+        assert row["symbol"] == ""
+        assert row["rule_id"] == "MISSING_TOPIC_EDGE"
+        assert row["rule_version"] == "v1"
+        assert row["captured_at"] == _NOW.isoformat()
+
+    def test_idempotent_upsert(self) -> None:
+        """Projecting the same event twice leaves exactly N rows, not 2N."""
+        db = InmemoryDatabaseAdapter()
+        event = _make_event([_FINDING_A, _FINDING_B])
+        HANDLER.project(event, db)
+        HANDLER.project(event, db)
+        rows = db.query("dep_health_findings")
+        assert len(rows) == 2
+
+    def test_empty_findings(self) -> None:
+        db = InmemoryDatabaseAdapter()
+        event = _make_event([])
+        result = HANDLER.project(event, db)
+        assert result.rows_upserted == 0
+        assert db.query("dep_health_findings") == []
+
+    def test_different_run_ids_produce_separate_rows(self) -> None:
+        db = InmemoryDatabaseAdapter()
+        event_a = _make_event([_FINDING_A], run_id="run-001")
+        event_b = _make_event([_FINDING_A], run_id="run-002")
+        HANDLER.project(event_a, db)
+        HANDLER.project(event_b, db)
+        rows = db.query("dep_health_findings")
+        assert len(rows) == 2
+
+    def test_contract_topic_wired(self) -> None:
+        import yaml
+
+        contract_path = (
+            REPO_ROOT / "src/omnimarket/nodes/node_projection_dep_health/contract.yaml"
+        )
+        with contract_path.open() as f:
+            contract = yaml.safe_load(f)
+        assert (
+            "onex.evt.omnimarket.dep-health-sweep-completed.v1"
+            in contract["event_bus"]["subscribe_topics"]
+        )
+        assert contract["node_type"] == "reducer"
+
+
+class TestProjectionDepHealthHandleShim:
+    """The runtime auto-wiring dispatches reducers via handle(), not project().
+
+    Regression guard for OMN-13825: HandlerProjectionDepHealth lacked a handle()
+    entrypoint, so the .201 stability runtime raised AttributeError and silently
+    dropped every dep-health-sweep-completed event (dep_health_findings stayed at
+    zero rows). This exercises the dict-based handle() shim the runtime uses.
+    """
+
+    def test_handle_dict_interface_materializes_rows(self) -> None:
+        db = InmemoryDatabaseAdapter()
+        payload: dict[str, object] = {
+            "_db": db,
+            "run_id": "run-handle-001",
+            "findings": [_FINDING_A.model_dump(mode="json")],
+            "summary": {str(_FINDING_A.finding_type): 1},
+            "captured_at": _NOW.isoformat(),
+        }
+        result = HANDLER.handle(payload)
+        assert result["rows_upserted"] == 1
+        rows = db.query("dep_health_findings")
+        assert len(rows) == 1
+        assert rows[0]["run_id"] == "run-handle-001"
+
+    def test_handle_raises_without_db_adapter(self) -> None:
+        with pytest.raises(TypeError, match="DatabaseAdapter"):
+            HANDLER.handle(
+                {
+                    "run_id": "x",
+                    "findings": [],
+                    "summary": {},
+                    "captured_at": _NOW.isoformat(),
+                }
+            )
+
+    def test_handle_strips_injected_event_type_and_materializes(self) -> None:
+        """OMN-13825 defect-1: the runtime injects ``_event_type`` (derived from
+        the topic) alongside ``_db``. ``ModelDepHealthSweepCompletedEvent`` is
+        ``extra="forbid"``, so an earlier shim that popped only ``_db`` left
+        ``_event_type`` in the dict and ``Model(**input_data)`` raised
+        ``ValidationError [extra_forbidden]`` — the event was consumed
+        (offset committed, ``LAG=0``) but no row materialized. The shared
+        injected-key-stripping path must remove ``_event_type`` so the row lands.
+        """
+        db = InmemoryDatabaseAdapter()
+        payload: dict[str, object] = {
+            "_db": db,
+            # The exact key the runtime injects (handler_wiring.py:1509).
+            "_event_type": "omnimarket.dep-health-sweep-completed",
+            "run_id": "run-inject-001",
+            "findings": [_FINDING_A.model_dump(mode="json")],
+            "summary": {str(_FINDING_A.finding_type): 1},
+            "captured_at": _NOW.isoformat(),
+        }
+        result = HANDLER.handle(payload)
+        assert result["rows_upserted"] == 1
+        rows = db.query("dep_health_findings")
+        assert len(rows) == 1
+        assert rows[0]["run_id"] == "run-inject-001"
+        # The injected bookkeeping key must never reach the persisted row.
+        assert "_event_type" not in rows[0]

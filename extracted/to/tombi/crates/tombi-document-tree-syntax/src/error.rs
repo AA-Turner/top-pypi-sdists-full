@@ -2,80 +2,77 @@
 #[non_exhaustive]
 pub enum Error {
     #[error("duplicate key: {key}")]
-    DuplicateKey {
-        key: String,
-        range: tombi_text::Range,
-    },
+    DuplicateKey { key: String, span: tombi_text::Span },
 
     #[error("conflicting table")]
     ConflictTable {
-        range1: tombi_text::Range,
-        range2: tombi_text::Range,
+        range1: tombi_text::Span,
+        range2: tombi_text::Span,
     },
 
     #[error("conflicting array")]
     ConflictArray {
-        range1: tombi_text::Range,
-        range2: tombi_text::Range,
+        range1: tombi_text::Span,
+        range2: tombi_text::Span,
     },
 
     #[error("invalid integer: {error}")]
     ParseIntError {
         error: std::num::ParseIntError,
-        range: tombi_text::Range,
+        span: tombi_text::Span,
     },
 
     #[error("invalid float: {error}")]
     ParseFloatError {
         error: crate::support::float::ParseError,
-        range: tombi_text::Range,
+        span: tombi_text::Span,
     },
 
     #[error("invalid string: {error}")]
     ParseStringError {
         error: tombi_toml_text::ParseError,
-        range: tombi_text::Range,
+        span: tombi_text::Span,
     },
 
     #[error("invalid offset date time: {error}")]
     ParseOffsetDateTimeError {
         error: crate::support::chrono::ParseError,
-        range: tombi_text::Range,
+        span: tombi_text::Span,
     },
 
     #[error("invalid local date time: {error}")]
     ParseLocalDateTimeError {
         error: crate::support::chrono::ParseError,
-        range: tombi_text::Range,
+        span: tombi_text::Span,
     },
 
     #[error("invalid local date: {error}")]
     ParseLocalDateError {
         error: crate::support::chrono::ParseError,
-        range: tombi_text::Range,
+        span: tombi_text::Span,
     },
 
     #[error("invalid local time: {error}")]
     ParseLocalTimeError {
         error: crate::support::chrono::ParseError,
-        range: tombi_text::Range,
+        span: tombi_text::Span,
     },
 
     #[error("invalid date-time: {error}")]
     ParseDateTimeError {
         error: tombi_date_time::parse::Error,
-        range: tombi_text::Range,
+        span: tombi_text::Span,
     },
 
     #[error("invalid comment: {error}")]
     ParseCommentError {
         error: crate::support::comment::ParseError,
-        range: tombi_text::Range,
+        span: tombi_text::Span,
     },
 
     /// Error when `ast::Node` is None
     #[error("incomplete node")]
-    IncompleteNode { range: tombi_text::Range },
+    IncompleteNode { span: tombi_text::Span },
 }
 
 impl Error {
@@ -101,21 +98,21 @@ impl Error {
         }
     }
 
-    pub fn range(&self) -> tombi_text::Range {
+    pub fn span(&self) -> tombi_text::Span {
         match self {
-            Self::DuplicateKey { range, .. } => *range,
+            Self::DuplicateKey { span, .. } => *span,
             Self::ConflictTable { range2, .. } => *range2,
             Self::ConflictArray { range2, .. } => *range2,
-            Self::ParseIntError { range, .. } => *range,
-            Self::ParseFloatError { range, .. } => *range,
-            Self::ParseStringError { range, .. } => *range,
-            Self::ParseOffsetDateTimeError { range, .. } => *range,
-            Self::ParseLocalDateTimeError { range, .. } => *range,
-            Self::ParseLocalDateError { range, .. } => *range,
-            Self::ParseLocalTimeError { range, .. } => *range,
-            Self::ParseCommentError { range, .. } => *range,
-            Self::IncompleteNode { range } => *range,
-            Self::ParseDateTimeError { range, .. } => *range,
+            Self::ParseIntError { span, .. } => *span,
+            Self::ParseFloatError { span, .. } => *span,
+            Self::ParseStringError { span, .. } => *span,
+            Self::ParseOffsetDateTimeError { span, .. } => *span,
+            Self::ParseLocalDateTimeError { span, .. } => *span,
+            Self::ParseLocalDateError { span, .. } => *span,
+            Self::ParseLocalTimeError { span, .. } => *span,
+            Self::ParseCommentError { span, .. } => *span,
+            Self::IncompleteNode { span } => *span,
+            Self::ParseDateTimeError { span, .. } => *span,
         }
     }
 }
@@ -140,7 +137,7 @@ impl tombi_diagnostic::SetDiagnostics for Error {
                 diagnostics.push(tombi_diagnostic::Diagnostic::new_error(
                     self.to_message(),
                     self.code(),
-                    self.range(),
+                    self.span(),
                 ));
             }
         }

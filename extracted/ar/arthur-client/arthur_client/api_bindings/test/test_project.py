@@ -41,7 +41,8 @@ class TestProject(unittest.TestCase):
                 name = '',
                 description = '',
                 workspace_id = '',
-                total_artifacts = 56
+                total_artifacts = 56,
+                system_project = True
             )
         else:
             return Project(
@@ -51,6 +52,7 @@ class TestProject(unittest.TestCase):
                 name = '',
                 workspace_id = '',
                 total_artifacts = 56,
+                system_project = True,
         )
         """
 

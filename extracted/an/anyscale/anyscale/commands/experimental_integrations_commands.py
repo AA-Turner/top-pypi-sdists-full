@@ -11,16 +11,12 @@ from anyscale.controllers.experimental_integrations_controller import (
 log = BlockLogger()  # CLI Logger
 
 
-@click.group(
-    "integration", help="Interact with external integrations on Anyscale.", hidden=True
-)
+@click.group("integration", help="Interact with external integrations on Anyscale.", hidden=True)
 def experimental_integrations_cli() -> None:
     pass
 
 
-@experimental_integrations_cli.group(
-    "wandb", help="Interact with Anyscale W&B integration."
-)
+@experimental_integrations_cli.group("wandb", help="Interact with Anyscale W&B integration.")
 def experimental_wandb_cli() -> None:
     pass
 
@@ -43,9 +39,7 @@ def experimental_wandb_cli() -> None:
     default=None,
     help="Name of the cloud to enable the W&B integration with.",
 )
-def enable_wandb_integration(
-    cloud_id: Optional[str], cloud_name: Optional[str]
-) -> None:
+def enable_wandb_integration(cloud_id: Optional[str], cloud_name: Optional[str]) -> None:
     log.warning(
         "`anyscale integration wandb enable` has been deprecated. The product W&B integration "
         "is enabled by default so this command is no longer necessary. We will remove this command "
@@ -65,6 +59,4 @@ def enable_wandb_integration(
         )
 
     integrations_controller = ExperimentalIntegrationsController()
-    integrations_controller.enable_wandb_integration(
-        cloud_id=cloud_id, cloud_name=cloud_name
-    )
+    integrations_controller.enable_wandb_integration(cloud_id=cloud_id, cloud_name=cloud_name)

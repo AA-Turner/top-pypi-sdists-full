@@ -15,7 +15,7 @@ use crate::{
 
 use super::{Validate, validate_all_of, validate_any_of, validate_one_of};
 
-impl Validate for tombi_document_tree_syntax::Array {
+impl Validate for tombi_document_tree_syntax::Array<'_> {
     fn validate<'a: 'b, 'b>(
         &'a self,
         accessors: &'a [tombi_schema_store::Accessor],
@@ -126,7 +126,7 @@ impl Validate for tombi_document_tree_syntax::Array {
 
 #[allow(clippy::result_large_err)]
 async fn validate_array(
-    array_value: &tombi_document_tree_syntax::Array,
+    array_value: &tombi_document_tree_syntax::Array<'_>,
     accessors: &[tombi_schema_store::Accessor],
     array_schema: &tombi_schema_store::ArraySchema,
     current_schema: &CurrentSchema<'_>,
@@ -217,7 +217,7 @@ async fn validate_array(
                         Err(err) => {
                             if let Some(diagnostic) = crate::validate::schema_resolution_diagnostic(
                                 &err,
-                                array_value.range(),
+                                array_value.span(),
                                 common_rules,
                             ) {
                                 total_diagnostics.push(diagnostic);
@@ -283,7 +283,7 @@ async fn validate_array(
                     Err(err) => {
                         if let Some(diagnostic) = crate::validate::schema_resolution_diagnostic(
                             &err,
-                            value.range(),
+                            value.span(),
                             common_rules,
                         ) {
                             total_diagnostics.push(diagnostic);
@@ -321,7 +321,7 @@ async fn validate_array(
                     kind: Box::new(crate::DiagnosticKind::ArrayAdditionalItems {
                         max_items: prefix_items.len(),
                     }),
-                    range: value.range(),
+                    span: value.span(),
                 }
                 .push_diagnostic_with_level(
                     SeverityLevelDefaultError::default(),
@@ -376,7 +376,7 @@ async fn validate_array(
             Err(err) => {
                 if let Some(diagnostic) = crate::validate::schema_resolution_diagnostic(
                     &err,
-                    array_value.range(),
+                    array_value.span(),
                     common_rules,
                 ) {
                     total_diagnostics.push(diagnostic);
@@ -400,7 +400,7 @@ async fn validate_array(
             Err(err) => {
                 if let Some(diagnostic) = crate::validate::schema_resolution_diagnostic(
                     &err,
-                    array_value.range(),
+                    array_value.span(),
                     common_rules,
                 ) {
                     total_diagnostics.push(diagnostic);
@@ -445,7 +445,7 @@ async fn validate_array(
                         min_contains,
                         actual: match_count,
                     }),
-                    range: array_value.range(),
+                    span: array_value.span(),
                 }
                 .push_diagnostic_with_level(
                     SeverityLevelDefaultError::default(),
@@ -454,7 +454,7 @@ async fn validate_array(
             } else {
                 crate::Diagnostic {
                     kind: Box::new(crate::DiagnosticKind::ArrayContains),
-                    range: array_value.range(),
+                    span: array_value.span(),
                 }
                 .push_diagnostic_with_level(
                     SeverityLevelDefaultError::default(),
@@ -472,7 +472,7 @@ async fn validate_array(
                     max_contains: max,
                     actual: match_count,
                 }),
-                range: array_value.range(),
+                span: array_value.span(),
             }
             .push_diagnostic_with_level(
                 SeverityLevelDefaultError::default(),
@@ -504,7 +504,7 @@ async fn validate_array(
                 Err(err) => {
                     if let Some(diagnostic) = crate::validate::schema_resolution_diagnostic(
                         &err,
-                        array_value.range(),
+                        array_value.span(),
                         common_rules,
                     ) {
                         total_diagnostics.push(diagnostic);
@@ -542,7 +542,7 @@ async fn validate_array(
                 assertion_failed = true;
                 crate::Diagnostic {
                     kind: Box::new(crate::DiagnosticKind::ArrayUnevaluatedItemNotAllowed { index }),
-                    range: value.range(),
+                    span: value.span(),
                 }
                 .push_diagnostic_with_level(
                     SeverityLevelDefaultError::default(),
@@ -583,7 +583,7 @@ async fn validate_array(
                         expected: const_value.to_string(),
                         actual: actual_value.to_string(),
                     }),
-                    range: array_value.range(),
+                    span: array_value.span(),
                 }
                 .push_diagnostic_with_level(level, &mut total_diagnostics);
             }
@@ -617,7 +617,7 @@ async fn validate_array(
                         expected: r#enum.iter().map(|item| item.to_string()).collect(),
                         actual: actual_value.to_string(),
                     }),
-                    range: array_value.range(),
+                    span: array_value.span(),
                 }
                 .push_diagnostic_with_level(level, &mut total_diagnostics);
             }
@@ -654,7 +654,7 @@ async fn validate_array(
                 max_values: max_items,
                 actual: array_value.values().len(),
             }),
-            range: array_value.range(),
+            span: array_value.span(),
         }
         .push_diagnostic_with_level(level, &mut total_diagnostics);
     } else if lint_rules
@@ -689,7 +689,7 @@ async fn validate_array(
                 min_values: min_items,
                 actual: array_value.values().len(),
             }),
-            range: array_value.range(),
+            span: array_value.span(),
         }
         .push_diagnostic_with_level(level, &mut total_diagnostics);
     } else if lint_rules
@@ -706,7 +706,7 @@ async fn validate_array(
     }
 
     if array_schema.unique_items == Some(true)
-        && let Some(duplicated_ranges) = get_duplicated_ranges(array_value)
+        && let Some(duplicated_spans) = get_duplicated_spans(array_value)
     {
         assertion_failed = true;
         let level = lint_rules
@@ -719,10 +719,10 @@ async fn validate_array(
             })
             .unwrap_or_default();
 
-        for range in duplicated_ranges {
+        for span in duplicated_spans {
             crate::Diagnostic {
                 kind: Box::new(crate::DiagnosticKind::ArrayUniqueValues),
-                range,
+                span,
             }
             .push_diagnostic_with_level(level, &mut total_diagnostics);
         }
@@ -774,7 +774,7 @@ async fn validate_array(
 
 #[allow(clippy::result_large_err)]
 async fn validate_array_without_schema(
-    array_value: &tombi_document_tree_syntax::Array,
+    array_value: &tombi_document_tree_syntax::Array<'_>,
     accessors: &[tombi_schema_store::Accessor],
     schema_context: &tombi_schema_store::SchemaContext<'_>,
 ) -> Result<crate::Valid, crate::Invalid> {
@@ -821,16 +821,16 @@ async fn validate_array_without_schema(
     }
 }
 
-fn get_duplicated_ranges(
-    array_value: &tombi_document_tree_syntax::Array,
-) -> Option<Vec<tombi_text::Range>> {
+fn get_duplicated_spans(
+    array_value: &tombi_document_tree_syntax::Array<'_>,
+) -> Option<Vec<tombi_text::Span>> {
     let values = array_value
         .values()
         .iter()
         .map(crate::convert::value_to_json_value)
         .collect_vec();
 
-    let duplicated_ranges = array_value
+    let duplicated_spans = array_value
         .values()
         .iter()
         .enumerate()
@@ -840,9 +840,9 @@ fn get_duplicated_ranges(
                 .iter()
                 .enumerate()
                 .any(|(other_index, other)| other_index != index && other == current);
-            is_duplicated.then_some(value.range())
+            is_duplicated.then_some(value.span())
         })
         .collect_vec();
 
-    (!duplicated_ranges.is_empty()).then_some(duplicated_ranges)
+    (!duplicated_spans.is_empty()).then_some(duplicated_spans)
 }

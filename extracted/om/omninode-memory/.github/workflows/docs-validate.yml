@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+name: docs-validate
+
+on:
+  pull_request:
+  push:
+    branches: [main, 'hotfix/**']
+  merge_group:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  call:
+    uses: OmniNode-ai/omnibase_core/.github/workflows/validate-docs.yml@main

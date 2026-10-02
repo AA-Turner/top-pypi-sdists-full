@@ -1,0 +1,817 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Rebuilt-image PostgreSQL 16 domain-adapter proof for OMN-15421."""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Literal
+from unittest.mock import patch
+from uuid import UUID, uuid4
+
+import psycopg2
+import psycopg2.extras
+
+from omnibase_core.crypto.crypto_ed25519_signer import generate_keypair
+from omnibase_core.models.contracts.subcontracts.model_db_table_declaration import (
+    ModelDbTableDeclaration,
+)
+from omnibase_core.models.core.model_deployment_topology import ModelDeploymentTopology
+from omnibase_core.models.envelope.model_message_envelope import ModelMessageEnvelope
+from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
+from omnibase_infra.errors.error_projection import ProjectionTenantContextError
+from omnibase_infra.runtime.auto_wiring.handler_wiring import (
+    ProjectionDatabaseTarget,
+    _build_projection_db_adapter,
+    _resolve_projection_database_target,
+)
+from omnibase_infra.runtime.projection_tenant_authority import (
+    VerifiedProjectionTenantAuthority,
+    verify_signed_projection_tenant_authority,
+)
+
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--admin-dsn", required=True)
+    parser.add_argument("--tenant-dsn", required=True)
+    parser.add_argument("--internal-dsn", required=True)
+    parser.add_argument("--catalog-dsn", required=True)
+    return parser.parse_args()
+
+
+_ARGS = _parse_args()
+ADMIN_DSN = _ARGS.admin_dsn
+TENANT_DSN = _ARGS.tenant_dsn
+INTERNAL_DSN = _ARGS.internal_dsn
+CATALOG_DSN = _ARGS.catalog_dsn
+DATABASE = "omnidash_analytics"
+TENANT_ROLE = "tenant_projection_writer"
+INTERNAL_ROLE = "omninode_runtime"
+CATALOG_ROLE = "app_dashboard"
+ROLE_PASSWORD = "domain-adapter-proof-only"  # pragma: allowlist secret
+TENANT_A = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
+TENANT_B = UUID("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb")
+TENANT_TABLE = "future_tenant_projection"
+INTERNAL_TABLE = "future_internal_projection"
+CATALOG_TABLE = "plan_tiers"
+
+psycopg2.extras.register_uuid()
+
+TOPOLOGY = ModelDeploymentTopology.from_yaml(Path(__file__).with_name("topology.yaml"))
+
+
+class _KeyProvider:
+    def __init__(self, runtime_id: str, public_key: bytes) -> None:
+        self._keys = {runtime_id: public_key}
+
+    def get_public_key(self, runtime_id: str) -> bytes | None:
+        return self._keys.get(runtime_id)
+
+    def register_key(self, runtime_id: str, public_key: bytes) -> None:
+        self._keys[runtime_id] = public_key
+
+    def has_key(self, runtime_id: str) -> bool:
+        return runtime_id in self._keys
+
+    def list_runtime_ids(self) -> list[str]:
+        return sorted(self._keys)
+
+
+@dataclass(frozen=True)
+class _TenantBindingResolver:
+    runtime_id: str
+    realm: str
+    bus_id: str
+    tenant_id: UUID
+
+    def resolve_tenant_id(
+        self,
+        *,
+        runtime_id: str,
+        realm: str,
+        bus_id: str,
+    ) -> UUID | None:
+        if (runtime_id, realm, bus_id) != (
+            self.runtime_id,
+            self.realm,
+            self.bus_id,
+        ):
+            return None
+        return self.tenant_id
+
+
+@dataclass(frozen=True)
+class _SignedFixture:
+    envelope: ModelMessageEnvelope[ModelEventEnvelope[dict[str, object]]]
+    key_provider: _KeyProvider
+    resolver: _TenantBindingResolver
+
+    def verify(self) -> VerifiedProjectionTenantAuthority:
+        return verify_signed_projection_tenant_authority(
+            self.envelope,
+            self.key_provider,
+            self.resolver,
+        )
+
+
+def _signed_fixture(
+    tenant_value: str,
+    *,
+    bound_tenant: UUID,
+) -> _SignedFixture:
+    runtime_id = "tenant-gateway-proof"
+    realm = "docker-proof"
+    bus_id = "domain-adapter-proof"
+    event = ModelEventEnvelope[dict[str, object]](
+        payload={"proof": True},
+        correlation_id=uuid4(),
+    )
+    keypair = generate_keypair()
+    envelope = ModelMessageEnvelope[
+        ModelEventEnvelope[dict[str, object]]
+    ].create_signed(
+        realm=realm,
+        runtime_id=runtime_id,
+        bus_id=bus_id,
+        tenant_id=tenant_value,
+        payload=event,
+        trace_id=event.correlation_id,
+        private_key=keypair.private_key_bytes,
+        emitted_at=datetime.now(UTC),
+    )
+    return _SignedFixture(
+        envelope=envelope,
+        key_provider=_KeyProvider(runtime_id, keypair.public_key_bytes),
+        resolver=_TenantBindingResolver(runtime_id, realm, bus_id, bound_tenant),
+    )
+
+
+def _verified_dispatch(
+    tenant_id: UUID,
+) -> tuple[VerifiedProjectionTenantAuthority, ModelEventEnvelope[dict[str, object]]]:
+    fixture = _signed_fixture(str(tenant_id), bound_tenant=tenant_id)
+    return fixture.verify(), fixture.envelope.payload
+
+
+def _target(
+    table: str,
+    schema: str,
+    *,
+    access: Literal["read", "write", "read_write"] = "read_write",
+    catalog_read_binding: str | None = None,
+    catalog_write_binding: str | None = None,
+) -> ProjectionDatabaseTarget:
+    declaration = ModelDbTableDeclaration(
+        name=table,
+        database_ref="application",
+        schema=schema,
+        migration=f"proof/{schema}/{table}.sql",
+        access=access,
+        role=f"{table}_proof",
+    )
+    return _resolve_projection_database_target(
+        (declaration,),
+        TOPOLOGY,
+        catalog_read_binding=catalog_read_binding,
+        catalog_write_binding=catalog_write_binding,
+    )
+
+
+def _adapter(
+    target: ProjectionDatabaseTarget,
+    authority: VerifiedProjectionTenantAuthority | None = None,
+    event: ModelEventEnvelope[dict[str, object]] | None = None,
+) -> object:
+    urls = {
+        "tenant_projection": TENANT_DSN,
+        "omninode_runtime_service": INTERNAL_DSN,
+        "app_dashboard": CATALOG_DSN,
+    }
+    return _build_projection_db_adapter(
+        {binding.binding_ref: urls[binding.binding_ref] for binding in target.bindings},
+        target,
+        authority,
+        event,
+    )
+
+
+def _raises(
+    error_type: type[BaseException],
+    action: Callable[[], object],
+) -> BaseException:
+    try:
+        action()
+    except error_type as exc:
+        return exc
+    raise AssertionError(f"Expected {error_type.__name__}")
+
+
+def _admin_rows(
+    sql: str,
+    params: tuple[object, ...] | None = None,
+) -> list[tuple[object, ...]]:
+    conn = psycopg2.connect(ADMIN_DSN)
+    conn.autocommit = True
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(sql, params)
+            return list(cursor.fetchall())
+    finally:
+        conn.close()
+
+
+def _initialize_database() -> None:
+    conn = psycopg2.connect(ADMIN_DSN)
+    conn.autocommit = True
+    with conn.cursor() as cursor:
+        for role in (TENANT_ROLE, INTERNAL_ROLE, CATALOG_ROLE):
+            cursor.execute(
+                f"CREATE ROLE {role} LOGIN PASSWORD %s NOSUPERUSER NOBYPASSRLS",
+                (ROLE_PASSWORD,),
+            )
+            cursor.execute(f"GRANT CONNECT ON DATABASE {DATABASE} TO {role}")
+        cursor.execute("CREATE SCHEMA tenant")
+        cursor.execute("CREATE SCHEMA omninode_internal")
+        cursor.execute("CREATE SCHEMA platform_catalog")
+        cursor.execute(
+            f"""
+            CREATE TABLE tenant.{TENANT_TABLE} (
+                correlation_id UUID PRIMARY KEY,
+                task_type TEXT NOT NULL,
+                tenant_id UUID NOT NULL
+            );
+            ALTER TABLE tenant.{TENANT_TABLE} ENABLE ROW LEVEL SECURITY;
+            ALTER TABLE tenant.{TENANT_TABLE} FORCE ROW LEVEL SECURITY;
+            CREATE POLICY tenant_isolation ON tenant.{TENANT_TABLE}
+              FOR ALL
+              USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+              WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid);
+            CREATE TABLE omninode_internal.{INTERNAL_TABLE} (
+                correlation_id UUID PRIMARY KEY,
+                source_tenant_id UUID NULL,
+                status TEXT NOT NULL
+            );
+            CREATE TABLE platform_catalog.{CATALOG_TABLE} (
+                tier_id TEXT PRIMARY KEY,
+                display_name TEXT NOT NULL
+            );
+            """
+        )
+        cursor.execute(f"GRANT USAGE ON SCHEMA tenant TO {TENANT_ROLE}")
+        cursor.execute(
+            f"GRANT SELECT, INSERT, UPDATE ON tenant.{TENANT_TABLE} TO {TENANT_ROLE}"
+        )
+        cursor.execute(f"GRANT USAGE ON SCHEMA omninode_internal TO {INTERNAL_ROLE}")
+        cursor.execute(
+            "GRANT SELECT, INSERT, UPDATE ON "
+            f"omninode_internal.{INTERNAL_TABLE} TO {INTERNAL_ROLE}"
+        )
+        cursor.execute(f"GRANT USAGE ON SCHEMA platform_catalog TO {CATALOG_ROLE}")
+        cursor.execute(
+            f"GRANT SELECT ON platform_catalog.{CATALOG_TABLE} TO {CATALOG_ROLE}"
+        )
+        cursor.execute(
+            "INSERT INTO platform_catalog.plan_tiers VALUES ('beta', 'Beta')"
+        )
+    conn.close()
+
+
+def _assert_database_identities() -> None:
+    for dsn, principal in (
+        (TENANT_DSN, TENANT_ROLE),
+        (INTERNAL_DSN, INTERNAL_ROLE),
+        (CATALOG_DSN, CATALOG_ROLE),
+    ):
+        conn = psycopg2.connect(dsn)
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT current_user, current_database()")
+                assert cursor.fetchone() == (principal, DATABASE)
+        finally:
+            conn.close()
+
+
+def _prove_real_rls_with_check() -> None:
+    """Prove the database itself rejects tenant-B rows under tenant-A GUC."""
+    conn = psycopg2.connect(TENANT_DSN)
+    try:
+        with conn.cursor() as cursor:
+            _raises(
+                psycopg2.errors.InsufficientPrivilege,
+                lambda: cursor.execute(
+                    "INSERT INTO tenant.future_tenant_projection VALUES (%s, %s, %s)",
+                    (uuid4(), "unset-context", TENANT_A),
+                ),
+            )
+        conn.rollback()
+
+        with conn.cursor() as cursor:
+            cursor.execute("SET LOCAL app.tenant_id = %s", (str(TENANT_A),))
+            _raises(
+                psycopg2.errors.InsufficientPrivilege,
+                lambda: cursor.execute(
+                    "INSERT INTO tenant.future_tenant_projection VALUES (%s, %s, %s)",
+                    (uuid4(), "wrong-insert", TENANT_B),
+                ),
+            )
+        conn.rollback()
+
+        correlation_id = uuid4()
+        with conn.cursor() as cursor:
+            cursor.execute("SET LOCAL app.tenant_id = %s", (str(TENANT_A),))
+            cursor.execute(
+                "INSERT INTO tenant.future_tenant_projection VALUES (%s, %s, %s)",
+                (correlation_id, "valid-a", TENANT_A),
+            )
+        conn.commit()
+        with conn.cursor() as cursor:
+            cursor.execute("SET LOCAL app.tenant_id = %s", (str(TENANT_A),))
+            _raises(
+                psycopg2.errors.InsufficientPrivilege,
+                lambda: cursor.execute(
+                    "UPDATE tenant.future_tenant_projection SET tenant_id = %s "
+                    "WHERE correlation_id = %s",
+                    (TENANT_B, correlation_id),
+                ),
+            )
+        conn.rollback()
+    finally:
+        conn.close()
+
+
+def _prove_no_authority_records_the_claim(
+    tenant_target: ProjectionDatabaseTarget,
+) -> None:
+    """Prove the no-authority path stopped destroying the tenant dimension.
+
+    OMN-16831 (operator ruling 2026-08-28, option D). Before the ruling this
+    seam raised :class:`ProjectionTenantContextError` whenever no verified
+    capability was bound -- which is every real dispatch on every lane, because
+    ``bind_projection_tenant_authority`` has zero non-test call sites. Every
+    event on all 15 TENANT-classified relations was therefore quarantined
+    before a single statement was issued, and the immutable log kept a DLQ
+    record instead of a tenant-attributed fact.
+
+    OMN-16976 resolves a contradiction this control encoded. Its previous
+    revision asserted the write is "still refused, by the DATABASE's own RLS
+    policy (``InsufficientPrivilege``)" and called that the correct end state.
+    But ``TenantProjectionTableOperation.upsert``'s own docstring, in the same
+    change, says the opposite -- "No authority bound: record exactly what the
+    producer recorded" -- and OMN-16976 AC3 requires an applied row. Both
+    cannot hold. On a FORCE-RLS relation written by a NOBYPASSRLS role, the
+    old assertion means NO tenant projection row is ever writable by any
+    production path, on any lane, until the signed-envelope authority chain is
+    built and ``bind_projection_tenant_authority`` gains its first non-test
+    call site. That is not isolation "at its real enforcement point"; it is the
+    projection layer being dead, which is the defect OMN-16976 was filed for
+    and which the .201 dev lane shows as 40 InsufficientPrivilege in 3h.
+
+    The resolution: the write is SCOPED to the attribution it records, so the
+    row lands, and the database remains the enforcement point for everything
+    the claim does not cover. Three things are proven here:
+
+    1. **The runtime does not refuse.** Falsified by any
+       ``ProjectionTenantContextError`` escaping this call.
+    2. **The row lands, attributed to exactly the recorded claim** -- not to a
+       substituted, defaulted or invented identity (OMN-16804 AC3). The
+       readback is taken as the admin, so it cannot be satisfied by the
+       writer's own scope.
+    3. **Isolation still bites at the database.** A row carrying NO tenant
+       opens no scope, so the relation's own ``WITH CHECK`` refuses it -- the
+       OMN-16831 ruling item 4 boundary (a tenant-less row is the PRODUCER's
+       obligation), enforced by Postgres rather than by a Python precondition.
+       Proven on a fresh connection AND on a reused one, because the SQLSTATE
+       differs between them (see the comment at that assertion) while the
+       refusal does not. :func:`_prove_real_rls_with_check` independently
+       proves the cross-tenant case still refuses on raw SQL.
+
+    Falsifiable in both directions: it fails if the refusal moves back into the
+    runtime, it fails if the row stops landing, it fails if the stored
+    attribution stops matching the claim, and it fails if a tenant-less row
+    becomes writable.
+    """
+    missing = _adapter(tenant_target)
+    try:
+        correlation_id = uuid4()
+        assert missing.upsert(
+            TENANT_TABLE,
+            "correlation_id",
+            {
+                "correlation_id": correlation_id,
+                "task_type": "no-authority-claim",
+                "tenant_id": TENANT_A,
+            },
+        )
+        stored = _admin_rows(
+            "SELECT tenant_id FROM tenant.future_tenant_projection "
+            "WHERE correlation_id = %s",
+            (correlation_id,),
+        )
+        assert stored == [(TENANT_A,)], stored
+
+        # A tenant-less row opens no scope, so the database refuses it. On a
+        # connection that has never carried a scope, current_setting returns
+        # NULL and the refusal is the textbook InsufficientPrivilege.
+        fresh = _adapter(tenant_target)
+        try:
+            error = _raises(
+                psycopg2.errors.InsufficientPrivilege,
+                lambda: fresh.upsert(
+                    TENANT_TABLE,
+                    "correlation_id",
+                    {"correlation_id": uuid4(), "task_type": "no-tenant-fresh"},
+                ),
+            )
+            assert not isinstance(error, ProjectionTenantContextError)
+        finally:
+            fresh.close()
+
+        # Same refusal on a REUSED connection -- which is the runtime's normal
+        # case -- but the error class differs, and that is a PostgreSQL fact
+        # worth pinning rather than discovering in production. A custom GUC
+        # that has been set once does not revert to NULL when its transaction
+        # ends; it reverts to the empty string. So the policy's
+        # `current_setting('app.tenant_id', true)::uuid` evaluates ''::uuid and
+        # raises InvalidTextRepresentation (22P02) instead of returning NULL
+        # and failing the WITH CHECK (42501). Fail-closed either way -- the row
+        # is refused, nothing is written under a borrowed identity -- so what
+        # is asserted is the REFUSAL and its source, not one SQLSTATE. The
+        # discriminator that matters is unchanged: the database refused it, not
+        # the runtime.
+        reused = _raises(
+            psycopg2.Error,
+            lambda: missing.upsert(
+                TENANT_TABLE,
+                "correlation_id",
+                {"correlation_id": uuid4(), "task_type": "no-tenant-reused"},
+            ),
+        )
+        assert not isinstance(reused, ProjectionTenantContextError)
+        assert _admin_rows(
+            "SELECT count(*) FROM tenant.future_tenant_projection "
+            "WHERE task_type IN ('no-tenant-fresh', 'no-tenant-reused')"
+        ) == [(0,)]
+    finally:
+        missing.close()
+
+
+def _prove_rollback_clears_reused_connection(
+    tenant_target: ProjectionDatabaseTarget,
+) -> None:
+    """Force SQL failure after SET LOCAL, then reuse the connection for B."""
+    shared = psycopg2.connect(TENANT_DSN)
+    authority_a, event_a = _verified_dispatch(TENANT_A)
+    authority_b, event_b = _verified_dispatch(TENANT_B)
+    try:
+        with patch("psycopg2.connect", return_value=shared):
+            adapter_a = _adapter(tenant_target, authority_a, event_a)
+            _raises(
+                psycopg2.errors.NotNullViolation,
+                lambda: adapter_a.upsert(
+                    TENANT_TABLE,
+                    "correlation_id",
+                    {"correlation_id": uuid4()},
+                ),
+            )
+            with shared.cursor() as cursor:
+                cursor.execute("SELECT current_setting('app.tenant_id', true)")
+                assert cursor.fetchone()[0] in (None, "")
+            adapter_b = _adapter(tenant_target, authority_b, event_b)
+            assert adapter_b.upsert(
+                TENANT_TABLE,
+                "correlation_id",
+                {"correlation_id": uuid4(), "task_type": "after-rollback"},
+            )
+            with shared.cursor() as cursor:
+                cursor.execute("SELECT current_setting('app.tenant_id', true)")
+                assert cursor.fetchone()[0] in (None, "")
+    finally:
+        shared.close()
+
+
+def _prove_replay_reconciles_to_one_row(
+    tenant_target: ProjectionDatabaseTarget,
+) -> None:
+    """A redelivered tenant event reconciles; it does not duplicate or re-attribute.
+
+    OMN-15425 AC4 names "replay reconciliation" and nothing here proved it. It is
+    not the same claim as the upsert unit tests: at-least-once delivery is a
+    property of the BUS, so the row this proves is the one a real redelivery
+    produces -- same correlation_id, same verified authority, a second write
+    issued against the real relation under the real NOBYPASSRLS role.
+
+    Three things are asserted, and the third is the one that would go unnoticed:
+
+    1. The second write succeeds. A replay that errored would DLQ a fact the
+       lane already holds.
+    2. Exactly ONE row exists for that correlation_id, read back AS THE ADMIN so
+       the count cannot be satisfied by the writer's own row scope -- a
+       tenant-scoped count would read 1 even if a second tenant's duplicate sat
+       beside it.
+    3. The row's tenant_id is unchanged and its payload is the REPLAYED value.
+       A reconciliation that kept the first payload would be an insert-once
+       cache, not an upsert, and a projection frozen at its first delivery is
+       the failure this criterion exists to catch.
+    """
+
+    authority, event = _verified_dispatch(TENANT_A)
+    adapter = _adapter(tenant_target, authority, event)
+    correlation = uuid4()
+    try:
+        assert adapter.upsert(
+            TENANT_TABLE,
+            "correlation_id",
+            {"correlation_id": correlation, "task_type": "replay-first"},
+        )
+        # The identical envelope, delivered again. Same authority, same key.
+        assert adapter.upsert(
+            TENANT_TABLE,
+            "correlation_id",
+            {"correlation_id": correlation, "task_type": "replay-second"},
+        )
+    finally:
+        adapter.close()
+
+    rows = _admin_rows(
+        "SELECT tenant_id, task_type FROM tenant."
+        + TENANT_TABLE
+        + " WHERE correlation_id = %s",
+        (correlation,),
+    )
+    assert len(rows) == 1, f"replay left {len(rows)} rows, expected 1"
+    assert rows[0][0] == TENANT_A
+    assert rows[0][1] == "replay-second", (
+        "the replay did not update the row: a projection frozen at its first "
+        "delivery reports stale facts forever"
+    )
+
+
+def _prove_restart_reads_back_what_the_previous_process_wrote(
+    tenant_target: ProjectionDatabaseTarget,
+) -> None:
+    """A restarted writer sees the prior process's row, holding no state to do it.
+
+    OMN-15425 AC4 names a "restart proof" and nothing here proved it. The risk
+    it addresses is specific: every part of the tenant binding -- the DSN, the
+    role, the transaction-local ``app.tenant_id`` -- is established per
+    connection, so a projection that only works while one adapter stays open
+    would pass every other proof in this file and fail on the first pod
+    restart. onex-dev restarts these pods on every deploy.
+
+    A restart is modelled as the thing that actually distinguishes it: the first
+    adapter is CLOSED, so its connections and their SET LOCAL state are gone,
+    and a second adapter is built from a freshly verified authority rather than
+    the first one's object. Reusing the same authority instance would leave the
+    proof passing on in-process state, which is the failure being excluded.
+    """
+
+    first_authority, first_event = _verified_dispatch(TENANT_A)
+    first = _adapter(tenant_target, first_authority, first_event)
+    correlation = uuid4()
+    try:
+        assert first.upsert(
+            TENANT_TABLE,
+            "correlation_id",
+            {"correlation_id": correlation, "task_type": "before-restart"},
+        )
+    finally:
+        first.close()
+
+    # The restart. Nothing from the process above survives into the one below.
+    second_authority, second_event = _verified_dispatch(TENANT_A)
+    assert second_authority is not first_authority
+    second = _adapter(tenant_target, second_authority, second_event)
+    try:
+        found = second.query(TENANT_TABLE, {"correlation_id": correlation})
+        assert len(found) == 1, (
+            "the restarted writer cannot see the row the previous process "
+            "wrote, so tenant scope is being established from in-process state"
+        )
+        assert found[0]["tenant_id"] == TENANT_A
+        assert found[0]["task_type"] == "before-restart"
+        # And it can still WRITE, not merely read: a restart that reattaches
+        # read-only would look healthy until the next event arrived.
+        assert second.upsert(
+            TENANT_TABLE,
+            "correlation_id",
+            {"correlation_id": correlation, "task_type": "after-restart"},
+        )
+    finally:
+        second.close()
+
+    rows = _admin_rows(
+        "SELECT task_type FROM tenant." + TENANT_TABLE + " WHERE correlation_id = %s",
+        (correlation,),
+    )
+    assert [row[0] for row in rows] == ["after-restart"]
+
+
+def _prove_signature_failures() -> None:
+    malformed = _signed_fixture("not-a-uuid", bound_tenant=TENANT_A)
+    sentinel = _signed_fixture(str(UUID(int=0)), bound_tenant=UUID(int=0))
+    _raises(ProjectionTenantContextError, malformed.verify)
+    _raises(ProjectionTenantContextError, sentinel.verify)
+
+    fixture = _signed_fixture(str(TENANT_A), bound_tenant=TENANT_A)
+    tampered = fixture.envelope.model_copy(update={"tenant_id": str(TENANT_B)})
+    _raises(
+        ProjectionTenantContextError,
+        lambda: verify_signed_projection_tenant_authority(
+            tampered,
+            fixture.key_provider,
+            _TenantBindingResolver(
+                fixture.envelope.runtime_id,
+                fixture.envelope.realm,
+                fixture.envelope.bus_id,
+                TENANT_B,
+            ),
+        ),
+    )
+    wrong_binding = _TenantBindingResolver(
+        fixture.envelope.runtime_id,
+        fixture.envelope.realm,
+        fixture.envelope.bus_id,
+        TENANT_B,
+    )
+    _raises(
+        ProjectionTenantContextError,
+        lambda: verify_signed_projection_tenant_authority(
+            fixture.envelope,
+            fixture.key_provider,
+            wrong_binding,
+        ),
+    )
+
+
+def main() -> None:
+    _initialize_database()
+    _assert_database_identities()
+    tenant_target = _target(TENANT_TABLE, "tenant")
+    internal_target = _target(INTERNAL_TABLE, "omninode_internal")
+    catalog_target = _target(
+        CATALOG_TABLE,
+        "platform_catalog",
+        access="read",
+        catalog_read_binding="app_dashboard",
+    )
+    assert [domain.value for domain in tenant_target.domains] == ["TENANT"]
+    assert [domain.value for domain in internal_target.domains] == ["OMNINODE_INTERNAL"]
+    assert [domain.value for domain in catalog_target.domains] == ["PLATFORM_CATALOG"]
+
+    _prove_signature_failures()
+    _prove_real_rls_with_check()
+
+    authority_a, event_a = _verified_dispatch(TENANT_A)
+    tenant_a = _adapter(tenant_target, authority_a, event_a)
+    correlation_a = uuid4()
+    try:
+        assert tenant_a.upsert(
+            TENANT_TABLE,
+            "correlation_id",
+            {"correlation_id": correlation_a, "task_type": "signed-a"},
+        )
+        found = tenant_a.query(TENANT_TABLE, {"correlation_id": correlation_a})
+        assert found[0]["correlation_id"] == correlation_a
+        assert isinstance(found[0]["correlation_id"], UUID)
+        assert found[0]["tenant_id"] == TENANT_A
+    finally:
+        tenant_a.close()
+
+    authority_b, event_b = _verified_dispatch(TENANT_B)
+    tenant_b = _adapter(tenant_target, authority_b, event_b)
+    try:
+        assert tenant_b.query(TENANT_TABLE, {"correlation_id": correlation_a}) == []
+    finally:
+        tenant_b.close()
+
+    # OMN-16831 (operator ruling 2026-08-28, option D): a MISMATCHED authority is
+    # still refused before a single connection is opened -- that half is unchanged
+    # and stays at full strength, which `connect.assert_not_called()` below proves.
+    # The no-authority case is no longer a refusal and is proven separately,
+    # against the real database, by _prove_no_authority_records_the_claim().
+    with patch("psycopg2.connect") as connect:
+        mismatch = _adapter(tenant_target, authority_a, event_a)
+        _raises(
+            ProjectionTenantContextError,
+            lambda: mismatch.upsert(
+                TENANT_TABLE,
+                "correlation_id",
+                {
+                    "correlation_id": uuid4(),
+                    "task_type": "wrong-row-tenant",
+                    "tenant_id": TENANT_B,
+                },
+            ),
+        )
+    connect.assert_not_called()
+
+    _prove_no_authority_records_the_claim(tenant_target)
+
+    _prove_rollback_clears_reused_connection(tenant_target)
+
+    # OMN-15425 AC4: the two halves this file did not cover.
+    _prove_replay_reconciles_to_one_row(tenant_target)
+    _prove_restart_reads_back_what_the_previous_process_wrote(tenant_target)
+
+    internal = _adapter(internal_target)
+    internal_id = uuid4()
+    try:
+        assert internal.upsert(
+            INTERNAL_TABLE,
+            "correlation_id",
+            {
+                "correlation_id": internal_id,
+                "source_tenant_id": TENANT_A,
+                "status": "complete",
+            },
+        )
+        assert (
+            internal.query(INTERNAL_TABLE, {"correlation_id": internal_id})[0]["status"]
+            == "complete"
+        )
+        internal_connection = next(iter(internal._connections.values()))
+        with internal_connection.cursor() as cursor:
+            cursor.execute("SELECT current_setting('app.tenant_id', true)")
+            assert cursor.fetchone()[0] in (None, "")
+        _raises(
+            ValueError,
+            lambda: internal.upsert(
+                INTERNAL_TABLE,
+                "correlation_id",
+                {
+                    "correlation_id": uuid4(),
+                    "tenant_id": TENANT_A,
+                    "status": "invalid",
+                },
+            ),
+        )
+    finally:
+        internal.close()
+
+    catalog = _adapter(catalog_target)
+    try:
+        assert catalog.query(CATALOG_TABLE)[0]["tier_id"] == "beta"
+        _raises(
+            PermissionError,
+            lambda: catalog.upsert(
+                CATALOG_TABLE,
+                "tier_id",
+                {"tier_id": "pro", "display_name": "Pro"},
+            ),
+        )
+    finally:
+        catalog.close()
+    _raises(
+        ValueError,
+        lambda: _target(CATALOG_TABLE, "platform_catalog", access="write"),
+    )
+
+    for dsn, sql in (
+        (TENANT_DSN, f"SELECT * FROM omninode_internal.{INTERNAL_TABLE}"),
+        (INTERNAL_DSN, "SELECT * FROM tenant.future_tenant_projection"),
+        (
+            CATALOG_DSN,
+            "INSERT INTO platform_catalog.plan_tiers VALUES ('x', 'X')",
+        ),
+    ):
+        conn = psycopg2.connect(dsn)
+        conn.autocommit = True
+        try:
+            _raises(
+                psycopg2.errors.InsufficientPrivilege,
+                lambda conn=conn, sql=sql: conn.cursor().execute(sql),
+            )
+        finally:
+            conn.close()
+
+    miswired = _build_projection_db_adapter(
+        {"tenant_projection": INTERNAL_DSN},
+        tenant_target,
+        authority_a,
+        event_a,
+    )
+    _raises(
+        PermissionError,
+        lambda: miswired.upsert(
+            TENANT_TABLE,
+            "correlation_id",
+            {"correlation_id": uuid4(), "task_type": "miswired"},
+        ),
+    )
+
+    rows = _admin_rows(
+        "SELECT tenant_id FROM tenant.future_tenant_projection ORDER BY tenant_id"
+    )
+    assert TENANT_A in {row[0] for row in rows}
+    assert TENANT_B in {row[0] for row in rows}
+    sys.stdout.write("OMN-15421 PostgreSQL 16 rebuilt-container proof: PASS\n")
+
+
+if __name__ == "__main__":
+    main()

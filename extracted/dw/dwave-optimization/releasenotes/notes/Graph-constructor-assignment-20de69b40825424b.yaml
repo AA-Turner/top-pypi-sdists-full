@@ -1,4 +1,0 @@
----
-features:
-  - Move C++ ``Graph`` constructor and assignment operator definitions into the ``dwave-optimization/graph.hpp``.
-  - Explicitly disallow copy construction and copy assignment for C++ ``Graph``.

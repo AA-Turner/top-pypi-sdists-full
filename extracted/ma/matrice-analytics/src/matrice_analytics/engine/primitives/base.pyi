@@ -408,7 +408,7 @@ class PrimitiveRegistry:
     #     and constructs it with the stage's already-validated config and a scoped state store.
     #
     #     The key set is closed -- it is
-    #     :data:`matrice_analytics.engine.manifest.models.PRIMITIVES`, the same 17 names the
+    #     :data:`matrice_analytics.engine.manifest.models.PRIMITIVES`, the same names the
     #     manifest schema accepts.  Registering anything else raises, because a primitive no
     #     manifest can name is dead code and a manifest naming a primitive that is not here must
     #     fail loudly at load, not silently emit nothing.

@@ -1,0 +1,90 @@
+/*
+ * Copyright 2026 The A11 Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#ifndef A11_FLOW_PARSER_H_
+#define A11_FLOW_PARSER_H_
+
+#include <string_view>
+#include <vector>
+
+#include <absl/base/nullability.h>
+#include <absl/types/span.h>
+
+#include "a11/flow/diagnostic.h"
+#include "a11/flow/syntax.h"
+
+namespace a11::flow {
+
+/// The flows a file declares, and everything wrong with it.
+struct ParseResult {
+  std::vector<syntax::FlowDeclarationPtr> flows;
+  /// The shapes the file declares, in declaration order.
+  ///
+  /// Beside the flows rather than inside them: a `struct` is a sibling
+  /// declaration,
+  /// and a file may declare one and no flow at all -- a file of types is a
+  /// perfectly good thing to have, and is what `flow.dto_from_schema` writes.
+  std::vector<syntax::DtoDeclarationPtr> dtos;
+  std::vector<Diagnostic> diagnostics;
+
+  /// The offset of every `{` that opens a *value* rather than a block, sorted.
+  ///
+  /// The one thing about the token stream that cannot be worked out from the
+  /// tokens: `flow research {` and `a11.sdk.Interaction{` are a word followed
+  /// by a brace either way, and only the grammar knows which. The formatter
+  /// needs it to know whether a brace opens a line or a literal, so the parser
+  /// -- which knew at the time -- writes it down.
+  std::vector<size_t> value_braces;
+
+  /// The offsets of the value braces that follow a type tag, sorted.
+  ///
+  /// A subset of [value_braces], and the other thing only the grammar knows:
+  /// `a11.sdk.Interaction{...}` is one thing and `| map {...}` is a stage and a
+  /// literal, so the first hugs its brace and the second takes a space.
+  std::vector<size_t> tagged_braces;
+
+  [[nodiscard]] bool HasErrors() const;
+
+  /// The first error in source order, or `nullptr`. This is what a strict
+  /// caller turns into a refusal: `flow.loads` raises the Python
+  /// `FlowSyntaxError` built from exactly this.
+  [[nodiscard]] const Diagnostic* absl_nullable FirstError() const;
+};
+
+/// Parse Flow source.
+///
+/// The grammar is `a11/flow/parser.py`'s, one for one: recursive descent, one
+/// token of lookahead, and no reserved words -- a word means `skip` or `for`
+/// only
+/// where it opens a statement and is not immediately followed by something that
+/// makes it a name.
+///
+/// Never throws and always returns a tree. Problems become diagnostics, and
+/// recovery skips to the statement end or inserts a `syntax::ErrorNode` where
+/// a value was required. This supports partial input in formatters and editors.
+ParseResult Parse(std::string_view source);
+
+/// Parse an already-lexed stream, sharing the lex diagnostics.
+///
+/// For a frontend that has the tokens in hand -- a formatter, a highlighter
+/// that then wants a tree -- so one file is lexed once. Comment tokens are
+/// stepped over here, which is what lets the same stream serve both.
+ParseResult ParseTokens(std::string_view source, absl::Span<const Token> tokens,
+                        std::vector<Diagnostic> diagnostics);
+
+}  // namespace a11::flow
+
+#endif  // A11_FLOW_PARSER_H_

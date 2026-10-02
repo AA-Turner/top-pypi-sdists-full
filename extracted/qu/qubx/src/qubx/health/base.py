@@ -1,0 +1,756 @@
+import threading
+import time
+from collections import defaultdict
+from dataclasses import dataclass
+from typing import Callable
+
+import numpy as np
+
+from qubx import logger
+from qubx.core.basics import CtrlChannel, DataType, Instrument, dt_64, td_64
+from qubx.core.interfaces import IHealthMonitor, IMetricEmitter, IStatePersistence, ITimeProvider, LatencyMetrics
+from qubx.core.status import ContextStatus, DegradeReason, QubxStatus
+from qubx.core.utils import recognize_timeframe
+from qubx.health.status import ExchangeDataStatus
+from qubx.utils import convert_tf_str_td64
+from qubx.utils.collections import DequeFloat64, DequeIndicator
+from qubx.utils.time import timedelta_to_str
+
+STALE_THRESHOLDS = {
+    "quote": "10min",
+    "orderbook": "10min",
+    "trade": "30min",
+}
+
+# Event types whose timestamps mark period boundaries (funding settlement), not emission
+# moments — their age is structural, so they are excluded from the pooled data_feed figure.
+# Per-type tracking and emission still include them.
+DATA_FEED_LATENCY_EXCLUDE = frozenset({DataType.FUNDING_PAYMENT})
+
+
+@dataclass
+class TimingContext:
+    """Context for timing a code block."""
+
+    event_type: str
+    start_time: dt_64
+
+
+class BaseHealthMonitor(IHealthMonitor):
+    """Base implementation of health metrics monitoring using Deque for tracking."""
+
+    def __init__(
+        self,
+        time_provider: ITimeProvider,
+        emitter: IMetricEmitter | None = None,
+        emit_interval: str = "1s",
+        channel: CtrlChannel | None = None,
+        monitor_interval: str = "1s",
+        buffer_size: int = 1000,
+        emit_health: bool = True,
+        queue_degrade_window: str = "5Min",
+        latency_window: str = "5Min",
+    ):
+        """Initialize the health metrics monitor.
+
+        Args:
+            time_provider: Provider for time information
+            emitter: Optional metric emitter for sending metrics to external systems
+            emit_interval: Interval to emit metrics, e.g. "1s", "500ms", "5m" (default: "1s")
+            channel: Optional data channel to monitor for queue size
+            queue_monitor_interval: Interval to check queue size, e.g. "100ms", "500ms" (default: "100ms")
+            buffer_size: Size of buffer for storing metrics
+            emit_health: Whether to emit health metrics (default: True)
+            latency_window: Only samples that arrived within this window enter latency
+                percentiles, so a buffer that stopped rolling cannot pin the "now" stats
+                with stale readings (default: "5Min")
+        """
+        self.time_provider = time_provider
+        self._emitter = emitter
+        self._channel = channel
+        self._emit_health = emit_health
+
+        # Convert emit interval to nanoseconds
+        self._emit_interval_ns = recognize_timeframe(emit_interval)
+        self._emit_interval_s = self._emit_interval_ns / 1_000_000_000  # Convert to seconds for sleep
+
+        # Convert queue monitor interval to seconds
+        self._monitor_interval_ns = recognize_timeframe(monitor_interval)
+        self._monitor_interval_s = self._monitor_interval_ns / 1_000_000_000  # Convert to seconds for sleep
+
+        # Queue-backlog detection: the context degrades when no sample has been empty for
+        # queue_degrade_window. Equivalent to "every minute in the window had a non-zero
+        # minimum", evaluated continuously instead of in minute buckets. Floor is 0 — a
+        # healthy queue empties constantly, so no level threshold is needed.
+        self._queue_degrade_window = convert_tf_str_td64(queue_degrade_window) if queue_degrade_window else None
+        self._latency_window_ns = recognize_timeframe(latency_window)
+        self._last_drain_time: dt_64 | None = None
+        self._queue_degraded = False  # - the monitor's own edge tracker: status is written only on transitions
+        self._status: ContextStatus | None = None
+
+        # State-persistence staleness: wired in by set_state_persistence; None until wired.
+        self._state_persistence: IStatePersistence | None = None
+        self._state_stale = False  # - the monitor's own edge tracker, same pattern as _queue_degraded
+
+        # Initialize metrics storage
+        self._queue_size = DequeFloat64(buffer_size)  # Store last 1000 queue size measurements
+
+        # Data arrival tracking (per exchange per event_type) - uses tuple keys (exchange, event_type)
+        self._data_latency = defaultdict(lambda: DequeIndicator(buffer_size))
+        self._event_frequency = defaultdict(lambda: DequeIndicator(buffer_size))
+        self._last_event_time = {}  # dict[(instrument, event_type), dt_64]
+
+        # Subscription tracking for filtering unsubscribed data
+        self._active_subscriptions: set[tuple[Instrument, str]] = set()
+        self._subscribed_at: dict[tuple[Instrument, str], dt_64] = {}
+
+        # Order tracking (per exchange)
+        self._order_submit_requests = {}  # dict[(exchange, client_id), dt_64]
+        self._order_submit_latencies = defaultdict(lambda: DequeIndicator(buffer_size))  # Key: exchange
+        self._order_cancel_requests = {}  # dict[(exchange, client_id), dt_64]
+        self._order_cancel_latencies = defaultdict(lambda: DequeIndicator(buffer_size))  # Key: exchange
+
+        # Connection tracking (per exchange)
+        self._is_connected_callbacks = {}  # dict[exchange, Callable[[], bool]]
+
+        # Generic named-gauge escape hatch (e.g. a fit-duration heartbeat and any future
+        # point-in-time health signal that doesn't warrant its own ledger). Last-write-wins
+        # per name; same cross-thread-write/emitter-thread-read split as other tracking dicts.
+        self._gauge_lock = threading.Lock()
+        self._gauges: dict[str, tuple[float, dict[str, str]]] = {}
+
+        # Execution latency tracking (unchanged)
+        self._execution_latency = defaultdict(lambda: DequeIndicator(buffer_size))
+
+        # Cleanup mechanism for orphaned order requests (60 second timeout)
+        self._cleanup_interval_ns = recognize_timeframe("60s")
+        self._cleanup_interval_s = self._cleanup_interval_ns / 1_000_000_000
+        self._last_cleanup_time = None
+
+        # Initialize emission thread control
+        self._stop_event = threading.Event()
+        self._emission_thread = None
+
+        # Initialize monitor thread control
+        self._is_running = False
+        self._monitor_thread = None
+
+        # Thread-local storage for timing contexts
+        self._thread_local = threading.local()
+
+    def _get_timing_stack(self) -> list[TimingContext]:
+        if not hasattr(self._thread_local, "timing_stack"):
+            self._thread_local.timing_stack = []
+        return self._thread_local.timing_stack
+
+    def __call__(self, event_type: str) -> "BaseHealthMonitor":
+        self._get_timing_stack().append(TimingContext(event_type, self.time_provider.time()))
+        return self
+
+    def __enter__(self) -> "BaseHealthMonitor":
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        stack = self._get_timing_stack()
+        if stack:
+            context = stack.pop()
+            current_time = self.time_provider.time()
+            current_time_ns = current_time.astype("datetime64[ns]").astype(int)
+            start_time_ns = context.start_time.astype("datetime64[ns]").astype(int)
+            duration = (current_time_ns - start_time_ns) / 1e6  # Convert to ms
+
+            # Record execution latency using event_type as key, not the context object
+            self._execution_latency[context.event_type].push_back_fields(current_time_ns, duration)
+
+    def on_data_arrival(self, instrument: Instrument, event_type: str, event_time: dt_64) -> None:
+        # Only track metrics for actively subscribed data types
+        event_type = DataType.from_str(event_type)[0]
+        if (instrument, event_type) not in self._active_subscriptions:
+            return
+
+        current_time = self.time_provider.time()
+        current_time_ns = current_time.astype("datetime64[ns]").astype(int)
+        event_time_ns = event_time.astype("datetime64[ns]").astype(int)
+        data_latency = (current_time_ns - event_time_ns) / 1e6  # Convert to milliseconds
+
+        # Use tuple key (exchange, event_type) for per-exchange tracking
+        exchange_key = (instrument.exchange, event_type)
+
+        # Record data latency and event frequency
+        self._data_latency[exchange_key].push_back_fields(current_time_ns, data_latency)
+
+        # Store last event time
+        instrument_key = (instrument, event_type)
+        self._event_frequency[instrument_key].push_back_fields(current_time_ns, 1.0)
+        self._last_event_time[instrument_key] = current_time
+
+    def subscribe(self, instrument: Instrument, event_type: str) -> None:
+        """
+        Register active subscription for health tracking.
+
+        Args:
+            instrument: The instrument being subscribed to
+            event_type: The data type being subscribed to (e.g., 'ohlc', 'quote', 'orderbook')
+        """
+        self._active_subscriptions.add((instrument, DataType.from_str(event_type)[0]))
+        self._subscribed_at[(instrument, DataType.from_str(event_type)[0])] = self.time_provider.time()
+
+    def unsubscribe(self, instrument: Instrument, event_type: str) -> None:
+        """
+        Remove subscription and cleanup stored metrics.
+
+        Args:
+            instrument: The instrument being unsubscribed from
+            event_type: The data type being unsubscribed from
+        """
+        key = (instrument, DataType.from_str(event_type)[0])
+        self._active_subscriptions.discard(key)
+
+        # Clean up stored metrics immediately
+        self._last_event_time.pop(key, None)
+        self._event_frequency.pop(key, None)
+        self._subscribed_at.pop(key, None)
+
+    def record_order_submit_request(self, exchange: str, client_id: str, event_time: dt_64) -> None:
+        """Record order submit request timestamp."""
+        key = (exchange, client_id)
+        self._order_submit_requests[key] = event_time
+
+    def record_order_submit_response(self, exchange: str, client_id: str, event_time: dt_64) -> None:
+        """Record order submit response and calculate latency."""
+        key = (exchange, client_id)
+        if key in self._order_submit_requests:
+            request_time = self._order_submit_requests[key]
+            current_time = self.time_provider.time()
+            current_time_ns = current_time.astype("datetime64[ns]").astype(int)
+            request_time_ns = request_time.astype("datetime64[ns]").astype(int)
+            latency = (current_time_ns - request_time_ns) / 1e6  # Convert to milliseconds
+
+            # Record latency per exchange
+            self._order_submit_latencies[exchange].push_back_fields(current_time_ns, latency)
+
+            # Remove request from tracking
+            del self._order_submit_requests[key]
+
+    def record_order_cancel_request(self, exchange: str, client_id: str, event_time: dt_64) -> None:
+        """Record order cancel request timestamp."""
+        key = (exchange, client_id)
+        self._order_cancel_requests[key] = event_time
+
+    def record_order_cancel_response(self, exchange: str, client_id: str, event_time: dt_64) -> None:
+        """Record order cancel response and calculate latency."""
+        key = (exchange, client_id)
+        if key in self._order_cancel_requests:
+            request_time = self._order_cancel_requests[key]
+            current_time = self.time_provider.time()
+            current_time_ns = current_time.astype("datetime64[ns]").astype(int)
+            request_time_ns = request_time.astype("datetime64[ns]").astype(int)
+            latency = (current_time_ns - request_time_ns) / 1e6  # Convert to milliseconds
+
+            # Record latency per exchange
+            self._order_cancel_latencies[exchange].push_back_fields(current_time_ns, latency)
+
+            # Remove request from tracking
+            del self._order_cancel_requests[key]
+
+    def set_is_connected(self, exchange: str, is_connected: Callable[[], bool]) -> None:
+        """Set the connection status callback for an exchange."""
+        self._is_connected_callbacks[exchange] = is_connected
+
+    def set_status(self, status: ContextStatus) -> None:
+        """Wire the context's status so the monitor can report degradations. Until this is
+        called the checks run but write nowhere (simulation never wires it)."""
+        self._status = status
+
+    def check_queue_drain(self, size: int) -> None:
+        """
+        One queue-size observation: an empty queue clears the backlog degradation and
+        restarts the window, a non-empty one degrades once the window has passed.
+        """
+        if self._queue_degrade_window is None or self._status is None:
+            return
+
+        now = self.time_provider.time()
+
+        if size <= 0:
+            self._last_drain_time = now
+            if self._queue_degraded:
+                self._queue_degraded = False
+                logger.info("[health] event queue drained — internal_queue_overflow cleared")
+                self._status.clear(DegradeReason.INTERNAL_QUEUE_OVERFLOW)
+            return
+
+        if self._queue_degraded:  # - already flagged: nothing to write until it drains
+            return
+
+        if self._last_drain_time is None:  # - never seen empty: start the window here
+            self._last_drain_time = now
+            return
+
+        if (undrained := now - self._last_drain_time) < self._queue_degrade_window:
+            return
+
+        self._queue_degraded = True
+        for_str = timedelta_to_str(undrained)
+        logger.warning(
+            f"[health] event queue has not been empty for {for_str} (size={size}) — "
+            "context DEGRADED (internal_queue_overflow)"
+        )
+        self._status.add(
+            DegradeReason.INTERNAL_QUEUE_OVERFLOW, now, message=f"queue size {size}, no drain for {for_str}"
+        )
+
+    def set_state_persistence(self, persistence: IStatePersistence) -> None:
+        """Wire the context's state persistence so the monitor can report write
+        staleness. Backends that don't track write health (last_success_age()
+        is None) are wired but never produce a gauge or degradation."""
+        self._state_persistence = persistence
+        self._state_stale = False
+
+    def check_state_persistence(self) -> None:
+        """One staleness observation: records the current write-lag gauge and
+        degrades/clears STATE_PERSISTENCE_STALE on threshold crossings, mirroring
+        check_queue_drain's edge-tracked add/clear pattern."""
+        sp = self._state_persistence
+        if sp is None or self._status is None:
+            return
+        age = sp.last_success_age()
+        if age is not None:
+            self.record_gauge("state_persistence_lag", age)
+        threshold = sp.staleness_threshold_s
+        stale = age is not None and age > threshold
+        if stale and not self._state_stale:
+            self._state_stale = True
+            logger.warning(
+                f"[health] state not persisted for {age:.0f}s (threshold {threshold:.0f}s) — "
+                "context DEGRADED (state_persistence_stale)"
+            )
+            self._status.add(
+                DegradeReason.STATE_PERSISTENCE_STALE,
+                self.time_provider.time(),
+                scope="state",
+                message=f"no successful state write for {age:.0f}s",
+            )
+        elif not stale and self._state_stale:
+            self._state_stale = False
+            logger.info("[health] state persistence recovered — state_persistence_stale cleared")
+            self._status.clear(DegradeReason.STATE_PERSISTENCE_STALE, scope="state")
+
+    def set_event_queue_size(self, size: int) -> None:
+        self._queue_size.push_back(float(size))
+
+    def get_queue_size(self) -> int:
+        if self._queue_size.is_empty():
+            return 0
+        return int(self._queue_size.back())
+
+    def is_connected(self, exchange: str) -> bool:
+        """Check if exchange is connected."""
+        if exchange in self._is_connected_callbacks:
+            try:
+                return self._is_connected_callbacks[exchange]()
+            except Exception:
+                return False
+        return True  # Default to True if no callback registered
+
+    def get_last_event_time(self, instrument: Instrument, event_type: str) -> dt_64 | None:
+        return self._last_event_time.get((instrument, event_type))
+
+    def get_last_event_times_by_exchange(self, exchange: str) -> dict[str, dt_64]:
+        """Get all last event times for a specific exchange."""
+        result = {}
+        # Snapshot: the processor thread writes this dict on every event, and this is read from the
+        # stale monitor and the control server.
+        for (instrument, event_type), event_time in list(self._last_event_time.items()):
+            if instrument.exchange == exchange:
+                if event_type not in result:
+                    result[event_type] = event_time
+                else:
+                    result[event_type] = max(result[event_type], event_time)
+        return result
+
+    def get_last_event_time_by_exchange(self, exchange: str, event_type: str) -> dt_64 | None:
+        """Get last event time for an exchange and event type (instrument-agnostic)."""
+        return self.get_last_event_times_by_exchange(exchange).get(event_type)
+
+    # add new is stale for data type
+    def is_stale(self, instrument: Instrument, event_type: str, stale_delta: str | td_64 | None = None) -> bool:
+        if stale_delta is None:
+            stale_delta = STALE_THRESHOLDS.get(event_type, None)
+            if stale_delta is None:
+                return False
+        if isinstance(stale_delta, str):
+            stale_delta = convert_tf_str_td64(stale_delta)
+        assert isinstance(stale_delta, td_64)
+        current_time = self.time_provider.time()
+        last_event_time = self.get_last_event_time(instrument, event_type)
+        if last_event_time is None:
+            return True
+        time_diff = current_time - last_event_time
+        return bool(time_diff > stale_delta)
+
+    def is_exchange_stale(self, exchange: str, event_type: str, stale_delta: str | td_64 | None = None) -> bool:
+        """Check if data is stale for an exchange and event type (instrument-agnostic)."""
+        if stale_delta is None:
+            stale_delta = STALE_THRESHOLDS.get(event_type, None)
+            if stale_delta is None:
+                return False
+        if isinstance(stale_delta, str):
+            stale_delta = convert_tf_str_td64(stale_delta)
+        assert isinstance(stale_delta, td_64)
+
+        current_time = self.time_provider.time()
+        last_event_time = self.get_last_event_time_by_exchange(exchange, event_type)
+        if last_event_time is None:
+            return True
+        return bool((current_time - last_event_time) > stale_delta)
+
+    def get_exchange_data_status(self, exchange: str, subscribed: dict[str, set[Instrument]]) -> ExchangeDataStatus:
+        """`subscribed` is already scoped to this exchange; `exchange` keys the is_connected lookup."""
+        now = self.time_provider.time()
+        n_subscribed = n_grace = 0
+        stale: set[tuple[Instrument, str]] = set()
+        last_event: dt_64 | None = None
+
+        for event_type, instruments in subscribed.items():
+            base_type = DataType.from_str(event_type)[0]
+            threshold = STALE_THRESHOLDS.get(str(base_type))
+            if threshold is None:
+                continue
+            grace = convert_tf_str_td64(threshold)
+            for instrument in instruments:
+                key = (instrument, base_type)
+                subscribed_at = self._subscribed_at.get(key)
+                if subscribed_at is not None and now - subscribed_at < grace:
+                    n_grace += 1
+                    continue
+                n_subscribed += 1
+                if self.is_stale(instrument, str(base_type)):
+                    stale.add((instrument, str(base_type)))
+                event_time = self._last_event_time.get(key)
+                if event_time is not None and (last_event is None or event_time > last_event):
+                    last_event = event_time
+
+        connected: bool | None = None
+        if exchange in self._is_connected_callbacks:
+            try:
+                connected = bool(self._is_connected_callbacks[exchange]())
+            except Exception:
+                connected = False
+
+        return ExchangeDataStatus(
+            exchange=exchange,
+            connected=connected,
+            subscribed=n_subscribed,
+            stale_keys=frozenset(stale),
+            in_grace=n_grace,
+            last_event_time=last_event,
+        )
+
+    def get_event_frequency(self, instrument: Instrument, event_type: str) -> float:
+        """Get the events per second for a specific event type on an instrument."""
+        key = (instrument, event_type)
+        if key not in self._event_frequency or self._event_frequency[key].is_empty():
+            return 0.0
+        series = self._event_frequency[key].to_array()
+        if len(series) < 2:  # Need at least 2 points to calculate frequency
+            return float(np.sum(series["value"]))  # Return total events if only one point
+
+        # Calculate time window between newest and oldest events
+        newest_time = series[-1]["timestamp"]  # Last event in the array
+        oldest_time = series[0]["timestamp"]  # First event in the array
+        time_window_ns = newest_time - oldest_time
+
+        # Avoid division by zero and ensure minimum window
+        if time_window_ns <= 0:
+            return float(np.sum(series["value"]))  # Return total events if all events at same time
+
+        # Convert window to seconds for per-second frequency
+        time_window_seconds = max(1.0, time_window_ns / 1e9)  # At least 1 second window
+
+        # Sum all events in our window
+        total_events = np.sum(series["value"])
+
+        # Calculate events per second
+        return float(total_events / time_window_seconds)
+
+    def _recent_values(self, indicator) -> np.ndarray:
+        """Values of samples that arrived within the latency window, oldest first."""
+        samples = indicator.to_array()
+        cutoff = self.time_provider.time().astype("datetime64[ns]").astype(int) - self._latency_window_ns
+        return samples["value"][samples["timestamp"] > cutoff]
+
+    def get_data_latency(self, exchange: str, event_type: str, percentile: float = 90) -> float:
+        """Get data latency for a specific event type on an exchange."""
+        key = (exchange, event_type)
+        if key not in self._data_latency or self._data_latency[key].is_empty():
+            return 0.0
+        latencies = self._recent_values(self._data_latency[key])
+        if len(latencies) == 0:
+            return 0.0
+        return float(np.percentile(latencies, percentile))
+
+    def get_data_latencies(self, exchange: str, percentile: float = 90) -> dict[str, float]:
+        """Get all data latencies for an exchange."""
+        result = {}
+        for ex, event_type in self._data_latency.keys():
+            if ex == exchange:
+                result[event_type] = self.get_data_latency(exchange, event_type, percentile)
+        return result
+
+    def get_order_submit_latency(self, exchange: str, percentile: float = 90) -> float:
+        """Get order submit latency for an exchange."""
+        if exchange not in self._order_submit_latencies or self._order_submit_latencies[exchange].is_empty():
+            return 0.0
+        latencies = self._order_submit_latencies[exchange].to_array()["value"]
+        return float(np.percentile(latencies, percentile))
+
+    def get_order_cancel_latency(self, exchange: str, percentile: float = 90) -> float:
+        """Get order cancel latency for an exchange."""
+        if exchange not in self._order_cancel_latencies or self._order_cancel_latencies[exchange].is_empty():
+            return 0.0
+        latencies = self._order_cancel_latencies[exchange].to_array()["value"]
+        return float(np.percentile(latencies, percentile))
+
+    def get_execution_latency(self, scope: str, percentile: float = 90) -> float:
+        return self._get_latency_percentile(scope, self._execution_latency, percentile)
+
+    def get_execution_latencies(self) -> dict[str, float]:
+        scopes = self._execution_latency.keys()
+        return {scope: self.get_execution_latency(scope) for scope in scopes}
+
+    def get_exchange_latencies(self, exchange: str, percentile: float = 90) -> LatencyMetrics:
+        data_latencies = []
+        for (ex, event_type), latency in self._data_latency.items():
+            if ex == exchange and event_type not in DATA_FEED_LATENCY_EXCLUDE:
+                if not latency.is_empty():
+                    data_latencies.extend(self._recent_values(latency))
+
+        data_feed = float(np.percentile(data_latencies, percentile)) if data_latencies else 0.0
+
+        order_submit_latencies = []
+        if exchange in self._order_submit_latencies:
+            latency = self._order_submit_latencies[exchange]
+            if not latency.is_empty():
+                order_submit_latencies.extend(latency.to_array()["value"])
+
+        order_submit = float(np.percentile(order_submit_latencies, percentile)) if order_submit_latencies else 0.0
+
+        order_cancel_latencies = []
+        if exchange in self._order_cancel_latencies:
+            latency = self._order_cancel_latencies[exchange]
+            if not latency.is_empty():
+                order_cancel_latencies.extend(latency.to_array()["value"])
+
+        order_cancel = float(np.percentile(order_cancel_latencies, percentile)) if order_cancel_latencies else 0.0
+
+        return LatencyMetrics(
+            data_feed=data_feed,
+            order_submit=order_submit,
+            order_cancel=order_cancel,
+        )
+
+    def start(self) -> None:
+        """Start the metrics emission thread and queue monitoring thread."""
+        # Start queue size monitoring if channel is provided
+        if self._channel is not None:
+            self._is_running = True
+            self._monitor_thread = threading.Thread(target=self._monitor_loop, daemon=True)
+            self._monitor_thread.start()
+
+        # Start metrics emission if emitter is provided
+        if self._emitter is not None:
+
+            def emit_metrics():
+                while not self._stop_event.is_set():
+                    try:
+                        self._emit()
+                    except Exception as e:
+                        logger.error(f"Error emitting metrics: {e}")
+                    finally:
+                        time.sleep(self._emit_interval_s)
+
+            self._stop_event.clear()
+            self._emission_thread = threading.Thread(target=emit_metrics, daemon=True)
+            self._emission_thread.start()
+
+    def stop(self) -> None:
+        """Stop the metrics emission thread and queue monitoring thread."""
+
+        # Stop queue size monitoring
+        if self._monitor_thread is not None:
+            self._is_running = False
+            self._monitor_thread.join()
+            self._monitor_thread = None
+
+        # Stop metrics emission
+        if self._emission_thread is not None:
+            self._stop_event.set()
+            self._emission_thread.join()
+            self._emission_thread = None
+
+    def watch(self, scope_name: str = ""):
+        def decorator(func):
+            nonlocal scope_name
+            # Use function's qualified name if scope_name is empty
+            if scope_name == "":
+                scope_name = f"{func.__module__}.{func.__qualname__}"
+
+            def wrapper(*args, **kwargs):
+                with self(scope_name):
+                    return func(*args, **kwargs)
+
+            # Preserve function metadata
+            wrapper.__name__ = func.__name__
+            wrapper.__doc__ = func.__doc__
+            wrapper.__module__ = func.__module__
+            wrapper.__qualname__ = func.__qualname__
+            wrapper.__annotations__ = func.__annotations__
+
+            return wrapper
+
+        return decorator
+
+    def record_gauge(self, name: str, value: float, tags: dict[str, str] | None = None) -> None:
+        """Record/overwrite a single named gauge (last-write-wins), emitted on the next
+        `_emit()` pass. Generic escape hatch — prefer a dedicated ledger for anything
+        richer than "one current value per name"."""
+        with self._gauge_lock:
+            self._gauges[name] = (value, dict(tags) if tags else {})
+
+    def _monitor_loop(self) -> None:
+        while self._is_running:
+            try:
+                # Update queue size if we have a channel
+                if self._channel is not None:
+                    current_size = self._channel._queue.qsize()
+                    self.set_event_queue_size(current_size)
+                    self.check_queue_drain(current_size)
+
+                self.check_state_persistence()
+
+                # Perform cleanup of old order requests
+                self._cleanup_old_order_requests()
+            except Exception as e:
+                logger.error(f"Error monitoring queue size: {e}")
+            finally:
+                time.sleep(self._monitor_interval_s)
+
+    def _cleanup_old_order_requests(self) -> None:
+        """Clean up order requests older than 60 seconds."""
+        current_time = self.time_provider.time()
+
+        # Only run cleanup once per cleanup interval
+        if self._last_cleanup_time is not None:
+            time_since_last_cleanup = current_time - self._last_cleanup_time
+            time_since_last_cleanup_ns = time_since_last_cleanup.astype("datetime64[ns]").astype(int)
+            if time_since_last_cleanup_ns < self._cleanup_interval_ns:
+                return
+
+        self._last_cleanup_time = current_time
+        current_time_ns = current_time.astype("datetime64[ns]").astype(int)
+        timeout_ns = self._cleanup_interval_ns
+
+        # Clean up submit requests
+        expired_submit = []
+        for (exchange, client_id), request_time in self._order_submit_requests.items():
+            request_time_ns = request_time.astype("datetime64[ns]").astype(int)
+            if (current_time_ns - request_time_ns) > timeout_ns:
+                expired_submit.append((exchange, client_id))
+
+        for key in expired_submit:
+            del self._order_submit_requests[key]
+
+        # Clean up cancel requests
+        expired_cancel = []
+        for (exchange, client_id), request_time in self._order_cancel_requests.items():
+            request_time_ns = request_time.astype("datetime64[ns]").astype(int)
+            if (current_time_ns - request_time_ns) > timeout_ns:
+                expired_cancel.append((exchange, client_id))
+
+        for key in expired_cancel:
+            del self._order_cancel_requests[key]
+
+    def _get_latency_percentile(self, event_type: str, latencies: dict, percentile: float) -> float:
+        if event_type not in latencies or latencies[event_type].is_empty():
+            return 0.0
+        _latencies = latencies[event_type].to_array()["value"]
+        return float(np.percentile(_latencies, percentile))
+
+    def _get_exchanges(self) -> list[str]:
+        return list(set(ex for ex, _ in self._data_latency.keys()))
+
+    def _get_gauges(self) -> list[tuple[str, float, dict[str, str]]]:
+        with self._gauge_lock:
+            return [(name, value, tags) for name, (value, tags) in self._gauges.items()]
+
+    def _emit(self) -> None:
+        """Emit all metrics to the configured emitter."""
+        if not self._emit_health or self._emitter is None:
+            return
+
+        current_time = self.time_provider.time()
+
+        self._emitter.emit(
+            name="queue_size", value=self.get_queue_size(), tags={"type": "health"}, timestamp=current_time
+        )
+        self._emit_context_status(current_time)
+
+        exchanges = self._get_exchanges()
+        for exchange in exchanges:
+            self._emit_exchange_latencies(exchange)
+
+        self._emit_gauges(current_time)
+
+    def _emit_context_status(self, current_time: dt_64) -> None:
+        """0/1 alongside queue_size so a degradation is visible in the same series, plus one
+        row per held degradation (only while degraded, so cardinality stays flat)."""
+        if self._status is None:
+            return
+        assert self._emitter is not None
+        info = self._status.info
+        degraded = info.status is not QubxStatus.NORMAL
+        self._emitter.emit(
+            name="context_status", value=float(degraded), tags={"type": "health"}, timestamp=current_time
+        )
+        for d in info.degradations:
+            self._emitter.emit(
+                name="context_degradation",
+                value=1.0,
+                tags={"type": "health", "reason": str(d.reason), "scope": d.scope or ""},
+                timestamp=current_time,
+            )
+
+    def _emit_gauges(self, current_time: dt_64) -> None:
+        """Emit the generic named-gauge escape hatch (e.g. `fit_duration_s`)."""
+        assert self._emitter is not None
+        for name, value, tags in self._get_gauges():
+            self._emitter.emit(name=name, value=value, tags={"type": "health", **tags}, timestamp=current_time)
+
+    def _emit_exchange_latencies(self, exchange: str) -> None:
+        current_time = self.time_provider.time()
+        metrics = self.get_exchange_latencies(exchange, percentile=90)
+        tags = {"type": "health", "exchange": exchange}
+        assert self._emitter is not None
+        # One row per event type: types have incompatible latency semantics (a funding
+        # payment is stamped at settlement, a quote at emission), so dashboards pick the
+        # types they mean instead of receiving a pre-pooled figure.
+        for event_type, data_latency in self.get_data_latencies(exchange, percentile=90).items():
+            self._emitter.emit(
+                name="latency.p90.data",
+                value=data_latency,
+                tags={**tags, "event_type": str(event_type)},
+                timestamp=current_time,
+            )
+        self._emitter.emit(
+            name="latency.p90.order_submit",
+            value=metrics.order_submit,
+            tags=tags,
+            timestamp=current_time,
+        )
+        self._emitter.emit(
+            name="latency.p90.order_cancel",
+            value=metrics.order_cancel,
+            tags=tags,
+            timestamp=current_time,
+        )

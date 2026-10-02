@@ -19,7 +19,7 @@ from matrx_ai.config import (
 )
 from matrx_ai.config.citations import normalize_openai_annotation
 from matrx_ai.context.emitter_protocol import Emitter
-from matrx_ai.providers.keys import keyed_provider_client
+from matrx_ai.providers.keys import NO_SDK_RETRIES, keyed_provider_client
 from matrx_ai.providers.outbound_capture import (
     make_capture_http_client,
     stamp_call_meta,
@@ -39,6 +39,20 @@ if TYPE_CHECKING:  # circular-by-design: catalog.models imports providers.resolv
 DEBUG_OVERRIDE = False
 
 
+class OpenAIStreamError(RuntimeError):
+    """The stream ended on a provider ``error`` event; carries the provider's words."""
+
+
+def _stream_error_text(event: Any) -> str:
+    """The provider's code + message from a Responses ``error`` event (flat or nested)."""
+    nested = getattr(event, "error", None)
+    if nested:
+        return str(nested)
+    code = getattr(event, "code", None)
+    message = getattr(event, "message", None)
+    return " ".join(str(part) for part in (code, message) if part) or "stream error event"
+
+
 class OpenAIChat:
     """OpenAI Responses API-specific endpoint implementation."""
 
@@ -51,6 +65,7 @@ class OpenAIChat:
         "OPENAI_API_KEY",
         factory=lambda api_key: AsyncOpenAI(
             api_key=api_key,
+            max_retries=NO_SDK_RETRIES,
             http_client=make_capture_http_client(sdk=openai_sdk),
         ),
     )
@@ -308,8 +323,6 @@ class OpenAIChat:
 
                 attach_script_to_audio(unified_response, unified_config)
 
-            from matrx_connect.context.data_types import MediaBlockData
-            from matrx_connect.context.media_block import cloud_file_to_media_block
 
             synthetic_record = {
                 "id": envelope.file_id,
@@ -330,14 +343,12 @@ class OpenAIChat:
                 "cdn_url": envelope.cdn_url,
                 "download_url": envelope.download_url,
             }
+            from matrx_ai.providers.media_frames import fitted_media_block
+
+            # Sheds speech_script from the LIVE event only if it would outgrow
+            # the journal frame; the persisted part keeps it.
             await emitter.send_data(
-                MediaBlockData(
-                    block=cloud_file_to_media_block(
-                        synthetic_record,
-                        url_set=url_set,
-                        kind_override="audio",
-                    )
-                )
+                fitted_media_block(synthetic_record, url_set=url_set, kind_override="audio")
             )
             await asyncio.sleep(0)
 
@@ -410,6 +421,13 @@ class OpenAIChat:
         # failed cx_request carries real cost instead of $0 (the cost-tracking
         # gap). It never changes what is returned.
         billable_response: OpenAIResponse | None = None
+        # The provider's own words from a flat Responses ``error`` event. The
+        # SDK raises ``APIError`` only for a NESTED ``{"error": {...}}`` body;
+        # the flat event ({type, code, message}) reaches us instead, and the
+        # stream then fails with "Didn't receive a `response.completed`" — no
+        # code, no message, so an out-of-credit refusal was classified as a
+        # retryable unknown_error.
+        stream_error_text: str | None = None
 
         try:
             # ``Responses.stream`` recursively transforms every typed request field
@@ -428,6 +446,8 @@ class OpenAIChat:
             ) as stream:
                 async for event in stream:
                     await self._handle_event(event, emitter)
+                    if getattr(event, "type", None) == "error":
+                        stream_error_text = _stream_error_text(event)
 
                     # Capture the terminal Response off the success/incomplete
                     # terminal events. The OpenAI SDK only stores its internal
@@ -465,10 +485,14 @@ class OpenAIChat:
                     try:
                         final_response = await stream.get_final_response()
                     except BaseException as stream_exc:
+                        if stream_error_text and isinstance(stream_exc, Exception):
+                            named = OpenAIStreamError(stream_error_text)
+                            named.__cause__ = stream_exc
+                            stream_exc = named
                         self._attach_billed_usage_from_response(
                             stream_exc, billable_response, matrx_model_name
                         )
-                        raise
+                        raise stream_exc
 
             return self.to_unified_response(final_response, matrx_model_name)
         except BaseException as exc:
@@ -626,12 +650,17 @@ class OpenAIChat:
                 self._event_samples = {}
 
         elif event_type == "error":
-            error_data = getattr(event, "error", {})
-            await emitter.send_error(
-                error_type="streaming_error",
-                message=str(error_data),
-                user_message="An error occurred during streaming.",
-            )
+            from matrx_ai.providers.errors import is_billing_refusal
+
+            error_text = _stream_error_text(event)
+            # A billing refusal ends this stream; the orchestrator classifies
+            # it, may reroute, and owns the one sentence the person reads.
+            if not is_billing_refusal(error_text):
+                await emitter.send_error(
+                    error_type="streaming_error",
+                    message=error_text,
+                    user_message="An error occurred during streaming.",
+                )
 
     async def _debug_event(self, event: Any):
         """Debug logging for events"""

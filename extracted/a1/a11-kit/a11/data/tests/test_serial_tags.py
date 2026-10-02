@@ -1,0 +1,344 @@
+# Copyright 2026 The A11 Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""The Python half of the cross-language tag contract.
+
+`testdata/serial_tags.json` is the one table every language answers to. These
+tests assert Python's constants against it, that the types actually carrying
+those tags agree, and that the tags reach the wire in the shape the other
+languages read — the three ways this contract can quietly rot.
+"""
+
+import base64
+import json
+import pathlib
+
+import a11
+import pytest
+from a11.data import serial_tags, serialization
+from a11.cli.backends import make_user_interaction
+from a11.data.serialization import CORE_TYPE_TAGS, _declared_serial_tag
+from a11.sdk.llm import (
+    A11ActionConfig,
+    A11Peer,
+    Interaction,
+    Role,
+    UsageMetadata,
+)
+from a11.actions import (
+    is_close_status_chunk,
+    status_from_chunk,
+    status_to_chunk,
+)
+from a11.status import Status, StatusCode
+
+_TESTDATA = pathlib.Path(__file__).resolve().parents[3] / "testdata"
+_FIXTURE = _TESTDATA / "serial_tags.json"
+_GOLDEN = _TESTDATA / "interaction_golden.json"
+_TEXT_MESSAGE_GOLDEN = _TESTDATA / "text_message_interaction_golden.json"
+
+
+def golden_interaction() -> Interaction:
+    """The interaction behind `testdata/interaction_golden.json`.
+
+    Every language decodes that fixture, rebuilds what it nests, re-encodes and
+    must reproduce the bytes. Change this and rewrite the fixture from it — the
+    other languages' suites will fail until they agree, which is the point.
+    """
+    return Interaction(
+        id="00000000-0000-4000-8000-000000000000",
+        role=Role.ASSISTANT,
+        model="golden-model",
+        content=[a11.to_chunk({"t": 1}), a11.to_chunk("plain")],
+        system_instructions=[a11.to_chunk("sys")],
+        action_configs={"x": A11ActionConfig()},
+        action_calls=[a11.ActionMessage(id="call-1", name="rename_symbol")],
+        action_inputs={
+            "p": [a11.NodeFragment(data=a11.to_chunk("frag"), id="n1", seq=0)]
+        },
+        backend_specific_metadata={"stop": b"end_turn"},
+        usage_metadata=UsageMetadata(input_tokens=3, output_tokens=7),
+    )
+
+
+def _fixture_tags() -> dict[str, str]:
+    data = json.loads(_FIXTURE.read_text())
+    tags: dict[str, str] = {}
+    for section, entries in data.items():
+        # `media_types` is the other half of the fixture and holds media types,
+        # not tags; see test_media_types_match_the_fixture.
+        if section.startswith("_") or section == "media_types":
+            continue
+        tags.update(entries)
+    return tags
+
+
+def _fixture_media_types() -> dict[str, str]:
+    return json.loads(_FIXTURE.read_text())["media_types"]
+
+
+def test_media_types_match_the_fixture():
+    """The media types are pinned across languages exactly as the tags are.
+
+    `text` and `bytes` are the ones that matter here: they are the defaults for
+    a `str` and for `bytes`, and a chunk using either carries no `type`
+    parameter, so the media type alone is what a peer has to go on.
+    """
+    fixture = _fixture_media_types()
+
+    assert fixture["json"] == serialization.JSON_MIMETYPE
+    assert fixture["msgpack"] == serialization.MSGPACK_MIMETYPE
+    assert fixture["text"] == serialization.TEXT_MIMETYPE
+    assert fixture["bytes"] == serialization.BYTES_MIMETYPE
+
+
+def test_the_defaults_are_the_pinned_media_types():
+    """What a str and bytes actually travel as, not just what is declared."""
+    fixture = _fixture_media_types()
+
+    assert a11.to_chunk("text").get_mimetype() == fixture["text"]
+    assert a11.to_chunk(b"bytes").get_mimetype() == fixture["bytes"]
+    # And the payload is the value, with nothing wrapped around it.
+    assert bytes(a11.to_chunk("text").data) == b"text"
+    assert bytes(a11.to_chunk(b"\x00\xff").data) == b"\x00\xff"
+
+
+def test_every_fixture_tag_has_a_python_constant():
+    constants = {
+        getattr(serial_tags, name)
+        for name in serial_tags.__all__
+        if name != "SERIAL_TAG_ATTRIBUTE"
+    }
+    missing = set(_fixture_tags().values()) - constants
+    assert not missing, (
+        f"testdata/serial_tags.json tags absent from Python: {missing}"
+    )
+
+
+def test_every_python_constant_is_in_the_fixture():
+    declared = set(_fixture_tags().values())
+    extra = {
+        getattr(serial_tags, name)
+        for name in serial_tags.__all__
+        if name != "SERIAL_TAG_ATTRIBUTE"
+    } - declared
+    assert not extra, (
+        f"Python tags absent from testdata/serial_tags.json: {extra}"
+    )
+
+
+@pytest.mark.parametrize(
+    "model, tag",
+    [
+        (Interaction, serial_tags.INTERACTION),
+        (A11Peer, serial_tags.PEER),
+        (A11ActionConfig, serial_tags.ACTION_CONFIG),
+        (UsageMetadata, serial_tags.USAGE_METADATA),
+    ],
+)
+def test_sdk_models_declare_their_tag(model, tag):
+    assert _declared_serial_tag(model) == tag
+
+
+def test_core_types_are_pinned_to_their_canonical_tag():
+    assert CORE_TYPE_TAGS[a11.Chunk] == serial_tags.CHUNK
+    assert CORE_TYPE_TAGS[Status] == serial_tags.STATUS
+
+
+def _status_chunk_fixture() -> dict:
+    return json.loads((_TESTDATA / "status_chunk.json").read_text())
+
+
+def test_python_writes_the_pinned_status_chunk():
+    """One shape for every status A11 carries as data, in every language."""
+    fixture = _status_chunk_fixture()
+    for case in fixture["cases"]:
+        status = Status(
+            code=StatusCode(case["code"]),
+            message=case["message"],
+            details=case["details"],
+        )
+        chunk = status_to_chunk(status)
+
+        assert chunk.get_mimetype() == fixture["mimetype"], case["name"]
+        assert base64.b64encode(bytes(chunk.data)).decode() == case["base64"], (
+            case["name"]
+        )
+        assert not is_close_status_chunk(chunk), case["name"]
+        assert status_from_chunk(chunk) == status, case["name"]
+
+
+def test_a_closure_marker_only_adds_the_pinned_attribute():
+    """The marker rides on metadata: its payload is the plain status."""
+    fixture = _status_chunk_fixture()
+    status = Status.ok()
+
+    marker = status_to_chunk(status, closing=True)
+
+    assert marker.get_mimetype() == fixture["mimetype"]
+    assert bytes(marker.data) == bytes(status_to_chunk(status).data)
+    assert is_close_status_chunk(marker)
+    assert dict(marker.metadata.attributes) == {
+        fixture["close_attribute"]: b"1"
+    }
+    assert status_from_chunk(marker) == status
+
+
+def test_a_subclass_does_not_inherit_its_base_tag():
+    """Inheriting a tag would make a subclass serialize as its base."""
+
+    class Narrower(Interaction):
+        pass
+
+    assert _declared_serial_tag(Narrower) is None
+
+
+def _keys(payload: object) -> set[str]:
+    """Every mapping key anywhere in a decoded payload."""
+    if isinstance(payload, dict):
+        return set(payload) | {
+            key for item in payload.values() for key in _keys(item)
+        }
+    if isinstance(payload, list):
+        return {key for item in payload for key in _keys(item)}
+    return set()
+
+
+def test_a_serialized_interaction_carries_no_tags():
+    """The model's own fields say what everything is; nothing repeats it.
+
+    The chunk's `;type=` parameter names the payload, and from there every
+    nested value sits in a field whose declared type identifies it -- `content`
+    is a list of Chunks, `status` a Status. A tag anywhere inside would be
+    saying a second time what the schema already said. A nested chunk holding
+    plain JSON says so and stops there: `application/json`, with no `;type=`
+    to repeat what the format already spells out.
+    """
+    interaction = Interaction(
+        content=[a11.to_chunk("hi")],
+        action_configs={"x": A11ActionConfig(peer=A11Peer())},
+        usage_metadata=UsageMetadata(input_tokens=1),
+        backend_specific_metadata={"stop": b"\xff\x00"},
+    )
+    chunk = a11.to_chunk(interaction)
+
+    assert chunk.get_mimetype() == (
+        f"application/json;type={serial_tags.INTERACTION}"
+    )
+    payload = json.loads(bytes(chunk.data))
+    tagged = {key for key in _keys(payload) if key.startswith("!")}
+    assert not tagged, f"tags survived in a declared model: {tagged}"
+
+    # Bare, and rebuilt from the annotations alone. A string travels as
+    # `text/plain` holding the string itself, not as a JSON-quoted copy under
+    # `application/json`. Base64 here only because the enclosing JSON has to
+    # carry the nested chunk's bytes somehow.
+    assert payload["content"][0] == {
+        "data": base64.b64encode(b"hi").decode(),
+        "metadata": {"mimetype": serialization.TEXT_MIMETYPE},
+    }
+    assert payload["status"] == {"code": 0, "message": ""}
+    assert payload["action_configs"]["x"]["peer"]["identity"] == "$sender"
+
+    decoded = a11.from_chunk(chunk, "", Interaction)
+    assert isinstance(decoded.content[0], a11.Chunk)
+    assert a11.from_chunk(decoded.content[0]) == "hi"
+    assert isinstance(decoded.usage_metadata, UsageMetadata)
+    assert isinstance(decoded.action_configs["x"].peer, A11Peer)
+    # Base64, not UTF-8: a byte field that is not text has to survive too.
+    assert decoded.backend_specific_metadata["stop"] == b"\xff\x00"
+
+
+def test_no_key_in_a_payload_is_ever_read_as_a_type():
+    """A payload is data. Nothing in it names a type, so nothing is escaped.
+
+    A11 once wrote a nested value's type as the sole key of a one-entry object
+    (`{"!a11.Chunk": {...}}`), which meant a caller's own mapping of that shape
+    had to be escaped on the way out. The type lives in the chunk's metadata
+    now, so these go out byte-for-byte as written.
+    """
+    for value in (
+        {f"!{serial_tags.CHUNK}": "not one"},
+        {"!whatever": [1, 2]},
+        {"!a": 1, "b": 2},
+    ):
+        chunk = a11.to_chunk(value)
+        assert json.loads(bytes(chunk.data)) == value
+        assert a11.from_chunk(chunk) == value
+
+
+def test_python_writes_the_golden_interaction():
+    """The fixture the other languages are held to must stay Python's output."""
+    golden = json.loads(_GOLDEN.read_text())
+    chunk = a11.to_chunk(golden_interaction())
+
+    assert chunk.get_mimetype() == golden["mimetype"]
+    assert base64.b64encode(bytes(chunk.data)).decode() == golden["base64"]
+
+
+def test_the_golden_interaction_round_trips():
+    golden = json.loads(_GOLDEN.read_text())
+    chunk = a11.Chunk(
+        data=base64.b64decode(golden["base64"]),
+        metadata=a11.ChunkMetadata(mimetype=golden["mimetype"]),
+    )
+
+    decoded = a11.from_chunk(chunk, "", Interaction)
+    reencoded = a11.to_chunk(decoded)
+
+    assert bytes(reencoded.data) == base64.b64decode(golden["base64"])
+
+
+def test_python_writes_the_golden_text_message_interaction():
+    """The shape every language's `makeTextMessageInteraction` is held to."""
+    golden = json.loads(_TEXT_MESSAGE_GOLDEN.read_text())
+    interaction = make_user_interaction(golden["text"])
+    interaction.system_instructions = [a11.to_chunk(golden["system_prompt"])]
+    interaction.id = json.loads(base64.b64decode(golden["base64"]))["id"]
+
+    chunk = a11.to_chunk(interaction)
+
+    assert chunk.get_mimetype() == golden["mimetype"]
+    assert base64.b64encode(bytes(chunk.data)).decode() == golden["base64"]
+
+
+def test_an_interaction_from_another_language_validates():
+    """What TypeScript and Kotlin send on the `interactions` port.
+
+    They leave `status`, `created_at_millis` and `usage_metadata` to this
+    model's defaults rather than spelling them out, so the payload is
+    equivalent to Python's rather than identical — it still has to validate.
+    Above all `content` and `system_instructions` arrive as chunks; a bare
+    string there fails with "Chunk must be validated from a mapping."
+    """
+    golden = json.loads(_TEXT_MESSAGE_GOLDEN.read_text())
+    payload = json.loads(base64.b64decode(golden["base64"]))
+    for omitted in ("status", "created_at_millis", "usage_metadata"):
+        payload.pop(omitted)
+    chunk = a11.Chunk(
+        data=json.dumps(payload).encode(),
+        metadata=a11.ChunkMetadata(mimetype=golden["mimetype"]),
+    )
+
+    decoded = a11.from_chunk(chunk, "", Interaction)
+
+    assert isinstance(decoded, Interaction)
+    assert a11.from_chunk(decoded.content[0]) == {
+        "role": "user",
+        "content": [{"type": "text", "text": golden["text"]}],
+    }
+    assert (
+        a11.from_chunk(decoded.system_instructions[0])
+        == (golden["system_prompt"])
+    )

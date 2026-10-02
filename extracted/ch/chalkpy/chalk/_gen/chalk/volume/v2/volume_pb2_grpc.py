@@ -28,6 +28,11 @@ class VolumeServiceStub(object):
             request_serializer=chalk_dot_volume_dot_v2_dot_volume__pb2.GetVolumeRequest.SerializeToString,
             response_deserializer=chalk_dot_volume_dot_v2_dot_volume__pb2.GetVolumeResponse.FromString,
         )
+        self.GetVolumeCredentials = channel.unary_unary(
+            "/chalk.volume.v2.VolumeService/GetVolumeCredentials",
+            request_serializer=chalk_dot_volume_dot_v2_dot_volume__pb2.GetVolumeCredentialsRequest.SerializeToString,
+            response_deserializer=chalk_dot_volume_dot_v2_dot_volume__pb2.GetVolumeCredentialsResponse.FromString,
+        )
         self.GetVolumeStats = channel.unary_unary(
             "/chalk.volume.v2.VolumeService/GetVolumeStats",
             request_serializer=chalk_dot_volume_dot_v2_dot_volume__pb2.GetVolumeStatsRequest.SerializeToString,
@@ -113,6 +118,12 @@ class VolumeServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def GetVolume(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetVolumeCredentials(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -214,6 +225,11 @@ def add_VolumeServiceServicer_to_server(servicer, server):
             servicer.GetVolume,
             request_deserializer=chalk_dot_volume_dot_v2_dot_volume__pb2.GetVolumeRequest.FromString,
             response_serializer=chalk_dot_volume_dot_v2_dot_volume__pb2.GetVolumeResponse.SerializeToString,
+        ),
+        "GetVolumeCredentials": grpc.unary_unary_rpc_method_handler(
+            servicer.GetVolumeCredentials,
+            request_deserializer=chalk_dot_volume_dot_v2_dot_volume__pb2.GetVolumeCredentialsRequest.FromString,
+            response_serializer=chalk_dot_volume_dot_v2_dot_volume__pb2.GetVolumeCredentialsResponse.SerializeToString,
         ),
         "GetVolumeStats": grpc.unary_unary_rpc_method_handler(
             servicer.GetVolumeStats,
@@ -345,6 +361,35 @@ class VolumeService(object):
             "/chalk.volume.v2.VolumeService/GetVolume",
             chalk_dot_volume_dot_v2_dot_volume__pb2.GetVolumeRequest.SerializeToString,
             chalk_dot_volume_dot_v2_dot_volume__pb2.GetVolumeResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetVolumeCredentials(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.volume.v2.VolumeService/GetVolumeCredentials",
+            chalk_dot_volume_dot_v2_dot_volume__pb2.GetVolumeCredentialsRequest.SerializeToString,
+            chalk_dot_volume_dot_v2_dot_volume__pb2.GetVolumeCredentialsResponse.FromString,
             options,
             channel_credentials,
             insecure,

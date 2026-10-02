@@ -44,9 +44,7 @@ class ProtectedString(FastApiMixIn):
         elif isinstance(s, str):
             self._UNSAFE_DO_NOT_USE = s
         else:
-            raise ValueError(
-                f"{type(s)}:'{s!r}' is not a valid type for ProtectedString"
-            )
+            raise ValueError(f"{type(s)}:'{s!r}' is not a valid type for ProtectedString")
 
     def __eq__(self, other: Any) -> bool:
         if isinstance(other, ProtectedString):

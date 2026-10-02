@@ -1,10 +1,9 @@
 """The relation-words seam — how an AGENT TOOL gets words where a uuid is stored.
 
-A ``relation`` column in the older user-data tables STORES a record's identifier and
-MEANS that record's name. Lane OLD-TABLES-3 routed every server reader through ONE
-resolver, ``matrx_records.store.relation_words``, reached through the aidream seam
-``aidream/services/references/relation_words.py``. Two readers could not join them: the
-``usertable_get_data`` and ``usertable_search_data`` tools live in THIS package, and
+A ``relation`` field of a table STORES a record's identifier and MEANS that record's name.
+Every server reader goes through ONE resolver, ``matrx_records.store.relation_words``,
+reached through the aidream seam ``aidream/services/references/relation_words.py``. The
+``dataset`` tool's readers live in THIS package, and
 **matrx-ai must never import matrx-records** — the sibling graph is acyclic and
 ``matrx-records[agent]`` depends on matrx-ai, so the import would be a cycle as well as a
 boundary violation (``scripts/check_package_boundaries.py``).
@@ -28,7 +27,8 @@ the defect this seam exists to end, and it would look identical to a working sea
 from __future__ import annotations
 
 import logging
-from typing import Any, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 logger = logging.getLogger(__name__)
 

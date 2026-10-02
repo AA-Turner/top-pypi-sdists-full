@@ -87,7 +87,7 @@ BRANCH_PROBE_PREFIX = "/allOf/1"
 
 def _display_pointer(pointer: str, name_to_uri: dict[str, str]) -> str:
     segments = [decode_pointer(segment) for segment in pointer[1:].split("/")]
-    return "/" + "/".join(str(segment) for segment in unbundle_path(list(segments), name_to_uri))
+    return "/" + "/".join(encode_pointer(str(segment)) for segment in unbundle_path(list(segments), name_to_uri))
 
 
 def _describe_keyword(schema: JsonSchema, pointer: str, keyword: str) -> str:
@@ -106,6 +106,9 @@ def _find_unsatisfiable(schema: JsonSchema, draft: int) -> dict[str, canonical.U
         return canonical.find_unsatisfiable(
             schema, draft=draft, pattern_options=FANCY_REGEX_OPTIONS, validate_formats=True
         )
+    except canonical.InvalidPattern:
+        # The error names the pattern, so the caller can say what stopped the analysis.
+        raise
     except Exception:
         # Nothing is provably empty when the document cannot be read at all.
         return None
@@ -137,10 +140,11 @@ def _describe_branches(
         if reasons is None or "" not in reasons:
             return None
         at = f"{cause.pointer}/{keyword}/{index}"
-        described.append(_describe_branch(branch, reasons[""], at, name_to_uri))
+        described.append(_describe_branch(probe, reasons[""], at, name_to_uri))
     remaining = len(described) - MAX_REPORTED_BRANCHES
     if remaining > 0:
-        described = described[:MAX_REPORTED_BRANCHES] + [f"{remaining} more branches"]
+        noun = "branch" if remaining == 1 else "branches"
+        described = described[:MAX_REPORTED_BRANCHES] + [f"{remaining} more {noun}"]
     return _join_prose(described)
 
 
@@ -151,25 +155,35 @@ def _join_prose(parts: list[str]) -> str:
 
 
 def _describe_branch(
-    branch: JsonSchema, reason: canonical.UnsatisfiableReason, pointer: str, name_to_uri: dict[str, str]
+    probe: JsonSchema, reason: canonical.UnsatisfiableReason, pointer: str, name_to_uri: dict[str, str]
 ) -> str:
-    """What the branch itself brings to the conflict, named at its own pointer."""
+    """What the branch itself brings to the conflict, named at its own pointer or at the body it references."""
     if isinstance(reason, canonical.UnsatisfiableReason.Empty):
         causes = [reason.cause]
     elif isinstance(reason, canonical.UnsatisfiableReason.Conflict):
         causes = list(reason.causes)
     else:
         causes = []  # pragma: no cover
-    # The probe puts the siblings first and the branch second, so only the second side is the branch.
-    described = " and ".join(
-        _describe_keyword(branch, cause.pointer[len(BRANCH_PROBE_PREFIX) :], keyword)
-        for cause in causes
-        if cause.pointer.startswith(BRANCH_PROBE_PREFIX)
-        for keyword in cause.keywords
-    )
-    if not described:
+    # The probe puts the siblings first and the branch second; a reference's keywords sit under the body it names.
+    keywords_at: dict[str, list[str]] = {}
+    for cause in causes:
+        if cause.pointer.startswith(BRANCH_PROBE_PREFIX):
+            at = pointer
+        elif cause.pointer.startswith(f"/{BUNDLE_STORAGE_KEY}/"):
+            at = cause.pointer
+        else:
+            continue
+        keywords_at.setdefault(at, []).extend(
+            _describe_keyword(probe, cause.pointer, keyword) for keyword in cause.keywords
+        )
+    parts = [
+        f"{' and '.join(keywords)} at {_display_pointer(at, name_to_uri)}"
+        for at, keywords in keywords_at.items()
+        if keywords
+    ]
+    if not parts:
         return f"the branch at {_display_pointer(pointer, name_to_uri)}"
-    return f"{described} at {_display_pointer(pointer, name_to_uri)}"
+    return " and ".join(parts)
 
 
 def _describe_cause(
@@ -223,7 +237,12 @@ def _passed_on_to(schema: JsonSchema, cause: canonical.Cause) -> Generator[str, 
             if isinstance(required, list):  # pragma: no branch
                 for name in required:
                     yield f"{cause.pointer}/properties/{encode_pointer(str(name))}"
-        elif keyword in ("items", "contains", "prefixItems"):
+        elif keyword == "prefixItems":
+            elements = node.get("prefixItems")
+            if isinstance(elements, list):  # pragma: no branch
+                for index in range(len(elements)):
+                    yield f"{cause.pointer}/prefixItems/{index}"
+        elif keyword in ("items", "contains"):
             yield f"{cause.pointer}/{keyword}"
 
 
@@ -233,12 +252,19 @@ def describe_unsatisfiable(
     """Why no value satisfies this schema, named at the subschema that carries the conflict.
 
     Emptiness that does not reach the root is routine - `additionalProperties: false` is an empty
-    position and says nothing is wrong - so only a root that admits nothing is reported.
+    position and says nothing is wrong - so only a root that admits nothing is reported. A pattern
+    the analysis cannot read is named instead, with the conflict left unlocated.
     """
     draft = CANONICALIZE_DRAFT_BY_VALIDATOR.get(validator_cls)
     if draft is None:
         return None  # pragma: no cover
-    reasons = _find_unsatisfiable(schema, draft)
+    try:
+        reasons = _find_unsatisfiable(schema, draft)
+    except canonical.InvalidPattern as exc:
+        return (
+            f"A pattern could not be analyzed ({exc}), so the conflict is not located. "
+            f"This usually means:\n{UNSATISFIABILITY_CAUSE}"
+        )
     if reasons is None or "" not in reasons:
         return None
     pointer = _blame(schema, reasons, "")

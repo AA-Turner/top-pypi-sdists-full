@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: redis-om
-Version: 1.1.0
+Version: 1.2.0
 Summary: Object mappings, and more, for Redis.
 Project-URL: Repository, https://github.com/redis/redis-om-python
 Project-URL: Code, https://github.com/redis/redis-om-python
@@ -23,12 +23,12 @@ Classifier: Topic :: Database
 Requires-Python: <4.0,>=3.10
 Requires-Dist: click>=8.0.1
 Requires-Dist: hiredis<4.0.0,>=2.2.3
-Requires-Dist: more-itertools<11.0,>=8.14
+Requires-Dist: more-itertools<12.0,>=8.14
 Requires-Dist: pydantic-extra-types>=2.10.5
 Requires-Dist: pydantic<3.0.0,>=2.0.0
 Requires-Dist: python-ulid<=3.1.0,>=1.0.3
-Requires-Dist: redis<8.0.0,>=4.2.0
-Requires-Dist: redisvl>=0.16.0
+Requires-Dist: redis!=8.0.0,<9.0.0,>=6.3.0
+Requires-Dist: redisvl>=0.27.0
 Requires-Dist: setuptools>=70.0
 Requires-Dist: types-redis<5.0.0,>=3.5.9
 Requires-Dist: typing-extensions>=4.4.0

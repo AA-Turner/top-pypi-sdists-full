@@ -1,0 +1,81 @@
+// Copyright (c) 2024 Contributors to the Eclipse Foundation
+//
+// See the NOTICE file(s) distributed with this work for additional
+// information regarding copyright ownership.
+//
+// This program and the accompanying materials are made available under the
+// terms of the Apache Software License 2.0 which is available at
+// https://www.apache.org/licenses/LICENSE-2.0, or the MIT license
+// which is available at https://opensource.org/licenses/MIT.
+//
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
+use alloc::string::ToString;
+
+use iceoryx2_bb_container::semantic_string::SemanticString;
+use iceoryx2_bb_system_types::file_name::FileName;
+use iceoryx2_bb_system_types::file_path::FilePath;
+use iceoryx2_log::fatal_panic;
+
+use crate::config::TEST_DIRECTORY;
+use crate::directory::{Directory, DirectoryCreateError};
+use crate::file::{CreationMode, File, FileBuilder};
+use crate::permission::Permission;
+use crate::unique_system_id::UniqueSystemId;
+
+pub fn create_test_directory() {
+    match Directory::create(&TEST_DIRECTORY, Permission::OWNER_ALL) {
+        Ok(_) | Err(DirectoryCreateError::DirectoryAlreadyExists) => (),
+        Err(e) => fatal_panic!(
+            "Failed to create test directory {} due to {:?}.",
+            TEST_DIRECTORY,
+            e
+        ),
+    };
+}
+
+pub fn generate_file_path() -> FilePath {
+    create_test_directory();
+
+    FilePath::from_path_and_file(&TEST_DIRECTORY, &generate_file_name()).unwrap()
+}
+
+pub fn generate_file_name() -> FileName {
+    let mut file = FileName::new(b"test_").unwrap();
+    file.push_bytes(
+        UniqueSystemId::new()
+            .unwrap()
+            .value()
+            .to_string()
+            .as_bytes(),
+    )
+    .unwrap();
+    file
+}
+
+pub fn create_file_with_content(content: &str) -> File {
+    create_file_with_content_at(content, generate_file_name().as_str())
+}
+
+pub fn create_typed_file_with_content(content: &str, suffix: &str) -> File {
+    let mut file_name = generate_file_name();
+    file_name
+        .push_bytes((".".to_string() + suffix).as_bytes())
+        .unwrap();
+    create_file_with_content_at(content, file_name.as_str())
+}
+
+pub fn create_file_with_content_at(content: &str, file_name: &str) -> File {
+    let file_path = FilePath::from_path_and_file(
+        &TEST_DIRECTORY,
+        &FileName::new(file_name.as_bytes()).unwrap(),
+    )
+    .unwrap();
+    let mut file = FileBuilder::new(&file_path)
+        .creation_mode(CreationMode::PurgeAndCreate)
+        .create()
+        .unwrap();
+    file.acquire_ownership();
+    file.write(content.as_bytes()).unwrap();
+    file
+}

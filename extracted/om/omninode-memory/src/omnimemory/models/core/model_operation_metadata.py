@@ -1,0 +1,91 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""
+Operation metadata model for tracking operation-specific information.
+"""
+
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from omnimemory.models.foundation.model_semver import ModelSemVer
+from omnimemory.models.foundation.model_typed_collections import (
+    ModelConfiguration,
+    ModelMetadata,
+)
+
+
+class ModelOperationMetadata(BaseModel):
+    """Operation metadata for tracking operation-specific information."""
+
+    model_config = ConfigDict(frozen=False, extra="forbid")
+
+    # Operation identification
+    operation_type: str = Field(
+        description="Type of operation (e.g., 'memory_store', 'semantic_search')"
+    )
+    operation_version: ModelSemVer = Field(
+        default_factory=lambda: ModelSemVer(major=1, minor=0, patch=0),
+        description="Semantic version of the operation implementation",
+    )
+
+    # Request context
+    correlation_id: UUID | None = Field(
+        default=None, description="Correlation ID for tracing related operations"
+    )
+    session_id: UUID | None = Field(
+        default=None, description="Session ID for multi-operation sessions"
+    )
+    user_id: UUID | None = Field(
+        default=None, description="User identifier who initiated the operation"
+    )
+
+    # Source information
+    source_component: str = Field(description="Component that initiated the operation")
+    source_version: ModelSemVer | None = Field(
+        default=None, description="Semantic version of the source component"
+    )
+
+    # Configuration
+    operation_config: ModelConfiguration = Field(
+        default_factory=ModelConfiguration,
+        description="Configuration parameters used for the operation",
+    )
+
+    # Quality and compliance
+    compliance_level: str = Field(
+        default="standard",
+        description="ONEX compliance level (standard, strict, audit)",
+    )
+    quality_gates_passed: bool = Field(
+        default=True, description="Whether all quality gates were passed"
+    )
+
+    # Environment context
+    environment: str = Field(
+        default="production", description="Environment where operation was executed"
+    )
+    node_id: UUID | None = Field(
+        default=None, description="ONEX node identifier that processed the operation"
+    )
+
+    # Feature flags and experiments
+    feature_flags: dict[str, bool] = Field(
+        default_factory=dict, description="Feature flags active during operation"
+    )
+    experiment_id: str | None = Field(
+        default=None, description="A/B test or experiment identifier"
+    )
+
+    # Additional custom metadata
+    custom_metadata: ModelMetadata = Field(
+        default_factory=ModelMetadata,
+        description="Additional operation-specific metadata",
+    )
+
+    # Tags for categorization
+    tags: list[str] = Field(
+        default_factory=list,
+        description="Tags for operation categorization and filtering",
+    )

@@ -2314,6 +2314,7 @@ class IngestionJobSummaryTypeDef(TypedDict):
     startedAt: datetime
     updatedAt: datetime
     description: NotRequired[str]
+    textReadyAt: NotRequired[datetime]
     statistics: NotRequired[IngestionJobStatisticsTypeDef]
 
 
@@ -2327,6 +2328,7 @@ class IngestionJobTypeDef(TypedDict):
     description: NotRequired[str]
     statistics: NotRequired[IngestionJobStatisticsTypeDef]
     failureReasons: NotRequired[list[str]]
+    textReadyAt: NotRequired[datetime]
 
 
 class ListKnowledgeBasesResponseTypeDef(TypedDict):

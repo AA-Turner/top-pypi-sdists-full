@@ -121,7 +121,7 @@ async fn collect_inlay_hints_with_backend(
     backend: &Backend,
     source: &str,
     source_path: PathBuf,
-) -> Result<Option<Vec<InlayHint>>, Box<dyn std::error::Error>> {
+) -> Result<Option<Vec<PositionedInlayHint>>, Box<dyn std::error::Error>> {
     let toml_text = textwrap::dedent(source).trim().to_string();
     let toml_file_url =
         Url::from_file_path(&source_path).expect("failed to convert source file path to URL");
@@ -150,21 +150,54 @@ async fn collect_inlay_hints_with_backend(
     // LSP notifications and requests are received in order, but their futures
     // can overlap after `didOpen` first yields.
     let (_, result) = tokio::join!(biased; did_open, inlay_hint);
-    Ok(result?.map(|(hints, _)| hints))
+    Ok(result?.map(|(hints, document_source)| {
+        hints
+            .into_iter()
+            .map(|hint| PositionedInlayHint::new(hint, document_source.line_index()))
+            .collect()
+    }))
 }
 
 async fn collect_inlay_hints(
     source: &str,
     source_path: PathBuf,
-) -> Result<Option<Vec<InlayHint>>, Box<dyn std::error::Error>> {
+) -> Result<Option<Vec<PositionedInlayHint>>, Box<dyn std::error::Error>> {
     let service = new_service();
     let backend = service.inner();
 
     collect_inlay_hints_with_backend(backend, source, source_path).await
 }
 
-fn expected_hint(position: tombi_text::Position, label: &str, tooltip: &str) -> InlayHint {
-    InlayHint {
+/// An inlay hint whose offset is converted into a position counting grapheme clusters, to compare it readably.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PositionedInlayHint {
+    position: tombi_text::Position,
+    label: String,
+    kind: Option<tombi_extension::InlayHintKind>,
+    tooltip: Option<String>,
+    padding_left: Option<bool>,
+    padding_right: Option<bool>,
+}
+
+impl PositionedInlayHint {
+    fn new(hint: InlayHint, line_index: &tombi_text::LineIndex<'_>) -> Self {
+        Self {
+            position: line_index.position(hint.offset, tombi_text::EncodingKind::GraphemeCluster),
+            label: hint.label,
+            kind: hint.kind,
+            tooltip: hint.tooltip,
+            padding_left: hint.padding_left,
+            padding_right: hint.padding_right,
+        }
+    }
+}
+
+fn expected_hint(
+    position: tombi_text::Position,
+    label: &str,
+    tooltip: &str,
+) -> PositionedInlayHint {
+    PositionedInlayHint {
         position,
         label: label.to_string(),
         kind: Some(tombi_extension::InlayHintKind::TYPE),

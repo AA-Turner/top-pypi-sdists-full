@@ -905,6 +905,7 @@ class NamedAgent(Generic[InputsT, OutputT], ABC):
         source_feature: str | None = None,
         independent_request: bool = False,
         suppress_stream: bool = False,
+        stream_data_types: frozenset[str] | None = None,
         variable_mapping: dict[str, ValueMapping | dict[str, Any]] | None = None,
         spill_variables: set[str] | None = None,
         consumed_variables: dict[str, Any] | None = None,
@@ -1061,6 +1062,7 @@ class NamedAgent(Generic[InputsT, OutputT], ABC):
             extra_client_tools=extra_client_tools or None,
             independent_request=independent_request,
             suppress_stream=suppress_stream,
+            stream_data_types=stream_data_types,
         )
 
         if result.parsed is not None:

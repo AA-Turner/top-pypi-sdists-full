@@ -67,7 +67,6 @@ except Exception:
 classifiers = """\
 Development Status :: 5 - Production/Stable
 Intended Audience :: Developers
-License :: OSI Approved :: BSD License
 Programming Language :: C
 Programming Language :: Python :: 3
 Programming Language :: Python :: 3.8
@@ -77,6 +76,7 @@ Programming Language :: Python :: 3.11
 Programming Language :: Python :: 3.12
 Programming Language :: Python :: 3.13
 Programming Language :: Python :: 3.14
+Programming Language :: Python :: 3.15
 Operating System :: POSIX :: Linux
 Operating System :: POSIX :: BSD
 Operating System :: MacOS :: MacOS X

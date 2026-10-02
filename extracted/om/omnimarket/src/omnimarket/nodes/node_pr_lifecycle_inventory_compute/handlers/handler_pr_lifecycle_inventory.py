@@ -1,0 +1,1271 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Handler for pr_lifecycle_inventory_compute node.
+
+Collects raw PR state from GitHub via gh CLI.
+Pure data collection — no classification or action logic.
+
+Related:
+    - OMN-8082: Create pr_lifecycle_inventory_compute Node
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import subprocess
+from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime
+from typing import Literal, NamedTuple
+
+from pydantic import ValidationError
+
+from omnimarket.merge_control.reason_code_classifier import (
+    ALL_LOG_SIGNATURES,
+    EnumMergeCheckReasonCode,
+    MergeCheckFacts,
+    classify,
+    classify_job,
+    text_has_api_outage_signature,
+)
+from omnimarket.nodes.node_pr_lifecycle_inventory_compute.models.model_pr_lifecycle_inventory import (
+    ModelOrgWideOpenPrInventory,
+    ModelOrgWideOpenPrRemainder,
+    ModelPrCheckExecution,
+    ModelPrCheckRun,
+    ModelPrInventoryInput,
+    ModelPrInventoryOutput,
+    ModelPrReview,
+    ModelPrState,
+    ModelStuckQueueEntry,
+)
+
+_STUCK_QUEUE_THRESHOLD_MINUTES = 30
+_QUEUE_STALL_THRESHOLD_MINUTES = 15
+# OMN-13318: org-wide open-PR census is the hard precondition on a sweep-done
+# report. Mirrors the DoD command:
+#   gh api '/search/issues?q=org:OmniNode-ai is:pr is:open'
+_ORG_WIDE_OPEN_PR_ORG = "OmniNode-ai"
+_ORG_WIDE_OPEN_PR_QUERY = "org:OmniNode-ai is:pr is:open"
+_ORG_WIDE_REMAINDER_LIMIT = 100
+_CHECK_BUCKET_TO_CONCLUSION = {
+    "pass": "success",
+    "fail": "failure",
+    "pending": None,
+    "skipping": "skipped",
+    "cancel": "cancelled",
+}
+_TERMINAL_CHECK_BUCKETS = {"pass", "fail", "skipping", "cancel"}
+# OMN-14151: bot logins whose unresolved review threads count toward
+# ``coderabbit_unresolved``. Mirrors the bot-login precedent already used by
+# node_pr_lifecycle_fix_effect's trivial-comment-resolution adapter.
+_CODERABBIT_LOGINS = frozenset({"coderabbitai", "coderabbitai[bot]"})
+
+# OMN-14769: the job-log signature set the classifier keys on is imported from
+# ``reason_code_classifier.ALL_LOG_SIGNATURES`` (the single source of truth).
+# A node-local subset (the former ``_CHECK_LOG_NETWORK_SIGNATURES``) had drifted
+# from it — it carried NONE of the classifier's F-23 isolation-hang signatures
+# (``os._exit(1)`` / ``thread timeout`` / ``hard timeout`` / ``leaked thread``)
+# and NONE of the API-outage signatures — so an os._exit hang on a product-named
+# step extracted an empty tuple and classified PRODUCT_FAILED live while every
+# fixture passed. Extracting against the canonical union makes that drift
+# structurally impossible.
+
+# gh renders a GitHub HTTP error to stderr as e.g. "gh: Service Unavailable
+# (HTTP 503)". These markers detect an API OUTAGE (5xx / rate-limit) in a gh
+# error blob, complementing the classifier's job-LOG outage signatures (which
+# use a different phrasing, e.g. "503 service unavailable"). Feeds ``api_error``
+# so a failed jobs-API metadata call during a platform incident emits
+# GITHUB_API_OUTAGE (F-07) rather than failing closed to an infra rerun.
+_GH_API_OUTAGE_STDERR_MARKERS: tuple[str, ...] = (
+    "http 502",
+    "http 503",
+    "http 504",
+    "bad gateway",
+    "service unavailable",
+    "gateway time-out",
+    "gateway timeout",
+    "secondary rate limit",
+    "api rate limit exceeded",
+)
+
+# F3 (OMN-13319): only PR-associated runs count toward required contexts.
+# A green `workflow_dispatch` "CI Summary" must NOT satisfy arm — branch
+# protection only credits the PR-associated `pull_request` run conclusion, not
+# the (potentially stale, or manually dispatched) statusCheckRollup row.
+# `pull_request_target` is included because GitHub treats it as PR-associated.
+# Status contexts (legacy commit statuses) carry an empty `event`; those are
+# treated as PR-associated because they are not Actions runs and cannot be
+# manually re-triggered the way `workflow_dispatch` runs can.
+_PR_ASSOCIATED_EVENTS = {"pull_request", "pull_request_target"}
+
+# OMN-14031: every `gh` call must be time-bounded. An un-timed gh subprocess can
+# block forever under GitHub API throttling or fleet egress saturation (the
+# OMN-13932 / OMN-14017 conditions), wedging the whole org-wide sweep with zero
+# output — the merge-sweep skill then drives ZERO merges and never returns.
+# Bound each call so a slow gh invocation is skipped (fail-soft) instead of
+# hanging the sweep. 90s is generous for the paginated org-wide census while
+# still turning an infinite hang into a bounded, observable failure.
+_GH_SUBPROCESS_TIMEOUT_SECONDS = 90
+# Conventional shell timeout exit code (matches coreutils `timeout`); non-zero
+# so every caller's existing `returncode != 0` fail-soft branch handles it.
+_GH_TIMEOUT_RETURNCODE = 124
+
+logger = logging.getLogger(__name__)
+
+HandlerType = Literal["NODE_HANDLER"]
+HandlerCategory = Literal["COMPUTE"]
+
+HANDLER_TYPE: HandlerType = "NODE_HANDLER"
+HANDLER_CATEGORY: HandlerCategory = "COMPUTE"
+
+
+class _JobsApiResult(NamedTuple):
+    """Outcome of a jobs-API attempt fetch for a single failed check (OMN-14769).
+
+    Carries the failing job object (or ``None`` when none could be resolved)
+    plus the two live-derived context facts the classifier needs but that a
+    bare job object does not encode:
+
+    - ``api_error``: the jobs-API metadata call itself failed as a GitHub
+      OUTAGE (HTTP 5xx / rate-limit / timeout / HTML body) → GITHUB_API_OUTAGE.
+    - ``is_superseded``: the check's linked job is absent from the run's LATEST
+      attempt and a re-run exists → the row is from a superseded attempt →
+      STALE_CONTEXT (refresh/supersede, do not fix).
+    """
+
+    job: dict[str, object] | None
+    api_error: bool = False
+    is_superseded: bool = False
+
+
+class _CheckExecutionHistoryResult(NamedTuple):
+    """Opt-in immutable check-execution collection outcome."""
+
+    executions: tuple[ModelPrCheckExecution, ...] = ()
+    error: str | None = None
+
+
+class HandlerPrLifecycleInventory:
+    """Collects raw PR state from GitHub via gh CLI.
+
+    Inventory layer of the pr_lifecycle domain — collects raw PR data
+    without making any classification or action decisions.
+    """
+
+    @property
+    def handler_type(self) -> HandlerType:
+        return HANDLER_TYPE
+
+    @property
+    def handler_category(self) -> HandlerCategory:
+        return HANDLER_CATEGORY
+
+    @staticmethod
+    def _run_gh(
+        cmd: list[str],
+        *,
+        timeout: int = _GH_SUBPROCESS_TIMEOUT_SECONDS,
+    ) -> subprocess.CompletedProcess[str]:
+        """Run a ``gh`` command with a bounded timeout (OMN-14031).
+
+        A bare ``subprocess.run`` on a ``gh`` command has no timeout, so a
+        throttled or stalled GitHub call blocks forever and wedges the entire
+        sweep. On timeout this returns a synthetic non-zero
+        :class:`subprocess.CompletedProcess` (returncode
+        ``_GH_TIMEOUT_RETURNCODE``) so every caller's existing
+        ``returncode != 0`` branch treats the timeout exactly like any other
+        gh failure — fail-soft, never a hang. ``subprocess.run`` is still the
+        underlying call so tests that patch it keep working.
+        """
+        try:
+            return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            logger.warning(
+                "gh call timed out after %ds (skipping, fail-soft): %s",
+                timeout,
+                " ".join(cmd),
+            )
+            return subprocess.CompletedProcess(
+                cmd,
+                _GH_TIMEOUT_RETURNCODE,
+                stdout="",
+                stderr=f"gh call timed out after {timeout}s",
+            )
+
+    def handle(self, input_model: ModelPrInventoryInput) -> ModelPrInventoryOutput:
+        """Collect raw PR state for all requested PR numbers.
+
+        Args:
+            input_model: Repo and list of PR numbers to collect.
+
+        Returns:
+            ModelPrInventoryOutput with collected PR states.
+        """
+        pr_states: list[ModelPrState] = []
+        errors: list[str] = []
+
+        def _one(pr_number: int) -> ModelPrState | str:
+            """Collect one PR, or return the error text for it. Never raises."""
+            try:
+                return self._collect_pr_state(
+                    input_model.repo,
+                    pr_number,
+                    include_check_execution_history=input_model.include_check_execution_history,
+                )
+            except Exception as exc:
+                return f"PR #{pr_number}: {exc}"
+
+        # OMN-18429. Every code-host read here is a blocking subprocess, and
+        # they were issued strictly one PR at a time: on a 56-PR org-wide sweep
+        # that was 5m34s of inventory, almost all of it waiting. The collection
+        # body is unchanged and is still the only one — this bounds how many of
+        # the SAME calls are in flight at once.
+        #
+        # A thread pool rather than asyncio because the work is a blocking
+        # subprocess, and `map` rather than `as_completed` because it yields in
+        # input order, so the resulting pr_states list is byte-identical to the
+        # sequential one and nothing downstream has to care.
+        #
+        # The bound matters in both directions: too low and the sweep is slow,
+        # too high and the fan-out manufactures the rate-limit responses the
+        # outage breaker then has to judge.
+        parallel = max(
+            1, min(input_model.max_parallel_fetches, len(input_model.pr_numbers) or 1)
+        )
+        if parallel == 1:
+            collected: list[ModelPrState | str] = [
+                _one(pr_number) for pr_number in input_model.pr_numbers
+            ]
+        else:
+            with ThreadPoolExecutor(max_workers=parallel) as pool:
+                collected = list(pool.map(_one, input_model.pr_numbers))
+
+        for outcome in collected:
+            if isinstance(outcome, str):
+                logger.warning("Failed to collect PR state: %s", outcome)
+                errors.append(outcome)
+            else:
+                pr_states.append(outcome)
+
+        stuck = self._detect_stuck_queue_prs(input_model.repo, pr_states)
+        # OMN-18429: the orchestrator runs this census once per pass, and
+        # nothing ever read the copy produced here. Running it per repo meant
+        # the same paginated org-wide search executed once per repo plus once
+        # more at the pass level, every pass.
+        org_wide_open = (
+            self.collect_org_wide_open_prs()
+            if input_model.collect_org_wide_census
+            else None
+        )
+
+        return ModelPrInventoryOutput(
+            repo=input_model.repo,
+            pr_states=tuple(pr_states),
+            total_collected=len(pr_states),
+            collection_errors=tuple(errors),
+            stuck_queue_prs=stuck,
+            org_wide_open=org_wide_open,
+        )  # org_wide_open is None when the caller runs its own census.
+
+    def collect_org_wide_open_prs(self) -> ModelOrgWideOpenPrInventory:
+        """Census every open PR across the whole org (OMN-13318).
+
+        Runs the GitHub search API equivalent of::
+
+            gh api '/search/issues?q=org:OmniNode-ai is:pr is:open'
+
+        and returns the org-wide open count plus the open-PR remainders. The
+        orchestrator uses ``open_count`` as a hard precondition on the
+        sweep-done report so a repo-by-repo memory can never falsely report
+        "done" while an open PR survives in another repo.
+
+        Overridable in tests so synthetic open/closed states can be injected
+        without real gh CLI calls. Fail-closed: any query error sets
+        ``query_failed=True`` so the sweep is never reported done on missing
+        evidence.
+        """
+        result = self._run_gh(
+            [
+                "gh",
+                "api",
+                "--paginate",
+                "-X",
+                "GET",
+                "/search/issues",
+                "-f",
+                f"q={_ORG_WIDE_OPEN_PR_QUERY}",
+                "-f",
+                f"per_page={_ORG_WIDE_REMAINDER_LIMIT}",
+            ]
+        )
+        if result.returncode != 0:
+            logger.warning(
+                "Org-wide open-PR search failed (exit %d): %s",
+                result.returncode,
+                result.stderr.strip(),
+            )
+            return ModelOrgWideOpenPrInventory(open_count=0, query_failed=True)
+
+        try:
+            payload = json.loads(result.stdout or "{}")
+        except json.JSONDecodeError:
+            logger.warning("Org-wide open-PR search returned invalid JSON")
+            return ModelOrgWideOpenPrInventory(open_count=0, query_failed=True)
+
+        return self._parse_org_wide_open_payload(payload)
+
+    @staticmethod
+    def _parse_org_wide_open_payload(
+        payload: object,
+    ) -> ModelOrgWideOpenPrInventory:
+        """Parse a ``/search/issues`` response into an org-wide open census.
+
+        ``--paginate`` may concatenate multiple JSON objects; we read
+        ``total_count`` from the first object and merge every ``items`` array so
+        the remainder list survives pagination.
+        """
+        objects: list[dict[str, object]]
+        if isinstance(payload, list):
+            objects = [obj for obj in payload if isinstance(obj, dict)]
+        elif isinstance(payload, dict):
+            objects = [payload]
+        else:
+            objects = []
+
+        if not objects:
+            return ModelOrgWideOpenPrInventory(open_count=0, query_failed=True)
+
+        total_raw = objects[0].get("total_count", 0)
+        open_count = total_raw if isinstance(total_raw, int) else 0
+
+        remainders: list[ModelOrgWideOpenPrRemainder] = []
+        for obj in objects:
+            items = obj.get("items", [])
+            if not isinstance(items, list):
+                continue
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                remainders.append(
+                    ModelOrgWideOpenPrRemainder(
+                        repo=HandlerPrLifecycleInventory._repo_from_search_item(item),
+                        pr_number=int(item.get("number", 0) or 0),
+                        title=str(item.get("title", "") or ""),
+                        url=str(item.get("html_url", "") or ""),
+                    )
+                )
+
+        return ModelOrgWideOpenPrInventory(
+            open_count=open_count,
+            remainders=tuple(remainders),
+        )
+
+    @staticmethod
+    def _repo_from_search_item(item: dict[str, object]) -> str:
+        """Derive ``owner/repo`` from a search/issues item's repository_url."""
+        repo_url = str(item.get("repository_url", "") or "")
+        # repository_url looks like https://api.github.com/repos/OWNER/REPO
+        marker = "/repos/"
+        idx = repo_url.find(marker)
+        if idx == -1:
+            return _ORG_WIDE_OPEN_PR_ORG
+        return repo_url[idx + len(marker) :]
+
+    def _detect_stuck_queue_prs(
+        self, repo: str, pr_states: list[ModelPrState]
+    ) -> list[ModelStuckQueueEntry]:
+        """Detect PRs that have been stuck in the merge queue past a threshold.
+
+        Legacy stuck queue entries are PRs queued for more than 30 minutes.
+        Merge-group check-suite stalls are PRs with a mergeQueueEntry in
+        AWAITING_CHECKS for more than 15 minutes and zero merge_group runs for
+        the queue head SHA. Wraps gh API calls in try/except so repos without
+        merge queue support silently return an empty list.
+
+        Args:
+            repo: GitHub repo slug.
+            pr_states: Collected PR states to check.
+
+        Returns:
+            List of stuck queue entries (may be empty).
+        """
+        candidate_prs = [p for p in pr_states if p.state == "open"]
+        if not candidate_prs:
+            return []
+
+        stuck: list[ModelStuckQueueEntry] = []
+        now = datetime.now(tz=UTC)
+
+        for pr in candidate_prs:
+            try:
+                result = self._run_gh(
+                    [
+                        "gh",
+                        "pr",
+                        "view",
+                        str(pr.pr_number),
+                        "--repo",
+                        repo,
+                        "--json",
+                        "mergeQueueEntry",
+                    ]
+                )
+                if result.returncode != 0:
+                    continue
+                data: dict[str, object] = json.loads(result.stdout)
+                entry = data.get("mergeQueueEntry")
+                if not entry or not isinstance(entry, dict):
+                    # Repo plan doesn't support merge queues — skip silently
+                    continue
+                enqueued_at_raw = entry.get("enqueuedAt")
+                if not enqueued_at_raw:
+                    continue
+                queue_state = str(entry.get("state") or "QUEUED")
+                enqueued_at = datetime.fromisoformat(
+                    str(enqueued_at_raw).replace("Z", "+00:00")
+                )
+                age_minutes = (now - enqueued_at).total_seconds() / 60
+
+                if queue_state == "AWAITING_CHECKS":
+                    head_sha = self._extract_merge_queue_head_sha(entry)
+                    if not head_sha or age_minutes <= _QUEUE_STALL_THRESHOLD_MINUTES:
+                        continue
+                    merge_group_run_count = self._count_merge_group_runs(repo, head_sha)
+                    if merge_group_run_count != 0:
+                        continue
+                    stuck.append(
+                        ModelStuckQueueEntry(
+                            pr_number=pr.pr_number,
+                            repo=repo,
+                            title=pr.title,
+                            queue_entered_at=enqueued_at,
+                            queue_age_minutes=age_minutes,
+                            queue_state=queue_state,
+                            head_sha=head_sha,
+                            merge_group_run_count=merge_group_run_count,
+                        )
+                    )
+                    logger.warning(
+                        "Merge queue check-suite dispatch stall detected: "
+                        "%s#%s head_sha=%s age=%.1f min merge_group_runs=0",
+                        repo,
+                        pr.pr_number,
+                        head_sha,
+                        age_minutes,
+                    )
+                    continue
+
+                if (
+                    pr.merge_state_status == "QUEUED"
+                    and age_minutes > _STUCK_QUEUE_THRESHOLD_MINUTES
+                ):
+                    stuck.append(
+                        ModelStuckQueueEntry(
+                            pr_number=pr.pr_number,
+                            repo=repo,
+                            title=pr.title,
+                            queue_entered_at=enqueued_at,
+                            queue_age_minutes=age_minutes,
+                            queue_state=queue_state,
+                        )
+                    )
+                    logger.warning(
+                        "Stuck merge queue PR detected: %s#%s age=%.1f min",
+                        repo,
+                        pr.pr_number,
+                        age_minutes,
+                    )
+            except Exception as exc:
+                logger.debug(
+                    "Could not check merge queue entry for %s#%s: %s",
+                    repo,
+                    pr.pr_number,
+                    exc,
+                )
+
+        return stuck
+
+    @staticmethod
+    def _extract_merge_queue_head_sha(entry: dict[str, object]) -> str | None:
+        """Extract the queue head SHA from a gh mergeQueueEntry payload."""
+        for key in ("headSha", "headSHA", "headCommitOid", "headCommitOID"):
+            value = entry.get(key)
+            if isinstance(value, str) and value:
+                return value
+
+        head_commit = entry.get("headCommit")
+        if isinstance(head_commit, dict):
+            for key in ("oid", "id"):
+                value = head_commit.get(key)
+                if isinstance(value, str) and value:
+                    return value
+        return None
+
+    def _count_merge_group_runs(self, repo: str, head_sha: str) -> int | None:
+        """Count merge_group workflow runs for the queue head SHA."""
+        result = self._run_gh(
+            [
+                "gh",
+                "api",
+                f"repos/{repo}/actions/runs?head_sha={head_sha}&event=merge_group",
+            ]
+        )
+        if result.returncode != 0:
+            logger.debug(
+                "Could not count merge_group runs for %s head_sha=%s: %s",
+                repo,
+                head_sha,
+                result.stderr.strip(),
+            )
+            return None
+        try:
+            payload = json.loads(result.stdout or "{}")
+        except json.JSONDecodeError:
+            logger.debug(
+                "merge_group run count returned invalid JSON for %s head_sha=%s",
+                repo,
+                head_sha,
+            )
+            return None
+        total_count = payload.get("total_count", 0)
+        return total_count if isinstance(total_count, int) else None
+
+    def _collect_pr_state(
+        self,
+        repo: str,
+        pr_number: int,
+        *,
+        include_check_execution_history: bool = False,
+    ) -> ModelPrState:
+        """Collect state for a single PR via gh CLI.
+
+        Args:
+            repo: GitHub repo slug.
+            pr_number: PR number.
+
+        Returns:
+            ModelPrState with collected data.
+
+        Raises:
+            RuntimeError: If gh CLI call fails.
+        """
+        pr_data = self._gh_pr_view(repo, pr_number)
+        current_head_sha = str(pr_data.get("headRefOid") or "") or None
+        check_runs = self._collect_check_runs(
+            repo, pr_number, current_head_sha=current_head_sha
+        )
+        reviews = self._collect_reviews(repo, pr_number)
+        check_execution_history = _CheckExecutionHistoryResult()
+        if include_check_execution_history:
+            if current_head_sha is None:
+                check_execution_history = _CheckExecutionHistoryResult(
+                    error="check execution history requires the PR head SHA"
+                )
+            else:
+                check_execution_history = self._collect_check_execution_history(
+                    repo, current_head_sha
+                )
+
+        state_raw = str(pr_data.get("state", "open")).lower()
+        if state_raw == "merged":
+            state: Literal["open", "closed", "merged"] = "merged"
+        elif state_raw == "closed":
+            state = "closed"
+        else:
+            state = "open"
+
+        mergeable = pr_data.get("mergeable") or None
+        merge_state_status = pr_data.get("mergeStateStatus") or None
+        review_decision = pr_data.get("reviewDecision") or None
+
+        has_conflicts = mergeable == "CONFLICTING" or (
+            merge_state_status is not None and merge_state_status == "DIRTY"
+        )
+
+        # CI passing: True if all terminal checks succeeded, False if any failed.
+        # F3 (OMN-13319): count ONLY PR-associated runs toward required
+        # contexts. A green `workflow_dispatch` "CI Summary" row never satisfies
+        # arm — branch protection credits the PR-associated `pull_request` run
+        # conclusion, not the statusCheckRollup row (which can be a stale or
+        # manually dispatched green). Non-PR-associated rows are dropped from
+        # the CI-passing computation, so a PR whose ONLY green is a manual
+        # dispatch stays not-green (ci_passing None/False) and arm refuses.
+        ci_passing: bool | None = None
+        completed = [
+            c
+            for c in check_runs
+            if c.status.lower() == "completed"
+            and c.conclusion is not None
+            and self._is_pr_associated(c)
+        ]
+        if completed:
+            ci_passing = all(
+                c.conclusion in ("success", "skipped", "neutral") for c in completed
+            )
+
+        base_ref_data = pr_data.get("baseRefName") or pr_data.get("base", {})
+        head_ref_data = pr_data.get("headRefName") or pr_data.get("head", {})
+
+        return ModelPrState(
+            repo=repo,
+            pr_number=pr_number,
+            title=pr_data.get("title", ""),
+            state=state,
+            is_draft=pr_data.get("isDraft", False),
+            mergeable=mergeable,
+            merge_state_status=merge_state_status,
+            review_decision=review_decision,
+            head_ref=head_ref_data if isinstance(head_ref_data, str) else "",
+            base_ref=base_ref_data if isinstance(base_ref_data, str) else "",
+            check_runs=tuple(check_runs),
+            check_execution_history_requested=include_check_execution_history,
+            check_executions=check_execution_history.executions,
+            check_execution_history_error=check_execution_history.error,
+            reviews=tuple(reviews),
+            has_conflicts=has_conflicts,
+            ci_passing=ci_passing,
+            coderabbit_unresolved=self._collect_coderabbit_unresolved(repo, pr_number),
+        )
+
+    def _collect_check_execution_history(
+        self, repo: str, head_sha: str
+    ) -> _CheckExecutionHistoryResult:
+        """Collect every immutable GitHub check-run execution for ``head_sha``.
+
+        The merge gate continues to use its current ``filter=latest`` view.
+        This opt-in collector uses GitHub's ``filter=all`` endpoint and keeps
+        execution identity, so a re-run with the same check name remains a
+        distinct record. An unavailable endpoint or invalid response is made
+        explicit in the output, never turned into a successful empty history.
+        """
+        if not self._is_full_sha(head_sha):
+            return _CheckExecutionHistoryResult(error="invalid PR head SHA")
+
+        page = 1
+        rows_seen = 0
+        expected_total: int | None = None
+        by_id: dict[int, ModelPrCheckExecution] = {}
+
+        while True:
+            result = self._run_gh(
+                [
+                    "gh",
+                    "api",
+                    (
+                        f"repos/{repo}/commits/{head_sha}/check-runs?filter=all"
+                        f"&per_page=100&page={page}"
+                    ),
+                ]
+            )
+            if result.returncode != 0:
+                error = f"check execution history API failed (exit {result.returncode})"
+                logger.warning("%s for %s at %s", error, repo, head_sha)
+                return _CheckExecutionHistoryResult(error=error)
+
+            try:
+                payload = json.loads(result.stdout or "{}")
+                if not isinstance(payload, dict):
+                    raise ValueError("response is not an object")
+                if expected_total is None:
+                    total = payload.get("total_count")
+                    if (
+                        isinstance(total, bool)
+                        or not isinstance(total, int)
+                        or total < 0
+                    ):
+                        raise ValueError("response has no valid total_count")
+                    expected_total = total
+                elif payload.get("total_count") != expected_total:
+                    raise ValueError("response total_count changed during pagination")
+                raw_runs = payload.get("check_runs")
+                if not isinstance(raw_runs, list):
+                    raise ValueError("response has no check_runs list")
+                for raw in raw_runs:
+                    execution = self._parse_check_execution(
+                        raw, expected_head_sha=head_sha
+                    )
+                    by_id.setdefault(execution.check_run_id, execution)
+            except (
+                json.JSONDecodeError,
+                TypeError,
+                ValidationError,
+                ValueError,
+            ) as exc:
+                error = f"invalid check execution history response: {exc}"
+                logger.warning("%s for %s at %s", error, repo, head_sha)
+                return _CheckExecutionHistoryResult(error=error)
+
+            rows_seen += len(raw_runs)
+            if expected_total is not None and rows_seen == expected_total:
+                break
+            if expected_total is not None and rows_seen > expected_total:
+                error = (
+                    "invalid check execution history response "
+                    f"({rows_seen} rows exceeds total_count {expected_total})"
+                )
+                logger.warning("%s for %s at %s", error, repo, head_sha)
+                return _CheckExecutionHistoryResult(error=error)
+            if len(raw_runs) < 100:
+                error = (
+                    "incomplete check execution history response "
+                    f"({rows_seen} of {expected_total} rows)"
+                )
+                logger.warning("%s for %s at %s", error, repo, head_sha)
+                return _CheckExecutionHistoryResult(error=error)
+            page += 1
+
+        return _CheckExecutionHistoryResult(
+            executions=tuple(
+                sorted(
+                    by_id.values(),
+                    key=lambda execution: (
+                        execution.started_at is None,
+                        execution.started_at or datetime.min.replace(tzinfo=UTC),
+                        execution.check_run_id,
+                    ),
+                )
+            )
+        )
+
+    @staticmethod
+    def _is_full_sha(value: str) -> bool:
+        return len(value) == 40 and all(
+            character in "0123456789abcdef" for character in value
+        )
+
+    @staticmethod
+    def _parse_check_execution_timestamp(value: object) -> datetime | None:
+        if value is None:
+            return None
+        if not isinstance(value, str) or not value:
+            raise ValueError(
+                "timestamp is neither null nor a non-empty ISO-8601 string"
+            )
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if parsed.tzinfo is None or parsed.utcoffset() is None:
+            raise ValueError("timestamp has no timezone")
+        return parsed.astimezone(UTC)
+
+    @classmethod
+    def _parse_check_execution(
+        cls, raw: object, *, expected_head_sha: str
+    ) -> ModelPrCheckExecution:
+        if not isinstance(raw, dict):
+            raise ValueError("check run is not an object")
+        check_run_id = raw.get("id")
+        name = raw.get("name")
+        status = raw.get("status")
+        head_sha = raw.get("head_sha")
+        if isinstance(check_run_id, bool) or not isinstance(check_run_id, int):
+            raise ValueError("check run has no integer id")
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("check run has no name")
+        if not isinstance(status, str) or not status.strip():
+            raise ValueError("check run has no status")
+        if not isinstance(head_sha, str) or head_sha != expected_head_sha:
+            raise ValueError("check run head SHA differs from requested PR head")
+
+        conclusion = raw.get("conclusion")
+        if conclusion is not None and (
+            not isinstance(conclusion, str) or not conclusion.strip()
+        ):
+            raise ValueError(
+                "check run conclusion is neither null nor a non-empty string"
+            )
+        details_url = raw.get("details_url")
+        if details_url is not None and (
+            not isinstance(details_url, str) or not details_url.strip()
+        ):
+            raise ValueError(
+                "check run details URL is neither null nor a non-empty string"
+            )
+
+        check_suite_id: int | None = None
+        check_suite = raw.get("check_suite")
+        if check_suite is not None:
+            if not isinstance(check_suite, dict):
+                raise ValueError("check run suite is not an object")
+            suite_id = check_suite.get("id")
+            if suite_id is not None:
+                if isinstance(suite_id, bool) or not isinstance(suite_id, int):
+                    raise ValueError("check run suite id is not an integer")
+                check_suite_id = suite_id
+
+        started_at = cls._parse_check_execution_timestamp(raw.get("started_at"))
+        completed_at = cls._parse_check_execution_timestamp(raw.get("completed_at"))
+        duration_seconds = (
+            (completed_at - started_at).total_seconds()
+            if started_at is not None and completed_at is not None
+            else None
+        )
+        return ModelPrCheckExecution(
+            check_run_id=check_run_id,
+            name=name,
+            status=status,
+            conclusion=conclusion,
+            head_sha=head_sha,
+            check_suite_id=check_suite_id,
+            started_at=started_at,
+            completed_at=completed_at,
+            details_url=details_url,
+            duration_seconds=duration_seconds,
+        )
+
+    def _collect_coderabbit_unresolved(self, repo: str, pr_number: int) -> int | None:
+        """Count unresolved CodeRabbit review threads (OMN-14151).
+
+        Returns None (unknown) on any gh failure or parse error — the
+        merge-queue arm-gate treats None as WITHHOLD, never as "0 unresolved".
+        """
+        result = self._run_gh(
+            [
+                "gh",
+                "pr",
+                "view",
+                str(pr_number),
+                "--repo",
+                repo,
+                "--json",
+                "reviewThreads",
+            ]
+        )
+        if result.returncode != 0:
+            logger.debug(
+                "gh pr view reviewThreads failed for %s#%s: %s",
+                repo,
+                pr_number,
+                result.stderr.strip(),
+            )
+            return None
+        try:
+            data: dict[str, object] = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            logger.debug(
+                "reviewThreads returned invalid JSON for %s#%s", repo, pr_number
+            )
+            return None
+        threads = data.get("reviewThreads")
+        if not isinstance(threads, list):
+            return None
+
+        count = 0
+        for thread in threads:
+            if not isinstance(thread, dict) or thread.get("isResolved"):
+                continue
+            comments = thread.get("comments") or []
+            if not isinstance(comments, list) or not comments:
+                continue
+            first = comments[0] if isinstance(comments[0], dict) else {}
+            author = first.get("author")
+            if isinstance(author, dict):
+                login = str(author.get("login", "")).lower()
+            elif isinstance(author, str):
+                login = author.lower()
+            else:
+                login = ""
+            if login in _CODERABBIT_LOGINS:
+                count += 1
+        return count
+
+    def _gh_pr_view(self, repo: str, pr_number: int) -> dict[str, object]:
+        """Run gh pr view and return parsed JSON.
+
+        Args:
+            repo: GitHub repo slug.
+            pr_number: PR number.
+
+        Returns:
+            Parsed JSON dict from gh output.
+
+        Raises:
+            RuntimeError: If the gh command fails.
+        """
+        cmd = [
+            "gh",
+            "pr",
+            "view",
+            str(pr_number),
+            "--repo",
+            repo,
+            "--json",
+            "title,state,isDraft,mergeable,mergeStateStatus,reviewDecision,"
+            "baseRefName,headRefName,headRefOid",
+        ]
+        result = self._run_gh(cmd)
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"gh pr view failed (exit {result.returncode}): {result.stderr.strip()}"
+            )
+        return json.loads(result.stdout)  # type: ignore[no-any-return]
+
+    def _collect_check_runs(
+        self,
+        repo: str,
+        pr_number: int,
+        *,
+        current_head_sha: str | None = None,
+    ) -> list[ModelPrCheckRun]:
+        """Collect CI check runs for a PR via gh pr checks.
+
+        Returns empty list on failure (non-fatal). For FAILED checks (the
+        decision-critical subset) the jobs-API attempt is pulled and a typed
+        ``reason_code`` is classified (OMN-14765); green/pending checks are left
+        unclassified. The green-path rollup stays on ``gh pr checks``.
+        """
+        cmd = [
+            "gh",
+            "pr",
+            "checks",
+            str(pr_number),
+            "--repo",
+            repo,
+            "--json",
+            "name,state,bucket,event,link",
+        ]
+        result = self._run_gh(cmd)
+        if result.returncode != 0:
+            logger.debug(
+                "gh pr checks failed for PR #%d in %s: %s",
+                pr_number,
+                repo,
+                result.stderr.strip(),
+            )
+            return []
+        try:
+            raw: list[dict[str, object]] = json.loads(result.stdout)
+            check_runs: list[ModelPrCheckRun] = []
+            for item in raw:
+                flaky_evidence = self._collect_flaky_failure_evidence(item)
+                check_runs.append(
+                    ModelPrCheckRun(
+                        name=str(item.get("name", "")),
+                        status=self._normalize_check_status(item),
+                        conclusion=self._normalize_check_conclusion(item),
+                        event=self._normalize_check_event(item),
+                        link=str(item.get("link", "") or ""),
+                        flaky_failure_evidence=flaky_evidence,
+                        reason_code=self._classify_check_reason_code(
+                            repo,
+                            item,
+                            current_head_sha=current_head_sha,
+                            flaky_evidence=flaky_evidence,
+                        ),
+                    )
+                )
+            return check_runs
+        except (json.JSONDecodeError, KeyError) as exc:
+            logger.debug("Failed to parse check runs for PR #%d: %s", pr_number, exc)
+            return []
+
+    def _classify_check_reason_code(
+        self,
+        repo: str,
+        item: dict[str, object],
+        *,
+        current_head_sha: str | None,
+        flaky_evidence: tuple[str, ...],
+    ) -> EnumMergeCheckReasonCode | None:
+        """Classify a FAILED check into a typed merge-check reason code.
+
+        Reads the jobs-API attempt (``runs/<run_id>/jobs`` — latest attempt) to
+        recover the failed STEP name, run head SHA and attempt, then keys the
+        classifier on (failed step, run event, head vs current head, job
+        conclusion, already-collected infra log signatures). Fail-soft: any
+        unavailable/unparseable jobs-API response yields the classifier's
+        fail-closed result on whatever facts are present (never ``None`` masking
+        a real failure as green — a green check simply returns ``None`` early).
+        """
+        conclusion = self._normalize_check_conclusion(item)
+        if conclusion not in {"failure", "cancelled", "timed_out"}:
+            # Only failed checks are decision-critical; leave the rest unclassified.
+            return None
+
+        event = self._normalize_check_event(item)
+        link = str(item.get("link", "") or "")
+        fetch = self._fetch_jobs_api_job(repo, link)
+        if fetch.job is not None:
+            return classify_job(
+                fetch.job,
+                run_event=event,
+                current_head_sha=current_head_sha,
+                required_context=True,
+                api_error=fetch.api_error,
+                is_superseded=fetch.is_superseded,
+                log_signatures=flaky_evidence,
+            )
+        # No jobs-API job resolved — classify on the gh-pr-checks facts we have
+        # (event / conclusion / infra evidence) plus the live-derived
+        # ``api_error`` (an OUTAGE on the metadata call itself, F-07). Fail-closed
+        # inside the classifier.
+        return classify(
+            MergeCheckFacts(
+                run_event=event,
+                current_head_sha=current_head_sha,
+                required_context=True,
+                api_error=fetch.api_error,
+                is_superseded=fetch.is_superseded,
+                job_conclusion=conclusion,
+                log_signatures=flaky_evidence,
+            )
+        )
+
+    def _fetch_jobs_api_job(self, repo: str, link: str) -> _JobsApiResult:
+        """Fetch the jobs-API attempt facts for a check's linked run (fail-soft).
+
+        Parses ``run_id`` and ``job_id`` from a ``gh pr checks`` link of the form
+        ``.../actions/runs/<run_id>/job/<job_id>`` and returns the matching job
+        from ``repos/<repo>/actions/runs/<run_id>/jobs`` (latest attempt), plus
+        the two live-derived facts the classifier needs (OMN-14769):
+
+        - ``api_error``: the jobs-API metadata call itself failed as a GitHub
+          OUTAGE (HTTP 5xx / rate-limit / timeout / HTML body). Distinguished
+          from a plain not-found so an incident emits GITHUB_API_OUTAGE (F-07)
+          rather than failing closed to an infra rerun.
+        - ``is_superseded``: the linked ``job_id`` is a real job that is ABSENT
+          from the run's latest attempt and a re-run exists (max ``run_attempt``
+          > 1) — the check row is from a superseded earlier attempt (F-14/F-26).
+
+        Returns an empty :class:`_JobsApiResult` on any parse/not-found failure
+        so classification degrades gracefully.
+        """
+        if "/actions/runs/" not in link:
+            return _JobsApiResult(None)
+        try:
+            after_runs = link.split("/actions/runs/", 1)[1]
+            run_id = after_runs.split("/", 1)[0].strip()
+        except (IndexError, ValueError):
+            return _JobsApiResult(None)
+        if not run_id.isdigit():
+            return _JobsApiResult(None)
+        job_id = ""
+        if "/job/" in link:
+            job_id = link.rsplit("/job/", 1)[1].split("?", 1)[0].strip()
+        result = self._run_gh(
+            ["gh", "api", f"repos/{repo}/actions/runs/{run_id}/jobs"],
+            timeout=30,
+        )
+        if result.returncode != 0:
+            api_error = self._gh_result_is_api_outage(result)
+            logger.debug(
+                "jobs-API fetch failed for %s run %s (api_outage=%s): %s",
+                repo,
+                run_id,
+                api_error,
+                result.stderr.strip(),
+            )
+            return _JobsApiResult(None, api_error=api_error)
+        try:
+            payload = json.loads(result.stdout or "{}")
+        except json.JSONDecodeError:
+            # A non-JSON body (an HTML 5xx error page passed straight through) is
+            # an OUTAGE, not a plain miss.
+            return _JobsApiResult(
+                None, api_error=text_has_api_outage_signature(result.stdout)
+            )
+        jobs = payload.get("jobs") if isinstance(payload, dict) else None
+        if not isinstance(jobs, list) or not jobs:
+            return _JobsApiResult(None)
+        job_dicts = [j for j in jobs if isinstance(j, dict)]
+        is_superseded = False
+        if job_id.isdigit():
+            for j in job_dicts:
+                if str(j.get("id")) == job_id:
+                    return _JobsApiResult(j)
+            # The linked job is absent from the run's LATEST attempt. If a re-run
+            # exists (max attempt > 1) the check row is from a superseded attempt
+            # — refresh/supersede, do not fix (F-14/F-26). A single-attempt miss
+            # is treated as a benign link/rollup mismatch, not supersession.
+            is_superseded = self._max_run_attempt(job_dicts) > 1
+        # Fall back to the first non-successful job (the failing one) of the
+        # latest attempt.
+        for j in job_dicts:
+            if str(j.get("conclusion") or "").lower() in {
+                "failure",
+                "cancelled",
+                "timed_out",
+                "action_required",
+            }:
+                return _JobsApiResult(j, is_superseded=is_superseded)
+        return _JobsApiResult(
+            job_dicts[0] if job_dicts else None, is_superseded=is_superseded
+        )
+
+    @classmethod
+    def _gh_result_is_api_outage(cls, result: subprocess.CompletedProcess[str]) -> bool:
+        """True when a failed gh call failed as a GitHub API OUTAGE (F-07).
+
+        An OUTAGE is an HTTP 5xx / rate-limit / timeout on the API itself, as
+        opposed to a plain not-found / auth error. A ``gh`` timeout surfaces as
+        the synthetic ``_GH_TIMEOUT_RETURNCODE``; an HTTP error surfaces its
+        status/body in stdout+stderr. Combines the classifier's job-LOG outage
+        signatures (HTML/5xx phrasing) with gh-CLI stderr markers so both
+        renderings are caught.
+        """
+        if result.returncode == _GH_TIMEOUT_RETURNCODE:
+            return True
+        blob = f"{result.stdout}\n{result.stderr}".lower()
+        if text_has_api_outage_signature(blob):
+            return True
+        return any(marker in blob for marker in _GH_API_OUTAGE_STDERR_MARKERS)
+
+    @staticmethod
+    def _max_run_attempt(job_dicts: list[dict[str, object]]) -> int:
+        """Highest ``run_attempt`` across a run's returned jobs (>= 1)."""
+        attempts = [
+            j.get("run_attempt")
+            for j in job_dicts
+            if isinstance(j.get("run_attempt"), int)
+        ]
+        return max((a for a in attempts if isinstance(a, int)), default=1)
+
+    def _collect_flaky_failure_evidence(
+        self, item: dict[str, object]
+    ) -> tuple[str, ...]:
+        """Return classifier log signatures from a failed check's linked job log.
+
+        Scans the job log for every signature in the classifier's canonical
+        ``ALL_LOG_SIGNATURES`` union (runner-infra + API-outage families), so the
+        extracted tuple fed to ``classify`` is exactly what the classifier keys
+        on — the F-23 isolation-hang and API-outage signatures included
+        (OMN-14769). The result also populates ``ModelPrCheckRun.flaky_failure_
+        evidence`` used by the orchestrator's fallback rerun heuristic.
+        """
+        conclusion = self._normalize_check_conclusion(item)
+        if conclusion not in {"failure", "cancelled", "timed_out"}:
+            return ()
+        link = str(item.get("link", "") or "")
+        if "/actions/runs/" not in link or "/job/" not in link:
+            return ()
+        job_id = link.rsplit("/job/", 1)[1].split("?", 1)[0].strip()
+        repo_name = self._repo_name_from_link(link)
+        if not job_id.isdigit() or not repo_name:
+            return ()
+        result = self._run_gh(
+            [
+                "gh",
+                "api",
+                f"repos/{_ORG_WIDE_OPEN_PR_ORG}/{repo_name}/actions/jobs/{job_id}/logs",
+                "--header",
+                "Accept: application/vnd.github+json",
+            ],
+            timeout=30,
+        )
+        if result.returncode != 0:
+            logger.debug(
+                "failed to inspect check log %s for flaky evidence: %s",
+                link,
+                result.stderr.strip(),
+            )
+            return ()
+        lowered = result.stdout.lower()
+        return tuple(
+            signature for signature in ALL_LOG_SIGNATURES if signature in lowered
+        )
+
+    @staticmethod
+    def _repo_name_from_link(link: str) -> str:
+        parts = link.split("/")
+        try:
+            owner_index = parts.index(_ORG_WIDE_OPEN_PR_ORG)
+        except ValueError:
+            return ""
+        repo_index = owner_index + 1
+        if repo_index >= len(parts):
+            return ""
+        return parts[repo_index]
+
+    @staticmethod
+    def _normalize_check_status(item: dict[str, object]) -> str:
+        """Normalize current and legacy gh check states to the internal vocabulary."""
+        state = str(item.get("state", "unknown") or "unknown").lower()
+        if state in {"completed", "queued", "in_progress"}:
+            return state
+        bucket = str(item.get("bucket", "") or "").lower()
+        if bucket in _TERMINAL_CHECK_BUCKETS:
+            return "completed"
+        if bucket == "pending":
+            return "in_progress"
+        if state in {"success", "failure", "cancelled", "skipped", "neutral"}:
+            return "completed"
+        return state
+
+    @staticmethod
+    def _normalize_check_conclusion(item: dict[str, object]) -> str | None:
+        """Normalize gh's current bucket field while preserving legacy fixtures."""
+        conclusion = item.get("conclusion")
+        if conclusion:
+            return str(conclusion).lower()
+        bucket = str(item.get("bucket", "") or "").lower()
+        return _CHECK_BUCKET_TO_CONCLUSION.get(bucket)
+
+    @staticmethod
+    def _normalize_check_event(item: dict[str, object]) -> str | None:
+        """Extract the run trigger event from a gh pr checks row.
+
+        `gh pr checks --json ... event` reports the workflow run trigger
+        (e.g. ``pull_request``, ``workflow_dispatch``, ``merge_group``). Status
+        contexts (legacy commit statuses) and older fixtures omit it; return
+        None so they are treated as PR-associated (not manually dispatched).
+        """
+        event = item.get("event")
+        if event is None:
+            return None
+        event_str = str(event).strip().lower()
+        return event_str or None
+
+    @staticmethod
+    def _is_pr_associated(check: ModelPrCheckRun) -> bool:
+        """Whether a check's conclusion may credit a required context (F3).
+
+        Only PR-associated runs (and eventless status contexts) count toward
+        CI status. A manually dispatched ``workflow_dispatch`` "CI Summary"
+        never satisfies arm — branch protection credits the PR-associated
+        ``pull_request`` run conclusion, not the statusCheckRollup row, which
+        can be green from a manual dispatch (OMN-13319 / handoff #4).
+        """
+        if check.event is None:
+            return True
+        return check.event in _PR_ASSOCIATED_EVENTS
+
+    @staticmethod
+    def _extract_review_author(review: dict[str, object]) -> str:
+        """Extract author login from a review dict (handles str or nested author object)."""
+        author = review.get("author")
+        if isinstance(author, str):
+            return author
+        if isinstance(author, dict):
+            return str(author.get("login", ""))
+        return ""
+
+    def _collect_reviews(self, repo: str, pr_number: int) -> list[ModelPrReview]:
+        """Collect PR reviews via gh pr view --json reviews.
+
+        Returns empty list on failure (non-fatal).
+        """
+        cmd = [
+            "gh",
+            "pr",
+            "view",
+            str(pr_number),
+            "--repo",
+            repo,
+            "--json",
+            "reviews",
+        ]
+        result = self._run_gh(cmd)
+        if result.returncode != 0:
+            return []
+        try:
+            data: dict[str, list[dict[str, object]]] = json.loads(result.stdout)
+            raw_reviews = data.get("reviews", [])
+            return [
+                ModelPrReview(
+                    author=self._extract_review_author(review),
+                    state=str(review.get("state", "")),
+                )
+                for review in raw_reviews
+            ]
+        except (json.JSONDecodeError, KeyError, TypeError) as exc:
+            logger.debug("Failed to parse reviews for PR #%d: %s", pr_number, exc)
+            return []

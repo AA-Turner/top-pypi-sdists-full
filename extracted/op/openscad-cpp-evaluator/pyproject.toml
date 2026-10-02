@@ -1,0 +1,47 @@
+[build-system]
+requires = ["scikit-build-core >=0.10", "nanobind >=2.0.0"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "openscad_cpp_evaluator"
+version = "1.35.0"
+description = "C++ OpenSCAD evaluator with Python bindings"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "NeuSCAD Contributors" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: C++",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Graphics :: 3D Modeling",
+]
+dependencies = ["numpy"]
+
+[project.urls]
+Homepage = "https://github.com/BelfrySCAD/openscad_cpp_evaluator"
+Repository = "https://github.com/BelfrySCAD/openscad_cpp_evaluator"
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+build-dir = "build/skbuild/{wheel_tag}"
+wheel.packages = ["python/openscad_cpp_evaluator"]
+# Without this, scikit-build-core tags the wheel for the exact CPython
+# version it was built with (cp312-cp312-*) even though STABLE_ABI
+# (bindings/CMakeLists.txt) compiles the .so against the limited API --
+# the wheel itself still needs telling to use the abi3 tag (cp312-abi3-*)
+# so it installs on 3.13+ too, not just the exact build interpreter.
+wheel.py-api = "cp312"
+# NOTE: editable.rebuild (rebuild-on-import) is intentionally NOT enabled --
+# under uv's build isolation the cached build-dir references a ninja/toolchain
+# in an ephemeral env that gets cleaned up, so rebuild-on-import fails. Rebuild
+# after a C++ change with: uv pip install --reinstall -e <this repo>.
+
+[tool.scikit-build.cmake.define]
+BUILD_PYTHON_BINDINGS = "ON"
+BUILD_TESTING = "OFF"
+BUILD_EXAMPLES = "OFF"

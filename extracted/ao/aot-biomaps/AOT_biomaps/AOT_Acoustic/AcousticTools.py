@@ -335,60 +335,59 @@ def compute_field_numba(field, t, active_indices, apod_window, weight_base,
 # The final storage layout (Nt, Nz, Nx) is produced by to_pipeline_layout.
 # ---------------------------------------------------------------------------
 
-def sensor_data_to_grid(sensor_data, Nt, Nz, Nx, xp=None):
+def sensor_data_to_grid(data, Nx, Nz, backend="python", xp=None):
     """
     Normalize k-Wave sensor output to the grid layout (Nx, Nz, Nt), time last.
 
-    The pure-Python k-Wave backend returns 'p' shaped (Nt, Nz, Nx), while the
-    compiled C++/CUDA binaries apply an internal transpose and return
-    (Nx, Nz, Nt). This function detects the layout from the reference sizes
-    and always returns (Nx, Nz, Nt), C-contiguous.
+    The pure-Python k-Wave backend returns 'p' flattened in C-order (row-major),
+    while the compiled C++/CUDA binaries apply an internal Fortran-order
+    (column-major) flatten and return (Ns, Nt).
+    This function detects the layout and forces the correct (Nx, Nz, Nt) C-contiguous array.
 
     Args:
-        sensor_data: dict with key 'p', or raw array from k-Wave.
-        Nt, Nz, Nx: reference sizes (from medium.kgrid).
+        data: dict with key 'p', or raw array from k-Wave.
+        Nx, Nz: reference sizes (from medium.kgrid).
+        backend: "python" or "cpp".
         xp: array namespace (cupy or numpy). Defaults to cupy if available.
 
     Returns:
         array (Nx, Nz, Nt) in namespace xp.
     """
     xp = _get_xp(xp)
-    if isinstance(sensor_data, dict):
-        sensor_data = sensor_data['p']
-    arr = xp.asarray(sensor_data)
-    if arr.ndim != 3:
-        raise ValueError(f"[AOT-biomaps] Expected 3D sensor data, got ndim={arr.ndim}.")
+    Ns = Nx * Nz
+    
+    # 1. Aligner les axes en (Ns, Nt) pour le cpp
+    if data.ndim == 2 and data.shape[1] == Ns and data.shape[0] != Ns:
+        data = data.T
+        
+    data_array = xp.asarray(data, dtype=xp.float32)
+    
+    # 2. Reshape conditionnel
+    if backend in ["cpp", "cuda"]:
+        # CORRECTION FORTRAN vs C-ORDER (Le C++ aplatit la grille en faisant varier Nx le plus vite)
+        # On reshape en (Nz, Nx, Nt) pour absorber la contiguïté mémoire, puis on transpose.
+        return data_array.reshape((Nz, Nx, -1)).transpose(1, 0, 2)
+    else:
+        # Le backend python conserve l'ordre spatial natif (Nx, Nz)
+        return data_array.reshape((Nx, Nz, -1))
 
-    if (Nt, Nz, Nx) == (Nx, Nz, Nt):
-        # Ambiguous (Nx == Nt): assume the backend already returned grid layout.
-        return xp.ascontiguousarray(arr)
 
-    if arr.shape == (Nt, Nz, Nx):
-        # Python backend layout -> transpose to grid layout
-        arr = arr.transpose(2, 1, 0)
-    elif arr.shape != (Nx, Nz, Nt):
-        raise ValueError(
-            f"[AOT-biomaps] Sensor data shape {arr.shape} matches neither "
-            f"(Nt, Nz, Nx)=({Nt}, {Nz}, {Nx}) nor (Nx, Nz, Nt)=({Nx}, {Nz}, {Nt})."
-        )
-    return xp.ascontiguousarray(arr)
-
-def to_pipeline_layout(grid_field, xp=None):
+def to_pipeline_layout(field, xp=None):
     """
     Convert a grid-layout field (Nx, Nz, Nt) to the pipeline/storage layout
     (Nt, Nz, Nx), C-contiguous.
 
     Args:
-        grid_field: array (Nx, Nz, Nt), time last.
+        field: array (Nx, Nz, Nt), time last.
         xp: array namespace (cupy or numpy). Defaults to cupy if available.
 
     Returns:
         array (Nt, Nz, Nx), C-contiguous.
     """
     xp = _get_xp(xp)
-    return xp.ascontiguousarray(grid_field.transpose(2, 1, 0))
+    return xp.ascontiguousarray(field.transpose(2, 1, 0))
 
-def hilbert_analytic(field, axis=-1, xp=None):
+def hilbert_analytic(field, xp=None):
     """
     FFT-based Hilbert transform (analytic signal) along `axis`.
 
@@ -401,22 +400,15 @@ def hilbert_analytic(field, axis=-1, xp=None):
         complex analytic signal, same shape as input.
     """
     xp = _get_xp(xp)
-    n = field.shape[axis]
-    h = xp.zeros(n, dtype=xp.float32)
-    if n % 2 == 0:
-        h[0] = 1.0
-        h[n // 2] = 1.0
-        h[1:n // 2] = 2.0
+    Nt = field.shape[-1]
+    h = xp.zeros((1, 1, Nt), dtype=xp.float32)
+    h[..., 0] = 1.0
+    if Nt % 2 == 0:
+        h[..., Nt // 2] = 1.0
+        h[..., 1:Nt // 2] = 2.0
     else:
-        h[0] = 1.0
-        h[1:(n + 1) // 2] = 2.0
-
-    shape = [1] * field.ndim
-    shape[axis] = n
-
-    F = xp.fft.fft(xp.asarray(field, dtype=xp.float32), axis=axis)
-    analytic = xp.fft.ifft(F * h.reshape(shape), axis=axis)
-    return analytic
+        h[..., 1:(Nt + 1) // 2] = 2.0
+    return xp.fft.ifft(xp.fft.fft(field, axis=-1) * h, axis=-1)
 
 def calculate_envelope_squared(field, xp=None):
     """
@@ -433,8 +425,9 @@ def calculate_envelope_squared(field, xp=None):
         float32 array, same shape as input.
     """
     xp = _get_xp(xp)
-    analytic = hilbert_analytic(field, axis=-1, xp=xp)
-    return (xp.abs(analytic) ** 2).astype(xp.float32)
+    analytic = hilbert_analytic(field, xp)
+    return (analytic.real ** 2 + analytic.imag ** 2).astype(xp.float32)
+    
 
 def calculate_envelope(field, xp=None):
     """
@@ -451,10 +444,10 @@ def calculate_envelope(field, xp=None):
         float32 array, same shape as input.
     """
     xp = _get_xp(xp)
-    analytic = hilbert_analytic(field, axis=-1, xp=xp)
-    return xp.abs(analytic).astype(xp.float32)
+    analytic = hilbert_analytic(field, xp)
+    return xp.sqrt(analytic.real ** 2 + analytic.imag ** 2).astype(xp.float32)
 
-def resample_bandlimited(field, M, axis=-1, xp=None):
+def resample_bandlimited(field, axis, M, xp=None):
     """
     Band-limited resampling of `field` along `axis` from N to M samples.
 
@@ -468,8 +461,8 @@ def resample_bandlimited(field, M, axis=-1, xp=None):
 
     Args:
         field: input array (real, time/space on `axis`).
-        M: target number of samples on `axis` (M < N decimates, M > N upsamples).
         axis: axis to resample (default: last axis = time in grid layout).
+        M: target number of samples on `axis` (M < N decimates, M > N upsamples).
         xp: array namespace (cupy or numpy). Defaults to cupy if available.
 
     Returns:
@@ -479,31 +472,28 @@ def resample_bandlimited(field, M, axis=-1, xp=None):
     N = field.shape[axis]
     if M == N:
         return field
-    if M < 1:
-        raise ValueError(f"[AOT-biomaps] Target size M must be >= 1, got {M}.")
+    E = xp.fft.rfft(field, axis=axis)
+    K = E.shape[axis]                 # N//2 + 1 bins
+    Mk = M // 2 + 1                   # bins of the target
+    cut = min(K, Mk)                  # carried bins
+    kc = min(N, M) / 2.0              # cutoff = min of the two Nyquist frequencies
 
-    F = xp.fft.rfft(field, axis=axis)
+    kb = xp.arange(cut, dtype=xp.float32)
+    w = xp.where(kb <= 0.70 * kc, 1.0,
+                 xp.where(kb <= kc,
+                          0.5 * (1 + xp.cos(xp.pi * (kb - 0.70 * kc) / (0.30 * kc))),
+                          0.0))
+    w = w.reshape([cut if ax == axis else 1 for ax in range(field.ndim)])
 
-    if M < N:
-        # Raised-cosine anti-alias window: passband up to 0.7*kc,
-        # cosine rolloff from 0.7*kc down to 0 at kc (new Nyquist bin).
-        kc = M // 2
-        k = xp.arange(F.shape[axis], dtype=xp.float32)
-        f1 = 0.7 * kc
-        f2 = float(kc)
-        ramp = (k - f1) / max(f2 - f1, 1e-12)
-        w = 0.5 * (1.0 + xp.cos(xp.pi * xp.clip(ramp, 0.0, 1.0)))
+    shape = list(field.shape)
+    shape[axis] = Mk
+    E2 = xp.zeros(tuple(shape), dtype=E.dtype)
+    sl = [slice(None)] * field.ndim
+    sl[axis] = slice(0, cut)
+    E2[tuple(sl)] = E[tuple(sl)] * w
 
-        shape = [1] * field.ndim
-        shape[axis] = F.shape[axis]
-        F = F * w.reshape(shape)
-
-    # irfft(n=M) truncates (M < N) or zero-pads (M > N) the spectrum.
-    out = xp.fft.irfft(F, n=M, axis=axis)
-
-    # In-place amplitude correction: irfft(n=M) divides by M, the rfft bins
-    # carry the N normalization -> multiply by M/N to restore true amplitudes.
-    out *= xp.float32(M / N)
+    out = xp.fft.irfft(E2, n=M, axis=axis)
+    out *= xp.float32(M / N)          # in-place: stays float32
     return out
 
 def resample_field(field, target_sizes, xp=None):
@@ -523,32 +513,21 @@ def resample_field(field, target_sizes, xp=None):
         array (M_x, M_z, M_t) grid layout, resampled.
     """
     xp = _get_xp(xp)
-    M_t, M_z, M_x = target_sizes
-    if M_t is not None:
-        field = resample_bandlimited(field, int(M_t), axis=2, xp=xp)
-    if M_z is not None:
-        field = resample_bandlimited(field, int(M_z), axis=1, xp=xp)
-    if M_x is not None:
-        field = resample_bandlimited(field, int(M_x), axis=0, xp=xp)
+    Nt_t, Nz_t, Nx_t = target_sizes
+    field = resample_bandlimited(field, 2, Nt_t, xp)
+    field = resample_bandlimited(field, 1, Nz_t, xp)
+    field = resample_bandlimited(field, 0, Nx_t, xp)
     return field
 
-def compute_target_sizes(shape, targets):
+def compute_target_sizes(Nx, Nz, Nt, dx, dz, dt, target_dt, target_dx, target_dz):
     """
-    Compute effective output sizes for the resampling pipeline.
-
-    Args:
-        shape: current per-axis sizes (axis order is free, as long as it is
-               consistent between shape and targets).
-        targets: desired per-axis sizes. None on an axis = no decimation on
-                 that axis (the axis is kept at its current size).
-
-    Returns:
-        tuple: effective sizes, each clamped to [1, N] per axis.
+    Target grid sizes + EFFECTIVE steps (<= targets) from target resolutions.
+    Returns (sizes, steps) with sizes=(Nt_t, Nz_t, Nx_t), steps=(dt', dz', dx').
     """
-    result = []
-    for N, M in zip(shape, targets):
-        if M is None:
-            result.append(int(N))
-        else:
-            result.append(int(min(max(int(M), 1), int(N))))
-    return tuple(result)
+    Nt_t = max(2, int(np.floor(Nt * dt / target_dt + 1e-9)))
+    Nz_t = max(2, int(np.floor(Nz * dz / target_dz + 1e-9)))
+    Nx_t = max(2, int(np.floor(Nx * dx / target_dx + 1e-9)))
+    dt_p = (Nt * dt) / Nt_t
+    dz_p = (Nz * dz) / Nz_t
+    dx_p = (Nx * dx) / Nx_t
+    return (Nt_t, Nz_t, Nx_t), (dt_p, dz_p, dx_p)

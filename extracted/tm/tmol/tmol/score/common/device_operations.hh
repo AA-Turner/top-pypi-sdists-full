@@ -1,0 +1,132 @@
+#pragma once
+
+#include <Eigen/Core>
+
+#include <tmol/utility/tensor/TensorPack.h>
+#include <tmol/utility/tensor/TensorAccessor.h>
+#include <moderngpu/scan_types.hxx>  // CPU-friendly
+#include <tmol/utility/tensor/context_manager.hh>
+
+namespace tmol {
+namespace score {
+namespace common {
+
+template <tmol::Device D>
+struct DeviceOperations {
+  template <typename launch_t, typename Func>
+  static void forall(ContextManager& mgr, int N, Func f);
+
+  /// Apply independent element work, parallelizing elements on CPU.
+  /// Callbacks may execute concurrently and must write to disjoint outputs.
+  template <typename launch_t, typename Func>
+  static void forall_independent(ContextManager& mgr, int N, Func f);
+
+  /// Apply flattened element work, keeping each CPU group's elements serial.
+  /// Groups must write to disjoint outputs. CUDA retains one thread per item.
+  template <typename launch_t, typename Func>
+  static void forall_grouped(
+      ContextManager& mgr, int n_groups, int items_per_group, Func f);
+
+  /// Store a value that concurrent callbacks may write identically.
+  static EIGEN_DEVICE_FUNC void store_idempotent(
+      int32_t& target, int32_t value);
+  static EIGEN_DEVICE_FUNC void store_idempotent(
+      int64_t& target, int64_t value);
+
+  template <typename Int, typename Func>
+  static void foreach_combination_triple(
+      ContextManager& mgr, Int dim1, Int dim2, Int dim3, Func f);
+
+  template <typename launch_t, typename Func>
+  static void foreach_workgroup(ContextManager& mgr, int n_workgroups, Func f);
+
+  /// Run workgroups concurrently on CPU when their outputs are disjoint.
+  template <typename launch_t, typename Func>
+  static void foreach_independent_workgroup(
+      ContextManager& mgr, int n_workgroups, Func f);
+
+  /// Run workgroup callbacks in independent groups. CPU groups run in
+  /// parallel while workgroups within a group retain their serial order.
+  template <typename launch_t, typename Func>
+  static void foreach_grouped_workgroup(
+      ContextManager& mgr, int n_groups, int workgroups_per_group, Func f);
+
+  /// Run pose-grouped workgroups, parallelizing independent poses on CPU.
+  /// The callback receives a flattened pose-major workgroup index; workgroups
+  /// from different poses must not write to shared output elements.
+  template <typename launch_t, typename Func>
+  static void foreach_pose_workgroup(
+      ContextManager& mgr, int n_poses, int workgroups_per_pose, Func f);
+
+  // Note that dst[0] should be initialized to the identity value (e.g. 0) if
+  // scan_type is exclusive.
+  template <mgpu::scan_type_t scan_type, typename T, typename OP>
+  static void scan(ContextManager& mgr, T* src, T* dst, int n, OP op);
+
+  // Note that dst[0] should be initialized to the identity value (e.g. 0) if
+  // scan_type is exclusive.a
+  template <mgpu::scan_type_t scan_type, typename T, typename OP>
+  static T scan_and_return_total(
+      ContextManager& mgr, T* src, T* dst, int n, OP op);
+
+  // Construct load-balanced-search mapping of work items to their generator
+  // index; see https://moderngpu.github.io/loadbalance.html
+  // Arguments:
+  //   - n_work_units_total: the sum of the number of work units
+  //
+  //   - exc_scan_offsets: the result of running exclusive scan on the
+  //     the number of work units that each generator produces
+  //.  - n_generators: the number of generators / length of exc_scan_offset
+  template <typename launch_t, typename Int>
+  static TPack<Int, 1, D> load_balancing_search(
+      ContextManager& mgr,
+      int n_work_units_total,  // The count of the total number of work units
+      Int* exc_scan_offsets,
+      int n_generators);
+
+  // Perform a reduction on a given device array and return the result to the
+  // CPU. n must be greater than zero.
+  template <typename T, typename OP>
+  static T reduce(ContextManager& mgr, T* src, int n, OP op);
+
+  // Segmented scan expects the indices for the beginning of each segment rather
+  // than, e.g., a boolean tensor indicating the start of each segment.
+  // The identity value (e.g. 0) must be given because pre-initialization is not
+  // always possible. seg_starts_inds must be sorted in ascending order.
+  template <mgpu::scan_type_t scan_type, typename T, typename Int, typename OP>
+  static auto segmented_scan(
+      ContextManager& mgr,
+      T* src,
+      Int* seg_start_inds,
+      int n,
+      int n_segs,
+      OP op,
+      T identity) -> TPack<T, 1, D>;
+
+  template <int N_T, int WIDTH, typename T>
+  static void copy_contiguous_data(
+      T* __restrict__ dst, T* __restrict__ src, int n);
+
+  // Copy a block of contiguous data from src to dst and cast it
+  // to type TD from type TS
+  template <int N_T, int WIDTH, typename TD, typename TS>
+  static void copy_contiguous_dat_aand_cast(
+      TD* __restrict__ dst, TS* __restrict__ src, int n);
+
+  template <int N_T, typename Func>
+  static void for_each_in_workgroup(Func f);
+
+  template <int N_T, typename T, typename S, typename OP>
+  static T reduce_in_workgroup(T val, S shared, OP op);
+
+  template <int N_T, typename T, typename S, typename OP>
+  static T shuffle_reduce_in_workgroup(T val, OP op);
+
+  static void synchronize_workgroup();
+
+  static void synchroinize_device();
+};
+
+}  // namespace common
+}  // namespace score
+}  // namespace tmol

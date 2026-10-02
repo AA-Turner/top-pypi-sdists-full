@@ -1,0 +1,318 @@
+"""
+@relation(SDOC-SRS-144, scope=file)
+"""
+
+import hashlib
+import json
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Type
+
+from strictdoc.backend.gcov.helpers import normalize_gcovr_file_path
+from strictdoc.backend.sdoc.document_reference import DocumentReference
+from strictdoc.backend.sdoc.models.document import SDocDocument
+from strictdoc.backend.sdoc.models.document_grammar import DocumentGrammar
+from strictdoc.backend.sdoc.models.node import SDocNode, SDocNodeField
+from strictdoc.backend.sdoc.models.reference import (
+    FileEntry,
+    FileEntryFormat,
+    FileReference,
+)
+from strictdoc.core.file_system.file_tree import File
+from strictdoc.core.project_config import ProjectConfig
+from strictdoc.helpers.file_system import file_open_read_utf8
+
+
+@dataclass
+class GCovStatsObject:
+    total_number_of_covered_functions: int = 0
+    total_number_of_non_covered_functions: int = 0
+
+    def add_function(self, covered: bool) -> None:
+        if covered:
+            self.total_number_of_covered_functions += 1
+        else:
+            self.total_number_of_non_covered_functions += 1
+
+
+class GCovJSONReader:
+    @classmethod
+    def read_from_file(
+        cls: Type["GCovJSONReader"],
+        doc_file: File,
+        project_config: ProjectConfig,
+    ) -> SDocDocument:
+        with file_open_read_utf8(doc_file.full_path) as file:
+            content = file.read()
+        return cls.read_from_string(content, doc_file, project_config)
+
+    @classmethod
+    def read_from_string(
+        cls: Type["GCovJSONReader"],
+        content: str,
+        doc_file: File,  # noqa: ARG003
+        project_config: ProjectConfig,
+    ) -> SDocDocument:
+        if len(content) == 0:
+            raise RuntimeError("Document is empty")
+        try:
+            json_content = json.loads(content)
+        except Exception as exception:  # pylint: disable=broad-except
+            raise RuntimeError(str(exception)) from None
+
+        document = SDocDocument(
+            mid=None,
+            title="Code coverage report",
+            config=None,
+            view=None,
+            grammar=None,
+            section_contents=[],
+            autogen=True,
+        )
+        document.ng_including_document_reference = DocumentReference()
+        grammar = DocumentGrammar.create_for_test_report(document)
+        document.grammar = grammar
+        document.config.requirement_style = "Table"
+
+        document_stats = GCovStatsObject()
+
+        """
+        Parse individual <testcase> elements.
+        """
+
+        source_root_path = (
+            project_config.source_root_path
+            if project_config is not None
+            else None
+        )
+
+        json_files = json_content["files"]
+        for json_file_ in json_files:
+            stats = GCovStatsObject()
+
+            json_file_name = normalize_gcovr_file_path(
+                json_file_["file"], source_root_path=source_root_path
+            )
+
+            file_section = SDocNode.create_section(
+                parent=document,
+                document=document,
+                title=json_file_name,
+            )
+            file_section.ng_including_document_reference = DocumentReference()
+            file_section.ng_document_reference = DocumentReference()
+            file_section.ng_document_reference.set_document(document)
+            document.section_contents.append(file_section)
+
+            covered_functions_section = SDocNode.create_section(
+                parent=document,
+                document=document,
+                title="Covered functions",
+            )
+            covered_functions_section.ng_including_document_reference = (
+                DocumentReference()
+            )
+            covered_functions_section.ng_document_reference = (
+                DocumentReference()
+            )
+            covered_functions_section.ng_document_reference.set_document(
+                document
+            )
+            file_section.section_contents.append(covered_functions_section)
+
+            non_covered_functions_section = SDocNode.create_section(
+                parent=document,
+                document=document,
+                title="Non-covered functions",
+            )
+            non_covered_functions_section.ng_including_document_reference = (
+                DocumentReference()
+            )
+            non_covered_functions_section.ng_document_reference = (
+                DocumentReference()
+            )
+            non_covered_functions_section.ng_document_reference.set_document(
+                document
+            )
+            file_section.section_contents.append(non_covered_functions_section)
+
+            for json_function_ in json_file_["functions"]:
+                json_function_name = json_function_.get(
+                    "demangled_name", json_function_.get("name")
+                )
+                assert json_function_name is not None, json_function_
+                is_function_covered = json_function_["execution_count"] > 0
+                stats.add_function(is_function_covered)
+
+                testcase_node = SDocNode(
+                    parent=document,
+                    node_type="TEST_RESULT",
+                    fields=[],
+                    relations=[],
+                )
+                testcase_node.ng_document_reference = DocumentReference()
+                testcase_node.ng_document_reference.set_document(document)
+                testcase_node.ng_including_document_reference = (
+                    DocumentReference()
+                )
+                testcase_node.set_field_value(
+                    field_name="UID",
+                    form_field_index=0,
+                    value=SDocNodeField(
+                        parent=testcase_node,
+                        field_name="UID",
+                        parts=[
+                            "GCOV:" + json_file_name + ":" + json_function_name
+                        ],
+                        multiline__=None,
+                    ),
+                )
+                # FIXME: Remove?
+                testcase_node.set_field_value(
+                    field_name="STATUS",
+                    form_field_index=0,
+                    value=SDocNodeField(
+                        parent=testcase_node,
+                        field_name="STATUS",
+                        parts=[
+                            "Covered" if is_function_covered else "Non-covered"
+                        ],
+                        multiline__=None,
+                    ),
+                )
+
+                gcov_path_hash = hashlib.md5(
+                    json_file_name.encode("utf-8")
+                ).hexdigest()
+                link = (
+                    "../../../../"  # noqa: ISC003
+                    + "coverage."
+                    + Path(json_file_name).name
+                    + ". "
+                    + gcov_path_hash
+                    + ".html"
+                )
+                testcase_node.set_field_value(
+                    field_name="STATEMENT",
+                    form_field_index=0,
+                    value=SDocNodeField(
+                        parent=testcase_node,
+                        field_name="STATEMENT",
+                        parts=[
+                            f"""
+                            `LINK <{link}>`_
+                            """
+                        ],
+                        multiline__=None,
+                    ),
+                )
+                testcase_node.set_field_value(
+                    field_name="TITLE",
+                    form_field_index=0,
+                    value=SDocNodeField(
+                        parent=testcase_node,
+                        field_name="TITLE",
+                        parts=[json_function_name],
+                        multiline__=None,
+                    ),
+                )
+                testcase_node.relations.append(
+                    FileReference(
+                        parent=testcase_node,
+                        g_file_entry=FileEntry(
+                            parent=None,
+                            g_file_format=FileEntryFormat.SOURCECODE,
+                            g_file_path=json_file_name,
+                            g_line_range=None,
+                            element="function",
+                            id=json_function_name,
+                        ),
+                    )
+                )
+                if is_function_covered:
+                    covered_functions_section.section_contents.append(
+                        testcase_node
+                    )
+                else:
+                    non_covered_functions_section.section_contents.append(
+                        testcase_node
+                    )
+
+            summary_table = f"""\
+.. list-table:: Coverage summary for {json_file_name}
+    :widths: 25 10
+    :header-rows: 0
+
+    * - **Total covered functions:**
+      - {stats.total_number_of_covered_functions}
+    * - **Total non-covered functions:**
+      - {stats.total_number_of_non_covered_functions}
+        """
+
+            testcase_node = SDocNode(
+                parent=document,
+                node_type="TEXT",
+                fields=[],
+                relations=[],
+            )
+            testcase_node.ng_document_reference = DocumentReference()
+            testcase_node.ng_document_reference.set_document(document)
+            testcase_node.ng_including_document_reference = DocumentReference()
+            testcase_node.set_field_value(
+                field_name="STATEMENT",
+                form_field_index=0,
+                value=SDocNodeField(
+                    parent=file_section,
+                    field_name="STATEMENT",
+                    parts=[summary_table],
+                    multiline__="True",
+                ),
+            )
+            file_section.section_contents.insert(0, testcase_node)
+            document_stats.total_number_of_covered_functions += (
+                stats.total_number_of_covered_functions
+            )
+            document_stats.total_number_of_non_covered_functions += (
+                stats.total_number_of_non_covered_functions
+            )
+
+        summary_table = f"""\
+.. list-table:: Coverage summary
+    :widths: 25 10
+    :header-rows: 0
+
+    * - **Total number of files :**
+      - {len(json_files)}
+    * - **Total covered functions:**
+      - {document_stats.total_number_of_covered_functions}
+    * - **Total non-covered functions:**
+      - {document_stats.total_number_of_non_covered_functions}
+        """
+
+        testcase_node = SDocNode(
+            parent=document,
+            node_type="TEXT",
+            fields=[],
+            relations=[],
+        )
+        testcase_node.ng_document_reference = DocumentReference()
+        testcase_node.ng_document_reference.set_document(document)
+        testcase_node.ng_including_document_reference = DocumentReference()
+        testcase_node.set_field_value(
+            field_name="STATEMENT",
+            form_field_index=0,
+            value=SDocNodeField(
+                parent=testcase_node,
+                field_name="STATEMENT",
+                parts=[summary_table],
+                multiline__="True",
+            ),
+        )
+        document.section_contents.insert(0, testcase_node)
+        document_stats.total_number_of_covered_functions += (
+            stats.total_number_of_covered_functions
+        )
+        document_stats.total_number_of_non_covered_functions += (
+            stats.total_number_of_non_covered_functions
+        )
+        return document

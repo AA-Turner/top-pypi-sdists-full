@@ -1,0 +1,140 @@
+"""
+Dependency-tree-based deobfuscation scheduler.
+
+Transformers are organized into groups of co-dependent transforms that iterate internally until
+stable. Groups form a DAG: a group only runs once all of its declared dependencies are stable. When
+any group makes changes, all other groups are marked unstable.
+"""
+from __future__ import annotations
+
+from refinery.lib.scripts import AnalysisCache, Node, Transformer
+
+
+class DeobfuscationTimeout(Exception):
+    """
+    Raised when the pipeline exceeds the maximum number of transformation steps.
+    """
+
+
+class TransformerGroup:
+    """
+    A named set of co-dependent transformers that iterate until stable.
+    """
+
+    def __init__(self, name: str, *transformers: type[Transformer]):
+        self.name = name
+        self.transformers = transformers
+
+    def run(
+        self,
+        ast: Node,
+        steps: int = 0,
+        max_steps: int = 0,
+        models: AnalysisCache | None = None,
+        options: object | None = None,
+    ) -> tuple[bool, int]:
+        """
+        Run all transformers in a loop until none report changes. Returns (changed, steps) where
+        changed indicates whether any transformation was applied and steps is the updated step
+        counter. Each transformer instance shares the *models* cache so it reuses the run's analysis
+        models instead of rebuilding them, and invalidates that cache when it changes the tree. The
+        *options* value is attached to every transformer so language-specific transforms can read
+        caller-supplied settings.
+        """
+        changed = False
+        active = set(range(len(self.transformers)))
+        while True:
+            round_changed = False
+            for i, cls in enumerate(self.transformers):
+                if i not in active:
+                    continue
+                t = cls()
+                t.models = models
+                t.options = options
+                t.visit(ast)
+                if t.changed:
+                    steps += 1
+                    round_changed = True
+                    active = set(range(len(self.transformers)))
+                    if cls.self_converging:
+                        active.discard(i)
+                    if max_steps and steps > max_steps:
+                        raise DeobfuscationTimeout
+                else:
+                    active.discard(i)
+            if not round_changed:
+                break
+            changed = True
+        return changed, steps
+
+
+class DeobfuscationPipeline:
+    """
+    Scheduler that runs transformer groups respecting a dependency DAG.
+
+    Groups are run in declaration order, skipping any whose dependencies are not yet stable. When a
+    group makes changes, all other groups are invalidated unless a selective invalidation set is
+    configured for that group. The pipeline terminates when every group is stable.
+    """
+
+    def __init__(
+        self,
+        groups: list[TransformerGroup],
+        dependencies: dict[str, set[str]] | None = None,
+        invalidators: dict[str, set[str]] | None = None,
+    ):
+        self._groups = {g.name: g for g in groups}
+        self._pipeline = [g.name for g in groups]
+        self._dependencies = dependencies or {}
+        self._invalidators = invalidators or {}
+        all_names = set(self._pipeline)
+        for name, deps in self._dependencies.items():
+            if name not in all_names:
+                raise ValueError(F'unknown group in dependencies: {name!r}')
+            if unknown := deps - all_names:
+                raise ValueError(F'group {name!r} depends on unknown groups: {unknown}')
+        for name, targets in self._invalidators.items():
+            if name not in all_names:
+                raise ValueError(F'unknown group in invalidators: {name!r}')
+            if unknown := targets - all_names:
+                raise ValueError(F'group {name!r} invalidates unknown groups: {unknown}')
+
+    def run(
+        self,
+        ast: Node,
+        max_steps: int = 0,
+        initial_steps: int = 0,
+        models: AnalysisCache | None = None,
+        options: object | None = None,
+    ) -> int:
+        """
+        Execute the pipeline. Returns the total number of transformer invocations that resulted in a
+        change, including `initial_steps` carried over from an earlier phase so that a shared
+        `max_steps` budget is enforced across phases. A return value equal to `initial_steps` means
+        the pipeline was already stable. When *models* is given, every transformer in the run shares
+        that analysis cache. The *options* value is passed through to every transformer.
+        """
+        stable: set[str] = set()
+        steps = initial_steps
+        while True:
+            progress = False
+            for name in self._pipeline:
+                if name in stable:
+                    continue
+                if (d := self._dependencies.get(name)) and not d <= stable:
+                    continue
+                group = self._groups[name]
+                changed, steps = group.run(ast, steps, max_steps, models, options)
+                stable.add(name)
+                if changed:
+                    targets = self._invalidators.get(name)
+                    if targets is None:
+                        stable = {name}
+                    else:
+                        stable -= targets
+                    progress = True
+                    break
+                progress = True
+            if not progress:
+                break
+        return steps

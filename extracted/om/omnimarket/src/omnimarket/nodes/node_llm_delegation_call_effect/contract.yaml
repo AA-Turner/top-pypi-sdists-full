@@ -1,0 +1,341 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+
+# LLM Delegation Call EFFECT - ONEX Contract
+# EFFECT node that executes LLM calls via httpx with health probes, event emission, and cost telemetry.
+
+# === REQUIRED ROOT FIELDS ===
+name: "node_llm_delegation_call_effect"
+contract_version: {major: 0, minor: 1, patch: 0}
+node_version: {major: 0, minor: 1, patch: 0}
+uuid: "a3f7c821-9e4d-4b82-bc01-d5e6f2a38c14"
+node_type: effect
+input_model: "ModelLlmDelegationCallRequest"
+output_model: "ModelLlmDelegationCallResult"
+handler:
+  module: omnimarket.nodes.node_llm_delegation_call_effect.handlers.handler_llm_delegation_call
+  class: HandlerLlmDelegationCall
+  input_model: omnimarket.nodes.node_llm_delegation_call_effect.models.model_llm_delegation_call_request.ModelLlmDelegationCallRequest
+description: |
+  LLM delegation call effect node. Executes LLM API calls via httpx against
+  OpenAI-compatible endpoints, with health probe caching (60s TTL), per-call
+  cost telemetry derived from the pricing manifest, and typed terminal event
+  emission on success, escalation, or total failure.
+
+  Endpoint authority is resolved by routing/contract configuration before this
+  effect runs; the handler consumes the route-supplied endpoint URL.
+
+# === RUNTIME PROFILES ===
+descriptor:
+  runtime_profiles:
+    - effects
+
+# === CONSUME CONCURRENCY ===
+#
+# OMN-18852: this node opts out of the runtime's serial consume path.
+#
+# Read by omnibase_infra's `load_consume_concurrency()`, which defaults to 1
+# for every node that omits this key -- and 1 selects the byte-identical
+# inline `await` the loop has always used, not a semaphore of size one. So
+# this declaration changes this node and nothing else on the fleet.
+#
+# Why 4, and not a round number picked for comfort: the local backend's own
+# engine declares `--max-num-seqs 4` (read read-only from vllm-gpu0.service on
+# .201, 2026-09-19, corroborated by the service file's own KV-pool arithmetic
+# comment "at --max-num-seqs 4 = 0.56 GiB"). Four is the concurrency the model
+# server already schedules; declaring more here would queue inside vLLM
+# instead of inside Kafka, which moves the wait without shortening it, and
+# declaring fewer would leave measured capacity unused.
+#
+# WHAT THIS DOES NOT DO, stated because the difference matters: the bound is
+# per (topic, group), NOT per provider. A slow cloud rung therefore occupies
+# one of the four slots rather than, as measured on 2026-09-19, the only one
+# (a 149.7 s call to api.z.ai and a 2.5 s Gemini call each held the whole lane
+# with local Qwen work queued behind them). That is a 4x floor on the measured
+# pathology, not an isolation guarantee between backends. Per-provider bounds
+# are a further change and are tracked on OMN-18852 rather than implied here.
+#
+# ORDERING: a topic that declares this no longer preserves global partition
+# ordering. Inference intents are independent per correlation id and no
+# correlation is split across concurrent records, so per-key ordering -- which
+# is all this node needs -- still holds.
+#
+# OMN-19215 AC4 (RULING ledger:4257): raised from 4 to 8. A lane overlay can
+# now place a second host serving the same model as a SPREAD peer of the .201
+# rungs, so the local pool is two engines of four slots each: .201 vLLM
+# `--max-num-seqs 4` and .202 llama.cpp `--parallel 4` (both read 2026-09-25,
+# `systemctl cat vllm-gpu0.service` and `GET .202:8000/props` total_slots=4).
+# Measured on the .201 dev lane before the change, 9 concurrent delegations
+# peaked at exactly 4 running on .201 and 0 on .202: this bound and the one on
+# node_delegate_skill_orchestrator were the ceiling, not the engines. The
+# per-endpoint limit is still each engine's own slot count; a lane with only
+# the .201 rungs admits 8 here and the surplus 4 wait in vLLM's own queue,
+# visible as `vllm:num_requests_waiting`, rather than on this topic.
+consume_concurrency:
+  max_in_flight_records: 8
+
+# === IO OPERATIONS ===
+#
+# OMN-18852: `timeout_seconds` below is LOAD-BEARING, not descriptive.
+# `load_inference_call_budget()` reads it and `HandlerInferenceIntent` clamps
+# every requested `ModelInferenceIntent.timeout_seconds` to it.
+#
+# Why it has to bind: this node's inference-intent consumer is single-partition
+# and single-member, and the handler awaits the provider call inline inside it,
+# so every LLM call on the lane -- local and cloud, every tier -- is serialised
+# through ONE slot (measured 2026-09-19: 15 consecutive calls, 8 correlations,
+# 3 providers, zero overlapping pairs). A rung's duration is therefore a global
+# resource. The local backend declares `timeout_ms: 300000`, which is the WHOLE
+# of the delegate-skill dispatch port's 300 s wait and 125 % of that node's
+# 240 s handler execution budget, so an unanswered local rung held the only
+# slot for 300 s twice in one 25-minute window and produced nothing either
+# time.
+#
+# Raising this value past half of
+# node_delegate_skill_orchestrator's handler_execution_budget makes the
+# escalation ladder unreachable inside the caller's budget -- a second rung
+# would have nowhere to run. That relationship is pinned by
+# tests/unit/delegation/test_omn18852_inference_deadline_bound.py.
+#
+# OMN-19432: `model_timeout_seconds` lengthens the ceiling for a model whose
+# measured latency does not fit 120 s, keyed by the model id the intent names.
+# Measured 2026-09-30 on the 30-task GLM lineup set with z.ai's documented
+# settings: 7 of 60 glm-5.3 answers needed more than 120 s (53 finished inside
+# it, 54 inside 150 s, 56 inside 180 s), so glm-5.3 gets 150 s. glm-5.3-flash
+# keeps the default (52 of 60 inside 120 s), which is the point of the ladder:
+# flash first at 120 s, then glm-5.3 at 150 s, 270 s together against the
+# delegate-skill caller's 300 s wait (240 s class ceiling plus 60 s delivery
+# margin), so the second rung is reachable and the gate has room. Pinned by
+# tests/unit/delegation/test_omn19432_per_model_inference_ceiling.py, and read
+# here rather than from the request because the wire's `timeout_seconds` is
+# producer-supplied on a public topic.
+io_operations:
+  - operation_type: "http_request"
+    atomic: false
+    timeout_seconds: 120
+    model_timeout_seconds:
+      glm-5.3: 150
+    validation_enabled: true
+
+# === TOOL SPECIFICATION ===
+tool_specification:
+  tool_name: "llm_delegation_call_effect"
+  main_tool_class: "NodeLlmDelegationCallEffect"
+
+# === SERVICE CONFIGURATION ===
+service_configuration:
+  is_persistent_service: false
+  requires_external_dependencies: true
+
+config_dependencies:
+  - key: "INFERENCE_PROTOCOL_CONFIG_PATH"
+    required: false
+    description: "Optional override for typed provider request-shaping profiles (defaults to configs/inference_protocols.v1.yaml)."
+
+# === INPUT/OUTPUT STATE ===
+input_state:
+  object_type: "object"
+  required: ["request_id", "correlation_id", "causation_id", "model_id", "endpoint_ref", "prompt", "prompt_hash"]
+  optional: ["max_tokens", "temperature", "task_type", "task_id", "routing_policy_hash", "registry_hash", "pricing_manifest_version", "pricing_manifest_hash"]
+
+output_state:
+  object_type: "object"
+  required: ["success", "request_id"]
+  # OMN-18696: `credential_refusal` is the typed, non-retryable credential
+  # refusal, present only when THIS failure is one -- a declared credential that
+  # resolved to nothing, or one the provider answered 401/403 on. Optional
+  # because it is a fact about a credential, never a default: absent on every
+  # success and on every other failure class, so its presence is itself the
+  # refusal. Carries reference NAMES only, never a secret value.
+  optional: ["content", "tokens_in", "tokens_out", "latency_ms", "actual_cost_usd", "failure_class", "error_message", "credential_refusal"]
+
+# Endpoint authority is resolved by the routing/contract layer before this
+# effect runs. ModelLlmDelegationCallRequest.endpoint_ref carries the resolved
+# endpoint URL for compatibility with the existing wire field name.
+env_vars: []
+
+# =============================================================================
+# EVENT BUS SUBCONTRACT - Runtime Routing Layer
+# =============================================================================
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+
+  subscribe_topics:
+    - "onex.cmd.omnimarket.delegation-execute.v1"
+    - "onex.cmd.omnibase-infra.delegation-inference-request.v1"
+
+  publish_topics:
+    - "onex.evt.omnibase-infra.inference-response.v1"
+    - "onex.evt.omnimarket.delegation-call-completed.v1"
+    - "onex.evt.omnimarket.delegation-escalation-triggered.v1"
+    - "onex.evt.omnimarket.delegation-all-tiers-failed.v1"
+    - "onex.evt.omnimarket.delegation-model-degraded.v1"
+    # OMN-17445: the address the consume boundary answers at when a record on
+    # either subscribed topic fails for good. APPENDED, never prepended: the
+    # dispatch-result applier resolves this contract's SUCCESS terminal as the
+    # FIRST publish topic (this contract declares no top-level terminal_event),
+    # so a prepended failure terminal would silently become the success
+    # terminal and mis-route every returned model.
+    - "onex.evt.omnibase-infra.inference-response-failed.v1"
+
+  subscribe_topic_metadata:
+    "onex.cmd.omnimarket.delegation-execute.v1":
+      schema_ref: "omnimarket.nodes.node_llm_delegation_call_effect.models.model_llm_delegation_call_request.ModelLlmDelegationCallRequest"
+      description: "Command to execute a single LLM delegation call for the given model and route-supplied endpoint URL."
+    "onex.cmd.omnibase-infra.delegation-inference-request.v1":
+      schema_ref: "omnibase_core.models.delegation.wire.ModelInferenceIntent"
+      description: "Inference intent from the delegation orchestrator. Handler resolves base_url directly."
+
+  publish_topic_metadata:
+    "onex.evt.omnimarket.delegation-call-completed.v1":
+      schema_ref: "omnimarket.models.delegation.llm_cost_routing.model_llm_delegation_completed_event.ModelLlmDelegationCompletedEvent"
+      description: "Emitted when the LLM call succeeds. Carries full cost provenance."
+    "onex.evt.omnimarket.delegation-escalation-triggered.v1":
+      schema_ref: "omnimarket.models.delegation.llm_cost_routing.model_llm_delegation_escalation_triggered_event.ModelLlmDelegationEscalationTriggeredEvent"
+      description: "Emitted when output fails quality gate and escalation to the next tier is triggered."
+    "onex.evt.omnimarket.delegation-all-tiers-failed.v1":
+      schema_ref: "omnimarket.models.delegation.llm_cost_routing.model_llm_delegation_all_tiers_failed_event.ModelLlmDelegationAllTiersFailedEvent"
+      description: "Emitted when all model tiers fail. Terminal event — caller must handle error path."
+    "onex.evt.omnimarket.delegation-model-degraded.v1":
+      schema_ref: "omnimarket.models.delegation.llm_cost_routing.model_llm_delegation_model_degraded_event.ModelLlmDelegationModelDegradedEvent"
+      description: "Emitted when a model exceeds the escalation rate threshold for a task type."
+    "onex.evt.omnibase-infra.inference-response.v1":
+      schema_ref: "omnibase_core.models.delegation.wire.ModelInferenceResponseData"
+      description: "Inference response published to the orchestrator's subscribe topic after handling ModelInferenceIntent."
+    "onex.evt.omnibase-infra.inference-response-failed.v1":
+      schema_ref: "omnibase_infra.runtime.boundary_failure_terminal.ModelBoundaryFailureTerminal"
+      description: "OMN-17445: emitted by omnibase_infra's auto-wired consume boundary — not by a handler here — when a record on this node's subscribed topics fails for good and the offset is about to advance over it."
+
+# =============================================================================
+# OMN-17445 -- WHY THIS DECLARATION EXISTS AND WHAT ARMING IT ALSO CHANGES.
+#
+# OMN-16812 gave the auto-wired consume boundary the ability to terminalize a
+# handler failure it is about to ACK, but it refuses to guess an address: it
+# publishes only onto the failing contract's OWN declared failure terminal, and
+# only when `_declared_failure_terminal_topics` resolves EXACTLY ONE. This
+# contract declared no terminal events at all, so that gate resolved zero and
+# the emitter was inert here. A dispatch failure on the inference leg was
+# DLQ'd safely, produced no terminal anywhere, and left the delegation FSM
+# parked in ROUTED -- `delegation-failed.v1` never published, onex-api's
+# workflow_terminal_consumer never fired, `gateway_workflows.status` stuck at
+# 'published' with completed_at NULL. That is OMN-17397's incident reached
+# through a door OMN-17397 did not shut.
+#
+# Declared under `runtime_dispatch` (as the routing reducer's is) because that
+# is the site `runtime_local_ingress._extract_terminal_events` builds the
+# Pattern B broker's subscription set from; both sites feed the one reader
+# (`extract_terminal_event_topics`), so the broker's view and the boundary's
+# view cannot drift apart. `success` is declared alongside `failure` and is
+# NOT optional: with a failure entry alone the broker would treat
+# `terminal_events[0]` -- the failure topic -- as this contract's success
+# topic.
+#
+# THE SECOND EFFECT, MEASURED NOT ASSUMED. The same
+# `_declared_failure_terminal_topics` also feeds
+# `DispatchResultApplier(failure_terminal_topics=...)`, the OMN-15468 AC2
+# guard that re-routes a RETURNED model stating a failure verdict off the
+# success terminal. Declaring here arms that guard over this node's return
+# values, so it was adjudicated before the declaration landed rather than
+# after (tests/unit/delegation/test_omn17445_effect_and_gate_failure_terminals.py,
+# band A):
+#   * `ModelInferenceResponseData` with `error_message` set -- the normal
+#     failure the tier-escalation ladder rides -- is NOT re-routed.
+#     `resolve_terminal_verdict` reads exactly `terminal_failure_cause`,
+#     `status`, `ok`, `success`, `contract_passed`; that model (frozen,
+#     `extra="forbid"`) declares none of them, so the verdict is None and
+#     routing is unchanged. The ladder is proven intact end-to-end against
+#     real wiring, not argued.
+#   * `ModelLlmDelegationCallResult` with `success=False` IS re-routed here,
+#     and that is the intended improvement: it is absent from
+#     `published_events`, so it was falling back onto
+#     `inference-response.v1` -- a channel typed to
+#     `ModelInferenceResponseData`, where it could never validate.
+# =============================================================================
+runtime_dispatch:
+  terminal_events:
+    success: "onex.evt.omnibase-infra.inference-response.v1"
+    failure: "onex.evt.omnibase-infra.inference-response-failed.v1"
+
+externally_consumed_topics:
+  - "onex.evt.omnimarket.delegation-call-completed.v1"
+  - "onex.evt.omnimarket.delegation-escalation-triggered.v1"
+  - "onex.evt.omnimarket.delegation-all-tiers-failed.v1"
+  - "onex.evt.omnimarket.delegation-model-degraded.v1"
+
+# === HANDLER ROUTING ===
+handler_routing:
+  routing_strategy: "payload_type_match"
+  handlers:
+    - operation: "execute_delegation_call"
+      event_type: "omnimarket.delegation-execute"
+      event_model:
+        name: "ModelLlmDelegationCallRequest"
+        module: "omnimarket.nodes.node_llm_delegation_call_effect.models.model_llm_delegation_call_request"
+      handler:
+        name: "HandlerLlmDelegationCall"
+        module: "omnimarket.nodes.node_llm_delegation_call_effect.handlers.handler_llm_delegation_call"
+      description: "Execute one LLM delegation call (swarm/A2A path); handle() returns the terminal event (call-completed or all-tiers-failed), runtime auto-publishes via published_events (OMN-12409/F-a)."
+    - operation: "execute_inference_intent"
+      event_type: "omnibase-infra.delegation-inference-request"
+      event_model:
+        name: "ModelInferenceIntent"
+        module: "omnibase_core.models.delegation.wire"
+      handler:
+        name: "HandlerInferenceIntent"
+        module: "omnimarket.nodes.node_llm_delegation_call_effect.handlers.handler_inference_intent"
+      description: "Handle ModelInferenceIntent from delegation orchestrator; publish ModelInferenceResponseData to inference-response.v1 (OMN-12294). event_model type-scopes the dispatcher + validates the payload before handle()."
+  default_handler: "HandlerLlmDelegationCall"
+
+# Maps HandlerInferenceIntent's returned model to its publish topic so the
+# runtime dispatch-result applier routes ModelInferenceResponseData to
+# inference-response.v1. event_type is the Model-prefix-stripped short class
+# name the applier looks up (OMN-12294).
+published_events:
+  - event_type: "InferenceResponseData"
+    topic: "onex.evt.omnibase-infra.inference-response.v1"
+    description: "Inference response emitted by HandlerInferenceIntent for the delegation orchestrator."
+  - event_type: "LlmDelegationCompletedEvent"
+    topic: "onex.evt.omnimarket.delegation-call-completed.v1"
+    description: "Terminal call-completed event returned by HandlerLlmDelegationCall.handle() on success."
+  - event_type: "LlmDelegationAllTiersFailedEvent"
+    topic: "onex.evt.omnimarket.delegation-all-tiers-failed.v1"
+    description: "Terminal all-tiers-failed event returned by HandlerLlmDelegationCall.handle() on unhealthy endpoint."
+
+# === DEPENDENCIES ===
+dependencies:
+  - name: httpx
+    dependency_type: library
+    description: Async HTTP client for OpenAI-compatible API calls
+    required: true
+  - name: omnimarket.models.delegation.llm_cost_routing
+    dependency_type: internal
+    description: Typed event models from OMN-11772
+    required: true
+
+# === PERFORMANCE ===
+performance:
+  max_response_time_ms: 120000
+
+# === VALIDATION RULES ===
+validation_rules:
+  strict_typing_enabled: true
+  input_validation_enabled: true
+  output_validation_enabled: true
+  performance_validation_enabled: false
+
+# === TAGS ===
+tags:
+  - llm
+  - delegation
+  - effect
+  - httpx
+  - cost-telemetry
+  - health-probe
+
+metadata:
+  transport_type: kafka
+  demo_path: true  # OMN-12777: demo-path topic coherence gate scope marker

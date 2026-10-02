@@ -1,0 +1,9 @@
+name: local
+database_url: postgresql://postgres:postgres@localhost:5432/confiture_tutorial
+
+# Which directories to include when building schema
+include_dirs:
+  - db/schema
+
+# Directories to exclude (none for this simple example)
+exclude_dirs: []

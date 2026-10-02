@@ -55,10 +55,9 @@ def add_collaborators(
     project: str,
     collaborators: List[CreateProjectCollaborator],
     *,
-    _private_sdk: Optional[PrivateProjectSDK] = None
+    _private_sdk: Optional[PrivateProjectSDK] = None,
 ) -> str:
-    """Batch add collaborators to a project.
-    """
+    """Batch add collaborators to a project."""
     return _private_sdk.add_collaborators(cloud, project, collaborators)  # type: ignore
 
 
@@ -80,11 +79,8 @@ _GET_PROJECT_DOCSTRINGS = {
     doc_py_example=_GET_PROJECT_EXAMPLE,
     arg_docstrings=_GET_PROJECT_DOCSTRINGS,
 )
-def get(
-    project_id: str, *, _private_sdk: Optional[PrivateProjectSDK] = None
-) -> Project:
-    """Get details of a project.
-    """
+def get(project_id: str, *, _private_sdk: Optional[PrivateProjectSDK] = None) -> Project:
+    """Get details of a project."""
     return _private_sdk.get(project_id)  # type: ignore
 
 
@@ -136,10 +132,9 @@ def list(  # noqa: A001
     page_size: Optional[int] = None,
     sort_field: Optional[ProjectSortField] = None,
     sort_order: Optional[ProjectSortOrder] = None,
-    _private_sdk: Optional[PrivateProjectSDK] = None
+    _private_sdk: Optional[PrivateProjectSDK] = None,
 ) -> ResultIterator[Project]:
-    """List projects.
-    """
+    """List projects."""
     return _private_sdk.list(  # type: ignore
         name_contains=name_contains,
         creator_id=creator_id,
@@ -182,10 +177,9 @@ def create(
     *,
     description: Optional[str] = None,
     initial_cluster_config: Optional[str] = None,
-    _private_sdk: Optional[PrivateProjectSDK] = None
+    _private_sdk: Optional[PrivateProjectSDK] = None,
 ) -> str:
-    """Create a project.
-    """
+    """Create a project."""
     return _private_sdk.create(  # type: ignore
         name,
         description or "",
@@ -212,8 +206,7 @@ _DELETE_PROJECT_DOCSTRINGS = {
     arg_docstrings=_DELETE_PROJECT_DOCSTRINGS,
 )
 def delete(project_id: str, *, _private_sdk: Optional[PrivateProjectSDK] = None):
-    """Delete a project.
-    """
+    """Delete a project."""
     _private_sdk.delete(project_id)  # type: ignore
 
 
@@ -238,6 +231,5 @@ _GET_DEFAULT_PROJECT_DOCSTRINGS = {
 def get_default(
     parent_cloud_id: str, *, _private_sdk: Optional[PrivateProjectSDK] = None
 ) -> Project:
-    """Get the default project for a cloud.
-    """
+    """Get the default project for a cloud."""
     return _private_sdk.get_default(parent_cloud_id)  # type: ignore

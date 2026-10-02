@@ -1,0 +1,225 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# ONEX Node Contract - PR Review FSM REDUCER
+#
+# Pure FSM reducer for the PR-review workflow (OMN-13212 / B2). Folds one
+# phase-advance event into the PR-review FSM state projection. Owns the phase
+# sequence INIT -> FETCH_DIFF -> REVIEW -> POST_THREADS -> WATCH -> JUDGE_VERIFY
+# -> REPORT -> DONE and the 3-failure circuit breaker (-> FAILED). No I/O.
+#
+# Related Tickets:
+#   - OMN-13212: B2 — rebuild node_pr_review_bot canonically (FSM REDUCER)
+#   - OMN-13205: canonical node migration epic
+---
+name: node_pr_review_fsm_reducer
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: reducer
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  Pure PR-review FSM reducer. Folds one phase-advance event (prior state + phase
+  outcome + optional data) into a new ModelPrReviewBotState projection. Owns the
+  PR-review phase sequence and the 3-failure circuit breaker that trips to FAILED.
+  A successful advance moves to next_phase, resets the failure counter, and folds
+  in any diff/findings/thread data; a failed advance retries the phase in place
+  until the circuit breaker trips. Pure fold — no events, no intents, no I/O; the
+  orchestrator publishes transition events.
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: "pr_review.fsm.advance"
+      handler:
+        name: HandlerPrReviewFsm
+        module: omnimarket.nodes.node_pr_review_fsm_reducer.handlers.handler_pr_review_fsm
+      description: "Fold one phase-advance event into the FSM state projection."
+      input_model:
+        name: ModelPrReviewAdvanceCommand
+        module: omnimarket.nodes.node_pr_review_fsm_reducer.models.model_pr_review_advance_command
+        description: "Prior FSM state + phase outcome to fold."
+
+handler:
+  module: omnimarket.nodes.node_pr_review_fsm_reducer.handlers.handler_pr_review_fsm
+  class: HandlerPrReviewFsm
+  input_model: omnimarket.nodes.node_pr_review_fsm_reducer.models.model_pr_review_advance_command.ModelPrReviewAdvanceCommand
+
+input_model:
+  name: ModelPrReviewAdvanceCommand
+  module: omnimarket.nodes.node_pr_review_fsm_reducer.models.model_pr_review_advance_command
+  description: "Prior FSM state + phase outcome + optional phase data."
+output_model:
+  name: ModelPrReviewBotState
+  module: omnimarket.review.pr_review_fsm
+  description: "Advanced FSM state projection."
+
+descriptor:
+  node_archetype: reducer
+  purity: pure
+  idempotent: true
+  timeout_ms: 2000
+  runtime_profiles:
+    - effects
+
+state_machine:
+  version: {major: 1, minor: 0, patch: 0}
+  state_machine_name: pr_review_fsm
+  state_machine_version: {major: 1, minor: 0, patch: 0}
+  description: "pr_review_fsm"
+  initial_state: init
+  terminal_states: [done, failed]
+  error_states: []
+  persistence_enabled: false
+  states:
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: init
+      state_type: operational
+      description: "Run initialised, awaiting the FETCH_DIFF phase."
+      required_data: ["correlation_id"]
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: fetch_diff
+      state_type: operational
+      description: "Resolving the PR diff / file content for review."
+      required_data: ["correlation_id"]
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: review
+      state_type: operational
+      description: "Fanning out multi-model adversarial review."
+      required_data: ["correlation_id"]
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: post_threads
+      state_type: operational
+      description: "Posting MAJOR/CRITICAL findings as GitHub review threads."
+      required_data: ["correlation_id"]
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: watch
+      state_type: operational
+      description: "Polling GitHub for thread resolution events."
+      required_data: ["correlation_id"]
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: judge_verify
+      state_type: operational
+      description: "Judge-model verification of resolved threads."
+      required_data: ["correlation_id"]
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: report
+      state_type: operational
+      description: "Posting the final summary PR comment."
+      required_data: ["correlation_id"]
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: done
+      state_type: terminal
+      description: "PR review completed successfully."
+      is_terminal: true
+      is_recoverable: false
+      required_data: ["correlation_id"]
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: failed
+      state_type: terminal
+      description: "Circuit breaker tripped after 3 consecutive failures."
+      is_terminal: true
+      is_recoverable: false
+      required_data: ["error_message"]
+  transitions:
+    # Run initialised, begin diff resolution.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: init_to_fetch_diff_on_phase_success
+      from_state: init
+      to_state: fetch_diff
+      trigger: phase_success
+    # Diff resolved, begin multi-model review.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: fetch_diff_to_review_on_phase_success
+      from_state: fetch_diff
+      to_state: review
+      trigger: phase_success
+    # Review complete, post findings as threads.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: review_to_post_threads_on_phase_success
+      from_state: review
+      to_state: post_threads
+      trigger: phase_success
+    # Threads posted, watch for resolutions.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: post_threads_to_watch_on_phase_success
+      from_state: post_threads
+      to_state: watch
+      trigger: phase_success
+    # Resolutions observed, verify with judge model.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: watch_to_judge_verify_on_phase_success
+      from_state: watch
+      to_state: judge_verify
+      trigger: phase_success
+    # Verification complete, post the summary report.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: judge_verify_to_report_on_phase_success
+      from_state: judge_verify
+      to_state: report
+      trigger: phase_success
+    # Report posted, run complete.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: report_to_done_on_phase_success
+      from_state: report
+      to_state: done
+      trigger: phase_success
+    # 3 consecutive diff-resolution failures.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: fetch_diff_to_failed_on_circuit_breaker
+      from_state: fetch_diff
+      to_state: failed
+      trigger: circuit_breaker
+    # 3 consecutive review failures.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: review_to_failed_on_circuit_breaker
+      from_state: review
+      to_state: failed
+      trigger: circuit_breaker
+    # 3 consecutive thread-post failures.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: post_threads_to_failed_on_circuit_breaker
+      from_state: post_threads
+      to_state: failed
+      trigger: circuit_breaker
+    # 3 consecutive watch failures.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: watch_to_failed_on_circuit_breaker
+      from_state: watch
+      to_state: failed
+      trigger: circuit_breaker
+    # 3 consecutive judge-verify failures.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: judge_verify_to_failed_on_circuit_breaker
+      from_state: judge_verify
+      to_state: failed
+      trigger: circuit_breaker
+    # 3 consecutive report failures.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: report_to_failed_on_circuit_breaker
+      from_state: report
+      to_state: failed
+      trigger: circuit_breaker
+
+terminal_event: onex.evt.omnimarket.pr-review-bot-fsm-state-updated.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.evt.omnimarket.pr-review-bot-phase-advance.v1
+  publish_topics:
+    - onex.evt.omnimarket.pr-review-bot-fsm-state-updated.v1
+
+dependencies:
+  packages:
+    - "omnibase_core>=0.39.0"
+
+metadata:
+  transport_type: kafka
+  description: "Pure PR-review FSM reducer"
+  author: "OmniNode Platform Team"
+  related_tickets:
+    - "OMN-13212"
+    - "OMN-13205"
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.pr-review-bot-fsm-state-updated.v1

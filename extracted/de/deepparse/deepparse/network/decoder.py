@@ -1,0 +1,135 @@
+# pylint: disable=too-many-arguments, too-many-instance-attributes
+
+from typing import List, Tuple
+
+import torch
+from torch import nn
+
+from .. import weights_init
+
+
+class Decoder(nn.Module):
+    """
+    Decoder module that uses a LSTM to decode a previously encoded sequence and a linear layer to map
+    the decoded sequence tags.
+
+    Args:
+        input_size (int): The input size of the decoder.
+        hidden_size (int): The hidden size of the decoder.
+        num_layers (int): The number of layer to the decoder.
+        output_size (int): The output size of the decoder (i.e. the number of tags to predict on).
+        attention_mechanism (bool): Either or not to use attention mechanism in forward pass.
+    """
+
+    def __init__(
+        self,
+        input_size: int,
+        hidden_size: int,
+        num_layers: int,
+        output_size: int,
+        attention_mechanism: bool,
+    ) -> None:
+        super().__init__()
+        self.attention_mechanism = attention_mechanism
+        if attention_mechanism:
+            # Since layer also has attention mechanism
+            self.hidden_size = hidden_size
+            input_size = input_size + hidden_size
+            self._attention_mechanism_set_up()
+        self.softmax = nn.LogSoftmax(dim=1)
+        self.lstm = nn.LSTM(input_size, hidden_size, num_layers=num_layers)
+        self.lstm.apply(weights_init)
+
+        self.linear_layer_set_up(output_size, hidden_size=hidden_size)
+
+    def forward(
+        self,
+        to_predict: torch.Tensor,
+        hidden: torch.Tensor,
+        encoder_outputs: torch.Tensor,
+        lengths: List,
+    ) -> Tuple:
+        """
+        Callable method to decode the components of an address using attention mechanism.
+
+        Args:
+            to_predict (~torch.Tensor): The elements to predict the tags.
+            hidden (~torch.Tensor): The hidden state of the decoder.
+            encoder_outputs (~torch.Tensor): The encoder outputs for the attention mechanism weighs if needed.
+            lengths (list) : The lengths of the batch elements (since packed).
+
+        Return:
+            A tuple (``x``, ``y``, ``z``) where ``x`` is the address components tags predictions, y is the hidden
+            states and ``z`` is None if no attention mechanism is setter or the attention weights.
+
+        """
+        to_predict = to_predict.float()
+        attention_weights = None
+        if self.attention_mechanism:
+            to_predict, attention_weights = self._attention_mechanism_forward(
+                to_predict, hidden, encoder_outputs, lengths
+            )
+
+        output, hidden = self.lstm(to_predict, hidden)
+
+        output_prob = self.softmax(self.linear(output[0]))
+
+        return (
+            output_prob,
+            hidden,
+            attention_weights,
+        )  # attention_weights: None or the real attention weights
+
+    def linear_layer_set_up(self, output_size: int, hidden_size: int = 1024) -> None:
+        self.linear = nn.Linear(hidden_size, output_size)
+        self.linear.apply(weights_init)
+
+    def _attention_mechanism_set_up(self, hidden_size: int = 1024) -> None:
+        self.linear_attention_mechanism_encoder_outputs = nn.Linear(hidden_size, hidden_size)
+        self.linear_attention_mechanism_encoder_outputs.apply(weights_init)
+
+        self.linear_attention_mechanism_previous_hidden = nn.Linear(hidden_size, hidden_size)
+        self.linear_attention_mechanism_previous_hidden.apply(weights_init)
+
+        self.weights = nn.Parameter(torch.ones(1, hidden_size))
+
+    def _attention_mechanism_forward(
+        self,
+        to_predict: torch.Tensor,
+        hidden: torch.Tensor,
+        encoder_outputs: torch.Tensor,
+        lengths: List,
+    ) -> Tuple:
+        """
+        Compute the attention mechanism weights and context vector
+        Return:
+            A tuple (``x``, ``y``) where ``x`` is the to_predict vector with the context vector and y is the attention
+            weights.
+        """
+        unweighted_alignments = torch.tanh(
+            self.linear_attention_mechanism_encoder_outputs(encoder_outputs)
+            + self.linear_attention_mechanism_previous_hidden(hidden[0].transpose(0, 1))
+        )
+        alignments_scores = torch.matmul(
+            self.weights.view(1, 1, self.hidden_size),
+            unweighted_alignments.transpose(1, 2),
+        )
+
+        longest_sequence_length = max(lengths)
+        # The mask must live on the same device as alignments_scores (which follows self.weights), otherwise the
+        # boolean index assignment below raises on GPU. self.weights is a real parameter, so its device is the
+        # model's device.
+        device = self.weights.device
+        mask = (
+            torch.arange(longest_sequence_length, device=device)[None, :]
+            < torch.tensor(lengths, device=device)[:, None]
+        )
+        mask = mask.unsqueeze(1)
+        alignments_scores[~mask] = float("-inf")
+
+        attention_weights = nn.functional.softmax(alignments_scores, dim=2)
+
+        context_vector = torch.matmul(attention_weights, encoder_outputs)
+
+        attention_input = torch.cat((to_predict, context_vector.transpose(0, 1)), 2)
+        return attention_input, attention_weights

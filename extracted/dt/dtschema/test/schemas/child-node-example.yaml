@@ -1,0 +1,79 @@
+# SPDX-License-Identifier: BSD-2-Clause
+# Copyright 2018 Linaro Ltd.
+# Copyright 2018 Arm Ltd.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/child-node-example.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: A Device with Child Nodes
+
+maintainers:
+  - Rob Herring <robh@kernel.org>
+
+properties:
+  compatible:
+    items:
+      - const: vendor,node-with-child-node
+
+  foo:
+    const: 2
+  reg:
+    items:
+      - description: core regs
+      - description: aux regs
+
+  child-node-fixed-name:
+    type: object
+    properties:
+      vendor,required-property:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description: test
+      vendor,optional-property:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description: test
+    required:
+      - vendor,required-property
+
+patternProperties:
+  '^child-node@.*$':
+    type: object
+    description:
+      This is a child node.
+    properties:
+      compatible:
+        items:
+          - const: a-child-compatible
+      vendor,a-child-property:
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+          - const: 2
+        description: test
+      vendor,a-child-property2:
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/uint32
+          - oneOf:
+              - description: |
+                  Testing for 'oneOf', otherwise this could just be an enum
+                const: 2
+              - const: 4
+        description: test
+      reg:
+        maxItems: 1
+      child-property:
+        type: boolean
+      vendor,a-child-string-property:
+        description: a child string property
+        allOf:
+          - $ref: /schemas/types.yaml#/definitions/string
+          - const: a-string
+    required:
+      - vendor,a-child-property
+      - reg
+
+
+required:
+  - compatible
+  - child-node-fixed-name
+
+additionalProperties: false

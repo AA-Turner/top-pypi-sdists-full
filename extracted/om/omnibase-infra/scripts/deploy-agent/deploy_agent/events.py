@@ -1,0 +1,1270 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Event schemas for deploy agent. Strongly typed, frozen, standalone."""
+
+from __future__ import annotations
+
+from collections.abc import Iterable
+from datetime import datetime
+from enum import StrEnum
+from typing import Final, Literal
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
+
+from deploy_agent.tracking_ref import load_tracking_remote_ref_from_env
+
+TOPIC_REBUILD_REQUESTED = "onex.cmd.deploy.rebuild-requested.v1"
+TOPIC_REBUILD_COMPLETED = "onex.evt.deploy.rebuild-completed.v1"
+TOPIC_REBUILD_REJECTED = "onex.evt.deploy.rebuild-rejected.v1"
+# Dead-letter target for a command record the agent cannot decode or validate
+# (OMN-16442). Shape follows the org convention onex.dlq.<producer>.<category>.<version>.
+# A record that lands here is one the agent has committed past: it can never be
+# decoded by redelivery, and withholding the offset stalls every command behind
+# it -- see deploy_agent.consumer for the full argument.
+TOPIC_DEPLOY_COMMAND_DLQ = "onex.dlq.omnibase-infra.deploy-command.v1"
+
+
+class DeployInProgressError(RuntimeError):
+    """Raised when a second deploy arrives while one is already running."""
+
+
+class Scope(StrEnum):
+    FULL = "full"
+    RUNTIME = "runtime"
+    CORE = "core"
+
+
+class EnumRuntimeLane(StrEnum):
+    """Runtime deployment lane.
+
+    Each lane maps to its own compose overlay, compose project, and runtime
+    health ports (see ``deploy_agent.executor.lane_config_for``). ``prod``
+    deploys a stability-proven image digest rather than rebuilding from a ref.
+    """
+
+    DEV = "dev"
+    STABILITY_TEST = "stability-test"
+    PROD = "prod"
+
+
+class EnumSelfUpdateBoundary(StrEnum):
+    """The job boundary a self-update is allowed to fire at (OMN-16442).
+
+    Self-update pulls the agent's own clone and replaces the process image, so
+    it may only run where no job is in flight. Between deploy phases is not
+    such a place: on 2026-09-08 command
+    ``8d0c861a-f91e-4ca2-954e-a073759dd39d`` re-execed after the seed phase and
+    the replacement process published that same command as ``failed`` after
+    logging ``Recovered 1 crashed job(s)``.
+
+    ``PRE_ACCEPT``
+        In the consumer, after a command has passed the signature, payload,
+        lane-fence, busy and dedup checks and BEFORE ``job_store.accept``
+        marks it started. Nothing is in flight, and the command's offset is
+        rewound rather than committed, so the replacement process re-reads it
+        and processes it once.
+
+    ``POST_TERMINAL``
+        In the agent, after the single-flight lock is released and the job's
+        terminal status has been published. Deferring to here is what lets a
+        deploy that starts on version X complete on version X.
+
+    ``IDLE_HEARTBEAT``
+        In the agent's poll loop, on the branch where no command arrived, at a
+        bounded cadence and only when the job store reports nothing accepted,
+        in progress, or awaiting a terminal publish (OMN-18200).
+
+        The two boundaries above are both JOB-DRIVEN, and that is a
+        circularity when the change to be picked up is a change to this agent.
+        On 2026-09-14 the only merge that would have published a rebuild
+        command was ``omnibase_infra#3520``, the fix to the agent's own lab
+        overlay build -- and until ``#3522`` made ``scripts/deploy-agent/**`` a
+        lane-state path, that merge published nothing, so no job arrived, so
+        neither boundary was ever reached. An agent that nobody sends a job to
+        could not pick up its own fix at all.
+
+        The idle branch is not a job boundary in the OMN-16442 sense; it is the
+        absence of one, which is the same guarantee arrived at from the other
+        side. The in-flight checks are asserted rather than assumed because
+        "the poll returned nothing" and "nothing is in flight" are different
+        facts: a terminal result can still be queued for publish.
+    """
+
+    PRE_ACCEPT = "pre_accept"
+    POST_TERMINAL = "post_terminal"
+    IDLE_HEARTBEAT = "idle_heartbeat"
+
+
+class BuildSource(StrEnum):
+    WORKSPACE = "workspace"
+    RELEASE = "release"
+
+
+class Phase(StrEnum):
+    PREFLIGHT = "preflight"
+    GIT = "git"
+    COMPOSE_GEN = "compose_gen"
+    SEED = "seed"
+    CORE = "core"
+    RUNTIME = "runtime"
+    VERIFICATION = "verification"
+    PUBLISH = "publish"
+
+
+class PhaseStatus(StrEnum):
+    SUCCESS = "success"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+    IN_PROGRESS = "in_progress"
+    PENDING = "pending"
+
+
+# The phases a deploy actually executes, in pipeline order. PUBLISH is
+# deliberately absent: it is the act of emitting the terminal event, so an event
+# can never carry a settled verdict for it (OMN-18057). Used by the terminal
+# reconciliation to decide which phases a raised deploy never reached.
+DEPLOY_PHASE_ORDER: tuple[Phase, ...] = (
+    Phase.PREFLIGHT,
+    Phase.GIT,
+    Phase.COMPOSE_GEN,
+    Phase.SEED,
+    Phase.CORE,
+    Phase.RUNTIME,
+    Phase.VERIFICATION,
+)
+
+
+SCOPE_SERVICES: dict[Scope, list[str]] = {
+    Scope.CORE: ["postgres", "redpanda", "valkey"],
+    Scope.RUNTIME: [
+        "omninode-runtime",
+        "runtime-effects",
+        "runtime-worker",
+        # OMN-18387: was missing here while scripts/deploy-runtime.sh's
+        # RUNTIME_SERVICES has always carried it. A re-publish through the
+        # deploy agent built a fresh projection-api image and reported the
+        # runtime phase SUCCESS end to end, but neither the up-target list
+        # nor container-verification (both derived from this same dict, see
+        # _requested_services_for_up / verify_containers_up in executor.py)
+        # ever named the service, so the running container stayed on its
+        # previous image. See tests/unit/test_runtime_services_parity_omn18387.py
+        # for the anti-drift test against the bash array.
+        "projection-api",
+        "agent-actions-consumer",
+        "skill-lifecycle-consumer",
+        "context-audit-consumer",
+        "intelligence-migration",
+        "intelligence-api",
+        "omninode-contract-resolver",
+        "autoheal",
+    ],
+    Scope.FULL: [],  # resolved as union of core + runtime
+}
+
+
+# OMN-18108: the runtime services the DEV lane declares and no other lane does.
+#
+# These live only in ``docker/docker-compose.dev-lane.yml``. Membership in
+# ``SCOPE_SERVICES[Scope.RUNTIME]`` above would be FATAL, not merely wrong: the
+# service name does not exist in the prod, stability-test or judge merged
+# compose, so every deploy to those lanes would abort on `no such service`.
+# They are a DEV-lane addendum, resolved by ``services_for_scope`` only when the
+# caller names that lane.
+#
+# WHY THIS IS DECLARED HERE AND NOT PARSED FROM THE SHELL SCRIPT
+# --------------------------------------------------------------
+# ``scripts/deploy-runtime.sh`` carries the same eight names in its
+# ``DEV_LANE_ONLY_RUNTIME_SERVICES`` array, and three existing tests parse that
+# hand-written literal out of the script by regex. Reshaping the array into a
+# file both sides read would break those tests and edit the sanctioned deploy
+# path for a refactor's sake. The two declarations are instead bound
+# MECHANICALLY and bidirectionally by
+# ``tests/unit/test_dev_lane_only_scope_omn18108.py``, which parses the array
+# and asserts set equality both ways -- an edit to either side alone is a red
+# test, which is the property "single source of truth" was wanted for.
+#
+# The defect this closes, measured on the .201 dev lane 2026-09-10T00:45Z: the
+# runtime family carried the deploy agent's own build
+# ``4598a4358bd9f59528875b8b320b6cde54383fb1`` while all eight of these carried
+# ``3461e4b0aeae`` from the previous day, ~35 infra commits behind. Not an
+# intermittent miss -- the agent's scope could not reach them at all, and
+# ``restart: unless-stopped`` keeps a stale image running and healthy, so
+# nothing reported it.
+# OMN-18438: the dev lane's omninode_cloud migration one-shots.
+#
+# THE SAME DEFECT AS OMN-18108, ONE LAYER OVER. omnibase_infra#3636 put
+# `cloud-migration-files` and `cloud-migration` into
+# DEV_LANE_ONLY_MIGRATION_SERVICES in scripts/deploy-runtime.sh and wired them
+# into that script's migration preflight. They still never ran, because THIS
+# AGENT DOES NOT INVOKE THAT SCRIPT -- every mention of deploy-runtime.sh in
+# this package is a comment. An array expanded only inside that script is
+# unreachable from the path that actually deploys the dev lane.
+#
+# Measured on the .201 dev lane after the 14:43Z governed rebuild (agent
+# command ee3d2cc6, ref 3586e65dc, which carried those arrays): zero
+# cloud-migration containers had EVER been created, omninode_cloud held 0
+# tables against 78 in omnibase_infra, and 450 lines of deploy journal held 0
+# cloud-migration mentions against 2 migration controls.
+#
+# WHY THESE ARE NOT IN services_for_scope()
+# -----------------------------------------
+# That function answers "what does a runtime deploy restart", and its result
+# reaches both _compose_up and the build set. These two are one-shots on
+# upstream images -- postgres:16 and the tag-referenced migrate image -- so
+# there is nothing to build, and starting them beside the runtime family would
+# run them unordered and leave the up-readback waiting on containers that are
+# supposed to exit. They belong in the migration preflight, the phase that
+# already exists for run-to-completion boot-order work.
+#
+# ORDER IS THE ORDERING. cloud-migration-files copies the corpus, its MANIFEST
+# and that image's own manifest evaluator into the shared volume;
+# cloud-migration then applies it. Every command on this path carries
+# --no-deps, which is exactly what switches compose's depends_on off, so this
+# sequence is the only thing sequencing the copy before the apply.
+#
+# ONE tuple here where bash carries two arrays: deploy-runtime.sh separates
+# services from one-shots because its lane-agnostic set mixes in a keepalive
+# (migration-gate). Every member of the dev-lane set is a one-shot, so a
+# second tuple would be a second thing to drift rather than a distinction --
+# and tests/unit/test_dev_lane_cloud_migrations_omn18438.py asserts the two
+# bash arrays are equal so that stays true.
+#
+# Bound to the bash declaration by
+# tests/unit/test_dev_lane_cloud_migrations_omn18438.py
+# ::test_python_declaration_equals_the_bash_array, which PARSES the array out
+# of deploy-runtime.sh rather than restating it, and carries a positive control
+# so an empty parse cannot read as agreement.
+DEV_LANE_ONLY_MIGRATION_SERVICES: tuple[str, ...] = (
+    "cloud-migration-files",
+    "cloud-migration",
+)
+
+
+DEV_LANE_ONLY_RUNTIME_SERVICES: tuple[str, ...] = (
+    "projection-tenant-registry-writer",
+    "projection-delegation-writer",
+    "projection-registration-writer",
+    "projection-savings-writer",
+    "projection-tenant-credentials-writer",
+    "projection-live-events-writer",
+    "infra-routing-decisions-consumer",
+    "onex-api",
+    # OMN-18114: the TENANT-domain projection carrier, for a reason that is the
+    # OPPOSITE of the writers' reason above and is stated separately so the two
+    # do not merge. That service IS declared in docker-compose.infra.yml, so
+    # every lane resolves the name -- which is exactly why it cannot be
+    # lane-agnostic: a prod or judge `up -d --no-deps tenant-projection-writer`
+    # would SUCCEED and start the carrier on a lane that never opted into it,
+    # defeating the compose profile that keeps it inert there. Membership here
+    # scopes it to the lane whose overlay puts it in the `runtime` profile.
+    #
+    # It is the only process that owns the eight omnimarket contracts declaring
+    # `runtime_profiles: [tenant-projection]`, so an agent scope that could not
+    # reach it would leave those eight running an image the rest of the lane had
+    # moved past -- the exact defect measured above, on the one service where
+    # nothing else would ever notice.
+    "tenant-projection-writer",
+)
+
+# OMN-18108: the members of the array above that carry an ``image:`` and no
+# ``build:`` -- tag-referenced, not lane-built.
+#
+# ``onex-api`` resolves ``${ONEX_API_IMAGE}`` from the operator env file on the
+# host; the image is built out of a different repository. So a governed deploy
+# can RECREATE it, which is what it actually needs (a container that is never
+# recreated never reads a new environment, and this one carries the lane's
+# broker credentials and eleven fail-closed variables), but it CANNOT advance
+# the tag. Stating the boundary here, and asserting it in the test, rather than
+# leaving an operator to discover that a "successful" deploy left the tag where
+# it was. Advancing it needs an image build plus an env repoint, and no
+# sanctioned script does either.
+DEV_LANE_ONLY_TAG_REFERENCED_SERVICES: frozenset[str] = frozenset({"onex-api"})
+
+# The subset ``docker compose build`` can be handed. Derived, never a second
+# hand-written list.
+DEV_LANE_ONLY_BUILDABLE_SERVICES: tuple[str, ...] = tuple(
+    service
+    for service in DEV_LANE_ONLY_RUNTIME_SERVICES
+    if service not in DEV_LANE_ONLY_TAG_REFERENCED_SERVICES
+)
+
+
+# OMN-18134: the DEV lane's gateway compose project, and the services in it.
+#
+# THIS LIST IS NOT A SECOND DEV_LANE_ONLY_RUNTIME_SERVICES. The two are kept
+# apart because their compose semantics are OPPOSITE, and merging them would be
+# fatal in the same way membership in the base runtime list would be fatal for
+# the eight above.
+#
+# The eight above live in ``docker/docker-compose.dev-lane.yml``, which IS one
+# of the DEV lane's ``compose_files``: they are handed to
+# ``docker compose -p omnibase-infra`` and that project resolves them. These
+# live in ``docker/docker-compose.gateway.yml`` under the compose project
+# ``omninode-gateway``, which appears in NO lane's ``compose_files``. Handing
+# ``gateway-forwarder`` to the omnibase-infra project aborts the runtime phase
+# on `no such service`.
+#
+# So membership here means exactly one thing: a DEV deploy is RESPONSIBLE for
+# this service. Which command deploys it is a separate question, answered by
+# ``DeployExecutor._deploy_gateway_lane`` -- it calls the sanctioned
+# ``scripts/deploy-gateway.sh``, which owns the gateway project's build, digest
+# pin, host-file sync, rollback record and systemd reload. Every call site that
+# builds a compose ARGUMENT list subtracts these via
+# ``without_gateway_services``.
+#
+# Only the forwarder is listed. ``gateway-dns-bastion`` is a sidecar of the
+# same project that ``deploy-gateway.sh`` builds and that compose starts via
+# the forwarder's ``depends_on``; it is not independently addressable as a
+# deploy target, and listing it would let a command name it alone and get the
+# whole gateway lane deployed anyway.
+GATEWAY_COMPOSE_PROJECT = "omninode-gateway"
+DEV_LANE_GATEWAY_SERVICES: tuple[str, ...] = ("gateway-forwarder",)
+
+
+def without_gateway_services(services: Iterable[str]) -> list[str]:
+    """Return ``services`` minus anything the gateway compose project owns.
+
+    Used at every site that builds an argument list for the ``omnibase-infra``
+    compose project, so a service that is legitimately in DEV *scope* can never
+    become a compose *argument* for a project that does not declare it.
+    """
+    return [s for s in services if s not in DEV_LANE_GATEWAY_SERVICES]
+
+
+def gateway_services_in(services: Iterable[str]) -> list[str]:
+    """Return the subset of ``services`` the gateway compose project owns."""
+    return [s for s in services if s in DEV_LANE_GATEWAY_SERVICES]
+
+
+def services_for_scope(
+    scope: Scope, *, lane: EnumRuntimeLane | None = None
+) -> list[str]:
+    """Return the services a deploy of ``scope`` targets on ``lane``.
+
+    ``lane`` defaults to ``None``, which resolves the lane-agnostic base list
+    exactly as before. A caller that does not name a lane therefore never
+    silently acquires dev-lane services, and prod/stability-test scope is
+    byte-unchanged whether the lane is passed or not (OMN-18108 AC3, OMN-18134
+    AC2).
+
+    This is the list of what a deploy is RESPONSIBLE for, not the list of what
+    is handed to any one compose project -- see ``DEV_LANE_GATEWAY_SERVICES``.
+    """
+    if scope == Scope.FULL:
+        base = SCOPE_SERVICES[Scope.CORE] + SCOPE_SERVICES[Scope.RUNTIME]
+    else:
+        base = list(SCOPE_SERVICES[scope])
+    if lane == EnumRuntimeLane.DEV and scope in (Scope.RUNTIME, Scope.FULL):
+        return (
+            base
+            + list(DEV_LANE_ONLY_RUNTIME_SERVICES)
+            + list(DEV_LANE_GATEWAY_SERVICES)
+        )
+    return base
+
+
+class ModelHealthCheck(BaseModel):
+    """One post-deploy check and, when it did not pass, why (OMN-18640 AC8).
+
+    ``detail`` is empty for a pass and is REQUIRED reading for a fail. Before
+    it existed, a terminal event could say that ``runtime-effects`` failed its
+    probe and nothing more -- not whether the port refused the connection,
+    answered something that was not a health document, or answered a health
+    document saying it was not ready. Those take three different next steps,
+    and the deploy that most needs them is the one that is now refused.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    service: str
+    endpoint: str
+    status: Literal["pass", "fail"]
+    latency_ms: int = 0
+    detail: str = ""
+
+
+class ModelContainerResidue(BaseModel):
+    """One service left in a non-running state by a deploy phase (OMN-18057).
+
+    The 2026-09-08 runtime-phase kill left ``runtime-effects``,
+    ``runtime-worker`` and ``omninode-contract-resolver`` in ``Created`` with
+    :8086 down, and the terminal event said nothing about any of them. Residue
+    is recorded whether or not per-container recovery then succeeded, because
+    "recovered after the ceiling blew" and "came up first time" are different
+    facts about the lane.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    service: str
+    state: str
+    exit_code: int | None = None
+    recovered: bool = False
+
+
+class EnumRecreateOutcome(StrEnum):
+    """How a supervised deps-phase compose recreate ended (OMN-18692).
+
+    FIVE values, not two, because "the ceiling blew" was recorded as one fact
+    on 2026-09-18 and it is at least three different facts, each of which
+    demands a different next action:
+
+    * ``completed`` -- the command returned on its own. The only ending that
+      says nothing about the ceiling.
+    * ``deferred_host_contention`` -- the recreate was never STARTED, because
+      the host stayed above the committed saturation threshold. THE LANE WAS
+      NOT TOUCHED; this is the one outcome that guarantees that.
+    * ``ended_lane_settled`` -- past the ceiling with every expected service
+      running and compose still not returned. Ending the command here cannot
+      destroy the lane, because nothing was mid-removal.
+    * ``killed_mid_recreate_stalled`` -- past the ceiling, mid-recreate, and
+      the lane's container state had not changed for the declared stall
+      window. Read as wedged rather than slow.
+    * ``killed_hard_upper_bound`` -- past the ceiling, mid-recreate, still
+      changing, and out of budget. The only ending that cancels a LIVE
+      recreate, and the caller must converge the deps immediately after it.
+
+    The 2026-09-18 kill was the last shape, recorded with none of this
+    vocabulary, so the agent's own log could not distinguish it from a slow
+    deploy and the next reader had to reconstruct it from the dockerd journal.
+    """
+
+    COMPLETED = "completed"
+    DEFERRED_HOST_CONTENTION = "deferred_host_contention"
+    ENDED_LANE_SETTLED = "ended_lane_settled"
+    KILLED_MID_RECREATE_STALLED = "killed_mid_recreate_stalled"
+    KILLED_HARD_UPPER_BOUND = "killed_hard_upper_bound"
+
+
+class ModelRecreateSupervision(BaseModel):
+    """What the deps-phase ceiling did, and what it was measured against.
+
+    Carried on the terminal event beside ``container_residue`` so a WAIT and a
+    DEFERRAL are durable facts rather than journal lines someone has to go and
+    find on the host. ``anchored_elapsed_seconds`` and ``elapsed_seconds`` are
+    both present deliberately: their difference is how long the command spent
+    queueing before it touched a container, which is the quantity the flat
+    ceiling was unknowingly charging against the recreate.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    phase: str
+    outcome: EnumRecreateOutcome
+    ceiling_seconds: int
+    hard_upper_bound_seconds: int
+    elapsed_seconds: float
+    anchored_elapsed_seconds: float
+    waited_past_ceiling_seconds: float
+    deferred_seconds: float
+    anchored_at_first_container_change: bool
+    mid_recreate_at_decision: bool
+    returncode: int | None = None
+    budget_description: str = ""
+
+    def describe(self) -> str:
+        """One-line, log-ready statement of the ending and the wait it took."""
+        parts = [
+            f"phase {self.phase} {self.outcome.value}",
+            f"ceiling {self.budget_description or f'{self.ceiling_seconds}s'}",
+            f"elapsed {self.elapsed_seconds:.0f}s "
+            f"(anchored {self.anchored_elapsed_seconds:.0f}s)",
+        ]
+        if self.deferred_seconds:
+            parts.append(f"deferred {self.deferred_seconds:.0f}s before starting")
+        if self.waited_past_ceiling_seconds:
+            parts.append(
+                f"WAITED {self.waited_past_ceiling_seconds:.0f}s past the ceiling "
+                f"rather than cancelling a live recreate"
+            )
+        return "; ".join(parts)
+
+
+class EnumVerifyRecreateOutcome(StrEnum):
+    """How a post-deploy verification recreate ended (OMN-18640 AC7).
+
+    FOUR values rather than a boolean, because "we bounced the container" is
+    not one fact. The 2026-09-18 wedge was invisible for 97 minutes precisely
+    because the agent's record could not distinguish a remedy that worked from
+    one that was never attempted.
+
+    * ``recovered`` -- the service was recreated and the SAME health probe
+      then passed. The lane repaired itself.
+    * ``still_failing`` -- recreated, re-probed, still failing. The job fails
+      exactly as it did before this remedy existed; a second recreate is NOT
+      attempted, because a remedy that did not work the first time is a
+      diagnosis, not something to repeat.
+    * ``recreate_failed`` -- the ``docker compose up --force-recreate`` itself
+      exited non-zero or was killed. The container may be in any state and the
+      probe was not re-run; this is a different fact from a recreate that ran
+      and did not help.
+    * ``recreate_timed_out`` -- the recreate command exceeded its own ceiling.
+      Named apart from ``recreate_failed`` because a compose command killed
+      mid-recreate is the shape that removed a lane on 2026-09-18 (OMN-18692),
+      and reading it as a plain non-zero exit is what cost that incident its
+      diagnosis.
+    """
+
+    RECOVERED = "recovered"
+    STILL_FAILING = "still_failing"
+    RECREATE_FAILED = "recreate_failed"
+    RECREATE_TIMED_OUT = "recreate_timed_out"
+
+
+class ModelComposeInvocation(BaseModel):
+    """One ``docker compose`` command this deploy issued, as argv (OMN-18640).
+
+    The agent logs a phase, a ceiling and an outcome; it has never logged the
+    COMMAND. On 2026-09-18/19 the only way to read the argv of a live deploy
+    was to sample the host's process table while the child was running, which
+    is how the core leg's unconditional ``--force-recreate`` was finally
+    observed rather than inferred from source. A flag is the difference
+    between converging a lane and replacing it, so the flags a deploy actually
+    used belong in its durable record and not in a process table that empties
+    when the command exits.
+
+    ``argv`` is the list handed to the kernel, verbatim. It is safe to record:
+    every compose call this agent issues passes secrets through the
+    environment, never on the command line, precisely because a command line
+    is readable by every process on the host.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    phase: Phase
+    argv: tuple[str, ...]
+
+
+class ModelDepsConvergenceFinding(BaseModel):
+    """One core dependency's declaration, compared against what is running.
+
+    OMN-18640. The deps leg converges rather than force-recreates, so it
+    replaces a dependency only when compose's own config hash says the
+    declaration changed. That is the correct behaviour and it is also
+    invisible: on 2026-09-19 the job that replaced the lane's broker differed
+    from its five neighbours by nothing an operator could read except a phase
+    duration, 77 seconds against 5 to 10. This record says WHICH service is
+    about to be replaced and WHY, before it happens.
+
+    ``running_config_hash`` and ``rendered_config_hash`` are the authority.
+    They are the same value compose itself compares: the label
+    ``com.docker.compose.config-hash`` on the live container, and the output
+    of ``docker compose config --hash <service>`` for the render this deploy
+    is about to apply. Verified equal on all three core services of the .201
+    dev lane on 2026-09-19.
+
+    ``changed_fields`` is an ACCOUNT, never the authority. It names which of a
+    fixed, declared set of fields differ -- image, healthcheck, mounts,
+    environment keys -- and it can be EMPTY while ``differs`` is true, because
+    the hash covers fields outside that set. A reader must not conclude from
+    an empty list that nothing changed; that is what ``differs`` is for.
+    Environment is compared by KEY ONLY and only key names are ever recorded,
+    because the values are the lane's broker and database credentials.
+
+    ``unreadable_reason`` is non-empty when either hash could not be read -- an
+    absent container, a render that failed. An unreadable comparison is
+    reported as unreadable and the deploy proceeds; this record observes, it
+    never gates. Refusing here would strand a declared change, because nothing
+    in the fleet emits a deps-only scope for a deliberate refresh to route to.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    service: str
+    lane: EnumRuntimeLane
+    compose_project: str
+    running_config_hash: str = ""
+    rendered_config_hash: str = ""
+    differs: bool
+    changed_fields: tuple[str, ...] = ()
+    unreadable_reason: str = ""
+
+    def describe(self) -> str:
+        """One line naming the service and what is about to happen to it."""
+        if self.unreadable_reason:
+            return (
+                f"{self.service}: convergence effect UNKNOWN "
+                f"({self.unreadable_reason}); proceeding"
+            )
+        if not self.differs:
+            return f"{self.service}: declaration unchanged, will be left running"
+        fields = (
+            ", ".join(self.changed_fields)
+            if self.changed_fields
+            else ("no field in the compared set; the hash covers more than that set")
+        )
+        return (
+            f"{self.service}: declaration CHANGED ({fields}) -- convergence "
+            f"will REPLACE this container; running "
+            f"{self.running_config_hash[:12]} -> rendered "
+            f"{self.rendered_config_hash[:12]}"
+        )
+
+
+class ModelVerifyRecreate(BaseModel):
+    """One runtime container this deploy recreated because its health failed.
+
+    Carried on the terminal event beside ``container_residue`` and
+    ``recreate_supervision``, for the same reason both of those are: a
+    mutation this agent decided to perform on a lane is a durable fact, not a
+    log line the next reader has to go and find on the host.
+
+    ``compose_project`` is recorded rather than derived by a reader, because
+    the one property this remedy must never violate is WHICH project it
+    touched -- the governed stability-test, judge and lakshman lanes are out
+    of scope by construction, and the record is what makes that checkable
+    after the fact rather than only assertable in a review.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    service: str
+    lane: EnumRuntimeLane
+    compose_project: str
+    endpoint: str
+    outcome: EnumVerifyRecreateOutcome
+    recreate_returncode: int | None = None
+    readiness_wait_seconds: float = 0.0
+    readiness_budget_seconds: int = 0
+    detail: str = ""
+
+    def describe(self) -> str:
+        """One-line, log-ready statement of what was recreated and how it ended."""
+        line = (
+            f"{self.service} on {self.compose_project} recreated after "
+            f"{self.endpoint} failed: {self.outcome.value}"
+        )
+        if self.outcome == EnumVerifyRecreateOutcome.RECOVERED:
+            line += f" after {self.readiness_wait_seconds:.0f}s"
+        if self.detail:
+            line += f" ({self.detail})"
+        return line
+
+
+#: The build-context repository. ``git_ref`` is always a commit of this one.
+INFRA_REPOSITORY: Final = "omnibase_infra"
+
+
+class EnumLineageVerdict(StrEnum):
+    """Where a command's refs sit relative to the build the lane runs (OMN-19270)."""
+
+    #: The running build already carries what this CI command was sent to
+    #: deliver: its infra ref is in the running build, and either it is an
+    #: infra merge or the running workspace build started after the command
+    #: was requested. Acknowledged as superseded and never built.
+    CONTAINED = "contained"
+    #: The infra ref descends from the running build: the normal forward deploy.
+    DESCENDANT = "descendant"
+    #: The infra ref is the running build's, and the command is not shown to
+    #: be already delivered, so it builds.
+    EQUAL = "equal"
+    #: The infra ref is a strict ancestor of the running build. It is raised to
+    #: the running ref, so the lane never builds backwards.
+    RAISED = "raised"
+    #: The infra ref has diverged from the running build and is on the lane's
+    #: tracking branch: a lane coming back to its lineage from an off-branch build.
+    RETURNS_TO_TRACKING = "returns_to_tracking"
+    #: A signed rollback declaration: the one way backwards, built as asked.
+    ROLLBACK_DECLARED = "rollback_declared"
+    #: A pinned image, which is a promotion and not a rebuild from a ref.
+    NOT_APPLICABLE = "not_applicable"
+    #: A comparison the host could not make. Built as requested: never block
+    #: recovery on a missing fact.
+    UNPROVEN = "unproven"
+    #: Diverged from the running build and not on the tracking branch. Refused.
+    DIVERGENT = "divergent"
+
+    @property
+    def refuses(self) -> bool:
+        return self is EnumLineageVerdict.DIVERGENT
+
+    @property
+    def supersedes(self) -> bool:
+        return self is EnumLineageVerdict.CONTAINED
+
+    @property
+    def permits_coalescing(self) -> bool:
+        """Whether the batch behind this command may fold into it.
+
+        Folding picks a NEWER command in the head's place, and that is only
+        known to be forward of the running build when the head itself was
+        compared and found at or ahead of it (or the comparison was never the
+        fence's to make). A raised or off-branch head builds alone.
+        """
+        return self in (
+            EnumLineageVerdict.DESCENDANT,
+            EnumLineageVerdict.EQUAL,
+            EnumLineageVerdict.NOT_APPLICABLE,
+            EnumLineageVerdict.UNPROVEN,
+        )
+
+
+class ModelLineageDecision(BaseModel):
+    """One command's lineage verdict, the refs it was reached from, and what builds.
+
+    Durable on the job record (``JobState.lineage``) as well as in the journal,
+    because the question it answers is asked afterwards: which commit did this
+    job build, and why that one. ``resolved_ref`` is set when the command named
+    a symbolic ref, which is resolved at accept time and built at that exact
+    sha, so the record and the build cannot disagree.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    verdict: EnumLineageVerdict
+    requested_ref: str
+    resolved_ref: str | None = None
+    running_ref: str | None = None
+    build_ref: str
+    detail: str
+
+    def journal_line(self) -> str:
+        resolved = f" resolved={self.resolved_ref}" if self.resolved_ref else ""
+        return (
+            f"lineage: {self.verdict.value} (requested={self.requested_ref}"
+            f"{resolved} running={self.running_ref or 'unread'} "
+            f"build={self.build_ref}): {self.detail}"
+        )
+
+
+class ModelRollbackDeclaration(BaseModel):
+    """A signed declaration that a command deliberately moves a lane off its lineage.
+
+    OMN-19270. The agent refuses a command whose ``git_ref`` is a strict
+    ancestor of the build the lane already runs, or has diverged from it, so a
+    stale or replayed command can no longer roll the lane backwards. That
+    fence must not also remove the way to recover from a bad build: a command
+    carrying this declaration is exempt from it and built as asked.
+
+    Both fields are required and must say something. A rollback nobody can
+    attribute is indistinguishable from the replay the fence exists to refuse,
+    so ``actor`` names the person or lane that asked, and ``reason`` is what a
+    later reader of the journal needs in order to know why the lane went
+    backwards. The declaration travels inside the signed command body, so it
+    cannot be added to a command in transit.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    actor: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _fields_are_not_blank(self) -> ModelRollbackDeclaration:
+        for name in ("actor", "reason"):
+            if not getattr(self, name).strip():
+                msg = f"rollback {name} is blank; a rollback must name its {name}"
+                raise ValueError(msg)
+        return self
+
+
+class ModelRebuildRequested(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    correlation_id: UUID
+    requested_by: str
+    scope: Scope
+    runtime_lane: EnumRuntimeLane
+    build_source: BuildSource = BuildSource.RELEASE
+    services: list[str] = Field(default_factory=list)
+    # OMN-16442: a command that omits the ref deploys the branch this agent
+    # DECLARES it tracks (DEPLOY_AGENT_TRACKING_REF), not a literal. The old
+    # default was "origin/main"; on the .201 dev lane that asked the agent to
+    # `git reset --hard` its deploy-source clone onto a release-synced branch
+    # hundreds of commits behind the code the lane exists to run. There is no
+    # default for the variable itself — an undeclared tracking ref raises
+    # rather than guessing (rule 8).
+    git_ref: str = Field(default_factory=load_tracking_remote_ref_from_env)
+    # Carry both ref and digest; the digest is the authority. dev/stability-test
+    # may build from a ref and leave the digest unresolved up front; prod must
+    # pin the stability-proven digest (enforced below).
+    image_ref: str | None = None
+    image_digest: str | None = None
+    # OMN-19270: present only on a deliberate rollback. Without it the lineage
+    # fence never builds a ref behind the running build, and refuses one off it.
+    rollback: ModelRollbackDeclaration | None = None
+    # OMN-19270: when the command was first requested -- the moment its
+    # trigger published it, carried through every hop that forwards it. The
+    # lineage fence supersedes a sibling-triggered command only when the
+    # workspace build the lane runs STARTED after this moment: that build
+    # staged each sibling from its dev branch, which already held the merge
+    # the command was sent to deliver. Absent, the fence falls back to the
+    # record's broker timestamp, which is the forwarding hop's and so never
+    # earlier than the build it is compared with; a command without a
+    # producer-stamped time therefore builds, as it did before.
+    requested_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def validate_requested_at_is_aware(self) -> ModelRebuildRequested:
+        if self.requested_at is not None and self.requested_at.utcoffset() is None:
+            msg = (
+                f"requested_at={self.requested_at.isoformat()} carries no UTC "
+                "offset; a publish time compared across hosts must be aware"
+            )
+            raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
+    def validate_services_subset(self) -> ModelRebuildRequested:
+        if self.services:
+            # OMN-18108: lane-aware, so a dev command may name one of the
+            # dev-lane-only services and a prod/stability command may not.
+            allowed = services_for_scope(self.scope, lane=self.runtime_lane)
+            invalid = [s for s in self.services if s not in allowed]
+            if invalid:
+                msg = f"Services {invalid} not in scope '{self.scope}'. Allowed: {allowed}"
+                raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
+    def validate_prod_requires_digest(self) -> ModelRebuildRequested:
+        if self.runtime_lane == EnumRuntimeLane.PROD and not self.image_digest:
+            msg = (
+                "prod runtime_lane requires image_digest: production deploys the "
+                "exact stability-proven digest and never rebuilds from a ref"
+            )
+            raise ValueError(msg)
+        return self
+
+
+class EnumRejectionReason(StrEnum):
+    """Why a command reached the rejection topic instead of running.
+
+    Every value was already a bare string literal at a ``_publish_rejected``
+    call site; naming them is what lets OMN-18143 AC6's requirement -- a
+    terminal event that says "superseded" distinguishably from a timeout and
+    from a rollback -- be a type rather than a convention about spelling.
+
+    ``SUPERSEDED`` is the only one that is not a refusal of the command: the
+    work it asked for IS being done, by the newer command named alongside it.
+
+    ``SUPERSEDED_BY_RUNNING_BUILD`` and ``DIVERGENT_REF`` are the lineage fence
+    (OMN-19270). The first acknowledges a CI-triggered command whose work the
+    build the lane runs already carries: its infra ``git_ref`` is in that build,
+    and either it is an infra merge or that workspace build started after the
+    command was requested. The command is recorded ``superseded`` and never
+    built. It is a token of its own rather
+    than ``SUPERSEDED`` because no newer COMMAND replaced it. The replacement
+    is the running build, which need not have come from a command this agent
+    recorded, so there is no correlation id to name. The second refuses a ref
+    that is neither an ancestor nor a descendant of the running build and is
+    not on the lane's tracking branch.
+    """
+
+    BUSY = "busy"
+    DUPLICATE = "duplicate"
+    IN_PROGRESS = "in_progress"
+    INVALID_PAYLOAD = "invalid_payload"
+    INVALID_SIGNATURE = "invalid_signature"
+    LANE_NOT_ALLOWED = "lane_not_allowed"
+    UNDECODABLE_PAYLOAD = "undecodable_payload"
+    SUPERSEDED = "superseded"
+    SUPERSEDED_BY_RUNNING_BUILD = "superseded_by_running_build"
+    DIVERGENT_REF = "divergent_ref"
+
+
+class ModelRejectionNotice(BaseModel):
+    """What the consumer resolved about a command it refused (OMN-17079).
+
+    The consumer decides SIX of the eight rejection reasons, and before this model it
+    expressed each of them as a bare string returned to a caller that only logged it --
+    so `busy`, `duplicate`, `lane_not_allowed`, `invalid_payload`, `invalid_signature`
+    and `undecodable_payload` never reached the rejection topic at all. This is the
+    typed hand-off that gives them a route to the agent's single publish helper, and it
+    mirrors the existing ``on_superseded`` injection rather than inventing a second
+    mechanism.
+
+    THE TWO OPTIONAL FIELDS ARE THE POINT, AND THEY ARE REQUIRED TO BE SUPPLIED.
+    Three of those six reasons are decided BEFORE a valid command exists: an undecodable
+    record, a bad signature and a payload the contract refuses all fail ahead of
+    ``ModelRebuildRequested`` validation, so there is no guaranteed correlation id and no
+    guaranteed scope to put on the wire. ``None`` here is a MEASURED ABSENCE, written by
+    the site that tried to resolve it and could not. It is not a default: every field is
+    required, so a caller must state what it found rather than let the model decide.
+
+    ``ModelRebuildRejected`` requires both identifiers, so a notice carrying ``None``
+    cannot become an event -- and that is the intended outcome. A rejection published
+    with a fabricated correlation id is worse than no rejection: it is a durable,
+    queryable record pointing at a command that never existed, indistinguishable to a
+    reader from a real one. The quarantine record already written on those paths is the
+    durable evidence instead.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    reason: EnumRejectionReason
+    #: The refused command's correlation id, or ``None`` when the record was refused
+    #: before one could be parsed from it.
+    correlation_id: UUID | None
+    #: The refused command's scope, or ``None`` on the same terms.
+    scope: Scope | None
+
+
+class ModelRebuildRejected(BaseModel):
+    """The terminal event for a command this agent will not run (OMN-18143).
+
+    The wire shape is unchanged for every reason that predates this model: the
+    two supersession fields are written ONLY when set, so a rejection for
+    ``busy`` serialises byte-identically to the hand-built dict it replaces and
+    a consumer that predates this change parses it unchanged. The same
+    discipline ``ModelLabPassCheck.to_dict`` applies to its ``outcome`` key.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    correlation_id: UUID
+    reason: EnumRejectionReason
+    scope: Scope
+    #: Set on, and only on, a ``SUPERSEDED`` rejection. Both or neither: a
+    #: supersession that cannot name the commit that ran in its place is
+    #: indistinguishable from a command that was silently dropped, which is
+    #: the exact failure AC6 refuses.
+    superseded_by_sha: str | None = None
+    superseded_by_correlation_id: UUID | None = None
+
+    @model_validator(mode="after")
+    def _supersession_fields_match_the_reason(self) -> ModelRebuildRejected:
+        named = self.superseded_by_sha is not None
+        if named != (self.superseded_by_correlation_id is not None):
+            msg = (
+                "superseded_by_sha and superseded_by_correlation_id stand or "
+                f"fall together; got sha={self.superseded_by_sha!r}, "
+                f"correlation_id={self.superseded_by_correlation_id!r}"
+            )
+            raise ValueError(msg)
+        if (self.reason is EnumRejectionReason.SUPERSEDED) != named:
+            msg = (
+                f"reason={self.reason.value!r} disagrees with the supersession "
+                f"fields (sha={self.superseded_by_sha!r}). Only a superseded "
+                "rejection may name a replacement, and every one must."
+            )
+            raise ValueError(msg)
+        return self
+
+    def to_wire(self) -> dict[str, object]:
+        """The JSON body published to :data:`TOPIC_REBUILD_REJECTED`."""
+        payload: dict[str, object] = {
+            "correlation_id": str(self.correlation_id),
+            "reason": self.reason.value,
+            "scope": self.scope.value,
+        }
+        if self.superseded_by_sha is not None:
+            payload["superseded_by_sha"] = self.superseded_by_sha
+            payload["superseded_by_correlation_id"] = str(
+                self.superseded_by_correlation_id
+            )
+        return payload
+
+
+class EnumOnexApiDeliveryResult(StrEnum):
+    """How the onex-api pin delivery ended (OMN-18572).
+
+    The pin delivery runs AFTER the compose lane's verdict is written and must
+    never change it -- a lane that converged on its own merits is not broken
+    because a k3s-built image failed to reach it. That isolation was already
+    correct. What was missing is that every outcome below was reported at
+    ``INFO`` with no distinction between the ones that mean "the lane now runs
+    this merge" and the ones that mean "it does not", so thirty consecutive
+    refusals read exactly like thirty successful no-ops.
+
+    ``UNRECOGNISED`` exists because the verdict is produced by a subprocess
+    (``scripts/runtime_build/repoint_dev_lane_onex_api.py``) whose result
+    vocabulary can move independently of this enum. A value this enum does not
+    know is a FAILURE and keeps its original spelling in ``raw_result`` -- it is
+    never silently read as a success.
+    """
+
+    #: The pin advanced and the service was recreated onto it.
+    WRITTEN = "WRITTEN"
+    #: The resident pin already named this image. A legitimate no-op.
+    UNCHANGED = "UNCHANGED"
+    #: ``--execute`` was not passed, so nothing was written. Not reachable from
+    #: the agent, which always executes; named so a dry run is not UNRECOGNISED.
+    PLANNED = "PLANNED"
+    #: A bounded refusal named by the repoint script; nothing was written.
+    REFUSED = "REFUSED"
+    #: Not this lane, or no operator env store is declared to write into.
+    SKIPPED = "SKIPPED"
+    #: The pin advanced in the file and the container was never recreated onto
+    #: it, so the file and the lane now disagree.
+    PIN_WRITTEN_NOT_RECREATED = "PIN_WRITTEN_NOT_RECREATED"
+    #: The delivery raised instead of returning a verdict.
+    RAISED = "RAISED"
+    #: The delivery was never attempted, because the lineage it would deliver
+    #: could not be resolved from this job's own lab-overlay apply.
+    NOT_ATTEMPTED = "NOT_ATTEMPTED"
+    #: A verdict string this enum does not know. Treated as a failure.
+    UNRECOGNISED = "UNRECOGNISED"
+
+    @classmethod
+    def coerce(cls, value: object) -> EnumOnexApiDeliveryResult:
+        """Map a source-produced verdict string onto this enum, never raising.
+
+        A raise here would convert an unknown verdict into a lost one: this is
+        called on the tail of a job whose compose verdict is already written,
+        so an exception would cost the terminal publish rather than surface the
+        oddity. ``UNRECOGNISED`` surfaces it instead.
+        """
+        try:
+            return cls(str(value))
+        except ValueError:
+            return cls.UNRECOGNISED
+
+
+class ModelOnexApiDelivery(BaseModel):
+    """What the onex-api pin delivery did for one job (OMN-18572).
+
+    ``onex-api`` on the compose dev lane is tag-referenced: the lane runs
+    whatever ``ONEX_API_IMAGE`` names. The lab-overlay apply BUILDS a correct
+    image on the host and this delivery is what makes the lane RUN it, so the
+    two facts diverge silently whenever it does not happen.
+
+    ``tag_advanced`` and ``recreated`` are reported separately and on purpose:
+    ``recreated`` without ``tag_advanced`` is a faithful restart onto a stale
+    tag, and ``tag_advanced`` without ``recreated`` is a pin in a file that
+    never reached a container. A single boolean hides both.
+
+    ``requested_sha`` is the **omninode_infra** commit whose image was asked
+    for, and it is a field rather than an inference because naming the wrong
+    repository's sha here is the exact defect this model was added alongside:
+    between 2026-09-17 and 2026-09-19 the caller passed the merged
+    ``omnibase_infra`` sha, every delivery refused, and the refusal text said
+    "none of them for omninode_infra sha <an omnibase_infra sha>" -- which reads
+    as the applier having produced nothing rather than as the caller having
+    asked for the wrong lineage.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    result: EnumOnexApiDeliveryResult
+    #: The verdict exactly as its source spelled it, so an ``UNRECOGNISED``
+    #: mapping loses nothing and a known one is checkable against the source.
+    raw_result: str
+    #: Why, in the words of whatever refused or skipped. ``None`` only when the
+    #: source gave no reason, which a success legitimately does not.
+    reason: str | None = None
+    #: The omninode_infra commit whose image this delivery asked for.
+    requested_sha: str | None = None
+    pin_before: str | None = None
+    pin_after: str | None = None
+    tag_advanced: bool = False
+    recreated: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_own_computed_fields(cls, data: object) -> object:
+        """Accept this model's own serialised form back (OMN-18572).
+
+        ``is_failure`` is a computed field, so it is present in every
+        ``model_dump`` of this model and absent from every hand-built mapping.
+        ``JobState`` persists this record to disk and re-validates it on load,
+        and under ``extra="forbid"`` that round trip fails on the model's own
+        output -- which would turn a durable verdict into a job record that
+        cannot be read back at all.
+
+        It is DROPPED rather than accepted: a derived value must be re-derived
+        from the fields it derives from, or a caller could hand back a
+        contradictory one and this model would carry it.
+        """
+        if isinstance(data, dict) and "is_failure" in data:
+            data = {k: v for k, v in data.items() if k != "is_failure"}
+        return data
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def is_failure(self) -> bool:
+        """True when the lane did not get what this job built, avoidably.
+
+        ``UNCHANGED`` and ``SKIPPED`` are NOT failures: the first says the lane
+        already runs this image, and the second says this lane is not one the
+        pin is delivered to. Everything else means a delivery that was supposed
+        to happen did not, and is reported as a failure so it is legible at a
+        glance in the terminal event and loud in the journal.
+        """
+        return self.result not in (
+            EnumOnexApiDeliveryResult.WRITTEN,
+            EnumOnexApiDeliveryResult.UNCHANGED,
+            EnumOnexApiDeliveryResult.PLANNED,
+            EnumOnexApiDeliveryResult.SKIPPED,
+        )
+
+    @classmethod
+    def from_record(
+        cls, record: dict[str, object], *, requested_sha: str | None
+    ) -> ModelOnexApiDelivery:
+        """Build the typed record from the executor's mapping.
+
+        ``tag_advanced`` is defaulted HERE as well as at the executor, because a
+        refusal JSON carries neither boolean and a ``None`` on this field read
+        as "not known" in the journal for every refusal in the window above.
+        """
+        raw = str(record.get("result", ""))
+        reason = record.get("reason")
+        return cls(
+            result=EnumOnexApiDeliveryResult.coerce(raw),
+            raw_result=raw,
+            reason=str(reason) if reason is not None else None,
+            requested_sha=requested_sha,
+            pin_before=(
+                str(record["pin_before"]) if record.get("pin_before") else None
+            ),
+            pin_after=(str(record["pin_after"]) if record.get("pin_after") else None),
+            tag_advanced=bool(record.get("tag_advanced") or False),
+            recreated=bool(record.get("recreated") or False),
+        )
+
+
+class ModelRebuildCompleted(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    correlation_id: UUID
+    requested_git_ref: str
+    git_sha: str
+    started_at: datetime
+    completed_at: datetime
+    duration_seconds: float
+    scope: Scope
+    runtime_lane: EnumRuntimeLane
+    image_ref: str | None = None
+    image_digest: str | None = None
+    services_restarted: list[str] = Field(default_factory=list)
+    # OMN-17135: repo -> the commit SHA RT-1 resolved and vendored for that
+    # sibling in a workspace-mode build. ``requested_git_ref`` above pins ONE
+    # repository (omnibase_infra), so on its own it said nothing about which
+    # omnibase_core / omnibase_compat / omnimarket commit the image carries.
+    # This is EVIDENCE beside the infra pin, never a key: the rule-24 lab-pass
+    # receipt is keyed by the infra sha and stays that way. Empty for a
+    # release-mode or prod digest deploy, which vendors no sibling trees.
+    sibling_refs: dict[str, str] = Field(default_factory=dict)
+    phase_results: dict[Phase, PhaseStatus]
+    errors: list[str] = Field(default_factory=list)
+    health_checks: list[ModelHealthCheck] = Field(default_factory=list)
+    container_residue: list[ModelContainerResidue] = Field(default_factory=list)
+    # OMN-18692: what the deps-phase ceiling DID -- whether it deferred before
+    # touching the lane, waited past its ceiling rather than cancelling a live
+    # recreate, or ended the command and why. Empty for a deploy whose deps
+    # phase was never reached, which is a different fact from a deploy whose
+    # deps phase ran without incident (that one carries a `completed` entry).
+    recreate_supervision: list[ModelRecreateSupervision] = Field(default_factory=list)
+    # OMN-18640 AC7: the runtime containers this deploy force-recreated because
+    # their own health endpoint failed post-deploy, and whether that repaired
+    # them. Empty is the normal reading and is a FACT, not an absence: it says
+    # the verification phase found nothing to repair. Before this, a verify
+    # failure left the container exactly as it was found and the event said
+    # only that the job failed, which is why the same wedge recurred three
+    # times across two nights with nothing to distinguish the occurrences.
+    verify_recreate: list[ModelVerifyRecreate] = Field(default_factory=list)
+    # OMN-18640: what the deps leg found before it acted -- per core service,
+    # the running config hash, the rendered one, and whether convergence was
+    # therefore about to replace that container. Empty for a deploy whose deps
+    # leg was never reached. A non-empty list with every `differs` false is the
+    # normal reading and is a FACT: the deps were left alone on purpose.
+    deps_convergence: list[ModelDepsConvergenceFinding] = Field(default_factory=list)
+    # OMN-18640: the argv of every compose command this deploy issued. Until
+    # this field existed the flags a deploy used were observable only by
+    # sampling the host process table while the child ran.
+    compose_invocations: list[ModelComposeInvocation] = Field(default_factory=list)
+    # OMN-18572: what the onex-api pin delivery did on the tail of this job.
+    # ``None`` means the delivery was not reached at all -- a non-dev lane, a
+    # job that failed before the apply, or an agent older than this field --
+    # which is a DIFFERENT fact from a delivery that ran and refused, and the
+    # two were indistinguishable while this event carried nothing at all. The
+    # delivery never changes ``status``: the compose lane's verdict is settled
+    # before this runs and a lane that converged is not broken because an image
+    # failed to reach it.
+    onex_api_delivery: ModelOnexApiDelivery | None = None
+
+    @model_validator(mode="after")
+    def validate_phase_results_are_settled(self) -> ModelRebuildCompleted:
+        """A terminal event may only carry settled phase verdicts (OMN-18057).
+
+        Two shapes are refused here rather than merely discouraged upstream:
+
+        * ``PhaseStatus.IN_PROGRESS`` -- the live defect. Command 23edaf62's
+          terminal event carried ``runtime: in_progress`` alongside a
+          ``completed_at`` and a duration, so the event asserted the deploy was
+          over and simultaneously refused to say how it ended. An unreached
+          phase is SKIPPED and a phase that raised is FAILED.
+        * ``Phase.PUBLISH`` -- this event IS the publish. Its outcome is not
+          knowable at the moment the payload is built, and reporting it as
+          ``in_progress`` made ``status`` derive "failed" for every deploy the
+          agent ever completed, successful ones included.
+        """
+        if Phase.PUBLISH in self.phase_results:
+            raise ValueError(
+                "phase_results must not carry Phase.PUBLISH: the completion "
+                "event is the publish and cannot report its own outcome"
+            )
+        unsettled = sorted(
+            phase.value
+            for phase, status in self.phase_results.items()
+            if status in (PhaseStatus.IN_PROGRESS, PhaseStatus.PENDING)
+        )
+        if unsettled:
+            raise ValueError(
+                f"phase_results carries unsettled verdicts for {unsettled}: a "
+                "terminal event must report failed/skipped for a phase that "
+                "raised or was never reached"
+            )
+        return self
+
+    # OMN-18640: NO ``@property`` under ``@computed_field``. Pydantic wraps a
+    # plain method in one itself, so attribute access and serialization are
+    # unchanged, while mypy's ``prop-decorator`` rule -- which cannot see
+    # through a decorator stacked on a property -- has nothing to refuse. The
+    # alternative was a per-line suppression on the one field that states this
+    # event's verdict, which is the last place to stop type-checking.
+    @computed_field
+    def status(self) -> Literal["success", "failed"]:
+        """The terminal verdict, derived. FAIL-CLOSED ON ``errors`` (OMN-18861).
+
+        The phase-string derivation alone reported ``success`` for 23 of the
+        last 120 events on this topic, every one of them a deploy whose image
+        build had failed. The mechanism: a failure raised from
+        ``DeployExecutor._compose_build`` leaves ``core``/``runtime``/
+        ``verification`` never marked, ``reconcile_terminal_phase_results``
+        settles a never-reached phase to SKIPPED, and the line below drops
+        SKIPPED -- so the remaining phases were preflight/git/compose_gen/seed,
+        all genuinely successful, and the verdict read ``success`` beside the
+        build error it was carrying. Job ``445bdfa9-4c86-4e45-bf68-b8e3ed534a7f``
+        (2026-09-19T23:33:45Z) is durably ``failed`` on disk and its event said
+        ``success``; the rule-24 compose-dev receipt for the same lane said
+        FAIL. Three surfaces, one liar.
+
+        ``errors`` is the fail-closed premise because EVERY writer of it writes
+        a failure -- the two ``job_store.complete(status="failed", ...)`` calls
+        in ``agent.py`` and the crash-recovery row in ``job_state.py``. A
+        non-empty list is therefore an unambiguous failure signal, and it was
+        already on the wire, being ignored by the one field that states the
+        verdict.
+
+        The verdict stays DERIVED. This event takes no ``status`` input and
+        ``extra="forbid"`` refuses one, so an emitter still cannot assert
+        success over a failure; it simply stops being able to derive success
+        over one either. The phase marker that SHOULD have been written is
+        fixed separately, at the raise site -- both halves are needed, because
+        a phase-only fix would still read ``success`` for any future failure
+        path that raises before its phase is marked.
+
+        THIRD PREMISE: A DEPLOY THAT RESTARTED NOTHING IS NOT A SUCCESS.
+        ``errors`` catches a failure that was RECORDED. This catches one that
+        was not. Every successful return from ``rebuild_scope`` yields a
+        non-empty service list -- a FULL deploy returns
+        ``services_for_scope(FULL, lane)``, a prod deploy its resolved targets,
+        a gateway-only command the services it named, and the default branch
+        either the named services or the scope's own list, none of which can be
+        empty. So an empty ``services_restarted`` means ``rebuild_scope`` never
+        returned, which means it raised. All 23 of the false-green events
+        carried ``services_restarted: []`` beside their build error, so this
+        premise and the ``errors`` one agree on every observed case and are
+        independent on the unobserved one.
+
+        It is deliberately expressed as "restarted nothing" rather than "every
+        requested leg ran". A per-scope phase requirement would false-RED the
+        gateway-only command shape, which returns from ``rebuild_scope`` before
+        ``Phase.CORE``/``Phase.RUNTIME`` are ever marked and is a legitimate
+        success. Trading a false green for a false red is not an improvement.
+        """
+        if self.errors:
+            return "failed"
+        if not self.services_restarted:
+            return "failed"
+        non_skipped = {
+            k: v for k, v in self.phase_results.items() if v != PhaseStatus.SKIPPED
+        }
+        if all(v == PhaseStatus.SUCCESS for v in non_skipped.values()):
+            return "success"
+        return "failed"

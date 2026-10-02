@@ -3,14 +3,14 @@ resolver = "2"
 members = ["crates/sase_core", "crates/sase_core_py", "crates/sase_gateway", "crates/sase_workspace_hack"]
 
 [workspace.package]
-version = "0.36.1"
+version = "0.36.2"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/sase-org/sase-core"
 rust-version = "1.89"
 
 [workspace.dependencies]
-sase_core = { path = "crates/sase_core", version = "0.36.1" }
+sase_core = { path = "crates/sase_core", version = "0.36.2" }
 sase_gateway = { path = "crates/sase_gateway" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
@@ -27,6 +27,7 @@ tower-http = { version = "0.5", features = ["trace"] }
 hex = "0.4"
 rand = "0.8"
 sha2 = "0.10"
+sha1 = "0.10"
 libc = "0.2"
 tower-lsp-server = "0.21.1"
 lsp-types = "0.97"

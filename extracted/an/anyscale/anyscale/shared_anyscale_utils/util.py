@@ -39,9 +39,7 @@ def slugify(value: str) -> str:
     Also strip leading and trailing whitespace.
     """
 
-    value = (
-        unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
-    )
+    value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
     value = re.sub(r"[^\w\s-]", "", value).strip()
     return re.sub(r"[-\s]+", "-", value)
 

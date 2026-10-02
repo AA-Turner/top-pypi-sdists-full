@@ -1,0 +1,44 @@
+[cic]
+arg_type = "float _Complex"
+return_type = "float _Complex"
+mutable = "false"
+no_state = "true"
+no_step = "true"
+class_name = "CIC"
+serializable = "true"
+
+[[cic.init_params]]
+name = "R"
+type = "uint32_t"
+default = "16"
+
+[[cic.methods]]
+name = "reconfigure"
+arg_type = "void"
+return_type = "void"
+params = [{name = "R", type = "uint32_t"}]
+
+[[cic.methods]]
+name = "decimate"
+arg_type = "float _Complex"
+return_type = "float _Complex"
+variable_output = true
+# The integrators/combs advance over every input sample regardless of
+# emission, so a short buffer guards the STORE, not the loop (jm gh-138).
+pass_capacity = true
+
+[[cic.properties]]
+name = "R"
+type = "uint32_t"
+field = true
+
+[[cic.properties]]
+name = "shift"
+type = "uint32_t"
+field = true
+
+[[cic.properties]]
+name = "clipped"
+type = "bool"
+field = true
+doc = "True if any input component has exceeded the +-1.0 bound since the last reset(). Sticky, and free to read: the CIC's boundary comparisons run on every sample anyway, so it records something the sample stream cannot tell you -- a clipped stream still looks entirely plausible (finite, no NaN, merely distorted), so this flag is the only reliable check."

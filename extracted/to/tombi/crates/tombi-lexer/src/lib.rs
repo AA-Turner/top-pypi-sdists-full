@@ -41,7 +41,6 @@ pub fn lex(source: &str) -> Lexed {
     let mut lexed = Lexed::default();
     let mut was_joint = false;
     let mut last_offset = tombi_text::Offset::default();
-    let mut last_position = tombi_text::Position::default();
 
     let mut cursor = Cursor::new(source);
 
@@ -55,21 +54,14 @@ pub fn lex(source: &str) -> Lexed {
                 was_joint = true;
             }
         }
-        let (last_span, last_range) = lexed.push_result_token(result);
-        last_offset = last_span.end;
-        last_position = last_range.end;
+        last_offset = lexed.push_result_token(result).end;
     }
 
     lexed.line_ending = cursor.line_ending;
+    lexed.line_starts = std::mem::take(&mut cursor.line_starts);
     lexed.tokens.push(crate::Token::new(
         SyntaxKind::EOF,
-        (
-            tombi_text::Span::new(last_offset, source_len),
-            tombi_text::Range::new(
-                last_position,
-                last_position + tombi_text::RelativePosition::of(&source[last_offset.into()..]),
-            ),
-        ),
+        tombi_text::Span::new(last_offset, source_len),
     ));
 
     lexed
@@ -125,12 +117,12 @@ impl Cursor<'_> {
                 self.bump();
                 if self.is_keyword("inf") || self.is_keyword("nan") {
                     self.eat_n(2);
-                    Ok(Token::new(SyntaxKind::FLOAT, self.pop_span_range()))
+                    Ok(Token::new(SyntaxKind::FLOAT, self.pop_span()))
                 } else if self.current().is_ascii_digit() {
                     self.number()
                 } else {
                     self.eat_while(|c| !is_token_separator_with_dot(c));
-                    Err(crate::Error::new(InvalidToken, self.pop_span_range()))
+                    Err(crate::Error::new(InvalidToken, self.pop_span()))
                 }
             }
             '-' => {
@@ -138,7 +130,7 @@ impl Cursor<'_> {
                     && is_token_separator_with_dot(self.peek(4))
                 {
                     self.eat_n(3);
-                    Ok(Token::new(SyntaxKind::FLOAT, self.pop_span_range()))
+                    Ok(Token::new(SyntaxKind::FLOAT, self.pop_span()))
                 } else if self.peek(1).is_ascii_digit() {
                     self.bump();
                     if self.is_number() {
@@ -150,30 +142,30 @@ impl Cursor<'_> {
                     self.key()
                 }
             }
-            '{' => Ok(Token::new(T!('{'), self.pop_span_range())),
-            '}' => Ok(Token::new(T!('}'), self.pop_span_range())),
-            '[' => Ok(Token::new(T!('['), self.pop_span_range())),
-            ']' => Ok(Token::new(T!(']'), self.pop_span_range())),
-            ',' => Ok(Token::new(T!(,), self.pop_span_range())),
-            '.' => Ok(Token::new(T!(.), self.pop_span_range())),
-            '=' => Ok(Token::new(T!(=), self.pop_span_range())),
+            '{' => Ok(Token::new(T!('{'), self.pop_span())),
+            '}' => Ok(Token::new(T!('}'), self.pop_span())),
+            '[' => Ok(Token::new(T!('['), self.pop_span())),
+            ']' => Ok(Token::new(T!(']'), self.pop_span())),
+            ',' => Ok(Token::new(T!(,), self.pop_span())),
+            '.' => Ok(Token::new(T!(.), self.pop_span())),
+            '=' => Ok(Token::new(T!(=), self.pop_span())),
             'A'..='Z' | 'a'..='z' | '_' | '$' | '\u{A0}'..='\u{10FFFF}' => {
                 if self.is_keyword("inf") || self.is_keyword("nan") {
                     self.eat_n(2);
-                    Ok(Token::new(SyntaxKind::FLOAT, self.pop_span_range()))
+                    Ok(Token::new(SyntaxKind::FLOAT, self.pop_span()))
                 } else if self.is_keyword("true") {
                     self.eat_n(3);
-                    Ok(Token::new(SyntaxKind::BOOLEAN, self.pop_span_range()))
+                    Ok(Token::new(SyntaxKind::BOOLEAN, self.pop_span()))
                 } else if self.is_keyword("false") {
                     self.eat_n(4);
-                    Ok(Token::new(SyntaxKind::BOOLEAN, self.pop_span_range()))
+                    Ok(Token::new(SyntaxKind::BOOLEAN, self.pop_span()))
                 } else {
                     self.key()
                 }
             }
             _ => {
                 self.eat_while(|c| !is_token_separator_with_dot(c));
-                Err(crate::Error::new(InvalidToken, self.pop_span_range()))
+                Err(crate::Error::new(InvalidToken, self.pop_span()))
             }
         }
     }
@@ -184,7 +176,7 @@ impl Cursor<'_> {
 
     fn whitespace(&mut self) -> Result<Token, crate::Error> {
         self.eat_while(is_whitespace);
-        Ok(Token::new(SyntaxKind::WHITESPACE, self.pop_span_range()))
+        Ok(Token::new(SyntaxKind::WHITESPACE, self.pop_span()))
     }
 
     fn line_comment(&mut self) -> Result<Token, crate::Error> {
@@ -192,7 +184,7 @@ impl Cursor<'_> {
 
         if !scanner::is_long_line(self.remaining().as_bytes()) {
             self.eat_while(|c| !matches!(c, '\n' | '\r'));
-            return Ok(Token::new(SyntaxKind::COMMENT, self.pop_span_range()));
+            return Ok(Token::new(SyntaxKind::COMMENT, self.pop_span()));
         }
 
         let len = scanner::ascii_before_line_break(self.remaining().as_bytes());
@@ -202,7 +194,7 @@ impl Cursor<'_> {
         if !self.is_eof() && !matches!(self.peek(1), '\n' | '\r') {
             self.eat_while(|c| !matches!(c, '\n' | '\r'));
         }
-        Ok(Token::new(SyntaxKind::COMMENT, self.pop_span_range()))
+        Ok(Token::new(SyntaxKind::COMMENT, self.pop_span()))
     }
 
     fn is_line_break(&self) -> bool {
@@ -218,11 +210,11 @@ impl Cursor<'_> {
                 self.eat_n(1);
                 self.line_ending = LineEnding::Crlf;
             } else {
-                return Err(crate::Error::new(InvalidLineBreak, self.pop_span_range()));
+                return Err(crate::Error::new(InvalidLineBreak, self.pop_span()));
             }
         }
 
-        Ok(Token::new(SyntaxKind::LINE_BREAK, self.pop_span_range()))
+        Ok(Token::new(SyntaxKind::LINE_BREAK, self.pop_span()))
     }
 
     #[inline]
@@ -255,10 +247,7 @@ impl Cursor<'_> {
             }
 
             if is_token_separator_with_dot(self.peek(1)) {
-                return Ok(Token::new(
-                    SyntaxKind::OFFSET_DATE_TIME,
-                    self.pop_span_range(),
-                ));
+                return Ok(Token::new(SyntaxKind::OFFSET_DATE_TIME, self.pop_span()));
             }
         } else if let Some(m) = REGEX_LOCAL_DATE_TIME.find(&line) {
             debug_assert!(m.start() == 0);
@@ -269,10 +258,7 @@ impl Cursor<'_> {
                 self.eat_n(m.end() - 1);
             }
             if is_token_separator_with_dot(self.peek(1)) {
-                return Ok(Token::new(
-                    SyntaxKind::LOCAL_DATE_TIME,
-                    self.pop_span_range(),
-                ));
+                return Ok(Token::new(SyntaxKind::LOCAL_DATE_TIME, self.pop_span()));
             }
         } else if let Some(m) = REGEX_LOCAL_DATE.find(&line[..10]) {
             debug_assert!(m.start() == 0);
@@ -283,23 +269,17 @@ impl Cursor<'_> {
                 self.eat_n(m.end() - 1);
             }
             if is_token_separator_with_dot(self.peek(1)) {
-                return Ok(Token::new(SyntaxKind::LOCAL_DATE, self.pop_span_range()));
+                return Ok(Token::new(SyntaxKind::LOCAL_DATE, self.pop_span()));
             }
         }
 
         self.eat_while(|c| !is_token_separator_with_dot(c));
         if pass_local_date_time {
-            Err(crate::Error::new(
-                InvalidOffsetDateTime,
-                self.pop_span_range(),
-            ))
+            Err(crate::Error::new(InvalidOffsetDateTime, self.pop_span()))
         } else if pass_local_date {
-            Err(crate::Error::new(
-                InvalidLocalDateTime,
-                self.pop_span_range(),
-            ))
+            Err(crate::Error::new(InvalidLocalDateTime, self.pop_span()))
         } else {
-            Err(crate::Error::new(InvalidLocalDate, self.pop_span_range()))
+            Err(crate::Error::new(InvalidLocalDate, self.pop_span()))
         }
     }
 
@@ -319,11 +299,11 @@ impl Cursor<'_> {
                 self.eat_n(m.end() - 1);
             }
 
-            Ok(Token::new(SyntaxKind::LOCAL_TIME, self.pop_span_range()))
+            Ok(Token::new(SyntaxKind::LOCAL_TIME, self.pop_span()))
         } else {
             self.eat_while(|c| !is_line_break(c) && !is_whitespace(c));
 
-            Err(crate::Error::new(InvalidLocalTime, self.pop_span_range()))
+            Err(crate::Error::new(InvalidLocalTime, self.pop_span()))
         }
     }
 
@@ -346,7 +326,7 @@ impl Cursor<'_> {
             }
 
             if is_token_separator_with_dot(self.peek(1)) {
-                return Ok(Token::new(SyntaxKind::FLOAT, self.pop_span_range()));
+                return Ok(Token::new(SyntaxKind::FLOAT, self.pop_span()));
             }
         } else if let Some(m) = REGEX_INTEGER_BIN.find(&line) {
             debug_assert!(m.start() == 0);
@@ -355,7 +335,7 @@ impl Cursor<'_> {
             }
 
             if is_token_separator_with_dot(self.peek(1)) {
-                return Ok(Token::new(SyntaxKind::INTEGER_BIN, self.pop_span_range()));
+                return Ok(Token::new(SyntaxKind::INTEGER_BIN, self.pop_span()));
             }
         } else if let Some(m) = REGEX_INTEGER_OCT.find(&line) {
             debug_assert!(m.start() == 0);
@@ -364,7 +344,7 @@ impl Cursor<'_> {
             }
 
             if is_token_separator_with_dot(self.peek(1)) {
-                return Ok(Token::new(SyntaxKind::INTEGER_OCT, self.pop_span_range()));
+                return Ok(Token::new(SyntaxKind::INTEGER_OCT, self.pop_span()));
             }
         } else if let Some(m) = REGEX_INTEGER_HEX.find(&line) {
             debug_assert!(m.start() == 0);
@@ -372,7 +352,7 @@ impl Cursor<'_> {
                 self.eat_n(m.end() - 1);
             }
             if is_token_separator_with_dot(self.peek(1)) {
-                return Ok(Token::new(SyntaxKind::INTEGER_HEX, self.pop_span_range()));
+                return Ok(Token::new(SyntaxKind::INTEGER_HEX, self.pop_span()));
             }
         } else if let Some(m) = REGEX_INTEGER_DEC.find(&line) {
             debug_assert!(m.start() == 0);
@@ -381,13 +361,13 @@ impl Cursor<'_> {
             }
 
             if is_token_separator_with_dot(self.peek(1)) {
-                return Ok(Token::new(SyntaxKind::INTEGER_DEC, self.pop_span_range()));
+                return Ok(Token::new(SyntaxKind::INTEGER_DEC, self.pop_span()));
             }
         }
 
         self.eat_while(|c| !is_token_separator_with_dot(c));
 
-        Err(crate::Error::new(InvalidNumber, self.pop_span_range()))
+        Err(crate::Error::new(InvalidNumber, self.pop_span()))
     }
 
     fn basic_string(&mut self) -> Result<Token, crate::Error> {
@@ -396,7 +376,7 @@ impl Cursor<'_> {
         while let Some(c) = self.bump() {
             match c {
                 _ if c == '"' => {
-                    return Ok(Token::new(SyntaxKind::BASIC_STRING, self.pop_span_range()));
+                    return Ok(Token::new(SyntaxKind::BASIC_STRING, self.pop_span()));
                 }
                 '\\' if matches!(self.peek(1), '"' | '\\') => {
                     self.bump();
@@ -409,7 +389,7 @@ impl Cursor<'_> {
             }
         }
 
-        Err(crate::Error::new(InvalidBasicString, self.pop_span_range()))
+        Err(crate::Error::new(InvalidBasicString, self.pop_span()))
     }
 
     fn multi_line_basic_string(&mut self) -> Result<Token, crate::Error> {
@@ -435,7 +415,7 @@ impl Cursor<'_> {
 
                     return Ok(Token::new(
                         SyntaxKind::MULTI_LINE_BASIC_STRING,
-                        self.pop_span_range(),
+                        self.pop_span(),
                     ));
                 }
                 // A backslash escapes the next character only when it is not
@@ -451,7 +431,7 @@ impl Cursor<'_> {
 
         Err(crate::Error::new(
             InvalidMultilineBasicString,
-            self.pop_span_range(),
+            self.pop_span(),
         ))
     }
 
@@ -461,20 +441,14 @@ impl Cursor<'_> {
         while let Some(c) = self.bump() {
             match c {
                 '\'' => {
-                    return Ok(Token::new(
-                        SyntaxKind::LITERAL_STRING,
-                        self.pop_span_range(),
-                    ));
+                    return Ok(Token::new(SyntaxKind::LITERAL_STRING, self.pop_span()));
                 }
                 _ if is_line_break(self.peek(1)) => break,
                 _ => {}
             }
         }
 
-        Err(crate::Error::new(
-            InvalidLiteralString,
-            self.pop_span_range(),
-        ))
+        Err(crate::Error::new(InvalidLiteralString, self.pop_span()))
     }
 
     fn multi_line_literal_string(&mut self) -> Result<Token, crate::Error> {
@@ -494,7 +468,7 @@ impl Cursor<'_> {
 
                     return Ok(Token::new(
                         SyntaxKind::MULTI_LINE_LITERAL_STRING,
-                        self.pop_span_range(),
+                        self.pop_span(),
                     ));
                 }
                 _ => {}
@@ -503,7 +477,7 @@ impl Cursor<'_> {
 
         Err(crate::Error::new(
             InvalidMultilineLiteralString,
-            self.pop_span_range(),
+            self.pop_span(),
         ))
     }
 
@@ -554,10 +528,10 @@ impl Cursor<'_> {
             )
         });
         if is_token_separator_with_dot(self.peek(1)) {
-            Ok(Token::new(SyntaxKind::BARE_KEY, self.pop_span_range()))
+            Ok(Token::new(SyntaxKind::BARE_KEY, self.pop_span()))
         } else {
             self.eat_while(|c| !is_token_separator_with_dot(c));
-            Err(crate::Error::new(InvalidKey, self.pop_span_range()))
+            Err(crate::Error::new(InvalidKey, self.pop_span()))
         }
     }
 }

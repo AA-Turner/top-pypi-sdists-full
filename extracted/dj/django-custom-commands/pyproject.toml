@@ -1,0 +1,78 @@
+[tool.poetry]
+name = "django-custom-commands"
+version = "0.1.0"
+description = "A Django package which allows specifying custom paths to load managenent commands from."
+authors = ["Mikuláš Poul <mikulaspoul@gmail.com>"]
+readme = "README.md"
+packages = [{include = "django_custom_commands"}]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Framework :: Django",
+    "Framework :: Django :: 5.1",
+    "License :: Public Domain",
+    "License :: OSI Approved :: MIT License",
+]
+include = ["LICENSE"]
+repository = "https://github.com/mikicz/django-custom-commands"
+keywords = ["django", "commands"]
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.7.1"
+pytest = "^8.3.3"
+pytest-django = "^4.9.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.dependencies]
+python = ">=3.11"
+django = ">=5.1.0"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    # https://github.com/charliermarsh/ruff#pyflakes-f
+    "F",
+    # https://github.com/charliermarsh/ruff#pycodestyle-e-w
+    "E",
+    "W",
+    # https://github.com/charliermarsh/ruff#isort-i
+    "I",
+    # https://github.com/charliermarsh/ruff#pep8-naming-n
+    "N",
+    # https://github.com/charliermarsh/ruff#pyupgrade-up
+    "UP",
+    # https://github.com/charliermarsh/ruff#flake8-bugbear-b
+    "B",
+    # https://github.com/charliermarsh/ruff#flake8-comprehensions-c4
+    "C4",
+    # https://github.com/charliermarsh/ruff#flake8-debugger-t10
+    "T10",
+    # https://github.com/charliermarsh/ruff#flake8-pie-pie
+    "PIE",
+    # https://github.com/charliermarsh/ruff#flake8-return-ret
+    "RET",
+    # https://github.com/charliermarsh/ruff#flake8-simplify-sim
+    "SIM",
+]
+
+# Never enforce...
+ignore = [
+    "E501",   # line length violations
+    "PT004",  # missing-fixture-name-underscore
+    "SIM108", # use-ternary-operator
+    "RET505", # superfluous-else-return
+    "RET506", # superfluous-else-raise
+    "RET507", # superfluous-else-continue
+    "RET508", # superfluous-else-break
+    "B027",   # empty-method-without-abstract-decorator
+]

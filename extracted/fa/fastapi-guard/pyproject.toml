@@ -1,0 +1,300 @@
+[project]
+name = "fastapi_guard"
+version = "8.0.2"
+description = "Production-ready security middleware for FastAPI — IP filtering, rate limiting, penetration detection, and 20+ per-route security decorators."
+authors = [
+    {name = "Renzo Franceschini", email = "rennf93@users.noreply.github.com"}
+]
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.10,<3.15"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Internet :: WWW/HTTP :: WSGI :: Middleware",
+    "Topic :: Security",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+keywords = [
+    "fastapi",
+    "security",
+    "middleware",
+    "rate-limiting",
+    "ip-filtering",
+    "waf",
+    "penetration-detection",
+    "api-security",
+]
+dependencies = [
+    "fastapi>=0.109.0",
+    "guard-core>=4.1.0",
+    "starlette>=0.35.0",
+    "uvicorn",
+]
+
+[project.urls]
+Homepage = "https://guard-core.com"
+Documentation = "https://rennf93.github.io/fastapi-guard/latest/"
+Repository = "https://github.com/rennf93/fastapi-guard"
+Changelog = "https://github.com/rennf93/fastapi-guard/blob/master/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/rennf93/fastapi-guard/issues"
+"Cloud Dashboard" = "https://app.guard-core.com"
+"Live Playground" = "https://playground.guard-core.com"
+
+[project.optional-dependencies]
+agent = [
+    "guard-agent",
+]
+dev = [
+    "aiohttp",
+    "bandit[toml]",
+    "deptry",
+    "guard-agent",
+    "httpx",
+    "httpx2",
+    "matplotlib",
+    "mkdocs",
+    "mkdocstrings",
+    "mkdocstrings-python",
+    "mkdocs-material",
+    "mypy",
+    "numpy",
+    "pip-audit",
+    "pre-commit",
+    "pymarkdownlnt",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "pytest-mock",
+    "radon",
+    "ruff",
+    "safety",
+    "types-cachetools",
+    "types-requests",
+    "vulture",
+    "xenon",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["guard"]
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+    ".env",
+    ".envrc",
+    ".venv/",
+    ".github/",
+    ".claude/",
+    "CLAUDE.md",
+    ".pre-commit-config.yaml",
+    "compose.yml",
+    "Dockerfile",
+    "Makefile",
+    "mkdocs.yml",
+    "vulture_whitelist.py",
+    "tests/",
+    "docs/",
+    "examples/",
+    "manual_testing/",
+]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.ruff]
+target-version = "py310"
+exclude = ["vulture_whitelist.py", ".venv", "tests/live_smoke/stack/app"]
+
+[tool.ruff.lint]
+select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # isort
+    "I",
+]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+asyncio_default_fixture_loop_scope = "function"
+addopts = "--cov=guard --cov-branch --cov-report=term-missing"
+markers = [
+    "asyncio: mark tests as async"
+]
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+strict_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+exclude = ["vulture_whitelist.py", ".venv", "manual_testing", "ZZZ", "tests/live_smoke/stack/app"]
+
+
+[tool.pymarkdown.system]
+exclude_path = ".venv,.git,.github,data,tests,.claude,CLAUDE.md,.cursor,.kiro,ZZZ"
+
+[tool.pymarkdown.plugins.md007]
+# MD007 - Unordered list indentation (set to 2 spaces)
+enabled = true
+indent = 2
+
+[tool.pymarkdown.plugins.md012]
+# MD012 - Multiple consecutive blank lines (allow up to 2)
+enabled = true
+maximum = 2
+
+[tool.pymarkdown.plugins.md013]
+# MD013 - Line length (disabled)
+enabled = false
+
+[tool.pymarkdown.plugins.md024]
+# MD024 - Multiple headings with same content (allow siblings only)
+enabled = true
+siblings_only = true
+
+[tool.pymarkdown.plugins.md033]
+# MD033 - Inline HTML
+enabled = false
+
+[tool.pymarkdown.plugins.md035]
+# MD035 - Horizontal rule style (disabled - allow any style)
+enabled = false
+
+[tool.pymarkdown.plugins.md041]
+# MD041 - First line in file should be top-level heading (disabled)
+enabled = false
+
+[tool.pymarkdown.plugins.md046]
+# MD046 - Code block style (disabled - allow any style)
+enabled = false
+
+[tool.pymarkdown.plugins.md029]
+# MD029 - Ordered list item prefix (disabled - allow any style)
+enabled = false
+
+[tool.vulture]
+paths = ["guard", "tests", "vulture_whitelist.py"]
+exclude = ["**/conftest.py", ".venv", "tests/live_smoke/stack/app"]
+min_confidence = 100
+ignore_decorators = [
+    "@app.route",
+    "@app.get",
+    "@app.post",
+    "@app.put",
+    "@app.delete",
+    "@app.patch",
+    "@pytest.fixture",
+    "@pytest.mark.*",
+    "@validator",
+    "@root_validator",
+    "@field_validator",
+    "@model_validator",
+]
+ignore_names = [
+    "test_*",
+    "Test*",
+    "cleanup_*",
+    "mock_*",
+    "expected_*",
+    "exc_*",
+    "__*__",
+    "Config",
+    "Field",
+]
+sort_by_size = true
+
+[tool.bandit]
+skips = ["B101", "B601"]
+exclude_dirs = ["tests", ".venv", "vulture_whitelist.py"]
+severity = "medium"
+
+[tool.radon]
+exclude = "tests/*,.venv/*,vulture_whitelist.py"
+cc_min = "C"
+mi_min = "A"
+no_assert = false
+show_closures = true
+total_average = true
+
+[tool.xenon]
+max_absolute = "B"
+max_modules = "A"
+max_average = "A"
+exclude = ["tests/*", ".venv/*", "vulture_whitelist.py"]
+ignore = []
+
+[tool.deptry]
+exclude = ["tests", ".venv", "vulture_whitelist.py", "examples", "docs", "manual_testing"]
+extend_exclude = ["conftest.py"]
+known_first_party = ["guard", "guard_core"]
+per_rule_ignores = { "DEP002" = [
+    "aiohttp",
+    "guard-core",
+    "httpx",
+    "httpx2",
+    "bandit",
+    "deptry",
+    "guard-agent",
+    "matplotlib",
+    "mkdocs",
+    "mkdocstrings",
+    "mkdocstrings-python",
+    "mkdocs-material",
+    "mypy",
+    "numpy",
+    "pip-audit",
+    "pre-commit",
+    "pymarkdownlnt",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "pytest-mock",
+    "radon",
+    "ruff",
+    "safety",
+    "semgrep",
+    "types-cachetools",
+    "types-requests",
+    "uvicorn",
+    "vulture",
+    "xenon",
+] }

@@ -1,0 +1,25 @@
+language: en
+
+cases:
+  - sentences:
+      - what's the weather
+      - what is the weather like
+      - weather
+      - weather report
+      - forecast
+    frames:
+      - intent: HassGetWeather
+        combination: default
+        response_key: default
+        slots: {}
+
+  - sentences:
+      - what's the weather like in london
+      - what is the weather in London like
+      - London forecast
+      - London weather
+    frames:
+      - intent: HassGetWeather
+        combination: name_only
+        response_key: default
+        slots: {name: weather.london}

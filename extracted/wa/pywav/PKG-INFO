@@ -1,0 +1,56 @@
+Metadata-Version: 1.1
+Name: pywav
+Version: 1.1
+Summary: Read and write wav files with PCMA/PCMU compression
+Home-page: https://github.com/saisyam/pywav
+Author: Saisyam Dampuri
+Author-email: saisyam@saisyam.com
+License: LICENSE.txt
+Download-URL: https://github.com/saisyam/pywav/archive/ver_01.tar.gz
+Description: ======
+        pywav
+        ======
+        Reading WAV files with PCM/PCMA/PCMU compression or without compression. 
+        
+        WavRead and WavWrite
+        ====================
+        There are two classes WavRead and WavWrite which will perform reading and writing of wave files respectively. Currenlty PCM, PCMU and PCMA formats are supported. You will get the raw data from the RTP stream which you can write into the wave file by providing information about the audio format, number of channels, sample rate etc.
+        
+        Reading example
+        ===============
+        ::
+            
+            wave_read = pywav.WavRead("<filename to read>")
+            # print parameters like number of channels, sample rate, bits per sample, audio format etc
+            # Audio format 1 = PCM (without compression)
+            # Audio format 6 = PCMA (with A-law compression)
+            # Audio format 7 = PCMU (with mu-law compression)
+            print(wave_read.getparams())
+        
+        
+        Writing example
+        ===============
+        ::
+        
+            # first parameter is the file name to write the wave data
+            # second parameter is the number of channels, the value can be 1 (mono) or 2 (stereo)
+            # third parameter is the sample rate, 8000 samples per second
+            # fourth paramaer is the bits per sample, 8 bits per sample
+            # fifth parameter is the audio format, 1 means PCM with no compression.
+            wave_write = pywav.WavWrite("<filename to write>", 1, 8000, 8, 1)
+            # raw_data is the byte array. Write can be done only once for now. 
+            # Incremental write will be implemented later
+            wave_write.write(<raw data>)
+            # close the file stream and save the file
+            wave_write.close()
+        
+Keywords: wave,wav read,wav write
+Platform: UNKNOWN
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: License :: OSI Approved :: GNU General Public License (GPL)
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7

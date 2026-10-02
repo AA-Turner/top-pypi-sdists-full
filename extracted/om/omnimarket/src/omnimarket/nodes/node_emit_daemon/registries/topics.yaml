@@ -1,0 +1,989 @@
+# Event Registry: Claude Code Platform
+#
+# CANONICAL SOURCE OF TRUTH (OMN-13146). This file is the single registry the
+# emit daemon loads at runtime. The omniclaude hook registry
+# (hooks/event_registry.py + the TopicBase enum) is a projection of this file and
+# must agree with it on every event type, fan-out topic set, partition_key_field,
+# and required_fields list. The structural drift validator
+# (omnimarket.validators.event_registry_drift), wired as a pre-commit hook and a
+# required CI gate, fails on any unbaselined divergence in either direction.
+#
+# This file defines all event types, their fan-out rules, required fields,
+# and partition key configuration for the Claude Code platform.
+#
+# Transform names reference callables in TRANSFORM_REGISTRY:
+#   - passthrough: no modification
+#   - strip_prompt: remove full prompt, keep preview + length
+#   - strip_body: remove body, keep preview + length
+
+---
+platform: claude_code
+version: "1.0.0"
+description: "Event registry for Claude Code IDE hooks"
+
+events:
+  # =========================================================================
+  # Session Events
+  # =========================================================================
+  session.started:
+    fan_out:
+      - topic: "onex.evt.omniclaude.session-started.v1"
+        tier: telemetry
+        transform: redact_capture
+        description: "Contract-redacted session start telemetry (OMN-16979)"
+    partition_key_field: session_id
+    required_fields: [session_id]
+
+  session.ended:
+    fan_out:
+      - topic: "onex.evt.omniclaude.session-ended.v1"
+        tier: telemetry
+        transform: redact_capture
+        description: "Contract-redacted session end telemetry (OMN-16979)"
+    partition_key_field: session_id
+    required_fields: [session_id]
+
+  session.outcome:
+    fan_out:
+      - topic: "onex.cmd.omniintelligence.session-outcome.v1"
+        tier: duty_critical
+        description: "Session outcome for intelligence feedback loop"
+      - topic: "onex.evt.omniclaude.session-outcome.v1"
+        tier: duty_critical
+        description: "Session outcome for dashboards and monitoring"
+    partition_key_field: session_id
+    required_fields: [session_id, outcome]
+
+  utilization.scoring.requested:
+    fan_out:
+      - topic: "onex.cmd.omniintelligence.utilization-scoring.v1"
+        tier: telemetry
+        description: "Utilization scoring command to omniintelligence"
+    partition_key_field: session_id
+    required_fields: [session_id, injected_pattern_ids]
+
+  # =========================================================================
+  # Prompt Events (Fan-out to TWO topics)
+  # =========================================================================
+  prompt.submitted:
+    fan_out:
+      - topic: "onex.cmd.omniintelligence.claude-hook-event.v1"
+        tier: telemetry
+        description: "Full prompt to intelligence service for analysis"
+      - topic: "onex.evt.omniclaude.prompt-submitted.v1"
+        tier: telemetry
+        # OMN-17209: the capture-redaction contract supersedes strip_prompt on
+        # this rule. strip_prompt kept the 100-char preview, which OMN-16019
+        # named as the disclosure surface; the contract reduces it to a shape.
+        # The posture is declared in
+        # node_event_emit_effect/contracts/capture_redaction.yaml, per topic.
+        transform: redact_capture
+        description: "Contract-redacted prompt telemetry (OMN-17209)"
+    partition_key_field: session_id
+    required_fields: [prompt_preview, session_id]
+
+  # =========================================================================
+  # Tool Events
+  # =========================================================================
+  tool.executed:
+    fan_out:
+      - topic: "onex.evt.omniclaude.tool-executed.v1"
+        tier: telemetry
+        # OMN-17209: previously no transform at all. This topic is one of the
+        # two OMN-16979 widens onto the cloud relay, so it crosses the trust
+        # boundary and needs a declared capture posture, not an omitted one.
+        transform: redact_capture
+        description: "Contract-redacted tool telemetry (OMN-17209)"
+    partition_key_field: session_id
+    required_fields: [tool_name, session_id]
+
+  # OMN-19513: all-hooks capture (operator: "we need all hooks captured",
+  # ledger RULING by lane all-hooks-capture-83-ruling). One lineage-carrying
+  # metadata event per Claude Code hook call, every hook type on one topic,
+  # contract claude_hook_capture in omniclaude. Content never rides it: each
+  # content field is a reference (field, sha256 of the scrubbed value, length,
+  # content-record id). Partitioned by session so the lineage fold sees every
+  # hook of a session in order.
+  hook.event:
+    fan_out:
+      - topic: "onex.evt.omniclaude.hook-event.v1"
+        tier: telemetry
+        transform: redact_capture
+        description: "Lineage-carrying Claude Code hook event, all hook types (OMN-19513)"
+    partition_key_field: session_id
+    required_fields: [session_id, event_id, hook_event_name, lineage]
+
+  # OMN-19550: full-content capture (RULING 2026-09-25T11:23:30Z). The complete
+  # prompt, tool input, tool result and assistant reply, one content item (or
+  # one chunk of it) per record, under the capture-redaction contract's
+  # capture_scrubbed class. A cmd topic: full prompts and file contents go only
+  # on the restricted onex.cmd.omniintelligence.* family (omniclaude's privacy
+  # split). Local only: the cloud relay's explicit allowlist does not name it.
+  content.captured:
+    fan_out:
+      - topic: "onex.cmd.omniintelligence.content-captured.v1"
+        tier: telemetry
+        transform: redact_capture
+        description: "Contract-scrubbed full session content (OMN-19550)"
+    partition_key_field: session_id
+    required_fields: [session_id, content_kind]
+
+  tool.content:
+    fan_out:
+      - topic: "onex.cmd.omniintelligence.tool-content.v1"
+        tier: telemetry
+        description: "Tool execution content for omniintelligence pattern learning"
+    partition_key_field: session_id
+    required_fields: [tool_name_raw, session_id]
+
+  # =========================================================================
+  # Routing Events
+  # =========================================================================
+  routing.feedback:
+    fan_out:
+      - topic: "onex.evt.omniclaude.routing-feedback.v1"
+        tier: telemetry
+        description: "Routing feedback for reinforcement learning"
+    partition_key_field: session_id
+    required_fields: [session_id, outcome, feedback_status]
+
+  routing.decision:
+    fan_out:
+      - topic: "onex.evt.omniclaude.routing-decision.v1"
+        tier: telemetry
+        description: "Routing decision event for observability"
+    partition_key_field: session_id
+    required_fields: [session_id]
+
+  llm.routing.decision:
+    fan_out:
+      - topic: "onex.evt.omniclaude.llm-routing-decision.v1"
+        tier: telemetry
+        description: "LLM routing decision with determinism audit fields"
+    partition_key_field: session_id
+    required_fields: [session_id, selected_agent, routing_prompt_version]
+
+  llm.routing.fallback:
+    fan_out:
+      - topic: "onex.evt.omniclaude.llm-routing-fallback.v1"
+        tier: telemetry
+        description: "LLM routing fallback -- pipeline fell through to fuzzy matching"
+    partition_key_field: session_id
+    required_fields: [session_id, fallback_reason, routing_prompt_version]
+
+  # =========================================================================
+  # Injection and Context Events
+  # =========================================================================
+  injection.recorded:
+    fan_out:
+      - topic: "onex.evt.omniclaude.injection-recorded.v1"
+        tier: telemetry
+        description: "Injection tracking for A/B analysis"
+    partition_key_field: session_id
+    required_fields: [injection_id, session_id, cohort]
+
+  context.utilization:
+    fan_out:
+      - topic: "onex.evt.omniclaude.context-utilization.v1"
+        tier: telemetry
+        description: "Context utilization metrics"
+    partition_key_field: session_id
+    required_fields: [session_id]
+
+  context.enrichment:
+    fan_out:
+      - topic: "onex.evt.omniclaude.context-enrichment.v1"
+        tier: telemetry
+        description: "Per-channel enrichment observability"
+    partition_key_field: session_id
+    required_fields: [session_id, channel]
+
+  # =========================================================================
+  # Agent Events
+  # =========================================================================
+  agent.match:
+    fan_out:
+      - topic: "onex.evt.omniclaude.agent-match.v1"
+        tier: telemetry
+        description: "Agent match metrics"
+    partition_key_field: session_id
+    required_fields: [session_id]
+
+  agent.status:
+    fan_out:
+      - topic: "onex.evt.omniclaude.agent-status.v1"
+        tier: telemetry
+        description: "Agent lifecycle status"
+    partition_key_field: session_id
+    required_fields: [agent_name, session_id, state, message]
+
+  agent.action:
+    fan_out:
+      - topic: "onex.evt.omniclaude.agent-actions.v1"
+        tier: telemetry
+        description: "Per-tool agent action event for omnidash agent_actions projection"
+    partition_key_field: session_id
+    required_fields: [correlation_id, agent_name, action_type, session_id]
+
+  agent.chat.broadcast:
+    fan_out:
+      - topic: "onex.evt.omniclaude.agent-chat-broadcast.v1"
+        tier: telemetry
+        transform: strip_body
+        description: "Agent chat broadcast for multi-terminal coordination"
+    partition_key_field: session_id
+    required_fields: [session_id, agent_id, body]
+
+  # =========================================================================
+  # Latency and Phase Metrics
+  # =========================================================================
+  latency.breakdown:
+    fan_out:
+      - topic: "onex.evt.omniclaude.latency-breakdown.v1"
+        tier: telemetry
+        description: "Latency breakdown metrics"
+    partition_key_field: session_id
+    required_fields: [session_id]
+
+  phase.metrics:
+    fan_out:
+      - topic: "onex.evt.omniclaude.phase-metrics.v1"
+        tier: telemetry
+        description: "Phase instrumentation metrics"
+    required_fields: [event_id, event_type, timestamp_iso, payload]
+
+  # =========================================================================
+  # LLM Cost Telemetry
+  # =========================================================================
+  llm.cost.completed:
+    fan_out:
+      - topic: "onex.evt.omniintelligence.llm-call-completed.v1"
+        tier: telemetry
+        description: "LLM cost telemetry for omnidash llm_cost_aggregates projection"
+    partition_key_field: session_id
+    required_fields: [session_id, model_id, total_tokens]
+
+  # =========================================================================
+  # Stop Hook Events
+  # =========================================================================
+  response.stopped:
+    fan_out:
+      - topic: "onex.cmd.omniintelligence.claude-hook-event.v1"
+        tier: telemetry
+        description: "Stop hook event for pattern learning trigger"
+    required_fields: [session_id, event_type]
+
+  # =========================================================================
+  # Notification Events
+  # =========================================================================
+  notification.blocked:
+    fan_out:
+      - topic: "onex.evt.omniclaude.notification-blocked.v1"
+        tier: telemetry
+        description: "Notification blocked event"
+    partition_key_field: session_id
+    required_fields: [session_id]
+
+  notification.completed:
+    fan_out:
+      - topic: "onex.evt.omniclaude.notification-completed.v1"
+        tier: telemetry
+        description: "Notification completed event"
+    partition_key_field: session_id
+    required_fields: [session_id]
+
+  # =========================================================================
+  # Compliance and Enforcement
+  # =========================================================================
+  compliance.evaluate:
+    fan_out:
+      - topic: "onex.cmd.omniintelligence.compliance-evaluate.v1"
+        tier: duty_critical
+        description: "Compliance evaluation request"
+    partition_key_field: session_id
+    required_fields: [session_id, source_path, applicable_patterns]
+
+  pattern.enforcement:
+    fan_out:
+      - topic: "onex.evt.omniclaude.pattern-enforcement.v1"
+        tier: duty_critical
+        description: "Pattern enforcement evaluation result"
+    partition_key_field: session_id
+    required_fields: [session_id, correlation_id, timestamp, language, domain, pattern_name, outcome]
+
+  # =========================================================================
+  # Static Context Edit Detection
+  # =========================================================================
+  static.context.edit.detected:
+    fan_out:
+      - topic: "onex.evt.omniclaude.static-context-edit-detected.v1"
+        tier: telemetry
+        description: "Static context file change detected"
+    partition_key_field: session_id
+    required_fields: [session_id, changed_file_count]
+
+  # =========================================================================
+  # Delegation Events
+  # =========================================================================
+  task.delegated:
+    fan_out:
+      - topic: "onex.evt.omniclaude.task-delegated.v1"
+        tier: telemetry
+        description: "Task delegation event"
+    partition_key_field: session_id
+    # OMN-13146: delegated_to is required by the omniclaude hook registry and by
+    # the delegation golden chain / SQLite projection. It was missing here and the
+    # old topic-set-only drift validator could not see the required_fields skew.
+    required_fields: [session_id, correlation_id, task_type, delegated_to]
+
+  delegation.request:
+    fan_out:
+      - topic: "onex.cmd.omnibase-infra.delegation-request.v1"
+        tier: duty_critical
+        description: "Delegation request command"
+    partition_key_field: correlation_id
+    required_fields: [payload, correlation_id]
+
+  delegate.task:
+    fan_out:
+      - topic: "onex.cmd.omniclaude.delegate-task.v1"
+        tier: duty_critical
+        description: "Delegation request command for node_delegation_orchestrator"
+    partition_key_field: correlation_id
+    required_fields: [payload, correlation_id]
+
+  delegation.shadow.comparison:
+    fan_out:
+      - topic: "onex.evt.omniclaude.delegation-shadow-comparison.v1"
+        tier: telemetry
+        description: "Shadow validation comparison result"
+    partition_key_field: session_id
+    required_fields: [session_id, correlation_id]
+
+  # =========================================================================
+  # Intent Binding
+  # =========================================================================
+  intent.commit.bound:
+    fan_out:
+      - topic: "onex.evt.omniclaude.intent-commit-bound.v1"
+        tier: duty_critical
+        description: "Intent-to-commit binding record"
+    partition_key_field: session_id
+    required_fields: [commit_sha, session_id]
+
+  # =========================================================================
+  # ChangeFrame Events
+  # =========================================================================
+  change.frame.emitted:
+    fan_out:
+      - topic: "onex.evt.omniclaude.change-frame.v1"
+        tier: duty_critical
+        description: "ChangeFrame emitted after JSONL persist"
+    partition_key_field: session_id
+    required_fields: [frame_id, trace_id, session_id]
+
+  # =========================================================================
+  # Skill Lifecycle Events
+  # =========================================================================
+  skill.started:
+    fan_out:
+      - topic: "onex.evt.omniclaude.skill-started.v1"
+        tier: telemetry
+        transform: redact_capture
+        description: "Contract-redacted skill start telemetry (OMN-16979)"
+    partition_key_field: run_id
+    required_fields: [run_id, skill_name, correlation_id]
+
+  skill.completed:
+    fan_out:
+      - topic: "onex.evt.omniclaude.skill-completed.v1"
+        tier: telemetry
+        transform: redact_capture
+        description: "Contract-redacted skill completion telemetry (OMN-16979)"
+      - topic: "onex.evt.omniclaude.skill-invoked.v1"
+        tier: telemetry
+        description: "Skill invocation record for omnidash"
+    partition_key_field: run_id
+    required_fields: [run_id, skill_name, correlation_id, status]
+
+  skill.friction_recorded:
+    fan_out: []  # Side-channel only, no Kafka fan-out
+    partition_key_field: session_id
+    required_fields: [skill, session_id]
+
+  friction.observed:
+    fan_out:
+      - topic: "onex.evt.omniclaude.friction-observed.v1"
+        tier: telemetry
+        description: "Friction observation event"
+    partition_key_field: session_id
+    required_fields: [session_id, surface, severity]
+
+  # =========================================================================
+  # Pipeline Observability Events
+  # =========================================================================
+  epic.run.updated:
+    fan_out:
+      - topic: "onex.evt.omniclaude.epic-run-updated.v1"
+        tier: telemetry
+        description: "Epic run state update"
+    partition_key_field: run_id
+    required_fields: [run_id, epic_id, status]
+
+  pr.watch.updated:
+    fan_out:
+      - topic: "onex.evt.omniclaude.pr-watch-updated.v1"
+        tier: telemetry
+        description: "PR watch state update"
+    partition_key_field: run_id
+    required_fields: [run_id, pr_number, repo, status]
+
+  gate.decision:
+    fan_out:
+      - topic: "onex.evt.omniclaude.gate-decision.v1"
+        tier: duty_critical
+        description: "Slack gate decision outcome"
+    partition_key_field: gate_id
+    required_fields: [gate_id, decision, correlation_id]
+
+  budget.cap.hit:
+    fan_out:
+      - topic: "onex.evt.omniclaude.budget-cap-hit.v1"
+        tier: telemetry
+        description: "Token budget cap hit"
+    partition_key_field: run_id
+    required_fields: [run_id, tokens_used, tokens_budget]
+
+  circuit.breaker.tripped:
+    fan_out:
+      - topic: "onex.evt.omniclaude.circuit-breaker-tripped.v1"
+        tier: telemetry
+        description: "Kafka circuit breaker opened"
+    partition_key_field: session_id
+    required_fields: [session_id, failure_count, threshold]
+
+  # =========================================================================
+  # PR Validation
+  # =========================================================================
+  pr.validation.rollup:
+    fan_out:
+      - topic: "onex.evt.omniclaude.pr-validation-rollup.v1"
+        tier: telemetry
+        description: "PR validation rollup with VTS"
+    partition_key_field: run_id
+    required_fields: [run_id, ticket_id, model_id, metric_version]
+
+  # =========================================================================
+  # DoD Telemetry
+  # =========================================================================
+  dod.guard.fired:
+    fan_out:
+      - topic: "onex.evt.omniclaude.dod-guard-fired.v1"
+        tier: duty_critical
+        description: "DoD completion guard interception"
+    partition_key_field: session_id
+    required_fields: [session_id, ticket_id]
+
+  dod.sweep.completed:
+    fan_out:
+      - topic: "onex.evt.omniclaude.dod-sweep-completed.v1"
+        tier: duty_critical
+        description: "DoD batch sweep result"
+    partition_key_field: run_id
+    required_fields: [run_id, overall_status, total_tickets]
+
+  # =========================================================================
+  # Correlation Trace
+  # =========================================================================
+  correlation.trace.span:
+    fan_out:
+      - topic: "onex.evt.omniclaude.correlation-trace.v1"
+        tier: telemetry
+        description: "Trace span event"
+    partition_key_field: trace_id
+    required_fields: [span_id, trace_id, session_id, span_kind, operation_name]
+
+  # =========================================================================
+  # Context Integrity Audit
+  # =========================================================================
+  audit.dispatch.validated:
+    fan_out:
+      - topic: "onex.evt.omniclaude.audit-dispatch-validated.v1"
+        tier: duty_critical
+        description: "Task dispatch validation result"
+    partition_key_field: task_id
+    required_fields: [task_id, contract_id, agent_type]
+
+  audit.scope.violation:
+    fan_out:
+      - topic: "onex.evt.omniclaude.audit-scope-violation.v1"
+        tier: duty_critical
+        description: "Scope boundary violation"
+    partition_key_field: task_id
+    required_fields: [task_id, violation_type, enforcement_action]
+
+  # =========================================================================
+  # Plan and Review Events
+  # =========================================================================
+  plan.review.completed:
+    fan_out:
+      - topic: "onex.evt.omniclaude.plan-review-completed.v1"
+        tier: telemetry
+        description: "Plan review strategy run result"
+    partition_key_field: session_id
+    required_fields: [session_id, plan_file, total_rounds, final_status]
+
+  hostile.reviewer.completed:
+    fan_out:
+      - topic: "onex.evt.omniclaude.hostile-reviewer-completed.v1"
+        tier: telemetry
+        description: "Multi-model hostile review aggregated result"
+    partition_key_field: pr_number
+    required_fields: [pr_number, repo, verdict]
+
+  hostile.reviewer.failed:
+    fan_out:
+      - topic: "onex.evt.omniclaude.hostile-reviewer-failed.v1"
+        tier: telemetry
+        description: "Multi-model hostile review failure"
+    partition_key_field: pr_number
+    required_fields: [pr_number, repo]
+
+  # =========================================================================
+  # Coordination Events
+  # =========================================================================
+  coordination.signal:
+    fan_out:
+      - topic: "onex.evt.omniclaude.session-coordination-signal.v1"
+        tier: telemetry
+        description: "Coordination signal for session registry"
+    partition_key_field: session_id
+    required_fields: [session_id, signal_type, task_id]
+
+  # =========================================================================
+  # Team Lifecycle Events
+  # =========================================================================
+  team.task.assigned:
+    fan_out:
+      - topic: "onex.evt.omniclaude.team-task-assigned.v1"
+        tier: telemetry
+        description: "Team task assignment"
+    partition_key_field: session_id
+    required_fields: [session_id]
+
+  team.task.progress:
+    fan_out:
+      - topic: "onex.evt.omniclaude.team-task-progress.v1"
+        tier: telemetry
+        description: "Team task progress update"
+    partition_key_field: session_id
+    required_fields: [session_id, task_id]
+
+  team.task.completed:
+    fan_out:
+      - topic: "onex.evt.omniclaude.team-task-completed.v1"
+        tier: telemetry
+        description: "Team task completion"
+    partition_key_field: session_id
+    required_fields: [session_id, task_id]
+
+  team.evidence.written:
+    fan_out:
+      - topic: "onex.evt.omniclaude.team-evidence-written.v1"
+        tier: telemetry
+        description: "Team evidence artifact written"
+    partition_key_field: session_id
+    required_fields: [session_id, task_id]
+
+  # =========================================================================
+  # Hook Health
+  # =========================================================================
+  hook.health.error:
+    fan_out:
+      - topic: "onex.evt.omniclaude.hook-health-error.v1"
+        tier: telemetry
+        description: "Structured hook error event"
+    partition_key_field: session_id
+    required_fields: [hook_name, error_tier, error_category, session_id]
+
+  daemon.health.probe:
+    fan_out:
+      - topic: "onex.evt.diagnostic.daemon-health.v1"
+        tier: telemetry
+        description: "Synthetic emit daemon health probe round-trip event"
+    partition_key_field: correlation_id
+    required_fields: [correlation_id, probe]
+
+  # =========================================================================
+  # Durable Capture Events
+  # =========================================================================
+  # Capture topics are duty-critical: suppression of tool output from the
+  # LLM context is only allowed when the full bytes are content-addressed
+  # in the artifact store and an event records the capture. Losing these
+  # events silently would violate the no-hidden-loss invariant.
+  artifact.captured:
+    fan_out:
+      - topic: "onex.evt.omnimarket.artifact-captured.v1"
+        tier: duty_critical
+        # OMN-13151: per-topic metadata. transform=passthrough (no redaction on
+        # capture evidence). max_payload is bounded < daemon cap (1_048_576) so
+        # the outbox never accepts a record the daemon would reject. schema_ref
+        # names the typed payload model for the durable-content envelope.
+        transform: passthrough
+        max_payload: 524288
+        schema_ref: "omnimarket.nodes.node_filesystem_crawler_effect.models.model_content_discovered_event.ModelContentDiscoveredEvent"
+        description: "Content-addressed artifact captured in the artifact store"
+    partition_key_field: correlation_id
+    required_fields:
+      [
+        artifact_ref,
+        artifact_hash,
+        artifact_size_bytes,
+        artifact_kind,
+        source_system,
+        correlation_id,
+      ]
+
+  tool.output.captured:
+    fan_out:
+      - topic: "onex.evt.omnimarket.tool-output-captured.v1"
+        tier: duty_critical
+        # OMN-13151: per-topic metadata mirroring artifact.captured.
+        transform: redact_capture
+        max_payload: 524288
+        schema_ref: "omnimarket.nodes.node_filesystem_crawler_effect.models.model_content_discovered_event.ModelContentDiscoveredEvent"
+        description: "Tool output captured with artifact refs and suppression decision"
+    partition_key_field: correlation_id
+    required_fields: [tool_name, suppression_decision, correlation_id]
+
+  # =========================================================================
+  # Runtime Diagnostics
+  # =========================================================================
+  diagnostic.daemon.health:
+    fan_out:
+      - topic: "onex.evt.diagnostic.daemon-health.v1"
+        tier: telemetry
+        description: "Portable daemon health diagnostic event"
+      - topic: "onex.evt.omniclaude.diagnostic-daemon-health.v1"
+        tier: telemetry
+        description: "Omniclaude-scoped daemon health diagnostic event"
+    partition_key_field: daemon_id
+    required_fields: [daemon_id, pid, socket_path, kafka_offset, round_trip_ms, status]
+    payload_model: daemon_health
+
+  # =========================================================================
+  # Work-Obligation Events (OMN-17019 / C9 of the OMN-16176 ledger ladder)
+  # =========================================================================
+  # An obligation is what one actor owes another. It is created, transferred,
+  # satisfied, superseded or abandoned by a TYPED EVENT against a contract --
+  # never by editing a markdown file. `session-goal.md`,
+  # `ROLLING_SEVEN_DAY_PLAN.md`, the rolling ledger's open-ask section and the
+  # session handoff all become RENDERERS over the open-obligations projection
+  # these events feed (node_projection_open_obligations); none of them is the
+  # authority.
+  #
+  # NO BESPOKE TOPIC FAMILY. These are ordinary events in the existing
+  # onex.evt.omniclaude.* producer namespace, sitting in the same `work.`
+  # event-type namespace as OMN-16177's work.claim.* / work.result.* kinds.
+  # An obligation is a work event, not a new transport.
+  #
+  # partition_key_field is obligation_id for all five, deliberately. The
+  # lifecycle fold is resolved by PARTITION OFFSET, not by emitted_at
+  # (OMN-16177's ordering contract; emitted_at is display sort only). If two
+  # events about one obligation could land in different partitions, "what is
+  # currently owed" becomes a race between consumers.
+  #
+  # tier is duty_critical for all five, deliberately. Off-rails rev 2 sets the
+  # failure behaviour for this surface: obligation READS may degrade to the
+  # last-good projection and say so, but obligation WRITES fail closed -- an
+  # obligation that cannot be recorded must block the close, never be dropped.
+  # telemetry tier permits exactly the silent drop this ticket exists to end.
+  #
+  # HOOK-SIDE REGISTRATION: none, by design. The emitter is the onex CLI and
+  # the nodes that record work, not a Claude Code lifecycle hook -- OMN-17019
+  # names omniclaude's hook wiring as *existing*, unchanged by this ticket. So
+  # these five are declared in scripts/validation/event_registry_drift_baseline.txt
+  # as `event_registry_only` + `registry_only`, the same carve-out
+  # delegation.request and daemon.health.probe already use. When a hook client
+  # does start constructing them, the carve-out shrinks; it never grows.
+  work.obligation.created:
+    fan_out:
+      - topic: "onex.evt.omniclaude.work-obligation-created.v1"
+        tier: duty_critical
+        description: "An obligation is opened: who asked, who owes, what would satisfy it"
+    partition_key_field: obligation_id
+    required_fields:
+      [obligation_id, actor_id, summary, asked_by, owed_by, acceptance_condition]
+
+  work.obligation.transferred:
+    fan_out:
+      - topic: "onex.evt.omniclaude.work-obligation-transferred.v1"
+        tier: duty_critical
+        description: "The debt moves to a different owner; the obligation survives"
+    partition_key_field: obligation_id
+    required_fields: [obligation_id, actor_id, summary, owed_by]
+
+  work.obligation.satisfied:
+    fan_out:
+      - topic: "onex.evt.omniclaude.work-obligation-satisfied.v1"
+        tier: duty_critical
+        # evidence_uri + delivery_state are BOTH required: off-rails rev 2 A14
+        # closes an obligation on a delivered artifact plus a delivery state,
+        # explicitly NOT on a ticket id. A ticket moving to Done is not
+        # evidence that anything was delivered to anyone.
+        description: "Closed by delivery: artifact reference plus delivery state"
+    partition_key_field: obligation_id
+    required_fields: [obligation_id, actor_id, summary, evidence_uri, delivery_state]
+
+  work.obligation.superseded:
+    fan_out:
+      - topic: "onex.evt.omniclaude.work-obligation-superseded.v1"
+        tier: duty_critical
+        description: "Closed because a named successor obligation replaced it"
+    partition_key_field: obligation_id
+    required_fields:
+      [obligation_id, actor_id, summary, superseded_by_obligation_id]
+
+  work.obligation.abandoned:
+    fan_out:
+      - topic: "onex.evt.omniclaude.work-obligation-abandoned.v1"
+        tier: duty_critical
+        description: "Closed without delivery, with a recorded reason -- never a silent drop"
+    partition_key_field: obligation_id
+    required_fields: [obligation_id, actor_id, summary, abandon_reason]
+
+  # =========================================================================
+  # Work-Ledger Row Events (OMN-19513, stage 1 of retiring the markdown ledger)
+  # =========================================================================
+  # One event per canonical ledger row type (ledger-row-grammar/2), published by
+  # node_work_ledger_emit_effect through this registry's spool path. Every row
+  # is a duty_critical event: a ledger row that cannot be recorded must
+  # back-pressure at the spool, never be silently dropped.
+  #
+  # partition_key_field is ledger_id, a constant per ledger, deliberately: the
+  # whole ledger lands on one partition so the projection's fold order is the
+  # partition offset and never a clock (a few hundred rows a day is no
+  # throughput risk).
+  #
+  # HOOK-SIDE REGISTRATION: none, by design. The emitters are the onex-ledger
+  # dual write and the ledger-emit skill, not a Claude Code lifecycle hook, so
+  # these are declared in scripts/validation/event_registry_drift_baseline.txt
+  # the same way the work-obligation events are.
+  work.ledger.claim:
+    fan_out:
+      - topic: "onex.evt.omnimarket.work-ledger-claim.v1"
+        tier: duty_critical
+        description: "A lane claims work"
+    partition_key_field: ledger_id
+    required_fields: [ledger_id, row_id, row_timestamp, raw_row]
+
+  work.ledger.status:
+    fan_out:
+      - topic: "onex.evt.omnimarket.work-ledger-status.v1"
+        tier: duty_critical
+        description: "Where a lane is"
+    partition_key_field: ledger_id
+    required_fields: [ledger_id, row_id, row_timestamp, raw_row]
+
+  work.ledger.terminal:
+    fan_out:
+      - topic: "onex.evt.omnimarket.work-ledger-terminal.v1"
+        tier: duty_critical
+        description: "A lane closes its claim with an outcome"
+    partition_key_field: ledger_id
+    required_fields: [ledger_id, row_id, row_timestamp, raw_row]
+
+  work.ledger.hold:
+    fan_out:
+      - topic: "onex.evt.omnimarket.work-ledger-hold.v1"
+        tier: duty_critical
+        description: "Nobody proceeds on a scope until a release names this hold"
+    partition_key_field: ledger_id
+    required_fields: [ledger_id, row_id, row_timestamp, raw_row]
+
+  work.ledger.release:
+    fan_out:
+      - topic: "onex.evt.omnimarket.work-ledger-release.v1"
+        tier: duty_critical
+        description: "A hold or claim is released"
+    partition_key_field: ledger_id
+    required_fields: [ledger_id, row_id, row_timestamp, raw_row]
+
+  work.ledger.msg:
+    fan_out:
+      - topic: "onex.evt.omnimarket.work-ledger-msg.v1"
+        tier: duty_critical
+        description: "A lane-to-lane message"
+    partition_key_field: ledger_id
+    required_fields: [ledger_id, row_id, row_timestamp, raw_row]
+
+  work.ledger.ack:
+    fan_out:
+      - topic: "onex.evt.omnimarket.work-ledger-ack.v1"
+        tier: duty_critical
+        description: "A message, hold or ruling is acknowledged"
+    partition_key_field: ledger_id
+    required_fields: [ledger_id, row_id, row_timestamp, raw_row]
+
+  work.ledger.ruling:
+    fan_out:
+      - topic: "onex.evt.omnimarket.work-ledger-ruling.v1"
+        tier: duty_critical
+        description: "An operator ruling with the operator's words"
+    partition_key_field: ledger_id
+    required_fields: [ledger_id, row_id, row_timestamp, raw_row]
+
+  work.ledger.operator_consent:
+    fan_out:
+      - topic: "onex.evt.omnimarket.work-ledger-operator-consent.v1"
+        tier: duty_critical
+        description: "Operator consent with approved and out-of-scope lists"
+    partition_key_field: ledger_id
+    required_fields: [ledger_id, row_id, row_timestamp, raw_row]
+
+  work.ledger.friction:
+    fan_out:
+      - topic: "onex.evt.omnimarket.work-ledger-friction.v1"
+        tier: duty_critical
+        description: "Process friction with its ticket and cost"
+    partition_key_field: ledger_id
+    required_fields: [ledger_id, row_id, row_timestamp, raw_row]
+
+  work.ledger.correction:
+    fan_out:
+      - topic: "onex.evt.omnimarket.work-ledger-correction.v1"
+        tier: duty_critical
+        description: "A row already on the ledger was wrong; this is the fix"
+    partition_key_field: ledger_id
+    required_fields: [ledger_id, row_id, row_timestamp, raw_row]
+  # OMN-19999: watcher observations, never dropped. The producer supplies the
+  # composite partition key repo#pr_number via ModelEmitRequest.partition_key;
+  # the registry's single-field key lookup cannot express that composite.
+  pr.state.observed:
+    fan_out:
+      - topic: "onex.evt.omnimarket.pr-state-observed.v1"
+        tier: duty_critical
+        description: "A watcher tick observes the complete PR state"
+    required_fields: [repo, pr_number, state, observed_at, digest]
+  # OMN-20154: provider quota observations and the in-process delegation
+  # terminal. Their emitters are the in-process `onex delegate` port and the
+  # quality-gate judge, which have no orchestrator to return an event through,
+  # never a Claude Code hook; so, like pr.state.observed, they are declared
+  # emit-only in scripts/validation/event_registry_drift_baseline.txt. Never
+  # dropped: a lost quota observation is a refusal the next call walks into,
+  # and a lost terminal is a delegation missing from delegation_events.
+  # No transform: the runtime already publishes these payloads, unredacted,
+  # on the same contract topics.
+  provider.quota.observed:
+    fan_out:
+      - topic: "onex.evt.omnimarket.provider-quota-observed.v1"
+        tier: duty_critical
+        description: "One metered provider call and its capacity outcome"
+    partition_key_field: tenant_id
+    required_fields:
+      [event_id, tenant_id, credential_ref, provider_id, model_name, outcome, observed_at]
+  delegate_skill.completed:
+    fan_out:
+      - topic: "onex.evt.omnimarket.delegate-skill-completed.v1"
+        tier: duty_critical
+        description: "An in-process delegation's completed terminal, for the platform projection"
+    partition_key_field: correlation_id
+    required_fields: [correlation_id, status, task_type]
+  delegate_skill.failed:
+    fan_out:
+      - topic: "onex.evt.omnimarket.delegate-skill-failed.v1"
+        tier: duty_critical
+        description: "An in-process delegation's failed terminal, for the platform projection"
+    partition_key_field: correlation_id
+    required_fields: [correlation_id, status, task_type]
+  # OMN-20012: what the calling lane did with a delegate's answer (used as is,
+  # edited, rejected, ignored). Content-free: digests and pointers only. The
+  # producers are the delegation receipt tool and the onex delegate callers;
+  # node_projection_delegation_disposition consumes it. Keyed on the
+  # delegation's correlation so one delegation's dispositions stay ordered.
+  delegation.disposition_recorded:
+    fan_out:
+      - topic: "onex.evt.omnimarket.delegation-disposition-recorded.v1"
+        tier: telemetry
+        description: "A calling lane's disposition of one delegated answer, for the disposition projection"
+    partition_key_field: delegation_correlation_id
+    required_fields: [tenant_id, delegation_correlation_id, disposition, reason_code, caller_lane, artifact_kind, recorded_at, disposition_id]
+
+  # OMN-20001: strict core event envelopes; v1 retains its legacy body.
+  work.ledger.typed.claim:
+    fan_out:
+      - topic: "onex.evt.omnimarket.work-ledger-claim.v2"
+        tier: duty_critical
+        description: "A core typed claim work-ledger event"
+    partition_key_field: ledger_id
+    required_fields: [ledger_id, event_id, row_id, raw_row, source, provenance_kind, event, row_schema]
+  work.ledger.typed.status:
+    fan_out:
+      - topic: "onex.evt.omnimarket.work-ledger-status.v2"
+        tier: duty_critical
+        description: "A core typed status work-ledger event"
+    partition_key_field: ledger_id
+    required_fields: [ledger_id, event_id, row_id, raw_row, source, provenance_kind, event, row_schema]
+  work.ledger.typed.terminal:
+    fan_out:
+      - topic: "onex.evt.omnimarket.work-ledger-terminal.v2"
+        tier: duty_critical
+        description: "A core typed terminal work-ledger event"
+    partition_key_field: ledger_id
+    required_fields: [ledger_id, event_id, row_id, raw_row, source, provenance_kind, event, row_schema]
+  work.ledger.typed.hold:
+    fan_out:
+      - topic: "onex.evt.omnimarket.work-ledger-hold.v2"
+        tier: duty_critical
+        description: "A core typed hold work-ledger event"
+    partition_key_field: ledger_id
+    required_fields: [ledger_id, event_id, row_id, raw_row, source, provenance_kind, event, row_schema]
+  work.ledger.typed.release:
+    fan_out:
+      - topic: "onex.evt.omnimarket.work-ledger-release.v2"
+        tier: duty_critical
+        description: "A core typed release work-ledger event"
+    partition_key_field: ledger_id
+    required_fields: [ledger_id, event_id, row_id, raw_row, source, provenance_kind, event, row_schema]
+  work.ledger.typed.msg:
+    fan_out:
+      - topic: "onex.evt.omnimarket.work-ledger-msg.v2"
+        tier: duty_critical
+        description: "A core typed msg work-ledger event"
+    partition_key_field: ledger_id
+    required_fields: [ledger_id, event_id, row_id, raw_row, source, provenance_kind, event, row_schema]
+  work.ledger.typed.ack:
+    fan_out:
+      - topic: "onex.evt.omnimarket.work-ledger-ack.v2"
+        tier: duty_critical
+        description: "A core typed ack work-ledger event"
+    partition_key_field: ledger_id
+    required_fields: [ledger_id, event_id, row_id, raw_row, source, provenance_kind, event, row_schema]
+  work.ledger.typed.ruling:
+    fan_out:
+      - topic: "onex.evt.omnimarket.work-ledger-ruling.v2"
+        tier: duty_critical
+        description: "A core typed ruling work-ledger event"
+    partition_key_field: ledger_id
+    required_fields: [ledger_id, event_id, row_id, raw_row, source, provenance_kind, event, row_schema]
+  work.ledger.typed.operator_consent:
+    fan_out:
+      - topic: "onex.evt.omnimarket.work-ledger-operator-consent.v2"
+        tier: duty_critical
+        description: "A core typed operator-consent work-ledger event"
+    partition_key_field: ledger_id
+    required_fields: [ledger_id, event_id, row_id, raw_row, source, provenance_kind, event, row_schema]
+  work.ledger.typed.friction:
+    fan_out:
+      - topic: "onex.evt.omnimarket.work-ledger-friction.v2"
+        tier: duty_critical
+        description: "A core typed friction work-ledger event"
+    partition_key_field: ledger_id
+    required_fields: [ledger_id, event_id, row_id, raw_row, source, provenance_kind, event, row_schema]
+  work.ledger.typed.correction:
+    fan_out:
+      - topic: "onex.evt.omnimarket.work-ledger-correction.v2"
+        tier: duty_critical
+        description: "A core typed correction work-ledger event"
+    partition_key_field: ledger_id
+    required_fields: [ledger_id, event_id, row_id, raw_row, source, provenance_kind, event, row_schema]

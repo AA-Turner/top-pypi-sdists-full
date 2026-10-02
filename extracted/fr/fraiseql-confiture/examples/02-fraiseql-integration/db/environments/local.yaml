@@ -1,0 +1,14 @@
+# Local Development Environment Configuration
+#
+# Used by `confiture build --env local` and `confiture migrate ... --env local`.
+
+name: local
+database_url: postgresql://postgres:postgres@localhost:5432/fraiseql_blog
+
+# Include directories (files are applied in sorted path order, so the numbered
+# subdirectories under db/schema/ already give extensions → tables → indexes)
+include_dirs:
+  - db/schema
+
+# Exclude directories (optional)
+exclude_dirs: []

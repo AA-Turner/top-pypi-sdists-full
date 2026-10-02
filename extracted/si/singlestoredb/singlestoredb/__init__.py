@@ -13,7 +13,7 @@ Examples
 
 """
 
-__version__ = '1.17.3'
+__version__ = '1.18.0'
 
 from typing import Any
 
@@ -25,7 +25,7 @@ from .exceptions import (
     DataError, ManagementError,
 )
 from .management import (
-    manage_cluster, manage_workspaces, manage_files, manage_regions,
+    manage_clusters, manage_files, manage_regions, manage_workspaces,
 )
 from .types import (
     Date, Time, Timestamp, DateFromTicks, TimeFromTicks, TimestampFromTicks,

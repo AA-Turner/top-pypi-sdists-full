@@ -74,9 +74,7 @@ job_queue_spec:
 
     def _validate_idle_timeout_s(self, idle_timeout_s: int):
         if not isinstance(idle_timeout_s, int):
-            raise TypeError(
-                f"'idle_timeout_s' must be an int (it is {type(idle_timeout_s)})."
-            )
+            raise TypeError(f"'idle_timeout_s' must be an int (it is {type(idle_timeout_s)}).")
 
         elif idle_timeout_s < 0:
             raise ValueError("'idle_timeout_s' should be >= 0")
@@ -123,9 +121,7 @@ job_queue_spec:
 
     def _validate_compute_config(self, compute_config: Optional[str]):
         if compute_config is not None and not isinstance(compute_config, str):
-            raise TypeError(
-                f"'compute_config' must be a string (it is {type(compute_config)})."
-            )
+            raise TypeError(f"'compute_config' must be a string (it is {type(compute_config)}).")
 
     max_concurrency: int = field(
         default=1,
@@ -137,9 +133,7 @@ job_queue_spec:
 
     def _validate_max_concurrency(self, max_concurrency: int):
         if not isinstance(max_concurrency, int):
-            raise TypeError(
-                f"'max_concurrency' must be an int (it is {type(max_concurrency)})."
-            )
+            raise TypeError(f"'max_concurrency' must be an int (it is {type(max_concurrency)}).")
 
     auto_termination_threshold_job_count: Optional[int] = field(
         default=None,
@@ -238,9 +232,7 @@ job_queue_config:
     )
 
     def _validate_target_job_queue_name(self, target_job_queue_name: Optional[str]):
-        if target_job_queue_name is not None and not isinstance(
-            target_job_queue_name, str
-        ):
+        if target_job_queue_name is not None and not isinstance(target_job_queue_name, str):
             raise TypeError(
                 f"'target_job_queue_name' must be a string (it is {type(target_job_queue_name)})."
             )
@@ -393,7 +385,8 @@ connections: # (Optional) List of third-party connections for credential injecti
                 raise ValueError("'timeout_s' must be >= 0.")
 
     tags: Optional[Dict[str, str]] = field(
-        default=None, metadata={"docstring": "Tags to associate with the job."},
+        default=None,
+        metadata={"docstring": "Tags to associate with the job."},
     )
 
     def _validate_tags(self, tags: Optional[Dict[str, str]]):
@@ -442,9 +435,7 @@ run_statuses: List[JobRunStatus] = anyscale.job.status(name="my-job").runs
         if not isinstance(name, str):
             raise TypeError("'name' must be a string.")
 
-    state: Union[str, JobRunState] = field(
-        metadata={"docstring": "Current state of the job run."}
-    )
+    state: Union[str, JobRunState] = field(metadata={"docstring": "Current state of the job run."})
 
     def _validate_state(self, state: Union[str, JobRunState]) -> JobRunState:
         return JobRunState.validate(state)
@@ -537,9 +528,7 @@ state: STARTING
 """
 
     id: str = field(
-        metadata={
-            "docstring": "Unique ID of the job (generated when the job is first submitted)."
-        }
+        metadata={"docstring": "Unique ID of the job (generated when the job is first submitted)."}
     )
 
     def _validate_id(self, id: str):  # noqa: A002
@@ -556,16 +545,12 @@ state: STARTING
         if not isinstance(name, str):
             raise TypeError("'name' must be a string.")
 
-    state: Union[str, JobState] = field(
-        metadata={"docstring": "Current state of the job."}
-    )
+    state: Union[str, JobState] = field(metadata={"docstring": "Current state of the job."})
 
     def _validate_state(self, state: Union[str, JobState]) -> JobState:
         return JobState.validate(state)
 
-    config: JobConfig = field(
-        repr=False, metadata={"docstring": "Configuration of the job."}
-    )
+    config: JobConfig = field(repr=False, metadata={"docstring": "Configuration of the job."})
 
     def _validate_config(self, config: JobConfig):
         if not isinstance(config, JobConfig):
@@ -579,7 +564,9 @@ state: STARTING
                 raise TypeError("Each run in 'runs' must be a JobRunStatus.")
 
     creator_id: str = field(
-        metadata={"docstring": "ID of the user who created the job.",},
+        metadata={
+            "docstring": "ID of the user who created the job.",
+        },
     )
 
     def _validate_creator_id(self, creator_id: str):
@@ -587,7 +574,8 @@ state: STARTING
             raise TypeError("'creator_id' must be a string.")
 
     created_at: Optional[datetime] = field(
-        default=None, metadata={"docstring": "Timestamp when the job was created."},
+        default=None,
+        metadata={"docstring": "Timestamp when the job was created."},
     )
 
     def _validate_created_at(self, created_at: Optional[datetime]):
@@ -609,9 +597,7 @@ state: STARTING
     )
 
     def _validate_status_updated_at(self, status_updated_at: Optional[datetime]):
-        if status_updated_at is not None and not isinstance(
-            status_updated_at, datetime
-        ):
+        if status_updated_at is not None and not isinstance(status_updated_at, datetime):
             raise TypeError("'status_updated_at' must be a datetime or None.")
 
 

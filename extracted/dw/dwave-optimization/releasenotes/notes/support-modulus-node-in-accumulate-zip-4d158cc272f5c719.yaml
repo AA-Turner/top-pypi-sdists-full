@@ -1,5 +1,0 @@
----
-
-features:
-  - |
-    Support ``Modulus`` symbol in expressions used in ``AccumulateZip``.

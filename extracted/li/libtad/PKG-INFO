@@ -1,0 +1,7 @@
+Metadata-Version: 2.1
+Name: libtad
+Version: 1.1.1
+Summary: Python library for accessing Time and Date APIs
+Home-page: https://github.com/timeanddate/libtad-python/
+Author: Time and Date
+License-File: LICENSE

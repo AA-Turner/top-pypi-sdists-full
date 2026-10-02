@@ -21,6 +21,9 @@ from matrice_analytics.post_processing.core.config import (
     PeopleCountingConfig as PeopleCountingConfig,
 )
 from matrice_analytics.post_processing.core.config import (
+    PeopleCountingExtendedConfig as PeopleCountingExtendedConfig,
+)
+from matrice_analytics.post_processing.core.config import (
     PeopleTrackingConfig as PeopleTrackingConfig,
 )
 from matrice_analytics.post_processing.core.config import (
@@ -508,6 +511,9 @@ from matrice_analytics.post_processing.usecases.pedestrian_detection import (
 )
 from matrice_analytics.post_processing.usecases.people_counting import (
     PeopleCountingUseCase as PeopleCountingUseCase,
+)
+from matrice_analytics.post_processing.usecases.people_counting_extended import (
+    PeopleCountingExtendedUseCase as PeopleCountingExtendedUseCase,
 )
 from matrice_analytics.post_processing.usecases.people_counting_in_zone import (
     PeopleCountingInZoneConfig as PeopleCountingInZoneConfig,

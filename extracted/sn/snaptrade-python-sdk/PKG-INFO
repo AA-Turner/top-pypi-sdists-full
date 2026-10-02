@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: snaptrade-python-sdk
-Version: 13.0.29
+Version: 13.0.30
 Summary: Client for SnapTrade
 License: MIT
 Author: SnapTrade
@@ -87,7 +87,7 @@ See https://docs.snaptrade.com/docs/ratelimiting.
 
 
 
-[![PyPI](https://img.shields.io/badge/PyPI-v13.0.29-blue)](https://pypi.org/project/snaptrade-python-sdk/13.0.29)
+[![PyPI](https://img.shields.io/badge/PyPI-v13.0.30-blue)](https://pypi.org/project/snaptrade-python-sdk/13.0.30)
 [![README.md](https://img.shields.io/badge/README-Click%20Here-green)](https://github.com/passiv/snaptrade-sdks/tree/master/sdks/python#readme)
 [![More Info](https://img.shields.io/badge/More%20Info-Click%20Here-orange)](https://snaptrade.com/)
 
@@ -171,7 +171,7 @@ Python >=3.8
 ## Installation<a id="installation"></a>
 
 ```sh
-pip install snaptrade-python-sdk==13.0.29
+pip install snaptrade-python-sdk==13.0.30
 ```
 
 ## Authentication<a id="authentication"></a>
@@ -2896,10 +2896,10 @@ The price at which a stop order is triggered for `Stop` and `StopLimit` orders.
 ### `snaptrade.trading.get_user_account_option_quotes`<a id="snaptradetradingget_user_account_option_quotes"></a>
 ![Deprecated](https://img.shields.io/badge/deprecated-yellow)
 
+**Deprecated.** This endpoint was sunset on October 1, 2026 and now always returns `410 Gone`.
+
 Returns a quote for a single option contract. The option contract is specified using in the 21 character OCC format. For example `AAPL  251114C00240000` represents a call option on AAPL expiring on 2025-11-14 with a strike price of $240. For more information on the OCC format, see [here](https://en.wikipedia.org/wiki/Option_symbol#OCC_format)
 **Note:** These are derived values and are not suitable for trading purposes.
-
-**This Endpoint is deprecated and will cease to return data as of October 1, 2026**
 
 
 #### 🛠️ Usage<a id="🛠️-usage"></a>

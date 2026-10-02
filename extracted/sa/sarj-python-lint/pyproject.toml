@@ -1,0 +1,74 @@
+[project]
+name = "sarj-python-lint"
+version = "1.14.1"
+description = "Custom Python lint rules — AST-based, pre-commit-friendly, hypermodern defaults"
+readme = "README.md"
+authors = [{ name = "sarj-ai" }]
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.14"
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = ["sarj-rule-contracts==0.2.0", "packaging==26.3", "ruff>=0.16.9", "sqlglot==30.19.0", "typer==0.27.2"]
+
+[project.scripts]
+sarj-python-lint = "sarj_python_lint.__main__:main"
+sarj-ratchet = "sarj_python_lint._ratchet_cli:main"
+
+[project.urls]
+Homepage = "https://code-standards.sarj.ai/rules/python/"
+Documentation = "https://code-standards.sarj.ai/rules/python/"
+Changelog = "https://github.com/sarj-ai/code-standards/releases"
+Repository = "https://github.com/sarj-ai/code-standards"
+Issues = "https://github.com/sarj-ai/code-standards/issues"
+
+[dependency-groups]
+dev = [
+  "pytest>=9.1.1",
+  "ruff>=0.16.9",
+  "basedpyright>=1.40.1",
+]
+
+[build-system]
+requires = ["hatchling==1.32.4"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sarj_python_lint"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "src",
+  "README.md",
+  "LICENSE",
+  "pyproject.toml",
+]
+exclude = [
+  "tests/",
+  "**/__pycache__/",
+  "**/*.pyc",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "illustrative: executes reviewed examples published in the generated rule catalog",
+]
+
+# Dogfooding: linted/formatted by this repo's own published config (root-synced).
+[tool.ruff]
+extend = "../../.ruff-strict.toml"
+
+[tool.deptry.per_rule_ignores]
+# Ruff is invoked at runtime through `sys.executable -m ruff`, which Deptry's
+# import analysis cannot observe.
+DEP002 = ["ruff"]
+
+[tool.uv.sources]
+sarj-rule-contracts = { path = "../contracts", editable = true }

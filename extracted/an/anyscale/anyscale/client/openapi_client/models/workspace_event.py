@@ -71,7 +71,8 @@ class WorkspaceEvent(object):
         self.discriminator = None
 
         self.id = id
-        self.cluster_id = cluster_id
+        if cluster_id is not None:
+            self.cluster_id = cluster_id
         self.workspace_id = workspace_id
         self.created_at = created_at
         self.level = level
@@ -109,7 +110,7 @@ class WorkspaceEvent(object):
     def cluster_id(self):
         """Gets the cluster_id of this WorkspaceEvent.  # noqa: E501
 
-        The cluster the event originated from  # noqa: E501
+        The cluster the event originated from, if backed by one  # noqa: E501
 
         :return: The cluster_id of this WorkspaceEvent.  # noqa: E501
         :rtype: str
@@ -120,13 +121,11 @@ class WorkspaceEvent(object):
     def cluster_id(self, cluster_id):
         """Sets the cluster_id of this WorkspaceEvent.
 
-        The cluster the event originated from  # noqa: E501
+        The cluster the event originated from, if backed by one  # noqa: E501
 
         :param cluster_id: The cluster_id of this WorkspaceEvent.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and cluster_id is None:  # noqa: E501
-            raise ValueError("Invalid value for `cluster_id`, must not be `None`")  # noqa: E501
 
         self._cluster_id = cluster_id
 

@@ -2452,6 +2452,99 @@ class TestSingleRowResult:
             cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
 
 
+# MARK: - Columns With The Same Name Tests (Issue #31)
+
+
+class TestColumnsWithSameName:
+    """Test that columns sharing a name each keep their own value.
+
+    Regression tests for bug where every column with the same name
+    came back holding the value of the last one.
+    """
+
+    @pytest.fixture
+    def joined_tables(self, d1_connection):
+        """Create two tables that both have an id column."""
+        suffix = uuid.uuid4().hex[:8]
+        table_a = f"test_same_a_{suffix}"
+        table_b = f"test_same_b_{suffix}"
+        cursor = d1_connection.cursor()
+
+        cursor.execute(f"CREATE TABLE {table_a} (id INTEGER PRIMARY KEY, name TEXT)")
+        cursor.execute(f"CREATE TABLE {table_b} (id INTEGER PRIMARY KEY, a_id INTEGER)")
+        cursor.execute(f"INSERT INTO {table_a} (id, name) VALUES (1, 'x')")
+        cursor.execute(f"INSERT INTO {table_b} (id, a_id) VALUES (7, 1)")
+
+        try:
+            yield table_a, table_b
+        finally:
+            cursor.execute(f"DROP TABLE IF EXISTS {table_a}")
+            cursor.execute(f"DROP TABLE IF EXISTS {table_b}")
+
+    def test_join_via_cursor(self, d1_connection, joined_tables):
+        """Test a join selecting both id columns via DBAPI cursor."""
+        table_a, table_b = joined_tables
+        cursor = d1_connection.cursor()
+        cursor.execute(
+            f"SELECT {table_a}.id, {table_a}.name, {table_b}.id "
+            f"FROM {table_a} JOIN {table_b} ON {table_b}.a_id = {table_a}.id"
+        )
+
+        desc_names = [d[0] for d in cursor.description] if cursor.description else []
+        assert desc_names == ["id", "name", "id"]
+        assert cursor.fetchall() == [(1, "x", 7)]
+
+    def test_select_star_join_via_cursor(self, d1_connection, joined_tables):
+        """Test SELECT * over a join via DBAPI cursor."""
+        table_a, table_b = joined_tables
+        cursor = d1_connection.cursor()
+        cursor.execute(
+            f"SELECT * FROM {table_a} JOIN {table_b} ON {table_b}.a_id = {table_a}.id"
+        )
+
+        assert cursor.fetchall() == [(1, "x", 7, 1)]
+
+    def test_join_via_sqlalchemy(self, d1_engine, joined_tables):
+        """Test a join selecting both id columns via SQLAlchemy engine."""
+        from sqlalchemy import text
+
+        table_a, table_b = joined_tables
+        with d1_engine.connect() as conn:
+            result = conn.execute(
+                text(
+                    f"SELECT {table_a}.id, {table_a}.name, {table_b}.id "
+                    f"FROM {table_a} JOIN {table_b} ON {table_b}.a_id = {table_a}.id"
+                )
+            )
+            rows = result.fetchall()
+
+        assert rows == [(1, "x", 7)]
+
+    @pytest.mark.asyncio
+    async def test_join_via_async_sqlalchemy(self, joined_tables):
+        """Keep duplicate columns through the real async engine and adapter."""
+        from sqlalchemy import text
+        from sqlalchemy.ext.asyncio import create_async_engine
+
+        table_a, table_b = joined_tables
+        url = f"cloudflare_d1+async://{ACCOUNT_ID}:{API_TOKEN}@{DATABASE_ID}"
+        engine = create_async_engine(url)
+
+        try:
+            async with engine.connect() as conn:
+                result = await conn.execute(
+                    text(
+                        f"/* note */ SELECT {table_a}.id, {table_a}.name, "
+                        f"{table_b}.id FROM {table_a} JOIN {table_b} "
+                        f"ON {table_b}.a_id = {table_a}.id"
+                    )
+                )
+                assert list(result.keys()) == ["id", "name", "id"]
+                assert result.fetchall() == [(1, "x", 7)]
+        finally:
+            await engine.dispose()
+
+
 # MARK: - Autoincrement Insert Tests (Issue #12)
 
 
@@ -3411,6 +3504,100 @@ class TestEnumColumn:
                 assert retrieved.priority == Priority.high
         finally:
             Base.metadata.drop_all(d1_engine)
+
+
+# MARK: - Description Without SELECT Keyword Tests (Issue #32)
+
+
+class TestDescriptionWithoutSelectKeyword:
+    """Test that statements returning rows get a description whatever they start with.
+
+    Regression tests for bug where a leading comment, EXPLAIN or VALUES
+    returned rows with cursor.description set to None.
+    """
+
+    @pytest.mark.parametrize(
+        "sql",
+        [
+            "-- note\nSELECT 1 AS x, 2 AS y",
+            "/* note */ SELECT 1 AS x, 2 AS y",
+        ],
+    )
+    def test_comment_led_select_via_cursor(self, d1_connection, sql):
+        """Test SELECT with a leading comment has a description via DBAPI cursor."""
+        cursor = d1_connection.cursor()
+        cursor.execute(sql)
+
+        desc_names = [d[0] for d in cursor.description] if cursor.description else []
+        assert desc_names == ["x", "y"]
+        assert cursor.fetchall() == [(1, 2)]
+
+    def test_values_via_cursor(self, d1_connection):
+        """Test VALUES has a description via DBAPI cursor."""
+        cursor = d1_connection.cursor()
+        cursor.execute("VALUES (1, 2)")
+
+        desc_names = [d[0] for d in cursor.description] if cursor.description else []
+        assert desc_names == ["column1", "column2"]
+        assert cursor.fetchall() == [(1, 2)]
+
+    def test_explain_query_plan_via_cursor(self, d1_connection):
+        """Test EXPLAIN QUERY PLAN has a description via DBAPI cursor."""
+        cursor = d1_connection.cursor()
+        cursor.execute("EXPLAIN QUERY PLAN SELECT 1")
+
+        desc_names = [d[0] for d in cursor.description] if cursor.description else []
+        assert "detail" in desc_names
+        assert len(cursor.fetchall()) >= 1
+
+    def test_insert_has_no_description(self, d1_connection, test_table_name):
+        """Test INSERT without RETURNING still has no description."""
+        cursor = d1_connection.cursor()
+
+        try:
+            cursor.execute(
+                f"CREATE TABLE IF NOT EXISTS {test_table_name} "
+                f"(id INTEGER PRIMARY KEY, name TEXT)"
+            )
+            assert cursor.description is None
+
+            cursor.execute(f"INSERT INTO {test_table_name} (name) VALUES (?)", ("a",))
+            assert cursor.description is None
+            assert cursor.rowcount == 1
+        finally:
+            cursor.execute(f"DROP TABLE IF EXISTS {test_table_name}")
+
+    def test_comment_led_select_via_sqlalchemy(self, d1_engine):
+        """Test SELECT with a leading comment returns rows via SQLAlchemy engine."""
+        from sqlalchemy import text
+
+        with d1_engine.connect() as conn:
+            result = conn.execute(text("/* note */ SELECT 1 AS x, 2 AS y"))
+            columns = list(result.keys())
+            rows = result.fetchall()
+
+        assert columns == ["x", "y"]
+        assert rows == [(1, 2)]
+
+    @pytest.mark.asyncio
+    async def test_comment_led_select_via_async_engine(self):
+        """Test SELECT with a leading comment returns rows via async engine."""
+        from sqlalchemy import text
+        from sqlalchemy.ext.asyncio import create_async_engine
+
+        url = f"cloudflare_d1+async://{ACCOUNT_ID}:{API_TOKEN}@{DATABASE_ID}"
+        engine = create_async_engine(url)
+
+        try:
+            async with engine.connect() as conn:
+                result = await conn.execute(text("/* note */ SELECT 1 AS x, 2 AS y"))
+                columns = list(result.keys())
+                rows = result.fetchall()
+
+            assert columns == ["x", "y"]
+            assert rows == [(1, 2)]
+        finally:
+            await engine.dispose()
 
 
 if __name__ == "__main__":

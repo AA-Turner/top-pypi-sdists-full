@@ -25,52 +25,52 @@ use tombi_document_tree::{ArrayKind, TableKind};
 use crate::{DocumentTreeAndErrors, IntoDocumentTreeWithContext};
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Value {
+pub enum Value<'t> {
     Boolean(Boolean),
     Integer(Integer),
     Float(Float),
-    String(String),
+    String(String<'t>),
     OffsetDateTime(OffsetDateTime),
     LocalDateTime(LocalDateTime),
     LocalDate(LocalDate),
     LocalTime(LocalTime),
-    Array(Array),
-    Table(Table),
-    Incomplete { range: tombi_text::Range },
+    Array(Array<'t>),
+    Table(Table<'t>),
+    Incomplete { span: tombi_text::Span },
 }
 
-impl Value {
+impl<'t> Value<'t> {
     #[inline]
-    pub fn range(&self) -> tombi_text::Range {
+    pub fn span(&self) -> tombi_text::Span {
         match self {
-            Value::Boolean(value) => value.range(),
-            Value::Integer(value) => value.range(),
-            Value::Float(value) => value.range(),
-            Value::String(value) => value.range(),
-            Value::OffsetDateTime(value) => value.range(),
-            Value::LocalDateTime(value) => value.range(),
-            Value::LocalDate(value) => value.range(),
-            Value::LocalTime(value) => value.range(),
-            Value::Array(value) => value.range(),
-            Value::Table(value) => value.range(),
-            Value::Incomplete { range } => *range,
+            Value::Boolean(value) => value.span(),
+            Value::Integer(value) => value.span(),
+            Value::Float(value) => value.span(),
+            Value::String(value) => value.span(),
+            Value::OffsetDateTime(value) => value.span(),
+            Value::LocalDateTime(value) => value.span(),
+            Value::LocalDate(value) => value.span(),
+            Value::LocalTime(value) => value.span(),
+            Value::Array(value) => value.span(),
+            Value::Table(value) => value.span(),
+            Value::Incomplete { span } => *span,
         }
     }
 
     #[inline]
-    pub fn symbol_range(&self) -> tombi_text::Range {
+    pub fn symbol_span(&self) -> tombi_text::Span {
         match self {
-            Value::Boolean(value) => value.range(),
-            Value::Integer(value) => value.range(),
-            Value::Float(value) => value.range(),
-            Value::String(value) => value.range(),
-            Value::OffsetDateTime(value) => value.range(),
-            Value::LocalDateTime(value) => value.range(),
-            Value::LocalDate(value) => value.range(),
-            Value::LocalTime(value) => value.range(),
-            Value::Array(value) => value.symbol_range(),
-            Value::Table(value) => value.symbol_range(),
-            Value::Incomplete { range } => *range,
+            Value::Boolean(value) => value.span(),
+            Value::Integer(value) => value.span(),
+            Value::Float(value) => value.span(),
+            Value::String(value) => value.span(),
+            Value::OffsetDateTime(value) => value.span(),
+            Value::LocalDateTime(value) => value.span(),
+            Value::LocalDate(value) => value.span(),
+            Value::LocalTime(value) => value.span(),
+            Value::Array(value) => value.symbol_span(),
+            Value::Table(value) => value.symbol_span(),
+            Value::Incomplete { span } => *span,
         }
     }
 
@@ -177,15 +177,16 @@ impl Value {
         }
     }
 
-    pub fn contains(&self, position: tombi_text::Position) -> bool {
-        self.range().contains(position)
+    pub fn contains(&self, offset: tombi_text::Offset) -> bool {
+        self.span().contains_inclusive(offset)
             || self.comment_directives().is_some_and(|mut directives| {
-                directives.any(|comment_directive| comment_directive.range().contains(position))
+                directives
+                    .any(|comment_directive| comment_directive.span().contains_inclusive(offset))
             })
     }
 }
 
-impl std::fmt::Display for Value {
+impl<'t> std::fmt::Display for Value<'t> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Value::Boolean(boolean) => write!(f, "{}", boolean),
@@ -203,7 +204,7 @@ impl std::fmt::Display for Value {
     }
 }
 
-impl crate::ValueImpl for Value {
+impl<'t> crate::ValueImpl for Value<'t> {
     fn value_type(&self) -> crate::ValueType {
         match self {
             Value::Boolean(boolean) => boolean.value_type(),
@@ -220,16 +221,16 @@ impl crate::ValueImpl for Value {
         }
     }
 
-    fn range(&self) -> tombi_text::Range {
-        self.range()
+    fn span(&self) -> tombi_text::Span {
+        self.span()
     }
 }
 
-impl IntoDocumentTreeWithContext<crate::Value> for tombi_ast_syntax::Value {
+impl<'t> IntoDocumentTreeWithContext<'t, crate::Value<'t>> for tombi_ast_syntax::Value<'t> {
     fn into_document_tree_with_context(
         self,
-        context: &crate::DocumentTreeContext,
-    ) -> DocumentTreeAndErrors<crate::Value> {
+        context: &crate::DocumentTreeContext<'t>,
+    ) -> DocumentTreeAndErrors<crate::Value<'t>> {
         let mut errors = Vec::new();
         let mut comment_directives = vec![];
 
@@ -299,8 +300,8 @@ impl IntoDocumentTreeWithContext<crate::Value> for tombi_ast_syntax::Value {
     }
 }
 
-fn collect_comment_directives_and_errors(
-    node: &impl AstNode,
+fn collect_comment_directives_and_errors<'t>(
+    node: &impl AstNode<'t>,
 ) -> (Option<Vec<TombiValueCommentDirective>>, Vec<crate::Error>) {
     let mut comment_directives = vec![];
     let mut errors = vec![];

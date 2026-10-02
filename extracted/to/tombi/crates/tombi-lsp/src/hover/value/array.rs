@@ -20,11 +20,11 @@ use crate::{
     schema_resolver::resolve_array_item_schema,
 };
 
-impl GetHoverContent for tombi_document_tree_syntax::Array {
+impl GetHoverContent for tombi_document_tree_syntax::Array<'_> {
     fn get_hover_content<'a: 'b, 'b>(
         &'a self,
-        position: tombi_text::Position,
-        keys: &'a [tombi_document_tree_syntax::Key],
+        offset: tombi_text::Offset,
+        keys: &'a [tombi_document_tree_syntax::Key<'_>],
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext,
@@ -36,7 +36,7 @@ impl GetHoverContent for tombi_document_tree_syntax::Array {
 
         async move {
             if let Some((comment_directive_context, schema_uri)) =
-                get_array_comment_directive_content_with_schema_uri(self, position, accessors)
+                get_array_comment_directive_content_with_schema_uri(self, offset, accessors)
                 && let Some(hover_content) =
                     get_value_comment_directive_hover_content(comment_directive_context, schema_uri)
                         .await
@@ -50,7 +50,7 @@ impl GetHoverContent for tombi_document_tree_syntax::Array {
             {
                 return self
                     .get_hover_content(
-                        position,
+                        offset,
                         keys,
                         accessors,
                         Some(&current_schema),
@@ -63,7 +63,7 @@ impl GetHoverContent for tombi_document_tree_syntax::Array {
                 match current_schema.schema_view.as_ref() {
                     SchemaView::Array(array_schema) => {
                         for (index, value) in self.values().iter().enumerate() {
-                            if value.contains(position) {
+                            if value.contains(offset) {
                                 let accessor = Accessor::Index(index);
 
                                 if let Some(current_schema) = resolve_array_item_schema(
@@ -76,7 +76,7 @@ impl GetHoverContent for tombi_document_tree_syntax::Array {
                                 {
                                     return match value
                                         .get_hover_content(
-                                            position,
+                                            offset,
                                             keys,
                                             &accessors
                                                 .iter()
@@ -127,7 +127,7 @@ impl GetHoverContent for tombi_document_tree_syntax::Array {
                                 if let Some(one_of_schema) = array_schema.one_of.as_deref()
                                     && let Some(hover_content) = get_one_of_hover_content(
                                         self,
-                                        position,
+                                        offset,
                                         keys,
                                         accessors,
                                         one_of_schema,
@@ -142,7 +142,7 @@ impl GetHoverContent for tombi_document_tree_syntax::Array {
                                 if let Some(any_of_schema) = array_schema.any_of.as_deref()
                                     && let Some(hover_content) = get_any_of_hover_content(
                                         self,
-                                        position,
+                                        offset,
                                         keys,
                                         accessors,
                                         any_of_schema,
@@ -157,7 +157,7 @@ impl GetHoverContent for tombi_document_tree_syntax::Array {
                                 if let Some(all_of_schema) = array_schema.all_of.as_deref()
                                     && let Some(hover_content) = get_all_of_hover_content(
                                         self,
-                                        position,
+                                        offset,
                                         keys,
                                         accessors,
                                         all_of_schema,
@@ -171,7 +171,7 @@ impl GetHoverContent for tombi_document_tree_syntax::Array {
 
                                 return value
                                     .get_hover_content(
-                                        position,
+                                        offset,
                                         keys,
                                         &accessors
                                             .iter()
@@ -186,7 +186,7 @@ impl GetHoverContent for tombi_document_tree_syntax::Array {
                         }
                         let mut hover_content = array_schema
                             .get_hover_content(
-                                position,
+                                offset,
                                 keys,
                                 accessors,
                                 Some(current_schema),
@@ -197,7 +197,7 @@ impl GetHoverContent for tombi_document_tree_syntax::Array {
                         if let Some(HoverContent::Value(hover_value_content)) =
                             hover_content.as_mut()
                         {
-                            hover_value_content.range = Some(self.range());
+                            hover_value_content.span = Some(self.span());
                             if let Some(constraints) = hover_value_content.constraints.as_mut() {
                                 constraints.values_order = schema_context.array_values_order(
                                     accessors,
@@ -212,7 +212,7 @@ impl GetHoverContent for tombi_document_tree_syntax::Array {
                     SchemaView::OneOf(one_of_schema) => {
                         return get_one_of_hover_content(
                             self,
-                            position,
+                            offset,
                             keys,
                             accessors,
                             one_of_schema,
@@ -224,7 +224,7 @@ impl GetHoverContent for tombi_document_tree_syntax::Array {
                     SchemaView::AnyOf(any_of_schema) => {
                         return get_any_of_hover_content(
                             self,
-                            position,
+                            offset,
                             keys,
                             accessors,
                             any_of_schema,
@@ -236,7 +236,7 @@ impl GetHoverContent for tombi_document_tree_syntax::Array {
                     SchemaView::AllOf(all_of_schema) => {
                         return get_all_of_hover_content(
                             self,
-                            position,
+                            offset,
                             keys,
                             accessors,
                             all_of_schema,
@@ -247,11 +247,11 @@ impl GetHoverContent for tombi_document_tree_syntax::Array {
                     }
                     SchemaView::Null => {
                         for (index, value) in self.values().iter().enumerate() {
-                            if value.contains(position) {
+                            if value.contains(offset) {
                                 let accessor = Accessor::Index(index);
                                 return value
                                     .get_hover_content(
-                                        position,
+                                        offset,
                                         keys,
                                         &accessors
                                             .iter()
@@ -272,7 +272,7 @@ impl GetHoverContent for tombi_document_tree_syntax::Array {
                             value_type: ValueType::Array,
                             constraints: None,
                             schema_document_uri: None,
-                            range: Some(self.range()),
+                            span: Some(self.span()),
                             schema_tooltip: None,
                         }));
                     }
@@ -281,11 +281,11 @@ impl GetHoverContent for tombi_document_tree_syntax::Array {
             }
 
             for (index, value) in self.values().iter().enumerate() {
-                if value.contains(position) {
+                if value.contains(offset) {
                     let accessor = Accessor::Index(index);
                     return value
                         .get_hover_content(
-                            position,
+                            offset,
                             keys,
                             &accessors
                                 .iter()
@@ -306,7 +306,7 @@ impl GetHoverContent for tombi_document_tree_syntax::Array {
                 value_type: ValueType::Array,
                 constraints: None,
                 schema_document_uri: None,
-                range: Some(self.range()),
+                span: Some(self.span()),
                 schema_tooltip: None,
             }))
         }
@@ -315,7 +315,7 @@ impl GetHoverContent for tombi_document_tree_syntax::Array {
 }
 
 fn comment_directive_array_values_order(
-    array: &tombi_document_tree_syntax::Array,
+    array: &tombi_document_tree_syntax::Array<'_>,
 ) -> Option<tombi_schema_store::ArrayOrderOverride> {
     let comment_directive = get_comment_directive_content::<
         ArrayCommonFormatRules,
@@ -337,8 +337,8 @@ fn comment_directive_array_values_order(
 impl GetHoverContent for ArraySchema {
     fn get_hover_content<'a: 'b, 'b>(
         &'a self,
-        _position: tombi_text::Position,
-        _keys: &'a [tombi_document_tree_syntax::Key],
+        _position: tombi_text::Offset,
+        _keys: &'a [tombi_document_tree_syntax::Key<'_>],
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         _schema_context: &'a tombi_schema_store::SchemaContext,
@@ -370,7 +370,7 @@ impl GetHoverContent for ArraySchema {
                     ..Default::default()
                 }),
                 schema_document_uri: super::super::current_schema_link_uri(current_schema),
-                range: None,
+                span: None,
                 schema_tooltip: None,
             }))
         }

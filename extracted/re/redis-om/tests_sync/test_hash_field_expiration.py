@@ -239,13 +239,12 @@ def test_hexpire_not_available_raises_or_warns(models, redis):
 
 
 @py_test_mark_sync
-def test_check_hash_field_expiration_support():
+def test_check_hash_field_expiration_support(redis):
     """Test utility function to check if hash field expiration is supported."""
     from redis_om.model.model import supports_hash_field_expiration
 
-    # This should return True for redis-py >= 5.1.0
-    # The actual value depends on installed redis-py version
-    result = supports_hash_field_expiration()
+    # The result depends on both the installed redis-py and Redis server versions.
+    result = supports_hash_field_expiration(redis)
     assert isinstance(result, bool)
 
 

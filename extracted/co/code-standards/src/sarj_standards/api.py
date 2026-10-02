@@ -1,0 +1,1014 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, replace
+from enum import StrEnum
+import os
+from pathlib import Path
+import shutil
+import subprocess  # ruff: ignore[suspicious-subprocess-import] -- latest updates execute a fixed uvx argv.
+from typing import TYPE_CHECKING
+
+from ._meta import __version__ as __version__
+from .libs.adoption import launcher
+from .libs.adoption.doctor import Finding as DoctorFinding, Level as DoctorLevel, diagnose
+from .libs.adoption.lifecycle import (
+    Inspection,
+    execute,
+    inspect,
+    selected_eslint_commands,
+    verification_commands,
+)
+from .libs.adoption.manifest import load as load_manifest
+from .libs.adoption.scaffold import detect
+from .libs.adoption.service import (
+    InitPlan,
+    apply_init,
+    apply_sync,
+    plan_init,
+    plan_sync,
+)
+from .libs.diagnostics import (
+    AnalysisReport as AnalysisReport,
+    Completion as Completion,
+    Conclusion as Conclusion,
+    CoverageDisposition,
+    CoverageNotice as CoverageNotice,
+    Diagnostic as Diagnostic,
+    ExecutionIssue as ExecutionIssue,
+    Fix as Fix,
+    FixSafety as FixSafety,
+    Location as Location,
+    Position as Position,
+    Region as Region,
+    RelatedLocation as RelatedLocation,
+    Severity as Severity,
+    SourceDocument,
+    TextEdit as TextEdit,
+    ToolReport as ToolReport,
+    TrustMode as TrustMode,
+    baseline as diagnostic_baseline,
+    to_github as to_github,
+    to_json as to_json,
+    to_sarif as to_sarif,
+    to_text as to_text,
+)
+from .libs.filesystem import is_link_like
+from .libs.linting.analysis import analyze as analyze_paths, report_from_tools
+from .libs.linting.external import analyze_external
+from .libs.linting.library_policy import (
+    ManifestPolicyError,
+    accepts_path as library_policy_accepts_path,
+    scan as check_library_policy,
+    scan_paths as check_selected_library_policy,
+)
+from .libs.linting.policy import Policy
+from .libs.linting.runner import group_paths, run as check
+from .libs.linting.scheduling import analyze_groups
+from .libs.rules import RuleEngine, RuleId, RuleSelection, RuleSelector
+from .libs.typed_containers import is_object_list, is_object_mapping
+
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from .libs.adoption.manifest import Manifest, Profile
+    from .libs.linting.runner import GroupedPaths
+
+
+_INVALID_EXIT = 2
+_INTERRUPTED_EXIT = 130
+_INVALID_DOCTOR_FINDING_IDS = frozenset(
+    {"doctor.manifest.destination", "doctor.config.unknown", "doctor.package-json.invalid"}
+)
+
+
+class Status(StrEnum):
+    OK = "ok"
+    CHANGED = "changed"
+    DRIFT = "drift"
+    INVALID = "invalid"
+    FAILED = "failed"
+    INTERRUPTED = "interrupted"
+
+
+class AnalysisMode(StrEnum):
+    POLICY = "policy"
+    CORPUS = "corpus"
+    OBSERVE = "observe"
+    RAW = "raw"
+
+
+def _analysis_manifest(root: Path, mode: AnalysisMode) -> Manifest | None:
+    if mode is AnalysisMode.RAW:
+        return None
+    if mode is not AnalysisMode.CORPUS:
+        return load_manifest(root)
+    try:
+        return load_manifest(root)
+    except ValueError:
+        # Corpus evaluation is intentionally portable across consumer manifest
+        # generations. Current manifests still contribute path exclusions.
+        return None
+
+
+@dataclass(frozen=True, slots=True)
+class Finding:
+    id: str
+    level: str
+    message: str
+    path: str | None = None
+    remediation: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class Change:
+    action: str
+    description: str
+    path: Path | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class Result:
+    status: Status
+    findings: tuple[Finding, ...] = ()
+    changes: tuple[Change, ...] = ()
+    exit_code: int = 0
+
+    @property
+    def ok(self) -> bool:
+        return self.exit_code == 0
+
+
+class Standards:
+    def __init__(self, root: str | Path = ".") -> None:
+        resolved = Path(root).resolve()
+        if not resolved.is_dir():
+            msg = f"repository root {resolved} is not a directory"
+            raise ValueError(msg)
+        self.root: Path = resolved
+
+    def setup(
+        self,
+        *,
+        profile: Profile | None = None,
+        configs: Sequence[str] | None = None,
+        python_root: str | None = None,
+        typescript_root: str | None = None,
+        force: bool = False,
+        install: bool = True,
+        dry_run: bool = False,
+    ) -> Result:
+        try:
+            plan = plan_init(
+                self.root,
+                profile=profile,
+                configs=configs,
+                python_dest=python_root,
+                typescript_dest=typescript_root,
+                force=force,
+            )
+        except (KeyError, OSError, TypeError, ValueError) as exc:
+            return Result(
+                Status.INVALID,
+                findings=(Finding("setup.input.invalid", "error", str(exc)),),
+                exit_code=_INVALID_EXIT,
+            )
+        changes = _init_changes(plan, install=install)
+        if plan.scaffold.errors or plan.sync is None:
+            detail = "; ".join(plan.scaffold.errors) or "setup plan is not applicable"
+            return Result(
+                Status.INVALID,
+                findings=(Finding("setup.plan.invalid", "error", detail),),
+                changes=changes,
+                exit_code=_INVALID_EXIT,
+            )
+        if dry_run:
+            return Result(Status.CHANGED if changes else Status.OK, changes=changes)
+        applied = apply_init(plan, install=install)
+        findings = (
+            ()
+            if applied.error is None
+            else (
+                Finding(
+                    f"setup.{applied.failure.value if applied.failure is not None else 'apply'}.failed",
+                    "error",
+                    applied.error,
+                ),
+            )
+        )
+        if applied.status:
+            status = Status.INTERRUPTED if applied.status == _INTERRUPTED_EXIT else Status.FAILED
+            return Result(status, findings, changes, applied.status)
+        diagnosed = diagnose(self.root)
+        return _operation_result(_doctor_status(diagnosed), changes, findings=_doctor_findings(diagnosed))
+
+    def check(self, paths: Sequence[str] | None = None) -> Result:
+        if paths is not None:
+            try:
+                selected = _contained_paths(self.root, paths)
+            except ValueError as exc:
+                return Result(
+                    Status.INVALID,
+                    findings=(Finding("check.input.invalid", "error", str(exc)),),
+                    exit_code=_INVALID_EXIT,
+                )
+            try:
+                adopted = load_manifest(self.root)
+                policy = Policy.from_manifest(self.root, adopted)
+                selected = list(policy.filter_paths(selected))
+            except (OSError, TypeError, ValueError, ManifestPolicyError) as exc:
+                return Result(
+                    Status.INVALID,
+                    findings=(Finding("check.policy.invalid", "error", str(exc)),),
+                    exit_code=_INVALID_EXIT,
+                )
+            try:
+                policy_findings = check_selected_library_policy(self.root, selected)
+            except (OSError, TypeError, ValueError, ManifestPolicyError) as exc:
+                return Result(
+                    Status.INVALID,
+                    findings=(Finding("check.policy.invalid", "error", str(exc)),),
+                    exit_code=_INVALID_EXIT,
+                )
+            findings = tuple(
+                Finding(item.id, "error", item.message, str(item.path), f"use {item.replacement}")
+                for item in policy_findings
+            )
+            source_status = check(selected, policy=policy)
+            eslint_status = execute(selected_eslint_commands(self.root, selected))
+            return _operation_result(max(source_status, eslint_status, 1 if findings else 0), findings=findings)
+        return _operation_result(_verify(self.root))
+
+    def analyze(
+        self,
+        paths: Sequence[str] | None = None,
+        *,
+        external: bool = False,
+        trust: TrustMode | str = TrustMode.SAFE,
+        mode: AnalysisMode | str = AnalysisMode.POLICY,
+        rules: Sequence[str | RuleSelector] | None = None,
+        staged: bool = False,
+        react_doctor_triggered: bool = False,
+        include_react_doctor: bool = True,
+        pass_on_unpruned_eslint_suppressions: bool = False,
+        jobs: int = 1,
+        python_type_check: bool = True,
+    ) -> AnalysisReport:
+        if jobs not in {1, 2}:
+            return _failed_analysis(self.root, "invalid-input", "analysis jobs must be 1 or 2")
+        try:
+            normalized_trust = TrustMode(trust)
+            normalized_mode = AnalysisMode(mode)
+        except ValueError as exc:
+            return _failed_analysis(self.root, "invalid-input", str(exc))
+        try:
+            adopted = _analysis_manifest(self.root, normalized_mode)
+            selection_policy = _selection_policy(self.root, adopted, normalized_mode)
+            rule_selection = _rule_selection(rules)
+            selected = _analysis_inputs(self.root, paths, mode=normalized_mode)
+        except (OSError, TypeError, ValueError) as exc:
+            return _failed_analysis(self.root, "invalid-input", str(exc))
+        try:
+            baseline_counts = _analysis_baseline(self.root, adopted, normalized_mode)
+            changed_scope = diagnostic_baseline.changed_line_scope(self.root, staged=staged)
+        except (OSError, TypeError, ValueError) as exc:
+            return _failed_analysis(self.root, "baseline-failure", str(exc))
+        try:
+            active_selected = list(selection_policy.filter_paths(selected))
+            selected_groups = group_paths(active_selected, policy=selection_policy)
+        except (OSError, TypeError, ValueError) as exc:
+            return _failed_analysis(self.root, "invalid-input", str(exc))
+        requested_paths = adopted.verify_paths if paths is None and adopted is not None else paths
+        react_doctor_full_scan = not staged and (
+            requested_paths is None or any(Path(path) == Path() for path in requested_paths)
+        )
+
+        def native_analysis() -> tuple[ToolReport, ...]:
+            native = analyze_paths(
+                active_selected,
+                root=self.root,
+                policy=selection_policy,
+                grouped=selected_groups,
+                rule_selection=rule_selection,
+            )
+            if rule_selection is None:
+                native = _with_library_policy(self.root, native, active_selected, selection_policy)
+            if rule_selection is None and normalized_mode is AnalysisMode.POLICY:
+                native = _with_repository_analysis(self.root, native, staged=staged)
+            return native.tools
+
+        coverage = _selection_coverage(self.root, selected, active_selected, selected_groups, rule_selection)
+        if not external:
+            native = report_from_tools(self.root, native_analysis())
+            _native_typescript_coverage(selected_groups, adopted, rule_selection, coverage)
+            if normalized_mode in {AnalysisMode.POLICY, AnalysisMode.OBSERVE}:
+                native = _with_warning_severity(native, _warning_rule_keys())
+            return _with_coverage(
+                _without_baselined_diagnostics(native, baseline_counts, changed_scope=changed_scope), coverage
+            )
+        if selected_groups.typescript and adopted is not None and "eslint" not in adopted.configs:
+            coverage.append(
+                CoverageNotice(
+                    "eslint",
+                    "disabled by repository capabilities",
+                    len(selected_groups.typescript),
+                    CoverageDisposition.NOT_REQUESTED,
+                )
+            )
+        if selected_groups.python and not python_type_check:
+            coverage.append(
+                CoverageNotice(
+                    "basedpyright",
+                    "Python type checking is left to the repository's own CI",
+                    len(selected_groups.python),
+                    CoverageDisposition.NOT_REQUESTED,
+                )
+            )
+
+        def external_analysis() -> tuple[ToolReport, ...]:
+            return _selected_external_analysis(
+                active_selected,
+                root=self.root,
+                selected_groups=selected_groups,
+                adopted=adopted,
+                selection_policy=selection_policy,
+                rule_selection=rule_selection,
+                normalized_trust=normalized_trust,
+                include_react_doctor=include_react_doctor,
+                react_doctor_triggered=react_doctor_triggered,
+                staged=staged,
+                react_doctor_full_scan=react_doctor_full_scan,
+                pass_on_unpruned_eslint_suppressions=pass_on_unpruned_eslint_suppressions,
+                python_type_check=python_type_check,
+            )
+
+        combined = report_from_tools(
+            self.root, analyze_groups(self.root, native_analysis, external_analysis, jobs=jobs)
+        )
+        if normalized_mode in {AnalysisMode.POLICY, AnalysisMode.OBSERVE}:
+            combined = _with_warning_severity(combined, _warning_rule_keys())
+        return _with_coverage(
+            _without_baselined_diagnostics(combined, baseline_counts, changed_scope=changed_scope), coverage
+        )
+
+    def run(
+        self,
+        paths: Sequence[str] | None = None,
+        *,
+        external: bool = False,
+        trust: TrustMode | str = TrustMode.SAFE,
+        mode: AnalysisMode | str = AnalysisMode.POLICY,
+        rules: Sequence[str | RuleSelector] | None = None,
+        staged: bool = False,
+        jobs: int = 1,
+    ) -> AnalysisReport:
+        return self.analyze(paths, external=external, trust=trust, mode=mode, rules=rules, staged=staged, jobs=jobs)
+
+    def fix(self) -> Result:
+        from .libs.adoption import (  # ruff: ignore[import-outside-top-level] -- selected operation only
+            lifecycle,
+            scaffold,
+        )
+
+        try:
+            adopted = load_manifest(self.root)
+            ecosystems = scaffold.detect(self.root) if adopted is None else scaffold.detect_adopted(self.root, adopted)
+        except (OSError, TypeError, ValueError) as exc:
+            return Result(
+                Status.INVALID,
+                findings=(Finding("fix.input.invalid", "error", str(exc)),),
+                exit_code=_INVALID_EXIT,
+            )
+        return _operation_result(lifecycle.execute(lifecycle.format_commands(ecosystems)))
+
+    def doctor(self) -> Result:
+        diagnosed = diagnose(self.root)
+        findings = tuple(
+            Finding(item.id, item.level.value, item.detail, item.where, item.remediation) for item in diagnosed
+        )
+        status = _doctor_status(diagnosed)
+        return _operation_result(status, findings=findings)
+
+    def update(
+        self,
+        *,
+        version: str | None = None,
+        offline: bool = False,
+        install: bool = True,
+        check_only: bool = False,
+    ) -> Result:
+        return self._update_target(version=version, offline=offline, install=install, check_only=check_only)
+
+    def _update_target(self, *, version: str | None, offline: bool, install: bool, check_only: bool) -> Result:
+        executable = shutil.which("uvx")
+        if executable is None:
+            finding = Finding(
+                "update.latest.unavailable",
+                "error",
+                "uvx is required to resolve the latest Standards release; install uv and retry",
+            )
+            return Result(Status.FAILED, findings=(finding,), exit_code=_INVALID_EXIT)
+        try:
+            launch_argv = launcher.argv(executable=executable, version=version, refresh=not offline)
+        except ValueError as exc:
+            finding = Finding("update.version.invalid", "error", str(exc))
+            return Result(Status.INVALID, findings=(finding,), exit_code=_INVALID_EXIT)
+        command = [
+            *launch_argv,
+            "--root",
+            str(self.root),
+            "update",
+            "--offline",
+        ]
+        if version is not None:
+            command.extend(("--to", version))
+        if check_only:
+            command.append("--check")
+        if not install:
+            command.append("--no-install")
+        environment = dict(os.environ)  # ruff: ignore[banned-api] -- preserve caller environment for the fixed uvx process.
+        environment["SARJ_STANDARDS_BOOTSTRAPPED"] = "1"
+        try:
+            completed = subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true] -- fixed executable and argv.
+                command,
+                check=False,
+                capture_output=True,
+                text=True,
+                env=environment,
+            )
+        except OSError as exc:
+            finding = Finding("update.latest.failed", "error", str(exc))
+            return Result(Status.FAILED, findings=(finding,), exit_code=_INVALID_EXIT)
+        output = (completed.stderr or completed.stdout).strip()
+        if completed.returncode == 0:
+            status = Status.OK if check_only else Status.CHANGED
+            changes = () if check_only else (Change("update", "applied the latest coherent Standards bundle"),)
+            return Result(status, changes=changes)
+        if completed.returncode == 1:
+            if check_only:
+                finding = Finding("update.latest.available", "warning", output or "a standards update is available")
+                return Result(Status.DRIFT, findings=(finding,), exit_code=1)
+            finding = Finding(
+                "update.latest.failed",
+                "error",
+                output or "the latest standards update did not converge; tracked configuration files were restored",
+            )
+            return Result(Status.FAILED, findings=(finding,), exit_code=1)
+        finding = Finding("update.latest.failed", "error", output or "latest standards update failed")
+        return Result(Status.FAILED, findings=(finding,), exit_code=completed.returncode)
+
+    def inspect(self) -> Inspection:
+        return inspect(self.root)
+
+
+def _doctor_status(findings: Sequence[DoctorFinding]) -> int:
+    if any(finding.id.endswith(".invalid") or finding.id in _INVALID_DOCTOR_FINDING_IDS for finding in findings):
+        return _INVALID_EXIT
+    return (
+        1
+        if any(finding.level is DoctorLevel.DRIFT or finding.id == "doctor.manifest.absent" for finding in findings)
+        else 0
+    )
+
+
+def _doctor_findings(findings: Sequence[DoctorFinding]) -> tuple[Finding, ...]:
+    return tuple(Finding(item.id, item.level.value, item.detail, item.where, item.remediation) for item in findings)
+
+
+def _verify(root: Path) -> int:
+    status = _doctor_status(diagnose(root))
+    if status:
+        return status
+    sync_result = apply_sync(plan_sync(root), check=True)
+    if sync_result.status:
+        return sync_result.status
+    try:
+        adopted = load_manifest(root)
+    except OSError, TypeError, ValueError:
+        return _INVALID_EXIT
+    verify_paths = adopted.verify_paths if adopted is not None else (".",)
+    policy = Policy.from_manifest(root, adopted)
+    if check(
+        [str(root / path) for path in verify_paths],
+        policy=policy,
+    ):
+        return 1
+    if check_library_policy(root):
+        return 1
+    return execute(verification_commands(detect(root)))
+
+
+def _init_changes(plan: InitPlan, *, install: bool) -> tuple[Change, ...]:
+    scaffold = plan.scaffold
+    return (
+        *(Change("create", "write adoption file", path) for path, _contents in scaffold.writes),
+        *(Change("update", "extend adoption file", path) for path, _contents in scaffold.edits),
+        *(Change("delete", "remove retired repository launcher", path) for path in scaffold.deletes),
+        *(
+            Change(
+                "create" if not target.destination.exists() else "update",
+                f"sync {target.name} config",
+                target.destination,
+            )
+            for target in (() if plan.sync is None else plan.sync.targets)
+            if _sync_target_changes(target.source, target.destination)
+        ),
+        *(Change("run", command.label) for command in plan.install_commands if install),
+    )
+
+
+def _operation_result(
+    exit_code: int,
+    changes: tuple[Change, ...] = (),
+    *,
+    findings: tuple[Finding, ...] = (),
+) -> Result:
+    match exit_code:
+        case 0:
+            status = Status.CHANGED if changes else Status.OK
+        case 1:
+            status = Status.DRIFT
+        case _ if exit_code == _INVALID_EXIT:
+            status = Status.INVALID
+        case _ if exit_code == _INTERRUPTED_EXIT:
+            status = Status.INTERRUPTED
+        case _:
+            status = Status.FAILED
+    return Result(status, findings, changes, exit_code)
+
+
+def _failed_analysis(root: Path, kind: str, message: str) -> AnalysisReport:
+    issue = ExecutionIssue("sarj-standards", kind, message)
+    tool = ToolReport("sarj-standards", Completion.FAILED, issues=(issue,))
+    return AnalysisReport(root, Completion.FAILED, Conclusion.INCONCLUSIVE, (tool,))
+
+
+def _without_baselined_diagnostics(
+    report: AnalysisReport,
+    counts: dict[str, int],
+    *,
+    changed_scope: diagnostic_baseline.ChangedLineScope | None = None,
+) -> AnalysisReport:
+    if not counts:
+        return report
+    remaining = counts.copy()
+
+    def active(diagnostic: Diagnostic) -> bool:
+        if not diagnostic_baseline.is_baselineable(diagnostic):
+            return True
+        if diagnostic_baseline.touches_changed_lines(diagnostic, changed_scope):
+            return True
+        fingerprint = diagnostic.fingerprint
+        budget = 0 if fingerprint is None else remaining.get(fingerprint, 0)
+        if budget < 1 or fingerprint is None:
+            return True
+        remaining[fingerprint] = budget - 1
+        return False
+
+    def filter_tool(item: ToolReport) -> ToolReport:
+        diagnostics = tuple(diagnostic for diagnostic in item.diagnostics if active(diagnostic))
+        return replace(
+            item,
+            diagnostics=diagnostics,
+            baselined_count=item.baselined_count + len(item.diagnostics) - len(diagnostics),
+        )
+
+    tools = tuple(filter_tool(item) for item in report.tools)
+    return report_from_tools(report.root, tools)
+
+
+def _with_coverage(report: AnalysisReport, coverage: Sequence[CoverageNotice]) -> AnalysisReport:
+    notices = tuple(coverage)
+    if not notices:
+        return report
+    blocking = any(item.blocking for item in notices)
+    completion = Completion.PARTIAL if blocking and report.completion is Completion.COMPLETE else report.completion
+    conclusion = report.conclusion if report.diagnostics or not blocking else Conclusion.INCONCLUSIVE
+    return AnalysisReport(report.root, completion, conclusion, report.tools, notices)
+
+
+def _analysis_inputs(root: Path, paths: Sequence[str] | None, *, mode: AnalysisMode = AnalysisMode.POLICY) -> list[str]:
+    if paths is not None:
+        selected = _contained_paths(root, paths)
+        return selected if mode is AnalysisMode.RAW else _with_tracked_terraform_tests(root, selected)
+    if mode is AnalysisMode.RAW:
+        return [str(root)]
+    adopted = load_manifest(root)
+    verify_paths = adopted.verify_paths if adopted is not None else (".",)
+    return _with_tracked_terraform_tests(root, [str(root / path) for path in verify_paths])
+
+
+def _with_tracked_terraform_tests(root: Path, selected: list[str]) -> list[str]:
+    return list(dict.fromkeys((*selected, *diagnostic_baseline.tracked_terraform_test_paths(root))))
+
+
+def _selection_policy(root: Path, adopted: Manifest | None, normalized_mode: AnalysisMode) -> Policy:
+    return (
+        Policy.corpus_from_manifest(root, adopted)
+        if normalized_mode is AnalysisMode.CORPUS
+        else (
+            Policy.observe_from_manifest(root, adopted)
+            if normalized_mode is AnalysisMode.OBSERVE
+            else Policy.from_manifest(root, adopted)
+        )
+    )
+
+
+def _selected_external_analysis(
+    active_selected: list[str],
+    *,
+    root: Path,
+    selected_groups: GroupedPaths,
+    adopted: Manifest | None,
+    selection_policy: Policy,
+    rule_selection: RuleSelection | None,
+    normalized_trust: TrustMode,
+    include_react_doctor: bool,
+    react_doctor_triggered: bool,
+    staged: bool,
+    react_doctor_full_scan: bool,
+    pass_on_unpruned_eslint_suppressions: bool,
+    python_type_check: bool,
+) -> tuple[ToolReport, ...]:
+    rule_ids = (
+        frozenset(str(value) for value in rule_selection.ids_for(RuleEngine.ESLINT))
+        if rule_selection is not None
+        else None
+    )
+    external_engines = frozenset({RuleEngine.ESLINT, RuleEngine.CHECKOV, RuleEngine.ZIZMOR})
+    selected_capabilities = (
+        frozenset(engine.value for engine in rule_selection.engines & external_engines)
+        if rule_selection is not None
+        else None
+    )
+    run_external = rule_selection is None or not rule_selection.engines.isdisjoint(external_engines)
+    external_reports = (
+        (
+            analyze_external(
+                active_selected,
+                root=root,
+                trust=normalized_trust,
+                policy=selection_policy,
+                capabilities=(
+                    selected_capabilities if rule_selection is not None else frozenset(adopted.enabled_capabilities)
+                ),
+                grouped=selected_groups,
+                rule_ids=rule_ids,
+                security_selection=rule_selection,
+                include_react_doctor=include_react_doctor and rule_selection is None,
+                force_react_doctor=react_doctor_triggered,
+                react_doctor_staged=staged,
+                react_doctor_full_scan=react_doctor_full_scan,
+                pass_on_unpruned_eslint_suppressions=pass_on_unpruned_eslint_suppressions,
+                python_type_check=python_type_check,
+            )
+            if adopted is not None
+            else analyze_external(
+                active_selected,
+                root=root,
+                trust=normalized_trust,
+                capabilities=selected_capabilities,
+                grouped=selected_groups,
+                rule_ids=rule_ids,
+                security_selection=rule_selection,
+                include_react_doctor=include_react_doctor and rule_selection is None,
+                force_react_doctor=react_doctor_triggered,
+                react_doctor_staged=staged,
+                react_doctor_full_scan=react_doctor_full_scan,
+                pass_on_unpruned_eslint_suppressions=pass_on_unpruned_eslint_suppressions,
+                python_type_check=python_type_check,
+            )
+        )
+        if run_external
+        else ()
+    )
+    if rule_selection is not None:
+        external_reports = tuple(_filter_report_selectors(report, rule_selection) for report in external_reports)
+    return external_reports
+
+
+def _with_library_policy(
+    root: Path, native: AnalysisReport, active_selected: list[str], selection_policy: Policy
+) -> AnalysisReport:
+    try:
+        policy = _filter_tool_report(_policy_report(root, active_selected), selection_policy)
+    except (OSError, TypeError, ValueError, ManifestPolicyError) as exc:
+        issue = ExecutionIssue("sarj-library-policy", "policy-failure", f"{type(exc).__name__}: {exc}")
+        policy = ToolReport("sarj-library-policy", Completion.FAILED, issues=(issue,))
+    return report_from_tools(root, (*native.tools, policy))
+
+
+def _with_repository_analysis(root: Path, native: AnalysisReport, *, staged: bool) -> AnalysisReport:
+    from .libs.linting.repo_standards import (  # ruff: ignore[import-outside-top-level]
+        analyze as analyze_repository,
+    )
+
+    try:
+        repository = analyze_repository(root, staged=staged)
+    except Exception as exc:  # ruff: ignore[blind-except] -- dependency contract failures must fail closed.
+        issue = ExecutionIssue(
+            "repo-standards",
+            "integration-failure",
+            f"{type(exc).__name__}: {exc}",
+        )
+        repository = ToolReport("repo-standards", Completion.FAILED, issues=(issue,))
+    if repository is not None:
+        native = report_from_tools(root, (*native.tools, repository))
+    return native
+
+
+def _selection_coverage(
+    root: Path,
+    selected: list[str],
+    active_selected: list[str],
+    selected_groups: GroupedPaths,
+    rule_selection: RuleSelection | None,
+) -> list[CoverageNotice]:
+    coverage: list[CoverageNotice] = []
+    excluded = sum(Path(item).is_file() and item not in active_selected for item in selected)
+    if excluded:
+        coverage.append(
+            CoverageNotice(
+                "sarj-standards",
+                "excluded by repository policy",
+                excluded,
+                CoverageDisposition.EXCLUDED,
+            )
+        )
+    routed = _routed_for_selection(selected_groups, rule_selection)
+    if rule_selection is None:
+        routed.update(
+            item for item in active_selected if Path(item).is_file() and library_policy_accepts_path(Path(item), root)
+        )
+    unsupported = sum(Path(item).is_file() and item not in routed for item in active_selected)
+    if unsupported:
+        coverage.append(
+            CoverageNotice(
+                "sarj-standards",
+                "no bundled analyzer accepts the selected file type",
+                unsupported,
+            )
+        )
+    return coverage
+
+
+def _native_typescript_coverage(
+    selected_groups: GroupedPaths,
+    adopted: Manifest | None,
+    rule_selection: RuleSelection | None,
+    coverage: list[CoverageNotice],
+) -> None:
+    if selected_groups.typescript and (rule_selection is None or RuleEngine.ESLINT in rule_selection.engines):
+        eslint_enabled = adopted is None or "eslint" in adopted.configs
+        coverage.append(
+            CoverageNotice(
+                "eslint",
+                (
+                    "native analysis does not run TypeScript; use check or external trusted analysis"
+                    if eslint_enabled
+                    else "disabled by repository capabilities"
+                ),
+                len(selected_groups.typescript),
+                CoverageDisposition.FAILED if eslint_enabled else CoverageDisposition.NOT_REQUESTED,
+            )
+        )
+
+
+def _analysis_baseline(root: Path, adopted: Manifest | None, normalized_mode: AnalysisMode) -> dict[str, int]:
+    return (
+        diagnostic_baseline.load(
+            root / adopted.diagnostic_baseline,
+            require_v2=True,
+            expected_bundle_version=__version__,
+            expected_catalog_digest=diagnostic_baseline.bundled_catalog_digest(),
+        )
+        if normalized_mode is AnalysisMode.POLICY and adopted is not None and adopted.diagnostic_baseline is not None
+        else {}
+    )
+
+
+def _rule_selection(values: Sequence[str | RuleSelector] | None) -> RuleSelection | None:
+    if values is None:
+        return None
+    if isinstance(values, str):
+        msg = "rules must be a sequence of canonical selectors, not one string"
+        raise TypeError(msg)
+    from sarj_standards.libs.linting import (  # ruff: ignore[import-outside-top-level] -- load the upstream selectors with the catalog.
+        security_tools,
+    )
+    from sarj_standards.libs.repository import (  # ruff: ignore[import-outside-top-level]
+        rule_catalog_artifact,
+    )
+
+    catalog = rule_catalog_artifact.load()
+    raw_rules = _object_list(catalog.get("rules"), "shipped rule catalog rules")
+    live: set[RuleSelector] = set()
+    live.update(RuleSelector(RuleEngine.CHECKOV, RuleId(rule)) for rule in security_tools.CHECKOV_CHECKS)
+    live.update(RuleSelector(RuleEngine.ZIZMOR, RuleId(rule)) for rule in security_tools.ZIZMOR_RULES)
+    for value in raw_rules:
+        key = value.get("key") if is_object_mapping(value) else None
+        if isinstance(key, str):
+            live.add(RuleSelector.parse(key))
+    selected: set[RuleSelector] = set()
+    for value in values:
+        selector = value if isinstance(value, RuleSelector) else RuleSelector.parse(value)
+        if selector.engine is RuleEngine.ZIZMOR and selector.rule_id in security_tools.ZIZMOR_ONLINE_ONLY:
+            msg = f"{selector} cannot run in offline analysis; choose an offline audit"
+            raise ValueError(msg)
+        if selector not in live:
+            msg = f"unknown or invalid rule selector: {value}"
+            raise ValueError(msg)
+        selected.add(selector)
+    return RuleSelection(frozenset(selected))
+
+
+def _routed_for_selection(grouped: object, selected: RuleSelection | None) -> set[str]:
+    from sarj_standards.libs.linting.runner import (  # ruff: ignore[import-outside-top-level]
+        GroupedPaths,
+    )
+
+    if not isinstance(grouped, GroupedPaths):
+        msg = "analysis routing has an invalid internal type"
+        raise TypeError(msg)
+    engines = frozenset(RuleEngine) if selected is None else selected.engines
+    routed: set[str] = set()
+    if RuleEngine.PYTHON in engines:
+        routed.update(grouped.python)
+    if RuleEngine.SQL in engines:
+        routed.update(grouped.sql)
+    if RuleEngine.IAC in engines:
+        routed.update(grouped.iac)
+    if not engines.isdisjoint({RuleEngine.CHECKOV, RuleEngine.ZIZMOR}):
+        routed.update(grouped.iac)
+    if RuleEngine.TEXT in engines:
+        routed.update(grouped.text)
+    if RuleEngine.ESLINT in engines:
+        routed.update(grouped.typescript)
+    if selected is None:
+        routed.update(grouped.kotlin)
+        routed.update(grouped.swift)
+    return routed
+
+
+def _filter_report_selectors(
+    report: ToolReport,
+    selected: RuleSelection,
+) -> ToolReport:
+    engine = RuleEngine(report.name) if report.name in {"eslint", "zizmor", "checkov"} else None
+    allowed: frozenset[str] = frozenset() if engine is None else selected.native_ids_for(engine)
+    return ToolReport(
+        report.name,
+        report.completion,
+        diagnostics=tuple(item for item in report.diagnostics if item.rule_id in allowed),
+        issues=report.issues,
+        analyzer_id=report.analyzer_id,
+        invocation_id=report.invocation_id,
+        version=report.version,
+        duration_ms=report.duration_ms,
+        file_count=report.file_count,
+        cache_status=report.cache_status,
+    )
+
+
+def _warning_rule_keys() -> frozenset[RuleSelector]:
+    from sarj_standards.libs.linting.policy import (  # ruff: ignore[import-outside-top-level]
+        warning_selectors,
+    )
+
+    return warning_selectors()
+
+
+def _with_warning_severity(report: AnalysisReport, selectors: frozenset[RuleSelector]) -> AnalysisReport:
+    if not selectors:
+        return report
+    tools = tuple(
+        ToolReport(
+            tool.name,
+            tool.completion,
+            diagnostics=tuple(
+                replace(item, severity=Severity.WARNING) if _selector_for_diagnostic(item) in selectors else item
+                for item in tool.diagnostics
+            ),
+            issues=tool.issues,
+            analyzer_id=tool.analyzer_id,
+            invocation_id=tool.invocation_id,
+            version=tool.version,
+            duration_ms=tool.duration_ms,
+            file_count=tool.file_count,
+            cache_status=tool.cache_status,
+        )
+        for tool in report.tools
+    )
+    return report_from_tools(report.root, tools)
+
+
+def _selector_for_diagnostic(item: Diagnostic) -> RuleSelector | None:
+    engine = _engine_for_diagnostic(item)
+    if engine is None:
+        return None
+    identity = item.rule_id or item.code
+    if engine is RuleEngine.ESLINT and identity.startswith("@sarj/"):
+        identity = identity.removeprefix("@sarj/")
+    try:
+        return RuleSelector(engine, RuleId(identity))
+    except ValueError:
+        return None
+
+
+def _engine_for_diagnostic(item: Diagnostic) -> RuleEngine | None:
+    return {
+        "sarj-python-lint": RuleEngine.PYTHON,
+        "sarj-sql-lint": RuleEngine.SQL,
+        "sarj-iac-lint": RuleEngine.IAC,
+        "sarj-text-lint": RuleEngine.TEXT,
+        "python": RuleEngine.PYTHON,
+        "sql": RuleEngine.SQL,
+        "iac": RuleEngine.IAC,
+        "text": RuleEngine.TEXT,
+        "eslint": RuleEngine.ESLINT,
+        "checkov": RuleEngine.CHECKOV,
+        "zizmor": RuleEngine.ZIZMOR,
+    }.get(item.source)
+
+
+def _policy_report(root: Path, selected: Sequence[str]) -> ToolReport:
+    findings = check_selected_library_policy(root, selected)
+    documents: dict[Path, SourceDocument] = {}
+    diagnostics: list[Diagnostic] = []
+    for finding in findings:
+        resolved = (root / finding.path).resolve()
+        relative = resolved.relative_to(root)
+        if resolved not in documents:
+            documents[resolved] = SourceDocument.read(resolved)
+        position = documents[resolved].point(line=finding.line, column=finding.column)
+        diagnostics.append(
+            Diagnostic(
+                finding.id,
+                finding.message,
+                Severity.ERROR,
+                "sarj-library-policy",
+                Location(relative.as_posix(), position=position),
+                rule_id=finding.id,
+                help=f"Replace {finding.package} with {finding.replacement}",
+            )
+        )
+    return ToolReport("sarj-library-policy", Completion.COMPLETE, diagnostics=tuple(diagnostics))
+
+
+def _filter_tool_report(report: ToolReport, policy: Policy) -> ToolReport:
+    return ToolReport(
+        report.name,
+        report.completion,
+        diagnostics=policy.filter_diagnostics(report.diagnostics),
+        issues=report.issues,
+        analyzer_id=report.analyzer_id,
+        invocation_id=report.invocation_id,
+        version=report.version,
+        duration_ms=report.duration_ms,
+        file_count=report.file_count,
+        cache_status=report.cache_status,
+    )
+
+
+def _repository_root(root: str | Path) -> Path:
+    resolved = Path(root).resolve()
+    if not resolved.is_dir():
+        msg = f"repository root {resolved} is not a directory"
+        raise ValueError(msg)
+    return resolved
+
+
+def _contained_paths(root: Path, paths: Sequence[str]) -> list[str]:
+    selected: list[str] = []
+    for raw in paths:
+        supplied = Path(raw)
+        candidate = supplied if supplied.is_absolute() else root / supplied
+        try:
+            relative = candidate.absolute().relative_to(root)
+        except ValueError as exc:
+            msg = f"input must exist inside repository root: {raw}"
+            raise ValueError(msg) from exc
+        cursor = root
+        if any(is_link_like(cursor := cursor / part) for part in relative.parts):
+            msg = f"input must not traverse a symlink: {raw}"
+            raise ValueError(msg)
+        resolved = candidate.resolve()
+        if not resolved.is_relative_to(root) or not resolved.exists():
+            msg = f"input must exist inside repository root: {raw}"
+            raise ValueError(msg)
+        selected.append(str(resolved))
+    return list(dict.fromkeys(selected))
+
+
+def _sync_target_changes(source: Path, destination: Path) -> bool:
+    try:
+        return not destination.is_file() or source.read_bytes() != destination.read_bytes()
+    except OSError:
+        return True
+
+
+def _object_list(value: object, label: str) -> list[object]:
+    if not is_object_list(value):
+        msg = f"{label} must be an array"
+        raise TypeError(msg)
+    return value

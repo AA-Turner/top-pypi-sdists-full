@@ -1,0 +1,6 @@
+---
+features:
+  - |
+    If ``HEAD`` already exists on a remote branch, ``git review`` will now only
+    warn and prompt for confirmation when pushing, in order to let the Gerrit
+    server decide whether to accept or reject it.

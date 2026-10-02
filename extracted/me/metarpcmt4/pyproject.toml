@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "MetaRpcMT4"
+version = "0.0.302"
+description = "MetaRPC MT4 gRPC Python client"
+authors = [{ name = "MetaRPC", email = "admin@mrpc.pro" }]
+readme = "README.md"
+requires-python = ">=3.8"
+
+# dependencies (installed automatically with your package)
+dependencies = [
+    "grpcio>=1.60.0",
+    "grpcio-tools>=1.60.0",
+    "googleapis-common-protos>=1.56.0"
+]
+
+[tool.setuptools]
+packages = ["MetaRpcMT4"]
+include-package-data = true

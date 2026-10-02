@@ -10,6 +10,9 @@ from anyscale._private.models.integrations import (
 from anyscale._private.workload import WorkloadConfig
 
 
+BANNED_PROXY_LOCATIONS = {"Disabled"}
+
+
 @dataclass(frozen=True)
 class RayGCSExternalStorageConfig(ModelBase):
     """Configuration options for external storage for the Ray Global Control Store (GCS).
@@ -141,9 +144,7 @@ tracing_config:
     )
 
     def _validate_exporter_import_path(self, exporter_import_path: Optional[str]):
-        if exporter_import_path is not None and not isinstance(
-            exporter_import_path, str
-        ):
+        if exporter_import_path is not None and not isinstance(exporter_import_path, str):
             raise TypeError("'exporter_import_path' must be a string.")
 
     sampling_ratio: float = field(
@@ -184,7 +185,7 @@ applications:
 image_uri: anyscale/image/my-image:1 # (Optional) Exclusive with `containerfile`.
 containerfile: /path/to/Dockerfile # (Optional) Exclusive with `image_uri`.
 compute_config: my-compute-config:1 # (Optional) An inline dictionary can also be provided.
-working_dir: /path/to/working_dir # (Optional) If a local directory is provided, it will be uploaded automatically.
+working_dir: /path/to/working_dir # (Optional) If a local directory is provided, it will be uploaded automatically. Use local:///path/in/image to run in a directory that is already in the container image.
 excludes: # (Optional) List of files to exclude from being packaged up for the service.
   - .git
   - .env
@@ -213,6 +214,7 @@ logging_config: # (Optional) Configuration options for logging.
   encoding: JSON # JSON or TEXT.
   log_level: INFO
   enable_access_log: true
+proxy_location: HeadOnly # (Optional) Where to run Serve proxies: EveryNode (default) or HeadOnly.
 tracing_config: # (Optional) Configuration options for tracing.
   enabled: true
   exporter_import_path: my_module:custom_tracing_exporter
@@ -242,7 +244,8 @@ connections: # (Optional) List of third-party connections for credential injecti
     )
 
     version_name: Optional[str] = field(
-        default=None, metadata={"docstring": "Unique name of the version."},
+        default=None,
+        metadata={"docstring": "Unique name of the version."},
     )
 
     def _validate_version_name(self, version_name: Optional[str]):
@@ -355,15 +358,38 @@ connections: # (Optional) List of third-party connections for credential injecti
         if logging_config is not None and not isinstance(logging_config, dict):
             raise TypeError("'logging_config' must be a dict.")
 
-    ray_gcs_external_storage_config: Union[RayGCSExternalStorageConfig, Dict, None] = (
-        field(
-            default=None,
-            repr=False,
-            metadata={
-                "docstring": "Configuration options for external storage for the Ray Global Control Store (GCS).",
-                "customer_hosted_only": True,
-            },
-        )
+    proxy_location: Optional[str] = field(
+        default=None,
+        repr=False,
+        metadata={
+            "docstring": "Where Ray Serve runs proxies to receive ingress traffic for this service. 'EveryNode' (Ray's default) runs a proxy on the head node and on every node that has at least one replica; 'HeadOnly' runs a single proxy on the head node. This is passed through as part of the Ray Serve config, but 'Disabled' is not permitted in Anyscale. See https://docs.ray.io/en/latest/serve/production-guide/config.html for supported options."
+        },
+    )
+
+    def _validate_proxy_location(self, proxy_location: Optional[str]):
+        """Validate the `proxy_location` field.
+
+        This is passed through as part of the Ray Serve config, but 'Disabled' is
+        disallowed (not valid when deploying Anyscale services).
+        """
+        if proxy_location is None:
+            return
+        elif not isinstance(proxy_location, str):
+            raise TypeError("'proxy_location' must be a string.")
+
+        if proxy_location in BANNED_PROXY_LOCATIONS:
+            raise ValueError(
+                "The following provided 'proxy_location' is not permitted "
+                f"in Anyscale: {proxy_location}."
+            )
+
+    ray_gcs_external_storage_config: Union[RayGCSExternalStorageConfig, Dict, None] = field(
+        default=None,
+        repr=False,
+        metadata={
+            "docstring": "Configuration options for external storage for the Ray Global Control Store (GCS).",
+            "customer_hosted_only": True,
+        },
     )
 
     def _validate_ray_gcs_external_storage_config(
@@ -395,7 +421,8 @@ connections: # (Optional) List of third-party connections for credential injecti
     )
 
     def _validate_tracing_config(
-        self, tracing_config: Union[TracingConfig, Dict, None],
+        self,
+        tracing_config: Union[TracingConfig, Dict, None],
     ) -> Optional[TracingConfig]:
         if tracing_config is None:
             return None
@@ -404,14 +431,13 @@ connections: # (Optional) List of third-party connections for credential injecti
             tracing_config = TracingConfig.from_dict(tracing_config)
 
         if not isinstance(tracing_config, TracingConfig):
-            raise TypeError(
-                "'tracing_config' must be a TracingConfig or corresponding dict."
-            )
+            raise TypeError("'tracing_config' must be a TracingConfig or corresponding dict.")
 
         return tracing_config
 
     tags: Optional[Dict[str, str]] = field(
-        default=None, metadata={"docstring": "Tags to associate with the service."},
+        default=None,
+        metadata={"docstring": "Tags to associate with the service."},
     )
 
     def _validate_tags(self, tags: Optional[Dict[str, str]]):
@@ -527,18 +553,14 @@ primary_version:
 """
 
     id: str = field(
-        metadata={
-            "docstring": "Unique ID of the service _version_ (*not* the service)."
-        }
+        metadata={"docstring": "Unique ID of the service _version_ (*not* the service)."}
     )
 
     def _validate_id(self, id: str):  # noqa: A002
         if not isinstance(id, str):
             raise TypeError("'id' must be a string.")
 
-    name: str = field(
-        metadata={"docstring": "Human-readable name of the service version."}
-    )
+    name: str = field(metadata={"docstring": "Human-readable name of the service version."})
 
     def _validate_name(self, name: str):
         if name is None:
@@ -549,9 +571,7 @@ primary_version:
         metadata={"docstring": "Current state of the service version."}
     )
 
-    def _validate_state(
-        self, state: Union[ServiceVersionState, str]
-    ) -> ServiceVersionState:
+    def _validate_state(self, state: Union[ServiceVersionState, str]) -> ServiceVersionState:
         if isinstance(state, str):
             # This will raise a ValueError if the state is unrecognized.
             state = ServiceVersionState(state)
@@ -695,9 +715,7 @@ if status.service_status_checklist:
 """
 
     version_id: str = field(
-        metadata={
-            "docstring": "ID of the service version these checklist items belong to."
-        }
+        metadata={"docstring": "ID of the service version these checklist items belong to."}
     )
 
     def _validate_version_id(self, version_id: str):
@@ -711,17 +729,13 @@ if status.service_status_checklist:
         },
     )
 
-    def _validate_items(
-        self, items: List[StatusChecklistItem]
-    ) -> List[StatusChecklistItem]:
+    def _validate_items(self, items: List[StatusChecklistItem]) -> List[StatusChecklistItem]:
         if not isinstance(items, list):
             raise TypeError("'items' must be a list.")
         coerced: List[StatusChecklistItem] = []
         for raw_item in items:
             item = (
-                StatusChecklistItem.from_dict(raw_item)
-                if isinstance(raw_item, dict)
-                else raw_item
+                StatusChecklistItem.from_dict(raw_item) if isinstance(raw_item, dict) else raw_item
             )
             if not isinstance(item, StatusChecklistItem):
                 raise TypeError(
@@ -777,17 +791,13 @@ else:
         },
     )
 
-    def _validate_shared(
-        self, shared: List[StatusChecklistItem]
-    ) -> List[StatusChecklistItem]:
+    def _validate_shared(self, shared: List[StatusChecklistItem]) -> List[StatusChecklistItem]:
         if not isinstance(shared, list):
             raise TypeError("'shared' must be a list.")
         coerced: List[StatusChecklistItem] = []
         for raw_item in shared:
             item = (
-                StatusChecklistItem.from_dict(raw_item)
-                if isinstance(raw_item, dict)
-                else raw_item
+                StatusChecklistItem.from_dict(raw_item) if isinstance(raw_item, dict) else raw_item
             )
             if not isinstance(item, StatusChecklistItem):
                 raise TypeError(
@@ -803,17 +813,13 @@ else:
         },
     )
 
-    def _validate_per_version(
-        self, per_version: List[VersionChecklist]
-    ) -> List[VersionChecklist]:
+    def _validate_per_version(self, per_version: List[VersionChecklist]) -> List[VersionChecklist]:
         if not isinstance(per_version, list):
             raise TypeError("'per_version' must be a list.")
         coerced: List[VersionChecklist] = []
         for raw_entry in per_version:
             entry = (
-                VersionChecklist.from_dict(raw_entry)
-                if isinstance(raw_entry, dict)
-                else raw_entry
+                VersionChecklist.from_dict(raw_entry) if isinstance(raw_entry, dict) else raw_entry
             )
             if not isinstance(entry, VersionChecklist):
                 raise TypeError(
@@ -899,9 +905,7 @@ service_status_checklist:
 
         return state
 
-    query_url: str = field(
-        repr=False, metadata={"docstring": "URL used to query the service."}
-    )
+    query_url: str = field(repr=False, metadata={"docstring": "URL used to query the service."})
 
     def _validate_query_url(self, query_url: str):
         if not isinstance(query_url, str):
@@ -988,9 +992,7 @@ service_status_checklist:
     versions: Optional[List[ServiceVersionStatus]] = field(
         default=None,
         repr=False,
-        metadata={
-            "docstring": "All active versions of the service with their traffic weights."
-        },
+        metadata={"docstring": "All active versions of the service with their traffic weights."},
     )
 
     def _validate_versions(
@@ -1014,14 +1016,13 @@ service_status_checklist:
     )
 
     def _validate_service_status_checklist(
-        self, service_status_checklist: Union[ServiceStatusChecklist, Dict, None],
+        self,
+        service_status_checklist: Union[ServiceStatusChecklist, Dict, None],
     ) -> Optional[ServiceStatusChecklist]:
         if service_status_checklist is None:
             return None
         if isinstance(service_status_checklist, dict):
-            service_status_checklist = ServiceStatusChecklist.from_dict(
-                service_status_checklist
-            )
+            service_status_checklist = ServiceStatusChecklist.from_dict(service_status_checklist)
         if not isinstance(service_status_checklist, ServiceStatusChecklist):
             raise TypeError(
                 "'service_status_checklist' must be a ServiceStatusChecklist or corresponding dict."

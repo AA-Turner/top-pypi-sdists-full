@@ -1,0 +1,51 @@
+[project]
+name = "matrx-seo"
+version = "0.1.302"
+description = "Provider-neutral SEO collection contracts and canonical persistence."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "matrx-utils>=2.0.58",
+    "matrx-orm>=3.1.202",
+    # THE ONE Brave transport. matrx-seo's rank adapter consumes
+    # matrx_scraper.search.BraveSearchClient — key selection, adaptive per-key
+    # pacing, Retry-After retry and the typed 429-as-error live there ONCE.
+    # 0.2.61 is the first release exporting BraveSearchResponse / NullRateLimiter
+    # / the full web-search parameter surface this package needs.
+    "matrx-scraper>=0.2.293",
+    "pydantic>=2.12",
+    "httpx>=0.28",
+]
+
+[project.optional-dependencies]
+standalone = ["fastapi>=0.115", "uvicorn>=0.34", "matrx-connect>=0.1.160"]
+dev = ["pytest>=8.3", "pytest-asyncio>=0.25"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["matrx_seo"]
+
+[tool.uv.sources]
+matrx-utils = { workspace = true }
+matrx-orm = { workspace = true }
+matrx-scraper = { workspace = true }
+matrx-connect = { workspace = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = ["trials", ".*", "build", "dist"]
+asyncio_mode = "auto"
+markers = ["live: opt-in paid provider acceptance tests"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "ASYNC"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/db/models_*.py" = ["E501", "F401", "I001"]

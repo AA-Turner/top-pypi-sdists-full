@@ -34,9 +34,7 @@ COMPUTE_CONFIG_FILENAME = "example_compute_config.json"
 
 
 class ProjectController(BaseController):
-    def __init__(
-        self, log: Optional[BlockLogger] = None, initialize_auth_api_client: bool = True
-    ):
+    def __init__(self, log: Optional[BlockLogger] = None, initialize_auth_api_client: bool = True):
         if log is None:
             log = BlockLogger()
 
@@ -45,10 +43,8 @@ class ProjectController(BaseController):
         self.log = log
         self.log.open_block("Output")
 
-    def get_proj_id_from_name(
-        self, project_name: str, owner: Optional[str] = None
-    ) -> str:
-        """ Call API to get project id given a project name.  """
+    def get_proj_id_from_name(self, project_name: str, owner: Optional[str] = None) -> str:
+        """Call API to get project id given a project name."""
         return get_proj_id_from_name(project_name, self.api_client, owner)
 
     def clone(self, project_name: str, owner: Optional[str] = None) -> None:
@@ -116,9 +112,7 @@ class ProjectController(BaseController):
                 # Checking if the project is already registered.
                 # TODO: Fetch project by id rather than listing all projects
                 try:
-                    resp = self.api_client.get_project_api_v2_projects_project_id_get(
-                        project_id
-                    )
+                    resp = self.api_client.get_project_api_v2_projects_project_id_get(project_id)
                 except Exception:  # noqa: BLE001
                     resp = None
                 if resp and resp.result.id == project_id:
@@ -146,18 +140,22 @@ class ProjectController(BaseController):
                 ):
                     os.remove(project_id_path)
                     _, project_definition = create_new_proj_def(
-                        name, api_client=self.api_client,
+                        name,
+                        api_client=self.api_client,
                     )
             else:
                 # Project id doesn't exist and not enough info to create project.
                 _, project_definition = create_new_proj_def(
-                    name, api_client=self.api_client,
+                    name,
+                    api_client=self.api_client,
                 )
 
             register_or_attach_to_project(project_definition, self.api_client)
 
     def _write_sample_compute_config(
-        self, filepath: str, project_id: Optional[str] = None,
+        self,
+        filepath: str,
+        project_id: Optional[str] = None,
     ) -> None:
         """Writes a sample compute config JSON file to be used with anyscale up.
         If no default cloud is available from the organization and the user
@@ -172,9 +170,7 @@ class ProjectController(BaseController):
             # Use default cloud id if organization has one and if user has correct
             # permissions for it.
             with contextlib.suppress(Exception):
-                get_cloud_id_and_name(
-                    self.api_client, cloud_id=organization.default_cloud_id
-                )
+                get_cloud_id_and_name(self.api_client, cloud_id=organization.default_cloud_id)
                 cloud_id = organization.default_cloud_id
         if not cloud_id and project_id:
             # See if the project has a cloud ID for us to use.
@@ -218,19 +214,13 @@ class ProjectController(BaseController):
         response = self._make_projects_query(name_query, creator_query, page_query)
         prepared_result = self._format_project_results(response, json_format)
         next_paging_token = response.metadata.next_paging_token
-        has_more = (next_paging_token is not None) and (
-            len(prepared_result) < max_items
-        )
+        has_more = (next_paging_token is not None) and (len(prepared_result) < max_items)
         while has_more:
             page_query = PageQuery(count=paging_count, paging_token=next_paging_token)
             response = self._make_projects_query(name_query, creator_query, page_query)
-            prepared_result = prepared_result + self._format_project_results(
-                response, json_format
-            )
+            prepared_result = prepared_result + self._format_project_results(response, json_format)
             next_paging_token = response.metadata.next_paging_token
-            has_more = (next_paging_token is not None) and (
-                len(prepared_result) < max_items
-            )
+            has_more = (next_paging_token is not None) and (len(prepared_result) < max_items)
         prepared_result = prepared_result[:max_items]
 
         if json_format:
@@ -271,7 +261,5 @@ class ProjectController(BaseController):
         creator_query: Optional[TextQuery],
         page_query: Optional[PageQuery],
     ):
-        project_query = ProjectsQuery(
-            name=name_query, creator_id=creator_query, paging=page_query
-        )
+        project_query = ProjectsQuery(name=name_query, creator_id=creator_query, paging=page_query)
         return self.anyscale_api_client.search_projects(project_query)

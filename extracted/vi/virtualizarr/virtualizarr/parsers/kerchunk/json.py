@@ -1,0 +1,67 @@
+from collections.abc import Iterable
+
+import ujson
+from obspec_utils.registry import ObjectStoreRegistry
+
+from virtualizarr.manifests import ManifestStore
+from virtualizarr.parsers.kerchunk.translator import manifestgroup_from_kerchunk_refs
+
+
+class KerchunkJSONParser:
+    """Create a [ManifestStore][virtualizarr.manifests.ManifestStore] from a Kerchunk JSON references file.
+
+    Parameters
+    ----------
+    group
+        The group within the Kerchunk JSON to be used as the Zarr root group for the ManifestStore.
+    fs_root
+        The qualifier to be used for Kerchunk chunk references containing relative paths.
+    skip_variables
+        Variables in the Kerchunk JSON that will be ignored when creating the ManifestStore.
+    """
+
+    def __init__(
+        self,
+        group: str | None = None,
+        fs_root: str | None = None,
+        skip_variables: Iterable[str] | None = None,
+    ):
+        self.group = group
+        self.fs_root = fs_root
+        self.skip_variables = skip_variables
+
+    def __call__(
+        self,
+        url: str,
+        registry: ObjectStoreRegistry,
+    ) -> ManifestStore:
+        """
+        Parse the metadata and byte offsets from a given Kerchunk JSON to produce a
+        VirtualiZarr ManifestStore.
+
+        Parameters
+        ----------
+        url
+            The URL of the input Kerchunk JSON (e.g., "s3://bucket/kerchunk.json").
+        registry
+            An [ObjectStoreRegistry][obspec_utils.registry.ObjectStoreRegistry] for resolving urls and reading data.
+
+        Returns
+        -------
+        ManifestStore
+            A ManifestStore that provides a Zarr representation of the parsed Kerchunk JSON.
+        """
+        store, path_after_prefix = registry.resolve(url)
+
+        # we need the whole thing so just get the entire contents in one request
+        resp = store.get(path_after_prefix)
+        content = memoryview(resp.buffer()).tobytes()
+        refs = ujson.loads(content)
+
+        manifestgroup = manifestgroup_from_kerchunk_refs(
+            refs,
+            group=self.group,
+            fs_root=self.fs_root,
+            skip_variables=self.skip_variables,
+        )
+        return ManifestStore(group=manifestgroup, registry=registry)

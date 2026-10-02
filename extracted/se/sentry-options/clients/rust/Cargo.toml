@@ -1,0 +1,40 @@
+[package]
+name = "sentry-options"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+description = "Rust client for sentry-options config system"
+
+[dependencies]
+sentry-options-validation.workspace = true
+serde_json.workspace = true
+serde.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+sha1.workspace = true
+arc-swap.workspace = true
+chrono.workspace = true
+num = "0.4.3"
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+criterion = { version = "0.5", features = ["html_reports"] }
+serde_json.workspace = true
+
+[[bench]]
+name = "options_bench"
+harness = false
+
+[[bench]]
+name = "features_bench"
+harness = false
+
+[[bench]]
+name = "isset_bench"
+harness = false
+
+[[bench]]
+name = "reload_trace"
+harness = false

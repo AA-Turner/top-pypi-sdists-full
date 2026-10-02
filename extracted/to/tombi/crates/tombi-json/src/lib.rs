@@ -1,10 +1,12 @@
 mod node;
 mod parser;
 
-pub use node::{ArrayNode, BoolNode, NullNode, NumberNode, ObjectNode, StringNode, ValueNode};
-pub use parser::{Error as ParserError, parse};
+pub use node::{
+    ArrayNode, BoolNode, Document, NullNode, NumberNode, ObjectNode, StringNode, ValueNode,
+};
+pub use parser::{Error as ParserError, parse, parse_document};
 pub use tombi_json_value::{Number, Object, Value};
-pub use tombi_text::Range;
+pub use tombi_text::Span;
 
 use serde::de::{
     self, DeserializeOwned, Deserializer as SerdeDeserializer, IntoDeserializer, Visitor,
@@ -292,7 +294,7 @@ impl<'de> SerdeDeserializer<'de> for ValueNodeDeserializer<'de> {
         match &self.node {
             ValueNode::Array(arr) => {
                 let mut bytes = Vec::with_capacity(arr.len());
-                for item in &arr.items {
+                for item in arr.items.iter() {
                     match item {
                         ValueNode::Number(n) => {
                             if let Some(i) = n.value.as_i64() {
@@ -385,7 +387,7 @@ impl<'de> SerdeDeserializer<'de> for ValueNodeDeserializer<'de> {
         match self.node {
             ValueNode::Array(array) => {
                 let seq_access = SeqAccess {
-                    items: array.items.into_iter(),
+                    items: std::sync::Arc::unwrap_or_clone(array.items).into_iter(),
                 };
                 visitor.visit_seq(seq_access)
             }
@@ -422,7 +424,7 @@ impl<'de> SerdeDeserializer<'de> for ValueNodeDeserializer<'de> {
         match self.node {
             ValueNode::Object(object_node) => {
                 let map_access = MapAccess {
-                    properties: object_node.properties.into_iter(),
+                    properties: std::sync::Arc::unwrap_or_clone(object_node.properties).into_iter(),
                     key: None,
                     value: None,
                 };
@@ -459,7 +461,10 @@ impl<'de> SerdeDeserializer<'de> for ValueNodeDeserializer<'de> {
         match self.node {
             ValueNode::String(s) => visitor.visit_enum(TreeEnumAccess::new(s.value, None)),
             ValueNode::Object(obj) if obj.len() == 1 => {
-                let Some((variant, value_node)) = obj.properties.into_iter().next() else {
+                let Some((variant, value_node)) = std::sync::Arc::unwrap_or_clone(obj.properties)
+                    .into_iter()
+                    .next()
+                else {
                     return Err(Error::Custom(
                         "invalid type: expected enum, found object with no properties".to_string(),
                     ));
@@ -873,30 +878,39 @@ mod tests {
 
     #[test]
     fn test_source_position() {
-        let json = r#"{"name": "John", "age": 30}"#;
-        let value_node = ValueNode::from_str(json).unwrap();
+        let json = "{\n  \"name\": \"John\",\n  \"age\": 30\n}";
+        let Document {
+            value: value_node,
+            line_index,
+        } = parse_document(json).unwrap();
 
-        // `tree.root.range`や子要素のrangeを調べることで位置情報が取得できる
-        assert!(value_node.range().start != value_node.range().end);
+        // `tree.root.span`や子要素のspanを調べることで位置情報が取得できる
+        pretty_assertions::assert_eq!(&json[value_node.span()], json);
 
-        if let Some(object_node) = value_node.as_object() {
-            // オブジェクトのプロパティの位置情報を確認
-            if let Some(name_node) = object_node.properties.get("name") {
-                // "name"キーの値の位置情報
-                assert!(name_node.range().start != name_node.range().end);
+        let object_node = value_node.as_object().unwrap();
+        let name_node = object_node.properties.get("name").unwrap();
+        pretty_assertions::assert_eq!(&json[name_node.span()], "\"John\"");
+        pretty_assertions::assert_eq!(
+            line_index
+                .as_line_index()
+                .range(name_node.span(), tombi_text::EncodingKind::Utf16),
+            tombi_text::Range::new(
+                tombi_text::Position::new(1, 10),
+                tombi_text::Position::new(1, 16)
+            )
+        );
 
-                // 値が "John" であることを確認
-                pretty_assertions::assert_eq!(name_node.as_str(), Some("John"));
-            }
-
-            if let Some(age_node) = object_node.properties.get("age") {
-                // "age"キーの値の位置情報
-                assert!(age_node.range().start != age_node.range().end);
-
-                // 値が 30 であることを確認
-                pretty_assertions::assert_eq!(age_node.as_i64(), Some(30));
-            }
-        }
+        let age_node = object_node.properties.get("age").unwrap();
+        pretty_assertions::assert_eq!(&json[age_node.span()], "30");
+        pretty_assertions::assert_eq!(
+            line_index
+                .as_line_index()
+                .range(age_node.span(), tombi_text::EncodingKind::Utf16),
+            tombi_text::Range::new(
+                tombi_text::Position::new(2, 9),
+                tombi_text::Position::new(2, 11)
+            )
+        );
     }
 
     #[test]

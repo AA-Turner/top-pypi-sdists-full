@@ -1,6 +1,7 @@
 """Doc-spec metadata for CLI commands: the command_metadata decorator, its
 vocabulary models, and the build-time example expander used by cli_docgen.
 """
+
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional
@@ -61,10 +62,7 @@ def command_metadata(**kwargs):
         )
 
     # deprecation_info only makes sense for a deprecated command.
-    if (
-        "deprecation_info" in kwargs
-        and kwargs.get("status") != ReleaseStatus.DEPRECATED
-    ):
+    if "deprecation_info" in kwargs and kwargs.get("status") != ReleaseStatus.DEPRECATED:
         raise ValueError(
             "command_metadata: 'deprecation_info' is only valid when status is "
             f"{ReleaseStatus.DEPRECATED.value!r}; got status={kwargs.get('status')!r}"
@@ -87,9 +85,7 @@ def build_doc_examples(
     Format is selected with -o <format>; text is the default (no flag).
     """
     instance = (
-        example.output_instance()
-        if callable(example.output_instance)
-        else example.output_instance
+        example.output_instance() if callable(example.output_instance) else example.output_instance
     )
 
     examples: List[Dict[str, Any]] = []

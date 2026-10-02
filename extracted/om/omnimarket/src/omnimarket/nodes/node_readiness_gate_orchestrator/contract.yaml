@@ -1,0 +1,153 @@
+---
+name: node_readiness_gate_orchestrator
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: ORCHESTRATOR_GENERIC
+node_version: {major: 0, minor: 1, patch: 0}
+node_not_implemented: false
+description: >
+  Native node for the production deployment readiness gate. The
+  gate consumes projection surfaces from deployment evidence reducers, scores
+  deployment eligibility, and emits the authoritative deployment readiness
+  decision through typed node ports.
+
+handler:
+  module: omnimarket.nodes.node_readiness_gate_orchestrator.handlers.handler_readiness_gate_orchestrator
+  class: HandlerReadinessGateOrchestrator
+  input_model: omnibase_compat.contracts.evidence_pipeline.wire.model_gap_report.ModelGapReport
+
+# OMN-18013 / OMN-16939 — routing_strategy is topic_match with ONE entry per topic, each
+# declaring its own message_category. handler_wiring derives an entry's category ONCE
+# (explicit message_category, else _derive_message_category(subscribe_topics[0])) and
+# stamps it on every route that entry registers, so a single entry spanning both a .cmd.
+# and a .evt. topic registers ALL of them under subscribe_topics[0]'s category and every
+# topic of the other category matches zero routes: consumed, DLQ'd and COMMITTED on every
+# message, at LAG 0, forever. Setting `topic:` alone is NOT sufficient — that picks WHICH
+# topic an entry owns; `message_category:` picks which category it registers under.
+handler_routing:
+  routing_strategy: topic_match
+  handlers:
+    - topic: onex.cmd.omnimarket.readiness-gate-start.v1
+      message_category: command
+      operation: readiness_gate
+      handler:
+        name: HandlerReadinessGateOrchestrator
+        module: omnimarket.nodes.node_readiness_gate_orchestrator.handlers.handler_readiness_gate_orchestrator
+      description: "Gap report: score it, then publish the gate result."
+    - topic: onex.evt.omnimarket.readiness-scored.v1
+      message_category: event
+      operation: readiness_gate
+      handler:
+        name: HandlerReadinessGateOrchestrator
+        module: omnimarket.nodes.node_readiness_gate_orchestrator.handlers.handler_readiness_gate_orchestrator
+      description: "Pre-scored readiness fact: publish the gate result directly (readiness_state branch)."
+
+
+input_model:
+  name: ModelGapReport
+  module: omnibase_compat.contracts.evidence_pipeline.wire.model_gap_report
+  description: "Deployment-scoped evidence gap report produced by deterministic analysis."
+output_model:
+  name: ModelDeploymentReadinessResult
+  module: omnibase_compat.contracts.evidence_pipeline.wire.model_deployment_readiness_result
+  description: "Machine-readable deployment readiness decision."
+
+descriptor:
+  node_archetype: orchestrator
+  purity: effectful
+  runtime_profiles: [effects]
+  idempotent: true
+  timeout_ms: 600000
+
+terminal_event: onex.evt.omnimarket.readiness-gate-completed.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.readiness-gate-start.v1
+    - onex.evt.omnimarket.readiness-scored.v1
+  publish_topics:
+    - onex.evt.omnimarket.readiness-gate-completed.v1
+    - onex.evt.omnimarket.readiness-gate-blocked.v1
+
+externally_consumed_topics:
+  - onex.evt.omnimarket.readiness-gate-completed.v1
+  - onex.evt.omnimarket.readiness-gate-blocked.v1
+
+state_machine:
+  version: {major: 1, minor: 0, patch: 0}
+  state_machine_name: readiness_gate_orchestrator
+  state_machine_version: {major: 1, minor: 0, patch: 0}
+  description: "The order of steps in HandlerReadinessGateOrchestrator.handle: a gap report is scored, a readiness result is used as is, then the gate is published. The handler keeps no state, and an exception propagates to the caller."
+  initial_state: COLLECTING
+  terminal_states: [COMPLETE, BLOCKED]
+  error_states: []
+  states:
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: COLLECTING
+      state_type: operational
+      description: "Unwrap the request and decide its kind."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: SCORING
+      state_type: operational
+      description: "ports.score(gap report)."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: REPORTING
+      state_type: operational
+      description: "ports.publish_gate(readiness)."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: COMPLETE
+      state_type: terminal
+      description: "Published a readiness result that is not blocked."
+      is_terminal: true
+      is_recoverable: false
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: BLOCKED
+      state_type: terminal
+      description: "Published a blocked readiness result."
+      is_terminal: true
+      is_recoverable: false
+  transitions:
+    # OMN-19548: the old fsm: block declared these states and no transitions.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: collecting_to_scoring
+      from_state: COLLECTING
+      to_state: SCORING
+      trigger: gap_report_received
+    # A ModelDeploymentReadinessResult (or a mapping carrying readiness_state) skips scoring.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: collecting_to_reporting
+      from_state: COLLECTING
+      to_state: REPORTING
+      trigger: readiness_result_received
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: scoring_to_reporting
+      from_state: SCORING
+      to_state: REPORTING
+      trigger: gap_report_scored
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: reporting_to_complete
+      from_state: REPORTING
+      to_state: COMPLETE
+      trigger: gate_published_ready
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: reporting_to_blocked
+      from_state: REPORTING
+      to_state: BLOCKED
+      trigger: gate_published_blocked
+
+evidence_authority:
+  tier: prod
+  authoritative_for_deploy: true
+  provisional_evidence_allowed: false
+  requires_finalized_evidence: true
+  deterministic_validation_required: true
+
+dependencies:
+  nodes:
+    - node_deployment_evidence_reducer
+    - node_gap_analyzer_compute
+    - node_readiness_scorer_compute
+
+metadata:
+  transport_type: kafka
+  implementation_wave: 3
+  related_tickets: ["OMN-11443", "OMN-12395"]

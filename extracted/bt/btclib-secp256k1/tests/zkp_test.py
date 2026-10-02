@@ -1,0 +1,524 @@
+# Copyright (c) The btclib developers
+# Distributed under the MIT software license, see the accompanying
+# LICENSE file or https://opensource.org/license/mit for the full text.
+
+"""Tests of btclib_secp256k1.zkp: the subpackage, its loader, its context.
+
+The subpackage always exists and the extension it wraps exists only
+where `BTCLIB_LIBSECP256K1_ZKP=true` built it, so this file meets both
+builds and assumes neither. `without_the_extension` below is what makes
+the state a wheel without that extension is in -- the import failing,
+and nothing cached from an earlier read -- and every test that drives
+either branch of the loader takes it. Reading the build's own answer
+instead leaves each such test red under whichever build it did not
+expect. Declaring the build would answer that instead, and this tree
+declares one with a `pytest.importorskip("_btclib_secp256k1_zkp")` at
+the top of the module and a `pytest.mark.zkp` beside it for the flagged
+runs' own `-m zkp`: that skips the file wherever the extension is
+absent, which is every build a published wheel carries, and leaves the
+loader's failure branch driven only where it is present.
+
+`STAND_IN` is the stand-in the success branch needs: the primary
+package's own already-resolved `ffi` and `lib`, always there and real.
+`btclib_secp256k1.lib` rather than `_btclib_secp256k1.lib` is what makes
+it correct under either linkage this suite runs against -- the raw
+extension module carries `lib` only on a static build
+(`Secp256k1ZkpCFFIExtension`'s own build is always that shape, so
+`_load_lib`'s trivial `module.lib` is what a stand-in needs), where a
+dynamic run resolves it through `ffi.dlopen` instead, and
+`btclib_secp256k1.lib` already carries whichever answer is true of this
+build. Built from a header shared closely enough with secp256k1-zkp's
+own (context creation, both callbacks, randomization) that what it
+drives is the real calls rather than a mock of their shape.
+"""
+
+from __future__ import annotations
+
+import secrets
+import subprocess
+import sys
+import threading
+import types
+from typing import TYPE_CHECKING, Any
+
+import pytest
+
+import btclib_secp256k1
+import btclib_secp256k1.zkp.context as zkp_context
+from btclib_secp256k1 import zkp
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+STAND_IN = types.SimpleNamespace(ffi=btclib_secp256k1.ffi, lib=btclib_secp256k1.lib)
+
+_UNSET = object()
+
+# what the two `__getattr__`s write into their own module globals on
+# first access, each beside what it is worth before any of them has run:
+# `btclib_secp256k1.zkp.context` declares `ffi` and `lib` at module scope
+# with a default of None, and every other name here exists only once
+# something has read one of them
+_DEFERRED: tuple[tuple[Any, str, Any], ...] = (
+    (zkp, "ffi", _UNSET),
+    (zkp, "lib", _UNSET),
+    (zkp_context, "ffi", None),
+    (zkp_context, "lib", None),
+    (zkp_context, "ctx", _UNSET),
+    (zkp_context, "_illegal_callback", _UNSET),
+)
+
+
+def _put_back(module: Any, name: str, value: Any) -> None:
+    """Give `name` the value handed in, `_UNSET` meaning it has none.
+
+    Args:
+        module: the module whose namespace is written.
+        name: the attribute to write.
+        value: what to write, or `_UNSET` to leave the name absent.
+    """
+    if value is _UNSET:
+        vars(module).pop(name, None)
+    else:
+        setattr(module, name, value)
+
+
+@pytest.fixture
+def without_the_extension(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Put both modules in the state a build with no extension is in.
+
+    Two halves, and a flagged build needs both. A `None` entry in
+    `sys.modules` is the import system's own negative cache, so
+    `importlib.import_module` raises `ModuleNotFoundError` out of it and
+    `_import_extension` chains a real import failure -- where a stand-in
+    importer would hand the wrapper back only what the wrapper gave it.
+    And `_DEFERRED` is emptied, because a read that finds one of those
+    names already cached never calls the `__getattr__` under test at
+    all: the tests of the modules wrapping zkp-only entry points fill
+    them for real under a flagged build, and pytest-randomly decides
+    whether they run first.
+
+    Written through `vars(module)` rather than through
+    `monkeypatch.delattr`, which asks `hasattr` first: `hasattr(zkp,
+    "ffi")` calls that same `__getattr__` and propagates its
+    `ImportError` instead of answering False.
+
+    Args:
+        monkeypatch: what the `sys.modules` entry is set and unset
+            through.
+
+    Yields:
+        Nothing: this fixture is the state it leaves behind it, put
+        back as it was afterwards.
+    """
+    monkeypatch.setitem(sys.modules, "_btclib_secp256k1_zkp", None)
+    saved = [
+        (module, name, vars(module).get(name, _UNSET)) for module, name, _ in _DEFERRED
+    ]
+    for module, name, unloaded in _DEFERRED:
+        _put_back(module, name, unloaded)
+    try:
+        yield
+    finally:
+        for module, name, value in saved:
+            _put_back(module, name, value)
+
+
+def _imported_modules(name: str) -> set[str]:
+    """Return what importing that module leaves in `sys.modules`.
+
+    A subprocess, `tests/extension_test.py`'s own `_imported_modules`
+    one package down, and for a second reason beside that file's: the
+    interpreter running this suite may have read `zkp.ffi` for real in
+    an earlier test, and `_btclib_secp256k1_zkp` stays in its
+    `sys.modules` once anything has.
+
+    Args:
+        name: the module to import in that interpreter.
+
+    Returns:
+        The names in `sys.modules` afterwards.
+    """
+    code = f"import sys, {name}; print('\\n'.join(sys.modules))"
+    completed = subprocess.run(  # noqa: S603
+        [sys.executable, "-c", code],
+        capture_output=True,
+        encoding="utf-8",
+        check=True,
+    )
+    return set(completed.stdout.split())
+
+
+def test_importing_the_subpackage_does_not_reach_the_extension() -> None:
+    """`import btclib_secp256k1.zkp` (and `.context`) never imports it.
+
+    The claim is about what an import does, so it is asked of an
+    interpreter that has done nothing else -- what this one holds is an
+    answer about whatever ran before. Both modules are asked separately:
+    importing the subpackage does not import `context`, and `context`
+    reaches `zkp` only from inside its own `__getattr__`.
+    """
+    assert "_btclib_secp256k1_zkp" not in _imported_modules("btclib_secp256k1.zkp")
+    assert "_btclib_secp256k1_zkp" not in _imported_modules(
+        "btclib_secp256k1.zkp.context"
+    )
+
+
+def test_no_such_attribute() -> None:
+    """A name the subpackage does not have is still an `AttributeError`.
+
+    Reaches neither `_import_extension` nor the module's own globals:
+    `__getattr__` raises before either, which is what keeps this test
+    free of the fixture every test below that does reach them takes.
+    """
+    with pytest.raises(AttributeError, match="no attribute 'nonesuch'"):
+        _ = zkp.nonesuch  # type: ignore[attr-defined]
+
+
+@pytest.mark.usefixtures("without_the_extension")
+def test_attribute_access_without_the_extension_raises_import_error() -> None:
+    """`zkp.ffi` (and `.lib`) explain how to get the extension, absent.
+
+    Driven through the real `_import_extension` and the real
+    `importlib.import_module`, so what is checked is that the message
+    substituted for the import system's own names the flag and the
+    sdist, chained from the original failure rather than discarding why
+    it happened. Neither read caches anything, `__getattr__` raising
+    before it writes, so the second is the first over again.
+    """
+    with pytest.raises(ImportError, match="BTCLIB_LIBSECP256K1_ZKP=true") as exc_info:
+        _ = zkp.ffi
+    assert isinstance(exc_info.value.__cause__, ImportError)
+
+    with pytest.raises(ImportError, match="BTCLIB_LIBSECP256K1_ZKP=true"):
+        _ = zkp.lib
+
+
+def test_import_extension_with_a_stand_in() -> None:
+    """`_import_extension`'s success branch, driven with a stand-in.
+
+    Calling `_import_extension` directly touches no module global, and
+    the importer handed in is what decides the branch, so this test
+    needs neither the fixture nor any cleanup.
+    """
+    sentinel = object()
+
+    def importer(name: str) -> object:
+        assert name == "_btclib_secp256k1_zkp"
+        return sentinel
+
+    assert zkp._import_extension(importer) is sentinel
+
+
+def test_import_extension_failure_is_chained() -> None:
+    """A failing `importer` is what the raised `ImportError` is chained to."""
+    original = ImportError("no such module")
+
+    def importer(name: str) -> object:  # noqa: ARG001
+        raise original
+
+    with pytest.raises(ImportError, match="BTCLIB_LIBSECP256K1_ZKP=true") as exc_info:
+        zkp._import_extension(importer)
+    assert exc_info.value.__cause__ is original
+
+
+def test_load_lib() -> None:
+    """`_load_lib` returns the `lib` of whatever module it is handed.
+
+    One branch, `Secp256k1ZkpCFFIExtension` being static-only, so a
+    stand-in with a bare `lib` attribute is the whole of what there is
+    to drive.
+    """
+    stand_in = types.SimpleNamespace(lib=object())
+    assert zkp._load_lib(stand_in) is stand_in.lib
+
+
+@pytest.mark.usefixtures("without_the_extension")
+def test_getattr_builds_and_caches_ffi_and_lib(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The glue: `_import_extension` is called once, `ffi`/`lib` cached."""
+    calls: list[str] = []
+
+    def fake_import_extension() -> Any:
+        calls.append("called")
+        return STAND_IN
+
+    monkeypatch.setattr(zkp, "_import_extension", fake_import_extension)
+    assert zkp.ffi is STAND_IN.ffi
+    assert zkp.lib is STAND_IN.lib
+    # the second read of either does not call the loader again: both
+    # are now plain attributes, found before __getattr__ is ever
+    # asked
+    assert zkp.ffi is STAND_IN.ffi
+    assert calls == ["called"]
+
+
+@pytest.mark.usefixtures("without_the_extension")
+def test_getattr_on_an_exported_name_the_loader_leaves_unbound(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An `__all__` entry the loader does not bind is an `AttributeError`.
+
+    `__all__` gains a name the loader has no binding for, which is the
+    state a name added to that list alone would leave the module in.
+    What the raise has to be is python's to decide rather than this
+    module's: `hasattr` and `getattr` with a default swallow
+    `AttributeError` alone, so the two of them are what this asks
+    beside the raise, an exception of any other type reaching the
+    caller through both. The stand-in is what carries the loader past
+    `_import_extension`, which a build without the flag raises
+    `ImportError` from before the lookup under test, and the fixture
+    puts back what the loader caches into this module's globals on the
+    way.
+    """
+    monkeypatch.setattr(zkp, "_import_extension", lambda: STAND_IN)
+    monkeypatch.setattr(zkp, "__all__", [*zkp.__all__, "nonesuch"])
+    with pytest.raises(AttributeError, match="no attribute 'nonesuch'"):
+        _ = zkp.nonesuch  # type: ignore[attr-defined]
+    assert not hasattr(zkp, "nonesuch")
+    sentinel = object()
+    assert getattr(zkp, "nonesuch", sentinel) is sentinel
+
+
+def test_context_no_such_attribute() -> None:
+    """The same contract, one module over."""
+    with pytest.raises(AttributeError, match="no attribute 'nonesuch'"):
+        _ = zkp_context.nonesuch  # type: ignore[attr-defined]
+
+
+@pytest.mark.usefixtures("without_the_extension")
+def test_ctx_without_the_extension_raises_import_error() -> None:
+    """Reading `ctx` needs `btclib_secp256k1.zkp`'s own `ffi` and `lib`.
+
+    Neither is reachable under the fixture, so the `ImportError`
+    `zkp.__getattr__` raises propagates through this module's own
+    deferred `from . import ffi, lib` unchanged -- there is no context
+    to build without them.
+    """
+    with pytest.raises(ImportError, match="BTCLIB_LIBSECP256K1_ZKP=true"):
+        _ = zkp_context.ctx
+
+
+@pytest.mark.usefixtures("without_the_extension")
+def test_getattr_builds_a_real_context_with_a_stand_in(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`ctx` built from a stand-in extension is a real, working context.
+
+    `STAND_IN`'s own `ffi`/`lib` stand in for the flagged extension's:
+    context creation, both callback registrations and the randomization
+    call are the same call on either library, so this drives the real
+    calls rather than a mock of their shape.
+    """
+    monkeypatch.setattr(zkp, "_import_extension", lambda: STAND_IN)
+    ctx = zkp_context.ctx
+    assert ctx is not None
+    # cached: a second read is a plain attribute, __getattr__ never
+    # asked again
+    assert zkp_context.ctx is ctx
+
+
+@pytest.mark.usefixtures("without_the_extension")
+def test_the_context_is_randomized_with_32_octets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Building `ctx` draws one seed, and it is 32 octets.
+
+    `secp256k1_context_randomize` takes a 32-octet seed and no length,
+    and a context seeded with fewer octets behaves like one seeded with
+    all of them, so nothing that comes back shows the difference: what
+    is asked of `secrets` does. `tests/core_test.py`'s
+    `test_generated_randomness_is_always_32_octets` is the same question
+    of the context of the modules an unflagged build has.
+    """
+    monkeypatch.setattr(zkp, "_import_extension", lambda: STAND_IN)
+    requested: list[int] = []
+    real_token_bytes = secrets.token_bytes
+
+    def recording(size: int) -> bytes:
+        requested.append(size)
+        return real_token_bytes(size)
+
+    monkeypatch.setattr(secrets, "token_bytes", recording)
+
+    assert zkp_context.ctx is not None
+    assert requested == [32]
+
+
+@pytest.mark.usefixtures("without_the_extension")
+def test_bindings_builds_the_context_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A second `_bindings()` call answers the same `ctx`, not a fresh one.
+
+    Calling `_load("ctx")` unconditionally, rather than reading `ctx`
+    from this module's own globals once it is there, would rebuild a
+    fresh context and a fresh callback closure on every call --
+    orphaning whatever context an earlier caller is still holding,
+    registered against a closure the rebuild has just overwritten. A
+    rebuild answers a fresh `ctx` as much as a fresh closure, so the
+    first assertion below already discriminates; the closure
+    assertion beside it names the lifetime the rebuild breaks rather
+    than a proxy for it.
+    """
+    monkeypatch.setattr(zkp, "_import_extension", lambda: STAND_IN)
+    ffi_1, lib_1, ctx_1 = zkp_context._bindings()
+    illegal_callback = vars(zkp_context)["_illegal_callback"]
+    ffi_2, lib_2, ctx_2 = zkp_context._bindings()
+    assert ctx_2 is ctx_1
+    assert ffi_2 is ffi_1
+    assert lib_2 is lib_1
+    assert vars(zkp_context)["_illegal_callback"] is illegal_callback
+
+
+@pytest.mark.usefixtures("without_the_extension")
+def test_racing_threads_build_the_context_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The `workers` threads racing the first read of `ctx` build one.
+
+    `_load`'s own `"ctx" not in globals()` -- inside `_lock` -- is what a
+    thread with no lock at all can pass while another is still building,
+    each thread that passes going on to build its own context and its
+    own callback closure, the last one to finish overwriting the module
+    globals the earlier ones' closure was the only reference to
+    (#717). Every thread's own answer is asserted the same object, not
+    merely that none raised: `id()` on a distinct-per-race context is a
+    real difference `is` would miss two threads at a time but a set of
+    ids does not.
+
+    A bare `threading.Thread` hands its own exception to
+    `threading.excepthook` rather than out of `join`, so a race in which
+    *every* thread raised would leave `contexts` all `None` -- one id,
+    passing the identity assertion below on a test that had tested
+    nothing. Asserting each entry arrived is what closes that.
+
+    `STAND_IN`'s own `lib.secp256k1_context_create` is a real C call
+    into mainline libsecp256k1, releasing the GIL exactly as
+    secp256k1-zkp's own does, which is what makes the barrier below
+    race a real window rather than one only a mock could open.
+    """
+    monkeypatch.setattr(zkp, "_import_extension", lambda: STAND_IN)
+    workers = 8
+    barrier = threading.Barrier(workers)
+    contexts: list[object] = [None] * workers
+
+    def read_ctx(index: int) -> None:
+        barrier.wait()
+        contexts[index] = zkp_context.ctx
+
+    threads = [threading.Thread(target=read_ctx, args=(i,)) for i in range(workers)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert all(context is not None for context in contexts)
+    assert len({id(context) for context in contexts}) == 1
+
+
+class _Handoff:
+    """A lock that says when a second thread has come to wait on it.
+
+    `_load` holds `_lock` for the whole build, so a thread arriving while
+    the build runs finds it taken: that is the moment `waiting` records,
+    before the arrival blocks. The first thread takes it free and records
+    nothing.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self.waiting = threading.Event()
+
+    def __enter__(self) -> None:
+        if self._lock.locked():
+            self.waiting.set()
+        self._lock.acquire()
+
+    def __exit__(self, *_: object) -> None:
+        self._lock.release()
+
+
+@pytest.mark.usefixtures("without_the_extension")
+def test_a_thread_that_lost_the_lock_takes_the_context_built_under_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The second reader finds `ctx` written, and builds nothing of its own.
+
+    The racing test above reaches `_load`'s early return only where the
+    scheduler happens to put a thread behind the lock while the build is
+    still running, and a full suite's load has been measured to leave it
+    unreached (btclib-org/btclib-secp256k1#1050). Here the order is
+    forced: the first reader's build does not finish until the second is
+    waiting on `_lock`, so the second can only take the lock once `ctx`
+    is written, and has to return it rather than build again -- one
+    import of the extension, one context, both readers answered with it.
+    """
+    handoff = _Handoff()
+    imports: list[str] = []
+    building = threading.Event()
+
+    def import_once_the_second_reader_waits() -> types.SimpleNamespace:
+        imports.append(threading.current_thread().name)
+        building.set()
+        assert handoff.waiting.wait(timeout=30), "the second reader never waited"
+        return STAND_IN
+
+    monkeypatch.setattr(zkp_context, "_lock", handoff)
+    monkeypatch.setattr(zkp, "_import_extension", import_once_the_second_reader_waits)
+    contexts: dict[str, object] = {}
+
+    def read_ctx() -> None:
+        contexts[threading.current_thread().name] = zkp_context.ctx
+
+    first = threading.Thread(target=read_ctx, name="first")
+    second = threading.Thread(target=read_ctx, name="second")
+    first.start()
+    assert building.wait(timeout=30), "the first reader never started the build"
+    second.start()
+    first.join()
+    second.join()
+
+    assert imports == ["first"]
+    assert set(contexts) == {"first", "second"}
+    assert contexts["first"] is contexts["second"]
+
+
+def test_check_with_nothing_reported() -> None:
+    """With nothing reported, check returns: that is the whole behaviour.
+
+    What is reported is a thread-local of `zkp.context`'s own, and no
+    wrapper in the subpackage calls `check`: a call through zkp's `lib`
+    that violates a precondition leaves its reason there for whichever
+    `check` a caller makes next, the contract
+    `tests/callbacks_test.py`'s module docstring states for the primary
+    package. `zkp.musig.SecretNonce.partial_sign` refusing a mismatched
+    private key is such a call, so the empty thread-local is state this
+    test makes rather than inherits.
+    """
+    zkp_context._reported.illegal = None
+    zkp_context.check()
+
+
+@pytest.mark.usefixtures("without_the_extension")
+def test_illegal_argument_is_recorded_and_raised(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Driven through the stand-in's own `lib`, a pubkey parse into nowhere.
+
+    The same shape `tests/callbacks_test.py`'s `test_illegal_argument`
+    drives for the primary context: secp256k1's `ARG_CHECK` reports a
+    NULL destination through the illegal callback before it is ever
+    dereferenced, and `zkp_context.check()` -- not `context.check()` --
+    is what has to see it, on this module's own thread-local.
+    """
+    monkeypatch.setattr(zkp, "_import_extension", lambda: STAND_IN)
+    ctx = zkp_context.ctx
+    ffi = zkp_context.ffi
+    lib = zkp_context.lib
+    nowhere_args = (ffi.NULL, b"\x02" + b"\x01" * 32, 33)
+
+    assert not lib.secp256k1_ec_pubkey_parse(ctx, *nowhere_args)
+    with pytest.raises(ValueError, match="illegal argument: pubkey != NULL"):
+        zkp_context.check()
+    # cleared: a second call reports nothing
+    zkp_context.check()

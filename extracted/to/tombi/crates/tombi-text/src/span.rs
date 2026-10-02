@@ -155,8 +155,14 @@ impl Span {
         self.start <= other.start && other.end <= self.end
     }
 
-    /// The span covered by both ranges, if it exists.
-    /// If the ranges touch but do not overlap, the output span is empty.
+    /// Check if the two spans overlap or touch, including their ends.
+    #[inline]
+    pub fn intersects(self, other: Span) -> bool {
+        self.start <= other.end && other.start <= self.end
+    }
+
+    /// The span covered by both spans, if it exists.
+    /// If the spans touch but do not overlap, the output span is empty.
     ///
     /// # Examples
     ///
@@ -249,12 +255,12 @@ impl Span {
         ))
     }
 
-    /// Relative order of the two ranges (overlapping ranges are considered
+    /// Relative order of the two spans (overlapping spans are considered
     /// equal).
     ///
     ///
     /// This is useful when, for example, binary searching an array of disjoint
-    /// ranges.
+    /// spans.
     ///
     /// # Examples
     ///
@@ -426,9 +432,10 @@ impl Sub<Offset> for Span {
 
 impl Add<Span> for Span {
     type Output = Span;
+    /// Returns the span covering both spans, like [`Span::cover`].
     #[inline]
     fn add(self, other: Span) -> Span {
-        Span::new(self.start, other.end)
+        self.cover(other)
     }
 }
 

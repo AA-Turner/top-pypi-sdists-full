@@ -1,0 +1,320 @@
+// Copyright (c) 2026 Contributors to the Eclipse Foundation
+//
+// See the NOTICE file(s) distributed with this work for additional
+// information regarding copyright ownership.
+//
+// This program and the accompanying materials are made available under the
+// terms of the Apache Software License 2.0 which is available at
+// https://www.apache.org/licenses/LICENSE-2.0, or the MIT license
+// which is available at https://opensource.org/licenses/MIT.
+//
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
+//! A ByteAtomic is a wrapper type that provides byte-wise atomic read and write accesses on the
+//! inner type `T`. It only guarantees atomicity at the byte level; it does not provide
+//! higher-level thread-safety guarantees. Users must still enforce proper synchronization, i.e.
+//! torn-writes and torn-reads are still possible and must be handled by the user. The wrapper
+//! does only ensure that the memory copy does not cause undefined behavior, but does not care
+//! about data integrity.
+//!
+//!  * [`FixedSizeByteAtomic`](crate::byte_atomic::FixedSizeByteAtomic): compile-time fixed-size
+//!    ByteAtomic that is self-contained and shared-memory compatible.
+//!  * [`RelocatableByteAtomic`](crate::byte_atomic::RelocatableByteAtomic): runtime fixed-size
+//!    ByteAtomic that is shared-memory compatible.
+//!
+//! # User Examples
+//!
+//! ## Use the [`FixedSizeByteAtomic`](crate::byte_atomic::FixedSizeByteAtomic)
+//!
+//! ```
+//! use iceoryx2_bb_container::byte_atomic::FixedSizeByteAtomic;
+//! use iceoryx2_bb_derive_macros::AtomicCopy;
+//! use iceoryx2_bb_elementary_traits::atomic_copy::AtomicCopy;
+//!
+//! #[repr(C)]
+//! #[derive(AtomicCopy, Clone, Copy)]
+//! struct Foo {
+//!     bar: u8,
+//!     baz: u64,
+//! }
+//!
+//! const SIZE: usize = size_of::<Foo>();
+//! let wrapper = FixedSizeByteAtomic::<Foo, SIZE>::new(Foo { bar: 0, baz: 0 });
+//!
+//! let new_value = Foo { bar: 4, baz: 6 };
+//! unsafe {
+//!     wrapper.write(new_value);
+//!     let read_value = wrapper.read().assume_consistent();
+//!     assert_eq!(read_value.bar, new_value.bar);
+//!     assert_eq!(read_value.baz, new_value.baz);
+//! }
+//! ```
+//!
+//! ## Use the [`RelocatableByteAtomic`](crate::byte_atomic::RelocatableByteAtomic)
+//!
+//! ```
+//! extern crate alloc;
+//!
+//! use iceoryx2_bb_container::byte_atomic::RelocatableByteAtomic;
+//! use iceoryx2_bb_derive_macros::AtomicCopy;
+//! use iceoryx2_bb_testing::allocator::Allocator;
+//! use iceoryx2_bb_elementary_traits::atomic_copy::AtomicCopy;
+//!
+//! #[repr(C)]
+//! #[derive(AtomicCopy, Clone, Copy)]
+//! struct Foo {
+//!     bar: u8,
+//!     baz: u64,
+//! }
+//!
+//! let value = Foo { bar: 0, baz: 0 };
+//! let new_value = Foo { bar: 4, baz: 6 };
+//!
+//! const SIZE: usize = RelocatableByteAtomic::<Foo>::const_memory_size();
+//! let allocator = Allocator::new();
+//! unsafe {
+//!     let mut wrapper = RelocatableByteAtomic::new_uninit();
+//!     wrapper
+//!         .init(&allocator, value)
+//!         .expect("RelocatableByteAtomic initialized.");
+//!
+//!     wrapper.write(new_value);
+//!     let read_value = wrapper.read().assume_consistent();
+//!     assert_eq!(read_value.bar, new_value.bar);
+//!     assert_eq!(read_value.baz, new_value.baz);
+//! }
+//! ```
+
+use core::alloc::Layout;
+use core::marker::PhantomData;
+use core::mem::MaybeUninit;
+use core::ptr::NonNull;
+use iceoryx2_bb_concurrency::atomic::{AtomicBool, AtomicU8, Ordering};
+use iceoryx2_bb_elementary::relocatable_pointer::{Pointer, RelocatablePointer};
+use iceoryx2_bb_elementary::static_assert_size_of;
+use iceoryx2_bb_elementary_traits::allocator::{Allocate, AllocationError};
+use iceoryx2_bb_elementary_traits::{atomic_copy::AtomicCopy, zero_copy_send::ZeroCopySend};
+use iceoryx2_log::fail;
+use iceoryx2_log::fatal_panic;
+
+/// A wrapper representing a value that has been copied byte-wise atomically, but might has
+/// been subject to torn-writes/torn-reads. Use [`MaybeTorn`] in conjunction with
+/// synchronization primitives (like a sequence lock) to verify that the data is consistent
+/// before use.
+#[repr(transparent)]
+pub struct MaybeTorn<T> {
+    inner: MaybeUninit<T>,
+}
+
+impl<T> MaybeTorn<T> {
+    /// Creates a new [`MaybeTorn<T>`] from the passed [`MaybeUninit<T>`].
+    pub fn new(inner: MaybeUninit<T>) -> Self {
+        Self { inner }
+    }
+
+    /// Extracts the value from the [`MaybeTorn`] container.
+    ///
+    /// # Safety
+    ///
+    /// The caller must guarantee that the underlying memory does not contain a torn state,
+    /// otherwise `T` may be "logically" invalid. In the context of [`FixedSizeByteAtomic::read()`],
+    /// this means that the caller must have verified via synchronization primitives that no
+    /// concurrent writes occurred during the read operation. If called on a torn value, using the
+    /// resulting `T` may lead to undefined behavior.
+    pub unsafe fn assume_consistent(self) -> T {
+        unsafe { self.inner.assume_init() }
+    }
+}
+
+/// A runtime fixed-size, shared-memory compatible [`RelocatableByteAtomic`].
+pub struct RelocatableByteAtomic<T: AtomicCopy> {
+    data_ptr: RelocatablePointer<AtomicU8>,
+    capacity: usize,
+    is_initialized: AtomicBool,
+    _inner_type: PhantomData<T>,
+}
+
+unsafe impl<T: AtomicCopy + ZeroCopySend> ZeroCopySend for RelocatableByteAtomic<T> {}
+
+impl<T: AtomicCopy> RelocatableByteAtomic<T> {
+    #[inline(always)]
+    fn verify_init(&self, source: &str) {
+        debug_assert!(
+            self.is_initialized.load(Ordering::Relaxed),
+            "From: RelocatableByteAtomic<{}>::{}, Undefined behavior - the object was not initialized with 'init' before.",
+            core::any::type_name::<T>(),
+            source,
+        );
+    }
+
+    /// Creates a new uninitialized RelocatableByteAtomic. Before it can be used, the method
+    /// [`RelocatableByteAtomic::init()`] must be called.
+    ///
+    /// # Safety
+    ///
+    ///   * Before the RelocatableByteAtomic can be used, [`RelocatableByteAtomic::init()`] must
+    ///     be called exactly once.
+    pub unsafe fn new_uninit() -> Self {
+        Self {
+            data_ptr: unsafe { RelocatablePointer::new_uninit() },
+            capacity: size_of::<T>(),
+            is_initialized: AtomicBool::new(false),
+            _inner_type: PhantomData,
+        }
+    }
+
+    /// Initializes an uninitialized RelocatableByteAtomic. It allocates the required memory from
+    /// the provided allocator. The allocator must have at least
+    /// [`RelocatableByteAtomic::const_memory_size()`] bytes available.
+    ///
+    /// # Safety
+    ///
+    ///   * Must be called exactly once before any other method is called.
+    ///   * Shall be only used when the RelocatableByteAtomic was created with
+    ///     [`RelocatableByteAtomic::new_uninit()`].
+    pub unsafe fn init<Allocator: Allocate<NonNull<u8>>>(
+        &mut self,
+        allocator: &Allocator,
+        value: T,
+    ) -> Result<(), AllocationError> {
+        if self.is_initialized.load(Ordering::Relaxed) {
+            fatal_panic!(from "RelocatableByteAtomic::init()", "Memory already initialized.
+                Initializing it twice may lead to undefined behavior.");
+        }
+
+        unsafe {
+            self.data_ptr.init(fail!(from "RelocatableByteAtomic::init()", when allocator
+                .allocate(Layout::from_size_align_unchecked(self.capacity, 1)),
+            "Failed to initialize RelocatableByteAtomic since the allocation of the data memory failed."));
+        }
+        for i in 0..self.capacity {
+            unsafe {
+                self.data_ptr.as_mut_ptr().add(i).write(AtomicU8::new(0));
+            }
+        }
+
+        let value_ptr = (&raw const value).cast::<u8>();
+        value.for_each_field(0, &mut |offset, size| {
+            for i in offset..offset + size {
+                unsafe {
+                    (*self.data_ptr.as_ptr().add(i)).store(*value_ptr.add(i), Ordering::Relaxed);
+                }
+            }
+        });
+
+        self.is_initialized.store(true, Ordering::Relaxed);
+
+        Ok(())
+    }
+
+    /// Returns how much memory the [`RelocatableByteAtomic`] will allocate from the
+    /// allocator in [`RelocatableByteAtomic::init()`].
+    pub const fn const_memory_size() -> usize {
+        size_of::<T>()
+    }
+
+    /// Copies the stored value byte-wise into a [`MaybeTorn<T>`]. Torn reads are possible when
+    /// the value is concurrently written to. The user must take care of the data integrity.
+    pub fn read(&self) -> MaybeTorn<T> {
+        self.verify_init("read()");
+        read_impl(self.data_ptr.as_ptr())
+    }
+
+    /// Stores the passed value byte-wise atomically. When used concurrently, torn writes and
+    /// torn reads are possible. The user must take care of the data integrity.
+    pub fn write(&self, value: T) {
+        self.verify_init("write()");
+        write_impl(self.data_ptr.as_ptr(), value);
+    }
+}
+
+/// A compile-time fixed-size, shared-memory compatible [`FixedSizeByteAtomic`].
+///
+/// # Examples
+///
+/// This does compile because the size parameter matches the size of the type.
+///
+/// ```
+/// use iceoryx2_bb_container::byte_atomic::FixedSizeByteAtomic;
+///
+/// let _ = FixedSizeByteAtomic::<u64, 8>::new(0);
+/// ```
+///
+/// This does not compile because the size parameter is smaller than the size of the type.
+///
+/// ```compile_fail
+/// use iceoryx2_bb_container::byte_atomic::FixedSizeByteAtomic;
+///
+/// let _ = FixedSizeByteAtomic::<u64, 1>::new(0);
+/// ```
+#[repr(C)]
+pub struct FixedSizeByteAtomic<T: AtomicCopy, const SIZE: usize> {
+    data: [AtomicU8; SIZE],
+    _inner_type: PhantomData<T>,
+}
+
+unsafe impl<T: AtomicCopy + ZeroCopySend, const SIZE: usize> ZeroCopySend
+    for FixedSizeByteAtomic<T, SIZE>
+{
+}
+
+impl<T: AtomicCopy, const SIZE: usize> FixedSizeByteAtomic<T, SIZE> {
+    /// Creates a new [`FixedSizeByteAtomic`] that contains the passed value.
+    pub fn new(value: T) -> Self {
+        // TODO #1644: The following check and the SIZE parameter can be removed once size_of::<T>()
+        // can be directly used in the struct definition. Consider then to remove the
+        // RelocatableByteAtomic implementation as well; maybe add a placement_new() to the
+        // FixedSizeByteAtomic.
+        static_assert_size_of!(T, SIZE);
+
+        let value_ptr = (&raw const value).cast::<u8>();
+
+        // The passed value may contain padding bytes. Reading these padding bytes
+        // would lead to undefined behavior. Therefore, we first set all bytes to zero and
+        // then copy only the fields, i.e. the initialized bytes, of the passed value.
+        let mut bytes = [0u8; SIZE];
+        value.for_each_field(0, &mut |offset, size| {
+            for (i, byte) in bytes.iter_mut().enumerate().skip(offset).take(size) {
+                *byte = unsafe { *value_ptr.add(i) };
+            }
+        });
+        Self {
+            data: bytes.map(AtomicU8::new),
+            _inner_type: PhantomData,
+        }
+    }
+
+    /// Copies the stored value byte-wise into a [`MaybeTorn<T>`]. Torn reads are possible when
+    /// the value is concurrently written to. The user must take care of the data integrity.
+    pub fn read(&self) -> MaybeTorn<T> {
+        read_impl(self.data.as_ptr())
+    }
+
+    /// Stores the passed value byte-wise atomically. When used concurrently, torn writes and
+    /// torn reads are possible. The user must take care of the data integrity.
+    pub fn write(&self, value: T) {
+        write_impl(self.data.as_ptr(), value);
+    }
+}
+
+fn read_impl<T: AtomicCopy>(src_data_ptr: *const AtomicU8) -> MaybeTorn<T> {
+    let mut data: MaybeUninit<T> = MaybeUninit::uninit();
+    let dest_data_ptr = data.as_mut_ptr() as *mut u8;
+    for i in 0..size_of::<T>() {
+        unsafe {
+            *dest_data_ptr.add(i) = (*src_data_ptr.add(i)).load(Ordering::Relaxed);
+        }
+    }
+    MaybeTorn::new(data)
+}
+
+fn write_impl<T: AtomicCopy>(dest_data_ptr: *const AtomicU8, value: T) {
+    let value_ptr = (&raw const value).cast::<u8>();
+    value.for_each_field(0, &mut |offset, size| {
+        for i in offset..offset + size {
+            unsafe {
+                (*dest_data_ptr.add(i)).store(*value_ptr.add(i), Ordering::Relaxed);
+            }
+        }
+    });
+}

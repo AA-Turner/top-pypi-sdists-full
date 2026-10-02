@@ -8,9 +8,7 @@ from anyscale.controllers.base_controller import BaseController
 
 
 class ExperimentalIntegrationsController(BaseController):
-    def __init__(
-        self, log: Optional[BlockLogger] = None, initialize_auth_api_client: bool = True
-    ):
+    def __init__(self, log: Optional[BlockLogger] = None, initialize_auth_api_client: bool = True):
         if log is None:
             log = BlockLogger()
 
@@ -19,17 +17,17 @@ class ExperimentalIntegrationsController(BaseController):
         self.log.open_block("Output")
 
     # TODO(nikita): Use discriminated union types for cloud_id/cloud_name
-    def enable_wandb_integration(
-        self, cloud_id: Optional[str], cloud_name: Optional[str]
-    ):
+    def enable_wandb_integration(self, cloud_id: Optional[str], cloud_name: Optional[str]):
         """
         [DEPRECATED]
         Enables W&B integration for the current user for the provided cloud. This
         is currently only implemented for AWS clouds.
         """
-        feature_flag_on = self.api_client.check_is_feature_flag_on_api_v2_userinfo_check_is_feature_flag_on_get(
-            "wandb-integration-prototype"
-        ).result.is_on
+        feature_flag_on = (
+            self.api_client.check_is_feature_flag_on_api_v2_userinfo_check_is_feature_flag_on_get(
+                "wandb-integration-prototype"
+            ).result.is_on
+        )
         if not feature_flag_on:
             raise click.ClickException(
                 "The W&B integration can only be enabled if the feature flag is enabled. "
@@ -38,16 +36,12 @@ class ExperimentalIntegrationsController(BaseController):
 
         # Assumes only one of cloud_id and cloud_name is passed. This should be checked with
         # a user friendly error message at the command layer.
-        assert (
-            bool(cloud_id) + bool(cloud_name) == 1
-        ), "Must provide only one of --cloud_id or --cloud_name."
-
-        cloud_id, cloud_name = get_cloud_id_and_name(
-            self.api_client, cloud_id, cloud_name
+        assert bool(cloud_id) + bool(cloud_name) == 1, (
+            "Must provide only one of --cloud_id or --cloud_name."
         )
-        cloud = self.api_client.get_cloud_api_v2_clouds_cloud_id_get(
-            cloud_id=cloud_id
-        ).result
+
+        cloud_id, cloud_name = get_cloud_id_and_name(self.api_client, cloud_id, cloud_name)
+        cloud = self.api_client.get_cloud_api_v2_clouds_cloud_id_get(cloud_id=cloud_id).result
 
         user_id = self.api_client.get_user_info_api_v2_userinfo_get().result.id
 

@@ -1,0 +1,224 @@
+/*
+ * Copyright 2026 The A11 Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
+ * @file
+ * @brief Out-of-band signalling used to negotiate WebRTC peer connections.
+ *
+ * Signalling is the handshake that lets two peers find each other and agree on
+ * how to connect before a data transport exists -- chiefly to exchange the SDP
+ * offers/answers and ICE candidates a WebRtcWireStream needs. A
+ * SignallingService routes SignallingMessage values between identity-bound
+ * SignallingEndpoints in one process; SignallingTransport is the abstract
+ * channel a WebRTC stream negotiates over, with a WebSocket-backed
+ * implementation in websocket_signalling.h for peers on different machines.
+ * This is not itself a WireStream transport -- it carries control messages,
+ * not A11 WireMessage traffic.
+ */
+
+#ifndef A11_NET_SIGNALLING_H_
+#define A11_NET_SIGNALLING_H_
+
+#include <functional>
+#include <memory>
+#include <string>
+#include <string_view>
+#include <vector>
+
+#include <absl/status/status.h>
+#include <absl/status/statusor.h>
+
+#include "a11/concurrency/future.h"
+
+namespace a11::net {
+
+/** The kind of payload a SignallingMessage carries. */
+enum class SignallingMessageType {
+  kDescription,
+  kCandidate,
+  kError,
+};
+
+/**
+ * @brief One signalling payload: an SDP description, an ICE candidate, or an
+ * error.
+ *
+ * Addressed from `sender` to `recipient`. Which fields are meaningful depends
+ * on `type`; ToJson()/FromJson() move it over a network transport.
+ */
+struct SignallingMessage {
+  SignallingMessageType type =
+      SignallingMessageType::kDescription;  ///< Payload discriminator.
+  std::string sender = {};            ///< Identity of the originating peer.
+  std::string recipient;              ///< Identity of the target peer.
+  std::string description = {};       ///< SDP offer or answer text.
+  std::string description_type = {};  ///< SDP type, such as offer or answer.
+  std::string candidate = {};         ///< ICE candidate text.
+  std::string mid = {};     ///< Media/data-section id for the candidate.
+  absl::Status error = {};  ///< Negotiation failure for kError messages.
+  /**
+   * @brief Capability tokens the sender supports; a peer echoes those it
+   * shares.
+   *
+   * Additive, and ignored by a peer that does not know a token -- which is what
+   * makes it safe to introduce one. An older peer never echoes, so the feature
+   * stays off rather than breaking the connection, and no version negotiation
+   * is
+   * needed. Currently only `a11-pmtud/1` (path MTU probing).
+   */
+  std::vector<std::string> capabilities = {};
+
+  /** @return OK if the fields are consistent for this message's type. */
+  absl::Status Validate() const;
+  /** @return The JSON wire representation, or an error status. */
+  absl::StatusOr<std::string> ToJson() const;
+  /** @brief Parses a message from its JSON wire representation.
+   * @return The parsed message, or an error status. */
+  static absl::StatusOr<SignallingMessage> FromJson(std::string_view json);
+};
+
+class SignallingService;
+
+/** Async callback invoked for each inbound SignallingMessage. */
+using OnSignallingMessage = std::function<a11::Task(SignallingMessage message)>;
+
+/**
+ * @brief Abstract identity-bound channel over which signalling flows.
+ *
+ * The interface a WebRtcWireStream negotiates over; concrete implementations
+ * include the in-process SignallingEndpoint and the WebSocket-backed
+ * WebSocketSignallingClient.
+ */
+class SignallingTransport {
+ public:
+  virtual ~SignallingTransport() = default;
+  /** Sends a signalling message to the peer (non-blocking). */
+  virtual absl::Status Send(SignallingMessage message) = 0;
+  /** Registers the async callback invoked for each inbound message. */
+  virtual absl::Status SetOnMessage(OnSignallingMessage on_message) = 0;
+  /** Closes the transport and releases its resources. */
+  virtual absl::Status Close() = 0;
+  /** @return The local identity bound to this transport. */
+  [[nodiscard]] virtual std::string identity() const = 0;
+  /** @return Whether the transport is currently connected. */
+  [[nodiscard]] virtual bool connected() const = 0;
+  /** @return The current transport status. */
+  [[nodiscard]] virtual absl::Status GetStatus() const = 0;
+};
+
+/**
+ * @brief An identity-bound endpoint into an in-process SignallingService.
+ *
+ * Send() is non-blocking but ordered: the service invokes each recipient
+ * callback serially on A11 fibers. This makes it safe to use directly from
+ * libdatachannel's ordinary callback threads. Obtain one from
+ * SignallingService::Connect().
+ */
+class SignallingEndpoint
+    : public SignallingTransport,
+      public std::enable_shared_from_this<SignallingEndpoint> {
+ public:
+  ~SignallingEndpoint();
+
+  absl::Status Send(SignallingMessage message) override;
+  absl::Status SetOnMessage(OnSignallingMessage on_message) override;
+  absl::Status Close() override;
+  [[nodiscard]] std::string identity() const override;
+  [[nodiscard]] bool connected() const override;
+  [[nodiscard]] absl::Status GetStatus() const override;
+
+ private:
+  struct State;
+
+  explicit SignallingEndpoint(std::shared_ptr<State> state)
+      : state_(std::move(state)) {}
+
+  std::shared_ptr<State> state_;
+
+  friend class SignallingService;
+};
+
+/**
+ * @brief An in-process broker that routes signalling messages by identity.
+ *
+ * Each peer registers an identity and inbound callback via Connect(); a
+ * message's recipient field selects the endpoint it is delivered to. Used to
+ * bootstrap WebRTC peers in the same process, and fronted by
+ * WebSocketSignallingServer when peers are remote.
+ */
+class SignallingService
+    : public std::enable_shared_from_this<SignallingService> {
+ public:
+  /** @return A new, empty in-process signalling service. */
+  static std::shared_ptr<SignallingService> Create();
+  ~SignallingService();
+
+  /**
+   * @brief Registers an identity and its inbound-message callback.
+   *
+   * @param identity Identity other peers address messages to.
+   * @param on_message Async callback invoked for each inbound message.
+   * @return The connected endpoint, or an error status.
+   */
+  absl::StatusOr<std::shared_ptr<SignallingEndpoint>> Connect(
+      std::string identity, OnSignallingMessage on_message);
+  /**
+   * @brief Delivers a message to a locally connected recipient.
+   *
+   * The ingress half of a *federated* signalling fabric: Route() carries a
+   * message from an endpoint this service holds, and Deliver() carries one that
+   * arrived from somewhere else -- another process, another host -- and needs
+   * placing into the recipient's queue as though it had. Paired with
+   * WebSocketSignallingServerOptions::on_unroutable, which is the egress half,
+   * it lets several servers behave as one without either of them knowing how
+   * the messages travel between them.
+   *
+   * The message's `sender` is taken as given, because the caller is the only
+   * party that knows whether it was authenticated. A transport handing this
+   * untrusted input must set `sender` itself.
+   *
+   * @param message The message to deliver; its `recipient` selects the target.
+   * @return OK, `NOT_FOUND` when the recipient is not connected here, or the
+   *         recipient's terminal status when it is disconnecting.
+   */
+  absl::Status Deliver(SignallingMessage message);
+  /** @return Whether the given identity is currently connected. */
+  [[nodiscard]] bool Contains(std::string_view identity) const;
+  /** @return The list of currently connected identities. */
+  [[nodiscard]] std::vector<std::string> Identities() const;
+  /** Stops the service and disconnects all endpoints. */
+  absl::Status Stop();
+
+ private:
+  struct State;
+
+  explicit SignallingService(std::shared_ptr<State> state)
+      : state_(std::move(state)) {}
+
+  absl::Status Route(const std::shared_ptr<SignallingEndpoint::State>& sender,
+                     SignallingMessage message);
+  void Disconnect(const std::shared_ptr<SignallingEndpoint::State>& endpoint,
+                  absl::Status status);
+  static void Pump(const std::shared_ptr<SignallingEndpoint::State>& endpoint);
+
+  std::shared_ptr<State> state_;
+
+  friend class SignallingEndpoint;
+};
+
+}  // namespace a11::net
+
+#endif  // A11_NET_SIGNALLING_H_

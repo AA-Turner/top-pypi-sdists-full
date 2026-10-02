@@ -37,9 +37,12 @@ class KuberayWorkloadController(BaseController):
         its identity (workload_id, name) and initial state.
         """
         request = CreateWorkloadRequest(
-            spec=spec, cloud_id=cloud_id, project_id=project_id, name=name,
+            spec=spec,
+            cloud_id=cloud_id,
+            project_id=project_id,
+            name=name,
         )
-        response: CreateWorkloadResponse = self.api_client.create_workload_api_v2_kuberay_workloads_create_post(
-            request
-        ).result
+        response: CreateWorkloadResponse = (
+            self.api_client.create_workload_api_v2_kuberay_workloads_create_post(request).result
+        )
         return response

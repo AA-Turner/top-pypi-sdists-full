@@ -8,7 +8,7 @@ import jsonschema_rs
 from jsonschema_rs import Validator
 from typing_extensions import assert_never
 
-from schemathesis import hooks, transport
+from schemathesis import transport
 from schemathesis.auths import reauth_and_replay
 from schemathesis.checks import (
     CheckContext,
@@ -18,6 +18,7 @@ from schemathesis.checks import (
     run_checks,
     run_checks_for,
 )
+from schemathesis.config import SanitizationConfig
 from schemathesis.core import NOT_SET, SCHEMATHESIS_TEST_CASE_HEADER, Body, NotSet, curl, media_types
 from schemathesis.core.errors import IncorrectUsage
 from schemathesis.core.failures import Failure, FailureGroup, failure_report_title, format_failures
@@ -37,6 +38,7 @@ from schemathesis.hooks import (
     dispatch_after_network_error,
     dispatch_after_validate,
     dispatch_before_call,
+    schema_hook_dispatchers,
 )
 from schemathesis.transport.prepare import prepare_path, prepare_request
 from schemathesis.transport.serialization import Binary
@@ -60,6 +62,7 @@ def _default_headers() -> CaseInsensitiveDict:
 
 
 _NOTSET_HASH = 0x7F3A9B2C
+_NO_SANITIZATION = SanitizationConfig(enabled=False)
 
 
 def _contains_bytes(value: Body) -> bool:
@@ -222,7 +225,10 @@ class Case(Generic[OperationT]):
         return f"{output})"
 
     def __hash__(self) -> int:
-        return hash(self.as_curl_command({SCHEMATHESIS_TEST_CASE_HEADER: "0"}))
+        # Identity is the wire request with unmasked values; masked ones would make distinct cases collide.
+        request = prepare_request(self, {SCHEMATHESIS_TEST_CASE_HEADER: "0"}, config=_NO_SANITIZATION)
+        headers = tuple(sorted((name.lower(), value) for name, value in request.headers.items()))
+        return hash((request.method, request.url, headers, request.body))
 
     def _repr_pretty_(self, *args: Any, **kwargs: Any) -> None: ...
 
@@ -292,13 +298,16 @@ class Case(Generic[OperationT]):
 
         if location == ParameterLocation.BODY:
             # Validate body against media type schema
-            if isinstance(value, NotSet) or value is None:
+            if isinstance(value, NotSet) or value is None or self.media_type is None or _contains_bytes(value):
                 return False
-            for alternative in self.operation.body:
-                if _contains_bytes(value):
-                    return False
-                if alternative.media_type == self.media_type:
-                    return make_validator(alternative.validation_schema, validator_cls).is_valid(value)
+            alternatives = list(self.operation.body)
+            # An exact media type wins over a wildcard one like `*/*` that the concrete type was chosen for.
+            alternative = next((a for a in alternatives if a.media_type == self.media_type), None) or next(
+                (a for a in alternatives if media_types.matches(a.media_type, self.media_type)), None
+            )
+            if alternative is None:
+                return False
+            return make_validator(alternative.validation_schema, validator_cls).is_valid(value)
         # Validate other locations against container schema
         container = getattr(self.operation, location.container_name)
         if isinstance(value, CaseInsensitiveDict):
@@ -514,7 +523,8 @@ class Case(Generic[OperationT]):
         checks = [
             check for check in list(checks) + list(additional_checks or []) if check not in set(excluded_checks or [])
         ]
-        has_after_validate = hooks.defines("after_validate") or self.operation.schema.hooks.defines("after_validate")
+        after_validate_dispatchers = schema_hook_dispatchers(self.operation.schema)
+        has_after_validate = any(dispatcher.defines("after_validate") for dispatcher in after_validate_dispatchers)
         check_results: list[CheckResult] = []
         _on_success: Callable[[str, Case], None] | None
 
@@ -547,8 +557,7 @@ class Case(Generic[OperationT]):
         if has_after_validate:
             hook_context = HookContext(operation=self.operation)
             dispatch_after_validate(
-                GLOBAL_HOOK_DISPATCHER,
-                self.operation.schema.hooks,
+                *after_validate_dispatchers,
                 context=hook_context,
                 case=self,
                 response=response,

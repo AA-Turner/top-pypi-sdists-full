@@ -1,0 +1,210 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Unit tests for kernel registry auto-configuration (OMN-7076).
+
+Tests that the kernel resolves the event bus from the registry based on
+backend probes, not inline if/else creation.
+"""
+
+from __future__ import annotations
+
+from unittest.mock import patch
+
+import pytest
+
+from omnibase_infra.backends.auto_configure import (
+    EventBusResolutionAmbiguousError,
+    select_event_bus,
+)
+from omnibase_infra.backends.enum_probe_state import EnumProbeState
+from omnibase_infra.backends.model_probe_result import ModelProbeResult
+
+pytestmark = pytest.mark.unit
+
+
+class TestKernelRegistryResolution:
+    """Test that the kernel resolves event bus from registry."""
+
+    def test_registry_resolves_inmemory_when_kafka_unavailable(self) -> None:
+        """When Kafka is unreachable, kernel auto-falls back to in-memory bus."""
+        kafka_probe_result = ModelProbeResult(
+            state=EnumProbeState.DISCOVERED,
+            reason="TCP connect to localhost:59999 failed",
+            backend_label="event_bus_kafka",
+        )
+        with (
+            patch(
+                "omnibase_infra.backends.auto_configure.probe_kafka",
+                return_value=kafka_probe_result,
+            ),
+            patch.dict("os.environ", {}, clear=False) as env,
+        ):
+            env.pop("ONEX_EVENT_BUS_TYPE", None)
+            bus = select_event_bus(
+                kafka_bootstrap_servers=None,
+                environment="test",
+                consumer_group="test-group",
+            )
+            assert type(bus).__name__ == "EventBusInmemory"
+
+    def test_registry_resolves_kafka_when_healthy(self) -> None:
+        """When Kafka is healthy, kernel selects EventBusKafka."""
+        kafka_probe_result = ModelProbeResult(
+            state=EnumProbeState.AUTHORITATIVE,
+            reason="Kafka healthy with 5 topics, brokers match config",
+            backend_label="event_bus_kafka",
+        )
+        with (
+            patch(
+                "omnibase_infra.backends.auto_configure.probe_kafka",
+                return_value=kafka_probe_result,
+            ),
+            patch.dict("os.environ", {}, clear=False) as env,
+        ):
+            env.pop("ONEX_EVENT_BUS_TYPE", None)
+            bus = select_event_bus(
+                kafka_bootstrap_servers="localhost:9092",
+                environment="test",
+                consumer_group="test-group",
+            )
+            assert type(bus).__name__ == "EventBusKafka"
+
+    def test_registry_applies_kafka_environment_overrides(self) -> None:
+        """Explicit Kafka config still honors KAFKA_* runtime env overrides."""
+        kafka_probe_result = ModelProbeResult(
+            state=EnumProbeState.AUTHORITATIVE,
+            reason="Kafka healthy with 5 topics, brokers match config",
+            backend_label="event_bus_kafka",
+        )
+        with (
+            patch(
+                "omnibase_infra.backends.auto_configure.probe_kafka",
+                return_value=kafka_probe_result,
+            ),
+            patch.dict(
+                "os.environ",
+                {
+                    "KAFKA_INSTANCE_ID": "runtime-effects",
+                    "ONEX_EVENT_BUS_TYPE": "",
+                },
+            ),
+        ):
+            bus = select_event_bus(
+                kafka_bootstrap_servers="localhost:9092",
+                environment="test",
+                consumer_group="test-group",
+            )
+            assert type(bus).__name__ == "EventBusKafka"
+            assert bus.config.instance_id == "runtime-effects"
+
+    def test_env_var_is_ignored_at_the_construction_seam(self) -> None:
+        """ONEX_EVENT_BUS_TYPE no longer forces anything (OMN-17304).
+
+        Pre-ruling this test pinned env=inmemory beating an AUTHORITATIVE
+        probe. The var holds no tier now: with no explicit ``bus_type`` and no
+        config, the probe decides — the set value is warned about and ignored.
+        """
+        kafka_probe_result = ModelProbeResult(
+            state=EnumProbeState.AUTHORITATIVE,
+            reason="Kafka healthy with 5 topics, brokers match config",
+            backend_label="event_bus_kafka",
+        )
+        with (
+            patch(
+                "omnibase_infra.backends.auto_configure.probe_kafka",
+                return_value=kafka_probe_result,
+            ),
+            patch.dict("os.environ", {"ONEX_EVENT_BUS_TYPE": "inmemory"}),
+        ):
+            bus = select_event_bus(
+                kafka_bootstrap_servers="localhost:9092",
+                environment="test",
+                consumer_group="test-group",
+            )
+            assert type(bus).__name__ == "EventBusKafka"
+
+    def test_reachable_with_explicit_servers_refuses_to_guess(self) -> None:
+        """OMN-16678: REACHABLE is indeterminate — the kernel path must not guess.
+
+        This test previously asserted the opposite ("still try Kafka"). That
+        mapping was one half of a contradiction: the delegate path resolved the
+        IDENTICAL probe state to in-memory. Since ``probe_kafka`` degrades any
+        Stage-2 metadata failure — a 2s ``list_topics`` timeout against a
+        perfectly healthy broker included — to REACHABLE, whichever branch ran
+        was decided by transient network timing, not by configuration
+        (measured 14 kafka / 6 inmemory over 20 unchanged-env calls,
+        ``knowledge-base#59``). Both paths now refuse and name the ambiguity;
+        an operator who wants the old "try Kafka anyway" behavior states it
+        explicitly (``bus_type="kafka"`` / ``--bus kafka``) or declares it in
+        the runtime config (OMN-17304 — the env var holds no tier).
+        """
+        kafka_probe_result = ModelProbeResult(
+            state=EnumProbeState.REACHABLE,
+            reason="TCP reachable but topic list failed",
+            backend_label="event_bus_kafka",
+        )
+        with (
+            patch(
+                "omnibase_infra.backends.auto_configure.probe_kafka",
+                return_value=kafka_probe_result,
+            ),
+            patch.dict("os.environ", {}, clear=False) as env,
+        ):
+            env.pop("ONEX_EVENT_BUS_TYPE", None)
+            with pytest.raises(EventBusResolutionAmbiguousError) as excinfo:
+                select_event_bus(
+                    kafka_bootstrap_servers="localhost:9092",
+                    environment="test",
+                    consumer_group="test-group",
+                )
+            assert "REACHABLE" in str(excinfo.value)
+
+    def test_reachable_is_resolvable_by_the_documented_remedy(self) -> None:
+        """The remedy the error message names actually works (OMN-17304).
+
+        The documented remedies are the explicit argument and the declared
+        config; the explicit argument is the one reachable through
+        ``select_event_bus``'s own signature.
+        """
+        kafka_probe_result = ModelProbeResult(
+            state=EnumProbeState.REACHABLE,
+            reason="TCP reachable but topic list failed",
+            backend_label="event_bus_kafka",
+        )
+        with (
+            patch(
+                "omnibase_infra.backends.auto_configure.probe_kafka",
+                return_value=kafka_probe_result,
+            ),
+            patch.dict("os.environ", {}, clear=False) as env,
+        ):
+            env.pop("ONEX_EVENT_BUS_TYPE", None)
+            bus = select_event_bus(
+                bus_type="kafka",
+                kafka_bootstrap_servers="localhost:9092",
+                environment="test",
+                consumer_group="test-group",
+            )
+            assert type(bus).__name__ == "EventBusKafka"
+
+    def test_explicit_bus_type_argument_outranks_the_probe(self) -> None:
+        """Tier 1 of the shared order is reachable from the in-process caller too."""
+        kafka_probe_result = ModelProbeResult(
+            state=EnumProbeState.AUTHORITATIVE,
+            reason="Kafka healthy with 5 topics, brokers match config",
+            backend_label="event_bus_kafka",
+        )
+        with (
+            patch(
+                "omnibase_infra.backends.auto_configure.probe_kafka",
+                return_value=kafka_probe_result,
+            ),
+            patch.dict("os.environ", {"ONEX_EVENT_BUS_TYPE": "kafka"}),
+        ):
+            bus = select_event_bus(
+                bus_type="inmemory",
+                kafka_bootstrap_servers="localhost:9092",
+                environment="test",
+                consumer_group="test-group",
+            )
+            assert type(bus).__name__ == "EventBusInmemory"

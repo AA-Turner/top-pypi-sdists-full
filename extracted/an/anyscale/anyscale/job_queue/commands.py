@@ -313,7 +313,13 @@ def terminate(
     _private_sdk: Optional[PrivateJobQueueSDK] = None,
 ) -> str:
     """Terminate a job queue and all its pending/running jobs."""
-    return _private_sdk.terminate(job_queue_id=job_queue_id, name=name, project=project, cloud=cloud, include_archived=include_archived)  # type: ignore
+    return _private_sdk.terminate(  # type: ignore
+        job_queue_id=job_queue_id,
+        name=name,
+        project=project,
+        cloud=cloud,
+        include_archived=include_archived,
+    )
 
 
 _DELETE_EXAMPLE = """
@@ -356,4 +362,10 @@ def delete(
     The job queue must have all jobs in terminal state and no running clusters.
     This action cannot be undone.
     """
-    return _private_sdk.delete(job_queue_id=job_queue_id, name=name, project=project, cloud=cloud, include_archived=include_archived)  # type: ignore
+    return _private_sdk.delete(  # type: ignore
+        job_queue_id=job_queue_id,
+        name=name,
+        project=project,
+        cloud=cloud,
+        include_archived=include_archived,
+    )

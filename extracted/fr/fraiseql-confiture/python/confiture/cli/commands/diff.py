@@ -1,0 +1,75 @@
+"""Top-level diff command: compare two SQL schema files."""
+
+from pathlib import Path
+
+import typer
+
+from confiture.cli.error_json import cli_boundary, fail
+from confiture.cli.formatters.diff_formatter import print_diff_text
+from confiture.cli.helpers import console, emit, is_json
+from confiture.cli.options import format_option
+from confiture.core.differ import SchemaDiffer
+from confiture.exceptions import DifferError, SchemaError
+from confiture.models.results import DiffResult
+
+
+@cli_boundary
+def schema_diff(
+    from_file: Path = typer.Option(..., "--from", help="Old schema SQL file"),
+    to_file: Path = typer.Option(..., "--to", help="New schema SQL file"),
+    format_type: str = format_option("text", "json"),
+) -> None:
+    """Compare two SQL schema files and report differences.
+
+    EXAMPLES:
+
+      confiture diff --from old.sql --to new.sql
+
+      confiture diff --from old.sql --to new.sql --format json
+
+    Exit codes: 0 = no changes, 1 = changes detected, 4 = input file not
+    found (SCHEMA_201), 5 = schema parse error (DIFFER_400). In ``--format
+    json`` mode, failures emit the ``{ok: false, error: {...}}`` envelope on
+    stdout; exit 2 is never used here (it is reserved for "tracking table
+    absent").
+    """
+    json_mode = is_json(format_type)
+
+    for path, label in [(from_file, "--from"), (to_file, "--to")]:
+        if not path.exists():
+            fail(
+                SchemaError(
+                    f"{label} file not found: {path}",
+                    error_code="SCHEMA_201",
+                    resolution_hint=f"Check the path passed to {label}.",
+                ),
+                json_mode=json_mode,
+            )
+
+    old_sql = from_file.read_text()
+    new_sql = to_file.read_text()
+
+    try:
+        differ = SchemaDiffer()
+        diff = differ.compare(old_sql, new_sql)
+    except DifferError as exc:  # a refusal (DIFFER_403) carries its own code
+        fail(exc, json_mode=json_mode)
+    # Reason: any parser failure on either schema is DIFFER_400 for the operator
+    except Exception as exc:
+        fail(
+            DifferError(
+                f"Cannot parse schema: {exc}",
+                error_code="DIFFER_400",
+                resolution_hint="Fix the SQL syntax in the schema files being compared.",
+            ),
+            json_mode=json_mode,
+        )
+
+    result = DiffResult.from_schema_diff(diff)
+
+    if format_type == "json":
+        emit(result.to_dict())
+    else:
+        print_diff_text(result, console)
+
+    raise typer.Exit(1 if result.has_changes else 0)

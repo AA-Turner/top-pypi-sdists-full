@@ -1,0 +1,1595 @@
+"""The below-interface family's plumbing, as functions of DATA (momwire#980
+step C, part 1).
+
+Everything a solver needs to decide *whether* and *how* to fill a deck with
+wires below the ground plane, and nothing about *what* it fills with: the
+crossing-junction scope, the node-mesh advisory's arms, the field-form
+quadrature nodes, the grid extents and the named refusals. `BSplineSolver`
+grew all of this for the momwire#553 serve and `RazorSolver` copied the
+scope half of it for #813; the sinusoidal-Galerkin serve (#980) would have
+been the third copy. It is one module instead, and each solver keeps thin
+wrappers that hand in its own state.
+
+Two rules, both gated:
+
+* **No solver here.** Every function takes polylines, geometry columns,
+  flags and scalars. `tests/test_below_interface_980.py` collects every
+  attribute access in this module from the AST and asserts none is a solver
+  method or field — the same gate `_crossing_fill` has carried since #801.
+* **Bit identity.** The bodies are the solver methods' own, moved, not
+  rewritten: the buried, crossing, transmitted and razor suites pin every
+  number they pinned before the move.
+
+What deliberately stays with the solvers: the `_wire_media` cache (the memo
+is per instance and the labels come from `_medium_spec` already), the
+`CrossingContext` adapter (it names the basis — polynomials for bspline and
+razor, a sampler for SG), `_pair_extents_below` (an accelerated kernel with a
+numpy twin, monkeypatched by its own tests through `bspline`), and the
+moment-shaped fills.
+"""
+
+from __future__ import annotations
+
+import math
+from typing import Callable, NamedTuple
+
+import numpy as np
+
+from . import (
+    _crossing_fill,
+    _ground_spec,
+    _medium_spec,
+    _sommerfeld,
+    _sommerfeld_below,
+    _sommerfeld_transmitted,
+)
+from ._quadrature import leggauss
+
+# Gauss order for the buried fill's THREE field-form blocks. See
+# `n_qp_buried_field` for the measurement that set it (momwire#553's fifth
+# inversion, measured at ε̃ = 1 against the free-space block).
+N_QP_BURIED_FIELD = 6
+
+# The named refusals a buried deck may draw. Every one names the geometry AND
+# the limit in the same sentence, because the two buried Sommerfeld families
+# refuse rather than clamp — there is no negligible tail to freeze below the
+# interface — and a serve-time refusal with no numbers in it is not
+# actionable. `bspline` re-exports them under its historical `_BURIED_*`
+# names for `_couplings` and the tests.
+BURIED_ENRICHMENT_REFUSAL = (
+    "use_singular_enrichment=True + a wire below the ground plane is not "
+    "served: the enrichment DOFs are a SECOND kernel implementation with "
+    "their own quadrature over the s^(-1/2) shapes, in C++ with a `double k` "
+    "and in a numpy twin, and neither carries an in-medium wavenumber or the "
+    "buried image and remainder blocks (momwire#553 U5 widens the polynomial "
+    "moment fill only). Solve the buried deck without singular enrichment"
+)
+BURIED_EXTENDED_KERNEL_REFUSAL = (
+    "extended_kernel=True + a wire below the ground plane is not served: the "
+    "extended kernel's eligibility is a COAXIAL-AND-EQUAL-RADIUS grouping "
+    "scored across the whole geometry, and momwire#553 measured neither what "
+    "that grouping means for a pair spanning two media (the tube expansion's "
+    "O(a^2) term is written at one wavenumber) nor what the mirror labels "
+    "mean when the image of a buried source lands in the OTHER medium. "
+    "Solve the buried deck with extended_kernel=False, which is the default"
+)
+BURIED_DENSE_BUDGET_REFUSAL = (
+    "a deck with buried wires is filled through the DENSE moment tensor on "
+    "this build and this one does not fit: {n} segments need about {need:.0f} "
+    "MB per tensor against a swept_mem_mb budget of {budget} MB. The chunked "
+    "fill+assemble route (momwire#915) needs the windowed C++ assemblers' "
+    "complex-eps twins, which this accelerator build does not export, so the "
+    "fill refuses rather than silently truncating the medium. Rebuild the "
+    "accelerators, raise swept_mem_mb, or mesh the deck coarser"
+)
+BURIED_GRAZING_REFUSAL = (
+    "this deck's buried wires reach a below/below pair elevation of "
+    "theta = {th:.4g} deg among the pairs inside the cap, below the "
+    "{floor:g} deg grazing floor the below/below surfaces are tabulated from "
+    "(the pair's two depths add to {depth:.4g} m, and theta = atan2(depth "
+    "sum, horizontal separation)). The floor is asked only of pairs inside "
+    "the cap — image distance R1 within "
+    f"{_sommerfeld_below._SOMM_BELOW_R1_CAP_LAMBDA_M:g} in-medium "
+    "wavelengths, the pairs whose remainder is evaluated; past it the "
+    "remainder is served as zero (momwire#1053, #1187). "
+    "Below the floor the surfaces carry the lateral wave's LOGARITHMIC "
+    "structure — measured drift 1.1 to 3.3 of scale between 2 and 0.05 deg — "
+    "which no uniform lattice resolves, and theta = 0 has no node at all "
+    "because h = 0 leaves the tail without its exponential decay. Bury the "
+    "wires deeper, shorten them, or wait for the log-spaced grazing band "
+    "(momwire#553 U2's recorded follow-up)"
+)
+BURIED_CROSS_RANGE_REFUSAL = (
+    "this deck's cross-medium pairs reach an observer radius of R = {r:.6g} m "
+    "({wl:.3g} free-space wavelengths) about a buried source's ground "
+    "projection, past the {cap:.6g} m ({capwl:g} free-space wavelengths) the "
+    "transmitted family is tabulated to. The transmitted integral is the "
+    "WHOLE field above a buried source, not a remainder, so there is no "
+    "negligible tail to freeze and no honest clamp. Extending the log-R axis "
+    "is cheap and honest work (7 nodes per doubling of range); extrapolating "
+    "past it is not"
+)
+BURIED_DEPTH_REFUSAL = (
+    "this deck buries a wire {d:.6g} m down, past the {cap:.6g} m "
+    "({capwl:g} in-medium wavelengths, lambda_m = {lam_m:.4g} m) the "
+    "transmitted family's z' ladder reaches. Beyond a quarter lambda_m the "
+    "two-ray (lambda_1/lambda_2 saddle) structure of the transmitted "
+    "integral returns and the single e^(-j k_m |z'|) divide-out the whole "
+    "ladder architecture rests on no longer flattens it (momwire#524 phase 0 "
+    "measured >33 nodes over the deep range at every soil, and a spherical-"
+    "phase divide is no better). Bury the wire shallower: this cap is "
+    "permanent (momwire#666), because extending the ladder would cost about "
+    "8 extra rungs per additional quarter lambda_m, each rung a full "
+    "(R, theta) fill"
+)
+BURIED_CROSS_GRAZING_REFUSAL = (
+    "this deck's cross-medium pairs reach an observer elevation of "
+    "theta = {th:.4g} deg, below the {floor:.4g} deg this transmitted grid "
+    "can pay for. That floor is a COST law rather than a physics one: the "
+    "transmitted tail is panelled on the J0(lam rho) zeros and must reach "
+    "lam ~ 35/(z + |z'|), so a node costs about 16*cot(theta_true) panels, "
+    "and at this deck's range {r:.6g} m over a shallowest buried depth of "
+    "{depth:.6g} m the bottom row runs out of budget. A truncated tail here "
+    "does NOT degrade gracefully — the acceleration fallback was measured "
+    "4.5e+3 relative wrong — so it refuses. Raise the above-ground wires "
+    "clear of the plane, bury the wires deeper, or shrink the deck's extent"
+)
+
+
+# ---------------------------------------------------------------------------
+# media and junction scope
+# ---------------------------------------------------------------------------
+
+
+def lower_medium(ground_eps, ground_model):
+    """Whether this ground has a HALF-SPACE below the interface — a medium
+    with a wavenumber of its own, not just a boundary condition. Exactly the
+    Sommerfeld ground. `_ground_spec.ground_config` answers the same
+    question in its own vocabulary (`mode == "compose"`), but it needs an ω
+    to fold ε̃ at and this one is asked at geometry time."""
+    return ground_eps is not None and ground_model == "sommerfeld"
+
+
+def grounded_junction_ends(polylines, ground_z, groups):
+    """The `(wire, "start"|"end")` pairs that participate in a junction
+    whose shared point lies IN the ground plane — the crossing-junction
+    exemption `_medium_spec.wire_media` keys on (momwire#524 phase 2).
+
+    Pure geometry: no media labels yet (the labels are what this feeds).
+    Which of those junctions actually SPAN the interface, and whether the
+    deck is inside the crossing serve's scope, is `crossing_junctions`'
+    question, asked after the labels exist. The two conditions
+    (momwire#698, #700 — at least two members, at least one reaching above
+    the plane) live in `_medium_spec.grounded_crossing_exemption`; the two
+    trunks differ only in where `groups` comes from — declared (bspline) or
+    detected (razor) — and momwire#700 is what two copies of the geometry
+    cost.
+    """
+    if ground_z is None:
+        return frozenset()
+    return _medium_spec.grounded_crossing_exemption(polylines, ground_z, groups)
+
+
+def grounded_junctions(polylines, ground_z, groups):
+    """Indices of junctions whose shared point lies in the ground plane.
+
+    Their KCL row (Σ signed outflows = 0) is dropped: at a grounded node
+    current may flow into the ground stake (completed by the image), so
+    enforcing closure among the real wires alone would be wrong physics."""
+    if ground_z is None or not groups:
+        return frozenset()
+    grounded = set()
+    for j_idx, jw in enumerate(groups):
+        w, end = jw[0]
+        pl = polylines[w]
+        pt = pl[0] if end == "start" else pl[-1]
+        if abs(pt[2] - ground_z) <= _ground_spec.ground_touch_tol(pl):
+            grounded.add(j_idx)
+    return frozenset(grounded)
+
+
+# The closest two crossing nodes the crossing serve completes, in metres: the
+# smallest separation its two-node ε̃ = 1 collapse was gated at (antennaknobs
+# plan U9 (b), PB4 — the Z matrix within 2.0e-4 Ω of the free-space two-wire
+# truth at 1 m, as at 12 m). Closer nodes are refused by name.
+MIN_CROSSING_NODE_SEPARATION_M = 1.0
+
+
+def _closest_crossing_nodes(crossing, groups, polylines):
+    """`(separation, i, j, points)` for the closest pair of crossing nodes."""
+    pts = []
+    for j_idx in crossing:
+        w, end = groups[j_idx][0]
+        pl = np.asarray(polylines[w], dtype=float)
+        pts.append(pl[-1] if end == "end" else pl[0])
+    pts = np.asarray(pts)
+    iu, ju = np.triu_indices(len(pts), 1)
+    sep = np.hypot(pts[iu, 0] - pts[ju, 0], pts[iu, 1] - pts[ju, 1])
+    k = int(np.argmin(sep))
+    return float(sep[k]), int(iu[k]), int(ju[k]), pts
+
+
+def crossing_junctions(
+    media, groups, grounded, polylines, ground_z, radii, *, two_radius=False
+):
+    """Indices of junctions that CROSS the interface — grounded junctions
+    joining an ABOVE wire to a BELOW wire — after checking the deck against
+    the crossing serve's scope (momwire#524 phase 2).
+
+    `groups[j]` is junction `j`'s member list of `(wire, end)` pairs;
+    `grounded` the set of `j` whose shared point lies in the plane; `radii`
+    the per-wire radius. The scope is what the phase-2 adjudication
+    validated, refused by name past it:
+
+    * any number of crossing junctions, at least
+      `MIN_CROSSING_NODE_SEPARATION_M` apart (antennaknobs plan U9). The
+      by-parts end terms were always evaluated at every end-to-node distance;
+      the corner is a point-charge pair term, and each end pair now reads V at
+      its own separation √(ρ² + a²), so a second node is a second V rather
+      than a new term. Closer nodes are refused by name, and so is a
+      TWO-RADIUS deck with more than one node: the two were measured alone.
+      Before this a second node was refused outright (momwire#1054), and
+      before THAT a two-vertical deck passed the serve plan and died on the
+      corner's assert (antennaknobs#1464);
+    * exactly ONE above member per crossing junction, N ≥ 1 below members —
+      the node fan (a monopole over a buried radial screen risen to the node,
+      momwire#524 fan widening). Multiple above members share the interface
+      corner between above tents, a pair class no adjudicator has measured;
+    * ONE wire radius across the deck — the radius rule ρ_eff = √(ρ² + a²) is
+      the corner's regularization and a per-pair radius has no pinned
+      convention — unless the caller passes `two_radius=True` (BSpline, U5):
+      then every above wire at one radius and every below wire at another is
+      served (`crossing_side_radii`), and a spread WITHIN a side is refused;
+    * OTHER junctions off the plane, with every member on ONE side. Wholly
+      below is the buried hub (one rise + N radials joined at depth, the
+      screen's other spelling): its by-parts end terms cancel through the
+      hub's own KCL row (probe35: fan M+hub ≡ M to the digit), and the
+      hub ≡ N-rises gate holds the two spellings of the same screen
+      together. Wholly ABOVE is the antenna's own wire joins, served since
+      momwire#1133 on the same argument and measured the same way — two
+      spellings of one antenna, a straight above wire over a rod against
+      the same wire cut at a junction, agreeing to 1.6e-3 Ω on 194 at the
+      buried default order. What is left is quadrature, not a missing
+      term: it falls 1.85e-2 → 1.56e-3 Ω over n_qp_pair 4 → 32 and then
+      stops moving. A junction standing IN the plane stays refused — that
+      is where the corner and image terms live, and it has no measured
+      completion.
+
+    The exemption audit (momwire#698) runs before the empty-crossing return
+    because the escape it closes is exactly the empty case:
+    `grounded_junction_ends` grants its exemption on GEOMETRY — a junction
+    whose shared point lies in the plane — and that exemption silences
+    `_medium_spec.wire_media`'s contact+buried refusal. Only a junction that
+    actually CROSSES earns the silence: the crossing fill is what carries
+    the contact end's current into the lower medium, and a grounded junction
+    that turned out not to span the interface leaves the deck on the
+    field-form transmitted block with the contact basis's O(1) boundary term
+    unaccounted for. So the refusal predicate is re-asked here with the
+    exemption narrowed from "touches the plane" to "validated as crossing".
+    """
+    if _medium_spec.BELOW not in media:
+        return ()
+    crossing = []
+    for j_idx, jw in enumerate(groups):
+        if j_idx not in grounded:
+            continue
+        sides = {media[w] for w, _e in jw}
+        if len(sides) == 2:
+            crossing.append(j_idx)
+
+    earned = {tuple(m) for j_idx in crossing for m in groups[j_idx]}
+    stranded = [
+        c for c in _ground_spec.contact_ends(polylines, ground_z) if c not in earned
+    ]
+    if stranded:
+        raise ValueError(
+            _medium_spec.contact_with_buried_refusal(
+                stranded[0][0], media.index(_medium_spec.BELOW)
+            )
+        )
+
+    if not crossing:
+        return ()
+    if len(crossing) > 1:
+        sep, i, j, pts = _closest_crossing_nodes(crossing, groups, polylines)
+        if sep < MIN_CROSSING_NODE_SEPARATION_M:
+            raise NotImplementedError(
+                f"crossing junctions {crossing[i]} and {crossing[j]}, at "
+                f"({pts[i][0]:.6g}, {pts[i][1]:.6g}) and "
+                f"({pts[j][0]:.6g}, {pts[j][1]:.6g}), stand {sep:.6g} m apart: "
+                "the crossing serve completes several crossing nodes per deck "
+                f"from {MIN_CROSSING_NODE_SEPARATION_M:g} m apart, the closest "
+                "separation its two-node collapse was gated at (antennaknobs "
+                "plan U9), and closer crossing nodes have no measured completion"
+            )
+    for j_idx in crossing:
+        n_above = sum(1 for w, _e in groups[j_idx] if media[w] == _medium_spec.ABOVE)
+        if n_above != 1:
+            raise NotImplementedError(
+                "crossing junction with more than one above member: the "
+                "crossing serve joins ONE above wire to N below wires "
+                "at the interface (momwire#524 fan widening); the "
+                "above-tent x above-tent interface corner has no "
+                "measured convention"
+            )
+    for j_idx, jw in enumerate(groups):
+        if j_idx in crossing:
+            continue
+        # An ordinary junction OFF the plane with every member on one side
+        # is served: wholly below is the buried hub (momwire#524 phase 2),
+        # wholly above is the antenna's own wire joins (momwire#1133). Both
+        # rest on the same argument — the by-parts end terms cancel through
+        # the junction's own KCL row — and the above side is measured the
+        # same way the hub was, by holding two spellings of one antenna
+        # together: a straight above wire over a rod against the same wire
+        # cut at a junction. They agree to 1.6e-3 ohm on 194 at the buried
+        # default order, and the gap is QUADRATURE rather than a missing
+        # term — it falls 1.85e-2 -> 1.56e-3 over n_qp_pair 4 -> 32 and then
+        # stops moving (`test_g1133_*`). A junction standing IN the plane
+        # is a different class, still refused below: it sits where the
+        # corner and image terms live.
+        if j_idx not in grounded and len({media[w] for w, _e in jw}) == 1:
+            continue
+        raise NotImplementedError(
+            "a deck with a crossing junction and an in-plane or "
+            "media-mixing OTHER junction is not served: the complete "
+            "crossing spelling completes every value-1 end on its axes, "
+            "and a junction standing in the interface sits where the "
+            "corner and image terms live, which has no measured "
+            "completion (momwire#524 phase 2, momwire#1133)"
+        )
+    radii = np.asarray(radii, dtype=float)
+    if float(radii.max()) - float(radii.min()) > 0.0:
+        if not two_radius:
+            raise NotImplementedError(
+                "crossing serve with per-wire radii: the radius rule "
+                "rho_eff = sqrt(rho^2 + a^2) regularizes the corner with "
+                "ONE wire radius, and a mixed-radius convention is not "
+                "pinned (momwire#524 phase 2)"
+            )
+        crossing_side_radii(
+            media, radii, crossing_above_member(crossing, groups, media)
+        )
+        if len(crossing) > 1:
+            raise NotImplementedError(
+                f"a TWO-RADIUS crossing deck with {len(crossing)} crossing "
+                "junctions: the two-radius node (antennaknobs plan U5) and more "
+                "than one crossing node (plan U9) were each measured alone, and "
+                "a two-radius deck with several nodes has no measured completion"
+            )
+    return tuple(crossing)
+
+
+def crossing_above_member(crossing, groups, media):
+    """The single ABOVE wire standing at the deck's crossing node — the owner
+    of `a_above` (momwire#1140), or None when the deck does not have exactly
+    one crossing node.
+
+    Well-defined by two rules that already hold: the scope grants exactly ONE
+    above member per crossing junction, and a two-radius deck with more than
+    one crossing node is refused below. `None` therefore falls back to the
+    whole-side rule, which is the conservative answer for the cases this was
+    not measured on.
+    """
+    if len(crossing) != 1:
+        return None
+    for w, _e in groups[crossing[0]]:
+        if media[w] == _medium_spec.ABOVE:
+            return w
+    return None
+
+
+def crossing_side_radii(media, radii, above_member=None):
+    """`(a_above, a_below)` for a TWO-RADIUS crossing deck (antennaknobs plan
+    U5): line tests at their observer's radius, the node's point tests at the
+    buried radius (`_crossing_fill.cross_complete_blocks_two_radius`).
+
+    `a_above` is the radius of the ABOVE wire STANDING AT THE NODE, which
+    `above_member` names — so a spread among the other above wires is served
+    since momwire#1140. That is a measurement, not a relaxation. The plain
+    oracle ladder cannot decide it (the momwire-vs-engine gap is itself a node
+    convention difference, so it scales with the quantity being measured and
+    caps S/D at 0.68 over 30 geometries). A DIFFERENTIAL against a control
+    deck that shares every card at and below the node can: the node gap
+    cancels for a rule that holds `a_above` across the pair and does not for
+    one that lets it follow the far wire. Headline rung, poor soil, h/a 1.88:
+    the node member's radius answers 0.087 ohm, the far wire's 4.514, against
+    a knob range of 4.597 (S/E 52.7), and `a_above` swept continuously has ONE
+    minimum that does not move when the far radius moves 16x — which rules out
+    every rule in which `a_above` is a function of the far wire, not just that
+    one candidate (`scratch/u5-mixed-radius/d_verdict_ladder.py`).
+
+    `above_member` is None when the deck does not have exactly one crossing
+    node; the whole-side rule then applies, because `a_above` is one deck-level
+    scalar and several nodes could disagree about it. A two-radius deck with
+    several nodes is refused below in any case.
+
+    The BELOW side keeps the whole-side rule and its refusal. `a_below` is the
+    radius the node's POINT tests actually take, and a fan of buried members at
+    different radii all meeting the node was not measured — it is a different
+    question from this one, not the mirror of it.
+    """
+    radii = np.asarray(radii, dtype=float)
+    out = []
+    for side in (_medium_spec.ABOVE, _medium_spec.BELOW):
+        if side == _medium_spec.ABOVE and above_member is not None:
+            out.append(float(radii[above_member]))
+            continue
+        r = radii[[w for w, m in enumerate(media) if m == side]]
+        if float(r.max()) - float(r.min()) > 0.0:
+            raise NotImplementedError(
+                f"crossing serve with per-wire radii that differ within the "
+                f"{side} wires: the two-radius rule serves one radius per side "
+                "of the interface (the node's point tests at the buried "
+                "radius, antennaknobs plan U5); a spread within one side has "
+                "no measured node radius"
+            )
+        out.append(float(r[0]))
+    return tuple(out)
+
+
+def crossing_node_members(
+    crossing, media, groups, polylines, n_per_edge_per_wire, stand_off_floor
+):
+    """A `_crossing_fill.NodeArm` per member of every crossing junction.
+
+    Each arm is walked OUTWARD from the shared point, edge by edge, until
+    the walk passes `_crossing_fill.NODE_REACH`. Two lengths come back per
+    arm: the finest segment length seen inside that reach (`h_resolved`,
+    what the advisory gates) and the length of the segment actually touching
+    the node (`h_adjacent`). They are gated separately because the touching
+    segment does not predict the error — a 50 mm feed gap in front of a
+    chain graded to 6 mm is a resolved node, while a single 667 mm tent is
+    not, and node-adjacent h reads those 13x apart when their errors are
+    ~200x apart. `_crossing_fill`'s constants carry the measurement.
+
+    The first edge always counts, however long it is: an arm made of one
+    coarse edge must not read as "unmeasured" and escape.
+
+    `stand_off_floor(w)` is the caller's: the height wire `w` must clear
+    above the interface (jacket radius or the bare-wire floor), asked only
+    for above-side arms (momwire#926).
+    """
+    reach = _crossing_fill.NODE_REACH
+    out = []
+    for j_idx in crossing:
+        for w, end in groups[j_idx]:
+            pl = polylines[w]
+            npe = n_per_edge_per_wire[w]
+            # Edge indices ordered from the node outward.
+            order = range(len(npe)) if end == "start" else range(len(npe) - 1, -1, -1)
+            h_resolved = h_adjacent = None
+            slope = 0.0
+            walked = 0.0
+            for e in order:
+                if walked > 0.0 and walked >= reach:
+                    break
+                edge = np.asarray(pl[e + 1], dtype=float) - np.asarray(
+                    pl[e], dtype=float
+                )
+                length = float(np.linalg.norm(edge))
+                h = length / int(npe[e])
+                if h_adjacent is None:
+                    h_adjacent = h
+                    # momwire#926: the NODE-ADJACENT edge's rise per unit
+                    # arclength. This is what prices the stand-off floor
+                    # against node grading — the arm leaves the interface
+                    # at this slope, so a vertex at arclength l sits at
+                    # h = slope * l. Taken from the first edge rather than
+                    # end to end because grading only ever puts vertices
+                    # inside it.
+                    slope = abs(float(edge[2])) / length if length > 0 else 0.0
+                h_resolved = h if h_resolved is None else min(h_resolved, h)
+                walked += length
+            side = "above" if media[w] == _medium_spec.ABOVE else "below"
+            out.append(
+                _crossing_fill.NodeArm(
+                    h_resolved,
+                    h_adjacent,
+                    w,
+                    end,
+                    side,
+                    slope,
+                    stand_off_floor(w) if side == "above" else None,
+                )
+            )
+    return out
+
+
+# ---------------------------------------------------------------------------
+# the fill's quadrature, grids and scope
+# ---------------------------------------------------------------------------
+
+
+# The most the separation rule may multiply the base order by (momwire#1004).
+# Measured factors are 4 and 10 (see `n_qp_buried_field`); 16 is the ceiling,
+# not a measurement. Past it the order saturates and the collapse residual
+# rises again — `test_near_plane_collapse_1004` records where that starts, so a
+# deck beyond the cap gets a worse answer rather than an unaffordable fill. The
+# cost is linear in q per source node on a table the grid fill dwarfs, but
+# q = 6 * (h/sep) is unbounded as sep -> 0 and something has to stop it.
+_MAX_NEAR_Q_FACTOR = 16
+
+
+def cross_pair_separation(seg_l, seg_r, a_idx, b_idx):
+    """`(separation, h)` for the closest ABOVE/BELOW segment pair.
+
+    `separation` is the smallest centre-to-centre distance between a segment
+    above the interface and one below it; `h` is the longest segment length
+    among those two classes. Their ratio is what
+    `n_qp_buried_field` reads.
+
+    Centres rather than true segment-to-segment distance: the quantity being
+    resolved is the pair integrand's feature width, which scales with the pair
+    separation, and the centres are what the fill's own pair geometry uses.
+    Cheap — O(n_a x n_b) on centres, against a fill that is O(N^2 q) with a
+    Sommerfeld grid behind it.
+
+    Returns `(None, None)` when either class is empty, which is every
+    single-medium deck and is how the caller keeps today's order.
+    """
+    if a_idx.size == 0 or b_idx.size == 0:
+        return None, None
+    c = 0.5 * (np.asarray(seg_l) + np.asarray(seg_r))
+    ca = c[a_idx]
+    cb = c[b_idx]
+    d = np.linalg.norm(ca[:, None, :] - cb[None, :, :], axis=-1)
+    h = float(
+        max(
+            np.linalg.norm(
+                np.asarray(seg_r)[a_idx] - np.asarray(seg_l)[a_idx], axis=-1
+            ).max(),
+            np.linalg.norm(
+                np.asarray(seg_r)[b_idx] - np.asarray(seg_l)[b_idx], axis=-1
+            ).max(),
+        )
+    )
+    return float(d.min()), h
+
+
+def near_q_factor(separation, seg_h):
+    """How many times the base Gauss order the cross block needs (momwire#1004).
+
+    `1` unless the closest above/below pair is nearer than a segment — which is
+    every single-medium deck and every deck in the suite today — and past that
+    `ceil(seg_h / separation)`, capped at `_MAX_NEAR_Q_FACTOR`. `separation`
+    and `seg_h` come from `cross_pair_separation`; either one `None` or
+    non-positive means "no cross pair to resolve" and keeps the base order.
+
+    The rule, its two measured ratios and what it cannot go below are all in
+    `n_qp_buried_field`'s docstring. It is exposed as a FACTOR because the two
+    trunks hold different halves of the order: the sinusoidal-Galerkin plan has
+    `n_qp_sommerfeld` and wants the whole order, while
+    `compute_Z_operator_buried` never sees that knob and only needs to raise an
+    order the solver already chose. One rule, two spellings of the same answer,
+    and neither trunk owns a second copy of the arithmetic.
+
+    The comparison is TOLERANCED because a deck sitting exactly a segment apart
+    is not unusual — it is what a uniform mesh either side of the plane
+    produces — and a bare `ceil` turns h/sep = 1+1e-16 into factor 2, doubling
+    that deck's order for a rounding.
+    """
+    if separation is None or seg_h is None or separation <= 0.0 or seg_h <= 0.0:
+        return 1
+    ratio = seg_h / separation
+    if ratio <= 1.0 + 1e-9:
+        return 1  # a segment or more apart: today's decks, unchanged
+    return min(int(math.ceil(ratio - 1e-9)), _MAX_NEAR_Q_FACTOR)
+
+
+def n_qp_buried_field(n_qp_sommerfeld, *, separation=None, seg_h=None):
+    """Gauss order for the buried fill's THREE field-form blocks.
+
+    **This is momwire#553's fifth inversion, and it is a tolerance inherited
+    from "the remainder is small".** `n_qp_sommerfeld` is 3 because the ±=+
+    remainder is a smooth correction over a segment — no near zone, nothing
+    to resolve. Two of the three blocks here are remainders and 3 would
+    serve them. The CROSS block is not a remainder: the transmitted integral
+    is the WHOLE field, near zone and all, so the quantity a cross pair
+    integrates over a segment falls like 1/R³ and 3-point Gauss
+    under-resolves it exactly where an above wire and a buried wire come
+    close — which on a buried radial screen is every pair that matters.
+
+    Measured at ε̃ = 1, where the whole cross block must reproduce the
+    free-space mixed-potential block over the same pairs and the two
+    disagree only by quadrature and interpolation (worst entry, relative to
+    the block's largest):
+
+        deck                       q=3      q=4      q=6      q=8
+        10 m mono / 5 m radial,
+        3 + 2 segments           6.6e-3   3.1e-3   6.8e-4   6.8e-4
+        15 + 10 segments         3.9e-4   1.1e-5   1.0e-5   1.0e-5
+
+    — the floor in each row is the GRID's own interpolation error, which the
+    quadrature cannot go below, and q = 6 reaches it on both. Cost is q² per
+    pair on a table the grid fill already dwarfs, so the order is set at the
+    measurement rather than at the cheapest passing rung.
+
+    **SUB-SEGMENT SEPARATION NEEDS MORE (momwire#1004).** The table above was
+    taken on a deck whose above/below pairs are never closer than a segment.
+    When they ARE closer the same 1/R^3 argument bites again, and 6 is short:
+    on two 0.6 m wires with 15 segments each (h = 0.04 m) sitting 5 mm either
+    side of the plane, the cross block misses the free-space block it must
+    reproduce at eps-tilde = 1 by 5.5e-02, thirteen times its own floor.
+
+    The order therefore scales with `seg_h / separation` when that exceeds 1,
+    and the rule is MEASURED at two ratios rather than fitted to one — it
+    predicts the convergence point at both:
+
+        h/separation    rule q    residual at q=6   at the rule's q   converged
+        4  (5 mm gap)      24          5.489e-02        4.118e-03      yes, 24
+        10 (2 mm gap)      60          1.492e+00        1.616e-02      yes, 60
+
+    Raising q past the rule's value buys nothing (q = 48 and 96 at ratio 4 read
+    4.120e-03 and 4.119e-03), and the observer rule is already converged —
+    `n_qp_test` 8 / 32 / 128 at q = 48 reads 4.120e-03 / 4.118e-03 / 4.119e-03.
+    What remains at the rule's q is the GRID's own near-plane interpolation
+    floor, which this knob cannot go below and which grows as the plane is
+    approached: 5.4e-06 / 3.8e-05 / 5.6e-04 / 4.1e-03 at gaps of 0.5 / 0.1 /
+    0.02 / 0.005 m.
+
+    All of those are on the corrected metric — `|G_mixed + G_free| / |G_free|`
+    over the cross block. The mixed cross block is stored NEGATED relative to
+    the free-space one, so a naive `|G_mixed - G_free|` reads a constant 2.0
+    and no knob appears to move anything.
+
+    `separation` / `seg_h` come from `cross_pair_separation`; omitting them
+    keeps the pre-#1004 order exactly, which is what every single-medium deck
+    gets.
+
+    `n_qp_sommerfeld` still raises it if a caller asked for more: the knob
+    keeps meaning "at least this". Since momwire#692 the CROSSING fill's axes
+    no longer route through this knob — its density ladder banked its own
+    `_NEAR_Q`/`_FAR_Q` in `_crossing_fill`. The q = 6 measurement above
+    stays authoritative for the three grid field-form blocks.
+    """
+    return max(int(n_qp_sommerfeld), N_QP_BURIED_FIELD) * near_q_factor(
+        separation, seg_h
+    )
+
+
+def field_nodes(seg_l, seg_r, tangents, h, q):
+    """`(points, tangents, u_phys, w_node)` for the field-form quadrature
+    over a set of segments — `_Z_sommerfeld_remainder`'s own node rule at
+    order `q`. The nodes are strictly interior to each segment, which is
+    what keeps a wire ending IN the plane off its own singularity and what
+    bounds every grid extent the plan sizes.
+
+    Basis-agnostic: `u_phys[i, q]` is each node's arc from its segment's
+    start and `w_node[i, q]` its weight. A polynomial caller folds them into
+    its moment weights `w·u^p`; a sampler caller multiplies its samples by
+    `w_node` directly.
+    """
+    xg, wg = leggauss(q)
+    tq = 0.5 * (xg + 1.0)
+    nodes = seg_l[:, None, :] + tq[None, :, None] * (seg_r - seg_l)[:, None, :]
+    u_phys = h[:, None] * tq[None, :]
+    w_node = 0.5 * h[:, None] * wg[None, :]
+    n = seg_l.shape[0]
+    return nodes.reshape(n * q, 3), np.repeat(tangents, q, axis=0), u_phys, w_node
+
+
+def refuse_out_of_scope(
+    *,
+    use_singular_enrichment,
+    extended_kernel,
+    n,
+    degree,
+    dense_fits,
+    chunked_serves,
+    swept_mem_mb,
+):
+    """The three solver configurations a buried deck may not reach.
+
+    Each one is a SECOND kernel that has no medium, not a tolerance:
+    refusing by name is the same discipline U1 applied one level down to the
+    fills it did not widen.
+    """
+    if use_singular_enrichment:
+        raise NotImplementedError(BURIED_ENRICHMENT_REFUSAL)
+    if extended_kernel:
+        raise NotImplementedError(BURIED_EXTENDED_KERNEL_REFUSAL)
+    if not dense_fits and not chunked_serves:
+        raise NotImplementedError(
+            BURIED_DENSE_BUDGET_REFUSAL.format(
+                n=n,
+                need=(degree + 1) ** 2 * n * n * 16 / (1 << 20),
+                budget=swept_mem_mb,
+            )
+        )
+
+
+def somm_grid(eps_t, k, r1_max, omega, mu, cancel_flag):
+    """The above/above Sommerfeld remainder grid, sized to `r1_max`."""
+    return _sommerfeld.get_grid(
+        eps_t,
+        k,
+        r1_max,
+        omega=omega,
+        mu=mu,
+        cancel_flag=cancel_flag,
+    )
+
+
+# momwire#1187: the plan counts a pair as INSIDE the cap up to this relative
+# slack past it. The fill zeroes by its own exact test (`> grid.r1_cap`,
+# `_sommerfeld_below._zero_past_cap`) on its own arithmetic, so a pair on the
+# cap to the last few ulps could be classified differently by the plan's
+# squared-distance walk. With the slack the plan's capped set CONTAINS the
+# fill's, so the error can only be an over-refusal at 1e-9 of the cap, never
+# a grazing pair reaching the grid unasked.
+_PLAN_CAP_SLACK = 1e-9
+
+
+def plan_r1_cap(r1_cap):
+    """The cap the plan's floor walk is handed: the fill's, widened by
+    `_PLAN_CAP_SLACK` so the plan's capped pair set contains the fill's."""
+    return float(r1_cap) * (1.0 + _PLAN_CAP_SLACK)
+
+
+def serve_plan(
+    ground_z, seg_l, seg_r, a_idx, obs_a, obs_b, k_p, k_m, *, crossing, pair_extents
+):
+    """Grid extents for the three field-form blocks, or a named refusal.
+
+    Every extent is measured on the QUADRATURE NODES the fill will actually
+    query (`obs_a`, `obs_b`), not on segment endpoints. That is not an
+    optimisation: a wire standing in the plane has an endpoint AT the
+    interface, whose transmitted-grid radius about a buried source's ground
+    projection is zero, and the nodes are strictly interior, so the node set
+    is both the honest domain and a smaller one.
+
+    Nothing here clamps. Both buried families' `eval` refuse rather than
+    freeze an amplitude — the transmitted surface is the whole field, and the
+    below/below remainder is no tail against the direct term — so a geometry
+    past the transmitted range or depth, or under either grazing floor, has
+    no answer to give, and the refusal is raised HERE, before an 80-second
+    grid fill, with the deck's own numbers and the limit in the same sentence.
+
+    The below/below R1 cap is the one range that is not refused, and it is
+    not a clamp either (momwire#1053): past `_SOMM_BELOW_R1_CAP_LAMBDA_M` the
+    projection serves the remainder as ZERO, and `get_grid_below` tabulates
+    to the cap and no further.
+
+    `crossing=True` skips the cross-medium section entirely: a crossing
+    deck's cross pair is `_crossing_fill`'s designed DIRECT evaluation — no
+    transmitted grid is ever built — so its θ-floor cost law must not refuse
+    the deck (a node-graded crossing mesh routinely puts quadrature nodes
+    fractions of a millimetre below the plane, which is exactly the grazing
+    geometry the grid can't pay for and the designed evaluator doesn't care
+    about).
+
+    `pair_extents(x, y, d_b, *, r1_cap, floor) -> (r1_max, th_min)` is the
+    caller's — bspline's `_pair_extents_below`, an accelerated kernel with a
+    numpy twin whose own tests monkeypatch it through `bspline`. `th_min`
+    answers the floor over the pairs inside the cap only (momwire#1187),
+    which is the whole of the grazing floor's reach: a pair past the cap is
+    served as zero.
+
+    **`obs_a` / `obs_b` must be the union of EVERY rule the caller will query
+    with, not just its field rule** (momwire#980 D2). bspline never meets
+    this: both axes of a transmitted pair use the same buried field rule, so
+    its plan and its fill query the same points. The Galerkin trunk tests on
+    its own quadrature (`n_qp_test`, 8) while sourcing on the field rule (6),
+    and the higher rule's outermost node sits CLOSER to a segment end —
+    0.150945 m against 0.151608 m on a 21-segment radial — so a plan sized on
+    the field nodes alone builds a z' ladder the fill then queries outside of,
+    and the grid refuses. Pass both rules' points.
+    """
+    gz = ground_z
+    lam_p = 2.0 * np.pi / k_p
+    lam_m = 2.0 * np.pi / abs(k_m)
+    plan = {}
+
+    # --- below/below: R1 = |two depths added|, theta = atan2(h, rho) ---
+    d_b = gz - obs_b[:, 2]
+    floor = math.radians(_sommerfeld_below._SOMM_BELOW_TH_MIN_DEG)
+    r1_max, th_min = pair_extents(
+        obs_b[:, 0],
+        obs_b[:, 1],
+        d_b,
+        r1_cap=plan_r1_cap(_sommerfeld_below.below_r1_cap(k_m)),
+        floor=floor,
+    )
+    # No range refusal here since momwire#1053. Past the below/below cap
+    # (`_SOMM_BELOW_R1_CAP_LAMBDA_M`) the projection serves the remainder as
+    # zero. Zeroing every pair past the cap on a screen 4.76 lambda_m across
+    # moved Z by at most 5.0e-3 of that deck's own ladder step (fresh water at
+    # 28 MHz; 2.1e-4 at soil A and 3.5 MHz). The field-level bound, its one
+    # exception, and the geometry left unmeasured are written out at that
+    # constant. The grazing floor below reads the pairs INSIDE the cap only
+    # (momwire#1187): a pair served as zero reads no surface, so its angle
+    # cannot reach the answer, and asking the floor of it refused a Beverage's
+    # two ground rods ~246 m (10 lambda_m) apart. `r1_max` still reads every
+    # pair; the grid clamps it to the cap.
+    if th_min < floor:
+        raise ValueError(
+            BURIED_GRAZING_REFUSAL.format(
+                th=math.degrees(th_min),
+                floor=_sommerfeld_below._SOMM_BELOW_TH_MIN_DEG,
+                depth=float(np.min(d_b)) + float(np.min(d_b)),
+            )
+        )
+    plan["r1_below"] = r1_max
+
+    if a_idx.size == 0:
+        return plan
+
+    # --- above/above: the shipped sizing, over the above segments -----
+    plan["r1_above"] = _sommerfeld.max_image_distance(seg_l[a_idx], seg_r[a_idx], gz)
+
+    if crossing:
+        return plan
+
+    # --- cross-medium: observer polar radius about the SOURCE's ground
+    #     projection, and the source depth ladder -----------------------
+    z_a = obs_a[:, 2] - gz
+    cdx = obs_a[:, 0][:, None] - obs_b[:, 0][None, :]
+    cdy = obs_a[:, 1][:, None] - obs_b[:, 1][None, :]
+    crho = np.hypot(cdx, cdy)
+    r_obs = np.hypot(crho, z_a[:, None])
+    r_lo = float(np.min(r_obs))
+    r_hi = float(np.max(r_obs))
+    zp_lo = float(np.min(d_b))
+    zp_hi = float(np.max(d_b))
+
+    r_cap = _sommerfeld_transmitted._R_CAP_LAMBDA_P * lam_p
+    if r_hi > r_cap:
+        raise ValueError(
+            BURIED_CROSS_RANGE_REFUSAL.format(
+                r=r_hi,
+                wl=r_hi / lam_p,
+                cap=r_cap,
+                capwl=_sommerfeld_transmitted._R_CAP_LAMBDA_P,
+            )
+        )
+    zp_cap = _sommerfeld_transmitted._ZPRIME_MAX_LAMBDA_M * lam_m
+    if zp_hi > zp_cap:
+        raise ValueError(
+            BURIED_DEPTH_REFUSAL.format(
+                d=zp_hi,
+                cap=zp_cap,
+                capwl=_sommerfeld_transmitted._ZPRIME_MAX_LAMBDA_M,
+                lam_m=lam_m,
+            )
+        )
+    th_cross = float(np.min(np.arctan2(z_a[:, None], crho)))
+    # Against the domain the grid will HAVE, not the one asked for: r_max
+    # buckets up and that raises the floor (`grid_extent`).
+    _rmin_eff, r_hi_eff, th_floor = _sommerfeld_transmitted.grid_extent(
+        k_p, r_hi, zp_lo, r_min=r_lo
+    )
+    if th_cross < th_floor:
+        raise ValueError(
+            BURIED_CROSS_GRAZING_REFUSAL.format(
+                th=math.degrees(th_cross),
+                floor=math.degrees(th_floor),
+                r=r_hi_eff,
+                depth=zp_lo,
+            )
+        )
+    plan["r_cross_max"] = r_hi
+    plan["r_cross_min"] = r_lo
+    plan["zp_min"] = zp_lo
+    plan["zp_max"] = zp_hi
+    return plan
+
+
+class BuriedFills(NamedTuple):
+    """The moment-shaped fills, handed in rather than imported.
+
+    Everything here is basis- or solver-shaped: the assemblers own the
+    quadrature and the moment tensors, `crossing_context` names the basis
+    (polynomials for bspline and razor, a sampler for SG), and `nodes` and
+    `wire_media` read per-instance caches. `compute_Z_operator_buried` owns
+    only the ROUTING between the three pair classes, which is the part every
+    formulation shares -- momwire#980 step C part 2.
+    """
+
+    checkpoint: Callable
+    nodes: Callable
+    wire_media: Callable
+    crossing_context: Callable
+    assemble_Z: Callable
+    build_J_blocks_subset: Callable
+    accumulate_Z_subset_chunked: Callable
+    image_Z_weighted: Callable
+    image_tangent_dot: Callable
+    field_galerkin_block: Callable
+    apply_loading: Callable
+    # Whether `field_galerkin_block` may be handed `out=`/`scale=` against a
+    # column-major target (momwire#1115 part 3). False keeps the transient.
+    field_galerkin_out_ok: bool = False
+    # Whether every writer above takes a ROW-COMPACT target through `row_of`
+    # (momwire#1132). False, and a `compact=True` fill falls back to the square
+    # Z and slices it: the same bits, none of the saving.
+    compact_ok: bool = False
+
+
+class BuriedPlan(NamedTuple):
+    """What `plan_buried` hands the fill: the media, the pair-class index
+    sets, the quadrature nodes at each order the fill queries, the crossing
+    labels and the serve plan."""
+
+    below: object
+    a_idx: object
+    b_idx: object
+    eps_t: object
+    eps_m: object
+    k_p: object
+    k_m: object
+    c2: object
+    a_m: object
+    obs_a: object
+    t_a: object
+    W_a: object
+    obs_b: object
+    t_b: object
+    W_b: object
+    crossing_j: object
+    crossing_plan: object
+    obs_ax: object
+    t_ax: object
+    W_ax: object
+    obs_bx: object
+    t_bx: object
+    W_bx: object
+    plan: object
+
+
+def plan_buried(
+    geom,
+    *,
+    nodes,
+    below_segments,
+    buried_medium,
+    refuse_out_of_scope_fn,
+    crossing_junctions_fn,
+    serve_plan_fn,
+):
+    """Everything the buried fill decides before it fills a grid, in the
+    order it decides it: the solver's out-of-scope configurations, the
+    crossing labels and their scope check, the cross block's Gauss order,
+    and the serve plan over the union of every node rule the fill will query.
+
+    One body with two callers. `compute_Z_operator_buried` runs it and then
+    fills. `BSplineSolver.buried_serve_refusal` runs it and stops, so a
+    caller that wants to refuse before paying for a fill (antennaknobs#1135,
+    #1464) gets the fill's own verdict on the fill's own quadrature nodes.
+    A second copy of this sequence would be a verdict that can part from
+    the fill's; `below_reach_refusal` over polyline vertices is the
+    conservative approximation it replaces for callers that have a solver.
+    """
+    below = below_segments(geom)
+    b_idx = np.nonzero(below)[0]
+    a_idx = np.nonzero(~below)[0]
+    eps_t, eps_m, k_p, k_m, c2, a_m = buried_medium()
+
+    refuse_out_of_scope_fn(geom)
+    obs_a, t_a, W_a = nodes(geom, a_idx)
+    obs_b, t_b, W_b = nodes(geom, b_idx)
+    # Asked ONCE, and asked UNCONDITIONALLY (momwire#700). It used to sit
+    # inside `bool(a_idx.size and ...)` at the plan site and behind the
+    # same guard again below, so on a WHOLLY-below deck — no above
+    # segment — Python short-circuited both calls and momwire#698's
+    # exemption audit never ran at all. `_crossing_junctions` is a
+    # VALIDATION as much as a label (it is where a grounded junction that
+    # cannot cross gives its exemption back), and a validation behind a
+    # short-circuit is a validation that does not run. Razor asks it
+    # unconditionally in `_refuse_buried_geometry`, which is why the two
+    # trunks answered differently on the same deck.
+    crossing_j = crossing_junctions_fn()
+    crossing_plan = bool(a_idx.size and crossing_j)
+
+    # --- the cross block's own Gauss order (momwire#1004) ----------------
+    # PER PAIR CLASS, not per fill: the raised order is for the transmitted
+    # blocks, whose two media can come closer than a segment. The two
+    # same-medium remainders above have no such pair — the closest above/above
+    # distance is a mesh spacing, not a clearance — so raising them would
+    # multiply the most expensive blocks in the fill by up to 16 for nothing.
+    # A crossing deck skips the transmitted grid entirely (`_crossing_fill`'s
+    # designed direct evaluation), so it skips this too.
+    #
+    # The nodes carry the order; nothing downstream is told it. Both
+    # `f.field_galerkin_block` calls below read it back off the arrays' own
+    # shapes, which is what makes "the order the nodes were built at" and "the
+    # order the table is reshaped by" one fact instead of two that can part.
+    q_factor = 1
+    if a_idx.size and not crossing_plan:
+        q_factor = near_q_factor(
+            *cross_pair_separation(geom["seg_l"], geom["seg_r"], a_idx, b_idx)
+        )
+    if q_factor > 1:
+        obs_ax, t_ax, W_ax = nodes(geom, a_idx, q_factor=q_factor)
+        obs_bx, t_bx, W_bx = nodes(geom, b_idx, q_factor=q_factor)
+        # `serve_plan` sizes every extent on "the union of EVERY rule the
+        # caller will query with" — its own D2 contract, and this is the
+        # second trunk to have two rules. A ladder built on the base nodes
+        # alone is one the raised-order fill then queries outside of, and the
+        # grid refuses rather than clamps.
+        plan_a = np.vstack([obs_a, obs_ax])
+        plan_b = np.vstack([obs_b, obs_bx])
+    else:
+        obs_ax, t_ax, W_ax = obs_a, t_a, W_a
+        obs_bx, t_bx, W_bx = obs_b, t_b, W_b
+        plan_a, plan_b = obs_a, obs_b
+
+    plan = serve_plan_fn(
+        geom,
+        a_idx,
+        plan_a,
+        plan_b,
+        k_p,
+        k_m,
+        crossing=crossing_plan,
+    )
+    return BuriedPlan(
+        below,
+        a_idx,
+        b_idx,
+        eps_t,
+        eps_m,
+        k_p,
+        k_m,
+        c2,
+        a_m,
+        obs_a,
+        t_a,
+        W_a,
+        obs_b,
+        t_b,
+        W_b,
+        crossing_j,
+        crossing_plan,
+        obs_ax,
+        t_ax,
+        W_ax,
+        obs_bx,
+        t_bx,
+        W_bx,
+        plan,
+    )
+
+
+def _crossing_basis_rows(supp_seg, polys, rows):
+    """The BASIS rows whose whole live support lies inside the segment set
+    `rows` — the crossing family's restriction (momwire#1029 phase 2).
+
+    ALL-OR-NOTHING, asserted rather than assumed. The crossing block is
+    basis-shaped on both axes, so a partially-covered basis has no honest row
+    to write: half its support would be filled and half left out, and the
+    answer would be neither the full row nor zero. It cannot happen for the
+    callers that exist — no basis straddles two wires (momwire#1029 S-0's S0a)
+    and the sector route restricts by whole wires — so a violation is a new
+    caller, and it gets a refusal by name rather than a silent half-row.
+
+    The mask is on the POLYNOMIAL, never on the segment id: `supp_seg` rows are
+    zero-padded, so an unlive slot naming segment 0 would otherwise read as a
+    support segment (the padding trap `_crossing_fill._basis_samples` guards).
+    """
+    supp_seg = np.asarray(supp_seg)
+    live = np.any(np.asarray(polys) != 0.0, axis=2)
+    inside = np.isin(supp_seg, rows) & live
+    n_in = inside.sum(axis=1)
+    n_live = live.sum(axis=1)
+    bad = np.flatnonzero((n_in != 0) & (n_in != n_live))
+    if bad.size:
+        m = int(bad[0])
+        raise ValueError(
+            f"rows= restricts the crossing block by BASIS row, and basis {m} "
+            f"has {int(n_in[m])} of its {int(n_live[m])} live support segments "
+            f"inside the requested segment set. A partly-covered basis has no "
+            f"honest crossing row: the block is basis-shaped on both axes, so "
+            f"half a support would fill half a row. Restrict by whole wires "
+            f"(momwire#1029 phase 2; {int(bad.size)} basis rows are split)"
+        )
+    return np.flatnonzero((n_live > 0) & (n_in == n_live)).astype(np.int64)
+
+
+def compute_Z_operator_buried(
+    geom,
+    supp_seg,
+    polys,
+    *,
+    f,
+    below_segments,
+    buried_medium,
+    refuse_out_of_scope_fn,
+    crossing_junctions_fn,
+    serve_plan_fn,
+    somm_grid_fn,
+    crossing_node_members_fn,
+    ground_z,
+    eps,
+    omega,
+    mu,
+    cancel_flag,
+    chunked,
+    rows=None,
+    compact=False,
+):
+    """The mixed-medium dense Z: per-segment media, three pair classes,
+    one matrix (momwire#553 U5).
+
+    `rows` (momwire#1029) restricts the OBSERVER axis of the fill. None is
+    exactly today's path, byte for byte. A subset — an array of global segment
+    indices — computes only those rows of Z and leaves EVERY OTHER ROW EXACTLY
+    ZERO. The PLAN is never restricted — every grid extent and quadrature order
+    is computed from the full index sets — so a restricted fill and a full one
+    agree row by row on the requested rows. A caller that restricts rows owns
+    the consequences downstream: the result is not a solvable operator on its
+    own.
+
+    **`compact=True` (momwire#1132) returns `(Z[R], R)` instead**, R being the
+    basis rows `rows` covers (`_crossing_basis_rows`: whole supports, refused
+    by name if split). A `rows=` fill writes only those rows, yet the square
+    destination it wrote them into was fully RESIDENT: numpy backs a large
+    `np.zeros` with transparent huge pages, and in column-major order one
+    2 MB page spans ~16 columns, so writing 90 rows across every column
+    touched every page -- 1047 MB at 150 radials to hold 11 MB. The compact
+    fill allocates `(len(R), n_basis)` and hands every writer the map
+    `row_of` (basis row -> compact row, -1 off R): the windowed assemblers,
+    the field-form block, the crossing composition and the loading. Each
+    moves only the ADDRESS of its adds, never their arithmetic or order, so
+    `Z[R]` is the `rows=` fill's rows bit for bit. On a solver without the
+    `row_of` kernels (`f.compact_ok` False) or off the chunked route, the
+    square fill runs and is sliced -- the same bits, none of the saving.
+
+    **The crossing family is restricted too, since phase 2 (momwire#1109).**
+    Phase 1 filled it whole and said so, because the routing reads its
+    transpose (`Z -= t; Z -= t.T`) and a row restriction would drop the columns
+    that transpose needs. Phase 2 asks the fill for BOTH slices — `t[R, :]` and
+    `t[:, R]` — out of one evaluation of the kernel tables, so the transpose
+    costs a different gather rather than a second fill. `R` is the BASIS rows
+    whose whole support lies inside `rows`, which is exactly the basis rows of
+    those segments: no basis straddles two wires (momwire#1029 S-0's S0a) and
+    the callers restrict by whole wires, so the map is all-or-nothing and this
+    routine refuses by name if it is ever not.
+
+    A deck with buried wires is filled pair class by pair class, and the
+    classes are not variants of each other:
+
+    * **above/above** — the shipped composition, unchanged. Direct at k₀
+      through the mixed potential in air, minus `C₂·image + Q`.
+    * **below/below** — the same SHAPE in the lower medium and nothing
+      else shared. Direct at k_m through the mixed potential written in
+      the medium (jωμ₀ on A, 1/(jωε̃_m) on Φ — the `float(self.eps)` seam
+      this unit lands), minus `A_m·image + Q_below`, with the image
+      mirrored through the interface exactly as the ±=+ one is and
+      `A_m = (1 − ε̃)/(1 + ε̃)` in C₂'s place. The image of a below source
+      is ABOVE, and its interaction with a below observer is the k_m
+      direct kernel at the image distance — the phase-0 composition,
+      EQUATIONS.md §Regime 2.
+    * **cross-medium** — neither. The transmitted integral is the WHOLE
+      field across the interface: no direct term, no image term, no
+      mixed-potential prefactors, just `⟨E, testing⟩` subtracted like any
+      field-form block. Both directions are filled and their agreement is
+      the reciprocity gate. It is also the only block on this fill whose
+      quadrature order depends on the GEOMETRY: `near_q_factor` raises it
+      when the two media come closer than a segment, which is exactly where
+      the calibrated order under-resolves the 1/R^3 integrand (momwire#1004).
+
+    The three field-form blocks (the two remainders and the transmitted
+    pair) all subtract, because a field's contribution to the EFIE
+    Galerkin matrix is `−⟨f, E⟩` and the mixed-potential block is that
+    same functional written out; the ±=+ path's single `Z -= (C₂·img + Q)`
+    is the same convention and this method keeps it verbatim.
+
+    **The fifth inversion lives in that last sentence.** "The
+    mixed-potential block is that same functional written out" is true up
+    to an integration-by-parts BOUNDARY TERM `[f_m·Φ_n]` at each end of a
+    basis's support, and momwire has always mixed the two forms — MP for
+    direct and image, field-form for the remainder — because every basis
+    that vanishes at its own ends makes that term identically zero. A
+    ground CONTACT basis does not vanish there. The shipped path gets away
+    with it because its field-form block is a small REMAINDER, so a
+    boundary term on a small block is a small error; this fill's
+    cross-medium block is the WHOLE interaction between the two media, and
+    the same term is O(1) of it. Measured at ε̃ = 1, where the entire
+    buried fill must reproduce the free-space fill exactly: 2.5 relative
+    on the contact basis and 1e-8 on every other one, unmoved by
+    quadrature order, against 1.0e-5 everywhere once the above wire is
+    lifted clear of the plane. That is why `_medium_spec` refuses a
+    ground contact and a buried wire on the same deck, and it is the same
+    shape as the arc's other four inversions: a ±=+ convenience whose
+    licence is "the remainder is small", used where nothing is a
+    remainder. Undoing it wants the transmitted family's scalar
+    POTENTIALS, so the cross block can be written mixed-potential like
+    its neighbours — and on a deck with a CROSSING junction that is now
+    exactly what happens: the crossing branch below fills the cross pair
+    with `_crossing_fill`'s complete designed mixed-potential spelling,
+    boundary terms, corner and all (momwire#524 phase 2, adjudicated
+    2026-08-26). The contact-plus-buried refusal itself still stands
+    while P3 re-scores its anchors under the same machinery.
+
+        Moved verbatim from `BSplineSolver._compute_Z_operator_buried` (momwire
+        #980 step C part 2). The bodies are the solver method's own -- the
+        buried, crossing, transmitted and razor suites pin every number they
+        pinned before the move -- with `self.X` replaced by the data or the
+        callable it stands for and nothing else changed.
+    """
+
+    def _sub_field_galerkin(Z, f, *args):
+        """The block, subtracted from Z without the (n, n) transient when the
+        kernel can accumulate into a strided target (momwire#1115 part 3).
+
+        The two spellings are NOT bit-identical: the block's observer loop
+        chunks, so a basis row straddling a chunk boundary reassociates into
+        Z. They agree to the 1e-12 the buried gates carry, which is the
+        tolerance this lever was registered under.
+
+        Nested rather than module level on purpose: `test_g980c_5` walks THIS
+        function's AST to prove the routing reaches the solver only through
+        the bundle, and a helper lifted out of it takes
+        `f.field_galerkin_block` and `f.field_galerkin_out_ok` out of that
+        proof -- the seam would still hold and the test could no longer see
+        it.
+        """
+        if row_of is not None:
+            # momwire#1132: `f.compact_ok` promises the row-compact target.
+            f.field_galerkin_block(*args, out=Z, scale=-1.0, row_of=row_of)
+        elif f.field_galerkin_out_ok:
+            f.field_galerkin_block(*args, out=Z, scale=-1.0)
+        else:
+            np.subtract(Z, f.field_galerkin_block(*args), out=Z)
+
+    (
+        below,
+        a_idx,
+        b_idx,
+        eps_t,
+        eps_m,
+        k_p,
+        k_m,
+        c2,
+        a_m,
+        obs_a,
+        t_a,
+        W_a,
+        obs_b,
+        t_b,
+        W_b,
+        crossing_j,
+        crossing_plan,
+        obs_ax,
+        t_ax,
+        W_ax,
+        obs_bx,
+        t_bx,
+        W_bx,
+        plan,
+    ) = plan_buried(
+        geom,
+        nodes=f.nodes,
+        below_segments=below_segments,
+        buried_medium=buried_medium,
+        refuse_out_of_scope_fn=refuse_out_of_scope_fn,
+        crossing_junctions_fn=crossing_junctions_fn,
+        serve_plan_fn=serve_plan_fn,
+    )
+    gz = ground_z
+    # momwire#1132: the row-compact target, resolved before any fill so a
+    # split basis is refused before one. `row_of` stays None on the square
+    # path and on the sliced fallback, which is what keeps both byte for byte
+    # today's fill.
+    compact_rows = row_of = None
+    if compact:
+        if rows is None:
+            raise ValueError("compact=True restricts rows: pass rows= as well")
+        compact_rows = _crossing_basis_rows(
+            supp_seg, polys, np.asarray(rows, dtype=np.int64)
+        )
+        if chunked and f.compact_ok:
+            row_of = np.full(supp_seg.shape[0], -1, dtype=np.int64)
+            row_of[compact_rows] = np.arange(compact_rows.size, dtype=np.int64)
+    # momwire#1029: the observer restriction, per pair class. Resolved AFTER
+    # `plan_buried`, so nothing the plan decides can see it.
+    if rows is None:
+        obs_a_idx, obs_b_idx = a_idx, b_idx
+    else:
+        rows = np.asarray(rows, dtype=np.int64)
+        obs_a_idx = np.intersect1d(a_idx, rows, assume_unique=True)
+        obs_b_idx = np.intersect1d(b_idx, rows, assume_unique=True)
+
+    def _narrow(idx, keep, obs, t_obs, W):
+        """The node rows of `keep` within `idx`, at the plan's own order."""
+        if rows is None or len(keep) == len(idx):
+            return obs, t_obs, W
+        pos = np.searchsorted(idx, keep)
+        q = len(obs) // max(len(idx), 1)
+        take = (pos[:, None] * q + np.arange(q)[None, :]).ravel()
+        return obs[take], t_obs[take], W[:, pos, :]
+
+    # --- the two direct blocks and the two image blocks, each in its
+    #     own medium. Chunked whenever the windowed assemblers' complex-
+    #     eps~ twins are built (momwire#915): the same four terms with the
+    #     same signs, never a (d+1, d+1, N, N) tensor, and faster even
+    #     where the tensor fits (12 radials: 3.5 -> 2.7 s) because the
+    #     zero-padded scatter of `_build_J_blocks_subset` is gone. The
+    #     dense route below is the REFERENCE every buried gate was pinned
+    #     on and the chunked route is gated against it at 1e-12.
+    if not chunked:
+        f.checkpoint()
+        Z = f.assemble_Z(
+            f.build_J_blocks_subset(geom, k_m, b_idx, obs_idx=obs_b_idx),
+            supp_seg,
+            polys,
+            geom,
+            eps=eps_m,
+        )
+        td_img = f.image_tangent_dot(geom["tangents"])
+        if a_idx.size:
+            f.checkpoint()
+            Z += f.assemble_Z(
+                f.build_J_blocks_subset(geom, k_p, a_idx, obs_idx=obs_a_idx),
+                supp_seg,
+                polys,
+                geom,
+            )
+            f.checkpoint()
+            Z -= f.image_Z_weighted(
+                f.build_J_blocks_subset(
+                    geom, k_p, a_idx, mirror_sources=True, obs_idx=obs_a_idx
+                ),
+                supp_seg,
+                polys,
+                c2 * td_img.astype(np.complex128),
+                np.full(td_img.shape, c2, dtype=np.complex128),
+            )
+        f.checkpoint()
+        Z -= f.image_Z_weighted(
+            f.build_J_blocks_subset(
+                geom, k_m, b_idx, mirror_sources=True, obs_idx=obs_b_idx
+            ),
+            supp_seg,
+            polys,
+            a_m * td_img.astype(np.complex128),
+            np.full(td_img.shape, a_m, dtype=np.complex128),
+            eps=eps_m,
+        )
+        del td_img
+    else:
+        n_basis = supp_seg.shape[0]
+        if row_of is None:
+            Z = np.zeros((n_basis, n_basis), dtype=np.complex128, order="F")
+        else:
+            # C order: the (n, n) Z is column-major only for LAPACK's in-place
+            # factor (momwire#136), and nothing factors this one.
+            Z = np.zeros((compact_rows.size, n_basis), dtype=np.complex128)
+        f.accumulate_Z_subset_chunked(
+            Z,
+            geom,
+            k_m,
+            b_idx,
+            supp_seg,
+            polys,
+            mirror_sources=False,
+            eps=eps_m,
+            scale=1.0,
+            obs_idx=obs_b_idx,
+            row_of=row_of,
+        )
+        if a_idx.size:
+            f.accumulate_Z_subset_chunked(
+                Z,
+                geom,
+                k_p,
+                a_idx,
+                supp_seg,
+                polys,
+                mirror_sources=False,
+                eps=eps,
+                scale=1.0,
+                obs_idx=obs_a_idx,
+                row_of=row_of,
+            )
+            f.accumulate_Z_subset_chunked(
+                Z,
+                geom,
+                k_p,
+                a_idx,
+                supp_seg,
+                polys,
+                mirror_sources=True,
+                eps=eps,
+                scale=-1.0,
+                weight=complex(c2),
+                obs_idx=obs_a_idx,
+                row_of=row_of,
+            )
+        f.accumulate_Z_subset_chunked(
+            Z,
+            geom,
+            k_m,
+            b_idx,
+            supp_seg,
+            polys,
+            mirror_sources=True,
+            eps=eps_m,
+            scale=-1.0,
+            weight=complex(a_m),
+            obs_idx=obs_b_idx,
+            row_of=row_of,
+        )
+
+    # --- the three field-form blocks -----------------------------------
+    if a_idx.size:
+        grid_above = somm_grid_fn(eps_t, plan["r1_above"])
+
+        def proj_aa(o, to, s, ts):
+            return _sommerfeld.remainder_field_proj(
+                o, to, s, ts, gz, k_p, grid_above, cancel_flag=cancel_flag
+            )
+
+        o_a, ot_a, oW_a = _narrow(a_idx, obs_a_idx, obs_a, t_a, W_a)
+        _sub_field_galerkin(
+            Z,
+            f,
+            supp_seg,
+            polys,
+            proj_aa,
+            obs_a_idx,
+            a_idx,
+            o_a,
+            ot_a,
+            oW_a,
+            obs_a,
+            t_a,
+            W_a,
+        )
+
+    grid_below = _sommerfeld_below.get_grid_below(
+        eps_t, k_p, plan["r1_below"], omega, mu=mu
+    )
+
+    def proj_bb(o, to, s, ts):
+        return _sommerfeld_below.remainder_field_proj_below(
+            o, to, s, ts, gz, k_p, k_m, grid_below
+        )
+
+    o_b, ot_b, oW_b = _narrow(b_idx, obs_b_idx, obs_b, t_b, W_b)
+    _sub_field_galerkin(
+        Z,
+        f,
+        supp_seg,
+        polys,
+        proj_bb,
+        obs_b_idx,
+        b_idx,
+        o_b,
+        ot_b,
+        oW_b,
+        obs_b,
+        t_b,
+        W_b,
+    )
+
+    crossing = crossing_j if a_idx.size else ()
+    if crossing:
+        # The node-mesh advisory (momwire#696) goes first, because
+        # this is the one place per fill where the crossing serve
+        # actually engages: the plan site above asks the same question
+        # before the deck is committed to the crossing path.
+        _crossing_fill.warn_coarse_node(
+            crossing_node_members_fn(crossing, f.wire_media())
+        )
+        # The crossing serve (momwire#524 phase 2): the cross pair is
+        # the COMPLETE designed mixed-potential spelling on graded
+        # axes. Near / corner-adjacent pairs are direct contour
+        # evaluations — no grid, no interpolation to exclude the
+        # corner — while admissible far blocks ride the #688
+        # admissibility split (coarse axes + low-rank ACA, parity-
+        # gated against the dense fill). The transpose is
+        # reciprocity, measured on the adjudication decks rather
+        # than assumed. The self families get their missing by-parts
+        # bnd + corner content on the dense axes; continuity through
+        # the node and the AGARD slope condition then emerge from
+        # the fill with no constraint row and no merged dof.
+        f.checkpoint()
+        ctx = f.crossing_context(geom, supp_seg, polys)
+        ax_a = _crossing_fill.axis_data(ctx, a_idx)
+        ax_b = _crossing_fill.axis_data(ctx, b_idx)
+        cross_rows = (
+            None if rows is None else _crossing_basis_rows(supp_seg, polys, rows)
+        )
+        # Where those rows live in Z: themselves on the square target, their
+        # compact rows on the row-compact one (momwire#1132).
+        z_rows = cross_rows if row_of is None else row_of[cross_rows]
+        if ctx.a_below is not None:
+            # A TWO-RADIUS node (antennaknobs plan U5): the two cross blocks
+            # are no longer transposes — above rows test lines at the above
+            # radius, below rows at the buried one, and the node's point tests
+            # share one radius — and continuity is closed by the crossing
+            # junction's KCL row rather than left to emerge.
+            t_above, t_below = _crossing_fill.cross_complete_blocks_two_radius(
+                ctx, a_idx, b_idx, ax_a, ax_b, rows=cross_rows
+            )
+            if cross_rows is None:
+                Z -= t_above
+                Z -= t_below.T
+                _crossing_fill.self_completions_two_radius(ctx, ax_b, ax_a, out=Z)
+            else:
+                # `t_above` is already its row slice and `t_below` its column
+                # slice: the two blocks are not transposes at two radii, so
+                # each is asked for the one half the composition below reads.
+                Z[z_rows, :] -= t_above
+                Z[z_rows, :] -= t_below.T
+                Z[z_rows, :] += _crossing_fill.self_completions_two_radius(
+                    ctx, ax_b, ax_a, rows=cross_rows
+                )
+        else:
+            t_ab = _crossing_fill.cross_complete_block_split(
+                ctx, a_idx, b_idx, ax_a, ax_b, rows=cross_rows
+            )
+            if cross_rows is None:
+                Z -= t_ab
+                Z -= t_ab.T
+                _crossing_fill.self_completions(ctx, ax_b, ax_a, out=Z)
+            else:
+                t_r, t_c = t_ab
+                Z[z_rows, :] -= t_r
+                Z[z_rows, :] -= t_c.T
+                Z[z_rows, :] += _crossing_fill.self_completions(
+                    ctx, ax_b, ax_a, rows=cross_rows
+                )
+    elif a_idx.size:
+        grid_t = _sommerfeld_transmitted.get_grid_below_above(
+            eps_t,
+            k_p,
+            plan["r_cross_max"],
+            plan["zp_min"],
+            plan["zp_max"],
+            omega,
+            mu=mu,
+            r_min=plan["r_cross_min"],
+        )
+
+        def proj_ab(o, to, s, ts):
+            return _sommerfeld_transmitted.transmitted_field_proj_below_to_above(
+                o, to, s, ts, gz, k_p, k_m, grid_t
+            )
+
+        def proj_ba(o, to, s, ts):
+            return _sommerfeld_transmitted.transmitted_field_proj_above_to_below(
+                o, to, s, ts, gz, k_p, k_m, grid_t
+            )
+
+        o_ax, ot_ax, oW_ax = _narrow(a_idx, obs_a_idx, obs_ax, t_ax, W_ax)
+        o_bx, ot_bx, oW_bx = _narrow(b_idx, obs_b_idx, obs_bx, t_bx, W_bx)
+        _sub_field_galerkin(
+            Z,
+            f,
+            supp_seg,
+            polys,
+            proj_ab,
+            obs_a_idx,
+            b_idx,
+            o_ax,
+            ot_ax,
+            oW_ax,
+            obs_bx,
+            t_bx,
+            W_bx,
+        )
+        _sub_field_galerkin(
+            Z,
+            f,
+            supp_seg,
+            polys,
+            proj_ba,
+            obs_b_idx,
+            a_idx,
+            o_bx,
+            ot_bx,
+            oW_bx,
+            obs_ax,
+            t_ax,
+            W_ax,
+        )
+
+    if row_of is not None:
+        return f.apply_loading(Z, row_of=row_of), compact_rows
+    Z = f.apply_loading(Z)
+    if compact:
+        return np.ascontiguousarray(Z[compact_rows]), compact_rows
+    return Z

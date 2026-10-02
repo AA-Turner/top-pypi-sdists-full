@@ -489,6 +489,47 @@ def test_briefing_includes_worker_completion_summary() -> None:
     assert "Added a regression test observed RED before the fix." in briefing
 
 
+# ── #3502: ISSUE_RESOLUTION marker instructions + worker-claim callout ─────
+
+
+def test_briefing_always_instructs_reviewer_on_issue_resolution_marker() -> None:
+    """Every briefing — not just ones with a worker claim — must ask the
+    reviewer for their own `ISSUE_RESOLUTION:` judgment, since it's a
+    SEPARATE question from `REVIEW_VERDICT:` (code quality vs. "does this
+    actually fix the reported bug")."""
+    briefing = build_review_briefing(**_briefing_kwargs())
+    assert "ISSUE_RESOLUTION:" in briefing
+    assert "partial" in briefing
+    assert "investigation" in briefing
+
+
+def test_briefing_flags_workers_own_partial_claim() -> None:
+    """#3502: when the worker's own completion summary already carries
+    `ISSUE_RESOLUTION: partial`, the reviewer must see it called out
+    explicitly, not buried in prose."""
+    briefing = build_review_briefing(
+        **_briefing_kwargs(
+            completion_summary=(
+                "Fixed the symptom.\n\n"
+                "ISSUE_RESOLUTION: partial — root cause lives upstream, "
+                "quadraui#999 filed."
+            ),
+        )
+    )
+    assert "worker marked this" in briefing
+    assert "partial" in briefing
+    assert "quadraui#999" in briefing
+
+
+def test_briefing_does_not_flag_a_resolved_worker_claim() -> None:
+    """No callout noise when the worker's own claim is the default
+    'resolved' (no marker at all)."""
+    briefing = build_review_briefing(
+        **_briefing_kwargs(completion_summary="Fixed the bug outright.")
+    )
+    assert "worker marked this" not in briefing
+
+
 def test_briefing_includes_worker_commit_messages() -> None:
     briefing = build_review_briefing(
         **_briefing_kwargs(
@@ -2687,6 +2728,275 @@ def test_dispatch_review_unaffected_when_no_mechanical_violation(
     assert result.status == "running"
     assert result.verdict_source is None
     assert completed.review_state != "done"
+
+
+# ── #3509: Tier-2 lane-kind smoke-spec entrypoints — additive-only, not
+# sealed ───────────────────────────────────────────────────────────────────
+
+
+def test_dispatch_review_mechanical_short_circuit_for_lane_entrypoint_weakened(
+    two_machine_config: Config,
+) -> None:
+    """#3509 acceptance: a work diff that REMOVES an existing line from a
+    Tier-2 lane-kind (tui-pty) smoke-spec entry point must short-circuit to
+    a mandatory request-changes, WITHOUT a review leg ever being
+    dispatched — mirrors the sealed-path mechanical tests above."""
+    from coord.config import AcceptanceConfig, AcceptanceDriverConfig
+
+    cfg = replace(
+        two_machine_config,
+        acceptance=AcceptanceConfig(drivers={
+            "api": AcceptanceDriverConfig(
+                kind="tui-pty", run="coord-acceptance-tui-pty {ms}",
+                entrypoint="smoke/tui-pty.yaml",
+            ),
+        }),
+    )
+    board = Board()
+    completed = _completed_assignment(machine="laptop")
+    board.completed.append(completed)
+    client = _FakeHTTPClient({"id": "should-never-be-used"})
+    diff = (
+        "diff --git a/smoke/tui-pty.yaml b/smoke/tui-pty.yaml\n"
+        "--- a/smoke/tui-pty.yaml\n"
+        "+++ b/smoke/tui-pty.yaml\n"
+        "@@ -5,3 +5,1 @@\n"
+        "-  - expect_within: {ms: 500, text: \"menu opened\"}\n"
+        "-  - expect_silent: {seconds: 2}\n"
+        "+  - key: esc\n"
+    )
+
+    result = dispatch_review(
+        completed, board, cfg,
+        http_client=client,
+        pr_lookup=lambda repo_github, **kw: {
+            "number": 50, "url": "https://github.com/acme/api/pull/50", "existed": True,
+        },
+        claude_md_reader=lambda p: None,
+        issue_body_fetcher=lambda repo, num: "",
+        now=123.0,
+        remote_branch_checker=lambda repo, branch: True,
+        diff_fetcher=lambda repo, num, **kw: diff,
+    )
+
+    assert client.calls == []
+    assert result is not None
+    assert result.review_verdict == "request-changes"
+    assert result.verdict_source == "mechanical"
+    assert "smoke/tui-pty.yaml" in (result.verdict_source_reason or "")
+    assert "SMOKE-SPEC ENTRY POINT WEAKENED" in result.briefing
+    assert completed.review_state == "done"
+    assert completed.review_verdict == "request-changes"
+
+
+def test_dispatch_review_lane_entrypoint_pure_addition_gets_normal_review(
+    two_machine_config: Config,
+) -> None:
+    """#3509 acceptance: a work diff that only ADDS a new step to a Tier-2
+    lane-kind entry point is NOT a violation — growing the smoke spec is the
+    whole point of `coord bugbash`'s ratchet — so a normal review IS
+    dispatched, exactly like any other unremarkable diff."""
+    from coord.config import AcceptanceConfig, AcceptanceDriverConfig
+
+    cfg = replace(
+        two_machine_config,
+        acceptance=AcceptanceConfig(drivers={
+            "api": AcceptanceDriverConfig(
+                kind="tui-pty", run="coord-acceptance-tui-pty {ms}",
+                entrypoint="smoke/tui-pty.yaml",
+            ),
+        }),
+    )
+    board = Board()
+    completed = _completed_assignment(machine="laptop")
+    board.completed.append(completed)
+    client = _FakeHTTPClient({"id": "review-id-lane-add"})
+    diff = (
+        "diff --git a/smoke/tui-pty.yaml b/smoke/tui-pty.yaml\n"
+        "--- a/smoke/tui-pty.yaml\n"
+        "+++ b/smoke/tui-pty.yaml\n"
+        "@@ -5,1 +5,2 @@\n"
+        "+  - expect_within: {ms: 500, text: \"menu opened\"}\n"
+    )
+
+    result = dispatch_review(
+        completed, board, cfg,
+        http_client=client,
+        pr_lookup=lambda repo_github, **kw: {
+            "number": 51, "url": "https://github.com/acme/api/pull/51", "existed": True,
+        },
+        claude_md_reader=lambda p: None,
+        issue_body_fetcher=lambda repo, num: "",
+        now=123.0,
+        remote_branch_checker=lambda repo, branch: True,
+        diff_fetcher=lambda repo, num, **kw: diff,
+    )
+
+    assert len(client.calls) == 1
+    assert result is not None
+    assert result.status == "running"
+    assert result.verdict_source is None
+
+
+def test_dispatch_review_lane_entrypoint_brand_new_file_gets_normal_review(
+    two_machine_config: Config,
+) -> None:
+    """A wholly new smoke-spec entry point file (nothing to weaken yet) must
+    never mechanically short-circuit."""
+    from coord.config import AcceptanceConfig, AcceptanceDriverConfig
+
+    cfg = replace(
+        two_machine_config,
+        acceptance=AcceptanceConfig(drivers={
+            "api": AcceptanceDriverConfig(
+                kind="gtk-native", run="coord-acceptance-gtk-native {ms}",
+                entrypoint="smoke/gtk.yaml",
+            ),
+        }),
+    )
+    board = Board()
+    completed = _completed_assignment(machine="laptop")
+    board.completed.append(completed)
+    client = _FakeHTTPClient({"id": "review-id-lane-new"})
+    diff = (
+        "diff --git a/smoke/gtk.yaml b/smoke/gtk.yaml\n"
+        "new file mode 100644\n"
+        "--- /dev/null\n"
+        "+++ b/smoke/gtk.yaml\n"
+        "@@ -0,0 +1,2 @@\n"
+        "+steps:\n"
+        "+  - launch: {}\n"
+    )
+
+    result = dispatch_review(
+        completed, board, cfg,
+        http_client=client,
+        pr_lookup=lambda repo_github, **kw: {
+            "number": 52, "url": "https://github.com/acme/api/pull/52", "existed": True,
+        },
+        claude_md_reader=lambda p: None,
+        issue_body_fetcher=lambda repo, num: "",
+        now=123.0,
+        remote_branch_checker=lambda repo, branch: True,
+        diff_fetcher=lambda repo, num, **kw: diff,
+    )
+
+    assert len(client.calls) == 1
+    assert result is not None
+    assert result.status == "running"
+    assert result.verdict_source is None
+
+
+def test_lane_entrypoint_violation_lines_pure_addition_is_not_a_violation() -> None:
+    from coord.review import _lane_entrypoint_violation_lines
+
+    diff = (
+        "diff --git a/smoke/tui-pty.yaml b/smoke/tui-pty.yaml\n"
+        "--- a/smoke/tui-pty.yaml\n"
+        "+++ b/smoke/tui-pty.yaml\n"
+        "@@ -5,1 +5,2 @@\n"
+        "+  - key: enter\n"
+    )
+    touched, lines = _lane_entrypoint_violation_lines(diff, ["smoke/tui-pty.yaml"])
+    assert touched is None
+    assert lines == []
+
+
+def test_lane_entrypoint_violation_lines_flags_a_removed_step() -> None:
+    from coord.review import _lane_entrypoint_violation_lines
+
+    diff = (
+        "diff --git a/smoke/tui-pty.yaml b/smoke/tui-pty.yaml\n"
+        "--- a/smoke/tui-pty.yaml\n"
+        "+++ b/smoke/tui-pty.yaml\n"
+        "@@ -5,2 +5,1 @@\n"
+        "-  - expect_silent: {seconds: 2}\n"
+        "+  - key: enter\n"
+    )
+    touched, lines = _lane_entrypoint_violation_lines(diff, ["smoke/tui-pty.yaml"])
+    assert touched == ["smoke/tui-pty.yaml"]
+    assert "SMOKE-SPEC ENTRY POINT WEAKENED" in lines[0]
+
+
+def test_lane_entrypoint_violation_lines_flags_a_loosened_latency_budget() -> None:
+    """A "raised latency budget" weakening reads, textually, as a removed
+    line followed by a looser replacement — exactly like a removed step."""
+    from coord.review import _lane_entrypoint_violation_lines
+
+    diff = (
+        "diff --git a/smoke/win-native.yaml b/smoke/win-native.yaml\n"
+        "--- a/smoke/win-native.yaml\n"
+        "+++ b/smoke/win-native.yaml\n"
+        "@@ -3,1 +3,1 @@\n"
+        "-  - expect_within: {ms: 200, text: \"ready\"}\n"
+        "+  - expect_within: {ms: 20000, text: \"ready\"}\n"
+    )
+    touched, lines = _lane_entrypoint_violation_lines(diff, ["smoke/win-native.yaml"])
+    assert touched == ["smoke/win-native.yaml"]
+
+
+def test_lane_entrypoint_violation_lines_ignores_unrelated_files() -> None:
+    """A removal in some OTHER file must never flag the lane entrypoint."""
+    from coord.review import _lane_entrypoint_violation_lines
+
+    diff = (
+        "diff --git a/coord/agent.py b/coord/agent.py\n"
+        "--- a/coord/agent.py\n"
+        "+++ b/coord/agent.py\n"
+        "@@ -1,2 +1,1 @@\n"
+        "-removed_line = True\n"
+    )
+    touched, lines = _lane_entrypoint_violation_lines(diff, ["smoke/tui-pty.yaml"])
+    assert touched is None
+    assert lines == []
+
+
+def test_lane_entrypoint_violation_lines_empty_when_no_additive_entrypoints() -> None:
+    from coord.review import _lane_entrypoint_violation_lines
+
+    diff = (
+        "diff --git a/smoke/tui-pty.yaml b/smoke/tui-pty.yaml\n"
+        "--- a/smoke/tui-pty.yaml\n"
+        "+++ b/smoke/tui-pty.yaml\n"
+        "@@ -5,2 +5,1 @@\n"
+        "-  - expect_silent: {seconds: 2}\n"
+    )
+    assert _lane_entrypoint_violation_lines(diff, None) == (None, [])
+    assert _lane_entrypoint_violation_lines(diff, []) == (None, [])
+    assert _lane_entrypoint_violation_lines(None, ["smoke/tui-pty.yaml"]) == (None, [])
+
+
+def test_briefing_additive_only_entrypoint_advisory_text_when_unviolated() -> None:
+    """A non-violating diff gets the advisory "additive only" guidance, not
+    the mandatory banner."""
+    briefing = build_review_briefing(
+        **_briefing_kwargs(additive_only_entrypoints=["smoke/tui-pty.yaml"])
+    )
+    assert "Smoke-spec entry point — additive only, not sealed" in briefing
+    assert "SMOKE-SPEC ENTRY POINT WEAKENED" not in briefing
+
+
+def test_briefing_additive_only_entrypoint_mandatory_banner_when_violated() -> None:
+    diff = (
+        "diff --git a/smoke/tui-pty.yaml b/smoke/tui-pty.yaml\n"
+        "--- a/smoke/tui-pty.yaml\n"
+        "+++ b/smoke/tui-pty.yaml\n"
+        "@@ -5,2 +5,1 @@\n"
+        "-  - expect_silent: {seconds: 2}\n"
+    )
+    briefing = build_review_briefing(
+        **_briefing_kwargs(
+            diff_text=diff, additive_only_entrypoints=["smoke/tui-pty.yaml"],
+        )
+    )
+    assert "SMOKE-SPEC ENTRY POINT WEAKENED" in briefing
+    assert "request-changes is mandatory" in briefing
+
+
+def test_briefing_no_additive_only_entrypoint_section_by_default() -> None:
+    briefing = build_review_briefing(**_briefing_kwargs())
+    assert "Smoke-spec entry point" not in briefing
+    assert "SMOKE-SPEC ENTRY POINT WEAKENED" not in briefing
 
 
 def test_dispatch_review_threads_assignment_type_for_test_author_exemption(
@@ -5245,6 +5555,81 @@ def test_find_or_open_pr_uses_refs_for_mock_author() -> None:
     assert "Closes #1041" not in captured["body"]
 
 
+def test_find_or_open_pr_uses_refs_when_worker_marks_issue_partial() -> None:
+    """#3502: a `type="work"` PR (normally CLOSES_ISSUE_TYPES) must still
+    get the non-closing `Refs #N` keyword when the worker's own
+    `completion_summary` carries `ISSUE_RESOLUTION: partial` — merging it
+    must not auto-close an issue the worker itself says is not resolved.
+    """
+    from coord.review import _find_or_open_pr
+    import coord.github_ops as github_ops_mod
+
+    captured: dict = {}
+
+    def _fake_find_pr(repo_github, branch):
+        return None
+
+    def _fake_create_pr(repo_github, *, base, head, title, body):
+        captured["body"] = body
+        return {"number": 57, "url": "https://github.com/acme/api/pull/57", "existed": False}
+
+    import unittest.mock as mock
+    with (
+        mock.patch.object(github_ops_mod, "find_pr_for_branch", _fake_find_pr),
+        mock.patch.object(github_ops_mod, "create_pr", _fake_create_pr),
+    ):
+        result = _find_or_open_pr(
+            "acme/api",
+            branch="issue-42-fix",
+            default_branch="main",
+            issue_number=42,
+            issue_title="Fix the login bug",
+            assignment_type="work",
+            completion_summary=(
+                "### Summary\nFixed the symptom here.\n\n"
+                "ISSUE_RESOLUTION: partial — root cause is in another repo, "
+                "quadraui#999 now filed."
+            ),
+        )
+
+    assert result is not None
+    assert captured["body"].startswith("Refs #42\n\n")
+    assert "Closes #42" not in captured["body"]
+
+
+def test_find_or_open_pr_uses_closes_when_completion_summary_absent() -> None:
+    """Unchanged pre-#3502 behaviour: no `completion_summary` at all still
+    reads as `resolved`."""
+    from coord.review import _find_or_open_pr
+    import coord.github_ops as github_ops_mod
+
+    captured: dict = {}
+
+    def _fake_find_pr(repo_github, branch):
+        return None
+
+    def _fake_create_pr(repo_github, *, base, head, title, body):
+        captured["body"] = body
+        return {"number": 58, "url": "https://github.com/acme/api/pull/58", "existed": False}
+
+    import unittest.mock as mock
+    with (
+        mock.patch.object(github_ops_mod, "find_pr_for_branch", _fake_find_pr),
+        mock.patch.object(github_ops_mod, "create_pr", _fake_create_pr),
+    ):
+        result = _find_or_open_pr(
+            "acme/api",
+            branch="issue-43-fix",
+            default_branch="main",
+            issue_number=43,
+            issue_title="Fix another bug",
+            assignment_type="work",
+        )
+
+    assert result is not None
+    assert captured["body"].startswith("Closes #43\n\n")
+
+
 def test_dispatch_review_passes_assignment_type_to_pr_lookup(
     two_machine_config: Config,
 ) -> None:
@@ -6074,6 +6459,70 @@ END_REVIEW
         result = parse_review_from_log(log)
         assert result is not None
         assert result.verdict == "request-changes"
+
+
+class TestReviewFindingsIssueResolution:
+    """#3502: `ReviewFindings.issue_resolution`, parsed via
+    `coord.models.parse_issue_resolution` from the SAME `body` capture
+    every other review consumer reads — one parser, used by both the
+    worker-side (`completion_summary`) and reviewer-side (`body`) callers,
+    so the two can never disagree about what the marker means."""
+
+    def test_reviewer_marks_partial_inside_body(self, tmp_path: Path) -> None:
+        log = tmp_path / "review.log"
+        _write_plain_log(log, """\
+REVIEW_VERDICT: approve
+REVIEW_BODY:
+ISSUE_RESOLUTION: partial — root cause is a quadraui gap, quadraui#999 \
+now filed, must land before this closes.
+
+## Blocking findings
+None.
+END_REVIEW
+""")
+        result = parse_review_from_log(log)
+        assert result is not None
+        assert result.verdict == "approve"
+        assert result.issue_resolution.value == "partial"
+        assert "quadraui#999" in result.issue_resolution.reason
+
+    def test_reviewer_marks_investigation(self, tmp_path: Path) -> None:
+        log = tmp_path / "review.log"
+        _write_plain_log(log, """\
+REVIEW_VERDICT: approve
+REVIEW_BODY:
+ISSUE_RESOLUTION: investigation — only ruled out one hypothesis, bug \
+still reproducible.
+END_REVIEW
+""")
+        result = parse_review_from_log(log)
+        assert result is not None
+        assert result.issue_resolution.value == "investigation"
+
+    def test_absent_marker_defaults_to_resolved(self, tmp_path: Path) -> None:
+        log = tmp_path / "review.log"
+        _write_plain_log(log, """\
+REVIEW_VERDICT: approve
+REVIEW_BODY:
+Looks great, ships the fix.
+END_REVIEW
+""")
+        result = parse_review_from_log(log)
+        assert result is not None
+        assert result.issue_resolution.value == "resolved"
+        assert result.issue_resolution.reason == ""
+
+    def test_malformed_marker_defaults_to_resolved(self, tmp_path: Path) -> None:
+        log = tmp_path / "review.log"
+        _write_plain_log(log, """\
+REVIEW_VERDICT: approve
+REVIEW_BODY:
+ISSUE_RESOLUTION: not-a-real-value — nonsense.
+END_REVIEW
+""")
+        result = parse_review_from_log(log)
+        assert result is not None
+        assert result.issue_resolution.value == "resolved"
 
 
 class TestParseReviewFromAgent:

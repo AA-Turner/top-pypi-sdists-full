@@ -1,0 +1,6 @@
+---
+features:
+  - |
+    The ``GIT_SSH`` environment variable will now be consulted, if set, in
+    order to determine which ``ssh`` executable to call outside of ``git``
+    invocations, for consistency.

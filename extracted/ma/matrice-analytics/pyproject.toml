@@ -206,7 +206,10 @@ dev = [
     #
     # urllib3 would arrive anyway as a dependency of requests above, but our need
     # for it is independent of requests, so it is named rather than inherited.
-    # 2.7.0 satisfies requests' own `urllib3<3,>=1.26`, so there is no conflict.
+    # 2.8.0 satisfies requests' own `urllib3<3,>=1.26`, so there is no conflict.
+    # Held at 2.8.0, not 2.7.0: GHSA-8988-9cw3-xx77 / GHSA-vxq7-64xx-v4gw (both
+    # HIGH) and GHSA-gh4c-6fx4-qh6g were published 2026-09-30 against <=2.7.0,
+    # and 2.8.0 is the fix for all three. Both versions are centrally approved.
     #
     # aiohttp, aiokafka and urllib3 all require py3.10+, which does not narrow
     # this extra any further: `pytest>=9.0.3` above already needs 3.10+, so the
@@ -215,7 +218,7 @@ dev = [
     "aiohttp==3.14.3",
     "aiokafka==0.14.0",
     "python-dateutil==2.9.0.post0",
-    "urllib3==2.7.0",
+    "urllib3==2.8.0",
     # kafka-python provides the `kafka` module that
     # matrice_common/stream/event_listener.py:9-10 imports at module level
     # (`from kafka import KafkaConsumer`, `from kafka.errors import KafkaError`).
@@ -458,7 +461,14 @@ ignore_missing_imports = true
 
 [tool.coverage.run]
 source = ["src"]
-omit = ["tests/*", "**/__pycache__/*"]
+# reid/osnet_ain.py is the published OSNet-AIN-x1.0 network definition, copied
+# in rather than taking a torchreid dependency. It is pure torch, and torch is
+# not installed in CI (it is a runtime-only import), so no test can execute it
+# there. It is still exercised wherever torch exists: the strict=True checkpoint
+# load in tests/integration/test_reid_model_real.py fails on any architecture
+# drift. Everything around it (weights, preprocessing, worker, gallery, use
+# case) stays measured.
+omit = ["tests/*", "**/__pycache__/*", "*/post_processing/usecases/reid/osnet_ain.py"]
 
 [tool.coverage.report]
 fail_under = 0

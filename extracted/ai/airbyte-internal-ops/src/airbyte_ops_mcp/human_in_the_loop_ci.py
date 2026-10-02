@@ -61,7 +61,11 @@ def main() -> None:
         help="Primary identifier (email, GitHub handle, Slack ID, usergroup handle, or pasted Slack mention).",
     )
     parser.add_argument("--message", required=True, help="Message body.")
-    parser.add_argument("--agent-session-url", required=True, help="Agent session URL.")
+    parser.add_argument(
+        "--agent-session-url",
+        default="",
+        help="Optional agent session URL; the View Session button is omitted when empty.",
+    )
     parser.add_argument(
         "--cc-persons",
         default="",
@@ -123,14 +127,6 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    # -- CLI-specific guard: agent-session-url is required for this path --
-    if not args.agent_session_url:
-        print(
-            "Error: --agent-session-url is required for CI HITL notifications.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
     # -- Load roster from file (CI-specific; the Python API uses fetch_roster) --
     roster = _load_roster(args.roster_file)
     print(f"Loaded roster with {len(roster)} members.", file=sys.stderr)
@@ -152,7 +148,7 @@ def main() -> None:
     result = send_hitl_notification(
         target_person=args.target_person,
         message=args.message,
-        agent_session_url=args.agent_session_url,
+        agent_session_url=args.agent_session_url or None,
         connector_name=args.connector_name,
         header_emoji=args.header_emoji,
         header_label=args.header_label,

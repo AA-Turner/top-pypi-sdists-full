@@ -1,5 +1,5 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TextEdit {
-    pub range: tombi_text::Range,
+    pub span: tombi_text::Span,
     pub new_text: String,
 }

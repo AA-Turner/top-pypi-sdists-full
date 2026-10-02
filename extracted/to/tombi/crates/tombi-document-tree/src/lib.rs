@@ -3,17 +3,17 @@
 //! This crate owns no parser, syntax tree, decoded-text pool, or document storage.
 //! Tombi's source-backed implementation lives in `tombi-document-tree-syntax`.
 
-use tombi_text::Range;
+use tombi_text::Span;
 
 pub use tombi_date_time::{LocalDate, LocalDateTime, LocalTime, OffsetDateTime};
 
 /// Common source-location operations for semantic document nodes.
 pub trait Node {
-    fn range(&self) -> Range;
+    fn span(&self) -> Span;
 
     #[inline]
-    fn symbol_range(&self) -> Range {
-        self.range()
+    fn symbol_span(&self) -> Span {
+        self.span()
     }
 }
 
@@ -62,14 +62,14 @@ macro_rules! copy_value {
         #[derive(Debug, Clone, Copy, PartialEq)]
         pub struct $name {
             value: $value,
-            range: Range,
+            span: Span,
         }
 
         impl $name {
             #[doc(hidden)]
             #[inline]
-            pub fn new(value: $value, range: Range) -> Self {
-                Self { value, range }
+            pub fn new(value: $value, span: Span) -> Self {
+                Self { value, span }
             }
 
             #[inline]
@@ -80,8 +80,8 @@ macro_rules! copy_value {
 
         impl Node for $name {
             #[inline]
-            fn range(&self) -> Range {
-                self.range
+            fn span(&self) -> Span {
+                self.span
             }
         }
     };
@@ -94,14 +94,14 @@ copy_value!(FloatValue, f64);
 pub struct IntegerValue {
     kind: IntegerKind,
     value: i64,
-    range: Range,
+    span: Span,
 }
 
 impl IntegerValue {
     #[doc(hidden)]
     #[inline]
-    pub fn new(kind: IntegerKind, value: i64, range: Range) -> Self {
-        Self { kind, value, range }
+    pub fn new(kind: IntegerKind, value: i64, span: Span) -> Self {
+        Self { kind, value, span }
     }
 
     #[inline]
@@ -117,8 +117,8 @@ impl IntegerValue {
 
 impl Node for IntegerValue {
     #[inline]
-    fn range(&self) -> Range {
-        self.range
+    fn span(&self) -> Span {
+        self.span
     }
 }
 
@@ -126,17 +126,17 @@ impl Node for IntegerValue {
 pub struct StringValue<'a> {
     kind: StringKind,
     content: &'a str,
-    range: Range,
+    span: Span,
 }
 
 impl<'a> StringValue<'a> {
     #[doc(hidden)]
     #[inline]
-    pub fn new(kind: StringKind, content: &'a str, range: Range) -> Self {
+    pub fn new(kind: StringKind, content: &'a str, span: Span) -> Self {
         Self {
             kind,
             content,
-            range,
+            span,
         }
     }
 
@@ -151,22 +151,22 @@ impl<'a> StringValue<'a> {
     }
 
     #[inline]
-    pub fn unquoted_range(self) -> Range {
-        let mut range = self.range;
+    pub fn unquoted_span(self) -> Span {
+        let mut span = self.span;
         let quote_width = match self.kind {
             StringKind::BasicString | StringKind::LiteralString => 1,
             StringKind::MultiLineBasicString | StringKind::MultiLineLiteralString => 3,
         };
-        range.start.column += quote_width;
-        range.end.column -= quote_width;
-        range
+        span.start += quote_width;
+        span.end -= quote_width;
+        span
     }
 }
 
 impl Node for StringValue<'_> {
     #[inline]
-    fn range(&self) -> Range {
-        self.range
+    fn span(&self) -> Span {
+        self.span
     }
 }
 
@@ -175,14 +175,14 @@ macro_rules! borrowed_value {
         #[derive(Debug, Clone, Copy, PartialEq)]
         pub struct $name<'a> {
             value: &'a $value,
-            range: Range,
+            span: Span,
         }
 
         impl<'a> $name<'a> {
             #[doc(hidden)]
             #[inline]
-            pub fn new(value: &'a $value, range: Range) -> Self {
-                Self { value, range }
+            pub fn new(value: &'a $value, span: Span) -> Self {
+                Self { value, span }
             }
 
             #[inline]
@@ -193,8 +193,8 @@ macro_rules! borrowed_value {
 
         impl Node for $name<'_> {
             #[inline]
-            fn range(&self) -> Range {
-                self.range
+            fn span(&self) -> Span {
+                self.span
             }
         }
     };
@@ -219,7 +219,7 @@ pub enum Value<'a, A, T> {
     LocalTime(LocalTimeValue<'a>),
     Array(&'a A),
     Table(&'a T),
-    Incomplete { range: Range },
+    Incomplete { span: Span },
 }
 
 pub trait DocumentTree {
@@ -231,7 +231,7 @@ pub trait DocumentTree {
 pub trait Key: Node {
     fn kind(&self) -> KeyKind;
     fn content(&self) -> &str;
-    fn unquoted_range(&self) -> Range;
+    fn unquoted_span(&self) -> Span;
 }
 
 pub trait Array: Node {

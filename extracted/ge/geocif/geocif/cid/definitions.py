@@ -114,6 +114,29 @@ dict_gcvi = {
     "AUC_GCVI": ["VI", "Area under the curve of GCVI"],
 }
 
+# JRC/ASAP MO6_FPAR (fraction of absorbed PAR, dekadal, geoprepare FPAR_MO6).
+# Values are the extraction's DN 0-100 (FPAR x 100), like ndvi's raw scale;
+# geomerge interpolates the 10-day cadence to daily before the CID stage.
+# Two families with their own categories so an ablation can switch either
+# resolution off via [ML] exclude_cid_categories = ['FPAR'] / ['FPAR5K']:
+#   FPAR   native ~500 m pixels (merged column fpar_mo6)
+#   FPAR5K 0.05-degree mean-of-valid aggregate (merged column fpar_mo6_5km)
+dict_fpar = {
+    "MEAN_FPAR": ["FPAR", "Mean FPAR, 500 m (DN 0-100)"],
+    "MAX_FPAR": ["FPAR", "Maximum FPAR, 500 m (DN 0-100)"],
+    "MIN_FPAR": ["FPAR", "Minimum FPAR, 500 m (DN 0-100)"],
+    "STD_FPAR": ["FPAR", "Standard deviation of FPAR, 500 m"],
+    "AUC_FPAR": ["FPAR", "Area under the curve of FPAR, 500 m"],
+}
+
+dict_fpar5k = {
+    "MEAN_FPAR5K": ["FPAR5K", "Mean FPAR, 0.05 deg aggregate (DN 0-100)"],
+    "MAX_FPAR5K": ["FPAR5K", "Maximum FPAR, 0.05 deg aggregate (DN 0-100)"],
+    "MIN_FPAR5K": ["FPAR5K", "Minimum FPAR, 0.05 deg aggregate (DN 0-100)"],
+    "STD_FPAR5K": ["FPAR5K", "Standard deviation of FPAR, 0.05 deg aggregate"],
+    "AUC_FPAR5K": ["FPAR5K", "Area under the curve of FPAR, 0.05 deg aggregate"],
+}
+
 dict_esi4wk = {
     "MEAN_ESI4WK": ["ESI", "Mean ESI 4WK"],
     "MAX_ESI4WK": ["ESI", "Maximum ESI 4WK"],

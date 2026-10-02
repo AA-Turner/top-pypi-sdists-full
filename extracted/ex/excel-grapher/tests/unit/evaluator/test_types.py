@@ -1,0 +1,46 @@
+from excel_grapher.core.types import ExcelRange, resolve_excel_range
+from excel_grapher.evaluator.types import ExcelRange as EvaluatorExcelRange
+from excel_grapher.exporter.export_runtime import ExcelRange as ExportExcelRange
+
+
+def test_excel_range_cell_addresses() -> None:
+    r = ExcelRange(sheet="Sheet1", start_row=1, start_col=1, end_row=2, end_col=2)
+    assert list(r.cell_addresses()) == [
+        "Sheet1!A1",
+        "Sheet1!B1",
+        "Sheet1!A2",
+        "Sheet1!B2",
+    ]
+
+
+def test_excel_range_cell_addresses_quote_sheet_with_space() -> None:
+    """Keys must match DependencyGraph / Node.key (format_cell_key rules)."""
+    r = ExcelRange(sheet="Imported data", start_row=126, start_col=1, end_row=126, end_col=1)
+    assert list(r.cell_addresses()) == ["'Imported data'!A126"]
+
+
+def test_excel_range_resolve_shapes_nested_grid() -> None:
+    r = ExcelRange(sheet="S", start_row=1, start_col=1, end_row=2, end_col=3)
+    mapping = {
+        "S!A1": 1,
+        "S!B1": 2,
+        "S!C1": 3,
+        "S!A2": 4,
+        "S!B2": 5,
+        "S!C2": 6,
+    }
+
+    grid = resolve_excel_range(r, lambda addr: mapping.get(addr))
+    assert isinstance(grid, list)
+    assert len(grid) == 2
+    assert len(grid[0]) == 3
+    assert grid == [[1, 2, 3], [4, 5, 6]]
+
+
+def test_excel_range_is_shared_across_evaluator_and_export() -> None:
+    """One ExcelRange type for geometry (no evaluator/export fork)."""
+    assert EvaluatorExcelRange is ExcelRange
+    assert ExportExcelRange is ExcelRange
+    rng = ExportExcelRange("S", 1, 1, 2, 2)
+    assert isinstance(rng, EvaluatorExcelRange)
+    assert rng.shape == (2, 2)

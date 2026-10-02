@@ -1,6 +1,6 @@
 [project]
 name = "cognite_toolkit"
-version = "0.8.239"
+version = "0.8.243"
 description = "Official Cognite Data Fusion tool for project templates and configuration deployment"
 license = "Apache-2.0"
 readme = "README.md"
@@ -62,7 +62,7 @@ cdf = "cognite_toolkit._cdf:app"
 
 [dependency-groups]
 dev = [
-    "mypy >=1.8.0",
+    "mypy >=2.3.1",
     "pre-commit >=4.0.0",
     "pytest >=8.0.0",
     "pytest-icdiff",
@@ -133,6 +133,7 @@ follow_imports = "normal"
 ignore_missing_imports = true
 warn_redundant_casts = true
 warn_unused_ignores = true
+enable_incomplete_feature = ["TypeForm"]
 exclude = []
 plugins = ["pydantic.mypy"]
 

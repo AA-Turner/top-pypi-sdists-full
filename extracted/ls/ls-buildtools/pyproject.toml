@@ -1,0 +1,48 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs", "cryptography", "localstack-obfuscator>=1.0.4"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ls-buildtools"
+license = "LicenseRef-All-Rights-Reserved"
+requires-python = ">=3.10"
+dynamic = [
+    "version"
+]
+dependencies = [
+    "cryptography",
+    "localstack_obfuscator>=1.0.4",
+    "tomli; python_version < '3.11'",
+    "typing-extensions; python_version < '3.11'"
+]
+
+[project.optional-dependencies]
+hatchling = [
+    "hatchling"
+]
+setuptools = [
+    "setuptools"
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "ruff",
+    "pre-commit",
+    "uv",
+    "pydantic"
+]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build]
+sources = ["src"]
+include = [
+    "ls_buildtools",
+]
+
+[tool.hatch.build.targets.sdist.hooks.custom]
+
+[project.entry-points.hatch]
+ls_buildtools = "ls_buildtools._integration.hatchling"

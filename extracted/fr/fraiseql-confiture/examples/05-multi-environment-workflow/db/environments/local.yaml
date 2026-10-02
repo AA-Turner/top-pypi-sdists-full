@@ -1,0 +1,19 @@
+# Local development environment
+
+name: local
+database_url: postgresql://postgres:postgres@localhost:5432/confiture_workflow
+
+# Which directories to include when building schema
+include_dirs:
+  - db/schema
+
+# Exclude production-only files locally
+exclude_dirs:
+  - db/schema/00_common/roles.sql
+
+# Local-specific options
+options:
+  skip_slow_indexes: false
+  verbose: true
+  allow_drop_tables: true
+  allow_drop_columns: true

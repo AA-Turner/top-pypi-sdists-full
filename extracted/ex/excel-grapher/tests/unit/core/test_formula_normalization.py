@@ -1,0 +1,46 @@
+"""Tests for :mod:`excel_grapher.core.formula_normalization` (canonical normalization)."""
+
+from __future__ import annotations
+
+from excel_grapher.core.formula_normalization import (
+    normalize_excel_formula,
+)
+from excel_grapher.grapher.parser import FormulaNormalizer
+
+
+def test_formula_normalizer_uses_same_pipeline_as_core() -> None:
+    n = FormulaNormalizer()
+    f = "=SUM(A1:B2)+'Other'!C3"
+    assert n.normalize(f, "Here") == normalize_excel_formula(f, "Here")
+
+
+def test_normalize_excel_formula_preserves_cell_like_text_in_string_literals() -> None:
+    """Bare refs inside quoted strings must not be sheet-qualified."""
+    cases = [
+        ('=IF(B5>0,"C13 is large",D5)', '=IF(Sheet1!B5>0,"C13 is large",Sheet1!D5)'),
+        ('="value at C14 is "&B6', '="value at C14 is "&Sheet1!B6'),
+        ('=B7&" says ""C15"""', '=Sheet1!B7&" says ""C15"""'),
+        ('="C17 has data "&B9', '="C17 has data "&Sheet1!B9'),
+    ]
+    for formula, expected in cases:
+        assert normalize_excel_formula(formula, "Sheet1") == expected
+
+
+def test_normalize_excel_formula_preserves_quoted_apostrophe_sheet_refs() -> None:
+    """Quoted sheet names with escaped apostrophes must not be corrupted."""
+    sheet = "O'Neil"
+    cases = [
+        ("='O''Neil'!A1*2", "='O''Neil'!A1*2"),
+        ("='O''Neil'!A1:'O''Neil'!B2", "='O''Neil'!A1:B2"),
+        ("=SUM('O''Neil'!A:A)", "=SUM('O''Neil'!A:A)"),
+        ("=SUM('O''Neil'!A:C)", "=SUM('O''Neil'!A:C)"),
+        ("=SUM('O''Neil'!1:1)", "=SUM('O''Neil'!1:1)"),
+        ("=SUM('O''Neil'!5:10)", "=SUM('O''Neil'!5:10)"),
+    ]
+    for formula, expected in cases:
+        assert normalize_excel_formula(formula, sheet) == expected
+
+
+def test_formula_normalizer_preserves_quoted_apostrophe_sheet_refs() -> None:
+    n = FormulaNormalizer({}, {})
+    assert n.normalize("='O''Neil'!A1*2", "O'Neil") == "='O''Neil'!A1*2"

@@ -1,0 +1,77 @@
+---
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# ONEX Node Contract - Conflict Hunk Effect (OMN-8992)
+name: node_conflict_hunk_effect
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: effect
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  LLM-routed conflict resolution effect. Receives a ModelConflictHunkCommand,
+  creates an ephemeral git worktree, scans for conflict markers, resolves each hunk
+  via logical LLM routing, validates the patch, commits,
+  and emits ModelConflictResolvedEvent. Branch guard prevents pushing to main/master/develop.
+  pytest gate runs in worktree before commit. No shell=True anywhere.
+
+handler:
+  module: omnimarket.nodes.node_conflict_hunk_effect.handlers.handler_conflict_hunk
+  class: HandlerConflictHunk
+  input_model: omnimarket.nodes.node_merge_sweep_triage_orchestrator.models.model_triage_request.ModelConflictHunkCommand
+
+handler_routing:
+  default_handler: omnimarket.nodes.node_conflict_hunk_effect.handlers.handler_conflict_hunk:HandlerConflictHunk
+
+descriptor:
+  node_archetype: effect
+  purity: impure
+  idempotent: false
+  timeout_ms: 300000
+  runtime_profiles:
+    - effects
+
+model_routing:
+  conflict_resolver:
+    primary: "conflict_resolver_primary"
+    fallback: "conflict_resolver_fallback"
+    fallback_allowed_roles:
+      - "conflict_resolver"
+    endpoint_env: "LLM_CODER_URL"
+    max_tokens: 8192
+    transport: "http"
+    ci_override:
+      primary: "conflict_resolver_primary"
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.pr-conflict-hunk.v1
+  publish_topics:
+    - onex.evt.omnimarket.pr-conflict-resolved.v1
+  dlq_topics:
+    - onex.dlq.omnimarket.pr-conflict-hunk.v1
+
+dod_evidence:
+  phase: 2
+  wave: 2
+  artifacts:
+    - tests/nodes/node_conflict_hunk_effect/test_handler_conflict_hunk.py
+  validation_notes: >
+    Phase 2 Wave 2: full handler impl. LLM calls use injected llm_call_fn for unit tests.
+    All safety checks (branch guard, file allowlist, patch size, scope check) implemented.
+    pytest gate runs in worktree. No shell=True.
+
+metadata:
+  transport_type: kafka
+
+config:
+  ONEX_CONFLICT_SOURCE_CLONE_ROOT:
+    description: "Root directory of source clones for conflict resolution."
+    required: false
+  ONEX_CONFLICT_WORKTREE_ROOT:
+    description: "Root directory for worktrees used during conflict resolution."
+    required: false
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.pr-conflict-resolved.v1

@@ -824,7 +824,7 @@ mod refactor_rewrite {
                 log::debug!("test toml text index: {:?}", index);
 
                 let line_index =
-                    tombi_text::LineIndex::new(&toml_text, tombi_text::EncodingKind::Utf16);
+                    tombi_text::LineIndex::new(toml_text.as_str());
 
                 let toml_file_url = args
                     .toml_file_path
@@ -852,11 +852,8 @@ mod refactor_rewrite {
                     text_document: TextDocumentIdentifier {
                         uri: toml_file_url.clone(),
                     },
-                    range: tombi_text::Range::at(
-                        (tombi_text::Position::default()
-                            + tombi_text::RelativePosition::of(&toml_text[..index])),
-                    )
-                    .into_lsp(&line_index),
+                    range: tombi_text::Span::empty(tombi_text::Offset::of(&toml_text[..index]))
+                        .into_lsp(&line_index, tombi_text::EncodingKind::Utf16),
                     context: Default::default(),
                     work_done_progress_params: Default::default(),
                     partial_result_params: Default::default(),

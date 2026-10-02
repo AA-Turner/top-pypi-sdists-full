@@ -1,0 +1,203 @@
+Metadata-Version: 2.5
+Name: labelbox-recursion-sdk
+Version: 0.0.131
+Summary: Python SDK for the Recursion Platform API
+Requires-Python: >=3.11
+Requires-Dist: attrs>=22.2
+Requires-Dist: httpx<0.29,>=0.23
+Requires-Dist: python-dateutil>=2.8
+Description-Content-Type: text/markdown
+
+# recursion-sdk (Python)
+
+The Recursion Python SDK, **generated from the same backend OpenAPI snapshot, and
+the same `@SdkRoute` opt-in set, as [`@labelbox/recursion-sdk`](../sdk-ts/README.md)**
+with [openapi-python-client](https://github.com/openapi-generators/openapi-python-client)
+— free, open source, and pinned by version. The only hand-written code is a thin
+auth constructor (`src/recursion/__init__.py`); everything under
+`src/recursion_sdk/` is generated and gitignored.
+
+**The two SDKs share a surface, not just a set of operations.** `@SdkRoute('synthesizers', 'create')`
+on a backend handler produces `rl.synthesizers.create(...)` in *both* clients,
+from that one declaration.
+
+```python
+import asyncio
+import os
+
+from recursion import create_recursion_client
+
+
+async def main() -> None:
+    rl = create_recursion_client(api_key=os.environ["LABELBOX_API_KEY"])
+    environment = await rl.environments.get(environment_id)
+    print(environment.name)
+
+
+asyncio.run(main())
+```
+
+## Surface
+
+Namespaced exactly like the TypeScript SDK, because both are driven by the same
+`x-sdk-path`:
+
+```ts
+// @labelbox/recursion-sdk
+const job = await rl.synthesizers.create({
+  environmentId,
+  body: { name: 'Variant generator', systemPrompt: '…', runConfigVersionId },
+});
+```
+
+```python
+# recursion-sdk
+body = CreateSynthesizerJobBodyDto(name="Variant generator", system_prompt="…", ...)
+job = await rl.synthesizers.create(environment_id, body=body)
+```
+
+Path parameters are positional, the body and query parameters are keywords. Every
+call is `async`. Non-2xx responses raise `RecursionApiError`, carrying
+`.status_code`, `.parsed` (the typed error body, when the operation documents
+one) and `.content` — matching the TypeScript client's `throwOnError: true`.
+
+The namespace facade (`recursion_sdk/facade.py`) is **generated** from
+`x-sdk-path`, exactly as hey-api's `nesting()` callback drives the TypeScript
+side, so the two clients cannot drift into different namespacing. The generated
+per-endpoint modules underneath it (`recursion_sdk.api.<namespace>.<method>`)
+remain available directly, and expose `sync`/`asyncio` variants plus
+`*_detailed` forms that return the full response instead of raising.
+
+**Opt-in, declared at the source.** An operation is in this SDK iff its backend
+handler carries `@SdkRoute(...)`
+(`apps/horizon/api/src/common/sdk-route.decorator.ts`), read through the same
+`packages/sdk-ts/src/nesting.ts` the TypeScript SDK uses, so the two clients
+cannot cover different operations.
+
+### Notes from real use
+
+- ID fields deserialize to `uuid.UUID`, not `str`.
+- Path parameters are *annotated* `UUID` too. Passing a `str` works at runtime —
+  and the composed docs examples do — but a caller running mypy against the
+  published wheel will want `UUID(...)`.
+- Required fields are enforced at model construction, so a partial body fails
+  fast rather than at the server.
+- Documented Horizon failures, including proxied Managed Agents failures,
+  deserialize as the flat `{ code, message, details? }` envelope. If the server
+  returns an undocumented status, `RecursionApiError.parsed` is `None` and
+  `.content` carries the bytes.
+
+## Install
+
+Published to PyPI as **`labelbox-recursion-sdk`** (the import name stays
+`recursion`), so a consumer needs nothing from this repo:
+
+```sh
+pip install labelbox-recursion-sdk
+```
+
+`release-python-sdk.yml` publishes it through PyPI trusted publishing —
+automatically on a push to `main` that changes the wheel's inputs, and manually
+via `workflow_dispatch` for an explicit version or a dry run. The version is
+resolved from the highest `python-sdk-v*` git tag and recorded only as a new
+tag; the release never commits to the branch, which is why `pyproject.toml`
+carries a `0.0.0` placeholder. The `python-sdk-v*` tags are the record of what
+has shipped — `git tag --list 'python-sdk-v*' | sort -V | tail -1` — so no
+version is pinned here to go stale.
+
+To install an unreleased working copy instead, build the wheel locally:
+
+```sh
+yarn generate python-sdk                       # pip venv, no Docker
+cd packages/sdk-python
+python3 -m build                               # or `uv build`, if you have it
+pip install dist/labelbox_recursion_sdk-*.whl
+```
+
+Requires Python 3.11+ (the generated client imports `typing.Self`).
+
+**Tooling: pip + hatchling, no lockfile — matching `mcp_server`, the repo's only
+other Python package.** `uv` is not a repo dependency, and `yarn ci check python-sdk:all`
+deliberately uses stdlib `venv` + `pip` so the gate needs nothing beyond the
+interpreter. Both work locally; `uv` is just faster. There is no `uv.lock` or
+`requirements.txt` on purpose: this is a *library*, so it declares dependency
+ranges and lets the consuming application own the resolution.
+
+## The committed call surface
+
+`python-surface.json` is the one generated artifact here that **is committed**.
+It records, per `operationId`, how the generated client is actually called: the
+facade call path, the positional path parameters in signature order, the keyword
+parameters, the request body's model class and whether that class is
+`from_dict`-constructible, every alternative of a union-typed body with the wire
+field names that discriminate them, and whether the operation's parsed response
+is a plain `list` (which has no `.to_dict()`).
+
+It exists because the docs pipeline *composes* Python examples:
+`yarn generate recipes` runs at every build, in jobs with no Python
+interpreter, so it cannot introspect the generated tree. Reading a committed map
+keeps recipe generation JavaScript-only.
+
+Composed, not yet displayed: the examples ship in the CLI manifest and are
+printed by `recursion recipes <id> --format py`, but the web docs panel still renders
+only the TypeScript, CLI, and cURL tabs. Adding the Python tab is a deliberate
+follow-up. Whoever does it must render a recipe's `setup` and `main` buckets as
+one block — the Python surface wraps both in a single `async def main():` so the
+concatenation a reader copies is runnable, which means `main` alone is an
+indented fragment.
+
+It is **read out of the generated signatures, never derived from the spec's
+parameter names** — the same rule `endpointModule` follows for module names. The
+generator's casing is not guessable: `jobV2Id` becomes `job_v2_id`, which a
+hand-written camelCase transform would plausibly render `job_v_2_id`, producing
+examples that agree with our guess instead of with the client. `yarn dx
+ci:python-sdk` fails if the committed map is untracked or if regeneration
+changes it.
+
+## Regenerating
+
+```sh
+# Regenerate the client from the committed spec snapshot (packages/sdk-ts/openapi.json).
+yarn generate python-sdk
+
+# Everything CI runs: regenerate, build the wheel, install it into a clean
+# virtualenv, and run the test suite against that installed distribution.
+yarn ci check python-sdk:all
+```
+
+Refreshing the snapshot itself is the TypeScript SDK's job
+(`yarn generate sdk --refresh-spec`); this package only ever reads it.
+
+## The generator-private projection
+
+The committed snapshot is canonical **OpenAPI 3.1**. `yarn generate python-sdk`
+writes a **generator-private projection** (`openapi.generated.json`, gitignored)
+without changing dialect: it keeps only `@SdkRoute` operations, projects
+`x-sdk-path` into the generator's tags and operation IDs, and applies the few
+generator-specific structural repairs needed for complete output.
+
+Those repairs add discriminators already implied by literal-tagged unions.
+Nullable optional fields retain both `None` and `Unset`, so generated patch
+models distinguish an explicit `null` from omission. Error bodies need no
+compatibility projection: Horizon, including its proxied Managed Agents routes,
+publishes the flat `{ code, message, details? }` envelope. The projection never
+touches the snapshot, the TypeScript SDK, or the backend; each repair is
+documented in `tools/dx/src/commands/python-sdk.ts` and pinned by
+`tools/dx/src/commands/python-sdk.test.ts`.
+
+Generation then **fails on any generator diagnostic that is not explicitly
+allowlisted**, and on any opted-in operation missing from either the generated
+tree or the facade. The generator exits 0 while printing "Client was generated,
+but some pieces may be missing", so neither is implied by a successful run. The
+one allowlisted warning is an `application/x-yaml` *alternative* request encoding
+on a single Managed Agents operation; the `application/json` variant every other
+operation uses is generated normally. The allowlist is keyed by operation *and*
+signature, so the same warning elsewhere still fails.
+
+## Not a Yarn workspace
+
+This package has no `package.json`, is not in the Node dependency graph, and is
+never installed into backend images. Workspace registration is keyed on
+`package.json` discovery by `tools/dx/src/workspace-registration.test.ts`, so the
+root Yarn workspace, build waves, and Docker manifest-copy checks intentionally do
+not include it.

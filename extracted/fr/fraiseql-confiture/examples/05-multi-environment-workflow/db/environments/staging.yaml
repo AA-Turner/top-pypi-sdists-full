@@ -1,0 +1,17 @@
+# Staging environment — connection details come from the environment.
+
+name: staging
+database_url: postgresql://${STAGING_DB_USER}:${STAGING_DB_PASSWORD}@${STAGING_DB_HOST}:${STAGING_DB_PORT}/${STAGING_DB_NAME}?sslmode=require&connect_timeout=10
+
+include_dirs:
+  - db/schema
+exclude_dirs: []
+
+# Staging-specific options
+options:
+  migration_timeout: 300  # 5 minutes
+  verbose: true
+  dry_run_first: true
+  allow_drop_tables: false
+  allow_drop_columns: false
+  backup_before_migration: true

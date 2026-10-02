@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
@@ -14,6 +16,148 @@ from .config import MatriceTrackerConfig
 from .factory import create_tracker, normalize_tracking_method
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# SG-25 -- silent zero-count guard.
+#
+# Before this, a deployment whose tracker could not be built (bad config,
+# missing runtime dep, a dependency that itself needs Matrice credentials)
+# produced a single `logger.warning("AdvancedTracker failed: ...")` from the
+# use-case's broad `except Exception`, then ran on with untracked detections.
+# `_update_tracking_state` drops every detection whose `track_id` is None, so
+# the cumulative unique-count sets stayed empty and `get_total_counts()`
+# returned 0 forever -- indistinguishable from "nothing was detected".
+#
+# Rule (same as the py_streaming sampler): *startup* faults refuse, *runtime*
+# faults fail open but loudly.
+#   - init failure while tracking was explicitly requested -> ERROR + traceback
+#     logged here, inside the seam, where no caller's `except Exception` can
+#     downgrade it, then `TrackerInitializationError` is raised.
+#   - per-frame `update()` failure -> caller may fail open, but must record it
+#     via `record_update_failure` / `record_untracked_frame` so the degraded
+#     state is observable instead of silent.
+# =============================================================================
+
+
+class TrackerInitializationError(RuntimeError):
+    """Tracking was explicitly requested but the tracker could not be built.
+
+    Raised by `ConfigDrivenTracker.get_shared_tracker`. Callers must let this
+    propagate (startup refusal) rather than degrade to untracked counting,
+    which silently reports zero.
+    """
+
+
+@dataclass
+class TrackerHealth:
+    """Observable degradation state for the shared tracker seam."""
+
+    #: Tracker construction was requested (gate passed).
+    requested: int = 0
+    #: Tracker was constructed successfully.
+    initialized: int = 0
+    #: Tracker construction raised.
+    init_failures: int = 0
+    #: A per-frame `update()` raised after a successful construction.
+    update_failures: int = 0
+    #: Frames where detections were present but none carried a `track_id`,
+    #: i.e. frames that contribute nothing to any unique count.
+    untracked_frames: int = 0
+    #: Detections dropped from unique counting for want of a `track_id`.
+    untracked_detections: int = 0
+    #: Last failure message seen, for health endpoints / logs.
+    last_error: Optional[str] = None
+    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
+
+    @property
+    def degraded(self) -> bool:
+        """True when tracking is not delivering usable track IDs.
+
+        A degraded tracker means unique/new counts are zero for reasons that
+        have nothing to do with the scene. Health surfaces must report this.
+        """
+        return bool(self.init_failures or self.update_failures or self.untracked_frames)
+
+    def snapshot(self) -> Dict[str, Any]:
+        with self._lock:
+            return {
+                "requested": self.requested,
+                "initialized": self.initialized,
+                "init_failures": self.init_failures,
+                "update_failures": self.update_failures,
+                "untracked_frames": self.untracked_frames,
+                "untracked_detections": self.untracked_detections,
+                "last_error": self.last_error,
+                "degraded": self.degraded,
+            }
+
+    def reset(self) -> None:
+        with self._lock:
+            self.requested = 0
+            self.initialized = 0
+            self.init_failures = 0
+            self.update_failures = 0
+            self.untracked_frames = 0
+            self.untracked_detections = 0
+            self.last_error = None
+
+
+_TRACKER_HEALTH = TrackerHealth()
+
+
+def tracker_health() -> TrackerHealth:
+    """Return the process-wide tracker health record (metrics / health checks)."""
+    return _TRACKER_HEALTH
+
+
+def record_update_failure(exc: BaseException, *, log: Optional[logging.Logger] = None) -> None:
+    """Record a per-frame tracker `update()` failure (runtime: fail open, loudly)."""
+    with _TRACKER_HEALTH._lock:
+        _TRACKER_HEALTH.update_failures += 1
+        _TRACKER_HEALTH.last_error = f"update: {exc}"
+    (log or logger).error(
+        "AdvancedTracker update failed; this frame contributes no track IDs and "
+        "unique counts will under-report: %s",
+        exc,
+        exc_info=True,
+    )
+
+
+def record_untracked_frame(
+    missing: int,
+    total: int,
+    *,
+    log: Optional[logging.Logger] = None,
+    frame: Any = None,
+) -> None:
+    """Record a frame whose detections carried no `track_id` at all.
+
+    This is the exact silent-zero condition: objects were detected, none can be
+    counted, and without this the only trace was a debug-gated `print`.
+    """
+    if missing <= 0:
+        return
+    with _TRACKER_HEALTH._lock:
+        _TRACKER_HEALTH.untracked_detections += missing
+        if total > 0 and missing >= total:
+            _TRACKER_HEALTH.untracked_frames += 1
+            first = _TRACKER_HEALTH.untracked_frames == 1
+            count = _TRACKER_HEALTH.untracked_frames
+        else:
+            first = False
+            count = 0
+    if not first and not (count and count % 100 == 0):
+        return
+    (log or logger).error(
+        "Tracking degraded: frame %s had %d/%d detections with no track_id, so "
+        "unique counts stay at zero. This is a tracker fault, not an empty scene "
+        "(untracked frames so far: %d).",
+        frame,
+        missing,
+        total,
+        count or 1,
+    )
 
 
 def tracker_namespace(stream_info: Optional[Dict[str, Any]]) -> Optional[str]:
@@ -56,7 +200,7 @@ def get_effective_tracking_method(config: Any) -> Optional[str]:
 # =============================================================================
 
 
-class TrackerProfile(str, Enum):
+class TrackerProfile(str, Enum):  # noqa: UP042 - StrEnum changes str(member); out of SG-25 scope
     """Named `TrackerConfig` baselines measured across the 136 literal
     `TrackerConfig(...)` call sites in usecases/ (consolidation plan §1.8).
     An enum + `**overrides` on `build_tracker_config`, not a 136-row config
@@ -256,15 +400,15 @@ class ConfigDrivenTracker:
         if self._tracker is not None:
             try:
                 self._tracker.reset()
-            except Exception:
-                pass
+            except (AttributeError, KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
+                logger.debug("tracker reset failed, dropping it anyway: %s", exc)
         self._tracker = None
         self._method = None
         if self._shared_tracker is not None:
             try:
                 self._shared_tracker.reset()
-            except Exception:
-                pass
+            except (AttributeError, KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
+                logger.debug("shared tracker reset failed, dropping it anyway: %s", exc)
         self._shared_tracker = None
 
     def apply(
@@ -290,8 +434,15 @@ class ConfigDrivenTracker:
             if hasattr(self._tracker, "restore_state"):
                 try:
                     self._tracker.restore_state()
-                except Exception:
-                    pass
+                except (
+                    AttributeError,
+                    KeyError,
+                    OSError,
+                    RuntimeError,
+                    TypeError,
+                    ValueError,
+                ) as exc:
+                    logger.debug("tracker state restore failed, starting fresh: %s", exc)
             log.info("Initialized %s tracker (namespace=%s)", method, namespace)
 
         return self._tracker.update(detections, stream_info=stream_info)
@@ -347,21 +498,49 @@ class ConfigDrivenTracker:
             return self._shared_tracker
 
         log = log or logger
-        tracker_config = build_tracker_config(
-            profile,
-            config,
-            stream_info,
-            derive_from_confidence=derive_from_confidence,
-            **overrides,
-        )
-        ns = tracker_namespace(stream_info) if namespace else None
-        self._shared_tracker = AdvancedTracker(tracker_config, namespace=ns)
+        with _TRACKER_HEALTH._lock:
+            _TRACKER_HEALTH.requested += 1
+
+        # SG-25: construction is a startup-shaped fault -- refuse, do not
+        # degrade. The ERROR is emitted here, inside the seam, so a caller's
+        # broad `except Exception: log.warning(...)` cannot reduce a
+        # zero-count-forever deployment to one warning line.
+        try:
+            tracker_config = build_tracker_config(
+                profile,
+                config,
+                stream_info,
+                derive_from_confidence=derive_from_confidence,
+                **overrides,
+            )
+            ns = tracker_namespace(stream_info) if namespace else None
+            self._shared_tracker = AdvancedTracker(tracker_config, namespace=ns)
+        except Exception as exc:
+            with _TRACKER_HEALTH._lock:
+                _TRACKER_HEALTH.init_failures += 1
+                _TRACKER_HEALTH.last_error = f"init: {exc}"
+            log.error(
+                "Tracking was requested (profile=%s) but the AdvancedTracker could not "
+                "be initialized. Refusing to continue untracked: an untracked run "
+                "reports zero unique counts, which is indistinguishable from an empty "
+                "scene. Fix the configuration or set the tracker gate to false "
+                "explicitly. Cause: %s",
+                profile.value if isinstance(profile, TrackerProfile) else profile,
+                exc,
+                exc_info=True,
+            )
+            raise TrackerInitializationError(
+                f"AdvancedTracker initialization failed while tracking was enabled: {exc}"
+            ) from exc
+
+        with _TRACKER_HEALTH._lock:
+            _TRACKER_HEALTH.initialized += 1
 
         if restore and hasattr(self._shared_tracker, "restore_state"):
             try:
                 self._shared_tracker.restore_state()
-            except Exception:
-                pass
+            except (AttributeError, KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
+                logger.debug("shared tracker state restore failed, starting fresh: %s", exc)
 
         log.info(
             "Initialized shared AdvancedTracker (profile=%s, namespace=%s, restore=%s)",

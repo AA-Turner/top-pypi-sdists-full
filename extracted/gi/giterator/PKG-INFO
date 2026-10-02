@@ -1,0 +1,45 @@
+Metadata-Version: 2.4
+Name: giterator
+Version: 1.1.0
+Summary: Python tools for doing git things.
+Project-URL: Homepage, https://github.com/simplistix/giterator
+Project-URL: Documentation, https://giterator.readthedocs.io/
+Project-URL: Repository, https://github.com/simplistix/giterator
+Project-URL: Changelog, https://giterator.readthedocs.io/latest/changes.html
+Author-email: Chris Withers <chris@withers.org>
+License: MIT
+License-File: LICENSE.rst
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.11
+Description-Content-Type: text/x-rst
+
+giterator
+=========
+
+|Docs|_ |PyPI|_ |Git|_
+
+.. |Docs| image:: https://readthedocs.org/projects/giterator/badge/?version=latest
+.. _Docs: https://giterator.readthedocs.io/
+
+.. |PyPI| image:: https://badge.fury.io/py/giterator.svg
+.. _PyPI: https://pypi.org/project/giterator/
+
+.. |Git| image:: https://github.com/simplistix/giterator/actions/workflows/ci.yml/badge.svg
+.. _Git: https://github.com/simplistix/giterator
+
+Python tools for doing git things:
+
+- ``Git`` wraps command-line git for scripting everyday repository operations,
+  with structured access to the log.
+
+- ``read`` and ``write`` replay a repository's history as a series of dated
+  snapshots and turn dated snapshots, such as backups, back into history.
+  The ``giterator`` command line tool packs and unpacks dated files in the
+  same way.
+
+- ``giterator.testing.Repo`` makes sample repositories for automated tests,
+  with machine-independent configuration and single-call commits.
+
+Full documentation is available at https://giterator.readthedocs.io/

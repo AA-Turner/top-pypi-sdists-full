@@ -79,9 +79,7 @@ class StartInteractiveSessionBlock:
         self.anyscale_api_client = auth_api_client.anyscale_api_client
 
         self.block_label = "StartInteractiveSession"
-        self.log.open_block(
-            self.block_label, block_title="Starting the interactive session"
-        )
+        self.log.open_block(self.block_label, block_title="Starting the interactive session")
 
         self._ray = ray
         self._subprocess = subprocess
@@ -155,9 +153,7 @@ class StartInteractiveSessionBlock:
             return
         job = interactive_sessions_resp[0]
         job_url = get_endpoint(f"/interactive-sessions/{job.id}")
-        runtime_env_url = get_endpoint(
-            f"/configurations/runtime-env/{job.runtime_environment.id}"
-        )
+        runtime_env_url = get_endpoint(f"/configurations/runtime-env/{job.runtime_environment.id}")
 
         left_pad = " " * 2
         self.log.info(
@@ -172,16 +168,14 @@ class StartInteractiveSessionBlock:
             f"{left_pad}{'runtime environment:': <30}{runtime_env_url}",
             block_label=self.block_label,
         )
-        self.log.info(
-            f"{left_pad}{'link:': <30}{job_url}", block_label=self.block_label
-        )
+        self.log.info(f"{left_pad}{'link:': <30}{job_url}", block_label=self.block_label)
 
     def _log_runtime_env_info(self, job_config: Optional[Any]):
         working_dir_msg = None
         package_msg = None
         if job_config and job_config.runtime_env.get("working_dir"):
             working_dir_msg = (
-                f'uploading `working_dir: {job_config.runtime_env.get("working_dir")}`'
+                f"uploading `working_dir: {job_config.runtime_env.get('working_dir')}`"
             )
         if (
             job_config
@@ -227,9 +221,7 @@ class StartInteractiveSessionBlock:
 
         """
         try:
-            session_url, secure, metadata = self._get_connect_params(
-                session_meta, secure
-            )
+            session_url, secure, metadata = self._get_connect_params(session_meta, secure)
             if connection_retries > 0:
                 self.log.debug("Beginning connection attempts")
             # Disable retries when acquiring cluster lock for fast failure.
@@ -250,10 +242,7 @@ class StartInteractiveSessionBlock:
             elif not ray_init_kwargs:
                 ray_init_kwargs = {"logging_level": logging.ERROR}
 
-            if (
-                "ray_init_kwargs"
-                in inspect.getfullargspec(self._ray.util.connect).kwonlyargs
-            ):
+            if "ray_init_kwargs" in inspect.getfullargspec(self._ray.util.connect).kwonlyargs:
                 # ray_init_kwargs is only a supported argument from Ray 1.7 onwards
                 connect_kwargs["ray_init_kwargs"] = ray_init_kwargs
 
@@ -323,9 +312,7 @@ class StartInteractiveSessionBlock:
             self._ray.util.disconnect()
         return info
 
-    def _get_connect_params(
-        self, session_meta: Session, secure: bool
-    ) -> Tuple[str, bool, Any]:
+    def _get_connect_params(self, session_meta: Session, secure: bool) -> Tuple[str, bool, Any]:
         """Get the params from the cluster needed to use Ray client."""
         connect_url = None
         access_token = self.api_client.get_cluster_access_token_api_v2_authentication_cluster_id_cluster_access_token_get(
@@ -340,9 +327,9 @@ class StartInteractiveSessionBlock:
             # This code path can go away once all sessions use session_meta.connect_url:
             # TODO(nikita): Use the service_proxy_url once it is fixed for anyscale up with file mounts.
             full_url = session_meta.jupyter_notebook_url
-            assert (
-                full_url is not None
-            ), f"Unable to determine URL for Session: {session_meta.name}, please retry shortly or try a different session."
+            assert full_url is not None, (
+                f"Unable to determine URL for Session: {session_meta.name}, please retry shortly or try a different session."
+            )
             # like "session-fqsx0p3pzfna71xxxxxxx.anyscaleuserdata.com"
             connect_url = full_url.split("/")[2].lower() + ":8081"
             metadata += [("port", "10001")]
@@ -367,9 +354,9 @@ class StartInteractiveSessionBlock:
         local_major_minor = detect_python_minor_version()
         client_version = f"{local_major_minor}.{sys.version_info[2]}"
         server_version = info["python_version"]
-        assert server_version.startswith(
-            local_major_minor
-        ), f"Python minor versions differ between client ({client_version}) and server ({server_version}). Please ensure that they match."
+        assert server_version.startswith(local_major_minor), (
+            f"Python minor versions differ between client ({client_version}) and server ({server_version}). Please ensure that they match."
+        )
 
     def _check_connection(self, cluster: Session) -> None:
         """Check the connected cluster to make sure it's good"""
@@ -397,9 +384,7 @@ class StartInteractiveSessionBlock:
             jupyter_notebook_url = cluster.jupyter_notebook_url
             if jupyter_notebook_url:
                 # TODO(aguo): Delete this code... eventually. Once majority of sessions have host_name in the DB
-                host_name = "https://{}".format(
-                    jupyter_notebook_url.split("/")[2].lower()
-                )
+                host_name = "https://{}".format(jupyter_notebook_url.split("/")[2].lower())
         if host_name:
             self.log.debug(f"URL for head node of cluster: {host_name}")
 

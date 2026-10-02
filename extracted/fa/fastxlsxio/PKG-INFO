@@ -1,0 +1,61 @@
+Metadata-Version: 2.4
+Name: fastxlsxio
+Version: 0.7.6
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: License :: OSI Approved :: Apache Software License
+Requires-Dist: numpy
+Requires-Dist: pytest ; extra == 'bench'
+Requires-Dist: pytest-benchmark ; extra == 'bench'
+Requires-Dist: openpyxl ; extra == 'bench'
+Requires-Dist: xlsxwriter ; extra == 'bench'
+Requires-Dist: pyexcelerate ; extra == 'bench'
+Requires-Dist: python-calamine ; extra == 'bench'
+Requires-Dist: pylightxl ; extra == 'bench'
+Requires-Dist: pytest ; extra == 'dev'
+Requires-Dist: pytest-custom-exit-code ; extra == 'dev'
+Requires-Dist: ruff>=0.8.4 ; extra == 'dev'
+Requires-Dist: xlsxwriter>=3.2.9,<4.0.0 ; extra == 'dev'
+Provides-Extra: bench
+Provides-Extra: dev
+License-File: LICENSE
+Summary: A high-performance Excel XLSX reader/writer for Python built with Rust.
+Keywords: excel,xlsx
+Author-email: JamesCrumble <namster222333@gmail.com>
+Maintainer-email: JamesCrumble <namster222333@gmail.com>
+License-Expression: Apache-2.0
+Requires-Python: >=3.10, <3.15
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Homepage, https://github.com/JamesCrumble/fastxlsxio
+Project-URL: Repository, https://github.com/JamesCrumble/fastxlsxio
+
+# fastxlsxio
+
+[Originally written from](https://github.com/shuangluoxss/fastxlsx)
+
+**A lightweight, high-performance Python library for fast XLSX I/O operations.**  
+*The project aims to create a write operation in xlsx that has the same functionality as Python’s xlsxwriter but faster, while keeping the reading implementation as it is from fastxlsx project.*
+
+### 🚫 Current Limitations
+
+- **File Formats**: Only XLSX (no XLS/XLSB support).
+- **Formulas & Styling**: Cell formulas not supported. (merge cells and formats supported only for write ops)
+- **Modifications**: Append/update operations on existing files unavailable.
+- **Advanced Features**: Charts, images, and other advanced features not supported.
+
+## 🛠️ Installation
+
+### PyPI Install
+
+```bash
+pip install fastxlsxio
+```
+
+### Source Build (Requires Rust Toolchain)
+
+```bash
+git clone https://github.com/JamesCrumble/fastxlsxio.git
+cd fastxlsxio
+pip install .
+```

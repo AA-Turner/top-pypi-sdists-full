@@ -1,0 +1,24 @@
+name: node_pr_polish
+version: "1.0.0"
+description: "PR readiness polish — conflicts, CI, comments, local review FSM"
+omnibase_core_compat: ">=0.39.0,<1.0.0"
+entry_points:
+  onex.nodes:
+    node_pr_polish: "omnimarket.nodes.node_pr_polish"
+capabilities:
+  standalone: true
+  full_runtime: true
+  requires_network: false
+  requires_repo: false
+  requires_secrets: false
+  requires_docker: false
+  side_effect_class: read_only
+dependencies:
+  - "omnibase_core>=0.39.0"
+  - "omnibase-infra>=0.32.0"
+authors: ["OmniNode Platform Team"]
+license: "MIT"
+tags: ["pr", "polish", "conflicts", "ci", "review", "fsm"]
+pack: "pr_lifecycle"
+display_name: "PR Polish"
+node_role: "fix"

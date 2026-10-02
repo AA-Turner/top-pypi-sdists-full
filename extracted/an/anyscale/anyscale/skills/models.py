@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from enum import Enum
 import os
 from typing import Any, ClassVar, Dict, List, Optional
@@ -13,6 +13,7 @@ class Platform(str, Enum):
     CURSOR = "cursor"
     CODEX = "codex"
     COPILOT = "copilot"
+    KIRO = "kiro"
 
 
 @dataclass(frozen=True)
@@ -36,9 +37,7 @@ class ConfigDir:
         override = os.environ.get(self.env_var) if self.env_var else None
         if override:
             base = os.path.expanduser(override)
-            resolved = (
-                os.path.join(base, self.env_subpath) if self.env_subpath else base
-            )
+            resolved = os.path.join(base, self.env_subpath) if self.env_subpath else base
         else:
             resolved = os.path.expanduser(self.default)
         return os.path.abspath(resolved)
@@ -51,7 +50,14 @@ class PlatformMetadata:
     display: str
     skills_dir: ConfigDir
     hooks_dir: ConfigDir
+
     hooks_config: str
+    """Bundle-relative path of the hooks config, POSIX-separated. May nest."""
+
+    @property
+    def hooks_config_rel(self) -> str:
+        """`hooks_config` with native separators, for on-disk comparisons."""
+        return self.hooks_config.replace("/", os.sep)
 
 
 @dataclass(frozen=True)
@@ -69,10 +75,30 @@ class CatalogEntry(ModelBase):
     # unknown values; keeping it as str lets older CLIs pass-through cleanly.
     platforms: List[str] = field(
         default_factory=list,
+        metadata={"docstring": "Target platforms (e.g. ['claude-code', 'cursor', 'codex'])."},
+    )
+    content_hash: Optional[str] = field(
+        default=None,
         metadata={
-            "docstring": "Target platforms (e.g. ['claude-code', 'cursor', 'codex'])."
+            "docstring": (
+                "Publisher-computed digest of this entry's content. None on "
+                "versions published before this field existed."
+            )
         },
     )
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "CatalogEntry":
+        """Build an entry from a dict, dropping keys this CLI doesn't know.
+
+        Without it, `cls(**d)` raises TypeError on an installed.json from a
+        newer CLI, surfacing as "metadata is corrupted". Helps only future
+        additions: already-released CLIs predate this override, so downgrading
+        after a hashed install still breaks -- as does any `schema_version`
+        bump, which `_migrate_to_current` rejects before this runs.
+        """
+        known = {f.name for f in fields(cls)}
+        return cls(**{k: v for k, v in d.items() if k in known})
 
     def _validate_name(self, name: str):
         if not isinstance(name, str):
@@ -89,6 +115,10 @@ class CatalogEntry(ModelBase):
     def _validate_platforms(self, platforms: List[str]):
         if not isinstance(platforms, list):
             raise TypeError("platforms must be a list.")
+
+    def _validate_content_hash(self, content_hash: Optional[str]):
+        if content_hash is not None and not isinstance(content_hash, str):
+            raise TypeError("content_hash must be a string or None.")
 
 
 @dataclass(frozen=True)
@@ -155,9 +185,7 @@ class TermsStatus(ModelBase):
     )
     license_text: Optional[str] = field(
         default=None,
-        metadata={
-            "docstring": "Full license text. Only populated when accepted is false."
-        },
+        metadata={"docstring": "Full license text. Only populated when accepted is false."},
     )
 
     def _validate_version(self, version: str):
@@ -187,9 +215,7 @@ class PlatformInstallInfo(ModelBase):
         metadata={"docstring": "Absolute root where skill folders were written."}
     )
     hooks_dir: str = field(
-        metadata={
-            "docstring": "Absolute root where hooks config + scripts were written."
-        }
+        metadata={"docstring": "Absolute root where hooks config + scripts were written."}
     )
     skills_files: List[str] = field(
         default_factory=list,
@@ -276,9 +302,7 @@ class InstalledMetadata(ModelBase):
         # the platforms conversion explicitly so on-disk shape stays flat.
         d = super().to_dict(exclude_none=exclude_none)
         d["platforms"] = {
-            (k.value if isinstance(k, Platform) else k): v.to_dict(
-                exclude_none=exclude_none
-            )
+            (k.value if isinstance(k, Platform) else k): v.to_dict(exclude_none=exclude_none)
             for k, v in self.platforms.items()
         }
         return d
@@ -289,9 +313,7 @@ class SkillsListResult(ModelBase):
     """Return type for the skills list operation."""
 
     installed: Optional[InstalledMetadata] = field(
-        metadata={
-            "docstring": "Current installation metadata, or None if not installed."
-        },
+        metadata={"docstring": "Current installation metadata, or None if not installed."},
     )
     available_version: str = field(
         metadata={"docstring": "Latest (or requested) available version."},
@@ -314,9 +336,9 @@ class SkillsListResult(ModelBase):
         default_factory=list,
         metadata={
             "docstring": (
-                "Catalog entries whose description changed since the installed "
-                "version. Platform-list-only changes are not counted here; see "
-                "added_platforms / removed_platforms."
+                "Catalog entries whose content changed since the installed "
+                "version. Platform-list-only changes are not counted here; "
+                "see added_platforms / removed_platforms."
             )
         },
     )
@@ -418,9 +440,7 @@ class SkillsListOutput(ModelBase):
     )
     installed: Optional[InstalledSkillsOutput] = field(
         default=None,
-        metadata={
-            "docstring": "Current installation summary, or None if not installed."
-        },
+        metadata={"docstring": "Current installation summary, or None if not installed."},
     )
     available_catalog: List[CatalogEntry] = field(
         default_factory=list,
@@ -468,5 +488,11 @@ PLATFORMS: Dict[Platform, PlatformMetadata] = {
         skills_dir=ConfigDir("~/.agents/skills"),
         hooks_dir=ConfigDir("~/.copilot", "COPILOT_HOME"),
         hooks_config="settings.json",
+    ),
+    Platform.KIRO: PlatformMetadata(
+        display="Kiro",
+        skills_dir=ConfigDir("~/.kiro/skills", "KIRO_HOME", "skills"),
+        hooks_dir=ConfigDir("~/.kiro", "KIRO_HOME"),
+        hooks_config="hooks/anyscale-skills.json",
     ),
 }

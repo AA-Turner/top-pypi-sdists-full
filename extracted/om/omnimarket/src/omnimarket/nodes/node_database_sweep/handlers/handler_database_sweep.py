@@ -1,0 +1,817 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""NodeDatabaseSweep — Projection table health and migration tracking.
+
+Scans all tables in omnidash_analytics for row count and staleness,
+and checks migration state for each ONEX database (Alembic + Drizzle).
+
+ONEX node type: COMPUTE — deterministic scan, no LLM calls.
+"""
+
+from __future__ import annotations
+
+import os
+import shlex
+import subprocess
+from collections.abc import Callable
+from pathlib import Path
+
+from pydantic import BaseModel, ConfigDict, Field
+
+# Injectable probe seam (OMN-13676). The database sweep collects every signal it
+# classifies by shelling ``psql`` against live projection databases. To make the
+# pure classification logic deterministically testable without a live DB — and
+# without monkeypatching ``subprocess`` — the psql boundary is a constructor-
+# injected collaborator: a callable ``(query, database) -> (returncode, stdout,
+# stderr)``. Production wiring leaves it ``None`` and the module default ``_psql``
+# (real subprocess) is used; tests inject a fake that returns synthetic rows.
+PsqlRunner = Callable[[str, str], tuple[int, str, str]]
+
+# ---------------------------------------------------------------------------
+# Models
+# ---------------------------------------------------------------------------
+
+_ALEMBIC_REPOS = [
+    ("omnibase_infra", "omnibase_infra", "src/omnibase_infra/migrations/versions"),
+    (
+        "omniintelligence",
+        "omniintelligence",
+        "src/omniintelligence/migrations/versions",
+    ),
+    ("omnimemory", "omnimemory_db", "src/omnimemory/migrations/versions"),
+]
+_DRIZZLE_REPOS = [
+    ("omnidash", "omnidash_analytics", "migrations"),
+]
+
+# Node-owned (vendored) migrations live under omnimarket's own source tree at
+# src/omnimarket/nodes/<node>/migrations/*.sql (OMN-12559). The
+# omnibase_infra forward-migration runner mirrors these and applies each under a
+# namespaced id  node:<node>:<filename>  in public.schema_migrations of the node
+# projection database. The repo, projection database, and namespaced id space
+# are fixed by that runner contract; this sweep is the detection path for a file
+# that was vendored but never applied (OMN-13636 — WS-F Phase 4 application gap).
+_NODE_MIGRATION_REPO = "omnimarket"
+_NODE_MIGRATION_DB = "omnidash_analytics"
+_NODE_MIGRATION_GLOB = "src/omnimarket/nodes/*/migrations/*.sql"
+_NODE_MIGRATION_ID_PREFIX = "node:"
+
+_TIMESTAMP_COLUMNS = (
+    "created_at",
+    "timestamp",
+    "emitted_at",
+    "updated_at",
+    "recorded_at",
+)
+
+
+class ModelTableHealthResult(BaseModel):
+    """Health classification for a single projection table."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    table_name: str
+    row_count: int = 0
+    latest_row: str | None = None  # ISO timestamp string or None
+    status: str  # HEALTHY | STALE | EMPTY | MISSING | ORPHAN | NO_TIMESTAMP
+    drizzle_defined: bool = False
+    message: str = ""
+
+
+class ModelMigrationStateResult(BaseModel):
+    """Migration state for a single database."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    database: str
+    repo: str
+    migration_tool: str  # alembic | drizzle | node-vendored
+    disk_migrations: int = 0
+    applied_migrations: int = 0
+    current_head: str | None = None
+    status: str  # CURRENT | PENDING | AHEAD | FAILED | NO_TABLE | ERROR
+    message: str = ""
+
+
+class DatabaseSweepRequest(BaseModel):
+    """Input for the database sweep handler."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    omni_home: str = Field(default="")
+    table: str | None = None
+    staleness_threshold_hours: int = 24
+    staleness_thresholds: dict[str, float] | None = (
+        None  # table_name → hours; overrides global
+    )
+    dry_run: bool = False
+
+
+class DatabaseSweepResult(BaseModel):
+    """Output of the database sweep handler."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    table_results: list[ModelTableHealthResult] = Field(default_factory=list)
+    migration_results: list[ModelMigrationStateResult] = Field(default_factory=list)
+    tables_healthy: int = 0
+    tables_stale: int = 0
+    tables_empty: int = 0
+    tables_missing: int = 0
+    tables_orphan: int = 0
+    tables_unknown: int = 0
+    migrations_current: int = 0
+    migrations_pending: int = 0
+    migrations_failed: int = 0
+    status: str = "healthy"  # healthy | issues_found | error
+    dry_run: bool = False
+    # OMN-14526: non-empty when the table scan could not be completed. A failed
+    # scan must never be reported as ``tables_empty=0`` — that is indistinguishable
+    # from a clean scan and is how five empty ledger tables stayed invisible.
+    table_scan_error: str = ""
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _run(
+    cmd: list[str], cwd: str | None = None, timeout: int = 15
+) -> tuple[int, str, str]:
+    """Run a subprocess and return (returncode, stdout, stderr)."""
+    try:
+        r = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            cwd=cwd,
+            timeout=timeout,
+            check=False,
+        )
+        return r.returncode, r.stdout.strip(), r.stderr.strip()
+    except (subprocess.TimeoutExpired, OSError, FileNotFoundError) as exc:
+        return -1, "", str(exc)
+
+
+# ---------------------------------------------------------------------------
+# Connection target (OMN-13717)
+# ---------------------------------------------------------------------------
+# database_sweep previously shelled bare ``psql -d <db>``, which connects to the
+# local unix socket. On the .201 runtime lanes there is no local Postgres, so
+# every probe failed with ``connection to server on socket "/tmp/.s.PGSQL.5432"
+# failed`` and the sweep discovered 0 tables and left every migration bucket at 0
+# — even though node_data_flow_sweep reached the same projection tables. The fix
+# aligns the transport with node_data_flow_sweep: run psql INSIDE the lane's
+# Postgres container (over SSH when a remote runtime host is configured). Host,
+# container, user, and ssh-user are env-overridable so the DSN is overlay-driven,
+# never a hardcoded local socket.
+
+# OMN-14526: this defaulted to the runtime host's raw private LAN address, which is
+# NOT routable off-network — so every off-LAN run failed to reach any database and
+# (pre-fix) silently reported tables_empty=0. The Tailscale MagicDNS name resolves
+# both on-LAN and remotely, so the sweep works from anywhere. Still env-overridable.
+_DEFAULT_RUNTIME_HOST = "omninode-pc.tail75df5e.ts.net"  # onex-allow-internal-ip OMN-16156 reason="env-overridable runtime-host default, already documented above (OMN-14526)"
+_DEFAULT_PG_CONTAINER = "omnibase-infra-postgres"
+_DEFAULT_PG_USER = "postgres"
+_DEFAULT_SSH_USER = "jonah"
+
+
+def _resolve_pg_runtime_host() -> str:
+    """Resolve the runtime host the projection Postgres lives on.
+
+    Env-overridable (``ONEX_DATABASE_SWEEP_RUNTIME_HOST`` then the shared
+    ``ONEX_DATA_FLOW_RUNTIME_HOST`` so this sweep agrees with
+    node_data_flow_sweep), defaulting to the canonical .201 runtime host. An
+    empty value selects the local docker lane (psql via local ``docker exec``).
+    """
+    for var in ("ONEX_DATABASE_SWEEP_RUNTIME_HOST", "ONEX_DATA_FLOW_RUNTIME_HOST"):
+        if var in os.environ:
+            return os.environ[var].strip()
+    return _DEFAULT_RUNTIME_HOST
+
+
+def _build_psql_argv(query: str, database: str) -> list[str]:
+    """Build the argv that runs ``query`` against ``database`` on the lane.
+
+    Mirrors the node_data_flow_sweep transport: ``[ssh <user>@<host>] docker exec
+    <postgres_container> psql -U <user> -d <database> -tAc <query>``. There is no
+    bare local-socket ``psql`` path — that was the OMN-13717 wrong/empty-DB bug.
+    """
+    container = os.environ.get(
+        "ONEX_DATABASE_SWEEP_PG_CONTAINER", _DEFAULT_PG_CONTAINER
+    )
+    pg_user = os.environ.get("ONEX_DATABASE_SWEEP_PG_USER", _DEFAULT_PG_USER)
+    inner = ["psql", "-U", pg_user, "-d", database, "-tAc", query]
+    docker_argv = ["docker", "exec", container, *inner]
+    host = _resolve_pg_runtime_host()
+    if host:
+        ssh_user = os.environ.get("ONEX_DATABASE_SWEEP_SSH_USER", _DEFAULT_SSH_USER)
+        return ["ssh", f"{ssh_user}@{host}", shlex.join(docker_argv)]
+    return docker_argv
+
+
+def _psql(
+    query: str, database: str, env: dict[str, str] | None = None
+) -> tuple[int, str, str]:
+    """Run a psql query on the lane projection DB; return (rc, stdout, stderr)."""
+    pg_env = dict(os.environ)
+    if env:
+        pg_env.update(env)
+    argv = _build_psql_argv(query, database)
+    try:
+        r = subprocess.run(
+            argv,
+            capture_output=True,
+            text=True,
+            env=pg_env,
+            timeout=30,
+            check=False,
+        )
+        return r.returncode, r.stdout.strip(), r.stderr.strip()
+    except (subprocess.TimeoutExpired, OSError, FileNotFoundError) as exc:
+        return -1, "", str(exc)
+
+
+def _get_drizzle_tables(omni_home: str) -> set[str]:
+    """Extract table names defined in omnidash Drizzle schemas."""
+    schema_dir = Path(omni_home) / "omnidash" / "shared"
+    tables: set[str] = set()
+    if not schema_dir.is_dir():
+        return tables
+    for ts_file in schema_dir.glob("*-schema.ts"):
+        try:
+            content = ts_file.read_text(encoding="utf-8", errors="replace")
+            import re
+
+            for m in re.finditer(r'pgTable\(\s*["\']([^"\']+)["\']', content):
+                tables.add(m.group(1))
+        except OSError:
+            pass
+    return tables
+
+
+def _check_table(
+    table: str,
+    database: str,
+    staleness_hours: int,
+    drizzle_tables: set[str],
+    staleness_thresholds: dict[str, float] | None = None,
+    psql: PsqlRunner | None = None,
+) -> ModelTableHealthResult:
+    """Check a single table's health."""
+    # Resolve the probe seam at call time so that patching the module ``_psql``
+    # (existing golden-chain tests) keeps working when no runner is injected.
+    psql = psql or _psql
+    drizzle_defined = table in drizzle_tables
+
+    # OMN-14526: EMPTINESS IS ORTHOGONAL TO FRESHNESS. This previously short-circuited
+    # to UNKNOWN for any table absent from the Drizzle schema — WITHOUT EVER COUNTING
+    # ROWS. The emitted ``row_count=0`` was the model default, not a measurement: a
+    # zero that looks like evidence and is not. Because ``UNKNOWN`` is not an issue
+    # state, every empty non-Drizzle table (e.g. pr_lifecycle_ledger_entries, 0 rows)
+    # was invisible — the second half of why OMN-14525's empty ledgers went unseen.
+    #
+    # A row count is always obtainable, even with no timestamp column. Count first,
+    # and let a genuine zero be EMPTY regardless of what freshness metadata exists.
+    has_freshness_metadata = drizzle_defined or (
+        staleness_thresholds is not None and table in staleness_thresholds
+    )
+    if not has_freshness_metadata:
+        rc, out, err = psql(f"SELECT count(*) FROM {table};", database)
+        if rc != 0:
+            return ModelTableHealthResult(
+                table_name=table,
+                status="MISSING",
+                drizzle_defined=False,
+                message=f"row-count query error: {err[:200]}",
+            )
+        try:
+            row_count = int(out.strip())
+        except ValueError:
+            return ModelTableHealthResult(
+                table_name=table,
+                status="MISSING",
+                drizzle_defined=False,
+                message=f"unexpected row-count output: {out[:80]!r}",
+            )
+        if row_count == 0:
+            return ModelTableHealthResult(
+                table_name=table,
+                row_count=0,
+                status="EMPTY",
+                drizzle_defined=False,
+                message="table has zero rows (no freshness metadata, but emptiness is knowable)",
+            )
+        return ModelTableHealthResult(
+            table_name=table,
+            row_count=row_count,
+            status="UNKNOWN",
+            drizzle_defined=False,
+            message="populated, but staleness unassessable: not in Drizzle schema and no per-table threshold",
+        )
+
+    effective_hours: float = (
+        staleness_thresholds[table]
+        if staleness_thresholds and table in staleness_thresholds
+        else staleness_hours
+    )
+    if effective_hours <= 0:
+        return ModelTableHealthResult(
+            table_name=table,
+            status="UNKNOWN",
+            drizzle_defined=drizzle_defined,
+            message="invalid staleness threshold: expected hours > 0",
+        )
+
+    # Try each timestamp column in priority order
+    for ts_col in _TIMESTAMP_COLUMNS:
+        has_ts_col_rc, has_ts_col_out, _ = psql(
+            f"SELECT 1 FROM information_schema.columns "
+            f"WHERE table_name='{table}' AND column_name='{ts_col}' LIMIT 1;",
+            database,
+        )
+        if has_ts_col_rc == 0 and has_ts_col_out:
+            # This column exists — run full health query
+            query = (
+                f"SELECT count(*), max({ts_col})::text, "
+                f"CASE "
+                f"  WHEN count(*) = 0 THEN 'EMPTY' "
+                f"  WHEN max({ts_col}) < now() - interval '{effective_hours} hours' THEN 'STALE' "
+                f"  ELSE 'HEALTHY' "
+                f"END "
+                f"FROM {table};"
+            )
+            rc, out, err = psql(query, database)
+            if rc != 0:
+                return ModelTableHealthResult(
+                    table_name=table,
+                    status="MISSING",
+                    drizzle_defined=drizzle_defined,
+                    message=f"query error: {err[:200]}",
+                )
+            parts = out.split("|")
+            if len(parts) < 3:
+                return ModelTableHealthResult(
+                    table_name=table,
+                    status="MISSING",
+                    drizzle_defined=drizzle_defined,
+                    message="unexpected query output",
+                )
+            try:
+                row_count = int(parts[0])
+            except ValueError:
+                row_count = 0
+            latest = parts[1] if parts[1] else None
+            status = parts[2]
+            return ModelTableHealthResult(
+                table_name=table,
+                row_count=row_count,
+                latest_row=latest,
+                status=status,
+                drizzle_defined=drizzle_defined,
+            )
+
+    # No timestamp column found — table has no freshness metadata
+    return ModelTableHealthResult(
+        table_name=table,
+        status="UNKNOWN",
+        drizzle_defined=drizzle_defined,
+        message="no timestamp column found: freshness cannot be determined",
+    )
+
+
+def _get_all_tables(
+    database: str, psql: PsqlRunner | None = None
+) -> tuple[list[str], str]:
+    """Return ``(table_names, scan_error)`` for the public schema of ``database``.
+
+    OMN-14526: this previously returned a bare ``[]`` on BOTH a failed psql probe
+    (``rc != 0`` — unreachable host, wrong container, auth failure) and a genuinely
+    table-less database, discarding stderr entirely. The caller could not tell "I
+    checked and found nothing" from "I checked nothing", so an unreachable database
+    was aggregated as ``tables_empty=0`` — a clean bill of health. That fail-open
+    path is why five empty ledger tables (OMN-14525) went undetected indefinitely.
+
+    The two cases are now distinct:
+      * ``rc != 0``       -> ``([], "<reason>")``  the probe FAILED; caller fails closed.
+      * ``rc == 0``, no rows -> ``([], "<reason>")``  a projection DB with zero tables
+        means the probe is pointed at nothing real; also a scan failure, not health.
+      * ``rc == 0``, rows    -> ``([...], "")``     a genuine scan.
+    """
+    psql = psql or _psql
+    rc, out, err = psql(
+        "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;",
+        database,
+    )
+    if rc != 0:
+        reason = err.strip() or f"psql exited {rc} with no stderr"
+        return [], f"table scan failed on database {database!r}: {reason}"
+    tables = [line.strip() for line in out.splitlines() if line.strip()]
+    if not tables:
+        return [], (
+            f"table scan on database {database!r} returned zero tables — "
+            "the probe is not reaching a populated database"
+        )
+    return tables, ""
+
+
+def _check_alembic_migration(
+    repo: str,
+    database: str,
+    versions_path: str,
+    omni_home: str,
+    psql: PsqlRunner | None = None,
+) -> ModelMigrationStateResult:
+    """Check Alembic migration state for a repo."""
+    psql = psql or _psql
+    versions_dir = Path(omni_home) / repo / versions_path
+    if not versions_dir.is_dir():
+        return ModelMigrationStateResult(
+            database=database,
+            repo=repo,
+            migration_tool="alembic",
+            status="ERROR",
+            message=f"versions dir not found: {versions_dir}",
+        )
+    disk_count = len(list(versions_dir.glob("*.py")))
+
+    rc, out, err = psql(
+        "SELECT count(*), version_num FROM alembic_version GROUP BY version_num;",
+        database,
+    )
+    if rc != 0 or not out:
+        return ModelMigrationStateResult(
+            database=database,
+            repo=repo,
+            migration_tool="alembic",
+            disk_migrations=disk_count,
+            status="NO_TABLE",
+            message=err[:200]
+            if err
+            else "alembic_version table missing or query failed",
+        )
+
+    rows = [r.strip() for r in out.splitlines() if r.strip()]
+    if len(rows) > 1:
+        return ModelMigrationStateResult(
+            database=database,
+            repo=repo,
+            migration_tool="alembic",
+            disk_migrations=disk_count,
+            applied_migrations=len(rows),
+            status="FAILED",
+            message="multiple heads in alembic_version (branching issue)",
+        )
+    parts = rows[0].split("|") if rows else []
+    current_head = parts[1].strip() if len(parts) >= 2 else None
+
+    # Approximate: disk_count is total revisions, alembic_version holds 1 head
+    # We treat applied_migrations = disk_count if head is present (all applied assumption)
+    # A true chain walk would require parsing each file — too expensive here
+    status = "CURRENT" if current_head else "NO_TABLE"
+    return ModelMigrationStateResult(
+        database=database,
+        repo=repo,
+        migration_tool="alembic",
+        disk_migrations=disk_count,
+        applied_migrations=disk_count if current_head else 0,
+        current_head=current_head,
+        status=status,
+    )
+
+
+def _check_drizzle_migration(
+    repo: str,
+    database: str,
+    migrations_path: str,
+    omni_home: str,
+    psql: PsqlRunner | None = None,
+) -> ModelMigrationStateResult:
+    """Check Drizzle migration state for a repo."""
+    psql = psql or _psql
+    migrations_dir = Path(omni_home) / repo / migrations_path
+    if not migrations_dir.is_dir():
+        return ModelMigrationStateResult(
+            database=database,
+            repo=repo,
+            migration_tool="drizzle",
+            status="ERROR",
+            message=f"migrations dir not found: {migrations_dir}",
+        )
+    disk_count = len(list(migrations_dir.glob("*.sql")))
+
+    rc, out, err = psql(
+        "SELECT count(*) FROM drizzle.__drizzle_migrations;",
+        database,
+    )
+    if rc != 0 or not out:
+        return ModelMigrationStateResult(
+            database=database,
+            repo=repo,
+            migration_tool="drizzle",
+            disk_migrations=disk_count,
+            status="NO_TABLE",
+            message=err[:200] if err else "__drizzle_migrations table missing",
+        )
+    try:
+        applied = int(out.strip())
+    except ValueError:
+        applied = 0
+
+    if disk_count == applied:
+        status = "CURRENT"
+    elif disk_count > applied:
+        status = "PENDING"
+    else:
+        status = "AHEAD"
+
+    return ModelMigrationStateResult(
+        database=database,
+        repo=repo,
+        migration_tool="drizzle",
+        disk_migrations=disk_count,
+        applied_migrations=applied,
+        status=status,
+    )
+
+
+def _discover_node_migration_ids(omni_home: str) -> set[str]:
+    """Enumerate namespaced ids for every vendored node-owned migration on disk.
+
+    Walks ``<omni_home>/omnimarket/src/omnimarket/nodes/<node>/migrations/*.sql``
+    and returns the set of ids the forward-migration runner records in
+    ``public.schema_migrations`` (``node:<node>:<filename>``). When omni_home IS
+    the omnimarket repo root (running in-tree), the embedded ``omnimarket/``
+    segment is absent — both layouts are probed.
+    """
+    roots = (
+        Path(omni_home) / _NODE_MIGRATION_REPO,
+        Path(omni_home),
+    )
+    ids: set[str] = set()
+    for root in roots:
+        for sql_file in sorted(root.glob(_NODE_MIGRATION_GLOB)):
+            node_name = sql_file.parent.parent.name
+            ids.add(f"{_NODE_MIGRATION_ID_PREFIX}{node_name}:{sql_file.name}")
+        if ids:
+            break
+    return ids
+
+
+def _check_node_migrations(
+    database: str, omni_home: str, psql: PsqlRunner | None = None
+) -> ModelMigrationStateResult:
+    """Detect vendored node migrations that were never applied to a lane.
+
+    OMN-13636 (WS-F Phase 4): node-owned SQL is vendored into the deploy tree but
+    a warm-volume forward-migration run can silently skip a new file (the
+    one-shot runner never re-ran, or the sentinel stayed TRUE from a prior run).
+    The result is a file on disk with no row in ``public.schema_migrations`` and
+    a projection node writing to a stale schema (``UndefinedColumn``). This check
+    compares the on-disk vendored set against the applied set and reports PENDING
+    — naming the exact missing files — so the gap fails loud instead of silent.
+    """
+    psql = psql or _psql
+    disk_ids = _discover_node_migration_ids(omni_home)
+    if not disk_ids:
+        return ModelMigrationStateResult(
+            database=database,
+            repo=_NODE_MIGRATION_REPO,
+            migration_tool="node-vendored",
+            status="ERROR",
+            message=(
+                "no node-owned migration source tree resolvable under "
+                f"{omni_home!r}: cannot verify application gap"
+            ),
+        )
+
+    rc, out, err = psql(
+        "SELECT migration_id FROM public.schema_migrations "
+        f"WHERE migration_id LIKE '{_NODE_MIGRATION_ID_PREFIX}%';",
+        database,
+    )
+    if rc != 0:
+        return ModelMigrationStateResult(
+            database=database,
+            repo=_NODE_MIGRATION_REPO,
+            migration_tool="node-vendored",
+            disk_migrations=len(disk_ids),
+            status="NO_TABLE",
+            message=err[:200]
+            if err
+            else "schema_migrations table missing or query failed",
+        )
+
+    applied_ids = {line.strip() for line in out.splitlines() if line.strip()}
+    missing = sorted(disk_ids - applied_ids)
+    applied_count = len(disk_ids & applied_ids)
+
+    if missing:
+        preview = ", ".join(missing[:5])
+        if len(missing) > 5:
+            preview += f", … (+{len(missing) - 5} more)"
+        return ModelMigrationStateResult(
+            database=database,
+            repo=_NODE_MIGRATION_REPO,
+            migration_tool="node-vendored",
+            disk_migrations=len(disk_ids),
+            applied_migrations=applied_count,
+            status="PENDING",
+            message=(
+                f"{len(missing)} vendored node migration(s) on disk with no "
+                f"schema_migrations row (never applied): {preview}"
+            ),
+        )
+
+    return ModelMigrationStateResult(
+        database=database,
+        repo=_NODE_MIGRATION_REPO,
+        migration_tool="node-vendored",
+        disk_migrations=len(disk_ids),
+        applied_migrations=applied_count,
+        status="CURRENT",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Migration bucket classification (OMN-13717)
+# ---------------------------------------------------------------------------
+# A migration result carries a fine-grained status; the sweep summary buckets
+# them into current / pending / failed. The previous aggregation only counted the
+# literal CURRENT / PENDING / FAILED statuses, so a sweep where every database
+# errored (versions-dir-missing => ERROR, unreachable DB => NO_TABLE) silently
+# left all three buckets at 0 — hiding the failure. ERROR and NO_TABLE are
+# failure states and roll into ``failed``; AHEAD rolls into ``pending``.
+_MIGRATION_CURRENT_STATES = frozenset({"CURRENT"})
+_MIGRATION_PENDING_STATES = frozenset({"PENDING", "AHEAD"})
+_MIGRATION_FAILED_STATES = frozenset({"FAILED", "NO_TABLE", "ERROR"})
+
+
+def _classify_migration_buckets(
+    results: list[ModelMigrationStateResult],
+) -> tuple[int, int, int]:
+    """Classify migration results into ``(current, pending, failed)`` counts."""
+    current = pending = failed = 0
+    for m in results:
+        if m.status in _MIGRATION_CURRENT_STATES:
+            current += 1
+        elif m.status in _MIGRATION_PENDING_STATES:
+            pending += 1
+        elif m.status in _MIGRATION_FAILED_STATES:
+            failed += 1
+    return current, pending, failed
+
+
+# ---------------------------------------------------------------------------
+# Handler
+# ---------------------------------------------------------------------------
+
+
+class NodeDatabaseSweep:
+    """Scan projection tables and migration state across all ONEX databases."""
+
+    def __init__(self, psql_runner: PsqlRunner | None = None) -> None:
+        """Wire the psql probe collaborator.
+
+        Production leaves ``psql_runner`` None → the helpers resolve the live
+        module-level ``_psql`` at call time (so existing tests that ``patch`` the
+        module global keep working). Tests may inject a fake here that returns
+        synthetic rows instead (OMN-13676 seam). The runner is stored as-is —
+        NOT eagerly resolved to ``_psql`` — so a post-construction patch of the
+        module global is still honored.
+        """
+        self._psql_runner: PsqlRunner | None = psql_runner
+
+    def handle(self, request: DatabaseSweepRequest) -> DatabaseSweepResult:
+        omni_home = request.omni_home or os.environ.get("OMNI_HOME", "")
+        analytics_db = "omnidash_analytics"
+
+        drizzle_tables = _get_drizzle_tables(omni_home)
+
+        # Phase 1 + 2: table health
+        table_results: list[ModelTableHealthResult] = []
+        table_scan_error = ""
+        if request.table:
+            scan_tables = [request.table]
+        else:
+            scan_tables, table_scan_error = _get_all_tables(
+                analytics_db, self._psql_runner
+            )
+
+        for tbl in scan_tables:
+            result = _check_table(
+                tbl,
+                analytics_db,
+                request.staleness_threshold_hours,
+                drizzle_tables,
+                request.staleness_thresholds,
+                self._psql_runner,
+            )
+            table_results.append(result)
+
+        # Mark Drizzle-defined tables that are missing from DB
+        db_table_names = {r.table_name for r in table_results}
+        for dt in drizzle_tables - db_table_names:
+            if request.table is None or request.table == dt:
+                table_results.append(
+                    ModelTableHealthResult(
+                        table_name=dt,
+                        status="MISSING",
+                        drizzle_defined=True,
+                        message="defined in Drizzle schema but table does not exist in DB",
+                    )
+                )
+
+        # Mark orphan tables — UNKNOWN tables stay UNKNOWN (no freshness metadata).
+        # OMN-14526: EMPTY is also preserved. An empty table that happens to be absent
+        # from the Drizzle schema is still EMPTY — that is the load-bearing fact, and
+        # ORPHAN is not an issue state, so overwriting it here would re-hide exactly
+        # the empty ledger tables this sweep exists to surface.
+        for r in table_results:
+            if not r.drizzle_defined and r.status not in (
+                "MISSING",
+                "UNKNOWN",
+                "EMPTY",
+            ):
+                # Rebuild as ORPHAN
+                table_results[table_results.index(r)] = ModelTableHealthResult(
+                    table_name=r.table_name,
+                    row_count=r.row_count,
+                    latest_row=r.latest_row,
+                    status="ORPHAN",
+                    drizzle_defined=False,
+                    message="exists in DB but not in Drizzle schema",
+                )
+
+        # Phase 3: migration tracking
+        migration_results: list[ModelMigrationStateResult] = []
+        for repo, database, path in _ALEMBIC_REPOS:
+            migration_results.append(
+                _check_alembic_migration(
+                    repo, database, path, omni_home, self._psql_runner
+                )
+            )
+        for repo, database, path in _DRIZZLE_REPOS:
+            migration_results.append(
+                _check_drizzle_migration(
+                    repo, database, path, omni_home, self._psql_runner
+                )
+            )
+        # Node-owned vendored migrations (OMN-12559 / OMN-13636 application-gap
+        # detection): a file vendored into the deploy tree but never recorded in
+        # schema_migrations is the silent-skip failure mode that left
+        # delegation_events without context_pack_hash. Surface it as PENDING.
+        migration_results.append(
+            _check_node_migrations(_NODE_MIGRATION_DB, omni_home, self._psql_runner)
+        )
+
+        # Aggregation
+        status_counts: dict[str, int] = {}
+        for r in table_results:
+            status_counts[r.status] = status_counts.get(r.status, 0) + 1
+
+        mig_status_counts: dict[str, int] = {}
+        for m in migration_results:
+            mig_status_counts[m.status] = mig_status_counts.get(m.status, 0) + 1
+
+        migrations_current, migrations_pending, migrations_failed = (
+            _classify_migration_buckets(migration_results)
+        )
+
+        has_issues = (
+            status_counts.get("STALE", 0) > 0
+            or status_counts.get("EMPTY", 0) > 0
+            or status_counts.get("MISSING", 0) > 0
+            or mig_status_counts.get("PENDING", 0) > 0
+            or mig_status_counts.get("FAILED", 0) > 0
+            or mig_status_counts.get("NO_TABLE", 0) > 0
+            or mig_status_counts.get("ERROR", 0) > 0
+        )
+
+        # OMN-14526: fail CLOSED. A scan that could not run is an ``error``, never a
+        # zero-count clean bill of health — the counts below are meaningless when
+        # nothing was scanned, so they must not be the only thing the caller sees.
+        if table_scan_error:
+            status = "error"
+        elif has_issues:
+            status = "issues_found"
+        else:
+            status = "healthy"
+
+        return DatabaseSweepResult(
+            table_results=table_results,
+            migration_results=migration_results,
+            tables_healthy=status_counts.get("HEALTHY", 0),
+            tables_stale=status_counts.get("STALE", 0),
+            tables_empty=status_counts.get("EMPTY", 0),
+            tables_missing=status_counts.get("MISSING", 0),
+            tables_orphan=status_counts.get("ORPHAN", 0),
+            tables_unknown=status_counts.get("UNKNOWN", 0),
+            migrations_current=migrations_current,
+            migrations_pending=migrations_pending,
+            migrations_failed=migrations_failed,
+            status=status,
+            dry_run=request.dry_run,
+            table_scan_error=table_scan_error,
+        )

@@ -11,6 +11,8 @@ from hypothesis import strategies as st
 from requests import Request
 
 import schemathesis
+from schemathesis import GenerationMode
+from schemathesis.checks import not_a_server_error
 from schemathesis.config import SanitizationConfig
 from schemathesis.core import NOT_SET
 from schemathesis.core.error_feedback.store import (
@@ -20,15 +22,15 @@ from schemathesis.core.error_feedback.store import (
     SizeBoundPayload,
 )
 from schemathesis.core.errors import InvalidSchema
-from schemathesis.core.failures import AcceptedNegativeData
+from schemathesis.core.failures import AcceptedNegativeData, ContentTypeServerError, FailureGroup
 from schemathesis.core.parameters import LOCATION_TO_CONTAINER, ParameterLocation
 from schemathesis.core.result import Ok
-from schemathesis.generation import GenerationMode
-from schemathesis.generation.meta import CoverageScenario, TestPhase
+from schemathesis.generation.meta import CONTENT_TYPE_PROBES, REQUEST_SHAPE_PROBES, CoverageScenario, TestPhase
 from schemathesis.specs.openapi.checks import negative_data_rejection
 from schemathesis.specs.openapi.coverage._operation import iter_coverage_cases
 from schemathesis.specs.openapi.coverage._wire import quote_path_parameter
 from schemathesis.transport.prepare import prepare_request
+from schemathesis.transport.requests import REQUESTS_TRANSPORT
 from test.coverage.helpers import (
     DEFAULT_RESPONSES,
     assert_bodies,
@@ -1177,7 +1179,12 @@ def test_negative_patterns(ctx):
     )
 
 
-def test_query_parameters_always_negative():
+@pytest.mark.parametrize(
+    "modes",
+    [[GenerationMode.NEGATIVE], [GenerationMode.POSITIVE, GenerationMode.NEGATIVE]],
+    ids=["negative", "mixed"],
+)
+def test_query_parameters_always_negative(modes):
     # See GH-2900
     schema = {
         "openapi": "3.0.3",
@@ -1218,7 +1225,7 @@ def test_query_parameters_always_negative():
         },
     }
 
-    assert_negative_coverage(schema, ANY, ("/password", "get"))
+    assert_coverage(schema, modes, ANY, ("/password", "get"))
 
 
 def test_array_in_header_path_query(ctx):
@@ -2262,7 +2269,7 @@ def test_negative_query_parameter(ctx, schema, expected, required):
     def test(case):
         if case.meta.phase.name != TestPhase.COVERAGE:
             return
-        if case.meta.phase.data.scenario == CoverageScenario.UNSPECIFIED_HTTP_METHOD:
+        if case.meta.phase.data.scenario in REQUEST_SHAPE_PROBES:
             return
         kwargs = case.as_transport_kwargs(base_url="http://127.0.0.1")
         request = Request(**kwargs).prepare()
@@ -2356,6 +2363,53 @@ def test_optional_null_header_is_sent(ctx):
         version="3.1.0",
     )["/foo"]["GET"]
     assert [case.headers for case in iter_cases(operation, GenerationMode.POSITIVE)] == [{"X-Limit": "null"}]
+
+
+@pytest.mark.parametrize("location", ["header", "cookie", "query"])
+def test_json_content_parameter_keeps_nested_types(ctx, location):
+    schema = {
+        "type": "object",
+        "properties": {"a": {"type": "integer"}, "b": {"type": "boolean"}},
+        "required": ["a", "b"],
+        "additionalProperties": False,
+    }
+    operation = load_schema(
+        ctx,
+        parameters=[
+            {"in": location, "name": "X-F", "required": True, "content": {"application/json": {"schema": schema}}}
+        ],
+        method="get",
+    )["/foo"]["GET"]
+    container = LOCATION_TO_CONTAINER[location]
+    assert [getattr(case, container) for case in iter_cases(operation, GenerationMode.POSITIVE)] == [
+        {"X-F": '{"a": 0, "b": false}'},
+        {"X-F": '{"a": 0, "b": true}'},
+    ]
+    negatives = [
+        json.loads(getattr(case, container)["X-F"])
+        for case in iter_cases(operation, GenerationMode.NEGATIVE)
+        if getattr(case, container)
+    ]
+    assert negatives == [
+        False,
+        None,
+        "AAA",
+        [None, None],
+        {"a": AnyNumber(), "b": False},
+        {"a": False, "b": False},
+        {"a": None, "b": False},
+        {"a": "AAA", "b": False},
+        {"a": [None, None], "b": False},
+        {"a": {}, "b": False},
+        {"a": 0, "b": 0},
+        {"a": 0, "b": None},
+        {"a": 0, "b": "AAA"},
+        {"a": 0, "b": [None, None]},
+        {"a": 0, "b": {}},
+        {"b": False},
+        {"a": 0},
+        {"a": 0, "b": False, "x-schemathesis-unknown-property": 42},
+    ]
 
 
 def test_negative_data_rejection(ctx, cli, snapshot_cli):
@@ -2525,6 +2579,137 @@ def failed(ctx, response, case):
             )
             == snapshot_cli
         )
+
+
+def test_content_type_probes(ctx):
+    bodyless_operation = load_schema(ctx, path="/bodyless", method="get")["/bodyless"]["get"]
+    assert [
+        case.headers
+        for case in scenario_cases(
+            collect_cases(bodyless_operation, GenerationMode.NEGATIVE), CoverageScenario.MALFORMED_CONTENT_TYPE
+        )
+    ] == [{"Content-Type": "multipart/form-data"}]
+
+    operation = body_operation(ctx, {"type": "object"})
+    malformed_cases = scenario_cases(
+        collect_cases(operation, GenerationMode.NEGATIVE), CoverageScenario.MALFORMED_CONTENT_TYPE
+    )
+    unsupported_cases = scenario_cases(
+        collect_cases(operation, GenerationMode.NEGATIVE), CoverageScenario.UNSUPPORTED_CONTENT_TYPE
+    )
+
+    assert [case.headers for case in malformed_cases] == [{"Content-Type": "multipart/form-data"}]
+    assert [case.headers for case in unsupported_cases] == [{"Content-Type": "text/plain"}]
+    assert all(case.body is not NOT_SET and case.media_type == "application/json" for case in unsupported_cases)
+
+
+def test_unsupported_content_type_uses_xml_when_text_is_declared(ctx):
+    operation = body_operation(ctx, {"type": "object"}, media_type="text/plain")
+
+    assert [
+        case.headers
+        for case in scenario_cases(
+            collect_cases(operation, GenerationMode.NEGATIVE), CoverageScenario.UNSUPPORTED_CONTENT_TYPE
+        )
+    ] == [{"Content-Type": "application/xml"}]
+
+
+def test_malformed_multipart_probe_does_not_serialize_a_boundary(ctx):
+    operation = body_operation(ctx, {"type": "object"}, media_type="multipart/form-data")
+    (case,) = scenario_cases(collect_cases(operation, GenerationMode.NEGATIVE), CoverageScenario.MALFORMED_CONTENT_TYPE)
+
+    assert case.body is NOT_SET
+    assert prepare_request(case, headers=None, config=SanitizationConfig(enabled=False)).headers["Content-Type"] == (
+        "multipart/form-data"
+    )
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_content_type_probe_reports_server_error(ctx, cli, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app({"/items": {"get": {"responses": {"200": {"description": "OK"}}}}})
+
+    @app.route("/items")
+    def items():
+        content_type = request.headers.get("Content-Type", "")
+        if content_type.startswith("multipart/form-data") and "boundary=" not in content_type:
+            return "", 500
+        return "", 200
+
+    assert cli.run_openapi_app(app, "--phases=coverage", "--mode=negative", "--max-examples=1") == snapshot_cli
+
+
+def test_content_type_probe_does_not_hide_plain_server_error(ctx, cli):
+    # The probe's odd header must not become the only reproducer of a server error every request triggers.
+    app, _ = ctx.openapi.make_flask_app({"/items": {"get": {"responses": {"200": {"description": "OK"}}}}})
+
+    @app.route("/items")
+    def items():
+        return "", 500
+
+    result = cli.run_openapi_app(
+        app, "--phases=coverage,fuzzing", "--max-examples=1", "--checks=not_a_server_error", "--mode=all"
+    )
+
+    findings = dict(re.findall(r"\n- (Server error[^\n]*)\n.*?\n\s+(curl [^\n]+)", result.stdout, re.DOTALL))
+    assert list(findings) == ["Server error"], result.stdout
+    assert "Content-Type" not in findings["Server error"]
+
+
+@pytest.mark.parametrize(
+    ("scenario", "message"),
+    [
+        (
+            CoverageScenario.MALFORMED_CONTENT_TYPE,
+            "`Content-Type: multipart/form-data` without a boundary returned 500, "
+            "expected 400 Bad Request or 415 Unsupported Media Type\n\n"
+            "Reject a malformed `Content-Type` before parsing the request body",
+        ),
+        (
+            CoverageScenario.UNSUPPORTED_CONTENT_TYPE,
+            "Undeclared `Content-Type: text/plain` returned 500, expected 415 Unsupported Media Type\n\n"
+            "Reject media types the operation does not accept with 415",
+        ),
+    ],
+    ids=["malformed", "unsupported"],
+)
+def test_content_type_probe_server_error_via_wsgi(ctx, scenario, message):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items": {
+                "post": {
+                    "requestBody": {"required": True, "content": {"application/json": {"schema": {"type": "object"}}}},
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+
+    @app.route("/items", methods=["POST"])
+    def items():
+        if request.content_type != "application/json":
+            return "", 500
+        return "", 200
+
+    operation = schemathesis.openapi.from_wsgi("/openapi.json", app)["/items"]["POST"]
+    (case,) = scenario_cases(collect_cases(operation, GenerationMode.NEGATIVE), scenario)
+
+    with pytest.raises(FailureGroup) as exc_info:
+        case.call_and_validate(checks=[not_a_server_error])
+
+    assert [(type(failure), failure.message) for failure in exc_info.value.exceptions] == [
+        (ContentTypeServerError, message)
+    ]
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_content_type_probe_ignores_non_server_errors(ctx, cli, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app({"/items": {"get": {"responses": {"200": {"description": "OK"}}}}})
+
+    @app.route("/items")
+    def items():
+        return "", 200
+
+    assert cli.run_openapi_app(app, "--phases=coverage", "--mode=negative", "--max-examples=1") == snapshot_cli
 
 
 def test_avoid_testing_unexpected_methods(ctx):
@@ -3189,33 +3374,30 @@ def test_negative_type_drops_false_negatives_against_loose_ref_target(ctx):
     )
 
 
-# Second component forces bundling — single-definition schemas get inlined and lose
-# the `$ref` + sibling shape that triggers the bug.
-BUNDLING_PADDING = {"Sku": {"type": "object", "properties": {"name": {"type": "string"}}}}
+WRAPPER = {"type": "object", "properties": {"location": {"type": "string"}, "sku": {"type": "string"}}}
 
 
-def test_negative_required_drops_false_negatives_at_body_root_with_ref_sibling(ctx):
-    # Body root is `$ref` + sibling `required: [...]`. Draft 4 ignores siblings of `$ref`,
-    # so the validator only enforces the bare ref target — which has no matching `required`.
-    # Removing the listed required field passes the target vacuously and must not be emitted.
-    operation = body_operation(
-        ctx,
-        {"$ref": "#/definitions/Wrapper", "required": ["location"]},
-        version="2.0",
-        definitions={
-            "Wrapper": {
-                "type": "object",
-                "properties": {
-                    "location": {"type": "string"},
-                    "sku": {"$ref": "#/definitions/Sku"},
-                },
-            },
-            **BUNDLING_PADDING,
-        },
-    )
-    assert_bodies(
-        operation, GenerationMode.NEGATIVE, valid=False, validator_cls=operation.schema.adapter.jsonschema_validator_cls
-    )
+@pytest.mark.parametrize(
+    ("version", "container"),
+    [("2.0", {"definitions": {"Wrapper": WRAPPER}}), ("3.0.2", {"components": {"schemas": {"Wrapper": WRAPPER}}})],
+    ids=["swagger-2", "openapi-3.0"],
+)
+@pytest.mark.parametrize(
+    "sibling", [{"required": ["location"]}, {"minProperties": 5}], ids=["required", "min-properties"]
+)
+def test_negative_bodies_ignore_keywords_next_to_root_ref(ctx, version, container, sibling):
+    prefix = "#/definitions" if version == "2.0" else "#/components/schemas"
+    body = {"$ref": f"{prefix}/Wrapper", **sibling}
+    operation = body_operation(ctx, body, version=version, **container)
+    # Draft 4 ignores keywords next to `$ref`, so mutating them yields bodies the spec still accepts.
+    validator = jsonschema_rs.Draft4Validator({**body, **container})
+    bodies = [
+        case.body
+        for case in collect_cases(operation, GenerationMode.NEGATIVE)
+        if case.body is not NOT_SET and body_mode(case) == GenerationMode.NEGATIVE
+    ]
+    assert bodies
+    assert [value for value in bodies if validator.is_valid(value)] == []
 
 
 def test_negative_ref_sibling_with_binary_format_does_not_crash_validator(ctx):
@@ -3232,12 +3414,8 @@ def test_negative_ref_sibling_with_binary_format_does_not_crash_validator(ctx):
             "schemas": {
                 "Upload": {
                     "type": "object",
-                    "properties": {
-                        "file": {"type": "string", "format": "binary"},
-                        "sku": {"$ref": "#/components/schemas/Sku"},
-                    },
+                    "properties": {"file": {"type": "string", "format": "binary"}},
                 },
-                **BUNDLING_PADDING,
             }
         },
     )
@@ -4430,6 +4608,56 @@ def test_positive_body_descends_past_a_third_use_of_a_shared_base(ctx):
     } == {"[]", '[{"id": ""}]', "[{}]"}
 
 
+def test_negative_only_mode_emits_required_and_optional_combinations(ctx):
+    operation = load_schema(
+        ctx,
+        parameters=[
+            {"name": name, "in": "query", "required": name == "q", "schema": {"type": "integer", "minimum": 1}}
+            for name in ("q", "r", "s")
+        ],
+        path="/items",
+        method="get",
+    )["/items"]["get"]
+
+    def combination_queries(*modes):
+        # Combinations carry the required parameter and leave out at least one optional one.
+        return [
+            case.query
+            for case in iter_cases(operation, *modes)
+            if case.meta.generation.mode == GenerationMode.NEGATIVE
+            and "q" in case.query
+            and not {"r", "s"} <= case.query.keys()
+        ]
+
+    assert combination_queries(GenerationMode.NEGATIVE) == combination_queries(
+        GenerationMode.POSITIVE, GenerationMode.NEGATIVE
+    )
+
+
+def test_negative_combinations_are_invalid_under_the_declared_parameter_schema(ctx):
+    # An unanchored pattern admits any string, so a length-bounded rewrite of it must not leak into negatives.
+    declared = {"type": "string", "pattern": "[a-z]*", "maxLength": 8}
+    operation = load_schema(
+        ctx,
+        parameters=[
+            {"name": "q", "in": "query", "required": True, "schema": {"type": "integer"}},
+            {"name": "t", "in": "query", "required": False, "schema": declared},
+            {"name": "u", "in": "query", "required": False, "schema": {"type": "integer"}},
+        ],
+        path="/items",
+        method="get",
+    )["/items"]["get"]
+    validator = jsonschema_rs.validator_for(declared)
+
+    assert [
+        case.query
+        for case in iter_cases(operation, GenerationMode.NEGATIVE)
+        if case.meta.generation.mode == GenerationMode.NEGATIVE
+        and case.meta.phase.data.parameter == "t"
+        and validator.is_valid(case.query["t"])
+    ] == []
+
+
 @pytest.mark.parametrize(
     "modes",
     [[GenerationMode.POSITIVE], [GenerationMode.POSITIVE, GenerationMode.NEGATIVE]],
@@ -4599,7 +4827,7 @@ def test_required_parameter_without_negative_value_kept_in_negative_cases(ctx, l
             _component_mode(case, parameter_location),
         )
         for case in _required_parameter_cases(ctx, location)
-        if case.meta.phase.data.parameter != "X-Token"
+        if case.meta.phase.data.parameter != "X-Token" and case.meta.phase.data.scenario not in CONTENT_TYPE_PROBES
     } == {((("X-Token", ""),), GenerationMode.POSITIVE)}
 
 
@@ -4736,6 +4964,7 @@ def test_resolvable_media_type_is_covered_when_sibling_reference_is_unresolvable
         (None, ParameterLocation.BODY),
         ("application/json", None),
         ("application/json", ParameterLocation.BODY),
+        ("application/json", ParameterLocation.HEADER),
         ("application/json", ParameterLocation.QUERY),
     }
 
@@ -4841,7 +5070,7 @@ def test_content_json_query_params_single_encoding_in_coverage(ctx):
         assert isinstance(parsed, list), "filters should decode to a list after single JSON encoding"
 
 
-# YAML parses bare `on:` as boolean True, so schemas loaded from YAML can have bool keys in `properties`.
+# YAML 1.1 parsers read a bare `on:` as the boolean key `True`.
 BOOLEAN_KEY_BODY_SCHEMA = {
     "type": "object",
     "properties": {
@@ -4851,8 +5080,27 @@ BOOLEAN_KEY_BODY_SCHEMA = {
 }
 
 
-def test_coverage_body_with_boolean_property_key(ctx):
-    assert iter_cases(body_operation(ctx, BOOLEAN_KEY_BODY_SCHEMA, path="/hooks"), GenerationMode.POSITIVE)
+def boolean_key_operation(ctx, location, property_schema):
+    object_schema = {"type": "object", "properties": {True: property_schema, "name": {"type": "string"}}}
+    if location == "query":
+        parameters = [{"in": "query", "name": "key", "required": True, "schema": object_schema}]
+        return load_schema(ctx, parameters, path="/hooks")["/hooks"]["post"]
+    return body_operation(ctx, object_schema, path="/hooks")
+
+
+@pytest.mark.parametrize("location", ["query", "body"])
+def test_coverage_boolean_property_key(ctx, location):
+    operation = boolean_key_operation(ctx, location, {"type": "string", "enum": ["ALPHA"]})
+    cases = iter_cases(operation, GenerationMode.POSITIVE)
+    values = [case.query if location == "query" else case.body for case in cases]
+    assert {"true": "ALPHA", "name": ""} in values
+
+
+@pytest.mark.parametrize("location", ["query", "body"])
+def test_coverage_boolean_property_key_malformed_keyword(ctx, location):
+    operation = boolean_key_operation(ctx, location, {"type": "string", "minLength": "x"})
+    with pytest.raises(InvalidSchema):
+        iter_cases(operation, GenerationMode.POSITIVE)
 
 
 def test_coverage_negative_max_length_preserved_in_optimized_schema(ctx):
@@ -5599,6 +5847,7 @@ def test_coverage_positive_template_skips_false_schema_property(ctx):
         parameters=[{"in": "path", "name": "id", "required": True, "schema": {"type": "integer"}}],
         path="/items/{id}",
         method="patch",
+        version="3.1.0",
     )
 
     assert_bodies(operation, GenerationMode.POSITIVE, valid=True, cases=iter_cases(operation, GenerationMode.NEGATIVE))
@@ -6806,6 +7055,26 @@ def test_content_type_header_pins_to_a_declared_body_media_type_it_admits(ctx):
     assert values == {"application/xml"}
 
 
+def test_content_type_header_matches_each_body_media_type(ctx):
+    operation = load_schema(
+        ctx,
+        parameters=[{"in": "header", "name": "Content-Type", "schema": {"type": "string"}}],
+        request_body={
+            "required": True,
+            "content": {
+                "application/json": {"schema": {"type": "object"}},
+                "text/plain": {"schema": {"type": "string"}},
+            },
+        },
+    )["/foo"]["post"]
+    pairs = {
+        (case.media_type, (case.headers or {}).get("Content-Type"))
+        for case in collect_cases(operation, GenerationMode.POSITIVE)
+        if case.body is not NOT_SET
+    }
+    assert pairs == {("application/json", "application/json"), ("text/plain", "text/plain")}
+
+
 def test_recursive_ref_negative_descends_past_self_reference(ctx):
     # Self-referential arms must receive a type-violating element at the inner-`$ref` position,
     # not just be skipped when the negative generator hits the recursion boundary.
@@ -7606,6 +7875,43 @@ def test_each_custom_media_type_alternative_yields_its_own_body(ctx):
     ]
 
 
+def test_custom_media_type_body_emits_no_positive_case_in_negative_mode(ctx):
+    schemathesis.openapi.media_type("application/pdf", st.just(b"%PDF-1.4"))
+    operation = load_schema(
+        ctx,
+        request_body={
+            "required": True,
+            "content": {"application/pdf": {"schema": {"type": "string", "format": "binary"}}},
+        },
+    )["/foo"]["post"]
+    assert [
+        (case.meta.generation.mode, case.meta.phase.data.scenario)
+        for case in iter_cases(operation, GenerationMode.NEGATIVE)
+    ] == [(GenerationMode.NEGATIVE, CoverageScenario.MISSING_PARAMETER)]
+
+
+@pytest.mark.parametrize("is_required", [True, False], ids=["required", "optional"])
+def test_multipart_body_with_custom_encoding_yields_positive_case(ctx, is_required):
+    schemathesis.openapi.media_type("image/png", st.just(b"\x89PNG"))
+    operation = load_schema(
+        ctx,
+        request_body={
+            "required": is_required,
+            "content": {
+                "multipart/form-data": {
+                    "schema": {"type": "object", "properties": {"file": {"type": "string", "format": "binary"}}},
+                    "encoding": {"file": {"contentType": "image/png"}},
+                }
+            },
+        },
+    )["/foo"]["post"]
+    assert [
+        (case.meta.generation.mode, case.body)
+        for case in iter_cases(operation, GenerationMode.POSITIVE)
+        if case.body is not NOT_SET
+    ] == [(GenerationMode.POSITIVE, {"file": b"\x89PNG"})]
+
+
 def test_combination_cases_deduplicate_repeated_requests(ctx):
     # 'X-Token' is the same header as 'x-token', so the all-headers combination repeats the default request.
     schema = ctx.openapi.load_schema(
@@ -7696,6 +8002,30 @@ def test_boolean_parameter_schema(ctx, location, boolean_schema):
     assert cases
     for case in cases:
         assert_requests_call(case)
+
+
+@pytest.mark.parametrize(
+    "schema",
+    [
+        {"type": "string"},
+        {"anyOf": [{"type": "string"}, False]},
+        {"oneOf": [{"type": "string"}, False]},
+        {"allOf": [{"type": "string"}, True]},
+    ],
+    ids=["plain", "anyOf-false", "oneOf-false", "allOf-true"],
+)
+def test_string_query_parameter_with_boolean_subschema_has_no_wire_valid_negatives(ctx, schema):
+    # Every query value is a string on the wire, so only omitting the parameter is negative.
+    operation = load_schema(
+        ctx,
+        parameters=[{"name": "q", "in": "query", "required": True, "schema": schema}],
+        path="/items",
+        method="get",
+        version="3.1.0",
+    )["/items"]["get"]
+    assert [(case.query, case.meta.phase.data.scenario) for case in iter_cases(operation, GenerationMode.NEGATIVE)] == [
+        ({}, CoverageScenario.MISSING_PARAMETER)
+    ]
 
 
 @pytest.mark.parametrize(
@@ -7829,3 +8159,1157 @@ def test_empty_query_value_is_negative_only_when_the_schema_forbids_it_among_oth
     ]
 
     assert bool(matching) is violates_schema, f"{empty_value!r} labelled negative: {not violates_schema}"
+
+
+def test_positive_multipart_upload_sends_a_named_real_file(ctx):
+    # Handlers that decode the upload need a parseable file with a matching extension to reach their own logic.
+    operation = body_operation(
+        ctx,
+        {"type": "object", "properties": {"image": {"type": "string", "format": "binary"}}, "required": ["image"]},
+        media_type="multipart/form-data",
+        path="/upload",
+    )
+    files = [
+        REQUESTS_TRANSPORT.serialize_case(case)["files"]
+        for case in iter_cases(operation, GenerationMode.POSITIVE)
+        if case.meta.phase.data.parameter_location == ParameterLocation.BODY
+    ]
+    assert [("image", ("image.png", ANY))] in files, files
+    assert any(part[1][1].startswith(b"\x89PNG\r\n\x1a\n") for parts in files for part in parts), files
+
+
+def test_positive_body_merges_ref_sibling_properties_into_the_target(ctx):
+    body = {
+        "oneOf": [
+            {"$ref": "#/components/schemas/Base", "properties": {"extra": {"type": "integer"}}, "required": ["extra"]},
+            {"type": "string"},
+        ]
+    }
+    operation = body_operation(
+        ctx,
+        body,
+        version="3.1.0",
+        components={
+            "schemas": {"Base": {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}}
+        },
+    )
+    assert assert_bodies(operation, GenerationMode.POSITIVE, valid=True, source=collect_cases) == [
+        "",
+        {"name": "", "extra": 0},
+    ]
+
+
+@pytest.mark.parametrize(
+    ("version", "body", "target"),
+    [
+        (
+            "3.1.0",
+            {"type": "object", "properties": {"a": {"$ref": "#/components/schemas/A", "anyOf": [{"type": "null"}]}}},
+            {"type": "boolean"},
+        ),
+        (
+            "3.1.0",
+            {
+                "type": "object",
+                "properties": {"a": {"allOf": [{"$ref": "#/components/schemas/A", "anyOf": [{"type": "null"}]}]}},
+            },
+            {"type": "boolean"},
+        ),
+        (
+            "3.0.2",
+            {"oneOf": [{"type": "null"}, {"$ref": "#/components/schemas/A", "anyOf": [{"type": "null"}]}]},
+            {"type": "boolean"},
+        ),
+    ],
+    ids=["property-ref-sibling", "property-ref-sibling-in-all-of", "one-of-ref-sibling-under-draft4"],
+)
+def test_positive_bodies_follow_ref_sibling_keywords_as_the_draft_reads_them(ctx, version, body, target):
+    operation = body_operation(ctx, body, version=version, components={"schemas": {"A": target}})
+    assert_bodies(operation, GenerationMode.POSITIVE, valid=True, source=collect_cases)
+
+
+@pytest.mark.parametrize(
+    ("version", "body", "target"),
+    [
+        (
+            "3.1.0",
+            {
+                "oneOf": [
+                    {"type": "null"},
+                    {"$ref": "#/components/schemas/A", "anyOf": [{"type": "null"}]},
+                    {"type": "array", "items": {"type": "null"}},
+                ]
+            },
+            {},
+        ),
+        (
+            "3.0.2",
+            {"oneOf": [{"type": "null"}, {"$ref": "#/components/schemas/A", "anyOf": [{"type": "null"}]}]},
+            {"type": "boolean"},
+        ),
+    ],
+    ids=["draft2020", "draft4"],
+)
+def test_negative_bodies_violate_one_of_with_ref_sibling_keywords(ctx, version, body, target):
+    operation = body_operation(ctx, body, version=version, components={"schemas": {"A": target}})
+    assert_bodies(operation, GenerationMode.NEGATIVE, valid=False, source=collect_cases)
+
+
+def test_positive_arrays_meet_contains_the_openapi_30_validator_ignores(ctx):
+    # Draft 4 has no `contains`, yet a server reading it still expects a matching element.
+    body = {
+        "type": "array",
+        "items": {"type": "integer"},
+        "contains": {"type": "integer", "minimum": 10},
+        "maxItems": 256,
+    }
+    operation = body_operation(ctx, body)
+    bodies = assert_bodies(operation, GenerationMode.POSITIVE, valid=True, source=collect_cases)
+    assert [value for value in bodies if not any(item >= 10 for item in value)] == []
+
+
+def test_positive_body_reaches_max_length_past_the_drawable_limit_for_a_permissive_pattern(ctx):
+    length = 16384
+    operation = body_operation(ctx, {"type": "string", "pattern": ".*", "maxLength": length})
+    assert length in {len(case.body) for case in collect_cases(operation, GenerationMode.POSITIVE)}
+
+
+@pytest.mark.parametrize(
+    ("version", "body"),
+    [
+        ("3.1.0", {"type": "array", "prefixItems": [{"type": "boolean"}], "items": {"type": "null"}}),
+        ("3.1.0", {"type": "array", "items": {"type": "integer"}, "prefixItems": [{"type": "string"}], "minItems": 3}),
+        (
+            "3.1.0",
+            {"type": "object", "properties": {"a": {"type": "null"}}, "propertyNames": {"pattern": "^[0-9]{3}$"}},
+        ),
+        (
+            "3.1.0",
+            {
+                "type": "object",
+                "properties": {"a": {"type": "null"}, "bbb": {"type": "boolean"}},
+                "propertyNames": {"minLength": 3},
+            },
+        ),
+        ("3.1.0", {"type": "object", "properties": {"a": {"type": "null"}}, "patternProperties": {"a": False}}),
+        (
+            "3.1.0",
+            {"type": "object", "properties": {"a": {"type": "string"}}, "patternProperties": {"^a$": {"minLength": 5}}},
+        ),
+        ("3.1.0", {"type": "number", "maximum": 1e30, "multipleOf": 3.0}),
+        ("3.1.0", {"type": "number", "exclusiveMaximum": -1e30, "multipleOf": 0.3}),
+        (
+            "3.0.2",
+            {"type": "array", "uniqueItems": True, "maxItems": 3, "items": {"type": "string", "enum": ["a", "b", "c"]}},
+        ),
+    ],
+    ids=[
+        "prefix-items-single",
+        "prefix-items-padded",
+        "property-names-pattern",
+        "property-names-min-length",
+        "pattern-properties-forbidding",
+        "pattern-properties-constraining",
+        "multiple-of-past-maximum-precision",
+        "multiple-of-past-exclusive-maximum-precision",
+        "unique-items-exhausting-enum",
+    ],
+)
+def test_coverage_bodies_match_their_mode(ctx, version, body):
+    operation = body_operation(ctx, body, version=version)
+    assert_bodies(operation, GenerationMode.POSITIVE, valid=True, source=collect_cases)
+    assert_bodies(operation, GenerationMode.NEGATIVE, valid=False, source=collect_cases)
+
+
+def test_positive_body_drops_every_any_of_shape_the_parent_forbids(ctx):
+    # Each branch proposes a key `additionalProperties: false` rejects, leaving only `null`.
+    body = {
+        "type": "object",
+        "required": ["data"],
+        "properties": {
+            "data": {
+                "additionalProperties": False,
+                "anyOf": [
+                    {"properties": {"last_name": {"type": "string"}}, "required": ["last_name"]},
+                    {"properties": {"nickname": {"type": "string"}}, "required": ["nickname"]},
+                ],
+            }
+        },
+    }
+    operation = body_operation(ctx, body)
+    assert assert_bodies(operation, GenerationMode.POSITIVE, valid=True, source=collect_cases) == [{"data": None}]
+
+
+def test_negative_const_body_under_openapi_31(ctx):
+    operation = body_operation(ctx, {"const": 42}, version="3.1.0")
+    assert assert_bodies(operation, GenerationMode.NEGATIVE, valid=False, source=collect_cases) == [
+        {},
+        [None, None],
+        None,
+        False,
+        2.5890419884777833e-42,
+        "AAA",
+    ]
+
+
+def test_additional_property_name_skips_a_declared_one(ctx):
+    body = {
+        "type": "object",
+        "properties": {"x-schemathesis-additional": {"type": "string"}},
+        "additionalProperties": {"type": "integer"},
+    }
+    operation = body_operation(ctx, body)
+    bodies = assert_bodies(operation, GenerationMode.POSITIVE, valid=True, source=collect_cases)
+    assert {"x-schemathesis-additional": "", "x-schemathesis-additional1": 0} in bodies
+
+
+def test_no_unexpected_property_when_every_candidate_name_matches_a_property_pattern(ctx):
+    # A name matching `patternProperties` is judged by that pattern, so it cannot break `additionalProperties: false`.
+    body = {"type": "object", "patternProperties": {"property": {"type": "string"}}, "additionalProperties": False}
+    operation = body_operation(ctx, body)
+    assert assert_bodies(operation, GenerationMode.NEGATIVE, valid=False, source=collect_cases) == [
+        {"property": {}},
+        {"property": [None, None]},
+        {"property": None},
+        {"property": False},
+        {"property": 0},
+        [None, None],
+        "AAA",
+        None,
+        False,
+        0,
+    ]
+
+
+def test_no_pattern_violation_for_properties_sharing_a_pattern_every_string_matches(ctx):
+    inner = {"type": "string", "minLength": 1, "pattern": "[\\s\\S]"}
+    operation = body_operation(ctx, {"type": "object", "properties": {"alpha": inner, "beta": dict(inner)}})
+    bodies = assert_bodies(operation, GenerationMode.NEGATIVE, valid=False, source=collect_cases)
+    assert [body for body in bodies if isinstance(body, dict) and "" not in body.values()] == [
+        {"alpha": "0", "beta": {}},
+        {"alpha": "0", "beta": [None, None]},
+        {"alpha": "0", "beta": None},
+        {"alpha": "0", "beta": False},
+        {"alpha": "0", "beta": 0},
+        {"alpha": {}, "beta": "0"},
+        {"alpha": [None, None], "beta": "0"},
+        {"alpha": None, "beta": "0"},
+        {"alpha": False, "beta": "0"},
+        {"alpha": 0, "beta": "0"},
+    ]
+
+
+def test_negative_format_bodies_for_properties_sharing_a_format(ctx):
+    body = {
+        "type": "object",
+        "properties": {"a": {"type": "string", "format": "ipv4"}, "b": {"type": "string", "format": "ipv4"}},
+    }
+    operation = body_operation(ctx, body)
+    bodies = assert_bodies(operation, GenerationMode.NEGATIVE, valid=False, source=collect_cases)
+    assert [body for body in bodies if isinstance(body, dict) and "" in body.values()] == [
+        {"a": "0.0.0.0", "b": ""},
+        {"a": "", "b": "0.0.0.0"},
+    ]
+
+
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [
+        ({"type": "string", "format": "hostname", "pattern": "^[a-z]+$"}, ["", {}, [None, None], None, False, 0]),
+        (
+            {"type": "number", "format": "float", "maximum": 3.4028234663852886e38},
+            [{}, [None, None], "AAA", None, False],
+        ),
+        ({"type": "number", "format": "float", "minimum": 0.1}, [-0.9, {}, [None, None], "AAA", None, False]),
+    ],
+    ids=["hostname-every-pattern-match-is-valid", "float-maximum-at-float32-limit", "float-minimum"],
+)
+def test_negative_bodies_for_formats_with_narrow_violations(ctx, body, expected):
+    operation = body_operation(ctx, body)
+    assert assert_bodies(operation, GenerationMode.NEGATIVE, valid=False, source=collect_cases) == expected
+
+
+def test_no_invalid_format_query_value_when_its_pattern_has_no_python_spelling(ctx):
+    parameter = {
+        "in": "query",
+        "name": "q",
+        "required": True,
+        "schema": {"type": "string", "format": "date", "pattern": "\\p{Tibetan}"},
+    }
+    operation = load_schema(ctx, parameters=[parameter], method="get", version="3.1.0")["/foo"]["GET"]
+    assert [case.query for case in collect_cases(operation, GenerationMode.NEGATIVE)] == [{}] * 9
+
+
+def targeted_values(operation, mode, container, name):
+    return [
+        (getattr(case, container) or {}).get(name)
+        for case in collect_cases(operation, mode)
+        if case.meta.phase.data.parameter == name
+    ]
+
+
+@pytest.mark.parametrize(
+    ("schema", "expected"),
+    [
+        (
+            {"type": "string", "format": "email", "minLength": 6},
+            [None, "0@0.a", "000000", ["null", "null"], "null", "true", "0.5"],
+        ),
+        (
+            {"type": "string", "minLength": 1, "pattern": "a\\Z"},
+            [None, "0", "", ["null", "null"], "null", "true", "0.5"],
+        ),
+        ({"type": "string"}, [None]),
+    ],
+    ids=["min-length-below-every-email", "pattern-unreadable-by-the-validator", "every-string-accepted"],
+)
+def test_negative_query_values(ctx, schema, expected):
+    operation = load_schema(
+        ctx, parameters=[{"in": "query", "name": "q", "required": True, "schema": schema}], method="get"
+    )["/foo"]["GET"]
+    assert targeted_values(operation, GenerationMode.NEGATIVE, "query", "q") == expected
+
+
+def test_negative_query_value_past_the_generation_buffer(ctx):
+    schema = {"type": "string", "maxLength": 65536}
+    operation = load_schema(
+        ctx, parameters=[{"in": "query", "name": "q", "required": True, "schema": schema}], method="get"
+    )["/foo"]["GET"]
+    assert targeted_values(operation, GenerationMode.NEGATIVE, "query", "q") == [None, "a" * 65537]
+
+
+@pytest.mark.parametrize(
+    ("location", "pattern", "path"),
+    [
+        ("path", "arn:aws:kinesisvideo:[a-z0-9-]+:[0-9]+:[a-z]+/[a-zA-Z0-9_.-]+/[0-9]+", "/foo/{p}"),
+        ("header", "arn:[a-z0-9-\\.]{1,63}:[a-z0-9-\\.]{0,63}", "/foo"),
+    ],
+    ids=["path-pattern-with-literal-slash", "header-pattern-requiring-a-colon"],
+)
+def test_no_positive_case_when_the_pattern_needs_characters_the_location_cannot_carry(ctx, location, pattern, path):
+    schema = {"type": "string", "pattern": pattern, "minLength": 1, "maxLength": 1024}
+    operation = load_schema(
+        ctx, parameters=[{"in": location, "name": "p", "required": True, "schema": schema}], method="get", path=path
+    )[path]["GET"]
+    with pytest.raises(pytest.fail.Exception, match="generated no cases"):
+        collect_cases(operation, GenerationMode.POSITIVE)
+
+
+@pytest.mark.parametrize(
+    ("header_schema", "expected"),
+    [
+        (
+            {"type": "string", "enum": ["text/plain"]},
+            [("text/plain", "text/plain"), ("text/plain", "application/json")],
+        ),
+        (
+            {"type": "string", "enum": ["application/xml"]},
+            [("application/xml", "text/plain"), ("application/xml", "application/json")],
+        ),
+    ],
+    ids=["pinned-to-the-media-type-the-header-admits", "declared-value-kept"],
+)
+def test_positive_content_type_header_parameter_follows_the_body_media_types(ctx, header_schema, expected):
+    operation = load_schema(
+        ctx,
+        parameters=[{"in": "header", "name": "Content-Type", "required": True, "schema": header_schema}],
+        request_body={
+            "required": True,
+            "content": {
+                "application/json": {"schema": {"type": "object"}},
+                "text/plain": {"schema": {"type": "string"}},
+            },
+        },
+    )["/foo"]["post"]
+    assert sorted(
+        (case.headers["Content-Type"], case.media_type) for case in collect_cases(operation, GenerationMode.POSITIVE)
+    ) == sorted(expected)
+
+
+def positive_queries(operation):
+    return [case.query for case in collect_cases(operation, GenerationMode.POSITIVE)]
+
+
+EMPTY_ENUM = {"type": "string", "enum": []}
+
+
+@pytest.mark.parametrize(
+    ("parameters", "expected"),
+    [
+        (
+            [
+                {"in": "query", "name": "a", "schema": {"type": "string"}},
+                {"in": "query", "name": "b", "schema": EMPTY_ENUM},
+                {"in": "query", "name": "c", "schema": EMPTY_ENUM},
+            ],
+            [{}, {"a": ""}],
+        ),
+        (
+            [
+                {"in": "query", "name": "a", "schema": {"type": "string"}},
+                {"in": "query", "name": "b", "schema": {"type": "string"}},
+                {"in": "query", "name": "c", "schema": EMPTY_ENUM},
+            ],
+            [{}, {"b": ""}, {"a": ""}, {"a": "", "b": ""}],
+        ),
+        (
+            [
+                {"in": "query", "name": name, "schema": {"type": "array", "items": {"type": "string"}, "maxItems": 0}}
+                for name in "abc"
+            ],
+            [{"a": [], "b": [], "c": []}],
+        ),
+        ([{"in": "query", "name": name, "schema": EMPTY_ENUM} for name in "abc"], [{}]),
+    ],
+    ids=[
+        "optional-parameters-without-values",
+        "one-optional-parameter-without-a-value",
+        "combinations-identical-on-the-wire",
+        "no-optional-parameter-has-a-value",
+    ],
+)
+def test_positive_optional_query_combinations_skip_repeated_requests(ctx, parameters, expected):
+    operation = load_schema(ctx, parameters=parameters, method="get")["/foo"]["GET"]
+    assert positive_queries(operation) == expected
+
+
+def test_no_positive_case_when_the_required_body_admits_nothing(ctx):
+    operation = load_schema(
+        ctx,
+        parameters=[{"in": "query", "name": "q", "required": True, "schema": {"type": "integer", "minimum": 1}}],
+        body={"type": "string", "enum": [1]},
+    )["/foo"]["post"]
+    with pytest.raises(pytest.fail.Exception, match="generated no cases"):
+        collect_cases(operation, GenerationMode.POSITIVE)
+
+
+def test_positive_body_for_repeated_consumes_entry_is_not_sent_twice(ctx):
+    raw_schema = ctx.openapi.build_schema(
+        {
+            "/foo": {
+                "post": {
+                    "parameters": [
+                        {
+                            "in": "body",
+                            "name": "body",
+                            "required": True,
+                            "schema": {"type": "object", "properties": {"a": {"type": "integer"}}},
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        version="2.0",
+        consumes=["application/json", "application/json"],
+    )
+    operation = schemathesis.openapi.from_dict(raw_schema)["/foo"]["POST"]
+    assert [(case.media_type, case.body) for case in collect_cases(operation, GenerationMode.POSITIVE)] == [
+        ("application/json", {}),
+        ("application/json", {"a": 0}),
+    ]
+
+
+def test_parameter_with_an_always_true_not_still_gets_a_value(ctx):
+    operation = load_schema(
+        ctx,
+        parameters=[
+            {"in": "path", "name": "p", "required": True, "schema": {"type": "string", "not": False}},
+            {"in": "header", "name": "X-A", "required": True, "schema": {"type": "string", "not": False}},
+        ],
+        method="get",
+        path="/foo/{p}",
+        version="3.1.0",
+    )["/foo/{p}"]["GET"]
+    assert [(case.path_parameters, case.headers) for case in collect_cases(operation, GenerationMode.POSITIVE)] == [
+        ({"p": "0"}, {"X-A": ""})
+    ]
+
+
+def test_negative_query_array_with_items_the_validator_cannot_load(ctx):
+    # A value JSON cannot hold, such as YAML `!!binary`, keeps the validator from loading, so every negative ships.
+    schema = {"type": "array", "items": {"type": "string", "x-raw": b"\x00"}}
+    operation = load_schema(
+        ctx, parameters=[{"in": "query", "name": "ids", "required": True, "schema": schema}], method="get"
+    )["/foo"]["GET"]
+    assert targeted_values(operation, GenerationMode.NEGATIVE, "query", "ids") == [[], "AAA", "null", "false"]
+
+
+def test_content_type_header_parameter_pinned_to_the_body_media_type_when_its_schema_cannot_judge(ctx):
+    operation = load_schema(
+        ctx,
+        parameters=[{"in": "header", "name": "Content-Type", "required": True, "schema": True}],
+        body={"type": "object"},
+        version="3.1.0",
+    )["/foo"]["post"]
+    assert [(case.headers, case.body) for case in collect_cases(operation, GenerationMode.POSITIVE)] == [
+        ({"Content-Type": "application/json"}, {})
+    ]
+
+
+def test_custom_encoded_multipart_body_in_optional_request_body(ctx):
+    schemathesis.openapi.media_type("image/png", st.just(b"\x89PNG"))
+    operation = load_schema(
+        ctx,
+        request_body={
+            "content": {
+                "multipart/form-data": {
+                    "schema": {"type": "object", "properties": {"file": {"type": "string", "format": "binary"}}},
+                    "encoding": {"file": {"contentType": "image/png"}},
+                }
+            }
+        },
+    )["/foo"]["post"]
+    assert [
+        (case.headers, case.body) for case in collect_cases(operation, GenerationMode.NEGATIVE) if case.headers
+    ] == [
+        ({"Content-Type": "text/plain"}, {"file": b"\x89PNG"}),
+        ({"Content-Type": "multipart/form-data"}, NOT_SET),
+    ]
+
+
+def test_custom_encoded_multipart_body_does_not_replace_an_earlier_body(ctx):
+    schemathesis.openapi.media_type("image/png", st.just(b"\x89PNG"))
+    operation = load_schema(
+        ctx,
+        request_body={
+            "required": True,
+            "content": {
+                "application/json": {"schema": {"type": "object"}},
+                "multipart/form-data": {
+                    "schema": {"type": "object", "properties": {"file": {"type": "string", "format": "binary"}}},
+                    "encoding": {"file": {"contentType": "image/png"}},
+                },
+            },
+        },
+    )["/foo"]["post"]
+    assert [(case.media_type, case.body) for case in collect_cases(operation, GenerationMode.POSITIVE)] == [
+        ("multipart/form-data", {"file": b"\x89PNG"}),
+        ("application/json", {}),
+    ]
+
+
+def test_custom_media_type_body_in_optional_request_body(ctx):
+    schemathesis.openapi.media_type("application/pdf", st.just(b"%PDF-1.4"))
+    operation = load_schema(
+        ctx, request_body={"content": {"application/pdf": {"schema": {"type": "string", "format": "binary"}}}}
+    )["/foo"]["post"]
+    assert [(case.media_type, case.body) for case in collect_cases(operation, GenerationMode.POSITIVE)] == [
+        ("application/pdf", b"%PDF-1.4")
+    ]
+
+
+def test_no_positive_custom_media_type_body_beside_a_required_parameter_without_values(ctx):
+    schemathesis.openapi.media_type("application/pdf", st.just(b"%PDF-1.4"))
+    operation = load_schema(
+        ctx,
+        parameters=[{"in": "query", "name": "q", "required": True, "schema": EMPTY_ENUM}],
+        request_body={
+            "required": True,
+            "content": {"application/pdf": {"schema": {"type": "string", "format": "binary"}}},
+        },
+    )["/foo"]["post"]
+    with pytest.raises(pytest.fail.Exception, match="generated no cases"):
+        collect_cases(operation, GenerationMode.POSITIVE)
+
+
+def coverage_bodies(operation, mode):
+    try:
+        cases = collect_cases(operation, mode)
+    except pytest.fail.Exception:
+        return []
+    return [case.body for case in cases if body_mode(case) == mode and case.media_type is not None]
+
+
+BODY_TYPE_VIOLATIONS = [[None, None], "AAA", None, False, 0]
+
+
+@pytest.mark.parametrize(
+    ("version", "body", "components", "positive", "negative"),
+    [
+        (
+            "3.0.2",
+            {
+                "type": "object",
+                "properties": {"ab": {"type": "integer"}},
+                "patternProperties": {"^\\p{L}$": {"type": "string"}},
+                "required": ["ab"],
+            },
+            None,
+            [{"ab": 0}],
+            [
+                {},
+                {"ab": {}},
+                {"ab": [None, None]},
+                {"ab": "AAA"},
+                {"ab": None},
+                {"ab": False},
+                {"ab": 2.5890419884777833e-42},
+                *BODY_TYPE_VIOLATIONS,
+            ],
+        ),
+        (
+            "3.0.2",
+            {
+                "type": "object",
+                "properties": {
+                    "a": {"type": "string", "pattern": "^a+$", "minLength": 2},
+                    "b": {"type": "string", "pattern": "^a+$", "minLength": 2, "title": "x"},
+                },
+                "required": ["a", "b"],
+            },
+            None,
+            [{"a": "aa", "b": "aaa"}, {"a": "aaa", "b": "aa"}, {"a": "aa", "b": "aa"}],
+            [
+                {"a": "aa"},
+                {"b": "aa"},
+                {"a": "aa", "b": "a"},
+                {"a": "aa", "b": "00"},
+                {"a": "aa", "b": {}},
+                {"a": "aa", "b": [None, None]},
+                {"a": "aa", "b": None},
+                {"a": "aa", "b": False},
+                {"a": "aa", "b": 0},
+                {"a": "a", "b": "aa"},
+                {"a": "00", "b": "aa"},
+                {"a": {}, "b": "aa"},
+                {"a": [None, None], "b": "aa"},
+                {"a": None, "b": "aa"},
+                {"a": False, "b": "aa"},
+                {"a": 0, "b": "aa"},
+                *BODY_TYPE_VIOLATIONS,
+            ],
+        ),
+        (
+            "3.0.2",
+            {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "a": {"$ref": "#/components/schemas/X"},
+                    "c": {"type": "string", "pattern": "\\p{Tibetan}"},
+                },
+                "required": ["a"],
+            },
+            {"X": {"type": "integer", "minimum": 5}},
+            [{"a": 6}, {"a": 5}],
+            [
+                {},
+                {"a": 4},
+                {"a": {}},
+                {"a": [None, None]},
+                {"a": "AAA"},
+                {"a": None},
+                {"a": False},
+                {"a": 2.5890419884777833e-42},
+                {"a": 5, "x-schemathesis-unknown-property": 42},
+                *BODY_TYPE_VIOLATIONS,
+            ],
+        ),
+        (
+            "3.0.2",
+            {
+                "type": "array",
+                "items": {"type": "object", "properties": {"a": {"type": "string", "pattern": "(?<=a+)b"}}},
+            },
+            None,
+            [[], [{}]],
+            [[[None, None]], ["AAA"], [None], [False], [0], {}, "AAA", None, False, 0],
+        ),
+        (
+            "3.1.0",
+            {"type": "object", "properties": {"a": {"anyOf": [False, {"type": "integer"}]}}, "required": ["a"]},
+            None,
+            [{"a": 0}],
+            [
+                {},
+                {"a": {}},
+                {"a": [None, None]},
+                {"a": "AAA"},
+                {"a": None},
+                {"a": False},
+                {"a": 2.5890419884777833e-42},
+                *BODY_TYPE_VIOLATIONS,
+            ],
+        ),
+        (
+            "3.1.0",
+            {
+                "type": "object",
+                "properties": {"a": {"oneOf": [{"$ref": "#/components/schemas/F"}, {"type": "integer"}]}},
+                "required": ["a"],
+            },
+            {"F": False},
+            [{"a": 0}],
+            [
+                {},
+                {"a": "AAA"},
+                {"a": 2.5890419884777833e-42},
+                {"a": {}},
+                {"a": [None, None]},
+                {"a": ""},
+                {"a": False},
+                {"a": True},
+                {"a": None},
+                *BODY_TYPE_VIOLATIONS,
+            ],
+        ),
+        (
+            "3.1.0",
+            {"allOf": [True, {"type": "object", "properties": {"a": {"type": "integer"}}}]},
+            None,
+            [{}, {"a": 0}],
+            [
+                {"a": {}},
+                {"a": [None, None]},
+                {"a": "AAA"},
+                {"a": None},
+                {"a": False},
+                {"a": 2.5890419884777833e-42},
+                *BODY_TYPE_VIOLATIONS,
+            ],
+        ),
+        (
+            "3.1.0",
+            {
+                "allOf": [
+                    {"$ref": "#/components/schemas/T"},
+                    {"type": "object", "properties": {"a": {"type": "integer"}}},
+                ]
+            },
+            {"T": True},
+            [{}],
+            [
+                {"a": {}},
+                {"a": [None, None]},
+                {"a": "AAA"},
+                {"a": None},
+                {"a": False},
+                {"a": 2.5890419884777833e-42},
+                *BODY_TYPE_VIOLATIONS,
+            ],
+        ),
+        (
+            "3.0.2",
+            {
+                "allOf": [
+                    {"type": "object", "additionalProperties": False},
+                    {"type": "object", "additionalProperties": False},
+                ]
+            },
+            None,
+            [{}],
+            [*BODY_TYPE_VIOLATIONS, {"x-schemathesis-unknown-property": 42}],
+        ),
+        (
+            "3.0.2",
+            {
+                "type": "object",
+                "properties": {"a": {"type": "string", "format": "uuid", "pattern": "^[0-9a-f-]+$", "maxLength": 200}},
+                "required": ["a"],
+            },
+            None,
+            None,
+            [
+                {},
+                {"a": ""},
+                {"a": "0"},
+                {"a": {}},
+                {"a": [None, None]},
+                {"a": None},
+                {"a": False},
+                {"a": 0},
+                *BODY_TYPE_VIOLATIONS,
+            ],
+        ),
+        (
+            "3.0.2",
+            {
+                "type": "object",
+                "properties": {
+                    "a": {
+                        "type": "array",
+                        "items": {"type": ["integer", "string"]},
+                        "contains": {"type": "integer"},
+                        "maxContains": 1,
+                        "minItems": 3,
+                    }
+                },
+                "required": ["a"],
+            },
+            None,
+            [{"a": [0, "", "", ""]}, {"a": [0, "", ""]}],
+            None,
+        ),
+        (
+            "3.1.0",
+            {"type": "object", "additionalProperties": {"type": "integer"}, "propertyNames": False},
+            None,
+            [{}],
+            BODY_TYPE_VIOLATIONS,
+        ),
+        (
+            "3.0.2",
+            {"type": "object", "additionalProperties": {"type": "integer"}, "propertyNames": {"not": {}}},
+            None,
+            [{}],
+            BODY_TYPE_VIOLATIONS,
+        ),
+        (
+            "3.0.2",
+            {"type": "object", "maxProperties": 0, "propertyNames": {"not": {}}},
+            None,
+            [{}],
+            BODY_TYPE_VIOLATIONS,
+        ),
+        (
+            "3.0.2",
+            {"type": "object", "properties": {"a": {"type": "integer", "examples": ["x"]}}},
+            None,
+            [{}, {"a": 0}],
+            [
+                {"a": {}},
+                {"a": [None, None]},
+                {"a": "AAA"},
+                {"a": None},
+                {"a": False},
+                {"a": 2.5890419884777833e-42},
+                *BODY_TYPE_VIOLATIONS,
+            ],
+        ),
+        (
+            "3.0.2",
+            {"type": "number", "format": "float", "maximum": 3.4028234663852886e38, "minimum": -3.4028234663852886e38},
+            None,
+            [3.4028234663852886e38, -3.4028234663852886e38],
+            [{}, [None, None], "AAA", None, False],
+        ),
+        (
+            "3.0.2",
+            {"type": "number", "format": "float", "maximum": 1.5, "minimum": -1.5},
+            None,
+            [0.5, 1.5, -0.5, -1.5],
+            [-2.5, 2.5, {}, [None, None], "AAA", None, False],
+        ),
+        (
+            "3.1.0",
+            {"type": "array", "prefixItems": [{"type": "integer"}], "items": {"type": "string"}, "uniqueItems": True},
+            None,
+            [[]],
+            [
+                [0, 0],
+                [{}],
+                [[None, None]],
+                ["AAA"],
+                [None],
+                [False],
+                [2.5890419884777833e-42],
+                {},
+                "AAA",
+                None,
+                False,
+                0,
+            ],
+        ),
+        ("3.0.2", {"enum": []}, None, [], ["AAA"]),
+        ("3.0.2", {"type": "string", "enum": ["AAA"]}, None, ["AAA"], [-58800, {}, [None, None], None, False, 0]),
+        (
+            "3.1.0",
+            {"type": "object", "propertyNames": {"type": "string", "maxLength": 2}},
+            None,
+            [{}],
+            [{"000": ""}, *BODY_TYPE_VIOLATIONS],
+        ),
+        (
+            "3.1.0",
+            {"type": "array", "prefixItems": [{"not": {}}, {"type": "integer"}]},
+            None,
+            [[]],
+            [{}, "AAA", None, False, 0],
+        ),
+        ("3.0.2", {"type": "string", "multipleOf": 2}, None, [""], [{}, [None, None], None, False, 0]),
+        ("3.0.2", {"type": "array", "uniqueItems": False}, None, [[]], [{}, "AAA", None, False, 0]),
+        (
+            "3.0.2",
+            {"type": "string", "uniqueItems": True, "not": {"minItems": 2}},
+            None,
+            None,
+            [["null", "null"], {}, [None, None], None, False, 0],
+        ),
+        ("3.0.2", {"type": "string", "format": "iri"}, None, ["https://0.com"], [{}, [None, None], None, False, 0]),
+        (
+            "3.1.0",
+            {"type": "integer", "minimum": 6, "exclusiveMinimum": 5},
+            None,
+            [7, 6],
+            [5, {}, [None, None], "AAA", None, False, 2.5890419884777833e-42],
+        ),
+        (
+            "3.0.2",
+            {"type": "string", "minLength": 2, "not": {"maxLength": 1}},
+            None,
+            ["000", "00"],
+            [{}, [None, None], None, False, 0],
+        ),
+        ("3.0.2", {"type": "array", "maxItems": 40000}, None, [[]], [{}, "AAA", None, False, 0]),
+        (
+            "3.0.2",
+            {"type": "array", "maxItems": 20},
+            None,
+            [[None] * 19, [None] * 20, []],
+            [[None] * 21, {}, "AAA", None, False, 0],
+        ),
+        (
+            "3.0.2",
+            {"type": "array", "maxItems": 1, "items": {"not": {}}},
+            None,
+            [[]],
+            [[{}], [[None, None]], [0], [""], [False], [True], [None], {}, "AAA", None, False, 0],
+        ),
+        (
+            "3.0.2",
+            {"type": "array", "maxItems": 1, "uniqueItems": True, "items": {"not": {}}},
+            None,
+            [[]],
+            [[{}], [[None, None]], [0], [""], [False], [True], [None], {}, "AAA", None, False, 0],
+        ),
+        ("3.0.2", {"type": "object", "minProperties": 0}, None, [{}], BODY_TYPE_VIOLATIONS),
+        # Draft 4 does not know `contains`, so a malformed one is ignored, as fuzzing does.
+        (
+            "3.0.2",
+            {"type": "array", "contains": {"type": "string", "maxLength": -1, "enum": ["x"]}},
+            None,
+            [[]],
+            [{}, "AAA", None, False, 0],
+        ),
+        (
+            "3.0.2",
+            {"type": "array", "contains": {"type": "string", "pattern": "(?u)^a+$"}},
+            None,
+            [],
+            [{}, "AAA", None, False, 0],
+        ),
+    ],
+    ids=[
+        "pattern-properties-python-cannot-read",
+        "properties-sharing-a-pattern",
+        "ref-property-beside-an-unbuildable-optional-one",
+        "items-with-a-lookbehind-pattern",
+        "any-of-with-a-false-branch",
+        "one-of-with-a-reference-to-false",
+        "all-of-with-a-true-branch",
+        "all-of-with-a-reference-to-true",
+        "all-of-closed-objects",
+        "uuid-with-a-pattern-and-a-max-length",
+        "max-contains",
+        "property-names-false",
+        "property-names-rejecting-every-name",
+        "max-properties-zero-and-no-valid-names",
+        "property-example-violating-its-schema",
+        "float-at-the-float32-limits",
+        "float-within-bounds",
+        "prefix-items-with-unique-items",
+        "empty-enum",
+        "enum-of-the-default-invalid-value",
+        "property-names-max-length",
+        "prefix-items-starting-with-false",
+        "string-multiple-of",
+        "unique-items-false",
+        "string-with-array-keywords",
+        "iri-format-under-openapi-30",
+        "exclusive-minimum-equal-to-the-value-below-minimum",
+        "min-length-contradicted-by-not",
+        "max-items-past-the-generation-buffer",
+        "max-items-past-the-drawn-limit-without-items",
+        "max-items-with-false-items",
+        "max-items-with-false-unique-items",
+        "min-properties-zero",
+        "contains-with-an-invalid-max-length",
+        "contains-with-an-inline-unicode-flag-pattern",
+    ],
+)
+def test_coverage_bodies(ctx, version, body, components, positive, negative):
+    extra = {"components": {"schemas": components}} if components else {}
+    operation = body_operation(ctx, body, version=version, **extra)
+    if positive is not None:
+        assert coverage_bodies(operation, GenerationMode.POSITIVE) == positive
+    if negative is not None:
+        assert coverage_bodies(operation, GenerationMode.NEGATIVE) == negative
+
+
+@pytest.mark.parametrize(
+    ("version", "schema"),
+    [
+        ("3.0.2", {"type": "array", "items": {"type": "object", "minProperties": 1}}),
+        ("3.1.0", {"type": "array", "prefixItems": [{"type": "object", "minProperties": 1}]}),
+    ],
+    ids=["items", "prefix-items"],
+)
+def test_no_empty_object_item_negative_for_an_optional_query_array(ctx, version, schema):
+    # `q=` with an empty object serializes to nothing, which is a valid request for an optional parameter.
+    operation = load_schema(
+        ctx, parameters=[{"in": "query", "name": "q", "schema": schema}], method="get", version=version
+    )["/foo"]["GET"]
+    assert targeted_values(operation, GenerationMode.NEGATIVE, "query", "q") == [
+        [["null", "null"]],
+        ["0"],
+        "AAA",
+        "null",
+        "true",
+        "0.5",
+    ]
+
+
+def test_negative_query_value_for_a_type_union(ctx):
+    schema = {"type": ["boolean", "integer"]}
+    operation = load_schema(
+        ctx,
+        parameters=[{"in": "query", "name": "q", "required": True, "schema": schema}],
+        method="get",
+        version="3.1.0",
+    )["/foo"]["GET"]
+    assert targeted_values(operation, GenerationMode.NEGATIVE, "query", "q") == [None, ["null", "null"], "AAA", "null"]
+
+
+def test_form_body_with_a_false_any_of_branch(ctx):
+    body = {
+        "type": "object",
+        "properties": {"a": {"anyOf": [{"type": "integer", "maximum": 5}, False]}},
+        "required": ["a"],
+    }
+    operation = body_operation(ctx, body, version="3.1.0", media_type="application/x-www-form-urlencoded")
+    assert coverage_bodies(operation, GenerationMode.POSITIVE) == [{"a": 4}, {"a": 5}, {"a": 0}]
+    assert coverage_bodies(operation, GenerationMode.NEGATIVE) == [{}, {"a": 6}, {"a": "AAA"}, {"a": True}, {"a": 0.5}]
+
+
+def test_positive_body_drawn_past_a_double_negation(ctx):
+    # The generator cannot follow `not: {not: ...}`, so it draws from the wider schema and keeps what the validator admits.
+    body = {
+        "type": "object",
+        "properties": {"a": {"type": "string", "maxLength": 3, "not": {"not": {"pattern": "\\p{Tibetan}"}}}},
+        "required": ["a"],
+    }
+    operation = body_operation(ctx, body)
+    assert assert_bodies(operation, GenerationMode.POSITIVE, valid=True, source=collect_cases)
+
+
+def test_positive_body_string_longer_than_a_pattern_can_draw(ctx):
+    body = {
+        "type": "object",
+        "properties": {"a": {"type": "string", "pattern": "^[a-z]+$", "minLength": 9000}},
+        "required": ["a"],
+    }
+    operation = body_operation(ctx, body)
+    assert [len(body["a"]) for body in coverage_bodies(operation, GenerationMode.POSITIVE)] == [9000]
+    assert_bodies(operation, GenerationMode.POSITIVE, valid=True, source=collect_cases)
+
+
+def test_negative_body_below_min_properties_past_the_drawn_limit(ctx):
+    operation = body_operation(ctx, {"type": "object", "minProperties": 300, "properties": {"x0": {"type": "integer"}}})
+    below = [
+        body
+        for body in coverage_bodies(operation, GenerationMode.NEGATIVE)
+        if isinstance(body, dict) and len(body) == 299
+    ]
+    assert below == [{f"x{index}": None for index in range(1, 300)}]
+
+
+def test_positive_query_values_for_a_parameter_accepting_anything(ctx):
+    operation = load_schema(
+        ctx,
+        parameters=[
+            {"in": "query", "name": "a", "required": True, "schema": True},
+            {"in": "query", "name": "b", "schema": {"type": "integer"}},
+        ],
+        method="get",
+        version="3.1.0",
+    )["/foo"]["GET"]
+    assert positive_queries(operation) == [
+        {"a": "null"},
+        {"a": {}, "b": "0"},
+        {"a": ["null", "null"], "b": "0"},
+        {"a": "0", "b": "0"},
+        {"a": "", "b": "0"},
+        {"a": "false", "b": "0"},
+        {"a": "true", "b": "0"},
+        {"a": "null", "b": "0"},
+    ]
+    assert targeted_values(operation, GenerationMode.NEGATIVE, "query", "b") == [
+        ["null", "null"],
+        "AAA",
+        "null",
+        "true",
+    ]
+
+
+def _ref(name):
+    return {"$ref": f"#/components/schemas/{name}"}
+
+
+PROPERTY = {"type": "object", "required": ["property"], "properties": {"property": {"type": "string"}}}
+# A trimmed CQL2 grammar: `Func` arguments recurse through `$dynamicRef`, which Draft 4 reads as "anything".
+CQL2_LIKE = {
+    "Expr": {"$dynamicAnchor": "expr", "oneOf": [_ref("Cmp"), _ref("Func"), {"type": "boolean"}]},
+    "Cmp": {
+        "type": "object",
+        "required": ["op", "args"],
+        "properties": {
+            "op": {"enum": ["="]},
+            "args": {"type": "array", "minItems": 2, "maxItems": 2, "items": _ref("Scalar")},
+        },
+    },
+    "Scalar": {"oneOf": [_ref("Casei"), _ref("Func"), _ref("Prop")]},
+    "Casei": {
+        "type": "object",
+        "required": ["op", "args"],
+        "properties": {
+            "op": {"enum": ["casei"]},
+            "args": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"oneOf": [_ref("Prop"), _ref("Func")]}},
+        },
+    },
+    "Func": {
+        "type": "object",
+        "required": ["op", "args"],
+        "properties": {
+            "op": {"type": "string", "not": {"enum": ["=", "casei"]}},
+            "args": {"type": "array", "items": {"oneOf": [_ref("Prop"), {"$dynamicRef": "#expr"}]}},
+        },
+    },
+    "Prop": PROPERTY,
+}
+
+
+def test_negative_bodies_are_rejected_under_every_draft(ctx):
+    # A 3.0 body can reference a grammar written for a newer draft; a negative only one reading
+    # rejects is a valid request under the other.
+    operation = body_operation(ctx, _ref("Expr"), version="3.0.2", components={"schemas": CQL2_LIKE})
+    document = json.loads(
+        json.dumps({"$ref": "#/$defs/Expr", "$defs": CQL2_LIKE}).replace("#/components/schemas/", "#/$defs/")
+    )
+    judges = [
+        body_validator(operation, validator_cls=jsonschema_rs.Draft4Validator),
+        jsonschema_rs.Draft202012Validator(document),
+    ]
+
+    bodies = [case.body for case in iter_cases(operation, GenerationMode.NEGATIVE) if case.body is not NOT_SET]
+
+    assert bodies, "No negative bodies generated"
+    assert [value for value in bodies if any(judge.is_valid(value) for judge in judges)] == []
+
+
+def test_coverage_pattern_with_identity_escape_in_body(ctx):
+    # ECMA-262 without the `u` flag allows identity escapes such as `\-`.
+    operation = body_operation(
+        ctx, {"type": "object", "properties": {"latitude": {"type": "string", "pattern": r"^\-?\d+$"}}}
+    )
+
+    assert_bodies(operation, GenerationMode.POSITIVE, valid=True)
+
+
+def test_coverage_pattern_with_identity_escape_in_query(ctx):
+    schema = build_schema(
+        ctx,
+        [{"in": "query", "name": "latitude", "schema": {"type": "string", "pattern": r"^\-?\d+$"}, "required": True}],
+    )
+
+    assert_positive_coverage(schema, [{"query": {"latitude": "0"}}])

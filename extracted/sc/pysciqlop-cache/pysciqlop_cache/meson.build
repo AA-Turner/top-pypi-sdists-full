@@ -1,0 +1,34 @@
+pysciqlop_cache_python_sources = [files('__init__.py', 'serializers.py', 'migrate.py')]
+fs = import('fs')
+fs.copyfile('__init__.py', '__init__.py')
+fs.copyfile('serializers.py', 'serializers.py')
+fs.copyfile('migrate.py', 'migrate.py')
+
+pymod = import('python')
+python3 = pymod.find_installation('python3')
+
+if meson.get_compiler('cpp').get_id() == 'msvc'
+    # NOMINMAX: nanobind's nb_combined.cpp pulls <windows.h> into the same TU
+    # as std::max() on free-threaded builds (NB_FREE_THREADED, nanobind >= 2.13).
+    pysciqlop_cache_cpp_args = ['/bigobj', '/DNOMINMAX']
+else
+    pysciqlop_cache_cpp_args = []
+endif
+
+if get_option('with_blosc2')
+    blosc2_dep = dependency('blosc2')
+    pysciqlop_cache_cpp_args += ['-DSCIQLOP_CACHE_WITH_BLOSC2']
+else
+    blosc2_dep = declare_dependency()
+endif
+
+_pysciqlop_cache = python3.extension_module('_pysciqlop_cache', 'pysciqlop_cache.cpp',
+                         dependencies: [sciqlop_cache_dep, fmt_dep, nanobind_dep, blosc2_dep, python3.dependency()],
+                         link_args: link_args,
+                         cpp_args: pysciqlop_cache_cpp_args,
+                         subdir: 'pysciqlop_cache',
+                         install: true,
+                         extra_files: [pysciqlop_cache_headers, sciqlop_cache_headers, sciqlop_cache_extra_files]
+                        )
+
+python3.install_sources(pysciqlop_cache_python_sources, pure: false, subdir: 'pysciqlop_cache')

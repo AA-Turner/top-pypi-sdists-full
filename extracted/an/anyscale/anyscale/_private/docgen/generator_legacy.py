@@ -169,12 +169,10 @@ def parse_legacy_sdks(
     Parse the legacy SDK markdown files into a list of LegacySDK objects.
     """
     legacy_sdks = [
-        LegacySDK.from_md(chunk)
-        for chunk in _chunk(api_md_file, "### ", ["### ", "## ", "# "])
+        LegacySDK.from_md(chunk) for chunk in _chunk(api_md_file, "### ", ["### ", "## ", "# "])
     ]
     legacy_models = [
-        LegacyModel.from_md(chunk)
-        for chunk in _chunk(model_md_file, "## ", ["## ", "# "])
+        LegacyModel.from_md(chunk) for chunk in _chunk(model_md_file, "## ", ["## ", "# "])
     ]
 
     return legacy_sdks, legacy_models

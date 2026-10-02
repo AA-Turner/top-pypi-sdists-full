@@ -1,0 +1,1716 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# runtime-rebuild-trigger.yml
+#
+# Triggers a runtime redeploy when a PR that touches runtime code merges to
+# dev or main. Closes the 6-day deploy gap (OMN-7963 / pr_review_bot failure
+# class).
+#
+# CI publishes onex.cmd.omnimarket.redeploy-start.v1 (consumed by node_redeploy),
+# NOT onex.cmd.deploy.rebuild-requested.v1 directly. node_redeploy owns the
+# deploy lifecycle (lane policy, digest pinning, readiness, rollback) and is the
+# sole emitter of the deploy-agent rebuild command (OMN-12573, blocker B1).
+#
+# The triggering base branch decides the runtime lane (dev -> dev lane, main ->
+# stability-test lane) and the merge commit SHA is the ref node_redeploy
+# rebuilds — there is no hardcoded origin/main.
+#
+# Trigger conditions (evaluated by scripts/trigger_rebuild_on_merge.py):
+#   - PR had the "runtime_change" label, OR
+#   - omniclaude's canonical deploy-gate classifier identifies a runtime path, OR
+#   - the merge touches a LANE-STATE path (OMN-18072): the forward-migration
+#     runner, the docker/migrations corpus it applies, the compose model or the
+#     runtime policy env. The canonical classifier answers "does this PR need
+#     deploy EVIDENCE" and is right to miss these; this trigger answers the
+#     wider "does this merge change what the lane RUNS". omnibase_infra#3352
+#     changed the migration runner and produced NO trigger (run 34330947198),
+#     so the seam never executed on the lane. The list is unioned with the
+#     canonical result, never replacing it — see LANE_STATE_PATH_PATTERNS.
+#     OMN-18671 added the repo-root dependency manifest and lock to that same
+#     list: the runtime image is BUILT from them, so a floor bump IS the change.
+#     omnimarket#2629 raised the omnibase-infra floor 0.38.30 -> 0.38.31, which
+#     swapped the installed lab binding table, and run 35323097013 classified it
+#     inert — no rebuild, no verify, no announce, no receipt.
+#
+# Control-bus routing is independent of the requested runtime lane. Both dev
+# and stability-test commands enter through the dev control bus where
+# node_redeploy_orchestrator consumes them; runtime_lane in the signed payload
+# decides the deployment target. The broker comes from omnimarket's checked-in
+# config/ci_bus_lanes.yaml overlay, not an opaque Actions secret (OMN-15009).
+#
+# Required GitHub Secrets: none. The deploy-agent HMAC belongs to the runtime
+# deploy EFFECT that emits rebuild-requested, not this upstream start command.
+#
+# RUNNER ROUTING (OMN-17888) — this job is LAN-BOUND and must not ride the
+# shared trusted-CI seam. The dev control-bus broker declared by the overlay is
+# a tailnet host:port. OMN-16682 retargeted OMNI_TRUSTED_CI_RUNS_ON_JSON to
+# ["ubuntu-latest"] at BOTH org and repo scope on 2026-08-26, which relocated
+# this publisher onto GitHub-hosted compute that cannot resolve that name. Every
+# run since that had a runtime change to publish has failed on a DNS error after
+# a 30-second flush; the runs that "passed" were no-ops with nothing to send.
+#
+# The remedy is the same carve-out already applied to call-occ-autobind.yml
+# (OMN-16691) and to omnimarket's pr-merged-publisher.yml (OMN-17378): a
+# DEDICATED runs-on variable, deliberately left UNSET so the self-hosted literal
+# operates. Fork PRs still route to hosted compute — untrusted code never
+# reaches the fleet — and the script refuses to attempt a LAN publish from a
+# github-hosted runner instead of timing out against an unresolvable name.
+#
+# Tickets: OMN-8917, OMN-12573, OMN-15009, OMN-17888
+
+name: Runtime Rebuild Trigger
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+      - dev
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  trigger-rebuild:
+    name: Trigger node_redeploy Start
+    if: github.event.pull_request.merged == true
+    runs-on: >-
+      ${{
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name != github.repository)
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON(vars.OMNI_RUNTIME_REBUILD_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+      }}
+    # OMN-18200 AC3 -- 5 -> 15, and the number comes from a measurement rather
+    # than from rounding up.
+    #
+    # WHAT WAS MEASURED. Step 7, "Set up CI Python environment", is BIMODAL, and
+    # the ceiling was set as though it were always warm:
+    #
+    #   run 34673385741   4s      warm
+    #   run 34669945527   4m01s   cold; job total 4m20s, i.e. 40s of headroom
+    #   run 34669847808   3m56s   cold and CANCELLED at the ceiling with the step
+    #                             still running, so its true cost is >= 3m56s and
+    #                             was never observed
+    #
+    # WHY COLD IS NOT RARE. This job resolves Python through the shared CI env
+    # (`shared-env-enabled: true`), whose directory is keyed by a digest that
+    # includes the lockfile (`scripts/ci/ensure_ci_env.sh` -> `ci_env_digest.py`)
+    # and which lives INSIDE each runner container at
+    # `/home/runner/.cache/omni/ci-envs`. So every change to `uv.lock` invalidates
+    # it on all 88 containers at once, and the first job on each container then
+    # pays the full build. A release version bump does exactly that -- #3449 bumped
+    # `dev` to 0.38.24 -- which is why the two cold runs above are adjacent in
+    # time. Cold is therefore guaranteed after every bump, not an outlier.
+    #
+    # WHY NOT NARROW THE ENV INSTEAD, which is the obvious alternative and is
+    # measured rather than dismissed. The publisher imports only `click`, `yaml`,
+    # `pydantic` and `confluent_kafka`, all four in the main dependency group, so
+    # passing `shared-env-install-args: --frozen --no-default-groups
+    # --no-install-project` is available. Measured locally: it takes the
+    # environment from 196 installed packages to 138, a 30% cut and nowhere near
+    # enough to make a cold build fast, because the main group alone resolves to
+    # those 138. And it would make the COMMON case worse: the digest keys on the
+    # install args, so a narrower set is a DIFFERENT env directory that no other
+    # job warms, converting today's 4s warm hit into a cold build on most runs.
+    # Rejected on that basis.
+    #
+    # WHY 15. It covers the measured cold build with roughly 3x margin, which the
+    # 5-minute ceiling did not cover at all. The cost of the larger number is
+    # bounded and small: this job publishes one command and does no long-running
+    # work, so when the env is warm it still finishes in seconds, and the only
+    # case that holds a runner slot longer is the one that previously produced a
+    # cancelled run and no classification at all.
+    timeout-minutes: 15
+    # Consumed by verify-lane-converged below: AC4 requires a
+    # delivered-but-not-applied redeploy to surface on the SAME run that
+    # published it, and only this job knows whether a command was published.
+    outputs:
+      published: ${{ steps.publish.outputs.published }}
+      source_sha: ${{ steps.publish.outputs.source_sha }}
+      runtime_lane: ${{ steps.publish.outputs.runtime_lane }}
+      # OMN-18573. The convergence guard below resolves the deploy agent's
+      # ACCEPTANCE of this exact command and measures the lane's budget from
+      # that moment, so a queue upstream of the agent is no longer spent out of
+      # the lane's clock. Empty when nothing was published; the guard reports
+      # INDETERMINATE on an empty id rather than inventing a start time.
+      correlation_id: ${{ steps.publish.outputs.correlation_id }}
+      # OMN-19507 AC2. Which deploy-agent instance the command is routed to,
+      # and so where verify-lane-converged runs and which receipt lane it emits.
+      routed_instance: ${{ steps.route.outputs.routed_instance }}
+      receipt_lane: ${{ steps.route.outputs.receipt_lane }}
+      verify_runs_on: ${{ steps.route.outputs.verify_runs_on }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v47
+        with:
+          separator: ","
+
+      - name: Fetch authoritative CI bus lane overlay
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: OmniNode-ai/omnimarket
+          ref: dev
+          path: .ci-bus-overlay
+          persist-credentials: false
+          sparse-checkout: |
+            config/ci_bus_lanes.yaml
+            src/omnimarket/nodes/node_redeploy_orchestrator/models/model_redeploy_start_command.py
+          sparse-checkout-cone-mode: false
+
+      - name: Fetch canonical deploy-path classifier
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: OmniNode-ai/omniclaude
+          ref: main
+          path: .deploy-gate-source
+          persist-credentials: false
+          sparse-checkout: |
+            .github/actions/deploy-gate/validate_pr_deploy_required.py
+          sparse-checkout-cone-mode: false
+
+      - name: Set up CI Python environment
+        uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: "3.12"
+          cache-key-prefix: uv-runtime-rebuild-trigger
+          cache-enabled: "false"
+          install-args: --frozen
+          shared-env-enabled: "true"
+
+      - name: Trigger node_redeploy if runtime change detected
+        id: publish
+        # All potentially attacker-controlled inputs (labels, base_ref, sha) are
+        # passed through environment variables to prevent shell injection.
+        env:
+          # OMN-18012 — the dev control-bus lane declares
+          # `security_protocol: SASL_PLAINTEXT` / `sasl_mechanism: SCRAM-SHA-256`
+          # in omnimarket's config/ci_bus_lanes.yaml, which this job sparse-checks
+          # out above. The publisher READS that declaration and refuses to
+          # downgrade it, so a SASL lane with no credentials in the job env is a
+          # hard failure rather than a silent plaintext publish. These are org
+          # secrets with ALL visibility; they are the dev-lane SCRAM principal.
+          KAFKA_SASL_USERNAME: ${{ secrets.KAFKA_SASL_USERNAME }}
+          KAFKA_SASL_PASSWORD: ${{ secrets.KAFKA_SASL_PASSWORD }}
+          PR_CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          # The triggering base branch decides the runtime lane; the merge
+          # commit SHA is the exact ref node_redeploy rebuilds.
+          PR_BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+          PR_MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          # Runner class is forwarded so the publisher can refuse a LAN publish
+          # from GitHub-hosted compute by name, rather than failing 30 seconds
+          # later on an unresolvable bootstrap host (OMN-17888).
+          CI_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: |
+          uv run python scripts/trigger_rebuild_on_merge.py \
+            --changed-files "$PR_CHANGED_FILES" \
+            --labels "$PR_LABELS" \
+            --base-branch "$PR_BASE_BRANCH" \
+            --source-sha "$PR_MERGE_SHA" \
+            --bus-lane "dev" \
+            --bus-overlay ".ci-bus-overlay/config/ci_bus_lanes.yaml" \
+            --consumer-model ".ci-bus-overlay/src/omnimarket/nodes/node_redeploy_orchestrator/models/model_redeploy_start_command.py" \
+            --runtime-path-validator ".deploy-gate-source/.github/actions/deploy-gate/validate_pr_deploy_required.py" \
+            --runner-environment "$CI_RUNNER_ENVIRONMENT" \
+            --requested-by "gha/omnibase_infra/pr-$PR_NUMBER"
+
+      # OMN-19507 AC2: route the command the step above published, by the rule
+      # the deploy agent itself applies (config/deploy_lane_routing.yaml, read
+      # from this merge checkout, which is the agent's git_ref). The lane is
+      # `dev` because verify-lane-converged only runs for dev commands. The
+      # operator ruled on 2026-09-25 that omnibase_infra changes are proven on
+      # .201 only, so this resolves to dev-201 and a test refuses any route
+      # that moves omnibase_infra off it. Fails the job on an unreadable table
+      # rather than leaving the verify job a guessed runner.
+      - name: Resolve the deploy-agent instance the command is routed to
+        id: route
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          uv run python scripts/ci/check_dev_lane_staleness.py \
+            --write-route-outputs \
+            --runtime-lane dev \
+            --requested-by "gha/omnibase_infra/pr-$PR_NUMBER"
+
+  # OMN-17888 AC4 — publication is not application.
+  #
+  # The publisher above proves a command reached the broker. It cannot prove the
+  # lane ran it, and on 2026-09-06 that difference was the whole outage: five
+  # commands were delivered and consumed (redeploy-start watermark 63 -> 68,
+  # orchestrator consumer group LAG 0) while omninode-runtime-effects
+  # dead-lettered the downstream prod-promotion-gate-evaluated event with
+  # failure_class=no_dispatcher, and the dev lane never moved. Nothing went red.
+  #
+  # This job closes that gap on the same run: it waits a bounded window for the
+  # lane to report the merge SHA as its running image revision, and fails when
+  # it does not. The hourly dev-lane-staleness.yml is the standing surface; this
+  # is the per-merge one.
+  verify-lane-converged:
+    name: Verify dev lane applied the redeploy
+    needs: trigger-rebuild
+    # OMN-18976. The merges that were queued behind this one and therefore
+    # emitted no receipt of their own. A JSON array, because the consumer is a
+    # matrix job and an EMPTY array skips it entirely, which is what should
+    # happen when nothing was queued.
+    outputs:
+      reemit_candidates: ${{ steps.converge.outputs.reemit_candidates }}
+    # Only for the dev lane: merges to main target the stability-test lane,
+    # which this guard deliberately does not read.
+    #
+    # OMN-18976, the residual gap: NOT only when a command was published. A
+    # NON_RUNTIME merge has no rebuild to wait for, and until this change the
+    # whole job was skipped with it -- including the answer for merges queued
+    # behind an earlier one. When the lane then converged by a route this
+    # repository never watched (another repository's push naming a newer ref),
+    # a queued merge was orphaned for good: 84a1e7c3ec (#4160) on 2026-09-26,
+    # followed by two NON_RUNTIME merges whose runs skipped this job. Only the
+    # WAIT is skippable. With nothing published the guard runs in --observe
+    # mode: no wait, the lane read as it is, and an answer only when the deploy
+    # agent is idle and a receipt-less runtime-affecting merge exists.
+    if: >-
+      needs.trigger-rebuild.outputs.runtime_lane == 'dev'
+    # The lane's docker daemon is on the LAN; hosted compute cannot see it.
+    # Unconditional self-hosted rather than the fork fallback the publisher
+    # uses, because the checkout below is pinned to the trusted base ref, so no
+    # fork-authored code executes on the fleet.
+    #
+    # OMN-18602: moved off `omnibase-deploy`. OMN-18408 split five probes onto
+    # the verify class and deliberately left this one behind, "pending a
+    # follow-up decision on the remainder". This is that decision, and the
+    # measurement it was missing: over the 38 non-skipped executions between
+    # 2026-09-15T22:49Z and 2026-09-17T15:39Z this job QUEUED a median 29.1
+    # min, p90 75.8, max 101.3, with 18 of 38 over half an hour. Job
+    # `created_at` is stamped when `needs` completes -- run 35223485518 has
+    # `trigger-rebuild` finishing at 12:51:27Z, this job created at 12:51:28Z
+    # and started at 13:42:01Z -- so that is runner queue, not dependency wait.
+    #
+    # The queue is spent BEFORE the derived budget below starts, so it never
+    # corrupted a verdict. What it delayed was delivery: rule 24(b) fails
+    # closed without a PASS receipt for the exact sha, so a 101-minute queue is
+    # a 101-minute staging stall.
+    #
+    # THIS JOB WRITES NOTHING. It polls `check_dev_lane_staleness.py`, which
+    # reads a `docker inspect` of the lane container and the deploy agent's
+    # HTTP surface, then probes readiness. It needs the host's docker socket
+    # and its `host.docker.internal` gateway, both of which the verify runners
+    # carry; it never needed the private OMNI_HOME clone tree that is the
+    # deploy runner's reason to exist.
+    #
+    # A SECOND `omnibase-deploy` RUNNER WAS REFUSED, not overlooked. That would
+    # let two lane-mutating release-train jobs run at once, and a `concurrency`
+    # group cannot prevent it: a concurrency group is scoped to ONE repository,
+    # and the sibling reusable's copy of this job is called from omnimarket.
+    # The single physical deploy runner is the only serialisation guard that
+    # holds across repositories, so it keeps the two DEPLOY jobs and nothing
+    # else.
+    #
+    # `host-201` is not decoration. `omnibase-verify` names a CLASS, and
+    # omninode-mini-runner-1 and omninode-air-runner-1 carry it on other lab
+    # hosts. A run placed there would not fail to schedule; it would report
+    # this lane unreachable, which reads as a lane outage. Pinned by
+    # tests/ci/test_verify_runner_runs_on_omn18408.py.
+    # OMN-19507 AC2: the runner is the ROUTED instance's, declared in
+    # config/deploy_lane_routing.yaml and resolved by the trigger job. For
+    # dev-201 that is exactly [self-hosted, omnibase-verify, host-201], and the
+    # reasons above for the host label hold unchanged; dev-202's is host-202.
+    # An empty output fails fromJSON, so the job cannot start on a guessed
+    # runner.
+    runs-on: ${{ fromJSON(needs.trigger-rebuild.outputs.verify_runs_on) }}
+    # 25-minute convergence wait + margin.
+    #
+    # WHAT THAT 25 MINUTES COVERS, stated honestly rather than derived from a
+    # number that measures something else. node_redeploy_orchestrator and
+    # node_redeploy_deploy_effect each declare timeout_ms: 660000 (11 min).
+    # That bounds ONE correlation's execution. It is NOT the end-to-end latency
+    # from merge to lane, because the deploy effect is serial: it publishes one
+    # rebuild-requested, then polls for completion until that same timeout, so N
+    # correlations queued ahead of this merge cost at least N x 11 min before
+    # this merge's command is even published to the agent.
+    #
+    # So this bound covers a lane whose effect queue is EMPTY, and cannot cover
+    # a backlogged one. Measured 2026-09-10 (peer lane reading the control topic
+    # offsets 95..125 against the agent's own job store): five stale
+    # correlations occupied the effect from 07:06Z to 11:08Z, and the command
+    # for a 07:37:40Z merge did not reach the agent's topic until 11:08:23Z --
+    # 3h31m after this job's window had closed. Publish-to-accept, once a
+    # command existed, was 268ms.
+    #
+    # The bound is deliberately NOT widened to chase that: no wall clock short
+    # of hours would have caught it, and a longer wait holds the single
+    # omnibase-deploy runner slot longer, which serializes the NEXT merge's
+    # guard behind this one. The right fix is for the guard to read queue
+    # position rather than wall clock, and the queue it needs to read is the
+    # effect's. That is a design change, not a constant.
+    # DERIVED, not chosen: converge --wait-timeout 25m + the declared
+    # compose-dev settle budget (900s, config/lab_pass_settle_budget.yaml)
+    # + RESERVED_TAIL_SECONDS 120s = 2520s = 42m. Asserted by
+    # tests/ci/test_lab_pass_settle_budget.py, which also keeps it bounded
+    # above so a wedged job is still visible (OMN-18436).
+    timeout-minutes: 45
+    steps:
+      - name: Checkout the guard from the trusted base ref
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          # NEVER the merge ref: a merged fork PR would put fork-authored code
+          # on the self-hosted fleet. The base branch is repo-owned code.
+          ref: ${{ github.event.pull_request.base.ref }}
+          persist-credentials: false
+          # OMN-18976 durable floor: the re-emission walk reads up to 40
+          # first-parent commits below the lane's revision and classifies each
+          # one, which needs their trees. 250 leaves the base branch room to
+          # have moved past the lane; a commit outside it fails the walk
+          # closed (nothing is widened), never open.
+          fetch-depth: 250
+
+      # OMN-18976 durable floor. The walk answers only for RUNTIME-AFFECTING
+      # merges, classified by the trigger's own predicate (OMN-19318), which
+      # reads omniclaude's canonical deploy-gate validator -- the same file the
+      # trigger job above fetches, by the same sparse checkout.
+      - name: Fetch canonical deploy-path classifier
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: OmniNode-ai/omniclaude
+          ref: main
+          path: .deploy-gate-source
+          persist-credentials: false
+          sparse-checkout: |
+            .github/actions/deploy-gate/validate_pr_deploy_required.py
+          sparse-checkout-cone-mode: false
+
+      # Repo invariant (tests/ci/test_ci_workflow_resilience.py): every job in
+      # this workflow resolves Python through the shared CI env action, never
+      # ad hoc. The guard itself is stdlib-only, but the invariant is about the
+      # environment, not the dependency count.
+      - name: Set up CI Python environment
+        uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: "3.12"
+          cache-key-prefix: uv-dev-lane-staleness
+          cache-enabled: "false"
+          install-args: --frozen
+          shared-env-enabled: "true"
+
+      # OMN-17530 rule 24(a): the receipt carries the window it measured, so
+      # the start is recorded before the convergence wait, not after it.
+      - name: Record the lab-pass window start and claim a private receipt directory
+        run: |
+          set -euo pipefail
+          echo "LAB_PASS_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+
+          # OMN-18420. Every lab-pass path below used to be a FIXED absolute
+          # path under /tmp, and every emitting job in this repository and in
+          # the sibling reusable runs on the SAME `omnibase-deploy` host. A
+          # `mkdir -p` on a directory that already exists is a no-op, so a
+          # receipt.json left behind by an earlier job survived into the next
+          # one. When that next job's emit did not overwrite it -- because the
+          # probe feeding it failed, or the emit itself did -- the presence
+          # assertion found the STALE file, passed, and upload-artifact
+          # published it under THIS job's sha-keyed name.
+          #
+          # Measured: omnimarket run 35035178406 uploaded artifact 10424013456
+          # named lab-pass-receipt-compose-dev-bc21f733... (an omnimarket
+          # commit) whose payload declared sha a7ea64f5... -- an omnibase_infra
+          # commit -- with a `deployed_revision` check citing
+          # check_dev_lane_staleness.py, which is THIS workflow's emitter shape
+          # and not the sibling one's. The delivery gate's name/payload
+          # cross-check caught it, so the direction was safe; the cost is that
+          # the sibling sha could never receipt PASS, and rule 24(b) then
+          # refuses that sha for staging.
+          #
+          # RUNNER_TEMP alone is not enough: a self-hosted runner reuses it
+          # across jobs. The run id, the attempt and the job name together name
+          # exactly one execution, and the `rm -rf` is what makes the claim
+          # true rather than merely likely.
+          LAB_PASS_WORK="${RUNNER_TEMP}/lab-pass-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_JOB}"
+          rm -rf "${LAB_PASS_WORK}"
+          mkdir -p "${LAB_PASS_WORK}/receipt"
+          echo "LAB_PASS_DIR=${LAB_PASS_WORK}/receipt" >> "$GITHUB_ENV"
+          echo "LAB_PASS_CHECKS=${LAB_PASS_WORK}/checks.json" >> "$GITHUB_ENV"
+
+      # OMN-19507 AC2: every lane-specific value below comes from the routed
+      # instance's verify: block in config/deploy_lane_routing.yaml, written to
+      # the job environment once here: RECEIPT_LANE, DEPLOY_AGENT_URL, the three
+      # DEV_LANE_*_URL readiness URLs, DEV_LANE_COMPOSE_PROJECT and the runtime,
+      # effects, postgres and broker containers. The committed table routes every
+      # merge to dev-201, whose block is literally the values this job hard-coded
+      # before (tests/ci/test_deploy_lane_verify_route_omn19507.py). An unknown
+      # lane exits non-zero and writes nothing, so no later step runs against a
+      # guessed lane.
+      - name: Read the routed lane's verify targets
+        env:
+          ROUTED_RECEIPT_LANE: ${{ needs.trigger-rebuild.outputs.receipt_lane }}
+        run: |
+          set -euo pipefail
+          uv run python scripts/ci/check_dev_lane_staleness.py \
+            --write-lane-env \
+            --lane "$ROUTED_RECEIPT_LANE"
+
+      # OMN-18388: this waits for the lane to report a revision that CONTAINS
+      # the merge sha, not one byte-equal to it. The deploy agent rebuilds from
+      # whatever dev head is current when it gets to the job, so on a busy
+      # branch the lane converges onto a DESCENDANT and byte equality reported
+      # that as never-applied. The stale direction (an ancestor) is unchanged
+      # and still fails, and so does a revision dev does not contain.
+      # OMN-18573: the 25 minutes below is the LANE's budget and is measured
+      # from the moment the deploy agent ACCEPTS the rebuild command, not from
+      # when this step starts. The redeploy-start effect is serial, so the wait
+      # between the merge and the agent taking the command is a queue the lane
+      # is not responsible for; spending the lane's budget on it produced a
+      # FAIL receipt for a lane that converged three minutes later, twice
+      # (OMN-17214, 2026-09-16 and 2026-09-17, receipt artifact 10496150688).
+      #
+      # `--wall-clock-seconds` is a BOUND on how long THIS step may watch, not
+      # the budget: the ceiling less the elapsed time, the lane's declared
+      # settle budget and the reserved tail, derived by the same fail-closed
+      # reader the probe uses. When the bound is what stops the wait, or when
+      # the acceptance cannot be established at all, the guard reports
+      # INDETERMINATE and says which -- never a FAIL asserting the lane
+      # misbehaved. The receipt is still non-PASS either way, so rule 24(b)
+      # stays closed. Nothing here widens the ceiling.
+      - name: Wait for the dev lane to report a revision containing the merge SHA
+        id: converge
+        # The guard exits 3 for INDETERMINATE, which is non-zero and must not
+        # abort the job before the receipt is written. The emit step below
+        # reads this step's `verdict` OUTPUT, which carries all three values;
+        # `continue-on-error` keeps the run alive to produce the artifact and
+        # the verdict is what decides the check.
+        # advisory-ok: OMN-19507 INDETERMINATE exit 3 must not stop the receipt write; the emit step's verdict decides the check
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MERGE_SHA: ${{ needs.trigger-rebuild.outputs.source_sha }}
+          CORRELATION_ID: ${{ needs.trigger-rebuild.outputs.correlation_id }}
+          # The deploy agent's own HTTP surface on this host, the same one
+          # `fetch_lab_overlay_record.py` already reads from this runner class.
+          # Its /job/<correlation_id> endpoint serves the acceptance timestamp.
+          DEPLOY_AGENT_URL: ${{ env.DEPLOY_AGENT_URL }}
+          JOB_TIMEOUT_MINUTES: 45
+          RESERVED_TAIL_SECONDS: 120
+          PUBLISHED: ${{ needs.trigger-rebuild.outputs.published }}
+          RUNTIME_PATH_VALIDATOR: .deploy-gate-source/.github/actions/deploy-gate/validate_pr_deploy_required.py
+        run: |
+          set -euo pipefail
+          # OMN-18976: a merge that published no rebuild has nothing to wait
+          # for, so the WAIT is skipped and the lane is observed as it is. The
+          # observation answers for receipt-less runtime-affecting merges the
+          # lane already contains, and writes emit_receipt/probe_lane false
+          # when there are none, so no probe runs and nothing is uploaded.
+          if [[ "$PUBLISHED" != "true" ]]; then
+            # Fail-closed defaults, overwritten by the guard when it decides.
+            # A guard that dies mid-observation leaves these: nothing probed,
+            # nothing emitted, nothing re-emitted -- and the step red.
+            {
+              echo "mode=observe"
+              echo "emit_receipt=false"
+              echo "probe_lane=false"
+              echo "reemit_candidates=[]"
+            } >> "$GITHUB_OUTPUT"
+            uv run python scripts/ci/check_dev_lane_staleness.py \
+              --lane "$RECEIPT_LANE" \
+              --observe \
+              --observed-merge "$MERGE_SHA" \
+              --agent-url "$DEPLOY_AGENT_URL" \
+              --runtime-path-validator "$RUNTIME_PATH_VALIDATOR" \
+              --clone .
+            exit 0
+          fi
+
+          STARTED_EPOCH=$(date -u -d "${LAB_PASS_STARTED_AT}" +%s 2>/dev/null \
+            || python3 -c "import datetime,os;print(int(datetime.datetime.strptime(os.environ['LAB_PASS_STARTED_AT'],'%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=datetime.UTC).timestamp()))")
+          ELAPSED=$(( $(date -u +%s) - STARTED_EPOCH ))
+
+          # Derived by a tested Python step, never shell arithmetic, and
+          # fail-closed: an unresolvable declaration exits non-zero and prints
+          # nothing, so a partial capture cannot become a guessed bound.
+          CONVERGE_WALL_CLOCK=$(uv run python scripts/ci/lane_settle_budget.py \
+            --lane "$RECEIPT_LANE" \
+            --converge-wall-clock \
+            --job-ceiling-seconds "$(( JOB_TIMEOUT_MINUTES * 60 ))" \
+            --elapsed-seconds "$ELAPSED" \
+            --reserved-tail-seconds "$RESERVED_TAIL_SECONDS")
+          echo "converge wall clock: ${CONVERGE_WALL_CLOCK}s"
+
+          uv run python scripts/ci/check_dev_lane_staleness.py \
+            --lane "$RECEIPT_LANE" \
+            --expect-revision "$MERGE_SHA" \
+            --wait-timeout 25m \
+            --poll-interval 60s \
+            --agent-url "$DEPLOY_AGENT_URL" \
+            --correlation-id "$CORRELATION_ID" \
+            --wall-clock-seconds "$CONVERGE_WALL_CLOCK" \
+            --runtime-path-validator "$RUNTIME_PATH_VALIDATOR" \
+            --clone .
+
+      # OMN-17530 rule 24(a) -- the .201 compose dev lane's half of the
+      # automatic lab pass.
+      #
+      # The convergence guard above proves the lane is RUNNING the merge sha.
+      # That is the deployed-revision check and nothing more; it says nothing
+      # about whether what is running works. These probes add the readiness and
+      # health-dimension reads an integration pass makes by hand, and the
+      # receipt records both together, keyed by the sha, so the fact survives
+      # the run.
+      #
+      # WHAT THIS RECEIPT COVERS, corrected 2026-09-20 (OMN-18866). Until then
+      # this comment said migrations applied, consumer-group lag and a
+      # delegation golden chain "all need database or broker access this job
+      # does not have". That was true of the `omnibase-deploy` runner and is
+      # false of the `omnibase-verify` runner OMN-18602 moved this job to, so
+      # the first two are wired in the steps above.
+      #
+      # TWO of the three, not three. The delegation check was wired the same
+      # day and REVERTED within the hour, so
+      # scripts/ci/lab_pass_receipt.py's PROBES_NOT_YET_WIRED still names it
+      # and is NOT empty. An earlier revision of this comment said it was, and
+      # that sentence outlived the revert by a day: the executable state was
+      # right and the prose beside it claimed coverage the receipt does not
+      # carry, which is the OMN-18864 silent-coverage shape reproduced in a
+      # comment. `test_the_workflow_prose_agrees_with_the_unwired_set` now
+      # reads this file against that constant, so the claim and the tuple
+      # cannot drift apart again.
+      #
+      # WHY IT WAS REVERTED, so the next reader does not redo it: the check was
+      # bound to a chain-canary dispatch fired inline from this job. The canary
+      # is a separately owned surface whose scheduled runs were already red
+      # (OMN-18872), and this job sits on the delivery critical path, so the
+      # binding failed compose-dev receipts for healthy shas and blocked the
+      # release train under rule 24(b). Re-wiring it means the canary emitting
+      # its OWN sha-keyed receipt and this job READING it, never dispatching.
+      #
+      # It is still not a hand-run integration pass. Rule 24(d) applies: the
+      # lag check covers the lane's STANDALONE writer groups, derived from its
+      # compose file, and not the contract auto-wired groups, which need a live
+      # manifest read this job does not do. Widening the set means adding the
+      # probe AND the check name in one change -- never the name alone.
+      #
+      # Rule 24(d) also applies and is not worked around here: the compose dev
+      # lane has no onex-api and no RLS, so it cannot exercise tenant-scoped
+      # paths at all, and no check below claims otherwise.
+      # --- OMN-18866: the three integration subjects ------------------------
+      #
+      # The premise this job used to carry -- that these three probes need
+      # database or broker access it does not have -- was TRUE of the
+      # `omnibase-deploy` runner and is FALSE of the `omnibase-verify` runner
+      # OMN-18602 moved it to. Re-measured 2026-09-20 from inside
+      # `omninode-verify-runner-1`, with the control pair rule 16 asks for:
+      # the lane's postgres and broker ports CONNECT (curl exit 52) while the
+      # then-down runtime port REFUSES (curl exit 7), so "unreachable" has a
+      # distinguishable signature and neither dependency produced it.
+      #
+      # Everything below is READ-ONLY. Nothing starts, stops or recreates.
+
+      - name: Derive this lane's declared writer consumer groups
+        id: groups
+        # OMN-18976: an observation with nothing to answer for probes nothing.
+        if: always() && steps.converge.outputs.probe_lane != 'false'
+        run: |
+          set -euo pipefail
+          # Derived from the lane's OWN compose file, which is the minting
+          # authority for a standalone writer's group id, by the module that
+          # already owns that derivation. A second derivation here would be a
+          # second declaration free to disagree with the first, which is the
+          # whole of the OMN-15837 defect that module exists to end.
+          #
+          # TWO THINGS HERE ARE FIXES FOR HOW THIS STEP FAILED IN PRODUCTION
+          # on run 35488731787, and neither is cosmetic.
+          #
+          # 1. INVOKED FROM THE REPOSITORY ROOT, by path, with no `cd`. The
+          #    first version ran `cd scripts/runtime_build && uv run python
+          #    declared_consumer_groups.py`, which exited 1 in 0.086s having
+          #    printed NOTHING -- before Python started. Every other step in
+          #    this job that works calls `uv run python <path-from-root>`, and
+          #    that is the shape the shared CI env's `uv` shim is exercised
+          #    with. There is no reason to be the one step that differs.
+          #
+          # 2. THE RESULT TRAVELS AS A FILE, not a step output. The stdout of
+          #    the first version was swallowed by a command substitution, so
+          #    when it failed the step output was simply never set, the
+          #    consuming expression delivered an EMPTY STRING, and the probe
+          #    read that as "this lane declares no consumer groups" -- a false
+          #    statement about a lane that declares six, which then refused
+          #    every dev sha for staging. An unset step output and an empty
+          #    declaration are the same bytes; a MISSING FILE and an EMPTY
+          #    FILE are not.
+          #
+          # The deriver still exits non-zero on an empty result, so a lane that
+          # genuinely declares nothing stops here rather than being reported as
+          # measured.
+          uv run python scripts/runtime_build/declared_consumer_groups.py \
+            --compose docker/docker-compose.dev-lane.yml \
+            --env local \
+            --out "${LAB_PASS_DIR}/declared-groups.txt"
+
+      - name: Take the earlier consumer-lag sample
+        # OMN-18976: an observation with nothing to answer for probes nothing.
+        if: always() && steps.converge.outputs.probe_lane != 'false'
+        env:
+          DEV_LANE_BROKER_CONTAINER: ${{ env.DEV_LANE_BROKER_CONTAINER }}
+          # The broker's INTERNAL listener, addressed from inside its own
+          # container -- the same form `verify_stability_refresh.py` already
+          # uses for `rpk cluster health`, not the published host port.
+          DEV_LANE_BROKER_ADDRESS: redpanda:9092
+          # The lane declares SASL_PLAINTEXT / SCRAM-SHA-256 (OMN-18012), so a
+          # group read needs a credential. These are the SAME org secrets the
+          # sibling `trigger-rebuild` job above already uses, so no new
+          # credential surface is created here. They are passed by VARIABLE
+          # NAME to the probe, never on a command line: a credential in argv is
+          # a credential in the process listing.
+          KAFKA_SASL_MECHANISM: SCRAM-SHA-256
+          KAFKA_SASL_USERNAME: ${{ secrets.KAFKA_SASL_USERNAME }}
+          KAFKA_SASL_PASSWORD: ${{ secrets.KAFKA_SASL_PASSWORD }}
+        run: |
+          set -euo pipefail
+          # BEFORE the convergence wait would be better still, but the lane is
+          # mid-recreate then and a reading taken against a restarting consumer
+          # is not a baseline. Taken here instead, before the settle wait, so
+          # the two samples straddle the lane's boot rather than being two
+          # reads a millisecond apart.
+          #
+          # This never fails the job. A baseline that could not be taken means
+          # the growth arm has nothing to compare against, and the check SAYS
+          # it did not measure growth. Failing here would turn a missing
+          # baseline into a missing RECEIPT, which is strictly worse.
+          uv run python scripts/ci/lab_pass_receipt.py sample-lag \
+            --broker-container "$DEV_LANE_BROKER_CONTAINER" \
+            --broker-address "$DEV_LANE_BROKER_ADDRESS" \
+            --consumer-groups-file "${LAB_PASS_DIR}/declared-groups.txt" \
+            --out "${LAB_PASS_DIR}/lag-sample.json"
+
+      # ONE fetch, TWO consumers. This job gained a second, byte-identical
+      # checkout of the same repository at the same ref into the same path
+      # when OMN-18769 (#3821) and OMN-18866 landed within hours of each other
+      # -- two changes that each needed the lane overlay, neither of which
+      # could see the other's step because they were written against the same
+      # base. Collapsed here rather than left as a duplicate: two checkouts
+      # racing one path is a clash waiting for a version of `checkout` that
+      # stops cleaning the destination first.
+      #
+      # It carries OMN-18769's continue-on-error, which was the stricter of the
+      # two readings and is the right one: an overlay fetch failure must not
+      # fail the lab pass, because the verdict publish it feeds is
+      # observability and the artifact already carries the verdict.
+      #
+      # Since the delegation dispatch was removed, OMN-18769's verdict publish
+      # is the ONLY remaining consumer of this checkout. It is left in place
+      # rather than folded back into that step so the two are not re-coupled;
+      # if the delegation check is ever wired the way its own note argues, it
+      # will want this same fetch and will not have to re-add it.
+      - name: Fetch the declared CI bus lanes
+        if: always()
+        # advisory-ok: OMN-18866 overlay fetch shared by the delegation dispatch and the OMN-18769 verdict publish; neither may fail the lab pass on it
+        continue-on-error: true
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: OmniNode-ai/omnimarket
+          ref: dev
+          path: .ci-bus-overlay
+          persist-credentials: false
+          sparse-checkout: |
+            config/ci_bus_lanes.yaml
+          sparse-checkout-cone-mode: false
+
+      # THE CHAIN-CANARY DISPATCH THAT STOOD HERE HAS BEEN REMOVED (OMN-18866
+      # follow-up), and this comment is the record of why, because the next
+      # person to want a delegation check in this receipt will reach for
+      # exactly what was here.
+      #
+      # It fired one live delegation through the deployed lane ingress and the
+      # probe below graded its receipt. That coupled the compose-dev lab-pass
+      # receipt -- which rule 24(b) makes a hard precondition for delivery to
+      # staging -- to a SEPARATELY OWNED surface whose scheduled runs were
+      # already red on the tenant-bearing ingress (OMN-18872). The result,
+      # measured on run 35488731787: a healthy, converged lane with seven
+      # passing checks was refused for staging, and every dev sha after it,
+      # until this was reverted.
+      #
+      # A check that cannot pass blocks delivery, which makes it strictly worse
+      # than one that merely cannot fail. Do not re-add the dispatch here. The
+      # right shape, argued at the PROBES_NOT_YET_WIRED entry in
+      # scripts/ci/lab_pass_receipt.py, is for the canary to emit its OWN
+      # sha-keyed receipt and for this gate to READ it -- which decouples the
+      # two surfaces and keeps the delivery path off another lane's dispatch.
+      # The probe function, its CLI flag and its tests are all still there for
+      # that wiring.
+
+      - name: Probe the dev lane
+        id: probe
+        # OMN-18976: an observation with nothing to answer for probes nothing.
+        if: always() && steps.converge.outputs.probe_lane != 'false'
+        env:
+          # Must equal this job's own `timeout-minutes`, and the settle budget
+          # below is derived from it. A tail is reserved for the three probe
+          # reads, the emit step and the artifact upload, so the settle wait can
+          # never consume the time the receipt needs to be WRITTEN -- an
+          # unwritten receipt is the one outcome worse than a failing one.
+          # Must equal this job's own `timeout-minutes`, which is DERIVED from the
+          # declared parts (converge 25m + declared settle 900s + this tail) and
+          # asserted by tests/ci/test_lab_pass_settle_budget.py.
+          JOB_TIMEOUT_MINUTES: 45
+          RESERVED_TAIL_SECONDS: 120
+          # The container whose generation binds these HTTP reads to the one the
+          # convergence guard verified. Empty CONVERGE_GENERATION means the
+          # guard published none, which FAILS the binding check rather than
+          # skipping it.
+          DEV_LANE_CONTAINER: ${{ env.DEV_LANE_RUNTIME_CONTAINER }}
+          CONVERGE_GENERATION: ${{ steps.converge.outputs.generation }}
+          # `host.docker.internal`, NOT `localhost`. This job runs on the
+          # lane's host's docker DAEMON, not in the host's network namespace:
+          # the `omnibase-deploy` runner is a container
+          # (`omninode-deploy-runner`, `NetworkMode=docker_default`) with
+          # `/var/run/docker.sock` bind-mounted. The socket is why the
+          # `docker inspect` revision read above works; the bridge network is
+          # why an HTTP probe of `localhost` reaches the runner container and
+          # nothing else.
+          #
+          # Measured 2026-09-10 with a positive control on both halves: from
+          # the .201 host shell both `:8085/ready` and `:8086/ready` answer
+          # 200; from inside `omninode-deploy-runner` the same two URLs answer
+          # 000 (Errno 111, connection refused) while the
+          # `host.docker.internal` forms answer 200. Every compose-dev receipt
+          # emitted before this change carried three identical Errno 111
+          # failures and none was ever a PASS.
+          #
+          # `omnibase-deploy` is the one runner carrying the host-gateway
+          # alias (`docker/docker-compose.runners.yml` `extra_hosts`), which is
+          # the same reason `chain-canary.yml` — same runner label — probes the
+          # lane ingress at `http://host.docker.internal:8085`. Still no LAN
+          # address committed: the alias resolves to the docker bridge gateway,
+          # where the lane's ports are published.
+          DEV_LANE_MAIN_URL: ${{ env.DEV_LANE_MAIN_URL }}
+          DEV_LANE_EFFECTS_URL: ${{ env.DEV_LANE_EFFECTS_URL }}
+          # OMN-18387: the omnimarket-projection-api container, published on
+          # the same host as main/effects above via the same mechanism.
+          # Reachability confirmed live 2026-09-15 from inside this same
+          # runner image with the same positive control used above:
+          # `curl http://host.docker.internal:3002/projections` -> HTTP_200.
+          DEV_LANE_PROJECTION_URL: ${{ env.DEV_LANE_PROJECTION_URL }}
+          # OMN-18866. The three integration subjects.
+          #
+          # The database is read through the DOCKER SOCKET (`docker exec ...
+          # psql`), not over TCP, so this needs no network credential at all --
+          # inside the container the connection is trusted. That is the
+          # smallest authority that answers the question, and it is the same
+          # mechanism the generation read above already uses for
+          # `docker inspect`.
+          DEV_LANE_POSTGRES_CONTAINER: ${{ env.DEV_LANE_POSTGRES_CONTAINER }}
+          DEV_LANE_POSTGRES_DATABASE: omnibase_infra
+          DEV_LANE_BROKER_CONTAINER: ${{ env.DEV_LANE_BROKER_CONTAINER }}
+          DEV_LANE_BROKER_ADDRESS: redpanda:9092
+          # A BOUND, and deliberately a generous one, because the bound is the
+          # weaker of the lag check's two arms. OMN-18851's writer sat at 498
+          # for nine days: a bound tight enough to have flagged that would also
+          # flag every healthy busy group, and an alarm that fires on healthy
+          # groups is an alarm that gets muted. The arm that catches a stopped
+          # consumer is GROWTH across the two samples, which is scale-free and
+          # needs no number here at all. This bound exists to catch the
+          # different failure of a group that is enormously behind and stays
+          # there across both reads.
+          DEV_LANE_MAX_CONSUMER_LAG: "10000"
+          KAFKA_SASL_MECHANISM: SCRAM-SHA-256
+          KAFKA_SASL_USERNAME: ${{ secrets.KAFKA_SASL_USERNAME }}
+          KAFKA_SASL_PASSWORD: ${{ secrets.KAFKA_SASL_PASSWORD }}
+        run: |
+          set -euo pipefail
+          mkdir -p "${LAB_PASS_DIR}"
+
+          # SETTLE BUDGET = THE LANE'S DECLARED BOOT BUDGET (OMN-18436).
+          #
+          # A convergence success hands this step a lane that has JUST been
+          # recreated: check_dev_lane_staleness.py returns the moment the
+          # RUNNING container carries the expected revision LABEL, and that
+          # label is set at create time, not when the runtime has bound its
+          # port. Measured on run 34478680748 -- convergence 13:12:28.544Z,
+          # probe 13:12:28.718Z, first Errno 111 at 13:12:28.826Z. 174ms.
+          #
+          # The budget WAS this job's ceiling minus elapsed, and that was wrong
+          # in a way that cost real deliveries. The three constants this job
+          # declares could not all hold: a 30-minute ceiling, a 25-minute
+          # convergence wait and a 120-second tail leave 180 seconds against a
+          # lane boot measured at 463-668 seconds, so every convergence slower
+          # than about twenty minutes FAILED the receipt on timing alone -- on a
+          # healthy lane running the merged sha -- and rule 24(b) then refused
+          # that sha for staging.
+          #
+          # The budget is now DECLARED per lane in
+          # config/lab_pass_settle_budget.yaml, bounded below by the worst boot
+          # observed on this lane and above by the lane's own compose
+          # start_period, and THIS JOB'S CEILING IS DERIVED FROM IT
+          # (converge + settle + tail), asserted by
+          # tests/ci/test_lab_pass_settle_budget.py. The ceiling below is a
+          # consequence of that arithmetic, not a knob.
+          #
+          # This step passes the ceiling and the elapsed time so the probe can
+          # say whether the job could AFFORD the declared budget. It never
+          # passes a remainder, and there is no fallback to one: an unresolved
+          # declaration exits non-zero.
+          STARTED_EPOCH=$(date -u -d "${LAB_PASS_STARTED_AT}" +%s 2>/dev/null \
+            || python3 -c "import datetime,os;print(int(datetime.datetime.strptime(os.environ['LAB_PASS_STARTED_AT'],'%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=datetime.UTC).timestamp()))")
+          ELAPSED=$(( $(date -u +%s) - STARTED_EPOCH ))
+
+          # The derivation is a tested Python step, not shell arithmetic. It
+          # exits non-zero and prints nothing on stdout when the declaration
+          # cannot be resolved, so a partial capture cannot become a guessed
+          # budget.
+          SETTLE_BUDGET_JSON=$(uv run python scripts/ci/lane_settle_budget.py \
+            --lane "$RECEIPT_LANE" \
+            --job-ceiling-seconds "$(( JOB_TIMEOUT_MINUTES * 60 ))" \
+            --elapsed-seconds "$ELAPSED" \
+            --reserved-tail-seconds "$RESERVED_TAIL_SECONDS")
+          echo "settle budget: ${SETTLE_BUDGET_JSON}"
+
+          # OMN-18866. Each of the three integration subjects below is
+          # supplied, and supplying it IS the claim: the probe emits the check
+          # and is held to it. There is no flag that names a subject and then
+          # skips its check.
+          uv run python scripts/ci/lab_pass_receipt.py probe-lane \
+            --lane "$RECEIPT_LANE" \
+            --main-url "$DEV_LANE_MAIN_URL" \
+            --effects-url "$DEV_LANE_EFFECTS_URL" \
+            --projection-url "$DEV_LANE_PROJECTION_URL" \
+            --settle-budget-json "$SETTLE_BUDGET_JSON" \
+            --generation-container "$DEV_LANE_CONTAINER" \
+            --expect-generation "$CONVERGE_GENERATION" \
+            --migration-container "$DEV_LANE_POSTGRES_CONTAINER" \
+            --migration-database "$DEV_LANE_POSTGRES_DATABASE" \
+            --forward-migrations-dir docker/migrations/forward \
+            --broker-container "$DEV_LANE_BROKER_CONTAINER" \
+            --broker-address "$DEV_LANE_BROKER_ADDRESS" \
+            --consumer-groups-file "${LAB_PASS_DIR}/declared-groups.txt" \
+            --max-consumer-lag "$DEV_LANE_MAX_CONSUMER_LAG" \
+            --first-lag-sample-json "${LAB_PASS_DIR}/lag-sample.json" \
+            > "${LAB_PASS_CHECKS}"
+          cat "${LAB_PASS_CHECKS}"
+
+      # if: always() on emit and upload for the same reason the boot gate does
+      # it: a FAILED lab pass is the record the gate needs in order to tell
+      # "it failed" apart from "nobody ran it". The emit step exits non-zero on
+      # a FAIL receipt, so the failure stays visible on this run.
+      #
+      # THE ONE EXCEPTION, OMN-18976: a merge whose turn in the deploy agent's
+      # queue has not come writes NO receipt. The guard publishes
+      # `emit_receipt: false` for exactly that verdict and nothing else, and
+      # the condition below reads that output rather than re-deriving it here,
+      # because a mapping written in a `run:` block is a mapping nothing tests.
+      #
+      # This does NOT re-open the "it failed" versus "nobody ran it" ambiguity
+      # the always() exists for. Those are both statements about a run that
+      # HAPPENED; a queued merge is one that has not started, and
+      # EnumLabPassResult's own contract is that an in-flight pass emits no
+      # receipt rather than a PENDING one. Nothing opens either: the delivery
+      # gate's absent branch and its not-yet-passing branch are the same
+      # branch, and both fail closed. What changes is that the refusal stays
+      # recoverable by a later convergence instead of being contradicted
+      # forever by a FAIL artifact claiming the lane misbehaved.
+      #
+      # An empty value emits, deliberately. A guard that died before writing
+      # any output has not earned the suppression, and the old behaviour —
+      # write the receipt — is the safe side of that ambiguity.
+      - name: Emit the compose-dev lab-pass receipt
+        if: always() && steps.converge.outputs.emit_receipt != 'false'
+        env:
+          MERGE_SHA: ${{ needs.trigger-rebuild.outputs.source_sha }}
+          # OMN-18573. The receipt's typed agent_command_id, which every
+          # compose-dev receipt carried as null because no emitter passed it.
+          # The id was knowable the whole time; the readback that found this had
+          # it legible in the deployed_revision evidence string while the field
+          # a machine reads sat empty. Empty here means no command was
+          # published, which the emitter records as null rather than as "".
+          CORRELATION_ID: ${{ needs.trigger-rebuild.outputs.correlation_id }}
+          CONVERGE_OUTCOME: ${{ steps.converge.outcome }}
+          # OMN-18573. The guard's own three-valued verdict -- pass, fail or
+          # indeterminate. It is an OUTPUT rather than the step's status
+          # because the status has two values and this has three, and the
+          # difference is the whole ticket: "the lane did not converge" and "we
+          # could not establish whether it had a chance to" are different
+          # findings and a fail-closed gate must say which it refused on. The
+          # status remains the fallback for a step that died before writing
+          # anything.
+          CONVERGE_VERDICT: ${{ steps.converge.outputs.verdict }}
+          # OMN-18388 AC2. The guard writes one line naming the revision the lane
+          # was actually observed at and how it relates to the merge sha
+          # ("lane at 0d0250a6c31f, which contains merge sha 18b539f0f76f, 6
+          # commit(s) ahead on dev"). The static string it replaces was identical
+          # on every run and named neither, so a reader of a FAIL receipt could
+          # not tell a lane that had run a newer dev head containing the change
+          # from one that never applied it -- which is exactly the confusion that
+          # produced this ticket.
+          #
+          # Passed through env and dereferenced in the shell, never interpolated
+          # into the run block: an expression-substituted value in a script body
+          # is the workflow script-injection shape.
+          CONVERGE_EVIDENCE: ${{ steps.converge.outputs.evidence }}
+          # OMN-18143. The deploy agent now runs the NEWEST foldable rebuild
+          # command for the lane and records the ones it replaced. Convergence
+          # is containment (OMN-18388), so a superseded sha's guard sees the
+          # lane running a descendant and reports `ok` -- a true statement
+          # about the LANE, and not a statement that THIS sha's tree was ever
+          # built. Without this check that difference reaches no receipt, and
+          # rule 24(b) would deliver a commit whose compose content the lane
+          # never generated on the strength of a pass earned by another
+          # commit. The guard writes all three outputs on every run; an empty
+          # outcome means it died before deciding.
+          SUPERSEDED_OUTCOME: ${{ steps.converge.outputs.superseded_outcome }}
+          SUPERSEDED_EVIDENCE: ${{ steps.converge.outputs.superseded_evidence }}
+        run: |
+          set -euo pipefail
+          # The fallback covers the step dying before it could write its output
+          # (a crash, or the job being cancelled mid-poll). A receipt check with
+          # an empty evidence field is refused by ModelLabPassCheck, so the
+          # receipt would not be written at all -- and an unwritten receipt is
+          # the one outcome worse than a failing one.
+          if [[ "$MERGE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            SAFE_MERGE_SHA="$MERGE_SHA"
+          else
+            SAFE_MERGE_SHA="<invalid-merge-sha>"
+          fi
+          case "$CONVERGE_VERDICT" in
+            pass|fail|indeterminate)
+              DEPLOYED_REVISION_VERDICT="$CONVERGE_VERDICT"
+              ;;
+            *)
+              # The guard wrote no verdict, so it died before reaching its own
+              # decision -- a crash, or the job being cancelled mid-poll. That
+              # is not a statement about the lane either, so it is
+              # INDETERMINATE rather than a FAIL, and the evidence says the
+              # guard never got to a verdict. The receipt is still non-PASS.
+              DEPLOYED_REVISION_VERDICT=indeterminate
+              CONVERGE_EVIDENCE="INDETERMINATE: the convergence guard ended ${CONVERGE_OUTCOME} without writing a verdict, so no deployed-revision fact was established for ${SAFE_MERGE_SHA}"
+              ;;
+          esac
+          # The receipt vocabulary spells a passing check 'ok'; the guard's own
+          # vocabulary spells it 'pass'. One translation, here, rather than two
+          # enums that can drift.
+          if [[ "$DEPLOYED_REVISION_VERDICT" == "pass" ]]; then
+            DEPLOYED_REVISION_VERDICT=ok
+          fi
+          EVIDENCE="${CONVERGE_EVIDENCE:-check_dev_lane_staleness.py --expect-revision ${SAFE_MERGE_SHA} against the omnibase-infra compose project (the guard wrote no evidence)}"
+          # The same fallback the deployed-revision check takes, and for the
+          # same reason: a guard that died before writing its verdict
+          # established nothing, which is INDETERMINATE rather than a pass.
+          # An empty evidence field is refused by ModelLabPassCheck, so the
+          # receipt would not be written at all.
+          case "$SUPERSEDED_OUTCOME" in
+            ok|fail|indeterminate) ;;
+            *)
+              SUPERSEDED_OUTCOME=indeterminate
+              SUPERSEDED_EVIDENCE="INDETERMINATE: the convergence guard ended ${CONVERGE_OUTCOME} without saying whether ${SAFE_MERGE_SHA} was superseded by a newer rebuild"
+              ;;
+          esac
+          uv run python scripts/ci/lab_pass_receipt.py emit \
+            --sha "$MERGE_SHA" \
+            --lane "$RECEIPT_LANE" \
+            --started-at "${LAB_PASS_STARTED_AT}" \
+            --finished-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --check "deployed_revision:${DEPLOYED_REVISION_VERDICT}:${EVIDENCE}" \
+            --check "superseded_by_newer_rebuild:${SUPERSEDED_OUTCOME}:${SUPERSEDED_EVIDENCE}" \
+            --checks-json "${LAB_PASS_CHECKS}" \
+            --agent-command-id "${CORRELATION_ID}" \
+            --out "${LAB_PASS_DIR}/receipt.json" \
+            --event-out "${LAB_PASS_DIR}/event.json"
+
+      # OMN-18769: the verdict, on the bus, beside the artifact.
+      #
+      # The ARTIFACT remains the durable evidence and the delivery gate keeps
+      # reading it; nothing about that changes. What this adds is
+      # renderability: an artifact is reachable only by an exact-name REST
+      # query with `actions: read`, which a dashboard panel cannot make, so a
+      # lab-pass verdict has been invisible to every surface except the gate.
+      #
+      # `if: always()` for the same reason the artifact is written under
+      # always(): a record that exists only on success cannot distinguish a
+      # failed lab pass from one nobody ran.
+      #
+      # `continue-on-error` is deliberate and is NOT a swallowed failure. This
+      # step reports a FACT about a lab pass that has already happened; a
+      # broker that is unreachable is not a lane that failed, and failing the
+      # job here would turn an observability publish into a delivery outage.
+      # The failure is loud in the log and the artifact — the authority — is
+      # unaffected either way.
+      # The overlay is the DECLARED transport for the lane, and this publish
+      # reads it rather than inferring one. `trigger-rebuild` above already
+      # sparse-checks the same file out for the same reason; this job is a
+      # separate job with a separate checkout, so it takes its own copy.
+      # OMN-18769's own overlay checkout stood here and has been REMOVED, not
+      # disabled: it was byte-identical to the one earlier in this job, same
+      # repository, same ref, same path, same sparse-checkout. Its reason for
+      # continue-on-error ("a failed overlay fetch must not fail the lab pass")
+      # was the better of the two and now governs the single remaining fetch.
+      # The publish below is unchanged and still reads `.ci-bus-overlay`.
+      - name: Publish the compose-dev lab-pass verdict to the bus
+        if: always()
+        # A broker that is down is not a lab pass that failed; failing here would
+        # turn an observability publish into a delivery outage while the artifact
+        # already carries the verdict.
+        # advisory-ok: OMN-18769 lab-pass verdict publish is not the lab-pass verdict
+        continue-on-error: true
+        env:
+          # OMN-18012 — the dev control-bus lane declares
+          # `security_protocol: SASL_PLAINTEXT` / `sasl_mechanism:
+          # SCRAM-SHA-256` in the overlay checked out above. The publisher
+          # READS that declaration and refuses to downgrade it, so these are
+          # not optional: without them a SASL lane publish is a loud no-op.
+          # Injected as ENVIRONMENT so no credential reaches argv or the
+          # process list.
+          KAFKA_SASL_USERNAME: ${{ secrets.KAFKA_SASL_USERNAME }}
+          KAFKA_SASL_PASSWORD: ${{ secrets.KAFKA_SASL_PASSWORD }}
+          # OMN-18976: an observation's receipt is keyed by a non-runtime
+          # merge and uploaded under a name no gate reads; announcing it as
+          # that merge's lab-pass verdict would be a claim nothing supports.
+          PUBLISHED: ${{ needs.trigger-rebuild.outputs.published }}
+        run: |
+          set -uo pipefail
+          if [[ "$PUBLISHED" != "true" ]]; then
+            echo "observation run for a non-runtime merge: no lab-pass verdict is published"
+            exit 0
+          fi
+          uv run python scripts/ci/publish_lab_fact_event.py \
+            --event "${LAB_PASS_DIR}/event.json" \
+            --bus-lane "dev" \
+            --bus-overlay ".ci-bus-overlay/config/ci_bus_lanes.yaml"
+
+      # OMN-19338 AC1. Suppressing the three steps below leaves a GREEN job that
+      # says nothing about why no receipt exists, which reads exactly like a
+      # lane nobody probed. The queued outcome is a statement about the QUEUE,
+      # not the lane, so it is RECORDED rather than asserted. The condition is
+      # the exact complement of the suppression guard, so every run takes one
+      # branch or the other and the two cannot drift apart.
+      - name: Record the queued outcome for a merge whose turn has not come
+        if: always() && steps.converge.outputs.emit_receipt == 'false'
+        env:
+          MERGE_SHA: ${{ needs.trigger-rebuild.outputs.source_sha }}
+          RECEIPT_LANE: ${{ needs.trigger-rebuild.outputs.receipt_lane }}
+          QUEUE_EVIDENCE: ${{ steps.converge.outputs.evidence }}
+          CONVERGE_MODE: ${{ steps.converge.outputs.mode }}
+        run: |
+          set -euo pipefail
+          if [[ "$CONVERGE_MODE" == "observe" ]]; then
+            {
+              echo "### ${RECEIPT_LANE} lab-pass: OBSERVED, nothing answered for (OMN-18976)"
+              echo ""
+              echo "\`${MERGE_SHA}\` published no rebuild, so no receipt is due for it"
+              echo "and none is uploaded. The lane was observed for receipt-less"
+              echo "runtime-affecting merges it contains; this run answered for none:"
+              echo ""
+              echo "    ${QUEUE_EVIDENCE:-(the guard wrote no evidence)}"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo "### ${RECEIPT_LANE} lab-pass: QUEUED (OMN-18976)"
+            echo ""
+            echo "No receipt was emitted for \`${MERGE_SHA}\`: its turn in the deploy"
+            echo "agent's queue had not come, so nothing here asserts anything about"
+            echo "the lane. NO artifact is uploaded either, and that is the"
+            echo "load-bearing half -- the delivery gate reads an absent receipt as"
+            echo "PENDING, which a later convergence can still turn into a PASS,"
+            echo "while a receipt-named artifact carrying no receipt reads as"
+            echo "UNREADABLE, a token no later PASS can undo."
+            echo ""
+            echo "Queue evidence from the convergence guard:"
+            echo ""
+            echo "    ${QUEUE_EVIDENCE:-(the guard wrote no evidence)}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # OMN-18247: the zero-byte case `if-no-files-found: error` cannot see,
+      # since the directory matches whether or not the receipt carries bytes.
+      #
+      # OMN-19338: guarded on the same output the emit step reads, and for the
+      # same reason. `emit_receipt: false` is the OMN-18976 queued verdict --
+      # the merge's turn in the deploy agent's queue has not come, so NO
+      # receipt is written ON PURPOSE. Asserting one is present on that path
+      # asserts the absence of a file the design says must be absent, which
+      # fails a job that did nothing wrong. A missing receipt on a path that
+      # SHOULD have emitted still fails here, because this condition is false
+      # only for the one verdict that suppresses emission.
+      - name: Assert the compose-dev lab-pass receipt is present and non-empty
+        if: always() && steps.converge.outputs.emit_receipt != 'false'
+        env:
+          PUBLISHED: ${{ needs.trigger-rebuild.outputs.published }}
+        run: |
+          set -euo pipefail
+          # OMN-18976: an observation is uploaded under its own name, and is
+          # asserted under that name so each uploader has its own assertion.
+          if [[ "$PUBLISHED" == "true" ]]; then
+            python3 scripts/ci/assert_evidence_artifact.py \
+              --artifact lab-pass-receipt-compose-dev \
+              --require "${LAB_PASS_DIR}/receipt.json"
+          else
+            python3 scripts/ci/assert_evidence_artifact.py \
+              --artifact lab-pass-observation-compose-dev \
+              --require "${LAB_PASS_DIR}/receipt.json"
+          fi
+
+      # OMN-18420: presence is not identity. A receipt left on this host by an
+      # earlier job satisfies the assertion above exactly as well as a fresh
+      # one, and the upload below keys the artifact by THIS job's sha -- so a
+      # stale file is published under a sha it says nothing about. The
+      # consuming gate in the delivering repository catches the disagreement,
+      # but an hour later and in another repo's logs. This asserts it here.
+      # OMN-19338: same guard, same verdict. Identity is a question about a
+      # receipt that exists; on the queued path there is none to identify.
+      - name: Assert the compose-dev receipt on disk is this job's own
+        if: always() && steps.converge.outputs.emit_receipt != 'false'
+        env:
+          MERGE_SHA: ${{ needs.trigger-rebuild.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          uv run python scripts/ci/lab_pass_receipt.py verify \
+            --path "${LAB_PASS_DIR}/receipt.json" \
+            --sha "$MERGE_SHA" \
+            --lane "$RECEIPT_LANE"
+      # OMN-19338, and this is the step whose absence of a guard did the
+      # damage. `path:` is the whole of LAB_PASS_DIR, and on the queued path
+      # that directory still holds the earlier probes' leftovers
+      # (`declared-groups.txt`, `lag-sample.json`) -- so `if-no-files-found:
+      # error` is satisfied by files that are not a receipt, and the upload
+      # publishes a receipt-NAMED artifact carrying no `receipt.json`. The
+      # consuming gate reads that as UNREADABLE, which is not in
+      # RERUN_ELIGIBLE_TOKENS, so the OMN-19233 re-run refuses forever and a
+      # verdict the design made recoverable becomes terminal. Suppressing the
+      # upload leaves the subject with no artifact at all, which reads as
+      # PENDING and stays recoverable, which is what OMN-18976 intended.
+      - name: Upload the compose-dev lab-pass receipt
+        if: always() && steps.converge.outputs.emit_receipt != 'false' && needs.trigger-rebuild.outputs.published == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          # The NAME is the key scripts/ci/lab_pass_receipt.py's gate queries
+          # by; it must match artifact_name() exactly.
+          name: lab-pass-receipt-${{ needs.trigger-rebuild.outputs.receipt_lane }}-${{ needs.trigger-rebuild.outputs.source_sha }}
+          path: ${{ env.LAB_PASS_DIR }}
+          retention-days: 90
+          if-no-files-found: error
+
+      # OMN-18976: an OBSERVATION -- a merge that published no rebuild, whose
+      # guard found receipt-less runtime-affecting merges the lane contains --
+      # is NOT this merge's receipt. It goes under a name no gate queries, and
+      # exists only as the source the re-emission job re-keys, exactly as a
+      # converged run's own receipt is.
+      - name: Upload the compose-dev lab-pass observation
+        if: always() && steps.converge.outputs.emit_receipt != 'false' && needs.trigger-rebuild.outputs.published != 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: lab-pass-observation-${{ needs.trigger-rebuild.outputs.receipt_lane }}-${{ needs.trigger-rebuild.outputs.source_sha }}
+          path: ${{ env.LAB_PASS_DIR }}
+          retention-days: 90
+          if-no-files-found: error
+
+  # OMN-18200 AC5/AC6/AC7 -- the k3s onex-lab overlay's half of rule 24(a).
+  #
+  # THE DEFECT THIS CLOSES. Rule 24(a) states that every runtime-affecting merge
+  # re-applies the k3s `onex-lab` overlay from the merged head and emits a
+  # lab-pass receipt for it. Measured 2026-09-11, that half had no implementation
+  # at all: omninode_infra's k8s/onex-lab/apply_lab_lane.sh had ZERO callers
+  # anywhere in the org. The persistent lab lane -- the one provider_key_chain.sh
+  # and the three m3 chain runners grade against -- was pinned to an image stamped
+  # 2026-09-08 running omnimarket==0.4.30 while dev was at 0.4.61, and this
+  # workflow reported green over it the whole time.
+  #
+  # WHERE THE WORK HAPPENS, AND WHY NOT HERE. The apply needs host root on the lab
+  # host: the k3s admin kubeconfig is 0600 root and pinning an image into the
+  # `onex-lab/` name space means importing it into a root-owned containerd. The
+  # runner fleet holds a READ-ONLY lab-ci-reader ServiceAccount kubeconfig
+  # (OMN-18188) -- enough to read the lane, not to apply to it -- and could reach
+  # host root only by launching a privileged container through the Docker socket,
+  # which is a worse blast radius than using the process that already owns host
+  # root by design. So deploy-agent-dev.service performs the apply, immediately
+  # after the compose lane it just rebuilt is verified, and writes a sha-keyed
+  # record (deploy_agent/lab_overlay.py).
+  #
+  # That also answers AC3's asynchronous gap for this lane without a wall clock:
+  # the agent's own completion is the signal, not a timer started at publish.
+  #
+  # WHY THIS JOB EXISTS AT ALL, then: a GitHub Actions artifact can only be
+  # created by a job inside a run, and the lab-pass surface is an artifact by
+  # deliberate design (scripts/ci/lab_pass_receipt.py's header: no new credential,
+  # no bucket, no cluster access). One writer of facts, one publisher of receipts.
+  #
+  # THE LANE VALUE IS `onex-lab-k3s`, NOT `onex-lab`. `onex-lab` is ALREADY the
+  # ephemeral kind cluster the candidate-boot-gate job creates in
+  # deliver-dev-candidate-to-staging.yml, which emits
+  # lab-pass-receipt-onex-lab-<sha> for the same sha on this same repository.
+  # evaluate_gate reads the NEWEST artifact per name, on the premise that a name
+  # has one emitter; a second emitter on that name would silently supersede the
+  # boot gate's verdict. They are also different claims -- a throwaway node with
+  # one side-loaded image and an inert credential store, against the persistent
+  # lane with the host's own secret store bound and the lane's tenant minted.
+  # OMN-18976 part two. Answer for the merges that were queued behind this one.
+  #
+  # WHY A SEPARATE JOB WITH A MATRIX. The number of queued shas is discovered
+  # at run time, and `uses:` steps cannot be looped -- one artifact upload per
+  # sha is only expressible as a matrix built with `fromJSON` from the verify
+  # job's output. An EMPTY array skips this job, which is the common case: the
+  # lane usually converges on the very next merge and nothing was queued.
+  #
+  # WHY IT RE-KEYS RATHER THAN RE-PROBES. The evidence is the verify job's own
+  # receipt, downloaded whole. Its probes were read against the image the lane
+  # converged to, and that image CONTAINS each of these shas, so they are the
+  # reads a lab pass for that sha would have made at the only moment it could.
+  # Re-probing here would read a later lane state and attribute it to an
+  # earlier sha, which is the weaker claim and the easier one to get wrong.
+  #
+  # A FAILING convergence re-emits a FAILURE, deliberately. Every sha in the
+  # window inherits whatever the converged run found; a re-emission that
+  # upgraded to PASS would be the worst possible outcome of this ticket.
+  # This job is a post-merge EMITTER, not a pull-request verification. It runs
+  # after the code has landed and after the lane converged, and it writes
+  # evidence rather than judging any. What it produces IS gating: the delivery
+  # gate refuses a sha whose receipt is absent or non-PASS, so a failure here
+  # withholds a receipt and the sha stays refused -- the consequence lands on
+  # the delivery attempt, not here. Making the job itself merge-blocking would
+  # gate a pull request on a rebuild that has not happened when that pull
+  # request is reviewed; the sibling verify job in this same workflow is
+  # post-merge for the same reason.
+  # advisory-ok: OMN-18988 post-merge receipt emitter; its output gates delivery, the job cannot
+  reemit-queued-receipts:
+    name: Re-emit receipts for shas queued behind this merge
+    needs: [trigger-rebuild, verify-lane-converged]
+    if: >-
+      always() &&
+      needs.verify-lane-converged.result != 'skipped' &&
+      needs.verify-lane-converged.result != 'cancelled' &&
+      needs.verify-lane-converged.outputs.reemit_candidates != '' &&
+      needs.verify-lane-converged.outputs.reemit_candidates != '[]'
+    # Hosted: this job reads two artifacts and writes a third. It touches no
+    # lane, so it has no reason to occupy the fleet, and the fork-aware
+    # selector is the repository's policy rather than a literal.
+    runs-on: >-
+      ${{
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name != github.repository)
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["ubuntu-latest"]')
+      }}
+    # A download, a re-key and an upload. Ten minutes is generous for that and
+    # bounded, which the ceiling gate requires of every job in this workflow.
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # The candidate's EXISTING receipt is read through the artifacts API, to
+      # decide on its failure class rather than assume it has none.
+      actions: read
+    strategy:
+      # Every candidate is independent; one failing re-emission must not withhold
+      # the others, each of which is a separate sha's only receipt.
+      fail-fast: false
+      matrix:
+        candidate: ${{ fromJSON(needs.verify-lane-converged.outputs.reemit_candidates) }}
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ needs.trigger-rebuild.outputs.source_sha }}
+          persist-credentials: false
+      - name: Set up CI Python environment
+        uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: "3.12"
+          cache-key-prefix: uv-reemit-queued-receipts
+          cache-enabled: "false"
+          install-args: --frozen
+          shared-env-enabled: "true"
+      - name: Derive this run's own receipt directory
+        run: |
+          set -euo pipefail
+          # Per-run, per-attempt, per-job AND per-sha: this job is a matrix, so
+          # the job name alone does not name one execution. A self-hosted
+          # runner reuses RUNNER_TEMP, and two matrix legs sharing a directory
+          # would upload each other's receipt.
+          LAB_PASS_WORK="${RUNNER_TEMP}/lab-pass-reemit-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${REEMIT_SHA}"
+          rm -rf "${LAB_PASS_WORK}"
+          mkdir -p "${LAB_PASS_WORK}/receipt" "${LAB_PASS_WORK}/converged" "${LAB_PASS_WORK}/existing"
+          echo "LAB_PASS_DIR=${LAB_PASS_WORK}/receipt" >> "$GITHUB_ENV"
+          echo "LAB_PASS_SOURCE_DIR=${LAB_PASS_WORK}/converged" >> "$GITHUB_ENV"
+          echo "LAB_PASS_EXISTING_DIR=${LAB_PASS_WORK}/existing" >> "$GITHUB_ENV"
+        env:
+          REEMIT_SHA: ${{ matrix.candidate.sha }}
+      # OMN-18976: on a merge that published no rebuild the source is the
+      # verify job's OBSERVATION of the lane, uploaded under its own name.
+      - name: Download the converged receipt
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v4.1.8
+        with:
+          name: ${{ needs.trigger-rebuild.outputs.published == 'true' && format('lab-pass-receipt-compose-dev-{0}', needs.trigger-rebuild.outputs.source_sha) || format('lab-pass-observation-compose-dev-{0}', needs.trigger-rebuild.outputs.source_sha) }}
+          path: ${{ env.LAB_PASS_SOURCE_DIR }}
+      # A candidate may ALREADY have a receipt. Absent is the queued-ahead
+      # case; present decides on its own failure CLASS. A missing artifact must
+      # not fail this step, so the REST query is used rather than
+      # download-artifact, which errors when the name is absent.
+      - name: Fetch the candidate's existing receipt, if it has one
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REEMIT_SHA: ${{ matrix.candidate.sha }}
+        run: |
+          set -euo pipefail
+          NAME="lab-pass-receipt-compose-dev-${REEMIT_SHA}"
+          ID=$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?name=${NAME}" \
+                 --jq '[.artifacts[] | select(.expired == false)] | sort_by(.created_at) | last | .id // empty')
+          if [ -z "${ID}" ]; then
+            echo "no existing receipt for ${REEMIT_SHA}"
+            exit 0
+          fi
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ID}/zip" \
+            > "${LAB_PASS_EXISTING_DIR}/receipt.zip"
+          unzip -o -q "${LAB_PASS_EXISTING_DIR}/receipt.zip" -d "${LAB_PASS_EXISTING_DIR}"
+          echo "read existing receipt for ${REEMIT_SHA} (artifact ${ID})"
+      - name: Decide whether this candidate may be answered for
+        id: eligible
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REEMIT_SHA: ${{ matrix.candidate.sha }}
+          IS_ENDPOINT: ${{ matrix.candidate.endpoint }}
+        run: |
+          set -euo pipefail
+          ARGS=()
+          if [ -f "${LAB_PASS_EXISTING_DIR}/receipt.json" ]; then
+            ARGS+=(--existing "${LAB_PASS_EXISTING_DIR}/receipt.json")
+          fi
+          if [ "${IS_ENDPOINT}" = "true" ]; then
+            ARGS+=(
+              --endpoint
+              --endpoint-subject "${REEMIT_SHA}"
+              --repo "${GITHUB_REPOSITORY}"
+              --delivery-workflow "deliver-dev-candidate-to-staging.yml"
+              --delivery-branch "dev"
+              --overall-bound-seconds 14400
+            )
+          fi
+          DECISION=$(uv run python scripts/ci/lab_pass_receipt.py reemit-eligible "${ARGS[@]}")
+          echo "decision: ${DECISION}"
+          echo "decision=${DECISION}" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Re-emission candidate ${REEMIT_SHA}"
+            echo ""
+            echo "- decision: ${DECISION}"
+          } >> "$GITHUB_STEP_SUMMARY"
+        # The binding is established by the VERIFY job, which holds the lane.
+        # A candidate it could not bind is omitted there and named in its log,
+        # so an empty value arriving here is a contract violation, not a skip.
+      - name: Refuse a candidate that arrived with no binding
+        if: startsWith(steps.eligible.outputs.decision, 'reemit:') && matrix.candidate.converged_via == ''
+        env:
+          REEMIT_SHA: ${{ matrix.candidate.sha }}
+        run: |
+          set -euo pipefail
+          echo "- binding: **MISSING**; no receipt written" >> "$GITHUB_STEP_SUMMARY"
+          echo "::error::candidate ${REEMIT_SHA} carries no binding; refusing to write a receipt"
+          exit 1
+      - name: Re-key it onto this candidate
+        if: startsWith(steps.eligible.outputs.decision, 'reemit:') && matrix.candidate.converged_via != ''
+        env:
+          REEMIT_SHA: ${{ matrix.candidate.sha }}
+          CONVERGED_VIA: ${{ matrix.candidate.converged_via }}
+        run: |
+          set -euo pipefail
+          uv run python scripts/ci/lab_pass_receipt.py reemit \
+            --from "${LAB_PASS_SOURCE_DIR}/receipt.json" \
+            --sha "${REEMIT_SHA}" \
+            --converged-via "${CONVERGED_VIA}" \
+            --out "${LAB_PASS_DIR}/receipt.json"
+          uv run python scripts/ci/lab_pass_receipt.py verify \
+            --path "${LAB_PASS_DIR}/receipt.json" \
+            --sha "${REEMIT_SHA}" \
+            --lane compose-dev
+      # OMN-18247. if-no-files-found: error fires only when NO path matches, so
+      # a zero-byte receipt would satisfy it. This asserts the file is real
+      # before the upload claims it is evidence.
+      - name: Assert the re-emitted receipt exists and is non-empty
+        # always() WITHIN the re-emitting branch, so a failed re-key cannot
+        # skip the assertion and leave the uploader claiming evidence for a
+        # file nothing checked. A candidate that was skipped writes nothing and
+        # uploads nothing, which is the correct no-op.
+        if: always() && startsWith(steps.eligible.outputs.decision, 'reemit:') && matrix.candidate.converged_via != ''
+        run: |
+          set -euo pipefail
+          python3 scripts/ci/assert_evidence_artifact.py \
+            --artifact lab-pass-receipt-compose-dev-reemitted \
+            --require "${LAB_PASS_DIR}/receipt.json"
+      - name: Upload the re-emitted receipt
+        if: startsWith(steps.eligible.outputs.decision, 'reemit:') && matrix.candidate.converged_via != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          # Same key the gate queries by, for the CANDIDATE sha. The gate
+          # reads the NEWEST artifact of a name, so a candidate that already
+          # carried a binding-FAIL receipt is superseded rather than
+          # duplicated, and a queued candidate that had none simply gains one.
+          name: lab-pass-receipt-compose-dev-${{ matrix.candidate.sha }}
+          path: ${{ env.LAB_PASS_DIR }}
+          retention-days: 90
+          if-no-files-found: error
+
+  # OMN-19233, plan PS-5 item 2 (operator ruling 2026-09-23, decision S): the
+  # staging delivery gate requires the compose-dev receipt of the delivered
+  # sha's proof subject, and a delivery that read before this lane's receipt
+  # existed refused PENDING or ABSENT. Delivery is push-triggered behind a
+  # `paths:` filter, so nothing else ever re-reads a refused sha. This job is
+  # the re-read: after the compose-dev receipts of this run are written (this
+  # merge's own, and any re-emitted for merges queued behind it), it re-runs the
+  # failed jobs of the newest delivery run whose gate refused PENDING, ABSENT or
+  # INDETERMINATE for one of those subjects within the 14,400 s bound.
+  #
+  # It reads each subject's receipt back through the gate's own reader and acts
+  # only on a PASS, so a FAIL never re-runs anything. Only the newest delivery
+  # run is ever re-run: an older one would deliver older code over newer.
+  #
+  # `actions: write` is the one capability it adds, and it is held here, in a
+  # job of its own, not by the self-hosted emitter jobs above. It checks out the
+  # trusted base ref, never the merge ref, like the verify job. A refused re-run
+  # request fails this job loudly (a delivery nobody re-reads stays refused).
+  # advisory-ok: OMN-19233 post-merge re-read of a refused delivery; the delivery gate itself blocks
+  rerun-refused-deliveries:
+    name: Re-run staging deliveries refused while this subject's receipt was pending
+    needs: [trigger-rebuild, verify-lane-converged, reemit-queued-receipts]
+    # OMN-18976: an observation run (nothing published) re-reads only when it
+    # answered for something; with no candidate there is no new receipt.
+    if: >-
+      always() &&
+      needs.trigger-rebuild.outputs.runtime_lane == 'dev' &&
+      needs.verify-lane-converged.result != 'skipped' &&
+      needs.verify-lane-converged.result != 'cancelled' &&
+      (needs.trigger-rebuild.outputs.published == 'true' ||
+       (needs.verify-lane-converged.outputs.reemit_candidates != '' &&
+        needs.verify-lane-converged.outputs.reemit_candidates != '[]'))
+    runs-on: >-
+      ${{
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name != github.repository)
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["ubuntu-latest"]')
+      }}
+    # A few API reads and at most one POST per subject.
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Checkout the re-run selector from the trusted base ref
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          persist-credentials: false
+
+      - name: Set up CI Python environment
+        uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: "3.12"
+          cache-key-prefix: uv-rerun-refused-deliveries
+          cache-enabled: "false"
+          install-args: --frozen
+          shared-env-enabled: "true"
+
+      - name: Re-run refused staging deliveries whose subject now has a compose-dev PASS
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOURCE_SHA: ${{ needs.trigger-rebuild.outputs.source_sha }}
+          # Passed through env and parsed in Python, never interpolated into the
+          # script body (the workflow script-injection shape).
+          REEMIT_CANDIDATES: ${{ needs.verify-lane-converged.outputs.reemit_candidates }}
+        run: |
+          set -euo pipefail
+          SUBJECTS=(--subject "${SOURCE_SHA}")
+          while IFS= read -r sha; do
+            if [ -n "${sha}" ]; then
+              SUBJECTS+=(--subject "${sha}")
+            fi
+          done < <(python3 -c 'import json, os; [print(c["sha"]) for c in json.loads(os.environ.get("REEMIT_CANDIDATES") or "[]")]')
+          uv run python scripts/ci/lab_pass_receipt.py rerun-refused-deliveries \
+            --repo "${GITHUB_REPOSITORY}" \
+            "${SUBJECTS[@]}" \
+            --workflow deliver-dev-candidate-to-staging.yml \
+            --branch dev \
+            --overall-bound-seconds 14400
+
+  verify-lab-overlay-converged:
+    name: Verify the k3s onex-lab overlay applied the merged sha
+    needs: [trigger-rebuild, verify-lane-converged]
+    # `always()` so this runs even when the compose convergence guard FAILED. A
+    # failed compose lane is exactly when the lab lane's state most needs
+    # recording: "the lab apply failed" and "nobody ran it" are the two states
+    # the receipt exists to tell apart, and skipping here produces the second
+    # while meaning the first.
+    if: >-
+      always() &&
+      needs.trigger-rebuild.outputs.published == 'true' &&
+      needs.trigger-rebuild.outputs.runtime_lane == 'dev'
+    # The agent's HTTP surface is on the lab host's LAN; hosted compute cannot
+    # see it. Same reasoning as the convergence guard above -- the checkout is
+    # pinned to the trusted base ref, so no fork-authored code runs on the
+    # fleet -- but NOT the same label any more.
+    #
+    # OMN-18408: `omnibase-verify`. The convergence guard above stays on
+    # `omnibase-deploy` by explicit operator scope; this job moved because its
+    # 35-minute ceiling is the budget AC1 of OMN-18200 reads as the difference
+    # between "converged" and "not verified", and queue time on a label whose
+    # single member is also running the release-train deploy comes straight out
+    # of it. The verify runner carries the same docker socket and the same
+    # `host.docker.internal` gateway and no OMNI_HOME write mount, which is all
+    # this job needs.
+    # OMN-19894 (operator rulings 2026-09-28T01:58:06Z and 01:58:17Z: a check
+    # must not rely on one machine). This job reads ONE thing lane-specific: the
+    # deploy agent's HTTP record. It used to reach the agent through the .201
+    # verify runner's `host.docker.internal` alias, which pinned it to that
+    # host. The agent listens on 0.0.0.0, so the job now runs on any runner of
+    # the overlay's pool and reads the agent at the `deploy_agent_url` the
+    # overlay (vars.LAB_LANES_JSON) declares for the lane whose agent applies
+    # the onex-lab overlay (compose project `omnibase-infra`; the dev-202
+    # instance disables that phase in config/deploy_lane_routing.yaml). No lane
+    # answering fails the resolve step and the record step below still runs,
+    # so the receipt is a FAIL, never absent and never a default.
+    runs-on: ${{ fromJSON(vars.LAB_PROBE_RUNS_ON_JSON) }}
+    # The agent's apply carries its own 1500s budget (DEFAULT_APPLY_BUDGET_SECONDS)
+    # and begins only after the compose rebuild it follows, so the poll window
+    # below is the one that matters and this ceiling is that window plus a tail
+    # for the emit and the upload. A job killed by timeout uploads NO receipt,
+    # which is the single outcome worse than a failing one.
+    timeout-minutes: 35
+    steps:
+      - name: Checkout the reader from the trusted base ref
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          # NEVER the merge ref -- a merged fork PR would put fork-authored code
+          # on the self-hosted fleet.
+          ref: ${{ github.event.pull_request.base.ref }}
+          persist-credentials: false
+
+      # Repo invariant (tests/ci/test_ci_workflow_resilience.py): every job in
+      # this workflow resolves Python through the shared CI env action.
+      - name: Set up CI Python environment
+        uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: "3.12"
+          cache-key-prefix: uv-lab-overlay-receipt
+          cache-enabled: "false"
+          install-args: --frozen
+          shared-env-enabled: "true"
+
+      - name: Record the lab-pass window start and claim a private receipt directory
+        run: |
+          set -euo pipefail
+          echo "LAB_PASS_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+
+          # OMN-18420. Every lab-pass path below used to be a FIXED absolute
+          # path under /tmp, and every emitting job in this repository and in
+          # the sibling reusable runs on the SAME `omnibase-deploy` host. A
+          # `mkdir -p` on a directory that already exists is a no-op, so a
+          # receipt.json left behind by an earlier job survived into the next
+          # one. When that next job's emit did not overwrite it -- because the
+          # probe feeding it failed, or the emit itself did -- the presence
+          # assertion found the STALE file, passed, and upload-artifact
+          # published it under THIS job's sha-keyed name.
+          #
+          # Measured: omnimarket run 35035178406 uploaded artifact 10424013456
+          # named lab-pass-receipt-compose-dev-bc21f733... (an omnimarket
+          # commit) whose payload declared sha a7ea64f5... -- an omnibase_infra
+          # commit -- with a `deployed_revision` check citing
+          # check_dev_lane_staleness.py, which is THIS workflow's emitter shape
+          # and not the sibling one's. The delivery gate's name/payload
+          # cross-check caught it, so the direction was safe; the cost is that
+          # the sibling sha could never receipt PASS, and rule 24(b) then
+          # refuses that sha for staging.
+          #
+          # RUNNER_TEMP alone is not enough: a self-hosted runner reuses it
+          # across jobs. The run id, the attempt and the job name together name
+          # exactly one execution, and the `rm -rf` is what makes the claim
+          # true rather than merely likely.
+          LAB_PASS_WORK="${RUNNER_TEMP}/lab-pass-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_JOB}"
+          rm -rf "${LAB_PASS_WORK}"
+          mkdir -p "${LAB_PASS_WORK}/receipt"
+          echo "LAB_PASS_DIR=${LAB_PASS_WORK}/receipt" >> "$GITHUB_ENV"
+          echo "LAB_PASS_CHECKS=${LAB_PASS_WORK}/checks.json" >> "$GITHUB_ENV"
+
+      - name: Resolve the lane whose deploy agent applies the onex-lab overlay
+        id: lane
+        uses: ./.github/actions/resolve-lab-lane
+        with:
+          lanes-json: ${{ vars.LAB_LANES_JSON }}
+          require: deploy_agent_url
+          match: compose_project=omnibase-infra
+
+      - name: Read the deploy agent's onex-lab overlay record
+        id: record
+        if: always()
+        env:
+          MERGE_SHA: ${{ needs.trigger-rebuild.outputs.source_sha }}
+          # The lane's agent, as the overlay declares it (OMN-19894). Empty when
+          # no lane answered, which the fetcher reports as a FAIL.
+          LAB_AGENT_URL: ${{ env.LANE_DEPLOY_AGENT_URL }}
+          # OMN-18399: the descendant-tolerance fallback's `gh api compare`
+          # calls, same token and same pattern as the compose-dev guard above
+          # (verify-lane-converged's "Wait for the dev lane..." step) -- no new
+          # credential.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p "${LAB_PASS_DIR}"
+          uv run python scripts/ci/fetch_lab_overlay_record.py \
+            --sha "$MERGE_SHA" \
+            --agent-url "$LAB_AGENT_URL" \
+            --repo "${{ github.repository }}" \
+            --wait-seconds 1800 \
+            --poll-interval-seconds 30 \
+            --out "${LAB_PASS_CHECKS}"
+          cat "${LAB_PASS_CHECKS}"
+
+      # if: always() on emit and upload, for the reason both other emitters state:
+      # a FAILED lab pass is exactly as worth recording as a passing one. The emit
+      # step exits non-zero on a FAIL receipt, so AC6's red signal lands on this
+      # run rather than waiting for somebody to probe a pod.
+      - name: Emit the onex-lab-k3s lab-pass receipt
+        if: always()
+        env:
+          MERGE_SHA: ${{ needs.trigger-rebuild.outputs.source_sha }}
+          # OMN-18573. This lane's apply IS performed by the deploy agent as
+          # part of ONE rebuild correlation (OMN-18200), which is what the
+          # receipt model's own docstring says distinguishes it from the
+          # `onex-lab` boot gate — and the boot gate is the emitter that
+          # correctly carries none. So this receipt owes the id too.
+          CORRELATION_ID: ${{ needs.trigger-rebuild.outputs.correlation_id }}
+        run: |
+          set -euo pipefail
+          uv run python scripts/ci/lab_pass_receipt.py emit \
+            --sha "$MERGE_SHA" \
+            --lane onex-lab-k3s \
+            --started-at "${LAB_PASS_STARTED_AT}" \
+            --finished-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --checks-json "${LAB_PASS_CHECKS}" \
+            --agent-command-id "${CORRELATION_ID}" \
+            --out "${LAB_PASS_DIR}/receipt.json"
+
+      # OMN-18247: same zero-byte gap as the compose-dev receipt above.
+      - name: Assert the onex-lab-k3s lab-pass receipt is present and non-empty
+        if: always()
+        run: |
+          set -euo pipefail
+          python3 scripts/ci/assert_evidence_artifact.py \
+            --artifact lab-pass-receipt-onex-lab-k3s \
+            --require "${LAB_PASS_DIR}/receipt.json"
+
+      # OMN-18420: the same identity assertion the compose-dev emitter above
+      # carries, for the same reason -- this job shares a host with that one.
+      - name: Assert the onex-lab-k3s receipt on disk is this job's own
+        if: always()
+        env:
+          MERGE_SHA: ${{ needs.trigger-rebuild.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          uv run python scripts/ci/lab_pass_receipt.py verify \
+            --path "${LAB_PASS_DIR}/receipt.json" \
+            --sha "$MERGE_SHA" \
+            --lane onex-lab-k3s
+      - name: Upload the onex-lab-k3s lab-pass receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          # The NAME is the key scripts/ci/lab_pass_receipt.py's gate queries by;
+          # it must match artifact_name(EnumLabLane.ONEX_LAB_K3S, sha) exactly.
+          name: lab-pass-receipt-onex-lab-k3s-${{ needs.trigger-rebuild.outputs.source_sha }}
+          path: ${{ env.LAB_PASS_DIR }}
+          retention-days: 90
+          if-no-files-found: error

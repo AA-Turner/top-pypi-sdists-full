@@ -1,1 +1,0 @@
-"""French functional tests."""

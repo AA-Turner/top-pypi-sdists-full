@@ -1,3 +1,0 @@
----
-features:
-  - Add ``keep`` argument for ``Graph::remove_unused_nodes()``.

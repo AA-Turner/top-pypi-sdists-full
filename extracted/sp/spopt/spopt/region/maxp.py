@@ -222,26 +222,23 @@ def _construction_phase(
 
             neighbor_polys = deepcopy(weight.neighbors[p])
 
-            if len(neighbor_polys) == 0:
-                labels[p] = -1
-            else:
-                c += 1
-                labeled_id, spatial_attr_total = _grow_cluster_for_poly(
-                    labels,
-                    threshold_array,
-                    p,
-                    neighbor_polys,
-                    c,
-                    weight,
-                    spatial_thre,
-                )
+            c += 1
+            labeled_id, spatial_attr_total = _grow_cluster_for_poly(
+                labels,
+                threshold_array,
+                p,
+                neighbor_polys,
+                c,
+                weight,
+                spatial_thre,
+            )
 
-                if spatial_attr_total < spatial_thre:
-                    c -= 1
-                    enclave.extend(labeled_id)
-                else:
-                    region_list[c] = labeled_id
-                    region_spatial_attr[c] = spatial_attr_total
+            if spatial_attr_total < spatial_thre:
+                c -= 1
+                enclave.extend(labeled_id)
+            else:
+                region_list[c] = labeled_id
+                region_spatial_attr[c] = spatial_attr_total
         num_regions = len(region_list)
 
         for i, _l in enumerate(labels):
@@ -498,13 +495,13 @@ def _pick_move_area(
         rla = np.array(region_lists[k])
         rasa = threshold_array[rla]
         lost_sa = v - rasa
-        pas_indices = np.where(lost_sa > threshold)[0]
+        pas_indices = np.where(lost_sa >= threshold)[0]
         if pas_indices.size > 0:
             for pasi in pas_indices:
                 left_areas = np.delete(rla, pasi)
                 ws = weight.sparse
                 cc = connected_components(ws[left_areas, :][:, left_areas])
-                if cc[0] == 1:
+                if cc[0] == 1 and set(weight.neighbors[rla[pasi]]) - set(left_areas):
                     potential_areas.append(rla[pasi])
         else:
             continue

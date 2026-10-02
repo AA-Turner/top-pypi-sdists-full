@@ -1,0 +1,557 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""Request model for one event-chain canary run (OMN-16773)."""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Sequence
+from uuid import UUID
+
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
+
+from omnibase_infra.enums.generated.enum_omnimarket_topic import EnumOmnimarketTopic
+from omnibase_infra.nodes.node_chain_canary_effect.lane_transport import (
+    host_aliases_in,
+    looks_like_a_dsn,
+)
+
+# Read off the generated topic enum, which is itself generated from the
+# contract.yaml files — never typed as raw literals here (CLAUDE.md
+# "contract-first topic definitions"; the arch-invariants raw-topic-literal
+# gate, OMN-3343, fails CI on a hand-typed `onex.evt.*` string in src/).
+_DEFAULT_TERMINAL_SUCCESS_TOPICS: tuple[str, ...] = (
+    EnumOmnimarketTopic.EVT_DELEGATE_SKILL_COMPLETED_V1.value,
+)
+_DEFAULT_TERMINAL_FAILURE_TOPICS: tuple[str, ...] = (
+    EnumOmnimarketTopic.EVT_DELEGATE_SKILL_FAILED_V1.value,
+)
+
+
+# A POSIX environment variable name. Used to refuse an API KEY passed where a
+# variable NAME belongs (OMN-18421) -- the transposition is silent, and the
+# consequence is three durable copies of a credential.
+_ENV_VAR_NAME_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def _coerce_topics(value: object) -> object:
+    """Accept a comma-separated string as well as a sequence of topics.
+
+    The CLI passes one string per flag (``skill_mapping.yaml`` arg types are
+    scalar), so the wire form has to be splittable; the model form stays a
+    tuple.
+    """
+    if isinstance(value, str):
+        return tuple(part.strip() for part in value.split(",") if part.strip())
+    if isinstance(value, Sequence):
+        return tuple(str(part).strip() for part in value if str(part).strip())
+    return value
+
+
+class ModelChainCanaryRequest(BaseModel):
+    """Configuration for one live delegation-chain probe.
+
+    Note what is NOT here: the probe's correlation id. It is minted fresh
+    inside the handler on every run and is deliberately not settable, so no
+    caller can pin it and no two runs can share one (OMN-16773 AC1). The
+    ``correlation_id`` below is the RUN's id — the sweep's own identity,
+    the same convention every scheduled sweep node in this repo uses.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
+
+    correlation_id: UUID = Field(..., description="Canary run correlation ID.")
+    probe_url: str = Field(
+        ...,
+        description=(
+            "Base URL of the runtime ingress to probe, e.g. "
+            "'http://host.docker.internal:8085'. REQUIRED with no default: "
+            "a silent default would let a misconfigured run probe the wrong "
+            "lane and report a green that means nothing (CLAUDE.md Rule 8). "
+            "The caller names the lane; this node never guesses it."
+        ),
+    )
+    gateway_url: str = Field(
+        default="",
+        description=(
+            "Base URL of the TENANT-BEARING submission route — the onex-api "
+            "gateway, e.g. 'http://host.docker.internal:8090'. When set, the "
+            "probe submits POST {gateway_url}/v1/workflows with a real "
+            "credential instead of POST {probe_url}/skill (OMN-18421).\n\n"
+            "WHY THIS EXISTS. The `/skill` ingress reads X-Correlation-ID and "
+            "nothing else: no authorization header, no tenant. Every event the "
+            "resulting chain publishes is therefore unattributed, and "
+            "omnimarket's delegation projection writer refuses an unattributed "
+            "event fail-closed into its malformed sink — correctly, because a "
+            "writer under FORCE ROW LEVEL SECURITY cannot discover a row's "
+            "tenant by reading, and stamping a house identity would put rows "
+            "where the submitting tenant's reader could never see them. So the "
+            "canary's own chain was refused on every run while the probe "
+            "reported green. The gateway is the only surface with an "
+            "authenticated identity, and this field is how the canary reaches "
+            "it.\n\n"
+            "EMPTY keeps the legacy `/skill` route. It is not a silent "
+            "fallback: when this is set and the credential is missing the run "
+            "reports SUBMISSION_ROUTE_NOT_CONFIGURED and is RED, rather than "
+            "quietly submitting the tenant-less way and proving a path no "
+            "customer takes."
+        ),
+    )
+    gateway_api_key_env: str = Field(
+        default="",
+        description=(
+            "NAME of the environment variable carrying the gateway API key — "
+            "a NAME, never the key. Same reasoning as `projection_dsn_env` and "
+            "`ledger_source_env` below, and for the same three durable copies: "
+            "`onex skill` serialises every arg into the node payload, onto the "
+            "bus and into the event log, and the flag itself lands in argv, "
+            "which is world-readable through /proc. The value is injected into "
+            "the job environment under this name and read there.\n\n"
+            "REQUIRED when `gateway_url` is set. A gateway submission with no "
+            "credential is a 401, which is a claim about the canary's wiring "
+            "and not about the chain, so the run refuses before publishing "
+            "anything."
+        ),
+    )
+    gateway_workflow_type: str = Field(
+        default="delegate-skill",
+        description=(
+            "Public workflow_type submitted to the gateway. Defaults to the "
+            "catalog entry whose command topic is the FIRST hop of "
+            "`expected_ledger_hops` — the consumer-facing delegation entry "
+            "point. `delegation-inference` would also be accepted by the "
+            "gateway and would enter this chain at hop 2, so the head hop "
+            "would simply never exist and link 5 would report an incomplete "
+            "chain that was in fact never started."
+        ),
+    )
+    runtime_command: str = Field(
+        default="node_delegate_skill_orchestrator",
+        description=(
+            "Runtime command dispatched through POST {probe_url}/skill. The "
+            "default is the delegation entry point from the recorded "
+            "2026-07-30 matrix recipe."
+        ),
+    )
+    task_type: str = Field(
+        default="test",
+        description=(
+            "Delegation task class. One of the ids in omnidash "
+            "shared/contracts/delegation-task-types.json. 'test' is class 1 "
+            "of the 13-class matrix and the one the OMN-16767 incident was "
+            "reproduced on."
+        ),
+    )
+    prompt: str = Field(
+        default=(
+            "Reply with the single word: alive. This is an automated "
+            "liveness probe of the delegation chain."
+        ),
+        description=(
+            "Probe prompt. Deliberately trivial: the canary asserts that the "
+            "CHAIN carries a request to a terminal, not that the model is "
+            "any good. Inference is local to the lane host, so a run costs "
+            "no external spend."
+        ),
+    )
+    max_tokens: int = Field(
+        default=32,
+        ge=1,
+        le=2048,
+        description="Cap on generated tokens — keeps a probe run cheap and fast.",
+    )
+    budget_ms: int = Field(
+        default=120_000,
+        ge=1_000,
+        le=600_000,
+        description=(
+            "Runtime ingress budget. A terminal that does not land inside "
+            "this window is RED. 120s is 2/3 of the 180s budget the live "
+            "OMN-16767 reproduction exhausted, so a chain that is merely "
+            "slow still reads as failing rather than as intermittently fine."
+        ),
+    )
+    terminal_bootstrap_servers: str = Field(
+        default="",
+        description=(
+            "Kafka/Redpanda bootstrap servers for the correlation-scoped "
+            "TERMINAL readback — the leg that discharges OMN-16025 link 4 "
+            "('emission OUTBOX-CONFIRMED via broker readback, not "
+            "publish-return'). EMPTY means the run has no evidence about "
+            "the terminal and reports TERMINAL_READBACK_NOT_CONFIGURED. It "
+            "deliberately does NOT fall back to the ingress response: that "
+            "fallback is the OMN-16931 defect this field exists to remove."
+        ),
+    )
+    projection_dsn_env: str = Field(
+        default="",
+        description=(
+            "NAME of the environment variable carrying the Postgres DSN for "
+            "the correlation-scoped PROJECTION readback — the leg that "
+            "discharges OMN-16025 link 2 ('routing decision PUBLISHED and "
+            "PROJECTED, readback from projection, not logs'). A NAME, never a "
+            "DSN: this field is serialised into the node payload, onto the "
+            "bus and into the event log, and it is built from a CLI flag that "
+            "lands in argv, so a DSN here would be durably persisted and "
+            "readable from /proc by every process on the host. The NAME is "
+            "resolved from the lane's declared `projection_readback.dsn_env` "
+            "(omnimarket config/ci_bus_lanes.yaml); the value is injected "
+            "into the job environment under that name and read there. EMPTY "
+            "means the run has no evidence about the projection and reports "
+            "NOT_CONFIGURED. It deliberately does NOT fall back to the bus "
+            "terminal: OMN-14843 measured 26 of 38 correlations stranded "
+            "mid-FSM while the topic layer was healthy at that same moment, "
+            "so a green terminal is not evidence about this layer."
+        ),
+    )
+    ledger_source_env: str = Field(
+        default="",
+        description=(
+            "NAME of the environment variable carrying the Postgres DSN for "
+            "the LEDGER CHAIN assembly, replay and tier-2 verify — the leg "
+            "that discharges OMN-16025 link 5 ('complete ledger chain + "
+            "replay green through an HONEST tier-2 verifier, SKIP != PASS'). "
+            "A NAME, never a DSN, for the same reason as its "
+            "`projection_dsn_env` sibling: this field is serialised into the "
+            "node payload, onto the bus and into the event log, and it is "
+            "built from a CLI flag that lands in argv, so a DSN here would be "
+            "durably persisted and readable from /proc by every process on "
+            "the host. This field REPLACES the raw-DSN `ledger_source` that "
+            "#3072 shipped; there is no shim, because no CLI row ever set it "
+            "and so no caller can be broken by the replacement. The NAME is "
+            "resolved from the lane's declared `ledger_readback.dsn_env` "
+            "(omnimarket config/ci_bus_lanes.yaml); the value is injected "
+            "into the job environment under that name and read there. EMPTY "
+            "means the run has no evidence about the chain and reports "
+            "NOT_CONFIGURED. It deliberately does NOT fall back to the bus "
+            "terminal or the projection: a link with no instrument pointed at "
+            "it makes no claim."
+        ),
+    )
+    expected_ledger_hops: tuple[str, ...] = Field(
+        default=(),
+        description=(
+            "The hops a COMPLETE chain must carry, end to end. Any assembled "
+            "chain missing one of these is CHAIN_INCOMPLETE — the scope's own "
+            "wording is 'no gaps tolerated silently', so completeness is "
+            "checked against a declared set rather than inferred from "
+            "whatever the ledger happened to return."
+        ),
+    )
+    terminal_success_topics: tuple[str, ...] = Field(
+        default=_DEFAULT_TERMINAL_SUCCESS_TOPICS,
+        description=(
+            "Terminal topics that mean the delegation COMPLETED. Defaults to "
+            "node_delegate_skill_orchestrator's contract-declared "
+            "runtime_dispatch.terminal_events.success, read off the "
+            "generated topic enum. A terminal here discharges link 4 and "
+            "supports link 3."
+        ),
+    )
+    terminal_failure_topics: tuple[str, ...] = Field(
+        default=_DEFAULT_TERMINAL_FAILURE_TOPICS,
+        description=(
+            "Terminal topics that mean the delegation FAILED. Read back on "
+            "the same pass as the success topics: a failure terminal still "
+            "discharges link 4 (the emission landed on the bus) while "
+            "failing link 3 (execution did not complete). Distinguishing "
+            "those two is the diagnostic OMN-16931 adds."
+        ),
+    )
+    terminal_scan_records: int = Field(
+        default=500,
+        ge=1,
+        le=20_000,
+        description=(
+            "Backlog depth to seek back per terminal topic before waiting "
+            "for new records. The terminal may already be on the bus by the "
+            "time the ingress answers — run 33251822642 published it 3s "
+            "before the ingress replied — so the readback must look "
+            "backwards as well as forwards."
+        ),
+    )
+    terminal_readback_timeout_seconds: int = Field(
+        default=30,
+        ge=1,
+        le=600,
+        description=(
+            "FLOOR on the terminal readback window, in seconds. The actual "
+            "window is the larger of this and the remainder of budget_ms "
+            "after the ingress answered — OMN-16025 link 4 says 'inside the "
+            "budget', and giving up at 4,369 ms of a 120,000 ms budget "
+            "because the ingress returned early is precisely the OMN-16931 "
+            "bug. The floor covers the case where the ingress itself burned "
+            "the whole budget."
+        ),
+    )
+    quarantine_bootstrap_servers: str = Field(
+        default="",
+        description=(
+            "Kafka/Redpanda bootstrap servers for the correlation-scoped "
+            "quarantine check. EMPTY (the default) means the leg does not "
+            "run and the result reports SKIPPED_NOT_CONFIGURED — never a "
+            "clean verdict for a check that never happened."
+        ),
+    )
+    quarantine_topic: str = Field(
+        default="onex.dlq.omnibase-infra.quarantine.v1",
+        description=(
+            "Platform quarantine sink. Handlers with no DLQ topic declared "
+            "in their own contract fall through to this topic, which is how "
+            "the OMN-16767 delegation failures became invisible."
+        ),
+    )
+    quarantine_scan_records: int = Field(
+        default=500,
+        ge=1,
+        le=20_000,
+        description=(
+            "How many records back from the high-water mark to scan. This "
+            "is a TAIL scan by design: the sink held ~8.9M records when "
+            "OMN-16767 was diagnosed, so reading it whole is not an option. "
+            "The canary only needs the window its own request just landed "
+            "in. Sink-wide depth monitoring is OMN-16769, not this node."
+        ),
+    )
+    quarantine_timeout_seconds: int = Field(
+        default=30,
+        ge=1,
+        le=300,
+        description="Wall-clock cap on the quarantine tail scan.",
+    )
+    settle_seconds: int = Field(
+        default=2,
+        ge=0,
+        le=60,
+        description=(
+            "Pause between the ingress answering and the quarantine scan. "
+            "The DLQ write happens after the handler raises, so scanning "
+            "instantly can miss a record that is about to appear and turn a "
+            "QUARANTINED run into a vaguer TERMINAL_MISSING one."
+        ),
+    )
+    # OMN-19811. Run 36202173467 went RED because a deploy recreated the
+    # runtime inside the probe's budget, and nothing here knew to ask.
+    deploy_agent_url: str = Field(
+        default="",
+        description=(
+            "Base URL of the lane's deploy agent HTTP surface (/health, /queue, "
+            "/job/{id}) -- the same surface the verify-lane-converged job "
+            "reads, resolved from config/deploy_lane_routing.yaml "
+            "verify.deploy_agent_url. Empty makes no claim about deploys and "
+            "never retries (deploy_window.status=not_configured)."
+        ),
+    )
+    deploy_wait_seconds: int = Field(
+        default=2400,
+        ge=0,
+        le=3600,
+        description=(
+            "Total wall-clock the run may spend waiting for a deploy to "
+            "converge, shared between the pre-fire wait and the wait before "
+            "the single retry. The deploy agent's measured mean service time "
+            "on .201 was ~937 s on 2026-09-26, and deploys arrive back to "
+            "back during a merge train (lab run 36279784915 met two), so the "
+            "default is about two and a half jobs. When it runs out the run "
+            "fires anyway (pre-fire) or does not retry (post-fire); it never "
+            "turns a RED into a GREEN."
+        ),
+    )
+
+    @field_validator(
+        "terminal_success_topics",
+        "terminal_failure_topics",
+        # OMN-16964: expected_ledger_hops is now set from a CLI flag too, and
+        # skill_mapping.yaml arg types are scalar, so it needs the same
+        # comma-splitting. Without this it would arrive as one string that
+        # matches no hop, and link 5 would report CHAIN_INCOMPLETE against a
+        # chain that was in fact complete.
+        "expected_ledger_hops",
+        mode="before",
+    )
+    @classmethod
+    def _split_topics(cls, value: object) -> object:
+        return _coerce_topics(value)
+
+    @field_validator("terminal_success_topics")
+    @classmethod
+    def _require_a_success_topic(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        """A readback with nothing to read is a check that cannot fail."""
+        if not value:
+            raise ValueError(
+                "terminal_success_topics must name at least one topic — a "
+                "readback with no topics would report NOT_FOUND for every "
+                "run and teach people to ignore this canary"
+            )
+        return value
+
+    @field_validator("quarantine_bootstrap_servers", "terminal_bootstrap_servers")
+    @classmethod
+    def _refuse_a_host_alias_broker(cls, value: str) -> str:
+        """A broker address may not be a Docker-Desktop host alias (OMN-17926).
+
+        ``host.docker.internal:19092`` was this canary's hardcoded default for
+        both broker legs, and it took every run from 2026-09-07T17:44Z onward
+        red with ``quarantine_probe_failed`` -- 25 consecutive runs, each of
+        which had already fired its delegation successfully. The alias resolves
+        only because ``docker-compose.runners.yml`` hands the deploy runner an
+        ``extra_hosts: host-gateway`` mapping, and, being an address literal,
+        it carries no transport at all -- so the client opened plaintext
+        against the SASL/SCRAM listener OMN-18012 Phase B had enabled hours
+        earlier and reported the whole bus unreadable.
+
+        The refusal is deliberately at the model boundary rather than in the
+        workflow: a workflow default is one edit away from coming back, and
+        the next reader of a green canary cannot tell which address it used.
+        Pass the lane's declared broker (omnimarket
+        ``config/ci_bus_lanes.yaml``, resolved by
+        ``lane_transport.load_lane_transport``) instead.
+
+        The ingress ``probe_url`` is deliberately NOT covered: it speaks HTTP
+        to a host-published port, that leg has worked on every one of those 25
+        runs, and widening the refusal to it would break a working probe to
+        make a point.
+        """
+        aliases = host_aliases_in(value)
+        if aliases:
+            raise ValueError(
+                f"broker address {value!r} uses the Docker-Desktop host alias "
+                f"{aliases[0]!r}. That alias resolves on one runner's compose "
+                "block and nowhere else, and it declares no transport, so a "
+                "client cannot know whether the listener speaks SASL. Resolve "
+                "the broker from the lane declaration (omnimarket "
+                "config/ci_bus_lanes.yaml) instead of naming a host literal."
+            )
+        return value
+
+    @field_validator("projection_dsn_env", "ledger_source_env")
+    @classmethod
+    def _refuse_a_dsn_where_a_name_belongs(
+        cls, value: str, info: ValidationInfo
+    ) -> str:
+        """This field takes a variable NAME. A DSN here is refused (OMN-18060).
+
+        The refusal is at the model boundary because that is the boundary the
+        credential would cross. ``onex skill`` builds the node payload from
+        CLI flags, so a value passed here is simultaneously in this process's
+        argv (world-readable through ``/proc/<pid>/cmdline``), echoed by the
+        dispatch step into the run log, and serialised into the event log as
+        part of the request — three durable copies of a credential, from one
+        flag.
+
+        The message deliberately does not echo the offending value.
+        """
+        if looks_like_a_dsn(value):
+            field_name = info.field_name or "this field"
+            declaration = (
+                "ledger_readback.dsn_env"
+                if info.field_name == "ledger_source_env"
+                else "projection_readback.dsn_env"
+            )
+            raise ValueError(
+                f"{field_name} takes the NAME of the environment "
+                "variable carrying the DSN, and the value supplied parses as "
+                "a connection string. A DSN passed here would land in argv, "
+                "in this run's log and in the event log. Pass the name "
+                f"declared by the lane's {declaration} "
+                "(omnimarket config/ci_bus_lanes.yaml) and inject the value "
+                "into the environment under that name."
+            )
+        return value
+
+    @field_validator("probe_url")
+    @classmethod
+    def _validate_probe_url(cls, value: str) -> str:
+        stripped = value.strip().rstrip("/")
+        if not stripped:
+            raise ValueError("probe_url must not be empty")
+        if not stripped.startswith(("http://", "https://")):
+            raise ValueError(
+                f"probe_url must be an absolute http(s) URL, got: {value!r}"
+            )
+        return stripped
+
+    @field_validator("gateway_url")
+    @classmethod
+    def _validate_gateway_url(cls, value: str) -> str:
+        """Empty keeps the legacy route; anything else must be a real URL."""
+        stripped = value.strip().rstrip("/")
+        if not stripped:
+            return ""
+        if not stripped.startswith(("http://", "https://")):
+            raise ValueError(
+                f"gateway_url must be an absolute http(s) URL, got: {value!r}"
+            )
+        return stripped
+
+    @field_validator("deploy_agent_url")
+    @classmethod
+    def _validate_deploy_agent_url(cls, value: str) -> str:
+        """Empty means not configured; anything else must be a real URL."""
+        stripped = value.strip().rstrip("/")
+        if not stripped:
+            return ""
+        if not stripped.startswith(("http://", "https://")):
+            raise ValueError(
+                f"deploy_agent_url must be an absolute http(s) URL, got: {value!r}"
+            )
+        return stripped
+
+    @field_validator("gateway_api_key_env")
+    @classmethod
+    def _gateway_api_key_env_is_a_name_not_a_key(cls, value: str) -> str:
+        """Refuse a value that is obviously the key itself.
+
+        An environment variable NAME is a POSIX identifier. A gateway API key
+        is not, and the two are easy to transpose on a command line where the
+        mistake is silent and durable — the flag lands in argv, the dispatch
+        step echoes its own arguments into the run log, and the request is
+        serialised into the event log. The message deliberately does not echo
+        the offending value.
+        """
+        stripped = value.strip()
+        if not stripped:
+            return ""
+        if not _ENV_VAR_NAME_PATTERN.fullmatch(stripped):
+            raise ValueError(
+                "gateway_api_key_env takes the NAME of the environment "
+                "variable carrying the gateway API key, and the value supplied "
+                "is not a valid environment variable name. A key passed here "
+                "would land in argv, in this run's log and in the event log. "
+                "Pass the name and inject the value into the environment "
+                "under it."
+            )
+        return stripped
+
+    @model_validator(mode="after")
+    def _gateway_route_needs_a_credential(self) -> ModelChainCanaryRequest:
+        """A declared gateway route with no credential is refused at the model.
+
+        Refused here rather than at submit time so the run never reaches the
+        point of publishing: a 401 from the gateway is a claim about how this
+        canary was wired, and letting it happen would put a misleading
+        INGRESS_UNREACHABLE-shaped failure in the receipt instead of the real
+        cause. The handler's own SUBMISSION_ROUTE_NOT_CONFIGURED verdict covers
+        the other half — a name that is declared but resolves to nothing in the
+        environment, which this model cannot see.
+        """
+        if self.gateway_url and not self.gateway_api_key_env:
+            raise ValueError(
+                "gateway_url names the tenant-bearing submission route but "
+                "gateway_api_key_env is empty, so the submission would be "
+                "unauthenticated. Name the environment variable carrying the "
+                "gateway API key, or leave gateway_url empty to keep the "
+                "legacy tenant-less /skill route."
+            )
+        return self
+
+
+__all__ = ["ModelChainCanaryRequest"]

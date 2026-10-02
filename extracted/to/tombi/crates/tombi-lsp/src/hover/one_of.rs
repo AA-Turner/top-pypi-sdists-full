@@ -14,8 +14,8 @@ use super::{
 
 pub fn get_one_of_hover_content<'a: 'b, 'b, T>(
     value: &'a T,
-    position: tombi_text::Position,
-    keys: &'a [tombi_document_tree_syntax::Key],
+    offset: tombi_text::Offset,
+    keys: &'a [tombi_document_tree_syntax::Key<'_>],
     accessors: &'a [tombi_schema_store::Accessor],
     one_of_schema: &'a tombi_schema_store::OneOfSchema,
     current_schema: &'a CurrentSchema<'a>,
@@ -111,7 +111,7 @@ where
 
             match value
                 .get_hover_content(
-                    position,
+                    offset,
                     keys,
                     accessors,
                     Some(navigation_schema),
@@ -166,9 +166,10 @@ where
                 constraints: None,
                 schema_document_uri: Some(super::schema_link_uri(
                     current_schema.schema_document_uri.as_ref(),
-                    one_of_schema.range,
+                    &current_schema.line_index,
+                    one_of_schema.span,
                 )),
-                range: None,
+                span: None,
                 schema_tooltip: None,
             })
         });
@@ -179,7 +180,8 @@ where
                 .get_or_insert_with(|| {
                     super::schema_link_uri(
                         current_schema.schema_document_uri.as_ref(),
-                        one_of_schema.range,
+                        &current_schema.line_index,
+                        one_of_schema.span,
                     )
                 });
             super::inherit_matching_nullable_type(&value_type, &mut hover_value_content.value_type);
@@ -211,8 +213,8 @@ where
 impl GetHoverContent for tombi_schema_store::OneOfSchema {
     fn get_hover_content<'a: 'b, 'b>(
         &'a self,
-        _position: tombi_text::Position,
-        _keys: &'a [tombi_document_tree_syntax::Key],
+        _position: tombi_text::Offset,
+        _keys: &'a [tombi_document_tree_syntax::Key<'_>],
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext,
@@ -260,7 +262,7 @@ impl GetHoverContent for tombi_schema_store::OneOfSchema {
                         value_type,
                         constraints: None,
                         schema_document_uri: super::current_schema_link_uri(Some(current_schema)),
-                        range: None,
+                        span: None,
                         schema_tooltip: None,
                     });
 

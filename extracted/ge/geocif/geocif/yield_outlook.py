@@ -25,6 +25,16 @@ from geocif import utils as ut
 from .ml import stats as ml_stats
 from .viz import plot
 from .utils import friendly_stage_label
+# ONE chronological stage-order helper for every "latest stage" pick (A7):
+# "Stage Name" does not sort chronologically as text, see ml/stage_labels.py.
+from .ml.stage_labels import (  # noqa: E402
+    MONTH_ORDER as _MONTH_ORDER,
+    infer_label_order as _infer_label_order,
+    infer_planting_month as _infer_planting_month,
+    latest_stage_rows as _latest_stage_rows,
+    stage_sort_key as _stage_sort_key,
+)
+from .viz._outlook_db import dedup_upserts as _dedup_upserts  # noqa: E402
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
@@ -281,7 +291,10 @@ def _query_predictions(db_path, table, model, experiment_name="default"):
                         # these the diagnostics frame has no ground truth, so
                         # accuracy / confusion silently cannot be produced
                         # even though the DB holds them.
-                        "Class Bins", "CI")
+                        "Class Bins", "CI",
+                        # Write timestamps: fetched only to de-duplicate
+                        # upsert copies below, then dropped again.
+                        "Date", "Time")
             if c in table_cols
         ] + [
             c for c in table_cols
@@ -305,6 +318,19 @@ def _query_predictions(db_path, table, model, experiment_name="default"):
     finally:
         con.close()
     if not df.empty:
+        # A8: the writer's upsert key includes the wall-clock Time, so a
+        # re-run into the same DB appends a SECOND copy of every logical row
+        # instead of replacing it; left in place the copies double-weight
+        # every aggregate and `.last()` picks an arbitrary one. Keep the most
+        # recently WRITTEN copy per logical key (Season is part of a row's
+        # identity for multi-season countries), then drop the bookkeeping
+        # columns so the frame's schema is unchanged for callers.
+        dedup_key = [
+            c for c in ("Country", "Region", "Harvest Year", "Stage Name", "Season")
+            if c in df.columns
+        ]
+        df = _dedup_upserts(df, dedup_key, f"{db_path.name}:{table}:{model}")
+        df = df.drop(columns=[c for c in ("Date", "Time") if c in df.columns])
         # Rename DB-specific column names to canonical form so downstream
         # code (plots, compute_outlook_index, FDW export) works unchanged.
         rename_map = {}
@@ -333,7 +359,8 @@ def _query_predictions(db_path, table, model, experiment_name="default"):
 
 
 def _compute_outlook_index(df, current_year, n_years, aggregation,
-                           use_latest_stage=True, stage_name=None):
+                           use_latest_stage=True, stage_name=None,
+                           min_hist_years=3):
     """Compute yield outlook index per region.
 
     Args:
@@ -341,6 +368,10 @@ def _compute_outlook_index(df, current_year, n_years, aggregation,
             (Country, Region, Harvest Year) so stage name mismatches
             between current and historical years don't matter.
             If False, filter by exact stage_name.
+        min_hist_years: a region needs at least this many historical
+            predicted years inside the ``n_years`` window, else it is
+            dropped (logged) — a one-year "normal" is noise, not a
+            baseline. ``[ML] outlook_min_hist_years`` in ``run``.
 
     outlook_index = (current_predicted / agg(historical_predicted)) * 100
 
@@ -366,13 +397,11 @@ def _compute_outlook_index(df, current_year, n_years, aggregation,
     )
 
     if use_latest_stage:
-        # For each region(+season)+year, keep only the latest (last) stage
-        df_work = (
-            df.sort_values("Stage Name")
-            .groupby(latest_keys)
-            .last()
-            .reset_index()
-        )
+        # For each region(+season)+year, keep only the CHRONOLOGICALLY
+        # latest stage. "Stage Name" does not sort as text (May > Jul,
+        # Sep > Oct), so the old sort_values("Stage Name") picked the
+        # lexical maximum (A7).
+        df_work = _latest_stage_rows(df, by=latest_keys, keep="last")
     else:
         df_work = df[df["Stage Name"] == stage_name].copy()
 
@@ -391,11 +420,22 @@ def _compute_outlook_index(df, current_year, n_years, aggregation,
         & (df_work["Harvest Year"] >= min_year)
     ]
     agg_func = "median" if aggregation == "median" else "mean"
-    hist_agg = (
-        df_hist.groupby(region_keys)["Predicted Yield (tn per ha)"]
-        .agg(agg_func)
-        .rename("hist_predicted")
-    )
+    hist_grp = df_hist.groupby(region_keys)["Predicted Yield (tn per ha)"]
+    hist_agg = hist_grp.agg(agg_func).rename("hist_predicted")
+    # Per-region minimum history: the index is a departure from the
+    # region's own multi-year normal, which does not exist for a region
+    # with one or two predicted years in the window.
+    min_hist = max(1, int(min_hist_years) if min_hist_years else 1)
+    n_hist = hist_grp.count()
+    too_short = n_hist[n_hist < min_hist]
+    if not too_short.empty:
+        logger.warning(
+            f"Outlook index: dropped {len(too_short)} region(s) with fewer "
+            f"than {min_hist} historical predicted years in "
+            f"{min_year}-{current_year - 1} (e.g. "
+            f"{too_short.index[:5].tolist()})"
+        )
+        hist_agg = hist_agg.drop(too_short.index)
 
     # Compute index
     df_outlook = pd.concat([current_pred, hist_agg], axis=1).dropna()
@@ -697,7 +737,13 @@ def _load_observed_baselines(countries, crop, parser, current_year=None):
         if f.exists():
             df = pd.read_csv(f)
             if {"Region", "Harvest Year", "Yield (tn per ha)"}.issubset(df.columns):
-                frames.append(df[["Region", "Harvest Year", "Yield (tn per ha)"]])
+                part = df[["Region", "Harvest Year", "Yield (tn per ha)"]].copy()
+                # Key on Country too: namesake regions in different
+                # countries (Malawi / Zambia "Central", "Northern",
+                # "Southern") must not share one baseline in a
+                # multi-country pool. Joined back via _merge_obs_baseline.
+                part.insert(0, "Country", country)
+                frames.append(part)
 
     if not frames:
         return {}
@@ -735,19 +781,46 @@ def _load_observed_baselines(countries, crop, parser, current_year=None):
     for label, y1, y2 in [
         ("2013-2017", 2013, 2017),
         ("2018-2022", 2018, 2022),
-        ("10yr", max_year - 10, y2_10yr),
+        # Ten years inclusive ending the year before the forecast year
+        # (``max_year - 10`` spanned ELEVEN years when the last observed
+        # year was current_year - 1).
+        ("10yr", y2_10yr - 9, y2_10yr),
         (last5_label, last5_y1, last5_y2),
     ]:
         sub = df_all[(df_all["Harvest Year"] >= y1) & (df_all["Harvest Year"] <= y2)]
         if sub.empty:
             continue
         baselines[label] = (
-            sub.groupby("Region")["Yield (tn per ha)"]
+            sub.groupby(["Country", "Region"])["Yield (tn per ha)"]
             .mean()
             .reset_index()
             .rename(columns={"Yield (tn per ha)": "obs_mean"})
         )
     return baselines
+
+
+def _merge_obs_baseline(df_left, df_obs):
+    """Left-join an observed-baseline frame (``_load_observed_baselines``)
+    onto an outlook frame.
+
+    Keys on (Country, Region) whenever both sides carry ``Country``: region
+    names repeat across countries (Malawi and Zambia both have "Central",
+    "Northern" and "Southern"), so a Region-only join handed every namesake
+    the same baseline in a multi-country pool. Country is compared
+    case-/underscore-insensitively because the statistics path uses the
+    config spelling while a pooled DB row may not. Falls back to the old
+    Region-only join when either side lacks ``Country``.
+    """
+    if "Country" in df_left.columns and "Country" in df_obs.columns:
+        def _ckey(s):
+            return (s.astype(str).str.lower()
+                    .str.replace("_", " ", regex=False).str.strip())
+        left = df_left.assign(_ckey=_ckey(df_left["Country"]))
+        right = (df_obs.assign(_ckey=_ckey(df_obs["Country"]))
+                 .drop(columns=["Country"]))
+        return (left.merge(right, on=["_ckey", "Region"], how="left")
+                .drop(columns=["_ckey"]))
+    return df_left.merge(df_obs, on="Region", how="left")
 
 
 def _plot_within_r_comparison(df_wr, summary, dir_out, fname, base_title):
@@ -1267,39 +1340,9 @@ def _plot_combined_map_mape(df, df_mape, dg_sub, country, crop, model,
         plt.close(fig)
 
 
-_MONTH_ORDER = {
-    "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
-    "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12,
-}
-
-
-def _infer_planting_month(stage_names):
-    """Return the planting month inferred from pre-season Stage Names.
-
-    Pre-season init months always form a contiguous block in the calendar
-    (set by ``utils.get_pre_season_init_months``); planting is the calendar
-    month immediately after the latest init in the block, with year wrap.
-
-    Returns ``None`` when no Pre-Season stages are present — callers fall
-    back to the legacy ordering.
-    """
-    import re
-
-    months = set()
-    for name in stage_names:
-        if isinstance(name, str) and name.startswith("Pre-Season"):
-            match = re.search(r"init (\w+)", name)
-            if match:
-                mn = _MONTH_ORDER.get(match.group(1))
-                if mn:
-                    months.add(mn)
-    if not months:
-        return None
-    for candidate in range(1, 13):
-        prev = 12 if candidate == 1 else candidate - 1
-        if candidate not in months and prev in months:
-            return candidate
-    return None
+# ``_MONTH_ORDER`` and ``_infer_planting_month`` now live in
+# ``geocif.ml.stage_labels`` (imported at the top of this module under the
+# same private names) so every stage-order decision shares one implementation.
 
 
 _MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -1686,7 +1729,12 @@ def _write_state_export(df_pred_store, season_bounds, dir_outlook, parser=None):
 
         plant_num = out["Planting Month"].map(_MONTH_NUM)
         pred_num = out["Prediction Month"].map(_MONTH_NUM)
-        out = out.assign(_yr=years, _step=(pred_num - plant_num) % 12)
+        # Pre-season rows ("Pre-Season (init Jan)") carry no parseable
+        # window, so their step is NaN; sort_values puts NaN LAST and the
+        # .tail(1) below then exported the pre-season row as the latest.
+        # Rank them (and any unparseable window) below every in-season step.
+        out = out.assign(_yr=years,
+                         _step=((pred_num - plant_num) % 12).fillna(-1))
         # latest stage per crop x region x season x year
         grp = [c for c in ("Crop", "Region", "Season", "_yr") if c in out.columns]
         out = (out.sort_values(grp + ["_step"], kind="mergesort")
@@ -1868,42 +1916,8 @@ def _write_monthly_history(df_pred_store, season_bounds, dir_outlook):
     return written
 
 
-def _stage_sort_key(name, planting_month=None):
-    """Sort stage names chronologically.
-
-    Pre-Season stages sort first (before any in-season stage). When
-    ``planting_month`` is provided, init months are ordered by
-    "months-before-planting" descending — i.e. earliest forecast first,
-    latest pre-season init right before planting last. Works for any
-    hemisphere / cross-year season.
-
-    When ``planting_month`` is ``None``, falls back to the legacy
-    hardcoded wrap-around (assumes ~March planting) for backward
-    compatibility with callers that haven't been updated.
-    """
-    import re
-
-    if name.startswith("Pre-Season") or name.startswith("In-Season"):
-        match = re.search(r"init (\w+)", name)
-        if match:
-            m = _MONTH_ORDER.get(match.group(1), 0)
-            if planting_month is not None and 1 <= planting_month <= 12:
-                # Months-before-planting (mod 12); negate so ascending sort
-                # puts the *earliest* (furthest-from-planting) init first.
-                return -((planting_month - m) % 12)
-            # Legacy fallback — March-planting wrap.
-            return m - 24 if m >= 7 else m - 12
-        return -1
-    parts = name.split("-")
-    if len(parts) == 2:
-        s = _MONTH_ORDER.get(parts[0].strip().split()[0], 0)
-        e = _MONTH_ORDER.get(parts[1].strip().split()[0], 0)
-        if s or e:
-            return (s - e) % 12 if s >= e else s - e + 12
-    # Season-normalized numeric labels ("10%-100%", "Stages 1-3", "10-100"):
-    # order by the leading integer (decile / growth-stage code).
-    nums = re.findall(r"\d+", name)
-    return int(nums[0]) if nums else 0
+# ``_stage_sort_key`` now lives in ``geocif.ml.stage_labels.stage_sort_key``
+# (imported at the top of this module under the private name).
 
 
 def _compute_region_metric(df, stages_sorted, metric_col):
@@ -1913,6 +1927,43 @@ def _compute_region_metric(df, stages_sorted, metric_col):
         .mean()
         .reset_index()
     )
+
+
+def _scored_years(df, obs_col, pred_col):
+    """Set of Harvest Years with at least one scorable (obs, pred) pair."""
+    d = df.dropna(subset=[obs_col, pred_col])
+    d = d[d[obs_col] != 0]
+    if "Harvest Year" not in d.columns or d.empty:
+        return set()
+    return set(d["Harvest Year"].dropna().unique())
+
+
+def _common_years(model_dfs, obs_col, pred_col):
+    """Harvest Years scorable for EVERY model in ``model_dfs``.
+
+    Returns ``None`` when no model has a scorable year at all, otherwise the
+    intersection — which may be EMPTY (models with disjoint hindcast years).
+    Callers must treat an empty set as "no fair comparison exists", not as
+    "no filter": BMA drops its first ``min_history_years`` warm-up years, so
+    scoring each model on its own years compares unlike samples.
+    """
+    common = None
+    for df_m in model_dfs.values():
+        years = _scored_years(df_m, obs_col, pred_col)
+        if not years:
+            continue
+        common = years if common is None else (common & years)
+    return common
+
+
+def _model_year_ranges(model_dfs, obs_col, pred_col):
+    """``{model: "first-last (n)"}`` of scorable years, for log messages."""
+    out = {}
+    for model, df_m in model_dfs.items():
+        years = sorted(int(y) for y in _scored_years(df_m, obs_col, pred_col))
+        out[model] = (f"{years[0]}-{years[-1]} ({len(years)})" if years
+                      else "none")
+    return out
 
 
 def _compute_rrmsep(df, obs_col, pred_col):
@@ -2237,7 +2288,10 @@ def _plot_all_progressions(df, country, crop, model, dir_outlook, yield_units="M
 
     _stage_names = df["Stage Name"].dropna().unique()
     _planting = _infer_planting_month(_stage_names)
-    stages_sorted = sorted(_stage_names, key=lambda s: _stage_sort_key(s, _planting))
+    _forward = _infer_label_order(_stage_names) == "forward"
+    stages_sorted = sorted(
+        _stage_names, key=lambda s: _stage_sort_key(s, _planting, forward=_forward)
+    )
     if len(stages_sorted) < 2:
         return
 
@@ -2490,7 +2544,10 @@ def _plot_feature_selection_by_stage(df_features, country, crop, model, dir_outl
     # Sort stages chronologically (planting-month-aware for pre-season inits)
     _stage_names = df_long["Stage Name"].unique()
     _planting = _infer_planting_month(_stage_names)
-    stages_sorted = sorted(_stage_names, key=lambda s: _stage_sort_key(s, _planting))
+    _forward = _infer_label_order(_stage_names) == "forward"
+    stages_sorted = sorted(
+        _stage_names, key=lambda s: _stage_sort_key(s, _planting, forward=_forward)
+    )
     friendly_labels = [friendly_stage_label(s) for s in stages_sorted]
 
     # Pivot: count of features per (stage, type)
@@ -3367,6 +3424,27 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook, yield_units="Mg/h
     for (country, crop), model_dfs in country_crop_models.items():
         if len(model_dfs) < 2:
             continue
+        # A9: score every model at the chronologically latest stage per
+        # region-year. The blend pseudo-models (inv_rmse / bma) exist only
+        # at the mapped (final) stage, while the real models used to be
+        # pooled across ALL stages in the same scorecard, by-region /
+        # by-year plots and best-model map — averaging a one-month-of-data
+        # forecast with a full-season one, so the blend won by construction
+        # and stage-pooled rankings could invert. Blends are unaffected
+        # (they already hold one stage).
+        _n_stages = {
+            m: int(d["Stage Name"].dropna().nunique())
+            for m, d in model_dfs.items() if "Stage Name" in d.columns
+        }
+        model_dfs = {
+            m: _latest_stage_rows(d, by=["Region", "Season", "Harvest Year"])
+            for m, d in model_dfs.items()
+        }
+        if any(n > 1 for n in _n_stages.values()):
+            logger.info(
+                f"Model comparison {country} {crop}: scored at the latest "
+                f"stage per region-year (stages per model: {_n_stages})"
+            )
         # Per-crop display label (values already converted in run())
         yield_units = (_yield_display_for(parser, crop)[0]
                        if parser is not None else _yield_units_base)
@@ -3593,9 +3671,10 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook, yield_units="Mg/h
                 if _d.empty:
                     continue
                 if "Stage Name" in _d.columns and _d["Stage Name"].notna().any():
-                    _stages_sorted = sorted(_d["Stage Name"].dropna().unique())
-                    _latest = _stages_sorted[-1]
-                    _d = _d[_d["Stage Name"] == _latest]
+                    # Chronologically latest stage per region-year (A7).
+                    _d = _latest_stage_rows(
+                        _d, by=["Region", "Season", "Harvest Year"]
+                    )
                 for _reg, _rd in _d.groupby("Region"):
                     if len(_rd) < 2:
                         continue
@@ -3943,24 +4022,29 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook, yield_units="Mg/h
             # would be averaged over more years than BMA — not apples-to-
             # apples. Intersection uses years that have >=1 valid obs+pred
             # pair per model.
-            common_years = None
-            for df_m in model_dfs.values():
-                d = df_m.dropna(subset=[obs_col, pred_col])
-                d = d[d[obs_col] != 0]
-                if "Harvest Year" not in d.columns or d.empty:
-                    continue
-                years = set(d["Harvest Year"].dropna().unique())
-                common_years = years if common_years is None else (common_years & years)
+            common_years = _common_years(model_dfs, obs_col, pred_col)
             rrmsep_rows = []
-            for model, df_m in model_dfs.items():
-                if common_years:
-                    df_m = df_m[df_m["Harvest Year"].isin(common_years)]
-                mean_r, std_r, n_y = _compute_rrmsep(df_m, obs_col, pred_col)
-                if not np.isnan(mean_r):
-                    rrmsep_rows.append({
-                        "Model": model, "rrmsep_mean": mean_r,
-                        "rrmsep_std": std_r, "n_years": n_y,
-                    })
+            if common_years is not None and not common_years:
+                # EMPTY intersection: no hindcast year is covered by every
+                # model, so no fair comparison exists. The old `if
+                # common_years:` fell through and silently scored each
+                # model on its own years under a "common years n/a" caption.
+                logger.warning(
+                    f"rRMSEp summary {country} {crop}: no Harvest Year is "
+                    f"scorable for every model — skipping the cross-model "
+                    f"scorecard (scorable years per model: "
+                    f"{_model_year_ranges(model_dfs, obs_col, pred_col)})"
+                )
+            else:
+                for model, df_m in model_dfs.items():
+                    if common_years:
+                        df_m = df_m[df_m["Harvest Year"].isin(common_years)]
+                    mean_r, std_r, n_y = _compute_rrmsep(df_m, obs_col, pred_col)
+                    if not np.isnan(mean_r):
+                        rrmsep_rows.append({
+                            "Model": model, "rrmsep_mean": mean_r,
+                            "rrmsep_std": std_r, "n_years": n_y,
+                        })
             if rrmsep_rows:
                 df_rrmsep = pd.DataFrame(rrmsep_rows).sort_values("rrmsep_mean")
                 fig, ax = plt.subplots(figsize=(max(6, len(df_rrmsep) * 1.0), 5))
@@ -4493,6 +4577,9 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
         n_years = parser.getint("ML", "outlook_n_years", fallback=10)
     if aggregation is None:
         aggregation = parser.get("ML", "outlook_aggregation", fallback="mean")
+    # Minimum historical predicted years a region needs inside the outlook
+    # window before its index is reported (see _compute_outlook_index).
+    min_hist_years = parser.getint("ML", "outlook_min_hist_years", fallback=3)
     if current_year is None:
         current_year = ar.utcnow().to("America/New_York").year
     if since_year is None:
@@ -4876,8 +4963,10 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                 # are only meaningful for in-season stages, not pre-season)
                 _stage_names = df_current["Stage Name"].dropna().unique()
                 _planting = _infer_planting_month(_stage_names)
+                _forward = _infer_label_order(_stage_names) == "forward"
                 available_stages = sorted(
-                    _stage_names, key=lambda s: _stage_sort_key(s, _planting)
+                    _stage_names,
+                    key=lambda s: _stage_sort_key(s, _planting, forward=_forward),
                 )
                 in_season_stages = [
                     s for s in available_stages
@@ -4896,6 +4985,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                         df_stage, year_to_map, n_years, aggregation,
                         use_latest_stage=(len(available_stages) <= 1),
                         stage_name=stage_name,
+                        min_hist_years=min_hist_years,
                     )
                     if df_outlook.empty:
                         logger.warning(
@@ -5022,8 +5112,9 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                                 prod_pct = _diag.compute_production_pct(df, country)
 
                             for period_label, df_obs in obs_baselines.items():
-                                df_anom = dfo[["Country", "Region", "Country Region", "current_predicted"]].merge(
-                                    df_obs, on="Region", how="left"
+                                df_anom = _merge_obs_baseline(
+                                    dfo[["Country", "Region", "Country Region", "current_predicted"]],
+                                    df_obs,
                                 )
                                 df_anom["obs_anomaly"] = np.where(
                                     df_anom["obs_mean"] != 0,
@@ -5076,10 +5167,10 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
 
             # Forest plot: current-year predicted + CI, with last 5 observed yields per region
             if "lower CI" in df_current.columns:
-                df_plot = (
-                    df_current.sort_values("Stage Name")
-                    .groupby("Region", as_index=False).last()
-                )
+                # Latest stage per region, chronologically (A7) — whole
+                # rows, never the per-column last-non-null mixing of
+                # groupby().last().
+                df_plot = _latest_stage_rows(df_current, by=["Region"], keep="last")
                 df_obs_last5 = (
                     df.dropna(subset=["Observed Yield (tn per ha)"])
                     .drop_duplicates(subset=["Region", "Harvest Year"])
@@ -5244,9 +5335,10 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     df_mape["Predicted Yield (tn per ha)"]
                     - df_mape["Observed Yield (tn per ha)"]
                 ).abs()
-                df_mape = (
-                    df_mape.sort_values("Stage Name")
-                    .groupby(["Region", "Harvest Year"], as_index=False).last()
+                # Latest stage per region-year, chronologically (A7); Season
+                # is part of a row's identity for multi-season countries.
+                df_mape = _latest_stage_rows(
+                    df_mape, by=["Region", "Season", "Harvest Year"], keep="last"
                 )
 
                 # Distribution-aware box plots with jittered individual
@@ -5385,9 +5477,10 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             obs_baselines_combined = _load_observed_baselines(countries_with_data, crop_val, parser, current_year=current_year)
             for period_label, df_obs in obs_baselines_combined.items():
                 for _season, dfg, season_token, season_label in _season_iter(df_group):
-                    df_anom = dfg[
-                        ["Country", "Region", "Country Region", "current_predicted"]
-                    ].merge(df_obs, on="Region", how="left")
+                    df_anom = _merge_obs_baseline(
+                        dfg[["Country", "Region", "Country Region", "current_predicted"]],
+                        df_obs,
+                    )
                     df_anom["obs_anomaly"] = np.where(
                         df_anom["obs_mean"] != 0,
                         (df_anom["current_predicted"] - df_anom["obs_mean"])
@@ -5472,9 +5565,10 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                 obs_baselines_ens = _load_observed_baselines(countries_ens, crop_val, parser, current_year=current_year)
                 for period_label, df_obs in obs_baselines_ens.items():
                     for _season, dfg, season_token, season_label in _season_iter(df_ens_crop):
-                        df_ens_anom = dfg[
-                            ["Country", "Region", "Country Region", "current_predicted"]
-                        ].merge(df_obs, on="Region", how="left")
+                        df_ens_anom = _merge_obs_baseline(
+                            dfg[["Country", "Region", "Country Region", "current_predicted"]],
+                            df_obs,
+                        )
                         df_ens_anom["obs_anomaly"] = np.where(
                             df_ens_anom["obs_mean"] != 0,
                             (df_ens_anom["current_predicted"] - df_ens_anom["obs_mean"])
@@ -5721,10 +5815,11 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                 pass
             blend_hind = blend_hind.merge(obs_lookup, on=join_cols, how="left")
             if not has_stage_blend and has_stage_src:
-                stage_lookup = (
-                    src_df[join_cols + ["Stage Name"]]
-                    .drop_duplicates(subset=join_cols)
-                )
+                # The blend is computed at the LATEST mapped stage, so label
+                # it with that stage — not the first-inserted row's (A9).
+                stage_lookup = _latest_stage_rows(
+                    src_df, by=join_cols, keep="last"
+                )[join_cols + ["Stage Name"]]
                 blend_hind = blend_hind.merge(stage_lookup, on=join_cols, how="left")
             df_pred_store[(country_val, crop_val, _blend_name)] = blend_hind
             logger.info(

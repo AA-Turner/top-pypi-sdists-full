@@ -1,0 +1,1995 @@
+#include "_accel_common.h"
+#include "_branch_cut_inline.h"
+#include "_accel_somm_proj_inline.h"
+// The shared adaptive-contour engine (momwire#568 unit 1): the C++ twin of
+// `_sommerfeld_below`'s head + tail machinery, templated on the integrand.
+// Header-only, reentrant, allocation-free -- U2/U3 instantiate it with their
+// own integrands under OpenMP with the GIL released. Included HERE and not in
+// _accel_common.h: this TU is the only consumer, and live engine work
+// (momwire#696) should rebuild one TU, not five.
+#include "_contour_engine_inline.h"
+
+// mw568 section of the former _accelerators.cpp monolith (momwire#687).
+// Code below is byte-identical to the monolith's lines 6273-7497.
+
+// --------------------------------------------------------------------------
+// momwire#568 unit 1 -- the shared contour engine's TEST instantiations live
+// in register_mw568 below (contour_engine_sommerfeld_identity /
+// contour_engine_synth6). They exist so `tests/test_contour_engine_568.py`
+// can gate the engine and its complex Bessel pair from Python BEFORE any
+// production fill rides on them; nothing in momwire's dispatch calls them.
+// U2 (below fills) and U3 (transmitted fills) instantiate
+// `mw_contour::run_contour` with their own integrands and never go through
+// those entry points. (Banner relocated from the somm TU tail by the #710
+// review — the section cut had stranded it above register_somm's PRODUCTION
+// bindings.)
+// --------------------------------------------------------------------------
+
+namespace mw568 {
+using mw_contour::cd;
+
+// (a) The Sommerfeld identity's integrand,
+//
+//     f(lam) = J0(lam rho) e^{-gamma h} lam / gamma,   gamma = sqrt(lam^2 - k^2)
+//
+// whose contour integral is exactly e^{-jkR}/R with R = sqrt(rho^2 + h^2).
+// Same branch point, same oscillatory tail, same exponential decay as the
+// production integrands -- but with an analytic answer to gate against.
+//
+// The principal sqrt (Re gamma >= 0) is the right branch for the engine's
+// FIRST-quadrant head: under e^{+j omega t} the cut runs downward from +k, an
+// upward detour never crosses it, and at lam = 0 the signed-zero imaginary
+// part of `lam*lam - k*k` lands sqrt on +j k -- the outgoing plane wave.
+struct SommIdentity {
+    double rho;
+    double h;
+    cd k;
+    void operator()(const cd &lam, cd *out) const {
+        const cd g = std::sqrt(lam * lam - k * k);
+        cd j0, j1x;
+        mw_contour::bessel_j0_j1x(lam * rho, j0, j1x);
+        out[0] = j0 * std::exp(-g * h) * lam / g;
+    }
+};
+
+// (b) A vector-valued (NC = 6) synthetic integrand with a Python twin in the
+// test file, so numpy `_run_contour` and this engine can be run on the SAME
+// mathematics and compared. Deliberately NOT the production kernel: it has
+// the production shape (a gamma-decay factor, both Bessel pieces, components
+// spanning several decades so the vector max-norm test is exercised) with a
+// pole-free rational weight instead of the Sommerfeld D-pair, so U2 is free
+// to write the real integrand however it likes.
+struct Synth6 {
+    double rho;
+    double h;
+    double k_p;
+    cd k_m;
+    void operator()(const cd &lam, cd *out) const {
+        const cd gm = std::sqrt(lam * lam - k_m * k_m);
+        const cd e = std::exp(-gm * h);
+        const cd x = lam * rho;
+        cd b0, b1x;
+        mw_contour::bessel_j0_j1x(x, b0, b1x);
+        const cd w = cd(1.0, 0.0) / (gm + lam + k_p);
+        const cd l2 = lam * lam;
+        out[0] = w * e * b0 * lam;
+        out[1] = w * e * (b1x - b0) * l2;
+        out[2] = -(w * e * b1x * x * gm * lam);
+        out[3] = -(w * e * b1x * l2);
+        out[4] = w * e * b0;
+        out[5] = w * e * (b0 + 2.0 * b1x) * lam * gm;
+    }
+};
+
+// Shared argument checking + raw Gauss-rule pointers.
+static void gauss_view(const py::array_t<double, py::array::c_style |
+                                                     py::array::forcecast> &gx,
+                       const py::array_t<double, py::array::c_style |
+                                                     py::array::forcecast> &gw,
+                       const double **gxp, const double **gwp, int *ng) {
+    if (gx.ndim() != 1 || gw.ndim() != 1)
+        throw std::runtime_error("gx / gw must be 1-D");
+    if (gx.shape(0) != gw.shape(0))
+        throw std::runtime_error("gx and gw must have the same length");
+    if (gx.shape(0) < 1) throw std::runtime_error("empty Gauss rule");
+    *gxp = gx.data();
+    *gwp = gw.data();
+    *ng = static_cast<int>(gx.shape(0));
+}
+}  // namespace mw568
+
+// Complex J0(x) and J1(x)/x, exposed for direct gating against
+// scipy.special.jv. Accepts a 1-D complex array, returns (j0, j1x).
+static py::tuple bessel_j0_j1x_complex(
+    py::array_t<std::complex<double>,
+                py::array::c_style | py::array::forcecast> x) {
+    if (x.ndim() != 1) throw std::runtime_error("x must be 1-D");
+    const py::ssize_t n = x.shape(0);
+    py::array_t<std::complex<double>> j0(n), j1x(n);
+    const std::complex<double> *xp = x.data();
+    std::complex<double> *j0p = j0.mutable_data();
+    std::complex<double> *j1p = j1x.mutable_data();
+    {
+        py::gil_scoped_release release;
+        for (py::ssize_t i = 0; i < n; ++i)
+            mw_contour::bessel_j0_j1x(xp[i], j0p[i], j1p[i]);
+    }
+    return py::make_tuple(j0, j1x);
+}
+
+// The Sommerfeld-identity contour: NC = 1. `use_k_m` picks which wavenumber
+// the INTEGRAND is built on; the head's `a` and its branch-point marks always
+// come from the (k_p, k_m) pair, exactly as `_run_contour` computes them.
+static py::tuple contour_engine_sommerfeld_identity(
+    double rho, double h, double k_p, std::complex<double> k_m, bool use_k_m,
+    double rtol, int depth, double detour,
+    py::array_t<double, py::array::c_style | py::array::forcecast> gx,
+    py::array_t<double, py::array::c_style | py::array::forcecast> gw,
+    int max_panels) {
+    const double *gxp;
+    const double *gwp;
+    int ng;
+    mw568::gauss_view(gx, gw, &gxp, &gwp, &ng);
+    std::complex<double> val;
+    mw_contour::ContourHealth hh;
+    {
+        py::gil_scoped_release release;
+        mw568::SommIdentity f;
+        f.rho = rho;
+        f.h = h;
+        f.k = use_k_m ? k_m : std::complex<double>(k_p, 0.0);
+        hh = mw_contour::run_contour<1>(f, k_p, k_m, rho, h, rtol, depth,
+                                        detour, gxp, gwp, ng, max_panels, &val);
+    }
+    return py::make_tuple(val, hh.head_panels, hh.tail_panels, hh.converged,
+                          hh.accel);
+}
+
+// The NC = 6 synthetic twin. Returns (values (6,), head_panels, tail_panels,
+// converged, accel) -- the same five things `_run_contour` returns.
+static py::tuple contour_engine_synth6(
+    double rho, double h, double k_p, std::complex<double> k_m, double rtol,
+    int depth, double detour,
+    py::array_t<double, py::array::c_style | py::array::forcecast> gx,
+    py::array_t<double, py::array::c_style | py::array::forcecast> gw,
+    int max_panels) {
+    const double *gxp;
+    const double *gwp;
+    int ng;
+    mw568::gauss_view(gx, gw, &gxp, &gwp, &ng);
+    py::array_t<std::complex<double>> out(6);
+    std::complex<double> *op = out.mutable_data();
+    mw_contour::ContourHealth hh;
+    {
+        py::gil_scoped_release release;
+        mw568::Synth6 f;
+        f.rho = rho;
+        f.h = h;
+        f.k_p = k_p;
+        f.k_m = k_m;
+        hh = mw_contour::run_contour<6>(f, k_p, k_m, rho, h, rtol, depth,
+                                        detour, gxp, gwp, ng, max_panels, op);
+    }
+    return py::make_tuple(out, hh.head_panels, hh.tail_panels, hh.converged,
+                          hh.accel);
+}
+
+
+// --------------------------------------------------------------------------
+// momwire#568 unit 2 -- the below/below family ON the shared contour engine.
+//
+// This is the first PRODUCTION rider on `_contour_engine_inline.h`: the six
+// lambda-integrands of `_sommerfeld_below._integrand_six_below`, its
+// `_six_integrals_below` driver (fine machine plus the optional coarse
+// self-convergence twin), and the projected remainder table
+// `remainder_field_proj_below`. The numpy spellings stay exactly as they are
+// and remain the references; these are twins, gated at tolerance in
+// tests/test_below_fills_568.py.
+//
+// The OpenMP region is the PER-POINT loop of `iv_surfaces_direct_below`: one
+// (rho, h) node's contour is completely independent of every other, the
+// engine is allocation-free and has no mutable static (U1's reentrancy
+// contract), and a grid fill is thousands of nodes whose costs differ by an
+// order of magnitude between the steep and grazing bands -- hence `dynamic`
+// scheduling rather than `static`.
+//
+// STACK. U1 measured ~25 kB per `run_contour` at NC = 6 (a ~10 kB
+// `wynn_epsilon` frame plus ~0.6 kB per `adaptive_segment` level at depth 16);
+// the fine and coarse machines run in sequence, not nested, so that figure is
+// the peak per thread and nothing here relies on a large default. Verified by
+// running a 64x64 selfconv fill at OMP_NUM_THREADS=8 under OMP_STACKSIZE of
+// 128K, 256K and 512K: all three identical to the last bit, none faulted.
+//
+// MEASURED on an i7-8550U, one contour node against the numpy driver at
+// rtol 1e-9 (soil A, 7 MHz, geometries in lambda_m):
+//
+//     (rho, h) = (0.3, 0.2)      13.8 ms ->  1.59 ms    8.7x
+//                (1.0, 0.05)     47.4 ms ->  4.11 ms   11.5x
+//                (2.0, 0.5)      18.9 ms ->  1.32 ms   14.3x
+//                (0.02, 0.01)    19.7 ms ->  2.96 ms    6.7x
+//                (1.0, 0.017)   113.4 ms ->  9.40 ms   12.1x   (deep grazing)
+//
+// and end to end, `tests/test_sommerfeld_below.py -m slow -n 2` on this box:
+// 392.9 s -> 23.0 s (17.1x), MAXRSS 107 MB -> 108 MB.
+// --------------------------------------------------------------------------
+
+namespace mw568_below {
+using mw_contour::cd;
+
+static const cd MW_BJ(0.0, 1.0);
+
+// The branch cut: one definition for all three call sites, across both
+// extensions — the full rationale (the two-sqrt spelling IS the branch
+// choice) lives with the definition in _branch_cut_inline.h (#714). The
+// using-declaration makes the name a member of this namespace, so the
+// qualified `mw568_below::gamma_cut` calls below still resolve.
+using mw_branch::gamma_cut;
+
+// `_sommerfeld._d12(lam, k1, k2)` -- NEC eqs 154-155 (the 2s of eqs 141-142
+// are inside). The below family calls it SWAPPED, (k1, k2) = (k_p, k_m), so
+// the GROUND sits in the decay slot: `_d12` builds its kernels around
+// gamma_2 = gamma(k2) as the decay gamma and k1 as the other medium, and that
+// swapped reading IS the below/below D-pair (measured at 0.0 relative
+// difference against the #524 phase-0 prototype's independent generalized
+// form). `g2` is returned because the integrand needs gamma_m itself.
+static inline void d12(const cd &lam, const cd &k1, const cd &k2, cd &d1,
+                       cd &d2, cd &g2) {
+    const cd g1 = gamma_cut(lam, k1);
+    g2 = gamma_cut(lam, k2);
+    // Fused complex products (momwire#1194, _fma_inline.h), as in the
+    // above-ground twin `somm::integrand_six`.
+    const cd k1s = mw_fma::mul(k1, k1);
+    const cd k2s = mw_fma::mul(k2, k2);
+    const cd g2ks = mw_fma::mul(g2, k1s + k2s);
+    d1 = 2.0 / (g1 + g2) - 2.0 * k2s / g2ks;
+    d2 = 2.0 / mw_fma::mul_add(k1s, g2, mw_fma::mul(k2s, g1)) - 2.0 / g2ks;
+}
+
+// `_integrand_six_below`, term for term and in its order:
+//
+//   0: d2 V/drho^2      [D2 e^{-gamma_m h} lam^3 (J1/x - J0)]
+//   1: d2 V/dz^2        [D2 gamma_m^2 e^{-gamma_m h} J0 lam]
+//   2: d2 V/drho dz     [-D2 gamma_m e^{-gamma_m h} J1 lam^2]   <- the +/-=- sign
+//   3: (1/rho) dV/drho  [-D2 e^{-gamma_m h} (J1/x) lam^3]
+//   4: V                [D2 e^{-gamma_m h} J0 lam]
+//   5: U                [D1 e^{-gamma_m h} J0 lam]
+//
+// INDEX 2 IS THE WHOLE OF THE SIGN STORY and the one line of this file that a
+// mutation test exists for. h = |z + z'| with z + z' < 0 below the interface,
+// so d/dz e^{-gamma_m|z + z'|} = +gamma_m e where the +/-=+ case gets
+// -gamma_2 e; with dJ0/drho = -lam J1 the product lands at -D2 gamma_m J1 lam^2,
+// the NEGATIVE of `_sommerfeld._integrand_six`'s index 2. Every other
+// component is identical between the families once the kernel pair is the
+// swapped one -- which is what `test_gu2_1_the_integrand_z_derivative_flips_
+// and_nothing_else_does` asserts on the numpy side and what
+// `test_g5686_the_index_2_sign_is_load_bearing` asserts on this one.
+//
+// Bessel form only: there is no Hankel twin here, because there is no fig-14
+// contour here.
+struct SixBelow {
+    double rho;
+    double h;
+    cd k_p;
+    cd k_m;
+    // Forced inline (momwire#1194): with its products written as mw_fma::mul
+    // GCC 11 priced this body over its inline limit and called it out of line
+    // from the contour engine, once per quadrature node, which cost the below
+    // grid fill ~5 %; inlined, it is within 1.5 % of the contracted build.
+    MW_FMA_ALWAYS_INLINE void operator()(const cd &lam, cd *out) const {
+        cd d1, d2, g_m;
+        d12(lam, k_p, k_m, d1, d2, g_m);
+        const cd e = std::exp(-g_m * h);
+        const cd x = lam * rho;
+        cd b0, b1x;
+        mw_contour::bessel_j0_j1x(x, b0, b1x);
+        using mw_fma::mul;  // fused products (momwire#1194)
+        const cd l2 = mul(lam, lam);
+        const cd l3 = mul(l2, lam);
+        const cd common = mul(d2, e);
+        const cd cg = mul(common, g_m);
+        out[0] = mul(mul(common, b1x - b0), l3);
+        out[1] = mul(mul(mul(cg, g_m), b0), lam);
+        out[2] = -mul(mul(cg, mul(b1x, x)), l2);
+        out[3] = -mul(mul(common, b1x), l3);
+        out[4] = mul(mul(common, b0), lam);
+        out[5] = mul(mul(mul(d1, e), b0), lam);
+    }
+};
+
+// What one node of `_six_integrals_below` produces: the six values plus
+// everything `Health.note` / `Health.note_selfconv` are handed on the numpy
+// side. `selfconv` is -1.0 when the coarse machine was not asked for, so the
+// Python layer can tell "not measured" from "measured zero".
+struct SixResult {
+    cd val[6];
+    int head_panels;
+    int tail_panels;
+    bool converged;
+    bool accel;
+    double selfconv;
+};
+
+// One node: the fine contour, then optionally the coarse self-convergence
+// twin (Gauss-16, rtol x100, a shallower detour -- `_six_integrals_below`'s
+// `selfconv=True` branch). The componentwise relative spread is the numpy
+// spelling exactly: max over components of |fine - coarse| / max(|fine|, 1e-300).
+static void six_below_one(double rho, double h, double k_p, const cd &k_m,
+                          double rtol_fine, int depth, double detour,
+                          const double *gx, const double *gw, int ng,
+                          bool selfconv, double rtol_coarse, int depth_coarse,
+                          double detour_coarse, const double *gxc,
+                          const double *gwc, int ngc, int max_panels,
+                          SixResult &r) {
+    SixBelow f;
+    f.rho = rho;
+    f.h = h;
+    f.k_p = cd(k_p, 0.0);
+    f.k_m = k_m;
+    const mw_contour::ContourHealth hh = mw_contour::run_contour<6>(
+        f, k_p, k_m, rho, h, rtol_fine, depth, detour, gx, gw, ng, max_panels,
+        r.val);
+    r.head_panels = hh.head_panels;
+    r.tail_panels = hh.tail_panels;
+    r.converged = hh.converged;
+    r.accel = hh.accel;
+    r.selfconv = -1.0;
+    if (selfconv) {
+        cd coarse[6];
+        mw_contour::run_contour<6>(f, k_p, k_m, rho, h, rtol_coarse,
+                                   depth_coarse, detour_coarse, gxc, gwc, ngc,
+                                   max_panels, coarse);
+        double worst = 0.0;
+        for (int c = 0; c < 6; ++c) {
+            const double scale = std::max(std::abs(r.val[c]), 1e-300);
+            const double rel = std::abs(r.val[c] - coarse[c]) / scale;
+            if (rel > worst) worst = rel;
+        }
+        r.selfconv = worst;
+    }
+}
+
+// acc - x * s for complex acc, x and real s, the product fused into the
+// difference (one fused op per part): `proj_one_below`'s differences, in the
+// split GCC's contraction made there before momwire#1194.
+static inline cd sub_scaled(const cd &acc, const cd &x, double s) {
+    return cd(mw_fma::fma(-x.real(), s, acc.real()),
+              mw_fma::fma(-x.imag(), s, acc.imag()));
+}
+
+// The below/below twin of `somm_proj::proj_one` (see the comment on
+// `remainder_field_proj_batch_below` for why it is a twin and not a widening).
+// Same 4x4 Lagrange stencil, same eqs 143-147 dyad algebra; three things are
+// the below family's own:
+//
+//   * `hh` is the two DEPTHS added, (ground_z - oz) + (ground_z - sz), so a
+//     wrong-side endpoint cannot quietly produce a plausible h (the Python
+//     layer raises on it before this is ever reached);
+//   * `g` is `divide_out_below`'s two-leg blend e^{-j(k_p rho + k_m hh)}/R1,
+//     which needs a COMPLEX in-medium wavenumber -- the exact reason
+//     `remainder_field_proj_below` could not ride the `double k` kernel;
+//   * theta is clamped into [th_min, pi/2], the below grid's own grazing
+//     floor, not into [0, pi/2].
+//
+// The query's (R1, theta) are handed back so the caller can let
+// `SommerfeldGridBelow.eval` raise the refusals in its own words; nothing in
+// this file transcribes those messages.
+static inline cd proj_one_below(const somm_proj::GridView &G, double th_min,
+                                double th_band_floor_hi, double th_band_lo_hi,
+                                double th_band_hi,
+                                double ground_z, double k_p, const cd &k_m,
+                                double ox, double oy, double oz, double tox,
+                                double toy, double toz, double sx, double sy,
+                                double sz, double sux, double suy,
+                                double sthsrc, double stzsrc, double &r1_out,
+                                double &th_out) {
+    const double dx = ox - sx;
+    const double dy = oy - sy;
+    const double rho = std::hypot(dx, dy);
+    const double hh = (ground_z - oz) + (ground_z - sz);
+    // Explicit fused multiply-adds (momwire#1214, _fma_inline.h). This is the
+    // body of `remainder_field_proj_batch_below`'s per-pair loop, and each
+    // multiply-add GCC contracted here before -ffp-contract=off (#1194) is
+    // written out fused, in the split its contraction made (read from GCC's
+    // widening_mul dump of the pre-#1194 build: in most sums it fused the
+    // SECOND product, and in the complex products which half it fused
+    // follows the operand order it saw), with every sum in its source order.
+    // The above-ground twin `somm_proj::proj_one` is shared with other TUs
+    // and is not touched.
+    const double r1 = std::sqrt(mw_fma::fma(rho, rho, hh * hh));
+
+    // --- inline SommerfeldGridBelow.eval(r1, theta) ---
+    double theta = std::atan2(hh, rho);
+    r1_out = r1;
+    th_out = theta;
+    if (theta < th_min) theta = th_min;
+    else if (theta > G.half_pi) theta = G.half_pi;
+    const double r1c = r1 > G.r1_max ? G.r1_max : r1;
+    // FIVE theta bands per R1 zone since momwire#1064 (four since #935, three
+    // since #838), ordered (R1 zone) x (theta band) with theta fastest -- the layout
+    // SommerfeldGridBelow's constructor builds. NOT the parent's 2-band/
+    // 3-zone scheme: six regions there means the momwire#159 far zone, which
+    // this family does not have (r_near == r1_max).
+    //
+    // EVERY band edge is passed in explicitly (#935 added the second as its
+    // own argument, #1064 the third) rather than derived. Inferring a band count from
+    // reg_vals.size() -- or, worse, inferring the edges from the count --
+    // would make this a THIRD copy of the layout and the one that silently
+    // drifts when a band is next added. The size check at the pybind seam is
+    // an assertion about that contract, not the source of it.
+    //
+    // STRICT `<` at EVERY edge, matching `SommerfeldGridBelow._interp`: the
+    // side ABOVE each seam owns the edge, so theta == th_band_floor_hi is the
+    // low band's, theta == th_band_lo_hi the mid band's and theta ==
+    // th_band_hi the old grazing band's. At the two older seams that side is
+    // the coarser one and the node is the same fill on either side, but
+    // `th0 + dth*n` need not reproduce it to the last bit. At #1064's seam the
+    // floor band's lattice runs PAST its edge (a 4-point stencil needs four
+    // nodes), and its top two nodes carry the low band's own values.
+    const int band =
+        theta < th_band_floor_hi
+            ? 0
+            : (theta < th_band_lo_hi
+                   ? 1
+                   : (theta < th_band_hi ? 2 : (theta <= G.th_split ? 3 : 4)));
+    // THREE R1 zones since momwire#838 part 2: inner, near, and the far
+    // annulus above `r_near` (the old cap), which carries a finer theta
+    // lattice of its own. The stride is the BAND count, so it moved with it
+    // (to 5 with momwire#1064).
+    const int zone = r1c <= G.r_break ? 0 : (r1c <= G.r_near ? 5 : 10);
+    const int reg = zone + band;
+    const double fr = (r1c - G.rr0[reg]) / G.rdr[reg];
+    const double ft = (theta - G.rth0[reg]) / G.rdth[reg];
+    int i0 = (int)std::floor(fr) - 1;
+    int j0 = (int)std::floor(ft) - 1;
+    if (i0 < 0) i0 = 0; else if (i0 > G.nR[reg] - 4) i0 = (int)G.nR[reg] - 4;
+    if (j0 < 0) j0 = 0; else if (j0 > G.nTh[reg] - 4) j0 = (int)G.nTh[reg] - 4;
+    double wr[4], wt[4];
+    somm_proj::lagrange4(fr - i0, wr);
+    somm_proj::lagrange4(ft - j0, wt);
+    const cd *V = G.vptr[reg];
+    const py::ssize_t nth = G.nTh[reg], nr = G.nR[reg];
+    cd surf[4];
+    for (int s = 0; s < 4; ++s) {
+        const cd *plane = V + (py::ssize_t)s * nr * nth;
+        cd acc(0.0, 0.0);
+        for (int i = 0; i < 4; ++i) {
+            const cd *row = plane + (py::ssize_t)(i0 + i) * nth + j0;
+            // (((row0 w0 + row1 w1) + row2 w2) + row3 w3), as written, each
+            // later product fused into the running sum. (Before #1194 GCC's
+            // SLP pass packed the first row's re/im halves so that its
+            // imaginary half fused row0 instead; that one split is not
+            // reproduced.)
+            cd rs = mw_fma::mul_add(row[1], wt[1], row[0] * wt[0]);
+            rs = mw_fma::mul_add(row[2], wt[2], rs);
+            rs = mw_fma::mul_add(row[3], wt[3], rs);
+            acc = mw_fma::mul_add(rs, wr[i], acc);
+        }
+        surf[s] = acc;
+    }
+    const cd IrhoV = surf[0], IzV = surf[1], IrhoH = surf[2], IphiH = surf[3];
+
+    // --- projection (eqs 143-147), over `divide_out_below`'s g ---
+    // The exponent cd(k_p rho, 0) + k_m hh per part: the real part fuses
+    // k_m hh; the imaginary part's 0.0 + x is left as written (fusing it
+    // rounds identically), and so is the product with -j, whose "fused"
+    // halves only ever multiply by -0.0.
+    const cd arg(mw_fma::fma(k_m.real(), hh, k_p * rho),
+                 0.0 + k_m.imag() * hh);
+    const cd g = std::exp(-MW_BJ * arg) / r1;
+    const bool safe_r = rho > G.tiny;
+    const double inv_rho = safe_r ? 1.0 / rho : 0.0;
+    const double dhx = safe_r ? dx * inv_rho : sux;
+    const double dhy = safe_r ? dy * inv_rho : suy;
+    const double cphi = mw_fma::fma(sux, dhx, suy * dhy);
+    const double sphi = mw_fma::fma(sux, dhy, -(suy * dhx));
+    const double sc = sthsrc * cphi;
+    // mw_fma::mul(x, y) fuses x.re y.im into the imaginary part, so the
+    // operand order below is the contraction's, not a typo: g * S fused
+    // S.re g.im in e_rho and e_z and g.re S.im in e_phi.
+    using mw_fma::mul;
+    const cd e_rho = mul(mw_fma::mul_add(IrhoH, sc, stzsrc * IrhoV), g);
+    const cd e_phi = mul(g, sthsrc * sphi * IphiH);
+    const cd e_z = mul(sub_scaled(stzsrc * IzV, IrhoV, sc), g);
+    const cd r = mw_fma::mul_add(mw_fma::mul_add(e_phi, dhx, dhy * e_rho), toy,
+                                 tox * sub_scaled(dhx * e_rho, e_phi, dhy));
+    return mw_fma::mul_add(e_z, toz, r);
+}
+}  // namespace mw568_below
+
+// `_six_integrals_below` over parallel (rho, h) arrays: the (n, 6) table plus
+// everything `Health` records, OpenMP across nodes with the GIL released.
+//
+// The wavenumbers arrive DERIVED (k_p real, k_m complex on the Im <= 0 branch)
+// rather than as eps~, so the branch choice stays in `k_medium` where it is
+// written down once; the eps~ == 1 short circuit and the (rho, h) domain
+// raise likewise stay in Python, because they are exact and their words are
+// part of the contract.
+//
+// Returns (values (n, 6), tail_panels (n,), head_panels (n,), converged (n,),
+// accelerated (n,), selfconv (n,)) -- selfconv is -1.0 where the coarse
+// machine was not run.
+static py::tuple below_six_integrals_batch(
+    double k_p, std::complex<double> k_m,
+    py::array_t<double, py::array::c_style | py::array::forcecast> rho,
+    py::array_t<double, py::array::c_style | py::array::forcecast> h,
+    double rtol_fine, int depth, double detour,
+    py::array_t<double, py::array::c_style | py::array::forcecast> gx,
+    py::array_t<double, py::array::c_style | py::array::forcecast> gw,
+    bool selfconv, double rtol_coarse, int depth_coarse, double detour_coarse,
+    py::array_t<double, py::array::c_style | py::array::forcecast> gxc,
+    py::array_t<double, py::array::c_style | py::array::forcecast> gwc,
+    int max_panels) {
+    auto rb = rho.unchecked<1>();
+    auto hb = h.unchecked<1>();
+    const py::ssize_t n = rb.shape(0);
+    if (hb.shape(0) != n)
+        throw std::invalid_argument("rho and h must have the same length");
+    const double *gxp, *gwp, *gxcp, *gwcp;
+    int ng, ngc;
+    mw568::gauss_view(gx, gw, &gxp, &gwp, &ng);
+    mw568::gauss_view(gxc, gwc, &gxcp, &gwcp, &ngc);
+
+    py::array_t<std::complex<double>> vals({n, py::ssize_t(6)});
+    py::array_t<int> tail(n), head(n);
+    py::array_t<bool> conv(n), accel(n);
+    py::array_t<double> sconv(n);
+    auto vb = vals.mutable_unchecked<2>();
+    int *tp = tail.mutable_data();
+    int *hp = head.mutable_data();
+    bool *cp = conv.mutable_data();
+    bool *ap = accel.mutable_data();
+    double *sp = sconv.mutable_data();
+    const mw_contour::cd km(k_m);
+
+    {
+        py::gil_scoped_release release;
+        // `dynamic`: a grazing node (theta ~ 1 deg) costs an order of
+        // magnitude more tail panels than a steep one, and a grid fill's
+        // nodes arrive sorted by region -- static scheduling would hand one
+        // thread the whole grazing band.
+        #pragma omp parallel for schedule(dynamic)
+        for (py::ssize_t i = 0; i < n; ++i) {
+            mw568_below::SixResult r;
+            mw568_below::six_below_one(
+                rb(i), hb(i), k_p, km, rtol_fine, depth, detour, gxp, gwp, ng,
+                selfconv, rtol_coarse, depth_coarse, detour_coarse, gxcp, gwcp,
+                ngc, max_panels, r);
+            for (int c = 0; c < 6; ++c) vb(i, c) = r.val[c];
+            tp[i] = r.tail_panels;
+            hp[i] = r.head_panels;
+            cp[i] = r.converged;
+            ap[i] = r.accel;
+            sp[i] = r.selfconv;
+        }
+    }
+    return py::make_tuple(vals, tail, head, conv, accel, sconv);
+}
+
+// `remainder_field_proj_below` in C++: obs/t_obs (M,3), src/t_src (S,3),
+// returns ((M,S) complex, max R1, min theta, max theta).
+//
+// A TWIN of `remainder_field_proj_batch`, not a widening of it, and that was a
+// decision rather than an accident. Widening the shipped kernel to carry a
+// complex wavenumber would have put a branch (or a second carrier expression)
+// inside the +/-=+ family's hottest inner loop -- ~90 % of an above/above
+// Sommerfeld solve -- for a family that does not need it, and the two carriers
+// are not the same expression even when k_m happens to be real: above/above
+// divides out e^{-jk R1}/R1, a function of R1 alone, while the below family
+// divides out the two-leg blend e^{-j(k_p rho + k_m hh)}/R1, which depends on
+// theta. The +/-=+ path therefore keeps its bytes, literally: not one token of
+// `proj_one` moved.
+//
+// The three refusals (`R1` past the tabulation, theta under the grazing floor,
+// theta past pi/2) are NOT transcribed here. The kernel reports the query's
+// extremes and the Python layer feeds them straight back to
+// `SommerfeldGridBelow.eval`, which raises in its own words -- so there is
+// exactly one copy of that prose and no way for the two paths to drift on
+// which geometries they serve.
+static py::tuple remainder_field_proj_batch_below(
+    py::array_t<double, py::array::c_style | py::array::forcecast> obs,
+    py::array_t<double, py::array::c_style | py::array::forcecast> t_obs,
+    py::array_t<double, py::array::c_style | py::array::forcecast> src,
+    py::array_t<double, py::array::c_style | py::array::forcecast> t_src,
+    double ground_z, double k_p, std::complex<double> k_m, double th_min,
+    double th_band_floor_hi,
+    double th_band_lo_hi,
+    double th_band_hi,
+    double r1_max, double r_break, double th_split, double r_near,
+    py::array_t<double, py::array::c_style | py::array::forcecast> reg_r0,
+    py::array_t<double, py::array::c_style | py::array::forcecast> reg_dr,
+    py::array_t<double, py::array::c_style | py::array::forcecast> reg_th0,
+    py::array_t<double, py::array::c_style | py::array::forcecast> reg_dth,
+    std::vector<py::array_t<std::complex<double>,
+                            py::array::c_style | py::array::forcecast>> reg_vals) {
+    using somm_proj::cd;
+    auto ob = obs.unchecked<2>();
+    auto tob = t_obs.unchecked<2>();
+    auto sb = src.unchecked<2>();
+    auto tsb = t_src.unchecked<2>();
+    if (ob.shape(1) != 3 || tob.shape(1) != 3 || sb.shape(1) != 3 ||
+        tsb.shape(1) != 3)
+        throw std::runtime_error("obs/src/tangent arrays must have shape (*, 3)");
+    if (ob.shape(0) != tob.shape(0) || sb.shape(0) != tsb.shape(0))
+        throw std::runtime_error("points and tangents must have matching length");
+
+    const py::ssize_t M = ob.shape(0);
+    const py::ssize_t S = sb.shape(0);
+    // The below family is FIFTEEN regions exactly (3 R1 zones x 5 theta
+    // bands) since momwire#1064 (twelve since #935). Any other count here is a stale
+    // momwire/_sommerfeld_below.py and would route into unpopulated tables.
+    //
+    // This comment said "SIX regions exactly (2 R1 zones x 3 theta bands)"
+    // while the code below it checked for nine -- #838 part 2 moved the check
+    // and left the prose. Worth noting because the two disagreeing is exactly
+    // the drift the check exists to catch, one level up.
+    if (reg_vals.size() != 15)
+        throw std::runtime_error(
+            "the below/below grid is fifteen regions (3 R1 zones x 5 theta "
+            "bands) since momwire#1064; got a different count, which means a "
+            "stale _sommerfeld_below.py");
+    somm_proj::GridView G = somm_proj::build_grid_view(
+        r1_max, r_break, th_split, r_near, reg_r0.unchecked<1>(),
+        reg_dr.unchecked<1>(), reg_th0.unchecked<1>(), reg_dth.unchecked<1>(),
+        reg_vals);
+
+    py::array_t<std::complex<double>> out({M, S});
+    auto out_m = out.mutable_unchecked<2>();
+    const cd km(k_m);
+
+    // Per-observer-row extremes, reduced serially afterwards: a `reduction`
+    // clause on min/max is OpenMP 3.1 and this file stays portable to MSVC's
+    // classic /openmp.
+    std::vector<double> row_r1(M > 0 ? M : 1, 0.0);
+    std::vector<double> row_thlo(M > 0 ? M : 1, 0.5 * M_PI);
+    std::vector<double> row_thhi(M > 0 ? M : 1, 0.0);
+
+    {
+        py::gil_scoped_release release;
+        std::vector<double> sx(S), sy(S), sz(S), ux(S), uy(S), thsrc(S), tzsrc(S);
+        for (py::ssize_t nn = 0; nn < S; ++nn) {
+            sx[nn] = sb(nn, 0);
+            sy[nn] = sb(nn, 1);
+            sz[nn] = sb(nn, 2);
+            somm_proj::tangent_decomp(tsb(nn, 0), tsb(nn, 1), tsb(nn, 2), ux[nn],
+                                      uy[nn], thsrc[nn], tzsrc[nn]);
+        }
+
+        #pragma omp parallel for schedule(static)
+        for (py::ssize_t m = 0; m < M; ++m) {
+            const double ox = ob(m, 0), oy = ob(m, 1), oz = ob(m, 2);
+            const double tox = tob(m, 0), toy = tob(m, 1), toz = tob(m, 2);
+            double rmax = 0.0, tlo = 0.5 * M_PI, thi = 0.0;
+            for (py::ssize_t nn = 0; nn < S; ++nn) {
+                double r1q, thq;
+                out_m(m, nn) = mw568_below::proj_one_below(
+                    G, th_min, th_band_floor_hi, th_band_lo_hi, th_band_hi, ground_z, k_p,
+                    km, ox, oy, oz, tox,
+                    toy, toz,
+                    sx[nn], sy[nn], sz[nn], ux[nn], uy[nn], thsrc[nn], tzsrc[nn],
+                    r1q, thq);
+                if (r1q > rmax) rmax = r1q;
+                if (thq < tlo) tlo = thq;
+                if (thq > thi) thi = thq;
+            }
+            row_r1[m] = rmax;
+            row_thlo[m] = tlo;
+            row_thhi[m] = thi;
+        }
+    }
+
+    double mx_r1 = 0.0, mn_th = 0.5 * M_PI, mx_th = 0.0;
+    for (py::ssize_t m = 0; m < M; ++m) {
+        if (row_r1[m] > mx_r1) mx_r1 = row_r1[m];
+        if (row_thlo[m] < mn_th) mn_th = row_thlo[m];
+        if (row_thhi[m] > mx_th) mx_th = row_thhi[m];
+    }
+    return py::make_tuple(out, mx_r1, mn_th, mx_th);
+}
+
+
+// --------------------------------------------------------------------------
+// momwire#568 unit 3 -- the TRANSMITTED family on the shared contour engine.
+//
+// The second production rider on `_contour_engine_inline.h`, and the arc's
+// biggest cluster: the six lambda-integrands of
+// `_sommerfeld_transmitted._integrand_six_transmitted`, its
+// `_six_integrals_transmitted` driver (fine machine plus the optional coarse
+// self-convergence twin), the per-point loop of `t_surfaces_direct` -- THIS is
+// where the OpenMP region lives -- and the projected pair table behind
+// `transmitted_field_proj_below_to_above` / `_above_to_below`. The numpy
+// spellings stay exactly as they are and remain the references; these are
+// twins, gated at tolerance in tests/test_transmitted_fills_568.py.
+//
+// FOUR THINGS ARE THIS FAMILY'S OWN and none of them is cosmetic:
+//
+//   * TWO gammas, not the below family's single swapped `_d12` pair. The
+//     transmitted integrand's two exponential legs sit in DIFFERENT media, so
+//     `gamma_cut` is called at k_p and at k_m and both survive into the
+//     Fresnel denominators k_m^2 gamma_p + k_p^2 gamma_m and gamma_m + gamma_p.
+//   * Index 1 is spelled `lam^2`, NEVER `gamma_p^2 + k_p^2`. See the comment
+//     on it below; it is a measured eleven-digit cancellation, not a taste.
+//   * Index 4 (d2 V_T/drho dz') is why the family has FIVE surfaces. The two
+//     legs carry different gamma, so d/dz' is not -d/dz and index 4 is not a
+//     multiple of index 0. It must not collapse onto index 0.
+//   * `swap` builds the above->below twin (source ABOVE carrying gamma_p,
+//     observer BELOW carrying gamma_m). It exists to GATE the reciprocity
+//     transpose; the product path serves above->below as a transpose over the
+//     same tables and never asks for it.
+//
+// THE TAIL BUDGET IS A CLIFF, NOT A SOFT LANDING. The transmitted tail must
+// reach lam ~ 35/h, panelled on the J0(lam rho) zero lattice pi/rho, so it
+// costs ~12 cot(theta_true) panels; `_MAX_TAIL_PANELS_T` is 6000 and the
+// grazing floor is SOLVED from that law at 16 panels per cot. When the budget
+// runs out `tail_below` falls back to Wynn epsilon, and on this family that
+// fallback was measured 4.5e+3 RELATIVE wrong -- three and a half decades,
+// silently, with `converged = False` as the only tell. So this block reports
+// `converged` per node exactly as the numpy driver does and the Python layer
+// tallies it into `Health.nonconvergent`, which the fill gates assert at zero.
+// A C++ path that ever returned an unconverged answer unflagged would be the
+// worst defect available in this unit.
+//
+// The cot-theta cost law is KEPT. The lateral-wave asymptotic branch that
+// would delete it changes the cost/serve model, and #568 promises answer
+// neutrality: each panel gets cheaper, the panel COUNT does not move.
+//
+// STACK. Same envelope U2 measured: ~25 kB per `run_contour` at NC = 6, the
+// fine and coarse machines in sequence rather than nested. Nothing here needs
+// a large default; keep `OMP_STACKSIZE` at or above ~256 kB. Verified by
+// filling a 1085-node grid at OMP_NUM_THREADS of 1, 4 and 8 under
+// OMP_STACKSIZE of 128K, 256K and 512K: all nine runs BIT-IDENTICAL (same
+// SHA-256 over the value table) and none faulted. The thread count buys 4.2x
+// on top of the per-node figure below (0.63 s -> 0.15 s at 8 threads) wherever
+// threads are available; the test suite pins its xdist workers to
+// OMP_NUM_THREADS=1, so the slow-lane numbers below are the per-node speedup
+// alone with none of that in them.
+//
+// MEASURED on an i7-8550U at OMP_NUM_THREADS=1 (the suite pins its xdist
+// workers there), one contour node against the numpy driver at rtol 1e-9,
+// soil A / 7 MHz, |z'| = 0.15 m unless noted:
+//
+//     (R/lam_p, theta) = (0.01,  45 deg)    15.6 ms ->  0.85 ms   18.4x
+//                        (0.5,    5 deg)    31.9 ms ->  1.91 ms   16.7x
+//                        (2.0,   30 deg)     5.9 ms ->  0.55 ms   10.7x
+//                        (2.0,  0.1 deg)   747.6 ms -> 41.0  ms   18.2x  (grazing)
+//                        (2.0, 0.02 deg)  1511.8 ms -> 76.9  ms   19.7x  (past the
+//                                                                  panel budget)
+//
+// The grazing end is the BEST case, which is the useful shape: cost there is
+// almost all tail panels and a tail panel is almost all Bessel, where U1's
+// real-abscissa kernels are furthest ahead of scipy's complex ones.
+//
+// End to end, `tests/test_sommerfeld_transmitted.py -m slow -n 2` on this box:
+// 446.0 s -> 30.3 s (14.7x), MAXRSS 116 MB -> 116 MB. The residual is now
+// dominated by `test_gu3_10_a_truncated_tail_is_not_a_graceful_degradation`
+// (14.3 s of the 30.3), which drives `_tail_below` directly at 80,000 panels
+// and never reaches this code at all.
+// --------------------------------------------------------------------------
+
+namespace mw568_trans {
+using mw_contour::cd;
+
+// `_sommerfeld._gamma` is SHARED with U2 rather than re-transcribed
+// (`mw568_below::gamma_cut` — since #714 the definition itself lives in
+// _branch_cut_inline.h, one copy for both extensions): it is the two-sqrt
+// product
+// sqrt(-j(lam - k)) sqrt(j(lam + k)), and the spelling IS the branch choice --
+// vertical cuts running DOWN from +k and UP from -k, neither of which the
+// head's first-quadrant detour crosses. Two copies of that could drift; one
+// cannot. This family calls it TWICE per evaluation, at k_p and at k_m,
+// because its two exponential legs live in different media.
+
+// `_integrand_six_transmitted`, term for term and in its order:
+//
+//   0: d2 V_T/drho dz     [a (-lam J1) d_z]
+//   1: (d2/dz2 + k_p^2)V_T [a lam^2 J0]
+//   2: d2 V_T/drho^2      [a lam^2 (J1/x - J0)]
+//   3: (1/rho) dV_T/drho  [-a lam^2 (J1/x)]
+//   4: d2 V_T/drho dz'    [a (-lam J1) d_zp]
+//   5: U_T                [u J0]
+//
+// with a = 2 lam e / (k_m^2 gamma_p + k_p^2 gamma_m) the (7f) V_T kernel and
+// u = 2 lam e / (gamma_m + gamma_p) the (7g) U_T one, e the two-leg
+// exponential. All five derivatives are ANALYTIC under the integral sign
+// (d/drho J0 = -lam J1, d2/drho2 via the Bessel ODE identity, d/dz -> x(-g_p),
+// d/dz' -> x(+g_m)) -- never a differenced interpolant, which is the
+// LLNL-TR-490316 rule the phase-0 comment records.
+//
+// INDEX 1 IS SPELLED lam^2 AND THAT IS LOAD-BEARING. (d2/dz2 + k^2) is
+// gamma^2 + k^2 in either medium, and gamma^2 + k^2 is a difference of two
+// O(k^2) numbers whose result is O(lam^2): at the bottom of the contour
+// (lam ~ 1e-3, |k_m| ~ 0.6) it cancels away ELEVEN digits. The swapped and
+// unswapped spellings of the same quantity were measured 3.5e-11 apart before
+// the numpy line said lam^2. Writing `g_p*g_p + k_p*k_p` here would not fail
+// loudly; it would quietly cost a grazing gate. `test_g56812_index_1_is_
+// lambda_squared_not_gamma_squared_plus_k_squared` is the mutation gate.
+//
+// INDEX 4 IS THE FIFTH SURFACE. d/dz' multiplies by +gamma_m where d/dz
+// multiplies by -gamma_p, and the two are different functions of lam, so
+// index 4 is NOT a multiple of index 0 and T_z^H is not -cos(phi) T_rho^V.
+// That collapse is a +-=+ identity that does not survive here; the #553 arc
+// gated it hardest because the licensed engine departs from the phase-0
+// prototype on exactly this component by O(1), with empymod siding with the
+// prototype.
+struct SixTransmitted {
+    double rho;
+    double z;
+    double zp;
+    double k_p;
+    cd k_m;
+    bool swap;
+    void operator()(const cd &lam, cd *out) const {
+        const cd kp(k_p, 0.0);
+        const cd g_p = mw568_below::gamma_cut(lam, kp);
+        const cd g_m = mw568_below::gamma_cut(lam, k_m);
+        const double azp = std::fabs(zp);
+        cd e, d_z, d_zp;
+        if (swap) {
+            // Source ABOVE at z' > 0 carrying gamma_p, observer BELOW at
+            // z < 0 carrying gamma_m: the same integral with the legs
+            // exchanged, which is the reciprocity identity phase 0 measured
+            // at 0.0 relative.
+            e = 2.0 * std::exp(-g_p * azp - g_m * std::fabs(z)) * lam;
+            d_z = g_m;
+            d_zp = -g_p;
+        } else {
+            e = 2.0 * std::exp(-g_m * azp - g_p * z) * lam;
+            d_z = -g_p;
+            d_zp = g_m;
+        }
+        const cd zzk = lam * lam;  // NOT g^2 + k^2 -- see the note above
+        const double kp2 = k_p * k_p;
+        const cd a = e / (k_m * k_m * g_p + kp2 * g_m);  // (7f)
+        const cd u = e / (g_m + g_p);                    // (7g)
+        const cd x = lam * rho;
+        cd b0, b1x;
+        mw_contour::bessel_j0_j1x(x, b0, b1x);
+        const cd j1 = b1x * x;
+        const cd dr = -(lam * j1);  // d/drho J0 = -lam J1
+        out[0] = a * dr * d_z;
+        out[1] = a * zzk * b0;
+        out[2] = a * lam * lam * (b1x - b0);
+        out[3] = a * (-(lam * lam * b1x));
+        out[4] = a * dr * d_zp;
+        out[5] = u * b0;
+    }
+};
+
+// What one node of `_six_integrals_transmitted` produces: the six values plus
+// everything `Health.note` / `Health.note_selfconv` are handed on the numpy
+// side. `selfconv` is -1.0 when the coarse machine was not asked for, so the
+// Python layer can tell "not measured" from "measured zero".
+struct SixResultT {
+    cd val[6];
+    int head_panels;
+    int tail_panels;
+    bool converged;
+    bool accel;
+    double selfconv;
+};
+
+// One node: the fine contour, then optionally the coarse self-convergence
+// twin (Gauss-16, rtol x100, a shallower detour).
+//
+// `h_decay = |z'| + |z|` is the TAIL'S DECAY LENGTH, not a coordinate: both
+// gammas go to lam at large lam, so e^{-g_m|z'| - g_p z} -> e^{-lam(|z'|+z)}
+// exactly as the below family's e^{-g_m h} -> e^{-lam h}. That one argument is
+// the whole of the sharing with U2's contour, and `max_panels` is the other
+// handle -- this family's grazing rows need 6000 where any below/below
+// geometry is done in a few hundred.
+static void six_transmitted_one(double rho, double z, double zp, double k_p,
+                                const cd &k_m, bool swap, double rtol_fine,
+                                int depth, double detour, const double *gx,
+                                const double *gw, int ng, bool selfconv,
+                                double rtol_coarse, int depth_coarse,
+                                double detour_coarse, const double *gxc,
+                                const double *gwc, int ngc, int max_panels,
+                                SixResultT &r) {
+    SixTransmitted f;
+    f.rho = rho;
+    f.z = z;
+    f.zp = zp;
+    f.k_p = k_p;
+    f.k_m = k_m;
+    f.swap = swap;
+    const double h_decay = std::fabs(zp) + std::fabs(z);
+    const mw_contour::ContourHealth hh = mw_contour::run_contour<6>(
+        f, k_p, k_m, rho, h_decay, rtol_fine, depth, detour, gx, gw, ng,
+        max_panels, r.val);
+    r.head_panels = hh.head_panels;
+    r.tail_panels = hh.tail_panels;
+    r.converged = hh.converged;
+    r.accel = hh.accel;
+    r.selfconv = -1.0;
+    if (selfconv) {
+        cd coarse[6];
+        mw_contour::run_contour<6>(f, k_p, k_m, rho, h_decay, rtol_coarse,
+                                   depth_coarse, detour_coarse, gxc, gwc, ngc,
+                                   max_panels, coarse);
+        double worst = 0.0;
+        for (int c = 0; c < 6; ++c) {
+            const double scale = std::max(std::abs(r.val[c]), 1e-300);
+            const double rel = std::abs(r.val[c] - coarse[c]) / scale;
+            if (rel > worst) worst = rel;
+        }
+        r.selfconv = worst;
+    }
+}
+
+// `TransmittedGrid`'s tabulation, flattened for the inner loop.
+//
+// NOT `somm_proj::GridView`, and not a widening of it. That view is built for
+// the +-=+ / +-=- REMAINDER grids: four surfaces, four-or-six (R1, theta)
+// REGIONS selected by (r_break, th_split, r_near), and a LINEAR radial axis
+// per region. The transmitted tabulation is one uniform lattice in
+// (ln R, theta) -- logarithmic, because the transmitted surface is the whole
+// field and carries the source's own 1/R^2 near zone, so there is no finite
+// R1 -> 0 limit node the way the remainder families have -- with FIVE surfaces
+// and a third axis, the log|z'| ladder. Bending `build_grid_view` around a
+// different region model, a different axis law, a different surface count and
+// an extra dimension would have made one struct serve two unrelated layouts;
+// this is the small honest one.
+struct TGridView {
+    const cd *vals;  // (n_zp, 5, n_r, n_th), C-contiguous
+    py::ssize_t n_zp, n_r, n_th;
+    double lnr0, dlnr, th0, dth, lnz0, dlnz;
+    double tiny, half_pi;
+};
+
+// `TransmittedGrid.eval`'s interpolation, WITHOUT its four refusals: cubic
+// Lagrange in ln R and theta, and -- when the ladder has more than one rung --
+// cubic in ln|z'| on the divided-out surfaces, which is phase 0's measured
+// scheme. The refusals stay in Python; see the comment on
+// `transmitted_field_proj_batch`.
+static inline void tgrid_eval(const TGridView &G, double R, double theta,
+                              double azp, cd *surf) {
+    const double fr = (std::log(std::max(R, 1e-300)) - G.lnr0) / G.dlnr;
+    int i0 = (int)std::floor(fr) - 1;
+    if (i0 < 0) i0 = 0;
+    else if (i0 > (int)G.n_r - 4) i0 = (int)G.n_r - 4;
+    double thc = theta;
+    if (thc < 0.0) thc = 0.0;
+    else if (thc > G.half_pi) thc = G.half_pi;
+    const double ft = (thc - G.th0) / G.dth;
+    int j0 = (int)std::floor(ft) - 1;
+    if (j0 < 0) j0 = 0;
+    else if (j0 > (int)G.n_th - 4) j0 = (int)G.n_th - 4;
+    double wr[4], wt[4];
+    somm_proj::lagrange4(fr - i0, wr);
+    somm_proj::lagrange4(ft - j0, wt);
+
+    const py::ssize_t nth = G.n_th, nr = G.n_r;
+    const py::ssize_t plane = nr * nth;       // one surface at one rung
+    const py::ssize_t rung = 5 * plane;       // all five at one rung
+
+    if (G.n_zp == 1) {
+        for (int s = 0; s < 5; ++s) {
+            const cd *V = G.vals + (py::ssize_t)s * plane;
+            cd acc(0.0, 0.0);
+            for (int i = 0; i < 4; ++i) {
+                const cd *row = V + (py::ssize_t)(i0 + i) * nth + j0;
+                const cd rs = row[0] * wt[0] + row[1] * wt[1] + row[2] * wt[2] +
+                              row[3] * wt[3];
+                acc += rs * wr[i];
+            }
+            surf[s] = acc;
+        }
+        return;
+    }
+
+    const double fz = (std::log(std::max(azp, 1e-300)) - G.lnz0) / G.dlnz;
+    int k0 = (int)std::floor(fz) - 1;
+    if (k0 < 0) k0 = 0;
+    else if (k0 > (int)G.n_zp - 4) k0 = (int)G.n_zp - 4;
+    double wz[4];
+    somm_proj::lagrange4(fz - k0, wz);
+    for (int s = 0; s < 5; ++s) {
+        cd acc(0.0, 0.0);
+        for (int k = 0; k < 4; ++k) {
+            const cd *V = G.vals + (py::ssize_t)(k0 + k) * rung +
+                          (py::ssize_t)s * plane;
+            cd sub(0.0, 0.0);
+            for (int i = 0; i < 4; ++i) {
+                const cd *row = V + (py::ssize_t)(i0 + i) * nth + j0;
+                const cd rs = row[0] * wt[0] + row[1] * wt[1] + row[2] * wt[2] +
+                              row[3] * wt[3];
+                sub += rs * wr[i];
+            }
+            acc += sub * wz[k];
+        }
+        surf[s] = acc;
+    }
+}
+
+// One (above, below) pair: `_crossing_geometry` + `TransmittedGrid.eval` +
+// `divide_out_transmitted` + `_combine_transmitted_proj`, with no
+// intermediates.
+//
+// The geometry is ALWAYS built from the above point and the below point, in
+// that role order, whichever way the field is travelling: R and theta are the
+// ABOVE point's polar coordinates about the below point's ground projection,
+// |z'| is the below point's depth, and (dhx, dhy) is the horizontal direction
+// from the BELOW point to the ABOVE one in BOTH directions of travel. That
+// last one is the single silent sign error available in this family -- the
+// surfaces are tabulated with the below point as the source and sin(phi) is
+// ODD, so reading d-hat from source-minus-observer would flip T_phi^H on one
+// of the two directions only.
+//
+// `transposed` swaps T_rho^V with T_z^H and NOTHING else. That is the entire
+// content of "above->below is the reciprocity transpose": the dyad's 2x2
+// horizontal block is already symmetric, so transposing exchanges exactly the
+// vertical source's radial row with the horizontal source's vertical row --
+// which is the FIFTH surface, and why a four-surface family could not have
+// served both directions. E_z's horizontal row therefore reads T_z^H (or
+// T_rho^V when transposed) and never -cos(phi) T_rho^V; that collapse is a
+// +-=+ identity and it does not hold here.
+//
+// `to`/`ts` are the OBSERVER's and SOURCE's tangents, so the caller supplies
+// them in travel order while the geometry stays in role order. The query's
+// (R, theta, |z'|) go back to the caller so `TransmittedGrid.eval` can raise
+// the four refusals in its own words; nothing here transcribes that prose.
+static inline cd proj_one_transmitted(const TGridView &G, double ground_z,
+                                      double k_p, const cd &k_m,
+                                      double ax, double ay, double az,
+                                      double bx, double by, double bz,
+                                      const double *to, const double *ts,
+                                      bool transposed, double &r_out,
+                                      double &th_out, double &zp_out) {
+    const double z = az - ground_z;         // the above point's height, >= 0
+    const double depth = ground_z - bz;     // the below point's depth, > 0
+    const double dx = ax - bx;
+    const double dy = ay - by;
+    const double rho = std::hypot(dx, dy);
+    const double r_obs = std::hypot(rho, z);
+    const double theta = std::atan2(z, rho);
+    r_out = r_obs;
+    th_out = theta;
+    zp_out = depth;
+
+    cd surf[5];
+    tgrid_eval(G, r_obs, theta, depth, surf);
+    const cd TrhoV = surf[0], TzV = surf[1], TrhoH = surf[2], TphiH = surf[3],
+             TzH = surf[4];
+
+    // `divide_out_transmitted`: two legs, because the transmitted ray has two
+    // -- |z'| straight up through the ground at k_m, then the rest of the way
+    // through the AIR at the real k_p over the true separation R, with the 1/R
+    // spherical spreading every point-source field carries.
+    const double dz = z + depth;
+    const double rr = std::sqrt(rho * rho + dz * dz);
+    const cd g = std::exp(-mw568_below::MW_BJ * (k_m * depth + cd(k_p * rr, 0.0))) / rr;
+
+    const bool safe_r = rho > G.tiny;
+    const double inv_rho = safe_r ? 1.0 / rho : 0.0;
+    const double dhx = safe_r ? dx * inv_rho : 1.0;
+    const double dhy = safe_r ? dy * inv_rho : 0.0;
+    const double cph = ts[0] * dhx + ts[1] * dhy;
+    const double sph = ts[0] * dhy - ts[1] * dhx;
+    const double pz = ts[2];
+
+    cd e_rho, e_z;
+    if (transposed) {
+        e_rho = g * (pz * TzH + cph * TrhoH);
+        e_z = g * (pz * TzV + cph * TrhoV);
+    } else {
+        e_rho = g * (pz * TrhoV + cph * TrhoH);
+        e_z = g * (pz * TzV + cph * TzH);
+    }
+    const cd e_phi = g * (sph * TphiH);
+    return to[0] * (dhx * e_rho - dhy * e_phi) +
+           to[1] * (dhy * e_rho + dhx * e_phi) + to[2] * e_z;
+}
+}  // namespace mw568_trans
+
+// `_integrand_six_transmitted` POINTWISE at a list of complex lambda: (n, 6).
+//
+// Not on any product path -- the integrand is only ever called from inside the
+// engine. It exists because the two mutations this unit is most exposed to are
+// invisible to an INTEGRATED gate:
+//
+//   * index 1 spelled `g_p*g_p + k_p*k_p` instead of `lam*lam` moves the
+//     integrand by ~1e-5 relative at the bottom of the contour (lam ~ 1e-3,
+//     |k_m| ~ 0.6, eleven digits of cancellation) and the integral by ~3.5e-11
+//     -- under any parity pin an integrated gate can honestly carry;
+//   * index 4 collapsed onto index 0 is a whole surface, but the two agree
+//     wherever gamma_m happens to track gamma_p, so a gate has to be READ at
+//     lambda where they do not.
+//
+// Both are named mutation gates in tests/test_transmitted_fills_568.py, and
+// both read this entry point at chosen lambda rather than hoping an integral
+// notices.
+static py::array_t<std::complex<double>> transmitted_integrand_six(
+    py::array_t<std::complex<double>,
+                py::array::c_style | py::array::forcecast> lam,
+    double rho, double z, double zp, double k_p, std::complex<double> k_m,
+    bool swap) {
+    if (lam.ndim() != 1) throw std::runtime_error("lam must be 1-D");
+    const py::ssize_t n = lam.shape(0);
+    py::array_t<std::complex<double>> out({n, py::ssize_t(6)});
+    auto ob = out.mutable_unchecked<2>();
+    const std::complex<double> *lp = lam.data();
+    {
+        py::gil_scoped_release release;
+        mw568_trans::SixTransmitted f;
+        f.rho = rho;
+        f.z = z;
+        f.zp = zp;
+        f.k_p = k_p;
+        f.k_m = k_m;
+        f.swap = swap;
+        for (py::ssize_t i = 0; i < n; ++i) {
+            mw_contour::cd v[6];
+            f(lp[i], v);
+            for (int c = 0; c < 6; ++c) ob(i, c) = v[c];
+        }
+    }
+    return out;
+}
+
+// `_six_integrals_transmitted` over parallel (rho, z, z') arrays: the (n, 6)
+// table plus everything `Health` records, OpenMP across nodes with the GIL
+// released. This is `t_surfaces_direct`'s per-point loop -- the fill's hot
+// loop and the arc's biggest single cluster.
+//
+// The wavenumbers arrive DERIVED (k_p real, k_m complex on the Im <= 0 branch)
+// rather than as eps~, so the branch choice stays in `k_medium` where it is
+// written down once; the side-of-interface validation -- which RAISES BY NAME,
+// and whose asymmetry (an observer may sit ON the interface, a SOURCE may not)
+// is the geometry rather than sloppiness -- likewise stays in Python, because
+// it is exact and its words are contract.
+//
+// Returns (values (n, 6), tail_panels (n,), head_panels (n,), converged (n,),
+// accelerated (n,), selfconv (n,)) -- selfconv is -1.0 where the coarse
+// machine was not run. `converged` is the one a caller must not drop: see the
+// Wynn note at the top of this block.
+static py::tuple transmitted_six_integrals_batch(
+    double k_p, std::complex<double> k_m,
+    py::array_t<double, py::array::c_style | py::array::forcecast> rho,
+    py::array_t<double, py::array::c_style | py::array::forcecast> z,
+    py::array_t<double, py::array::c_style | py::array::forcecast> zp,
+    bool swap, double rtol_fine, int depth, double detour,
+    py::array_t<double, py::array::c_style | py::array::forcecast> gx,
+    py::array_t<double, py::array::c_style | py::array::forcecast> gw,
+    bool selfconv, double rtol_coarse, int depth_coarse, double detour_coarse,
+    py::array_t<double, py::array::c_style | py::array::forcecast> gxc,
+    py::array_t<double, py::array::c_style | py::array::forcecast> gwc,
+    int max_panels) {
+    auto rb = rho.unchecked<1>();
+    auto zb = z.unchecked<1>();
+    auto pb = zp.unchecked<1>();
+    const py::ssize_t n = rb.shape(0);
+    if (zb.shape(0) != n || pb.shape(0) != n)
+        throw std::invalid_argument("rho, z and zp must have the same length");
+    const double *gxp, *gwp, *gxcp, *gwcp;
+    int ng, ngc;
+    mw568::gauss_view(gx, gw, &gxp, &gwp, &ng);
+    mw568::gauss_view(gxc, gwc, &gxcp, &gwcp, &ngc);
+
+    py::array_t<std::complex<double>> vals({n, py::ssize_t(6)});
+    py::array_t<int> tail(n), head(n);
+    py::array_t<bool> conv(n), accel(n);
+    py::array_t<double> sconv(n);
+    auto vb = vals.mutable_unchecked<2>();
+    int *tp = tail.mutable_data();
+    int *hp = head.mutable_data();
+    bool *cp = conv.mutable_data();
+    bool *ap = accel.mutable_data();
+    double *sp = sconv.mutable_data();
+    const mw_contour::cd km(k_m);
+
+    {
+        py::gil_scoped_release release;
+        // `dynamic`, and on this family it matters more than it did on U2's.
+        // The tail cost runs as cot(theta_true), so the bottom row of a
+        // (ln R, theta) fill costs THOUSANDS of panels per node where the top
+        // row costs tens -- a two-decade spread inside one call, arriving
+        // sorted by row. Static scheduling would hand one thread the whole
+        // grazing band and the fill would take as long as its slowest chunk.
+        #pragma omp parallel for schedule(dynamic)
+        for (py::ssize_t i = 0; i < n; ++i) {
+            mw568_trans::SixResultT r;
+            mw568_trans::six_transmitted_one(
+                rb(i), zb(i), pb(i), k_p, km, swap, rtol_fine, depth, detour,
+                gxp, gwp, ng, selfconv, rtol_coarse, depth_coarse,
+                detour_coarse, gxcp, gwcp, ngc, max_panels, r);
+            for (int c = 0; c < 6; ++c) vb(i, c) = r.val[c];
+            tp[i] = r.tail_panels;
+            hp[i] = r.head_panels;
+            cp[i] = r.converged;
+            ap[i] = r.accel;
+            sp[i] = r.selfconv;
+        }
+    }
+    return py::make_tuple(vals, tail, head, conv, accel, sconv);
+}
+
+// The projected transmitted pair table in C++: `above`/`t_above` (A, 3),
+// `below`/`t_below` (B, 3), returning ((A, B) complex, min R, max R, min
+// theta, max theta, min |z'|, max |z'|).
+//
+// ONE kernel serves BOTH directions of travel. The geometry is in ROLE order
+// (above, below) either way -- it has to be, because the surfaces are
+// tabulated with the below point as the source and the horizontal direction
+// runs from the below point to the above one in both directions -- and
+// `transposed` is what turns the upward dyad into the downward one, by
+// swapping T_rho^V with T_z^H. The caller transposes the (A, B) table into its
+// own (n_obs, n_src) when the observer is the below point. Two entry points
+// reading one kernel is exactly the "above->below is the same integral" claim
+// expressed in code: if it were two kernels the identity gate would be gating
+// two ports against each other rather than a transpose against itself.
+//
+// `t_above` / `t_below` are the RAW tangents, not decomposed the way
+// `somm_proj::tangent_decomp` decomposes the +-=+ family's: this family's
+// combination reads t.d-hat and t x d-hat|_z and t_z directly, with no
+// magnitude/direction split, because a complex moment has no direction to
+// normalize (and the tangent is handed straight through as one).
+//
+// THE FOUR REFUSALS ARE NOT TRANSCRIBED HERE -- past `r_max`, under `r_min`,
+// theta outside the tabulated band, |z'| off the ladder. The kernel reports
+// the query's extremes and the Python layer feeds them straight back to
+// `TransmittedGrid.eval`, which raises in its own words. One copy of that
+// prose, and no way for the two paths to drift on which geometries they serve.
+// It matters more here than it did on U2: every one of those four is a REFUSAL
+// rather than a clamp precisely because the transmitted surface is the whole
+// field and there is no negligible tail to freeze, so a C++ path that quietly
+// clamped instead would return a confident wrong number rather than an error.
+static py::tuple transmitted_field_proj_batch(
+    py::array_t<double, py::array::c_style | py::array::forcecast> above,
+    py::array_t<double, py::array::c_style | py::array::forcecast> t_above,
+    py::array_t<double, py::array::c_style | py::array::forcecast> below,
+    py::array_t<double, py::array::c_style | py::array::forcecast> t_below,
+    double ground_z, double k_p, std::complex<double> k_m, bool transposed,
+    double lnr0, double dlnr, double th0, double dth, double lnz0, double dlnz,
+    double r_max,
+    py::array_t<std::complex<double>,
+                py::array::c_style | py::array::forcecast> grid_vals) {
+    auto ab = above.unchecked<2>();
+    auto tab = t_above.unchecked<2>();
+    auto bb = below.unchecked<2>();
+    auto tbb = t_below.unchecked<2>();
+    if (ab.shape(1) != 3 || tab.shape(1) != 3 || bb.shape(1) != 3 ||
+        tbb.shape(1) != 3)
+        throw std::runtime_error("point/tangent arrays must have shape (*, 3)");
+    if (ab.shape(0) != tab.shape(0) || bb.shape(0) != tbb.shape(0))
+        throw std::runtime_error("points and tangents must have matching length");
+    auto gv = grid_vals.unchecked<4>();
+    if (gv.shape(1) != 5)
+        throw std::runtime_error(
+            "the transmitted grid must have five surfaces per rung");
+
+    mw568_trans::TGridView G;
+    G.vals = grid_vals.data();
+    G.n_zp = gv.shape(0);
+    G.n_r = gv.shape(2);
+    G.n_th = gv.shape(3);
+    if (G.n_r < 4 || G.n_th < 4 || (G.n_zp != 1 && G.n_zp < 4))
+        throw std::runtime_error("the transmitted grid is too small for a cubic");
+    G.lnr0 = lnr0;
+    G.dlnr = dlnr;
+    G.th0 = th0;
+    G.dth = dth;
+    G.lnz0 = lnz0;
+    G.dlnz = dlnz;
+    G.tiny = 1e-12 * r_max;
+    G.half_pi = 0.5 * M_PI;
+
+    const py::ssize_t A = ab.shape(0);
+    const py::ssize_t B = bb.shape(0);
+    py::array_t<std::complex<double>> out({A, B});
+    auto out_m = out.mutable_unchecked<2>();
+    const mw_contour::cd km(k_m);
+
+    // Per-above-row extremes, reduced serially afterwards: a min/max
+    // `reduction` clause is OpenMP 3.1 and this file stays portable to MSVC's
+    // classic /openmp.
+    const py::ssize_t AA = A > 0 ? A : 1;
+    std::vector<double> row_rlo(AA, std::numeric_limits<double>::infinity());
+    std::vector<double> row_rhi(AA, 0.0);
+    std::vector<double> row_thlo(AA, 0.5 * M_PI);
+    std::vector<double> row_thhi(AA, 0.0);
+    std::vector<double> row_zlo(AA, std::numeric_limits<double>::infinity());
+    std::vector<double> row_zhi(AA, 0.0);
+
+    {
+        py::gil_scoped_release release;
+        #pragma omp parallel for schedule(static)
+        for (py::ssize_t a = 0; a < A; ++a) {
+            const double ax = ab(a, 0), ay = ab(a, 1), az = ab(a, 2);
+            const double ta[3] = {tab(a, 0), tab(a, 1), tab(a, 2)};
+            double rlo = std::numeric_limits<double>::infinity(), rhi = 0.0;
+            double tlo = 0.5 * M_PI, thi = 0.0;
+            double zlo = std::numeric_limits<double>::infinity(), zhi = 0.0;
+            for (py::ssize_t b = 0; b < B; ++b) {
+                const double tb[3] = {tbb(b, 0), tbb(b, 1), tbb(b, 2)};
+                // Travel order: the observer's tangent is the above one going
+                // up and the below one coming down; the geometry stays in
+                // role order either way.
+                const double *to = transposed ? tb : ta;
+                const double *ts = transposed ? ta : tb;
+                double rq, thq, zq;
+                out_m(a, b) = mw568_trans::proj_one_transmitted(
+                    G, ground_z, k_p, km, ax, ay, az, bb(b, 0), bb(b, 1),
+                    bb(b, 2), to, ts, transposed, rq, thq, zq);
+                if (rq < rlo) rlo = rq;
+                if (rq > rhi) rhi = rq;
+                if (thq < tlo) tlo = thq;
+                if (thq > thi) thi = thq;
+                if (zq < zlo) zlo = zq;
+                if (zq > zhi) zhi = zq;
+            }
+            row_rlo[a] = rlo;
+            row_rhi[a] = rhi;
+            row_thlo[a] = tlo;
+            row_thhi[a] = thi;
+            row_zlo[a] = zlo;
+            row_zhi[a] = zhi;
+        }
+    }
+
+    double mn_r = std::numeric_limits<double>::infinity(), mx_r = 0.0;
+    double mn_th = 0.5 * M_PI, mx_th = 0.0;
+    double mn_z = std::numeric_limits<double>::infinity(), mx_z = 0.0;
+    for (py::ssize_t a = 0; a < A; ++a) {
+        if (row_rlo[a] < mn_r) mn_r = row_rlo[a];
+        if (row_rhi[a] > mx_r) mx_r = row_rhi[a];
+        if (row_thlo[a] < mn_th) mn_th = row_thlo[a];
+        if (row_thhi[a] > mx_th) mx_th = row_thhi[a];
+        if (row_zlo[a] < mn_z) mn_z = row_zlo[a];
+        if (row_zhi[a] > mx_z) mx_z = row_zhi[a];
+    }
+    if (!std::isfinite(mn_r)) mn_r = 0.0;
+    if (!std::isfinite(mn_z)) mn_z = 0.0;
+    return py::make_tuple(out, mn_r, mx_r, mn_th, mx_th, mn_z, mx_z);
+}
+
+
+
+// ---------------------------------------------------------------------------
+// momwire#914 unit 1: the below/below plan extents.
+//
+// `(r1_max, th_min)` over every node pair: the largest image distance
+// hypot(rho, h_i + h_j) and the shallowest angle atan2(h_i + h_j, rho). The
+// numpy twin (`bspline._pair_extents_below`) walks the pair matrix in row
+// chunks and costs 2.3 s over the 246 M pairs of a 48-radial screen, to find
+// two scalars.
+//
+// Two properties the chunked numpy form cannot exploit and this one does:
+//
+//   * The pair matrix is EXACTLY symmetric. rho2 is a difference squared, so
+//     (x_i - x_j)^2 and (x_j - x_i)^2 are bit-identical (IEEE negation is
+//     exact), and hh = d_i + d_j is symmetric. So the upper triangle carries
+//     every distinct value and the work halves.
+//   * atan2(hh, rho) is monotone in hh / rho on the closed quadrant, which is
+//     why the numpy form already minimises the RATIO and takes one atan at the
+//     end. The ratio is non-negative, so minimising hh^2 / rho2 finds the same
+//     pair — which removes the per-pair sqrt entirely, leaving ONE sqrt and
+//     one atan for the whole cloud.
+//
+// Degenerate input: rho2 == 0 happens where a node meets itself (or a
+// duplicated node). There hh > 0 for any buried cloud and the ratio is +inf,
+// never the minimum — the divide is deliberate and its inf is harmless.
+//
+// If hh is ALSO zero — a node exactly ON the interface, such as a vertical's
+// base node — the quotient is 0/0 = NaN. That pair has no angle, and this twin
+// drops it (a NaN compare is false) and returns the minimum over the
+// well-defined pairs.
+//
+// The numpy reference used to disagree here: its `np.min` carried the NaN to
+// the CHUNK result, and the outer Python `min(ratio_min, nan)` kept inf, so
+// the whole chunk was discarded, real pairs included. It also warned, which
+// is how a user found it on the buried radial vertical (momwire#1036). It now
+// masks rho = 0 pairs before the minimum, so the two paths agree on the pair
+// rule too; `test_1036_a_node_on_the_interface_drops_its_own_pair_not_the_chunk`
+// gates both. An earlier draft of this twin added NaN propagation "to match
+// numpy" on the assumption that numpy propagated — it did not, and that
+// assumption was the only thing making the physical cases disagree.
+
+static py::tuple pair_extents_below(py::array_t<double, py::array::c_style |
+                                                        py::array::forcecast> x,
+                                    py::array_t<double, py::array::c_style |
+                                                        py::array::forcecast> y,
+                                    py::array_t<double, py::array::c_style |
+                                                        py::array::forcecast> d_b) {
+    auto xb = x.unchecked<1>();
+    auto yb = y.unchecked<1>();
+    auto db = d_b.unchecked<1>();
+    const py::ssize_t n = xb.shape(0);
+    if (yb.shape(0) != n || db.shape(0) != n)
+        throw std::invalid_argument("x, y and d_b must have the same length");
+    if (n == 0)
+        throw std::invalid_argument("pair_extents_below needs at least one node");
+
+    const double *xp = x.data();
+    const double *yp = y.data();
+    const double *dp = d_b.data();
+
+    double r1sq_max = 0.0;
+    double q_min = std::numeric_limits<double>::infinity();
+
+    {
+        py::gil_scoped_release release;
+        // `guided`: the triangular loop gives row 0 n columns and row n-1
+        // one, so a static split hands the first thread most of the matrix.
+        #pragma omp parallel for schedule(guided) \
+            reduction(max : r1sq_max) reduction(min : q_min)
+        for (py::ssize_t i = 0; i < n; ++i) {
+            const double xi = xp[i], yi = yp[i], di = dp[i];
+            double r1_row = 0.0;
+            double q_row = std::numeric_limits<double>::infinity();
+            // j >= i: the upper triangle, diagonal included.
+            for (py::ssize_t j = i; j < n; ++j) {
+                const double dx = xi - xp[j];
+                const double dy = yi - yp[j];
+                const double rho2 = dx * dx + dy * dy;
+                const double hh = di + dp[j];
+                const double hh2 = hh * hh;
+                const double r1sq = rho2 + hh2;
+                if (r1sq > r1_row) r1_row = r1sq;
+                const double q = hh2 / rho2;   // +inf at rho2 == 0, hh > 0
+                if (q < q_row) q_row = q;   // NaN compares false: dropped,
+                                            // exactly as Python's min does
+            }
+            if (r1_row > r1sq_max) r1sq_max = r1_row;
+            if (q_row < q_min) q_min = q_row;
+        }
+    }
+
+    return py::make_tuple(std::sqrt(r1sq_max), std::atan(std::sqrt(q_min)));
+}
+
+// --- momwire#914 unit 2: the field-form Galerkin assembly -------------------
+//
+// `bspline._field_galerkin_block`'s inner two contractions, per observer
+// chunk. The Python spells them as
+//
+//     Jc[p,P,i,j] = sum_qr W_obs[p,i,q] * fq[i,q,j,r] * W_src[P,j,r]
+//     Q[m,n]     += sum_ab sum_pP polys[m,a,p] * Jc[p,P,i(m,a),j(n,b)]
+//                                              * polys[n,b,P]
+//
+// where i(m,a) = pos_o[supp_seg[m,a]] - i0 and j(n,b) = pos_s[supp_seg[n,b]],
+// a row or column being live only when its index is on this axis at all.
+//
+// THE FUSION. The p and P sums do not need Jc, because the only way p enters
+// Q[m,n] is through polys[m,a,p] * W_obs[p, i(m,a), q] -- and i is a function
+// of (m, a). So each sum collapses, once, into a q-vector per row-wing and
+// per column-wing:
+//
+//     g[m,a,q] = sum_p polys[m,a,p] * W_obs[p, i(m,a), q]
+//     h[n,b,r] = sum_P polys[n,b,P] * W_src[P, j(n,b), r]
+//     Q[m,n]  += sum_ab sum_qr g[m,a,q] * fq[i(m,a),q,j(n,b),r] * h[n,b,r]
+//
+// which is then two stages: contract g against this chunk's projected rows
+// into F[j,r] -- one AXPY per quadrature point over a whole row of `proj` --
+// then dot F against h. Nothing of shape (d+1, d+1, n_chunk, n_src) is ever
+// live, the (d+1)^2 fancy-index gather per wing pair disappears, and the
+// arithmetic drops on top of that. `fused=false` selects the literal Jc
+// transcription instead; it exists because the choice was asked to be
+// measured rather than argued, and it doubles as an independent second route
+// to the same numbers.
+//
+// PARALLELISM. Both stages thread over the SOURCE axis -- the flattened (j,r)
+// in stage 1, the basis column n in stage 2 -- never over the row-wings,
+// which is the one decomposition that would race: a basis row m owns Q[m, :]
+// across every wing a, so two wings of one m landing in the same chunk would
+// have two threads writing one row. Threading columns makes each thread the
+// sole owner of every Q entry it touches, whatever the support overlap does.
+//
+// Row-wings sharing an observer index are batched so one streaming pass over
+// that index's q rows of `proj` feeds all of them. A batch never holds one
+// basis row twice: stage 2 keeps one accumulator per batch slot and adds it
+// to Q[m, n] once, so a repeated m would drop one of its own wings. The batch
+// bookkeeping is deliberately OUTSIDE the parallel regions -- it is a few
+// hundred nanoseconds against a millisecond of contraction, and inside one it
+// would need a `single` whose writes every other thread would have to be
+// barriered against.
+
+namespace {
+
+constexpr py::ssize_t FG_BATCH = 4;
+// h is built on the stack per column; q is a quadrature order (6 here), not
+// a mesh dimension, so a fixed bound is honest rather than a limit anyone
+// meets. Checked below.
+constexpr py::ssize_t FG_MAX_Q = 64;
+
+}  // namespace
+
+static void assemble_field_galerkin(
+    py::array_t<std::complex<double>, py::array::c_style | py::array::forcecast>
+        proj,
+    py::array_t<double, py::array::c_style | py::array::forcecast> W_obs,
+    py::array_t<double, py::array::c_style | py::array::forcecast> W_src,
+    py::array_t<std::int64_t, py::array::c_style | py::array::forcecast> supp_seg,
+    py::array_t<double, py::array::c_style | py::array::forcecast> polys,
+    py::array_t<std::int64_t, py::array::c_style | py::array::forcecast> pos_o,
+    py::array_t<std::int64_t, py::array::c_style | py::array::forcecast> pos_s,
+    py::ssize_t i0,
+    py::array Q,
+    bool fused,
+    double scale,
+    py::object row_of) {
+    typedef std::complex<double> cd;
+
+    // Q is the ACCUMULATION TARGET, which is why it arrives as a bare
+    // py::array checked here and not as py::array_t<cd, c_style> like every
+    // input above it. That template flag does not REQUIRE a C-contiguous
+    // argument, it MANUFACTURES one: pybind11 answers a column-major or
+    // strided array with a C-contiguous copy, so every `+=` below lands in a
+    // temporary and the call returns cleanly having written nothing
+    // (momwire#1115; the buried Z is column-major by momwire#136, so the
+    // target this is meant to take is exactly the shape that was lost).
+    // `forcecast` is not the fix -- it copies unconditionally. py::array's
+    // caster converts nothing at all, which is what lets these three be
+    // refusals rather than repairs.
+    if (!py::isinstance<py::array_t<cd>>(Q))
+        throw std::invalid_argument(
+            "Q must be a complex128 array: it is accumulated into in place, "
+            "so no dtype conversion can be made on the caller's behalf");
+    // Contiguity is NOT required: the two scatters below address Q through
+    // its own strides, so a column-major or otherwise strided target is
+    // accumulated into where it lies instead of being refused. What is still
+    // refused is a target whose strides are not whole elements -- numpy can
+    // express that, and the arithmetic below cannot address it.
+    if (!Q.writeable())
+        throw std::invalid_argument(
+            "Q must be writeable: it is accumulated into in place");
+
+    if (W_obs.ndim() != 3 || W_src.ndim() != 3)
+        throw std::invalid_argument("W_obs and W_src must be 3-D (P, n, q)");
+    if (polys.ndim() != 3) throw std::invalid_argument("polys must be 3-D");
+    if (supp_seg.ndim() != 2) throw std::invalid_argument("supp_seg must be 2-D");
+    if (proj.ndim() != 2) throw std::invalid_argument("proj must be 2-D");
+    if (Q.ndim() != 2) throw std::invalid_argument("Q must be 2-D");
+    if (pos_o.ndim() != 1 || pos_s.ndim() != 1)
+        throw std::invalid_argument("pos_o and pos_s must be 1-D");
+
+    const py::ssize_t P = W_obs.shape(0);
+    const py::ssize_t nc = W_obs.shape(1);
+    const py::ssize_t q = W_obs.shape(2);
+    const py::ssize_t ns = W_src.shape(1);
+    const py::ssize_t nb = polys.shape(0);
+    const py::ssize_t A = polys.shape(1);
+    const py::ssize_t nsq = ns * q;
+    const py::ssize_t n_seg = pos_o.shape(0);
+
+    if (W_src.shape(0) != P || W_src.shape(2) != q)
+        throw std::invalid_argument("W_src must share W_obs's P and q");
+    if (polys.shape(2) != P)
+        throw std::invalid_argument("polys' last axis must be W_obs's P");
+    if (supp_seg.shape(0) != nb || supp_seg.shape(1) != A)
+        throw std::invalid_argument("supp_seg must be (n_basis, d+1)");
+    if (proj.shape(0) != nc * q || proj.shape(1) != nsq)
+        throw std::invalid_argument("proj must be (n_chunk*q, n_src*q)");
+    // momwire#1132: `row_of` makes Q ROW-COMPACT -- (n_rows, n_basis), basis
+    // row m landing in Q row row_of[m] -- for a caller that reads only a few
+    // rows (the sector route, momwire#1029). None is the square target, the
+    // shipped contract. Only the ADDRESS of each `+=` moves, never its
+    // arithmetic, so a compact row is the square row bit for bit.
+    std::vector<std::int64_t> rof;
+    if (row_of.is_none()) {
+        if (Q.shape(0) != nb || Q.shape(1) != nb)
+            throw std::invalid_argument("Q must be (n_basis, n_basis)");
+    } else {
+        auto ra = row_of.cast<
+            py::array_t<std::int64_t, py::array::c_style | py::array::forcecast>>();
+        if (ra.ndim() != 1 || ra.shape(0) != nb)
+            throw std::invalid_argument("row_of must be 1-D with one entry per basis");
+        if (Q.shape(1) != nb)
+            throw std::invalid_argument("a row-compact Q must be (n_rows, n_basis)");
+        rof.assign(ra.data(), ra.data() + nb);
+    }
+    if (pos_s.shape(0) != n_seg)
+        throw std::invalid_argument("pos_o and pos_s must have one entry per segment");
+    if (q <= 0 || nc <= 0 || ns <= 0 || nb <= 0 || A <= 0 || P <= 0)
+        throw std::invalid_argument("assemble_field_galerkin got a degenerate shape");
+    if (q > FG_MAX_Q)
+        throw std::invalid_argument("assemble_field_galerkin: q above FG_MAX_Q");
+
+    const cd *pj = proj.data();
+    const double *wo = W_obs.data();
+    const double *ws = W_src.data();
+    const double *pl = polys.data();
+    const std::int64_t *ss = supp_seg.data();
+    const std::int64_t *po = pos_o.data();
+    const std::int64_t *ps = pos_s.data();
+    if (Q.strides(0) % static_cast<py::ssize_t>(sizeof(cd)) != 0 ||
+        Q.strides(1) % static_cast<py::ssize_t>(sizeof(cd)) != 0)
+        throw std::invalid_argument(
+            "Q's strides must be whole complex128 elements: it is accumulated "
+            "into in place at computed addresses");
+    // Element (not byte) strides. A C-contiguous Q gives sr = nb, sc = 1 --
+    // the literal shape the two scatters carried before momwire#1115's
+    // strided target, so that case keeps its exact addresses and stays bit
+    // identical.
+    const py::ssize_t sr = Q.strides(0) / static_cast<py::ssize_t>(sizeof(cd));
+    const py::ssize_t sc = Q.strides(1) / static_cast<py::ssize_t>(sizeof(cd));
+    cd *Qp = static_cast<cd *>(Q.mutable_data());
+
+    // The Python indexes pos_o/pos_s with supp_seg directly, so an id outside
+    // them is a caller bug and not a mask. Check it HERE rather than read off
+    // the end of the array under a released GIL.
+    for (py::ssize_t e = 0; e < nb * A; ++e)
+        if (ss[e] < 0 || ss[e] >= n_seg)
+            throw std::invalid_argument("supp_seg holds a segment id outside pos_o");
+
+    // The column wings, once per call: their source index and their h-vector.
+    // js < 0 is a wing belonging to the other medium, which drops out of the
+    // block rather than being clamped into it.
+    std::vector<std::int64_t> js_of(static_cast<size_t>(nb) * A);
+    std::vector<double> hcol(static_cast<size_t>(nb) * A * q);
+    // Row-wings whose observer segment is in this chunk, bucketed by local
+    // observer index so one pass over `proj` serves every one of them.
+    std::vector<std::vector<std::pair<py::ssize_t, py::ssize_t>>> at(nc);
+    for (py::ssize_t a = 0; a < A; ++a)
+        for (py::ssize_t m = 0; m < nb; ++m) {
+            const std::int64_t io = po[ss[m * A + a]];
+            if (io >= i0 && io < i0 + nc) {
+                // A row this chunk writes must have a compact row to land in:
+                // checked here, with the GIL held, not trusted under it. The
+                // one exception is a PADDED wing -- supp_seg is zero-padded,
+                // so an unlive slot names segment 0 and lands in whichever
+                // chunk holds it, contributing an exact zero. On the square
+                // target that zero is added to a row nobody reads; a compact
+                // target has no such row, so the wing is dropped. Dropping it
+                // cannot move a held row: each slot's sum is its own, and a
+                // held row's adds keep their order.
+                if (!rof.empty() && (rof[m] < 0 || rof[m] >= Q.shape(0))) {
+                    bool live = false;
+                    for (py::ssize_t p = 0; p < P; ++p)
+                        if (pl[(m * A + a) * P + p] != 0.0) live = true;
+                    if (!live && rof[m] < 0) continue;
+                    throw std::invalid_argument(
+                        "row_of maps a basis this chunk writes outside the "
+                        "compact Q");
+                }
+                at[io - i0].emplace_back(m, a);
+            }
+        }
+
+    std::vector<cd> F, T, Jc;
+    std::vector<double> g;
+    if (fused) {
+        F.assign(static_cast<size_t>(FG_BATCH) * nsq, cd(0.0, 0.0));
+        g.assign(static_cast<size_t>(FG_BATCH) * q, 0.0);
+    } else {
+        T.assign(static_cast<size_t>(P) * nc * nsq, cd(0.0, 0.0));
+        Jc.assign(static_cast<size_t>(P) * P * nc * ns, cd(0.0, 0.0));
+    }
+    py::ssize_t mb[FG_BATCH];
+    // The Q row each batch slot lands in: mb itself on the square target.
+    py::ssize_t mr[FG_BATCH];
+    const std::int64_t *rp = rof.empty() ? nullptr : rof.data();
+
+    {
+        py::gil_scoped_release release;
+
+        #pragma omp parallel for schedule(static)
+        for (py::ssize_t e = 0; e < nb * A; ++e) {
+            const std::int64_t js = ps[ss[e]];
+            js_of[e] = js;
+            if (js < 0) continue;
+            for (py::ssize_t r = 0; r < q; ++r) {
+                double acc = 0.0;
+                for (py::ssize_t p = 0; p < P; ++p)
+                    acc += pl[e * P + p] * ws[(p * ns + js) * q + r];
+                hcol[e * q + r] = acc;
+            }
+        }
+
+        if (fused) {
+            for (py::ssize_t ic = 0; ic < nc; ++ic) {
+                const auto &bucket = at[ic];
+                py::ssize_t taken = 0;
+                while (taken < static_cast<py::ssize_t>(bucket.size())) {
+                    py::ssize_t nk = 0;
+                    while (taken < static_cast<py::ssize_t>(bucket.size()) &&
+                           nk < FG_BATCH) {
+                        const py::ssize_t m = bucket[taken].first;
+                        const py::ssize_t a = bucket[taken].second;
+                        bool dup = false;
+                        for (py::ssize_t u = 0; u < nk; ++u)
+                            if (mb[u] == m) dup = true;
+                        if (dup) break;
+                        mb[nk] = m;
+                        mr[nk] = rp ? static_cast<py::ssize_t>(rp[m]) : m;
+                        for (py::ssize_t iq = 0; iq < q; ++iq) {
+                            double acc = 0.0;
+                            for (py::ssize_t p = 0; p < P; ++p)
+                                acc += pl[(m * A + a) * P + p] * wo[(p * nc + ic) * q + iq];
+                            g[nk * q + iq] = acc;
+                        }
+                        ++nk;
+                        ++taken;
+                    }
+
+                    // Stage 1: F[k, j, r] = sum_q g[k,q] * proj[ic*q+q, j*q+r]
+                    #pragma omp parallel for schedule(static)
+                    for (py::ssize_t jr = 0; jr < nsq; ++jr) {
+                        cd acc[FG_BATCH];
+                        for (py::ssize_t k = 0; k < nk; ++k) acc[k] = cd(0.0, 0.0);
+                        for (py::ssize_t iq = 0; iq < q; ++iq) {
+                            const cd v = pj[(ic * q + iq) * nsq + jr];
+                            for (py::ssize_t k = 0; k < nk; ++k)
+                                acc[k] += g[k * q + iq] * v;
+                        }
+                        for (py::ssize_t k = 0; k < nk; ++k) F[k * nsq + jr] = acc[k];
+                    }
+
+                    // Stage 2: one basis column per thread, so every Q entry a
+                    // thread writes is its own.
+                    #pragma omp parallel for schedule(static)
+                    for (py::ssize_t n = 0; n < nb; ++n) {
+                        cd s[FG_BATCH];
+                        for (py::ssize_t k = 0; k < nk; ++k) s[k] = cd(0.0, 0.0);
+                        for (py::ssize_t b = 0; b < A; ++b) {
+                            const std::int64_t js = js_of[n * A + b];
+                            if (js < 0) continue;
+                            const double *h = &hcol[(n * A + b) * q];
+                            for (py::ssize_t k = 0; k < nk; ++k) {
+                                const cd *fp = &F[k * nsq + js * q];
+                                cd t(0.0, 0.0);
+                                for (py::ssize_t r = 0; r < q; ++r) t += fp[r] * h[r];
+                                s[k] += t;
+                            }
+                        }
+                        // `scale` multiplies each CONTRIBUTION as it lands,
+                        // never Q and never a factor. Never Q: this is one
+                        // chunk of an observer loop, and scaling the target
+                        // would re-scale every chunk already in it. Never a
+                        // factor (g, h or the projected table): that would
+                        // move the rounding, and scale = 1.0 has to reproduce
+                        // the unscaled numbers bit for bit.
+                        for (py::ssize_t k = 0; k < nk; ++k)
+                            Qp[mr[k] * sr + n * sc] += scale * s[k];
+                    }
+                }
+            }
+        } else {
+            // The literal transcription, Jc materialised: the alternative the
+            // fused route above was measured against.
+            #pragma omp parallel for collapse(2) schedule(static)
+            for (py::ssize_t p = 0; p < P; ++p)
+                for (py::ssize_t ic = 0; ic < nc; ++ic) {
+                    cd *out = &T[(p * nc + ic) * nsq];
+                    for (py::ssize_t iq = 0; iq < q; ++iq) {
+                        const double w = wo[(p * nc + ic) * q + iq];
+                        const cd *row = &pj[(ic * q + iq) * nsq];
+                        for (py::ssize_t jr = 0; jr < nsq; ++jr) out[jr] += w * row[jr];
+                    }
+                }
+
+            #pragma omp parallel for collapse(2) schedule(static)
+            for (py::ssize_t p = 0; p < P; ++p)
+                for (py::ssize_t Pp = 0; Pp < P; ++Pp)
+                    for (py::ssize_t ic = 0; ic < nc; ++ic)
+                        for (py::ssize_t j = 0; j < ns; ++j) {
+                            const cd *tp = &T[(p * nc + ic) * nsq + j * q];
+                            cd acc(0.0, 0.0);
+                            for (py::ssize_t r = 0; r < q; ++r)
+                                acc += tp[r] * ws[(Pp * ns + j) * q + r];
+                            Jc[((p * P + Pp) * nc + ic) * ns + j] = acc;
+                        }
+
+            for (py::ssize_t ic = 0; ic < nc; ++ic)
+                for (const auto &ma : at[ic]) {
+                    const py::ssize_t m = ma.first, a = ma.second;
+                    const py::ssize_t mrow = rp ? static_cast<py::ssize_t>(rp[m]) : m;
+                    #pragma omp parallel for schedule(static)
+                    for (py::ssize_t n = 0; n < nb; ++n) {
+                        cd s(0.0, 0.0);
+                        for (py::ssize_t b = 0; b < A; ++b) {
+                            const std::int64_t js = js_of[n * A + b];
+                            if (js < 0) continue;
+                            for (py::ssize_t p = 0; p < P; ++p) {
+                                const double cpa = pl[(m * A + a) * P + p];
+                                for (py::ssize_t Pp = 0; Pp < P; ++Pp)
+                                    s += cpa * pl[(n * A + b) * P + Pp] *
+                                         Jc[((p * P + Pp) * nc + ic) * ns + js];
+                            }
+                        }
+                        // The same per-contribution scaling as the fused
+                        // route's stage 2. The two routes are gated against
+                        // each other, so they cannot part on where it lands.
+                        Qp[mrow * sr + n * sc] += scale * s;
+                    }
+                }
+        }
+    }
+}
+
+void register_mw568(py::module_ &m) {
+    // The three #568 capability flags, set HERE beside the bindings they
+    // vouch for (#710 review): `_sommerfeld_below` and
+    // `_sommerfeld_transmitted` gate on the flag ALONE, so flag and symbols
+    // must live in one TU or an edit here could leave a flag advertising a
+    // contract whose symbols are gone.
+    //
+    // momwire#568 unit 1: the shared contour engine's TEST entry points. The
+    // engine itself is header-only (`_contour_engine_inline.h`); these
+    // exist so the Python suite can gate it before U2/U3 ride on it.
+    m.attr("contour_engine_568") = true;
+    // momwire#568 unit 2: the below/below fills on that engine. Its OWN
+    // capability flag, deliberately not `contour_engine_568` — a .so built at
+    // U1 exports the engine's test entry points and would otherwise claim to
+    // carry U2's contract too, handing `_sommerfeld_below` a missing symbol
+    // instead of the graceful numpy fallback the guard exists to give.
+    m.attr("below_fills_568") = true;
+    // momwire#568 unit 3: the transmitted fills on that engine. Its OWN
+    // capability flag, deliberately neither `contour_engine_568` nor
+    // `below_fills_568` — a .so built at U1 or U2 exports those symbols and
+    // would otherwise claim to carry U3's contract too, handing
+    // `_sommerfeld_transmitted` a missing symbol instead of the graceful
+    // numpy fallback the guard exists to give.
+    m.attr("transmitted_fills_568") = true;
+    // momwire#914 unit 1: the below/below plan extents in C++. Its OWN flag,
+    // on the same argument as the three above — a .so built before #914
+    // exports every #568 symbol and would otherwise claim this contract too.
+    m.attr("plan_extents_914") = true;
+    // momwire#914 unit 2: the field-form Galerkin assembly in C++. Its OWN
+    // flag again, for the same reason -- a .so built at unit 1 exports
+    // `pair_extents_below` and every #568 symbol, and would otherwise claim
+    // this contract too.
+    m.attr("field_galerkin_914") = true;
+    // momwire#1115: `assemble_field_galerkin` refuses a target it cannot
+    // accumulate into, and takes a `scale`. Its OWN flag, and the one case
+    // where a missing flag is not merely a missed optimisation: a .so built
+    // before this exports `assemble_field_galerkin` and answers a
+    // column-major Q with a silent copy, so a caller that hands one over on
+    // the strength of `field_galerkin_914` alone loses every write rather
+    // than falling back. Anything passing `out=`/`scale` gates on THIS.
+    m.attr("field_galerkin_target_1115") = true;
+    // momwire#1115 part 3: the accumulation target may now be STRIDED, which
+    // `field_galerkin_target_1115` alone does not promise -- that flag's
+    // contract refuses a column-major Q. A caller handing over the buried Z
+    // (column-major by momwire#136) gates on THIS one.
+    m.attr("field_galerkin_strided_1115") = true;
+    // momwire#1132: `assemble_field_galerkin` takes `row_of`, a ROW-COMPACT
+    // target. Its own flag: a .so built before this answers `row_of=` with a
+    // TypeError, and the route's compact fill gates on THIS rather than find
+    // out mid-fill.
+    m.attr("field_galerkin_row_of_1132") = true;
+
+    m.def("pair_extents_below", &pair_extents_below,
+          "(r1_max, th_min) over every below/below node pair -- the C++ twin "
+          "of bspline._pair_extents_below. Walks the upper triangle only (the "
+          "pair matrix is exactly symmetric) and minimises hh^2/rho^2 rather "
+          "than hh/rho, which is the same argmin on the non-negative quadrant "
+          "and leaves one sqrt and one atan for the whole cloud. Returns "
+          "A pair with rho == hh == 0 yields 0/0; it is dropped from the "
+          "minimum, which is what the numpy reference's Python-level min does "
+          "with the same NaN.",
+          py::arg("x"), py::arg("y"), py::arg("d_b"));
+    m.def("assemble_field_galerkin", &assemble_field_galerkin,
+          "Accumulate one observer chunk of bspline._field_galerkin_block's "
+          "assembly into Q, in place. Fuses the two moment sums into a "
+          "q-vector per row-wing and per column-wing, so the "
+          "(d+1, d+1, n_chunk, n_src) Jc and its per-wing-pair fancy-index "
+          "gather are never materialised. `fused=False` runs the literal Jc "
+          "transcription instead -- an independent second route to the same "
+          "numbers, kept because the choice between them was measured. "
+          "Threads the source axis in both stages, never the row-wings: a "
+          "basis row owns its whole Q row across every wing. `scale` "
+          "multiplies each contribution as it lands, so a caller holding an "
+          "assembled matrix can accumulate Z -= Q in one pass instead of "
+          "allocating an (n, n) transient; at its default of 1.0 the numbers "
+          "are bit-identical to the unscaled assembly. Q must be a writeable "
+          "complex128 array whose strides are whole elements; it is addressed "
+          "through those strides, so a column-major target is accumulated "
+          "into where it lies rather than through the silent copy that used "
+          "to lose every write (momwire#1115).",
+          py::arg("proj"), py::arg("W_obs"), py::arg("W_src"),
+          py::arg("supp_seg"), py::arg("polys"), py::arg("pos_o"),
+          py::arg("pos_s"), py::arg("i0"), py::arg("Q"),
+          py::arg("fused") = true, py::arg("scale") = 1.0,
+          py::arg("row_of") = py::none());
+    m.def("bessel_j0_j1x_complex", &bessel_j0_j1x_complex,
+          "(J0(x), J1(x)/x) at COMPLEX x -- the C++ twin of "
+          "_sommerfeld._bessel_j0_j1x, with the same |x| < 1e-6 series switch. "
+          "Ascending series below |x| = 8, Miller's normalized downward "
+          "recurrence to |x| = 25, Hankel P/Q asymptotics above. Takes a 1-D "
+          "complex array, returns two arrays of the same length.",
+          py::arg("x"));
+    m.def("contour_engine_sommerfeld_identity",
+          &contour_engine_sommerfeld_identity,
+          "Test instantiation of the shared adaptive-contour engine (NC = 1) "
+          "on the Sommerfeld-identity integrand J0(lam rho) e^{-gamma h} "
+          "lam/gamma, whose contour integral is exactly e^{-jkR}/R with "
+          "R = sqrt(rho^2 + h^2). `use_k_m` selects which wavenumber the "
+          "integrand is built on; the head's `a` and branch-point marks always "
+          "come from the (k_p, k_m) pair as _run_contour computes them. "
+          "Returns (value, head_panels, tail_panels, converged, accel).",
+          py::arg("rho"), py::arg("h"), py::arg("k_p"), py::arg("k_m"),
+          py::arg("use_k_m"), py::arg("rtol"), py::arg("depth"),
+          py::arg("detour"), py::arg("gx"), py::arg("gw"),
+          py::arg("max_panels"));
+    m.def("contour_engine_synth6", &contour_engine_synth6,
+          "Test instantiation of the shared adaptive-contour engine at NC = 6 "
+          "on a synthetic vector integrand whose Python twin lives in "
+          "tests/test_contour_engine_568.py, so the numpy engine and this one "
+          "can be run on the same mathematics and compared. Returns "
+          "(values (6,), head_panels, tail_panels, converged, accel) -- the "
+          "same five things _sommerfeld_below._run_contour returns.",
+          py::arg("rho"), py::arg("h"), py::arg("k_p"), py::arg("k_m"),
+          py::arg("rtol"), py::arg("depth"), py::arg("detour"), py::arg("gx"),
+          py::arg("gw"), py::arg("max_panels"));
+    m.def("below_six_integrals_batch", &below_six_integrals_batch,
+          "The six below/below lambda-integrals at each (rho[i], h[i]) — the "
+          "C++ twin of _sommerfeld_below._six_integrals_below, on the shared "
+          "contour engine, OpenMP across nodes with the GIL released. k_p is "
+          "the free-space wavenumber (real) and k_m the in-medium one (complex, "
+          "Im <= 0); both arrive derived so the branch choice stays in "
+          "`k_medium`. `selfconv` additionally runs the coarse machine and "
+          "reports the componentwise relative spread. Returns (values (n, 6), "
+          "tail_panels, head_panels, converged, accelerated, selfconv), the "
+          "last being -1.0 where the coarse machine was not run.",
+          py::arg("k_p"), py::arg("k_m"), py::arg("rho"), py::arg("h"),
+          py::arg("rtol_fine"), py::arg("depth"), py::arg("detour"),
+          py::arg("gx"), py::arg("gw"), py::arg("selfconv"),
+          py::arg("rtol_coarse"), py::arg("depth_coarse"),
+          py::arg("detour_coarse"), py::arg("gxc"), py::arg("gwc"),
+          py::arg("max_panels"));
+    m.def("remainder_field_proj_batch_below", &remainder_field_proj_batch_below,
+          "Interpolated + projected below/below remainder table — the complex-"
+          "wavenumber TWIN of remainder_field_proj_batch (which carries a "
+          "`double k` and a divide-out that depends on R1 alone). Same grid "
+          "flattening after (ground_z, k_p, k_m, th_min); hh is the two depths "
+          "added and g is divide_out_below's two-leg blend. Returns ((M, S) "
+          "complex, max R1, min theta, max theta) — the query extremes so the "
+          "caller can let SommerfeldGridBelow.eval raise the refusals in its "
+          "own words.",
+          py::arg("obs"), py::arg("t_obs"), py::arg("src"), py::arg("t_src"),
+          py::arg("ground_z"), py::arg("k_p"), py::arg("k_m"), py::arg("th_min"),
+          py::arg("th_band_floor_hi"), py::arg("th_band_lo_hi"),
+          py::arg("th_band_hi"),
+          py::arg("r1_max"), py::arg("r_break"), py::arg("th_split"),
+          py::arg("r_near"), py::arg("reg_r0"), py::arg("reg_dr"),
+          py::arg("reg_th0"), py::arg("reg_dth"), py::arg("reg_vals"));
+    m.def("transmitted_integrand_six", &transmitted_integrand_six,
+          "The six transmitted lambda-integrands POINTWISE at complex lam — "
+          "the C++ twin of _sommerfeld_transmitted._integrand_six_transmitted, "
+          "stacked (n, 6) in that function's order. Not on any product path; "
+          "it exists so the two mutations an INTEGRATED gate cannot see — "
+          "index 1 spelled gamma^2 + k^2 rather than lam^2, and index 4 "
+          "collapsed onto index 0 — can be read at chosen lam.",
+          py::arg("lam"), py::arg("rho"), py::arg("z"), py::arg("zp"),
+          py::arg("k_p"), py::arg("k_m"), py::arg("swap") = false);
+    m.def("transmitted_six_integrals_batch", &transmitted_six_integrals_batch,
+          "The six transmitted lambda-integrals at each (rho[i], z[i], zp[i]) "
+          "— the C++ twin of _sommerfeld_transmitted._integrand_six_transmitted "
+          "under _six_integrals_transmitted's driver, on the shared contour "
+          "engine, OpenMP across nodes with the GIL released. k_p is the "
+          "free-space wavenumber (real) and k_m the in-medium one (complex, "
+          "Im <= 0); both arrive derived so the branch choice stays in "
+          "`k_medium`. `swap` builds the above->below twin (the reciprocity "
+          "gate, not the product path). The tail's decay length is |zp| + |z|. "
+          "`selfconv` additionally runs the coarse machine and reports the "
+          "componentwise relative spread. Returns (values (n, 6), tail_panels, "
+          "head_panels, converged, accelerated, selfconv), the last being -1.0 "
+          "where the coarse machine was not run. `converged` is contract, not "
+          "decoration: a truncated transmitted tail was measured 4.5e+3 "
+          "relative wrong, so a caller must tally it.",
+          py::arg("k_p"), py::arg("k_m"), py::arg("rho"), py::arg("z"),
+          py::arg("zp"), py::arg("swap"), py::arg("rtol_fine"), py::arg("depth"),
+          py::arg("detour"), py::arg("gx"), py::arg("gw"), py::arg("selfconv"),
+          py::arg("rtol_coarse"), py::arg("depth_coarse"),
+          py::arg("detour_coarse"), py::arg("gxc"), py::arg("gwc"),
+          py::arg("max_panels"));
+    m.def("transmitted_field_proj_batch", &transmitted_field_proj_batch,
+          "Interpolated + projected transmitted pair table — the C++ twin of "
+          "_sommerfeld_transmitted's two projection entry points, ONE kernel "
+          "for both directions of travel. The geometry is always in ROLE order "
+          "(above, below) and `transposed` swaps T_rho^V with T_z^H, which is "
+          "the whole content of the reciprocity transpose; the caller "
+          "transposes the (A, B) table into its own (n_obs, n_src) when the "
+          "observer is the below point. The grid arrives as one (n_zp, 5, n_r, "
+          "n_th) table plus its three axis origins/steps — a single uniform "
+          "(ln R, theta) lattice over a log|z'| ladder, not the remainder "
+          "families' region model. Returns ((A, B) complex, min R, max R, min "
+          "theta, max theta, min |z'|, max |z'|) — the query extremes, so the "
+          "caller can let TransmittedGrid.eval raise its four refusals in its "
+          "own words.",
+          py::arg("above"), py::arg("t_above"), py::arg("below"),
+          py::arg("t_below"), py::arg("ground_z"), py::arg("k_p"),
+          py::arg("k_m"), py::arg("transposed"), py::arg("lnr0"),
+          py::arg("dlnr"), py::arg("th0"), py::arg("dth"), py::arg("lnz0"),
+          py::arg("dlnz"), py::arg("r_max"), py::arg("grid_vals"));
+}
+

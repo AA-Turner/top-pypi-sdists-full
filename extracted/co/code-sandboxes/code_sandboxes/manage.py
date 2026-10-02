@@ -1,0 +1,1278 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+#
+# BSD 3-Clause License
+
+"""CRUD management of sandboxes, per variant.
+
+``Sandbox.create`` starts a sandbox to execute code in it; this module is the
+other side of a sandbox's life: enumerating the ones that exist, reading one
+back, and deleting it — without connecting a kernel to it. Every variant gets
+a manager with the same four verbs:
+
+* ``create(**kwargs)`` — bring a sandbox into existence and leave it running
+  (detached from this process where the backend allows it).
+* ``list()`` — the sandboxes that exist right now, as :class:`SandboxInfo`.
+* ``get(sandbox_id)`` — one of them, or ``None``.
+* ``update(sandbox_id, **changes)`` — change what the backend can change:
+  the container's name (docker), the tags (modal), the capabilities
+  (datalayer), the code (kaggle, pushed as a new version).
+* ``delete(sandbox_id)`` — remove it; ``True`` when something was deleted.
+
+Not every backend can honour every verb — an ``eval`` sandbox lives and dies
+inside this process, a Kaggle batch kernel is created by pushing code. A
+manager states what it can do through :attr:`SandboxManager.capabilities`
+and raises :class:`SandboxManagementError` for the rest, with the reason in
+the message rather than a silent no-op.
+
+Example::
+
+    from code_sandboxes.manage import get_manager
+
+    manager = get_manager("modal")
+    for info in manager.list():
+        print(info.id, info.status)
+    manager.delete("sb-...")
+"""
+
+from __future__ import annotations
+
+import contextlib
+import os
+import time
+from abc import ABC, abstractmethod
+from typing import Any
+
+from .models import SandboxEnvironment, SandboxInfo, SandboxStatus, normalize_variant
+
+__all__ = [
+    "SandboxManagementError",
+    "SandboxManager",
+    "get_manager",
+    "manageable_variants",
+]
+
+
+class SandboxManagementError(RuntimeError):
+    """A management verb the backend cannot honour, with the reason."""
+
+
+class SandboxManager(ABC):
+    """The four CRUD verbs over one sandbox variant."""
+
+    #: The variant this manager speaks for.
+    variant: str = ""
+
+    #: Which verbs the backend honours, e.g. ``{"create", "list", "get",
+    #: "delete"}``. A verb outside this set raises
+    #: :class:`SandboxManagementError` when called.
+    capabilities: frozenset[str] = frozenset()
+
+    @abstractmethod
+    def list(self) -> list[SandboxInfo]:
+        """The sandboxes that exist right now."""
+
+    def get(self, sandbox_id: str) -> SandboxInfo | None:
+        """One sandbox, or ``None`` when it does not exist."""
+        for info in self.list():
+            if info.id == sandbox_id:
+                return info
+        return None
+
+    @abstractmethod
+    def delete(self, sandbox_id: str) -> bool:
+        """Remove a sandbox. ``True`` when something was deleted."""
+
+    @abstractmethod
+    def create(self, **kwargs: Any) -> SandboxInfo:
+        """Bring a sandbox into existence and leave it running."""
+
+    def update(self, sandbox_id: str, **changes: Any) -> SandboxInfo:
+        """Change what the backend can change; the sandbox as it now is."""
+        raise self._unsupported("update", "this backend has nothing that can be changed in place")
+
+    def _unsupported(self, verb: str, reason: str) -> SandboxManagementError:
+        return SandboxManagementError(
+            f"The {self.variant} variant does not support {verb}: {reason}"
+        )
+
+    def environments(self) -> list[SandboxEnvironment]:
+        """The environments this manager's provider ships, or none when it cannot say."""
+        from .providers import get_provider
+
+        provider = get_provider(self.variant)
+        return list(provider.environments()) if provider is not None else []
+
+    def _configure(self, kwargs: dict[str, Any]) -> SandboxEnvironment | None:
+        """Move `create`'s own options onto the sandbox's config; answer the environment.
+
+        A `Sandbox` reads the environment and the name from its
+        `SandboxConfig`. Passed as bare keywords they land in its `**kwargs`
+        and are dropped there in silence, so `create` answers `running` for a
+        default sandbox under a generated name — and says nothing about
+        either. `DatalayerSandboxManager` learned this once, in the words of
+        its own `create`; every other manager still had the hole. Found on
+        2026-09-17: `sandboxes create daytona -e eric/daytona-drift -n x`
+        launched `daytonaio/sandbox:0.8.0` with no name, and so did
+        `-e this-environment-does-not-exist-at-all`.
+
+        The option is `environment`, spelled the way `SandboxConfig` spells
+        it, everywhere and by every caller. An environment the provider does
+        not ship is **refused**, naming what it does ship: a person who asks
+        for `daytona-gpu` and is handed a CPU sandbox has been told the wrong
+        thing, which is worse than being told no.
+        """
+        from .models import SandboxConfig
+
+        asked = kwargs.pop("environment", None)
+        name = kwargs.pop("name", None)
+        environment: SandboxEnvironment | None = None
+        updates: dict[str, Any] = {}
+        if name:
+            updates["name"] = name
+        if asked:
+            environment = self._shipped(str(asked))
+            updates["environment"] = environment.name
+            # The card the environment names, which is what every adapter's
+            # own resource shaping reads. What each provider takes *besides*
+            # a card — Daytona's `spot`, for one — stays its own to apply.
+            if environment.gpu:
+                updates["gpu"] = environment.gpu
+        if updates:
+            config = kwargs.pop("config", None) or SandboxConfig()
+            kwargs["config"] = config.model_copy(update=updates)
+        return environment
+
+    def _shipped(self, name: str) -> SandboxEnvironment:
+        """The shipped environment of that name, or a refusal naming the rest."""
+        shipped = self.environments()
+        for environment in shipped:
+            if environment.name == name:
+                return environment
+        offered = (
+            f"it ships {', '.join(sorted(item.name for item in shipped))}"
+            if shipped
+            else "it ships none that can be named — `sandboxes environments` "
+            "says what any provider offers"
+        )
+        raise SandboxManagementError(
+            f"The {self.variant} variant ships no environment {name!r}: {offered}"
+        )
+
+
+class _EphemeralManager(SandboxManager):
+    """The in-process variants: nothing outlives the interpreter.
+
+    An ``eval`` or ``monty`` sandbox is a Python object of the process that
+    made it; there is nothing to enumerate from outside, nothing to delete.
+    ``list`` answers the truth — an empty list — and the other verbs say why.
+    """
+
+    capabilities = frozenset({"list"})
+    _reason = "it runs inside the creating process and dies with it"
+
+    def list(self) -> list[SandboxInfo]:
+        return []
+
+    def delete(self, sandbox_id: str) -> bool:
+        raise self._unsupported("delete", self._reason)
+
+    def create(self, **kwargs: Any) -> SandboxInfo:
+        raise self._unsupported("detached create", self._reason + "; use Sandbox.create() instead")
+
+    def update(self, sandbox_id: str, **changes: Any) -> SandboxInfo:
+        raise self._unsupported("update", self._reason)
+
+
+class EvalSandboxManager(_EphemeralManager):
+    variant = "eval"
+
+
+class MontySandboxManager(_EphemeralManager):
+    variant = "monty"
+
+
+class DockerSandboxManager(SandboxManager):
+    """Docker containers labelled as code sandboxes.
+
+    Containers are matched by the ``code-sandboxes`` label that
+    ``DockerSandbox`` stamps at start; older containers without the label are
+    found by their ``code-sandboxes-jupyter`` image as a fallback.
+    """
+
+    variant = "docker"
+    capabilities = frozenset({"create", "list", "get", "update", "delete"})
+
+    #: The label DockerSandbox stamps on every container it starts.
+    LABEL = "code-sandboxes"
+
+    def __init__(self, docker_client: Any = None, **_: Any) -> None:
+        self._docker = docker_client
+
+    def _client(self) -> Any:
+        if self._docker is None:
+            try:
+                import docker
+            except ImportError as exc:
+                raise SandboxManagementError(
+                    "docker package is required: pip install code-sandboxes[docker]"
+                ) from exc
+            self._docker = docker.from_env()
+        return self._docker
+
+    def _containers(self) -> list[Any]:
+        client = self._client()
+        labelled = client.containers.list(all=True, filters={"label": self.LABEL})
+        seen = {c.id for c in labelled}
+        # Containers from before the label existed: found by their image.
+        for container in client.containers.list(all=True):
+            if container.id in seen:
+                continue
+            image_tags = getattr(container.image, "tags", None) or []
+            if any("code-sandboxes" in tag for tag in image_tags):
+                labelled.append(container)
+        return labelled
+
+    @staticmethod
+    def _status(container: Any) -> SandboxStatus:
+        return {
+            "running": SandboxStatus.RUNNING,
+            "created": SandboxStatus.STARTING,
+            "restarting": SandboxStatus.STARTING,
+            "paused": SandboxStatus.STOPPED,
+            "exited": SandboxStatus.STOPPED,
+            "dead": SandboxStatus.ERROR,
+        }.get(getattr(container, "status", ""), SandboxStatus.RUNNING)
+
+    def _info(self, container: Any) -> SandboxInfo:
+        attrs = getattr(container, "attrs", {}) or {}
+        image_tags = getattr(container.image, "tags", None) or []
+        return SandboxInfo(
+            id=container.id[:12],
+            variant=self.variant,
+            status=self._status(container),
+            name=container.name,
+            metadata={
+                "image": image_tags[0] if image_tags else "",
+                "created": attrs.get("Created", ""),
+            },
+        )
+
+    def list(self) -> list[SandboxInfo]:
+        return [self._info(c) for c in self._containers()]
+
+    def get(self, sandbox_id: str) -> SandboxInfo | None:
+        for container in self._containers():
+            if container.id.startswith(sandbox_id) or container.name == sandbox_id:
+                return self._info(container)
+        return None
+
+    def delete(self, sandbox_id: str) -> bool:
+        for container in self._containers():
+            if container.id.startswith(sandbox_id) or container.name == sandbox_id:
+                container.remove(force=True)
+                return True
+        return False
+
+    def update(self, sandbox_id: str, name: str | None = None, **_: Any) -> SandboxInfo:
+        """Rename the container — the one thing Docker changes in place."""
+        if not name:
+            raise self._unsupported("update without name=...", "only the name changes")
+        for container in self._containers():
+            if container.id.startswith(sandbox_id) or container.name == sandbox_id:
+                container.rename(name)
+                container.reload()
+                return self._info(container)
+        raise SandboxManagementError(f"No docker sandbox found: {sandbox_id}")
+
+    def create(self, **kwargs: Any) -> SandboxInfo:
+        from .sandboxes.docker import DockerSandbox
+
+        # auto_remove would erase the container the moment this process lets
+        # go of it — the opposite of a detached create.
+        self._configure(kwargs)
+        sandbox = DockerSandbox(auto_remove=False, **kwargs)
+        sandbox.start()
+        info = sandbox.info
+        if info is None:
+            raise SandboxManagementError("The container started without an identity.")
+        return info
+
+
+class JupyterServerSandboxManager(SandboxManager):
+    """Kernels of a Jupyter Server, spoken to over its REST API.
+
+    A ``jupyter-server`` sandbox started with ``server_url`` lives on that server as
+    a kernel; this manager enumerates and deletes those kernels. The server
+    defaults to ``JUPYTER_SERVER_URL``/``JUPYTER_TOKEN`` from the
+    environment, then to ``http://localhost:8888``.
+    """
+
+    variant = "jupyter-server"
+    capabilities = frozenset({"create", "list", "get", "delete"})
+
+    def __init__(
+        self,
+        server_url: str | None = None,
+        token: str | None = None,
+        **_: Any,
+    ) -> None:
+        self._server_url = (
+            server_url or os.environ.get("JUPYTER_SERVER_URL") or "http://localhost:8888"
+        ).rstrip("/")
+        self._token = token if token is not None else os.environ.get("JUPYTER_TOKEN")
+
+    def _request(self, method: str, path: str, **kwargs: Any) -> Any:
+        import requests
+
+        headers = kwargs.pop("headers", {})
+        if self._token:
+            headers["Authorization"] = f"token {self._token}"
+        try:
+            response = requests.request(
+                method,
+                f"{self._server_url}{path}",
+                headers=headers,
+                timeout=10,
+                **kwargs,
+            )
+        except requests.RequestException as exc:
+            raise SandboxManagementError(
+                f"No Jupyter Server answered at {self._server_url}: {exc}"
+            ) from exc
+        if response.status_code == 403:
+            raise SandboxManagementError(
+                f"The Jupyter Server at {self._server_url} refused the token; "
+                "set JUPYTER_TOKEN or pass token=..."
+            )
+        return response
+
+    @staticmethod
+    def _info(kernel: dict) -> SandboxInfo:
+        return SandboxInfo(
+            id=kernel.get("id", ""),
+            variant="jupyter-server",
+            status=(
+                SandboxStatus.RUNNING
+                if kernel.get("execution_state") != "dead"
+                else SandboxStatus.ERROR
+            ),
+            name=kernel.get("name", ""),
+            metadata={
+                "execution_state": kernel.get("execution_state", ""),
+                "last_activity": kernel.get("last_activity", ""),
+                "connections": kernel.get("connections", 0),
+            },
+        )
+
+    def list(self) -> list[SandboxInfo]:
+        response = self._request("GET", "/api/kernels")
+        response.raise_for_status()
+        return [self._info(k) for k in response.json()]
+
+    def get(self, sandbox_id: str) -> SandboxInfo | None:
+        response = self._request("GET", f"/api/kernels/{sandbox_id}")
+        if response.status_code == 404:
+            return None
+        response.raise_for_status()
+        return self._info(response.json())
+
+    def delete(self, sandbox_id: str) -> bool:
+        response = self._request("DELETE", f"/api/kernels/{sandbox_id}")
+        if response.status_code == 404:
+            return False
+        response.raise_for_status()
+        return True
+
+    def create(self, kernel_name: str | None = None, **_: Any) -> SandboxInfo:
+        payload = {"name": kernel_name} if kernel_name else {}
+        response = self._request("POST", "/api/kernels", json=payload)
+        response.raise_for_status()
+        return self._info(response.json())
+
+
+class GoogleColabSandboxManager(JupyterServerSandboxManager):
+    """Kernels of a Colab runtime, over the same Jupyter REST API.
+
+    The Colab proxy authenticates with its own headers instead of a Jupyter
+    token; the runtime URL and proxy token come from ``RUNTIME_URL`` and
+    ``RUNTIME_PROXY_TOKEN`` when not passed explicitly.
+    """
+
+    variant = "google-colab"
+
+    def __init__(
+        self,
+        server_url: str | None = None,
+        proxy_token: str | None = None,
+        **_: Any,
+    ) -> None:
+        self._colab_url = server_url or os.environ.get("RUNTIME_URL")
+        super().__init__(server_url=self._colab_url or "http://unset.invalid", token=None)
+        self._proxy_token = proxy_token or os.environ.get("RUNTIME_PROXY_TOKEN")
+
+    def _request(self, method: str, path: str, **kwargs: Any) -> Any:
+        # Checked per verb, not at construction: a manager must be buildable
+        # to answer what it cannot do.
+        if not self._colab_url:
+            raise SandboxManagementError(
+                "A Colab runtime URL is required: pass server_url=... or set RUNTIME_URL."
+            )
+        from .sandboxes.google_colab.client import (
+            COLAB_CLIENT_AGENT_HEADER,
+            COLAB_RUNTIME_PROXY_TOKEN_HEADER,
+            DEFAULT_COLAB_CLIENT_AGENT,
+        )
+
+        headers = kwargs.pop("headers", {})
+        headers[COLAB_CLIENT_AGENT_HEADER] = DEFAULT_COLAB_CLIENT_AGENT
+        if self._proxy_token:
+            headers[COLAB_RUNTIME_PROXY_TOKEN_HEADER] = self._proxy_token
+        return super()._request(method, path, headers=headers, **kwargs)
+
+    def _info(self, kernel: dict) -> SandboxInfo:  # type: ignore[override]
+        info = super()._info(kernel)
+        info.variant = self.variant
+        return info
+
+
+class MarimoSandboxManager(JupyterServerSandboxManager):
+    """Kernels of a Jupyter Server, as a Marimo sandbox sees them.
+
+    A ``marimo`` sandbox is a kernel on a Jupyter Server that also holds
+    Marimo's reactive cell graph; the server does not tell those kernels
+    apart, so this manager is the ``jupyter-server`` one answering under the
+    variant it was asked for.
+    """
+
+    variant = "marimo"
+
+    def _info(self, kernel: dict) -> SandboxInfo:  # type: ignore[override]
+        info = super()._info(kernel)
+        info.variant = self.variant
+        info.metadata["reactive"] = "marimo"
+        return info
+
+
+class KaggleSandboxManager(SandboxManager):
+    """The user's Kaggle kernels, through the official ``kaggle`` package.
+
+    A batch-mode Kaggle sandbox materialises as a kernel on kaggle.com;
+    ``list`` enumerates the user's kernels, ``get`` adds the live run status,
+    ``delete`` removes the kernel. ``create`` pushes a batch kernel with the
+    given ``code`` — creation on Kaggle *is* a code push.
+    """
+
+    variant = "kaggle"
+    capabilities = frozenset({"create", "list", "get", "update", "delete"})
+
+    def __init__(self, username: str | None = None, **_: Any) -> None:
+        self._username = username
+        self._executor: Any = None
+
+    def _get_executor(self) -> Any:
+        if self._executor is None:
+            from .sandboxes.kaggle.execute import KaggleKernelExecutor
+
+            self._executor = KaggleKernelExecutor(username=self._username)
+        return self._executor
+
+    @staticmethod
+    def _info(kernel: Any) -> SandboxInfo:
+        ref = getattr(kernel, "ref", "") or ""
+        return SandboxInfo(
+            id=ref,
+            variant="kaggle",
+            # The list endpoint does not carry the run state; get() does.
+            status=SandboxStatus.STOPPED,
+            name=getattr(kernel, "title", "") or ref.rsplit("/", 1)[-1],
+            metadata={
+                "last_run": str(getattr(kernel, "last_run_time", "") or ""),
+                "url": f"https://www.kaggle.com/code/{ref}" if ref else "",
+            },
+        )
+
+    def list(self) -> list[SandboxInfo]:
+        executor = self._get_executor()
+        kernels = executor.api.kernels_list(mine=True, page_size=50) or []
+        return [self._info(k) for k in kernels if k is not None]
+
+    def get(self, sandbox_id: str) -> SandboxInfo | None:
+        executor = self._get_executor()
+        ref = self._qualify(sandbox_id)
+        for info in self.list():
+            if info.id == ref:
+                # A kernel whose status endpoint fails is still a kernel; the
+                # listing answers without the live state.
+                with contextlib.suppress(Exception):
+                    status = executor.api.kernels_status(ref)
+                    state = str(getattr(status, "status", "") or "")
+                    info.metadata["run_status"] = state
+                    if "RUNNING" in state or "QUEUED" in state:
+                        info.status = SandboxStatus.RUNNING
+                    elif "ERROR" in state:
+                        info.status = SandboxStatus.ERROR
+                return info
+        return None
+
+    def delete(self, sandbox_id: str) -> bool:
+        executor = self._get_executor()
+        ref = self._qualify(sandbox_id)
+        if not any(info.id == ref for info in self.list()):
+            return False
+        executor.api.kernels_delete(ref, no_confirm=True)
+        return True
+
+    def create(self, code: str = "print('code-sandboxes')", **kwargs: Any) -> SandboxInfo:
+        executor = self._get_executor()
+        submitted = executor.execute(code, wait=False, download_output=False, **kwargs)
+        slug = getattr(submitted, "slug", "")
+        return SandboxInfo(
+            id=slug,
+            variant="kaggle",
+            status=SandboxStatus.RUNNING,
+            name=slug.rsplit("/", 1)[-1],
+            created_at=time.time(),
+            metadata={"url": f"https://www.kaggle.com/code/{slug}" if slug else ""},
+        )
+
+    def update(self, sandbox_id: str, code: str | None = None, **_: Any) -> SandboxInfo:
+        """Push a new version of the kernel's code — how Kaggle updates.
+
+        The kernel's own metadata is pulled and pushed back unchanged; only
+        the code file is replaced. The title stays as it is: it is what the
+        kernel's slug — its identity — is derived from.
+        """
+        if code is None:
+            raise self._unsupported(
+                "update without code=...", "a Kaggle kernel is updated by pushing code"
+            )
+        import json
+        import tempfile
+        from pathlib import Path
+
+        executor = self._get_executor()
+        ref = self._qualify(sandbox_id)
+        folder = Path(tempfile.mkdtemp(prefix="code-sandboxes-kaggle-update-"))
+        try:
+            executor.api.kernels_pull(ref, str(folder), metadata=True)
+        except Exception as exc:
+            raise SandboxManagementError(f"No kaggle sandbox found: {sandbox_id} ({exc})") from exc
+        metadata = json.loads((folder / "kernel-metadata.json").read_text())
+        code_file = folder / (metadata.get("code_file") or "kernel.py")
+        if code_file.suffix == ".ipynb":
+            code_file.write_text(
+                json.dumps(
+                    {
+                        "nbformat": 4,
+                        "nbformat_minor": 5,
+                        "metadata": {},
+                        "cells": [
+                            {
+                                "cell_type": "code",
+                                "metadata": {},
+                                "execution_count": None,
+                                "outputs": [],
+                                "source": code,
+                            }
+                        ],
+                    }
+                )
+            )
+        else:
+            code_file.write_text(code)
+        response = executor.api.kernels_push(str(folder))
+        error = getattr(response, "error", "") or ""
+        if error:
+            raise SandboxManagementError(f"Kaggle refused the update: {error}")
+        info = self.get(ref)
+        if info is None:
+            raise SandboxManagementError(f"The kernel disappeared while updating: {ref}")
+        info.metadata["version"] = getattr(response, "version_number", "")
+        return info
+
+    def _qualify(self, sandbox_id: str) -> str:
+        """Accept both ``user/slug`` and a bare slug of the current user."""
+        if "/" in sandbox_id:
+            return sandbox_id
+        executor = self._get_executor()
+        return f"{executor._resolve_username()}/{sandbox_id}"
+
+
+class ModalSandboxManager(SandboxManager):
+    """Modal sandboxes of the ``code-sandboxes`` app."""
+
+    variant = "modal"
+    capabilities = frozenset({"create", "list", "get", "update", "delete"})
+
+    def __init__(self, app_name: str | None = None, **_: Any) -> None:
+        from .sandboxes.modal import DEFAULT_APP_NAME
+
+        self._app_name = app_name or DEFAULT_APP_NAME
+
+    def _modal(self) -> Any:
+        try:
+            import modal
+        except ImportError as exc:
+            raise SandboxManagementError(
+                "modal package is required: pip install code-sandboxes[modal]"
+            ) from exc
+        return modal
+
+    def list(self) -> list[SandboxInfo]:
+        modal = self._modal()
+        try:
+            app = modal.App.lookup(self._app_name)
+        except Exception:
+            return []
+        infos = []
+        for sandbox in modal.Sandbox.list(app_id=app.app_id):
+            infos.append(
+                SandboxInfo(
+                    id=sandbox.object_id,
+                    variant=self.variant,
+                    status=SandboxStatus.RUNNING,
+                    name=self._app_name,
+                    metadata={"app": self._app_name},
+                )
+            )
+        return infos
+
+    def get(self, sandbox_id: str) -> SandboxInfo | None:
+        modal = self._modal()
+        try:
+            sandbox = modal.Sandbox.from_id(sandbox_id)
+        except Exception:
+            return None
+        finished = sandbox.poll()
+        return SandboxInfo(
+            id=sandbox.object_id,
+            variant=self.variant,
+            status=SandboxStatus.STOPPED if finished is not None else SandboxStatus.RUNNING,
+            name=self._app_name,
+            metadata={"returncode": finished},
+        )
+
+    def delete(self, sandbox_id: str) -> bool:
+        modal = self._modal()
+        try:
+            sandbox = modal.Sandbox.from_id(sandbox_id)
+        except Exception:
+            return False
+        sandbox.terminate()
+        return True
+
+    def update(self, sandbox_id: str, tags: dict[str, str] | None = None, **_: Any) -> SandboxInfo:
+        """Set tags on the sandbox — what Modal changes on a running one."""
+        if not tags:
+            raise self._unsupported("update without tags=...", "only tags change")
+        modal = self._modal()
+        try:
+            sandbox = modal.Sandbox.from_id(sandbox_id)
+        except Exception as exc:
+            raise SandboxManagementError(f"No modal sandbox found: {sandbox_id}") from exc
+        sandbox.set_tags(tags)
+        info = self.get(sandbox_id)
+        if info is None:
+            raise SandboxManagementError(f"No modal sandbox found: {sandbox_id}")
+        info.metadata["tags"] = tags
+        return info
+
+    def create(self, **kwargs: Any) -> SandboxInfo:
+        from .sandboxes.modal import ModalSandbox
+
+        self._configure(kwargs)
+        sandbox = ModalSandbox(app_name=self._app_name, **kwargs)
+        sandbox.start()
+        info = sandbox.info
+        if info is None:
+            raise SandboxManagementError("The sandbox started without an identity.")
+        # The id every other verb answers to is Modal's, not the wrapper's
+        # internal one.
+        modal_sandbox = sandbox._sandbox
+        if modal_sandbox is not None:
+            info.id = modal_sandbox.object_id
+        # Detach: the Modal sandbox keeps running server-side until its
+        # timeout; stop() would terminate it.
+        sandbox._sandbox = None
+        sandbox._started = False
+        return info
+
+
+#: What Daytona calls the life of a sandbox, in the words used here. A state
+#: this does not name is one added after this was written: reported as
+#: pending rather than guessed at.
+_DAYTONA_STATES = {
+    "started": SandboxStatus.RUNNING,
+    "creating": SandboxStatus.STARTING,
+    "starting": SandboxStatus.STARTING,
+    "restoring": SandboxStatus.STARTING,
+    "pulling_snapshot": SandboxStatus.STARTING,
+    "building_snapshot": SandboxStatus.STARTING,
+    "pending_build": SandboxStatus.STARTING,
+    "stopping": SandboxStatus.STOPPING,
+    "pausing": SandboxStatus.STOPPING,
+    "archiving": SandboxStatus.STOPPING,
+    "destroying": SandboxStatus.STOPPING,
+    "stopped": SandboxStatus.STOPPED,
+    "archived": SandboxStatus.STOPPED,
+    "destroyed": SandboxStatus.TERMINATED,
+    "error": SandboxStatus.ERROR,
+    "build_failed": SandboxStatus.ERROR,
+}
+
+
+class DaytonaSandboxManager(SandboxManager):
+    """Sandboxes of a Daytona organization."""
+
+    variant = "daytona"
+    capabilities = frozenset({"create", "list", "get", "update", "delete"})
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        api_url: str | None = None,
+        target: str | None = None,
+        **_: Any,
+    ) -> None:
+        self._settings = {"api_key": api_key, "api_url": api_url, "target": target}
+
+    def _client(self) -> Any:
+        try:
+            import daytona
+        except ImportError as exc:
+            raise SandboxManagementError(
+                "daytona package is required: pip install code-sandboxes[daytona]"
+            ) from exc
+        given = {key: value for key, value in self._settings.items() if value}
+        return daytona.Daytona(daytona.DaytonaConfig(**given) if given else None)
+
+    def _info(self, sandbox: Any) -> SandboxInfo:
+        labels = dict(getattr(sandbox, "labels", None) or {})
+        state = getattr(sandbox, "state", None)
+        state_value = getattr(state, "value", state)
+        return SandboxInfo(
+            id=sandbox.id,
+            variant=self.variant,
+            status=_DAYTONA_STATES.get(str(state_value), SandboxStatus.PENDING),
+            # The name a person gave it, which Daytona carries as a label:
+            # its own `name` is an address and has to stay unique.
+            name=labels.get("name") or getattr(sandbox, "name", None),
+            metadata={
+                "state": state_value,
+                "labels": labels,
+                "snapshot": getattr(sandbox, "snapshot", None),
+                "target": getattr(sandbox, "target", None),
+            },
+        )
+
+    def list(self) -> list[SandboxInfo]:
+        return [self._info(sandbox) for sandbox in self._client().list()]
+
+    def get(self, sandbox_id: str) -> SandboxInfo | None:
+        try:
+            return self._info(self._client().get(sandbox_id))
+        except Exception:
+            return None
+
+    def delete(self, sandbox_id: str) -> bool:
+        client = self._client()
+        try:
+            sandbox = client.get(sandbox_id)
+        except Exception:
+            return False
+        client.delete(sandbox)
+        return True
+
+    def update(self, sandbox_id: str, tags: dict[str, str] | None = None, **_: Any) -> SandboxInfo:
+        """Set labels on the sandbox — what Daytona changes on a running one."""
+        if not tags:
+            raise self._unsupported("update without tags=...", "only labels change")
+        try:
+            sandbox = self._client().get(sandbox_id)
+        except Exception as exc:
+            raise SandboxManagementError(f"No daytona sandbox found: {sandbox_id}") from exc
+        # Daytona REPLACES the label set, so what is there is kept and the
+        # tags given are written over it — an update of one tag is not a
+        # deletion of the others.
+        sandbox.set_labels({**(dict(sandbox.labels or {})), **tags})
+        info = self.get(sandbox_id)
+        if info is None:
+            raise SandboxManagementError(f"No daytona sandbox found: {sandbox_id}")
+        return info
+
+    def create(self, **kwargs: Any) -> SandboxInfo:
+        from .sandboxes.daytona import DaytonaSandbox
+
+        given = {key: value for key, value in self._settings.items() if value}
+        environment = self._configure(kwargs)
+        # Preemptible capacity is Daytona's own argument, not a card, so the
+        # base helper cannot set it: `daytona-gpu-spot` differs from
+        # `daytona-gpu` by exactly this and by nothing the config carries.
+        if environment is not None:
+            metadata = environment.metadata or {}
+            if metadata.get("spot"):
+                kwargs.setdefault("spot", True)
+            if environment.gpu_count:
+                kwargs.setdefault("gpu_count", int(environment.gpu_count))
+        # Detached, so it outlives this call: stopping it is `delete`.
+        sandbox = DaytonaSandbox(delete_on_stop=False, **given, **kwargs)
+        sandbox.start()
+        info = sandbox.info
+        if info is None:
+            raise SandboxManagementError("The sandbox started without an identity.")
+        sandbox._sandbox = None
+        sandbox._started = False
+        return info
+
+
+class DatalayerSandboxManager(SandboxManager):
+    """Runtimes of the Datalayer platform, through ``agent_runtimes``."""
+
+    variant = "datalayer"
+    capabilities = frozenset({"create", "list", "get", "update", "delete"})
+
+    def __init__(
+        self,
+        token: str | None = None,
+        run_url: str | None = None,
+        **_: Any,
+    ) -> None:
+        self._token = token
+        self._run_url = run_url
+        self._client: Any = None
+
+    def _get_client(self) -> Any:
+        if self._client is None:
+            try:
+                from agent_runtimes.client import AgentClient
+            except ImportError as exc:
+                raise SandboxManagementError(
+                    "agent_runtimes package is required: pip install code-sandboxes[datalayer]"
+                ) from exc
+            if self._run_url:
+                from .sandboxes.datalayer.datalayer import _urls_for_run
+
+                self._client = AgentClient(urls=_urls_for_run(self._run_url), api_key=self._token)
+            else:
+                self._client = AgentClient(api_key=self._token)
+        return self._client
+
+    @staticmethod
+    def _info(runtime: Any) -> SandboxInfo:
+        return SandboxInfo(
+            id=getattr(runtime, "uid", "") or "",
+            variant="datalayer",
+            status=SandboxStatus.RUNNING,
+            name=getattr(runtime, "name", "") or "",
+            metadata={
+                "environment": getattr(runtime, "environment_name", "") or "",
+                "pod": getattr(runtime, "runtime_name", "") or "",
+            },
+        )
+
+    def list(self) -> list[SandboxInfo]:
+        client = self._get_client()
+        return [self._info(r) for r in client.list_runtimes()]
+
+    def get(self, sandbox_id: str) -> SandboxInfo | None:
+        client = self._get_client()
+        try:
+            runtime = client.get_runtime(sandbox_id)
+        except Exception:
+            return None
+        return self._info(runtime) if runtime else None
+
+    def delete(self, sandbox_id: str) -> bool:
+        """Stop the runtime; ``True`` when the platform says it stopped.
+
+        `AgentClient` calls this `stop_runtime`, after the lifecycle
+        vocabulary. The manager asked for a `terminate_runtime` the client has
+        never had and swallowed the AttributeError as "nothing deleted", so no
+        Datalayer sandbox could be deleted from either CLI. A failure now
+        carries its reason, as this module promises.
+        """
+        client = self._get_client()
+        try:
+            return bool(client.stop_runtime(sandbox_id))
+        except Exception as exc:
+            raise SandboxManagementError(
+                f"The platform did not stop runtime {sandbox_id}: {exc}"
+            ) from exc
+
+    def update(
+        self, sandbox_id: str, capabilities: list[str] | None = None, **_: Any
+    ) -> SandboxInfo:
+        """Update the runtime's capabilities — what the platform changes."""
+        if capabilities is None:
+            raise self._unsupported(
+                "update without capabilities=...", "only the capabilities change"
+            )
+        client = self._get_client()
+        if not client.update_runtime(sandbox_id, capabilities):
+            raise SandboxManagementError(
+                f"The platform refused the update of runtime {sandbox_id}."
+            )
+        info = self.get(sandbox_id)
+        if info is None:
+            raise SandboxManagementError(f"No datalayer sandbox found: {sandbox_id}")
+        info.metadata["capabilities"] = ", ".join(capabilities)
+        return info
+
+    def create(self, **kwargs: Any) -> SandboxInfo:
+        """Start a runtime in the environment asked for, under the name given.
+
+        `DatalayerSandbox` reads the environment, the name and the GPU from its
+        `SandboxConfig`. Passed as keywords, they fell into its extra arguments,
+        so both CLIs started every runtime in `ai-agents-env` under a generated
+        name: asked for `python-cpu-env`, the platform claimed an agents pod.
+        """
+        from .models import SandboxConfig
+        from .sandboxes.datalayer import DatalayerSandbox
+
+        config = kwargs.pop("config", None) or SandboxConfig()
+        chosen = {
+            "environment": kwargs.pop("environment", None),
+            # The version of a user environment, read from the config by the
+            # sandbox exactly as the environment is (PLAN_ENV.md, E1-19); left
+            # in the extra arguments it would be dropped, and the CLI would
+            # launch the promoted version while claiming to pin one.
+            "environment_version": kwargs.pop("environment_version", None),
+            "name": kwargs.pop("name", None),
+            "gpu": kwargs.pop("gpu", None),
+        }
+        updates = {key: value for key, value in chosen.items() if value}
+        if updates:
+            config = config.model_copy(update=updates)
+        sandbox = DatalayerSandbox(
+            config=config, token=self._token, run_url=self._run_url, **kwargs
+        )
+        sandbox.start()
+        info = sandbox.info
+        if info is None:
+            raise SandboxManagementError("The runtime started without an identity.")
+        return info
+
+
+#: What E2B calls the life of a sandbox, in the words used here.
+_E2B_STATES = {
+    "running": SandboxStatus.RUNNING,
+    "paused": SandboxStatus.STOPPED,
+    "pausing": SandboxStatus.STOPPING,
+    "resuming": SandboxStatus.STARTING,
+    "killed": SandboxStatus.TERMINATED,
+    "error": SandboxStatus.ERROR,
+}
+
+
+class E2BSandboxManager(SandboxManager):
+    """Sandboxes of an E2B account."""
+
+    variant = "e2b"
+    capabilities = frozenset({"create", "list", "get", "delete"})
+
+    def __init__(self, api_key: str | None = None, domain: str | None = None, **_: Any) -> None:
+        self._settings = {"api_key": api_key, "domain": domain}
+
+    def _sandbox_class(self) -> Any:
+        try:
+            from e2b_code_interpreter import Sandbox
+        except ImportError as exc:
+            raise SandboxManagementError(
+                "e2b-code-interpreter package is required: pip install code-sandboxes[e2b]"
+            ) from exc
+        return Sandbox
+
+    def _opts(self) -> dict[str, Any]:
+        """Only the settings that were given: the SDK reads the rest from the
+        environment, and an explicit ``None`` is not the same as nothing."""
+        return {key: value for key, value in self._settings.items() if value}
+
+    def _info(self, sandbox: Any) -> SandboxInfo:
+        metadata = dict(getattr(sandbox, "metadata", None) or {})
+        state = getattr(sandbox, "state", None)
+        state_value = getattr(state, "value", state)
+        return SandboxInfo(
+            id=getattr(sandbox, "sandbox_id", None) or str(sandbox),
+            variant=self.variant,
+            status=_E2B_STATES.get(str(state_value), SandboxStatus.PENDING),
+            # E2B has a name of its own, and this package puts the name it was
+            # given in the metadata; the sandbox's own wins when it has one.
+            name=getattr(sandbox, "name", None) or metadata.get("name"),
+            metadata={
+                "state": state_value,
+                "template": getattr(sandbox, "template_id", None),
+                "metadata": metadata,
+                "started_at": str(getattr(sandbox, "started_at", "") or "") or None,
+                "cpu_count": getattr(sandbox, "cpu_count", None),
+                "memory_mb": getattr(sandbox, "memory_mb", None),
+            },
+        )
+
+    def list(self) -> list[SandboxInfo]:
+        # `list` answers with a paginator rather than a list: E2B pages, and
+        # an account with more sandboxes than one page holds would otherwise
+        # be reported as having only the first of them.
+        paginator = self._sandbox_class().list(**self._opts())
+        sandboxes: list[Any] = []
+        if hasattr(paginator, "next_items"):
+            while paginator.has_next:
+                sandboxes.extend(paginator.next_items())
+        else:  # pragma: no cover - an older SDK answering with a plain list
+            sandboxes.extend(paginator)
+        return [self._info(sandbox) for sandbox in sandboxes]
+
+    def get(self, sandbox_id: str) -> SandboxInfo | None:
+        for info in self.list():
+            if info.id == sandbox_id:
+                return info
+        return None
+
+    def delete(self, sandbox_id: str) -> bool:
+        try:
+            return bool(self._sandbox_class().kill(sandbox_id, **self._opts()))
+        except Exception:
+            return False
+
+    def create(self, **kwargs: Any) -> SandboxInfo:
+        from .sandboxes.e2b import E2BSandbox
+
+        self._configure(kwargs)
+        sandbox = E2BSandbox(**self._opts(), **kwargs)
+        sandbox.start()
+        info = sandbox.info
+        if info is None:
+            raise SandboxManagementError("The sandbox started without an identity.")
+        # Detached, so it outlives this call: stopping it is `delete`.
+        sandbox._sandbox = None
+        sandbox._started = False
+        return info
+
+
+#: What CoreWeave calls the life of a sandbox, in the words used here.
+_COREWEAVE_STATES = {
+    "running": SandboxStatus.RUNNING,
+    "creating": SandboxStatus.STARTING,
+    "pending": SandboxStatus.PENDING,
+    "paused": SandboxStatus.STOPPED,
+    "terminating": SandboxStatus.STOPPING,
+    "completed": SandboxStatus.STOPPED,
+    "terminated": SandboxStatus.TERMINATED,
+    "failed": SandboxStatus.ERROR,
+    "unspecified": SandboxStatus.PENDING,
+}
+
+
+class CoreWeaveSandboxManager(SandboxManager):
+    """Sandboxes of a CoreWeave organization."""
+
+    variant = "coreweave"
+    capabilities = frozenset({"create", "list", "get", "delete"})
+
+    def __init__(self, api_key: str | None = None, base_url: str | None = None, **_: Any) -> None:
+        self._settings = {"api_key": api_key, "base_url": base_url}
+
+    def _sandbox_class(self) -> Any:
+        try:
+            from cwsandbox import Sandbox
+        except ImportError as exc:
+            raise SandboxManagementError(
+                "cwsandbox package is required: pip install code-sandboxes[coreweave]"
+            ) from exc
+        import os
+
+        # The SDK authenticates from the environment and takes no token
+        # argument, so a token given here is put where it looks for one.
+        if self._settings["api_key"]:
+            os.environ["CWSANDBOX_API_KEY"] = str(self._settings["api_key"])
+        if self._settings["base_url"]:
+            os.environ["CWSANDBOX_BASE_URL"] = str(self._settings["base_url"])
+        return Sandbox
+
+    def _info(self, sandbox: Any) -> SandboxInfo:
+        tags = list(getattr(sandbox, "tags", None) or [])
+        # CoreWeave keeps tags as a flat list of strings, so a pair travels as
+        # `key=value` and is read back the same way.
+        pairs = dict(tag.split("=", 1) for tag in tags if "=" in tag)
+        status = getattr(sandbox, "status", None)
+        status_value = getattr(status, "value", status)
+        return SandboxInfo(
+            id=sandbox.sandbox_id,
+            variant=self.variant,
+            status=_COREWEAVE_STATES.get(str(status_value), SandboxStatus.PENDING),
+            name=pairs.get("name"),
+            metadata={
+                "status": status_value,
+                "tags": tags,
+                "runner_id": getattr(sandbox, "runner_id", None),
+            },
+        )
+
+    def list(self) -> list[SandboxInfo]:
+        sandboxes = self._sandbox_class().list().result()
+        return [self._info(sandbox) for sandbox in sandboxes]
+
+    def get(self, sandbox_id: str) -> SandboxInfo | None:
+        try:
+            return self._info(self._sandbox_class().from_id(sandbox_id).result())
+        except Exception:
+            return None
+
+    def delete(self, sandbox_id: str) -> bool:
+        try:
+            sandbox = self._sandbox_class().from_id(sandbox_id).result()
+        except Exception:
+            return False
+        try:
+            sandbox.stop(missing_ok=True).result()
+        except Exception:
+            return False
+        return True
+
+    def create(self, **kwargs: Any) -> SandboxInfo:
+        from .sandboxes.coreweave import CoreWeaveSandbox
+
+        given = {key: value for key, value in self._settings.items() if value}
+        # No session process: a sandbox nothing is holding open should not be
+        # paying for a driver waiting on a stdin that will never be written.
+        self._configure(kwargs)
+        sandbox = CoreWeaveSandbox(stateful=False, **given, **kwargs)
+        sandbox.start()
+        info = sandbox.info
+        if info is None:
+            raise SandboxManagementError("The sandbox started without an identity.")
+        # Detached, so it outlives this call: stopping it is `delete`.
+        sandbox._sandbox = None
+        sandbox._started = False
+        return info
+
+
+class CloudflareSandboxManager(SandboxManager):
+    """Sandboxes of a deployed Cloudflare sandbox bridge.
+
+    The bridge exposes one sandbox at a time by its id and has no endpoint
+    that enumerates them, so `list` cannot be answered — which is said plainly
+    rather than answered with an empty list, since "none" and "cannot know"
+    are different facts.
+    """
+
+    variant = "cloudflare"
+    capabilities = frozenset({"create", "get", "delete"})
+
+    def __init__(self, api_url: str | None = None, api_key: str | None = None, **_: Any) -> None:
+        self._settings = {"api_url": api_url, "api_key": api_key}
+
+    def _client(self) -> Any:
+        """An HTTP client for the bridge, with no sandbox behind it.
+
+        Deleting a sandbox by id and asking after one by id are both plain
+        calls to the bridge; creating a container merely to have something to
+        make the call with would leave that container running and billed.
+        """
+        from .sandboxes.cloudflare import CloudflareSandbox
+
+        given = {key: value for key, value in self._settings.items() if value}
+        try:
+            return CloudflareSandbox(**given).build_client()
+        except Exception as exc:
+            raise SandboxManagementError(str(exc)) from exc
+
+    def list(self) -> list[SandboxInfo]:
+        raise self._unsupported(
+            "list", "the sandbox bridge has no endpoint that enumerates sandboxes"
+        )
+
+    def get(self, sandbox_id: str) -> SandboxInfo | None:
+        from urllib.parse import quote
+
+        try:
+            with self._client() as client:
+                response = client.get(f"/v1/sandbox/{quote(sandbox_id)}/running")
+                if response.status_code >= 400:
+                    return None
+                running = bool(response.json().get("running"))
+        except Exception:
+            return None
+        return SandboxInfo(
+            id=sandbox_id,
+            variant=self.variant,
+            # The bridge knows one thing about a sandbox — whether its
+            # container is up — so that is all this claims to know.
+            status=SandboxStatus.RUNNING if running else SandboxStatus.STOPPED,
+        )
+
+    def delete(self, sandbox_id: str) -> bool:
+        from urllib.parse import quote
+
+        try:
+            with self._client() as client:
+                response = client.delete(f"/v1/sandbox/{quote(sandbox_id)}")
+        except Exception:
+            return False
+        return response.status_code < 400
+
+    def create(self, **kwargs: Any) -> SandboxInfo:
+        from .sandboxes.cloudflare import CloudflareSandbox
+
+        given = {key: value for key, value in self._settings.items() if value}
+        self._configure(kwargs)
+        sandbox = CloudflareSandbox(**given, **kwargs)
+        sandbox.start()
+        info = sandbox.info
+        if info is None:
+            raise SandboxManagementError("The sandbox started without an identity.")
+        # Detached, so it outlives this call: stopping it is `delete`.
+        sandbox._client = None
+        sandbox._started = False
+        return info
+
+
+_MANAGERS: dict[str, type[SandboxManager]] = {
+    "eval": EvalSandboxManager,
+    "monty": MontySandboxManager,
+    "docker": DockerSandboxManager,
+    "jupyter-server": JupyterServerSandboxManager,
+    "google-colab": GoogleColabSandboxManager,
+    "kaggle": KaggleSandboxManager,
+    "marimo": MarimoSandboxManager,
+    "modal": ModalSandboxManager,
+    "daytona": DaytonaSandboxManager,
+    "datalayer": DatalayerSandboxManager,
+    "e2b": E2BSandboxManager,
+    "coreweave": CoreWeaveSandboxManager,
+    "cloudflare": CloudflareSandboxManager,
+}
+
+
+def manageable_variants() -> list[str]:
+    """The variants a manager exists for."""
+    return sorted(_MANAGERS)
+
+
+def get_manager(variant: str, **kwargs: Any) -> SandboxManager:
+    """The manager for a variant.
+
+    Args:
+        variant: One of :func:`manageable_variants`, in any spelling —
+            ``google-colab``, ``google_colab`` and ``Google Colab`` all name
+            the same one.
+        **kwargs: Variant-specific connection settings — ``server_url`` /
+            ``token`` (jupyter-server, marimo), ``proxy_token`` (google-colab), ``app_name``
+            (modal), ``api_key`` / ``api_url`` / ``target`` (daytona),
+            ``username`` (kaggle), ``token`` / ``run_url`` (datalayer),
+            ``docker_client`` (docker).
+
+    Returns:
+        A :class:`SandboxManager` for the variant.
+
+    Raises:
+        ValueError: For an unknown variant.
+    """
+    # The keys are the canonical names, which is what `normalize_variant`
+    # answers with, so a lookup in any spelling lands on one of them.
+    manager_class = _MANAGERS.get(normalize_variant(variant))
+    if manager_class is None:
+        raise ValueError(
+            f"Unknown sandbox variant: {variant}. "
+            "Manageable variants: " + ", ".join(manageable_variants())
+        )
+    return manager_class(**kwargs)

@@ -7104,7 +7104,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         Sets the benchmark used for computing statistics of the algorithm to the specified symbol
         
-        :param symbol: symbol to use as the benchmark
+        :param symbol: symbol to use as the benchmark, null to disable the benchmark
         """
         ...
 

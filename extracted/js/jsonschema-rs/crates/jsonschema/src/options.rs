@@ -113,11 +113,6 @@ impl<F: Json> Default for ValidationOptions<'_, Arc<dyn referencing::AsyncRetrie
 }
 
 impl<'i, R, F: Json> ValidationOptions<'i, R, F> {
-    /// Return the draft version, or the default if not set.
-    pub(crate) fn draft(&self) -> Draft {
-        self.draft.unwrap_or_default()
-    }
-
     pub(crate) fn compiler_pattern_options(&self) -> PatternEngineOptions {
         self.pattern_options
     }
@@ -1397,6 +1392,17 @@ mod tests {
         } else {
             panic!("Expected FancyRegex variant");
         }
+    }
+
+    #[test]
+    fn debug_lists_custom_content_checks() {
+        let options = crate::options()
+            .with_draft(Draft::Draft7)
+            .with_content_media_type("application/x-a", |content: &str| content == "a");
+        assert_eq!(
+            format!("{options:?}"),
+            "CompilationConfig { draft: Some(Draft7), content_media_type: [\"application/x-a\"], content_encoding: [] }"
+        );
     }
 
     #[test]

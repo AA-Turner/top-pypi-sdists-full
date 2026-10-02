@@ -33,33 +33,35 @@ pub async fn handle_document_link(
 
     log::info!("handle_document_link");
 
-    let Ok(document_sources) = backend.document_sources.try_read() else {
+    let Some(document_source) = backend.document_source(&text_document_uri) else {
         return Ok(None);
     };
-    let Some(document_source) = document_sources.get(&text_document_uri) else {
-        return Ok(None);
-    };
+    let converter = tombi_extension::SpanConverter::new(
+        document_source.line_index(),
+        document_source.encoding_kind(),
+    );
 
     let root = document_source.ast();
     let toml_version = document_source.toml_version;
     let line_index = document_source.line_index();
+    let encoding = document_source.encoding_kind();
 
     let mut document_links = vec![];
 
     if let Some(SchemaDocumentCommentDirective {
         uri: Ok(schema_uri),
-        uri_range: range,
+        uri_span: span,
         ..
     }) = root.schema_document_comment_directive(text_document_uri.to_file_path().ok().as_deref())
     {
         let tooltip = "Open JSON Schema".into();
         document_links.push(
             tombi_extension::DocumentLink {
-                range,
+                span,
                 target: get_tombi_github_uri(&schema_uri).unwrap_or(schema_uri.into()),
                 tooltip,
             }
-            .into_lsp_type(line_index),
+            .into_lsp_type(line_index, encoding),
         );
     }
 
@@ -68,8 +70,9 @@ pub async fn handle_document_link(
     if config.cargo_extension_enabled()
         && let Some(locations) = tombi_extension_cargo::document_link(
             &text_document_uri,
-            &document_tree,
+            document_tree,
             toml_version,
+            converter,
             config.cargo_extension_features(),
         )
         .await?
@@ -77,14 +80,14 @@ pub async fn handle_document_link(
         document_links.extend(
             locations
                 .into_iter()
-                .map(|location| location.into_lsp_type(line_index)),
+                .map(|location| location.into_lsp_type(line_index, encoding)),
         );
     }
 
     if config.tombi_extension_enabled()
         && let Some(locations) = tombi_extension_tombi::document_link(
             &text_document_uri,
-            &document_tree,
+            document_tree,
             toml_version,
             config.tombi_extension_features(),
         )
@@ -93,14 +96,14 @@ pub async fn handle_document_link(
         document_links.extend(
             locations
                 .into_iter()
-                .map(|location| location.into_lsp_type(line_index)),
+                .map(|location| location.into_lsp_type(line_index, encoding)),
         );
     }
 
     if config.pyproject_extension_enabled()
         && let Some(locations) = tombi_extension_pyproject::document_link(
             &text_document_uri,
-            &document_tree,
+            document_tree,
             toml_version,
             config.pyproject_extension_features(),
         )
@@ -109,7 +112,7 @@ pub async fn handle_document_link(
         document_links.extend(
             locations
                 .into_iter()
-                .map(|location| location.into_lsp_type(line_index)),
+                .map(|location| location.into_lsp_type(line_index, encoding)),
         );
     }
 

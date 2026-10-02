@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: sqlalchemy-cloudflare-d1
-Version: 0.4.0
+Version: 0.4.1
 Summary: A SQLAlchemy dialect for Cloudflare's D1 Serverless SQLite Database
 Project-URL: Homepage, https://github.com/collierking/sqlalchemy-cloudflare-d1
 Project-URL: Repository, https://github.com/collierking/sqlalchemy-cloudflare-d1

@@ -1,0 +1,21 @@
+Metadata-Version: 2.1
+Name: lhafile
+Version: 0.3.1
+Summary: LHA archive support for Python
+Home-page: https://github.com/FrodeSolheim/python-lhafile/
+Download-URL: https://pypi.org/project/lhafile/
+Author: Hidekazu Ohnishi
+Author-email: the-o@neotitans.net
+Maintainer: Frode Solheim
+Maintainer-email: frode@solheim.dev
+License: BSD
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: System :: Archiving
+License-File: COPYING.txt
+
+A python package that handles .lha archives, with an interface similar to the
+zipfile module found in the standard library.

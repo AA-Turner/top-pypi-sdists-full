@@ -3,17 +3,14 @@ build-backend = "hatchling.build"
 requires = [
   "hatch-fancy-pypi-readme",
   "hatch-vcs",
-  "hatchling<1.27",
+  "hatchling",
 ]
 
 [project]
 name = "jinjanator-plugins"
 description = "Package which provides the plugin API for the jinjanator tool"
 license = { text = "Apache-2.0" }
-authors = [
-  { name = "Kevin P. Fleming", email = "jinjanator@kevin.km6g.us" },
-]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Environment :: Console",
@@ -22,7 +19,6 @@ classifiers = [
   "Natural Language :: English",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
@@ -38,63 +34,105 @@ dependencies = [
   "pluggy",
   "typing-extensions",
 ]
-urls."Bug Tracker" = "https://github.com/kpfleming/jinjanator-plugins/issues"
-urls."Homepage" = "https://github.com/kpfleming/jinjanator-plugins"
+[[project.authors]]
+name = "Kevin P. Fleming"
+email = "jinjanator@kevin.km6g.us"
+[project.urls]
+"Bug Tracker" = "https://github.com/kpfleming/jinjanator-plugins/issues"
+Homepage = "https://github.com/kpfleming/jinjanator-plugins"
 
-[tool.hatch.envs.changelog]
-skip-install = true
-dependencies = [
-  "towncrier",
-]
-
-[tool.hatch.envs.changelog.scripts]
-draft = [
-  "rm -f changelog.d/*~",
-  "towncrier build --version main --draft",
-]
-release = [
-  "rm -f changelog.d/*~",
-  "towncrier build --yes --version {args}",
-]
-
+[tool.hatch]
 [tool.hatch.version]
 source = "vcs"
+[tool.hatch.metadata.hooks]
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/markdown"
+fragments = [
+  { text = """
+# *jinjanator-plugins*: API package for jinjanator plugins
 
+""" },
+  { path = "README.md", start-after = "<!-- fancy-readme start -->", end-before = "<!-- fancy-readme end -->" },
+  { text = """
+## Release Information
+""" },
+  { path = "CHANGELOG.md", start-after = "<!-- towncrier release notes start -->", pattern = "\n(###.+?\n)## " },
+  { text = """
+---
+
+[→ Full Changelog](https://github.com/kpfleming/jinjanator-plugins/blob/main/CHANGELOG.md)
+""" },
+]
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = "\\[(.+?)\\]\\(((?!https?://)\\S+?)\\)"
+replacement = "[\\1](https://github.com/kpfleming/jinjanator-plugins/tree/main/\\g<2>)"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = "#(\\d+)"
+replacement = "[#\\1](https://github.com/kpfleming/jinjanator-plugins/issues/\\1)"
+[tool.hatch.metadata]
 [tool.hatch.build]
 exclude = [
   "*~",
   ".github",
 ]
-
-[tool.hatch.build.targets.sdist]
-include = [
+targets.wheel.packages = [
+  "src/jinjanator_plugins",
+]
+targets.sdist.include = [
   "src",
   "plugin_example",
   "*.md",
 ]
-
-[tool.hatch.build.targets.wheel]
-packages = [
-  "src/jinjanator_plugins",
+[tool.hatch.envs]
+changelog.skip-install = true
+changelog.dependencies = [
+  "towncrier",
 ]
-
-[tool.hatch.envs.default]
-python = "3.13"
-installer = "uv"
-python-sources = [
+changelog.scripts.draft = [
+  "rm -f changelog.d/*~",
+  "towncrier build --version main --draft",
+]
+changelog.scripts.release = [
+  "rm -f changelog.d/*~",
+  "towncrier build --yes --version {args}",
+]
+ci.dependencies = [
+  "coverage[toml]",
+  "pytest",
+  "pytest-cov",
+  "pytest-icdiff",
+]
+ci.scripts.ci = [
+  "uv pip install ./plugin_example",
+  "rm -f .coverage",
+  "pytest --verbose --cov-append  --cov-branch --cov=jinjanator_plugins",
+  "coverage report --show-missing --fail-under=100",
+]
+ci.matrix = [
+  { python = [
+    "3.11",
+    "3.12",
+    "3.13",
+    "3.14",
+  ] },
+]
+default.python = "3.13"
+default.installer = "uv"
+default.python-sources = [
   "external",
 ]
-
-[tool.hatch.envs.lint]
-dependencies = [
-  "ruff>=0.2.0",
+lint.dependencies = [
   "mypy",
   "pyproject-fmt",
   "pytest",        # needed for type-checking plugin_example
+  "ruff>=0.2.0",
 ]
-
-[tool.hatch.envs.lint.scripts]
-lint = [
+lint.scripts.lint = [
+  "ruff --version",
+  "mypy --version",
+  "shellcheck --version",
+  "pyproject-fmt --version",
   "ruff format",
   "ruff check --output-format=full --fix --show-fixes",
   "mypy --package jinjanator_plugins",
@@ -103,7 +141,11 @@ lint = [
   "shellcheck workflow-support/*.sh",
   "pyproject-fmt pyproject.toml plugin_example/pyproject.toml",
 ]
-lint-action = [
+lint.scripts.lint-action = [
+  "ruff --version",
+  "mypy --version",
+  "shellcheck --version",
+  "pyproject-fmt --version",
   "ruff format --check --diff",
   "ruff check --output-format=github",
   "mypy --package jinjanator_plugins",
@@ -113,116 +155,77 @@ lint-action = [
   "pyproject-fmt --check pyproject.toml plugin_example/pyproject.toml",
 ]
 
-[tool.hatch.envs.ci]
-dependencies = [
-  "coverage[toml]",
-  "pytest",
-  "pytest-cov",
-  "pytest-icdiff",
-]
-
-[[tool.hatch.envs.ci.matrix]]
-python = [
-  "3.10",
-  "3.11",
-  "3.12",
-  "3.13",
-  "3.14",
-]
-
-[tool.hatch.envs.ci.scripts]
-ci = [
-  "uv pip install ./plugin_example",
-  "rm -f .coverage",
-  "pytest --verbose --cov-append  --cov-branch --cov=jinjanator_plugins",
-  "coverage report --show-missing --fail-under=100",
-]
-
-[tool.hatch.metadata.hooks.fancy-pypi-readme]
-content-type = "text/markdown"
-
-[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
-text = """
-# *jinjanator-plugins*: API package for jinjanator plugins
-
-"""
-
-[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
-path = "README.md"
-start-after = "<!-- fancy-readme start -->"
-end-before = "<!-- fancy-readme end -->"
-
-[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
-text = """
-## Release Information
-"""
-
-[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
-path = "CHANGELOG.md"
-start-after = "<!-- towncrier release notes start -->"
-pattern = "\n(###.+?\n)## "
-
-[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
-text = """
----
-[→ Full Changelog](https://github.com/kpfleming/jinjanator-plugins/blob/main/CHANGELOG.md)
-"""
-
-[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
-pattern = '\[(.+?)\]\(((?!https?://)\S+?)\)'
-replacement = '[\1](https://github.com/kpfleming/jinjanator-plugins/tree/main/\g<2>)'
-
-[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
-pattern = "#(\\d+)"
-replacement = "[#\\1](https://github.com/kpfleming/jinjanator-plugins/issues/\\1)"
-
 [tool.ruff]
 line-length = 100
-
 src = [
   "src",
 ]
-lint.select = [
+[tool.ruff.lint]
+select = [
   "ALL",
 ]
-lint.ignore = [
+ignore = [
   "ANN",     # Mypy is better at this.
   "C901",    # Leave complexity to me.
   "COM812",  # conflicts with formatter
+  "CPY001",  # i don't want copyright notices in every file
   "D",       # We have different ideas about docstrings.
   "FA100",   # Intentionally not using '__future__' for annotations
   "ISC001",  # conflicts with formatter
   "PLR0912", # Leave complexity to me.
   "TRY301",  # Raise in try blocks can totally make sense.
 ]
-lint.per-file-ignores."plugin_example/*" = [
+per-file-ignores."plugin_example/*" = [
   "INP001", # we don't care that these are in implicit namespace packages
 ]
-lint.per-file-ignores."plugin_example/tests/*" = [
+per-file-ignores."plugin_example/tests/*" = [
   "PLC1901", # empty strings are falsey, but are less specific in tests
   "PT005",   # we use always underscores and explicit names
   "S101",    # assert
   "SIM300",  # Yoda rocks in tests
 ]
-lint.per-file-ignores."tests/*" = [
+per-file-ignores."tests/*" = [
   "INP001",  # we don't care that these are in implicit namespace packages
   "PLC1901", # empty strings are falsey, but are less specific in tests
   "PT005",   # we use always underscores and explicit names
   "S101",    # assert
   "SIM300",  # Yoda rocks in tests
 ]
-lint.unfixable = [
+unfixable = [
   "F401",
 ]
-lint.isort.lines-after-imports = 2
-lint.isort.lines-between-types = 1
+isort.lines-after-imports = 2
+isort.lines-between-types = 1
 
 [tool.pyproject-fmt]
 max_supported_python = "3.14"
+table_format = "long"
 
+[tool.mypy]
+exclude = [
+  "plugin_example/build",
+]
+namespace_packages = true
+explicit_package_bases = true
+follow_imports = "normal"
+python_version = "3.11"
+disallow_any_generics = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_return_any = true
+strict_equality = true
+no_implicit_optional = true
+
+[tool.pytest]
 [tool.pytest.ini_options]
 minversion = "6.0"
-xfail_strict = true
 testpaths = [
   "tests",
   "plugin_example/tests",
@@ -231,6 +234,7 @@ addopts = [
   "-ra",
   "--strict-markers",
 ]
+xfail_strict = true
 
 [tool.towncrier]
 name = "jinjanator-plugins"
@@ -246,53 +250,11 @@ underlines = [
   "",
   "",
 ]
-
-[[tool.towncrier.section]]
-path = ""
-
-[[tool.towncrier.type]]
-directory = "breaking"
-name = "Backwards-incompatible Changes"
-showcontent = true
-
-[[tool.towncrier.type]]
-directory = "deprecating"
-name = "Deprecations"
-showcontent = true
-
-[[tool.towncrier.type]]
-directory = "adding"
-name = "Additions"
-showcontent = true
-
-[[tool.towncrier.type]]
-directory = "changing"
-name = "Changes"
-showcontent = true
-
-[[tool.towncrier.type]]
-directory = "fixing"
-name = "Fixes"
-showcontent = true
-
-[tool.mypy]
-python_version = "3.10"
-namespace_packages = true
-explicit_package_bases = true
-check_untyped_defs = true
-disallow_any_generics = true
-disallow_incomplete_defs = true
-disallow_subclassing_any = true
-disallow_untyped_calls = true
-disallow_untyped_decorators = true
-disallow_untyped_defs = true
-follow_imports = "normal"
-no_implicit_optional = true
-strict_equality = true
-warn_no_return = true
-warn_redundant_casts = true
-warn_return_any = true
-warn_unused_ignores = true
-exclude = [
-  'plugin_example/build',
+type = [
+  { directory = "breaking", name = "Backwards-incompatible Changes", showcontent = true },
+  { directory = "deprecating", name = "Deprecations", showcontent = true },
+  { directory = "adding", name = "Additions", showcontent = true },
+  { directory = "changing", name = "Changes", showcontent = true },
+  { directory = "fixing", name = "Fixes", showcontent = true },
 ]
+section = [ { path = "" } ]

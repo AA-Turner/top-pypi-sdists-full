@@ -84,13 +84,15 @@ class PrivateResourceQuotaSDK(BaseSDK):
         max_items: int = 20,
     ) -> List[ResourceQuota]:
         cloud_id = (
-            self.client.get_cloud_id(cloud_name=cloud, compute_config_id=None)
-            if cloud
-            else None
+            self.client.get_cloud_id(cloud_name=cloud, compute_config_id=None) if cloud else None
         )
 
         resource_quotas = self.client.list_resource_quotas(
-            name, cloud_id, creator_id, is_enabled, max_items,
+            name,
+            cloud_id,
+            creator_id,
+            is_enabled,
+            max_items,
         )
 
         return [

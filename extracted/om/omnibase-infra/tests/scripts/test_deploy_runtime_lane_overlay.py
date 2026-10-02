@@ -1,0 +1,311 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""deploy-runtime.sh must layer the lane overlay on every compose invocation.
+
+OMN-13581: deploy-runtime.sh historically passed ONLY ``-f docker-compose.infra.yml``
+on every ``docker compose`` call -- including ``warm_broker_topic_provisioning``'s
+``up redpanda`` step. The base infra compose hardcodes
+``container_name: omnibase-infra-redpanda`` (the DEV name) and the dev network.
+Running the warmup against a non-dev compose project (e.g.
+``omnibase-infra-stability-test``) therefore made compose try to recreate redpanda
+as the DEV-named container, which collided with the live dev broker, got a Docker
+hash prefix, and landed in ``created`` -- DESTROYING the lane's own correctly-named
+broker. That left the stability lane broker-less for ~3 days.
+
+The fix introduces ``resolve_lane_overlay_filename`` / ``resolve_compose_file_args``
+which derive the lane from the compose project suffix and LAYER the matching overlay
+(``docker-compose.<lane>.yml``) onto ``docker-compose.infra.yml`` for every non-dev
+project, mirroring the authoritative lane->compose-file mapping in
+``scripts/deploy-agent/deploy_agent/executor.py`` (_LANE_CONFIGS).
+
+These tests assert:
+  - the helper functions exist,
+  - the dev / stability-test / prod / judge lane mapping is correct (behavioral,
+    by extracting + executing the pure helper functions -- no docker required),
+  - an unknown non-dev project fails CLOSED (refuses to run on the bare dev config),
+  - NO compose-invoking function passes a bare ``-f .../docker-compose.infra.yml``
+    string anymore; every call site routes through ``resolve_compose_file_args``.
+"""
+
+from __future__ import annotations
+
+import re
+import subprocess
+from pathlib import Path
+
+import pytest
+
+DEPLOY_SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "deploy-runtime.sh"
+# OMN-16729: the three resolver functions moved into a shared lib that
+# deploy-runtime.sh, refresh_dev_lane.sh and refresh_stability_lane.sh all
+# source. They moved because the refresh wrappers' OWN compose calls -- notably
+# the failure rollback recreate -- needed the identical derivation, and their
+# hand-spelled copy of the file list had lost the dev-lane overlay.
+COMPOSE_FILES_SH = (
+    Path(__file__).resolve().parents[2]
+    / "scripts"
+    / "runtime_build"
+    / "compose_files.sh"
+)
+
+
+def _script_text() -> str:
+    return DEPLOY_SCRIPT.read_text(encoding="utf-8")
+
+
+def _extract_function(name: str) -> str:
+    """Return the source text of a single top-level bash function ``name()``.
+
+    The helper functions under test are pure (no top-level deps), so they can be
+    extracted and executed in isolation -- giving a real behavioral assertion
+    without sourcing the whole script (which runs main and needs docker).
+    """
+    text = _script_text()
+    match = re.search(
+        rf"^{re.escape(name)}\s*\(\)\s*\{{.*?\n\}}",
+        text,
+        re.DOTALL | re.MULTILINE,
+    )
+    assert match is not None, (
+        f"could not extract function {name}() from deploy-runtime.sh"
+    )
+    return match.group(0)
+
+
+def _run_overlay_resolver(compose_project: str) -> subprocess.CompletedProcess[str]:
+    """Execute the extracted resolver functions for one compose project.
+
+    Stubs ``log_error`` so the fail-closed path does not depend on the script's
+    logging helpers, then echoes the resolved ``-f`` token sequence.
+    """
+    harness = "\n".join(
+        [
+            "set -euo pipefail",
+            "log_error() { printf 'ERR: %s\\n' \"$*\" >&2; }",
+            f'source "{COMPOSE_FILES_SH}"',
+            "declare -a out",
+            f'resolve_compose_file_args out "/DEPLOY" "{compose_project}"',
+            'printf "%s\\n" "${out[*]}"',
+        ]
+    )
+    return subprocess.run(
+        ["bash", "-c", harness],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+@pytest.mark.unit
+def test_defines_lane_overlay_resolver_functions() -> None:
+    """The resolvers exist in the shared lib, and deploy-runtime.sh sources it.
+
+    Both halves matter: a lib nobody sources resolves nothing, and a
+    deploy-runtime.sh that re-declares its own copy is the duplication OMN-16729
+    removed.
+    """
+    lib = COMPOSE_FILES_SH.read_text(encoding="utf-8")
+    for fn in (
+        "resolve_lane_name",
+        "resolve_lane_overlay_filename",
+        "resolve_compose_file_args",
+    ):
+        assert re.search(rf"^{fn}\s*\(\)", lib, re.MULTILINE), (
+            f"compose_files.sh must define {fn}()"
+        )
+    text = _script_text()
+    assert "runtime_build/compose_files.sh" in text, (
+        "deploy-runtime.sh must source the shared compose-file resolver"
+    )
+    for fn in (
+        "resolve_lane_name",
+        "resolve_lane_overlay_filename",
+        "resolve_compose_file_args",
+    ):
+        assert not re.search(rf"^{fn}\s*\(\)", text, re.MULTILINE), (
+            f"deploy-runtime.sh must NOT re-declare {fn}() -- one derivation only"
+        )
+
+
+@pytest.mark.unit
+def test_dev_project_layers_only_the_dev_lane_overlay() -> None:
+    """The bare dev project gets infra.yml + the dev-lane overlay, nothing else.
+
+    Changed by OMN-15379 (operator ruling 15). It used to be infra.yml ALONE —
+    the dev lane's fixed container names are correct in the base, so it needed
+    no overlay. It now layers ``docker-compose.dev-lane.yml``, whose entire
+    content is ``ONEX_MIGRATION_LANE=dev`` on forward-migration: the lane
+    indicator that releases the node_projection_registration trio (0000 CREATE /
+    0001 heartbeat / 0002 ENABLE + FORCE ROW LEVEL SECURITY) from the operator
+    fence, making the lab lane the FORCE proving ground.
+
+    Why a separate file rather than a line in the base: every non-dev lane
+    overlay MERGES infra.yml, and stability-test's forward-migration override is
+    a single ``container_name:`` line, so it inherits the base ``environment:``
+    block wholesale. The indicator in the base would therefore be inherited by
+    stability-test, prod, judge and any lane added later — fail-OPEN. Inverted
+    this way, a lane that does not load the dev overlay carries no indicator and
+    the runner applies the FULL fence.
+    """
+    result = _run_overlay_resolver("omnibase-infra")
+    assert result.returncode == 0, result.stderr
+    out = result.stdout.strip()
+    assert out == (
+        "-f /DEPLOY/docker/docker-compose.infra.yml "
+        "-f /DEPLOY/docker/docker-compose.dev-lane.yml"
+    ), out
+    # infra.yml first, so the dev overlay's environment merges on top of it.
+    assert out.index("docker-compose.infra.yml") < out.index(
+        "docker-compose.dev-lane.yml"
+    )
+    assert "stability-test" not in out
+    assert "prod" not in out
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "compose_project",
+    [
+        "omnibase-infra-stability-test",
+        "omnibase-infra-prod",
+        "omnibase-infra-judge",
+    ],
+)
+def test_no_non_dev_lane_ever_loads_the_dev_lane_overlay(compose_project: str) -> None:
+    """OMN-15379: the lane indicator must be unreachable from every other lane.
+
+    The negative half of the pair above, and the load-bearing one: the dev
+    overlay is the ONLY thing that releases the fenced registration migrations,
+    so a lane that loaded it would apply FORCE ROW LEVEL SECURITY to
+    node_service_registry unattended — precisely the class of unattended posture
+    change the operator fence exists to prevent.
+    """
+    result = _run_overlay_resolver(compose_project)
+    assert result.returncode == 0, result.stderr
+    assert "dev-lane" not in result.stdout, (
+        f"{compose_project} loads the dev-lane overlay: {result.stdout.strip()}"
+    )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("compose_project", "lane"),
+    [
+        ("omnibase-infra-stability-test", "stability-test"),
+        ("omnibase-infra-prod", "prod"),
+        ("omnibase-infra-judge", "judge"),
+    ],
+)
+def test_non_dev_project_layers_matching_overlay(
+    compose_project: str, lane: str
+) -> None:
+    """Every non-dev lane LAYERS its overlay onto infra.yml, in order."""
+    result = _run_overlay_resolver(compose_project)
+    assert result.returncode == 0, result.stderr
+    out = result.stdout.strip()
+    expected = (
+        "-f /DEPLOY/docker/docker-compose.infra.yml "
+        f"-f /DEPLOY/docker/docker-compose.{lane}.yml"
+    )
+    assert out == expected, out
+    # infra.yml must come FIRST so the overlay's container_name/project/network win.
+    assert out.index("docker-compose.infra.yml") < out.index(
+        f"docker-compose.{lane}.yml"
+    )
+
+
+@pytest.mark.unit
+def test_dogfood_project_uses_its_complete_standalone_overlay() -> None:
+    result = _run_overlay_resolver("omnibase-infra-dogfood")
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "-f /DEPLOY/docker/docker-compose.dogfood.yml"
+
+
+@pytest.mark.unit
+def test_dogfood_restart_set_matches_its_standalone_services() -> None:
+    text = _script_text()
+    assert 'compose_project}" == "omnibase-infra-dogfood"' in text
+    assert ("(omninode-runtime runtime-effects projection-api)") in text
+
+
+@pytest.mark.unit
+def test_unknown_non_dev_project_fails_closed() -> None:
+    """An unrecognized non-dev project must abort, not silently run on dev config.
+
+    This is the whole point of the fix: running a non-dev lane on the bare
+    infra.yml config recreates the DEV-named redpanda and displaces the lane's
+    broker (OMN-13581). An unknown lane must therefore fail CLOSED.
+    """
+    result = _run_overlay_resolver("omnibase-infra-mystery-lane")
+    assert result.returncode != 0, (
+        "unknown non-dev compose project must fail closed, got: "
+        f"stdout={result.stdout!r} rc={result.returncode}"
+    )
+    assert "mystery-lane" in result.stderr or "Unknown lane" in result.stderr
+
+
+@pytest.mark.unit
+def test_deploy_root_can_be_explicitly_isolated_per_lane() -> None:
+    """Dogfood refuses the shared deploy root and requires an absolute override."""
+    text = _script_text()
+    assert (
+        'DEPLOY_ROOT="${OMNIBASE_INFRA_DEPLOY_ROOT:-${HOME}/.omnibase/infra}"' in text
+    )
+    assert 'guard_dogfood_deploy_root "${compose_project}"' in text
+    assert "OMNIBASE_INFRA_DEPLOY_ROOT must be absolute for dogfood" in text
+
+
+@pytest.mark.unit
+def test_no_compose_invocation_uses_bare_infra_only() -> None:
+    """No active code path may pass a single bare ``-f infra.yml`` to docker compose.
+
+    Every compose call site must route its ``-f`` flags through
+    ``resolve_compose_file_args`` so the lane overlay is always layered. A bare
+    ``compose_file="${...}/docker-compose.infra.yml"`` local re-introduces the
+    broker-displacement bug.
+    """
+    lines = [
+        line
+        for line in _script_text().splitlines()
+        if not line.lstrip().startswith("#")
+    ]
+    # The old anti-pattern: a per-function local pinning the single infra compose
+    # file, then passing it as the sole -f flag.
+    offenders = [
+        (i + 1, line)
+        for i, line in enumerate(lines)
+        if re.search(r"compose_file=.*docker-compose\.infra\.yml", line)
+    ]
+    assert offenders == [], (
+        "Found bare single-compose-file locals in deploy-runtime.sh; every compose "
+        f"call must layer the lane overlay via resolve_compose_file_args: {offenders}"
+    )
+
+
+@pytest.mark.unit
+def test_compose_call_sites_route_through_resolver() -> None:
+    """Each compose-invoking function must call resolve_compose_file_args.
+
+    Guards against a future function being added that re-pins a bare infra.yml.
+    """
+    text = _script_text()
+    # Functions that issue `docker compose` with `-f`.
+    for func in (
+        "sanity_check",
+        "build_images",
+        "warm_broker_topic_provisioning",
+        "run_runtime_migration_preflight",
+        "restart_services",
+    ):
+        match = re.search(
+            rf"^{func}\s*\(\)\s*\{{.*?\n\}}",
+            text,
+            re.DOTALL | re.MULTILINE,
+        )
+        assert match is not None, f"could not find function {func}()"
+        body = match.group(0)
+        assert "resolve_compose_file_args" in body, (
+            f"{func}() must resolve its -f flags via resolve_compose_file_args "
+            "(so the lane overlay is layered)"
+        )

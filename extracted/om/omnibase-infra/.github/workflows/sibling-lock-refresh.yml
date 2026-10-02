@@ -1,0 +1,177 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# OMN-13902: sibling version-alignment automation.
+#
+# Problem: cross-repo sibling pins (omnibase-core / spi / compat / infra) go
+# stale in this repo's uv.lock whenever a sibling releases a new in-range
+# version on PyPI. Detection existed (sibling-pin guard, orphan-pin gate) but
+# alignment was manual, so drift recurred and blocked work (OMN-13156,
+# OMN-13402, OMN-13814 were all one-off repin tickets; the 2026-07-03 R3
+# stability refresh was blocked by a stale core pin).
+#
+# This workflow is the Dependabot-shaped, sibling-release-triggered fix the
+# ticket asks for, implemented as the ticket-sanctioned "scheduled workflow per
+# repo". On a schedule (and on demand) it runs `uv lock --upgrade-package` for
+# each omninode sibling and, if uv.lock changed, opens a bot PR with the
+# refreshed lock. Repos whose siblings are pinned to an immutable git rev/tag in
+# `[tool.uv.sources]` (e.g. omnibase-infra here, per OMN-13878) are left
+# untouched — `uv lock --upgrade-package` cannot move a pinned rev, so the
+# Dep-Provenance state is preserved automatically with no per-repo tuning.
+#
+# Canary rollout (OMN-13902): landed on omnimemory first per canary-before-
+# fan-out. Once proven green, the same workflow file is copied to the other
+# PyPI-range-pinned consumers (omniclaude, omniintelligence, omnibase_infra).
+
+name: Sibling lock refresh
+
+on:
+  schedule:
+    # Daily at 06:17 UTC — after the overnight release window, before the day's work.
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+    inputs:
+      packages:
+        description: "Space-separated sibling packages to refresh (default: all omninode siblings)."
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sibling-lock-refresh-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Refresh sibling locks
+    # OMNI_RUNNER_SELECTOR_V1 - trusted CI defaults to self-hosted omnibase-ci; public forks default to ubuntu-latest.
+    runs-on: >-
+      ${{
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name != github.repository)
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+      }}
+    timeout-minutes: 15
+    steps:
+      # OMN-16373: CROSS_REPO_PAT retirement — mint a short-lived
+      # onexbot-occ-writer App installation token. A push/PR authored by an
+      # App identity (unlike the default GITHUB_TOKEN) triggers downstream
+      # CI, which is why this job needed a non-default token in the first
+      # place.
+      - name: Mint onexbot-occ-writer app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.ONEXBOT_OCC_APP_ID }}
+          private-key: ${{ secrets.ONEXBOT_OCC_PRIVATE_KEY }}
+          owner: OmniNode-ai
+          repositories: omnibase_infra
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Checkout (onexbot-occ-writer app token so the bot PR triggers CI)
+        uses: actions/checkout@v7
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Refresh sibling package locks
+        id: refresh
+        env:
+          # OMN-16433: this job's `runs-on` (OMNI_RUNNER_SELECTOR_V1, above)
+          # routes trusted runs to the shared self-hosted `omnibase-ci` pool,
+          # 3 of whose 68 runners (omninode-runner-2/4/5) are wired per
+          # docker/docker-compose.pypi-canary.yml (OMN-14027 C1 PyPI
+          # pull-through-cache canary) with container-level
+          # UV_DEFAULT_INDEX/PIP_INDEX_URL pointed at a Tailscale-only devpi
+          # mirror (http://omninode-pc.tail75df5e.ts.net:3141/root/pypi/+simple/),
+          # for install-SPEED only. `uv lock` records whichever index actually
+          # resolved each package straight into the COMMITTED uv.lock's
+          # `source =`/`sdist =`/wheel `url =` fields — so a run that lands on
+          # a canary runner bakes that private mirror into the PR's lockfile
+          # diff, independent of any repo/org Actions variable. Live-proven:
+          # omnibase_infra#2848/#2840 both landed 100% mirror-URL churn with
+          # ZERO real sibling-version delta. A merged lockfile in that state
+          # guarantees `uv sync --locked` failure for every GitHub-hosted job
+          # and any external-fork PR that checks it out — the same failure
+          # class OMN-16428 diagnosed and fixed on the CONSUMER side for
+          # onex_change_control's own contaminated lockfile. Pinning here
+          # fixes it at the PRODUCER: this step's OUTPUT is a committed
+          # artifact, so it must resolve against the canonical public index
+          # regardless of which of the 68 pool runners executes it. Does NOT
+          # touch `runs-on` (deliberate repo-wide self-hosted policy) or the
+          # OMN-14027 canary itself (separate, soak-gated, intentional).
+          UV_DEFAULT_INDEX: "https://pypi.org/simple"
+          UV_INDEX_URL: "https://pypi.org/simple"
+          PIP_INDEX_URL: "https://pypi.org/simple"
+        run: |
+          set -euo pipefail
+          # Default sibling set. Git/tag-pinned siblings are safe to include:
+          # `uv lock --upgrade-package` cannot move an immutable rev/tag, so
+          # those entries stay put and only PyPI-range-pinned siblings move.
+          DEFAULT="omnibase-core omnibase-spi omnibase-compat omnibase-infra omnimarket omniintelligence"
+          PACKAGES="${{ github.event.inputs.packages }}"
+          PACKAGES="${PACKAGES:-$DEFAULT}"
+          ARGS=()
+          for pkg in $PACKAGES; do
+            ARGS+=("--upgrade-package" "$pkg")
+          done
+          echo "Refreshing: ${ARGS[*]}"
+          uv lock "${ARGS[@]}"
+          # OMN-16433 belt-and-braces: fail LOUD, not silent, if the lockfile
+          # somehow still embeds the internal mirror host despite the env pin
+          # above (a canary expansion, a future uv version reading a different
+          # var) — never open a PR with a non-portable committed lockfile.
+          if grep -q 'tail75df5e\.ts\.net' uv.lock; then
+            echo "::error::uv.lock still contains the internal Tailscale-only mirror host (tail75df5e.ts.net) after the UV_DEFAULT_INDEX/UV_INDEX_URL/PIP_INDEX_URL override — refusing to open a non-portable PR. See OMN-16433." >&2
+            exit 1
+          fi
+          if git diff --quiet -- uv.lock; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "uv.lock unchanged — all sibling pins already fresh."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Sibling lock delta:"
+            git --no-pager diff --stat -- uv.lock
+          fi
+
+      - name: Open refresh PR
+        if: steps.refresh.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          BRANCH="bot/sibling-lock-refresh-$(date -u +%Y%m%d%H%M%S)"
+          # OMN-18273: commit as the App this job already authenticates as.
+          git config user.name "onexbot-occ-writer[bot]"
+          git config user.email "307849072+onexbot-occ-writer[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add uv.lock
+          git commit -m "chore(deps): refresh omninode sibling locks [bot]" \
+            --trailer "Onex-Workflow: ${GITHUB_WORKFLOW}" \
+            --trailer "Onex-Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          git push origin "$BRANCH"
+          # Build the PR body in a file to avoid heredoc-in-YAML indentation pitfalls.
+          {
+            printf '%s\n' "Automated sibling version-alignment (OMN-13902)."
+            printf '\n'
+            printf '%s\n' "\`uv lock --upgrade-package\` refreshed the omninode sibling pins in"
+            printf '%s\n' "\`uv.lock\` to the latest in-range PyPI releases. Git/tag-pinned siblings"
+            printf '%s\n' "(see \`[tool.uv.sources]\`) were left untouched."
+            printf '\n'
+            printf '%s\n' "Opened automatically so stale-sibling-lock drift no longer requires a"
+            printf '%s\n' "manual repin ticket. Review the lock delta and merge on green CI."
+          } > /tmp/sibling_refresh_body.md
+          # `chore(deps):` prefix is exempt from the pr-title ticket gate, matching
+          # the existing publish-downstream-pin-bump bot convention.
+          gh pr create \
+            --base "${GITHUB_REF_NAME}" \
+            --head "$BRANCH" \
+            --title "chore(deps, OMN-13902): refresh omninode sibling locks [bot]" \
+            --body-file /tmp/sibling_refresh_body.md

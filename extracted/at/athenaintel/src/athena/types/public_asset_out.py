@@ -62,6 +62,11 @@ class PublicAssetOut(UniversalBaseModel):
     MIME type or Athena-specific media type (e.g., 'text/plain', 'application/pdf', 'athena/document')
     """
 
+    parent_folder_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    ID of the folder that directly contains this asset, or null when the asset is at the workspace root
+    """
+
     summary: typing.Optional[str] = pydantic.Field(default=None)
     """
     AI-generated summary of the asset content

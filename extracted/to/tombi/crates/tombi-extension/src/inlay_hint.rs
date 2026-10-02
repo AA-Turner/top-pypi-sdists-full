@@ -11,7 +11,7 @@ impl InlayHintKind {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InlayHint {
-    pub position: tombi_text::Position,
+    pub offset: tombi_text::Offset,
     pub label: String,
     pub kind: Option<InlayHintKind>,
     pub tooltip: Option<String>,

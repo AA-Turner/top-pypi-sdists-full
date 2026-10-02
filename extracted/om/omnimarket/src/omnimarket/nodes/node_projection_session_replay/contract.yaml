@@ -1,0 +1,158 @@
+---
+name: projection_session_replay
+contract_version: {major: 1, minor: 1, patch: 0}
+node_type: reducer
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  Reduces session lifecycle events (started, prompt-submitted, tool-executed,
+  outcome, ended) into a queryable sequence of replay snapshots in the
+  session_replay_snapshots table. Each inbound event produces one row with
+  a per-session sequence number, event type classification, state delta, and
+  cumulative token count. Powers the omnidash Session Replay widget via the
+  contract-declared projection API topic.
+
+handler:
+  module: omnimarket.nodes.node_projection_session_replay.handlers.handler_projection_session_replay
+  class: HandlerProjectionSessionReplay
+  input_model: omnimarket.nodes.node_projection_session_replay.models.model_session_replay.ModelSessionReplayEvent
+
+handler_routing:
+  routing_strategy: topic_match
+  handlers:
+    - topic: onex.evt.omniclaude.session-started.v1
+      operation: session_started_projected
+      event_model:
+        name: ModelSessionReplayEvent
+        module: omnimarket.nodes.node_projection_session_replay.models.model_session_replay
+      handler:
+        name: HandlerProjectionSessionReplay
+        module: omnimarket.nodes.node_projection_session_replay.handlers.handler_projection_session_replay
+    - topic: onex.evt.omniclaude.prompt-submitted.v1
+      operation: prompt_submitted_projected
+      event_model:
+        name: ModelSessionReplayEvent
+        module: omnimarket.nodes.node_projection_session_replay.models.model_session_replay
+      handler:
+        name: HandlerProjectionSessionReplay
+        module: omnimarket.nodes.node_projection_session_replay.handlers.handler_projection_session_replay
+    - topic: onex.evt.omniclaude.tool-executed.v1
+      operation: tool_executed_projected
+      event_model:
+        name: ModelSessionReplayEvent
+        module: omnimarket.nodes.node_projection_session_replay.models.model_session_replay
+      handler:
+        name: HandlerProjectionSessionReplay
+        module: omnimarket.nodes.node_projection_session_replay.handlers.handler_projection_session_replay
+    - topic: onex.evt.omniclaude.session-outcome.v1
+      operation: session_outcome_projected
+      event_model:
+        name: ModelSessionReplayEvent
+        module: omnimarket.nodes.node_projection_session_replay.models.model_session_replay
+      handler:
+        name: HandlerProjectionSessionReplay
+        module: omnimarket.nodes.node_projection_session_replay.handlers.handler_projection_session_replay
+    - topic: onex.evt.omniclaude.session-ended.v1
+      operation: session_ended_projected
+      event_model:
+        name: ModelSessionReplayEvent
+        module: omnimarket.nodes.node_projection_session_replay.models.model_session_replay
+      handler:
+        name: HandlerProjectionSessionReplay
+        module: omnimarket.nodes.node_projection_session_replay.handlers.handler_projection_session_replay
+
+descriptor:
+  node_archetype: reducer
+  purity: pure
+  idempotent: true
+  timeout_ms: 30000
+
+event_bus:
+  subscribe_topics:
+    - onex.evt.omniclaude.session-started.v1
+    - onex.evt.omniclaude.prompt-submitted.v1
+    - onex.evt.omniclaude.tool-executed.v1
+    - onex.evt.omniclaude.session-outcome.v1
+    - onex.evt.omniclaude.session-ended.v1
+  publish_topics:
+    - onex.evt.omnimarket.projection-session-replay-applied.v1
+
+db_io:
+  db_tables:
+    - name: session_replay_snapshots
+      database_ref: application
+      schema: omninode_internal
+      migration: "0001_create_session_replay_snapshots.sql"
+      # OMN-17183: this handler QUERIES this table (reducer-state rehydration +
+      # idempotency lookup) before writing. `access: write` is refused
+      # fail-closed at the runtime read seam
+      # (ProjectionTableOperation._assert_read_declared), which quarantines
+      # every event while the caller still sees a 202 (OMN-16690). The
+      # declaration must cover what the handler actually does. The DB-level
+      # SELECT grant already exists -- migration 0002 grants
+      # SELECT, INSERT, UPDATE to omninode_runtime (OMN-16993).
+      access: read_write
+      role: snapshots
+
+projection_api:
+  expose: true
+  topic: "onex.snapshot.projection.session.replay.v1"  # onex-topic-allow: projection snapshot topics use onex.snapshot.* prefix by convention
+  key_grain: "immutable"
+  table: "session_replay_snapshots"
+  schema: "public"
+  columns:
+    - "snapshot_id"
+    - "session_id"
+    - "sequence"
+    - "timestamp"
+    - "event_type"
+    - "node_name"
+    - "state_delta"
+    - "cumulative_tokens"
+    - "is_checkpoint"
+  json_columns:
+    - "state_delta"
+  order_by: "session_id, sequence ASC"
+  freshness_column: "timestamp"
+  limit: 500
+  # OMN-17774 (GOAL row 0 leg (b)/(c), epic OMN-16776). Declared bus_backed WITH
+  # its publish call site in the same change -- HandlerProjectionSessionReplay
+  # publishes a snapshot delta for every row it upserts. The epic's ordering
+  # constraint is explicit that bus_backed must not be flipped on a topic whose
+  # writer is not deployed and producing: flipping ahead of the writer converts
+  # an honest error into a confident zero (OMN-15864 enforces this mechanically).
+  #
+  # key_columns is snapshot_id, which is the row's OWN identity and is
+  # content-addressed per source event (_derive_snapshot_id hashes the envelope
+  # UUID, or the canonical serialization of the event when the runtime injected
+  # none). That is load-bearing twice over:
+  #
+  #   1. One source event produces exactly one key, so a compacted topic holds
+  #      one live record per materialized row rather than a growing history of
+  #      the same key -- the shape OMN-17345 records consumer-flow lacking,
+  #      where window_start sits inside the key and every window mints a new one.
+  #   2. The runtime's projection dispatch seam hands a sync handler only
+  #      `_db`/`_event_type`/`_topic`/`_envelope_id` (handler_shim.RUNTIME_INJECTED_KEYS)
+  #      -- never the source message's Kafka partition/offset. So the delta's
+  #      ordering token is fixed, and SnapshotCache.apply_message drops a repeat
+  #      of an already-cached key as a replay. With a content-addressed key that
+  #      is exactly right: a second delta for the same key IS a redelivery of the
+  #      same source event, carrying byte-identical content. It would be WRONG
+  #      for a mutable grain, so the key must stay per-event; a test asserts it.
+  #
+  # No tenant_column: session_replay_snapshots carries no tenant column
+  # (migration 0001) and the relation is not RLS-protected (relrowsecurity=f,
+  # zero policies, measured on the .201 dev lane 2026-09-03), so
+  # publish_snapshot_delta's default tenant_id leaks nothing that the table
+  # itself scopes.
+  bus_backed: true
+  key_columns:
+    - "snapshot_id"
+
+metadata:
+  transport_type: kafka
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.projection-session-replay-applied.v1

@@ -1,0 +1,6 @@
+Metadata-Version: 2.4
+Name: exp-gateway-native
+Version: 0.3.123
+License-File: LICENSE
+Summary: Rust data plane for the Experiential local gateway (compiled extension module).
+Requires-Python: >=3.12

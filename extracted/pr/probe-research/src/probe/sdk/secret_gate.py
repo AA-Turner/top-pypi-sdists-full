@@ -1,0 +1,1002 @@
+"""Artifact boundary: redact readable credentials, never lose the upload.
+
+THE RULE CHANGED, AND THE OLD ONE IS WORTH READING FIRST
+--------------------------------------------------------
+This module used to say: "Artifacts are never redacted in place: changing
+model/config bytes corrupts them", and it refused any artifact carrying a
+recognized credential. That reasoning was RIGHT about containers and WRONG as
+a rule for everything, and the gap cost a real run its output -- a GSM8K
+training job lost a 500-row `predictions_final.jsonl` because one answer did
+arithmetic about biscuits and `cookie` is an HTTP header name. Refusing an
+upload destroys the artifact to protect a secret that was usually not there.
+
+The rule now: a detected credential is REPLACED, never a reason to drop the
+upload. What the old sentence was actually protecting survives as a carve-out
+-- bytes that carry their own structure are still never rewritten.
+
+  TEXT        credential spans replaced with `<redacted:{rule}>`, uploaded.
+  CONTAINERS  a zip, tarball, gzip or checkpoint is uploaded BYTE-FOR-BYTE
+              with its findings recorded. Corrupting a checkpoint to hide a
+              match is worse than either refusing or shipping it, and the
+              person who has to rotate the key still needs to see the file.
+  NOT TEXT    anything that is not UTF-8 is treated as a container.
+
+WHY THIS SIDE OF THE WIRE
+-------------------------
+It is not a preference. The server signs a sha256 at presign, refuses a body
+that does not match it (`app/artifacts/upload_guard.py`), and hands R2 the
+same digest to verify independently. Nothing downstream can alter a byte. So
+redaction happens before `fingerprint`, which also means the credential never
+leaves the researcher's machine.
+
+WHICH FINDINGS REWRITE BYTES
+----------------------------
+Only the tiers that are certain: the structured vendor shapes and the two
+entropy-gated rules (`anchored-secret`, `paired-secret`) -- exactly what
+`redact` covers. The key-name tier is a judgement about a FIELD NAME, and it
+is the tier that read `cookie =` as a session cookie, so it is recorded and
+never rewrites a researcher's data. See `_findings`.
+
+WHAT STILL REFUSES
+------------------
+Resource limits, an unreadable source, and a credential in the SOURCE PATH --
+a path is echoed into rows, logs and errors, and there is nothing to rewrite.
+
+HOW MUCH OF THIS RUNS HERE
+--------------------------
+By default, the QUICK check (`redact_quick_bytes`): the scanner's own rules,
+read next to their keywords, with no decoding layer -- the obvious, plainly
+written credential, replaced before the digest. An escaped or base64-encoded
+credential, the key-name tier, and whatever a container holds are left to the
+server's full inspection, which records them on the artifact row (it cannot
+redact: the digest is signed). A queued upload is quick-checked in the
+background (`Journal.promote_waiting`), never on the caller's thread.
+
+`PROBE_ARTIFACT_OPAQUE_POLICY=block` (`strict_policy`) keeps the FULL
+inspection on this machine, synchronously, as before: every encoding decoded
+and redacted, and anything opaque refused. Every refusal here is value-free:
+no matched text, no file bytes, no key material in any message.
+"""
+
+from __future__ import annotations
+
+import base64
+import functools
+import gzip
+import hashlib
+import inspect
+import io
+import os
+import re
+import stat
+import tarfile
+import tempfile
+import threading
+import warnings
+import zipfile
+import zlib
+from collections import OrderedDict
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass
+from pathlib import Path
+
+from ..tap_core.secrets import low_diversity, redact, redact_quick, scan
+from .redaction import scrub_changes
+
+try:
+    from .errors import RosError as _RefusalBase
+except ImportError:  # the vendored server/engine copies carry no SDK error tree
+    _RefusalBase = Exception
+
+
+class CredentialBlocked(_RefusalBase):
+    """A safe, value-free refusal.
+
+    A ``RosError`` in the SDK (plan 0.7), so a caller that guards its logging
+    with ``except RosError`` is not killed by it -- a 70 MB ``log_artifact``
+    used to raise this straight out of a training loop. ``Run.log_artifact``
+    no longer raises it outside ``strict=True`` (it records a reference and
+    warns). Handlers that treat a refusal differently from other client errors
+    (``journal.classify``, output capture) test for this class by name, ahead
+    of any ``RosError`` clause."""
+
+
+class CredentialInPath(CredentialBlocked):
+    """The PATH, not the content, is credential-shaped. Its own type because a
+    caller that falls back to recording a path (a pointer) must never do it for
+    this one, and a message is no contract to branch on."""
+
+
+class ArtifactInspectionWarning(RuntimeWarning):
+    """Uploading bytes whose full contents could not be checked for credentials."""
+
+
+class ArtifactRedactedWarning(RuntimeWarning):
+    """Uploading bytes with credential spans replaced. The row records it too,
+    but the person who ran the upload should not have to go and look."""
+
+
+def warn_if_redacted(result: InspectionResult) -> None:
+    if not result.rewritten:
+        return
+    count = len(result.rewritten)
+    warnings.warn(
+        f"probe: replaced {count} credential span{'s' if count != 1 else ''} before "
+        f"upload ({', '.join(sorted(set(result.rewritten)))}). The uploaded artifact is "
+        "NOT byte-identical to your file; your file on disk is unchanged.",
+        ArtifactRedactedWarning,
+        stacklevel=3,
+    )
+
+
+@dataclass(frozen=True)
+class InspectionResult:
+    #: Parts that could not be read. Unrelated to credentials.
+    warnings: tuple[str, ...] = ()
+    #: One rule name per span certain enough to REPLACE: a structured vendor
+    #: shape, or an entropy-gated `anchored-secret`/`paired-secret`.
+    rewritten: tuple[str, ...] = ()
+    #: Rules recorded without touching bytes -- the key-name tier, and
+    #: anything found inside a container we must not rewrite.
+    flagged: tuple[str, ...] = ()
+
+    @property
+    def fully_inspected(self) -> bool:
+        return not self.warnings
+
+    @property
+    def has_findings(self) -> bool:
+        return bool(self.rewritten or self.flagged)
+
+    @property
+    def rules(self) -> tuple[str, ...]:
+        """Distinct rule names, for the artifact row. Never a matched value."""
+        return tuple(sorted(set(self.rewritten) | set(self.flagged)))
+
+    def as_flagged(self) -> InspectionResult:
+        """Everything recorded, nothing replaced -- a container or opaque blob."""
+        return InspectionResult(
+            warnings=self.warnings, flagged=tuple(self.flagged) + tuple(self.rewritten)
+        )
+
+    @property
+    def warning_message(self) -> str | None:
+        if not self.warnings:
+            return None
+        return (
+            "WARNING: Artifact upload allowed without full credential inspection. "
+            + "; ".join(self.warnings)
+            + ". Probe cannot confirm this file is free of secrets. "
+            "Check its hidden contents before sharing."
+        )
+
+
+def warn_if_incomplete(result: InspectionResult) -> None:
+    if result.warning_message:
+        warnings.warn(result.warning_message, ArtifactInspectionWarning, stacklevel=3)
+
+
+@dataclass(frozen=True)
+class ScanPolicy:
+    max_bytes: int = 64 * 1024 * 1024
+    max_expanded_bytes: int = 128 * 1024 * 1024
+    max_members: int = 1024
+    max_depth: int = 4
+    allow_opaque: bool = True
+
+
+def policy() -> ScanPolicy:
+    # An optional stricter local policy never waives a readable credential finding.
+    return ScanPolicy(allow_opaque=os.environ.get("PROBE_ARTIFACT_OPAQUE_POLICY") != "block")
+
+
+def _refuse(reason: str) -> None:
+    # Never interpolate a filename, content, archive member, or exception value.
+    raise CredentialBlocked("Artifact upload refused: " + reason) from None
+
+
+#: Recorded when the key-name tier fires. Deliberately NOT a rule name from
+#: the scanner: that tier is a judgement about a FIELD NAME, and naming it
+#: separately is what lets a reader tell "shaped like a GitHub token" from
+#: "sat next to a word we treat as sensitive".
+FIELD_NAME_RULE = "field-name"
+
+
+def _findings(text: str, accel=None) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """`(rewritable, flag_only)` rule names for one decoded view.
+
+    `accel` is the server's search accelerator (`app/security/fast_scan.py`):
+    the same answer, reading only where a credential could be. None elsewhere.
+
+    This split IS the redaction policy. `redact` covers the structured vendor
+    shapes and the two entropy-gated rules -- certain enough to replace in
+    place. `default_scrub` is the key-name tier, a judgement about a field
+    name: it is what read `cookie =` in a GSM8K answer as a session cookie, so
+    it is recorded and never rewrites a researcher's bytes.
+    """
+    if accel is not None:
+        accel = _indexed_once(accel, text)
+    try:
+        findings = scan(text, _accel=accel)
+        if findings:
+            # SHORT-CIRCUIT, and it is load-bearing for cost, not just tidiness.
+            # The key-name tier would read the same text again, and the only
+            # thing lost is the `field-name` label on text that a structured
+            # rule already names; the row records a finding either way.
+            return tuple(f.rule for f in findings), ()
+        if scrub_changes(text, accel=accel, _scanned=True):
+            return (), (FIELD_NAME_RULE,)
+        return (), ()
+    except Exception:
+        _refuse("credential inspection failed")
+
+
+def _indexed_once(accel, text: str):
+    """`accel`, asked about `text` itself at most once: `scan` and then
+    `scrub_changes` both want its windows, and nested views (a decoded
+    neighbourhood, the NUL-free view) are asked about separately."""
+    known: list = []
+
+    def windows_for(view: str):
+        if view is not text:
+            return accel(view)
+        if not known:
+            known.append(accel(text))
+        return known[0]
+
+    return windows_for
+
+
+_BASE64 = re.compile(r"(?<![A-Za-z0-9+/])[A-Za-z0-9+/]{24,}={0,2}(?![A-Za-z0-9+/])")
+
+
+#: Verdicts for bytes already inspected in this process, keyed by
+#: (sha256, policy). One upload used to inspect the same bytes up to five times
+#: -- check_upload, the outbox snapshot, then `@freeze_upload` on both
+#: `upload_fingerprinted` and `put_file` -- at about 1 MB/s on JSON text (a
+#: 45 MB JSONL took 46 s a pass, measured 2026-09-25). The verdict is a pure
+#: function of the bytes and the policy, so a hash lookup is exact. Only
+#: verdicts are kept, never refusals: "inspection failed" can come from a
+#: MemoryError, which the same bytes need not hit twice.
+#:
+#: SDK ONLY. The server vendors this file (`app/security/_credential_gate.py`),
+#: and there one cache would span every tenant: how fast an upload is inspected
+#: would tell one tenant whether another uploaded the same bytes recently.
+_CACHE_ENABLED = __name__.startswith("probe.")
+_VERDICT_CACHE: OrderedDict[tuple, InspectionResult] = OrderedDict()
+#: Entries hold rule names and a digest, never bytes: a few MB at most. Large
+#: enough that a sweep of thousands of files still hits on the drain's pass.
+_VERDICT_CACHE_SIZE = 16_384
+_CACHE_LOCK = threading.Lock()
+
+
+def _reset_cache_lock() -> None:
+    # A thread holding the lock at a fork would leave the child's copy locked
+    # forever, and every inspection in that child would hang.
+    global _CACHE_LOCK
+    _CACHE_LOCK = threading.Lock()
+
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_reset_cache_lock)
+
+
+def _readable(text: str) -> bool:
+    """Every character printable, or a tab, CR or LF: one C call instead of a
+    generator step per character (3.1M of them on a 3 MB JSON file)."""
+    return text.replace("\t", "").replace("\r", "").replace("\n", "").isprintable()
+
+
+def inspect_bytes(
+    raw: bytes, *, scan_policy: ScanPolicy | None = None, accel=None
+) -> InspectionResult:
+    limits = scan_policy or policy()
+    if not _CACHE_ENABLED or accel is not None:
+        # `accel` is the server's (never cached, see above): same verdict, faster.
+        return _inspect_bytes(raw, limits, accel)
+    key = (hashlib.sha256(raw).digest(), limits)
+    with _CACHE_LOCK:
+        hit = _VERDICT_CACHE.get(key)
+        if hit is not None:
+            _VERDICT_CACHE.move_to_end(key)
+    if hit is not None:
+        return hit
+    verdict = _inspect_bytes(raw, limits)
+    _remember(key, verdict)
+    return verdict
+
+
+def clear_caches() -> None:
+    """Forget every cached verdict. For tests that swap the scanner out; the
+    scanner never changes under a running process otherwise."""
+    with _CACHE_LOCK:
+        _VERDICT_CACHE.clear()
+
+
+def _remember(key: tuple, verdict: InspectionResult) -> None:
+    with _CACHE_LOCK:
+        _VERDICT_CACHE[key] = verdict
+        _VERDICT_CACHE.move_to_end(key)
+        while len(_VERDICT_CACHE) > _VERDICT_CACHE_SIZE:
+            _VERDICT_CACHE.popitem(last=False)
+
+
+def _inspect_bytes(raw: bytes, limits: ScanPolicy, accel=None) -> InspectionResult:
+    budget = [limits.max_expanded_bytes]
+    members = [0]
+    incomplete_reasons: list[str] = []
+    rewritable: list[str] = []
+    flag_only: list[str] = []
+
+    def record(*texts: str) -> None:
+        # A credential is no longer a refusal. It is recorded, and the caller
+        # decides whether these bytes can be rewritten safely.
+        #
+        # DEDUPED per call: one blob is inspected through several decoded
+        # views (utf-8, a UTF-16 reading, an ASCII-preserving fallback) and
+        # the same credential surfaces in more than one. Counting it twice
+        # would tell a reader two keys leaked where one did.
+        found: set[str] = set()
+        flagged: set[str] = set()
+        seen: set[str] = set()
+        for text in texts:
+            # Valid UTF-8 decodes identically through `utf-8-sig` and through
+            # the errors="replace" fallback, so the same bytes were being
+            # scanned twice for every ordinary text file.
+            if text in seen:
+                continue
+            seen.add(text)
+            hits, names = _findings(text, accel)
+            found.update(hits)
+            flagged.update(names)
+        rewritable.extend(sorted(found))
+        flag_only.extend(sorted(flagged))
+
+    def incomplete(reason: str) -> None:
+        if not limits.allow_opaque:
+            _refuse(reason)
+        if reason not in incomplete_reasons:
+            incomplete_reasons.append(reason)
+
+    def read_expanded(stream) -> tuple[bytes, bool]:
+        """Retain output before a later member/trailer failure, under one cap."""
+        cap = min(limits.max_bytes, budget[0])
+        expanded = bytearray()
+        try:
+            while True:
+                # read1 returns decoded data before looking for the next gzip
+                # member. A single read(all) can discard that data on failure.
+                chunk = stream.read1(min(64 * 1024, cap - len(expanded) + 1))
+                if not chunk:
+                    return bytes(expanded), False
+                expanded.extend(chunk)
+                if len(expanded) > cap:
+                    _refuse("expanded content exceeds inspection limit")
+        except (OSError, EOFError, ValueError, RuntimeError, zlib.error):
+            return bytes(expanded), True
+
+    def bound_zip_reader(stream, *, recover: bool = False) -> None:
+        # The ZIP's declared uncompressed size is untrusted. ZipExtFile clips
+        # output to _left, so a forged short size plus a matching prefix CRC
+        # would otherwise hide a readable decompressed suffix without error.
+        if not isinstance(stream, zipfile.ZipExtFile) or not (
+            hasattr(stream, "_expected_crc") and hasattr(stream, "_left")
+        ):
+            _refuse("archive recovery is unavailable")
+        stream._left = min(limits.max_bytes, budget[0]) + 1
+        if recover:
+            stream._expected_crc = None
+
+    def inspect_blob(data: bytes, depth: int, *, candidate: bool = False) -> None:
+        if depth > limits.max_depth:
+            _refuse("nested encoding exceeds inspection limit")
+        budget[0] -= len(data)
+        if budget[0] < 0:
+            _refuse("expanded content exceeds inspection limit")
+        # ASCII credentials must be found even in a binary wrapper.
+        text = None
+        encodings = ["utf-8-sig"]
+        if data.startswith((b"\xff\xfe\x00\x00", b"\x00\x00\xfe\xff")):
+            encodings.insert(0, "utf-32")
+        elif data.startswith((b"\xff\xfe", b"\xfe\xff")):
+            encodings.insert(0, "utf-16")
+        elif data and data.count(b"\x00") >= len(data) / 4:
+            encodings += ["utf-16-le", "utf-16-be", "utf-32-le", "utf-32-be"]
+        texts = []
+        for encoding in encodings:
+            try:
+                decoded = data.decode(encoding)
+            except (UnicodeError, ValueError):
+                continue
+            texts.append(decoded)
+            if text is None:
+                text = decoded
+        # Legacy Western text is supported only when the whole decoded file
+        # is printable prose. Never reinterpret a malformed UTF BOM as cp1252.
+        if text is None and not data.startswith((b"\xff\xfe", b"\xfe\xff", b"\x00\x00\xfe\xff")):
+            try:
+                legacy = data.decode("cp1252")
+            except UnicodeError:
+                pass
+            else:
+                if (
+                    _readable(legacy)
+                    and len(legacy.encode("ascii", "ignore")) >= len(legacy) / 2
+                ):
+                    text = legacy
+                    texts.append(legacy)
+        readable_text = any(_readable(decoded) for decoded in texts)
+        # Always retain an ASCII-preserving view, even when an unrelated UTF-16
+        # decode succeeds on an arbitrary binary prefix.
+        texts.append(data.decode("utf-8", errors="replace"))
+        record(*texts)
+
+        if data.startswith(b"\x1f\x8b"):
+            try:
+                with gzip.GzipFile(fileobj=io.BytesIO(data)) as archive:
+                    expanded, damaged = read_expanded(archive)
+            except (OSError, EOFError, zlib.error):
+                incomplete("compressed content could not be inspected")
+                return
+            inspect_blob(expanded, depth + 1)
+            if damaged:
+                incomplete("compressed content could not be inspected")
+            return
+        if data.startswith((b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08")):
+            try:
+                with zipfile.ZipFile(io.BytesIO(data)) as archive:
+                    for member in archive.infolist():
+                        members[0] += 1
+                        if members[0] > limits.max_members:
+                            _refuse("archive member count exceeds inspection limit")
+                        record(
+                            member.filename,
+                            member.comment.decode("utf-8", errors="replace"),
+                        )
+                        if member.flag_bits & 1:
+                            incomplete("encrypted archive contents could not be inspected")
+                            continue
+                        if member.is_dir():
+                            continue
+                        if member.file_size > limits.max_bytes or member.file_size > budget[0]:
+                            _refuse("expanded content exceeds inspection limit")
+                        expanded = b""
+                        try:
+                            with archive.open(member) as stream:
+                                bound_zip_reader(stream)
+                                expanded, damaged = read_expanded(stream)
+                                if damaged:
+                                    raise zipfile.BadZipFile("member inspection incomplete")
+                        except (
+                            OSError,
+                            ValueError,
+                            RuntimeError,
+                            zipfile.BadZipFile,
+                            NotImplementedError,
+                            zlib.error,
+                        ):
+                            # ZipExtFile validates CRC before returning its final
+                            # plaintext chunk. An invalid CRC must not erase that
+                            # readable content from inspection. Reopen solely for
+                            # recovery, keeping standard ZIP decompression and the
+                            # bounded reader, but without the integrity verdict.
+                            # These stdlib-private fields are checked explicitly:
+                            # incompatible implementations fail closed rather than
+                            # silently claiming recovery succeeded.
+                            try:
+                                with archive.open(member) as stream:
+                                    bound_zip_reader(stream, recover=True)
+                                    recovered, _ = read_expanded(stream)
+                            except (
+                                OSError,
+                                EOFError,
+                                ValueError,
+                                RuntimeError,
+                                zipfile.BadZipFile,
+                                NotImplementedError,
+                                zlib.error,
+                            ):
+                                recovered = b""
+                            if recovered or expanded:
+                                inspect_blob(recovered or expanded, depth + 1)
+                            incomplete("archive member could not be inspected")
+                            continue
+                        inspect_blob(expanded, depth + 1)
+            except (OSError, ValueError, RuntimeError, zipfile.BadZipFile, NotImplementedError):
+                incomplete("archive could not be inspected")
+            return
+
+        if len(data) >= 512 and data[257:262] == b"ustar":
+            try:
+                with tarfile.open(fileobj=io.BytesIO(data), mode="r:") as archive:
+                    for member in archive:
+                        members[0] += 1
+                        if members[0] > limits.max_members:
+                            _refuse("archive member count exceeds inspection limit")
+                        record(member.name, member.linkname)
+                        if not member.isfile():
+                            continue
+                        if member.size > limits.max_bytes or member.size > budget[0]:
+                            _refuse("expanded content exceeds inspection limit")
+                        try:
+                            stream = archive.extractfile(member)
+                        except (OSError, tarfile.TarError, ValueError):
+                            incomplete("archive member could not be inspected")
+                            continue
+                        if stream is None:
+                            incomplete("archive member could not be inspected")
+                            continue
+                        try:
+                            with stream:
+                                expanded = stream.read(min(limits.max_bytes, budget[0]) + 1)
+                        except (OSError, tarfile.TarError, ValueError):
+                            incomplete("archive member could not be inspected")
+                            continue
+                        inspect_blob(expanded, depth + 1)
+            except (OSError, tarfile.TarError, ValueError):
+                incomplete("archive could not be inspected")
+            return
+
+        if text is not None:
+            for match in _BASE64.finditer(text):
+                value = match.group()
+                # A uniform run cannot carry key material, so it is not a
+                # candidate. Same floor as the tap scanner, one definition, so
+                # the two halves cannot drift apart about what a credential is.
+                if low_diversity(value):
+                    continue
+                # Candidates embedded in prose are only further inspected if
+                # decoding produces text; random IDs are not opaque artifacts.
+                try:
+                    decoded = base64.b64decode(value + "=" * (-len(value) % 4), validate=True)
+                except ValueError:
+                    continue
+                if decoded == data:
+                    continue
+                if decoded.startswith(
+                    (b"\x1f\x8b", b"PK\x03\x04", b"\xff\xfe", b"\xfe\xff")
+                ) or all(c in (9, 10, 13) or 32 <= c < 127 for c in decoded):
+                    inspect_blob(decoded, depth + 1, candidate=True)
+        if not candidate and not readable_text:
+            incomplete("opaque binary content could not be fully inspected")
+
+    if len(raw) > limits.max_bytes:
+        _refuse("file exceeds inspection size limit")
+    try:
+        inspect_blob(raw, 0)
+    except CredentialBlocked:
+        raise
+    except Exception:
+        _refuse("content inspection failed")
+    return InspectionResult(
+        warnings=tuple(incomplete_reasons),
+        rewritten=tuple(rewritable),
+        flagged=tuple(flag_only),
+    )
+
+
+#: Formats whose bytes carry their own structure. Replacing a span inside one
+#: does not hide a credential, it CORRUPTS the artifact -- a truncated zip, a
+#: checkpoint that will not load. Refusing was the old answer and it cost a
+#: training run its output; these now upload unmodified with the finding
+#: recorded, so the person who has to rotate the key can still see the file.
+_CONTAINER_MAGIC = (b"\x1f\x8b", b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08")
+
+
+def is_container(data: bytes) -> bool:
+    return data.startswith(_CONTAINER_MAGIC) or (
+        len(data) >= 512 and data[257:262] == b"ustar"
+    )
+
+
+def redact_bytes(
+    raw: bytes, *, scan_policy: ScanPolicy | None = None
+) -> tuple[bytes, InspectionResult]:
+    """`(bytes to upload, what was found)`. Never raises on a credential.
+
+    Text is rewritten in place, so the credential never leaves this machine.
+    Anything else -- a container, a checkpoint, bytes that are not UTF-8 --
+    is returned BYTE-FOR-BYTE with its findings recorded instead. Resource
+    limits and an unreadable source still refuse, because those are not
+    findings and there is nothing to record.
+    """
+    result = inspect_bytes(raw, scan_policy=scan_policy)
+    if not result.rewritten or is_container(raw):
+        return raw, result.as_flagged() if result.rewritten else result
+    try:
+        # Not utf-8-sig: a BOM decodes to \ufeff and re-encodes unchanged,
+        # so the only bytes that move are the credential spans themselves.
+        text = raw.decode("utf-8")
+    except UnicodeError:
+        return raw, result.as_flagged()
+    cleaned, rules = redact(text)
+    if cleaned == text:
+        return raw, result.as_flagged()
+    # WHAT `redact` DID NOT REPLACE IS STILL A FINDING. `inspect_bytes` recurses
+    # into base64 and containers, so it sees credentials that a single pass over
+    # the OUTER text cannot reach -- a literal key beside a base64 blob holding a
+    # gzipped PAT, say. Reporting only the outer rules would drop the nested one
+    # from the record while its bytes are still in the file: the artifact row
+    # would name one credential and ship two.
+    #
+    # Compared by rule NAME that still happened: the literal GitHub token was
+    # replaced, so "github-token" read as accounted for while the encoded one
+    # shipped. The cleaned bytes are inspected instead: what is still found in
+    # them is exactly what leaves.
+    data = cleaned.encode("utf-8")
+    after = inspect_bytes(data, scan_policy=scan_policy)
+    still = tuple(r for r in (*after.rewritten, *after.flagged) if r not in result.flagged)
+    return data, InspectionResult(
+        warnings=result.warnings,
+        rewritten=tuple(rules),
+        flagged=tuple(result.flagged) + still,
+    )
+
+
+def redact_text(text: str, *, scan_policy: ScanPolicy | None = None) -> tuple[bytes, InspectionResult]:
+    """`redact_bytes` for bytes known to be TEXT -- a log Probe itself wrote.
+
+    Never sniffed as a container: output that happens to start with `PK\\x03\\x04`
+    or carry `ustar` at byte 257 is still text, and `redact_bytes` would hand
+    it back untouched. Clean text costs one inspection; otherwise every span
+    `redact` can replace is replaced, and whatever an inspection of the RESULT
+    still finds is returned as `flagged` -- the caller decides what that means.
+    """
+    raw = text.encode("utf-8")
+    first = inspect_bytes(raw, scan_policy=scan_policy)
+    if not first.has_findings:
+        return raw, first
+    cleaned, rules = redact(text)
+    data = cleaned.encode("utf-8")
+    after = inspect_bytes(data, scan_policy=scan_policy) if rules else first
+    return data, InspectionResult(
+        warnings=after.warnings,
+        rewritten=tuple(rules),
+        flagged=tuple(after.flagged) + tuple(after.rewritten),
+    )
+
+
+def redact_quick_bytes(raw: bytes) -> tuple[bytes, InspectionResult]:
+    """`(bytes to upload, what was replaced)` -- the researcher-side check.
+
+    Replaces the OBVIOUS credentials (`scan_quick`) in text: UTF-8 that is not
+    a container. Everything else -- a zip, a tarball, gzip, a checkpoint, bytes
+    that are not UTF-8 -- uploads byte-for-byte, exactly as it always did, and
+    the server's full inspection records what it holds. So do escaped and
+    base64-encoded credentials and the key-name flag: the quick check does not
+    look for them, the server does.
+    """
+    if not raw or is_container(raw):
+        return raw, InspectionResult()
+    try:
+        # Not utf-8-sig: a BOM decodes to \ufeff and re-encodes unchanged,
+        # so the only bytes that move are the credential spans themselves.
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw, InspectionResult()
+    try:
+        cleaned, rules = redact_quick(text)
+    except Exception:
+        _refuse("credential inspection failed")
+    if not rules:
+        return raw, InspectionResult()
+    return cleaned.encode("utf-8"), InspectionResult(rewritten=tuple(rules))
+
+
+def strict_policy() -> bool:
+    """`PROBE_ARTIFACT_OPAQUE_POLICY=block`: the opt-in policy that refuses what
+    it cannot fully read. It keeps the full inspection on this machine, on the
+    caller's thread."""
+    return not policy().allow_opaque
+
+
+def _read_checked(stream, *, scan_policy: ScanPolicy | None = None) -> bytes:
+    raw = _read_raw(stream, scan_policy=scan_policy)
+    warn_if_incomplete(inspect_bytes(raw, scan_policy=scan_policy or policy()))
+    return raw
+
+
+def _read_raw(stream, *, scan_policy: ScanPolicy | None = None) -> bytes:
+    """The bounded read, with NO inspection. Callers that are going to inspect
+    anyway take this and inspect once."""
+    limits = scan_policy or policy()
+    raw = stream.read(limits.max_bytes + 1)
+    if not isinstance(raw, bytes):
+        _refuse("upload source is not a binary stream")
+    return raw
+
+
+def read_upload(path, *, scan_policy: ScanPolicy | None = None) -> bytes:
+    """The file's bytes, inspected and warned about, NEVER rewritten.
+
+    REDACTION HAPPENS IN EXACTLY ONE PLACE -- `prepare_upload`, before the
+    fingerprint. Everything below that point is handed bytes whose digest is
+    already pinned and signed, so rewriting there could only produce a
+    checksum the server refuses. Callers that redact use
+    `read_upload_redacted`; this one is for transport and re-checks.
+    """
+    return _read_source(path, scan_policy=scan_policy, inspect=True)
+
+
+def read_source(path) -> bytes:
+    """The file's bytes with the path and size checks and NO content scan: for
+    a digest of the file as it sits, or bytes already redacted upstream."""
+    return _read_source(path, inspect=False)
+
+
+def _check_path(path) -> None:
+    # A path is not content: it is echoed in rows, logs and errors, and there
+    # is nothing to rewrite. This stays a refusal.
+    if any(_findings(os.fspath(path))):
+        raise CredentialInPath("Artifact upload refused: credential detected in source path") from None
+
+
+def _check_source(info: os.stat_result, scan_policy: ScanPolicy | None = None) -> None:
+    if not stat.S_ISREG(info.st_mode):
+        _refuse("upload source must be a regular file")
+    if info.st_size > (scan_policy or policy()).max_bytes:
+        _refuse("file exceeds inspection size limit")
+
+
+def _read_source(path, *, scan_policy: ScanPolicy | None = None, inspect: bool) -> bytes:
+    _check_path(path)
+    try:
+        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_BINARY", 0))
+        with os.fdopen(fd, "rb") as stream:
+            _check_source(os.fstat(stream.fileno()), scan_policy)
+            if inspect:
+                return _read_checked(stream, scan_policy=scan_policy)
+            return _read_raw(stream, scan_policy=scan_policy)
+    except OSError:
+        _refuse("upload source could not be inspected")
+
+
+def read_upload_redacted(
+    path, *, scan_policy: ScanPolicy | None = None, full_scan: bool = False
+) -> tuple[bytes, InspectionResult]:
+    """`(bytes to upload, what was found)` -- the ONLY redacting reader.
+
+    Used where bytes have not been hashed yet: `prepare_upload`, the outbox
+    snapshot, and `fingerprint_upload`. Never from transport.
+
+    The quick check by default; the full inspection under the block policy or
+    with ``full_scan`` -- which output capture asks for: a file nobody chose to
+    upload is skipped when it holds a credential the gate cannot replace (an
+    encoded one), and only the full inspection sees those.
+    """
+    # ONE inspection, not two. Going through `read_upload` inspected the bytes
+    # and then `redact_bytes` inspected the same bytes again -- and inspection
+    # expands archives up to `max_expanded_bytes`, beside a training loop.
+    raw = _read_source(path, scan_policy=scan_policy, inspect=False)
+    return _redact_read(raw, scan_policy=scan_policy, full_scan=full_scan)
+
+
+def read_upload_redacted_sourced(
+    path, *, scan_policy: ScanPolicy | None = None, full_scan: bool = False
+) -> tuple[bytes, InspectionResult, str]:
+    """`read_upload_redacted`, plus the sha256 of the ORIGINAL bytes.
+
+    Both come from ONE read of the file: the redacted bytes and the hash of
+    the bytes they were redacted from describe the same version of it, even
+    while a writer races the caller. Hashing the file again afterwards could
+    pair the upload with a newer version's hash. The original's hash is what a
+    run READING the file can be matched on -- the stored content hash names
+    bytes no reader ever opened (`meta.source_sha256`, the server's
+    `pre_redaction` basis).
+    """
+    raw = _read_source(path, scan_policy=scan_policy, inspect=False)
+    data, result = _redact_read(raw, scan_policy=scan_policy, full_scan=full_scan)
+    return data, result, hashlib.sha256(raw).hexdigest()
+
+
+def _redact_read(
+    raw: bytes, *, scan_policy: ScanPolicy | None, full_scan: bool
+) -> tuple[bytes, InspectionResult]:
+    if full_scan or strict_policy():
+        return redact_bytes(raw, scan_policy=scan_policy)
+    return redact_quick_bytes(raw)
+
+
+#: The marker `redact` writes. Value-free and self-describing, which is what
+#: lets a SERVER derive what a client replaced instead of trusting an assertion.
+_MARKER = re.compile(r"<redacted:([a-z0-9-]{1,64})>")
+
+
+def marker_receipt(raw: bytes) -> tuple[int, tuple[str, ...]]:
+    """`(spans already replaced, rule names)` read out of the bytes themselves.
+
+    The server never sees the credential -- the client replaced it before
+    hashing -- so this is how the artifact row learns a redaction happened.
+    Deriving it beats trusting a client-asserted field: it needs no wire
+    change, it works for a client we did not write, and it cannot disagree
+    with the bytes actually stored.
+
+    A file that genuinely contains this literal text over-reports, which is
+    harmless: the row then says a replacement happened exactly where the text
+    says one did.
+    """
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeError:
+        return 0, ()
+    hits = _MARKER.findall(text)
+    return len(hits), tuple(sorted(set(hits)))
+
+
+def fingerprint_upload(path) -> tuple[str, int]:
+    """`(sha256 hex, size)` of the bytes that will ACTUALLY be uploaded.
+
+    Hashing the file on disk is wrong once redaction can change what leaves:
+    the drainer re-reads the source and redacts it again, deterministically,
+    so a digest taken from the original would not match the bytes the server
+    receives -- and the server refuses on exactly that mismatch.
+    """
+    raw, _ = read_upload_redacted(path)
+    return hashlib.sha256(raw).hexdigest(), len(raw)
+
+
+@dataclass(frozen=True)
+class PreparedUpload:
+    """What to upload, and what the gate found getting there."""
+
+    path: str
+    result: InspectionResult
+
+    @property
+    def was_redacted(self) -> bool:
+        return bool(self.result.rewritten)
+
+
+@contextmanager
+def prepare_upload(path, *, is_reference: bool = False):
+    """Yield the bytes that should actually be uploaded, redacted if needed.
+
+    THE ORDER IS THE WHOLE POINT. The server signs a sha256 and refuses bytes
+    that do not match it, and R2 verifies the same digest independently, so
+    nothing downstream can alter content. Redaction therefore has to happen
+    HERE -- before `fingerprint` -- and what it replaces never leaves this
+    machine at all (see the module docstring for how much that is). A
+    reference is a pointer, not content: nothing is read.
+
+    The original file on disk is never modified. When a span is replaced the
+    upload reads from a temporary copy that is deleted on the way out.
+    """
+    if path is None or is_reference:
+        yield PreparedUpload(path=path, result=InspectionResult())
+        return
+    raw, result = read_upload_redacted(path)
+    if not result.rewritten:
+        yield PreparedUpload(path=os.fspath(path), result=result)
+        return
+    warn_if_redacted(result)
+    fd, staged = tempfile.mkstemp(prefix="probe-redacted-", suffix=Path(path).suffix)
+    token = _SOURCE_PATHS.set(
+        {**(_SOURCE_PATHS.get() or {}), staged: original_upload_path(path)}
+    )
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(raw)
+        del raw
+        yield PreparedUpload(path=staged, result=result)
+    finally:
+        _SOURCE_PATHS.reset(token)
+        Path(staged).unlink(missing_ok=True)
+
+
+def check_upload(path, *, force: bool = False, is_reference: bool = False) -> None:
+    """The checks that must answer before a call returns: a credential in the
+    path, a source that is not a regular file, a file over the limit. The
+    CONTENT is scanned once, where it is redacted (`prepare_upload`, or the
+    outbox's promotion of a queued upload) -- not here as well."""
+    if path is None or is_reference:
+        return
+    if strict_policy():
+        # force is intentionally unable to waive a credential finding.
+        read_upload(path)
+        return
+    _check_path(path)
+    try:
+        info = os.stat(path)
+    except OSError:
+        _refuse("upload source could not be inspected")
+    _check_source(info)
+
+
+def safe_snapshot_file(source, destination) -> None:
+    # Redacted: the outbox hashes this snapshot, not the source, so the
+    # credential must be gone before the digest is taken.
+    raw, _ = read_upload_redacted(source)
+    # No destination exists until ALL bytes have passed inspection.
+    fd = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0), 0o600)
+    with os.fdopen(fd, "wb") as stream:
+        stream.write(raw)
+        stream.flush()
+        os.fsync(stream.fileno())
+
+
+_SOURCE_PATHS = ContextVar("probe_checked_upload_sources", default=None)
+
+
+def original_upload_path(path):
+    return (_SOURCE_PATHS.get() or {}).get(os.fspath(path), os.fspath(path))
+
+
+@contextmanager
+def checked_upload(path, *, digest=None, size=None):
+    # No content scan: these bytes were redacted where they were fingerprinted
+    # (`prepare_upload`, the outbox promotion), and a digest now pins them, so a
+    # second look could only warn -- the server's inspection already does.
+    raw = _read_source(path, inspect=strict_policy())
+    # Redaction is idempotent and already applied upstream, so a path prepared
+    # by `prepare_upload` re-reads to the same bytes and the digest still holds.
+    if (digest is not None and hashlib.sha256(raw).hexdigest() != digest) or (
+        size is not None and len(raw) != size
+    ):
+        _refuse("source changed since its fingerprint was taken")
+    fd, frozen = tempfile.mkstemp(prefix="probe-checked-", suffix=Path(path).suffix)
+    token = _SOURCE_PATHS.set({**(_SOURCE_PATHS.get() or {}), frozen: original_upload_path(path)})
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(raw)
+        del raw
+        yield frozen
+    finally:
+        _SOURCE_PATHS.reset(token)
+        Path(frozen).unlink(missing_ok=True)
+
+
+@contextmanager
+def checked_stream(stream, *, size=None):
+    # Inspect precisely the bytes promised for this stream. A verified capture
+    # deliberately excludes bytes appended after its manifest was taken.
+    if size is None:
+        raw = _read_checked(stream) if strict_policy() else _read_raw(stream)
+    else:
+        if size < 0 or size > policy().max_bytes:
+            _refuse("file exceeds inspection size limit")
+        raw = stream.read(size)
+        if len(raw) != size:
+            _refuse("source size changed before upload")
+        # Never rewrite: a declared size and a signed digest already pin these
+        # bytes. Only the strict policy inspects them here; otherwise the
+        # server's inspection reports what they hold.
+        if strict_policy():
+            warn_if_incomplete(inspect_bytes(raw))
+    with io.BytesIO(raw) as frozen:
+        yield frozen
+
+
+def freeze_upload(fn):
+    """Protect a path-taking upload core with an immutable snapshot whose digest
+    and size are checked (and, under the block policy, inspected)."""
+    signature = inspect.signature(fn)
+
+    @functools.wraps(fn)
+    def wrapped(*args, **kwargs):
+        bound = signature.bind(*args, **kwargs)
+        path = bound.arguments["path"]
+        digest = bound.arguments.get("digest", bound.arguments.get("content_hash"))
+        size = bound.arguments.get("size", bound.arguments.get("size_bytes"))
+        with checked_upload(path, digest=digest, size=size) as frozen:
+            bound.arguments["path"] = frozen
+            return fn(*bound.args, **bound.kwargs)
+
+    return wrapped
+
+
+def freeze_stream(fn):
+    signature = inspect.signature(fn)
+
+    @functools.wraps(fn)
+    def wrapped(*args, **kwargs):
+        bound = signature.bind(*args, **kwargs)
+        original = bound.arguments["fh"]
+        original.seek(0)
+        with checked_stream(original, size=bound.arguments["size"]) as frozen:
+            if len(frozen.getbuffer()) != bound.arguments["size"]:
+                _refuse("source size changed before upload")
+            bound.arguments["fh"] = frozen
+            return fn(*bound.args, **bound.kwargs)
+
+    return wrapped

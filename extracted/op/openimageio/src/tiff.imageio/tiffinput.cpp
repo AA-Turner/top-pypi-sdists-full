@@ -238,6 +238,11 @@ private:
     // like we think the file is hopelessly corrupted.
     bool readspec(bool read_meta = true);
 
+    // Helper for seek_subimage: having already pointed libtiff at the
+    // directory for `subimage`, read and validate its header into m_spec.
+    // Return true if the subimage is usable, false if not.
+    bool readspec_validated(int subimage, bool read_meta);
+
     // Figure out all the photometric-related aspects of the header.
     // Return true if all is fine, false if something really bad happens,
     // like we think the file is invalid or hopelessly corrupted.
@@ -1001,37 +1006,18 @@ TIFFInput::seek_subimage(int subimage, int miplevel)
     m_next_scanline = 0;  // next scanline we'll read
     if (subimage == m_actual_subimage || TIFFSetDirectory(m_tif, subimage)) {
         m_actual_subimage = subimage;
-        if (!readspec(read_meta))
-            return false;
-
-        char emsg[1024];
-        if (m_use_rgba_interface && !TIFFRGBAImageOK(m_tif, emsg)) {
-            errorfmt("No support for this flavor of TIFF file ({})", emsg);
-            return false;
-        }
-        if (size_t(subimage) >= m_subimage_specs.size())  // make room
-            m_subimage_specs.resize(
-                subimage > 0 ? round_to_multiple(subimage + 1, 4) : 1);
-        if (m_subimage_specs[subimage].undefined()) {
-            // haven't cached this spec yet
-            m_subimage_specs[subimage] = m_spec;
-        }
-        if (m_spec.format == TypeDesc::UNKNOWN) {
-            errorfmt("No support for data format of \"{}\"", m_filename);
+        // From here on, libtiff and m_spec describe `subimage`. If it turns
+        // out to be unusable, we must invalidate the logical state as well --
+        // leaving m_subimage/m_miplevel describing the previously valid
+        // subimage would let a subsequent seek back to it take the early-out
+        // above and then read this directory through a mismatched m_spec.
+        if (!readspec_validated(subimage, read_meta)) {
+            m_subimage        = -1;
+            m_miplevel        = -1;
+            m_actual_subimage = -1;
+            m_spec            = ImageSpec();
             return false;
         }
-        if (!check_open(m_spec,
-                        { 0, 1 << 30, 0, 1 << 30, 0, 1 << 16, 0, 1 << 16 }))
-            return false;
-
-        // Guard against decompression bombs / corrupt headers: a tiny file
-        // claiming a multi-gigabyte image, which would then make the strip/
-        // scanline readers below allocate and attempt to fill gigabytes of
-        // pixel data.
-        imagesize_t filesize = ioproxy() ? ioproxy()->size()
-                                         : Filesystem::file_size(m_filename);
-        if (!check_compression_ratio(m_spec, filesize))
-            return false;
         m_subimage = orig_subimage;
         m_miplevel = miplevel;
         return true;
@@ -1045,6 +1031,45 @@ TIFFInput::seek_subimage(int subimage, int miplevel)
         m_actual_subimage = -1;
         return false;
     }
+}
+
+
+
+bool
+TIFFInput::readspec_validated(int subimage, bool read_meta)
+{
+    if (!readspec(read_meta))
+        return false;
+
+    char emsg[1024];
+    if (m_use_rgba_interface && !TIFFRGBAImageOK(m_tif, emsg)) {
+        errorfmt("No support for this flavor of TIFF file ({})", emsg);
+        return false;
+    }
+    if (size_t(subimage) >= m_subimage_specs.size())  // make room
+        m_subimage_specs.resize(
+            subimage > 0 ? round_to_multiple(subimage + 1, 4) : 1);
+    if (m_subimage_specs[subimage].undefined()) {
+        // haven't cached this spec yet
+        m_subimage_specs[subimage] = m_spec;
+    }
+    if (m_spec.format == TypeDesc::UNKNOWN) {
+        errorfmt("No support for data format of \"{}\"", m_filename);
+        return false;
+    }
+    if (!check_open(m_spec, { 0, 1 << 30, 0, 1 << 30, 0, 1 << 16, 0, 1 << 16 }))
+        return false;
+
+    // Guard against decompression bombs / corrupt headers: a tiny file
+    // claiming a multi-gigabyte image, which would then make the strip/
+    // scanline readers below allocate and attempt to fill gigabytes of
+    // pixel data.
+    imagesize_t filesize = ioproxy() ? ioproxy()->size()
+                                     : Filesystem::file_size(m_filename);
+    if (!check_compression_ratio(m_spec, filesize))
+        return false;
+
+    return true;
 }
 
 
@@ -1145,6 +1170,8 @@ TIFFInput::readspec(bool read_meta)
         m_spec.nchannels = (int)m_inputchannels;
     }
 
+    m_spec.x   = 0;
+    m_spec.y   = 0;
     float xpos = 0, ypos = 0;
     TIFFGetField(m_tif, TIFFTAG_XPOSITION, &xpos);
     TIFFGetField(m_tif, TIFFTAG_YPOSITION, &ypos);
@@ -1175,11 +1202,13 @@ TIFFInput::readspec(bool read_meta)
         if (oiio_write_version && oiio_write_version < 10803) {
             xres = yres = 1.0f;
         }
-        m_spec.x = (int)(xpos * xres);
-        m_spec.y = (int)(ypos * yres);
-    } else {
-        m_spec.x = 0;
-        m_spec.y = 0;
+        auto xoffset = uint64_t(xpos * xres);
+        auto yoffset = uint64_t(ypos * yres);
+        if (xoffset < (1 << 30) && yoffset < (1 << 30)) {
+            // Anything outside this generous range is definitely corrupted
+            m_spec.x = (int)xoffset;
+            m_spec.y = (int)yoffset;
+        }
     }
     m_spec.z = 0;
 
@@ -2437,13 +2466,19 @@ TIFFInput::read_native_tile_locked(int subimage, int miplevel, int x, int y,
                            span_cast<uint8_t>(data));
     } else {
         // Not palette
-        imagesize_t plane_bytes = m_spec.tile_pixels() * m_spec.format.size();
+        imagesize_t plane_bytes = tile_pixels * m_spec.format.size();
         int planes              = m_separate ? m_inputchannels : 1;
-        std::vector<unsigned char> scratch2(m_separate ? plane_bytes * planes
-                                                       : 0);
-        // Where to read?  Directly into user data if no channel shuffling
-        // or bit shifting is needed, otherwise into scratch space.
-        unsigned char* readbuf = (no_bit_convert && !m_separate
+        imagesize_t input_bytes = plane_bytes * m_inputchannels;
+        // CMYK->RGB consumes more channels than it produces, so it can't be
+        // done in place in the user's buffer.
+        bool cmyk_convert = (m_photometric == PHOTOMETRIC_SEPARATED
+                             && !m_raw_color);
+        std::vector<unsigned char> scratch2(
+            (m_separate || cmyk_convert) ? input_bytes : 0);
+        // Where to read?  Directly into user data if no channel shuffling,
+        // bit shifting, or CMYK conversion is needed, otherwise into
+        // scratch space.
+        unsigned char* readbuf = (no_bit_convert && !m_separate && !cmyk_convert
                                   && m_inputchannels == m_spec.nchannels)
                                      ? (unsigned char*)data.data()
                                      : m_scratch.data();
@@ -2455,33 +2490,60 @@ TIFFInput::read_native_tile_locked(int subimage, int miplevel, int x, int y,
                 errorfmt("{}", oiio_tiff_last_error());
                 return false;
             }
-        if (m_bitspersample < 8) {
+        // Handle less-than-full bit depths
+        bool use_scratch_dest = m_separate || cmyk_convert;
+        int outbits           = 0;
+        if (m_bitspersample < 8)
+            outbits = 8;
+        else if (m_bitspersample > 8 && m_bitspersample < 16)
+            outbits = 16;
+        else if (m_bitspersample > 16 && m_bitspersample < 32)
+            outbits = 32;
+        if (outbits) {
             // m_scratch now holds nvals n-bit values, contig or separate
-            std::swap(m_scratch, scratch2);
+            scratch2.resize(input_bytes);
+            m_scratch.swap(scratch2);
             for (int c = 0; c < planes; ++c) /* planes==1 for contig */
                 bit_convert(m_separate ? tile_pixels : nvals,
                             &scratch2[plane_bytes * c], m_bitspersample,
-                            m_separate
+                            use_scratch_dest
                                 ? m_scratch.data() + plane_bytes * c
                                 : (unsigned char*)data.data() + plane_bytes * c,
-                            8);
-        } else if (m_bitspersample > 8 && m_bitspersample < 16) {
-            // m_scratch now holds nvals n-bit values, contig or separate
-            std::swap(m_scratch, scratch2);
-            for (int c = 0; c < planes; ++c) /* planes==1 for contig */
-                bit_convert(m_separate ? tile_pixels : nvals,
-                            &scratch2[plane_bytes * c], m_bitspersample,
-                            m_separate
-                                ? m_scratch.data() + plane_bytes * c
-                                : (unsigned char*)data.data() + plane_bytes * c,
-                            16);
+                            outbits);
         }
         if (m_separate) {
             // Convert from separate (RRRGGGBBB) to contiguous (RGBRGBRGB).
             // We know the data is in m_scratch at this point, so
             // contiguize it into the user data area.
-            separate_to_contig(planes, tile_pixels,
-                               as_bytes(make_span(m_scratch)), data);
+            if (cmyk_convert) {
+                // CMYK->RGB means we need temp storage.
+                scratch2.resize(input_bytes);
+                separate_to_contig(planes, tile_pixels,
+                                   as_bytes(make_span(m_scratch)),
+                                   as_writable_bytes(make_span(scratch2)));
+                m_scratch.swap(scratch2);
+            } else {
+                // If no CMYK->RGB conversion is necessary, we can "separate"
+                // straight into the data area.
+                separate_to_contig(planes, tile_pixels,
+                                   as_bytes(make_span(m_scratch)), data);
+            }
+        }
+        // Handle CMYK
+        if (cmyk_convert) {
+            // The CMYK will be in m_scratch.
+            if (m_spec.format == TypeDesc::UINT8) {
+                cmyk_to_rgb(int(tile_pixels), (unsigned char*)m_scratch.data(),
+                            m_inputchannels, (unsigned char*)data.data(),
+                            m_spec.nchannels);
+            } else if (m_spec.format == TypeDesc::UINT16) {
+                cmyk_to_rgb(int(tile_pixels), (unsigned short*)m_scratch.data(),
+                            m_inputchannels, (unsigned short*)data.data(),
+                            m_spec.nchannels);
+            } else {
+                errorfmt("CMYK only supported for UINT8, UINT16");
+                return false;
+            }
         }
     }
 

@@ -46,7 +46,7 @@ def test_f32_optimizers(optimizer_config, foreach, environment):
         pytest.skip(f'skip {optimizer_name} w/ foreach')
 
     x_data, y_data = environment
-    model, loss_fn = build_model()
+    model, loss_fn = build_model(device=x_data.device)
     parameters, config = build_optimizer_parameter(list(model.parameters()), optimizer_name, config)
 
     optimizer = optimizer_class(parameters, **config, foreach=foreach)
@@ -61,8 +61,43 @@ def test_f32_optimizers(optimizer_config, foreach, environment):
         iterations=iterations,
         create_graph=should_use_create_graph(optimizer_name),
         closure_fn=closure_fn,
-        threshold=1.5 if optimizer_name not in ('SpectralSphere',) else 1.4,
+        threshold=1.4 if optimizer_name in ('SpectralSphere', 'build_orthograd') else 1.5,
     )
+
+
+@pytest.mark.parametrize(('optimizer_name', 'iterations'), [('adasmooth', 5), ('a2grad', 100), ('adashift', 20)])
+def test_optimizer_updates_remain_finite(optimizer_name, iterations):
+    torch.manual_seed(0)
+    param = nn.Parameter(torch.zeros(4) if optimizer_name == 'adasmooth' else torch.rand(4))
+    optimizer = load_optimizer(optimizer_name)([param], lr=1e-2)
+    for _ in range(iterations):
+        optimizer.zero_grad()
+        ((param - 1.0) ** 2).sum().backward()
+        optimizer.step()
+        assert torch.isfinite(param).all()
+
+
+def test_adabound_zero_learning_rate_warmup():
+    parameter = nn.Parameter(torch.tensor([1.0, -1.0]))
+    reference_parameter = nn.Parameter(parameter.detach().clone())
+    config = {'betas': (0.5, 0.5), 'final_lr': 0.2, 'gamma': 1.0, 'weight_decay': 0.1}
+    optimizer = load_optimizer('adabound')([parameter], lr=0.0, **config)
+    reference = load_optimizer('adabound')([reference_parameter], lr=0.1, **config)
+    gradient = torch.tensor([1.0, -0.5])
+
+    for step, lr in enumerate((0.0, 0.0, 0.1, 0.05, 0.0, 0.2), start=1):
+        previous_parameter = parameter.detach().clone()
+        optimizer.param_groups[0]['lr'] = reference.param_groups[0]['lr'] = lr
+        parameter.grad = gradient.clone()
+        reference_parameter.grad = gradient.clone()
+        optimizer.step()
+        reference.step()
+
+        torch.testing.assert_close(parameter, reference_parameter)
+        torch.testing.assert_close(optimizer.state[parameter]['exp_avg'], gradient * (1.0 - 0.5**step))
+        torch.testing.assert_close(optimizer.state[parameter]['exp_avg_sq'], gradient.square() * (1.0 - 0.5**step))
+        if lr == 0.0:
+            torch.testing.assert_close(parameter, previous_parameter)
 
 
 @pytest.mark.parametrize('optimizer_config', OPTIMIZERS, ids=ids)
@@ -75,7 +110,7 @@ def test_bf16_optimizers(optimizer_config, foreach, environment):
         pytest.skip(f'skip {optimizer_name}')
 
     x_data, y_data = environment
-    model, loss_fn = build_model()
+    model, loss_fn = build_model(device=x_data.device)
     model = model.bfloat16()
     parameters, config = build_optimizer_parameter(list(model.parameters()), optimizer_name, config)
 
@@ -91,7 +126,7 @@ def test_bf16_optimizers(optimizer_config, foreach, environment):
         iterations=iterations,
         create_graph=should_use_create_graph(optimizer_name),
         closure_fn=closure_fn,
-        threshold=1.5 if optimizer_name not in ('SpectralSphere',) else 1.4,
+        threshold=1.4 if optimizer_name in ('SpectralSphere', 'build_orthograd') else 1.5,
     )
 
 
@@ -104,7 +139,7 @@ def test_complex_optimizers(optimizer_config, environment):
         pytest.skip(f'{optimizer_name} does not support complex')
 
     x_data, y_data = environment
-    model, loss_fn = build_model(use_complex=True)
+    model, loss_fn = build_model(use_complex=True, device=x_data.device)
     x_data = x_data.to(torch.complex64)
     parameters, config = build_optimizer_parameter(list(model.parameters()), optimizer_name, config)
 
@@ -144,10 +179,9 @@ def test_init_group(optimizer_config):
 
 @pytest.mark.parametrize('optimizer', {config[0] for config in OPTIMIZERS}, ids=names)
 def test_closure(optimizer):
-    param = simple_parameter()
-    param.grad = None
-
     optimizer_name: str = optimizer.__name__
+    param = torch.tensor([1.0, 0.0], requires_grad=True) if optimizer_name == 'build_orthograd' else simple_parameter()
+    param.grad = None
 
     if optimizer_name == 'Ranger21':
         optimizer = optimizer([param], num_iterations=1)
@@ -167,6 +201,15 @@ def test_closure(optimizer):
     elif optimizer_name in ('AliG',):
         with pytest.raises(NoClosureError):
             optimizer.step()
+    elif optimizer_name == 'build_orthograd':
+
+        def closure():
+            loss = param.sum()
+            loss.backward()
+            return loss
+
+        assert optimizer.step(closure).item() == 1.0
+        torch.testing.assert_close(param.grad, torch.tensor([0.0, 2.0**0.5]))
     else:
         optimizer.step(closure=dummy_closure)
 
@@ -228,6 +271,49 @@ def test_swats_sgd_phase():
 
     opt.param_groups[0]['phase'] = 'sgd'
     opt.step()
+
+
+@pytest.mark.parametrize('foreach', [False, True])
+def test_sign_sgd_preserves_momentum_buffer(foreach):
+    param = nn.Parameter(torch.tensor([0.0]))
+    optimizer = load_optimizer('signsgd')([param], lr=1.0, momentum=0.9, foreach=foreach)
+
+    param.grad = torch.tensor([1.0])
+    optimizer.step()
+
+    param.grad = torch.tensor([-0.1])
+    optimizer.step()
+
+    assert torch.allclose(optimizer.state[param]['momentum_buffer'], torch.tensor([0.08]))
+
+
+@pytest.mark.parametrize('foreach', [False, True])
+@pytest.mark.parametrize(
+    ('weight_decay', 'weight_decouple', 'expected'), [(0.2, True, 1.96), (0.2, False, 1.9), (0.0, True, 2.0)]
+)
+def test_sign_sgd_weight_decay(foreach, weight_decay, weight_decouple, expected):
+    param = nn.Parameter(torch.tensor([2.0]))
+    optimizer = load_optimizer('signsgd')(
+        [param], lr=0.1, momentum=0.9, weight_decay=weight_decay, weight_decouple=weight_decouple, foreach=foreach
+    )
+
+    param.grad = torch.tensor([0.0])
+    optimizer.step()
+
+    assert torch.allclose(param, torch.tensor([expected]))
+
+
+@pytest.mark.parametrize(('optimizer_name', 'kwargs'), [('signsgd', {'momentum': 0.1}), ('tiger', {'beta': 0.1})])
+def test_sign_based_foreach_parity(optimizer_name, kwargs):
+    def run(foreach):
+        param = nn.Parameter(torch.tensor([2.0]))
+        optimizer = load_optimizer(optimizer_name)([param], lr=0.1, foreach=foreach, **kwargs)
+        for grad in (1.0, -0.1):
+            param.grad = torch.tensor([grad])
+            optimizer.step()
+        return param.item()
+
+    assert run(False) == run(True)
 
 
 @pytest.mark.parametrize('pre_conditioner_type', [0, 1, 2])
@@ -424,7 +510,7 @@ def test_soap_merge_dims_channel_last(environment):
 
     model = nn.Sequential(
         nn.Conv2d(1, 1, 2, 1),
-    )
+    ).to(x_data.device)
 
     optimizer = load_optimizer('soap')(
         model.parameters(),

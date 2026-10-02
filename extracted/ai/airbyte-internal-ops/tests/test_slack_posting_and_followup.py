@@ -6,8 +6,8 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 
-from airbyte_ops_mcp import slack_posting
 from airbyte_ops_mcp.github_actions import WorkflowDispatchResult
 from airbyte_ops_mcp.mcp.devin_ops import (
     _FOLLOWUP_HEADER,
@@ -197,15 +197,17 @@ def test_build_feedback_body_omits_missing_session_note_when_present() -> None:
         severity=None,
         steps_to_reproduce=None,
         session_to_evaluate="https://app.devin.ai/sessions/target",
+        thread_url=THREAD_URL,
     )
 
     assert "*Session link missing:*" not in result
+    assert f"*Originating thread:* <{THREAD_URL}|Slack thread>" in result
 
 
 @pytest.mark.unit
 @patch("airbyte_ops_mcp.mcp.devin_ops.trigger_workflow_dispatch")
 @patch("airbyte_ops_mcp.mcp.devin_ops.resolve_ci_trigger_github_token")
-def test_dispatch_triage_workflow_forwards_ticket_and_thread(
+def test_dispatch_triage_workflow_forwards_ticket(
     mock_token: MagicMock, mock_dispatch: MagicMock
 ) -> None:
     mock_token.return_value = "fake-token"
@@ -296,21 +298,24 @@ def test_feedback_report_tags_reporter_without_thread(mock_send: MagicMock) -> N
 
 
 @pytest.mark.unit
-@patch("airbyte_ops_mcp.mcp.devin_ops.post_channel_message")
 @patch("airbyte_ops_mcp.mcp.devin_ops.send_hitl_notification")
-def test_rich_channel_notification_falls_back_to_plain_text(
-    mock_send: MagicMock,
-    mock_post: MagicMock,
-) -> None:
-    mock_send.side_effect = SlackAPIError("roster lookup failed")
-    mock_post.return_value = SlackPostResult(
+def test_feedback_report_tags_reporter_in_source_thread(mock_send: MagicMock) -> None:
+    mock_send.return_value = SlackPostResult(
         channel_id="C0ACUHRP6B1",
         ts="1774646400.000100",
     )
 
-    _post_feedback_report("feedback", target_person="reporter@airbyte.io")
+    _post_feedback_report(
+        "feedback",
+        THREAD_URL,
+        target_person="reporter@airbyte.io",
+        cc_persons=["S0BJ4K3LC4X"],
+        issue_url=ISSUE_URL,
+    )
 
-    mock_post.assert_called_once_with("C0ACUHRP6B1", "feedback")
+    notification = mock_send.call_args.kwargs
+    assert notification["channel_override"] == "C0ACUHRP6B1"
+    assert notification["thread_ts"] == "1773062711.122019"
 
 
 @pytest.mark.unit
@@ -329,6 +334,24 @@ def test_feedback_report_replies_to_source_thread(mock_post: MagicMock) -> None:
         thread_ts="1773062711.122019",
         message="feedback",
     )
+
+
+@pytest.mark.unit
+@patch("airbyte_ops_mcp.mcp.devin_ops.post_channel_message")
+@patch("airbyte_ops_mcp.mcp.devin_ops.send_hitl_notification")
+def test_rich_channel_notification_falls_back_to_plain_text(
+    mock_send: MagicMock,
+    mock_post: MagicMock,
+) -> None:
+    mock_send.side_effect = SlackAPIError("roster lookup failed")
+    mock_post.return_value = SlackPostResult(
+        channel_id="C0ACUHRP6B1",
+        ts="1774646400.000100",
+    )
+
+    _post_feedback_report("feedback", target_person="reporter@airbyte.io")
+
+    mock_post.assert_called_once_with("C0ACUHRP6B1", "feedback")
 
 
 def _negative_feedback_kwargs() -> dict[str, object]:
@@ -427,7 +450,6 @@ def test_feedback_area_routes_cc_on_post_only(
         linear_issue_id="issue-uuid",
         linear_issue_url=ISSUE_URL,
         post_only=True,
-        thread_url=THREAD_URL,
         feedback_area="db_sources",
     )
 
@@ -491,42 +513,55 @@ def test_post_only_feedback_posts_without_dispatch(
     assert "No Linear ticket recorded" not in result.message
     mock_post.assert_called_once()
     mock_dispatch.assert_not_called()
+    assert len(mock_post.call_args.args) == 1
 
 
 @pytest.mark.unit
-@patch("airbyte_ops_mcp.mcp.devin_ops._dispatch_triage_workflow")
-@patch("airbyte_ops_mcp.mcp.devin_ops.send_hitl_notification")
-def test_negative_thread_feedback_uses_rich_notification(
-    mock_send: MagicMock,
-    mock_dispatch: MagicMock,
+@patch("airbyte_ops_mcp.mcp.devin_ops._post_feedback_report")
+def test_post_only_thread_feedback_posts_to_channel_then_thread(
+    mock_post: MagicMock,
 ) -> None:
-    mock_send.return_value = SlackPostResult(
-        channel_id="C0ACUHRP6B1",
-        ts="1774646400.000100",
-    )
-    mock_dispatch.return_value = WorkflowDispatchResult(
-        workflow_url="https://github.com/airbytehq/airbyte-ops-mcp/actions/workflows/"
-        "devin-session-triage.yml",
-    )
+    mock_post.side_effect = [
+        "https://slack.example/hydra-feedback",
+        "https://slack.example/source-thread",
+    ]
 
     result = devin_session_feedback(
         **_negative_feedback_kwargs(),
         agent_session_url="https://app.devin.ai/sessions/reporter",
         linear_issue_id="issue-uuid",
         linear_issue_url=ISSUE_URL,
+        post_only=True,
         thread_url=THREAD_URL,
     )
 
     assert result.success is True
-    notification = mock_send.call_args.kwargs
-    assert notification["target_person"] == "reporter@airbyte.io"
-    assert notification["cc_persons"] == ["S0BJ4K3LC4X", "S0BKR63VAN5"]
-    assert notification["channel_override"] == "C0ACUHRP6B1"
-    assert notification["thread_ts"] == "1773062711.122019"
-    assert notification["header_emoji"] == ":warning:"
-    assert notification["header_label"] == "Devin Session Feedback (Negative)"
-    assert notification["issue_url"] == ISSUE_URL
-    assert "The tool errored." in notification["message"]
+    assert (
+        "Thread reply posted at https://slack.example/source-thread." in result.message
+    )
+    assert mock_post.call_count == 2
+    assert len(mock_post.call_args_list[0].args) == 1
+    assert mock_post.call_args_list[1].args[1] == THREAD_URL
+
+
+@pytest.mark.unit
+@patch("airbyte_ops_mcp.mcp.devin_ops._post_feedback_report")
+def test_post_only_thread_channel_failure_returns_failure(
+    mock_post: MagicMock,
+) -> None:
+    mock_post.side_effect = SlackAPIError("channel post failed")
+
+    result = devin_session_feedback(
+        **_negative_feedback_kwargs(),
+        agent_session_url="https://app.devin.ai/sessions/reporter",
+        post_only=True,
+        thread_url=THREAD_URL,
+    )
+
+    assert result.success is False
+    assert "channel post failed" in result.message
+    mock_post.assert_called_once()
+    assert len(mock_post.call_args.args) == 1
 
 
 @pytest.mark.unit
@@ -548,49 +583,23 @@ def test_untracked_thread_feedback_omits_linear_button(
     result = devin_session_feedback(
         **_negative_feedback_kwargs(),
         agent_session_url="https://app.devin.ai/sessions/reporter",
+        post_only=True,
         thread_url=THREAD_URL,
     )
 
     assert result.success is True
-    notification = mock_send.call_args.kwargs
-    assert notification["issue_url"] is None
-    assert "No Linear ticket recorded" in notification["message"]
+    assert mock_send.call_count == 2
+    channel_notification, thread_notification = (
+        call.kwargs for call in mock_send.call_args_list
+    )
+    assert channel_notification["issue_url"] is None
+    assert channel_notification["channel_override"] == "C0ACUHRP6B1"
+    assert channel_notification["thread_ts"] is None
+    assert thread_notification["issue_url"] is None
+    assert thread_notification["channel_override"] == "C0ACUHRP6B1"
+    assert thread_notification["thread_ts"] == "1773062711.122019"
+    assert "No Linear ticket recorded" in thread_notification["message"]
     assert "No Linear ticket recorded" in result.message
-
-
-@pytest.mark.unit
-@patch("airbyte_ops_mcp.mcp.devin_ops.post_thread_reply")
-@patch("airbyte_ops_mcp.mcp.devin_ops.send_hitl_notification")
-def test_rich_thread_notification_falls_back_to_plain_text(
-    mock_send: MagicMock,
-    mock_post: MagicMock,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    mock_send.side_effect = RuntimeError("roster unavailable")
-    mock_post.return_value = SlackPostResult(
-        channel_id="C0ACUHRP6B1",
-        ts="1774646400.000100",
-    )
-
-    result = devin_session_feedback(
-        feedback_type="positive",
-        category="great_results",
-        task_description="Complete a repo task",
-        agent_session_url="https://app.devin.ai/sessions/test123",
-        reporting_user="reporter@airbyte.io",
-        session_playbook="none",
-        what_went_well="The task was completed quickly.",
-        thread_url=THREAD_URL,
-    )
-
-    assert result.success is True
-    assert "originating Slack thread" in result.message
-    assert "falling back to plain-text posting" in caplog.text
-    mock_post.assert_called_once_with(
-        channel_id="C0ACUHRP6B1",
-        thread_ts="1773062711.122019",
-        message=mock_send.call_args.kwargs["message"],
-    )
 
 
 @pytest.mark.unit
@@ -640,10 +649,10 @@ def test_fallback_handoff_preserves_tracking_issue(
 @pytest.mark.unit
 @patch("airbyte_ops_mcp.mcp.devin_ops._dispatch_triage_workflow")
 @patch("airbyte_ops_mcp.mcp.devin_ops._post_feedback_report")
-def test_thread_slack_failure_still_dispatches(
-    mock_post: MagicMock, mock_dispatch: MagicMock
+def test_thread_url_report_still_triages_agent_session(
+    mock_post: MagicMock,
+    mock_dispatch: MagicMock,
 ) -> None:
-    mock_post.side_effect = SlackAPIError("Slack unavailable")
     mock_dispatch.return_value = WorkflowDispatchResult(
         workflow_url="https://github.com/airbytehq/airbyte-ops-mcp/actions/workflows/"
         "devin-session-triage.yml",
@@ -651,27 +660,84 @@ def test_thread_slack_failure_still_dispatches(
 
     result = devin_session_feedback(
         **_negative_feedback_kwargs(),
-        agent_session_url="https://app.devin.ai/sessions/reporter",
+        agent_session_url="https://app.devin.ai/sessions/filer",
         session_to_evaluate=None,
-        linear_issue_id="issue-uuid",
-        linear_issue_url=ISSUE_URL,
         thread_url=THREAD_URL,
     )
 
     assert result.success is True
-    assert "Slack posting failed" in result.message
+    dispatch_kwargs = mock_dispatch.call_args.kwargs
+    assert dispatch_kwargs["session_url"] == "https://app.devin.ai/sessions/filer"
+    assert "Session link missing" not in dispatch_kwargs["feedback_context"]
+    assert "Originating thread" in dispatch_kwargs["feedback_context"]
+    assert dispatch_kwargs["thread_url"] == THREAD_URL
+    mock_post.assert_called_once()
+    assert mock_post.call_args.args[1] == THREAD_URL
+
+
+@pytest.mark.unit
+@patch("airbyte_ops_mcp.mcp.devin_ops._dispatch_triage_workflow")
+@patch("airbyte_ops_mcp.mcp.devin_ops._post_feedback_report")
+def test_thread_post_failure_does_not_block_triage_dispatch(
+    mock_post: MagicMock,
+    mock_dispatch: MagicMock,
+) -> None:
+    mock_post.side_effect = SlackAPIError("thread reply failed")
+    mock_dispatch.return_value = WorkflowDispatchResult(
+        workflow_url="https://github.com/airbytehq/airbyte-ops-mcp/actions/workflows/"
+        "devin-session-triage.yml",
+    )
+
+    result = devin_session_feedback(
+        **_negative_feedback_kwargs(),
+        agent_session_url="https://app.devin.ai/sessions/filer",
+        session_to_evaluate=None,
+        thread_url=THREAD_URL,
+    )
+
+    assert result.success is True
+    assert "Posting to the originating thread failed: thread reply failed." in (
+        result.message
+    )
     mock_dispatch.assert_called_once()
     assert mock_dispatch.call_args.kwargs["thread_url"] == THREAD_URL
+
+
+@pytest.mark.unit
+@patch("airbyte_ops_mcp.mcp.devin_ops._dispatch_triage_workflow")
+@patch("airbyte_ops_mcp.mcp.devin_ops._post_feedback_report")
+def test_thread_request_error_does_not_block_triage_dispatch(
+    mock_post: MagicMock,
+    mock_dispatch: MagicMock,
+) -> None:
+    mock_post.side_effect = requests.ConnectionError("boom")
+    mock_dispatch.return_value = WorkflowDispatchResult(
+        workflow_url="https://github.com/airbytehq/airbyte-ops-mcp/actions/workflows/"
+        "devin-session-triage.yml",
+    )
+
+    result = devin_session_feedback(
+        **_negative_feedback_kwargs(),
+        agent_session_url="https://app.devin.ai/sessions/filer",
+        session_to_evaluate=None,
+        thread_url=THREAD_URL,
+    )
+
+    assert result.success is True
+    assert "Posting to the originating thread failed: boom." in result.message
+    mock_dispatch.assert_called_once()
 
 
 @pytest.mark.unit
 @patch("airbyte_ops_mcp.mcp.devin_ops.dispatch_escalation")
 @patch("airbyte_ops_mcp.mcp.devin_ops._dispatch_triage_workflow")
 @patch("airbyte_ops_mcp.mcp.devin_ops._post_feedback_report")
-def test_thread_slack_and_dispatch_failure_falls_back_to_handoff(
-    mock_post: MagicMock, mock_dispatch: MagicMock, mock_escalation: MagicMock
+def test_thread_report_is_followed_by_channel_fallback_when_dispatch_fails(
+    mock_post: MagicMock,
+    mock_dispatch: MagicMock,
+    mock_escalation: MagicMock,
 ) -> None:
-    mock_post.side_effect = SlackAPIError("Slack unavailable")
+    mock_post.return_value = "https://slack.example/source-thread"
     mock_dispatch.return_value = None
     mock_escalation.return_value = WorkflowDispatchResult(
         workflow_url="https://github.com/airbytehq/airbyte-ops-mcp/actions/workflows/"
@@ -680,26 +746,27 @@ def test_thread_slack_and_dispatch_failure_falls_back_to_handoff(
 
     result = devin_session_feedback(
         **_negative_feedback_kwargs(),
-        agent_session_url="https://app.devin.ai/sessions/reporter",
+        agent_session_url="https://app.devin.ai/sessions/filer",
         session_to_evaluate=None,
-        linear_issue_id="issue-uuid",
-        linear_issue_url=ISSUE_URL,
         thread_url=THREAD_URL,
     )
 
     assert result.success is True
+    assert (
+        "Thread reply posted at https://slack.example/source-thread." in result.message
+    )
+    mock_post.assert_called_once()
+    assert mock_post.call_args.args[1] == THREAD_URL
+    mock_dispatch.assert_called_once()
     mock_escalation.assert_called_once()
-    assert f"<{ISSUE_URL}|HYD-123>" in mock_escalation.call_args.kwargs["message"]
+    assert mock_escalation.call_args.kwargs["channel_override"] == "C0ACUHRP6B1"
 
 
 @pytest.mark.unit
 @patch("airbyte_ops_mcp.mcp.devin_ops._dispatch_triage_workflow")
-@patch("airbyte_ops_mcp.mcp.devin_ops._post_feedback_report")
-def test_on_behalf_report_does_not_triage_filer_session(
-    mock_post: MagicMock,
+def test_session_to_evaluate_takes_precedence_over_agent_session(
     mock_dispatch: MagicMock,
 ) -> None:
-    mock_post.return_value = "https://slack.example/report"
     mock_dispatch.return_value = WorkflowDispatchResult(
         workflow_url="https://github.com/airbytehq/airbyte-ops-mcp/actions/workflows/"
         "devin-session-triage.yml",
@@ -708,61 +775,14 @@ def test_on_behalf_report_does_not_triage_filer_session(
     result = devin_session_feedback(
         **_negative_feedback_kwargs(),
         agent_session_url="https://app.devin.ai/sessions/filer",
-        session_to_evaluate=None,
-        thread_url=THREAD_URL,
+        session_to_evaluate="https://app.devin.ai/sessions/target",
     )
 
     assert result.success is True
-    assert mock_dispatch.call_args.kwargs["session_url"] == ""
-    assert "Session link missing" in mock_dispatch.call_args.kwargs["feedback_context"]
-    assert mock_post.call_args.kwargs["agent_session_url"] == ""
-
-
-@pytest.mark.unit
-@patch("airbyte_ops_mcp.slack_posting._post_message")
-@patch("airbyte_ops_mcp.mcp.devin_ops._dispatch_triage_workflow")
-@patch("airbyte_ops_mcp.mcp.devin_ops.send_hitl_notification")
-def test_on_behalf_without_session_omits_session_button(
-    mock_send: MagicMock,
-    mock_dispatch: MagicMock,
-    mock_post: MagicMock,
-) -> None:
-    mock_post.return_value = SlackPostResult(
-        channel_id="C0ACUHRP6B1",
-        ts="1774646400.000100",
+    assert (
+        mock_dispatch.call_args.kwargs["session_url"]
+        == "https://app.devin.ai/sessions/target"
     )
-    mock_dispatch.return_value = WorkflowDispatchResult(
-        workflow_url="https://github.com/airbytehq/airbyte-ops-mcp/actions/workflows/"
-        "devin-session-triage.yml",
-    )
-
-    def send_with_test_dependencies(**kwargs: object) -> SlackPostResult:
-        return slack_posting.send_hitl_notification(
-            **kwargs,
-            slack_token="xoxb-test",
-            roster=[],
-        )
-
-    mock_send.side_effect = send_with_test_dependencies
-
-    result = devin_session_feedback(
-        **_negative_feedback_kwargs(),
-        agent_session_url="https://app.devin.ai/sessions/filer",
-        session_to_evaluate=None,
-        thread_url=THREAD_URL,
-    )
-
-    assert result.success is True
-    assert mock_send.call_args.kwargs["agent_session_url"] == ""
-    assert "*Session link missing:*" in mock_send.call_args.kwargs["message"]
-    blocks = mock_post.call_args.kwargs["blocks"]
-    assert not any(
-        element.get("action_id") == "view_session"
-        for block in blocks
-        if block["type"] == "actions"
-        for element in block["elements"]
-    )
-    assert "https://app.devin.ai/sessions/filer" not in str(blocks)
 
 
 @pytest.mark.unit
@@ -793,11 +813,15 @@ def test_positive_feedback_does_not_call_linear_or_triage(
 @pytest.mark.unit
 @patch("airbyte_ops_mcp.mcp.devin_ops.dispatch_escalation")
 @patch("airbyte_ops_mcp.mcp.devin_ops._post_feedback_report")
-def test_positive_feedback_with_thread_posts_reply_without_dispatch(
+def test_positive_thread_feedback_posts_to_thread_and_channel(
     mock_post: MagicMock,
     mock_escalation: MagicMock,
 ) -> None:
-    mock_post.return_value = "https://slack.example/thread-reply"
+    mock_post.return_value = "https://slack.example/source-thread"
+    mock_escalation.return_value = WorkflowDispatchResult(
+        workflow_url="https://github.com/airbytehq/airbyte-ops-mcp/actions/workflows/"
+        "human-in-the-loop.yml",
+    )
 
     result = devin_session_feedback(
         feedback_type="positive",
@@ -811,43 +835,46 @@ def test_positive_feedback_with_thread_posts_reply_without_dispatch(
     )
 
     assert result.success is True
-    assert "originating Slack thread" in result.message
+    assert (
+        "Thread reply posted at https://slack.example/source-thread." in result.message
+    )
+    mock_post.assert_called_once()
     assert mock_post.call_args.args[1] == THREAD_URL
-    assert "The task was completed quickly." in mock_post.call_args.args[0]
-    mock_escalation.assert_not_called()
+    mock_escalation.assert_called_once()
+    assert mock_escalation.call_args.kwargs["channel_override"] == "C0ACUHRP6B1"
 
 
 @pytest.mark.unit
 @patch("airbyte_ops_mcp.mcp.devin_ops.dispatch_escalation")
-@patch("airbyte_ops_mcp.mcp.devin_ops.send_hitl_notification")
-def test_positive_thread_feedback_uses_rich_notification_without_dispatch(
-    mock_send: MagicMock,
+@patch("airbyte_ops_mcp.mcp.devin_ops._post_feedback_report")
+def test_positive_thread_feedback_escalation_uses_session_to_evaluate(
+    mock_post: MagicMock,
     mock_escalation: MagicMock,
 ) -> None:
-    mock_send.return_value = SlackPostResult(
-        channel_id="C0ACUHRP6B1",
-        ts="1774646400.000100",
+    mock_post.return_value = "https://slack.example/source-thread"
+    mock_escalation.return_value = WorkflowDispatchResult(
+        workflow_url="https://github.com/airbytehq/airbyte-ops-mcp/actions/workflows/"
+        "human-in-the-loop.yml",
     )
 
     result = devin_session_feedback(
         feedback_type="positive",
         category="great_results",
         task_description="Complete a repo task",
-        agent_session_url="https://app.devin.ai/sessions/test123",
+        agent_session_url="https://app.devin.ai/sessions/filer",
         reporting_user="reporter@airbyte.io",
         session_playbook="none",
         what_went_well="The task was completed quickly.",
+        session_to_evaluate="https://app.devin.ai/sessions/target",
         thread_url=THREAD_URL,
     )
 
     assert result.success is True
-    notification = mock_send.call_args.kwargs
-    assert notification["channel_override"] == "C0ACUHRP6B1"
-    assert notification["thread_ts"] == "1773062711.122019"
-    assert notification["header_emoji"] == ":tada:"
-    assert notification["header_label"] == "Devin Session Feedback (Positive)"
-    assert notification["issue_url"] is None
-    mock_escalation.assert_not_called()
+    mock_escalation.assert_called_once()
+    assert (
+        mock_escalation.call_args.kwargs["agent_session_url"]
+        == "https://app.devin.ai/sessions/target"
+    )
 
 
 @pytest.mark.unit

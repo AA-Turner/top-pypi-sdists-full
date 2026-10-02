@@ -1,0 +1,57 @@
+cmake_minimum_required(VERSION 3.16)
+
+# ── Standalone DSP examples (no streaming) ────────────────────────────────────
+# Link against the static library so examples are self-contained and have
+# no runtime dependency on libdoppler.so / doppler.dll.
+
+foreach(_ex nco_demo fir_demo hbdecim_demo fft_demo agc_demo corr_demo cic_demo rate_converter_demo
+             ccsds_link_demo dsss_burst_receiver_demo burst_capture_demo
+             wfmgen_demo wfmgen_frame_demo wfm_field_demo
+             ring_drip_feed_demo ring_chunking_demo
+             ring_write_policy_demo ring_element_view_demo)
+    add_executable(${_ex} ${_ex}.c)
+    target_include_directories(${_ex} PRIVATE
+        ${CMAKE_SOURCE_DIR}/native/inc
+        ${CMAKE_BINARY_DIR}/native/inc)
+    target_link_libraries(${_ex} PRIVATE doppler_lib_static ${DP_MATH_LIBRARY})
+    set_target_properties(${_ex} PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+endforeach()
+
+# ── Threaded and streaming examples ────────────────────────────────────────
+# Threads go through dp_thread.h, so the threaded examples build everywhere;
+# the streaming ones need the NATS stream layer, i.e. DP_WITH_STREAM (#1575).
+
+find_package(Threads REQUIRED)
+# The pool runs its receivers and the searcher's tiles across threads
+# (dp_parallel.h); glibc < 2.34 needs -lpthread on the final link.
+# ring_threaded_demo is a producer thread against a blocking wait()
+# (dp_thread.h); ring_backed_demo names its file in the temp directory.
+foreach(_ex async_dsss_pool_demo ring_threaded_demo ring_backed_demo)
+    add_executable(${_ex} ${_ex}.c)
+    target_include_directories(${_ex} PRIVATE
+        ${CMAKE_SOURCE_DIR}/native/inc
+        ${CMAKE_BINARY_DIR}/native/inc)
+    target_link_libraries(${_ex} PRIVATE doppler_lib_static Threads::Threads ${DP_MATH_LIBRARY})
+    set_target_properties(${_ex} PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+endforeach()
+if(DP_WITH_STREAM)
+    foreach(_ex transmitter receiver pipeline_demo spectrum_analyzer
+                graceful_shutdown_demo spool_follow_demo)
+        add_executable(${_ex} ${_ex}.c)
+        target_include_directories(${_ex} PRIVATE
+            ${CMAKE_SOURCE_DIR}/native/inc
+            ${CMAKE_BINARY_DIR}/native/inc)
+        # libnats_static.a internally uses pthreads; glibc < 2.34 needs
+        # explicit -lpthread on the final link line.
+        target_link_libraries(${_ex} PRIVATE
+            doppler_lib_static
+            $<TARGET_OBJECTS:stream_core_obj>
+            telemetry_core
+            nats_vendor_static
+            Threads::Threads ${DP_MATH_LIBRARY})
+        set_target_properties(${_ex} PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+    endforeach()
+endif()

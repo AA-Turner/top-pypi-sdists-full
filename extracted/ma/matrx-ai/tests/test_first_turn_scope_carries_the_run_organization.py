@@ -68,7 +68,7 @@ def test_the_producer_receives_the_run_organization_on_turn_one(first_turn_rpc, 
 
 
 def test_no_organization_is_invented_when_the_run_carries_none(first_turn_rpc, producer_sees):
-    _build()
+    _build(organization_id=None)
     assert producer_sees == [{}]  # nothing filled: the producer names the gap itself
 
 

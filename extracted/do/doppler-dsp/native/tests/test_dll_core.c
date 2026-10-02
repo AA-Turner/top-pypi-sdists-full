@@ -1,0 +1,1219 @@
+/**
+ * @file test_dll_core.c
+ * @brief Unit tests for the DLL (early/prompt/late code-tracking loop).
+ *
+ * Tests:
+ *   1. Lifecycle / NULL-code guard / init==create parity
+ *   1b. dp_dll_init defends against a dirty caller stack (rate_aid init)
+ *   2. On-time alignment — discriminator ~0, code_rate ~1
+ *   3. Code Doppler — code_rate converges to the incoming chip rate
+ *   4. Static phase offset is pulled in (discriminator decays)
+ *   5. Reset reproducibility
+ *   6. segments > 1: sub-epoch partials recover an async symbol clock
+ *   6b. Symbol-period aid: the lock detector's looks become coherent over
+ *       a symbol
+ *   6c. Symbol-period aid: the code loop steers on the aided window, once
+ *       per symbol, with bn kept per epoch (the rate is continuous across
+ *       the switch)
+ *   7. Always-on lock detector: locks on signal, not on noise
+ *   8. Long-run false-lock regression (segments=1, ~4188 periods, several
+ *      noise seeds, zero Doppler/carrier)
+ *   8b. A put across the period wrap dumps nothing and skips nothing, on
+ *       both correlation paths (#1287)
+ */
+#include "doppler/detection/detection_core.h"
+#include "doppler/dll/dll_core.h"
+#include "doppler/dp_complex.h"
+#include "dp_rng_test.h"
+#include "dp_state_test.h"
+#include "dp_test.h"
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* Carrier-free spread signal with an ASYNCHRONOUS BPSK data clock: symbol
+ * period `tsym` samples (any real), first boundary at `phi` samples, random
+ * data; the incoming code runs at rate (1+delta). `sigma_rail` > 0 adds
+ * complex Gaussian noise of that per-rail std (0 = clean). The stream 6b
+ * and 6c share. */
+static void
+make_async_signal (float _Complex *rx, size_t N, const uint8_t *code,
+                   size_t sf, size_t sps, double delta, double tsym,
+                   double phi, double sigma_rail, uint32_t dseed,
+                   uint32_t nseed)
+{
+  uint32_t ds = dseed, ns = nseed;
+  int      data = 1;
+  long     cur  = -1;
+  double   inv  = 1.0 / (double)sps;
+  double   cph  = 0.0; /* incoming code phase, chips */
+  for (size_t nn = 0; nn < N; nn++)
+    {
+      long sidx = (long)floor (((double)nn - phi) / tsym);
+      if (sidx != cur)
+        {
+          data = (dp_xs32 (&ds) & 1u) ? 1 : -1;
+          cur  = sidx;
+        }
+      size_t ci = (size_t)fmod (cph, (double)sf);
+      float  cs = (code[ci] & 1u) ? -1.0f : 1.0f;
+      rx[nn]    = (float)data * cs;
+      if (sigma_rail > 0.0)
+        rx[nn] += (float)sigma_rail * dp_cgauss (&ns);
+      cph += inv * (1.0 + delta);
+    }
+}
+
+/* Build a deterministic 0/1 spreading code (xorshift bits). */
+static void
+make_code (uint8_t *code, size_t sf, uint32_t seed)
+{
+  uint32_t st = seed;
+  for (size_t i = 0; i < sf; i++)
+    code[i] = dp_bit (&st) > 0 ? 0u : 1u;
+}
+
+/* Carrier-free spread signal at code rate (1+delta), BPSK data per period
+ * (random, or held at +1 when `const_data` to isolate code tracking from the
+ * data-symbol vs code-period async). `sps` samples per nominal chip. Returns
+ * the sample count. */
+static size_t
+make_signal (float _Complex *rx, const uint8_t *code, size_t sf, size_t sps,
+             double delta, size_t nper, uint32_t seed, int const_data)
+{
+  uint32_t dst    = seed;
+  size_t   tsamps = sf * sps;
+  double   inv    = 1.0 / (double)sps;
+  int      data   = dp_bit (&dst);
+  size_t   k      = 0;
+  double   cph    = 0.0; /* incoming code phase, chips */
+  for (size_t p = 0; p < nper; p++)
+    {
+      data = const_data ? 1 : dp_bit (&dst);
+      for (size_t i = 0; i < tsamps; i++, k++)
+        {
+          size_t idx  = (size_t)fmod (cph, (double)sf);
+          float  csgn = (code[idx] & 1u) ? -1.0f : 1.0f;
+          rx[k]       = (float)data * csgn;
+          cph += inv * (1.0 + delta); /* incoming chip rate */
+        }
+    }
+  return k;
+}
+
+int
+main (void)
+{
+
+  /* ---------------------------------------------------------------- *
+   * 1. Lifecycle, NULL-code guard, init==create parity               *
+   * ---------------------------------------------------------------- */
+  {
+    DP_CHECK (dp_dll_create (NULL, 0, 2, 0.0, 0.01, 0.707, 0.5, 1) == NULL);
+
+    uint8_t code[31];
+    make_code (code, 31, 1u);
+    dp_dll_state_t *c = dp_dll_create (code, 31, 2, 0.0, 0.02, 0.707, 0.5, 1);
+    DP_CHECK (c != NULL);
+    if (!c)
+      return 1;
+    DP_CHECK (c->lf.kp > 0.0 && c->lf.ki > 0.0);
+    DP_CHECK (c->sf == 31 && c->sps == 2);
+    DP_CHECK (dp_dll_get_code_rate (c) == 1.0);
+
+    dp_dll_state_t v;
+    dp_dll_init (&v, code, 31, 2, 0.0, 0.02, 0.707, 0.5);
+    DP_CHECK (v.lf.kp == c->lf.kp && v.lf.ki == c->lf.ki);
+    DP_CHECK (v.owns_code == 0);  /* init borrows */
+    DP_CHECK (c->owns_code == 1); /* create copies */
+    dp_dll_destroy (c);
+  }
+
+  /* ---------------------------------------------------------------- *
+   * 1b. dp_dll_init defends against a dirty caller stack                 *
+   *                                                                  *
+   * dp_dll_init() does an in-place init of a caller-owned (often stack) *
+   * dp_dll_state_t, so every field it does not explicitly set starts as *
+   * whatever garbage the caller's memory held. rate_aid (carrier-    *
+   * aiding config, set only by dp_dll_set_rate_aid) was the one field   *
+   * the zero-against-garbage block missed: on a clean stack it read  *
+   * 0 (Linux), but a NaN there (0xFF-filled stack, seen on macOS)    *
+   * made phase_inc = nco_norm_freq_to_inc(inv_tsamps*(1+NaN)+ctrl) cast   *
+   * to 0, freezing the code NCO permanently (validate_dll_jitter     *
+   * #82). Poison the whole struct, init, and assert the loop still   *
+   * steers a live, wrapping NCO.                                     *
+   * ---------------------------------------------------------------- */
+  {
+    uint8_t code[31];
+    make_code (code, 31, 1u);
+    dp_dll_state_t g;
+    memset (&g, 0xFF, sizeof g); /* 0xFF doubles are NaN — the macOS case */
+    dp_dll_init (&g, code, 31, 2, 0.0, 0.002, 0.707, 0.5);
+    DP_CHECK (g.rate_aid == 0.0);         /* zeroed, not NaN */
+    DP_CHECK (g.code_nco.phase_inc > 0u); /* NCO not frozen */
+    uint32_t inc0 = g.code_nco.phase_inc;
+    /* run a clean aligned epoch; the NCO must keep a sane (nonzero, ~nominal)
+       phase_inc rather than collapsing to 0. */
+    float _Complex sig[31 * 2];
+    for (size_t ci = 0; ci < 31; ci++)
+      {
+        float vv    = (code[ci] & 1u) ? -1.0f : 1.0f;
+        sig[ci * 2] = sig[ci * 2 + 1] = vv;
+      }
+    int wraps = 0;
+    for (int ep = 0; ep < 4; ep++)
+      for (size_t i = 0; i < 31 * 2; i++)
+        if (dll_accumulate (&g, sig[i]))
+          {
+            dll_update (&g);
+            g.acc_e = g.acc_p = g.acc_l = 0.0f;
+            wraps++;
+          }
+    DP_CHECK (wraps >= 3); /* keeps wrapping ~once/epoch */
+    DP_CHECK (g.code_nco.phase_inc
+              > inc0 / 2u); /* still near nominal, not 0 */
+  }
+
+  /* ---------------------------------------------------------------- *
+   * 2. On-time alignment — E ~ L, discriminator ~0, code_rate ~1     *
+   * ---------------------------------------------------------------- */
+  {
+    const size_t sf = 63, sps = 4, nper = 400;
+    uint8_t     *code = malloc (sf);
+    make_code (code, sf, 7u);
+    float _Complex *rx = malloc (sf * sps * nper * sizeof (*rx));
+    size_t          n  = make_signal (rx, code, sf, sps, 0.0, nper, 3u, 0);
+
+    dp_dll_state_t *d
+        = dp_dll_create (code, sf, sps, 0.0, 0.02, 0.707, 0.5, 1);
+    float _Complex *sym = malloc (nper * sizeof (*sym));
+    size_t          k   = dp_dll_steps (d, rx, n, sym, nper);
+    DP_CHECK (k >= nper - 2 && k <= nper); /* ~one prompt per period */
+    DP_CHECK (fabs (dp_dll_get_last_error (d)) < 0.05); /* E ~ L on-time */
+    DP_CHECK (fabs (dp_dll_get_code_rate (d) - 1.0) < 1e-3);
+    dp_dll_destroy (d);
+    free (rx);
+    free (sym);
+    free (code);
+  }
+
+  /* ---------------------------------------------------------------- *
+   * 3. Code Doppler — code_rate converges to the incoming chip rate  *
+   * ---------------------------------------------------------------- */
+  {
+    const size_t sf = 63, sps = 4, nper = 1500;
+    uint8_t     *code = malloc (sf);
+    make_code (code, sf, 11u);
+    float _Complex *rx    = malloc (sf * sps * nper * sizeof (*rx));
+    double          delta = 5e-4; /* incoming code runs 0.05% fast */
+    size_t          n = make_signal (rx, code, sf, sps, delta, nper, 9u, 1);
+
+    /* half-chip E/L discriminator is steep — keep the loop BW low. */
+    dp_dll_state_t *d
+        = dp_dll_create (code, sf, sps, 0.0, 0.005, 0.707, 0.5, 1);
+    float _Complex *sym = malloc (nper * sizeof (*sym));
+    size_t          k   = dp_dll_steps (d, rx, n, sym, nper);
+    /* the loop must speed its replica up to match the incoming rate */
+    DP_CHECK (fabs (dp_dll_get_code_rate (d) - (1.0 + delta)) < 1e-4);
+    /* sub-chip lock holds: the prompt despreads cleanly over the run tail
+       (mean |Re prompt| well above 0; the code-phase tracking follows the
+       sliding code phase without the integer-sample staircase). Threshold
+       0.85, not the pre-redesign 0.9: the 2-samples/chip interpolated
+       replica (docs/design/async-dsss-receiver.md §3.6) is a
+       simpler point-sample model than the old dwell-width-aware exact
+       matched-filter integral it replaced, and costs a small, expected
+       amount of despread gain (observed ~0.87 here; ~0.88 in the Python
+       prototype that validated this redesign) -- not a regression. */
+    size_t lo = k / 2;
+    double pm = 0.0;
+    for (size_t j = lo; j < k; j++)
+      pm += fabs (crealf (sym[j]));
+    DP_CHECK (k > lo && pm / (double)(k - lo) > 0.85);
+    dp_dll_destroy (d);
+    free (rx);
+    free (sym);
+    free (code);
+  }
+
+  /* ---------------------------------------------------------------- *
+   * 4. Static phase offset is pulled in (discriminator decays)       *
+   * ---------------------------------------------------------------- */
+  {
+    const size_t sf = 63, sps = 4, nper = 800;
+    uint8_t     *code = malloc (sf);
+    make_code (code, sf, 13u);
+    float _Complex *rx = malloc (sf * sps * nper * sizeof (*rx));
+    size_t          n  = make_signal (rx, code, sf, sps, 0.0, nper, 17u, 0);
+
+    /* seed the replica 0.4 chips off — the loop must realign it */
+    dp_dll_state_t *d
+        = dp_dll_create (code, sf, sps, 0.4, 0.005, 0.707, 0.5, 1);
+    float _Complex *sym = malloc (nper * sizeof (*sym));
+    /* early discriminator (first few periods) should be non-trivial */
+    dp_dll_steps (d, rx, sf * sps * 3, sym, 3);
+    double early_err = fabs (dp_dll_get_last_error (d));
+    dp_dll_steps (d, rx + sf * sps * 3, n - sf * sps * 3, sym, nper);
+    double late_err = fabs (dp_dll_get_last_error (d));
+    DP_CHECK (early_err > 0.05); /* started misaligned */
+    DP_CHECK (late_err < 0.05);  /* pulled in */
+    dp_dll_destroy (d);
+    free (rx);
+    free (sym);
+    free (code);
+  }
+
+  /* ---------------------------------------------------------------- *
+   * 5. Reset reproducibility                                         *
+   * ---------------------------------------------------------------- */
+  {
+    const size_t sf = 31, sps = 2, nper = 300;
+    uint8_t     *code = malloc (sf);
+    make_code (code, sf, 21u);
+    float _Complex *rx = malloc (sf * sps * nper * sizeof (*rx));
+    size_t          n  = make_signal (rx, code, sf, sps, 3e-4, nper, 5u, 0);
+
+    dp_dll_state_t *d
+        = dp_dll_create (code, sf, sps, 0.0, 0.02, 0.707, 0.5, 1);
+    float _Complex *sym = malloc (nper * sizeof (*sym));
+    dp_dll_steps (d, rx, n, sym, nper);
+    double r1 = dp_dll_get_code_rate (d), e1 = dp_dll_get_last_error (d);
+    dp_dll_reset (d);
+    dp_dll_steps (d, rx, n, sym, nper);
+    double r2 = dp_dll_get_code_rate (d), e2 = dp_dll_get_last_error (d);
+    DP_CHECK (r1 == r2 && e1 == e2);
+    dp_dll_destroy (d);
+    free (rx);
+    free (sym);
+    free (code);
+  }
+
+  /* ---------------------------------------------------------------- *
+   * 6. segments > 1: sub-epoch partials recover an async symbol clock *
+   * ---------------------------------------------------------------- */
+  {
+    const size_t sf = 63, sps = 4, K = 4, nsym = 2000;
+    size_t       te   = sf * sps;
+    double       dsym = 3e-3, tsym = (double)te * (1.0 + dsym);
+    double       phi  = 0.37 * (double)te;
+    uint8_t     *code = malloc (sf);
+    make_code (code, sf, 11u);
+    size_t          N    = (size_t)(nsym * tsym) + 2 * te;
+    float _Complex *rx   = malloc (N * sizeof (*rx));
+    float _Complex *out  = malloc (N * sizeof (*out));
+    int            *data = malloc ((nsym + 8) * sizeof (int));
+    uint32_t        ds   = 7u;
+    for (size_t i = 0; i < nsym + 6; i++)
+      {
+        data[i] = (dp_xs32 (&ds) & 1u) ? 1 : -1;
+      }
+    for (size_t nn = 0; nn < N; nn++)
+      {
+        long s = (long)floor (((double)nn - phi) / tsym);
+        if (s < 0)
+          s = 0;
+        if (s >= (long)nsym + 6)
+          s = nsym + 5;
+        size_t ci = (nn / sps) % sf; /* code-aligned (no code Doppler) */
+        float  cs = (code[ci] & 1u) ? -1.0f : 1.0f;
+        rx[nn]    = (float)data[s] * cs;
+      }
+    dp_dll_state_t *d
+        = dp_dll_create (code, sf, sps, 0.0, 0.002, 0.707, 0.5, K);
+    size_t np  = dp_dll_steps (d, rx, N, out, N);
+    size_t nep = N / te;
+    DP_CHECK (dp_dll_get_segments (d) == K);
+    DP_CHECK (np >= (nep - 1) * K && np <= (nep + 1) * K);
+    /* genie symbol despread on the partials (known timing) recovers the data
+     */
+    double *acc = calloc (nsym + 8, sizeof (double));
+    for (size_t pp = 0; pp < np; pp++)
+      {
+        double t = (double)te * ((double)pp + 0.5) / (double)K;
+        long   s = (long)floor ((t - phi) / tsym);
+        if (s >= 0 && s < (long)nsym)
+          acc[s] += creal (out[pp]);
+      }
+    long err = 0;
+    for (size_t s = 2; s < nsym - 2; s++)
+      if ((acc[s] >= 0 ? 1 : -1) != data[s])
+        err++;
+    DP_CHECK (err == 0); /* partials recover the asynchronous data */
+    /* No code Doppler here (ci is code-aligned above): a well-behaved loop
+       should settle near code_rate=1 with a small last_error, not pinned at
+       DLL_DISC_CLAMP every epoch (a real bug -- the segments>1 discriminator
+       once mixed a tsamps-normalised pp against raw-scale ep/lp, off by
+       roughly tsamps^2, so it saturated on essentially every epoch). */
+    DP_CHECK (fabs (dp_dll_get_code_rate (d) - 1.0) < 1e-3);
+    DP_CHECK (fabs (dp_dll_get_last_error (d)) < 0.5);
+    dp_dll_destroy (d);
+    free (acc);
+    free (rx);
+    free (out);
+    free (data);
+    free (code);
+  }
+
+  /* ---------------------------------------------------------------- *
+   * 6b. Symbol-period aid: the lock detector's looks become coherent  *
+   *     over a symbol, and lock at a C/N0 where per-partial looks     *
+   *     cannot (docs/design/async-dsss-receiver.md §3.7, and          *
+   *     docs/design/async-dsss-receiver-measurements.md §12.3)        *
+   * ---------------------------------------------------------------- */
+  {
+    const size_t sf = 63, sps = 4, K = 4, nsym = 1500;
+    const size_t te   = sf * sps;
+    const double P    = 7.24; /* partials per symbol: SPEC's 1.81 epochs */
+    const double tsym = P * (double)te / (double)K;
+    const double phi  = 0.37 * (double)te; /* symbol clock phase, samples */
+    /* Per-sample amplitude SNR chosen so ONE partial (te/K samples
+       coherent) is ~-3 dB per look -- the default 20-look detector's
+       statistic then sits under its threshold -- while a six-partial
+       symbol window is ~+5 dB per look. */
+    const double a    = sqrt (0.5 / (double)(te / K));
+    uint8_t     *code = malloc (sf);
+    make_code (code, sf, 11u);
+    size_t          N   = (size_t)(nsym * tsym) + 2 * te;
+    float _Complex *rx  = malloc (N * sizeof (*rx));
+    float _Complex *out = malloc (N * sizeof (*out));
+    make_async_signal (rx, N, code, sf, sps, 0.0, tsym, phi,
+                       1.0 / a / sqrt (2.0), 7u, 99u);
+    /* Feed one epoch per call and count the epochs the flag was up. */
+    size_t          nep = N / te;
+    size_t          up0 = 0, up1 = 0;
+    dp_dll_state_t *d0
+        = dp_dll_create (code, sf, sps, 0.0, 0.002, 0.707, 0.5, K);
+    dp_dll_state_t *d1
+        = dp_dll_create (code, sf, sps, 0.0, 0.002, 0.707, 0.5, K);
+    DP_CHECK (dp_dll_get_symbol_window (d1) == 0);
+    DP_CHECK (dp_dll_set_symbol_period (d1, 1.5) == DP_ERR_INVALID);
+    DP_CHECK (dp_dll_set_symbol_period (d1, P) == DP_OK);
+    DP_CHECK (dp_dll_get_symbol_window (d1) == 6); /* floor(7.24) - 1 */
+    /* Sized the way the header says: the window's coherent length in
+       samples at this per-sample SNR. */
+    int nl = dp_det_n_noncoh (a, (int)(6 * (te / K)), 0.99, 1e-3, 4000);
+    DP_CHECK (nl >= 1 && nl < 100);
+    DP_CHECK (dp_dll_configure_lock (d1, 1e-3, (size_t)(nl > 0 ? nl : 1), 0.0)
+              == DP_OK);
+    for (size_t e = 0; e < nep; e++)
+      {
+        dp_dll_steps (d0, rx + e * te, te, out, te);
+        dp_dll_steps (d1, rx + e * te, te, out, te);
+        if (e >= nep / 4) /* after the loops and references have settled */
+          {
+            up0 += (size_t)dp_dll_get_locked (d0);
+            up1 += (size_t)dp_dll_get_locked (d1);
+          }
+      }
+    double f0 = (double)up0 / (double)(nep - nep / 4);
+    double f1 = (double)up1 / (double)(nep - nep / 4);
+    printf ("  6b: per-partial looks up %.1f%%, symbol-aided up %.1f%% "
+            "(N=%d, best phase %zu)\n",
+            100.0 * f0, 100.0 * f1, nl, d1->aid_best);
+    DP_CHECK (f0 < 0.5);  /* the default detector cannot hold this C/N0 */
+    DP_CHECK (f1 > 0.95); /* the aided one does */
+    /* The chosen hypothesis IS the symbol timing: its boundaries fall within
+       one partial of the true ones (circular over the period). */
+    double h_true = fmod (phi / ((double)te / (double)K), P);
+    double dist   = fabs ((double)d1->aid_best - h_true);
+    dist          = fmod (dist, P);
+    if (dist > P - dist)
+      dist = P - dist;
+    DP_CHECK (dist <= 1.0);
+    /* Both loops tracked the code regardless of the flag. */
+    DP_CHECK (fabs (dp_dll_get_code_rate (d0) - 1.0) < 1e-3);
+    DP_CHECK (fabs (dp_dll_get_code_rate (d1) - 1.0) < 1e-3);
+    /* Serialization: the rings and hypotheses ride the blob; a blob from an
+       instance without the aid is refused by one with it. */
+    {
+      dp_dll_state_t *b
+          = dp_dll_create (code, sf, sps, 0.0, 0.002, 0.707, 0.5, K);
+      DP_CHECK (dp_dll_set_symbol_period (b, P) == DP_OK);
+      DP_STATE_ROUNDTRIP_TEST (dp_dll, d1, b);
+      size_t cb   = dp_dll_state_bytes (d0);
+      void  *blob = malloc (cb);
+      dp_dll_get_state (d0, blob);
+      DP_CHECK (dp_dll_set_state (b, blob) == DP_ERR_INVALID);
+      free (blob);
+      dp_dll_destroy (b);
+    }
+    /* Verify counts: set, kept with the thresholds, and refused at 0. */
+    {
+      double up = d1->lock.up_thresh, down = d1->lock.down_thresh;
+      DP_CHECK (dp_dll_set_lock_verify (d1, 2, 3) == DP_OK);
+      DP_CHECK (d1->lock.n_up == 2 && d1->lock.n_down == 3);
+      DP_CHECK (d1->lock.up_thresh == up && d1->lock.down_thresh == down);
+      DP_CHECK (dp_dll_set_lock_verify (d1, 0, 3) == DP_ERR_INVALID);
+    }
+    /* Off again: per-partial looks, no window. */
+    DP_CHECK (dp_dll_set_symbol_period (d1, 0.0) == DP_OK);
+    DP_CHECK (dp_dll_get_symbol_window (d1) == 0);
+    dp_dll_destroy (d0);
+    dp_dll_destroy (d1);
+    free (rx);
+    free (out);
+    free (code);
+  }
+
+  /* ---------------------------------------------------------------- *
+   * 6b'. Symbol-period aid on NOISE: the detector's per-decision      *
+   *      exceedance rate is its configured pfa, and it declares       *
+   *      nothing (#1264)                                              *
+   * ---------------------------------------------------------------- */
+  {
+    /* 6b's geometry and sizing, pure noise in. On noise the best timing
+       hypothesis flips between neighbours whose windows share all but
+       one partial; a decision whose n_looks were taken through
+       overlapping windows read the same noise n times against a
+       threshold sized for n independent looks -- measured 1.7e-2 per
+       decision for a configured 1e-3, a false lock every one to two
+       seconds, before a window overlapping the last look's stopped
+       counting as a look. Sabotage: drop the aid_last_end guard in
+       aid_look() -> red on both checks. */
+    const size_t sf = 63, sps = 4, K = 4;
+    const size_t te = sf * sps;
+    const double P = 7.24, pfa = 1e-3;
+    const double a = 0.16; /* per-sample amplitude: about three looks, the
+                              receiver's own regime at 45 dB-Hz */
+    uint8_t *code = malloc (sf);
+    uint32_t cst  = 7u;
+    for (size_t i = 0; i < sf; i++)
+      code[i] = (uint8_t)(dp_bit (&cst) > 0 ? 1u : 0u);
+    dp_dll_state_t *d
+        = dp_dll_create (code, sf, sps, 0.0, 0.002, 0.707, 0.5, K);
+    DP_CHECK (dp_dll_set_symbol_period (d, P) == DP_OK);
+    int nl = dp_det_n_noncoh (a, (int)(6 * (te / K)), 0.99, pfa, 4000);
+    DP_CHECK (nl >= 1);
+    DP_CHECK (dp_dll_configure_lock (d, pfa, (size_t)nl, 0.0) == DP_OK);
+    const size_t    n_ep = 40000; /* ~1.5e5 partials, thousands of looks */
+    float _Complex *x    = malloc (te * sizeof *x);
+    float _Complex *out  = malloc (te * sizeof *out);
+    uint32_t        nst  = 0x9e3779b9u;
+    size_t          dec = 0, exceed = 0, locks = 0;
+    double          last = -1.0;
+    int             prev = 0;
+    for (size_t e = 0; e < n_ep; e++)
+      {
+        for (size_t i = 0; i < te; i++)
+          x[i] = dp_cgauss (&nst);
+        for (size_t q = 0; q < K; q++)
+          {
+            dp_dll_steps (d, x + q * (te / K), te / K, out, te);
+            if (d->lock_stat != last && d->lock_stat > 0.0)
+              {
+                dec++;
+                exceed += d->lock_stat > d->lock.up_thresh;
+                last = d->lock_stat;
+              }
+            int lk = dp_dll_get_locked (d);
+            locks += lk && !prev;
+            prev = lk;
+          }
+      }
+    printf ("  6b': aided detector on noise, N=%d: %zu decisions, %zu over "
+            "the gate (%.2e per decision for pfa %.0e), %zu lock(s)\n",
+            nl, dec, exceed, (double)exceed / (double)dec, pfa, locks);
+    DP_CHECK (dec > 1000);
+    /* Within a few times the configured pfa (the unaided detector's own
+       realized rate is about twice it), and no false lock. */
+    DP_CHECK ((double)exceed <= 4.0 * pfa * (double)dec);
+    DP_CHECK (locks == 0);
+    free (out);
+    free (x);
+    dp_dll_destroy (d);
+    free (code);
+  }
+
+  /* ---------------------------------------------------------------- *
+   * 6c. Symbol-period aid: the code loop steers on the aided window,  *
+   *     once per symbol, with bn kept per epoch                       *
+   *     (docs/design/async-dsss-receiver.md §3.7, and                 *
+   *     docs/design/async-dsss-receiver-measurements.md §12.5)        *
+   * ---------------------------------------------------------------- */
+  {
+    /* 6b's asynchronous data stream (7.24 partials per symbol at four
+       partials per epoch), clean, with the incoming code running D0 fast:
+       the code-rate step a type-2 loop nulls only by integrating it. */
+    const size_t sf = 63, sps = 4, K = 4;
+    const size_t te = sf * sps, nep = 1500, post = 100;
+    const double P = 7.24, tsym = P * (double)te / (double)K;
+    const double phi = 0.37 * (double)te;
+    const double d0  = 1e-4; /* the incoming code runs 100 ppm fast:
+                                what this loop (K0 = 1/sps chips per unit
+                                of filter output) pulls in; 500 ppm slips
+                                the code out of the lobe in either mode */
+    const double bn   = 0.005;
+    const size_t mid  = 300; /* inside the settling: 5/bn is 1000 epochs */
+    uint8_t     *code = malloc (sf);
+    make_code (code, sf, 11u);
+    size_t          N   = (nep + post) * te;
+    float _Complex *rx  = malloc (N * sizeof (*rx));
+    float _Complex *out = malloc (te * sizeof (*out));
+    make_async_signal (rx, N, code, sf, sps, d0, tsym, phi, 0.0, 7u, 0u);
+    dp_dll_state_t *d = dp_dll_create (code, sf, sps, 0.0, bn, 0.707, 0.5, K);
+    dp_dll_state_t *d0_
+        = dp_dll_create (code, sf, sps, 0.0, bn, 0.707, 0.5, K);
+    DP_CHECK (dp_dll_set_symbol_period (d, P) == DP_OK);
+    /* The filter is re-timed to the symbol: P/K epochs per update. */
+    DP_CHECK (fabs (d->lf.t - P / (double)K) < 1e-12);
+    /* The gain pin: a code-rate step is nulled by any gain, but HOW FAST
+       the integrator climbs is the gain -- so mid-transient the aided
+       loop must read what the per-epoch loop reads. A filter left at its
+       per-epoch gains while updating once per symbol climbs 1.8x slower
+       and fails this; the two agree to six decimals when re-timed. */
+    for (size_t e = 0; e < mid; e++)
+      {
+        dp_dll_steps (d, rx + e * te, te, out, te);
+        dp_dll_steps (d0_, rx + e * te, te, out, te);
+      }
+    double r_mid  = dp_dll_get_code_rate (d),
+           r_mid0 = dp_dll_get_code_rate (d0_);
+    /* Mid-transient, not settled: the per-epoch loop is still well off
+       the step (it overshoots to ~1.3x here at zeta 0.707). */
+    DP_CHECK (fabs (r_mid0 - 1.0 - d0) > 0.1 * d0);
+    DP_CHECK (fabs (r_mid - r_mid0) < 0.15 * d0);
+    for (size_t e = mid; e < nep; e++)
+      dp_dll_steps (d, rx + e * te, te, out, te);
+    dp_dll_destroy (d0_);
+    /* The aided loop pulled the code rate in: the discriminator on the
+       window steered it (a loop that never steered would sit at 1.0). */
+    double r_aided = dp_dll_get_code_rate (d);
+    DP_CHECK (fabs (r_aided - (1.0 + d0)) < 4e-5);
+    DP_CHECK (fabs (dp_dll_get_last_error (d)) < 0.5);
+    /* Off again: the filter is back to one update per epoch, and the rate
+       the loop had pulled in is CONTINUOUS across the switch -- after a
+       few epochs (short against the 5/bn settling) it still reads the
+       Doppler, not the Doppler scaled by the old interval. */
+    DP_CHECK (dp_dll_set_symbol_period (d, 0.0) == DP_OK);
+    DP_CHECK (d->lf.t == 1.0);
+    for (size_t e = nep; e < nep + post; e++)
+      dp_dll_steps (d, rx + e * te, te, out, te);
+    double r_after = dp_dll_get_code_rate (d);
+    printf ("  6c: code rate at %zu epochs per-epoch %.7f aided %.7f; "
+            "settled %.7f; %zu epochs after the switch %.7f (incoming "
+            "%.7f)\n",
+            mid, r_mid0, r_mid, r_aided, post, r_after, 1.0 + d0);
+    DP_CHECK (fabs (r_after - r_aided) < 4e-5);
+    dp_dll_destroy (d);
+    free (rx);
+    free (out);
+    free (code);
+  }
+
+  /* ---------------------------------------------------------------- *
+   * 7. Always-on lock detector: locks on signal, not on noise        *
+   * ---------------------------------------------------------------- */
+  {
+    const size_t sf = 63, sps = 4, K = 4, nper = 3000;
+    size_t       te   = sf * sps;
+    uint8_t     *code = malloc (sf);
+    make_code (code, sf, 11u);
+    float _Complex *rx  = malloc (te * nper * sizeof (*rx));
+    float _Complex *out = malloc (te * nper * sizeof (*out));
+
+    /* signal present (const data, code-aligned): strong despread -> lock.
+       The default config (pfa=1e-3, 20 looks, threshold ~8.567) is applied at
+       create, so the detector works with no configure_lock call. */
+    size_t          n = make_signal (rx, code, sf, sps, 0.0, nper, 9u, 1);
+    dp_dll_state_t *d
+        = dp_dll_create (code, sf, sps, 0.0, 0.002, 0.707, 0.5, K);
+    DP_CHECK (dp_dll_get_locked (d) == 0); /* fresh: unlocked */
+    DP_CHECK (dp_dll_get_lock_stat (d) == 0.0);
+    dp_dll_steps (d, rx, n, out, te * nper);
+    DP_CHECK (dp_dll_get_locked (d) == 1);
+    DP_CHECK (dp_dll_get_lock_stat (d) > 8.567); /* default CFAR threshold */
+    dp_dll_destroy (d);
+
+    /* noise only: prompt power matches the off-peak reference, so the
+       statistic sits near sqrt(2*N) ~ 6.3 and stays below threshold. */
+    uint32_t st = 4242u;
+    for (size_t i = 0; i < te * nper; i++)
+      rx[i] = dp_cgauss (&st);
+    dp_dll_state_t *dn
+        = dp_dll_create (code, sf, sps, 0.0, 0.002, 0.707, 0.5, K);
+    dp_dll_steps (dn, rx, te * nper, out, te * nper);
+    DP_CHECK (dp_dll_get_locked (dn) == 0);
+    DP_CHECK (dp_dll_get_lock_stat (dn) < 8.567);
+    DP_CHECK (dp_dll_get_lock_stat (dn)
+              > 3.0); /* near sqrt(40), not degenerate */
+    DP_CHECK (dp_dll_get_noise_est (dn) > 0.0);
+    /* configure_lock retunes the threshold; an unreachable one never locks. */
+    dp_dll_configure_lock_raw (dn, 1e9, 1e9, 20, 1.0 / 1024.0, 1, 1);
+    DP_CHECK (dp_dll_get_lock_stat (dn)
+              == 0.0); /* retune clears the statistic */
+    dp_dll_steps (dn, rx, te * nper, out, te * nper);
+    DP_CHECK (dp_dll_get_locked (dn) == 0);
+    dp_dll_destroy (dn);
+
+    /* Verify-counted declare: the default config (pfa=1e-3 -> n_up=2)
+       needs two CONSECUTIVE above-threshold decisions. K=4 partials per
+       period x 5 periods = 20 looks = exactly one decision window, so one
+       window of strong signal leaves the loop unlocked with the verify
+       run in flight; the second window declares. Both windows are drawn
+       from ONE continuous 11-period signal (not the same 5 periods
+       replayed) -- replaying the identical buffer for the second call
+       would re-inject it right where the first call's phase left off,
+       an artificial discontinuity at the seam that isn't a real data
+       transition and measurably (not just cosmetically) degrades one
+       epoch's power. A small margin beyond exactly 5 periods' worth of
+       samples (half a partial-segment width, well under a quarter
+       period) gives each window's last epoch room to complete its wrap
+       even though the fixed-point loop's phase_inc drifts by a few PPM
+       during early convergence -- exactly 5*tsamps samples is otherwise
+       a zero-slack edge case, not a meaningful assertion. */
+    size_t margin = sf * sps / 8;
+    size_t nv     = sf * sps * 5 + margin;
+    make_signal (rx, code, sf, sps, 0.0, 11, 9u, 1);
+    dp_dll_state_t *dv
+        = dp_dll_create (code, sf, sps, 0.0, 0.002, 0.707, 0.5, K);
+    dp_dll_steps (dv, rx, nv, out, nv);
+    DP_CHECK (dv->lock.cnt == 1);
+    DP_CHECK (dp_dll_get_locked (dv) == 0);
+    dp_dll_steps (dv, rx + nv, nv, out, nv);
+    DP_CHECK (dp_dll_get_locked (dv) == 1);
+    dp_dll_destroy (dv);
+    free (rx);
+    free (out);
+    free (code);
+  }
+
+  /* serializable state — loop_filter child + correlators resume; the borrowed
+   * code pointer is this instance's, preserved across set_state.
+   * (Moved above the final _fails check: this block used to sit after it,
+   * so its own failures could never fail the test.) */
+  {
+    uint8_t code[31];
+    for (int i = 0; i < 31; i++)
+      code[i] = (uint8_t)(i & 1);
+    dp_dll_state_t *a = dp_dll_create (code, 31, 2, 0.0, 0.02, 0.707, 0.5, 1);
+    dp_dll_state_t *b = dp_dll_create (code, 31, 2, 0.0, 0.02, 0.707, 0.5, 1);
+    DP_CHECK (a != NULL && b != NULL);
+    for (int i = 0; i < 80; i++)
+      dll_accumulate (a, (float)(i % 7) - 3.0f + 0.5f * I);
+    DP_STATE_ROUNDTRIP_TEST (dp_dll, a, b);
+    DP_CHECK (b->chip_pos == a->chip_pos && b->acc_p == a->acc_p);
+    DP_CHECK (b->lf.integ == a->lf.integ);            /* child resumed */
+    DP_CHECK (b->code != NULL && b->code != a->code); /* code preserved */
+    dp_dll_destroy (a);
+    dp_dll_destroy (b);
+  }
+
+  /* lock config — pfa face is C-first now: the create-time default is the
+   * precise detection-module threshold (no baked constant), the EMA alpha
+   * comes from the det_ema_alpha estimator-SNR contract, and bad pfa is
+   * rejected without touching the live config. */
+  {
+    uint8_t code[31];
+    for (int i = 0; i < 31; i++)
+      code[i] = (uint8_t)(i & 1);
+    dp_dll_state_t *d = dp_dll_create (code, 31, 2, 0.0, 0.01, 0.707, 0.5, 1);
+    DP_CHECK (d != NULL);
+    /* create-time default == the exact caller-path config; both lockdet
+     * thresholds carry the CFAR eta (no level hysteresis by default) and
+     * the declare verify count derives from the pfa:
+     * det_verify_count(1e-3, 1e-6) = 2. */
+    DP_CHECK (d->lock.up_thresh == dp_det_threshold_noncoherent (1e-3, 20));
+    DP_CHECK (d->lock.down_thresh == d->lock.up_thresh);
+    DP_CHECK (d->lock.n_up == 2 && d->lock.n_down == 2);
+    DP_CHECK (fabs (d->lock_alpha - 1.0 / 1024.0) < 1e-15); /* auto floor */
+
+    /* auto derivation follows 1/alpha = max(32*N, 1024) */
+    DP_CHECK (dp_dll_configure_lock (d, 1e-3, 64, 0.0) == DP_OK);
+    DP_CHECK (fabs (d->lock_alpha - 1.0 / 2048.0) < 1e-15);
+    DP_CHECK (d->n_looks == 64);
+
+    /* explicit reference SNR overrides the auto sizing */
+    DP_CHECK (dp_dll_configure_lock (d, 1e-2, 20, 20.0) == DP_OK);
+    DP_CHECK (fabs (d->lock_alpha - 2.0 / 101.0) < 1e-15);
+    DP_CHECK (d->lock.up_thresh == dp_det_threshold_noncoherent (1e-2, 20));
+
+    /* bad pfa: rejected whole, live config untouched */
+    double thr = d->lock.up_thresh, alp = d->lock_alpha;
+    DP_CHECK (dp_dll_configure_lock (d, 0.0, 20, 0.0) == DP_ERR_INVALID);
+    DP_CHECK (dp_dll_configure_lock (d, 1.0, 20, 0.0) == DP_ERR_INVALID);
+    DP_CHECK (dp_dll_configure_lock (d, -1.0, 20, 0.0) == DP_ERR_INVALID);
+    DP_CHECK (d->lock.up_thresh == thr && d->lock_alpha == alp);
+
+    /* n_looks = 0 clamps to 1 (auto floor still applies) */
+    DP_CHECK (dp_dll_configure_lock (d, 1e-3, 0, 0.0) == DP_OK);
+    DP_CHECK (d->n_looks == 1);
+    DP_CHECK (fabs (d->lock_alpha - 1.0 / 1024.0) < 1e-15);
+    dp_dll_destroy (d);
+  }
+
+  /* telemetry attach — four records per code epoch in both the coherent
+   * (segments == 1) and partial-correlation (segments > 1) loops; blobs
+   * stay attachment-independent; a live attachment survives set_state. */
+  {
+    uint8_t code[31];
+    for (int i = 0; i < 31; i++)
+      code[i] = (uint8_t)(i & 1);
+    enum
+    {
+      EP  = 62,
+      NEP = 20,
+      L   = EP * NEP
+    };
+    float _Complex rx[L], out[256];
+    dp_tlm_rec_t recs[512];
+    for (int i = 0; i < L; i++)
+      rx[i] = (code[(size_t)(i / 2) % 31] & 1u) ? -1.0f : 1.0f;
+    dp_tlm_t       *tlm = dp_tlm_create (4096);
+    dp_dll_state_t *d = dp_dll_create (code, 31, 2, 0.0, 0.01, 0.707, 0.5, 1);
+    DP_CHECK (tlm != NULL && d != NULL);
+    DP_CHECK (dp_dll_set_telemetry (d, tlm, "code", 1) == DP_OK);
+    DP_CHECK (dp_tlm_probe_id (tlm, "code.e") == d->tlm.id_e);
+    DP_CHECK (dp_tlm_probe_id (tlm, "code.rate") == d->tlm.id_rate);
+    DP_CHECK (dp_tlm_probe_id (tlm, "code.lock") == d->tlm.id_lock);
+    DP_CHECK (dp_tlm_probe_id (tlm, "code.locked") == d->tlm.id_locked);
+
+    size_t k     = dp_dll_steps (d, rx, L, out, 256);
+    size_t n_rec = dp_tlm_read (tlm, 512, recs, 512);
+    DP_CHECK (k > 0 && n_rec == 4 * k); /* e + rate + lock + locked / epoch */
+    /* The final epoch's rate/lock/locked records mirror the tracked state
+     * (flush order per epoch: e, rate, lock, locked). */
+    DP_CHECK (recs[n_rec - 3].value == (float)d->code_rate);
+    DP_CHECK (recs[n_rec - 2].value == (float)d->lock_stat);
+    DP_CHECK (recs[n_rec - 1].value == (float)dp_dll_get_locked (d));
+
+    /* segments > 1: the partial loop flushes once per epoch (an epoch is
+     * `segments` emitted partials), through the same literal-tlm split. */
+    dp_dll_state_t *s2 = dp_dll_create (code, 31, 2, 0.0, 0.01, 0.707, 0.5, 2);
+    DP_CHECK (s2 != NULL);
+    DP_CHECK (dp_dll_set_telemetry (s2, tlm, "code2", 1) == DP_OK);
+    size_t k2 = dp_dll_steps (s2, rx, L, out, 256);
+    size_t n2 = dp_tlm_read (tlm, 512, recs, 512);
+    DP_CHECK (k2 > 0 && n2 > 0 && n2 % 4 == 0);
+    DP_CHECK (n2
+              <= 4 * (k2 / 2 + 1)); /* one flush per epoch, not per partial */
+    dp_dll_destroy (s2);
+
+    /* Blobs zero the attachment (deterministic) and set_state into an
+     * attached instance preserves that instance's live attachment. */
+    size_t sb = dp_dll_state_bytes (d);
+    void  *b1 = malloc (sb), *b2 = malloc (sb);
+    dp_dll_get_state (d, b1);
+    dp_dll_state_t *d3 = dp_dll_create (code, 31, 2, 0.0, 0.01, 0.707, 0.5, 1);
+    DP_CHECK (d3 != NULL);
+    DP_CHECK (dp_dll_set_telemetry (d3, tlm, "code3", 2) == DP_OK);
+    DP_CHECK (dp_dll_set_state (d3, b1) == DP_OK);
+    DP_CHECK (d3->tlm.ctx == tlm);
+    DP_CHECK (d3->tlm.id_e == dp_tlm_probe_id (tlm, "code3.e"));
+    dp_dll_get_state (d3, b2);
+    DP_CHECK (memcmp (b1, b2, sb) == 0); /* attachment-independent bytes */
+    free (b1);
+    free (b2);
+    dp_dll_destroy (d3);
+
+    /* Detach: probe sites revert to the single-branch cost. */
+    DP_CHECK (dp_dll_set_telemetry (d, NULL, "code", 1) == DP_OK);
+    DP_CHECK (d->tlm.ctx == NULL);
+    (void)dp_dll_steps (d, rx, L, out, 256);
+    DP_CHECK (dp_tlm_read (tlm, 512, recs, 512) == 0);
+
+    /* A full probe table fails the attach whole. */
+    char pname[DP_TLM_NAME_MAX];
+    for (size_t i = 0; dp_tlm_probe_count (tlm) < DP_TLM_MAX_PROBES; i++)
+      {
+        (void)snprintf (pname, sizeof (pname), "fill%zu", i);
+        (void)dp_tlm_probe (tlm, pname, 1);
+      }
+    DP_CHECK (dp_dll_set_telemetry (d, tlm, "nope", 1) == DP_ERR_INVALID);
+    DP_CHECK (d->tlm.ctx == NULL);
+    dp_dll_destroy (d);
+    dp_tlm_destroy (tlm);
+  }
+
+  /* ---------------------------------------------------------------- *
+   * 8. Long-run false-lock regression: zero Doppler, zero carrier,   *
+   *    segments=1 -- the code phase must never make a large jump     *
+   *    once locked. This is the committed guard for a real bug: an   *
+   *    earlier fixed-point-NCO redesign attempt (dwell-integrated    *
+   *    replica + magnitude discriminator, direct phase kicks) passed  *
+   *    every other test in this file yet still false-locked into a   *
+   *    stable, wrong code phase over thousands of periods on select   *
+   *    noise seeds -- with no test here to catch it. The 2x-          *
+   *    oversampled replica + power-domain NELP discriminator (see     *
+   *    dll_replica()/dll_update()) is what actually fixed it; this    *
+   *    test is what would have caught the earlier attempt's failure   *
+   *    immediately instead of needing a multi-session investigation. *
+   * ---------------------------------------------------------------- */
+  {
+    const size_t    sf = 63, sps = 4, nper = 4188, tsamps = sf * sps;
+    const uint32_t  seeds[] = { 42, 43, 44, 100 };
+    const size_t    n_seeds = sizeof (seeds) / sizeof (seeds[0]);
+    uint8_t        *code    = malloc (sf);
+    float _Complex *rx      = malloc (tsamps * nper * sizeof (*rx));
+    for (size_t si = 0; si < n_seeds; si++)
+      {
+        make_code (code, sf, 7u + seeds[si]);
+        size_t n
+            = make_signal (rx, code, sf, sps, 0.0, nper, 1000u + seeds[si], 1);
+        dp_dll_state_t *d
+            = dp_dll_create (code, sf, sps, 0.0, 0.02, 0.707, 0.5, 1);
+        double prev_phase = -1.0;
+        double max_jump   = 0.0;
+        for (size_t p = 0; p < nper; p++)
+          {
+            for (size_t i = 0; i < tsamps; i++)
+              dll_accumulate (d, rx[p * tsamps + i]);
+            dll_update (d);
+            d->acc_e = d->acc_p = d->acc_l = 0.0f;
+            double cp                      = dp_dll_get_code_phase (d);
+            if (prev_phase >= 0.0)
+              {
+                double jump = fabs (cp - prev_phase);
+                if (jump > (double)sf / 2.0)
+                  jump = (double)sf - jump;
+                if (jump > max_jump)
+                  max_jump = jump;
+              }
+            prev_phase = cp;
+          }
+        (void)n;
+        DP_CHECK (max_jump < 5.0); /* no false-lock jump over the whole run */
+        DP_CHECK (fabs (dp_dll_get_code_rate (d) - 1.0) < 1e-3);
+        dp_dll_destroy (d);
+      }
+    free (rx);
+    free (code);
+  }
+
+  /* dp_dll_lookback_segments(): ports despreader_coupled.py's
+   * async_lookback_windows() -- the known reference value it derives at
+   * this project's own validated point (tsamps=2046, max_error_db=0.5
+   * -> windows=11). */
+  {
+    DP_CHECK (dp_dll_lookback_segments (2046, 0.5) == 11);
+    /* tsamps==0 is a degenerate guard, not a real caller input. */
+    DP_CHECK (dp_dll_lookback_segments (0, 0.5) == 1);
+    /* Every returned segments count must evenly divide tsamps -- the
+     * whole point of the divisor-snapping step. */
+    size_t tsamps_probe[] = { 2046, 1024, 63 * 4, 31 * 2, 100 };
+    for (size_t i = 0; i < sizeof (tsamps_probe) / sizeof (tsamps_probe[0]);
+         i++)
+      {
+        size_t t = tsamps_probe[i];
+        size_t s = dp_dll_lookback_segments (t, 0.5);
+        DP_CHECK (s >= 1 && s <= t);
+        DP_CHECK (t % s == 0);
+      }
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Coast: the loop holds, the discriminator still reads             *
+   * ---------------------------------------------------------------- */
+  /* The header: coasting, "the discriminator is not filtered and
+     phase_inc is not steered" -- so a holder coasting on another clock
+     (a searcher's cell, a carrier aid) reads where the signal sits
+     against the held phase, on `last_error` and the `.e` probe, and
+     corrects on it. Seeded 0.15 chip off a clean signal and held from
+     the start, the loop's rate and phase stay put and its discriminator
+     reads the offset; the same loop run pulls in and its discriminator
+     decays. Before this pin the coast returned before the discriminator
+     was computed, and a coasting loop's probe read 0 for as long as it
+     coasted (design section 12.22). */
+  {
+    /* 600 periods: 5/bn at 0.005 is 1000 epochs of settling for the
+       running loop; the held one has nothing to settle. */
+    const size_t sf = 63, sps = 4, nper = 600;
+    uint8_t     *code = malloc (sf);
+    make_code (code, sf, 23u);
+    float _Complex *rx  = malloc (sf * sps * nper * sizeof (*rx));
+    size_t          n   = make_signal (rx, code, sf, sps, 0.0, nper, 9u, 1);
+    float _Complex *sym = malloc (nper * sizeof (*sym));
+    const double    off = 0.15;
+    dp_dll_state_t *held
+        = dp_dll_create (code, sf, sps, off, 0.005, 0.707, 0.5, 1);
+    dp_dll_state_t *run
+        = dp_dll_create (code, sf, sps, off, 0.005, 0.707, 0.5, 1);
+    DP_REQUIRE (held && run);
+    dp_dll_hold_here (held);
+    dp_dll_set_coast (held, 1);
+    (void)dp_dll_steps (held, rx, n, sym, nper);
+    (void)dp_dll_steps (run, rx, n, sym, nper);
+    /* Held: the rate is the nominal it was held at, the phase advanced at
+       it -- fed over samples per chip, plus the seed -- to a hundredth of
+       a chip; the discriminator reads the offset, not zero. */
+    DP_CHECK (dp_dll_get_code_rate (held) == 1.0);
+    double want = fmod ((double)n / (double)sps + off, (double)sf);
+    double got  = fmod (dp_dll_get_code_phase (held), (double)sf);
+    double dph  = fabs (got - want);
+    if (dph > sf / 2.0)
+      dph = sf - dph;
+    DP_CHECK_MSG (dph < 0.01, "coasting, the phase advances at the held rate");
+    DP_CHECK_MSG (fabs (dp_dll_get_last_error (held)) > 0.05,
+                  "coasting, the discriminator still reads the offset");
+    /* Run: the loop pulled the offset in, so its read decayed. */
+    DP_CHECK_MSG (fabs (dp_dll_get_last_error (run)) < 0.02,
+                  "running, the same loop pulled in");
+    /* The correction: the held loop put back on the signal reads a
+       decayed discriminator over the next periods, and its phase is what
+       it was told, folded into the period. */
+    dp_dll_set_code_phase (held, (double)n / (double)sps + 2.0 * sf);
+    DP_CHECK (fabs (fmod (dp_dll_get_code_phase (held), (double)sf)
+                    - fmod ((double)n / (double)sps, (double)sf))
+              < 1e-9);
+    (void)dp_dll_steps (held, rx, 20 * sf * sps, sym, nper);
+    DP_CHECK_MSG (fabs (dp_dll_get_last_error (held)) < 0.05,
+                  "put back on the signal, the held loop's read decays");
+    DP_CHECK (dp_dll_get_code_rate (held) == 1.0);
+    dp_dll_destroy (run);
+    dp_dll_destroy (held);
+    free (sym);
+    free (rx);
+    free (code);
+  }
+
+  /* ---------------------------------------------------------------- *
+   * 8b. A put across the period wrap: nothing dumped, nothing        *
+   *     skipped, on both correlation paths (#1287)                    *
+   * ---------------------------------------------------------------- */
+  /* dp_dll_set_code_phase() used to move only the NCO. The epoch in progress
+     is keyed to the wrap, so a put back across it read every partial of the
+     next period ready at once (slivers, and a garbage epoch at the wrap),
+     and a put forward across it skipped the wrap and folded a second period
+     into one epoch. Both puts below are a 1-chip correction that lands
+     EXACTLY on the signal, so every epoch after the put is a clean
+     full-period read and the counts are exact over the next 10 periods:
+       back    -- 2 samples of tail, then 9 whole epochs (the bug: 10, the
+                  first a garbage epoch at the wrap);
+       forward -- the owed epoch closes at once, then 10 whole epochs (the
+                  bug: 10, two periods folded into the first).
+     Coasting, so only the put moves the phase. The blob taken right after
+     the put resumes to the same epochs, so the arming is state.
+     Sabotaged: drop the arming in dp_dll_set_code_phase (both counts read 10);
+     drop the tail discard at the awaited wrap (the first epoch after a back
+     put reads the tail's energy). */
+  {
+    const size_t sf = 63, sps = 4, nper = 30;
+    const size_t te = sf * sps, cap = te * nper;
+    uint8_t     *code = malloc (sf);
+    make_code (code, sf, 29u);
+    float _Complex *rx   = malloc (cap * sizeof (*rx));
+    float _Complex *out  = malloc (cap * sizeof (*out));
+    float _Complex *oute = malloc (cap * sizeof (*oute));
+    (void)make_signal (rx, code, sf, sps, 0.0, nper, 5u, 1);
+    const size_t segs[2] = { 1, 4 };
+    for (size_t si = 0; si < 2; si++)
+      for (int dir = -1; dir <= 1; dir += 2)
+        {
+          const size_t K = segs[si];
+          /* back: the loop runs 1 chip AHEAD and is put back onto the
+             signal just after its own wrap; forward: 1 chip BEHIND, put
+             forward just before it. */
+          const double    init = dir < 0 ? 1.0 : (double)sf - 1.0;
+          const size_t    m    = dir < 0 ? 10 * te - 2 : 10 * te + 2;
+          dp_dll_state_t *d
+              = dp_dll_create (code, sf, sps, init, 0.005, 0.707, 0.5, K);
+          dp_dll_state_t *e
+              = dp_dll_create (code, sf, sps, init, 0.005, 0.707, 0.5, K);
+          DP_REQUIRE (d && e);
+          dp_dll_hold_here (d);
+          dp_dll_set_coast (d, 1);
+          size_t na = dp_dll_steps (d, rx, m, out, cap);
+          DP_CHECK_MSG (na == 10 * K, "before the put: ten epochs");
+          /* put onto the signal's own phase at sample m */
+          dp_dll_set_code_phase (d,
+                                 fmod ((double)m / (double)sps, (double)sf));
+          void *blob = malloc (dp_dll_state_bytes (d));
+          DP_REQUIRE (blob);
+          dp_dll_get_state (d, blob);
+          DP_CHECK (dp_dll_set_state (e, blob) == DP_OK);
+
+          size_t nb   = dp_dll_steps (d, rx + m, 10 * te, out, cap);
+          size_t want = dir < 0 ? 9 * K : 11 * K;
+          DP_CHECK_MSG (nb == want, dir < 0
+                                        ? "back across the wrap: an epoch "
+                                          "closes only on a whole period"
+                                        : "forward across the wrap: the "
+                                          "owed epoch closes, none folded");
+          /* Every read past the owed one spans a whole partial: no sliver.
+             Compared PERIOD OVER PERIOD (out[i] against out[i + K]), not
+             against the run's own min/max. At segments > 1 the partials of
+             a PN code legitimately differ -- each spans a different quarter
+             of the code, ~7% peak-to-peak here -- so "every read is the
+             same size" is a property correct output does NOT have, and
+             asserting it failed on a working put. One period later is the
+             same quarter of the same code, so the comparison is exact; a
+             sliver (a one-sample partial, ~1/63 of a full one at this
+             geometry) cannot survive it. */
+          /* Back: from the first read, which is what pins the TAIL
+             DISCARD -- the 2-sample tail leaks only ~1.4% into that epoch,
+             so a loose bound cannot see it and the steady state repeats
+             EXACTLY, which is why the tolerance is 1% and not 10%.
+             Forward: skip the owed epoch AND the one after it; that one is
+             a legitimate ~2.8% transient as the loop settles onto the new
+             phase, and tightening the bound over it would fail correct
+             output. */
+          size_t first = dir < 0 ? 0 : 2 * K;
+          DP_CHECK_MSG (nb > first + K, "enough reads to compare periods");
+          for (size_t i = first; i + K < nb; i++)
+            {
+              float a = cabsf (out[i]), b = cabsf (out[i + K]);
+              DP_CHECK_MSG (a > 0.99f * b && b > 0.99f * a,
+                            "after the put every read spans its whole "
+                            "partial");
+            }
+          size_t ne = dp_dll_steps (e, rx + m, 10 * te, oute, cap);
+          DP_CHECK_MSG (ne == nb
+                            && memcmp (oute, out, nb * sizeof (*out)) == 0,
+                        "resumed from the blob taken after the put, the same "
+                        "epochs");
+          free (blob);
+          dp_dll_destroy (e);
+          dp_dll_destroy (d);
+        }
+    free (oute);
+    free (out);
+    free (rx);
+    free (code);
+  }
+
+  /* ---------------------------------------------------------------- *
+   * 9. The coasting read: every steer sums into dp_dll_take_error()     *
+   *    on BOTH correlation paths (the one steer, doppler#1280)        *
+   * ---------------------------------------------------------------- */
+  /* A holder correcting a coasting loop once a block (design section
+     12.22-12.24) reads the block MEAN of the discriminator, not the last
+     epoch's probe. Every steer adds to a running sum; take returns the
+     count and the sum and zeroes both. The full-epoch path steers once
+     per epoch; the symbol-aided partial path once per symbol window.
+     Sabotaged: accumulate on one path only (the other's count reads 0);
+     do not zero on take (the second take repeats the first). */
+  {
+    const size_t sf = 63, sps = 4, nper = 300;
+    uint8_t     *code = malloc (sf);
+    make_code (code, sf, 23u);
+    float _Complex *rx  = malloc (sf * sps * nper * sizeof (*rx));
+    size_t          n   = make_signal (rx, code, sf, sps, 0.0, nper, 9u, 1);
+    float _Complex *sym = malloc (nper * sizeof (*sym));
+    dp_dll_state_t *held
+        = dp_dll_create (code, sf, sps, 0.15, 0.005, 0.707, 0.5, 1);
+    DP_REQUIRE (held);
+    dp_dll_hold_here (held);
+    dp_dll_set_coast (held, 1);
+    double sum = 1.0;
+    DP_CHECK_MSG (dp_dll_take_error (held, &sum) == 0 && sum == 0.0,
+                  "a fresh loop has nothing to take");
+    (void)dp_dll_steps (held, rx, n, sym, nper);
+    size_t cnt = dp_dll_take_error (held, &sum);
+    DP_CHECK_MSG (cnt == nper,
+                  "full-epoch path: one steer per epoch, coasting or not");
+    DP_CHECK_MSG (
+        fabs (sum / (double)cnt) > 0.05
+            && fabs (sum / (double)cnt - dp_dll_get_last_error (held)) < 0.05,
+        "the mean reads the held offset, as the last steer does");
+    DP_CHECK_MSG (dp_dll_take_error (held, &sum) == 0 && sum == 0.0,
+                  "taken: the sum starts again from zero");
+    /* The running loop accumulates too: the same count. */
+    dp_dll_state_t *run
+        = dp_dll_create (code, sf, sps, 0.15, 0.005, 0.707, 0.5, 1);
+    (void)dp_dll_steps (run, rx, n, sym, nper);
+    DP_CHECK (dp_dll_take_error (run, &sum) == nper);
+    /* The Python face: the mean, NaN once taken. */
+    (void)dp_dll_steps (held, rx, sf * sps * 10, sym, nper);
+    DP_CHECK (fabs (dp_dll_take_error_mean (held)) > 0.05);
+    DP_CHECK (isnan (dp_dll_take_error_mean (held)));
+    dp_dll_destroy (run);
+    dp_dll_destroy (held);
+    free (sym);
+    free (rx);
+    free (code);
+  }
+  {
+    /* The symbol-aided partial path on 6b's asynchronous clean stream:
+       once per symbol window, so fewer steers than epochs and more than
+       one per two epochs (7.24 partials per symbol at four per epoch is
+       1.81 epochs per symbol; the first looks settle the hypothesis). */
+    const size_t sf = 63, sps = 4, K = 4, nsym = 400;
+    const size_t te   = sf * sps;
+    const double P    = 7.24;
+    const double tsym = P * (double)te / (double)K;
+    uint8_t     *code = malloc (sf);
+    make_code (code, sf, 11u);
+    size_t          N   = (size_t)(nsym * tsym) + 2 * te;
+    float _Complex *rx  = malloc (N * sizeof (*rx));
+    float _Complex *out = malloc (N * sizeof (*out));
+    make_async_signal (rx, N, code, sf, sps, 0.0, tsym, 0.37 * (double)te, 0.0,
+                       7u, 99u);
+    dp_dll_state_t *d
+        = dp_dll_create (code, sf, sps, 0.1, 0.002, 0.707, 0.5, K);
+    DP_REQUIRE (d && dp_dll_set_symbol_period (d, P) == DP_OK);
+    dp_dll_hold_here (d);
+    dp_dll_set_coast (d, 1);
+    size_t nep = N / te;
+    for (size_t e = 0; e < nep; e++)
+      dp_dll_steps (d, rx + e * te, te, out, te);
+    double sum;
+    size_t cnt = dp_dll_take_error (d, &sum);
+    DP_CHECK_MSG (cnt > nep / 2 && cnt < nep,
+                  "symbol-aided path: one steer per symbol window");
+    DP_CHECK_MSG (fabs (sum / (double)cnt) > 0.02,
+                  "coasting, the windows' mean reads the held offset");
+    /* A blob taken mid-interval carries the sum: the restored loop's
+       take is the original's. */
+    dp_dll_state_t *b
+        = dp_dll_create (code, sf, sps, 0.0, 0.002, 0.707, 0.5, K);
+    DP_REQUIRE (b && dp_dll_set_symbol_period (b, P) == DP_OK);
+    for (size_t e = 0; e < 40; e++)
+      dp_dll_steps (d, rx + e * te, te, out, te);
+    DP_STATE_ROUNDTRIP_TEST (dp_dll, d, b);
+    double sb, sd;
+    size_t nb = dp_dll_take_error (b, &sb), nd = dp_dll_take_error (d, &sd);
+    DP_CHECK_MSG (nb == nd && nb > 0 && sb == sd,
+                  "the accumulator rides in the blob");
+    dp_dll_destroy (b);
+    dp_dll_destroy (d);
+    free (out);
+    free (rx);
+    free (code);
+  }
+
+  /* ---------------------------------------------------------------- *
+   * 10. A held loop takes a new rate aid at once                      *
+   * ---------------------------------------------------------------- */
+  /* Nothing steers a coasting loop's phase_inc, and dp_dll_set_rate_aid()
+     used to only store the aid for the next steer to fold in -- so a held
+     loop kept the aid it was held with, whatever it was told since. A
+     holder refreshing the Doppler it holds (the searcher-timed receiver's
+     fold) needs the code rate to follow. Held at aid 0 on a nominal-rate
+     signal, told 2e-4, the phase over the next 200 epochs advances the
+     aid's extra chips (200 * sf * 2e-4 = 2.52 at sf 63) beyond nominal.
+     Sabotaged: skip the recompute -- the extra reads 0. */
+  {
+    const size_t sf = 63, sps = 4, nper = 300;
+    uint8_t     *code = malloc (sf);
+    make_code (code, sf, 23u);
+    float _Complex *rx  = malloc (sf * sps * nper * sizeof (*rx));
+    size_t          n   = make_signal (rx, code, sf, sps, 0.0, nper, 9u, 1);
+    float _Complex *sym = malloc (nper * sizeof (*sym));
+    dp_dll_state_t *d
+        = dp_dll_create (code, sf, sps, 0.0, 0.005, 0.707, 0.5, 1);
+    DP_REQUIRE (d);
+    dp_dll_hold_here (d);
+    dp_dll_set_coast (d, 1);
+    (void)dp_dll_steps (d, rx, 100 * sf * sps, sym, nper);
+    const double aid = 2e-4;
+    dp_dll_set_rate_aid (d, aid);
+    const double p0 = dp_dll_get_code_phase (d);
+    (void)dp_dll_steps (d, rx + 100 * sf * sps, 200 * sf * sps, sym, nper);
+    double adv = dp_dll_get_code_phase (d) - p0;
+    while (adv < 0.0)
+      adv += (double)sf;
+    /* The advance modulo the code: 200 epochs at nominal is 0 modulo sf,
+       so what is left is the aid's extra, 2.52 chips. */
+    adv               = fmod (adv, (double)sf);
+    const double want = 200.0 * (double)sf * aid;
+    DP_CHECK_MSG (fabs (adv - want) < 0.05,
+                  "held, a new rate aid moves the code rate at once");
+    DP_CHECK (dp_dll_get_code_rate (d) == 1.0); /* the loop's own observable */
+    (void)n;
+    dp_dll_destroy (d);
+    free (sym);
+    free (rx);
+    free (code);
+  }
+
+  DP_TEST_END ("test_dll_core");
+}

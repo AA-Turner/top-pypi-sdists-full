@@ -1,0 +1,43 @@
+from __future__ import annotations
+
+from mechbench_compute.protocol import ProtocolExecutor, ProtocolSpec, summarize_node
+
+GRAPH = {
+    "dataflow": 2, "nodes": [
+        {"id": "design", "block": "records/cross",
+         "params": {"factors": [{"name": "x", "levels": [{"key": "a"}, {"key": "b"}, {"key": "c"}]},
+                                {"name": "y", "levels": [{"key": "1"}, {"key": "2"}]}]}},
+        {"id": "prompts", "block": "records/derive", "params": {"templates": {"user": "{values.x} {values.y}"}}},
+        {"id": "stats", "block": "records/tabulate", "params": {}},
+    ],
+    "edges": [
+        {"from": {"node": "design", "port": "out"}, "to": {"node": "prompts", "port": "records"},
+         "kind": "records/record"},
+        {"from": {"node": "prompts", "port": "out"}, "to": {"node": "stats", "port": "records"},
+         "kind": "records/record"},
+    ],
+}
+
+
+def test_every_executed_node_is_summarized():
+    out = ProtocolExecutor().run(ProtocolSpec(
+        kind="pipeline", prompt="", model_id=None, extra={"graph": GRAPH}))
+    summaries = out.payload["node_summaries"]
+    assert summaries["design"] == {"kind": "records/record", "collection": True, "items": 6}
+    assert summaries["prompts"] == {"kind": "records/record", "collection": True, "items": 6}
+    assert summaries["stats"]["kind"] == "records/table"
+    assert summaries["stats"]["collection"] is False
+    assert summaries["stats"]["rows"] == 6
+    assert set(summaries) == set(out.payload["nodes_executed"])
+
+
+def test_a_summary_reads_every_spelling():
+    assert summarize_node([{"id": "a"}, {"id": "b"}]) == {"kind": "collection", "collection": True, "items": 2}
+    assert summarize_node({"kind": "residual_vectors", "rows": [{}, {}, {}]}) == {
+        "kind": "activations/vector", "collection": True, "items": 3}
+    assert summarize_node({"kind": "direction/vector", "vector": [0.1]}) == {
+        "kind": "direction/vector", "collection": False}
+    assert summarize_node("text") == {}
+    assert summarize_node({"kind": "collection", "item_kind": "text/document", "items": [{}]},
+                        {"cost_usd": 0.0123, "calls": 2}) == {
+        "kind": "text/document", "collection": True, "items": 1, "spend_usd": 0.0123}

@@ -15,10 +15,16 @@
 
 from __future__ import annotations
 
+import logging
+
+import pytest
+
 from extra_platforms import (
     ALL_TERMINALS,
     UNKNOWN_TERMINAL,
     current_terminal,
+    detection,
+    invalidate_caches,
     is_unknown_terminal,
 )
 
@@ -37,3 +43,34 @@ def test_terminal_detection():
     else:
         assert current_terminal_result is not UNKNOWN_TERMINAL
         assert current_terminal_result in ALL_TERMINALS
+
+
+@pytest.mark.parametrize(
+    ("term", "level"),
+    [
+        ("xterm-256color", logging.WARNING),
+        # Dumb terminals, as non-interactive SSH sessions declare them.
+        ("dumb", logging.INFO),
+        ("su", logging.INFO),
+        ("unknown", logging.INFO),
+        ("", logging.INFO),
+    ],
+)
+@pytest.mark.parametrize("ssh", [False, True])
+def test_unrecognized_terminal_log_level(term, level, ssh, monkeypatch, caplog):
+    """Only a ``TERM`` naming a terminal type makes an unrecognized one a warning.
+
+    An SSH session forwards ``TERM`` alone, from the client running the emulator.
+    """
+    env = {"TERM": term}
+    if ssh:
+        env["SSH_CONNECTION"] = "192.0.2.10 50000 192.0.2.20 22"
+        level = logging.INFO
+    monkeypatch.setattr(detection, "environ", env)
+    invalidate_caches()
+    caplog.set_level(logging.INFO)
+    try:
+        assert current_terminal() is UNKNOWN_TERMINAL
+        assert [record.levelno for record in caplog.records] == [level]
+    finally:
+        invalidate_caches()

@@ -23,8 +23,7 @@ class ProjectPermissionLevel(ModelEnum):
 
 @dataclass(frozen=True)
 class CreateProjectCollaborator(ModelBase):
-    """User to be added as a collaborator to a project.
-    """
+    """User to be added as a collaborator to a project."""
 
     __doc_py_example__ = """\
 import anyscale
@@ -68,8 +67,7 @@ create_project_collaborator = CreateProjectCollaborator(
 
 @dataclass(frozen=True)
 class CreateProjectCollaborators(ModelBase):
-    """List of users to be added as collaborators to a project.
-    """
+    """List of users to be added as collaborators to a project."""
 
     __doc_py_example__ = """\
 import anyscale
@@ -86,9 +84,7 @@ create_project_collaborators = CreateProjectCollaborators(
 """
 
     collaborators: List[Dict[str, Any]] = field(
-        metadata={
-            "docstring": "List of users to be added as collaborators to a project."
-        },
+        metadata={"docstring": "List of users to be added as collaborators to a project."},
     )
 
     def _validate_collaborators(self, collaborators: List[Dict[str, Any]]):
@@ -100,19 +96,25 @@ create_project_collaborators = CreateProjectCollaborators(
 class ProjectMinimal(ModelBase):
     """Minimal Project object."""
 
-    id: str = field(metadata={"docstring": "ID of the project."},)
+    id: str = field(
+        metadata={"docstring": "ID of the project."},
+    )
 
     def _validate_id(self, id: str):  # noqa: A002
         if not isinstance(id, str):
             raise TypeError("'id' must be a string.")
 
-    name: str = field(metadata={"docstring": "Name of the project."},)
+    name: str = field(
+        metadata={"docstring": "Name of the project."},
+    )
 
     def _validate_name(self, name: str):
         if not isinstance(name, str):
             raise TypeError("'name' must be a string.")
 
-    description: str = field(metadata={"docstring": "Description of the project."},)
+    description: str = field(
+        metadata={"docstring": "Description of the project."},
+    )
 
     def _validate_description(self, description: str):
         if not isinstance(description, str):
@@ -127,7 +129,8 @@ class ProjectMinimal(ModelBase):
             raise TypeError("'created_at' must be a string.")
 
     creator_id: Optional[str] = field(
-        default=None, metadata={"docstring": "ID of the creator of the project."},
+        default=None,
+        metadata={"docstring": "ID of the creator of the project."},
     )
 
     def _validate_creator_id(self, creator_id: Optional[str]):
@@ -135,7 +138,8 @@ class ProjectMinimal(ModelBase):
             raise TypeError("'creator_id' must be a string.")
 
     parent_cloud_id: Optional[str] = field(
-        default=None, metadata={"docstring": "ID of the parent cloud."},
+        default=None,
+        metadata={"docstring": "ID of the parent cloud."},
     )
 
     def _validate_parent_cloud_id(self, parent_cloud_id: Optional[str]):
@@ -152,8 +156,7 @@ class ProjectMinimal(ModelBase):
 
 @dataclass(frozen=True)
 class Project(ProjectMinimal):
-    """Project object.
-    """
+    """Project object."""
 
     __doc_py_example__ = """\
 import anyscale
@@ -193,9 +196,7 @@ project: Project = anyscale.project.get(project_id="my-project-id")
 
     is_default: bool = field(
         default=False,
-        metadata={
-            "docstring": "Whether the project is the default project for the organization."
-        },
+        metadata={"docstring": "Whether the project is the default project for the organization."},
     )
 
     def _validate_is_default(self, is_default: bool):
@@ -228,9 +229,7 @@ project: Project = anyscale.project.get(project_id="my-project-id")
 
     owners: List[str] = field(
         default_factory=list,
-        metadata={
-            "docstring": "List of IDs of users who have owner access to the project."
-        },
+        metadata={"docstring": "List of IDs of users who have owner access to the project."},
     )
 
     def _validate_owners(self, owners: List[str]):
@@ -249,13 +248,9 @@ project: Project = anyscale.project.get(project_id="my-project-id")
                 data[field_.name] = data[field_.name].strftime("%Y-%m-%d %H:%M:%S")
 
         # convert initial_cluster_config JSON string to dict
-        if "initial_cluster_config" in data and isinstance(
-            data["initial_cluster_config"], str
-        ):
+        if "initial_cluster_config" in data and isinstance(data["initial_cluster_config"], str):
             with contextlib.suppress(json.JSONDecodeError):
-                data["initial_cluster_config"] = json.loads(
-                    data["initial_cluster_config"]
-                )
+                data["initial_cluster_config"] = json.loads(data["initial_cluster_config"])
 
         # convert owners list of dicts to list of string IDs
         if "owners" in data and isinstance(data["owners"], list):

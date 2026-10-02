@@ -50,7 +50,9 @@ def list(  # noqa: A001
     arg_docstrings=_GET_ARG_DOCSTRINGS,
 )
 def get(
-    id: str, *, _private_sdk: Optional[PrivateUserGroupSDK] = None  # noqa: A002
+    id: str,  # noqa: A002
+    *,
+    _private_sdk: Optional[PrivateUserGroupSDK] = None,
 ) -> UserGroup:
     """Get a specific user group by ID.
 

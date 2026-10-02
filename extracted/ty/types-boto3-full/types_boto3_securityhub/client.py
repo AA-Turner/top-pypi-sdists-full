@@ -39,12 +39,14 @@ from .paginator import (
     GetFindingsV2Paginator,
     GetInsightsPaginator,
     GetRecommendedPolicyV2Paginator,
+    GetRemediationsV2Paginator,
     GetResourcesTrendsV2Paginator,
     GetResourcesV2Paginator,
     ListAggregatorsV2Paginator,
     ListConfigurationPoliciesPaginator,
     ListConfigurationPolicyAssociationsPaginator,
     ListEnabledProductsForImportPaginator,
+    ListExposuresByRemediationV2Paginator,
     ListFindingAggregatorsPaginator,
     ListFreeTrialStatusesV2Paginator,
     ListInvitationsPaginator,
@@ -184,6 +186,8 @@ from .type_defs import (
     GetMembersResponseTypeDef,
     GetRecommendedPolicyV2RequestTypeDef,
     GetRecommendedPolicyV2ResponseTypeDef,
+    GetRemediationsV2RequestTypeDef,
+    GetRemediationsV2ResponseTypeDef,
     GetResourcesStatisticsV2RequestTypeDef,
     GetResourcesStatisticsV2ResponseTypeDef,
     GetResourcesTrendsV2RequestTypeDef,
@@ -210,6 +214,8 @@ from .type_defs import (
     ListConnectorsV2ResponseTypeDef,
     ListEnabledProductsForImportRequestTypeDef,
     ListEnabledProductsForImportResponseTypeDef,
+    ListExposuresByRemediationV2RequestTypeDef,
+    ListExposuresByRemediationV2ResponseTypeDef,
     ListFindingAggregatorsRequestTypeDef,
     ListFindingAggregatorsResponseTypeDef,
     ListFreeTrialStatusesV2RequestTypeDef,
@@ -1106,6 +1112,17 @@ class SecurityHubClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_recommended_policy_v2)
         """
 
+    def get_remediations_v2(
+        self, **kwargs: Unpack[GetRemediationsV2RequestTypeDef]
+    ) -> GetRemediationsV2ResponseTypeDef:
+        """
+        Retrieves remediation targets for the account, or for all member accounts if
+        the caller is the delegated administrator.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_remediations_v2.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_remediations_v2)
+        """
+
     def get_resources_statistics_v2(
         self, **kwargs: Unpack[GetResourcesStatisticsV2RequestTypeDef]
     ) -> GetResourcesStatisticsV2ResponseTypeDef:
@@ -1240,6 +1257,16 @@ class SecurityHubClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_enabled_products_for_import.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#list_enabled_products_for_import)
+        """
+
+    def list_exposures_by_remediation_v2(
+        self, **kwargs: Unpack[ListExposuresByRemediationV2RequestTypeDef]
+    ) -> ListExposuresByRemediationV2ResponseTypeDef:
+        """
+        Retrieves the exposure findings tied to a specific remediation target.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_exposures_by_remediation_v2.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#list_exposures_by_remediation_v2)
         """
 
     def list_finding_aggregators(
@@ -1637,6 +1664,17 @@ class SecurityHubClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_remediations_v2"]
+    ) -> GetRemediationsV2Paginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["get_resources_trends_v2"]
     ) -> GetResourcesTrendsV2Paginator:
         """
@@ -1694,6 +1732,17 @@ class SecurityHubClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_enabled_products_for_import"]
     ) -> ListEnabledProductsForImportPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_exposures_by_remediation_v2"]
+    ) -> ListExposuresByRemediationV2Paginator:
         """
         Create a paginator for an operation.
 

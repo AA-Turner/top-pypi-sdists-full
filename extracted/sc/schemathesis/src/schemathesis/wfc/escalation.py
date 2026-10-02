@@ -44,7 +44,17 @@ _DENIAL_RANK = {401: 0, 403: 1}
 class EscalatingAuthProvider:
     """Try each identity in document order, moving on from the ones an operation refuses."""
 
-    __slots__ = ("providers", "names", "_assigned", "_settled", "_best", "_lock")
+    __slots__ = (
+        "providers",
+        "names",
+        "_assigned",
+        "_settled",
+        "_best",
+        "_accounts_proven",
+        "_refused_early",
+        "_checks_credentials",
+        "_lock",
+    )
 
     def __init__(self, providers: list[AuthProvider], names: list[str]) -> None:
         # Credentials an operation rejects are worse than none: a stack that refuses a bad
@@ -57,6 +67,12 @@ class EscalatingAuthProvider:
         self._settled: set[str] = set()
         # Best (rank, index) seen per operation, so an exhausted chain keeps its furthest rung.
         self._best: dict[str, tuple[int, int]] = {}
+        # An API may create its accounts mid-run, so a 401 before any credentials are known to work is not final.
+        self._accounts_proven = False
+        # Earliest identity each operation refused with a 401 before then.
+        self._refused_early: dict[str, int] = {}
+        # Operations that answered a 401, so a success on them means the credentials were checked.
+        self._checks_credentials: set[str] = set()
         self._lock = threading.Lock()
 
     def index_for(self, label: str) -> int:
@@ -70,9 +86,23 @@ class EscalatingAuthProvider:
         case._auth_identity = self.names[index]
         self.providers[index].set(case, data, context)
 
-    def record(self, label: str, status_code: int) -> None:
-        """Fold one response into the assignment for `label`."""
+    def record(self, label: str, identity: str | None, status_code: int) -> None:
+        """Fold one response, sent as `identity`, into the assignment for `label`."""
+        # Anonymous cases are never tagged, and neither are cases whose credentials were left out on purpose;
+        # both went out without credentials.
+        sent = self.names.index(identity if identity is not None else ANONYMOUS)
         with self._lock:
+            if status_code == 401:
+                self._checks_credentials.add(label)
+            # A 403 accepted the credentials and refused only the role. A success proves nothing on an
+            # operation that may never look at credentials.
+            if (
+                not self._accounts_proven
+                and self.names[sent] != ANONYMOUS
+                and (status_code == 403 or (_is_admitted(status_code) and label in self._checks_credentials))
+            ):
+                self._accounts_proven = True
+                self._retry_refused_early()
             if label in self._settled:
                 return
             if _is_admitted(status_code):
@@ -81,6 +111,11 @@ class EscalatingAuthProvider:
             if status_code not in DENIED:
                 return
             current = self._assigned.get(label, 0)
+            # Cases may carry an identity picked before earlier responses moved the assignment on.
+            if sent != current:
+                return
+            if status_code == 401 and not self._accounts_proven and self.names[sent] != ANONYMOUS:
+                self._refused_early.setdefault(label, sent)
             rank = _DENIAL_RANK[status_code]
             best = self._best.get(label)
             # Ties go to the later rung: among identities that got equally far, it is the one with
@@ -95,6 +130,12 @@ class EscalatingAuthProvider:
             # Chain exhausted: keep whichever rung got furthest and stop moving.
             self._assigned[label] = self._best[label][1]
             self._settled.add(label)
+
+    def _retry_refused_early(self) -> None:
+        for label, index in self._refused_early.items():
+            self._assigned[label] = index
+            self._settled.discard(label)
+        self._refused_early.clear()
 
     def snapshot(self) -> dict[str, str]:
         """Identity per operation, including the ones that never had to escalate."""
@@ -133,4 +174,4 @@ def record_auth_outcome(case: Case, status_code: int) -> None:
     """Let an escalating provider learn from this response."""
     provider = _escalating_provider(case.operation.schema)
     if provider is not None:
-        provider.record(case.operation.label, status_code)
+        provider.record(case.operation.label, case._auth_identity, status_code)

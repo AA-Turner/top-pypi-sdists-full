@@ -1,0 +1,739 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""Regression guard for the pre-push hook's `.200`-default host-identity
+guard (OMN-15059).
+
+Root cause this prevents regressing: root CLAUDE.md documents that the heavy
+(full-suite, fail-closed escalation) branch of the pre-push hook defaults to
+running on the `.200` execution host, not the local Mac -- but a rule stated
+only in a doc/prompt has zero enforcement force without a call-site mechanism
+(memory `feedback_a_rule_is_not_a_mechanism`). Evidence this was load-bearing:
+a 2026-07-24 session drove the local Mac to load ~55 with 93% swap running
+this exact escalation for 115+ minutes before `.200` was invoked as a rescue
+rather than having been the execution target from the start.
+
+Three assertion classes:
+
+1. Static wiring -- `guard_full_suite_host` is defined and is the first
+   statement inside EVERY `IS_FULL` (full-suite) branch, so a future edit
+   cannot silently drop the call site while leaving the branch intact.
+2. Behavioral -- actually invoking the hook with the full-suite escalation
+   forced (`PREPUSH_FULL_SUITE=1`) and a guaranteed-non-matching
+   `PREPUSH_200_HOSTNAME` override exits non-zero WITHOUT ever reaching the
+   real pytest invocation. The override makes this host-independent: it must
+   hold true no matter which host runs the test suite (including `.200`
+   itself), so the test does not rely on the ambient hostname.
+3. Heavyweight-SELECTION (OMN-15408) -- the guard must key on the work the
+   selector actually picked, not on the `is_full_suite` flag. The selector
+   routinely emits `is_full_suite=False` with `selected_paths=["tests/"]`, and
+   before OMN-15408 those runs bypassed the guard outright: 13,898 tests /
+   506s in omnimarket and 2,429 tests / 245s in omnibase_infra, executed on
+   `omnibook` through real `git push` runs on 2026-07-29 with the guard never
+   invoked -- while the identical selected work forced via
+   `PREPUSH_FULL_SUITE=1` WAS refused. Assertion classes 1 and 2 above were
+   green that entire time, because both only ever drove the flag-true path.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import subprocess
+from pathlib import Path
+
+import pytest
+
+from omnibase_core.validators.no_unguarded_git_subprocess import (
+    scrub_git_location_env,
+)
+from tests.ci._prepush_lab_isolation import gh_offline_env, network_free_lab_env
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+HOOK_SCRIPT = REPO_ROOT / "scripts" / "hooks" / "prepush_smart_tests.sh"
+
+_GUARANTEED_NON_MATCHING_HOSTNAME = "definitely-not-the-200-host-omn15059"
+
+_HOST_TABLE = REPO_ROOT / "scripts" / "hooks" / "prepush_hosts.tsv"
+
+
+def de_designating_env() -> dict[str, str]:
+    """Env that de-designates EVERY authorizing host in the table (OMN-16991).
+
+    Before the host table, `.200` identity was the sole definition of "a
+    designated host", so overriding `PREPUSH_200_HOSTNAME` alone was enough to
+    make the refusal below host-independent. It never actually was: on the
+    `.201` gate-runner (hostname `gate-runner-201`) the guard matched its second
+    hard-coded name and this test's premise inverted from a refusal to a pass.
+    Adding `omninode-pc` as a row would have widened that hole to the `.201`
+    host itself -- which is exactly why the override contract is that an
+    override REPLACES the row it names rather than adding a name to the set.
+
+    Every authorizing row is therefore pointed at a guaranteed-non-matching
+    name, so the assertion holds on every host in the lab, including the ones
+    this change adds.
+    """
+    env: dict[str, str] = {}
+    for line in _HOST_TABLE.read_text(encoding="utf-8").splitlines():
+        line = line.split("#", 1)[0]
+        if not line.strip():
+            continue
+        fields = line.split("\t")
+        if len(fields) < 12 or fields[11] != "authorizing":
+            continue
+        label = "".join(c if c.isalnum() else "_" for c in fields[0].upper())
+        env[f"PREPUSH_HOST_OVERRIDE_{label}"] = (
+            f"{_GUARANTEED_NON_MATCHING_HOSTNAME}-{fields[0]}"
+        )
+    return env
+
+
+_FULL_SUITE_BRANCH_RE = re.compile(
+    r'if \[ "\$IS_FULL" = "True" \].*?\n(.*?\n)(?=elif|else|fi)',
+    re.DOTALL,
+)
+
+
+def test_hook_script_exists() -> None:
+    assert HOOK_SCRIPT.is_file(), f"expected pre-push hook at {HOOK_SCRIPT}"
+
+
+def test_guard_function_is_defined() -> None:
+    script_text = HOOK_SCRIPT.read_text(encoding="utf-8")
+    assert "guard_full_suite_host()" in script_text, (
+        "expected a guard_full_suite_host() function guarding the heavy "
+        f"full-suite escalation in {HOOK_SCRIPT}"
+    )
+
+
+# OMN-18012: the ONE sanctioned reason the guard call may not be the literal
+# first statement of the IS_FULL branch. `place_integration_selection_offbox`
+# runs BEFORE the controller and sets REMOTE_LAB_RUN_VERDICT=1 only after it has
+# resolved this host's identity, read the committed host table, and obtained a
+# green verdict from a DESIGNATED lab host -- strictly stronger evidence than
+# the guard's own check, and re-entering the guard would dispatch the identical
+# superset argv a second time. Anything other than this exact line still fails.
+_SANCTIONED_GUARD_SHORT_CIRCUIT = 'if [ "$REMOTE_LAB_RUN_VERDICT" -ne 1 ]; then'
+
+
+def test_guard_is_called_before_every_full_suite_pytest_invocation() -> None:
+    """Every `if [ "$IS_FULL" = ... ]; then` branch must reach
+    guard_full_suite_host before anything else, so the heavy escalation can
+    never run without a host check firing first.
+
+    The invariant is unchanged; its EXPRESSION moved one level in (OMN-18012).
+    The pin follows it rather than being relaxed: the short-circuit is matched
+    literally, and its own body must open with the guard call. A future edit
+    that puts any other statement first -- or that widens the short-circuit
+    condition -- still turns this red.
+    """
+    script_text = HOOK_SCRIPT.read_text(encoding="utf-8")
+    full_suite_branches = _FULL_SUITE_BRANCH_RE.findall(script_text)
+    assert full_suite_branches, "expected at least one IS_FULL branch in the hook"
+    for branch_body in full_suite_branches:
+        statements = [line.strip() for line in branch_body.splitlines() if line.strip()]
+        first_stmt = statements[0] if statements else ""
+        if first_stmt == "guard_full_suite_host":
+            continue
+        assert first_stmt == _SANCTIONED_GUARD_SHORT_CIRCUIT, (
+            "expected guard_full_suite_host to be the first statement in the "
+            f"full-suite branch, found {first_stmt!r} instead"
+        )
+        assert statements[1] == "guard_full_suite_host", (
+            "the REMOTE_LAB_RUN_VERDICT short-circuit must guard nothing but "
+            f"the guard call itself, found {statements[1]!r} instead"
+        )
+
+
+def test_the_offbox_integration_placement_precedes_the_local_controller() -> None:
+    """OMN-18012: the placement is what entitles the branch above to skip the
+    guard, so it must actually run FIRST -- before the IS_FULL branch, and
+    before any local pytest invocation."""
+    script_text = HOOK_SCRIPT.read_text(encoding="utf-8")
+    placement = script_text.index('place_integration_selection_offbox "')
+    refusal = script_text.index("assert_no_integration_path_runs_locally\n")
+    controller = script_text.index(
+        'if [ "$IS_FULL" = "True" ] || [ "$IS_FULL" = "true" ]; then'
+    )
+    assert refusal < placement < controller, (
+        "the local-argv refusal and the off-box placement must both precede the "
+        "local execution controller"
+    )
+
+
+def test_guard_fails_closed_when_hostname_cannot_be_determined() -> None:
+    """OMN-16489 defect 3 inverted this pin: the empty-hostname branch used to
+    WARN and return 0 (fail-open), letting the heavy escalation proceed on a
+    host that could not be identified. It now refuses with remediation. The
+    behavioral proof lives in test_prepush_hook_recursion_and_env_guard.py."""
+    script_text = HOOK_SCRIPT.read_text(encoding="utf-8")
+    assert 'if [ -z "$host" ]; then' in script_text, (
+        "expected the guard to check for an unresolvable hostname"
+    )
+    assert "could not determine the local hostname" in script_text, (
+        "expected the empty-hostname branch to die with a remediation message "
+        "(fail-closed, OMN-16489)"
+    )
+    assert "proceeding locally (fail-open" not in script_text, (
+        "the empty-hostname branch must not fail open (OMN-16489)"
+    )
+
+
+def test_guard_has_a_visible_degraded_host_override() -> None:
+    """The escape hatch must exist, be loud, and be a SCOPED SINGLE-USE GRANT.
+
+    Updated by OMN-16480. This used to assert the hatch was
+    ``PREPUSH_ALLOW_LOCAL_FULL_SUITE`` -- a plain environment variable, and
+    therefore inherited by every descendant process, bound to no repo or
+    commit, never expiring, and leaving no receipt. On 2026-08-23 that shape
+    turned one correct use of the hatch into a recursive 44,064-test suite and
+    ~9h03m of loss (friction report F-01/F-04). The hatch is now a grant token
+    consumed by the guard; the variable is refused, not honored.
+    """
+    script_text = HOOK_SCRIPT.read_text(encoding="utf-8")
+    assert "consume_override_grant" in script_text, (
+        "expected the override to be a consumed single-use grant "
+        "(scripts/hooks/prepush_override_grant.py), not an env var"
+    )
+    assert "reject_inherited_env_overrides" in script_text, (
+        "expected inheritable PREPUSH_ALLOW_* variables to be REJECTED at hook "
+        "entry -- honoring one lets a single leak disarm the gate for an entire "
+        "process tree, silently"
+    )
+    assert "DEGRADED-HOST OVERRIDE" in script_text, (
+        "expected the override to print a loud, visible warning naming the "
+        "degraded evidence -- a silent bypass reproduces the incident this "
+        "guard exists to prevent"
+    )
+
+
+def test_guard_refuses_full_suite_escalation_on_non_200_host() -> None:
+    """Behavioral proof: force the full-suite escalation and a
+    guaranteed-non-matching host; the hook must exit non-zero and must NEVER
+    reach the actual pytest invocation."""
+    env = dict(os.environ)
+    # Scrub ambient leaky vars before setting the ones this test deliberately
+    # forces below (OMN-16425). PREPUSH_ALLOW_LOCAL_FULL_SUITE leaking in from
+    # an outer `git push` invocation routes the hook down the degraded-host
+    # override branch instead of refusing, letting it reach a nested pytest
+    # invocation that can recurse into this same test file.
+    for leaky in (
+        "PREPUSH_FULL_SUITE",
+        "PREPUSH_ALLOW_LOCAL_FULL_SUITE",
+        "ENABLE_SMART_TESTS",
+        "PREPUSH_ADJACENCY",
+        "PREPUSH_PYTEST_ARGS",
+        # OMN-16489: this test deliberately exercises FIRST-entry behavior, so
+        # the recursion sentinel an outer hook run exports must not leak in.
+        "ONEX_PREPUSH_HOOK_ACTIVE",
+    ):
+        env.pop(leaky, None)
+    env["PREPUSH_FULL_SUITE"] = "1"
+    env["PREPUSH_200_HOSTNAME"] = _GUARANTEED_NON_MATCHING_HOSTNAME
+    # OMN-16991: de-designate every OTHER authorizing row too, so this proof is
+    # host-independent for the first time (see de_designating_env).
+    env.update(de_designating_env())
+    # ...and keep the lab-dispatch leg off the network. De-designating a row
+    # changes its IDENTITY, not its ssh target, so without this the hook ships a
+    # real bundle to a real lab host from inside this test.
+    env.update(network_free_lab_env())
+    env.update(gh_offline_env())
+    result = subprocess.run(
+        ["bash", str(HOOK_SCRIPT)],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=180,
+        check=False,
+    )
+    assert result.returncode != 0, (
+        "expected the host guard to refuse the full-suite escalation on a "
+        f"non-.200 host; got exit {result.returncode}. "
+        f"stdout={result.stdout!r} stderr={result.stderr!r}"
+    )
+    assert "not the designated .200 build host" in result.stderr, (
+        f"expected the refusal message in stderr, got: {result.stderr!r}"
+    )
+    assert "collected" not in result.stdout, (
+        "the guard must refuse BEFORE pytest ever collects tests -- found a "
+        f"pytest collection banner in stdout: {result.stdout!r}"
+    )
+
+
+# =============================================================================
+# OMN-15408: the guard must key on the SELECTED WORK, not the is_full_suite flag
+# =============================================================================
+# The OMN-15059 guard above was called ONLY from inside the `IS_FULL` branch, so
+# it fired on the selector's `is_full_suite` FLAG. The selector routinely emits
+# `is_full_suite=False` with `selected_paths=["tests/"]` -- the whole suite
+# arriving as an "impacted subset" -- and those runs bypassed the guard
+# entirely. Measured on host `omnibook` through real `git push` runs on
+# 2026-07-29: omnimarket ran 13,898 tests in 506s and omnibase_infra 2,429 tests
+# in 245s, locally, with the guard never invoked; the SAME selected work forced
+# via `PREPUSH_FULL_SUITE=1` was refused. Identical cost, opposite outcome,
+# decided by a flag. The tests below drive the flag-FALSE path, which is the one
+# that reaches production behavior -- the pre-existing tests in this file only
+# ever exercised the flag-TRUE path, and were green while the hole was open.
+#
+# `test_guard_refuses_whole_suite_equivalent_selection_when_flag_is_false` is
+# RED against the pre-fix hook (it proceeds to pytest, exit 0) and GREEN after.
+# `test_guard_allows_a_genuinely_narrow_selection` is the anti-overreach pin:
+# the fix must not brick every push from this Mac.
+
+_FULL_SUITE_TARGET = "tests/unit/"
+# The literal production shape from the OMN-15408 evidence table.
+_WHOLE_SUITE_SELECTION = "tests/"
+# A real, genuinely-narrow subdirectory of this repo's suite.
+_NARROW_SELECTION = "tests/unit/scripts/"
+
+_PREDICATE_RE = re.compile(
+    r"^selection_is_whole_suite\(\) \{.*?^\}",
+    re.DOTALL | re.MULTILINE,
+)
+_WHOLE_SUITE_GUARD_CALL_RE = re.compile(
+    r"if selection_is_whole_suite .*?\n(.*?)\n\s*fi",
+    re.DOTALL,
+)
+
+
+def _extract_predicate_source() -> str:
+    """Return the literal `selection_is_whole_suite` bash function from the hook.
+
+    Extract-and-execute (the pattern already used for the hook's other pure
+    shell helpers) so these assertions run THE function that ships, never a
+    Python re-implementation of it -- a re-implementation would pass happily
+    while the shipped predicate was broken.
+    """
+    match = _PREDICATE_RE.search(HOOK_SCRIPT.read_text(encoding="utf-8"))
+    assert match is not None, (
+        "expected a selection_is_whole_suite() function in "
+        f"{HOOK_SCRIPT} -- the OMN-15408 heavyweight-selection predicate"
+    )
+    return match.group(0)
+
+
+def _predicate_says_whole_suite(target: str, *paths: str) -> bool:
+    """Execute the real bash predicate; True == 'this selection is heavyweight'."""
+    script = f'{_extract_predicate_source()}\nselection_is_whole_suite "$@"\n'
+    completed = subprocess.run(
+        ["bash", "-c", script, "selection_is_whole_suite", target, *paths],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert completed.returncode in (0, 1), (
+        "predicate exited abnormally "
+        f"({completed.returncode}): stderr={completed.stderr!r}"
+    )
+    return completed.returncode == 0
+
+
+def _run_hook_with_stubbed_selection(
+    tmp_path: Path,
+    *,
+    is_full_suite: bool,
+    selected_paths: list[str],
+) -> subprocess.CompletedProcess[str]:
+    """Run the REAL hook end-to-end with a stubbed selector + stubbed pytest.
+
+    A shim `uv` earlier on PATH answers the selector invocation with a chosen
+    selection JSON and turns the pytest invocation into an observable sentinel,
+    so the test can assert both `did the guard refuse` and `did execution ever
+    reach pytest` against the actual script rather than a surrogate. Everything
+    else (`uv run python - <heredoc>` for JSON parsing) is delegated to the
+    real interpreter.
+
+    `PREPUSH_BASE_REF=HEAD` keeps the pre-selector preamble deterministic and
+    offline: it always resolves, `merge-base HEAD HEAD` is HEAD, and the diff is
+    empty -- the stub supplies the selection regardless.
+    """
+    selection_file = tmp_path / "selection.json"
+    selection_file.write_text(
+        json.dumps(
+            {
+                "is_full_suite": is_full_suite,
+                "full_suite_reason": None,
+                "selected_paths": selected_paths,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    stub_bin = tmp_path / "stub-bin"
+    stub_bin.mkdir(parents=True, exist_ok=True)
+    uv_stub = stub_bin / "uv"
+    uv_stub.write_text(
+        "#!/usr/bin/env bash\n"
+        'args="$*"\n'
+        'case "$args" in\n'
+        "  *detect_test_paths*)\n"
+        '    cat "$PREPUSH_TEST_SELECTION_JSON"\n'
+        "    exit 0\n"
+        "    ;;\n"
+        "  *pytest*)\n"
+        '    echo "STUB-PYTEST-INVOKED $args"\n'
+        "    exit 0\n"
+        "    ;;\n"
+        "esac\n"
+        "shift\n"
+        'if [ "$1" = "python" ]; then\n'
+        "  shift\n"
+        '  exec python3 "$@"\n'
+        "fi\n"
+        'exec "$@"\n',
+        encoding="utf-8",
+    )
+    uv_stub.chmod(0o755)
+
+    env = dict(os.environ)
+    env["PATH"] = f"{stub_bin}{os.pathsep}{env['PATH']}"
+    env["PREPUSH_TEST_SELECTION_JSON"] = str(selection_file)
+    env["PREPUSH_BASE_REF"] = "HEAD"
+    env["PREPUSH_200_HOSTNAME"] = _GUARANTEED_NON_MATCHING_HOSTNAME
+    env.update(de_designating_env())
+    env.update(network_free_lab_env())
+    env.update(gh_offline_env())
+    for leaky in (
+        "PREPUSH_FULL_SUITE",
+        "PREPUSH_ALLOW_LOCAL_FULL_SUITE",
+        "ENABLE_SMART_TESTS",
+        "PREPUSH_ADJACENCY",
+        "PREPUSH_PYTEST_ARGS",
+        # OMN-16489: this harness exercises FIRST-entry behavior, so the
+        # recursion sentinel an outer hook run exports must not leak in.
+        "ONEX_PREPUSH_HOOK_ACTIVE",
+    ):
+        env.pop(leaky, None)
+
+    return subprocess.run(
+        ["bash", str(HOOK_SCRIPT)],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=300,
+        check=False,
+    )
+
+
+def test_heavyweight_selection_predicate_is_defined() -> None:
+    assert "selection_is_whole_suite()" in HOOK_SCRIPT.read_text(encoding="utf-8"), (
+        "expected a selection_is_whole_suite() predicate so the guard can key "
+        "on the selected work rather than the is_full_suite flag (OMN-15408)"
+    )
+
+
+def test_full_suite_target_is_single_sourced() -> None:
+    """The predicate and the escalation must read the SAME target.
+
+    If the guard hard-coded its own notion of 'the whole suite' it would drift
+    from whatever the escalation actually runs -- a second cost model, which is
+    the thing this fix explicitly avoids.
+    """
+    script_text = HOOK_SCRIPT.read_text(encoding="utf-8")
+    assert f'FULL_SUITE_TARGET="{_FULL_SUITE_TARGET}"' in script_text, (
+        f"expected FULL_SUITE_TARGET to be set to {_FULL_SUITE_TARGET!r} in "
+        f"{HOOK_SCRIPT}"
+    )
+    # OMN-17793 moved the invocation behind `run_prepush_ordinary_tests`, which
+    # is the single place `uv run pytest` is spelled for the ordinary lane. The
+    # assertion follows it rather than pinning the old inline literal: what this
+    # test protects is that the escalation runs THE SAME target the predicate is
+    # evaluated against, not the spelling of the command that runs it.
+    assert 'run_prepush_ordinary_tests "$FULL_SUITE_TARGET"' in script_text, (
+        "expected the fail-closed escalation to run ${FULL_SUITE_TARGET} "
+        "itself, so the guard predicate cannot drift from the run it guards"
+    )
+    assert 'selection_is_whole_suite "$FULL_SUITE_TARGET"' in script_text, (
+        "expected the predicate to be evaluated against the SAME "
+        "FULL_SUITE_TARGET the escalation runs"
+    )
+
+
+def test_escalation_is_a_superset_of_the_runnable_selection() -> None:
+    """OMN-16825: escalating must never run FEWER impacted tests.
+
+    ``FULL_SUITE_TARGET`` is ``tests/unit/``. Since the classifier now lets the
+    service-free integration suites (``tests/integration/chains/``) into the
+    narrow selection, an escalation that ran only ``tests/unit/`` would drop
+    tests the narrowing had just added -- a coverage downgrade wearing the word
+    "full". The escalation must therefore carry the runnable integration paths
+    alongside the single-sourced target, not instead of it.
+    """
+    script_text = HOOK_SCRIPT.read_text(encoding="utf-8")
+    # OMN-17793: the two runs are now separate invocations inside
+    # `run_prepush_partitioned_tests` rather than one argv. The superset
+    # property is unchanged and is asserted as the two facts that constitute
+    # it -- the full target is run, AND the runnable integration paths are run
+    # alongside it under the same function, guarded only by the ordinary run
+    # having passed.
+    assert 'run_prepush_ordinary_tests "$FULL_SUITE_TARGET"' in script_text, (
+        "expected the fail-closed escalation to run ${FULL_SUITE_TARGET}"
+    )
+    assert (
+        'if [ "$rc" -eq 0 ] && [ "${#RUNNABLE_INTEGRATION_PATHS[@]}" -gt 0 ]; then'
+    ) in script_text, (
+        "expected successful escalations to continue into the runnable "
+        "(service-free) integration partition"
+    )
+    assert (
+        'run_prepush_allowlisted_integration_tests "${RUNNABLE_INTEGRATION_PATHS[@]}"'
+        in script_text
+    ), (
+        "expected the fail-closed escalation to append the runnable "
+        "(service-free) integration paths to ${FULL_SUITE_TARGET}, so it "
+        "remains a strict superset of the impacted-subset selection"
+    )
+
+
+def test_guard_is_called_when_the_selection_is_whole_suite_equivalent() -> None:
+    """Static wiring: the impacted-subset branch must consult the guard.
+
+    Pairs with the pre-existing IS_FULL-branch assertion above; together they
+    pin BOTH call sites, so a future edit cannot silently drop either one.
+    """
+    script_text = HOOK_SCRIPT.read_text(encoding="utf-8")
+    guarded_blocks = _WHOLE_SUITE_GUARD_CALL_RE.findall(script_text)
+    assert guarded_blocks, (
+        "expected an `if selection_is_whole_suite ...` block in the "
+        "impacted-subset branch (OMN-15408)"
+    )
+    assert any("guard_full_suite_host" in block for block in guarded_blocks), (
+        "expected guard_full_suite_host to be called when the selection is "
+        f"whole-suite-equivalent; found blocks: {guarded_blocks!r}"
+    )
+
+
+def test_predicate_flags_a_whole_suite_selection() -> None:
+    """A selection covering the entire escalation target is heavyweight."""
+    assert _predicate_says_whole_suite(_FULL_SUITE_TARGET, _WHOLE_SUITE_SELECTION)
+    assert _predicate_says_whole_suite(_FULL_SUITE_TARGET, _FULL_SUITE_TARGET)
+    assert _predicate_says_whole_suite(
+        _FULL_SUITE_TARGET, _FULL_SUITE_TARGET.rstrip("/")
+    ), "a trailing-slash-less path must normalize to the same target"
+    assert _predicate_says_whole_suite(
+        _FULL_SUITE_TARGET, _NARROW_SELECTION, _WHOLE_SUITE_SELECTION
+    ), "one whole-suite path anywhere in the selection makes it heavyweight"
+
+
+def test_predicate_allows_a_genuinely_narrow_selection() -> None:
+    """Real narrowing stays runnable -- the guard is not a blanket push block."""
+    assert not _predicate_says_whole_suite(_FULL_SUITE_TARGET, _NARROW_SELECTION)
+    assert not _predicate_says_whole_suite(
+        _FULL_SUITE_TARGET, f"{_NARROW_SELECTION}test_something.py"
+    )
+    assert not _predicate_says_whole_suite(_FULL_SUITE_TARGET)
+
+
+def test_guard_refuses_whole_suite_equivalent_selection_when_flag_is_false(
+    tmp_path: Path,
+) -> None:
+    """THE OMN-15408 REGRESSION.
+
+    `is_full_suite=False` + `selected_paths=["tests/"]` on a non-`.200` host is
+    the exact shape that ran 13,898 tests locally with the guard never invoked.
+    RED against the pre-fix hook (it reached pytest and exited 0); GREEN after.
+    """
+    result = _run_hook_with_stubbed_selection(
+        tmp_path,
+        is_full_suite=False,
+        selected_paths=[_WHOLE_SUITE_SELECTION],
+    )
+    assert result.returncode != 0, (
+        "expected the host guard to refuse a whole-suite-equivalent selection "
+        "even though is_full_suite=False; got exit "
+        f"{result.returncode}. stdout={result.stdout!r} stderr={result.stderr!r}"
+    )
+    assert "not the designated .200 build host" in result.stderr, (
+        f"expected the refusal message in stderr, got: {result.stderr!r}"
+    )
+    assert "STUB-PYTEST-INVOKED" not in result.stdout, (
+        "the guard must refuse BEFORE pytest is invoked -- found a pytest "
+        f"invocation in stdout: {result.stdout!r}"
+    )
+
+
+def test_guard_allows_a_genuinely_narrow_selection_on_a_local_host(
+    tmp_path: Path,
+) -> None:
+    """Anti-overreach pin.
+
+    A real narrow selection must still run locally on a non-`.200` host. If
+    this ever fails, the fix has become a blanket push block and will be
+    disabled within a week -- which is worse than no guard at all.
+    """
+    result = _run_hook_with_stubbed_selection(
+        tmp_path,
+        is_full_suite=False,
+        selected_paths=[_NARROW_SELECTION],
+    )
+    assert result.returncode == 0, (
+        "expected a genuinely narrow selection to be allowed on a non-.200 "
+        f"host; got exit {result.returncode}. "
+        f"stdout={result.stdout!r} stderr={result.stderr!r}"
+    )
+    assert "not the designated .200 build host" not in result.stderr, (
+        f"the guard must NOT refuse a proper narrowing; stderr: {result.stderr!r}"
+    )
+    assert "STUB-PYTEST-INVOKED" in result.stdout, (
+        "expected the narrow selection to actually reach pytest; stdout: "
+        f"{result.stdout!r}"
+    )
+    assert _NARROW_SELECTION in result.stdout, (
+        "expected the narrow selection's own path to be handed to pytest; "
+        f"stdout: {result.stdout!r}"
+    )
+
+
+# =============================================================================
+# The test harness itself must not spend a lab host (OMN-16991)
+# =============================================================================
+
+
+@pytest.mark.unit
+def test_lab_isolation_makes_the_remote_verify_leg_resolve_to_no_evidence() -> None:
+    """OMN-20063: real CI evidence must not let a refusal harness pass."""
+    env = scrub_git_location_env(os.environ)
+    env.update(gh_offline_env())
+    fragment = gh_offline_env()
+    config_dir = Path(fragment["GH_CONFIG_DIR"])
+    assert config_dir.is_dir()
+    assert not list(config_dir.iterdir())
+    assert env["GH_CONFIG_DIR"] == fragment["GH_CONFIG_DIR"]
+    for token in (
+        "GH_TOKEN",
+        "GITHUB_TOKEN",
+        "GH_ENTERPRISE_TOKEN",
+        "GITHUB_ENTERPRISE_TOKEN",
+    ):
+        assert fragment[token] == ""
+
+    head_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=REPO_ROOT,
+        env=scrub_git_location_env(env),
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=True,
+    ).stdout.strip()
+    result = subprocess.run(
+        [
+            "uv",
+            "run",
+            "python",
+            "scripts/hooks/prepush_remote_verify.py",
+            "check",
+            "--head-sha",
+            head_sha,
+        ],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    output = result.stdout + result.stderr
+    assert result.returncode in (1, 2), (
+        f"expected no evidence, got exit {result.returncode}: {output}"
+    )
+    assert "PASS" not in output
+    assert not list(config_dir.iterdir())
+
+
+def test_the_heavy_harness_never_dispatches_a_real_lab_run(tmp_path: Path) -> None:
+    """A unit test must not take a lab host's exclusive slot for an hour.
+
+    Until OMN-16991 the hook's host scan was truncated after its first ssh
+    probe, so the harnesses above could only ever see `.200` and had no remote
+    host to dispatch to. Fixing the scan removed that accidental containment,
+    and the very next `pytest tests/ci/` shipped a real git bundle to
+    `omnibook`, took its LOCK, and started the full `tests/unit/` suite there --
+    the remote wrapper's ORIGIN named this test process. That is the
+    OMN-16425/OMN-16489 F-01 recursion in distributed form, reached from a test
+    rather than a push.
+
+    Proven by shadowing `ssh`/`scp` on PATH and asserting that nothing in the
+    heavy path ever addresses a lab target. `git fetch` may legitimately use
+    ssh for `origin`, so the witness records lab targets only.
+    """
+    stub_bin = tmp_path / "stub-bin"
+    stub_bin.mkdir()
+    witness = tmp_path / "lab-calls"
+    for name in ("ssh", "scp"):
+        stub = stub_bin / name
+        stub.write_text(
+            "#!/usr/bin/env bash\n"
+            f'case " $* " in *jonah@*) echo "{name} $*" >> "{witness}" ;; esac\n'
+            "exit 1\n",
+            encoding="utf-8",
+        )
+        stub.chmod(0o755)
+
+    env = dict(os.environ)
+    for leaky in (
+        "PREPUSH_FULL_SUITE",
+        "PREPUSH_ALLOW_LOCAL_FULL_SUITE",
+        "ENABLE_SMART_TESTS",
+        "PREPUSH_ADJACENCY",
+        "PREPUSH_PYTEST_ARGS",
+        "ONEX_PREPUSH_HOOK_ACTIVE",
+    ):
+        env.pop(leaky, None)
+    env["PATH"] = f"{stub_bin}{os.pathsep}{env['PATH']}"
+    env["PREPUSH_FULL_SUITE"] = "1"
+    env["PREPUSH_200_HOSTNAME"] = _GUARANTEED_NON_MATCHING_HOSTNAME
+    env.update(de_designating_env())
+    env.update(network_free_lab_env())
+    env.update(gh_offline_env())
+
+    result = subprocess.run(
+        ["bash", str(HOOK_SCRIPT)],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=180,
+        check=False,
+    )
+    assert result.returncode != 0, (
+        "the de-designated heavy path must still refuse; got exit "
+        f"{result.returncode}. stderr={result.stderr!r}"
+    )
+    assert not witness.exists(), (
+        "the hook addressed a lab host from inside the test harness: "
+        f"{witness.read_text()!r}"
+    )
+
+
+_GH_OFFLINE_APPLICATION_RE = re.compile(r"^\s*env\.update\(gh_offline_env\(\)\)$", re.M)
+
+
+def test_both_hook_harnesses_apply_the_lab_isolation() -> None:
+    """Static pin so a new harness cannot quietly reintroduce live dispatch.
+
+    The behavioral test above only covers the harness it drives; this covers
+    every subprocess call site in the two files that run the real hook.
+    """
+    for path in (
+        Path(__file__),
+        REPO_ROOT / "tests" / "ci" / "test_prepush_hook_recursion_and_env_guard.py",
+    ):
+        text = path.read_text(encoding="utf-8")
+        hook_runs = text.count('["bash", str(HOOK_SCRIPT)]')
+        assert hook_runs > 0, f"{path.name}: expected at least one hook subprocess"
+        gh_isolations = len(_GH_OFFLINE_APPLICATION_RE.findall(text))
+        assert gh_isolations >= hook_runs, (
+            f"{path.name}: {hook_runs} hook subprocess call site(s) but only "
+            f"{gh_isolations} applications of the gh isolation -- a harness "
+            "that omits it reads real CI evidence for HEAD (OMN-20063)"
+        )
+        assert text.count("network_free_lab_env()") >= hook_runs, (
+            f"{path.name}: {hook_runs} hook subprocess call site(s) but only "
+            f"{text.count('network_free_lab_env()')} applications of the lab "
+            "isolation -- a harness that omits it dispatches a real remote run"
+        )

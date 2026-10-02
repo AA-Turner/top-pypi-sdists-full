@@ -257,7 +257,9 @@ def list(  # noqa: A001, PLR0913
     hidden=True,
 )
 @click.argument(
-    "cluster_id", required=True, default=None,
+    "cluster_id",
+    required=True,
+    default=None,
 )
 @click.option(
     "--skip-tls-no-sni",
@@ -268,6 +270,4 @@ def list(  # noqa: A001, PLR0913
 def network_debug(cluster_id: Optional[str], skip_tls_no_sni: bool) -> None:
     """Debug network connectivity to a given Anyscale cluster."""
     cluster_controller = ClusterController()
-    cluster_controller.debug_networking(
-        cluster_id=cluster_id, skip_tls_no_sni=skip_tls_no_sni
-    )
+    cluster_controller.debug_networking(cluster_id=cluster_id, skip_tls_no_sni=skip_tls_no_sni)

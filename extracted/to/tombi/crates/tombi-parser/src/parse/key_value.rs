@@ -7,7 +7,7 @@ use crate::{
     support::{leading_comments, trailing_comment},
 };
 
-impl Parse for tombi_ast_syntax::KeyValue {
+impl Parse for tombi_ast_syntax::KeyValue<'_> {
     fn parse(p: &mut Parser) {
         let m = p.start();
 
@@ -16,15 +16,15 @@ impl Parse for tombi_ast_syntax::KeyValue {
         tombi_ast_syntax::Keys::parse(p);
 
         if !p.eat(T![=]) {
-            p.error(crate::Error::new(ExpectedEqual, p.current_range()));
+            p.error(crate::Error::new(ExpectedEqual, p.current_span()));
         }
 
         if p.at_ts(TS_LINE_END) {
             p.invalid_token();
-            p.error(crate::Error::new(ExpectedValue, p.current_range()));
+            p.error(crate::Error::new(ExpectedValue, p.current_span()));
         } else if p.at(COMMENT) {
             p.invalid_token();
-            p.error(crate::Error::new(ExpectedValue, p.previous_range()));
+            p.error(crate::Error::new(ExpectedValue, p.previous_span()));
         } else {
             tombi_ast_syntax::Value::parse(p);
         }
@@ -202,8 +202,9 @@ mod test {
                 .syntax()
                 .try_to_content(tombi_toml_version::TomlVersion::V1_0_0)
                 .unwrap();
+            let decoded = root.decode_strings(tombi_toml_version::TomlVersion::V1_0_0);
             let document_tree = root
-                .into_document_tree_and_errors(tombi_toml_version::TomlVersion::V1_0_0)
+                .into_document_tree_and_errors(tombi_toml_version::TomlVersion::V1_0_0, &decoded)
                 .tree;
             let cloned_tree = document_tree.clone();
             let document_key = document_tree.keys().next().unwrap();

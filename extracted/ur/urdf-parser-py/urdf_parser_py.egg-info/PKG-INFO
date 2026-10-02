@@ -1,0 +1,14 @@
+Metadata-Version: 2.1
+Name: urdf-parser-py
+Version: 0.0.4
+Summary: This package contains a python parser for the Unified Robot Description Format (URDF), which is an XML format for representing a robot model. 
+Home-page: https://github.com/ros/urdf_parser_py
+Author: Thomas Moulard, David Lu, Kelsey Hawkins, Antonio El Khoury, Eric Cousineau
+Author-email: tmoulard@amazon.com
+License: UNKNOWN
+Description: # urdf_parser_py
+        
+        This package contains a python parser for the Unified Robot Description Format (URDF), which is an XML format for representing a robot model.
+        
+Platform: UNKNOWN
+Description-Content-Type: text/markdown

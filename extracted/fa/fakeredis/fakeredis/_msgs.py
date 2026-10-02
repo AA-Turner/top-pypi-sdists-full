@@ -43,6 +43,10 @@ WRONG_ARGS_MSG6 = "ERR wrong number of arguments for '{}' command"
 UNKNOWN_COMMAND_MSG = "ERR unknown command '{}', with args beginning with: "
 # Dragonfly reports unknown commands in its own format, without echoing the arguments back.
 DRAGONFLY_UNKNOWN_COMMAND_MSG = "ERR unknown command `{}`"
+# KiviDB names neither the command nor its arguments.
+KIVIDB_UNKNOWN_COMMAND_MSG = "ERR unknown command"
+# KiviDB's SCRIPT container reports an unknown subcommand in lower case, unlike its other containers.
+KIVIDB_UNKNOWN_SCRIPT_SUBCOMMAND_MSG = "ERR unknown subcommand '{}' for SCRIPT"
 # Raised by dragonfly for an absolute expiry deadline beyond DRAGONFLY_MAX_EXPIRE_SECONDS.
 EXPIRY_OUT_OF_RANGE_MSG = "ERR expiry is out of range"
 # Dragonfly checks the expiry option pairs separately, and accepts NX together with GT/LT.
@@ -107,6 +111,20 @@ LCS_CANT_HAVE_BOTH_LEN_AND_IDX = "ERR If you want both the length and indexes, p
 BIT_ARG_MUST_BE_ZERO_OR_ONE = "ERR The bit argument must be 1 or 0."
 XADD_ID_LOWER_THAN_LAST = "ERR The ID specified in XADD is equal or smaller than the target stream top item"
 XADD_INVALID_ID = "ERR Invalid stream ID specified as stream command argument"
+XADD_ID_ZERO_MSG = "ERR The ID specified in XADD must be greater than 0-0"
+XADD_IDS_EXHAUSTED_MSG = "ERR The stream has exhausted the last possible ID, unable to add more items"
+XADD_IDMP_TWICE_MSG = "ERR syntax error, IDMP/IDMPAUTO specified multiple times"
+XADD_IDMPAUTO_EMPTY_PID_MSG = "ERR syntax error, IDMPAUTO requires a non-empty producer ID"
+XADD_IDMP_EMPTY_PID_MSG = "ERR syntax error, IDMP requires a non-empty producer ID"
+XADD_IDMP_EMPTY_IID_MSG = "ERR syntax error, IDMP requires a non-empty idempotent ID"
+XADD_IDMP_EXPLICIT_ID_MSG = "ERR syntax error, IDMP/IDMPAUTO can be used only with auto-generated IDs"
+XTRIM_MAXLEN_AND_MINID_MSG = "ERR syntax error, MAXLEN and MINID options at the same time are not compatible"
+XTRIM_MAXLEN_NEGATIVE_MSG = "ERR The MAXLEN argument must be >= 0."
+XTRIM_LIMIT_NEGATIVE_MSG = "ERR The LIMIT argument must be >= 0."
+XTRIM_LIMIT_WITHOUT_STRATEGY_MSG = "ERR syntax error, LIMIT cannot be used without specifying a trimming strategy"
+XTRIM_LIMIT_WITHOUT_APPROX_MSG = "ERR syntax error, LIMIT cannot be used without the special ~ option"
+XTRIM_NO_STRATEGY_MSG = "ERR syntax error, XTRIM must be called with a trimming strategy"
+XGROUP_ENTRIES_READ_MSG = "ERR value for ENTRIESREAD must be positive or -1"
 XGROUP_BUSYGROUP = "ERR BUSYGROUP Consumer Group name already exists"
 XREADGROUP_KEY_OR_GROUP_NOT_FOUND_MSG = (
     "NOGROUP No such key '{0}' or consumer group '{1}' in XREADGROUP with GROUP option"
@@ -121,6 +139,8 @@ XGROUP_KEY_NOT_FOUND_MSG = (
 )
 GEO_UNSUPPORTED_UNIT = "ERR unsupported unit provided. please use M, KM, FT, MI"
 GEO_INVALID_COORDINATE_MSG = "ERR invalid longitude,latitude pair {},{}"
+GEO_MEMBER_NOT_FOUND_MSG = "ERR could not decode requested zset member"
+GEO_MEMBER_DOES_NOT_EXIST_MSG = "ERR member {} does not exist"
 LPOS_RANK_CAN_NOT_BE_ZERO = (
     "RANK can't be zero: use 1 to start from the first match, 2 from the second ... "
     "or use negative to start from the end of the list"
@@ -167,6 +187,26 @@ TIMESERIES_DUPLICATE_POLICY_BLOCK = (
     "TSDB: Error at upsert, update is not supported when DUPLICATE_POLICY is set to BLOCK mode"
 )
 TIMESERIES_BAD_FILTER_EXPRESSION = "TSDB: failed parsing labels"
+TIMESERIES_FILTER_BY_TS_MISSING = "TSDB: FILTER_BY_TS one or more arguments are missing"
+TIMESERIES_NO_MATCHER = "TSDB: please provide at least one matcher"
+TIMESERIES_FILTER_WITHOUT_EXPRESSIONS = "TSDB: FILTER given with no filter expressions"
+TIMESERIES_QUERYLABELS_BAD_SUBTYPE = "TSDB: unknown subtype, must be one of LABELS|VALUES"
+TIMESERIES_QUERYLABELS_EXPECTED_FILTER = "TSDB: unknown argument, expected FILTER"
+TIMESERIES_EXCLUDEEMPTY_WITH_GROUPBY = "TSDB: EXCLUDEEMPTY is not allowed with GROUPBY"
+TIMESERIES_NUMKEYS_NOT_POSITIVE = "TSDB: numkeys must be a positive integer"
+TIMESERIES_WRONG_FROM_TIMESTAMP = "TSDB: wrong fromTimestamp"
+TIMESERIES_WRONG_TO_TIMESTAMP = "TSDB: wrong toTimestamp"
+TIMESERIES_INVALID_COUNT = "TSDB: Invalid COUNT value"
+TIMESERIES_BAD_AGGREGATION = "TSDB: Couldn't parse AGGREGATION"
+TIMESERIES_AGGREGATION_COUNT_NOT_NUMKEYS = "TSDB: the number of AGGREGATION arguments must be equal to numkeys"
+TIMESERIES_BUCKET_DURATION_NOT_POSITIVE = "TSDB: bucketDuration must be greater than zero"
+TIMESERIES_READ_BAD_BLOCK_MS = "TSDB: BLOCK milliseconds must be a non-negative integer"
+TIMESERIES_READ_BAD_MIN_COUNT = "TSDB: BLOCK min_count must be a positive integer"
+TIMESERIES_READ_BAD_MAX_COUNT = "TSDB: MAX_COUNT must be a positive integer"
+TIMESERIES_READ_MIN_ABOVE_MAX = "TSDB: BLOCK min_count must be <= MAX_COUNT"
+TIMESERIES_READ_BLOCK_NOT_ALLOWED = (
+    "TSDB: blocking TS.READ (with BLOCK) is not allowed inside MULTI, EVAL, or a deny-blocking context"
+)
 HEXPIRE_NUMFIELDS_DIFFERENT = "The `numfields` parameter must match the number of arguments"
 HEXPIRE_INVALID_TIME_MSG = "ERR invalid expire time, must be >= 0"
 

@@ -1,0 +1,141 @@
+// Copyright (c) 2025 Contributors to the Eclipse Foundation
+//
+// See the NOTICE file(s) distributed with this work for additional
+// information regarding copyright ownership.
+//
+// This program and the accompanying materials are made available under the
+// terms of the Apache Software License 2.0 which is available at
+// https://www.apache.org/licenses/LICENSE-2.0, or the MIT license
+// which is available at https://opensource.org/licenses/MIT.
+//
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
+use iceoryx2::service::marker::CustomKeyMarker;
+use iceoryx2_log::fatal_panic;
+use pyo3::prelude::*;
+
+use crate::error::WriterCreateError;
+use crate::parc::Parc;
+use crate::port_factory_blackboard::PortFactoryBlackboardType;
+use crate::port_name::PortName;
+use crate::type_storage::TypeStorage;
+use crate::writer::{Writer, WriterType};
+
+type IpcPortFactoryWriter<'a> = iceoryx2::service::port_factory::writer::PortFactoryWriter<
+    'a,
+    crate::IpcService,
+    CustomKeyMarker,
+>;
+type LocalPortFactoryWriter<'a> = iceoryx2::service::port_factory::writer::PortFactoryWriter<
+    'a,
+    crate::LocalService,
+    CustomKeyMarker,
+>;
+
+pub(crate) enum PortFactoryWriterType {
+    Ipc(Parc<IpcPortFactoryWriter<'static>>),
+    Local(Parc<LocalPortFactoryWriter<'static>>),
+}
+
+#[pyclass]
+/// Factory to create a new `Writer` port/endpoint for `MessagingPattern.Blackboard`
+/// based communication.
+pub struct PortFactoryWriter {
+    factory: Parc<PortFactoryBlackboardType>,
+    value: PortFactoryWriterType,
+    key_type_storage: TypeStorage,
+}
+
+impl PortFactoryWriter {
+    pub(crate) fn new(
+        factory: Parc<PortFactoryBlackboardType>,
+        key_type_storage: TypeStorage,
+    ) -> Self {
+        Self {
+            factory: factory.clone(),
+            value: match &*factory.lock() {
+                PortFactoryBlackboardType::Ipc(Some(v)) => PortFactoryWriterType::Ipc(unsafe {
+                    Parc::new(core::mem::transmute::<
+                        IpcPortFactoryWriter<'_>,
+                        IpcPortFactoryWriter<'static>,
+                    >(v.writer_builder()))
+                }),
+                PortFactoryBlackboardType::Local(Some(v)) => PortFactoryWriterType::Local(unsafe {
+                    Parc::new(core::mem::transmute::<
+                        LocalPortFactoryWriter<'_>,
+                        LocalPortFactoryWriter<'static>,
+                    >(v.writer_builder()))
+                }),
+                _ => {
+                    fatal_panic!(from "PortFactoryWriter::new()", "Accessing a deleted PortFactoryBlackboard.")
+                }
+            },
+            key_type_storage,
+        }
+    }
+
+    fn clone_ipc(&self, value: IpcPortFactoryWriter<'static>) -> Self {
+        Self {
+            factory: self.factory.clone(),
+            value: PortFactoryWriterType::Ipc(Parc::new(value)),
+            key_type_storage: self.key_type_storage.clone(),
+        }
+    }
+
+    fn clone_local(&self, value: LocalPortFactoryWriter<'static>) -> Self {
+        Self {
+            factory: self.factory.clone(),
+            value: PortFactoryWriterType::Local(Parc::new(value)),
+            key_type_storage: self.key_type_storage.clone(),
+        }
+    }
+}
+
+#[pymethods]
+impl PortFactoryWriter {
+    /// The `PortName` that shall be assigned to the `Writer`. It does not
+    /// have to be unique. If no `PortName` is defined then the `Writer`
+    /// does not have a name.
+    pub fn name(&mut self, value: &PortName) -> Self {
+        let _guard = self.factory.lock();
+        match &self.value {
+            PortFactoryWriterType::Ipc(v) => {
+                let this = (*v.lock()).clone();
+                let this = this.name(&value.0);
+                self.clone_ipc(this)
+            }
+            PortFactoryWriterType::Local(v) => {
+                let this = (*v.lock()).clone();
+                let this = this.name(&value.0);
+                self.clone_local(this)
+            }
+        }
+    }
+
+    /// Creates a new `Writer` or returns a `WriterCreateError` on failure.
+    pub fn create(&self) -> PyResult<Writer> {
+        let _guard = self.factory.lock();
+        match &self.value {
+            PortFactoryWriterType::Ipc(v) => {
+                let this = (*v.lock()).clone();
+                Ok(Writer {
+                    value: Parc::new(WriterType::Ipc(Some(
+                        this.create()
+                            .map_err(|e| WriterCreateError::new_err(format!("{e:?}")))?,
+                    ))),
+                    key_type_storage: self.key_type_storage.clone(),
+                })
+            }
+            PortFactoryWriterType::Local(v) => {
+                let this = (*v.lock()).clone();
+                Ok(Writer {
+                    value: Parc::new(WriterType::Local(Some(
+                        this.create()
+                            .map_err(|e| WriterCreateError::new_err(format!("{e:?}")))?,
+                    ))),
+                    key_type_storage: self.key_type_storage.clone(),
+                })
+            }
+        }
+    }
+}

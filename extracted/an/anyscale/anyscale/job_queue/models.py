@@ -155,9 +155,7 @@ sort_directive = JobQueueSortDirective(
         metadata={"docstring": "The sort order (ASC or DESC)."}
     )
 
-    def _validate_sort_field(
-        self, sort_field: Union[JobQueueSortField, str]
-    ) -> JobQueueSortField:
+    def _validate_sort_field(self, sort_field: Union[JobQueueSortField, str]) -> JobQueueSortField:
         return JobQueueSortField.validate(sort_field)
 
     def _validate_sort_order(self, sort_order: Union[SortOrder, str]) -> SortOrder:
@@ -183,9 +181,7 @@ status = JobQueueStatus(
 
     id: str = field(metadata={"docstring": "Unique ID of the job queue."})
     state: str = field(metadata={"docstring": "Current state of the job queue."})
-    name: Optional[str] = field(
-        default=None, metadata={"docstring": "Name of the job queue."}
-    )
+    name: Optional[str] = field(default=None, metadata={"docstring": "Name of the job queue."})
     creator_email: Optional[str] = field(
         default=None,
         metadata={"docstring": "Email of the user who created the job queue."},
@@ -224,17 +220,20 @@ status = JobQueueStatus(
         metadata={"docstring": "The cloud ID associated with the job queue."},
     )
     total_jobs: Optional[int] = field(
-        default=None, metadata={"docstring": "Total number of jobs in the job queue."},
+        default=None,
+        metadata={"docstring": "Total number of jobs in the job queue."},
     )
     successful_jobs: Optional[int] = field(
         default=None,
         metadata={"docstring": "Number of successful jobs in the job queue."},
     )
     failed_jobs: Optional[int] = field(
-        default=None, metadata={"docstring": "Number of failed jobs in the job queue."},
+        default=None,
+        metadata={"docstring": "Number of failed jobs in the job queue."},
     )
     active_jobs: Optional[int] = field(
-        default=None, metadata={"docstring": "Number of active jobs in the job queue."},
+        default=None,
+        metadata={"docstring": "Number of active jobs in the job queue."},
     )
 
     def _validate_id(self, id: str) -> str:  # noqa: A002
@@ -261,16 +260,12 @@ status = JobQueueStatus(
             raise ValueError("'project_id' must be a string or None.")
         return project_id
 
-    def _validate_created_at(
-        self, created_at: Optional[datetime]
-    ) -> Optional[datetime]:
+    def _validate_created_at(self, created_at: Optional[datetime]) -> Optional[datetime]:
         if created_at is not None and not isinstance(created_at, datetime):
             raise ValueError("'created_at' must be a datetime object or None.")
         return created_at
 
-    def _validate_max_concurrency(
-        self, max_concurrency: Optional[int]
-    ) -> Optional[int]:
+    def _validate_max_concurrency(self, max_concurrency: Optional[int]) -> Optional[int]:
         if max_concurrency is not None:
             if not isinstance(max_concurrency, int):
                 raise ValueError("'max_concurrency' must be an integer or None.")
@@ -286,9 +281,7 @@ status = JobQueueStatus(
                 raise ValueError("'idle_timeout_s' cannot be negative.")
         return idle_timeout_s
 
-    def _validate_user_provided_id(
-        self, user_provided_id: Optional[str]
-    ) -> Optional[str]:
+    def _validate_user_provided_id(self, user_provided_id: Optional[str]) -> Optional[str]:
         if user_provided_id is not None and not isinstance(user_provided_id, str):
             raise ValueError("'user_provided_id' must be a string or None.")
         return user_provided_id
@@ -329,9 +322,7 @@ status = JobQueueStatus(
                 raise ValueError("'total_jobs' cannot be negative.")
         return total_jobs
 
-    def _validate_successful_jobs(
-        self, successful_jobs: Optional[int]
-    ) -> Optional[int]:
+    def _validate_successful_jobs(self, successful_jobs: Optional[int]) -> Optional[int]:
         if successful_jobs is not None:
             if not isinstance(successful_jobs, int):
                 raise ValueError("'successful_jobs' must be an integer or None.")

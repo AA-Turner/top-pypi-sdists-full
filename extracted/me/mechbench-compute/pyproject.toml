@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mechbench-compute"
+version = "0.186.0"
+description = "Composable mechanistic-interpretability primitives: hook-aware forward, interventions, activation cache, logit lens, probes, and geometry."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Benji Smith", email = "benji@shaxpir.com" }]
+keywords = ["interpretability", "mechanistic-interpretability", "mlx", "transformers", "gemma"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+# One package, every platform: `pip install mechbench-compute` resolves the
+# right backend by itself rather than making someone choose a variant. The
+# Apple-Silicon backend is the only one implemented today, so its wheels are
+# marked accordingly — a Linux install brings the platform-independent half
+# and says plainly that no backend exists for it yet, instead of failing
+# inside a compiler.
+dependencies = [
+    "certifi>=2024.2",
+    "huggingface-hub>=0.24",
+    "mechbench-schema>=0.20.0",
+    "mlx>=0.20; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "mlx-lm>=0.20; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "mlx-vlm>=0.6.1; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "numpy>=1.26",
+    "transformers>=4.40",
+    "matplotlib>=3.8",
+    "scikit-learn>=1.4",
+    "wasmtime>=48",
+]
+
+[project.optional-dependencies]
+# Only `lm_bridge` needs this, and only when an eval-suite block runs.
+eval = ["lm-eval>=0.4"]
+dev = ["pytest>=8", "ruff>=0.5"]
+
+[project.urls]
+Homepage = "https://github.com/mechbench/mechbench-compute"
+Website = "https://mechbench.ai"
+
+[tool.setuptools.packages.find]
+include = ["mechbench_compute*"]
+exclude = ["tests*"]
+
+[tool.setuptools.package-data]
+"mechbench_compute.expr" = ["mbexpr.wasm"]
+"mechbench_compute.ops.records" = ["marks.generated.json"]

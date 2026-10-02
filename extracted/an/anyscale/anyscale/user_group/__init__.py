@@ -24,14 +24,17 @@ class UserGroupSDK:
         logger: Optional[BlockLogger] = None,
         timer: Optional[Timer] = None,
     ):
-        self._private_sdk = PrivateUserGroupSDK(
-            client=client, logger=logger, timer=timer
-        )
+        self._private_sdk = PrivateUserGroupSDK(client=client, logger=logger, timer=timer)
 
     @sdk_docs(
-        doc_py_example=_LIST_EXAMPLE, arg_docstrings=_LIST_ARG_DOCSTRINGS,
+        doc_py_example=_LIST_EXAMPLE,
+        arg_docstrings=_LIST_ARG_DOCSTRINGS,
     )
-    def list(self, *, max_items: int = 50,) -> List[UserGroup]:  # noqa: F811
+    def list(
+        self,
+        *,
+        max_items: int = 50,
+    ) -> List[UserGroup]:  # noqa: F811
         """List user groups in the organization.
 
         Returns a list of UserGroup objects.
@@ -39,7 +42,8 @@ class UserGroupSDK:
         return self._private_sdk.list(max_items=max_items)
 
     @sdk_docs(
-        doc_py_example=_GET_EXAMPLE, arg_docstrings=_GET_ARG_DOCSTRINGS,
+        doc_py_example=_GET_EXAMPLE,
+        arg_docstrings=_GET_ARG_DOCSTRINGS,
     )
     def get(self, id: str) -> UserGroup:  # noqa: F811, A002
         """Get a specific user group by ID.

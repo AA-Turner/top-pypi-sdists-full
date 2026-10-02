@@ -199,7 +199,8 @@ required_resources:
 """
 
     CPU: Optional[int] = field(
-        default=None, metadata={"docstring": "Number of CPUs to allocate."},
+        default=None,
+        metadata={"docstring": "Number of CPUs to allocate."},
     )
 
     def _validate_CPU(self, CPU: Optional[int]):
@@ -229,7 +230,8 @@ required_resources:
                 raise ValueError(f"Invalid memory value: {e}")
 
     GPU: Optional[int] = field(
-        default=None, metadata={"docstring": "Number of GPUs to allocate."},
+        default=None,
+        metadata={"docstring": "Number of GPUs to allocate."},
     )
 
     def _validate_GPU(self, GPU: Optional[int]):
@@ -252,7 +254,8 @@ required_resources:
             raise TypeError("'accelerator' must be a string.")
 
     TPU: Optional[int] = field(
-        default=None, metadata={"docstring": "Number of TPUs to allocate."},
+        default=None,
+        metadata={"docstring": "Number of TPUs to allocate."},
     )
 
     def _validate_TPU(self, TPU: Optional[int]):
@@ -334,9 +337,7 @@ required_resources:
 
         return cls(**normalized)
 
-    def to_dict(
-        self, *, exclude_none: bool = True, for_api: bool = False
-    ) -> Dict[str, Any]:
+    def to_dict(self, *, exclude_none: bool = True, for_api: bool = False) -> Dict[str, Any]:
         """Convert to dictionary.
 
         Args:
@@ -396,13 +397,9 @@ def _validate_resource_dict(r: Optional[ResourceDict], *, field_name: str):
             raise TypeError(f"'{field_name}' keys must be strings, but got: {k}")
         if isinstance(v, (int, float)):
             if v < 0:
-                raise ValueError(
-                    f"'{field_name}' values must be >= 0, but got: '{k}: {v}'"
-                )
+                raise ValueError(f"'{field_name}' values must be >= 0, but got: '{k}: {v}'")
         else:
-            raise TypeError(
-                f"'{field_name}' values must be floats, but got: '{k}: {v}'"
-            )
+            raise TypeError(f"'{field_name}' values must be floats, but got: '{k}: {v}'")
 
 
 def _validate_label_dict(labels: Optional[LabelDict]):
@@ -466,9 +463,7 @@ cloud_deployment:
         if region is not None and not isinstance(region, str):
             raise TypeError("'region' must be a string.")
 
-    machine_pool: Optional[str] = field(
-        default=None, metadata={"docstring": "Machine pool name."}
-    )
+    machine_pool: Optional[str] = field(default=None, metadata={"docstring": "Machine pool name."})
 
     def _validate_machine_pool(self, machine_pool: Optional[str]):
         if machine_pool is not None and not isinstance(machine_pool, str):
@@ -590,9 +585,7 @@ class _NodeConfig(ModelBase):
 
             errors = []
             if res_cpu > pr_cpu > 0:
-                errors.append(
-                    f"  - resources.CPU ({res_cpu}) > required_resources.CPU ({pr_cpu})"
-                )
+                errors.append(f"  - resources.CPU ({res_cpu}) > required_resources.CPU ({pr_cpu})")
             if res_memory > pr_memory_bytes > 0:
                 res_mem_str = _format_bytes_to_memory_string(int(res_memory))
                 pr_mem_str = _format_bytes_to_memory_string(pr_memory_bytes)
@@ -600,9 +593,7 @@ class _NodeConfig(ModelBase):
                     f"  - resources.memory ({res_mem_str}) > required_resources.memory ({pr_mem_str})"
                 )
             if res_gpu > pr_gpu > 0:
-                errors.append(
-                    f"  - resources.GPU ({res_gpu}) > required_resources.GPU ({pr_gpu})"
-                )
+                errors.append(f"  - resources.GPU ({res_gpu}) > required_resources.GPU ({pr_gpu})")
 
             if errors:
                 raise ValueError(
@@ -628,9 +619,7 @@ class _NodeConfig(ModelBase):
             # Convert dict to PhysicalResources object
             required_resources = PhysicalResources.from_dict(required_resources)
         if not isinstance(required_resources, PhysicalResources):
-            raise TypeError(
-                "'required_resources' must be a PhysicalResources object or dict."
-            )
+            raise TypeError("'required_resources' must be a PhysicalResources object or dict.")
 
         # Validate that meaningful resources are specified
         cpu = required_resources.CPU or 0
@@ -742,9 +731,7 @@ class _NodeConfig(ModelBase):
         # Cross-field validation: if accelerator-type is a TPU, TPU fields must be specified
         self._validate_tpu_accelerator_consistency(required_labels)
 
-    def _validate_gpu_accelerator_consistency(
-        self, required_labels: Optional[LabelDict]
-    ):
+    def _validate_gpu_accelerator_consistency(self, required_labels: Optional[LabelDict]):
         """Validate that GPU count is specified when a non-TPU accelerator type is requested.
 
         If ray.io/accelerator-type is specified and it's not a TPU type,
@@ -777,9 +764,7 @@ class _NodeConfig(ModelBase):
             )
 
         pr = self.required_resources
-        gpu_count = (
-            pr.get("GPU") or pr.get("gpu") or 0 if isinstance(pr, dict) else pr.GPU or 0
-        )
+        gpu_count = pr.get("GPU") or pr.get("gpu") or 0 if isinstance(pr, dict) else pr.GPU or 0
 
         if not gpu_count or gpu_count <= 0:
             raise ValueError(
@@ -794,9 +779,7 @@ class _NodeConfig(ModelBase):
                 f"    ray.io/accelerator-type: {accelerator_type}"
             )
 
-    def _validate_tpu_accelerator_consistency(
-        self, required_labels: Optional[LabelDict]
-    ):
+    def _validate_tpu_accelerator_consistency(self, required_labels: Optional[LabelDict]):
         """Validate that TPU fields are specified when a TPU accelerator type is requested.
 
         If ray.io/accelerator-type is a TPU type (starts with "TPU"),
@@ -1039,9 +1022,7 @@ class _NodeConfig(ModelBase):
 
         # Check for missing node selectors (only if labels are not provided)
         missing_selectors = [
-            selector
-            for selector in REQUIRED_TPU_NODE_SELECTORS
-            if selector not in node_selectors
+            selector for selector in REQUIRED_TPU_NODE_SELECTORS if selector not in node_selectors
         ]
 
         if missing_selectors:
@@ -1096,9 +1077,7 @@ class _NodeConfig(ModelBase):
         if isinstance(cloud_deployment, dict):
             cloud_deployment = CloudDeployment.from_dict(cloud_deployment)
         if not isinstance(cloud_deployment, CloudDeployment):
-            raise TypeError(
-                "'cloud_deployment' must be a CloudDeployment or corresponding dict"
-            )
+            raise TypeError("'cloud_deployment' must be a CloudDeployment or corresponding dict")
         return cloud_deployment
 
 
@@ -1398,9 +1377,7 @@ advanced_instance_config: # (Optional) Defaults to no advanced configurations.
         if isinstance(head_node, dict):
             head_node = HeadNodeConfig.from_dict(head_node)
         if not isinstance(head_node, HeadNodeConfig):
-            raise TypeError(
-                "'head_node' must be a HeadNodeConfig or corresponding dict"
-            )
+            raise TypeError("'head_node' must be a HeadNodeConfig or corresponding dict")
 
         return head_node
 
@@ -1429,11 +1406,7 @@ advanced_instance_config: # (Optional) Defaults to no advanced configurations.
         name_counts: DefaultDict[str, int] = defaultdict(int)
         worker_node_models: List[WorkerNodeGroupConfig] = []
         for node in worker_nodes:
-            parsed_node = (
-                WorkerNodeGroupConfig.from_dict(node)
-                if isinstance(node, dict)
-                else node
-            )
+            parsed_node = WorkerNodeGroupConfig.from_dict(node) if isinstance(node, dict) else node
             assert isinstance(parsed_node, WorkerNodeGroupConfig)
             worker_node_models.append(parsed_node)
             name = parsed_node.name
@@ -1515,7 +1488,8 @@ advanced_instance_config: # (Optional) Defaults to no advanced configurations.
     )
 
     def _validate_advanced_instance_config(
-        self, advanced_instance_config: Optional[AdvancedInstanceConfigDict],
+        self,
+        advanced_instance_config: Optional[AdvancedInstanceConfigDict],
     ):
         _validate_advanced_instance_config_dict(advanced_instance_config)
 
@@ -1631,23 +1605,17 @@ configs:
         },
     )
 
-    def _validate_configs(
-        self, configs: List[Union[ComputeConfig, Dict]]
-    ) -> List[ComputeConfig]:
+    def _validate_configs(self, configs: List[Union[ComputeConfig, Dict]]) -> List[ComputeConfig]:
         if not isinstance(configs, list) or not all(
             isinstance(c, (dict, ComputeConfig)) for c in configs
         ):
-            raise TypeError(
-                "'configs' must be a list of ComputeConfigs or corresponding dicts"
-            )
+            raise TypeError("'configs' must be a list of ComputeConfigs or corresponding dicts")
 
         config_models: List[ComputeConfig] = []
         unique_clouds = set()
         unique_resources = set()
         for config in configs:
-            parsed_config = (
-                ComputeConfig.from_dict(config) if isinstance(config, dict) else config
-            )
+            parsed_config = ComputeConfig.from_dict(config) if isinstance(config, dict) else config
             assert isinstance(parsed_config, ComputeConfig)
             config_models.append(parsed_config)
 
@@ -1660,14 +1628,10 @@ configs:
             raise ValueError("'cloud' must be the same for all configs.")
 
         if len(unique_resources) != len(configs):
-            raise ValueError(
-                "'cloud_resource' must be unique for each compute configuration."
-            )
+            raise ValueError("'cloud_resource' must be unique for each compute configuration.")
 
         if len(configs) == 0:
-            raise ValueError(
-                "'configs' must include at least one compute configuration."
-            )
+            raise ValueError("'configs' must include at least one compute configuration.")
 
         return config_models
 
@@ -1782,16 +1746,15 @@ config:
             raise TypeError("'id' must be a string.")
 
     config: Optional[ComputeConfigType] = field(
-        default=None, metadata={"docstring": "The compute configuration."},
+        default=None,
+        metadata={"docstring": "The compute configuration."},
     )
 
     def _validate_config(self, config: Optional[ComputeConfigType]):
         if config is not None and not isinstance(
             config, (ComputeConfig, MultiResourceComputeConfig)
         ):
-            raise TypeError(
-                "'config' must be a ComputeConfig or MultiResourceComputeConfig"
-            )
+            raise TypeError("'config' must be a ComputeConfig or MultiResourceComputeConfig")
 
 
 @dataclass(frozen=True)

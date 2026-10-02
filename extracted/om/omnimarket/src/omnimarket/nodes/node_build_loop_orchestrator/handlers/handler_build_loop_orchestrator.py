@@ -1,0 +1,854 @@
+"""HandlerBuildLoopOrchestrator -- top-level orchestrator composing 6 sub-handlers.
+
+The orchestrator REACTS to reducer-approved state. It never independently
+decides phase transitions -- those are the sole authority of the FSM reducer
+(HandlerBuildLoop from node_build_loop).
+
+Flow per cycle:
+    1. Receive start command -> initialize FSM state via HandlerBuildLoop
+    2. Advance FSM through each phase, invoking the corresponding sub-handler
+    3. Feed sub-handler results back to FSM via advance()
+    4. Repeat until FSM reaches COMPLETE or FAILED
+    5. Emit phase transition events via the injected event bus
+
+Sub-handlers are injected via protocol-based DI:
+    - ProtocolCloseoutHandler    (node_closeout_effect)
+    - ProtocolVerifyHandler      (node_verify_effect)
+    - ProtocolRsdFillHandler     (node_rsd_fill_compute)
+    - ProtocolTicketClassifyHandler (node_ticket_classify_compute)
+    - ProtocolBuildDispatchHandler  (node_build_dispatch_effect)
+
+The 6th sub-handler is HandlerBuildLoop itself (the FSM reducer from
+node_build_loop), which is used directly since it lives in this package.
+
+Related:
+    - OMN-7583: Migrate build loop orchestrator to omnimarket
+    - OMN-7575: Build loop migration epic
+    - OMN-5113: Autonomous Build Loop epic
+    - OMN-8165: Wire overseer verifier into build loop (Phase 1 advisory seam)
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, cast
+from uuid import UUID
+
+from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
+from omnibase_core.protocols.event_bus.protocol_event_envelope import (
+    ProtocolEventEnvelope,
+)
+
+from omnimarket.nodes.contract_topics import (
+    contract_publish_topics,
+    contract_subscribe_topics,
+)
+from omnimarket.nodes.node_build_loop import (
+    TERMINAL_PHASES,
+    EnumBuildLoopPhase,
+    HandlerBuildLoop,
+    ModelLoopStartCommand,
+    ModelPhaseTransitionEvent,
+)
+from omnimarket.nodes.node_build_loop_orchestrator.models.model_loop_cycle_summary import (
+    ModelLoopCycleSummary,
+)
+from omnimarket.nodes.node_build_loop_orchestrator.models.model_orchestrator_result import (
+    ModelOrchestratorResult,
+)
+from omnimarket.nodes.node_build_loop_orchestrator.models.model_orchestrator_start_command import (
+    ModelOrchestratorStartCommand,
+)
+from omnimarket.nodes.node_build_loop_orchestrator.protocols.protocol_sub_handlers import (
+    BuildTarget,
+    ClassifyRequest,
+    ProtocolBuildDispatchHandler,
+    ProtocolCloseoutHandler,
+    ProtocolRsdFillHandler,
+    ProtocolTicketClassifyHandler,
+    ProtocolVerifyHandler,
+    RsdFillRequest,
+    ScoredTicket,
+)
+from omnimarket.nodes.node_overseer_verifier import ModelVerifierRequest
+from omnimarket.nodes.node_overseer_verifier.handlers.handler_overseer_verifier import (
+    HandlerOverseerVerifier,
+)
+
+if TYPE_CHECKING:
+    from omnibase_core.models.event_bus.model_event_message import ModelEventMessage
+    from omnibase_core.protocols.event_bus.protocol_event_bus_publisher import (
+        ProtocolEventBusPublisher,
+    )
+
+logger = logging.getLogger(__name__)
+
+_VERIFIER_TIMEOUT_SECONDS = 120
+_DEFAULT_CONTRACT_PATH = Path(__file__).resolve().parent.parent / "contract.yaml"
+
+
+@dataclass(frozen=True)
+class _BuildLoopOrchestratorTopics:
+    start: str
+    phase_transition: str
+    completed: str
+    failed: str
+    dod_checked: str
+    overseer_verification_completed: str
+    overseer_verify_requested: str
+
+
+def _single_topic(
+    topics: tuple[str, ...],
+    fragment: str,
+    *,
+    contract_path: Path,
+    section: str,
+) -> str:
+    matches = tuple(topic for topic in topics if fragment in topic)
+    if len(matches) != 1:
+        raise ValueError(
+            f"{contract_path} expected exactly one event_bus.{section} topic "
+            f"containing {fragment!r}; found {matches!r}"
+        )
+    return matches[0]
+
+
+def _load_topic_bindings(
+    contract_path: Path | None = None,
+) -> _BuildLoopOrchestratorTopics:
+    path = contract_path or _DEFAULT_CONTRACT_PATH
+    subscribe_topics = contract_subscribe_topics(path)
+    publish_topics = contract_publish_topics(path)
+    return _BuildLoopOrchestratorTopics(
+        start=_single_topic(
+            subscribe_topics,
+            "build-loop-orchestrator-start",
+            contract_path=path,
+            section="subscribe_topics",
+        ),
+        phase_transition=_single_topic(
+            publish_topics,
+            "build-loop-orchestrator-phase-transition",
+            contract_path=path,
+            section="publish_topics",
+        ),
+        completed=_single_topic(
+            publish_topics,
+            "build-loop-orchestrator-completed",
+            contract_path=path,
+            section="publish_topics",
+        ),
+        failed=_single_topic(
+            publish_topics,
+            "build-loop-failed",
+            contract_path=path,
+            section="publish_topics",
+        ),
+        dod_checked=_single_topic(
+            publish_topics,
+            "build-loop-dod-checked",
+            contract_path=path,
+            section="publish_topics",
+        ),
+        overseer_verification_completed=_single_topic(
+            subscribe_topics,
+            "overseer-verifier-completed",
+            contract_path=path,
+            section="subscribe_topics",
+        ),
+        overseer_verify_requested=_single_topic(
+            publish_topics,
+            "overseer-verify",
+            contract_path=path,
+            section="publish_topics",
+        ),
+    )
+
+
+_DEFAULT_TOPIC_BINDINGS = _load_topic_bindings()
+TOPIC_DOD_CHECKED = _DEFAULT_TOPIC_BINDINGS.dod_checked
+TOPIC_OVERSEER_VERIFICATION_COMPLETED = (
+    _DEFAULT_TOPIC_BINDINGS.overseer_verification_completed
+)
+TOPIC_OVERSEER_VERIFY_REQUESTED = _DEFAULT_TOPIC_BINDINGS.overseer_verify_requested
+TOPIC_BUILD_LOOP_START = _DEFAULT_TOPIC_BINDINGS.start
+TOPIC_BUILD_LOOP_COMPLETED = _DEFAULT_TOPIC_BINDINGS.completed
+TOPIC_BUILD_LOOP_FAILED = _DEFAULT_TOPIC_BINDINGS.failed
+
+
+class HandlerBuildLoopOrchestrator:
+    """Top-level orchestrator composing 6 sub-handlers via FSM reducer.
+
+    Takes protocol-based sub-handler dependencies and an optional event bus
+    for publishing phase transition events. Synchronous sub-handler calls,
+    in-process state ownership.
+
+    All sub-handler arguments are optional to support zero-arg construction by
+    the auto-wiring runtime (``onex run``). When omitted, concrete default
+    implementations are lazy-initialized on the first call to ``handle()``.
+    Callers that want explicit DI can still pass all five dependencies.
+    """
+
+    def __init__(
+        self,
+        *,
+        closeout: ProtocolCloseoutHandler | None = None,
+        verify: ProtocolVerifyHandler | None = None,
+        rsd_fill: ProtocolRsdFillHandler | None = None,
+        classify: ProtocolTicketClassifyHandler | None = None,
+        dispatch: ProtocolBuildDispatchHandler | None = None,
+        event_bus: ProtocolEventBusPublisher,
+        contract_path: Path | None = None,
+        fsm: HandlerBuildLoop | None = None,
+        overseer_verifier: HandlerOverseerVerifier | None = None,
+    ) -> None:
+        topics = _load_topic_bindings(contract_path)
+
+        self._topic_phase_transition = topics.phase_transition
+        self._topic_completed = topics.completed
+        self._topic_failed = topics.failed
+        self._topic_dod_checked = topics.dod_checked
+        self._topic_overseer_verification_completed = (
+            topics.overseer_verification_completed
+        )
+        self._topic_overseer_verify_requested = topics.overseer_verify_requested
+        self._fsm = (
+            fsm if fsm is not None else HandlerBuildLoop()
+        )  # lifecycle-ok: optional-di-fallback
+        self._closeout = closeout
+        self._verify = verify
+        self._verify_explicitly_injected: bool = verify is not None
+        self._rsd_fill = rsd_fill
+        self._classify = classify
+        self._dispatch = dispatch
+        self._event_bus = event_bus
+        self._overseer_verifier = (
+            overseer_verifier
+            if overseer_verifier is not None
+            else HandlerOverseerVerifier()
+        )  # lifecycle-ok: optional-di-fallback
+
+        # Inter-phase state: carry results between fill -> classify -> build
+        self._last_fill_result: tuple[ScoredTicket, ...] = ()
+        self._last_classify_result: tuple[BuildTarget, ...] = ()
+        self._last_pr_refs: tuple[str, ...] = ()
+        self._last_cost_event_keys: tuple[str, ...] = ()
+
+    def _ensure_sub_handlers(self) -> None:
+        """Lazy-initialize sub-handlers from default implementations if not injected."""
+        if self._closeout is None:
+            from omnimarket.nodes.node_closeout_effect.handlers.handler_closeout import (
+                HandlerCloseout,
+            )
+
+            self._closeout = cast(ProtocolCloseoutHandler, HandlerCloseout())
+        if self._verify is None:
+            from omnimarket.nodes.node_verify_effect.handlers.handler_verify import (
+                HandlerVerify,
+            )
+
+            self._verify = cast(ProtocolVerifyHandler, HandlerVerify())
+        if self._rsd_fill is None:
+            from omnimarket.nodes.node_rsd_fill_compute.handlers.handler_rsd_fill import (
+                HandlerRsdFill,
+            )
+
+            self._rsd_fill = cast(ProtocolRsdFillHandler, HandlerRsdFill())
+        if self._classify is None:
+            from omnimarket.nodes.node_ticket_classify_compute.handlers.handler_ticket_classify import (
+                HandlerTicketClassify,
+            )
+
+            self._classify = cast(
+                ProtocolTicketClassifyHandler, HandlerTicketClassify()
+            )
+        if self._dispatch is None:
+            from omnimarket.nodes.node_build_dispatch_effect.handlers.handler_build_dispatch import (
+                HandlerBuildDispatch,
+            )
+
+            self._dispatch = cast(ProtocolBuildDispatchHandler, HandlerBuildDispatch())
+
+    async def handle(
+        self,
+        command: ModelLoopStartCommand | ModelOrchestratorStartCommand,
+    ) -> ModelOrchestratorResult:
+        """Run the autonomous build loop for up to max_cycles.
+
+        Args:
+            command: Start command with configuration.
+
+        Returns:
+            ModelOrchestratorResult with per-cycle summaries.
+        """
+        loop_command = self._to_loop_command(command)
+        self._ensure_sub_handlers()
+        logger.info(
+            "[BUILD-LOOP-ORCH] === ENTRY === handle() called "
+            "(correlation_id=%s, max_cycles=%d, dry_run=%s, skip_closeout=%s)",
+            loop_command.correlation_id,
+            loop_command.max_cycles,
+            loop_command.dry_run,
+            loop_command.skip_closeout,
+        )
+
+        # OMN-15002 silence closure: handle() previously had no top-level
+        # exception handling. An exception raised outside the per-phase
+        # try/except in _execute_phase (e.g. in _fsm.start/_fsm.advance,
+        # _to_loop_command, or the cycle-loop control flow itself) propagated
+        # straight out of handle() into the auto-wiring consume boundary.
+        # With ONEX_BOUNDARY_DLQ_ENABLED off (the live dev/prod/judge default
+        # -- see OMN-14551), that boundary logs-and-swallows: the input
+        # offset still commits, and NOTHING is emitted on any of this
+        # contract's 11 publish topics -- a committed-but-silent loss
+        # indistinguishable from the routing bug this ticket fixes. This
+        # try/except makes that failure mode loud and terminal-signal-bearing
+        # regardless of the DLQ flag: any unhandled exception now publishes
+        # build-loop-failed with the correlation_id and error detail BEFORE
+        # re-raising, so a queryable terminal event always exists even if the
+        # boundary swallow still happens above this handler.
+        try:
+            summaries: list[ModelLoopCycleSummary] = []
+            total_dispatched = 0
+            cycles_completed = 0
+            cycles_failed = 0
+
+            for cycle_idx in range(loop_command.max_cycles):
+                logger.info(
+                    "[BUILD-LOOP-ORCH] Starting cycle %d/%d (correlation_id=%s)",
+                    cycle_idx + 1,
+                    loop_command.max_cycles,
+                    loop_command.correlation_id,
+                )
+                summary = await self._run_cycle(loop_command)
+                summaries.append(summary)
+
+                if summary.final_phase == EnumBuildLoopPhase.COMPLETE:
+                    cycles_completed += 1
+                    total_dispatched += summary.tickets_dispatched
+                else:
+                    cycles_failed += 1
+                    logger.warning(
+                        "[BUILD-LOOP-ORCH] Cycle %d failed in phase %s: %s",
+                        cycle_idx + 1,
+                        summary.final_phase.value,
+                        summary.error_message,
+                    )
+                    break
+
+            logger.info(
+                "[BUILD-LOOP-ORCH] === EXIT === %d completed, %d failed, "
+                "%d dispatched (correlation_id=%s)",
+                cycles_completed,
+                cycles_failed,
+                total_dispatched,
+                loop_command.correlation_id,
+            )
+
+            return ModelOrchestratorResult(
+                correlation_id=loop_command.correlation_id,
+                cycles_completed=cycles_completed,
+                cycles_failed=cycles_failed,
+                cycle_summaries=tuple(summaries),
+                total_tickets_dispatched=total_dispatched,
+            )
+        except Exception as exc:
+            logger.exception(
+                "[BUILD-LOOP-ORCH] === UNHANDLED FAILURE === handle() raised "
+                "(correlation_id=%s): %s",
+                loop_command.correlation_id,
+                exc,
+            )
+            await self._publish_failed_event(loop_command.correlation_id, exc)
+            raise
+
+    @staticmethod
+    def _to_loop_command(
+        command: ModelLoopStartCommand | ModelOrchestratorStartCommand,
+    ) -> ModelLoopStartCommand:
+        """Convert the contract command into the FSM command shape."""
+        if isinstance(command, ModelLoopStartCommand):
+            return command
+        return ModelLoopStartCommand(
+            correlation_id=command.correlation_id,
+            max_cycles=command.max_cycles,
+            mode=command.mode.value,
+            skip_closeout=command.skip_closeout,
+            max_tickets=command.max_tickets,
+            dry_run=command.dry_run,
+            requested_at=command.requested_at,
+        )
+
+    async def _run_cycle(
+        self,
+        command: ModelLoopStartCommand,
+    ) -> ModelLoopCycleSummary:
+        """Run a single build loop cycle through the FSM."""
+        cycle_start = datetime.now(tz=UTC)
+        correlation_id = command.correlation_id
+
+        # Reset inter-phase state
+        self._last_fill_result = ()
+        self._last_classify_result = ()
+        self._last_pr_refs = ()
+        self._last_cost_event_keys = ()
+
+        # Initialize FSM state via the reducer
+        state = self._fsm.start(command)
+
+        # Advance FSM through IDLE to first active phase
+        state, event = self._fsm.advance(state, phase_success=True)
+        await self._publish_phase_event(event)
+
+        # Process phases until terminal state
+        while state.current_phase not in TERMINAL_PHASES:
+            success, error_msg, metrics = await self._execute_phase(
+                state.current_phase,
+                correlation_id=correlation_id,
+                dry_run=command.dry_run,
+                max_tickets=command.max_tickets,
+            )
+
+            state, event = self._fsm.advance(
+                state,
+                phase_success=success,
+                error_message=error_msg,
+                tickets_filled=metrics.get("tickets_filled", 0),
+                tickets_classified=metrics.get("tickets_classified", 0),
+                tickets_dispatched=metrics.get("tickets_dispatched", 0),
+            )
+            await self._publish_phase_event(event)
+
+        return ModelLoopCycleSummary(
+            correlation_id=correlation_id,
+            cycle_number=max(state.cycle_count, 1),
+            final_phase=state.current_phase,
+            started_at=cycle_start,
+            completed_at=datetime.now(tz=UTC),
+            tickets_filled=state.tickets_filled,
+            tickets_classified=state.tickets_classified,
+            tickets_dispatched=state.tickets_dispatched,
+            pr_refs=self._last_pr_refs,
+            cost_event_keys=self._last_cost_event_keys,
+            error_message=state.error_message,
+        )
+
+    async def _execute_phase(
+        self,
+        phase: EnumBuildLoopPhase,
+        *,
+        correlation_id: UUID,
+        dry_run: bool,
+        max_tickets: int = 5,
+    ) -> tuple[bool, str | None, dict[str, int]]:
+        """Execute the sub-handler for the given phase.
+
+        Returns (success, error_message, metrics_dict).
+        """
+        metrics: dict[str, int] = {}
+
+        # _ensure_sub_handlers() is called before _run_cycle; assert for mypy
+        assert self._closeout is not None
+        assert self._verify is not None
+        assert self._rsd_fill is not None
+        assert self._classify is not None
+        assert self._dispatch is not None
+
+        try:
+            if phase == EnumBuildLoopPhase.CLOSING_OUT:
+                await self._closeout.handle(
+                    correlation_id=correlation_id,
+                    dry_run=dry_run,
+                )
+                return True, None, metrics
+
+            if phase == EnumBuildLoopPhase.VERIFYING:
+                return await self._run_overseer_verify(
+                    correlation_id=correlation_id,
+                    dry_run=dry_run,
+                )
+
+            if phase == EnumBuildLoopPhase.FILLING:
+                fill_result = await self._rsd_fill.handle(
+                    RsdFillRequest(
+                        correlation_id=correlation_id,
+                        scored_tickets=(),
+                        max_tickets=max_tickets,
+                    )
+                )
+                self._last_fill_result = fill_result.selected_tickets
+                metrics["tickets_filled"] = fill_result.total_selected
+                return True, None, metrics
+
+            if phase == EnumBuildLoopPhase.CLASSIFYING:
+                classify_result = await self._classify.handle(
+                    ClassifyRequest(
+                        correlation_id=correlation_id,
+                        tickets=self._last_fill_result,
+                    )
+                )
+                self._last_classify_result = tuple(
+                    BuildTarget(
+                        ticket_id=c.ticket_id,
+                        title=c.title,
+                        buildability=c.buildability,
+                    )
+                    for c in classify_result.classifications
+                    if c.buildability == "auto_buildable"
+                )
+                metrics["tickets_classified"] = len(
+                    classify_result.classifications,
+                )
+
+                # Phase 1 advisory overseer seam (OMN-8165): verify classify output
+                # before advancing to BUILDING. Advisory only — ESCALATE is logged
+                # but does not block. Hard gate comes in Phase 2.
+                self._run_advisory_overseer_check(
+                    correlation_id=correlation_id,
+                    classified_count=len(self._last_classify_result),
+                )
+
+                return True, None, metrics
+
+            if phase == EnumBuildLoopPhase.BUILDING:
+                dispatch_result = await self._dispatch.handle(
+                    correlation_id=correlation_id,
+                    targets=self._last_classify_result,
+                    dry_run=dry_run,
+                )
+                pr_refs: list[str] = []
+                cost_event_keys: list[str] = []
+                for dp in dispatch_result.delegation_payloads:
+                    raw_pr_refs = dp.payload.get("pr_refs", ())
+                    if isinstance(raw_pr_refs, str):
+                        pr_refs.append(raw_pr_refs)
+                    elif isinstance(raw_pr_refs, list | tuple):
+                        pr_refs.extend(str(ref) for ref in raw_pr_refs)
+
+                    raw_cost_keys = dp.payload.get("cost_event_keys", ())
+                    if isinstance(raw_cost_keys, str):
+                        cost_event_keys.append(raw_cost_keys)
+                    elif isinstance(raw_cost_keys, list | tuple):
+                        cost_event_keys.extend(str(key) for key in raw_cost_keys)
+
+                    raw_cost_key = dp.payload.get("cost_event_key")
+                    if raw_cost_key is not None:
+                        cost_event_keys.append(str(raw_cost_key))
+
+                self._last_pr_refs = tuple(dict.fromkeys(pr_refs))
+                self._last_cost_event_keys = tuple(dict.fromkeys(cost_event_keys))
+
+                # Publish delegation payloads via event bus
+                if self._event_bus is not None:
+                    for dp in dispatch_result.delegation_payloads:
+                        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+                            payload=dp.payload,
+                            correlation_id=str(
+                                dp.payload.get("correlation_id") or correlation_id
+                            ),
+                            event_type="delegation-requested",
+                            source_tool="HandlerBuildLoopOrchestrator",
+                        )
+                        await self._event_bus.publish_envelope(
+                            envelope=cast(ProtocolEventEnvelope[object], envelope),
+                            topic=dp.topic,
+                        )
+
+                metrics["tickets_dispatched"] = dispatch_result.total_dispatched
+
+                # Run DoD verification for each dispatched target before advancing FSM
+                verification_failures: list[str] = []
+                for target in self._last_classify_result:
+                    verifier_result = self._overseer_verifier.verify(
+                        ModelVerifierRequest(
+                            task_id=target.ticket_id,
+                            status="completed",
+                            domain="build_loop",
+                            node_id=str(correlation_id),
+                        )
+                    )
+                    verdict = str(verifier_result.get("verdict", "FAIL"))
+                    raw_checks = verifier_result.get("checks", [])
+                    checks: list[object] = (
+                        list(raw_checks) if isinstance(raw_checks, list) else []
+                    )
+                    await self._publish_dod_event(
+                        task_id=target.ticket_id,
+                        verdict=verdict,
+                        checks=checks,
+                        correlation_id=correlation_id,
+                    )
+                    if verdict != "PASS":
+                        failure_reason = str(
+                            verifier_result.get("failure_class", "UNKNOWN")
+                        )
+                        verification_failures.append(
+                            f"{target.ticket_id}: {failure_reason}"
+                        )
+                        logger.warning(
+                            "[BUILD-LOOP-ORCH] DoD verification FAIL for %s: %s "
+                            "(correlation_id=%s)",
+                            target.ticket_id,
+                            failure_reason,
+                            correlation_id,
+                        )
+
+                if verification_failures:
+                    return (
+                        False,
+                        f"DoD verification failed for: {', '.join(verification_failures)}",
+                        metrics,
+                    )
+
+                return True, None, metrics
+
+            return False, f"Unknown phase: {phase}", metrics
+
+        except Exception as exc:
+            logger.exception(
+                "[BUILD-LOOP-ORCH] Phase %s failed: %s (correlation_id=%s)",
+                phase.value,
+                exc,
+                correlation_id,
+            )
+            return False, str(exc), metrics
+
+    def _run_advisory_overseer_check(
+        self,
+        *,
+        correlation_id: UUID,
+        classified_count: int,
+    ) -> None:
+        """Advisory overseer check after CLASSIFYING phase (Phase 1 — OMN-8165).
+
+        Runs the deterministic 5-check gate against the CLASSIFYING output.
+        ESCALATE verdict is logged but does NOT block phase progression.
+        This is a soft gate — hard gating is deferred to Phase 2.
+
+        Args:
+            correlation_id: Cycle correlation identifier.
+            classified_count: Number of tickets classified as auto_buildable.
+        """
+        verifier_result = self._overseer_verifier.verify(
+            ModelVerifierRequest(
+                task_id=str(correlation_id),
+                status="classifying_complete",
+                domain="build_loop",
+                node_id="node_build_loop_orchestrator",
+                payload={"classified_count": classified_count},
+            )
+        )
+        verdict = str(verifier_result.get("verdict", "PASS"))
+        summary = str(verifier_result.get("summary", ""))
+
+        if verdict == "ESCALATE":
+            logger.error(
+                "[BUILD-LOOP-ORCH] Overseer ESCALATE after CLASSIFYING "
+                "(advisory — not blocking): %s (correlation_id=%s)",
+                summary,
+                correlation_id,
+            )
+        elif verdict == "FAIL":
+            logger.warning(
+                "[BUILD-LOOP-ORCH] Overseer FAIL after CLASSIFYING "
+                "(advisory — not blocking): %s (correlation_id=%s)",
+                summary,
+                correlation_id,
+            )
+        else:
+            logger.debug(
+                "[BUILD-LOOP-ORCH] Overseer PASS after CLASSIFYING (correlation_id=%s)",
+                correlation_id,
+            )
+
+    async def _run_overseer_verify(
+        self,
+        correlation_id: UUID,
+        dry_run: bool,
+    ) -> tuple[bool, str | None, dict[str, int]]:
+        """VERIFYING phase: publish verify command, await correlated verdict.
+
+        1. Publish the contract-declared verify command with correlation_id
+        2. Await the contract-declared verifier-completed event filtered by correlation_id
+        3. Timeout after _VERIFIER_TIMEOUT_SECONDS → FAILED
+        4. passed=False → FAILED with failed_criteria surfaced
+        5. passed=True → advance to FILLING
+
+        If event_bus is None, dry_run=True, or a verify handler was explicitly injected
+        at construction time, fall back to the legacy verify handler. The overseer event
+        path is only taken when event_bus is present AND no legacy verify handler was
+        injected (i.e. the auto-wired default is in use).
+        """
+        if self._event_bus is None or self._verify_explicitly_injected or dry_run:
+            # No event bus: fall back to legacy verify handler for standalone/dry-run
+            assert self._verify is not None
+            result = await self._verify.handle(
+                correlation_id=correlation_id,
+                dry_run=dry_run,
+            )
+            if not result.all_critical_passed:
+                return False, "Critical verification checks failed", {}
+            return True, None, {}
+
+        # 1. Publish verify command
+        verify_cmd = json.dumps(
+            {
+                "correlation_id": str(correlation_id),
+                "requested_by": "build_loop_orchestrator",
+                "timestamp": datetime.now(tz=UTC).isoformat(),
+            }
+        ).encode()
+        await self._event_bus.publish(
+            topic=self._topic_overseer_verify_requested,
+            key=None,
+            value=verify_cmd,
+        )
+        logger.info(
+            "[BUILD-LOOP-ORCH] Published overseer verify command (correlation_id=%s)",
+            correlation_id,
+        )
+
+        # 2. Await correlated verdict via asyncio.Event / subscription
+        verdict_event: asyncio.Event = asyncio.Event()
+        verdict_payload: dict[str, Any] = {}
+
+        async def on_verification_completed(msg: ModelEventMessage) -> None:
+            try:
+                data = json.loads(msg.value)
+            except (json.JSONDecodeError, ValueError):
+                return
+            if str(data.get("correlation_id")) == str(correlation_id):
+                verdict_payload.update(data)
+                verdict_event.set()
+
+        # Register callback on event bus if it supports subscribe; otherwise poll
+        if hasattr(self._event_bus, "subscribe"):
+            await self._event_bus.subscribe(
+                self._topic_overseer_verification_completed,
+                on_message=on_verification_completed,
+                group_id=f"build-loop-overseer-wait-{correlation_id}",
+            )
+
+        try:
+            await asyncio.wait_for(
+                verdict_event.wait(), timeout=_VERIFIER_TIMEOUT_SECONDS
+            )
+        except TimeoutError:
+            logger.warning(
+                "[BUILD-LOOP-ORCH] Overseer verifier timed out after %ds "
+                "(correlation_id=%s)",
+                _VERIFIER_TIMEOUT_SECONDS,
+                correlation_id,
+            )
+            return False, "verifier_timeout", {}
+
+        # 3. Evaluate verdict
+        passed = bool(verdict_payload.get("passed", False))
+        if not passed:
+            failed_criteria = verdict_payload.get("failed_criteria", [])
+            reason = (
+                "; ".join(str(c) for c in failed_criteria)
+                if failed_criteria
+                else "overseer verification failed"
+            )
+            logger.warning(
+                "[BUILD-LOOP-ORCH] Overseer verifier FAILED: %s (correlation_id=%s)",
+                reason,
+                correlation_id,
+            )
+            return False, reason, {}
+
+        logger.info(
+            "[BUILD-LOOP-ORCH] Overseer verifier PASSED (correlation_id=%s)",
+            correlation_id,
+        )
+        return True, None, {}
+
+    async def _publish_dod_event(
+        self,
+        task_id: str,
+        verdict: str,
+        checks: list[object],
+        correlation_id: UUID,
+    ) -> None:
+        """Publish a DoD verification event to the event bus."""
+        checks_passed = sum(
+            1 for c in checks if isinstance(c, dict) and c.get("passed")
+        )
+        checks_failed = sum(
+            1 for c in checks if isinstance(c, dict) and not c.get("passed")
+        )
+        payload = json.dumps(
+            {
+                "task_id": task_id,
+                "verdict": verdict,
+                "checks_passed": checks_passed,
+                "checks_failed": checks_failed,
+                "correlation_id": str(correlation_id),
+                "timestamp": datetime.now(tz=UTC).isoformat(),
+            }
+        ).encode()
+        await self._event_bus.publish(
+            topic=self._topic_dod_checked,
+            key=None,
+            value=payload,
+        )
+
+    async def _publish_phase_event(self, event: object) -> None:
+        """Publish a phase transition event to the event bus."""
+        if isinstance(event, ModelPhaseTransitionEvent):
+            payload = json.dumps(event.model_dump(mode="json")).encode()
+            await self._event_bus.publish(
+                topic=self._topic_phase_transition,
+                key=None,
+                value=payload,
+            )
+
+    async def _publish_failed_event(self, correlation_id: UUID, exc: Exception) -> None:
+        """Publish a terminal build-loop-failed event (OMN-15002 silence closure).
+
+        Best-effort: a failure publishing the failure event must never mask
+        the original exception, which the caller always re-raises after this
+        returns. If the event bus itself is unavailable or the publish call
+        raises, that secondary failure is logged (not swallowed silently) but
+        does not prevent the original exception from propagating.
+        """
+        if self._event_bus is None:
+            logger.error(
+                "[BUILD-LOOP-ORCH] No event bus configured -- cannot publish "
+                "build-loop-failed terminal event for correlation_id=%s. The "
+                "original exception below still propagates.",
+                correlation_id,
+            )
+            return
+        payload = json.dumps(
+            {
+                "correlation_id": str(correlation_id),
+                "error_type": type(exc).__name__,
+                "error_message": str(exc),
+                "timestamp": datetime.now(tz=UTC).isoformat(),
+            }
+        ).encode()
+        try:
+            await self._event_bus.publish(
+                topic=self._topic_failed,
+                key=None,
+                value=payload,
+            )
+        except Exception:
+            logger.exception(
+                "[BUILD-LOOP-ORCH] Failed to publish build-loop-failed terminal "
+                "event for correlation_id=%s -- the original exception below "
+                "still propagates, but no terminal signal exists on the bus "
+                "for this failure.",
+                correlation_id,
+            )
+
+
+__all__: list[str] = ["HandlerBuildLoopOrchestrator"]

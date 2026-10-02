@@ -15,6 +15,7 @@ from .config import get_category_from_app_name, get_usecase_from_app_name
 from .core.base import ProcessingContext, ProcessingResult, ProcessingStatus, registry
 from .core.config import AlertConfig, BaseConfig, ConfigValidationError, TrackingConfig, ZoneConfig, config_manager
 from .core.config_utils import create_config_from_template
+from .core.replay_guard import ReplayGuardHealth, note_refusal, replay_marker
 from .face_reg.face_recognition import FaceRecognitionEmbeddingUseCase
 from .usecases.age_gender_detection import AgeGenderUseCase
 from .usecases.car_damage_detection import CarDamageConfig
@@ -23,6 +24,7 @@ from .usecases.flare_analysis import FlareAnalysisUseCase
 from .usecases.license_plate_monitoring import LicensePlateMonitorUseCase
 from .usecases.lpr_access_control import LicensePlateAccessControlUseCase
 from .usecases.lpr_surveillance import LicensePlateSurveillanceUseCase
+from .usecases.people_counting_extended import PeopleCountingExtendedUseCase
 from .usecases.people_tracking import PeopleTrackingUseCase
 from .usecases.ppe_compliance import PPEComplianceConfig
 from .usecases.vehicle_color_detection import VehicleColorDetectionUseCase

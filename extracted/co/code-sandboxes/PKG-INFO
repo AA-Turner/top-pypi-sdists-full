@@ -1,0 +1,379 @@
+Metadata-Version: 2.5
+Name: code_sandboxes
+Version: 1.10.0
+Project-URL: Home, https://github.com/datalayer/code-sandboxes
+Author-email: Datalayer <info@datalayer.io>
+License: BSD 3-Clause License
+        
+        Copyright (c) 2025, Datalayer
+        All rights reserved.
+        
+        Redistribution and use in source and binary forms, with or without
+        modification, are permitted provided that the following conditions are met:
+        
+        1. Redistributions of source code must retain the above copyright notice, this
+           list of conditions and the following disclaimer.
+        
+        2. Redistributions in binary form must reproduce the above copyright notice,
+           this list of conditions and the following disclaimer in the documentation
+           and/or other materials provided with the distribution.
+        
+        3. Neither the name of the copyright holder nor the names of its
+           contributors may be used to endorse or promote products derived from
+           this software without specific prior written permission.
+        
+        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+        AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+        IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+        DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+        FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+        DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+        SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+        CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+        OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+        OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+License-File: LICENSE
+Keywords: AI,AI Agent,Code Sandboxes
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.10
+Requires-Dist: faker
+Requires-Dist: jupyter-kernel-client>=1.0.2
+Requires-Dist: jupyter-server
+Requires-Dist: jupyter-server-client
+Requires-Dist: pydantic>=2.0
+Requires-Dist: pyyaml
+Requires-Dist: rich
+Requires-Dist: typer>=0.12.0
+Provides-Extra: all
+Requires-Dist: agent-runtimes; extra == 'all'
+Requires-Dist: cwsandbox>=1.6; extra == 'all'
+Requires-Dist: daytona>=0.205.1; extra == 'all'
+Requires-Dist: docker>=6.0; extra == 'all'
+Requires-Dist: e2b-code-interpreter>=2.9.1; extra == 'all'
+Requires-Dist: httpx>=0.27; extra == 'all'
+Requires-Dist: kaggle>=1.6; extra == 'all'
+Requires-Dist: modal>=1.5.2; extra == 'all'
+Requires-Dist: pydantic-monty; extra == 'all'
+Provides-Extra: bridge
+Requires-Dist: datalayer-core>=1.2.12; extra == 'bridge'
+Requires-Dist: fusepy>=3.0; extra == 'bridge'
+Requires-Dist: websockets>=12; extra == 'bridge'
+Provides-Extra: cloudflare
+Requires-Dist: httpx>=0.27; extra == 'cloudflare'
+Provides-Extra: coreweave
+Requires-Dist: cwsandbox>=1.6; extra == 'coreweave'
+Provides-Extra: datalayer
+Requires-Dist: agent-runtimes>=1.3.13; extra == 'datalayer'
+Provides-Extra: daytona
+Requires-Dist: daytona>=0.205.1; extra == 'daytona'
+Provides-Extra: docker
+Requires-Dist: docker>=6.0; extra == 'docker'
+Provides-Extra: e2b
+Requires-Dist: e2b-code-interpreter>=2.9.1; extra == 'e2b'
+Provides-Extra: environments-builder
+Requires-Dist: boto3>=1.34; extra == 'environments-builder'
+Requires-Dist: httpx>=0.27; extra == 'environments-builder'
+Provides-Extra: google-colab
+Provides-Extra: kaggle
+Requires-Dist: kaggle>=1.6; extra == 'kaggle'
+Provides-Extra: lint
+Requires-Dist: mdformat-gfm>=0.3.5; extra == 'lint'
+Requires-Dist: mdformat>0.7; extra == 'lint'
+Requires-Dist: ruff; extra == 'lint'
+Provides-Extra: modal
+Requires-Dist: modal>=1.5.2; extra == 'modal'
+Provides-Extra: monty
+Requires-Dist: pydantic-monty; extra == 'monty'
+Provides-Extra: test
+Requires-Dist: httpx>=0.27; extra == 'test'
+Requires-Dist: ipykernel; extra == 'test'
+Requires-Dist: jupyter-server<3,>=1.6; extra == 'test'
+Requires-Dist: pytest-asyncio>=0.21; extra == 'test'
+Requires-Dist: pytest-cov>=4.0; extra == 'test'
+Requires-Dist: pytest>=7.0; extra == 'test'
+Provides-Extra: typing
+Requires-Dist: mypy>=0.990; extra == 'typing'
+Requires-Dist: types-pyyaml; extra == 'typing'
+Description-Content-Type: text/markdown
+
+<!--
+  ~ Copyright (c) 2025-2026 Datalayer, Inc.
+  ~
+  ~ BSD 3-Clause License
+-->
+
+[![Datalayer](https://assets.datalayer.tech/datalayer-25.svg)](https://datalayer.io)
+
+[![Become a Sponsor](https://img.shields.io/static/v1?label=Become%20a%20Sponsor&message=%E2%9D%A4&logo=GitHub&style=flat&color=1ABC9C)](https://github.com/sponsors/datalayer)
+[![PyPI - Version](https://img.shields.io/pypi/v/code-sandboxes)](https://pypi.org/project/code-sandboxes)
+
+# 📦 Code Sandboxes
+
+Code Sandboxes (`code_sandboxes`) is a Python package for running code in isolated sandbox variants through a unified API.
+
+Canonical variant names:
+
+- `cloudflare`
+- `coreweave`
+- `datalayer`
+- `daytona`
+- `docker`
+- `e2b`
+- `eval`
+- `google-colab`
+- `jupyter-server`
+- `kaggle`
+- `marimo`
+- `modal`
+- `monty`
+
+## Documentation
+
+The full documentation is the single source of truth:
+
+- Docs home: [https://code-sandboxes.datalayer.tech](https://code-sandboxes.datalayer.tech)
+- Providers and variant setup: [https://code-sandboxes.datalayer.tech/providers](https://code-sandboxes.datalayer.tech/providers)
+- Installation: [https://code-sandboxes.datalayer.tech/install](https://code-sandboxes.datalayer.tech/install)
+- CLI usage: [https://code-sandboxes.datalayer.tech/cli](https://code-sandboxes.datalayer.tech/cli)
+- API reference: [https://code-sandboxes.datalayer.tech/api-reference](https://code-sandboxes.datalayer.tech/api-reference)
+- Examples: [https://code-sandboxes.datalayer.tech/examples](https://code-sandboxes.datalayer.tech/examples)
+- Guide: [https://code-sandboxes.datalayer.tech/guide](https://code-sandboxes.datalayer.tech/guide)
+
+Published site:
+
+- [https://code-sandboxes.datalayer.tech](https://code-sandboxes.datalayer.tech)
+
+## Install
+
+```bash
+pip install code-sandboxes
+```
+
+For provider-specific extras and credentials, see [https://code-sandboxes.datalayer.tech/install](https://code-sandboxes.datalayer.tech/install) and [https://code-sandboxes.datalayer.tech/providers](https://code-sandboxes.datalayer.tech/providers).
+
+### Jupyter Server Sandbox
+
+```python
+from code_sandboxes import Sandbox
+
+# Option 1: manage a local Jupyter server automatically
+with Sandbox.create(variant="jupyter-server") as sandbox:
+  print(sandbox.run_code("1 + 1").text)  # 2
+
+# Option 2: connect to an existing Jupyter server
+with Sandbox.create(
+  variant="jupyter-server",
+  server_url="http://localhost:8888",
+  token="MY_TOKEN",
+) as sandbox:
+  sandbox.run_code("x = 40")
+  print(sandbox.run_code("x + 2").text)  # 42
+```
+
+### Jupyter over Provider Ingress
+
+Daytona, E2B, and Modal sandboxes can prepare a real Jupyter Server and
+return the provider HTTPS/WebSocket ingress needed to reach it:
+
+```python
+from code_sandboxes import JupyterServerOptions, Sandbox
+
+sandbox = Sandbox.create(variant="daytona")  # also: e2b, modal
+sandbox.start()
+endpoint = sandbox.prepare_jupyter_server(
+    JupyterServerOptions(port=8888, install_if_missing=True)
+)
+```
+
+Preparation first checks that `jupyter-server` and `ipykernel` are both
+importable, installs the pair if that check fails, launches Jupyter in the
+background, and waits for its port to accept connections. Calling the method again on the same sandbox returns
+the cached endpoint. Provider-ingress credentials are in `endpoint.headers`;
+the separate Jupyter token is in `endpoint.query`. Do not send either to the
+browser: a server-side gateway should apply them while proxying HTTP and
+WebSocket traffic.
+
+`install_if_missing=False` makes a prebuilt template or snapshot mandatory.
+Templates and snapshots are the intended cold-start optimization; the
+conditional installation is the preliminary path for ordinary provider base
+images.
+
+## Kaggle Sandbox
+
+Kaggle supports both batch execution and interactive connections through the
+`kaggle` sandbox. Install its optional dependency first:
+
+```bash
+pip install "code-sandboxes[kaggle]"
+```
+
+Required credentials for batch mode:
+
+- `~/.kaggle/kaggle.json`, or
+- `KAGGLE_API_KEY`
+
+```bash
+# Install Kaggle support
+pip install code-sandboxes[kaggle]
+
+# Optional: env-based credentials (if not using ~/.kaggle/kaggle.json)
+export KAGGLE_API_KEY="<your-kaggle-api-key>"
+
+# Launch the REPL
+code-sandboxes repl --variant kaggle
+```
+
+For batch execution, configure Kaggle credentials and create the sandbox
+without a runtime URL:
+
+```python
+from code_sandboxes import Sandbox
+
+with Sandbox.create(variant="kaggle") as sandbox:
+    result = sandbox.run_code("print('hello from kaggle')")
+    print(result.stdout)
+```
+
+The lower-level batch API is also available directly:
+
+```python
+from code_sandboxes import KaggleKernelExecutor
+
+executor = KaggleKernelExecutor()
+result = executor.execute(
+    "print('hello from kaggle')",
+    title="code-sandboxes-demo",
+    accelerator="NvidiaTeslaT4",
+    wait=True,
+)
+print(result.status, result.stdout)
+print(result.to_kernel_reply())
+```
+
+For interactive execution, copy the WebSocket channels URL from an active
+Kaggle notebook session and pass it to the sandbox or client:
+
+```python
+from code_sandboxes import KaggleKernelClient
+
+with KaggleKernelClient.from_channels_url(channels_url, token=None) as kernel:
+    print(kernel.execute("x = 1 + 1; print(x)"))
+```
+
+See the [complete Kaggle guide](https://code-sandboxes.datalayer.tech/providers/kaggle) for authentication,
+accelerators, channels URL retrieval, and execution options.
+
+## Google Colab
+
+Google Colab exposes an already-running kernel through an authenticating proxy.
+Copy its WebSocket channels URL from the browser's Network tools, then pass it
+directly to the sandbox:
+
+```python
+from code_sandboxes import Sandbox
+
+with Sandbox.create(variant="google-colab", channels_url=channels_url) as sandbox:
+    print(sandbox.run_code("x = 1 + 1; print(x)").stdout)
+```
+
+The lower-level client and parser are owned by Code Sandboxes as well:
+
+```python
+from code_sandboxes import GoogleColabKernelClient, parse_google_colab_channels_url
+
+server_url, kernel_id, proxy_token = parse_google_colab_channels_url(channels_url)
+with GoogleColabKernelClient.from_channels_url(channels_url) as kernel:
+    print(kernel.execute("print('hello from colab')"))
+```
+
+See the [complete Google Colab guide](https://code-sandboxes.datalayer.tech/providers/google-colab) for
+proxy authentication, explicit connection values, and channels URL retrieval.
+
+## Contents attachments
+
+The Datalayer Contents service decides what a sandbox is given — a volume, a
+home folder, a dataset revision, a bucket — and writes it down as a manifest.
+The client honours it the same way on every provider, and answers honestly
+where a provider cannot:
+
+```python
+from code_sandboxes import CodeSandboxClient, ContentAttachmentError, ContentManifest
+
+manifest = ContentManifest.model_validate(contents_api.attachment_manifest(sandbox_uid))
+client = CodeSandboxClient.create(variant="daytona")
+
+print(client.content_capabilities())     # mount, bucket_mount, materialize, client, ...
+try:
+    prepared = client.attach(manifest)   # configure, start, install the manifest, prepare
+except ContentAttachmentError as error:  # a REQUIRED attachment is not ready
+    print(error.uid, error.code)         # e.g. "MOUNT_NEEDS_RESTART"; the sandbox keeps running
+
+client.reconcile_contents(manifest)      # after a restart: re-check, repair, never duplicate
+client.attachment_status("attachment-1")
+client.detach("attachment-1")            # removes what was delivered, never the source
+```
+
+Inside the sandbox the manifest is `/etc/datalayer/contents.json` (or
+`~/.datalayer/contents.json` when `/etc` cannot be written) and the
+environment names it: `DATALAYER_CONTENTS_MANIFEST`, `DATALAYER_CONTENTS_URL`,
+`DATALAYER_CONTENTS_TOKEN` and `DATALAYER_CONTENTS_TOKEN_FILE`. The token is
+the short-lived sandbox credential, kept out of the JSON in a file only the
+owner can read.
+
+| Provider    | Volume mount    | Shared filesystem | Bucket mount                               | Local bridge            | Materialize | Client |
+| ----------- | --------------- | ----------------- | ------------------------------------------ | ----------------------- | ----------- | ------ |
+| `datalayer` | by the Operator | by the Operator   | by the Operator                            | Clouder CSI             | yes         | yes    |
+| `daytona`   | at creation     | no                | no                                         | per environment: `fuse` | yes         | yes    |
+| `e2b`       | at creation     | no                | no                                         | per environment: `fuse` | yes         | yes    |
+| `modal`     | at creation     | no                | refused: a credential would leave Contents | per environment: `fuse` | yes         | yes    |
+| others      | no              | no                | no                                         | no                      | no          | yes    |
+
+A local bridge — a person's own folder, mounted over the bridge relay — is
+supported per environment, never per provider: only an environment whose
+metadata declares the `fuse` feature (fusepy and `/dev/fuse` in the sandbox)
+starts the bridge filesystem (`code_sandboxes.bridge_mount`) inside the
+sandbox, and none of the stock Daytona, E2B or Modal environments declares
+it. Everywhere else a `local-bridge` attachment is refused with
+`LOCAL_BRIDGE_UNSUPPORTED` and Synchronize is offered instead — a copy is
+never reported as a mount. Install the sandbox side with
+`pip install "code-sandboxes[bridge]"` in an image that exposes `/dev/fuse`.
+
+See the [API reference](https://code-sandboxes.datalayer.tech/api-reference#contents-attachments).
+
+## Manage Sandboxes (CRUD)
+
+Every variant answers the same verbs — create, list, get, update, delete —
+from Python or from the CLI, rendered as [rich](https://rich.readthedocs.io/)
+tables:
+
+```bash
+code-sandboxes list                 # every variant that answers, one table
+code-sandboxes list -v kaggle       # one variant
+code-sandboxes get <id> -v modal    # one sandbox, live status
+code-sandboxes create -v modal      # create detached, leave it running
+code-sandboxes update <id> -v modal --tag team=ai   # tags (modal), --name
+                                    # (docker), --capability (datalayer),
+                                    # --code (kaggle: a new version)
+code-sandboxes delete <id> -v modal --yes
+code-sandboxes environments         # what sandboxes can be created in
+```
+
+```python
+from code_sandboxes import get_manager
+
+manager = get_manager("modal")
+for info in manager.list():
+    print(info.id, info.status)
+manager.delete("sb-...")
+```
+
+See the [management guide](https://code-sandboxes.datalayer.tech/cli#creating-and-managing-sandboxes)
+for what each variant maps to and its connection settings.
+
+## License
+
+BSD 3-Clause License

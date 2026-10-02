@@ -101,18 +101,11 @@ def warn_client_about_dropped_settings(adjustments: list[Any], *, model: Any = "
     lost = [a for a in adjustments if a.action in _DROP_ACTIONS and not a.expected]
     if not lost:
         return
-    try:
-        import asyncio
+    from matrx_connect.context.events import WarningPayload
 
-        from matrx_connect import get_app_context
-        from matrx_connect.context.events import WarningPayload
-
-        ctx = get_app_context()
-        emitter = getattr(ctx, "emitter", None)
-        if emitter is None:
-            return
-        keys = sorted({str(a.key) for a in lost})
-        payload = WarningPayload(
+    keys = sorted({str(a.key) for a in lost})
+    send_client_warning(
+        WarningPayload(
             code="setting_not_supported",
             system_message=(
                 f"{len(lost)} setting(s) could not be applied to {model}: "
@@ -131,17 +124,39 @@ def warn_client_about_dropped_settings(adjustments: list[Any], *, model: Any = "
                     {"key": str(a.key), "requested": a.canonical_value} for a in lost
                 ],
             },
-        )
+        ),
+        name="outbound_params_warning",
+    )
+
+
+def send_client_warning(payload: Any, *, name: str) -> None:
+    """THE one door for "the server changed what the caller asked for" (law 4).
+
+    Every server-side step that drops or rewrites a setting the request carried
+    — an unsupported key here, a ceiling the send boundary raises — tells the
+    CALLER through the stream as a ``warning`` event, not only the server log.
+    Fire-and-forget: telling the user must never delay or break the run; with no
+    emitter or no running loop the server log (written by the caller) still has it.
+    """
+    try:
+        import asyncio
+
+        from matrx_connect import get_app_context
+
+        ctx = get_app_context()
+        emitter = getattr(ctx, "emitter", None)
+        if emitter is None:
+            return
         asyncio.get_running_loop()
         from matrx_utils import detached_task
 
-        detached_task(emitter.send_warning(payload), name="outbound_params_warning")
+        detached_task(emitter.send_warning(payload), name=name)
     except RuntimeError:
-        return  # no running loop (sync/offline resolution) — the log still has it
+        return  # no running loop / no context (sync/offline) — the log still has it
     except Exception as exc:  # noqa: BLE001 — telling the user must never break the run
         vcprint(
-            f"[outbound_params] could not emit the dropped-settings warning ({exc!r}); "
-            "the adjustment detail is still in the log and on the Adjustment list.",
+            f"[outbound_params] could not emit client warning {name!r} ({exc!r}); "
+            "the detail is still in the server log.",
             color="yellow",
         )
 
@@ -295,5 +310,6 @@ __all__ = [
     "drop_foreign_canonical_keys",
     "resolve_outbound_params",
     "resolve_structural_setting",
+    "send_client_warning",
     "warn_client_about_dropped_settings",
 ]

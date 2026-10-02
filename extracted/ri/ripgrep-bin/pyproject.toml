@@ -1,0 +1,58 @@
+[project]
+name = "ripgrep-bin"
+description = "ripgrep is a line-oriented search tool that recursively searches the current directory for a regex pattern while respecting gitignore rules."
+readme = "README.md"
+requires-python = ">=3.7"
+authors = [{ name = "dowon", email = "ks2515@naver.com" }]
+classifiers = [
+  "Programming Language :: Rust",
+  "Topic :: Terminals",
+  "Topic :: Text Processing",
+  "Topic :: Text Processing :: Filters"
+]
+dependencies = []
+dynamic = ["keywords", "license", "version"]
+
+[project.urls]
+repository = "https://github.com/Bing-su/pip-binary-factory"
+ripgrep = "https://github.com/BurntSushi/ripgrep"
+
+[build-system]
+requires = ["maturin>=1.14,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+auditwheel = "repair"
+bindings = "bin"
+features = ["pcre2"]
+include = [
+  { format = "sdist", path = "LICENSE-MIT" },
+  { format = "sdist", path = "UNLICENSE" }
+]
+manifest-path = "ripgrep/Cargo.toml"
+profile = "release-lto"
+strip = true
+
+[tool.ruff.lint]
+select = [
+  "A",
+  "B",
+  "C4",
+  "C90",
+  "E",
+  "EM",
+  "F",
+  "FA",
+  "I001",
+  "ISC",
+  "N",
+  "PIE",
+  "PT",
+  "RET",
+  "RUF",
+  "SIM",
+  "UP",
+  "W",
+]
+ignore = ["B008", "B905", "E501"]
+unfixable = ["F401"]

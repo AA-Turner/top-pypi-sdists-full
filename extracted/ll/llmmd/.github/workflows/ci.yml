@@ -1,0 +1,39 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  rust:
+    runs-on: pool
+    strategy:
+      fail-fast: false
+      matrix:
+        check: [fmt, clippy, test, doc]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: wprhvso/qa-rust@v1
+        with:
+          checks: ${{ matrix.check }}
+
+  python:
+    runs-on: pool
+    strategy:
+      fail-fast: false
+      matrix:
+        check: [ruff, format, pyright, pytest]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: wprhvso/qa-python@v1
+        with:
+          checks: ${{ matrix.check }}

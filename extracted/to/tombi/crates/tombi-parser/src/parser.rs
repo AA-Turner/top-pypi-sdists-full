@@ -64,20 +64,20 @@ impl<'t> Parser<'t> {
     }
 
     #[inline]
-    pub(crate) fn current_range(&self) -> tombi_text::Range {
-        self.input_tokens[self.pos].range()
+    pub(crate) fn current_span(&self) -> tombi_text::Span {
+        self.input_tokens[self.pos].span()
     }
 
     #[inline]
-    pub(crate) fn previous_range(&self) -> tombi_text::Range {
+    pub(crate) fn previous_span(&self) -> tombi_text::Span {
         if self.pos == 0 {
-            return tombi_text::Range::default();
+            return tombi_text::Span::default();
         }
         let mut pos = self.pos - 1;
         while pos > 0 && self.input_tokens[pos].kind().is_trivia() {
             pos -= 1;
         }
-        self.input_tokens[pos].range()
+        self.input_tokens[pos].span()
     }
 
     fn nth_index(&self, n: usize) -> usize {
@@ -122,8 +122,8 @@ impl<'t> Parser<'t> {
     }
 
     #[inline]
-    pub(crate) fn nth_range(&self, n: usize) -> tombi_text::Range {
-        self.nth_token(n).range()
+    pub(crate) fn nth_span(&self, n: usize) -> tombi_text::Span {
+        self.nth_token(n).span()
     }
 
     fn is_joint(&self, n: usize) -> bool {
@@ -229,15 +229,9 @@ impl<'t> Parser<'t> {
 
             let token = tombi_lexer::Token::new(
                 BARE_KEY,
-                (
-                    tombi_text::Span::new(
-                        token.span().start,
-                        token.span().start + tombi_text::Offset::of(parts[0]),
-                    ),
-                    tombi_text::Range::new(
-                        token.range().start,
-                        token.range().start + tombi_text::RelativePosition::of(parts[0]),
-                    ),
+                tombi_text::Span::new(
+                    token.span().start,
+                    token.span().start + tombi_text::Offset::of(parts[0]),
                 ),
             );
             self.push_synthetic_token(token);
@@ -251,15 +245,9 @@ impl<'t> Parser<'t> {
 
             let token = tombi_lexer::Token::new(
                 T![.],
-                (
-                    tombi_text::Span::new(
-                        key1.span().end,
-                        key1.span().end + tombi_text::Offset::of("."),
-                    ),
-                    tombi_text::Range::new(
-                        key1.range().end,
-                        key1.range().end + tombi_text::RelativePosition::of("."),
-                    ),
+                tombi_text::Span::new(
+                    key1.span().end,
+                    key1.span().end + tombi_text::Offset::of("."),
                 ),
             );
 
@@ -274,15 +262,9 @@ impl<'t> Parser<'t> {
 
             let token = tombi_lexer::Token::new(
                 BARE_KEY,
-                (
-                    tombi_text::Span::new(
-                        dot.span().end,
-                        dot.span().end + tombi_text::Offset::of(parts[1]),
-                    ),
-                    tombi_text::Range::new(
-                        dot.range().end,
-                        dot.range().end + tombi_text::RelativePosition::of(parts[1]),
-                    ),
+                tombi_text::Span::new(
+                    dot.span().end,
+                    dot.span().end + tombi_text::Offset::of(parts[1]),
                 ),
             );
 

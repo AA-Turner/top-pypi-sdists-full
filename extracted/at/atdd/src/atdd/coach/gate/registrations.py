@@ -1,0 +1,187 @@
+"""Config-gated registration of the operator-approval check INTO the #1020 gate.
+
+This module performs a SIDE EFFECT on import: it registers an
+``ApprovalTokenGateCheck`` into the module-level ``GATE_REGISTRY`` for the
+operator-gateable phase transitions, so the worker's
+``atdd issue <N> --status <next>`` is refused until an operator-signed token
+exists.
+
+``register_approval_checks()`` is called EXPLICITLY at the ``atdd issue
+--status`` CLI dispatch — NOT as an import-time side effect, and NOT from the
+gate package ``__init__``. Importing this module must stay pure: a side-effect
+registration into the module-level ``GATE_REGISTRY`` would pollute it for the
+#1020 migration-safety tests (and #1017's own integration/smoke tests) that
+assert behaviour against the live registry, since test collection imports every
+module. Which transitions actually ENFORCE is decided by ``is_transition_gated``
+(``.atdd/config.yaml`` ``gate.transitions``, default PLANNED->RED only);
+registering the check here merely makes it AVAILABLE for those transitions to
+consult, so an operator can turn any phase gate on via config without a code
+change.
+"""
+from __future__ import annotations
+
+from atdd.coach.gate.approval_check import GATE_ID, ApprovalTokenGateCheck
+from atdd.coach.gate.registry import GATE_REGISTRY
+from atdd.coach.gate.smoke_execution_check import (
+    GATE_ID as SMOKE_EXECUTION_GATE_ID,
+    SmokeExecutionGateCheck,
+)
+from atdd.coach.gate.lab_evidence_check import (
+    GATE_ID as LAB_EVIDENCE_GATE_ID,
+    LabEvidenceGateCheck,
+)
+
+# The candidate operator-gateable lifecycle transitions. ``is_transition_gated``
+# decides which actually enforce (default: only PLANNED->RED). Creating the plan
+# (INIT->PLANNED) is not an operator-reserved sign-off, so it is intentionally
+# absent.
+_CANDIDATE_TRANSITIONS = (
+    ("PLANNED", "RED"),
+    ("RED", "GREEN"),
+    ("GREEN", "SMOKE"),
+    ("SMOKE", "REFACTOR"),
+    ("REFACTOR", "COMPLETE"),
+)
+
+
+def approval_required_for(config, from_phase: str, to_phase: str) -> bool:
+    """Whether crossing ``from_phase -> to_phase`` needs ``atdd coach approve`` first.
+
+    The THREE declarations that decide it, asked together and asked of nothing
+    else: :data:`_CANDIDATE_TRANSITIONS` (which edges the approval check is
+    registered for), :func:`~atdd.coach.gate.decision.is_transition_gated`
+    (which of those the repo's ``.atdd/config.yaml`` actually enforces), and the
+    phase machine's declared ``autonomy`` (whether the check, once run, would
+    WAIVE the token).
+
+    THE THIRD ONE WAS MISSING AND COST 95 SIGNATURES (#1999). This function was
+    written for #1750 against the two inputs decisive then, and its docstring said
+    it asked "of nothing else" — true when written. ``autonomy`` became a third
+    input in #1798, when :meth:`ApprovalTokenGateCheck._autonomy_waiver` began
+    returning ``NOT_APPLICABLE`` on an exact ``agent``, and this function was never
+    taught to ask it. The guidance and the enforcement then disagreed on a live
+    edge: the hint prescribed ``SMOKE->REFACTOR`` (``gate.transitions`` sets it, to
+    run :class:`SmokeExecutionGateCheck`) while the gate waived the token without
+    ever consulting it. Measured on the operator's machine on 2026-09-13: of 225
+    approval tokens, **95 are ``SMOKE->REFACTOR``** — this hint is their sole
+    producer, since nothing else tells an operator which edge to sign.
+
+    Asking the waiver is not the same as asking whether a token exists. This stays
+    PURE and filesystem-free: it reads the same declaration the check reads, and
+    answers "would a token be demanded here", never "is one present".
+
+    Exists so a caller can DERIVE the operator's next command instead of
+    restating it. ``atdd coach enter``'s next-step hint printed a bare
+    ``atdd coach transition <N> RED`` for four issues on 2026-08-04 while this
+    repo's config set ``PLANNED->RED: true``, so the only guidance the lifecycle
+    offers named a command the gate would refuse (#1750). A hardcoded string
+    there would go stale the moment a repo gates a different edge — which is the
+    whole point of the config knob.
+
+    Pure: reads the declarations, registers nothing and mutates no registry, so
+    a read-only surface can ask without the import-time side effect this module's
+    header forbids.
+    """
+    from atdd.coach.gate.approval_check import token_is_waived_for
+    from atdd.coach.gate.decision import is_transition_gated
+
+    if (from_phase, to_phase) not in _CANDIDATE_TRANSITIONS:
+        return False
+    if not is_transition_gated(config, from_phase, to_phase):
+        return False
+    # Fail-closed, exactly as the check does: an unreadable phase machine keeps the
+    # signature rather than silently dropping it, so the two sides cannot diverge in
+    # the one moment neither can read the convention.
+    return not token_is_waived_for(from_phase)
+
+
+def register_approval_checks(registry=GATE_REGISTRY) -> None:
+    """Idempotently register the approval check for the candidate transitions."""
+    for from_phase, to_phase in _CANDIDATE_TRANSITIONS:
+        existing = registry.checks_for(from_phase, to_phase)
+        if any(getattr(c, "gate_id", None) == GATE_ID for c in existing):
+            continue
+        registry.register(from_phase, to_phase, ApprovalTokenGateCheck())
+
+
+# The transition the smoke-execution attestation gates. Already present in
+# ``_CANDIDATE_TRANSITIONS`` above, so the seam it plugs into is the proven one.
+_SMOKE_EXECUTION_TRANSITION = ("SMOKE", "REFACTOR")
+
+
+def register_smoke_execution_check(registry=GATE_REGISTRY) -> None:
+    """Idempotently register the smoke-execution check for SMOKE->REFACTOR (#1602).
+
+    Called explicitly from the ``atdd coach transition`` dispatch beside
+    ``register_approval_checks``, and for the same reason deliberately NOT an
+    import-time side effect: a side-effect registration into the module-level
+    ``GATE_REGISTRY`` would pollute it for #1020's migration-safety tests, which
+    assert against the live registry that test collection imports every module
+    into.
+
+    Registering makes the check AVAILABLE; ``is_transition_gated`` decides
+    whether it ENFORCES. ``SMOKE->REFACTOR`` is absent from
+    ``DEFAULT_GATED_TRANSITIONS``, so a repo turns it on with one line of
+    ``.atdd/config.yaml``::
+
+        gate:
+          transitions:
+            SMOKE->REFACTOR: true
+
+    That line IS now set in this repo, and what made it safe to set is that the
+    check is opt-in per issue (:mod:`atdd.coach.gate.smoke_obligation`): it holds
+    an issue to a live-smoke run only when that issue's own plan scope declares an
+    ``execution_kind: live_smoke`` acceptance, and passes as *not applicable*
+    otherwise. Enabling it against an unconditional fail-closed check would have
+    made ``SMOKE->REFACTOR`` unreachable for every in-flight issue except through
+    ``--force`` — the bypass-advertising failure this whole issue exists to
+    remove. A consumer repo turning this on inherits the same property: nothing is
+    gated until something is declared.
+    """
+    from_phase, to_phase = _SMOKE_EXECUTION_TRANSITION
+    existing = registry.checks_for(from_phase, to_phase)
+    if any(getattr(c, "gate_id", None) == SMOKE_EXECUTION_GATE_ID for c in existing):
+        return
+    registry.register(from_phase, to_phase, SmokeExecutionGateCheck())
+
+
+# The transition the lab-evidence check gates (#1950). Deliberately NOT added to
+# ``_CANDIDATE_TRANSITIONS`` above: that tuple is the APPROVAL check's edge set, and
+# INIT->PLANNED is absent from it on purpose ("creating the plan is not an
+# operator-reserved sign-off"). This is a different obligation on the same edge.
+_LAB_EVIDENCE_TRANSITION = ("INIT", "PLANNED")
+
+
+def register_lab_evidence_check(registry=GATE_REGISTRY) -> None:
+    """Idempotently register the lab-evidence check for INIT->PLANNED (#1950).
+
+    Called explicitly from the ``atdd coach transition`` dispatch beside
+    ``register_approval_checks``, and for the same reason deliberately NOT an
+    import-time side effect: a side-effect registration into the module-level
+    ``GATE_REGISTRY`` would pollute it for #1020's migration-safety tests, which
+    assert behaviour against the live registry that collection imports every module
+    into.
+
+    REGISTERING IS NOT ENABLING, and the distinction is load-bearing here rather
+    than ceremonial. ``evaluate_transition_gate`` asks ``is_transition_gated``
+    BEFORE it consults the registry, and ``INIT->PLANNED`` is absent from
+    ``DEFAULT_GATED_TRANSITIONS``, so this call makes the check AVAILABLE and
+    changes no transition's outcome. A repo turns it on with one line::
+
+        gate:
+          transitions:
+            INIT->PLANNED: true
+
+    That line is NOT set in this repo, and what makes setting it a decision rather
+    than a formality is that this check has no per-issue opt-in. Every issue has a
+    premise, so nothing is ever "not applicable" — measured, enabling the edge here
+    would refuse 162 of 163 open-at-INIT issues, leaving ``--force`` as the routine
+    exit. That is the rubber-stamp failure ``smoke_obligation`` exists to prevent,
+    and it is why enablement waits on the backlog rather than riding in with the
+    code.
+    """
+    from_phase, to_phase = _LAB_EVIDENCE_TRANSITION
+    existing = registry.checks_for(from_phase, to_phase)
+    if any(getattr(c, "gate_id", None) == LAB_EVIDENCE_GATE_ID for c in existing):
+        return
+    registry.register(from_phase, to_phase, LabEvidenceGateCheck())

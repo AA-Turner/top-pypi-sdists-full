@@ -1,0 +1,1018 @@
+# (C) Copyright IBM 2023.
+#
+# This code is licensed under the Apache License, Version 2.0. You may
+# obtain a copy of this license in the LICENSE.txt file in the root directory
+# of this source tree or at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# Any modifications or derivative works of this code must retain this
+# copyright notice, and modified files need to carry a notice indicating
+# that they have been altered from the originals.
+
+"""Tests for FermionOperator."""
+
+from __future__ import annotations
+
+import itertools
+
+import numpy as np
+import pyscf.fci
+import pytest
+from scipy.sparse.linalg import LinearOperator
+
+import ffsim
+from ffsim import FermionOperator, cre_a, cre_b, des_a, des_b
+
+RNG = np.random.default_rng(308444818162923832831691142041679886023)
+
+
+def _assert_linop_equals(
+    op: FermionOperator,
+    expected_linop: LinearOperator,
+    norb: int,
+    nelec: tuple[int, int],
+) -> None:
+    """Assert that the linear operator of op matches a reference linear operator."""
+    actual_linop = ffsim.linear_operator(op, norb, nelec)
+    vec = ffsim.random.random_state_vector(ffsim.dim(norb, nelec), seed=RNG)
+    original = vec.copy()
+    np.testing.assert_allclose(actual_linop @ vec, expected_linop @ vec, atol=1e-12)
+    np.testing.assert_allclose(
+        actual_linop.adjoint() @ vec, expected_linop.adjoint() @ vec, atol=1e-12
+    )
+    # test no side effect
+    np.testing.assert_allclose(original, vec)
+
+
+def _reference_linear_operator(
+    coeffs: dict[tuple[tuple[bool, bool, int], ...], complex],
+    norb: int,
+    nelec: tuple[int, int],
+) -> LinearOperator:
+    """Reference FermionOperator linear operator built from PySCF ladder actions."""
+    dim = ffsim.dim(norb, nelec)
+    dim_a = pyscf.fci.cistring.num_strings(norb, nelec[0])
+    dim_b = pyscf.fci.cistring.num_strings(norb, nelec[1])
+    dims = (dim_a, dim_b)
+
+    action_funcs = {
+        # key: (action, spin)
+        (False, False): pyscf.fci.addons.des_a,
+        (False, True): pyscf.fci.addons.des_b,
+        (True, False): pyscf.fci.addons.cre_a,
+        (True, True): pyscf.fci.addons.cre_b,
+    }
+
+    def matvec(vec: np.ndarray):
+        result = np.zeros(dim, dtype=complex)
+        vec_real = np.real(vec)
+        vec_imag = np.imag(vec)
+        for term, coeff in coeffs.items():
+            transformed_real = vec_real.reshape(dims)
+            transformed_imag = vec_imag.reshape(dims)
+            this_nelec = list(nelec)
+            # A term that drives an intermediate sector out of the range [0, norb]
+            # annihilates the state, so it contributes nothing.
+            out_of_range = False
+            for action, spin, orb in reversed(term):
+                next_count = this_nelec[spin] + (1 if action else -1)
+                if not 0 <= next_count <= norb:
+                    out_of_range = True
+                    break
+                action_func = action_funcs[(action, spin)]
+                transformed_real = action_func(transformed_real, norb, this_nelec, orb)
+                transformed_imag = action_func(transformed_imag, norb, this_nelec, orb)
+                this_nelec[spin] = next_count
+            if out_of_range:
+                continue
+            result += coeff * transformed_real.reshape(-1)
+            result += coeff * 1j * transformed_imag.reshape(-1)
+        return result
+
+    return LinearOperator(
+        shape=(dim, dim), matvec=matvec, rmatvec=matvec, dtype=complex
+    )
+
+
+def test_add():
+    """Test adding FermionOperators."""
+    op1 = FermionOperator(
+        {(ffsim.des_a(1), ffsim.des_a(3), ffsim.cre_a(2), ffsim.cre_a(1)): 1.5}
+    )
+    op2 = FermionOperator(
+        {
+            (ffsim.des_a(1), ffsim.cre_b(2), ffsim.des_a(3), ffsim.cre_a(4)): 1,
+            (ffsim.des_a(1), ffsim.des_b(3), ffsim.cre_a(2), ffsim.cre_a(4)): 1.5 + 1j,
+        }
+    )
+    expected = FermionOperator(
+        {
+            (ffsim.des_a(1), ffsim.des_a(3), ffsim.cre_a(2), ffsim.cre_a(1)): 1.5,
+            (ffsim.des_a(1), ffsim.cre_b(2), ffsim.des_a(3), ffsim.cre_a(4)): 1,
+            (ffsim.des_a(1), ffsim.des_b(3), ffsim.cre_a(2), ffsim.cre_a(4)): 1.5 + 1j,
+        }
+    )
+    assert op1 + op2 == expected
+
+    op1 += op2
+    assert op1 == expected
+
+
+def test_subtract():
+    """Test subtracting FermionOperators."""
+    op1 = FermionOperator(
+        {(ffsim.des_a(1), ffsim.des_a(3), ffsim.cre_a(2), ffsim.cre_a(1)): 1.5}
+    )
+    op2 = FermionOperator(
+        {
+            (ffsim.des_a(1), ffsim.cre_b(2), ffsim.des_a(3), ffsim.cre_a(4)): 1,
+            (ffsim.des_a(1), ffsim.des_b(3), ffsim.cre_a(2), ffsim.cre_a(4)): 1.5 + 1j,
+        }
+    )
+    expected = FermionOperator(
+        {
+            (ffsim.des_a(1), ffsim.des_a(3), ffsim.cre_a(2), ffsim.cre_a(1)): 1.5,
+            (ffsim.des_a(1), ffsim.cre_b(2), ffsim.des_a(3), ffsim.cre_a(4)): -1,
+            (ffsim.des_a(1), ffsim.des_b(3), ffsim.cre_a(2), ffsim.cre_a(4)): -1.5 - 1j,
+        }
+    )
+    assert op1 - op2 == expected
+
+    op1 -= op2
+    assert op1 == expected
+
+
+def test_neg():
+    """Test negating FermionOperators."""
+    op = FermionOperator(
+        {
+            (ffsim.des_a(1), ffsim.cre_a(2), ffsim.des_a(3), ffsim.cre_a(4)): 1.5,
+            (ffsim.des_a(1), ffsim.des_a(3), ffsim.cre_a(2), ffsim.cre_a(4)): 1 + 1.5j,
+        }
+    )
+    expected = FermionOperator(
+        {
+            (ffsim.des_a(1), ffsim.cre_a(2), ffsim.des_a(3), ffsim.cre_a(4)): -1.5,
+            (ffsim.des_a(1), ffsim.des_a(3), ffsim.cre_a(2), ffsim.cre_a(4)): -1 - 1.5j,
+        }
+    )
+    assert -op == expected
+
+
+def test_mul():
+    """Test multiplying FermionOperators."""
+    op1 = FermionOperator(
+        {
+            (ffsim.cre_a(1), ffsim.des_a(5), ffsim.cre_a(3)): 0.5,
+            (ffsim.des_a(3), ffsim.cre_b(7), ffsim.cre_b(1), ffsim.cre_a(5)): 0.75,
+        }
+    )
+    op2 = FermionOperator(
+        {
+            (ffsim.cre_a(2), ffsim.cre_a(5)): 0.5,
+            (ffsim.des_a(7),): 0.5,
+        }
+    )
+    expected = FermionOperator(
+        {
+            (
+                ffsim.cre_a(1),
+                ffsim.des_a(5),
+                ffsim.cre_a(3),
+                ffsim.cre_a(2),
+                ffsim.cre_a(5),
+            ): 0.25,
+            (
+                ffsim.cre_a(1),
+                ffsim.des_a(5),
+                ffsim.cre_a(3),
+                ffsim.des_a(7),
+            ): 0.25,
+            (
+                ffsim.des_a(3),
+                ffsim.cre_b(7),
+                ffsim.cre_b(1),
+                ffsim.cre_a(5),
+                ffsim.cre_a(2),
+                ffsim.cre_a(5),
+            ): 0.375,
+            (
+                ffsim.des_a(3),
+                ffsim.cre_b(7),
+                ffsim.cre_b(1),
+                ffsim.cre_a(5),
+                ffsim.des_a(7),
+            ): 0.375,
+        }
+    )
+    assert op1 * op2 == expected
+
+
+def test_mul_scalar():
+    """Test multiplying by a scalar."""
+    op = 1j * FermionOperator(
+        {
+            (ffsim.cre_a(1), ffsim.des_a(5), ffsim.cre_a(3)): 0.5,
+            (ffsim.des_a(3), ffsim.cre_b(7), ffsim.cre_b(1), ffsim.cre_a(5)): 0.75,
+        }
+    )
+    expected = FermionOperator(
+        {
+            (ffsim.cre_a(1), ffsim.des_a(5), ffsim.cre_a(3)): 0.5j,
+            (ffsim.des_a(3), ffsim.cre_b(7), ffsim.cre_b(1), ffsim.cre_a(5)): 0.75j,
+        }
+    )
+    assert op == expected
+
+    op = 2 * FermionOperator(
+        {
+            (ffsim.cre_a(1), ffsim.des_a(5), ffsim.cre_a(3)): 0.5,
+            (ffsim.des_a(3), ffsim.cre_b(7), ffsim.cre_b(1), ffsim.cre_a(5)): 0.75,
+        }
+    )
+    expected = FermionOperator(
+        {
+            (ffsim.cre_a(1), ffsim.des_a(5), ffsim.cre_a(3)): 1,
+            (ffsim.des_a(3), ffsim.cre_b(7), ffsim.cre_b(1), ffsim.cre_a(5)): 1.5,
+        }
+    )
+    assert op == expected
+
+    op *= 2
+    expected = FermionOperator(
+        {
+            (ffsim.cre_a(1), ffsim.des_a(5), ffsim.cre_a(3)): 2,
+            (ffsim.des_a(3), ffsim.cre_b(7), ffsim.cre_b(1), ffsim.cre_a(5)): 3,
+        }
+    )
+    assert op == expected
+
+
+def test_div():
+    """Test division."""
+    op = (
+        FermionOperator(
+            {
+                (ffsim.cre_a(1), ffsim.des_a(5), ffsim.cre_a(3)): 0.5,
+                (ffsim.des_a(3), ffsim.cre_b(7), ffsim.cre_b(1), ffsim.cre_a(5)): 0.75,
+            }
+        )
+        / 2
+    )
+    expected = FermionOperator(
+        {
+            (ffsim.cre_a(1), ffsim.des_a(5), ffsim.cre_a(3)): 0.25,
+            (ffsim.des_a(3), ffsim.cre_b(7), ffsim.cre_b(1), ffsim.cre_a(5)): 0.375,
+        }
+    )
+    assert op == expected
+
+    op /= 2
+    expected = FermionOperator(
+        {
+            (ffsim.cre_a(1), ffsim.des_a(5), ffsim.cre_a(3)): 0.125,
+            (ffsim.des_a(3), ffsim.cre_b(7), ffsim.cre_b(1), ffsim.cre_a(5)): 0.1875,
+        }
+    )
+
+
+def test_pow():
+    """Test exponentiation by an integer."""
+    op = FermionOperator(
+        {
+            (ffsim.cre_a(1), ffsim.des_a(5), ffsim.cre_a(3)): 0.5,
+            (ffsim.des_a(3), ffsim.cre_b(7), ffsim.cre_b(1), ffsim.cre_a(5)): 0.75,
+        }
+    )
+    assert op**0 == FermionOperator({(): 1})
+    assert op**1 == op
+    assert op**2 == op * op
+    assert op**3 == op * op * op
+    assert pow(op, 2) == op * op
+    with pytest.raises(ValueError, match="mod argument"):
+        _ = pow(op, 2, 2)  # type: ignore
+
+
+def test_normal_ordered():
+    """Test normal ordering."""
+    actual = FermionOperator(
+        {
+            (
+                ffsim.des_a(1),
+                ffsim.des_b(1),
+                ffsim.cre_b(2),
+                ffsim.cre_a(2),
+                ffsim.des_a(3),
+                ffsim.des_b(3),
+                ffsim.cre_b(4),
+                ffsim.cre_a(4),
+            ): 1.5
+        }
+    ).normal_ordered()
+    expected = FermionOperator(
+        {
+            (
+                ffsim.cre_b(4),
+                ffsim.cre_b(2),
+                ffsim.cre_a(4),
+                ffsim.cre_a(2),
+                ffsim.des_b(3),
+                ffsim.des_b(1),
+                ffsim.des_a(3),
+                ffsim.des_a(1),
+            ): 1.5
+        }
+    )
+    assert actual == expected
+    for term in actual:
+        assert list(term) == sorted(term, reverse=True)
+
+    actual = FermionOperator(
+        {(ffsim.des_a(1), ffsim.des_a(3), ffsim.cre_a(2), ffsim.cre_a(1)): 1.5}
+    ).normal_ordered()
+    expected = FermionOperator(
+        {
+            (ffsim.cre_a(2), ffsim.cre_a(1), ffsim.des_a(3), ffsim.des_a(1)): -1.5,
+            (ffsim.cre_a(2), ffsim.des_a(3)): -1.5,
+        }
+    )
+    assert actual == expected
+    for term in actual:
+        assert list(term) == sorted(term, reverse=True)
+
+    actual = FermionOperator(
+        {
+            (ffsim.des_a(1), ffsim.cre_a(2), ffsim.des_a(3), ffsim.cre_a(4)): 1.5,
+            (ffsim.des_a(1), ffsim.des_a(3), ffsim.cre_a(2), ffsim.cre_a(1)): 1.5,
+        }
+    ).normal_ordered()
+    expected = FermionOperator(
+        {
+            (ffsim.cre_a(4), ffsim.cre_a(2), ffsim.des_a(3), ffsim.des_a(1)): -1.5,
+            (ffsim.cre_a(2), ffsim.cre_a(1), ffsim.des_a(3), ffsim.des_a(1)): -1.5,
+            (ffsim.cre_a(2), ffsim.des_a(3)): -1.5,
+        }
+    )
+    assert actual == expected
+    for term in actual:
+        assert list(term) == sorted(term, reverse=True)
+
+    actual = FermionOperator(
+        {
+            (
+                ffsim.cre_a(1),
+                ffsim.des_a(3),
+                ffsim.des_a(5),
+                ffsim.cre_a(7),
+                ffsim.cre_a(3),
+            ): 0.5,
+            (
+                ffsim.des_a(3),
+                ffsim.des_a(5),
+                ffsim.cre_a(7),
+                ffsim.cre_a(1),
+                ffsim.cre_a(5),
+                ffsim.cre_a(3),
+            ): 0.5,
+            (
+                ffsim.des_a(3),
+                ffsim.des_a(5),
+                ffsim.cre_a(7),
+                ffsim.cre_a(3),
+                ffsim.cre_a(1),
+            ): 0.75,
+        }
+    ).normal_ordered()
+    expected = FermionOperator(
+        {
+            (ffsim.cre_a(7), ffsim.cre_a(1)): 0.5,
+            (ffsim.cre_a(7), ffsim.cre_a(1), ffsim.des_a(5)): 1.25,
+            (ffsim.cre_a(7), ffsim.cre_a(3), ffsim.cre_a(1), ffsim.des_a(3)): 0.5,
+            (
+                ffsim.cre_a(7),
+                ffsim.cre_a(3),
+                ffsim.cre_a(1),
+                ffsim.des_a(5),
+                ffsim.des_a(3),
+            ): -1.25,
+            (ffsim.cre_a(7), ffsim.cre_a(5), ffsim.cre_a(1), ffsim.des_a(5)): 0.5,
+            (
+                ffsim.cre_a(7),
+                ffsim.cre_a(5),
+                ffsim.cre_a(3),
+                ffsim.cre_a(1),
+                ffsim.des_a(5),
+                ffsim.des_a(3),
+            ): -0.5,
+        }
+    )
+    assert actual == expected
+    for term in actual:
+        assert list(term) == sorted(term, reverse=True)
+
+
+def test_normal_order_create_annihilate_create():
+    actual = ffsim.FermionOperator(
+        {(ffsim.cre_a(1), ffsim.des_a(1), ffsim.cre_a(1)): 1.0}
+    ).normal_ordered()
+    expected = ffsim.FermionOperator({(ffsim.cre_a(1),): 1.0})
+    assert actual == expected
+
+
+def test_normal_order_number_number():
+    op1 = ffsim.FermionOperator(
+        {(ffsim.cre_a(0), ffsim.des_a(0), ffsim.cre_b(0), ffsim.des_b(0)): 1}
+    )
+    op2 = ffsim.FermionOperator(
+        {(ffsim.cre_b(0), ffsim.des_b(0), ffsim.cre_a(0), ffsim.des_a(0)): 1}
+    )
+    assert op1.normal_ordered() == op2.normal_ordered()
+
+
+def test_normal_ordered_group_by_spin():
+    """Test normal ordering with group_by_spin=True."""
+    # Pure reorder: all distinct spin-orbitals, so no contraction terms arise.
+    actual = FermionOperator(
+        {(ffsim.cre_b(1), ffsim.des_a(2), ffsim.cre_a(0), ffsim.des_b(3)): 1.5}
+    ).normal_ordered(group_by_spin=True)
+    expected = FermionOperator(
+        {(ffsim.cre_b(1), ffsim.des_b(3), ffsim.cre_a(0), ffsim.des_a(2)): -1.5}
+    )
+    assert actual == expected
+
+    # Contraction within each spin block.
+    actual = FermionOperator(
+        {(ffsim.des_a(1), ffsim.cre_b(0), ffsim.des_b(0), ffsim.cre_a(1)): 1.0}
+    ).normal_ordered(group_by_spin=True)
+    expected = FermionOperator(
+        {
+            (ffsim.cre_b(0), ffsim.des_b(0), ffsim.cre_a(1), ffsim.des_a(1)): -1.0,
+            (ffsim.cre_b(0), ffsim.des_b(0)): 1.0,
+        }
+    )
+    assert actual == expected
+
+    # Every term lists all spin beta operators before all spin alpha operators, with
+    # creations before annihilations and larger orbital indices first within each spin.
+    for op in (actual, expected):
+        for term in op:
+            spins = [spin for _, spin, _ in term]
+            # all beta (True) before all alpha (False)
+            assert spins == sorted(spins, reverse=True)
+            keys = [(spin, action, orb) for action, spin, orb in term]
+            assert keys == sorted(keys, reverse=True)
+
+
+def test_normal_ordered_group_by_spin_preserves_operator():
+    """Both conventions reorder a term into an equivalent operator."""
+    op = FermionOperator(
+        {
+            (ffsim.cre_b(1), ffsim.des_a(2), ffsim.cre_a(0), ffsim.des_b(3)): 1.5,
+            (ffsim.des_a(1), ffsim.cre_b(0), ffsim.des_b(0), ffsim.cre_a(1)): 0.5j,
+        }
+    )
+    norb = 4
+    nelec = (2, 2)
+    expected = ffsim.linear_operator(op, norb=norb, nelec=nelec)
+    for group_by_spin in (False, True):
+        reordered = op.normal_ordered(group_by_spin=group_by_spin)
+        actual = ffsim.linear_operator(reordered, norb=norb, nelec=nelec)
+        vec = ffsim.random.random_state_vector(ffsim.dim(norb, nelec), seed=1234)
+        np.testing.assert_allclose(actual @ vec, expected @ vec)
+
+
+def test_conserves_particle_number():
+    op = FermionOperator(
+        {
+            (
+                ffsim.cre_a(1),
+                ffsim.des_a(3),
+                ffsim.des_a(7),
+                ffsim.cre_a(3),
+            ): 0.5,
+            (ffsim.des_a(3), ffsim.cre_a(7)): 0.75,
+        }
+    )
+    assert op.conserves_particle_number()
+
+    op = FermionOperator(
+        {
+            (
+                ffsim.cre_a(1),
+                ffsim.des_a(3),
+                ffsim.des_a(7),
+                ffsim.cre_a(3),
+            ): 0.5,
+            (ffsim.des_a(3), ffsim.cre_a(7)): 0.75,
+            (
+                ffsim.cre_a(1),
+                ffsim.des_a(3),
+                ffsim.des_a(5),
+                ffsim.cre_a(7),
+                ffsim.cre_a(3),
+            ): 0.5,
+        }
+    )
+    assert not op.conserves_particle_number()
+
+
+def test_conserves_spin_z():
+    op = FermionOperator(
+        {
+            (
+                ffsim.cre_a(1),
+                ffsim.cre_a(2),
+                ffsim.des_a(3),
+                ffsim.des_b(1),
+                ffsim.cre_b(2),
+                ffsim.cre_b(3),
+            ): 0.5,
+            (
+                ffsim.des_a(3),
+                ffsim.des_b(7),
+            ): 0.75,
+        }
+    )
+    assert op.conserves_spin_z()
+
+    op = FermionOperator(
+        {
+            (
+                ffsim.cre_a(1),
+                ffsim.cre_a(2),
+                ffsim.des_a(3),
+                ffsim.des_b(1),
+                ffsim.cre_b(2),
+                ffsim.cre_b(3),
+            ): 0.5,
+            (
+                ffsim.des_a(3),
+                ffsim.cre_b(7),
+            ): 0.75,
+        }
+    )
+    assert not op.conserves_spin_z()
+
+
+def test_many_body_order():
+    op = FermionOperator({})
+    assert op.many_body_order() == 0
+
+    op = FermionOperator(
+        {
+            (ffsim.cre_a(1), ffsim.des_a(3)): 0.5,
+            (ffsim.des_a(3), ffsim.cre_a(7)): 0.75,
+        }
+    )
+    assert op.many_body_order() == 2
+
+    op = FermionOperator(
+        {
+            (
+                ffsim.cre_a(1),
+                ffsim.des_a(3),
+                ffsim.des_a(7),
+                ffsim.cre_a(3),
+            ): 0.5,
+            (ffsim.des_a(3), ffsim.cre_a(7)): 0.75,
+            (
+                ffsim.cre_a(1),
+                ffsim.des_a(3),
+                ffsim.des_a(5),
+                ffsim.cre_a(7),
+                ffsim.cre_a(3),
+            ): 0.5,
+        }
+    )
+    assert op.many_body_order() == 5
+
+
+def test_get_set():
+    op = FermionOperator(
+        {
+            (ffsim.cre_a(1), ffsim.des_a(3)): 0.5,
+            (ffsim.des_a(3), ffsim.cre_a(7)): 0.75,
+        }
+    )
+    assert op[(ffsim.cre_a(1), ffsim.des_a(3))] == 0.5
+
+    op[(ffsim.cre_a(1), ffsim.des_a(3))] = 0.25
+    assert op[(ffsim.cre_a(1), ffsim.des_a(3))] == 0.25
+
+
+def test_del():
+    op = FermionOperator(
+        {
+            (ffsim.cre_a(1), ffsim.des_a(3)): 0.5,
+            (ffsim.des_a(3), ffsim.cre_a(7)): 0.75,
+        }
+    )
+    assert op[(ffsim.cre_a(1), ffsim.des_a(3))] == 0.5
+
+    del op[(ffsim.cre_a(1), ffsim.des_a(3))]
+    assert (ffsim.cre_a(1), ffsim.des_a(3)) not in op
+
+
+def test_len():
+    op = FermionOperator(
+        {
+            (ffsim.cre_a(1), ffsim.des_a(3)): 0.5,
+            (ffsim.des_a(3), ffsim.cre_a(7)): 0.75,
+        }
+    )
+    assert len(op) == 2
+
+
+def test_iter():
+    op = FermionOperator(
+        {
+            (ffsim.cre_a(1), ffsim.des_a(3)): 0.5,
+            (ffsim.des_a(3), ffsim.cre_a(7)): 0.75,
+            (ffsim.des_a(3), ffsim.cre_a(7), ffsim.cre_b(6)): 0.75,
+        }
+    )
+    assert set(op) == {
+        (ffsim.cre_a(1), ffsim.des_a(3)),
+        (ffsim.des_a(3), ffsim.cre_a(7)),
+        (ffsim.des_a(3), ffsim.cre_a(7), ffsim.cre_b(6)),
+    }
+
+
+def test_linear_operator_one_body():
+    """Test linear operator of a one-body operator."""
+    norb = 5
+
+    # The tensor is deliberately not Hermitian, so that the adjoint of the operator
+    # is not the same as the operator itself.
+    one_body_tensor = np.zeros((norb, norb)).astype(complex)
+    one_body_tensor[1, 2] = 0.5
+    one_body_tensor[2, 1] = -0.5
+    one_body_tensor[3, 1] = 1 + 1j
+
+    for nelec in [(2, 2), (0, 2), (5, 4)]:
+        expected_linop = ffsim.contract.one_body_linop(
+            one_body_tensor, norb=norb, nelec=nelec
+        )
+        _assert_linop_equals(
+            FermionOperator(
+                {
+                    (cre_a(1), des_a(2)): 0.5,
+                    (cre_a(2), des_a(1)): -0.5,
+                    (cre_a(3), des_a(1)): 1 + 1j,
+                    (cre_b(1), des_b(2)): 0.5,
+                    (cre_b(2), des_b(1)): -0.5,
+                    (cre_b(3), des_b(1)): 1 + 1j,
+                }
+            ),
+            expected_linop,
+            norb,
+            nelec,
+        )
+        # The same operator, with some terms written out of normal order. Reversing a
+        # term is a plain sign change only because its two orbitals differ, so the
+        # anticommutator contributes no lower-order term.
+        _assert_linop_equals(
+            FermionOperator(
+                {
+                    (des_a(2), cre_a(1)): -0.5,
+                    (des_a(1), cre_a(2)): 0.5,
+                    (cre_a(3), des_a(1)): 1 + 1j,
+                    (des_b(2), cre_b(1)): -0.5,
+                    (des_b(1), cre_b(2)): 0.5,
+                    (cre_b(3), des_b(1)): 1 + 1j,
+                }
+            ),
+            expected_linop,
+            norb,
+            nelec,
+        )
+
+
+def test_linear_operator_two_body():
+    """Test linear operator of a two-body operator."""
+    norb = 5
+
+    # The contraction assumes the tensor is symmetric within each of its index pairs
+    # and under exchanging the two pairs, so each entry is set together with the rest
+    # of its symmetry orbit. The tensor is deliberately not Hermitian as an operator,
+    # so that the adjoint is not the same as the operator itself.
+    two_body_tensor = np.zeros((norb, norb, norb, norb)).astype(complex)
+    for p, q, r, s in [
+        (1, 2, 3, 4),
+        (1, 2, 4, 3),
+        (2, 1, 3, 4),
+        (2, 1, 4, 3),
+        (3, 4, 1, 2),
+        (3, 4, 2, 1),
+        (4, 3, 1, 2),
+        (4, 3, 2, 1),
+    ]:
+        two_body_tensor[p, q, r, s] = 1 + 1j
+    two_body_tensor[0, 0, 3, 3] = two_body_tensor[3, 3, 0, 0] = 0.5
+    two_body_tensor[2, 2, 3, 3] = two_body_tensor[3, 3, 2, 2] = -0.25
+
+    # Each nonzero entry h[p, q, r, s] contributes
+    # 1/2 h[p, q, r, s] a^\dagger_{p sigma} a^\dagger_{r tau} a_{s tau} a_{q sigma}
+    # summed over both spins sigma and tau.
+    op = FermionOperator({})
+    for p, q, r, s in itertools.product(range(norb), repeat=4):
+        coeff = 0.5 * two_body_tensor[p, q, r, s]
+        if not coeff:
+            continue
+        op += FermionOperator(
+            {
+                (cre_a(p), cre_a(r), des_a(s), des_a(q)): coeff,
+                (cre_a(p), cre_b(r), des_b(s), des_a(q)): coeff,
+                (cre_b(p), cre_a(r), des_a(s), des_b(q)): coeff,
+                (cre_b(p), cre_b(r), des_b(s), des_b(q)): coeff,
+            }
+        )
+
+    for nelec in [(2, 2), (0, 2), (5, 4)]:
+        _assert_linop_equals(
+            op,
+            ffsim.contract.two_body_linop(two_body_tensor, norb=norb, nelec=nelec),
+            norb,
+            nelec,
+        )
+
+    # A single quartic term, written in several equivalent orderings. Reordering is a
+    # plain sign change only because the four ladder operators act on distinct
+    # (spin, orbital) pairs, so the anticommutators contribute no lower-order term.
+    expected_op = FermionOperator(
+        {(cre_a(0), cre_a(2), des_a(3), des_a(1)): 0.75 - 0.25j}
+    )
+    reordered_ops = [
+        # the two creations swapped, an odd permutation
+        FermionOperator({(cre_a(2), cre_a(0), des_a(3), des_a(1)): -(0.75 - 0.25j)}),
+        # the two annihilations swapped, an odd permutation
+        FermionOperator({(cre_a(0), cre_a(2), des_a(1), des_a(3)): -(0.75 - 0.25j)}),
+        # fully reversed, an even permutation
+        FermionOperator({(des_a(1), des_a(3), cre_a(2), cre_a(0)): 0.75 - 0.25j}),
+    ]
+    for nelec in [(2, 2), (0, 2), (5, 4)]:
+        expected_linop = ffsim.linear_operator(expected_op, norb, nelec)
+        for reordered_op in reordered_ops:
+            _assert_linop_equals(reordered_op, expected_linop, norb, nelec)
+
+
+def test_linear_operator():
+    """Test linear operator."""
+    norb = 5
+    nelec = (2, 2)
+    op = ffsim.random.random_fermion_operator(
+        norb, num_and_spin_conserving=True, seed=RNG
+    )
+    vec = ffsim.random.random_state_vector(ffsim.dim(norb, nelec), seed=RNG)
+    original = vec.copy()
+    linop = ffsim.linear_operator(op, norb=norb, nelec=nelec)
+    reference_linop = _reference_linear_operator(dict(op.items()), norb, nelec)
+    reference_adjoint_linop = _reference_linear_operator(
+        dict(op.adjoint().items()), norb, nelec
+    )
+
+    np.testing.assert_allclose(linop @ vec, reference_linop @ vec, atol=1e-14)
+    np.testing.assert_allclose(
+        linop.adjoint() @ vec, reference_adjoint_linop @ vec, atol=1e-14
+    )
+    np.testing.assert_allclose(original, vec)
+
+
+def test_linear_operator_out_of_range():
+    """Test linear operator with out-of-range terms."""
+    norb = 4
+    nelec = (2, 1)
+    valid_term = (ffsim.cre_a(2), ffsim.des_a(0))
+    op = FermionOperator(
+        {
+            valid_term: 0.75 - 0.125j,
+            (ffsim.des_b(norb), ffsim.cre_b(norb)): -1.5 + 0.25j,
+            (ffsim.des_a(-1), ffsim.cre_a(-1)): -0.75 + 0.5j,
+        }
+    )
+    expected_op = FermionOperator({valid_term: 0.75 - 0.125j})
+    vec = ffsim.random.random_state_vector(ffsim.dim(norb, nelec), seed=24680)
+
+    linop = ffsim.linear_operator(op, norb=norb, nelec=nelec)
+    expected_linop = ffsim.linear_operator(expected_op, norb=norb, nelec=nelec)
+
+    np.testing.assert_allclose(linop @ vec, expected_linop @ vec)
+    np.testing.assert_allclose(linop.adjoint() @ vec, expected_linop.adjoint() @ vec)
+
+
+def test_approx_eq():
+    """Test approximate equality."""
+    op1 = FermionOperator(
+        {
+            (ffsim.cre_a(1), ffsim.des_a(2)): 0.5,
+            (ffsim.cre_a(2), ffsim.des_a(1)): -0.5,
+            (ffsim.cre_b(1), ffsim.des_b(2)): 0.5,
+            (ffsim.cre_b(2), ffsim.des_b(1)): -0.5,
+        }
+    )
+    op2 = FermionOperator(
+        {
+            (ffsim.cre_a(1), ffsim.des_a(2)): 0.5 + 1e-7,
+            (ffsim.cre_a(2), ffsim.des_a(1)): -0.5 - 1e-7,
+            (ffsim.cre_b(1), ffsim.des_b(2)): 0.5,
+            (ffsim.cre_b(2), ffsim.des_b(1)): -0.5,
+        }
+    )
+    assert ffsim.approx_eq(op1, op2)
+    assert ffsim.approx_eq(op1, op2, rtol=0, atol=1e-7)
+    assert not ffsim.approx_eq(op1, op2, rtol=0)
+
+
+def test_simplify():
+    """Test simplify."""
+    op = FermionOperator(
+        {
+            (ffsim.cre_a(1), ffsim.des_a(2)): 1.0,
+            (ffsim.cre_b(2), ffsim.des_b(1)): 1e-12,
+            (ffsim.cre_a(3), ffsim.des_a(4)): -1e-7,
+            (ffsim.cre_b(4), ffsim.des_b(3)): 0.5,
+            (ffsim.cre_a(0), ffsim.des_a(1)): 1e-13 + 2e-13j,
+        }
+    )
+
+    # Test with default tolerance
+    op_copy = op.copy()
+    op_copy.simplify()
+    expected = FermionOperator(
+        {
+            (ffsim.cre_a(1), ffsim.des_a(2)): 1.0,
+            (ffsim.cre_a(3), ffsim.des_a(4)): -1e-7,
+            (ffsim.cre_b(4), ffsim.des_b(3)): 0.5,
+        }
+    )
+    assert op_copy == expected
+
+    # Test with custom tolerance
+    op_copy = op.copy()
+    op_copy.simplify(1e-6)
+    expected = FermionOperator(
+        {
+            (ffsim.cre_a(1), ffsim.des_a(2)): 1.0,
+            (ffsim.cre_b(4), ffsim.des_b(3)): 0.5,
+        }
+    )
+    assert op_copy == expected
+
+    # Test with small tolerance
+    op_copy = op.copy()
+    op_copy.simplify(tol=1e-15)
+    expected = FermionOperator(
+        {
+            (ffsim.cre_a(1), ffsim.des_a(2)): 1.0,
+            (ffsim.cre_b(2), ffsim.des_b(1)): 1e-12,
+            (ffsim.cre_a(3), ffsim.des_a(4)): -1e-7,
+            (ffsim.cre_b(4), ffsim.des_b(3)): 0.5,
+            (ffsim.cre_a(0), ffsim.des_a(1)): 1e-13 + 2e-13j,
+        }
+    )
+    assert op_copy == expected
+
+    # Test that original operator is unchanged
+    original = FermionOperator(
+        {
+            (ffsim.cre_a(1), ffsim.des_a(2)): 1.0,
+            (ffsim.cre_b(2), ffsim.des_b(1)): 1e-12,
+            (ffsim.cre_a(3), ffsim.des_a(4)): -1e-7,
+            (ffsim.cre_b(4), ffsim.des_b(3)): 0.5,
+            (ffsim.cre_a(0), ffsim.des_a(1)): 1e-13 + 2e-13j,
+        }
+    )
+    assert op == original
+
+    # Test with empty operator
+    empty_op = FermionOperator({})
+    empty_op.simplify()
+    assert empty_op == FermionOperator({})
+
+    # Test with all small terms
+    small_op = FermionOperator(
+        {
+            (ffsim.cre_a(1), ffsim.des_a(2)): 1e-13,
+            (ffsim.cre_b(2), ffsim.des_b(1)): 1e-14,
+        }
+    )
+    small_op.simplify()
+    assert small_op == FermionOperator({})
+
+    # Check that it returns None
+    assert op.simplify() is None  # type: ignore
+
+
+def test_repr_equivalent():
+    """Test that repr evaluates to an equivalent object."""
+    op = FermionOperator(
+        {
+            (ffsim.cre_a(1), ffsim.des_a(2)): 1,
+            (ffsim.cre_a(2), ffsim.des_a(1)): 0.5,
+            (ffsim.cre_b(1), ffsim.des_b(2)): -0.5j,
+            (ffsim.cre_b(2), ffsim.des_b(1)): 1 - 0.5j,
+        }
+    )
+    assert eval(repr(op)) == op
+
+
+def test_str_equivalent():
+    """Test that str evaluates to an equivalent object."""
+    op = FermionOperator(
+        {
+            (ffsim.cre_a(1), ffsim.des_a(2)): 1,
+            (ffsim.cre_a(2), ffsim.des_a(1)): 0.5,
+            (ffsim.cre_b(1), ffsim.des_b(2)): -0.5j,
+            (ffsim.cre_b(2), ffsim.des_b(1)): 1 - 0.5j,
+        }
+    )
+    exec("from ffsim import cre_a, cre_b, des_a, des_b", globals())
+    assert eval(str(op), globals()) == op
+
+
+def test_copy():
+    op = FermionOperator(
+        {
+            (ffsim.cre_a(1), ffsim.des_a(2)): 1,
+            (ffsim.cre_a(2), ffsim.des_a(1)): 0.5,
+            (ffsim.cre_b(1), ffsim.des_b(2)): -0.5j,
+            (ffsim.cre_b(2), ffsim.des_b(1)): 1 - 0.5j,
+        }
+    )
+    copy = op.copy()
+    assert copy == op
+
+    copy *= 2
+    assert copy != op
+
+
+def test_mapping_methods():
+    op = FermionOperator(
+        {
+            (ffsim.cre_a(1), ffsim.des_a(2)): 1,
+            (ffsim.cre_a(2), ffsim.des_a(1)): 0.5,
+            (ffsim.cre_b(1), ffsim.des_b(2)): -0.5j,
+            (ffsim.cre_b(2), ffsim.des_b(1)): 1 - 0.5j,
+        }
+    )
+    assert op.keys() == {
+        (ffsim.cre_a(1), ffsim.des_a(2)),
+        (ffsim.cre_a(2), ffsim.des_a(1)),
+        (ffsim.cre_b(1), ffsim.des_b(2)),
+        (ffsim.cre_b(2), ffsim.des_b(1)),
+    }
+    assert set(op.values()) == {
+        1,
+        0.5,
+        -0.5j,
+        1 - 0.5j,
+    }
+    assert op.items() == {
+        ((ffsim.cre_a(1), ffsim.des_a(2)), 1),
+        ((ffsim.cre_a(2), ffsim.des_a(1)), 0.5),
+        ((ffsim.cre_b(1), ffsim.des_b(2)), -0.5j),
+        ((ffsim.cre_b(2), ffsim.des_b(1)), 1 - 0.5j),
+    }
+
+
+def test_trace():
+    norb = 10
+    nelec = (3, 3)
+    ham: ffsim.DiagonalCoulombHamiltonian | ffsim.MolecularHamiltonian
+
+    # compare for random_diagonal_coulomb_hamiltonian
+    ham = ffsim.random.random_diagonal_coulomb_hamiltonian(norb, real=True, seed=RNG)
+    t1 = ffsim.trace(ffsim.fermion_operator(ham), norb=norb, nelec=nelec)
+    t2 = ffsim.trace(ham, norb=norb, nelec=nelec)
+    np.testing.assert_allclose(t1, t2)
+
+    # compare for random_molecular_hamiltonian
+    ham = ffsim.random.random_molecular_hamiltonian(norb, seed=RNG, dtype=float)
+    t1 = ffsim.trace(ffsim.fermion_operator(ham), norb=norb, nelec=nelec)
+    t2 = ffsim.trace(ham, norb=norb, nelec=nelec)
+    np.testing.assert_allclose(t1, t2)
+
+
+def test_adjoint():
+    """Test adjoint method."""
+    op = FermionOperator(
+        {
+            (): 1 + 2j,
+            (ffsim.cre_a(0), ffsim.des_a(1), ffsim.cre_b(2), ffsim.des_b(3)): 1 + 1j,
+            (ffsim.des_a(4), ffsim.cre_a(5)): 2 - 3j,
+        }
+    )
+    expected = FermionOperator(
+        {
+            (): 1 - 2j,
+            (ffsim.cre_b(3), ffsim.des_b(2), ffsim.cre_a(1), ffsim.des_a(0)): 1 - 1j,
+            (ffsim.des_a(5), ffsim.cre_a(4)): 2 + 3j,
+        }
+    )
+    assert op.adjoint() == expected
+
+    # Test that adjoint of adjoint gives back original
+    assert op.adjoint().adjoint() == op
+
+    # Test empty operator
+    op = FermionOperator({})
+    assert op.adjoint() == op

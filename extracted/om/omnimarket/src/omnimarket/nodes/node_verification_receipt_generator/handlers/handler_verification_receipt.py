@@ -1,0 +1,723 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""HandlerVerificationReceiptGenerator — generates evidence receipts for task claims.
+
+Runs three verification dimensions:
+1. CI checks: shells out to `gh pr checks` and classifies current-schema buckets.
+2. Pytest: runs `uv run pytest` in the worktree and captures exit code.
+3. Mechanical checks: executes ``ModelMechanicalCheck`` DoD checks
+   (command_exit_0 / file_exists / grep_present / grep_absent) in the worktree.
+
+All dimensions are individually skippable via request flags / empty inputs.
+When dry_run=True, returns a receipt with no evidence (all checks pass vacuously).
+
+This node is the EXECUTION authority for mechanical DoD checks; the
+``task.execute`` orchestrator PLANS checks and dispatches them here — it never
+executes a check itself (OMN-12703).
+
+The GitHub token is resolved at handle() time from the contract-declared
+``api_key_ref`` (``GITHUB_TOKEN``) — no direct ``os.environ`` read.
+
+OMN-9403, OMN-12703.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+import shlex
+import subprocess
+from datetime import UTC, datetime
+from enum import StrEnum
+from pathlib import Path
+from typing import Protocol, runtime_checkable
+
+from omnibase_core.enums.enum_check_type import EnumCheckType
+from omnibase_core.models.task.model_mechanical_check import ModelMechanicalCheck
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+
+from omnimarket.events.verification import (
+    GithubRepositorySlug,
+    ModelCheckEvidence,
+    ModelFileTestResult,
+    ModelVerificationReceipt,
+    ModelVerificationReceiptRequest,
+)
+from omnimarket.inference.secret_store_resolver import resolve_api_key_loop_safe
+from omnimarket.nodes.contract_topics import contract_secret_ref
+
+_log = logging.getLogger(__name__)
+_CONTRACT_PATH = Path(__file__).resolve().parents[1] / "contract.yaml"
+
+_GH_CHECKS_TIMEOUT = 30
+_PYTEST_TIMEOUT = 300
+_MECHANICAL_CHECK_TIMEOUT = 300
+
+
+class EnumGithubCheckBucket(StrEnum):
+    """Documented ``gh pr checks --json bucket`` classifications."""
+
+    PASS = "pass"
+    FAIL = "fail"
+    PENDING = "pending"
+    SKIPPING = "skipping"
+    CANCEL = "cancel"
+
+
+class EnumGithubCheckState(StrEnum):
+    """States classified by the current GitHub CLI ``aggregateChecks`` source."""
+
+    SUCCESS = "SUCCESS"
+    SKIPPED = "SKIPPED"
+    NEUTRAL = "NEUTRAL"
+    ERROR = "ERROR"
+    FAILURE = "FAILURE"
+    TIMED_OUT = "TIMED_OUT"
+    ACTION_REQUIRED = "ACTION_REQUIRED"
+    CANCELLED = "CANCELLED"
+    EXPECTED = "EXPECTED"
+    REQUESTED = "REQUESTED"
+    WAITING = "WAITING"
+    QUEUED = "QUEUED"
+    PENDING = "PENDING"
+    IN_PROGRESS = "IN_PROGRESS"
+    STALE = "STALE"
+
+
+_EXPECTED_BUCKET_BY_STATE: dict[EnumGithubCheckState, EnumGithubCheckBucket] = {
+    EnumGithubCheckState.SUCCESS: EnumGithubCheckBucket.PASS,
+    EnumGithubCheckState.SKIPPED: EnumGithubCheckBucket.SKIPPING,
+    EnumGithubCheckState.NEUTRAL: EnumGithubCheckBucket.SKIPPING,
+    EnumGithubCheckState.ERROR: EnumGithubCheckBucket.FAIL,
+    EnumGithubCheckState.FAILURE: EnumGithubCheckBucket.FAIL,
+    EnumGithubCheckState.TIMED_OUT: EnumGithubCheckBucket.FAIL,
+    EnumGithubCheckState.ACTION_REQUIRED: EnumGithubCheckBucket.FAIL,
+    EnumGithubCheckState.CANCELLED: EnumGithubCheckBucket.CANCEL,
+    EnumGithubCheckState.EXPECTED: EnumGithubCheckBucket.PENDING,
+    EnumGithubCheckState.REQUESTED: EnumGithubCheckBucket.PENDING,
+    EnumGithubCheckState.WAITING: EnumGithubCheckBucket.PENDING,
+    EnumGithubCheckState.QUEUED: EnumGithubCheckBucket.PENDING,
+    EnumGithubCheckState.PENDING: EnumGithubCheckBucket.PENDING,
+    EnumGithubCheckState.IN_PROGRESS: EnumGithubCheckBucket.PENDING,
+    EnumGithubCheckState.STALE: EnumGithubCheckBucket.PENDING,
+}
+
+
+class ModelGithubCheckRow(BaseModel):
+    """One strictly validated row from the current ``gh pr checks`` schema."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: str = Field(min_length=1)
+    state: EnumGithubCheckState
+    bucket: EnumGithubCheckBucket
+
+    @model_validator(mode="after")
+    def _bucket_must_match_state(self) -> ModelGithubCheckRow:
+        expected = _EXPECTED_BUCKET_BY_STATE[self.state]
+        if self.bucket is not expected:
+            raise ValueError(
+                f"bucket {self.bucket.value!r} contradicts state "
+                f"{self.state.value!r}; expected {expected.value!r}"
+            )
+        return self
+
+
+class ModelGithubChecksQueryResult(BaseModel):
+    """Typed result of the GitHub CLI adapter, including query failures."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    checks: tuple[ModelGithubCheckRow, ...] = ()
+    exit_code: int
+    query_error: str | None = None
+
+
+@runtime_checkable
+class GhClientProtocol(Protocol):
+    """Protocol for CI checks verification — injectable for testing."""
+
+    def get_pr_checks(
+        self, repo: GithubRepositorySlug, pr_number: int
+    ) -> ModelGithubChecksQueryResult: ...
+
+
+@runtime_checkable
+class PytestRunnerProtocol(Protocol):
+    """Protocol for pytest execution — injectable for testing."""
+
+    def run_pytest(
+        self, worktree_path: str
+    ) -> tuple[int, str, list[ModelFileTestResult]]: ...
+
+
+@runtime_checkable
+class MechanicalCheckRunnerProtocol(Protocol):
+    """Protocol for executing a single mechanical DoD check — injectable.
+
+    Returns ``(passed, summary)``. ``summary`` is a deterministic,
+    human-readable explanation of the outcome (exit code, missing path,
+    grep hit/miss) so a failed check carries a deterministic failure reason.
+    """
+
+    def run_check(
+        self, check: ModelMechanicalCheck, worktree_path: str
+    ) -> tuple[bool, str]: ...
+
+
+class GhClient:
+    """Real GitHub CI checks client using gh CLI.
+
+    The caller must pass a resolved bearer token — this class never reads
+    ``os.environ`` for the token name directly.
+    """
+
+    def __init__(self, token: str) -> None:
+        if not token:
+            raise RuntimeError(
+                "GitHub token must not be empty. "
+                "Resolve it via the contract api_key_ref before constructing GhClient."
+            )
+        self._token = token
+
+    def get_pr_checks(
+        self, repo: GithubRepositorySlug, pr_number: int
+    ) -> ModelGithubChecksQueryResult:
+        """Fetch and validate current-schema CI check rows for a PR."""
+        cmd = [
+            "gh",
+            "pr",
+            "checks",
+            str(pr_number),
+            "--repo",
+            repo,
+            "--json",
+            "name,state,bucket",
+        ]
+        try:
+            env = os.environ.copy()
+            env["GH_TOKEN"] = self._token
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=_GH_CHECKS_TIMEOUT,
+                env=env,
+            )
+        except subprocess.TimeoutExpired:
+            error = f"gh pr checks timed out after {_GH_CHECKS_TIMEOUT}s"
+            _log.warning("%s for %s#%d", error, repo, pr_number)
+            return ModelGithubChecksQueryResult(exit_code=1, query_error=error)
+        except OSError as exc:
+            error = f"gh pr checks invocation failed: {exc}"
+            _log.warning("%s for %s#%d", error, repo, pr_number)
+            return ModelGithubChecksQueryResult(exit_code=1, query_error=error)
+
+        if result.returncode not in (0, 1, 8):
+            error = self._command_error(result.returncode, result.stderr)
+            _log.warning("%s for %s#%d", error, repo, pr_number)
+            return ModelGithubChecksQueryResult(
+                exit_code=result.returncode,
+                query_error=error,
+            )
+
+        raw = (result.stdout or "").strip()
+        if not raw:
+            if result.returncode != 0:
+                error = self._command_error(result.returncode, result.stderr)
+                _log.warning("%s for %s#%d", error, repo, pr_number)
+                return ModelGithubChecksQueryResult(
+                    exit_code=result.returncode,
+                    query_error=error,
+                )
+            return ModelGithubChecksQueryResult(exit_code=0)
+
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            error = f"malformed gh pr checks JSON: {exc.msg}"
+            _log.warning("%s for %s#%d", error, repo, pr_number)
+            return ModelGithubChecksQueryResult(
+                exit_code=result.returncode,
+                query_error=error,
+            )
+        if not isinstance(parsed, list):
+            error = "malformed gh pr checks JSON: expected a list"
+            _log.warning("%s for %s#%d", error, repo, pr_number)
+            return ModelGithubChecksQueryResult(
+                exit_code=result.returncode,
+                query_error=error,
+            )
+
+        try:
+            checks = tuple(ModelGithubCheckRow.model_validate(item) for item in parsed)
+        except ValidationError as exc:
+            first_error = exc.errors(include_url=False)[0]["msg"]
+            error = f"invalid gh pr checks row: {first_error}"
+            _log.warning("%s for %s#%d", error, repo, pr_number)
+            return ModelGithubChecksQueryResult(
+                exit_code=result.returncode,
+                query_error=error,
+            )
+
+        return ModelGithubChecksQueryResult(
+            checks=checks,
+            exit_code=result.returncode,
+        )
+
+    @staticmethod
+    def _command_error(returncode: int, stderr: str) -> str:
+        detail = stderr.strip() or "no stderr"
+        return f"gh pr checks exit {returncode}: {detail}"
+
+
+class PytestRunner:
+    """Real pytest runner using subprocess."""
+
+    def run_pytest(
+        self, worktree_path: str
+    ) -> tuple[int, str, list[ModelFileTestResult]]:
+        """Run pytest and return (exit_code, summary, per_file_results).
+
+        Parses ``-v`` output to extract per-file pass/fail counts.
+        Returns (1, error_message, []) on invocation failure.
+        """
+        if not worktree_path:
+            return 0, "No worktree path specified — pytest skipped.", []
+
+        cmd = ["uv", "run", "pytest", "tests/", "-v", "--tb=no", "-q"]
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=_PYTEST_TIMEOUT,
+                cwd=worktree_path,
+            )
+            last_line = (result.stdout or "").strip().split("\n")[-1]
+            file_results = _parse_pytest_per_file(result.stdout or "")
+            return result.returncode, last_line, file_results
+        except subprocess.TimeoutExpired:
+            return 1, f"pytest timed out after {_PYTEST_TIMEOUT}s", []
+        except (OSError, FileNotFoundError) as exc:
+            return 1, f"pytest invocation failed: {exc}", []
+
+
+class MechanicalCheckRunner:
+    """Real executor for the four ``EnumCheckType`` mechanical DoD checks.
+
+    Each check is deterministic given (check, worktree). Shell commands run via
+    ``shell=True`` with the worktree as cwd so a check like ``uv run pytest``
+    behaves exactly as it would for an operator. file/grep checks are evaluated
+    in-process without a shell so their outcome is unambiguous.
+    """
+
+    def run_check(
+        self, check: ModelMechanicalCheck, worktree_path: str
+    ) -> tuple[bool, str]:
+        """Execute one mechanical check and return (passed, deterministic summary)."""
+        if check.check_type is EnumCheckType.COMMAND_EXIT_0:
+            return self._run_command_exit_0(check.check, worktree_path)
+        if check.check_type is EnumCheckType.FILE_EXISTS:
+            return self._run_file_exists(check.check, worktree_path)
+        if check.check_type is EnumCheckType.GREP_PRESENT:
+            return self._run_grep(check.check, worktree_path, want_present=True)
+        if check.check_type is EnumCheckType.GREP_ABSENT:
+            return self._run_grep(check.check, worktree_path, want_present=False)
+        # Unreachable: EnumCheckType is closed and every member is handled above.
+        # An added member without a branch fails here deterministically rather
+        # than silently passing.
+        raise RuntimeError(
+            f"no mechanical check executor for check_type {check.check_type.value!r}"
+        )
+
+    def _run_command_exit_0(self, command: str, worktree_path: str) -> tuple[bool, str]:
+        """Pass iff ``command`` exits 0 (e.g. a pytest gate running uv run pytest)."""
+        cwd = worktree_path or None
+        try:
+            result = subprocess.run(
+                command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=_MECHANICAL_CHECK_TIMEOUT,
+                cwd=cwd,
+            )
+        except subprocess.TimeoutExpired:
+            return False, f"command timed out after {_MECHANICAL_CHECK_TIMEOUT}s"
+        except OSError as exc:
+            return False, f"command invocation failed: {exc}"
+        passed = result.returncode == 0
+        return passed, f"command_exit_0 exit_code={result.returncode}"
+
+    def _run_file_exists(self, target: str, worktree_path: str) -> tuple[bool, str]:
+        """Pass iff ``target`` exists (resolved against the worktree when relative)."""
+        path = Path(target)
+        if not path.is_absolute() and worktree_path:
+            path = Path(worktree_path) / path
+        exists = path.exists()
+        return exists, f"file_exists path={path} exists={exists}"
+
+    def _run_grep(
+        self, pattern_spec: str, worktree_path: str, *, want_present: bool
+    ) -> tuple[bool, str]:
+        """Run ``grep`` and pass on presence/absence per ``want_present``.
+
+        ``pattern_spec`` is the operator-authored grep argument string (e.g.
+        ``-r MARKER src/``). grep exit 0 = match found, 1 = no match, >=2 = error.
+        A grep error is a deterministic failure regardless of polarity.
+        """
+        cwd = worktree_path or None
+        try:
+            result = subprocess.run(
+                ["grep", *shlex.split(pattern_spec)],
+                capture_output=True,
+                text=True,
+                timeout=_MECHANICAL_CHECK_TIMEOUT,
+                cwd=cwd,
+            )
+        except subprocess.TimeoutExpired:
+            return False, f"grep timed out after {_MECHANICAL_CHECK_TIMEOUT}s"
+        except OSError as exc:
+            return False, f"grep invocation failed: {exc}"
+        if result.returncode >= 2:
+            return False, f"grep error exit_code={result.returncode}"
+        found = result.returncode == 0
+        polarity = "grep_present" if want_present else "grep_absent"
+        passed = found if want_present else not found
+        return passed, f"{polarity} found={found}"
+
+
+class HandlerVerificationReceiptGenerator:
+    """Generates evidence receipts for task-completed claims.
+
+    Verifies CI checks, pytest results, and/or mechanical DoD checks depending
+    on request flags / supplied checks. Every dimension is individually
+    skippable. Dry-run returns a vacuously passing receipt.
+    """
+
+    def __init__(
+        self,
+        gh_client: GhClientProtocol | None = None,
+        pytest_runner: PytestRunnerProtocol | None = None,
+        mechanical_check_runner: MechanicalCheckRunnerProtocol | None = None,
+    ) -> None:
+        self._gh_client = gh_client
+        self._pytest_runner = pytest_runner
+        self._mechanical_check_runner = mechanical_check_runner
+
+    def _get_gh_client(self) -> GhClientProtocol:
+        """Return the injected client, or build the real one.
+
+        The GitHub token is resolved ONLY when the real ``GhClient`` is built
+        (i.e. no client was injected). An injected client never needs a token,
+        so token resolution must not run on that path — otherwise a test/DI
+        caller that supplied a client would still fail when ``GITHUB_TOKEN`` is
+        absent from the secret store (e.g. in CI).
+        """
+        if self._gh_client is not None:
+            return self._gh_client
+        return GhClient(self._resolve_github_token())
+
+    def _resolve_github_token(self) -> str:
+        """Resolve the GitHub bearer token at the effect boundary.
+
+        Ref-name sourced from the contract (OMN-12856); value resolved via the
+        secret store. Never reads ``os.environ`` for the token directly.
+
+        Uses ``resolve_api_key_loop_safe`` (not the bare sync ``resolve_api_key``)
+        because ``handle`` stays synchronous — the ONEX RuntimeLocal adapter
+        dispatches this handler from inside a running event loop, where the bare
+        sync resolver raises ``RuntimeError("resolve_api_key() is sync-only ...")``.
+        The loop-safe resolver offloads to a worker thread in that case, so the
+        real (non-dry-run) CI path resolves the token instead of crashing
+        (OMN-13843). ``handle`` cannot simply become ``async def``: the
+        ``task.execute`` orchestrator's ``ProtocolMechanicalCheckExecutor.handle``
+        port is synchronous and calls this handler in-process.
+
+        ``env_var_fallback`` (OMN-14452): the deployed lane's secret resolver
+        is LLM/Slack-scoped with convention fallback disabled and never
+        resolves ``GITHUB_TOKEN`` — falling back to the literal env var
+        (already passed straight through as a container env var) resolves it
+        instead of raising. This is the declared ``resolve_api_key`` fallback
+        parameter, not an ad hoc ``os.environ`` bypass of the secret store.
+        """
+        github_ref = contract_secret_ref(_CONTRACT_PATH, "GITHUB_TOKEN")
+        github_secret = resolve_api_key_loop_safe(
+            github_ref, env_var_fallback=github_ref
+        )
+        if github_secret is None:
+            raise RuntimeError(
+                f"api_key_ref {github_ref!r} resolved to None — "
+                "ensure GITHUB_TOKEN is set in the secret store."
+            )
+        return github_secret.get_secret_value()
+
+    def _get_pytest_runner(self) -> PytestRunnerProtocol:
+        if self._pytest_runner is not None:
+            return self._pytest_runner
+        return PytestRunner()
+
+    def _get_mechanical_check_runner(self) -> MechanicalCheckRunnerProtocol:
+        if self._mechanical_check_runner is not None:
+            return self._mechanical_check_runner
+        return MechanicalCheckRunner()
+
+    def handle(
+        self, request: ModelVerificationReceiptRequest
+    ) -> ModelVerificationReceipt:
+        """Generate a verification receipt for the task claim.
+
+        Resolves the GitHub token from the contract-declared api_key_ref
+        (GITHUB_TOKEN) at the effect boundary — never reads env directly.
+        Only resolves the token when CI verification is actually requested.
+        """
+        _log.info(
+            "Generating receipt for task=%s claim='%s'",
+            request.task_id,
+            request.claim[:80],
+        )
+
+        if request.dry_run:
+            return ModelVerificationReceipt(
+                task_id=request.task_id,
+                claim=request.claim,
+                overall_pass=True,
+                checks=[
+                    ModelCheckEvidence(
+                        dimension="dry_run",
+                        passed=True,
+                        summary="Dry run — no verification performed.",
+                    )
+                ],
+                verified_at=datetime.now(UTC),
+            )
+
+        checks: list[ModelCheckEvidence] = []
+
+        # Dimension 1: CI checks
+        if request.verify_ci:
+            if request.repo and request.pr_number is not None:
+                # Token is resolved lazily inside _get_gh_client, only when the
+                # real GhClient must be built (no injected client).
+                checks.append(self._verify_ci(request.repo, request.pr_number))
+            else:
+                checks.append(
+                    ModelCheckEvidence(
+                        dimension="ci_checks",
+                        passed=False,
+                        summary="CI verification requested but repo/pr_number missing.",
+                    )
+                )
+
+        # Dimension 2: Pytest
+        if request.verify_tests:
+            if request.worktree_path:
+                checks.append(self._verify_pytest(request.worktree_path))
+            else:
+                checks.append(
+                    ModelCheckEvidence(
+                        dimension="pytest",
+                        passed=False,
+                        summary="Pytest verification requested but worktree_path missing.",
+                    )
+                )
+
+        # Dimension 3: Mechanical DoD checks (one evidence entry per check)
+        for check in request.mechanical_checks:
+            checks.append(self._verify_mechanical_check(check, request.worktree_path))
+
+        overall = all(c.passed for c in checks) if checks else True
+
+        return ModelVerificationReceipt(
+            task_id=request.task_id,
+            claim=request.claim,
+            overall_pass=overall,
+            checks=checks,
+            verified_at=datetime.now(UTC),
+        )
+
+    def _verify_pytest(self, worktree_path: str) -> ModelCheckEvidence:
+        """Run pytest and capture exit code + per-file results."""
+        runner = self._get_pytest_runner()
+        exit_code, summary, file_results = runner.run_pytest(worktree_path)
+
+        passed = exit_code == 0
+        details: dict[str, str] = {"exit_code": str(exit_code)}
+
+        # Add per-file summary to details
+        for fr in file_results:
+            details[fr.file] = (
+                f"passed={fr.passed} failed={fr.failed} "
+                f"errors={fr.errors} skipped={fr.skipped} exit_code={fr.exit_code}"
+            )
+
+        failing_files = [fr.file for fr in file_results if fr.exit_code != 0]
+        if failing_files:
+            summary = f"{summary} | failing_files: {', '.join(failing_files)}"
+
+        return ModelCheckEvidence(
+            dimension="pytest",
+            passed=passed,
+            summary=f"pytest exit_code={exit_code}: {summary}",
+            details=details,
+            file_results=file_results,
+        )
+
+    def _verify_mechanical_check(
+        self, check: ModelMechanicalCheck, worktree_path: str
+    ) -> ModelCheckEvidence:
+        """Execute one mechanical DoD check and capture structured evidence.
+
+        The dimension is the check's ``criterion`` so the evidence is traceable
+        back to the DoD line. A failed check carries a deterministic summary
+        (exit code / missing path / grep hit-or-miss) — never a free-text guess.
+        """
+        runner = self._get_mechanical_check_runner()
+        passed, summary = runner.run_check(check, worktree_path)
+        return ModelCheckEvidence(
+            dimension=f"mechanical_check:{check.criterion}",
+            passed=passed,
+            summary=summary,
+            details={
+                "check_type": check.check_type.value,
+                "check": check.check,
+                "criterion": check.criterion,
+            },
+        )
+
+    def _verify_ci(
+        self, repo: GithubRepositorySlug, pr_number: int
+    ) -> ModelCheckEvidence:
+        """Verify CI checks via gh."""
+        client = self._get_gh_client()
+        query = client.get_pr_checks(repo, pr_number)
+
+        if query.query_error is not None:
+            return ModelCheckEvidence(
+                dimension="ci_checks",
+                passed=False,
+                summary=query.query_error,
+                details={"query_error": query.query_error},
+            )
+
+        if not query.checks:
+            return ModelCheckEvidence(
+                dimension="ci_checks",
+                passed=False,
+                summary=f"No CI check data returned for {repo}#{pr_number}",
+            )
+
+        details: dict[str, str] = {}
+        nonpassing: list[str] = []
+        for check in query.checks:
+            detail_key = self._unique_check_name(check.name, details)
+            details[detail_key] = f"{check.bucket.value}:{check.state.value}"
+            if check.bucket not in (
+                EnumGithubCheckBucket.PASS,
+                EnumGithubCheckBucket.SKIPPING,
+            ):
+                nonpassing.append(f"{check.name} ({check.bucket.value})")
+
+        if nonpassing:
+            return ModelCheckEvidence(
+                dimension="ci_checks",
+                passed=False,
+                summary=f"Failing/pending checks: {', '.join(nonpassing)}",
+                details=details,
+            )
+
+        if query.exit_code != 0:
+            error = (
+                f"gh pr checks exit {query.exit_code} contradicted its "
+                "all-pass/all-skipping buckets"
+            )
+            return ModelCheckEvidence(
+                dimension="ci_checks",
+                passed=False,
+                summary=error,
+                details={**details, "query_error": error},
+            )
+
+        return ModelCheckEvidence(
+            dimension="ci_checks",
+            passed=True,
+            summary=f"All {len(query.checks)} CI checks passed.",
+            details=details,
+        )
+
+    @staticmethod
+    def _unique_check_name(name: str, details: dict[str, str]) -> str:
+        """Preserve repeated hosted check rows in the receipt detail mapping."""
+        if name not in details:
+            return name
+        occurrence = 2
+        while f"{name} [{occurrence}]" in details:
+            occurrence += 1
+        return f"{name} [{occurrence}]"
+
+
+def _parse_pytest_per_file(stdout: str) -> list[ModelFileTestResult]:
+    """Parse pytest -v output into per-file results.
+
+    Lines look like::
+
+        tests/test_foo.py::test_bar PASSED
+        tests/test_foo.py::test_baz FAILED
+        tests/test_qux.py::test_thing PASSED
+
+    Each file gets a ModelFileTestResult with counts.
+    """
+    import re
+    from collections import defaultdict
+
+    # {file: {"PASSED": n, "FAILED": n, ...}}
+    file_counts: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+
+    for line in stdout.splitlines():
+        line = line.strip()
+        if "::" not in line:
+            continue
+        match = re.search(
+            r"\b(PASSED|FAILED|ERROR|SKIPPED|XFAILED|XPASSED)\b(?:\s+\[[^\]]+\])?$",
+            line,
+        )
+        if not match:
+            continue
+        status = match.group(1)
+        file_path = line.split("::", 1)[0].strip()
+        file_counts[file_path][status] += 1
+
+    results: list[ModelFileTestResult] = []
+    for file_path, counts in sorted(file_counts.items()):
+        n_passed = counts.get("PASSED", 0) + counts.get("XPASSED", 0)
+        n_failed = counts.get("FAILED", 0)
+        n_errors = counts.get("ERROR", 0)
+        n_skipped = counts.get("SKIPPED", 0) + counts.get("XFAILED", 0)
+        file_exit = 0 if (n_failed == 0 and n_errors == 0) else 1
+        results.append(
+            ModelFileTestResult(
+                file=file_path,
+                passed=n_passed,
+                failed=n_failed,
+                errors=n_errors,
+                skipped=n_skipped,
+                exit_code=file_exit,
+            )
+        )
+    return results
+
+
+__all__: list[str] = [
+    "EnumGithubCheckBucket",
+    "EnumGithubCheckState",
+    "GhClient",
+    "GhClientProtocol",
+    "HandlerVerificationReceiptGenerator",
+    "MechanicalCheckRunner",
+    "MechanicalCheckRunnerProtocol",
+    "ModelGithubCheckRow",
+    "ModelGithubChecksQueryResult",
+    "PytestRunnerProtocol",
+]

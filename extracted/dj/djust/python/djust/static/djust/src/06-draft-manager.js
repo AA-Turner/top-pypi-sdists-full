@@ -1,0 +1,199 @@
+
+// DraftManager for localStorage-based draft saving
+class DraftManager {
+    constructor() {
+        this.saveTimers = new Map();
+        this.saveDelay = 500;
+    }
+
+    saveDraft(draftKey, data) {
+        if (this.saveTimers.has(draftKey)) {
+            clearTimeout(this.saveTimers.get(draftKey));
+        }
+
+        const timerId = setTimeout(() => {
+            try {
+                const draftData = {
+                    data,
+                    timestamp: Date.now()
+                };
+                localStorage.setItem(`djust_draft_${draftKey}`, JSON.stringify(draftData));
+
+                if (globalThis.djustDebug) {
+                    djLog(`[DraftMode] Saved draft: ${draftKey}`, data);
+                }
+            } catch (error) {
+                console.error(`[DraftMode] Failed to save draft ${draftKey}:`, error);
+            }
+            this.saveTimers.delete(draftKey);
+        }, this.saveDelay);
+
+        this.saveTimers.set(draftKey, timerId);
+    }
+
+    loadDraft(draftKey) {
+        try {
+            const stored = localStorage.getItem(`djust_draft_${draftKey}`);
+            if (!stored) {
+                return null;
+            }
+
+            const draftData = JSON.parse(stored);
+
+            if (globalThis.djustDebug) {
+                const age = Math.round((Date.now() - draftData.timestamp) / 1000);
+                djLog(`[DraftMode] Loaded draft: ${draftKey} (${age}s old)`, draftData.data);
+            }
+
+            return draftData.data;
+        } catch (error) {
+            console.error(`[DraftMode] Failed to load draft ${draftKey}:`, error);
+            return null;
+        }
+    }
+
+    clearDraft(draftKey) {
+        if (this.saveTimers.has(draftKey)) {
+            clearTimeout(this.saveTimers.get(draftKey));
+            this.saveTimers.delete(draftKey);
+        }
+
+        try {
+            localStorage.removeItem(`djust_draft_${draftKey}`);
+
+            if (globalThis.djustDebug) {
+                djLog(`[DraftMode] Cleared draft: ${draftKey}`);
+            }
+        } catch (error) {
+            console.error(`[DraftMode] Failed to clear draft ${draftKey}:`, error);
+        }
+    }
+
+    getAllDraftKeys() {
+        const keys = [];
+        try {
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('djust_draft_')) {
+                    keys.push(key.replace('djust_draft_', ''));
+                }
+            }
+        } catch (error) {
+            console.error('[DraftMode] Failed to get draft keys:', error);
+        }
+        return keys;
+    }
+
+    clearAllDrafts() {
+        const keys = this.getAllDraftKeys();
+        keys.forEach(key => this.clearDraft(key));
+
+        if (globalThis.djustDebug) {
+            djLog(`[DraftMode] Cleared all ${keys.length} drafts`);
+        }
+    }
+}
+
+const globalDraftManager = new DraftManager();
+
+function initDraftMode() {
+    // Check if draft mode is enabled on this page
+    const draftRoot = document.querySelector('[data-draft-enabled]');
+    if (!draftRoot) return;
+
+    const draftKey = draftRoot.getAttribute('data-draft-key');
+    if (!draftKey) {
+        console.warn('[DraftMode] Draft enabled but no draft-key found');
+        return;
+    }
+
+    if (globalThis.djustDebug) console.log(`[DraftMode] Initializing draft mode with key: ${draftKey}`);
+
+    // Load existing draft on page load
+    const savedDraft = globalDraftManager.loadDraft(draftKey);
+    if (savedDraft) {
+        // Restore field values from draft
+        Object.keys(savedDraft).forEach(fieldName => {
+            const field = document.querySelector(`[name="${fieldName}"]`);
+            if (field) {
+                if (field.type === 'checkbox') {
+                    // eslint-disable-next-line security/detect-object-injection
+                    field.checked = savedDraft[fieldName];
+                } else {
+                    // eslint-disable-next-line security/detect-object-injection
+                    field.value = savedDraft[fieldName];
+                }
+            }
+        });
+    }
+
+    // Monitor all fields with data-draft="true" for changes
+    const draftFields = document.querySelectorAll('[data-draft="true"]');
+    draftFields.forEach(field => {
+        const saveDraft = () => {
+            // Collect all draft field values
+            const draftData = {};
+            draftFields.forEach(f => {
+                // Prevent prototype pollution attacks
+                if (f.name && !UNSAFE_KEYS.includes(f.name)) {
+                    if (f.type === 'checkbox') {
+                        draftData[f.name] = f.checked;
+                    } else {
+                        draftData[f.name] = f.value;
+                    }
+                }
+            });
+            globalDraftManager.saveDraft(draftKey, draftData);
+        };
+
+        // Attach input listeners with debouncing built into DraftManager
+        field.addEventListener('input', saveDraft);
+        field.addEventListener('change', saveDraft);
+    });
+
+    // Check for draft clear flag
+    if (draftRoot.hasAttribute('data-draft-clear')) {
+        if (globalThis.djustDebug) console.log('[DraftMode] Draft clear flag detected, clearing draft...');
+        globalDraftManager.clearDraft(draftKey);
+        draftRoot.removeAttribute('data-draft-clear');
+    }
+}
+
+/**
+ * Clear the draft of every draft root carrying `data-draft-clear`.
+ * `DraftModeMixin.clear_draft()` sets it on the NEXT render, which usually
+ * arrives as a patch after an event (a successful submit), not as a page load,
+ * so this runs after every DOM update (reinitAfterDOMUpdate) (#2971). The
+ * attribute is left in place: the server's VDOM still has it, and removing it
+ * here would keep a later render that carries it again from patching it back.
+ * The server drops it on its next render.
+ */
+// Roots whose current data-draft-clear flag was already applied: an unrelated
+// DOM update (a stream chunk, a child-view patch) while the flag is still on
+// the page must not wipe a draft the user started after the submit.
+const _draftClearApplied = new WeakSet();
+
+function applyDraftClearFlag() {
+    document.querySelectorAll('[data-draft-enabled]').forEach(function (root) {
+        if (!root.hasAttribute('data-draft-clear')) {
+            _draftClearApplied.delete(root);
+            return;
+        }
+        if (_draftClearApplied.has(root)) return;
+        _draftClearApplied.add(root);
+        const key = root.getAttribute('data-draft-key');
+        if (key) globalDraftManager.clearDraft(key);
+    });
+}
+
+// Over a live connection clear_draft() also pushes `djust:draft-clear`
+// (#2971), which reaches the page even when the render carries no patch.
+if (typeof window !== 'undefined') {
+    window.addEventListener('djust:push_event', function (e) {
+        if (!e || !e.detail || e.detail.event !== 'djust:draft-clear') return;
+        const payload = e.detail.payload || {};
+        if (typeof payload.key === 'string' && payload.key) {
+            globalDraftManager.clearDraft(payload.key);
+        }
+    });
+}

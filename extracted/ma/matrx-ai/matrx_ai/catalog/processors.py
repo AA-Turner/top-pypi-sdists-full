@@ -47,6 +47,12 @@ class ProcessorContext:
     # at which "does this model accept that value" is answerable.
     supported_values: frozenset[str] = frozenset()
     value_order: tuple[str, ...] = ()
+    # The model's real output maximum (CompiledControlsMap.output_maximum) — a
+    # processor that WRITES the output ceiling must never write above it.
+    output_maximum: int | None = None
+
+    def cap_output(self, value: int) -> int:
+        return min(value, self.output_maximum) if self.output_maximum else value
 
     def reconcile_supported(self, value: str | None) -> str | None:
         """Force a processor's RESOLVED provider value into the offering's
@@ -199,6 +205,8 @@ def _explicit_effort(canonical: dict[str, Any]) -> str | None:
 # Writes params: thinking, output_config.effort (adaptive), max_tokens.
 
 ANTHROPIC_MIN_BUDGET_TOKENS = 1024
+# Google's thinking_config.thinking_budget field range is [-1, 65535] (live 400 text).
+GOOGLE_THINKING_BUDGET_FIELD_MAX = 65535
 # LAST RESORT ONLY — the offering's own `default_max_tokens` is the answer, and
 # it must BE the model's real `ai.model_definition.max_tokens`.
 #
@@ -329,7 +337,7 @@ def _anthropic_budget_thinking(
             thinking_budget = _ANTHROPIC_EFFORT_TO_BUDGET.get(effort)
 
     if not thinking_budget:  # None or 0 — no thinking; translator max_tokens fallback
-        params["max_tokens"] = current_max if current_max is not None else default_max
+        params["max_tokens"] = ctx.cap_output(current_max if current_max is not None else default_max)
         return params
 
     if thinking_budget < ANTHROPIC_MIN_BUDGET_TOKENS:
@@ -367,6 +375,28 @@ def _anthropic_budget_thinking(
         )
     else:
         validated_max = current_max
+
+    # The model's real maximum outranks "max_tokens > budget": raising max_tokens
+    # past it is a provider 400, so the BUDGET yields instead (it must stay below
+    # max_tokens and at or above Anthropic's floor).
+    capped_max = ctx.cap_output(validated_max)
+    if capped_max != validated_max:
+        validated_max = capped_max
+        if thinking_budget >= validated_max:
+            fitted = max(ANTHROPIC_MIN_BUDGET_TOKENS, validated_max - 2048)
+            ctx.adjustments.append(
+                Adjustment(
+                    key="thinking_budget",
+                    action="clamped",
+                    canonical_value=thinking_budget,
+                    sent_value=fitted,
+                    reason=(
+                        f"thinking.budget_tokens {thinking_budget} must stay below max_tokens, "
+                        f"which this model caps at {validated_max}; budget fitted to {fitted}"
+                    ),
+                )
+            )
+            thinking_budget = fitted
 
     params["thinking"] = {"type": "enabled", "budget_tokens": thinking_budget}
     params["max_tokens"] = validated_max
@@ -424,7 +454,7 @@ def _anthropic_adaptive_thinking(
     current_max = _current_max_tokens(canonical, params)
     # Adaptive thinking has no budget_tokens constraint — max_tokens is the
     # caller's value, translator-defaulted when unset (thinking or not).
-    params["max_tokens"] = current_max if current_max is not None else default_max
+    params["max_tokens"] = ctx.cap_output(current_max if current_max is not None else default_max)
 
     effort_level: str | None = None
     thinking_off = False
@@ -664,7 +694,28 @@ def google_thinking(
     mode = ctx.config.get("mode")
     target = ctx.config.get("target", "thinking_config")
     if mode == "legacy":
-        params[target] = _google_thinking_legacy_fragment(canonical)
+        fragment = _google_thinking_legacy_fragment(canonical)
+        # A budget authored for a bigger model converts instead of 400ing.
+        # Google's field accepts [-1, 65535] on every legacy model (probed live
+        # 2026-10-02: 65,535 accepted, 9,999,999 rejected), and on 2.5 thinking
+        # counts against output, so the model's output maximum bounds it too.
+        # processor_config.max_thinking_budget may declare a tighter one.
+        ceiling = ctx.cap_output(
+            int(ctx.config.get("max_thinking_budget") or GOOGLE_THINKING_BUDGET_FIELD_MAX)
+        )
+        budget = fragment.get("thinking_budget")
+        if isinstance(budget, int) and budget > ceiling:
+            ctx.adjustments.append(
+                Adjustment(
+                    key="thinking_budget",
+                    action="clamped",
+                    canonical_value=budget,
+                    sent_value=ceiling,
+                    reason=f"thinking_budget {budget} clamped to this model's maximum {ceiling}",
+                )
+            )
+            fragment["thinking_budget"] = ceiling
+        params[target] = fragment
         return params
     if mode == "gemini_3":
         params[target] = _google_thinking_3_fragment(

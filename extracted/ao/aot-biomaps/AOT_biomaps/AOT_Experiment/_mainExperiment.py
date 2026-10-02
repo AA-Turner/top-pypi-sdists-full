@@ -182,13 +182,13 @@ class Experiment(ABC):
                 self.AOsignal_withoutTumor = mean_sig  
     
     @abstractmethod
-    def generate_acoustic_fields(self, fieldDataPath, fieldParamPath, generation_type="envelope_squarred", show_log=True):
+    def generate_acoustic_fields(self, fieldDataPath, fieldParamPath, generation_type="envelope_squared", show_log=True):
         """
         Generate the acoustic fields for simulation.
         Args:
             fieldDataPath: Path to save the generated fields.
             fieldParamPath: Path to the field parameters file.
-            generation_type: The type of field generation to perform. Must be one of "envelope_squarred", "envelope", or "field".
+            generation_type: The type of field generation to perform. Must be one of "envelope_squared", "envelope", or "field".
             show_log: Whether to display a progress bar.
         Returns:
             systemMatrix: A numpy array of the generated fields.
@@ -513,7 +513,7 @@ class Experiment(ABC):
 
         for idx in range(num_plots):
             ax = axes[idx]
-            im = ax.imshow(self.AcousticFields[0, :, :, idx],
+            im = ax.imshow(self.AcousticFields[idx].field[0],
                         extent=(self.params.general['Xrange'][0], self.params.general['Xrange'][1], self.params.general['Zrange'][1], self.params.general['Zrange'][0]),
                         vmax=1, aspect='equal', cmap='jet', animated=True)
             ax.set_xlabel("x (mm)")
@@ -528,7 +528,7 @@ class Experiment(ABC):
         def update(frame):
             artists = []
             for im, ax, idx in ims:
-                im.set_array(self.AcousticFields[frame, :, :, idx])
+                im.set_array(self.AcousticFields[idx].field[frame])
                 fig.suptitle(f"System Matrix Animation {wave_name} t = {frame * 25e-6 * 1000:.2f} ms")
                 artists.append(im)
             return artists

@@ -101,9 +101,7 @@ def _print_job_list_diagnostics(  # noqa: PLR0913
     stderr.print(f"• cloud           = {cloud or '<any>'}")
     stderr.print(f"• include_all     = {include_all_users}")
     stderr.print(f"• include_archived= {include_archived}")
-    stderr.print(
-        f"• states          = {', '.join(str(s) for s in states) if states else '<all>'}"
-    )
+    stderr.print(f"• states          = {', '.join(str(s) for s in states) if states else '<all>'}")
     stderr.print(f"• tags            = {', '.join(tags) if tags else '<none>'}")
     stderr.print(f"• created_at_from    = {created_at_from or '<any>'}")
     stderr.print(f"• created_at_to      = {created_at_to or '<any>'}")
@@ -224,7 +222,9 @@ def job_cli() -> None:
     ],
 )
 @job_cli.command(
-    name="submit", short_help="Submit a job.", cls=AnyscaleCommand,
+    name="submit",
+    short_help="Submit a job.",
+    cls=AnyscaleCommand,
 )
 @click.option("-n", "--name", required=False, default=None, help="Name of the job.")
 @click.option(
@@ -285,7 +285,14 @@ def job_cli() -> None:
     required=False,
     default=None,
     type=str,
-    help="Path to a local directory or a remote URI to a .zip file (S3, GS, HTTP) that will be the working directory for the job. The files in the directory will be automatically uploaded to cloud storage. When running in a workspace, this defaults to the current working directory.",
+    help="Path to a local directory or a remote URI to a .zip file that will be the working directory "
+    "for the job. A local directory is uploaded to cloud storage automatically. A remote URI "
+    "(s3://, gs://, https://, azure://, abfss://) is passed through unchanged and downloaded by Ray on "
+    "the cluster nodes, so it must be readable from them. For private storage behind cloud IAM, grant "
+    "read access to the cluster's identity rather than relying on your local credentials. To use a "
+    "directory that is already inside your container image, pass a 'local://' URI (e.g. local:///app); "
+    "it is read from the image in place, never uploaded or downloaded. When running in a workspace, "
+    "this defaults to the current working directory.",
 )
 @click.option(
     "-e",
@@ -391,35 +398,34 @@ def submit(  # noqa: PLR0912 PLR0913 C901
 ):
     """Submit a job.
 
-    Specify the job config in one of the following ways:
+        Specify the job config in one of the following ways:
 
-    * Specify the job config file using the `-f` or `--config-file` flag: `anyscale job submit -f config.yaml`.
+        * Specify the job config file using the `-f` or `--config-file` flag: `anyscale job submit -f config.yaml`.
 
-    * You can also specify job config with command-line arguments. In this case, specify the entrypoint as the positional
-    arguments starting with `--`. Specify other arguments with command-line flags:
+        * You can also specify job config with command-line arguments. In this case, specify the entrypoint as the positional
+        arguments starting with `--`. Specify other arguments with command-line flags:
 
-      * `anyscale job submit -- python main.py`: submit a job with the entrypoint `python main.py`.
+          * `anyscale job submit -- python main.py`: submit a job with the entrypoint `python main.py`.
 
-      * `anyscale job submit --name my-job -- python main.py`: submit a job with the name `my-job` and the
-entrypoint `python main.py`.
+          * `anyscale job submit --name my-job -- python main.py`: submit a job with the name `my-job` and the
+    entrypoint `python main.py`.
 
-    * [Experimental] If you want to specify a config file and override some arguments with the commmand-line flags,
-use the `-f` or `--config-file` flag:
+        * [Experimental] If you want to specify a config file and override some arguments with the commmand-line flags,
+    use the `-f` or `--config-file` flag:
 
-      * `anyscale job submit --config-file config.yaml`: submit a job with the config in `config.yaml`.
+          * `anyscale job submit --config-file config.yaml`: submit a job with the config in `config.yaml`.
 
-      * `anyscale job submit -f config.yaml -- python main.py`: submit a job with the config in `config.yaml`
-and override the entrypoint with `python main.py`.
+          * `anyscale job submit -f config.yaml -- python main.py`: submit a job with the config in `config.yaml`
+    and override the entrypoint with `python main.py`.
 
-    Use only one of `containerfile` or `image-uri` as specifying both results in an error.
+        Use only one of `containerfile` or `image-uri` as specifying both results in an error.
 
-    By default, this command submits the job asynchronously and exits. To wait for the job to complete, use the `--wait` flag.
+        By default, this command submits the job asynchronously and exits. To wait for the job to complete, use the `--wait` flag.
     """
 
     job_controller = JobController()
     if len(entrypoint) == 1 and (
-        pathlib.Path(entrypoint[0]).is_file()
-        or entrypoint[0].endswith((".yaml", ".yml"))
+        pathlib.Path(entrypoint[0]).is_file() or entrypoint[0].endswith((".yaml", ".yml"))
     ):
         # If entrypoint is a single string that ends with .yaml/.yml, e.g. `anyscale job
         # submit config.yaml`, treat it as a config file, and use the old job submission API.
@@ -443,6 +449,11 @@ and override the entrypoint with `python main.py`.
             raise click.ClickException(
                 "`--env` should not be used when providing a config file as the entrypoint."
             )
+        # Truthiness, not `is not None`: `--working-dir ""` is a no-op on the path below.
+        if working_dir:
+            raise click.ClickException(
+                "`--working-dir` should not be used when providing a config file as the entrypoint."
+            )
 
         config_file = entrypoint[0]
         if not pathlib.Path(config_file).is_file():
@@ -463,9 +474,7 @@ and override the entrypoint with `python main.py`.
             )
         if config_file is not None:
             if not pathlib.Path(config_file).is_file():
-                raise click.ClickException(
-                    f"Job config file '{config_file}' not found."
-                )
+                raise click.ClickException(f"Job config file '{config_file}' not found.")
             _check_config_schema(config_file, passed_with_config_flag=True)
 
         args = {}
@@ -519,13 +528,13 @@ and override the entrypoint with `python main.py`.
 
         if requirements is not None:
             if not pathlib.Path(requirements).is_file():
-                raise click.ClickException(
-                    f"Requirements file '{requirements}' not found."
-                )
+                raise click.ClickException(f"Requirements file '{requirements}' not found.")
             config = config.options(requirements=requirements)
 
         if env:
-            config = override_env_vars(config, convert_kv_strings_to_dict(env))
+            config = override_env_vars(
+                config, convert_kv_strings_to_dict(env, allow_empty_values=True)
+            )
 
         if py_module:
             for module in py_module:
@@ -560,9 +569,7 @@ and override the entrypoint with `python main.py`.
         job_id = anyscale.job.submit(config)
 
     if wait:
-        log.info(
-            "Waiting for the job to run. Interrupting this command will not cancel the job."
-        )
+        log.info("Waiting for the job to run. Interrupting this command will not cancel the job.")
         anyscale.job.wait(id=job_id, follow=True)
     else:
         log.info("Use `--wait` to wait for the job to run and stream logs.")
@@ -597,9 +604,7 @@ def _parse_sort_option(sort_str: Optional[str]) -> Tuple[Optional[str], str]:
     key = raw.lower()
     if key not in allowed:
         allowed_names = ", ".join(sorted(allowed.values()))
-        raise click.BadParameter(
-            f"Invalid sort field '{raw}'. Allowed fields: {allowed_names}"
-        )
+        raise click.BadParameter(f"Invalid sort field '{raw}'. Allowed fields: {allowed_names}")
 
     return allowed[key], order
 
@@ -667,15 +672,11 @@ def _format_job_json_v2(job: JobStatus) -> Dict[str, Any]:
         "id": job.id,
         "name": job.name,
         "state": str(job.state),
-        "entrypoint": job.config.entrypoint
-        if job.config and job.config.entrypoint
-        else "",
+        "entrypoint": job.config.entrypoint if job.config and job.config.entrypoint else "",
         "project": job.config.project if job.config else "",
         "created_at": job.created_at.isoformat() if job.created_at else "",
         "updated_at": job.updated_at.isoformat() if job.updated_at else "",
-        "status_updated_at": job.status_updated_at.isoformat()
-        if job.status_updated_at
-        else "",
+        "status_updated_at": job.status_updated_at.isoformat() if job.status_updated_at else "",
     }
 
 
@@ -770,9 +771,7 @@ def _display_jobs_table(jobs: List[JobStatus]) -> None:
     help="[RECOMMENDED] Enable extended filtering options. Needs migration to match return values.",
 )
 @click.option("--name", "-n", required=False, default=None, help="Filter by job name.")
-@click.option(
-    "--job-id", "--id", "id", required=False, default=None, help="Filter by job id."
-)
+@click.option("--job-id", "--id", "id", required=False, default=None, help="Filter by job id.")
 @click.option(
     "--project-id",
     required=False,
@@ -949,8 +948,7 @@ def list(  # noqa: A001 PLR0913 PLR0912
                 state_upper = state.upper()
                 if state_upper not in allowed:
                     raise click.UsageError(
-                        f"Invalid state '{state}' with --v2. "
-                        f"Allowed: {', '.join(sorted(allowed))}"
+                        f"Invalid state '{state}' with --v2. Allowed: {', '.join(sorted(allowed))}"
                     )
         else:
             # Legacy path: Only accept backend HaJobStates
@@ -1103,7 +1101,9 @@ def list(  # noqa: A001 PLR0913 PLR0912
     ],
 )
 @job_cli.command(
-    name="archive", short_help="Archive a job.", cls=AnyscaleCommand,
+    name="archive",
+    short_help="Archive a job.",
+    cls=AnyscaleCommand,
 )
 @click.option("--job-id", "--id", "id", required=False, help="Unique ID of the job.")
 @click.option("--name", "-n", required=False, help="Name of the job.")
@@ -1136,11 +1136,11 @@ def archive(
 ) -> None:
     """Archive a job.
 
-    To specify the job by name, use the --name flag. To specify the job by id, use the --id flag. Either name or
-id should be used, specifying both will result in an error.
+        To specify the job by name, use the --name flag. To specify the job by id, use the --id flag. Either name or
+    id should be used, specifying both will result in an error.
 
-    If job is specified by name and there are multiple jobs with the specified name, the most recently created job
-status will be archived.
+        If job is specified by name and there are multiple jobs with the specified name, the most recently created job
+    status will be archived.
     """
     _validate_job_name_and_id(name=name, id=id)
     anyscale.job.archive(
@@ -1165,7 +1165,9 @@ status will be archived.
     ],
 )
 @job_cli.command(
-    name="delete", short_help="Delete a job.", cls=AnyscaleCommand,
+    name="delete",
+    short_help="Delete a job.",
+    cls=AnyscaleCommand,
 )
 @click.option("--job-id", "--id", "id", required=False, help="Unique ID of the job.")
 @click.option("--name", "-n", required=False, help="Name of the job.")
@@ -1227,7 +1229,9 @@ def delete(
     ],
 )
 @job_cli.command(
-    name="terminate", short_help="Terminate a job.", cls=AnyscaleCommand,
+    name="terminate",
+    short_help="Terminate a job.",
+    cls=AnyscaleCommand,
 )
 @click.option("--job-id", "--id", "id", required=False, help="Unique ID of the job.")
 @click.option("--name", "-n", required=False, help="Name of the job.")
@@ -1260,11 +1264,11 @@ def terminate(
 ) -> None:
     """Terminate a job.
 
-    To specify the job by name, use the --name flag. To specify the job by id, use the --id flag. Either name or
-id should be used, specifying both will result in an error.
+        To specify the job by name, use the --name flag. To specify the job by id, use the --id flag. Either name or
+    id should be used, specifying both will result in an error.
 
-    If job is specified by name and there are multiple jobs with the specified name, the most recently created job
-status will be terminated.
+        If job is specified by name and there are multiple jobs with the specified name, the most recently created job
+    status will be terminated.
     """
     _validate_job_name_and_id(name=name, id=id)
     anyscale.job.terminate(
@@ -1277,9 +1281,7 @@ status will be terminated.
     if id is not None:
         log.info(f"Query the status of the job with `anyscale job status --id {id}`.")
     else:
-        log.info(
-            f"Query the status of the job with `anyscale job status --name {name}`."
-        )
+        log.info(f"Query the status of the job with `anyscale job status --name {name}`.")
 
 
 @command_metadata(
@@ -1295,7 +1297,9 @@ status will be terminated.
     ],
 )
 @job_cli.command(
-    name="logs", short_help="Print the logs of a job.", cls=AnyscaleCommand,
+    name="logs",
+    short_help="Print the logs of a job.",
+    cls=AnyscaleCommand,
 )
 @click.option("--job-id", "--id", "id", required=False, help="Unique ID of the job.")
 @click.option("--name", "-n", required=False, help="Name of the job.")
@@ -1388,14 +1392,15 @@ def logs(  # noqa: PLR0913
         # and expose it in the public API. Currently using legacy JobController.
         job_controller = JobController(raise_structured_exception=True)
         job_controller.logs(
-            job_id=id, job_name=name, should_follow=True, all_attempts=all_attempts,
+            job_id=id,
+            job_name=name,
+            should_follow=True,
+            all_attempts=all_attempts,
         )
     else:
         _validate_job_name_and_id(name=name, id=id)
         if head and tail:
-            raise click.ClickException(
-                "Only one of '--head' and '--tail' can be provided."
-            )
+            raise click.ClickException("Only one of '--head' and '--tail' can be provided.")
         if max_lines is not None and not (head or tail):
             raise click.ClickException(
                 "'--max-lines' must be used with either '--head' or '--tail'"
@@ -1548,7 +1553,9 @@ def wait(
     ],
 )
 @job_cli.command(
-    name="status", short_help="Get the status of a job.", cls=AnyscaleCommand,
+    name="status",
+    short_help="Get the status of a job.",
+    cls=AnyscaleCommand,
 )
 @click.option(
     "--job-id",
@@ -1577,9 +1584,7 @@ def wait(
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice(
-        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
-    ),
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
     help="Output format for the result.",
@@ -1616,11 +1621,11 @@ def status(
 ):
     """Query the status of a job.
 
-    To specify the job by name, use the --name flag. To specify the job by id, use the --id flag. Either name or
-id should be used, specifying both will result in an error.
+        To specify the job by name, use the --name flag. To specify the job by id, use the --id flag. Either name or
+    id should be used, specifying both will result in an error.
 
-    If job is specified by name and there are multiple jobs with the specified name, the most recently created job
-status will be returned.
+        If job is specified by name and there are multiple jobs with the specified name, the most recently created job
+    status will be returned.
     """
     if json:
         warn_deprecated_flag("--json", "-o json")
@@ -1675,9 +1680,7 @@ def job_tags_cli() -> None:
     ),
     cls=AnyscaleCommand,
 )
-@click.option(
-    "--job-id", "--id", "job_id", required=False, help="Unique ID of the job."
-)
+@click.option("--job-id", "--id", "job_id", required=False, help="Unique ID of the job.")
 @click.option("--name", "-n", required=False, help="Name of the job.")
 @click.option(
     "--tag",
@@ -1729,9 +1732,7 @@ def add_tags(
     ),
     cls=AnyscaleCommand,
 )
-@click.option(
-    "--job-id", "--id", "job_id", required=False, help="Unique ID of the job."
-)
+@click.option("--job-id", "--id", "job_id", required=False, help="Unique ID of the job.")
 @click.option("--name", "-n", required=False, help="Name of the job.")
 @click.option("--key", "keys", multiple=True, help="Tag key to remove. Repeatable.")
 @click.option(
@@ -1786,9 +1787,7 @@ def remove_tags(
     help=("List tags for a job.\n\nSpecify the job by name (--name) or by ID (--id)."),
     cls=AnyscaleCommand,
 )
-@click.option(
-    "--job-id", "--id", "job_id", required=False, help="Unique ID of the job."
-)
+@click.option("--job-id", "--id", "job_id", required=False, help="Unique ID of the job.")
 @click.option("--name", "-n", required=False, help="Name of the job.")
 @click.option(
     OUTPUT_FLAG,
@@ -1817,9 +1816,7 @@ def list_tags(
         warn_deprecated_flag("--json", "-o json")
     if not job_id and not name:
         raise click.ClickException("Provide either --id or --name.")
-    tag_map = anyscale.job.list_tags(
-        job_id=job_id, name=name, include_archived=include_archived
-    )
+    tag_map = anyscale.job.list_tags(job_id=job_id, name=name, include_archived=include_archived)
     resolved = resolve_output_format(output_format, json_output)
     if resolved != OutputFormat.TEXT.value:
         print_output(tag_map, resolved)

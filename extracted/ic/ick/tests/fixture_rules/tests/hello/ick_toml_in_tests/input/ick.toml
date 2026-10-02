@@ -1,5 +1,0 @@
-[[rule]]
-name = "should_not_be_discovered"
-impl = "shell"
-command = "true"
-scope = "repo"

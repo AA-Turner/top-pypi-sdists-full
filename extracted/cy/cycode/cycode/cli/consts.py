@@ -1,11 +1,33 @@
+import sys
+from enum import Enum
+
 PROGRAM_NAME = 'cycode'
 APP_NAME = 'CycodeCLI'
 CLI_CONTEXT_SETTINGS = {'terminal_width': 10**9, 'max_content_width': 10**9, 'help_option_names': ['-h', '--help']}
+
+
+class OperatingSystem(str, Enum):
+    WINDOWS = 'windows'
+    MACOS = 'macos'
+    LINUX = 'linux'
+
+
+def _detect_operating_system() -> OperatingSystem:
+    if sys.platform == 'win32':
+        return OperatingSystem.WINDOWS
+    if sys.platform == 'darwin':
+        return OperatingSystem.MACOS
+    return OperatingSystem.LINUX
+
+
+OPERATING_SYSTEM = _detect_operating_system()
 
 PRE_COMMIT_COMMAND_SCAN_TYPE = 'pre-commit'
 PRE_COMMIT_COMMAND_SCAN_TYPE_OLD = 'pre_commit'
 PRE_RECEIVE_COMMAND_SCAN_TYPE = 'pre-receive'
 PRE_RECEIVE_COMMAND_SCAN_TYPE_OLD = 'pre_receive'
+PRE_PUSH_COMMAND_SCAN_TYPE = 'pre-push'
+PRE_PUSH_COMMAND_SCAN_TYPE_OLD = 'pre_push'
 COMMIT_HISTORY_COMMAND_SCAN_TYPE = 'commit-history'
 COMMIT_HISTORY_COMMAND_SCAN_TYPE_OLD = 'commit_history'
 
@@ -193,6 +215,8 @@ COMMIT_RANGE_BASED_COMMAND_SCAN_TYPES = [
     PRE_COMMIT_COMMAND_SCAN_TYPE_OLD,
     PRE_RECEIVE_COMMAND_SCAN_TYPE,
     PRE_RECEIVE_COMMAND_SCAN_TYPE_OLD,
+    PRE_PUSH_COMMAND_SCAN_TYPE,
+    PRE_PUSH_COMMAND_SCAN_TYPE_OLD,
     COMMIT_HISTORY_COMMAND_SCAN_TYPE,
     COMMIT_HISTORY_COMMAND_SCAN_TYPE_OLD,
 ]
@@ -310,6 +334,12 @@ GIT_EMPTY_TREE_OBJECT = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 EMPTY_COMMIT_SHA = '0000000000000000000000000000000000000000'
 GIT_PUSH_OPTION_COUNT_ENV_VAR_NAME = 'GIT_PUSH_OPTION_COUNT'
 GIT_PUSH_OPTION_ENV_VAR_PREFIX = 'GIT_PUSH_OPTION_'
+
+# the pre-commit framework consumes git's pre-push stdin and exposes the push details via env vars instead
+PRE_COMMIT_FRAMEWORK_ENV_VAR_NAME = 'PRE_COMMIT'
+PRE_COMMIT_FROM_REF_ENV_VAR_NAME = 'PRE_COMMIT_FROM_REF'
+PRE_COMMIT_TO_REF_ENV_VAR_NAME = 'PRE_COMMIT_TO_REF'
+PRE_COMMIT_REMOTE_BRANCH_ENV_VAR_NAME = 'PRE_COMMIT_REMOTE_BRANCH'
 
 SKIP_SCAN_FLAG = 'skip-cycode-scan'
 VERBOSE_SCAN_FLAG = 'verbose'

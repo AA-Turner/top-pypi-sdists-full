@@ -1,0 +1,163 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+# Distribution and import name are both `pylakekeeper` (the bare `lakekeeper` name on PyPI
+# belongs to an unrelated project). pip install pylakekeeper -> import pylakekeeper.
+name = "pylakekeeper"
+version = "0.4.0"
+description = "Official Lakekeeper client — generic-tables API and OAuth2 auth (static token / client_credentials with refresh)"
+# Must be a path *inside* python/. A parent-relative path ("../README.md") makes hatchling
+# emit an sdist member that escapes the archive root, which pip refuses to unpack.
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+authors = [{ name = "Lakekeeper" }]
+keywords = [
+    "lakekeeper",
+    "iceberg",
+    "apache-iceberg",
+    "iceberg-rest-catalog",
+    "lance",
+    "delta-lake",
+    "catalog",
+    "data-lakehouse",
+    "rest",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Database",
+    "Topic :: Database :: Front-Ends",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+dependencies = [
+    # Standalone client: only generic-tables + auth. No pyiceberg — client_credentials
+    # refresh is hand-rolled (the scope doesn't touch the Iceberg REST surface).
+    "httpx>=0.27",
+    "pydantic>=2.6",
+]
+
+[project.optional-dependencies]
+lance = ["pylance>=0.16"]
+# Object I/O for `dataset`-format tables (LoadGenericTableResponse.objects()).
+# One extra per storage backend; the core install needs none of them.
+s3 = ["boto3>=1.34"]
+azure = ["azure-storage-blob>=12.19"]
+gcs = ["google-cloud-storage>=2.14"]
+# Governed agent memory + skills (pylakekeeper.agents). Preview surface.
+# Objects + vectors only. The optional memory index additionally needs [iceberg]:
+#   pip install 'pylakekeeper[agents,iceberg]'
+agents = ["pylance>=0.16", "pyarrow>=15", "boto3>=1.34"]
+# The LangGraph BaseStore adapter (pylakekeeper.agents.langgraph).
+langgraph = ["langgraph>=0.2"]
+# Optional Iceberg-catalog helper, if a user wants the standard Iceberg surface too.
+iceberg = ["pyiceberg>=0.10.0"]
+# Everything the example scripts + notebooks need to round-trip real data.
+examples = [
+    "jupyterlab>=4",
+    "ipykernel>=6,<7",  # 7.x emits a curve-encryption kernelspec many frontends can't attach to
+    "pylance>=0.16",
+    "pyarrow>=15",
+    "numpy>=1.24",
+    "deltalake>=0.18",  # auth_clientcredentials_delta.ipynb
+    "vortex-data>=0.20",  # auth_authcode_vortex.ipynb
+    "boto3>=1.34",  # dataset-format uploads (images, HDF5)
+    "h5py>=3.10",  # auth_devicecode_hdf5.ipynb
+]
+dev = [
+    "pytest>=8",
+    "pytest-httpx>=0.30",
+    "pytest-cov>=5",
+    "ruff>=0.6",
+    "mypy>=1.10",
+    # Integration tests (pytest -m integration): drive a real lance roundtrip via docker compose.
+    "pylance>=0.16",
+    "pyarrow>=15",
+    # examples/dataset_images.py uploads to S3 with boto3.
+    "boto3>=1.34",
+    # Client.iceberg_catalog() interop test.
+    "pyiceberg>=0.10.0",
+    # The LangGraph BaseStore adapter.
+    "langgraph>=0.2",
+]
+
+[project.urls]
+Homepage = "https://docs.lakekeeper.io/"
+Documentation = "https://docs.lakekeeper.io/"
+Repository = "https://github.com/lakekeeper/lakekeeper-clients"
+Issues = "https://github.com/lakekeeper/lakekeeper-clients/issues"
+Changelog = "https://github.com/lakekeeper/lakekeeper-clients/blob/main/python/CHANGELOG.md"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pylakekeeper"]
+
+[tool.hatch.build.targets.sdist]
+# Keep the sdist to what's needed to build and test. Everything listed must live under
+# python/ — see the `readme` note above.
+include = [
+    "src/",
+    "tests/",
+    "examples/",
+    "README.md",
+    "CHANGELOG.md",
+    "pyproject.toml",
+]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "W"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+files = ["src"]
+
+# Third-party libraries reached only through lazy imports and typed as Any: storage
+# SDKs, and the columnar stack behind the agents extra. Skipping them is not laziness
+# about our own types — `strict` still applies to everything in src/.
+#
+# `follow_imports = "skip"` as well as `ignore_missing_imports`, because the problem is
+# not only absent stubs. numpy ships stubs that use `type` statements, which are 3.12+
+# syntax, while this config pins python_version to the package floor of 3.10 — so mypy
+# parses them and reports a syntax error in someone else's file. Which of these two
+# failures you get depends on the versions that happen to resolve, so it differs
+# between a developer's machine and CI.
+[[tool.mypy.overrides]]
+module = [
+    "boto3.*",
+    "botocore.*",
+    "azure.*",
+    "google.*",
+    "pyarrow.*",
+    "lance.*",
+    "numpy.*",
+]
+ignore_missing_imports = true
+follow_imports = "skip"
+# `follow_imports` does not apply to .pyi files unless this is set, and numpy ships
+# stubs — so without it mypy still parses them and still reports the syntax error.
+follow_imports_for_stubs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Integration tests need Docker; deselect by default. Run them with `pytest -m integration`.
+addopts = "-m 'not integration'"
+markers = [
+    "integration: end-to-end tests requiring Docker (Lakekeeper + Keycloak + MinIO)",
+]

@@ -1,0 +1,3268 @@
+/* Accelerated Element allocation and hot accessors for leptris.
+ *
+ * Instances are allocated here, in C, and — after bind() receives
+ * the libleptris function addresses — the hot accessors (tag, text,
+ * attrib, get, len, indexing, getparent/getnext) also run entirely
+ * in C, calling libleptris directly. The rest of the API surface
+ * stays in Python: leptris/element.py attaches its methods onto this
+ * heap type after import, skipping the members implemented here.
+ *
+ * Each instance stores BOTH the raw element pointer (for the C
+ * accessors) and the cffi cdata handle (so pure-Python call sites
+ * keep passing self._ptr to cffi unchanged), plus the owning
+ * Document.
+ *
+ * Built against the limited API (abi3): one wheel per platform
+ * serves every supported CPython. Without the extension,
+ * leptris.element falls back to the equivalent pure-Python class.
+ */
+
+#define PY_SSIZE_T_CLEAN
+/* Free-threaded builds (Py_GIL_DISABLED, the cp3XXt wheels) are
+ * version-specific: the 3.9 limited API predates free-threading.
+ * TODO.native/13 — one-doc-per-thread contract, see the Fns
+ * THREADING CONTRACT note below. */
+#ifndef Py_GIL_DISABLED
+#define Py_LIMITED_API 0x03090000
+#endif
+#include <Python.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define ACCEL_RAW_INVALID ((void *)-1)
+
+typedef struct AccelElement AccelElement;
+typedef struct {
+    AccelElement *first;
+    AccelElement *last;
+} Registry;
+
+typedef struct AccelElement {
+    PyObject_HEAD
+    void *raw;          /* raw LeptrisElement pointer, or ACCEL_RAW_INVALID */
+    PyObject *ptr;      /* cffi cdata for the LeptrisElement handle */
+    PyObject *document; /* owning Document (strong reference) */
+    Registry *registry; /* owning document registry (NULL when unlinked) */
+    AccelElement *prev;
+    AccelElement *next;
+    PyObject *cached_tag;    /* documents are immutable: cache forever */
+    PyObject *cached_attrib;
+} AccelElement;
+
+static PyTypeObject *ElementType;
+static PyTypeObject *ReadOnlyDictType;
+
+/* dict with assignment/removal disabled — the binding is read-only. */
+static int
+rodict_ass_subscript(PyObject *self, PyObject *key, PyObject *value)
+{
+    PyErr_SetString(PyExc_TypeError, "'attrib' is read-only");
+    return -1;
+}
+
+static Py_ssize_t
+rodict_sq_ass_item(PyObject *self, Py_ssize_t index, PyObject *value)
+{
+    PyErr_SetString(PyExc_TypeError, "'attrib' is read-only");
+    return -1;
+}
+
+/* libleptris entry points, bound once from Python via addresses.
+ * THREADING CONTRACT: the table is written exactly once, by
+ * bind() during leptris.element import, before any thread can
+ * reach these pointers (import happens-before first use). Reads
+ * afterwards are data-race-free on every build, including
+ * free-threaded CPython. */
+static struct {
+    const char *(*element_name)(void *);
+    const char *(*element_namespace)(void *);
+    const char *(*element_attribute)(void *, const char *);
+    const char *(*element_attribute_ns)(void *, const char *, const char *);
+    void *(*element_child)(void *, size_t);
+    size_t (*element_child_count)(void *);
+    void *(*element_as_node)(void *);
+    void *(*node_first_child)(void *);
+    void *(*node_next_sibling)(void *);
+    int (*node_get_type)(void *);
+    const char *(*text_node_get_content)(void *);
+    const char *(*cdata_node_get_content)(void *);
+    void *(*element_first_child_any)(void *);
+    const char *(*element_prefix_fn)(void *);
+    void *(*element_previous_sibling_any_fn)(void *);
+    int (*element_set_text)(void *, const char *);
+    size_t (*attribute_count)(void *);
+    size_t (*element_attribute_pairs)(void *, const char**, const char**,
+                                      void**, size_t);
+    int (*element_attribute_int)(void *, const char *, int);
+    double (*element_attribute_double)(void *, const char *, double);
+    int (*element_attribute_bool)(void *, const char *, int);
+    void *(*element_first_attribute)(void *);
+    void *(*attribute_next)(void *);
+    const char *(*attribute_get_name)(void *);
+    const char *(*attribute_get_value)(void *, void *);
+    void *(*element_parent)(void *);
+    void *(*element_next_sibling_any)(void *);
+    int (*node_line)(void *);
+    void *(*xpath_eval)(void *, void *, const char *);
+    int (*xpath_result_type)(void *);
+    size_t (*xpath_result_count)(void *);
+    size_t (*xpath_result_get_nodes)(void *, void **, size_t);
+    void (*xpath_result_free)(void *);
+    double (*xpath_result_number)(void *);
+    int (*xpath_result_boolean)(void *);
+    char *(*xpath_result_string)(void *);
+    void (*free_string)(char *);
+    void *(*ns_set_new)(void);
+    void (*ns_set_free)(void *);
+    int (*ns_set_add)(void *, const char *, const char *);
+    void *(*xpath_eval_ns)(void *, void *, const char *, void *);
+    char *(*element_serialize)(void *, void *);
+    size_t (*element_serialize_into)(void *, char *, size_t, size_t *, const void *);
+    char *(*document_serialize)(void *, void *);
+    void *(*parse_string_fn)(const char *, size_t, int *);
+    void *(*parse_string_ex)(const char *, size_t, const void *, int *);
+    void *(*parse_file)(const char *, int *);
+    void *(*document_root)(void *);
+    void (*document_free)(void *);
+    void *(*xpath_compiled_eval)(void *, void *, void *);
+    void *(*xpath_compiled_eval_ns)(void *, void *, void *, void *);
+    void *(*parse_string_inplace_fn)(char *, size_t, int *);
+    void *(*variable_set_new)(void);
+    void (*variable_set_free)(void *);
+    int (*variable_set_boolean)(void *, const char *, int);
+    int (*variable_set_number)(void *, const char *, double);
+    int (*variable_set_string)(void *, const char *, const char *);
+    void *(*xpath_compiled_eval_vars)(void *, void *, void *, void *);
+    void *(*parse_with_encoding)(const char *, size_t, int *);
+    void *(*xpath_compiled_eval_ns_vars)(
+        void *, void *, void *, void *, void *);
+    void *(*iterparse_next)(void *);
+    /* descriptor ABI v1 (#1039) result accessors */
+    int (*plan_value_kind)(const void *);
+    const char *(*plan_value_name)(const void *);
+    unsigned char (*plan_value_type_tag)(const void *);
+    const char *(*plan_value_string)(const void *);
+    size_t (*plan_value_length)(const void *);
+    size_t (*plan_value_position)(const void *);
+    size_t (*plan_value_count)(const void *);
+    void *(*plan_value_at)(const void *, size_t);
+    int (*plan_value_int)(const void *, long long *);
+    int (*plan_value_float)(const void *, double *);
+    int (*plan_value_bool)(const void *, int *);
+    const char *(*plan_value_attribute)(const void *, const char *);
+    void *(*xpath_eval_vars_ctx)(void *, void *, const char *, void *);
+    const void *(*sax_records)(void *, size_t *);
+    const char *(*sax_arena)(void *, size_t *);
+    void *(*xquery_eval)(void *, void *, void *);
+} Fns;
+
+#define FN_COUNT 77
+
+static int bound = 0;
+static PyObject *LeptrisErrorType = NULL;
+
+/* -1 with LeptrisError set when the document was closed and this
+ * element poisoned by invalidate(). ~5ns: one pointer compare. */
+/* Invariant: every entry that touches self->raw must guard with
+ * check_poisoned (directly, or by being reachable only from a
+ * guarded entry — attr_walk's case). Audited 2026-09-07; the one
+ * historical gap was elem_get_method (fixed). */
+static int
+check_poisoned(AccelElement *self)
+{
+    if (self->raw == ACCEL_RAW_INVALID) {
+        PyErr_SetString(LeptrisErrorType, "operation on a closed document");
+        return -1;
+    }
+    return 0;
+}
+
+static void
+registry_link(Registry *reg, AccelElement *el)
+{
+    if (reg == NULL)
+        return;
+    el->registry = reg;
+    el->prev = reg->last;
+    el->next = NULL;
+    if (reg->last != NULL)
+        reg->last->next = el;
+    else
+        reg->first = el;
+    reg->last = el;
+}
+
+static void
+registry_unlink(AccelElement *el)
+{
+    Registry *reg = el->registry;
+    if (reg == NULL)
+        return;
+    if (el->prev != NULL)
+        el->prev->next = el->next;
+    else
+        reg->first = el->next;
+    if (el->next != NULL)
+        el->next->prev = el->prev;
+    else
+        reg->last = el->prev;
+    el->registry = NULL;
+}
+
+static void
+registry_capsule_free(PyObject *capsule)
+{
+    Registry *reg = (Registry *)PyCapsule_GetPointer(capsule, "leptris.registry");
+    if (reg != NULL)
+        PyMem_Free(reg);
+}
+
+static PyObject *
+str_or_none(const char *value)
+{
+    if (value == NULL)
+        Py_RETURN_NONE;
+    return PyUnicode_DecodeUTF8(value, strlen(value), "strict");
+}
+
+/* Internal: build an Element from a raw pointer + cdata handle. */
+static PyObject *
+element_from_parts_reg(void *raw, PyObject *ptr, PyObject *document,
+                       Registry *reg)
+{
+    AccelElement *el = (AccelElement *)PyType_GenericAlloc(ElementType, 0);
+    if (el == NULL)
+        return NULL;
+    el->raw = raw;
+    Py_INCREF(ptr);
+    el->ptr = ptr;
+    Py_INCREF(document);
+    el->document = document;
+    registry_link(reg, el);
+    return (PyObject *)el;
+}
+
+static Registry *
+registry_of(PyObject *document)
+{
+    if (document == NULL || document == Py_None)
+        return NULL;
+    PyObject *capsule = PyObject_GetAttrString(document, "_accel_registry");
+    if (capsule == NULL) {
+        PyErr_Clear();
+        return NULL;
+    }
+    Registry *reg = NULL;
+    if (PyCapsule_CheckExact(capsule))
+        reg = (Registry *)PyCapsule_GetPointer(capsule, "leptris.registry");
+    Py_DECREF(capsule);
+    if (PyErr_Occurred()) {
+        PyErr_Clear();
+        return NULL;
+    }
+    return reg;
+}
+
+/* ---- field getsets -------------------------------------------------- */
+
+static int
+elem_set_text(AccelElement *self, PyObject *value, void *closure)
+{
+    if (check_poisoned(self) < 0)
+        return -1;
+    if (value == NULL) {
+        PyErr_SetString(PyExc_NotImplementedError, "deleting text");
+        return -1;
+    }
+    PyObject *encoded = PyUnicode_AsUTF8String(value);
+    if (encoded == NULL)
+        return -1;
+    const char *text = PyBytes_AsString(encoded);
+    int rc = Fns.element_set_text(self->raw, text);
+    Py_DECREF(encoded);
+    if (rc != 0) {
+        PyErr_SetString(LeptrisErrorType, "set_text failed");
+        return -1;
+    }
+    return 0;
+}
+
+
+static PyObject *
+elem_get_ptr(AccelElement *self, void *closure)
+{
+    if (self->ptr == NULL)
+        Py_RETURN_NONE;
+    Py_INCREF(self->ptr);
+    return self->ptr;
+}
+
+static int
+elem_set_ptr(AccelElement *self, PyObject *value, void *closure)
+{
+    PyObject *tmp = self->ptr;
+    Py_XINCREF(value);
+    self->ptr = value;
+    Py_XDECREF(tmp);
+    return 0;
+}
+
+static PyObject *
+elem_get_raw(AccelElement *self, void *closure)
+{
+    if (self->raw == NULL)
+        Py_RETURN_NONE;
+    return PyLong_FromVoidPtr(self->raw);
+}
+
+static int
+elem_set_raw(AccelElement *self, PyObject *value, void *closure)
+{
+    if (value == NULL || value == Py_None) {
+        self->raw = NULL;
+        return 0;
+    }
+    if (!PyLong_Check(value)) {
+        PyErr_SetString(PyExc_TypeError, "_raw must be an address int");
+        return -1;
+    }
+    self->raw = PyLong_AsVoidPtr(value);
+    return 0;
+}
+
+static PyObject *
+elem_get_document(AccelElement *self, void *closure)
+{
+    if (self->document == NULL)
+        Py_RETURN_NONE;
+    Py_INCREF(self->document);
+    return self->document;
+}
+
+static int
+elem_set_document(AccelElement *self, PyObject *value, void *closure)
+{
+    PyObject *tmp = self->document;
+    Py_XINCREF(value);
+    self->document = value;
+    Py_XDECREF(tmp);
+    return 0;
+}
+
+/* ---- C accessors (active once bind() succeeded) --------------------- */
+
+static PyObject *
+elem_get_tag(AccelElement *self, void *closure)
+{
+    if (check_poisoned(self) < 0)
+        return NULL;
+    if (self->cached_tag != NULL) {
+        Py_INCREF(self->cached_tag);
+        return self->cached_tag;
+    }
+    if (!bound || self->raw == NULL)
+        Py_RETURN_NONE; /* element.py provides the Python fallback */
+    const char *ns = Fns.element_namespace(self->raw);
+    const char *name = Fns.element_name(self->raw);
+    if (name == NULL)
+        name = "";
+    PyObject *result = (ns == NULL)
+        ? PyUnicode_DecodeUTF8(name, strlen(name), "strict")
+        : PyUnicode_FromFormat("{%s}%s", ns, name);
+    if (result != NULL) {
+        Py_INCREF(result);
+        Py_XDECREF(self->cached_tag);
+        self->cached_tag = result;
+    }
+    return result;
+}
+
+/* ElementTree text semantics: the merged run of adjacent text/CDATA
+ * nodes before the first child, or None when there is none. */
+static PyObject *
+elem_get_text(AccelElement *self, void *closure)
+{
+    if (check_poisoned(self) < 0)
+        return NULL;
+    if (!bound || self->raw == NULL)
+        Py_RETURN_NONE;
+    void *node = Fns.node_first_child(Fns.element_as_node(self->raw));
+    int type = (node != NULL) ? Fns.node_get_type(node) : 0;
+    if (type != 1 && type != 3)
+        Py_RETURN_NONE;
+    /* Fast path: a lone text/CDATA node with a non-text follower. */
+    {
+        void *after = Fns.node_next_sibling(node);
+        int after_type = (after != NULL) ? Fns.node_get_type(after) : 0;
+        if (after_type != 1 && after_type != 3) {
+            const char *value = (type == 1)
+                ? Fns.text_node_get_content(node)
+                : Fns.cdata_node_get_content(node);
+            if (value == NULL)
+                return PyUnicode_FromString("");
+            return PyUnicode_DecodeUTF8(value, strlen(value), "strict");
+        }
+    }
+    /* Merge adjacent text (1) and CDATA (3) nodes. */
+    PyObject *parts = PyList_New(0);
+    if (parts == NULL)
+        return NULL;
+    while (node != NULL) {
+        int t = Fns.node_get_type(node);
+        if (t != 1 && t != 3)
+            break;
+        const char *value = (t == 1) ? Fns.text_node_get_content(node)
+                                     : Fns.cdata_node_get_content(node);
+        PyObject *piece = (value != NULL)
+            ? PyUnicode_DecodeUTF8(value, strlen(value), "strict")
+            : PyUnicode_FromString("");
+        if (piece == NULL || PyList_Append(parts, piece) < 0) {
+            Py_XDECREF(piece);
+            Py_DECREF(parts);
+            return NULL;
+        }
+        Py_DECREF(piece);
+        node = Fns.node_next_sibling(node);
+    }
+    Py_ssize_t count = PyList_Size(parts);
+    if (count == 1) {
+        PyObject *only = PyList_GetItem(parts, 0);
+        Py_INCREF(only);
+        Py_DECREF(parts);
+        return only;
+    }
+    PyObject *joined = PyUnicode_Join(PyUnicode_FromString(""), parts);
+    Py_DECREF(parts);
+    return joined;
+}
+
+static PyObject *
+elem_get_attrib(AccelElement *self, void *closure)
+{
+    if (check_poisoned(self) < 0)
+        return NULL;
+    if (!bound || self->raw == NULL)
+        Py_RETURN_NONE;
+    if (self->cached_attrib != NULL) {
+        Py_INCREF(self->cached_attrib);
+        return self->cached_attrib;
+    }
+    PyObject *dict = PyObject_CallNoArgs((PyObject *)ReadOnlyDictType);
+    if (dict == NULL)
+        return NULL;
+    /* C-level insertion bypasses the (blocking) Python-level
+     * __setitem__ override on purpose. */
+    void *attr = Fns.element_first_attribute(self->raw);
+    while (attr != NULL) {
+        const char *name = Fns.attribute_get_name(attr);
+        const char *value = Fns.attribute_get_value(self->raw, attr);
+        if (name == NULL)
+            name = "";
+        if (value == NULL)
+            value = "";
+        PyObject *key = PyUnicode_DecodeUTF8(name, strlen(name), "strict");
+        PyObject *val = PyUnicode_DecodeUTF8(value, strlen(value), "strict");
+        if (key == NULL || val == NULL ||
+            PyDict_SetItem(dict, key, val) < 0) {
+            Py_XDECREF(key);
+            Py_XDECREF(val);
+            Py_DECREF(dict);
+            return NULL;
+        }
+        Py_DECREF(key);
+        Py_DECREF(val);
+        attr = Fns.attribute_next(attr);
+    }
+    Py_INCREF(dict);
+    Py_XDECREF(self->cached_attrib);
+    self->cached_attrib = dict;
+    return dict;
+}
+
+static Py_ssize_t
+elem_sq_length(AccelElement *self)
+{
+    if (bound && check_poisoned(self) < 0)
+        return -1;
+    if (!bound || self->raw == NULL)
+        return 0;
+    return (Py_ssize_t)Fns.element_child_count(self->raw);
+}
+
+static PyObject *
+elem_sq_item_inner(AccelElement *self, Py_ssize_t index)
+{
+    if (check_poisoned(self) < 0)
+        return NULL;
+    if (!bound || self->raw == NULL) {
+        PyErr_SetString(PyExc_TypeError, "indexing unavailable");
+        return NULL;
+    }
+    Py_ssize_t count = (Py_ssize_t)Fns.element_child_count(self->raw);
+    Py_ssize_t i = index;
+    if (i < 0)
+        i += count;
+    if (i < 0 || i >= count) {
+        PyErr_SetString(PyExc_IndexError, "child index out of range");
+        return NULL;
+    }
+    void *child = Fns.element_child(self->raw, (size_t)i);
+    if (child == NULL) {
+        PyErr_SetString(PyExc_IndexError, "child index out of range");
+        return NULL;
+    }
+    /* The cdata handle is produced lazily by Python (see _cd). */
+    return element_from_parts_reg(
+        child, Py_None,
+        self->document != NULL ? self->document : Py_None,
+        self->registry);
+}
+
+static PyObject *
+elem_mp_subscript(AccelElement *self, PyObject *key)
+{
+    if (bound && self->raw != NULL && PyLong_Check(key)) {
+        Py_ssize_t index = PyLong_AsSsize_t(key);
+        if (!PyErr_Occurred())
+            return elem_sq_item_inner(self, index);
+        PyErr_Clear();
+    }
+    if (bound && self->raw != NULL && PySlice_Check(key)) {
+        Py_ssize_t count = (Py_ssize_t)Fns.element_child_count(self->raw);
+        Py_ssize_t start, stop, step, length;
+        if (PySlice_GetIndicesEx(key, count, &start, &stop, &step, &length) < 0)
+            return NULL;
+        PyObject *out = PyList_New(length);
+        if (out == NULL)
+            return NULL;
+        for (Py_ssize_t i = 0; i < length; i++) {
+            Py_ssize_t idx = start + i * step;
+            void *child = Fns.element_child(self->raw, (size_t)idx);
+            PyObject *el = element_from_parts_reg(
+                child, Py_None,
+                self->document != NULL ? self->document : Py_None,
+                self->registry);
+            if (el == NULL || PyList_SetItem(out, i, el) < 0) {
+                Py_XDECREF(el);
+                Py_DECREF(out);
+                return NULL;
+            }
+        }
+        return out;
+    }
+    /* slices and anything else: Python implementation */
+    PyObject *method = PyObject_GetAttrString(
+        (PyObject *)Py_TYPE(self), "_py_getitem");
+    if (method == NULL)
+        return NULL;
+    PyObject *result = PyObject_CallFunctionObjArgs(method, (PyObject *)self, key, NULL);
+    Py_DECREF(method);
+    return result;
+}
+
+static PyObject *
+wrap_sibling(AccelElement *self, void *sibling)
+{
+    if (sibling == NULL)
+        Py_RETURN_NONE;
+    return element_from_parts_reg(
+        sibling, Py_None,
+        self->document != NULL ? self->document : Py_None,
+        self->registry);
+}
+
+static PyObject *
+elem_getparent(AccelElement *self, PyObject *unused)
+{
+    if (check_poisoned(self) < 0)
+        return NULL;
+    if (!bound || self->raw == NULL)
+        Py_RETURN_NONE;
+    return wrap_sibling(self, Fns.element_parent(self->raw));
+}
+
+static PyObject *
+elem_getnext(AccelElement *self, PyObject *unused)
+{
+    if (check_poisoned(self) < 0)
+        return NULL;
+    if (!bound || self->raw == NULL)
+        Py_RETURN_NONE;
+    return wrap_sibling(self, Fns.element_next_sibling_any(self->raw));
+}
+
+static PyObject *
+elem_get_method(AccelElement *self, PyObject *args)
+{
+    PyObject *name;
+    PyObject *default_value = Py_None;
+    if (!PyArg_ParseTuple(args, "U|O", &name, &default_value))
+        return NULL;
+    if (check_poisoned(self) < 0)
+        return NULL;
+    if (!bound || self->raw == NULL)
+        Py_RETURN_NONE;
+    PyObject *encoded = PyUnicode_AsUTF8String(name);
+    if (encoded == NULL)
+        return NULL;
+    const char *utf8 = PyBytes_AsString(encoded);
+    if (utf8 == NULL) {
+        Py_DECREF(encoded);
+        return NULL;
+    }
+    const char *value = NULL;
+    if (utf8[0] == '{' && Fns.element_attribute_ns != NULL) {
+        /* Clark "{uri}local" -> namespace-aware lookup */
+        const char *close = strchr(utf8 + 1, '}');
+        if (close != NULL) {
+            PyObject *uri = PyBytes_FromStringAndSize(
+                utf8 + 1, close - utf8 - 1);
+            if (uri == NULL) {
+                Py_DECREF(encoded);
+                return NULL;
+            }
+            value = Fns.element_attribute_ns(
+                self->raw, PyBytes_AsString(uri), close + 1);
+            Py_DECREF(uri);
+        }
+    } else {
+        value = Fns.element_attribute(self->raw, utf8);
+    }
+    Py_DECREF(encoded);
+    if (value == NULL) {
+        Py_INCREF(default_value);
+        return default_value;
+    }
+    return PyUnicode_DecodeUTF8(value, strlen(value), "strict");
+}
+
+static PyObject *
+text_run_after(AccelElement *self, void *first_node) /* self unused */
+{
+    void *node = first_node;
+    PyObject *parts = PyList_New(0);
+    if (parts == NULL)
+        return NULL;
+    while (node != NULL) {
+        int t = Fns.node_get_type(node);
+        if (t != 1 && t != 3)
+            break;
+        const char *value = (t == 1) ? Fns.text_node_get_content(node)
+                                     : Fns.cdata_node_get_content(node);
+        PyObject *piece = (value != NULL)
+            ? PyUnicode_DecodeUTF8(value, strlen(value), "strict")
+            : PyUnicode_FromString("");
+        if (piece == NULL || PyList_Append(parts, piece) < 0) {
+            Py_XDECREF(piece);
+            Py_DECREF(parts);
+            return NULL;
+        }
+        Py_DECREF(piece);
+        node = Fns.node_next_sibling(node);
+    }
+    Py_ssize_t count = PyList_Size(parts);
+    if (count == 0) {
+        Py_DECREF(parts);
+        Py_RETURN_NONE;
+    }
+    if (count == 1) {
+        PyObject *only = PyList_GetItem(parts, 0);
+        Py_INCREF(only);
+        Py_DECREF(parts);
+        return only;
+    }
+    PyObject *joined = PyUnicode_Join(PyUnicode_FromString(""), parts);
+    Py_DECREF(parts);
+    return joined;
+}
+
+static PyObject *
+elem_get_tail(AccelElement *self, void *closure)
+{
+    if (check_poisoned(self) < 0)
+        return NULL;
+    if (!bound || self->raw == NULL)
+        Py_RETURN_NONE;
+    void *node = Fns.node_next_sibling(Fns.element_as_node(self->raw));
+    int type = (node != NULL) ? Fns.node_get_type(node) : 0;
+    if (type != 1 && type != 3)
+        Py_RETURN_NONE;
+    return text_run_after(self, node);
+}
+
+static PyObject *
+elem_get_namespace(AccelElement *self, void *closure)
+{
+    if (check_poisoned(self) < 0)
+        return NULL;
+    if (!bound || self->raw == NULL)
+        Py_RETURN_NONE;
+    return str_or_none(Fns.element_namespace(self->raw));
+}
+
+static PyObject *
+elem_get_prefix(AccelElement *self, void *closure)
+{
+    if (check_poisoned(self) < 0)
+        return NULL;
+    if (!bound || self->raw == NULL)
+        Py_RETURN_NONE;
+    return str_or_none(Fns.element_prefix_fn(self->raw));
+}
+
+static PyObject *
+elem_get_sourceline(AccelElement *self, void *closure)
+{
+    if (check_poisoned(self) < 0)
+        return NULL;
+    if (!bound || self->raw == NULL)
+        Py_RETURN_NONE;
+    return PyLong_FromLong(
+        (long)Fns.node_line(Fns.element_as_node(self->raw)));
+}
+
+static PyGetSetDef element_getsets[] = {
+    {"_ptr", (getter)elem_get_ptr, (setter)elem_set_ptr,
+     "cffi handle for the wrapped LeptrisElement.", NULL},
+    {"_raw", (getter)elem_get_raw, (setter)elem_set_raw,
+     "Raw element pointer as an int (internal).", NULL},
+    {"_document", (getter)elem_get_document, (setter)elem_set_document,
+     "Owning Document.", NULL},
+    {"tag", (getter)elem_get_tag, NULL, "Element name (Clark notation).", NULL},
+    {"text", (getter)elem_get_text, (setter)elem_set_text,
+     "First-run text content (settable; libleptris 1.9.216+).", NULL},
+    {"attrib", (getter)elem_get_attrib, NULL, "Attributes as a dict.", NULL},
+    {"tail", (getter)elem_get_tail, NULL, "Trailing text run.", NULL},
+    {"namespace", (getter)elem_get_namespace, NULL, "Namespace URI.", NULL},
+    {"prefix", (getter)elem_get_prefix, NULL, "Namespace prefix.", NULL},
+    {"sourceline", (getter)elem_get_sourceline, NULL, "Source line.", NULL},
+    {NULL}
+};
+
+/* typed attribute getters: conversion engine-side, one crossing.
+ * Plain names only — a Clark "{uri}local" name would silently
+ * compare against a literal attribute name and misreport, so it is
+ * rejected outright. */
+static PyObject *
+elem_get_int(AccelElement *self, PyObject *args)
+{
+    PyObject *name;
+    long default_value = 0;
+    if (!PyArg_ParseTuple(args, "U|l", &name, &default_value))
+        return NULL;
+    if (check_poisoned(self) < 0)
+        return NULL;
+    if (!bound || self->raw == NULL)
+        return PyLong_FromLong(default_value);
+    PyObject *encoded = PyUnicode_AsUTF8String(name);
+    if (encoded == NULL)
+        return NULL;
+    const char *utf8 = PyBytes_AsString(encoded);
+    if (utf8 == NULL || utf8[0] == '{') {
+        Py_XDECREF(encoded);
+        if (utf8 != NULL)
+            PyErr_SetString(PyExc_ValueError,
+                            "typed attribute getters take a plain name");
+        return NULL;
+    }
+    long value = Fns.element_attribute_int(
+        self->raw, utf8, (int)default_value);
+    Py_DECREF(encoded);
+    return PyLong_FromLong(value);
+}
+
+static PyObject *
+elem_get_float(AccelElement *self, PyObject *args)
+{
+    PyObject *name;
+    double default_value = 0.0;
+    if (!PyArg_ParseTuple(args, "U|d", &name, &default_value))
+        return NULL;
+    if (check_poisoned(self) < 0)
+        return NULL;
+    if (!bound || self->raw == NULL)
+        return PyFloat_FromDouble(default_value);
+    PyObject *encoded = PyUnicode_AsUTF8String(name);
+    if (encoded == NULL)
+        return NULL;
+    const char *utf8 = PyBytes_AsString(encoded);
+    if (utf8 == NULL || utf8[0] == '{') {
+        Py_XDECREF(encoded);
+        if (utf8 != NULL)
+            PyErr_SetString(PyExc_ValueError,
+                            "typed attribute getters take a plain name");
+        return NULL;
+    }
+    double value = Fns.element_attribute_double(
+        self->raw, utf8, default_value);
+    Py_DECREF(encoded);
+    return PyFloat_FromDouble(value);
+}
+
+static PyObject *
+elem_get_bool(AccelElement *self, PyObject *args)
+{
+    PyObject *name;
+    int default_value = 0;
+    if (!PyArg_ParseTuple(args, "U|p", &name, &default_value))
+        return NULL;
+    if (check_poisoned(self) < 0)
+        return NULL;
+    if (!bound || self->raw == NULL) {
+        if (default_value)
+            Py_RETURN_TRUE;
+        Py_RETURN_FALSE;
+    }
+    PyObject *encoded = PyUnicode_AsUTF8String(name);
+    if (encoded == NULL)
+        return NULL;
+    const char *utf8 = PyBytes_AsString(encoded);
+    if (utf8 == NULL || utf8[0] == '{') {
+        Py_XDECREF(encoded);
+        if (utf8 != NULL)
+            PyErr_SetString(PyExc_ValueError,
+                            "typed attribute getters take a plain name");
+        return NULL;
+    }
+    int value = Fns.element_attribute_bool(
+        self->raw, utf8, default_value);
+    Py_DECREF(encoded);
+    if (value)
+        Py_RETURN_TRUE;
+    Py_RETURN_FALSE;
+}
+
+static PyObject *
+elem_getprevious(AccelElement *self, PyObject *unused)
+{
+    if (check_poisoned(self) < 0)
+        return NULL;
+    if (!bound || self->raw == NULL)
+        Py_RETURN_NONE;
+    return wrap_sibling(self, Fns.element_previous_sibling_any_fn(self->raw));
+}
+
+typedef struct { int want; PyObject *keys; PyObject *vals; PyObject *pairs; } AttrSink;
+
+static int
+attr_walk(AccelElement *self, AttrSink *sink)
+{
+    void *attr = Fns.element_first_attribute(self->raw);
+    while (attr != NULL) {
+        const char *name = Fns.attribute_get_name(attr);
+        const char *value = Fns.attribute_get_value(self->raw, attr);
+        if (name == NULL)
+            name = "";
+        if (value == NULL)
+            value = "";
+        PyObject *key = PyUnicode_DecodeUTF8(name, strlen(name), "strict");
+        if (key == NULL)
+            return -1;
+        PyObject *val = NULL;
+        if (sink->vals != NULL || sink->pairs != NULL) {
+            val = PyUnicode_DecodeUTF8(value, strlen(value), "strict");
+            if (val == NULL) {
+                Py_DECREF(key);
+                return -1;
+            }
+        }
+        int failed = 0;
+        if (sink->keys != NULL)
+            failed = PyList_Append(sink->keys, key) < 0;
+        if (!failed && sink->vals != NULL)
+            failed = PyList_Append(sink->vals, val) < 0;
+        if (!failed && sink->pairs != NULL) {
+            PyObject *pair = PyTuple_Pack(2, key, val);
+            if (pair == NULL || PyList_Append(sink->pairs, pair) < 0)
+                failed = 1;
+            Py_XDECREF(pair);
+        }
+        Py_DECREF(key);
+        Py_XDECREF(val);
+        if (failed)
+            return -1;
+        attr = Fns.attribute_next(attr);
+    }
+    return 0;
+}
+
+static PyObject *
+attr_list_method(AccelElement *self, int want)
+{
+    if (check_poisoned(self) < 0)
+        return NULL;
+    if (!bound || self->raw == NULL)
+        return PyList_New(0);
+    AttrSink sink = {want, NULL, NULL, NULL};
+    if (want == 0) {
+        sink.keys = PyList_New(0);
+        if (sink.keys == NULL) return NULL;
+    } else if (want == 1) {
+        sink.vals = PyList_New(0);
+        if (sink.vals == NULL) return NULL;
+    } else {
+        sink.pairs = PyList_New(0);
+        if (sink.pairs == NULL) return NULL;
+    }
+    if (attr_walk(self, &sink) < 0) {
+        Py_XDECREF(sink.keys);
+        Py_XDECREF(sink.vals);
+        Py_XDECREF(sink.pairs);
+        return NULL;
+    }
+    if (want == 0) return sink.keys;
+    if (want == 1) return sink.vals;
+    return sink.pairs;
+}
+
+static PyObject *
+elem_keys(AccelElement *self, PyObject *unused)
+{
+    return attr_list_method(self, 0);
+}
+
+static PyObject *
+elem_values(AccelElement *self, PyObject *unused)
+{
+    return attr_list_method(self, 1);
+}
+
+static PyObject *
+elem_items(AccelElement *self, PyObject *unused)
+{
+    return attr_list_method(self, 2);
+}
+
+/* Document-order text runs of the subtree, merged per run. */
+static int
+itertext_walk(void *element, PyObject *out)
+{
+    void *node = Fns.node_first_child(Fns.element_as_node(element));
+    while (node != NULL) {
+        int type = Fns.node_get_type(node);
+        if (type == 1 || type == 3) {
+            PyObject *run = text_run_after(NULL, node);
+            if (run == NULL || PyList_Append(out, run) < 0) {
+                Py_XDECREF(run);
+                return -1;
+            }
+            Py_DECREF(run);
+            while (node != NULL) { /* skip the consumed run */
+                int t = Fns.node_get_type(node);
+                if (t != 1 && t != 3)
+                    break;
+                node = Fns.node_next_sibling(node);
+            }
+        } else {
+            if (type == 0 && itertext_walk(node, out) < 0)
+                return -1;
+            node = Fns.node_next_sibling(node);
+        }
+    }
+    return 0;
+}
+
+static PyObject *
+elem_itertext(AccelElement *self, PyObject *unused)
+{
+    if (check_poisoned(self) < 0)
+        return NULL;
+    if (!bound || self->raw == NULL)
+        return PyList_New(0);
+    PyObject *out = PyList_New(0);
+    if (out == NULL)
+        return NULL;
+    if (itertext_walk(self->raw, out) < 0) {
+        Py_DECREF(out);
+        return NULL;
+    }
+    return out;
+}
+
+static PyMethodDef element_methods[] = {
+    {"getparent", (PyCFunction)elem_getparent, METH_NOARGS,
+     "Parent element or None."},
+    {"getnext", (PyCFunction)elem_getnext, METH_NOARGS,
+     "Next element sibling or None."},
+    {"get", (PyCFunction)elem_get_method, METH_VARARGS,
+     "get(name, default=None) -> attribute value."},
+    {"get_int", (PyCFunction)elem_get_int, METH_VARARGS,
+     "get_int(name, default=0) -> strict int; default when missing/"
+     "empty/unparseable."},
+    {"get_float", (PyCFunction)elem_get_float, METH_VARARGS,
+     "get_float(name, default=0.0) -> strict float; default when "
+     "missing/empty/unparseable."},
+    {"get_bool", (PyCFunction)elem_get_bool, METH_VARARGS,
+     "get_bool(name, default=False) -> true/1/yes truthy, false/0 "
+     "falsy, default otherwise."},
+    {"getprevious", (PyCFunction)elem_getprevious, METH_NOARGS,
+     "Previous element sibling or None."},
+    {"keys", (PyCFunction)elem_keys, METH_NOARGS,
+     "Attribute names in document order."},
+    {"items", (PyCFunction)elem_items, METH_NOARGS,
+     "(name, value) pairs in document order."},
+    {"values", (PyCFunction)elem_values, METH_NOARGS,
+     "Attribute values in document order."},
+    {"itertext", (PyCFunction)elem_itertext, METH_NOARGS,
+     "Merged text runs of the subtree, document order."},
+    {NULL}
+};
+
+static void
+element_dealloc(AccelElement *self)
+{
+    registry_unlink(self);
+    Py_XDECREF(self->ptr);
+    Py_XDECREF(self->document);
+    Py_XDECREF(self->cached_tag);
+    Py_XDECREF(self->cached_attrib);
+    PyObject_Free(self);
+}
+
+static PyType_Slot element_slots[] = {
+    {Py_tp_dealloc, (void *)element_dealloc},
+    {Py_tp_getset, (void *)element_getsets},
+    {Py_tp_methods, (void *)element_methods},
+    {Py_sq_length, (void *)elem_sq_length},
+    {Py_mp_subscript, (void *)elem_mp_subscript},
+    {Py_tp_doc, (void *)"Accelerated Element base type."},
+    {0, NULL}
+};
+
+static PyType_Slot rodict_slots[] = {
+    {Py_mp_ass_subscript, (void *)rodict_ass_subscript},
+    {Py_sq_ass_item, (void *)rodict_sq_ass_item},
+    {0, NULL}
+};
+
+static PyObject *ObjectBases = NULL;
+
+static PyType_Spec rodict_spec = {
+    "leptris._leptrisaccel.ReadOnlyDict",
+    0,
+    0,
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_BASETYPE,
+    rodict_slots
+};
+
+static PyType_Spec element_spec = {
+    "leptris._leptrisaccel.Element",
+    sizeof(AccelElement),
+    0,
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_BASETYPE,
+    element_slots
+};
+
+/* ---- module-level factories ----------------------------------------- */
+
+static PyObject *
+accel_create(PyObject *module, PyObject *args)
+{
+    PyObject *ptr, *document;
+    unsigned long long address;
+    if (!PyArg_ParseTuple(args, "KOO", &address, &ptr, &document))
+        return NULL;
+    return element_from_parts_reg(
+        (void *)(uintptr_t)address, ptr, document, registry_of(document));
+}
+
+static PyObject *
+accel_materialize(PyObject *module, PyObject *args)
+{
+    PyObject *ptrs, *document, *addresses;
+    if (!PyArg_ParseTuple(args, "OOO", &ptrs, &document, &addresses))
+        return NULL;
+    PyObject *fast = PySequence_Fast(ptrs, "ptrs must be a sequence");
+    if (fast == NULL)
+        return NULL;
+    PyObject *fast_addr =
+        PySequence_Fast(addresses, "addresses must be a sequence");
+    if (fast_addr == NULL) {
+        Py_DECREF(fast);
+        return NULL;
+    }
+    int is_list = PyList_Check(fast);
+    int addr_is_list = PyList_Check(fast_addr);
+    Py_ssize_t count = is_list ? PyList_Size(fast) : PyTuple_Size(fast);
+    Py_ssize_t addr_count =
+        addr_is_list ? PyList_Size(fast_addr) : PyTuple_Size(fast_addr);
+    if (addr_count < count) {
+        Py_DECREF(fast_addr);
+        Py_DECREF(fast);
+        PyErr_SetString(PyExc_ValueError, "addresses shorter than ptrs");
+        return NULL;
+    }
+    PyObject *out = PyList_New(count);
+    if (out == NULL) {
+        Py_DECREF(fast_addr);
+        Py_DECREF(fast);
+        return NULL;
+    }
+    for (Py_ssize_t i = 0; i < count; i++) {
+        PyObject *ptr = is_list ? PyList_GetItem(fast, i)
+                                : PyTuple_GetItem(fast, i);
+        PyObject *addr_obj = addr_is_list ? PyList_GetItem(fast_addr, i)
+                                          : PyTuple_GetItem(fast_addr, i);
+        void *raw = NULL;
+        if (PyLong_Check(addr_obj))
+            raw = PyLong_AsVoidPtr(addr_obj);
+        AccelElement *el =
+            (AccelElement *)PyType_GenericAlloc(ElementType, 0);
+        if (el == NULL || PyList_SetItem(out, i, (PyObject *)el) < 0) {
+            Py_XDECREF((PyObject *)el);
+            Py_DECREF(out);
+            Py_DECREF(fast_addr);
+            Py_DECREF(fast);
+            return NULL;
+        }
+        el->raw = raw;
+        Py_INCREF(ptr);
+        el->ptr = ptr;
+        Py_INCREF(document);
+        el->document = document;
+        registry_link(registry_of(document), el);
+    }
+    Py_DECREF(fast_addr);
+    Py_DECREF(fast);
+    return out;
+}
+
+static PyObject *
+accel_bind(PyObject *module, PyObject *args)
+{
+    PyObject *addresses, *error_class;
+    if (!PyArg_ParseTuple(args, "OO", &addresses, &error_class))
+        return NULL;
+    PyObject *fast = PySequence_Fast(addresses, "addresses must be a sequence");
+    if (fast == NULL)
+        return NULL;
+    Py_ssize_t count = PySequence_Size(fast);
+    if (count != FN_COUNT) {
+        Py_DECREF(fast);
+        PyErr_Format(
+            PyExc_ValueError,
+            "bind: expected %d function addresses in Fns declaration "
+            "order, got %zd", FN_COUNT, count);
+        return NULL;
+    }
+    /* The Fns declaration order IS the protocol. */
+    void **slots[] = {
+    (void **)&Fns.element_name,
+    (void **)&Fns.element_namespace,
+    (void **)&Fns.element_attribute,
+    (void **)&Fns.element_attribute_ns,
+    (void **)&Fns.element_child,
+    (void **)&Fns.element_child_count,
+    (void **)&Fns.element_as_node,
+    (void **)&Fns.node_first_child,
+    (void **)&Fns.node_next_sibling,
+    (void **)&Fns.node_get_type,
+    (void **)&Fns.text_node_get_content,
+    (void **)&Fns.cdata_node_get_content,
+    (void **)&Fns.element_first_child_any,
+    (void **)&Fns.element_prefix_fn,
+    (void **)&Fns.element_previous_sibling_any_fn,
+    (void **)&Fns.element_set_text,
+    (void **)&Fns.attribute_count,
+    (void **)&Fns.element_attribute_pairs,
+    (void **)&Fns.element_attribute_int,
+    (void **)&Fns.element_attribute_double,
+    (void **)&Fns.element_attribute_bool,
+    (void **)&Fns.element_first_attribute,
+    (void **)&Fns.attribute_next,
+    (void **)&Fns.attribute_get_name,
+    (void **)&Fns.attribute_get_value,
+    (void **)&Fns.element_parent,
+    (void **)&Fns.element_next_sibling_any,
+    (void **)&Fns.node_line,
+    (void **)&Fns.xpath_eval,
+    (void **)&Fns.xpath_result_type,
+    (void **)&Fns.xpath_result_count,
+    (void **)&Fns.xpath_result_get_nodes,
+    (void **)&Fns.xpath_result_free,
+    (void **)&Fns.xpath_result_number,
+    (void **)&Fns.xpath_result_boolean,
+    (void **)&Fns.xpath_result_string,
+    (void **)&Fns.free_string,
+    (void **)&Fns.ns_set_new,
+    (void **)&Fns.ns_set_free,
+    (void **)&Fns.ns_set_add,
+    (void **)&Fns.xpath_eval_ns,
+    (void **)&Fns.element_serialize,
+    (void **)&Fns.element_serialize_into,
+    (void **)&Fns.document_serialize,
+    (void **)&Fns.parse_string_fn,
+    (void **)&Fns.parse_string_ex,
+    (void **)&Fns.parse_file,
+    (void **)&Fns.document_root,
+    (void **)&Fns.document_free,
+    (void **)&Fns.xpath_compiled_eval,
+    (void **)&Fns.xpath_compiled_eval_ns,
+    (void **)&Fns.parse_string_inplace_fn,
+    (void **)&Fns.variable_set_new,
+    (void **)&Fns.variable_set_free,
+    (void **)&Fns.variable_set_boolean,
+    (void **)&Fns.variable_set_number,
+    (void **)&Fns.variable_set_string,
+    (void **)&Fns.xpath_compiled_eval_vars,
+    (void **)&Fns.parse_with_encoding,
+    (void **)&Fns.xpath_compiled_eval_ns_vars,
+    (void **)&Fns.iterparse_next,
+    (void **)&Fns.plan_value_kind,
+    (void **)&Fns.plan_value_name,
+    (void **)&Fns.plan_value_type_tag,
+    (void **)&Fns.plan_value_string,
+    (void **)&Fns.plan_value_length,
+    (void **)&Fns.plan_value_position,
+    (void **)&Fns.plan_value_count,
+    (void **)&Fns.plan_value_at,
+    (void **)&Fns.plan_value_int,
+    (void **)&Fns.plan_value_float,
+    (void **)&Fns.plan_value_bool,
+    (void **)&Fns.plan_value_attribute,
+    (void **)&Fns.xpath_eval_vars_ctx,
+    (void **)&Fns.sax_records,
+    (void **)&Fns.sax_arena,
+    (void **)&Fns.xquery_eval,
+    };
+    for (Py_ssize_t i = 0; i < FN_COUNT; i++) {
+        PyObject *item = PyList_Check(fast)
+            ? PyList_GetItem(fast, i)
+            : PyTuple_GetItem(fast, i);
+        if (!PyLong_Check(item)) {
+            Py_DECREF(fast);
+            PyErr_SetString(PyExc_TypeError, "addresses must be ints");
+            return NULL;
+        }
+        *slots[i] = PyLong_AsVoidPtr(item);
+    }
+    Py_DECREF(fast);
+    if (error_class != Py_None) {
+        Py_XDECREF(LeptrisErrorType);
+        Py_INCREF(error_class);
+        LeptrisErrorType = error_class;
+    }
+    bound = 1;
+    Py_RETURN_NONE;
+}
+
+/* Shared tail of the C evaluation paths: scalars converted, all-
+ * element nodesets materialized, anything else -> None (Python path).
+ * Consumes result. */
+static PyObject *
+finish_result(void *result, PyObject *document)
+{
+    int rtype = Fns.xpath_result_type(result);
+    if (rtype != 0) {
+        PyObject *scalar = NULL;
+        if (rtype == 4) {
+            /* XPath function item: not representable here — hand
+             * back to the engine path, which raises the explicit
+             * XPathError (libleptris TODO 07 lane). */
+            Fns.xpath_result_free(result);
+            Py_RETURN_NONE;
+        }
+        if (rtype == 2)
+            scalar = PyFloat_FromDouble(Fns.xpath_result_number(result));
+        else if (rtype == 1)
+            scalar = PyBool_FromLong(Fns.xpath_result_boolean(result));
+        else if (rtype == 3) {
+            char *s = Fns.xpath_result_string(result);
+            if (s == NULL)
+                scalar = PyUnicode_FromString("");
+            else {
+                scalar = PyUnicode_DecodeUTF8(s, strlen(s), "strict");
+                Fns.free_string(s);
+            }
+        }
+        Fns.xpath_result_free(result);
+        return scalar;
+    }
+    size_t count = Fns.xpath_result_count(result);
+    if (count == 0) {
+        Fns.xpath_result_free(result);
+        return PyList_New(0);
+    }
+    PyObject *out = PyList_New((Py_ssize_t)count);
+    if (out == NULL) {
+        Fns.xpath_result_free(result);
+        return NULL;
+    }
+    void **elems = (void **)PyMem_Malloc(count * sizeof(void *));
+    if (elems == NULL) {
+        Py_DECREF(out);
+        Fns.xpath_result_free(result);
+        return PyErr_NoMemory();
+    }
+    size_t copied = Fns.xpath_result_get_nodes(result, elems, count);
+    Fns.xpath_result_free(result);
+    if (copied != count) {
+        /* mixed nodeset: hand back to the engine path untouched */
+        Py_DECREF(out);
+        PyMem_Free(elems);
+        Py_RETURN_NONE;
+    }
+    Registry *reg = registry_of(document);
+    for (size_t i = 0; i < copied; i++) {
+        PyObject *el = element_from_parts_reg(elems[i], Py_None, document, reg);
+        if (el == NULL) {
+            Py_DECREF(out);
+            PyMem_Free(elems);
+            return NULL;
+        }
+        PyList_SetItem(out, (Py_ssize_t)i, el);
+    }
+    PyMem_Free(elems);
+    return out;
+}
+
+static PyObject *
+accel_nodeset(PyObject *module, PyObject *args)
+{
+    PyObject *document_ptr, *context_obj, *expression, *document;
+    if (!PyArg_ParseTuple(args, "OOOO", &document_ptr, &context_obj,
+                          &expression, &document))
+        return NULL;
+    if (!bound)
+        Py_RETURN_NONE;
+    PyObject *encoded = PyUnicode_AsUTF8String(expression);
+    if (encoded == NULL)
+        return NULL;
+    const char *expr = PyBytes_AsString(encoded);
+    void *ctx = NULL;
+    if (context_obj != Py_None && PyLong_Check(context_obj))
+        ctx = PyLong_AsVoidPtr(context_obj);
+    if (!PyLong_Check(document_ptr)) {
+        Py_DECREF(encoded);
+        Py_RETURN_NONE;
+    }
+    void *doc_raw = PyLong_AsVoidPtr(document_ptr);
+    void *result = Fns.xpath_eval(doc_raw, ctx, expr);
+    Py_DECREF(encoded);
+    if (result == NULL)
+        Py_RETURN_NONE;
+    return finish_result(result, document);
+}
+
+static PyObject *
+accel_nodeset_ns(PyObject *module, PyObject *args)
+{
+    PyObject *document_ptr, *context_obj, *expression, *document, *bindings;
+    /* bindings: flat [prefix, uri, prefix, uri, ...] */
+    if (!PyArg_ParseTuple(args, "OOOOO", &document_ptr, &context_obj,
+                          &expression, &document, &bindings))
+        return NULL;
+    if (!bound || !PyLong_Check(document_ptr))
+        Py_RETURN_NONE;
+    PyObject *fast = PySequence_Fast(bindings, "bindings must be a sequence");
+    if (fast == NULL)
+        return NULL;
+    Py_ssize_t n = PySequence_Size(fast);
+    void *ns_set = Fns.ns_set_new();
+    if (ns_set == NULL) {
+        Py_DECREF(fast);
+        Py_RETURN_NONE;
+    }
+    int ok = 1;
+    int is_list = PyList_Check(fast);
+    for (Py_ssize_t i = 0; i + 1 < n && ok; i += 2) {
+        PyObject *prefix = PyUnicode_AsUTF8String(
+            is_list ? PyList_GetItem(fast, i) : PyTuple_GetItem(fast, i));
+        PyObject *uri = PyUnicode_AsUTF8String(
+            is_list ? PyList_GetItem(fast, i + 1)
+                    : PyTuple_GetItem(fast, i + 1));
+        if (prefix == NULL || uri == NULL) {
+            Py_XDECREF(prefix);
+            Py_XDECREF(uri);
+            ok = 0;
+            break;
+        }
+        if (Fns.ns_set_add(ns_set, PyBytes_AsString(prefix),
+                           PyBytes_AsString(uri)) != 0)
+            ok = 0;
+        Py_DECREF(prefix);
+        Py_DECREF(uri);
+    }
+    Py_DECREF(fast);
+    if (!ok) {
+        Fns.ns_set_free(ns_set);
+        Py_RETURN_NONE;
+    }
+    PyObject *encoded = PyUnicode_AsUTF8String(expression);
+    if (encoded == NULL) {
+        Fns.ns_set_free(ns_set);
+        return NULL;
+    }
+    void *ctx = NULL;
+    if (context_obj != Py_None && PyLong_Check(context_obj))
+        ctx = PyLong_AsVoidPtr(context_obj);
+    void *doc_raw = PyLong_AsVoidPtr(document_ptr);
+    void *result = Fns.xpath_eval_ns(
+        doc_raw, ctx, PyBytes_AsString(encoded), ns_set);
+    Py_DECREF(encoded);
+    Fns.ns_set_free(ns_set);
+    if (result == NULL)
+        Py_RETURN_NONE;
+    return finish_result(result, document);
+}
+
+static PyObject *
+accel_serialize_elem(PyObject *module, PyObject *args)
+{
+    unsigned long long address;
+    int indent, declaration;
+    if (!PyArg_ParseTuple(args, "Kii", &address, &indent, &declaration))
+        return NULL;
+    if (!bound)
+        Py_RETURN_NONE;
+    /* The engine's non-NULL options path is measurably slower even
+     * for defaults - pass NULL unless something is requested. */
+    void *options = NULL;
+    struct { int indent; int xml_declaration; const char *encoding; } opts;
+    static const char utf8[] = "UTF-8";
+    if (indent != 0 || declaration != 0) {
+        opts.indent = indent;
+        opts.xml_declaration = declaration;
+        /* the engine emits the declaration only with an encoding set */
+        opts.encoding = (declaration != 0) ? utf8 : NULL;
+        options = &opts;
+    }
+    if (Fns.element_serialize_into == NULL)
+        Py_RETURN_NONE;
+    /* 1.9.0: _into takes the options pointer directly - no
+     * allocating fallback needed. */
+    size_t needed = Fns.element_serialize_into(
+        (void *)(uintptr_t)address, NULL, 0, NULL, options);
+    if (needed == 0)
+        Py_RETURN_NONE;
+    PyObject *bytes = PyBytes_FromStringAndSize(NULL, (Py_ssize_t)(needed - 1));
+    if (bytes == NULL)
+        return NULL;
+    size_t written = 0;
+    Fns.element_serialize_into((void *)(uintptr_t)address,
+                               PyBytes_AsString(bytes), needed, &written,
+                               options);
+    return bytes;
+}
+
+/* First element child whose name matches, via the element sibling
+ * chain (no XPath). Sentinel: None -> not found; needs the document
+ * object to attach ownership. */
+static PyObject *
+accel_find_first(PyObject *module, PyObject *args)
+{
+    unsigned long long address;
+    PyObject *name, *document;
+    if (!PyArg_ParseTuple(args, "KUO", &address, &name, &document))
+        return NULL;
+    if (!bound)
+        Py_RETURN_NONE;
+    PyObject *encoded = PyUnicode_AsUTF8String(name);
+    if (encoded == NULL)
+        return NULL;
+    const char *want = PyBytes_AsString(encoded);
+    size_t want_len = strlen(want);
+    void *child = Fns.element_first_child_any((void *)(uintptr_t)address);
+    while (child != NULL) {
+        const char *candidate = Fns.element_name(child);
+        /* plain name test: local name AND no namespace (ElementTree
+         * semantics — must agree with the engine path findall uses) */
+        if (candidate != NULL && strcmp(candidate, want) == 0
+            && strlen(candidate) == want_len
+            && Fns.element_namespace(child) == NULL) {
+            Py_DECREF(encoded);
+            return element_from_parts_reg(
+                child, Py_None, document, registry_of(document));
+        }
+        child = Fns.element_next_sibling_any(child);
+    }
+    Py_DECREF(encoded);
+    Py_RETURN_NONE;
+}
+
+/* DFS first-match walk over a slash-separated plain-name path.
+ * names[i] are pre-encoded UTF-8; a step matches local name + no
+ * namespace, so find("a/b") agrees with findall("a/b")[0] and
+ * stops at the first match instead of materializing the list. */
+static void *
+walk_path(void *el, PyObject **names, Py_ssize_t n, Py_ssize_t i)
+{
+    void *child = Fns.element_first_child_any(el);
+    while (child != NULL) {
+        const char *name = Fns.element_name(child);
+        if (name != NULL && strcmp(name, PyBytes_AsString(names[i])) == 0
+            && Fns.element_namespace(child) == NULL) {
+            if (i + 1 == n)
+                return child;
+            void *found = walk_path(child, names, n, i + 1);
+            if (found != NULL)
+                return found;
+        }
+        child = Fns.element_next_sibling_any(child);
+    }
+    return NULL;
+}
+
+/* find_path(address, steps, document) -> Element | None */
+static PyObject *
+accel_find_path(PyObject *module, PyObject *args)
+{
+    unsigned long long address;
+    PyObject *steps_obj, *document;
+    if (!PyArg_ParseTuple(args, "KOO", &address, &steps_obj, &document))
+        return NULL;
+    if (!bound)
+        Py_RETURN_NONE;
+    PyObject *fast = PySequence_Fast(steps_obj, "steps must be a sequence");
+    if (fast == NULL)
+        return NULL;
+    Py_ssize_t n = PySequence_Size(fast);
+    if (n < 1) {
+        Py_DECREF(fast);
+        Py_RETURN_NONE;
+    }
+    PyObject **names = (PyObject **)PyMem_Malloc(n * sizeof(PyObject *));
+    if (names == NULL) {
+        Py_DECREF(fast);
+        return PyErr_NoMemory();
+    }
+    for (Py_ssize_t i = 0; i < n; i++) {
+        PyObject *item = PySequence_GetItem(fast, i);
+        names[i] = item ? PyUnicode_AsUTF8String(item) : NULL;
+        Py_XDECREF(item);
+        if (names[i] == NULL) {
+            for (Py_ssize_t j = 0; j < i; j++)
+                Py_DECREF(names[j]);
+            PyMem_Free(names);
+            Py_DECREF(fast);
+            return NULL;
+        }
+    }
+    void *found = walk_path((void *)(uintptr_t)address, names, n, 0);
+    for (Py_ssize_t i = 0; i < n; i++)
+        Py_DECREF(names[i]);
+    PyMem_Free(names);
+    Py_DECREF(fast);
+    if (found == NULL)
+        Py_RETURN_NONE;
+    return element_from_parts_reg(
+        found, Py_None, document, registry_of(document));
+}
+
+static PyObject *make_registry_capsule(void);
+
+static PyObject *
+accel_new_registry(PyObject *module, PyObject *unused)
+{
+    return make_registry_capsule();
+}
+
+static PyObject *
+accel_invalidate(PyObject *module, PyObject *capsule)
+{
+    if (!PyCapsule_CheckExact(capsule)) {
+        PyErr_SetString(PyExc_TypeError, "expected a registry capsule");
+        return NULL;
+    }
+    Registry *reg =
+        (Registry *)PyCapsule_GetPointer(capsule, "leptris.registry");
+    if (reg == NULL)
+        return NULL;
+    AccelElement *el = reg->first;
+    while (el != NULL) {
+        AccelElement *next = el->next;
+        el->raw = ACCEL_RAW_INVALID;
+        PyObject *tmp = el->ptr;
+        Py_INCREF(Py_None);
+        el->ptr = Py_None;
+        Py_XDECREF(tmp);
+        /* unlink as we walk so late deaths stay cheap */
+        el->prev = NULL;
+        el->next = NULL;
+        el->registry = NULL;
+        el = next;
+    }
+    reg->first = NULL;
+    reg->last = NULL;
+    Py_RETURN_NONE;
+}
+
+/* iterparse_next(iterator_address, sentinel) -> Element | None.
+ * Drives leptris_iterparse_next and wraps the borrowed element in
+ * one C call — the Python generator only resumes and yields. The
+ * sentinel owns nothing; elements are borrowed until the next call
+ * (the iterator's own contract). */
+static PyObject *
+accel_iterparse_next(PyObject *module, PyObject *args)
+{
+    unsigned long long address;
+    PyObject *sentinel;
+    if (!PyArg_ParseTuple(args, "KO", &address, &sentinel))
+        return NULL;
+    if (!bound)
+        Py_RETURN_NONE;
+    void *el = Fns.iterparse_next((void *)(uintptr_t)address);
+    if (el == NULL)
+        Py_RETURN_NONE;
+    return element_from_parts_reg(el, Py_None, sentinel, NULL);
+}
+
+/* ---- subtree cursor: a walk, not a query ---------------------------- */
+
+typedef struct {
+    PyObject_HEAD
+    AccelElement *start;      /* strong ref: keeps the document alive
+                                 and its poison flag signals close() */
+    void *top;                /* raw pointer of the subtree root */
+    void *current;            /* next candidate, NULL when exhausted */
+    PyObject *document;       /* strong ref */
+    Registry *registry;
+    PyObject *local_bytes;    /* NULL = match every element */
+    PyObject *ns_bytes;       /* namespace filter (see want_ns) */
+    const char *local_c;      /* borrowed from local_bytes */
+    const char *ns_c;         /* borrowed from ns_bytes */
+    int want_ns;              /* 1: ns must equal ns_c; 0: ns must
+                                 be absent (unprefixed name test) */
+} AccelCursor;
+
+static PyTypeObject *CursorType;
+
+static void *
+cursor_successor(AccelCursor *c, void *el)
+{
+    void *child = Fns.element_first_child_any(el);
+    if (child != NULL)
+        return child;
+    while (el != c->top) {
+        void *sib = Fns.element_next_sibling_any(el);
+        if (sib != NULL)
+            return sib;
+        el = Fns.element_parent(el);
+        if (el == NULL)
+            return NULL;
+    }
+    return NULL;
+}
+
+static int
+cursor_matches(AccelCursor *c, void *el)
+{
+    if (c->local_bytes == NULL)
+        return 1;
+    const char *name = Fns.element_name(el);
+    if (name == NULL || strcmp(name, c->local_c) != 0)
+        return 0;
+    const char *ns = Fns.element_namespace(el);
+    if (c->want_ns)
+        return ns != NULL && strcmp(ns, c->ns_c) == 0;
+    return ns == NULL;
+}
+
+static PyObject *
+cursor_next(AccelCursor *self)
+{
+    if (self->start->raw == ACCEL_RAW_INVALID) {
+        PyErr_SetString(LeptrisErrorType, "operation on a closed document");
+        return NULL;
+    }
+    while (self->current != NULL) {
+        void *el = self->current;
+        self->current = cursor_successor(self, el);
+        if (cursor_matches(self, el))
+            return element_from_parts_reg(
+                el, Py_None, self->document, self->registry);
+    }
+    return NULL; /* StopIteration */
+}
+
+static PyObject *
+cursor_self(AccelCursor *self)
+{
+    Py_INCREF(self);
+    return (PyObject *)self;
+}
+
+static void
+cursor_dealloc(AccelCursor *self)
+{
+    Py_XDECREF(self->start);
+    Py_XDECREF(self->document);
+    Py_XDECREF(self->local_bytes);
+    Py_XDECREF(self->ns_bytes);
+    PyObject_Free(self);
+}
+
+static PyObject *
+cursor_repr(AccelCursor *self)
+{
+    return PyUnicode_FromFormat(
+        "<leptris.SubtreeIterator object at %p>", (void *)self);
+}
+
+static PyType_Slot cursor_slots[] = {
+    {Py_tp_iter, (void *)cursor_self},
+    {Py_tp_iternext, (void *)cursor_next},
+    {Py_tp_dealloc, (void *)cursor_dealloc},
+    {Py_tp_repr, (void *)cursor_repr},
+    {Py_tp_doc, (void *)"Document-order element cursor over a subtree."},
+    {0, NULL}
+};
+
+static PyType_Spec cursor_spec = {
+    "leptris._leptrisaccel.SubtreeIterator",
+    sizeof(AccelCursor),
+    0,
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE,
+    cursor_slots
+};
+
+/* subtree_iter(element, include_self, ns | None, local | None) */
+static PyObject *
+accel_subtree_iter(PyObject *module, PyObject *args)
+{
+    PyObject *start, *ns, *local;
+    int include_self;
+    if (!PyArg_ParseTuple(args, "O!pOO",
+                          ElementType, &start, &include_self, &ns, &local))
+        return NULL;
+    if (!bound) {
+        PyErr_SetString(LeptrisErrorType, "accelerator is not bound");
+        return NULL;
+    }
+    AccelElement *el = (AccelElement *)start;
+    if (check_poisoned(el) < 0)
+        return NULL;
+    AccelCursor *c = (AccelCursor *)PyType_GenericAlloc(CursorType, 0);
+    if (c == NULL)
+        return NULL;
+    c->top = el->raw;
+    c->current = include_self ? el->raw : cursor_successor(c, el->raw);
+    Py_INCREF(start);
+    c->start = el;
+    Py_INCREF(el->document);
+    c->document = el->document;
+    c->registry = registry_of(el->document);
+    c->want_ns = (ns != Py_None);
+    if (local != Py_None) {
+        c->local_bytes = PyUnicode_AsUTF8String(local);
+        if (c->local_bytes == NULL) {
+            Py_DECREF(c);
+            return NULL;
+        }
+        c->local_c = PyBytes_AsString(c->local_bytes);
+    }
+    if (c->want_ns) {
+        c->ns_bytes = PyUnicode_AsUTF8String(ns);
+        if (c->ns_bytes == NULL) {
+            Py_DECREF(c);
+            return NULL;
+        }
+        c->ns_c = PyBytes_AsString(c->ns_bytes);
+    }
+    return (PyObject *)c;
+}
+
+/* children(element) -> presized list of element children */
+static PyObject *
+accel_children(PyObject *module, PyObject *element)
+{
+    if (!PyObject_TypeCheck(element, ElementType)) {
+        PyErr_SetString(PyExc_TypeError, "expected an Element");
+        return NULL;
+    }
+    AccelElement *self = (AccelElement *)element;
+    if (check_poisoned(self) < 0)
+        return NULL;
+    if (!bound || self->raw == NULL)
+        return PyList_New(0);
+    size_t count = Fns.element_child_count(self->raw);
+    PyObject *out = PyList_New((Py_ssize_t)count);
+    if (out == NULL)
+        return NULL;
+    Registry *reg = registry_of(self->document);
+    void *child = Fns.element_first_child_any(self->raw);
+    for (size_t i = 0; i < count && child != NULL; i++) {
+        PyObject *item = element_from_parts_reg(
+            child, Py_None, self->document, reg);
+        if (item == NULL) {
+            Py_DECREF(out);
+            return NULL;
+        }
+        PyList_SetItem(out, (Py_ssize_t)i, item);
+        child = Fns.element_next_sibling_any(child);
+    }
+    return out;
+}
+
+/* serialize_doc(document_address) -> bytes (default options) */
+static PyObject *
+accel_serialize_doc(PyObject *module, PyObject *args)
+{
+    unsigned long long address;
+    if (!PyArg_ParseTuple(args, "K", &address))
+        return NULL;
+    if (!bound)
+        Py_RETURN_NONE;
+    char *data = Fns.document_serialize((void *)(uintptr_t)address, NULL);
+    if (data == NULL) {
+        PyErr_SetString(LeptrisErrorType, "serialization failed");
+        return NULL;
+    }
+    PyObject *out = PyBytes_FromStringAndSize(data, strlen(data));
+    Fns.free_string(data);
+    return out;
+}
+
+/* Build an engine variable set from a flat [name, tag, value, ...]
+ * sequence (tag 0 = bool, 1 = number, 2 = string). Returns NULL with
+ * an exception set, or (void *)0 sentinel for "no variables". */
+static void *build_variable_set(PyObject *vars_flat)
+{
+    if (vars_flat == Py_None)
+        return (void *)0;
+    PyObject *fast = PySequence_Fast(vars_flat, "variables must be a sequence");
+    if (fast == NULL)
+        return (void *)-1;
+    Py_ssize_t n = PySequence_Size(fast);
+    void *set = Fns.variable_set_new();
+    if (set == NULL) {
+        Py_DECREF(fast);
+        return (void *)-1;
+    }
+    for (Py_ssize_t i = 0; i + 2 < n + 1 && i + 2 < n + 1; i += 3) {
+        PyObject *name_item = PySequence_GetItem(fast, i);
+        PyObject *tag_item = PySequence_GetItem(fast, i + 1);
+        PyObject *value = PySequence_GetItem(fast, i + 2);
+        if (!name_item || !tag_item || !value) {
+            Py_XDECREF(name_item); Py_XDECREF(tag_item); Py_XDECREF(value);
+            goto fail;
+        }
+        PyObject *nbytes = PyUnicode_AsUTF8String(name_item);
+        long tag = PyLong_AsLong(tag_item);
+        int rc = -1;
+        if (nbytes != NULL && !PyErr_Occurred()) {
+            const char *name = PyBytes_AsString(nbytes);
+            if (tag == 0) {
+                rc = Fns.variable_set_boolean(set, name ? name : "", value == Py_True);
+            } else if (tag == 1) {
+                double d = PyFloat_AsDouble(value);
+                if (!PyErr_Occurred())
+                    rc = Fns.variable_set_number(set, name ? name : "", d);
+            } else if (tag == 2) {
+                PyObject *vbytes = PyUnicode_AsUTF8String(value);
+                if (vbytes != NULL) {
+                    rc = Fns.variable_set_string(
+                        set, name ? name : "",
+                        PyBytes_AsString(vbytes) ? PyBytes_AsString(vbytes) : "");
+                    Py_DECREF(vbytes);
+                }
+            }
+            Py_DECREF(nbytes);
+        }
+        Py_DECREF(name_item); Py_DECREF(tag_item); Py_DECREF(value);
+        if (rc != 0) {
+            PyErr_SetString(LeptrisErrorType, "could not bind variable");
+            goto fail;
+        }
+    }
+    Py_DECREF(fast);
+    return set;
+fail:
+    Py_DECREF(fast);
+    Fns.variable_set_free(set);
+    return (void *)-1;
+}
+
+/* compiled_eval(compiled_address, document_address, context_address,
+ * document, bindings, vars_flat) -> list | scalar | None (None: fall
+ * back to the engine path — mixed nodeset or evaluation failure).
+ * bindings: flat [prefix, uri, ...] or None. vars_flat: flat
+ * [name, tag, value, ...] (0=bool, 1=number, 2=string) or None;
+ * when BOTH are given, returns None (no compiled ns+vars engine
+ * call — the engine path below handles it). */
+static PyObject *
+accel_compiled_eval(PyObject *module, PyObject *args)
+{
+    unsigned long long compiled, document_address, context_address;
+    PyObject *document, *bindings, *vars_flat;
+    if (!PyArg_ParseTuple(args, "KKKOOO", &compiled, &document_address,
+                          &context_address, &document, &bindings,
+                          &vars_flat))
+        return NULL;
+    if (!bound)
+        Py_RETURN_NONE;
+    void *var_set = build_variable_set(vars_flat);
+    if (var_set == (void *)-1)
+        return NULL;
+    void *ns_set = NULL;
+    PyObject *fast = NULL;
+    if (bindings != Py_None) {
+        fast = PySequence_Fast(bindings, "bindings must be a sequence");
+        if (fast == NULL)
+            return NULL;
+        Py_ssize_t n = PySequence_Size(fast);
+        ns_set = Fns.ns_set_new();
+        if (ns_set == NULL) {
+            Py_DECREF(fast);
+            Py_RETURN_NONE;
+        }
+        for (Py_ssize_t i = 0; i + 1 < n; i += 2) {
+            PyObject *prefix = PySequence_GetItem(fast, i);
+            PyObject *uri = PySequence_GetItem(fast, i + 1);
+            PyObject *pbytes = prefix ? PyUnicode_AsUTF8String(prefix) : NULL;
+            PyObject *ubytes = uri ? PyUnicode_AsUTF8String(uri) : NULL;
+            Py_XDECREF(prefix); Py_XDECREF(uri);
+            if (pbytes == NULL || ubytes == NULL) {
+                Py_XDECREF(pbytes); Py_XDECREF(ubytes);
+                Py_DECREF(fast); Fns.ns_set_free(ns_set);
+                return NULL;
+            }
+            int rc = Fns.ns_set_add(
+                ns_set, PyBytes_AsString(pbytes), PyBytes_AsString(ubytes));
+            Py_DECREF(pbytes); Py_DECREF(ubytes);
+            if (rc != 0) {
+                Py_DECREF(fast); Fns.ns_set_free(ns_set);
+                PyErr_SetString(LeptrisErrorType,
+                                "invalid namespace binding");
+                return NULL;
+            }
+        }
+    }
+    void *ctx = context_address ? (void *)(uintptr_t)context_address : NULL;
+    void *result;
+    if (ns_set != NULL && var_set != (void *)0)
+        result = Fns.xpath_compiled_eval_ns_vars(
+            (void *)(uintptr_t)compiled, (void *)(uintptr_t)document_address,
+            ctx, ns_set, var_set);
+    else if (ns_set != NULL)
+        result = Fns.xpath_compiled_eval_ns(
+            (void *)(uintptr_t)compiled, (void *)(uintptr_t)document_address,
+            ctx, ns_set);
+    else if (var_set != (void *)0)
+        result = Fns.xpath_compiled_eval_vars(
+            (void *)(uintptr_t)compiled, (void *)(uintptr_t)document_address,
+            ctx, var_set);
+    else
+        result = Fns.xpath_compiled_eval(
+            (void *)(uintptr_t)compiled, (void *)(uintptr_t)document_address,
+            ctx);
+    if (var_set != (void *)0)
+        Fns.variable_set_free(var_set);
+    Py_XDECREF(fast);
+    if (ns_set != NULL)
+        Fns.ns_set_free(ns_set);
+    if (result == NULL)
+        Py_RETURN_NONE;
+    return finish_result(result, document);
+}
+
+/* ---- document parse/registry seam ---------------------------------- */
+
+/* LeptrisParseOptions layout (types.h): flags, strict_mode, max_depth,
+ * recover — four ints. */
+typedef struct { int flags; int strict_mode; int max_depth; int recover; }
+    CParseOptions;
+
+static PyObject *
+make_registry_capsule(void)
+{
+    Registry *reg = (Registry *)PyMem_Malloc(sizeof(Registry));
+    if (reg == NULL) {
+        PyErr_NoMemory();
+        return NULL;
+    }
+    reg->first = NULL;
+    reg->last = NULL;
+    PyObject *capsule =
+        PyCapsule_New(reg, "leptris.registry", registry_capsule_free);
+    if (capsule == NULL) {
+        PyMem_Free(reg);
+        return NULL;
+    }
+    return capsule;
+}
+
+/* parse(data, recover) -> (address | None, registry | None,
+ * status). "y#p" hands the bytes buffer straight to C
+ * (PyBytes_AsStringAndSize is in the stable ABI); the engine copies,
+ * so the buffer is only read during the call. parse_string_inplace
+ * was measured 8-40% slower than parse_string at every scale on
+ * 1.9.0, despite the header's "3-5x faster" claim (leptris#561). */
+static PyObject *
+accel_parse(PyObject *module, PyObject *args)
+{
+    const char *data;
+    Py_ssize_t length;
+    int recover;
+    if (!PyArg_ParseTuple(args, "y#p", &data, &length, &recover))
+        return NULL;
+    if (!bound) {
+        PyErr_SetString(LeptrisErrorType, "accelerator is not bound");
+        return NULL;
+    }
+    int status = 0;
+    void *doc;
+    if (recover) {
+        CParseOptions opts = {0, -1, 0, 1};
+        doc = Fns.parse_string_ex(data, (size_t)length, &opts, &status);
+    } else {
+        doc = Fns.parse_string_fn(data, (size_t)length, &status);
+    }
+    if (doc == NULL)
+        return Py_BuildValue("(OOi)", Py_None, Py_None, status);
+    Fns.document_root(doc); /* promote flat-path documents (#550) */
+    PyObject *registry = make_registry_capsule();
+    if (registry == NULL)
+        return NULL;
+    return Py_BuildValue("(NOi)", PyLong_FromVoidPtr(doc), registry, status);
+}
+
+/* parse_inplace(address, length, recover) -> (address | None,
+ * registry | None, status). The engine parses the WRITABLE buffer in
+ * place and retains pointers into it until document_free — the
+ * caller keeps the buffer alive for the document's lifetime (the
+ * binding holds the cffi from_buffer view). Measured 27% faster
+ * than the copying path on multi-MB inputs since the close-tag
+ * masked-compare was ungated (leptris#561). */
+static PyObject *
+accel_parse_inplace(PyObject *module, PyObject *args)
+{
+    unsigned long long address;
+    Py_ssize_t length;
+    int recover, flags;
+    if (!PyArg_ParseTuple(args, "Knpi", &address, &length, &recover,
+                          &flags))
+        return NULL;
+    if (!bound) {
+        PyErr_SetString(LeptrisErrorType, "accelerator is not bound");
+        return NULL;
+    }
+    int status = 0;
+    void *doc;
+    if (recover || flags) {
+        /* Engine flags (types.h): 1 = LEPTRIS_PARSE_DROP_WS_TEXT,
+         * 2 = LEPTRIS_PARSE_DTDATTR. The in-place path takes no
+         * options; optioned parses copy via _ex. */
+        CParseOptions opts = {flags, -1, 0, recover ? 1 : 0};
+        doc = Fns.parse_string_ex(
+            (const char *)(uintptr_t)address, (size_t)length, &opts, &status);
+    } else {
+        doc = Fns.parse_string_inplace_fn(
+            (char *)(uintptr_t)address, (size_t)length, &status);
+    }
+    if (doc == NULL)
+        return Py_BuildValue("(OOi)", Py_None, Py_None, status);
+    Fns.document_root(doc); /* promote flat-path documents (#550) */
+    PyObject *registry = make_registry_capsule();
+    if (registry == NULL)
+        return NULL;
+    return Py_BuildValue("(NOi)", PyLong_FromVoidPtr(doc), registry, status);
+}
+
+/* parse_with_encoding(data, recover) -> (address | None, registry |
+ * None, status). Encoding auto-detection (BOM, XML declaration,
+ * heuristic) with conversion to UTF-8 — the retry path for inputs
+ * that fail the UTF-8 fast path. */
+static PyObject *
+accel_parse_with_encoding(PyObject *module, PyObject *args)
+{
+    const char *data;
+    Py_ssize_t length;
+    int recover;
+    if (!PyArg_ParseTuple(args, "y#p", &data, &length, &recover))
+        return NULL;
+    if (!bound) {
+        PyErr_SetString(LeptrisErrorType, "accelerator is not bound");
+        return NULL;
+    }
+    int status = 0;
+    void *doc;
+    if (recover) {
+        CParseOptions opts = {0, -1, 0, 1};
+        doc = Fns.parse_string_ex(data, (size_t)length, &opts, &status);
+    } else {
+        doc = Fns.parse_with_encoding((const char *)data, (size_t)length, &status);
+    }
+    if (doc == NULL)
+        return Py_BuildValue("(OOi)", Py_None, Py_None, status);
+    Fns.document_root(doc);
+    PyObject *registry = make_registry_capsule();
+    if (registry == NULL)
+        return NULL;
+    return Py_BuildValue("(NOi)", PyLong_FromVoidPtr(doc), registry, status);
+}
+
+/* parse_file(path_bytes) -> (address | None, registry | None, status) */
+static PyObject *
+accel_parse_file(PyObject *module, PyObject *args)
+{
+    const char *path;
+    Py_ssize_t length;
+    if (!PyArg_ParseTuple(args, "y#", &path, &length))
+        return NULL;
+    if (!bound) {
+        PyErr_SetString(LeptrisErrorType, "accelerator is not bound");
+        return NULL;
+    }
+    int status = 0;
+    void *doc = Fns.parse_file(path, &status);
+    if (doc == NULL)
+        return Py_BuildValue("(OOi)", Py_None, Py_None, status);
+    Fns.document_root(doc);
+    PyObject *registry = make_registry_capsule();
+    if (registry == NULL)
+        return NULL;
+    return Py_BuildValue("(NOi)", PyLong_FromVoidPtr(doc), registry, status);
+}
+
+/* close_document(address) -> None */
+static PyObject *
+accel_close_document(PyObject *module, PyObject *args)
+{
+    unsigned long long address;
+    if (!PyArg_ParseTuple(args, "K", &address))
+        return NULL;
+    if (bound)
+        Fns.document_free((void *)(uintptr_t)address);
+    Py_RETURN_NONE;
+}
+
+/* document_root(address, document) -> Element | None */
+static PyObject *
+accel_document_root(PyObject *module, PyObject *args)
+{
+    unsigned long long address;
+    PyObject *document;
+    if (!PyArg_ParseTuple(args, "KO", &address, &document))
+        return NULL;
+    if (!bound)
+        Py_RETURN_NONE;
+    void *root = Fns.document_root((void *)(uintptr_t)address);
+    if (root == NULL)
+        Py_RETURN_NONE;
+    return element_from_parts_reg(
+        root, Py_None, document, registry_of(document));
+}
+
+
+/* ---- Plan shape + result conversion (#1039 mirror, phase 01) -------
+ *
+ * One C call per walk: the binding's shape-stable dict/list structure
+ * is built here via the Fns descriptor accessors, replacing ~6 cffi
+ * transitions per result node. The Python converter in leptris.plan
+ * stays as the reference implementation; differential specs pin the
+ * two equal. */
+
+#define PK_SCALAR 1
+#define PK_COLLECTION 2
+#define PK_NESTED 3
+#define PK_RAW 4
+#define PK_CONTENT 5
+#define PK_CALLBACK 6
+
+#define PV_ELEMENT 0
+#define PV_SCALAR 1
+#define PV_COLLECTION 2
+#define PV_RAW 3
+#define PV_CALLBACK 4
+
+typedef struct {
+    char *name;        /* row wire name (owned) */
+    PyObject *key;     /* the SAME str object the spec passed:
+                        * dict probes on repeated walks are
+                        * pointer-equal (TODO.native/12) */
+    int kind;          /* PK_* */
+    int child_index;   /* -1 for non-nested */
+    int multi;         /* name shared by 2+ rows: the group emits a
+                        * list of per-row values in row order */
+    int tag;           /* attribution type_tag: group rows match
+                        * values by the row's #1113 tag echo */
+} PlanRowC;
+
+typedef struct {
+    char **attr_names; /* owned strings */
+    PyObject **attr_keys; /* parallel interned keys (owned refs) */
+    Py_ssize_t attr_count;
+    PlanRowC *rows;    /* plan-row order */
+    Py_ssize_t row_count;
+} PlanPlanC;
+
+typedef struct {
+    PlanPlanC *plans;
+    Py_ssize_t plan_count;
+    PyObject *callback_type;  /* PlanCallback; strong ref */
+} PlanShapeC;
+
+static void
+plan_shape_free_c(PlanShapeC *shape)
+{
+    if (shape == NULL)
+        return;
+    for (Py_ssize_t p = 0; p < shape->plan_count; p++) {
+        PlanPlanC *plan = &shape->plans[p];
+        for (Py_ssize_t a = 0; a < plan->attr_count; a++) {
+            free(plan->attr_names[a]);
+            Py_XDECREF(plan->attr_keys[a]);
+        }
+        free(plan->attr_names);
+        free(plan->attr_keys);
+        for (Py_ssize_t r = 0; r < plan->row_count; r++) {
+            free(plan->rows[r].name);
+            Py_XDECREF(plan->rows[r].key);
+        }
+        free(plan->rows);
+    }
+    free(shape->plans);
+    Py_XDECREF(shape->callback_type);
+    free(shape);
+}
+
+static void
+plan_shape_capsule_destructor(PyObject *capsule)
+{
+    plan_shape_free_c(
+        (PlanShapeC *)PyCapsule_GetPointer(capsule, NULL));
+}
+
+/* plan_shape_build(plans, callback_type) -> capsule.
+ * plans: sequence of (attr_names, rows) per element plan, where
+ * attr_names is a sequence of str and rows a sequence of
+ * (name, kind, child_index) in plan-row order. */
+static PyObject *
+accel_plan_shape_build(PyObject *module, PyObject *args)
+{
+    PyObject *plans, *callback_type;
+    if (!PyArg_ParseTuple(args, "OO", &plans, &callback_type))
+        return NULL;
+    PyObject *fast = PySequence_Fast(plans, "plans must be a sequence");
+    if (fast == NULL)
+        return NULL;
+    Py_ssize_t plan_count = PySequence_Size(fast);
+    PlanShapeC *shape = (PlanShapeC *)calloc(1, sizeof(PlanShapeC));
+    if (shape == NULL) {
+        Py_DECREF(fast);
+        return PyErr_NoMemory();
+    }
+    shape->plan_count = plan_count;
+    shape->plans = (PlanPlanC *)calloc(
+        plan_count ? plan_count : 1, sizeof(PlanPlanC));
+    if (shape->plans == NULL) {
+        free(shape);
+        Py_DECREF(fast);
+        return PyErr_NoMemory();
+    }
+    Py_INCREF(callback_type);
+    shape->callback_type = callback_type;
+
+    for (Py_ssize_t p = 0; p < plan_count; p++) {
+        PyObject *entry = PySequence_GetItem(fast, p);
+        PyObject *attr_seq, *row_seq;
+        if (entry == NULL
+            || !PyArg_ParseTuple(entry, "OO", &attr_seq, &row_seq)) {
+            Py_XDECREF(entry);
+            plan_shape_free_c(shape);
+            Py_DECREF(fast);
+            return NULL;
+        }
+        Py_DECREF(entry);
+        PlanPlanC *plan = &shape->plans[p];
+        PyObject *attr_fast = PySequence_Fast(
+            attr_seq, "attr_names must be a sequence");
+        PyObject *row_fast = PySequence_Fast(
+            row_seq, "rows must be a sequence");
+        if (attr_fast == NULL || row_fast == NULL) {
+            Py_XDECREF(attr_fast);
+            Py_XDECREF(row_fast);
+            plan_shape_free_c(shape);
+            Py_DECREF(fast);
+            return NULL;
+        }
+        plan->attr_count = PySequence_Size(attr_fast);
+        plan->attr_names = (char **)calloc(
+            plan->attr_count ? plan->attr_count : 1, sizeof(char *));
+        plan->attr_keys = (PyObject **)calloc(
+            plan->attr_count ? plan->attr_count : 1, sizeof(PyObject *));
+        plan->row_count = PySequence_Size(row_fast);
+        plan->rows = (PlanRowC *)calloc(
+            plan->row_count ? plan->row_count : 1, sizeof(PlanRowC));
+        if (plan->attr_names == NULL || plan->rows == NULL) {
+            Py_DECREF(attr_fast);
+            Py_DECREF(row_fast);
+            plan_shape_free_c(shape);
+            Py_DECREF(fast);
+            return PyErr_NoMemory();
+        }
+        int failed = 0;
+        for (Py_ssize_t a = 0; a < plan->attr_count && !failed; a++) {
+            PyObject *item = PySequence_GetItem(attr_fast, a);
+            if (item == NULL) {
+                failed = 1;
+                break;
+            }
+            PyObject *encoded =
+                PyUnicode_AsEncodedString(item, "utf-8", NULL);
+            if (encoded == NULL) {
+                Py_DECREF(item);
+                failed = 1;
+                break;
+            }
+            plan->attr_names[a] = strdup(PyBytes_AsString(encoded));
+            Py_DECREF(encoded);
+            Py_INCREF(item);  /* the interned key: the spec's own str */
+            plan->attr_keys[a] = item;
+            Py_DECREF(item);
+        }
+        for (Py_ssize_t r = 0; r < plan->row_count && !failed; r++) {
+            PyObject *row = PySequence_GetItem(row_fast, r);
+            PyObject *name_obj;
+            int kind, child_index, tag;
+            if (row == NULL
+                || !PyArg_ParseTuple(row, "Oiii", &name_obj, &kind,
+                                     &child_index, &tag))
+                failed = 1;
+            else {
+                PyObject *encoded =
+                    PyUnicode_AsEncodedString(name_obj, "utf-8", NULL);
+                if (encoded == NULL)
+                    failed = 1;
+                else {
+                    plan->rows[r].name =
+                        strdup(PyBytes_AsString(encoded));
+                    Py_DECREF(encoded);
+                    Py_INCREF(name_obj);  /* interned key */
+                    plan->rows[r].key = name_obj;
+                    plan->rows[r].kind = kind;
+                    plan->rows[r].child_index = child_index;
+                    plan->rows[r].tag = tag;
+                }
+            }
+            Py_XDECREF(row);
+        }
+        Py_DECREF(attr_fast);
+        Py_DECREF(row_fast);
+        if (failed) {
+            plan_shape_free_c(shape);
+            Py_DECREF(fast);
+            return NULL;
+        }
+        /* Same-name rows (#1115 shape): mark every row of a
+         * repeated-name group so conversion emits the group as one
+         * list of per-row values in declaration order. */
+        for (Py_ssize_t a = 0; a < plan->row_count; a++)
+            for (Py_ssize_t b = a + 1; b < plan->row_count; b++)
+                if (plan->rows[a].name && plan->rows[b].name
+                    && strcmp(plan->rows[a].name,
+                              plan->rows[b].name) == 0)
+                    plan->rows[a].multi = plan->rows[b].multi = 1;
+    }
+    Py_DECREF(fast);
+    PyObject *capsule = PyCapsule_New(
+        shape, NULL, plan_shape_capsule_destructor);
+    if (capsule == NULL) {
+        plan_shape_free_c(shape);
+        return NULL;
+    }
+    return capsule;
+}
+
+static PyObject *
+plan_leaf(const void *value, PyObject *callback_type, int type_tag)
+{
+    /* #1269a: rows with type_tag 1/2/3 execute the type in-pass;
+     * surface native int/float/bool, soft-fail to the string on a
+     * parse miss (the engine contract). */
+    if (type_tag == 1) {
+        long long out = 0;
+        if (Fns.plan_value_int(value, &out) == 0)
+            return PyLong_FromLongLong(out);
+    } else if (type_tag == 2) {
+        double out = 0;
+        if (Fns.plan_value_float(value, &out) == 0)
+            return PyFloat_FromDouble(out);
+    } else if (type_tag == 3) {
+        int out = 0;
+        if (Fns.plan_value_bool(value, &out) == 0) {
+            if (out)
+                Py_RETURN_TRUE;
+            Py_RETURN_FALSE;
+        }
+    }
+    int kind = Fns.plan_value_kind(value);
+    if (kind == PV_CALLBACK) {
+        const char *s = Fns.plan_value_string(value);
+        size_t length = Fns.plan_value_length(value);
+        PyObject *text = (s != NULL)
+            ? PyUnicode_DecodeUTF8(s, (Py_ssize_t)length, "replace")
+            : Py_None;
+        if (text == NULL)
+            return NULL;
+        PyObject *position = PyLong_FromSize_t(
+            Fns.plan_value_position(value));
+        PyObject *tag = PyLong_FromLong(
+            (long)Fns.plan_value_type_tag(value));
+        PyObject *out = PyObject_CallFunctionObjArgs(
+            callback_type, text, position, tag, NULL);
+        Py_DECREF(text);
+        Py_XDECREF(position);
+        Py_XDECREF(tag);
+        return out;
+    }
+    const char *s = Fns.plan_value_string(value);
+    if (s == NULL)
+        Py_RETURN_NONE;
+    return PyUnicode_DecodeUTF8(
+        s, (Py_ssize_t)Fns.plan_value_length(value), "replace");
+}
+
+static PyObject *
+plan_collection_items(const void *value, PyObject *callback_type,
+                       int type_tag)
+{
+    size_t count = Fns.plan_value_count(value);
+    PyObject *out = PyList_New((Py_ssize_t)count);
+    if (out == NULL)
+        return NULL;
+    for (size_t i = 0; i < count; i++) {
+        PyObject *item = plan_leaf(
+            Fns.plan_value_at(value, i), callback_type, type_tag);
+        if (item == NULL || PyList_SetItem(out, (Py_ssize_t)i, item) < 0) {
+            Py_XDECREF(item);
+            Py_DECREF(out);
+            return NULL;
+        }
+    }
+    return out;
+}
+
+/* Emit one row's value under its key. A same-name group appends
+ * to one list created at the group's first row. */
+static int
+plan_row_emit(PyObject *children, const PlanRowC *row, PyObject *item)
+{
+    if (!row->multi)
+        return PyDict_SetItem(children, row->key, item);
+    PyObject *list = PyDict_GetItemWithError(children, row->key);
+    if (list == NULL) {
+        if (PyErr_Occurred()) return -1;
+        list = PyList_New(0);
+        if (list == NULL) return -1;
+        if (PyDict_SetItem(children, row->key, list) < 0) {
+            Py_DECREF(list);
+            return -1;
+        }
+        Py_DECREF(list);
+        list = PyDict_GetItemWithError(children, row->key);
+        if (list == NULL) return -1;
+    }
+    return PyList_Append(list, item);
+}
+
+static PyObject *
+plan_convert_element(const void *value, const PlanShapeC *shape,
+                     Py_ssize_t plan_index)
+{
+    const PlanPlanC *plan = &shape->plans[plan_index];
+    size_t vcount = Fns.plan_value_count(value);
+    PyObject *children = PyDict_New();
+    if (children == NULL)
+        return NULL;
+
+    Py_ssize_t vi = 0;
+    for (Py_ssize_t r = 0; r < plan->row_count; r++) {
+        const PlanRowC *row = &plan->rows[r];
+        if (vi >= (Py_ssize_t)vcount) {
+            PyObject *absent =
+                (row->kind == PK_COLLECTION || row->kind == PK_CONTENT)
+                    ? (PyObject *)PyList_New(0) : Py_None;
+            if (absent == Py_None) Py_INCREF(absent);
+            int rc = plan_row_emit(children, row, absent);
+            Py_XDECREF(absent);
+            if (rc < 0) {
+                Py_DECREF(children);
+                return NULL;
+            }
+            continue;
+        }
+        if (row->multi && row->tag) {
+            /* Group rows attribute by the row's type_tag echo
+             * (#1113) — exact under shared names; the engine emits
+             * each row's values consecutively, row-major. */
+            Py_ssize_t start = vi;
+            while (vi < (Py_ssize_t)vcount
+                && (int)Fns.plan_value_type_tag(
+                       Fns.plan_value_at(value, (size_t)vi))
+                    == row->tag)
+                vi++;
+            Py_ssize_t run = vi - start;
+            PyObject *item;
+            if (run == 0) {
+                item =
+                    (row->kind == PK_COLLECTION || row->kind == PK_CONTENT)
+                        ? (PyObject *)PyList_New(0) : Py_None;
+                if (item == Py_None) Py_INCREF(item);
+            } else {
+                const void *first =
+                    Fns.plan_value_at(value, (size_t)start);
+                if (row->kind == PK_NESTED) {
+                    item = PyList_New(0);
+                    for (Py_ssize_t k = 0; k < run && item != NULL;
+                         k++) {
+                        PyObject *converted = plan_convert_element(
+                            Fns.plan_value_at(value, (size_t)(start + k)),
+                            shape, row->child_index);
+                        if (converted == NULL
+                            || PyList_Append(item, converted) < 0) {
+                            Py_XDECREF(converted);
+                            Py_CLEAR(item);
+                            break;
+                        }
+                        Py_DECREF(converted);
+                    }
+                    if (item != NULL && PyList_Size(item) == 1) {
+                        PyObject *only = PyList_GetItem(item, 0);
+                        Py_INCREF(only);
+                        Py_DECREF(item);
+                        item = only;
+                    }
+                } else if (Fns.plan_value_kind(first) == PV_COLLECTION) {
+                    item = plan_collection_items(
+                        first, shape->callback_type, row->tag);
+                } else {
+                    item = plan_leaf(
+                        first, shape->callback_type, row->tag);
+                }
+            }
+            if (item == NULL
+                || plan_row_emit(children, row, item) < 0) {
+                Py_XDECREF(item);
+                Py_DECREF(children);
+                return NULL;
+            }
+            Py_XDECREF(item);
+            continue;
+        }
+
+        const void *candidate = Fns.plan_value_at(value, (size_t)vi);
+        int vkind = Fns.plan_value_kind(candidate);
+        const char *vname_c = Fns.plan_value_name(candidate);
+        const char *row_name = row->name;
+        int row_len = (int)strlen(row_name);
+        int name_equal = (vname_c != NULL)
+            && (int)strlen(vname_c) == row_len
+            && memcmp(vname_c, row_name, (size_t)row_len) == 0;
+
+        int matches = 0;
+        if (row->kind == PK_SCALAR || row->kind == PK_CALLBACK
+            || row->kind == PK_RAW) {
+            matches = vkind != PV_ELEMENT && vkind != PV_COLLECTION
+                && name_equal;
+        } else if (row->kind == PK_NESTED) {
+            matches = vkind == PV_ELEMENT && name_equal;
+        } else if (vkind == PV_COLLECTION) {
+            size_t icount = Fns.plan_value_count(candidate);
+            if (icount == 0) {
+                matches = 1; /* [] either way — order decides */
+            } else {
+                const char *first =
+                    Fns.plan_value_name(Fns.plan_value_at(candidate, 0));
+                if (row->kind == PK_COLLECTION)
+                    matches = (first != NULL)
+                        && (int)strlen(first) == row_len
+                        && memcmp(first, row_name, (size_t)row_len) == 0;
+                else
+                    matches = (first == NULL);
+            }
+        }
+
+        if (!matches) {
+            PyObject *absent =
+                (row->kind == PK_COLLECTION || row->kind == PK_CONTENT)
+                    ? (PyObject *)PyList_New(0) : Py_None;
+            if (absent == Py_None) Py_INCREF(absent);
+            int rc = plan_row_emit(children, row, absent);
+            Py_XDECREF(absent);
+            if (rc < 0) {
+                Py_DECREF(children);
+                return NULL;
+            }
+            continue;
+        }
+
+        if (row->kind == PK_NESTED) {
+            /* A nested row can match repeatedly (implicit collection
+             * of structured children): consume consecutive matches —
+             * one is the dict, several a list. */
+            PyObject *collected = PyList_New(0);
+            if (collected == NULL) {
+                Py_DECREF(children);
+                return NULL;
+            }
+            while (vi < (Py_ssize_t)vcount) {
+                const void *next = Fns.plan_value_at(value, (size_t)vi);
+                int nkind = Fns.plan_value_kind(next);
+                const char *nname = Fns.plan_value_name(next);
+                int n_equal = (nname != NULL)
+                    && (int)strlen(nname) == row_len
+                    && memcmp(nname, row_name, (size_t)row_len) == 0;
+                if (!(nkind == PV_ELEMENT && n_equal))
+                    break;
+                PyObject *converted = plan_convert_element(
+                    next, shape, row->child_index);
+                if (converted == NULL
+                    || PyList_Append(collected, converted) < 0) {
+                    Py_XDECREF(converted);
+                    Py_DECREF(collected);
+                    Py_DECREF(children);
+                    return NULL;
+                }
+                Py_DECREF(converted);
+                vi++;
+            }
+            Py_ssize_t matched = PyList_Size(collected);
+            PyObject *nested_result;
+            if (matched == 1) {
+                nested_result = PyList_GetItem(collected, 0);
+                Py_INCREF(nested_result);
+                Py_DECREF(collected);
+            } else {
+                nested_result = collected;
+            }
+            int rc = plan_row_emit(children, row, nested_result);
+            Py_DECREF(nested_result);
+            if (rc < 0) {
+                Py_DECREF(children);
+                return NULL;
+            }
+            continue;
+        }
+
+        /* first consumer of the matched value */
+        vi++;
+        PyObject *converted;
+        if (vkind == PV_COLLECTION)
+            converted = plan_collection_items(
+                candidate, shape->callback_type, row->tag);
+        else
+            converted = plan_leaf(
+                candidate, shape->callback_type, row->tag);
+        if (converted == NULL
+            || plan_row_emit(children, row, converted) < 0) {
+            Py_XDECREF(converted);
+            Py_DECREF(children);
+            return NULL;
+        }
+        Py_DECREF(converted);
+    }
+
+    PyObject *attrs = PyDict_New();
+    if (attrs == NULL) {
+        Py_DECREF(children);
+        return NULL;
+    }
+    for (Py_ssize_t a = 0; a < plan->attr_count; a++) {
+        const char *val = Fns.plan_value_attribute(
+            value, plan->attr_names[a]);
+        PyObject *item = (val != NULL)
+            ? PyUnicode_DecodeUTF8(val, (Py_ssize_t)strlen(val), "replace")
+            : Py_None;
+        if (item == NULL
+            || PyDict_SetItem(attrs, plan->attr_keys[a], item) < 0) {
+            Py_XDECREF(item);
+            Py_DECREF(attrs);
+            Py_DECREF(children);
+            return NULL;
+        }
+        Py_DECREF(item);
+    }
+
+    PyObject *out = PyDict_New();
+    if (out == NULL
+        || PyDict_SetItemString(out, "attributes", attrs) < 0
+        || PyDict_SetItemString(out, "children", children) < 0) {
+        Py_XDECREF(out);
+        Py_DECREF(attrs);
+        Py_DECREF(children);
+        return NULL;
+    }
+    Py_DECREF(attrs);
+    Py_DECREF(children);
+    return out;
+}
+
+/* plan_convert(result_address, shape_capsule) -> dict. One C call
+ * for the whole walk; the result handle stays owned by the caller
+ * (freed with leptris_plan_result_free from the binding). */
+static PyObject *
+accel_plan_convert(PyObject *module, PyObject *args)
+{
+    unsigned long long address;
+    PyObject *capsule;
+    if (!PyArg_ParseTuple(args, "KO", &address, &capsule))
+        return NULL;
+    if (!bound) {
+        PyErr_SetString(
+            PyExc_RuntimeError, "accelerator not bound");
+        return NULL;
+    }
+    PlanShapeC *shape = (PlanShapeC *)PyCapsule_GetPointer(capsule, NULL);
+    if (shape == NULL)
+        return NULL;
+    return plan_convert_element(
+        (const void *)(uintptr_t)address, shape, 0);
+}
+
+
+/* Serialize a DOCUMENT with options in one C call (the options-less
+ * path is serialize_doc). Encoding (or NULL for UTF-8) borrows from
+ * the bytes object PyArg holds alive for the call. */
+static PyObject *
+accel_serialize_doc_opts(PyObject *module, PyObject *args)
+{
+    unsigned long long address;
+    int indent, declaration;
+    const char *encoding = NULL;
+    if (!PyArg_ParseTuple(
+            args, "Kiiz", &address, &indent, &declaration, &encoding))
+        return NULL;
+    if (!bound)
+        Py_RETURN_NONE;
+    struct { int indent; int xml_declaration; const char *encoding; } opts;
+    opts.indent = indent;
+    opts.xml_declaration = declaration;
+    opts.encoding = encoding;
+    char *out = Fns.document_serialize((void *)(uintptr_t)address, &opts);
+    if (out == NULL)
+        Py_RETURN_NONE;
+    size_t length = strlen(out);
+    PyObject *bytes = PyBytes_FromStringAndSize(out, (Py_ssize_t)length);
+    Fns.free_string(out);
+    return bytes;
+}
+
+/* Serialize an ELEMENT subtree with full options (serialize_elem
+ * covers the no-encoding fast path). */
+static PyObject *
+accel_serialize_elem_opts(PyObject *module, PyObject *args)
+{
+    unsigned long long address;
+    int indent, declaration;
+    const char *encoding = NULL;
+    if (!PyArg_ParseTuple(
+            args, "Kiiz", &address, &indent, &declaration, &encoding))
+        return NULL;
+    if (!bound || Fns.element_serialize_into == NULL)
+        Py_RETURN_NONE;
+    struct { int indent; int xml_declaration; const char *encoding; } opts;
+    opts.indent = indent;
+    opts.xml_declaration = declaration;
+    opts.encoding = encoding;
+    size_t needed = Fns.element_serialize_into(
+        (void *)(uintptr_t)address, NULL, 0, NULL, &opts);
+    if (needed == 0)
+        Py_RETURN_NONE;
+    PyObject *bytes = PyBytes_FromStringAndSize(
+        NULL, (Py_ssize_t)(needed - 1));
+    if (bytes == NULL)
+        return NULL;
+    size_t written = 0;
+    Fns.element_serialize_into((void *)(uintptr_t)address,
+                               PyBytes_AsString(bytes), needed, &written,
+                               &opts);
+    return bytes;
+}
+
+
+/* Plain-path xpath WITH variables in one C call (TODO.native/11):
+ * the same engine entry the cffi path uses, plus the flat-vars
+ * marshaling and result conversion from compiled_eval — no
+ * per-variable, per-node FFI transitions. Semantics are the
+ * engine's: document namespace declarations resolve prefixes;
+ * the caller's ns bindings are not consulted on this path
+ * (identical to the engine path it replaces). */
+static PyObject *
+accel_nodeset_vars(PyObject *module, PyObject *args)
+{
+    PyObject *document_ptr, *context_obj, *expression, *document,
+        *vars_flat;
+    if (!PyArg_ParseTuple(args, "OOOOO", &document_ptr, &context_obj,
+                          &expression, &document, &vars_flat))
+        return NULL;
+    if (!bound || !PyLong_Check(document_ptr))
+        Py_RETURN_NONE;
+    PyObject *encoded = PyUnicode_AsUTF8String(expression);
+    if (encoded == NULL)
+        return NULL;
+    const char *expr = PyBytes_AsString(encoded);
+    void *ctx = NULL;
+    if (context_obj != Py_None && PyLong_Check(context_obj))
+        ctx = PyLong_AsVoidPtr(context_obj);
+    void *var_set = build_variable_set(vars_flat);
+    if (var_set == (void *)-1) {
+        Py_DECREF(encoded);
+        return NULL;
+    }
+    void *result = Fns.xpath_eval_vars_ctx(
+        PyLong_AsVoidPtr(document_ptr), ctx, expr, var_set);
+    Py_DECREF(encoded);
+    if (var_set != NULL)
+        Fns.variable_set_free(var_set);
+    if (result == NULL)
+        Py_RETURN_NONE;
+    return finish_result(result, document);
+}
+
+
+/* ---- SAX drain + XQuery eval in C (TODO.native/22) ------------------
+ *
+ * The measured split: recorder feed 85us vs Python drain 855us for
+ * the 302-event MEDIUM fixture (91% of the row). The drain decodes
+ * every record field and builds every attribute dict in Python over
+ * cffi reads; here it runs in C — strings decoded once, dicts built
+ * in C, handler methods resolved once per drain and called through
+ * the C API. The Python loop in leptris/sax.py stays as the
+ * reference + fallback.
+ *
+ * Record layout mirrors the PUBLIC LeptrisSaxEventRecord (frozen ABI,
+ * sax recorder family). */
+
+#define SK_START_DOC 0
+#define SK_END_DOC 1
+#define SK_START_ELEM 2
+#define SK_END_ELEM 3
+#define SK_CHARACTERS 4
+#define SK_COMMENT 5
+#define SK_CDATA 6
+#define SK_PI 7
+#define SK_START_PREFIX 8
+#define SK_END_PREFIX 9
+#define SK_ERROR 10
+
+typedef struct {
+    uint8_t kind;
+    uint8_t reserved[7];
+    uint32_t name_off, name_len;
+    uint32_t text_off, text_len;
+    uint32_t attrs_off;
+    uint32_t attr_count;
+    uint32_t line, column;
+} AccelSaxRecord;
+
+typedef struct {
+    PyObject *start_document, *end_document;
+    PyObject *start_element, *end_element;
+    PyObject *characters, *comment, *cdata;
+    PyObject *processing_instruction;
+    PyObject *start_prefix_mapping, *end_prefix_mapping;
+    PyObject *error;
+} SaxMethods;
+
+static void
+sax_methods_clear(SaxMethods *m)
+{
+    Py_XDECREF(m->start_document); Py_XDECREF(m->end_document);
+    Py_XDECREF(m->start_element); Py_XDECREF(m->end_element);
+    Py_XDECREF(m->characters); Py_XDECREF(m->comment);
+    Py_XDECREF(m->cdata); Py_XDECREF(m->processing_instruction);
+    Py_XDECREF(m->start_prefix_mapping);
+    Py_XDECREF(m->end_prefix_mapping);
+    Py_XDECREF(m->error);
+}
+
+/* Methods are REQUIRED (the Python loop calls handler.X()
+ * unguarded; a partial handler raises AttributeError — the
+ * protocol-contract spec pins this). */
+static PyObject *
+sax_method(PyObject *handler, const char *name)
+{
+    return PyObject_GetAttrString(handler, name);
+}
+
+static int
+sax_dispatch_noarg(PyObject *callable)
+{
+    if (callable == Py_None)
+        return 0;
+    PyObject *r = PyObject_CallObject(callable, NULL);
+    if (r == NULL)
+        return -1;
+    Py_DECREF(r);
+    return 0;
+}
+
+static int
+sax_dispatch(PyObject *callable, PyObject *arg)
+{
+    if (callable == Py_None)
+        return 0;
+    PyObject *r = PyObject_CallFunctionObjArgs(callable, arg, NULL);
+    if (r == NULL)
+        return -1;
+    Py_DECREF(r);
+    return 0;
+}
+
+/* accel.sax_drain(recorder_address, handler) -> None (errors raise) */
+static PyObject *
+accel_sax_drain(PyObject *module, PyObject *args)
+{
+    unsigned long long address;
+    PyObject *handler;
+    if (!PyArg_ParseTuple(args, "KO", &address, &handler))
+        return NULL;
+    if (!bound)
+        Py_RETURN_NONE;
+    size_t count = 0;
+    const AccelSaxRecord *records = (const AccelSaxRecord *)
+        Fns.sax_records((void *)(uintptr_t)address, &count);
+    if (records == NULL || count == 0)
+        Py_RETURN_NONE;
+    size_t arena_len = 0;
+    const char *arena =
+        Fns.sax_arena((void *)(uintptr_t)address, &arena_len);
+    if (arena == NULL)
+        Py_RETURN_NONE;
+
+    /* Lazy, cached: methods resolve on the FIRST event of their
+     * kind (the Python loop resolves at dispatch — an absent method
+     * raises only when its event actually occurs; the protocol spec
+     * pins this). */
+    SaxMethods methods;
+    memset(&methods, 0, sizeof(methods));
+#define SAX_RESOLVE(slot, name) \
+    (methods.slot != NULL ? methods.slot \
+     : (methods.slot = sax_method(handler, name)))
+
+    int failed = 0;
+    for (size_t i = 0; i < count && !failed; i++) {
+        const AccelSaxRecord *rec = &records[i];
+        const char *name = arena + rec->name_off;
+        const char *text = arena + rec->text_off;
+        switch (rec->kind) {
+        case SK_START_DOC:
+            { PyObject *fn = SAX_RESOLVE(start_document, "start_document"); failed = (fn == NULL) || sax_dispatch_noarg(fn) < 0; }
+            break;
+        case SK_END_DOC:
+            { PyObject *fn = SAX_RESOLVE(end_document, "end_document"); failed = (fn == NULL) || sax_dispatch_noarg(fn) < 0; }
+            break;
+        case SK_START_ELEM: {
+            PyObject *dict = PyDict_New();
+            if (dict == NULL) { failed = 1; break; }
+            const char *cursor = arena + rec->attrs_off;
+            for (uint32_t a = 0; a < rec->attr_count; a++) {
+                size_t nlen = strnlen(cursor, (size_t)(arena + arena_len - cursor));
+                PyObject *key = PyUnicode_DecodeUTF8(cursor, nlen, "replace");
+                cursor += nlen + 1;
+                size_t vlen = strnlen(cursor, (size_t)(arena + arena_len - cursor));
+                PyObject *value = PyUnicode_DecodeUTF8(cursor, vlen, "replace");
+                cursor += vlen + 1;
+                if (key == NULL || value == NULL ||
+                    PyDict_SetItem(dict, key, value) < 0) {
+                    Py_XDECREF(key); Py_XDECREF(value);
+                    Py_DECREF(dict); failed = 1; break;
+                }
+                Py_DECREF(key); Py_DECREF(value);
+            }
+            if (failed) break;
+            PyObject *name_obj =
+                PyUnicode_DecodeUTF8(name, rec->name_len, "replace");
+            if (name_obj == NULL) {
+                Py_DECREF(dict);
+                failed = 1;
+                break;
+            }
+            PyObject *se = SAX_RESOLVE(start_element, "start_element");
+            if (se == NULL) { Py_DECREF(name_obj); Py_DECREF(dict); failed = 1; break; }
+            PyObject *r = PyObject_CallFunctionObjArgs(
+                se, name_obj, dict, NULL);
+            Py_DECREF(name_obj); Py_DECREF(dict);
+            if (r == NULL) { failed = 1; break; }
+            Py_DECREF(r);
+            break;
+        }
+        case SK_END_ELEM: {
+            PyObject *name_obj =
+                PyUnicode_DecodeUTF8(name, rec->name_len, "replace");
+            if (name_obj == NULL) { failed = 1; break; }
+            { PyObject *fn = SAX_RESOLVE(end_element, "end_element"); failed = (fn == NULL) || sax_dispatch(fn, name_obj) < 0; }
+            Py_DECREF(name_obj);
+            break;
+        }
+        case SK_CHARACTERS:
+        case SK_CDATA: {
+            PyObject *text_obj =
+                PyUnicode_DecodeUTF8(text, rec->text_len, "replace");
+            if (text_obj == NULL) { failed = 1; break; }
+            PyObject *call = (rec->kind == SK_CDATA)
+                ? SAX_RESOLVE(cdata, "cdata")
+                : SAX_RESOLVE(characters, "characters");
+            failed = (call == NULL) || (sax_dispatch(call, text_obj) < 0);
+            Py_DECREF(text_obj);
+            break;
+        }
+        case SK_COMMENT: {
+            PyObject *text_obj =
+                PyUnicode_DecodeUTF8(text, rec->text_len, "replace");
+            if (text_obj == NULL) { failed = 1; break; }
+            { PyObject *fn = SAX_RESOLVE(comment, "comment"); failed = (fn == NULL) || sax_dispatch(fn, text_obj) < 0; }
+            Py_DECREF(text_obj);
+            break;
+        }
+        case SK_PI: {
+            PyObject *name_obj =
+                PyUnicode_DecodeUTF8(name, rec->name_len, "replace");
+            PyObject *text_obj =
+                PyUnicode_DecodeUTF8(text, rec->text_len, "replace");
+            if (name_obj == NULL || text_obj == NULL) {
+                Py_XDECREF(name_obj); Py_XDECREF(text_obj);
+                failed = 1;
+                break;
+            }
+            PyObject *pi = SAX_RESOLVE(processing_instruction, "processing_instruction");
+            if (pi == NULL) { Py_DECREF(name_obj); Py_DECREF(text_obj); failed = 1; break; }
+            PyObject *r = PyObject_CallFunctionObjArgs(
+                pi, name_obj, text_obj, NULL);
+            Py_DECREF(name_obj); Py_DECREF(text_obj);
+            if (r == NULL) { failed = 1; break; }
+            Py_DECREF(r);
+            break;
+        }
+        case SK_START_PREFIX: {
+            PyObject *prefix = PyUnicode_DecodeUTF8(
+                name, rec->name_len, "replace");
+            PyObject *uri = PyUnicode_DecodeUTF8(
+                text, rec->text_len, "replace");
+            if (prefix == NULL || uri == NULL) {
+                Py_XDECREF(prefix); Py_XDECREF(uri);
+                failed = 1; break;
+            }
+            PyObject *spm = SAX_RESOLVE(start_prefix_mapping, "start_prefix_mapping");
+            if (spm == NULL) { Py_DECREF(prefix); Py_DECREF(uri); failed = 1; break; }
+            PyObject *r = PyObject_CallFunctionObjArgs(
+                spm, prefix, uri, NULL);
+            Py_DECREF(prefix); Py_DECREF(uri);
+            if (r == NULL) { failed = 1; break; }
+            Py_DECREF(r);
+            break;
+        }
+        case SK_END_PREFIX: {
+            PyObject *name_obj =
+                PyUnicode_DecodeUTF8(name, rec->name_len, "replace");
+            if (name_obj == NULL) { failed = 1; break; }
+            PyObject *epm = SAX_RESOLVE(end_prefix_mapping, "end_prefix_mapping");
+            failed = (epm == NULL) || sax_dispatch(epm, name_obj) < 0;
+            Py_DECREF(name_obj);
+            break;
+        }
+        case SK_ERROR: {
+            PyObject *text_obj =
+                PyUnicode_DecodeUTF8(text, rec->text_len, "replace");
+            PyObject *line = PyLong_FromUnsignedLong(rec->line);
+            PyObject *col = PyLong_FromUnsignedLong(rec->column);
+            if (text_obj == NULL || line == NULL || col == NULL) {
+                Py_XDECREF(text_obj); Py_XDECREF(line); Py_XDECREF(col);
+                failed = 1;
+                break;
+            }
+            PyObject *errfn = SAX_RESOLVE(error, "error");
+            if (errfn == NULL) { Py_DECREF(text_obj); Py_DECREF(line); Py_DECREF(col); failed = 1; break; }
+            PyObject *r = PyObject_CallFunctionObjArgs(
+                errfn, text_obj, line, col, NULL);
+            Py_DECREF(text_obj); Py_DECREF(line); Py_DECREF(col);
+            if (r == NULL) { failed = 1; break; }
+            Py_DECREF(r);
+            break;
+        }
+        default:
+            break; /* unknown kinds: skip, mirroring the Python loop */
+        }
+    }
+    sax_methods_clear(&methods);
+    if (failed)
+        return NULL;
+    Py_RETURN_NONE;
+}
+
+/* accel.xquery_eval(query_address, document_address, context_address,
+ *                   document) -> list | scalar | None — one C call for
+ * the no-variables XQuery path (TODO.native/22: the conversion was
+ * 42% of the row). */
+static PyObject *
+accel_xquery_eval(PyObject *module, PyObject *args)
+{
+    unsigned long long query, document_address, context_address;
+    PyObject *document;
+    if (!PyArg_ParseTuple(args, "KKKO", &query, &document_address,
+                          &context_address, &document))
+        return NULL;
+    if (!bound)
+        Py_RETURN_NONE;
+    void *ctx = context_address ? (void *)(uintptr_t)context_address : NULL;
+    void *result = Fns.xquery_eval(
+        (void *)(uintptr_t)query, (void *)(uintptr_t)document_address, ctx);
+    if (result == NULL)
+        Py_RETURN_NONE;
+    return finish_result(result, document);
+}
+
+/* attribute_pairs(element) -> [(name, value), ...] in one C pass
+ * (#1254): replaces the N-call first_attribute/next walk on the
+ * binding hot path. Names/values are engine-owned; decoded here. */
+static PyObject *
+accel_attribute_pairs(PyObject *module, PyObject *arg)
+{
+    AccelElement *self = (AccelElement *)arg;
+    if (!PyObject_TypeCheck(arg, ElementType)) {
+        PyErr_SetString(PyExc_TypeError, "expected an Element");
+        return NULL;
+    }
+    if (check_poisoned(self) < 0)
+        return NULL;
+    size_t n = Fns.attribute_count(self->raw);
+    if (n == 0)
+        return PyList_New(0);
+    const char **names = PyMem_Malloc(n * sizeof(char *));
+    const char **values = PyMem_Malloc(n * sizeof(char *));
+    if (names == NULL || values == NULL) {
+        PyMem_Free(names);
+        PyMem_Free(values);
+        return PyErr_NoMemory();
+    }
+    size_t got = Fns.element_attribute_pairs(
+        self->raw, names, values, NULL, n);
+    PyObject *list = PyList_New((Py_ssize_t)got);
+    for (size_t i = 0; list != NULL && i < got; i++) {
+        PyObject *name = PyUnicode_DecodeUTF8(
+            names[i], strlen(names[i]), "strict");
+        PyObject *value = name != NULL
+            ? PyUnicode_DecodeUTF8(values[i], strlen(values[i]), "strict")
+            : NULL;
+        PyObject *pair = name != NULL && value != NULL
+            ? PyTuple_Pack(2, name, value)
+            : NULL;
+        if (pair != NULL &&
+            PyList_SetItem(list, (Py_ssize_t)i, pair) == 0) {
+            /* SetItem steals pair on success */
+        } else {
+            Py_XDECREF(pair);
+            Py_DECREF(list);
+            list = NULL;
+        }
+        Py_XDECREF(name);
+        Py_XDECREF(value);
+    }
+    PyMem_Free(names);
+    PyMem_Free(values);
+    return list;
+}
+
+static PyMethodDef accel_methods[] = {
+    {"attribute_pairs", accel_attribute_pairs, METH_O,
+     "attribute_pairs(element) -> [(name, value), ...]"},
+    {"create", accel_create, METH_VARARGS,
+     "create(address, ptr, document) -> Element"},
+    {"materialize", accel_materialize, METH_VARARGS,
+     "materialize(ptrs, document, addresses) -> list[Element]"},
+    {"bind", accel_bind, METH_VARARGS,
+     "bind(addresses_in_Fns_order, error_class) -> None"},
+    {"nodeset", accel_nodeset, METH_VARARGS,
+     "nodeset(document_address, context_address, expression, document) -> list | scalar | None"},
+    {"nodeset_ns", accel_nodeset_ns, METH_VARARGS,
+     "nodeset_ns(document_address, context_address, expression, document, bindings) -> list | scalar | None"},
+    {"find_first", accel_find_first, METH_VARARGS,
+     "find_first(address, name, document) -> Element | None"},
+    {"serialize_elem", accel_serialize_elem, METH_VARARGS,
+     "serialize_elem(address, indent, declaration) -> bytes | None"},
+    {"parse", accel_parse, METH_VARARGS,
+     "parse(data, recover) -> (address|None, registry|None, status)"},
+    {"parse_with_encoding", accel_parse_with_encoding, METH_VARARGS,
+     "parse_with_encoding(data, recover) -> (address|None, registry|None, status)"},
+    {"parse_inplace", accel_parse_inplace, METH_VARARGS,
+     "parse_inplace(address, length, recover, flags) -> (address|None, registry|None, status)"},
+    {"parse_file", accel_parse_file, METH_VARARGS,
+     "parse_file(path_bytes) -> (address|None, registry|None, status)"},
+    {"close_document", accel_close_document, METH_VARARGS,
+     "close_document(address) -> None"},
+    {"document_root", accel_document_root, METH_VARARGS,
+     "document_root(address, document) -> Element | None"},
+    {"compiled_eval", accel_compiled_eval, METH_VARARGS,
+     "compiled_eval(compiled_address, document_address, context_address, document, bindings, vars_flat) -> list | scalar | None"},
+    {"iterparse_next", accel_iterparse_next, METH_VARARGS,
+     "iterparse_next(iterator_address, sentinel) -> Element | None"},
+    {"find_path", accel_find_path, METH_VARARGS,
+     "find_path(address, steps, document) -> Element | None"},
+    {"subtree_iter", accel_subtree_iter, METH_VARARGS,
+     "subtree_iter(element, include_self, ns, local) -> SubtreeIterator"},
+    {"children", (PyCFunction)accel_children, METH_O,
+     "children(element) -> list[Element]"},
+    {"serialize_doc", accel_serialize_doc, METH_VARARGS,
+     "serialize_doc(document_address) -> bytes | None"},
+    {"new_registry", (PyCFunction)accel_new_registry, METH_NOARGS,
+     "new_registry() -> capsule tracking live elements of a document"},
+    {"invalidate", (PyCFunction)accel_invalidate, METH_O,
+     "invalidate(capsule) -> poison all tracked elements (document closed)"},
+    {"plan_shape_build", accel_plan_shape_build, METH_VARARGS,
+     "plan_shape_build(plans, callback_type) -> capsule"},
+    {"plan_convert", accel_plan_convert, METH_VARARGS,
+     "plan_convert(result_address, shape_capsule) -> dict"},
+    {"serialize_doc_opts", accel_serialize_doc_opts, METH_VARARGS,
+     "serialize_doc_opts(address, indent, declaration, encoding|None) -> bytes | None"},
+    {"serialize_elem_opts", accel_serialize_elem_opts, METH_VARARGS,
+     "serialize_elem_opts(address, indent, declaration, encoding|None) -> bytes | None"},
+    {"nodeset_vars", accel_nodeset_vars, METH_VARARGS,
+     "nodeset_vars(document_address, context_address, expression, document, vars_flat) -> list | scalar | None"},
+    {"sax_drain", accel_sax_drain, METH_VARARGS,
+     "sax_drain(recorder_address, handler) -> None"},
+    {"xquery_eval", accel_xquery_eval, METH_VARARGS,
+     "xquery_eval(query_address, document_address, context_address, document) -> list | scalar | None"},
+    {NULL}
+};
+
+static struct PyModuleDef accel_module = {
+    PyModuleDef_HEAD_INIT,
+    "leptris._leptrisaccel",
+    "C-accelerated Element allocation and accessors for leptris.",
+    -1,
+    accel_methods,
+};
+
+PyMODINIT_FUNC
+PyInit__leptrisaccel(void)
+{
+    PyObject *module = PyModule_Create(&accel_module);
+    if (module == NULL)
+        return NULL;
+    ObjectBases = PyTuple_Pack(1, (PyObject *)&PyDict_Type);
+    if (ObjectBases == NULL) {
+        Py_DECREF(module);
+        return NULL;
+    }
+    ReadOnlyDictType = (PyTypeObject *)PyType_FromSpecWithBases(
+        &rodict_spec, ObjectBases);
+    if (ReadOnlyDictType == NULL) {
+        Py_DECREF(module);
+        return NULL;
+    }
+    ElementType = (PyTypeObject *)PyType_FromSpec(&element_spec);
+    if (ElementType == NULL) {
+        Py_DECREF(module);
+        return NULL;
+    }
+    if (PyModule_AddObject(module, "Element", (PyObject *)ElementType) < 0) {
+        Py_DECREF(ElementType);
+        Py_DECREF(module);
+        return NULL;
+    }
+    CursorType = (PyTypeObject *)PyType_FromSpec(&cursor_spec);
+    if (CursorType == NULL) {
+        Py_DECREF(module);
+        return NULL;
+    }
+    if (PyModule_AddObject(module, "SubtreeIterator",
+                           (PyObject *)CursorType) < 0) {
+        Py_DECREF(CursorType);
+        Py_DECREF(module);
+        return NULL;
+    }
+    return module;
+}

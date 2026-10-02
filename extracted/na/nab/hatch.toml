@@ -1,0 +1,127 @@
+# The contributor's environment, at the path docs/contributing.md runs its
+# tools from. Every other environment is detached or names itself as its own
+# template, because inheriting `path` would land it here too.
+[envs.default]
+path = ".venv"
+workspace.members = [
+    "nab-resolver",
+    "nab-markersets",
+    "nab-provider",
+    "nab-project",
+    "nab-index",
+]
+dependency-groups = ["tests", "nox"]
+# The umbrella pins its siblings to the unreleased version under development,
+# and hatch installs it before syncing the members, so the members go in first.
+# Hatch runs a pre-install command in the directory it was invoked from, so the
+# paths are anchored at `{root}` rather than left relative.
+pre-install-commands = [
+    "python -m pip install -e {root}/nab-resolver -e {root}/nab-markersets -e {root}/nab-provider -e {root}/nab-index -e {root}/nab-project",
+]
+
+[envs.hatch-test]
+template = "hatch-test"
+workspace.members = [
+    "nab-resolver",
+    "nab-markersets",
+    "nab-provider",
+    "nab-project",
+    "nab-index",
+]
+features = ["httpx", "httpx2"]
+extra-dependencies = [
+    "hypothesis>=6.100",
+    "pytest-timeout>=2.3",
+    "respx>=0.22",
+]
+
+[envs.crosshair]
+template = "crosshair"
+workspace.members = [
+    "nab-resolver",
+    "nab-markersets",
+    "nab-provider",
+    "nab-project",
+    "nab-index",
+]
+extra-dependencies = [
+    "crosshair-tool>=0.0.104",
+    "hypothesis-crosshair>=0.0.28",
+    "hypothesis>=6.100",
+    "pytest>=9.0",
+    "pytest-timeout>=2.3",
+]
+
+[envs.crosshair.scripts]
+check = "pytest -m crosshair {args}"
+
+[envs.types]
+template = "types"
+workspace.members = [
+    "nab-resolver",
+    "nab-markersets",
+    "nab-provider",
+    "nab-project",
+    "nab-index",
+]
+dependencies = [
+    "pyright>=1.1.400",
+    "mypy>=1.19",
+    "ty>=0.0.20",
+    "pyrefly>=0.50",
+    "zuban>=0.6",
+    "pytest>=9.0",
+    "hypothesis>=6.100",
+    "pytest-timeout>=2.3",
+]
+
+[envs.types.scripts]
+check-pyright = "pyright {args}"
+check-mypy = "mypy {args:nab-resolver/src}"
+check-ty = "ty check {args:nab-resolver/src}"
+check-pyrefly = "pyrefly check {args:nab-resolver/src}"
+check-zuban = "zuban check {args:nab-resolver/src}"
+all = ["check-pyright", "check-mypy", "check-ty", "check-pyrefly", "check-zuban"]
+
+[envs.lint]
+detached = true
+dependencies = ["ruff>=0.12"]
+
+[envs.lint.scripts]
+check = "ruff check ."
+fix = "ruff check --fix ."
+fmt = "ruff format ."
+fmt-check = "ruff format --check ."
+
+# nab locks the docs dependency group from pyproject.toml into
+# .github/requirements/pylock.docs.toml. CI and Read the Docs install
+# that lock; only the live-reload server remains local.
+#
+# `template` also keeps out the workspace members: hatch installs them editable
+# even under `skip-install`, and neither CI nor Read the Docs has the project in
+# the environment it builds the docs from.
+[envs.docs]
+template = "docs"
+skip-install = true
+dependency-groups = ["docs"]
+dependencies = [
+    "sphinx-autobuild>=2024.10",
+]
+
+[envs.docs.scripts]
+build = "sphinx-build -W -b html docs docs/_build/html {args}"
+serve = "sphinx-autobuild docs docs/_build/html {args}"
+clean = "rm -rf docs/_build"
+
+[envs.release]
+detached = true
+
+[envs.release.scripts]
+# Install only the hash-pinned lock; never resolve unpinned dependencies.
+_sync = [
+    'python -m pip install --upgrade "pip>=26.1"',
+    "python -m pip install -r .github/requirements/pylock.release.toml",
+    "python -m pip install -r .github/requirements/pylock.build.toml",
+]
+make = ["_sync", "python tasks/release.py make {args}"]
+build = ["_sync", "python tasks/build_dists.py {args}"]

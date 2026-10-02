@@ -1,0 +1,307 @@
+/*
+ * wfm_sink.c — NATS PUB sink (Phase B).
+ *
+ * Thin glue over doppler's dp_pub_* layer: maps the wavegen wire-type index to
+ * dp_sample_type_t, converts each cf32 block to that type into a
+ * grow-on-demand scratch buffer, and publishes it. Links the vendored nats.c,
+ * and builds on every platform the stream layer does (Windows since #1575).
+ */
+#include "doppler/wfm/wfm_sink.h"
+
+#include "doppler/dp_complex.h"
+#include <math.h>
+#include <stdint.h>
+#include <stdlib.h>
+
+#include "doppler/dp_format.h"
+#include "doppler/f32_to_i16/f32_to_i16_core.h"
+#include "doppler/f32_to_i32/f32_to_i32_core.h"
+#include "doppler/f32_to_i8/f32_to_i8_core.h"
+#include "doppler/stream/stream.h"
+
+/* wavegen wire-type index: 0 cf32, 1 cf64, 2 ci32, 3 ci16, 4 ci8. */
+enum
+{
+  WT_CF32,
+  WT_CF64,
+  WT_CI32,
+  WT_CI16,
+  WT_CI8
+};
+
+struct wfm_stream_sink
+{
+  dp_pub_t *pub;
+  int       wtype;
+  void     *scratch; /* converted-sample buffer */
+  size_t    cap;     /* scratch capacity in bytes */
+  float     peak;    /* running max |I|/|Q| on integer paths (pre-clip) */
+  uint64_t  nclip;   /* saturated components (only when `track`) */
+  uint64_t  ntot;    /* integer components processed (fraction denominator) */
+  int       track;   /* count clips (opt-in); peak always on */
+  float     gain;    /* output gain (headroom); 1.0 = no-op (direct cf32) */
+};
+
+/* Track the peak on the integer convert paths (called per sample).
+ *
+ * Clips are NOT counted here. At a full scale of 2^(N-1) the saturating
+ * inputs are those above (2^(N-1)-1)/2^(N-1), not those above 1.0, so a
+ * `|v| > 1.0` test here would silently under-report -- on ci8 it would miss
+ * everything in (0.9921875, 1.0]. The converter decides exactly which
+ * samples saturate, so `quantise` takes the count from its sticky flag. */
+static inline void
+track_peak (wfm_stream_sink_t *s, float re, float im)
+{
+  float ar = fabsf (re), ai = fabsf (im);
+  float m = ar > ai ? ar : ai;
+  if (m > s->peak)
+    s->peak = m;
+}
+
+/* One component, float -> the wire's integer code.
+
+   The scale, the round-to-nearest and the saturation all belong to the cvt
+   converters; this picks the one matching the wire type and records what it
+   did. The state is a two-field POD held by value, so nothing is allocated
+   on the publish path, and `clipped` starts cleared for every component so
+   the sticky flag answers "did THIS component saturate" -- making the clip
+   count the converter's verdict rather than a threshold predicted here. */
+static inline long
+quantise (wfm_stream_sink_t *s, int wtype, float qscale, float v)
+{
+  long code = 0;
+  int  hit  = 0;
+  switch (wtype)
+    {
+    case WT_CI32:
+      {
+        dp_f32_to_i32_state_t q = { .scale = qscale, .clipped = 0 };
+        code                    = dp_f32_to_i32_step (&q, v);
+        hit                     = q.clipped;
+        break;
+      }
+    case WT_CI16:
+      {
+        dp_f32_to_i16_state_t q = { .scale = qscale, .clipped = 0 };
+        code                    = dp_f32_to_i16_step (&q, v);
+        hit                     = q.clipped;
+        break;
+      }
+    default:
+      {
+        dp_f32_to_i8_state_t q = { .scale = qscale, .clipped = 0 };
+        code                   = dp_f32_to_i8_step (&q, v);
+        hit                    = q.clipped;
+        break;
+      }
+    }
+  s->ntot++;
+  if (s->track && hit)
+    s->nclip++;
+  return code;
+}
+
+/* Ensure scratch holds at least `need` bytes. */
+static int
+grow (wfm_stream_sink_t *s, size_t need)
+{
+  if (s->cap >= need)
+    return 0;
+  void *p = realloc (s->scratch, need);
+  if (!p)
+    return -1;
+  s->scratch = p;
+  s->cap     = need;
+  return 0;
+}
+
+/* Strong definition — overrides the core's weak stub (wfm_sink_stub.c) when
+ * libdoppler_stream is linked, signalling that the real stream sink is
+ * present.
+ */
+int
+dp_wfm_stream_sink_available (void)
+{
+  return 1;
+}
+
+wfm_stream_sink_t *
+dp_wfm_stream_sink_open (const char *endpoint, int sample_type)
+{
+  /* map wavegen index → dp_sample_type_t */
+  dp_sample_type_t dt;
+  switch (sample_type)
+    {
+    case WT_CF32:
+      dt = CF32;
+      break;
+    case WT_CF64:
+      dt = CF64;
+      break;
+    case WT_CI32:
+      dt = CI32;
+      break;
+    case WT_CI16:
+      dt = CI16;
+      break;
+    case WT_CI8:
+      dt = CI8;
+      break;
+    /* The five SCALAR types reach here and are REFUSED, deliberately and for
+       now. doppler#1032 gave the file writers BLUE mode 'S'; the stream is a
+       separate contract -- a wire header, a subscriber, and the Rust FFI that
+       decodes it -- and quietly publishing a real capture as complex would
+       hand every subscriber half a signal. Refusing is the honest answer
+       until that side is designed. doppler#1035. */
+    default:
+      return NULL;
+    }
+  wfm_stream_sink_t *s = calloc (1, sizeof (*s));
+  if (!s)
+    return NULL;
+  s->wtype = sample_type;
+  s->gain  = 1.0f;
+  s->pub   = dp_pub_create (endpoint, dt);
+  if (!s->pub)
+    {
+      free (s);
+      return NULL;
+    }
+  return s;
+}
+
+int
+dp_wfm_stream_sink_send (wfm_stream_sink_t *sink, const float _Complex *iq,
+                         size_t n, double fs, double fc)
+{
+  if (!sink || (n && !iq))
+    return -1;
+  switch (sink->wtype)
+    {
+    case WT_CF32:
+      {
+        if (sink->gain == 1.0f) /* no headroom → direct, byte-identical */
+          return dp_pub_send_cf32 (sink->pub, iq, n, fs, fc);
+        if (grow (sink, n * sizeof (float _Complex)))
+          return -1;
+        float _Complex *o = sink->scratch;
+        for (size_t i = 0; i < n; i++)
+          o[i] = crealf (iq[i]) * sink->gain + cimagf (iq[i]) * sink->gain * I;
+        return dp_pub_send_cf32 (sink->pub, o, n, fs, fc);
+      }
+    case WT_CF64:
+      {
+        if (grow (sink, n * sizeof (double _Complex)))
+          return -1;
+        double _Complex *o = sink->scratch;
+        for (size_t i = 0; i < n; i++)
+          o[i] = (double)(crealf (iq[i]) * sink->gain)
+                 + (double)(cimagf (iq[i]) * sink->gain) * I;
+        return dp_pub_send_cf64 (sink->pub, o, n, fs, fc);
+      }
+    case WT_CI32:
+      {
+        if (grow (sink, n * 2 * sizeof (int32_t)))
+          return -1;
+        int32_t    *o      = sink->scratch;
+        const float qscale = (float)dp_format_full_scale (CI32);
+        for (size_t i = 0; i < n; i++)
+          {
+            float re = crealf (iq[i]) * sink->gain,
+                  im = cimagf (iq[i]) * sink->gain;
+            track_peak (sink, re, im);
+            o[2 * i]     = (int32_t)quantise (sink, WT_CI32, qscale, re);
+            o[2 * i + 1] = (int32_t)quantise (sink, WT_CI32, qscale, im);
+          }
+        return dp_pub_send_ci32 (sink->pub, o, n, fs, fc);
+      }
+    case WT_CI16:
+      {
+        if (grow (sink, n * 2 * sizeof (int16_t)))
+          return -1;
+        int16_t    *o      = sink->scratch;
+        const float qscale = (float)dp_format_full_scale (CI16);
+        for (size_t i = 0; i < n; i++)
+          {
+            float re = crealf (iq[i]) * sink->gain,
+                  im = cimagf (iq[i]) * sink->gain;
+            track_peak (sink, re, im);
+            o[2 * i]     = (int16_t)quantise (sink, WT_CI16, qscale, re);
+            o[2 * i + 1] = (int16_t)quantise (sink, WT_CI16, qscale, im);
+          }
+        return dp_pub_send_ci16 (sink->pub, o, n, fs, fc);
+      }
+    default:
+      { /* WT_CI8 */
+        if (grow (sink, n * 2 * sizeof (int8_t)))
+          return -1;
+        int8_t     *o      = sink->scratch;
+        const float qscale = (float)dp_format_full_scale (CI8);
+        for (size_t i = 0; i < n; i++)
+          {
+            float re = crealf (iq[i]) * sink->gain,
+                  im = cimagf (iq[i]) * sink->gain;
+            track_peak (sink, re, im);
+            o[2 * i]     = (int8_t)quantise (sink, WT_CI8, qscale, re);
+            o[2 * i + 1] = (int8_t)quantise (sink, WT_CI8, qscale, im);
+          }
+        return dp_pub_send_ci8 (sink->pub, o, n, fs, fc);
+      }
+    }
+}
+
+int
+dp_wfm_stream_sink_send_eos (wfm_stream_sink_t *sink)
+{
+  if (!sink || !sink->pub)
+    return DP_OK;
+  return dp_pub_send_eos (sink->pub);
+}
+
+int
+dp_wfm_stream_sink_drain (wfm_stream_sink_t *sink, int timeout_ms)
+{
+  if (!sink || !sink->pub)
+    return DP_OK;
+  return dp_stream_drain (sink->pub, timeout_ms);
+}
+
+void
+dp_wfm_stream_sink_close (wfm_stream_sink_t *sink)
+{
+  if (sink)
+    {
+      if (sink->pub)
+        dp_pub_destroy (sink->pub);
+      free (sink->scratch);
+      free (sink);
+    }
+}
+
+void
+dp_wfm_stream_sink_track_clipping (wfm_stream_sink_t *sink, int on)
+{
+  if (sink)
+    sink->track = on ? 1 : 0;
+}
+
+void
+dp_wfm_stream_sink_set_gain (wfm_stream_sink_t *sink, double gain)
+{
+  if (sink)
+    sink->gain = (float)gain;
+}
+
+double
+dp_wfm_stream_sink_peak (const wfm_stream_sink_t *sink)
+{
+  return sink ? (double)sink->peak : 0.0;
+}
+
+double
+dp_wfm_stream_sink_clip_fraction (const wfm_stream_sink_t *sink)
+{
+  if (!sink || sink->ntot == 0)
+    return 0.0;
+  return (double)sink->nclip / (double)sink->ntot;
+}

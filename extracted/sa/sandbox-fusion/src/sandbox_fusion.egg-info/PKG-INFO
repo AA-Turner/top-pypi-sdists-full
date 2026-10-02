@@ -1,0 +1,15 @@
+Metadata-Version: 2.1
+Name: sandbox-fusion
+Version: 0.3.7
+Summary: Client package of Sandbox Fusion service
+Author-email: Liu Siyao <liusiyao.sine@bytedance.com>
+License: Apache-2.0
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.7
+License-File: LICENSE
+Requires-Dist: requests>=2.0.0
+Requires-Dist: tenacity>=8.0.0
+Requires-Dist: pydantic>=1.0.0
+Requires-Dist: aiohttp>=3.0.0

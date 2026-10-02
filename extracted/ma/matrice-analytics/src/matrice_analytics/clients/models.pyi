@@ -222,18 +222,6 @@ class PostProcessingConfig:
     #     including the zone geometry, and has no fixed shape.
 
     ...
-class RedisDetails:
-    # Endpoint 23 -- the reply to ``GET /v1/facial_recognition/get_redis_details``.
-    #
-    #     Where the sidecar publishes recognition events. UNVERIFIED, but all three fields
-    #     are read by the caller, which builds a Redis connection from them.
-    #
-    #     The wire names are SCREAMING_CASE, unlike every other payload here; that is how
-    #     the sidecar sends them. ``port`` arrives as a string on at least one deployment
-    #     and is converted by the caller, so it is declared ``int`` and tolerates both. An
-    #     empty ``password`` means no password rather than an empty one.
-
-    ...
 class RedisServer:
     # Endpoint 9 -- ``GET /v1/actions/get_redis_server_by_instance_id/{id}``.
     #

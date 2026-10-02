@@ -1,0 +1,4050 @@
+//! Template context management
+
+use crate::Value;
+use ahash::{AHashMap, AHashSet};
+use pyo3::prelude::*;
+use std::collections::{HashMap, HashSet};
+use std::sync::{Mutex, OnceLock};
+
+/// Django's three template builtins, or `None` for any other name (#2347).
+///
+/// `django.template.context.builtins` is
+/// `[{"True": True, "False": False, "None": None}]`, added to EVERY Django
+/// `Context` at `dicts[0]`. So these three names RESOLVE — they are not
+/// literals, and `Variable.__init__` does not special-case them. `{{ True }}`
+/// renders `True`, `{{ p|add:True }}` hands the filter the real `True`, and a
+/// custom filter receives a Python `bool`.
+///
+/// **The single statement of the rule.** Two resolvers can reach a bare name
+/// (#1646): [`Context::resolve`], which serves `{{ }}` output, built-in filter
+/// arguments and the custom-filter argument channel; and
+/// `renderer::get_value_safe`, which serves `{% if %}` / `{% for %}` /
+/// `{% with %}` / `{% firstof %}` / `{% cycle %}` and the filtered tag-operand
+/// channel. The second already answered these three from inline arms while the
+/// first did not, which is the drift #2347 is. Both call this now.
+///
+/// Case-sensitive, because Django is: `true` / `none` are ordinary undefined
+/// variables to Django and render empty. `get_value_safe` additionally accepts
+/// the lowercase spellings as a djust extension; that behaviour is unchanged
+/// and deliberately does NOT live here, so this function stays exactly the
+/// Django set.
+///
+/// `None` maps to [`Value::None`] and not [`Value::Missing`]: the two are
+/// distinct (#2203) — `Missing` denotes an ABSENT variable, `None` the Python
+/// singleton — and this name denotes the singleton.
+pub fn template_builtin(name: &str) -> Option<Value> {
+    match name {
+        "True" => Some(Value::Bool(true)),
+        "False" => Some(Value::Bool(false)),
+        "None" => Some(Value::None),
+        _ => None,
+    }
+}
+
+/// ONE path segment, resolved by Django's three steps in Django's order
+/// (#2371).
+///
+/// `django.template.base.Variable._resolve_lookup` tries three things per
+/// segment and takes the first that does not raise:
+///
+/// 1. **mapping item access, the segment as a STRING** — `current[bit]`;
+/// 2. **attribute access** — `getattr(current, bit)`;
+/// 3. **integer index** — `current[int(bit)]`.
+///
+/// The walk this replaced branched on the SPELLING of the segment instead: a
+/// numeric segment got step 3 and only step 3, a non-numeric segment got step
+/// 1 and only step 1. So each spelling was missing the other's half, and
+/// `{{ d.0 }}` resolved nothing on a dict whatever its key's type —
+/// `{'0': 4}` needs step 1, `{0: 4}` needs step 3, and neither ran. Silently:
+/// no exception, no warning, an empty render. `{{ d.0|divisibleby:"2" }}` is
+/// the sharpest of them, answering a definite **False** rather than nothing.
+///
+/// **The order is the semantics, and it is measured.** A dict carrying both
+/// spellings — `{'0': 's', 0: 'i'}` — renders `'s'` in Django, because step 1
+/// runs first. Reversing these two arms passes every single-key test and
+/// fails that one.
+///
+/// **Step 2 reaches exactly one variant, and used to reach none** (#2481).
+/// A [`Value`] is inert data with no attributes — except a
+/// [`Value::Encoded`], which exists precisely because a Python object could
+/// not cross, and which since #2481 carries the object's attributes by name
+/// alongside its `display` / `json` / `truthy` spellings. So
+/// `{{ dt.year }}` resolves here rather than only on the paths that happen to
+/// have a raw-Python sidecar.
+///
+/// That sidecar walk in [`Context::resolve`] is this one's parallel path
+/// (CLAUDE.md #1646) — it has done all three steps in this order since #1997,
+/// and it is attached only when a top-level context key holds a raw Python
+/// object, which no `DjustTemplateBackend` render does. One walk had Django's
+/// attribute step and its twin did not; that is the drift #2481 closes, in
+/// the same helper #2371 wrote to close the SPELLING half of it.
+///
+/// A [`Value::DictView`] is deliberately absent from step 3: Python's
+/// `dict_items` is not subscriptable, Django's `current[int(bit)]` raises on
+/// it, and `{{ d.items.0 }}` must stay empty on both engines.
+///
+/// **Django's step 3 over a `str` is NOT here, and that is deliberate**
+/// (#2373). `{{ s.0 }}` on `"abc"` is `'a'` in Django, and a character sliced
+/// out of a string is CONSTRUCTED — it has nowhere to be borrowed from, so it
+/// cannot be an arm of this `match` without widening this function's return
+/// type and every [`Context::get`] caller's with it. It lives in
+/// [`Context::string_index`] instead, which [`Context::resolve`] calls beside
+/// [`Context::dict_view`] — both are value-stack shapes that must return an
+/// owned `Value`, and `resolve` already does. `Context::get`'s signature is
+/// untouched.
+/// `pub(crate)` since #2731: [`crate::TemplateObject`] — the shape a
+/// `Value::Encoded` takes when it crosses into a bridged Python tag handler —
+/// answers `__getitem__` / `__getattr__` through THIS function, so the tag
+/// bridge and the renderer cannot resolve a dotted segment differently
+/// (#1646). It is still the renderer's private step; nothing outside the
+/// crate calls it.
+/// [`Context::protect_sidecar_strict`]'s body, as a free function (#2731).
+///
+/// Free because the floor has a SECOND caller that holds no `Context`:
+/// [`crate::value_into_handler_pyobject`] hands the ADR-027 live handle to a
+/// bridged Python tag handler, which is the custom-tag sink
+/// `djust.serialization.build_render_sidecar`'s docstring names — the one
+/// place an object reaches Python code without going through
+/// [`Context::walk_live`]. Two floors over one handle is the #1646 shape;
+/// this is one floor with two callers.
+///
+/// Fail-CLOSED: `None` means the floor could not be enforced, and the caller
+/// must not pass the object on. `Some(obj)` unchanged is the deliberate
+/// no-djust-Python-side case — see the method's doc comment for both.
+pub(crate) fn protect_sidecar_strict<'py>(
+    py: Python<'py>,
+    obj: pyo3::Bound<'py, pyo3::PyAny>,
+) -> Option<pyo3::Bound<'py, pyo3::PyAny>> {
+    // movement 3: narrow to ModuleNotFoundError. As written, ANY import
+    // failure takes the pass-through arm — including an `ImportError` from
+    // a djust that IS installed but whose own imports are broken, which is
+    // a floor that failed to load rather than a floor that is absent. The
+    // two are different conditions and only the second should pass an
+    // object through; distinguishing them needs the error's type, which
+    // `.and_then` discards here.
+    let Ok(protect) = py
+        .import("djust.serialization")
+        .and_then(|m| m.getattr("_protect_sidecar_value"))
+    else {
+        return Some(obj);
+    };
+    protect.call1((obj,)).ok()
+}
+
+/// Reuse only exact builtin values with no user-defined timezone behavior.
+/// Subclasses can override display, truthiness and methods; aware values can
+/// carry mutable tzinfo implementations, so both take normal live conversion.
+fn reusable_temporal(obj: &Bound<'_, PyAny>) -> bool {
+    use pyo3::types::{PyDate, PyDateTime, PyDelta, PyTime};
+
+    if obj.is_exact_instance_of::<PyDate>() || obj.is_exact_instance_of::<PyDelta>() {
+        return true;
+    }
+    (obj.is_exact_instance_of::<PyDateTime>() || obj.is_exact_instance_of::<PyTime>())
+        && obj.getattr("tzinfo").is_ok_and(|tz| tz.is_none())
+}
+
+pub(crate) fn lookup_segment<'a>(current: &'a Value, part: &str) -> Option<&'a Value> {
+    // (1) mapping item access, with the segment as a STRING. `ObjectKey`
+    //     hashes its `Str` variant exactly as the `str` does, so this is the
+    //     same `get("k")` every other caller makes.
+    if let Value::Object(obj) = current {
+        if let Some(found) = obj.get(part) {
+            return Some(found);
+        }
+    }
+
+    // (2) attribute access. ONE variant carries attributes — a
+    //     `Value::Encoded`, which holds a Python object by the spellings
+    //     measured at the PyO3 boundary and, since #2481, by its attribute map
+    //     as well. `{{ post.published.year }}` is an ordinary Django idiom and
+    //     rendered the EMPTY STRING on every path with no raw-Python sidecar,
+    //     which is every `DjustTemplateBackend` render.
+    //
+    //     This is the ONE reader of `Encoded::attrs`. Every other variant is
+    //     inert data with no attributes, so the step is genuinely absent for
+    //     them rather than unimplemented — a `Value::Object` answers the same
+    //     names through step 1 above, which is Django's own order.
+    //
+    //     BEFORE step 3, which is Django's order: `_resolve_lookup` tries
+    //     `getattr` before `current[int(bit)]`. Unobservable for an `Encoded`
+    //     today (it has no index arm below, and none of the carried names
+    //     parses as an integer) and correct anyway, so the two cannot come
+    //     apart if either set grows.
+    if let Value::NamedTuple { fields, items, .. } = current {
+        if let Some(index) = fields.iter().position(|field| field == part) {
+            return items.get(index);
+        }
+    }
+    if let Value::Encoded(encoded) = current {
+        if let Some(found) = encoded.attrs.get(part) {
+            return Some(found);
+        }
+    }
+
+    // (3) integer index. `int(bit)`, so `"007"` is the index 7, and a segment
+    //     that is not an integer at all stops the walk here as Django's
+    //     `ValueError` does.
+    let index = part.parse::<usize>().ok()?;
+    match current {
+        Value::List(items) | Value::Tuple(items) | Value::NamedTuple { items, .. } => {
+            items.get(index)
+        }
+        // A dict subscripted by an int. `ObjectKey` compares numerics BY
+        // VALUE across `Int`/`Float`/`Bool`/`Decimal`/`BigInt` (#2339), which
+        // is what makes `{{ d.1 }}` resolve against `{1.0: …}` and
+        // `{True: …}` exactly as CPython's `{1.0: "a"}[1]` does.
+        Value::Object(obj) => obj.get(&crate::ObjectKey::Int(index as i64)),
+        _ => None,
+    }
+}
+
+/// The map a [`Context`] scope frame holds, shared rather than copied (#2732).
+///
+/// Named so a caller OUTSIDE this crate can hold its state in exactly the shape
+/// frame 0 wants and hand it over with [`Context::from_shared`] — one atomic
+/// increment instead of a deep clone plus a rehashing rebuild (#2737). The
+/// hasher is part of the type: a `std::collections::HashMap` is a different
+/// type and cannot be shared into a frame, only rebuilt into one.
+///
+/// The copy-on-write contract lives on [`ScopeFrame::values`], which every
+/// holder — inside this crate or out — gets by mutating through
+/// [`std::sync::Arc::make_mut`].
+pub type SharedValues = std::sync::Arc<AHashMap<String, Value>>;
+
+/// One lexical binding scope, including the provenance of its values.
+#[derive(Clone, Debug, Default)]
+struct ScopeFrame {
+    /// COPY-ON-WRITE, and that is a performance contract, not a style choice
+    /// (#2732).
+    ///
+    /// [`Context::clone`] is not a rare operation: the `{% for %}` arm takes
+    /// one per loop EXECUTION (`renderer.rs`, `let parent_context =
+    /// context.clone()`), `render_nodes_collecting` and `render_nodes_partial`
+    /// take one per render, and `{% filter %}` and the bridged-tag path take
+    /// more. Every one of those used to deep-copy every `Value` in frame 0 —
+    /// the whole view state — so a render cost time proportional to the
+    /// ENTIRE state multiplied by the number of loop entries, whether or not
+    /// the template read any of it.
+    ///
+    /// Measured, 2 000 unused rows in state, a template reading only a fixed
+    /// 250x8 `matrix`: 71.9 ms, against Django's flat 9.4 ms. Holding the
+    /// emitted cells at 2 000 and varying only the number of inner-loop
+    /// entries (250 / 500 / 125 / 1 000) gave 0.24-0.28 ms per ENTRY and flat
+    /// in iteration count — one deep copy of all state per loop entry, to
+    /// serve two small reads of the parent.
+    ///
+    /// Behind the `Deref`/`DerefMut` pair below, the sharing is invisible:
+    /// `DerefMut` goes through [`std::sync::Arc::make_mut`], so the first
+    /// write to a SHARED map copies it and mutates the unique copy, exactly as
+    /// the eager clone did. Semantics are unchanged by construction; only the
+    /// moment of the copy moves.
+    ///
+    /// **The copy path is LIVE — do not simplify it away.** Writes usually land
+    /// on the freshly pushed top frame, which is uniquely owned, so the copy is
+    /// usually skipped. But the tags that write into the ENCLOSING context so
+    /// their siblings can read it — `{% regroup %}` and the context-mutating
+    /// custom tags bridged by `register_assign_tag_handler` (there is no
+    /// `{% assign %}` tag; the handler is the category), which
+    /// reach `set_at` through `render_nodes_with_loader`'s `&mut
+    /// context.clone()` — write through a frame that is shared at that moment,
+    /// and take the copy on every render that uses them. Proven by mutation,
+    /// not by inspection: building this crate with `Arc::get_mut(..).expect(..)`
+    /// in place of `make_mut` (which panics rather than copying when the `Arc`
+    /// is shared) makes all 22 tests in `python/djust/tests/test_regroup_tag.py`
+    /// and `tests/unit/test_assign_tag.py` fail with that panic — 12 of them
+    /// reach it directly. The cost is bounded: one copy per shared write, of
+    /// whichever frame the write targets, which is strictly less than the eager
+    /// clone charged unconditionally.
+    ///
+    /// `Arc` and not `Rc`. No path is known on which a `Context` crosses a
+    /// thread — the parallel chunk render is `asyncio.as_completed` over
+    /// coroutines on one thread, and a `Context` is created and dropped inside a
+    /// single `render()` — so an `Rc` would very likely compile. It would still
+    /// be wrong: [`BlockSuperSource`] is declared `Send + Sync`, so `Context` is
+    /// already built to be `Send`, and an `Rc` field would silently revoke that
+    /// for every future caller. The atomics buy that back for O(stack depth)
+    /// refcount bumps per clone, against the O(entire state) deep copy this
+    /// removes.
+    values: SharedValues,
+    /// A process-unique content stamp (#2914). Re-assigned on every `DerefMut`
+    /// — the one write door to `values` since #2733's copy-on-write `Arc` —
+    /// and at `from_shared`, so equal stamps imply identical contents and a
+    /// `Clone` (which shares the `Arc`) shares the stamp. `0` = never stamped,
+    /// which [`Context::bridged_py_dict`] treats as "convert, do not cache".
+    stamp: u64,
+    /// The six metadata fields below are COPY-ON-WRITE too, for the same
+    /// reason and by the same mechanism (#2735, the other half of #2732).
+    ///
+    /// `values` going behind an `Arc` left every `Context::clone` — still one
+    /// per `{% for %}` loop ENTRY — deep-copying these six instead, and
+    /// `safe_keys` is O(total state): `_collect_safe_keys` (`rust_bridge.py`)
+    /// emits one dotted path per `SafeString` anywhere in state, and every
+    /// `RustLiveView` render entry replays them all onto frame 0. Measured on
+    /// #2733's head with the SAME 2 000 strings in state either way, differing
+    /// only in whether they were registered safe: 0.0051 -> 0.0471 ms per
+    /// loop entry (release build, min of 7 batch-medians of 30) — ~9x, and
+    /// linear in the number of marks. After: 0.0047-0.0050 at 0 / 100 / 500 /
+    /// 2 000 marks — flat.
+    ///
+    /// Each field has exactly one mutable door, the `<field>_mut()` method
+    /// below, which is `Arc::make_mut` — the copy half. `Arc<T>` has no
+    /// `DerefMut`, so a direct `frame.safe_keys.insert(..)` does not compile;
+    /// the doors are the ONLY way to write, and
+    /// `context::tests::every_metadata_mutation_goes_through_a_make_mut_door`
+    /// derives that set from this file's source and pins it.
+    ///
+    /// The one place the copy could have stopped being rare is the sweep in
+    /// [`Context::revoke_safe_subtree_at`], which visits every frame from the
+    /// binding index upward. On the `{% for %}` path that range is the single,
+    /// freshly pushed, uniquely owned top frame — `revoke_safe_subtree` is
+    /// called on the scoped context AFTER the parent clone — so no copy. The
+    /// sweep additionally takes a door only when the frame holds something
+    /// the sweep would actually remove, so a shared frame it would leave
+    /// unchanged is never copied at all.
+    assignments: std::sync::Arc<indexmap::IndexSet<String>>,
+    invalid_block_super: bool,
+    safe_keys: std::sync::Arc<AHashSet<String>>,
+    unsafe_keys: std::sync::Arc<AHashSet<String>>,
+    revoked_safe_subtrees: std::sync::Arc<AHashSet<String>>,
+    // Canonical source paths preserve descendant safety and model lookup
+    // provenance. None masks an inherited alias after its name is rebound.
+    // Register aliases only when the new name still denotes that source value.
+    aliases: std::sync::Arc<AHashMap<String, Option<String>>>,
+    render_bindings: std::sync::Arc<AHashSet<String>>,
+    loop_scope: Option<u64>,
+    render_scope: Option<u64>,
+    include_instance: Option<String>,
+}
+
+static FRAME_STAMP: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+fn next_frame_stamp() -> u64 {
+    FRAME_STAMP.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+}
+
+// Per-thread memo of one frame's converted handler dict, keyed by the
+// frame's content stamp (#2914).
+//
+// A bridged tag receives the WHOLE context as a Python dict; building it
+// converted every value in every frame on every call, so a page with a
+// `{% url %}` per sidebar row paid O(context) × rows per render — 75 % of a
+// storybook toggle. A frame's contents only change through `DerefMut`, which
+// re-stamps it, so a converted frame can be reused verbatim until then. The
+// loop frame `{% for %}` rebinds each iteration is re-stamped and misses;
+// every frame above it hits.
+//
+// Lifetime (review of #2916): the memo never holds more than the frames of
+// the context that last called it — `bridged_py_dict` drops every entry
+// whose stamp is not on its stack — and the render entries hold a
+// [`BridgeFrameCacheGuard`] so nothing converted for a render outlives the
+// render. A converted dict is a full copy of the frame's values (and pins
+// any live Python handle among them), so an unbounded or render-spanning
+// cache would keep state alive that the view has already released.
+//
+// The `Py<PyDict>` values are dropped with the GIL held in practice (the
+// guard drops inside a pymethod); a drop at thread exit without it relies on
+// PyO3's reference pool, which this workspace leaves enabled.
+//
+// One visible consequence, which is Django's own behaviour: a tag that
+// mutates a nested value it received (a list inside the context) is seen by
+// later tags in the same render, because they receive the same object. No
+// write reaches Rust state either way.
+thread_local! {
+    static BRIDGE_FRAME_CACHE: std::cell::RefCell<AHashMap<u64, Py<pyo3::types::PyDict>>> =
+        std::cell::RefCell::new(AHashMap::new());
+}
+
+/// Drop every memoised frame dict (#2914). Safe to call from any thread at
+/// any time — a later call simply converts again.
+pub fn clear_bridge_frame_cache() {
+    let _ = BRIDGE_FRAME_CACHE.try_with(|cache| {
+        if let Ok(mut cache) = cache.try_borrow_mut() {
+            cache.clear();
+        }
+    });
+}
+
+/// Clears the bridged-frame memo when dropped. Every render entry holds one
+/// so the memo cannot outlive the render it served, on any exit path.
+#[must_use = "the guard clears the memo when it is dropped"]
+pub struct BridgeFrameCacheGuard;
+
+impl Drop for BridgeFrameCacheGuard {
+    fn drop(&mut self) {
+        clear_bridge_frame_cache();
+    }
+}
+
+impl std::ops::Deref for ScopeFrame {
+    type Target = AHashMap<String, Value>;
+    fn deref(&self) -> &Self::Target {
+        &self.values
+    }
+}
+impl std::ops::DerefMut for ScopeFrame {
+    /// The copy half of the copy-on-write. `make_mut` clones the map only when
+    /// this frame's `Arc` is shared with a live [`Context::clone`]; the
+    /// resulting `&mut` is to a uniquely owned map either way, so every caller
+    /// behaves exactly as it did when the field was a plain `AHashMap`.
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.stamp = next_frame_stamp();
+        std::sync::Arc::make_mut(&mut self.values)
+    }
+}
+
+/// The copy-on-write doors for the six metadata fields (#2735). Each is the
+/// same `Arc::make_mut` that `DerefMut` above is for `values`: a no-op
+/// refcount check when the frame is uniquely owned, a copy of THAT field only
+/// when it is shared with a live [`Context::clone`].
+impl ScopeFrame {
+    fn assignments_mut(&mut self) -> &mut indexmap::IndexSet<String> {
+        std::sync::Arc::make_mut(&mut self.assignments)
+    }
+    fn safe_keys_mut(&mut self) -> &mut AHashSet<String> {
+        std::sync::Arc::make_mut(&mut self.safe_keys)
+    }
+    fn unsafe_keys_mut(&mut self) -> &mut AHashSet<String> {
+        std::sync::Arc::make_mut(&mut self.unsafe_keys)
+    }
+    fn revoked_safe_subtrees_mut(&mut self) -> &mut AHashSet<String> {
+        std::sync::Arc::make_mut(&mut self.revoked_safe_subtrees)
+    }
+    fn aliases_mut(&mut self) -> &mut AHashMap<String, Option<String>> {
+        std::sync::Arc::make_mut(&mut self.aliases)
+    }
+    fn render_bindings_mut(&mut self) -> &mut AHashSet<String> {
+        std::sync::Arc::make_mut(&mut self.render_bindings)
+    }
+}
+
+/// A context for template rendering, similar to Django's Context
+///
+/// In addition to JSON-friendly `Value` entries, `Context` can hold a
+/// sidecar map of raw Python objects (e.g. Django model instances) for
+/// `getattr`-style fallback lookups when a nested key like
+/// `user.username` cannot be resolved through the normal value stack.
+#[derive(Debug)]
+pub struct Context {
+    stack: Vec<ScopeFrame>,
+    node_identity: Option<(usize, usize)>,
+    /// Optional sidecar of raw Python objects keyed by top-level
+    /// context name. Used only as a fallback when `get()` misses —
+    /// the value-stack path remains the fast path for JSON-friendly
+    /// context entries.
+    ///
+    /// Shared via `Arc` across clones because `Py<PyAny>` does not
+    /// implement `Clone` directly (it requires a GIL-held `clone_ref`).
+    /// Wrapping in `Arc` lets `Context::clone` stay GIL-free — the
+    /// sidecar is logically immutable after construction.
+    raw_py_objects: Option<std::sync::Arc<HashMap<String, Py<PyAny>>>>,
+    /// Django-parity auto-call of callables during sidecar `getattr`
+    /// resolution (ADR-024). Default `true`; the Python side wires
+    /// `LIVEVIEW_CONFIG["template_auto_call"]` through
+    /// `RustLiveView::set_template_auto_call` (mirroring the #1967
+    /// `loop_render_cache_enabled` flag plumbing). `false` restores the
+    /// pre-ADR plain-getattr walk (kill-switch).
+    auto_call: bool,
+    /// Emit the `<!--dj-if-->` placeholder (#295) and the
+    /// `<!--dj-if id="if-…"-->…<!--/dj-if-->` boundary pair (#1358/#1832)
+    /// around `{% if %}` blocks. They are the VDOM differ's keyed
+    /// boundaries, so the LiveView path needs them; the plain
+    /// `DjustTemplateBackend` / `render_template*` entries switch them off
+    /// because Django emits nothing there (#2519). Default `true` so every
+    /// existing LiveView render keeps its bytes with no edit; render-time
+    /// on the `Context`, never on the parsed `Template` — the template
+    /// cache is shared by both paths, so a parse-time flag would let
+    /// whichever path parsed first decide for both. Mirrors `auto_call`;
+    /// `{% include … only %}` builds a fresh `Context` and must copy it.
+    emit_dj_if_markers: bool,
+    /// The per-iteration `{% for %}` path suffix a `<!--dj-if id="…">`
+    /// marker appends (#1832) — `-<index>` per enclosing loop, composed
+    /// (`-3-2` two loops deep), empty outside any loop.
+    ///
+    /// A FIELD, not a context key (#2529). It used to travel as the context
+    /// variable `__djust_if_loop_path`, which meant a user context carrying
+    /// a key of that name — reachable only from a developer's own
+    /// `get_context_data()`, never from a client write (`safe_setattr`
+    /// refuses leading underscores) — was interpolated RAW into the marker
+    /// comment, and `"--><script>…` forged live markup. State that only the
+    /// framework writes belongs on the `Context` where the user namespace
+    /// cannot reach it, exactly as `emit_dj_if_markers` does. Copied by
+    /// `Clone` (a `{% for %}` / `{% with %}` derived context is inside the
+    /// same iteration) and by `{% include … only %}`'s fresh context.
+    dj_if_loop_path: String,
+    /// Per-INSTANCE namespace for dj-if marker ids (#2686). Same failure class
+    /// as `dj_if_loop_path`, on a different axis: the parser-assigned
+    /// `if-<hash>-N` is derived from the template SOURCE, so *any* mechanism
+    /// that renders one parsed template more than once into a single output
+    /// buffer emits duplicate ids, and the client resolves subtree patches by
+    /// FIRST match — a toggle inside the second occurrence lands on the first.
+    /// `{% for %}` iterations are disambiguated by `dj_if_loop_path`; this
+    /// field does the same for two `template_name` `LiveComponent` instances
+    /// of one component class, each of which renders on its own `RustLiveView`
+    /// with the counter restarting at 0.
+    ///
+    /// Written ONLY by the embedding host (`RustLiveView`), never by a context
+    /// key — the `#2529` lesson that put `dj_if_loop_path` here applies
+    /// verbatim: this value is interpolated raw into a marker comment, so a
+    /// user-reachable namespace would let `"-->` forge live markup. The
+    /// grammar is `[A-Za-z0-9_]*`; anything else is refused. Copied by `Clone`
+    /// and by `{% include … only %}`'s fresh context so a marker nested inside
+    /// a component's include keeps the component's namespace.
+    dj_if_id_namespace: String,
+    /// Per-include-SITE path for dj-if marker ids (#2689). The third known
+    /// instance of the same class as `dj_if_loop_path` (#1832) and
+    /// `dj_if_id_namespace` (#2686): `if-<hash>-N` is derived from the
+    /// template SOURCE, so two `{% include %}`s of one fragment in one page
+    /// emit the identical id and the client resolves subtree patches by FIRST
+    /// match — a toggle in the second include lands on the first.
+    ///
+    /// Written ONLY by the renderer's `{% include %}` arm, from the parse-time
+    /// `Node::Include::site_id`, and never by a context key — the #2529 lesson
+    /// that put the other two here applies verbatim. Each segment is
+    /// `-i<hex>_<digits>` (the including template's source hash and the tag's
+    /// document-order ordinal), so the path composes down a chain of nested
+    /// includes and stays stable across renders: it is LEXICAL, not an
+    /// execution counter, so a `{% if %}` that skips a sibling include cannot
+    /// renumber it.
+    ///
+    /// The grammar is disjoint from the loop path (segments of pure digits),
+    /// so the two compose without ambiguity. Copied by `Clone` and by
+    /// `{% include ... only %}`'s fresh context.
+    dj_if_include_path: String,
+    /// Django's `Context.autoescape` (#2556). Default `true`; plain render APIs
+    /// accept explicit policy, lexical autoescape bodies restore it on exit,
+    /// and `{% include … only %}` copies it into its fresh context. Context
+    /// dictionary keys cannot alter the policy. It is an
+    /// EMIT-time term and the `needs_autoescape` argument, not a safety
+    /// grant: `renderer::filter_output_is_safe` never reads it. Render-time on
+    /// the `Context` for the same reason as `emit_dj_if_markers` — the parsed
+    /// template is cached and shared by both paths.
+    autoescape: bool,
+    /// Per-RENDER state for `{% cycle %}` / `{% resetcycle %}` (#2556):
+    /// `cycle node id -> number of times it has advanced`. Django keeps this
+    /// in `context.render_context[node]`, an `itertools.cycle` per
+    /// `CycleNode` per render, and `Context.__copy__` shallow-copies
+    /// `render_context` so every derived context (`{% for %}`, `{% with %}`,
+    /// `{% include %}`, `context.new()` for `include … only`) SHARES it.
+    /// `Clone` shares the `Arc` for the same reason; `new()` / `from_dict()`
+    /// start a fresh store, and every top-level render entry builds a fresh
+    /// `Context`, which is what makes the state per-render by construction.
+    /// The key is the parser-assigned node id (`<template-prefix>-cycle-N`),
+    /// so two `{% include %}`s of one template share a node's state exactly
+    /// as Django's cached `Template` shares its `CycleNode` objects.
+    cycle_state: std::sync::Arc<std::sync::Mutex<HashMap<String, usize>>>,
+    /// Per-render `{% ifchanged %}` state, keyed by loop/render frame, source
+    /// origin, and node id, storing the last compared value. Django keeps this in the frame returned by
+    /// `IfChangedNode._get_context_stack_frame` — `context["forloop"]` when
+    /// inside a loop, else `context.render_context` — keyed by the node.
+    ///
+    /// The loop term is what makes the state RESET when an enclosing loop
+    /// continues: Django's `ForNode.render` binds ONE fresh `forloop` dict
+    /// per execution of the loop, so an inner `{% ifchanged %}` starts clean
+    /// each time the outer loop re-enters it, while iterations of the SAME
+    /// loop share it. `loop_scope` is that dict's identity, minted per loop
+    /// execution from `loop_scope_counter`.
+    ///
+    /// Shared through the same `Arc` as `cycle_state` and for the same
+    /// reason (`Context.__copy__` shallow-copies `render_context`).
+    ifchanged_state: std::sync::Arc<std::sync::Mutex<HashMap<String, String>>>,
+    /// Mints loop and template-render frame identities. Shared across clones
+    /// so sibling frames in one render cannot collide.
+    loop_scope_counter: std::sync::Arc<std::sync::atomic::AtomicU64>,
+    /// Django's `Engine.string_if_invalid` — what `{{ missing }}` renders.
+    ///
+    /// Empty (the default, and Django's) means "render nothing". A NON-empty
+    /// value is returned for a failed lookup and the filter chain is SKIPPED,
+    /// which is Django's own control flow in `FilterExpression.resolve`
+    /// (fenced as `text`: an indented block in a doc comment is compiled as a
+    /// Rust doctest, and this is Python):
+    ///
+    /// ```text
+    /// if string_if_invalid:
+    ///     if "%s" in string_if_invalid:
+    ///         return string_if_invalid % self.var
+    ///     return string_if_invalid          # <- returns; no filters
+    /// ```
+    ///
+    /// That is why `{{ missing|default:"Foo" }}` renders `INVALID` and not
+    /// `Foo` under a configured `string_if_invalid`. Carried on the render
+    /// (not the parsed template) for the same reason as `autoescape`.
+    string_if_invalid: String,
+    /// The parent body a `{{ block.super }}` would render, DEFERRED (#2710).
+    ///
+    /// `Node::BlockSuperScope` used to render the parent into a string and
+    /// bind it before entering the child body, so a reference sitting in a
+    /// branch Django never evaluates still ran the parent: measured against
+    /// 5.2.16, `{% if show %}{{ block.super }}{% endif %}` with `show`
+    /// false called the parent once here and zero times there, and a parent
+    /// that RAISES turned an otherwise-fine false branch into a 500. Equal
+    /// output was hiding unequal behaviour.
+    ///
+    /// Deferring it means the resolver has to be able to run the render, and
+    /// the resolver holds `&Context` — hence a shareable handle rather than
+    /// a borrow. See [`BlockSuperSource`].
+    block_super: Option<std::sync::Arc<dyn BlockSuperSource>>,
+}
+
+impl Default for Context {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Clone for Context {
+    fn clone(&self) -> Self {
+        Self {
+            stack: self.stack.clone(),
+            node_identity: self.node_identity,
+            // Arc::clone is cheap and does not require the GIL —
+            // the contained `Py<PyAny>` refcount is not touched.
+            raw_py_objects: self.raw_py_objects.clone(),
+            auto_call: self.auto_call,
+            emit_dj_if_markers: self.emit_dj_if_markers,
+            dj_if_loop_path: self.dj_if_loop_path.clone(),
+            dj_if_id_namespace: self.dj_if_id_namespace.clone(),
+            dj_if_include_path: self.dj_if_include_path.clone(),
+            autoescape: self.autoescape,
+            // SHARED, not copied: Django's `Context.__copy__` shallow-copies
+            // `render_context`, so a `{% for %}` / `{% with %}` clone
+            // advances the same `{% cycle %}` iterators as its parent.
+            cycle_state: std::sync::Arc::clone(&self.cycle_state),
+            // SHARED / inherited for the same reason as `cycle_state`: a
+            // `{% for %}` or `{% with %}` clone must see the same
+            // `{% ifchanged %}` frame its parent does. `loop_scope` copies by
+            // value so the clone stays in the loop it was made in.
+            ifchanged_state: std::sync::Arc::clone(&self.ifchanged_state),
+            loop_scope_counter: std::sync::Arc::clone(&self.loop_scope_counter),
+            string_if_invalid: self.string_if_invalid.clone(),
+            // SHARED, like the three above and for the same reason: a
+            // `{% for %}` / `{% with %}` / `{% include %}` clone made INSIDE
+            // a `{% block %}` that overrides one is still inside it, so
+            // `{{ block.super }}` must resolve there (#2710). The `Arc` holds
+            // the parent NODES, not a rendered string, so cloning it costs a
+            // refcount.
+            block_super: self.block_super.clone(),
+        }
+    }
+}
+
+/// The parent body a `{{ block.super }}` in scope would render (#2710).
+///
+/// Implemented in `djust_templates` — this crate has no `Node` and no
+/// renderer — and held by [`Context`] so the ONE resolver every operand
+/// channel ends in ([`Context::resolve`]) can answer it. The trait exists
+/// because the alternative is threading `(&[Node], &L)` through every
+/// function between `render_nodes_with_loader_mut` and the resolver, and
+/// because the resolver holds `&Context`: an owned, shareable handle is what
+/// lets the render outlive the borrow the render arm has.
+///
+/// Django's `BlockNode.super()` renders the parent EACH time the expression
+/// is evaluated — `{{ block.super }}{{ block.super }}` calls into the parent
+/// twice, and a `{% for %}` over three items calls three times (measured
+/// against 5.2.16) — so implementations must NOT memoize.
+pub trait BlockSuperSource: std::fmt::Debug + Send + Sync {
+    /// Render the parent body against `ctx`, as Django's
+    /// `BlockNode.render(self.context)` does.
+    fn render_block_super(&self, ctx: &Context) -> crate::Result<String>;
+}
+
+/// Outcome of the Django-parity callable handling for one resolved
+/// attribute (ADR-024, mirrors `Variable._resolve_lookup`).
+enum CallOutcome<'py> {
+    /// Not callable / `do_not_call_in_templates` / auto-call disabled —
+    /// keep the object as-is and continue the walk.
+    AsIs(pyo3::Bound<'py, pyo3::PyAny>),
+    /// The callable was invoked; continue the walk with its result.
+    Called(pyo3::Bound<'py, pyo3::PyAny>),
+    /// `alters_data` refusal or an args-required callable — Django assigns
+    /// `current = string_if_invalid` INSIDE the per-segment loop and walks the
+    /// next bit (`base.py:925-937`).
+    Empty,
+    /// A SILENT exception raised inside the auto-called method — Django's
+    /// OUTERMOST handler (`base.py:939-953`), which assigns
+    /// `string_if_invalid` and RETURNS.
+    ///
+    /// Distinct from [`CallOutcome::Empty`] because Django reaches the two
+    /// through different handlers and only one of them keeps walking: after a
+    /// silent `Model.DoesNotExist`, `{{ p.latest.isupper }}` is EMPTY in
+    /// Django, where after an `alters_data` refusal it is `False`. The
+    /// pre-ADR walk in [`Context::resolve_without_builtins`] collapses both
+    /// into `Value::Missing`, which is why splitting the variant is a no-op
+    /// with the ADR-027 flag off.
+    Silent,
+}
+
+/// Outcome of a Django-order walk over a LIVE object — the ADR-027 sink.
+///
+/// Dormant in #2539 movement 1: defined and unit-tested
+/// (`crates/djust_core/tests/test_django_lookup_sink_2539.rs`), called by
+/// nothing — pinned by `TestTheSinkIsDefinedButUnrouted2539` in
+/// `python/tests/test_adr027_characterization_net_2539.py`. Movement 2
+/// routes `lookup_segment` / the model-miss path through it.
+pub enum Walked<'py> {
+    /// `_resolve_lookup` ended on an object; the CALLER decides its
+    /// conversion. This helper never re-enters `extract::<Value>()` — the
+    /// terminal conversion of a bare object (ADR-027 rows I / T) is decided
+    /// at the call site, which is the whole point of the ADR.
+    Object(pyo3::Bound<'py, pyo3::PyAny>),
+    /// Django's `string_if_invalid`: a `VariableDoesNotExist`, an
+    /// `alters_data` refusal, an args-required callable, or an exception
+    /// carrying a truthy `silent_variable_failure`.
+    Invalid,
+}
+
+/// `(-i<hex>_<digits>)*` — the grammar of `Context::dj_if_include_path`.
+///
+/// Segments are tagged `i` and always contain `_`, so they can never be
+/// mistaken for a `dj_if_loop_path` segment (pure digits, #1832), which is what
+/// lets the two suffixes be concatenated into one opaque marker id.
+fn is_dj_if_include_path(path: &str) -> bool {
+    if path.is_empty() {
+        return true;
+    }
+    let Some(rest) = path.strip_prefix('-') else {
+        return false;
+    };
+    rest.split('-').all(|segment| {
+        let Some(body) = segment.strip_prefix('i') else {
+            return false;
+        };
+        match body.split_once('_') {
+            Some((hash, ordinal)) => {
+                !hash.is_empty()
+                    && hash.chars().all(|c| c.is_ascii_hexdigit())
+                    && !ordinal.is_empty()
+                    && ordinal.chars().all(|c| c.is_ascii_digit())
+            }
+            None => false,
+        }
+    })
+}
+
+impl Context {
+    pub fn new() -> Self {
+        Self {
+            stack: vec![ScopeFrame::default()],
+            node_identity: None,
+            raw_py_objects: None,
+            auto_call: true,
+            emit_dj_if_markers: true,
+            dj_if_loop_path: String::new(),
+            dj_if_id_namespace: String::new(),
+            dj_if_include_path: String::new(),
+            autoescape: true,
+            cycle_state: std::sync::Arc::default(),
+            ifchanged_state: std::sync::Arc::default(),
+            loop_scope_counter: std::sync::Arc::default(),
+            string_if_invalid: String::new(),
+            block_super: None,
+        }
+    }
+
+    /// Accepts any map of pairs — `HashMap` or the `IndexMap` that now backs
+    /// `Value::Object` (#2203). Frames are `AHashMap`, so ordering is not
+    /// meaningful here; this is generic only to avoid forcing callers to
+    /// convert.
+    pub fn from_dict<M: IntoIterator<Item = (String, Value)>>(dict: M) -> Self {
+        let mut map = AHashMap::new();
+        for (k, v) in dict {
+            map.insert(k, v);
+        }
+        Self::from_shared(std::sync::Arc::new(map))
+    }
+
+    /// A `Context` over an ALREADY-SHARED base frame — no copy, no rebuild
+    /// (#2737).
+    ///
+    /// [`Context::from_dict`] is the right entry when the caller holds a map it
+    /// owns; it costs one rehashing pass plus a move per entry. A caller that
+    /// holds its state as a [`SharedValues`] across renders — a long-lived view
+    /// backend — pays that pass on EVERY render, plus the deep clone it has to
+    /// make first because `from_dict` consumes what it is given. For a view
+    /// with 5 000 opaque objects in state that was ~0.63 ms per render, charged
+    /// whether or not the template reads any of it.
+    ///
+    /// This takes the `Arc` instead, so the base frame is the caller's own map
+    /// and the whole cost is one atomic increment. It is the same
+    /// copy-on-write contract [`ScopeFrame::values`] already documents, one
+    /// level up: the caller mutates through [`std::sync::Arc::make_mut`], which
+    /// copies only when a render is actually holding the map at that moment.
+    ///
+    /// `from_dict` routes through here rather than building its own frame, so
+    /// there is ONE statement of what frame 0 is (#1646).
+    pub fn from_shared(values: SharedValues) -> Self {
+        Self {
+            stack: vec![ScopeFrame {
+                values,
+                stamp: next_frame_stamp(),
+                ..ScopeFrame::default()
+            }],
+            node_identity: None,
+            raw_py_objects: None,
+            auto_call: true,
+            emit_dj_if_markers: true,
+            dj_if_loop_path: String::new(),
+            dj_if_id_namespace: String::new(),
+            dj_if_include_path: String::new(),
+            autoescape: true,
+            cycle_state: std::sync::Arc::default(),
+            ifchanged_state: std::sync::Arc::default(),
+            loop_scope_counter: std::sync::Arc::default(),
+            string_if_invalid: String::new(),
+            block_super: None,
+        }
+    }
+
+    /// Enable/disable Django-parity auto-call in the sidecar walk
+    /// (ADR-024 kill-switch; wired from
+    /// `LIVEVIEW_CONFIG["template_auto_call"]`).
+    pub fn set_auto_call(&mut self, enabled: bool) {
+        self.auto_call = enabled;
+    }
+
+    /// Enable/disable `<!--dj-if-->` marker emission for renders under this
+    /// context (#2519). The plain entries pass `false`; the LiveView path
+    /// keeps the default `true`.
+    pub fn set_emit_dj_if_markers(&mut self, enabled: bool) {
+        self.emit_dj_if_markers = enabled;
+    }
+
+    /// Should the renderer emit `<!--dj-if-->` markers under this context?
+    pub fn emit_dj_if_markers(&self) -> bool {
+        self.emit_dj_if_markers
+    }
+
+    /// Set the dj-if loop-path suffix for renders under this context
+    /// (#1832, #2529). Written ONLY by the renderer's `{% for %}` arm — once
+    /// per iteration, restored on exit — and never by a context key.
+    ///
+    /// The suffix grammar is `(-<digits>)*`; anything else is refused and the
+    /// path left unchanged, so even a future writer cannot put a marker
+    /// terminator into the comment. Belt and braces: the field itself is what
+    /// keeps user data out.
+    pub fn set_dj_if_loop_path(&mut self, path: impl Into<String>) {
+        let path = path.into();
+        if path.chars().all(|c| c == '-' || c.is_ascii_digit()) {
+            self.dj_if_loop_path = path;
+        } else {
+            debug_assert!(false, "dj-if loop path is not `(-<digits>)*`: {path:?}");
+        }
+    }
+
+    /// The dj-if loop-path suffix (#1832) — empty outside any `{% for %}`.
+    pub fn dj_if_loop_path(&self) -> &str {
+        &self.dj_if_loop_path
+    }
+
+    /// Set the per-instance dj-if id namespace for renders under this context
+    /// (#2686). Written ONLY by the embedding host (`RustLiveView`) before a
+    /// render, and never by a context key.
+    ///
+    /// The grammar is `[A-Za-z0-9_]*`; anything else is refused and the
+    /// namespace left unchanged, for the same reason `set_dj_if_loop_path`
+    /// refuses non-`(-<digits>)*` input (#2529) — this value is interpolated
+    /// raw into a marker comment, and `-->` in it would forge live markup.
+    /// Note `-` is deliberately NOT in the alphabet: the renderer supplies the
+    /// separator, so a namespace cannot introduce extra segments.
+    pub fn set_dj_if_id_namespace(&mut self, namespace: impl Into<String>) {
+        let namespace = namespace.into();
+        if namespace
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_')
+        {
+            self.dj_if_id_namespace = namespace;
+        } else {
+            debug_assert!(
+                false,
+                "dj-if id namespace is not `[A-Za-z0-9_]*`: {namespace:?}"
+            );
+        }
+    }
+
+    /// The per-instance dj-if id namespace (#2686) — empty unless the
+    /// embedding host set one.
+    pub fn dj_if_id_namespace(&self) -> &str {
+        &self.dj_if_id_namespace
+    }
+
+    /// Set the per-include-site dj-if id path for renders under this context
+    /// (#2689). Written ONLY by the renderer's `{% include %}` arm — once per
+    /// include, restored on exit — and never by a context key.
+    ///
+    /// The grammar is `(-i<hex>_<digits>)*`; anything else is refused and the
+    /// path left unchanged, for the same reason `set_dj_if_loop_path` refuses
+    /// non-`(-<digits>)*` input (#2529): the value is interpolated raw into a
+    /// marker comment, and `-->` in it would forge live markup.
+    pub fn set_dj_if_include_path(&mut self, path: impl Into<String>) {
+        let path = path.into();
+        if is_dj_if_include_path(&path) {
+            self.dj_if_include_path = path;
+        } else {
+            debug_assert!(
+                false,
+                "dj-if include path is not `(-i<hex>_<digits>)*`: {path:?}"
+            );
+        }
+    }
+
+    /// The dj-if include-site path (#2689) — empty outside any `{% include %}`.
+    pub fn dj_if_include_path(&self) -> &str {
+        &self.dj_if_include_path
+    }
+
+    /// Set Django's `Context.autoescape` for renders under this context
+    /// (#2556). Production writers are the explicit plain-render API options,
+    /// lexical setting/restoration, and the include-only context copy, pinned by a
+    /// source grep in `python/tests/test_autoescape_tag_2556.py`.
+    pub fn set_autoescape(&mut self, on: bool) {
+        self.autoescape = on;
+    }
+
+    /// Django's `Context.autoescape`: should the renderer's emit sites and
+    /// the `needs_autoescape` filters escape under this context?
+    pub fn autoescape(&self) -> bool {
+        self.autoescape
+    }
+
+    /// The innermost template-render frame identity (`0` for the top-level
+    /// template) — Django's `render_context.dicts[-1]`, which
+    /// `Template.render` pushes fresh for every included template render
+    /// (`push_state`) and which `RenderContext.__getitem__` alone reads.
+    fn render_scope(&self) -> u64 {
+        self.stack
+            .iter()
+            .rev()
+            .find_map(|frame| frame.render_scope)
+            .unwrap_or(0)
+    }
+
+    /// The key a `{% cycle %}` node's iterator lives under: the node id
+    /// scoped to the current render frame (#2657). Django keys on
+    /// `render_context[node]`, and `render_context` reads only the frame the
+    /// current `Template.render` pushed — so a `{% cycle %}` inside an
+    /// included template starts fresh on EVERY execution of the include,
+    /// plain or `only`, and the parent's own cycles resume untouched when the
+    /// include returns. Until #2657 the store was keyed on the node alone and
+    /// shared into both include forms, so `{% for x in v %}{% include
+    /// 'cyc.html' %}{% endfor %}` rendered `abc` where Django renders `aaa`.
+    /// ONE mechanism for both include forms, the same frame `{% ifchanged %}`
+    /// scopes by, so the two stores cannot drift again (#1646).
+    fn cycle_key(&self, id: &str) -> String {
+        format!("{}:{id}", self.render_scope())
+    }
+
+    /// Advance one `{% cycle %}` node's per-render iterator and return the
+    /// index it was AT (#2556) — Django's `next(itertools.cycle(values))`
+    /// on `render_context[node]`. The first call for an id returns `0`.
+    /// `len == 0` is the caller's problem; this only counts.
+    pub fn cycle_advance(&self, id: &str) -> usize {
+        let key = self.cycle_key(id);
+        let mut state = self
+            .cycle_state
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let slot = state.entry(key).or_insert(0);
+        let at = *slot;
+        *slot += 1;
+        at
+    }
+
+    /// `{% resetcycle %}`: `CycleNode.reset` replaces the iterator with a
+    /// fresh `itertools.cycle`, so the next advance yields the first value.
+    pub fn cycle_reset(&self, id: &str) {
+        let key = self.cycle_key(id);
+        let mut state = self
+            .cycle_state
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        state.insert(key, 0);
+    }
+
+    /// Enter a new `{% for %}` execution: mint a fresh `{% ifchanged %}`
+    /// frame identity for the loop body. Django gets this for free by
+    /// binding a new `forloop` dict per `ForNode.render`; this is that dict's
+    /// identity. Call ONCE per loop execution, on the context the body
+    /// renders through — not per iteration, which would reset the state the
+    /// tag exists to carry across iterations.
+    pub fn begin_loop_scope(&mut self) {
+        let id = self
+            .loop_scope_counter
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            + 1;
+        self.stack.last_mut().unwrap().loop_scope = Some(id);
+    }
+
+    pub fn replace_node_identity(
+        &mut self,
+        identity: Option<(usize, usize)>,
+    ) -> Option<(usize, usize)> {
+        std::mem::replace(&mut self.node_identity, identity)
+    }
+
+    pub fn node_identity(&self) -> Option<(usize, usize)> {
+        self.node_identity
+    }
+
+    fn include_instance(&self) -> &str {
+        self.stack
+            .iter()
+            .rev()
+            .find_map(|frame| frame.include_instance.as_deref())
+            .unwrap_or("")
+    }
+
+    /// Uncached Django loaders produce a distinct template for each IncludeNode.
+    /// Repeated execution of that same node still reuses its render-local template.
+    pub fn enter_include_instance(&mut self, shared: bool, identity: (usize, usize)) {
+        let instance = if shared {
+            String::new()
+        } else {
+            format!("{}/{:?}", self.include_instance(), identity)
+        };
+        self.stack.last_mut().unwrap().include_instance = Some(instance);
+    }
+
+    /// Template.render pushes fresh render_context state for each include.
+    /// Loop-bound ifchanged state still belongs to the enclosing forloop.
+    pub fn begin_template_render(&mut self) {
+        let id = self
+            .loop_scope_counter
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            + 1;
+        self.stack.last_mut().unwrap().render_scope = Some(id);
+    }
+
+    /// Set Django's `string_if_invalid` for this render.
+    pub fn set_string_if_invalid(&mut self, value: impl Into<String>) {
+        self.string_if_invalid = value.into();
+    }
+
+    pub fn string_if_invalid(&self) -> &str {
+        &self.string_if_invalid
+    }
+
+    /// `string_if_invalid` with Django's `%s` substitution already applied for
+    /// `var_name`, or `None` when it is empty (render nothing, the default).
+    pub fn string_if_invalid_for(&self, var_name: &str) -> Option<String> {
+        if self.string_if_invalid.is_empty() {
+            return None;
+        }
+        Some(if self.string_if_invalid.contains("%s") {
+            self.string_if_invalid.replace("%s", var_name)
+        } else {
+            self.string_if_invalid.clone()
+        })
+    }
+
+    /// The innermost loop-execution identity (`0` outside any loop).
+    pub fn loop_scope(&self) -> u64 {
+        self.stack
+            .iter()
+            .rev()
+            .find_map(|frame| frame.loop_scope)
+            .unwrap_or(0)
+    }
+
+    /// `IfChangedNode.render`'s state check: has `value` changed since this
+    /// node last ran in the current frame?
+    ///
+    /// Returns `true` — render the true branch — when the node has not run
+    /// in this frame yet (Django's `setdefault(self)` leaves `None`, which no
+    /// resolved value equals) or when `value` differs from the stored one,
+    /// and stores `value` in that case. Returns `false` when unchanged.
+    pub fn ifchanged_step(&self, id: &str, value: &str) -> bool {
+        self.ifchanged_step_in_template(id, None, value)
+    }
+
+    pub fn ifchanged_step_in_template(&self, id: &str, origin: Option<&str>, value: &str) -> bool {
+        let loop_scope = self.loop_scope();
+        let render_scope = if loop_scope == 0 {
+            self.render_scope()
+        } else {
+            0
+        };
+        let key = format!(
+            "{:?}",
+            (
+                loop_scope,
+                render_scope,
+                self.include_instance(),
+                origin,
+                id
+            )
+        );
+        let mut state = self
+            .ifchanged_state
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        match state.get(&key) {
+            Some(previous) if previous == value => false,
+            _ => {
+                state.insert(key, value.to_string());
+                true
+            }
+        }
+    }
+
+    /// Attach a map of raw Python objects for `getattr`-fallback
+    /// lookups. Typically called by the live-view layer after
+    /// building the context from JSON-compatible state. Safe to
+    /// call with an empty map (no-op on lookup).
+    pub fn set_raw_py_objects(&mut self, objects: HashMap<String, Py<PyAny>>) {
+        self.stack
+            .iter_mut()
+            .filter(|frame| !frame.render_bindings.is_empty())
+            .for_each(|frame| frame.render_bindings_mut().clear());
+        if objects.is_empty() {
+            self.raw_py_objects = None;
+        } else {
+            self.raw_py_objects = Some(std::sync::Arc::new(objects));
+        }
+    }
+
+    /// Does this context have any raw Python objects attached?
+    pub fn has_raw_py_objects(&self) -> bool {
+        self.raw_py_objects.is_some()
+    }
+
+    /// Borrow the raw Python objects sidecar, if attached.
+    ///
+    /// Used by the custom-tag bridge to pass Python-only context
+    /// (e.g. ``request``, ``view``) to handlers that need them — like
+    /// the Rust-path ``{% live_render %}`` handler which delegates to
+    /// the Django template tag. Returns ``None`` when no sidecar is
+    /// attached (the common case for templates rendered outside a
+    /// ``RustLiveView``).
+    pub fn raw_py_objects(&self) -> Option<&HashMap<String, Py<PyAny>>> {
+        self.raw_py_objects.as_deref()
+    }
+
+    /// Sidecar values visible to a Python tag, excluding names rebound by
+    /// template scopes. Keep the original sidecar for lazy lookup and aliases;
+    /// a tag's flattened context must instead honor its current local values.
+    pub fn render_raw_py_objects(&self) -> Option<std::sync::Arc<HashMap<String, Py<PyAny>>>> {
+        let raw = self.raw_py_objects.as_ref()?;
+        let shadowed = |key: &String| {
+            self.stack
+                .iter()
+                .any(|frame| frame.render_bindings.contains(key))
+        };
+        if !raw.keys().any(shadowed) {
+            return Some(std::sync::Arc::clone(raw));
+        }
+        Some(Python::attach(|py| {
+            std::sync::Arc::new(
+                raw.iter()
+                    .filter(|(key, _)| !shadowed(key))
+                    .map(|(key, value)| (key.clone(), value.clone_ref(py)))
+                    .collect(),
+            )
+        }))
+    }
+
+    /// Mark a variable name as safe (skip auto-escaping on render).
+    pub fn mark_safe(&mut self, key: String) {
+        self.set_safety(&key, true);
+    }
+
+    /// Every dotted path currently marked safe, in no particular order (#2547).
+    ///
+    /// The bridged-library tag path hands a Python handler the context as a
+    /// dict and lets Django's OWN node resolve the operands against it, so
+    /// the `SafeData` bit `{{ p }}` would honour has to be re-minted on the
+    /// dict's values — `{% echo_arg safe %}` over a `mark_safe`d value must
+    /// not escape it, as it does not on Django.
+    pub fn safe_key_paths(&self) -> Vec<String> {
+        self.stack
+            .iter()
+            .flat_map(|frame| frame.safe_keys.iter())
+            .filter(|key| self.is_marked_safe(key))
+            .cloned()
+            .collect::<AHashSet<_>>()
+            .into_iter()
+            .collect()
+    }
+
+    /// Bind `name` to `value`, **REPLACING** whatever safety grant `name`
+    /// carried (#2361, #2363).
+    ///
+    /// This is the one door for every template construct that binds a
+    /// resolved value to a NEW NAME — `{% with %}`, `{% include … with %}`,
+    /// the `{% for %}` loop variable and its tuple unpacking, and the
+    /// `{% … as x %}` assign-tag merge. [`Context::set`] moves the VALUE;
+    /// this moves the value AND the grant, which is the whole of the defect
+    /// those two issues describe from opposite sides.
+    ///
+    /// # Why a REPLACEMENT and not an addition
+    ///
+    /// djust's safety channel is keyed BY NAME: `safe_keys` holds dotted
+    /// paths written by `rust_bridge._collect_safe_keys`, and
+    /// [`Context::is_safe`] answers by looking a name up in it. A binding
+    /// therefore has to move the grant in BOTH directions, and only one of
+    /// them was reported:
+    ///
+    /// * **grant absent, value safe** — `{% with q=p|linebreaks %}` bound the
+    ///   `Value` and dropped the `bool` beside it, so `{{ q }}` escaped what
+    ///   `{{ p|linebreaks }}` emits live. Over-escaping (#2363).
+    /// * **grant present, value NOT safe** — a bind that SHADOWS a marked
+    ///   name inherited the stale grant, so with `p` marked
+    ///   `{% with p=hostile %}{{ p }}{% endwith %}` emitted the hostile value
+    ///   RAW where Django escapes it. That is an UNDER-escape, the one
+    ///   direction this machinery must never move in, and it was found only
+    ///   by measuring the over-escape above. Writing `bind` as
+    ///   "also carry a grant" would have left it open; writing it as
+    ///   "a bind replaces the grant" retires both at once — the #2129 lesson
+    ///   that a rule about the OPERATION beats a rule about the values.
+    ///
+    /// # The paths BENEATH the name go too
+    ///
+    /// `safe_keys` holds `p.a` as readily as `p`, and those descendants
+    /// described the value being SHADOWED, not the new one. Leaving them
+    /// makes `{% with p=hostile_dict %}{{ p.a }}{% endwith %}` emit raw.
+    /// So a bind revokes `name` and every `name.…` beneath it.
+    ///
+    /// The scan is skipped entirely when the set is empty — the common case
+    /// for a render with no context marks at all — so a loop over a
+    /// grant-free context pays one `is_empty` check per iteration.
+    ///
+    /// The revoke is not the whole story for a loop variable: `is_safe` also
+    /// resolves through [`Context::set_loop_mapping`], which is registered
+    /// only where the positional correspondence is genuine. That alias is
+    /// left alone deliberately — it is how a real list's per-item marks
+    /// (#2287) still resolve.
+    /// Assignments which survived at the caller's lexical scope.
+    pub fn root_assignments(&self) -> Vec<(String, Value)> {
+        let frame = &self.stack[0];
+        frame
+            .assignments
+            .iter()
+            .filter_map(|key| {
+                frame.get(key).map(|value| {
+                    let value = match value {
+                        Value::String(text) if self.is_safe(key) => Value::SafeString(text.clone()),
+                        other => other.clone(),
+                    };
+                    (key.clone(), value)
+                })
+            })
+            .collect()
+    }
+
+    /// Arm the DEFERRED `{{ block.super }}` for this scope (#2710).
+    ///
+    /// Called by the renderer's `Node::BlockSuperScope` arm on the scoped
+    /// context it hands the CHILD body. Nothing renders here: `source` holds
+    /// the parent nodes and a loader handle, and [`Context::resolve`] runs it
+    /// only when an expression actually asks for `block.super`.
+    pub fn arm_block_super(&mut self, source: std::sync::Arc<dyn BlockSuperSource>) {
+        self.block_super = Some(source);
+    }
+
+    /// Disarm it, so a stray `{{ block.super }}` in a body with no further
+    /// ancestor resolves to nothing rather than re-entering the same parent.
+    ///
+    /// The renderer calls this on the context it renders the PARENT body in;
+    /// Django's `BlockNode.super()` answers `''` once `BlockContext` has no
+    /// block left to pop, and this is the same floor.
+    pub fn disarm_block_super(&mut self) {
+        self.block_super = None;
+    }
+
+    /// Is a deferred `{{ block.super }}` armed here? Used by the renderer's
+    /// structural tests; the resolution itself is [`Context::resolve`]'s.
+    pub fn block_super_is_armed(&self) -> bool {
+        self.block_super.is_some()
+    }
+
+    /// Run the armed source NOW, or answer `None` when nothing is armed.
+    ///
+    /// The escape hatch for the ONE boundary laziness cannot cross: a
+    /// PYTHON-BRIDGED tag receives the context as a flat map
+    /// ([`Context::to_hashmap`]), and a map has no callable to defer behind —
+    /// so `{% blocktranslate with s=block.super %}`, whose operands Django's
+    /// own Python code resolves against that map, needs the string. The
+    /// renderer's `bridge_context` is the only caller; see its doc for the
+    /// residual divergence that buys.
+    pub fn render_armed_block_super(&self) -> crate::Result<Option<String>> {
+        match self.block_super.clone() {
+            Some(source) => source.render_block_super(self).map(Some),
+            None => Ok(None),
+        }
+    }
+
+    /// A base block has no inheritance context; super is invalid until evaluated.
+    pub fn enter_base_block(&mut self) {
+        self.set("block".to_owned(), Value::Object(Default::default()));
+        self.stack.last_mut().unwrap().invalid_block_super = true;
+    }
+
+    pub fn bind(&mut self, name: String, value: Value, safe: bool) {
+        self.bind_at(self.stack.len() - 1, name, value, safe);
+    }
+
+    /// Django's Context.set_upward: update the nearest existing binding.
+    pub fn bind_upward(&mut self, name: String, value: Value, safe: bool) {
+        let index = self
+            .stack
+            .iter()
+            .rposition(|frame| frame.contains_key(&name))
+            .unwrap_or(self.stack.len() - 1);
+        self.bind_at(index, name, value, safe);
+    }
+
+    fn bind_at(&mut self, index: usize, name: String, value: Value, safe: bool) {
+        if index == 0 {
+            self.stack[index].assignments_mut().insert(name.clone());
+        }
+        if name == "block" {
+            self.stack[index].invalid_block_super = false;
+        }
+        self.revoke_safe_subtree_at(index, &name);
+        self.set_safety_at(index, &name, safe);
+        self.set_at(index, name, value);
+    }
+
+    /// The EXACT-NAME half of a [`Context::bind`]. `O(1)`.
+    ///
+    /// A `{% for %}` binds the same names once per iteration, so it hoists the
+    /// `O(len(safe_keys))` [`Context::revoke_safe_subtree`] half OUT of the
+    /// iteration — the shadowed outer grants it clears are the same ones every
+    /// iteration would clear — and calls this per item. Splitting the door is
+    /// a cost decision, not a semantic one: `revoke_safe_subtree` once, then
+    /// `set` + `set_safety` per iteration, is `bind` per iteration, and
+    /// `context::tests::the_loop_decomposition_of_bind_agrees_with_bind`
+    /// pins that the two spellings agree so the split cannot drift.
+    ///
+    /// Without the hoist, a loop over an N-element list whose items are all
+    /// marked pays `O(N²)` prefix comparisons — `_collect_safe_keys` emits one
+    /// path per marked item, so both factors are the list's own length.
+    pub fn set_safety(&mut self, name: &str, safe: bool) {
+        self.set_safety_at(self.stack.len() - 1, name, safe);
+    }
+
+    fn set_safety_at(&mut self, index: usize, name: &str, safe: bool) {
+        let frame = &mut self.stack[index];
+        if safe {
+            if frame.unsafe_keys.contains(name) {
+                frame.unsafe_keys_mut().remove(name);
+            }
+            frame.safe_keys_mut().insert(name.to_string());
+        } else {
+            if frame.safe_keys.contains(name) {
+                frame.safe_keys_mut().remove(name);
+            }
+            frame.unsafe_keys_mut().insert(name.to_string());
+        }
+    }
+
+    /// The SUBTREE half of a [`Context::bind`]: drop the grant on `key` and on
+    /// every dotted path beneath it. `O(len(safe_keys))`.
+    ///
+    /// The descendants go because they described the value being SHADOWED.
+    /// With `p.a` marked, leaving them makes
+    /// `{% with p=hostile_dict %}{{ p.a }}{% endwith %}` emit raw.
+    pub fn revoke_safe_subtree(&mut self, key: &str) {
+        self.revoke_safe_subtree_at(self.stack.len() - 1, key);
+    }
+
+    fn revoke_safe_subtree_at(&mut self, index: usize, key: &str) {
+        let prefix = format!("{key}.");
+        let refers_to_key = |target: &str| target == key || target.starts_with(&prefix);
+        let aliases: Vec<String> = self
+            .stack
+            .iter()
+            .flat_map(|frame| frame.aliases.iter())
+            .filter(|(_, target)| target.as_deref().is_some_and(refers_to_key))
+            .map(|(name, _)| name.clone())
+            .collect();
+        // Mask aliases inherited from lower scopes, without modifying them.
+        let frame = &mut self.stack[index];
+        frame.aliases_mut().insert(key.to_string(), None);
+        for name in aliases {
+            frame.aliases_mut().insert(name, None);
+        }
+        frame.revoked_safe_subtrees_mut().insert(key.to_string());
+        // An upward assignment also invalidates grants in scopes above its
+        // binding. Those scopes cannot keep grants for the replaced value.
+        //
+        // Each `retain` goes through a copy-on-write door only when it would
+        // remove something (#2735): a frame shared with a live clone that the
+        // sweep would leave unchanged must not be copied just to be scanned.
+        let alias_refers = |target: &Option<String>| target.as_deref().is_some_and(refers_to_key);
+        for frame in &mut self.stack[index..] {
+            if frame.safe_keys.iter().any(|name| refers_to_key(name)) {
+                frame.safe_keys_mut().retain(|name| !refers_to_key(name));
+            }
+            if frame.unsafe_keys.iter().any(|name| refers_to_key(name)) {
+                frame.unsafe_keys_mut().retain(|name| !refers_to_key(name));
+            }
+            if frame.aliases.values().any(alias_refers) {
+                frame
+                    .aliases_mut()
+                    .retain(|_, target| !alias_refers(target));
+            }
+        }
+    }
+
+    /// Check if a variable name is marked safe.
+    pub fn is_safe(&self, key: &str) -> bool {
+        self.get(key).is_some_and(Value::is_safe_string)
+            || self.is_marked_safe(key)
+            || self
+                .resolve_alias(key)
+                .is_some_and(|target| self.is_marked_safe(&target))
+    }
+
+    fn is_marked_safe(&self, key: &str) -> bool {
+        let root = key.split('.').next().unwrap_or(key);
+        for frame in self.stack.iter().rev() {
+            if frame.safe_keys.contains(key) {
+                return true;
+            }
+            if frame.unsafe_keys.contains(key)
+                || frame.revoked_safe_subtrees.iter().any(|name| {
+                    key == name
+                        || key
+                            .strip_prefix(name)
+                            .is_some_and(|rest| rest.starts_with('.'))
+                })
+                || frame.contains_key(root)
+            {
+                return false;
+            }
+        }
+        false
+    }
+
+    /// Is the value at `key` a SEQUENCE whose every ELEMENT was marked safe,
+    /// while the sequence itself was not? (#2287)
+    ///
+    /// Django's second safety granularity, arriving from the CONTEXT rather
+    /// than from a filter. A view that returns
+    /// `{"p": [mark_safe("<b>x</b>"), mark_safe("<i>y</i>")]}` has marked the
+    /// ITEMS — `mark_safe` is never called on the list, so the list is not
+    /// `SafeData` and [`Context::is_safe`] correctly answers `false` for `p`.
+    /// `join` and `unordered_list` `conditional_escape` per element, so in
+    /// Django those items come through LIVE; without this method djust
+    /// escaped them, which is the whole of #2287.
+    ///
+    /// `_collect_safe_keys` (`python/djust/mixins/rust_bridge.py`) already
+    /// walks containers and emits one dotted path per `SafeString` it finds,
+    /// so `p.0` / `p.1` are ALREADY in `safe_keys` — the channel existed and
+    /// nothing read it at this granularity.
+    ///
+    /// Four deliberate narrowings, each of which is the ESCAPING direction and
+    /// three of which would be an under-escape if dropped:
+    ///
+    /// * **`List` / `Tuple` only.** A `Value::Object` (a Python `dict`) records
+    ///   its safe paths by NAME (`p.<k>`) while `filters::iter_values` yields
+    ///   its KEYS — so a by-index check can never confuse the two, and a dict
+    ///   whose VALUES are safe never grants safety to its (unmarked) keys.
+    ///   A `String` is excluded for the same reason: `iter_values` yields its
+    ///   CHARACTERS, and no `mark_safe` can mark a character.
+    /// * **EVERY index present.** Django escapes per element, so a list whose
+    ///   items are only PARTIALLY marked has a per-item answer that one bool
+    ///   cannot express. Requiring all of them means a mixed list is escaped
+    ///   whole — over-escaping, never under.
+    /// * **Each element is a `String`.** `_collect_safe_keys` only ever emits a
+    ///   path for a `SafeString`, so this is implied for a FRESH sync — but
+    ///   `mark_safe_keys` only ever EXTENDS the set (there is no clear), so a
+    ///   later render that puts a different shape at the same index must not
+    ///   inherit the old grant. See the note on staleness below.
+    /// * **Non-empty.** A zero-element grant is unobservable (there is no item
+    ///   to escape) and asserting it would be a claim no test can falsify.
+    ///
+    /// Nested containers are refused by the `String` narrowing, and that is
+    /// load-bearing rather than incidental: `join` stringifies a sublist and
+    /// Django escapes that `repr`, so granting the whole sequence on
+    /// `[mark_safe("a"), [mark_safe("b")]]` would emit raw `<` where Django
+    /// emits `&lt;` — MORE permissive than Django, which this fix must never
+    /// be.
+    ///
+    /// Staleness: `RustLiveView::mark_safe_keys` accumulates and is never
+    /// cleared, so a key marked safe in one render stays marked in the next.
+    /// That is a PRE-EXISTING defect at the container granularity — today
+    /// `{{ p }}` already emits a later hostile value raw once `p` has been
+    /// `mark_safe`d once — and this method rides the same set rather than
+    /// creating a second one. Tracked at #2300; a fix there fixes both
+    /// granularities, because both read this one set.
+    pub fn items_are_safe(&self, key: &str) -> bool {
+        let items = match self.get(key) {
+            Some(Value::List(items))
+            | Some(Value::Tuple(items))
+            | Some(Value::NamedTuple { items, .. }) => items,
+            _ => return false,
+        };
+        if items.is_empty() {
+            return false;
+        }
+
+        // The prefixes this value's items could have been recorded under: the
+        // key itself, plus the loop-variable alias `is_safe` resolves — inside
+        // `{% for row in rows %}`, `row`'s items live at `rows.<i>.<j>`.
+        let mut prefixes: Vec<String> = vec![key.to_string()];
+        if let Some(resolved) = self.resolve_alias(key) {
+            prefixes.push(resolved);
+        }
+
+        prefixes.iter().any(|prefix| {
+            items.iter().enumerate().all(|(i, item)| {
+                matches!(item, Value::String(_)) && self.is_marked_safe(&format!("{prefix}.{i}"))
+            })
+        })
+    }
+
+    pub fn get(&self, key: &str) -> Option<&Value> {
+        // Handle nested lookups like "user.name"
+        let parts: Vec<&str> = key.split('.').collect();
+
+        if parts.len() == 1 {
+            // Simple lookup
+            for frame in self.stack.iter().rev() {
+                if let Some(value) = frame.get(key) {
+                    return Some(value);
+                }
+            }
+            None
+        } else {
+            // Nested lookup
+            let first = parts[0];
+            let mut current = None;
+
+            for frame in self.stack.iter().rev() {
+                if let Some(value) = frame.get(first) {
+                    current = Some(value);
+                    break;
+                }
+            }
+
+            let mut current = current?;
+
+            for part in &parts[1..] {
+                current = lookup_segment(current, part)?;
+            }
+
+            Some(current)
+        }
+    }
+
+    /// Python's `dict.items()` / `.keys()` / `.values()`, reached as the LAST
+    /// segment of a dotted path over a [`Value::Object`] (#2334).
+    ///
+    /// These are METHODS, not keys, so [`Context::get`]'s nested walk — which
+    /// only ever does `obj.get(part)` — misses them and `{% for k, v in
+    /// d.items %}` renders nothing. Django reaches them through
+    /// `Variable._resolve_lookup`'s attribute step plus its auto-call, which
+    /// is why they work there.
+    ///
+    /// Returns an owned `Value`, which is why this cannot live inside
+    /// `Context::get` (that returns a borrow into the value stack, and these
+    /// sequences are constructed on demand).
+    ///
+    /// **The container is a [`Value::DictView`], a live view** (#2340). It was
+    /// a plain `Value::List` until then, which differed from Python's in two
+    /// observable ways: `str()` read `[…]` rather than `dict_items([…])`, and
+    /// it was subscriptable and JSON-serializable where Python's is not.
+    /// See that variant's docs for the three-way split Django's own filters
+    /// make, which was measured across all of them rather than reasoned about.
+    ///
+    /// Order is the `IndexMap`'s insertion order — Python's dict order. A
+    /// `HashMap` here would make `{% for k in d %}` nondeterministic across
+    /// renders and thrash the VDOM.
+    /// Django's third lookup step, applied to a `str` (#2373).
+    ///
+    /// `Variable._resolve_lookup`'s step 3 is `current[int(bit)]`, and Python
+    /// subscripts a `str` — so `{{ s.0 }}` on `"abc"` is `'a'` in Django and
+    /// was the empty string here.
+    ///
+    /// # Why this is not an arm in `lookup_segment`
+    ///
+    /// It cannot be. Every other arm of that helper returns a BORROW into the
+    /// value stack (`&'a Value`), and a character sliced out of a string is
+    /// CONSTRUCTED — it has nowhere to be borrowed from. #2373 was scoped out
+    /// of #2371 on the reading that closing it meant widening
+    /// [`Context::get`]'s return type across all of its callers.
+    ///
+    /// **That reading was wrong, and checking it is what made this small.**
+    /// [`Context::resolve`] ALREADY returns an owned `Value`, and it is the
+    /// door every operand site reaches: `{{ }}` calls it directly, and
+    /// `{% if %}` / `{% with %}` / `{% for %}` / `{% firstof %}` / `{% cycle %}`
+    /// reach it as `renderer::get_value_safe`'s last arm. So the step belongs
+    /// here, beside [`Context::dict_view`] — which exists for exactly the same
+    /// reason, in exactly the same place, and whose doc comment says so:
+    /// *"returns an owned `Value`, which is why this cannot live inside
+    /// `Context::get`"*. `Context::get`'s signature is untouched.
+    ///
+    /// # By CODE POINT
+    ///
+    /// `"héllo"[1]` is `'é'` in Python. `chars().nth()` is Unicode scalar
+    /// values, which is Python's `str` indexing; a byte index would split a
+    /// two-byte character in half and `str::len()` would measure the wrong
+    /// bound.
+    ///
+    /// # The recursion
+    ///
+    /// `{{ s.0.0 }}` is `'a'` in Django — a character is itself a `str`, and
+    /// step 3 runs again. The prefix is therefore resolved through `get` OR
+    /// through this function, not `get` alone.
+    ///
+    /// # What it deliberately does not reach
+    ///
+    /// * a **negative** index. `{{ l.-1 }}` is a Django PARSE error, pinned in
+    ///   `test_numeric_path_segment_2371.py::
+    ///   TestTheLexerLevelDivergenceIsNamedNotFixed`, so `parse::<usize>` is
+    ///   the right width and not an oversight.
+    /// * a **`Value::DictView`**. `dict_items` is not subscriptable in Python,
+    ///   `{{ d.items.0 }}` is empty on both engines, and the `rsplit_once`
+    ///   below leaves `d.items` as the prefix — which `get` misses and this
+    ///   function refuses, because `items` does not parse as an index.
+    /// * the **raw-Python sidecar**, which needs nothing: its walk already
+    ///   ends in `current.get_item(idx)` and Python's `str.__getitem__` has
+    ///   answered there since #1997. That asymmetry — one walk with Django's
+    ///   step 3 for strings and its twin without — IS this bug (#1646).
+    ///
+    /// # Safety
+    ///
+    /// A character sliced out of a `mark_safe`d string is a plain `str` in
+    /// Django (`SafeString` overrides `__add__`, not `__getitem__`), so Django
+    /// ESCAPES it — and `_collect_safe_keys` never descends into a `str`, so
+    /// `safe_keys` holds no per-character path and djust escapes it too. The
+    /// two agree, and this adds no grant.
+    fn string_index(&self, key: &str) -> Option<Value> {
+        let (prefix, last) = key.rsplit_once('.')?;
+        let index = last.parse::<usize>().ok()?;
+        let base = match self.get(prefix) {
+            Some(Value::String(s) | Value::SafeString(s)) => s.clone(),
+            // A non-string prefix is not this step's business — `get` has
+            // already tried every arm that applies to it.
+            //
+            // Gating THIS arm off (letting it fall into the recursion below)
+            // survives the suite, and that is a provable no-op rather than
+            // missing coverage: the two branches are mutually exclusive.
+            // `string_index(prefix)` can only answer when `prefix`'s own
+            // prefix is a `String` — and `lookup_segment`'s index arm admits
+            // `List` / `Tuple` / `Object` and NOT `String`, so `get(prefix)`
+            // is `None` whenever that holds. The arm is kept because it states
+            // the intent without depending on that invariant being noticed.
+            Some(_) => return None,
+            None => match self.string_index(prefix)? {
+                Value::String(s) | Value::SafeString(s) => s,
+                _ => return None,
+            },
+        };
+        base.chars()
+            .nth(index)
+            .map(|c| Value::String(c.to_string()))
+    }
+
+    fn dict_view(&self, key: &str) -> Option<Value> {
+        let (prefix, last) = key.rsplit_once('.')?;
+        if !matches!(last, "items" | "keys" | "values") {
+            return None;
+        }
+        let Value::Object(map) = self.get(prefix)? else {
+            return None;
+        };
+        let kind = match last {
+            "keys" => crate::DictViewKind::Keys,
+            "values" => crate::DictViewKind::Values,
+            _ => crate::DictViewKind::Items,
+        };
+        Some(Value::DictView {
+            kind,
+            items: match kind {
+                crate::DictViewKind::Keys => crate::object_key::dict_iteration_values(map),
+                crate::DictViewKind::Values => map.values().cloned().collect(),
+                // `items` — each entry a 2-`Tuple`, which is what makes
+                // `{% for k, v in d.items %}` unpack through the renderer's
+                // existing tuple-unpacking branch, and what makes `{{ x }}`
+                // over one render `('a', 1)` as Python does.
+                crate::DictViewKind::Items => map
+                    .iter()
+                    .map(|(k, v)| Value::Tuple(vec![Value::from(k.clone()), v.clone()]))
+                    .collect(),
+            },
+        })
+    }
+
+    pub fn set(&mut self, key: String, value: Value) {
+        self.set_at(self.stack.len() - 1, key, value);
+    }
+
+    fn set_at(&mut self, index: usize, key: String, value: Value) {
+        if self
+            .raw_py_objects
+            .as_ref()
+            .is_some_and(|raw| raw.contains_key(&key))
+        {
+            self.stack[index].render_bindings_mut().insert(key.clone());
+        }
+        self.stack[index].insert(key, value);
+    }
+
+    pub fn push(&mut self) {
+        self.stack.push(ScopeFrame::default());
+    }
+
+    /// Enter a lexical variable scope, restoring it on errors and panics.
+    pub fn with_scope<T>(&mut self, render: impl FnOnce(&mut Context) -> T) -> T {
+        struct Guard<'a> {
+            context: &'a mut Context,
+            depth: usize,
+        }
+        impl Drop for Guard<'_> {
+            fn drop(&mut self) {
+                self.context.stack.truncate(self.depth);
+            }
+        }
+        let depth = self.stack.len();
+        self.push();
+        let guard = Guard {
+            context: self,
+            depth,
+        };
+        render(&mut *guard.context)
+    }
+
+    pub fn pop(&mut self) {
+        if self.stack.len() > 1 {
+            self.stack.pop();
+        }
+    }
+
+    /// Register a loop variable's alias: `loop_var` IS `<iterable>.<index>`.
+    ///
+    /// A thin spelling of [`Context::set_alias`] kept because the loop's
+    /// index is a `usize` and every caller would otherwise format it.
+    pub fn set_loop_mapping(&mut self, loop_var: String, iterable_name: String, index: usize) {
+        // Expanded against SELF, and that is the right context here: the loop
+        // renders its body against this very `ctx`, so an outer alias on the
+        // iterable's own name (a nested loop's `row`) is exactly the one that
+        // applies.
+        let base = self.alias_path(&iterable_name);
+        self.set_alias(loop_var, format!("{base}.{index}"));
+    }
+
+    /// Register `name` as an alias for the value at the dotted path `target`.
+    ///
+    /// The caller is responsible for two things, and both are security
+    /// boundaries rather than hygiene:
+    ///
+    /// 1. **The correspondence is REAL** — see the `aliases` field docs and
+    ///    the `bare_dotted_path` guard the renderer applies at every call site.
+    /// 2. **`target` is already expanded**, through
+    ///    [`Context::alias_path`] on the context the EXPRESSION was resolved
+    ///    against.
+    ///
+    /// (2) is not a convention, it is the fix for a second live XSS this
+    /// mechanism had. Django's `{% with %}` resolves EVERY assignment against
+    /// the OUTER context (`WithNode.render` builds the whole `values` dict
+    /// before `context.update`), so in `{% with a=p b=a %}` the name `b` binds
+    /// the OUTER `a`. Expanding `b`'s path inside the NEW context would walk
+    /// the `a -> p` alias registered one line earlier and point `b` at `p`
+    /// instead — and with `p` marked and the outer `a` hostile, `{{ b }}`
+    /// emitted the hostile value RAW. Making the expansion the caller's
+    /// explicit step is what forces each site to name which context it means.
+    ///
+    /// A self-alias is refused: `{% with p=p %}` would otherwise make
+    /// `is_safe` consult a name that no longer describes the bound value, and
+    /// the `bind` that precedes it has already said what `p`'s grant is.
+    pub fn set_alias(&mut self, name: String, target: String) {
+        if target == name || target.starts_with(&format!("{name}.")) {
+            return;
+        }
+        self.stack
+            .last_mut()
+            .unwrap()
+            .aliases_mut()
+            .insert(name, Some(target));
+    }
+
+    /// `path` with its first segment expanded through THIS context's aliases.
+    ///
+    /// The registration-time half of the alias mechanism: collapsing the chain
+    /// once, here, is what keeps [`Context::is_safe`] to a single hop on the
+    /// hot path. Inside `{% for row in rows %}`, `{% with q=row.sub %}`
+    /// expands to `rows.<i>.sub` — `row.sub` would resolve against a
+    /// `safe_keys` set that never spells `row` at all.
+    pub fn alias_path(&self, path: &str) -> String {
+        self.expand_alias(path)
+    }
+
+    /// Clear a loop variable's alias (when exiting the loop scope).
+    pub fn clear_loop_mapping(&mut self, loop_var: &str) {
+        self.stack
+            .last_mut()
+            .unwrap()
+            .aliases_mut()
+            .insert(loop_var.to_string(), None);
+    }
+
+    /// `key` rewritten through the alias on its FIRST segment, or `None` when
+    /// that segment is not aliased.
+    ///
+    /// Returns `None` rather than `key` so a caller can tell "no alias" from
+    /// "an alias that resolves to itself" — `is_safe` has already checked the
+    /// un-rewritten spelling by the time it calls this.
+    fn resolve_alias(&self, key: &str) -> Option<String> {
+        let (first, rest) = key
+            .split_once('.')
+            .map_or((key, None), |(a, b)| (a, Some(b)));
+        for frame in self.stack.iter().rev() {
+            if let Some(target) = frame.aliases.get(first) {
+                let prefix = target.as_ref()?;
+                return Some(match rest {
+                    Some(rest) => format!("{prefix}.{rest}"),
+                    None => prefix.clone(),
+                });
+            }
+            if frame.contains_key(first) {
+                return None;
+            }
+        }
+        None
+    }
+
+    /// `path` with its first segment expanded through the aliases, or `path`
+    /// unchanged. The registration-time half of [`Context::resolve_alias`].
+    fn expand_alias(&self, path: &str) -> String {
+        self.resolve_alias(path).unwrap_or_else(|| path.to_string())
+    }
+
+    pub fn update(&mut self, dict: HashMap<String, Value>) {
+        if let Some(frame) = self.stack.last_mut() {
+            for (k, v) in dict {
+                frame.insert(k, v);
+            }
+        }
+    }
+
+    /// Resolve a dotted lookup, falling back to `getattr` on raw
+    /// Python objects when the normal value-stack path misses.
+    ///
+    /// This is the public user-facing lookup used by the template
+    /// renderer for `{{ variable.path }}` expressions. Unlike
+    /// [`Context::get`], the return type is owned `Value` (not
+    /// `&Value`) because the `getattr` fallback constructs fresh
+    /// values from Python attributes.
+    ///
+    /// Fallback semantics:
+    /// - Single-segment keys with a hit in `raw_py_objects` convert
+    ///   the object to `Value` (via `Value::extract`).
+    /// - Nested keys walk `getattr` one segment at a time.
+    ///   Intermediate attributes that themselves are Python objects
+    ///   continue the walk; intermediate `dict`/`list` return values
+    ///   are honoured as if they were regular `Value`s.
+    /// - Any exception raised by `getattr` (AttributeError, property
+    ///   raise, etc.) is caught and resolved as `None`. This mirrors
+    ///   Django's documented "template string if invalid" behaviour
+    ///   (defaults to "") — a malformed template never crashes the
+    ///   render.
+    /// - **Auto-call (ADR-024, Django parity)**: after the root bind
+    ///   and after every `getattr` segment, a callable is invoked with
+    ///   no arguments — exactly `django.template.base.Variable._resolve_lookup`:
+    ///   `do_not_call_in_templates` → use the object as-is;
+    ///   `alters_data` → the expression resolves empty (never called);
+    ///   a `TypeError` from the call runs the `inspect.signature(...).bind()`
+    ///   probe — args-required (or unsignaturable) → empty, otherwise the
+    ///   original `TypeError` propagates; any other exception raised by the
+    ///   called method propagates as a render error.
+    ///
+    /// Errors: `Err` is returned only for exceptions raised *inside an
+    /// auto-called method* (Django propagates those); lookup failures
+    /// stay `Ok(None)` as before.
+    pub fn resolve(&self, key: &str) -> crate::Result<Option<Value>> {
+        if key.contains(".super") {
+            let canonical = self.alias_path(key);
+            if (canonical == "block.super" || canonical.starts_with("block.super."))
+                && self
+                    .stack
+                    .iter()
+                    .rev()
+                    .find(|frame| frame.contains_key("block"))
+                    .is_some_and(|frame| frame.invalid_block_super)
+            {
+                return Err(crate::DjangoRustError::TemplateSyntax(
+                    concat!(
+                        "'BlockNode' object has no attribute 'context'. Did you use ",
+                        "{{ block.super }} in a base template?"
+                    )
+                    .to_owned(),
+                ));
+            }
+        }
+        // The DEFERRED parent render (#2710). Here, in the ONE resolver every
+        // operand channel ends in — `Node::Variable` calls it directly,
+        // `renderer::get_value_safe_inner` falls through to it after `get`
+        // misses, and `evaluate_condition` reaches it through that — so
+        // `{{ block.super }}`, `{% if block.super %}`, `{% with s=block.super %}`
+        // and a filter argument all get the same answer from one place
+        // (#1646). Everything above this line is unreachable for the name
+        // because `Node::BlockSuperScope` no longer BINDS a rendered string.
+        //
+        // The EXACT name only. `{{ block.super.0 }}` keeps falling through to
+        // the miss it already took (Django answers `P`, the first character
+        // of the parent output; djust answered `''` before this change and
+        // still does) — a pre-existing divergence this is not the fix for,
+        // and claiming the prefix here would mean re-implementing Django's
+        // per-segment string walk inside the resolver.
+        //
+        // Re-rendered on EVERY resolution, deliberately: Django's
+        // `BlockNode.super()` is a method call, so `{{ block.super }}` twice
+        // renders the parent twice and a `{% for %}` over three items renders
+        // it three times. Measured against 5.2.16 — a memoizing version
+        // answers `a-a` for a parent containing `{% cycle 'a' 'b' %}` where
+        // Django answers `a-b`.
+        //
+        // `SafeString`, because Django `mark_safe`s the result: it is
+        // rendered template output, already escaped by whatever produced it,
+        // and escaping it again would double-escape every parent block.
+        if key == "block.super" {
+            if let Some(source) = self.block_super.clone() {
+                return Ok(Some(Value::SafeString(source.render_block_super(self)?)));
+            }
+        }
+        // Django's THREE template builtins, tried LAST (#2347).
+        //
+        // `django.template.context.builtins` is `[{"True": True, "False":
+        // False, "None": None}]` and lives at `Context.dicts[0]`, so every
+        // Django template carries them and `{{ True }}` renders `True` rather
+        // than the empty string an unresolvable name renders. They are not
+        // literals — `Variable.__init__` does not special-case them — they
+        // RESOLVE, through the ordinary context lookup.
+        //
+        // Position is the whole of the semantics. `Context.__getitem__` walks
+        // `reversed(self.dicts)`, so `dicts[0]` is the LAST place looked and a
+        // user variable named `True` SHADOWS the builtin. Measured against
+        // Django 5.2.16, not assumed. Hence: after `get`, after the dict-view
+        // methods, and after the raw-Python sidecar walk — the fallback runs
+        // only where this function used to answer `None`, which is what bounds
+        // the change to exactly the cells that rendered empty.
+        //
+        // This is the deeper of the TWO resolvers a bare name can reach
+        // (#1646): `renderer::get_value_safe` has its own literal arms for
+        // `{% if %}` / `{% with %}` / `{% firstof %}` / `{% cycle %}`, and
+        // those already answered these three. Both now go through
+        // `template_builtin` so there is one statement of the rule; the
+        // renderer's arms additionally accept the LOWERCASE spellings, which
+        // are a djust extension Django does not have and are deliberately kept
+        // separate from this function (see the note there).
+        match self.resolve_without_builtins(key)? {
+            Some(value) => Ok(Some(value)),
+            None => Ok(template_builtin(key)),
+        }
+    }
+
+    /// [`Context::resolve`] without the Django template-builtin fallback.
+    ///
+    /// Split out so the fallback is applied at ONE place rather than at each
+    /// of the several `Ok(None)` returns below — a per-branch fallback is the
+    /// shape that leaves one branch behind.
+    fn resolve_without_builtins(&self, key: &str) -> crate::Result<Option<Value>> {
+        // ADR-027's ONE routing point (#2539). Unconditional since Step 5
+        // (#2628) deleted the ADR-027 kill-switch flag that gated it.
+        //
+        // FIRST, not after `get` — and that placement is the whole of the
+        // difference between "some dotted lookups resolve" and Django's
+        // answer. A handle-bearing `Encoded` is a value whose AUTHORITY is the
+        // live object, and three of Django's rules are unreachable once the
+        // value stack has answered:
+        //
+        // * the ROOT auto-call. `{{ callable }}` and `{{ SomeClass }}` are
+        //   `Context::get` hits, so a routing point below `get` never sees
+        //   them — Django calls both and renders the RESULT.
+        // * the auto-call at a MID segment. `{{ d.value }}` on a callable
+        //   object is Django's `d()` and then `.value` on its result; an
+        //   `attrs` map read by `Context::get`'s step 2 answers the raw
+        //   attribute instead, and wins.
+        // * every `{% for %}` / `{% with %}` binding, whose value carries the
+        //   handle with it (#2504, #2505, #2542).
+        //
+        // Placing it first is safe in the direction that matters: the arm
+        // fires ONLY where the deepest resolvable prefix is an `Encoded`
+        // carrying a handle. A `list`, a `dict`, a tuple, a `Model` and a
+        // `__djust_serialize__` object never carry one — the `FromPyObject`
+        // arms ABOVE `opaque_value` claim all five — so their resolution is
+        // untouched by this arm.
+        //
+        // The DATETIME family is the exception, and this comment asserted the
+        // opposite until `docs/architecture/VALUE_BOUNDARY.md` falsification-
+        // tested it (#1867). `django_json_encoded` (`lib.rs`) sets
+        // `live: Some(..)` for every `datetime` / `date` / `time` /
+        // `timedelta`, so a temporal value DOES reach this arm: `.year` is
+        // answered by `Encoded::attrs` (`ENCODED_ATTR_NAMES`), while `.min` /
+        // `.max` / `.resolution` — deliberately in NEITHER name table, because
+        // their values are themselves `datetime`s and collecting them would
+        // not terminate — are answered ONLY here. Measured through a
+        // filtered-operand rebinding (`{% with q=xs|first %}`), which is the
+        // one binding shape the by-name sidecar cannot reach via
+        // `Context::aliases`; through any other spelling the sidecar answers
+        // and the difference is invisible. Pinned by
+        // `python/tests/test_datetime_live_handle_2741.py`, which renders
+        // `.resolution` / `.max` / `.min` for all four temporal types through
+        // that isolating binding against Django (#2741). (Python rather than
+        // a djust_core pyo3 test because `django_json_encoded` imports
+        // Django, which the embedded interpreter in `rust-tests` cannot
+        // reach.)
+        if let Some(answer) = self.walk_from_handle(key)? {
+            return Ok(answer);
+        }
+        if let Some(v) = self.get(key) {
+            return Ok(Some(v.clone()));
+        }
+        // `d.items` / `d.keys` / `d.values` on a plain dict (#2334). Placed
+        // AFTER `get` because Django's `Variable._resolve_lookup` tries
+        // mapping-item access FIRST and attribute access second, so a dict
+        // that HAS a key named `items` resolves to that key's value and never
+        // reaches the method — which is what the `get` above already does.
+        //
+        // Placed BEFORE the `raw_py_objects` guard because the common case has
+        // no sidecar at all: a dict in the JSON state is a `Value::Object` in
+        // the value stack, and the sidecar walk (which reaches these methods
+        // for a raw Python dict through `getattr` + `maybe_call`) never runs
+        // for it. One chokepoint here serves every operand site — `{{ }}`
+        // resolves through this function directly, and `{% for %}` /
+        // `{% if %}` / `{% with %}` / `{% include … with %}` reach it as
+        // `get_value_safe`'s last arm (#1646).
+        if let Some(view) = self.dict_view(key) {
+            return Ok(Some(view));
+        }
+        // Django's step-3 index over a `str` (#2373). Placed with `dict_view`
+        // for the same reason: both are value-stack shapes `Context::get`
+        // cannot answer, and both must be tried before the raw-Python sidecar
+        // guard below returns early for a context that has none. Their
+        // conditions are disjoint — one needs a `String` at the prefix, the
+        // other an `Object` — so the order between them is not observable.
+        if let Some(ch) = self.string_index(key) {
+            return Ok(Some(ch));
+        }
+        let Some(raw) = self.raw_py_objects.as_deref() else {
+            return Ok(None);
+        };
+        // The sidecar is keyed by TOP-LEVEL context name, so every construct
+        // that BINDS a value to a NEW name — `{% for r in rows %}`,
+        // `{% with q=p %}`, `{% include … with q=p %}` — put the loop/with
+        // variable in a frame as a `Value` and left the raw object
+        // unreachable under that name. `{{ rows.0.cls_attr }}` resolved while
+        // `{% for r in rows %}{{ r.cls_attr }}` — the far commoner spelling —
+        // did not.
+        //
+        // `Context::aliases` (#2375) already states exactly the
+        // correspondence needed to get back: `r` IS `rows.<i>`, `q` IS `p`.
+        // Reusing it rather than teaching each binding construct to carry a
+        // raw object is the #1646 cure — one statement of "which context path
+        // this name IS", already written, already guarded. Those guards are
+        // the load-bearing part and they are STRICTER than this use needs:
+        // an alias is registered only for a bare dotted path over a
+        // non-normalised, unfiltered operand, because `Context::is_safe`
+        // resolves an XSS decision through it. A filtered operand (`slice`
+        // shifts, `dictsort` reorders) and a dict/dict-view operand (whose
+        // marks are spelled BY KEY while the loop asserts an INDEX) therefore
+        // register nothing and are NOT reached here either — they stay empty,
+        // tracked at #2504.
+        //
+        // A local binding must not fall back to the old object under the
+        // same name. Prefer its registered source alias when one exists;
+        // otherwise a shadowed raw root is unavailable. Local live handles
+        // have already been resolved by walk_from_handle above.
+        let is_shadowed = |name: &str| {
+            self.stack
+                .iter()
+                .any(|frame| frame.render_bindings.contains(name))
+        };
+        let head = key.split('.').next().unwrap_or(key);
+        let expanded;
+        let key = if raw.contains_key(head) && !is_shadowed(head) {
+            key
+        } else {
+            match self.resolve_alias(key) {
+                Some(path) => {
+                    expanded = path;
+                    expanded.as_str()
+                }
+                None => key,
+            }
+        };
+        let parts: Vec<&str> = key.split('.').collect();
+        let Some(first) = parts.first().copied() else {
+            return Ok(None);
+        };
+        if is_shadowed(first) {
+            return Ok(None);
+        }
+        let Some(obj) = raw.get(first) else {
+            return Ok(None);
+        };
+
+        Python::attach(|py| -> crate::Result<Option<Value>> {
+            let mut current: pyo3::Bound<'_, pyo3::PyAny> = obj.bind(py).clone();
+            // Django auto-calls the value at EVERY lookup step, including
+            // the root bit ({{ some_callable }}) and mid-path
+            // ({{ obj.get_settings.theme }}).
+            current = match self.maybe_call(py, current, key)? {
+                CallOutcome::AsIs(v) | CallOutcome::Called(v) => v,
+                // BOTH "invalid" variants answer `Missing` here, which is
+                // byte for byte what this walk answered before the split
+                // (#2539). Telling them apart is the ADR-027 sink's job.
+                // ADR-027 Step 5 (#2628) planned to delete this walk with the
+                // flag; it STAYS, because it is the only route for a Django
+                // MODEL (which crosses as a floored dict with no live handle,
+                // ADR-027 (b)(1)) — `{{ user.groups.count }}`, and through
+                // the alias below `{% with q=user %}{{ q.groups.count }}` /
+                // `{% for q in users %}` — and for the request-scoped values
+                // (`request`, `user`, `perms`) that never enter
+                // `update_state` (#1786).
+                CallOutcome::Empty | CallOutcome::Silent => return Ok(Some(Value::Missing)),
+            };
+            current = self.protect_sidecar(py, current);
+            for part in &parts[1..] {
+                // Django `Variable._resolve_lookup` order at EVERY segment:
+                // (1) mapping/dict item access, (2) attribute, (3) integer
+                // list-index. The pre-#1997 walk did (2) only, so a dict/list
+                // intermediate — e.g. a model's `JSONField` value reached mid-
+                // path (`{{ block.content.text }}`) — resolved to empty because
+                // `getattr(dict, "text")` raises `AttributeError`. Mirroring
+                // Django's order fixes nested JSONField/dict/list access.
+                // `_SidecarModelProxy` implements no `__getitem__`, so item
+                // access on it falls through to `getattr` and the
+                // serialization floor still governs.
+                // `_SidecarQuerySetProxy` DOES implement one since #2717 —
+                // without it `{{ rows.0 }}` was `VariableDoesNotExist` for any
+                // queryset the conversion declined — and it is not a floor
+                // bypass either: every result it hands back is run through
+                // `_protect_sidecar_value` (a slice's elements one at a time),
+                // so the next segment reads a proxy, never a raw model, and a
+                // `.values()` projection refuses as the zero-length sequence
+                // its own `__len__` reports. Pinned by
+                // `TestTheSidecarQuerySetProxySubscripts` and the 112-cell
+                // sweep in `TestTheFloorHoldsOnEveryShapeTheDeclineNewlyClaims`
+                // (`python/tests/test_declined_container_spelling_2717.py`).
+                //
+                // Each step catches EXACTLY the exception set Django catches
+                // there, and no more (#2506). The walk previously used a bare
+                // `or_else(|_| …)` at every step and a final `Err(_) =>
+                // Ok(None)`, which discarded ANY exception — so a property
+                // that raised `RuntimeError("authz check failed")` rendered
+                // the empty string where Django propagates. That is a
+                // security reading, not only a parity one: an attribute
+                // implementing an authorization check fails OPEN and silently
+                // when its failure is spelled as an exception. `maybe_call`
+                // one step below already propagates a real exception raised
+                // INSIDE a nullary method; this makes the getattr half agree.
+                let next = match current.get_item(*part) {
+                    Ok(v) => Ok(v),
+                    // Django step 1: `except (TypeError, AttributeError,
+                    // KeyError, ValueError, IndexError)` — the last two are
+                    // its own numpy-lookup allowance. Anything else is a real
+                    // error from a `__getitem__` and propagates.
+                    Err(e) if !is_django_item_lookup_error(py, &e) => {
+                        match propagate_lookup_error(py, e) {
+                            LookupOutcome::Empty => return Ok(None),
+                            LookupOutcome::Raise(err) => return Err(err),
+                        }
+                    }
+                    Err(_) => match current.getattr(*part) {
+                        Ok(v) => Ok(v),
+                        // Django step 2: `except (TypeError, AttributeError)`.
+                        // A property raising anything else propagates.
+                        Err(e)
+                            if !(e.is_instance_of::<pyo3::exceptions::PyTypeError>(py)
+                                || e.is_instance_of::<pyo3::exceptions::PyAttributeError>(py)) =>
+                        {
+                            match propagate_lookup_error(py, e) {
+                                LookupOutcome::Empty => return Ok(None),
+                                LookupOutcome::Raise(err) => return Err(err),
+                            }
+                        }
+                        // Django's "Reraise if the exception was raised by a
+                        // @property" branch: `if bit in dir(current): raise`.
+                        // A name that EXISTS on the object but whose access
+                        // raised is a bug in the object, not a missing
+                        // lookup, so it must not fall through to the
+                        // integer-index step and become empty.
+                        Err(e) if name_exists_on(&current, part) => {
+                            match propagate_lookup_error(py, e) {
+                                LookupOutcome::Empty => return Ok(None),
+                                LookupOutcome::Raise(err) => return Err(err),
+                            }
+                        }
+                        Err(e) => match part.parse::<usize>() {
+                            // Django step 3: `except (IndexError, ValueError,
+                            // KeyError, TypeError)` → `VariableDoesNotExist`,
+                            // which the caller renders as empty.
+                            Ok(idx) => current.get_item(idx),
+                            Err(_) => Err(e),
+                        },
+                    },
+                };
+                match next {
+                    Ok(n) => {
+                        current = n;
+                    }
+                    Err(e) => {
+                        // Django's step-3 catch, then `VariableDoesNotExist`:
+                        // an invalid template path renders as empty
+                        // (`string_if_invalid` = ""). A step-3 error OUTSIDE
+                        // that set is a real `__getitem__` failure and
+                        // propagates, for the same reason steps 1 and 2 do.
+                        if !is_django_index_lookup_error(py, &e) {
+                            match propagate_lookup_error(py, e) {
+                                LookupOutcome::Empty => return Ok(None),
+                                LookupOutcome::Raise(err) => return Err(err),
+                            }
+                        }
+                        return Ok(None);
+                    }
+                }
+                current = match self.maybe_call(py, current, key)? {
+                    CallOutcome::AsIs(v) | CallOutcome::Called(v) => v,
+                    // BOTH "invalid" variants answer `Missing` here, which is
+                    // byte for byte what this walk answered before the split
+                    // (#2539). Telling them apart is the ADR-027 sink's job; this
+                    // walk is deleted in movement 4.
+                    CallOutcome::Empty | CallOutcome::Silent => return Ok(Some(Value::Missing)),
+                };
+                current = self.protect_sidecar(py, current);
+            }
+            // Convert the resolved attribute to Value; failure → None
+            Ok(current.extract::<Value>().ok())
+        })
+    }
+
+    /// Route a just-materialized attribute/call result through the Python
+    /// sidecar serialization floor (SECURE_DEFAULTS Pattern 1 / #1986).
+    ///
+    /// `djust.serialization._protect_sidecar_value` wraps a Django `Model`
+    /// in `_SidecarModelProxy` and a `Manager`/`QuerySet` in
+    /// `_SidecarQuerySetProxy` (both floor-enforcing); anything else is
+    /// returned unchanged. Applying it at THIS point — the single spot where
+    /// the walk holds a freshly-resolved value, after both `getattr` and the
+    /// auto-call — is what makes the floor hold *however* a model was reached:
+    /// a related-field getattr, an auto-called method that returns a model
+    /// (`{{ obj.get_related.password }}`), or an attribute of a non-model
+    /// intermediary object placed in the context (`{{ presenter.user.password }}`,
+    /// #1986 vector 6). Python-side proxies alone can't cover those — a raw
+    /// intermediary has no proxy `__getattr__`, and a Rust auto-call result
+    /// never re-enters Python. One chokepoint here retires the class (#1646).
+    ///
+    /// Floor enforcement is INDEPENDENT of the `auto_call` kill-switch
+    /// (`{{ p.user.password }}` leaks via pure getattr, no call), so this runs
+    /// regardless of `self.auto_call`. It is idempotent (wrapping a proxy
+    /// returns it unchanged) and fail-safe: any error returns the value
+    /// unwrapped rather than crashing the render.
+    fn protect_sidecar<'py>(
+        &self,
+        py: Python<'py>,
+        obj: pyo3::Bound<'py, pyo3::PyAny>,
+    ) -> pyo3::Bound<'py, pyo3::PyAny> {
+        match py
+            .import("djust.serialization")
+            .and_then(|m| m.getattr("_protect_sidecar_value"))
+            .and_then(|f| f.call1((obj.clone(),)))
+        {
+            Ok(wrapped) => wrapped,
+            Err(_) => obj,
+        }
+    }
+
+    /// [`Context::protect_sidecar`] with its failure arm CLOSED — the ADR-027
+    /// sink's floor (#2539 security review, requirement 1).
+    ///
+    /// `protect_sidecar` answers `Err(_) => obj`, so a `_protect_sidecar_value`
+    /// that RAISES for a mid-walk model hands the RAW model to the next
+    /// segment, and `{{ p.get_user.password }}` renders the hash. Fail-safe
+    /// for a *render* is fail-OPEN for a *floor*, and a floor that opens when
+    /// its own enforcement breaks is not one. `None` here is
+    /// [`Walked::Invalid`] at the call site: the cell renders empty.
+    ///
+    /// **The unreachable case is separated from the raising one, and that
+    /// separation is the whole design.** `py.import("djust.serialization")`
+    /// failing means there is no djust Python side on this interpreter — an
+    /// embedder, or a bare `cargo test` with no Django — where there is no
+    /// floor to fail closed about and refusing every lookup would break the
+    /// sink outright. The object passes through, exactly as it does today.
+    /// Once the function IS in reach, its raising is a floor failure and the
+    /// walk stops.
+    ///
+    /// Idempotent and cheap for the common case (wrapping a proxy returns it
+    /// unchanged), like the arm it hardens.
+    fn protect_sidecar_strict<'py>(
+        &self,
+        py: Python<'py>,
+        obj: pyo3::Bound<'py, pyo3::PyAny>,
+    ) -> Option<pyo3::Bound<'py, pyo3::PyAny>> {
+        protect_sidecar_strict(py, obj)
+    }
+
+    /// Django-parity callable handling for one resolved attribute
+    /// (ADR-024; mirrors `Variable._resolve_lookup`'s callable block).
+    /// `path` is the full dotted expression, used only for the
+    /// debug-mode ORM-call warning.
+    fn maybe_call<'py>(
+        &self,
+        py: Python<'py>,
+        obj: pyo3::Bound<'py, pyo3::PyAny>,
+        path: &str,
+    ) -> crate::Result<CallOutcome<'py>> {
+        // Kill-switch OFF restores the pre-ADR plain-getattr walk: no
+        // guard checks, no calls.
+        if !self.auto_call || !obj.is_callable() {
+            return Ok(CallOutcome::AsIs(obj));
+        }
+        // `do_not_call_in_templates` → use as-is (Model classes,
+        // enums.Choices set this).
+        if attr_is_truthy(&obj, "do_not_call_in_templates") {
+            return Ok(CallOutcome::AsIs(obj));
+        }
+        // `alters_data` → refuse: never call, expression renders empty
+        // (Django stamps Model.save/delete, QuerySet.delete/update, …).
+        if attr_is_truthy(&obj, "alters_data") {
+            return Ok(CallOutcome::Empty);
+        }
+        warn_once_on_orm_autocall(py, &obj, path);
+        match obj.call0() {
+            Ok(result) => Ok(CallOutcome::Called(result)),
+            Err(err) if err.is_instance_of::<pyo3::exceptions::PyTypeError>(py) => {
+                // Django's probe: TypeError from the call is "invalid"
+                // (empty) when the callable actually REQUIRES arguments
+                // (or has no introspectable signature); a TypeError
+                // raised INSIDE a zero-arg method is a real bug and
+                // propagates.
+                if callable_requires_arguments(py, &obj) {
+                    Ok(CallOutcome::Empty)
+                } else {
+                    match propagate_lookup_error(py, err) {
+                        // Django's outer handler wraps the auto-call as well
+                        // as the lookup, so a silent exception raised INSIDE
+                        // a nullary method renders empty, not 500 — and it
+                        // RETURNS rather than walking the next bit, which is
+                        // what `Silent` says and `Empty` does not (#2539).
+                        LookupOutcome::Empty => Ok(CallOutcome::Silent),
+                        LookupOutcome::Raise(e) => Err(e),
+                    }
+                }
+            }
+            // Any other exception raised by the method propagates as a
+            // render error, matching Django.
+            Err(err) => match propagate_lookup_error(py, err) {
+                LookupOutcome::Empty => Ok(CallOutcome::Silent),
+                LookupOutcome::Raise(e) => Err(e),
+            },
+        }
+    }
+
+    /// The ADR-027 sink's ONE call site (#2539 movement 2).
+    ///
+    /// Finds the LONGEST prefix of `key` that [`Context::get`] answers with a
+    /// [`Value::Encoded`] carrying a live handle, and walks the remaining
+    /// segments over the real Python object through [`Context::walk_live`].
+    /// # The outer `Option` is "did the sink answer", not "did it find a value"
+    ///
+    /// `Ok(None)` means NO prefix carried a handle, and the caller falls
+    /// through to the pre-ADR resolution — which is what bounds this change to
+    /// values that acquired one. `Ok(Some(answer))` means the sink ran, and
+    /// its answer is FINAL: `Some(None)` is Django's `VariableDoesNotExist`
+    /// and the caller must return it rather than re-trying.
+    ///
+    /// Collapsing the two — letting an `Invalid` fall through — walks the SAME
+    /// object a second time through the sidecar walk below, and Django's
+    /// auto-call makes that observable rather than merely wasteful:
+    /// `{{ d.value }}` on `test_callables`' `Doodad` left `num_calls == 2`
+    /// where Django leaves `1`. A resolution that produced nothing is an
+    /// ANSWER, and a second resolver asked after it is the #1646 shape.
+    ///
+    /// **The remainder may be EMPTY**, and that is not an oversight. `{{ o }}`
+    /// where `o` is a callable object or a CLASS is Django's root auto-call:
+    /// `Variable._resolve_lookup`'s callable block runs for the root bit
+    /// before any segment is walked, so Django renders `Cls()`'s `str` for
+    /// `{{ Cls }}` and the lambda's RESULT for `{{ callable }}`. A zero-length
+    /// remainder gives `walk_live` exactly that: `maybe_call` + the
+    /// serialization floor, then the terminal conversion.
+    ///
+    /// **The terminal re-enters `extract::<Value>()` deliberately**, and this
+    /// one line is what retires the eager `__dict__` dump. Under the flag an
+    /// object with no `Value` variant converts through [`crate::opaque_value`]
+    /// to an `Encoded` whose `display` is `str(o)` — Django's own bytes —
+    /// rather than to a `Value::Object` of its attributes. The conversion of
+    /// the RESULT is the call site's decision, which is why `Walked` hands
+    /// back a `Bound` rather than a `Value` (see [`Walked::Object`]).
+    ///
+    /// LONGEST first, so a nested handle wins over its container's: for
+    /// `{{ p.child.name }}` where both `p` and `p.child` carry one, the walk
+    /// starts at `p.child` and asks Python for one segment instead of two.
+    fn walk_from_handle(&self, key: &str) -> crate::Result<Option<Option<Value>>> {
+        let parts: Vec<&str> = key.split('.').collect();
+        // `consumed` counts segments answered by the value stack; the rest are
+        // walked live. `parts.len()` (the whole key) is included — that is the
+        // root-auto-call case above.
+        for consumed in (1..=parts.len()).rev() {
+            let prefix = if consumed == parts.len() {
+                key.to_string()
+            } else {
+                parts[..consumed].join(".")
+            };
+            let Some(Value::Encoded(encoded)) = self.get(&prefix) else {
+                continue;
+            };
+            let Some(handle) = encoded.live.clone() else {
+                continue;
+            };
+            let rest = &parts[consumed..];
+            return Python::attach(|py| -> crate::Result<Option<Option<Value>>> {
+                match self.walk_live(py, handle.bind(py).clone(), rest, key)? {
+                    // The terminal conversion. `ok()` rather than `?`: a value
+                    // Python refuses to convert is a MISS, which renders empty
+                    // — the same fail-to-absent every other arm of this
+                    // function takes.
+                    Walked::Object(obj)
+                        if rest.is_empty()
+                            && obj.is(handle.bind(py))
+                            && reusable_temporal(&obj) =>
+                    {
+                        // The live walk still enforces auto-call and the shared
+                        // protection floor. Exact immutable temporal values
+                        // already have a carrier; rebuilding it invokes every
+                        // temporal method for each bare variable occurrence.
+                        // Dotted lookups always walk live, including timestamp()
+                        // whose answer depends on the process timezone.
+                        Ok(Some(Some(Value::Encoded(encoded.clone()))))
+                    }
+                    Walked::Object(obj) => Ok(Some(obj.extract::<Value>().ok())),
+                    // Django's `VariableDoesNotExist`, which the caller
+                    // renders as `string_if_invalid` ("") — and which is
+                    // FINAL, not a fall-through. See the doc comment.
+                    Walked::Invalid => Ok(Some(None)),
+                }
+            });
+        }
+        Ok(None)
+    }
+
+    /// `django.template.base.Variable._resolve_lookup` (django 5.2.16
+    /// `base.py:876-953`) over a LIVE `root`, one segment of `parts` at a
+    /// time — the ADR-027 sink. Routed from exactly one call site,
+    /// [`Context::walk_from_handle`] (#2539 movement 2; unconditional since
+    /// Step 5, #2628, deleted the ADR-027 kill-switch).
+    ///
+    /// `path` is the full dotted expression, used only as the label of the
+    /// debug-mode ORM auto-call warning. Takes `py` rather than opening its
+    /// own `Python::attach` because every caller is already attached (the
+    /// sidecar walk in [`Context::resolve_without_builtins`] is).
+    ///
+    /// Django's order, transcribed per segment:
+    ///
+    /// 1. **Item access, behind the metaclass guard.** `_resolve_lookup`
+    ///    opens with `if not hasattr(type(current), "__getitem__"): raise
+    ///    TypeError` and only then `current[bit]`, catching `(TypeError,
+    ///    AttributeError, KeyError, ValueError, IndexError)`. The guard is
+    ///    why Django never reaches `__class_getitem__`: a CLASS in the
+    ///    context (`{{ MyList.class_property }}` on a `list` subclass) has
+    ///    `type(current) is type`, which has no `__getitem__`, so item access
+    ///    is skipped outright. The current sidecar walk calls
+    ///    `PyObject_GetItem` unguarded, which honours `__class_getitem__`,
+    ///    yields a `types.GenericAlias`, and segfaults in conversion
+    ///    (ADR-027 row P, one of the #2517 crashes). An error OUTSIDE step
+    ///    1's catch set came from a real `__getitem__` and propagates
+    ///    (#2506), honouring `silent_variable_failure`.
+    /// 2. **Attribute access.** `getattr(current, bit)`, catching
+    ///    `(TypeError, AttributeError)` — re-raised when `bit in
+    ///    dir(current)`, Django's "raised by a @property" branch, so a
+    ///    property that raises `AttributeError` is a bug and not a miss.
+    /// 3. **Integer index.** `current[int(bit)]`, catching `(IndexError,
+    ///    ValueError, KeyError, TypeError)` into `VariableDoesNotExist` —
+    ///    which is [`Walked::Invalid`]. A non-integer segment IS Django's
+    ///    `int(bit)` `ValueError`, so it is `Invalid` without an item call.
+    ///
+    /// After the root and after every segment: [`Context::maybe_call`]
+    /// (auto-call unless `do_not_call_in_templates`; honours the `auto_call`
+    /// kill-switch) and then [`Context::protect_sidecar_strict`] — djust's own
+    /// serialization floor (SECURE_DEFAULTS Pattern 1), which is not
+    /// Django's rule and holds regardless of any option.
+    ///
+    /// # Django reaches `string_if_invalid` two ways, and only ONE keeps walking
+    ///
+    /// `_resolve_lookup` assigns `current = string_if_invalid` from two
+    /// different places, and they are not interchangeable:
+    ///
+    /// * **inside the per-segment loop** (`base.py:925-937`) for `alters_data`,
+    ///   an args-required callable and an unsignaturable one — and the loop
+    ///   then **continues with the next bit**. So `{{ o.delete.isupper }}` is
+    ///   `""` → `"".isupper` → callable → called → `False` in Django, not
+    ///   empty. That is [`CallOutcome::Empty`], which substitutes an empty
+    ///   Python `str` here and keeps going.
+    /// * **in the outermost `except Exception`** (`base.py:939-953`) for an
+    ///   exception carrying a truthy `silent_variable_failure`, which has
+    ///   already left the loop and **returns**. That is
+    ///   [`CallOutcome::Silent`], which is [`Walked::Invalid`].
+    ///
+    /// [`Walked::Invalid`] therefore means "Django stopped here" —
+    /// `VariableDoesNotExist` or a silent failure — and is what §6.2's
+    /// `ignore_failures` substitution keys on. `string_if_invalid` is `""` on
+    /// every djust path (delivering it as an engine option is an explicit ADR
+    /// non-goal, #2518), so the substitution is exact rather than approximate.
+    /// The pre-ADR sidecar walk in [`Context::resolve_without_builtins`]
+    /// collapses all of this into `Value::Missing` and is left alone —
+    /// changing it would be a behaviour change with the flag OFF.
+    ///
+    /// # The floor's failure arm is CLOSED here
+    ///
+    /// The pre-ADR walk's `protect_sidecar` answers `Err(_) => obj`, so a
+    /// `_protect_sidecar_value` that RAISES for a mid-walk model lets the raw
+    /// model flow on — the one open default in the sink's neighbourhood
+    /// (#2539 security review, requirement 1). [`Context::protect_sidecar_strict`]
+    /// answers `Invalid` instead. It still passes the object through when the
+    /// djust Python side is not importable at all, because an embedder with no
+    /// `djust.serialization` has no floor to fail closed about — that is a
+    /// DIFFERENT condition from "the floor ran and raised".
+    ///
+    /// Django's outermost `except Exception` — `silent_variable_failure`
+    /// truthy renders `string_if_invalid`, anything else re-raises — is
+    /// applied at every propagation point through `propagate_lookup_error`.
+    ///
+    /// Constraints the existing pins hold this to: it reads no `Encoded`
+    /// attribute map and calls no `lookup_segment`
+    /// (`TestTheSinkHasExactlyTheReadersItClaims`, `#2481`).
+    pub fn walk_live<'py>(
+        &self,
+        py: Python<'py>,
+        root: pyo3::Bound<'py, pyo3::PyAny>,
+        parts: &[&str],
+        path: &str,
+    ) -> crate::Result<Walked<'py>> {
+        // Django's callable block runs for the ROOT bit too
+        // (`{{ some_callable }}`), before any segment is walked.
+        let mut current = match self.maybe_call(py, root, path)? {
+            CallOutcome::AsIs(v) | CallOutcome::Called(v) => v,
+            CallOutcome::Empty => self.string_if_invalid_object(py)?,
+            CallOutcome::Silent => return Ok(Walked::Invalid),
+        };
+        current = match self.protect_sidecar_strict(py, current) {
+            Some(v) => v,
+            None => return Ok(Walked::Invalid),
+        };
+
+        for part in parts {
+            let next = match self.walk_one_segment(py, &current, part)? {
+                Walked::Object(v) => v,
+                Walked::Invalid => return Ok(Walked::Invalid),
+            };
+            current = match self.maybe_call(py, next, path)? {
+                CallOutcome::AsIs(v) | CallOutcome::Called(v) => v,
+                CallOutcome::Empty => self.string_if_invalid_object(py)?,
+                CallOutcome::Silent => return Ok(Walked::Invalid),
+            };
+            current = match self.protect_sidecar_strict(py, current) {
+                Some(v) => v,
+                None => return Ok(Walked::Invalid),
+            };
+        }
+        Ok(Walked::Object(current))
+    }
+
+    /// One segment of [`Context::walk_live`]: Django's steps 1–3 over
+    /// `current`, WITHOUT the callable block and the floor (the caller
+    /// applies both after every segment). Split out so each step's catch
+    /// set reads next to the rule it transcribes.
+    fn walk_one_segment<'py>(
+        &self,
+        py: Python<'py>,
+        current: &pyo3::Bound<'py, pyo3::PyAny>,
+        part: &str,
+    ) -> crate::Result<Walked<'py>> {
+        // Django refuses a leading underscore at `Variable.__init__`
+        // (`base.py:845-849`), BEFORE any lookup runs — so this is Django
+        // parity, not a djust-ism, and every one of these segments is
+        // `VariableDoesNotExist` on both engines.
+        //
+        // Defence in depth (#2539 security review, requirement 2). djust's
+        // parser already refuses the spelling (#2418) and the sidecar model
+        // proxies refuse the names again, so nothing user-typed reaches here
+        // with one. That is exactly why the guard belongs here: a future
+        // caller that builds a path programmatically — an accessor, a
+        // `{% regroup %}` key, a filter argument — would otherwise reach
+        // `getattr(o, "_state")` / `__class__` through this walk with no
+        // refusal of its own. Its test has to call the sink DIRECTLY for the
+        // same reason.
+        if part.starts_with('_') {
+            return Ok(Walked::Invalid);
+        }
+
+        // Step 1, behind the metaclass guard. A failing `hasattr` probe is
+        // answered "no `__getitem__`" — the guard may only SKIP an item call,
+        // never invent one, so a broken metaclass falls to step 2 exactly as
+        // Django's own `hasattr` (which swallows) would.
+        let has_getitem = current.get_type().hasattr("__getitem__").unwrap_or(false);
+        if has_getitem {
+            match current.get_item(part) {
+                Ok(found) => return Ok(Walked::Object(found)),
+                // Django step 1: `except (TypeError, AttributeError, KeyError,
+                // ValueError, IndexError)` — the last two its own numpy
+                // allowance. Anything else is a real `__getitem__` error.
+                Err(e) if !is_django_item_lookup_error(py, &e) => {
+                    return match propagate_lookup_error(py, e) {
+                        LookupOutcome::Empty => Ok(Walked::Invalid),
+                        LookupOutcome::Raise(err) => Err(err),
+                    };
+                }
+                // Caught: fall through to step 2.
+                Err(_) => {}
+            }
+        }
+
+        // Step 2: `getattr(current, bit)`, `except (TypeError, AttributeError)`.
+        match current.getattr(part) {
+            Ok(found) => return Ok(Walked::Object(found)),
+            Err(e)
+                if !(e.is_instance_of::<pyo3::exceptions::PyTypeError>(py)
+                    || e.is_instance_of::<pyo3::exceptions::PyAttributeError>(py)) =>
+            {
+                return match propagate_lookup_error(py, e) {
+                    LookupOutcome::Empty => Ok(Walked::Invalid),
+                    LookupOutcome::Raise(err) => Err(err),
+                };
+            }
+            // `if bit in dir(current): raise` — the name EXISTS and its
+            // descriptor raised, so this is the object's bug, not a miss.
+            Err(e) if name_exists_on(current, part) => {
+                return match propagate_lookup_error(py, e) {
+                    LookupOutcome::Empty => Ok(Walked::Invalid),
+                    LookupOutcome::Raise(err) => Err(err),
+                };
+            }
+            Err(_) => {}
+        }
+
+        // Step 3: `current[int(bit)]`. A non-integer `bit` is Django's own
+        // `ValueError` from `int()`, caught into `VariableDoesNotExist`.
+        let Ok(idx) = part.parse::<usize>() else {
+            return Ok(Walked::Invalid);
+        };
+        match current.get_item(idx) {
+            Ok(found) => Ok(Walked::Object(found)),
+            // `except (IndexError, ValueError, KeyError, TypeError)` →
+            // `VariableDoesNotExist`; anything else is a real `__getitem__`
+            // failure and propagates, as in steps 1 and 2.
+            Err(e) if !is_django_index_lookup_error_strict(py, &e) => {
+                match propagate_lookup_error(py, e) {
+                    LookupOutcome::Empty => Ok(Walked::Invalid),
+                    LookupOutcome::Raise(err) => Err(err),
+                }
+            }
+            Err(_) => Ok(Walked::Invalid),
+        }
+    }
+
+    /// The handler dict a bridged Python tag receives (#2914), built frame by
+    /// frame through [`BRIDGE_FRAME_CACHE`]: a hit is a `dict.update` of the
+    /// cached frame, a miss converts that frame only.
+    ///
+    /// `remint_safe_context` then marks the dict's DOTTED safe paths in place
+    /// (`python_examples_html.0.html`), which lands on the cached object. That
+    /// is safe today because a dotted grant is render-global — it comes from
+    /// the view's `mark_safe_keys`, never from a template scope — so the mark
+    /// is the same on every call. If a scoped dotted grant is ever introduced,
+    /// the heads of those paths must be converted fresh per call instead.
+    pub fn bridged_py_dict<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> Result<Bound<'py, pyo3::types::PyDict>, String> {
+        let out = pyo3::types::PyDict::new(py);
+        let result: Result<(), String> = BRIDGE_FRAME_CACHE.with(|cache| {
+            let mut cache = cache.borrow_mut();
+            // Only this context's frames may stay memoised: a popped loop
+            // frame, or a frame that was re-stamped, leaves at once.
+            cache.retain(|stamp, _| self.stack.iter().any(|f| f.stamp == *stamp));
+            for frame in &self.stack {
+                if frame.values.is_empty() {
+                    continue;
+                }
+                if frame.stamp != 0 {
+                    if let Some(cached) = cache.get(&frame.stamp) {
+                        out.update(cached.bind(py).as_mapping())
+                            .map_err(|e| format!("Failed to merge cached frame: {e}"))?;
+                        continue;
+                    }
+                }
+                let d = pyo3::types::PyDict::new(py);
+                for (key, value) in frame.values.iter() {
+                    let py_value = crate::value_into_handler_pyobject(py, value.clone())
+                        .map_err(|e| format!("Failed to convert value for key '{key}': {e}"))?;
+                    d.set_item(key, py_value)
+                        .map_err(|e| format!("Failed to set context key '{key}': {e}"))?;
+                }
+                out.update(d.as_mapping())
+                    .map_err(|e| format!("Failed to merge frame: {e}"))?;
+                if frame.stamp != 0 {
+                    cache.insert(frame.stamp, d.unbind());
+                }
+            }
+            Ok(())
+        });
+        result?;
+        Ok(out)
+    }
+
+    /// Convert the entire context to a flattened HashMap.
+    ///
+    /// This merges all stack frames (with later frames taking precedence)
+    /// into a single HashMap. Used for passing context to Python callbacks.
+    pub fn to_hashmap(&self) -> HashMap<String, Value> {
+        let mut result = HashMap::new();
+        // Iterate from bottom to top so later frames override earlier ones
+        for frame in &self.stack {
+            for (key, value) in frame.values.iter() {
+                result.insert(key.clone(), value.clone());
+            }
+        }
+        result
+    }
+}
+
+/// Django's step-1 (item-access) catch set, transcribed (#2506).
+///
+/// `Variable._resolve_lookup` opens each segment with
+///
+/// ```python
+/// try:  # dictionary lookup
+///     current = current[bit]
+/// except (TypeError, AttributeError, KeyError, ValueError, IndexError):
+/// ```
+///
+/// — `ValueError`/`IndexError` being its own allowance for numpy arrays.
+/// An exception OUTSIDE this set came from a real `__getitem__` and is a bug
+/// in the object, so Django lets it propagate and so must the sidecar walk.
+/// Rendering it as the empty string is a silent failure, and for a
+/// `__getitem__` that implements an access check it is a silent failure OPEN.
+/// Django's outermost lookup guard: an exception carrying a truthy
+/// `silent_variable_failure` renders as `string_if_invalid` ("") instead of
+/// propagating (#2508 review).
+///
+/// `django.template.base.Variable._resolve_lookup` wraps the WHOLE
+/// dict/attr/index chain in:
+///
+/// ```text
+/// except Exception as e:
+///     if getattr(e, "silent_variable_failure", False):
+///         current = context.template.engine.string_if_invalid
+///     else:
+///         raise
+/// ```
+///
+/// `ObjectDoesNotExist` sets that attribute, and every `Model.DoesNotExist`
+/// inherits it — so `{{ profile.latest_order }}` on a property that raises
+/// `User.DoesNotExist` is an EMPTY CELL in Django, not an error. The #2506
+/// narrowing transcribed Django's three per-step catch tuples but not this
+/// outer arm, which turned the single commonest ORM-miss idiom into a 500 on
+/// every render path. Checked before any propagation for that reason.
+fn is_silent_variable_failure(py: Python<'_>, err: &pyo3::PyErr) -> bool {
+    err.value(py)
+        .getattr("silent_variable_failure")
+        .ok()
+        .and_then(|v| v.is_truthy().ok())
+        .unwrap_or(false)
+}
+
+/// Propagate a Python exception raised by user code during a lookup, keeping
+/// its type (see `DjangoRustError::PythonException`) — unless it is silent,
+/// in which case Django renders empty and so do we.
+fn propagate_lookup_error(py: Python<'_>, err: pyo3::PyErr) -> LookupOutcome {
+    if is_silent_variable_failure(py, &err) {
+        LookupOutcome::Empty
+    } else {
+        LookupOutcome::Raise(crate::DjangoRustError::PythonException(err))
+    }
+}
+
+/// Either "render this cell empty" or "propagate this exception".
+enum LookupOutcome {
+    Empty,
+    Raise(crate::DjangoRustError),
+}
+
+fn is_django_item_lookup_error(py: Python<'_>, err: &pyo3::PyErr) -> bool {
+    err.is_instance_of::<pyo3::exceptions::PyTypeError>(py)
+        || err.is_instance_of::<pyo3::exceptions::PyAttributeError>(py)
+        || err.is_instance_of::<pyo3::exceptions::PyKeyError>(py)
+        || err.is_instance_of::<pyo3::exceptions::PyValueError>(py)
+        || err.is_instance_of::<pyo3::exceptions::PyIndexError>(py)
+}
+
+/// Django's step-3 (integer-index) catch set, transcribed (#2506).
+///
+/// ```python
+/// try:  # list-index lookup
+///     current = current[int(bit)]
+/// except (IndexError, ValueError, KeyError, TypeError):
+///     raise VariableDoesNotExist(...)
+/// ```
+///
+/// `VariableDoesNotExist` is what the caller renders as `string_if_invalid`
+/// (`""`), so this set — and only this set — is the walk's "resolved to
+/// nothing" answer.
+fn is_django_index_lookup_error(py: Python<'_>, err: &pyo3::PyErr) -> bool {
+    err.is_instance_of::<pyo3::exceptions::PyIndexError>(py)
+        || err.is_instance_of::<pyo3::exceptions::PyValueError>(py)
+        || err.is_instance_of::<pyo3::exceptions::PyKeyError>(py)
+        || err.is_instance_of::<pyo3::exceptions::PyTypeError>(py)
+        || err.is_instance_of::<pyo3::exceptions::PyAttributeError>(py)
+}
+
+/// Django's step-3 catch set with NO extra member — the ADR-027 sink's
+/// (#2539 security review, requirement 3).
+///
+/// [`is_django_index_lookup_error`] above adds `AttributeError`, which
+/// Django's tuple (`base.py:909-918`) does not contain. That member exists for
+/// the PRE-ADR walk in [`Context::resolve_without_builtins`], whose step-2 arm
+/// reaches step 3 carrying the `AttributeError` it just caught; narrowing the
+/// shared helper would start propagating a real `__getitem__`'s
+/// `AttributeError` on that walk, which is a behaviour change with the flag
+/// OFF and therefore not this movement's to make. The loose helper is deleted
+/// with that walk in movement 4.
+///
+/// [`Context::walk_one_segment`] needs no such allowance: it answers `Invalid`
+/// for a non-integer segment BEFORE any item call, so the only exception that
+/// reaches this set came from a real `__getitem__` under an integer index —
+/// and an `AttributeError` raised there is the object's bug, which Django
+/// propagates.
+fn is_django_index_lookup_error_strict(py: Python<'_>, err: &pyo3::PyErr) -> bool {
+    err.is_instance_of::<pyo3::exceptions::PyIndexError>(py)
+        || err.is_instance_of::<pyo3::exceptions::PyValueError>(py)
+        || err.is_instance_of::<pyo3::exceptions::PyKeyError>(py)
+        || err.is_instance_of::<pyo3::exceptions::PyTypeError>(py)
+}
+
+impl Context {
+    /// Django's `string_if_invalid`, as a Python object the walk can keep
+    /// going from (#2539) — `current = context.template.engine.string_if_invalid`
+    /// in `_resolve_lookup`, then the next bit is walked. See
+    /// [`Context::walk_live`]'s "Django has TWO invalids" section.
+    ///
+    /// The ENGINE's option, not a literal `""`: until ADR-027 Step 5 (#2628)
+    /// this was a free function returning `""`, and the gap never showed
+    /// because an args-required method on an attribute-bearing object took
+    /// the by-name sidecar walk (which answered `Missing`, substituted by the
+    /// renderer from the same option). Routing every such object through the
+    /// handle surfaced it: Django's `basic-syntax20` (`{{ var.method2 }}`
+    /// under `string_if_invalid='INVALID'`) rendered `''`.
+    fn string_if_invalid_object<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> crate::Result<pyo3::Bound<'py, pyo3::PyAny>> {
+        Ok(pyo3::types::PyString::new(py, self.string_if_invalid()).into_any())
+    }
+}
+
+/// Django's `bit in dir(current)` probe (#2506).
+///
+/// The `# Reraise if the exception was raised by a @property` branch of
+/// `Variable._resolve_lookup`: when `getattr` raised but the name DOES exist
+/// on the object, the failure came from the descriptor rather than from the
+/// name being absent, so Django re-raises instead of falling through to the
+/// integer-index step. Without it a property raising `AttributeError` — the
+/// single commonest way for a property to fail — renders empty.
+///
+/// `dir()` failing is answered `false`, which restores the fall-through: this
+/// probe may only ADD a propagation, never suppress one.
+fn name_exists_on(obj: &pyo3::Bound<'_, pyo3::PyAny>, name: &str) -> bool {
+    // Exact built-in sequences have no all-digit attribute names. After a
+    // numeric getattr miss, building and sorting dir() cannot find one.
+    // Keep subclasses on Django's general path: their __dir__ and numeric
+    // descriptors can turn an apparent index miss into a real exception.
+    if !name.is_empty()
+        && name.bytes().all(|byte| byte.is_ascii_digit())
+        && (obj.is_exact_instance_of::<pyo3::types::PyList>()
+            || obj.is_exact_instance_of::<pyo3::types::PyTuple>()
+            || obj.is_exact_instance_of::<pyo3::types::PyString>())
+    {
+        return false;
+    }
+    let probe = || -> PyResult<bool> { obj.dir()?.contains(name) };
+    probe().unwrap_or(false)
+}
+
+/// Truthiness of an optional attribute (`getattr(obj, name, False)` +
+/// `bool(...)`). Missing attribute or a raising descriptor counts as
+/// falsy — matching Django's `getattr(current, "...", False)` reads.
+fn attr_is_truthy(obj: &pyo3::Bound<'_, pyo3::PyAny>, name: &str) -> bool {
+    obj.getattr(name)
+        .ok()
+        .and_then(|v| v.is_truthy().ok())
+        .unwrap_or(false)
+}
+
+/// Django's args-required probe, run only on the cold `TypeError` path:
+/// `inspect.signature(obj).bind()` — bind raising `TypeError` means the
+/// callable genuinely requires arguments (→ expression is "invalid",
+/// renders empty); `inspect.signature` itself failing (unsignaturable
+/// builtin) is treated the same. A successful zero-arg bind means the
+/// `TypeError` came from INSIDE the method and must propagate.
+fn callable_requires_arguments(py: Python<'_>, obj: &pyo3::Bound<'_, pyo3::PyAny>) -> bool {
+    let probe = || -> PyResult<bool> {
+        let inspect = py.import("inspect")?;
+        let signature = inspect.call_method1("signature", (obj,))?;
+        Ok(signature.call_method0("bind").is_err())
+    };
+    // No signature found (ValueError on some builtins) → Django's
+    // `string_if_invalid` branch → treat as args-required (empty).
+    probe().unwrap_or(true)
+}
+
+/// Debug-only, one-shot-per-dotted-path warning when an auto-called
+/// callable is bound to a Django `Manager`/`QuerySet` (ADR-024
+/// observability rider): in a LiveView the template re-renders on every
+/// WebSocket event, so `{{ workspace.memberships.count }}` is a DB
+/// query per event. Best-effort — never fails or blocks the render.
+fn warn_once_on_orm_autocall(py: Python<'_>, obj: &pyo3::Bound<'_, pyo3::PyAny>, path: &str) {
+    // One-shot per dotted path per process: the set-membership check runs
+    // FIRST so already-warned paths cost a single HashSet lookup.
+    static WARNED_PATHS: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
+    let warned = WARNED_PATHS.get_or_init(|| Mutex::new(HashSet::new()));
+    {
+        let Ok(guard) = warned.lock() else { return };
+        if guard.contains(path) {
+            return; // already warned for this path
+        }
+    }
+    // Only bound methods whose __self__ is a Manager/QuerySet.
+    let Ok(receiver) = obj.getattr("__self__") else {
+        return;
+    };
+    let is_orm = py
+        .import("django.db.models")
+        .and_then(|m| {
+            let manager = m.getattr("Manager")?;
+            let queryset = m.getattr("QuerySet")?;
+            Ok(receiver.is_instance(&manager)? || receiver.is_instance(&queryset)?)
+        })
+        .unwrap_or(false);
+    if !is_orm {
+        return;
+    }
+    // Read settings.DEBUG live (deliberately not cached, so
+    // `override_settings(DEBUG=...)` stays honest). Under DEBUG=False this
+    // re-runs on every render of a not-yet-warned ORM path — one settings
+    // getattr chain, trivial next to the ORM query the auto-call performs.
+    let debug = py
+        .import("django.conf")
+        .and_then(|m| m.getattr("settings"))
+        .and_then(|s| s.getattr("DEBUG"))
+        .ok()
+        .and_then(|d| d.is_truthy().ok())
+        .unwrap_or(false);
+    if !debug {
+        return;
+    }
+    {
+        let Ok(mut guard) = warned.lock() else { return };
+        if !guard.insert(path.to_string()) {
+            return; // raced with another render thread — already warned
+        }
+    }
+    let _ = py.import("logging").and_then(|logging| {
+        let logger = logging.call_method1("getLogger", ("djust.templates",))?;
+        logger.call_method1(
+            "warning",
+            (
+                "[djust] Template path '%s' auto-calls an ORM method — this runs on \
+                 EVERY re-render (each WebSocket event). Consider precomputing it in \
+                 get_context_data() if this view re-renders frequently. (ADR-024)",
+                path,
+            ),
+        )?;
+        Ok(())
+    });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use indexmap::IndexMap;
+
+    /// #2689 / #2529 — the include path is interpolated RAW into a marker
+    /// comment, so its grammar is a refusal, not an escape.
+    #[test]
+    fn dj_if_include_path_grammar_accepts_only_tagged_segments() {
+        for good in ["", "-ia1b2c3d4_0", "-ia1b2c3d4_0-ideadbeef_12", "-i0_0"] {
+            assert!(is_dj_if_include_path(good), "rejected {good:?}");
+        }
+        for bad in [
+            "-i-->x_0",        // a comment terminator
+            "-ia1b2c3d4_0-->", // ...trailing
+            "ia1b2c3d4_0",     // no leading separator
+            "-a1b2c3d4_0",     // untagged
+            "-i_0",            // empty hash
+            "-ia1b2c3d4_",     // empty ordinal
+            "-ia1b2c3d4",      // no ordinal at all
+            "-ig1_0",          // non-hex hash
+            "-ia1_x",          // non-digit ordinal
+            "-i a1_0",         // a space
+            "-1",              // a LOOP-path segment must not validate here
+        ] {
+            assert!(!is_dj_if_include_path(bad), "accepted {bad:?}");
+        }
+    }
+
+    /// The two suffix axes concatenate into one opaque id, so their segment
+    /// alphabets must be disjoint or the composition is not injective (#2689).
+    #[test]
+    fn include_path_and_loop_path_segments_cannot_be_confused() {
+        // Every loop-path segment is pure digits; no include segment is.
+        for loop_path in ["-0", "-12", "-3-4"] {
+            assert!(
+                loop_path.chars().all(|c| c == '-' || c.is_ascii_digit()),
+                "not a loop path: {loop_path:?}"
+            );
+            assert!(
+                !is_dj_if_include_path(loop_path),
+                "a loop path validated as an include path: {loop_path:?}"
+            );
+        }
+        // ...and no include segment is a valid loop path.
+        for include_path in ["-ia1b2c3d4_0", "-i0_0-i1_2"] {
+            assert!(is_dj_if_include_path(include_path));
+            assert!(
+                !include_path.chars().all(|c| c == '-' || c.is_ascii_digit()),
+                "an include path validated as a loop path: {include_path:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_context_simple_get() {
+        let mut ctx = Context::new();
+        ctx.set("name".to_string(), Value::String("Django".to_string()));
+
+        assert!(matches!(ctx.get("name"), Some(Value::String(s)) if s == "Django"));
+        assert!(ctx.get("missing").is_none());
+    }
+
+    #[test]
+    fn test_context_nested_get() {
+        let mut ctx = Context::new();
+        let mut user = IndexMap::new();
+        user.insert("name".into(), Value::String("John".to_string()));
+        user.insert("age".into(), Value::Integer(30));
+
+        ctx.set("user".to_string(), Value::Object(user));
+
+        assert!(matches!(ctx.get("user.name"), Some(Value::String(s)) if s == "John"));
+        assert!(matches!(ctx.get("user.age"), Some(Value::Integer(30))));
+        assert!(ctx.get("user.missing").is_none());
+    }
+
+    #[test]
+    fn test_context_stack() {
+        let mut ctx = Context::new();
+        ctx.set("a".to_string(), Value::Integer(1));
+
+        ctx.push();
+        ctx.set("a".to_string(), Value::Integer(2));
+        assert!(matches!(ctx.get("a"), Some(Value::Integer(2))));
+
+        ctx.pop();
+        assert!(matches!(ctx.get("a"), Some(Value::Integer(1))));
+    }
+
+    // -- `items_are_safe` (#2287) ------------------------------------------
+    //
+    // Unit-level pins for each narrowing in the doc comment. The Django-parity
+    // half lives in `python/tests/test_context_item_safety_2287.py`; these
+    // exist because three of the narrowings are only OBSERVABLE as a bool here
+    // — from the Python side, "grant refused" and "grant given but the filter
+    // escaped anyway" produce the same bytes for some shapes.
+
+    fn strs(values: &[&str]) -> Vec<Value> {
+        values
+            .iter()
+            .map(|s| Value::String(s.to_string()))
+            .collect()
+    }
+
+    /// A list with `p.0`/`p.1` marked — the shape `_collect_safe_keys` emits
+    /// for `[mark_safe(a), mark_safe(b)]`.
+    fn ctx_with_marked_list() -> Context {
+        let mut ctx = Context::new();
+        ctx.set(
+            "p".to_string(),
+            Value::List(strs(&["<b>x</b>", "<i>y</i>"])),
+        );
+        ctx.mark_safe("p.0".to_string());
+        ctx.mark_safe("p.1".to_string());
+        ctx
+    }
+
+    #[test]
+    fn items_are_safe_when_every_index_is_marked() {
+        assert!(ctx_with_marked_list().items_are_safe("p"));
+        // …and the CONTAINER is not, which is the whole distinction: Django's
+        // `mark_safe` was never called on the list.
+        assert!(!ctx_with_marked_list().is_safe("p"));
+    }
+
+    #[test]
+    fn a_tuple_is_the_same_shape_as_a_list() {
+        let mut ctx = Context::new();
+        ctx.set("p".to_string(), Value::Tuple(strs(&["a", "b"])));
+        ctx.mark_safe("p.0".to_string());
+        ctx.mark_safe("p.1".to_string());
+        assert!(ctx.items_are_safe("p"));
+    }
+
+    #[test]
+    fn a_partially_marked_list_is_refused() {
+        let mut ctx = ctx_with_marked_list();
+        ctx.set("p".to_string(), Value::List(strs(&["a", "b", "c"])));
+        // `p.2` is unmarked — Django would escape only that element, and one
+        // bool cannot say so, so the whole grant is withheld.
+        assert!(!ctx.items_are_safe("p"));
+    }
+
+    #[test]
+    fn a_dict_is_refused_even_when_its_values_are_marked() {
+        // `_collect_safe_keys` writes a dict's paths by NAME while the filters
+        // iterate its KEYS. Marking `p.0` here is the adversarial case: a dict
+        // that happens to have a key spelled "0".
+        let mut ctx = Context::new();
+        let mut map = IndexMap::new();
+        map.insert("0".into(), Value::String("<b>v</b>".to_string()));
+        ctx.set("p".to_string(), Value::Object(map));
+        ctx.mark_safe("p.0".to_string());
+        assert!(!ctx.items_are_safe("p"));
+    }
+
+    #[test]
+    fn a_marked_string_grants_nothing_to_its_characters() {
+        let mut ctx = Context::new();
+        ctx.set("p".to_string(), Value::String("<b>x</b>".to_string()));
+        ctx.mark_safe("p".to_string());
+        ctx.mark_safe("p.0".to_string());
+        assert!(ctx.is_safe("p"));
+        assert!(!ctx.items_are_safe("p"));
+    }
+
+    #[test]
+    fn an_empty_list_is_refused() {
+        let mut ctx = Context::new();
+        ctx.set("p".to_string(), Value::List(vec![]));
+        assert!(!ctx.items_are_safe("p"));
+    }
+
+    #[test]
+    fn a_nested_container_is_refused_even_when_every_leaf_is_marked() {
+        // Granting this would out-permit Django: `join` stringifies the
+        // sublist and Django escapes that repr.
+        let mut ctx = Context::new();
+        ctx.set(
+            "p".to_string(),
+            Value::List(vec![
+                Value::String("<b>a</b>".to_string()),
+                Value::List(strs(&["<i>b</i>"])),
+            ]),
+        );
+        ctx.mark_safe("p.0".to_string());
+        ctx.mark_safe("p.1".to_string());
+        ctx.mark_safe("p.1.0".to_string());
+        assert!(!ctx.items_are_safe("p"));
+    }
+
+    #[test]
+    fn a_stale_mark_cannot_reach_a_non_string_item() {
+        // `mark_safe_keys` only extends, so a path marked for a previous
+        // render survives into this one. The element-is-a-String narrowing is
+        // what stops it granting safety to a shape never marked.
+        let mut ctx = Context::new();
+        ctx.set(
+            "p".to_string(),
+            Value::List(vec![Value::List(strs(&["<script>x</script>"]))]),
+        );
+        ctx.mark_safe("p.0".to_string());
+        assert!(!ctx.items_are_safe("p"));
+    }
+
+    #[test]
+    fn a_missing_key_is_refused() {
+        assert!(!Context::new().items_are_safe("nope"));
+    }
+
+    #[test]
+    fn a_loop_variable_resolves_through_its_iterables_path() {
+        // Inside `{% for row in rows %}` the variable is `row`, but
+        // `_collect_safe_keys` recorded the marks at `rows.0.<i>`.
+        let mut ctx = Context::new();
+        let row = Value::List(strs(&["<b>x</b>", "<i>y</i>"]));
+        ctx.set("rows".to_string(), Value::List(vec![row.clone()]));
+        ctx.mark_safe("rows.0.0".to_string());
+        ctx.mark_safe("rows.0.1".to_string());
+
+        ctx.push();
+        ctx.set("row".to_string(), row);
+        ctx.set_loop_mapping("row".to_string(), "rows".to_string(), 0);
+        assert!(ctx.items_are_safe("row"));
+    }
+
+    #[test]
+    fn a_loop_variable_pointing_at_an_unmarked_row_is_refused() {
+        let mut ctx = Context::new();
+        let marked = Value::List(strs(&["<b>x</b>"]));
+        let unmarked = Value::List(strs(&["<img src=x onerror=alert(1)>"]));
+        ctx.set(
+            "rows".to_string(),
+            Value::List(vec![marked, unmarked.clone()]),
+        );
+        ctx.mark_safe("rows.0.0".to_string());
+
+        ctx.push();
+        ctx.set("row".to_string(), unmarked);
+        ctx.set_loop_mapping("row".to_string(), "rows".to_string(), 1);
+        assert!(!ctx.items_are_safe("row"));
+    }
+
+    // -- #2334: dict views --------------------------------------------
+
+    fn dict_ctx() -> Context {
+        let mut map = indexmap::IndexMap::new();
+        map.insert("a".into(), Value::Integer(1));
+        map.insert("b".into(), Value::Integer(2));
+        let mut ctx = Context::new();
+        ctx.set("d".to_string(), Value::Object(map));
+        ctx
+    }
+
+    #[test]
+    fn dict_items_keys_and_values_resolve_in_insertion_order() {
+        let ctx = dict_ctx();
+        // A `DictView` carrying its KIND, not a bare list (#2340): the kind is
+        // what names the container in `str()`, and asserting it here is what
+        // stops `d.keys` from silently resolving to a `dict_values(...)`.
+        match ctx.resolve("d.keys").unwrap().unwrap() {
+            Value::DictView { kind, items } => {
+                assert_eq!(kind, crate::DictViewKind::Keys);
+                assert_eq!(
+                    items.iter().map(|v| v.to_string()).collect::<Vec<_>>(),
+                    vec!["a", "b"],
+                    "Python's dict order, not a hash order — a HashMap here would \
+                     make `{{% for k in d %}}` nondeterministic across renders"
+                );
+            }
+            other => panic!("expected a dict view, got {other:?}"),
+        }
+        match ctx.resolve("d.values").unwrap().unwrap() {
+            Value::DictView { kind, items } => {
+                assert_eq!(kind, crate::DictViewKind::Values);
+                assert_eq!(
+                    items.iter().map(|v| v.to_string()).collect::<Vec<_>>(),
+                    vec!["1", "2"]
+                )
+            }
+            other => panic!("expected a dict view, got {other:?}"),
+        }
+        match ctx.resolve("d.items").unwrap().unwrap() {
+            Value::DictView { kind, items } => {
+                assert_eq!(kind, crate::DictViewKind::Items);
+                assert_eq!(items.len(), 2);
+                // Each entry is a 2-TUPLE, which is what makes
+                // `{% for k, v in d.items %}` unpack through the renderer's
+                // existing tuple-unpacking branch.
+                match &items[0] {
+                    Value::Tuple(pair) => {
+                        assert_eq!(pair.len(), 2);
+                        assert_eq!(pair[0].to_string(), "a");
+                        assert_eq!(pair[1].to_string(), "1");
+                    }
+                    other => panic!("expected a 2-tuple, got {other:?}"),
+                }
+            }
+            other => panic!("expected a dict view, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn each_kind_names_its_own_container_in_str() {
+        // The whole of #2340's visible half, at the type level.
+        let ctx = dict_ctx();
+        for (path, want) in [
+            ("d.keys", "dict_keys(['a', 'b'])"),
+            ("d.values", "dict_values([1, 2])"),
+            ("d.items", "dict_items([('a', 1), ('b', 2)])"),
+        ] {
+            assert_eq!(
+                ctx.resolve(path).unwrap().unwrap().to_string(),
+                want,
+                "{path}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_real_key_named_items_shadows_the_method() {
+        // Django's `Variable._resolve_lookup` tries mapping-item access FIRST
+        // and attribute access second, which is why the view resolution is
+        // placed AFTER `Context::get` rather than inside its walk.
+        let mut map = indexmap::IndexMap::new();
+        map.insert("items".into(), Value::Integer(5));
+        let mut ctx = Context::new();
+        ctx.set("d".to_string(), Value::Object(map));
+        assert_eq!(ctx.resolve("d.items").unwrap().unwrap().to_string(), "5");
+    }
+
+    #[test]
+    fn a_dict_view_is_not_offered_for_a_non_object_or_a_deeper_path() {
+        let mut ctx = dict_ctx();
+        ctx.set("s".to_string(), Value::String("x".to_string()));
+        ctx.set("l".to_string(), Value::List(vec![Value::Integer(1)]));
+        // Only a mapping has these methods.
+        assert!(ctx.resolve("s.items").unwrap().is_none());
+        assert!(ctx.resolve("l.keys").unwrap().is_none());
+        // A single-segment name is never a view.
+        assert!(ctx.resolve("items").unwrap().is_none());
+        // Python's `dict_items` has no `.0` and no `.keys`, and neither does
+        // this: the walk resolves the PREFIX through `get`, which misses.
+        assert!(ctx.resolve("d.items.0").unwrap().is_none());
+        assert!(ctx.resolve("d.items.keys").unwrap().is_none());
+    }
+
+    #[test]
+    fn a_nested_dict_view_resolves_through_the_prefix_walk() {
+        let mut inner = indexmap::IndexMap::new();
+        inner.insert("x".into(), Value::Integer(9));
+        let mut outer = indexmap::IndexMap::new();
+        outer.insert("inner".into(), Value::Object(inner));
+        let mut ctx = Context::new();
+        ctx.set("d".to_string(), Value::Object(outer));
+        match ctx.resolve("d.inner.keys").unwrap().unwrap() {
+            Value::DictView { kind, items } => {
+                assert_eq!(kind, crate::DictViewKind::Keys);
+                assert_eq!(
+                    items.iter().map(|v| v.to_string()).collect::<Vec<_>>(),
+                    vec!["x"]
+                )
+            }
+            other => panic!("expected a dict view, got {other:?}"),
+        }
+    }
+    // ---- `Context::bind` — a binding REPLACES the grant (#2361, #2363) ----
+
+    /// The three-key fixture every bind test below shadows one name of.
+    fn ctx_with_a_marked_name() -> Context {
+        let mut ctx = Context::new();
+        ctx.set("p".to_string(), Value::String("<b>x</b>".into()));
+        ctx.mark_safe("p".to_string());
+        ctx.mark_safe("p.a".to_string());
+        ctx.mark_safe("q".to_string());
+        ctx
+    }
+
+    #[test]
+    fn bind_grants_when_the_value_is_safe() {
+        let mut ctx = Context::new();
+        ctx.bind("x".to_string(), Value::String("<b>".into()), true);
+        assert!(ctx.is_safe("x"));
+    }
+
+    #[test]
+    fn bind_revokes_a_stale_grant_on_the_shadowed_name() {
+        let mut ctx = ctx_with_a_marked_name();
+        ctx.bind("p".to_string(), Value::String("<img>".into()), false);
+        assert!(!ctx.is_safe("p"), "the shadowed name kept its grant");
+    }
+
+    #[test]
+    fn bind_revokes_the_grants_beneath_the_shadowed_name() {
+        let mut ctx = ctx_with_a_marked_name();
+        ctx.bind("p".to_string(), Value::String("<img>".into()), false);
+        assert!(
+            !ctx.is_safe("p.a"),
+            "a descendant of the shadowed name survived"
+        );
+    }
+
+    #[test]
+    fn bind_leaves_every_other_name_alone() {
+        let mut ctx = ctx_with_a_marked_name();
+        ctx.bind("p".to_string(), Value::String("<img>".into()), false);
+        assert!(ctx.is_safe("q"), "bind revoked an unrelated name");
+    }
+
+    #[test]
+    fn a_safe_bind_still_clears_the_shadowed_descendants() {
+        // The new value is safe AS A WHOLE; nothing is known about its
+        // sub-paths, and the old ones described a different value.
+        let mut ctx = ctx_with_a_marked_name();
+        ctx.bind("p".to_string(), Value::String("<b>ok</b>".into()), true);
+        assert!(ctx.is_safe("p"));
+        assert!(!ctx.is_safe("p.a"));
+    }
+
+    /// The `{% for %}` arm hoists `revoke_safe_subtree` out of its iteration
+    /// and calls `set_safety` per item — see [`Context::set_safety`]. That
+    /// decomposition is a COST decision, so it must be observationally
+    /// identical to calling `bind` each time, or the split has drifted.
+    #[test]
+    fn the_loop_decomposition_of_bind_agrees_with_bind() {
+        let items = [
+            (Value::String("<b>0</b>".into()), true),
+            (Value::String("<i>1</i>".into()), false),
+            (Value::String("<u>2</u>".into()), true),
+        ];
+
+        // Spelling A — `bind` per iteration.
+        let mut a = ctx_with_a_marked_name();
+        // Spelling B — one subtree revoke, then `set` + `set_safety` per item.
+        let mut b = ctx_with_a_marked_name();
+        b.revoke_safe_subtree("p");
+
+        for (value, safe) in items.iter() {
+            a.bind("p".to_string(), value.clone(), *safe);
+
+            b.set("p".to_string(), value.clone());
+            b.set_safety("p", *safe);
+
+            assert_eq!(
+                a.is_safe("p"),
+                b.is_safe("p"),
+                "bind and its loop decomposition disagree on `p` at {value:?}"
+            );
+            assert_eq!(a.is_safe("p.a"), b.is_safe("p.a"), "…and on `p.a`");
+            assert_eq!(a.is_safe("q"), b.is_safe("q"), "…and on the untouched `q`");
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // #2732 — `ScopeFrame::values` is copy-on-write.
+    //
+    // Two independent mechanisms, and each has its own test below, because a
+    // fix whose halves shadow each other is one fix and one decoration:
+    //
+    //   1. SHARING — `Context::clone` must not copy the values map. This is
+    //      the whole performance claim; `clone_shares_...` is its pin and goes
+    //      red the moment a clone deep-copies again.
+    //   2. ISOLATION — a write through a SHARED frame must copy first. This is
+    //      the correctness claim, and `write_through_a_shared_frame_...`
+    //      exercises it with the frame genuinely shared at mutation time
+    //      (`Arc::get_mut` in place of `make_mut` panics there, which is how
+    //      that test is known to reach the shared path rather than a
+    //      uniquely-owned one).
+    // ---------------------------------------------------------------------
+
+    /// A big-ish frame so a copy would be visibly wrong, not merely different.
+    fn ctx_with_rows(n: usize) -> Context {
+        let rows: Vec<Value> = (0..n).map(|i| Value::Integer(i as i64)).collect();
+        let mut map = HashMap::new();
+        map.insert("rows".to_string(), Value::List(rows));
+        map.insert("title".to_string(), Value::String("t".to_string()));
+        Context::from_dict(map)
+    }
+
+    /// The performance contract, as a mechanical property rather than a timing
+    /// assertion (#1795): a clone SHARES the values map.
+    ///
+    /// Before #2732 a `Context::clone` deep-copied every `Value` in every
+    /// frame, and the `{% for %}` arm takes one per loop EXECUTION — so a
+    /// render cost O(entire state x loop entries). Reinstating the eager copy
+    /// makes this assertion fail.
+    #[test]
+    fn clone_shares_the_values_map_rather_than_copying_it() {
+        let original = ctx_with_rows(1000);
+        let copy = original.clone();
+        assert!(
+            std::sync::Arc::ptr_eq(&original.stack[0].values, &copy.stack[0].values),
+            "Context::clone deep-copied frame 0's values — the #2732 per-loop-entry \
+             O(entire state) copy is back"
+        );
+    }
+
+    /// The same contract one level up (#2737): a caller that already holds its
+    /// state as a [`SharedValues`] hands it over without a copy.
+    ///
+    /// `from_dict` cannot do this — it consumes a map it must rehash into a
+    /// frame — so a long-lived view backend paid a deep clone plus a rebuild on
+    /// EVERY render. `Arc::ptr_eq` is the mechanical form of "it did not":
+    /// reinstating `Context::from_dict(state.clone())` at the render entry
+    /// makes this fail.
+    #[test]
+    fn from_shared_adopts_the_callers_map_rather_than_rebuilding_it() {
+        let mut map = AHashMap::new();
+        map.insert("rows".to_string(), Value::List(vec![Value::Integer(1)]));
+        let state: SharedValues = std::sync::Arc::new(map);
+
+        let context = Context::from_shared(state.clone());
+
+        assert!(
+            std::sync::Arc::ptr_eq(&state, &context.stack[0].values),
+            "from_shared rebuilt the map instead of adopting it — the #2737 \
+             per-render O(entire state) copy is back"
+        );
+    }
+
+    /// The correctness half of the above, and the reason sharing is safe: a
+    /// write THROUGH the context copies first, so the caller's map — which a
+    /// view backend keeps across renders — cannot be mutated by a render.
+    ///
+    /// This is the property that makes `from_shared` semantically identical to
+    /// the `from_dict(state.clone())` it replaces, where the deep copy provided
+    /// the isolation instead. `{% regroup %}` and the context-mutating custom
+    /// tags bridged by `register_assign_tag_handler` are the live callers that
+    /// write into an enclosing frame this way.
+    #[test]
+    fn a_write_through_a_shared_context_does_not_reach_the_callers_map() {
+        let mut map = AHashMap::new();
+        map.insert("n".to_string(), Value::Integer(1));
+        let state: SharedValues = std::sync::Arc::new(map);
+
+        let mut context = Context::from_shared(state.clone());
+        context.set_at(0, "n".to_string(), Value::Integer(2));
+
+        // `matches!`, not `assert_eq!`: `Value` deliberately has no
+        // `PartialEq` (see its declaration), so the shape is asserted rather
+        // than compared.
+        assert!(
+            matches!(state.get("n"), Some(Value::Integer(1))),
+            "a render wrote through to the backend's own state map"
+        );
+        assert!(matches!(context.get("n"), Some(Value::Integer(2))));
+        assert!(
+            !std::sync::Arc::ptr_eq(&state, &context.stack[0].values),
+            "the write did not take a copy, so the two holders are still aliased"
+        );
+    }
+
+    /// `from_dict` must keep routing through `from_shared` — one statement of
+    /// what frame 0 is (#1646). A `from_dict` context is as shareable as a
+    /// `from_shared` one, which is what this asserts without reading the source.
+    #[test]
+    fn from_dict_produces_the_same_shareable_frame_shape() {
+        let original = ctx_with_rows(8);
+        let copy = original.clone();
+        assert!(
+            std::sync::Arc::ptr_eq(&original.stack[0].values, &copy.stack[0].values),
+            "a from_dict context's frame 0 is not shared, so the two \
+             constructors build different shapes"
+        );
+    }
+
+    /// Every frame, not just the base one: a clone taken mid-render (inside a
+    /// `{% for %}`, a `{% with %}`, a `{% block %}`) has a deeper stack, and
+    /// each of its frames must share too.
+    #[test]
+    fn clone_shares_every_frame_not_only_the_base() {
+        let mut original = ctx_with_rows(10);
+        original.push();
+        original.set("inner".to_string(), Value::Integer(1));
+        original.push();
+        original.set("innermost".to_string(), Value::Integer(2));
+        let copy = original.clone();
+        assert_eq!(original.stack.len(), 3);
+        for (i, (a, b)) in original.stack.iter().zip(copy.stack.iter()).enumerate() {
+            assert!(
+                std::sync::Arc::ptr_eq(&a.values, &b.values),
+                "frame {i} was deep-copied by Context::clone"
+            );
+        }
+    }
+
+    /// The correctness contract: a write through a frame that is SHARED with a
+    /// live clone copies the map first, so the write cannot leak into the other
+    /// holder. This is the property `Arc::make_mut` provides and the reason the
+    /// sharing above is safe.
+    #[test]
+    fn write_through_a_shared_frame_does_not_leak_into_the_other_holder() {
+        let mut original = ctx_with_rows(4);
+        let before = original.clone();
+
+        // Frame 0 is shared with `before` at this moment — the mutation has to
+        // copy. `set` at depth 1 writes to frame 0.
+        assert_eq!(original.stack.len(), 1);
+        original.set("title".to_string(), Value::String("changed".to_string()));
+        original.set("added".to_string(), Value::Integer(7));
+
+        assert!(
+            matches!(before.get("title"), Some(Value::String(s)) if s == "t"),
+            "the write leaked backwards into the clone: {:?}",
+            before.get("title")
+        );
+        assert!(
+            before.get("added").is_none(),
+            "a key added after the clone appeared in the clone"
+        );
+        assert!(
+            matches!(original.get("title"), Some(Value::String(s)) if s == "changed"),
+            "the write did not land on the writer"
+        );
+        // ...and the copy really did happen, so they are no longer the same map.
+        assert!(!std::sync::Arc::ptr_eq(
+            &original.stack[0].values,
+            &before.stack[0].values
+        ));
+    }
+
+    /// The other direction: writing through the CLONE must not reach back into
+    /// the original. `Arc` sharing is symmetric, so both holders need the test —
+    /// a `make_mut` that somehow copied only for one of them would pass a
+    /// single-direction test.
+    #[test]
+    fn write_through_the_clone_does_not_leak_into_the_original() {
+        let original = ctx_with_rows(4);
+        let mut copy = original.clone();
+        copy.set("title".to_string(), Value::String("changed".to_string()));
+
+        assert!(
+            matches!(original.get("title"), Some(Value::String(s)) if s == "t"),
+            "the clone's write leaked into the original: {:?}",
+            original.get("title")
+        );
+    }
+
+    /// The render-shaped case, which is the one that actually runs: the
+    /// `{% for %}` arm clones the parent and then pushes a scope on the
+    /// ORIGINAL, binding the loop variable per iteration. Those per-iteration
+    /// binds must not be visible to the parent snapshot.
+    #[test]
+    fn loop_shaped_bind_on_a_pushed_frame_leaves_the_parent_snapshot_alone() {
+        let mut ctx = ctx_with_rows(3);
+        ctx.set("forloop".to_string(), Value::String("outer".to_string()));
+        let parent = ctx.clone();
+
+        ctx.with_scope(|inner| {
+            for i in 0..3 {
+                inner.set("row".to_string(), Value::Integer(i));
+                inner.set("forloop".to_string(), Value::Integer(100 + i));
+            }
+            assert!(matches!(inner.get("row"), Some(Value::Integer(2))));
+        });
+
+        // Exactly what `Node::For` reads out of its `parent_context`.
+        assert!(
+            matches!(parent.get("forloop"), Some(Value::String(s)) if s == "outer"),
+            "a loop-scope bind reached the parent snapshot: {:?}",
+            parent.get("forloop")
+        );
+        assert!(
+            parent.get("row").is_none(),
+            "the loop variable escaped into the parent snapshot"
+        );
+        // The parent snapshot's frame 0 is untouched, so it is still shared
+        // with the live context's frame 0 — no copy was needed at all.
+        assert!(std::sync::Arc::ptr_eq(
+            &ctx.stack[0].values,
+            &parent.stack[0].values
+        ));
+    }
+
+    /// Why the `{% for %}` arm's parent clone was made CHEAP rather than
+    /// REMOVED (#2732).
+    ///
+    /// That arm clones the parent to serve two reads: `get("forloop")`, which
+    /// hoists trivially, and an `is_safe("<iterable>.<index>.<i>")` query in
+    /// the tuple-unpacking branch, which does not. `is_safe` consults the whole
+    /// stack, and the loop's own pushed frame revokes the safe subtree of every
+    /// name it binds — so when the loop's operand is rooted at one of its OWN
+    /// variable names (`{% for a, b in a %}`), the scoped context and the
+    /// parent give DIFFERENT answers. Serving that read from `ctx` would be a
+    /// silent behaviour change on a legal template, which is why the clone
+    /// stayed and got cheaper instead.
+    ///
+    /// The parent's answer is also the one DJANGO agrees with, so this is
+    /// parity and not merely caution: `{% for a, b in a %}{{ b }}|{% endfor %}`
+    /// over `a = [("x", mark_safe("<i>1</i>"))]` emits `<i>1</i>|` RAW on
+    /// Django 5.2 (measured). `true` — the parent's answer — is what produces
+    /// that; `ctx` answers `false` and would escape it.
+    ///
+    /// This test exists to keep that reasoning falsifiable: if the two ever
+    /// agree, removing the clone becomes an option and this test says so.
+    #[test]
+    fn a_loop_frame_revoke_makes_the_scoped_and_parent_safety_answers_differ() {
+        let mut ctx = Context::new();
+        ctx.set("a".to_string(), Value::List(vec![Value::Tuple(vec![])]));
+        ctx.mark_safe("a.0.1".to_string());
+        let parent = ctx.clone();
+
+        ctx.with_scope(|inner| {
+            // What the `{% for a, b in a %}` arm does before iterating.
+            inner.revoke_safe_subtree("a");
+            inner.revoke_safe_subtree("b");
+            assert!(
+                parent.is_safe("a.0.1"),
+                "the parent lost the grant the loop is supposed to read"
+            );
+            assert!(
+                !inner.is_safe("a.0.1"),
+                "the scoped context AGREES with the parent — the `{{% for a, b in a %}}` \
+                 divergence is gone, and the #2732 clone could now be removed outright \
+                 rather than merely cheapened"
+            );
+        });
+    }
+
+    /// `to_hashmap` reads through the `Arc` and must still flatten with later
+    /// frames winning — the one call site that iterated `&frame.values`
+    /// directly rather than through `Deref`.
+    #[test]
+    fn to_hashmap_still_flattens_with_later_frames_winning() {
+        let mut ctx = ctx_with_rows(2);
+        ctx.push();
+        ctx.set("title".to_string(), Value::String("shadowed".to_string()));
+        let flat = ctx.to_hashmap();
+        assert!(matches!(flat.get("title"), Some(Value::String(s)) if s == "shadowed"));
+        assert!(flat.contains_key("rows"));
+    }
+
+    // ---------------------------------------------------------------------
+    // #2735 — the six metadata fields of `ScopeFrame` are copy-on-write.
+    //
+    // The same two mechanisms as the `values` block above, each with its own
+    // test so neither can shadow the other (gate-off: reinstating an eager
+    // per-field deep clone reddens SHARING; `Arc::get_mut(..).expect(..)` in
+    // place of `make_mut` in the doors reddens ISOLATION):
+    //
+    //   1. SHARING — `Context::clone` must not copy any of the six.
+    //   2. ISOLATION — a write through a SHARED frame must copy first.
+    //
+    // Plus the sweep guard in `revoke_safe_subtree_at` (a shared frame the
+    // sweep would leave unchanged is not copied), and a structural pin that
+    // derives every metadata mutation site from this file and asserts each
+    // one is a door.
+    // ---------------------------------------------------------------------
+
+    const METADATA_FIELDS: [&str; 6] = [
+        "assignments",
+        "safe_keys",
+        "unsafe_keys",
+        "revoked_safe_subtrees",
+        "aliases",
+        "render_bindings",
+    ];
+
+    /// Which of the six a frame shares with another, by name — so a failure
+    /// says WHICH field was deep-copied rather than "some field".
+    fn shared_metadata(a: &ScopeFrame, b: &ScopeFrame) -> Vec<&'static str> {
+        use std::sync::Arc;
+        let mut shared = Vec::new();
+        if Arc::ptr_eq(&a.assignments, &b.assignments) {
+            shared.push("assignments");
+        }
+        if Arc::ptr_eq(&a.safe_keys, &b.safe_keys) {
+            shared.push("safe_keys");
+        }
+        if Arc::ptr_eq(&a.unsafe_keys, &b.unsafe_keys) {
+            shared.push("unsafe_keys");
+        }
+        if Arc::ptr_eq(&a.revoked_safe_subtrees, &b.revoked_safe_subtrees) {
+            shared.push("revoked_safe_subtrees");
+        }
+        if Arc::ptr_eq(&a.aliases, &b.aliases) {
+            shared.push("aliases");
+        }
+        if Arc::ptr_eq(&a.render_bindings, &b.render_bindings) {
+            shared.push("render_bindings");
+        }
+        shared
+    }
+
+    /// Frame 0 the way `RustLiveView::render` builds it: state, plus one
+    /// `mark_safe` per `SafeString` path, plus an alias and a `{% with %}`
+    /// style bind so every one of the six sets is non-empty.
+    fn ctx_with_marks(n: usize) -> Context {
+        let mut ctx = ctx_with_rows(n);
+        for i in 0..n {
+            ctx.mark_safe(format!("rows.{i}"));
+        }
+        ctx.set_safety("title", false);
+        ctx.set_alias("r".to_string(), "rows".to_string());
+        ctx.bind("bound".to_string(), Value::Integer(1), false);
+        let frame = &ctx.stack[0];
+        let populated = [
+            ("assignments", !frame.assignments.is_empty()),
+            ("safe_keys", !frame.safe_keys.is_empty()),
+            ("unsafe_keys", !frame.unsafe_keys.is_empty()),
+            (
+                "revoked_safe_subtrees",
+                !frame.revoked_safe_subtrees.is_empty(),
+            ),
+            ("aliases", !frame.aliases.is_empty()),
+            // `render_bindings` needs a Python sidecar; it is covered by the
+            // structural pin below and by the sidecar tests elsewhere.
+        ];
+        for (field, ok) in populated {
+            assert!(
+                ok,
+                "fixture left `{field}` empty — the sharing test would be vacuous"
+            );
+        }
+        ctx
+    }
+
+    /// The performance contract, as a mechanical property (#1795): a clone
+    /// SHARES all six metadata sets. Reinstating an eager per-field deep copy
+    /// in `Clone` makes this fail and names the field.
+    #[test]
+    fn clone_shares_the_metadata_sets_rather_than_copying_them() {
+        let original = ctx_with_marks(1000);
+        let copy = original.clone();
+        let shared = shared_metadata(&original.stack[0], &copy.stack[0]);
+        assert_eq!(
+            shared, METADATA_FIELDS,
+            "Context::clone deep-copied a metadata field — the #2735 per-loop-entry \
+             O(total safe keys) copy is back for every field NOT in this list"
+        );
+    }
+
+    /// Every frame, not only the base one — a clone taken inside a `{% for %}`
+    /// or `{% with %}` has a deeper stack.
+    #[test]
+    fn clone_shares_every_frame_s_metadata_not_only_the_base() {
+        let mut original = ctx_with_marks(3);
+        original.push();
+        original.mark_safe("inner".to_string());
+        original.push();
+        original.set_alias("q".to_string(), "rows.1".to_string());
+        let copy = original.clone();
+        for (i, (a, b)) in original.stack.iter().zip(copy.stack.iter()).enumerate() {
+            assert_eq!(
+                shared_metadata(a, b),
+                METADATA_FIELDS,
+                "frame {i} was deep-copied"
+            );
+        }
+    }
+
+    /// The correctness contract: a `mark_safe` through a frame SHARED with a
+    /// live clone copies first, so the clone's safety answers do not move.
+    /// `Arc::get_mut(..).expect(..)` in place of `make_mut` panics here, which
+    /// is how this test is known to reach a genuinely shared frame.
+    #[test]
+    fn safety_write_through_a_shared_frame_does_not_leak_into_the_other_holder() {
+        let mut original = ctx_with_marks(4);
+        let before = original.clone();
+        assert_eq!(original.stack.len(), 1);
+
+        original.mark_safe("title".to_string()); // title: unsafe -> safe
+        original.set_safety("rows.0", false); // rows.0: safe -> unsafe
+        original.set_alias("z".to_string(), "rows.2".to_string());
+
+        assert!(
+            !before.is_safe("title"),
+            "a mark_safe leaked backwards into the clone"
+        );
+        assert!(
+            before.is_safe("rows.0"),
+            "an unsafe mark leaked backwards into the clone"
+        );
+        assert!(
+            !before.is_safe("z"),
+            "an alias leaked backwards into the clone"
+        );
+        assert!(original.is_safe("title"));
+        assert!(!original.is_safe("rows.0"));
+        assert!(original.is_safe("z"));
+        // ...and the copy really did happen, for the fields that were written...
+        let shared = shared_metadata(&original.stack[0], &before.stack[0]);
+        for touched in ["safe_keys", "unsafe_keys", "aliases"] {
+            assert!(
+                !shared.contains(&touched),
+                "`{touched}` was written without copying"
+            );
+        }
+        // ...and ONLY for those: a field the write did not touch stays shared.
+        for untouched in ["assignments", "revoked_safe_subtrees", "render_bindings"] {
+            assert!(
+                shared.contains(&untouched),
+                "`{untouched}` was copied without being written"
+            );
+        }
+    }
+
+    /// The other direction, because `Arc` sharing is symmetric.
+    #[test]
+    fn safety_write_through_the_clone_does_not_leak_into_the_original() {
+        let original = ctx_with_marks(4);
+        let mut copy = original.clone();
+        copy.set_safety("rows.1", false);
+        // A bind revokes the whole `rows` subtree — on the clone only.
+        copy.bind("rows".to_string(), Value::Integer(0), false);
+        assert!(
+            original.is_safe("rows.1"),
+            "the clone's write leaked into the original"
+        );
+        assert!(
+            original.is_safe("rows.3"),
+            "the clone's revoke leaked into the original"
+        );
+    }
+
+    /// The render-shaped case, which is the one that runs: the `{% for %}` arm
+    /// clones the parent, pushes a scope, revokes the loop variable's subtree
+    /// ONCE, then `set_safety`s it per item. The parent snapshot — which the
+    /// arm still reads `is_safe` from (see the test above on why the clone
+    /// stayed) — must not see any of it, AND frame 0 must not have been
+    /// copied to achieve that.
+    #[test]
+    fn loop_shaped_safety_writes_on_a_pushed_frame_leave_the_parent_snapshot_alone() {
+        let mut ctx = ctx_with_marks(3);
+        ctx.mark_safe("row".to_string()); // a marked OUTER `row` the loop shadows
+        let parent = ctx.clone();
+
+        ctx.with_scope(|inner| {
+            inner.revoke_safe_subtree("row");
+            inner.revoke_safe_subtree("forloop");
+            for i in 0..3 {
+                inner.set("row".to_string(), Value::Integer(i));
+                inner.set_safety("row", i % 2 == 0);
+            }
+            assert!(inner.is_safe("row"));
+        });
+
+        assert!(
+            parent.is_safe("row"),
+            "the loop's revoke reached the parent snapshot"
+        );
+        assert!(
+            parent.is_safe("rows.2"),
+            "the parent snapshot lost an unrelated grant"
+        );
+        assert_eq!(
+            shared_metadata(&ctx.stack[0], &parent.stack[0]),
+            METADATA_FIELDS,
+            "frame 0 was copied by a loop-scope write — the copy is supposed to be \
+             skipped because the loop writes only to its own pushed frame"
+        );
+    }
+
+    /// The one place the issue flagged: `revoke_safe_subtree_at`'s sweep
+    /// visits every frame from the binding index UP. The binding frame itself
+    /// is written (assignments, alias mask, revoked subtree, grant) and so
+    /// copies when shared — that is a write, and the copy is the contract.
+    /// The frames ABOVE it are only scanned, and a shared one the sweep would
+    /// leave UNCHANGED must stay shared: the door is taken only when a
+    /// `retain` would actually remove something.
+    #[test]
+    fn the_revoke_sweep_does_not_copy_a_shared_frame_it_leaves_unchanged() {
+        let mut ctx = ctx_with_marks(3);
+        ctx.push();
+        ctx.mark_safe("inner".to_string()); // frame 1 has a grant of its own
+        let snapshot = ctx.clone(); // both frames shared from here on
+
+        // An UPWARD bind of `title`, which frame 0 holds: the sweep range is
+        // [0..], so frame 1 is scanned. Nothing there refers to `title`.
+        ctx.bind_upward("title".to_string(), Value::Integer(1), false);
+        assert_eq!(
+            shared_metadata(&ctx.stack[1], &snapshot.stack[1]),
+            METADATA_FIELDS,
+            "the sweep copied frame 1 without changing it"
+        );
+        // Frame 0 took the write. Its `safe_keys` held nothing under `title`,
+        // so THAT set specifically stays shared — the guard is per field.
+        let frame0 = shared_metadata(&ctx.stack[0], &snapshot.stack[0]);
+        assert!(
+            frame0.contains(&"safe_keys"),
+            "frame 0's safe_keys were copied by a retain that removed nothing: {frame0:?}"
+        );
+        assert!(
+            !frame0.contains(&"revoked_safe_subtrees"),
+            "frame 0 was written without copying"
+        );
+
+        // And when the sweep DOES change a shared set, the clone is untouched.
+        ctx.bind_upward("rows".to_string(), Value::Integer(0), false);
+        assert!(
+            snapshot.is_safe("rows.0"),
+            "the sweep's retain leaked into the clone"
+        );
+        assert!(!ctx.is_safe("rows.0"));
+        assert!(
+            snapshot.is_safe("inner"),
+            "frame 1's own grant leaked away through the sweep"
+        );
+    }
+
+    /// STRUCTURAL PIN — derived from this file's source, not restated (#2727):
+    /// every mutation of one of the six metadata fields goes through that
+    /// field's `_mut()` door, and each door is `Arc::make_mut`. Comment lines
+    /// are skipped so prose can name the anti-pattern.
+    #[test]
+    fn every_metadata_mutation_goes_through_a_make_mut_door() {
+        let source = include_str!("context.rs");
+        let code: Vec<(usize, &str)> = source
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| !line.trim_start().starts_with("//"))
+            .collect();
+        let mutators = [
+            "insert(",
+            "remove(",
+            "retain(",
+            "clear(",
+            "extend(",
+            "drain(",
+            "entry(",
+            "get_mut(",
+            "swap_remove(",
+            "shift_remove(",
+            "truncate(",
+            "pop(",
+        ];
+        let mut door_sites = Vec::new();
+        for field in METADATA_FIELDS {
+            // (a) declared behind an Arc
+            let decl = format!("    {field}: std::sync::Arc<");
+            assert!(
+                code.iter().any(|(_, l)| l.starts_with(&decl)),
+                "`{field}` is no longer declared as `std::sync::Arc<..>` in ScopeFrame"
+            );
+            // (b) exactly one door, and it is make_mut on this field
+            let door_body = format!("std::sync::Arc::make_mut(&mut self.{field})");
+            let doors = code.iter().filter(|(_, l)| l.contains(&door_body)).count();
+            assert_eq!(doors, 1, "`{field}` must have exactly ONE make_mut door");
+            let door_sig = format!("fn {field}_mut(&mut self)");
+            assert!(
+                code.iter().any(|(_, l)| l.contains(&door_sig)),
+                "no `{door_sig}`"
+            );
+            // (c) no direct mutation: `.field.<mutator>(` or `&mut x.field`
+            let direct = format!(".{field}.");
+            let borrow = format!("&mut self.{field}");
+            let offenders: Vec<String> = code
+                .iter()
+                .filter(|(_, l)| {
+                    let mutated = l
+                        .split(&direct)
+                        .skip(1)
+                        .any(|rest| mutators.iter().any(|m| rest.starts_with(m)));
+                    mutated || (l.contains(&borrow) && !l.contains(&door_body))
+                })
+                .map(|(n, l)| format!("{}: {}", n + 1, l.trim()))
+                .collect();
+            assert!(
+                offenders.is_empty(),
+                "`{field}` is mutated without its door:\n{offenders:#?}"
+            );
+            // (d) the door is reached — a derived count, so a dead door is noticed
+            let call = format!(".{field}_mut()");
+            let sites: Vec<usize> = code
+                .iter()
+                .filter(|(_, l)| l.contains(&call))
+                .map(|(n, _)| n + 1)
+                .collect();
+            assert!(
+                !sites.is_empty(),
+                "`{field}_mut()` is defined but never called"
+            );
+            door_sites.push((field, sites));
+        }
+        // Printed so a `--nocapture` run yields the door list for a PR body.
+        for (field, sites) in &door_sites {
+            println!("door {field}_mut() called at lines {sites:?}");
+        }
+    }
+
+    #[test]
+    fn revoke_safe_subtree_does_not_touch_a_sibling_sharing_a_prefix() {
+        // `pp` starts with `p` but is not beneath it — only `p.` is.
+        let mut ctx = Context::new();
+        ctx.mark_safe("p".to_string());
+        ctx.mark_safe("pp".to_string());
+        ctx.mark_safe("p.a".to_string());
+        ctx.revoke_safe_subtree("p");
+        assert!(!ctx.is_safe("p"));
+        assert!(!ctx.is_safe("p.a"));
+        assert!(ctx.is_safe("pp"), "a prefix-sharing SIBLING was revoked");
+    }
+}

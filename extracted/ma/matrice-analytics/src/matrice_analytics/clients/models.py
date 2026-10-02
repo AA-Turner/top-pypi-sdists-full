@@ -87,7 +87,7 @@ ep  producer     operation                    request                     respon
 20  fr-sidecar   all staff embeddings         --                          StaffEmbedding
 21  fr-sidecar   enroll unknown person        UnknownPersonEnrollRequest  UnknownPersonEnrollResult
 22  fr-sidecar   health check                 --                          HealthStatus
-23  fr-sidecar   redis details                --                          RedisDetails
+23  fr-sidecar   redis details (retired)      --                          --
 24  lpr-server   create detection             CreateDetectionRequest      Detection
 
 ``*`` marks a model shared by two endpoints:
@@ -112,16 +112,21 @@ so declaring one would invent a shape the producer never sees.
 Where a response model is absent
 ================================
 
-Only endpoint 17, and for a typing reason rather than a judgement: its reply is a
-bare JSON string -- the media-server image URL the sidecar resolved, or ``""`` when
-no frame was available -- not an object. There are no fields to declare, and the
-caller treats any non-exception answer as success.
+Endpoint 17, for a typing reason rather than a judgement: its reply is a bare JSON
+string -- the media-server image URL the sidecar resolved, or ``""`` when no frame was
+available -- not an object. There are no fields to declare, and the caller treats any
+non-exception answer as success.
+
+Endpoint 23, because nothing calls it any more. ``get_redis_details`` handed the Redis
+password to any logged-in caller and is being removed from bg-facial_recognition
+(audit finding bg-facial_recognition-01). The FR matcher reads the same Redis from
+endpoint 9 instead. The number is kept so the other endpoint numbers stay the same.
 
 How much of this is verified
 ============================
 
 Fourteen endpoints have a published OpenAPI schema, and their models are diffed
-against it. **The ten facial-recognition sidecar endpoints, 14 to 23, have none.**
+against it. **The nine live facial-recognition sidecar endpoints, 14 to 22, have none.**
 Their models are read off the calling code, which is the authority for that producer,
 and every one of them carries an ``UNVERIFIED`` note saying how much of its shape is
 observed. Nothing checks them against the producer, and no test claims to.
@@ -655,23 +660,6 @@ class HealthStatus(Payload):
     """
 
 
-class RedisDetails(Payload):
-    """Endpoint 23 -- the reply to ``GET /v1/facial_recognition/get_redis_details``.
-
-    Where the sidecar publishes recognition events. UNVERIFIED, but all three fields
-    are read by the caller, which builds a Redis connection from them.
-
-    The wire names are SCREAMING_CASE, unlike every other payload here; that is how
-    the sidecar sends them. ``port`` arrives as a string on at least one deployment
-    and is converted by the caller, so it is declared ``int`` and tolerates both. An
-    empty ``password`` means no password rather than an empty one.
-    """
-
-    host: Str = Field(default="", alias="REDIS_IP")
-    port: Int = Field(default=0, alias="REDIS_PORT")
-    password: Str = Field(default="", alias="REDIS_PASSWORD")
-
-
 # ---------------------------------------------------------------------------
 # Request bodies -- the 7 endpoints that send one
 #
@@ -958,7 +946,6 @@ __all__ = [
     "Payload",
     "PeopleActivityRequest",
     "PostProcessingConfig",
-    "RedisDetails",
     "RedisServer",
     "ServiceShutdownRequest",
     "ServiceShutdownResult",

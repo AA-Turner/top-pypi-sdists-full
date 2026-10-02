@@ -146,8 +146,40 @@ def owned_by(entries: dict, base) -> dict:
     if base is None:
         return {}
     want = os.path.realpath(base)
-    return {n: e for n, e in entries.items()
-            if e.get("scope") == SCOPE_PROJECT and _claims(e.get("base"), want)}
+    return {n: e for n, e in entries.items() if _owns(e, want)}
+
+
+def owns(entry: dict, base) -> bool:
+    """Does one user-lock entry belong to the project rooted at ``base``?
+
+    The single-entry form of :func:`owned_by`, and the same predicate rather
+    than a second opinion about it — ``list --local`` decides what a repo has
+    with the filter, and ``uninstall --local`` decides what it may remove with
+    this, so the two cannot disagree about one row.
+
+    **Both halves are load bearing, and the ``scope`` half defends a shape
+    boost's own install path does not write.** ``_install_rule`` and
+    ``_install_workflow`` emit ``scope`` and ``base`` in one dict, so the two
+    agree on every row an install produces. Two things read a row back and do
+    not: a hand-edited lock — the project lock is a *committed* file — and
+    ``update``/``reinstall``, which rebuild the install from
+    ``lk.get("scope", "user")`` and ``lk.get("base")`` *independently*
+    (``commands/pkg.py``), so a row carrying a ``base`` and no ``scope`` comes
+    back as user scope with the base intact. Dropping the ``scope`` test would
+    hand ``--local`` that row, which lives in the user's own config.
+
+    ``False`` for ``base is None`` — a caller standing outside any project
+    owns nothing — which is answered before ``realpath``, since resolving
+    ``None`` is a TypeError rather than an answer.
+    """
+    if base is None:
+        return False
+    return _owns(entry, os.path.realpath(base))
+
+
+def _owns(entry: dict, want: str) -> bool:
+    """:func:`owns` over an already-resolved ``want``, for the bulk filter."""
+    return entry.get("scope") == SCOPE_PROJECT and _claims(entry.get("base"), want)
 
 
 def _claims(recorded, want: str) -> bool:
@@ -160,11 +192,36 @@ def _claims(recorded, want: str) -> bool:
     against whatever directory the user happens to be standing in, so `"."`
     would make one entry belong to every repo at once.
     """
-    if not recorded or not isinstance(recorded, str | os.PathLike):
-        return False
-    if not os.path.isabs(recorded):
+    if not names_a_directory(recorded):
         return False
     return os.path.realpath(recorded) == want
+
+
+def names_a_directory(recorded) -> bool:
+    """Is a recorded ``base`` a claim on *some* directory at all?
+
+    The half of :func:`_claims` that needs no directory to compare against,
+    split out because one caller has none to offer: ``store`` decides whether
+    a removal result may *name* the repo it came from, where the question is
+    only whether the lock recorded a directory. Sharing the predicate is the
+    point — a base this rejects is one no project claims, so a result that
+    named it would print a repo that owns nothing.
+
+    The three clauses are **ordered, not independent**. ``isabs`` raises
+    ``TypeError: expected str, bytes or os.PathLike object, not dict`` on a
+    hand-edited lock's ``{"base": {}}``, so the ``isinstance`` test has to
+    come first and is what makes the last one safe to call at all. ``bool``
+    first is for reading, not for filtering: ``isabs("")`` is already False,
+    so the empty case would be caught anyway, and saying so up front is
+    cheaper than making the reader work it out.
+
+    What it rejects that a plain truthiness check does not is therefore two
+    things: a *truthy* non-string, and a *relative* path — which ``realpath``
+    would resolve against wherever the user happens to be standing, making
+    one entry belong to whichever repo is read from.
+    """
+    return (bool(recorded) and isinstance(recorded, str | os.PathLike)
+            and os.path.isabs(recorded))
 
 
 def check_scope(scope: str) -> str:
@@ -244,6 +301,44 @@ def resolve_in_base(base, rel: str) -> Path | None:
     if Path(rel).is_absolute() or not contains(base, candidate):
         return None
     return candidate
+
+
+def parent_matches_spelling(base, rel: str) -> bool:
+    """True when walking to ``rel``'s parent is not redirected on the way.
+
+    The third question about a committed path, and the one the other two miss.
+    :func:`contains` resolves and answers "does this end up inside the repo?".
+    :func:`resolve_in_base` returns the path *unresolved*, so an identity check
+    can compare the strings an install writes. Between them sits a row that is
+    contained, and spelled exactly like a legal path, and still points
+    somewhere else: a committed ``<repo>/.claude/skills -> ../src`` makes the
+    row ``.claude/skills/<name>`` string-equal to the legal target while
+    denoting ``src/<name>``. The leaf is honest and an ancestor is not, so a
+    guard that only inspects the leaf walks straight through it and
+    ``rmtree`` takes the victim.
+
+    So the parent is walked for real and compared against where the spelling
+    says it should be, anchored on the **real** base. ``realpath`` on both
+    sides, because a repo can sit *under* a symlink without containing one —
+    a checkout below ``/tmp`` on macOS, a home directory behind an automount,
+    a worktree reached through a convenience link. Resolve the walk and not
+    the base and every row of such a repo is compared real-against-nominal,
+    matches nothing, and is refused. The symlinked-base test builds that
+    link itself rather than relying on the runner's ``$TMPDIR``, which pytest
+    resolves before a test ever sees it.
+
+    The leaf itself is deliberately left unresolved. A materialization that
+    *is* a symlink is boost's own, and ``util.remove_path`` unlinks it without
+    following it — judging it by what it points at is the bug one layer down.
+    """
+    if not rel or not isinstance(rel, str) or Path(rel).is_absolute():
+        return False
+    try:
+        anchor = Path(os.path.realpath(base))
+        return Path(os.path.realpath((Path(base) / rel).parent)) == (
+            anchor / rel).parent
+    except (OSError, ValueError):
+        return False
 
 
 def contains(base, path) -> bool:

@@ -1,0 +1,1297 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""Tests for the omnimarket pre-flight drift guard (OMN-14060).
+
+Covers both resolver functions (``installed_omnimarket_commit``,
+``canonical_local_omnimarket_commit``) in isolation, and the combined
+``check_omnimarket_drift`` fail-open / fail-closed behavior. The canonical-clone
+resolver is exercised against a REAL throwaway git repo (not mocked) so the
+`git -C <root> rev-parse HEAD` invocation is proven, not assumed.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+import subprocess
+import sys
+from importlib.metadata import PackageNotFoundError
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from omnibase_core.validators.no_unguarded_git_subprocess import (
+    scrub_git_location_env,
+)
+from omnibase_infra.cli import omnimarket_drift_guard as guard
+from omnibase_infra.cli.omnimarket_drift_guard import (
+    DRIFT_OVERRIDE_ENV,
+    CanonicalCloneAttachment,
+    OmnimarketDriftError,
+    canonical_clone_attachment,
+    canonical_local_omnimarket_commit,
+    check_omnimarket_drift,
+    installed_omnimarket_commit,
+)
+from omnibase_infra.cli.workspace_reconcile import (
+    ModelReconcileOutcome,
+    make_workspace_reconciler,
+    reconcile_workspace_venvs,
+)
+
+pytestmark = pytest.mark.unit
+
+
+def _scrubbed_git_env() -> dict[str, str]:
+    """A git environment that cannot reach out of ``tmp_path`` (OMN-14891).
+
+    git exports GIT_DIR / GIT_WORK_TREE / GIT_INDEX_FILE into every hook
+    environment, and those OVERRIDE both ``cwd=`` and ``git -C``: a fixture that
+    shells out to git while running under a pre-commit or pre-push hook would
+    mutate the REAL invoking worktree. The keys are named literally as well as
+    scrubbed, because the guard verifies a module-local scrubber by reading the
+    keys it drops and a delegated call is invisible to that check.
+    """
+    env = scrub_git_location_env(os.environ)
+    for key in (
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_INDEX_FILE",
+        "GIT_COMMON_DIR",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    ):
+        env.pop(key, None)
+    env["GIT_CONFIG_GLOBAL"] = os.devnull
+    env["GIT_CONFIG_NOSYSTEM"] = "1"
+    env["GIT_EDITOR"] = "true"
+    return env
+
+
+_FAKE_SHA_A = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+_FAKE_SHA_B = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+
+
+def _make_git_repo(root: Path) -> str:
+    """Init a throwaway git repo at ``root`` with one commit; return its HEAD sha."""
+    subprocess.run(
+        ["git", "init", "--quiet"], cwd=root, check=True, env=_scrubbed_git_env()
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"],
+        cwd=root,
+        check=True,
+        env=_scrubbed_git_env(),
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test"],
+        cwd=root,
+        check=True,
+        env=_scrubbed_git_env(),
+    )
+    (root / "README.md").write_text("x", encoding="utf-8")
+    subprocess.run(
+        ["git", "add", "README.md"], cwd=root, check=True, env=_scrubbed_git_env()
+    )
+    subprocess.run(
+        ["git", "commit", "--quiet", "-m", "init"],
+        cwd=root,
+        check=True,
+        env=_scrubbed_git_env(),
+    )
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+        env=_scrubbed_git_env(),
+    )
+    return result.stdout.strip()
+
+
+# ---------------------------------------------------------------------------
+# installed_omnimarket_commit
+# ---------------------------------------------------------------------------
+
+
+def test_installed_commit_none_when_package_absent() -> None:
+    with patch(
+        "omnibase_infra.cli.omnimarket_drift_guard.distribution",
+        side_effect=PackageNotFoundError,
+    ):
+        assert installed_omnimarket_commit() is None
+
+
+def test_installed_commit_none_when_not_vcs_install() -> None:
+    # A PyPI wheel install has no direct_url.json at all -- OMN-14064's case.
+    fake_dist = MagicMock()
+    fake_dist.read_text.return_value = None
+    with patch(
+        "omnibase_infra.cli.omnimarket_drift_guard.distribution",
+        return_value=fake_dist,
+    ):
+        assert installed_omnimarket_commit() is None
+
+
+def test_installed_commit_none_when_direct_url_has_no_vcs_info() -> None:
+    # e.g. a local path install (file:// direct_url with no vcs_info key).
+    fake_dist = MagicMock()
+    fake_dist.read_text.return_value = json.dumps({"url": "file:///some/path"})
+    with patch(
+        "omnibase_infra.cli.omnimarket_drift_guard.distribution",
+        return_value=fake_dist,
+    ):
+        assert installed_omnimarket_commit() is None
+
+
+def test_installed_commit_none_when_direct_url_malformed() -> None:
+    fake_dist = MagicMock()
+    fake_dist.read_text.return_value = "{not json"
+    with patch(
+        "omnibase_infra.cli.omnimarket_drift_guard.distribution",
+        return_value=fake_dist,
+    ):
+        assert installed_omnimarket_commit() is None
+
+
+def test_installed_commit_returns_sha_from_vcs_install() -> None:
+    fake_dist = MagicMock()
+    fake_dist.read_text.return_value = json.dumps(
+        {
+            "url": "https://github.com/OmniNode-ai/omnimarket.git",
+            "vcs_info": {"vcs": "git", "commit_id": _FAKE_SHA_A},
+        }
+    )
+    with patch(
+        "omnibase_infra.cli.omnimarket_drift_guard.distribution",
+        return_value=fake_dist,
+    ):
+        assert installed_omnimarket_commit() == _FAKE_SHA_A
+
+
+# ---------------------------------------------------------------------------
+# canonical_local_omnimarket_commit
+# ---------------------------------------------------------------------------
+
+
+def test_canonical_none_when_omni_home_unset() -> None:
+    assert canonical_local_omnimarket_commit(omni_home="") is None
+
+
+def test_canonical_none_when_clone_absent(tmp_path: Path) -> None:
+    # $OMNI_HOME exists but has no omnimarket/.git subdirectory.
+    assert canonical_local_omnimarket_commit(omni_home=str(tmp_path)) is None
+
+
+def test_canonical_reads_real_local_clone_head(tmp_path: Path) -> None:
+    # Real git repo, not mocked -- proves the `git -C <root> rev-parse HEAD`
+    # invocation actually works end-to-end.
+    omnimarket_root = tmp_path / "omnimarket"
+    omnimarket_root.mkdir()
+    head_sha = _make_git_repo(omnimarket_root)
+    assert canonical_local_omnimarket_commit(omni_home=str(tmp_path)) == head_sha
+
+
+def test_canonical_none_when_git_invocation_fails(tmp_path: Path) -> None:
+    # A directory with a .git *file* (not a real repo) trips `git rev-parse`.
+    omnimarket_root = tmp_path / "omnimarket"
+    omnimarket_root.mkdir()
+    (omnimarket_root / ".git").write_text("not a real git dir", encoding="utf-8")
+    assert canonical_local_omnimarket_commit(omni_home=str(tmp_path)) is None
+
+
+# ---------------------------------------------------------------------------
+# check_omnimarket_drift
+# ---------------------------------------------------------------------------
+
+
+def test_no_canonical_clone_takes_the_off_registry_branch_and_says_so(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """OMN-17255 changed this case's PREMISE, so the test changed with it.
+
+    It used to assert "fails open": no canonical clone and no installed
+    omnimarket returned in silence. Silence is what the ticket removed -- it is
+    indistinguishable from a guard that never ran. The case still must not
+    raise on an environment it cannot fault, and it must now SAY which check it
+    made. The installed environment is bound here rather than read from
+    whatever venv happens to be running, so the assertion is about the branch
+    taken and not about this host's packages.
+    """
+    with (
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.installed_omnimarket_commit",
+            return_value=None,
+        ),
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.canonical_local_omnimarket_commit",
+            return_value=None,
+        ),
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.installed_distribution_metadata",
+            return_value=None,
+        ),
+    ):
+        check = check_omnimarket_drift()  # must not raise
+
+    assert check is not None
+    assert check.verdict is guard.EnumOffRegistryVerdict.SKIPPED
+    emitted = [
+        line
+        for line in capsys.readouterr().err.splitlines()
+        if line.startswith("drift_guard:")
+    ]
+    assert len(emitted) == 1, emitted
+    assert "mode=off-registry" in emitted[0]
+    assert "verdict=SKIPPED" in emitted[0]
+
+
+def test_drift_check_raises_when_not_installed_but_canonical_clone_present() -> None:
+    # OMN-14531: the actual aislop_sweep-blind regression -- omnimarket
+    # silently reverted from a git co-install to completely absent while a
+    # canonical $OMNI_HOME/omnimarket clone was reachable. This is a
+    # DETERMINABLE, actionable state and must now raise loudly instead of
+    # falling through the old unconditional "installed is None -> return"
+    # fail-open path.
+    with (
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.installed_omnimarket_commit",
+            return_value=None,
+        ),
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.canonical_local_omnimarket_commit",
+            return_value=_FAKE_SHA_A,
+        ),
+    ):
+        with pytest.raises(OmnimarketDriftError) as exc_info:
+            check_omnimarket_drift()
+    message = str(exc_info.value)
+    assert "NOT INSTALLED" in message
+    assert _FAKE_SHA_A[:12] in message
+    assert "install-node-skill-package.sh --execute" in message
+
+
+def test_not_installed_refusal_names_the_running_interpreter() -> None:
+    """OMN-17190: "omnimarket is not installed" is ambiguous between two very
+    different faults -- the CLI venv lost its provider layer, or this is not
+    the CLI venv at all.
+
+    The second is what actually happened during OMN-17190 verification:
+    ``uv run --project X onex`` silently resolves ``onex`` from the inherited
+    PATH whenever the project entrypoint is not resolvable, and that other
+    interpreter (a uv-tool env with a PyPI omnimarket and a pre-OMN-17190
+    guard) refuses identically whether the real venv is drifted or IN_SYNC.
+    Ten of fifteen verification dispatches died that way and the refusal text
+    gave no way to tell. Naming ``sys.executable`` makes the next occurrence a
+    one-line diagnosis, and pointing at the wrapper names the fix.
+    """
+    with (
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.installed_omnimarket_commit",
+            return_value=None,
+        ),
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.canonical_local_omnimarket_commit",
+            return_value=_FAKE_SHA_A,
+        ),
+    ):
+        with pytest.raises(OmnimarketDriftError) as exc_info:
+            check_omnimarket_drift()
+    message = str(exc_info.value)
+    assert sys.executable in message
+    assert "scripts/onex" in message
+    assert (
+        "knowledge-base-internal:runbooks/omnibase-infra-onex-cli-invocation.md"
+        in message
+    )
+
+
+def test_not_installed_refusal_names_shadowing_onex_and_canonical_wrapper(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """OMN-18280: a non-wrapper PATH entry reports the compared paths."""
+    path_bin = tmp_path / "path-bin"
+    shadowing_onex = path_bin / "onex"
+    shadow_target = tmp_path / "user-local" / "bin" / "onex"
+    canonical_wrapper = tmp_path / "omnibase_infra" / "scripts" / "onex"
+    path_bin.mkdir()
+    shadow_target.parent.mkdir(parents=True)
+    shadow_target.write_text("#!/bin/sh\n", encoding="utf-8")
+    shadow_target.chmod(0o755)
+    shadowing_onex.symlink_to(shadow_target)
+    monkeypatch.setenv("PATH", str(path_bin))
+    with (
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.installed_omnimarket_commit",
+            return_value=None,
+        ),
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.canonical_local_omnimarket_commit",
+            return_value=_FAKE_SHA_A,
+        ),
+    ):
+        with pytest.raises(OmnimarketDriftError) as exc_info:
+            check_omnimarket_drift(omni_home=str(tmp_path))
+
+    message = str(exc_info.value)
+    assert "not the canonical wrapper by filesystem identity" in message
+    assert "Canonical wrapper" in message
+    assert str(shadowing_onex) in message
+    assert str(canonical_wrapper) in message
+
+
+def test_not_installed_refusal_recognizes_canonical_onex_symlink(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """OMN-18280: a PATH symlink to the wrapper is not a shadowing binary."""
+    path_bin = tmp_path / "path-bin"
+    canonical_wrapper = tmp_path / "omnibase_infra" / "scripts" / "onex"
+    canonical_wrapper.parent.mkdir(parents=True)
+    canonical_wrapper.write_text("#!/bin/sh\n", encoding="utf-8")
+    canonical_wrapper.chmod(0o755)
+    path_bin.mkdir()
+    path_onex = path_bin / "onex"
+    path_onex.symlink_to(canonical_wrapper)
+    monkeypatch.setenv("PATH", str(path_bin))
+    with (
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.installed_omnimarket_commit",
+            return_value=None,
+        ),
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.canonical_local_omnimarket_commit",
+            return_value=_FAKE_SHA_A,
+        ),
+    ):
+        with pytest.raises(OmnimarketDriftError) as exc_info:
+            check_omnimarket_drift(omni_home=str(tmp_path))
+
+    message = str(exc_info.value)
+    assert "through the canonical wrapper" in message
+    assert "not the canonical wrapper" not in message
+    assert str(path_onex) in message
+
+
+def test_not_installed_refusal_without_workspace_root_does_not_resolve_placeholder(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """OMN-18280: diagnostics never resolve the literal placeholder against CWD."""
+    path_bin = tmp_path / "path-bin"
+    path_onex = path_bin / "onex"
+    path_bin.mkdir()
+    path_onex.write_text("#!/bin/sh\n", encoding="utf-8")
+    path_onex.chmod(0o755)
+    monkeypatch.setenv("PATH", str(path_bin))
+
+    with (
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.installed_omnimarket_commit",
+            return_value=None,
+        ),
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.canonical_local_omnimarket_commit",
+            return_value=_FAKE_SHA_A,
+        ),
+    ):
+        with pytest.raises(OmnimarketDriftError) as exc_info:
+            check_omnimarket_drift()
+
+    message = str(exc_info.value)
+    assert str(path_onex) in message
+    assert "filesystem identity cannot be compared" in message
+    assert "no OMNIBASE_PATH was provided" in message
+    assert "not the canonical wrapper" not in message
+
+
+def test_not_installed_refusal_names_path_onex_resolution_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """OMN-18280: a PATH entry can exist while its identity cannot be compared."""
+    path_bin = tmp_path / "path-bin"
+    path_onex = path_bin / "onex"
+    canonical_wrapper = tmp_path / "omnibase_infra" / "scripts" / "onex"
+    path_bin.mkdir()
+    canonical_wrapper.parent.mkdir(parents=True)
+    path_onex.write_text("#!/bin/sh\n", encoding="utf-8")
+    path_onex.chmod(0o755)
+    canonical_wrapper.write_text("#!/bin/sh\n", encoding="utf-8")
+    canonical_wrapper.chmod(0o755)
+    monkeypatch.setenv("PATH", str(path_bin))
+    original_resolve = Path.resolve
+
+    def resolve_or_raise(path: Path) -> Path:
+        if path == path_onex:
+            raise PermissionError("blocked path entry")
+        return original_resolve(path)
+
+    with (
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.installed_omnimarket_commit",
+            return_value=None,
+        ),
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.canonical_local_omnimarket_commit",
+            return_value=_FAKE_SHA_A,
+        ),
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.Path.resolve",
+            side_effect=resolve_or_raise,
+            autospec=True,
+        ),
+    ):
+        with pytest.raises(OmnimarketDriftError) as exc_info:
+            check_omnimarket_drift(omni_home=str(tmp_path))
+
+    message = str(exc_info.value)
+    assert str(path_onex) in message
+    assert "that entry's filesystem identity cannot be compared" in message
+    assert "PermissionError: blocked path entry" in message
+    assert "PATH did not resolve an 'onex' executable" not in message
+
+
+def test_not_installed_refusal_names_canonical_wrapper_resolution_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """OMN-18280: canonical wrapper resolve failures get their own diagnosis."""
+    path_bin = tmp_path / "path-bin"
+    path_onex = path_bin / "onex"
+    canonical_wrapper = tmp_path / "omnibase_infra" / "scripts" / "onex"
+    path_bin.mkdir()
+    canonical_wrapper.parent.mkdir(parents=True)
+    path_onex.write_text("#!/bin/sh\n", encoding="utf-8")
+    path_onex.chmod(0o755)
+    canonical_wrapper.write_text("#!/bin/sh\n", encoding="utf-8")
+    canonical_wrapper.chmod(0o755)
+    monkeypatch.setenv("PATH", str(path_bin))
+    original_resolve = Path.resolve
+
+    def resolve_or_raise(path: Path) -> Path:
+        if path == canonical_wrapper:
+            raise PermissionError("blocked canonical wrapper")
+        return original_resolve(path)
+
+    with (
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.installed_omnimarket_commit",
+            return_value=None,
+        ),
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.canonical_local_omnimarket_commit",
+            return_value=_FAKE_SHA_A,
+        ),
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.Path.resolve",
+            side_effect=resolve_or_raise,
+            autospec=True,
+        ),
+    ):
+        with pytest.raises(OmnimarketDriftError) as exc_info:
+            check_omnimarket_drift(omni_home=str(tmp_path))
+
+    message = str(exc_info.value)
+    assert str(path_onex) in message
+    assert "canonical wrapper's filesystem identity cannot be compared" in message
+    assert "canonical wrapper resolution failed: PermissionError" in message
+    assert "blocked canonical wrapper" in message
+    assert "PATH did not resolve an 'onex' executable" not in message
+
+
+def test_not_installed_refusal_names_canonical_wrapper_value_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """OMN-18280: malformed canonical paths stay diagnostic-only."""
+    path_bin = tmp_path / "path-bin"
+    path_onex = path_bin / "onex"
+    canonical_wrapper = tmp_path / "omnibase_infra" / "scripts" / "onex"
+    path_bin.mkdir()
+    canonical_wrapper.parent.mkdir(parents=True)
+    path_onex.write_text("#!/bin/sh\n", encoding="utf-8")
+    path_onex.chmod(0o755)
+    canonical_wrapper.write_text("#!/bin/sh\n", encoding="utf-8")
+    canonical_wrapper.chmod(0o755)
+    monkeypatch.setenv("PATH", str(path_bin))
+    original_resolve = Path.resolve
+
+    def resolve_or_raise(path: Path) -> Path:
+        if path == canonical_wrapper:
+            raise ValueError("embedded null")
+        return original_resolve(path)
+
+    with (
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.installed_omnimarket_commit",
+            return_value=None,
+        ),
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.canonical_local_omnimarket_commit",
+            return_value=_FAKE_SHA_A,
+        ),
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.Path.resolve",
+            side_effect=resolve_or_raise,
+            autospec=True,
+        ),
+    ):
+        with pytest.raises(OmnimarketDriftError) as exc_info:
+            check_omnimarket_drift(omni_home=str(tmp_path))
+
+    message = str(exc_info.value)
+    assert "canonical wrapper's filesystem identity cannot be compared" in message
+    assert "ValueError: embedded null" in message
+
+
+def test_not_installed_refusal_names_missing_path_onex(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """OMN-18280: a missing PATH entry is diagnostic context, not a traceback."""
+    monkeypatch.setenv("PATH", "")
+    with (
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.installed_omnimarket_commit",
+            return_value=None,
+        ),
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.canonical_local_omnimarket_commit",
+            return_value=_FAKE_SHA_A,
+        ),
+    ):
+        with pytest.raises(OmnimarketDriftError) as exc_info:
+            check_omnimarket_drift(omni_home="/workspace")
+
+    message = str(exc_info.value)
+    assert "PATH did not resolve an 'onex' executable" in message
+    assert "PATH lookup for 'onex' failed" not in message
+
+
+def test_not_installed_refusal_ignores_path_resolution_errors() -> None:
+    """OMN-18280: PATH diagnostic errors must not mask the drift refusal."""
+    with (
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.installed_omnimarket_commit",
+            return_value=None,
+        ),
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.canonical_local_omnimarket_commit",
+            return_value=_FAKE_SHA_A,
+        ),
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.shutil.which",
+            side_effect=OSError("bad PATH"),
+        ),
+    ):
+        with pytest.raises(OmnimarketDriftError) as exc_info:
+            check_omnimarket_drift(omni_home="/workspace")
+
+    message = str(exc_info.value)
+    assert (
+        "PATH lookup for 'onex' failed before a candidate could be resolved" in message
+    )
+    assert "OSError: bad PATH" in message
+    assert "PATH did not resolve an 'onex' executable" not in message
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        (
+            {
+                "status": guard.PathOnexResolutionStatus.RESOLVED,
+            },
+            "resolved PATH onex identity requires executable and identity",
+        ),
+        (
+            {
+                "status": guard.PathOnexResolutionStatus.RESOLVED,
+                "executable": "/bin/onex",
+                "identity": Path("/bin/onex"),
+                "resolution_error": "should not be here",
+            },
+            "resolved PATH onex identity cannot carry an error",
+        ),
+        (
+            {
+                "status": guard.PathOnexResolutionStatus.LOOKUP_FAILED,
+                "executable": "/bin/onex",
+                "resolution_error": "lookup failed",
+            },
+            "failed PATH lookup cannot carry an executable identity",
+        ),
+        (
+            {
+                "status": guard.PathOnexResolutionStatus.LOOKUP_FAILED,
+            },
+            "failed PATH lookup requires an error",
+        ),
+        (
+            {
+                "status": guard.PathOnexResolutionStatus.RESOLVE_FAILED,
+                "resolution_error": "resolve failed",
+            },
+            "failed PATH onex resolution requires executable and error",
+        ),
+        (
+            {
+                "status": guard.PathOnexResolutionStatus.RESOLVE_FAILED,
+                "executable": "/bin/onex",
+                "identity": Path("/bin/onex"),
+                "resolution_error": "resolve failed",
+            },
+            "failed PATH onex resolution cannot carry identity",
+        ),
+    ],
+)
+def test_path_onex_identity_rejects_all_invalid_states(
+    kwargs: dict[str, object],
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        guard.PathOnexIdentity(**kwargs)
+
+
+def test_drift_check_fails_open_when_no_canonical_clone() -> None:
+    with (
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.installed_omnimarket_commit",
+            return_value=_FAKE_SHA_A,
+        ),
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.canonical_local_omnimarket_commit",
+            return_value=None,
+        ),
+    ):
+        check_omnimarket_drift()  # must not raise -- can't determine canonical
+
+
+def test_drift_check_passes_when_commits_match() -> None:
+    with (
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.installed_omnimarket_commit",
+            return_value=_FAKE_SHA_A,
+        ),
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.canonical_local_omnimarket_commit",
+            return_value=_FAKE_SHA_A,
+        ),
+    ):
+        check_omnimarket_drift()  # must not raise
+
+
+def test_drift_check_raises_on_mismatch_with_actionable_message() -> None:
+    with (
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.installed_omnimarket_commit",
+            return_value=_FAKE_SHA_A,
+        ),
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.canonical_local_omnimarket_commit",
+            return_value=_FAKE_SHA_B,
+        ),
+    ):
+        with pytest.raises(OmnimarketDriftError) as exc_info:
+            check_omnimarket_drift()
+    message = str(exc_info.value)
+    assert _FAKE_SHA_A[:12] in message
+    assert _FAKE_SHA_B[:12] in message
+    assert "check-omnimarket-venv-drift.sh --repair" in message
+
+
+def test_drift_check_names_full_path_repair_command_when_omni_home_known(
+    tmp_path: Path,
+) -> None:
+    # The refusal fires mid-dispatch, not necessarily from inside
+    # $OMNI_HOME/omnibase_infra -- the named repair command must be a full,
+    # copy-pasteable path, not a cwd-relative one that only resolves by luck.
+    with (
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.installed_omnimarket_commit",
+            return_value=_FAKE_SHA_A,
+        ),
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.canonical_local_omnimarket_commit",
+            return_value=_FAKE_SHA_B,
+        ),
+    ):
+        with pytest.raises(OmnimarketDriftError) as exc_info:
+            check_omnimarket_drift(omni_home=str(tmp_path))
+    message = str(exc_info.value)
+    expected_repair = str(
+        tmp_path / "omnibase_infra" / "scripts" / "check-omnimarket-venv-drift.sh"
+    )
+    expected_install = str(
+        tmp_path / "omnibase_infra" / "scripts" / "install-node-skill-package.sh"
+    )
+    assert expected_repair in message
+    assert expected_install in message
+
+
+# ---------------------------------------------------------------------------
+# Default-ON refusal + the named override escape hatch (OMN-13930)
+# ---------------------------------------------------------------------------
+#
+# The guard shipped fail-closed with NO escape hatch and NO env named in its
+# message: an operator who hit it in a legitimate edge case (deliberately
+# testing an unmerged omnimarket branch, a detached canonical clone mid-
+# rebase) had no supported way past it and no string to search for. The
+# unsupported workarounds are worse than the drift -- unsetting $OMNI_HOME
+# silently disables the guard EVERYWHERE with no warning, and editing the
+# guard source is untracked. These tests pin the contract: refusal stays the
+# default, the override is opt-in, and its name is printed in the refusal
+# itself so the escape hatch is discoverable from the failure alone.
+#
+# The env var is READ at the CLI boundary (click ``envvar=``), never here --
+# this module stays a pure function of its arguments. The env-to-argument
+# binding is proven at the CLI seam in ``test_cli_skill.py``; an unbound
+# option would be exactly the OMN-14531 silent-no-op trap.
+
+
+def _patch_drift(monkeypatch: pytest.MonkeyPatch, installed: str | None) -> None:
+    """Force a determinable drift state: canonical present, installed as given."""
+    monkeypatch.setattr(
+        "omnibase_infra.cli.omnimarket_drift_guard.installed_omnimarket_commit",
+        lambda: installed,
+    )
+    monkeypatch.setattr(
+        "omnibase_infra.cli.omnimarket_drift_guard.canonical_local_omnimarket_commit",
+        lambda omni_home=None: _FAKE_SHA_B,
+    )
+
+
+@pytest.mark.parametrize("installed", [None, _FAKE_SHA_A])
+def test_refusal_message_names_the_override_env(
+    monkeypatch: pytest.MonkeyPatch, installed: str | None
+) -> None:
+    """BOTH refusal paths (absent install, stale install) name the override env.
+
+    An escape hatch nobody can find is not an escape hatch. Asserting on the
+    exported constant rather than a copied literal keeps the message and the
+    binding from drifting apart.
+    """
+    _patch_drift(monkeypatch, installed)
+    with pytest.raises(OmnimarketDriftError) as exc_info:
+        check_omnimarket_drift()
+    assert DRIFT_OVERRIDE_ENV in str(exc_info.value)
+
+
+@pytest.mark.parametrize("installed", [None, _FAKE_SHA_A])
+def test_refusal_is_default_on_when_override_not_requested(
+    monkeypatch: pytest.MonkeyPatch, installed: str | None
+) -> None:
+    """Refusal is the DEFAULT: ``allow_drift`` defaults False at every call site.
+
+    Keyword-only with a False default means a call site added later that
+    forgets the argument fails CLOSED rather than silently disabling the
+    guard.
+    """
+    _patch_drift(monkeypatch, installed)
+    with pytest.raises(OmnimarketDriftError):
+        check_omnimarket_drift()
+
+
+@pytest.mark.parametrize("installed", [None, _FAKE_SHA_A])
+def test_override_downgrades_refusal_to_a_loud_warning(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    installed: str | None,
+) -> None:
+    """An explicit override dispatches, but never silently.
+
+    The warning is the point: a silent bypass would reintroduce the exact
+    invisible-drift failure mode this guard exists to end, so the override
+    must be LOUD on every dispatch and must still name the variable that
+    caused it.
+    """
+    _patch_drift(monkeypatch, installed)
+    with caplog.at_level(logging.WARNING):
+        check_omnimarket_drift(allow_drift=True)  # must not raise
+    combined = " ".join(record.getMessage() for record in caplog.records)
+    assert DRIFT_OVERRIDE_ENV in combined
+    assert _FAKE_SHA_B[:12] in combined
+
+
+def test_override_does_not_warn_when_there_is_no_drift(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """With the override set but NO drift present, nothing is warned.
+
+    Guards against an implementation that warns on the override's mere
+    presence: that would train operators to ignore the warning, defeating it
+    for the run where drift is real.
+    """
+    _patch_drift(monkeypatch, _FAKE_SHA_B)  # installed == canonical
+    with caplog.at_level(logging.WARNING):
+        check_omnimarket_drift(allow_drift=True)
+    assert not [r for r in caplog.records if DRIFT_OVERRIDE_ENV in r.getMessage()]
+
+
+# --------------------------------------------------------------------------- #
+# Self-healing drift refusal (OMN-17190)
+# --------------------------------------------------------------------------- #
+class _Reconciler:
+    """A recording stand-in for the bound workspace reconciler.
+
+    ``on_success`` lets a test model the real effect the script has: it mutates
+    site-packages, so the guard's re-probe must see a DIFFERENT answer than its
+    first probe. A test double that changes nothing could not distinguish
+    "re-checked" from "assumed".
+    """
+
+    def __init__(
+        self,
+        *,
+        ok: bool,
+        detail: str = "",
+        on_success: object = None,
+    ) -> None:
+        self.outcome = ModelReconcileOutcome(
+            ok=ok,
+            command="bash /w/reconcile-workspace-venvs.sh",
+            detail=detail,
+            # Every attempt is identifiable (OMN-18663): the guard's refusals
+            # name the run they disagree with, so a fake reconciler has to
+            # carry one too.
+            run_id="reconcile-20260918T000000Z-testfake",
+        )
+        self._on_success = on_success
+        self.calls = 0
+
+    def __call__(self) -> ModelReconcileOutcome:
+        self.calls += 1
+        if self.outcome.ok and callable(self._on_success):
+            self._on_success()
+        return self.outcome
+
+
+@pytest.fixture
+def canonical_head(monkeypatch: pytest.MonkeyPatch) -> str:
+    """Pin the canonical clone HEAD so only the installed side varies."""
+    head = "a" * 40
+    monkeypatch.setattr(
+        guard, "canonical_local_omnimarket_commit", lambda omni_home=None: head
+    )
+    return head
+
+
+def test_successful_reconcile_lets_the_dispatch_proceed(
+    monkeypatch: pytest.MonkeyPatch, canonical_head: str
+) -> None:
+    """The whole point: drift is repaired in flight, not handed to a human."""
+    state = {"installed": "b" * 40}
+    monkeypatch.setattr(
+        guard, "installed_omnimarket_commit", lambda: state["installed"]
+    )
+
+    def _repair() -> None:
+        state["installed"] = canonical_head
+
+    reconciler = _Reconciler(ok=True, on_success=_repair)
+    guard.check_omnimarket_drift(omni_home="/w", reconcile=reconciler)
+
+    assert reconciler.calls == 1
+
+
+def test_reconcile_runs_exactly_once(
+    monkeypatch: pytest.MonkeyPatch, canonical_head: str
+) -> None:
+    """No retry loop on the CLI hot path.
+
+    A reconcile that ran and left the venv drifted is reporting something an
+    identical second attempt will not fix; looping would turn a clear refusal
+    into a hang.
+    """
+    monkeypatch.setattr(guard, "installed_omnimarket_commit", lambda: "b" * 40)
+    reconciler = _Reconciler(ok=True)
+
+    with pytest.raises(guard.OmnimarketDriftError):
+        guard.check_omnimarket_drift(omni_home="/w", reconcile=reconciler)
+
+    assert reconciler.calls == 1
+
+
+def test_failed_reconcile_refuses_and_names_the_exact_command(
+    monkeypatch: pytest.MonkeyPatch, canonical_head: str
+) -> None:
+    monkeypatch.setattr(guard, "installed_omnimarket_commit", lambda: None)
+    reconciler = _Reconciler(ok=False, detail="uv sync did not complete")
+
+    with pytest.raises(guard.OmnimarketDriftError) as excinfo:
+        guard.check_omnimarket_drift(omni_home="/w", reconcile=reconciler)
+
+    message = str(excinfo.value)
+    assert reconciler.calls == 1
+    assert "reconcile-workspace-venvs.sh" in message
+    assert "uv sync did not complete" in message
+
+
+def test_failed_reconcile_keeps_the_original_diagnosis_and_the_override(
+    monkeypatch: pytest.MonkeyPatch, canonical_head: str
+) -> None:
+    """A failed reconcile ADDS to the refusal; it must not replace it.
+
+    An earlier revision of this behaviour raised a refusal that named only the
+    reconcile failure. That reads as an improvement and is not one: it discards
+    the two facts a reader actually needs -- WHAT drifted, and the repair
+    command for it -- and hands them a second-order failure to debug in place
+    of the first-order one. Three pre-existing dispatch-surface tests
+    (`test_drift_guard_fires_before_delegate_dispatch`,
+    `test_drift_guard_fires_before_unknown_node_lookup`,
+    `test_drift_override_env_unset_still_refuses`) assert exactly that content,
+    and they are right to.
+
+    The OMN-13930 override is named for the same reason it is named on every
+    other refusal in this module: it is evaluated BEFORE the reconcile, so it
+    genuinely works from this state, and a documented escape hatch withheld
+    from the message does not stop being used -- it just turns the failure into
+    a dead end, which is the argument this module's own docstring makes for
+    naming it at all. The refusal still says plainly that a broken venv is to
+    be FIXED, not worked around.
+    """
+    monkeypatch.setattr(guard, "installed_omnimarket_commit", lambda: None)
+
+    with pytest.raises(guard.OmnimarketDriftError) as excinfo:
+        guard.check_omnimarket_drift(
+            omni_home="/w", reconcile=_Reconciler(ok=False, detail="boom")
+        )
+
+    message = str(excinfo.value)
+    # The original diagnosis survives.
+    assert "NOT INSTALLED" in message
+    assert canonical_head[:12] in message
+    assert "install-node-skill-package.sh --execute" in message
+    # The reconcile failure is added, with the command to reproduce it.
+    assert "boom" in message
+    assert "reconcile-workspace-venvs.sh" in message
+    # And the documented override is still discoverable from the failure alone.
+    assert guard.DRIFT_OVERRIDE_ENV in message
+
+
+def test_reconcile_reporting_success_while_still_drifted_still_refuses(
+    monkeypatch: pytest.MonkeyPatch, canonical_head: str
+) -> None:
+    """Trust the re-check, never the reconciler's own say-so."""
+    monkeypatch.setattr(guard, "installed_omnimarket_commit", lambda: "b" * 40)
+
+    with pytest.raises(guard.OmnimarketDriftError) as excinfo:
+        guard.check_omnimarket_drift(omni_home="/w", reconcile=_Reconciler(ok=True))
+
+    assert "STILL drifted" in str(excinfo.value)
+
+
+def test_no_reconciler_preserves_the_pure_refusal(
+    monkeypatch: pytest.MonkeyPatch, canonical_head: str
+) -> None:
+    """Omitting ``reconcile`` must keep the guard a pure detect-and-refuse.
+
+    Every non-CLI caller depends on this: a guard that silently shelled out by
+    default would be an astonishing thing to import.
+    """
+    monkeypatch.setattr(guard, "installed_omnimarket_commit", lambda: "b" * 40)
+
+    with pytest.raises(guard.OmnimarketDriftError) as excinfo:
+        guard.check_omnimarket_drift(omni_home="/w")
+
+    assert guard.DRIFT_OVERRIDE_ENV in str(excinfo.value)
+
+
+def test_reconciler_is_not_invoked_when_there_is_no_drift(
+    monkeypatch: pytest.MonkeyPatch, canonical_head: str
+) -> None:
+    monkeypatch.setattr(guard, "installed_omnimarket_commit", lambda: canonical_head)
+    reconciler = _Reconciler(ok=True)
+
+    guard.check_omnimarket_drift(omni_home="/w", reconcile=reconciler)
+
+    assert reconciler.calls == 0
+
+
+def test_allow_drift_short_circuits_before_any_reconcile(
+    monkeypatch: pytest.MonkeyPatch, canonical_head: str
+) -> None:
+    """The operator override means 'I accept this build', not 'repair it'.
+
+    Silently reinstalling under an explicit accept-as-is would change the very
+    build the operator chose to run against.
+    """
+    monkeypatch.setattr(guard, "installed_omnimarket_commit", lambda: "b" * 40)
+    reconciler = _Reconciler(ok=True)
+
+    guard.check_omnimarket_drift(omni_home="/w", allow_drift=True, reconcile=reconciler)
+
+    assert reconciler.calls == 0
+
+
+def test_make_workspace_reconciler_returns_none_without_omni_home() -> None:
+    assert make_workspace_reconciler(None) is None
+    assert make_workspace_reconciler("") is None
+
+
+def test_missing_reconcile_script_is_a_failed_outcome_not_a_raise(
+    tmp_path: Path,
+) -> None:
+    """The guard turns outcomes into refusals; the adapter must never raise."""
+    outcome = reconcile_workspace_venvs(str(tmp_path))
+
+    assert outcome.ok is False
+    assert "reconcile-workspace-venvs.sh" in outcome.command
+    assert "not found" in outcome.detail
+
+
+# ---------------------------------------------------------------------------
+# canonical clone attachment (OMN-17313)
+#
+# The drift guard compares the venv-installed commit against the canonical
+# clone's HEAD. When the clone is DETACHED those two agree -- the venv is
+# faithfully reproducing the frozen clone -- so drift reads as ZERO while both
+# sides are arbitrarily stale relative to the upstream branch. The live case:
+# $OMNI_HOME/omnimarket sat detached at an unmerged PR-branch commit for two
+# days, the guard reported clean throughout, and every consumer downstream of
+# that clone served pre-fix content.
+# ---------------------------------------------------------------------------
+
+
+def _detach_head(root: Path) -> None:
+    """Detach ``root``'s HEAD at its current commit."""
+    subprocess.run(
+        ["git", "-C", str(root), "checkout", "--quiet", "--detach", "HEAD"],
+        check=True,
+        env=_scrubbed_git_env(),
+    )
+
+
+def test_detached_canonical_clone_is_drift_even_when_commits_agree(
+    tmp_path: Path,
+) -> None:
+    """RED for OMN-17313: venv == clone HEAD, clone DETACHED -> must refuse."""
+    omnimarket_root = tmp_path / "omnimarket"
+    omnimarket_root.mkdir()
+    head_sha = _make_git_repo(omnimarket_root)
+    _detach_head(omnimarket_root)
+
+    with patch(
+        "omnibase_infra.cli.omnimarket_drift_guard.installed_omnimarket_commit",
+        return_value=head_sha,
+    ):
+        with pytest.raises(OmnimarketDriftError) as excinfo:
+            check_omnimarket_drift(omni_home=str(tmp_path))
+
+    message = str(excinfo.value)
+    assert "DETACHED" in message
+    assert "converge-canonical-clone.sh" in message
+
+
+def test_attachment_probe_reads_attached_on_a_real_branch(tmp_path: Path) -> None:
+    # Positive control for the detached assertions below: the SAME probe, on
+    # the SAME kind of throwaway repo, returns ATTACHED when a branch is
+    # checked out. Without this, a probe that returned DETACHED unconditionally
+    # would make every detached test pass for the wrong reason.
+    omnimarket_root = tmp_path / "omnimarket"
+    omnimarket_root.mkdir()
+    _make_git_repo(omnimarket_root)
+    assert (
+        canonical_clone_attachment(omni_home=str(tmp_path))
+        is CanonicalCloneAttachment.ATTACHED
+    )
+
+
+def test_attachment_probe_accepts_remote_tracking_symbolic_ref(
+    tmp_path: Path,
+) -> None:
+    omnimarket_root = tmp_path / "omnimarket"
+    omnimarket_root.mkdir()
+    _make_git_repo(omnimarket_root)
+    with patch("omnibase_infra.cli.omnimarket_drift_guard.subprocess.run") as run:
+        run.return_value = subprocess.CompletedProcess(
+            args=["git"],
+            returncode=0,
+            stdout="refs/remotes/origin/main\n",
+            stderr="",
+        )
+        assert (
+            canonical_clone_attachment(omni_home=str(tmp_path))
+            is CanonicalCloneAttachment.ATTACHED
+        )
+
+
+def test_attachment_probe_reads_detached_after_detaching(tmp_path: Path) -> None:
+    omnimarket_root = tmp_path / "omnimarket"
+    omnimarket_root.mkdir()
+    _make_git_repo(omnimarket_root)
+    _detach_head(omnimarket_root)
+    assert (
+        canonical_clone_attachment(omni_home=str(tmp_path))
+        is CanonicalCloneAttachment.DETACHED
+    )
+
+
+@pytest.mark.parametrize(
+    "side_effect",
+    [
+        subprocess.TimeoutExpired(["git"], timeout=2),
+        OSError("git unavailable"),
+    ],
+)
+def test_attachment_probe_failures_are_undetermined(
+    tmp_path: Path, side_effect: Exception
+) -> None:
+    omnimarket_root = tmp_path / "omnimarket"
+    omnimarket_root.mkdir()
+    _make_git_repo(omnimarket_root)
+    with patch(
+        "omnibase_infra.cli.omnimarket_drift_guard.subprocess.run",
+        side_effect=side_effect,
+    ):
+        assert (
+            canonical_clone_attachment(omni_home=str(tmp_path))
+            is CanonicalCloneAttachment.UNDETERMINED
+        )
+
+
+@pytest.mark.parametrize("omni_home", ["", None])
+def test_attachment_undetermined_without_omni_home(omni_home: str | None) -> None:
+    assert (
+        canonical_clone_attachment(omni_home=omni_home)
+        is CanonicalCloneAttachment.UNDETERMINED
+    )
+
+
+def test_attachment_undetermined_when_clone_absent(tmp_path: Path) -> None:
+    assert (
+        canonical_clone_attachment(omni_home=str(tmp_path))
+        is CanonicalCloneAttachment.UNDETERMINED
+    )
+
+
+def test_undetermined_attachment_does_not_refuse(tmp_path: Path) -> None:
+    # No clone at all: the guard must stay silent, exactly as it does for an
+    # undeterminable canonical commit. A fail-CLOSED attachment probe would
+    # break every CI runner and fresh machine.
+    with patch(
+        "omnibase_infra.cli.omnimarket_drift_guard.installed_omnimarket_commit",
+        return_value=_FAKE_SHA_A,
+    ):
+        check_omnimarket_drift(omni_home=str(tmp_path))
+
+
+def test_attached_clone_with_matching_commit_still_passes(tmp_path: Path) -> None:
+    # The attachment assertion must not change the clean-path verdict.
+    omnimarket_root = tmp_path / "omnimarket"
+    omnimarket_root.mkdir()
+    head_sha = _make_git_repo(omnimarket_root)
+    with patch(
+        "omnibase_infra.cli.omnimarket_drift_guard.installed_omnimarket_commit",
+        return_value=head_sha,
+    ):
+        check_omnimarket_drift(omni_home=str(tmp_path))
+
+
+def test_detached_refusal_is_downgraded_by_the_override(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    omnimarket_root = tmp_path / "omnimarket"
+    omnimarket_root.mkdir()
+    head_sha = _make_git_repo(omnimarket_root)
+    _detach_head(omnimarket_root)
+    with (
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.installed_omnimarket_commit",
+            return_value=head_sha,
+        ),
+        caplog.at_level(logging.WARNING, logger=guard.__name__),
+    ):
+        check_omnimarket_drift(omni_home=str(tmp_path), allow_drift=True)
+    assert "DETACHED HEAD" in caplog.text
+    assert DRIFT_OVERRIDE_ENV in caplog.text
+
+
+def test_detachment_never_invokes_the_reconciler(tmp_path: Path) -> None:
+    # A venv reconcile cannot re-attach a git clone. Running it here would
+    # burn an install and refuse anyway, naming the wrong subsystem.
+    omnimarket_root = tmp_path / "omnimarket"
+    omnimarket_root.mkdir()
+    head_sha = _make_git_repo(omnimarket_root)
+    _detach_head(omnimarket_root)
+    reconciler = _Reconciler(ok=True)
+    with patch(
+        "omnibase_infra.cli.omnimarket_drift_guard.installed_omnimarket_commit",
+        return_value=head_sha,
+    ):
+        with pytest.raises(OmnimarketDriftError):
+            check_omnimarket_drift(omni_home=str(tmp_path), reconcile=reconciler)
+    assert reconciler.calls == 0
+
+
+@pytest.mark.parametrize(
+    "side_effect",
+    [
+        subprocess.TimeoutExpired(["git"], timeout=2),
+        OSError("git unavailable"),
+    ],
+)
+def test_undetermined_attachment_refuses_after_canonical_head_is_known(
+    tmp_path: Path, side_effect: Exception
+) -> None:
+    omnimarket_root = tmp_path / "omnimarket"
+    omnimarket_root.mkdir()
+    head_sha = _make_git_repo(omnimarket_root)
+    with (
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.installed_omnimarket_commit",
+            return_value=head_sha,
+        ),
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.canonical_local_omnimarket_commit",
+            return_value=head_sha,
+        ),
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.subprocess.run",
+            side_effect=side_effect,
+        ),
+    ):
+        with pytest.raises(OmnimarketDriftError) as excinfo:
+            check_omnimarket_drift(omni_home=str(tmp_path))
+    assert "could not prove that HEAD is attached" in str(excinfo.value)
+    assert DRIFT_OVERRIDE_ENV in str(excinfo.value)
+
+
+def test_unsafe_attachment_override_returns_before_commit_drift_check(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    omnimarket_root = tmp_path / "omnimarket"
+    omnimarket_root.mkdir()
+    head_sha = _make_git_repo(omnimarket_root)
+    _detach_head(omnimarket_root)
+    with (
+        patch(
+            "omnibase_infra.cli.omnimarket_drift_guard.installed_omnimarket_commit"
+        ) as installed,
+        caplog.at_level(logging.WARNING, logger=guard.__name__),
+    ):
+        check_omnimarket_drift(omni_home=str(tmp_path), allow_drift=True)
+    installed.assert_not_called()
+    assert "DETACHED HEAD" in caplog.text
+    assert DRIFT_OVERRIDE_ENV in caplog.text
+
+
+def test_detached_refusal_names_the_full_converge_path(tmp_path: Path) -> None:
+    omnimarket_root = tmp_path / "omnimarket"
+    omnimarket_root.mkdir()
+    head_sha = _make_git_repo(omnimarket_root)
+    _detach_head(omnimarket_root)
+    with patch(
+        "omnibase_infra.cli.omnimarket_drift_guard.installed_omnimarket_commit",
+        return_value=head_sha,
+    ):
+        with pytest.raises(OmnimarketDriftError) as excinfo:
+            check_omnimarket_drift(omni_home=str(tmp_path))
+    expected = str(tmp_path / "omniclaude" / "scripts" / "converge-canonical-clone.sh")
+    assert expected in str(excinfo.value)
+    assert DRIFT_OVERRIDE_ENV in str(excinfo.value)

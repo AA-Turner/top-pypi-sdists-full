@@ -1,0 +1,239 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# ONEX Node Contract - Redeploy FSM REDUCER
+#
+# Pure FSM reducer for the redeploy workflow (OMN-13211 / B3). Folds one
+# phase-advance event into the redeploy FSM state projection. Owns the phase
+# sequence IDLE -> SYNC_CLONES -> UPDATE_PINS -> REBUILD -> SEED_INFISICAL ->
+# VERIFY_HEALTH -> DONE and the 3-failure circuit breaker (-> FAILED). No I/O.
+---
+name: node_redeploy_fsm_reducer
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: reducer
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  Pure redeploy FSM reducer. Folds one phase-advance event (prior state + phase
+  outcome) into a new ModelRedeployState projection. Owns the deploy phase
+  sequence and the 3-failure circuit breaker that trips to FAILED. A successful
+  advance moves to next_phase and resets the failure counter; a failed advance
+  retries the phase in place until the circuit breaker trips. Pure fold — no
+  events, no intents, no I/O; the orchestrator publishes transition events.
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: "redeploy.fsm.advance"
+      handler:
+        name: HandlerRedeployFsm
+        module: omnimarket.nodes.node_redeploy_fsm_reducer.handlers.handler_redeploy_fsm
+      description: "Fold one phase-advance event into the FSM state projection."
+      input_model:
+        name: ModelRedeployAdvanceCommand
+        module: omnimarket.nodes.node_redeploy_fsm_reducer.models.model_redeploy_advance_command
+        description: "Prior FSM state + phase outcome to fold."
+
+handler:
+  module: omnimarket.nodes.node_redeploy_fsm_reducer.handlers.handler_redeploy_fsm
+  class: HandlerRedeployFsm
+  input_model: omnimarket.nodes.node_redeploy_fsm_reducer.models.model_redeploy_advance_command.ModelRedeployAdvanceCommand
+
+input_model:
+  name: ModelRedeployAdvanceCommand
+  module: omnimarket.nodes.node_redeploy_fsm_reducer.models.model_redeploy_advance_command
+  description: "Prior FSM state + phase outcome + optional error message."
+output_model:
+  name: ModelRedeployState
+  module: omnimarket.events.runtime_deployment
+  description: "Advanced FSM state projection."
+
+descriptor:
+  node_archetype: reducer
+  purity: pure
+  idempotent: true
+  timeout_ms: 2000
+  runtime_profiles:
+    - effects
+
+event_bus:
+  subscribe_topics:
+    - onex.evt.omnimarket.redeploy-phase-advance.v1
+  publish_topics:
+    - onex.evt.omnimarket.redeploy-fsm-state-updated.v1
+
+dependencies:
+  packages:
+    - "omnibase_core>=0.39.0"
+
+metadata:
+  transport_type: kafka
+  description: "Pure redeploy FSM reducer"
+  author: "OmniNode Platform Team"
+  related_tickets:
+    - "OMN-13211"
+    - "OMN-12577"
+
+# OMN-13734: machine-readable FSM transcribed from handler/model logic.
+state_machine:
+  version: {major: 1, minor: 0, patch: 0}
+  state_machine_name: redeploy_fsm_reducer
+  state_machine_version: {major: 1, minor: 0, patch: 0}
+  description: "redeploy_fsm_reducer"
+  initial_state: idle
+  terminal_states: [done, failed]
+  error_states: [failed]
+  persistence_enabled: true
+  states:
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: idle
+      state_type: operational
+      description: "Awaiting a redeploy phase advance."
+      required_data: []
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: sync_clones
+      state_type: operational
+      description: "Sync canonical repo clones."
+      required_data: []
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: update_pins
+      state_type: operational
+      description: "Update runtime package pins."
+      required_data: []
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: rebuild
+      state_type: operational
+      description: "Rebuild runtime artifacts."
+      required_data: []
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: seed_infisical
+      state_type: operational
+      description: "Seed Infisical runtime secrets."
+      required_data: []
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: verify_health
+      state_type: operational
+      description: "Verify runtime health."
+      required_data: []
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: done
+      state_type: terminal
+      description: "Base deploy sequence completed."
+      is_terminal: true
+      is_recoverable: false
+      required_data: []
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: failed
+      state_type: terminal
+      description: "Circuit breaker tripped after consecutive phase failures."
+      is_terminal: true
+      is_recoverable: false
+      required_data: []
+  transitions:
+    # Start phase sequence.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: idle_to_sync_clones_on_phase_success
+      from_state: idle
+      to_state: sync_clones
+      trigger: phase_success
+    # Clone sync succeeded.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: sync_clones_to_update_pins_on_phase_success
+      from_state: sync_clones
+      to_state: update_pins
+      trigger: phase_success
+    # Pin update succeeded.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: update_pins_to_rebuild_on_phase_success
+      from_state: update_pins
+      to_state: rebuild
+      trigger: phase_success
+    # Runtime rebuild succeeded.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: rebuild_to_seed_infisical_on_phase_success
+      from_state: rebuild
+      to_state: seed_infisical
+      trigger: phase_success
+    # Infisical seed succeeded.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: seed_infisical_to_verify_health_on_phase_success
+      from_state: seed_infisical
+      to_state: verify_health
+      trigger: phase_success
+    # Runtime health verified.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: verify_health_to_done_on_phase_success
+      from_state: verify_health
+      to_state: done
+      trigger: phase_success
+    # Retry current phase below failure threshold.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: idle_to_idle_on_phase_failure_retry
+      from_state: idle
+      to_state: idle
+      trigger: phase_failure_retry
+    # Retry current phase below failure threshold.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: sync_clones_to_sync_clones_on_phase_failure_retry
+      from_state: sync_clones
+      to_state: sync_clones
+      trigger: phase_failure_retry
+    # Retry current phase below failure threshold.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: update_pins_to_update_pins_on_phase_failure_retry
+      from_state: update_pins
+      to_state: update_pins
+      trigger: phase_failure_retry
+    # Retry current phase below failure threshold.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: rebuild_to_rebuild_on_phase_failure_retry
+      from_state: rebuild
+      to_state: rebuild
+      trigger: phase_failure_retry
+    # Retry current phase below failure threshold.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: seed_infisical_to_seed_infisical_on_phase_failure_retry
+      from_state: seed_infisical
+      to_state: seed_infisical
+      trigger: phase_failure_retry
+    # Retry current phase below failure threshold.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: verify_health_to_verify_health_on_phase_failure_retry
+      from_state: verify_health
+      to_state: verify_health
+      trigger: phase_failure_retry
+    # Failure threshold reached.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: idle_to_failed_on_circuit_breaker
+      from_state: idle
+      to_state: failed
+      trigger: circuit_breaker
+    # Failure threshold reached.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: sync_clones_to_failed_on_circuit_breaker
+      from_state: sync_clones
+      to_state: failed
+      trigger: circuit_breaker
+    # Failure threshold reached.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: update_pins_to_failed_on_circuit_breaker
+      from_state: update_pins
+      to_state: failed
+      trigger: circuit_breaker
+    # Failure threshold reached.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: rebuild_to_failed_on_circuit_breaker
+      from_state: rebuild
+      to_state: failed
+      trigger: circuit_breaker
+    # Failure threshold reached.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: seed_infisical_to_failed_on_circuit_breaker
+      from_state: seed_infisical
+      to_state: failed
+      trigger: circuit_breaker
+    # Failure threshold reached.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: verify_health_to_failed_on_circuit_breaker
+      from_state: verify_health
+      to_state: failed
+      trigger: circuit_breaker

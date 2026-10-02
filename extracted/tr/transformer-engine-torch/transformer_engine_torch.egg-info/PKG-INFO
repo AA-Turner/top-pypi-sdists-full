@@ -1,0 +1,19 @@
+Metadata-Version: 2.4
+Name: transformer_engine_torch
+Version: 2.19.0
+Summary: Transformer acceleration library - Torch Lib
+Requires-Python: >=3.10.0
+License-File: LICENSE
+Requires-Dist: torch>=2.1
+Requires-Dist: einops
+Requires-Dist: onnxscript
+Requires-Dist: onnx
+Requires-Dist: packaging
+Requires-Dist: pydantic
+Requires-Dist: nvdlfw-inspect
+Requires-Dist: nvidia-cudnn-frontend>=1.28.0
+Requires-Dist: transformer_engine_cu13==2.19.0
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

@@ -207,22 +207,19 @@ class PrepareClusterBlock:
                 allow_public_internet_traffic=self.allow_public_internet_traffic,
             )
         else:
-            assert (
-                self.cluster_name
-            ), f"{self.cluster_name} is None, yet _derive_prepare_cluster_action returned {prepare_cluster_action}."
-            cluster = get_cluster(
-                self.anyscale_api_client, self.project_id, self.cluster_name
+            assert self.cluster_name, (
+                f"{self.cluster_name} is None, yet _derive_prepare_cluster_action returned {prepare_cluster_action}."
             )
-            assert (
-                cluster
-            ), f"Cluster {self.cluster_name} not found, yet _derive_prepare_cluster_action returned {prepare_cluster_action}."
+            cluster = get_cluster(self.anyscale_api_client, self.project_id, self.cluster_name)
+            assert cluster, (
+                f"Cluster {self.cluster_name} not found, yet _derive_prepare_cluster_action returned {prepare_cluster_action}."
+            )
             self._validate_new_cluster_compute_and_env_match_existing_cluster(
-                project_id=self.project_id, running_cluster=cluster,
+                project_id=self.project_id,
+                running_cluster=cluster,
             )
             if prepare_cluster_action == PrepareClusterAction.WAIT:
-                cluster = get_cluster(
-                    self.anyscale_api_client, self.project_id, self.cluster_name
-                )
+                cluster = get_cluster(self.anyscale_api_client, self.project_id, self.cluster_name)
                 wait_for_session_start(
                     self.project_id,
                     cluster.name,
@@ -238,7 +235,10 @@ class PrepareClusterBlock:
             self.log.info("Connecting to this cluster:", block_label=self.block_label)
             url = get_endpoint(f"/projects/{self.project_id}/clusters/{cluster.id}")
             self._log_cluster_configs(
-                cluster, cluster.build_id, cluster.compute_template_id, url,
+                cluster,
+                cluster.build_id,
+                cluster.compute_template_id,
+                url,
             )
 
         self.log.close_block(self.block_label)
@@ -375,15 +375,17 @@ class PrepareClusterBlock:
         return str(cluster.name)
 
     def _log_cluster_configs(
-        self, cluster: Session, build_id: str, compute_template_id: str, url: str,
+        self,
+        cluster: Session,
+        build_id: str,
+        compute_template_id: str,
+        url: str,
     ) -> None:
         """Prints information about the cluster."""
 
         cluster_env = self.anyscale_api_client.get_build(build_id).result
         # The SDK uses application_template_id but this is really just the cluster_env_name.
-        cluster_env_name = (
-            cluster_env.application_template_id + ":" + str(cluster_env.revision)
-        )
+        cluster_env_name = cluster_env.application_template_id + ":" + str(cluster_env.revision)
 
         compute_config: ComputeTemplate = self.anyscale_api_client.get_compute_template(
             compute_template_id
@@ -392,9 +394,7 @@ class PrepareClusterBlock:
         compute_config_config = compute_config.config
 
         left_pad = " " * 2
-        self.log.info(
-            f"{left_pad}{'cluster id:': <30}{cluster.id}", block_label=self.block_label
-        )
+        self.log.info(f"{left_pad}{'cluster id:': <30}{cluster.id}", block_label=self.block_label)
         self.log.info(
             f"{left_pad}{'cluster environment:': <30}{cluster_env_name}",
             block_label=self.block_label,
@@ -459,9 +459,7 @@ class PrepareClusterBlock:
                 # User wants to create a new cluster but cluster with name already exists,
                 # generate a new name until we have one that's not taken.
                 cluster_name = f"cluster-{generate_slug()}"
-                cluster = get_cluster(
-                    self.anyscale_api_client, project_id, cluster_name
-                )
+                cluster = get_cluster(self.anyscale_api_client, project_id, cluster_name)
 
         if not cluster:
             # Create a new cluster if there is no existing cluster with the given cluster_name
@@ -511,9 +509,7 @@ class PrepareClusterBlock:
                         f"Cluster {BlockLogger.highlight(cluster_name)} is currently running.",
                         block_label=self.block_label,
                     )
-                    self.log.info(
-                        "Connecting to this cluster:", block_label=self.block_label
-                    )
+                    self.log.info("Connecting to this cluster:", block_label=self.block_label)
             else:
                 self.log.info(
                     f"Cluster {BlockLogger.highlight(cluster_name)} exists but not running. This cluster will be restarted.",
@@ -589,7 +585,9 @@ class PrepareClusterBlock:
             )
 
     def _get_cluster_build(
-        self, cluster_env_name: Optional[str], cluster_env_revision: Optional[int],
+        self,
+        cluster_env_name: Optional[str],
+        cluster_env_revision: Optional[int],
     ) -> Build:
         """Returns the build of the cluster to be created.
         By default we return the default cluster env, unless the user overrides.
@@ -622,7 +620,9 @@ class PrepareClusterBlock:
         """
         app_template_id = None
         cluster_environments = self.anyscale_api_client.search_cluster_environments(
-            {"name": {"equals": cluster_env_name},}
+            {
+                "name": {"equals": cluster_env_name},
+            }
         ).results
         for cluster_env in cluster_environments:
             if cluster_env.name == cluster_env_name:
@@ -630,7 +630,7 @@ class PrepareClusterBlock:
         if not app_template_id:
             raise RuntimeError(
                 f"Cluster Environment '{cluster_env_name}' not found. See environments at "
-                f'{get_endpoint("/configurations/?tab=cluster-env")}.'
+                f"{get_endpoint('/configurations/?tab=cluster-env')}."
             )
         builds = list_entities(
             self.anyscale_api_client.list_cluster_environment_builds, app_template_id
@@ -655,9 +655,7 @@ class PrepareClusterBlock:
                     latest_build_revision = build.revision
                     build_to_use = build
             self.log.debug(
-                "Using latest revision {} of {}".format(
-                    latest_build_revision, cluster_env_name
-                )
+                "Using latest revision {} of {}".format(latest_build_revision, cluster_env_name)
             )
         assert build_to_use  # for mypy
         return build_to_use
@@ -731,14 +729,13 @@ class PrepareClusterBlock:
             build_steps.append(f"echo UNIQUE_ID={config_name}")
             if build_pr:
                 build_steps.append(
-                    "cd ray && git fetch origin pull/{}/head:target && "
-                    "git checkout target".format(build_pr)
+                    "cd ray && git fetch origin pull/{}/head:target && git checkout target".format(
+                        build_pr
+                    )
                 )
             if build_commit:
                 build_steps.append(f"cd ray && git checkout {build_commit}")
-            build_steps.append(
-                'cd ray/python && sudo env "PATH=$PATH" python setup.py develop'
-            )
+            build_steps.append('cd ray/python && sudo env "PATH=$PATH" python setup.py develop')
             self.anyscale_api_client.create_cluster_environment(
                 {
                     "name": config_name,
@@ -761,9 +758,7 @@ class PrepareClusterBlock:
             build = self.anyscale_api_client.get_build(build_id).result
             if build.status in ["pending", "in_progress"]:
                 if not has_logged:
-                    url = get_endpoint(
-                        f"projects/{project_id}/app-config-details/{build_id}"
-                    )
+                    url = get_endpoint(f"projects/{project_id}/app-config-details/{build_id}")
                     self.log.info(
                         f"Waiting for cluster env to be built (see {url} for progress)...",
                         block_label=self.block_label,
@@ -810,13 +805,13 @@ class PrepareClusterBlock:
                 config_object = self.anyscale_api_client.get_default_compute_config(
                     cloud_id
                 ).result
-            compute_template_id = self._register_compute_template(
-                project_id, config_object
-            )
+            compute_template_id = self._register_compute_template(project_id, config_object)
         return compute_template_id
 
     def _register_compute_template(
-        self, project_id: str, config_object: ComputeTemplateConfig  # noqa: ARG002
+        self,
+        project_id: str,  # noqa: ARG002
+        config_object: ComputeTemplateConfig,  # noqa: ARG002
     ) -> str:
         """
         Register compute template with a default name and return the compute template id.
@@ -834,7 +829,9 @@ class PrepareClusterBlock:
         return compute_template_id
 
     def _is_equal_cluster_compute(
-        self, cluster_compute_1_id: str, cluster_compute_2_id: str,
+        self,
+        cluster_compute_1_id: str,
+        cluster_compute_2_id: str,
     ) -> bool:
         """
         Compares config fields of two ComputeTemplate objects.
@@ -914,8 +911,7 @@ class PrepareClusterBlock:
 
         if (
             self.allow_public_internet_traffic is not None
-            and self.allow_public_internet_traffic
-            != running_cluster.allow_public_internet_traffic
+            and self.allow_public_internet_traffic != running_cluster.allow_public_internet_traffic
         ):
             if print_warnings:
                 self.log.warning(

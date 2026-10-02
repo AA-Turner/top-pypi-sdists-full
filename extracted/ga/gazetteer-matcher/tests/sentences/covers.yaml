@@ -1,0 +1,66 @@
+language: en
+
+cases:
+  - sentences:
+      - which garage doors are closed
+      - tell me which garage doors are shut
+    frames:
+      - intent: HassGetState
+        combination: device_class_state
+        response_key: which
+        slots: {domain: cover, device_class: garage, state: closed}
+
+  - sentence: open the drapes
+    context_area: Living Room
+    frames:
+      - intent: HassTurnOn
+        combination: device_class_cover
+        response_key: cover_device_class
+        slots: {area: living_room, domain: cover, device_class: curtain}
+
+  - sentence: are any shutters ajar
+    frames:
+      - intent: HassGetState
+        combination: device_class_state
+        response_key: any
+        slots: {domain: cover, device_class: shutter, state: open}
+
+  - sentences:
+      - open the bedroom blinds
+      - bedroom blinds open
+    frames:
+      - intent: HassTurnOn
+        combination: name_only
+        response_key: cover
+        slots: {name: cover.bedroom_blinds}
+
+  - sentence: close the kitchen window
+    frames:
+      - intent: HassTurnOff
+        combination: name_only
+        response_key: cover
+        slots: {name: cover.kitchen_window}
+
+  - sentence: open kitchen window
+    frames:
+      - intent: HassTurnOn
+        combination: name_only
+        response_key: cover
+        slots: {name: cover.kitchen_window}
+
+  - sentence: which blinds are closed
+    frames:
+      - intent: HassGetState
+        combination: name_state
+        response_key: which
+        slots: {name: cover.bedroom_blinds, state: closed}
+
+  - sentences:
+      - set bedroom blinds to 50%
+      - bedroom blinds fifty percent
+      - set bedroom blinds halfway
+    frames:
+      - intent: HassSetPosition
+        combination: name_only
+        response_key: default
+        slots: {name: cover.bedroom_blinds, position: 50}

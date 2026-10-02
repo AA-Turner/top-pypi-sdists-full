@@ -461,6 +461,8 @@ def register_generated_tools(mcp, _get_client):
         include_over_limit: bool = False,
         page: int | None = None,
         limit: int | None = None,
+        profile_ids: str | None = None,
+        per_profile: int | None = None,
     ) -> str:
         """List accounts
 
@@ -470,7 +472,9 @@ def register_generated_tools(mcp, _get_client):
             status: Filter accounts by connection status. `connected` returns healthy accounts; `disconnected` returns accounts that need reconnection (per the same reconnection check surfaced in the dashboard). Omit to return accounts in any status. When combined with page/limit, pagination totals reflect the filtered result set.
             include_over_limit: When true, includes accounts from over-limit profiles.
             page: Page number (1-based). Must be provided together with limit to enable server-side pagination; sending only one of the two returns 400. Omit both for all accounts.
-            limit: Page size. Must be provided together with page; sending only one of the two returns 400."""
+            limit: Page size. Must be provided together with page; sending only one of the two returns 400.
+            profile_ids: Comma-separated profile IDs (up to 50) to preview, together with perProfile. The response then also carries `profileTotals`.
+            per_profile: Return a preview of each profile in profileIds: the newest account of every platform it has, topped up to at least N. Requires profileIds; cannot be combined with page and limit."""
         client = _get_client()
         try:
             response = client.accounts.list_accounts(
@@ -480,6 +484,8 @@ def register_generated_tools(mcp, _get_client):
                 include_over_limit=include_over_limit,
                 page=page,
                 limit=limit,
+                profile_ids=profile_ids,
+                per_profile=per_profile,
             )
             return _format_response(response)
         except Exception as e:
@@ -6375,6 +6381,7 @@ def register_generated_tools(mcp, _get_client):
         - `app_promotion`: requires `promotedObject.applicationId` and `promotedObject.objectStoreUrl`.
         - `catalog_sales`: Advantage+ catalog ads, for example vehicle inventory. Requires `promotedObject.productSetId`, `promotedObject.pixelId` and `promotedObject.customEventType`. Builds a catalog TEMPLATE creative from the copy fields, which may carry template tags like {{product.name}} or {{vehicle.make}}. No imageUrl or video is sent; Meta renders the visuals per catalog item. Discover catalogs via GET /v1/ads/catalogs and product sets via GET /v1/ads/catalogs/{catalogId}/product-sets. Single shape only, no creatives[], adSetId, dynamicCreative or placementAssets.
         - `page_likes`: Page Likes conversion location under OUTCOME_ENGAGEMENT (destination_type ON_PAGE, optimization PAGE_LIKES). `promotedObject.pageId` is optional and auto-filled from the connected Page. The creative CTA is fixed to LIKE_PAGE targeting that Page; headline / body / linkUrl / callToAction / imageUrl / video are all optional (Meta derives the link and the Like button from the Page).
+        - `page_visits`: Meta's "Page visits and followers" under OUTCOME_TRAFFIC (destination_type FACEBOOK_PAGE, optimization PROFILE_VISIT). `promotedObject.pageId` is optional and auto-filled from the connected Page, and `linkUrl` defaults to the Page. Meta enables Profile Visit ads per ad account: one it has not enabled is refused with Meta's "This account isn't eligible to use Profile Visit ads yet".
 
         **TikTok**
         - `conversions`: website-conversion ad group. Requires `promotedObject.pixelId`, your TikTok Pixel ID. Accepts an optional `promotedObject.customEventType` with a TikTok optimization_event code your pixel tracks (newer pixels use e.g. SHOPPING for purchase events; legacy pixels use ON_WEB_ORDER, INITIATE_ORDER, ON_WEB_REGISTER or FORM). To inherit pixel and event from an existing ad group, pass `adSetId` instead.
@@ -6438,7 +6445,7 @@ def register_generated_tools(mcp, _get_client):
                 call_to_action: Required on legacy + attach shapes for Meta. Honoured on TikTok (passes through to the Spark Ad creative's `call_to_action`) and on LinkedIn (the CTA button on the ad; defaults to LEARN_MORE when `linkUrl` is set). LinkedIn accepts: LEARN_MORE, SIGN_UP, DOWNLOAD, SUBSCRIBE, REGISTER, JOIN, ATTEND, REQUEST_DEMO, VIEW_QUOTE, APPLY, SEE_MORE, SHOP_NOW, BUY_NOW. Ignored by Google, Pinterest, and X.
                 link_url: Required on legacy + attach shapes (skip for multi-creative). On LinkedIn it's the ad's destination URL; required for `traffic` ads, optional for `engagement` / `awareness`. NOT required when `goal` is `lead_generation` (the ad opens a Lead Gen form instead of a destination). On LinkedIn, `imageUrl` + `linkUrl` publishes an ARTICLE-content creative; this is LinkedIn's article ad format, with the image as thumbnail and `longHeadline` as description. Required for OpenAI Ads (the chat card's target_url).
                 lead_gen_form_id: Lead Gen form ID to attach to the ad's creative. REQUIRED when `goal` is `lead_generation`. Create one via POST /v1/ads/lead-forms. On Meta (facebook/instagram) this is the leadgen_forms ID; the ad set's promoted_object.page_id + LEAD_GENERATION optimization + destination_type ON_AD are derived automatically from the goal. On LinkedIn this is the adForm ID; the creative's `leadgenCallToAction.destination` is set to `urn:li:adForm:{id}` and the campaign objective is set to MAX_LEAD. Forms must be owned by the sponsoredAccount (not the organization) for the URN to resolve. Also required on every Meta ATTACH (`adSetId`) call that targets a lead ad set (the form attaches per-ad; Meta rejects a formless ad in a lead ad set). `placementAssets`, `dynamicCreative` and `carouselCards` (Meta multi-card Instant-Form lead ad; `linkUrl` and per-card `linkUrl` are optional and forwarded as real destinations when sent, falling back to Meta's lead-form link when omitted) ARE supported on Meta instant-form lead ads.
-                image_url: Image creative for Meta/Google/Pinterest/LinkedIn on legacy + attach shapes (mutually exclusive with `video`). Required for LinkedIn ads unless `video` is set. Not required for Google Search campaigns. For TikTok, this field carries the VIDEO URL (the TikTok ads endpoint is video-only; the field retains the `imageUrl` name for cross-platform consistency). Ignored for X. For Google Display, treated as the landscape image (alias of `images.landscape`); supply `images.square` alongside or the request is rejected. For LinkedIn the image is uploaded to LinkedIn under the authoring Company Page (see `organizationId`); recommended ratio 1.91:1 (e.g. 1200×627). Required for OpenAI Ads (uploaded as the chat card's image; OpenAI has no video ad format).
+                image_url: Image creative for Meta/Google/Pinterest/LinkedIn on legacy + attach shapes (mutually exclusive with `video`). Required for LinkedIn ads unless `video` is set. Not required for Google Search campaigns. For TikTok, this field carries the VIDEO URL (the TikTok ads endpoint is video-only; the field retains the `imageUrl` name for cross-platform consistency). Rejected with 400 on X (an X ad is a post from body + linkUrl; promote a post that carries the image with POST /v1/ads/boost), as are headline, description, video and callToAction. For Google Display, treated as the landscape image (alias of `images.landscape`); supply `images.square` alongside or the request is rejected. For LinkedIn the image is uploaded to LinkedIn under the authoring Company Page (see `organizationId`); recommended ratio 1.91:1 (e.g. 1200×627). Required for OpenAI Ads (uploaded as the chat card's image; OpenAI has no video ad format).
                 images: Google Display (Responsive Display Ads) only. Google RDA requires both a landscape (1.91:1) and a square (1:1) marketing image; sending only one is rejected upstream as 'Too few.' (NOT_ENOUGH_*_MARKETING_IMAGE_ASSET). Supply both URLs here. Either this field or the legacy `imageUrl` can provide the landscape, but `square` has no legacy counterpart so it must be set here for Display.
                 video: Meta (facebook, instagram) and LinkedIn. Creates a single VIDEO ad. Mutually exclusive with `imageUrl`. Supply `url` to upload a file, or `id` to reuse a video already on the ad account (list them with GET /v1/ads/videos). Works on the single-ad and attach (`adSetId`) shapes; for Meta multi-creative, set `video` per entry inside `creatives[]` instead. For LinkedIn the video is uploaded to LinkedIn under the authoring Company Page (see `organizationId`) and the campaign format is set to SINGLE_VIDEO; LinkedIn ignores `thumbnailUrl` (it auto-generates the poster frame). Supply MP4 H.264/AAC, 3s-30min, 75KB-500MB.
                 creatives: Meta-only. When present, switches to the multi-creative shape:
@@ -9092,6 +9099,48 @@ def register_generated_tools(mcp, _get_client):
                 to_date=to_date,
                 source=source,
                 attribution=attribution,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get an analytics dashboard",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def analytics_get_analytics_dashboard(
+        from_date: str,
+        to_date: str,
+        profile_id: str = "all",
+        platform: str = "all",
+        compare: str | None = None,
+        top_posts: int = 5,
+        recent_posts: int = 10,
+    ) -> str:
+        """Get an analytics dashboard
+
+        Args:
+            profile_id: Profile ID, or "all" for every profile you can access.
+            platform: Platform to cover (e.g. "instagram"), or "all".
+            from_date: First day of the window (YYYY-MM-DD, inclusive). (required)
+            to_date: Last day of the window (YYYY-MM-DD, inclusive). May equal fromDate. The window covers at most 366 days. (required)
+            compare: Set to "previous_period" to also return previousTotals and previousFollowers for the window of the same length that ends the day before fromDate.
+            top_posts: How many top posts to return, ranked by engagement (likes, comments, shares and saves, the same sum as daily engagement).
+            recent_posts: How many of the most recently published posts to return."""
+        client = _get_client()
+        try:
+            response = client.analytics.get_analytics_dashboard(
+                profile_id=profile_id,
+                platform=platform,
+                from_date=from_date,
+                to_date=to_date,
+                compare=compare,
+                top_posts=top_posts,
+                recent_posts=recent_posts,
             )
             return _format_response(response)
         except Exception as e:
@@ -12047,6 +12096,38 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.calls.get_call_recording(id=id, as_=as_)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    # CHANGELOG
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List API changelog entries",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def changelog_list_changelog(
+        type: str | None = None,
+        platform: str | None = None,
+        before: str | None = None,
+        limit: int = 20,
+    ) -> str:
+        """List API changelog entries
+
+        Args:
+            type: Only entries of this type.
+            platform: Only entries tagged with this platform or area slug (see `platforms` on the entry). One slug per request.
+            before: Only entries published strictly before this instant. Pass the previous page's `nextCursor`.
+            limit"""
+        client = _get_client()
+        try:
+            response = client.changelog.list_changelog(
+                type=type, platform=platform, before=before, limit=limit
+            )
             return _format_response(response)
         except Exception as e:
             return f"Error: {e}"
@@ -15039,7 +15120,7 @@ def register_generated_tools(mcp, _get_client):
             Args:
                 platform: Social media platform to connect. `snapchat` is a closed beta with no public release date: it returns 403 `PLATFORM_BETA_RESTRICTED` until the account is approved. (required)
                 profile_id: Your Zernio profile ID (get from /v1/profiles). For WhatsApp, a Zernio-provisioned number can only be connected on the profile it was provisioned to; connecting from any other profile is rejected with a 409. (required)
-                reconnect_account_id: Refresh this existing account (a Zernio account id of the same platform on this profile; otherwise 400). The OAuth callback and the selection endpoints (select-page, select-organization, select-board, select-location, Instagram and Snapchat selection) refuse, with `reconnect_account_mismatch`, a login that would write to a different account of the platform on this profile instead of this one. While a profile holds one account per platform the login still replaces this account as before. In headless mode the marker travels in the redirect_url we hand you, so pass that URL back unchanged to the selection endpoint. On X it counts toward the OAuth state limit described under redirect_url.
+                reconnect_account_id: Refresh this existing account (a Zernio account id of the same platform on this profile; otherwise 400). The OAuth callback and the selection endpoints (select-page, select-organization, select-board, select-location, Instagram and Snapchat selection) refuse, with `reconnect_account_mismatch`, a login that would write to a different account of the platform on this profile instead of this one. In headless mode the marker travels in the redirect_url we hand you, so pass that URL back unchanged to the selection endpoint. On X it counts toward the OAuth state limit described under redirect_url.
                 redirect_url: Your custom redirect URL after connection completes. MUST be an absolute http(s) URL or a custom app scheme for mobile deeplinks (e.g. myapp://callback); a relative path is rejected with 400 INVALID_REDIRECT_URL. X (twitter) caps the OAuth `state` at 500 characters and the redirect is carried inside it, so the URL-encoded `redirect_url` must be at most 258 characters for API callers (310 for dashboard sessions; in headless mode the appended `headless=true` counts toward it); a longer one is rejected with 400 INVALID_REDIRECT_URL. Result params are appended with the URL API, so an existing query string is preserved. Standard mode appends connected={platform}&profileId=X&accountId=Y&username=Z. Headless mode appends OAuth data params for platforms requiring selection (e.g. LinkedIn orgs, Facebook pages). If no selection is needed, the account is created directly and the redirect includes accountId.
 
         On failure, the browser is sent to the same redirect_url with `error` and `platform` appended.
@@ -15068,7 +15149,8 @@ def register_generated_tools(mcp, _get_client):
           - `pages_permission_declined`: the user declined the pages_show_list permission.
           - `no_pages_granted`: the permission was granted with no Page ticked. Meta reports a user who
             manages no Page the same way, so this covers both.
-          - `granted_pages_not_listed`: Pages were ticked but Meta listed none the user can manage.
+          - `granted_pages_not_listed`: Pages were ticked but Meta listed none the user can manage, and a
+            direct read of each ticked Page returned no access token.
 
         Headless Facebook success (`step=select_page`): `userProfile` is JSON that was
         percent-encoded once before being set as a query param, so it is encoded twice on the wire.
@@ -15299,8 +15381,11 @@ def register_generated_tools(mcp, _get_client):
                 profile_id: Your Zernio profile ID (required)
                 account_id: Existing SocialAccount ID. Required for `twitter` (X Ads). Optional for `tiktok`:
         omit to enter ads-only mode (no TikTok posting account linked; ad creation uses
-        a Brand Identity instead of a TT_USER). Ignored for same-token (`facebook`,
-        `instagram`, `linkedin`, `pinterest`) and standalone (`googleads`) platforms.
+        a Brand Identity instead of a TT_USER). For same-token platforms (`facebook`,
+        `instagram`, `linkedin`, `pinterest`) it picks which posting account the ads
+        connection uses when the profile holds several of that platform; with one it can
+        be omitted, and an id that names no active account of the platform on the profile
+        is ignored. Ignored for standalone platforms (`googleads`).
                 redirect_url: Custom URL the browser is sent to once the OAuth flow finishes. Honored on
         every ads platform, including the separate-token (`tiktok`, `twitter`) and
         standalone (`googleads`) flows. MUST be an absolute http(s) URL or a custom
@@ -15619,13 +15704,18 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def connect_select_instagram_account(
-        profile_id: str, page_id: str, temp_token: str, redirect_url: str | None = None
+        profile_id: str,
+        temp_token: str,
+        page_id: str | None = None,
+        page_ids: list[str] | None = None,
+        redirect_url: str | None = None,
     ) -> str:
         """Select the Page whose Instagram account to connect
 
         Args:
             profile_id: Profile ID from your connection flow (required)
-            page_id: The Facebook Page ID selected by the user, from GET /v1/connect/instagram/select-account (required)
+            page_id: The Facebook Page ID selected by the user, from GET /v1/connect/instagram/select-account. Send this or pageIds, not both.
+            page_ids: Several Page IDs whose linked Instagram accounts to connect from one sign-in, each as its own account. With two or more distinct IDs the response lists `accounts` and `failed` instead of `account`, and the request is refused with 400 on a reconnect or an ads connect. A single distinct ID behaves exactly like pageId.
             temp_token: Long-lived Facebook user access token from the OAuth callback redirect (required)
             redirect_url: Optional custom redirect URL to return to after selection"""
         client = _get_client()
@@ -15633,6 +15723,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.connect.select_instagram_account(
                 profile_id=profile_id,
                 page_id=page_id,
+                page_ids=page_ids,
                 temp_token=temp_token,
                 redirect_url=redirect_url,
             )
@@ -15767,7 +15858,8 @@ def register_generated_tools(mcp, _get_client):
         profile_id: str,
         temp_token: str,
         user_profile: dict[str, Any] | None,
-        account_type: str,
+        account_type: str | None = None,
+        selections: list[dict[str, Any]] | None = None,
         selected_organization: dict[str, Any] | None = None,
         redirect_url: str | None = None,
     ) -> str:
@@ -15777,7 +15869,8 @@ def register_generated_tools(mcp, _get_client):
             profile_id: (required)
             temp_token: (required)
             user_profile: (required)
-            account_type: (required)
+            account_type: Send this (with selectedOrganization for an organization) or selections, not both.
+            selections: Several accounts to connect from one sign-in (yourself and/or organizations), each as its own account. With two or more entries the response lists `accounts` and `failed` instead of `account`, and the request is refused with 400 on a reconnect or an ads connect. A single entry behaves exactly like accountType.
             selected_organization
             redirect_url"""
         client = _get_client()
@@ -15787,6 +15880,7 @@ def register_generated_tools(mcp, _get_client):
                 temp_token=temp_token,
                 user_profile=user_profile,
                 account_type=account_type,
+                selections=selections,
                 selected_organization=selected_organization,
                 redirect_url=redirect_url,
             )
@@ -22362,7 +22456,7 @@ def register_generated_tools(mcp, _get_client):
         """Purchase phone number
 
            Args:
-               profile_id: Preferred profile for the number. One number = one profile, so when the requested profile already holds a number the API assigns the next free profile instead (or creates one) and returns the actual assignment in `profileId` on the response.
+               profile_id: Profile for the number, which may already hold other numbers. Without it the number goes to the default profile. The response's `profileId` carries the assignment.
         (required)
                country: ISO 3166-1 alpha-2 country for the number (default US). International numbers require usage-based billing. Tier 3/4 countries return 202 { status: "kyc_required", kycUrl }. The customer must complete KYC at that URL before the number is ordered. See GET /v1/phone-numbers/countries.
                number_type: Which of the country's offered number types to order (see `types[]` on GET /v1/phone-numbers/countries). Omitted = the country's default type, which is always the WhatsApp-safe choice. Capabilities, price, and KYC requirements are per (country, type): toll_free can never connect WhatsApp (400 when combined with connectWhatsapp:true), and wantsSms:true requires an SMS-capable type.

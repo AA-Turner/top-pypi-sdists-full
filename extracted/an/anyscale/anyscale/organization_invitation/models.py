@@ -6,8 +6,7 @@ from anyscale._private.models import ModelBase
 
 @dataclass(frozen=True)
 class OrganizationInvitation(ModelBase):
-    """Organization invitation model.
-    """
+    """Organization invitation model."""
 
     __doc_py_example__ = """\
 import anyscale
@@ -16,7 +15,9 @@ from anyscale.organization_invitation.models import OrganizationInvitation
 organization_invitations: List[OrganizationInvitation] = anyscale.organization_invitation.list()
 """
 
-    id: str = field(metadata={"docstring": "ID of the organization invitation."},)
+    id: str = field(
+        metadata={"docstring": "ID of the organization invitation."},
+    )
 
     def _validate_id(self, id: str):  # noqa: A002
         if not isinstance(id, str):

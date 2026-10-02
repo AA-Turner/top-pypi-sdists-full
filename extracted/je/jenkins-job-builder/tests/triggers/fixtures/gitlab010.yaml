@@ -1,3 +1,0 @@
-triggers:
-  - gitlab:
-      force-build-labels: ForceBuildLabel

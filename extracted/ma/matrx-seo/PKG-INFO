@@ -1,0 +1,26 @@
+Metadata-Version: 2.5
+Name: matrx-seo
+Version: 0.1.302
+Summary: Provider-neutral SEO collection contracts and canonical persistence.
+Requires-Python: >=3.13
+Requires-Dist: httpx>=0.28
+Requires-Dist: matrx-orm>=3.1.202
+Requires-Dist: matrx-scraper>=0.2.293
+Requires-Dist: matrx-utils>=2.0.58
+Requires-Dist: pydantic>=2.12
+Provides-Extra: dev
+Requires-Dist: pytest-asyncio>=0.25; extra == 'dev'
+Requires-Dist: pytest>=8.3; extra == 'dev'
+Provides-Extra: standalone
+Requires-Dist: fastapi>=0.115; extra == 'standalone'
+Requires-Dist: matrx-connect>=0.1.160; extra == 'standalone'
+Requires-Dist: uvicorn>=0.34; extra == 'standalone'
+Description-Content-Type: text/markdown
+
+# matrx-seo
+
+Provider-neutral SEO provider clients, collection contracts, normalization, replay
+fixtures, and live `seo.*` persistence for Matrx. The standalone FastAPI
+service exposes collection, cache, operation-catalog, and exact request/response evidence
+routes over the same package code used by aidream. See
+[`matrx_seo/FEATURE.md`](matrx_seo/FEATURE.md) for the current contract.

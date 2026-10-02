@@ -1,0 +1,71 @@
+# ====================================================================
+# pikobs_env.yml — Conda/Mamba environment for Pikobs
+# --------------------------------------------------------------------
+# Create:    mamba env create -f pikobs_env.yml
+# Update:    mamba env update -f pikobs_env.yml --prune
+# Activate:  mamba activate pikobs_env
+# Remove:    mamba env remove -n pikobs_env
+# ====================================================================
+ 
+name: pikobs_env
+ 
+channels:
+  - conda-forge
+  - defaults
+ 
+dependencies:
+  # --- Python interpreter ---
+  - python=3.10
+ 
+  # --- Core scientific stack ---
+  - numpy>=1.21,<2
+  - scipy>=1.10
+  - pandas>=1.5
+  - matplotlib>=3.5
+  - python-dateutil
+  - pytz
+  - packaging>=20
+  - pyyaml
+ 
+  # --- Geospatial (all from conda-forge) ---
+  - cartopy>=0.23
+  - shapely>=2.0
+  - pyproj>=3.3
+  - pyshp>=2.3
+  - geopandas>=0.14
+  - fiona>=1.9
+  - rasterio>=1.3
+  - earthpy>=0.9.4
+  - scikit-image>=0.21
+ 
+  # --- Meteorological I/O ---
+  - h5py>=3.9
+  - pygrib
+  - eccodes
+ 
+  # --- Parallelism ---
+  - dask>=2024.1
+  - cloudpickle
+  - fsspec
+  - partd
+  - toolz
+  - click
+ 
+  # --- Database ---
+  - sqlalchemy>=2.0
+ 
+  # --- Imaging ---
+  - pillow
+ 
+  # --- CLI pretty-print ---
+  - rich
+ 
+  # --- HTTP ---
+  - requests
+  - certifi
+ 
+  # --- pip-only ---
+  - pip
+  - pip:
+      - domutils>=2.2.0
+      - pikobs

@@ -1,5 +1,0 @@
----
- features:
-   - |
-     Add C++ ``LogNode`` and Python ``Log`` symbol. ``Log`` propagates the natural logarithm of its
-     predecessor element-wise.

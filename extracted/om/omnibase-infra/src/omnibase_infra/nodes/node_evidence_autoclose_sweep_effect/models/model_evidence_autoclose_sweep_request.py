@@ -1,0 +1,482 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Request model for the evidence autoclose sweep."""
+
+from __future__ import annotations
+
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from omnibase_infra.nodes.node_evidence_autoclose_sweep_effect.models.enum_evidence_autoclose_trigger import (
+    EnumEvidenceAutocloseTrigger,
+)
+
+
+class ModelEvidenceAutocloseSweepRequest(BaseModel):
+    """Request to sweep recently-merged OCC companions for governed Done flips."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
+
+    correlation_id: UUID = Field(..., description="Sweep run correlation ID.")
+    occ_repo: str = Field(
+        default="OmniNode-ai/onex_change_control",
+        description="owner/repo of the evidence-companion repository to scan.",
+    )
+    lookback_hours: int = Field(
+        default=24,
+        ge=1,
+        le=24 * 30,
+        description="Scan companions merged within this many hours of now.",
+    )
+    # ------------------------------------------------------------------
+    # OMN-17342 — the BACKFILL arm.
+    #
+    # `lookback_hours` above is a FRESHNESS window: it sees each merged
+    # companion once, in the ~6h after it merges, and then never again. There is
+    # no cursor and no watermark, so a companion that is scanned twelve times
+    # and reaches no verdict in any of them ages out permanently. Measured
+    # 2026-09-05 across the two beta sprint projects: 118 of 238 open tickets
+    # carry a merged OCC companion, 5 of them inside the live window and 113
+    # outside it for good — 74 of those carrying the behaviour-proof receipt
+    # that is the hardest flip conjunct to satisfy. Those are not withheld
+    # flips. A withheld flip is a decision; this is the absence of one.
+    #
+    # Widening `lookback_hours` is NOT the fix and these fields are not a
+    # disguised way to do it. `dod_verify` dominates the run budget (~15s per
+    # ticket under sweep concurrency, ~34s standalone — OMN-16961's
+    # measurement) against a 30-minute cadence, so a window wide enough to
+    # reach the backlog would overrun the cadence, and would overrun it worse
+    # every time the board grew. The arm therefore takes a bounded ROTATING
+    # SLICE of the wider window: bounded per tick so the run fits the cadence,
+    # rotating so the tail still drains.
+    #
+    # It is OFF unless asked for. `backfill_lookback_hours=0` means the run has
+    # exactly the single-arm behaviour it had before this field existed —
+    # same candidates, same I/O, same counters.
+    #
+    # ARMED, 2026-09-05 (OMN-17658 / OMN-17950), in the same commit as the
+    # fences it was deliberately sequenced behind. The default was 0 — off
+    # unless a dispatcher asked — precisely because a wide arm without the
+    # recurring-companion refusal (OMN-17934) and the children conjunct
+    # (OMN-17658) would have reproduced the OMN-17292 re-flip across the whole
+    # backlog instead of once. The live enumeration proved that in one line:
+    # OCC#8193, which binds OMN-17292, is in the backfill pool. Both fences are
+    # now in this same binary, so the arm is armed HERE, in the contract's own
+    # default, and not by an expression in a workflow — same authority split as
+    # `scheduled_apply`. 168h = 7 days: measured 2026-09-05 (dispatch run
+    # 33944132063) to yield a pool of 168 companions against a per-tick slice
+    # of 5, i.e. ~34 ticks (~17h) to sweep the pool once.
+    backfill_lookback_hours: int = Field(
+        default=168,
+        ge=0,
+        le=24 * 90,
+        description=(
+            "Second, wider enumeration window in hours. 0 (the default) "
+            "disables the backfill arm entirely. When > 0, companions merged "
+            "between this bound and `lookback_hours` form a pool from which a "
+            "bounded rotating slice is offered to the SAME downstream pipeline "
+            "-- binding, Linear state, dod_verify, the OMN-16736 AC-coverage "
+            "guard, the OMN-15911 behaviour conjunct, flip or gap. Nothing "
+            "about what counts as proven changes; only which candidates are "
+            "asked."
+        ),
+    )
+    backfill_max_candidates: int = Field(
+        default=5,
+        ge=1,
+        le=100,
+        description=(
+            "Hard per-run bound on how many backfill candidates reach "
+            "dod_verify. This is the run-budget guard and the thing that must "
+            "not track the size of the board: at ~15s per verifier call, 5 is "
+            "~75s of added work against a 30-minute cadence. Raising it trades "
+            "drain rate for run duration and nothing else -- it can never "
+            "widen what the flip predicate accepts."
+        ),
+    )
+    backfill_pool_size: int = Field(
+        default=200,
+        ge=1,
+        le=1000,
+        description=(
+            "Cap on how many merged companions the wider window enumerates "
+            "before slicing. Bounds the `gh api` PR-list pagination, which is "
+            "cheap per page but not free; the per-PR file listing is bounded "
+            "separately and much more tightly, because the Linear state "
+            "short-circuit now discards completed tickets before it runs."
+        ),
+    )
+    # OMN-18748. THIS VALUE IS A CLAIM ABOUT THE CRON, AND IT WENT STALE.
+    #
+    # It was 30, matching the `*/30 * * * *` schedule the sweep ran on when the
+    # backfill arm shipped. The cron moved to `0 */2 * * *` on 2026-09-15 and
+    # this did not follow, so from that day consecutive scheduled runs advanced
+    # the tick by FOUR while the slice was five wide: the start index jumped
+    # twenty positions per run and five were read. Against the live pool of 150
+    # that left 75 positions reachable and 75 not, indefinitely — not a slow
+    # drain, a partition. Measured on run 35299192253's own receipt; found
+    # because a collaborator noticed OMN-18172 had never once appeared as a
+    # candidate although verified work sat on it.
+    #
+    # The starvation was silent in the worst available way: a ticket in the
+    # unreachable half is never refused, never commented and never named in any
+    # receipt, which is byte-for-byte how a ticket with no evidence reads.
+    #
+    # `tests/ci/test_evidence_autoclose_sweep_rotation_period_omn18748.py`
+    # reads the cron out of the workflow and fails if the two disagree, so the
+    # next cadence change is a red test naming both files rather than three
+    # more days of half a pool.
+    backfill_rotation_minutes: int = Field(
+        default=120,
+        ge=1,
+        le=1440,
+        description=(
+            "Cadence, in minutes, that the rotating slice advances on. The "
+            "slice index is derived from the run's own wall clock divided by "
+            "this period, so two runs in the same period examine the same "
+            "slice (a retry re-does its work rather than skipping a slice) and "
+            "consecutive scheduled runs advance by exactly one. It MUST equal "
+            "the workflow's real cron interval: a period shorter than the "
+            "interval skips whole slices every run and starves part of the "
+            "pool permanently (OMN-18748). The default matches the sweep's "
+            "`0 */2 * * *` schedule and is pinned against it by a CI test."
+        ),
+    )
+
+    # ------------------------------------------------------------------
+    # OMN-17658 — the arming authority, and where it lives.
+    #
+    # Until this field existed, whether an UNATTENDED run wrote to Linear was
+    # decided by one disjunct inside a GitHub Actions expression:
+    # `github.event_name == 'schedule' || (...)`. That is an arming authority
+    # for every write nobody is watching, and it was invisible to this
+    # contract, untyped, and changeable by anyone who could edit a YAML file
+    # without touching the node the contract governs.
+    #
+    # `trigger` carries the FACT (what launched me) and `scheduled_apply`
+    # carries the POLICY (may a run of that class write). Splitting them is
+    # what lets the workflow stop deciding: it now reports its own event and
+    # passes no arming value at all, and the contract below is the single place
+    # a scheduled write is authorised from.
+    #
+    # `apply` (kept, below) is unchanged and remains the DISPATCH-time request.
+    # The effective write mode is `apply or (trigger is SCHEDULE and
+    # scheduled_apply)`, which keeps a dispatch that leaves the box unticked a
+    # dry run even while the schedule is armed — that is the rehearsal surface,
+    # and it must survive arming.
+    trigger: EnumEvidenceAutocloseTrigger = Field(
+        default=EnumEvidenceAutocloseTrigger.DISPATCH,
+        description=(
+            "What launched this run. DISPATCH is the default because a caller "
+            "that names nothing is not the schedule — an un-named "
+            "construction must never pick up the unattended arming authority "
+            "by omission."
+        ),
+    )
+    scheduled_apply: bool = Field(
+        default=True,
+        description=(
+            "THE arming authority for unattended runs (OMN-17658). When True, "
+            "a run whose `trigger` is SCHEDULE writes to Linear without any "
+            "operator input; when False, the same run reaches every decision "
+            "and writes none. It does not affect a dispatch, which is governed "
+            "by `apply`. Declared here rather than in the workflow so that "
+            "disarming the closer is a contract change with a diff, a review "
+            "and a test, instead of an edit to an expression string."
+        ),
+    )
+    # ------------------------------------------------------------------
+    # OMN-17658 — the per-run blast-radius bound.
+    max_flips_per_run: int = Field(
+        default=5,
+        ge=0,
+        le=100,
+        description=(
+            "Hard cap on how many tickets one run may move to Done. Candidates "
+            "that clear every conjunct after the budget is spent are recorded "
+            "SKIPPED_FLIP_BUDGET_EXHAUSTED and offered again next run — a "
+            "truncation, never a verdict. 0 means no flip may be written at "
+            "all, which is a fail-closed value rather than 'unbounded'. This "
+            "is what makes a defect in the predicate cost 5 wrong Dones per "
+            "tick instead of the whole board: the first applying scheduled run "
+            "(33932169358) flipped four tickets and one of them was wrong."
+        ),
+    )
+    # ------------------------------------------------------------------
+    # OMN-17658 — the persisted half of the auto-disarm.
+    disarmed_by_ticket: str = Field(
+        default="",
+        description=(
+            "A ticket id the caller asserts previously received an UNSAFE "
+            "closer flip. Non-empty disarms the whole run before its first "
+            "candidate: every decision is still reached and reported, and none "
+            "is written. Plumbed by the workflow from the repo variable "
+            "ONEX_AUTOCLOSE_DISARMED, the same reachable-from-every-event "
+            "shape the ONEX_AUTOCLOSE_DISABLED kill switch uses (OMN-16792), "
+            "so a disarm survives the run that discovered the problem and "
+            "binds the scheduled runs nobody is watching.\n\n"
+            "It is weaker than the kill switch and deliberately so: a halted "
+            "run does zero I/O and produces no receipt, whereas a disarmed run "
+            "still enumerates, still verifies and still reports what it WOULD "
+            "have done — which is the evidence an operator needs to decide "
+            "whether to re-arm."
+        ),
+    )
+    # ------------------------------------------------------------------
+    # OMN-17658 / OMN-17934 — the Linear state-history read that both the
+    # prior-revert fence and the bound flip readback are resolved from.
+    history_page_size: int = Field(
+        default=100,
+        ge=1,
+        le=250,
+        description=(
+            "Page size for the per-ticket `stateHistory` walk. Mirrors "
+            "node_sync_revert_watchdog_effect, which reads the same connection "
+            "for the same reason."
+        ),
+    )
+    history_max_pages: int = Field(
+        default=3,
+        ge=1,
+        le=20,
+        description=(
+            "Page cap for the per-ticket history walk. The walk is "
+            "newest-first, so hitting the cap truncates the OLDEST end — the "
+            "entries the prior-revert fence and the flip readback depend on "
+            "are always present. A reopen older than the walk resolves to 'not "
+            "seen', which is the only direction this read is allowed to be "
+            "wrong in and is why the cap is small."
+        ),
+    )
+
+    # ------------------------------------------------------------------
+    # OMN-17658 follow-up — the readback reads a connection that LAGS.
+    #
+    # Measured on the first scheduled run under the fences (33958237006,
+    # f8b623672, 2026-09-05T09:33Z): the sweep flipped OMN-17658, `issueUpdate`
+    # returned success, the ticket's own history shows `In Progress -> Done` at
+    # 09:34:43.990Z — and the immediate post-write read of that same connection
+    # showed nothing, so the run recorded ERROR_READBACK_UNCONFIRMED on a write
+    # that had landed.
+    #
+    # A single immediate read of an eventually consistent connection is not a
+    # proof of absence, it is a race, and this one loses every time: without a
+    # retry `tickets_flipped` can never leave 0 and the closer is silently
+    # reduced to a mechanism that writes Done and reports that it did not.
+    readback_max_attempts: int = Field(
+        default=4,
+        ge=1,
+        le=20,
+        description=(
+            "How many times the post-write state-history read may be retried "
+            "before the flip is recorded ERROR_READBACK_UNCONFIRMED. The first "
+            "attempt is immediate and costs nothing extra on a connection that "
+            "is already consistent; only a genuine lag pays the delay."
+        ),
+    )
+    readback_delay_seconds: int = Field(
+        default=3,
+        ge=0,
+        le=60,
+        description=(
+            "Delay between post-write readback attempts. 0 is a real value and "
+            "is what tests use — the retry must be exercisable without waiting "
+            "out a production backoff."
+        ),
+    )
+
+    # OMN-16106. Bounded retry for the sweep's Linear reads. Every one of them
+    # is consumed by a fail-closed caller, so a single lost HTTP call ends the
+    # candidate's run as ERROR_LINEAR_API with no verdict reached about it.
+    # Measured on the live 30-minute schedule 2026-09-05: runs 33970676719 and
+    # 33972096907 dropped 8-of-18 and 5-of-13 bound candidates that way, and
+    # OMN-17160 / OMN-17934 errored on the first tick and reached a real
+    # verdict on the second with nothing about them changed. Retrying a
+    # transient fault is therefore not defensive padding — without it the
+    # closer loses roughly 40% of its pool to the network before the flip
+    # predicate is ever consulted.
+    linear_retry_max_attempts: int = Field(
+        default=4,
+        ge=1,
+        le=10,
+        description=(
+            "Total attempts (not extra retries) for each Linear GraphQL call "
+            "whose failure is retryable: a transport error or timeout, HTTP "
+            "429, HTTP 5xx, or a GraphQL error naming a rate limit. 1 "
+            "restores the pre-OMN-16106 single-shot behaviour. Credential, "
+            "binding and malformed-query failures are NOT retried at any "
+            "value — they reproduce exactly and only burn the budget."
+        ),
+    )
+    linear_retry_base_delay_seconds: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=30.0,
+        description=(
+            "First-retry backoff window, doubled per subsequent attempt and "
+            "jittered within its window, capped at 30s per sleep and "
+            "overridden by a sane `Retry-After`. 0.0 is a real value and is "
+            "what tests use — the retry path must be exercisable without "
+            "waiting out a production backoff, exactly as "
+            "`readback_delay_seconds` records for the readback loop."
+        ),
+    )
+
+    apply: bool = Field(
+        default=False,
+        description=(
+            "DRY-RUN is the default (apply=False): the sweep logs every "
+            "decision it WOULD make but never calls the Linear mutation "
+            "API. Pass apply=True to actually flip Done / post comments."
+        ),
+    )
+    max_companions: int = Field(
+        default=50,
+        ge=1,
+        le=500,
+        description="Safety cap on the number of merged companions scanned per run.",
+    )
+    dispatch_cwd: str = Field(
+        default="",
+        description=(
+            "Working directory to run `onex skill dod_verify <ticket>` from. "
+            "Empty string means: inherit the sweep process's own cwd. "
+            "OMN-16846: this no longer selects the verifier's ENVIRONMENT. "
+            "The verifier is dispatched from the sweep interpreter's own "
+            "`onex` (see `_dod_verify_argv`), so the venv carrying "
+            "node_dod_verify is decided by how the sweep was composed rather "
+            "than by where it stands -- which is what lets the product clone "
+            "the behaviour checks run pytest in stay lock-exact. This field "
+            "now only sets the cwd the verifier process inherits."
+        ),
+    )
+    dod_verify_timeout_seconds: int = Field(
+        default=300,
+        ge=1,
+        le=1800,
+        description="Timeout for each `onex skill dod_verify` subprocess call.",
+    )
+    gh_timeout_seconds: int = Field(
+        default=90,
+        ge=1,
+        le=1800,
+        description=(
+            "Timeout for each `gh api` subprocess call (PR-list enumeration "
+            "and per-PR file listing). Raised from a prior hardcoded 30.0s "
+            "default that timed out in CI (OMN-16106: duration_ms==30048 on "
+            "a live self-hosted-runner GitHub enumeration)."
+        ),
+    )
+    exclude_tickets: tuple[str, ...] = Field(
+        default=(),
+        description=(
+            "Ticket ids this run must refuse before it reads anything about "
+            "them (OMN-17891). Matched case-insensitively after stripping "
+            "surrounding whitespace; each match is recorded as "
+            "SKIPPED_EXCLUDED and costs zero Linear I/O.\n\n"
+            "WHAT IT MAY ASSERT IS A CONCURRENT WRITE, AND NOTHING ELSE. "
+            "Operator ruling, firm, 2026-09-05T20:45:51Z (omni_home "
+            "docs/tracking/ROLLING_WORK_LEDGER.md:3372): ticket closure is "
+            "ownership-agnostic — when the acceptance criteria are met on "
+            "live evidence the ticket is closed, whoever it is assigned to, "
+            "and assignee or fence ownership never holds a Done-eligible "
+            "ticket open. The one thing this sweep genuinely cannot derive "
+            "for itself is whether another lane is writing this ticket RIGHT "
+            "NOW, so that is the one thing a caller may assert here, "
+            "evidenced by a live ledger CLAIM row for the ticket inside the "
+            "run's own window. A ticket is not fenced for being somebody "
+            "else's; it is fenced for being mid-write.\n\n"
+            "This matters because a refusal here is SILENT: SKIPPED_EXCLUDED "
+            "is recorded before any Linear read, so a fenced ticket produces "
+            "no verdict at all and nothing on the board says why. A standing "
+            "list therefore does not go stale in a visible direction — it "
+            "simply stops adjudicating, indefinitely. On 2026-09-05 the "
+            "standing repo variable carried 26 ids selected by who was "
+            "working them. node_version 1.7.0 NARROWED that list, it did not "
+            "empty it: measured 2026-09-06, 13 ids remain, each backed by a "
+            "ledger CLAIM row. A residual that stops shrinking is the failure "
+            "mode to look for.\n\n"
+            "This is a CALLER ASSERTION, never a derived fact. The node reads "
+            "no ledger, no assignee, and no ownership signal — before this "
+            "field existed an apply run's only refusals were a Linear label "
+            "set beforehand, an already-completed state, a binding-hygiene "
+            "skip, and the global ONEX_AUTOCLOSE_DISABLED kill switch, none "
+            "of which can decline ONE candidate. Whoever dispatches the run "
+            "supplies the list and owns its accuracy; the enum value is "
+            "distinct from SKIPPED_LABEL precisely so the audit record says "
+            "which authority refused.\n\n"
+            "It does not weaken the kill switch: a halted run does zero work "
+            "regardless of what this names, so an exclusion list can never "
+            "opt one ticket back into a halted sweep."
+        ),
+    )
+    # ------------------------------------------------------------------
+    # OMN-16106 Item 1 — THE SELECTOR, and why it REPLACES discovery.
+    #
+    # Both existing arms are WINDOWS over merged companions.
+    # `lookback_hours` sees a companion once, in the hours after it merges.
+    # `backfill_lookback_hours` re-offers older ones on a rotating slice of
+    # `backfill_max_candidates` drawn from a pool capped at
+    # `backfill_pool_size`. Neither can be aimed at a named ticket:
+    # `exclude_tickets` only subtracts, so acting on one aged ticket meant
+    # waiting for its slice — measured 2026-09-05 at ~34 ticks (~17h) for a
+    # single pass of a 168-companion pool — or widening the window past the
+    # run budget that `dod_verify` (~15s per candidate) already dominates.
+    #
+    # Empty (the default, and what every scheduled tick carries) leaves
+    # discovery exactly as it was: same candidates, same order, same I/O.
+    #
+    # Non-empty is RESTRICTIVE, and that is the design rather than a
+    # convenience. The offered tickets REPLACE discovery; they are not
+    # prepended to it. A selector that added to the forward window would let a
+    # one-ticket request drag an unscoped five-wide applying run along behind
+    # it, which is exactly what a bounded pilot must not be able to do by
+    # accident. Each nominated ticket's NEWEST MERGED companion is resolved
+    # directly, so a companion outside the freshness window, outside the pool
+    # and outside the current slice is still reachable — filtering the slice
+    # never could have reached it.
+    #
+    # What it does NOT touch: anything about what counts as proven. The
+    # resolved companion goes through the same changed-file binding check and
+    # the same per-ticket path as any other candidate, so the verifier, the
+    # AC-coverage guard, the behaviour conjunct, the children conjunct, the
+    # cited-PR conjunct, the prior-revert fence, the label gate, the disarm,
+    # the flip budget, the comment dedup and the bound readback all still gate
+    # the write. `exclude_tickets` wins over this field, and wins before the
+    # companion search runs: a caller asserting "another lane is writing this
+    # ticket right now" must not be overridden by the same caller's own
+    # nomination.
+    #
+    # There is deliberately NO standing repo variable for this. The standing
+    # fence ONEX_AUTOCLOSE_EXCLUDE is a variable because a FENCE has to reach
+    # the runs nobody is watching. An offer is the opposite kind of thing — it
+    # selects what a run acts on — so a standing one would silently narrow
+    # every scheduled tick to a fixed list and stop the closer adjudicating the
+    # board at all, a restriction nobody typed on every run nobody sees.
+    offer_tickets: tuple[str, ...] = Field(
+        default=(),
+        description=(
+            "Ticket ids this run must adjudicate INSTEAD of its ordinary "
+            "forward-window and rotating-backfill discovery (OMN-16106). "
+            "Empty (the default) preserves discovery unchanged. Non-empty is "
+            "restrictive: each id's newest merged OCC companion is resolved "
+            "directly -- reachable outside the freshness window, outside the "
+            "pool cap and outside the current slice -- and routed through the "
+            "identical binding check and per-ticket pipeline. It widens WHICH "
+            "ticket is asked and narrows the run to that set; it can never "
+            "widen what the flip predicate accepts. Matched case-insensitively "
+            "after stripping surrounding whitespace. `exclude_tickets` wins "
+            "over an offer, before any GitHub or Linear I/O about it."
+        ),
+    )
+    close_if_done_label: str = Field(
+        default="close-if-done",
+        description=(
+            "Linear label name that routes a ticket to the manual "
+            "decision-only close path instead of this sweep."
+        ),
+    )
+
+
+__all__ = ["ModelEvidenceAutocloseSweepRequest"]

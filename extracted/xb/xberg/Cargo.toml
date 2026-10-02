@@ -1,0 +1,144 @@
+[workspace]
+resolver = "2"
+members = ["crates/xberg-py"]
+
+[workspace.package]
+version = "1.3.2"
+edition = "2024"
+rust-version = "1.92"
+authors = ["Na'aman Hirschfeld <naaman@xberg.io>"]
+license = "MIT"
+repository = "https://github.com/xberg-io/xberg"
+homepage = "https://xberg.io"
+
+[workspace.dependencies]
+ahash = { version = "0.8.12", features = ["serde"] }
+anyhow = "1.0"
+async-trait = "0.1.92"
+base64 = "0.23.1"
+blake3 = "1"
+bytes = { version = "1", features = ["serde"] }
+candle-core = { version = "0.11", default-features = false }
+candle-nn = { version = "0.11", default-features = false }
+candle-transformers = { version = "0.11", default-features = false }
+cc = "1.5"
+cfb = "0.15"
+chrono = "0.4"
+clap = { version = "4.6", features = ["derive", "color", "suggestions"] }
+comrak = { version = "0.55", default-features = false }
+console_error_panic_hook = "0.1"
+# ~keep held at 1.7.1: 1.7.2 relocated CrawlConfig within its crate, and alef can no longer
+# resolve the nested config types by path -- it sanitizes CrawlConfig.{browser,proxy,ssrf,
+# content,document_content_encoding,crawl_strategy} to `String`, degrading those fields in
+# every binding. Bracketed on an otherwise identical tree: `alef verify` exits 0 with 1.7.1
+# and 1 with 8 lossy_sanitized_surface violations on 1.7.2. Raise it only together with an
+# alef that maps those types, and re-check `alef verify`. Verified 2026-09-25.
+crawlberg = { version = "1.8.0", default-features = false }
+criterion = { version = "0.8", features = ["html_reports"] }
+dbase = "0.8"
+flate2 = "1.1"
+fs2 = "0.4.3"
+futures = "0.3"
+getrandom = { version = "0.4.3", features = ["wasm_js"] }
+hex = "0.4.3"
+html-to-markdown-rs = { version = "3.15", default-features = false }
+image = { version = "0.25.10", default-features = false }
+itertools = "0.15"
+js-sys = "0.3"
+
+lazy_static = "1.5.0"
+libc = "0.2.189"
+# Builds a bundled zlib from source (`static`) for the target, so the vendored
+# librevenge RVNGZipStream.cpp can `#include <zlib.h>` and link zlib even under
+# cross-compilation (zigbuild aarch64/musl) where no host libz is usable.
+# Only consumed by crates/xberg-libwpd. ~keep
+libz-sys = { version = "1.1", features = ["static"] }
+liter-llm = { version = "2.1.1", default-features = false }
+# `std` is NOT a default feature of `log`. `pdf::render`'s glyph-drop warning capture
+# calls `log::set_boxed_logger`, which only exists behind it, so a feature set that
+# happens not to pull `log/std` in transitively fails to compile (`pdf` without `ocr`
+# did exactly that). Requesting it here makes the requirement explicit instead of
+# leaving it to whichever unrelated crate enables it first.
+log = { version = "0.4", features = ["std"] }
+memmap2 = "0.9"
+mime = "0.3.17"
+minijinja = "2"
+nom-exif = { version = "3.8", default-features = false }
+num_cpus = "1.17.0"
+once_cell = "1.21.4"
+
+ort = { version = "2.0.0-rc.13", default-features = false, features = ["std", "api-18"] }
+parking_lot = "0.12.5"
+# Our fork of pdfium-render. `package =` keeps the extern crate name `pdfium_render`
+# (matches the `[lib] name = "pdfium_render"` in crates/xberg-pdfium-render/Cargo.toml),
+# so any `use pdfium_render::...` call site is unaffected. Path dependency inside the
+# workspace; needs no [patch.crates-io] entry (see the note above that block).
+pdfium-render = { package = "xberg-pdfium-render", version = "1.3.2" }
+rayon = "1.12.0"
+reqwest = { version = "0.13.5", default-features = false }
+# SVG rendering (resvg re-exports tiny_skia and usvg; default-features = false
+# drops text, system-fonts, memmap-fonts, raster-images — all pure-Rust, WASM-safe).
+resvg = { version = "0.48", default-features = false }
+rusqlite = { version = "0.40", default-features = false, features = ["bundled", "hooks", "serialize"] }
+same-file = "1.0.6"
+sceptre = { version = "0.7.2", default-features = false }
+
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = { version = "1.0.151" }
+serde_toon_format = "0.1"
+sha2 = "0.11"
+similar = "3"
+sqlite-vec = "0.1"
+tar = "0.4"
+tempfile = "3.27.0"
+thiserror = "2.0.21"
+# `process`, `fs`, and `rt-multi-thread` are deliberately excluded from this baseline: tokio's
+# own wasm32 gate (tokio-1.x src/lib.rs) hard-`compile_error!`s unless only
+# sync/macros/io-util/rt/time are active (`process` additionally pulls mio's
+# `net`/`os-poll`/`os-ext`, which fails to build on wasm32 regardless). These OS-dependent
+# features are re-added only on consuming crates' `[target.'cfg(not(target_arch =
+# "wasm32"))'.dependencies]` blocks (see crates/xberg/Cargo.toml and crates/xberg-cli/Cargo.toml).
+tokio = { version = "1.53.1", features = [
+    "rt",
+    "macros",
+    "sync",
+    "time",
+    "io-util",
+] }
+toml = "1.1.6"
+tracing = "0.1"
+# Pure-Rust ONNX inference engine (Sonos). Alternative InferenceBackend to `ort` on
+# no-ORT targets (wasm32, x86_64-linux-android). The ONNX frontend crate is CPU-only
+# and WASM-safe; the top-level `tract` facade instead defaults to CUDA and bundles
+# GPU backends, so it is unusable here. See issue #1275.
+tract-onnx = { version = "0.23.8", default-features = false }
+tree-sitter-language-pack = { version = "1.20.0", default-features = false, features = ["serde"] }
+url = "2.5.8"
+# usvg (re-exported by resvg) with only the `writer` feature so `Tree::to_string`
+# / `WriteOptions` are available for SVG sanitize re-serialization. `writer` pulls
+# just xmlwriter + base64 — pure-Rust, WASM-safe, no fonts. resvg 0.48 forwards no
+# `writer` feature of its own, so usvg is enabled directly; versions unify at 0.48.
+usvg = { version = "0.48", default-features = false, features = ["writer"] }
+wasm-bindgen = { version = "0.2", features = ["enable-interning"] }
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = [
+    "Blob",
+    "File",
+    "FileReader",
+    "console",
+    "TextDecoder",
+    "ImageData",
+    "Window",
+    "Response",
+] }
+xberg = { version = "1.3.2", default-features = false }
+xberg-gliner = { version = "1.3.2", default-features = false }
+# The native PDF engine, vendored into this workspace at crates/xberg-native-pdf. It began as
+# a fork of a third-party project; see ATTRIBUTIONS.md, which is now the ONLY place in this
+# repo that names the upstream. There is deliberately no `package =` alias: the extern crate
+# name is the real one, so `use xberg_native_pdf::...` at every call site, and the tracing log
+# target (`module_path!()`, rooted at `[lib] name`) matches the crate you are reading. An alias
+# hiding a different lib name is what cost twelve days of dropped font warnings in GH#697.
+# Path dependency inside the workspace; needs no [patch.crates-io] entry.
+xberg-native-pdf = { version = "1.3.2" }
+

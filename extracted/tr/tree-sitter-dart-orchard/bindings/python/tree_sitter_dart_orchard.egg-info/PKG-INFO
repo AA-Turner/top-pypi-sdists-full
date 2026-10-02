@@ -1,0 +1,50 @@
+Metadata-Version: 2.4
+Name: tree-sitter-dart-orchard
+Version: 0.7.0
+Summary: Parser for Dart files
+Author-email: Tim Whiting <tim@whitings.org>
+License: MIT
+Project-URL: Homepage, https://codeberg.org/grammar-orchard/tree-sitter-dart-orchard
+Keywords: incremental,parsing,tree-sitter,dart-orchard
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Compilers
+Classifier: Topic :: Text Processing :: Linguistic
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Provides-Extra: core
+Requires-Dist: tree-sitter~=0.24; extra == "core"
+Dynamic: license-file
+
+# tree-sitter-dart-orchard
+
+[![crates][crates]](https://crates.io/crates/tree-sitter-dart-orchard)
+[![pypi][pypi]](https://pypi.org/project/tree-sitter-dart-orchard)
+[![npm][npm]](https://www.npmjs.com/package/tree-sitter-dart-orchard)
+
+This is a tree-sitter grammar for Dart.
+
+### Using it
+
+You can obtain this parser in various formats:
+* as an archive from [the Releases page](/grammar-orchard/tree-sitter-dart-orchard/releases), which contains all the generated files (bindings, parser code)
+* as a Rust crate: `cargo add tree-sitter-dart-orchard`
+* as a Python package: `pip install tree-sitter-dart-orchard`
+* as an NPM package: `npm install tree-sitter-dart-orchard`
+
+### Contributing
+
+Contributions are welcome, so are co-maintainers.
+
+Unlike many grammar repositories, this one does not track generated files.
+After cloning this repository, you'll need to run `tree-sitter generate` to obtain the parser.
+If you want to use it via bindings, you'll also need to run `tree-sitter init`.
+
+### Origin
+
+This project was forked from https://github.com/cfping/tree-sitter-dart, to [ease the use of and collaboration on this grammar](https://codeberg.org/grammar-orchard#for-contributors).
+
+[crates]: https://img.shields.io/crates/v/tree-sitter-dart-orchard?logo=rust
+[pypi]: https://img.shields.io/pypi/v/tree-sitter-dart-orchard?logo=pypi&logoColor=ffd242
+[npm]: https://img.shields.io/npm/v/tree-sitter-dart-orchard?logo=npm

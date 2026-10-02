@@ -1,0 +1,705 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# OmniMemory Pre-commit Configuration
+# Aligned with ONEX ecosystem standards from omnibase_core
+#
+# REQUIREMENTS:
+# ====================================
+# Python version: 3.12 (must match .github/workflows/test.yml PYTHON_VERSION)
+#
+# CONFIGURATION FILES (shared with CI):
+# ====================================
+# - pyproject.toml: ruff settings [tool.ruff], mypy settings [tool.mypy]
+#   - Ruff version: 0.15.6 (synchronized with pre-commit repo)
+#   - Mypy version: uses poetry env (local hook, matches CI exactly)
+#   - Pyright version: 1.1.391 (synchronized with pre-commit repo)
+# - pyrightconfig.json: pyright settings (typeCheckingMode: basic, python 3.12)
+#
+# CI COMPATIBILITY:
+# ====================================
+# Python hooks use language: python or official repos (NOT language: system).
+# This ensures hooks work in CI environments where Poetry may not be installed.
+# Pre-commit manages isolated Python environments for each hook.
+#
+# Exceptions using language: system:
+#   - clean-tmp-directory: bash script only, no Python dependencies, safe for CI
+#   - contract-linter, io-audit: require Poetry (uses `poetry run`). CI installs
+#     Poetry explicitly. Locally, `poetry install` must be run first.
+#   - mypy: uses `poetry run` for exact dependency match with CI.
+#
+# HOOK-TO-CI SYNCHRONIZATION MAP:
+# ====================================
+# Pre-commit Hook                   | CI Workflow Job          | Command
+# ----------------------------------|--------------------------|----------------------------------
+# migration-freeze-check (pre-commit)| migration-freeze        | ./scripts/check_migration_freeze.sh [--ci]
+# ruff-format (pre-commit)          | lint                     | ruff format --check src/ tests/
+# ruff (pre-commit)                 | lint                     | ruff check src/ tests/
+# mypy-type-check (pre-push)        | lint                     | mypy --show-error-codes --no-error-summary src/omnimemory
+# pyright (pre-push)                | pyright                  | pyright src/omnimemory
+# validate-pydantic-patterns        | onex-validation          | python scripts/validation/validate_pydantic_patterns.py src/
+# validate-single-class-per-file    | onex-validation          | python scripts/validation/validate_single_class_per_file.py src/omnimemory/models/
+# validate-enum-casing              | onex-validation          | python scripts/validation/validate_enum_casing.py src/omnimemory/enums/
+# validate-no-backward-compatibility| onex-validation          | python scripts/validation/validate_no_backward_compatibility.py -d src/
+# validate-secrets                  | onex-validation          | python scripts/validation/validate_secrets.py src/
+# onex-validate-naming              | onex-validation          | python scripts/validation/validate_naming.py src/
+# validate-http-imports             | onex-validation          | python scripts/validation/validate_http_imports.py src/
+# validate-kafka-imports            | onex-validation          | python scripts/validation/validate_kafka_imports.py src/
+# validate-model-locations          | onex-validation          | python scripts/validation/validate_model_locations.py src/
+# validate-no-transport-imports     | transport-import-guard   | python scripts/validate_no_transport_imports.py --src-dir src/omnimemory --exclude src/omnimemory/runtime --whitelist tests/audit/transport_import_whitelist.yaml
+# contract-linter                   | contract-validation      | python -m omnimemory.tools.contract_linter <contracts>
+# io-audit                          | io-audit                 | python -m omnimemory.audit
+#
+# IMPORTANT: When modifying any hook, update the corresponding CI job in .github/workflows/test.yml
+#
+# PERFORMANCE OPTIMIZATION:
+# ====================================
+# Two-stage validation strategy for optimal developer experience:
+#
+# PRE-COMMIT:
+#   - Formatting checks (ruff format --check, yamlfmt)
+#   - Linting checks (ruff check)
+#   - Basic file checks (whitespace, large files, merge conflicts)
+#   - Security checks (secrets)
+#   - ONEX pattern validations (pydantic, single-class, enums, naming)
+#   NOTE: Run `ruff format src/ tests/` and
+#         `ruff check --fix src/ tests/` manually to auto-fix
+#
+# PRE-PUSH (quick validation before sharing):
+#   - mypy type checking (full src/omnimemory - synced with CI)
+#   - pyright type checking (full src/omnimemory - synced with CI)
+#
+# USAGE:
+#   pre-commit install                    # Install pre-commit hooks
+#   pre-commit install --hook-type pre-push  # Install pre-push hooks
+#   pre-commit run --all-files            # Run all pre-commit hooks
+#   pre-commit run --all-files --hook-stage pre-push  # Run pre-push hooks
+
+repos:
+  # No hardcoded ONEX topic strings — sourced from onex_change_control (OMN-5259)
+  - repo: https://github.com/OmniNode-ai/onex_change_control
+    rev: 8d7e85bc00e7f1b1306d1cb40949be1ab6e7e91a  # pragma: allowlist secret
+    hooks:
+      - id: no-hardcoded-topics
+        exclude: ^src/omnimemory/topics\.py$
+        stages: [pre-commit]
+      - id: no-untracked-todos
+        stages: [pre-commit]
+
+  # Stub implementation detection — sourced from omnibase_core (OMN-4472)
+  - repo: https://github.com/OmniNode-ai/omnibase_core
+    rev: 30a06f85bb5849902d33c8d0bdb90fc6cba0c346  # pragma: allowlist secret
+    hooks:
+      - id: check-stub-implementations
+
+  # OMN-14350: non-canonical lifecycle-class ratchet (fan-out from the omnibase_core
+  # canary #1430). Consumes the canonical omnibase_core remote hook and ratchets this
+  # repo's frozen residual set (.onex_ratchets/noncanonical_class_allowlist.yaml) DOWN
+  # toward zero. rev is pinned to a specific core dev SHA (never a moving ref, per the
+  # deterministic-truth doctrine). CI merge-gating is via the dedicated
+  # .github/workflows/noncanonical-lifecycle-gate.yml job; this local hook is dev-ergonomics.
+  - repo: https://github.com/OmniNode-ai/omnibase_core
+    rev: 63635097705d832e0ee9c4811093efb31349105c  # pragma: allowlist secret
+    hooks:
+      - id: no-noncanonical-lifecycle-classes
+        args: [--allowlist, .onex_ratchets/noncanonical_class_allowlist.yaml, src/omnimemory]
+        files: ^src/omnimemory/.*\.py$
+  # URL Authority Gate (OMN-13298, child of OMN-12803).
+  # Ratchet: NEW fingerprints fail; existing violations grandfathered in the
+  # shared baseline at omnibase_core/src/omnibase_core/validation/baselines/url_authority_baseline.json.
+  # Baseline is burn-down only. Suppress with: # url-authority-ok: <reason>
+  - repo: https://github.com/OmniNode-ai/omnibase_core
+    rev: 72b2208e2dad0246a0189a87f82324faeee2a7b2  # pragma: allowlist secret
+    hooks:
+      - id: check-url-authority
+        args: [--repo, omnimemory, --repo-root, .]
+        exclude: ^(tests/|archived/|archive/).*\.py$
+  # Transport-import + node-purity gates — consolidated into omnibase_core
+  # (OMN-13283 / GAP-8a). Replaces the former omnimemory-local
+  # scripts/validate_no_transport_imports.py + src/omnimemory/audit io-audit.
+  # Pin advances to the core merge SHA once omnibase_core#1272 lands.
+  - repo: https://github.com/OmniNode-ai/omnibase_core
+    rev: 664c42c354cb19c3a127a1564312c54bf2377127  # pragma: allowlist secret
+    hooks:
+      - id: validate-no-transport-imports
+        files: ^src/omnimemory/
+        exclude: ^src/omnimemory/runtime/
+      - id: node-purity
+        files: ^src/omnimemory/nodes/
+        # Phase-3 DI-debt handlers (OMN-2584): module-level env defaults are
+        # url-authority grandfathered lines; re-fingerprinting them via an inline
+        # marker would trip the url-authority ratchet. File-scoped exclude mirrors
+        # the former io_audit_whitelist.yaml entries (env-access allowed) until DI
+        # injection lands. net-client on these files is also tracked DI debt.
+        exclude: >-
+          ^src/omnimemory/nodes/node_navigation_history_reducer/handlers/handler_navigation_history_reducer\.py$|^src/omnimemory/nodes/node_memory_lifecycle_orchestrator/handlers/handler_memory_archive\.py$
+  # YAML formatting (standard across ecosystem)
+  # Configuration in .yamlfmt file (ecosystem-aligned settings)
+  - repo: https://github.com/google/yamlfmt
+    rev: v0.21.0
+    hooks:
+      - id: yamlfmt
+        # .kb-doc-gate.yaml and .public-repo-hygiene.yaml are excluded
+        # deliberately (OMN-16602 / OMN-18016): the shared .yamlfmt sets
+        # include_document_start:true, and the gate validators' restricted YAML
+        # parsers fail closed (exit 2) on the bare '---' marker yamlfmt would
+        # insert.
+        exclude: ^(\.github/|\.kb-doc-gate\.yaml$|\.public-repo-hygiene\.yaml$)
+
+  # Essential file formatting (standard across ecosystem)
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: end-of-file-fixer
+        exclude: ^(\.github/workflows/|\.mcp\.json$)
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: check-yaml
+        args: [--unsafe]
+      - id: check-toml
+      - id: debug-statements
+
+  # ONEX String Version Anti-Pattern Detection
+  # TODO(OMN-3832-followup): Re-enable once validate-string-versions is packaged as a
+  # proper Python CLI entrypoint in omnibase_core (currently only works as a local script).
+
+  # Python code quality with ruff (replaces black, isort, flake8 - 10-100x faster)
+  # Configuration: pyproject.toml [tool.ruff] section (shared with CI)
+  # Using official ruff-pre-commit repo for CI compatibility (no Poetry dependency)
+  #
+  # VERSION UPGRADE PROCEDURE:
+  # ==========================
+  # Ruff has breaking rule changes between minor versions (e.g., rules renamed,
+  # removed, or behavior changed). When upgrading:
+  #
+  # 1. Run: pre-commit autoupdate --repo https://github.com/astral-sh/ruff-pre-commit
+  # 2. Run: pre-commit run --all-files  (check for new violations)
+  # 3. Review ruff changelog: https://github.com/astral-sh/ruff/blob/main/CHANGELOG.md
+  # 4. Update pyproject.toml [tool.ruff] version comment to match new rev
+  # 5. Fix any new violations or update rule selections in pyproject.toml
+  #
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.6
+    hooks:
+      # FULL CODEBASE VALIDATION: These hooks run on src/ and tests/ (not just staged files)
+      # to match CI behavior and prevent "works locally, fails in CI" issues.
+      # NOTE: Both pre-commit and CI use check-only mode. Run `ruff format src/ tests/`
+      # and `ruff check --fix src/ tests/` manually to auto-fix issues.
+      - id: ruff-format
+        name: ruff format (check staged files)
+        # SYNCHRONIZED WITH CI: Identical to .github/workflows/test.yml lint job
+        # Both pre-commit and CI use --check for consistent validation
+        args: [--check]
+        pass_filenames: true
+        types: [python]
+        files: ^(src|tests)/
+        stages: [pre-commit]
+
+      - id: ruff
+        name: ruff check (lint staged files)
+        # SYNCHRONIZED WITH CI: Identical to .github/workflows/test.yml lint job
+        # Both pre-commit and CI use check-only mode (no --fix)
+        # Note: The ruff hook already runs "ruff check", so we only pass paths
+        pass_filenames: true
+        types: [python]
+        files: ^(src|tests)/
+        stages: [pre-commit]
+
+  # Type checking with mypy (using local environment for exact CI match)
+  # NOTE: Uses language: system with poetry to ensure identical mypy config,
+  # dependencies, and type stubs as CI. The mirrors-mypy approach failed to
+  # pick up pyproject.toml overrides for redis modules.
+  - repo: local
+    hooks:
+      - id: mypy-type-check
+        name: mypy (type checking - strict)
+        # SYNCHRONIZED WITH CI: identical to the lint job in .github/workflows/ci.yml
+        # (must include the same --with type-stub injection or the hook diverges from CI).
+        entry: uv run --with 'mypy>=1.14.0,<2.0.0' --with 'types-pyyaml>=6.0.12.20250915' --with 'types-cachetools>=6.2.0'
+          mypy --show-error-codes --no-error-summary src/omnimemory
+        language: system
+        types: [python]
+        pass_filenames: false
+        stages: [pre-push]
+
+  # Type checking with pyright (using official repo for CI compatibility)
+  - repo: https://github.com/RobertCraigie/pyright-python
+    rev: v1.1.391
+    hooks:
+      - id: pyright
+        name: pyright (type checking - basic)
+        # SYNCHRONIZED WITH CI: Must match .github/workflows/test.yml pyright job
+        # Uses pyrightconfig.json for project-level settings
+        args: [src/omnimemory]
+        pass_filenames: false
+        stages: [pre-push]
+
+  # Local hooks for cleanup, migration freeze, and ONEX validation
+  # These use language: python or language: system with no Poetry dependency
+  - repo: local
+    hooks:
+      - id: check-dep-provenance
+        name: Forbid first-party git-source overrides (OMN-13873)
+        entry: uv run --frozen python scripts/check_dep_provenance.py
+        language: system
+        files: ^pyproject\.toml$
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # --------------------------------------------------------------------------
+      # Migration Freeze Check - Block new migrations during DB-per-repo refactor
+      # Validates: No new .sql files added to deployment/database/migrations/
+      # Scope: Only triggers when migration files or .migration_freeze change
+      # Purpose: Enforces schema freeze (OMN-2055) while .migration_freeze exists
+      # --------------------------------------------------------------------------
+      - id: migration-freeze-check
+        name: migration freeze check
+        entry: ./scripts/check_migration_freeze.sh
+        language: system
+        pass_filenames: false
+        # Trigger when migration files or the freeze file itself change.
+        # Note: pre-commit sees deletions in the changeset, so deleting
+        # .migration_freeze will trigger this hook. The script then checks
+        # [ ! -f .migration_freeze ] at runtime and exits 0, which means
+        # removing the freeze file + adding a migration in the same commit
+        # is intentionally allowed (freeze is lifted).
+        files: ^(deployment/database/migrations/|\.migration_freeze)
+        stages: [pre-commit]
+
+      # Cleanup: Clear tmp/ directory before commits
+      - id: onex-validate-clean-root
+        name: Clean tmp directory
+        entry: bash -c "rm -rf tmp/* 2>/dev/null || true"
+        language: system
+        always_run: true
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # ONEX Pydantic Pattern Validation
+      # Validates Pydantic models follow ONEX conventions
+      # Uses language: python so pre-commit manages the environment (no Poetry needed)
+      - id: validate-pydantic-patterns
+        name: ONEX Pydantic Pattern Validation
+        entry: python scripts/validation/validate_pydantic_patterns.py
+        language: python
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^tests/.*\.py$
+        stages: [pre-commit]
+
+      # ONEX Single Class Per File (enforces model-per-file pattern)
+      - id: validate-single-class-per-file
+        name: ONEX Single Class Per File
+        entry: python scripts/validation/validate_single_class_per_file.py
+        language: python
+        pass_filenames: true
+        files: ^src/omnimemory/models/.*\.py$
+        exclude: ^(tests/|src/omnimemory/protocols/).*\.py$
+        stages: [pre-commit]
+
+      # Silent env-fallback guard (OMN-10735)
+      # Prevents os.getenv/os.environ.get with localhost defaults in src/
+      - id: validate-no-env-fallbacks
+        name: ONEX No Silent Env Fallbacks
+        entry: python scripts/validation/validate_no_env_fallbacks.py
+        language: python
+        pass_filenames: true
+        files: ^(src/.*\.py|scripts/validation/validate_no_env_fallbacks\.py)$
+        stages: [pre-commit]
+
+      # ONEX No Backward Compatibility Anti-Pattern Detection
+      - id: validate-no-backward-compatibility
+        name: ONEX Backward Compatibility Anti-Pattern Detection
+        entry: python scripts/validation/validate_no_backward_compatibility.py
+        language: python
+        pass_filenames: true
+        types_or: [python, yaml]
+        files: ^(src/.*\.py|scripts/validation/validate_no_backward_compatibility\.py|\.pre-commit-config\.yaml)$
+        stages: [pre-commit]
+
+      # ONEX Enum Member Casing Validation
+      # Enforces UPPER_SNAKE_CASE for all enum member names
+      - id: validate-enum-casing
+        name: ONEX Enum Member Casing Validation
+        entry: python scripts/validation/validate_enum_casing.py
+        language: python
+        pass_filenames: true
+        files: ^src/omnimemory/enums/.*\.py$
+        stages: [pre-commit]
+
+      # Secret Detection (prevents hardcoded secrets)
+      - id: validate-secrets
+        name: ONEX Secret Detection
+        entry: python scripts/validation/validate_secrets.py
+        language: python
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^tests/.*\.py$
+        stages: [pre-commit]
+
+      # Naming Convention Validation
+      # SYNCHRONIZED WITH CI: Runs at pre-commit stage to match CI Phase 1
+      # Both local and CI validate naming conventions at the same point
+      - id: onex-validate-naming
+        name: ONEX Naming Convention Validation
+        entry: python scripts/validation/validate_naming.py
+        language: python
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^tests/.*\.py$
+        stages: [pre-commit]
+
+      # HTTP Import Boundary Enforcement (OMN-1391)
+      # Ensures direct HTTP client imports (httpx, requests) are only in adapter layer
+      # This enforces the contract boundary principle for external HTTP calls
+      - id: validate-http-imports
+        name: ONEX HTTP Import Boundary Enforcement
+        entry: python scripts/validation/validate_http_imports.py
+        language: python
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^tests/.*\.py$
+        stages: [pre-commit]
+
+      # Kafka Import Boundary Enforcement (ARCH-002)
+      # Ensures direct Kafka consumer imports do not appear in nodes/
+      # Nodes must use the EventBus SPI from the runtime layer
+      - id: validate-kafka-imports
+        name: ONEX Kafka Import Boundary Enforcement (ARCH-002)
+        entry: python scripts/validation/validate_kafka_imports.py
+        language: python
+        pass_filenames: true
+        # NOTE: This filter is coupled to ENFORCED_PATHS in the script
+        # (scripts/validation/validate_kafka_imports.py). If ENFORCED_PATHS
+        # changes, update this pattern to match so the hook triggers correctly.
+        files: ^src/omnimemory/nodes/.*\.py$
+        exclude: ^tests/.*\.py$
+        stages: [pre-commit]
+
+      # Pydantic Model Location Enforcement (ONEX compliance)
+      # Ensures Pydantic models are in approved directories (models/, nodes/*/models/, protocols/)
+      # This enforces ONEX architectural patterns for model organization
+      - id: validate-model-locations
+        name: ONEX Pydantic Model Location Enforcement
+        entry: python scripts/validation/validate_model_locations.py
+        language: python
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^tests/.*\.py$
+        stages: [pre-commit]
+
+      # --------------------------------------------------------------------------
+      # Contract Linter - ONEX contract YAML validation
+      # Validates: Node contracts against structural rules
+      # Scope: Contract YAML files in node directories
+      # Requires: poetry install (language: system, uses Poetry environment)
+      # Added: OMN-2218
+      # --------------------------------------------------------------------------
+      - id: contract-linter
+        name: ONEX Contract Linter
+        description: Validates node contract YAML files. Requires Poetry (poetry install).
+        entry: uv run python -m omnimemory.tools.contract_linter
+        language: system
+        pass_filenames: true
+        # SYNC: CI uses `find src/omnimemory -name contract.yaml` with graceful
+        # skip in .github/workflows/test.yml contract-validation job. This regex
+        # scopes the pre-commit hook; the CI job discovers files independently.
+        files: ^src/omnimemory/(nodes|handlers)/.*/contract\.yaml$
+        stages: [pre-commit]
+
+      - id: no-planning-docs
+        name: Block planning docs (belong in omni_home/docs/plans/)
+        entry: >
+          bash -c 'PLAN_FILES=$(git diff --cached --name-only -- "docs/plans/"); if [ -n "$PLAN_FILES"
+          ]; then echo "ERROR: Planning docs must live in omni_home/docs/plans/, not in this repo:"; echo
+          "$PLAN_FILES"; echo ""; echo "Move your file to: \$OMNI_HOME/docs/plans/"; exit 1; fi'
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+      - id: no-internal-ips
+        name: Block hardcoded internal IPs
+        language: system
+        entry: bash scripts/validation/check_no_internal_ips.sh
+        pass_filenames: true
+        files: ^(src|tests|docs|\.github)/.*\.(py|sh|ya?ml|toml|md)$
+        stages: [pre-commit]
+      - id: check-ai-slop
+        name: Check for AI-slop patterns
+        language: system
+        entry: uv run python scripts/validation/check_ai_slop.py --strict
+        types_or: [python, markdown]
+        pass_filenames: true
+        stages: [pre-commit]
+
+      # --------------------------------------------------------------------------
+      # Environment File Protection (OMN-3695.5)
+      # Validates: No .env files staged (except .env.example)
+      # Purpose: Prevents accidental commits of .env files to the repository.
+      #          All environment config must go in ~/.omnibase/.env (shared single
+      #          source of truth across all repos).
+      # --------------------------------------------------------------------------
+      - id: no-env-file
+        name: Reject committed .env files (except .env.example)
+        entry: >
+          bash -c ' BLOCKED_FILES=$(git diff --cached --name-only | grep -E "(^|/)\\.env([._-].+)?$" |
+          grep -v "\\.env\\.example" || true); if [ -n "$BLOCKED_FILES" ]; then
+            echo "BLOCKED: .env file staged — use ~/.omnibase/.env instead. Run: git reset HEAD <file>";
+            echo "$BLOCKED_FILES";
+            exit 1;
+          fi'
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      # --------------------------------------------------------------------------
+      # Bolt URI Hardcode Guard (OMN-4314)
+      # Validates: No bolt://localhost literal strings in production Python source.
+      # Scope: src/ (non-test files). Test files exempt (*test_*, *conftest*, */tests/*).
+      # Purpose: Catches the class of bug where a developer hardcodes
+      #          connection_uri="bolt://localhost:7687" in production code.
+      #          bolt://localhost resolves to the container itself inside Docker,
+      #          not the Memgraph service (omnibase-infra-memgraph). Always read
+      #          OMNIMEMORY_MEMGRAPH_HOST/PORT from environment instead.
+      # Parallel to: kafka-no-hardcoded-fallback in omnibase_infra
+      # --------------------------------------------------------------------------
+      - id: no-hardcoded-bolt-fallback
+        name: "No hardcoded bolt://localhost URIs"
+        language: script
+        entry: scripts/check_no_hardcoded_bolt.sh
+        pass_filenames: true
+        files: ^src/.*\.py$
+        types: [python]
+        stages: [pre-commit]
+
+      # --------------------------------------------------------------------------
+      # Kafka Hardcoded Fallback Guard (OMN-4860, mirrors omnibase_infra OMN-3554)
+      # Validates: No hardcoded localhost:9092 or private-IP Kafka addresses in src/
+      # Purpose: Prevents reintroduction of hardcoded broker addresses after T2-M fix
+      # --------------------------------------------------------------------------
+      - id: kafka-no-hardcoded-fallback
+        name: Reject hardcoded Kafka broker address fallbacks
+        entry: bash scripts/validation/check_kafka_no_hardcoded_fallback.sh
+        language: system
+        pass_filenames: true
+        files: ^src/.*\.py$
+        types: [python]
+        stages: [pre-commit]
+
+      # --------------------------------------------------------------------------
+      # SPDX Header Enforcement (ONEX canonical)
+      # Validates: All eligible source files carry MIT SPDX headers
+      # Scope: src/, tests/, scripts/, examples/ (py, sh, bash, yml, yaml, toml)
+      # --------------------------------------------------------------------------
+      - id: validate-spdx-headers
+        name: ONEX SPDX Header Requirement
+        entry: python scripts/validation/validate_spdx_headers.py
+        language: system
+        pass_filenames: true
+        files: ^(src|tests|scripts|examples)/.*\.py$
+        exclude: ^(archived/|archive/)
+        stages: [pre-commit]
+
+      # Markdown link validation (OMN-5086) — uses onex-validate-links from omnibase_core
+      - id: onex-validate-links
+        name: Validate markdown links
+        entry: uv run onex-validate-links --verbose
+        language: system
+        types: [markdown]
+        pass_filenames: false
+        stages: [pre-commit]
+
+  - repo: local
+    hooks:
+      # OMN-12957: runtime_profiles contract validator (omnibase_core).
+      # Enforces runtime_profiles_missing (OMN-9886) — command-consuming contracts
+      # must declare a runtime lane. Pre-existing violators are frozen in
+      # validation/runtime_profiles_allowlist.yaml (drain tracked by OMN-12982).
+      # The wrapper script is used (instead of the bare module) so the repo-local
+      # allowlist is loaded the same way as the CI gate (OMN-13297 / mirrors OMN-12955).
+      - id: onex-validate-runtime-profiles
+        name: Validate runtime_profiles on node contracts (OMN-12957)
+        language: system
+        entry: uv run python scripts/ci/run_runtime_profiles_validator.py
+        files: ^src/omnimemory/nodes/node_.*/contract\.yaml$
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: normalization-symmetry
+        name: normalization-symmetry
+        entry: uv run python -m omnibase_core.validators.normalization-symmetry
+        language: system
+        pass_filenames: false
+        stages: [manual]
+
+  # Skip-token rejection gate (OMN-10414 / OMN-13296)
+  # Blocks [skip-*] bypass tokens in staged markdown/yaml/txt files.
+  # Escape hatch: add '# skip-token-allowed: <receipt-id>' with a traceable approval receipt.
+  - repo: local
+    hooks:
+      - id: reject-deploy-gate-skip-token
+        name: Reject skip-gate bypass tokens (OMN-10414)
+        entry: .pre-commit-hooks/reject-deploy-gate-skip-token.sh
+        language: script
+        pass_filenames: true
+        always_run: true
+        stages: [pre-commit]
+        exclude: ^tests/.*fixtures/
+      - id: reject-deploy-gate-skip-token-commit-msg
+        name: Reject skip-gate bypass tokens in commit messages (OMN-10414)
+        entry: .pre-commit-hooks/reject-deploy-gate-skip-token.sh
+        language: script
+        pass_filenames: true
+        stages: [commit-msg]
+      - id: strip-ai-coauthor-trailer
+        name: Strip AI-generated Co-Authored-By trailers from commit messages
+        entry: perl -i -ne 'print unless /^co-authored-by:.*claude.*noreply\@anthropic\.com/i'
+        language: system
+        pass_filenames: true
+        stages: [commit-msg]
+
+  # OMN-13291 (W0): validator-requirements fleet gate. Reports ALL missing
+  # required gates for omnimemory against omnibase_core's
+  # architecture-handshakes/validator-requirements.yaml, ratcheted by this
+  # repo's own architecture-handshakes/validator-requirements-baseline.yaml.
+  # Re-pin rev to the merged-dev SHA once the omnibase_core export PR lands.
+  - repo: https://github.com/OmniNode-ai/omnibase_core
+    rev: d163312724489f10f58ffdf8115ba1fa9d5783e8  # pragma: allowlist secret
+    hooks:
+      - id: validate-validator-requirements
+        args:
+          - --repo
+          - omnimemory
+          - --repo-root
+          - .
+          - --spec
+          - architecture-handshakes/validator-requirements.yaml
+          - --baseline
+          - architecture-handshakes/validator-requirements-baseline.yaml
+
+  # --------------------------------------------------------------------------
+  # detect-secrets -- the LOCAL half of the .secrets.baseline gate (OMN-18669)
+  #
+  # This repository has carried `.secrets.baseline` and judged it in CI only.
+  # A CI-only secrets gate finds the credential AFTER it has been pushed to a
+  # remote, which is real exposure under CLAUDE.md rule 22 and the expensive
+  # kind -- the remedy is a rotation and a consumer sweep, not an amend. The
+  # local half refuses the commit before the value ever leaves the machine.
+  #
+  # Same tool, same pin, same baseline and the SAME exclusions as the
+  # `detect-secrets` job in CI, deliberately: if the two selections differ, a
+  # commit passes locally and the required check fails, or worse, the reverse.
+  # Change them together or not at all.
+  #
+  # `--no-verify` is not optional (OMN-15063): without it several plugins call
+  # the live vendor API to "verify" each match and silently drop anything that
+  # comes back VERIFIED_FALSE, so a negative or uncertain network answer
+  # removes a finding. Never remove this flag without re-proving the miss is
+  # fixed another way.
+  #
+  # This hook does NOT rewrite the baseline: measured 2026-09-18, a line shift
+  # above a tracked finding left the committed file byte-identical, so it
+  # reintroduces none of the per-PR churn OMN-18521 removed. A genuinely new
+  # finding blocks, and is approved by auditing it into the baseline on
+  # purpose -- never by loosening this hook.
+  # --------------------------------------------------------------------------
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        name: detect-secrets (judged against .secrets.baseline, OMN-18669)
+        args: ['--baseline', '.secrets.baseline', '--no-verify']
+        exclude: |
+          (?x)^(
+            uv\.lock|
+            \.venv/.*|
+            tests/fixtures/.*|
+            \.secrets\.baseline|
+            \.github/workflows/.*\.ya?ml
+          )$
+
+  # --------------------------------------------------------------------------
+  # secrets-baseline wiring gate (OMN-18669)
+  #
+  # The detect-secrets hook above is worth exactly as much as the wiring around
+  # it. A repository can carry .secrets.baseline and read it from nowhere: the
+  # file is present, the repo looks protected, and nothing is checking. This
+  # refuses that state — the baseline owes a pre-commit reader AND a CI reader,
+  # and it is the local half of the same gate .github/workflows/
+  # secrets-baseline-wiring.yml runs in CI, pinned to the same omniclaude SHA so
+  # the two verdicts cannot diverge. Advancing it is those two lines, together.
+  # --------------------------------------------------------------------------
+  - repo: https://github.com/OmniNode-ai/omniclaude
+    rev: 42b994826519e8d6bc21d0ca915803084c7c3955  # pragma: allowlist secret
+    hooks:
+      - id: secrets-baseline-wired
+
+  - repo: local
+    hooks:
+      - id: validate-gitignore-baseline
+        name: Gitignore Baseline Validator (OMN-12453)
+        description: |
+          Assert that every managed block declared in architecture-handshakes/gitignore-baseline.yaml appears VERBATIM in the target repo's .gitignore. Enforces universal block on all repos; python block on repos that contain pyproject.toml. Suppress all findings for a file with: # gitignore-ok: <reason>
+        language: python
+        entry: python -m omnibase_core.validators.gitignore_baseline
+        pass_filenames: false
+        stages:
+          - pre-commit
+        additional_dependencies:
+          - omnibase-core==0.47.23  # Match uv.lock; includes the 0.47.18 baseline fix.
+
+
+  # OMN-19666: VCS-backed additional_dependencies can inherit GIT_INDEX_FILE
+  # during a cold-cache commit and overwrite the committing worktree index.
+  - repo: local
+    # Configuration
+    hooks:
+      - id: no-git-precommit-additional-dependencies
+        name: Pre-commit additional dependencies come from package indexes (OMN-19666)
+        entry: bash tests/test_precommit_additional_dependencies_omn19666.sh
+        language: system
+        pass_filenames: false
+        files: ^(\.pre-commit-config\.yaml|scripts/validation/check_precommit_additional_dependencies\.sh|tests/test_precommit_additional_dependencies_omn19666\.sh|tests/fixtures/omn19666/.*)$
+        stages: [pre-commit]
+
+default_install_hook_types: [pre-commit, pre-push, commit-msg]
+default_stages: [pre-commit]
+fail_fast: false
+
+# pre-commit.ci configuration
+#
+# AUTOFIX BEHAVIOR EXPLAINED:
+# ===========================
+# autofix_prs: true means pre-commit.ci will automatically commit fixes and create
+# a PR when hooks modify files. However, not all hooks can auto-fix.
+#
+# HOOKS THAT WILL AUTO-FIX (pre-commit.ci will commit these changes):
+#   - yamlfmt: Reformats YAML files to match .yamlfmt settings
+#   - trailing-whitespace: Removes trailing whitespace from lines
+#   - end-of-file-fixer: Ensures files end with a single newline
+#
+# HOOKS THAT WILL NOT AUTO-FIX (check-only mode, will fail but not modify files):
+#   - ruff-format: Uses --check flag (validates formatting, doesn't reformat)
+#   - ruff check: No --fix flag (reports lint issues, doesn't fix them)
+#   - mypy/pyright: Type checkers (report errors, cannot auto-fix code)
+#   - validate-* hooks: ONEX validators (report violations, cannot auto-fix)
+#   - check-* hooks: Detectors only (check-yaml, check-toml, etc.)
+#   - debug-statements: Detector only (reports but doesn't remove)
+#
+# WHY autofix_prs: true?
+#   The formatting hooks (yamlfmt, trailing-whitespace, end-of-file-fixer) provide
+#   value by auto-fixing minor formatting issues. For ruff issues, run manually:
+#     ruff format src/ tests/        # Fix formatting
+#     ruff check --fix src/ tests/   # Fix lint issues
+#
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes for omnimemory
+
+    for more information, see https://pre-commit.ci
+  autofix_prs: true
+  autoupdate_schedule: weekly
+  submodules: false
+  skip: [normalization-symmetry]

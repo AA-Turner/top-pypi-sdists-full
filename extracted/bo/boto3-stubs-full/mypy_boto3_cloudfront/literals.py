@@ -190,7 +190,9 @@ MinimumProtocolVersionType = Literal[
     "TLSv1_2016",
 ]
 OriginAccessControlOriginTypesType = Literal["lambda", "mediapackagev2", "mediastore", "s3"]
-OriginAccessControlSigningBehaviorsType = Literal["always", "never", "no-override"]
+OriginAccessControlSigningBehaviorsType = Literal[
+    "always", "always-amz-auth", "never", "no-override"
+]
 OriginAccessControlSigningProtocolsType = Literal["sigv4", "sigv4a"]
 OriginGroupSelectionCriteriaType = Literal["default", "media-quality-based"]
 OriginProtocolPolicyType = Literal["http-only", "https-only", "match-viewer"]
@@ -377,6 +379,7 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
@@ -451,6 +454,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",

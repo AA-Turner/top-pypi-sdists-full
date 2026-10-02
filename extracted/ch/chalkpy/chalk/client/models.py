@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from pydantic import BaseModel, Extra, Field, validator
 
     from chalk._reporting.models import BatchOpKind, BatchOpStatus
+    from chalk.client.model_deployment import ModelDeployment
 
     def root_validator(_: Any) -> Callable[[Any], Any]:
         def _identity(x: Any) -> Any:
@@ -2467,71 +2468,55 @@ class ModelVersionResponse(abc.ABC):
 
 @dataclasses.dataclass(frozen=True)
 class RegisteredModelVersion(ModelVersionResponse):
-    """A version that is registered but not deployed to a scaling group.
+    """A version that is registered but not deployed.
 
-    `ChalkClient.get_model_version` returns this when the version has no scaling group
+    `ChalkClient.get_model_version` returns this when the version has no deployment
     serving it. It carries the same metadata as a `DeployedModelVersion` but cannot be
-    invoked — deploy it with ``deploy_model_version_to_scaling_group()`` first.
+    invoked — deploy it with ``create_model_deployment()`` first.
     """
 
     def remote(self, *args: Any, **kwargs: Any) -> Any:
-        """Always raises: this version is not deployed to a scaling group.
+        """Always raises: this version is not deployed.
 
         Raises
         ------
         ModelNotDeployedError
-            Every call. Deploy the version with ``deploy_model_version_to_scaling_group()``
+            Every call. Deploy the version with ``create_model_deployment()``
             to get a `DeployedModelVersion`, whose ``remote()`` invokes the model.
         """
         from chalk.client._model_remote import ModelNotDeployedError
 
         raise ModelNotDeployedError(
-            f"Model {self.model_name!r} v{self.version} is not deployed to a scaling group. "
-            + "Deploy it with `deploy_model_version_to_scaling_group()` before calling `.remote()`."
+            f"Model {self.model_name!r} v{self.version} is not deployed. "
+            + "Deploy it with `create_model_deployment()` before calling `.remote()`."
         )
 
     def defer(self, *args: Any, **kwargs: Any) -> Any:
         from chalk.client._model_remote import ModelNotDeployedError
 
         raise ModelNotDeployedError(
-            f"Model {self.model_name!r} v{self.version} is not deployed to a scaling group. "
-            + "Deploy it with `deploy_model_version_to_scaling_group()` before calling `.defer()`."
+            f"Model {self.model_name!r} v{self.version} is not deployed. "
+            + "Deploy it with `create_model_deployment()` before calling `.defer()`."
         )
 
 
 @dataclasses.dataclass(frozen=True)
 class DeployedModelVersion(ModelVersionResponse):
-    """A version deployed to a scaling group; ``remote()`` calls it directly."""
+    """A deployed version. ``remote()`` and ``defer()`` call the `ModelDeployment` serving it."""
 
-    _client: Any = dataclasses.field(default=None, repr=False, compare=False)
-    _web_url: str = dataclasses.field(default="", repr=False, compare=False)
+    _deployment: Any = dataclasses.field(default=None, repr=False, compare=False)
+
+    @property
+    def deployment(self) -> "ModelDeployment":
+        """The deployment this version resolved to, which ``remote()`` and ``defer()`` call."""
+        return self._deployment
 
     def remote(self, *args: Any, **kwargs: Any) -> Any:
         """Invoke the model with one row of feature values, blocking until it responds.
 
-        The call goes straight to the scaling group serving this version, so the
-        version is pinned — no other deployed version can answer it.
-
-        Parameters
-        ----------
-        args
-            Feature values in `input_features` order.
-        kwargs
-            Feature values by name. A feature given both positionally and by keyword,
-            an unknown name, or a missing feature raises ``ValueError`` before any
-            network call.
-
-        Returns
-        -------
-        Any
-            The model's first output value.
-
-        Raises
-        ------
-        ValueError
-            The supplied arguments do not bind to `input_features`.
-        ModelRemoteError
-            The scaling group returned an error or an empty response.
+        Calls `deployment`; see `ModelDeployment.remote`. Redeploying or rolling back that
+        deployment changes its selected version, and this handle follows it, so ``version``
+        is the version looked up, not necessarily the one serving the call.
 
         Examples
         --------
@@ -2542,33 +2527,14 @@ class DeployedModelVersion(ModelVersionResponse):
         >>> model.remote(42.0, 365)  # positional, in input_features order
         0.83
         """
-        from chalk.client._model_remote import bind_inputs, call_model_scaling_group
-
-        inputs = bind_inputs(self.input_features, args, kwargs)
-        # Reuse the ingress URL resolved at get_model_version time so repeated calls skip re-resolution.
-        out = call_model_scaling_group(
-            self._client, self.model_name, inputs, version=self.version, web_url=self._web_url or None
-        )
-        return out.column(0).to_pylist()[0]
+        return self._deployment.remote(*args, **kwargs)
 
     def defer(self, *args: Any, **kwargs: Any) -> Any:
-        """Enqueue this call onto the function queue, returning a ``ModelCallHandle``.
+        """Enqueue this call on `deployment`'s queue, returning a ``ModelCallHandle``.
 
-        ``handle.get()`` returns what ``remote()`` would have returned::
-
-            handle = model_version.defer(1.0, 2.0)
-            result = handle.get(timeout=30)
-
-        Note: If several versions of one model are deployed under different
-        scaling group names at once, any of them may serve the call.
-        Use ``remote()`` when the version must be pinned.
+        See `ModelDeployment.defer`; ``handle.get()`` returns what ``remote()`` would have.
         """
-        from chalk.client._model_remote import ModelCallHandle, bind_inputs, enqueue_model_call
-
-        inputs = bind_inputs(self.input_features, args, kwargs)
-        get_queue_client = self._client._get_queue_client
-        call_id, _ = enqueue_model_call(get_queue_client(), self.model_name, inputs)
-        return ModelCallHandle(get_queue_client, self.model_name, call_id)
+        return self._deployment.defer(*args, **kwargs)
 
 
 class CreateModelTrainingJobResponse(BaseModel):

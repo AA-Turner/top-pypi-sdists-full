@@ -1,0 +1,238 @@
+interactions:
+- request:
+    body: mail_host=example.com
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      content-type: [application/x-www-form-urlencoded]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: POST
+    uri: http://localhost:9001/3.1/domains
+  response:
+    body: {string: ''}
+    headers:
+      Date: ['Wed, 16 May 2018 01:05:58 GMT']
+      Server: [WSGIServer/0.2 CPython/3.6.4+]
+      content-length: ['0']
+      content-type: [application/json; charset=UTF-8]
+      location: ['http://localhost:9001/3.1/domains/example.com']
+    status: {code: 201, message: Created}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/domains/example.com
+  response:
+    body: {string: '{"alias_domain": null, "description": null, "http_etag": "\"0955c4a2fe5c37a019be0fef3abbb952cdc328a4\"",
+        "mail_host": "example.com", "self_link": "http://localhost:9001/3.1/domains/example.com"}'}
+    headers:
+      Date: ['Wed, 16 May 2018 01:05:58 GMT']
+      Server: [WSGIServer/0.2 CPython/3.6.4+]
+      content-length: ['194']
+      content-type: [application/json; charset=UTF-8]
+    status: {code: 200, message: OK}
+- request:
+    body: fqdn_listname=foo%40example.com
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      content-type: [application/x-www-form-urlencoded]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: POST
+    uri: http://localhost:9001/3.1/lists
+  response:
+    body: {string: ''}
+    headers:
+      Date: ['Wed, 16 May 2018 01:05:58 GMT']
+      Server: [WSGIServer/0.2 CPython/3.6.4+]
+      content-length: ['0']
+      content-type: [application/json; charset=UTF-8]
+      location: ['http://localhost:9001/3.1/lists/foo.example.com']
+    status: {code: 201, message: Created}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/lists/foo.example.com
+  response:
+    body: {string: '{"display_name": "Foo", "fqdn_listname": "foo@example.com", "http_etag":
+        "\"4fb667c3d533cf6b2b6faa284a0d5d1302536524\"", "list_id": "foo.example.com",
+        "list_name": "foo", "mail_host": "example.com", "member_count": 0, "self_link":
+        "http://localhost:9001/3.1/lists/foo.example.com", "volume": 1}'}
+    headers:
+      Date: ['Wed, 16 May 2018 01:05:58 GMT']
+      Server: [WSGIServer/0.2 CPython/3.6.4+]
+      content-length: ['294']
+      content-type: [application/json; charset=UTF-8]
+    status: {code: 200, message: OK}
+- request:
+    body: list_id=foo.example.com&subscriber=subscriber%40example.com&display_name=None&pre_verified=True&pre_confirmed=True&pre_approved=True
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      content-type: [application/x-www-form-urlencoded]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: POST
+    uri: http://localhost:9001/3.1/members
+  response:
+    body: {string: ''}
+    headers:
+      Date: ['Wed, 16 May 2018 01:05:58 GMT']
+      Server: [WSGIServer/0.2 CPython/3.6.4+]
+      content-length: ['0']
+      content-type: [application/json; charset=UTF-8]
+      location: ['http://localhost:9001/3.1/members/00000000000000000000000000000091']
+    status: {code: 201, message: Created}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/lists/foo@example.com/roster/member
+  response:
+    body: {string: '{"entries": [{"address": "http://localhost:9001/3.1/addresses/subscriber@example.com",
+        "delivery_mode": "regular", "display_name": "None", "email": "subscriber@example.com",
+        "http_etag": "\"867bd5aee7b8bd5b4c39ac846038298f5cb6ba0e\"", "list_id": "foo.example.com",
+        "member_id": "00000000000000000000000000000091", "role": "member", "self_link":
+        "http://localhost:9001/3.1/members/00000000000000000000000000000091", "user":
+        "http://localhost:9001/3.1/users/0000000000000000000000000000007f"}], "http_etag":
+        "\"a107c39e2e70d8e15fc82eeec2c1e38eb221e4c6\"", "start": 0, "total_size":
+        1}'}
+    headers:
+      Date: ['Wed, 16 May 2018 01:05:58 GMT']
+      Server: [WSGIServer/0.2 CPython/3.6.4+]
+      content-length: ['582']
+      content-type: [application/json; charset=UTF-8]
+    status: {code: 200, message: OK}
+- request:
+    body: subscriber=subscriber%40example.com&list_id=foo.example.com
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      content-type: [application/x-www-form-urlencoded]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: POST
+    uri: http://localhost:9001/3.1/members/find
+  response:
+    body: {string: '{"entries": [{"address": "http://localhost:9001/3.1/addresses/subscriber@example.com",
+        "delivery_mode": "regular", "display_name": "None", "email": "subscriber@example.com",
+        "http_etag": "\"867bd5aee7b8bd5b4c39ac846038298f5cb6ba0e\"", "list_id": "foo.example.com",
+        "member_id": "00000000000000000000000000000091", "role": "member", "self_link":
+        "http://localhost:9001/3.1/members/00000000000000000000000000000091", "user":
+        "http://localhost:9001/3.1/users/0000000000000000000000000000007f"}], "http_etag":
+        "\"a107c39e2e70d8e15fc82eeec2c1e38eb221e4c6\"", "start": 0, "total_size":
+        1}'}
+    headers:
+      Date: ['Wed, 16 May 2018 01:05:58 GMT']
+      Server: [WSGIServer/0.2 CPython/3.6.4+]
+      content-length: ['582']
+      content-type: [application/json; charset=UTF-8]
+    status: {code: 200, message: OK}
+- request:
+    body: list_id=foo.example.com&subscriber=owner%40example.com&display_name=None&role=owner
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      content-type: [application/x-www-form-urlencoded]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: POST
+    uri: http://localhost:9001/3.1/members
+  response:
+    body: {string: ''}
+    headers:
+      Date: ['Wed, 16 May 2018 01:05:58 GMT']
+      Server: [WSGIServer/0.2 CPython/3.6.4+]
+      content-length: ['0']
+      content-type: [application/json; charset=UTF-8]
+      location: ['http://localhost:9001/3.1/members/00000000000000000000000000000092']
+    status: {code: 201, message: Created}
+- request:
+    body: subscriber=owner%40example.com&list_id=foo.example.com
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      content-type: [application/x-www-form-urlencoded]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: POST
+    uri: http://localhost:9001/3.1/members/find
+  response:
+    body: {string: '{"entries": [{"address": "http://localhost:9001/3.1/addresses/owner@example.com",
+        "delivery_mode": "regular", "display_name": "None", "email": "owner@example.com",
+        "http_etag": "\"a6098b2e14ec529c8b8ea0988d5d5a566c892f6e\"", "list_id": "foo.example.com",
+        "member_id": "00000000000000000000000000000092", "moderation_action": "accept",
+        "role": "owner", "self_link": "http://localhost:9001/3.1/members/00000000000000000000000000000092",
+        "user": "http://localhost:9001/3.1/users/00000000000000000000000000000080"}],
+        "http_etag": "\"b1bed076bdc62b712eebdb72636a8a7f692979cb\"", "start": 0, "total_size":
+        1}'}
+    headers:
+      Date: ['Wed, 16 May 2018 01:05:58 GMT']
+      Server: [WSGIServer/0.2 CPython/3.6.4+]
+      content-length: ['602']
+      content-type: [application/json; charset=UTF-8]
+    status: {code: 200, message: OK}
+- request:
+    body: list_id=foo.example.com&subscriber=mod%40example.com&display_name=None&role=moderator
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      content-type: [application/x-www-form-urlencoded]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: POST
+    uri: http://localhost:9001/3.1/members
+  response:
+    body: {string: ''}
+    headers:
+      Date: ['Wed, 16 May 2018 01:05:58 GMT']
+      Server: [WSGIServer/0.2 CPython/3.6.4+]
+      content-length: ['0']
+      content-type: [application/json; charset=UTF-8]
+      location: ['http://localhost:9001/3.1/members/00000000000000000000000000000093']
+    status: {code: 201, message: Created}
+- request:
+    body: subscriber=mod%40example.com&list_id=foo.example.com
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      content-type: [application/x-www-form-urlencoded]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: POST
+    uri: http://localhost:9001/3.1/members/find
+  response:
+    body: {string: '{"entries": [{"address": "http://localhost:9001/3.1/addresses/mod@example.com",
+        "delivery_mode": "regular", "display_name": "None", "email": "mod@example.com",
+        "http_etag": "\"144d3ce57887d151f7d5e7b8a17c8eb93d5b6139\"", "list_id": "foo.example.com",
+        "member_id": "00000000000000000000000000000093", "moderation_action": "accept",
+        "role": "moderator", "self_link": "http://localhost:9001/3.1/members/00000000000000000000000000000093",
+        "user": "http://localhost:9001/3.1/users/00000000000000000000000000000081"}],
+        "http_etag": "\"591732bac3c73f957e3d56aa2a03d1e2636e97bd\"", "start": 0, "total_size":
+        1}'}
+    headers:
+      Date: ['Wed, 16 May 2018 01:05:58 GMT']
+      Server: [WSGIServer/0.2 CPython/3.6.4+]
+      content-length: ['602']
+      content-type: [application/json; charset=UTF-8]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: DELETE
+    uri: http://localhost:9001/3.1/domains/example.com
+  response:
+    body: {string: ''}
+    headers:
+      Content-Length: ['0']
+      Date: ['Wed, 16 May 2018 01:05:58 GMT']
+      Server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 204, message: No Content}
+version: 1

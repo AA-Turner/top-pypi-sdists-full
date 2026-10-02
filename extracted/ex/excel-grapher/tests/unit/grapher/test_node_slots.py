@@ -1,0 +1,130 @@
+"""Tests for Node storage and address-keyed derived fields (#476)."""
+
+from __future__ import annotations
+
+import copy
+
+import pytest
+
+from excel_grapher.core.address_keys import CellKey, NodeShape, parse_node_key
+from excel_grapher.core.formula_ast import parse_preserving_axes
+from excel_grapher.grapher.graph import DependencyGraph
+from excel_grapher.grapher.node import Node, make_cell_node
+
+
+def _leaf(sheet: str = "Sheet1", column: str = "A", row: int = 1, value: object = 1) -> Node:
+    return make_cell_node(sheet, column, row, value=value, is_leaf=True)
+
+
+def test_node_rejects_arbitrary_attribute_assignment() -> None:
+    node = _leaf()
+    with pytest.raises(AttributeError):
+        # Bypass static attribute checks; slots must still reject unknown names.
+        object.__setattr__(node, "not_a_field", 123)
+
+
+def test_node_public_fields_and_derived_properties() -> None:
+    node = make_cell_node(
+        "Sheet1",
+        "B",
+        2,
+        formula="=A1",
+        value=None,
+        is_leaf=False,
+        is_target=True,
+        metadata={"k": 1},
+        formula_ast=parse_preserving_axes("=A1", anchor="Sheet1!B2"),
+    )
+    assert node.sheet == "Sheet1"
+    assert node.column == "B"
+    assert node.row == 2
+    assert node.formula == "=A1"
+    assert node.normalized_formula == "=Sheet1!A1"
+    assert node.value is None
+    assert node.is_leaf is False
+    assert node.is_target is True
+    assert dict(node.metadata) == {"k": 1}
+    assert node.min_col == "B"
+    assert node.max_col == "B"
+    assert node.min_row == 2
+    assert node.max_row == 2
+    assert isinstance(node.address, CellKey)
+    assert node.key == "Sheet1!B2"
+    assert node.shape is NodeShape.cell
+    assert node.column_index == 2
+
+
+def test_node_address_construction() -> None:
+    by_address = Node(
+        sheet=None,
+        column=None,
+        row=None,
+        formula=None,
+        normalized_formula=None,
+        value=None,
+        is_leaf=True,
+        address=parse_node_key("Sheet1!E5"),
+    )
+    assert by_address.key == "Sheet1!E5"
+    assert by_address.column_index == 5
+
+
+def test_node_rejects_multi_cell_address() -> None:
+    with pytest.raises(ValueError, match="single cells"):
+        Node(
+            sheet=None,
+            column=None,
+            row=None,
+            formula=None,
+            normalized_formula=None,
+            value=None,
+            is_leaf=True,
+            address=parse_node_key("Sheet1!A1:B2"),
+        )
+
+
+def test_graph_mutations_on_slotted_node() -> None:
+    graph = DependencyGraph()
+    graph.add_node(_leaf(value=1))
+    graph.set_node_value("Sheet1!A1", 9)
+    graph.set_node_metadata("Sheet1!A1", {"tag": "x"})
+    graph.set_node_formula("Sheet1!A1", "=1", "=1")
+    view = graph.get_node("Sheet1!A1")
+    assert view is not None
+    assert view.value == 9
+    assert dict(view.metadata) == {"tag": "x"}
+    assert view.formula == "=1"
+    assert view.normalized_formula == "=1"
+
+
+def test_deepcopy_and_projection_clone_preserve_slotted_nodes() -> None:
+    graph = DependencyGraph()
+    graph.add_node(_leaf(value=3))
+    graph.add_node(
+        make_cell_node(
+            "Sheet1",
+            "B",
+            1,
+            formula="=A1",
+            is_leaf=False,
+            formula_ast=parse_preserving_axes("=A1", anchor="Sheet1!B1"),
+        )
+    )
+    graph.add_edge("Sheet1!B1", "Sheet1!A1")
+
+    cloned = copy.deepcopy(graph)
+    cloned_view = cloned.get_node("Sheet1!A1")
+    assert cloned_view is not None
+    assert cloned_view.value == 3
+
+    projected = graph._copy_for_projection()
+    assert projected.get_node("Sheet1!A1") is not None
+    assert projected.get_node("Sheet1!B1") is not None
+
+
+def test_derived_fields_depend_only_on_address() -> None:
+    a = _leaf("Sheet1", "C", 3)
+    b = _leaf("Sheet1", "C", 3)
+    assert a.key == b.key == "Sheet1!C3"
+    assert a.shape is b.shape is NodeShape.cell
+    assert a.column_index == b.column_index == 3

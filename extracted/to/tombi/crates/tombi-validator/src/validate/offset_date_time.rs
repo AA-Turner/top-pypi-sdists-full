@@ -131,7 +131,7 @@ async fn validate_offset_date_time(
     let mut assertion_failed = false;
     let mut match_evidence = Box::<crate::MatchEvidence>::default();
     let value_string = offset_date_time_value.value().to_string();
-    let range = offset_date_time_value.range();
+    let span = offset_date_time_value.span();
 
     if let Some(const_value) = &offset_date_time_schema.const_value {
         let matched = value_string == *const_value;
@@ -153,7 +153,7 @@ async fn validate_offset_date_time(
                     expected: const_value.clone(),
                     actual: value_string.clone(),
                 }),
-                range,
+                span,
             }
             .push_diagnostic_with_level(level, &mut diagnostics);
         }
@@ -185,7 +185,7 @@ async fn validate_offset_date_time(
                     expected: r#enum.iter().map(ToString::to_string).collect(),
                     actual: value_string.clone(),
                 }),
-                range,
+                span,
             }
             .push_diagnostic_with_level(level, &mut diagnostics);
         }

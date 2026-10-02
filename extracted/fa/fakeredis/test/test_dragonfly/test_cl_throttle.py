@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from time import sleep
 
 import pytest
@@ -11,7 +9,7 @@ from test import testtools
 pytestmark = []
 pytestmark.extend(
     [
-        pytest.mark.unsupported_server_types("redis", "valkey"),
+        pytest.mark.unsupported_server_types("redis", "valkey", "kividb"),
     ]
 )
 

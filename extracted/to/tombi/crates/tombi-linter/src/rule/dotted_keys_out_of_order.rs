@@ -6,32 +6,32 @@ use tombi_severity_level::SeverityLevelDefaultWarn;
 
 pub struct DottedKeysOutOfOrderRule;
 
-impl Rule<tombi_ast_syntax::Root> for DottedKeysOutOfOrderRule {
-    async fn check(root: &tombi_ast_syntax::Root, l: &mut crate::Linter<'_>) {
+impl Rule<tombi_ast_syntax::Root<'_>> for DottedKeysOutOfOrderRule {
+    async fn check(root: &tombi_ast_syntax::Root<'_>, l: &mut crate::Linter<'_>) {
         check_dotted_keys_out_of_order(root.key_values(), root.comment_directives(), l).await;
     }
 }
 
-impl Rule<tombi_ast_syntax::Table> for DottedKeysOutOfOrderRule {
-    async fn check(table: &tombi_ast_syntax::Table, l: &mut crate::Linter<'_>) {
+impl Rule<tombi_ast_syntax::Table<'_>> for DottedKeysOutOfOrderRule {
+    async fn check(table: &tombi_ast_syntax::Table<'_>, l: &mut crate::Linter<'_>) {
         check_dotted_keys_out_of_order(table.key_values(), table.comment_directives(), l).await;
     }
 }
 
-impl Rule<tombi_ast_syntax::ArrayOfTable> for DottedKeysOutOfOrderRule {
-    async fn check(table: &tombi_ast_syntax::ArrayOfTable, l: &mut crate::Linter<'_>) {
+impl Rule<tombi_ast_syntax::ArrayOfTable<'_>> for DottedKeysOutOfOrderRule {
+    async fn check(table: &tombi_ast_syntax::ArrayOfTable<'_>, l: &mut crate::Linter<'_>) {
         check_dotted_keys_out_of_order(table.key_values(), table.comment_directives(), l).await;
     }
 }
 
-impl Rule<tombi_ast_syntax::InlineTable> for DottedKeysOutOfOrderRule {
-    async fn check(table: &tombi_ast_syntax::InlineTable, l: &mut crate::Linter<'_>) {
+impl Rule<tombi_ast_syntax::InlineTable<'_>> for DottedKeysOutOfOrderRule {
+    async fn check(table: &tombi_ast_syntax::InlineTable<'_>, l: &mut crate::Linter<'_>) {
         check_dotted_keys_out_of_order(table.key_values(), table.comment_directives(), l).await;
     }
 }
 
 async fn check_dotted_keys_out_of_order(
-    key_values: impl Iterator<Item = tombi_ast_syntax::KeyValue>,
+    key_values: impl Iterator<Item = tombi_ast_syntax::KeyValue<'_>>,
     comment_directives: impl Iterator<Item = tombi_ast_syntax::TombiValueCommentDirective>,
     l: &mut crate::Linter<'_>,
 ) {
@@ -70,7 +70,7 @@ async fn check_dotted_keys_out_of_order(
         return;
     }
 
-    let mut prefix_groups: tombi_hashmap::HashMap<String, Vec<(usize, tombi_text::Range)>> =
+    let mut prefix_groups: tombi_hashmap::HashMap<String, Vec<(usize, tombi_text::Span)>> =
         tombi_hashmap::HashMap::new();
 
     // Single pass to collect all data
@@ -84,34 +84,34 @@ async fn check_dotted_keys_out_of_order(
         let Ok(content) = key.try_to_content(l.toml_version()) else {
             continue;
         };
-        let position = (index, key_value.range());
+        let offset = (index, key_value.span());
 
-        if let Some(positions) = prefix_groups.get_mut(content.as_ref()) {
-            positions.push(position);
+        if let Some(offsets) = prefix_groups.get_mut(content.as_ref()) {
+            offsets.push(offset);
         } else {
-            prefix_groups.insert(content.into_owned(), vec![position]);
+            prefix_groups.insert(content.into_owned(), vec![offset]);
         }
     }
 
     // Check if any prefix group is out of order
-    let mut out_of_order_ranges = Vec::new();
+    let mut out_of_order_spans = Vec::new();
 
-    for (_, positions) in &prefix_groups {
-        if positions
+    for (_, offsets) in &prefix_groups {
+        if offsets
             .windows(2)
             .any(|window| window[0].0 + 1 != window[1].0)
         {
-            out_of_order_ranges.extend(positions.iter().map(|(_, range)| *range))
+            out_of_order_spans.extend(offsets.iter().map(|(_, span)| *span))
         }
     }
 
     // Report diagnostics for all out-of-order dotted keys
-    if !out_of_order_ranges.is_empty() {
-        for range in out_of_order_ranges {
+    if !out_of_order_spans.is_empty() {
+        for span in out_of_order_spans {
             l.extend_diagnostics(crate::Diagnostic {
                 kind: crate::DiagnosticKind::DottedKeysOutOfOrder,
                 level: level.into(),
-                range,
+                span,
             });
         }
     }

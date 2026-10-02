@@ -1,0 +1,1382 @@
+#include "doppler/dp_complex.h"
+#include "doppler/mpsk/mpsk_core.h"
+#include "doppler/wfm/wfm_frame.h" /* the burst: dp_wfm_frame_fixed + spread */
+#include "doppler/wfm_synth/wfm_synth_core.h"
+#include "dp_state_test.h"
+#include "dp_test.h"
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* Floating-point helpers — use inline functions, not macros, so arguments
+ * are evaluated exactly once.  Safe to call with stateful step() results. */
+int
+main (void)
+{
+  dp_wfm_synth_state_t *obj
+      = dp_wfm_synth_create (0, 1000000.0, 0.0, 100.0, 0, 1, 8, 7, 0, 0, 0.0);
+  DP_CHECK (obj != NULL);
+  if (!obj)
+    return 1;
+
+  /* step: verify it runs without crashing */
+  (void)dp_wfm_synth_step (obj);
+
+  /* reset */
+  dp_wfm_synth_reset (obj);
+
+  /* ── clean (snr >= WFM_SYNTH_SNR_CLEAN) generates no AWGN; baseband no LO ──
+   */
+  {
+    /* clean tone with a freq offset: LO present, no AWGN */
+    dp_wfm_synth_state_t *c = dp_wfm_synth_create (
+        WFM_SYNTH_TONE, 1e6, 1e5, 100.0, 0, 1, 8, 7, 0, 0, 0.0);
+    DP_CHECK (c && c->awgn == NULL && c->lo != NULL);
+    if (c)
+      dp_wfm_synth_destroy (c);
+
+    /* noisy tone: AWGN present */
+    dp_wfm_synth_state_t *nz = dp_wfm_synth_create (
+        WFM_SYNTH_TONE, 1e6, 1e5, 10.0, 0, 1, 8, 7, 0, 0, 0.0);
+    DP_CHECK (nz && nz->awgn != NULL);
+    if (nz)
+      dp_wfm_synth_destroy (nz);
+
+    /* baseband (freq 0): no LO */
+    dp_wfm_synth_state_t *bb = dp_wfm_synth_create (
+        WFM_SYNTH_TONE, 1e6, 0.0, 100.0, 0, 1, 8, 7, 0, 0, 0.0);
+    DP_CHECK (bb && bb->lo == NULL && bb->awgn == NULL);
+    if (bb)
+      dp_wfm_synth_destroy (bb);
+
+    /* noise type always has AWGN, even at high snr */
+    dp_wfm_synth_state_t *ns = dp_wfm_synth_create (
+        WFM_SYNTH_NOISE, 1e6, 0.0, 100.0, 0, 1, 8, 7, 0, 0, 0.0);
+    DP_CHECK (ns && ns->awgn != NULL);
+    if (ns)
+      dp_wfm_synth_destroy (ns);
+  }
+
+  /* ── RRC pulse shaping: step()==steps(), shaping changes the output ────────
+   */
+  {
+    /* a small symmetric low-pass FIR stands in for the RRC taps here */
+    const float           taps[5] = { 0.1f, 0.2f, 0.4f, 0.2f, 0.1f };
+    dp_wfm_synth_state_t *rs      = dp_wfm_synth_create (
+        WFM_SYNTH_QPSK, 1e6, 0.0, 100.0, 0, 7, 4, 7, 0, 0, 0.0);
+    DP_CHECK (rs && rs->fir == NULL);
+    DP_CHECK (dp_wfm_synth_set_rrc (rs, taps, 5) == 0);
+    DP_CHECK (rs->shaper != NULL && rs->fir == NULL);
+    float _Complex y[256];
+    dp_wfm_synth_steps (rs, y, 256);
+
+    /* step() must reproduce steps() bit-for-bit */
+    dp_wfm_synth_state_t *rs2 = dp_wfm_synth_create (
+        WFM_SYNTH_QPSK, 1e6, 0.0, 100.0, 0, 7, 4, 7, 0, 0, 0.0);
+    dp_wfm_synth_set_rrc (rs2, taps, 5);
+    int match = 1;
+    for (int i = 0; i < 256; i++)
+      if (dp_wfm_synth_step (rs2) != y[i])
+        match = 0;
+    DP_CHECK (match);
+
+    /* shaping changes the output vs the unshaped (rect) synth */
+    dp_wfm_synth_state_t *rect = dp_wfm_synth_create (
+        WFM_SYNTH_QPSK, 1e6, 0.0, 100.0, 0, 7, 4, 7, 0, 0, 0.0);
+    float _Complex r[256];
+    dp_wfm_synth_steps (rect, r, 256);
+    int differs = 0;
+    for (int i = 0; i < 256; i++)
+      if (r[i] != y[i])
+        differs = 1;
+    DP_CHECK (differs);
+
+    /* set_rrc is a no-op on a non-modulated synth, and rejects bad args */
+    DP_CHECK (dp_wfm_synth_set_rrc (obj, taps, 5) == 0); /* obj is a tone */
+    DP_CHECK (dp_wfm_synth_set_rrc (rs, NULL, 0) == -1);
+
+    dp_wfm_synth_destroy (rs);
+    dp_wfm_synth_destroy (rs2);
+    dp_wfm_synth_destroy (rect);
+  }
+
+  /* ── RRC at a NON-power-of-two sps: the dense-FIR fallback (resamp's branch
+   *    select needs a pow-2 phase count), and step()==steps() still holds. */
+  {
+    const float           taps[5] = { 0.1f, 0.2f, 0.4f, 0.2f, 0.1f };
+    dp_wfm_synth_state_t *fs3     = dp_wfm_synth_create (
+        WFM_SYNTH_PN, 1e6, 0.0, 100.0, 0, 7, 3, 7, 0, 0, 0.0); /* sps=3 */
+    DP_CHECK (fs3 && dp_wfm_synth_set_rrc (fs3, taps, 5) == 0);
+    DP_CHECK (fs3 && fs3->fir != NULL
+              && fs3->shaper == NULL); /* dense fallback */
+    float _Complex y3[192];
+    dp_wfm_synth_steps (fs3, y3, 192);
+    dp_wfm_synth_state_t *fs3b = dp_wfm_synth_create (
+        WFM_SYNTH_PN, 1e6, 0.0, 100.0, 0, 7, 3, 7, 0, 0, 0.0);
+    dp_wfm_synth_set_rrc (fs3b, taps, 5);
+    int m3 = 1;
+    for (int i = 0; i < 192; i++)
+      if (dp_wfm_synth_step (fs3b) != y3[i])
+        m3 = 0;
+    DP_CHECK (m3); /* step()==steps() on the dense-FIR fallback path */
+    dp_wfm_synth_destroy (fs3);
+    dp_wfm_synth_destroy (fs3b);
+  }
+
+  /* ── bits and symbols + RRC at a NON-power-of-two sps: the same dense-FIR
+   *    fallback, reached from the bits/dsss and symbols branches of step().
+   *    The pow-2 tests below take the polyphase shaper and never get here. */
+  {
+    const float   taps[5] = { 0.1f, 0.2f, 0.4f, 0.2f, 0.1f };
+    const uint8_t pat[6]  = { 1, 0, 1, 1, 0, 0 };
+    const float _Complex syms[3]
+        = { 1.0f + 1.0f * I, -1.0f + 1.0f * I, 1.0f - 1.0f * I };
+    const int wt[2] = { WFM_SYNTH_BITS, WFM_SYNTH_SYMBOLS };
+    for (int k = 0; k < 2; k++)
+      {
+        dp_wfm_synth_state_t *a[2];
+        for (int j = 0; j < 2; j++)
+          {
+            a[j] = dp_wfm_synth_create (wt[k], 1e6, 0.0, 100.0, 0, 1, 3, 7, 0,
+                                        0, 0.0); /* sps=3 */
+            if (wt[k] == WFM_SYNTH_BITS)
+              DP_CHECK (dp_wfm_synth_set_bits (a[j], pat, 6, 1) == 0);
+            else
+              DP_CHECK (dp_wfm_synth_set_symbols (a[j], syms, 3) == 0);
+            DP_CHECK (dp_wfm_synth_set_rrc (a[j], taps, 5) == 0);
+          }
+        DP_CHECK (a[0]->fir != NULL && a[0]->shaper == NULL);
+        float _Complex y[192];
+        dp_wfm_synth_steps (a[0], y, 192);
+        int m = 1;
+        for (int i = 0; i < 192; i++)
+          if (dp_wfm_synth_step (a[1]) != y[i])
+            m = 0;
+        DP_CHECK (m); /* step()==steps() on the bits/symbols FIR path */
+        dp_wfm_synth_destroy (a[0]);
+        dp_wfm_synth_destroy (a[1]);
+      }
+  }
+
+  /* ── bits: user pattern, mapping, cycling, step()==steps() ────────────────
+   */
+  {
+    const uint8_t pat[6] = { 1, 0, 1, 1, 0, 0 };
+    /* bpsk, sps=2 → 12 samples for one pass; build via steps() */
+    dp_wfm_synth_state_t *bs = dp_wfm_synth_create (
+        WFM_SYNTH_BITS, 1e6, 0.0, 100.0, 0, 1, 2, 7, 0, 0, 0.0);
+    DP_CHECK (bs && bs->lo == NULL && bs->awgn == NULL && bs->pn == NULL);
+    DP_CHECK (dp_wfm_synth_set_bits (bs, pat, 6, 1) == 0); /* 1 = bpsk */
+    float _Complex y[24];
+    dp_wfm_synth_steps (bs, y, 24); /* two passes (cycled) */
+    /* bpsk: bit 1 -> -1, bit 0 -> +1; symbol centre at each sps-block */
+    DP_CHECK (dp_nearf (crealf (y[0]), -1.0f, 1e-5f)); /* bit 1 */
+    DP_CHECK (dp_nearf (crealf (y[2]), 1.0f, 1e-5f));  /* bit 0 */
+    DP_CHECK (
+        dp_nearf (crealf (y[12]), -1.0f, 1e-5f)); /* cycled: bit 1 again */
+    int cyc = 1;
+    for (int i = 0; i < 12; i++)
+      if (y[i] != y[i + 12])
+        cyc = 0;
+    DP_CHECK (cyc); /* the pattern repeats every 12 samples */
+
+    /* step() must match steps() bit-for-bit */
+    dp_wfm_synth_state_t *bs2 = dp_wfm_synth_create (
+        WFM_SYNTH_BITS, 1e6, 0.0, 100.0, 0, 1, 2, 7, 0, 0, 0.0);
+    dp_wfm_synth_set_bits (bs2, pat, 6, 1);
+    int match = 1;
+    for (int i = 0; i < 24; i++)
+      if (dp_wfm_synth_step (bs2) != y[i])
+        match = 0;
+    DP_CHECK (match);
+
+    /* reset rewinds the pattern */
+    dp_wfm_synth_reset (bs);
+    DP_CHECK (dp_wfm_synth_step (bs) == y[0]);
+
+    /* set_bits is a no-op on a non-bits synth, and rejects bad args */
+    DP_CHECK (dp_wfm_synth_set_bits (obj, pat, 6, 1) == 0); /* obj is a tone */
+    DP_CHECK (dp_wfm_synth_set_bits (bs, pat, 6, 9)
+              == -1); /* bad modulation */
+    DP_CHECK (dp_wfm_synth_set_bits (bs, NULL, 0, 1) == -1); /* empty */
+
+    dp_wfm_synth_destroy (bs);
+    dp_wfm_synth_destroy (bs2);
+  }
+
+  /* ── the bits->symbol map is the LIBRARY's, at every order ───────────────
+     The property no agreement between two copies can establish. `set_bits`
+     had four inlined copies of this map and the QPSK one disagreed with
+     `mpsk_constellation()` on two of its four labels -- same constellation,
+     swapped assignment. Every copy agreed with every other, so a consistency
+     check passed; what fails is a round trip through the CANONICAL demapper,
+     which is the thing that actually scores bit errors (dp_ber_score).
+     Sabotage `wfm_synth_bit_symbol`'s label packing and this goes red. */
+  {
+    const int mods[3] = { 1, 2, 3 }; /* bits/symbol: BPSK, QPSK, 8PSK */
+    for (int mi = 0; mi < 3; mi++)
+      {
+        int bmod = mods[mi];
+        int m    = 1 << bmod;
+        /* 24 bits divides by 1, 2 and 3, so the pattern is a whole number of
+           symbols at every order and the cycling never straddles one. The
+           bits COUNT UP so every one of the M labels is exercised -- an
+           alternating pattern makes each order emit one or two labels for
+           ever, and a label the test never produces is a label the mapping
+           can get wrong undetected. */
+        uint8_t bp[24];
+        for (int i = 0; i < 24; i++)
+          bp[i] = (uint8_t)((i / bmod >> (bmod - 1 - i % bmod)) & 1);
+        dp_wfm_synth_state_t *b = dp_wfm_synth_create (
+            WFM_SYNTH_BITS, 1e6, 0.0, 100.0, 0, 1, 1, 7, 0, 0, 0.0);
+        DP_CHECK (b != NULL);
+        DP_CHECK (dp_wfm_synth_set_bits (b, bp, 24, bmod) == 0);
+        {
+          size_t nsym = 24u / (size_t)bmod;
+          float _Complex y[24];
+          dp_wfm_synth_steps (b, y, nsym); /* sps = 1: one sample per symbol */
+          for (size_t k = 0; k < nsym; k++)
+            {
+              unsigned g = 0u;
+              for (int t = 0; t < bmod; t++) /* MSB-first, as documented */
+                g = (g << 1) | (unsigned)bp[k * (size_t)bmod + (size_t)t];
+              {
+                float _Complex ahat;
+                unsigned got = mpsk_slice (y[k], m, &ahat);
+                DP_CHECK (got == g);
+                DP_CHECK (dp_nearf (cabsf (y[k]), 1.0f, 1e-5f));
+              }
+            }
+        }
+        dp_wfm_synth_destroy (b);
+      }
+  }
+
+  /* ── bits + RRC: set_rrc shapes the bit stream, step()==steps() ───────────
+   * Regression for the silent no-op where bits accepted RRC but emitted
+   * rectangular pulses (set_rrc gated out bits; the bits paths ignored fir).
+   */
+  {
+    const float           taps[5] = { 0.1f, 0.2f, 0.4f, 0.2f, 0.1f };
+    const uint8_t         pat[6]  = { 1, 0, 1, 1, 0, 0 };
+    dp_wfm_synth_state_t *bs      = dp_wfm_synth_create (
+        WFM_SYNTH_BITS, 1e6, 0.0, 100.0, 0, 1, 4, 7, 0, 0, 0.0);
+    DP_CHECK (dp_wfm_synth_set_bits (bs, pat, 6, 1) == 0); /* bpsk */
+    DP_CHECK (dp_wfm_synth_set_rrc (bs, taps, 5)
+              == 0); /* now accepted on bits */
+    DP_CHECK (bs->shaper != NULL && bs->fir == NULL);
+    float _Complex y[256];
+    dp_wfm_synth_steps (bs, y, 256);
+
+    /* step() must reproduce steps() bit-for-bit (chunk-invariant FIR) */
+    dp_wfm_synth_state_t *bs2 = dp_wfm_synth_create (
+        WFM_SYNTH_BITS, 1e6, 0.0, 100.0, 0, 1, 4, 7, 0, 0, 0.0);
+    dp_wfm_synth_set_bits (bs2, pat, 6, 1);
+    dp_wfm_synth_set_rrc (bs2, taps, 5);
+    int match = 1;
+    for (int i = 0; i < 256; i++)
+      if (dp_wfm_synth_step (bs2) != y[i])
+        match = 0;
+    DP_CHECK (match);
+
+    /* shaping changes the output vs the unshaped (rect) bits synth */
+    dp_wfm_synth_state_t *rect = dp_wfm_synth_create (
+        WFM_SYNTH_BITS, 1e6, 0.0, 100.0, 0, 1, 4, 7, 0, 0, 0.0);
+    dp_wfm_synth_set_bits (rect, pat, 6, 1);
+    float _Complex r[256];
+    dp_wfm_synth_steps (rect, r, 256);
+    int differs = 0;
+    for (int i = 0; i < 256; i++)
+      if (r[i] != y[i])
+        differs = 1;
+    DP_CHECK (differs);
+
+    dp_wfm_synth_destroy (bs);
+    dp_wfm_synth_destroy (bs2);
+    dp_wfm_synth_destroy (rect);
+  }
+
+  /* ── symbols: user complex-symbol stream, mapping, cycling, step()==steps()
+   * ─
+   */
+  {
+    /* Four-point constellation; the symbol IS the output (no bit mapping). */
+    const float _Complex syms[4] = { 1.0f + 0.0f * I, 0.0f + 1.0f * I,
+                                     -1.0f + 0.0f * I, 0.0f - 1.0f * I };
+    dp_wfm_synth_state_t *ss     = dp_wfm_synth_create (
+        WFM_SYNTH_SYMBOLS, 1e6, 0.0, 100.0, 0, 1, 2, 7, 0, 0, 0.0);
+    DP_CHECK (ss && ss->lo == NULL && ss->awgn == NULL && ss->pn == NULL);
+    DP_CHECK (dp_wfm_synth_set_symbols (ss, syms, 4) == 0);
+    float _Complex y[16];
+    dp_wfm_synth_steps (ss, y, 16); /* 4 syms * 2 sps = 8/pass → two passes */
+    /* symbol centre at each sps-block equals the symbol itself */
+    DP_CHECK (dp_cnearf (y[0], syms[0], 1e-5f));
+    DP_CHECK (dp_cnearf (y[2], syms[1], 1e-5f));
+    DP_CHECK (dp_cnearf (y[4], syms[2], 1e-5f));
+    DP_CHECK (dp_cnearf (y[6], syms[3], 1e-5f));
+    DP_CHECK (dp_cnearf (y[8], syms[0], 1e-5f)); /* cycled */
+    int cyc = 1;
+    for (int i = 0; i < 8; i++)
+      if (y[i] != y[i + 8])
+        cyc = 0;
+    DP_CHECK (cyc); /* the stream repeats every 8 samples */
+
+    /* step() must match steps() bit-for-bit */
+    dp_wfm_synth_state_t *ss2 = dp_wfm_synth_create (
+        WFM_SYNTH_SYMBOLS, 1e6, 0.0, 100.0, 0, 1, 2, 7, 0, 0, 0.0);
+    dp_wfm_synth_set_symbols (ss2, syms, 4);
+    int match = 1;
+    for (int i = 0; i < 16; i++)
+      if (dp_wfm_synth_step (ss2) != y[i])
+        match = 0;
+    DP_CHECK (match);
+
+    /* reset rewinds the stream */
+    dp_wfm_synth_reset (ss);
+    DP_CHECK (dp_wfm_synth_step (ss) == y[0]);
+
+    /* set_symbols is a no-op on a non-symbols synth, and rejects bad args */
+    DP_CHECK (dp_wfm_synth_set_symbols (obj, syms, 4)
+              == 0); /* obj is a tone */
+    DP_CHECK (dp_wfm_synth_set_symbols (ss, NULL, 0) == -1);
+
+    dp_wfm_synth_destroy (ss);
+    dp_wfm_synth_destroy (ss2);
+  }
+
+  /* ── symbols + RRC: set_rrc shapes the symbol stream, step()==steps() ──────
+   */
+  {
+    const float taps[5] = { 0.1f, 0.2f, 0.4f, 0.2f, 0.1f };
+    const float _Complex syms[3]
+        = { 1.0f + 1.0f * I, -1.0f + 1.0f * I, 1.0f - 1.0f * I };
+    dp_wfm_synth_state_t *ss = dp_wfm_synth_create (
+        WFM_SYNTH_SYMBOLS, 1e6, 0.0, 100.0, 0, 1, 4, 7, 0, 0, 0.0);
+    dp_wfm_synth_set_symbols (ss, syms, 3);
+    DP_CHECK (dp_wfm_synth_set_rrc (ss, taps, 5)
+              == 0); /* accepted on symbols */
+    DP_CHECK (ss->shaper != NULL && ss->fir == NULL);
+    float _Complex y[192];
+    dp_wfm_synth_steps (ss, y, 192);
+
+    dp_wfm_synth_state_t *ss2 = dp_wfm_synth_create (
+        WFM_SYNTH_SYMBOLS, 1e6, 0.0, 100.0, 0, 1, 4, 7, 0, 0, 0.0);
+    dp_wfm_synth_set_symbols (ss2, syms, 3);
+    dp_wfm_synth_set_rrc (ss2, taps, 5);
+    int match = 1;
+    for (int i = 0; i < 192; i++)
+      if (dp_wfm_synth_step (ss2) != y[i])
+        match = 0;
+    DP_CHECK (match);
+
+    dp_wfm_synth_state_t *rect = dp_wfm_synth_create (
+        WFM_SYNTH_SYMBOLS, 1e6, 0.0, 100.0, 0, 1, 4, 7, 0, 0, 0.0);
+    dp_wfm_synth_set_symbols (rect, syms, 3);
+    float _Complex r[192];
+    dp_wfm_synth_steps (rect, r, 192);
+    int differs = 0;
+    for (int i = 0; i < 192; i++)
+      if (r[i] != y[i])
+        differs = 1;
+    DP_CHECK (differs);
+
+    dp_wfm_synth_destroy (ss);
+    dp_wfm_synth_destroy (ss2);
+    dp_wfm_synth_destroy (rect);
+  }
+
+  /* ── chirp (LFM): linear sweep, phase-continuous, byte-identical paths ────
+   */
+  {
+    /* A clean chirp builds neither a static LO (it synthesises its own swept
+     * carrier) nor AWGN; an up-chirp sweeps f_start→f_end over its span. */
+    const double          fs = 1e6, f0 = 1e5, f1 = 3e5;
+    const size_t          N  = 4096;
+    dp_wfm_synth_state_t *cu = dp_wfm_synth_create (
+        WFM_SYNTH_CHIRP, fs, f0, 100.0, 0, 1, 8, 7, 0, 0, f1);
+    DP_CHECK (cu && cu->lo == NULL && cu->awgn == NULL);
+    dp_wfm_synth_set_chirp_span (cu, N);
+
+    float _Complex *y = malloc (N * sizeof *y);
+    DP_CHECK (y != NULL);
+    dp_wfm_synth_steps (cu, y, N);
+
+    /* unit magnitude everywhere (a pure FM tone has constant envelope) */
+    DP_CHECK (dp_nearf (cabsf (y[0]), 1.0f, 1e-4f));
+    DP_CHECK (dp_nearf (cabsf (y[N / 2]), 1.0f, 1e-4f));
+    DP_CHECK (dp_nearf (cabsf (y[N - 1]), 1.0f, 1e-4f));
+
+    /* instantaneous frequency rises: estimate it from the phase increment
+     * (cycles/sample) at the start vs. the end of the sweep. */
+    double w_lo = carg (y[1] * conjf (y[0])) / 6.283185307179586; /* ≈ f0/fs */
+    double w_hi
+        = carg (y[N - 1] * conjf (y[N - 2])) / 6.283185307179586; /* ≈ f1/fs */
+    DP_CHECK (dp_nearf (w_lo, f0 / fs, 2e-3f));
+    DP_CHECK (dp_nearf (w_hi, f1 / fs, 2e-3f));
+
+    /* step() and steps() must agree bit-for-bit (the #67 lesson). */
+    dp_wfm_synth_state_t *cs = dp_wfm_synth_create (
+        WFM_SYNTH_CHIRP, fs, f0, 100.0, 0, 1, 8, 7, 0, 0, f1);
+    dp_wfm_synth_set_chirp_span (cs, N);
+    int step_match = 1;
+    for (size_t i = 0; i < N; i++)
+      if (dp_wfm_synth_step (cs) != y[i])
+        step_match = 0;
+    DP_CHECK (step_match);
+
+    /* reset rewinds the sweep to sample 0 (reproducible). */
+    float _Complex y0 = y[0];
+    dp_wfm_synth_reset (cu);
+    DP_CHECK (dp_wfm_synth_step (cu) == y0);
+
+    /* down-chirp: f_end < f_start sweeps the other way (high → low). */
+    float _Complex *d = malloc (N * sizeof *d);
+    DP_CHECK (d != NULL);
+    dp_wfm_synth_state_t *cd = dp_wfm_synth_create (
+        WFM_SYNTH_CHIRP, fs, f1, 100.0, 0, 1, 8, 7, 0, 0, f0);
+    dp_wfm_synth_set_chirp_span (cd, N);
+    dp_wfm_synth_steps (cd, d, N);
+    double wd_lo = carg (d[1] * conjf (d[0])) / 6.283185307179586;
+    double wd_hi = carg (d[N - 1] * conjf (d[N - 2])) / 6.283185307179586;
+    DP_CHECK (dp_nearf (wd_lo, f1 / fs, 2e-3f)); /* starts high */
+    DP_CHECK (dp_nearf (wd_hi, f0 / fs, 2e-3f)); /* ends low   */
+
+    /* #1115: the waveform may not depend on how reads are chunked. A pinned
+     * chirp read in 64-sample blocks is the one-block read, bit for bit. */
+    dp_wfm_synth_state_t *cb = dp_wfm_synth_create (
+        WFM_SYNTH_CHIRP, fs, f0, 100.0, 0, 1, 8, 7, 0, 0, f1);
+    dp_wfm_synth_set_chirp_span (cb, N);
+    float _Complex *b = malloc (N * sizeof *b);
+    DP_CHECK (b != NULL);
+    for (size_t off = 0; off < N; off += 64)
+      dp_wfm_synth_steps (cb, b + off, 64);
+    int block_match = 1;
+    for (size_t i = 0; i < N; i++)
+      if (b[i] != y[i])
+        block_match = 0;
+    DP_CHECK (block_match);
+
+    /* An UNPINNED chirp does not sweep on either path. It used to lock its
+     * span to the first steps() block while step() never locked, so the two
+     * disagreed by the whole waveform. Now both hold f_start, byte-identical,
+     * however the reads are chunked. */
+    dp_wfm_synth_state_t *un1 = dp_wfm_synth_create (
+        WFM_SYNTH_CHIRP, fs, f0, 100.0, 0, 1, 8, 7, 0, 0, f1);
+    dp_wfm_synth_state_t *un2 = dp_wfm_synth_create (
+        WFM_SYNTH_CHIRP, fs, f0, 100.0, 0, 1, 8, 7, 0, 0, f1);
+    dp_wfm_synth_steps (un1, b, N / 2);
+    dp_wfm_synth_steps (un1, b + N / 2, N / 2);
+    int un_match = 1;
+    for (size_t i = 0; i < N; i++)
+      if (dp_wfm_synth_step (un2) != b[i])
+        un_match = 0;
+    DP_CHECK (un_match);
+    double wu = carg (b[N - 1] * conjf (b[N - 2])) / 6.283185307179586;
+    DP_CHECK (dp_nearf (wu, f0 / fs, 2e-3f)); /* still at f_start */
+
+    free (b);
+    free (d);
+    free (y);
+    dp_wfm_synth_destroy (cu);
+    dp_wfm_synth_destroy (cs);
+    dp_wfm_synth_destroy (cd);
+    dp_wfm_synth_destroy (cb);
+    dp_wfm_synth_destroy (un1);
+    dp_wfm_synth_destroy (un2);
+  }
+
+  dp_wfm_synth_destroy (obj);
+  /* serializable state — running scalars + present children
+   * (presence-flagged). */
+  {
+    float _Complex out[256];
+    dp_wfm_synth_state_t *a
+        = dp_wfm_synth_create (0, 1e6, 1e5, 100.0, 0, 1, 8, 7, 0, 0, 0.0);
+    dp_wfm_synth_state_t *b
+        = dp_wfm_synth_create (0, 1e6, 1e5, 100.0, 0, 1, 8, 7, 0, 0, 0.0);
+    DP_CHECK (a != NULL && b != NULL);
+    dp_wfm_synth_steps (a, out, 256);
+    DP_STATE_ROUNDTRIP_TEST (dp_wfm_synth, a, b);
+    DP_CHECK (b->sym_pos == a->sym_pos && b->chirp_n == a->chirp_n);
+    DP_CHECK (b->cur_re == a->cur_re && b->bit_idx == a->bit_idx);
+    dp_wfm_synth_destroy (a);
+    dp_wfm_synth_destroy (b);
+  }
+
+  /* symbols serialization: a mid-stream split resumes bit-exact, and
+   * sym_read_idx survives the round-trip. */
+  {
+    const float _Complex syms[5]
+        = { 1 + 0 * I, 0 + 1 * I, -1 + 0 * I, 0 - 1 * I, 1 + 1 * I };
+    float _Complex ref[128], part[40], cont[88];
+    dp_wfm_synth_state_t *a = dp_wfm_synth_create (
+        WFM_SYNTH_SYMBOLS, 1e6, 0.0, 100.0, 0, 1, 3, 7, 0, 0, 0.0);
+    dp_wfm_synth_state_t *b = dp_wfm_synth_create (
+        WFM_SYNTH_SYMBOLS, 1e6, 0.0, 100.0, 0, 1, 3, 7, 0, 0, 0.0);
+    dp_wfm_synth_set_symbols (a, syms, 5);
+    dp_wfm_synth_set_symbols (b, syms, 5);
+    dp_wfm_synth_steps (a, ref, 128); /* full reference */
+    dp_wfm_synth_reset (a);
+    dp_wfm_synth_steps (a, part,
+                        40); /* feed a partway → sym_read_idx advances */
+    size_t nb   = dp_wfm_synth_state_bytes (a);
+    void  *blob = malloc (nb);
+    dp_wfm_synth_get_state (a, blob);
+    DP_CHECK (dp_wfm_synth_set_state (b, blob) == 0);
+    DP_CHECK (b->sym_read_idx == a->sym_read_idx);
+    dp_wfm_synth_steps (b, cont, 88); /* resume from the split */
+    int ok = 1;
+    for (int i = 0; i < 40; i++)
+      if (part[i] != ref[i])
+        ok = 0;
+    for (int i = 0; i < 88; i++)
+      if (cont[i] != ref[40 + i])
+        ok = 0;
+    DP_CHECK (ok); /* part ++ cont == ref, bit-for-bit across the split */
+    /* envelope reject: clobber the magic */
+    ((uint8_t *)blob)[0] ^= 0xFFu;
+    DP_CHECK (dp_wfm_synth_set_state (b, blob) == DP_ERR_INVALID);
+    free (blob);
+    dp_wfm_synth_destroy (a);
+    dp_wfm_synth_destroy (b);
+  }
+
+  /* dsss: set_dsss_chips installs the two-code burst (preamble + spread
+   * frame, assembled from the common frame's description) into the bits
+   * machinery, a mid-burst split resumes bit-exact (noisy, so the AWGN
+   * child state is exercised too), and an empty burst is rejected. */
+  {
+    const uint8_t acq[8]   = { 1, 0, 1, 1, 0, 0, 1, 0 };
+    const uint8_t dcode[4] = { 0, 1, 1, 0 };
+    const uint8_t sync[2]  = { 1, 0 };
+    const uint8_t pay[5]   = { 1, 0, 0, 1, 1 };
+    /* 8*3 + (2+5+16)*4 = 116 chips × sps 2 = 232 samples per burst pass */
+    float _Complex ref[232], part[100], cont[132];
+    dp_wfm_synth_state_t *a = dp_wfm_synth_create (WFM_SYNTH_DSSS, 1e6, 0.0,
+                                                   3.0, 1, 9, 2, 7, 0, 0, 0.0);
+    dp_wfm_synth_state_t *b = dp_wfm_synth_create (WFM_SYNTH_DSSS, 1e6, 0.0,
+                                                   3.0, 1, 9, 2, 7, 0, 0, 0.0);
+    DP_CHECK (a != NULL && b != NULL);
+    const wfm_seq_t  syn = { .kind = WFM_SEQ_LITERAL, .bits = sync, .len = 2 };
+    const wfm_seq_t  pl  = { .kind = WFM_SEQ_LITERAL, .bits = pay, .len = 5 };
+    wfm_frame_desc_t fd;
+    uint8_t          chips[116];
+    DP_CHECK (dp_wfm_frame_fixed (&fd, NULL, 0, &syn, &pl, 1) == 0);
+    DP_CHECK (dp_wfm_dsss_desc_chips (&fd, NULL, acq, 8, 3, dcode, 4, chips,
+                                      sizeof chips)
+              == sizeof chips);
+    DP_CHECK (dp_wfm_synth_set_dsss_chips (a, chips, sizeof chips) == 0);
+    DP_CHECK (dp_wfm_synth_set_dsss_chips (b, chips, sizeof chips) == 0);
+    DP_CHECK (a->n_bits == 116 && a->bit_mod == 1);
+    /* the head of the pattern is the unmodulated tiled preamble */
+    for (int i = 0; i < 8; i++)
+      DP_CHECK (a->bits[i] == acq[i] && a->bits[8 + i] == acq[i]);
+    dp_wfm_synth_steps (a, ref, 232);
+    dp_wfm_synth_reset (a);
+    dp_wfm_synth_steps (a, part, 100); /* split mid-burst */
+    size_t nb   = dp_wfm_synth_state_bytes (a);
+    void  *blob = malloc (nb);
+    dp_wfm_synth_get_state (a, blob);
+    DP_CHECK (dp_wfm_synth_set_state (b, blob) == 0);
+    dp_wfm_synth_steps (b, cont, 132);
+    int ok = 1;
+    for (int i = 0; i < 100; i++)
+      if (part[i] != ref[i])
+        ok = 0;
+    for (int i = 0; i < 132; i++)
+      if (cont[i] != ref[100 + i])
+        ok = 0;
+    DP_CHECK (ok); /* part ++ cont == ref across the split, noise included */
+    ((uint8_t *)blob)[0] ^= 0xFFu; /* envelope reject */
+    DP_CHECK (dp_wfm_synth_set_state (b, blob) == DP_ERR_INVALID);
+    free (blob);
+    /* rejects: an empty burst (the geometry rules -- frame bits with no
+     * data code, nothing to send -- are the description's, and are pinned
+     * in test_wfm_frame.c); a no-op on a non-dsss synth. */
+    DP_CHECK (dp_wfm_synth_set_dsss_chips (a, NULL, 0) == -1);
+    DP_CHECK (dp_wfm_synth_set_dsss_chips (a, chips, 0) == -1);
+    dp_wfm_synth_state_t *tn = dp_wfm_synth_create (
+        WFM_SYNTH_TONE, 1e6, 0.0, 100.0, 0, 1, 1, 7, 0, 0, 0.0);
+    DP_CHECK (dp_wfm_synth_set_dsss_chips (tn, chips, sizeof chips)
+              == 0); /* no-op for other types */
+    dp_wfm_synth_destroy (tn);
+    dp_wfm_synth_destroy (a);
+    dp_wfm_synth_destroy (b);
+  }
+
+  /* continuous asynchronous dsss: the lazy per-sample generator (no
+   * materialised burst). Covers all three data modes, the step()==steps()
+   * byte-identity the shared kernel guarantees, a mid-stream resume that
+   * carries the running chip/symbol clocks (and the PN child for prbs), and
+   * the geometry rejects. chips_per_symbol = (fs/spc)/symbol_rate is
+   * deliberately non-integer ((1e6/2)/2100 = 238.095), the asynchronicity. */
+  {
+    const size_t sf = 31, spc = 2;
+    const double fs = 1e6, cps = (fs / (double)spc) / 2100.0;
+    uint8_t      code[31];
+    for (size_t i = 0; i < sf; i++)
+      code[i] = (uint8_t)((i * 7 + 1) & 1u);
+    const uint8_t pay[5] = { 1, 0, 1, 1, 0 };
+    const int     modes[3]
+        = { WFM_DSSS_DATA_NONE, WFM_DSSS_DATA_BITS, WFM_DSSS_DATA_PRBS };
+
+    for (int mi = 0; mi < 3; mi++)
+      {
+        int                   mode = modes[mi];
+        dp_wfm_synth_state_t *a    = dp_wfm_synth_create (
+            WFM_SYNTH_DSSS, fs, 0.0, 3.0, 1, 9, (int)spc, 7, 0, 0, 0.0);
+        dp_wfm_synth_state_t *b = dp_wfm_synth_create (
+            WFM_SYNTH_DSSS, fs, 0.0, 3.0, 1, 9, (int)spc, 7, 0, 0, 0.0);
+        DP_CHECK (a != NULL && b != NULL);
+        const uint8_t *d  = (mode == WFM_DSSS_DATA_BITS) ? pay : NULL;
+        size_t         nd = (mode == WFM_DSSS_DATA_BITS) ? 5 : 0;
+        DP_CHECK (dp_wfm_synth_set_dsss_cont (a, code, sf, cps, mode, d, nd)
+                  == 0);
+        DP_CHECK (dp_wfm_synth_set_dsss_cont (b, code, sf, cps, mode, d, nd)
+                  == 0);
+
+        /* step() and steps() must agree bit-for-bit (shared chip kernel). */
+        float _Complex blk[600];
+        dp_wfm_synth_steps (a, blk, 600);
+        int idn = 1;
+        for (int i = 0; i < 600; i++)
+          if (dp_wfm_synth_step (b) != blk[i])
+            {
+              idn = 0;
+              break;
+            }
+        DP_CHECK (idn); /* step()==steps() for this data mode */
+
+        /* mid-stream resume: a's state -> a fresh c, then both run on and the
+         * outputs coincide (noisy, so the AWGN child rides too; prbs also
+         * carries the PN child across the split). */
+        dp_wfm_synth_reset (a);
+        float _Complex ref[600], part[250], cont[350];
+        dp_wfm_synth_steps (a, ref, 600);
+        dp_wfm_synth_reset (a);
+        dp_wfm_synth_steps (a, part, 250);
+        size_t nb   = dp_wfm_synth_state_bytes (a);
+        void  *blob = malloc (nb);
+        dp_wfm_synth_get_state (a, blob);
+        dp_wfm_synth_state_t *c = dp_wfm_synth_create (
+            WFM_SYNTH_DSSS, fs, 0.0, 3.0, 1, 9, (int)spc, 7, 0, 0, 0.0);
+        DP_CHECK (dp_wfm_synth_set_dsss_cont (c, code, sf, cps, mode, d, nd)
+                  == 0);
+        DP_CHECK (dp_wfm_synth_set_state (c, blob) == 0);
+        dp_wfm_synth_steps (c, cont, 350);
+        int ok = 1;
+        for (int i = 0; i < 250; i++)
+          if (part[i] != ref[i])
+            ok = 0;
+        for (int i = 0; i < 350; i++)
+          if (cont[i] != ref[250 + i])
+            ok = 0;
+        DP_CHECK (ok); /* part ++ cont == ref across the split */
+        ((uint8_t *)blob)[0] ^= 0xFFu; /* envelope reject */
+        DP_CHECK (dp_wfm_synth_set_state (c, blob) == DP_ERR_INVALID);
+        free (blob);
+        dp_wfm_synth_destroy (a);
+        dp_wfm_synth_destroy (b);
+        dp_wfm_synth_destroy (c);
+      }
+
+    /* code-only emits the pure code at nominal polarity (+code): chip k,
+     * sampled at its chip-start, is code[k] ? -1 : +1. */
+    {
+      dp_wfm_synth_state_t *a = dp_wfm_synth_create (
+          WFM_SYNTH_DSSS, fs, 0.0, 100.0, 0, 9, (int)spc, 7, 0, 0, 0.0);
+      DP_CHECK (dp_wfm_synth_set_dsss_cont (a, code, sf, cps,
+                                            WFM_DSSS_DATA_NONE, NULL, 0)
+                == 0);
+      /* heap, not a `blk[sf * spc]` VLA: sf/spc are const size_t, not integer
+       * constant expressions, so the array would be a (folded) VLA -- clang
+       * warns -Wgnu-folding-constant. */
+      float _Complex *blk = malloc (sf * spc * sizeof *blk);
+      dp_wfm_synth_steps (a, blk, sf * spc);
+      int ok = 1;
+      for (size_t k = 0; k < sf; k++)
+        {
+          float want = code[k] ? -1.0f : 1.0f;
+          if (crealf (blk[k * spc]) != want)
+            ok = 0;
+        }
+      DP_CHECK (ok); /* code-only == +code */
+      free (blk);
+      dp_wfm_synth_destroy (a);
+    }
+
+    /* the pure-code window, on the DATA clock: of every F symbols the first
+     * W carry the pure code and the rest the payload, running on across
+     * frames; the symbol clock is the stream's own free-running one, so a
+     * frame edge falls at no particular chip phase; F = 0 is the windowless
+     * stream, bit for bit; and a state split inside a data section resumes
+     * exactly into the next frame. */
+    {
+      const size_t W   = 3,
+                   F   = 8; /* a small frame: 3 code-only symbols, 5 data */
+      const size_t nfr = 3;
+      /* chips covering nfr frames: every chip's symbol floor(c/cps) < nfr*F */
+      const size_t          nchips = (size_t)floor ((double)(nfr * F) * cps);
+      const size_t          n      = nchips * spc;
+      dp_wfm_synth_state_t *plain  = dp_wfm_synth_create (
+          WFM_SYNTH_DSSS, fs, 0.0, 100.0, 1, 9, (int)spc, 7, 0, 0, 0.0);
+      dp_wfm_synth_state_t *off = dp_wfm_synth_create (
+          WFM_SYNTH_DSSS, fs, 0.0, 100.0, 1, 9, (int)spc, 7, 0, 0, 0.0);
+      dp_wfm_synth_state_t *win = dp_wfm_synth_create (
+          WFM_SYNTH_DSSS, fs, 0.0, 100.0, 1, 9, (int)spc, 7, 0, 0, 0.0);
+      DP_REQUIRE (plain && off && win);
+      DP_CHECK (dp_wfm_synth_set_dsss_cont (plain, code, sf, cps,
+                                            WFM_DSSS_DATA_BITS, pay, 5)
+                == 0);
+      DP_CHECK (dp_wfm_synth_set_dsss_cont (off, code, sf, cps,
+                                            WFM_DSSS_DATA_BITS, pay, 5)
+                == 0);
+      DP_CHECK (dp_wfm_synth_set_dsss_cont (win, code, sf, cps,
+                                            WFM_DSSS_DATA_BITS, pay, 5)
+                == 0);
+      DP_CHECK (dp_wfm_synth_set_dsss_window (win, F + 1, F)
+                == -1); /* W > F */
+      DP_CHECK (dp_wfm_synth_set_dsss_window (win, W, F) == 0);
+      DP_CHECK (dp_wfm_synth_set_dsss_window (off, 0, 0) == 0);
+
+      float _Complex *a = malloc (n * sizeof *a);
+      float _Complex *b = malloc (n * sizeof *b);
+      DP_REQUIRE (a && b);
+      dp_wfm_synth_steps (plain, a, n);
+      dp_wfm_synth_steps (off, b, n);
+      int same = 1;
+      for (size_t i = 0; i < n; i++)
+        if (a[i] != b[i])
+          same = 0;
+      DP_CHECK_MSG (same, "frame_symbols = 0 must be the windowless stream");
+
+      dp_wfm_synth_steps (win, a, n);
+      /* chip c of the stream, sampled at its chip start, as a data bit. */
+#define CHIP_BIT(c) ((crealf (a[(c) * spc]) < 0.0f) ^ (code[(c) % sf] & 1u))
+      /* every chip belongs to symbol floor(c / cps) of the free-running
+       * clock -- the windowless clock, which the window must not move */
+      int pure = 1, has_data = 0, contiguous = 1;
+      for (size_t c = 0; c < nchips; c++)
+        {
+          size_t pos = (size_t)((double)c / cps) % F;
+          if (pos < W)
+            {
+              if (CHIP_BIT (c))
+                pure = 0;
+            }
+          else if (CHIP_BIT (c))
+            has_data = 1;
+        }
+      DP_CHECK_MSG (pure, "the window carries the pure code and nothing else");
+      DP_CHECK_MSG (has_data, "the data section carries data");
+      /* The free clock and contiguity: symbol j of the stream starts at chip
+       * ceil(j * cps) -- the same edge with or without a window -- and the
+       * data symbols, counted over every frame, carry pay[0], pay[1], ... */
+      size_t seen = 0;
+      for (size_t j = 0; j < nfr * F; j++)
+        {
+          if (j % F < W)
+            continue;
+          size_t start = (size_t)ceil ((double)j * cps);
+          if (start >= nchips)
+            break;
+          uint8_t want = pay[seen % 5] & 1u;
+          if (CHIP_BIT (start) != want)
+            contiguous = 0;
+          seen++;
+        }
+      DP_CHECK_MSG (contiguous, "symbol edges are the free clock's and the "
+                                "payload runs on across frames");
+
+      /* a split inside frame 0's data section, resumed into frame 1 */
+      const size_t cut = ((size_t)ceil ((double)W * cps) + 17) * spc;
+      dp_wfm_synth_reset (win);
+      dp_wfm_synth_steps (win, b, cut);
+      size_t nb   = dp_wfm_synth_state_bytes (win);
+      void  *blob = malloc (nb);
+      dp_wfm_synth_get_state (win, blob);
+      dp_wfm_synth_state_t *c = dp_wfm_synth_create (
+          WFM_SYNTH_DSSS, fs, 0.0, 100.0, 1, 9, (int)spc, 7, 0, 0, 0.0);
+      DP_CHECK (dp_wfm_synth_set_dsss_cont (c, code, sf, cps,
+                                            WFM_DSSS_DATA_BITS, pay, 5)
+                == 0);
+      DP_CHECK (dp_wfm_synth_set_dsss_window (c, W, F) == 0);
+      DP_CHECK (dp_wfm_synth_set_state (c, blob) == 0);
+      dp_wfm_synth_steps (c, b + cut, n - cut);
+      int resumed = 1;
+      for (size_t i = 0; i < n; i++)
+        if (a[i] != b[i])
+          resumed = 0;
+      DP_CHECK_MSG (resumed, "part ++ cont == ref across a split in the data "
+                             "section, into the next frame");
+#undef CHIP_BIT
+      free (blob);
+      free (a);
+      free (b);
+      dp_wfm_synth_destroy (plain);
+      dp_wfm_synth_destroy (off);
+      dp_wfm_synth_destroy (win);
+      dp_wfm_synth_destroy (c);
+    }
+
+    /* No seam, at a NON-integer chips-per-symbol. On the data clock the frame
+     * is nothing but a data pattern, so a windowed synth must equal, byte for
+     * byte, a windowless synth whose payload spells the frame out -- W zeros
+     * then the next F-W payload bits, per frame -- through the same RRC
+     * shaper, with the LO on, across three frames. A symbol clock restarted
+     * at the data section (the frame edge would then sit on a chip), a
+     * payload indexed by the frame position, a shaper or LO restart at a
+     * window edge, or a PN re-seed all break it. */
+    {
+      const size_t W = 3, F = 9, nfr = 3; /* 6 data symbols a frame: not a
+                                             multiple of the 5-bit payload,
+                                             so a cursor rewind shows */
+      const float  taps[5] = { 0.1f, 0.2f, 0.4f, 0.2f, 0.1f };
+      const size_t nchips  = (size_t)floor ((double)(nfr * F) * cps);
+      const size_t n       = nchips * spc;
+      /* the windowless payload: W zeros then the next F-W bits of `pay`,
+       * per frame, the cursor running on across frames */
+      uint8_t spelled[3 * 9];
+      size_t  cur = 0;
+      for (size_t f = 0; f < nfr; f++)
+        for (size_t j = 0; j < F; j++)
+          spelled[f * F + j] = (j < W) ? 0u : (uint8_t)(pay[cur++ % 5] & 1u);
+
+      dp_wfm_synth_state_t *win = dp_wfm_synth_create (
+          WFM_SYNTH_DSSS, fs, 0.01 * fs, 100.0, 1, 9, (int)spc, 7, 0, 0, 0.0);
+      dp_wfm_synth_state_t *flat = dp_wfm_synth_create (
+          WFM_SYNTH_DSSS, fs, 0.01 * fs, 100.0, 1, 9, (int)spc, 7, 0, 0, 0.0);
+      DP_REQUIRE (win && flat);
+      DP_CHECK (dp_wfm_synth_set_dsss_cont (win, code, sf, cps,
+                                            WFM_DSSS_DATA_BITS, pay, 5)
+                == 0);
+      DP_CHECK (dp_wfm_synth_set_dsss_window (win, W, F) == 0);
+      DP_CHECK (dp_wfm_synth_set_dsss_cont (
+                    flat, code, sf, cps, WFM_DSSS_DATA_BITS, spelled, nfr * F)
+                == 0);
+      DP_CHECK (dp_wfm_synth_set_rrc (win, taps, 5) == 0);
+      DP_CHECK (dp_wfm_synth_set_rrc (flat, taps, 5) == 0);
+      float _Complex *a = malloc (n * sizeof *a);
+      float _Complex *b = malloc (n * sizeof *b);
+      DP_REQUIRE (a && b);
+      dp_wfm_synth_steps (win, a, n);
+      dp_wfm_synth_steps (flat, b, n);
+      int identical = 1;
+      for (size_t i = 0; i < n; i++)
+        if (a[i] != b[i])
+          identical = 0;
+      DP_CHECK_MSG (identical, "a windowed synth equals a windowless one "
+                               "spelling the same frame -- no seam");
+      free (a);
+      free (b);
+      dp_wfm_synth_destroy (win);
+      dp_wfm_synth_destroy (flat);
+    }
+
+    /* geometry rejects: no code; cps < 1; prbs with a bad pn_length (no PN);
+     * BITS with no payload; no-op on a non-dsss synth. */
+    {
+      dp_wfm_synth_state_t *a = dp_wfm_synth_create (
+          WFM_SYNTH_DSSS, fs, 0.0, 100.0, 0, 9, (int)spc, 7, 0, 0, 0.0);
+      DP_CHECK (dp_wfm_synth_set_dsss_cont (a, NULL, 0, cps,
+                                            WFM_DSSS_DATA_NONE, NULL, 0)
+                == -1);
+      DP_CHECK (dp_wfm_synth_set_dsss_cont (a, code, sf, 0.5,
+                                            WFM_DSSS_DATA_NONE, NULL, 0)
+                == -1); /* cps < 1 */
+      DP_CHECK (dp_wfm_synth_set_dsss_cont (a, code, sf, cps,
+                                            WFM_DSSS_DATA_BITS, NULL, 0)
+                == -1); /* BITS without payload */
+      dp_wfm_synth_destroy (a);
+      /* prbs with an out-of-table pn_length leaves the PN NULL -> reject. */
+      dp_wfm_synth_state_t *bad = dp_wfm_synth_create (
+          WFM_SYNTH_DSSS, fs, 0.0, 100.0, 0, 9, (int)spc, 99, 0, 0, 0.0);
+      DP_CHECK (bad
+                != NULL); /* burst dsss still builds over a bad pn_length */
+      DP_CHECK (bad->pn == NULL);
+      DP_CHECK (dp_wfm_synth_set_dsss_cont (bad, code, sf, cps,
+                                            WFM_DSSS_DATA_PRBS, NULL, 0)
+                == -1);
+      dp_wfm_synth_destroy (bad);
+      dp_wfm_synth_state_t *tn = dp_wfm_synth_create (
+          WFM_SYNTH_TONE, fs, 0.0, 100.0, 0, 1, 1, 7, 0, 0, 0.0);
+      DP_CHECK (dp_wfm_synth_set_dsss_cont (tn, code, sf, cps,
+                                            WFM_DSSS_DATA_NONE, NULL, 0)
+                == 0); /* no-op for other types */
+      dp_wfm_synth_destroy (tn);
+    }
+  }
+
+  /* ── polyphase shaper serialization: the resamp shaper child + the `primed`
+   *    latency flag resume bit-for-bit mid-stream, alongside the lo/awgn/pn
+   *    children (pn carrier + noise + RRC shaping at a power-of-two sps). */
+  {
+    const float           taps[5] = { 0.1f, 0.2f, 0.4f, 0.2f, 0.1f };
+    dp_wfm_synth_state_t *a = dp_wfm_synth_create (WFM_SYNTH_PN, 1e6, 1000.0,
+                                                   5.0, 1, 7, 4, 7, 0, 0, 0.0);
+    DP_CHECK (a && dp_wfm_synth_set_rrc (a, taps, 5) == 0);
+    DP_CHECK (a && a->shaper != NULL && a->lo != NULL && a->awgn != NULL
+              && a->pn != NULL);
+    float _Complex ref[512], part[200], cont[312];
+    dp_wfm_synth_steps (a, ref, 512);  /* uninterrupted reference */
+    dp_wfm_synth_reset (a);            /* re-arm priming + rewind children */
+    dp_wfm_synth_steps (a, part, 200); /* first leg, past the sps priming */
+    size_t nb   = dp_wfm_synth_state_bytes (a);
+    void  *blob = malloc (nb);
+    dp_wfm_synth_get_state (a, blob);
+    dp_wfm_synth_state_t *c = dp_wfm_synth_create (WFM_SYNTH_PN, 1e6, 1000.0,
+                                                   5.0, 1, 7, 4, 7, 0, 0, 0.0);
+    DP_CHECK (c && dp_wfm_synth_set_rrc (c, taps, 5) == 0);
+    DP_CHECK (dp_wfm_synth_set_state (c, blob) == 0);
+    dp_wfm_synth_steps (c, cont, 312); /* resume from the handed-off state */
+    int ok = 1;
+    for (int i = 0; i < 200; i++)
+      if (part[i] != ref[i])
+        ok = 0;
+    for (int i = 0; i < 312; i++)
+      if (cont[i] != ref[200 + i])
+        ok = 0;
+    DP_CHECK (
+        ok); /* shaper + primed resume: part ++ cont == ref bit-for-bit */
+    ((uint8_t *)blob)[0] ^= 0xFFu; /* envelope reject leaves c untouched */
+    DP_CHECK (dp_wfm_synth_set_state (c, blob) == DP_ERR_INVALID);
+    free (blob);
+    dp_wfm_synth_destroy (a);
+    dp_wfm_synth_destroy (c);
+  }
+
+  /* ── §A  wfm_synth_snr_over_fs / wfm_synth_bps: the ONE SNR conversion ────
+   *
+   * The header calls wfm_synth_snr_over_fs "the one place this arithmetic
+   * lives" and says getting it wrong is SILENT — the waveform is still a
+   * waveform, at an SNR nobody asked for. Both it and wfm_synth_bps had ZERO
+   * mentions in any C test in the tree: the only thing pinning either was
+   * test_wfm_compose.c's noise-power table, which reaches them through
+   * dp_wfm_snr_over_fs() and only for the six segment-level cases it lists.
+   *
+   * The expected values below are LITERALS derived by hand from the formula
+   * in the doc comment, never by calling the function — the same rule the
+   * compose test learned. 10*log10(2) = 3.010299956639812 and
+   * 10*log10(8) = 9.030899869919435; the rest is addition.
+   */
+  {
+    const double fs_db = 12.0;
+    /* mode 1 (over fs): the figure passes through untouched, whatever the
+       span or the bits-per-symbol — those terms belong to the other modes. */
+    DP_CHECK_NEAR (wfm_synth_snr_over_fs (1, 1, 8.0, fs_db), 12.0, 1e-12);
+    DP_CHECK_NEAR (wfm_synth_snr_over_fs (1, 2, 8.0, fs_db), 12.0, 1e-12);
+    DP_CHECK_NEAR (wfm_synth_snr_over_fs (1, 2, 1.0, fs_db), 12.0, 1e-12);
+    /* mode 3 (Es/No): snr − 10log10(span). The header's own worked example
+       says 12 dB at 8 samples/symbol is 2.969 dB over fs. */
+    DP_CHECK_NEAR (wfm_synth_snr_over_fs (3, 1, 8.0, fs_db), 2.969100130080565,
+                   1e-12);
+    DP_CHECK_NEAR (wfm_synth_snr_over_fs (3, 2, 8.0, fs_db), 2.969100130080565,
+                   1e-12); /* bps is NOT in the Es branch */
+    DP_CHECK_NEAR (wfm_synth_snr_over_fs (3, 1, 5.0, 3.0), -3.989700043360187,
+                   1e-12);
+    /* mode 2 (Eb/No): snr + 10log10(bps) − 10log10(span). The same figure
+       read as Eb/No on QPSK is exactly 10log10(2) = 3.010 dB hotter. */
+    DP_CHECK_NEAR (wfm_synth_snr_over_fs (2, 2, 8.0, fs_db), 5.979400086720377,
+                   1e-12);
+    DP_CHECK_NEAR (wfm_synth_snr_over_fs (2, 1, 8.0, fs_db), 2.969100130080565,
+                   1e-12); /* bps 1: Eb/No == Es/No */
+    DP_CHECK_NEAR (wfm_synth_snr_over_fs (2, 1, 1.0, 7.0), 7.0, 1e-12);
+    /* the span guard: a non-positive span is treated as 1 sample, so the
+       conversion degenerates to the identity rather than to −inf/NaN. */
+    DP_CHECK_NEAR (wfm_synth_snr_over_fs (3, 1, 0.0, fs_db), 12.0, 1e-12);
+    DP_CHECK_NEAR (wfm_synth_snr_over_fs (3, 1, -5.0, fs_db), 12.0, 1e-12);
+    DP_CHECK_NEAR (wfm_synth_snr_over_fs (2, 2, 0.0, fs_db),
+                   15.010299956639812, 1e-12);
+    /* bps: QPSK carries two bits, EVERY other type carries one — including
+       dsss, which is what makes ebno == esno for a DSSS source. Asserted
+       over the whole enum, so a tenth type cannot be added without a
+       deliberate answer here. */
+    for (int t = WFM_SYNTH_TONE; t <= WFM_SYNTH_DSSS; t++)
+      DP_CHECK (wfm_synth_bps (t) == (t == WFM_SYNTH_QPSK ? 2 : 1));
+  }
+
+  /* ── §B  create()'s `auto` resolves DSSS to fs, and that is DELIBERATE ────
+   *
+   * The generator and the composer resolve `auto` DIFFERENTLY for dsss: the
+   * composer says Es/No because only it knows the spreading factor, while
+   * create() says fs because the codes attach afterwards. The divergence is
+   * documented in both files and asserted in neither, so nothing would have
+   * noticed the two agreeing (which would silently move every bundled DSSS
+   * source's noise by 10log10(sf·sps)).
+   *
+   * A codeless dsss synth holds cur_re = 0, so its output IS the noise term
+   * and the measured power is the noise power directly. At snr = 9 dB the
+   * two candidate answers are far apart: fs gives 10^(−0.9) = 0.125893,
+   * while Es/No at sps = 8 would give 10^(−(9−9.0309)/10) = 1.00714.
+   */
+  {
+    const size_t          n  = 200000;
+    dp_wfm_synth_state_t *ds = dp_wfm_synth_create (
+        WFM_SYNTH_DSSS, 1e6, 0.0, 9.0, 0, 11, 8, 9, 0, 0, 0.0);
+    DP_REQUIRE_MSG (ds != NULL, "auto/dsss: create");
+    float _Complex *y = malloc (n * sizeof *y);
+    DP_REQUIRE_MSG (y != NULL, "auto/dsss: alloc");
+    dp_wfm_synth_steps (ds, y, n);
+    double p = 0.0;
+    for (size_t i = 0; i < n; i++)
+      p += (double)(crealf (y[i]) * crealf (y[i])
+                    + cimagf (y[i]) * cimagf (y[i]));
+    p /= (double)n;
+    DP_CHECK_NEAR (p, 0.125893, 0.005); /* fs, NOT the 1.007 of Es/No */
+    free (y);
+    dp_wfm_synth_destroy (ds);
+  }
+
+  /* ── §C  set_dsss_chips: the install path a wfm_frame_desc_t burst takes ──
+   *
+   * A public entry point with zero mentions anywhere in the tree. It is the
+   * spreading half of set_dsss(), split out so a caller who assembled the
+   * frame himself installs it through the SAME path — so the properties that
+   * matter are the BPSK mapping, that the chips are copied (the header says
+   * "@p chips stays the caller's"), and the rejects.
+   */
+  {
+    uint8_t               chips[6] = { 1, 0, 0, 1, 1, 0 };
+    dp_wfm_synth_state_t *dc       = dp_wfm_synth_create (
+        WFM_SYNTH_DSSS, 1e6, 0.0, 100.0, 1, 3, 2, 9, 0, 0, 0.0);
+    DP_REQUIRE_MSG (dc != NULL, "set_dsss_chips: create");
+    DP_CHECK (dp_wfm_synth_set_dsss_chips (dc, chips, 6) == 0);
+    /* chip 1 → −1, chip 0 → +1, each held for the create-time sps (2). */
+    float _Complex y[12];
+    dp_wfm_synth_steps (dc, y, 12);
+    for (size_t k = 0; k < 6; k++)
+      {
+        float want = chips[k] ? -1.0f : 1.0f;
+        DP_CHECK_NEAR (crealf (y[2 * k]), want, 1e-6);
+        DP_CHECK_NEAR (crealf (y[2 * k + 1]), want, 1e-6);
+        DP_CHECK_NEAR (cimagf (y[2 * k]), 0.0f, 1e-6);
+      }
+    /* COPIED, not borrowed: mutating the caller's array after the call must
+       not change a single output sample. A borrow would sail through every
+       assertion above and only fail once the caller's buffer went away. */
+    dp_wfm_synth_reset (dc);
+    for (size_t k = 0; k < 6; k++)
+      chips[k] ^= 1u; /* invert every chip in the CALLER's array */
+    float _Complex y2[12];
+    dp_wfm_synth_steps (dc, y2, 12);
+    int same = 1;
+    for (size_t i = 0; i < 12; i++)
+      if (y[i] != y2[i])
+        same = 0;
+    DP_CHECK (same); /* the synth kept its own copy */
+    /* rejects, and the documented no-op for every other type */
+    DP_CHECK (dp_wfm_synth_set_dsss_chips (dc, NULL, 6) == -1);
+    DP_CHECK (dp_wfm_synth_set_dsss_chips (dc, chips, 0) == -1);
+    dp_wfm_synth_state_t *tn2 = dp_wfm_synth_create (
+        WFM_SYNTH_TONE, 1e6, 0.0, 100.0, 1, 3, 2, 9, 0, 0, 0.0);
+    DP_REQUIRE_MSG (tn2 != NULL, "set_dsss_chips: tone create");
+    DP_CHECK (dp_wfm_synth_set_dsss_chips (tn2, chips, 6) == 0); /* no-op */
+    DP_CHECK (tn2->bits == NULL); /* and it really did nothing */
+    dp_wfm_synth_destroy (tn2);
+    dp_wfm_synth_destroy (dc);
+  }
+
+  /* ── §D  reseed_noise: NEW noise, and the signal must not move ───────────
+   *
+   * The composer calls this to give each repeat of a segment a fresh noise
+   * realization while the underlying waveform stays bit-identical. Untested
+   * anywhere. The falsifiable half is the SECOND clause: if the reseed
+   * reached the PN as well, the symbol sequence would change too, and the
+   * two runs would differ by SYMBOL scale (≈2) instead of noise scale. At
+   * 40 dB over fs the noise is σ ≈ 0.007 per component, so the gap between
+   * "noise moved" and "signal moved" is two orders of magnitude wide.
+   */
+  {
+    const size_t    n = 4000;
+    float _Complex *a = malloc (n * sizeof *a);
+    float _Complex *b = malloc (n * sizeof *b);
+    DP_REQUIRE_MSG (a && b, "reseed: alloc");
+    dp_wfm_synth_state_t *ra = dp_wfm_synth_create (
+        WFM_SYNTH_BPSK, 1e6, 0.0, 40.0, 1, 7, 8, 7, 0, 0, 0.0);
+    dp_wfm_synth_state_t *rb = dp_wfm_synth_create (
+        WFM_SYNTH_BPSK, 1e6, 0.0, 40.0, 1, 7, 8, 7, 0, 0, 0.0);
+    DP_REQUIRE_MSG (ra && rb, "reseed: create");
+    /* Advance BOTH first, so the PN is somewhere other than its initial
+       register. Reseeding a synth whose LFSR has never stepped cannot show
+       the signal moving — a sabotage that rewound the PN inside
+       reseed_noise() passed this section until the warm-up was added. */
+    dp_wfm_synth_steps (ra, a, 500);
+    dp_wfm_synth_steps (rb, b, 500);
+    dp_wfm_synth_steps (ra, a, n);
+    dp_wfm_synth_reseed_noise (rb, 999u); /* only the noise is reseeded */
+    dp_wfm_synth_steps (rb, b, n);
+    double dmax = 0.0, amax = 0.0;
+    for (size_t i = 0; i < n; i++)
+      {
+        double d = cabs ((double _Complex)a[i] - (double _Complex)b[i]);
+        if (d > dmax)
+          dmax = d;
+        double m = cabs ((double _Complex)a[i]);
+        if (m > amax)
+          amax = m;
+      }
+    DP_CHECK (dmax > 1e-4); /* the reseed DID change the noise */
+    DP_CHECK (dmax < 0.5);  /* but the symbols did not move (that is ≈2) */
+    DP_CHECK (amax > 0.5);  /* precondition: there is a signal to move */
+    /* a clean synth has no AWGN child, so reseeding it is a no-op — the
+       output stays bit-identical rather than silently gaining noise. */
+    dp_wfm_synth_state_t *cl = dp_wfm_synth_create (
+        WFM_SYNTH_BPSK, 1e6, 0.0, 100.0, 1, 7, 8, 7, 0, 0, 0.0);
+    DP_REQUIRE_MSG (cl != NULL, "reseed/clean: create");
+    float _Complex c1[64], c2[64];
+    dp_wfm_synth_steps (cl, c1, 64);
+    dp_wfm_synth_reset (cl);
+    dp_wfm_synth_reseed_noise (cl, 12345u);
+    dp_wfm_synth_steps (cl, c2, 64);
+    int clean_same = 1;
+    for (size_t i = 0; i < 64; i++)
+      if (c1[i] != c2[i])
+        clean_same = 0;
+    DP_CHECK (clean_same);
+    dp_wfm_synth_reseed_noise (NULL, 1u); /* documented NULL no-op */
+    dp_wfm_synth_destroy (cl);
+    dp_wfm_synth_destroy (ra);
+    dp_wfm_synth_destroy (rb);
+    free (a);
+    free (b);
+  }
+
+  /* ── §E  noise_steps: a gap is the SEAMLESS continuation of the on-time ──
+   *
+   * The composer renders a segment's off-time through this, and the header's
+   * claim is precise: it draws the identical AWGN sub-sequences the on-time
+   * path would have drawn, because it chunks its dp_awgn_generate calls
+   * exactly as dp_wfm_synth_steps does (the vectorized awgn path is NOT
+   * block-boundary invariant, so the call PATTERN is the thing that has to
+   * match, not just the sample count). The object's own test never touched it
+   * — it was reachable only through test_wfm_compose.c.
+   *
+   * type=noise holds cur_re = 0, so the output IS the noise term and the two
+   * paths can be compared bit-for-bit with no signal to subtract. The gap
+   * length crosses the internal CH = 2048 chunk boundary on purpose: at 3000
+   * samples a mismatched chunking diverges from sample 2048 onward, and at
+   * any length below 2048 it could not.
+   */
+  {
+    const size_t    n1 = 1000, n2 = 3000;
+    float _Complex *g  = malloc (n2 * sizeof *g);
+    float _Complex *on = malloc (n2 * sizeof *on);
+    float _Complex *sk = malloc (n1 * sizeof *sk);
+    DP_REQUIRE_MSG (g && on && sk, "noise_steps: alloc");
+    dp_wfm_synth_state_t *na = dp_wfm_synth_create (
+        WFM_SYNTH_NOISE, 1e6, 0.0, 100.0, 1, 4, 8, 7, 0, 0, 0.0);
+    dp_wfm_synth_state_t *nb = dp_wfm_synth_create (
+        WFM_SYNTH_NOISE, 1e6, 0.0, 100.0, 1, 4, 8, 7, 0, 0, 0.0);
+    DP_REQUIRE_MSG (na && nb, "noise_steps: create");
+    dp_wfm_synth_steps (na, sk, n1); /* both advance identically first */
+    dp_wfm_synth_steps (nb, sk, n1);
+    dp_wfm_synth_noise_steps (na, g, n2); /* the gap */
+    dp_wfm_synth_steps (nb, on, n2);      /* the on-time it must match */
+    int    seam      = 1;
+    size_t first_bad = n2;
+    for (size_t i = 0; i < n2; i++)
+      if (g[i] != on[i])
+        {
+          if (seam)
+            first_bad = i;
+          seam = 0;
+        }
+    DP_CHECK_MSG (seam, "gap noise continues the on-time RNG stream");
+    if (!seam)
+      fprintf (stderr, "  first divergence at sample %zu of %zu\n", first_bad,
+               n2);
+    /* precondition: the stream is not all zeros, or the comparison above
+       would hold for a noise_steps that generated nothing at all. */
+    double e = 0.0;
+    for (size_t i = 0; i < n2; i++)
+      e += (double)(crealf (g[i]) * crealf (g[i]));
+    DP_CHECK (e > 0.0);
+    /* a clean synth has no AWGN child: exact zeros, nothing advanced. */
+    dp_wfm_synth_state_t *cn = dp_wfm_synth_create (
+        WFM_SYNTH_TONE, 1e6, 0.0, 100.0, 1, 4, 8, 7, 0, 0, 0.0);
+    DP_REQUIRE_MSG (cn != NULL, "noise_steps/clean: create");
+    float _Complex z[16];
+    for (size_t i = 0; i < 16; i++)
+      z[i] = 7.0f + 7.0f * I; /* poison, so "wrote zeros" is falsifiable */
+    dp_wfm_synth_noise_steps (cn, z, 16);
+    int zeros = 1;
+    for (size_t i = 0; i < 16; i++)
+      if (z[i] != 0.0f + 0.0f * I)
+        zeros = 0;
+    DP_CHECK (zeros);
+    dp_wfm_synth_noise_steps (NULL, z, 16); /* documented NULL no-op */
+    dp_wfm_synth_destroy (cn);
+    dp_wfm_synth_destroy (na);
+    dp_wfm_synth_destroy (nb);
+    free (g);
+    free (on);
+    free (sk);
+  }
+
+  /* ── §F  the ten accessors — read-back AND the behaviour each claims ─────
+   *
+   * All ten had zero mentions in any C test. Read-back alone would be
+   * satisfied by a pair that stored into a field nothing reads, so each
+   * setter is followed by the effect its doc comment promises.
+   */
+  {
+    dp_wfm_synth_state_t *ac = dp_wfm_synth_create (
+        WFM_SYNTH_QPSK, 1e6, 0.0, 100.0, 1, 5, 4, 7, 0, 0, 0.0);
+    DP_REQUIRE_MSG (ac != NULL, "accessors: create");
+    DP_CHECK (dp_wfm_synth_get_wtype (ac) == WFM_SYNTH_QPSK);
+    DP_CHECK (dp_wfm_synth_get_nsps (ac) == 4);
+    dp_wfm_synth_set_wtype (ac, WFM_SYNTH_BPSK);
+    DP_CHECK (dp_wfm_synth_get_wtype (ac) == WFM_SYNTH_BPSK);
+    dp_wfm_synth_set_wtype (ac, WFM_SYNTH_QPSK);
+    dp_wfm_synth_set_nsps (ac, 2);
+    DP_CHECK (dp_wfm_synth_get_nsps (ac) == 2);
+    dp_wfm_synth_set_nsps (ac, 4);
+    /* sym_pos runs 0..nsps−1 and wraps: after k steps from a fresh reset it
+       reads k mod nsps, and sym_pos == 0 means the NEXT sample starts a
+       fresh symbol — which is what the doc comment offers for framing. */
+    dp_wfm_synth_reset (ac);
+    DP_CHECK (dp_wfm_synth_get_sym_pos (ac) == 0);
+    for (int k = 1; k <= 9; k++)
+      {
+        (void)dp_wfm_synth_step (ac);
+        DP_CHECK (dp_wfm_synth_get_sym_pos (ac) == k % 4);
+      }
+    /* cur_re/cur_im are the held symbol: for QPSK both legs are ±1/√2. */
+    dp_wfm_synth_reset (ac);
+    (void)dp_wfm_synth_step (ac);
+    const float q = 0.70710678118654752f;
+    DP_CHECK_NEAR (fabsf (dp_wfm_synth_get_cur_re (ac)), q, 1e-6);
+    DP_CHECK_NEAR (fabsf (dp_wfm_synth_get_cur_im (ac)), q, 1e-6);
+    /* an injected symbol takes effect within the current hold ... */
+    dp_wfm_synth_set_cur_re (ac, 0.25f);
+    dp_wfm_synth_set_cur_im (ac, -0.5f);
+    DP_CHECK_NEAR (dp_wfm_synth_get_cur_re (ac), 0.25f, 1e-9);
+    DP_CHECK_NEAR (dp_wfm_synth_get_cur_im (ac), -0.5f, 1e-9);
+    float _Complex held
+        = dp_wfm_synth_step (ac); /* sym_pos is 1..3: mid-hold */
+    DP_CHECK_NEAR (crealf (held), 0.25f, 1e-6);
+    DP_CHECK_NEAR (cimagf (held), -0.5f, 1e-6);
+    /* ... and injecting sym_pos = 0 forces the NEXT step to latch a fresh
+       symbol from the LFSR, overwriting the injected one. */
+    dp_wfm_synth_set_sym_pos (ac, 0);
+    DP_CHECK (dp_wfm_synth_get_sym_pos (ac) == 0);
+    float _Complex fresh = dp_wfm_synth_step (ac);
+    DP_CHECK_NEAR (fabsf (crealf (fresh)), q, 1e-6); /* latched, not 0.25 */
+    DP_CHECK_NEAR (fabsf (cimagf (fresh)), q, 1e-6);
+    dp_wfm_synth_destroy (ac);
+  }
+
+  /* ── §G  RRC shaping against an EXTERNAL truth (both branches) ───────────
+   *
+   * Two claims meet here, and each was pinned only against the other path:
+   * set_rrc's "the taps are scaled by sqrt(sps) internally for unit transmit
+   * power, so every caller passes the raw taps", and shaper_prime's "the
+   * polyphase output aligns with the dense FIR to float precision". The
+   * existing sections compare step() against steps() and shaped against
+   * unshaped — both structurally blind to a shared error in the shaping
+   * itself, exactly the trap the validation page warns about.
+   *
+   * The truth used here is neither path: a direct convolution of the
+   * sqrt(sps)-scaled taps with the sps-upsampled symbol impulse train,
+   * evaluated in double. sps = 4 takes the polyphase branch (power of two)
+   * and sps = 3 the dense-FIR fallback, so ONE truth covers both.
+   */
+  {
+    const float  taps[5]         = { 0.1f, -0.3f, 0.8f, 0.25f, -0.05f };
+    const size_t ntaps           = 5;
+    const float _Complex syms[4] = { 1.0f + 0.0f * I, 0.0f + 1.0f * I,
+                                     -1.0f + 0.0f * I, 0.5f - 0.5f * I };
+    const int sps_cases[2]       = { 4, 3 }; /* polyphase, then dense FIR */
+    for (int c = 0; c < 2; c++)
+      {
+        const int             sps = sps_cases[c];
+        const size_t          n   = 40;
+        dp_wfm_synth_state_t *sh  = dp_wfm_synth_create (
+            WFM_SYNTH_SYMBOLS, 1e6, 0.0, 100.0, 1, 1, sps, 7, 0, 0, 0.0);
+        DP_REQUIRE_MSG (sh != NULL, "rrc/truth: create");
+        DP_CHECK (dp_wfm_synth_set_symbols (sh, syms, 4) == 0);
+        DP_CHECK (dp_wfm_synth_set_rrc (sh, taps, ntaps) == 0);
+        /* the branch actually under test, asserted so a change in set_rrc's
+           selection rule cannot quietly collapse both cases onto one path */
+        if (c == 0)
+          DP_CHECK (sh->shaper != NULL && sh->fir == NULL);
+        else
+          DP_CHECK (sh->fir != NULL && sh->shaper == NULL);
+        float _Complex *y = malloc (n * sizeof *y);
+        DP_REQUIRE_MSG (y != NULL, "rrc/truth: alloc");
+        dp_wfm_synth_steps (sh, y, n);
+        const double scale = sqrt ((double)sps);
+        int          ok    = 1;
+        double       worst = 0.0;
+        for (size_t i = 0; i < n; i++)
+          {
+            double _Complex want = 0.0;
+            for (size_t k = 0; k < ntaps; k++)
+              {
+                if (k > i)
+                  break;
+                size_t j = i - k; /* impulse-train index */
+                if (j % (size_t)sps)
+                  continue; /* structural zero between symbols */
+                want += (double)taps[k] * scale
+                        * (double _Complex)syms[(j / (size_t)sps) % 4];
+              }
+            double err = cabs ((double _Complex)y[i] - want);
+            if (err > worst)
+              worst = err;
+            if (err > 2e-6)
+              ok = 0;
+          }
+        DP_CHECK_MSG (ok, "shaped output == scaled taps * upsampled symbols");
+        if (!ok)
+          fprintf (stderr, "  sps=%d worst |err| = %.3g\n", sps, worst);
+        free (y);
+        dp_wfm_synth_destroy (sh);
+      }
+  }
+
+  /* The builder refuses a pn_poly with a bit at or above its register
+   * (doppler#1636): dp_pn_create would mask 0x40 on a 5-bit register to no
+   * feedback. Refused here, so every face that builds -- the composer, the
+   * bound synth -- refuses it, whatever it asked first. */
+  for (int type = WFM_SYNTH_PN; type <= WFM_SYNTH_QPSK; type++)
+    {
+      DP_CHECK_MSG (
+          dp_wfm_synth_create (type, 1e6, 0.0, 100.0, 0, 1, 1, 5, 0x40, 0, 0.0)
+              == NULL,
+          "a pn_poly above its register is refused by the builder");
+      dp_wfm_synth_state_t *ok = dp_wfm_synth_create (type, 1e6, 0.0, 100.0, 0,
+                                                      1, 1, 5, 0x12, 0, 0.0);
+      DP_CHECK_MSG (ok != NULL, "...and one inside it is built");
+      dp_wfm_synth_destroy (ok);
+    }
+
+  /* A seed whose low pn_length bits are zero starts the register at 1, as
+   * seed 0 does (doppler#1640). It used to BE the all-zero register -- a
+   * constant stream at exit 0, reachable because the seed also seeds the
+   * noise and scenes range it freely (plan_background's 1000 + k hit
+   * 1024 on a 9-bit register). */
+  {
+    float _Complex a[64], b[64];
+    dp_wfm_synth_state_t *s128 = dp_wfm_synth_create (
+        WFM_SYNTH_PN, 1e6, 0.0, 100.0, 0, 128, 1, 7, 0, 0, 0.0);
+    dp_wfm_synth_state_t *s1 = dp_wfm_synth_create (
+        WFM_SYNTH_PN, 1e6, 0.0, 100.0, 0, 1, 1, 7, 0, 0, 0.0);
+    DP_REQUIRE_MSG (s128 && s1, "seed 128 on 7 bits builds");
+    dp_wfm_synth_steps (s128, a, 64);
+    dp_wfm_synth_steps (s1, b, 64);
+    DP_CHECK_MSG (memcmp (a, b, sizeof a) == 0,
+                  "seed 128 on 7 bits is seed 1's sequence");
+    int varies = 0;
+    for (int i = 1; i < 64; i++)
+      varies |= crealf (a[i]) != crealf (a[0]);
+    DP_CHECK_MSG (varies, "...and is not constant");
+    dp_wfm_synth_destroy (s128);
+    dp_wfm_synth_destroy (s1);
+  }
+
+  /* the serialization sections above also count via CHECK — fail if any
+   * tripped (the early _fails gate only covered the pre-state sections). */
+  DP_TEST_END ("test_wfm_synth_core");
+}

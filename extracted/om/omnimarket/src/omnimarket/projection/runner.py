@@ -1,0 +1,1213 @@
+"""BaseProjectionRunner -- Kafka consumer lifecycle for projection nodes."""
+
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import hashlib
+import http.server
+import json
+import logging
+import os
+import signal
+import threading
+from abc import ABC, abstractmethod
+from collections.abc import Callable, Coroutine
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Literal
+
+import yaml
+from aiokafka import AIOKafkaConsumer, AIOKafkaProducer, TopicPartition
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SecretStr,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
+
+from omnimarket.config.settings import Settings
+from omnimarket.projection.dlq import (
+    build_dlq_envelope,
+    correlation_id_from_payload,
+)
+from omnimarket.projection.envelope import unwrap_envelope
+from omnimarket.projection.models import ProjectionTableConfig
+from omnimarket.projection.snapshot_publisher import (
+    assert_snapshot_within_bound,
+    encode_snapshot_delta,
+    record_snapshot_flow_output,
+    resolve_snapshot_max_payload_bytes,
+)
+from omnimarket.topic_namespace import (
+    apply_topic_namespace,
+    apply_topic_namespace_all,
+    strip_topic_namespace,
+)
+
+if TYPE_CHECKING:
+    # OMN-15800 AC6: the projection-api process must never load asyncpg --
+    # only the runtime (this runner, when it actually consumes and writes)
+    # does. Import for type checking only; the runtime imports are lazy, at
+    # the call sites that construct an AsyncpgAdapter or classify a DB error
+    # (error_classification imports asyncpg's exception hierarchy at module
+    # scope for the same reason).
+    from omnimarket.adapters.asyncpg_adapter import AsyncpgAdapter
+
+logger = logging.getLogger(__name__)
+
+KAFKA_BROKERS_ENV = "KAFKA_BROKERS"
+PROJECTION_RUNTIME_BINDING_OVERLAY_ENV = "OMNIMARKET_PROJECTION_RUNTIME_BINDING_OVERLAY"
+DEFAULT_GROUP_ID = "omnimarket-projections-v1"
+DEFAULT_CLIENT_ID = "omnimarket-projection"
+RETRY_BASE_DELAY = 2.0
+RETRY_MAX_DELAY = 30.0
+MAX_RETRY_ATTEMPTS = 10
+
+
+class ProjectionConsumerExhaustedError(RuntimeError):
+    """The consumer could not be kept up after ``MAX_RETRY_ATTEMPTS`` sessions.
+
+    OMN-17985. This used to be a bare ``return`` out of :meth:`run`, so the
+    process exited **0** and the kubelet recorded
+    ``lastState.terminated reason=Completed exitCode=0`` -- a fatal give-up
+    indistinguishable from a clean shutdown in every surface that reads the
+    termination record. That is a large part of why the delegation writer
+    crash-looped on onex-dev for over fourteen hours while the fleet probe,
+    its Deployment status, and the ticket close-out all reported it healthy
+    (omninode_infra probe runs 34038648216, 34067618777, 34068315477,
+    34073692873).
+
+    Raising instead means the process exits non-zero, the kubelet records
+    ``reason=Error``, and the give-up is visible to anything that reads it.
+    A *requested* shutdown still returns cleanly -- see
+    ``test_a_requested_shutdown_still_returns_cleanly``.
+    """
+
+
+# OMN-15800 AC2 follow-on: a standalone BaseProjectionRunner process (e.g. the
+# onex-dev k8s Deployment for HandlerLiveEventsProjectionRunner) has no HTTP
+# surface, but omninode_infra's own CI gate
+# (scripts/check-readiness-probe-paths.py, OMN-4705) requires every
+# k8s/onex-dev/runtime Deployment to declare a readinessProbe.httpGet.path in
+# {/ready, /healthz}. Opt-in via this env var so every deployment that does
+# NOT set it (e.g. the .201 docker-catalog wiring, which declares
+# `healthcheck: null` for this same process) is completely unaffected.
+PROJECTION_RUNNER_HEALTH_PORT_ENV = "PROJECTION_RUNNER_HEALTH_PORT"
+
+# Async publish callable injected into projection handlers: (topic, value_bytes) -> None.
+PublishFn = Callable[[str, bytes], Coroutine[Any, Any, None]]
+
+
+class _ProjectionHealthServer(http.server.ThreadingHTTPServer):
+    """``ThreadingHTTPServer`` carrying a typed readiness predicate.
+
+    Subclassed (not a bare attribute bolt-on) so ``is_ready`` is a declared
+    attribute, not an implicit runtime injection.
+    """
+
+    is_ready: Callable[[], bool]
+
+
+class _ProjectionHealthRequestHandler(http.server.BaseHTTPRequestHandler):
+    """Minimal stdlib readiness/liveness endpoint for onex-dev k8s probes.
+
+    Two paths only, stdlib-only (no new dependency): ``/healthz`` always
+    answers 200 once the process is up; ``/ready`` answers 200 only once the
+    Kafka consumer loop has actually started (mirrors the semantics
+    ``check-readiness-probe-paths.py`` documents for every other runtime
+    Deployment -- "'/ready' gates on Kafka subscription readiness").
+    """
+
+    server: _ProjectionHealthServer
+
+    def do_GET(self) -> None:
+        if self.path == "/healthz":
+            self._respond(200, b"ok")
+            return
+        if self.path == "/ready":
+            ready = self.server.is_ready()
+            self._respond(200 if ready else 503, b"ready" if ready else b"not-ready")
+            return
+        self._respond(404, b"not-found")
+
+    def _respond(self, status: int, body: bytes) -> None:
+        self.send_response(status)
+        self.send_header("Content-Type", "text/plain")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, format: str, *args: Any) -> None:
+        # Silence stdlib per-request access logging; the runner's own
+        # structured logger (module-level `logger`) is authoritative for
+        # this process's diagnostics.
+        return
+
+
+@dataclass
+class MessageMeta:
+    """Kafka message coordinates for deterministic dedup.
+
+    ``topic`` defaults to "" so the many pre-existing positional/keyword
+    call sites across handler test suites that predate OMN-15800 round 3
+    keep constructing valid instances; every live consumption path
+    (``BaseProjectionRunner._handle_message`` and each node's ``handle()``
+    RuntimeLocal shim) populates it for real. It is the authoritative
+    source-ordering coordinate (with partition/offset) consumed by
+    ``publish_snapshot_delta`` -- see CodeRabbit discussion r3745850632.
+    """
+
+    partition: int
+    offset: int
+    fallback_id: str
+    topic: str = ""
+
+
+@dataclass
+class ProjectionStats:
+    """In-memory projection stats."""
+
+    events_projected: int = 0
+    errors_count: int = 0
+    last_projected_at: datetime | None = None
+    topic_stats: dict[str, dict[str, int]] = field(default_factory=dict)
+
+
+class ModelProjectionRuntimeBinding(BaseModel):
+    """Runtime binding for Kafka-backed projection consumers.
+
+    Demo and judge paths should supply this from a contract overlay. Legacy env
+    resolution remains only in ``from_legacy_settings`` for existing local
+    scripts that have not migrated yet.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    kafka_bootstrap_servers: str = Field(
+        description="Kafka broker list used by the projection consumer and producer."
+    )
+    kafka_consumer_group: str = Field(default=DEFAULT_GROUP_ID)
+    kafka_client_id: str = Field(default=DEFAULT_CLIENT_ID)
+    database_url: SecretStr | None = Field(default=None)
+    database_url_secret_ref: str | None = Field(default=None)
+    source: str = Field(default="explicit")
+
+    @field_validator(
+        "kafka_bootstrap_servers", "kafka_consumer_group", "kafka_client_id"
+    )
+    @classmethod
+    def _required_strings_non_empty(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("projection runtime binding value must be non-empty")
+        return value.strip()
+
+    @field_validator("database_url")
+    @classmethod
+    def _database_url_non_empty(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is not None and not value.get_secret_value().strip():
+            raise ValueError("projection database_url must be non-empty")
+        return value
+
+    @field_validator("database_url_secret_ref")
+    @classmethod
+    def _database_url_secret_ref_non_empty(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("projection database_url_secret_ref must be non-empty")
+        return value.strip() if value is not None else None
+
+    @model_validator(mode="after")
+    def _exactly_one_database_source(self) -> ModelProjectionRuntimeBinding:
+        if bool(self.database_url) == bool(self.database_url_secret_ref):
+            raise ValueError(
+                "declare exactly one of database_url or database_url_secret_ref"
+            )
+        return self
+
+    @classmethod
+    def from_legacy_settings(
+        cls, settings: Settings | None = None
+    ) -> ModelProjectionRuntimeBinding:
+        resolved = settings or Settings()
+        brokers = os.environ.get(KAFKA_BROKERS_ENV, "").strip()
+        if not brokers:
+            brokers = (
+                resolved.kafka_bootstrap_servers.strip()
+                or resolved.kafka_broker.strip()
+            )
+        for candidate in (
+            resolved.omnidash_analytics_db_url,
+            resolved.omnibase_infra_db_url,
+        ):
+            if candidate.get_secret_value().strip():
+                return cls(
+                    kafka_bootstrap_servers=brokers,
+                    kafka_consumer_group=(
+                        os.environ.get("KAFKA_CONSUMER_GROUP", "").strip()
+                        or resolved.kafka_consumer_group.strip()
+                        or DEFAULT_GROUP_ID
+                    ),
+                    kafka_client_id=DEFAULT_CLIENT_ID,
+                    database_url=candidate,
+                    source="legacy-settings",
+                )
+        raise RuntimeError("legacy projection runtime Settings are incomplete")
+
+    def resolve_database_url(self) -> str:
+        if self.database_url is not None:
+            return self.database_url.get_secret_value()
+        return _resolve_database_url_secret_ref(self.database_url_secret_ref)
+
+
+def _resolve_database_url_secret_ref(secret_ref: str | None) -> str:
+    if secret_ref is None:
+        raise RuntimeError("projection database_url_secret_ref is required")
+    ref = secret_ref.strip()
+    if ref.startswith("env:"):
+        env_name = ref.removeprefix("env:").strip()
+        if not env_name:
+            raise RuntimeError("projection database_url_secret_ref env name is empty")
+        value = os.environ.get(env_name, "").strip()
+        if not value:
+            raise RuntimeError(f"projection database secret ref {ref!r} is unresolved")
+        return value
+    if ref.startswith("settings:"):
+        field_name = ref.removeprefix("settings:").strip()
+        setting_value = getattr(Settings(), field_name, None)
+        if (
+            isinstance(setting_value, SecretStr)
+            and setting_value.get_secret_value().strip()
+        ):
+            return setting_value.get_secret_value()
+        raise RuntimeError(f"projection database secret ref {ref!r} is unresolved")
+    raise RuntimeError(
+        "unsupported projection database_url_secret_ref; use env:<NAME> as a "
+        "temporary secret boundary or settings:<field_name>"
+    )
+
+
+def load_projection_runtime_binding_overlay(
+    path: str | Path,
+) -> ModelProjectionRuntimeBinding:
+    overlay_path = Path(path)
+    raw = yaml.safe_load(overlay_path.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise RuntimeError(
+            f"projection runtime binding overlay must be a mapping: {overlay_path}"
+        )
+    binding = ModelProjectionRuntimeBinding.model_validate(raw)
+    return binding.model_copy(update={"source": f"overlay:{overlay_path}"})
+
+
+def _projection_runtime_binding_from_overlay_env() -> (
+    ModelProjectionRuntimeBinding | None
+):
+    overlay_path = os.environ.get(PROJECTION_RUNTIME_BINDING_OVERLAY_ENV, "").strip()
+    if not overlay_path:
+        return None
+    return load_projection_runtime_binding_overlay(overlay_path)
+
+
+def projection_runtime_binding_from_overlay_env() -> (
+    ModelProjectionRuntimeBinding | None
+):
+    """Resolve the projection runtime binding from the overlay env, or ``None``.
+
+    Public wrapper over the module-internal resolver so consumers outside the
+    projection package (e.g. the delegation dispatch port's evidence-DB resolver,
+    OMN-14015) obtain the same overlay-configured binding the projection runners
+    use WITHOUT reading ``OMNIMARKET_PROJECTION_RUNTIME_BINDING_OVERLAY``
+    themselves — keeping the env-read confined to the projection config surface
+    (the delegation env-read discipline, OMN-10915).
+    """
+    return _projection_runtime_binding_from_overlay_env()
+
+
+def deterministic_correlation_id(topic: str, partition: int, offset: int) -> str:
+    """Derive a deterministic UUID-shaped string from Kafka coordinates.
+
+    Matches omnidash deterministicCorrelationId() exactly.
+    """
+    raw = f"{topic}:{partition}:{offset}"
+    hex_digest = hashlib.sha256(raw.encode()).hexdigest()[:32]
+    return f"{hex_digest[:8]}-{hex_digest[8:12]}-{hex_digest[12:16]}-{hex_digest[16:20]}-{hex_digest[20:32]}"
+
+
+def safe_parse_date(value: Any) -> datetime:
+    """Parse a date string, falling back to current wall-clock time."""
+    if not value:
+        return datetime.now(UTC)
+    if isinstance(value, datetime):
+        return value
+    try:
+        from dateutil.parser import isoparse  # type: ignore[import-untyped]
+
+        dt: datetime = isoparse(str(value))
+        return dt
+    except Exception:
+        pass
+    try:
+        dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        return dt
+    except (ValueError, TypeError):
+        logger.warning(
+            "safe_parse_date: malformed timestamp %r, using wall-clock", value
+        )
+        return datetime.now(UTC)
+
+
+def safe_float(value: Any, default: float = 0.0) -> float:
+    """Parse a float safely, returning default for non-finite values."""
+    if value is None:
+        return default
+    try:
+        f = float(value)
+        if f != f:  # NaN check
+            return default
+        return f
+    except (ValueError, TypeError):
+        return default
+
+
+def safe_int(value: Any, default: int = 0) -> int:
+    """Parse an int safely."""
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return default
+
+
+def coalesce(*values: Any) -> Any:
+    """Return the first truthy value, or the last value."""
+    for v in values:
+        if v:
+            return v
+    return values[-1] if values else None
+
+
+class BaseProjectionRunner(ABC):
+    """Base class for Kafka->DB projection consumers.
+
+    Subclasses implement:
+    - topics: list of Kafka topics to subscribe to
+    - project_event(topic, data, meta): project a single event to DB
+    """
+
+    def __init__(
+        self,
+        *,
+        group_id: str | None = None,
+        client_id: str | None = None,
+        runtime_binding: ModelProjectionRuntimeBinding | None = None,
+        runtime_binding_overlay_path: str | Path | None = None,
+        publish_fn: PublishFn | None = None,
+    ) -> None:
+        resolved_binding = runtime_binding
+        if resolved_binding is None and runtime_binding_overlay_path is not None:
+            resolved_binding = load_projection_runtime_binding_overlay(
+                runtime_binding_overlay_path
+            )
+        if resolved_binding is None:
+            resolved_binding = _projection_runtime_binding_from_overlay_env()
+        if resolved_binding is None:
+            with contextlib.suppress(RuntimeError, ValidationError):
+                resolved_binding = ModelProjectionRuntimeBinding.from_legacy_settings()
+        self._runtime_binding = resolved_binding
+        self._group_id = group_id or (
+            resolved_binding.kafka_consumer_group
+            if resolved_binding is not None
+            else os.environ.get("KAFKA_CONSUMER_GROUP", DEFAULT_GROUP_ID)
+        )
+        self._client_id = client_id or (
+            resolved_binding.kafka_client_id
+            if resolved_binding is not None
+            else DEFAULT_CLIENT_ID
+        )
+        # Lazy import (OMN-15800 AC6): AsyncpgAdapter pulls in asyncpg, and
+        # only the runtime process is allowed to load a DB driver -- the
+        # projection-api process imports names from this module but must
+        # never reach asyncpg transitively.
+        from omnimarket.adapters.asyncpg_adapter import AsyncpgAdapter
+
+        self._db = AsyncpgAdapter(
+            dsn=(
+                resolved_binding.resolve_database_url()
+                if resolved_binding is not None
+                else None
+            )
+        )
+        # Only the standalone writers that opt in with contract db_tables use
+        # the topology resolver. In-process handlers keep their runtime-bound
+        # adapter until their separate wiring path hands them a DSN.
+        self._standalone_db_tables: tuple[dict[str, Any], ...] = ()
+        self._standalone_bindings: Any | None = None
+        self._db_by_binding: dict[str, AsyncpgAdapter] = {}
+        self._stats = ProjectionStats()
+        self._running = False
+        # OMN-15868: shutdown intent is tracked separately from the
+        # readiness signal. `_running` starts `False` on every fresh
+        # instance (it means "not yet connected", not "shutdown
+        # requested"), so `run()`'s retry-loop guard must never test
+        # `_running` -- reusing it there made the guard False before a
+        # single AIOKafkaConsumer was ever constructed. `shutdown()` is
+        # the only writer of this flag.
+        self._shutdown_requested = False
+        self._consumer: AIOKafkaConsumer | None = None
+        # The projection runtime owns the producer lifecycle (OMN-12810); handlers
+        # never construct transport clients themselves. An injected publish_fn
+        # (tests or a DI container) takes precedence over the lazily-built producer.
+        self._publish_fn: PublishFn | None = publish_fn
+        self._producer: AIOKafkaProducer | None = None
+        self._health_server: _ProjectionHealthServer | None = None
+        self._health_thread: threading.Thread | None = None
+
+    def _start_health_server_if_configured(self) -> None:
+        """Start the readiness/liveness HTTP server iff configured.
+
+        See ``PROJECTION_RUNNER_HEALTH_PORT_ENV`` for the opt-in rationale.
+        A malformed port value fails loudly (``int()`` raises) rather than
+        silently skipping the server -- this repo forbids defensive
+        swallow-and-continue on a caller-declared config value.
+        """
+        raw_port = os.environ.get(PROJECTION_RUNNER_HEALTH_PORT_ENV, "").strip()
+        if not raw_port:
+            return
+        port = int(raw_port)
+        server = _ProjectionHealthServer(
+            ("0.0.0.0", port), _ProjectionHealthRequestHandler
+        )
+        server.is_ready = lambda: self._running is True
+        thread = threading.Thread(
+            target=server.serve_forever,
+            name="projection-runner-health",
+            daemon=True,
+        )
+        thread.start()
+        self._health_server = server
+        self._health_thread = thread
+        logger.info(
+            "Readiness/liveness HTTP server started on :%d (/ready, /healthz)", port
+        )
+
+    def _stop_health_server(self) -> None:
+        if self._health_server is not None:
+            self._health_server.shutdown()
+            self._health_server.server_close()
+            self._health_server = None
+        self._health_thread = None
+
+    @property
+    @abstractmethod
+    def topics(self) -> list[str]:
+        """Kafka topics this runner subscribes to."""
+        ...
+
+    @abstractmethod
+    async def project_event(
+        self, topic: str, data: dict[str, Any], meta: MessageMeta
+    ) -> bool:
+        """Project a single event into the database.
+
+        Returns True if projection succeeded, False if DB unavailable.
+        """
+        ...
+
+    @property
+    def poison_dlq_topics(self) -> list[str]:
+        """Contract-declared DLQ topic(s) for POISON (malformed) events.
+
+        OMN-13634: a subclass that consumes inbound bus events overrides this to
+        return its ``event_bus.dlq_topics``. The default empty list means a
+        subclass declared no DLQ; an uncatchable POISON error then re-raises
+        loudly (fail-loud) rather than being silently dropped.
+        """
+        return []
+
+    async def publish_dlq(self, topic: str, value: bytes) -> None:
+        """Publish a DLQ envelope. Subclasses with a DLQ must override.
+
+        OMN-13634: a subclass with a Kafka producer overrides this so the unified
+        classifier in ``_handle_message`` can route a POISON event to the
+        contract-declared DLQ topic. The default raises so a declared DLQ with
+        no publisher cannot be mistaken for a successful quarantine.
+        """
+        raise RuntimeError(f"no DLQ publisher configured for {topic}")
+
+    @property
+    def db(self) -> AsyncpgAdapter:
+        return self._db
+
+    def db_for(
+        self, table: str, *, operation: Literal["read", "write"] = "write"
+    ) -> AsyncpgAdapter:
+        """Choose the topology-authenticated pool for one declared relation."""
+        if self._standalone_bindings is None:
+            return self._db
+        binding_ref = (
+            self._standalone_bindings.read_binding_for(table)
+            if operation == "read"
+            else self._standalone_bindings.write_binding_for(table)
+        )
+        return self._db_by_binding[binding_ref]
+
+    async def _connect_standalone_databases(self) -> None:
+        """Open and verify one pool per topology binding before consuming."""
+        if not self._standalone_db_tables:
+            await self._db.connect()
+            return
+
+        profile = os.environ.get("ONEX_DATABASE_TOPOLOGY_PROFILE", "").strip()
+        if not profile:
+            raise RuntimeError(
+                "ONEX_DATABASE_TOPOLOGY_PROFILE is required for a standalone "
+                "writer with contract db_io.db_tables"
+            )
+
+        # PR1's public resolver is imported only on the standalone runtime
+        # path. Until its release reaches omnimarket's dependency floor, a
+        # missing symbol fails this writer closed rather than silently
+        # reverting to the legacy single dashboard principal.
+        from omnibase_core.models.contracts.subcontracts.model_db_table_declaration import (
+            ModelDbTableDeclaration,
+        )
+        from omnibase_infra.runtime.auto_wiring.handler_wiring import (
+            build_topology_secret_resolver,
+        )
+        from omnibase_infra.runtime.auto_wiring.standalone_projection_bindings import (
+            resolve_standalone_projection_bindings,
+        )
+        from omnibase_infra.topology import load_topology_profile
+
+        from omnimarket.adapters.asyncpg_adapter import AsyncpgAdapter
+
+        declarations = tuple(
+            ModelDbTableDeclaration.model_validate(raw)
+            for raw in self._standalone_db_tables
+        )
+        resolved = resolve_standalone_projection_bindings(
+            declarations,
+            load_topology_profile(profile),
+            secret_resolver=await build_topology_secret_resolver(None),
+        )
+        pools: dict[str, AsyncpgAdapter] = {}
+        try:
+            for ref, binding in sorted(resolved.bindings.items()):
+                adapter = AsyncpgAdapter(dsn=binding.dsn.get_secret_value())
+                await adapter.connect()
+                pools[ref] = adapter
+                actual_principal = await adapter.fetchval("SELECT current_user")
+                if actual_principal != binding.principal:
+                    raise RuntimeError(
+                        f"standalone binding {ref!r} expected principal "
+                        f"{binding.principal!r}, connected as {actual_principal!r}"
+                    )
+        except BaseException:
+            for adapter in pools.values():
+                await adapter.close()
+            raise
+
+        self._standalone_bindings = resolved
+        self._db_by_binding = pools
+        # Legacy self.db users in these writers are tenant relations; the
+        # internal exceptions use db_for(table) explicitly below. Keep this
+        # alias only for those existing call sites and their in-process tests.
+        default_ref = (
+            "tenant_projection"
+            if "tenant_projection" in pools
+            else resolved.watermark_binding
+        )
+        self._db = pools[default_ref]
+
+    async def _close_standalone_databases(self) -> None:
+        if not self._db_by_binding:
+            await self._db.close()
+            return
+        for adapter in self._db_by_binding.values():
+            await adapter.close()
+        self._db_by_binding = {}
+        self._standalone_bindings = None
+
+    def bind_projection_database_url(self, dsn: str) -> None:
+        """Accept the workload DSN the runtime resolved for this node.
+
+        OMN-16911. The DSN this runner builds for itself comes from
+        ``ModelProjectionRuntimeBinding``, whose legacy settings fallback
+        prefers ``OMNIDASH_ANALYTICS_DB_URL``. That is the dashboard-facing
+        ``role_omnidash`` login, and it holds no USAGE on ``omninode_internal``
+        -- so ``ConsumerFlowProjectionWriter``, whose contract declares both of
+        its tables in that schema, had every statement denied on the .201 dev
+        lane while ``consumer_flow_windows`` stayed at 0 rows and the DLQ
+        climbed ~6/min.
+
+        The deployment topology, not this class, is where a schema's workload
+        identity is declared, and the runtime resolves it and proves its grants
+        before wiring the handler. A runner dispatched in-process therefore
+        takes the DSN the runtime hands it. The standalone ``run()`` path is
+        never bound this way -- the runtime does not dispatch it, so it does not
+        configure it either, and the binding/overlay it was given stands.
+
+        Called at wiring time, before any pool is opened; the adapter refuses a
+        rebind after that (see :meth:`AsyncpgAdapter.rebind`).
+        """
+        self._db.rebind(dsn)
+
+    @property
+    def kafka_bootstrap_servers(self) -> str:
+        if self._runtime_binding is not None:
+            return self._runtime_binding.kafka_bootstrap_servers
+        settings = Settings()
+        return (
+            os.environ.get(KAFKA_BROKERS_ENV, "").strip()
+            or settings.kafka_bootstrap_servers.strip()
+            or settings.kafka_broker.strip()
+        )
+
+    @property
+    def runtime_binding_source(self) -> str:
+        return (
+            self._runtime_binding.source
+            if self._runtime_binding is not None
+            else "legacy-env-settings"
+        )
+
+    async def _ensure_producer(self) -> AIOKafkaProducer | None:
+        """Build (once) and return the runtime-owned ``AIOKafkaProducer``.
+
+        The projection runtime owns the Kafka producer lifecycle (OMN-12810).
+        Shared by :meth:`get_publish_fn` (topic+value publish, e.g. terminal
+        events / DLQ) and :meth:`publish_snapshot_delta` (topic+key+headers+
+        value publish, OMN-15800) so exactly one producer instance is ever
+        built per runner — never a second producer for snapshot publishing.
+        Returns ``None`` when no brokers are configured or the producer fails
+        to start; callers degrade to a no-op rather than raising. The producer
+        is stopped in :meth:`shutdown`.
+        """
+        if self._producer is not None:
+            return self._producer
+
+        brokers = self.kafka_bootstrap_servers
+        if not brokers:
+            return None
+
+        # Lazy import (OMN-15800 AC6): importing anything from
+        # ``omnibase_infra`` transitively loads asyncpg (that package's own
+        # top-level __init__ chain reaches a module-scope asyncpg.exceptions
+        # import); the projection-api process must never load asyncpg, but
+        # api_server.py imports names from this module.
+        from omnibase_infra.event_bus.kafka_auth import (
+            build_aiokafka_auth_kwargs_from_env,
+        )
+
+        producer = AIOKafkaProducer(
+            bootstrap_servers=brokers,
+            # None must pass through unchanged: aiokafka calls the serializer
+            # unconditionally, including for a tombstone publish (value=None,
+            # OMN-15800 publish_snapshot_delta deletes) — a naive
+            # ``v.encode("utf-8")`` would raise AttributeError on None.
+            value_serializer=lambda v: (
+                v if v is None or isinstance(v, bytes) else v.encode("utf-8")
+            ),
+            # OMN-15816: see the matching comment on the consumer construction
+            # in run() below -- onex-dev's managed Kafka listener is
+            # SASL_SSL/AWS_MSK_IAM-only.
+            **build_aiokafka_auth_kwargs_from_env(),
+        )
+        try:
+            await producer.start()
+        except Exception as exc:
+            logger.warning("Kafka producer failed to start: %s", exc)
+            return None
+        self._producer = producer
+        return producer
+
+    async def get_publish_fn(self) -> PublishFn | None:
+        """Return the runtime-owned publish callable, building a producer if needed.
+
+        An injected ``publish_fn`` is used as-is; otherwise the shared
+        producer from :meth:`_ensure_producer` is used. Returns ``None`` when
+        no brokers are configured so handlers can skip best-effort emission
+        gracefully.
+        """
+        if self._publish_fn is not None:
+            return self._publish_fn
+
+        producer = await self._ensure_producer()
+        if producer is None:
+            return None
+
+        async def _publish(topic: str, value: bytes) -> None:
+            await producer.send_and_wait(topic, value)
+
+        self._publish_fn = _publish
+        return self._publish_fn
+
+    async def publish_snapshot_delta(
+        self,
+        exposure: ProjectionTableConfig,
+        *,
+        op: Literal["upsert", "delete"],
+        row: dict[str, Any] | None,
+        source_event_id: str,
+        source_topic: str,
+        source_partition: int,
+        source_offset: int,
+        tenant_id: str = "omninode",
+        key: dict[str, Any] | None = None,
+    ) -> bool:
+        """Publish one keyed row-delta snapshot for a bus_backed exposure.
+
+        OMN-15800 Seam A. No-op (returns ``False``) when the exposure is not
+        ``bus_backed`` or no publish transport is available — a handler calls
+        this unconditionally after a successful DB upsert; whether anything
+        is actually published is entirely contract-driven, never a per-call
+        decision in the handler.
+
+        A ``delete`` publishes a genuine Kafka tombstone (``value=None``) so
+        the compacted topic reclaims the key; ``row`` must be ``None`` for a
+        delete and non-``None`` for an upsert. An upsert derives its message
+        key from ``row``; a delete has no row, so it derives its key from the
+        ``key`` parameter instead (OMN-16150) -- ``key`` is required for a
+        delete and forbidden for an upsert (row is the single key source
+        there, so an explicit ``key`` alongside it would be a second,
+        possibly-divergent source of truth).
+
+        ``source_topic``/``source_partition``/``source_offset`` are the
+        caller's own ``MessageMeta`` coordinates for the SOURCE event being
+        projected -- the ordering authority ``SnapshotCache.apply_message``
+        keys its staleness comparison on (CodeRabbit, OMN-15800 round 3,
+        discussion r3745850632). Required unconditionally (including for a
+        ``delete``, where they are unused by the tombstone wire shape) so
+        every call site supplies them from its own ``MessageMeta`` rather
+        than a subset of callers silently omitting the ordering token.
+
+        Raises ``RuntimeError`` (not silently dropped) when the exposure is
+        misconfigured (``bus_backed`` with no ``key_columns``), the caller's
+        key source is missing a declared key column, or ``row``/``key`` is
+        supplied for the wrong ``op`` — all are programming errors in the
+        calling handler, never a runtime/network condition.
+        """
+        message = encode_snapshot_delta(
+            exposure,
+            op=op,
+            row=row,
+            key=key,
+            source_event_id=source_event_id,
+            source_topic=source_topic,
+            source_partition=source_partition,
+            source_offset=source_offset,
+            observed_at=datetime.now(UTC).isoformat(),
+            tenant_id=tenant_id,
+        )
+        if message is None:
+            return False
+
+        # OMN-18851: refuse an over-bound payload HERE, before the producer
+        # sees it.
+        #
+        # The check is deliberately ahead of ``_ensure_producer``: the size of
+        # an encoded message is a property of the message, not of the
+        # transport, so the refusal must not depend on whether a producer
+        # happens to be configured. A writer with no producer returns False
+        # below and never learns its aggregate is unpublishable; the same
+        # writer in production dies. The guard must give both the same answer.
+        #
+        # Left to the driver this surfaces as aiokafka's
+        # ``MessageSizeTooLargeError``, which ``classify_projection_error``
+        # does not recognise and so defaults to RECOVERABLE -- the offset is
+        # withheld, the consumer is torn down, the identical row re-encodes to
+        # the identical size, and the loop runs until the session budget is
+        # exhausted and the process exits. That is the nine-day dev-lane
+        # outage this ticket closes. ``SnapshotPayloadTooLargeError`` is
+        # classified POISON instead, so the event is quarantined with a
+        # durable record and the projection keeps advancing.
+        assert_snapshot_within_bound(
+            message, limit_bytes=resolve_snapshot_max_payload_bytes()
+        )
+
+        producer = await self._ensure_producer()
+        if producer is None:
+            logger.warning(
+                "publish_snapshot_delta: no Kafka producer available for %s "
+                "(delta not published)",
+                exposure.topic,
+            )
+            return False
+
+        await producer.send_and_wait(
+            apply_topic_namespace(message.topic),
+            value=message.value,
+            key=message.key,
+            headers=list(message.headers),
+        )
+        # The runtime-owned producer bypasses omnibase_infra's usual publish
+        # seams. Count only its acknowledged snapshot deltas, including delete
+        # tombstones, so a projection writer's in-flight subscription records
+        # its real output rather than deriving a false STALLED verdict.
+        #
+        # Keep this dependency lazy for the same projection-api import boundary
+        # as kafka_auth above. Older/minimal environments may not provide the
+        # observability module; publishing remains successful in that case.
+        record_snapshot_flow_output(message.topic)
+        return True
+
+    async def _stop_producer(self) -> None:
+        """Stop the runtime-owned producer, if one was built."""
+        if self._producer is not None:
+            with contextlib.suppress(Exception):
+                await self._producer.stop()
+            self._producer = None
+
+    @property
+    def stats(self) -> ProjectionStats:
+        return self._stats
+
+    async def run(self) -> None:
+        """Main entry point -- connect to DB and Kafka, consume events."""
+        # Lazy import (OMN-15800 AC6): see the note in _ensure_producer().
+        from omnibase_infra.event_bus.kafka_auth import (
+            build_aiokafka_auth_kwargs_from_env,
+        )
+
+        loop = asyncio.get_event_loop()
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(sig, lambda: asyncio.ensure_future(self.shutdown()))
+
+        self._start_health_server_if_configured()
+
+        await self._connect_standalone_databases()
+        logger.info("DB connected")
+
+        brokers = self.kafka_bootstrap_servers
+        if not brokers:
+            raise RuntimeError(
+                "projection Kafka bootstrap servers are required; provide "
+                "ModelProjectionRuntimeBinding or a projection runtime binding overlay"
+            )
+        attempts = 0
+
+        while attempts < MAX_RETRY_ATTEMPTS and not self._shutdown_requested:
+            try:
+                self._consumer = AIOKafkaConsumer(
+                    # PHYSICAL names. ``self.topics`` stays CANONICAL because
+                    # it is the contract-declared list every log line, handler
+                    # lookup and watermark is expressed in (OMN-18891).
+                    *apply_topic_namespace_all(self.topics),
+                    bootstrap_servers=brokers,
+                    group_id=self._group_id,
+                    client_id=self._client_id,
+                    auto_offset_reset="earliest",
+                    # OMN-13350 (fail-loud): auto-commit was the data-loss
+                    # mechanism. When enabled, the offset advanced on the timer
+                    # regardless of whether the DB write succeeded, so a failed
+                    # INSERT (e.g. UndefinedColumn on a schema-drifted projection
+                    # table) was committed-and-dropped while the group reported
+                    # Stable / LAG=0. The offset is now committed explicitly ONLY
+                    # after a row is successfully projected (or the message is a
+                    # genuine non-event); a projection error propagates and leaves
+                    # the offset uncommitted so the message is re-read, never
+                    # silently skipped.
+                    enable_auto_commit=False,
+                    value_deserializer=None,
+                    # OMN-15816: onex-dev's managed Kafka listener is
+                    # SASL_SSL/AWS_MSK_IAM-only -- a client built without
+                    # these kwargs defaults to PLAINTEXT and the broker
+                    # closes the connection immediately. Same idiom as
+                    # omnibase_infra's own consumers, e.g. AgentActionsConsumer
+                    # (services/observability/agent_actions/consumer.py).
+                    **build_aiokafka_auth_kwargs_from_env(),
+                )
+                await self._consumer.start()
+                self._running = True
+                logger.info(
+                    "Kafka consumer started. Topics: %s, Group: %s, Binding: %s",
+                    self.topics,
+                    self._group_id,
+                    self.runtime_binding_source,
+                )
+
+                async for msg in self._consumer:
+                    if not self._running:
+                        break
+                    await self._handle_message(msg)
+                    # OMN-17985: a session that actually processed a message is
+                    # evidence the consumer works, so earlier failures must not
+                    # count against the budget. Without this reset the counter
+                    # is a LIFETIME one: ten transient broker blips spread over
+                    # a month end the process just as surely as ten in a row.
+                    attempts = 0
+
+            except Exception as err:
+                attempts += 1
+                delay = min(RETRY_BASE_DELAY * (2**attempts), RETRY_MAX_DELAY)
+                logger.error(
+                    "Consumer attempt %d/%d failed: %s. Retrying in %.1fs",
+                    attempts,
+                    MAX_RETRY_ATTEMPTS,
+                    err,
+                    delay,
+                )
+                if self._consumer:
+                    with contextlib.suppress(Exception):
+                        await self._consumer.stop()
+                    self._consumer = None
+                await asyncio.sleep(delay)
+
+        self._stop_health_server()
+        await self._stop_producer()
+        await self._close_standalone_databases()
+
+        if self._shutdown_requested:
+            # A requested shutdown is a clean exit, and must stay one: making
+            # every exit fatal would turn each SIGTERM into a crash.
+            return
+
+        # OMN-17985: raise rather than return. See
+        # ProjectionConsumerExhaustedError for why exiting 0 here hid a
+        # fourteen-hour crash loop.
+        message = (
+            f"projection consumer for group {self._group_id!r} could not be "
+            f"kept up after {MAX_RETRY_ATTEMPTS} sessions; giving up"
+        )
+        logger.error("%s", message)
+        raise ProjectionConsumerExhaustedError(message)
+
+    async def shutdown(self) -> None:
+        """Graceful shutdown."""
+        logger.info("Shutting down...")
+        self._running = False
+        self._shutdown_requested = True
+        self._stop_health_server()
+        if self._consumer:
+            with contextlib.suppress(Exception):
+                await self._consumer.stop()
+        await self._stop_producer()
+        await self._close_standalone_databases()
+
+    async def _handle_message(self, msg: Any) -> None:
+        """Parse, unwrap, dispatch, and commit a single Kafka message.
+
+        Fail-loud contract (OMN-13350): the consumer runs with auto-commit
+        disabled. This method commits the offset ONLY when the message is fully
+        accounted for — either successfully projected, or a genuine non-event
+        (empty value / un-unwrappable envelope) that carries no row to persist.
+
+        Error classification (OMN-13634 / WS-F Phase 2): a projection error is
+        classified via :func:`classify_projection_error` so POISON and
+        RECOVERABLE failures get the right policy — the same policy the infra
+        ``handler_wiring`` path applies:
+
+        * RECOVERABLE (e.g. an ``UndefinedColumn`` from a not-yet-applied
+          migration, an ``OperationalError``, a dropped connection) is counted,
+          logged, and **re-raised** so the offset is NOT committed. The outer run
+          loop restarts the consumer and the uncommitted message is re-read on
+          the next poll — the failure surfaces loudly and the data is never
+          committed-and-dropped while the group reports Stable. A migration gap
+          lands here, never quarantined as malformed.
+        * POISON (a malformed payload ``ValidationError`` / ``PoisonEventError``
+          that will never project no matter how often it is retried) is routed to
+          the contract-declared poison DLQ. The offset is committed only after
+          that publish succeeds, so the event is durably recoverable by
+          correlation_id before the source record advances.
+
+        Most handlers catch their own ``ValidationError`` inside ``project_event``
+        and route to the DLQ before returning (the OMN-13548 path); this method
+        is the safety net for a POISON error that escapes a handler and the
+        re-read/no-commit guarantee for every RECOVERABLE error.
+        """
+        # CANONICAL. ``deterministic_correlation_id`` below seeds from this,
+        # so a physical name here would give the same event a different
+        # correlation id on a namespaced lane than on an unnamespaced one
+        # (OMN-18891).
+        topic = strip_topic_namespace(msg.topic)
+        # Bound before the try so the except block always has a dict to attach to
+        # a DLQ envelope, even if a poison error somehow surfaces before
+        # project_event (it does not today — handlers raise inside project_event).
+        data: dict[str, Any] = {}
+        try:
+            if msg.value is None:
+                await self._commit_message(msg)
+                return
+
+            unwrapped = unwrap_envelope(msg.value)
+            if unwrapped is None:
+                await self._commit_message(msg)
+                return
+            data = unwrapped
+
+            fallback_id = deterministic_correlation_id(topic, msg.partition, msg.offset)
+            meta = MessageMeta(
+                partition=msg.partition,
+                offset=msg.offset,
+                fallback_id=fallback_id,
+                topic=topic,
+            )
+
+            projected = await self.project_event(topic, data, meta)
+        except Exception as err:
+            # OMN-13634: classify before deciding offset policy.
+            # Lazy import (OMN-15800 AC6): error_classification imports
+            # asyncpg's exception hierarchy at module scope; only the
+            # runtime (which reaches this except-branch) may load it.
+            from omnimarket.projection.error_classification import (
+                ProjectionErrorClass,
+                classify_projection_error,
+            )
+
+            self._stats.errors_count += 1
+            ts = self._stats.topic_stats.setdefault(
+                topic, {"projected": 0, "errors": 0}
+            )
+            ts["errors"] += 1
+            error_class = classify_projection_error(err)
+            if error_class is ProjectionErrorClass.POISON:
+                # The payload is bad and will never project. Route it to the
+                # poison DLQ (durably recoverable by correlation_id). Do not
+                # acknowledge the source record until that publish succeeds.
+                routed = await self._route_poison_to_dlq(topic, data, err, meta)
+                if not routed:
+                    logger.error(
+                        "POISON event on %s was not quarantined; offset remains "
+                        "uncommitted for retry: %s",
+                        topic,
+                        err,
+                    )
+                    raise
+                logger.error(
+                    "POISON event on %s routed to DLQ=%s (offset committed): %s",
+                    topic,
+                    routed,
+                    err,
+                )
+                await self._commit_message(msg)
+                return
+            # RECOVERABLE: a missing column / server error / dropped connection.
+            # Do NOT advance the offset; re-raise so the run loop tears the
+            # consumer down with the offset uncommitted; the message is re-read,
+            # never dropped, until the infra catches up.
+            logger.error(
+                "RECOVERABLE error projecting %s (offset uncommitted, will retry): %s",
+                topic,
+                err,
+            )
+            raise
+
+        if projected:
+            self._stats.events_projected += 1
+            self._stats.last_projected_at = datetime.now(UTC)
+            ts = self._stats.topic_stats.setdefault(
+                topic, {"projected": 0, "errors": 0}
+            )
+            ts["projected"] += 1
+            await self._update_watermark(f"{topic}:{msg.partition}", msg.offset)
+
+        # Commit on a successful projection AND on a handled-but-not-applicable
+        # message (project_event returned False for a topic this runner does not
+        # project): both are fully accounted for, so the offset may advance. The
+        # only path that does NOT reach here is a raised projection error above.
+        await self._commit_message(msg)
+
+    async def _route_poison_to_dlq(
+        self,
+        topic: str,
+        data: dict[str, Any],
+        err: BaseException,
+        meta: MessageMeta,
+    ) -> bool:
+        """Publish a POISON event to the contract-declared poison DLQ topic.
+
+        OMN-13634: the base-class safety net for a POISON ``project_event`` error
+        that escaped a handler. Returns ``True`` when an envelope was published,
+        ``False`` when no topic is declared or the publish fails. False is not
+        an acknowledgement: the caller leaves the source offset uncommitted and
+        re-raises the original poison error. A DLQ publish failure is logged.
+        """
+        dlq_topics = self.poison_dlq_topics
+        if not dlq_topics:
+            logger.error(
+                "POISON event on %s has NO poison DLQ topic declared "
+                "(leaving offset uncommitted because quarantine is unavailable): %s",
+                topic,
+                err,
+            )
+            return False
+        correlation_id = correlation_id_from_payload(data, fallback=meta.fallback_id)
+        envelope = build_dlq_envelope(
+            original_message=data,
+            failure_reason=f"poison projection error: {err}",
+            handler=type(self).__name__,
+            correlation_id=correlation_id,
+        )
+        value = json.dumps(envelope, default=str).encode("utf-8")
+        try:
+            # The contract declares a CANONICAL DLQ topic; every subclass
+            # publisher is handed the PHYSICAL name, so the namespace is
+            # applied once here rather than in each of them (OMN-18891).
+            await self.publish_dlq(apply_topic_namespace(dlq_topics[0]), value)
+        except Exception as publish_err:
+            logger.error(
+                "Failed to route POISON event on %s to DLQ %s (correlation_id=%s): %s",
+                topic,
+                dlq_topics[0],
+                correlation_id,
+                publish_err,
+            )
+            return False
+        return True
+
+    async def _commit_message(self, msg: Any) -> None:
+        """Explicitly commit the offset for a fully-accounted-for message.
+
+        OMN-13350: replaces the removed enable_auto_commit timer. A commit
+        failure is logged but not raised — the offset stays where it is and the
+        message is re-read, which is the safe direction (at-least-once), not a
+        silent drop.
+        """
+        if self._consumer is None:
+            return
+        try:
+            await self._consumer.commit(
+                {
+                    TopicPartition(msg.topic, msg.partition): msg.offset + 1,
+                }
+            )
+        except Exception as err:
+            logger.warning(
+                "Failed to commit offset for %s:%d@%d: %s",
+                msg.topic,
+                msg.partition,
+                msg.offset,
+                err,
+            )
+
+    async def _update_watermark(self, projection_name: str, offset: int) -> None:
+        """Update omninode_internal.projection_watermarks table (OMN-16146).
+
+        Schema-qualified to match the table's declared topology domain
+        (contract.yaml db_io.db_tables[].schema: omninode_internal) and the
+        migration that creates it
+        (node_projection_registration/migrations/0005_create_projection_watermarks.sql)
+        -- both must stay in lockstep, since this session carries no
+        search_path override and would otherwise resolve to an
+        unqualified-default relation the migration never creates.
+        """
+        try:
+            await self.db_for("projection_watermarks", operation="write").execute(
+                """
+                INSERT INTO omninode_internal.projection_watermarks (projection_name, last_offset, events_projected, updated_at)
+                VALUES ($1, $2, 1, NOW())
+                ON CONFLICT (projection_name) DO UPDATE SET
+                  last_offset = GREATEST(omninode_internal.projection_watermarks.last_offset, EXCLUDED.last_offset),
+                  events_projected = omninode_internal.projection_watermarks.events_projected + 1,
+                  last_projected_at = NOW(), updated_at = NOW()
+                """,
+                projection_name,
+                offset,
+            )
+        except Exception as err:
+            logger.warning("Failed to update watermark: %s", err)

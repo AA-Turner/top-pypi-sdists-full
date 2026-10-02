@@ -1,0 +1,224 @@
+# tests/test_clean.py
+"""Tests for the clean() pipeline."""
+
+from __future__ import annotations
+
+import logging
+import sys
+
+import pytest
+
+
+class TestNullByteRemoval:
+    def test_strips_null_byte(self) -> None:
+        from navi_sanitize import clean
+
+        assert clean("hello\x00world") == "helloworld"
+
+    def test_strips_multiple_null_bytes(self) -> None:
+        from navi_sanitize import clean
+
+        assert clean("\x00a\x00b\x00") == "ab"
+
+    def test_warns_on_null_byte(self, caplog: pytest.LogCaptureFixture) -> None:
+        from navi_sanitize import clean
+
+        with caplog.at_level(logging.WARNING, logger="navi_sanitize"):
+            clean("test\x00")
+        assert "null byte" in caplog.text.lower()
+
+
+class TestInvisibleStripping:
+    def test_strips_zero_width_space(self) -> None:
+        from navi_sanitize import clean
+
+        assert clean("te\u200bst") == "test"
+
+    def test_strips_all_zero_width_chars(self) -> None:
+        from navi_sanitize import clean
+
+        zw = "\u200b\u200c\u200d\u200e\u200f\u2060\ufeff\u180e"
+        assert clean("a" + zw + "b") == "ab"
+
+    def test_strips_tag_block_chars(self) -> None:
+        from navi_sanitize import clean
+
+        # Tag block: U+E0000 through U+E007F (includes deprecated LANGUAGE TAG U+E0001)
+        tag_hello = "".join(chr(0xE0000 + ord(c)) for c in "hello")
+        assert clean("safe" + tag_hello + "text") == "safetext"
+
+    def test_strips_bidi_overrides(self) -> None:
+        from navi_sanitize import clean
+
+        assert clean("abc\u202edef") == "abcdef"
+
+    def test_strips_bidi_isolates(self) -> None:
+        from navi_sanitize import clean
+
+        assert clean("abc\u2066def\u2069ghi") == "abcdefghi"
+
+    def test_warns_on_invisible(self, caplog: pytest.LogCaptureFixture) -> None:
+        from navi_sanitize import clean
+
+        with caplog.at_level(logging.WARNING, logger="navi_sanitize"):
+            clean("te\u200bst")
+        assert "invisible" in caplog.text.lower()
+
+    def test_warns_with_count(self, caplog: pytest.LogCaptureFixture) -> None:
+        from navi_sanitize import clean
+
+        with caplog.at_level(logging.WARNING, logger="navi_sanitize"):
+            clean("a\u200b\u200c\u200db")
+        assert "3" in caplog.text
+
+
+class TestNFKCNormalization:
+    def test_normalizes_fullwidth(self) -> None:
+        from navi_sanitize import clean
+
+        assert clean("\uff54\uff45\uff53\uff54") == "test"
+
+    def test_warns_on_fullwidth(self, caplog: pytest.LogCaptureFixture) -> None:
+        from navi_sanitize import clean
+
+        with caplog.at_level(logging.WARNING, logger="navi_sanitize"):
+            clean("\uff54est")
+        assert "fullwidth" in caplog.text.lower() or "normalized" in caplog.text.lower()
+
+    def test_warns_with_nfkc_count(self, caplog: pytest.LogCaptureFixture) -> None:
+        from navi_sanitize import clean
+
+        with caplog.at_level(logging.WARNING, logger="navi_sanitize"):
+            clean("\uff41\uff42\uff43")  # 3 fullwidth chars
+        assert "3 fullwidth/compatibility" in caplog.text
+
+    def test_warns_with_single_nfkc_count(self, caplog: pytest.LogCaptureFixture) -> None:
+        from navi_sanitize import clean
+
+        with caplog.at_level(logging.WARNING, logger="navi_sanitize"):
+            clean("\uff41bc")  # 1 fullwidth char
+        assert "1 fullwidth/compatibility" in caplog.text
+
+    def test_re_nfkc_fires_after_homoglyph_replacement(self) -> None:
+        """Stage 5 re-NFKC: Greek U+03A5 + combining tilde -> Y + tilde -> U+1EF8."""
+        from navi_sanitize import clean
+
+        # Greek U+03A5 is replaced with Latin Y by stage 4.
+        # Y + combining tilde (U+0303) then composes to U+1EF8 in stage 5.
+        result = clean("\u03a5\u0303")
+        assert result == "\u1ef8"
+
+
+class TestHomoglyphReplacement:
+    def test_replaces_cyrillic_a(self) -> None:
+        from navi_sanitize import clean
+
+        assert clean("n\u0430vi") == "navi"
+
+    def test_replaces_greek_uppercase(self) -> None:
+        from navi_sanitize import clean
+
+        assert clean("\u0391\u0392C") == "ABC"
+
+    def test_replaces_typographic_dashes(self) -> None:
+        from navi_sanitize import clean
+
+        assert clean("a\u2013b\u2014c") == "a-b-c"
+
+    def test_replaces_smart_quotes(self) -> None:
+        from navi_sanitize import clean
+
+        assert clean("\u201chello\u201d") == '"hello"'
+
+    def test_warns_with_count(self, caplog: pytest.LogCaptureFixture) -> None:
+        from navi_sanitize import clean
+
+        with caplog.at_level(logging.WARNING, logger="navi_sanitize"):
+            clean("\u0430\u0435\u043e")
+        assert "3" in caplog.text
+        assert "homoglyph" in caplog.text.lower()
+
+    def test_homoglyph_combining_mark_idempotent(self) -> None:
+        """Regression: Greek U+03A5 + combining tilde -> Latin Y + tilde -> NFKC U+1EF8.
+
+        Without re-normalization after homoglyph replacement, a second clean()
+        pass would compose Y+combining tilde into U+1EF8, violating idempotency.
+        """
+        from navi_sanitize import clean
+
+        # Greek upsilon (U+03A5) followed by combining tilde (U+0303)
+        text = "\u03a5\u0303"
+        first = clean(text)
+        second = clean(first)
+        assert first == second, f"Not idempotent: {first!r} != {second!r}"
+        # Should be the precomposed form
+        assert first == "\u1ef8"  # Ỹ (LATIN CAPITAL LETTER Y WITH TILDE)
+
+
+class TestCleanPassthrough:
+    def test_clean_text_unchanged(self) -> None:
+        from navi_sanitize import clean
+
+        assert clean("hello world") == "hello world"
+
+    def test_no_warnings_on_clean_text(self, caplog: pytest.LogCaptureFixture) -> None:
+        from navi_sanitize import clean
+
+        with caplog.at_level(logging.WARNING, logger="navi_sanitize"):
+            clean("perfectly normal text")
+        assert caplog.text == ""
+
+    def test_empty_string(self) -> None:
+        from navi_sanitize import clean
+
+        assert clean("") == ""
+
+
+class TestEscaperIntegration:
+    def test_escaper_runs_after_universal_stages(self) -> None:
+        from navi_sanitize import clean
+
+        def upper_escaper(s: str) -> str:
+            return s.upper()
+
+        # Homoglyph replacement first, then escaper
+        assert clean("n\u0430vi", escaper=upper_escaper) == "NAVI"
+
+    def test_no_escaper_skips_stage_6(self) -> None:
+        from navi_sanitize import clean
+
+        assert clean("{{ config }}") == "{{ config }}"
+
+    def test_escaper_receives_clean_text(self) -> None:
+        from navi_sanitize import clean
+
+        received: list[str] = []
+
+        def spy_escaper(s: str) -> str:
+            received.append(s)
+            return s
+
+        clean("n\u0430vi\x00", escaper=spy_escaper)
+        assert received == ["navi"]  # null byte and homoglyph already cleaned
+
+
+class TestExhaustiveSingleCodePoints:
+    """Whole-range checks that back documented guarantees."""
+
+    def test_idempotent_for_every_code_point(self, caplog: pytest.LogCaptureFixture) -> None:
+        from navi_sanitize import clean
+
+        caplog.set_level(logging.CRITICAL, logger="navi_sanitize")
+        failures = []
+        for cp in range(sys.maxunicode + 1):
+            once = clean(chr(cp))
+            if clean(once) != once:
+                failures.append(f"U+{cp:04X}")
+        assert not failures, failures[:10]
+
+    def test_printable_ascii_unchanged(self) -> None:
+        from navi_sanitize import clean
+
+        printable = "".join(chr(cp) for cp in range(0x20, 0x7F))
+        assert clean(printable) == printable
+        assert clean(printable + "\t\n\r") == printable + "\t\n\r"

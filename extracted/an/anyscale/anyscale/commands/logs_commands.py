@@ -5,6 +5,7 @@ accessible to the SDK in the future.
 
 TODO (shomilj): Bring the controller to feature parity with the CLI.
 """
+
 from datetime import timedelta
 import math
 from typing import Optional
@@ -66,6 +67,18 @@ option_worker_only = click.option(
 option_head_only = click.option(
     "--head-only", is_flag=True, help="Download logs of only the head node."
 )
+# Only "anyscale logs job" needs this. The other subcommands return all the cluster
+# logs already, so the flag would do nothing there.
+option_all_logs = click.option(
+    "--all",
+    "all_logs",
+    is_flag=True,
+    default=False,
+    help=(
+        "Fetch every log file of the cluster that ran the job. Without this flag "
+        "the command returns only the driver log."
+    ),
+)
 option_unpack_combined_logs = click.option(
     "--unpack/--no-unpack",
     default=True,
@@ -95,7 +108,8 @@ option_download_dir = click.option(
 
 
 @click.group(
-    "logs", help="Print or download Ray logs for an Anyscale job, service, or cluster.",
+    "logs",
+    help="Print or download Ray logs for an Anyscale job, service, or cluster.",
 )
 def log_cli() -> None:
     pass
@@ -118,9 +132,7 @@ def log_cli() -> None:
     help="Access log files of a cluster.",
     cls=AnyscaleCommand,
 )
-@click.option(
-    "--cluster-id", "--id", "id", type=str, required=True, help="Provide a cluster ID."
-)
+@click.option("--cluster-id", "--id", "id", type=str, required=True, help="Provide a cluster ID.")
 @option_download
 @option_tail
 @argument_glob
@@ -240,13 +252,10 @@ def execute_anyscale_logs_cluster(  # noqa: PLR0913
                     table.add_column("Size")
                     for log_file in node.get_files():
                         table.add_row(
-                            log_file.file_name, convert_size(log_file.get_size()),
+                            log_file.file_name,
+                            convert_size(log_file.get_size()),
                         )
-                    prefix = (
-                        "Head Node"
-                        if node.node_type == NodeType.HEAD_NODE
-                        else "Worker Node"
-                    )
+                    prefix = "Head Node" if node.node_type == NodeType.HEAD_NODE else "Worker Node"
                     # TODO (shomilj): When we support GCE, clean this up.
                     instance_id = (
                         f"EC2 Instance ID: {node.instance_id}"
@@ -287,8 +296,12 @@ def execute_anyscale_logs_cluster(  # noqa: PLR0913
     output_formats=[OutputFormat.TEXT],
     examples=[
         CommandExample(
-            description="Print the logs of a job.",
+            description="Print the driver logs of a job.",
             command="anyscale logs job --id prodjob_abc123",
+        ),
+        CommandExample(
+            description="Download every log file of the job's cluster.",
+            command="anyscale logs job --id prodjob_abc123 --all --download",
         ),
     ],
 )
@@ -297,12 +310,19 @@ def execute_anyscale_logs_cluster(  # noqa: PLR0913
     short_help="Access log files of a production job.",
     cls=AnyscaleCommand,
     help=(
-        "Access log files of a production job. By default, fetches logs scoped "
-        "to the last job attempt. Pass --head-only to instead fetch all "
-        "head-node logs from the job's cluster (e.g. for cluster-level startup "
-        "output that isn't attributed to a specific job run); --worker-only, "
-        "--node-ip, --instance-id, or a glob also fall back to the cluster-log "
-        "path."
+        "Access log files of a production job. By default, this command returns "
+        "only the driver log of the last job attempt.\n\n"
+        "Give --all to get every log file of that cluster. The full set includes "
+        "the Ray session logs, the worker logs, the dmesg log, and the cluster "
+        "startup output.\n\n"
+        "The GLOB argument selects the cluster logs by file name. Put the glob "
+        "in quotes, or the shell expands it before the CLI reads it. --all is "
+        "the same as the glob '*'.\n\n"
+        "--head-only, --worker-only, --node-ip, and --instance-id also read the "
+        "cluster logs. Each one limits the result to the nodes that agree with "
+        "the filter.\n\n"
+        "A job on KubeRay has one log set. --all returns the same files there, "
+        "and the other filters are not available."
     ),
 )
 @click.option(
@@ -316,6 +336,7 @@ def execute_anyscale_logs_cluster(  # noqa: PLR0913
 @option_download
 @option_tail
 @argument_glob
+@option_all_logs
 @option_node_ip
 @option_instance_id
 @option_worker_only
@@ -330,6 +351,7 @@ def anyscale_logs_job(  # noqa: PLR0913
     tail: int,
     # filters
     glob: Optional[str],
+    all_logs: bool,
     node_ip: Optional[str],
     instance_id: Optional[str],
     worker_only: bool,
@@ -341,6 +363,11 @@ def anyscale_logs_job(  # noqa: PLR0913
     download_dir: Optional[str],
     parallelism: int,
 ) -> None:
+    if all_logs and glob:
+        raise click.ClickException(
+            "Pass either --all or a glob, not both. --all is the same as the glob '*'."
+        )
+
     logs_controller = LogsController()
     cluster_id: Optional[str] = None
     is_kuberay_job = False
@@ -348,9 +375,7 @@ def anyscale_logs_job(  # noqa: PLR0913
         (
             cluster_id,
             job_run_id,
-        ) = logs_controller.get_cluster_id_and_last_job_run_id_for_prodjob(
-            prodjob_id=id
-        )
+        ) = logs_controller.get_cluster_id_and_last_job_run_id_for_prodjob(prodjob_id=id)
     except NoJobRunError:
         # An imported KubeRay workload has no job-run row, so there is no run id or
         # cluster id to resolve. Its logs are addressed by the production job id
@@ -368,13 +393,34 @@ def anyscale_logs_job(  # noqa: PLR0913
             "supported for KubeRay jobs. Re-run without them to fetch the driver logs."
         )
 
+    if is_kuberay_job and all_logs:
+        # The narrowing filters above are an error because they would apply to
+        # nothing. --all only widens, and the driver path already returns every file
+        # Anyscale keeps for a KubeRay workload, so say so and go on.
+        log.warning(
+            "This job runs on KubeRay. Anyscale keeps one log set for it, so --all "
+            "returns the same files as the default."
+        )
+
+    # --all is the same request as the glob that matches every file. KubeRay has no
+    # cluster to glob over, so it stays on the driver path.
+    effective_glob = "*" if all_logs and not is_kuberay_job else glob
+
     use_job_logs = job_run_id and not any(
-        [glob, node_ip, instance_id, worker_only, head_only]
+        [effective_glob, node_ip, instance_id, worker_only, head_only]
     )
     if use_job_logs:
+        if not is_kuberay_job:
+            # Before version 0.26.102 this command gave all the cluster logs. Users
+            # read the smaller result as a fault, so name the logs that came back.
+            # A KubeRay job keeps one log set, so the note has nothing to offer it.
+            log.info(
+                "Fetched the driver log only. Pass --all for every log file of the "
+                "cluster that ran this job."
+            )
         if ttl != DEFAULT_TTL:
             log.warning(
-                "--ttl is ignored when fetching job-scoped logs; pass "
+                "--ttl is ignored when fetching job-scoped logs; pass --all, "
                 "--head-only, --worker-only, --node-ip, --instance-id, or a "
                 "glob to fall back to the cluster-log path which honors --ttl."
             )
@@ -418,7 +464,7 @@ def anyscale_logs_job(  # noqa: PLR0913
         cluster_id=cluster_id,
         download=download,
         tail=tail,
-        glob=glob,
+        glob=effective_glob,
         node_ip=node_ip,
         instance_id=instance_id,
         worker_only=worker_only,
@@ -521,9 +567,7 @@ def anyscale_logs_workspace(  # noqa: PLR0913
     help="Access log files of a service for a single service version.",
     cls=AnyscaleCommand,
 )
-@click.option(
-    "--service-id", "--id", "id", type=str, required=True, help="Provide a service ID."
-)
+@click.option("--service-id", "--id", "id", type=str, required=True, help="Provide a service ID.")
 @click.option(
     "--version",
     type=str,

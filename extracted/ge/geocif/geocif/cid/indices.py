@@ -33,16 +33,13 @@ logger = logging.getLogger(__name__)
 # SPI rejects the ("season", ...) tuple and returns monthly output instead.
 _ICCLIM_BYPASS_CACHE = frozenset({"SPI3", "SPI6"})
 
-# Percentile / spell-duration indices require a 365-day-per-year base
-# period because their thresholds are per-day-of-year percentiles fit on
-# the baseline window — Feb 29 has ~1/4 the sample count of other DOYs
-# and trips an icclim shape mismatch.  This set drives the Feb-29 drop
-# in compute_indices.  Non-percentile indices (extremes/sums/counts)
-# MUST keep Feb 29 in place: dropping it breaks slice_mode=("season",...)
-# on leap-year seasons whose requested range spans Feb 29 — icclim emits
-# NaN for the incomplete season and the wide-format fillna(0) turns the
-# NaN into a false 0 (manifested as TXn=0 for every harvest year whose
-# Nov-Apr window includes Feb 29; introduced 2026-04-13 in 0.4.366).
+# Percentile / spell-duration family: thresholds are per-day-of-year
+# percentiles fit on the baseline window. From 0.4.366 to 0.4.1062 this set
+# drove a Feb-29 drop in compute_indices that blanked every leap-year
+# window spanning Feb 29 (see the note there); the drop is gone and the
+# set is kept as the documented family list (tests/test_cid_leap_year_gate.py
+# pins its membership so no index is ever treated as "percentile" by
+# accident again).
 _PERCENTILE_INDICES = frozenset({
     "TG10p", "TN10p", "TX10p",
     "TG90p", "TN90p", "TX90p",
@@ -477,14 +474,23 @@ def add_season_information(
         if method == "fraction_season":
             step = 10
             N = len(df_adm1_season)
-            # Create a fraction_season column: 10,20,...,100 (integer deciles;
-            # keep int dtype so the Stage label is "10_20_..." not "10.0_20.0_...").
+            # Deciles of EACH season's own rows (10,20,...,100; int dtype so
+            # the Stage label is "10_20_..." not "10.0_20.0_..."). The
+            # forecast year's truncated season is therefore stretched over
+            # 10..100 like a complete one -- deliberately: fraction_season
+            # stages are keyed on the decile ids present in the forecast
+            # year, so sizing on the full season length (tried 2026-10-01)
+            # left the forecast year with ids no hindcast year carries.
+            # The off-season rows (Season NaN) form their own group here
+            # and never influence an in-season label.
             df_adm1_season["fraction_season"] = (
                                                     np.linspace(10, 100 + step, N + 1) // step * step
                                                 )[:-1].astype(int)
 
         elif method in ["dekad", "dekad_r"]:
-            df_adm1_season[method] = df_adm1_season["Doy"] // 10 + 1
+            # dekad k = days 10k-9 .. 10k (day 10 is dekad 1, day 11 dekad 2),
+            # matching utils.dict_growth_stages / compute_time_periods.
+            df_adm1_season[method] = (df_adm1_season["Doy"] - 1) // 10 + 1
 
         elif method in ["biweekly", "biweekly_r"]:
             df_adm1_season[method] = df_adm1_season.apply(utils.compute_biweekly_index, axis=1)
@@ -544,8 +550,20 @@ def get_icclim_dates(
     """
     # start_br: earliest date + 1 year
     start_br = str(df_all_years_ix.index[0][2] + relativedelta(years=1))
-    # end_br: latest date - 2 years
-    end_br = str(df_all_years_ix.index[-1][2] - relativedelta(years=2))
+    # end_br: the last COMPLETE calendar year on file. The old "latest date
+    # - 2 years" drifted with the merged file's calendar scaffold: a file
+    # padded to 2028 put the partial current year inside the percentile
+    # base period while a file ending today excluded two full years, so
+    # which hindcast years were in-base, and the thresholds themselves,
+    # differed between projects and between runs in the same year
+    # (2026-09-30 audit, A0d). Future scaffold rows (NaN data) never count.
+    earliest = df_all_years_ix.index[0][2]
+    latest = df_all_years_ix.index[-1][2]
+    last_complete = pd.Timestamp(year=utils.local_now().year - 1, month=12, day=31)
+    end_dt = min(latest, last_complete)
+    if end_dt <= earliest + relativedelta(years=1):
+        end_dt = latest  # degenerate short file: keep every row usable
+    end_br = str(end_dt)
 
     start_tr = np.datetime_as_string(df_harvest_year_ix.index[0][2].to_datetime64())
     end_tr = np.datetime_as_string(df_harvest_year_ix.index[-1][2].to_datetime64())
@@ -683,14 +701,19 @@ def compute_indices(
     if index_name in _NUMPY_INDEX_FUNCS:
         return _compute_numpy_index(index_name, df_time_period)
 
-    # Drop Feb 29 ONLY for percentile / spell-duration indices that need
-    # a 365-day per-year base period.  Leaving Feb 29 in place for
-    # non-percentile indices avoids breaking slice_mode=("season",...)
-    # on leap-year seasons that span Feb 29 — see _PERCENTILE_INDICES.
-    if index_name in _PERCENTILE_INDICES:
-        _leap = lambda d: (d["time"].dt.month == 2) & (d["time"].dt.day == 29)
-        df_base_period = df_base_period[~_leap(df_base_period)]
-        df_time_period = df_time_period[~_leap(df_time_period)]
+    # Feb 29 is KEPT for every index (since 0.4.1063). 0.4.366 removed it
+    # for the percentile / spell-duration family (_PERCENTILE_INDICES) to
+    # dodge a "(121) vs (120)" broadcast error in icclim's bootstrap; but
+    # icclim is handed ONE frame (``in_files`` below is built from
+    # df_base_period and the study window is sliced out of it), so the
+    # drop also removed Feb 29 from the study window, and icclim's
+    # ``missing="any"`` check then blanked EVERY leap-year window spanning
+    # Feb 29 (all 14 percentile indices NaN -> 0 after the ML zero-fill,
+    # harvest years 2004..2024 of cross-year seasons; 2026-09-30 audit,
+    # reproduced on poppy and Zimbabwe maize). icclim >= 7 computes the
+    # per-DOY thresholds and the bootstrap on a leap calendar without the
+    # shape error (tests/test_audit_fixes_cid.py covers Feb-Mar, Feb-May
+    # and Dec-Apr windows inside and outside the bootstrap base period).
 
     # Skip windowed indices when the target slice is shorter than the
     # rolling/spell window — icclim would otherwise raise at compute time.
@@ -781,6 +804,36 @@ def compute_indices(
             )
 
     return ds
+
+
+# Month in which each ENSO season window ENDS, as (year offset relative to
+# the harvest year, month). ONI seasons are 3-month means named by their
+# months (DJF = Dec..Feb, ends Feb); MEI v2 bimonthlies likewise (DJ ends
+# Jan). ``prev`` seasons sit in harvest year - 1 except NDJ, which ends in
+# January of the harvest year.
+ENSO_SEASON_END = {
+    "ONI_prev_JJA": (-1, 8), "ONI_prev_ASO": (-1, 10), "ONI_prev_SON": (-1, 11),
+    "ONI_prev_OND": (-1, 12), "ONI_prev_NDJ": (0, 1),
+    "ONI_curr_DJF": (0, 2), "ONI_curr_JFM": (0, 3), "ONI_curr_FMA": (0, 4),
+    "ONI_curr_MAM": (0, 5),
+    "MEI_prev_JJ": (-1, 7), "MEI_prev_AS": (-1, 9), "MEI_prev_SO": (-1, 10),
+    "MEI_prev_ON": (-1, 11), "MEI_prev_ND": (-1, 12),
+    "MEI_curr_DJ": (0, 1), "MEI_curr_JF": (0, 2), "MEI_curr_FM": (0, 3),
+    "MEI_curr_MA": (0, 4),
+}
+
+
+def enso_available(iname: str, window_end, harvest_year) -> bool:
+    """True when the ENSO season behind ``iname`` has ended by ``window_end``.
+
+    ``window_end`` is the latest timestamp of the stage window; None (or an
+    unknown index name) keeps the legacy behaviour and returns True.
+    """
+    end = ENSO_SEASON_END.get(iname)
+    if end is None or window_end is None or pd.isna(window_end):
+        return True
+    ts = pd.Timestamp(window_end)
+    return (ts.year, ts.month) >= (int(harvest_year) + end[0], end[1])
 
 
 def aggregate_eo_values(eo_vals: np.ndarray, agg_type: str) -> float:
@@ -1298,7 +1351,7 @@ class CIDs:
         # for within-year seasons planted Jul-Dec (planting Nov Southern
         # Hemisphere and planting Jan-Jun seasons were unaffected).
         import arrow as ar
-        pre_months = self._get_pre_season_months(ar.utcnow().month)
+        pre_months = self._get_pre_season_months(utils.local_now().month)
 
         seed_year = None
         if pre_months and "Season" in df_region.columns:
@@ -1834,6 +1887,12 @@ class CIDs:
                 eo_vars.append("S2S")
             if any(c.startswith(("ONI_", "MEI_")) for c in df_group.columns):
                 eo_vars.append("ENSO")
+            # MO6 FPAR: only when geomerge carried the column (the project
+            # listed fpar_mo6 / fpar_mo6_5km in eo_model), like CCI.
+            if "fpar_mo6" in df_group.columns:
+                eo_vars.append("FPAR")
+            if "fpar_mo6_5km" in df_group.columns:
+                eo_vars.append("FPAR5K")
             if "cci" in df_group.columns:
                 eo_vars.append("CCI")
             if "cci_ge" in df_group.columns:
@@ -1995,22 +2054,15 @@ class CIDs:
             dict_eo = di.dict_cci
         elif var == "CCIGE":
             dict_eo = di.dict_ccige
+        elif var == "FPAR":
+            dict_eo = di.dict_fpar
+        elif var == "FPAR5K":
+            dict_eo = di.dict_fpar5k
         else:
             return pd.DataFrame()  # unknown var
 
         # Each dict is: "NDVI_MEAN" -> ("EO", "NDVI mean over period"), etc.
         for iname, (itype, idesc) in dict_eo.items():
-            # ENSO features are static per (region, harvest year) -- the
-            # scalar value is identical across every stage window. Emit
-            # each ENSO CID exactly once per (region, year) so the wide-
-            # format pivot produces one column per CID instead of one per
-            # (CID, stage-window) tuple, all carrying the same value.
-            # Reuses the FLDAS dedup set with an "__enso__" sentinel.
-            if var == "ENSO" and emitted_fldas_inits is not None:
-                enso_key = ("__enso__", iname)
-                if enso_key in emitted_fldas_inits:
-                    continue
-                emitted_fldas_inits.add(enso_key)
             # Map index name to actual column in df_time_period
             if iname.startswith("AEF_"):
                 col_name = iname.lower()  # AEF_1 → aef_1
@@ -2018,6 +2070,10 @@ class CIDs:
                 col_name = "cci_ge"  # %Good+Excellent share (farmdoc metric)
             elif iname.endswith("_CCI"):
                 col_name = "cci"  # MEAN_CCI/MAX_CCI/MIN_CCI -> merged 'cci' column
+            elif iname.endswith("_FPAR5K"):
+                col_name = "fpar_mo6_5km"  # checked BEFORE _FPAR: it is a suffix of this one
+            elif iname.endswith("_FPAR"):
+                col_name = "fpar_mo6"
             elif iname in di.fldas_col_map:
                 col_name = di.fldas_col_map[iname]
             elif iname in di.s2s_col_map:
@@ -2050,6 +2106,24 @@ class CIDs:
                 continue
 
             eo_vals = df_time_period[col_name].values
+
+            if var == "ENSO":
+                # ENSO scalars are emitted under EVERY stage window, like
+                # every other CID, so the forecast year's column name
+                # matches the hindcast years'. The old once-per-(region,
+                # year) dedup stamped the scalar with whichever stage window
+                # was processed first, which differed between hindcast and
+                # forecast years (Kenya 2023: stages 12 and 7; 2026-09-30
+                # audit, A0e), and attached ONI_curr_MAM to stages ending
+                # before May. Seasons that have not finished by the window's
+                # end are masked to NaN (no look-ahead).
+                window_end = (
+                    df_time_period["time"].max()
+                    if "time" in df_time_period.columns and not df_time_period.empty
+                    else None
+                )
+                if not enso_available(iname, window_end, self.harvest_year):
+                    eo_vals = np.array([np.nan])
 
             # FLDAS: restrict to the single most-recent init-month row in
             # the cumulative stage window, then drop the value entirely if
@@ -2258,7 +2332,7 @@ def _run_one_year(obj: "CIDs") -> None:
 
     if obj.pre_season_mode:
         import arrow as ar
-        current_month = ar.utcnow().month
+        current_month = utils.local_now().month
         init_months = obj._get_pre_season_months(current_month)
         planting = obj._get_planting_month()
         n_preseason_rows = len(obj.df_country_crop[obj.df_country_crop["crop_cal"] == 0])
@@ -2378,7 +2452,7 @@ def process_task(args: ProcessTaskArgs) -> tuple:
 
         if obj.pre_season_mode:
             import arrow as ar
-            current_month = ar.utcnow().month
+            current_month = utils.local_now().month
             for init_month in obj._get_pre_season_months(current_month):
                 df_ps = obj._extract_pre_season_features(args.region, init_month)
                 if not df_ps.empty:
@@ -2506,7 +2580,9 @@ def validate_index_definitions():
         di.dict_ndvi,
         di.dict_esi4wk,
         di.dict_hindex,
-        di.dict_gcvi
+        di.dict_gcvi,
+        di.dict_fpar,
+        di.dict_fpar5k,
     ]:
         for key in dict_name.keys():
             if " " in key:

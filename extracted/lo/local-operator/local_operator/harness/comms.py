@@ -1,0 +1,3534 @@
+"""Parent↔subagent messaging and lifecycle control — the ``hub`` tool's engine.
+
+A ``task`` subagent used to be write-only: the parent could start one
+(:func:`~local_operator.harness.subagent.run_subagent`), block on it
+(``wait``) and list it (``jobs``), and that was the whole conversation. There
+was no way to tell a running child something, ask it whether it was stuck,
+change its course, stop it from the model side, or pick a stopped one back
+up. This module is that missing half.
+
+Everything here is built on primitives the session already had, because a
+child IS a :class:`~local_operator.session.session.Session`:
+
+- **notes and questions** ride ``Session.queue_aside`` — the lazy aside
+  channel whose whole point is out-of-band material injected at a tool-batch
+  or yield boundary without interrupting a batch mid-flight. Asides are
+  thunks, so a question whose asker gave up (timeout, child settled) can
+  withdraw itself with :class:`~local_operator.harness.types.StaleAside`
+  instead of landing in the child's context minutes late;
+- **steering** rides ``Session.steer`` — a real user message in the child's
+  transcript, which is the right shape for "stop doing that, do this
+  instead" and the wrong shape for "are you stuck?";
+- **stopping** rides ``AsyncJobManager.cancel``, which already aborts the
+  child through the runner's abort bridge;
+- **resuming** rides transcript replay. ``Transcript(dir)`` rehydrates from
+  disk and ``Session`` seeds its ``LoopContext`` from
+  ``transcript.build_llm_history()``, so relaunching a child against the
+  session directory of a stopped one genuinely continues that agent — same
+  history, same tool results — rather than starting a stranger with a
+  summary. It is the same mechanism as the CLI's ``--resume``.
+
+The asymmetry is deliberate. A parent addresses children by job id (or by
+unique label); a child addresses exactly one peer, its parent — delegation is a
+tree walked from the top, so a child that needs something from a sibling says
+so to the parent rather than talking sideways to it.
+
+Reply resolution has two paths on purpose. The child is told to answer with
+its ``hub`` tool, which resolves the waiting future exactly; but a model that
+ignores the tool and just answers in prose would strand the parent for the
+whole timeout, so a text-only assistant message (no tool calls — it is not
+still working) also resolves the question. Whichever lands first wins.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import time
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Literal,
+    Mapping,
+    Protocol,
+    Sequence,
+    cast,
+)
+
+# The two custom-message markers this module writes and classifies. Defined in
+# the shared vocabulary module (see its docstring): a runner barred from
+# importing ``session.peer`` still has to render a hub or peer delivery, and
+# this module's own closure is why ``HUB_MESSAGE_TYPE`` could not stay here.
+#
+# That closure still reaches six barred modules (``paths``, ``session``,
+# ``session.attachments``, ``session.creation``, ``session.spend``,
+# ``session.transcript``), and the residual is INERT only while nothing on a
+# runner's import path imports this module -- which is true today, and is a
+# constraint someone has to keep rather than a property of the layout. The
+# isolation denylist cannot see it: no runner module imports this one, so a new
+# runner import here would quietly put those six back on an episode's path.
+# Moving a marker INTO this file is therefore never the fix -- see
+# ``harness/message_types.py``.
+from local_operator.harness.message_types import (
+    HUB_MESSAGE_TYPE,
+    PEER_MESSAGE_MESSAGE_TYPE,
+    SESSION_BINDING_NOTICE_MESSAGE_TYPE,
+    SESSION_CREDENTIAL_REDACTION_MESSAGE_TYPE,
+)
+from local_operator.harness.types import (
+    AgentEvent,
+    AsideResult,
+    CustomMessage,
+    Message,
+    MessageEndEvent,
+    ModelSpec,
+    StaleAside,
+)
+from local_operator.session.transcript import TRANSCRIPT_FILENAME, TranscriptEntry
+
+if TYPE_CHECKING:
+    from local_operator.session.session import Session
+
+logger = logging.getLogger(__name__)
+
+#: Additive host-only rows used by the subagent viewer. Child-facing hub
+#: messages remain ordinary message entries because replay must still deliver
+#: them to the model; these lifecycle facts never enter LLM history and exist
+#: only to correlate the parent's action with a later child reply.
+HUB_COMMUNICATION_CUSTOM_TYPE = "hub_communication"
+
+#: Opening and closing tags of the model-facing envelope
+#: :meth:`SubagentComms._format_to_child` wraps parent→child text in. A hub
+#: steer persists as a plain role=user Message carrying this envelope, so
+#: human-facing surfaces match on the tag to keep the XML away from the reader
+#: (see :func:`extract_parent_message`). BOTH halves are constants and both the
+#: builder and its inverse use them, which is what stops the pair drifting
+#: apart — a literal on either side would silently break extraction the day the
+#: tag changed.
+PARENT_MESSAGE_TAG = "<parent-message>"
+PARENT_MESSAGE_CLOSE_TAG = "</parent-message>"
+
+#: The instruction line the envelope carries, per communication kind. Keyed by
+#: the same ``kind`` vocabulary the journaled communication fact uses
+#: (``details["kind"]``), so a surface can label an extracted envelope exactly
+#: as it labels the fact.
+#:
+#: WHY a table rather than three inline strings: it is the SHARED secret
+#: between the builder and :func:`extract_parent_message`. Extraction requires
+#: an exact match against one of these lines, which is what keeps a human who
+#: quotes the envelope shape in their own message ("why does my log show
+#: ``<parent-message>``?") from having their words re-rendered as a parent
+#: redirection. Matching on tag shape alone cannot tell the two apart.
+TO_CHILD_INSTRUCTIONS: dict[str, str] = {
+    "steer": (
+        "This changes your instructions. Apply it from now on, and drop work it " "makes pointless."
+    ),
+    "ask": (
+        "Answer it now with the `hub` tool — a short, direct reply — then carry on "
+        "with what you were doing. Do not restructure your work around the question."
+    ),
+    "note": (
+        "This is a note, not a question. No reply is needed unless it changes what "
+        "you should do."
+    ),
+}
+
+#: Instruction line -> kind, for extraction. Built from the same table so the
+#: two directions cannot disagree.
+_INSTRUCTION_KINDS: dict[str, str] = {
+    instruction: kind for kind, instruction in TO_CHILD_INSTRUCTIONS.items()
+}
+
+
+@dataclass(frozen=True)
+class ParentMessage:
+    """A parsed ``<parent-message>`` envelope: what the parent said, and which
+    kind of communication said it.
+
+    ``kind`` is one of ``TO_CHILD_INSTRUCTIONS``' keys (``steer``/``ask``/
+    ``note``), matching the vocabulary of the journaled communication fact, so
+    a surface labels an extracted envelope the same way it labels the fact
+    rather than assuming every envelope is a redirection.
+    """
+
+    kind: str
+    body: str
+
+
+def extract_parent_message(text: str) -> ParentMessage | None:
+    """Parse a model-facing ``<parent-message>`` envelope into its kind and
+    the human-facing body the parent authored.
+
+    Returns None when ``text`` is not an envelope THIS code built. The shape
+    parsed is exactly what :meth:`SubagentComms._format_to_child` emits:
+    ``<parent-message>\\n{instruction}\\n\\n{body}\\n</parent-message>``.
+
+    WHY this exists as a shared helper: a hub steer is persisted as a plain
+    role=user Message whose text is the envelope built for the MODEL, while
+    the human-facing fact is a separate custom row. Human-facing surfaces
+    (the TUI subagent view, the mobile projection) must show the body the
+    parent authored and never the XML wrapper — including for transcripts
+    persisted before steers carried their communication fact's id, where
+    body-text correlation is the only match left. Both surfaces import this
+    one parser so the builder and its inverse cannot drift apart.
+
+    CONSTRAINT — the instruction line must match ``TO_CHILD_INSTRUCTIONS``
+    exactly. Keying on the tag shape alone would rewrite a HUMAN's own message
+    as a parent communication the moment they quoted the envelope (asking
+    about this very wrapper is a realistic thing to do), silently
+    misattributing their words and stripping their text. The preamble is the
+    part a quoter has no reason to reproduce verbatim, so requiring it is what
+    makes the rewrite safe. These three strings have been byte-stable for the
+    life of the envelope; if one is ever reworded, the OLD text must stay in
+    this table or every transcript written before the change stops extracting.
+    """
+    stripped = text.strip()
+    if not stripped.startswith(PARENT_MESSAGE_TAG):
+        return None
+    end = stripped.rfind(PARENT_MESSAGE_CLOSE_TAG)
+    if end < 0:
+        return None
+    inner = stripped[len(PARENT_MESSAGE_TAG) : end]
+    # The builder writes a newline, the instruction line, a blank line, then the
+    # body. Split on the FIRST blank line: anything else did not come from
+    # _format_to_child and is left alone (returning None) rather than guessed at.
+    if inner.startswith("\n"):
+        inner = inner[1:]
+    separator = inner.find("\n\n")
+    if separator < 0:
+        return None
+    kind = _INSTRUCTION_KINDS.get(inner[:separator].strip())
+    if kind is None:
+        return None
+    return ParentMessage(kind=kind, body=inner[separator + 2 :].strip())
+
+
+#: How many child records to keep. A record is ~4 short strings and outlives
+#: its job row on purpose (job rows are swept 5 minutes after settling, and
+#: resuming a child an hour later is a legitimate thing to want). The cap
+#: exists only so a session that spawns thousands of children over a day
+#: cannot grow without bound; eviction is oldest-settled-first.
+MAX_RECORDS = 256
+
+#: How long a roster may reuse one child's "transcript is on disk" probe. The
+#: probe feeds only the roster's ``resumable`` hint (``resume`` re-probes before
+#: acting), so this bounds how stale a HINT may be, not a decision. Five seconds
+#: turns one ``stat`` per settled child per root event into one per child per
+#: five seconds; see ``SubagentComms._transcript_on_disk`` for the measurement.
+TRANSCRIPT_PROBE_TTL_S = 5.0
+
+DeliveryOutcome = Literal["injected", "queued", "cancelled", "paused", "failed"]
+
+#: Default number of transcript steps ``peek`` returns when the caller does not
+#: ask for a range. Five is "what is it doing right now" — the question the op
+#: exists for — rather than "replay its reasoning", which is what the whole
+#: transcript is for and what makes a parent's context explode.
+PEEK_DEFAULT_STEPS = 5
+
+#: Hard ceiling on steps per peek, whatever the caller asks for. A parent that
+#: requests 500 steps is not making an informed choice about its own context
+#: budget; it is treating peek as a transcript dump. The char cap below is the
+#: real bound, but refusing absurd counts up front keeps the failure legible.
+PEEK_MAX_STEPS = 50
+
+#: Per-step character budget. Tool RESULTS are the bulk of any transcript (a
+#: single ``bash`` result can be 8 KiB on its own), and the parent peeking
+#: wants to know WHICH tool ran with WHAT outcome, not to re-read its output.
+#: Anything longer is elided in the middle, which keeps both the head (the
+#: command, the start of an answer) and the tail (the verdict, the error).
+PEEK_STEP_CHARS = 600
+
+
+@dataclass(frozen=True)
+class Delivery:
+    """One recipient's receipt for one message.
+
+    ``injected`` — handed to a live child's injection queue (it lands at that
+    child's next tool-batch or yield boundary, not instantly).
+    ``queued`` — the child does not exist yet (its job is parked behind the
+    manager's capacity gate); buffered and flushed when it starts.
+    ``cancelled`` — the child was stopped (``op="cancel"`` only).
+    ``failed`` — unknown id, or the child has already settled.
+    """
+
+    job_id: str
+    label: str
+    outcome: DeliveryOutcome
+    error: str | None = None
+
+
+@dataclass(frozen=True)
+class Reply:
+    """The outcome of one question put to one child."""
+
+    job_id: str
+    label: str
+    text: str | None = None
+    error: str | None = None
+    timed_out: bool = False
+
+
+@dataclass(frozen=True)
+class PeekStep:
+    """One rendered step of a child's transcript.
+
+    A "step" is one transcript message, numbered from 1 at the start of the
+    child's run so the numbers are STABLE: step 12 means the same thing on
+    every peek, which is what lets a parent range over "what happened since
+    last time" without the window sliding under it.
+    """
+
+    #: 1-based position in the child's transcript.
+    index: int
+    #: ``user`` | ``assistant`` | ``tool`` | ``hub`` | ``system``.
+    kind: str
+    #: One-line summary: the tool name and its intent, or the speaker.
+    heading: str
+    #: The body, already clipped to :data:`PEEK_STEP_CHARS`.
+    body: str
+
+
+@dataclass(frozen=True)
+class PeekWindow:
+    """The result of one ``peek``: a bounded slice of a child's transcript."""
+
+    job_id: str
+    label: str
+    status: str
+    #: Total steps in the child's transcript right now — the denominator that
+    #: tells a parent whether it is looking at the end or the middle.
+    total: int
+    steps: list[PeekStep] = field(default_factory=list)
+    error: str | None = None
+
+
+@dataclass(frozen=True)
+class ChildInfo:
+    """One row of the parent's subagent roster (``hub op='list'``).
+
+    Exists because the two surfaces that could already answer "what children
+    do I have?" both answer a narrower question. ``resolve("all")`` returns
+    only RUNNING children, and the ``jobs`` tool lists job rows, which the
+    manager sweeps a few minutes after they settle. A child that failed or was
+    stopped therefore became invisible well before it stopped being
+    resumable \u2014 the parent held a record with a transcript directory and no
+    way to enumerate it, so the one case an operator most wants to act on (a
+    stuck or crashed subagent) was the case it could not see.
+    """
+
+    job_id: str
+    label: str
+    #: ``running`` | ``queued`` | ``starting`` | ``pausing`` | ``paused`` |
+    #: ``completed`` | ``failed`` | ``cancelled`` | ``gone``. Derived in
+    #: :meth:`SubagentComms.roster`; ``gone`` covers a record whose job row was
+    #: swept without a recorded outcome, and ``pausing`` a pause that has been
+    #: asked for but has not yet landed (defensive — see :meth:`_describe`).
+    status: str
+    #: Whether ``hub op='resume'`` can pick this child back up right now. The
+    #: single fact the caller acts on, computed once here rather than
+    #: re-derived by every reader from ``status`` plus transcript existence.
+    resumable: bool
+    #: Seconds since the child settled, or since launch while it is live.
+    age_s: float | None = None
+    #: Why ``resumable`` is False, when it is False for an interesting reason.
+    detail: str | None = None
+    #: Why the child stopped, when it was not a clean completion or a
+    #: deliberate stop — a machine token from ``incidents.CUT_OFF_CAUSES``, or
+    #: ``""``. Read by a parent asking "why did that child stop?" after the job
+    #: row was swept, which is exactly when this roster is the only surface
+    #: left that can answer.
+    cut_off_cause: str = ""
+    #: Terminal payloads resolved with the same lifecycle precedence as
+    #: ``status``. These survive the job-manager sweep so reconnecting readers
+    #: do not have to merge an ephemeral row with durable comms state again.
+    result_text: str | None = None
+    error_text: str | None = None
+    #: The child's TRANSCRIPT directory name — the id ``--resume`` takes, which
+    #: is not the ``job_id`` above. Carried because this roster is now the only
+    #: surface that can show it: children were dropped from the ``/resume``
+    #: picker (they are the machine's own runs, not the user's conversations),
+    #: and the job row that carries ``job_id`` is swept minutes after a child
+    #: settles. Without it, an operator investigating a subagent that crashed
+    #: an hour ago had no in-product path to its transcript at all — exactly
+    #: the case this class's docstring says it exists to cover.
+    session_id: str | None = None
+
+
+@dataclass(frozen=True)
+class ChildLifecycle:
+    """The per-event slice of a :class:`ChildInfo`: see ``RosterPass.lifecycles``."""
+
+    status: str
+    result_text: str | None = None
+    error_text: str | None = None
+    age_s: float | None = None
+
+
+@dataclass(frozen=True)
+class SubagentNode:
+    """Immutable presentation identity for one node in the shared lineage."""
+
+    job_id: str
+    label: str
+    parent_job_id: str | None
+    session_id: str | None
+    session_dir: Path | None
+    prompt: str = ""
+    effective_prompt: str = ""
+    launch_message_id: str = ""
+    agent_role: str = ""
+    effort: str = ""
+    #: Every deterministic launch-row identity this lineage owns mapped to the
+    #: concise delegated instruction authored for it, INCLUDING attempts that
+    #: #314 collapsed into this record. The viewer replaces each durable
+    #: ``subagent-launch:<id>`` user row with its concise prompt; without the
+    #: superseded attempts here it could only reconcile the newest launch and
+    #: would leak every earlier attempt's full role/team/system preamble.
+    launch_prompts: dict[str, str] = field(default_factory=dict)
+    attempt_aliases: tuple[str, ...] = ()
+    live: bool = False
+    status: str = "gone"
+    result_text: str = ""
+    error_text: str = ""
+
+
+class ChildSession(Protocol):
+    """The three things this module needs from a live child.
+
+    Narrower than :class:`~local_operator.session.session.Session` on
+    purpose: it is the whole coupling between the parent's channel and a
+    child, stated in one place. Notes and questions go through
+    ``queue_aside``, course changes through ``steer_message``, and the reply
+    watcher rides ``subscribe``. Anything a future op needs from a child
+    belongs here first, where the cost of the coupling is visible.
+    """
+
+    def queue_aside(self, thunk: Callable[[], AsideResult]) -> None: ...
+
+    def steer_message(self, message: Message) -> None: ...
+
+    def subscribe(self, handler: Callable[[AgentEvent], Any]) -> Callable[[], None]: ...
+
+
+@dataclass
+class _ChildRecord:
+    """What the parent keeps about one child, live or long settled."""
+
+    job_id: str
+    label: str
+    # The shared registry stays flat; this edge supplies lineage without moving
+    # execution ownership out of each session's own job manager.
+    parent_job_id: str | None = None
+    prompt: str = ""
+    effective_prompt: str = ""
+    launch_message_id: str = ""
+    agent_role: str = ""
+    effort: str = ""
+    #: Whether this child was built under an MCP activation denial. Persisted
+    #: HERE because the flag lives on the child Session as in-memory state and
+    #: a resume constructs a NEW session: ``agent_role`` alone cannot re-derive
+    #: it, since a denial is inherited from the lineage rather than declared by
+    #: the child's own role (the leaking case is precisely a plain ``task``
+    #: child of a restricted ``manager`` — its role says "unrestricted"). And
+    #: :meth:`SubagentComms.resume` rebuilds against ``self._session``, the
+    #: comms-owning ROOT rather than the child's real parent, so the parent
+    #: read in ``_build_child_session`` finds an unrestricted session and a
+    #: correctly-denied grandchild came back able to activate the writes it had
+    #: been refused (review round 2, R5).
+    #:
+    #: Carried by :meth:`SubagentComms.snapshot`/:meth:`restore` like
+    #: ``agent_role``, so it outlives the PROCESS and not merely this map.
+    #: Holding it only in memory left it with the same lifetime as the Session
+    #: attribute it was added to outlast, and a child that settled hours ago is
+    #: normally resumed after a restart (review round 3, R6).
+    restricted: bool = False
+    #: The team, team lineage (ids, top first) and depth the child was born
+    #: under (BEN-7-D1). Persisted like ``restricted`` and for the same reason:
+    #: a resume rebuilds against a session that is not necessarily the real
+    #: parent, so these cannot be re-derived there. An old sidecar loads with
+    #: ``""``/``()``/``0``, meaning "unknown"; resume then falls back to the
+    #: ancestry it can still see.
+    team_name: str = ""
+    team_lineage: tuple[str, ...] = ()
+    depth: int = 0
+    #: The child's transcript directory. Set at attach; the whole basis of
+    #: resume, and the reason a record outlives the job row.
+    session_dir: Path | None = None
+    child: ChildSession | None = None
+    # A nested manager's ledger dies with its session. Keep only the job row,
+    # bounded by this registry's retention, so its completed children remain
+    # inspectable without retaining the disposed session or reading disk.
+    job_ref: Any | None = None
+    unsubscribe_jobs: Callable[[], None] | None = None
+    unsubscribe: Callable[[], None] | None = None
+    #: Notes addressed to this child before its session existed.
+    pending: list[CustomMessage] = field(default_factory=list)
+    #: Futures for BUFFERED questions, keyed by the id of the message they were
+    #: created for. Identity, not type: :meth:`SubagentComms.attach` must arm
+    #: each flushed question with the future belonging to THAT message. Binding
+    #: at flush time by asking "is this a question?" and reaching for
+    #: ``record.ask`` returned one question's answer to a different caller —
+    #: the exact hazard ``_thunk``'s identity check exists to prevent, defeated
+    #: because the identity was resolved too late (review round 2, R5).
+    pending_asks: dict[str, "asyncio.Future[str]"] = field(default_factory=dict)
+    #: The parent's unanswered question, if any.
+    ask: asyncio.Future[str] | None = None
+    #: The specific answer whose journal write owns completion. A child may
+    #: detach before that fsync returns; its disappearance cannot erase an
+    #: already-produced reply. Future identity keeps late commits from
+    #: answering (or clearing) a newer question after timeout/cancellation.
+    reply_in_flight: asyncio.Future[str] | None = None
+    #: Set when that question actually reached the child's context, so a
+    #: text-only assistant message can be read as its answer. Never armed
+    #: before injection: the child may have been mid-sentence about something
+    #: else when the question was asked.
+    armed: bool = False
+    #: Stable id of the question currently armed in the child. The Future
+    #: identifies a waiter inside one process, but only the communication id can
+    #: correlate a durable reply after restart or transcript paging.
+    ask_message_id: str | None = None
+    settled: bool = False
+    #: When ``detach`` released the child; the eviction order. ``None`` on a
+    #: record whose child never started, which is why those evict FIRST — a
+    #: record with no transcript is the one worth least.
+    settled_at: float | None = None
+    #: Set by :meth:`SubagentComms.attach` the moment ``child`` becomes live.
+    #: Exists so :meth:`SubagentComms.ask` can WAIT for a child that has been
+    #: registered but whose runner the loop has not entered yet, instead of
+    #: refusing the question outright — see :meth:`SubagentComms._await_child`.
+    #: Created lazily on first use because it must be bound to the running
+    #: loop, and ``record_launch`` can be reached from a synchronous caller.
+    attached: "asyncio.Event | None" = None
+    #: Set by :meth:`SubagentComms.pause` and cleared by
+    #: :meth:`SubagentComms.resume`. A pause IS a cancel underneath (see
+    #: :meth:`SubagentComms.pause`), so this flag is the only thing that
+    #: distinguishes "stopped because the parent wants it back later" from
+    #: "stopped for good" — without it the roster would show a deliberately
+    #: parked child as plain ``cancelled`` and nothing would suggest resuming
+    #: it.
+    paused: bool = False
+    #: The child's terminal job status, captured by
+    #: :meth:`SubagentComms.record_outcome` at the moment the runner settles.
+    #:
+    #: Recorded here rather than read from the job row on demand because the
+    #: job manager SWEEPS settled rows after its retention window (5 minutes
+    #: by default) while this record deliberately outlives them — that is the
+    #: whole reason a child stays resumable for an hour. Without this field a
+    #: parent listing its children after the sweep could not tell a child that
+    #: finished cleanly from one that crashed, which is exactly the question
+    #: "which of my subagents failed?" needs answered.
+    outcome: str | None = None
+    #: WHY the child stopped, when it was not a clean completion or a
+    #: deliberate stop: a machine token from ``incidents.CUT_OFF_CAUSES``. Kept
+    #: beside ``outcome`` for the same reason and with the same lifetime — the
+    #: job manager sweeps settled rows after its retention window while this
+    #: record outlives them, so without it ``hub op='list'`` could say a child
+    #: failed but never WHY once its row aged out.
+    cut_off_cause: str = ""
+    #: The child's terminal payload. Kept with the outcome because status and
+    #: content are one durable fact after the ephemeral job row is swept.
+    result_text: str | None = None
+    error_text: str | None = None
+    #: The model this child last ran on (``provider/model_id``), as restored
+    #: from a snapshot. The LIVE answer is the job row's ``model_label`` (see
+    #: :meth:`SubagentComms.last_model_label`), but a nested child's row lives
+    #: on its parent's job manager, which a restart does not rehydrate. So this
+    #: saved copy is the only record of a nested child's model after a restart.
+    #: A resume reads it in two places: the ``(its previous run was on …)``
+    #: receipt note, and the D9.2 fallback when the parent's model is lost.
+    model_label: str = ""
+    #: Whether a tier or role pin chose this child's model (``True``), or it
+    #: inherited its parent's (``False``). ``None`` means unknown: a record
+    #: restored from a sidecar written before this field existed. Saved beside
+    #: ``model_label`` because a resume walking up to this record after it
+    #: settled must know whether that label was a CHOICE, which a descendant
+    #: inherits, or a stale SNAPSHOT of this child's own parent, which it
+    #: must look past (D9.4). The live answer is the job row's ``owns_model``.
+    owns_model: bool | None = None
+    #: Attempt handles superseded by this record. Persisted so a parent can
+    #: keep using an id it mentioned before either process or child resumed.
+    attempt_aliases: list[str] = field(default_factory=list)
+    #: Concise instruction for each SUPERSEDED attempt, keyed by that attempt's
+    #: ``subagent-launch:<id>`` identity. Captured when #314 collapses a prior
+    #: attempt into this record so the viewer can render every historical
+    #: launch row as its concise prompt, not just the current one.
+    prior_launch_prompts: dict[str, str] = field(default_factory=dict)
+
+
+def _spec_from_label(label: str) -> ModelSpec | None:
+    """A recorded ``provider/model_id`` label rebuilt into the spec it names.
+
+    Through ``build_model_spec``, the path a tier and ``/model`` both take, so
+    the window and capabilities come from the model and not from whichever
+    session recorded the label. ``None`` for an empty or unbuildable label:
+    the caller then moves to its next source instead of guessing.
+    """
+    provider, _, model_id = label.partition("/")
+    if not provider or not model_id:
+        return None
+    try:
+        from local_operator.model.configure import build_model_spec
+
+        return build_model_spec(provider, model_id)
+    except Exception:  # noqa: BLE001 — an unbuildable label is a missing source
+        return None
+
+
+def _journalled_label(session_dir: Path | None) -> str:
+    """The model a child's own transcript last selected, or ``""``.
+
+    The oldest source of a child's previous model: every child journals one on
+    its first turn, so it survives even a sidecar written before records saved
+    a label. It is what the pre-D9 resume replayed, and the D9.2 fallback is
+    exactly that behaviour, kept for the one case where the lineage is lost.
+    """
+    if session_dir is None:
+        return ""
+    try:
+        from local_operator.session.model_selection import read_model_selection
+
+        saved = read_model_selection(session_dir)
+    except Exception:  # noqa: BLE001 — an unreadable journal is a missing source
+        return ""
+    return saved.selector if saved is not None else ""
+
+
+def _age_of(record: _ChildRecord, job: Any | None, status: str, now: float) -> float | None:
+    """Seconds since launch for a live child, since settle for a finished one.
+
+    Shared by ``RosterPass.describe`` and ``RosterPass.lifecycles`` so the
+    roster row and the projection's elapsed clock read one derivation. A
+    ``pausing`` child has no age (its ``describe`` row says so explicitly).
+    """
+    if status == "pausing":
+        return None
+    if status in ("running", "queued", "starting"):
+        started = getattr(job, "start_time", None) if job is not None else None
+        return (now - started) if started else None
+    if record.settled_at is not None:
+        return now - record.settled_at
+    return None
+
+
+def _lifecycle(
+    record: _ChildRecord,
+    job: Any | None,
+    running: bool,
+) -> tuple[str, str | None, str | None]:
+    """Collapse a record plus its (possibly swept) job row into a status.
+
+    Returns ``(status, result_text, error_text)``. THE single definition of the
+    precedence every reader of a child's state consumes — ``ChildInfo.status``,
+    ``SubagentNode.status`` and the counts the runtime publishes per event all
+    come from here, so they cannot drift apart. It is a free function rather
+    than a method because the counting pass needs the status WITHOUT paying for
+    a ``ChildInfo`` (see :meth:`RosterPass.status_counts`), and a second copy of
+    this ladder is exactly the thing that goes stale.
+
+    Precedence is deliberate. ``paused`` outranks everything because a pause is
+    implemented AS a cancel, so the row would otherwise read ``cancelled`` and
+    hide the parent's own intent.
+
+    A RECORDED outcome then outranks the job row, which is not the obvious
+    ordering. The runner records its outcome from inside its own settle path,
+    while ``AsyncJobManager`` only stamps the row's status once that coroutine
+    has returned - so between the two there is a real window in which the
+    record knows the child finished and the row still says ``running``. Reading
+    the row first reports a finished child as running for the width of that
+    window, which is exactly when a parent polling the roster is looking.
+    Nothing reuses a job id (a resume gets a fresh one, and ``attach`` only ever
+    runs before a settle), so a record carrying an outcome is settled for good
+    and that outcome is always the newer fact.
+    """
+    if record.paused:
+        # DEFENSIVE, not a window anyone can currently observe. ``pause`` sets
+        # this flag and then awaits ``jobs.cancel``, which stamps
+        # ``job.status = "cancelled"`` before its first suspension point — so no
+        # concurrent ``list`` gets to run in between, and a poll of a real
+        # parent/child session never saw this state. Do not read the branch as
+        # evidence that it can.
+        #
+        # It is kept because it costs one comparison and makes the
+        # roster/``resume`` invariant hold STRUCTURALLY rather than by luck
+        # about where an ``await`` happens to sit in another module. The
+        # settle-window guard below is the one that fires in practice; this is the
+        # same rule applied to the pause path so that adding an ``await`` inside
+        # ``cancel`` can never silently reopen the divergence.
+        return ("pausing" if running else "paused", None, None)
+    if record.outcome is not None:
+        # ``record_outcome`` lands inside the runner before the manager can
+        # stamp its still-running row. Once terminal, a job id is never reused,
+        # so accepting that stale live status would resurrect work. A terminal
+        # live row may carry the richer final payload; otherwise the durable
+        # record is the post-sweep/reconnect source of truth.
+        if job is not None and job.status != "running":
+            return (
+                record.outcome,
+                getattr(job, "result_text", None),
+                getattr(job, "error_text", None),
+            )
+        return (record.outcome, record.result_text, record.error_text)
+    if job is not None and job.status == "running":
+        status = "queued" if getattr(job, "queued", False) else "running"
+        if record.child is None and status == "running":
+            # Registered and admitted, but the runner coroutine has not been
+            # entered yet. Reported distinctly because "starting" and
+            # "running" call for different advice: the first resolves on the
+            # next loop yield, the second may need a nudge.
+            status = "starting"
+        return (status, None, None)
+    if job is not None:
+        return (
+            job.status,
+            getattr(job, "result_text", None),
+            getattr(job, "error_text", None),
+        )
+    if record.settled:
+        return ("cancelled" if record.session_dir is not None else "gone", None, None)
+    return ("gone", None, None)
+
+
+class RosterPass:
+    """One linear walk of the child registry, shared by every read that needs it.
+
+    WHY THIS EXISTS. ``roster()``, ``nodes()`` and the mobile projection's
+    per-node job lookup all run SYNCHRONOUSLY ON THE SESSION'S EVENT LOOP, once
+    per root event of a turn, and each of them used to answer a question about
+    ONE record by walking all N of them — and ``_live_twin`` walked all N per
+    record, so ``roster()`` was O(N²). Three quadratic walks per event saturated
+    the loop on a roster at the ``MAX_RECORDS`` cap. The runtime's own stall dumps
+    catch it: ``~/.local-operator/logs/runtime-stall-*.log`` carries stacks whose
+    innermost frame is this work — the ``TRANSCRIPT_FILENAME`` probe in
+    ``_describe`` most often, then ``_live_twin``'s genexpr, ``_is_running`` and
+    the ``Path.__eq__`` comparisons inside the scan. Cite the FRAMES, not a
+    census of them: the dump files rotate, and independent readers recounted
+    them within hours of each other and got 21 of 128 and 28 of 134. One pass
+    makes each of those callers linear.
+
+    A pass is a SNAPSHOT and is deliberately never retained across calls: it
+    hoists state that cannot change *within* one pass — a job row's running bit
+    (one ``jobs.get`` per record instead of one per candidate) and whether a
+    child's transcript file exists (one ``exists()`` per distinct directory,
+    where the three walks used to pay one per record each). A transcript can
+    appear or disappear BETWEEN passes, so the roster still observes that; the
+    pass only stops paying for the same answer several times inside one.
+
+    The derivations themselves (the status ladder, the resumable rule) stay on
+    the ``SubagentComms`` methods that owned them — ``describe``/``node`` here
+    delegate to ``_lifecycle`` and to the same field-building code, so there is
+    still exactly one definition of each.
+    """
+
+    def __init__(self, comms: "SubagentComms", now: float) -> None:
+        self._comms = comms
+        self.now = now
+        # ``_records.values()`` for the roster (which includes every record) and
+        # its KEYS for ``nodes()``, which resolves each one through ``_record``
+        # and skips ids the alias map no longer points at — the pre-existing
+        # difference between the two reads, preserved rather than unified.
+        self.records: tuple[_ChildRecord, ...] = tuple(comms._records.values())
+        self.keys: tuple[str, ...] = tuple(comms._records)
+        # ``tuple``: the pass's snapshot of the search set is read-only, and
+        # ``_job_from`` takes a Sequence so this does not have to be copied again
+        # for every node's lookup.
+        self.sessions: tuple[Any, ...] = tuple(comms._sessions())
+        self._root_jobs = comms._jobs()
+        # Per-node ``_job_from`` calls used to visit every child manager even
+        # though this pass already knew the full manager set. Snapshot each
+        # native manager's lookup table once (without retention sweeps), then
+        # merge in session order so the first manager hit and alias behavior
+        # remain identical to the historical resolver. Lightweight/extension
+        # managers without the bulk surface keep the exact caught ``get`` path.
+        self._indexed_jobs: dict[str, tuple[int, Any]] = {}
+        self._fallback_sessions: list[tuple[int, Any]] = []
+        for position, session in enumerate(self.sessions):
+            manager = getattr(session, "jobs", None)
+            try:
+                snapshot = getattr(manager, "lookup_snapshot", None)
+                if callable(snapshot):
+                    # Materialize before merging: a duck-typed mapping that fails
+                    # partway through iteration must fall back without leaving a
+                    # partial index that could shadow a later manager. The native
+                    # manager promises a mapping snapshot; reject other shapes before
+                    # merging so its fallback remains the historical point lookup.
+                    snapshot_rows = snapshot()
+                    if not isinstance(snapshot_rows, Mapping):
+                        raise TypeError("job lookup snapshot must be a mapping")
+                    rows = tuple(snapshot_rows.items())
+                    for job_id, job in rows:
+                        self._indexed_jobs.setdefault(job_id, (position, job))
+                    continue
+            except Exception:
+                # Keep the historical per-manager exception isolation if an
+                # extension's optional bulk surface is unavailable or fails.
+                pass
+            if manager is not None:
+                self._fallback_sessions.append((position, session))
+        running: dict[str, bool] = {}
+        twins: dict[Path, list[_ChildRecord]] = {}
+        for record in self.records:
+            job = self._roster_row(record)
+            live = job is not None and job.status == "running"
+            running[record.job_id] = live
+            if live and record.session_dir is not None:
+                twins.setdefault(record.session_dir, []).append(record)
+        self._running = running
+        self._twins = {path: tuple(rows) for path, rows in twins.items()}
+        self._transcripts: dict[Path, bool] = {}
+
+    # -- one-record reads -----------------------------------------------------
+
+    def job_row(self, record: _ChildRecord) -> Any | None:
+        """The record's row in the OWNING session's manager, as ``_describe`` reads it."""
+        return self._roster_row(record)
+
+    def _roster_row(self, record: _ChildRecord) -> Any | None:
+        """The live row the roster reads for one record.
+
+        The root's manager first — the flat case, and the same single point
+        ``get()`` this has always been — then the pass's own index, which is
+        where a GRANDCHILD's row lives: its job is registered in its parent's
+        manager, so the root's never held it and a running grandchild used to
+        render as gone-and-resumable while ``resume`` (which asks
+        :meth:`SubagentComms._is_running`) refused it as still running. The two
+        must agree; ``_describe``'s settle-window branch says so explicitly.
+
+        Never ``job_ref``. That is a retained snapshot kept so a settled child
+        stays inspectable after its manager swept the row, so reading it as the
+        current row resurrects a stale ``running`` over a recorded outcome and
+        the row renders "still settling" instead of resumable. The roster asks
+        "is this child live NOW", which only a manager can answer.
+        """
+        if self._root_jobs is not None:
+            job = self._root_jobs.get(record.job_id)
+            if job is not None:
+                return job
+        indexed = self._indexed_jobs.get(record.job_id)
+        return indexed[1] if indexed is not None else None
+
+    def is_running(self, record: _ChildRecord) -> bool:
+        """Whether the record's job row says running, resolved once for the pass."""
+        return self._running.get(record.job_id, False)
+
+    def live_twin(self, record: _ChildRecord) -> _ChildRecord | None:
+        """Another running record already continuing this transcript, if any.
+
+        Two children on one session directory destroy each other's history (see
+        :meth:`SubagentComms.resume`), so both ``resume`` and the roster's
+        ``resumable`` flag have to ask this question and must agree on the
+        answer. The candidate list was built in insertion order, so the first
+        match is the one the linear scan used to find.
+        """
+        if record.session_dir is None:
+            return None
+        for other in self._twins.get(record.session_dir, ()):
+            if other.job_id != record.job_id:
+                return other
+        return None
+
+    def transcript_present(self, record: _ChildRecord) -> bool:
+        """Whether the record's transcript file is on disk, memoised for the pass.
+
+        The memo's guarantee is narrower than "the answer cannot change inside a
+        pass", and worth stating exactly. What it now holds is AGREEMENT: two
+        records sharing one transcript directory are answered from one probe, so
+        they cannot disagree — where the old per-record probe could answer Yes for
+        one and No for the other if the file was unlinked between its two calls.
+        What it saves is the syscall: one per distinct directory per pass instead
+        of one per record per walk, and that probe is the dominant innermost frame
+        in the stall dumps. It is NOT a claim about the filesystem: another
+        process can still unlink the file mid-pass, and a later pass re-probes it.
+        """
+        session_dir = record.session_dir
+        if session_dir is None:
+            return False
+        cached = self._transcripts.get(session_dir)
+        if cached is None:
+            cached = self._comms._transcript_on_disk(session_dir)
+            self._transcripts[session_dir] = cached
+        return cached
+
+    def job(self, job_id: str) -> Any | None:
+        """The projection's per-node job lookup, over the pass's session list.
+
+        Same search as :meth:`SubagentComms.job` — root first, then each live
+        child in insertion order, then the record's retained row — but manager
+        rows were snapshotted once instead of searched once per node. The name is
+        deliberately the same one the fold already reads, so a registry only has
+        to expose ``roster_pass()`` and this surface keeps the same three members.
+        """
+        record = self._comms._record(job_id)
+        # Resolve attempt aliases before consulting manager snapshots. The
+        # historical resolver canonicalized to the current record id before its
+        # first manager lookup; keeping that rule avoids letting a stale row in
+        # another session shadow the current attempt.
+        lookup_id = record.job_id if record is not None else job_id
+        indexed = self._indexed_jobs.get(lookup_id)
+        indexed_position = indexed[0] if indexed is not None else len(self.sessions)
+        # Probe only duck-typed managers that precede the indexed hit (or every
+        # fallback when there is no indexed hit). A single ordered pass preserves
+        # first-manager-wins behavior and ensures each optional get() is called
+        # at most once for this lookup. Each call remains exception-isolated.
+        for position, session in self._fallback_sessions:
+            if indexed is not None and position >= indexed_position:
+                break
+            manager = getattr(session, "jobs", None)
+            try:
+                job = manager.get(lookup_id) if manager is not None else None
+            except Exception:
+                job = None
+            if job is not None:
+                return job
+        if indexed is not None:
+            return indexed[1]
+        return record.job_ref if record is not None else None
+
+    # -- whole-roster reads ---------------------------------------------------
+
+    def describe(self, record: _ChildRecord) -> ChildInfo:
+        """One roster row: the status ladder plus the resumable verdict.
+
+        Called with an already-resolved job row and running bit.
+        """
+        job = self.job_row(record)
+        running = self.is_running(record)
+        now = self.now
+        status, result_text, error_text = _lifecycle(record, job, running)
+        detail: str | None = None
+
+        if status == "pausing":
+            return ChildInfo(
+                job_id=record.job_id,
+                label=record.label,
+                status="pausing",
+                resumable=False,
+                age_s=None,
+                detail="pause is still landing; it becomes resumable in a moment",
+            )
+
+        age = _age_of(record, job, status, now)
+
+        # Enumerated rather than defaulted to True: a status that reaches here
+        # without being listed is one nobody has reasoned about, and the safe
+        # answer for an unknown state is "not resumable" (the parent is told to
+        # wait) rather than an invitation to resume something unexamined. The
+        # old default meant any status added to the branch above was born
+        # silently resumable.
+        # ``gone`` belongs here: it means the job row was swept without a
+        # recorded outcome, which says nothing about the transcript. ``resume``
+        # asks only whether the record has a readable transcript and no live
+        # twin, so omitting ``gone`` made the roster refuse a resume that would
+        # in fact have succeeded — the same disagreement as F1, in the safe
+        # direction. The later branches still veto it when there is genuinely
+        # nothing to resume.
+        # ``interrupted`` is the resume feature's own status: a child that was
+        # running when the process exited, rehydrated from the persisted roster.
+        # Its transcript survived on disk, so it is exactly the case ``resume``
+        # was built for — the later transcript-existence check still vetoes it
+        # if the directory is gone.
+        resumable = status in (
+            "completed",
+            "failed",
+            "cancelled",
+            "paused",
+            "gone",
+            "interrupted",
+        )
+        detail = detail if resumable else "not resumable in this state"
+        if status in ("running", "queued", "starting"):
+            resumable, detail = False, "still running; cancel or pause it first"
+        elif running:
+            # The status is settled but the JOB ROW still says running, which is
+            # the same window the precedence above exists for: the runner calls
+            # ``record_outcome`` from inside its settle path, then still awaits
+            # ``emit(SubagentEndEvent)`` — the parent's whole handler fan-out —
+            # before returning, and only then does the manager stamp the row.
+            #
+            # ``resumable`` has to ask the job row here because ``resume()``
+            # asks it (via ``_is_running``) and the two must never disagree:
+            # deriving this from the status alone advertised "failed —
+            # resumable", and the resume the parent then issued was refused with
+            # "still running". A row promising a resume that then refuses is
+            # worse than an honest refusal, and this window is measured in
+            # hundreds of milliseconds, not nanoseconds — exactly when a parent
+            # polling across the settle boundary looks.
+            resumable, detail = False, "still settling; it becomes resumable in a moment"
+        elif record.session_dir is None:
+            # NOT resumable, and that is honest — there is no transcript to
+            # replay — but the ROW still exists and still names WHY it died.
+            # Carrying the recorded error here is the point of keeping the
+            # record: a pre-attach failure ("No package metadata was found for
+            # local-operator", a launch inside an install swap) was previously
+            # reported as a bare "never started", so a parent could not tell a
+            # packaging/install failure from a child it had simply never run.
+            resumable = False
+            detail = "never started, so it has no transcript"
+            if record.error_text:
+                detail = f"never started ({record.error_text}), so it has no transcript"
+        elif not self.transcript_present(record):
+            resumable, detail = False, "transcript is gone from disk"
+        else:
+            live = self.live_twin(record)
+            if live is not None:
+                resumable, detail = False, f"already resumed as job {live.job_id}"
+            elif status == "failed" and record.error_text:
+                detail = f"failed: {record.error_text}"
+
+        return ChildInfo(
+            job_id=record.job_id,
+            label=record.label,
+            status=status,
+            resumable=resumable,
+            age_s=age,
+            detail=detail,
+            cut_off_cause=record.cut_off_cause,
+            result_text=result_text,
+            error_text=error_text,
+            session_id=record.session_dir.name if record.session_dir is not None else None,
+        )
+
+    def roster(self) -> list[ChildInfo]:
+        """Every record's row, newest-launch-last (insertion order)."""
+        return [self.describe(record) for record in self.records]
+
+    def lifecycles(self) -> dict[str, "ChildLifecycle"]:
+        """Status, terminal text and age per record: ``roster()`` minus the verdict.
+
+        WHY A SECOND READ. The mobile/desktop projection calls this pass on
+        EVERY root event of a runtime-hosted session -- every streamed token of
+        the parent and every relayed child progress edge -- and it needs only
+        the four facts below. ``roster()`` also computes ``resumable``, which is
+        a transcript ``stat()`` per record plus the twin lookup; over a parent
+        carrying its ``MAX_RECORDS`` history that was 256 syscalls per event on
+        the loop every child lane shares (measured 5.7 ms p50 / 23 ms p95 per
+        event at 256 records, ``scripts/bench_subagent_fanout.py --history``).
+
+        NOT A SECOND DERIVATION: status and text come from ``_lifecycle`` and
+        the age from the same clock and branch ``describe`` uses, so the two
+        reads cannot disagree
+        (``test_lifecycles_agree_with_the_roster_on_every_field_they_share``).
+        """
+        rows: dict[str, ChildLifecycle] = {}
+        for record in self.records:
+            job = self.job_row(record)
+            status, result_text, error_text = _lifecycle(record, job, self.is_running(record))
+            rows[record.job_id] = ChildLifecycle(
+                status=status,
+                result_text=result_text,
+                error_text=error_text,
+                age_s=_age_of(record, job, status, self.now),
+            )
+        return rows
+
+    def node(self, record: _ChildRecord) -> SubagentNode:
+        """One presentation node, deriving its status the same way the roster does."""
+        session_id = record.session_dir.name if record.session_dir is not None else None
+        child_session_id = getattr(record.child, "session_id", None)
+        if child_session_id:
+            session_id = str(child_session_id)
+        # The current launch plus every collapsed predecessor, so the viewer
+        # reconciles ALL durable launch rows this lineage owns to their concise
+        # prompts rather than only the newest attempt (review round 4 R4-1).
+        launch_prompts = dict(record.prior_launch_prompts)
+        if record.launch_message_id and record.prompt:
+            launch_prompts[record.launch_message_id] = record.prompt
+        parent = self._comms._record(record.parent_job_id) if record.parent_job_id else None
+        return SubagentNode(
+            job_id=record.job_id,
+            label=record.label,
+            parent_job_id=parent.job_id if parent is not None else record.parent_job_id,
+            session_id=session_id,
+            session_dir=record.session_dir,
+            prompt=record.prompt,
+            effective_prompt=record.effective_prompt,
+            launch_message_id=record.launch_message_id,
+            agent_role=record.agent_role,
+            effort=record.effort,
+            launch_prompts=launch_prompts,
+            attempt_aliases=tuple(record.attempt_aliases),
+            live=record.child is not None,
+            # Derived through ``_lifecycle`` — the SAME collapse ``roster()``
+            # uses — rather than re-deriving it here. The local derivation this
+            # replaces read only the durable record (``paused``, ``outcome``,
+            # ``settled``) and never the job row, so it could not name a state
+            # that only the row knows: a live child got ``"gone"``, and a
+            # queued one got ``"gone"`` as well. That is outside the range this
+            # field's own docstring documents, and every consumer that filters
+            # on ``running``/``queued`` — ``/info``'s fleet tally, its tree
+            # sort, the glyph table — silently matched nothing and reported a
+            # confident zero over a roster full of live children.
+            #
+            # The resolution is one dict lookup on the job manager (hoisted,
+            # with every other row's, into this pass) plus the same branch
+            # ladder, so the precedence it encodes (paused > recorded outcome >
+            # job row) is exactly the precedence this field wants, and having
+            # one derivation means the roster and the node can no longer
+            # disagree about the same child.
+            #
+            # ``_lifecycle`` DIRECTLY, not ``self.describe(record).status``:
+            # ``describe`` returns ``_lifecycle``'s status unchanged on every
+            # arm (``test_node_status_is_describes_status_for_every_arm`` pins
+            # that), and everything else it computes -- the resumable verdict,
+            # with its transcript ``stat()`` and twin lookup -- is thrown away
+            # here. ``nodes()`` runs per root event on the runtime host and per
+            # roster tick, so over a 128-record registry that discarded verdict
+            # was 128 filesystem probes per event on the loop every child
+            # shares (measured: ``scripts/bench_subagent_fanout.py --history``).
+            # ``status_counts`` already reads the status this way.
+            status=_lifecycle(record, self.job_row(record), self.is_running(record))[0],
+            result_text=record.result_text or "",
+            error_text=record.error_text or "",
+        )
+
+    def children(self, job_id: str | None) -> list[SubagentNode]:
+        """``SubagentComms.children`` off this pass: one walk, not two.
+
+        Same parent resolution as the method it mirrors — the alias table is
+        applied through ``_record``, so an aliased parent id still selects the
+        children of the job it resolves to.
+        """
+        selected = self._comms._record(job_id) if job_id else None
+        parent_id = selected.job_id if selected is not None else job_id
+        return [node for node in self.nodes() if node.parent_job_id == parent_id]
+
+    def node_for(self, job_id: str) -> SubagentNode | None:
+        record = self._comms._record(job_id)
+        return None if record is None else self.node(record)
+
+    def nodes(self) -> list[SubagentNode]:
+        """Every known descendant in stable launch order."""
+        return [node for key in self.keys if (node := self.node_for(key)) is not None]
+
+    def status_counts(self) -> dict[str, int]:
+        """Histogram of every child's resolved status, in the same pass.
+
+        The runtime publishes ``(running, queued)`` counts on EVERY
+        notification, so this runs on the hot path too. It walks the same key
+        set ``nodes()`` does — and therefore counts exactly the statuses
+        ``nodes()`` would report — but stops at the status, without building N
+        ``SubagentNode``s (each of which copies its launch-prompt map) to read
+        one string out of them.
+        """
+        counts: dict[str, int] = {}
+        for key in self.keys:
+            record = self._comms._record(key)
+            if record is None:
+                continue
+            status = _lifecycle(record, self.job_row(record), self.is_running(record))[0]
+            counts[status] = counts.get(status, 0) + 1
+        return counts
+
+
+class SubagentComms:
+    """The parent session's live handle on the children it launched.
+
+    One instance per top-level session, shared with every child it spawns
+    (the child's tool context carries the PARENT's instance — that is what
+    makes ``hub`` from inside a child reach the agent that delegated to it).
+    """
+
+    def __init__(self, session: "Session") -> None:
+        self._session = session
+        self._records: dict[str, _ChildRecord] = {}
+        self._detail_listeners: set[Callable[[str], None]] = set()
+        self._change_listeners: set[Callable[[], None]] = set()
+        self._aliases: dict[str, str] = {}
+        #: new resumed job id -> ``(from its real parent?, fallback note)``, for
+        #: the ``hub`` receipt. Recorded at resume time because the new job's
+        #: record learns its lineage only at ``attach``, which may not have run
+        #: when the receipt renders. Bounded by the resumes this process made.
+        self._resume_models: dict[str, tuple[bool, str]] = {}
+        #: ``session_dir -> (transcript exists, monotonic probe time)``; see
+        #: :meth:`_transcript_on_disk` for why it outlives one roster pass.
+        self._transcript_probes: dict[Path, tuple[bool, float]] = {}
+
+    def _transcript_on_disk(self, session_dir: Path) -> bool:
+        """Whether ``session_dir`` holds a transcript, re-probed at most every
+        :data:`TRANSCRIPT_PROBE_TTL_S`.
+
+        WHY ACROSS PASSES. A roster pass runs on the session loop once per root
+        event (``serving._refresh_state`` -> ``set_subagent_details``), and a
+        parent with live lanes emits root events at token rate. The per-pass memo
+        in :class:`RosterPass` made the probe one ``stat`` per settled child per
+        EVENT, which is still O(roster) syscalls at token rate: sampled on a
+        runtime holding 12 stepping lanes and a 240-record roster
+        (``scripts/bench_send_admission.py --condition roster --sample``), 2,125
+        of 4,119 loop samples (52%) sat in ``pathlib.stat`` under
+        ``transcript_present``, the loop lagged 108 ms p50 / 674 ms p95, and a
+        prompt took 1.9 s p50 to be admitted. The stat is slow because the host
+        is: ~20 runtimes share one APFS volume at load 100.
+
+        THE INVALIDATION STORY, since a cached verdict can go stale:
+
+        * the answer only ever feeds the roster's ``resumable`` HINT. The
+          authority is :meth:`resume`, which probes the file itself
+          (``if not (record.session_dir / TRANSCRIPT_FILENAME).exists()``) at
+          the moment it acts, so a stale ``True`` can at worst advertise a
+          resume that is then refused with the accurate reason, and a stale
+          ``False`` withholds the hint for at most the TTL;
+        * the one transition this process causes itself — a child attaching to
+          a directory — drops that directory's entry (:meth:`attach`), so a
+          freshly attached child is probed afresh on the next pass;
+        * a deletion by another process (retention cleanup, a user ``rm``) is
+          seen within :data:`TRANSCRIPT_PROBE_TTL_S`.
+        """
+        now = time.monotonic()
+        cached = self._transcript_probes.get(session_dir)
+        if cached is not None and now - cached[1] < TRANSCRIPT_PROBE_TTL_S:
+            return cached[0]
+        present = (session_dir / TRANSCRIPT_FILENAME).exists()
+        self._transcript_probes[session_dir] = (present, now)
+        return present
+
+    def subscribe_changes(self, listener: Callable[[], None]) -> Callable[[], None]:
+        """Observe graph/state changes without triggering durable history reads."""
+        self._change_listeners.add(listener)
+        return lambda: self._change_listeners.discard(listener)
+
+    def _notify_change(self) -> None:
+        for listener in tuple(self._change_listeners):
+            try:
+                listener()
+            except Exception:
+                logger.debug("subagent state listener failed", exc_info=True)
+
+    def subscribe_detail_changes(self, listener: Callable[[str], None]) -> Callable[[], None]:
+        """Observe child transcript mutations through the shared root registry."""
+        self._detail_listeners.add(listener)
+
+        def unsubscribe() -> None:
+            self._detail_listeners.discard(listener)
+
+        return unsubscribe
+
+    def notify_detail_persisted(self, job_id: str) -> None:
+        """Publish only after a child has durably appended its new history."""
+        self._notify_detail_change(job_id)
+
+    def _notify_detail_change(self, job_id: str) -> None:
+        self._notify_change()
+        for listener in tuple(self._detail_listeners):
+            try:
+                listener(job_id)
+            except Exception:  # noqa: BLE001 - projection listeners are additive
+                logger.debug("subagent detail listener failed", exc_info=True)
+
+    # -- launch bookkeeping ---------------------------------------------------
+
+    def record_launch(
+        self,
+        job_id: str,
+        label: str,
+        *,
+        parent_job_id: str | None = None,
+        prompt: str = "",
+        effective_prompt: str = "",
+        launch_message_id: str = "",
+        agent_role: str = "",
+        effort: str = "",
+        team_name: str = "",
+        team_lineage: tuple[str, ...] = (),
+        depth: int = 0,
+    ) -> None:
+        """Note a child that has been registered but may not have started.
+
+        Called by :func:`~local_operator.harness.subagent.run_subagent` the
+        moment the job id exists, so a parent can address a child that is
+        still parked behind the capacity gate.
+
+        MERGES into an existing record instead of replacing it, and the
+        difference is load-bearing under an eager task factory. Textual
+        installs ``asyncio.eager_task_factory`` on the TUI's loop
+        (``textual/app.py``), which makes ``ensure_future`` execute a new
+        coroutine synchronously up to its first true suspension — so the
+        subagent runner registered inside ``jobs_manager.register`` can build
+        its child session and call :meth:`attach` BEFORE ``register`` returns
+        to ``run_subagent``, which only then calls this method. Replacing the
+        record here discarded that attach: the fresh record had no ``child``,
+        no ``session_dir`` and no reply watcher, so every later ``send``/
+        ``steer``/``ask`` buffered into ``pending`` on a record whose flush
+        (attach) had already happened and would never happen again. Live
+        effect, observed 2026-08-19: a healthy reviewer subagent worked for
+        41 minutes while two ``hub ask`` status checks silently never reached
+        it, it was cancelled as wedged, and the roster reported every settled
+        child as "never started, so it has no transcript" — which also made
+        ``resume`` refuse them.
+        """
+        existing = self._records.get(job_id)
+        if existing is not None:
+            # attach() ran first (eager task factory) and its record carries
+            # the live child, the flushed asides and the reply watcher; the
+            # only fact this call adds is the label run_subagent chose.
+            existing.label = label
+            existing.parent_job_id = parent_job_id
+            existing.prompt = prompt
+            existing.effective_prompt = effective_prompt
+            existing.launch_message_id = launch_message_id
+            existing.agent_role = agent_role
+            existing.effort = effort
+            existing.team_name = team_name
+            existing.team_lineage = tuple(team_lineage)
+            existing.depth = depth
+            existing.job_ref = self.job(job_id)
+            self._notify_change()
+            return
+        self._records[job_id] = _ChildRecord(
+            job_id=job_id,
+            label=label,
+            parent_job_id=parent_job_id,
+            prompt=prompt,
+            effective_prompt=effective_prompt,
+            launch_message_id=launch_message_id,
+            agent_role=agent_role,
+            effort=effort,
+            team_name=team_name,
+            team_lineage=tuple(team_lineage),
+            depth=depth,
+        )
+        self._records[job_id].job_ref = self.job(job_id)
+        self._evict_overflow()
+        self._notify_change()
+
+    def attach(self, job_id: str, child: ChildSession, session_dir: Path) -> None:
+        """Bind the live child session to its record and flush buffered notes."""
+        record = self._records.get(job_id)
+        if record is None:
+            record = _ChildRecord(job_id=job_id, label=job_id)
+            self._records[job_id] = record
+        # The directory, not the human label, identifies a resumed child. Only
+        # a terminal predecessor can be replaced: two live children may share a
+        # fixture directory, and collapsing those would hide autonomous work.
+        # Fold before exposing the continuation so every roster read observes
+        # either the old attempt or the new one, never both.
+        prior = next(
+            (
+                item
+                for item in self._records.values()
+                if item.job_id != job_id
+                and item.session_dir == session_dir
+                and (item.child is None or item.settled)
+            ),
+            None,
+        )
+        if prior is not None:
+            record.label = prior.label
+            record.parent_job_id = prior.parent_job_id
+            record.agent_role = prior.agent_role
+            record.effort = prior.effort
+            # Carried across the fold like the role, and for the same reason:
+            # this record REPLACES a settled attempt, so dropping the denial
+            # here would let the second resume of a restricted child come back
+            # wider than the first. The live stamp below still wins when it is
+            # truthy, so a fold can only ever preserve a denial, never clear
+            # one.
+            record.restricted = record.restricted or prior.restricted
+            # A continuation is the same child, so it keeps the team it was
+            # born under (BEN-7-D1); the live launch already stamped these
+            # when it had them.
+            record.team_name = record.team_name or prior.team_name
+            record.team_lineage = record.team_lineage or prior.team_lineage
+            record.depth = record.depth or prior.depth
+            record.attempt_aliases = list(
+                dict.fromkeys([*prior.attempt_aliases, prior.job_id, *record.attempt_aliases])
+            )
+            # Keep every collapsed attempt's concise prompt keyed by its own
+            # deterministic launch identity. The prior's transcript rows (its
+            # original launch turn and any it in turn folded) still live in the
+            # shared session directory this continuation replays, so the viewer
+            # needs each one's authored prompt to avoid re-exposing that
+            # attempt's full effective-prompt preamble (review round 4 R4-1).
+            merged_prior = dict(prior.prior_launch_prompts)
+            if prior.launch_message_id and prior.prompt:
+                merged_prior[prior.launch_message_id] = prior.prompt
+            merged_prior.update(record.prior_launch_prompts)
+            record.prior_launch_prompts = merged_prior
+            self._records.pop(prior.job_id, None)
+        for alias in record.attempt_aliases:
+            self._aliases[alias] = job_id
+        record.child = child
+        record.session_dir = session_dir
+        # A child attaching is the one transcript-existence change this process
+        # causes itself; forget the directory's cached probe so the roster sees
+        # it on the next pass rather than after the TTL.
+        self._transcript_probes.pop(session_dir, None)
+        record.job_ref = self.job(job_id)
+        if record.unsubscribe_jobs is not None:
+            record.unsubscribe_jobs()
+        subscribe_jobs = getattr(getattr(child, "jobs", None), "subscribe_changes", None)
+        if callable(subscribe_jobs):
+            # Nested jobs need their final status as well as streamed events.
+            # These notifications feed only the root's existing coalescer.
+            record.unsubscribe_jobs = cast(Callable[[], None], subscribe_jobs(self._notify_change))
+        self._notify_change()
+        # Imported here, not at module scope: ``subagent`` imports this module
+        # for its comms types, so a top-level import closes the cycle. Same
+        # reason ``resume`` imports ``run_subagent`` locally.
+        from local_operator.harness.subagent import MCP_DENIED_ATTR
+
+        # Read off the live child, which ``_build_child_session`` has already
+        # stamped, rather than recomputed from the role: the denial is a
+        # property of the LINEAGE (see the field's own note), and this is the
+        # one moment the built session and its durable record are both in hand.
+        record.restricted = record.restricted or bool(getattr(child, MCP_DENIED_ATTR, False))
+        jobs = self._jobs()
+        bind = getattr(jobs, "bind_logical_identity", None) if jobs is not None else None
+        if callable(bind):
+            bind(job_id, str(session_dir))
+        record.settled = False
+        record.unsubscribe = child.subscribe(self._make_reply_watcher(record))
+        for message in record.pending:
+            # Armed BY IDENTITY: the future recorded for THIS message, never
+            # whatever ``record.ask`` happens to hold now. Binding by type
+            # ("is this a question?") let a stale buffered question — one whose
+            # asker had already timed out, and which nothing withdrew — arm the
+            # NEXT asker's future and hand that caller the answer to a question
+            # it never asked, with no error and no timeout to signal it (review
+            # round 2, R5). A question with no live future is a note: it still
+            # reaches the child, which is right (it was asked), but it can no
+            # longer resolve anyone's wait.
+            awaiting = record.pending_asks.pop(message.id, None)
+            if awaiting is not None and awaiting.done():
+                awaiting = None
+            child.queue_aside(self._thunk(record, message, awaiting=awaiting))
+        record.pending.clear()
+        record.pending_asks.clear()
+        # Last: everything a waiter in ``_await_child`` needs must be in place
+        # before it is allowed to proceed, or it would queue its question onto
+        # a record whose buffered notes had not been flushed yet.
+        if record.attached is not None:
+            record.attached.set()
+
+    def detach(self, job_id: str) -> None:
+        """Release the live child. An unanswered question fails here rather
+        than burning its caller's full timeout: the child is gone, no answer
+        is coming."""
+        record = self._record(job_id)
+        if record is None:
+            return
+        record.settled = True
+        record.settled_at = time.time()
+        record.child = None
+        if record.unsubscribe_jobs is not None:
+            record.unsubscribe_jobs()
+            record.unsubscribe_jobs = None
+        self._notify_change()
+        record.armed = False
+        # Wake anyone parked in ``_await_child``: the child is gone, so the
+        # attach they are waiting for is never coming. They re-check
+        # ``record.child`` after the wait and report the settled reason, so
+        # setting the event here fails them fast instead of at their timeout.
+        if record.attached is not None:
+            record.attached.set()
+        if record.unsubscribe is not None:
+            try:
+                record.unsubscribe()
+            except Exception:  # a broken unsubscribe must not fail teardown
+                logger.warning("subagent comms unsubscribe failed", exc_info=True)
+            record.unsubscribe = None
+        if record.reply_in_flight is not record.ask:
+            self._fail_ask(record, "the subagent finished before answering")
+
+    def is_child(self, job_id: str | None) -> bool:
+        """Whether ``job_id`` names a child of this session.
+
+        The role test the ``hub`` tool builder uses: a session whose tool
+        context carries a job id this instance knows is a CHILD, and gets the
+        child-shaped tool.
+        """
+        return job_id is not None and self._record(job_id) is not None
+
+    # -- lineage --------------------------------------------------------------
+
+    def roster_pass(self, now: float | None = None) -> RosterPass:
+        """One linear walk of the registry, for callers that need more than one
+        of its reads.
+
+        The mobile projection asks for the roster rows, the nodes AND a job row
+        per node, once per root event; reading it through three separate walks
+        was the quadratic cost this pass exists to remove. Build one and read
+        each collection off it, or call the single-read methods below, which
+        build one of their own.
+
+        ``now`` is the clock reading every ``age_s`` in the pass is measured
+        from; callers that own a timestamp pass it so one pass ages everything
+        against one instant.
+        """
+        return RosterPass(self, time.time() if now is None else now)
+
+    def nodes(self) -> list[SubagentNode]:
+        """Return every known descendant in stable launch order.
+
+        Nested launches share this registry but do not emit their lifecycle
+        events through the root session. Projection consumers therefore need
+        the registry's complete roster rather than trying to infer lineage from
+        the root event stream, which can only ever describe direct children.
+        """
+        return self.roster_pass().nodes()
+
+    def node(self, job_id: str) -> SubagentNode | None:
+        record = self._record(job_id)
+        if record is None:
+            return None
+        return self.roster_pass().node(record)
+
+    def _sessions(self) -> list[Any]:
+        """The root plus every live child, in insertion order.
+
+        This is the search set ``job``/``job_rows`` walk, and building it is a
+        scan of ALL records — which is why it is hoisted into the read pass
+        rather than rebuilt per lookup: the projection looks a job up once per
+        node, so rebuilding it there cost O(N) per node over an O(N) roster.
+        """
+        sessions: list[Any] = [self._session]
+        sessions.extend(
+            record.child for record in self._records.values() if record.child is not None
+        )
+        return sessions
+
+    def descendant_ids(self, job_id: str) -> set[str]:
+        """Every record strictly BELOW ``job_id`` in the launch graph.
+
+        WHY THIS EXISTS. This registry is ONE instance shared by the root and
+        every child it (transitively) launches, so a reader that asks it for
+        "the roster" gets the WHOLE fan-out. That is right for the root, and it
+        was quietly wrong for a child: each child ``Session`` owns a frontend
+        store whose ``_jobs`` projection read ``job_rows()`` and ``nodes()``
+        unscoped, so every child re-froze every SIBLING's retained trajectory
+        (up to ``TRAJECTORY_CAP`` rows each) at each of its own message, tool
+        and turn boundaries. N children therefore paid O(N) per boundary — O(N²)
+        across the fan-out, all on the one event loop they share with the
+        parent. Measured with ``scripts/bench_subagent_fanout.py``: at 16
+        children those refreshes were the majority of process CPU and drove
+        loop lag past two seconds, which is what an operator sees as slow
+        children and a parent that stops answering while it waits on them.
+
+        A child's own roster is its own subtree, exactly what a viewer of that
+        child can navigate to, so the child projects that and nothing else.
+
+        Both ends are resolved through the attempt aliases, so a resumed
+        attempt (new job id, same durable record) keeps its descendants and a
+        grandchild launched under a superseded attempt id still counts. Linear
+        in the registry, with a per-call memo, and cycle-safe for the malformed
+        legacy snapshots ``ancestors`` already defends against.
+        """
+        root = self._aliases.get(job_id, job_id)
+        parent_of = {
+            key: (
+                self._aliases.get(record.parent_job_id, record.parent_job_id)
+                if record.parent_job_id
+                else None
+            )
+            for key, record in self._records.items()
+        }
+        verdict: dict[str, bool] = {}
+
+        def below(key: str) -> bool:
+            path: list[str] = []
+            seen: set[str] = set()
+            current: str | None = key
+            answer = False
+            while current is not None:
+                if current in verdict:
+                    answer = verdict[current]
+                    break
+                if current in seen:
+                    break
+                seen.add(current)
+                path.append(current)
+                parent = parent_of.get(current)
+                if parent == root:
+                    answer = True
+                    break
+                current = parent
+            for item in path:
+                verdict[item] = answer
+            return answer
+
+        return {key for key in self._records if key != root and below(key)}
+
+    def job_rows(self) -> list[Any]:
+        """Snapshot the shared graph's ledgers once, without moving execution."""
+        rows: dict[str, Any] = {}
+        for session in self._sessions():
+            manager = getattr(session, "jobs", None)
+            if manager is not None:
+                rows.update((job.id, job) for job in manager.list())
+        for record in self._records.values():
+            if record.job_ref is not None:
+                rows.setdefault(record.job_id, record.job_ref)
+        # Resumed attempts have one current identity, even while a predecessor
+        # row has not yet aged out of its original execution ledger.
+        return [job for key, job in rows.items() if key not in self._aliases]
+
+    def job(self, job_id: str) -> Any | None:
+        """Find a node's job without centralizing its execution manager."""
+        return self._job_from(job_id, self._sessions())
+
+    def _job_from(self, job_id: str, sessions: Sequence[Any]) -> Any | None:
+        """``job``'s search, over a session list the caller already has.
+
+        Takes a ``Sequence`` rather than a ``list`` so the read pass can hand over
+        its own immutable snapshot of the session set without copying it.
+        """
+        record = self._record(job_id)
+        if record is not None:
+            job_id = record.job_id
+        for session in sessions:
+            manager = getattr(session, "jobs", None)
+            try:
+                job = manager.get(job_id) if manager is not None else None
+            except Exception:
+                job = None
+            if job is not None:
+                return job
+        return record.job_ref if record is not None else None
+
+    def parent(self, job_id: str) -> SubagentNode | None:
+        node = self.node(job_id)
+        return self.node(node.parent_job_id) if node is not None and node.parent_job_id else None
+
+    def children(self, job_id: str | None) -> list[SubagentNode]:
+        selected = self._record(job_id) if job_id else None
+        parent_id = selected.job_id if selected is not None else job_id
+        return [node for node in self.nodes() if node.parent_job_id == parent_id]
+
+    def peers(self, job_id: str) -> list[SubagentNode]:
+        node = self.node(job_id)
+        if node is None:
+            return []
+        return [peer for peer in self.children(node.parent_job_id) if peer.job_id != job_id]
+
+    def ancestors(self, job_id: str) -> list[SubagentNode]:
+        """Root-to-parent lineage, cycle-safe for malformed legacy snapshots."""
+        rows: list[SubagentNode] = []
+        seen = {job_id}
+        current = self.parent(job_id)
+        while current is not None and current.job_id not in seen:
+            seen.add(current.job_id)
+            rows.append(current)
+            current = self.parent(current.job_id)
+        rows.reverse()
+        return rows
+
+    # -- addressing -----------------------------------------------------------
+
+    def live_ids(self, scope: str | None = None) -> list[str]:
+        """Job ids of children that are running right now.
+
+        ``scope`` narrows to that job's descendants: a pod lead's ``"all"``
+        means its own subtree, never its siblings' (BEN-7-D5).
+        """
+        sessions = self._sessions()
+        allowed = self.descendant_ids(scope) if scope else None
+        return [
+            job_id
+            for job_id, record in self._records.items()
+            if (allowed is None or job_id in allowed) and self._is_running(record, sessions)
+        ]
+
+    def resolve(self, target: str, *, scope: str | None = None) -> tuple[list[str], str | None]:
+        """Resolve one address to job ids: ``(ids, error)``.
+
+        Accepts a job id, ``"all"`` (every running child) or a label. Labels
+        are how the model naturally refers to a child it just launched, and
+        resolving them here means it does not have to keep a private id
+        table; an ambiguous label is an error listing the candidates rather
+        than a silent pick.
+
+        ``scope`` is the calling child's own job id when a delegating child
+        (a pod lead) addresses ITS subagents: every answer is confined to
+        that job's descendants, and an id outside them is refused as "not
+        your subagent" rather than acted on (BEN-7-D5). ``None`` is the top
+        session, which addresses the whole tree as before.
+        """
+        target = target.strip()
+        if not target:
+            return [], "empty target"
+        if target == "all":
+            live = self.live_ids(scope)
+            return (live, None) if live else ([], "no running subagents")
+        allowed = self.descendant_ids(scope) if scope else None
+        # Canonicalize through the attempt aliases BEFORE matching, as
+        # ``_job_from`` does: a resumed child's pre-resume id is not a record
+        # key, so without this the address fell through to the label path and
+        # a lead aiming at its own resumed worker read as ``unknown subagent``
+        # (or missed the ``not your subagent`` refusal outside its subtree).
+        target = self._aliases.get(target, target)
+        if target in self._records:
+            if allowed is not None and target not in allowed:
+                return [], f"not your subagent: {target!r}"
+            return [target], None
+        matches = [
+            job_id
+            for job_id, record in self._records.items()
+            if record.label == target and (allowed is None or job_id in allowed)
+        ]
+        if len(matches) > 1:
+            # A resumed child reuses its label, so the stopped record and its
+            # continuation both match. Only one of them can be running, and a
+            # live child is unambiguously what an address means; without this
+            # the first resume would permanently revoke the label the model
+            # was told to address children by. An ambiguity among SETTLED
+            # records is real and still reported.
+            sessions = self._sessions()
+            live = [
+                job_id for job_id in matches if self._is_running(self._records[job_id], sessions)
+            ]
+            if len(live) == 1:
+                return live, None
+            return [], f"label {target!r} is ambiguous: {', '.join(matches)}"
+        if len(matches) == 1:
+            return matches, None
+        if allowed is not None and any(r.label == target for r in self._records.values()):
+            return [], f"not your subagent: {target!r}"
+        return [], f"unknown subagent {target!r}"
+
+    def record_outcome(
+        self,
+        job_id: str,
+        status: str,
+        error_text: str | None = None,
+        result_text: str | None = None,
+        cut_off_cause: str = "",
+    ) -> tuple[str, str | None, str | None] | None:
+        """Remember how a child settled, before its job row is swept.
+
+        Returns the resolved ``(status, error, result)`` so a caller interrupted
+        during end-event fan-out can emit the already-winning terminal fact
+        instead of inventing a contradictory cancellation event.
+
+        Called from the subagent runner's settle paths. The job manager drops
+        settled rows after its retention window while records here outlive
+        them by design, so this is the only durable answer to "did that child
+        finish or crash?" once the row is gone.
+
+        It deliberately does NOT clear :attr:`_ChildRecord.paused`. A pause is
+        implemented as a cancel, so pausing a child makes its runner settle
+        ``cancelled`` and call straight into here; clearing the flag would
+        erase the parent's intent microseconds after it was recorded, and the
+        roster would show a deliberately parked child as an ordinary
+        cancellation. Only :meth:`resume` ends a pause.
+        """
+        record = self._record(job_id)
+        if record is None:
+            return None
+
+        # Cancellation is an observation that the runner task was interrupted,
+        # not evidence that work which already returned a result or raised an
+        # error did not settle. End-event fan-out is awaited after those facts
+        # are recorded, so a cancel can arrive in that window. Terminal facts
+        # therefore only move upward in certainty: cancelled < failed <
+        # completed. The winning fact owns its payload; repeated writes of the
+        # same fact may fill a payload that an earlier persistence pass lacked.
+        precedence = {"cancelled": 0, "failed": 1, "completed": 2}
+        current = record.outcome
+        if current in precedence and precedence.get(status, -1) < precedence[current]:
+            # Membership narrows this for human readers; pyright needs it explicit.
+            assert current is not None
+            return current, record.error_text, record.result_text
+        if current == status:
+            assert current is not None
+            if result_text is not None:
+                record.result_text = result_text
+            if error_text is not None:
+                record.error_text = error_text
+            if cut_off_cause:
+                record.cut_off_cause = cut_off_cause
+            return current, record.error_text, record.result_text
+        record.outcome = status
+        record.result_text = result_text
+        record.error_text = error_text
+        # The cause belongs to the WINNING fact, and precedence was decided
+        # above — so this line inherits it rather than repeating the rule. Stated
+        # plainly, because an earlier draft of this comment claimed a property
+        # the code does not have (review minor): a higher-precedence write (a
+        # genuine ``completed``) that carries NO cause WILL clear a cause recorded
+        # by the write it supersedes, and that is intended — a child that
+        # completed was not cut off. A cause-less write that LOSES on precedence
+        # never reaches this line, which is the case the race actually produces.
+        record.cut_off_cause = cut_off_cause
+        return status, error_text, result_text
+
+    def roster(self) -> list[ChildInfo]:
+        """Every child this session launched, live or long settled.
+
+        Ordered newest-launch-last (insertion order), which is how the model
+        refers to them conversationally: "the last one I started".
+        """
+        return self.roster_pass().roster()
+
+    def status_counts(self) -> dict[str, int]:
+        """How many children hold each resolved status, in one linear walk.
+
+        The runtime publishes ``(running, queued)`` on ``/info``'s record on
+        every notification, and that publisher owns which statuses it counts as
+        running — this returns the histogram so the policy stays with its
+        owner, while the walk (and the status ladder behind it) is shared with
+        ``roster()``/``nodes()`` instead of being a fourth pass over the same
+        records.
+        """
+        return self.roster_pass().status_counts()
+
+    # -- persistence ----------------------------------------------------------
+
+    def snapshot(self) -> list[dict[str, Any]]:
+        """The durable half of every record, for persistence to the transcript.
+
+        Only the fields that survive a process exit and matter to a resumed
+        session: the identity (``job_id``/``label``), the transcript directory
+        that makes resume possible, and the settled outcome so the roster can
+        say how a child ended after its job row is long gone. The live handles
+        (``child``, ``unsubscribe``, ``ask``, ``pending``) are deliberately
+        omitted — they belong to a running loop and cannot cross a restart.
+
+        ``session_dir`` is stored as a string (``Path`` is not JSON-native).
+        A record with NONE is kept only when it has a recorded terminal
+        ``outcome``: such a child settled before it attached (a launch that
+        failed inside an install swap), and its outcome and error text are what
+        its parent needs to diagnose it — the missing transcript makes it not
+        resumable, which is a different fact from "this child did not exist".
+        A record with no transcript AND no outcome is a child still parked
+        behind the capacity gate; it is live, carries nothing a resumed session
+        could act on, and is skipped as before.
+        """
+        rows: list[dict[str, Any]] = []
+        for record in self._records.values():
+            # A record with NO transcript directory is dropped UNLESS it has a
+            # recorded terminal outcome.
+            #
+            # Two classes have no transcript, and they must be treated
+            # differently:
+            #
+            # * a child that SETTLED before it attached — it died during the
+            #   launch, and a launch that failed inside an install swap is the
+            #   measured case (job ``f6ed760e3449``, "No package metadata was
+            #   found for local-operator"). Dropping it made the class invisible
+            #   AND unreachable: ``hub op=list`` could not name it, ``hub op=peek``
+            #   by id or label returned "unknown subagent", and ``resume`` was
+            #   impossible, so the parent could only re-dispatch from scratch and
+            #   lose whatever the child had done. Its OUTCOME and its
+            #   ``error_text`` are durable facts and are what its parent needs to
+            #   diagnose it, so the row survives. It still never claims
+            #   ``resumable`` (see ``_describe``): there is no transcript to
+            #   replay, and the write below carries no ``session_dir``.
+            #
+            # * a child that is PARKED — queued behind the capacity gate and
+            #   never started, so it has no recorded ``outcome``. It has no
+            #   outcome and no
+            #   transcript, and ``record_launch`` runs before the gate clears, so
+            #   keeping it would plant a ghost row that renders ``gone — never
+            #   started`` after a restart with the job row swept — exactly the
+            #   row ``main`` deliberately drops, and the contract
+            #   ``test_a_never_started_child_is_not_snapshotted`` pins. A parked
+            #   child needs no durable record: it is live, and the live job row
+            #   is its home.
+            if record.session_dir is None and record.outcome is None:
+                continue
+            rows.append(
+                {
+                    "job_id": record.job_id,
+                    "label": record.label,
+                    "parent_job_id": record.parent_job_id,
+                    "prompt": record.prompt,
+                    "effective_prompt": record.effective_prompt,
+                    "launch_message_id": record.launch_message_id,
+                    "agent_role": record.agent_role,
+                    "effort": record.effort,
+                    # Rides with the role because it is the half the role
+                    # CANNOT express (see the field). Losing it here would
+                    # leave the flag alive only for the process, which is the
+                    # lifetime the in-memory marker already had and precisely
+                    # what persisting it was meant to fix: a child that settled
+                    # hours ago is normally resumed AFTER a restart, so this row
+                    # is the only thing standing between a restricted lineage
+                    # and a resumed grandchild that can activate the writes it
+                    # was refused (review round 3, R6).
+                    "restricted": record.restricted,
+                    "team_name": record.team_name,
+                    "team_lineage": list(record.team_lineage),
+                    "depth": record.depth,
+                    # Read off the retained row when there is one, because the
+                    # runner keeps that label current (a provider fallback
+                    # rewrites it); the restored copy covers a row that did
+                    # not survive a restart.
+                    "model_label": self._record_model_label(record),
+                    "owns_model": self._record_owns_model(record),
+                    # ``None`` — NOT the string "None" — when the child never
+                    # attached. ``restore`` and the row guard both read this as
+                    # "no transcript", so a stringified ``None`` would make a
+                    # directory named "None" out of a child that has none.
+                    "session_dir": (
+                        str(record.session_dir) if record.session_dir is not None else None
+                    ),
+                    "outcome": record.outcome,
+                    # Rides with the outcome: both are the same durable fact,
+                    # and both must outlive the job row the manager sweeps.
+                    "cut_off_cause": record.cut_off_cause,
+                    "result_text": record.result_text,
+                    "error_text": record.error_text,
+                    "paused": record.paused,
+                    "settled_at": record.settled_at,
+                    "attempt_aliases": list(record.attempt_aliases),
+                    # Concise prompt for each collapsed attempt, so a resumed
+                    # session that reopens this record still renders every
+                    # historical launch row as its short instruction.
+                    "prior_launch_prompts": dict(record.prior_launch_prompts),
+                }
+            )
+        return rows
+
+    def restore(self, rows: list[dict[str, Any]]) -> None:
+        """Rebuild settled records from a persisted snapshot at resume.
+
+        This is the resume basis: ``hub op='resume'`` needs the
+        ``job_id \u2192 session_dir`` mapping to relaunch a child against its old
+        transcript, and the roster needs the recorded outcome to say how each
+        child ended. Both die with the process, so without rehydrating them a
+        resumed session cannot see \u2014 let alone continue \u2014 the children the
+        previous one launched.
+
+        Every restored record is SETTLED: its live child is gone, so it carries
+        no ``child`` handle and is marked ``settled`` with the persisted
+        ``settled_at`` (so eviction order and the roster's age column stay
+        meaningful). A row whose ``job_id`` is already present is skipped \u2014 a
+        live child of this session must never be clobbered by a stale snapshot
+        of its predecessor.
+        """
+        # Newest wins for legacy snapshots that retained one record per resume
+        # attempt. Older ids become aliases of that winner rather than vanished
+        # handles, which preserves parent messages and old transcript references.
+        winners: list[dict[str, Any]] = []
+        by_dir: dict[str, dict[str, Any]] = {}
+        for row in reversed(rows):
+            raw_dir = row.get("session_dir")
+            logical_id = str(raw_dir) if raw_dir else ""
+            winner = by_dir.get(logical_id) if logical_id else None
+            if winner is not None:
+                old_id = str(row.get("job_id") or "")
+                aliases = [
+                    *row.get("attempt_aliases", []),
+                    old_id,
+                    *winner.get("attempt_aliases", []),
+                ]
+                winner["attempt_aliases"] = list(dict.fromkeys(alias for alias in aliases if alias))
+                # Fold the collapsed attempt's own launch prompt (and any it had
+                # already collapsed) under the winner, so a legacy snapshot with
+                # one record per resume still yields a concise prompt for every
+                # historical launch row rather than the newest alone.
+                folded = dict(row.get("prior_launch_prompts") or {})
+                launch_id = str(row.get("launch_message_id") or "")
+                launch_prompt = str(row.get("prompt") or "")
+                if launch_id and launch_prompt:
+                    folded[launch_id] = launch_prompt
+                folded.update(winner.get("prior_launch_prompts") or {})
+                winner["prior_launch_prompts"] = folded
+                continue
+            copied = dict(row)
+            winners.append(copied)
+            if logical_id:
+                by_dir[logical_id] = copied
+        for row in reversed(winners):
+            job_id = str(row.get("job_id") or "")
+            if not job_id or job_id in self._records:
+                continue
+            raw_dir = row.get("session_dir")
+            session_dir = Path(str(raw_dir)) if raw_dir else None
+            record = _ChildRecord(
+                job_id=job_id,
+                label=str(row.get("label") or job_id),
+                parent_job_id=(str(row["parent_job_id"]) if row.get("parent_job_id") else None),
+                prompt=str(row.get("prompt") or ""),
+                effective_prompt=str(row.get("effective_prompt") or ""),
+                launch_message_id=str(row.get("launch_message_id") or ""),
+                agent_role=str(row.get("agent_role") or ""),
+                effort=str(row.get("effort") or ""),
+                # Missing defaults to False, which is right for a sidecar
+                # written before this field existed: it reproduces today's
+                # behaviour for old rows and cannot invent a denial that was
+                # never recorded. A denial can only ever be ADDED afterwards,
+                # by the attach stamp or the live computation.
+                restricted=bool(row.get("restricted")),
+                # Missing on a pre-BEN-7 sidecar: "unknown", see the field.
+                team_name=str(row.get("team_name") or ""),
+                team_lineage=tuple(str(item) for item in row.get("team_lineage") or () if item),
+                depth=(
+                    row["depth"]
+                    if isinstance(row.get("depth"), int) and not isinstance(row["depth"], bool)
+                    else 0
+                ),
+                # Missing defaults to "" for a sidecar written before this
+                # field existed; the resume then reads only the live row.
+                model_label=str(row.get("model_label") or ""),
+                # Missing (or not a bool) stays unknown rather than guessing an
+                # inherit: a resume that cannot tell treats the chain as broken
+                # and keeps the child's own previous model (D9.2).
+                owns_model=(row["owns_model"] if isinstance(row.get("owns_model"), bool) else None),
+                session_dir=session_dir,
+                settled=True,
+                settled_at=row.get("settled_at"),
+                paused=bool(row.get("paused")),
+                outcome=(str(row["outcome"]) if row.get("outcome") is not None else None),
+                # Missing defaults to "", which is right for a sidecar written
+                # before this field existed: it reproduces today's behaviour for
+                # old rows and cannot invent a cut-off that was never recorded.
+                cut_off_cause=str(row.get("cut_off_cause") or ""),
+                result_text=(
+                    str(row["result_text"]) if row.get("result_text") is not None else None
+                ),
+                error_text=(str(row["error_text"]) if row.get("error_text") is not None else None),
+                attempt_aliases=[str(alias) for alias in row.get("attempt_aliases", []) if alias],
+                prior_launch_prompts={
+                    str(key): str(value)
+                    for key, value in (row.get("prior_launch_prompts") or {}).items()
+                    if key and value
+                },
+            )
+            self._records[job_id] = record
+            for alias in record.attempt_aliases:
+                if alias != job_id:
+                    self._aliases[alias] = job_id
+        self._evict_overflow()
+
+    def _record(self, job_id: str) -> _ChildRecord | None:
+        """Resolve either a current attempt id or any durable predecessor."""
+        return self._records.get(self._aliases.get(job_id, job_id))
+
+    async def peek(
+        self,
+        job_id: str,
+        *,
+        start: int | None = None,
+        end: int | None = None,
+        steps: int | None = None,
+    ) -> PeekWindow:
+        """Read a bounded slice of a child's transcript — ``hub op='peek'``.
+
+        The child's transcript is written incrementally (each tool batch lands
+        on disk at the batch boundary), so a RUNNING child can be read the same
+        way a settled one is: build a fresh ``Transcript`` off its session
+        directory and render a window of steps. This is the observation path
+        the parent's other surfaces do not cover: ``hub op='list'`` says a
+        child is running, ``wait`` blocks until it is not, and ``ask`` spends
+        the child's attention on a question — while peek answers "what is it
+        doing right now" without touching the child at all.
+
+        Ranges are 1-based inclusive step numbers, stable across calls, so a
+        parent can page forward (``start=<last seen + 1>``). ``steps`` is the
+        shorthand for "the last N", which is the common ask. All three are
+        clamped: the caller's context budget is the whole reason this op
+        exists, so an out-of-range request is an error about the range, not a
+        transcript dump.
+        """
+        record = self._record(job_id)
+        if record is None:
+            return PeekWindow(job_id, job_id, "gone", 0, error=f"unknown subagent {job_id!r}")
+        info = self._describe(record, time.time())
+        if record.session_dir is None:
+            # Two classes reach here and they are NOT the same: a child still
+            # PARKED has not started, but a child that SETTLED before attaching
+            # (a launch that failed inside an install swap) DID run and is the
+            # diagnosed case this record is kept for. Telling its parent it
+            # "has not started yet" hides the very failure the roster now names,
+            # so the settled arm reports its recorded reason instead.
+            if record.outcome is not None:
+                reason = record.error_text or record.result_text or "it never attached"
+                detail = f"the subagent ended before it attached ({reason}) — no transcript"
+            else:
+                detail = "the subagent has not started yet, so it has no transcript to read"
+            return PeekWindow(
+                job_id,
+                record.label,
+                info.status,
+                0,
+                error=detail,
+            )
+        transcript_file = record.session_dir / TRANSCRIPT_FILENAME
+        if not transcript_file.exists():
+            return PeekWindow(
+                job_id,
+                record.label,
+                info.status,
+                0,
+                error="the subagent's transcript is gone from disk",
+            )
+
+        # A FRESH reader, not the child's live Transcript object: the child
+        # owns an in-memory entry list that a parent must not share (and a
+        # settled child has no live object at all). ``Transcript`` loads the
+        # file at construction and drops malformed lines individually, so a
+        # half-written final line of a RUNNING child degrades to "not there
+        # yet" rather than an error.
+        #
+        # Off the event loop: construction parses the WHOLE file (rendering
+        # is O(window) but parsing is O(total)), and a long-lived review
+        # child's transcript is megabytes. The codebase's own precedent for
+        # this cost class (``compact_file``) keeps it off the shared loop.
+        from local_operator.session.transcript import Transcript
+
+        session_dir = record.session_dir
+
+        def _read() -> list[TranscriptEntry]:
+            # Construction is the expensive part (whole-file parse); it runs
+            # in the worker, not on the shared loop.
+            return Transcript(session_dir).entries()
+
+        entries = await asyncio.to_thread(_read)
+        rendered = _render_transcript_steps(entries)
+        total = len(rendered)
+
+        if total == 0:
+            return PeekWindow(job_id, record.label, info.status, 0)
+
+        lo, hi, error = _resolve_peek_range(total, start=start, end=end, steps=steps)
+        if error is not None:
+            return PeekWindow(job_id, record.label, info.status, total, error=error)
+        return PeekWindow(
+            job_id,
+            record.label,
+            info.status,
+            total,
+            steps=rendered[lo - 1 : hi],
+        )
+
+    def _describe(self, record: _ChildRecord, now: float) -> ChildInfo:
+        """Collapse a record plus its (possibly swept) job row into one row.
+
+        A single-record convenience over :class:`RosterPass`. The precedence
+        this used to document lives in :func:`_lifecycle`, which every reader of
+        a child's status now goes through -- ``ChildInfo.status``,
+        ``SubagentNode.status`` and the published counts cannot disagree about
+        the same child. Prefer :meth:`roster_pass` when more than one record is
+        needed: building a full pass per record is what made the roster
+        quadratic.
+
+        ``now`` is the caller's clock reading, used only for ``age_s``.
+        """
+        return self.roster_pass(now).describe(record)
+
+    def _live_twin(self, record: _ChildRecord) -> _ChildRecord | None:
+        """Another running record already continuing this transcript, if any.
+
+        Two children on one session directory destroy each other's history
+        (see :meth:`resume`), so both ``resume`` and the roster's
+        ``resumable`` flag have to ask this question and must agree on the
+        answer. Answered from the read pass's running index, whose candidate
+        list is in insertion order -- so the first match is the one the linear
+        scan this replaces used to find.
+        """
+        return self.roster_pass().live_twin(record)
+
+    def label_of(self, job_id: str) -> str:
+        record = self._record(job_id)
+        return record.label if record is not None else job_id
+
+    def last_model_label(self, job_id: str) -> str:
+        """The model a child last ran on, or ``""`` when nothing recorded it.
+
+        The live job row first, then the label saved on the record. After a
+        restart a nested child has only the saved label, because its row lived
+        on its parent's job manager and that is not rehydrated (QA round 1, Q2).
+        A record from a sidecar written before labels were saved has neither,
+        so the child's own ``selected_model`` journal row is the last source
+        (QA round 2, Q3).
+        """
+        record = self._record(job_id)
+        label = str(getattr(self.job(job_id), "model_label", None) or "")
+        if label:
+            return label
+        if record is None:
+            return ""
+        return record.model_label or _journalled_label(record.session_dir)
+
+    def resume_model_note(self, job_id: str) -> str:
+        """Why a resumed job's model is not the one the launch rule named, or ``""``."""
+        return self._resume_models.get(job_id, (False, ""))[1]
+
+    def resumed_on_parent_model(self, job_id: str) -> bool:
+        """Whether a resumed job inherited its REAL parent's model (D9.1), not the root's."""
+        return self._resume_models.get(job_id, (False, ""))[0]
+
+    @staticmethod
+    def _record_model_label(record: _ChildRecord) -> str:
+        label = getattr(record.job_ref, "model_label", None)
+        return str(label) if label else record.model_label
+
+    @staticmethod
+    def _record_owns_model(record: _ChildRecord) -> bool | None:
+        """Whether a pin chose ``record``'s model: the retained row, then the saved flag.
+
+        Reads ``record.job_ref`` rather than calling :meth:`job`, the same way
+        :meth:`_record_model_label` does. :meth:`snapshot` calls this once per
+        record, and :meth:`job` rebuilds :meth:`_sessions` (a scan of every
+        record) on each call, which made the roster persist O(N^2) on the
+        shared loop (review round 3, M1). ``owns_model`` is stamped on the job
+        row object at registration, and ``job_ref`` holds that same object, so
+        nothing is lost by not searching again.
+        """
+        owns = getattr(record.job_ref, "owns_model", None)
+        return owns if isinstance(owns, bool) else record.owns_model
+
+    def _role_pinned(self, record: _ChildRecord) -> bool:
+        """Whether ``record``'s role profile carries a tier pin.
+
+        Resolved leniently, like :meth:`_owned_model`: a broken pin here only
+        means the walk cannot use it, never that a descendant's resume fails.
+        """
+        role = record.agent_role
+        resolve = getattr(self._session, "_resolve_subagent_model", None)
+        if not role or role == "task" or not callable(resolve):
+            return False
+        try:
+            return isinstance(resolve(role, None), ModelSpec)
+        except Exception:  # noqa: BLE001 — an unreadable profile is "no pin"
+            return False
+
+    def _owned_model(self, record: _ChildRecord) -> ModelSpec | None:
+        """A settled ancestor's own pinned model: its tier re-resolved from current
+        config, the way its own resume would, or else its recorded label.
+
+        Lenient, unlike the resume's own strict resolution: this is a
+        DESCENDANT's resume, and an ancestor's broken tier should not block it
+        while the model that ancestor actually ran on is still on record.
+        """
+        resolve = getattr(self._session, "_resolve_subagent_model", None)
+        if callable(resolve):
+            try:
+                resolved = resolve(record.agent_role or "task", record.effort or None)
+            except Exception:  # noqa: BLE001 — fall back to the recorded label
+                resolved = None
+            if isinstance(resolved, ModelSpec):
+                return resolved
+        return _spec_from_label(self.last_model_label(record.job_id))
+
+    def _inherited_model(self, record: _ChildRecord) -> tuple[ModelSpec | None, str]:
+        """The model an inheriting child resumes on, and a note when it is a fallback.
+
+        ``(None, "")`` means the root's current model, which ``run_subagent``
+        applies: a direct child's parent IS the root. A nested child inherits
+        from its REAL lineage, not from the root this registry belongs to,
+        because the root only owns the registry. A manager pinned to a cheap
+        tier must not have its workers resumed on the root's expensive model
+        (D9.1).
+
+        The walk goes up the ``parent_job_id`` chain to the nearest ancestor
+        that decides a model (D9.4):
+
+        - a LIVE ancestor gives its current model, which already reflects its
+          pin, its inheritance and any ``/model`` switch;
+        - a settled ancestor that OWNED its model gives that pin re-resolved,
+          or else its recorded label;
+        - a settled ancestor that INHERITED is looked past. Its label is only a
+          snapshot of its own parent's model, and trusting it would resume a
+          worker on a model the root has since switched away from (review
+          round 2, R5);
+        - reaching the root gives the root's current model.
+
+        The chain BREAKS when an ancestor's record is missing or its ownership
+        is unknown (a sidecar from before ownership was saved). The child then
+        keeps the model it last ran on (D9.2), or, with no model of its own,
+        runs on this session's model (D9.3). Either way the note says so,
+        because a silent substitution is how the cost incident went unnoticed.
+        """
+        seen: set[str] = set()
+        parent_id = record.parent_job_id
+        while parent_id:
+            ancestor = self._record(parent_id)
+            if ancestor is None or ancestor.job_id in seen:
+                break
+            seen.add(ancestor.job_id)
+            live = getattr(ancestor.child, "model", None)
+            if isinstance(live, ModelSpec):
+                return live, ""
+            owns = self._record_owns_model(ancestor)
+            # A stored tier, or a role whose profile pins one, is a pin whatever
+            # the flag says. Only a record with no flag and no pin of either kind
+            # is genuinely unknown (review round 3, M2: a legacy role-pinned
+            # manager broke the chain).
+            if owns is None and (ancestor.effort or self._role_pinned(ancestor)):
+                owns = True
+            if owns is None:
+                break
+            if owns:
+                pinned = self._owned_model(ancestor)
+                if pinned is None:
+                    break
+                return pinned, ""
+            parent_id = ancestor.parent_job_id
+        else:
+            # The walk reached the root without a break.
+            return None, ""
+        own = _spec_from_label(self.last_model_label(record.job_id))
+        if own is not None:
+            return own, "its parent's model could not be found; kept its previous model"
+        return None, (
+            "its parent's model could not be found and no previous model was recorded; "
+            "using this session's model"
+        )
+
+    def session_dir_of(self, job_id: str) -> Path | None:
+        record = self._record(job_id)
+        return record.session_dir if record is not None else None
+
+    # -- parent -> child ------------------------------------------------------
+
+    def send(self, job_id: str, text: str) -> Delivery:
+        """Deliver a note to a child. No answer is expected or waited for."""
+        return self._deliver(job_id, self._to_child_message(text, expects_reply=False))
+
+    def steer(self, job_id: str, text: str) -> Delivery:
+        """Change what a child is doing.
+
+        A real user message rather than an aside: a course change is part of
+        the child's instructions from then on, and the transcript should read
+        that way — including on resume, where a note framed as an aside and a
+        redirection framed as an order are very different things to replay.
+        """
+        record = self._record(job_id)
+        if record is None:
+            return Delivery(job_id, job_id, "failed", f"unknown subagent {job_id!r}")
+        if record.child is None:
+            if record.settled or not self._is_running(record):
+                return Delivery(job_id, record.label, "failed", self._gone_reason(record))
+            # Not started yet — parked behind the capacity gate, or still
+            # building its session. Either way a course change has to reach a
+            # child that has not read its prompt yet, so buffer it as a note.
+            # It arrives before any work is done, which is the point.
+            record.pending.append(self._to_child_message(text, expects_reply=False, steer=True))
+            return Delivery(job_id, record.label, "queued")
+        message = self._to_child_message(text, expects_reply=False, steer=True)
+        self._journal_communication(
+            record,
+            direction="to_child",
+            body=text,
+            communication_id=message.id,
+            kind="steer",
+        )
+        # ``steer_message`` (not ``steer``) so the persisted row carries the
+        # SAME id as the journaled communication fact: human-facing surfaces
+        # (the TUI subagent view, the mobile projection) correlate the two by
+        # id and render the fact instead of the model-facing
+        # ``<parent-message>`` XML envelope. ``steer`` would mint a fresh
+        # Message id the correlation could never match — which is exactly how
+        # the envelope leaked beside the fact. ``steer_message`` is the
+        # identity-preserving seam: it queues the caller-built Message
+        # verbatim. On a follower-owned child the id rides the wire as the
+        # ContinuationCommand id, which the runtime's handle hands back to
+        # ``Session.steer`` as ``message_id``, so the correlation survives
+        # that path too.
+        record.child.steer_message(Message.user(str(message.details["text"]), id=message.id))
+        return Delivery(job_id, record.label, "injected")
+
+    async def _await_child(self, record: _ChildRecord, timeout_s: float) -> bool:
+        """Wait (briefly) for a registered child's session to become live.
+
+        WHY: ``run_subagent`` registers the job and ``AsyncJobManager.register``
+        calls ``ensure_future``, which SCHEDULES the runner without entering
+        it. A parent that launches a child and asks it something in its very
+        next tool call therefore finds ``record.child is None`` — not because
+        anything is wrong, but because the loop has not reached the runner yet.
+        The old behaviour reported "subagent has not started yet … retry in a
+        moment" and returned immediately, which is a refusal the model has no
+        good answer to: it cannot yield the loop except by making another call,
+        so it either polls in a loop or gives up on checking in at all. Both
+        were observed live.
+
+        Awaiting the attach event yields the loop, which is exactly what lets
+        the runner start — so the wait is self-fulfilling rather than a
+        gamble. A PARKED job is deliberately excluded by the caller: it may sit
+        behind the capacity gate for minutes, and burning the asker's whole
+        timeout on it would be worse than saying so.
+
+        Returns True when the child is live, False on timeout (the caller then
+        reports the honest not-started reason).
+        """
+        if record.child is not None:
+            return True
+        if record.attached is None:
+            record.attached = asyncio.Event()
+        try:
+            await asyncio.wait_for(record.attached.wait(), timeout_s)
+        except asyncio.TimeoutError:
+            return False
+        return record.child is not None
+
+    #: How much of an ``ask`` timeout may be spent waiting for a
+    #: scheduled-but-not-yet-entered child to come up, before the question is
+    #: refused. A fraction rather than a constant so a caller that asked for a
+    #: short timeout still gets a timely answer, and a patient caller stays
+    #: patient. Capped by :data:`ATTACH_WAIT_MAX_S` because a child that needs
+    #: longer than that is not merely "scheduled" — something is wrong, and
+    #: saying so beats consuming the caller's whole budget in silence.
+    ATTACH_WAIT_FRACTION = 0.5
+    ATTACH_WAIT_MAX_S = 30.0
+
+    async def ask(self, job_id: str, text: str, timeout_ms: int) -> Reply:
+        """Put a question to a running child and wait for its answer.
+
+        A child that is registered but not yet entered by the loop is WAITED
+        for (see :meth:`_await_child`) rather than refused: "it starts when
+        this session next yields" is not an actionable answer for the one
+        caller who cannot yield without making another call.
+        """
+        record = self._record(job_id)
+        if record is None:
+            return Reply(job_id, job_id, error=f"unknown subagent {job_id!r}")
+        # ONE guard for BOTH paths, and it has to be here rather than beside
+        # the attached path's queue_aside: the buffered path used to skip it
+        # and overwrite a live ``record.ask``, orphaning a caller that was
+        # still waiting — nothing then held its future, so it could receive
+        # neither an answer nor a failure and burned its whole budget (up to
+        # the 600 s schema maximum). Refusing early is also cheaper: it
+        # happens before the attach grace, so a doomed second question does
+        # not first spend 30 s waiting to be refused (review round 2, R6).
+        if record.ask is not None and not record.ask.done():
+            return Reply(
+                job_id, record.label, error="a question is already pending for this subagent"
+            )
+        # ``timeout_ms`` is the caller's WHOLE budget, so any time spent
+        # waiting for the child to come up is deducted from the answer wait
+        # below rather than added to it. Charging the grace on top let a
+        # 1000 ms request block for 1452 ms while reporting it had waited
+        # 1000 ms, and scaled: the 600 s schema maximum could block 900 s.
+        deadline = asyncio.get_running_loop().time() + timeout_ms / 1000.0
+        if record.child is None:
+            if record.settled or not self._is_running(record):
+                return Reply(job_id, record.label, error=self._gone_reason(record))
+            jobs = self._owning_jobs(job_id)
+            job = jobs.get(job_id) if jobs is not None else None
+            parked = bool(job is not None and getattr(job, "queued", False))
+            # Parked behind the capacity gate: no amount of yielding starts it,
+            # so report rather than burn the caller's timeout.
+            grace = min(self.ATTACH_WAIT_MAX_S, (timeout_ms / 1000.0) * self.ATTACH_WAIT_FRACTION)
+            if parked or not await self._await_child(record, grace):
+                # A child that DIED while we waited is gone, not "not started":
+                # telling a caller to retry in a moment is the polling loop this
+                # wait exists to remove.
+                if record.settled or not self._is_running(record):
+                    return Reply(job_id, record.label, error=self._gone_reason(record))
+                if not parked and self._has_begun(record):
+                    # The grace expired but the RUNNER IS RUNNING — it simply
+                    # has not attached (a slow child build, a resumed child
+                    # replaying a large transcript, or an event loop the parent
+                    # is monopolising). Refusing here reports "has not started
+                    # yet ... retry in a moment" about a child that has been
+                    # working for half an hour, and that message is acted on:
+                    # one healthy reviewer subagent was cancelled on the
+                    # strength of it after a 30 s grace expired (the wait is
+                    # capped by ATTACH_WAIT_MAX_S, so a long timeout does not
+                    # make it more patient).
+                    #
+                    # Buffer instead. ``attach`` flushes pending messages and
+                    # arms each question with the future created for THAT
+                    # message, so the question lands at the child's first
+                    # injection boundary and the answer comes back here.
+                    #
+                    # RE-CHECK after the grace, the way the attached path does.
+                    # The guard at the top of ``ask`` ran before this await, and
+                    # this path only claims ``record.ask`` after it — so without
+                    # this, two concurrent asks both pass the guard and the
+                    # second orphans the first (review round 4, R8; reproduced
+                    # as ``REFUSED COUNT: 0``). Unreachable today because the
+                    # ``hub`` tool is ``concurrency="exclusive"`` and the loop
+                    # batches it alone, but that is a property of a tool
+                    # declaration elsewhere, not an invariant of this layer.
+                    if record.ask is not None and not record.ask.done():
+                        return Reply(
+                            job_id,
+                            record.label,
+                            error="a question is already pending for this subagent",
+                        )
+                    future = asyncio.get_running_loop().create_future()
+                    record.ask = future
+                    record.armed = False
+                    message = self._to_child_message(text, expects_reply=True)
+                    record.pending.append(message)
+                    # Bound to the MESSAGE, not just to ``record.ask``: a
+                    # buffered question that times out leaves its message in
+                    # ``pending``, and arming that stale message at flush time
+                    # with whatever ``record.ask`` then held returned the old
+                    # question's answer to the new asker (R5).
+                    record.pending_asks[message.id] = future
+                    remaining = deadline - asyncio.get_running_loop().time()
+                    try:
+                        if remaining <= 0:
+                            return Reply(job_id, record.label, timed_out=True)
+                        answer = await asyncio.wait_for(future, remaining)
+                    except asyncio.TimeoutError:
+                        return Reply(job_id, record.label, timed_out=True)
+                    except Exception as exc:
+                        return Reply(job_id, record.label, error=str(exc))
+                    finally:
+                        # WITHDRAW the message as well as clearing the future.
+                        # Leaving it queued let a question nobody is waiting for
+                        # reach the child and consume the next asker's answer.
+                        self._withdraw_pending(record, message)
+                        self._clear_ask(record, future)
+                    return Reply(job_id, record.label, text=answer)
+                return Reply(job_id, record.label, error=self._not_started_reason(record))
+        if record.child is None:  # pragma: no cover - narrowing for the checker
+            return Reply(job_id, record.label, error=self._not_started_reason(record))
+        if record.ask is not None and not record.ask.done():
+            return Reply(
+                job_id, record.label, error="a question is already pending for this subagent"
+            )
+
+        future: asyncio.Future[str] = asyncio.get_running_loop().create_future()
+        record.ask = future
+        record.armed = False
+        message = self._to_child_message(text, expects_reply=True)
+        record.child.queue_aside(self._thunk(record, message, awaiting=future))
+        try:
+            # Whatever is LEFT of the caller's budget after the attach wait,
+            # floored just above zero so a fully-spent budget still gets one
+            # scheduling pass at an answer instead of raising immediately.
+            remaining = max(0.001, deadline - asyncio.get_running_loop().time())
+            answer = await asyncio.wait_for(future, remaining)
+        except asyncio.TimeoutError:
+            # The question stays in the child's context — it was asked, and a
+            # late answer is still useful to the child's own reasoning — but
+            # this caller stops waiting for it.
+            return Reply(job_id, record.label, timed_out=True)
+        except Exception as exc:  # discarded aside / child gone
+            return Reply(job_id, record.label, error=str(exc))
+        finally:
+            # ``finally``, not one call per exit: CancelledError is a
+            # BaseException, so an ``except Exception`` cleanup would leave
+            # ``record.ask`` pointing at a dead future when the parent's own
+            # turn is aborted mid-question.
+            self._clear_ask(record, future)
+        return Reply(job_id, record.label, text=answer)
+
+    async def cancel(self, job_id: str) -> Delivery:
+        """Stop a child. Idempotent from the caller's point of view: a second
+        cancel reports the state rather than pretending to act."""
+        record = self._record(job_id)
+        label = record.label if record is not None else job_id
+        # The manager that OWNS the job: a grandchild runs in its parent's
+        # manager, and the root's knew nothing of it ("unknown job") (BEN-7-D5).
+        jobs = self._owning_jobs(job_id)
+        if jobs is None:
+            return Delivery(job_id, label, "failed", "no job manager attached to this session")
+        job = jobs.get(job_id)
+        if job is None and (record is None or not record.paused):
+            return Delivery(job_id, label, "failed", f"unknown job {job_id!r}")
+        if job is None or job.status != "running":
+            # A PAUSED child is already stopped, so there is no job to abort —
+            # but "cancel" still has a meaning here that nothing else expresses:
+            # the parent has decided it will not be coming back for it. Without
+            # this, a pause was a one-way door (only ``resume`` cleared the
+            # flag), so a parent that paused a child and then changed its mind
+            # had no way to say so and the roster went on advertising a pause it
+            # had abandoned. Dropping the flag settles it as an ordinary
+            # cancellation; the transcript is untouched, so a later resume is
+            # still possible for anyone who kept the id.
+            if record is not None and record.paused:
+                record.paused = False
+                if record.outcome is None:
+                    record.outcome = "cancelled"
+                return Delivery(job_id, label, "cancelled")
+            state = job.status if job is not None else "gone"
+            return Delivery(job_id, label, "failed", f"job is already {state}")
+        await jobs.cancel(job_id)
+        return Delivery(job_id, label, "cancelled")
+
+    async def pause(self, job_id: str) -> Delivery:
+        """Stop a child now, keeping it explicitly resumable.
+
+        Mechanically a cancel: the job signal is aborted, the runner's
+        teardown runs ``_persist_inflight`` so the turn the abort pre-empted
+        is saved, and the transcript directory stays on disk. What ``pause``
+        adds is INTENT. ``cancel`` and ``pause`` leave a child in the same
+        physical state, and a parent coming back to a roster minutes later
+        cannot otherwise tell "I stopped this to free a slot, pick it up
+        again" from "I stopped this because it was wrong".
+
+        A true in-memory suspend was considered and rejected: freezing the
+        child at a tool-batch boundary would hold a job-capacity slot and the
+        session's memory for the whole pause, and a child inside a long tool
+        call would not reach a boundary for minutes \u2014 so the op would be
+        slowest exactly when it is most wanted, on a wedged child. Checkpoint
+        and replay costs a transcript rehydration on resume and frees
+        everything meanwhile.
+        """
+        record = self._record(job_id)
+        if record is None:
+            return Delivery(job_id, job_id, "failed", f"unknown subagent {job_id!r}")
+        if record.session_dir is None:
+            # Nothing has been written yet, so there would be no transcript to
+            # come back to; a "pause" that cannot resume is a cancel wearing
+            # the wrong name, and the caller should say what it means.
+            return Delivery(
+                job_id,
+                record.label,
+                "failed",
+                "subagent has not started yet, so there is no transcript to pause; "
+                "use op='cancel' to drop it",
+            )
+        jobs = self._owning_jobs(job_id)
+        if jobs is None:
+            return Delivery(
+                job_id, record.label, "failed", "no job manager attached to this session"
+            )
+        job = jobs.get(job_id)
+        if job is None or job.status != "running":
+            state = job.status if job is not None else "gone"
+            return Delivery(
+                job_id,
+                record.label,
+                "failed",
+                f"job is already {state}; use hub op='resume' to pick it back up",
+            )
+        # Set BEFORE the cancel: cancelling settles the runner, whose teardown
+        # calls record_outcome synchronously on this loop. Setting the flag
+        # afterwards would let the roster observe a moment where a deliberate
+        # pause looked like a plain cancellation.
+        record.paused = True
+        await jobs.cancel(job_id)
+        return Delivery(job_id, record.label, "paused")
+
+    def resume(self, job_id: str, message: str) -> tuple[str | None, str | None]:
+        """Relaunch a stopped child against its own transcript: ``(new job id,
+        error)``.
+
+        The new child reads the old one's session directory, so it replays
+        every message and tool result the stopped run produced and continues
+        from there. That is why this refuses when the directory is unknown
+        instead of quietly spawning a fresh agent: a "resume" that starts a
+        stranger is worse than no resume at all, because the parent believes
+        the context survived.
+        """
+        from local_operator.harness.subagent import run_subagent
+
+        record = self._record(job_id)
+        if record is None:
+            return None, f"unknown subagent {job_id!r}"
+        if record.session_dir is None:
+            # Distinguish the two no-transcript classes, as the roster and peek
+            # already do: a child that SETTLED before attaching did run, and
+            # telling its parent it "never started" hides the very failure this
+            # PR surfaces. Both are genuinely not resumable (no transcript), so
+            # the verdict is unchanged — only the sentence was wrong.
+            if record.outcome is not None:
+                reason = record.error_text or record.result_text or "it never attached"
+                return None, (
+                    f"subagent {record.label} ended before it attached ({reason}), so "
+                    "there is no transcript to resume; launch a new one with 'task'"
+                )
+            return None, (
+                f"subagent {record.label} never started, so it has no transcript to resume; "
+                "launch a new one with 'task'"
+            )
+        if self._is_running(record):
+            return None, (f"subagent {record.label} is still running; cancel or pause it first")
+        live = self._live_twin(record)
+        if live is not None:
+            # Two children on one transcript directory is not merely confusing:
+            # each holds its own in-memory ``Transcript._entries`` and
+            # ``compact_file`` rewrites the whole file from one of them with
+            # ``os.replace``, so the other's history is destroyed. Reachable in
+            # normal operation — ``_maybe_compact`` calls it every turn.
+            return None, (
+                f"{record.label} is already resumed as job {live.job_id}; two agents sharing "
+                "one transcript would overwrite each other's history"
+            )
+        if not (record.session_dir / TRANSCRIPT_FILENAME).exists():
+            return None, f"transcript for {record.label} is gone from disk; launch a new one"
+        # Relaunch under the child's REAL parent when that parent is live, so
+        # the continuation lands in the ledger that owns it and its replies
+        # reach the agent that delegated (BEN-7-D5). A direct child's parent is
+        # this session, as before.
+        launch_parent = self._launch_parent(record)
+        jobs = getattr(launch_parent, "jobs", None)
+        if jobs is None:
+            return None, "no job manager attached to this session"
+        # The role and tier are carried FORWARD, not re-defaulted. Everything
+        # that makes a child what it is hangs off ``agent``: ``_resolve_role``
+        # picks the preamble (a role's instructions, a specialist's own
+        # ``system_prompt.md``, or ``SCOUT_PREAMBLE``), and the profile it
+        # returns decides the tool allowlist. That allowlist is a CAPABILITY
+        # BOUNDARY rather than advice (see ``_build_child_session``): resumed
+        # without it, a reviewer regains ``edit``/``write`` and can "helpfully"
+        # fix the very code it was asked to review, and a scout loses its
+        # read-only promise. It also re-stamps ``origin.json`` with the
+        # agent, so a defaulted resume overwrites the real role on disk.
+        #
+        # ``restricted`` rides alongside for the half the role CANNOT express.
+        # A denial is inherited from the lineage, so the leaking child is a
+        # plain ``task`` one whose own role says "unrestricted" — and this
+        # rebuild passes ``parent_session=self._session``, the comms-owning
+        # ROOT rather than the child's real parent, so the parent read in
+        # ``_build_child_session`` cannot recover it either. Without carrying
+        # the flag, a grandchild of a restricted ``manager`` that was correctly
+        # refused ``delete_issue`` while live came back from a resume able to
+        # activate it (review round 2, R5).
+        # ``run_subagent`` defaults ``agent`` to ``"task"``, so omitting these
+        # silently downgraded every resumed child to a generic no-role one.
+        agent = record.agent_role or "task"
+        effort = record.effort or None
+        # The team, lineage and depth the child was born under ride the
+        # record for the reason ``restricted`` does: the session this rebuilds
+        # against need not be the real parent, and a resumed pod worker must
+        # come back as a pod worker, not as a member of the root's team
+        # (BEN-7-D1, D7).
+        from local_operator.harness.subagent import (
+            TeamLaunchError,
+            resolve_launch_target,
+        )
+
+        try:
+            target = resolve_launch_target(
+                agent, launch_parent, carried=self._carried_launch(record)
+            )
+        except TeamLaunchError as exc:
+            return None, f"cannot resume {record.label}: {exc}"
+        # A resume is a SECOND LAUNCH, so it must re-resolve the tier into a
+        # model the way the first one did (``run_subagent`` explains why the
+        # tier does not survive that resolution and rides separately). Passing
+        # ``effort`` alone would return a child launched at ``hi`` on the
+        # parent's model while the panel still displayed ``hi``.
+        #
+        # This resolution is what the resumed child actually runs on. The
+        # child's own journalled model is deliberately not restored
+        # (``Session._restore_selected_model`` skips ``model_source="child"``).
+        # A resume therefore follows a parent ``/model`` switch or a tier edit
+        # made since the child last ran, and the ``hub`` receipt names the model.
+        # A child that owns no tier inherits from its REAL parent, which
+        # :meth:`_inherited_model` resolves (D9.1). Only a direct child falls
+        # through to the root's current model.
+        #
+        # Guarded rather than called outright: ``_session`` is a full
+        # ``Session`` in production, but this class is also driven by the
+        # reduced hosts and test doubles that supply only the queue/steer/
+        # subscribe surface (see ``ChildSession``). A parent that cannot price
+        # a tier must still be able to resume its child on the parent's model,
+        # so a missing resolver degrades instead of raising.
+        model_spec: ModelSpec | None = None
+        resolve = getattr(self._session, "_resolve_subagent_model", None)
+        if callable(resolve):
+            # Strict, exactly like the first launch: a tier that broke between
+            # launch and resume must fail the resume with the reason, not
+            # bring the child back on the parent's model while the panel still
+            # says ``hi`` — the same silent substitution the launch path
+            # refuses. ``SubagentModelUnavailable`` is the only expected raise;
+            # it lands in the ``(None, reason)`` slot every other refusal here
+            # already uses.
+            from local_operator.harness.subagent import SubagentModelUnavailable
+
+            try:
+                # The role the child RUNS as: a ``team:pod`` lead is pod's
+                # manager, whose tier the first launch priced (BEN-7-D1).
+                resolved = resolve(target.role, effort, strict=True)
+            except SubagentModelUnavailable as exc:
+                return None, f"cannot resume {record.label}: {exc}"
+            if isinstance(resolved, ModelSpec):
+                model_spec = resolved
+        inherited: ModelSpec | None = None
+        note = ""
+        if model_spec is None:
+            inherited, note = self._inherited_model(record)
+        new_job_id = run_subagent(
+            label=record.label,
+            prompt=message,
+            parent_session=launch_parent,
+            jobs_manager=jobs,
+            model_spec=model_spec,
+            resume_dir=record.session_dir,
+            agent=agent,
+            effort=effort,
+            restricted=record.restricted,
+            inherited_model=inherited,
+            target=target,
+        )
+        if inherited is not None or note:
+            self._resume_models[new_job_id] = (inherited is not None and not note, note)
+        # The pause is over the moment its continuation exists. Left set, the
+        # old record would keep advertising ``paused`` in the roster forever
+        # beside the running child that replaced it, and a reader would be
+        # invited to "resume" a run that is already going.
+        record.paused = False
+        return new_job_id, None
+
+    def _launch_parent(self, record: _ChildRecord) -> Any:
+        """The session a resumed child runs under: its live parent, else the root.
+
+        A LIVE parent wins so the continuation is owned by the agent that
+        delegated it. An orphan — a restart, or a sidecar whose parent row is
+        gone — falls back to this session rather than refusing, because
+        refusing deletes the recovery ``_inherited_model`` was built for: it
+        walks the RECORDED lineage precisely so a nested child can be resumed
+        when its parent no longer exists, and a refusal makes every branch of
+        that walk unreachable (D5 addendum 2, manager ruling 2026-09-26).
+
+        The fallback re-parents the JOB only. The child's team, lineage and
+        depth ride its own record (``_carried_launch``), so a resumed pod worker
+        still carries pod's preamble rather than the root's team.
+        """
+        if not record.parent_job_id:
+            return self._session
+        parent = self._record(record.parent_job_id)
+        if parent is not None and parent.child is not None and not parent.settled:
+            return parent.child
+        return self._session
+
+    def _carried_launch(self, record: _ChildRecord) -> Any:
+        """The team, lineage, depth and reporting line a resume re-enters.
+
+        A record written before these fields existed carries depth 0
+        ("unknown"): it falls back to what the registry can still see — depth
+        from the surviving ancestry, and the root's team, which is what every
+        resume stamped before BEN-7.
+        """
+        from local_operator.harness.subagent import (
+            CarriedLaunch,
+            describe_reports_to,
+            lookup_team,
+        )
+
+        team_name, lineage, depth = record.team_name, record.team_lineage, record.depth
+        if depth <= 0:
+            depth = len(self.ancestors(record.job_id)) + 1
+            root_team = getattr(self._session, "active_team", None)
+            team_name = str(getattr(root_team, "name", "") or "") if root_team else ""
+            root_id = getattr(root_team, "id", None) if root_team else None
+            lineage = (str(root_id),) if root_id else ()
+        reports_to = describe_reports_to("", "", None)
+        parent = self._record(record.parent_job_id) if record.parent_job_id else None
+        if parent is not None:
+            role = parent.agent_role or "task"
+            if role.lower().startswith("team:"):
+                team = lookup_team(self._session, role[len("team:") :])
+                role = str(getattr(team, "manager", role)) if team is not None else role
+            reports_to = describe_reports_to(parent.team_name, role, parent.job_id)
+        return CarriedLaunch(
+            team_name=team_name, team_lineage=tuple(lineage), depth=depth, reports_to=reports_to
+        )
+
+    # -- child -> parent ------------------------------------------------------
+
+    def reply_to_parent(self, job_id: str, text: str) -> str:
+        """Deliver a child's message to its parent; returns what happened.
+
+        Answers the parent's pending question when the child has actually
+        SEEN it, and otherwise lands as a note in the parent's context — a
+        child that notices it is blocked should be able to say so unprompted.
+
+        ``armed`` is the whole of that distinction and this path must respect
+        it exactly as the prose watcher does. A question is armed only when
+        its aside reached the child's context, so an unarmed question is one
+        the child cannot be answering: it is either still a queued thunk, or
+        one that timed out while a newer question waits. Resolving on
+        ``ask is not None`` alone accepted a child's UNPROMPTED "I am blocked"
+        as the answer to a question it had never read — and did double damage,
+        because the real question then materialized as a ``StaleAside`` and
+        was never asked, while the note the child actually sent was consumed
+        rather than delivered. Unarmed messages therefore fall through to the
+        note path below; nothing is lost either way.
+        """
+        record = self._record(job_id)
+        label = record.label if record is not None else job_id
+        if record is not None and record.armed and record.ask is not None and not record.ask.done():
+            self._answer_after_journal(record, text)
+            record.armed = False
+            record.ask_message_id = None
+            return "answered the parent's question"
+        if record is not None:
+            self._journal_communication(record, direction="to_parent", body=text)
+        message = CustomMessage(
+            custom_type=HUB_MESSAGE_TYPE,
+            attribution="user",
+            details={
+                "direction": "to_parent",
+                "job_id": job_id,
+                "label": label,
+                "body": text,
+                "text": (
+                    f"<subagent-message label={label!r} job={job_id!r}>\n"
+                    f"{text}\n"
+                    "</subagent-message>"
+                ),
+            },
+        )
+        self._parent_session_of(record).queue_aside(lambda: message)
+        return "delivered to the parent (it will read this at its next step)"
+
+    def _parent_session_of(self, record: _ChildRecord | None) -> Any:
+        """The live session of a child's REAL parent, else the root.
+
+        A worker's note belongs to the lead that launched it; delivering every
+        reply to the root bypassed the tier and left the lead blind (BEN-7-D5
+        probe: root asides 1, lead asides 0). A parent that has already
+        settled cannot read it, so the root gets it rather than nobody.
+        """
+        if record is not None and record.parent_job_id:
+            parent = self._record(record.parent_job_id)
+            if parent is not None and parent.child is not None and not parent.settled:
+                return parent.child
+        return self._session
+
+    # -- internals ------------------------------------------------------------
+
+    def _jobs(self) -> Any:
+        return getattr(self._session, "jobs", None)
+
+    def _owning_jobs(self, job_id: str, sessions: Sequence[Any] | None = None) -> Any:
+        """The job manager whose ledger holds ``job_id``: the root's for a direct
+        child, the live parent's for a grandchild.
+
+        Found by the same root-first walk :meth:`_job_from` uses, so a direct
+        child resolves to the root's manager exactly as before. Falls back to
+        the root's when no live session holds the row (a swept or settled job),
+        which is the answer every caller gave before BEN-7-D5.
+        """
+        record = self._record(job_id)
+        lookup = record.job_id if record is not None else job_id
+        for session in sessions if sessions is not None else self._sessions():
+            manager = getattr(session, "jobs", None)
+            try:
+                if manager is not None and manager.get(lookup) is not None:
+                    return manager
+            except Exception:
+                continue
+        return self._jobs()
+
+    def _is_running(self, record: _ChildRecord, sessions: Sequence[Any] | None = None) -> bool:
+        # Through the owning manager: the root's alone misreported every
+        # running grandchild as stopped, which also let ``resume`` start a
+        # second child on a live transcript (BEN-7-D5).
+        jobs = self._owning_jobs(record.job_id, sessions)
+        if jobs is None:
+            return False
+        job = jobs.get(record.job_id)
+        return job is not None and job.status == "running"
+
+    @staticmethod
+    def _expects_reply(message: CustomMessage) -> bool:
+        """Whether a buffered message is a QUESTION (someone is blocked on it).
+
+        Read off the message the sender built rather than tracked separately,
+        so :meth:`attach`'s flush cannot drift from what was queued.
+        """
+        details = getattr(message, "details", None) or {}
+        return bool(details.get("expects_reply"))
+
+    def _has_begun(self, record: _ChildRecord) -> bool:
+        """Whether the child's RUNNER has actually entered.
+
+        ``AsyncJob.started_at`` is stamped as ``_run_job``'s first statement,
+        before the child session is built, so it is true for the whole window
+        in which a child is working but not yet attached — exactly the window
+        ``ask`` must not describe as "not started". Neither ``status`` nor
+        ``queued`` can answer this: ``status`` reads ``running`` from
+        registration, before a line has run.
+        """
+        jobs = self._owning_jobs(record.job_id)
+        job = jobs.get(record.job_id) if jobs is not None else None
+        return job is not None and getattr(job, "started_at", None) is not None
+
+    def _not_started_reason(self, record: _ChildRecord) -> str:
+        """Why a running job has no live child yet — and they are not the same.
+
+        Two states reach here and the caller acts on them differently. A job
+        the manager PARKED is waiting for a slot and may not start for
+        minutes, so the honest advice is to stop waiting on it. An ADMITTED
+        job is only waiting on this event loop: ``register`` calls
+        ``ensure_future``, which schedules the runner without entering it, so
+        a parent that registers a child and then does non-yielding work leaves
+        it scheduled-but-unstarted for the whole stretch. One loop yield — the
+        caller's next await, including its next tool call — is enough to start
+        it, so the honest advice there is to retry.
+
+        Neither string promises a session is being BUILT. In the state this
+        branch was written for, the runner coroutine has not been entered at
+        all, so nothing is under construction yet; "scheduled" covers that and
+        the build that follows it, and both resolve on the same advice.
+
+        Both used to report the capacity gate. That is a false statement about
+        an admitted job, and it is the one an operator acts on: it says
+        "nothing is happening" about a child that is already spending tokens,
+        so a stuck-looking run gets cancelled instead of waited out.
+
+        Neither string names ``record.label``: the only render site
+        (``builtin.py``'s hub result) already prefixes ``{label} ({job_id}): ``,
+        and the card truncates the reason as content — so a stuttered label
+        spends the exact cells that would otherwise have carried the state.
+        """
+        jobs = self._owning_jobs(record.job_id)
+        job = jobs.get(record.job_id) if jobs is not None else None
+        if job is not None and getattr(job, "queued", False):
+            return (
+                "subagent has not started yet (parked behind the job capacity gate); "
+                "it starts when a slot frees, so do not wait on it"
+            )
+        if job is not None and getattr(job, "started_at", None) is not None:
+            # A THIRD state, and the one that cost real work: the runner is
+            # well underway but its session is not attached to this record.
+            # ``_await_child``'s grace is capped at ATTACH_WAIT_MAX_S, so a
+            # patient caller still lands here after 30 s and used to be told
+            # the child "has not started yet ... retry in a moment" about an
+            # agent half an hour into its run. An operator acted on that and
+            # cancelled it. ``started_at`` is the authoritative answer (see
+            # :meth:`_has_begun`), so say what is actually true.
+            started = time.time() - float(job.started_at)
+            return (
+                f"subagent started {started:.0f}s ago but has not attached to this parent, "
+                "so it cannot be questioned yet; it is RUNNING — use 'jobs'/'wait' for its "
+                "result rather than cancelling it"
+            )
+        return (
+            "subagent has not started yet (it is scheduled, and starts when this "
+            "session next yields); retry in a moment"
+        )
+
+    def _gone_reason(self, record: _ChildRecord) -> str:
+        # ``record.settled`` (set by detach, as the child's runner tears it
+        # down) leads the job row, which the manager stamps a moment later.
+        # Reading the row first would tell the caller the subagent "is
+        # running" in the same breath as telling it to go fetch the result.
+        jobs = self._owning_jobs(record.job_id)
+        job = jobs.get(record.job_id) if jobs is not None else None
+        if record.settled and (job is None or job.status == "running"):
+            state = "finishing"
+        else:
+            state = job.status if job is not None else "gone"
+        return (
+            f"subagent {record.label} is {state}; use 'wait'/'jobs' for its result, "
+            "or hub op='resume' to pick it back up"
+        )
+
+    def _deliver(self, job_id: str, message: CustomMessage) -> Delivery:
+        record = self._record(job_id)
+        if record is None:
+            return Delivery(job_id, job_id, "failed", f"unknown subagent {job_id!r}")
+        if record.child is None:
+            if record.settled or not self._is_running(record):
+                return Delivery(job_id, record.label, "failed", self._gone_reason(record))
+            record.pending.append(message)
+            return Delivery(job_id, record.label, "queued")
+        record.child.queue_aside(self._thunk(record, message))
+        return Delivery(job_id, record.label, "injected")
+
+    def _thunk(
+        self,
+        record: _ChildRecord,
+        message: CustomMessage,
+        awaiting: "asyncio.Future[str] | None" = None,
+    ) -> Callable[[], Any]:
+        """Wrap one message as an aside thunk evaluated at the injection
+        boundary.
+
+        A question withdraws itself if nobody is waiting for THIS one any
+        more: the asker timed out or the child settled between queueing and
+        the next boundary. The identity check against ``awaiting`` rather
+        than "is any question pending" is load-bearing — a question that
+        timed out while the child sat in a long tool call is still queued,
+        and without it that stale question would be injected on the next
+        boundary and would arm the NEXT question's future, so the child's
+        answer to the old question would come back as the answer to the new
+        one. Notes carry no future and always land.
+        """
+
+        def thunk() -> Any:
+            if awaiting is not None:
+                if record.ask is not awaiting or awaiting.done():
+                    return StaleAside(message)
+                record.armed = True
+                record.ask_message_id = message.id
+            self._journal_communication(
+                record,
+                direction="to_child",
+                body=str(message.details.get("body") or ""),
+                communication_id=message.id,
+                kind=(
+                    "steer"
+                    if bool(message.details.get("steer"))
+                    else "ask" if bool(message.details.get("expects_reply")) else "send"
+                ),
+            )
+            return message
+
+        if awaiting is not None:
+            message.on_discard = lambda: self._fail_ask(
+                record, "the question was withdrawn unasked", only=awaiting
+            )
+        return thunk
+
+    def _make_reply_watcher(self, record: _ChildRecord) -> Callable[[AgentEvent], Any]:
+        """Resolve a pending question from the child's own prose.
+
+        The child is told to answer with its ``hub`` tool, and that is the
+        precise path. This is the safety net for a model that answers in
+        plain text instead: an assistant message carrying NO tool calls is
+        the child talking rather than working, so it is the answer. A message
+        that requests tools is not — that is mid-thought narration, and
+        treating it as the reply would hand the parent "let me check the
+        logs" as its answer.
+        """
+
+        async def watcher(event: AgentEvent) -> None:
+            # Nested child events never flow through the root Session, but this
+            # shared registry sees every attached child. Notify detail consumers
+            # before ask-specific filtering so mobile history stays fresh.
+            self._notify_detail_change(record.job_id)
+            if not record.armed or record.ask is None or record.ask.done():
+                return
+            if not isinstance(event, MessageEndEvent):
+                return
+            message = event.message
+            if not isinstance(message, Message) or message.role != "assistant":
+                return
+            if message.tool_calls:
+                return
+            text = message.text.strip()
+            if not text:
+                return
+            self._answer_after_journal(record, text)
+            record.armed = False
+            record.ask_message_id = None
+
+        return watcher
+
+    def _to_child_message(
+        self, text: str, *, expects_reply: bool, steer: bool = False
+    ) -> CustomMessage:
+        return CustomMessage(
+            custom_type=HUB_MESSAGE_TYPE,
+            attribution="user",
+            details={
+                "direction": "to_child",
+                "body": text,
+                "expects_reply": expects_reply,
+                "steer": steer,
+                "text": self._format_to_child(text, expects_reply=expects_reply, steer=steer),
+            },
+        )
+
+    @staticmethod
+    def _format_to_child(text: str, *, expects_reply: bool, steer: bool) -> str:
+        # Both the tags and the instruction line come from the module-level
+        # constants that `extract_parent_message` parses against: the inverse
+        # requires an exact preamble match, so an instruction reworded only
+        # here would stop every new envelope extracting.
+        kind = "steer" if steer else ("ask" if expects_reply else "note")
+        instruction = TO_CHILD_INSTRUCTIONS[kind]
+        return f"{PARENT_MESSAGE_TAG}\n{instruction}\n\n{text}\n{PARENT_MESSAGE_CLOSE_TAG}"
+
+    def _answer_after_journal(self, record: _ChildRecord, text: str) -> None:
+        """Publish the reply only after its durable receipt reaches the child.
+
+        The synchronous hub API may enqueue work, but resolving the parent's
+        future is an externally visible acknowledgement. Capture THIS future
+        so a timed-out question cannot complete a newer ask while its disk
+        write is still running. Fake/embedded children without a transcript
+        keep their in-memory delivery contract.
+        """
+        pending = record.ask
+        if pending is None or pending.done():
+            return
+        record.reply_in_flight = pending
+
+        def release() -> None:
+            if record.reply_in_flight is pending:
+                record.reply_in_flight = None
+
+        def committed() -> None:
+            release()
+            if not pending.done():
+                pending.set_result(text)
+
+        def failed(exc: Exception) -> None:
+            release()
+            if not pending.done():
+                pending.set_exception(exc)
+
+        self._journal_communication(
+            record,
+            direction="to_parent",
+            body=text,
+            reply_to=record.ask_message_id,
+            on_durable=committed,
+            on_failure=failed,
+        )
+
+    def _journal_communication(
+        self,
+        record: _ChildRecord,
+        *,
+        direction: str,
+        body: str,
+        communication_id: str | None = None,
+        reply_to: str | None = None,
+        kind: str | None = None,
+        on_durable: Callable[[], None] | None = None,
+        on_failure: Callable[[Exception], None] | None = None,
+    ) -> None:
+        """Append a human-facing communication fact to the child's transcript.
+
+        This is intentionally additive beside the replay-visible hub message.
+        Reusing that row cannot represent replies consumed by ``ask`` (they
+        never enter either model context), while changing it would alter resume
+        semantics. Ordinary notes enqueue a write; replies publish their
+        acknowledgement only through on_durable, after the off-loop fsync.
+        """
+        child = record.child
+        transcript = getattr(child, "_transcript", None) if child is not None else None
+        if transcript is None:
+            if on_durable is not None:
+                on_durable()
+            return
+        details = {
+            "direction": direction,
+            "job_id": record.job_id,
+            "label": record.label,
+            "body": body,
+            "communication_id": communication_id,
+            "reply_to": reply_to,
+            "kind": kind,
+        }
+
+        started = False
+
+        async def persist() -> None:
+            nonlocal started
+            started = True
+            write = asyncio.create_task(
+                transcript.append_custom(HUB_COMMUNICATION_CUSTOM_TYPE, details)
+            )
+            cancelled = False
+            try:
+                # Transcript commits settle before propagating cancellation.
+                # Joining an independently shielded append lets us distinguish
+                # durable success from failure and deliver its acknowledgement
+                # even when parent teardown cancels this background wrapper.
+                while not write.done():
+                    try:
+                        await asyncio.shield(write)
+                    except asyncio.CancelledError:
+                        cancelled = True
+                write.result()
+            except asyncio.CancelledError:
+                if on_failure is not None:
+                    on_failure(RuntimeError("hub reply persistence was cancelled"))
+                raise
+            except Exception as exc:
+                if on_failure is not None:
+                    on_failure(exc)
+                else:
+                    logger.warning("could not journal hub communication", exc_info=True)
+                return
+            if on_durable is not None:
+                on_durable()
+            if cancelled:
+                raise asyncio.CancelledError
+
+        coroutine = persist()
+        try:
+            task = self._session._spawn_background(coroutine)  # type: ignore[attr-defined]
+        except Exception as exc:
+            coroutine.close()
+            if on_failure is not None:
+                on_failure(exc)
+            else:
+                logger.warning("could not schedule hub communication", exc_info=True)
+            return
+        if task is None:
+            coroutine.close()
+            if on_failure is not None:
+                on_failure(RuntimeError("session closed before hub reply could be saved"))
+        elif on_failure is not None:
+
+            def finished(task: asyncio.Task[Any]) -> None:
+                if task.cancelled() and not started:
+                    on_failure(RuntimeError("hub reply persistence was cancelled before starting"))
+
+            task.add_done_callback(finished)
+
+    def _fail_ask(
+        self,
+        record: _ChildRecord,
+        reason: str,
+        *,
+        only: "asyncio.Future[str] | None" = None,
+    ) -> None:
+        """Fail the pending question. ``only`` restricts that to one specific
+        future, so a withdrawn stale question cannot kill the question that
+        replaced it."""
+        pending = record.ask
+        if pending is None or pending.done():
+            return
+        if only is not None and pending is not only:
+            return
+        pending.set_exception(RuntimeError(reason))
+        record.armed = False
+        record.ask_message_id = None
+
+    @staticmethod
+    def _clear_ask(record: _ChildRecord, future: asyncio.Future[str]) -> None:
+        if record.ask is future:
+            record.ask = None
+            record.armed = False
+            record.ask_message_id = None
+        if record.reply_in_flight is future:
+            record.reply_in_flight = None
+
+    @staticmethod
+    def _withdraw_pending(record: _ChildRecord, message: CustomMessage) -> None:
+        """Drop a BUFFERED question nobody is waiting for any more.
+
+        The buffered path's counterpart to ``_thunk``'s ``StaleAside``
+        withdrawal. A question that was never wrapped in a thunk has no
+        ``on_discard`` to fire, so a timed-out ask used to leave its message
+        sitting in ``pending`` indefinitely — and the next flush injected it,
+        let the child answer it, and consumed an answer meant for someone
+        else. Idempotent: the message may already be gone if ``attach``
+        flushed between the timeout and this call.
+        """
+        record.pending_asks.pop(message.id, None)
+        for index, queued in enumerate(record.pending):
+            if queued is message:
+                del record.pending[index]
+                return
+
+    def _evict_overflow(self) -> None:
+        """Drop the least useful records once the map is over the cap.
+
+        Evictable is "no live child and no running job", NOT "detached":
+        a job cancelled while still parked behind the capacity gate never
+        reaches ``attach``/``detach``, so keying on ``settled`` alone left
+        those records permanently unevictable and MAX_RECORDS was not a bound
+        at all. Order is oldest-settled first, with never-started records
+        (``settled_at is None``) going first because they have no transcript
+        and so nothing to resume.
+        """
+        overflow = len(self._records) - MAX_RECORDS
+        if overflow <= 0:
+            return
+        evictable = [
+            record
+            for record in self._records.values()
+            if record.child is None and not self._is_running(record)
+        ]
+        evictable.sort(key=lambda record: (record.settled_at is not None, record.settled_at or 0.0))
+        for record in evictable[:overflow]:
+            del self._records[record.job_id]
+            # Keeps the probe cache bounded by the same cap as the records.
+            if record.session_dir is not None:
+                self._transcript_probes.pop(record.session_dir, None)
+
+
+# ---------------------------------------------------------------------------
+# peek rendering — a bounded, readable view of a child's transcript
+# ---------------------------------------------------------------------------
+
+
+def _resolve_peek_range(
+    total: int,
+    *,
+    start: int | None,
+    end: int | None,
+    steps: int | None,
+) -> tuple[int, int, str | None]:
+    """Turn the caller's range arguments into a clamped ``(lo, hi)`` window.
+
+    Step numbers are 1-based inclusive positions in the child's transcript,
+    stable across calls. The defaults answer the common ask — "the last few
+    steps" — while every explicit bound is checked so a sloppy range becomes a
+    legible error instead of an empty or runaway window.
+    """
+    if steps is not None:
+        if steps < 1:
+            return 0, 0, f"steps must be >= 1, got {steps}"
+        if steps > PEEK_MAX_STEPS:
+            return (
+                0,
+                0,
+                (
+                    f"steps={steps} is too many to peek at once (max {PEEK_MAX_STEPS}); "
+                    "range over the transcript in pages instead"
+                ),
+            )
+        return max(1, total - steps + 1), total, None
+
+    if start is not None and start < 1:
+        return 0, 0, f"start must be >= 1, got {start}"
+    if end is not None and end < 1:
+        return 0, 0, f"end must be >= 1, got {end}"
+    if start is not None and start > total:
+        return 0, 0, (f"nothing at step {start}: the transcript has {total} step(s) right now")
+    if end is not None and start is not None and end < start:
+        return 0, 0, f"end must be >= start, got {start}-{end}"
+
+    if start is None and end is None:
+        return max(1, total - PEEK_DEFAULT_STEPS + 1), total, None
+    if end is not None and start is None:  # end only: a window ending there
+        # Clamp BEFORE deriving lo: an end past the transcript (a public
+        # caller can pass one; the hub tool's parser cannot) would otherwise
+        # yield lo > hi and an empty window instead of the last steps.
+        end = min(end, total)
+        return max(1, end - PEEK_DEFAULT_STEPS + 1), end, None
+    if start is not None and end is None:  # start only: default-sized window
+        return start, min(start + PEEK_DEFAULT_STEPS - 1, total), None
+    if start is not None and end is not None:
+        lo, hi = start, min(end, total)
+    else:  # unreachable; keeps the checker honest
+        lo, hi = 1, total
+    # The cap applies to EXPLICIT ranges as well as steps=: the docstring
+    # promises a hard ceiling "whatever the caller asks for", and a
+    # range='1-1000' against a long transcript would otherwise inject ~600k
+    # characters through the one op that exists to bound context. Keep the
+    # HEAD of the requested window — the caller asked to start there, and the
+    # renderer's continuation hint pages them forward from the clamp point
+    # (review round 1, major).
+    return lo, min(hi, lo + PEEK_MAX_STEPS - 1), None
+
+
+def _clip(text: str, limit: int = PEEK_STEP_CHARS) -> str:
+    """Hold one step's body inside the budget, keeping head AND tail.
+
+    The head says what was asked or run; the tail says how it ended. A plain
+    head-truncation would leave every long ``bash`` result reading "exit
+    code: 0" with the interesting middle gone, and a head-only view of a
+    review verdict would show the preamble and hide the verdict.
+    """
+    text = text.strip()
+    if len(text) <= limit:
+        return text
+    head = limit * 2 // 3
+    tail = limit - head
+    return text[:head] + f"\n[… {len(text) - limit} chars elided …]\n" + text[-tail:]
+
+
+def _blocks_text(blocks: Any) -> str:
+    """The readable text of a message's content blocks; images become a marker.
+
+    Image blocks appear in three shapes depending on where the media lives:
+    inline (``data``), externalized to the attachment store (``attachment``
+    digest — the shape a fresh reader of a large-image transcript sees), and
+    the typed ``ImageContent`` object. All three render as a marker; peek
+    never resolves the bytes.
+    """
+    parts: list[str] = []
+    for block in blocks or []:
+        if isinstance(block, dict):
+            if "text" in block:
+                parts.append(str(block["text"]))
+            elif "data" in block or "attachment" in block or block.get("type") == "image":
+                parts.append("[image]")
+        elif hasattr(block, "text"):
+            parts.append(block.text)
+    return "\n".join(part for part in parts if part)
+
+
+def _call_line(call: Any) -> str:
+    """One tool call as a single readable line: name, intent, key arguments."""
+    if isinstance(call, dict):
+        name = str(call.get("name", "?"))
+        args = call.get("arguments") or {}
+    else:
+        name = call.name
+        args = call.arguments or {}
+    if not isinstance(args, dict):
+        args = {}
+    intent = str(args.get("i") or "").strip()
+    head = f"{name}" + (f" — {intent}" if intent else "")
+    # The ONE argument that says what the call touches; enough to follow the
+    # child's trail without re-reading its arguments.
+    for key in ("path", "command", "pattern", "url", "query", "label", "prompt"):
+        value = args.get(key)
+        if isinstance(value, str) and value.strip():
+            one = " ".join(value.split())
+            return f"{head}: {key}={one[:120]}"
+    return head
+
+
+def _render_transcript_steps(entries: list[Any]) -> list[PeekStep]:
+    """Render transcript entries as numbered peek steps.
+
+    Only LLM-visible rows become steps — compaction markers and host
+    bookkeeping (wake schedules, checkpoints) are invisible to the child's
+    reasoning and would only spend the parent's context saying nothing. A
+    hub message renders by its direction so a parent reading its own child
+    sees the conversation, not raw JSON.
+    """
+    steps: list[PeekStep] = []
+    index = 0
+    for entry in entries:
+        payload = entry.payload or {}
+        if entry.type == "message":
+            index += 1
+            steps.append(_render_message_step(index, payload))
+        # compaction + custom bookkeeping: deliberately not a step.
+    return steps
+
+
+def _render_message_step(index: int, payload: dict[str, Any]) -> PeekStep:
+    if payload.get("kind") == "custom":
+        return _render_custom_step(index, payload)
+    role = str(payload.get("role", "user"))
+    if role == "assistant":
+        calls = payload.get("tool_calls") or []
+        heading = "assistant" + (
+            f" calls {', '.join(str(c.get('name')) for c in calls)}" if calls else ""
+        )
+        body = _blocks_text(payload.get("content"))
+        if calls and not body:
+            body = "\n".join(_call_line(c) for c in calls)
+        elif calls:
+            body = body + "\n" + "\n".join(_call_line(c) for c in calls)
+        return PeekStep(index, "assistant", heading, _clip(body))
+    if role == "tool":
+        name = str(payload.get("tool_name") or "tool")
+        err = " (error)" if payload.get("is_error") else ""
+        return PeekStep(
+            index, "tool", f"{name} result{err}", _clip(_blocks_text(payload.get("content")))
+        )
+    return PeekStep(index, "user", "user", _clip(_blocks_text(payload.get("content"))))
+
+
+def _render_custom_step(index: int, payload: dict[str, Any]) -> PeekStep:
+    details = payload.get("details") or {}
+    custom_type = str(payload.get("custom_type", "custom"))
+    if custom_type == HUB_MESSAGE_TYPE:
+        direction = details.get("direction")
+        body = str(details.get("body") or details.get("text") or "")
+        if direction == "to_child":
+            sense = "question" if details.get("expects_reply") else "note"
+            return PeekStep(index, "hub", f"parent → child ({sense})", _clip(body))
+        if direction == "to_parent":
+            return PeekStep(index, "hub", "child → parent", _clip(body))
+        return PeekStep(index, "hub", "hub message", _clip(body))
+    if custom_type == "compaction_summary":
+        return PeekStep(index, "system", "compaction", _clip(str(details.get("summary", ""))))
+    if custom_type == PEER_MESSAGE_MESSAGE_TYPE:
+        # A parent peeking a child that received a `lop send` message sees who
+        # reached in, so the peek view stays honest about cross-session traffic.
+        sender = details.get("sender") or {}
+        who = str(sender.get("conversation_name") or sender.get("pid") or "another session")
+        body = str(details.get("body") or details.get("text") or "")
+        return PeekStep(index, "system", f"peer ← {who}", _clip(body))
+    if custom_type == SESSION_CREDENTIAL_REDACTION_MESSAGE_TYPE:
+        # The credential-shape notice, and the one custom row in this view the
+        # operator is meant to READ rather than skim: it lands in a peek far more
+        # often than the MCP notices do, so the raw wire type as a heading is
+        # machine noise exactly where a human phrase matters. The phrase is the
+        # one the live receipt already used (``Session.journal_shape_incident``),
+        # so the peek and the receipt named the same thing the same way.
+        #
+        # PAST TENSE in that sentence is the change (2026-09-27): the operator
+        # ruled the notice false-positive noise — "Remove the operator-facing
+        # information too, it's false positive so it would confuse users" — and no
+        # live session produces a new row of this type any more. This branch stays
+        # because ``hub peek`` serves STORED transcripts, and one written before
+        # that date still carries the rows: without it a parent peeking an old
+        # child would see the raw wire type where it used to read a phrase.
+        return PeekStep(index, "system", "credential masked", _clip(str(details.get("text", ""))))
+    if custom_type == SESSION_BINDING_NOTICE_MESSAGE_TYPE:
+        # The account-change notice (mesh credential binding, slice B). Like the
+        # row above, this is a notice the operator is meant to READ, and the
+        # text is already a rendered sentence — so the peek names what happened
+        # in words rather than printing the wire type over a sentence that
+        # already says it.
+        return PeekStep(index, "system", "account change", _clip(str(details.get("text", ""))))
+    return PeekStep(index, "system", custom_type, _clip(str(details.get("text", ""))))

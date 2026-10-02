@@ -56,7 +56,7 @@ where
         }
         Err(err) => {
             if let Some(diagnostic) =
-                crate::validate::schema_resolution_diagnostic(&err, value.range(), common_rules)
+                crate::validate::schema_resolution_diagnostic(&err, value.span(), common_rules)
             {
                 return Err(vec![diagnostic].into());
             }
@@ -89,7 +89,7 @@ where
                 Err(err) => {
                     if let Some(diagnostic) = crate::validate::schema_resolution_diagnostic(
                         &err,
-                        value.range(),
+                        value.span(),
                         common_rules,
                     ) {
                         return merge_if_result(Err(vec![diagnostic].into()), if_result);
@@ -122,7 +122,7 @@ where
                 Err(err) => {
                     if let Some(diagnostic) = crate::validate::schema_resolution_diagnostic(
                         &err,
-                        value.range(),
+                        value.span(),
                         common_rules,
                     ) {
                         return merge_if_result(Err(vec![diagnostic].into()), if_result);

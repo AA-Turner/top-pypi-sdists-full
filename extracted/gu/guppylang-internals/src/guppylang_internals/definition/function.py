@@ -1,0 +1,486 @@
+import ast
+import inspect
+from collections.abc import Callable, Iterable, Sequence
+from dataclasses import dataclass, field
+from types import FrameType
+from typing import TYPE_CHECKING, Any, override
+
+from hugr import Node, Wire
+from hugr.build.dfg import DefinitionBuilder, OpVar
+from hugr.debug_info import DISubprogram
+from hugr.hugr.node_port import ToNode
+
+from guppylang_internals.ast_util import (
+    AstNode,
+    annotate_location,
+    get_file,
+    parse_source,
+    with_loc,
+    with_type,
+)
+from guppylang_internals.checker.cfg_checker import CheckedCFG
+from guppylang_internals.checker.core import Context, Globals, Place
+from guppylang_internals.checker.errors.generic import ExpectedError
+from guppylang_internals.checker.expr_checker import (
+    check_call,
+    make_global_call,
+    synthesize_call,
+)
+from guppylang_internals.checker.func_checker import (
+    check_global_func_def,
+    check_signature,
+    parse_function_with_docstring,
+)
+from guppylang_internals.compiler.builder import FunctionBuilder
+from guppylang_internals.compiler.core import (
+    CompilerContext,
+    DFContainer,
+)
+from guppylang_internals.compiler.func_compiler import compile_global_func_def
+from guppylang_internals.debug_mode import debug_mode_enabled
+from guppylang_internals.definition.common import (
+    CheckableGenericDef,
+    CompilableDef,
+    ParsableDef,
+    UnknownSourceError,
+    UserProvidedLinkName,
+)
+from guppylang_internals.definition.enum import ParsedEnumDef
+from guppylang_internals.definition.struct import ParsedStructDef
+from guppylang_internals.definition.util import parse_py_class
+from guppylang_internals.definition.value import (
+    CallableDef,
+    CallReturnWires,
+    CompiledCallableDef,
+    CompiledHugrNodeDef,
+)
+from guppylang_internals.engine import DEF_STORE, ENGINE
+from guppylang_internals.error import GuppyError
+from guppylang_internals.metadata.common import (
+    FunctionMetadata,
+    add_metadata,
+)
+from guppylang_internals.span import SourceMap, to_span
+from guppylang_internals.tys import Effect
+from guppylang_internals.tys.arg import ConstArg, TypeArg
+from guppylang_internals.tys.const import ConstValue
+from guppylang_internals.tys.subst import Inst, Subst
+from guppylang_internals.tys.ty import (
+    FunctionType,
+    Type,
+    UnitaryFlags,
+    type_to_row,
+)
+
+if TYPE_CHECKING:
+    from guppylang_internals.definition.declaration import RawFunctionDecl
+    from guppylang_internals.tys.param import Parameter
+
+PyFunc = Callable[..., Any]
+
+
+def default_func_link_name(raw_def: "RawFunctionDef | RawFunctionDecl") -> str:
+    if (parent_ty_id := DEF_STORE.type_member_parents.get(raw_def.id)) is not None:
+        parent = ENGINE.get_parsed(parent_ty_id)
+        if isinstance(parent, ParsedStructDef | ParsedEnumDef):
+            return f"{parent.link_name_prefix}.{raw_def.python_func.__name__}"
+
+    return f"{raw_def.python_func.__module__}.{raw_def.python_func.__qualname__}"
+
+
+def monomorphized_link_name(link_name: str, mono_args: Inst) -> str:
+    """Returns a unique link name for the monomorphized version of a function.
+
+    If the function is not generic, then the original link name is preserved.
+    """
+    if not mono_args:
+        return link_name
+    arg_strings = []
+    for arg in mono_args:
+        match arg:
+            case TypeArg(ty=ty):
+                arg_strings.append(str(ty))
+            case ConstArg(const=ConstValue(value=v)):
+                arg_strings.append(str(v))
+    return f"{link_name}$" + "&".join(arg_strings)
+
+
+@dataclass(frozen=True)
+class RawFunctionDef(ParsableDef, UserProvidedLinkName):
+    """A raw function definition provided by the user.
+
+    The raw definition stores exactly what the user has written (i.e. the AST), without
+    any additional checking or parsing. Furthermore, we store the values of the Python
+    variables in scope at the point of definition.
+
+    Args:
+        id: The unique definition identifier.
+        name: The name of the function.
+        defined_at: The AST node where the function was defined.
+        python_func: The Python function to be defined.
+        link_name: The external name for this function (applied to the Hugr node, and
+            other representations, regardless of whether the function is actually
+            visible for linking)
+    """
+
+    python_func: PyFunc
+
+    description: str = field(default="function", init=False)
+
+    unitary_flags: UnitaryFlags = field(default=UnitaryFlags.NoFlags, kw_only=True)
+
+    # Flags explicitly declared on the `@guppy` decorator. For ordinary functions,
+    # these are the same as `unitary_flags`. A `@guppy.unitary` class may extend
+    # `unitary_flags` with capabilities provided by custom modifier methods, but those
+    # extra capabilities must not impose constraints on the `__call__` body.
+    decorator_unitary_flags: UnitaryFlags | None = field(default=None, kw_only=True)
+
+    # Location of the `@guppy.unitary` decorator when this function is the `__call__`
+    # implementation of a unitary class.
+    # Used for experimental feature checking.
+    unitary_class_at: AstNode | None = field(default=None, kw_only=True)
+
+    # Type parameters of the `@guppy.unitary` class when this function is the `__call__`
+    # implementation or one of custom modified implementations.
+    unitary_class_params: Sequence[ast.type_param] = field(default=(), kw_only=True)
+
+    metadata: FunctionMetadata | None = field(default=None, kw_only=True)
+
+    def set_unitary_class(
+        self,
+        cls: type,
+        defining_frame: FrameType,
+        sources: SourceMap,
+    ) -> ast.ClassDef:
+        """
+        Initialise for this definition the location and the type parameters of the
+        `@guppy.unitary` class
+        """
+        unitary_class_span = parse_py_class(cls, defining_frame, sources)
+        decorator_node = next(
+            (
+                decorator
+                for decorator in unitary_class_span.decorator_list
+                if isinstance(decorator, ast.Attribute) and decorator.attr == "unitary"
+            ),
+            unitary_class_span,
+        )
+
+        # Used as the error span when checking that experimental features are enabled.
+        object.__setattr__(self, "unitary_class_at", decorator_node)
+        object.__setattr__(self, "unitary_class_params", unitary_class_span.type_params)
+
+        return unitary_class_span
+
+    @override
+    def parse(self, globals: Globals, sources: SourceMap) -> "ParsedFunctionDef":
+        """Parses and checks the user-provided signature of the function."""
+        if isinstance(self.python_func, staticmethod):
+            is_static = True
+            py_func = self.python_func.__func__
+        else:
+            is_static = False
+            py_func = self.python_func
+
+        func_ast, docstring = parse_py_func(py_func, sources)
+        func_ast.type_params = [*self.unitary_class_params, *func_ast.type_params]
+        ty = check_signature(
+            func_ast,
+            globals,
+            self.id,
+            unitary_flags=self.unitary_flags,
+            is_static=is_static,
+        )
+        link_name = self._user_set_link_name or default_func_link_name(self)
+
+        return ParsedFunctionDef(
+            self.id,
+            self.name,
+            func_ast,
+            ty,
+            docstring,
+            link_name,
+            is_static=is_static,
+            decorator_unitary_flags=(
+                self.unitary_flags
+                if self.decorator_unitary_flags is None
+                else self.decorator_unitary_flags
+            ),
+            metadata=self.metadata,
+        )
+
+
+@dataclass(frozen=True)
+class ParsedFunctionDef(CheckableGenericDef, CallableDef):
+    """A function definition with parsed and checked signature.
+
+    In particular, this means that we have determined a type for the function and are
+    ready to check the function body.
+
+    Args:
+        id: The unique definition identifier.
+        name: The name of the function.
+        defined_at: The AST node where the function was defined.
+        ty: The type of the function.
+        docstring: The docstring of the function.
+        link_name: The external name for this function (applied to the Hugr node, and
+            other representations, regardless of whether the function is actually
+            visible for linking)
+    """
+
+    defined_at: ast.FunctionDef
+    docstring: str | None
+    link_name: str
+
+    description: str = field(default="function", init=False)
+
+    metadata: FunctionMetadata | None = field(default=None, kw_only=True)
+
+    # Only flags originating from the `@guppy` decorator constrain the function CFG.
+    # `ty.unitary_flags` may additionally contain capabilities supplied by custom
+    # modifier implementations.
+    decorator_unitary_flags: UnitaryFlags = field(
+        default=UnitaryFlags.NoFlags, kw_only=True
+    )
+
+    @property
+    def params(self) -> "Sequence[Parameter]":
+        """Generic parameters of this function."""
+        return self.ty.params
+
+    @override
+    def check(self, type_args: Inst, globals: Globals) -> "CheckedFunctionDef":
+        """Type checks the body of the function."""
+        mono_link_name = monomorphized_link_name(self.link_name, type_args)
+        cfg = check_global_func_def(
+            self.defined_at,
+            self.ty,
+            type_args,
+            globals,
+            mono_link_name,
+            def_id=self.id,
+            decorator_unitary_flags=self.decorator_unitary_flags,
+        )
+        mono_ty = self.ty.instantiate_partial(type_args)
+        return CheckedFunctionDef(
+            self.id,
+            self.name,
+            self.defined_at,
+            mono_ty,
+            self.docstring,
+            mono_link_name,
+            type_args,
+            cfg,
+            is_static=self.is_static,
+            decorator_unitary_flags=self.decorator_unitary_flags,
+            metadata=self.metadata,
+        )
+
+    @override
+    def check_call(
+        self, args: list[ast.expr], ty: Type, node: ast.Call, ctx: Context
+    ) -> tuple[ast.expr, Subst]:
+        """Checks the return type of a function call against a given type."""
+        # Use default implementation from the expression checker
+        args, subst, inst = check_call(self.ty, args, ty, node, ctx, self)
+        node = with_loc(node, make_global_call(self, args, inst))
+        return node, subst
+
+    @override
+    def synthesize_call(
+        self, args: list[ast.expr], node: AstNode, ctx: Context
+    ) -> tuple[ast.expr, Type]:
+        """Synthesizes the return type of a function call."""
+        # Use default implementation from the expression checker
+        args, ty, inst = synthesize_call(self.ty, args, node, ctx, self)
+        node = with_loc(node, make_global_call(self, args, inst))
+        return with_type(ty, node), ty
+
+
+@dataclass(frozen=True)
+class CheckedFunctionDef(ParsedFunctionDef, CompilableDef):
+    """Type checked version of a user-defined function that is ready to be compiled.
+
+    In particular, this means that we have a constructed and type checked a control-flow
+    graph for the function body.
+
+    Args:
+        id: The unique definition identifier.
+        name: The name of the function.
+        defined_at: The AST node where the function was defined.
+        ty: The type of the function.
+        docstring: The docstring of the function.
+        link_name: The external name for this function (applied to the Hugr node, and
+            other representations, regardless of whether the function is actually
+            visible for linking)
+        mono_args: Type arguments used to produce this monomorphization.
+        cfg: The type- and linearity-checked CFG for the function body.
+    """
+
+    mono_args: Inst
+    cfg: CheckedCFG[Place]
+
+    def __post_init__(self) -> None:
+        # We should be monomorphized at this point
+        assert not self.params
+
+    @override
+    def compile_outer(
+        self,
+        module: DefinitionBuilder[OpVar],
+        ctx: "CompilerContext",
+    ) -> "CompiledFunctionDef":
+        """Adds a Hugr `FuncDefn` node for the monomorphized function to the Hugr.
+
+        Note that we don't compile the function body at this point since we don't have
+        nodes for the other compiled functions yet. The body is compiled later in
+        `CompiledFunctionDef.compile_inner()`.
+        """
+        hugr_ty = self.ty.to_hugr_poly(ctx)
+        func_def = module.module_root_builder().define_function(
+            self.link_name,
+            hugr_ty.body.input,
+            hugr_ty.body.output,
+            hugr_ty.params,
+            visibility="Public" if self.id in ctx.exported_defs else "Private",
+        )
+        if debug_mode_enabled():
+            assert self.metadata is not None
+            self.metadata.set_debug_info(make_subprogram_record(self.defined_at, ctx))
+        add_metadata(
+            module.hugr[func_def].metadata,
+            self.metadata,
+        )
+        return CompiledFunctionDef(
+            self.id,
+            self.name,
+            self.defined_at,
+            self.ty,
+            self.docstring,
+            self.link_name,
+            self.mono_args,
+            self.cfg,
+            FunctionBuilder(func_def),
+            is_static=self.is_static,
+            decorator_unitary_flags=self.decorator_unitary_flags,
+            metadata=self.metadata,
+            effects=ctx.effects[(self.id, self.mono_args)],
+        )
+
+
+@dataclass(frozen=True)
+class CompiledFunctionDef(CheckedFunctionDef, CompiledCallableDef, CompiledHugrNodeDef):
+    """A function definition with a corresponding Hugr node.
+
+    Args:
+        id: The unique definition identifier.
+        name: The name of the function.
+        defined_at: The AST node where the function was defined.
+        ty: The type of the function after partial monomorphization.
+        docstring: The docstring of the function.
+        link_name: The external name for this function (applied to the Hugr node, and
+            other representations, regardless of whether the function is actually
+            visible for linking)
+        mono_args: Partial monomorphization of the generic type parameters.
+        cfg: The type- and linearity-checked CFG for the function body.
+        _func_bldr: used to build the function body in `compile_inner`; clients
+                   should use `hugr_node`
+        effects: effects of calling the function, computed after checking
+                but before compilation begins
+    """
+
+    _func_bldr: FunctionBuilder
+    effects: frozenset[Effect]
+
+    @override
+    @property
+    def call_effects(self) -> frozenset[Effect]:
+        return self.effects
+
+    @property
+    def hugr_node(self) -> Node:
+        """The Hugr node this definition was compiled into."""
+        return self._func_bldr.to_node()
+
+    @override
+    def load(self, dfg: DFContainer, ctx: CompilerContext, node: AstNode) -> Wire:
+        """Loads the function as a value into a local Hugr dataflow graph."""
+        return load(dfg, self.hugr_node)
+
+    @override
+    def compile_call(
+        self,
+        args: list[Wire],
+        dfg: DFContainer,
+        ctx: CompilerContext,
+        node: AstNode,
+    ) -> CallReturnWires:
+        """Compiles a call to the function."""
+        return compile_call(
+            args, dfg, self.ty, self.hugr_node, node, effects=self.call_effects
+        )
+
+    @override
+    def compile_inner(self, globals: CompilerContext) -> None:
+        """Compiles the body of the function."""
+        compile_global_func_def(self, self._func_bldr, globals)
+
+
+def load(dfg: DFContainer, func: ToNode) -> Wire:
+    """Loads the function as a value into a local Hugr dataflow graph."""
+    return dfg.builder.load_function(func)
+
+
+def compile_call(
+    args: list[Wire],
+    dfg: DFContainer,
+    ty: FunctionType,
+    func: ToNode,
+    call_ast: AstNode,
+    *,
+    effects: Iterable[Effect],
+) -> CallReturnWires:
+    """Compiles a call to the function."""
+    num_returns = len(type_to_row(ty.output))
+    with dfg.builder.set_ast_context(call_ast):
+        call = dfg.builder.call(func, *args, effects=effects)
+    return CallReturnWires(
+        regular_returns=list(call[:num_returns]),
+        inout_returns=list(call[num_returns:]),
+    )
+
+
+def parse_py_func(f: PyFunc, sources: SourceMap) -> tuple[ast.FunctionDef, str | None]:
+    source_lines, line_offset = inspect.getsourcelines(f)
+    source, func_ast, line_offset = parse_source(source_lines, line_offset)
+    file = inspect.getsourcefile(f)
+    if file is None:
+        raise GuppyError(UnknownSourceError(None, f))
+    sources.add_file(file)
+    annotate_location(func_ast, source, file, line_offset)
+    if not isinstance(func_ast, ast.FunctionDef):
+        raise GuppyError(ExpectedError(func_ast, "a function definition"))
+    return parse_function_with_docstring(func_ast)
+
+
+# Note: Defined here as opposed to in `metadata.debug_info` to avoid circular imports
+# due to using `CompilerContext` (not an issue for `make_location_record`).
+def make_subprogram_record(
+    node: ast.FunctionDef, ctx: CompilerContext, is_decl: bool = False
+) -> DISubprogram:
+    """Create a DISubprogram debug record for `node`, which should be a function
+    definition or declaration."""
+    filename = get_file(node)
+    # If we can't fine a file for a node, we default to 0 which corresponds to the
+    # entrypoint file.
+    file_idx = ctx.metadata_file_table.get_index(filename) if filename else -1
+    if is_decl or not node.body:
+        return DISubprogram(
+            file=file_idx, line_no=to_span(node).start.line, scope_line=None
+        )
+    else:
+        return DISubprogram(
+            file=file_idx,
+            line_no=to_span(node).start.line,
+            scope_line=to_span(node.body[0]).start.line,
+        )

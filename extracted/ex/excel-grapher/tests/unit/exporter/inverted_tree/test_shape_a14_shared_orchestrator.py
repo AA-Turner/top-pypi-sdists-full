@@ -1,0 +1,62 @@
+"""Layer A14 — outputs that share an engine share one orchestrator body."""
+
+from __future__ import annotations
+
+import inspect
+from pathlib import Path
+
+import pytest
+
+from tests.unit.exporter.inverted_tree.helpers import (
+    generate_inverted,
+    input_field_names,
+    invoke_public_compute,
+    load_package,
+)
+from tests.unit.exporter.inverted_tree.test_shape_a1_leaf_closure import (
+    _a1_bindings,
+    _a1_workbook,
+)
+from tests.unit.exporter.inverted_tree.test_shape_a5_constants import (
+    _a5_bindings,
+    _a5_workbook,
+)
+from tests.unit.exporter.inverted_tree.test_shape_a13_identity_flip import (
+    _qcraft_bindings,
+    _qcraft_workbook,
+)
+
+
+def test_shared_engine_emits_one_runner(tmp_path: Path) -> None:
+    model = generate_inverted(_a1_workbook(tmp_path), _a1_bindings())["model.py"]
+    assert model.count("internals.engine_path(") == 1
+    assert model.count("internals.engine_year0(") == 1
+
+
+def test_disjoint_closures_keep_separate_bodies(tmp_path: Path) -> None:
+    pkg = load_package(
+        generate_inverted(_a5_workbook(tmp_path), _a5_bindings()), tmp_path, name="a14_a5"
+    )
+    assert "shock_year" not in input_field_names(pkg, pkg.compute_output_baseline)
+    assert "shock_year" in input_field_names(pkg, pkg.compute_output_shocked)
+    baseline_src = inspect.getsource(pkg.compute_output_baseline)
+    assert "shocked_path" not in baseline_src
+    assert "shock_year" not in baseline_src
+    baseline = invoke_public_compute(pkg, pkg.compute_output_baseline, dict(value=10.0))
+    shocked = invoke_public_compute(pkg, pkg.compute_output_shocked, dict(value=10.0, shock_year=1))
+    assert (baseline[1], baseline[2]) == pytest.approx((10.0, 10.0))
+    assert (shocked[1], shocked[2]) == pytest.approx((11.0, 11.0))
+
+
+def test_identity_flip_outputs_share_one_scan_call(tmp_path: Path) -> None:
+    modules = generate_inverted(_qcraft_workbook(tmp_path), _qcraft_bindings())
+    model = modules["model.py"]
+    assert model.count("internals.scan_") == 1
+    pkg = load_package(modules, tmp_path, name="a14_qc")
+    emp = invoke_public_compute(pkg, pkg.compute_employment_growth, {})
+    prod = invoke_public_compute(pkg, pkg.compute_labour_productivity_growth, {})
+    growth = invoke_public_compute(pkg, pkg.compute_real_gdp_growth, {})
+    years = (2009, 2010, 2011)
+    assert tuple(emp[year] for year in years)
+    assert tuple(prod[year] for year in years)
+    assert tuple(growth[year] for year in years)

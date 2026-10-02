@@ -1,0 +1,764 @@
+#
+# This file is part of pysmi software.
+#
+# Copyright (c) 2015-2020, Ilya Etingof <etingof@gmail.com>
+# License: https://github.com/pysnmp/pysmi/blob/main/LICENSE.rst
+#
+"""A generated module loads under pysnmp and its public API accepts it.
+
+This is the only file that reads a pysmi artifact back off a pysnmp object, and
+it is deliberately thin. It answers one question -- does the module we emit
+still load and work in the consumer it is emitted for -- and it answers no
+question about correctness. Whether the emitted output matches the SMI
+specifications is settled in the ``test_spec_*`` files, against RFC 2578, RFC
+2579, RFC 2580 and RFC 3584, by reading the output itself.
+
+Nothing here may become the oracle for a clause. If a pysnmp release changes an
+accessor, this file goes red and pysmi is not at fault, which is why it is
+marked ``pysnmp_consumer`` and does not gate CI. See pysnmp/pysmi#127.
+"""
+
+import contextlib
+import functools
+import http.server
+import pathlib
+import shutil
+import sys
+import tempfile
+import threading
+import unittest
+
+import pytest
+
+from hatch_build import build as build_precompiled
+from hatch_build import patch_asn1
+from pysmi.codegen import PySnmpCodeGen
+from pysmi.codegen.pysnmp_surface import (
+    BUILDER_MEMBERS,
+    NODE_METHODS,
+    VALUE_METHODS,
+)
+from tests.harness import render_pysnmp
+from tests.test_spec_index import MULTI_MIB
+from tests.test_spec_objecttype import ACCESS_MIB
+from tests.test_standard_corpus import LOAD_ORDER, compiled, documents
+
+pytestmark = pytest.mark.pysnmp_consumer
+
+
+@functools.cache
+def _pysnmp_exports(module, symbol):
+    """Whether the installed pysnmp's own copy of *module* exports *symbol*.
+
+    pysmi declares no pysnmp dependency, so the version under test is whatever
+    the environment happens to carry. A symbol this generator emits an import
+    for may therefore be present or absent, and which it is decides whether a
+    test here is measuring pysmi or measuring the gap.
+    """
+    from pysnmp.smi.builder import MibBuilder
+    from pysnmp.smi.error import SmiError
+
+    try:
+        MibBuilder().importSymbols(module, symbol)
+    except SmiError:
+        return False
+
+    return True
+
+
+#: Symbols this generator emits imports for that a pysnmp base module must
+#: export, each with the change that will supply it.
+#:
+#: Distinct from ``KNOWN_FAILURES`` below, which names modules. A missing base
+#: symbol is reached transitively -- ``LLDP-MIB`` fails on
+#: ``SNMPv2-SMI::NetworkAddress`` because it imports from ``RFC1213-MIB``, not
+#: because it mentions the type -- so which modules fail depends on the corpus
+#: and listing them would be a list to re-derive on every bundle change. The
+#: cause is the durable fact, so the cause is what is recorded.
+#:
+#: ``SNMPv2-SMI::NetworkAddress``: SMIv2 dropped SMIv1's NetworkAddress, so RFC
+#: 2578 does not define it and the copy pysnmp ships does not export it. pysmi
+#: emits the import because the alternative -- resolving the CHOICE to its
+#: single ``IpAddress`` arm -- loses the address-family sub-identifier RFC 1212
+#: section 4.1.6 requires of a NetworkAddress-valued index, which left
+#: ``RFC1213-MIB::atEntry`` mis-indexed. pysnmp/pysnmp#310 exports it.
+BLOCKED_ON_MISSING_SYMBOL = {
+    "SNMPv2-SMI::NetworkAddress": "pysnmp/pysnmp#310",
+}
+
+
+def _blocked_symbols_absent():
+    """The blocked symbols the installed pysnmp genuinely still lacks."""
+    return {
+        marker
+        for marker in BLOCKED_ON_MISSING_SYMBOL
+        if not _pysnmp_exports(*marker.split("::"))
+    }
+
+
+MIB = """
+TEST-MIB DEFINITIONS ::= BEGIN
+IMPORTS
+    MODULE-IDENTITY, OBJECT-IDENTITY, NOTIFICATION-TYPE, OBJECT-TYPE, Integer32
+        FROM SNMPv2-SMI
+    OBJECT-GROUP, NOTIFICATION-GROUP, MODULE-COMPLIANCE, AGENT-CAPABILITIES
+        FROM SNMPv2-CONF
+    TEXTUAL-CONVENTION
+        FROM SNMPv2-TC;
+
+testModule MODULE-IDENTITY
+    LAST-UPDATED "200001100000Z"
+    ORGANIZATION "AgentX Working Group"
+    CONTACT-INFO "WG-email: agentx@example.com"
+    DESCRIPTION  "Module."
+    REVISION     "200001100000Z"
+    DESCRIPTION  "Initial version."
+    ::= { 1 3 }
+
+TestConvention ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT "1x:"
+    STATUS       current
+    DESCRIPTION  "A convention."
+    SYNTAX       OCTET STRING
+
+testIdentity OBJECT-IDENTITY
+    STATUS      current
+    DESCRIPTION "Identity."
+    REFERENCE   "ABC"
+    ::= { testModule 1 }
+
+testScalar OBJECT-TYPE
+    SYNTAX      Integer32 (0..7)
+    UNITS       "seconds"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION "Scalar."
+    DEFVAL      { 3 }
+    ::= { testModule 2 }
+
+testTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF TestEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Table."
+    ::= { testModule 3 }
+
+testEntry OBJECT-TYPE
+    SYNTAX      TestEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Row."
+    INDEX       { testIndex, IMPLIED testName }
+    ::= { testTable 1 }
+
+TestEntry ::= SEQUENCE { testIndex Integer32, testName OCTET STRING }
+
+testIndex OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION "Index column."
+    ::= { testEntry 1 }
+
+testName OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION "Name column."
+    ::= { testEntry 2 }
+
+testNotification NOTIFICATION-TYPE
+    OBJECTS     { testScalar }
+    STATUS      current
+    DESCRIPTION "Notification."
+    ::= { testModule 4 }
+
+testObjectGroup OBJECT-GROUP
+    OBJECTS     { testScalar }
+    STATUS      current
+    DESCRIPTION "Object group."
+    REFERENCE   "RFC 2580 Section 3"
+    ::= { testModule 5 }
+
+testNotificationGroup NOTIFICATION-GROUP
+    NOTIFICATIONS { testNotification }
+    STATUS        current
+    DESCRIPTION   "Notification group."
+    REFERENCE     "RFC 2580 Section 4"
+    ::= { testModule 6 }
+
+testCompliance MODULE-COMPLIANCE
+    STATUS      current
+    DESCRIPTION "Compliance."
+    REFERENCE   "RFC 2580 Section 5"
+    MODULE
+        MANDATORY-GROUPS { testObjectGroup }
+    ::= { testModule 7 }
+
+testCapability AGENT-CAPABILITIES
+    PRODUCT-RELEASE "Release."
+    STATUS          current
+    DESCRIPTION     "Capabilities."
+    SUPPORTS        TEST-MIB
+    INCLUDES        { testObjectGroup }
+    ::= { testModule 8 }
+
+END
+"""
+
+#: Every construct the pysnmp backend emits, and the class pysnmp builds for it.
+CONSTRUCTS = (
+    ("testModule", "ModuleIdentity"),
+    ("testIdentity", "ObjectIdentity"),
+    ("testScalar", "MibScalar"),
+    ("testTable", "MibTable"),
+    ("testEntry", "MibTableRow"),
+    ("testIndex", "MibTableColumn"),
+    ("testNotification", "NotificationType"),
+    ("testObjectGroup", "ObjectGroup"),
+    ("testNotificationGroup", "NotificationGroup"),
+    ("testCompliance", "ModuleCompliance"),
+    ("testCapability", "AgentCapabilities"),
+)
+
+
+class LoadTestCase(unittest.TestCase):
+    """The generated module executes against a MibBuilder."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.ctx = render_pysnmp(MIB)
+
+    def testEveryConstructBuildsItsObject(self):
+        for symbol, klass in CONSTRUCTS:
+            with self.subTest(symbol=symbol):
+                self.assertIn(symbol, self.ctx)
+                self.assertEqual(self.ctx[symbol].__class__.__name__, klass)
+
+    def testATextualConventionBuildsItsClass(self):
+        self.assertEqual(self.ctx["TestConvention"]().getDisplayHint(), "1x:")
+
+    def testTheModuleAlsoLoadsWithoutTexts(self):
+        # The narrative setters are emitted behind a guard, so a module built
+        # without them has to remain loadable.
+        ctx = render_pysnmp(MIB, genTexts=False)
+        for symbol, _ in CONSTRUCTS:
+            with self.subTest(symbol=symbol):
+                self.assertIn(symbol, ctx)
+
+
+class PublicApiTestCase(unittest.TestCase):
+    """pysnmp's accessors return what the module was built with."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.ctx = render_pysnmp(MIB)
+
+    def testAnObjectKnowsItsName(self):
+        self.assertEqual(self.ctx["testScalar"].getName(), (1, 3, 2))
+
+    def testAScalarCarriesItsSyntaxAndDefault(self):
+        self.assertEqual(self.ctx["testScalar"].getSyntax(), 3)
+        self.assertEqual(self.ctx["testScalar"].getUnits(), "seconds")
+
+    def testARowKnowsItsIndexColumns(self):
+        self.assertEqual(
+            self.ctx["testEntry"].getIndexNames(),
+            ((0, "TEST-MIB", "testIndex"), (1, "TEST-MIB", "testName")),
+        )
+
+    def testTheRowEncodesAnInstanceIdentifier(self):
+        # The encoding itself belongs to pysnmp; that it agrees with the
+        # section 7.7 model in test_spec_index is what this checks.
+        self.assertEqual(
+            self.ctx["testEntry"].getInstIdFromIndices(7, b"ab"), (7, 97, 98)
+        )
+
+    def testANotificationKnowsItsObjects(self):
+        self.assertEqual(
+            self.ctx["testNotification"].getObjects(), (("TEST-MIB", "testScalar"),)
+        )
+
+    def testTheModuleIdentityCarriesItsRevisions(self):
+        self.assertEqual(self.ctx["testModule"].getRevisions(), ("2000-01-10 00:00",))
+
+    def testAGroupLargerThanOneSetObjectsCallKeepsEveryObject(self):
+        # setObjects() takes 255 arguments, so a larger group is emitted as a
+        # loop over batches. The generated code used to choose between
+        # appending and replacing by reading mibBuilder.version, and the
+        # replacing branch -- taken on anything older than pysnmp 4.4.2 --
+        # kept only the last batch. It carried a comment saying so. Loader
+        # contract v1 states the append, so there is one path; this reads the
+        # result back off the loaded object rather than off the source.
+        from tests.test_emitted_source import _many_objects_mib
+
+        ctx = render_pysnmp(_many_objects_mib(260))
+        objects = ctx["testGroup"].getObjects()
+
+        self.assertEqual(len(objects), 260)
+        self.assertEqual(objects[0], ("TEST-MIB", "testObject0"))
+        self.assertEqual(objects[-1], ("TEST-MIB", "testObject259"))
+
+    def testTheConformanceClassesCarryTheirReference(self):
+        # The generator suppressed setReference() for these three, so the text
+        # reached the JSON document and nothing else. pysnmp gained the setters
+        # in pysnmp/pysnmp#133; this reads the value back off the loaded object,
+        # which is the half a source assertion cannot cover. See
+        # pysnmp/pysmi#194.
+        for symbol, reference in (
+            ("testObjectGroup", "RFC 2580 Section 3"),
+            ("testNotificationGroup", "RFC 2580 Section 4"),
+            ("testCompliance", "RFC 2580 Section 5"),
+        ):
+            with self.subTest(symbol=symbol):
+                self.assertEqual(self.ctx[symbol].getReference(), reference)
+
+
+class MaxAccessTestCase(unittest.TestCase):
+    """The access a module declares survives being loaded.
+
+    This reads back an accessor whose value pysmi wrote, so it only says pysnmp
+    kept what it was handed. What the emitted call has to be is settled against
+    RFC 2578 section 7.3 in test_spec_objecttype. It is worth reading back all
+    the same: pysnmp defaults MibScalar and MibTableColumn to "readonly" and
+    MibTable and MibTableRow to "not-accessible", and none of those is spelled
+    "notaccessible", so dropping the call again shows up here too rather than
+    reading back as its own default. See pysnmp/pysmi#128.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.scalars = render_pysnmp(ACCESS_MIB)
+        cls.table = render_pysnmp(MULTI_MIB % "")
+
+    def testAScalarKeepsEveryValueOfSection73(self):
+        for symbol, access in (
+            ("testNotAccessible", "notaccessible"),
+            ("testForNotify", "accessiblefornotify"),
+            ("testReadOnly", "readonly"),
+            ("testReadWrite", "readwrite"),
+            ("testReadCreate", "readcreate"),
+        ):
+            with self.subTest(symbol=symbol):
+                self.assertEqual(self.scalars[symbol].getMaxAccess(), access)
+
+    def testEveryClassBehindATableKeepsNotAccessible(self):
+        for symbol in ("testTable", "testEntry", "testInt", "testStr"):
+            with self.subTest(symbol=symbol):
+                self.assertEqual(self.table[symbol].getMaxAccess(), "notaccessible")
+
+
+class CorpusLoadTestCase(unittest.TestCase):
+    """The real-MIB corpus loads into one builder.
+
+    A missing guard, or a call pysnmp does not implement, leaves source that
+    compiles and then fails at load. Only running it finds that. The corpus
+    fixtures live in tests/test_standard_corpus.py, which asserts on the
+    documents and the sources themselves.
+    """
+
+    def setUp(self):
+        """Stand down while a base symbol the corpus needs is missing.
+
+        The corpus carries SMIv1 modules, so a symbol in
+        ``BLOCKED_ON_MISSING_SYMBOL`` takes this whole fixture down and the
+        result says nothing about whether the generated modules load. Checked
+        here rather than as a decorator so that importing this file does not
+        require pysnmp -- collection under ``-m "not pysnmp_consumer"`` must
+        still work.
+        """
+        blocked = _blocked_symbols_absent()
+        if blocked:
+            self.skipTest(
+                "the installed pysnmp does not export "
+                + ", ".join(sorted(blocked))
+                + " (supplied by "
+                + ", ".join(sorted(set(BLOCKED_ON_MISSING_SYMBOL.values())))
+                + ")"
+            )
+
+    def testEveryGeneratedModuleLoadsIntoOneBuilder(self):
+        from pysnmp.smi.builder import MibBuilder
+
+        _, written = compiled(PySnmpCodeGen)
+
+        mibBuilder = MibBuilder()
+        mibBuilder.loadTexts = True
+        ctx = {"mibBuilder": mibBuilder}
+
+        for name in LOAD_ORDER:
+            with self.subTest(module=name):
+                exec(compile(written[name], name, "exec"), ctx, ctx)
+
+    def testTheLoadedSymbolsCarryTheOidsTheJsonDocumentReports(self):
+        from pysnmp.smi.builder import MibBuilder
+
+        _, written = compiled(PySnmpCodeGen)
+        docs = documents()
+
+        mibBuilder = MibBuilder()
+        mibBuilder.loadTexts = True
+        ctx = {"mibBuilder": mibBuilder}
+        for name in LOAD_ORDER:
+            exec(compile(written[name], name, "exec"), ctx, ctx)
+
+        compared = 0
+        for name in LOAD_ORDER:
+            for symbol, node in docs[name].items():
+                if not isinstance(node, dict) or "oid" not in node:
+                    continue
+                built = ctx.get(symbol)
+                if built is None or not hasattr(built, "getName"):
+                    continue
+                with self.subTest(module=name, symbol=symbol):
+                    self.assertEqual(
+                        ".".join(str(x) for x in built.getName()), node["oid"]
+                    )
+                compared += 1
+
+        self.assertGreater(compared, 200)
+
+
+class PrecompiledBundleTestCase(unittest.TestCase):
+    """The modules a wheel carries in ``pysmi/mibs/pysnmp`` load as they are.
+
+    That is the whole point of generating them: a consumer adds the package as
+    a MIB source and loads a standard module without running the compiler.
+    A wheel is not built here, so the hook's generator is called directly and
+    its output read as a directory rather than as ``pysmi.mibs.pysnmp``.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        root = pathlib.Path(__file__).parent.parent
+        cls.asn1 = patch_asn1(root)
+        cls.out = build_precompiled(root, cls.asn1)
+
+        from pysnmp.smi import builder
+
+        cls.mibBuilder = builder.MibBuilder()
+        cls.mibBuilder.addMibSources(builder.DirMibSource(str(cls.out)))
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.out, ignore_errors=True)
+
+    def testAStandardModuleLoadsWithoutBeingCompiledFirst(self):
+        self.mibBuilder.loadModules("IF-MIB")
+
+        (ifDescr,) = self.mibBuilder.importSymbols("IF-MIB", "ifDescr")
+
+        self.assertEqual((1, 3, 6, 1, 2, 1, 2, 2, 1, 2), tuple(ifDescr.name))
+
+    def testAModuleLoadsTheDependenciesItImports(self):
+        self.mibBuilder.loadModules("ENTITY-MIB")
+
+        (entPhysicalDescr,) = self.mibBuilder.importSymbols(
+            "ENTITY-MIB", "entPhysicalDescr"
+        )
+
+        self.assertEqual(
+            (1, 3, 6, 1, 2, 1, 47, 1, 1, 1, 1, 2), tuple(entPhysicalDescr.name)
+        )
+
+
+class PrecompiledBundleLoadsTestCase(unittest.TestCase):
+    """Every module the wheel carries loads, with ours registered first.
+
+    ``PrecompiledBundleTestCase`` loads two modules through ``addMibSources``,
+    which *appends*: pysnmp's own copies are searched first, so a broken module
+    of ours is shadowed rather than exercised. Both limits matter. Registering
+    the package ahead of pysnmp's is the configuration pysnmp/pysnmp#198 needs,
+    and it is what surfaced pysnmp/pysmi#196 in the first place -- with the
+    package first, 19 of 19 modules failed, because everything depends
+    transitively on ``SNMPv2-CONF``.
+
+    pysnmp's own copies stay registered behind ours, as the fallback for the
+    three modules we deliberately do not emit.
+
+    ``loadModules`` is not on its own a loadability check: it catches
+    ``MibNotFoundError`` and, with no compiler attached, swallows it, so a
+    module that was never found reports success. Exported symbols are checked
+    too.
+
+    The hand-written runtime behavior of pysnmp/pysmi#231 is asserted here
+    rather than in a fixture of its own, because it needs exactly this
+    configuration -- ours ahead of pysnmp's, so what answers is the module we
+    generated and not the hand-edited copy pysnmp ships -- and building a
+    second bundle to get it would double the slowest fixture in the suite.
+    ``tests/test_behavior.py`` settles that a fragment reaches the module it
+    names; what is settled here is what it then does.
+    """
+
+    #: Empty by construction. An SMIv1 dialect shim with no definitions of its
+    #: own (pysnmp/pysmi#186), so exporting nothing is correct for it.
+    EMPTY_BY_DESIGN = frozenset(("SNMPv2-CONF-v1",))
+
+    #: Modules that do not load, with the reason. Neither cause is this
+    #: generator's, and neither is fixable here, so they are recorded rather
+    #: than hidden -- a fix flips a test.
+    #:
+    #: ``RFC-1212`` and ``RFC-1215`` raise ``No symbol SNMPv2-SMI::ObjectName``.
+    #: ``SNMPv2-SMI``'s ASN.1 defines ``ObjectName``, but the copy pysnmp ships
+    #: does not export it, and ``SNMPv2-SMI`` is one of the three we cannot
+    #: generate, so nothing else can supply it. Blocked on pysnmp/pysnmp#198 --
+    #: the same shape as the ``RFC1158-MIB::DisplayString`` gap recorded in
+    #: pysnmp/mibs#370.
+    #:
+    #: ``RFC1353-MIB`` raises ``No symbol RFC1155-SMI::mib``. RFC 1353 names
+    #: ``mib``, RFC 1155's ``{ mgmt 1 }``, which RFC 1213 superseded with
+    #: ``mib-2``; the RFC1155-SMI pysnmp ships exports the latter and not the
+    #: former. The same shape as the two above -- a symbol missing from a base
+    #: module pysnmp supplies, which nothing on this side can add.
+    KNOWN_FAILURES = {
+        "RFC-1212": "SNMPv2-SMI::ObjectName",
+        "RFC-1215": "SNMPv2-SMI::ObjectName",
+        "RFC1353-MIB": "RFC1155-SMI::mib",
+    }
+
+    @classmethod
+    def setUpClass(cls):
+        from pysnmp.smi import builder
+
+        root = pathlib.Path(__file__).parent.parent
+        cls.asn1 = patch_asn1(root)
+        cls.out = build_precompiled(root, cls.asn1)
+        cls.modules = sorted(
+            path.stem for path in cls.out.glob("*.py") if not path.name.startswith("__")
+        )
+
+        cls.mibBuilder = builder.MibBuilder()
+        cls.mibBuilder.setMibSources(
+            builder.DirMibSource(str(cls.out)), *cls.mibBuilder.getMibSources()
+        )
+
+        cls.errors = {}
+        for name in cls.modules:
+            try:
+                cls.mibBuilder.loadModules(name)
+            except Exception as exc:  # noqa: BLE001 -- the failure is the finding
+                cls.errors[name] = str(exc)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.out, ignore_errors=True)
+
+    def testTheBundleIsNotEmpty(self):
+        """A build that emitted nothing would pass every other check here."""
+        self.assertGreater(len(self.modules), 200)
+
+    def testEveryModuleLoadsExceptTheKnownFailures(self):
+        blocked = _blocked_symbols_absent()
+        unexplained = {
+            name: error
+            for name, error in self.errors.items()
+            if name not in self.KNOWN_FAILURES
+            and not any(marker in error for marker in blocked)
+        }
+
+        self.assertEqual({}, unexplained)
+
+    def testEveryKnownFailureStillFails(self):
+        """The per-module record does not outlive the thing it records.
+
+        ``KNOWN_FAILURES`` is asserted in both directions -- a module that
+        starts loading has to be taken out of it. The blocked-symbol set is not
+        asserted this way, because which modules a missing base symbol takes
+        down is a property of the corpus rather than of pysnmp.
+        """
+        self.assertEqual(
+            sorted(self.KNOWN_FAILURES),
+            sorted(set(self.KNOWN_FAILURES) & set(self.errors)),
+        )
+
+    def testABlockedSymbolIsStillMissingFromPysnmp(self):
+        """A supplied symbol has to be taken out of the blocked set.
+
+        This is what stops ``BLOCKED_ON_MISSING_SYMBOL`` becoming a place
+        failures go to be forgotten: the entry only holds while the installed
+        pysnmp really does lack the symbol. The release that supplies one turns
+        this red, and the fix is to delete the entry -- after which any module
+        still failing on it is unexplained and fails the test above.
+        """
+        supplied = {
+            marker: fix
+            for marker, fix in BLOCKED_ON_MISSING_SYMBOL.items()
+            if _pysnmp_exports(*marker.split("::"))
+        }
+
+        self.assertEqual({}, supplied)
+
+    def testTheKnownFailuresStillFailForTheSameReason(self):
+        """A changed reason means the diagnosis above is stale.
+
+        And a module that starts loading fails here too, which is the point:
+        pysnmp/pysnmp#198 and pysnmp/pysmi#199 each flip one of these.
+        """
+        for name, marker in sorted(self.KNOWN_FAILURES.items()):
+            with self.subTest(module=name):
+                self.assertIn(marker, self.errors[name])
+
+    def testEveryLoadedModuleExportedSymbols(self):
+        """Because loadModules reports success for a module it never found."""
+        silent = sorted(
+            name
+            for name in self.modules
+            if name not in self.errors
+            and name not in self.EMPTY_BY_DESIGN
+            and not self.mibBuilder.mibSymbols.get(name)
+        )
+
+        self.assertEqual([], silent)
+
+
+class DeclaredSurfaceTestCase(unittest.TestCase):
+    """Every member pysmi emits a call to still exists upstream.
+
+    :py:mod:`pysmi.codegen.pysnmp_surface` states what the generated source
+    calls, and :py:mod:`tests.test_pysnmp_surface` holds that statement to the
+    generator without importing pysnmp. This is the other half: it resolves the
+    same names against the installed pysnmp, so a member removed upstream is
+    named here rather than surfacing as an AttributeError somewhere inside a
+    generated module hundreds of lines long.
+
+    A failure is not a pysmi defect, which is why this file does not gate. It
+    is the notice that the contract moved. pysnmp/pysnmp#133 added
+    ``setReference`` to the conformance classes and pysmi had been dropping
+    REFERENCE text from three macros for want of it; the reverse, a removal,
+    had no notice at all before this.
+    """
+
+    #: The base modules a declared class may be bound from. pysnmp implements
+    #: each of these in Python rather than compiling it from ASN.1.
+    BASE_MODULES = ("SNMPv2-SMI", "SNMPv2-CONF", "SNMPv2-TC", "ASN1")
+
+    @classmethod
+    def setUpClass(cls):
+        from pysnmp.smi.builder import MibBuilder
+        from pysnmp.smi.error import SmiError
+
+        cls.mibBuilder = MibBuilder()
+        cls.notFound = SmiError
+
+    def resolve(self, name):
+        """The class *name* is bound to, from whichever base module has it."""
+        for module in self.BASE_MODULES:
+            try:
+                return self.mibBuilder.importSymbols(module, name)[0]
+            except self.notFound:
+                continue
+        self.fail(f"{name} is in no pysnmp base module: {self.BASE_MODULES}")
+
+    def testTheBuilderStillHasTheMembersWeCall(self):
+        for name in sorted(BUILDER_MEMBERS):
+            with self.subTest(member=name):
+                self.assertTrue(
+                    hasattr(self.mibBuilder, name),
+                    f"MibBuilder.{name} is gone; pysmi emits it in every module",
+                )
+
+    def testEveryNodeClassStillCarriesTheCallsWeMakeOnIt(self):
+        for method, receivers in sorted(NODE_METHODS.items()):
+            for receiver in receivers:
+                with self.subTest(method=method, receiver=receiver):
+                    self.assertTrue(
+                        hasattr(self.resolve(receiver), method),
+                        f"{receiver}.{method}() is gone; pysmi emits it",
+                    )
+
+    def testTheBaseTypesStillCarryTheValueCalls(self):
+        # Which type carries a value is the MIB's choice, so each of these
+        # names the base types the call has to work on rather than a node
+        # class: setFixedLength reaches only a string, the other two any syntax.
+        for method, receivers in sorted(VALUE_METHODS.items()):
+            for receiver in receivers:
+                with self.subTest(method=method, receiver=receiver):
+                    self.assertTrue(
+                        hasattr(self.resolve(receiver), method),
+                        f"{receiver}.{method}() is gone; pysmi emits it",
+                    )
+
+
+class EmittedAsn1TreeTestCase(unittest.TestCase):
+    """The tree ``--emit=asn1`` writes is compilable by the runtime it is for.
+
+    splunk-connect-for-snmp points ``addMibCompiler()`` at
+    ``https://.../asn1/@mib@`` and compiles ASN.1 per MIB on demand, so the
+    names in that tree are a live contract. ``tests/test_corpus_asn1_contract``
+    pins their shape without pysnmp; this runs the substitution, offline,
+    against a tree pysmi just emitted.
+
+    A file named for its source rather than its module, or one carrying an
+    extension, fails here as a module that cannot be found -- which is what
+    the production path sees as a 404.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        from tests.test_corpus_asn1_contract import _build, sources
+
+        cls.root = pathlib.Path(tempfile.mkdtemp())
+        base, vendor = sources(str(cls.root))
+        cls.tree = pathlib.Path(_build(str(cls.root), base, vendor)) / "asn1"
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.root, ignore_errors=True)
+
+    def testAModuleCompilesWithTheTreeAsItsOnlySource(self):
+        from pysnmp.smi.builder import MibBuilder
+        from pysnmp.smi.compiler import addMibCompiler
+
+        mibBuilder = MibBuilder()
+        destination = self.root / "pysnmp-mibs"
+
+        # Served rather than read off disk, because that is what makes the
+        # names the contract: a file source retries a module name against
+        # every extension and case pysmi knows, so it would resolve a tree
+        # that is misnamed. One URL per module, substituted, does not.
+        with _serving(self.tree) as base:
+            addMibCompiler(
+                mibBuilder,
+                sources=[f"{base}/@mib@"],
+                destination=str(destination),
+            )
+
+            # VENDOR-A-MIB takes its syntax from TEST-TC-MIB, which is in the
+            # tree under its SMI name and not under the name of the file it
+            # was read from. Loading it resolves that import through the
+            # template and nowhere else.
+            mibBuilder.loadModules("VENDOR-A-MIB")
+
+        (node,) = mibBuilder.importSymbols("VENDOR-A-MIB", "vendorAName")
+
+        self.assertEqual((1, 3, 6, 1, 4, 1, 40001, 1), tuple(node.getName()))
+        self.assertEqual("255a", node.getSyntax().getDisplayHint())
+
+
+@contextlib.contextmanager
+def _serving(directory):
+    """Serve *directory* on loopback, yielding its base URL.
+
+    The production path is an HTTP source with ``@mib@`` in it. Nothing
+    leaves the machine: the server binds 127.0.0.1 on a port the OS picks.
+    """
+    handler = functools.partial(
+        http.server.SimpleHTTPRequestHandler, directory=str(directory)
+    )
+    httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+
+    try:
+        yield f"http://127.0.0.1:{httpd.server_address[1]}"
+
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        thread.join(timeout=5)
+
+
+suite = unittest.TestLoader().loadTestsFromModule(sys.modules[__name__])
+
+if __name__ == "__main__":
+    unittest.TextTestRunner(verbosity=2).run(suite)

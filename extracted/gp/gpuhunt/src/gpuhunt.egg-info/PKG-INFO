@@ -1,0 +1,126 @@
+Metadata-Version: 2.4
+Name: gpuhunt
+Version: 0.1.32
+Summary: A catalog of GPU pricing for different cloud providers
+Author: dstack GmbH
+Project-URL: GitHub, https://github.com/dstackai/gpuhunt
+Project-URL: Issues, https://github.com/dstackai/gpuhunt/issues
+Keywords: gpu,cloud,pricing
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: requests
+Requires-Dist: typing-extensions
+Provides-Extra: aws
+Requires-Dist: boto3; extra == "aws"
+Provides-Extra: azure
+Requires-Dist: azure-mgmt-compute; extra == "azure"
+Requires-Dist: azure-identity; extra == "azure"
+Provides-Extra: gcp
+Requires-Dist: google-cloud-billing; extra == "gcp"
+Requires-Dist: google-cloud-compute; extra == "gcp"
+Requires-Dist: google-cloud-tpu; extra == "gcp"
+Provides-Extra: nebius
+Requires-Dist: nebius<0.4,>=0.3.20; extra == "nebius"
+Provides-Extra: oci
+Requires-Dist: oci; extra == "oci"
+Requires-Dist: pydantic>=2.0.0; extra == "oci"
+Provides-Extra: verda
+Requires-Dist: verda>=1.22.0; extra == "verda"
+Provides-Extra: all
+Requires-Dist: gpuhunt[aws,azure,gcp,nebius,oci,verda]; extra == "all"
+Provides-Extra: dev
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: pytest~=7.0; extra == "dev"
+Requires-Dist: pytest-mock; extra == "dev"
+Requires-Dist: pyright==1.1.403; extra == "dev"
+Requires-Dist: ruff==0.5.3; extra == "dev"
+Requires-Dist: requests-mock; extra == "dev"
+Dynamic: license-file
+
+[![](https://img.shields.io/pypi/v/gpuhunt)](https://pypi.org/project/gpuhunt/)
+
+Easy access to GPU pricing data for major cloud providers: AWS, Azure, GCP, etc.
+The catalog includes details about prices, locations, CPUs, RAM, GPUs, and spots (interruptible instances).
+
+## Usage
+
+```python
+import gpuhunt
+
+items = gpuhunt.query(
+    min_memory=16,
+    min_cpu=8,
+    min_gpu_count=1,
+    max_price=1.0,
+)
+
+print(*items, sep="\n")
+```
+
+List of all available filters:
+
+* `provider`: name of the provider to filter by. If not specified, all providers will be used. One or many
+* `cpu_arch`: CPU architecture, one of: `x86`, `arm`
+* `min_cpu`: minimum number of CPUs
+* `max_cpu`: maximum number of CPUs
+* `min_memory`: minimum amount of RAM in GB
+* `max_memory`: maximum amount of RAM in GB
+* `min_gpu_count`: minimum number of GPUs
+* `max_gpu_count`: maximum number of GPUs
+* `gpu_vendor`: GPU/accelerator vendor, one of: `nvidia`, `amd`, `google`, `intel`
+* `gpu_name`: name of the GPU to filter by. If not specified, all GPUs will be used. One or many
+* `min_gpu_memory`: minimum amount of GPU VRAM in GB for each GPU
+* `max_gpu_memory`: maximum amount of GPU VRAM in GB for each GPU
+* `min_total_gpu_memory`: minimum amount of GPU VRAM in GB for all GPUs combined
+* `max_total_gpu_memory`: maximum amount of GPU VRAM in GB for all GPUs combined
+* `min_disk_size`: minimum disk size in GB (not fully supported)
+* `max_disk_size`: maximum disk size in GB (not fully supported)
+* `min_price`: minimum price per hour in USD
+* `max_price`: maximum price per hour in USD
+* `min_compute_capability`: minimum compute capability of the GPU
+* `max_compute_capability`: maximum compute capability of the GPU
+* `spot`: if `False`, only ondemand offers will be returned. If `True`, only spot offers will be returned
+
+## Advanced usage
+
+Every offline provider catalog is published and versioned independently, so a provider that fails
+to be collected keeps its previous catalog while the other providers are updated. Passing
+a version to `load()` requests that version from every offline provider:
+
+```python
+from gpuhunt import Catalog
+
+catalog = Catalog()
+catalog.load(version="20260818-42")
+items = catalog.query()
+
+print(*items, sep="\n")
+```
+
+## Supported providers
+
+* AWS
+* Azure
+* CloudRift
+* Crusoe
+* Daytona
+* DigitalOcean
+* GCP
+* Hot Aisle
+* JarvisLabs
+* LambdaLabs
+* Nebius
+* OCI
+* Runpod
+* Seeweb
+* Vast AI
+* Verda
+* Vultr
+
+## See also
+
+* [dstack](https://github.com/dstackai/dstack)

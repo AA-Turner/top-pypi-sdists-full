@@ -1,0 +1,1704 @@
+"""Planner domain models."""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from decimal import Decimal, InvalidOperation
+from pathlib import Path
+from typing import Any
+
+from sqlbuild.adapter.contract.classes.base_adapter import BaseAdapter
+from sqlbuild.adapter.contract.models import ColumnInfo, RelationInfo, RetentionRequest
+from sqlbuild.adapter.contract.types import MigrationTransfer
+from sqlbuild.compiler.auditing.models import MeasurementThresholds
+from sqlbuild.compiler.auditing.types import (
+    AuditAttachmentKind,
+    AuditEvaluationMode,
+    AuditRunScope,
+    AuditSeverity,
+)
+from sqlbuild.compiler.compile.models import (
+    CompiledFunction,
+    CompiledModel,
+    CompiledObjectKey,
+    CompiledProject,
+    CompiledRelationLocation,
+    FunctionReturnColumn,
+    InferredColumn,
+)
+from sqlbuild.compiler.compile.types import AttachedAuditTargetKind, FunctionLanguage
+from sqlbuild.compiler.discovery.models import DiscoveredHookFunction, SqlTestParameterDeclaration
+from sqlbuild.compiler.fingerprints.models import Fingerprint
+from sqlbuild.compiler.migrations.types import (
+    ColumnMigrationDecision,
+    MigrationCompatibility,
+    MigrationDecision,
+    MigrationDiscovery,
+    MigrationPromotion,
+    OldNameViewAction,
+)
+from sqlbuild.compiler.planner.classes.fixture_column_inferences import FixtureColumnInferences
+from sqlbuild.compiler.planner.classes.migration_fingerprint_cache import (
+    MigrationFingerprintCache,
+)
+from sqlbuild.compiler.planner.exceptions import PlannerInputError
+from sqlbuild.compiler.planner.types import (
+    BackfillAction,
+    ChangeKind,
+    CursorGrain,
+    CursorWatermarkMode,
+    FixtureKey,
+    GraphResourceKind,
+    MaterializationType,
+    OnSchemaChange,
+    PlanAction,
+    PlanReason,
+    RetentionDirection,
+    RetentionPlanPhase,
+    ScenarioArtifactKind,
+    SchemaActionKind,
+    SchemaChangeKind,
+    SchemaColumnSource,
+    SelectorKind,
+    WarningSeverity,
+)
+from sqlbuild.compiler.source_freshness.models import (
+    DirectSourceFreshnessPlanningResult,
+)
+from sqlbuild.cursor_algebra.exceptions import CursorAlgebraError
+from sqlbuild.cursor_algebra.main.parse import parse
+from sqlbuild.cursor_algebra.models import (
+    DateValue,
+    IntegerValue,
+    TimestampValue,
+)
+from sqlbuild.cursor_algebra.models import (
+    Duration as Duration,
+)
+from sqlbuild.cursor_algebra.types import Bound, BoundSentinel, CursorScalar
+from sqlbuild.runtime.contracts.types import ExecutionResourceKind
+from sqlbuild.spec.contracts.models import (
+    FutureCursorsConfig,
+    LocalConfig,
+    ProjectConfig,
+    SchemaDynamicColumnFamily,
+    SeedCsvSettings,
+    SourceEntry,
+    StartCursorsConfig,
+)
+from sqlbuild.spec.contracts.types import (
+    FutureCursorAction,
+    MicrobatchLimitAction,
+    MissingMigrationOriginPolicy,
+    SourceWriteStrategy,
+)
+from sqlbuild.sql_values.models import SqlValue
+
+
+@dataclass(frozen=True)
+class NativeSqlTestArtifact:
+    """One native-planned SQL-test artifact and its distinct planning error messages."""
+
+    sql: str
+    model_names: tuple[str, ...]
+    error_messages: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class RelationFixtureDiagnostic:
+    """One statically provable invalid fixture condition."""
+
+    key: FixtureKey
+    message: str
+
+
+@dataclass(frozen=True)
+class RelationFixtureCompletion:
+    """Completed fixture SQL plus metadata reused by SQL-test validation."""
+
+    fixture_sql_by_key: dict[FixtureKey, str]
+    inferred_by_fixture: dict[FixtureKey, tuple[InferredColumn, ...]]
+    expected_types: Mapping[FixtureKey, dict[str, str]]
+    diagnostics: tuple[RelationFixtureDiagnostic, ...]
+
+
+@dataclass(frozen=True)
+class FixtureColumnMetadata:
+    """Known type and nullability for one relation fixture column."""
+
+    name: str
+    type: str | None
+    nullable: bool | None
+
+
+@dataclass(frozen=True)
+class FixtureRelationMetadata:
+    """Known columns and whether they form an authoritative relation shape."""
+
+    columns: tuple[FixtureColumnMetadata, ...]
+    authoritative_names: bool
+
+
+@dataclass(frozen=True)
+class RelationFixturePlanningContext:
+    """Project-wide fixture metadata shared across test and scenario planning."""
+
+    models_by_name: dict[str, CompiledModel]
+    relations: dict[FixtureKey, FixtureRelationMetadata]
+    authoritative_columns: dict[FixtureKey, frozenset[str]]
+    expected_types: dict[FixtureKey, dict[str, str]]
+    fixture_inferences: FixtureColumnInferences = field(
+        default_factory=FixtureColumnInferences, compare=False
+    )
+
+
+@dataclass(frozen=True)
+class GraphNodeKey:
+    """Neutral graph key matching fingerprint identity fields."""
+
+    node_type: str
+    node_name: str
+
+
+@dataclass(frozen=True)
+class SelectorExpansion:
+    """One selector split into graph expansion flags and core text."""
+
+    core: str
+    upstream: bool = False
+    downstream: bool = False
+
+
+@dataclass(frozen=True)
+class ParsedScenarioArtifactName:
+    """Parsed physical name for one planner-owned scenario artifact."""
+
+    hash_prefix: str
+    kind: str
+    logical_name: str
+
+
+@dataclass(frozen=True)
+class GraphIdentityNode:
+    """Neutral node input for dependency-aware identity resolution."""
+
+    key: GraphNodeKey
+    resource_kind: GraphResourceKind
+    upstream_keys: tuple[GraphNodeKey, ...]
+    local_hash: str | None
+
+
+@dataclass(frozen=True, kw_only=True, init=False)
+class CursorOverrides:
+    """Typed cursor override values from CLI flags."""
+
+    start_ts: CursorScalar | None = None
+    end_ts: CursorScalar | None = None
+    start_int: CursorScalar | None = None
+    end_int: CursorScalar | None = None
+
+    def __init__(
+        self,
+        *,
+        start_ts: str | CursorScalar | None = None,
+        end_ts: str | CursorScalar | None = None,
+        start_int: str | CursorScalar | None = None,
+        end_int: str | CursorScalar | None = None,
+    ) -> None:
+        object.__setattr__(
+            self,
+            "start_ts",
+            self._parse_timestamp(field_name="--start-cursor-ts", value=start_ts),
+        )
+        object.__setattr__(
+            self, "end_ts", self._parse_timestamp(field_name="--end-cursor-ts", value=end_ts)
+        )
+        object.__setattr__(
+            self,
+            "start_int",
+            self._parse_integer(field_name="--start-cursor-int", value=start_int),
+        )
+        object.__setattr__(
+            self, "end_int", self._parse_integer(field_name="--end-cursor-int", value=end_int)
+        )
+
+    @staticmethod
+    def _parse_timestamp(
+        *, field_name: str, value: str | CursorScalar | None
+    ) -> CursorScalar | None:
+        if value is None or not isinstance(value, str):
+            return value
+        try:
+            datetime.fromisoformat(value)
+        except (ValueError, TypeError) as error:
+            raise PlannerInputError(
+                f"{field_name} value '{value}' is not a valid ISO timestamp: {error}"
+            ) from None
+        return parse(raw=value, cursor_type="timestamp")
+
+    @staticmethod
+    def _parse_integer(*, field_name: str, value: str | CursorScalar | None) -> CursorScalar | None:
+        if value is None or not isinstance(value, str):
+            return value
+        try:
+            decimal_value: Decimal = Decimal(value)
+            if decimal_value != int(decimal_value):
+                raise PlannerInputError(f"{field_name} value '{value}' is not a whole number")
+            parsed: CursorScalar = parse(raw=value, cursor_type="integer")
+            if isinstance(parsed, IntegerValue):
+                return parsed
+        except InvalidOperation:
+            raise PlannerInputError(
+                f"{field_name} value '{value}' is not a valid integer"
+            ) from None
+        raise PlannerInputError(f"{field_name} value '{value}' is not a valid integer")
+
+
+@dataclass(frozen=True)
+class MissingUpstream:
+    """One upstream dependency missing from both scope and warehouse."""
+
+    key: CompiledObjectKey
+    required_by: tuple[CompiledObjectKey, ...]
+
+
+@dataclass(frozen=True)
+class ParsedSelector:
+    """One parsed selector token before graph resolution."""
+
+    kind: SelectorKind
+    value: str
+    upstream: bool = False
+    downstream: bool = False
+
+
+@dataclass(frozen=True)
+class PathSelector:
+    """A directed path selector between two model names with optional endpoint expansion."""
+
+    start_name: str
+    end_name: str
+    upstream: bool = False
+    downstream: bool = False
+
+
+@dataclass(frozen=True, kw_only=True, init=False)
+class ModelCursorSnapshot:
+    """Cursor MIN/MAX values gathered from warehouse for one incremental model."""
+
+    target_max: CursorScalar | None
+    upstream_mins: tuple[CursorScalar, ...]
+    upstream_maxes: tuple[CursorScalar, ...]
+    physical_target_max: CursorScalar | None = field(default=None, compare=False)
+    target_eligible_max: CursorScalar | None = None
+    target_relation: str | None = field(default=None, compare=False)
+    destination_cursor_column: str | None = field(default=None, compare=False)
+    input_evidence: tuple[CursorInputEvidence, ...] = field(default=(), compare=False)
+    expected_watermark_count: int = field(default=0, compare=False)
+    unavailable_watermark_tags: tuple[str, ...] = ()
+    cursor_watermark_mode: CursorWatermarkMode = CursorWatermarkMode.ALL
+    upstream_terminal_starts: tuple[CursorScalar, ...] = ()
+    upstream_terminal_ends: tuple[CursorScalar, ...] = ()
+    upstream_end_inputs: tuple[tuple[CursorScalar | None, CursorScalar | None], ...] = ()
+    upstream_availability_ends: tuple[CursorScalar, ...] = ()
+
+    def __init__(self, **values: Any) -> None:
+        defaults: dict[str, object] = {
+            "physical_target_max": None,
+            "target_eligible_max": None,
+            "target_relation": None,
+            "destination_cursor_column": None,
+            "input_evidence": (),
+            "expected_watermark_count": 0,
+            "unavailable_watermark_tags": (),
+            "cursor_watermark_mode": CursorWatermarkMode.ALL,
+            "upstream_terminal_starts": (),
+            "upstream_terminal_ends": (),
+            "upstream_end_inputs": (),
+            "upstream_availability_ends": (),
+        }
+        defaults.update(values)
+        field_name: str
+        for field_name in self.__dataclass_fields__:
+            object.__setattr__(self, field_name, defaults[field_name])
+        self.__post_init__()
+
+    def __post_init__(self) -> None:
+        for field_name in ("target_max", "physical_target_max", "target_eligible_max"):
+            object.__setattr__(
+                self, field_name, CursorBounds._parse_optional(raw=getattr(self, field_name))
+            )
+        for field_name in (
+            "upstream_mins",
+            "upstream_maxes",
+            "upstream_terminal_starts",
+            "upstream_terminal_ends",
+            "upstream_availability_ends",
+        ):
+            object.__setattr__(
+                self,
+                field_name,
+                tuple(
+                    CursorBounds._parse_inferred(raw=value) for value in getattr(self, field_name)
+                ),
+            )
+        object.__setattr__(
+            self,
+            "upstream_end_inputs",
+            tuple(
+                (
+                    CursorBounds._parse_optional(raw=physical),
+                    CursorBounds._parse_optional(raw=terminal),
+                )
+                for physical, terminal in self.upstream_end_inputs
+            ),
+        )
+        object.__setattr__(
+            self, "cursor_watermark_mode", CursorWatermarkMode(self.cursor_watermark_mode)
+        )
+
+    @property
+    def watermarks_available(self) -> bool:
+        """Return whether every required physical watermark value was available."""
+
+        return not self.unavailable_watermark_tags
+
+
+@dataclass(frozen=True, kw_only=True, init=False)
+class CursorBounds:
+    """Effective cursor start and end values for one incremental model."""
+
+    start: Bound
+    end: Bound
+    future_safety: FutureCursorSafetyEvidence | None = None
+    maximum_start_safety: MaximumStartSafetyEvidence | None = None
+
+    def __init__(
+        self,
+        *,
+        start: Bound | str,
+        end: Bound | str,
+        future_safety: FutureCursorSafetyEvidence | None = None,
+        maximum_start_safety: MaximumStartSafetyEvidence | None = None,
+    ) -> None:
+        object.__setattr__(self, "start", CursorBounds._parse_bound(raw=start))
+        object.__setattr__(self, "end", CursorBounds._parse_bound(raw=end))
+        object.__setattr__(self, "future_safety", future_safety)
+        object.__setattr__(self, "maximum_start_safety", maximum_start_safety)
+
+    @staticmethod
+    def _parse_inferred(*, raw: object) -> CursorScalar:
+        if isinstance(raw, TimestampValue | DateValue | IntegerValue):
+            return raw
+        try:
+            return parse(raw=str(raw), cursor_type="integer")
+        except CursorAlgebraError:
+            return parse(raw=str(raw), cursor_type="timestamp")
+
+    @staticmethod
+    def _parse_optional(*, raw: object | None) -> CursorScalar | None:
+        return None if raw is None else CursorBounds._parse_inferred(raw=raw)
+
+    @staticmethod
+    def _parse_bound(*, raw: object) -> Bound:
+        if isinstance(raw, BoundSentinel):
+            return raw
+        if raw == BoundSentinel.START.value:
+            return BoundSentinel.START
+        if raw == BoundSentinel.END.value:
+            return BoundSentinel.END
+        return CursorBounds._parse_inferred(raw=raw)
+
+
+@dataclass(frozen=True, kw_only=True, init=False)
+class CursorInputEvidence:
+    """Observed bounds for one physical cursor input."""
+
+    relation: str
+    cursor_column: str
+    minimum: CursorScalar | None
+    maximum: CursorScalar
+
+    def __init__(
+        self,
+        *,
+        relation: str,
+        cursor_column: str,
+        minimum: CursorScalar | str | None,
+        maximum: CursorScalar | str,
+    ) -> None:
+        object.__setattr__(self, "relation", relation)
+        object.__setattr__(self, "cursor_column", cursor_column)
+        object.__setattr__(self, "minimum", minimum)
+        object.__setattr__(self, "maximum", maximum)
+        self.__post_init__()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "minimum", CursorBounds._parse_optional(raw=self.minimum))
+        object.__setattr__(self, "maximum", CursorBounds._parse_inferred(raw=self.maximum))
+
+
+@dataclass(frozen=True, kw_only=True, init=False)
+class FutureCursorSafetyEvidence:
+    """Structured evidence for one applied future-cursor cap."""
+
+    action: FutureCursorAction
+    max_distance: str
+    invocation_time: CursorScalar
+    discovered_start: CursorScalar
+    discovered_end: CursorScalar
+    applied_start: CursorScalar
+    applied_end: CursorScalar
+    maximum_allowed_start: CursorScalar
+    maximum_allowed_end: CursorScalar
+    future_start_detected: bool
+    future_end_detected: bool
+    determining_relation: str | None
+    determining_cursor_column: str | None
+    inputs: tuple[CursorInputEvidence, ...] = ()
+
+    def __init__(self, **values: Any) -> None:
+        values.setdefault("inputs", ())
+        field_name: str
+        for field_name in self.__dataclass_fields__:
+            object.__setattr__(self, field_name, values[field_name])
+        self.__post_init__()
+
+    def __post_init__(self) -> None:
+        for field_name in (
+            "invocation_time",
+            "discovered_start",
+            "discovered_end",
+            "applied_start",
+            "applied_end",
+            "maximum_allowed_start",
+            "maximum_allowed_end",
+        ):
+            object.__setattr__(
+                self, field_name, CursorBounds._parse_inferred(raw=getattr(self, field_name))
+            )
+
+
+@dataclass(frozen=True, kw_only=True, init=False)
+class MaximumStartSafetyEvidence:
+    """Structured evidence for an automatic-start eligibility decision."""
+
+    action: FutureCursorAction
+    max_ahead: str
+    invocation_time: CursorScalar
+    physical_target_max: CursorScalar
+    highest_eligible_target_max: CursorScalar | None
+    effective_start: CursorScalar
+    maximum_allowed_start: CursorScalar
+    target_relation: str
+    cursor_column: str
+
+    def __init__(
+        self,
+        *,
+        action: FutureCursorAction,
+        max_ahead: str,
+        invocation_time: CursorScalar | str,
+        physical_target_max: CursorScalar | str,
+        highest_eligible_target_max: CursorScalar | str | None,
+        effective_start: CursorScalar | str,
+        maximum_allowed_start: CursorScalar | str,
+        target_relation: str,
+        cursor_column: str,
+    ) -> None:
+        for field_name, value in (
+            ("action", action),
+            ("max_ahead", max_ahead),
+            ("invocation_time", invocation_time),
+            ("physical_target_max", physical_target_max),
+            ("highest_eligible_target_max", highest_eligible_target_max),
+            ("effective_start", effective_start),
+            ("maximum_allowed_start", maximum_allowed_start),
+            ("target_relation", target_relation),
+            ("cursor_column", cursor_column),
+        ):
+            object.__setattr__(self, field_name, value)
+        self.__post_init__()
+
+    def __post_init__(self) -> None:
+        for field_name in (
+            "invocation_time",
+            "physical_target_max",
+            "effective_start",
+            "maximum_allowed_start",
+        ):
+            object.__setattr__(
+                self, field_name, CursorBounds._parse_inferred(raw=getattr(self, field_name))
+            )
+        object.__setattr__(
+            self,
+            "highest_eligible_target_max",
+            CursorBounds._parse_optional(raw=self.highest_eligible_target_max),
+        )
+
+
+@dataclass(frozen=True, kw_only=True, init=False)
+class CursorInputRelation:
+    """One cursor-bearing input relation for runtime range discovery."""
+
+    relation: str
+    cursor_column: str
+    cursor_grain: CursorGrain | None = None
+    is_model_backed: bool = False
+    is_runtime_produced: bool = False
+    terminal_cursor_start: CursorScalar | None = None
+    terminal_cursor_end: CursorScalar | None = None
+
+    def __init__(
+        self,
+        *,
+        relation: str,
+        cursor_column: str,
+        cursor_grain: CursorGrain | str | None = None,
+        is_model_backed: bool = False,
+        is_runtime_produced: bool = False,
+        terminal_cursor_start: CursorScalar | str | None = None,
+        terminal_cursor_end: CursorScalar | str | None = None,
+    ) -> None:
+        object.__setattr__(self, "relation", relation)
+        object.__setattr__(self, "cursor_column", cursor_column)
+        object.__setattr__(self, "cursor_grain", cursor_grain)
+        object.__setattr__(self, "is_model_backed", is_model_backed)
+        object.__setattr__(self, "is_runtime_produced", is_runtime_produced)
+        object.__setattr__(self, "terminal_cursor_start", terminal_cursor_start)
+        object.__setattr__(self, "terminal_cursor_end", terminal_cursor_end)
+        self.__post_init__()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "cursor_grain",
+            CursorGrain(self.cursor_grain) if self.cursor_grain is not None else None,
+        )
+        object.__setattr__(
+            self,
+            "terminal_cursor_start",
+            CursorBounds._parse_optional(raw=self.terminal_cursor_start),
+        )
+        object.__setattr__(
+            self, "terminal_cursor_end", CursorBounds._parse_optional(raw=self.terminal_cursor_end)
+        )
+
+    @property
+    def is_runtime_owned(self) -> bool:
+        """Return whether bounds must be discovered after scheduled upstream execution."""
+
+        return self.is_runtime_produced
+
+
+@dataclass(frozen=True)
+class WarehouseFingerprints:
+    """Latest direct fingerprints grouped by node type."""
+
+    models: dict[str, Fingerprint] = field(default_factory=dict)
+    functions: dict[str, Fingerprint] = field(default_factory=dict)
+    seeds: dict[str, Fingerprint] = field(default_factory=dict)
+    python_nodes: dict[tuple[str, str], Fingerprint] = field(default_factory=dict)
+    unfiltered_schemas: dict[str, tuple[Fingerprint, ...]] = field(
+        default_factory=dict, compare=False, repr=False
+    )
+    unfiltered_database: str | None = field(default=None, compare=False, repr=False)
+
+
+@dataclass(frozen=True)
+class CursorSnapshotScope:
+    """Execution selection used for cursor validation and runtime producer resolution."""
+
+    model_keys: frozenset[CompiledObjectKey]
+    runtime_producer_keys: frozenset[CompiledObjectKey]
+    invocation_time: datetime | None = None
+    start_cursor_config: StartCursorsConfig | None = None
+    cursor_overrides: CursorOverrides | None = None
+
+
+@dataclass(frozen=True)
+class MaximumStartPolicyInputs:
+    """Effective policy and materialization safety inputs for automatic starts."""
+
+    config: StartCursorsConfig | None = None
+    invocation_time: datetime | None = None
+    incremental_strategy: str | None = None
+    incremental_mode: str | None = None
+
+
+@dataclass(frozen=True)
+class ReferenceRename:
+    """One model rename that downstream references may have been rewritten for."""
+
+    new_name: str
+    origin_name: str
+    recorded_at: datetime | None = None
+
+
+@dataclass(frozen=True)
+class WarehouseSnapshot:
+    """Frozen point-in-time picture of warehouse state for planning."""
+
+    existing_relations: dict[str, RelationInfo] = field(default_factory=dict)
+    existing_columns: dict[str, tuple[ColumnInfo, ...]] = field(default_factory=dict)
+    fingerprints: WarehouseFingerprints = field(default_factory=WarehouseFingerprints)
+    cursor_snapshots: dict[str, ModelCursorSnapshot] = field(default_factory=dict)
+    source_freshness_state_schemas: frozenset[str] = field(default_factory=frozenset)
+    column_dialect: str | None = None
+    renamed_models: frozenset[str] = field(default_factory=frozenset)
+    reference_renames: tuple[ReferenceRename, ...] = ()
+    migration_state_schemas: frozenset[str] = field(default_factory=frozenset)
+    old_name_view_state_schemas: frozenset[str] = field(default_factory=frozenset)
+    listed_state_schemas: frozenset[str] | None = field(default_factory=frozenset)
+
+
+@dataclass(frozen=True)
+class SelectionStalenessNodeKey:
+    """Neutral node identity for shared selection-aware staleness classification."""
+
+    resource_type: str
+    name: str
+
+
+@dataclass(frozen=True)
+class SelectionStalenessGraph:
+    """Neutral graph inputs for selected-model stale warning classification."""
+
+    upstream_deps: dict[SelectionStalenessNodeKey, tuple[SelectionStalenessNodeKey, ...]]
+    selected_model_names: frozenset[str]
+    run_model_names: frozenset[str]
+    run_seed_names: frozenset[str]
+    run_source_names: frozenset[str]
+    changed_model_names: frozenset[str]
+    changed_seed_names: frozenset[str]
+    changed_source_names: frozenset[str]
+
+
+@dataclass(frozen=True)
+class SelectionStalenessWarning:
+    """Neutral stale warning classification for one selected model."""
+
+    model_name: str
+    trigger_names: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class SchemaFinding:
+    """One detected schema difference between expected and warehouse columns."""
+
+    kind: SchemaChangeKind
+    column_name: str
+    source: SchemaColumnSource
+    expected_type: str | None = None
+    actual_type: str | None = None
+
+
+@dataclass(frozen=True)
+class BackfillResult:
+    """Resolved backfill action from a change detection policy."""
+
+    action: BackfillAction
+    duration: str | None = None
+
+
+@dataclass(frozen=True)
+class ChangeDetectionResult:
+    """Per-model output from change detection and policy resolution."""
+
+    model_name: str
+    change_kind: ChangeKind
+    query_changed: bool = False
+    config_changed: bool = False
+    fingerprint_metadata_json: str | None = None
+    previous_metadata_json: str | None = None
+    fingerprint_version_hash: str | None = None
+    previous_version_hash: str | None = None
+    schema_findings: tuple[SchemaFinding, ...] = field(default_factory=tuple)
+    backfill: BackfillResult = field(
+        default_factory=lambda: BackfillResult(action=BackfillAction.FORWARD_ONLY)
+    )
+    recorded_build_relation_missing: bool = False
+    changed_functions: tuple[str, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class PlannerScope:
+    """Resolved graph scope for one planner invocation."""
+
+    upstream_deps: dict[CompiledObjectKey, tuple[CompiledObjectKey, ...]]
+    downstream_deps: dict[CompiledObjectKey, tuple[CompiledObjectKey, ...]]
+    all_keys: dict[str, CompiledObjectKey]
+    models_by_name: dict[str, CompiledModel]
+    selected_keys: frozenset[CompiledObjectKey]
+    execution_order: tuple[CompiledObjectKey, ...]
+    user_selected_keys: frozenset[CompiledObjectKey] = frozenset()
+    python_read_source_names: frozenset[str] = frozenset()
+
+
+@dataclass(frozen=True)
+class PlannerRelationsContext:
+    """Resolved relation and source inputs for plan entry construction."""
+
+    model_locations: dict[str, CompiledRelationLocation]
+    seed_locations: dict[str, CompiledRelationLocation]
+    function_locations: dict[str, CompiledRelationLocation]
+    source_map: dict[str, SourceEntry]
+    source_read_map: dict[str, SourceEntry]
+    python_source_read_map: dict[str, SourceEntry]
+    source_warehouse_columns: dict[str, tuple[ColumnInfo, ...]]
+    star_exclude_keyword: str
+    listed_source_names: frozenset[str] = frozenset()
+
+
+@dataclass(frozen=True)
+class ModelPlanContext:
+    """Relation lookups and source columns for building one model plan entry."""
+
+    model_locations: dict[str, CompiledRelationLocation]
+    models_by_name: dict[str, CompiledModel]
+    seed_locations: dict[str, CompiledRelationLocation]
+    function_locations: dict[str, CompiledRelationLocation]
+    source_map: dict[str, SourceEntry]
+    source_warehouse_columns: dict[str, tuple[ColumnInfo, ...]]
+    star_exclude_keyword: str
+    functions_by_name: dict[str, CompiledFunction] = field(default_factory=dict)
+    runtime_cursor_producer_names: frozenset[str] = frozenset()
+    future_cursor_config: FutureCursorsConfig | None = None
+    start_cursor_config: StartCursorsConfig | None = None
+    invocation_time: datetime | None = None
+
+
+@dataclass(frozen=True)
+class CursorOverridePair:
+    """Resolved per-model cursor start/end overrides for plan entry construction."""
+
+    start_cursor_override: str | None = None
+    end_cursor_override: str | None = None
+
+
+@dataclass(frozen=True)
+class PlanEntryBuildInputs:
+    """Blocked models and cursor overrides for plan entry building."""
+
+    source_freshness_blocked_model_names: frozenset[str] = frozenset()
+    external_blocked_model_names: frozenset[str] = frozenset()
+    start_cursor_override: str | None = None
+    end_cursor_override: str | None = None
+    future_cursor_config: FutureCursorsConfig | None = None
+    start_cursor_config: StartCursorsConfig | None = None
+    invocation_time: datetime | None = None
+    max_microbatches: int | None = None
+    max_microbatches_is_override: bool = False
+    microbatch_limit_action: MicrobatchLimitAction = MicrobatchLimitAction.ERROR
+
+
+@dataclass(frozen=True)
+class FunctionChangeResult:
+    """Per-function output from change detection."""
+
+    fingerprint_sql: str
+    reason: PlanReason = PlanReason.NO_CHANGE
+
+
+@dataclass(frozen=True)
+class PlannerChangeResults:
+    """Change detection output for selected planner resources."""
+
+    models: dict[str, ChangeDetectionResult]
+    functions: dict[str, FunctionChangeResult]
+
+
+@dataclass(frozen=True)
+class ResolvedModelAction:
+    """Effective model change and backfill decided from the model's own change."""
+
+    change: ChangeDetectionResult
+    backfill: BackfillResult
+
+
+@dataclass(frozen=True)
+class PlannerResolvedActions:
+    """Per-model planning decisions keyed by model name."""
+
+    models: dict[str, ResolvedModelAction]
+
+
+@dataclass(frozen=True)
+class DirectModelVersionIdentities:
+    """Current direct model version identity values by model name."""
+
+    function_local_hashes: dict[str, str]
+    seed_version_hashes: dict[str, str]
+    seed_metadata_jsons: dict[str, str]
+    model_metadata_jsons: dict[str, str]
+    model_local_hashes: dict[str, str]
+    model_version_hashes: dict[str, str]
+
+
+@dataclass(frozen=True)
+class PlannerModelEntryResults:
+    """Model plan-entry phase output."""
+
+    entries: tuple[ModelPlanEntry, ...]
+    warnings: tuple[PlanWarning, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class SchemaAction:
+    """One concrete schema change action to apply to a target table."""
+
+    kind: SchemaActionKind
+    column_name: str
+    column_type: str | None = None
+
+
+@dataclass(frozen=True)
+class PlanWarning:
+    """One warning or error produced during plan resolution."""
+
+    model_name: str | None
+    severity: WarningSeverity
+    message: str
+    code: str | None = None
+
+
+@dataclass(frozen=True)
+class RetentionPlanEntry:
+    """Warehouse retention work independent of model identity actions."""
+
+    request: RetentionRequest
+    model_names: tuple[str, ...]
+    actual_days: int | None
+    effective_days: int | None
+    source: str
+    direction: RetentionDirection
+    phase: RetentionPlanPhase
+    statements: tuple[str, ...] = field(default_factory=tuple)
+    irreversible_warning: str | None = None
+    decrease_policy: str = "deny"
+
+    @property
+    def decreases(self) -> bool:
+        """Whether this entry lowers any live retention value."""
+
+        return self.direction in (RetentionDirection.DECREASE, RetentionDirection.MIXED)
+
+
+@dataclass(frozen=True)
+class TableTypePlanEntry:
+    """Snowflake table-type work independent of model identity actions."""
+
+    model_name: str
+    destination: CompiledRelationLocation
+    copy_name: str
+    desired_type: str
+    actual_type: str | None
+    source: str
+    downgrade: bool
+    downgrade_policy: str
+    irreversible_warning: str | None = None
+
+
+@dataclass(frozen=True)
+class ModelMigrationPlanEntry:
+    """One declared or discovered model migration and its per-run decision."""
+
+    model_name: str
+    discovery: MigrationDiscovery
+    decision: MigrationDecision
+    compatibility: MigrationCompatibility
+    origin_model: str | None
+    origin: CompiledRelationLocation
+    destination: CompiledRelationLocation
+    target_name: str | None
+    origin_version_hash: str = ""
+    origin_is_transient: bool = False
+    stage_is_transient: bool | None = None
+    transfer: MigrationTransfer | None = None
+    transfer_fallback: MigrationTransfer | None = None
+    promotion: MigrationPromotion | None = None
+    completed_at: datetime | None = None
+    compatibility_findings: tuple[str, ...] = ()
+    message: str | None = None
+    origin_tracked: bool = False
+    missing_origin_policy: MissingMigrationOriginPolicy = MissingMigrationOriginPolicy.ALLOW
+
+    @property
+    def origin_missing(self) -> bool:
+        """Return whether the declared origin was not found in this target."""
+
+        return self.decision == MigrationDecision.ORIGIN_MISSING
+
+    @property
+    def origin_hidden(self) -> bool:
+        """Return whether the missing origin has build history in this target."""
+
+        return self.origin_missing and self.origin_tracked
+
+    @property
+    def storage_transition(self) -> str | None:
+        """Return the Snowflake table-type transition label, when both types are known."""
+
+        if self.stage_is_transient is None:
+            return None
+        labels: tuple[str, str] = ("permanent", "transient")
+        return f"{labels[self.origin_is_transient]} -> {labels[self.stage_is_transient]}"
+
+    @property
+    def target_label(self) -> str:
+        """Return the target name shown in migration text, naming the unnamed target 'default'."""
+
+        return self.target_name or "default"
+
+    @property
+    def blocks_build(self) -> bool:
+        """Return whether this migration must stop a build before any execution."""
+
+        if self.origin_missing:
+            return (
+                self.origin_tracked
+                or self.missing_origin_policy == MissingMigrationOriginPolicy.DENY
+            )
+        return self.decision.blocks_build or (
+            self.decision.moves_data and self.compatibility == MigrationCompatibility.INCOMPATIBLE
+        )
+
+
+@dataclass(frozen=True)
+class OldNameViewPlanEntry:
+    """What one build does at the old name of one migrated model."""
+
+    model_name: str
+    origin: CompiledRelationLocation
+    destination: CompiledRelationLocation
+    action: OldNameViewAction
+    target_name: str | None
+    retention: str | None = None
+    expires_at: datetime | None = None
+    column_aliases: tuple[tuple[str, str], ...] = ()
+    stores_history: bool = False
+    migration_event_id: str | None = None
+    records_requirement: bool = False
+    reason: str | None = None
+    grants_copied: int | None = None
+    grants_supported: bool = False
+    archived: bool = False
+
+    @property
+    def runs_steps(self) -> bool:
+        """Return whether this build archives the old relation or creates the view."""
+
+        return self.action in (OldNameViewAction.ARCHIVE_AND_VIEW, OldNameViewAction.VIEW_ONLY)
+
+
+@dataclass(frozen=True)
+class OldNameView:
+    """One compatibility view recorded at an old name and not recorded as dropped."""
+
+    destination_model: str
+    old: CompiledRelationLocation
+    new: CompiledRelationLocation
+    expires_at: datetime | None
+    column_aliases: tuple[tuple[str, str], ...]
+    migration_event_id: str
+    target_name: str | None
+    name_reused_by: str | None = None
+
+
+@dataclass(frozen=True)
+class ColumnMigrationPlanEntry:
+    """One declared or detected in-place column rename and its per-run decision."""
+
+    model_name: str
+    destination: CompiledRelationLocation
+    origin_column: str
+    destination_column: str
+    discovery: MigrationDiscovery
+    decision: ColumnMigrationDecision
+    target_name: str | None
+    completed_at: datetime | None = None
+    message: str | None = None
+    missing_origin_policy: MissingMigrationOriginPolicy = MissingMigrationOriginPolicy.ALLOW
+
+    @property
+    def origin_missing(self) -> bool:
+        """Return whether the declared origin column was not found in this target."""
+
+        return self.decision == ColumnMigrationDecision.SOURCE_MISSING
+
+    @property
+    def blocks_build(self) -> bool:
+        """Return whether this column migration must stop a build before any execution."""
+
+        if self.origin_missing:
+            return self.missing_origin_policy == MissingMigrationOriginPolicy.DENY
+        return self.decision.blocks_build
+
+
+@dataclass(frozen=True)
+class ColumnRenameHint:
+    """A removed column that an added column may have been renamed from."""
+
+    model_name: str
+    added_column: str
+    candidate_columns: tuple[str, ...]
+    identical: bool = False
+
+    @property
+    def message(self) -> str:
+        """Return the one-line hint shown beside the added column."""
+
+        relation: str = "same expression as" if self.identical else "similar to"
+        origin: str = self.candidate_columns[0] if len(self.candidate_columns) == 1 else "<column>"
+        return (
+            f"{relation} {', '.join(self.candidate_columns)}; if this is a rename, add "
+            f"{self.added_column} (migrate_from {origin})"
+        )
+
+
+@dataclass(frozen=True)
+class QueryProjection:
+    """One named top-level output column of a query and its canonical expression."""
+
+    name: str
+    expression: str
+    references: frozenset[str]
+    passthrough: bool = False
+
+    @property
+    def key(self) -> str:
+        """Return the case-insensitive output name."""
+
+        return self.name.lower()
+
+
+@dataclass(frozen=True)
+class QueryShape:
+    """Canonical top-level projections and the rest of one query, ignoring formatting."""
+
+    projections: tuple[QueryProjection, ...]
+    body: str
+    alias_clauses: str = "{}"
+    positional: bool = False
+    input_relations: tuple[tuple[str, str], ...] | None = None
+    local_input_columns: frozenset[str] = frozenset()
+    clause_references: frozenset[str] = frozenset()
+
+
+@dataclass(frozen=True)
+class PlanOutputExtras:
+    """Optional supplemental seed fingerprints and precomputed SQL tests for plan assembly."""
+
+    seed_version_hashes: dict[str, str] | None = None
+    seed_metadata_jsons: dict[str, str] | None = None
+    seed_plan_reasons: dict[str, PlanReason] | None = None
+    planned_sql_tests: PlannedSqlTests | None = None
+
+
+@dataclass(frozen=True)
+class PlannedSqlTests:
+    """SQL test entries planned for one selection; reusable only for the same selected keys."""
+
+    selected_keys: frozenset[CompiledObjectKey]
+    entries: tuple[SqlTestPlanEntry, ...] = ()
+    warnings: tuple[PlanWarning, ...] = ()
+
+
+@dataclass(frozen=True)
+class ModelPlanEntry:
+    """Per-model execution plan entry with action, reason, and resolved artifacts."""
+
+    key: CompiledObjectKey
+    name: str
+    relative_path: Path
+    materialization_type: MaterializationType
+    action: PlanAction
+    reason: PlanReason
+    destination: CompiledRelationLocation
+    fingerprint_query_sql: str
+    resolved_sql: str
+    logical_ddl: str
+    migration_fingerprint: str | None = None
+    incremental_strategy: str | None = None
+    incremental_mode: str | None = None
+    microbatch_strategy: str | None = None
+    cursor_watermark_mode: str | None = None
+    cursor_column: str | None = None
+    cursor_type: str | None = None
+    cursor_grain: str | None = None
+    cursor_start: str | None = None
+    cursor_end: str | None = None
+    lookback: str | None = None
+    cursor_bounds: CursorBounds | None = None
+    cursor_input_relations: tuple[CursorInputRelation, ...] = field(default_factory=tuple)
+    batch_size: str | None = None
+    batch_concurrency: int = 1
+    unaccounted_partition_policy: str | None = None
+    microbatch_range: CursorBounds | None = None
+    microbatch_limit: int | None = None
+    declared_microbatch_limit_action: MicrobatchLimitAction | None = None
+    microbatch_safety_limit: int | None = None
+    microbatch_safety_limit_action: MicrobatchLimitAction | None = None
+    microbatch_limit_count: int | None = None
+    microbatch_limit_action: MicrobatchLimitAction | None = None
+    microbatch_limit_warning: str | None = None
+    start_cursor_override: str | None = None
+    end_cursor_override: str | None = None
+    future_cursor_config: FutureCursorsConfig | None = None
+    start_cursor_config: StartCursorsConfig | None = None
+    invocation_time: datetime | None = None
+    unique_key: tuple[str, ...] = field(default_factory=tuple)
+    merge_exclude_columns: tuple[str, ...] = field(default_factory=tuple)
+    snapshot_strategy: str | None = None
+    updated_at_column: str | None = None
+    check_columns: tuple[str, ...] = field(default_factory=tuple)
+    observed_at_column: str | None = None
+    historical_input: str | None = None
+    valid_from_column: str | None = None
+    valid_to_column: str | None = None
+    initial_valid_from: str | None = None
+    invalidate_hard_deletes: bool = False
+    snapshot_full_refresh: str | None = None
+    snapshot_schema_change: str | None = None
+    table_type: str = "transient"
+    on_schema_change: OnSchemaChange | None = None
+    type_enforcement: bool = False
+    declared_columns: tuple[ColumnInfo, ...] = field(default_factory=tuple)
+    contract_enforced: bool = False
+    contract_columns: tuple[ColumnInfo, ...] = field(default_factory=tuple)
+    contract_dynamic_columns: tuple[SchemaDynamicColumnFamily, ...] = field(default_factory=tuple)
+    pre_hooks: object = None
+    post_hooks: object = None
+    previous_query_sql: str | None = None
+    fingerprint_metadata_json: str | None = None
+    previous_metadata_json: str | None = None
+    fingerprint_version_hash: str | None = None
+    previous_version_hash: str | None = None
+    query_changed: bool = False
+    config_changed: bool = False
+    schema_actions: tuple[SchemaAction, ...] = field(default_factory=tuple)
+    schema_findings: tuple[SchemaFinding, ...] = field(default_factory=tuple)
+    backfill: BackfillResult = field(
+        default_factory=lambda: BackfillResult(action=BackfillAction.FORWARD_ONLY)
+    )
+    changed_functions: tuple[str, ...] = field(default_factory=tuple)
+    custom_materialization_name: str | None = None
+    custom_config: dict[str, object] = field(default_factory=dict)
+    custom_placeholders: dict[str, str] = field(default_factory=dict)
+    column_rename_hints: tuple[ColumnRenameHint, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class CloneSourcePlanEntry:
+    """One managed source relation selected for target cloning."""
+
+    key: CompiledObjectKey
+    name: str
+    destination: CompiledRelationLocation
+
+
+@dataclass(frozen=True)
+class SeedPlanEntry:
+    """Per-seed execution plan entry."""
+
+    key: CompiledObjectKey
+    name: str
+    destination: CompiledRelationLocation
+    file_path: Path
+    columns: tuple[ColumnInfo, ...]
+    csv_settings: SeedCsvSettings
+    fingerprint_definition: str = ""
+    fingerprint_version_hash: str = ""
+    fingerprint_metadata_json: str = "{}"
+    action: PlanAction = PlanAction.LOAD_SEED
+    reason: PlanReason = PlanReason.FIRST_RUN
+
+
+@dataclass(frozen=True)
+class SourceLoadPlanEntry:
+    """Per-managed-source loader execution plan entry."""
+
+    key: CompiledObjectKey
+    name: str
+    loader: str
+    destination: str
+    resource_kind: ExecutionResourceKind = ExecutionResourceKind.SOURCE
+    write_strategy: SourceWriteStrategy | None = None
+    cursor_column: str | None = None
+    unique_key: tuple[str, ...] = field(default_factory=tuple)
+    is_reload: bool = False
+    integration_kind: str | None = None
+
+
+@dataclass(frozen=True)
+class FunctionPlanEntry:
+    """Per-SQL-function execution plan entry."""
+
+    key: CompiledObjectKey
+    name: str
+    relative_path: Path
+    destination: CompiledRelationLocation
+    arguments: tuple[object, ...]
+    returns: str
+    body_sql: str
+    fingerprint_query_sql: str
+    fingerprint_destination: CompiledRelationLocation
+    return_columns: tuple[FunctionReturnColumn, ...] = field(default_factory=tuple)
+    language: FunctionLanguage = FunctionLanguage.SQL
+    source_file_path: Path | None = None
+    runtime_version: str | None = None
+    entry_point: str | None = None
+    packages: tuple[str, ...] = field(default_factory=tuple)
+    previous_query_sql: str | None = None
+    reason: PlanReason = PlanReason.NO_CHANGE
+
+
+@dataclass(frozen=True)
+class AuditPlanEntry:
+    """Per-audit execution plan entry with resolved SQL and scheduling metadata."""
+
+    key: CompiledObjectKey
+    name: str
+    definition_name: str
+    resolved_sql: str
+    unresolved_sql: str
+    attachment_kind: AuditAttachmentKind
+    severity: AuditSeverity
+    requested_run_scope: AuditRunScope
+    effective_run_scope: AuditRunScope
+    evaluation_mode: AuditEvaluationMode = AuditEvaluationMode.VIOLATIONS
+    value_column: str | None = None
+    sample_count_column: str | None = None
+    sample_unit: str | None = None
+    thresholds: MeasurementThresholds | None = None
+    minimum_samples: int | None = None
+    evidence_resolved_sql: str | None = None
+    evidence_unresolved_sql: str | None = None
+    evidence_limit: int | None = None
+    scope_deps: tuple[CompiledObjectKey, ...] = field(default_factory=tuple)
+    attached_target_kind: AttachedAuditTargetKind | None = None
+    attached_target_name: str | None = None
+    attached_column_name: str | None = None
+    always_run: bool = False
+    description: str | None = None
+    reads_outside_target_lineage: bool = False
+
+
+@dataclass(frozen=True)
+class ChainStep:
+    """One step in a chained test execution sequence."""
+
+    model_name: str
+    resolved_sql: str
+    expected_cte_sql: str | None = None
+    lifted_ctes: tuple[tuple[str, str], ...] = field(default_factory=tuple)
+    comparison_body_sql: str | None = None
+    expected_columns: tuple[str, ...] | None = None
+    expected_lifted_ctes: tuple[tuple[str, str], ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class SqlTestAssertionStep:
+    """One zero-row assertion step in a SQL-native unit test."""
+
+    name: str
+    resolved_sql: str
+    lifted_ctes: tuple[tuple[str, str], ...] = field(default_factory=tuple)
+    comparison_body_sql: str | None = None
+
+
+@dataclass(frozen=True)
+class SqlTestPlanEntry:
+    """Per-test execution plan entry with chained resolution."""
+
+    key: CompiledObjectKey
+    name: str
+    source_path: Path | None = None
+    block_index: int | None = None
+    parent_name: str | None = None
+    case_name: str | None = None
+    case_index: int | None = None
+    case_fingerprint: str | None = None
+    parameter_schema: tuple[SqlTestParameterDeclaration, ...] = field(default_factory=tuple)
+    parameter_values: tuple[tuple[str, SqlValue], ...] = field(default_factory=tuple)
+    mock_ref_names: tuple[str, ...] = field(default_factory=tuple)
+    mock_source_names: tuple[str, ...] = field(default_factory=tuple)
+    mock_seed_names: tuple[str, ...] = field(default_factory=tuple)
+    mock_dbt_ref_names: tuple[str, ...] = field(default_factory=tuple)
+    mock_table_function_names: tuple[str, ...] = field(default_factory=tuple)
+    chain: tuple[ChainStep, ...] = field(default_factory=tuple)
+    assertions: tuple[SqlTestAssertionStep, ...] = field(default_factory=tuple)
+    scope_deps: tuple[CompiledObjectKey, ...] = field(default_factory=tuple)
+    function_deps: tuple[CompiledObjectKey, ...] = field(default_factory=tuple)
+    sql_analysis_enabled: bool = True
+
+
+@dataclass(frozen=True)
+class NativeSqlTestPlan:
+    """Native chain and assertion steps for one SQL test, with SQL when rendered."""
+
+    chain: tuple[ChainStep, ...]
+    assertions: tuple[SqlTestAssertionStep, ...]
+    model_names: tuple[str, ...]
+    warnings: tuple[PlanWarning, ...]
+    sql: str | None = None
+
+
+@dataclass(frozen=True)
+class SqlTestPlanResult:
+    """One SQL test's plan entry and warnings, or the fixture diagnostics preventing it."""
+
+    entry: SqlTestPlanEntry | None
+    warnings: tuple[PlanWarning, ...] = field(default_factory=tuple)
+    fixture_diagnostics: tuple[str, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class ScenarioGraphPlan:
+    """Inferred graph slice and fixture boundaries for one SQL scenario."""
+
+    key: CompiledObjectKey
+    name: str
+    target_model_names: tuple[str, ...] = field(default_factory=tuple)
+    assertion_target_model_names: tuple[str, ...] = field(default_factory=tuple)
+    model_names: tuple[str, ...] = field(default_factory=tuple)
+    source_fixture_names: tuple[str, ...] = field(default_factory=tuple)
+    ref_fixture_names: tuple[str, ...] = field(default_factory=tuple)
+    seed_names: tuple[str, ...] = field(default_factory=tuple)
+    seed_fixture_names: tuple[str, ...] = field(default_factory=tuple)
+    dbt_ref_fixture_names: tuple[str, ...] = field(default_factory=tuple)
+    function_deps: tuple[CompiledObjectKey, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class ScenarioArtifactIdentity:
+    """Logical identity for one scenario-owned physical artifact."""
+
+    kind: ScenarioArtifactKind | str
+    logical_name: str
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "kind", ScenarioArtifactKind(self.kind))
+
+
+@dataclass(frozen=True)
+class ScenarioArtifactName:
+    """Resolved physical relation name for one scenario artifact."""
+
+    identity: ScenarioArtifactIdentity
+    physical_name: str
+
+
+@dataclass(frozen=True)
+class ScenarioRelationMap:
+    """Resolved scenario hash prefix and scenario-owned relation names."""
+
+    scenario_name: str
+    hash_prefix: str
+    artifacts: tuple[ScenarioArtifactName, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class ScenarioRelationPlan:
+    """Resolved scenario relation locations for model/source/seed ref resolution."""
+
+    scenario_name: str
+    relation_map: ScenarioRelationMap
+    model_locations: dict[str, CompiledRelationLocation] = field(default_factory=dict)
+    seed_locations: dict[str, CompiledRelationLocation] = field(default_factory=dict)
+    project_source_map: dict[str, SourceEntry] = field(default_factory=dict)
+    source_map: dict[str, SourceEntry] = field(default_factory=dict)
+    source_fixture_locations: dict[str, CompiledRelationLocation] = field(default_factory=dict)
+    ref_fixture_locations: dict[str, CompiledRelationLocation] = field(default_factory=dict)
+    seed_fixture_locations: dict[str, CompiledRelationLocation] = field(default_factory=dict)
+    dbt_ref_fixture_locations: dict[str, CompiledRelationLocation] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ScenarioFixturePlan:
+    """Self-contained fixture SQL planned for scenario materialization."""
+
+    kind: ScenarioArtifactKind
+    logical_name: str
+    destination: CompiledRelationLocation
+    sql: str
+
+
+@dataclass(frozen=True)
+class ScenarioExpectedExpectationPlan:
+    """Expected-output comparison inputs for one scenario target model."""
+
+    model_name: str
+    actual_destination: CompiledRelationLocation
+    expected_sql: str
+
+
+@dataclass(frozen=True)
+class ScenarioAssertionExpectationPlan:
+    """Zero-row assertion SQL for one scenario assertion CTE."""
+
+    name: str
+    sql: str
+
+
+@dataclass(frozen=True)
+class ScenarioExecutionPlan:
+    """Dry-run execution plan for a SQL scenario graph slice."""
+
+    key: CompiledObjectKey
+    name: str
+    graph_plan: ScenarioGraphPlan
+    relation_plan: ScenarioRelationPlan
+    fixture_plans: tuple[ScenarioFixturePlan, ...] = field(default_factory=tuple)
+    seed_entries: tuple[SeedPlanEntry, ...] = field(default_factory=tuple)
+    function_entries: tuple[FunctionPlanEntry, ...] = field(default_factory=tuple)
+    model_entries: tuple[ModelPlanEntry, ...] = field(default_factory=tuple)
+    hook_functions: tuple[DiscoveredHookFunction, ...] = field(default_factory=tuple)
+    expected_expectations: tuple[ScenarioExpectedExpectationPlan, ...] = field(
+        default_factory=tuple
+    )
+    assertion_expectations: tuple[ScenarioAssertionExpectationPlan, ...] = field(
+        default_factory=tuple
+    )
+
+
+@dataclass(frozen=True)
+class PlanProviderUsage:
+    """Provider usage metadata scoped to planned work."""
+
+    provider_name: str
+    consumer_kind: str
+    consumer_name: str
+    parameter_name: str
+    annotation_class_name: str | None = None
+    annotation_module: str | None = None
+
+
+@dataclass(frozen=True)
+class PlanOutput:
+    """Complete execution plan produced by the planner."""
+
+    execution_order: tuple[CompiledObjectKey, ...] = field(default_factory=tuple)
+    model_entries: tuple[ModelPlanEntry, ...] = field(default_factory=tuple)
+    seed_entries: tuple[SeedPlanEntry, ...] = field(default_factory=tuple)
+    source_load_entries: tuple[SourceLoadPlanEntry, ...] = field(default_factory=tuple)
+    function_entries: tuple[FunctionPlanEntry, ...] = field(default_factory=tuple)
+    audit_entries: tuple[AuditPlanEntry, ...] = field(default_factory=tuple)
+    test_entries: tuple[SqlTestPlanEntry, ...] = field(default_factory=tuple)
+    available_test_case_names: tuple[str, ...] = field(default_factory=tuple)
+    selected_keys: frozenset[CompiledObjectKey] = field(default_factory=frozenset)
+    warnings: tuple[PlanWarning, ...] = field(default_factory=tuple)
+    retention_entries: tuple[RetentionPlanEntry, ...] = field(default_factory=tuple)
+    table_type_entries: tuple[TableTypePlanEntry, ...] = field(default_factory=tuple)
+    migration_entries: tuple[ModelMigrationPlanEntry, ...] = field(default_factory=tuple)
+    column_migration_entries: tuple[ColumnMigrationPlanEntry, ...] = field(default_factory=tuple)
+    old_name_view_entries: tuple[OldNameViewPlanEntry, ...] = field(default_factory=tuple)
+    old_name_views: tuple[OldNameView, ...] = field(default_factory=tuple)
+    upstream_deps: dict[CompiledObjectKey, tuple[CompiledObjectKey, ...]] = field(
+        default_factory=dict
+    )
+    downstream_deps: dict[CompiledObjectKey, tuple[CompiledObjectKey, ...]] = field(
+        default_factory=dict
+    )
+    model_locations: dict[str, CompiledRelationLocation] = field(default_factory=dict)
+    seed_locations: dict[str, CompiledRelationLocation] = field(default_factory=dict)
+    function_locations: dict[str, CompiledRelationLocation] = field(default_factory=dict)
+    source_map: dict[str, SourceEntry] = field(default_factory=dict)
+    source_read_map: dict[str, SourceEntry] = field(default_factory=dict)
+    python_source_read_map: dict[str, SourceEntry] = field(default_factory=dict)
+    hook_functions: tuple[DiscoveredHookFunction, ...] = field(default_factory=tuple)
+    enforce_explicit_references: bool = True
+    provider_usages: tuple[PlanProviderUsage, ...] = field(default_factory=tuple)
+    source_freshness: DirectSourceFreshnessPlanningResult | None = None
+    python_identity_fingerprints: dict[tuple[str, str], Fingerprint] = field(default_factory=dict)
+    metadata: dict[str, object] = field(default_factory=dict)
+
+    @property
+    def python_source_entries(self) -> dict[str, SourceEntry]:
+        """Return the source entries Python reads resolve, as a selected SQL read sees them."""
+
+        return self.python_source_read_map or self.source_read_map or self.source_map
+
+
+@dataclass(frozen=True)
+class PlannerSelection:
+    """User-facing selection inputs for one planner invocation."""
+
+    select: tuple[str, ...] = ()
+    exclude: tuple[str, ...] = ()
+    selected_keys: frozenset[CompiledObjectKey] | None = None
+    python_read_source_names: frozenset[str] = frozenset()
+
+
+@dataclass(frozen=True)
+class PlannerOverrides:
+    """Explicit user overrides that force or bound planner decisions."""
+
+    cursor_overrides: CursorOverrides | None = None
+    full_refresh: bool = False
+    reload_sources: bool = False
+    forced_stale_model_names: tuple[str, ...] = ()
+    external_blocked_model_names: tuple[str, ...] = ()
+    max_microbatches: int | None = None
+
+
+@dataclass(frozen=True)
+class DeferralInputs:
+    """Deferred relation and source-deferral inputs for planning."""
+
+    deferred_locations: dict[str, CompiledRelationLocation] | None = None
+    deferred_relations: dict[str, RelationInfo] | None = None
+    defer_sources_to: str | None = None
+    source_deferral_enabled: bool = True
+
+
+@dataclass(frozen=True)
+class PlannerPolicies:
+    """Behavior policies selected by the caller for one planner invocation."""
+
+    auto_load_sources: bool = False
+    selection_diagnostics: bool = False
+    plan_sql_tests: bool = True
+    record_migration_fingerprints: bool = True
+
+
+@dataclass(frozen=True)
+class PlannerRuntime:
+    """Resolved execution environment shared by planner phases."""
+
+    project: CompiledProject
+    adapter: BaseAdapter
+    connection: Any
+    project_config: ProjectConfig | None = None
+    local_config: LocalConfig | None = None
+    on_progress: Callable[[str], None] | None = None
+    invocation_time: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+
+@dataclass(frozen=True)
+class PlannerScopeResolution:
+    """Resolved planner scopes for one plan build."""
+
+    selected_scope: PlannerScope
+    stale_warning_scope: PlannerScope
+    inspection_scope: PlannerScope
+
+
+@dataclass(frozen=True)
+class PlannerWarehouseState:
+    """Warehouse snapshot and inspection relations gathered once per plan."""
+
+    snapshot: WarehouseSnapshot
+    inspection_relations: PlannerRelationsContext
+    migration_entries: tuple[ModelMigrationPlanEntry, ...] = ()
+    migration_warnings: tuple[PlanWarning, ...] = ()
+    column_migration_entries: tuple[ColumnMigrationPlanEntry, ...] = ()
+    column_rename_hints: tuple[ColumnRenameHint, ...] = ()
+    old_name_view_entries: tuple[OldNameViewPlanEntry, ...] = ()
+    old_name_views: tuple[OldNameView, ...] = ()
+    migration_fingerprints: MigrationFingerprintCache = field(
+        default_factory=MigrationFingerprintCache
+    )
+
+
+@dataclass(frozen=True)
+class ModelMigrationRequest:
+    """One destination model whose data should come from an earlier relation."""
+
+    model: CompiledModel
+    discovery: MigrationDiscovery
+    raw_origin: str | None = None
+    origin_location: CompiledRelationLocation | None = None
+    origin_model: str | None = None
+    force: bool = False
+    identity_only: bool = False
+
+
+@dataclass(frozen=True)
+class ModelMigrationDeclaration:
+    """One project model's explicit migrate_from, resolved to a relation."""
+
+    model_name: str
+    origin_location: CompiledRelationLocation
+    origin_model: str | None
+
+
+@dataclass(frozen=True)
+class ModelMigrationDiscovery:
+    """Manual and automatically discovered migration requests for one plan."""
+
+    requests: tuple[ModelMigrationRequest, ...] = ()
+    warnings: tuple[PlanWarning, ...] = ()
+    destination_fingerprints: dict[str, tuple[str, ...]] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class MigrationCompatibilityResult:
+    """Compatibility status plus human-readable blocking findings."""
+
+    status: MigrationCompatibility
+    findings: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class ModelMigrationPlanning:
+    """Migration decisions plus the warehouse snapshot as it will look after moves."""
+
+    snapshot: WarehouseSnapshot
+    entries: tuple[ModelMigrationPlanEntry, ...] = ()
+    warnings: tuple[PlanWarning, ...] = ()
+
+
+@dataclass(frozen=True)
+class OldNameViewPlanning:
+    """Old-name steps for this build plus every compatibility view still recorded."""
+
+    entries: tuple[OldNameViewPlanEntry, ...] = ()
+    views: tuple[OldNameView, ...] = ()
+    warnings: tuple[PlanWarning, ...] = ()
+
+
+@dataclass(frozen=True)
+class ColumnMigrationPlanning:
+    """Column rename decisions plus the warehouse snapshot as it will look after renames."""
+
+    snapshot: WarehouseSnapshot
+    entries: tuple[ColumnMigrationPlanEntry, ...] = ()
+    hints: tuple[ColumnRenameHint, ...] = ()
+    warnings: tuple[PlanWarning, ...] = ()
+
+
+@dataclass(frozen=True)
+class PlannerIdentityContext:
+    """Expected version identities for inspection and stale-warning scopes."""
+
+    version_identities: DirectModelVersionIdentities
+    stale_warning_identities: DirectModelVersionIdentities
+
+
+@dataclass(frozen=True)
+class PlannerScopePruningResult:
+    """Scope pruning outcome with pruned scopes, actions, and staleness state."""
+
+    inspection_scope: PlannerScope
+    execution_scope: PlannerScope
+    resolved_actions: PlannerResolvedActions
+    pruned_direct_model_names: tuple[str, ...]
+    direct_identity_stale_model_names: frozenset[str]
+
+
+@dataclass(frozen=True)
+class PlannerChangeReconciliation:
+    """Write-hash-honest changes merged back into resolved actions."""
+
+    changes: PlannerChangeResults
+    resolved_actions: PlannerResolvedActions
+
+
+@dataclass(frozen=True)
+class PlannerEntryResults:
+    """Model plan entries for one plan build."""
+
+    model_entry_results: PlannerModelEntryResults

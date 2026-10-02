@@ -1,0 +1,324 @@
+"""Bitfab client for provider-based API calls."""
+
+from bitfab import finalizers
+from bitfab.approval import (
+    ApprovalFields,
+    ApprovalState,
+    Approver,
+    Assignee,
+    Justification,
+    JustificationSpan,
+)
+from bitfab.assertion_categories import (
+    AssertionCategoriesClient,
+    AssertionCategory,
+    AssertionCategorySummary,
+)
+from bitfab.client import (
+    AllowedEnvVars,
+    Bitfab,
+    BitfabFunction,
+    CapturedSpan,
+    CaptureWhen,
+    CurrentSpan,
+    CurrentTrace,
+    DetachedTrace,
+    MixedTracingError,
+    SpanOccurrence,
+    SpanType,
+    flush_traces,
+    get_current_replay_branch,
+    get_current_span,
+    get_current_trace,
+)
+from bitfab.commit_ref import CommitRef
+from bitfab.datasets import (
+    AddDatasetGradersResult,
+    AddDatasetTracesResult,
+    Dataset,
+    DatasetGraderRef,
+    DatasetsClient,
+    DatasetTraceIds,
+    GraderRerun,
+    GraderRerunError,
+    GraderRerunProgress,
+    GraderRerunResult,
+    GraderRerunStatus,
+    GraderRerunTimeoutError,
+    RemoveDatasetGradersResult,
+    RemoveDatasetTracesResult,
+    RerunGradersResult,
+    SaveDatasetResult,
+)
+from bitfab.db_snapshot import DbSnapshotRef
+from bitfab.experiments import (
+    Experiment,
+    ExperimentCategoryTally,
+    ExperimentCodeChangeTotals,
+    ExperimentJitter,
+    ExperimentPage,
+    ExperimentRollup,
+    ExperimentRollupResult,
+    ExperimentRunBy,
+    ExperimentsClient,
+    ExperimentStatus,
+    ExperimentTally,
+    ExperimentTotals,
+)
+from bitfab.graders import (
+    GraderLabel,
+    GraderLabelOutcome,
+    GraderLabelSource,
+    GraderLabelUpdate,
+    GradersClient,
+)
+from bitfab.labels import (
+    AssertionVerdict,
+    HumanLabelOutcome,
+    HumanLabelUpdate,
+    LabelAction,
+    LabelConfidence,
+    LabelOutcome,
+    LabelsClient,
+    LabelSource,
+    LabelStatus,
+    LabelUpdate,
+    TraceLabels,
+)
+from bitfab.mock_override import (
+    NO_MOCK_OVERRIDE,
+    MockOverride,
+    MockOverrideCtx,
+    MockOverrideInput,
+    MockOverrideResolver,
+    MockValue,
+    NodeMatcher,
+    SpanNodeMeta,
+)
+from bitfab.organization_members import (
+    OrganizationMember,
+    OrganizationMembersClient,
+)
+from bitfab.replay import (
+    BITFAB_PROGRESS_PREFIX,
+    AdaptContext,
+    CodeChangeFile,
+    ConcurrencyPrimitive,
+    DbBranchReplayError,
+    ReplayConcurrency,
+    ReplayError,
+    ReplayExperimentStart,
+    ReplayItem,
+    ReplayItemFinishEvent,
+    ReplayItemFinishProgress,
+    ReplayItemStartProgress,
+    ReplayProgress,
+    ReplayResult,
+    ReseedResult,
+    report_replay_progress,
+    serialize_replay_result,
+)
+from bitfab.replay_branch import (
+    DbBranchLease,
+    DbBranchOptions,
+    ReplayBranch,
+)
+from bitfab.replay_interrupt import ReplayInterrupt, ReplayInterruptSignal
+from bitfab.replay_registry import (
+    ReplayRegistration,
+    ReplayRegistry,
+    ReplayRegistryContext,
+    reseed_from_registry,
+    seed_from_registry,
+)
+from bitfab.selective_replay import ReplayNodeIdentity, SelectiveReplayOptions
+from bitfab.traces import (
+    AssertionEvidenceError,
+    AssertionEvidenceParameter,
+    AssertionEvidenceParameterType,
+    AssertionEvidenceSpanType,
+    AssertionGeneration,
+    AssertionGenerationError,
+    AssertionGenerationStatus,
+    AssertionGenerationTimeoutError,
+    AssertionLabelEvidence,
+    OutputTarget,
+    SaveAssertion,
+    SpanTarget,
+    TraceAssertion,
+    TraceAssertionSource,
+    TraceAssertionsResult,
+    TraceAssertionsUpdate,
+    TracesClient,
+    TraceSearchEntry,
+    TraceSearchResult,
+    TraceTarget,
+    TraceTargetOccurrence,
+)
+
+__all__ = [
+    "BITFAB_PROGRESS_PREFIX",
+    "NO_MOCK_OVERRIDE",
+    "AdaptContext",
+    "AddDatasetGradersResult",
+    "AddDatasetTracesResult",
+    "AllowedEnvVars",
+    "ApprovalFields",
+    "ApprovalState",
+    "Approver",
+    "AssertionCategoriesClient",
+    "AssertionCategory",
+    "AssertionCategorySummary",
+    "AssertionEvidenceError",
+    "AssertionEvidenceParameter",
+    "AssertionEvidenceParameterType",
+    "AssertionEvidenceSpanType",
+    "AssertionGeneration",
+    "AssertionGenerationError",
+    "AssertionGenerationStatus",
+    "AssertionGenerationTimeoutError",
+    "AssertionLabelEvidence",
+    "AssertionVerdict",
+    "Assignee",
+    "Bitfab",
+    "BitfabFunction",
+    "CaptureWhen",
+    "CapturedSpan",
+    "CodeChangeFile",
+    "CommitRef",
+    "ConcurrencyPrimitive",
+    "CurrentSpan",
+    "CurrentTrace",
+    "Dataset",
+    "DatasetGraderRef",
+    "DatasetTraceIds",
+    "DatasetsClient",
+    "DbBranchLease",
+    "DbBranchOptions",
+    "DbBranchReplayError",
+    "DbSnapshotRef",
+    "DetachedTrace",
+    "Experiment",
+    "ExperimentCategoryTally",
+    "ExperimentCodeChangeTotals",
+    "ExperimentJitter",
+    "ExperimentPage",
+    "ExperimentRollup",
+    "ExperimentRollupResult",
+    "ExperimentRunBy",
+    "ExperimentStatus",
+    "ExperimentTally",
+    "ExperimentTotals",
+    "ExperimentsClient",
+    "GraderLabel",
+    "GraderLabelOutcome",
+    "GraderLabelSource",
+    "GraderLabelUpdate",
+    "GraderRerun",
+    "GraderRerunError",
+    "GraderRerunProgress",
+    "GraderRerunResult",
+    "GraderRerunStatus",
+    "GraderRerunTimeoutError",
+    "GradersClient",
+    "HumanLabelOutcome",
+    "HumanLabelUpdate",
+    "Justification",
+    "JustificationSpan",
+    "LabelAction",
+    "LabelConfidence",
+    "LabelOutcome",
+    "LabelSource",
+    "LabelStatus",
+    "LabelUpdate",
+    "LabelsClient",
+    "MixedTracingError",
+    "MockOverride",
+    "MockOverrideCtx",
+    "MockOverrideInput",
+    "MockOverrideResolver",
+    "MockValue",
+    "NodeMatcher",
+    "OrganizationMember",
+    "OrganizationMembersClient",
+    "OutputTarget",
+    "RemoveDatasetGradersResult",
+    "RemoveDatasetTracesResult",
+    "ReplayBranch",
+    "ReplayConcurrency",
+    "ReplayError",
+    "ReplayExperimentStart",
+    "ReplayInterrupt",
+    "ReplayInterruptSignal",
+    "ReplayItem",
+    "ReplayItemFinishEvent",
+    "ReplayItemFinishProgress",
+    "ReplayItemStartProgress",
+    "ReplayNodeIdentity",
+    "ReplayProgress",
+    "ReplayRegistration",
+    "ReplayRegistry",
+    "ReplayRegistryContext",
+    "ReplayResult",
+    "RerunGradersResult",
+    "ReseedResult",
+    "SaveAssertion",
+    "SaveDatasetResult",
+    "SelectiveReplayOptions",
+    "SpanNodeMeta",
+    "SpanOccurrence",
+    "SpanTarget",
+    "SpanType",
+    "TraceAssertion",
+    "TraceAssertionSource",
+    "TraceAssertionsResult",
+    "TraceAssertionsUpdate",
+    "TraceLabels",
+    "TraceSearchEntry",
+    "TraceSearchResult",
+    "TraceTarget",
+    "TraceTargetOccurrence",
+    "TracesClient",
+    "finalizers",
+    "flush_traces",
+    "get_current_replay_branch",
+    "get_current_span",
+    "get_current_trace",
+    "report_replay_progress",
+    "reseed_from_registry",
+    "seed_from_registry",
+    "serialize_replay_result",
+]
+
+from bitfab.openai_agent_sdk import BitfabOpenAIAgentHandler  # noqa: F401
+from bitfab.tracing import (
+    BitfabOpenAITracingProcessor as BitfabTracingProcessor,  # noqa: F401
+)
+
+__all__.extend(["BitfabOpenAIAgentHandler", "BitfabTracingProcessor"])
+
+# Only export the LangGraph/LangChain handler if langchain-core is available
+try:
+    from bitfab.langgraph import (
+        BitfabLangChainCallbackHandler,  # noqa: F401
+        BitfabLangGraphCallbackHandler,  # noqa: F401
+    )
+    from bitfab.langgraph_integration import BitfabLangGraphIntegration  # noqa: F401
+
+    __all__.extend(
+        [
+            "BitfabLangChainCallbackHandler",
+            "BitfabLangGraphCallbackHandler",
+            "BitfabLangGraphIntegration",
+        ]
+    )
+except ImportError:
+    pass
+
+# Only export BitfabClaudeAgentHandler if claude-agent-sdk is available
+try:
+    from bitfab.claude_agent_sdk import BitfabClaudeAgentHandler  # noqa: F401
+
+    __all__.append("BitfabClaudeAgentHandler")
+except ImportError:
+    pass

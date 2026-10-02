@@ -1,5 +1,0 @@
-properties:
-    - resource-gating:
-        resources:
-            - external/ci.example.com
-            - foo/bar/baz

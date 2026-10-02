@@ -458,6 +458,10 @@ def to_db(db_path, table_name, df, max_retries=10):
                 add_new_columns=True,
                 chunksize=20,
             )
+            # Release the pooled connection: an open handle keeps the file
+            # locked on Windows (tmp-dir cleanup in tests) and holds a WAL
+            # reader slot on the cluster.
+            engine.dispose()
             return
         except Exception as e:
             # add_new_columns=True is NOT concurrency-safe: geocif writes from
@@ -474,9 +478,19 @@ def to_db(db_path, table_name, df, max_retries=10):
                 pwrite(f"DB locked writing {table_name}, retry {attempt + 1}/{max_retries} in {wait:.1f}s")
                 time.sleep(wait)
             else:
-                from geocif.progress import pwrite
-                pwrite(f"Exception: {e}")
-                return
+                # Any other failure (read-only DB, disk I/O, dtype mismatch
+                # against an older table, lock retries exhausted) used to be
+                # swallowed here, so a run could finish, print "complete"
+                # and hold zero rows for the affected chunk. Make it loud.
+                import logging
+                logging.getLogger(__name__).error(
+                    f"to_db: giving up writing {len(df)} rows to {table_name} "
+                    f"in {db_path} after attempt {attempt + 1}: {e}"
+                )
+                engine.dispose()
+                raise RuntimeError(
+                    f"to_db failed for table {table_name} ({db_path}): {e}"
+                ) from e
 
 
 def is_table(database, table_name):
@@ -813,19 +827,35 @@ def compute_time_periods(df_inp, period_type, year):
 
 
 def compute_h_index(values):
+    """h-index of a sequence: the largest h such that at least h values are >= h.
+
+    (Until 0.4.1063 this returned the h-th largest VALUE instead of h, so
+    ``H-INDEX_*`` CIDs were "the smallest value among the top-h days", not
+    the documented count.)
+    """
     # Sort the array in descending order
-    sorted_value = np.sort(values)[::-1]
+    sorted_value = np.sort(np.asarray(values, dtype=float))[::-1]
 
     # Iterate through the sorted array to find the h-index
     h_index = 0
 
     for i, value in enumerate(sorted_value, start=1):
         if value >= i:
-            h_index = value
+            h_index = i
         else:
             break
 
     return h_index
+
+
+def local_now():
+    """Current time in the pipeline's reference time zone (America/New_York).
+
+    Every "is this month complete / which month is current" decision must
+    use this, not ``arrow.utcnow()``: after 20:00 EDT on a month's last day
+    UTC is already the next month (the 0.4.1062 stage-drop bug).
+    """
+    return ar.utcnow().to("America/New_York")
 
 
 def get_z_value(alpha):

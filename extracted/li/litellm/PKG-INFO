@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: litellm
-Version: 1.103.1
+Version: 1.103.2
 Requires-Dist: fastuuid>=0.14.0,<1.0
 Requires-Dist: httpx[http2]>=0.28.0,<1.0
 Requires-Dist: openai>=2.20.0,<3.0.0
@@ -66,7 +66,7 @@ Requires-Dist: mcp>=2.2.0,<3 ; extra == 'proxy'
 Requires-Dist: httpx2>=2.5.0,<3 ; extra == 'proxy'
 Requires-Dist: pydantic>=2.12.0,<3 ; extra == 'proxy'
 Requires-Dist: litellm-proxy-extras==0.4.100 ; extra == 'proxy'
-Requires-Dist: litellm-enterprise==0.1.69 ; extra == 'proxy'
+Requires-Dist: litellm-enterprise==0.1.69.post1 ; extra == 'proxy'
 Requires-Dist: restrictedpython>=8.5,<9.0 ; extra == 'proxy'
 Requires-Dist: rich>=13.9.4,<14.0 ; extra == 'proxy'
 Requires-Dist: inquirerpy>=0.3.4,<1.0 ; extra == 'proxy'

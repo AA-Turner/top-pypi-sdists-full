@@ -1,0 +1,94 @@
+---
+# Read the Docs configuration file
+# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
+#
+# The dotted name is the canonical one; readthedocs.yml is honored too,
+# but documented as deprecated. A sibling repository's copy of this
+# line goes on to say that "include *.yml" would drag the file into the
+# sdist; there is no MANIFEST.in here and no site served from this root
+# for that clause to be about.
+#
+# What this file cannot say is *which* versions run it, and here that is
+# where the defect is rather than a footnote. `latest`, `stable` and each
+# release tag are versions on read the docs' side, and an automation rule
+# is what activates a new tag there. `latest` follows main and `stable`
+# is what read the docs moves to the highest release tag and rebuilds by
+# itself, so those two need no activation, and a tag's own
+# `/en/v<version>/` -- the permanent URL a reader is given wherever a
+# version is named -- is served only where something on the dashboard
+# has turned that version on. Whether it has is the state of the day it
+# is read: this file neither asserts it nor can be edited to change it.
+# What is *not* broken is the build: `stable` runs this file against a
+# release tag's tree and succeeds, so what a release is short of where
+# the URL 404s is the URL and not an untested build.
+#
+# The slug is `btclib-secp256k1`, which is what README.md's badge, the
+# link behind it and pyproject.toml's `documentation` url name.
+#
+# The rule is a dashboard action rather than anything a pull request
+# reaches: btclib-org/.github#26 carries it, and the commands that
+# re-derive all of this. What a pull request does reach is the check
+# that reads the rendered tag URL, and `release.yml`'s `documented` job
+# is it: depended on by nothing, so a red run there withholds no wheel
+# and asks for a build rather than a moved tag. Its loop runs on a tag
+# and on nothing else, which is the exposure btclib-org/.github#49
+# measured on `pypi-install.yml`'s own wait. What landed there does
+# transfer, and `pypi-install.yml` in this tree is the shape: not an
+# early exit, which annuls the property it was chosen for, but the
+# empty case as a condition *around* the loop, so the script is parsed
+# on every trigger and the loop runs on none but a tag. It buys less
+# here than there -- that step ran on Windows cells where the parse
+# itself was the defect, and this is one ubuntu job -- which is why the
+# job-level guard stays for now, and btclib-org/.github#466 is where
+# the three trees decide it together rather than each on its own.
+
+# Required
+version: 2
+
+# every automodule directive imports this package, and this package
+# compiles the vendored libsecp256k1 to do that -- read the docs has to
+# check out the git submodule, matching what CONTRIBUTING.md's
+# environment section already asks a developer to do, or every directive gets a bare
+# heading and nothing beneath it, silently, the same failure mode
+# .readthedocs.yaml's -W exists to turn into a build error instead
+submodules:
+  include:
+    - secp256k1
+  recursive: false
+
+# the interpreter is declared rather than left to whatever read the docs
+# defaults to, matching a sibling repository's own file. It is 3.14 and
+# not the 3.15 of `.python-version` because read the docs' configuration
+# schema offers nothing newer, and what it runs is `pip install uv` below:
+# `uv sync` reads `.python-version` rather than this key, and fetches the
+# interpreter named there where the image has none. These docs are built
+# twice, on the website and by docs.yml, and one interpreter is what
+# keeps the two from being different questions
+build:
+  os: ubuntu-24.04
+  tools:
+    python: "3.14"
+  # build.commands rather than the sphinx: and python: keys, which cannot
+  # express installing this package's own dependency group and are
+  # rejected when it is present. uv installs the docs group from
+  # uv.lock, which is why there is no docs/requirements.txt: the group in
+  # pyproject.toml is the single declaration and the lock pins it, where
+  # a requirements file would be unpinned and kept in step by a header
+  # asking a human to do it.
+  # uv itself is not pinned, deliberately: no dependabot ecosystem
+  # watches this file, so a pin here is a version nobody bumps, and
+  # --locked makes the uv version irrelevant to what gets installed --
+  # uv.lock decides that, and a uv too old to read the lock fails loudly
+  # rather than resolving something else.
+  # -W turns a failed import into a failed build, which is the point of
+  # the whole file, and reports every warning the build raises before
+  # failing at the end of it, so one broken module does not hide the
+  # next.
+  # -n is docs.yml's own flag, kept in step here so the site this file
+  # publishes is built by the same command that gates a merge
+  commands:
+    - pip install uv
+    - uv sync --locked --no-default-groups --group docs
+    - >-
+      uv run --locked --no-default-groups --group docs
+      sphinx-build -n -W -b html docs/source $READTHEDOCS_OUTPUT/html

@@ -51,7 +51,7 @@ where
         };
 
         total_diagnostics.extend(resolution_errors.into_iter().filter_map(|err| {
-            crate::validate::schema_resolution_diagnostic(&err, value.range(), common_rules)
+            crate::validate::schema_resolution_diagnostic(&err, value.span(), common_rules)
         }));
 
         if all_of_schema.reference_siblings {
@@ -201,6 +201,7 @@ where
             schema_uri: local.schema_uri,
             schema_base_uri: local.schema_base_uri,
             schema_document_uri: local.schema_document_uri,
+            line_index: local.line_index,
             definitions: local.definitions,
             strict: local.strict,
             dynamic_scope: local.dynamic_scope,

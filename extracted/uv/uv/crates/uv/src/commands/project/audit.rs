@@ -17,7 +17,7 @@ use crate::commands::reporters::AuditReporter;
 use crate::printer::Printer;
 use crate::settings::{FrozenSource, LockCheck, ResolverSettings};
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use rustc_hash::FxHashSet;
 use tracing::trace;
 use uv_audit::{
@@ -36,7 +36,9 @@ use uv_fs::{CWD, find_git_repository_root, relative_to};
 use uv_lock::Lock;
 use uv_normalize::{DefaultExtras, DefaultGroups};
 use uv_preview::{Preview, PreviewFeature};
-use uv_python::{ConfigDiscovery, PythonDownloads, PythonPreference, PythonVersion};
+use uv_python::{
+    ConfigDiscovery, PythonArchitecture, PythonDownloads, PythonPreference, PythonVersion,
+};
 use uv_redacted::DisplaySafeUrl;
 use uv_scripts::Pep723Script;
 use uv_settings::PythonInstallMirrors;
@@ -59,6 +61,7 @@ pub(crate) async fn audit(
     settings: ResolverSettings,
     client_builder: BaseClientBuilder<'_>,
     python_preference: PythonPreference,
+    python_arch: Option<PythonArchitecture>,
     python_downloads: PythonDownloads,
     concurrency: Concurrency,
     config_discovery: ConfigDiscovery,
@@ -72,6 +75,10 @@ pub(crate) async fn audit(
     ignore: Vec<VulnerabilityID>,
     ignore_until_fixed: Vec<VulnerabilityID>,
 ) -> Result<ExitStatus> {
+    if client_builder.is_offline() {
+        bail!("Auditing requires network access and cannot be performed in offline mode");
+    }
+
     // Check if the audit feature is in preview
     if !preview.is_enabled(PreviewFeature::AuditCommand) {
         warn_user!(
@@ -129,6 +136,7 @@ pub(crate) async fn audit(
                 None,
                 &client_builder,
                 python_preference,
+                python_arch,
                 python_downloads,
                 &install_mirrors,
                 false,
@@ -154,6 +162,7 @@ pub(crate) async fn audit(
                     workspace_python,
                     &client_builder,
                     python_preference,
+                    python_arch,
                     python_downloads,
                     &install_mirrors,
                     ProjectEnvironmentPolicy::Optional,

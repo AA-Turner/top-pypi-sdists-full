@@ -1,0 +1,217 @@
+---
+name: pr_lifecycle_fix_effect
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: effect
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  Agent-dispatched PR remediation effect. Consumes triage events for
+  non-green PRs and routes fix actions by block reason:
+  ci_failure -> CI fix dispatch, conflict -> conflict resolution,
+  changes_requested -> review-comment address, coderabbit -> CodeRabbit
+  auto-reply. Protocol-injected adapters for GitHub and agent dispatch.
+  Absorbs pr_polish conflict-resolution and coderabbit_triage auto-reply
+  logic into a proper node with contract-declared behavior.
+
+# OMN-13990: the runtime resolver zero-arg-constructs the declared handler on the
+# consume path; HandlerPrLifecycleFixRuntime binds the LIVE OCC adapters there so
+# the born-path autobind command does real work (the base HandlerPrLifecycleFix
+# would default to no-op adapters). The merge-sweep tick keeps its own explicit
+# live wiring via the orchestrator and does NOT read this handler block.
+handler:
+  module: omnimarket.nodes.node_pr_lifecycle_fix_effect.handlers.handler_pr_lifecycle_fix_runtime
+  class: HandlerPrLifecycleFixRuntime
+  input_model: omnimarket.nodes.node_pr_lifecycle_fix_effect.models.model_fix_command.ModelPrLifecycleFixCommand
+
+# OMN-13990 (routing fix, OMN-13551 pattern): a SINGLE typed dispatch entry.
+# With two subscribe_topics, a multi-entry handler_routing pushed the typed
+# handler into the ambiguity guard in _topics_for_handler_entry (return () ->
+# ZERO dispatch routes -> the occ-autobind command was silently DLQ'd). The
+# other former entries (GitHubCliAdapter, PrPolishDispatchAdapter,
+# HandlerAutoRebase, HandlerCommentResolution) are internal
+# collaborators of HandlerPrLifecycleFix / the orchestrator — NOT
+# runtime-dispatched targets — so they are removed here. A sole typed entry
+# deterministically owns every subscribe topic (both pr-lifecycle-fix-start.v1
+# and occ-autobind.v1).
+handler_routing:
+  routing_strategy: payload_type_match
+  handlers:
+    - handler:
+        name: HandlerPrLifecycleFixRuntime
+        module: omnimarket.nodes.node_pr_lifecycle_fix_effect.handlers.handler_pr_lifecycle_fix_runtime
+      event_model:
+        name: ModelPrLifecycleFixCommand
+        module: omnimarket.nodes.node_pr_lifecycle_fix_effect.models.model_fix_command
+
+descriptor:
+  node_archetype: effect
+  purity: side_effect
+  idempotent: false
+  timeout_ms: 300000
+  runtime_profiles:
+    - effects
+
+inputs:
+  pr_number:
+    type: int
+    description: "PR number to remediate"
+    required: true
+  repo:
+    type: str
+    description: "GitHub repo slug (owner/repo)"
+    required: true
+  block_reason:
+    type: str
+    description: >
+      Block reason: ci_failure | code_failure | receipt_failure | conflict |
+      changes_requested | coderabbit | deploy_gate_contract_not_found |
+      receipt_evidence_source_autobind
+    required: true
+  ticket_id:
+    type: str
+    description: "Linear ticket ID for context"
+    required: false
+  dry_run:
+    type: bool
+    description: "Run without side effects"
+    required: false
+    default: false
+  op:
+    type: str
+    description: >
+      Companion operation for receipt_evidence_source_autobind (OMN-19827):
+      derive (default) | regenerate | verify. regenerate re-mints the PR's own
+      open companion, or rebuilds the ticket batch companion when
+      occ_batch_mode is ticket, without a product push (OMN-19832). verify runs
+      as derive until it is built.
+    required: false
+    default: derive
+  command_id:
+    type: str
+    description: >
+      The PR landing workflow's id for a companion command it issues (OMN-19832,
+      plan revision 1 F4/F5), echoed on the companion outcome. Absent on
+      push-driven commands.
+    required: false
+
+outputs:
+  fix_applied:
+    type: bool
+    description: "Whether a fix action was dispatched"
+  block_reason:
+    type: str
+    description: "Block reason that was routed"
+  fix_action:
+    type: str
+    description: "Fix action that was taken or would be taken (dry_run)"
+  error:
+    type: str
+    description: "Error message if fix failed (null on success)"
+
+terminal_event: onex.evt.omnimarket.pr-lifecycle-fix-completed.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.pr-lifecycle-fix-start.v1
+    # OMN-13317 F1: product-PR opened/synchronize thin-publishes the autobind
+    # command here; the fix effect routes it to the Evidence-Source autobind
+    # adapter (receipt_evidence_source_autobind block reason).
+    - onex.cmd.omnimarket.occ-autobind.v1
+  publish_topics:
+    - onex.evt.omnimarket.pr-lifecycle-fix-completed.v1
+    # OMN-19832 (PR landing workflow T10): the typed answer to every consumed
+    # autobind command, ModelPrLandingCompanionOutcome, echoing its command_id.
+    - onex.evt.omnimarket.pr-landing-companion-outcome.v1
+
+# OMN-19832: the runtime handler returns a ModelHandlerOutput whose events are
+# the fix result and, for an autobind command, the companion outcome. The
+# applier routes each by class name through this map; without the second entry
+# the outcome would fall back to the terminal topic.
+published_events:
+  - event_type: "PrLifecycleFixResult"
+    topic: "onex.evt.omnimarket.pr-lifecycle-fix-completed.v1"
+    description: "Terminal result of one fix run, unchanged by OMN-19832."
+  - event_type: "PrLandingCompanionOutcome"
+    topic: "onex.evt.omnimarket.pr-landing-companion-outcome.v1"
+    description: "MINTED, DECLINED or ERROR for one consumed autobind command, with its command_id (OMN-19832)."
+
+secrets:
+  # OMN-12856: GitHub token is contract-declared so adapters read the ref
+  # name from here — not a bare source literal. Value is resolved at the effect
+  # boundary via the canonical secret-store resolver.
+  GITHUB_TOKEN:
+    description: "GitHub PAT or Actions token for REST and GraphQL API calls."
+    required: true
+  # OMN-14893: the onexbot-occ-writer GitHub App credentials. Consumed ONLY
+  # when OMNI_OCC_GITHUB_AUTH_MODE=app; declared `required: false` at the
+  # contract level because the default `pat` mode does not need them, but the
+  # app-auth code path (github_app_auth.resolve_app_installation_token_from_contract)
+  # itself fails loud, naming this ref, if the mode is switched to `app`
+  # without these being resolvable — no silent PAT fallback exists there.
+  ONEXBOT_OCC_APP_ID:
+    description: "onexbot-occ-writer GitHub App id (app-auth mode only)."
+    required: false
+  ONEXBOT_OCC_PRIVATE_KEY:
+    description: "onexbot-occ-writer GitHub App private key PEM (app-auth mode only)."
+    required: false
+  # OMN-15441: the product-repo-scoped credential for the ONE write this
+  # producer makes outside onex_change_control (PATCH the product PR body with
+  # Evidence-Source). Declared here as well as on node_occ_companion_effect
+  # because both OCC companion producers make that same cross-repo write.
+  # Optional: when absent the emitter falls back to GITHUB_TOKEN, which is
+  # correct for the single-cross-repo-PAT bus-runtime path. Under
+  # OMNI_OCC_GITHUB_AUTH_MODE=app the fallback is an onex_change_control-scoped
+  # App token that 403s on the product repo, so the app cutover must supply it.
+  OMNI_OCC_PRODUCT_TOKEN:
+    description: "Product-repo-scoped GitHub token with pull_requests:write, used only for the product PR-body Evidence-Source stamp. Falls back to GITHUB_TOKEN when unset."
+    required: false
+
+config:
+  # OMN-15247 minted this var; OMN-15317 flipped its default to 'content_bound'.
+  # The unset default is now the FALSIFIABLE binding: the two production
+  # construction sites pass no kwargs and set no env, so the shipped default IS
+  # the production behavior, and a 'pr_existence' default meant the emitted
+  # contract check exited 0 for any PR that exists (reverts and empty PRs
+  # included) — the OMN-15247 defect itself. Resolution is fail-closed
+  # (omnimarket.occ_contention.resolve_occ_producer_policy): an unrecognized
+  # value raises naming the variable and the accepted set, never silently picks
+  # a default. Declared here so the env surface is visible to
+  # scripts/audit/contract_config_audit.py rather than living only in code
+  # (feedback_no_invisible_env_config_in_contract_overlays).
+  #
+  # NOTE: this is a mode selector over WHICH shape of check is emitted, not an
+  # on/off switch for a check. The OMN-15247 defer-on-contention guard has NO
+  # env var at all — it is unconditional, like the OMN-14793 single-producer
+  # lease; an opt-in guard would be the silent-skip defect
+  # (feedback_optional_input_means_the_check_does_not_exist).
+  OMNI_OCC_CHECK_BINDING:
+    description: >-
+      What the generated CONTRACT dod_evidence check_value asserts:
+      'content_bound' (default — a RED-proven content read pinned to a literal
+      merge-base-falsifiable ref; fail-closed, DEFERS the whole mint rather than
+      falling back to the generic binding) or 'pr_existence' (the generic
+      binding: `gh api repos/${REPO}/pulls/${PR_NUMBER}/files --paginate --jq
+      '.[].sha' | grep -qE '^[0-9a-f]{40}$'`, retained as the explicit reversal
+      path and for the golden/parity fixtures). OMN-15247 R21 re-spelled the
+      generic binding from `gh pr view ... --json number,state` (refused
+      NOT_EXECUTED by the OMN-15309 admissibility predicate) to the `gh api`
+      form above; the axis is unchanged. The terminal assertion is ANCHORED to a
+      40-hex blob sha rather than `| grep -q .` because `gh api` writes its 404
+      error body to STDOUT, which an unanchored assertion accepts as a false
+      green (MEASURED; see occ_evidence_stamp and TestAnchorIsLoadBearing).
+    required: false
+    default: "content_bound"
+
+metadata:
+  transport_type: kafka
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.pr-lifecycle-fix-start.v1
+
+# OMN-18013 -- explicit external PRODUCER declaration (contract topic graph closure).
+# Replaces the deleted contract_topic_graph_baseline.yaml external_producers map:
+# the declaration now lives beside the subscription it explains.
+externally_produced_topics:
+  - topic: onex.cmd.omnimarket.occ-autobind.v1
+    producer: "the onex skill/CLI dispatcher (`onex run-node` / `uv run onex skill ...`), which publishes this command directly -- not a node contract"

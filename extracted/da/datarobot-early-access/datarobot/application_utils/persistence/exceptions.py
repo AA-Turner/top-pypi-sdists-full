@@ -1,0 +1,173 @@
+#
+# Copyright 2026 DataRobot, Inc. and its affiliates.
+#
+# All rights reserved.
+#
+# DataRobot, Inc.
+#
+# This is proprietary source code of DataRobot, Inc. and its
+# affiliates.
+#
+# Released under the terms of DataRobot Tool and Utility Agreement.
+"""Typed exceptions raised by the Memory Service ORM.
+
+All exceptions derive from ``DRMemoryServiceError``.  The naming deliberately
+avoids ``MemoryError`` to prevent shadowing the Python built-in.
+
+Exception hierarchy
+-------------------
+::
+
+    DRMemoryServiceError
+    ├── DRMemoryNotFoundError        (HTTP 404)
+    ├── DRMemoryBadRequestError      (HTTP 400)
+    ├── DRMemoryValidationError      (HTTP 422, schema validation)
+    ├── DRMemoryConflictError        (HTTP 409, deduplication conflict)
+    ├── DRMemoryVersionConflictError (HTTP 409 session stale / 422 event stale)
+    ├── DRMemoryRateLimitError       (HTTP 429, quota / rate limit)
+    └── DRMemoryUnavailableError     (no response: timeout / connection failure)
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+
+class DRMemoryServiceError(Exception):
+    """Base exception for all Memory Service ORM errors.
+
+    Parameters
+    ----------
+    detail : str
+        Human-readable error detail.
+    status_code : int | None
+        HTTP status code, if applicable.
+    payload : dict | None
+        Raw response body, if available.
+    """
+
+    def __init__(
+        self,
+        detail: str,
+        *,
+        status_code: int | None = None,
+        payload: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(detail)
+        self.detail = detail
+        self.status_code = status_code
+        self.payload = payload
+
+    def __repr__(self) -> str:
+        """Return a developer-friendly representation."""
+        return f"{type(self).__name__}({self.detail!r}, status_code={self.status_code})"
+
+
+class DRMemoryNotFoundError(DRMemoryServiceError):
+    """Raised when the requested resource does not exist (HTTP 404)."""
+
+
+class DRMemoryBadRequestError(DRMemoryServiceError):
+    """Raised on client-side validation errors from the service (HTTP 400).
+
+    Common causes: an event emitter is not a session participant, an invalid
+    ObjectId is supplied for a participant filter.
+    """
+
+
+class DRMemoryValidationError(DRMemoryServiceError):
+    """Raised on schema validation errors from the service (HTTP 422).
+
+    This typically means the request body or query parameters failed the
+    service's Pydantic validation (e.g. a field is too long, a required field
+    is missing, or mutually exclusive parameters are both supplied).
+    """
+
+
+class DRMemoryConflictError(DRMemoryServiceError):
+    """Raised on a deduplication conflict when creating a session or ``DRMemorySpace`` (HTTP 409).
+
+    The ORM automatically adopts the existing resource (by fetching it via
+    ``existing_id``) rather than propagating this exception to callers in
+    the normal ``post()`` flow.
+
+    Parameters
+    ----------
+    existing_id : str | None
+        Server-assigned ID of the existing resource.
+    location : str | None
+        URL from the service ``Location`` header pointing to the existing resource.
+    """
+
+    def __init__(
+        self,
+        detail: str,
+        *,
+        status_code: int | None = None,
+        payload: dict[str, Any] | None = None,
+        existing_id: str | None = None,
+        location: str | None = None,
+    ) -> None:
+        super().__init__(detail, status_code=status_code, payload=payload)
+        self.existing_id = existing_id
+        self.location = location
+
+
+class DRMemoryVersionConflictError(DRMemoryServiceError):
+    """Raised on an optimistic-concurrency failure.
+
+    Surfaces as HTTP 409 for session ``patch()`` (stale ``If-Match`` header)
+    and as HTTP 422 for event ``patch()`` (stale ``createdAt`` token).
+
+    Resolution: re-read the resource to get the current version, then retry.
+    """
+
+
+class DRMemoryRateLimitError(DRMemoryServiceError):
+    """Raised when the service rejects a request due to quota or rate limits (HTTP 429).
+
+    The Memory Service enforces per-tenant trial quotas: monthly read/write
+    counts answer ``429`` with a ``Retry-After`` header (seconds until the
+    window resets), while the storage cap answers ``429`` *without*
+    ``Retry-After`` — storage is a level, not a windowed quota, so freeing
+    data (or upgrading) is the remedy rather than waiting.
+
+    Resolution: when ``retry_after`` is set, wait that many seconds before
+    retrying or propagate the value to your own HTTP response so the caller
+    can back off correctly.  When it is ``None``, retrying later will not
+    help by itself — inspect ``detail`` for the limit that was hit.
+
+    Parameters
+    ----------
+    retry_after : int | None
+        Whole seconds to wait before retrying, parsed from the ``Retry-After``
+        response header (supports both delta-seconds and HTTP-date forms;
+        integer so it can be propagated verbatim into another ``Retry-After``
+        header).  ``None`` when the service did not send the header (e.g. the
+        trial storage-cap ``429``).
+    """
+
+    def __init__(
+        self,
+        detail: str,
+        *,
+        status_code: int | None = None,
+        payload: dict[str, Any] | None = None,
+        retry_after: int | None = None,
+    ) -> None:
+        super().__init__(detail, status_code=status_code, payload=payload)
+        self.retry_after = retry_after
+
+
+class DRMemoryUnavailableError(DRMemoryServiceError):
+    """Raised when no HTTP response was received from the service.
+
+    Covers request timeouts and transport failures (connection refused, DNS
+    resolution, TLS errors, protocol violations).  The original ``httpx``
+    exception is preserved as ``__cause__``.
+
+    ``status_code`` is always ``None``: the failure happened before a status
+    code existed.  Catching ``DRMemoryServiceError`` therefore covers both
+    service-side errors *and* an unreachable service, without importing
+    ``httpx`` at call sites.
+    """

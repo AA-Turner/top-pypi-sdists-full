@@ -274,3 +274,34 @@ class LLMParams(BaseModel):
 
     dictionary: DictionaryConfig | None = None
     tts_quality: TtsQuality | None = None
+
+
+def merge_llm_overrides(
+    base: dict[str, Any] | None, top: dict[str, Any] | None
+) -> dict[str, Any]:
+    """Layer one LLM override dict on top of another — THE one merge.
+
+    Same class semantics as ``UnifiedConfig.apply_overrides``: a class pin
+    (``offering_id``) belongs to exactly ONE model, so
+
+    * ``top`` moving to a different ``model`` without naming its own
+      ``offering_id`` drops ``base``'s pin (the moved-to model runs its
+      preferred class instead of raising on another model's pin);
+    * an EXPLICIT ``offering_id: None`` in ``top`` clears the pin — the key is
+      kept as ``None`` so the downstream ``apply_overrides`` clears the agent's
+      own pin too;
+    * every other key: ``top`` wins (plain ``dict.update``).
+
+    Every site that layers override dicts carrying a ``model`` key (mandate
+    binding rungs, run-scope config, named-agent call overrides, conversation
+    rebuild) uses this — a bare ``dict.update`` re-opens the stale-pin defect.
+    """
+    merged: dict[str, Any] = dict(base or {})
+    if not top:
+        return merged
+    top_model = top.get("model")
+    moved_model = top_model is not None and str(top_model) != str(merged.get("model"))
+    if moved_model and "offering_id" not in top:
+        merged.pop("offering_id", None)
+    merged.update(top)
+    return merged

@@ -1,0 +1,93 @@
+Metadata-Version: 2.1
+Name: boldsign
+Version: 3.3.3
+Summary: BoldSign API
+Home-page: https://github.com/boldsign/boldsign-python-sdk
+Author: BoldSign
+Author-email: support@boldsign.com
+License: MIT
+Keywords: boldsign,api,sdk,BoldSign API
+Platform: UNKNOWN
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# BoldSign
+
+Easily integrate BoldSign's e-signature features into your Python applications. This package simplifies sending documents for signature, embedding signing ceremonies, tracking document status, downloading signed documents, and managing e-signature workflows.
+
+## Prerequisites
+
+- Python 3.7+
+- Free [developer account](https://boldsign.com/esignature-api/)
+
+## Documentation
+
+- [Official API documentation](https://developers.boldsign.com/)
+
+## Installation & Usage
+
+You can install this package by using the pip tool: 
+```sh
+pip install boldsign
+```
+(You may need to run pip with root permission: sudo pip install boldsign)
+
+Then import the package:
+```python
+import boldsign
+```
+
+## Dependencies
+
+This package requires the following dependencies to function properly. They will be installed automatically when you install the package:
+ 
+- urllib3>=1.25.3 
+- python-dateutil 
+- pydantic>=2 
+- typing-extensions>=4.7.1 
+
+## Getting Started
+
+Please follow the [installation procedure](#installation--usage) and then run the following:
+
+```python
+
+import boldsign
+
+configuration = boldsign.Configuration(
+    api_key = "***your_api_key***"
+)
+
+# Enter a context with an instance of the API client
+with boldsign.ApiClient(configuration) as api_client:
+    # Create an instance of the DocumentApi class
+    document_api = boldsign.DocumentApi(api_client)
+
+    # Define the signature field to be added to the document
+    signatureField = boldsign.FormField(
+        fieldType="Signature",  # Field type is Signature
+        pageNumber=1,  # Specify the page number
+        bounds=boldsign.Rectangle(x=100, y=100, width=100, height=50),  # Position and size of the signature field
+    )
+
+    # Define the signer with a name and email address
+    signer = boldsign.DocumentSigner(
+        name="David",  # Name of the signer
+        emailAddress="david@example.com",  # Signer's email address
+        signerType="Signer",  # Specify the signer type
+        formFields=[signatureField]  # Assign the signature field to the signer
+    )
+
+    # Prepare the request body for sending the document for signature
+    send_for_sign = boldsign.SendForSign(
+        title="Agreement",  # Title of the document
+        signers=[signer],  # List of signers
+        files=["/documents/agreement.pdf"]  # Path to the document file to be signed
+    )
+    
+    # Send the document for signature and capture the response
+    api_response = document_api.send_document(send_for_sign=send_for_sign)
+```
+
+
+

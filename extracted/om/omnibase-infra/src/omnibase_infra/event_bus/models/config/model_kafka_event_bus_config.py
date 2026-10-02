@@ -1,0 +1,1617 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Kafka Event Bus configuration model.
+
+Provides a Pydantic configuration model for EventBusKafka with support for
+environment variable overrides, YAML configuration loading, and sensible
+defaults for production deployment.
+
+Features:
+    - Strong typing with comprehensive validation
+    - Environment variable override support with type conversion
+    - YAML configuration file loading
+    - Sensible defaults for production resilience patterns
+    - Circuit breaker and retry configuration
+    - Reconnect backoff configuration to prevent thundering-herd storms
+    - Warning logs for invalid environment variable values
+
+Environment Variables:
+    All environment variables are optional and fall back to defaults if not set
+    or if parsing fails. Invalid values log warnings and use defaults.
+
+    Connection Settings:
+        KAFKA_BOOTSTRAP_SERVERS: Kafka broker addresses (comma-separated)
+            Default: "localhost:19092"
+            Example: "kafka1:9092,kafka2:9092"
+
+        KAFKA_ENVIRONMENT: Environment identifier for message routing
+            Default: "local"
+            Example: "dev", "staging", "prod"
+
+    Timeout and Retry Settings (with validation):
+        KAFKA_TIMEOUT_SECONDS: Timeout for operations (integer, 1-300)
+            Default: 30
+            Example: "60"
+            Warning: Logs warning if not a valid integer, uses default
+
+        KAFKA_MAX_RETRY_ATTEMPTS: Maximum retry attempts (integer, 0-10)
+            Default: 3
+            Example: "5"
+            Warning: Logs warning if not a valid integer, uses default
+
+        KAFKA_RETRY_BACKOFF_BASE: Base exponential backoff delay (float, 0.1-60.0)
+            Default: 1.0
+            Example: "2.0"
+            Warning: Logs warning if not a valid float, uses default
+
+    Circuit Breaker Settings (with validation):
+        KAFKA_CIRCUIT_BREAKER_THRESHOLD: Failures before circuit opens (integer, 1-100)
+            Default: 5
+            Example: "10"
+            Warning: Logs warning if not a valid integer, uses default
+
+        KAFKA_CIRCUIT_BREAKER_RESET_TIMEOUT: Reset timeout in seconds (float, 1.0-3600.0)
+            Default: 30.0
+            Example: "60.0"
+            Warning: Logs warning if not a valid float, uses default
+
+    Consumer Settings:
+        KAFKA_CONSUMER_SLEEP_INTERVAL: Poll interval in seconds (float, 0.01-10.0)
+            Default: 0.1
+            Example: "0.2"
+            Warning: Logs warning if not a valid float, uses default
+
+        KAFKA_AUTO_OFFSET_RESET: Offset reset policy
+            Default: "latest"
+            Options: "earliest", "latest"
+
+        KAFKA_ENABLE_AUTO_COMMIT: Auto-commit consumer offsets (boolean)
+            Default: true
+            True values: "true", "1", "yes", "on" (case-insensitive)
+            False values: "false", "0", "no", "off" (case-insensitive)
+            Warning: Logs warning if unexpected value, treats as False
+
+        KAFKA_MAX_PARTITION_FETCH_BYTES: Per-partition fetch ceiling in bytes
+            (integer, 16384-52428800)
+            Default: 262144 (256 KiB)
+            Example: "524288"
+            Note: multiplied by the wired consumer count against the container
+            memory limit -- see the field docstring before raising it (OMN-15837)
+
+    Producer Settings:
+        KAFKA_ACKS: Producer acknowledgment policy
+            Default: "all"
+            Options: "all", "1", "0"
+
+        KAFKA_ENABLE_IDEMPOTENCE: Enable idempotent producer (boolean)
+            Default: true
+            True values: "true", "1", "yes", "on" (case-insensitive)
+            False values: "false", "0", "no", "off" (case-insensitive)
+            Warning: Logs warning if unexpected value, treats as False
+
+    Dead Letter Queue Settings:
+        KAFKA_DEAD_LETTER_TOPIC: Topic name for failed messages (optional)
+            Default: None (DLQ disabled)
+            Example: "dlq-events"
+
+    Instance Discriminator (OMN-2251):
+        KAFKA_INSTANCE_ID: Instance discriminator for consumer group IDs (optional)
+            Default: None (no discrimination, single-container behavior)
+            Example: "container-1", "pod-abc123"
+            When set, appended as '.__i.{instance_id}' to consumer group IDs
+            so each container gets unique consumer group membership and
+            proper Kafka partition assignment in multi-container dev environments.
+
+    Reconnect Backoff Settings (OMN-2916):
+        KAFKA_RECONNECT_BACKOFF_MS: Initial reconnect backoff in milliseconds (integer, >= 0)
+            Default: 2000
+            Example: "1000"
+            Warning: Logs warning if not a valid integer, uses default
+            Used to prevent thundering-herd reconnection storms after broker restarts.
+
+        KAFKA_RECONNECT_BACKOFF_MAX_MS: Maximum reconnect backoff in milliseconds (integer, >= 0)
+            Default: 30000
+            Example: "60000"
+            Warning: Logs warning if not a valid integer, uses default
+            Must be >= reconnect_backoff_ms. Caps the exponential backoff growth.
+
+    Authentication and TLS Settings (OMN-2793):
+        KAFKA_SECURITY_PROTOCOL: Security protocol for Kafka connections
+            Default: "PLAINTEXT"
+            Options: "PLAINTEXT", "SSL", "SASL_PLAINTEXT", "SASL_SSL"
+
+        KAFKA_SASL_MECHANISM: SASL authentication mechanism (optional)
+            Default: None (no SASL)
+            Options: "PLAIN", "SCRAM-SHA-256", "SCRAM-SHA-512", "OAUTHBEARER", "AWS_MSK_IAM"
+            Requires: security_protocol must be SASL_PLAINTEXT or SASL_SSL
+
+        KAFKA_SASL_USERNAME: SASL username (optional)
+            Default: None
+            Required when: KAFKA_SASL_MECHANISM is PLAIN or SCRAM-SHA-*
+
+        KAFKA_SASL_PASSWORD: SASL password (optional)
+            Default: None
+            Required when: KAFKA_SASL_MECHANISM is PLAIN or SCRAM-SHA-*
+
+        KAFKA_MSK_REGION: AWS region for MSK IAM token generation
+            Default: "us-east-1"
+            Required when: KAFKA_SASL_MECHANISM=AWS_MSK_IAM
+
+        KAFKA_SASL_OAUTHBEARER_TOKEN_ENDPOINT_URL: Token endpoint for OAUTHBEARER (optional)
+            Default: None
+            Required when: KAFKA_SASL_MECHANISM=OAUTHBEARER
+
+        KAFKA_SASL_OAUTHBEARER_CLIENT_ID: OAuth client ID (optional)
+            Default: None
+            Required when: KAFKA_SASL_MECHANISM=OAUTHBEARER
+
+        KAFKA_SASL_OAUTHBEARER_CLIENT_SECRET: OAuth client secret (optional)
+            Default: None
+            Required when: KAFKA_SASL_MECHANISM=OAUTHBEARER
+
+        KAFKA_SSL_CA_FILE: Path to CA certificate file for TLS verification (optional)
+            Default: None
+            Used when: security_protocol is SSL or SASL_SSL
+
+Parsing Behavior:
+    - Integer/Float fields: Logs warning and uses default if parsing fails
+    - Boolean fields: Logs warning if value not in expected set, treats as False
+    - String fields: No validation, accepts any string value
+    - All warnings include the environment variable name, invalid value, and
+      the field name that will use the default value
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+import re
+from pathlib import Path
+from uuid import uuid4
+
+import yaml
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    computed_field,
+    field_validator,
+    model_validator,
+)
+
+from omnibase_infra.enums import (
+    EnumInfraTransportType,
+    EnumKafkaAcks,
+)
+from omnibase_infra.errors import ModelInfraErrorContext, ProtocolConfigurationError
+
+logger = logging.getLogger(__name__)
+
+# OMN-19355. The share of max_poll_interval_ms one dispatch may use. A deadline
+# at or past the eviction pre-empts nothing, and the rest is left for the fetch
+# itself and for the records the serial loop ran before this one. At the 300s
+# library default this caps the deadline at 255s, still above the 240s budget
+# node_delegate_skill_orchestrator bounds itself to.
+DISPATCH_DEADLINE_POLL_FRACTION = 0.85
+
+# OMN-19355. The share of max_poll_interval_ms the serial loop may spend on one
+# fetched batch. It does not start a record unless that record's full deadline
+# still fits inside this, so no run of slow or hung records can carry the gap
+# between polls past the eviction.
+SERIAL_BATCH_POLL_BUDGET_FRACTION = 0.95
+
+
+class ModelKafkaEventBusConfig(BaseModel):
+    """Configuration model for EventBusKafka.
+
+    Defines all required configuration options for EventBusKafka including
+    connection settings, resilience patterns (circuit breaker, retry),
+    and Kafka producer/consumer options.
+
+    Attributes:
+        bootstrap_servers: Kafka bootstrap servers (host:port format)
+        environment: Environment identifier for consumer groups and logging
+        timeout_seconds: Timeout for Kafka operations in seconds
+        max_retry_attempts: Maximum retry attempts for publish operations
+        retry_backoff_base: Base delay in seconds for exponential backoff
+        circuit_breaker_threshold: Number of consecutive failures before circuit opens
+        circuit_breaker_reset_timeout: Seconds before circuit breaker resets to half-open
+        consumer_sleep_interval: Sleep interval in seconds for consumer loop polling
+        acks: Producer acknowledgment policy (EnumKafkaAcks.ALL, LEADER, NONE, ALL_REPLICAS)
+        enable_idempotence: Enable producer idempotence for exactly-once semantics
+        auto_offset_reset: Consumer offset reset policy ("earliest", "latest")
+        enable_auto_commit: Enable auto-commit for consumer offsets
+        max_partition_fetch_bytes: Per-partition consumer fetch ceiling in bytes
+            (OMN-15837; 256 KiB default, sized against the wired consumer count)
+        dead_letter_topic: Dead letter queue topic for failed messages (optional)
+        reconnect_backoff_ms: Initial reconnect backoff in milliseconds (OMN-2916)
+        reconnect_backoff_max_ms: Maximum reconnect backoff in milliseconds (OMN-2916)
+
+    Example:
+        ```python
+        # Using defaults with environment overrides
+        config = ModelKafkaEventBusConfig.default()
+
+        # From YAML file
+        config = ModelKafkaEventBusConfig.from_yaml(Path("kafka_config.yaml"))
+
+        # Manual construction
+        config = ModelKafkaEventBusConfig(
+            bootstrap_servers="kafka:9092",
+            environment="prod",
+            timeout_seconds=60,
+        )
+        ```
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
+
+    # Connection settings
+    bootstrap_servers: str = Field(
+        default_factory=lambda: os.environ["KAFKA_BOOTSTRAP_SERVERS"],
+        description="Kafka bootstrap servers (host:port format, comma-separated for multiple)",
+        min_length=1,
+    )
+    api_version: str | None = Field(
+        default=None,
+        description=(
+            "Optional explicit aiokafka API version, for example '2.8.0'. "
+            "When unset, aiokafka auto-negotiates the broker version."
+        ),
+    )
+    environment: str = Field(
+        default="local",
+        description=(
+            "Environment identifier for consumer groups and logging. "
+            "Not used for topic naming (topics are realm-agnostic)."
+        ),
+    )
+    timeout_seconds: int = Field(
+        default=30,
+        description="Timeout for Kafka operations in seconds",
+        ge=1,
+        le=300,
+    )
+
+    # Retry configuration
+    max_retry_attempts: int = Field(
+        default=3,
+        description="Maximum retry attempts for publish operations",
+        ge=0,
+        le=10,
+    )
+    retry_backoff_base: float = Field(
+        default=1.0,
+        description="Base delay in seconds for exponential backoff",
+        ge=0.001,  # Allow very short backoffs for testing (minimum 1ms)
+        le=60.0,
+    )
+
+    # Circuit breaker configuration
+    circuit_breaker_threshold: int = Field(
+        default=5,
+        description="Number of consecutive failures before circuit opens",
+        ge=1,
+        le=100,
+    )
+    circuit_breaker_reset_timeout: float = Field(
+        default=30.0,
+        description="Seconds before circuit breaker resets to half-open state",
+        ge=0.01,  # Allow short timeouts for testing (minimum 10ms)
+        le=3600.0,
+    )
+
+    # Consumer configuration
+    consumer_sleep_interval: float = Field(
+        default=0.1,
+        description="Sleep interval in seconds for consumer loop polling",
+        ge=0.01,
+        le=10.0,
+    )
+
+    # Consumer cold-start concurrency (OMN-12448). Bounds the burst of
+    # consumer-group joins during start_consuming() so a runtime subscribing to
+    # hundreds of topics does not stampede the broker's group coordinator and
+    # blow the per-consumer start timeout. Contract-config only — deliberately
+    # not exposed as an env override.
+    consumer_start_concurrency: int = Field(
+        default=32,
+        description=(
+            "Maximum consumer-group starts in flight during start_consuming(). "
+            "Caps the cold-start burst on the broker group coordinator."
+        ),
+        ge=1,
+        le=1024,
+    )
+    consumer_start_max_retries: int = Field(
+        default=3,
+        description=(
+            "Retry passes for a transiently-failing consumer start before "
+            "aborting boot. 0 disables retries."
+        ),
+        ge=0,
+        le=10,
+    )
+
+    # Projection offset-withhold bound (OMN-17379). The withhold itself has no
+    # ceiling: `_dispatch_to_subscriber` rewinds unconditionally for a
+    # `ProjectionNotMaterializedError`, which is right for a transient write-path
+    # failure and wrong for a record whose refusal never changes. Measured on
+    # onex-dev 2026-09-15: two records (delegation-completed.v1 p0 o286, a tenant
+    # registry refusal; quality-gate-result.v1 p0 o300, a NOT NULL violation)
+    # re-refused about once per second and blocked every later record on both
+    # partitions, taking the staging business-proof gate red and keeping it red.
+    # Contract-config only, like the other consumer bounds here -- deliberately
+    # not an env override, so a lane cannot quietly disarm it.
+    projection_withhold_max_redeliveries: int = Field(
+        default=5,
+        description=(
+            "Consecutive redeliveries of the SAME record failing with the SAME "
+            "projection write-path error before the record is dead-lettered "
+            "with a typed reason and the offset is allowed to advance "
+            "(OMN-17379). A changing failure resets the count and a successful "
+            "projection clears it, so this bounds only a record that is "
+            "genuinely not progressing. Cannot be 0: dead-lettering on the "
+            "first refusal would discard a record a transient failure still "
+            "owes a row to, which is the defect the withhold exists to prevent. "
+            "5 is chosen against the measured live rate of roughly one "
+            "redelivery per second, so a real outage has seconds of redelivery "
+            "before release while a wedge clears in seconds rather than never."
+        ),
+        ge=1,
+        le=1000,
+    )
+    projection_withhold_tracking_capacity: int = Field(
+        default=1024,
+        description=(
+            "Maximum record coordinates tracked for the withhold bound above. "
+            "Entries clear on a successful projection and on a dead-letter, but "
+            "a partition revoked mid-stall leaves its key behind, so the map "
+            "needs a ceiling of its own; the oldest entry is evicted when it is "
+            "reached. A stall is a handful of coordinates, so this is far above "
+            "any legitimate working set and exists to bound a leak, not to "
+            "shape behaviour."
+        ),
+        ge=1,
+        le=1_000_000,
+    )
+
+    # Consumer coordinator-loss recovery (OMN-18640). The consume loop used to
+    # iterate the consumer with no deadline. When the .201 dev-lane broker was
+    # recreated on 2026-09-18T23:16:46Z the client marked its coordinator dead
+    # and logged 21,200 GroupCoordinatorNotAvailableError lines over 97 minutes
+    # without ever rejoining; aiokafka retries the coordinator inside its own
+    # background task, so not one of those errors reached the loop and the loop
+    # had nothing to react to. The same shape had run for 30 minutes 25 hours
+    # earlier from an unrelated trigger. Both cleared only when the CONTAINER
+    # was recreated. These four bounds let the consumer do that for itself.
+    #
+    # Contract-config only, like the other consumer bounds above -- deliberately
+    # NOT env overrides, so a lane cannot quietly disarm the recovery.
+    consumer_poll_timeout_ms: int = Field(
+        default=5_000,
+        description=(
+            "Deadline for one consumer fetch, in milliseconds. This is what "
+            "turns an unbounded wait into a loop that can ask whether silence "
+            "means caught-up or wedged. Low enough that a wedge is noticed "
+            "promptly, high enough that an idle runtime with many wired topics "
+            "is not spinning: at the default, each consumer wakes 12 times a "
+            "minute and does nothing but check a clock unless the stall window "
+            "below has already elapsed."
+        ),
+        ge=100,
+        le=60_000,
+    )
+    consumer_stall_seconds: float = Field(
+        default=120.0,
+        description=(
+            "Seconds a consumer may deliver no record before its silence is "
+            "investigated. Not a stall on its own: a caught-up consumer is "
+            "silent forever and must never be recreated. Sized above any "
+            "plausible rebalance or leader election so ordinary churn never "
+            "reaches the detector, and far below the 30 and 97 minute outages "
+            "it exists to end."
+        ),
+        gt=0.0,
+        le=3_600.0,
+    )
+    consumer_stall_required_confirmations: int = Field(
+        default=3,
+        description=(
+            "Consecutive stall evaluations required before a rejoin is "
+            "ordered. One reading of a frozen offset can be a slow handler or "
+            "a probe that raced a fetch; three cannot. Any evaluation that "
+            "finds progress, idleness or an unreachable broker resets the "
+            "count to zero."
+        ),
+        ge=1,
+        le=100,
+    )
+    consumer_rejoin_cooldown_seconds: float = Field(
+        default=300.0,
+        description=(
+            "Minimum seconds between forced rejoins of the same group. A fault "
+            "that survives being recreated must degrade to periodic retries, "
+            "never to a recreate loop -- a consumer rebuilding itself every "
+            "poll would be a worse outage than the wedge."
+        ),
+        ge=0.0,
+        le=86_400.0,
+    )
+    consumer_sync_unready_seconds: float = Field(
+        default=600.0,
+        description=(
+            "Seconds a consumer group may sit behind the partition leaders "
+            "without advancing before the runtime's own readiness reports it "
+            "out of sync (OMN-18640 AC1). Deliberately LONGER than "
+            "consumer_stall_seconds plus one consumer_rejoin_cooldown_seconds: "
+            "by the time this elapses the self-heal above has attempted a "
+            "rejoin and been given a full cooldown to attempt a second, so "
+            "what readiness reports is the wedge that recovery did not fix. A "
+            "shorter window would have the runtime declare itself unhealthy "
+            "while the cheapest remedy was still working, and the deploy "
+            "agent would recreate a container that was about to fix itself. "
+            "Sized well inside the 30, 50 and 97 minute outages on record."
+        ),
+        gt=0.0,
+        le=86_400.0,
+    )
+
+    # Per-dispatch deadline (OMN-19355). The serial consume loop awaits each
+    # handler before it polls again, so a handler that never returns stops the
+    # group: on the .201 dev lane on 2026-09-23 the lab_lane_health handler
+    # parked a to_thread worker forever at offset 51808, aiokafka evicted the
+    # member at max_poll_interval_ms, and it never rejoined, because a rejoin
+    # happens only inside the next poll. Auto-commit had already committed the
+    # fetch position past the batch, so 51809 to 51832 were lost.
+    #
+    # Contract-config only, like the other consumer bounds above --
+    # deliberately NOT env overrides, so a lane cannot quietly disarm them.
+    consumer_dispatch_deadline_seconds: float = Field(
+        default=600.0,
+        description=(
+            "Seconds one subscriber callback may run before the consume loop "
+            "stops awaiting it, quarantines the record to the DLQ with failure "
+            "class dispatch_deadline_exceeded, and moves on. The handler is "
+            "abandoned, not cancelled: a Python thread cannot be killed. The "
+            "value actually applied is effective_dispatch_deadline_seconds, "
+            "which never exceeds 85 percent of max_poll_interval_ms, because a "
+            "deadline at or past the eviction cannot pre-empt it. 600 is above "
+            "the longest declared legitimate handler on record "
+            "(node_delegate_skill_orchestrator, 240s budget inside a 300s "
+            "wait) and a third of the 1800s poll interval the auto-wired lanes "
+            "run."
+        ),
+        gt=0.0,
+        le=3_600.0,
+    )
+    consumer_dispatch_withhold_after_seconds: float = Field(
+        default=2.0,
+        description=(
+            "Seconds a serial dispatch may run before the consume loop seeks "
+            "its partition back to the in-flight record, and every "
+            "unprocessed partition of the batch back to its first unprocessed "
+            "record. Under enable_auto_commit the client commits the FETCH "
+            "position on its own cadence (5s by default), which after a "
+            "getmany is past the whole batch; seeking is the only action that "
+            "withholds it (OMN-15232). Past this point the next auto-commit "
+            "therefore commits at most the in-flight record's own offset, so a "
+            "hung record is never committed past without a confirmed "
+            "quarantine. A fast dispatch never reaches it, so the common path "
+            "pays nothing."
+        ),
+        gt=0.0,
+        le=60.0,
+    )
+    consumer_dispatch_orphan_limit: int = Field(
+        default=3,
+        description=(
+            "Abandoned dispatches still running at which the bus reports "
+            "itself UNHEALTHY so the supervisor replaces the process. Below "
+            "it, any abandoned dispatch reports DEGRADED. An abandoned "
+            "projection dispatch keeps its slot in the runtime-wide projection "
+            "gate (PROJECTION_HANDLER_MAX_INFLIGHT = 8) and its worker in the "
+            "default executor, so the limit sits well below 8: past it every "
+            "projection would queue behind parked threads and time out in "
+            "turn, which is a quarantine storm rather than a degradation."
+        ),
+        ge=1,
+        le=16,
+    )
+    consumer_shutdown_drain_seconds: float = Field(
+        default=10.0,
+        description=(
+            "OMN-20117. Seconds close() waits for dispatches already running "
+            "to finish, with the producer still open, before it cancels them. "
+            "A handler that finishes inside this window publishes its terminal "
+            "and has its record committed; one that does not is cancelled. "
+            "Sized to fit, together with consumer_shutdown_cancel_grace_seconds, "
+            "inside what is left of the runtime's 30s shutdown grace once the "
+            "handler pools have stopped, and far inside the 90s container "
+            "stop_grace_period of every runtime service."
+        ),
+        ge=0.0,
+        le=300.0,
+    )
+    consumer_shutdown_cancel_grace_seconds: float = Field(
+        default=3.0,
+        description=(
+            "OMN-20117. Seconds close() waits, after cancelling the dispatches "
+            "still running at the end of consumer_shutdown_drain_seconds, for "
+            "them to settle. A handler that answers its cancellation with a "
+            "typed failure terminal publishes it here, while the producer is "
+            "still open, so its caller is told rather than left to time out. A "
+            "cancelled dispatch that returns nothing is never committed past and "
+            "is redelivered to the next consumer."
+        ),
+        ge=0.0,
+        le=60.0,
+    )
+
+    # Kafka producer settings
+    acks: EnumKafkaAcks = Field(
+        default=EnumKafkaAcks.ALL,
+        description="Producer acknowledgment policy (ALL, LEADER, NONE, ALL_REPLICAS)",
+    )
+    enable_idempotence: bool = Field(
+        default=True,
+        description="Enable producer idempotence for exactly-once semantics",
+    )
+    max_request_size: int = Field(
+        default=1_048_588,  # OMN-16267: aligned to broker message.max.bytes, not 4 MiB
+        description=(
+            "Maximum size in bytes for a Kafka produce request. "
+            "Passed to AIOKafkaProducer(max_request_size=...). "
+            "Must equal the broker-side message.max.bytes so an oversized "
+            "payload is rejected client-side (fail-fast, no network round "
+            "trip) instead of passing client validation and burning the "
+            "retry budget against a guaranteed broker rejection (OMN-16267). "
+            "Default 1_048_588 is the measured effective MSK broker limit "
+            "(binary-searched empirically: 0.9MB accepted, 1.0MB rejected; "
+            "1,048,588 is also stock Kafka's own message.max.bytes default, "
+            "confirming the broker was never customized above it). Raising "
+            "the broker limit instead is out of scope here -- MSK is not "
+            "Terraform-managed in this repo and mutating a shared cluster "
+            "config is an infra change with its own approval path, not a "
+            "producer-config PR. Override via KAFKA_MAX_REQUEST_SIZE."
+        ),
+        ge=1024,  # 1 KB minimum
+        le=52428800,  # 50 MB maximum
+    )
+
+    # Kafka consumer settings
+    auto_offset_reset: str = Field(
+        default="latest",
+        description="Consumer offset reset policy ('earliest', 'latest')",
+        pattern=r"^(earliest|latest)$",
+    )
+    enable_auto_commit: bool = Field(
+        default=True,
+        description="Enable auto-commit for consumer offsets",
+    )
+    session_timeout_ms: int = Field(
+        default=45000,
+        ge=6000,
+        le=300000,
+        description=(
+            "Timeout in ms for consumer group session. If the broker receives no "
+            "heartbeat within this window, the consumer is evicted and a rebalance "
+            "is triggered. Default 45s (aiokafka default is 10s which causes "
+            "rebalance storms during brief processing delays)."
+        ),
+    )
+    heartbeat_interval_ms: int = Field(
+        default=15000,
+        ge=1000,
+        le=60000,
+        description=(
+            "Interval in ms between heartbeats to the consumer group coordinator. "
+            "Must be less than session_timeout_ms (typically 1/3). "
+            "Default 15s (aiokafka default is 3s)."
+        ),
+    )
+    max_poll_interval_ms: int = Field(
+        default=300000,
+        ge=10000,
+        le=3600000,
+        description=(
+            "Maximum time in ms between poll() calls before the consumer is "
+            "considered failed. Default 300s (5 min). Set high enough to "
+            "accommodate slow batch processing without triggering rebalances."
+        ),
+    )
+    max_partition_fetch_bytes: int = Field(
+        default=262_144,  # 256 KiB — OMN-15837
+        description=(
+            "Maximum bytes the broker returns per partition per fetch request. "
+            "Passed to AIOKafkaConsumer(max_partition_fetch_bytes=...). "
+            "Override via KAFKA_MAX_PARTITION_FETCH_BYTES.\n"
+            "\n"
+            "WHY THIS IS A SEPARATE FIELD AND NOT max_request_size "
+            "(OMN-15837, superseding the OMN-16267 coupling): this bound is a "
+            "per-consumer buffer ceiling, and an auto-wired runtime holds one "
+            "consumer per wired topic. On the stability lane that is 382 "
+            "consumers, so a 1 MiB bound reserves up to ~382 MiB of fetch "
+            "buffer against a 1.5 GiB container limit. That runtime OOM-looped "
+            "-- 224 memcg kills of task=onex-runtime measured on the .201 lab "
+            "host, anon-rss 1,529,044-1,557,120 kB against a MemLimit of "
+            "1,572,864 kB, an overshoot of only ~30-50 MB. Dropping the bound "
+            "to 256 KiB frees 382 * (1,048,588 - 262,144) = ~286 MiB, roughly "
+            "6x the overshoot, without touching the memory limit.\n"
+            "\n"
+            "WHY DECOUPLING IS SAFE. The OMN-16267 rationale held that this "
+            "value must be >= the producer's max_request_size, because "
+            "aiokafka's fetcher raises RecordTooLargeError and then ADVANCES "
+            "the offset past the record (consumer/fetcher.py: "
+            "``tp_state.consumed_to(tp_state.position + 1)``) when the broker "
+            "returns a non-empty buffer from which zero records decode -- a "
+            "silent skip-and-advance, i.e. data loss. That branch is "
+            "unreachable against a KIP-74 broker, which returns the first "
+            "record of a partition in full regardless of the fetch bound, so "
+            "at least one record always decodes. Measured on the lab broker "
+            "(Redpanda v24.2.7) rather than assumed: the 240,027-byte record "
+            "at onex.snapshot.projection.live-events.v1[0]@96426 is delivered "
+            "intact at a bound of 65,536 and at 262,144, against a positive "
+            "control at 1,048,588 that delivers the same record. No error, no "
+            "skip, at any of the three bounds.\n"
+            "\n"
+            "WHY 256 KiB SPECIFICALLY. It is above the largest payload the "
+            "bus actually carries, so the ordinary case still batches "
+            "normally instead of degrading to one record per fetch. Sampled "
+            "live on the lab dev broker: 1,657 topics / 93 non-empty "
+            "partitions / 1,476 records gave a max of 234,539 bytes; a deep "
+            "pass over the 45 snapshot topics (30,859 records) gave a max of "
+            "240,027 bytes, on onex.snapshot.projection.live-events.v1. Every "
+            "other topic sampled peaked at 84,884 bytes or less. The producer "
+            "ceiling (max_request_size, 1,048,588) still bounds the worst "
+            "case, and by the KIP-74 result above a record between 256 KiB "
+            "and that ceiling is delivered rather than dropped -- it costs a "
+            "fetch round trip, not correctness.\n"
+            "\n"
+            "Raise this only with a measurement showing the ordinary payload "
+            "has outgrown it; raising it costs memory linearly in the wired "
+            "consumer count."
+        ),
+        ge=16_384,  # 16 KiB floor — below this, ordinary envelopes fetch one at a time
+        le=52_428_800,  # 50 MB ceiling, matching max_request_size
+    )
+
+    # Dead letter queue configuration
+    dead_letter_topic: str | None = Field(
+        default=None,
+        description=(
+            "Dead letter queue topic for failed messages (optional). "
+            "If not set, use get_dlq_topic() to build a topic name following "
+            "ONEX conventions: <env>.dlq.<category>.v1 "
+            "(e.g., 'dev.dlq.intents.v1', 'prod.dlq.events.v1')"
+        ),
+    )
+
+    # Authentication and TLS configuration (OMN-2793)
+    security_protocol: str = Field(
+        default="PLAINTEXT",
+        description=(
+            "Security protocol for Kafka connections. "
+            "Valid values: PLAINTEXT, SSL, SASL_PLAINTEXT, SASL_SSL"
+        ),
+        pattern=r"^(PLAINTEXT|SSL|SASL_PLAINTEXT|SASL_SSL)$",
+    )
+    sasl_mechanism: str | None = Field(
+        default=None,
+        description=(
+            "SASL mechanism for authentication. "
+            "Valid values: PLAIN, SCRAM-SHA-256, SCRAM-SHA-512, OAUTHBEARER, AWS_MSK_IAM. "
+            "Requires security_protocol to be SASL_PLAINTEXT or SASL_SSL. "
+            "AWS_MSK_IAM uses the AWS credential chain to generate MSK IAM tokens."
+        ),
+        pattern=r"^(PLAIN|SCRAM-SHA-256|SCRAM-SHA-512|OAUTHBEARER|AWS_MSK_IAM)$",
+    )
+    sasl_plain_username: str | None = Field(
+        default=None,
+        description=(
+            "SASL username for the PLAIN and SCRAM-SHA-* mechanisms. "
+            "Required when sasl_mechanism is PLAIN, SCRAM-SHA-256 or SCRAM-SHA-512. "
+            "Override via KAFKA_SASL_USERNAME."
+        ),
+    )
+    sasl_plain_password: str | None = Field(
+        default=None,
+        description=(
+            "SASL password for the PLAIN and SCRAM-SHA-* mechanisms. "
+            "Required when sasl_mechanism is PLAIN, SCRAM-SHA-256 or SCRAM-SHA-512. "
+            "Override via KAFKA_SASL_PASSWORD."
+        ),
+    )
+    sasl_oauthbearer_token_endpoint_url: str | None = Field(
+        default=None,
+        description=(
+            "Token endpoint URL for OAUTHBEARER SASL mechanism. "
+            "Required when sasl_mechanism is OAUTHBEARER."
+        ),
+    )
+    sasl_oauthbearer_client_id: str | None = Field(
+        default=None,
+        description=(
+            "Client ID for OAUTHBEARER token requests. "
+            "Required when sasl_mechanism is OAUTHBEARER."
+        ),
+    )
+    sasl_oauthbearer_client_secret: str | None = Field(
+        default=None,
+        description=(
+            "Client secret for OAUTHBEARER token requests. "
+            "Required when sasl_mechanism is OAUTHBEARER."
+        ),
+    )
+    ssl_ca_file: str | None = Field(
+        default=None,
+        description=(
+            "Path to CA certificate file for SSL/TLS verification. "
+            "Used when security_protocol is SSL or SASL_SSL."
+        ),
+    )
+    msk_region: str = Field(
+        default="us-east-1",
+        description=(
+            "AWS region for MSK IAM token generation. "
+            "Only used when sasl_mechanism is AWS_MSK_IAM. "
+            "Override via KAFKA_MSK_REGION."
+        ),
+    )
+
+    @field_validator("msk_region", mode="before")
+    @classmethod
+    def validate_msk_region(cls, v: object) -> str:
+        """Normalize MSK region so blank env values fail in auth validation."""
+        if v is None:
+            return ""
+        if not isinstance(v, str):
+            v = str(v)
+        return v.strip()
+
+    # Reconnect backoff configuration (OMN-2916)
+    reconnect_backoff_ms: int = Field(
+        default=2000,
+        description=(
+            "Initial reconnect backoff in milliseconds. Used by aiokafka to space out "
+            "reconnection attempts after a broker disconnect, preventing thundering-herd "
+            "storms after broker restarts. Override via KAFKA_RECONNECT_BACKOFF_MS."
+        ),
+        ge=0,
+    )
+    reconnect_backoff_max_ms: int = Field(
+        default=30000,
+        description=(
+            "Maximum reconnect backoff in milliseconds. Caps the exponential growth of "
+            "reconnect delays. Must be >= reconnect_backoff_ms. "
+            "Override via KAFKA_RECONNECT_BACKOFF_MAX_MS. "
+            "NOTE: Not used by aiokafka 0.11.0 (no reconnect_backoff_max_ms parameter). "
+            "Retained in config model for forward-compatibility with future aiokafka versions."
+        ),
+        ge=0,
+    )
+
+    @model_validator(mode="after")
+    def validate_reconnect_backoff(self) -> ModelKafkaEventBusConfig:
+        """Validate that reconnect_backoff_max_ms >= reconnect_backoff_ms.
+
+        Returns:
+            Self after validation
+
+        Raises:
+            ProtocolConfigurationError: If max backoff is less than base backoff
+        """
+        if self.reconnect_backoff_max_ms < self.reconnect_backoff_ms:
+            context = ModelInfraErrorContext.with_correlation(
+                transport_type=EnumInfraTransportType.KAFKA,
+                operation="validate_reconnect_backoff",
+                target_name="kafka_config",
+            )
+            raise ProtocolConfigurationError(
+                f"reconnect_backoff_max_ms ({self.reconnect_backoff_max_ms}) must be "
+                f">= reconnect_backoff_ms ({self.reconnect_backoff_ms})",
+                context=context,
+                parameter="reconnect_backoff_max_ms",
+                value=self.reconnect_backoff_max_ms,
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_session_timeout_ratio(self) -> ModelKafkaEventBusConfig:
+        """Validate session timeout / heartbeat / max-poll-interval relationships.
+
+        Ensures:
+        - heartbeat_interval_ms < session_timeout_ms (heartbeats must fit within session)
+        - max_poll_interval_ms >= session_timeout_ms (poll interval must not be shorter)
+
+        Returns:
+            Self after validation
+
+        Raises:
+            ProtocolConfigurationError: If relationships are violated
+        """
+        if self.heartbeat_interval_ms >= self.session_timeout_ms:
+            context = ModelInfraErrorContext.with_correlation(
+                transport_type=EnumInfraTransportType.KAFKA,
+                operation="validate_session_timeout_ratio",
+                target_name="kafka_config",
+            )
+            raise ProtocolConfigurationError(
+                f"heartbeat_interval_ms ({self.heartbeat_interval_ms}) must be "
+                f"< session_timeout_ms ({self.session_timeout_ms})",
+                context=context,
+                parameter="heartbeat_interval_ms",
+                value=self.heartbeat_interval_ms,
+            )
+        if self.max_poll_interval_ms < self.session_timeout_ms:
+            context = ModelInfraErrorContext.with_correlation(
+                transport_type=EnumInfraTransportType.KAFKA,
+                operation="validate_session_timeout_ratio",
+                target_name="kafka_config",
+            )
+            raise ProtocolConfigurationError(
+                f"max_poll_interval_ms ({self.max_poll_interval_ms}) must be "
+                f">= session_timeout_ms ({self.session_timeout_ms})",
+                context=context,
+                parameter="max_poll_interval_ms",
+                value=self.max_poll_interval_ms,
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_heartbeat_session_ratio(self) -> ModelKafkaEventBusConfig:
+        """Advisory: warn if heartbeat_interval_ms > session_timeout_ms / 3.
+
+        Kafka recommends heartbeat <= session_timeout / 3 to allow enough
+        missed heartbeats before the session expires. This is advisory only
+        (logs a warning) — it does not raise.
+
+        Returns:
+            Self after validation
+        """
+        if self.heartbeat_interval_ms > self.session_timeout_ms / 3:
+            logger.warning(
+                "heartbeat_interval_ms (%d) exceeds session_timeout_ms / 3 (%d). "
+                "Kafka recommends heartbeat_interval_ms <= session_timeout_ms / 3 "
+                "to prevent unnecessary rebalances. Current session_timeout_ms=%d.",
+                self.heartbeat_interval_ms,
+                self.session_timeout_ms // 3,
+                self.session_timeout_ms,
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_auth_config(self) -> ModelKafkaEventBusConfig:
+        """Validate authentication configuration consistency.
+
+        Enforces:
+        - If security_protocol is SASL_PLAINTEXT or SASL_SSL, sasl_mechanism must be set
+        - If sasl_mechanism is set, security_protocol must be SASL_PLAINTEXT or SASL_SSL
+        - If sasl_mechanism is OAUTHBEARER, all three OAuth fields must be non-empty
+
+        Returns:
+            Self after validation
+
+        Raises:
+            ProtocolConfigurationError: If auth configuration is inconsistent
+        """
+        context = ModelInfraErrorContext.with_correlation(
+            transport_type=EnumInfraTransportType.KAFKA,
+            operation="validate_auth_config",
+            target_name="kafka_config",
+        )
+
+        if (
+            self.security_protocol in ("SASL_PLAINTEXT", "SASL_SSL")
+            and self.sasl_mechanism is None
+        ):
+            raise ProtocolConfigurationError(
+                "security_protocol requires sasl_mechanism when using SASL_*",
+                context=context,
+                parameter="sasl_mechanism",
+                value=self.sasl_mechanism,
+            )
+
+        if self.sasl_mechanism is not None:
+            if self.security_protocol not in ("SASL_PLAINTEXT", "SASL_SSL"):
+                raise ProtocolConfigurationError(
+                    f"sasl_mechanism={self.sasl_mechanism!r} requires security_protocol "
+                    f"'SASL_PLAINTEXT' or 'SASL_SSL', got {self.security_protocol!r}",
+                    context=context,
+                    parameter="security_protocol",
+                    value=self.security_protocol,
+                )
+            if self.sasl_mechanism == "OAUTHBEARER":
+                missing = [
+                    field
+                    for field, val in (
+                        (
+                            "sasl_oauthbearer_token_endpoint_url",
+                            self.sasl_oauthbearer_token_endpoint_url,
+                        ),
+                        ("sasl_oauthbearer_client_id", self.sasl_oauthbearer_client_id),
+                        (
+                            "sasl_oauthbearer_client_secret",
+                            self.sasl_oauthbearer_client_secret,
+                        ),
+                    )
+                    if val is None or (isinstance(val, str) and not val.strip())
+                ]
+                if missing:
+                    raise ProtocolConfigurationError(
+                        "sasl_mechanism='OAUTHBEARER' requires non-empty OAuth fields: "
+                        + ", ".join(missing),
+                        context=context,
+                        parameter="sasl_mechanism",
+                        value=self.sasl_mechanism,
+                    )
+            elif self.sasl_mechanism in (
+                "PLAIN",
+                "SCRAM-SHA-256",
+                "SCRAM-SHA-512",
+            ):
+                missing_creds = [
+                    field
+                    for field, val in (
+                        ("sasl_plain_username", self.sasl_plain_username),
+                        ("sasl_plain_password", self.sasl_plain_password),
+                    )
+                    if val is None or (isinstance(val, str) and not val.strip())
+                ]
+                if missing_creds:
+                    raise ProtocolConfigurationError(
+                        f"sasl_mechanism={self.sasl_mechanism!r} requires non-empty "
+                        "credential fields: " + ", ".join(missing_creds),
+                        context=context,
+                        parameter="sasl_mechanism",
+                        value=self.sasl_mechanism,
+                    )
+            elif (
+                self.sasl_mechanism == "AWS_MSK_IAM"
+                and self.security_protocol != "SASL_SSL"
+            ):
+                raise ProtocolConfigurationError(
+                    "AWS_MSK_IAM requires security_protocol='SASL_SSL'",
+                    context=context,
+                    parameter="security_protocol",
+                    value=self.security_protocol,
+                )
+            elif self.sasl_mechanism == "AWS_MSK_IAM" and not self.msk_region:
+                raise ProtocolConfigurationError(
+                    "AWS_MSK_IAM requires non-empty msk_region",
+                    context=context,
+                    parameter="msk_region",
+                    value=self.msk_region,
+                )
+        return self
+
+    # Instance discriminator for multi-container dev environments (OMN-2251)
+    instance_id: str | None = Field(
+        default=None,
+        description=(
+            "Instance discriminator for consumer group IDs. When set, appended "
+            "as '.__i.{instance_id}' to consumer group IDs so that each container "
+            "in a multi-container dev environment gets unique consumer group "
+            "membership and proper partition assignment. When None (default), "
+            "consumer group IDs are unchanged (single-container behavior)."
+        ),
+    )
+
+    @field_validator("instance_id", mode="before")
+    @classmethod
+    def validate_instance_id(cls, v: object) -> str | None:
+        """Validate instance_id contains only Kafka-safe characters.
+
+        Rejects values containing characters other than ``[a-zA-Z0-9._-]``,
+        which is the same character set accepted by
+        ``normalize_kafka_identifier``. This catches invalid characters
+        (slashes, spaces, etc.) at config time rather than silently
+        normalizing them at runtime.
+
+        Args:
+            v: Instance ID value (any type before Pydantic conversion).
+
+        Returns:
+            The validated instance_id string, or None if not provided.
+
+        Raises:
+            ValueError: If instance_id contains characters outside
+                ``[a-zA-Z0-9._-]``.
+        """
+        if v is None:
+            return None
+        if not isinstance(v, str):
+            raise ValueError(f"instance_id must be a string, got {type(v).__name__}")
+        if not v.strip():
+            return None
+        if not re.match(r"^[a-zA-Z0-9._-]+$", v):
+            raise ValueError(
+                f"instance_id {v!r} contains invalid characters. "
+                "Only alphanumeric characters, periods (.), underscores (_), "
+                "and hyphens (-) are allowed."
+            )
+        return v
+
+    # Static group membership override (OMN-7601).
+    # When None (default), EventBusKafka auto-derives from effective_group_id + hostname.
+    group_instance_id: str | None = Field(
+        default=None,
+        description=(
+            "Explicit static group membership ID override. When set, passed directly "
+            "to AIOKafkaConsumer as group_instance_id. When None (default), "
+            "EventBusKafka auto-derives the value from the effective consumer group "
+            "ID and socket.gethostname(), producing a stable per-consumer-per-host "
+            "identity. Never populate this from os.environ — use contract config or "
+            "leave None to use auto-derivation."
+        ),
+    )
+
+    @field_validator("group_instance_id", mode="before")
+    @classmethod
+    def validate_group_instance_id(cls, v: object) -> str | None:
+        """Validate group_instance_id contains only Kafka-safe characters."""
+        if v is None:
+            return None
+        if not isinstance(v, str):
+            raise ValueError(
+                f"group_instance_id must be a string, got {type(v).__name__}"
+            )
+        if not v.strip():
+            return None
+        if not re.match(r"^[a-zA-Z0-9._-]+$", v):
+            raise ValueError(
+                f"group_instance_id {v!r} contains invalid characters. "
+                "Only alphanumeric characters, periods (.), underscores (_), "
+                "and hyphens (-) are allowed."
+            )
+        return v
+
+    # NOTE: mypy reports "prop-decorator" error because it doesn't understand that
+    # Pydantic's @computed_field transforms the @property into a computed field.
+    # This is a known mypy/Pydantic v2 interaction - the code works correctly at runtime.
+    @property
+    def effective_dispatch_deadline_seconds(self) -> float:
+        """The per-dispatch deadline the consume loop applies (OMN-19355).
+
+        ``consumer_dispatch_deadline_seconds``, capped at
+        ``DISPATCH_DEADLINE_POLL_FRACTION`` of ``max_poll_interval_ms``. The
+        cap is applied rather than validated because both defaults must hold
+        together: 600s is right on the 1800s auto-wired lanes and would be
+        refused outright against the 300s library default.
+        """
+        return min(
+            self.consumer_dispatch_deadline_seconds,
+            self.max_poll_interval_ms / 1000.0 * DISPATCH_DEADLINE_POLL_FRACTION,
+        )
+
+    @property
+    def serial_batch_poll_budget_seconds(self) -> float:
+        """Seconds the serial loop may spend on one fetched batch (OMN-19355)."""
+        return self.max_poll_interval_ms / 1000.0 * SERIAL_BATCH_POLL_BUDGET_FRACTION
+
+    # Why: Pydantic computed_field stacking is valid at runtime but not modeled by mypy.
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def acks_aiokafka(self) -> int | str:
+        """Get acks value in aiokafka-compatible format.
+
+        aiokafka's AIOKafkaProducer expects:
+        - The string "all" for all-replica acknowledgment
+        - Integer values (0, 1, -1) for numeric ack levels
+
+        Returns:
+            The acks value converted to the format expected by aiokafka:
+            - "all" (str) for EnumKafkaAcks.ALL
+            - 0 (int) for EnumKafkaAcks.NONE
+            - 1 (int) for EnumKafkaAcks.LEADER
+            - -1 (int) for EnumKafkaAcks.ALL_REPLICAS
+
+        Example:
+            >>> config = ModelKafkaEventBusConfig(acks=EnumKafkaAcks.LEADER)
+            >>> config.acks_aiokafka
+            1
+        """
+        return self.acks.to_aiokafka()
+
+    @field_validator("bootstrap_servers", mode="before")
+    @classmethod
+    def validate_bootstrap_servers(cls, v: object) -> str:
+        """Validate bootstrap servers format.
+
+        Args:
+            v: Bootstrap servers value (any type before Pydantic conversion)
+
+        Returns:
+            Validated bootstrap servers string
+
+        Raises:
+            ProtocolConfigurationError: If bootstrap servers format is invalid
+        """
+        context = ModelInfraErrorContext(
+            transport_type=EnumInfraTransportType.KAFKA,
+            operation="validate_config",
+            target_name="kafka_config",
+            correlation_id=uuid4(),
+        )
+
+        if v is None:
+            raise ProtocolConfigurationError(
+                "bootstrap_servers cannot be None",
+                context=context,
+                parameter="bootstrap_servers",
+                value=None,
+            )
+        if not isinstance(v, str):
+            raise ProtocolConfigurationError(
+                f"bootstrap_servers must be a string, got {type(v).__name__}",
+                context=context,
+                parameter="bootstrap_servers",
+                value=type(v).__name__,
+            )
+        if not v.strip():
+            raise ProtocolConfigurationError(
+                "bootstrap_servers cannot be empty",
+                context=context,
+                parameter="bootstrap_servers",
+                value=v,
+            )
+
+        # Validate host:port format for each server
+        servers = v.strip().split(",")
+        for server in servers:
+            server = server.strip()
+            if not server:
+                raise ProtocolConfigurationError(
+                    "bootstrap_servers cannot contain empty entries",
+                    context=context,
+                    parameter="bootstrap_servers",
+                    value=v,
+                )
+            if ":" not in server:
+                raise ProtocolConfigurationError(
+                    f"Invalid bootstrap server format '{server}'. "
+                    "Expected 'host:port' (e.g., 'localhost:9092')",
+                    context=context,
+                    parameter="bootstrap_servers",
+                    value=server,
+                )
+            host, port_str = server.rsplit(":", 1)
+            if not host:
+                raise ProtocolConfigurationError(
+                    f"Invalid bootstrap server format '{server}'. Host cannot be empty",
+                    context=context,
+                    parameter="bootstrap_servers",
+                    value=server,
+                )
+            try:
+                port = int(port_str)
+                if port < 1 or port > 65535:
+                    raise ProtocolConfigurationError(
+                        f"Invalid port {port} in '{server}'. Port must be between 1 and 65535",
+                        context=context,
+                        parameter="bootstrap_servers",
+                        value=server,
+                    )
+            except ValueError as e:
+                raise ProtocolConfigurationError(
+                    f"Invalid port '{port_str}' in '{server}'. Port must be a valid integer",
+                    context=context,
+                    parameter="bootstrap_servers",
+                    value=server,
+                ) from e
+            except ProtocolConfigurationError:
+                raise
+
+        return v.strip()
+
+    @field_validator("api_version", mode="before")
+    @classmethod
+    def validate_api_version(cls, v: object) -> str | None:
+        """Validate optional aiokafka API version override."""
+        if v is None:
+            return None
+        if not isinstance(v, str):
+            v = str(v)
+        value = v.strip()
+        if not value:
+            return None
+        if not re.match(r"^\d+\.\d+\.\d+$", value):
+            context = ModelInfraErrorContext.with_correlation(
+                transport_type=EnumInfraTransportType.KAFKA,
+                operation="validate_config",
+                target_name="kafka_config",
+            )
+            raise ProtocolConfigurationError(
+                "api_version must use '<major>.<minor>.<patch>' format",
+                context=context,
+                parameter="api_version",
+                value=value,
+            )
+        return value
+
+    @field_validator("environment", mode="before")
+    @classmethod
+    def validate_environment(cls, v: object) -> str:
+        """Validate environment identifier.
+
+        Accepts any non-empty string as an environment identifier.
+        The environment is used for consumer groups and logging, not
+        for topic naming (topics are realm-agnostic).
+
+        Args:
+            v: Environment value (any type before Pydantic conversion)
+
+        Returns:
+            Normalized environment string
+
+        Raises:
+            ProtocolConfigurationError: If environment is None, not a string,
+                or empty
+
+        .. versionchanged:: 0.21.0
+            OMN-5189: Simplified from EnumKafkaEnvironment coercion to plain
+            string validation. Any non-empty string is accepted.
+        """
+        context = ModelInfraErrorContext(
+            transport_type=EnumInfraTransportType.KAFKA,
+            operation="validate_config",
+            target_name="kafka_config",
+            correlation_id=uuid4(),
+        )
+
+        if v is None:
+            raise ProtocolConfigurationError(
+                "environment cannot be None",
+                context=context,
+                parameter="environment",
+                value=None,
+            )
+        if not isinstance(v, str):
+            # Coerce StrEnum and other string-like values
+            v = str(v)
+        v = v.strip()
+        if not v:
+            raise ProtocolConfigurationError(
+                "environment cannot be empty",
+                context=context,
+                parameter="environment",
+                value=v,
+            )
+        return v
+
+    def apply_environment_overrides(self) -> ModelKafkaEventBusConfig:
+        """Apply environment variable overrides to configuration.
+
+        Environment variables are mapped as follows:
+            - KAFKA_BOOTSTRAP_SERVERS -> bootstrap_servers
+            - KAFKA_TIMEOUT_SECONDS -> timeout_seconds
+            - KAFKA_ENVIRONMENT -> environment
+            - KAFKA_MAX_RETRY_ATTEMPTS -> max_retry_attempts
+            - KAFKA_CIRCUIT_BREAKER_THRESHOLD -> circuit_breaker_threshold
+            - KAFKA_SECURITY_PROTOCOL -> security_protocol
+            - KAFKA_SASL_MECHANISM -> sasl_mechanism
+            - KAFKA_SASL_USERNAME -> sasl_plain_username
+            - KAFKA_SASL_PASSWORD -> sasl_plain_password
+            - KAFKA_SASL_OAUTHBEARER_TOKEN_ENDPOINT_URL -> sasl_oauthbearer_token_endpoint_url
+            - KAFKA_SASL_OAUTHBEARER_CLIENT_ID -> sasl_oauthbearer_client_id
+            - KAFKA_SASL_OAUTHBEARER_CLIENT_SECRET -> sasl_oauthbearer_client_secret
+            - KAFKA_SSL_CA_FILE -> ssl_ca_file
+            - KAFKA_RECONNECT_BACKOFF_MS -> reconnect_backoff_ms
+            - KAFKA_RECONNECT_BACKOFF_MAX_MS -> reconnect_backoff_max_ms
+            - KAFKA_SESSION_TIMEOUT_MS -> session_timeout_ms
+            - KAFKA_HEARTBEAT_INTERVAL_MS -> heartbeat_interval_ms
+
+        Returns:
+            New configuration instance with environment overrides applied
+        """
+        overrides: dict[str, object] = {}
+
+        env_mappings: dict[str, str] = {
+            "KAFKA_BOOTSTRAP_SERVERS": "bootstrap_servers",
+            "KAFKA_API_VERSION": "api_version",
+            "KAFKA_TIMEOUT_SECONDS": "timeout_seconds",
+            "KAFKA_ENVIRONMENT": "environment",
+            "KAFKA_MAX_RETRY_ATTEMPTS": "max_retry_attempts",
+            "KAFKA_CIRCUIT_BREAKER_THRESHOLD": "circuit_breaker_threshold",
+            "KAFKA_CIRCUIT_BREAKER_RESET_TIMEOUT": "circuit_breaker_reset_timeout",
+            "KAFKA_RETRY_BACKOFF_BASE": "retry_backoff_base",
+            "KAFKA_CONSUMER_SLEEP_INTERVAL": "consumer_sleep_interval",
+            "KAFKA_ACKS": "acks",
+            "KAFKA_ENABLE_IDEMPOTENCE": "enable_idempotence",
+            "KAFKA_AUTO_OFFSET_RESET": "auto_offset_reset",
+            "KAFKA_ENABLE_AUTO_COMMIT": "enable_auto_commit",
+            "KAFKA_SESSION_TIMEOUT_MS": "session_timeout_ms",
+            "KAFKA_HEARTBEAT_INTERVAL_MS": "heartbeat_interval_ms",
+            "KAFKA_MAX_POLL_INTERVAL_MS": "max_poll_interval_ms",
+            "KAFKA_DEAD_LETTER_TOPIC": "dead_letter_topic",
+            "KAFKA_INSTANCE_ID": "instance_id",
+            "KAFKA_SECURITY_PROTOCOL": "security_protocol",
+            "KAFKA_SASL_MECHANISM": "sasl_mechanism",
+            "KAFKA_SASL_USERNAME": "sasl_plain_username",
+            "KAFKA_SASL_PASSWORD": "sasl_plain_password",
+            "KAFKA_SASL_OAUTHBEARER_TOKEN_ENDPOINT_URL": "sasl_oauthbearer_token_endpoint_url",
+            "KAFKA_SASL_OAUTHBEARER_CLIENT_ID": "sasl_oauthbearer_client_id",
+            "KAFKA_SASL_OAUTHBEARER_CLIENT_SECRET": "sasl_oauthbearer_client_secret",
+            "KAFKA_SSL_CA_FILE": "ssl_ca_file",
+            "KAFKA_MSK_REGION": "msk_region",
+            "KAFKA_RECONNECT_BACKOFF_MS": "reconnect_backoff_ms",
+            "KAFKA_RECONNECT_BACKOFF_MAX_MS": "reconnect_backoff_max_ms",
+            "KAFKA_MAX_REQUEST_SIZE": "max_request_size",
+            "KAFKA_MAX_PARTITION_FETCH_BYTES": "max_partition_fetch_bytes",
+        }
+
+        # Integer fields for type conversion
+        int_fields = {
+            "timeout_seconds",
+            "max_retry_attempts",
+            "circuit_breaker_threshold",
+            "reconnect_backoff_ms",
+            "reconnect_backoff_max_ms",
+            "session_timeout_ms",
+            "heartbeat_interval_ms",
+            "max_poll_interval_ms",
+            "max_request_size",
+            "max_partition_fetch_bytes",
+        }
+
+        # Float fields for type conversion
+        float_fields = {
+            "circuit_breaker_reset_timeout",
+            "retry_backoff_base",
+            "consumer_sleep_interval",
+        }
+
+        # Boolean fields for type conversion
+        bool_fields = {
+            "enable_idempotence",
+            "enable_auto_commit",
+        }
+
+        # Enum fields with their valid values mapping
+        # Maps field_name -> (enum_class, value_to_enum_mapping)
+        acks_mapping = {
+            "all": EnumKafkaAcks.ALL,
+            "0": EnumKafkaAcks.NONE,
+            "1": EnumKafkaAcks.LEADER,
+            "-1": EnumKafkaAcks.ALL_REPLICAS,
+        }
+
+        for env_var, field_name in env_mappings.items():
+            env_value = os.environ.get(env_var)
+            if env_value is not None:
+                if field_name == "acks":
+                    # Special handling for acks enum - fail-fast on invalid values
+                    if env_value in acks_mapping:
+                        overrides[field_name] = acks_mapping[env_value]
+                    else:
+                        valid_values = ", ".join(acks_mapping.keys())
+                        raise ProtocolConfigurationError(
+                            f"Invalid value for environment variable {env_var}='{env_value}'. "
+                            f"Valid values are: {valid_values}",
+                            context=ModelInfraErrorContext.with_correlation(
+                                transport_type=EnumInfraTransportType.KAFKA,
+                                operation="apply_environment_overrides",
+                            ),
+                        )
+                elif field_name in int_fields:
+                    try:
+                        overrides[field_name] = int(env_value)
+                    except ValueError:
+                        logger.warning(
+                            "Failed to parse integer environment variable %s='%s', "
+                            "using default value for %s",
+                            env_var,
+                            env_value,
+                            field_name,
+                        )
+                        continue
+                elif field_name in float_fields:
+                    try:
+                        overrides[field_name] = float(env_value)
+                    except ValueError:
+                        logger.warning(
+                            "Failed to parse float environment variable %s='%s', "
+                            "using default value for %s",
+                            env_var,
+                            env_value,
+                            field_name,
+                        )
+                        continue
+                elif field_name in bool_fields:
+                    # Boolean conversion with explicit falsy value handling
+                    # True values: "true", "1", "yes", "on" (case-insensitive)
+                    # False values: All other values (including "false", "0", "no", "off")
+                    parsed_value = env_value.lower() in ("true", "1", "yes", "on")
+                    if env_value.lower() not in (
+                        "true",
+                        "1",
+                        "yes",
+                        "on",
+                        "false",
+                        "0",
+                        "no",
+                        "off",
+                    ):
+                        logger.warning(
+                            "Boolean environment variable %s='%s' has unexpected value. "
+                            "Valid values are: true/1/yes/on (True) or false/0/no/off (False). "
+                            "Treating as False.",
+                            env_var,
+                            env_value,
+                        )
+                    overrides[field_name] = parsed_value
+                else:
+                    overrides[field_name] = env_value
+
+        if overrides:
+            # Exclude computed field to avoid validation error
+            current_data = self.model_dump(exclude={"acks_aiokafka"})  # noqa: model-dump-bare
+            current_data.update(overrides)
+            return ModelKafkaEventBusConfig(**current_data)
+
+        return self
+
+    @classmethod
+    def default(cls) -> ModelKafkaEventBusConfig:
+        """Create default configuration with environment overrides.
+
+        Returns a canonical default configuration for development, testing,
+        and CLI fallback use, with environment variable overrides applied.
+
+        Returns:
+            Default configuration instance with environment overrides
+        """
+        base_config = cls(
+            bootstrap_servers="localhost:19092",  # fallback-ok: local-dev default factory
+            environment="local",
+            timeout_seconds=30,
+            max_retry_attempts=3,
+            retry_backoff_base=1.0,
+            circuit_breaker_threshold=5,
+            circuit_breaker_reset_timeout=30.0,
+            consumer_sleep_interval=0.1,
+            acks=EnumKafkaAcks.ALL,
+            enable_idempotence=True,
+            auto_offset_reset="latest",
+            enable_auto_commit=True,
+            dead_letter_topic=None,
+            instance_id=None,
+            reconnect_backoff_ms=2000,
+            reconnect_backoff_max_ms=30000,
+        )
+        return base_config.apply_environment_overrides()
+
+    @classmethod
+    def from_yaml(cls, path: Path) -> ModelKafkaEventBusConfig:
+        """Load configuration from YAML file.
+
+        Loads configuration from a YAML file and applies environment
+        variable overrides on top.
+
+        Args:
+            path: Path to YAML configuration file
+
+        Returns:
+            Configuration instance loaded from YAML with env overrides
+
+        Raises:
+            ProtocolConfigurationError: If the file does not exist, cannot be read,
+                contains invalid YAML, or has invalid content structure. Error includes
+                correlation_id for tracing and detailed context for debugging.
+
+        Example YAML:
+            ```yaml
+            bootstrap_servers: "kafka:9092"
+            environment: "prod"
+            timeout_seconds: 60
+            max_retry_attempts: 5
+            circuit_breaker_threshold: 10
+            ```
+        """
+        correlation_id = uuid4()
+        context = ModelInfraErrorContext(
+            transport_type=EnumInfraTransportType.KAFKA,
+            operation="load_yaml_config",
+            target_name=str(path),
+            correlation_id=correlation_id,
+        )
+
+        try:
+            with path.open("r", encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+        except FileNotFoundError as e:
+            raise ProtocolConfigurationError(
+                f"Configuration file not found: {path}",
+                context=context,
+                config_path=str(path),
+            ) from e
+        except yaml.YAMLError as e:
+            raise ProtocolConfigurationError(
+                f"Failed to parse YAML from {path}: {e}",
+                context=context,
+                config_path=str(path),
+                error_details=str(e),
+            ) from e
+        except UnicodeDecodeError as e:
+            raise ProtocolConfigurationError(
+                f"Configuration file contains binary or non-UTF-8 content: {path}",
+                context=context,
+                config_path=str(path),
+                error_details=f"Encoding error at position {e.start}-{e.end}: {e.reason}",
+            ) from e
+        except OSError as e:
+            raise ProtocolConfigurationError(
+                f"Failed to read configuration file: {path}: {e}",
+                context=context,
+                config_path=str(path),
+                error_details=str(e),
+            ) from e
+
+        if data is None:
+            data = {}
+
+        if not isinstance(data, dict):
+            raise ProtocolConfigurationError(
+                f"YAML content must be a dictionary, got {type(data)}",
+                context=context,
+                config_path=str(path),
+                parameter="yaml_content",
+                value=type(data).__name__,
+            )
+
+        config = cls(**data)
+        return config.apply_environment_overrides()
+
+    def get_dlq_topic(self, category: str = "intents") -> str:
+        """Get the DLQ topic for this configuration.
+
+        If dead_letter_topic is explicitly set, returns that value.
+        Otherwise, builds a realm-agnostic DLQ topic name following
+        ONEX conventions.
+
+        DLQ Topic Naming Convention:
+            Format: onex.dlq.<category>.v1
+            Examples:
+                - onex.dlq.omnibase-infra.intents.v1 (for permanently failed intents)
+                - onex.dlq.omnibase-infra.events.v1 (for permanently failed events)
+                - onex.dlq.omnibase-infra.commands.v1 (for permanently failed commands)
+
+        Args:
+            category: Message category for DLQ routing. Valid values:
+                - 'intent' or 'intents' (default)
+                - 'event' or 'events'
+                - 'command' or 'commands'
+
+        Returns:
+            The DLQ topic name (either explicit or generated).
+
+        Raises:
+            ValueError: If category is not a valid message category.
+
+        Example:
+            >>> config = ModelKafkaEventBusConfig(environment="local")
+            >>> config.get_dlq_topic()
+            'onex.dlq.omnibase-infra.intents.v1'  # onex-topic-allow: pending contract auto-wiring
+            >>> config.get_dlq_topic("events")
+            'onex.dlq.omnibase-infra.events.v1'  # onex-topic-allow: pending contract auto-wiring
+            >>> # Explicit topic takes precedence
+            >>> config = ModelKafkaEventBusConfig(
+            ...     environment="local",
+            ...     dead_letter_topic="custom-dlq"
+            ... )
+            >>> config.get_dlq_topic()
+            'custom-dlq'
+
+        .. versionchanged:: 0.21.0
+            OMN-5189: DLQ topics are now realm-agnostic.
+        """
+        if self.dead_letter_topic:
+            return self.dead_letter_topic
+
+        # Import here to avoid circular imports
+        from omnibase_infra.event_bus.topic_constants import build_dlq_topic
+
+        return build_dlq_topic(category)
+
+
+__all__: list[str] = ["ModelKafkaEventBusConfig"]

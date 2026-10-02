@@ -1,0 +1,1830 @@
+"""Tests for monthly hard limits, reservation concurrency, and UTC rollover."""
+
+from __future__ import annotations
+
+import sqlite3
+from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+
+import pytest
+from pydantic import ValidationError
+
+from exp.common.core.artifacts import canonical_json_bytes
+from exp.common.models import ModelCapabilities
+from exp.common.models.catalog import (
+    MAXIMUM_RATE_NANO_USD_PER_MILLION_TOKENS,
+    GatewayDeploymentMetadata,
+    GatewayLongContextTier,
+    GatewayTokenPrices,
+)
+from exp.common.models.gateway_catalog import (
+    ExactModelDeployment,
+    ExactModelPool,
+    NormalizedGatewayCatalog,
+)
+from exp.common.models.gateway_chains import (
+    GatewayDeploymentRung,
+    GatewayModelChain,
+    GatewayModelReferenceRung,
+)
+from exp.common.models.gateway_pools import GatewayEquivalenceCertification
+from exp.runtime.gateway.attempt_tokens import (
+    worst_case_attempt_tokens,
+    worst_case_input_tokens,
+)
+from exp.runtime.gateway.budgets import (
+    LONG_CONTEXT_TIER_MARGIN_PERCENT,
+    MAXIMUM_NANO_USD,
+    BudgetReservationRejected,
+    BudgetScope,
+    BudgetScopeKind,
+    SQLiteBudgetStore,
+    maximum_attempt_cost_nano_usd,
+)
+from exp.runtime.gateway.contracts import (
+    DirectTarget,
+    ExecutionSnapshot,
+    GatewayApiSurface,
+    GatewayEvent,
+    GatewayEventKind,
+    GatewayFailure,
+    GatewayFailureClass,
+    GatewayMessage,
+    GatewayRequest,
+    GatewayUsage,
+)
+from exp.runtime.gateway.decisions_contracts import (
+    ChoiceQuestion,
+    DecisionRequest,
+    NoulQuestion,
+    ScoreQuestion,
+)
+from exp.runtime.gateway.embeddings_contracts import EmbeddingsRequest
+from exp.runtime.gateway.images_contracts import ImagesRequest
+from exp.runtime.gateway.ledger import SQLiteAttemptLedger
+from exp.runtime.gateway.model_plan import model_execution_snapshot
+from exp.runtime.gateway.sqlite.store import SQLiteGatewayStore
+from exp.runtime.gateway.tests.chain_authority_fixture_test import (
+    ChainAttemptLedger,
+    ChainControlStore,
+    publish_chain_fixture,
+)
+from exp.runtime.models.providers.errors import ProviderParameterError
+
+
+def _catalog() -> NormalizedGatewayCatalog:
+    """Build the normalized catalog pinned by the fixture alias revision."""
+    return NormalizedGatewayCatalog(
+        deployments=(_deployment(), _deployment(deployment_id="secondary")),
+        pools=(
+            ExactModelPool(
+                pool_id="pool",
+                exact_model_id="exact-one",
+                deployment_ids=("primary", "secondary"),
+                equivalence=GatewayEquivalenceCertification(
+                    certification_id="cert-one",
+                    provenance="operator replayed both deployments",
+                    evidence_sha256="e" * 64,
+                    certified_at=datetime(2026, 8, 1, tzinfo=UTC),
+                ),
+            ),
+        ),
+    )
+
+
+class _Clock:
+    """Controllable aware wall and monotonic clock."""
+
+    def __init__(self) -> None:
+        """Start near the end of one UTC month."""
+        self.wall = datetime(2026, 8, 31, 23, 59, tzinfo=UTC)
+        self.monotonic_value = 100.0
+
+    def now(self) -> datetime:
+        """Return controlled wall time."""
+        return self.wall
+
+    def monotonic(self) -> float:
+        """Return controlled monotonic time."""
+        return self.monotonic_value
+
+    def advance(self, duration: timedelta) -> None:
+        """Advance both clocks by one duration."""
+        self.wall += duration
+        self.monotonic_value += duration.total_seconds()
+
+
+def _deployment(*, priced: bool = True, deployment_id: str = "primary") -> ExactModelDeployment:
+    """Return one exact deployment with optional hard-limit pricing."""
+    prices = (
+        GatewayTokenPrices(
+            input_nano_usd_per_million_tokens=1_000_000,
+            output_nano_usd_per_million_tokens=2_000_000,
+        )
+        if priced
+        else GatewayTokenPrices()
+    )
+    return ExactModelDeployment(
+        deployment_id=deployment_id,
+        source_alias=deployment_id,
+        exact_model_id="exact-one",
+        connection=f"connection-{deployment_id}",
+        provider="openai-compatible",
+        provider_model="provider-model",
+        connection_sha256=("b" if deployment_id == "primary" else "c") * 64,
+        capabilities_sha256="d" * 64,
+        capabilities=ModelCapabilities(maximum_output_tokens=16),
+        gateway=GatewayDeploymentMetadata(
+            prices=prices,
+            pricing_source="test",
+        ),
+    )
+
+
+def _request(content: str) -> GatewayRequest:
+    """Build one bounded request whose content is never persisted."""
+    return GatewayRequest(
+        surface=GatewayApiSurface.CHAT_COMPLETIONS,
+        messages=(GatewayMessage(role="user", content=content),),
+        maximum_output_tokens=16,
+    )
+
+
+def _authority(
+    tmp_path: Path,
+    clock: _Clock,
+) -> tuple[SQLiteGatewayStore, SQLiteAttemptLedger, SQLiteBudgetStore, str]:
+    """Create real SQLite authority, ledger, budget store, and one granted key."""
+    path = tmp_path / "gateway.db"
+    store = ChainControlStore(path, clock=clock)
+    ledger = ChainAttemptLedger(path, clock=clock)
+    budgets = SQLiteBudgetStore(path, clock=clock)
+    store.create_organization(organization_id="org", slug="org", display_name="Org")
+    store.create_identity(organization_id="org", identity_id="identity", display_name="Identity")
+    digest = _catalog().identity_sha256()
+    store.register_catalog_snapshot(
+        organization_id="org",
+        snapshot_ref="snapshot",
+        catalog_sha256=digest,
+    )
+    store.activate_alias_revision(
+        organization_id="org",
+        alias_id="coding",
+        alias_name="coding",
+        revision_id="revision",
+        target=DirectTarget(pool_id="pool"),
+        snapshot_ref="snapshot",
+        catalog_sha256=digest,
+    )
+    store.grant_alias(organization_id="org", identity_id="identity", alias_id="coding")
+    key = store.issue_virtual_key(
+        organization_id="org",
+        identity_id="identity",
+        key_id="key",
+    ).raw_key
+    return store, ledger, budgets, key
+
+
+def _accepted(
+    store: SQLiteGatewayStore,
+    ledger: SQLiteAttemptLedger,
+    clock: _Clock,
+    key: str,
+    content: str,
+) -> tuple[GatewayRequest, ExecutionSnapshot]:
+    """Authorize and durably accept one unique request."""
+    request = _request(content)
+    authorization = store.authorize_request(
+        raw_key=key,
+        alias="coding",
+        request=request,
+        deadline_monotonic=clock.monotonic() + 30,
+    )
+    ledger.accept_request(authorization=authorization)
+    return request, ExecutionSnapshot(
+        authorization=authorization,
+        exact_model_id="exact-one",
+        pool_id="pool",
+        deployment_ids=("primary", "secondary"),
+    )
+
+
+def _chain_catalog() -> NormalizedGatewayCatalog:
+    """Build a pinned root pool with one reachable child of a different exact model."""
+    catalog = _catalog()
+    return NormalizedGatewayCatalog(
+        deployments=(
+            *catalog.deployments,
+            _deployment(deployment_id="child").model_copy(update={"exact_model_id": "exact-child"}),
+        ),
+        pools=(
+            *catalog.pools,
+            ExactModelPool(
+                pool_id="child-pool", exact_model_id="exact-child", deployment_ids=("child",)
+            ),
+        ),
+        model_chains=(
+            GatewayModelChain(
+                model_id="exact-one",
+                pool_id="pool",
+                revision="chain-one",
+                rungs=(
+                    GatewayDeploymentRung(deployment_id="primary"),
+                    GatewayModelReferenceRung(model_id="exact-child"),
+                    GatewayDeploymentRung(deployment_id="secondary"),
+                ),
+            ),
+        ),
+    )
+
+
+def _activate_chain(
+    store: SQLiteGatewayStore,
+    tmp_path: Path,
+    *,
+    organization_id: str = "org",
+    alias_id: str = "coding",
+    revision_id: str = "chain-revision",
+    pool_id: str = "pool",
+) -> NormalizedGatewayCatalog:
+    """Activate one alias against a real digest-pinned local chain snapshot."""
+    catalog = _chain_catalog()
+    snapshot_ref = f"chain-snapshot-{organization_id}"
+    if not (tmp_path / snapshot_ref).exists():
+        (tmp_path / snapshot_ref).write_bytes(canonical_json_bytes(catalog.model_dump(mode="json")))
+    publish_chain_fixture(
+        store,
+        catalog,
+        organization_id=organization_id,
+        alias_id=alias_id,
+        revision_id=revision_id,
+        pool_id=pool_id,
+        snapshot_ref=snapshot_ref,
+    )
+    return catalog
+
+
+def _accepted_chain(
+    store: SQLiteGatewayStore,
+    ledger: SQLiteAttemptLedger,
+    clock: _Clock,
+    key: str,
+    catalog: NormalizedGatewayCatalog,
+    *,
+    alias: str = "coding",
+) -> ExecutionSnapshot:
+    """Accept and freeze the real authored chain for the alias's current root."""
+    authorization = store.authorize_request(
+        raw_key=key,
+        alias=alias,
+        request=_request("chain-budget"),
+        deadline_monotonic=clock.monotonic() + 30,
+    )
+    ledger.accept_request(authorization=authorization)
+    assert isinstance(authorization.target, DirectTarget)
+    root = next(pool for pool in catalog.pools if pool.pool_id == authorization.target.pool_id)
+    return model_execution_snapshot(catalog, authorization, root)
+
+
+@pytest.mark.parametrize("estimated", [False, True])
+def test_child_disconnect_settles_actual_stage_price_once_in_both_budget_scopes(
+    tmp_path: Path, estimated: bool
+) -> None:
+    """An estimate prices the selected child; an unknown multi-dial meter keeps both holds."""
+    clock = _Clock()
+    store, ledger, budgets, key = _authority(tmp_path, clock)
+    catalog = _activate_chain(store, tmp_path)
+    scopes = [
+        BudgetScope(kind=BudgetScopeKind.POOL, alias_id="coding", pool_id=pool)
+        for pool in ("pool", "child-pool")
+    ]
+    for scope in scopes:
+        budgets.set_limit(organization_id="org", period="2026-08", scope=scope, limit_nano_usd=1000)
+    snapshot = _accepted_chain(store, ledger, clock, key, catalog)
+    child = next(value for value in catalog.deployments if value.deployment_id == "child")
+    child = child.model_copy(
+        update={
+            "gateway": child.gateway.model_copy(
+                update={
+                    "prices": GatewayTokenPrices(
+                        input_nano_usd_per_million_tokens=3_000_000,
+                        output_nano_usd_per_million_tokens=5_000_000,
+                    )
+                }
+            )
+        }
+    )
+    attempt = ledger.start_attempt(
+        snapshot=snapshot,
+        deployment=child,
+        attempt_ordinal=0,
+        route_depth=snapshot.deployment_ids.index("child"),
+        maximum_cost_nano_usd=300,
+    )
+    failure = GatewayFailure(failure_class=GatewayFailureClass.CANCELLED, safe_message="cut")
+    event = GatewayEvent(
+        kind=GatewayEventKind.FAILED,
+        sequence_number=0,
+        failure=failure,
+        usage=GatewayUsage(input_tokens=13, output_tokens=7) if estimated else None,
+        usage_incomplete_due_to_disconnect=True,
+        usage_estimated=estimated,
+    )
+    ledger.finish_attempt(attempt_id=attempt, terminal_event=event, failure=failure)
+    ledger.finish_attempt(attempt_id=attempt, terminal_event=event, failure=failure)
+    expected = 13 * 3 + 7 * 5 if estimated else 300
+    with sqlite3.connect(ledger.database_path) as connection:
+        assert connection.execute("SELECT count(*) FROM gateway_attempts").fetchone() == (1,)
+        assert connection.execute(
+            "SELECT usage_source, estimated_cost_nano_usd, budget_settled_nano_usd "
+            "FROM gateway_attempts"
+        ).fetchone() == (
+            "estimated" if estimated else "unknown",
+            expected if estimated else None,
+            expected,
+        )
+        charges = connection.execute(
+            "SELECT reserved_nano_usd, settled_nano_usd FROM gateway_attempt_budget_charges "
+            "WHERE attempt_id=?",
+            (attempt,),
+        ).fetchall()
+        assert charges == [(300, expected), (300, expected)]
+    for remaining in budgets.remaining(organization_id="org", period="2026-08"):
+        assert remaining.reserved_nano_usd == 0
+        assert remaining.settled_nano_usd == expected
+        assert remaining.remaining_nano_usd == 1000 - expected
+
+
+@pytest.mark.parametrize("destination", ["primary", "child"])
+@pytest.mark.parametrize("cost_state", ["settled", "reserved", "unknown"])
+def test_new_root_limit_backfills_each_attempt_once(
+    tmp_path: Path, destination: str, cost_state: str
+) -> None:
+    """A new root cap adopts direct and child money or unknown cost before admitting more."""
+    clock = _Clock()
+    store, ledger, budgets, key = _authority(tmp_path, clock)
+    catalog = _activate_chain(store, tmp_path)
+    snapshot = _accepted_chain(store, ledger, clock, key, catalog)
+    deployment = next(item for item in catalog.deployments if item.deployment_id == destination)
+    unknown = cost_state == "unknown"
+    if unknown:
+        deployment = deployment.model_copy(
+            update={
+                "gateway": deployment.gateway.model_copy(update={"prices": GatewayTokenPrices()})
+            }
+        )
+    attempt = ledger.start_attempt(
+        snapshot=snapshot,
+        deployment=deployment,
+        attempt_ordinal=0,
+        route_depth=snapshot.deployment_ids.index(destination),
+        maximum_cost_nano_usd=None if unknown else 90,
+    )
+    terminal = GatewayEvent(
+        kind=GatewayEventKind.COMPLETED,
+        sequence_number=0,
+        usage=GatewayUsage(input_tokens=80, output_tokens=5),
+    )
+    if cost_state != "reserved":
+        ledger.finish_attempt(attempt_id=attempt, terminal_event=terminal, failure=None)
+    scope = BudgetScope(kind=BudgetScopeKind.POOL, alias_id="coding", pool_id="pool")
+    _, limit = budgets.set_limit(
+        organization_id="org",
+        period="2026-08",
+        scope=scope,
+        limit_nano_usd=100,
+        strict_unknown_cost=unknown,
+    )
+
+    remaining = budgets.remaining(organization_id="org", period="2026-08")[0]
+    assert remaining.settled_nano_usd == (90 if cost_state == "settled" else 0)
+    assert remaining.reserved_nano_usd == (90 if cost_state == "reserved" else 0)
+    assert remaining.unknown_cost_attempts == int(unknown)
+    assert remaining.unknown_cost_input_tokens == (80 if unknown else 0)
+    assert remaining.unknown_cost_output_tokens == (5 if unknown else 0)
+    next_snapshot = _accepted_chain(store, ledger, clock, key, catalog)
+    with pytest.raises(BudgetReservationRejected):
+        ledger.start_attempt(
+            snapshot=next_snapshot,
+            deployment=catalog.deployments[-1],
+            attempt_ordinal=0,
+            route_depth=1,
+            maximum_cost_nano_usd=50,
+        )
+    with sqlite3.connect(ledger.database_path) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM gateway_attempts").fetchone() == (1,)
+        assert connection.execute(
+            "SELECT attempt_id FROM gateway_attempt_budget_charges WHERE budget_id = ?",
+            (limit.budget_id,),
+        ).fetchall() == [(attempt,)]
+    if unknown:
+        count, _ = budgets.reconcile_unknown_costs(
+            organization_id="org",
+            period="2026-08",
+            scope=scope,
+            assigned_cost_nano_usd=90,
+        )
+        assert count == 1
+    ledger.finish_attempt(attempt_id=attempt, terminal_event=terminal, failure=None)
+    ledger.finish_attempt(attempt_id=attempt, terminal_event=terminal, failure=None)
+    remaining = budgets.remaining(organization_id="org", period="2026-08")[0]
+    assert remaining.settled_nano_usd == 90
+    assert remaining.reserved_nano_usd == 0
+    assert remaining.unknown_cost_attempts == 0
+    assert remaining.remaining_nano_usd == 10
+
+
+def test_root_backfill_uses_accepted_revision_after_alias_retargets(tmp_path: Path) -> None:
+    """Retargets cannot move old root spend or make deployment limits include child spend."""
+    clock = _Clock()
+    store, ledger, budgets, key = _authority(tmp_path, clock)
+    catalog = _activate_chain(store, tmp_path)
+    accepted_root = _accepted_chain(store, ledger, clock, key, catalog)
+    _activate_chain(store, tmp_path, revision_id="child-revision", pool_id="child-pool")
+    accepted_child = _accepted_chain(store, ledger, clock, key, catalog)
+    for snapshot, cost in ((accepted_root, 90), (accepted_child, 30)):
+        attempt = ledger.start_attempt(
+            snapshot=snapshot,
+            deployment=catalog.deployments[-1],
+            attempt_ordinal=0,
+            route_depth=snapshot.deployment_ids.index("child"),
+            maximum_cost_nano_usd=cost,
+        )
+        ledger.finish_attempt(
+            attempt_id=attempt,
+            terminal_event=GatewayEvent(
+                kind=GatewayEventKind.COMPLETED,
+                sequence_number=0,
+                usage=GatewayUsage(input_tokens=cost, output_tokens=0),
+            ),
+            failure=None,
+        )
+    child_pool = BudgetScope(kind=BudgetScopeKind.POOL, alias_id="coding", pool_id="child-pool")
+    child_deployment = BudgetScope(
+        kind=BudgetScopeKind.DEPLOYMENT,
+        alias_id="coding",
+        pool_id="child-pool",
+        deployment_id="child",
+    )
+    for scope in (child_pool, child_deployment):
+        budgets.set_limit(
+            organization_id="org", period="2026-08", scope=scope, limit_nano_usd=1_000
+        )
+    _activate_chain(store, tmp_path, revision_id="root-again")
+    root_pool = BudgetScope(kind=BudgetScopeKind.POOL, alias_id="coding", pool_id="pool")
+    root_deployment = BudgetScope(
+        kind=BudgetScopeKind.DEPLOYMENT,
+        alias_id="coding",
+        pool_id="pool",
+        deployment_id="primary",
+    )
+    for scope in (root_pool, root_deployment):
+        budgets.set_limit(organization_id="org", period="2026-08", scope=scope, limit_nano_usd=100)
+
+    balances = {
+        item.budget.scope.key(): item.settled_nano_usd
+        for item in budgets.remaining(organization_id="org", period="2026-08")
+    }
+    assert balances == {
+        child_pool.key(): 120,
+        child_deployment.key(): 120,
+        root_pool.key(): 90,
+        root_deployment.key(): 0,
+    }
+    next_snapshot = _accepted_chain(store, ledger, clock, key, catalog)
+    with pytest.raises(BudgetReservationRejected, match="pool allocation is exhausted"):
+        ledger.start_attempt(
+            snapshot=next_snapshot,
+            deployment=catalog.deployments[-1],
+            attempt_ordinal=0,
+            route_depth=1,
+            maximum_cost_nano_usd=50,
+        )
+
+
+def test_root_backfill_preserves_tenant_alias_and_attempt_month_scopes(tmp_path: Path) -> None:
+    """Historical child spend cannot leak into other tenants, aliases, or attempt months."""
+    clock = _Clock()
+    store, ledger, budgets, key = _authority(tmp_path, clock)
+    catalog = _activate_chain(store, tmp_path)
+    _activate_chain(store, tmp_path, alias_id="other", revision_id="other-revision")
+    store.grant_alias(organization_id="org", identity_id="identity", alias_id="other")
+    store.create_organization(organization_id="other-org", slug="other-org", display_name="Other")
+    store.create_identity(
+        organization_id="other-org", identity_id="other-identity", display_name="Other"
+    )
+    _activate_chain(
+        store,
+        tmp_path,
+        organization_id="other-org",
+        alias_id="foreign",
+        revision_id="foreign-revision",
+    )
+    store.grant_alias(organization_id="other-org", identity_id="other-identity", alias_id="foreign")
+    foreign_key = store.issue_virtual_key(
+        organization_id="other-org", identity_id="other-identity", key_id="foreign-key"
+    ).raw_key
+    # All requests are accepted in August, but the last attempt starts in September.
+    snapshots = [
+        _accepted_chain(store, ledger, clock, token, catalog, alias=alias)
+        for token, alias in (
+            (key, "coding"),
+            (key, "other"),
+            (foreign_key, "foreign"),
+            (key, "coding"),
+        )
+    ]
+    for snapshot, cost in zip(snapshots, (10, 20, 30, 40), strict=True):
+        if cost == 40:
+            clock.advance(timedelta(minutes=2))
+        attempt = ledger.start_attempt(
+            snapshot=snapshot,
+            deployment=catalog.deployments[-1],
+            attempt_ordinal=0,
+            route_depth=1,
+            maximum_cost_nano_usd=cost,
+        )
+        ledger.finish_attempt(
+            attempt_id=attempt,
+            terminal_event=GatewayEvent(
+                kind=GatewayEventKind.COMPLETED,
+                sequence_number=0,
+                usage=GatewayUsage(input_tokens=cost, output_tokens=0),
+            ),
+            failure=None,
+        )
+    for organization_id, alias, period, expected in (
+        ("org", "coding", "2026-08", 10),
+        ("org", "other", "2026-08", 20),
+        ("other-org", "foreign", "2026-08", 30),
+        ("org", "coding", "2026-09", 40),
+    ):
+        scope = BudgetScope(kind=BudgetScopeKind.POOL, alias_id=alias, pool_id="pool")
+        _, limit = budgets.set_limit(
+            organization_id=organization_id, period=period, scope=scope, limit_nano_usd=1_000
+        )
+        remaining = next(
+            item
+            for item in budgets.remaining(organization_id=organization_id, period=period)
+            if item.budget.budget_id == limit.budget_id
+        )
+        assert remaining.settled_nano_usd == expected
+        assert remaining.reserved_nano_usd == 0
+
+
+def test_root_backfill_overflow_rolls_back_limit_and_partial_charges(tmp_path: Path) -> None:
+    """An unrepresentable aggregate cannot leave a partial root budget or charge rows."""
+    clock = _Clock()
+    store, ledger, budgets, key = _authority(tmp_path, clock)
+    catalog = _activate_chain(store, tmp_path)
+    for _ in range(2):
+        snapshot = _accepted_chain(store, ledger, clock, key, catalog)
+        ledger.start_attempt(
+            snapshot=snapshot,
+            deployment=catalog.deployments[-1],
+            attempt_ordinal=0,
+            route_depth=1,
+            maximum_cost_nano_usd=MAXIMUM_NANO_USD,
+        )
+    with pytest.raises(ValueError, match="historical monthly gateway cost exceeds SQLite integer"):
+        budgets.set_limit(
+            organization_id="org",
+            period="2026-08",
+            scope=BudgetScope(kind=BudgetScopeKind.POOL, alias_id="coding", pool_id="pool"),
+            limit_nano_usd=MAXIMUM_NANO_USD,
+        )
+    assert budgets.limits(organization_id="org", period="2026-08") == ()
+    with sqlite3.connect(ledger.database_path) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM gateway_attempts").fetchone() == (2,)
+        assert connection.execute(
+            "SELECT COUNT(*) FROM gateway_attempt_budget_charges"
+        ).fetchone() == (0,)
+
+
+def test_reachable_child_budget_authoring_uses_pinned_graph(tmp_path: Path) -> None:
+    """Only reachable child pools and their actual leaves can receive allocations."""
+    clock = _Clock()
+    store, ledger, budgets, key = _authority(tmp_path, clock)
+    catalog = _activate_chain(store, tmp_path)
+    snapshot = _accepted_chain(store, ledger, clock, key, catalog)
+    assert snapshot.stage_for_depth(1).pool_id == "child-pool"
+    for kind in (BudgetScopeKind.POOL, BudgetScopeKind.DEPLOYMENT):
+        changed, limit = budgets.set_limit(
+            organization_id="org",
+            period="2026-08",
+            scope=BudgetScope(
+                kind=kind,
+                alias_id="coding",
+                pool_id="child-pool",
+                deployment_id="child" if kind is BudgetScopeKind.DEPLOYMENT else None,
+            ),
+            limit_nano_usd=100,
+        )
+        assert changed and limit.scope.pool_id == "child-pool"
+    assert len(budgets.limits(organization_id="org", period="2026-08")) == 2
+
+
+def test_maximum_attempt_cost_is_integer_conservative_and_unknown_prices_fail_closed() -> None:
+    """Reservation pricing uses the input estimate, output ceiling, and no float money."""
+    request = _request("four bytes")
+    known = maximum_attempt_cost_nano_usd(request, _deployment())
+
+    assert known is not None and isinstance(known, int) and known > 16
+    # A caller that already holds the input estimate prices identically.
+    assert (
+        maximum_attempt_cost_nano_usd(
+            request, _deployment(), input_tokens=worst_case_input_tokens(request)
+        )
+        == known
+    )
+    assert maximum_attempt_cost_nano_usd(request, _deployment(priced=False)) is None
+    # A rate the int8 ledger could not carry through a 1M-context request is
+    # refused at AUTHORING (the price models bound every rate), so no ceiling
+    # can ever be unrepresentable; the guard behind it raises by name.
+    with pytest.raises(ValidationError):
+        GatewayTokenPrices(
+            input_nano_usd_per_million_tokens=MAXIMUM_RATE_NANO_USD_PER_MILLION_TOKENS + 1,
+            output_nano_usd_per_million_tokens=MAXIMUM_RATE_NANO_USD_PER_MILLION_TOKENS + 1,
+        )
+    all_prices = _deployment().model_copy(
+        update={
+            "gateway": _deployment().gateway.model_copy(
+                update={
+                    "prices": GatewayTokenPrices(
+                        input_nano_usd_per_million_tokens=1_000_000,
+                        cached_input_nano_usd_per_million_tokens=3_000_000,
+                        output_nano_usd_per_million_tokens=2_000_000,
+                        reasoning_nano_usd_per_million_tokens=4_000_000,
+                    )
+                }
+            )
+        }
+    )
+    assert all_prices.gateway.capabilities.reports_cached_input_tokens is False
+    assert all_prices.gateway.capabilities.reports_reasoning_tokens is False
+    all_dimensions = maximum_attempt_cost_nano_usd(request, all_prices)
+    assert all_dimensions is not None and all_dimensions > known
+
+
+@pytest.mark.parametrize("output_rate", [0, 1_000_037])
+def test_decision_ceiling_prices_both_reservations_with_integer_rounding(output_rate: int) -> None:
+    """Zero output price is known money, not zero observed or reserved output tokens."""
+    request = DecisionRequest(
+        state="你好", questions={"valid": NoulQuestion(instructions="Accept?")}
+    )
+    deployment = _deployment()
+    deployment = deployment.model_copy(
+        update={
+            "gateway": deployment.gateway.model_copy(
+                update={
+                    "prices": GatewayTokenPrices(
+                        input_nano_usd_per_million_tokens=13,
+                        output_nano_usd_per_million_tokens=output_rate,
+                    )
+                }
+            )
+        }
+    )
+    input_tokens, output_tokens = worst_case_attempt_tokens(request, deployment)
+    assert input_tokens == request.input_token_reservation
+    assert output_tokens == request.output_token_reservation == 2048
+    assert deployment.capabilities is not None
+    assert deployment.capabilities.maximum_output_tokens is not None
+    assert output_tokens > deployment.capabilities.maximum_output_tokens
+    expected = (input_tokens * 13 + output_tokens * output_rate + 999_999) // 1_000_000
+    assert maximum_attempt_cost_nano_usd(request, deployment) == expected
+    assert maximum_attempt_cost_nano_usd(request, deployment, input_tokens=input_tokens) == expected
+    assert maximum_attempt_cost_nano_usd(request, _deployment(priced=False)) is None
+
+
+@pytest.mark.parametrize(
+    "prices",
+    [
+        GatewayTokenPrices(input_nano_usd_per_million_tokens=13),
+        GatewayTokenPrices(output_nano_usd_per_million_tokens=0),
+    ],
+)
+def test_decision_ceiling_requires_both_explicit_prices(prices: GatewayTokenPrices) -> None:
+    """An absent output price cannot be silently treated as a free output leg."""
+    request = DecisionRequest(
+        state="state", questions={"valid": NoulQuestion(instructions="Accept?")}
+    )
+    deployment = _deployment()
+    deployment = deployment.model_copy(
+        update={"gateway": deployment.gateway.model_copy(update={"prices": prices})}
+    )
+    assert maximum_attempt_cost_nano_usd(request, deployment) is None
+
+
+@pytest.mark.parametrize(("choice_count", "score_count"), [(2, 2), (64, 10)])
+def test_decision_output_reservation_sums_each_question_and_criterion(
+    choice_count: int,
+    score_count: int,
+) -> None:
+    """Mixed question batches preserve their full output allowance, not a chat ceiling."""
+    criteria = tuple(f"criterion-{index}" for index in range(choice_count))
+    request = DecisionRequest(
+        state={"record": "你好"},
+        questions={
+            "truth": NoulQuestion(instructions="Is this valid?"),
+            "choice": ChoiceQuestion(instructions="Select", criteria=dict.fromkeys(criteria)),
+            "score": ScoreQuestion(instructions="Rate", criteria=criteria[:score_count]),
+        },
+    )
+    input_tokens, output_tokens = worst_case_attempt_tokens(request, _deployment())
+    assert input_tokens == request.input_token_reservation
+    assert output_tokens == 2048 + 2 * 1024 + 512 * (choice_count + score_count)
+    assert output_tokens == request.output_token_reservation
+
+
+def test_missing_output_metadata_requires_an_explicit_budget() -> None:
+    """A price does not authorize unbounded generation or a guessed reservation."""
+    request = _request("four bytes").model_copy(update={"maximum_output_tokens": None})
+    no_ceiling = _deployment().model_copy(update={"capabilities": ModelCapabilities()})
+    with pytest.raises(ProviderParameterError, match="Supply an explicit max_tokens"):
+        maximum_attempt_cost_nano_usd(request, no_ceiling)
+    assert (
+        maximum_attempt_cost_nano_usd(
+            request.model_copy(update={"maximum_output_tokens": 100_000}), no_ceiling
+        )
+        is not None
+    )
+
+
+@pytest.mark.parametrize("window", (1_024, 128_000))
+def test_missing_output_ceiling_reserves_the_full_declared_window(window: int) -> None:
+    """An optional provider cap stays omitted while its full bound is reserved."""
+    request = _request("four bytes").model_copy(update={"maximum_output_tokens": None})
+    deployment = _deployment().model_copy(
+        update={"capabilities": ModelCapabilities(context_window_tokens=window)}
+    )
+    assert worst_case_attempt_tokens(request, deployment)[1] == window
+    assert maximum_attempt_cost_nano_usd(request, deployment) == maximum_attempt_cost_nano_usd(
+        request.model_copy(update={"maximum_output_tokens": window}), deployment
+    )
+    assert (
+        maximum_attempt_cost_nano_usd(
+            request.model_copy(update={"maximum_output_tokens": 1_024}), _deployment(priced=False)
+        )
+        is None
+    )
+
+
+def test_huge_caller_output_ceiling_clamps_to_deployment_instead_of_failing_closed() -> None:
+    """A caller output ceiling above the deployment's own is clamped, not None.
+
+    Without the clamp a very large caller ``maximum_output_tokens`` inflates the
+    worst case past ``MAXIMUM_NANO_USD`` and returns ``None``, which fails a
+    perfectly fundable request closed and mis-terminalizes it as a quota refusal.
+    The deployment can never emit more than its own ceiling, so the output term
+    clamps to it: the huge request stays a small bounded int and prices exactly
+    like the at-ceiling request (the literal is not prompt text).
+    """
+    deployment = _deployment()  # ModelCapabilities(maximum_output_tokens=16)
+    bounded = maximum_attempt_cost_nano_usd(_request("four bytes"), deployment)
+    huge = maximum_attempt_cost_nano_usd(
+        _request("four bytes").model_copy(update={"maximum_output_tokens": 10**12}),
+        deployment,
+    )
+
+    assert bounded is not None
+    assert huge is not None and isinstance(huge, int)
+    # Output is clamped to the ceiling and the literal is not prompt text, so
+    # the two price identically.
+    assert huge == bounded
+
+
+def test_concurrent_identity_reservations_never_exceed_hard_limit(tmp_path: Path) -> None:
+    """BEGIN IMMEDIATE serializes competing reservations before attempt insertion."""
+    clock = _Clock()
+    store, ledger, budgets, key = _authority(tmp_path, clock)
+    budgets.set_limit(
+        organization_id="org",
+        period="2026-08",
+        scope=BudgetScope(kind=BudgetScopeKind.IDENTITY, identity_id="identity"),
+        limit_nano_usd=500,
+    )
+    snapshots = [
+        _accepted(store, ledger, clock, key, f"concurrent-{index}")[1] for index in range(10)
+    ]
+
+    def reserve(index: int) -> str:
+        """Attempt one competing fixed-size reservation."""
+        return ledger.start_attempt(
+            snapshot=snapshots[index],
+            deployment=_deployment(),
+            attempt_ordinal=0,
+            route_depth=0,
+            maximum_cost_nano_usd=100,
+        )
+
+    accepted: list[str] = []
+    rejected = 0
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(reserve, index) for index in range(10)]
+        for future in futures:
+            try:
+                accepted.append(future.result())
+            except BudgetReservationRejected:
+                rejected += 1
+
+    assert len(accepted) == 5
+    assert rejected == 5
+    remaining = budgets.remaining(organization_id="org", period="2026-08")[0]
+    assert remaining.reserved_nano_usd == 500
+    assert remaining.remaining_nano_usd == 0
+
+
+def test_decision_ledger_settles_zero_output_price_without_discarding_usage(tmp_path: Path) -> None:
+    """SQLite reserves decision money then preserves both observed token counts at settlement."""
+    clock = _Clock()
+    store, ledger, budgets, key = _authority(tmp_path, clock)
+    request = DecisionRequest(
+        state="decision-content-canary", questions={"valid": NoulQuestion(instructions="Accept?")}
+    )
+    authorization = store.authorize_request(
+        raw_key=key,
+        alias="coding",
+        request=request,
+        deadline_monotonic=clock.monotonic() + 30,
+    )
+    ledger.accept_request(authorization=authorization)
+    snapshot = ExecutionSnapshot(
+        authorization=authorization,
+        exact_model_id="exact-one",
+        pool_id="pool",
+        deployment_ids=("primary",),
+    )
+    deployment = _deployment()
+    deployment = deployment.model_copy(
+        update={
+            "gateway": deployment.gateway.model_copy(
+                update={
+                    "prices": GatewayTokenPrices(
+                        input_nano_usd_per_million_tokens=1_000_000,
+                        output_nano_usd_per_million_tokens=0,
+                    )
+                }
+            )
+        }
+    )
+    maximum = maximum_attempt_cost_nano_usd(request, deployment)
+    assert maximum is not None
+    assert maximum == request.input_token_reservation
+    budgets.set_limit(
+        organization_id="org",
+        period="2026-08",
+        scope=BudgetScope(kind=BudgetScopeKind.TEAM),
+        limit_nano_usd=maximum,
+        strict_unknown_cost=True,
+    )
+    attempt = ledger.start_attempt(
+        snapshot=snapshot,
+        deployment=deployment,
+        attempt_ordinal=0,
+        route_depth=0,
+        maximum_cost_nano_usd=maximum,
+        reserved_input_tokens=request.input_token_reservation,
+        reserved_output_tokens=request.output_token_reservation,
+    )
+    assert (
+        budgets.remaining(organization_id="org", period="2026-08")[0].reserved_nano_usd == maximum
+    )
+    ledger.finish_attempt(
+        attempt_id=attempt,
+        terminal_event=GatewayEvent(
+            kind=GatewayEventKind.COMPLETED,
+            sequence_number=0,
+            usage=GatewayUsage(input_tokens=17, output_tokens=5),
+        ),
+        failure=None,
+    )
+    remaining = budgets.remaining(organization_id="org", period="2026-08")[0]
+    assert remaining.reserved_nano_usd == 0
+    assert remaining.settled_nano_usd == 17
+    assert remaining.unknown_cost_attempts == 0
+    with sqlite3.connect(store.database_path) as connection:
+        row = connection.execute(
+            "SELECT input_tokens, output_tokens, budget_settled_nano_usd "
+            "FROM gateway_attempts WHERE attempt_id = ?",
+            (attempt,),
+        ).fetchone()
+        assert row == (17, 5, 17)
+
+
+def test_configured_optional_prices_are_reserved_even_when_reporting_hints_are_false(
+    tmp_path: Path,
+) -> None:
+    """Provider usage cannot settle cached or reasoning cost above its reservation."""
+    clock = _Clock()
+    store, ledger, budgets, key = _authority(tmp_path, clock)
+    deployment = _deployment().model_copy(
+        update={
+            "gateway": _deployment().gateway.model_copy(
+                update={
+                    "prices": GatewayTokenPrices(
+                        input_nano_usd_per_million_tokens=1_000_000,
+                        cached_input_nano_usd_per_million_tokens=3_000_000,
+                        output_nano_usd_per_million_tokens=2_000_000,
+                        reasoning_nano_usd_per_million_tokens=4_000_000,
+                    )
+                }
+            )
+        }
+    )
+    request, snapshot = _accepted(store, ledger, clock, key, "all-price-dimensions")
+    maximum = maximum_attempt_cost_nano_usd(request, deployment)
+    assert maximum is not None
+    budgets.set_limit(
+        organization_id="org",
+        period="2026-08",
+        scope=BudgetScope(kind=BudgetScopeKind.TEAM),
+        limit_nano_usd=maximum,
+    )
+    attempt = ledger.start_attempt(
+        snapshot=snapshot,
+        deployment=deployment,
+        attempt_ordinal=0,
+        route_depth=0,
+        maximum_cost_nano_usd=maximum,
+    )
+    input_ceiling = worst_case_input_tokens(request)
+    ledger.finish_attempt(
+        attempt_id=attempt,
+        terminal_event=GatewayEvent(
+            kind=GatewayEventKind.COMPLETED,
+            sequence_number=0,
+            usage=GatewayUsage(
+                input_tokens=input_ceiling,
+                cached_input_tokens=input_ceiling,
+                output_tokens=16,
+                reasoning_tokens=16,
+            ),
+        ),
+        failure=None,
+    )
+
+    remaining = budgets.remaining(organization_id="org", period="2026-08")[0]
+    assert remaining.reserved_nano_usd == 0
+    assert remaining.settled_nano_usd == maximum
+    assert remaining.remaining_nano_usd == 0
+
+
+def test_settlement_counts_failures_retries_and_rollover_without_reset(tmp_path: Path) -> None:
+    """Every physical attempt settles in its start month and old buckets remain unchanged."""
+    clock = _Clock()
+    store, ledger, budgets, key = _authority(tmp_path, clock)
+    budgets.set_limit(
+        organization_id="org",
+        period="2026-08",
+        scope=BudgetScope(kind=BudgetScopeKind.TEAM),
+        limit_nano_usd=1_000,
+    )
+    _request_one, snapshot_one = _accepted(store, ledger, clock, key, "failed-attempt")
+    failed = ledger.start_attempt(
+        snapshot=snapshot_one,
+        deployment=_deployment(),
+        attempt_ordinal=0,
+        route_depth=0,
+        maximum_cost_nano_usd=300,
+    )
+    ledger.finish_attempt(
+        attempt_id=failed,
+        terminal_event=None,
+        failure=GatewayFailure(
+            failure_class=GatewayFailureClass.TRANSPORT,
+            safe_message="provider transport failed",
+        ),
+    )
+
+    # A failure without usage can still be billable, so the maximum reservation remains charged.
+    august = budgets.remaining(organization_id="org", period="2026-08")[0]
+    assert august.charged_nano_usd == 300
+    clock.advance(timedelta(minutes=2))
+    budgets.set_limit(
+        organization_id="org",
+        period="2026-09",
+        scope=BudgetScope(kind=BudgetScopeKind.TEAM),
+        limit_nano_usd=1_000,
+    )
+    _request_two, snapshot_two = _accepted(store, ledger, clock, key, "completed-attempt")
+    completed = ledger.start_attempt(
+        snapshot=snapshot_two,
+        deployment=_deployment(),
+        attempt_ordinal=0,
+        route_depth=0,
+        maximum_cost_nano_usd=300,
+    )
+    ledger.finish_attempt(
+        attempt_id=completed,
+        terminal_event=GatewayEvent(
+            kind=GatewayEventKind.COMPLETED,
+            sequence_number=0,
+            usage=GatewayUsage(input_tokens=10, output_tokens=5),
+        ),
+        failure=None,
+    )
+
+    assert budgets.remaining(organization_id="org", period="2026-08")[0].charged_nano_usd == 300
+    september = budgets.remaining(organization_id="org", period="2026-09")[0]
+    assert september.reserved_nano_usd == 0
+    assert september.settled_nano_usd == 20
+    assert september.remaining_nano_usd == 980
+
+
+def test_default_limit_reports_unknown_cost_without_blocking_service(tmp_path: Path) -> None:
+    """A default limit keeps serving after an unknown-cost attempt and reports its volume."""
+    clock = _Clock()
+    store, ledger, budgets, key = _authority(tmp_path, clock)
+    _first_request, first_snapshot = _accepted(store, ledger, clock, key, "unknown-first")
+    attempt = ledger.start_attempt(
+        snapshot=first_snapshot,
+        deployment=_deployment(priced=False),
+        attempt_ordinal=0,
+        route_depth=0,
+        maximum_cost_nano_usd=None,
+    )
+    ledger.finish_attempt(
+        attempt_id=attempt,
+        terminal_event=None,
+        failure=GatewayFailure(
+            failure_class=GatewayFailureClass.TRANSPORT,
+            safe_message="provider transport failed",
+        ),
+    )
+    budgets.set_limit(
+        organization_id="org",
+        period="2026-08",
+        scope=BudgetScope(kind=BudgetScopeKind.TEAM),
+        limit_nano_usd=1_000,
+    )
+    _second_request, second_snapshot = _accepted(store, ledger, clock, key, "unknown-second")
+
+    admitted = ledger.start_attempt(
+        snapshot=second_snapshot,
+        deployment=_deployment(),
+        attempt_ordinal=0,
+        route_depth=0,
+        maximum_cost_nano_usd=100,
+    )
+
+    assert admitted
+    remaining = budgets.remaining(organization_id="org", period="2026-08")[0]
+    assert remaining.unknown_cost_attempts == 1
+    assert remaining.remaining_nano_usd == 1_000 - 100
+    assert not remaining.exhausted
+
+
+def test_default_limit_admits_unpriced_attempts_and_tracks_token_volume(
+    tmp_path: Path,
+) -> None:
+    """An unpriced attempt under a default limit runs and reports observed token volume."""
+    clock = _Clock()
+    store, ledger, budgets, key = _authority(tmp_path, clock)
+    budgets.set_limit(
+        organization_id="org",
+        period="2026-08",
+        scope=BudgetScope(kind=BudgetScopeKind.TEAM),
+        limit_nano_usd=1_000,
+    )
+    _request_value, snapshot = _accepted(store, ledger, clock, key, "unpriced-served")
+
+    attempt = ledger.start_attempt(
+        snapshot=snapshot,
+        deployment=_deployment(priced=False),
+        attempt_ordinal=0,
+        route_depth=0,
+        maximum_cost_nano_usd=None,
+    )
+    ledger.finish_attempt(
+        attempt_id=attempt,
+        terminal_event=GatewayEvent(
+            kind=GatewayEventKind.COMPLETED,
+            sequence_number=0,
+            usage=GatewayUsage(input_tokens=120, output_tokens=16, reasoning_tokens=4),
+        ),
+        failure=None,
+    )
+
+    remaining = budgets.remaining(organization_id="org", period="2026-08")[0]
+    assert remaining.unknown_cost_attempts == 1
+    assert remaining.unknown_cost_input_tokens == 120
+    # Reasoning is a subset of output_tokens, so the volume gauge reports the
+    # output total once rather than adding the subset a second time.
+    assert remaining.unknown_cost_output_tokens == 16
+    assert remaining.remaining_nano_usd == 1_000
+    assert not remaining.exhausted
+
+
+def test_strict_limit_fails_closed_on_unknown_cost(tmp_path: Path) -> None:
+    """A strict limit rejects unpriced attempts and blocks while unknown cost remains."""
+    clock = _Clock()
+    store, ledger, budgets, key = _authority(tmp_path, clock)
+    first = _unknown_attempt(store, ledger, clock, key, "strict-unknown")
+    assert first
+    budgets.set_limit(
+        organization_id="org",
+        period="2026-08",
+        scope=BudgetScope(kind=BudgetScopeKind.TEAM),
+        limit_nano_usd=1_000,
+        strict_unknown_cost=True,
+    )
+    _blocked_request, blocked_snapshot = _accepted(store, ledger, clock, key, "strict-blocked")
+
+    with pytest.raises(BudgetReservationRejected, match="prior attempts with unknown cost"):
+        ledger.start_attempt(
+            snapshot=blocked_snapshot,
+            deployment=_deployment(),
+            attempt_ordinal=0,
+            route_depth=0,
+            maximum_cost_nano_usd=100,
+        )
+    remaining = budgets.remaining(organization_id="org", period="2026-08")[0]
+    assert remaining.budget.strict_unknown_cost
+    assert remaining.unknown_cost_attempts == 1
+    assert remaining.remaining_nano_usd == 0
+    assert remaining.exhausted
+
+
+def test_strict_limit_rejects_new_unpriced_attempts(tmp_path: Path) -> None:
+    """A strict limit refuses to admit an attempt whose maximum cost is unknown."""
+    clock = _Clock()
+    store, ledger, budgets, key = _authority(tmp_path, clock)
+    budgets.set_limit(
+        organization_id="org",
+        period="2026-08",
+        scope=BudgetScope(kind=BudgetScopeKind.TEAM),
+        limit_nano_usd=1_000,
+        strict_unknown_cost=True,
+    )
+    _request_value, snapshot = _accepted(store, ledger, clock, key, "strict-unpriced")
+
+    with pytest.raises(BudgetReservationRejected, match="known maximum attempt cost"):
+        ledger.start_attempt(
+            snapshot=snapshot,
+            deployment=_deployment(priced=False),
+            attempt_ordinal=0,
+            route_depth=0,
+            maximum_cost_nano_usd=None,
+        )
+
+
+def _unknown_attempt(
+    store: SQLiteGatewayStore,
+    ledger: SQLiteAttemptLedger,
+    clock: _Clock,
+    key: str,
+    content: str,
+) -> str:
+    """Run one failed unpriced attempt whose cost is never learned."""
+    _request_value, snapshot = _accepted(store, ledger, clock, key, content)
+    attempt = ledger.start_attempt(
+        snapshot=snapshot,
+        deployment=_deployment(priced=False),
+        attempt_ordinal=0,
+        route_depth=0,
+        maximum_cost_nano_usd=None,
+    )
+    ledger.finish_attempt(
+        attempt_id=attempt,
+        terminal_event=None,
+        failure=GatewayFailure(
+            failure_class=GatewayFailureClass.TRANSPORT,
+            safe_message="provider transport failed",
+        ),
+    )
+    return attempt
+
+
+def test_reconcile_unknown_costs_restores_service_with_exact_attribution(
+    tmp_path: Path,
+) -> None:
+    """Reconciliation settles each unknown attempt at the assigned cost and reopens the limit."""
+    clock = _Clock()
+    store, ledger, budgets, key = _authority(tmp_path, clock)
+    scope = BudgetScope(kind=BudgetScopeKind.TEAM)
+    first = _unknown_attempt(store, ledger, clock, key, "unknown-one")
+    second = _unknown_attempt(store, ledger, clock, key, "unknown-two")
+    budgets.set_limit(
+        organization_id="org",
+        period="2026-08",
+        scope=scope,
+        limit_nano_usd=1_000,
+        strict_unknown_cost=True,
+    )
+    budgets.set_limit(
+        organization_id="org",
+        period="2026-08",
+        scope=scope,
+        limit_nano_usd=10_000,
+        replace=True,
+        strict_unknown_cost=True,
+    )
+    _blocked_request, blocked_snapshot = _accepted(store, ledger, clock, key, "still-blocked")
+    with pytest.raises(BudgetReservationRejected, match="prior attempts with unknown cost"):
+        ledger.start_attempt(
+            snapshot=blocked_snapshot,
+            deployment=_deployment(),
+            attempt_ordinal=0,
+            route_depth=0,
+            maximum_cost_nano_usd=100,
+        )
+
+    reconciled, remaining = budgets.reconcile_unknown_costs(
+        organization_id="org",
+        period="2026-08",
+        scope=scope,
+        assigned_cost_nano_usd=40,
+    )
+
+    assert reconciled == 2
+    assert remaining.unknown_cost_attempts == 0
+    assert remaining.settled_nano_usd == 80
+    assert remaining.remaining_nano_usd == 10_000 - 80
+    assert not remaining.exhausted
+    with sqlite3.connect(tmp_path / "gateway.db") as connection:
+        connection.row_factory = sqlite3.Row
+        charges = {
+            str(row["attempt_id"]): int(row["settled_nano_usd"])
+            for row in connection.execute(
+                """
+                SELECT attempt_id, settled_nano_usd FROM gateway_attempt_budget_charges
+                WHERE budget_id = ?
+                """,
+                (remaining.budget.budget_id,),
+            )
+        }
+    assert charges == {first: 40, second: 40}
+    _next_request, next_snapshot = _accepted(store, ledger, clock, key, "restored")
+    admitted = ledger.start_attempt(
+        snapshot=next_snapshot,
+        deployment=_deployment(),
+        attempt_ordinal=0,
+        route_depth=0,
+        maximum_cost_nano_usd=100,
+    )
+    assert admitted
+    again, unchanged = budgets.reconcile_unknown_costs(
+        organization_id="org",
+        period="2026-08",
+        scope=scope,
+        assigned_cost_nano_usd=40,
+    )
+    assert again == 0
+    assert unchanged.settled_nano_usd == 80
+
+
+def test_reconcile_requires_an_existing_limit(tmp_path: Path) -> None:
+    """Reconciliation refuses to invent a budget for a scope without a stored limit."""
+    clock = _Clock()
+    _store, _ledger, budgets, _key = _authority(tmp_path, clock)
+
+    with pytest.raises(ValueError, match="does not exist"):
+        budgets.reconcile_unknown_costs(
+            organization_id="org",
+            period="2026-08",
+            scope=BudgetScope(kind=BudgetScopeKind.TEAM),
+            assigned_cost_nano_usd=1,
+        )
+
+
+def test_limit_created_midflight_adopts_and_settles_existing_reservation(
+    tmp_path: Path,
+) -> None:
+    """A new limit binds an active attempt and later settles it exactly once."""
+    clock = _Clock()
+    store, ledger, budgets, key = _authority(tmp_path, clock)
+    _request_value, snapshot = _accepted(store, ledger, clock, key, "midflight")
+    attempt = ledger.start_attempt(
+        snapshot=snapshot,
+        deployment=_deployment(),
+        attempt_ordinal=0,
+        route_depth=0,
+        maximum_cost_nano_usd=300,
+    )
+
+    budgets.set_limit(
+        organization_id="org",
+        period="2026-08",
+        scope=BudgetScope(kind=BudgetScopeKind.TEAM),
+        limit_nano_usd=1_000,
+    )
+    active = budgets.remaining(organization_id="org", period="2026-08")[0]
+    assert active.reserved_nano_usd == 300
+    assert active.settled_nano_usd == 0
+
+    terminal = GatewayEvent(
+        kind=GatewayEventKind.COMPLETED,
+        sequence_number=0,
+        usage=GatewayUsage(input_tokens=10, output_tokens=5),
+    )
+    ledger.finish_attempt(attempt_id=attempt, terminal_event=terminal, failure=None)
+    ledger.finish_attempt(attempt_id=attempt, terminal_event=terminal, failure=None)
+
+    settled = budgets.remaining(organization_id="org", period="2026-08")[0]
+    assert settled.reserved_nano_usd == 0
+    assert settled.settled_nano_usd == 20
+    assert settled.remaining_nano_usd == 980
+
+
+def test_crash_recovery_retains_reservation_and_idempotent_settlement_charges_once(
+    tmp_path: Path,
+) -> None:
+    """Unknown dispatches keep their maximum while repeated settlement cannot double-charge."""
+    clock = _Clock()
+    store, ledger, budgets, key = _authority(tmp_path, clock)
+    budgets.set_limit(
+        organization_id="org",
+        period="2026-08",
+        scope=BudgetScope(kind=BudgetScopeKind.TEAM),
+        limit_nano_usd=500,
+    )
+    _request_one, first_snapshot = _accepted(store, ledger, clock, key, "crash")
+    ledger.start_attempt(
+        snapshot=first_snapshot,
+        deployment=_deployment(),
+        attempt_ordinal=0,
+        route_depth=0,
+        maximum_cost_nano_usd=100,
+    )
+    clock.advance(timedelta(seconds=31))
+    assert ledger.reconcile_crashed_requests(cleanup_grace=timedelta(0)) == (0, 1)
+    after_crash = budgets.remaining(organization_id="org", period="2026-08")[0]
+    assert after_crash.reserved_nano_usd == 100
+    assert after_crash.remaining_nano_usd == 400
+
+    _request_two, second_snapshot = _accepted(store, ledger, clock, key, "settle-once")
+    settled = ledger.start_attempt(
+        snapshot=second_snapshot,
+        deployment=_deployment(),
+        attempt_ordinal=0,
+        route_depth=0,
+        maximum_cost_nano_usd=200,
+    )
+    terminal = GatewayEvent(
+        kind=GatewayEventKind.COMPLETED,
+        sequence_number=0,
+        usage=GatewayUsage(input_tokens=10, output_tokens=5),
+    )
+    ledger.finish_attempt(attempt_id=settled, terminal_event=terminal, failure=None)
+    ledger.finish_attempt(attempt_id=settled, terminal_event=terminal, failure=None)
+
+    remaining = budgets.remaining(organization_id="org", period="2026-08")[0]
+    assert remaining.charged_nano_usd == 120
+    assert remaining.reserved_nano_usd == 100
+    assert remaining.settled_nano_usd == 20
+    assert remaining.remaining_nano_usd == 380
+
+
+def test_migrated_attempts_receive_explicit_period_and_cost_state(tmp_path: Path) -> None:
+    """The current schema stores no floating monetary fields or resettable counters."""
+    clock = _Clock()
+    store, ledger, _budgets, key = _authority(tmp_path, clock)
+    _request_value, snapshot = _accepted(store, ledger, clock, key, "schema")
+    attempt = ledger.start_attempt(
+        snapshot=snapshot,
+        deployment=_deployment(),
+        attempt_ordinal=0,
+        route_depth=0,
+        maximum_cost_nano_usd=123,
+    )
+    connection = sqlite3.connect(ledger.database_path)
+    try:
+        row = connection.execute(
+            """
+            SELECT budget_period_start, budget_reserved_nano_usd,
+                   budget_settled_nano_usd
+            FROM gateway_attempts WHERE attempt_id = ?
+            """,
+            (attempt,),
+        ).fetchone()
+    finally:
+        connection.close()
+    assert row == ("2026-08-01T00:00:00+00:00", 123, None)
+
+
+def _write_snapshot(tmp_path: Path) -> None:
+    """Write the pinned normalized catalog snapshot referenced by the fixture alias."""
+    (tmp_path / "snapshot").write_bytes(canonical_json_bytes(_catalog().model_dump(mode="json")))
+
+
+def test_pool_and_deployment_budget_scopes_require_real_targets(tmp_path: Path) -> None:
+    """Pool and deployment limits reject identifiers the ledger can never charge."""
+    clock = _Clock()
+    _store, _ledger, budgets, _key = _authority(tmp_path, clock)
+    _write_snapshot(tmp_path)
+
+    with pytest.raises(ValueError, match="not reachable|root pool is missing"):
+        budgets.set_limit(
+            organization_id="org",
+            period="2026-08",
+            scope=BudgetScope(kind=BudgetScopeKind.POOL, alias_id="coding", pool_id="ghost"),
+            limit_nano_usd=100,
+        )
+    with pytest.raises(ValueError, match="not reachable"):
+        budgets.set_limit(
+            organization_id="org",
+            period="2026-08",
+            scope=BudgetScope(
+                kind=BudgetScopeKind.DEPLOYMENT,
+                alias_id="coding",
+                pool_id="pool",
+                deployment_id="ghost",
+            ),
+            limit_nano_usd=100,
+        )
+    changed, pool_limit = budgets.set_limit(
+        organization_id="org",
+        period="2026-08",
+        scope=BudgetScope(kind=BudgetScopeKind.POOL, alias_id="coding", pool_id="pool"),
+        limit_nano_usd=100,
+    )
+    assert changed and pool_limit.scope.pool_id == "pool"
+    changed, deployment_limit = budgets.set_limit(
+        organization_id="org",
+        period="2026-08",
+        scope=BudgetScope(
+            kind=BudgetScopeKind.DEPLOYMENT,
+            alias_id="coding",
+            pool_id="pool",
+            deployment_id="secondary",
+        ),
+        limit_nano_usd=100,
+    )
+    assert changed and deployment_limit.scope.deployment_id == "secondary"
+
+
+def test_retargeted_alias_rejects_previous_pool_scope(tmp_path: Path) -> None:
+    """Only the active revision's pool authorizes new pool limits after a retarget."""
+    clock = _Clock()
+    store, _ledger, budgets, _key = _authority(tmp_path, clock)
+    _write_snapshot(tmp_path)
+    store.activate_alias_revision(
+        organization_id="org",
+        alias_id="coding",
+        alias_name="coding",
+        revision_id="revision-two",
+        target=DirectTarget(pool_id="pool-two"),
+        snapshot_ref="snapshot",
+        catalog_sha256=_catalog().identity_sha256(),
+    )
+
+    with pytest.raises(ValueError, match="not reachable|root pool is missing"):
+        budgets.set_limit(
+            organization_id="org",
+            period="2026-08",
+            scope=BudgetScope(kind=BudgetScopeKind.POOL, alias_id="coding", pool_id="pool"),
+            limit_nano_usd=100,
+        )
+
+
+def test_deployment_budget_scope_fails_closed_on_tampered_snapshot(tmp_path: Path) -> None:
+    """A snapshot whose content differs from the registered digest is rejected."""
+    clock = _Clock()
+    _store, _ledger, budgets, _key = _authority(tmp_path, clock)
+    tampered = NormalizedGatewayCatalog(
+        deployments=(_deployment(),),
+        pools=(
+            ExactModelPool(
+                pool_id="pool",
+                exact_model_id="exact-one",
+                deployment_ids=("primary",),
+            ),
+        ),
+    )
+    (tmp_path / "snapshot").write_bytes(canonical_json_bytes(tampered.model_dump(mode="json")))
+
+    with pytest.raises(ValueError, match="digest does not match"):
+        budgets.set_limit(
+            organization_id="org",
+            period="2026-08",
+            scope=BudgetScope(
+                kind=BudgetScopeKind.DEPLOYMENT,
+                alias_id="coding",
+                pool_id="pool",
+                deployment_id="primary",
+            ),
+            limit_nano_usd=100,
+        )
+
+
+def test_deployment_budget_scope_fails_closed_on_unreadable_snapshot(tmp_path: Path) -> None:
+    """A missing pinned snapshot rejects deployment scopes instead of trusting them."""
+    clock = _Clock()
+    _store, _ledger, budgets, _key = _authority(tmp_path, clock)
+
+    with pytest.raises(ValueError, match="snapshot is unreadable"):
+        budgets.set_limit(
+            organization_id="org",
+            period="2026-08",
+            scope=BudgetScope(
+                kind=BudgetScopeKind.DEPLOYMENT,
+                alias_id="coding",
+                pool_id="pool",
+                deployment_id="primary",
+            ),
+            limit_nano_usd=100,
+        )
+
+
+def test_reservation_prices_the_long_context_tier_conservatively() -> None:
+    """The input estimate decides tier exposure with a documented margin.
+
+    The estimate is realistic with headroom, not a bound, so the tier is
+    treated as reachable from ``LONG_CONTEXT_TIER_MARGIN_PERCENT`` below its
+    threshold: inside that band the whole-request premium schedule prices the
+    reservation, below it base rates reserve, and a reachable tier missing a
+    required rate unprices the route entirely.
+    """
+
+    def tiered(tier: GatewayLongContextTier | None) -> ExactModelDeployment:
+        base = _deployment()
+        return base.model_copy(
+            update={
+                "gateway": base.gateway.model_copy(
+                    update={
+                        "prices": GatewayTokenPrices(
+                            input_nano_usd_per_million_tokens=1_000_000,
+                            output_nano_usd_per_million_tokens=2_000_000,
+                            long_context=tier,
+                        )
+                    }
+                )
+            }
+        )
+
+    request = _request("x " * 400)
+    input_tokens = worst_case_input_tokens(request)
+    assert input_tokens >= 64
+    tier = GatewayLongContextTier(
+        input_threshold_tokens=64,
+        input_nano_usd_per_million_tokens=3_000_000,
+        output_nano_usd_per_million_tokens=5_000_000,
+    )
+
+    flat = maximum_attempt_cost_nano_usd(request, tiered(None))
+    premium = maximum_attempt_cost_nano_usd(request, tiered(tier))
+    assert flat is not None and premium is not None
+    # 16 output tokens from the deployment ceiling; the premium worst case
+    # prices both directions at the tier's higher rates.
+    assert flat == (input_tokens * 1_000_000 + 16 * 2_000_000 + 999_999) // 1_000_000
+    assert premium == (input_tokens * 3_000_000 + 16 * 5_000_000 + 999_999) // 1_000_000
+
+    # Just past the estimate the tier is still reachable: the margin band
+    # reserves at premium rates rather than trusting the estimate exactly.
+    within_margin = tier.model_copy(update={"input_threshold_tokens": input_tokens + 1})
+    assert maximum_attempt_cost_nano_usd(request, tiered(within_margin)) == premium
+    band_edge = (input_tokens * 100) // (100 - LONG_CONTEXT_TIER_MARGIN_PERCENT)
+    assert (
+        maximum_attempt_cost_nano_usd(
+            request, tiered(tier.model_copy(update={"input_threshold_tokens": band_edge}))
+        )
+        == premium
+    )
+
+    # Past the margin the tier cannot trigger, so base rates reserve.
+    unreachable = tier.model_copy(update={"input_threshold_tokens": band_edge + 1})
+    assert maximum_attempt_cost_nano_usd(request, tiered(unreachable)) == flat
+
+    # A reachable tier with an unknown required rate fails closed.
+    unpriced = GatewayLongContextTier(
+        input_threshold_tokens=64,
+        input_nano_usd_per_million_tokens=3_000_000,
+    )
+    assert maximum_attempt_cost_nano_usd(request, tiered(unpriced)) is None
+
+
+def test_reservation_counts_excluded_provider_carriers_toward_the_tier_bound() -> None:
+    """Serialization-excluded carriers cannot dodge the premium reservation.
+
+    Replayed encrypted reasoning is provider-read input excluded from the
+    request's plain serialization; without it in the estimate a
+    carrier-heavy request could reserve at base rates and settle at the
+    premium schedule, overdrawing a hard budget.
+    """
+    from exp.common.models.catalog import GatewayLongContextTier
+    from exp.runtime.gateway.contracts import EncryptedReasoningBlock, GatewayApiSurface
+
+    tier = GatewayLongContextTier(
+        input_threshold_tokens=2_048,
+        input_nano_usd_per_million_tokens=3_000_000,
+        output_nano_usd_per_million_tokens=5_000_000,
+    )
+    base = _deployment()
+    tiered = base.model_copy(
+        update={
+            "gateway": base.gateway.model_copy(
+                update={
+                    "prices": GatewayTokenPrices(
+                        input_nano_usd_per_million_tokens=1_000_000,
+                        output_nano_usd_per_million_tokens=2_000_000,
+                        long_context=tier,
+                    )
+                }
+            )
+        }
+    )
+    visible = GatewayRequest(
+        surface=GatewayApiSurface.RESPONSES,
+        messages=(GatewayMessage(role="assistant", content="tiny"),),
+        maximum_output_tokens=16,
+    )
+    carried = visible.model_copy(
+        update={
+            "messages": (
+                visible.messages[0].model_copy(
+                    update={
+                        "provider_reasoning": (
+                            EncryptedReasoningBlock(
+                                id="rs_carrier",
+                                # Sixteen kilobytes of opaque carrier: far past the
+                                # threshold by decoded length, invisible to the
+                                # plain serialization.
+                                encrypted_content="A" * 16_384,
+                                output_index=0,
+                            ),
+                        )
+                    }
+                ),
+            )
+        }
+    )
+    assert worst_case_input_tokens(visible) < 2_048
+    bound = worst_case_input_tokens(carried)
+    assert bound >= 2_048
+    assert (
+        maximum_attempt_cost_nano_usd(visible, tiered)
+        == (worst_case_input_tokens(visible) * 1_000_000 + 16 * 2_000_000 + 999_999) // 1_000_000
+    )
+    # The premium worst case governs because the carrier crosses the
+    # threshold even though the visible serialization stays below it.
+    expected = (bound * 3_000_000 + 16 * 5_000_000 + 999_999) // 1_000_000
+    assert maximum_attempt_cost_nano_usd(carried, tiered) == expected
+
+
+def test_worst_case_attempt_tokens_matches_over_the_serving_request_union() -> None:
+    """The promo token reservation is match-aware: completions reserve estimated
+    input and clamped output; embeddings and image requests reserve their
+    estimated input and zero completion output."""
+    deployment = _deployment()
+
+    completion_in, completion_out = worst_case_attempt_tokens(_request("four bytes"), deployment)
+    assert completion_in > 0
+    # 16 is the fixture request's maximum_output_tokens, at/under the deployment ceiling.
+    assert completion_out == 16
+
+    embeddings = EmbeddingsRequest(inputs=("hello", "world"))
+    emb_in, emb_out = worst_case_attempt_tokens(embeddings, deployment)
+    assert emb_in == worst_case_input_tokens(embeddings) and emb_in > 0
+    assert emb_out == 0
+    # The embeddings money ceiling prices the same estimate at the input rate.
+    input_rate = deployment.gateway.prices.input_nano_usd_per_million_tokens
+    assert input_rate is not None
+    assert maximum_attempt_cost_nano_usd(embeddings, deployment) == (
+        (emb_in * input_rate + 999_999) // 1_000_000
+    )
+
+    images = ImagesRequest(prompt="a cat")
+    img_in, img_out = worst_case_attempt_tokens(images, deployment)
+    assert img_in == worst_case_input_tokens(images) and img_in > 0
+    assert img_out == 0
+
+
+def test_cache_write_surcharge_raises_reservation_ceiling() -> None:
+    """A cache-write surcharge raises the conservative reservation ceiling."""
+    base = _deployment()
+    surcharged = base.model_copy(
+        update={
+            "gateway": base.gateway.model_copy(
+                update={
+                    "prices": GatewayTokenPrices(
+                        input_nano_usd_per_million_tokens=1_000_000,
+                        cache_creation_input_nano_usd_per_million_tokens=5_000_000,
+                        output_nano_usd_per_million_tokens=2_000_000,
+                    ),
+                    "capabilities": base.gateway.capabilities.model_copy(
+                        update={"reports_cache_creation_input_tokens": True}
+                    ),
+                }
+            )
+        }
+    )
+    request = _request("cache-write-ceiling")
+    surcharged_cost = maximum_attempt_cost_nano_usd(request, surcharged)
+    base_cost = maximum_attempt_cost_nano_usd(request, base)
+    assert surcharged_cost is not None
+    assert base_cost is not None
+    assert surcharged_cost > base_cost
+
+
+def test_cache_write_capability_requires_its_rate() -> None:
+    """A deployment reporting cache creation without a rate fails closed."""
+    missing = _deployment().model_copy(
+        update={
+            "gateway": _deployment()
+            .gateway.model_copy(
+                update={
+                    "prices": GatewayTokenPrices(
+                        input_nano_usd_per_million_tokens=1_000_000,
+                        output_nano_usd_per_million_tokens=2_000_000,
+                    )
+                }
+            )
+            .model_copy(
+                update={
+                    "capabilities": _deployment().gateway.capabilities.model_copy(
+                        update={"reports_cache_creation_input_tokens": True}
+                    )
+                }
+            )
+        }
+    )
+    assert maximum_attempt_cost_nano_usd(_request("needs-cache-write-rate"), missing) is None
+
+
+@pytest.mark.parametrize(
+    "ttl, hour_rate, reports, expected_rate",
+    [
+        ("5m", None, True, 3_750_000_000),
+        ("1h", None, True, None),
+        ("1h", 6_000_000_000, True, 6_000_000_000),
+        ("1h", 6_000_000_000, False, 3_000_000_000),
+    ],
+)
+def test_cache_write_reservation_requires_only_applicable_ttl_rates(
+    ttl: str, hour_rate: int | None, reports: bool, expected_rate: int | None
+) -> None:
+    """One-hour requests reserve the higher observed-capability rate or fail unpriced."""
+    request = GatewayRequest(
+        surface=GatewayApiSurface.MESSAGES,
+        messages=(GatewayMessage(role="user", content="hello"),),
+        maximum_output_tokens=16,
+        provider_cache_control={"type": "ephemeral", "ttl": ttl},
+    )
+    deployment = _deployment()
+    deployment = deployment.model_copy(
+        update={
+            "gateway": deployment.gateway.model_copy(
+                update={
+                    "capabilities": deployment.gateway.capabilities.model_copy(
+                        update={"reports_cache_creation_input_tokens": reports}
+                    ),
+                    "prices": GatewayTokenPrices(
+                        input_nano_usd_per_million_tokens=3_000_000_000,
+                        output_nano_usd_per_million_tokens=15_000_000_000,
+                        cache_creation_input_nano_usd_per_million_tokens=3_750_000_000,
+                        cache_creation_1h_input_nano_usd_per_million_tokens=hour_rate,
+                    ),
+                }
+            )
+        }
+    )
+    cost = maximum_attempt_cost_nano_usd(request, deployment)
+    assert cost == (
+        None
+        if expected_rate is None
+        else (worst_case_input_tokens(request) * expected_rate + 16 * 15_000_000_000 + 999_999)
+        // 1_000_000
+    )
+
+
+def test_long_context_cache_write_surcharge_governs_above_threshold() -> None:
+    """Above threshold the worst-case rate includes the tier cache-write surcharge."""
+    tier = GatewayLongContextTier(
+        input_threshold_tokens=10,
+        input_nano_usd_per_million_tokens=1_000_000,
+        cache_creation_input_nano_usd_per_million_tokens=9_000_000,
+        output_nano_usd_per_million_tokens=2_000_000,
+    )
+    base = _deployment().model_copy(
+        update={
+            "gateway": _deployment()
+            .gateway.model_copy(
+                update={
+                    "prices": GatewayTokenPrices(
+                        input_nano_usd_per_million_tokens=1_000_000,
+                        cache_creation_input_nano_usd_per_million_tokens=1_500_000,
+                        output_nano_usd_per_million_tokens=2_000_000,
+                        long_context=tier,
+                    )
+                }
+            )
+            .model_copy(
+                update={
+                    "capabilities": _deployment().gateway.capabilities.model_copy(
+                        update={"reports_cache_creation_input_tokens": True}
+                    )
+                }
+            )
+        }
+    )
+    # Short input stays below threshold: base surcharge governs.
+    short = _request("x")
+    # Long input crosses the threshold: tier surcharge governs the worst case.
+    long = _request("x" * 2_048)
+    short_cost = maximum_attempt_cost_nano_usd(short, base)
+    long_cost = maximum_attempt_cost_nano_usd(long, base)
+    assert short_cost is not None
+    assert long_cost is not None
+    assert long_cost > short_cost

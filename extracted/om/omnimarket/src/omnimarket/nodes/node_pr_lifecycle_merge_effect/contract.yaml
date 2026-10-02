@@ -1,0 +1,118 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# ONEX Node Contract - PR Lifecycle Merge Effect
+#
+# Auto-merge execution for PRs classified green by triage.
+# Protocol-injected GitHub adapter; respects merge queue policy.
+#
+# Related Tickets:
+#   - OMN-8084: Create pr_lifecycle_merge_effect Node
+---
+name: pr_lifecycle_merge_effect
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: effect
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  Auto-merge execution effect for the pr_lifecycle domain. Consumes triage
+  events for green PRs and calls the GitHub merge API via a protocol-injected
+  adapter. Respects per-repo merge queue policy: uses --auto without a merge
+  method for queue repos, and --squash --auto for non-queue repos.
+  Dry-run mode is fully supported via the no-op adapter path.
+
+handler:
+  module: omnimarket.nodes.node_pr_lifecycle_merge_effect.handlers.handler_pr_lifecycle_merge
+  class: HandlerPrLifecycleMerge
+  input_model: omnimarket.nodes.node_pr_lifecycle_merge_effect.models.model_merge_command.ModelPrMergeCommand
+
+handler_routing:
+  routing_strategy: payload_type_match
+  handlers:
+    - handler:
+        name: HandlerPrLifecycleMerge
+        module: omnimarket.nodes.node_pr_lifecycle_merge_effect.handlers.handler_pr_lifecycle_merge
+      event_model:
+        name: ModelPrMergeCommand
+        module: omnimarket.nodes.node_pr_lifecycle_merge_effect.models.model_merge_command
+    - handler:
+        name: GitHubMergeQueueAdapter
+        module: omnimarket.nodes.node_pr_lifecycle_merge_effect.handlers.adapter_github_merge_queue
+
+descriptor:
+  node_archetype: effect
+  purity: side_effect
+  idempotent: false
+  timeout_ms: 120000
+  runtime_profiles:
+    - effects
+
+inputs:
+  pr_number:
+    type: int
+    description: "PR number to merge"
+    required: true
+  repo:
+    type: str
+    description: "GitHub repo slug (owner/repo)"
+    required: true
+  triage_verdict:
+    type: str
+    description: "Triage verdict that triggered this merge (must be 'green')"
+    required: true
+  use_merge_queue:
+    type: bool
+    description: "True for merge-queue repos (--auto, no method); False for --squash --auto"
+    required: false
+    default: false
+  ticket_id:
+    type: str
+    description: "Linear ticket ID for context"
+    required: false
+  requested_at:
+    type: str
+    description: "Timestamp when merge was requested, ISO 8601 string"
+    required: true
+  dry_run:
+    type: bool
+    description: "Run without side effects"
+    required: false
+    default: false
+
+outputs:
+  correlation_id:
+    type: str
+    description: "Merge run correlation ID"
+  pr_number:
+    type: int
+    description: "PR number that was merged"
+  repo:
+    type: str
+    description: "GitHub repo slug (owner/repo)"
+  merged:
+    type: bool
+    description: "Whether the merge was executed (or would be in dry_run)"
+  merge_action:
+    type: str
+    description: "Human-readable description of the merge action taken"
+  error:
+    type: str
+    nullable: true
+    description: "Error message if merge failed (null on success)"
+  completed_at:
+    type: str
+    description: "ISO 8601 datetime when the merge completed"
+
+terminal_event: onex.evt.omnimarket.pr-lifecycle-merge-completed.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.pr-lifecycle-merge-start.v1
+  publish_topics:
+    - onex.evt.omnimarket.pr-lifecycle-merge-completed.v1
+
+metadata:
+  transport_type: kafka
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.pr-lifecycle-merge-start.v1

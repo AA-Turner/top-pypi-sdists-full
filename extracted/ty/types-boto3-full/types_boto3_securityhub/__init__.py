@@ -23,12 +23,14 @@ Usage::
         GetFindingsV2Paginator,
         GetInsightsPaginator,
         GetRecommendedPolicyV2Paginator,
+        GetRemediationsV2Paginator,
         GetResourcesTrendsV2Paginator,
         GetResourcesV2Paginator,
         ListAggregatorsV2Paginator,
         ListConfigurationPoliciesPaginator,
         ListConfigurationPolicyAssociationsPaginator,
         ListEnabledProductsForImportPaginator,
+        ListExposuresByRemediationV2Paginator,
         ListFindingAggregatorsPaginator,
         ListFreeTrialStatusesV2Paginator,
         ListInvitationsPaginator,
@@ -54,12 +56,14 @@ Usage::
     get_findings_v2_paginator: GetFindingsV2Paginator = client.get_paginator("get_findings_v2")
     get_insights_paginator: GetInsightsPaginator = client.get_paginator("get_insights")
     get_recommended_policy_v2_paginator: GetRecommendedPolicyV2Paginator = client.get_paginator("get_recommended_policy_v2")
+    get_remediations_v2_paginator: GetRemediationsV2Paginator = client.get_paginator("get_remediations_v2")
     get_resources_trends_v2_paginator: GetResourcesTrendsV2Paginator = client.get_paginator("get_resources_trends_v2")
     get_resources_v2_paginator: GetResourcesV2Paginator = client.get_paginator("get_resources_v2")
     list_aggregators_v2_paginator: ListAggregatorsV2Paginator = client.get_paginator("list_aggregators_v2")
     list_configuration_policies_paginator: ListConfigurationPoliciesPaginator = client.get_paginator("list_configuration_policies")
     list_configuration_policy_associations_paginator: ListConfigurationPolicyAssociationsPaginator = client.get_paginator("list_configuration_policy_associations")
     list_enabled_products_for_import_paginator: ListEnabledProductsForImportPaginator = client.get_paginator("list_enabled_products_for_import")
+    list_exposures_by_remediation_v2_paginator: ListExposuresByRemediationV2Paginator = client.get_paginator("list_exposures_by_remediation_v2")
     list_finding_aggregators_paginator: ListFindingAggregatorsPaginator = client.get_paginator("list_finding_aggregators")
     list_free_trial_statuses_v2_paginator: ListFreeTrialStatusesV2Paginator = client.get_paginator("list_free_trial_statuses_v2")
     list_invitations_paginator: ListInvitationsPaginator = client.get_paginator("list_invitations")
@@ -84,12 +88,14 @@ from .paginator import (
     GetFindingsV2Paginator,
     GetInsightsPaginator,
     GetRecommendedPolicyV2Paginator,
+    GetRemediationsV2Paginator,
     GetResourcesTrendsV2Paginator,
     GetResourcesV2Paginator,
     ListAggregatorsV2Paginator,
     ListConfigurationPoliciesPaginator,
     ListConfigurationPolicyAssociationsPaginator,
     ListEnabledProductsForImportPaginator,
+    ListExposuresByRemediationV2Paginator,
     ListFindingAggregatorsPaginator,
     ListFreeTrialStatusesV2Paginator,
     ListInvitationsPaginator,
@@ -116,12 +122,14 @@ __all__ = (
     "GetFindingsV2Paginator",
     "GetInsightsPaginator",
     "GetRecommendedPolicyV2Paginator",
+    "GetRemediationsV2Paginator",
     "GetResourcesTrendsV2Paginator",
     "GetResourcesV2Paginator",
     "ListAggregatorsV2Paginator",
     "ListConfigurationPoliciesPaginator",
     "ListConfigurationPolicyAssociationsPaginator",
     "ListEnabledProductsForImportPaginator",
+    "ListExposuresByRemediationV2Paginator",
     "ListFindingAggregatorsPaginator",
     "ListFreeTrialStatusesV2Paginator",
     "ListInvitationsPaginator",

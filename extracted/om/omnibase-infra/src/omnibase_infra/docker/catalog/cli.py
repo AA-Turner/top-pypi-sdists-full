@@ -1,0 +1,632 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# ruff: noqa: T201
+"""CLI for catalog-driven infrastructure management.
+
+Usage:
+    python -m omnibase_infra.docker.catalog.cli generate core [--output path]
+    python -m omnibase_infra.docker.catalog.cli validate core
+    python -m omnibase_infra.docker.catalog.cli up runtime
+    python -m omnibase_infra.docker.catalog.cli up runtime --seed
+    python -m omnibase_infra.docker.catalog.cli up runtime --build
+    python -m omnibase_infra.docker.catalog.cli up local --env-file ~/.omnibase/local.env --build
+    python -m omnibase_infra.docker.catalog.cli down [--volumes]
+    python -m omnibase_infra.docker.catalog.cli status
+    python -m omnibase_infra.docker.catalog.cli seed
+    python -m omnibase_infra.docker.catalog.cli read-stack
+"""
+
+from __future__ import annotations
+
+import datetime
+import os
+import subprocess
+import sys
+import tomllib
+from pathlib import Path
+
+import yaml
+
+from omnibase_infra.docker.catalog.generator import generate_compose
+from omnibase_infra.docker.catalog.resolver import CatalogResolver
+from omnibase_infra.docker.catalog.validator import validate_env
+from omnibase_infra.docker.catalog.validator_healthcheck_semantic_probe import (
+    validate_runtime_semantic_probe,
+)
+from omnibase_infra.docker.catalog.validator_healthcheck_start_period import (
+    validate_migration_gate_start_period,
+)
+from omnibase_infra.docker.catalog.validator_host_ports import (
+    find_duplicate_host_ports,
+)
+
+# Default paths relative to repo root
+_REPO_ROOT = Path(__file__).resolve().parents[4]
+
+_HOME_ENV = Path.home() / ".omnibase" / ".env"
+_REPO_ENV = _REPO_ROOT / ".env"
+# OMN-19496: the rendered runtime policy contract. Manifests interpolate its
+# keys (ONEX_ACTIVE_RUNTIME_PACKAGES, DEV_RUNTIME_*_CAPABILITIES, ...) with
+# fail-closed ``${VAR:?}`` guards, and before OMN-19496 the catalog CLI never
+# loaded it, so every runtime render depended on the operator's own env file
+# happening to carry policy values. It is tracked and secret-free.
+_RUNTIME_POLICY_ENV = _REPO_ROOT / "docker" / "runtime-policy.env"
+
+
+def _load_env_file(env_file: Path) -> None:
+    """Load one env file into os.environ, never overwriting an existing value."""
+    if not env_file.exists():
+        return
+    with open(env_file) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip().removeprefix("export ").strip()
+            value = value.strip().strip("'\"")
+            if key and key not in os.environ:
+                os.environ[key] = value
+
+
+def _load_stack_env(env_file: str | None) -> int:
+    """Load the env for one catalog invocation (OMN-19496).
+
+    With ``--env-file`` that file is the ONLY operator env source: the home and
+    repo files are not read, so a laptop profile renders from exactly the one
+    file its documentation names and never inherits a lab host's operator env.
+    Without it, the historical ``~/.omnibase/.env`` then repo ``.env`` order
+    applies. The runtime policy contract is loaded last in both cases. Values
+    already in the process environment always win, then earlier files.
+
+    Returns non-zero, with the reason on stderr, when a named env file is absent.
+    """
+    if env_file is not None:
+        path = Path(env_file).expanduser()
+        if not path.is_file():
+            print(
+                f"Env file not found: {path}. Create it from the template the "
+                "bundle documents (for the laptop profile: docker/local.env.example, "
+                "or run `make local-env`).",
+                file=sys.stderr,
+            )
+            return 1
+        placeholders = _placeholder_keys(path)
+        if placeholders:
+            print(
+                f"Env file {path} still carries template placeholders for: "
+                f"{', '.join(placeholders)}. Replace them (or delete the file and "
+                "run `make local-env`, which fills them).",
+                file=sys.stderr,
+            )
+            return 1
+        _load_env_file(path)
+    else:
+        _load_omnibase_env()
+    _load_env_file(_RUNTIME_POLICY_ENV)
+    return 0
+
+
+_TEMPLATE_PLACEHOLDER_PREFIX = "__REPLACE_WITH_"
+
+
+def _placeholder_keys(env_file: Path) -> list[str]:
+    """Keys in ``env_file`` whose value is still a template placeholder."""
+    keys: list[str] = []
+    for raw in env_file.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        if _TEMPLATE_PLACEHOLDER_PREFIX in value:
+            keys.append(key.strip().removeprefix("export ").strip())
+    return keys
+
+
+def _load_omnibase_env() -> None:
+    """Load the operator's env files into os.environ.
+
+    Reads ``~/.omnibase/.env`` first, then the repo-local ``.env`` that
+    ``install.sh`` and ``make setup`` create from ``.env.example`` and tell the
+    operator to fill in. Before OMN-16187 only the former was read, so a new
+    operator who followed the documented steps exactly still hit "Cannot start:
+    missing required env vars" — the file they had just edited was never loaded.
+
+    Values already in the environment always win, and the home file beats the
+    repo file, so this only ever fills gaps for existing operators.
+    """
+    _load_env_file(_HOME_ENV)
+    _load_env_file(_REPO_ENV)
+
+
+_CATALOG_DIR = str(_REPO_ROOT / "docker" / "catalog")
+_DEFAULT_OUTPUT = str(_REPO_ROOT / "docker" / "docker-compose.generated.yml")
+_STACK_FILE = str(_REPO_ROOT / ".onex" / "stack.yml")
+_SEED_SCRIPT = str(_REPO_ROOT / "scripts" / "seed-infisical.py")
+_CONTRACTS_DIR = str(_REPO_ROOT / "src" / "omnibase_infra" / "nodes")
+
+
+def _refuse_host_port_clashes(bundles: list[str]) -> int:
+    """Refuse a stack in which two services publish one host port (OMN-19497)."""
+    resolver = CatalogResolver(catalog_dir=_CATALOG_DIR)
+    resolved = resolver.resolve(bundles=bundles)
+    clash = find_duplicate_host_ports(resolved.manifests)
+    if clash.ok:
+        return 0
+    print("Cannot render: duplicate host ports in the resolved stack:", file=sys.stderr)
+    for message in clash.messages():
+        print(f"  - {message}", file=sys.stderr)
+    return 1
+
+
+def _resolve_and_generate(bundles: list[str], output: str) -> int:
+    """Resolve bundles, generate compose, write to output path."""
+    rc = _refuse_host_port_clashes(bundles)
+    if rc != 0:
+        return rc
+    resolver = CatalogResolver(catalog_dir=_CATALOG_DIR)
+    resolved = resolver.resolve(bundles=bundles)
+    compose = generate_compose(resolved, environment=os.environ)
+
+    Path(output).parent.mkdir(parents=True, exist_ok=True)
+    with open(output, "w") as f:
+        yaml.dump(compose, f, default_flow_style=False, sort_keys=False)
+
+    print(f"Generated compose with {len(resolved.manifests)} entries -> {output}")
+    return 0
+
+
+def _save_stack(bundles: list[str], env_file: str | None = None) -> None:
+    """Persist selected bundles (and the env file, if one was named) to .onex/stack.yml."""
+    stack_path = Path(_STACK_FILE)
+    stack_path.parent.mkdir(parents=True, exist_ok=True)
+    data: dict[str, object] = {"bundles": bundles}
+    if env_file is not None:
+        data["env_file"] = str(Path(env_file).expanduser())
+    with open(stack_path, "w") as f:
+        yaml.dump(data, f, default_flow_style=False)
+
+
+def _load_stack_env_file() -> str | None:
+    """Return the env file the last ``up`` named, so down/status interpolate alike."""
+    stack_path = Path(_STACK_FILE)
+    if not stack_path.exists():
+        return None
+    with open(stack_path) as f:
+        data = yaml.safe_load(f) or {}
+    if not isinstance(data, dict):
+        return None
+    env_file = data.get("env_file")
+    return str(env_file) if isinstance(env_file, str) and env_file else None
+
+
+def _pop_env_file(args: list[str]) -> tuple[list[str], str | None, bool]:
+    """Split ``--env-file PATH`` out of ``args``. Third value is False on a missing value."""
+    rest: list[str] = []
+    env_file: str | None = None
+    i = 0
+    while i < len(args):
+        if args[i] == "--env-file":
+            if i + 1 >= len(args):
+                print("Missing value for --env-file", file=sys.stderr)
+                return rest, None, False
+            env_file = args[i + 1]
+            i += 2
+        else:
+            rest.append(args[i])
+            i += 1
+    return rest, env_file, True
+
+
+def _load_stack() -> list[str]:
+    """Load bundles from .onex/stack.yml."""
+    stack_path = Path(_STACK_FILE)
+    if not stack_path.exists():
+        return ["core"]
+    with open(stack_path) as f:
+        data = yaml.safe_load(f) or {}
+    if not isinstance(data, dict):
+        return ["core"]
+    bundles = data.get("bundles", ["core"])
+    return list(bundles) if isinstance(bundles, list) else ["core"]
+
+
+def cmd_generate(args: list[str]) -> int:
+    """Generate compose from selected bundles."""
+    args, env_file, ok = _pop_env_file(args)
+    if not ok:
+        return 1
+    rc = _load_stack_env(env_file)
+    if rc != 0:
+        return rc
+    output = _DEFAULT_OUTPUT
+    bundles = []
+    i = 0
+    while i < len(args):
+        if args[i] == "--output":
+            if i + 1 >= len(args):
+                print("Missing value for --output", file=sys.stderr)
+                return 1
+            output = args[i + 1]
+            i += 2
+        else:
+            bundles.append(args[i])
+            i += 1
+    if not bundles:
+        bundles = _load_stack()
+    return _resolve_and_generate(bundles, output)
+
+
+def cmd_validate(args: list[str]) -> int:
+    """Validate env vars and host ports for selected bundles."""
+    args, env_file, ok = _pop_env_file(args)
+    if not ok:
+        return 1
+    rc = _load_stack_env(env_file)
+    if rc != 0:
+        return rc
+    bundles = args if args else _load_stack()
+    if _refuse_host_port_clashes(bundles) != 0:
+        return 1
+    resolver = CatalogResolver(catalog_dir=_CATALOG_DIR)
+    resolved = resolver.resolve(bundles=bundles)
+    result = validate_env(resolved.required_env)
+    if result.ok:
+        print("All required env vars are set.")
+        return 0
+    print("Missing required env vars:", file=sys.stderr)
+    for var in result.missing:
+        print(f"  - {var}", file=sys.stderr)
+    return 1
+
+
+def _run_seed() -> int:
+    """Run Infisical seed if INFISICAL_ADDR is set.
+
+    Returns 0 on success or if Infisical is not configured (opt-in).
+    Returns non-zero on seed failure.
+    """
+    infisical_addr = os.environ.get("INFISICAL_ADDR", "")
+    if not infisical_addr:
+        print("Skipping Infisical seed (INFISICAL_ADDR not set)")
+        return 0
+
+    seed_path = Path(_SEED_SCRIPT)
+    if not seed_path.exists():
+        print(f"Seed script not found: {_SEED_SCRIPT}", file=sys.stderr)
+        return 1
+
+    print("Seeding Infisical with contract config keys...")
+    proc = subprocess.run(
+        [
+            sys.executable,
+            _SEED_SCRIPT,
+            "--contracts-dir",
+            _CONTRACTS_DIR,
+            "--create-missing-keys",
+            "--execute",
+        ],
+        cwd=str(_REPO_ROOT),
+        check=False,
+    )
+    if proc.returncode != 0:
+        print("WARNING: Infisical seed failed (non-fatal)", file=sys.stderr)
+    return 0
+
+
+def _current_git_sha() -> str:
+    """Return the current git SHA for the omnibase_infra repo (OMN-9330)."""
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=str(_REPO_ROOT),
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return proc.stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return "unknown"
+
+
+def _runtime_version() -> str:
+    """Return the runtime package version stamped as the OCI image version.
+
+    Read from the repo ``pyproject.toml`` so ``org.opencontainers.image.version``
+    reflects the real package version rather than the Dockerfile placeholder
+    default (``0.1.0``). Fails fast if the version cannot be resolved so a build
+    never silently stamps a placeholder identity (OMN-12965).
+    """
+    pyproject = _REPO_ROOT / "pyproject.toml"
+    try:
+        data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+        version = str(data["project"]["version"]).strip()
+    except (FileNotFoundError, KeyError, TypeError, tomllib.TOMLDecodeError) as exc:
+        raise RuntimeError(
+            f"Could not resolve RUNTIME_VERSION from {pyproject}; "
+            "refusing to build an image with placeholder identity (OMN-12965)."
+        ) from exc
+    if not version:
+        raise RuntimeError(
+            f"Empty RUNTIME_VERSION in {pyproject}; "
+            "refusing to build an image with placeholder identity (OMN-12965)."
+        )
+    return version
+
+
+def _image_identity_build_args() -> list[str]:
+    """Return the OCI image-identity ``--build-arg`` pairs for a runtime build.
+
+    Stamps the full quad consumed by the runtime-stage OCI labels and provenance
+    manifest: ``GIT_SHA`` (busts the COPY src/ layer + builder-stage revision
+    label), ``VCS_REF`` (runtime-stage ``org.opencontainers.image.revision``),
+    ``RUNTIME_VERSION`` (``org.opencontainers.image.version``), and ``BUILD_DATE``
+    (``org.opencontainers.image.created``).
+
+    Fails fast when the git SHA is unresolved: a blank/``unknown`` revision
+    produces a blank-identity image that degrades every proof packet (the runtime
+    SHA + image digest are required citations in accepted evidence). This is the
+    enforcement point for OMN-12965 — never stamp a placeholder identity.
+    """
+    git_sha = _current_git_sha()
+    if not git_sha or git_sha == "unknown":
+        raise RuntimeError(
+            "Cannot resolve git revision for the runtime image build. A blank or "
+            "'unknown' org.opencontainers.image.revision degrades every proof "
+            "packet (OMN-12965). Run the build from a clean git checkout of "
+            f"{_REPO_ROOT}."
+        )
+    build_date = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return [
+        "--build-arg",
+        f"GIT_SHA={git_sha}",
+        "--build-arg",
+        f"VCS_REF={git_sha}",
+        "--build-arg",
+        f"RUNTIME_VERSION={_runtime_version()}",
+        "--build-arg",
+        f"BUILD_DATE={build_date}",
+    ]
+
+
+def cmd_seed(_args: list[str]) -> int:
+    """Seed Infisical with config keys from contracts."""
+    return _run_seed()
+
+
+def cmd_up(args: list[str]) -> int:
+    """Validate, generate, and start compose stack."""
+    args, env_file, ok = _pop_env_file(args)
+    if not ok:
+        return 1
+    rc = _load_stack_env(env_file)
+    if rc != 0:
+        return rc
+    # Parse flags
+    run_seed = "--seed" in args
+    force_build = "--build" in args
+    flag_args = {"--seed", "--build"}
+    bundles = [a for a in args if a not in flag_args] or _load_stack()
+
+    # Save stack selection (exclude flags from saved bundles)
+    if bundles:
+        _save_stack(bundles, env_file)
+
+    # Validate
+    resolver = CatalogResolver(catalog_dir=_CATALOG_DIR)
+    resolved = resolver.resolve(bundles=bundles)
+    result = validate_env(resolved.required_env)
+    if not result.ok:
+        print("Cannot start: missing required env vars:", file=sys.stderr)
+        for var in result.missing:
+            print(f"  - {var}", file=sys.stderr)
+        return 1
+
+    # Generate
+    rc = _resolve_and_generate(bundles, _DEFAULT_OUTPUT)
+    if rc != 0:
+        return rc
+
+    # Pre-cleanup: remove dead/exited containers to prevent restart delays (OMN-5468)
+    # and name collisions when core infra is already running (OMN-5469).
+    # `-v` removes each removed container's ANONYMOUS volumes too (OMN-19496):
+    # the postgres-image one-shots declare VOLUME /var/lib/postgresql/data, and
+    # without it every re-`up` orphaned three anonymous volumes (measured on
+    # .105). Named volumes -- the stack's data -- are never touched by `rm -v`.
+    subprocess.run(
+        [
+            "docker",
+            "compose",
+            "-f",
+            _DEFAULT_OUTPUT,
+            "rm",
+            "-f",
+            "--stop",
+            "-v",
+        ],
+        cwd=str(_REPO_ROOT),
+        check=False,
+        capture_output=True,
+    )
+
+    # Build if requested (OMN-7214)
+    if force_build:
+        print("Rebuilding images (--build)...")
+        build_proc = subprocess.run(
+            [
+                "docker",
+                "compose",
+                "-f",
+                _DEFAULT_OUTPUT,
+                "build",
+                *_image_identity_build_args(),
+            ],
+            cwd=str(_REPO_ROOT),
+            check=False,
+        )
+        if build_proc.returncode != 0:
+            print("Image build failed", file=sys.stderr)
+            return build_proc.returncode
+
+    # Start
+    proc = subprocess.run(
+        ["docker", "compose", "-f", _DEFAULT_OUTPUT, "up", "-d"],
+        cwd=str(_REPO_ROOT),
+        check=False,
+    )
+    if proc.returncode != 0:
+        return proc.returncode
+
+    # OMN-5831: Seed Infisical after stack is up when --seed flag is passed
+    # or when runtime bundle is included. This ensures runtime services can
+    # prefetch config from Infisical on startup.
+    has_runtime = "runtime" in bundles
+    if run_seed or has_runtime:
+        _run_seed()
+
+    return 0
+
+
+def cmd_down(args: list[str]) -> int:
+    """Stop the compose project last rendered; ``--volumes`` also removes its volumes.
+
+    The generated file is interpolated by ``docker compose down`` too, so the
+    env the last ``up`` rendered from is loaded first (OMN-19496); without it a
+    render carrying ``${VAR:?}`` guards cannot even be torn down.
+    """
+    rc = _load_stack_env(_load_stack_env_file())
+    if rc != 0:
+        return rc
+    command = ["docker", "compose", "-f", _DEFAULT_OUTPUT, "down"]
+    if "--volumes" in args:
+        command.append("--volumes")
+    proc = subprocess.run(command, cwd=str(_REPO_ROOT), check=False)
+    return proc.returncode
+
+
+def cmd_status(_args: list[str]) -> int:
+    """Show compose stack status."""
+    rc = _load_stack_env(_load_stack_env_file())
+    if rc != 0:
+        return rc
+    proc = subprocess.run(
+        ["docker", "compose", "-f", _DEFAULT_OUTPUT, "ps"],
+        cwd=str(_REPO_ROOT),
+        check=False,
+    )
+    return proc.returncode
+
+
+def cmd_read_stack(_args: list[str]) -> int:
+    """Print current stack selection."""
+    bundles = _load_stack()
+    print(" ".join(bundles))
+    return 0
+
+
+def cmd_validate_runtime(args: list[str]) -> int:
+    """Check hardcoded_env and operational_defaults completeness for selected bundles.
+
+    Verifies that every key declared in a manifest's hardcoded_env is present in
+    the resolved stack (no orphaned keys) and that operational_defaults cover the
+    expected keys. Reports any gaps without requiring the values to be set in the
+    live environment — this is a catalog-level structural check, not a runtime probe.
+    """
+    bundles = args if args else _load_stack()
+    resolver = CatalogResolver(catalog_dir=_CATALOG_DIR)
+    resolved = resolver.resolve(bundles=bundles)
+
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    for svc_name, manifest in resolved.manifests.items():
+        # Verify every hardcoded_env key is non-empty
+        for key, val in manifest.hardcoded_env.items():
+            if not val:
+                errors.append(f"{svc_name}: hardcoded_env key {key!r} is empty")
+
+        # Verify every hardcoded_env key doesn't also appear in required_env
+        # (that would be a catalog authoring error — value already known at codegen time)
+        overlap = set(manifest.hardcoded_env.keys()) & set(manifest.required_env)
+        for key in sorted(overlap):
+            errors.append(
+                f"{svc_name}: {key!r} appears in both hardcoded_env and required_env"
+            )
+
+        # Verify operational_defaults keys are not also in required_env
+        op_overlap = set(manifest.operational_defaults.keys()) & set(
+            manifest.required_env
+        )
+        for key in sorted(op_overlap):
+            warnings.append(
+                f"{svc_name}: {key!r} appears in both operational_defaults and required_env"
+                " (required_env wins — consider removing from operational_defaults)"
+            )
+
+    # Migration-completion gates must keep start_period above the floor so a
+    # still-applying gate is reported `starting`, not UNHEALTHY (OMN-12973).
+    start_period_result = validate_migration_gate_start_period(resolved.manifests)
+    for violation in start_period_result.violations:
+        errors.append(violation.message())
+
+    # A runtime service's health probe must be the SEMANTIC one (OMN-17883).
+    # `curl -sf` passes on any 200, and /health returns 200 for a DEGRADED
+    # runtime by design, so the shallow form cannot fail on the condition
+    # OMN-15217 exists to catch — and it OVERRIDES the deep probe the image
+    # already bakes in.
+    semantic_probe_result = validate_runtime_semantic_probe(resolved.manifests)
+    for probe_violation in semantic_probe_result.violations:
+        errors.append(probe_violation.message())
+
+    if warnings:
+        for w in warnings:
+            print(f"  WARN: {w}", file=sys.stderr)
+
+    if errors:
+        print("Runtime catalog validation FAILED:", file=sys.stderr)
+        for e in errors:
+            print(f"  - {e}", file=sys.stderr)
+        return 1
+
+    print(
+        f"Runtime catalog validation OK: {len(resolved.manifests)} services checked"
+        f" across bundles: {', '.join(bundles)}"
+    )
+    return 0
+
+
+def main() -> None:
+    """Entry point for the catalog CLI."""
+    args = sys.argv[1:]
+    if not args:
+        print("Usage: python -m omnibase_infra.docker.catalog.cli <command> [args]")
+        print(
+            "Commands: generate, validate, validate-runtime, up, down, status, seed, read-stack"
+        )
+        sys.exit(1)
+
+    command = args[0]
+    rest = args[1:]
+
+    commands = {
+        "generate": cmd_generate,
+        "validate": cmd_validate,
+        "validate-runtime": cmd_validate_runtime,
+        "up": cmd_up,
+        "down": cmd_down,
+        "status": cmd_status,
+        "seed": cmd_seed,
+        "read-stack": cmd_read_stack,
+    }
+
+    if command not in commands:
+        print(f"Unknown command: {command}", file=sys.stderr)
+        sys.exit(1)
+
+    sys.exit(commands[command](rest))
+
+
+if __name__ == "__main__":
+    main()

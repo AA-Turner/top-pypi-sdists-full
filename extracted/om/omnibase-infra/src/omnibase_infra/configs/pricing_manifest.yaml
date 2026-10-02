@@ -1,0 +1,383 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+schema_version: 1.0.0
+compute_cost:
+  rtx_5090:
+    electricity_per_hour: 0.12
+    amortization_per_hour: 0.28
+    note: Local RTX 5090 GPU compute cost policy
+  rtx_4090:
+    electricity_per_hour: 0.09
+    amortization_per_hour: 0.18
+    note: Local RTX 4090 GPU compute cost policy
+  m2_ultra:
+    electricity_per_hour: 0.04
+    amortization_per_hour: 0.12
+    note: Local M2 Ultra compute cost policy
+runner_cost:
+  github_hosted_per_minute_usd: 0.008
+models:
+  claude-opus-4-6:
+    input_cost_per_1k: 0.015
+    output_cost_per_1k: 0.075
+    effective_date: '2026-02-01'
+    confidence: LOW_CONFIDENCE
+    source: FALLBACK_PROVIDER_DOCUMENTATION
+    sample_count: 0
+    evidence:
+      generated_at: '2026-04-29T00:00:00+00:00'
+      sample_window_days: 7
+      sample_count: 0
+      min_samples: 20
+      query: llm_call_metrics usage_source=API created_at>=now-7d
+      authoritative: false
+  claude-sonnet-4-20250514:
+    input_cost_per_1k: 0.003
+    output_cost_per_1k: 0.015
+    effective_date: '2025-05-22'
+    confidence: LOW_CONFIDENCE
+    source: FALLBACK_PROVIDER_DOCUMENTATION
+    sample_count: 0
+    evidence:
+      generated_at: '2026-04-29T00:00:00+00:00'
+      sample_window_days: 7
+      sample_count: 0
+      min_samples: 20
+      query: llm_call_metrics usage_source=API created_at>=now-7d
+      authoritative: false
+  claude-sonnet-5-5:
+    input_cost_per_1k: 0.002
+    output_cost_per_1k: 0.010
+    effective_date: '2026-09-25'
+    confidence: LOW_CONFIDENCE
+    source: FALLBACK_PROVIDER_DOCUMENTATION
+    sample_count: 0
+    evidence:
+      generated_at: '2026-10-01T00:00:00+00:00'
+      sample_window_days: 7
+      sample_count: 0
+      min_samples: 20
+      query: llm_call_metrics usage_source=API created_at>=now-7d
+      authoritative: false
+      note: Claude API reference, Current Models table (cached 2026-09-25), $2.00 input / $10.00 output per million tokens, first-party API rate; OMN-19969 savings-baseline default
+  claude-haiku-3-5:
+    input_cost_per_1k: 0.0008
+    output_cost_per_1k: 0.004
+    effective_date: '2025-06-01'
+    confidence: LOW_CONFIDENCE
+    source: FALLBACK_PROVIDER_DOCUMENTATION
+    sample_count: 0
+    evidence:
+      generated_at: '2026-04-29T00:00:00+00:00'
+      sample_window_days: 7
+      sample_count: 0
+      min_samples: 20
+      query: llm_call_metrics usage_source=API created_at>=now-7d
+      authoritative: false
+  gpt-4o:
+    input_cost_per_1k: 0.0025
+    output_cost_per_1k: 0.01
+    effective_date: '2025-11-01'
+    confidence: LOW_CONFIDENCE
+    source: FALLBACK_PROVIDER_DOCUMENTATION
+    sample_count: 0
+    evidence:
+      generated_at: '2026-04-29T00:00:00+00:00'
+      sample_window_days: 7
+      sample_count: 0
+      min_samples: 20
+      query: llm_call_metrics usage_source=API created_at>=now-7d
+      authoritative: false
+  gpt-4o-mini:
+    input_cost_per_1k: 0.00015
+    output_cost_per_1k: 0.0006
+    effective_date: '2025-07-01'
+    confidence: LOW_CONFIDENCE
+    source: FALLBACK_PROVIDER_DOCUMENTATION
+    sample_count: 0
+    evidence:
+      generated_at: '2026-04-29T00:00:00+00:00'
+      sample_window_days: 7
+      sample_count: 0
+      min_samples: 20
+      query: llm_call_metrics usage_source=API created_at>=now-7d
+      authoritative: false
+  gpt-4-turbo:
+    input_cost_per_1k: 0.01
+    output_cost_per_1k: 0.03
+    effective_date: '2025-04-01'
+    confidence: LOW_CONFIDENCE
+    source: FALLBACK_PROVIDER_DOCUMENTATION
+    sample_count: 0
+    evidence:
+      generated_at: '2026-04-29T00:00:00+00:00'
+      sample_window_days: 7
+      sample_count: 0
+      min_samples: 20
+      query: llm_call_metrics usage_source=API created_at>=now-7d
+      authoritative: false
+  o1:
+    input_cost_per_1k: 0.015
+    output_cost_per_1k: 0.06
+    effective_date: '2025-12-01'
+    confidence: LOW_CONFIDENCE
+    source: FALLBACK_PROVIDER_DOCUMENTATION
+    sample_count: 0
+    evidence:
+      generated_at: '2026-04-29T00:00:00+00:00'
+      sample_window_days: 7
+      sample_count: 0
+      min_samples: 20
+      query: llm_call_metrics usage_source=API created_at>=now-7d
+      authoritative: false
+  o1-mini:
+    input_cost_per_1k: 0.003
+    output_cost_per_1k: 0.012
+    effective_date: '2025-09-01'
+    confidence: LOW_CONFIDENCE
+    source: FALLBACK_PROVIDER_DOCUMENTATION
+    sample_count: 0
+    evidence:
+      generated_at: '2026-04-29T00:00:00+00:00'
+      sample_window_days: 7
+      sample_count: 0
+      min_samples: 20
+      query: llm_call_metrics usage_source=API created_at>=now-7d
+      authoritative: false
+  o3-mini:
+    input_cost_per_1k: 0.0011
+    output_cost_per_1k: 0.0044
+    effective_date: '2026-01-01'
+    confidence: LOW_CONFIDENCE
+    source: FALLBACK_PROVIDER_DOCUMENTATION
+    sample_count: 0
+    evidence:
+      generated_at: '2026-04-29T00:00:00+00:00'
+      sample_window_days: 7
+      sample_count: 0
+      min_samples: 20
+      query: llm_call_metrics usage_source=API created_at>=now-7d
+      authoritative: false
+  gemini-2.0-flash:
+    input_cost_per_1k: 0.0001
+    output_cost_per_1k: 0.0004
+    effective_date: '2026-02-01'
+    confidence: LOW_CONFIDENCE
+    source: FALLBACK_PROVIDER_DOCUMENTATION
+    sample_count: 0
+    evidence:
+      generated_at: '2026-04-29T00:00:00+00:00'
+      sample_window_days: 7
+      sample_count: 0
+      min_samples: 20
+      query: llm_call_metrics usage_source=API created_at>=now-7d
+      authoritative: false
+  gemini-1.5-pro:
+    input_cost_per_1k: 0.00125
+    output_cost_per_1k: 0.005
+    effective_date: '2025-05-01'
+    confidence: LOW_CONFIDENCE
+    source: FALLBACK_PROVIDER_DOCUMENTATION
+    sample_count: 0
+    evidence:
+      generated_at: '2026-04-29T00:00:00+00:00'
+      sample_window_days: 7
+      sample_count: 0
+      min_samples: 20
+      query: llm_call_metrics usage_source=API created_at>=now-7d
+      authoritative: false
+  qwen2.5-coder-14b:
+    input_cost_per_1k: 0.0
+    output_cost_per_1k: 0.0
+    effective_date: '2026-02-01'
+    note: Local model on RTX 5090 - zero API cost
+    confidence: LOW_CONFIDENCE
+    source: LOCAL_ZERO_API_COST_POLICY
+    sample_count: 0
+    evidence:
+      generated_at: '2026-04-29T00:00:00+00:00'
+      sample_window_days: 7
+      sample_count: 0
+      min_samples: 20
+      query: llm_call_metrics usage_source=API created_at>=now-7d
+      authoritative: false
+  qwen2.5-72b:
+    input_cost_per_1k: 0.0
+    output_cost_per_1k: 0.0
+    effective_date: '2026-02-01'
+    note: Local model on Mac Studio M2 Ultra - zero API cost
+    confidence: LOW_CONFIDENCE
+    source: LOCAL_ZERO_API_COST_POLICY
+    sample_count: 0
+    evidence:
+      generated_at: '2026-04-29T00:00:00+00:00'
+      sample_window_days: 7
+      sample_count: 0
+      min_samples: 20
+      query: llm_call_metrics usage_source=API created_at>=now-7d
+      authoritative: false
+  qwen2.5-14b:
+    input_cost_per_1k: 0.0
+    output_cost_per_1k: 0.0
+    effective_date: '2026-02-01'
+    note: Local model on Mac Mini M2 Pro - zero API cost
+    confidence: LOW_CONFIDENCE
+    source: LOCAL_ZERO_API_COST_POLICY
+    sample_count: 0
+    evidence:
+      generated_at: '2026-04-29T00:00:00+00:00'
+      sample_window_days: 7
+      sample_count: 0
+      min_samples: 20
+      query: llm_call_metrics usage_source=API created_at>=now-7d
+      authoritative: false
+  qwen2.5-7b:
+    input_cost_per_1k: 0.0
+    output_cost_per_1k: 0.0
+    effective_date: '2026-02-01'
+    note: Local model on RTX 4090 (hot-swap) - zero API cost
+    confidence: LOW_CONFIDENCE
+    source: LOCAL_ZERO_API_COST_POLICY
+    sample_count: 0
+    evidence:
+      generated_at: '2026-04-29T00:00:00+00:00'
+      sample_window_days: 7
+      sample_count: 0
+      min_samples: 20
+      query: llm_call_metrics usage_source=API created_at>=now-7d
+      authoritative: false
+  gte-qwen2-1.5b:
+    input_cost_per_1k: 0.0
+    output_cost_per_1k: 0.0
+    effective_date: '2026-02-01'
+    note: Local embedding model on RTX 4090 - zero API cost
+    confidence: LOW_CONFIDENCE
+    source: LOCAL_ZERO_API_COST_POLICY
+    sample_count: 0
+    evidence:
+      generated_at: '2026-04-29T00:00:00+00:00'
+      sample_window_days: 7
+      sample_count: 0
+      min_samples: 20
+      query: llm_call_metrics usage_source=API created_at>=now-7d
+      authoritative: false
+  deepseek-v2-lite:
+    input_cost_per_1k: 0.0
+    output_cost_per_1k: 0.0
+    effective_date: '2026-02-01'
+    note: Local model on RTX 4090 (hot-swap) - zero API cost
+    confidence: LOW_CONFIDENCE
+    source: LOCAL_ZERO_API_COST_POLICY
+    sample_count: 0
+    evidence:
+      generated_at: '2026-04-29T00:00:00+00:00'
+      sample_window_days: 7
+      sample_count: 0
+      min_samples: 20
+      query: llm_call_metrics usage_source=API created_at>=now-7d
+      authoritative: false
+  deepseek-r1-distill:
+    input_cost_per_1k: 0.0
+    output_cost_per_1k: 0.0
+    effective_date: '2026-02-01'
+    note: Local model on Mac Studio M2 Ultra (hot-swap) - zero API cost
+    confidence: LOW_CONFIDENCE
+    source: LOCAL_ZERO_API_COST_POLICY
+    sample_count: 0
+    evidence:
+      generated_at: '2026-04-29T00:00:00+00:00'
+      sample_window_days: 7
+      sample_count: 0
+      min_samples: 20
+      query: llm_call_metrics usage_source=API created_at>=now-7d
+      authoritative: false
+  qwen2-vl:
+    input_cost_per_1k: 0.0
+    output_cost_per_1k: 0.0
+    effective_date: '2026-02-01'
+    note: Local vision model on Mac Studio M2 Ultra - zero API cost
+    confidence: LOW_CONFIDENCE
+    source: LOCAL_ZERO_API_COST_POLICY
+    sample_count: 0
+    evidence:
+      generated_at: '2026-04-29T00:00:00+00:00'
+      sample_window_days: 7
+      sample_count: 0
+      min_samples: 20
+      query: llm_call_metrics usage_source=API created_at>=now-7d
+      authoritative: false
+  qwen3.6-35b-a3b:
+    input_cost_per_1k: 0.0
+    output_cost_per_1k: 0.0
+    effective_date: '2026-05-25'
+    note: 'OMN-16999 2026-09-05: Local model on RTX 5090 .201:8000, redeployed BACK to vLLM. Live GET /v1/models -> http=200, served ids exactly {"Qwen3.6-35B-A3B"}, owned_by "vllm", max_model_len 131072. Supersedes the OMN-16442/OMN-16419 note of 2026-08-23 (SGLang + DSpark, id "qwen3.8", 122880) - the second flip in two weeks. Zero API cost either way; this note is descriptive, the 0.0 rates are the contract.'
+    confidence: LOW_CONFIDENCE
+    source: LOCAL_ZERO_API_COST_POLICY
+    sample_count: 0
+    evidence:
+      generated_at: '2026-05-25T00:00:00+00:00'
+      sample_window_days: 7
+      sample_count: 0
+      min_samples: 20
+      query: llm_call_metrics usage_source=API created_at>=now-7d
+      authoritative: false
+  qwen3.6-27b-mtp-iq4xs:
+    input_cost_per_1k: 0.0
+    output_cost_per_1k: 0.0
+    effective_date: '2026-05-25'
+    note: 'OMN-16442 2026-08-28: DEAD ENDPOINT - .201:8001 was the RTX 4090 slot physically removed for RMA (OMN-16407); live re-probe returns curl exit 7 "Couldn''t connect to server". No model is served here. The key is kept so historical llm_call_metrics rows still resolve a pricing entry (all-zero, so it cannot mis-bill); do NOT read it as a routable endpoint. The delegation contracts no longer reference this backend.'
+    confidence: LOW_CONFIDENCE
+    source: LOCAL_ZERO_API_COST_POLICY
+    sample_count: 0
+    evidence:
+      generated_at: '2026-05-25T00:00:00+00:00'
+      sample_window_days: 7
+      sample_count: 0
+      min_samples: 20
+      query: llm_call_metrics usage_source=API created_at>=now-7d
+      authoritative: false
+  text-embedding-gte:
+    input_cost_per_1k: 0.0
+    output_cost_per_1k: 0.0
+    effective_date: '2026-05-25'
+    note: 'OMN-16442 2026-08-28: Local embedding model on .201:8002. Live readback GET /v1/models -> id "text-embedding-qwen3" (vLLM, Qwen/Qwen3-Embedding-0.6B, 8192 ctx, 1024-dim output), NOT the gte-Qwen2-1.5B this key is named for. Vector dimension 1024 is a hard placement constraint. Zero API cost.'
+    confidence: LOW_CONFIDENCE
+    source: LOCAL_ZERO_API_COST_POLICY
+    sample_count: 0
+    evidence:
+      generated_at: '2026-05-25T00:00:00+00:00'
+      sample_window_days: 7
+      sample_count: 0
+      min_samples: 20
+      query: llm_call_metrics usage_source=API created_at>=now-7d
+      authoritative: false
+  deepseek-v4-flash:
+    input_cost_per_1k: 0.0
+    output_cost_per_1k: 0.0
+    effective_date: '2026-05-25'
+    note: Local model on .200:8101 (ds4.c, DeepSeek V4 Flash 284B, 131072 ctx) - zero API cost
+    confidence: LOW_CONFIDENCE
+    source: LOCAL_ZERO_API_COST_POLICY
+    sample_count: 0
+    evidence:
+      generated_at: '2026-05-25T00:00:00+00:00'
+      sample_window_days: 7
+      sample_count: 0
+      min_samples: 20
+      query: llm_call_metrics usage_source=API created_at>=now-7d
+      authoritative: false
+  deepseek-v4-pro:
+    input_cost_per_1k: 0.0
+    output_cost_per_1k: 0.0
+    effective_date: '2026-05-25'
+    note: Local model on .200:8101 (ds4.c, DeepSeek V4 Flash 284B alias with higher reasoning effort, 131072 ctx) - zero API cost
+    confidence: LOW_CONFIDENCE
+    source: LOCAL_ZERO_API_COST_POLICY
+    sample_count: 0
+    evidence:
+      generated_at: '2026-05-25T00:00:00+00:00'
+      sample_window_days: 7
+      sample_count: 0
+      min_samples: 20
+      query: llm_call_metrics usage_source=API created_at>=now-7d
+      authoritative: false

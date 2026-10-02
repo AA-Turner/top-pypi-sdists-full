@@ -1,0 +1,663 @@
+"""Structured models for discovered project inputs."""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from dataclasses import dataclass, field, replace
+from pathlib import Path
+
+from sqlbuild.compiler.auditing.models import MeasurementContract
+from sqlbuild.compiler.auditing.types import AuditEvaluationMode
+from sqlbuild.compiler.compile.constants import DEFAULT_SQL_TEST_MODE
+from sqlbuild.compiler.compile.types import SqlTestMode
+from sqlbuild.compiler.discovery.constants import (
+    SQL_SCENARIOS_OWNERSHIP_ROOT,
+    SQL_TESTS_OWNERSHIP_ROOT,
+)
+from sqlbuild.compiler.discovery.types import LoaderConnectionMode, ScopedDeclarationFile
+from sqlbuild.compiler.scopes.types import DeclarationKind, ScopeKind
+from sqlbuild.provider.classes.provider import Provider
+from sqlbuild.python_nodes.models import AuditCase, ColumnLineageRef, RetryPolicy, SqlResourceRef
+from sqlbuild.python_nodes.types import PythonCheckSeverity
+from sqlbuild.runtime.event_exporting.constants import EVENT_EXPORT_KINDS
+from sqlbuild.runtime.output_capture.types import CommandOutputStream
+from sqlbuild.spec.contracts.models import (
+    LocalConfig,
+    ProjectConfig,
+    SchemaColumn,
+    SchemaModelEntry,
+    SchemaSeedEntry,
+    SourceColumnEntry,
+    SourceEntry,
+    SourceLocation,
+)
+from sqlbuild.spec.contracts.types import EventExportSeverity, SourceWriteStrategy
+from sqlbuild.sql_values.models import SqlLogicalType, SqlValue
+from sqlbuild.sql_values.types import CollectionRendering, SqlValueKind
+
+
+@dataclass(frozen=True)
+class SqlHookEntry:
+    """A model lifecycle hook that executes SQL."""
+
+    statement: str
+    name: str | None = None
+    relative_path: Path | None = None
+    definition_sql: str | None = None
+    kwargs: dict[str, object] | None = None
+    description: str | None = None
+    reads: tuple[SqlResourceRef, ...] = ()
+
+
+@dataclass(frozen=True)
+class NamedSqlHookEntry:
+    """An unresolved invocation of a discovered SQL hook resource."""
+
+    name: str
+    kwargs: dict[str, object]
+
+
+@dataclass(frozen=True)
+class PythonHookEntry:
+    """A model lifecycle hook that invokes a discovered Python hook."""
+
+    name: str
+    kwargs: dict[str, object]
+
+
+@dataclass(frozen=True)
+class DiscoveredSqlModelFile:
+    """A discovered SQL model file and its raw contents."""
+
+    file_path: Path
+    relative_path: Path
+    contents: str
+    header_values: dict[str, object]
+    header_column_locations: dict[str, SourceLocation]
+    output_column_locations: dict[str, SourceLocation]
+    query_sql: str
+    enum_declarations: tuple[EnumDeclaration, ...] = field(default_factory=tuple)
+    constant_declarations: tuple[ConstantDeclaration, ...] = field(default_factory=tuple)
+    extract_implicit_alias_columns: bool = True
+
+
+@dataclass(frozen=True)
+class ModelHeaderColumnSpan:
+    """Authored byte offsets for one MODEL(columns) entry and metadata body."""
+
+    entry_start: int
+    entry_end: int
+    metadata_start: int
+    metadata_end: int
+
+
+@dataclass(frozen=True)
+class ModelHeaderSpans:
+    """Authored MODEL header body and optional columns declaration spans."""
+
+    body: tuple[int, int] | None
+    columns: tuple[int, int, dict[str, ModelHeaderColumnSpan]] | None
+
+
+@dataclass(frozen=True)
+class DiscoveredSqlFunctionFile:
+    """A discovered SQL function file and its raw contents."""
+
+    file_path: Path
+    relative_path: Path
+    contents: str
+    header_values: dict[str, object]
+    body_sql: str
+
+
+@dataclass(frozen=True)
+class DiscoveredSqlHookFile:
+    """A discovered named SQL lifecycle hook resource."""
+
+    file_path: Path
+    relative_path: Path
+    contents: str
+    header_values: dict[str, object]
+    sql_body: str
+    name: str
+    description: str | None = None
+    scope_kind: ScopeKind = ScopeKind.GLOBAL
+    ownership_root: Path | None = None
+    owning_path: Path | None = None
+    declaration_root: Path | None = None
+
+
+@dataclass(frozen=True)
+class EnumMember:
+    """One named member in a SQLBuild enum declaration."""
+
+    name: str
+    value: str | int
+
+
+@dataclass(frozen=True)
+class EnumDeclaration:
+    """One validated public or model-local enum declaration."""
+
+    name: str
+    members: tuple[EnumMember, ...]
+    scalar_type: str
+    relative_path: Path
+    model_name: str | None = None
+
+
+@dataclass(frozen=True)
+class ConstantDeclaration:
+    """One validated public or model-local constant declaration."""
+
+    name: str
+    value: SqlValue
+    relative_path: Path
+    model_name: str | None = None
+    render_as: CollectionRendering | None = None
+
+    @property
+    def logical_type(self) -> SqlLogicalType:
+        """Return the normalized logical type."""
+
+        return self.value.logical_type
+
+    @property
+    def scalar_type(self) -> str:
+        """Retain the existing SQL scalar type label for scalar declarations."""
+
+        names: dict[SqlValueKind, str] = {
+            SqlValueKind.STRING: "VARCHAR",
+            SqlValueKind.INTEGER: "INTEGER",
+            SqlValueKind.BOOLEAN: "BOOLEAN",
+            SqlValueKind.FLOAT: "FLOAT",
+            SqlValueKind.DECIMAL: "DECIMAL",
+            SqlValueKind.NULL: "NULL",
+        }
+        return names.get(self.value.kind, self.value.logical_type.display_name.upper())
+
+
+@dataclass(frozen=True)
+class DiscoveredEnumFile:
+    """A public SQL file containing one or more enum declarations."""
+
+    file_path: Path
+    relative_path: Path
+    contents: str
+    declarations: tuple[EnumDeclaration, ...]
+    scope_kind: ScopeKind = ScopeKind.GLOBAL
+    ownership_root: Path | None = None
+    owning_path: Path | None = None
+    declaration_root: Path | None = None
+
+
+@dataclass(frozen=True)
+class DiscoveredConstantFile:
+    """A public SQL file containing one or more constant declarations."""
+
+    file_path: Path
+    relative_path: Path
+    contents: str
+    declarations: tuple[ConstantDeclaration, ...]
+    scope_kind: ScopeKind = ScopeKind.GLOBAL
+    ownership_root: Path | None = None
+    owning_path: Path | None = None
+    declaration_root: Path | None = None
+
+
+@dataclass(frozen=True)
+class ModelSchemaDeclaration:
+    """One public reusable model column schema declaration."""
+
+    name: str
+    columns: tuple[SchemaColumn, ...]
+    relative_path: Path
+    extends: str | None = None
+    description: str | None = None
+
+
+@dataclass(frozen=True)
+class NamedDeclarationRoot:
+    """One directory whose files define audits, reusable schemas, or named hooks of one kind."""
+
+    directory: Path
+    relative_directory: Path
+    kind: DeclarationKind
+    scope_kind: ScopeKind
+    ownership_root: Path | None
+    owning_path: Path | None
+
+    def place[Placed: ScopedDeclarationFile](self, item: Placed) -> Placed:
+        """Return a discovered file annotated with this role's scope facts."""
+
+        return replace(
+            item,
+            scope_kind=self.scope_kind,
+            ownership_root=self.ownership_root,
+            owning_path=self.owning_path,
+            declaration_root=self.relative_directory,
+        )
+
+
+@dataclass(frozen=True)
+class DiscoveredModelSchemaFile:
+    """A public SQL file containing reusable model schemas."""
+
+    file_path: Path
+    relative_path: Path
+    contents: str
+    declarations: tuple[ModelSchemaDeclaration, ...]
+    scope_kind: ScopeKind = ScopeKind.GLOBAL
+    ownership_root: Path | None = None
+    owning_path: Path | None = None
+    declaration_root: Path | None = None
+
+
+@dataclass(frozen=True)
+class DiscoveredPythonFunctionFile:
+    """A discovered Python function file and its parsed UDF metadata."""
+
+    file_path: Path
+    relative_path: Path
+    contents: str
+    header_values: dict[str, object]
+    entry_point: str
+    body_python: str
+
+
+@dataclass(frozen=True)
+class DiscoveredSchemaFile:
+    """A discovered schema.yml file and its raw contents."""
+
+    file_path: Path
+    relative_path: Path
+    contents: str
+    model_entries: tuple[SchemaModelEntry, ...]
+    seed_entries: tuple[SchemaSeedEntry, ...]
+
+
+@dataclass(frozen=True)
+class DiscoveredSourceFile:
+    """A discovered source declaration file and its raw contents."""
+
+    file_path: Path
+    relative_path: Path
+    contents: str
+    source_entries: tuple[SourceEntry, ...]
+
+
+@dataclass(frozen=True)
+class DiscoveredSeedFile:
+    """A discovered seed file."""
+
+    file_path: Path
+    relative_path: Path
+
+
+@dataclass(frozen=True)
+class DiscoveredSqlTestFile:
+    """A discovered SQL-native test file and its raw contents."""
+
+    file_path: Path
+    relative_path: Path
+    contents: str
+    blocks: tuple[DiscoveredSqlTestBlock, ...]
+    ownership_root: Path = Path(SQL_TESTS_OWNERSHIP_ROOT)
+
+
+@dataclass(frozen=True)
+class SqlTestParameterDeclaration:
+    """One typed parameter declared by a SQL-native test template."""
+
+    name: str
+    value_type: SqlValueKind
+    nullable: bool = False
+
+
+@dataclass(frozen=True)
+class DiscoveredSqlTestCase:
+    """One ordered named case belonging to a SQL-native test template."""
+
+    name: str
+    values: tuple[tuple[str, SqlValue], ...]
+    case_index: int
+
+
+@dataclass(frozen=True)
+class DiscoveredSqlTestBlock:
+    """One raw TEST(...) block discovered from a SQL-native test file."""
+
+    test_index: int
+    header_values: dict[str, object]
+    sql_body: str
+    name: str | None = None
+    mode: SqlTestMode = DEFAULT_SQL_TEST_MODE
+    parameters: tuple[SqlTestParameterDeclaration, ...] = field(default_factory=tuple)
+    cases: tuple[DiscoveredSqlTestCase, ...] = field(default_factory=tuple)
+    cursor_start: str | None = None
+    cursor_end: str | None = None
+
+
+@dataclass(frozen=True)
+class DiscoveredSqlScenarioFile:
+    """A discovered SQL-native scenario file and its raw contents."""
+
+    file_path: Path
+    relative_path: Path
+    contents: str
+    header_values: dict[str, object]
+    sql_body: str
+    name: str
+    ownership_root: Path = Path(SQL_SCENARIOS_OWNERSHIP_ROOT)
+
+
+@dataclass(frozen=True)
+class DiscoveredAuditFile:
+    """A discovered audit SQL file and its raw contents."""
+
+    file_path: Path
+    relative_path: Path
+    contents: str
+    blocks: tuple[DiscoveredAuditBlock, ...]
+    declaration_kind: DeclarationKind = DeclarationKind.AUDIT
+    scope_kind: ScopeKind = ScopeKind.GLOBAL
+    ownership_root: Path | None = None
+    owning_path: Path | None = None
+    declaration_root: Path | None = None
+
+
+@dataclass(frozen=True)
+class DiscoveredAuditBlock:
+    """One raw AUDIT(...) block discovered from a SQL audit file."""
+
+    audit_index: int
+    header_values: dict[str, object]
+    sql_body: str
+    name: str | None = None
+    evaluation_mode: AuditEvaluationMode = AuditEvaluationMode.VIOLATIONS
+    measurement_contract: MeasurementContract | None = None
+    measure_sql: str | None = None
+    evidence_sql: str | None = None
+
+
+@dataclass(frozen=True)
+class DiscoveredMacroFile:
+    """A discovered project macro file and its raw contents."""
+
+    file_path: Path
+    relative_path: Path
+    contents: str
+    scope_kind: ScopeKind = ScopeKind.GLOBAL
+    ownership_root: Path | None = None
+    owning_path: Path | None = None
+    declaration_root: Path | None = None
+
+
+@dataclass(frozen=True)
+class DiscoveredAdapterFile:
+    """A detected project adapter Python file."""
+
+    file_path: Path
+    relative_path: Path
+
+
+@dataclass(frozen=True)
+class DiscoveredMaterializationFile:
+    """A discovered custom materialization Python file."""
+
+    file_path: Path
+    relative_path: Path
+    name: str
+    provider_usages: tuple[DiscoveredProviderUsage, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class DiscoveredProviderUsage:
+    """Framework-owned metadata for provider usage by a Python callable surface."""
+
+    provider_name: str
+    parameter_name: str
+    annotation_class_name: str | None = None
+    annotation_module: str | None = None
+
+
+@dataclass(frozen=True)
+class DiscoveredLoaderFunction:
+    """A discovered project source loader function."""
+
+    file_path: Path
+    relative_path: Path
+    name: str
+    function: Callable[..., object]
+    depends_on: tuple[Callable[..., object] | SqlResourceRef, ...] = field(default_factory=tuple)
+    destination: str | None = None
+    write_strategy: SourceWriteStrategy | None = None
+    cursor_column: str | None = None
+    unique_key: tuple[str, ...] = field(default_factory=tuple)
+    columns: tuple[SourceColumnEntry, ...] = field(default_factory=tuple)
+    contract: str | None = None
+    connection_mode: LoaderConnectionMode = LoaderConnectionMode.SQLBUILD
+    provider_usages: tuple[DiscoveredProviderUsage, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class DiscoveredTaskFunction:
+    """A discovered project task function."""
+
+    file_path: Path
+    relative_path: Path
+    name: str
+    function: Callable[..., object]
+    depends_on: tuple[Callable[..., object] | SqlResourceRef, ...] = field(default_factory=tuple)
+    tags: tuple[str, ...] = field(default_factory=tuple)
+    group: str | None = None
+    description: str | None = None
+    meta: dict[str, object] | None = None
+    retry: RetryPolicy | None = None
+    provider_usages: tuple[DiscoveredProviderUsage, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class DiscoveredAssetFunction:
+    """A discovered project asset function."""
+
+    file_path: Path
+    relative_path: Path
+    name: str
+    function: Callable[..., object]
+    depends_on: tuple[Callable[..., object] | SqlResourceRef, ...] = field(default_factory=tuple)
+    tags: tuple[str, ...] = field(default_factory=tuple)
+    group: str | None = None
+    description: str | None = None
+    meta: dict[str, object] | None = None
+    columns: tuple[SourceColumnEntry, ...] = field(default_factory=tuple)
+    column_lineage: dict[str, tuple[ColumnLineageRef, ...]] | None = None
+    retry: RetryPolicy | None = None
+    provider_usages: tuple[DiscoveredProviderUsage, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class DiscoveredCheckFunction:
+    """A discovered project check function."""
+
+    file_path: Path
+    relative_path: Path
+    name: str
+    function: Callable[..., object]
+    depends_on: tuple[Callable[..., object] | SqlResourceRef, ...]
+    severity: PythonCheckSeverity = PythonCheckSeverity.ERROR
+    tags: tuple[str, ...] = field(default_factory=tuple)
+    group: str | None = None
+    description: str | None = None
+    meta: dict[str, object] | None = None
+    provider_usages: tuple[DiscoveredProviderUsage, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class DiscoveredHookFunction:
+    """A discovered project model lifecycle hook function."""
+
+    file_path: Path
+    relative_path: Path
+    name: str
+    function: Callable[..., object]
+    description: str | None = None
+    reads: tuple[SqlResourceRef, ...] = field(default_factory=tuple)
+    provider_usages: tuple[DiscoveredProviderUsage, ...] = field(default_factory=tuple)
+    scope_kind: ScopeKind = ScopeKind.GLOBAL
+    ownership_root: Path | None = None
+    owning_path: Path | None = None
+    declaration_root: Path | None = None
+
+
+@dataclass(frozen=True)
+class DiscoveredAuditFactory:
+    """A discovered audit factory and its normalized cases."""
+
+    name: str
+    function: Callable[..., object]
+    file_path: Path
+    relative_path: Path
+    line: int
+    cases: tuple[AuditCase, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class DiscoveredEventExporterDeclaration:
+    """A discovered exporter declaration before provider binding."""
+
+    file_path: Path
+    relative_path: Path
+    name: str
+    function: Callable[..., object]
+    event_kinds: frozenset[str]
+    min_severity: EventExportSeverity
+
+
+@dataclass(frozen=True)
+class DiscoveredEventExporter:
+    """A discovered canonical lifecycle event exporter function."""
+
+    file_path: Path
+    relative_path: Path
+    name: str
+    function: Callable[..., object]
+    event_kinds: frozenset[str] = EVENT_EXPORT_KINDS
+    min_severity: EventExportSeverity = EventExportSeverity.DEBUG
+    provider_usages: tuple[DiscoveredProviderUsage, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class DiscoveredCommandOutputSinkDeclaration:
+    """A command-output sink declaration before provider binding."""
+
+    file_path: Path
+    relative_path: Path
+    name: str
+    function: Callable[..., object]
+    streams: frozenset[CommandOutputStream]
+
+
+@dataclass(frozen=True)
+class DiscoveredCommandOutputSink:
+    """A discovered command-output sink function."""
+
+    file_path: Path
+    relative_path: Path
+    name: str
+    function: Callable[..., object]
+    streams: frozenset[CommandOutputStream]
+    provider_usages: tuple[DiscoveredProviderUsage, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class DiscoveredProvider:
+    """A discovered project provider class and validated settings object."""
+
+    file_path: Path
+    relative_path: Path
+    name: str
+    provider_class: type[Provider]
+    settings: Provider
+
+
+@dataclass(frozen=True)
+class DiscoveredPythonNodeFunctions:
+    """Discovered project Python DAG node functions grouped by kind."""
+
+    loaders: tuple[DiscoveredLoaderFunction, ...] = field(default_factory=tuple)
+    tasks: tuple[DiscoveredTaskFunction, ...] = field(default_factory=tuple)
+    assets: tuple[DiscoveredAssetFunction, ...] = field(default_factory=tuple)
+    checks: tuple[DiscoveredCheckFunction, ...] = field(default_factory=tuple)
+    audit_factories: tuple[DiscoveredAuditFactory, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class DiscoveryCacheRequest:
+    """Compile-cache controls that let discovery reuse exact per-file parse facts."""
+
+    selected_target: str | None = None
+    no_cache: bool = False
+
+
+@dataclass(frozen=True)
+class DiscoveredProjectInputs:
+    """All raw project inputs discovered from disk before semantic resolution."""
+
+    project_config: ProjectConfig
+    local_config: LocalConfig
+    project_dir: Path | None = None
+    model_files: tuple[DiscoveredSqlModelFile, ...] = field(default_factory=tuple)
+    enum_files: tuple[DiscoveredEnumFile, ...] = field(default_factory=tuple)
+    constant_files: tuple[DiscoveredConstantFile, ...] = field(default_factory=tuple)
+    model_schema_files: tuple[DiscoveredModelSchemaFile, ...] = field(default_factory=tuple)
+    sql_function_files: tuple[DiscoveredSqlFunctionFile, ...] = field(default_factory=tuple)
+    sql_hook_files: tuple[DiscoveredSqlHookFile, ...] = field(default_factory=tuple)
+    python_function_files: tuple[DiscoveredPythonFunctionFile, ...] = field(default_factory=tuple)
+    schema_files: tuple[DiscoveredSchemaFile, ...] = field(default_factory=tuple)
+    source_files: tuple[DiscoveredSourceFile, ...] = field(default_factory=tuple)
+    seed_files: tuple[DiscoveredSeedFile, ...] = field(default_factory=tuple)
+    test_files: tuple[DiscoveredSqlTestFile, ...] = field(default_factory=tuple)
+    scenario_files: tuple[DiscoveredSqlScenarioFile, ...] = field(default_factory=tuple)
+    audit_files: tuple[DiscoveredAuditFile, ...] = field(default_factory=tuple)
+    macro_files: tuple[DiscoveredMacroFile, ...] = field(default_factory=tuple)
+    materialization_files: tuple[DiscoveredMaterializationFile, ...] = field(default_factory=tuple)
+    loader_functions: tuple[DiscoveredLoaderFunction, ...] = field(default_factory=tuple)
+    task_functions: tuple[DiscoveredTaskFunction, ...] = field(default_factory=tuple)
+    asset_functions: tuple[DiscoveredAssetFunction, ...] = field(default_factory=tuple)
+    check_functions: tuple[DiscoveredCheckFunction, ...] = field(default_factory=tuple)
+    audit_factories: tuple[DiscoveredAuditFactory, ...] = field(default_factory=tuple)
+    hook_functions: tuple[DiscoveredHookFunction, ...] = field(default_factory=tuple)
+    event_exporters: tuple[DiscoveredEventExporter, ...] = field(default_factory=tuple)
+    command_output_sinks: tuple[DiscoveredCommandOutputSink, ...] = field(default_factory=tuple)
+    providers: tuple[DiscoveredProvider, ...] = field(default_factory=tuple)
+    adapter_file: DiscoveredAdapterFile | None = None
+
+
+@dataclass(frozen=True)
+class DiscoveredRuntimeExtensions:
+    """Command-startup providers, typed sinks, and lifecycle delivery settings."""
+
+    providers: tuple[DiscoveredProvider, ...] = field(default_factory=tuple)
+    event_exporters: tuple[DiscoveredEventExporter, ...] = field(default_factory=tuple)
+    command_output_sinks: tuple[DiscoveredCommandOutputSink, ...] = field(default_factory=tuple)
+    lifecycle_shutdown_timeout_seconds: int | None = None
+
+
+@dataclass(frozen=True)
+class DiscoveryFileFault:
+    """One project-relative authored file fault captured during tolerant discovery."""
+
+    path: Path | None
+    message: str
+
+
+@dataclass(frozen=True)
+class TolerantScopeDiscovery:
+    """Parsed scope inputs and independently categorized tolerant discovery faults."""
+
+    discovered_inputs: DiscoveredProjectInputs
+    resource_faults: tuple[DiscoveryFileFault, ...] = field(default_factory=tuple)
+    declaration_faults: tuple[DiscoveryFileFault, ...] = field(default_factory=tuple)
+    relationship_faults: tuple[DiscoveryFileFault, ...] = field(default_factory=tuple)
+    config_faults: tuple[DiscoveryFileFault, ...] = field(default_factory=tuple)

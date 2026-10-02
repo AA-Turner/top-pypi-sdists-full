@@ -1,0 +1,400 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""Pluggable event registry loaded from per-platform YAML files.
+
+The event registry defines how events are routed to Kafka topics with
+fan-out support: a single event type can be published to multiple topics
+with different payload transformations.
+
+Key design decisions:
+    - YAML per platform (topics.yaml per platform, cursor.yaml, etc.)
+    - Symbolic transform names mapped to fixed callables (no dynamic imports)
+    - EventRegistration and FanOutRule are portable dataclasses
+"""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from functools import partial
+from pathlib import Path
+from typing import Protocol
+
+import yaml
+from pydantic import BaseModel
+
+from omnimarket.nodes.node_emit_daemon.models.model_daemon_health_event import (
+    ModelDaemonHealthEvent,
+)
+from omnimarket.nodes.node_emit_daemon.models.model_durability import (
+    EnumDurabilityTier,
+)
+from omnimarket.nodes.node_event_emit_effect.redaction import redact_capture
+
+logger = logging.getLogger(__name__)
+
+# Type alias for payload transform functions
+PayloadTransform = Callable[[dict[str, object]], dict[str, object]]
+PayloadModel = type[BaseModel]
+
+
+# =============================================================================
+# Built-in Transform Functions
+# =============================================================================
+
+
+def transform_passthrough(payload: dict[str, object]) -> dict[str, object]:
+    """Passthrough transform -- returns payload unchanged."""
+    return payload
+
+
+def transform_strip_prompt(payload: dict[str, object]) -> dict[str, object]:
+    """Strip full prompt content, keeping only preview and length.
+
+    Suitable for observability topics where full prompt must not appear.
+    """
+    result: dict[str, object] = dict(payload)
+
+    # Strip base64-encoded prompt
+    result.pop("prompt_b64", None)
+    result.pop("prompt", None)
+
+    # Ensure preview exists and is truncated
+    preview = payload.get("prompt_preview", "")
+    if not isinstance(preview, str):
+        preview = str(preview) if preview is not None else ""
+    result["prompt_preview"] = preview[:100]
+
+    # Record length if not present
+    if "prompt_length" not in result:
+        full_prompt = payload.get("prompt", "")
+        if isinstance(full_prompt, str):
+            result["prompt_length"] = len(full_prompt)
+
+    return result
+
+
+def transform_strip_body(payload: dict[str, object]) -> dict[str, object]:
+    """Strip body field, replacing with length and preview."""
+    result: dict[str, object] = dict(payload)
+    body = payload.get("body", "")
+    if not isinstance(body, str):
+        body = str(body) if body is not None else ""
+    result["body_length"] = len(body)
+    result["body_preview"] = body[:200]
+    result.pop("body", None)
+    return result
+
+
+# Registry of named transforms -- YAML files reference these by name
+TRANSFORM_REGISTRY: dict[str, PayloadTransform] = {
+    "passthrough": transform_passthrough,
+    "strip_prompt": transform_strip_prompt,
+    "strip_body": transform_strip_body,
+}
+
+
+class TopicScopedTransform(Protocol):
+    """A transform whose posture is resolved from the TARGET topic.
+
+    Declared as a Protocol rather than a bare ``Callable[[JsonDict, str], ...]``
+    because the binding below supplies ``topic`` as a KEYWORD argument, and a
+    bare ``Callable`` types its parameters as positional-only -- ``mypy
+    --strict`` rejects the keyword against it (`call-arg`). Naming the
+    parameter here is what makes ``partial(fn, topic=...)`` type-check, and it
+    also pins the parameter NAME as part of the contract: a future transform
+    that called its second parameter something else would be a type error
+    rather than a runtime ``TypeError`` at daemon start.
+    """
+
+    def __call__(self, payload: dict[str, object], topic: str) -> dict[str, object]: ...
+
+
+#: OMN-17209: transforms bound to their fan-out rule's TOPIC at parse time.
+#: Their capture policy lives in
+#: ``node_event_emit_effect/contracts/capture_redaction.yaml`` and is resolved
+#: per topic, so there is no single callable to put in TRANSFORM_REGISTRY.
+TOPIC_SCOPED_TRANSFORM_REGISTRY: dict[str, TopicScopedTransform] = {
+    "redact_capture": redact_capture,
+}
+
+PAYLOAD_MODEL_REGISTRY: dict[str, PayloadModel] = {
+    "daemon_health": ModelDaemonHealthEvent,
+}
+
+EVENT_PAYLOAD_MODEL_REGISTRY: dict[str, PayloadModel] = {
+    "diagnostic.daemon.health": ModelDaemonHealthEvent,
+}
+
+
+# =============================================================================
+# Fan-Out Rule and Registration Models
+# =============================================================================
+
+
+@dataclass(frozen=True)
+class FanOutRule:
+    """A single fan-out rule specifying a target topic, tier, and transform.
+
+    Attributes:
+        topic: The wire topic name, shaped onex.{cmd|evt}.{service}.{event}.vN.
+        tier: Per-topic durability tier driving queue routing. Required: the
+            registry fails fast on any fan-out rule with no declared tier.
+        transform: Function to transform the payload before publishing.
+        description: Human-readable description of what this rule does.
+        max_payload_bytes: OMN-13151 per-topic upper bound on the serialized
+            payload. Declared for duty-critical capture topics so the emit path
+            and contract tests can prove the bound is set and below the daemon
+            cap. ``None`` means "no per-topic bound declared".
+        schema_ref: OMN-13151 dotted path to the typed payload model for the
+            topic (e.g. ``pkg.module.ModelFoo``). ``None`` means unset.
+        transform_name: OMN-13151 raw declared transform name from the registry
+            (before mapping to a callable), retained for drift comparison.
+    """
+
+    topic: str
+    tier: EnumDurabilityTier
+    transform: PayloadTransform | None = None
+    description: str = ""
+    max_payload_bytes: int | None = None
+    schema_ref: str | None = None
+    transform_name: str | None = None
+
+    def apply_transform(self, payload: dict[str, object]) -> dict[str, object]:
+        """Apply the transform to the payload."""
+        if self.transform is None:
+            return dict(payload)
+        return self.transform(payload)
+
+
+@dataclass(frozen=True)
+class EventRegistration:
+    """Registration for a single event type with fan-out rules.
+
+    Attributes:
+        event_type: Semantic event type identifier (e.g., "prompt.submitted").
+        fan_out: List of fan-out rules defining target topics and transforms.
+        partition_key_field: Optional field name to use as Kafka partition key.
+        required_fields: Field names that must be present in the payload.
+    """
+
+    event_type: str
+    fan_out: list[FanOutRule] = field(default_factory=list)
+    partition_key_field: str | None = None
+    required_fields: list[str] = field(default_factory=list)
+    payload_model: PayloadModel | None = None
+
+
+# =============================================================================
+# EventRegistry -- loaded from YAML
+# =============================================================================
+
+
+class EventRegistry:
+    """Pluggable event registry loaded from per-platform YAML files.
+
+    Usage:
+        registry = EventRegistry.from_yaml(Path("registries/topics.yaml"))
+        reg = registry.get_registration("prompt.submitted")
+    """
+
+    def __init__(
+        self, registrations: dict[str, EventRegistration] | None = None
+    ) -> None:
+        self._registrations: dict[str, EventRegistration] = registrations or {}
+
+    @classmethod
+    def from_yaml(cls, path: Path) -> EventRegistry:
+        """Load an event registry from a YAML file."""
+        with open(path, encoding="utf-8") as f:
+            raw = yaml.safe_load(f)
+
+        if not isinstance(raw, dict):
+            raise ValueError(f"Registry YAML must be a dict, got {type(raw).__name__}")
+
+        events_raw = raw.get("events", {})
+        if not isinstance(events_raw, dict):
+            raise ValueError("'events' key must be a dict")
+
+        registrations: dict[str, EventRegistration] = {}
+
+        for event_type, event_def in events_raw.items():
+            if not isinstance(event_def, dict):
+                logger.warning(f"Skipping non-dict event definition: {event_type}")
+                continue
+
+            fan_out_rules: list[FanOutRule] = []
+            for rule_def in event_def.get("fan_out", []):
+                topic = rule_def["topic"]
+                transform_name = rule_def.get("transform")
+                transform_fn: PayloadTransform | None = None
+                if transform_name and transform_name != "passthrough":
+                    # OMN-17209: a topic-scoped transform resolves its capture
+                    # policy from the TARGET topic, so it is bound to this
+                    # rule's own topic here. Binding at parse time is what lets
+                    # the daemon keep the single-argument PayloadTransform
+                    # signature that FanOutRule.apply_transform and every
+                    # existing caller depend on.
+                    #
+                    # This module imports node_event_emit_effect, never the
+                    # reverse: the node forbids importing this package because
+                    # R5 (OMN-15974) deletes it, and deleting it removes this
+                    # import with it. Both registries resolve the SAME callable
+                    # so the OMN-16048 62/62 byte-parity bar stays green -- a
+                    # node-only redaction layer would read as a parity break
+                    # rather than as a control.
+                    if transform_name in TOPIC_SCOPED_TRANSFORM_REGISTRY:
+                        transform_fn = partial(
+                            TOPIC_SCOPED_TRANSFORM_REGISTRY[transform_name],
+                            topic=topic,
+                        )
+                    else:
+                        transform_fn = TRANSFORM_REGISTRY.get(transform_name)
+                        if transform_fn is None:
+                            logger.warning(
+                                f"Unknown transform '{transform_name}' for "
+                                f"{event_type}, using passthrough"
+                            )
+
+                # Tier is a required, contract-driven per-topic property. Fail
+                # fast on any fan-out rule that does not declare a valid tier.
+                if "tier" not in rule_def:
+                    raise ValueError(
+                        f"Fan-out rule for event '{event_type}' -> '{topic}' "
+                        "has no 'tier'. Every fan-out rule must declare a "
+                        "durability tier (duty_critical | telemetry)."
+                    )
+                tier_raw = rule_def["tier"]
+                try:
+                    tier = EnumDurabilityTier(tier_raw)
+                except ValueError as exc:
+                    valid = ", ".join(t.value for t in EnumDurabilityTier)
+                    raise ValueError(
+                        f"Fan-out rule for event '{event_type}' -> '{topic}' "
+                        f"declares unknown tier '{tier_raw}'. Valid tiers: {valid}."
+                    ) from exc
+
+                # OMN-13151: optional per-topic metadata. max_payload is bounded
+                # below the daemon stream cap; the contract test enforces the
+                # bound, the loader just carries the declared value.
+                max_payload_raw = rule_def.get("max_payload")
+                max_payload_bytes: int | None = None
+                if max_payload_raw is not None:
+                    if not isinstance(max_payload_raw, int) or max_payload_raw <= 0:
+                        raise ValueError(
+                            f"Fan-out rule for event '{event_type}' -> '{topic}' "
+                            f"declares non-positive max_payload '{max_payload_raw}'."
+                        )
+                    max_payload_bytes = max_payload_raw
+
+                fan_out_rules.append(
+                    FanOutRule(
+                        topic=topic,
+                        tier=tier,
+                        transform=transform_fn,
+                        description=rule_def.get("description", ""),
+                        max_payload_bytes=max_payload_bytes,
+                        schema_ref=rule_def.get("schema_ref"),
+                        transform_name=transform_name,
+                    )
+                )
+
+            payload_model_name = event_def.get("payload_model")
+            payload_model = EVENT_PAYLOAD_MODEL_REGISTRY.get(event_type)
+            if payload_model_name is not None:
+                payload_model = PAYLOAD_MODEL_REGISTRY.get(str(payload_model_name))
+                if payload_model is None:
+                    raise ValueError(
+                        f"Unknown payload_model '{payload_model_name}' for {event_type}"
+                    )
+
+            registrations[event_type] = EventRegistration(
+                event_type=event_type,
+                fan_out=fan_out_rules,
+                partition_key_field=event_def.get("partition_key_field"),
+                required_fields=event_def.get("required_fields", []),
+                payload_model=payload_model,
+            )
+
+        return cls(registrations=registrations)
+
+    @classmethod
+    def from_dict(cls, registrations: dict[str, EventRegistration]) -> EventRegistry:
+        """Create a registry from a pre-built dict (for testing or programmatic use)."""
+        return cls(registrations=registrations)
+
+    def get_registration(self, event_type: str) -> EventRegistration | None:
+        """Get the registration for an event type."""
+        return self._registrations.get(event_type)
+
+    def list_event_types(self) -> list[str]:
+        """List all registered event types."""
+        return list(self._registrations.keys())
+
+    def validate_payload(
+        self, event_type: str, payload: dict[str, object]
+    ) -> list[str]:
+        """Validate that a payload has all required fields.
+
+        Returns list of missing field names (empty if valid).
+        Raises KeyError if event type is not registered.
+        """
+        registration = self._registrations.get(event_type)
+        if registration is None:
+            raise KeyError(f"Unknown event type: {event_type}")
+        return [f for f in registration.required_fields if f not in payload]
+
+    def get_payload_model(self, event_type: str) -> PayloadModel | None:
+        """Return the typed payload model for an event type, if configured."""
+        registration = self._registrations.get(event_type)
+        if registration is None:
+            raise KeyError(f"Unknown event type: {event_type}")
+        return registration.payload_model
+
+    def validate_payload_model(
+        self, event_type: str, payload: dict[str, object]
+    ) -> BaseModel | None:
+        """Validate payload against the registered Pydantic model, if present."""
+        payload_model = self.get_payload_model(event_type)
+        if payload_model is None:
+            return None
+        return payload_model.model_validate(payload)
+
+    def get_partition_key(
+        self, event_type: str, payload: dict[str, object]
+    ) -> str | None:
+        """Extract the partition key from a payload based on registration.
+
+        Raises KeyError if event type is not registered.
+        """
+        registration = self._registrations.get(event_type)
+        if registration is None:
+            raise KeyError(f"Unknown event type: {event_type}")
+        if registration.partition_key_field is None:
+            return None
+        value = payload.get(registration.partition_key_field)
+        if value is None:
+            return None
+        return str(value)
+
+    def __len__(self) -> int:
+        return len(self._registrations)
+
+
+__all__: list[str] = [
+    "EVENT_PAYLOAD_MODEL_REGISTRY",
+    "PAYLOAD_MODEL_REGISTRY",
+    "TOPIC_SCOPED_TRANSFORM_REGISTRY",
+    "TRANSFORM_REGISTRY",
+    "EventRegistration",
+    "EventRegistry",
+    "FanOutRule",
+    "PayloadModel",
+    "PayloadTransform",
+    "TopicScopedTransform",
+    "transform_passthrough",
+    "transform_strip_body",
+    "transform_strip_prompt",
+]

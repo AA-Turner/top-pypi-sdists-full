@@ -1,0 +1,115 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Release backmerge identity checks for OMN-12765."""
+
+from __future__ import annotations
+
+import json
+import tomllib
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[3]
+
+
+def _declared_pins() -> dict[str, str]:
+    """Return {distribution: exact version} the runtime resolves.
+
+    Parsed from the dependency tables rather than matched as a substring of the
+    file: ``pyproject.toml`` carries explanatory comments that quote old pins
+    verbatim, so a substring assertion is satisfied by prose and keeps passing
+    after the pin it names has moved (OMN-18918).
+
+    ``[tool.uv] override-dependencies`` wins over ``[project.dependencies]``,
+    as it does for uv. Since OMN-19655 omnibase-core is published as a range
+    and pinned exactly only in the override, which is what ``uv.lock`` and the
+    runtime image carry.
+    """
+
+    data = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    overrides = data.get("tool", {}).get("uv", {}).get("override-dependencies", [])
+    pins: dict[str, str] = {}
+    for spec in [*data["project"]["dependencies"], *overrides]:
+        if "==" not in spec:
+            continue
+        name, _, version = spec.partition("==")
+        pins[name.strip()] = version.strip()
+    return pins
+
+
+def test_release_backmerge_preserves_proven_runtime_core_pin() -> None:
+    """The main-lane backmerge must carry the proven PyPI core/spi releases.
+
+    OMN-13762 R3: infra is cut off the unreleased git-rev pins (core dev HEAD
+    48cf8b0, spi 3c99ed4) onto the published PyPI releases so main can build a
+    clean, reproducible runtime image from immutable artifacts. The proven
+    runtime inputs are now the released versions, not git revs.
+
+    OMN-14600 refresh: the proven runtime advances to core 0.46.8 while keeping
+    the PyPI-sourced reproducible lock.
+
+    OMN-18918 refresh: the proven runtime advances to core 0.47.20 / spi 0.23.5,
+    the first published releases carrying the optional keyword-only ``delivery``
+    parameter this runtime forwards source delivery coordinates through. The
+    pins are read from the parsed dependency table -- the previous substring
+    form matched a commented-out example of the retired 0.46.8 pin and so kept
+    reporting green across every advance since.
+
+    OMN-18595 refresh: the dependency cascade advances the proven runtime to
+    core 0.47.22 (omnibase_infra#3997); spi stays 0.23.5.
+
+    OMN-19408 refresh: advances the proven runtime to core 0.47.23
+    (omnibase_infra#4077), the first published release carrying
+    ``ModelRuntimeLaneScope``; spi stays 0.23.5.
+
+    OMN-19655: the published core requirement becomes ``>=0.47.23,<0.48.0``;
+    the proven runtime pin, read from the override, is unchanged at 0.47.23.
+
+    OMN-19749 refresh: the proven runtime advances to core 0.47.24, the
+    release carrying the shipped ``runtime.lane`` example /
+    ``ModelRuntimeLaneDeclaration`` path; spi stays 0.23.5.
+
+    OMN-20024 refresh: the dependency cascade advances the proven runtime to
+    core 0.47.25 (omnibase_infra#4317); spi stays 0.23.5.
+
+    OMN-18595 refresh: the dependency cascade advances the proven runtime to
+    core 0.47.27 (omnibase_infra#4355); spi stays 0.23.5.
+    """
+
+    uv_lock = (ROOT / "uv.lock").read_text(encoding="utf-8")
+    pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    pins = _declared_pins()
+
+    # The proven runtime pins the published PyPI releases (exact versions).
+    assert pins["omnibase-core"] == "0.47.27"
+    assert pins["omnibase-spi"] == "0.23.5"
+
+    # The retired git-rev overrides must be gone from both manifest and lock:
+    # the OMN-13762 core rev and the OMN-12549 seam core/spi revs.
+    for retired_rev in (
+        "48cf8b0be1c1f6d04d1e92c7f18ceb58c812471d",
+        "2a07385dec0ff06903f62572c546ec201f964aaf",
+        "cdfe1a470e96cbe8414ba6b08bbc99a452f09018",
+    ):
+        assert retired_rev not in pyproject
+        assert retired_rev not in uv_lock
+
+
+def test_release_backmerge_preserves_runner_identity_lock() -> None:
+    """The runner image identity matches the dev runtime deploy proof."""
+
+    lock = json.loads(
+        (ROOT / "docker/runners/runner-image.lock.json").read_text(encoding="utf-8")
+    )
+
+    # OMN-12765 / #2306 (dependabot uvicorn <0.51.0 -> <0.52.0 bound bump): the
+    # runner identity is a binding, not a label (OMN-12567). It folds in the full
+    # dependency-manifest bytes (pyproject.toml + uv.lock), so a dependency-range
+    # update legitimately rebinds the runner lock. Regenerated with
+    # scripts/ci/runner_image_identity.py --mode generate and build-proven by the
+    # runner-image-build-smoke gate (baked image label == lock identity_digest).
+    # Precedent: #2227 (prior uvicorn bump) and #2228 (fastapi bump) rebound the
+    # same lock and updated this anchor in lockstep.
+    assert isinstance(lock["identity_digest"], str)
+    assert len(lock["identity_digest"]) == 32
+    assert isinstance(lock["shared_env_digest"], str)
+    assert len(lock["shared_env_digest"]) == 24

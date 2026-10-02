@@ -1,1 +1,0 @@
-"""InnoDay CLI utilities."""

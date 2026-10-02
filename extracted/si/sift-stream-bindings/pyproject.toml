@@ -1,0 +1,22 @@
+[build-system]
+requires = ["maturin>=1.8,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "sift-stream-bindings"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dynamic = ["version"]
+maintainers = [
+    { name = "Sift Software Engineers", email = "engineering@siftstack.com" },
+]
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+# Workspace-rooted sdist: PyPI resolves License-File from the archive root.
+include = [{ path = "LICENSE", format = "sdist" }]
+manifest-path = "rust/crates/sift_stream_bindings/Cargo.toml"

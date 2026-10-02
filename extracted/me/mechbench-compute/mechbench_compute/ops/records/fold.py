@@ -1,0 +1,196 @@
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import Any
+
+from mechbench_compute.api import (
+    In,
+    Op,
+    Output,
+    P,
+    Resume,
+    describe_spend_cap,
+    item_kind_of,
+    items_of,
+    read_body_level,
+)
+
+OP = Op(
+    name="records/fold",
+    needs=frozenset({"executor.sub"}),
+    resume=Resume("restart", items=True),
+    summary=(
+        "Run a body graph step after step, each step reading the state the "
+        "last one wrote — the loop a conversation, a refinement or an "
+        "agentic round is made of — until the steps run out or the state "
+        "says stop."
+    ),
+    description="""\
+`records/map` runs a body once per record with no memory between runs;
+this runs it once per **step**, and what the body produces at step *t* is
+what it reads at step *t + 1*. The state arrives on the `state` port,
+enters the body on the body input named `state` (an edge `{"from":
+{"input": "state"}}`), and comes back out of the body's output named by
+`output` (or its one output). The final state is the result.
+
+**Steps.** `over` is a list of objects, one per step, cycled when `steps`
+is longer than it: each object's keys are `$param`s the body's nodes read
+that step — `[{"participant": "ana"}, {"participant": "bo"}]` with `steps:
+6` is a six-turn round robin. A body that needs no per-step values takes
+`steps` alone. The step's index is bound as `{"$param": "step"}`.
+
+**Stopping.** `until: {"field": "stopped"}` ends the fold early when every
+item of the state has a non-empty value in that field — which is how a
+body says the conversation reached its stop phrase (`text/extend` writes
+`stopped`), the answer converged, or the tool loop finished. The header's
+`folded` says how many steps ran and why it ended.
+
+`budget_usd` caps the provider spend of every step together. The fold
+stops at the step whose call would pass it, naming that step; the header
+carries `spent_usd` and `budget_usd`. A resumed fold counts only what
+this run spent.
+
+Every step is an item keyed by its index, so an interrupted fold resumes
+at the step it reached with the state it had. A body sees one state at a
+time and nothing else.
+
+The conversation: `text/render` → `text/chat` → `text/extend` as the
+body, transcripts as the state, participants as `over` — a multi-party
+conversation is three ops and a loop, not an operation of its own.
+""",
+    inputs=(
+        In("state", "collection",
+           "The starting state: what the body reads at step 0 — any "
+           "collection, of whatever kind the body's `state` input takes.",
+           many=True),
+    ),
+    output=Output('records/record', collection=True, doc="The state after the last step — the body's `output` at that step, its kind whatever the body's output node emits — with `folded` on the header: `steps` (how many ran), `stopped` (`\"steps\"`, or `\"until\"` when the state said stop), `body_nodes`; with a `budget_usd`, the header carries it and `spent_usd`, the body's spend over every step."),
+    params=(
+        P("body", "object",
+          "The graph to run per step — `{nodes, edges}`, the same shape a "
+          "protocol's graph has. An edge from `{\"input\": \"state\"}` "
+          "carries the state in; `output` names the node that carries it out.",
+          fields=(
+              P("nodes", "list[json]", "The body's nodes, as a protocol graph writes them."),
+              P("edges", "list[json]", "The body's edges.", []),
+          )),
+        P("over", "list[json]",
+          "One object per step, its keys the `$param`s the body reads that "
+          "step — open by design, since they are the body's names; cycled "
+          "when `steps` exceeds its length.",
+          None),
+        P("steps", "int",
+          "How many steps to run. Defaults to the length of `over`.",
+          None),
+        P("until", "object",
+          "Stop early when every state item has a non-empty value in "
+          "`field`.",
+          None, fields=(P("field", "string", "The state field that says stop."),)),
+        P("output", "string",
+          "Which of the body's terminal nodes carries the state out, when "
+          "it has more than one.",
+          None),
+        P("budget_usd", "float",
+          "The most the body may spend on provider calls, in US dollars, summed over every step. "
+          "Required when the body calls a hosted endpoint; the fold stops at the step whose call would "
+          "pass it. Each body node's own `budget_usd` still bounds that node, and a job-level cap, if one "
+          "is set, bounds this one further.",
+          None),
+    ),
+    example={"over": [{"participant": "ana"}, {"participant": "bo"}], "steps": 6,
+             "until": {"field": "stopped"}, "output": "next",
+             "body": {"nodes": [
+                 {"id": "view", "block": "text/render", "params": {"participant": {"$param": "participant"}}},
+                 {"id": "say", "block": "text/chat", "params": {"model": {"$param": "model"}}},
+                 {"id": "next", "block": "text/extend", "params": {"participant": {"$param": "participant"}}}],
+                      "edges": [
+                 {"from": {"input": "state"}, "to": {"node": "view", "port": "transcripts"}},
+                 {"from": {"node": "view"}, "to": {"node": "say", "port": "records"}},
+                 {"from": {"input": "state"}, "to": {"node": "next", "port": "transcripts"}},
+                 {"from": {"node": "say"}, "to": {"node": "next", "port": "replies"}}]}},
+    example_inputs={"state": {"$ref": {"bench": "you/lab/openings"}}},
+)
+
+
+def read_resume_level(params, inputs=None):
+    return read_body_level(params)
+
+
+def run(ctx, inputs, params):
+    state = inputs.get("state")
+    if state is None:
+        raise ValueError("records/fold needs a starting `state` on its port")
+    body = params.get("body")
+    if not isinstance(body, Mapping) or not body.get("nodes"):
+        raise ValueError(
+            "records/fold needs a `body`: a graph, with `nodes` and "
+            "`edges`, run once per step")
+    over = params.get("over")
+    if over is not None and not (isinstance(over, list)
+                                 and all(isinstance(o, Mapping) for o in over)):
+        raise ValueError("`over` is a list of objects, one per step")
+    over = [dict(o) for o in (over or [])]
+    steps = params.get("steps")
+    steps = len(over) if steps is None else int(steps)
+    if steps < 1:
+        raise ValueError("a fold runs at least one step: give `over` or `steps`")
+    if steps > len(over) and not over:
+        over = [{}]
+    until = params.get("until") or {}
+    stop_field = str(until["field"]) if isinstance(until, Mapping) and until.get("field") else None
+    want = params.get("output")
+    cap = params.get("budget_usd")
+    pool = ctx.open_budget(cap) if cap is not None else None
+    if ctx.on_start:
+        ctx.on_start(steps)
+
+    def says_stop(value: Any) -> bool:
+        items = items_of(value) if item_kind_of(value) else []
+        return bool(items) and all(bool(it.get(stop_field)) for it in items)
+
+    ran, stopped = 0, "steps"
+    for t in range(steps):
+        key = f"step:{t}"
+        if ctx.resume_items and key in ctx.resume_items:
+            state = ctx.resume_items[key]
+            ran += 1
+            if ctx.on_item:
+                ctx.on_item(key, state, True)
+            if stop_field and says_stop(state):
+                stopped = "until"
+                break
+            continue
+        step_params = {**(ctx.run_params or {}), **over[t % len(over)], "step": t}
+        try:
+            outputs = ctx.sub(body, {"state": state}, step_params, budget=pool)
+        except Exception as err:
+            if pool is not None and getattr(err, "budget", None) is pool:
+                raise err.retold(describe_spend_cap(err, op="records/fold", node=ctx.node, at=f"step {t}")) from None
+            raise
+        if want:
+            chosen = outputs.get(str(want))
+            if chosen is None:
+                raise ValueError(
+                    f"the body has no output {want!r}; it ends at "
+                    f"{', '.join(sorted(outputs)) or 'nothing'}")
+        elif len(outputs) == 1:
+            chosen = next(iter(outputs.values()))
+        else:
+            raise ValueError(
+                f"the body ends at {len(outputs)} nodes "
+                f"({', '.join(sorted(outputs))}); name one with `output`")
+        state = chosen
+        ran += 1
+        if ctx.on_item:
+            ctx.on_item(key, state, False)
+        if stop_field and says_stop(state):
+            stopped = "until"
+            break
+    if not isinstance(state, Mapping):
+        raise ValueError("the body's output is not a collection; a fold's state is one")
+    return {**dict(state),
+            "folded": {"steps": ran, "stopped": stopped,
+                       "body_nodes": [n.get("id") for n in body.get("nodes", [])]},
+            **({"spent_usd": round(pool.spent_usd, 6), "budget_usd": float(cap)} if pool is not None else {}),
+            **({"name": params["name"]} if params.get("name") else {}),
+            **({"description": params["description"]} if params.get("description") else {})}

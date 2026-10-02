@@ -1,0 +1,212 @@
+language: en
+
+# Adapted from Home Assistant's built-in sentence starter pack:
+# https://www.home-assistant.io/voice_control/builtin_sentences
+cases:
+  - sentence: next item on TV
+    context_area: Living Room
+    frames:
+      - intent: HassMediaNext
+        combination: name_only
+        response_key: default
+        slots: {name: media_player.living_room}
+
+  - sentence: next track
+    context_area: Living Room
+    frames:
+      - intent: HassMediaNext
+        combination: default
+        response_key: default
+        slots: {area: living_room}
+
+  - sentence: next track in living room
+    frames:
+      - intent: HassMediaNext
+        combination: area_only
+        response_key: default
+        slots: {area: living_room}
+
+  - sentence: previous track
+    context_area: Living Room
+    frames:
+      - intent: HassMediaPrevious
+        combination: default
+        response_key: default
+        slots: {area: living_room}
+
+  - sentence: previous track in living room
+    frames:
+      - intent: HassMediaPrevious
+        combination: area_only
+        response_key: default
+        slots: {area: living_room}
+
+  - sentence: skip song on the TV
+    context_area: Bedroom
+    frames:
+      - intent: HassMediaNext
+        combination: name_only
+        response_key: default
+        slots: {name: media_player.bedroom_tv}
+
+  - sentence: skip track on the TV
+    context_area: Living Room
+    frames:
+      - intent: HassMediaNext
+        combination: name_only
+        response_key: default
+        slots: {name: media_player.living_room}
+
+  - sentence: skip to the next song on the TV
+    context_area: Living Room
+    frames:
+      - intent: HassMediaNext
+        combination: name_only
+        response_key: default
+        slots: {name: media_player.living_room}
+
+  - sentence: pause
+    context_area: Living Room
+    frames:
+      - intent: HassMediaPause
+        combination: default
+        response_key: default
+        slots: {area: living_room}
+
+  - sentence: resume
+    context_area: Living Room
+    frames:
+      - intent: HassMediaUnpause
+        combination: default
+        response_key: default
+        slots: {area: living_room}
+
+  - sentences:
+      - pause living room music
+      - pause playback in the living room
+    frames:
+      - intent: HassMediaPause
+        combination: area_only
+        response_key: default
+        slots: {area: living_room}
+
+  - sentences:
+      - resume living room music
+      - resume playback in the living room
+    frames:
+      - intent: HassMediaUnpause
+        combination: area_only
+        response_key: default
+        slots: {area: living_room}
+
+  - sentence: pause TV
+    context_area: Living Room
+    frames:
+      - intent: HassMediaPause
+        combination: name_only
+        response_key: default
+        slots: {name: media_player.living_room}
+
+  - sentence: resume TV
+    context_area: Bedroom
+    frames:
+      - intent: HassMediaUnpause
+        combination: name_only
+        response_key: default
+        slots: {name: media_player.bedroom_tv}
+
+  - sentence: unpause TV
+    context_area: Living Room
+    frames:
+      - intent: HassMediaUnpause
+        combination: name_only
+        response_key: default
+        slots: {name: media_player.living_room}
+
+  - sentence: TV unpause
+    context_area: Living Room
+    frames:
+      - intent: HassMediaUnpause
+        combination: name_only
+        response_key: default
+        slots: {name: media_player.living_room}
+
+  - sentence: set TV volume to 90 percent
+    context_area: Living Room
+    frames:
+      - intent: HassSetVolume
+        combination: name_only
+        response_key: default
+        slots: {name: media_player.living_room, volume_level: 90}
+
+  - sentence: change the TV volume to 90
+    context_area: Bedroom
+    frames:
+      - intent: HassSetVolume
+        combination: name_only
+        response_key: default
+        slots: {name: media_player.bedroom_tv, volume_level: 90}
+
+  - sentence: set bedroom TV volume to 100%
+    frames:
+      - intent: HassSetVolume
+        combination: name_only
+        response_key: default
+        slots: {name: media_player.bedroom_tv, volume_level: 100}
+
+  - sentence: turn on the TV and set its volume to 50%
+    context_area: Living Room
+    frames:
+      - intent: HassTurnOn
+        combination: name_only
+        response_key: default
+        slots: {name: media_player.living_room}
+      - intent: HassSetVolume
+        combination: name_only
+        response_key: default
+        slots: {name: media_player.living_room, volume_level: 50}
+
+  - sentence: turn TV volume down to 90%
+    context_area: Living Room
+    frames:
+      - intent: HassSetVolume
+        combination: name_only
+        response_key: default
+        slots: {name: media_player.living_room, volume_level: 90}
+
+  - sentence: mute my TV
+    context_area: Living Room
+    frames:
+      - intent: HassMediaPlayerMute
+        combination: name_only
+        response_key: default
+        slots: {name: media_player.living_room}
+
+  - sentence: unmute the television
+    frames:
+      - intent: HassMediaPlayerUnmute
+        combination: name_only
+        response_key: default
+        slots: {name: media_player.living_room}
+
+  - sentence: increase living room volume by 10 percent
+    frames:
+      - intent: HassSetVolumeRelative
+        combination: area_only
+        response_key: default
+        slots: {area: living_room, volume_step: 10}
+
+  - sentence: turn living room volume down by 20 percent
+    frames:
+      - intent: HassSetVolumeRelative
+        combination: area_only
+        response_key: default
+        slots: {area: living_room, volume_step: -20}
+
+  - sentence: volume up
+    context_area: Living Room
+    frames:
+      - intent: HassSetVolumeRelative
+        combination: default
+        response_key: default
+        slots: {area: living_room, volume_step: up}

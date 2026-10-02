@@ -1,0 +1,1673 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Tests for projection handler DB injection in auto-wiring [OMN-8684]."""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from datetime import UTC, datetime
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+from uuid import UUID, uuid4
+
+import pytest
+
+from omnibase_core.models.contracts.subcontracts.model_db_table_declaration import (
+    ModelDbTableDeclaration,
+)
+from omnibase_infra.enums.enum_infra_transport_type import EnumInfraTransportType
+from omnibase_infra.errors import ProjectionNotMaterializedError
+from omnibase_infra.event_bus.models.model_publish_receipt import ModelPublishReceipt
+from omnibase_infra.event_bus.topic_constants import derive_event_type_alias_for_topic
+from omnibase_infra.runtime.auto_wiring.handler_wiring import (
+    _DB_URL_ENV_MAP,
+    ProjectionDispatchSinks,
+    _build_projection_db_adapter,
+    _make_dispatch_callback,
+    _make_projection_dispatch_callback,
+    _read_dlq_topics,
+    _resolve_projection_database_target,
+    _should_jsonb_wrap_list,
+)
+from tests.helpers.application_db_topology import (
+    application_topology,
+    configure_projection_dsns,
+    projection_database_target,
+    projection_database_urls,
+)
+
+_PATCH_BUILD_ADAPTER = (
+    "omnibase_infra.runtime.auto_wiring.handler_wiring._build_projection_db_adapter"
+)
+_PATCH_ENVIRON_GET = "omnibase_infra.runtime.auto_wiring.handler_wiring.os.environ.get"
+
+
+@pytest.fixture(autouse=True)
+def _configured_projection_dsns(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Projection callback construction models startup with configured DSNs."""
+    configure_projection_dsns(
+        monkeypatch, url="postgresql://user:pass@host:5432/omnidash_analytics"
+    )
+
+
+def _internal_db_adapter(table: str) -> object:
+    """Build the explicit no-tenant operation used by SQL-shape unit tests.
+
+    The relation must be one the shipped topology grants ``omninode_runtime``
+    in ``omninode_internal`` (OMN-15656): this adapter supplies no tenant
+    authority, so a tenant-owned relation cannot be driven through it.
+    """
+    target = projection_database_target(table, schema="omninode_internal")
+    return _build_projection_db_adapter(
+        projection_database_urls(target, "postgresql://user:pass@host/db"),
+        target,
+        None,
+        None,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Tests: _make_dispatch_callback (standard, non-projection path)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_standard_callback_calls_async_handle() -> None:
+    received: list[object] = []
+
+    class FakeHandler:
+        async def handle(self, envelope: object) -> None:
+            received.append(envelope)
+
+    handler = FakeHandler()
+    callback = _make_dispatch_callback(handler)
+    envelope = MagicMock()
+    asyncio.run(callback(envelope))
+    assert len(received) == 1
+    assert received[0] is envelope
+
+
+# ---------------------------------------------------------------------------
+# Tests: _make_projection_dispatch_callback (db injection path)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_projection_callback_injects_db_and_event_type() -> None:
+    """Handler receives a dict with _db, _event_type, and _topic injected."""
+    received: list[dict] = []
+
+    class FakeHandler:
+        def handle(self, input_data: dict) -> dict:
+            received.append(dict(input_data))
+            return {"rows_upserted": 1}
+
+    db_tables = projection_database_target(
+        "node_service_registry", schema="omninode_internal"
+    )
+    handler = FakeHandler()
+    callback = _make_projection_dispatch_callback(
+        handler, db_tables, ("onex.evt.platform.node-heartbeat.v1",)
+    )
+
+    envelope = MagicMock()
+    envelope.topic = "onex.evt.platform.node-heartbeat.v1"
+    envelope.payload = {"service_name": "svc-a", "health_status": "healthy"}
+
+    fake_adapter = MagicMock()
+
+    with patch(
+        _PATCH_ENVIRON_GET,
+        return_value="postgresql://user:pass@host:5432/omnidash_analytics",
+    ):
+        with patch(_PATCH_BUILD_ADAPTER, return_value=fake_adapter):
+            asyncio.run(callback(envelope))
+
+    assert len(received) == 1
+    assert received[0]["_event_type"] == "heartbeat"
+    assert received[0]["_db"] is fake_adapter
+    assert received[0]["_topic"] == "onex.evt.platform.node-heartbeat.v1"
+
+
+@pytest.mark.unit
+def test_projection_callback_injects_topic_for_strict_handlers() -> None:
+    """OMN-13992 regression: a handler that requires a non-empty input_data['_topic']
+    (mirrors HandlerProjectionLiveEvents.handle()) must not raise ValueError.
+
+    Before the fix, ``_make_projection_dispatch_callback`` computed ``topic``
+    locally (for logging only) but never injected it into ``input_data``, so
+    any handler popping ``_topic`` with a required non-empty check raised on
+    every real dispatch and the event was dropped with no DLQ topic declared.
+    """
+
+    class StrictTopicHandler:
+        def handle(self, input_data: dict) -> dict:
+            topic = input_data.pop("_topic", "")
+            if not isinstance(topic, str) or not topic.strip():
+                raise ValueError(
+                    "handle() requires input_data['_topic'] as a non-empty string"
+                )
+            return {"rows_upserted": 1}
+
+    db_tables = projection_database_target("live_events", schema="omninode_internal")
+    callback = _make_projection_dispatch_callback(
+        StrictTopicHandler(), db_tables, ("onex.evt.platform.node-heartbeat.v1",)
+    )
+
+    envelope = MagicMock()
+    envelope.topic = "onex.evt.platform.node-heartbeat.v1"
+    envelope.payload = {"service_name": "svc-a", "health_status": "healthy"}
+
+    with patch(
+        _PATCH_ENVIRON_GET,
+        return_value="postgresql://user:pass@host:5432/omnidash_analytics",
+    ):
+        with patch(_PATCH_BUILD_ADAPTER, return_value=MagicMock()):
+            # Must not raise: _topic is now injected alongside _db/_event_type.
+            result = asyncio.run(callback(envelope))
+
+    assert result is None
+
+
+@pytest.mark.unit
+def test_projection_callback_preserves_typed_envelope_id() -> None:
+    """Projection handlers receive the stable Kafka-envelope identity.
+
+    The payload is not the event envelope.  If the wiring bridge discards the
+    envelope ID, reducers have to invent a new identity on every redelivery and
+    cannot provide idempotent projections.
+    """
+    from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
+
+    received: list[dict[str, object]] = []
+
+    class EnvelopeAwareHandler:
+        def handle(self, input_data: dict[str, object]) -> dict[str, int]:
+            received.append(dict(input_data))
+            return {"rows_upserted": 1}
+
+    topic = "onex.evt.platform.node-heartbeat.v1"
+    envelope_id = uuid4()
+    envelope = ModelEventEnvelope[object](
+        payload={"service_name": "svc-a", "health_status": "healthy"},
+        envelope_id=envelope_id,
+        event_type=derive_event_type_alias_for_topic(topic),
+    )
+    callback = _make_projection_dispatch_callback(
+        EnvelopeAwareHandler(),
+        projection_database_target("live_events", schema="omninode_internal"),
+        (topic,),
+    )
+
+    with patch(
+        _PATCH_ENVIRON_GET,
+        return_value="postgresql://user:pass@host:5432/omnidash_analytics",
+    ):
+        with patch(_PATCH_BUILD_ADAPTER, return_value=MagicMock()):
+            asyncio.run(callback(envelope))
+
+    assert len(received) == 1
+    assert isinstance(received[0]["_envelope_id"], UUID)
+    assert received[0]["_envelope_id"] == envelope_id
+
+
+@pytest.mark.unit
+def test_projection_callback_runs_sync_handler_outside_active_loop() -> None:
+    """Sync projection handlers may legitimately own their own event loop."""
+
+    class LoopOwningHandler:
+        def handle(self, input_data: dict) -> dict:
+            async def _project() -> dict:
+                return {"event_type": input_data["_event_type"]}
+
+            return asyncio.run(_project())
+
+    db_tables = projection_database_target("delegation_events")
+    callback = _make_projection_dispatch_callback(
+        LoopOwningHandler(),
+        db_tables,
+        ("onex.evt.omniclaude.task-delegated.v1",),
+    )
+
+    envelope = MagicMock()
+    envelope.topic = "onex.evt.omniclaude.task-delegated.v1"
+    envelope.payload = {"correlation_id": "corr-1", "task_type": "release-proof"}
+
+    with patch(
+        _PATCH_ENVIRON_GET,
+        return_value="postgresql://user:pass@host:5432/omnidash_analytics",
+    ):
+        with patch(_PATCH_BUILD_ADAPTER, return_value=MagicMock()):
+            result = asyncio.run(callback(envelope))
+
+    assert result is None
+
+
+@pytest.mark.unit
+def test_projection_callback_does_not_preconnect_a_handler_owned_pool() -> None:
+    """The runtime must not open a handler's DB pool on a loop it then closes.
+
+    OMN-16874 INVERTS this test. It previously asserted the opposite — that the
+    runtime called ``db.connect()`` before ``handle()`` — and that assertion is
+    what let the defect ship: the runtime performed that connect with
+    ``asyncio.run()``, which closes the loop it opened, so the pool was bound to
+    a dead loop before the first message was handled. Every use afterwards
+    raised ``RuntimeError: Event loop is closed``. The test passed the whole
+    time because a mock pool has no loop affinity, and a single-message test
+    cannot see a loop-scoped lifetime defect anyway.
+
+    A pool belongs to the loop that uses it. The handler opens that loop, so the
+    handler opens and closes the pool inside it; the runtime owns only the
+    adapter it builds itself and injects as ``_db``.
+    """
+
+    class FakeRunnerDb:
+        def __init__(self) -> None:
+            self._pool = None
+            self.connected = False
+
+        async def connect(self) -> None:
+            await asyncio.sleep(0)
+            self._pool = object()
+            self.connected = True
+
+        async def close(self) -> None:
+            self._pool = None
+            self.connected = False
+
+    class DelegationProjectionRunner:
+        def __init__(self) -> None:
+            self.db = FakeRunnerDb()
+            self.handled = False
+            self.bound_dsn: str | None = None
+
+        def bind_projection_database_url(self, dsn: str) -> None:
+            # OMN-16911: a handler that owns a pool takes the runtime's
+            # topology-resolved DSN. BaseProjectionRunner supplies this seam to
+            # every real projection handler; the double mirrors it.
+            self.bound_dsn = dsn
+
+        def handle(self, input_data: dict) -> dict:
+            assert self.db.connected is False, (
+                "the runtime must hand over an unconnected handler-owned adapter"
+            )
+            self.handled = True
+            return {"projected": True}
+
+    handler = DelegationProjectionRunner()
+    db_tables = projection_database_target("delegation_events")
+    callback = _make_projection_dispatch_callback(
+        handler,
+        db_tables,
+        ("onex.evt.omniclaude.task-delegated.v1",),
+    )
+
+    envelope = MagicMock()
+    envelope.topic = "onex.evt.omniclaude.task-delegated.v1"
+    envelope.payload = {"correlation_id": "corr-1", "task_type": "release-proof"}
+
+    with patch(
+        _PATCH_ENVIRON_GET,
+        return_value="postgresql://user:pass@host:5432/omnidash_analytics",
+    ):
+        with patch(_PATCH_BUILD_ADAPTER, return_value=MagicMock()):
+            result = asyncio.run(callback(envelope))
+
+    assert result is None
+    assert handler.handled is True
+    assert handler.db.connected is False
+
+
+@pytest.mark.unit
+def test_projection_callback_skips_standalone_projection_runner() -> None:
+    """Standalone Kafka runners are not safe as direct DB-injection callbacks."""
+
+    class _SelfServedAdapter:
+        async def connect(self) -> None: ...
+
+        async def close(self) -> None: ...
+
+    class DelegationProjectionRunner:
+        topics = ["onex.evt.omniclaude.task-delegated.v1"]
+
+        def __init__(self) -> None:
+            # OMN-16874: runner SHAPE (own consume loop, own projection
+            # entrypoint, own topics, own DB adapter) with no declared
+            # in-process dispatch capability. The class name is incidental.
+            self.db = _SelfServedAdapter()
+            self.called = False
+
+        async def run(self) -> None:
+            raise AssertionError("the runtime must not drive run()")
+
+        async def project_event(self) -> None:
+            self.called = True
+
+        def handle(self, input_data: dict) -> dict:
+            self.called = True
+            return {"projected": True}
+
+    handler = DelegationProjectionRunner()
+    db_tables = projection_database_target("delegation_events")
+    callback = _make_projection_dispatch_callback(
+        handler,
+        db_tables,
+        ("onex.evt.omniclaude.task-delegated.v1",),
+    )
+
+    envelope = MagicMock()
+    envelope.topic = "onex.evt.omniclaude.task-delegated.v1"
+    envelope.payload = {"correlation_id": "corr-1", "task_type": "release-proof"}
+
+    result = asyncio.run(callback(envelope))
+
+    assert result is None
+    assert handler.called is False
+
+
+@pytest.mark.unit
+def test_projection_callback_maps_introspection_event_type() -> None:
+    """node-introspection topic maps to _event_type='introspection'."""
+    received: list[dict] = []
+
+    class FakeHandler:
+        def handle(self, input_data: dict) -> dict:
+            received.append(dict(input_data))
+            return {}
+
+    db_tables = projection_database_target(
+        "node_service_registry", schema="omninode_internal"
+    )
+    handler = FakeHandler()
+    callback = _make_projection_dispatch_callback(
+        handler, db_tables, ("onex.evt.platform.node-introspection.v1",)
+    )
+
+    envelope = MagicMock()
+    envelope.topic = "onex.evt.platform.node-introspection.v1"
+    envelope.payload = {"service_name": "svc-b"}
+    fake_adapter = MagicMock()
+
+    with patch(
+        _PATCH_ENVIRON_GET,
+        return_value="postgresql://user:pass@host:5432/omnidash_analytics",
+    ):
+        with patch(_PATCH_BUILD_ADAPTER, return_value=fake_adapter):
+            asyncio.run(callback(envelope))
+
+    assert len(received) == 1
+    assert received[0]["_event_type"] == "introspection"
+
+
+@pytest.mark.unit
+def test_projection_callback_awaits_async_handle() -> None:
+    """Async projection handlers are awaited after DB and event-type injection."""
+    received: list[dict] = []
+
+    class FakeHandler:
+        async def handle(self, input_data: dict) -> dict:
+            await asyncio.sleep(0)
+            received.append(dict(input_data))
+            return {"rows_upserted": 1}
+
+    db_tables = projection_database_target(
+        "node_service_registry", schema="omninode_internal"
+    )
+    handler = FakeHandler()
+    callback = _make_projection_dispatch_callback(
+        handler, db_tables, ("onex.evt.platform.node-heartbeat.v1",)
+    )
+
+    envelope = MagicMock()
+    envelope.topic = "onex.evt.platform.node-heartbeat.v1"
+    envelope.payload = {"service_name": "svc-a"}
+    fake_adapter = MagicMock()
+
+    with patch(
+        _PATCH_ENVIRON_GET,
+        return_value="postgresql://user:pass@host:5432/omnidash_analytics",
+    ):
+        with patch(_PATCH_BUILD_ADAPTER, return_value=fake_adapter):
+            asyncio.run(callback(envelope))
+
+    assert len(received) == 1
+    assert received[0]["_event_type"] == "heartbeat"
+    assert received[0]["_db"] is fake_adapter
+
+
+@pytest.mark.unit
+def test_projection_callback_rejects_missing_db_url_at_wiring(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A required missing DSN fails at callback construction, before dispatch."""
+    call_count = [0]
+
+    class FakeHandler:
+        def handle(self, input_data: dict) -> dict:
+            call_count[0] += 1
+            return {}
+
+    db_tables = projection_database_target("delegation_events", schema="public")
+    handler = FakeHandler()
+    # OMN-15425: unsetting the DSN the `tenant_projection` binding actually
+    # resolves. Before that cut this was OMNIDASH_ANALYTICS_DB_URL; deleting
+    # that one now leaves the tenant binding configured and proves nothing.
+    monkeypatch.delenv("ONEX_TENANT_DB_URL")
+
+    with pytest.raises(ValueError, match="tenant_projection"):
+        _make_projection_dispatch_callback(handler, db_tables, ())
+
+    assert call_count[0] == 0
+
+
+@pytest.mark.unit
+def test_projection_callback_logs_and_raises_on_type_error(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """TypeError is logged AND propagated so the offset is withheld (OMN-17379).
+
+    This test previously asserted ``result is None`` — that returning normally
+    was the correct answer. It is not: a callback that returns normally IS an
+    ACK, so the boundary committed past an event the handler never wrote. A
+    ``TypeError`` here means the runtime denied the handler its own injected
+    ``_db``/``_event_type`` contract, which is a wiring defect and never the
+    event's, so the record is still owed a row. The log line is kept; the
+    silent ACK is not.
+    """
+
+    class BrokenHandler:
+        def handle(self, input_data: dict) -> dict:
+            raise TypeError("missing _db")
+
+    db_tables = projection_database_target(
+        "node_service_registry", schema="omninode_internal"
+    )
+    handler = BrokenHandler()
+    callback = _make_projection_dispatch_callback(handler, db_tables, ())
+
+    envelope = MagicMock()
+    envelope.topic = "onex.evt.platform.node-heartbeat.v1"
+    envelope.payload = {}
+    fake_adapter = MagicMock()
+
+    with caplog.at_level(
+        logging.ERROR, logger="omnibase_infra.runtime.auto_wiring.handler_wiring"
+    ):
+        with patch(
+            _PATCH_ENVIRON_GET,
+            return_value="postgresql://user:pass@host:5432/omnidash_analytics",
+        ):
+            with patch(_PATCH_BUILD_ADAPTER, return_value=fake_adapter):
+                with pytest.raises(ProjectionNotMaterializedError):
+                    asyncio.run(callback(envelope))
+
+    assert any("TypeError" in r.message for r in caplog.records)
+
+
+@pytest.mark.unit
+def test_sync_db_adapter_accepts_multi_column_conflict_key() -> None:
+    """Projection DB adapter preserves protocol support for composite UPSERT keys."""
+    cursor = MagicMock()
+    cursor.fetchone.return_value = ("omninode_runtime", "omnidash_analytics")
+    cursor_context = MagicMock()
+    cursor_context.__enter__.return_value = cursor
+    conn = MagicMock()
+    conn.closed = False
+    conn.cursor.return_value = cursor_context
+
+    with patch("psycopg2.connect", return_value=conn):
+        adapter = _internal_db_adapter("cost_by_repo_snapshots")
+        result = adapter.upsert(
+            "cost_by_repo_snapshots",
+            "session_id,event_timestamp,model_local,model_cloud_baseline",
+            {
+                "session_id": "sess-1",
+                "event_timestamp": "2026-05-20T20:00:00+00:00",
+                "model_local": "local-model",
+                "model_cloud_baseline": "cloud-model",
+                "savings_usd": "0.001",
+            },
+        )
+
+    assert result is True
+    sql = cursor.execute.call_args.args[0]
+    assert (
+        'ON CONFLICT ("session_id", "event_timestamp", '
+        '"model_local", "model_cloud_baseline") DO UPDATE SET'
+    ) in sql
+    assert '"savings_usd" = EXCLUDED."savings_usd"' in sql
+
+
+@pytest.mark.unit
+def test_sync_db_adapter_json_adapts_list_values() -> None:
+    """JSONB list fields must not be sent to Postgres as text arrays."""
+    import psycopg2.extras
+
+    cursor = MagicMock()
+    cursor.fetchone.return_value = ("omninode_runtime", "omnidash_analytics")
+    cursor_context = MagicMock()
+    cursor_context.__enter__.return_value = cursor
+    conn = MagicMock()
+    conn.closed = False
+    conn.cursor.return_value = cursor_context
+
+    with patch("psycopg2.connect", return_value=conn):
+        adapter = _internal_db_adapter("llm_delegation_daily_projection")
+        result = adapter.upsert(
+            "llm_delegation_daily_projection",
+            "correlation_id",
+            {
+                "correlation_id": "corr-1",
+                "quality_gates_checked": 1,
+                "quality_gates_checked_jsonb": ["delegate-skill-terminal"],
+            },
+        )
+
+    assert result is True
+    params = cursor.execute.call_args.args[1]
+    assert isinstance(params["quality_gates_checked_jsonb"], psycopg2.extras.Json)
+
+
+@pytest.mark.unit
+def test_sync_db_adapter_json_adapts_unsuffixed_jsonb_list_column() -> None:
+    """A JSONB list column in the allowlist is JSON-adapted even without the suffix.
+
+    OMN-13350: generation_events.corpus_errors is a JSONB column named without the
+    _json/_jsonb suffix. The adapter only wrapped lists for suffixed keys, so
+    corpus_errors was sent to Postgres as a text ARRAY literal, the INSERT failed,
+    and the projection consumer committed the offset anyway (silent drop).
+    corpus_errors is now in the _JSONB_LIST_COLUMNS allowlist and is JSON-adapted.
+    A genuine Postgres text[] ARRAY column (e.g. swarm_runs.models_used) must NOT
+    be wrapped — that is guarded by test_sync_psycopg2_adapter_preserves_text_array_lists.
+    """
+    import psycopg2.extras
+
+    cursor = MagicMock()
+    cursor.fetchone.return_value = ("omninode_runtime", "omnidash_analytics")
+    cursor_context = MagicMock()
+    cursor_context.__enter__.return_value = cursor
+    conn = MagicMock()
+    conn.closed = False
+    conn.cursor.return_value = cursor_context
+
+    with patch("psycopg2.connect", return_value=conn):
+        adapter = _internal_db_adapter("generation_events")
+        result = adapter.upsert(
+            "generation_events",
+            "correlation_id",
+            {
+                "correlation_id": "gen-1",
+                "corpus_checked": True,
+                "corpus_passed": False,
+                "corpus_errors": ["missed violation_fixture v3"],
+            },
+        )
+
+    assert result is True
+    params = cursor.execute.call_args.args[1]
+    assert isinstance(params["corpus_errors"], psycopg2.extras.Json)
+    # Scalar columns pass through unchanged (not JSON-wrapped).
+    assert params["corpus_checked"] is True
+    assert params["corpus_passed"] is False
+
+
+@pytest.mark.unit
+def test_sync_db_adapter_json_adapts_recent_responses_list_of_objects() -> None:
+    """OMN-14487: recent_responses (JSONB array of objects) must be JSON-adapted.
+
+    projection_delegation_inference_response_text.recent_responses is a JSONB
+    column (``CHECK (jsonb_typeof(recent_responses) = 'array')``) named without the
+    _json/_jsonb suffix, holding a list of objects. Before this fix the adapter
+    only wrapped a list for a suffixed key or a _JSONB_LIST_COLUMNS allowlist
+    member, so HandlerProjectionDelegationInferenceResponse's raw list[dict] was
+    sent to psycopg2 un-wrapped — psycopg2 tried to adapt the inner dicts and
+    raised ``ProgrammingError: can't adapt type 'dict'``, crashing the
+    inference-response projection write (live cid a7edc49a on the stability lane).
+    recent_responses is now in _JSONB_LIST_COLUMNS and is JSON-adapted.
+    """
+    import psycopg2  # type: ignore[import-untyped]
+    import psycopg2.extensions  # type: ignore[import-untyped]
+    import psycopg2.extras
+
+    recent_responses = [
+        {
+            "correlation_id": "a7edc49a-6eda-41a3-b14c-dfeb7e0483f7",
+            "model_name": "Qwen3.6-27B-MT",
+            "task_type": "test",
+            "generated_text": "ok",
+            "prompt_tokens": 10,
+            "completion_tokens": 3,
+            "latency_ms": 42,
+            "captured_at": "2026-07-12T22:00:00+00:00",
+        }
+    ]
+
+    # The exact live failure mode: a raw list-of-objects cannot be adapted by
+    # psycopg2 (this is the ``can't adapt type 'dict'`` crash the un-wrapped path
+    # produced). Wrapping in Json is what makes the write succeed.
+    with pytest.raises(psycopg2.Error):
+        psycopg2.extensions.adapt(recent_responses).getquoted()
+
+    cursor = MagicMock()
+    cursor.fetchone.return_value = ("omninode_runtime", "omnidash_analytics")
+    cursor_context = MagicMock()
+    cursor_context.__enter__.return_value = cursor
+    conn = MagicMock()
+    conn.closed = False
+    conn.cursor.return_value = cursor_context
+
+    with patch("psycopg2.connect", return_value=conn):
+        adapter = _internal_db_adapter("llm_routing_decisions")
+        result = adapter.upsert(
+            "llm_routing_decisions",
+            "singleton_key",
+            {
+                "singleton_key": "inference_response_singleton",
+                "latest_correlation_id": "a7edc49a-6eda-41a3-b14c-dfeb7e0483f7",
+                "latest_model_name": "Qwen3.6-27B-MT",
+                "provisioned": True,
+                "recent_responses": recent_responses,
+            },
+        )
+
+    assert result is True
+    params = cursor.execute.call_args.args[1]
+    # GREEN: the JSONB array-of-objects is wrapped in Json (RED before the fix:
+    # the raw list would be sent un-wrapped and crash on the inner dicts).
+    assert isinstance(params["recent_responses"], psycopg2.extras.Json)
+    # Scalar columns pass through unchanged.
+    assert params["provisioned"] is True
+    assert params["latest_model_name"] == "Qwen3.6-27B-MT"
+
+
+# ---------------------------------------------------------------------------
+# Tests: _should_jsonb_wrap_list (OMN-14494 structural heuristic)
+# ---------------------------------------------------------------------------
+#
+# OMN-14494: _JSONB_LIST_COLUMNS is a hardcoded allowlist that has already
+# bitten twice (OMN-13350 corpus_errors, OMN-14487 recent_responses) -- every
+# NEW unsuffixed JSONB list-of-objects column crashes with
+# ``can't adapt type 'dict'`` until someone manually adds it to the
+# allowlist. These tests prove the structural heuristic (any list element is
+# itself a dict/list) covers a brand-new, never-allowlisted column WITHOUT an
+# allowlist edit, while still preserving flat text[]/int[] passthrough. The
+# chosen column name below (``audit_findings``) is deliberately absent from
+# both the ``_json``/``_jsonb`` suffix convention and ``_JSONB_LIST_COLUMNS``
+# -- against the pre-OMN-14494 allowlist-only implementation this exact
+# scenario reproduces the OMN-14487 crash class (RED); the structural rule
+# added in this ticket makes it GREEN without touching the allowlist.
+
+
+@pytest.mark.unit
+def test_should_jsonb_wrap_list_structural_heuristic_new_unsuffixed_column() -> None:
+    """A never-allowlisted, unsuffixed column with list[dict] must wrap (structural rule)."""
+    assert (
+        _should_jsonb_wrap_list(
+            "audit_findings",
+            [{"rule": "no-hardcoded-topics", "severity": "high"}],
+        )
+        is True
+    )
+
+
+@pytest.mark.unit
+def test_should_jsonb_wrap_list_structural_heuristic_list_of_lists() -> None:
+    """A never-allowlisted column with list[list] must also wrap (structural rule)."""
+    assert _should_jsonb_wrap_list("audit_findings", [["a", "b"], ["c"]]) is True
+
+
+@pytest.mark.unit
+def test_should_jsonb_wrap_list_preserves_flat_scalar_list() -> None:
+    """A flat list[str] under an unsuffixed, non-allowlisted column stays raw (ARRAY)."""
+    assert _should_jsonb_wrap_list("machines_used", ["worker-a", "worker-b"]) is False
+
+
+@pytest.mark.unit
+def test_should_jsonb_wrap_list_preserves_empty_list() -> None:
+    """An empty list has no structurally-JSON element and is left for the caller as raw."""
+    assert _should_jsonb_wrap_list("audit_findings", []) is False
+
+
+@pytest.mark.unit
+def test_should_jsonb_wrap_list_suffix_convention_still_wraps() -> None:
+    """The pre-existing _json/_jsonb suffix convention keeps working unchanged."""
+    assert _should_jsonb_wrap_list("quality_gates_checked_jsonb", ["x"]) is True
+
+
+@pytest.mark.unit
+def test_should_jsonb_wrap_list_allowlist_still_wraps() -> None:
+    """The pre-existing allowlist (for flat list[str] JSONB columns) keeps working."""
+    assert (
+        _should_jsonb_wrap_list("corpus_errors", ["missed violation_fixture v3"])
+        is True
+    )
+
+
+@pytest.mark.unit
+def test_sync_db_adapter_json_adapts_new_unsuffixed_unallowlisted_list_of_dicts_column() -> (
+    None
+):
+    """OMN-14494: a brand-new unsuffixed, non-allowlisted list[dict] column must be
+    JSON-adapted through the full upsert path, not just the pure-function unit test above.
+
+    Before this fix (allowlist-only), a raw list[dict] under a column name that
+    is neither suffixed nor in _JSONB_LIST_COLUMNS was passed straight to
+    psycopg2, which cannot adapt the inner dicts -- this reproduces the exact
+    ``can't adapt type 'dict'`` crash class from OMN-13350/OMN-14487 for any
+    FUTURE column, without requiring an allowlist edit first.
+    """
+    import psycopg2  # type: ignore[import-untyped]
+    import psycopg2.extensions  # type: ignore[import-untyped]
+    import psycopg2.extras
+
+    audit_findings = [{"rule": "no-hardcoded-topics", "severity": "high"}]
+
+    # Exists-but-wrong proof, independent of the wrapping decision: an
+    # un-wrapped list[dict] is unconditionally un-adaptable by psycopg2 -- this
+    # is the exact crash the old allowlist-only adapter produced for any
+    # never-allowlisted column before this fix.
+    with pytest.raises(psycopg2.Error):
+        psycopg2.extensions.adapt(audit_findings).getquoted()
+
+    cursor = MagicMock()
+    cursor.fetchone.return_value = ("omninode_runtime", "omnidash_analytics")
+    cursor_context = MagicMock()
+    cursor_context.__enter__.return_value = cursor
+    conn = MagicMock()
+    conn.closed = False
+    conn.cursor.return_value = cursor_context
+
+    with patch("psycopg2.connect", return_value=conn):
+        adapter = _internal_db_adapter("session_outcomes")
+        result = adapter.upsert(
+            "session_outcomes",
+            "scan_id",
+            {
+                "scan_id": "scan-1",
+                "scan_passed": False,
+                "audit_findings": audit_findings,
+            },
+        )
+
+    assert result is True
+    params = cursor.execute.call_args.args[1]
+    # GREEN: the structural heuristic wraps a never-allowlisted list[dict] column.
+    assert isinstance(params["audit_findings"], psycopg2.extras.Json)
+    assert params["scan_passed"] is False
+
+
+# ---------------------------------------------------------------------------
+# Tests: terminal event emission (OMN-11187)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_projection_callback_emits_terminal_event_on_success() -> None:
+    """After a successful projection, terminal event is published to event_bus."""
+    import json
+    import uuid
+
+    published: list[tuple] = []
+    test_correlation_id = uuid.uuid4()
+
+    class FakeHandler:
+        def handle(self, input_data: dict) -> dict:
+            return {"rows_upserted": 1}
+
+    class FakeEventBus:
+        async def publish(self, topic: str, key: object, value: bytes) -> None:
+            published.append((topic, key, value))
+
+    db_tables = projection_database_target("delegation_events")
+    handler = FakeHandler()
+    fake_bus = FakeEventBus()
+    terminal_topic = "onex.evt.omnimarket.projection-delegation-applied.v1"
+    callback = _make_projection_dispatch_callback(
+        handler,
+        db_tables,
+        ("onex.evt.omniclaude.task-delegated.v1",),
+        sinks=ProjectionDispatchSinks(
+            event_bus=fake_bus,
+            terminal_event=terminal_topic,
+        ),
+    )
+
+    envelope = MagicMock()
+    envelope.topic = "onex.evt.omniclaude.task-delegated.v1"
+    envelope.payload = {"task_type": "code-review"}
+    envelope.correlation_id = test_correlation_id
+    fake_adapter = MagicMock()
+
+    with patch(
+        _PATCH_ENVIRON_GET,
+        return_value="postgresql://user:pass@host:5432/omnidash_analytics",
+    ):
+        with patch(_PATCH_BUILD_ADAPTER, return_value=fake_adapter):
+            asyncio.run(callback(envelope))
+
+    assert len(published) == 1
+    topic_published, _, raw_bytes = published[0]
+    assert topic_published == terminal_topic
+    parsed = json.loads(raw_bytes.decode("utf-8"))
+    assert parsed["event_type"] == terminal_topic
+    assert parsed["correlation_id"] == str(test_correlation_id)
+
+
+@pytest.mark.unit
+def test_projection_callback_does_not_emit_terminal_event_on_zero_rows() -> None:
+    """OMN-13360: a handler that returns rows_upserted=0 must NOT emit a terminal.
+
+    The projection terminal asserts a durable row landed. A no-raise handler that
+    upserts zero rows (internal swallow / dedup no-op / failed-but-unraised write)
+    returns normally; the prior gate emitted `projected:true` regardless. Gating
+    on rows_upserted >= 1 makes that zero-row path produce NO terminal event.
+    """
+    import uuid
+
+    published: list[tuple] = []
+
+    class ZeroRowHandler:
+        def handle(self, input_data: dict) -> dict:
+            # No exception, but nothing was written.
+            return {"rows_upserted": 0, "table": "delegation_events"}
+
+    class FakeEventBus:
+        async def publish(self, topic: str, key: object, value: bytes) -> None:
+            published.append((topic, key, value))
+
+    db_tables = projection_database_target("delegation_events")
+    terminal_topic = "onex.evt.omnimarket.projection-delegation-applied.v1"
+    callback = _make_projection_dispatch_callback(
+        ZeroRowHandler(),
+        db_tables,
+        ("onex.evt.omniclaude.task-delegated.v1",),
+        sinks=ProjectionDispatchSinks(
+            event_bus=FakeEventBus(),
+            terminal_event=terminal_topic,
+        ),
+    )
+
+    envelope = MagicMock()
+    envelope.topic = "onex.evt.omniclaude.task-delegated.v1"
+    envelope.payload = {"task_type": "code-review"}
+    envelope.correlation_id = uuid.uuid4()
+    fake_adapter = MagicMock()
+
+    with patch(
+        _PATCH_ENVIRON_GET,
+        return_value="postgresql://user:pass@host:5432/omnidash_analytics",
+    ):
+        with patch(_PATCH_BUILD_ADAPTER, return_value=fake_adapter):
+            asyncio.run(callback(envelope))
+
+    assert published == [], (
+        "Zero-row projection must not emit a projected:true terminal event"
+    )
+
+
+@pytest.mark.unit
+def test_projection_callback_emits_terminal_event_from_materialized_dict() -> None:
+    """Terminal event correlation is extracted from materialized dispatch dicts."""
+    import json
+    import uuid
+
+    published: list[tuple] = []
+    test_correlation_id = uuid.uuid4()
+
+    class FakeHandler:
+        def handle(self, input_data: dict) -> dict:
+            return {"rows_upserted": 1}
+
+    class FakeEventBus:
+        async def publish(self, topic: str, key: object, value: bytes) -> None:
+            published.append((topic, key, value))
+
+    db_tables = projection_database_target("delegation_events")
+    terminal_topic = "onex.evt.omnimarket.projection-delegation-applied.v1"
+    callback = _make_projection_dispatch_callback(
+        FakeHandler(),
+        db_tables,
+        ("onex.evt.omniclaude.task-delegated.v1",),
+        sinks=ProjectionDispatchSinks(
+            event_bus=FakeEventBus(),
+            terminal_event=terminal_topic,
+        ),
+    )
+    envelope = {
+        "payload": {"task_type": "code-review"},
+        "__debug_trace": {
+            "topic": "onex.evt.omniclaude.task-delegated.v1",
+            "correlation_id": str(test_correlation_id),
+        },
+    }
+    fake_adapter = MagicMock()
+
+    with patch(
+        _PATCH_ENVIRON_GET,
+        return_value="postgresql://user:pass@host:5432/omnidash_analytics",
+    ):
+        with patch(_PATCH_BUILD_ADAPTER, return_value=fake_adapter):
+            asyncio.run(callback(envelope))  # type: ignore[arg-type]
+
+    assert len(published) == 1
+    topic_published, _, raw_bytes = published[0]
+    assert topic_published == terminal_topic
+    parsed = json.loads(raw_bytes.decode("utf-8"))
+    assert parsed["event_type"] == terminal_topic
+    assert parsed["correlation_id"] == str(test_correlation_id)
+
+
+@pytest.mark.unit
+def test_projection_callback_does_not_emit_terminal_event_on_handler_error() -> None:
+    """When the handler raises, no terminal event is emitted.
+
+    OMN-14492 made a handler error reach the platform quarantine sink instead of
+    dying quietly, and this test asserted exactly one quarantine publish.
+
+    OMN-17379 supersedes that answer for a WRITE-PATH failure (``RuntimeError:
+    db failure`` is one). Quarantining a well-formed event and returning is an
+    ACK, and the record then exists only in a sink holding 8.9M messages that
+    nothing consumes, while the projection it was owed silently stays stale —
+    live-proven on ``pr_merged_events``, 24 days behind at TOTAL-LAG 0. The
+    record's home is its own topic, uncommitted, so the callback raises and the
+    offset is withheld. The DLQ leg is preserved for CONTENT failures, which
+    redelivery can never repair (see
+    ``test_projection_callback_routes_validation_error_to_dlq``).
+    """
+    published: list[tuple] = []
+
+    class FailingHandler:
+        def handle(self, input_data: dict) -> dict:
+            raise RuntimeError("db failure")
+
+    class FakeEventBus:
+        async def publish(self, topic: str, key: object, value: bytes) -> None:
+            published.append((topic, key, value))
+
+    db_tables = projection_database_target("delegation_events")
+    handler = FailingHandler()
+    fake_bus = FakeEventBus()
+    terminal_topic = "onex.evt.omnimarket.projection-delegation-applied.v1"
+    callback = _make_projection_dispatch_callback(
+        handler,
+        db_tables,
+        (),
+        sinks=ProjectionDispatchSinks(
+            event_bus=fake_bus,
+            terminal_event=terminal_topic,
+        ),
+    )
+
+    envelope = MagicMock()
+    envelope.topic = "onex.evt.omniclaude.task-delegated.v1"
+    envelope.payload = {}
+    envelope.correlation_id = "test-corr-id"
+    fake_adapter = MagicMock()
+
+    with patch(
+        _PATCH_ENVIRON_GET,
+        return_value="postgresql://user:pass@host:5432/omnidash_analytics",
+    ):
+        with patch(_PATCH_BUILD_ADAPTER, return_value=fake_adapter):
+            with pytest.raises(ProjectionNotMaterializedError):
+                asyncio.run(callback(envelope))
+
+    # No terminal (success) event — the handler errored and wrote nothing.
+    assert not any(topic == terminal_topic for topic, _key, _value in published)
+    # And no dead-letter copy either: the offset is what preserves this record.
+    assert published == []
+
+
+@pytest.mark.unit
+def test_projection_callback_no_terminal_event_when_bus_is_none() -> None:
+    """When event_bus is None, no terminal event is emitted (no error)."""
+
+    class FakeHandler:
+        def handle(self, input_data: dict) -> dict:
+            return {"rows_upserted": 1}
+
+    db_tables = projection_database_target("delegation_events")
+    handler = FakeHandler()
+    callback = _make_projection_dispatch_callback(
+        handler,
+        db_tables,
+        (),
+        sinks=ProjectionDispatchSinks(
+            event_bus=None,
+            terminal_event="onex.evt.omnimarket.projection-delegation-applied.v1",
+        ),
+    )
+
+    envelope = MagicMock()
+    envelope.topic = "onex.evt.omniclaude.task-delegated.v1"
+    envelope.payload = {}
+    envelope.correlation_id = "test-corr-id"
+    fake_adapter = MagicMock()
+
+    with patch(
+        _PATCH_ENVIRON_GET,
+        return_value="postgresql://user:pass@host:5432/omnidash_analytics",
+    ):
+        with patch(_PATCH_BUILD_ADAPTER, return_value=fake_adapter):
+            result = asyncio.run(callback(envelope))
+
+    assert result is None
+
+
+@pytest.mark.unit
+def test_projection_callback_terminal_event_publish_failure_does_not_propagate(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """If terminal event publish fails, error is logged but not raised."""
+    import uuid
+
+    class FakeHandler:
+        def handle(self, input_data: dict) -> dict:
+            return {"rows_upserted": 1}
+
+    class BrokenEventBus:
+        async def publish(self, topic: str, key: object, value: bytes) -> None:
+            raise OSError("kafka unavailable")
+
+    db_tables = projection_database_target("delegation_events")
+    handler = FakeHandler()
+    callback = _make_projection_dispatch_callback(
+        handler,
+        db_tables,
+        (),
+        sinks=ProjectionDispatchSinks(
+            event_bus=BrokenEventBus(),
+            terminal_event="onex.evt.omnimarket.projection-delegation-applied.v1",
+        ),
+    )
+
+    envelope = MagicMock()
+    envelope.topic = "onex.evt.omniclaude.task-delegated.v1"
+    envelope.payload = {}
+    envelope.correlation_id = uuid.uuid4()
+    fake_adapter = MagicMock()
+
+    with caplog.at_level(
+        logging.ERROR, logger="omnibase_infra.runtime.auto_wiring.handler_wiring"
+    ):
+        with patch(
+            _PATCH_ENVIRON_GET,
+            return_value="postgresql://user:pass@host:5432/omnidash_analytics",
+        ):
+            with patch(_PATCH_BUILD_ADAPTER, return_value=fake_adapter):
+                result = asyncio.run(callback(envelope))
+
+    assert result is None
+    assert any("projection terminal event" in r.message.lower() for r in caplog.records)
+
+
+# ---------------------------------------------------------------------------
+# Tests: _DB_URL_ENV_MAP parity with the Per-Service Database URL Contract
+# (knowledge-base:reference/omnibase-infra-per-service-database-url-contract.md). OMN-13158 / F3.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_db_url_env_map_matches_per_service_db_url_contract() -> None:
+    """_DB_URL_ENV_MAP must mirror knowledge-base:reference/omnibase-infra-per-service-database-url-contract.md table.
+
+    The canonical contract lists six per-service databases, each owning its own
+    database, dedicated role, and single ``*_DB_URL`` env var. A stale subset
+    here makes auto-wiring reject contracts that name a real per-service DB.
+    """
+    assert _DB_URL_ENV_MAP == {
+        "omnibase_infra": "OMNIBASE_INFRA_DB_URL",
+        "omniintelligence": "OMNIINTELLIGENCE_DB_URL",
+        "omniclaude": "OMNICLAUDE_DB_URL",
+        "omnimemory": "OMNIMEMORY_DB_URL",
+        "omninode_cloud": "OMNINODE_CLOUD_DB_URL",
+        "omnidash_analytics": "OMNIDASH_ANALYTICS_DB_URL",
+    }
+
+
+@pytest.mark.unit
+def test_a_db_url_map_entry_alone_does_not_authorise_a_relation() -> None:
+    """A legacy DB URL map entry cannot substitute for typed topology.
+
+    This assertion originally used ``omniintelligence`` as its example because
+    that database had a map entry and no topology declaration. OMN-15655 AC-2
+    declared it, so the example moves to ``omnimemory`` — still in the map,
+    still undeclared — which keeps the property under test alive instead of
+    deleting it along with the blocker it happened to be pinning.
+    """
+    assert _DB_URL_ENV_MAP["omnimemory"] == "OMNIMEMORY_DB_URL"
+
+    table = ModelDbTableDeclaration(
+        name="memory_documents",
+        database_ref="omnimemory",
+        schema="public",
+        migration="proof/memory_documents.sql",
+        role="memory_documents",
+    )
+    with pytest.raises(ValueError, match="Unknown database_ref"):
+        _resolve_projection_database_target(
+            (table,),
+            application_topology(),
+        )
+
+
+@pytest.mark.unit
+def test_omniintelligence_now_resolves_through_the_typed_topology() -> None:
+    """The closed half of the same blocker: the declaration is what authorises it.
+
+    ``node_dispatch_outcome_bridge_effect`` runs on the ``effects`` profile
+    under ``ONEX_WIRING_STRICT_MODE``, so this resolution is the difference
+    between a booting pod and a crash loop.
+    """
+    table = ModelDbTableDeclaration(
+        name="dispatch_eval_results",
+        database_ref="omniintelligence",
+        schema="public",
+        migration="proof/dispatch_eval_results.sql",
+        access="write",
+        role="dispatch_eval_results",
+    )
+    target = _resolve_projection_database_target((table,), application_topology())
+    assert target.physical_database == "omniintelligence"
+    assert target.dsn_envs == ("OMNIINTELLIGENCE_DB_URL",)
+
+
+# ---------------------------------------------------------------------------
+# Tests: _read_dlq_topics (OMN-13548 / D-03)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_read_dlq_topics_returns_declared(tmp_path: Path) -> None:
+    contract = tmp_path / "contract.yaml"
+    contract.write_text(
+        "name: test\n"
+        "event_bus:\n"
+        "  dlq_topics:\n"
+        "    - onex.dlq.omnimarket.projection-delegation-malformed.v1\n"
+    )
+    assert _read_dlq_topics(contract) == [
+        "onex.dlq.omnimarket.projection-delegation-malformed.v1"
+    ]
+
+
+@pytest.mark.unit
+def test_read_dlq_topics_empty_when_absent(tmp_path: Path) -> None:
+    contract = tmp_path / "contract.yaml"
+    contract.write_text("name: test\nevent_bus:\n  subscribe_topics: []\n")
+    assert _read_dlq_topics(contract) == []
+
+
+@pytest.mark.unit
+def test_read_dlq_topics_empty_on_missing_file() -> None:
+    assert _read_dlq_topics(Path("/nonexistent/contract.yaml")) == []
+
+
+# ---------------------------------------------------------------------------
+# Tests: projection-handler-error -> DLQ on the REAL dispatch path
+# (OMN-13548 / D-03). These exercise the wiring's projection dispatch callback
+# directly — NOT a direct handler call — so a malformed envelope whose
+# ValidationError escapes the handler must produce a DLQ publish.
+# ---------------------------------------------------------------------------
+
+_DLQ_TOPIC = "onex.dlq.omnimarket.projection-delegation-malformed.v1"
+
+
+class _CapturingEventBus:
+    """Minimal event bus capturing publish(topic, key, value) calls.
+
+    OMN-17862: ``publish`` returns a ``ModelPublishReceipt``, as BOTH shipped
+    buses do (``EventBusKafka.publish`` and ``EventBusInmemory.publish`` are
+    annotated ``-> ModelPublishReceipt``). It previously returned ``None``,
+    which no real bus does. That mattered once the DLQ path stopped discarding
+    the receipt: the quarantine publication is now CONFIRMED before the offset
+    is allowed to advance, and a transport reporting no coordinate fails closed.
+    Teaching the double to report a coordinate fixes the DOUBLE; a double that
+    under-implements the real contract is how a test passes on a shape the real
+    stores reject (the OMN-15598 upsert-parity lesson, same class).
+    """
+
+    def __init__(self) -> None:
+        self.published: list[tuple[str, object, bytes]] = []
+
+    async def publish(
+        self, topic: str, key: object, value: bytes
+    ) -> ModelPublishReceipt:
+        self.published.append((topic, key, value))
+        return ModelPublishReceipt(
+            topic=topic,
+            partition=0,
+            offset=len(self.published) - 1,
+            cluster="test-cluster",
+            produced_at=datetime.now(UTC),
+            transport=EnumInfraTransportType.INMEMORY,
+        )
+
+
+def _raising_validation_handler() -> object:
+    """A projection handler whose handle() raises ValidationError, mirroring the
+    real path where the inbound delegation event is missing task_type."""
+    from pydantic import BaseModel, ValidationError
+
+    class _RequiresTaskType(BaseModel):
+        task_type: str
+
+    class _ValidatingHandler:
+        def handle(self, input_data: dict) -> dict:
+            # Validate against a model requiring task_type — a malformed event
+            # (no task_type) raises ValidationError that escapes handle(), which
+            # is exactly the live failure proven in OMN-13548.
+            try:
+                _RequiresTaskType.model_validate(
+                    {k: v for k, v in input_data.items() if not k.startswith("_")}
+                )
+            except ValidationError:
+                raise
+            return {"rows_upserted": 1}
+
+    return _ValidatingHandler()
+
+
+@pytest.mark.unit
+def test_projection_callback_routes_validation_error_to_dlq() -> None:
+    """A malformed envelope through the dispatch callback publishes to the DLQ.
+
+    This is the de-fake of the prior boundary-faked unit tests: the handler
+    error is raised on the wiring's dispatch path and the wiring (not the
+    handler) routes the offending envelope to the contract-declared DLQ topic.
+    """
+    import json
+
+    bus = _CapturingEventBus()
+    callback = _make_projection_dispatch_callback(
+        _raising_validation_handler(),
+        projection_database_target("delegation_events"),
+        ("onex.evt.omniclaude.task-delegated.v1",),
+        sinks=ProjectionDispatchSinks(event_bus=bus, dlq_topics=(_DLQ_TOPIC,)),
+    )
+
+    envelope = MagicMock()
+    envelope.topic = "onex.evt.omniclaude.task-delegated.v1"
+    # Malformed: missing required task_type.
+    envelope.payload = {"correlation_id": "corr-malformed-1", "delegated_to": "glm"}
+
+    with patch(
+        _PATCH_ENVIRON_GET,
+        return_value="postgresql://user:pass@host:5432/omnidash_analytics",
+    ):
+        with patch(_PATCH_BUILD_ADAPTER, return_value=MagicMock()):
+            asyncio.run(callback(envelope))
+
+    assert len(bus.published) == 1, (
+        "malformed event must produce exactly one DLQ publish"
+    )
+    topic, _key, value = bus.published[0]
+    assert topic == _DLQ_TOPIC
+    dlq = json.loads(value.decode("utf-8"))
+    assert dlq["correlation_id"] == "corr-malformed-1"
+    assert dlq["handler"] == "_ValidatingHandler"
+    assert "ValidationError" in dlq["failure_reason"]
+    assert dlq["original_message"]["delegated_to"] == "glm"
+    assert dlq["failure_class"] == "consumer_error"
+    assert dlq["quarantine_fallback"] is False
+
+
+@pytest.mark.unit
+def test_projection_callback_no_dlq_publish_on_success() -> None:
+    """A well-formed event projects normally and never touches the DLQ."""
+    bus = _CapturingEventBus()
+    callback = _make_projection_dispatch_callback(
+        _raising_validation_handler(),
+        projection_database_target("delegation_events"),
+        ("onex.evt.omniclaude.task-delegated.v1",),
+        sinks=ProjectionDispatchSinks(event_bus=bus, dlq_topics=(_DLQ_TOPIC,)),
+    )
+
+    envelope = MagicMock()
+    envelope.topic = "onex.evt.omniclaude.task-delegated.v1"
+    envelope.payload = {"correlation_id": "corr-ok-1", "task_type": "release-proof"}
+
+    with patch(
+        _PATCH_ENVIRON_GET,
+        return_value="postgresql://user:pass@host:5432/omnidash_analytics",
+    ):
+        with patch(_PATCH_BUILD_ADAPTER, return_value=MagicMock()):
+            asyncio.run(callback(envelope))
+
+    assert bus.published == []
+
+
+@pytest.mark.unit
+def test_projection_callback_routes_to_quarantine_when_no_dlq_topic_declared(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """OMN-14492 (OMN-14487-class silent drop): with no contract DLQ topic
+    declared, the event is no longer silently dropped — it is durably routed
+    to the platform quarantine sink, loudly logged, and carries a structured
+    ``failure_class``. Before this fix, ``bus.published`` stayed empty and
+    only a container ERROR log line existed (the exact quiet-death class that
+    hid OMN-14487 for a full arc)."""
+    import json
+
+    from omnibase_infra.event_bus.topic_constants import build_dlq_topic
+
+    bus = _CapturingEventBus()
+    callback = _make_projection_dispatch_callback(
+        _raising_validation_handler(),
+        projection_database_target("delegation_events"),
+        ("onex.evt.omniclaude.task-delegated.v1",),
+        sinks=ProjectionDispatchSinks(event_bus=bus, dlq_topics=()),
+    )
+
+    envelope = MagicMock()
+    envelope.topic = "onex.evt.omniclaude.task-delegated.v1"
+    envelope.payload = {"correlation_id": "corr-nodlq-1"}
+
+    with caplog.at_level(logging.ERROR):
+        with patch(
+            _PATCH_ENVIRON_GET,
+            return_value="postgresql://user:pass@host:5432/omnidash_analytics",
+        ):
+            with patch(_PATCH_BUILD_ADAPTER, return_value=MagicMock()):
+                asyncio.run(callback(envelope))
+
+    assert any("NO DLQ topic declared" in r.message for r in caplog.records)
+
+    # The event must reach a durable topic — never dropped silently.
+    assert len(bus.published) == 1, (
+        "a malformed event with no contract DLQ topic must still reach the "
+        "platform quarantine sink, not be dropped"
+    )
+    topic, _key, value = bus.published[0]
+    assert topic == build_dlq_topic("quarantine")
+    dlq = json.loads(value.decode("utf-8"))
+    assert dlq["correlation_id"] == "corr-nodlq-1"
+    assert dlq["failure_class"] == "consumer_error"
+    assert dlq["quarantine_fallback"] is True
+
+
+@pytest.mark.unit
+def test_projection_callback_preserves_envelope_timestamp() -> None:
+    """Projection handlers receive the producer-recorded envelope event time.
+
+    OMN-18326 / OMN-15583. A projection whose table carries a NOT NULL
+    event-time column has exactly one authoritative source for it: the time the
+    PRODUCER stamped on the envelope. For a payload model that carries no time
+    field of its own -- ``ModelQualityGateResult`` is one, ``extra="forbid"``
+    with no ``timestamp``/``evaluated_at``/``completed_at`` -- it is the ONLY
+    one, and a handler that cannot see it has to choose between inventing a
+    write clock (which then reads forever after as the moment the event
+    happened) and refusing every event.
+
+    It refused every event. ``omnimarket.projection.envelope
+    .envelope_event_timestamp`` reads the time off a ``_envelope`` key that only
+    the STANDALONE runner seam (``unwrap_envelope``) attaches; this kernel seam
+    injected ``_db``/``_event_type``/``_topic``/``_envelope_id`` and never the
+    envelope, so the reader returned ``None`` on every event and the
+    ``delegation_events`` write raised. Measured on BOTH planes: 146 refusals in
+    the last 3000 log lines of the onex-dev staging delegation writer, and a
+    continuous refusal loop on the onex-lab lane.
+
+    The envelope time is injected from the SAME typed envelope ``_envelope_id``
+    is taken from, for the same reason: it is transport identity the payload
+    materialization cannot carry. It is injected as the ``datetime`` the model
+    holds rather than an ISO string, so no reader has to re-parse a value the
+    kernel already has typed.
+    """
+    from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
+
+    received: list[dict[str, object]] = []
+
+    class EnvelopeAwareHandler:
+        def handle(self, input_data: dict[str, object]) -> dict[str, int]:
+            received.append(dict(input_data))
+            return {"rows_upserted": 1}
+
+    topic = "onex.evt.platform.node-heartbeat.v1"
+    envelope_timestamp = datetime(2026, 9, 13, 17, 44, 8, tzinfo=UTC)
+    envelope = ModelEventEnvelope[object](
+        payload={"service_name": "svc-a", "health_status": "healthy"},
+        envelope_id=uuid4(),
+        envelope_timestamp=envelope_timestamp,
+        event_type=derive_event_type_alias_for_topic(topic),
+    )
+    callback = _make_projection_dispatch_callback(
+        EnvelopeAwareHandler(),
+        projection_database_target("live_events", schema="omninode_internal"),
+        (topic,),
+    )
+
+    with patch(
+        _PATCH_ENVIRON_GET,
+        return_value="postgresql://user:pass@host:5432/omnidash_analytics",
+    ):
+        with patch(_PATCH_BUILD_ADAPTER, return_value=MagicMock()):
+            asyncio.run(callback(envelope))
+
+    assert len(received) == 1
+    assert isinstance(received[0]["_envelope_timestamp"], datetime)
+    assert received[0]["_envelope_timestamp"] == envelope_timestamp
+
+
+@pytest.mark.unit
+def test_projection_callback_omits_envelope_timestamp_when_absent() -> None:
+    """An envelope with no recorded time injects no key -- never a wall clock.
+
+    OMN-18326. The refusal this fix removes is correct behaviour when the
+    producer really recorded no time; what was wrong was that the kernel made
+    every event look that way. So the key is ABSENT rather than defaulted: a
+    reader that finds nothing still refuses, and the runtime never becomes the
+    thing that stamps an event-time column with its own clock.
+    """
+    received: list[dict[str, object]] = []
+
+    class EnvelopeAwareHandler:
+        def handle(self, input_data: dict[str, object]) -> dict[str, int]:
+            received.append(dict(input_data))
+            return {"rows_upserted": 1}
+
+    topic = "onex.evt.platform.node-heartbeat.v1"
+    envelope = MagicMock()
+    envelope.event_type = derive_event_type_alias_for_topic(topic)
+    envelope.topic = topic
+    envelope.payload = {"service_name": "svc-a", "health_status": "healthy"}
+    envelope.envelope_id = uuid4()
+    envelope.envelope_timestamp = None
+    callback = _make_projection_dispatch_callback(
+        EnvelopeAwareHandler(),
+        projection_database_target("live_events", schema="omninode_internal"),
+        (topic,),
+    )
+
+    with patch(
+        _PATCH_ENVIRON_GET,
+        return_value="postgresql://user:pass@host:5432/omnidash_analytics",
+    ):
+        with patch(_PATCH_BUILD_ADAPTER, return_value=MagicMock()):
+            asyncio.run(callback(envelope))
+
+    assert len(received) == 1
+    assert "_envelope_timestamp" not in received[0]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "recorded",
+    [
+        pytest.param(datetime(2026, 9, 13, 17, 44, 8), id="naive-datetime"),
+        pytest.param("2026-09-13T17:44:08Z", id="iso-string"),
+        pytest.param(1789000000, id="epoch-int"),
+        pytest.param({"envelope_timestamp": "2026-09-13T17:44:08Z"}, id="mapping"),
+    ],
+)
+def test_projection_callback_injects_no_event_time_it_cannot_trust(
+    recorded: object,
+) -> None:
+    """A present-but-unusable recorded time injects NO key, and never a guess.
+
+    OMN-18326, hostile-reviewer MAJOR findings 2 and 3. Two distinct ways a
+    value can be present and still not be an authoritative event time, and both
+    have to reach the reader as ABSENT rather than as something:
+
+    * a TIMEZONE-NAIVE datetime. A producer that stamps a local wall clock with
+      no ``tzinfo`` carries no instant at all -- only a reading on some clock
+      whose offset this process cannot know. Injecting it would put exactly the
+      write-clock ambiguity the OMN-15583 refusal exists to prevent into a NOT
+      NULL event-time column, and stamping it UTC to make it "valid" would be
+      this seam inventing the fact it is supposed to be transporting.
+    * a value of the wrong TYPE entirely -- an ISO string, an epoch int, a
+      mapping. Plausible producer serializations, none of which this extractor
+      may silently coerce: the key it injects is contracted to be the typed
+      ``datetime`` the runtime already holds, and a consumer that re-parses is
+      the drift this seam removes.
+
+    Absent is the correct outcome in every one of those cases, because the
+    reader's refusal is CORRECT for an event whose time is not knowable. What
+    OMN-18326 fixed was the seam making every event look that way; it must not
+    become the seam making an untrustworthy one look fine.
+    """
+    received: list[dict[str, object]] = []
+
+    class EnvelopeAwareHandler:
+        def handle(self, input_data: dict[str, object]) -> dict[str, int]:
+            received.append(dict(input_data))
+            return {"rows_upserted": 1}
+
+    topic = "onex.evt.platform.node-heartbeat.v1"
+    envelope = MagicMock()
+    envelope.event_type = derive_event_type_alias_for_topic(topic)
+    envelope.topic = topic
+    envelope.payload = {"service_name": "svc-a", "health_status": "healthy"}
+    envelope.envelope_id = uuid4()
+    envelope.envelope_timestamp = recorded
+    callback = _make_projection_dispatch_callback(
+        EnvelopeAwareHandler(),
+        projection_database_target("live_events", schema="omninode_internal"),
+        (topic,),
+    )
+
+    with patch(
+        _PATCH_ENVIRON_GET,
+        return_value="postgresql://user:pass@host:5432/omnidash_analytics",
+    ):
+        with patch(_PATCH_BUILD_ADAPTER, return_value=MagicMock()):
+            asyncio.run(callback(envelope))
+
+    assert len(received) == 1
+    assert "_envelope_timestamp" not in received[0]
+
+
+@pytest.mark.unit
+def test_projection_callback_preserves_envelope_tenant() -> None:
+    """Projection handlers receive the producer-recorded envelope tenant.
+
+    OMN-18565, closing the half of OMN-18326 that was left open. That ticket
+    found this seam injecting the envelope ID and the event TIME but never the
+    envelope itself, and fixed the time. The TENANT sits one field over on the
+    same envelope and has the same property: for a payload model that carries no
+    tenant field of its own it is the ONLY attribution a projection writer can
+    see, and a writer under FORCE ROW LEVEL SECURITY cannot recover it by
+    reading, because an unset ``app.tenant_id`` makes the policy predicate NULL
+    and an RLS-covered SELECT returns zero rows.
+
+    The gap did not surface as a refusal, which is why it outlived the time
+    half. ``omnimarket.projection.envelope.envelope_tenant_identity`` returned
+    ``None`` for every event on the deployed delegation writer, whatever the
+    producer stamped, and the writer attributed the quality-gate verdict to the
+    HOUSE tenant instead. Two independent subscriptions upsert one
+    ``delegation_events`` row, so when the verdict won the race it CREATED that
+    row under an identity the delegation's own terminal disagreed with, and the
+    terminal's ON CONFLICT DO UPDATE was refused by the policy's USING half.
+    Roughly three of sixteen staging business-proof runs passed in the 24 hours
+    measured on 2026-09-17.
+    """
+    from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
+
+    received: list[dict[str, object]] = []
+
+    class EnvelopeAwareHandler:
+        def handle(self, input_data: dict[str, object]) -> dict[str, int]:
+            received.append(dict(input_data))
+            return {"rows_upserted": 1}
+
+    topic = "onex.evt.platform.node-heartbeat.v1"
+    envelope = ModelEventEnvelope[object](
+        payload={"service_name": "svc-a", "health_status": "healthy"},
+        envelope_id=uuid4(),
+        envelope_timestamp=datetime(2026, 9, 17, 6, 57, 48, tzinfo=UTC),
+        event_type=derive_event_type_alias_for_topic(topic),
+        tenant_id="beta-business-proof",
+    )
+    callback = _make_projection_dispatch_callback(
+        EnvelopeAwareHandler(),
+        projection_database_target("live_events", schema="omninode_internal"),
+        (topic,),
+    )
+
+    with patch(
+        _PATCH_ENVIRON_GET,
+        return_value="postgresql://user:pw@host:5432/omnidash_analytics",
+    ):
+        with patch(_PATCH_BUILD_ADAPTER, return_value=MagicMock()):
+            asyncio.run(callback(envelope))
+
+    assert len(received) == 1
+    assert received[0]["_tenant_id"] == "beta-business-proof"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "recorded",
+    [
+        pytest.param(None, id="unstamped"),
+        pytest.param("", id="empty-string"),
+        pytest.param("   ", id="blank-string"),
+        pytest.param(uuid4(), id="non-string"),
+    ],
+)
+def test_projection_callback_injects_no_tenant_it_was_not_given(
+    recorded: object,
+) -> None:
+    """An envelope recording no usable tenant injects NO key -- never a default.
+
+    OMN-18565. The refusal a missing key produces downstream is CORRECT when the
+    producer really recorded no tenant; what was wrong was that the kernel made
+    every event look that way, and the writer filled the gap with the house
+    tenant. So the key is absent rather than defaulted, and a value that is not
+    a non-blank string is treated as absent rather than coerced: this seam
+    transports a producer fact and must never author one. Injecting a chosen
+    identity here would put a row into a partition that never submitted it, and
+    under FORCE ROW LEVEL SECURITY that row makes the real writer's
+    conflict-update unwritable.
+    """
+    received: list[dict[str, object]] = []
+
+    class EnvelopeAwareHandler:
+        def handle(self, input_data: dict[str, object]) -> dict[str, int]:
+            received.append(dict(input_data))
+            return {"rows_upserted": 1}
+
+    topic = "onex.evt.platform.node-heartbeat.v1"
+    envelope = MagicMock()
+    envelope.event_type = derive_event_type_alias_for_topic(topic)
+    envelope.topic = topic
+    envelope.payload = {"service_name": "svc-a", "health_status": "healthy"}
+    envelope.envelope_id = uuid4()
+    envelope.envelope_timestamp = datetime(2026, 9, 17, 6, 57, 48, tzinfo=UTC)
+    envelope.tenant_id = recorded
+    callback = _make_projection_dispatch_callback(
+        EnvelopeAwareHandler(),
+        projection_database_target("live_events", schema="omninode_internal"),
+        (topic,),
+    )
+
+    with patch(
+        _PATCH_ENVIRON_GET,
+        return_value="postgresql://user:pw@host:5432/omnidash_analytics",
+    ):
+        with patch(_PATCH_BUILD_ADAPTER, return_value=MagicMock()):
+            asyncio.run(callback(envelope))
+
+    assert len(received) == 1
+    assert "_tenant_id" not in received[0]

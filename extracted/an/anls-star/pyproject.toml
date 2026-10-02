@@ -1,0 +1,51 @@
+[project]
+name = "anls_star"
+version = "1.0.1"
+authors = [
+  { name="Otera", email="hello@otera.ai" },
+]
+description = "A universal metric for Generative Large Language Models (GLLMs)"
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "munkres>=1.1.0",
+]
+
+[dependency-groups]
+dev = [
+    {include-group = "test"},
+]
+
+test = [
+    "hypothesis>=6.141.1",
+    "mypy>=1.19.0",
+    "pytest>=8.4.2",
+]
+
+[project.urls]
+changelog = "https://github.com/deepopinion/anls_star_metric/blob/main/CHANGELOG.md"
+issues = "https://github.com/deepopinion/anls_star_metric/issues"
+source = "https://github.com/deepopinion/anls_star_metric"
+releasenotes = "https://github.com/deepopinion/anls_star_metric/releases"
+paper = "https://arxiv.org/abs/2402.03848"
+
+[build-system]
+requires = ["uv_build>=0.9.5,<0.10.0"]
+build-backend = "uv_build"
+
+[[tool.mypy.overrides]]
+module = "munkres.*"
+ignore_missing_imports = true  # TODO: As of 1.1.4 this project is not typed
+
+[tool.ruff]
+line-length = 120

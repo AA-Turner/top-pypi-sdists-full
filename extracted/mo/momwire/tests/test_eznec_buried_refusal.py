@@ -1,0 +1,394 @@
+"""Below-plane wires at the seam: what LANDED, and what each of the three
+remaining refusals now names.
+
+momwire#525 gave these decks a refusal grammar instead of an ``INTERNAL
+ERROR`` frame; momwire#553 lands the CAPABILITY behind most of that grammar.
+A wire strictly below a ``GN 0`` / ``GN 2`` interface is now served — the
+solver labels it with the lower medium and fills its pairs through the two
+buried Sommerfeld families — so the old single sentence ("buried wires are
+not served") is gone and what replaced it is four narrower ones, each naming
+a DIFFERENT missing thing:
+
+* a wire with points STRICTLY on both sides of the interface — the split
+  spelling (a below wire ending in the plane, an above wire starting there)
+  is SERVED since momwire#667, and one GW spanning the plane refuses with
+  a sentence that says to write it as two;
+* a buried wire over ``GN 1`` or a bare ``GD`` — neither card has a lower
+  medium at all, and the sentence says which;
+* a buried wire on a deck that ALSO stands a wire end in the plane — the
+  combination momwire#553 U5 measured itself out of, with both phase-0
+  anchors quoted as the gates phase 2 has to meet;
+* the one OUTPUT a buried deck cannot answer: its NEAR field (momwire#524
+  phase 3). Impedance, currents, charges and the radiation PATTERN serve —
+  that is the serve matrix, and this last refusal is all that is left of its
+  other half.
+
+The pattern moved sides with momwire#570, which gave the shared far-zone
+readout the transmitted Fresnel factors a below-interface element radiates
+through. Both halves of that move are gated below: the refusal is gone, and
+the table it was standing in front of is there.
+
+Free space stays exempt on all of them: z < 0 is legal geometry with no
+interface under it.
+"""
+
+import pytest
+
+from momwire.deck._nec5 import parse_nec5
+from momwire.eznec._serve import refusal
+from momwire.eznec._shell import render
+
+# The anchors, their envelope and the printed-Z reader all live somewhere
+# else already; two copies of an anchor print would be two numbers to keep
+# equal, which is the defect momwire#567 found in the first place.
+from test_buried_serve_553 import (
+    ANCHOR_ENVELOPE_OHM,
+    ANCHOR_FOUR_RADIAL,
+    ANCHOR_LONE_RADIAL,
+)
+from test_eznec_drive_spelling import input_impedance
+
+GN0 = "GN 0,0,0,0,13.,.005"
+
+
+def deck(radial_z, ge, ground, extra="", requests="PQ 0\nXQ 0\n", mono_bottom="0."):
+    return (
+        "CM buried probe\n"
+        "CE\n"
+        f"GW 1,15,0.,0.,10.,0.,0.,{mono_bottom},.001\n"
+        f"GW 2,10,0.,0.,{radial_z},5.,0.,{radial_z},.001\n"
+        f"{extra}"
+        f"GE {ge}\n"
+        "FR 0,1,0,0,7.\n"
+        f"{ground}\n"
+        "EX 4,1,7,0,1.,0.\n"
+        f"{requests}"
+        "EN\n"
+    )
+
+
+def reason(text):
+    out = render(text)
+    assert " ***** NEC ERROR - " in out
+    return out.split(" ***** NEC ERROR - ")[1]
+
+
+def why(text):
+    """The seam's own refusal string, without paying for a solve."""
+    return refusal(parse_nec5(text))
+
+
+# ----------------------------------------------------------------------
+# what LANDED
+# ----------------------------------------------------------------------
+
+
+def test_a_buried_wire_under_gn0_is_no_longer_refused_for_being_buried():
+    """The rung landed: an ELEVATED feed over a buried counterpoise carries
+    no refusal at all. (The solve itself is gated in
+    ``tests/test_buried_serve_553.py``; what is pinned here is that the seam
+    stopped saying no.)"""
+    text = deck(-0.15, "1,-1", GN0, mono_bottom="1.")
+    assert why(text) is None
+
+
+@pytest.mark.integration
+def test_the_old_sentence_is_gone():
+    text = deck(-0.15, "1,-1", GN0, mono_bottom="1.")
+    out = render(text)
+    assert "buried wires are not served" not in out
+
+
+# ----------------------------------------------------------------------
+# the crossing wire
+# ----------------------------------------------------------------------
+
+
+def _crossing_probe(
+    below_gw: str, above_gw: str, feed: str = "EX 4,2,7,0,1.,0."
+) -> str:
+    return (
+        "CM crossing probe\n"
+        "CE\n"
+        f"{below_gw}\n"
+        f"{above_gw}\n"
+        "GE 1,-1\n"
+        "FR 0,1,0,0,7.\n"
+        f"{GN0}\n"
+        f"{feed}\n"
+        "PQ 0\nXQ 0\nEN\n"
+    )
+
+
+def test_the_split_spelling_is_served(record_property):
+    """momwire#667: a buried GW ENDING in the plane, sharing that node with
+    a GW that rises from it, is the crossing junction the native API serves
+    since momwire#524 phase 2 — and this seam now serves it too, instead of
+    reading the end in the plane as "touching both sides"."""
+    text = _crossing_probe(
+        "GW 1,4,0.,0.,-2.,0.,0.,0.,.001", "GW 2,15,0.,0.,0.,0.,0.,10.,.001"
+    )
+    assert why(text) is None
+    out = render(text)
+    assert "NEC ERROR" not in out
+    z = input_impedance(out)
+    record_property("z_split_spelling", f"{z:.4f}")
+    assert z.real > 0.0 and abs(z) < 1e4
+
+
+def test_a_wire_spanning_the_plane_refuses_naming_the_split_spelling():
+    """One GW with points strictly on both sides still refuses on this seam
+    (the NEC-2 portal splits it; this dialect addresses nodes by tag and
+    knot, and a split would move a knot) — and the sentence now says what
+    to write instead of quoting an adjudication that the transposed ground
+    card had produced."""
+    text = _crossing_probe(
+        "GW 1,19,0.,0.,-2.,0.,0.,10.,.001",
+        "GW 2,1,5.,0.,10.,6.,0.,10.,.001",
+        feed="EX 4,1,10,0,1.,0.",
+    )
+    r = why(text)
+    assert r is not None
+    assert "crosses the ground interface mid-span" in r
+    assert "two GW cards meeting at z = 0" in r
+    assert "momwire#667" in r
+    assert "different experiment" not in r
+    assert "74.761" not in r
+    assert "INTERNAL ERROR" not in r
+
+
+# ----------------------------------------------------------------------
+# no lower medium
+# ----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "ground,card,needle",
+    [
+        ("GN 1", "GN 1", "perfect conductor"),
+        ("GD 0,0,0,0,13.,.005", "GD", "PERFECT image"),
+    ],
+)
+def test_a_buried_wire_over_a_ground_with_no_lower_medium_refuses(ground, card, needle):
+    r = why(deck(-0.15, "1,-1", ground, mono_bottom="1."))
+    assert r is not None
+    assert "below the ground plane" in r
+    assert f"under a {card} card" in r
+    assert needle in r
+    assert "GN 0 / GN 2" in r
+
+
+# ----------------------------------------------------------------------
+# the combination momwire#553 U5 measured itself out of
+# ----------------------------------------------------------------------
+
+
+def test_a_contact_wire_plus_a_buried_wire_refuses_and_says_why():
+    """The refusal used to quote both anchor prints. It no longer does
+    (momwire#929): that geometry has no documented ground-card spelling, so
+    the prints are of an undocumented combination and quoting them here
+    presented them as the licensed engine's answer for the class. The refusal
+    keeps its physics reason and its way out."""
+    r = why(deck(-0.15, "1,-1", GN0))
+    assert r is not None
+    assert "stands an END in the ground plane" in r
+    assert "phase 2" in r
+    assert "no documented spelling" in r
+    assert "92.130" not in r and "90.051" not in r
+    assert "elevated feed over a buried counterpoise is served" in r
+
+
+@pytest.mark.integration
+def test_ground_contact_alone_still_serves():
+    contact = (
+        "CM contact control\n"
+        "CE\n"
+        "GW 1,15,0.,0.,10.,0.,0.,0.,.001\n"
+        "GE 1,-1\n"
+        "FR 0,1,0,0,7.\n"
+        f"{GN0}\n"
+        "EX 4,1,7,0,1.,0.\n"
+        "PQ 0\nXQ 0\nEN\n"
+    )
+    assert "NEC ERROR" not in render(contact)
+
+
+# ----------------------------------------------------------------------
+# the serve matrix: impedance / currents / charges / pattern, and the one
+# output still outside it
+# ----------------------------------------------------------------------
+
+
+def test_a_buried_decks_near_field_refuses_naming_phase_three():
+    text = deck(
+        -0.15,
+        "1,-1",
+        GN0,
+        requests="PQ 0\nNE 0,1,1,1,2.,0.,1.,0.,0.,0.\nXQ 0\n",
+        mono_bottom="1.",
+    )
+    r = why(text)
+    assert r is not None
+    assert "buried deck's near field is not served" in r
+    assert "phase 3" in r
+    # The sentence lists what DOES serve, so the reader gets a fork in the
+    # road rather than a dead end — and since momwire#570 the pattern is on
+    # that list.
+    assert (
+        "IMPEDANCE, its CURRENTS, its CHARGES and its RADIATION PATTERN "
+        "are all served" in r
+    )
+
+
+def test_a_buried_decks_far_field_serves():
+    """momwire#570: the far-field refusal is retired, not relaxed.
+
+    Checked at the SEAM's own gate rather than through a render, because a
+    sentence that merely stopped being reached would still be a sentence —
+    ``refusal()`` returning ``None`` is the statement that this deck is in
+    scope for this card.
+    """
+    text = deck(
+        -0.15,
+        "1,-1",
+        GN0,
+        requests="PQ 0\nRP 0,19,1,1000,0.,0.,5.,0.\n",
+        mono_bottom="1.",
+    )
+    assert why(text) is None
+
+
+@pytest.mark.integration
+def test_a_buried_decks_far_field_prints_a_pattern_table(record_property):
+    """And the other half: the table the refusal used to stand in front of.
+
+    The deck is the elevated feed over a buried counterpoise, so most of what
+    the pattern shows is the MONOPOLE — the buried radial is a counterpoise,
+    not the radiator, and its own contribution is a correction rather than
+    the peak. What this gate is for is therefore the table's SHAPE, which is
+    where a bad transmitted factor shows: every row but the horizon carries a
+    real gain, because a sign or root error in ``k_mz`` collapses them all
+    rather than only the grazing one, and an overflowing depth leg would
+    take the peak off any sane scale.
+    """
+    text = deck(
+        -0.15,
+        "1,-1",
+        GN0,
+        requests="PQ 0\nRP 0,19,1,1000,0.,0.,5.,0.\n",
+        mono_bottom="1.",
+    )
+    out = render(text)
+    assert "NEC ERROR" not in out
+    assert "RADIATION PATTERNS" in out
+
+    body = out.split("RADIATION PATTERNS")[1]
+    totals = {}
+    for line in body.splitlines():
+        parts = line.split()
+        if len(parts) >= 5 and parts[0].replace("-", "").replace(".", "").isdigit():
+            totals[float(parts[0])] = float(parts[4])
+    assert totals, "the table printed a header and no rows"
+    served = [db for th, db in totals.items() if th < 90.0 and db > -900.0]
+    assert len(served) >= 15, (
+        f"only {len(served)} of {len(totals)} rows carry a gain — the "
+        "transmitted factors vanish at the horizon, and only there"
+    )
+    peak = max(served)
+    record_property("eznec_buried_peak_total_db", f"{peak:.2f}")
+    assert -40.0 < peak < 0.0
+
+
+def test_an_above_ground_deck_still_gets_its_near_and_far_fields():
+    """The two output refusals key on the DECK having a buried wire, not on
+    the ground card, so an all-above deck over the same ground is untouched."""
+    text = deck(
+        0.5,
+        "1,-1",
+        GN0,
+        requests="PQ 0\nNE 0,1,1,1,2.,0.,1.,0.,0.,0.\nRP 0,19,1,1000,0.,0.,5.,0.\n",
+    )
+    assert why(text) is None
+
+
+# ----------------------------------------------------------------------
+# unchanged
+# ----------------------------------------------------------------------
+
+
+@pytest.mark.integration
+def test_in_plane_wire_refuses_by_name_not_internal_error():
+    r = reason(deck(0.0, "1,-1", GN0))
+    assert "wire 2" in r
+    assert "in the ground plane" in r
+    assert "INTERNAL ERROR" not in r
+
+
+@pytest.mark.integration
+def test_free_space_serves_the_same_wires():
+    out = render(deck(-0.15, "0,-1", "GN -1"))
+    assert "NEC ERROR" not in out
+
+
+@pytest.mark.integration
+def test_a_slight_standoff_above_the_plane_serves():
+    """1 cm above ground is a legal elevated radial, not a refusal."""
+    out = render(deck(0.01, "1,-1", GN0))
+    assert "NEC ERROR" not in out
+
+
+# ----------------------------------------------------------------------
+# the two banked anchors, through the DECK route
+# ----------------------------------------------------------------------
+#
+# `test_buried_serve_553`'s G-U5-12 gates the same two decks at the solver
+# API. This is the route a user actually takes, and it can drift from the
+# solver's on its own — a wrong feed segment or a mis-mapped GN card would
+# leave the solver gate green. The constants are imported rather than
+# restated so there is one place to move them.
+
+
+def fan_deck_text():
+    """The four-radial anchor as cards. The radials share (0, 0, -.15), so
+    the deck route joins them itself and no junction is declared here."""
+    radials = "".join(
+        f"GW {i + 2},10,0.,0.,-.15,{5.0 * dx:g},{5.0 * dy:g},-.15,.001\n"
+        for i, (dx, dy) in enumerate(((1, 0), (0, 1), (-1, 0), (0, -1)))
+    )
+    return (
+        "CM four-radial anchor\n"
+        "CE\n"
+        "GW 1,15,0.,0.,10.,0.,0.,0.,.001\n"
+        f"{radials}"
+        "GE 1,-1\n"
+        "FR 0,1,0,0,7.\n"
+        f"{GN0}\n"
+        "EX 4,1,7,0,1.,0.\n"
+        "PQ 0\nXQ 0\nEN\n"
+    )
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "text,anchor",
+    [
+        (lambda: deck(-0.15, "1,-1", GN0), ANCHOR_LONE_RADIAL),
+        (fan_deck_text, ANCHOR_FOUR_RADIAL),
+    ],
+    ids=["lone-radial", "four-radial"],
+)
+def test_the_anchor_deck_answers_what_the_engine_printed(text, anchor):
+    """Self-arming, the same shape G-U5-12 has: today the deck route prints
+    a ``NEC ERROR`` and there is no impedance row to read, so the gate
+    checks the refusal is still the contact+buried one and xfails. The day
+    the refusal lifts, ``ANTENNA INPUT PARAMETERS`` appears and the gate
+    scores it — with no edit here."""
+    out = render(text())
+    z = input_impedance(out)
+    if z is None:
+        assert "stands an END in the ground plane" in out
+        pytest.xfail("the deck route refuses this anchor today — momwire#567")
+    assert abs(z - anchor) <= ANCHOR_ENVELOPE_OHM, (
+        f"the deck route answers {z:.4f} where the engine prints "
+        f"{anchor:.4f} — {abs(z - anchor):.4f} ohm apart"
+    )

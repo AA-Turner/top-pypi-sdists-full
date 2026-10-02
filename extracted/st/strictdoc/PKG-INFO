@@ -1,0 +1,128 @@
+Metadata-Version: 2.5
+Name: strictdoc
+Version: 0.30.1
+Summary: StrictDoc is open-source software for technical documentation and requirements management.
+Project-URL: Changelog, https://github.com/strictdoc-project/strictdoc/blob/main/CHANGELOG.md
+Project-URL: Homepage, https://strictdoc.readthedocs.io/en/stable/
+Project-URL: Source, https://github.com/strictdoc-project/strictdoc
+Author-email: Stanislav Pankevich <s.pankevich@gmail.com>, Maryna Balioura <mettta@gmail.com>
+License-Expression: Apache-2.0
+License-File: LICENSE
+License-File: NOTICE
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Python: >=3.10
+Requires-Dist: beautifulsoup4==4.*,>=4.12.0
+Requires-Dist: docutils==0.*,>=0.22.2
+Requires-Dist: fastapi>=0.83.0
+Requires-Dist: html2pdf4doc==0.0.35
+Requires-Dist: html5lib>=1.1
+Requires-Dist: jinja2>=2.11.2
+Requires-Dist: lark>=1.2.2
+Requires-Dist: markdown-it-py==4.*,>=4.0.0
+Requires-Dist: openpyxl>=3.1.0
+Requires-Dist: orjson
+Requires-Dist: pandas
+Requires-Dist: plotly
+Requires-Dist: pygments==2.21.0
+Requires-Dist: pypdf==6.*,>=6.5.0
+Requires-Dist: python-datauri==2.*,>=2.1.1
+Requires-Dist: python-multipart
+Requires-Dist: reqif==0.1.*,>=0.1.0
+Requires-Dist: robotframework>=4.0.0
+Requires-Dist: spdx-tools>=0.8.5
+Requires-Dist: textx==4.*,>=4.0.0
+Requires-Dist: toml
+Requires-Dist: tree-sitter-c
+Requires-Dist: tree-sitter-cpp
+Requires-Dist: tree-sitter-python
+Requires-Dist: tree-sitter-rust
+Requires-Dist: tree-sitter==0.25.2
+Requires-Dist: typing-extensions
+Requires-Dist: uvicorn[standard]>=0.14.0
+Requires-Dist: watchdog>=2.1.7
+Requires-Dist: websockets
+Requires-Dist: xlrd==2.*,>=2.0.1
+Requires-Dist: xlsxwriter==3.*,>=1.3.7
+Provides-Extra: development
+Requires-Dist: invoke>=1.4.1; extra == 'development'
+Requires-Dist: uv; extra == 'development'
+Provides-Extra: nuitka
+Requires-Dist: nuitka; extra == 'nuitka'
+Requires-Dist: ordered-set; extra == 'nuitka'
+Description-Content-Type: text/markdown
+
+# StrictDoc
+
+StrictDoc is open-source software for technical documentation and requirements
+management.
+
+## Documentation
+
+The main StrictDoc documentation is hosted on Read the Docs:
+
+The documentation is hosted on Read the Docs:
+[StrictDoc documentation](https://strictdoc.readthedocs.io/en/stable/).
+
+For a quick visual overview, see the
+[StrictDoc project slide deck](https://github.com/strictdoc-project/strictdoc/blob/main/about/StrictDoc.pdf).
+
+## Installation
+
+StrictDoc requires Python 3.10 or newer.
+
+```bash
+pip install strictdoc
+```
+
+See the
+[StrictDoc user guide](https://strictdoc.readthedocs.io/en/stable/stable/docs/strictdoc_01_user_guide.html)
+section of the Read the Docs site for more details.
+
+## Quick start
+
+Create a small `hello_world.sdoc` file:
+
+```text
+[DOCUMENT]
+TITLE: StrictDoc
+
+[REQUIREMENT]
+UID: SDOC-HIGH-REQS-MANAGEMENT
+TITLE: Requirements management
+STATEMENT: StrictDoc shall enable requirements management.
+```
+
+Export it to static HTML:
+
+```bash
+strictdoc export .
+```
+
+Or run the local web server:
+
+```bash
+strictdoc server .
+```
+
+StrictDoc starts the server on `http://127.0.0.1:5111` by default.
+
+## Project links
+
+- Documentation: <https://strictdoc.readthedocs.io/en/stable/>
+- Source code: <https://github.com/strictdoc-project/strictdoc>
+- Examples: <https://github.com/strictdoc-project/strictdoc-examples>
+- Templates: <https://github.com/strictdoc-project/strictdoc-templates>
+
+## License
+
+StrictDoc is licensed under the Apache License 2.0. See
+[LICENSE](LICENSE) for details.

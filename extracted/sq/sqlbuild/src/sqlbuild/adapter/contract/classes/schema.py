@@ -1,0 +1,104 @@
+"""Schema inspection mixin for adapter implementations."""
+
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from typing import Any
+
+from sqlbuild.adapter.contract.models import ColumnInfo, FunctionInfo, RelationInfo
+
+
+class SchemaMixin(ABC):
+    """Inspects warehouse schema and relation metadata."""
+
+    @abstractmethod
+    def list_relations(
+        self,
+        *,
+        connection: Any,
+        database: str | None,
+        schemas: tuple[str, ...] | None,
+        names: tuple[str, ...] | None = None,
+    ) -> tuple[RelationInfo, ...]:
+        """Return all relations in the given database/schema scope."""
+        ...
+
+    @abstractmethod
+    def with_relation_age_metadata(
+        self,
+        *,
+        connection: Any,
+        relations: tuple[RelationInfo, ...],
+    ) -> tuple[RelationInfo, ...]:
+        """Return listed relations with age timestamps that listing does not read inline."""
+        ...
+
+    @abstractmethod
+    def list_functions(
+        self,
+        *,
+        connection: Any,
+        database: str | None,
+        schemas: tuple[str, ...] | None,
+        names: tuple[str, ...] | None = None,
+    ) -> tuple[FunctionInfo, ...]:
+        """Return all functions in the given database/schema scope."""
+        ...
+
+    @abstractmethod
+    def get_columns(
+        self,
+        *,
+        connection: Any,
+        database: str | None,
+        schema: str | None,
+        name: str,
+    ) -> tuple[ColumnInfo, ...]:
+        """Return column metadata for a single relation."""
+        ...
+
+    @abstractmethod
+    def get_all_columns(
+        self,
+        *,
+        connection: Any,
+        database: str | None,
+        schemas: tuple[str, ...] | None,
+        names: tuple[str, ...] | None = None,
+    ) -> dict[str, tuple[ColumnInfo, ...]]:
+        """Return column metadata for all relations in the given scope."""
+        ...
+
+    @abstractmethod
+    def get_columns_for_relations(
+        self,
+        *,
+        connection: Any,
+        relations: tuple[RelationInfo, ...],
+    ) -> dict[tuple[str | None, str | None, str], tuple[ColumnInfo, ...]]:
+        """Return columns keyed by fully qualified physical relation identity."""
+        ...
+
+    @abstractmethod
+    def relation_exists(
+        self,
+        *,
+        connection: Any,
+        database: str | None,
+        schema: str | None,
+        name: str,
+    ) -> bool:
+        """Return whether the named relation exists in the warehouse."""
+        ...
+
+    @abstractmethod
+    def ensure_schema(
+        self,
+        *,
+        connection: Any,
+        database: str | None,
+        schema: str | None,
+        statement_recorder: Any,
+    ) -> None:
+        """Ensure the target schema exists before relation materialization."""
+        ...

@@ -1,0 +1,661 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
+from uuid import UUID, uuid4
+
+import pytest
+
+from omnibase_core.models.core.model_envelope_metadata import ModelEnvelopeMetadata
+from omnibase_core.models.delegation.wire import ModelDelegationRequest
+from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
+from omnibase_infra.errors import InfraUnavailableError
+from omnibase_infra.nodes.node_bus_forwarder_effect.models import (
+    ModelGatewayCanaryConfig,
+    ModelGatewayCloudBusConfig,
+    ModelGatewayForwarderConfig,
+    ModelGatewayMirrorTopics,
+    ModelGatewayTenantIdentity,
+)
+from omnibase_infra.nodes.node_bus_forwarder_effect.services.service_gateway_forwarder import (
+    ServiceGatewayForwarder,
+)
+
+pytestmark = pytest.mark.asyncio
+
+TENANT_ID = UUID("11111111-1111-1111-1111-111111111111")
+BROKER_PROVIDER_ID = UUID("22222222-2222-2222-2222-222222222222")
+PRINCIPAL_ID = "t-33333333333333333333333333333333"
+CORRELATION_ID = UUID("44444444-4444-4444-4444-444444444444")
+INBOUND_TOPIC = "onex.cmd.omnibase-infra.delegation-inference-request.v1"
+OUTBOUND_TOPIC = "onex.evt.omnibase-infra.inference-response.v1"
+HEARTBEAT_TOPIC = "onex.evt.omnibase-infra.gateway-heartbeat.v1"
+WIRE_INBOUND_TOPIC = f"tenant-acme.{INBOUND_TOPIC}"
+WIRE_OUTBOUND_TOPIC = f"tenant-acme.{OUTBOUND_TOPIC}"
+# OMN-14346: the command topic that actually starts the delegation FSM
+# (omnimarket's node_delegation_orchestrator input_model is
+# ModelDelegationRequest). Distinct from INBOUND_TOPIC
+# (delegation-inference-request.v1), which is an intermediate intent topic.
+DELEGATION_REQUEST_TOPIC = "onex.cmd.omnibase-infra.delegation-request.v1"
+WIRE_DELEGATION_REQUEST_TOPIC = f"tenant-acme.{DELEGATION_REQUEST_TOPIC}"
+
+
+def _canary() -> ModelGatewayCanaryConfig:
+    return ModelGatewayCanaryConfig(
+        topic="onex.evt.omnibase-infra.gateway-canary.v1",
+        cadence_seconds=30,
+        produce_deadline_seconds=8,
+        readback_deadline_seconds=12,
+    )
+
+
+@dataclass(frozen=True)
+class _Message:
+    topic: str
+    key: bytes | None
+    value: bytes
+    headers: object | None = None
+
+
+class _MockGatewayBus:
+    def __init__(self) -> None:
+        self.published: list[_Message] = []
+
+    async def publish(
+        self,
+        topic: str,
+        key: bytes | None,
+        value: bytes,
+        headers: object | None = None,
+    ) -> None:
+        self.published.append(_Message(topic, key, value, headers))
+
+    def message(
+        self,
+        topic: str,
+        envelope: ModelEventEnvelope[dict[str, object]],
+    ) -> _Message:
+        return _Message(
+            topic=topic,
+            key=b"key-1",
+            value=envelope.model_dump_json().encode("utf-8"),
+            headers={"trace": "preserved"},
+        )
+
+
+class _FlakyGatewayBus(_MockGatewayBus):
+    def __init__(self, failures: int) -> None:
+        super().__init__()
+        self.failures_remaining = failures
+
+    async def publish(
+        self,
+        topic: str,
+        key: bytes | None,
+        value: bytes,
+        headers: object | None = None,
+    ) -> None:
+        if self.failures_remaining:
+            self.failures_remaining -= 1
+            raise InfraUnavailableError("temporary destination outage")
+        await super().publish(topic, key, value, headers)
+
+
+def _config() -> ModelGatewayForwarderConfig:
+    return ModelGatewayForwarderConfig(
+        tenant_identity=ModelGatewayTenantIdentity(
+            tenant_id=TENANT_ID,
+            tenant_slug="acme",
+            principal_id=PRINCIPAL_ID,
+        ),
+        cloud_bus=ModelGatewayCloudBusConfig(
+            broker_provider_id=BROKER_PROVIDER_ID,
+            cloud_broker_ref="gateway.cloud.kafka.broker",
+            cloud_auth_ref="gateway.cloud.kafka.oauth",
+            acl_provisioner_ref="gateway.cloud.kafka.authorization",
+            client_id_ref="gateway.cloud.kafka.oauth.client_id",
+            client_secret_api_key_ref="infisical://gateway/redpanda-events",
+        ),
+        local_transport_flavor="containerized",
+        dedupe_store_path=Path.cwd() / "gateway-test.sqlite3",
+        mirror_topics=ModelGatewayMirrorTopics(
+            inbound=(INBOUND_TOPIC,),
+            outbound=(OUTBOUND_TOPIC,),
+        ),
+        canary=_canary(),
+    )
+
+
+def _envelope(**overrides: object) -> ModelEventEnvelope[dict[str, object]]:
+    values = {
+        "envelope_id": uuid4(),
+        "correlation_id": CORRELATION_ID,
+        "event_type": "LlmInferenceResponse",
+        "payload": {"ok": True},
+        "metadata": ModelEnvelopeMetadata(
+            tags={
+                "source_tenant_id": str(TENANT_ID),
+                "source_tenant_principal_id": PRINCIPAL_ID,
+            }
+        ),
+    }
+    values.update(overrides)
+    return ModelEventEnvelope[dict[str, object]](**values)
+
+
+async def test_outbound_local_message_is_published_to_cloud_wire_topic() -> None:
+    local_bus = _MockGatewayBus()
+    cloud_bus = _MockGatewayBus()
+    service = ServiceGatewayForwarder(
+        config=_config(),
+        local_bus=local_bus,
+        cloud_bus=cloud_bus,
+    )
+    await service.forward_outbound_message(
+        local_bus.message(OUTBOUND_TOPIC, _envelope())
+    )
+
+    assert len(cloud_bus.published) == 1
+    published = cloud_bus.published[0]
+    assert published.topic == WIRE_OUTBOUND_TOPIC
+    assert published.key == b"key-1"
+    assert published.headers == {"trace": "preserved"}
+    forwarded = ModelEventEnvelope[dict[str, object]].model_validate_json(
+        published.value
+    )
+    assert forwarded.metadata.tags["gateway_wire_topic"] == WIRE_OUTBOUND_TOPIC
+    assert forwarded.metadata.tags["gateway_canonical_topic"] == OUTBOUND_TOPIC
+    assert forwarded.correlation_id == CORRELATION_ID
+    assert forwarded.event_type == "LlmInferenceResponse"
+
+
+async def test_inbound_cloud_message_is_published_to_local_canonical_topic() -> None:
+    local_bus = _MockGatewayBus()
+    cloud_bus = _MockGatewayBus()
+    service = ServiceGatewayForwarder(
+        config=_config(),
+        local_bus=local_bus,
+        cloud_bus=cloud_bus,
+    )
+    await service.consume_inbound_message(
+        cloud_bus.message(
+            WIRE_INBOUND_TOPIC,
+            _envelope(event_type="DelegationInferenceRequest"),
+        )
+    )
+
+    assert len(local_bus.published) == 1
+    published = local_bus.published[0]
+    assert published.topic == INBOUND_TOPIC
+    forwarded = ModelEventEnvelope[dict[str, object]].model_validate_json(
+        published.value
+    )
+    assert forwarded.metadata.tags["gateway_wire_topic"] == WIRE_INBOUND_TOPIC
+    assert forwarded.metadata.tags["gateway_canonical_topic"] == INBOUND_TOPIC
+    assert forwarded.correlation_id == CORRELATION_ID
+    assert forwarded.event_type == "DelegationInferenceRequest"
+
+
+async def test_destination_outage_retries_without_returning_source_callback() -> None:
+    local_bus = _MockGatewayBus()
+    cloud_bus = _FlakyGatewayBus(failures=2)
+    slept: list[float] = []
+
+    async def record_sleep(delay: float) -> None:
+        slept.append(delay)
+
+    service = ServiceGatewayForwarder(
+        config=_config(),
+        local_bus=local_bus,
+        cloud_bus=cloud_bus,
+        retry_sleep=record_sleep,
+    )
+    await service.forward_outbound_message(
+        local_bus.message(OUTBOUND_TOPIC, _envelope())
+    )
+
+    assert slept == [1.0, 2.0]
+    assert len(cloud_bus.published) == 1
+    assert cloud_bus.published[0].topic == WIRE_OUTBOUND_TOPIC
+
+
+async def test_heartbeat_is_tenant_bound_and_published_to_cloud_wire_topic() -> None:
+    local_bus = _MockGatewayBus()
+    cloud_bus = _MockGatewayBus()
+    config = _config().model_copy(
+        update={
+            "mirror_topics": ModelGatewayMirrorTopics(
+                inbound=(INBOUND_TOPIC,),
+                outbound=(OUTBOUND_TOPIC, HEARTBEAT_TOPIC),
+            )
+        }
+    )
+    service = ServiceGatewayForwarder(
+        config=config,
+        local_bus=local_bus,
+        cloud_bus=cloud_bus,
+    )
+
+    await service.publish_heartbeat()
+
+    assert len(cloud_bus.published) == 1
+    message = cloud_bus.published[0]
+    assert message.topic == f"tenant-acme.{HEARTBEAT_TOPIC}"
+    envelope = ModelEventEnvelope[dict[str, object]].model_validate_json(message.value)
+    assert envelope.event_type == "omnibase-infra.gateway-heartbeat"
+    assert envelope.payload["tenant_id"] == "acme"
+    assert envelope.payload["principal_id"] == PRINCIPAL_ID
+    assert envelope.payload["status"] == "active"
+    assert envelope.metadata.tags["gateway_direction"] == "local-to-cloud"
+
+
+async def test_heartbeat_also_mirrors_untransformed_to_local_canonical_topic() -> None:
+    """OMN-15570 (G3): NodeGatewayLinkHealthProjectionCompute subscribes to
+    the gateway-heartbeat topic on the LOCAL bus (bus-is-transport: local
+    consumers read canonical topics, never the cloud wire topic). Before
+    this fix ``publish_heartbeat`` only reached the cloud leg, so no local
+    consumer ever observed a heartbeat.
+    """
+    local_bus = _MockGatewayBus()
+    cloud_bus = _MockGatewayBus()
+    config = _config().model_copy(
+        update={
+            "mirror_topics": ModelGatewayMirrorTopics(
+                inbound=(INBOUND_TOPIC,),
+                outbound=(OUTBOUND_TOPIC, HEARTBEAT_TOPIC),
+            )
+        }
+    )
+    service = ServiceGatewayForwarder(
+        config=config,
+        local_bus=local_bus,
+        cloud_bus=cloud_bus,
+    )
+
+    await service.publish_heartbeat()
+
+    assert len(local_bus.published) == 1
+    message = local_bus.published[0]
+    assert message.topic == HEARTBEAT_TOPIC
+    envelope = ModelEventEnvelope[dict[str, object]].model_validate_json(message.value)
+    assert envelope.event_type == "omnibase-infra.gateway-heartbeat"
+    assert envelope.payload["tenant_id"] == "acme"
+    assert envelope.payload["status"] == "active"
+    # Same liveness tick, both legs: envelope_id must match the cloud copy.
+    cloud_envelope = ModelEventEnvelope[dict[str, object]].model_validate_json(
+        cloud_bus.published[0].value
+    )
+    assert envelope.envelope_id == cloud_envelope.envelope_id
+
+
+async def test_publish_status_degraded_goes_to_local_bus_not_cloud() -> None:
+    """OMN-15742: DEGRADED must stay observable while the cloud leg is down.
+
+    ``publish_status`` is the reconnect-supervision status channel used by
+    ``runtime/gateway_forwarder.py``'s backoff loop. It must publish on the
+    local bus (not the cloud wire that ``publish_heartbeat`` uses), or a
+    DEGRADED event caused by the cloud leg being unreachable could never
+    itself be delivered.
+    """
+    local_bus = _MockGatewayBus()
+    cloud_bus = _MockGatewayBus()
+    config = _config().model_copy(
+        update={
+            "mirror_topics": ModelGatewayMirrorTopics(
+                inbound=(INBOUND_TOPIC,),
+                outbound=(OUTBOUND_TOPIC, HEARTBEAT_TOPIC),
+            )
+        }
+    )
+    service = ServiceGatewayForwarder(
+        config=config,
+        local_bus=local_bus,
+        cloud_bus=cloud_bus,
+    )
+
+    await service.publish_status(
+        "degraded",
+        consecutive_failures=4,
+        detail="InfraUnavailableError: boom",
+    )
+
+    assert cloud_bus.published == []
+    assert len(local_bus.published) == 1
+    message = local_bus.published[0]
+    assert message.topic == HEARTBEAT_TOPIC
+    envelope = ModelEventEnvelope[dict[str, object]].model_validate_json(message.value)
+    assert envelope.payload["status"] == "degraded"
+    assert envelope.payload["consecutive_failures"] == 4
+    assert envelope.payload["detail"] == "InfraUnavailableError: boom"
+
+
+async def test_publish_status_active_defaults_zero_failures_and_no_detail() -> None:
+    local_bus = _MockGatewayBus()
+    cloud_bus = _MockGatewayBus()
+    config = _config().model_copy(
+        update={
+            "mirror_topics": ModelGatewayMirrorTopics(
+                inbound=(INBOUND_TOPIC,),
+                outbound=(OUTBOUND_TOPIC, HEARTBEAT_TOPIC),
+            )
+        }
+    )
+    service = ServiceGatewayForwarder(
+        config=config,
+        local_bus=local_bus,
+        cloud_bus=cloud_bus,
+    )
+
+    await service.publish_status("active")
+
+    envelope = ModelEventEnvelope[dict[str, object]].model_validate_json(
+        local_bus.published[0].value
+    )
+    assert envelope.payload["status"] == "active"
+    assert envelope.payload["consecutive_failures"] == 0
+    assert envelope.payload["detail"] == ""
+
+
+async def test_inbound_payload_gets_verified_tenant_slug_not_forged_or_missing() -> (
+    None
+):
+    """OMN-14345/OMN-14367: the verified tenant identity must reach the payload, not just the envelope shell.
+
+    ``ModelGatewayForwarderConfig.tenant_identity`` is config-bound per forwarder
+    instance -- that binding IS the trust anchor (OMN-12908/12911 per-tenant
+    OAuth cloud-broker credentials). A payload-supplied tenant_id (forged or
+    absent) must never survive into the republished message; the config-bound
+    identity always wins and is never a self-asserted fallback.
+
+    OMN-14367: the canonical stamped shape is the DNS-safe slug, not the raw
+    tenant UUID -- ``omnibase_infra.shared.tenant_stamp.stamp_verified_tenant_slug``
+    is the single source of truth both this producer and the runtime
+    auto-wiring stamp route through, matching what the real consumer
+    (omnimarket's ``ModelDelegateSkillRequest``, ``extra="forbid"``) expects.
+
+    This also proves the republished message is actually consumable by the
+    REAL ``omnibase_core.ModelEventEnvelope`` the local runtime dispatcher and
+    every downstream node (e.g. ``node_llm_delegation_call_effect``) use to
+    parse inbound bus messages -- not just a round-trip through the gateway's
+    own ``ModelGatewayEnvelope``, which no consumer outside this node imports.
+    Pre-fix this test fails: the raw ``ModelGatewayEnvelope`` JSON parses
+    successfully as ``ModelEventEnvelope[dict]`` (no ``extra="forbid"``
+    there), but ``consumer_view.payload`` is the FORGED/unstamped payload --
+    the outer envelope's verified tenant_id is silently dropped as an
+    ignored extra field rather than merged in.
+
+    OMN-14346: the stamped value is the verified tenant SLUG
+    (``identity.tenant_slug``), not the raw tenant UUID -- matching the
+    canonical ``stamp_verified_tenant_slug`` shape (OMN-14367) that every
+    ``extra="forbid"`` delegation payload contract expects ``tenant_id`` to
+    carry (a DNS-safe slug, never a UUID).
+    """
+    local_bus = _MockGatewayBus()
+    cloud_bus = _MockGatewayBus()
+    service = ServiceGatewayForwarder(
+        config=_config(),
+        local_bus=local_bus,
+        cloud_bus=cloud_bus,
+    )
+    forged_payload = {
+        "prompt": "steal tenant data",
+        "tenant_id": "evil-tenant-forged",
+        "tenant_slug": "evil-tenant-forged-slug",
+    }
+    await service.consume_inbound_message(
+        cloud_bus.message(
+            WIRE_INBOUND_TOPIC,
+            _envelope(
+                event_type="DelegationInferenceRequest",
+                payload=forged_payload,
+            ),
+        )
+    )
+
+    assert len(local_bus.published) == 1
+    published = local_bus.published[0]
+    # The REAL consumer-side parse -- every local subscriber deserializes
+    # inbound bus bytes as omnibase_core.ModelEventEnvelope[T], not the
+    # gateway's own ModelGatewayEnvelope.
+    consumer_view = ModelEventEnvelope[dict].model_validate_json(published.value)
+    assert consumer_view.payload["tenant_id"] == "acme"
+    assert consumer_view.payload["tenant_id"] != str(TENANT_ID)
+    assert consumer_view.payload["tenant_id"] != "evil-tenant-forged"
+    assert consumer_view.payload["prompt"] == "steal tenant data"
+    # OMN-14367: canonical shape has no separate tenant_slug key -- tenant_id
+    # IS the slug. A stray tenant_slug key would signal drift back to the
+    # pre-reconciliation shape.
+    assert "tenant_slug" not in consumer_view.payload
+
+
+async def test_inbound_payload_stamp_carries_no_separate_tenant_slug_key() -> None:
+    """OMN-14346/OMN-14367: the canonical stamp shape is ``tenant_id`` only.
+
+    Prior to OMN-14346, ``HandlerConsumeInbound.consume_inbound`` hand-rolled
+    the stamp with a separate ``tenant_slug`` key (drifted from the
+    ``stamp_verified_tenant_slug`` producer the auto-wiring
+    ``tenant_scoped_ingress`` stamp already used). An extra ``tenant_slug``
+    key breaks every ``extra="forbid"`` delegation payload contract that does
+    not declare that field (e.g. ``ModelDelegationRequest``). This pins the
+    single canonical shape both producers must emit.
+    """
+    local_bus = _MockGatewayBus()
+    cloud_bus = _MockGatewayBus()
+    service = ServiceGatewayForwarder(
+        config=_config(),
+        local_bus=local_bus,
+        cloud_bus=cloud_bus,
+    )
+    await service.consume_inbound_message(
+        cloud_bus.message(
+            WIRE_INBOUND_TOPIC,
+            _envelope(
+                event_type="DelegationInferenceRequest",
+                payload={"prompt": "hi"},
+            ),
+        )
+    )
+
+    published = local_bus.published[0]
+    consumer_view = ModelEventEnvelope[dict].model_validate_json(published.value)
+    assert consumer_view.payload["tenant_id"] == "acme"
+    assert "tenant_slug" not in consumer_view.payload
+
+
+async def test_inbound_cross_tenant_forged_envelope_is_rejected_not_republished() -> (
+    None
+):
+    """Regression pin: the existing outer-envelope tenant check still fires through the full service path.
+
+    A message whose outer envelope claims a different tenant_id than the one
+    this forwarder instance is config-bound to must be rejected before it
+    ever reaches ``local_bus.publish`` -- the negative isolation proof this
+    ticket's fix must not weaken.
+    """
+    local_bus = _MockGatewayBus()
+    cloud_bus = _MockGatewayBus()
+    service = ServiceGatewayForwarder(
+        config=_config(),
+        local_bus=local_bus,
+        cloud_bus=cloud_bus,
+    )
+    other_tenant_id = uuid4()
+    with pytest.raises(ValueError, match="tenant_id does not match"):
+        await service.consume_inbound_message(
+            cloud_bus.message(
+                WIRE_INBOUND_TOPIC,
+                _envelope(
+                    event_type="DelegationInferenceRequest",
+                    payload={"prompt": "cross-tenant forgery"},
+                    metadata=ModelEnvelopeMetadata(
+                        tags={
+                            "source_tenant_id": str(other_tenant_id),
+                            "source_tenant_principal_id": PRINCIPAL_ID,
+                        }
+                    ),
+                ),
+            )
+        )
+
+    assert local_bus.published == []
+
+
+async def test_outbound_rejects_undeclared_topic_before_cloud_publish() -> None:
+    local_bus = _MockGatewayBus()
+    cloud_bus = _MockGatewayBus()
+    service = ServiceGatewayForwarder(
+        config=_config(),
+        local_bus=local_bus,
+        cloud_bus=cloud_bus,
+    )
+    undeclared_topic = "onex.evt.omnibase-infra.not-declared.v1"
+    with pytest.raises(ValueError, match="not declared"):
+        await service.forward_outbound_message(
+            _Message(
+                topic=undeclared_topic,
+                key=b"key-1",
+                value=_envelope().model_dump_json().encode("utf-8"),
+            )
+        )
+
+    assert cloud_bus.published == []
+
+
+def _config_with_delegation_request() -> ModelGatewayForwarderConfig:
+    """Config mirroring both the intermediate intent topic and the real
+    delegation-request.v1 command topic that starts the delegation FSM
+    (OMN-14208/OMN-14346)."""
+    return ModelGatewayForwarderConfig(
+        tenant_identity=ModelGatewayTenantIdentity(
+            tenant_id=TENANT_ID,
+            tenant_slug="acme",
+            principal_id=PRINCIPAL_ID,
+        ),
+        cloud_bus=ModelGatewayCloudBusConfig(
+            broker_provider_id=BROKER_PROVIDER_ID,
+            cloud_broker_ref="gateway.cloud.kafka.broker",
+            cloud_auth_ref="gateway.cloud.kafka.oauth",
+            acl_provisioner_ref="gateway.cloud.kafka.authorization",
+            client_id_ref="gateway.cloud.kafka.oauth.client_id",
+            client_secret_api_key_ref="infisical://gateway/redpanda-events",
+        ),
+        local_transport_flavor="containerized",
+        dedupe_store_path=Path.cwd() / "gateway-test.sqlite3",
+        mirror_topics=ModelGatewayMirrorTopics(
+            inbound=(INBOUND_TOPIC, DELEGATION_REQUEST_TOPIC),
+            outbound=(OUTBOUND_TOPIC,),
+        ),
+        canary=_canary(),
+    )
+
+
+async def test_delegation_request_payload_stamp_survives_real_model_round_trip() -> (
+    None
+):
+    """OMN-14346: the payload-stamp merge covers a real ``ModelDelegationRequest``
+    payload on the actual command topic that starts the delegation FSM --
+    not a generic ``{"prompt": ...}`` dict standing in for one.
+
+    This is a DIFFERENT shape from the ``ModelInferenceIntent``-style dict
+    fixtures used elsewhere in this file: ``ModelDelegationRequest``
+    (``omnibase_core.models.delegation.wire``, re-exported unchanged as
+    ``omnimarket.nodes.node_delegation_orchestrator.models.ModelDelegationRequest``,
+    the real consumer's declared ``input_model`` for this exact topic) is
+    ``extra="forbid"`` and types ``tenant_id`` as an optional DNS-safe slug
+    string, never a UUID. Pre-OMN-14346 (hand-rolled stamp: UUID
+    ``tenant_id`` + extra ``tenant_slug`` key) this payload would round-trip
+    back into ``ModelDelegationRequest.model_validate()`` carrying a
+    non-slug UUID string in ``tenant_id`` and an undeclared ``tenant_slug``
+    key that ``extra="forbid"`` rejects outright -- a real cross-repo seam
+    break the generic-dict tests in this file cannot see because they never
+    reconstruct the typed consumer model.
+    """
+    local_bus = _MockGatewayBus()
+    cloud_bus = _MockGatewayBus()
+    service = ServiceGatewayForwarder(
+        config=_config_with_delegation_request(),
+        local_bus=local_bus,
+        cloud_bus=cloud_bus,
+    )
+    request_correlation_id = uuid4()
+    delegation_request = ModelDelegationRequest(
+        prompt="review this diff for correctness",
+        task_type="code_review",
+        correlation_id=request_correlation_id,
+        emitted_at=datetime.now(UTC),
+        tenant_id="forged-tenant-slug",
+    )
+    await service.consume_inbound_message(
+        cloud_bus.message(
+            WIRE_DELEGATION_REQUEST_TOPIC,
+            _envelope(
+                event_type="DelegationRequest",
+                correlation_id=request_correlation_id,
+                payload=delegation_request.model_dump(mode="json"),
+            ),
+        )
+    )
+
+    published = [
+        message
+        for message in local_bus.published
+        if message.topic == DELEGATION_REQUEST_TOPIC
+    ]
+    assert len(published) == 1
+    consumer_view = ModelEventEnvelope[dict].model_validate_json(published[0].value)
+
+    # The republished payload must reconstruct as the REAL consumer model
+    # without raising -- this is the actual seam the gateway must not break.
+    reconstructed = ModelDelegationRequest.model_validate(consumer_view.payload)
+    assert reconstructed.tenant_id == "acme"
+    assert reconstructed.tenant_id != "forged-tenant-slug"
+    assert reconstructed.prompt == "review this diff for correctness"
+    assert reconstructed.task_type == "code_review"
+    assert reconstructed.correlation_id == request_correlation_id
+    assert "tenant_slug" not in consumer_view.payload
+
+
+async def test_heartbeat_records_its_bound_tenant_on_the_envelope_dimension() -> None:
+    """OMN-16831 ruled item 2: a producer with a tenant in scope records it.
+
+    The gateway heartbeat is the most attributable event the platform emits --
+    the forwarder's ``tenant_identity`` is bound at deploy time, is not
+    client-writable, and is already in hand at the construction site. It was
+    written into the PAYLOAD and into two metadata tags, and left off
+    ``ModelEventEnvelope.tenant_id``, which is the only field
+    ``envelope_tenant_identity`` (omnimarket) reads. That is the same
+    producer/consumer split across two fields that ``#3573`` closed for the
+    ``tenant_scoped_ingress`` stamp, on a second site.
+
+    The sibling assertions on ``payload["tenant_id"]`` above stay as they are:
+    the payload copy is what the OMN-14367 gateway seam and the OMN-14058
+    downstream flow read, so both carry the same verified value rather than one
+    replacing the other.
+    """
+    local_bus = _MockGatewayBus()
+    cloud_bus = _MockGatewayBus()
+    config = _config().model_copy(
+        update={
+            "mirror_topics": ModelGatewayMirrorTopics(
+                inbound=(INBOUND_TOPIC,),
+                outbound=(OUTBOUND_TOPIC, HEARTBEAT_TOPIC),
+            )
+        }
+    )
+    service = ServiceGatewayForwarder(
+        config=config,
+        local_bus=local_bus,
+        cloud_bus=cloud_bus,
+    )
+
+    await service.publish_heartbeat()
+
+    for bus in (cloud_bus, local_bus):
+        envelope = ModelEventEnvelope[dict[str, object]].model_validate_json(
+            bus.published[0].value
+        )
+        assert envelope.tenant_id == "acme"

@@ -1,0 +1,882 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# Declarative `onex skill <name>` -> backing-node mapping (OMN-13097).
+#
+# Phase 4a of the skill-output-suppression slice
+# (docs/plans/2026-06-12-skill-output-suppression-plan.md Phase 4 item 1).
+#
+# This is DATA, not code: `onex skill` loads it into ModelSkillMappingRegistry
+# and uses it to build each backing node's input payload from the skill's CLI
+# args, then dispatches through the proven receipt-mode path. Adding a skill is
+# a YAML edit + a fixture, never a CLI code change (ticket deliverable 2).
+#
+# Per entry:
+#   skill_name     – name as invoked: `onex skill <skill_name>`
+#   node_name      – backing node (onex.nodes entry-point group)
+#   result_model   – FQN of the node's typed handler result (receipt schema
+#                    identity; ticket deliverable 3) — verified against the
+#                    live handler `handle()` return type on origin/dev.
+#   event_bus      – backend override (default inmemory)
+#   publish_terminal_to_lane – lane id; publish the returned result to the
+#                  contract terminal_event there, fail-soft (OMN-19152)
+#   timeout        – dispatch timeout seconds (default 300)
+#   args           – CLI arg -> payload field specs
+#   static_payload – payload fields injected regardless of args
+#   classifiers    – keyword classification for unset fields (delegate)
+#
+# arg_type: string | integer | boolean | string_list
+#   boolean args are presence flags (--dry-run); string_list splits on commas.
+skills:
+  - skill_name: aislop_sweep
+    node_name: node_aislop_sweep
+    result_model: omnimarket.nodes.node_aislop_sweep.handlers.handler_aislop_sweep.AislopSweepResult
+    args:
+      - {name: target-dirs, payload_field: target_dirs, arg_type: string_list}
+      - {name: checks, payload_field: checks, arg_type: string_list}
+      - {name: severity-threshold, payload_field: severity_threshold, arg_type: string}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  - skill_name: data_flow_sweep
+    node_name: node_data_flow_sweep
+    result_model: omnimarket.nodes.node_data_flow_sweep.handlers.handler_data_flow_sweep.DataFlowSweepResult
+    args:
+      - {name: flows, payload_field: flows, arg_type: string_list}
+      - {name: collect, payload_field: collect, arg_type: boolean, default: false}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  # OMN-13511: the four dogfood runtime sweeps + skill_functional_audit were
+  # node-backed in omnimarket but never registered here, so `onex skill
+  # <name>` returned "Unknown skill" and the sweeps were unrunnable headless.
+  # Each node_name is the canonical omnimarket onex.nodes entry point; each arg
+  # maps onto a field the node's request model accepts (extra="forbid" — only
+  # request-model fields may be surfaced as CLI args). The handlers self-collect
+  # their runtime/census metadata, so most sweeps expose only run-mode flags.
+  - skill_name: runtime_sweep
+    node_name: node_runtime_sweep
+    result_model: omnimarket.nodes.node_runtime_sweep.handlers.handler_runtime_sweep.RuntimeSweepResult
+    args:
+      - {name: scope, payload_field: scope, arg_type: string}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  - skill_name: golden_chain_sweep
+    node_name: node_golden_chain_sweep
+    result_model: omnimarket.nodes.node_golden_chain_sweep.handlers.handler_golden_chain_sweep.GoldenChainSweepResult
+    args:
+      - {name: idle-gate, payload_field: idle_gate, arg_type: boolean, default: false}
+  - skill_name: integration_sweep
+    node_name: node_integration_sweep_orchestrator
+    result_model: omnimarket.nodes.node_integration_sweep_orchestrator.models.model_integration_sweep_orchestrator_result.ModelIntegrationSweepOrchestratorResult
+    args:
+      - {name: scope, payload_field: scope, arg_type: string}
+      - {name: tickets, payload_field: tickets, arg_type: string_list}
+      - {name: run-surface-probes, payload_field: run_surface_probes, arg_type: boolean, default: true}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  # OMN-14552: verification_sweep was UNDISPATCHABLE — absent from this mapping
+  # so `onex skill verification_sweep` returned "Unknown skill", and its
+  # extra="forbid" request model rejected the runtime-injected correlation_id.
+  # Both are fixed (correlation_id added to the request model in omnimarket).
+  - skill_name: verification_sweep
+    node_name: node_verification_sweep_orchestrator
+    result_model: omnimarket.nodes.node_verification_sweep_orchestrator.models.model_verification_sweep_orchestrator_result.ModelVerificationSweepOrchestratorResult
+    args:
+      - {name: targets, payload_field: targets, arg_type: string_list}
+      - {name: epic, payload_field: epic, arg_type: string}
+      - {name: check-types, payload_field: check_types, arg_type: string_list}
+      - {name: pr, payload_field: pr, arg_type: string}
+      - {name: timeout-seconds, payload_field: timeout_seconds, arg_type: integer}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  - skill_name: contract_sweep
+    node_name: node_contract_sweep
+    result_model: omnimarket.nodes.node_contract_sweep.handlers.handler_contract_sweep.ContractSweepResult
+    args:
+      - {name: repos, payload_field: repos, arg_type: string_list}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  - skill_name: dod_sweep
+    node_name: node_dod_sweep_orchestrator
+    result_model: omnimarket.nodes.node_dod_sweep_orchestrator.models.model_dod_sweep_orchestrator_result.ModelDodSweepOrchestratorResult
+    args:
+      - {name: scope, payload_field: scope, arg_type: string}
+      - {name: ticket-ids, payload_field: ticket_ids, arg_type: string_list}
+      - {name: gh-search-query, payload_field: gh_search_query, arg_type: string}
+      - {name: gh-repo, payload_field: gh_repo, arg_type: string}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  - skill_name: skill_functional_audit
+    node_name: node_skill_functional_audit_compute
+    result_model: omnimarket.nodes.node_skill_functional_audit_compute.models.model_skill_functional_audit_compute_result.ModelSkillFunctionalAuditComputeResult
+    args:
+      - {name: skills-filter, payload_field: skills_filter, arg_type: string_list}
+      - {name: skills-roots, payload_field: skills_roots, arg_type: string_list}
+      - {name: nodes-root, payload_field: nodes_root, arg_type: string}
+  # OMN-14151 deregistered the legacy node_auto_merge_effect catalog entry.
+  # The active merge path is the merge-queue governor
+  # (node_pr_arm_gate_compute + node_pr_lifecycle_merge_effect), which needs a
+  # separate CLI contract instead of a stale direct-arm skill mapping.
+  - skill_name: build_loop
+    node_name: node_build_loop
+    result_model: omnimarket.nodes.node_build_loop.models.model_loop_state.ModelLoopState
+    args:
+      - {name: max-cycles, payload_field: max_cycles, arg_type: integer}
+      - {name: skip-closeout, payload_field: skip_closeout, arg_type: boolean, default: false}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  - skill_name: coderabbit_triage
+    node_name: node_coderabbit_triage
+    result_model: omnimarket.nodes.node_coderabbit_triage.handlers.handler_coderabbit_triage.ModelCoderabbitTriageResult
+    args:
+      - {name: repo, payload_field: repo, arg_type: string, required: true}
+      - {name: pr-number, payload_field: pr_number, arg_type: integer, required: true}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  - skill_name: compliance_sweep
+    node_name: node_compliance_sweep
+    result_model: omnimarket.nodes.node_compliance_sweep.handlers.handler_compliance_sweep.ComplianceSweepResult
+    args:
+      - {name: repos, payload_field: repos, arg_type: string_list}
+      - {name: checks, payload_field: checks, arg_type: string_list}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  - skill_name: coverage_sweep
+    node_name: node_coverage_sweep
+    result_model: omnimarket.nodes.node_coverage_sweep.handlers.handler_coverage_sweep.CoverageSweepResult
+    args:
+      - {name: repos, payload_field: repos, arg_type: string_list}
+      - {name: target-pct, payload_field: target_pct, arg_type: integer}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  - skill_name: create_ticket
+    node_name: node_create_ticket
+    result_model: omnimarket.nodes.node_create_ticket.handlers.handler_create_ticket.ModelCreateTicketResult
+    args:
+      - {name: title, payload_field: title, arg_type: string}
+      - {name: from-contract, payload_field: from_contract, arg_type: string}
+      - {name: from-plan, payload_field: from_plan, arg_type: string}
+      - {name: milestone, payload_field: milestone, arg_type: string}
+      - {name: repo, payload_field: repo, arg_type: string}
+      - {name: parent, payload_field: parent, arg_type: string}
+      - {name: blocked-by, payload_field: blocked_by, arg_type: string_list}
+      - {name: project, payload_field: project, arg_type: string}
+      - {name: team, payload_field: team, arg_type: string}
+      - {name: allow-arch-violation, payload_field: allow_arch_violation, arg_type: boolean, default: false}
+  - skill_name: database_sweep
+    node_name: node_database_sweep
+    result_model: omnimarket.nodes.node_database_sweep.handlers.handler_database_sweep.DatabaseSweepResult
+    args:
+      - {name: omni-home, payload_field: omni_home, arg_type: string}
+      - {name: table, payload_field: table, arg_type: string}
+      - {name: staleness-threshold-hours, payload_field: staleness_threshold_hours, arg_type: integer}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  - skill_name: design_to_plan
+    node_name: node_design_to_plan
+    result_model: omnimarket.nodes.node_design_to_plan.models.model_design_to_plan_phase3_launch.ModelDesignToPlanPhase3LaunchResult
+    args:
+      - {name: phase, payload_field: phase, arg_type: string}
+      - {name: topic, payload_field: topic, arg_type: string}
+      - {name: plan-path, payload_field: plan_path, arg_type: string}
+      - {name: no-launch, payload_field: no_launch, arg_type: boolean, default: false}
+      - {name: plan-only, payload_field: plan_only, arg_type: boolean, default: false}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  - skill_name: dod_verify
+    node_name: node_dod_verify
+    result_model: omnimarket.nodes.node_dod_verify.models.model_dod_verify_state.ModelDodVerifyState
+    # OMN-19152: the dispatch stays in-memory; the returned verdict is then
+    # published fail-soft to the dev lane, where node_projection_dod_verdict
+    # stores it in omninode_internal.dod_verify_runs.
+    publish_terminal_to_lane: dev
+    args:
+      - {name: ticket-id, payload_field: ticket_id, arg_type: string, positional: true, required: true}
+      - {name: contract-path, payload_field: contract_path, arg_type: string}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+      - {name: execution-audience, payload_field: execution_audience, arg_type: string}
+  # OMN-16106 first slice: companion-merge -> dod_verify -> governed Done
+  # flip. Node-backed in omnibase_infra itself (not omnimarket) — the sweep
+  # dispatches `onex skill dod_verify <ticket> --execution-audience hosted`
+  # from its own dispatch environment. apply defaults false (DRY-RUN); pass --apply to let
+  # the sweep call the Linear mutation API for real.
+  # OMN-17942 / OMN-16106 class (g). The other half of the creation gate: the
+  # gate stops NEW tickets entering In Progress with no executable probe, and
+  # this names the ones already there. Comments only -- it changes no ticket
+  # state, holds no flip budget, and says a thing once per ticket (marker-line
+  # dedup, OMN-16808). apply defaults false (DRY-RUN).
+  - skill_name: in_progress_probe_hygiene
+    node_name: node_in_progress_probe_hygiene_effect
+    result_model: omnibase_infra.nodes.node_in_progress_probe_hygiene_effect.models.model_probe_hygiene_result.ModelProbeHygieneResult
+    args:
+      - {name: occ-repo-dir, payload_field: occ_repo_dir, arg_type: string}
+      - {name: project, payload_field: project, arg_type: string}
+      - {name: max-tickets, payload_field: max_tickets, arg_type: integer}
+      - {name: max-comments-per-run, payload_field: max_comments_per_run, arg_type: integer}
+      - {name: apply, payload_field: apply, arg_type: boolean, default: false}
+      - {name: exclude, payload_field: exclude_tickets, arg_type: string_list}
+      - {name: linear-retry-max-attempts, payload_field: linear_retry_max_attempts, arg_type: integer}
+  - skill_name: evidence_autoclose_sweep
+    node_name: node_evidence_autoclose_sweep_effect
+    result_model: omnibase_infra.nodes.node_evidence_autoclose_sweep_effect.models.model_evidence_autoclose_sweep_result.ModelEvidenceAutocloseSweepResult
+    args:
+      - {name: occ-repo, payload_field: occ_repo, arg_type: string}
+      - {name: lookback-hours, payload_field: lookback_hours, arg_type: integer}
+      - {name: apply, payload_field: apply, arg_type: boolean, default: false}
+      - {name: max-companions, payload_field: max_companions, arg_type: integer}
+      - {name: dispatch-cwd, payload_field: dispatch_cwd, arg_type: string}
+      - {name: dod-verify-timeout-seconds, payload_field: dod_verify_timeout_seconds, arg_type: integer}
+      - {name: gh-timeout-seconds, payload_field: gh_timeout_seconds, arg_type: integer}
+      - {name: close-if-done-label, payload_field: close_if_done_label, arg_type: string}
+      # OMN-17891. The per-candidate fence. `string_list` splits on commas, so
+      # `--exclude OMN-17857,OMN-17800` is the wire form. Named tickets are
+      # refused BEFORE the sweep's first Linear read about them; every other
+      # candidate in the window is unaffected. This is a caller ASSERTION, not
+      # a derived fact — the node reads no ledger and no ownership signal — and
+      # it is not a kill switch: ONEX_AUTOCLOSE_DISABLED still halts the whole
+      # run regardless of what this names.
+      - {name: exclude, payload_field: exclude_tickets, arg_type: string_list}
+      # OMN-16106. THE RESTRICTIVE SELECTOR. `string_list` splits on commas, so
+      # `--offer OMN-16831,OMN-17397` is the wire form -- the same typed
+      # comma-list shape as `--exclude`, deliberately, so neither has to be
+      # re-parsed inside the node. Omitting it (the default, and what every
+      # scheduled tick gets) leaves the forward window and the rotating
+      # backfill slice exactly as they are. Passing it REPLACES that discovery:
+      # only the named tickets are adjudicated, each resolved to its newest
+      # merged OCC companion directly, which is what reaches a companion
+      # outside the freshness window, outside the pool cap and outside the
+      # current slice. It selects WHO is asked and never widens what the flip
+      # predicate accepts; `--exclude` still wins over an offer, before any
+      # GitHub or Linear I/O about it.
+      - {name: offer, payload_field: offer_tickets, arg_type: string_list}
+      # OMN-17342. The BACKFILL arm. `--backfill-lookback-hours 0` (the default,
+      # and what every scheduled tick gets) leaves the sweep single-armed. A
+      # non-zero value adds a second enumeration over a wider window and offers
+      # a BOUNDED ROTATING SLICE of it to the identical downstream pipeline --
+      # binding, Linear state, dod_verify, the OMN-16736 AC-coverage guard, the
+      # OMN-15911 behaviour conjunct, flip or gap. It widens which candidates
+      # are asked and changes nothing about what counts as proven. The three
+      # sizing knobs below bound the run: `--backfill-max-candidates` is the
+      # hard per-run cap on verifier calls (the thing that must not grow with
+      # the board), `--backfill-pool-size` caps the wider window's PR-list
+      # pagination, and `--backfill-rotation-minutes` is the cadence the slice
+      # advances on -- set it to the caller's real schedule interval.
+      - {name: backfill-lookback-hours, payload_field: backfill_lookback_hours, arg_type: integer}
+      - {name: backfill-max-candidates, payload_field: backfill_max_candidates, arg_type: integer}
+      - {name: backfill-pool-size, payload_field: backfill_pool_size, arg_type: integer}
+      - {name: backfill-rotation-minutes, payload_field: backfill_rotation_minutes, arg_type: integer}
+      # OMN-17658. The ARMING SPLIT. `--trigger` carries the FACT (what
+      # launched the run) and the contract's `scheduled_apply` carries the
+      # POLICY (may a run of that class write). There is deliberately NO
+      # `--scheduled-apply` flag: a caller that could pass one would be an
+      # arming authority, which is precisely what this ticket moved out of the
+      # workflow and into the contract. `--apply` (above) is unchanged and
+      # remains the dispatch-time write request.
+      - {name: trigger, payload_field: trigger, arg_type: string}
+      # OMN-17658. The per-run blast-radius bound. Exposed so a rehearsal can
+      # tighten it; it can never widen what the predicate accepts.
+      - {name: max-flips-per-run, payload_field: max_flips_per_run, arg_type: integer}
+      # OMN-17658 auto-disarm, the persisted half. A ticket id whose previous
+      # closer flip was found unsafe. Non-empty makes the run reach every
+      # decision and write none of them, reporting mode=disarmed. Plumbed by
+      # the workflow from the repo variable ONEX_AUTOCLOSE_DISARMED so it binds
+      # the scheduled runs nobody is watching, the same reachability argument
+      # the ONEX_AUTOCLOSE_DISABLED kill switch is a repo variable for.
+      - {name: disarmed-by, payload_field: disarmed_by_ticket, arg_type: string}
+      # OMN-17934 / OMN-17658. The state-history walk both the prior-revert
+      # fence and the bound flip readback are resolved from.
+      - {name: history-page-size, payload_field: history_page_size, arg_type: integer}
+      - {name: history-max-pages, payload_field: history_max_pages, arg_type: integer}
+      # OMN-17658 follow-up. The post-write readback retries because Linear's
+      # history connection lags the mutation that produced the entry -- measured
+      # on run 33958237006, where the flip landed and the immediate readback saw
+      # nothing, so the run recorded an error on a write that had succeeded.
+      - {name: readback-max-attempts, payload_field: readback_max_attempts, arg_type: integer}
+      - {name: readback-delay-seconds, payload_field: readback_delay_seconds, arg_type: integer}
+      # OMN-16106. Bounded retry for the sweep's OWN Linear reads, which every
+      # fail-closed caller in the handler consumes. The attempt count is
+      # exposed so an operator can tighten or widen it during a rate-limit
+      # incident without a deploy. `linear_retry_base_delay_seconds` is
+      # deliberately NOT exposed here: it is a float, this CLI has no float
+      # arg_type, and coercing one through `string` would put an unvalidated
+      # value on a wire that currently cannot carry a bad one. It stays a
+      # contract-declared field the request sets directly.
+      - {name: linear-retry-max-attempts, payload_field: linear_retry_max_attempts, arg_type: integer}
+  # OMN-16536: detect + re-flip Linear's silent GitHub-sync Done-revert
+  # pattern. Node-backed in omnibase_infra itself (same locality
+  # precedent as node_evidence_autoclose_sweep_effect above -- calls the
+  # Linear GraphQL API directly, no dod_verify subprocess dependency).
+  # apply defaults false (DRY-RUN); pass --apply to let the sweep call
+  # the Linear mutation API for real.
+  - skill_name: sync_revert_watchdog
+    node_name: node_sync_revert_watchdog_effect
+    result_model: omnibase_infra.nodes.node_sync_revert_watchdog_effect.models.model_sync_revert_watchdog_result.ModelSyncRevertWatchdogResult
+    args:
+      - {name: team-key, payload_field: team_key, arg_type: string}
+      - {name: lookback-hours, payload_field: lookback_hours, arg_type: integer}
+      - {name: apply, payload_field: apply, arg_type: boolean, default: false}
+      - {name: max-issues, payload_field: max_issues, arg_type: integer}
+      - {name: history-page-size, payload_field: history_page_size, arg_type: integer}
+      - {name: history-max-pages, payload_field: history_max_pages, arg_type: integer}
+      - {name: human-comment-window-seconds, payload_field: human_comment_window_seconds, arg_type: integer}
+      - {name: linear-timeout-seconds, payload_field: linear_timeout_seconds, arg_type: integer}
+      - {name: watchdog-comment-marker, payload_field: watchdog_comment_marker, arg_type: string}
+  # OMN-16769: read-only DLQ depth/arrival-rate monitor. Node-backed in
+  # omnibase_infra itself (same locality precedent as
+  # node_evidence_autoclose_sweep_effect / node_sync_revert_watchdog_effect).
+  # There is NO --apply-style flag here because there is nothing to apply: the
+  # node's only broker surface is read-only by construction. With no flags an
+  # alerting run exits non-zero and the scheduled workflow goes RED — that red
+  # run IS the alert surface. Pass --suppress-alert-exit for a characterization
+  # run that wants the histogram without gating. The flag is phrased negatively
+  # because `onex skill` booleans are PRESENCE-ONLY (cli_skill.py sets True on
+  # sight and rejects unknown `--no-*` tokens), so the safe value must be the
+  # default that needs no flag. Thresholds are contract-pinned; the CLI exposes them only
+  # so a one-off run can widen them, never so a schedule can silently weaken
+  # them (the workflow passes none of them).
+  - skill_name: dlq_depth_monitor
+    node_name: node_dlq_depth_monitor_effect
+    result_model: omnibase_infra.nodes.node_dlq_depth_monitor_effect.models.model_dlq_depth_monitor_result.ModelDlqDepthMonitorResult
+    args:
+      - {name: topic-prefix, payload_field: topic_prefix, arg_type: string}
+      - {name: window-seconds, payload_field: window_seconds, arg_type: integer}
+      - {name: default-max-arrivals-per-window, payload_field: default_max_arrivals_per_window, arg_type: integer}
+      - {name: max-retained-depth, payload_field: max_retained_depth, arg_type: integer}
+      - {name: suppress-alert-exit, payload_field: suppress_alert_exit, arg_type: boolean, default: false}
+  # OMN-16773: scheduled live event-chain canary. Node-backed in
+  # omnibase_infra (same locality precedent as the two sweeps above --
+  # it talks HTTP to a runtime ingress and Kafka to a broker, no
+  # subprocess dependency). probe-url is REQUIRED with no default: a
+  # canary that guesses its own target can report green about a lane
+  # nobody meant to probe (CLAUDE.md Rule 8).
+  - skill_name: chain_canary
+    node_name: node_chain_canary_effect
+    result_model: omnibase_infra.nodes.node_chain_canary_effect.models.model_chain_canary_result.ModelChainCanaryResult
+    args:
+      - {name: probe-url, payload_field: probe_url, arg_type: string}
+      # OMN-18421: the TENANT-BEARING submission route. Empty keeps the legacy
+      # tenant-less /skill route; set, the probe submits POST
+      # {gateway-url}/v1/workflows with a real credential, and the gateway
+      # resolves the tenant from that credential and stamps it on the published
+      # envelope -- the field omnimarket's delegation projection writer reads,
+      # and without which every event the chain publishes is refused
+      # fail-closed into its malformed sink.
+      - {name: gateway-url, payload_field: gateway_url, arg_type: string}
+      # The NAME of the environment variable carrying the gateway API key,
+      # never the key. Same reasoning as the two dsn-env rows below and the
+      # same three durable copies: this arg is serialised into the node
+      # payload, onto the bus and into the event log, and the flag itself lands
+      # in argv. The request model refuses a value that is not a valid
+      # environment variable name.
+      - {name: gateway-api-key-env, payload_field: gateway_api_key_env, arg_type: string}
+      - {name: gateway-workflow-type, payload_field: gateway_workflow_type, arg_type: string}
+      - {name: command-name, payload_field: runtime_command, arg_type: string}
+      - {name: task-type, payload_field: task_type, arg_type: string}
+      - {name: prompt, payload_field: prompt, arg_type: string}
+      - {name: max-tokens, payload_field: max_tokens, arg_type: integer}
+      - {name: budget-ms, payload_field: budget_ms, arg_type: integer}
+      - {name: terminal-bootstrap-servers, payload_field: terminal_bootstrap_servers, arg_type: string}
+      - {name: terminal-success-topics, payload_field: terminal_success_topics, arg_type: string}
+      - {name: terminal-failure-topics, payload_field: terminal_failure_topics, arg_type: string}
+      - {name: terminal-scan-records, payload_field: terminal_scan_records, arg_type: integer}
+      - {name: terminal-readback-timeout-seconds, payload_field: terminal_readback_timeout_seconds, arg_type: integer}
+      # OMN-18060: the NAME of the environment variable carrying the link-2
+      # projection DSN, never the DSN. `onex skill` serialises every arg here
+      # into the node payload, onto the bus and into the event log, and the
+      # flag itself lands in argv -- so a --projection-dsn flag would mint
+      # three durable copies of a credential. There is deliberately no such
+      # flag. The request model REFUSES a value that parses as a connection
+      # string, and the handler refuses one that reached the process on any
+      # other flag.
+      - {name: projection-dsn-env, payload_field: projection_dsn_env, arg_type: string}
+      # OMN-16964: the same shape for link 5's ledger source, and the same
+      # reasoning. #3072 shipped this leg with a raw-DSN `ledger_source`
+      # field; there was never a CLI row for it, so nothing is broken by
+      # replacing it with a NAME here rather than adding a second flag
+      # beside it. The value is injected into the job environment under
+      # the name the lane declares (`ledger_readback.dsn_env`) and read
+      # there.
+      - {name: ledger-dsn-env, payload_field: ledger_source_env, arg_type: string}
+      - {name: expected-ledger-hops, payload_field: expected_ledger_hops, arg_type: string}
+      - {name: quarantine-bootstrap-servers, payload_field: quarantine_bootstrap_servers, arg_type: string}
+      - {name: quarantine-topic, payload_field: quarantine_topic, arg_type: string}
+      - {name: quarantine-scan-records, payload_field: quarantine_scan_records, arg_type: integer}
+      - {name: quarantine-timeout-seconds, payload_field: quarantine_timeout_seconds, arg_type: integer}
+      - {name: settle-seconds, payload_field: settle_seconds, arg_type: integer}
+      # OMN-19811: the lane's deploy agent, so a run that lands on a redeploy
+      # waits it out and retries once instead of reporting terminal_missing.
+      - {name: deploy-agent-url, payload_field: deploy_agent_url, arg_type: string}
+      - {name: deploy-wait-seconds, payload_field: deploy_wait_seconds, arg_type: integer}
+  # OMN-16897: headless Infisical seeding. The operator asked for one command
+  # with no UI and no interactive login; this row is what makes it one
+  # command. Note what is NOT here: any arg that carries a secret VALUE.
+  # `onex skill` builds the node payload from these args, and that payload is
+  # serialised onto the bus and into the event log — so a --value flag would
+  # durably persist the key. --source-path names a local file (or '-' for
+  # stdin) and the handler reads it at execution time.
+  #
+  # Writing is a positive opt-in: --execute. There is deliberately NO
+  # --dry-run flag. `onex skill` boolean args are PRESENCE flags (cli_skill
+  # sets True on sight and never False), so a --dry-run defaulting to true
+  # could not be turned off from the command line at all. The request model
+  # therefore takes `execute` and derives `dry_run = not execute`, which
+  # makes plan-only the mode you get by forgetting the flag.
+  #
+  # Every addressing arg is required:true. This estate runs three separate
+  # Infisical instances and a defaulted host/project/env/path would seed a
+  # real key into one nobody meant to touch (CLAUDE.md Rule 8).
+  - skill_name: seed_secrets
+    node_name: node_secret_seed_effect
+    result_model: omnibase_infra.nodes.node_secret_seed_effect.models.model_secret_seed_result.ModelSecretSeedResult
+    args:
+      - {name: source-path, payload_field: source_path, arg_type: string, required: true}
+      - {name: infisical-host, payload_field: infisical_host, arg_type: string, required: true}
+      - {name: project-id, payload_field: project_id, arg_type: string, required: true}
+      - {name: environment-slug, payload_field: environment_slug, arg_type: string, required: true}
+      - {name: secret-path, payload_field: secret_path, arg_type: string, required: true}
+      - {name: keys, payload_field: keys, arg_type: string_list}
+      - {name: execute, payload_field: execute, arg_type: boolean, default: false}
+  - skill_name: duplication_sweep
+    node_name: node_duplication_sweep
+    result_model: omnimarket.nodes.node_duplication_sweep.handlers.handler_duplication_sweep.DuplicationSweepResult
+    args:
+      - {name: omni-home, payload_field: omni_home, arg_type: string}
+      - {name: checks, payload_field: checks, arg_type: string_list}
+  # OMN-13995: node_dep_cascade_dedup_orchestrator existed in the omnimarket
+  # catalog with request+result models, but `onex skill dep_cascade_dedup`
+  # returned "Unknown skill" (no mapping row) so the post-release dep-bump
+  # dedup sweep was unrunnable headless. Additive registration only; args
+  # mirror ModelDepCascadeDedupRequest.
+  - skill_name: dep_cascade_dedup
+    node_name: node_dep_cascade_dedup_orchestrator
+    result_model: omnimarket.nodes.node_dep_cascade_dedup_orchestrator.models.model_dep_cascade_dedup_result.ModelDepCascadeDedupResult
+    args:
+      - {name: repos, payload_field: repos, arg_type: string_list}
+      - {name: dependency-type, payload_field: dependency_type, arg_type: string}
+      - {name: label, payload_field: label, arg_type: string}
+      - {name: close-comment, payload_field: close_comment, arg_type: string}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  - skill_name: gap
+    node_name: node_gap_compute
+    result_model: omnimarket.nodes.node_gap_compute.models.model_gap_compute_result.ModelGapComputeResult
+    args:
+      - {name: subcommand, payload_field: subcommand, arg_type: string, positional: true}
+      - {name: scope, payload_field: scope, arg_type: string}
+      - {name: epic, payload_field: epic, arg_type: string}
+      - {name: report, payload_field: report, arg_type: string}
+      - {name: repo, payload_field: repo, arg_type: string}
+      - {name: repo-roots, payload_field: repo_roots, arg_type: string_list}
+      - {name: since-days, payload_field: since_days, arg_type: integer}
+      - {name: severity-threshold, payload_field: severity_threshold, arg_type: string}
+      - {name: max-findings, payload_field: max_findings, arg_type: integer}
+      - {name: max-best-effort, payload_field: max_best_effort, arg_type: integer}
+      - {name: max-iterations, payload_field: max_iterations, arg_type: integer}
+      - {name: output, payload_field: output, arg_type: string}
+      - {name: ticket, payload_field: ticket, arg_type: string}
+      - {name: resume, payload_field: resume, arg_type: string}
+      - {name: lag-threshold, payload_field: lag_threshold, arg_type: integer}
+      - {name: latest, payload_field: latest, arg_type: boolean, default: false}
+      - {name: audit, payload_field: audit, arg_type: boolean, default: false}
+      - {name: no-fix, payload_field: no_fix, arg_type: boolean, default: false}
+      - {name: verify, payload_field: verify, arg_type: boolean, default: false}
+      - {name: auto-only, payload_field: auto_only, arg_type: boolean, default: false}
+      - {name: skip-infra-probes, payload_field: skip_infra_probes, arg_type: boolean, default: false}
+      - {name: include-auth-probes, payload_field: include_auth_probes, arg_type: boolean, default: false}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  - skill_name: hostile_reviewer
+    node_name: node_hostile_reviewer_orchestrator
+    result_model: omnimarket.nodes.node_hostile_reviewer_orchestrator.models.model_hostile_reviewer_completed_event.ModelHostileReviewerCompletedEvent
+    args:
+      - {name: pr-number, payload_field: pr_number, arg_type: integer}
+      - {name: repo, payload_field: repo, arg_type: string}
+      - {name: file-path, payload_field: file_path, arg_type: string}
+      - {name: models, payload_field: models, arg_type: string_list}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  - skill_name: linear_housekeeping
+    node_name: node_linear_triage
+    result_model: omnimarket.nodes.node_linear_triage.models.model_linear_triage_state.ModelLinearTriageResult
+    args:
+      - {name: threshold-days, payload_field: threshold_days, arg_type: integer}
+      - {name: flag-only, payload_field: flag_only, arg_type: boolean, default: false}
+      - {name: team, payload_field: team, arg_type: string}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  - skill_name: merge_sweep
+    node_name: node_pr_lifecycle_orchestrator
+    result_model: omnimarket.nodes.node_pr_lifecycle_orchestrator.handlers.handler_pr_lifecycle_orchestrator.ModelPrLifecycleResult
+    args:
+      - {name: repos, payload_field: repos, arg_type: string_list}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+      - {name: inventory-only, payload_field: inventory_only, arg_type: boolean, default: false}
+      - {name: fix-only, payload_field: fix_only, arg_type: boolean, default: false}
+      - {name: merge-only, payload_field: merge_only, arg_type: boolean, default: false}
+      - {name: max-parallel-polish, payload_field: max_parallel_polish, arg_type: integer}
+      - {name: verify, payload_field: verify, arg_type: boolean, default: false}
+      - {name: verify-timeout-seconds, payload_field: verify_timeout_seconds, arg_type: integer}
+      - {name: loop-until-done, payload_field: loop_until_done, arg_type: boolean, default: true}
+      - {name: max-sweep-passes, payload_field: max_sweep_passes, arg_type: integer}
+      - {name: sweep-sleep-seconds, payload_field: sweep_sleep_seconds, arg_type: integer}
+  - skill_name: plan_to_tickets
+    node_name: node_plan_to_tickets
+    result_model: omnimarket.nodes.node_plan_to_tickets.handlers.handler_plan_to_tickets.ModelPlanToTicketsResult
+    args:
+      - {name: plan-path, payload_field: plan_path, arg_type: string, required: true}
+      - {name: project, payload_field: project, arg_type: string}
+      - {name: epic-title, payload_field: epic_title, arg_type: string}
+      - {name: no-create-epic, payload_field: no_create_epic, arg_type: boolean, default: false}
+      - {name: skip-existing, payload_field: skip_existing, arg_type: boolean, default: false}
+      - {name: team, payload_field: team, arg_type: string}
+      - {name: repo, payload_field: repo, arg_type: string}
+      - {name: allow-arch-violation, payload_field: allow_arch_violation, arg_type: boolean, default: false}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  - skill_name: platform_readiness
+    node_name: node_platform_readiness
+    result_model: omnimarket.nodes.node_platform_readiness.handlers.handler_platform_readiness.ModelPlatformReadinessResult
+    args: []
+  - skill_name: pr_polish
+    node_name: node_pr_polish
+    result_model: omnimarket.nodes.node_pr_polish.models.model_pr_polish_completed_event.ModelPrPolishCompletedEvent
+    args:
+      - {name: repo, payload_field: repo, arg_type: string, required: true}
+      - {name: pr-number, payload_field: pr_number, arg_type: integer, required: true}
+      - {name: ticket-id, payload_field: ticket_id, arg_type: string}
+      - {name: required-clean-runs, payload_field: required_clean_runs, arg_type: integer}
+      - {name: max-iterations, payload_field: max_iterations, arg_type: integer}
+      - {name: skip-conflicts, payload_field: skip_conflicts, arg_type: boolean, default: false}
+      - {name: skip-pr-review, payload_field: skip_pr_review, arg_type: boolean, default: false}
+      - {name: skip-local-review, payload_field: skip_local_review, arg_type: boolean, default: false}
+      - {name: no-ci, payload_field: no_ci, arg_type: boolean, default: false}
+      - {name: no-push, payload_field: no_push, arg_type: boolean, default: false}
+      - {name: no-automerge, payload_field: no_automerge, arg_type: boolean, default: false}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  - skill_name: pr_review
+    node_name: node_pr_review_orchestrator
+    result_model: omnimarket.review.pr_review_io.ReviewVerdict
+    args:
+      - {name: pr-number, payload_field: pr_number, arg_type: integer, required: true}
+      - {name: repo, payload_field: repo, arg_type: string, required: true}
+      # OMN-13719: local-first declarative defaults so the convenience path
+      # `onex skill pr_review --repo X --pr-number N` builds a valid ReviewRequest
+      # (reviewer_models is list[str], which runtime run-identity injection does NOT
+      # backfill — without a default the payload fails ReviewRequest validation).
+      # The input model stays strict; only the declarative CLI path defaults here.
+      - {name: reviewer-models, payload_field: reviewer_models, arg_type: string_list, default: [local]}
+      - {name: judge-model, payload_field: judge_model, arg_type: string, default: local}
+      - {name: severity-threshold, payload_field: severity_threshold, arg_type: string}
+      - {name: max-findings-per-pr, payload_field: max_findings_per_pr, arg_type: integer}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  - skill_name: pr_review_bot
+    node_name: node_pr_review_orchestrator
+    result_model: omnimarket.review.pr_review_io.ReviewVerdict
+    args:
+      - {name: pr-number, payload_field: pr_number, arg_type: integer, required: true}
+      - {name: repo, payload_field: repo, arg_type: string, required: true}
+      # OMN-13719: local-first declarative defaults so the convenience path
+      # `onex skill pr_review --repo X --pr-number N` builds a valid ReviewRequest
+      # (reviewer_models is list[str], which runtime run-identity injection does NOT
+      # backfill — without a default the payload fails ReviewRequest validation).
+      # The input model stays strict; only the declarative CLI path defaults here.
+      - {name: reviewer-models, payload_field: reviewer_models, arg_type: string_list, default: [local]}
+      - {name: judge-model, payload_field: judge_model, arg_type: string, default: local}
+      - {name: severity-threshold, payload_field: severity_threshold, arg_type: string}
+      - {name: max-findings-per-pr, payload_field: max_findings_per_pr, arg_type: integer}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  # OMN-14374: structured-only GitHub PR/repo state probe. Wires the EXISTING
+  # node_github_repo_gateway_effect (OMN-14307, merged same-cycle) — a
+  # read-only typed status reader built exactly for this follow-on ("wire
+  # into onex skill" per its PR body). No new node/handler/model code: one
+  # additive mapping entry. Returns ONE small typed object per operation
+  # (pr_status/ci_checks/open_prs_list/branch_protection/review_gate/
+  # merge_commit_sha/ticket_ref) over the existing GraphQL/REST transport —
+  # never a raw `gh pr view/checks --json ...` dump. --pr is required only
+  # for the 5 PR-scoped operations (validated by the node's request model).
+  - skill_name: pr_state
+    node_name: node_github_repo_gateway_effect
+    result_model: omnimarket.nodes.node_github_repo_gateway_effect.models.model_gateway_io.ModelGithubGatewayResponse
+    args:
+      - {name: operation, payload_field: operation, arg_type: string, required: true}
+      - {name: repo, payload_field: repo, arg_type: string, required: true}
+      - {name: pr, payload_field: pr_number, arg_type: integer}
+  - skill_name: session
+    node_name: node_session_orchestrator
+    result_model: omnimarket.nodes.node_session_orchestrator.handlers.handler_session_orchestrator.ModelSessionOrchestratorResult
+    args:
+      - {name: mode, payload_field: mode, arg_type: string}
+      - {name: phase, payload_field: phase, arg_type: string}
+      - {name: skip-health, payload_field: skip_health, arg_type: boolean, default: false}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  - skill_name: shim_audit
+    node_name: node_shim_scanner
+    result_model: omnimarket.nodes.node_shim_scanner.models.model_shim_scan_result.ModelShimScanResult
+    args:
+      - {name: paths, payload_field: paths, arg_type: string_list}
+      - {name: reference-date, payload_field: reference_date, arg_type: string}
+      - {name: warn-days-before-expiry, payload_field: warn_days_before_expiry, arg_type: integer}
+  - skill_name: delegate
+    node_name: node_delegate_skill_orchestrator
+    result_model: omnimarket.models.delegation.wire.model_delegate_skill_response.ModelDelegateSkillResponse
+    static_payload:
+      source: claude-code
+    args:
+      - {name: prompt, payload_field: prompt, arg_type: string, positional: true, required: true}
+      - {name: task-type, payload_field: task_type, arg_type: string}
+      # No default: when --max-tokens is omitted the field is left out of the
+      # payload so the delegate node resolves it per-backend from its routing
+      # contract (OMN-13161). Pass --max-tokens only as an explicit override.
+      - {name: max-tokens, payload_field: max_tokens, arg_type: integer}
+    # OMN-19407: the task class is resolved by the task-class contract read
+    # through the registry (onex.contracts:task_class_authority), the same
+    # resolution `onex delegate` performs. No keyword table, no fallback here.
+    task_class:
+      target_field: task_type
+      prompt_field: prompt
+  # ===================================================================
+  # OMN-13712: convergence of node-proven WIRE-MAP skills.
+  #
+  # Each skill below already had a working omnimarket backing node proven
+  # over the local in-memory bus (`onex node <name>` this pass — see
+  # docs/evidence/2026-06-28-skill-e2e-foreground/matrix.md, rows with
+  # migration=WIRE-MAP AND verdict=WORKS-E2E) but no skill_mapping entry,
+  # so the only documented invocation was `onex run-node` (remote). These
+  # entries converge them onto the single `onex skill <name>` path.
+  #
+  # APPENDED AS ONE BLOCK at end-of-file to 3-way-merge cleanly with
+  # OMN-13715 / OMN-13718 which edit existing entries in place. Do NOT
+  # interleave with the entries above.
+  #
+  # node_name verified present in omnimarket's onex.nodes entry-point
+  # catalog (the same resolution `onex node`/`onex skill` use). Each
+  # result_model is the backing handler's typed result class; the runtime
+  # auto-stamps missing required scalar fields (correlation_id, empty
+  # strings) so bare invocation runs over the local bus. Only nodes whose
+  # input model rejects an empty/defaulted value carry a fixture: a
+  # required positional arg (recall query, checkpoint action) or a
+  # representative static_payload.
+  # ===================================================================
+  - skill_name: agent_healthcheck
+    node_name: node_worker_stall_recovery
+    # The stall-recovery handler returns an untyped dict (status / stall_reason
+    # / checkpoint_path / redispatch_count); it has no typed result model yet,
+    # so the honest schema identity is the dict type. Typing this result is
+    # separate node debt, not part of this convergence wiring.
+    result_model: builtins.dict
+    args:
+      - {name: ticket-id, payload_field: ticket_id, arg_type: string}
+      - {name: agent-id, payload_field: agent_id, arg_type: string}
+      - {name: timeout-minutes, payload_field: timeout_minutes, arg_type: integer}
+      - {name: max-redispatches, payload_field: max_redispatches, arg_type: integer}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  - skill_name: env_parity
+    node_name: node_env_parity_collect_effect
+    result_model: omnimarket.nodes.node_env_parity_collect_effect.models.model_env_parity_collect_result.ModelEnvParityCollectResult
+    # OMN-13925: env_parity previously dispatched the pure compute primitive
+    # over a STATIC two-lane sample baked into this mapping, so `onex skill
+    # env_parity` emitted a sample-data verdict masquerading as live lane
+    # parity. It now dispatches the live collection EFFECT, which snapshots
+    # the real runtime lanes read-only over ssh (docker ps + docker inspect
+    # .Config.Env per the lane census topology in its contract) and evaluates
+    # the shared parity engine over the freshly collected env. The receipt
+    # carries per-lane provenance (container name/id, UTC collected_at, env
+    # var counts). With no --ssh-target and no ONEX_LANE_SSH_TARGET the node
+    # FAILS FAST stating no live collection input was provided — it never
+    # substitutes sample data. Caller-supplied env_by_lane snapshots remain
+    # available ONLY by dispatching node_env_parity_compute directly
+    # (`onex run-node`), which is the TEST-ONLY sample path by construction.
+    # tests/unit/cli/test_cli_skill.py::test_env_parity_mapping_has_no_static_lane_snapshot
+    # enforces that a static env_by_lane payload can never come back here.
+    args:
+      - {name: scope, payload_field: scope, arg_type: string}
+      - {name: lanes, payload_field: lanes, arg_type: string_list}
+      - {name: variable-names, payload_field: variable_names, arg_type: string_list}
+      - {name: ssh-target, payload_field: ssh_target, arg_type: string}
+      - {name: connect-timeout-seconds, payload_field: connect_timeout_seconds, arg_type: integer}
+  - skill_name: bus_audit
+    node_name: node_bus_audit_compute
+    result_model: omnimarket.nodes.node_bus_audit_compute.models.model_bus_audit_compute_result.ModelBusAuditComputeResult
+    args:
+      - {name: scope, payload_field: scope, arg_type: string}
+      - {name: failures-only, payload_field: failures_only, arg_type: boolean, default: false}
+      - {name: skip-daemon, payload_field: skip_daemon, arg_type: boolean, default: false}
+      - {name: verbose, payload_field: verbose, arg_type: boolean, default: false}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  - skill_name: plan_audit
+    node_name: node_plan_audit_compute
+    result_model: omnimarket.nodes.node_plan_audit_compute.models.model_plan_audit_compute_result.ModelPlanAuditComputeResult
+    args:
+      - {name: plan-path, payload_field: plan_path, arg_type: string}
+  - skill_name: recall
+    node_name: node_recall_compute
+    result_model: omnimarket.nodes.node_recall_compute.models.model_recall_result.ModelRecallResult
+    args:
+      - {name: query, payload_field: query, arg_type: string, positional: true, required: true}
+      - {name: scope, payload_field: scope, arg_type: string}
+      - {name: max-results, payload_field: max_results, arg_type: integer}
+  # OMN-17018: node_dispatch_queue_drainer had ZERO occurrences in this file,
+  # so `onex skill dispatch_queue_drainer` did not resolve at all and the node's
+  # only reach was `python -m ...` plus one `uv run onex run-node` line in its
+  # SKILL.md. It is also absent from contract_topic_graph_orphan_classification
+  # and the baseline, so a reachability census sourced from the topic-graph
+  # classifier alone omits it silently. Registering it here is the CLI-dispatch
+  # path the skill shim already documents.
+  - skill_name: dispatch_queue_drainer
+    node_name: node_dispatch_queue_drainer
+    result_model: omnimarket.nodes.node_dispatch_queue_drainer.models.model_dispatch_queue_drainer_result.ModelDispatchQueueDrainerResult
+    args:
+      - {name: queue-item-path, payload_field: queue_item_path, arg_type: string}
+      - {name: queue-dir, payload_field: queue_dir, arg_type: string}
+      - {name: state-dir, payload_field: state_dir, arg_type: string}
+      - {name: tasks-dir, payload_field: tasks_dir, arg_type: string}
+      - {name: omni-home, payload_field: omni_home, arg_type: string}
+      - {name: claim-lease-seconds, payload_field: claim_lease_seconds, arg_type: integer}
+      - {name: dispatch-ack-timeout-seconds, payload_field: dispatch_ack_timeout_seconds, arg_type: integer}
+      - {name: actor, payload_field: actor, arg_type: string}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  - skill_name: dispatch_watchdog
+    node_name: node_dispatch_watchdog_orchestrator
+    result_model: omnimarket.nodes.node_dispatch_watchdog_orchestrator.models.model_watchdog.ModelWatchdogResult
+    args:
+      - {name: epic-id, payload_field: epic_id, arg_type: string}
+      - {name: check-interval-seconds, payload_field: check_interval_seconds, arg_type: integer}
+      - {name: stall-timeout-seconds, payload_field: stall_timeout_seconds, arg_type: integer}
+  # OMN-13834: dispatch_engine was rebuilt from a facade into a thin router over
+  # RSD scoring (node_rsd_fill_compute) + self-healing fan-out
+  # (node_self_healing_dispatch_orchestrator). The backing node input is
+  # ModelSkillRequest (skill_name/skill_path required); static_payload supplies
+  # the skill identity (repo-relative SKILL.md path — no absolute path). Inert in
+  # the canonical env until the OMN-13829 omnimarket re-pin, but correct forward
+  # progress so `onex skill dispatch_engine` resolves once omnimarket is installed.
+  - skill_name: dispatch_engine
+    node_name: node_skill_dispatch_engine_orchestrator
+    result_model: omnimarket.nodes.node_skill_dispatch_engine_orchestrator.models.model_dispatch_engine_receipt.ModelDispatchEngineReceipt
+    static_payload:
+      skill_name: dispatch_engine
+      skill_path: omniclaude/plugins/onex/skills/dispatch_engine/SKILL.md
+    args:
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  - skill_name: env_sync_alert
+    node_name: node_env_sync_alert_effect
+    result_model: omnimarket.nodes.node_env_sync_alert_effect.models.model_env_sync_alert_result.ModelEnvSyncAlertResult
+    args:
+      - {name: log-paths, payload_field: log_paths, arg_type: string_list}
+      - {name: alert-threshold, payload_field: alert_threshold, arg_type: integer}
+      - {name: create-linear-tickets, payload_field: create_linear_tickets, arg_type: boolean, default: false}
+  - skill_name: resume_session
+    node_name: node_resume_session_compute
+    result_model: omnimarket.nodes.node_resume_session_compute.models.model_resume_session_compute_result.ModelResumeSessionComputeResult
+    args:
+      - {name: task-id, payload_field: task_id, arg_type: string}
+      - {name: agent-id, payload_field: agent_id, arg_type: string}
+  - skill_name: verification_receipt_generator
+    node_name: node_verification_receipt_generator
+    result_model: omnimarket.events.verification.ModelVerificationReceipt
+    args:
+      - {name: task-id, payload_field: task_id, arg_type: string}
+      - {name: claim, payload_field: claim, arg_type: string}
+      - {name: repo, payload_field: repo, arg_type: string}
+      - {name: pr-number, payload_field: pr_number, arg_type: integer}
+      - {name: worktree-path, payload_field: worktree_path, arg_type: string}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  - skill_name: rrh
+    node_name: node_rrh_compute
+    result_model: omnimarket.nodes.node_rrh_compute.models.model_rrh_compute_result.ModelRrhComputeResult
+    args:
+      - {name: release-id, payload_field: release_id, arg_type: string}
+      - {name: checks, payload_field: checks, arg_type: string_list}
+  - skill_name: rewind
+    node_name: node_rewind_compute
+    result_model: omnimarket.nodes.node_rewind_compute.models.model_rewind_compute_result.ModelRewindComputeResult
+    args:
+      - {name: agent-name, payload_field: agent_name, arg_type: string}
+      - {name: timestamp, payload_field: timestamp, arg_type: string}
+      - {name: window-seconds, payload_field: window_seconds, arg_type: integer}
+  - skill_name: checkpoint
+    node_name: node_checkpoint_compute
+    result_model: omnimarket.nodes.node_checkpoint_compute.models.model_checkpoint_result.ModelCheckpointResult
+    args:
+      - {name: action, payload_field: action, arg_type: string, positional: true, required: true}
+      - {name: checkpoint-id, payload_field: checkpoint_id, arg_type: string}
+  - skill_name: insights_to_plan
+    node_name: node_insights_to_plan_compute
+    result_model: omnimarket.nodes.node_insights_to_plan_compute.models.model_insights_to_plan_compute_result.ModelInsightsToPlanComputeResult
+    args:
+      - {name: html-path, payload_field: html_path, arg_type: string}
+      - {name: source-type, payload_field: source_type, arg_type: string}
+  - skill_name: local_review
+    node_name: node_local_review
+    result_model: omnimarket.nodes.node_local_review.models.model_local_review_state.ModelLocalReviewState
+    args:
+      - {name: max-iterations, payload_field: max_iterations, arg_type: integer}
+      - {name: required-clean-runs, payload_field: required_clean_runs, arg_type: integer}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  - skill_name: autopilot
+    node_name: node_autopilot_orchestrator
+    result_model: omnimarket.nodes.node_autopilot_orchestrator.models.model_autopilot_phase_result.ModelAutopilotResult
+    args:
+      - {name: mode, payload_field: mode, arg_type: string}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  - skill_name: two_strike_arbiter
+    node_name: node_two_strike_arbiter
+    result_model: omnimarket.nodes.node_two_strike_arbiter.models.model_two_strike_result.ModelTwoStrikeResult
+    args:
+      - {name: ticket-id, payload_field: ticket_id, arg_type: string}
+      - {name: repo, payload_field: repo, arg_type: string}
+      - {name: pr-number, payload_field: pr_number, arg_type: integer}
+      - {name: branch, payload_field: branch, arg_type: string}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  - skill_name: feature_dashboard
+    node_name: node_feature_dashboard_compute
+    result_model: omnimarket.nodes.node_feature_dashboard_compute.models.model_feature_dashboard_result.ModelFeatureDashboardResult
+    args:
+      - {name: skills, payload_field: skills, arg_type: string_list}
+      - {name: check-types, payload_field: check_types, arg_type: string_list}
+      - {name: repo-root, payload_field: repo_root, arg_type: string}
+  # OMN-13688: pipeline_fill and wave_scheduler were node-backed in omnimarket
+  # but absent from this registry, so `onex skill <name>` returned "Unknown
+  # skill" and the autonomous build-loop could not invoke them headless.
+  # pipeline_fill.correlation_id is auto-injected by RuntimeLocal
+  # (OMN-13591), so never expose it as a CLI arg. pipeline_fill.min_score and
+  # wave_scheduler.healthcheck_config are not supported CLI scalar arg types;
+  # omit them so model defaults apply.
+  - skill_name: pipeline_fill
+    node_name: node_pipeline_fill
+    result_model: omnimarket.nodes.node_pipeline_fill.models.model_pipeline_fill_result.ModelPipelineFillResult
+    args:
+      - {name: top-n, payload_field: top_n, arg_type: integer}
+      - {name: wave-cap, payload_field: wave_cap, arg_type: integer}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+      - {name: state-dir, payload_field: state_dir, arg_type: string}
+  - skill_name: wave_scheduler
+    node_name: node_wave_scheduler_orchestrator
+    result_model: omnimarket.nodes.node_wave_scheduler_orchestrator.models.model_wave_scheduler_result.ModelWaveSchedulerResult
+    args:
+      - {name: plan-path, payload_field: plan_path, arg_type: string, positional: true, required: true}
+      - {name: max-concurrency, payload_field: max_concurrency, arg_type: integer}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+      - {name: resume, payload_field: resume, arg_type: boolean, default: false}
+      - {name: fail-fast, payload_field: fail_fast, arg_type: boolean, default: false}
+      - {name: defer-repo-conflicts, payload_field: defer_repo_conflicts, arg_type: boolean, default: false}
+  # OMN-13918: `redeploy` was a documented skill (docs/) with NO entry here, so
+  # `onex skill redeploy` returned "Unknown skill" — the .201 runtime redeploy
+  # path had no executable CLI surface and no explicit lane targeting. `lane`
+  # is the DoD's required explicit-lane parameter: it maps to
+  # ModelRedeployStartCommand.runtime_lane, which defaults to "dev" — the
+  # mapping never sets a default here, so the lane can never silently resolve
+  # to prod. A prod lane request still routes through the real
+  # prod-promotion-grant-resolve -> gate-evaluate chain (node_redeploy_orchestrator
+  # never trusts a caller-attached grant). `dry-run` short-circuits BEFORE that
+  # chain to a REAL terminal ModelRedeployCompletedEvent with no live I/O: DONE
+  # for dev/stability-test, BLOCKED for prod (a dry-run cannot resolve the
+  # out-of-band grant, so it never fabricates a passing gate decision).
+  # correlation_id is auto-injected by RuntimeLocal (OMN-13591), so it is never
+  # exposed as a CLI arg.
+  - skill_name: redeploy
+    node_name: node_redeploy_orchestrator
+    result_model: omnimarket.events.runtime_deployment.ModelRedeployCompletedEvent
+    args:
+      - {name: lane, payload_field: runtime_lane, arg_type: string}
+      - {name: scope, payload_field: scope, arg_type: string}
+      - {name: git-ref, payload_field: git_ref, arg_type: string}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}
+  # OMN-14529: `decision_store` was documented in SKILL.md with zero backing
+  # code — no entry here, no wired dispatch route, decision_store had 0 rows
+  # its entire existence. node_decision_store_orchestrator (omnimarket) exists
+  # and routes record/query/check_conflicts, but its input model
+  # (ModelDecisionStoreRequest) carries nested objects (`entry`,
+  # `query_filter`) that the flat string/integer/boolean/string_list arg
+  # types cannot construct — hence the `json` arg_type (see
+  # enum_skill_arg_type.py). Callers pass `--entry` / `--query-filter` as a
+  # JSON-encoded object matching ModelDecisionEntry / ModelDecisionQueryFilter.
+  - skill_name: decision_store
+    node_name: node_decision_store_orchestrator
+    result_model: omnimarket.nodes.node_decision_store_orchestrator.models.model_decision_store_request.ModelDecisionStoreResult
+    args:
+      - {name: action, payload_field: action, arg_type: string, required: true}
+      - {name: entry, payload_field: entry, arg_type: json}
+      - {name: query-filter, payload_field: query_filter, arg_type: json}
+      - {name: conflict-scope, payload_field: conflict_scope, arg_type: string}
+      - {name: dry-run, payload_field: dry_run, arg_type: boolean, default: false}

@@ -1,5 +1,0 @@
-publishers:
-  - xunit:
-      types:
-          - phpunit:
-              pattern: "junit.log"

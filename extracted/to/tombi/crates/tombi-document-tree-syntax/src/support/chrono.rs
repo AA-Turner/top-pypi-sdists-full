@@ -4,7 +4,7 @@ use tombi_toml_version::TomlVersion;
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ParseError {
-    #[error("input is out of range")]
+    #[error("input is out of span")]
     OutOfRange,
 
     #[error("no possible date and time matching input")]
@@ -45,19 +45,17 @@ impl From<chrono::format::ParseErrorKind> for ParseError {
 }
 
 pub(crate) fn try_new_offset_date_time(
-    node: &tombi_ast_syntax::OffsetDateTime,
+    node: &tombi_ast_syntax::OffsetDateTime<'_>,
     toml_version: TomlVersion,
 ) -> Result<tombi_date_time::OffsetDateTime, crate::Error> {
     let Some(token) = node.token() else {
-        return Err(crate::Error::IncompleteNode {
-            range: node.range(),
-        });
+        return Err(crate::Error::IncompleteNode { span: node.span() });
     };
 
     let Ok(datetime_str) = make_datetime_str(token.text(), toml_version) else {
         return Err(crate::Error::ParseOffsetDateTimeError {
             error: ParseError::OptionalSeconds,
-            range: token.range(),
+            span: token.span(),
         });
     };
 
@@ -65,25 +63,23 @@ pub(crate) fn try_new_offset_date_time(
         Ok(value) => Ok(value),
         Err(error) => Err(crate::Error::ParseDateTimeError {
             error,
-            range: token.range(),
+            span: token.span(),
         }),
     }
 }
 
 pub(crate) fn try_new_local_date_time(
-    node: &tombi_ast_syntax::LocalDateTime,
+    node: &tombi_ast_syntax::LocalDateTime<'_>,
     toml_version: TomlVersion,
 ) -> Result<tombi_date_time::LocalDateTime, crate::Error> {
     let Some(token) = node.token() else {
-        return Err(crate::Error::IncompleteNode {
-            range: node.range(),
-        });
+        return Err(crate::Error::IncompleteNode { span: node.span() });
     };
 
     let Ok(datetime_str) = make_datetime_str(token.text(), toml_version) else {
         return Err(crate::Error::ParseLocalDateTimeError {
             error: ParseError::OptionalSeconds,
-            range: token.range(),
+            span: token.span(),
         });
     };
 
@@ -91,40 +87,36 @@ pub(crate) fn try_new_local_date_time(
         Ok(value) => Ok(value),
         Err(error) => Err(crate::Error::ParseDateTimeError {
             error,
-            range: token.range(),
+            span: token.span(),
         }),
     }
 }
 
 pub(crate) fn try_new_local_date(
-    node: &tombi_ast_syntax::LocalDate,
+    node: &tombi_ast_syntax::LocalDate<'_>,
     _toml_version: TomlVersion,
 ) -> Result<tombi_date_time::LocalDate, crate::Error> {
     let Some(token) = node.token() else {
-        return Err(crate::Error::IncompleteNode {
-            range: node.range(),
-        });
+        return Err(crate::Error::IncompleteNode { span: node.span() });
     };
 
     match tombi_date_time::LocalDate::from_str(token.text()) {
         Ok(value) => Ok(value),
         Err(error) => Err(crate::Error::ParseDateTimeError {
             error,
-            range: token.range(),
+            span: token.span(),
         }),
     }
 }
 
 pub(crate) fn try_new_local_time(
-    node: &tombi_ast_syntax::LocalTime,
+    node: &tombi_ast_syntax::LocalTime<'_>,
     toml_version: TomlVersion,
 ) -> Result<tombi_date_time::LocalTime, crate::Error> {
     const HOUR_MINUTE_SIZE: usize = "00:00".len();
 
     let Some(token) = node.token() else {
-        return Err(crate::Error::IncompleteNode {
-            range: node.range(),
-        });
+        return Err(crate::Error::IncompleteNode { span: node.span() });
     };
     let text = token.text();
 
@@ -136,14 +128,14 @@ pub(crate) fn try_new_local_time(
         if toml_version == TomlVersion::V1_0_0 {
             return Err(crate::Error::ParseLocalTimeError {
                 error: ParseError::OptionalSeconds,
-                range: token.range(),
+                span: token.span(),
             });
         }
         tombi_date_time::LocalTime::from_str(text)
     }
     .map_err(|error| crate::Error::ParseDateTimeError {
         error,
-        range: token.range(),
+        span: token.span(),
     })
 }
 

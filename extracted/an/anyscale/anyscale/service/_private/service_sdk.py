@@ -44,6 +44,7 @@ from anyscale.sdk.anyscale_client.models import (
     TracingConfig as APITracingConfg,
 )
 from anyscale.service.models import (
+    BANNED_PROXY_LOCATIONS,
     RayGCSExternalStorageConfig,
     ServiceConfig,
     ServiceLogMode,
@@ -107,9 +108,7 @@ class PrivateServiceSDK(WorkloadSDK):
             requirements_override=config.requirements,
             workspace_requirements_path=workspace_requirements_path,
         )
-        new_runtime_envs = self.update_env_vars(
-            new_runtime_envs, env_vars_updates=config.env_vars
-        )
+        new_runtime_envs = self.update_env_vars(new_runtime_envs, env_vars_updates=config.env_vars)
 
         for app, new_runtime_env in zip(new_applications, new_runtime_envs):
             if new_runtime_env:
@@ -160,11 +159,7 @@ class PrivateServiceSDK(WorkloadSDK):
         details = (
             "("
             + version_info
-            + (
-                ")"
-                if canary_percent is None
-                else f", target canary percent: {canary_percent})"
-            )
+            + (")" if canary_percent is None else f", target canary percent: {canary_percent})")
         )
 
         message = f"Service '{service.name}' deployed {details}."
@@ -174,7 +169,9 @@ class PrivateServiceSDK(WorkloadSDK):
                 WorkspaceNotification(
                     body=message,
                     action=WorkspaceNotificationAction(
-                        type="navigate-service", title="View Service", value=service.id,
+                        type="navigate-service",
+                        title="View Service",
+                        value=service.id,
                     ),
                 ),
             )
@@ -200,6 +197,8 @@ class PrivateServiceSDK(WorkloadSDK):
             ray_serve_config["grpc_options"] = config.grpc_options
         if config.logging_config:
             ray_serve_config["logging_config"] = config.logging_config
+        if config.proxy_location:
+            ray_serve_config["proxy_location"] = config.proxy_location
 
         return ray_serve_config
 
@@ -209,9 +208,7 @@ class PrivateServiceSDK(WorkloadSDK):
             and len(config.grpc_options.get("service_names", [])) > 0
         )
         service_names = (
-            config.grpc_options.get("service_names", [])
-            if config.grpc_options is not None
-            else []
+            config.grpc_options.get("service_names", []) if config.grpc_options is not None else []
         )
         # Since config doesn't allow passing a port, keeping it as default port.
         return GrpcProtocolConfig(enabled=enabled, service_names=service_names)
@@ -236,9 +233,7 @@ class PrivateServiceSDK(WorkloadSDK):
         If cluster-level options are provided, a warning will be logged and they will be ignored.
         """
         if canary_percent is not None:
-            raise ValueError(
-                "canary_percent cannot be specified when doing an in_place update."
-            )
+            raise ValueError("canary_percent cannot be specified when doing an in_place update.")
         if max_surge_percent is not None:
             raise ValueError(
                 "max_surge_percent cannot be specified when doing an in_place update."
@@ -278,22 +273,16 @@ class PrivateServiceSDK(WorkloadSDK):
                 "are ignored when performing an in_place update."
             )
 
-        existing_config: ProductionServiceV2VersionModel = (
-            existing_service.primary_version
-        )
+        existing_config: ProductionServiceV2VersionModel = existing_service.primary_version
         query_auth_token_enabled = existing_service.auth_token is not None
-        cloud_id = self.client.get_cloud_id(
-            compute_config_id=existing_config.compute_config_id
-        )
+        cloud_id = self.client.get_cloud_id(compute_config_id=existing_config.compute_config_id)
         config = self._override_application_runtime_envs(
             config,
             cloud_id=cloud_id,
             workspace_requirements_path=self.client.get_workspace_requirements_path(),
         )
 
-        project_id = self.client.get_project_id(
-            parent_cloud_id=cloud_id, name=config.project
-        )
+        project_id = self.client.get_project_id(parent_cloud_id=cloud_id, name=config.project)
         connection_ids = self.resolve_connection_ids(config.connections)
         return ApplyProductionServiceV2Model(
             name=name,
@@ -369,13 +358,8 @@ class PrivateServiceSDK(WorkloadSDK):
         if build_id is None:
             build_id = self.client.get_default_build_id()
 
-        project_id = self.client.get_project_id(
-            parent_cloud_id=cloud_id, name=config.project
-        )
-        if (
-            existing_service is not None
-            and existing_service.primary_version is not None
-        ):
+        project_id = self.client.get_project_id(parent_cloud_id=cloud_id, name=config.project)
+        if existing_service is not None and existing_service.primary_version is not None:
             existing_cloud_id = self.client.get_cloud_id(
                 compute_config_id=existing_service.primary_version.compute_config_id
             )
@@ -407,9 +391,7 @@ class PrivateServiceSDK(WorkloadSDK):
 
         ray_gcs_external_storage_config = None
         if config.ray_gcs_external_storage_config is not None:
-            assert isinstance(
-                config.ray_gcs_external_storage_config, RayGCSExternalStorageConfig
-            )
+            assert isinstance(config.ray_gcs_external_storage_config, RayGCSExternalStorageConfig)
             ray_gcs_external_storage_config = APIRayGCSExternalStorageConfig(
                 enable=config.ray_gcs_external_storage_config.enabled,
             )
@@ -425,11 +407,11 @@ class PrivateServiceSDK(WorkloadSDK):
         tracing_config = None
         if config.tracing_config is not None:
             assert isinstance(config.tracing_config, TracingConfig)
-            tracing_config = APITracingConfg(enabled=config.tracing_config.enabled,)
+            tracing_config = APITracingConfg(
+                enabled=config.tracing_config.enabled,
+            )
             if config.tracing_config.exporter_import_path is not None:
-                tracing_config.exporter_import_path = (
-                    config.tracing_config.exporter_import_path
-                )
+                tracing_config.exporter_import_path = config.tracing_config.exporter_import_path
             if config.tracing_config.sampling_ratio is not None:
                 tracing_config.sampling_ratio = config.tracing_config.sampling_ratio
 
@@ -579,9 +561,7 @@ class PrivateServiceSDK(WorkloadSDK):
             service_versions=service_versions,
         )
 
-    def _validate_versions(
-        self, versions: str
-    ) -> List[Dict[str, Any]]:  # noqa: C901, PLR0912
+    def _validate_versions(self, versions: str) -> List[Dict[str, Any]]:  # noqa: C901, PLR0912
         # Parse versions JSON string to list of dictionaries
         try:
             versions = json.loads(versions)
@@ -607,8 +587,7 @@ class PrivateServiceSDK(WorkloadSDK):
         if isinstance(versions, dict):
             # Convert object form {"v1": 25, "v2": 75} to full list form
             versions = [  # type: ignore
-                {"name": name, "traffic_percent": percent}
-                for name, percent in versions.items()
+                {"name": name, "traffic_percent": percent} for name, percent in versions.items()
             ]
         elif not isinstance(versions, list):
             raise ValueError(
@@ -720,18 +699,12 @@ class PrivateServiceSDK(WorkloadSDK):
 
         if in_place:
             if version_weights is not None:
-                raise ValueError(
-                    "In-place updates are not supported for multi-version services."
-                )
+                raise ValueError("In-place updates are not supported for multi-version services.")
 
             return RolloutStrategy.IN_PLACE
-        elif version_weights is None or (
-            len(version_weights) == 1 and active_versions <= 1
-        ):
+        elif version_weights is None or (len(version_weights) == 1 and active_versions <= 1):
             if existing_service is None and len(configs) == 0:
-                raise ValueError(
-                    "A config file must be provided when deploying a new service."
-                )
+                raise ValueError("A config file must be provided when deploying a new service.")
 
             return RolloutStrategy.ROLLOUT
         elif (
@@ -821,8 +794,8 @@ class PrivateServiceSDK(WorkloadSDK):
         if name is None:
             name = self._get_default_name()
 
-        existing_service: Optional[DecoratedProductionServiceV2APIModel] = (
-            self.client.get_service(name=name, cloud=cloud, project=project)
+        existing_service: Optional[DecoratedProductionServiceV2APIModel] = self.client.get_service(
+            name=name, cloud=cloud, project=project
         )
         if existing_service is None:
             self.logger.info(f"Starting new service '{name}'.")
@@ -836,25 +809,24 @@ class PrivateServiceSDK(WorkloadSDK):
             existing_service is None
             or existing_service.current_state == ServiceEventCurrentState.TERMINATED
         )
-        if canary_percent is not None and (
-            is_new_or_restarting or versions is not None
-        ):
+        if canary_percent is not None and (is_new_or_restarting or versions is not None):
             canary_percent = None
             self.logger.warning(
                 "canary_percent is ignored when creating or restarting a service or multiple versions are being deployed."
             )
 
         rollout_strategy = self._get_rollout_strategy(
-            existing_service, versions, in_place, configs  # type: ignore
+            existing_service,
+            versions,  # type: ignore
+            in_place,
+            configs,
         )
 
         service: DecoratedProductionServiceV2APIModel
         # TODO(doyoung): Support multi version deployment for in_place update.
         if rollout_strategy == RolloutStrategy.IN_PLACE:
             if versions is not None:
-                raise ValueError(
-                    "versions cannot be specified when doing an in_place update."
-                )
+                raise ValueError("versions cannot be specified when doing an in_place update.")
             assert len(configs) == 1
             model = self._build_apply_service_model_for_in_place_update(
                 name,
@@ -896,7 +868,9 @@ class PrivateServiceSDK(WorkloadSDK):
                 # update canary weight using the existing canary version.
                 assert existing_service is not None
                 model = self._build_apply_service_model_for_weight_update(
-                    name, existing_service, versions,  # type: ignore[arg-type]
+                    name,
+                    existing_service,
+                    versions,  # type: ignore[arg-type]
                 )
                 canary_percent = model.canary_percent
             else:
@@ -1002,9 +976,7 @@ class PrivateServiceSDK(WorkloadSDK):
 
         return model.id
 
-    def _get_user_facing_service_version_id(
-        self, model: ProductionServiceV2VersionModel
-    ) -> str:
+    def _get_user_facing_service_version_id(self, model: ProductionServiceV2VersionModel) -> str:
         # NOTE(edoakes): the "version ID" exposed in the UI and tagged in the metrics is
         # not actually the DB ID, but a truncated version of it. We should store this
         # in the DB to avoid breakages, but for now I'm copying the existing logic.
@@ -1019,14 +991,10 @@ class PrivateServiceSDK(WorkloadSDK):
         query_auth_token_enabled: bool,
     ) -> ServiceVersionStatus:
         image_uri, image_build, project, compute_config = await asyncio.gather(
-            asyncio.to_thread(
-                self._image_sdk.get_image_uri_from_build_id, model.build_id
-            ),
+            asyncio.to_thread(self._image_sdk.get_image_uri_from_build_id, model.build_id),
             asyncio.to_thread(self._image_sdk.get_image_build, model.build_id),
             asyncio.to_thread(self.client.get_project, project_id),
-            asyncio.to_thread(
-                self.get_user_facing_compute_config, model.compute_config_id
-            ),
+            asyncio.to_thread(self.get_user_facing_compute_config, model.compute_config_id),
         )
 
         if image_uri is None:
@@ -1072,6 +1040,7 @@ class PrivateServiceSDK(WorkloadSDK):
                 http_options=model.ray_serve_config.get("http_options", None),
                 grpc_options=model.ray_serve_config.get("grpc_options", None),
                 logging_config=model.ray_serve_config.get("logging_config", None),
+                proxy_location=self._supported_proxy_location(model.ray_serve_config),
                 ray_gcs_external_storage_config=ray_gcs_external_storage_config,
                 cloud=compute_config.cloud
                 if compute_config and isinstance(compute_config, ComputeConfig)
@@ -1084,8 +1053,21 @@ class PrivateServiceSDK(WorkloadSDK):
             ),
         )
 
+    def _supported_proxy_location(self, ray_serve_config: Dict[str, Any]) -> Optional[str]:
+        proxy_location = ray_serve_config.get("proxy_location")
+        if proxy_location in BANNED_PROXY_LOCATIONS:
+            self.logger.warning(
+                f"Service is configured with 'proxy_location': '{proxy_location}', "
+                "which is not supported in Anyscale. It is omitted from the config "
+                "shown here."
+            )
+            return None
+
+        return proxy_location
+
     def _model_state_to_state(
-        self, model_state: ServiceEventCurrentState,
+        self,
+        model_state: ServiceEventCurrentState,
     ) -> ServiceState:
         # If we add a new state to the backend, old clients may not recognize it.
         # Rather than erroring out and causing old code to crash, return UNKNOWN.
@@ -1191,9 +1173,7 @@ class PrivateServiceSDK(WorkloadSDK):
                     )
                 )
 
-            primary_version = (
-                await primary_version_task if primary_version_task else None
-            )
+            primary_version = await primary_version_task if primary_version_task else None
             canary_version = await canary_version_task if canary_version_task else None
 
             if primary_version and isinstance(primary_version.config, ServiceConfig):
@@ -1210,9 +1190,7 @@ class PrivateServiceSDK(WorkloadSDK):
             canary_version=canary_version,
             project=project_name,
             versions=all_versions,
-            service_status_checklist=self._api_checklist_to_model(
-                model.service_status_checklist
-            ),
+            service_status_checklist=self._api_checklist_to_model(model.service_status_checklist),
         )
 
     def status(
@@ -1242,9 +1220,7 @@ class PrivateServiceSDK(WorkloadSDK):
         sort_order: Optional[Union[str, ServiceSortOrder]] = None,
     ) -> ResultIterator[ServiceStatus]:
         if page_size is not None and (page_size <= 0 or page_size > MAX_PAGE_SIZE):
-            raise ValueError(
-                f"page_size must be between 1 and {MAX_PAGE_SIZE}, inclusive."
-            )
+            raise ValueError(f"page_size must be between 1 and {MAX_PAGE_SIZE}, inclusive.")
 
         if service_id is not None:
             raw = self.client.get_service_by_id(service_id)
@@ -1261,7 +1237,8 @@ class PrivateServiceSDK(WorkloadSDK):
                     metadata = ListResponseMetadata(total=0, next_paging_token=None)
 
                 return DecoratedlistserviceapimodelListResponse(
-                    results=results, metadata=metadata,
+                    results=results,
+                    metadata=metadata,
                 )
 
             return ResultIterator(
@@ -1332,9 +1309,7 @@ class PrivateServiceSDK(WorkloadSDK):
             raise ValueError("interval_s must be >= 0")
 
         def _get_curr_state() -> ServiceState:
-            model = self._resolve_to_service_model(
-                name=name, cloud=cloud, project=project
-            )
+            model = self._resolve_to_service_model(name=name, cloud=cloud, project=project)
 
             return self._model_state_to_state(model.current_state)
 
@@ -1345,9 +1320,7 @@ class PrivateServiceSDK(WorkloadSDK):
         for _ in self.timer.poll(timeout_s=timeout_s, interval_s=interval_s):
             new_state = _get_curr_state()
             if new_state != curr_state:
-                self.logger.info(
-                    f"Service '{name}' transitioned from {curr_state} to {new_state}"
-                )
+                self.logger.info(f"Service '{name}' transitioned from {curr_state} to {new_state}")
                 curr_state = new_state
 
             if curr_state == state:
@@ -1382,9 +1355,7 @@ class PrivateServiceSDK(WorkloadSDK):
             )
 
         if model.primary_version is None:
-            raise ValueError(
-                f"Service '{name}' is not ready yet. Please try again later..."
-            )
+            raise ValueError(f"Service '{name}' is not ready yet. Please try again later...")
 
         return self.client.controller_logs_for_service_version(
             model.primary_version, head, max_lines
@@ -1409,14 +1380,10 @@ class PrivateServiceSDK(WorkloadSDK):
                 raise ValueError(
                     "Either 'id' or 'name' must be provided when running outside of a workspace."
                 )
-            model = self._resolve_to_service_model(
-                name=name, cloud=cloud, project=project
-            )
+            model = self._resolve_to_service_model(name=name, cloud=cloud, project=project)
             resource_id = model.id
 
-        self.client.upsert_resource_tags(
-            ResourceTagResourceType.SERVICE, resource_id, tags
-        )
+        self.client.upsert_resource_tags(ResourceTagResourceType.SERVICE, resource_id, tags)
 
     def remove_tags(
         self,
@@ -1437,14 +1404,10 @@ class PrivateServiceSDK(WorkloadSDK):
                 raise ValueError(
                     "Either 'id' or 'name' must be provided when running outside of a workspace."
                 )
-            model = self._resolve_to_service_model(
-                name=name, cloud=cloud, project=project
-            )
+            model = self._resolve_to_service_model(name=name, cloud=cloud, project=project)
             resource_id = model.id
 
-        self.client.delete_resource_tags(
-            ResourceTagResourceType.SERVICE, resource_id, keys
-        )
+        self.client.delete_resource_tags(ResourceTagResourceType.SERVICE, resource_id, keys)
 
     def list_tags(
         self,
@@ -1458,13 +1421,9 @@ class PrivateServiceSDK(WorkloadSDK):
         if id is not None:
             resource_id = id
         else:
-            model = self._resolve_to_service_model(
-                name=name, cloud=cloud, project=project
-            )
+            model = self._resolve_to_service_model(name=name, cloud=cloud, project=project)
             resource_id = model.id
-        records = self.client.list_resource_tags(
-            ResourceTagResourceType.SERVICE, resource_id
-        )
+        records = self.client.list_resource_tags(ResourceTagResourceType.SERVICE, resource_id)
         return {r.key: r.value for r in records if r and r.key is not None}
 
     def token_add(
@@ -1480,9 +1439,7 @@ class PrivateServiceSDK(WorkloadSDK):
         Returns the resulting (primary_auth_token, secondary_auth_token) tuple.
         """
         if service_id is None:
-            model = self._resolve_to_service_model(
-                name=name, cloud=cloud, project=project
-            )
+            model = self._resolve_to_service_model(name=name, cloud=cloud, project=project)
             service_id = model.id
         model = self.client.add_service_secondary_auth_token(service_id)
         return model.auth_token, model.secondary_auth_token
@@ -1501,9 +1458,7 @@ class PrivateServiceSDK(WorkloadSDK):
         Returns the resulting (primary_auth_token, secondary_auth_token) tuple.
         """
         if service_id is None:
-            model = self._resolve_to_service_model(
-                name=name, cloud=cloud, project=project
-            )
+            model = self._resolve_to_service_model(name=name, cloud=cloud, project=project)
             service_id = model.id
         model = self.client.delete_service_auth_token(service_id, auth_token)
         return model.auth_token, model.secondary_auth_token
@@ -1523,7 +1478,6 @@ def _normalize_state_filter(
             normalized.append(s.upper())
         else:
             raise TypeError(
-                "'state_filter' entries must be ServiceState or str, "
-                f"got {type(s).__name__}"
+                f"'state_filter' entries must be ServiceState or str, got {type(s).__name__}"
             )
     return normalized

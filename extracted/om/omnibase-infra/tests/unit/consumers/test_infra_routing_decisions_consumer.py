@@ -1,0 +1,434 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Unit tests for InfraRoutingDecisionsConsumer (OMN-8692).
+
+Tests:
+    - Config: defaults, env prefix
+    - Consumer: message parsing, batch processing, offset tracking
+    - Writer: batch write, circuit breaker state
+    - Health check: HEALTHY, DEGRADED, UNHEALTHY
+    - mask_dsn_password: password masking utility
+"""
+
+from __future__ import annotations
+
+import json
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock
+from uuid import uuid4
+
+import pytest
+
+from omnibase_infra.services.observability.infra_routing_decisions import (
+    consumer as consumer_module,
+)
+from omnibase_infra.services.observability.infra_routing_decisions.config import (
+    ConfigInfraRoutingDecisionsConsumer,
+)
+from omnibase_infra.services.observability.infra_routing_decisions.consumer import (
+    EnumHealthStatus,
+    InfraRoutingDecisionsConsumer,
+    mask_dsn_password,
+)
+from omnibase_infra.services.observability.infra_routing_decisions.writer_postgres import (
+    WriterInfraRoutingDecisionsPostgres,
+)
+
+# =============================================================================
+# Helpers
+# =============================================================================
+
+
+def make_mock_consumer_record(
+    topic: str,
+    partition: int,
+    offset: int,
+    value: dict[str, object],
+) -> MagicMock:
+    record = MagicMock()
+    record.topic = topic
+    record.partition = partition
+    record.offset = offset
+    record.value = json.dumps(value).encode("utf-8")
+    return record
+
+
+def make_routing_decision_event() -> dict[str, object]:
+    """A live-shaped record: ModelEventEnvelope with the decision under payload.
+
+    OMN-16025 -- the pre-envelope flat dict this helper used to return was never
+    the wire shape on the topic the consumer reads.
+    """
+    cid = str(uuid4())
+    return {
+        "payload": {
+            "correlation_id": cid,
+            "task_type": "code",
+            "selected_model": "claude-opus-4-6",
+            "rationale": "primary selection",
+            "tier_name": "claude",
+            "selected_backend_ref": "anthropic",
+        },
+        "envelope_id": str(uuid4()),
+        "correlation_id": cid,
+        "event_type": "omnibase-infra.routing-decision",
+    }
+
+
+_TOPIC = "onex.evt.omnibase-infra.routing-decision.v1"
+
+
+# =============================================================================
+# Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def mock_config() -> ConfigInfraRoutingDecisionsConsumer:
+    return ConfigInfraRoutingDecisionsConsumer(
+        kafka_bootstrap_servers="localhost:19092",
+        postgres_dsn="postgresql://test:test@localhost:5432/test",
+        batch_size=10,
+        batch_timeout_ms=500,
+        health_check_port=18097,
+    )
+
+
+@pytest.fixture
+def consumer(
+    mock_config: ConfigInfraRoutingDecisionsConsumer,
+) -> InfraRoutingDecisionsConsumer:
+    return InfraRoutingDecisionsConsumer(mock_config)
+
+
+# =============================================================================
+# Config Tests
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestConfigInfraRoutingDecisionsConsumer:
+    def test_default_topic(self) -> None:
+        config = ConfigInfraRoutingDecisionsConsumer(
+            kafka_bootstrap_servers="localhost:19092",
+            postgres_dsn="postgresql://test:test@localhost:5432/test",
+        )
+        assert _TOPIC in config.topics
+        assert len(config.topics) == 1
+
+    def test_default_health_check_port(self) -> None:
+        config = ConfigInfraRoutingDecisionsConsumer(
+            kafka_bootstrap_servers="localhost:19092",
+            postgres_dsn="postgresql://test:test@localhost:5432/test",
+        )
+        assert config.health_check_port == 8097
+
+    def test_default_group_id(self) -> None:
+        config = ConfigInfraRoutingDecisionsConsumer(
+            kafka_bootstrap_servers="localhost:19092",
+            postgres_dsn="postgresql://test:test@localhost:5432/test",
+        )
+        assert config.kafka_group_id == "infra-routing-decisions-postgres"
+
+
+# =============================================================================
+# mask_dsn_password Tests
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestMaskDsnPassword:
+    def test_masks_password(self) -> None:
+        dsn = "postgresql://user:secret@localhost:5432/db"
+        result = mask_dsn_password(dsn)
+        assert "secret" not in result
+        assert "***" in result
+
+    def test_no_password_unchanged(self) -> None:
+        dsn = "postgresql://localhost:5432/db"
+        assert mask_dsn_password(dsn) == dsn
+
+    def test_invalid_dsn_returns_as_is(self) -> None:
+        assert mask_dsn_password("not-a-url") == "not-a-url"
+
+
+# =============================================================================
+# Consumer Message Parsing Tests
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestInfraRoutingDecisionsConsumerParsing:
+    def test_parse_valid_envelope_message(
+        self, consumer: InfraRoutingDecisionsConsumer
+    ) -> None:
+        envelope = make_routing_decision_event()
+        record = make_mock_consumer_record(_TOPIC, 0, 0, envelope)
+        result = consumer._parse_message(record)
+        assert result is not None
+        assert result.selected_provider == "anthropic"
+
+    def test_parse_invalid_json_returns_none(
+        self, consumer: InfraRoutingDecisionsConsumer
+    ) -> None:
+        record = MagicMock()
+        record.topic = _TOPIC
+        record.partition = 0
+        record.offset = 0
+        record.value = b"not-json"
+        assert consumer._parse_message(record) is None
+
+    def test_parse_array_wrapped_record_returns_none(
+        self, consumer: InfraRoutingDecisionsConsumer
+    ) -> None:
+        """OMN-16025: the array-wrapped legacy unwrap is gone with its producer."""
+        record = MagicMock()
+        record.topic = _TOPIC
+        record.partition = 0
+        record.offset = 0
+        record.value = json.dumps([make_routing_decision_event()]).encode("utf-8")
+        assert consumer._parse_message(record) is None
+
+    def test_parse_multi_item_list_returns_none(
+        self, consumer: InfraRoutingDecisionsConsumer
+    ) -> None:
+        record = MagicMock()
+        record.topic = _TOPIC
+        record.partition = 0
+        record.offset = 0
+        record.value = json.dumps(
+            [make_routing_decision_event(), make_routing_decision_event()]
+        ).encode("utf-8")
+        assert consumer._parse_message(record) is None
+
+
+# =============================================================================
+# Writer Tests
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestWriterInfraRoutingDecisionsPostgres:
+    def test_empty_batch_returns_zero(self) -> None:
+        pool = MagicMock()
+        writer = WriterInfraRoutingDecisionsPostgres(pool)
+
+        import asyncio
+
+        result = asyncio.run(writer.write_routing_decisions([]))
+        assert result == 0
+
+    def test_get_circuit_breaker_state_returns_dict(self) -> None:
+        pool = MagicMock()
+        writer = WriterInfraRoutingDecisionsPostgres(pool)
+        state = writer.get_circuit_breaker_state()
+        assert isinstance(state, dict)
+
+
+# =============================================================================
+# Batch Processing Tests
+# =============================================================================
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+class TestInfraRoutingDecisionsConsumerBatchProcessing:
+    async def test_process_batch_records_offsets(
+        self, consumer: InfraRoutingDecisionsConsumer
+    ) -> None:
+        records = [
+            make_mock_consumer_record(_TOPIC, 0, 0, make_routing_decision_event()),
+            make_mock_consumer_record(_TOPIC, 0, 1, make_routing_decision_event()),
+            make_mock_consumer_record(_TOPIC, 1, 5, make_routing_decision_event()),
+        ]
+
+        mock_writer = AsyncMock()
+        mock_writer.write_routing_decisions = AsyncMock(return_value=3)
+        mock_writer.get_circuit_breaker_state = MagicMock(return_value={})
+        consumer._writer = mock_writer
+
+        from aiokafka import TopicPartition
+
+        committed = await consumer._process_batch(records)
+
+        assert committed[TopicPartition(_TOPIC, 0)] == 1
+        assert committed[TopicPartition(_TOPIC, 1)] == 5
+
+    async def test_process_batch_excludes_failed_partitions(
+        self, consumer: InfraRoutingDecisionsConsumer
+    ) -> None:
+        records = [
+            make_mock_consumer_record(_TOPIC, 0, 0, make_routing_decision_event()),
+        ]
+
+        mock_writer = AsyncMock()
+        mock_writer.write_routing_decisions = AsyncMock(
+            side_effect=RuntimeError("DB error")
+        )
+        mock_writer.get_circuit_breaker_state = MagicMock(return_value={})
+        consumer._writer = mock_writer
+
+        committed = await consumer._process_batch(records)
+        assert len(committed) == 0
+
+    async def test_process_batch_skips_unparseable_messages(
+        self, consumer: InfraRoutingDecisionsConsumer
+    ) -> None:
+        bad_record = MagicMock()
+        bad_record.topic = _TOPIC
+        bad_record.partition = 0
+        bad_record.offset = 0
+        bad_record.value = b"invalid-json"
+
+        mock_writer = AsyncMock()
+        mock_writer.write_routing_decisions = AsyncMock(return_value=0)
+        mock_writer.get_circuit_breaker_state = MagicMock(return_value={})
+        consumer._writer = mock_writer
+
+        consumer.config = ConfigInfraRoutingDecisionsConsumer(
+            kafka_bootstrap_servers="localhost:19092",
+            postgres_dsn="postgresql://test:test@localhost:5432/test",
+            dlq_enabled=False,
+        )
+
+        committed = await consumer._process_batch([bad_record])
+        assert len(committed) == 0
+
+
+# =============================================================================
+# Health Check Tests
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestInfraRoutingDecisionsConsumerHealthCheck:
+    def test_unhealthy_when_not_running(
+        self, consumer: InfraRoutingDecisionsConsumer
+    ) -> None:
+        consumer._running = False
+        response, http_code = consumer._build_health_response()
+        assert response["status"] == str(EnumHealthStatus.UNHEALTHY)
+        assert http_code == 503
+
+    def test_healthy_when_running_and_no_messages(
+        self, consumer: InfraRoutingDecisionsConsumer
+    ) -> None:
+        consumer._running = True
+        consumer.metrics.last_poll_at = datetime.now(UTC)
+        consumer.metrics.messages_received = 0
+
+        response, http_code = consumer._build_health_response()
+        assert response["status"] == str(EnumHealthStatus.HEALTHY)
+        assert http_code == 200
+        assert response["idle"] is True
+
+    def test_degraded_when_no_polls(
+        self, consumer: InfraRoutingDecisionsConsumer
+    ) -> None:
+        consumer._running = True
+        consumer.metrics.last_poll_at = None
+
+        response, http_code = consumer._build_health_response()
+        assert response["status"] == str(EnumHealthStatus.DEGRADED)
+        assert http_code == 503
+
+
+# =============================================================================
+# Health after traffic goes quiet (OMN-19356)
+# =============================================================================
+
+
+class _SettableClock(datetime):
+    """A ``datetime`` whose ``now`` returns an instant the test sets (OMN-19356)."""
+
+    instant: datetime = datetime(2026, 9, 23, 21, 9, 14, tzinfo=UTC)
+
+    @classmethod
+    def now(cls, tz: object = None) -> _SettableClock:
+        return cls.instant  # type: ignore[return-value]
+
+
+@pytest.fixture
+def clock(monkeypatch: pytest.MonkeyPatch) -> type[_SettableClock]:
+    """Drive every ``datetime.now`` the consumer module reads from one clock."""
+    monkeypatch.setattr(consumer_module, "datetime", _SettableClock)
+    _SettableClock.instant = datetime(2026, 9, 23, 21, 9, 14, tzinfo=UTC)
+    return _SettableClock
+
+
+def _at(clock: type[_SettableClock], seconds_after_start: float) -> None:
+    clock.instant = datetime(2026, 9, 23, 21, 9, 14, tzinfo=UTC) + timedelta(
+        seconds=seconds_after_start
+    )
+
+
+@pytest.mark.unit
+class TestInfraRoutingDecisionsHealthAfterTrafficGoesQuiet:
+    """OMN-19356: a quiet topic after handled traffic is not a stalled writer.
+
+    On the .201 dev lane on 2026-09-23 the cumulative ``messages_received > 0``
+    rule turned /health 503 300s after the last write on a quiet topic, and
+    autoheal restart-cycled the container.
+    """
+
+    async def test_healthy_quiet_after_written_batch(
+        self, consumer: InfraRoutingDecisionsConsumer, clock: type[_SettableClock]
+    ) -> None:
+        consumer._running = True
+        await consumer.metrics.record_received(count=2)
+        await consumer.metrics.record_processed(count=2)
+
+        _at(clock, 416)
+        await consumer.metrics.record_polled()
+        response, http_code = consumer._build_health_response()
+
+        assert response["status"] == str(EnumHealthStatus.HEALTHY)
+        assert http_code == 200
+
+    async def test_healthy_quiet_after_parse_skipped_batch(
+        self, consumer: InfraRoutingDecisionsConsumer, clock: type[_SettableClock]
+    ) -> None:
+        consumer._running = True
+        await consumer.metrics.record_processed(count=1)
+        _at(clock, 60)
+        await consumer.metrics.record_received(count=2)
+        await consumer.metrics.record_skipped(count=2)
+
+        _at(clock, 460)
+        await consumer.metrics.record_polled()
+        response, http_code = consumer._build_health_response()
+
+        assert response["status"] == str(EnumHealthStatus.HEALTHY)
+        assert http_code == 200
+
+    async def test_degraded_unhandled_traffic_after_failed_write(
+        self, consumer: InfraRoutingDecisionsConsumer, clock: type[_SettableClock]
+    ) -> None:
+        consumer._running = True
+        await consumer.metrics.record_processed(count=1)
+        _at(clock, 60)
+        await consumer.metrics.record_received(count=1)
+        await consumer.metrics.record_failed(count=1)
+
+        _at(clock, 400)
+        await consumer.metrics.record_polled()
+        response, http_code = consumer._build_health_response()
+
+        assert response["status"] == str(EnumHealthStatus.DEGRADED)
+        assert http_code == 503
+
+    async def test_degraded_unhandled_traffic_keeps_arriving(
+        self, consumer: InfraRoutingDecisionsConsumer, clock: type[_SettableClock]
+    ) -> None:
+        consumer._running = True
+        await consumer.metrics.record_processed(count=1)
+        for seconds in (100, 200, 350):
+            _at(clock, seconds)
+            await consumer.metrics.record_received(count=1)
+
+        _at(clock, 400)
+        await consumer.metrics.record_polled()
+        response, http_code = consumer._build_health_response()
+
+        assert response["status"] == str(EnumHealthStatus.DEGRADED)
+        assert http_code == 503

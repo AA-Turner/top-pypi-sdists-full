@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Add C++ ``SquareRootNode`` and Python ``SquareRoot`` symbol. ``SquareRoot`` propagates the square-root(s) of its
-    predecessor element-wise.

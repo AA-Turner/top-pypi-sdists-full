@@ -1,0 +1,275 @@
+Metadata-Version: 2.4
+Name: bitfab-py
+Version: 0.64.10
+Summary: Bitfab client for provider-based API calls with local BAML execution
+Author: Harvest Team
+Requires-Python: >=3.10
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Provides-Extra: baml
+Provides-Extra: claude-agent-sdk
+Provides-Extra: langgraph
+Provides-Extra: openai-tracing
+Requires-Dist: baml-py (>=0.226.2,<0.227.0) ; extra == "baml"
+Requires-Dist: claude-agent-sdk (>=0.1.0) ; (python_version >= "3.10") and (extra == "claude-agent-sdk")
+Requires-Dist: jsonpickle (>=4.0.0,<5.0.0)
+Requires-Dist: langchain-core (>=0.3.0) ; (python_version >= "3.10" and python_version < "4.0") and (extra == "langgraph")
+Requires-Dist: langgraph (>=1.1.0,<2.0.0) ; (python_version >= "3.10" and python_version < "4.0") and (extra == "langgraph")
+Requires-Dist: openai-agents (>=0.6.3) ; extra == "openai-tracing"
+Requires-Dist: opentelemetry-sdk (>=1.44.0,<2.0.0)
+Requires-Dist: pydantic (>=2.0.0,<3.0.0)
+Requires-Dist: requests (>=2.32.3,<3.0.0)
+Requires-Dist: tomli (>=2.0.1,<3.0.0) ; python_version < "3.11"
+Requires-Dist: typing-extensions (>=4.0)
+Description-Content-Type: text/markdown
+
+# Bitfab
+
+Bitfab client for provider-based API calls.
+
+## Monorepo Structure
+
+This package is part of the Harvest monorepo. While the TypeScript/JavaScript packages use a **pnpm workspace** for shared dependencies, this Python package uses Poetry for its dependency management.
+
+**Note:** The pnpm workspace includes:
+
+- `bitfab-web` - Next.js web application
+- `bitfab-typescript-sdk` - TypeScript SDK
+- `bitfab-vscode` - VS Code extension
+- `frontend` - Legacy frontend
+
+From the root directory, you can run TypeScript tests and validation across all packages with `pnpm test` or `pnpm validate`.
+
+## Installation
+
+Python 3.10 or newer is required.
+
+### Basic Installation
+
+```bash
+pip install bitfab-py
+```
+
+### With OpenAI Tracing Support
+
+If you want to use the OpenAI Agents SDK tracing integration:
+
+```bash
+pip install bitfab-py[openai-tracing]
+```
+
+### Local Development
+
+For local development:
+
+```bash
+cd bitfab-python-sdk
+poetry install --with dev
+```
+
+After installation, you can use developer tasks. For the best experience, add Poetry's venv to your PATH:
+
+```bash
+# Add to your ~/.zshrc or ~/.bashrc
+export PATH="$(poetry env info --path)/bin:$PATH"
+
+# Then you can use 'dev' directly (no ./run or poetry run needed!)
+dev list
+dev test
+```
+
+See [Development Tasks](#development-tasks) below for all available commands.
+
+Or install as an editable package from the parent directory:
+
+```bash
+poetry add --editable ../bitfab-python-sdk
+```
+
+## Usage
+
+### Basic Usage
+
+```python
+from bitfab import Bitfab
+
+client = Bitfab(
+    api_key="bf_your_api_key_here",
+    service_url="https://bitfab.ai",  # Optional, defaults to production
+    env_vars={"OPENAI_API_KEY": "sk-your-openai-key"},  # Optional, for local BAML execution
+)
+
+result = client.call("method_name", arg1="value1", arg2="value2")
+```
+
+### OpenAI Agents SDK Tracing
+
+If you have the `openai-agents` package installed (via `pip install bitfab-py[openai-tracing]`), you can use the tracing processor:
+
+```python
+from bitfab import Bitfab
+from agents import Agent, add_trace_processor
+
+bitfab = Bitfab(api_key="bf_your_api_key_here")
+
+# Register the processor once: it captures agent internals (LLM/tool/handoff spans).
+add_trace_processor(bitfab.get_openai_tracing_processor())
+
+agent = Agent(name="my-agent", instructions="...")
+# The run wrapper records a replayable root carrying the run input.
+handler = bitfab.get_openai_agent_handler("my-agent")
+
+# Swap Runner.run(agent, input) -> handler.wrap_run(agent, input)
+result = await handler.wrap_run(agent, "user input here")
+```
+
+The processor alone records a root with no input, so a processor-only trace is not replayable; `wrap_run` (a drop-in for `Runner.run`) records the keyed, replayable root.
+
+**Note:** If you try to use `get_openai_tracing_processor()` without installing the `openai-tracing` extra, you'll get a helpful error message telling you to install it.
+
+## Configuration
+
+- `api_key`: **Required** - Your Bitfab API key (generate from your Bitfab dashboard)
+- `service_url`: Optional - The Bitfab service URL (defaults to `https://bitfab.ai`)
+- `env_vars`: Optional - Environment variables for LLM providers (e.g., `{"OPENAI_API_KEY": "..."}`)
+- `capture_enabled`: Optional - Capture traced calls. When `False`, decorated functions still execute but no spans are sent; replay still records inside each item and `seed_trace` still records the one call it runs. Left out, `BITFAB_CAPTURE_ENABLED` (`0` or `1`) decides, and capture stays on when it is unset. `enabled` is a deprecated alias.
+
+## OpenTelemetry Transport
+
+Bitfab keeps its public decorators and framework handlers, while one private
+OpenTelemetry `TracerProvider` and `BatchSpanProcessor` per client
+manage the bounded queue, batch worker, export scheduling, flush, and shutdown
+lifecycle. Pipelines are created lazily on the first trace send and are not
+installed globally, so an unused or disabled client starts no OTel worker and
+the SDK does not replace an application's OTel setup. Framework integrations
+submit the existing replay-safe Bitfab payload through the same transport
+interface. Flush and shutdown honor one total caller-supplied deadline.
+Long-running processes that create transient clients should call
+`client.close()` or use `with Bitfab(...) as client:` to release that client's
+workers; shared clients still shut down automatically at process exit.
+The LangGraph/LangChain handler keeps `langsmith:hidden` scheduler callbacks
+only for local parent resolution and submits visible Bitfab spans through OTel.
+
+OTel schedules exports in internal batches of at most 512 carriers. The
+exporter packs that candidate window into requests containing at most eight
+carriers and no more than the configured encoded-byte target, then runs up to
+32 complete requests concurrently. Set `BITFAB_OTEL_EXPORT_CONCURRENCY` to an
+integer from `1` through `64` to tune that concurrency; invalid values fall back
+to `32`.
+
+Requests are limited to approximately 3 MB. Set `BITFAB_OTEL_MAX_REQUEST_BYTES`
+to a positive integer no greater than `3000000` to use a smaller target for a
+proxy with a stricter limit. Invalid or larger values fall back to `3000000`. A
+carrier that exceeds the configured limit by itself cannot be split without
+changing the captured payload; the SDK logs the failed export without
+interrupting the host application.
+
+Every root trace also records the commit its code ran at as `commit_ref`. Deploy platforms such as Vercel, GitHub Actions, Railway, Render, Heroku, Cloudflare Pages, GitLab CI, Azure Pipelines, and CircleCI supply it through their build variables, a plain checkout resolves it from `git` once per process in the background, and a container built without either should set `BITFAB_COMMIT_SHA` at build time. Set `BITFAB_DISABLE_COMMIT_REF` to send no `commit_ref` at all.
+
+Each carrier is encoded once and the request body is assembled from those
+encodings, so a batch is never re-encoded to measure its size.
+
+Before finalizing a replay, the SDK flushes OTel and polls Bitfab's
+replay-status API until every expected trace completion and span count is
+persisted.
+
+If Bitfab accepts only part of a batch, it returns the standard OTLP
+`partialSuccess` response and the SDK logs the rejected-span count and reason.
+
+See the
+[OpenTelemetry Transport Architecture](https://docs.bitfab.ai/otel-architecture)
+for the full component ownership, carrier format, replay barrier, batching, and
+lifecycle design.
+
+## Development Tasks
+
+This project uses a Python-based developer tasks module (`dev/`) instead of Makefiles for better cross-platform support and more robust CLI capabilities.
+
+### Using Developer Tasks
+
+After running `poetry install --with dev`, you can use developer tasks:
+
+#### Quick Setup (One-time)
+
+```bash
+# Install dependencies (creates the 'dev' script in the venv)
+poetry install --with dev
+
+# Run this script to add to PATH for current session and get command to make it permanent
+./setup-dev-path.sh
+
+# Copy-paste the command it outputs, then reload your shell config:
+source ~/.zshrc  # or ~/.bashrc
+```
+
+The `setup-dev-path.sh` script will:
+
+- Add the venv bin to PATH for your current session
+- Detect your shell (zsh/bash) and output a command you can copy-paste to make it permanent
+- Skip if already configured
+
+#### Using Developer Commands
+
+Once PATH is set up, use commands directly - just like `make <target>`:
+
+```bash
+dev list              # List all available commands
+dev test              # Run tests
+dev test --verbose    # Run tests with verbose output
+dev lint              # Lint code
+dev format            # Format code
+dev build             # Build package
+dev publish patch      # Publish with version bump
+```
+
+**How it works**: When you define `[tool.poetry.scripts]` in `pyproject.toml`, Poetry creates executable scripts in the venv's `bin/` directory. Adding that `bin/` to PATH makes those scripts available as commands.
+
+**Key advantage**: Just like Makefiles, it's super clear - `dev <command>` is as obvious as `make <target>`!
+
+### Module Structure
+
+Each command is in its own file in the `dev/` module:
+
+- `dev/test.py` - Test commands
+- `dev/lint.py` - Linting
+- `dev/build.py` - Building
+- `dev/publish.py` - Publishing
+- etc.
+
+This makes it easy to find and modify individual commands.
+
+## Publishing
+
+This package uses `bump-my-version` for version management. To publish a new version:
+
+```bash
+# Use the dev command
+dev publish patch          # Bump patch (0.3.0 -> 0.3.1)
+dev publish minor          # Bump minor (0.3.0 -> 0.4.0)
+dev publish major          # Bump major (0.3.0 -> 1.0.0)
+dev publish version=1.2.3  # Custom version
+
+# Or just bump version without publishing
+dev bump patch
+dev bump minor
+```
+
+The publish process will:
+
+1. Run all tests
+2. Bump the version in `pyproject.toml`
+3. Commit and tag the changes
+4. Build the package
+5. Prompt for confirmation before publishing to PyPI
+
+**Note:** Publishing requires:
+
+- A clean git working directory (no uncommitted changes)
+- Poetry installed and configured
+- PyPI credentials configured (via `poetry config pypi-token.pypi <token>`)
+

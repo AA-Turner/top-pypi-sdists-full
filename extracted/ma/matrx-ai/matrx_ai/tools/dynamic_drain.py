@@ -321,6 +321,18 @@ async def drain_pending_injections(config, ctx, *, include_turn_end: bool = Fals
     if is_internal_conversation(ctx):
         return ctx
 
+    # ONLY THE RUN THAT PERSISTS MAY TAKE FROM THE INBOX. Delivery is "free"
+    # only because the claimed row rides config.messages into this run's
+    # end-of-run persistence (see the docstring). A store=False run — a held
+    # code call (the conversation labeler via run_held_call), a strict-JSON
+    # funnel call — nests inside the chat request's AppContext and inherits its
+    # conversation_id, so without this it claims the person's queued message
+    # into a throwaway config that is never written: consumed, no row, no
+    # answer (PB-05 W-40, conversation 9004fe9b…, 2026-10-01). The row stays
+    # pending for the persisting run's own boundary.
+    if not getattr(ctx, "store", True):
+        return ctx
+
     from matrx_ai.db.cx_managers import cxm
 
     claimed = await cxm.pending_injection.claim_pending(

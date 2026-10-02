@@ -1,0 +1,715 @@
+// Copyright (c) 2023 Contributors to the Eclipse Foundation
+//
+// See the NOTICE file(s) distributed with this work for additional
+// information regarding copyright ownership.
+//
+// This program and the accompanying materials are made available under the
+// terms of the Apache Software License 2.0 which is available at
+// https://www.apache.org/licenses/LICENSE-2.0, or the MIT license
+// which is available at https://opensource.org/licenses/MIT.
+//
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
+//! # Example
+//!
+//! See [`crate::service`]
+//!
+pub use crate::port::event_id::EventId;
+use crate::service::resource::NoResource;
+
+use alloc::format;
+
+use iceoryx2_bb_container::relocatable_option::RelocatableOption;
+use iceoryx2_bb_posix::clock::Time;
+use iceoryx2_log::{fail, fatal_panic};
+
+use crate::service::builder::{DynamicConfigCreationArgs, ServiceCreateError, ServiceOpenError};
+use crate::service::dynamic_config::MessagingPatternSettings;
+use crate::service::port_factory::event;
+use crate::service::static_config::messaging_pattern::MessagingPattern;
+use crate::service::*;
+use crate::service::{self, dynamic_config::event::DynamicConfigSettings};
+
+use self::attribute::{AttributeSpecifier, AttributeVerifier};
+use static_config::event::Deadline;
+
+use super::ServiceState;
+
+/// Failures that can occur when an existing [`MessagingPattern::Event`] [`Service`] shall be opened.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum EventOpenError {
+    /// An interrupt signal was received.
+    Interrupt,
+    /// The [`Service`] does not exist.
+    DoesNotExist,
+    /// The process has not enough permissions to open the [`Service`]
+    InsufficientPermissions,
+    /// Some underlying resources of the [`Service`] do not exist which indicate a corrupted
+    /// [`Service`]state.
+    ServiceInCorruptedState,
+    /// The [`Service`] has the wrong messaging pattern.
+    IncompatibleMessagingPattern,
+    /// The [`AttributeVerifier`] required attributes that the [`Service`] does not satisfy.
+    IncompatibleAttributes,
+    /// Errors that indicate either an implementation issue or a wrongly configured system.
+    InternalFailure,
+    /// The [`Service`]s deadline settings are not equal the the user given requirements.
+    IncompatibleDeadline,
+    /// The event id that is emitted for a newly created [`Notifier`]
+    /// does not fit the required event id.
+    IncompatibleNotifierCreatedEvent,
+    /// The event id that is emitted if a [`Notifier`] is dropped
+    /// does not fit the required event id.
+    IncompatibleNotifierDroppedEvent,
+    /// The event id that is emitted if a [`Notifier`] is
+    /// identified as dead does not fit the required event id.
+    IncompatibleNotifierDeadEvent,
+    /// The [`Service`]s creation timeout has passed and it is still not initialized. Can be caused
+    /// by a process that crashed during [`Service`] creation.
+    HangsInCreation,
+    /// The [`Service`] supports less [`Notifier`]s than requested.
+    DoesNotSupportRequestedAmountOfNotifiers,
+    /// The [`Service`] supports less [`Listener`](crate::port::listener::Listener)s than requested.
+    DoesNotSupportRequestedAmountOfListeners,
+    /// The [`Service`] supported [`EventId`] is smaller than the requested max [`EventId`].
+    DoesNotSupportRequestedMaxEventId,
+    /// The [`Service`] supports less [`Node`](crate::node::Node)s than requested.
+    DoesNotSupportRequestedAmountOfNodes,
+    /// The maximum number of [`Node`](crate::node::Node)s have already opened the [`Service`].
+    ExceedsMaxNumberOfNodes,
+    /// The [`Service`] is marked for destruction and currently cleaning up since no one is using it anymore.
+    /// When the call creation call is repeated with a little delay the [`Service`] should be
+    /// recreatable.
+    IsMarkedForDestruction,
+    /// The [`Node`](crate::node::Node) service tag could not be created. Required to track resources of
+    /// dead nodes when cleaning them up.
+    UnableToCreateServiceTag,
+    /// The iceoryx2 service version does not match the one of the [`Service`].
+    VersionMismatch,
+}
+
+impl core::fmt::Display for EventOpenError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "EventOpenError::{self:?}")
+    }
+}
+
+impl core::error::Error for EventOpenError {}
+
+impl From<ServiceState> for EventOpenError {
+    fn from(value: ServiceState) -> Self {
+        match value {
+            ServiceState::Interrupt => EventOpenError::Interrupt,
+            ServiceState::IncompatibleMessagingPattern | ServiceState::IncompatiblePayload => {
+                EventOpenError::IncompatibleMessagingPattern
+            }
+            ServiceState::InsufficientPermissions => EventOpenError::InsufficientPermissions,
+            ServiceState::HangsInCreation => EventOpenError::HangsInCreation,
+            ServiceState::Corrupted => EventOpenError::ServiceInCorruptedState,
+            ServiceState::InternalFailure => EventOpenError::InternalFailure,
+            ServiceState::VersionMismatch => EventOpenError::VersionMismatch,
+        }
+    }
+}
+
+impl From<ServiceOpenError> for EventOpenError {
+    fn from(value: ServiceOpenError) -> Self {
+        match value {
+            ServiceOpenError::Interrupt => EventOpenError::Interrupt,
+            ServiceOpenError::DoesNotExist => EventOpenError::DoesNotExist,
+            ServiceOpenError::ExceedsMaxNumberOfNodes => EventOpenError::ExceedsMaxNumberOfNodes,
+            ServiceOpenError::HangsInCreation => EventOpenError::HangsInCreation,
+            ServiceOpenError::IncompatibleMessagingPattern => {
+                EventOpenError::IncompatibleMessagingPattern
+            }
+            ServiceOpenError::IncompatiblePayload => EventOpenError::IncompatibleMessagingPattern,
+            ServiceOpenError::InsufficientPermissions => EventOpenError::InsufficientPermissions,
+            ServiceOpenError::InternalFailure
+            | ServiceOpenError::UnableToAcquireTypeDefinition
+            | ServiceOpenError::InvalidTypeDefinition => EventOpenError::InternalFailure,
+            ServiceOpenError::IsMarkedForDestruction => EventOpenError::IsMarkedForDestruction,
+            ServiceOpenError::ServiceInCorruptedState => EventOpenError::ServiceInCorruptedState,
+            ServiceOpenError::UnableToCreateServiceTag => EventOpenError::UnableToCreateServiceTag,
+            ServiceOpenError::VersionMismatch => EventOpenError::VersionMismatch,
+        }
+    }
+}
+
+impl From<EventOpenError> for ServiceOpenError {
+    fn from(value: EventOpenError) -> Self {
+        match value {
+            EventOpenError::DoesNotExist => ServiceOpenError::DoesNotExist,
+            EventOpenError::ExceedsMaxNumberOfNodes => ServiceOpenError::ExceedsMaxNumberOfNodes,
+            EventOpenError::HangsInCreation => ServiceOpenError::HangsInCreation,
+            EventOpenError::IncompatibleMessagingPattern => {
+                ServiceOpenError::IncompatibleMessagingPattern
+            }
+            EventOpenError::InsufficientPermissions => ServiceOpenError::InsufficientPermissions,
+            EventOpenError::IsMarkedForDestruction => ServiceOpenError::IsMarkedForDestruction,
+            EventOpenError::ServiceInCorruptedState => ServiceOpenError::ServiceInCorruptedState,
+            EventOpenError::UnableToCreateServiceTag => ServiceOpenError::UnableToCreateServiceTag,
+            EventOpenError::VersionMismatch => ServiceOpenError::VersionMismatch,
+            EventOpenError::Interrupt => ServiceOpenError::Interrupt,
+            EventOpenError::DoesNotSupportRequestedAmountOfListeners
+            | EventOpenError::InternalFailure
+            | EventOpenError::DoesNotSupportRequestedAmountOfNodes
+            | EventOpenError::DoesNotSupportRequestedAmountOfNotifiers
+            | EventOpenError::DoesNotSupportRequestedMaxEventId
+            | EventOpenError::IncompatibleAttributes
+            | EventOpenError::IncompatibleDeadline
+            | EventOpenError::IncompatibleNotifierCreatedEvent
+            | EventOpenError::IncompatibleNotifierDeadEvent
+            | EventOpenError::IncompatibleNotifierDroppedEvent => ServiceOpenError::InternalFailure,
+        }
+    }
+}
+
+/// Failures that can occur when a new [`MessagingPattern::Event`] [`Service`] shall be created.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum EventCreateError {
+    /// An interrupt signal was received.
+    Interrupt,
+    /// Some underlying resources of the [`Service`] are either missing, corrupted or inaccessible.
+    ServiceInCorruptedState,
+    /// Errors that indicate either an implementation issue or a wrongly configured system.
+    InternalFailure,
+    /// Multiple processes are trying to create the same [`Service`].
+    IsBeingCreatedByAnotherInstance,
+    /// The [`Service`] already exists.
+    AlreadyExists,
+    /// The process has insufficient permissions to create the [`Service`].
+    InsufficientPermissions,
+    /// The [`Node`](crate::node::Node) service tag could not be created. Required to track resources of dead nodes when cleaning them up.
+    UnableToCreateServiceTag,
+    /// The [`Service`]s config could not be created and written to the static service configuration.
+    ServiceConfigCouldNotBeCreated,
+    /// A lifecycle event id (`notifier_created_event`, `notifier_dropped_event`, or
+    /// `notifier_dead_event`) exceeds the configured `event_id_max_value`.
+    EventIdExceedsMaxSupportedValue,
+    /// The [`UniqueServiceId`] could not be generated.
+    UnableToGenerateUniqueServiceId,
+}
+
+impl From<ServiceCreateError> for EventCreateError {
+    fn from(value: ServiceCreateError) -> Self {
+        match value {
+            ServiceCreateError::Interrupt => EventCreateError::Interrupt,
+            ServiceCreateError::AlreadyExists => EventCreateError::AlreadyExists,
+            ServiceCreateError::InsufficientPermissions => {
+                EventCreateError::InsufficientPermissions
+            }
+            ServiceCreateError::InternalFailure
+            | ServiceCreateError::UnableToAcquireTypeDefinition
+            | ServiceCreateError::InvalidTypeDefinition => EventCreateError::InternalFailure,
+            ServiceCreateError::IsBeingCreatedByAnotherInstance => {
+                EventCreateError::IsBeingCreatedByAnotherInstance
+            }
+            ServiceCreateError::ServiceInCorruptedState => {
+                EventCreateError::ServiceInCorruptedState
+            }
+            ServiceCreateError::UnableToCreateServiceTag => {
+                EventCreateError::UnableToCreateServiceTag
+            }
+            ServiceCreateError::ServiceConfigCouldNotBeCreated => {
+                EventCreateError::ServiceConfigCouldNotBeCreated
+            }
+            ServiceCreateError::UnableToGenerateUniqueServiceId => {
+                EventCreateError::UnableToGenerateUniqueServiceId
+            }
+        }
+    }
+}
+
+impl From<EventCreateError> for ServiceCreateError {
+    fn from(value: EventCreateError) -> Self {
+        match value {
+            EventCreateError::AlreadyExists => ServiceCreateError::AlreadyExists,
+            EventCreateError::InsufficientPermissions => {
+                ServiceCreateError::InsufficientPermissions
+            }
+            EventCreateError::IsBeingCreatedByAnotherInstance => {
+                ServiceCreateError::IsBeingCreatedByAnotherInstance
+            }
+            EventCreateError::ServiceInCorruptedState => {
+                ServiceCreateError::ServiceInCorruptedState
+            }
+            EventCreateError::UnableToCreateServiceTag => {
+                ServiceCreateError::UnableToCreateServiceTag
+            }
+            EventCreateError::ServiceConfigCouldNotBeCreated => {
+                ServiceCreateError::ServiceConfigCouldNotBeCreated
+            }
+            EventCreateError::Interrupt => ServiceCreateError::Interrupt,
+            EventCreateError::InternalFailure => ServiceCreateError::InternalFailure,
+            // No generic service-level equivalent: this is an event-specific
+            // contract violation detected before the generic create path runs.
+            EventCreateError::EventIdExceedsMaxSupportedValue => {
+                ServiceCreateError::InternalFailure
+            }
+            EventCreateError::UnableToGenerateUniqueServiceId => {
+                ServiceCreateError::UnableToGenerateUniqueServiceId
+            }
+        }
+    }
+}
+
+impl core::fmt::Display for EventCreateError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "EventCreateError::{self:?}")
+    }
+}
+
+impl core::error::Error for EventCreateError {}
+
+/// Failures that can occur when a [`MessagingPattern::Event`] [`Service`] shall be opened or
+/// created.
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+pub enum EventOpenOrCreateError {
+    /// Failures that can occur when an event [`Service`] is opened.
+    EventOpenError(EventOpenError),
+    /// Failures that can occur when an event [`Service`] is created.
+    EventCreateError(EventCreateError),
+    /// Can occur when another process creates and removes the same [`Service`] repeatedly with a
+    /// high frequency.
+    SystemInFlux,
+}
+
+impl From<EventOpenError> for EventOpenOrCreateError {
+    fn from(value: EventOpenError) -> Self {
+        EventOpenOrCreateError::EventOpenError(value)
+    }
+}
+
+impl From<EventCreateError> for EventOpenOrCreateError {
+    fn from(value: EventCreateError) -> Self {
+        EventOpenOrCreateError::EventCreateError(value)
+    }
+}
+
+impl core::fmt::Display for EventOpenOrCreateError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "EventOpenOrCreateError::{self:?}")
+    }
+}
+
+impl core::error::Error for EventOpenOrCreateError {}
+
+impl From<ServiceState> for EventOpenOrCreateError {
+    fn from(value: ServiceState) -> Self {
+        EventOpenOrCreateError::EventOpenError(value.into())
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct Verify {
+    max_notifiers: bool,
+    max_listeners: bool,
+    max_nodes: bool,
+    event_id_max_value: bool,
+    deadline: bool,
+    notifier_created_event: bool,
+    notifier_dropped_event: bool,
+    notifier_dead_event: bool,
+}
+
+/// Builder to create new [`MessagingPattern::Event`] based [`Service`]s
+///
+/// # Example
+///
+/// See [`crate::service`]
+#[derive(Debug, Clone)]
+pub struct Builder<ServiceType: service::Service> {
+    base: builder::BuilderWithServiceType<ServiceType>,
+    verify: Verify,
+}
+
+impl<ServiceType: service::Service> Builder<ServiceType> {
+    pub(crate) fn new(base: builder::BuilderWithServiceType<ServiceType>) -> Self {
+        let mut new_self = Self {
+            base,
+            verify: Verify::default(),
+        };
+
+        new_self.base.service_config.messaging_pattern = MessagingPattern::Event(
+            static_config::event::StaticConfig::new(new_self.base.shared_node.config()),
+        );
+
+        new_self
+    }
+
+    fn config_details(&mut self) -> &mut static_config::event::StaticConfig {
+        match self.base.service_config.messaging_pattern {
+            MessagingPattern::Event(ref mut v) => v,
+            _ => {
+                fatal_panic!(from self, "This should never happen! Accessing wrong messaging pattern in Event builder!");
+            }
+        }
+    }
+
+    /// Enables the deadline property of the service. There must be a notification emitted by any
+    /// [`Notifier`] after at least the provided `deadline`.
+    pub fn deadline(mut self, deadline: Duration) -> Self {
+        self.config_details().deadline = RelocatableOption::Some(Deadline {
+            value: deadline.into(),
+            creation_time: Time::default(),
+        });
+        self.verify.deadline = true;
+        self
+    }
+
+    /// Disables the deadline property of the service. [`Notifier`]
+    /// can signal notifications at any rate.
+    pub fn disable_deadline(mut self) -> Self {
+        self.config_details().deadline = RelocatableOption::None;
+        self.verify.deadline = true;
+        self
+    }
+
+    /// If the [`Service`] is created it defines how many [`Node`](crate::node::Node)s shall
+    /// be able to open it in parallel. If an existing [`Service`] is opened it defines how many
+    /// [`Node`](crate::node::Node)s must be at least supported.
+    pub fn max_nodes(mut self, value: usize) -> Self {
+        self.config_details().max_nodes = value;
+        self.verify.max_nodes = true;
+        self
+    }
+
+    /// If the [`Service`] is created it set the greatest supported [`UniqueNodeId`] value
+    /// If an existing [`Service`] is opened it defines the value size the [`UniqueNodeId`]
+    /// must at least support.
+    pub fn event_id_max_value(mut self, value: usize) -> Self {
+        self.config_details().event_id_max_value = value;
+        self.verify.event_id_max_value = true;
+        self
+    }
+
+    /// If the [`Service`] is created it defines how many [`crate::port::notifier::Notifier`] shall
+    /// be supported at most. If an existing [`Service`] is opened it defines how many
+    /// [`crate::port::notifier::Notifier`] must be at least supported.
+    pub fn max_notifiers(mut self, value: usize) -> Self {
+        self.config_details().max_notifiers = value;
+        self.verify.max_notifiers = true;
+        self
+    }
+
+    /// If the [`Service`] is created it defines how many [`crate::port::listener::Listener`] shall
+    /// be supported at most. If an existing [`Service`] is opened it defines how many
+    /// [`crate::port::listener::Listener`] must be at least supported.
+    pub fn max_listeners(mut self, value: usize) -> Self {
+        self.config_details().max_listeners = value;
+        self.verify.max_listeners = true;
+        self
+    }
+
+    /// If the [`Service`] is created it defines the event that shall be emitted by every newly
+    /// created [`Notifier`].
+    pub fn notifier_created_event(mut self, value: EventId) -> Self {
+        self.config_details().notifier_created_event = RelocatableOption::Some(value.as_value());
+        self.verify.notifier_created_event = true;
+        self
+    }
+
+    /// If the [`Service`] is created it disables the event that shall be emitted by every newly
+    /// created [`Notifier`].
+    pub fn disable_notifier_created_event(mut self) -> Self {
+        self.config_details().notifier_created_event = RelocatableOption::None;
+        self.verify.notifier_created_event = true;
+        self
+    }
+
+    /// If the [`Service`] is created it defines the event that shall be emitted by every
+    /// [`Notifier`] before it is dropped.
+    pub fn notifier_dropped_event(mut self, value: EventId) -> Self {
+        self.config_details().notifier_dropped_event = RelocatableOption::Some(value.as_value());
+        self.verify.notifier_dropped_event = true;
+        self
+    }
+
+    /// If the [`Service`] is created it disables the event that shall be emitted by every
+    /// [`Notifier`] before it is dropped.
+    pub fn disable_notifier_dropped_event(mut self) -> Self {
+        self.config_details().notifier_dropped_event = RelocatableOption::None;
+        self.verify.notifier_dropped_event = true;
+        self
+    }
+
+    /// If the [`Service`] is created it defines the event that shall be emitted when a
+    /// [`Notifier`] is identified as dead.
+    pub fn notifier_dead_event(mut self, value: EventId) -> Self {
+        self.config_details().notifier_dead_event = RelocatableOption::Some(value.as_value());
+        self.verify.notifier_dead_event = true;
+        self
+    }
+
+    /// If the [`Service`] is created it disables the event that shall be emitted when a
+    /// [`Notifier`] is identified as dead.
+    pub fn disable_notifier_dead_event(mut self) -> Self {
+        self.config_details().notifier_dead_event = RelocatableOption::None;
+        self.verify.notifier_dead_event = true;
+        self
+    }
+
+    /// If the [`Service`] exists, it will be opened otherwise a new [`Service`] will be
+    /// created.
+    pub fn open_or_create(self) -> Result<event::PortFactory<ServiceType>, EventOpenOrCreateError> {
+        self.open_or_create_with_attributes(&AttributeVerifier::new())
+    }
+
+    /// If the [`Service`] exists, it will be opened otherwise a new [`Service`] will be
+    /// created. It defines a set of attributes. If the [`Service`] already exists all attribute
+    /// requirements must be satisfied otherwise the open process will fail. If the [`Service`]
+    /// does not exist the required attributes will be defined in the [`Service`].
+    pub fn open_or_create_with_attributes(
+        mut self,
+        attributes: &AttributeVerifier,
+    ) -> Result<event::PortFactory<ServiceType>, EventOpenOrCreateError> {
+        let msg = "Unable to open or create event service";
+        self.adjust_attributes_to_meaningful_values();
+        self.base.open_or_create(
+            msg,
+            attributes,
+            EventOpenOrCreateError::EventOpenError(EventOpenError::InternalFailure),
+            EventOpenOrCreateError::SystemInFlux,
+            |attributes| self.open_impl(attributes),
+            |attributes| self.create_impl(attributes),
+        )
+    }
+
+    /// Opens an existing [`Service`].
+    pub fn open(self) -> Result<event::PortFactory<ServiceType>, EventOpenError> {
+        self.open_with_attributes(&AttributeVerifier::new())
+    }
+    /// Opens an existing [`Service`] with attribute requirements. If the defined attribute
+    /// requirements are not satisfied the open process will fail.
+    pub fn open_with_attributes(
+        self,
+        required_attributes: &AttributeVerifier,
+    ) -> Result<event::PortFactory<ServiceType>, EventOpenError> {
+        self.open_impl(required_attributes)
+    }
+
+    fn open_impl(
+        &self,
+        required_attributes: &AttributeVerifier,
+    ) -> Result<event::PortFactory<ServiceType>, EventOpenError> {
+        let msg = "Unable to open event service";
+
+        let service_state = self.base.open(
+            msg,
+            || self.base.is_service_available(msg),
+            |existing_service_config| -> Result<(), EventOpenError> {
+                self.verify_service_configuration(msg, existing_service_config, required_attributes)
+            },
+            |_| Ok(NoResource),
+        )?;
+
+        Ok(event::PortFactory::new(service_state))
+    }
+
+    /// Creates a new [`Service`].
+    pub fn create(self) -> Result<event::PortFactory<ServiceType>, EventCreateError> {
+        self.create_with_attributes(&AttributeSpecifier::new())
+    }
+
+    /// Creates a new [`Service`] with a set of attributes.
+    pub fn create_with_attributes(
+        mut self,
+        attributes: &AttributeSpecifier,
+    ) -> Result<event::PortFactory<ServiceType>, EventCreateError> {
+        self.adjust_attributes_to_meaningful_values();
+        self.create_impl(attributes)
+    }
+
+    fn create_impl(
+        &self,
+        attributes: &AttributeSpecifier,
+    ) -> Result<event::PortFactory<ServiceType>, EventCreateError> {
+        let origin = format!("{self:?}");
+        let msg = "Unable to create event service";
+
+        {
+            let settings = self.base.service_config.event();
+            let max = settings.event_id_max_value;
+            for (label, opt_id) in [
+                (
+                    "notifier_created_event",
+                    settings.notifier_created_event.as_option_ref().copied(),
+                ),
+                (
+                    "notifier_dropped_event",
+                    settings.notifier_dropped_event.as_option_ref().copied(),
+                ),
+                (
+                    "notifier_dead_event",
+                    settings.notifier_dead_event.as_option_ref().copied(),
+                ),
+            ] {
+                if let Some(id) = opt_id
+                    && id > max
+                {
+                    fail!(from self,
+                        with EventCreateError::EventIdExceedsMaxSupportedValue,
+                        "{} since the {} value {} exceeds event_id_max_value {}.",
+                        msg, label, id, max);
+                }
+            }
+        }
+
+        let prepare_static_config = |service_config: &mut StaticConfig| {
+            if let RelocatableOption::Some(ref mut deadline) = service_config.event_mut().deadline {
+                let now = fail!(from origin, when Time::now(),
+                            with ServiceCreateError::InternalFailure,
+                            "{} since the current system time could not be acquired.", msg);
+
+                deadline.creation_time = now;
+            }
+
+            Ok(())
+        };
+
+        let generate_dynamic_config = |service_config: &StaticConfig| {
+            let event_config = service_config.event();
+            let dynamic_config_setting = DynamicConfigSettings {
+                number_of_listeners: event_config.max_listeners,
+                number_of_notifiers: event_config.max_notifiers,
+            };
+
+            DynamicConfigCreationArgs {
+                messaging_pattern_settings: MessagingPatternSettings::Event(dynamic_config_setting),
+                additional_size:
+                    dynamic_config::event::DynamicConfig::<ServiceType::Bag>::memory_size(
+                        &dynamic_config_setting,
+                    ),
+                max_number_of_nodes: event_config.max_nodes,
+            }
+        };
+
+        let service_state = self.base.create(
+            msg,
+            attributes,
+            || self.base.is_service_available(msg),
+            prepare_static_config,
+            generate_dynamic_config,
+            |_| Ok(NoResource),
+            |_| {},
+            |service_config| {
+                UniqueServiceId::from_event_service::<ServiceType>(
+                    service_config.name(),
+                    self.base.shared_node.config(),
+                )
+            },
+        )?;
+
+        Ok(event::PortFactory::new(service_state))
+    }
+
+    fn adjust_attributes_to_meaningful_values(&mut self) {
+        let origin = format!("{self:?}");
+        let settings = self.base.service_config.event_mut();
+
+        if settings.max_notifiers == 0 {
+            warn!(from origin, "Setting the maximum amount of notifiers to 0 is not supported. Adjust it to 1, the smallest supported value.");
+            settings.max_notifiers = 1;
+        }
+
+        if settings.max_listeners == 0 {
+            warn!(from origin, "Setting the maximum amount of listeners to 0 is not supported. Adjust it to 1, the smallest supported value.");
+            settings.max_listeners = 1;
+        }
+
+        if settings.max_nodes == 0 {
+            warn!(from origin, "Setting the maximum amount of nodes to 0 is not supported. Adjust it to 1, the smallest supported value.");
+            settings.max_nodes = 1;
+        }
+    }
+
+    fn verify_service_configuration(
+        &self,
+        msg: &str,
+        existing_service_config: &StaticConfig,
+        required_attributes: &AttributeVerifier,
+    ) -> Result<(), EventOpenError> {
+        let required_service_config = &self.base.service_config;
+        let existing_attributes = existing_service_config.attributes();
+        if let Err(incompatible_key) = required_attributes.verify_requirements(existing_attributes)
+        {
+            fail!(from self, with EventOpenError::IncompatibleAttributes,
+                "{} due to incompatible service attribute key {}. The following attributes {:?} are required but the service has the attributes {:?}.",
+                msg, incompatible_key, required_attributes, existing_attributes);
+        }
+
+        let required_settings = required_service_config.event();
+        let existing_settings = match &existing_service_config.messaging_pattern {
+            MessagingPattern::Event(v) => v,
+            p => {
+                fail!(from self, with EventOpenError::IncompatibleMessagingPattern,
+                "{} since a service with the messaging pattern {:?} exists but MessagingPattern::Event is required.", msg, p);
+            }
+        };
+
+        if self.verify.max_notifiers
+            && existing_settings.max_notifiers < required_settings.max_notifiers
+        {
+            fail!(from self, with EventOpenError::DoesNotSupportRequestedAmountOfNotifiers,
+                "{} since the event supports only {} notifiers but a support of {} notifiers was requested.",
+                msg, existing_settings.max_notifiers, required_settings.max_notifiers);
+        }
+
+        if self.verify.max_listeners
+            && existing_settings.max_listeners < required_settings.max_listeners
+        {
+            fail!(from self, with EventOpenError::DoesNotSupportRequestedAmountOfListeners,
+                "{} since the event supports only {} listeners but a support of {} listeners was requested.",
+                msg, existing_settings.max_notifiers, required_settings.max_listeners);
+        }
+
+        if self.verify.event_id_max_value
+            && existing_settings.event_id_max_value < required_settings.event_id_max_value
+        {
+            fail!(from self, with EventOpenError::DoesNotSupportRequestedMaxEventId,
+                "{} since the event supports only EventIds with a value of at most {} a support of {} was requested.",
+                msg, existing_settings.event_id_max_value, required_settings.event_id_max_value);
+        }
+
+        if self.verify.max_nodes && existing_settings.max_nodes < required_settings.max_nodes {
+            fail!(from self, with EventOpenError::DoesNotSupportRequestedAmountOfNodes,
+                "{} since the event supports only {} nodes but {} are required.",
+                msg, existing_settings.max_nodes, required_settings.max_nodes);
+        }
+
+        if self.verify.notifier_created_event
+            && existing_settings.notifier_created_event != required_settings.notifier_created_event
+        {
+            fail!(from self, with EventOpenError::IncompatibleNotifierCreatedEvent,
+                "{} since the notifier_created_event id is {:?} but the value {:?} is required.",
+                msg, existing_settings.notifier_created_event, required_settings.notifier_created_event);
+        }
+
+        if self.verify.notifier_dropped_event
+            && existing_settings.notifier_dropped_event != required_settings.notifier_dropped_event
+        {
+            fail!(from self, with EventOpenError::IncompatibleNotifierDroppedEvent,
+                "{} since the notifier_dropped_event id is {:?} but the value {:?} is required.",
+                msg, existing_settings.notifier_dropped_event, required_settings.notifier_dropped_event);
+        }
+
+        if self.verify.notifier_dead_event
+            && existing_settings.notifier_dead_event != required_settings.notifier_dead_event
+        {
+            fail!(from self, with EventOpenError::IncompatibleNotifierDeadEvent,
+                "{} since the notifier_dead_event id is {:?} but the value {:?} is required.",
+                msg, existing_settings.notifier_dead_event, required_settings.notifier_dead_event);
+        }
+
+        if self.verify.deadline
+            && existing_settings.deadline.map(|v| v.value)
+                != required_settings.deadline.map(|v| v.value)
+        {
+            fail!(from self, with EventOpenError::IncompatibleDeadline,
+                "{} since the deadline is {:?} but a deadline of {:?} is required.",
+                msg, existing_settings.deadline, required_settings.deadline);
+        }
+
+        Ok(())
+    }
+}

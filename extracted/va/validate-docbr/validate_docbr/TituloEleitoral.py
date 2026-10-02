@@ -4,7 +4,16 @@ from validate_docbr.DocumentBase import DocumentBase
 
 
 class TituloEleitoral(DocumentBase):
-    """Classe referente ao Título Eleitoral."""
+    """Classe referente ao Título Eleitoral.
+
+    Fonte normativa: Resolução TSE nº 23.659/2021, Art. 36, que define a
+    composição do número de inscrição (8 dígitos sequenciais + 2 de UF +
+    2 verificadores) e o cálculo dos verificadores por Módulo 11.
+
+    Há implementações que aplicam uma exceção para SP e MG (resto 0
+    resultaria em dígito 1). Essa ressalva não consta na Resolução e
+    não é implementada aqui — ver issue #70.
+    """
 
     def __init__(self) -> None:
         self.digits = list(range(10))
@@ -12,6 +21,7 @@ class TituloEleitoral(DocumentBase):
         self.second_check_digit_weights = list(range(7, 10))
         self.first_check_digit_doc_slice = slice(0, 8)
         self.second_check_digit_doc_slice = slice(8, 10)
+        self.state_identifiers = range(1, 29)
 
     def validate(self, doc: str = '') -> bool:
         """Valida o Título Eleitoral.
@@ -28,6 +38,10 @@ class TituloEleitoral(DocumentBase):
         doc_digits = list(map(int, self._only_digits(doc=doc)))
 
         if len(doc_digits) != 12:
+            return False
+
+        state_identifier = doc_digits[8] * 10 + doc_digits[9]
+        if state_identifier not in self.state_identifiers:
             return False
 
         first_check_digit = self._compute_first_check_digit(doc_digits=doc_digits)
@@ -133,7 +147,7 @@ class TituloEleitoral(DocumentBase):
         """Gera um identificador de estado válido.
 
         Returns:
-            Identificador de estado com 2 dígitos (``01`` a ``18``).
+            Identificador de estado com 2 dígitos (``01`` a ``28``).
         """
-        state_identifier = str(sample(range(1, 19), 1)[0])
+        state_identifier = str(sample(self.state_identifiers, 1)[0])
         return state_identifier.zfill(2)

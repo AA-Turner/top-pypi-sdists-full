@@ -1,0 +1,11 @@
+Metadata-Version: 1.2
+Name: xbart
+Version: 0.1.8
+Summary: XBART project
+Home-page: UNKNOWN
+Author: Jingyu He, Saar Yalov, P. Richard Hahn
+Author-email: saar.yalov@gmail.com
+License: Apache-2.0
+Description: UNKNOWN
+Platform: UNKNOWN
+Requires-Python: >3.5

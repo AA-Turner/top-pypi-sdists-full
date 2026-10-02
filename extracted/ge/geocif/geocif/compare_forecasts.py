@@ -27,6 +27,7 @@ import pandas as pd
 
 from geocif import yield_outlook
 from geocif import logger as log
+from geocif.viz._outlook_db import dedup_upserts
 
 logger = logging.getLogger(__name__)
 
@@ -104,10 +105,15 @@ def _query_mape_by_stage(db_path, table, model, experiment_name="outlook"):
             return pd.DataFrame()
 
         area_select = ', "Area (ha)"' if "Area (ha)" in table_cols else ""
+        # Bookkeeping columns for the upsert de-duplication below (Season is
+        # part of a row's identity for multi-season countries); dropped
+        # again so the returned frame keeps its schema.
+        helper_cols = [c for c in ("Season", "Date", "Time") if c in table_cols]
+        helper_select = "".join(f', "{c}"' for c in helper_cols)
 
         df = pd.read_sql(
             f'SELECT "Country", "Region", "Harvest Year", "Stage Name", '
-            f'"{pred_col}", "{obs_col}"{area_select} '
+            f'"{pred_col}", "{obs_col}"{area_select}{helper_select} '
             f'FROM "{table}" WHERE "Experiment Name" = ? AND "Model" = ?',
             con, params=(experiment_name, model),
         )
@@ -119,6 +125,17 @@ def _query_mape_by_stage(db_path, table, model, experiment_name="outlook"):
 
     if df.empty:
         return pd.DataFrame()
+
+    # A8: a re-run into the same DB appends a SECOND copy of every logical
+    # row (the upsert key includes the wall-clock Time); keep the most
+    # recently written copy, else every stage's MAPE double-weights regions.
+    df = dedup_upserts(
+        df,
+        [c for c in ("Country", "Region", "Harvest Year", "Stage Name", "Season")
+         if c in df.columns],
+        f"{db_path.name}:{table}:{model}",
+    )
+    df = df.drop(columns=[c for c in helper_cols if c in df.columns])
 
     rename = {}
     if pred_col != _CANON_PRED:
@@ -371,9 +388,11 @@ def run(path_config_files=None, since_year=None):
                 for nat_df in all_national.values():
                     all_stages.update(nat_df["Stage Name"].values)
                 planting_month = _infer_planting_month(all_stages)
+                from geocif.ml.stage_labels import infer_label_order as _ilo
+                _forward = _ilo(all_stages) == "forward"
                 stages_sorted = sorted(
                     all_stages,
-                    key=lambda s: _stage_sort_key(s, planting_month),
+                    key=lambda s: _stage_sort_key(s, planting_month, forward=_forward),
                 )
                 friendly_labels = [friendly_stage_label(s) for s in stages_sorted]
 

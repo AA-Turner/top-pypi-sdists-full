@@ -10,6 +10,7 @@ import concurrent.futures
 import contextlib
 import dataclasses
 import enum
+import itertools
 from collections import defaultdict
 import logging
 import os
@@ -18,9 +19,8 @@ import re
 import threading
 import time
 import typing
-import weakref
 from pathlib import Path
-from typing import Any, Callable, DefaultDict, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Callable, DefaultDict, Dict, List, Optional, Set, Tuple, Union, cast
 
 import ipywidgets as widgets
 import reacton
@@ -53,13 +53,6 @@ else:
 class PageStatus(enum.Enum):
     CONNECTED = "connected"
     DISCONNECTED = "disconnected"
-    CLOSED = "closed"
-
-
-class _LifecycleState(enum.Enum):
-    OPEN = "open"
-    RESTARTING = "restarting"
-    CLOSING = "closing"
     CLOSED = "closed"
 
 
@@ -118,6 +111,13 @@ class VirtualKernelContext:
     container: Optional[DOMWidget] = None
     # we track which pages are connected to implement kernel culling
     page_status: Dict[str, PageStatus] = dataclasses.field(default_factory=dict)
+    # the open connections of each page, by the number `page_connect` hands out; a page reconnects
+    # with the same page id, and the connect of its new websocket can be handled before the
+    # disconnect of its old one, so a page is only disconnected when its last connection is gone.
+    _page_connections: Dict[str, Set[int]] = dataclasses.field(default_factory=dict)
+    _connection_numbers: "itertools.count[int]" = dataclasses.field(
+        default_factory=lambda: itertools.count(1),
+    )
     # only used for testing
     _last_kernel_cull_task: "Optional[asyncio.Future[None]]" = None
     _last_kernel_cull_future: "Optional[concurrent.futures.Future[None]]" = None
@@ -128,9 +128,6 @@ class VirtualKernelContext:
     _teardown_lock: threading.Lock = dataclasses.field(default_factory=threading.Lock)
     _teardown_done: bool = False
     _on_close_callbacks: List[Callable[[], None]] = dataclasses.field(default_factory=list)
-    _lifecycle_lock: threading.Lock = dataclasses.field(default_factory=threading.Lock)
-    _lifecycle_state: _LifecycleState = _LifecycleState.OPEN
-    _generation_stores: Dict[int, Tuple["weakref.ReferenceType[Any]", str, Optional[Callable[[Any], None]], bool]] = dataclasses.field(default_factory=dict)
     lock: threading.RLock = dataclasses.field(default_factory=threading.RLock)
     event_loop: asyncio.AbstractEventLoop = dataclasses.field(default_factory=_get_or_create_event_loop)
 
@@ -142,117 +139,18 @@ class VirtualKernelContext:
                     self.on_close(cleanup)
 
     def restart(self):
-        with self._lifecycle_lock:
-            if self._lifecycle_state is not _LifecycleState.OPEN:
-                return
-            self._lifecycle_state = _LifecycleState.RESTARTING
-            callbacks = self._on_close_callbacks
-            self._on_close_callbacks = []
-
-        error = self._run_close_callbacks(callbacks)
-        try:
-            self._clear_generation_stores()
-            with self._lifecycle_lock:
-                initialize = self._lifecycle_state is _LifecycleState.RESTARTING
-            if initialize:
-                self.__post_init__()
-        except BaseException as caught:
-            if error is None:
-                error = caught
-        finally:
-            with self._lifecycle_lock:
-                if self._lifecycle_state is _LifecycleState.RESTARTING:
-                    self._lifecycle_state = _LifecycleState.OPEN
-                    finish_close = False
-                else:
-                    finish_close = self._lifecycle_state is _LifecycleState.CLOSING
-            if finish_close:
-                self._finish_close()
-        if error is not None:
-            raise error
+        # should we do this, or maybe close the context and create a new one?
+        with self:
+            for f in reversed(self._on_close_callbacks):
+                f()
+            self._on_close_callbacks.clear()
+            self.__post_init__()
 
     def display(self, *args):
         print(args)  # noqa
 
     def on_close(self, f: Callable[[], None]):
-        with self._lifecycle_lock:
-            if self._lifecycle_state is _LifecycleState.CLOSED:
-                run_now = True
-            else:
-                self._on_close_callbacks.append(f)
-                run_now = False
-        if run_now:
-            error = self._run_close_callbacks([f])
-            if error is not None:
-                raise error
-
-        context_ref = weakref.ref(self)
-
-        def unregister():
-            context = context_ref()
-            if context is None:
-                return
-            with context._lifecycle_lock:
-                for index, callback in enumerate(context._on_close_callbacks):
-                    if callback is f:
-                        del context._on_close_callbacks[index]
-                        break
-
-        return unregister
-
-    def track_generation_store(self, store: Any, cleanup: Optional[Callable[[Any], None]] = None, *, owned: bool = True) -> None:
-        store_id = id(store)
-        with self._lifecycle_lock:
-            existing = self._generation_stores.get(store_id)
-            if existing is not None:
-                if owned and not existing[3]:
-                    self._generation_stores[store_id] = (existing[0], existing[1], cleanup, True)
-                return
-            context_ref = weakref.ref(self)
-
-            def release(_ref):
-                context = context_ref()
-                if context is not None:
-                    context.release_generation_store(store_id)
-
-            self._generation_stores[store_id] = (weakref.ref(store, release), store.storage_key, cleanup, owned)
-
-    def release_generation_store(self, store_id: int) -> None:
-        with self._lifecycle_lock:
-            entry = self._generation_stores.pop(store_id, None)
-            if entry is None:
-                return
-            _, key, cleanup, _ = entry
-            if any(other_key == key for _, other_key, _, _ in self._generation_stores.values()):
-                return
-            value = self.user_dicts.pop(key, None)
-        if cleanup is not None and value is not None:
-            cleanup(value)
-
-    def _clear_generation_stores(self) -> None:
-        with self._lifecycle_lock:
-            owned_keys = {key for _, key, _, owned in self._generation_stores.values() if owned}
-            persistent_keys = {key for _, key, _, owned in self._generation_stores.values() if not owned}
-            keys = owned_keys - persistent_keys
-            values = [self.user_dicts.pop(key, None) for key in keys]
-        values.clear()
-
-    def _run_close_callbacks(self, callbacks: List[Callable[[], None]]):
-        fatal: Optional[BaseException] = None
-        with self:
-            for callback in reversed(callbacks):
-                try:
-                    callback()
-                except (KeyboardInterrupt, SystemExit) as error:
-                    if fatal is None:
-                        fatal = error
-                except BaseException:
-                    logger.exception("Kernel close callback failed for %s", self.id)
-        return fatal
-
-    def is_closing(self) -> bool:
-        with self._lifecycle_lock:
-            return self._lifecycle_state in (_LifecycleState.CLOSING, _LifecycleState.CLOSED)
+        self._on_close_callbacks.append(f)
 
     async def __aenter__(self):
         stack = async_stack.get()
@@ -328,102 +226,72 @@ class VirtualKernelContext:
             logger.exception("state persistence teardown failed for kernel %s", self.id)
 
     def close(self, reason: str = "unknown"):
-        with self._lifecycle_lock:
-            if self._lifecycle_state in (_LifecycleState.CLOSING, _LifecycleState.CLOSED):
-                return
-            restart_owns_close = self._lifecycle_state is _LifecycleState.RESTARTING
-            self._lifecycle_state = _LifecycleState.CLOSING
-            self.close_reason = reason
-        if restart_owns_close:
-            return
-        self._finish_close()
-
-    def _finish_close(self):
-        fatal: Optional[BaseException] = None
+        # persistence teardown MUST happen before we acquire self.lock (backend I/O; §5.3 deadlock
+        # contract). Run it exactly once across concurrent closers, under a dedicated lock so a
+        # loser does not fall through and re-flush; the first closer wins the reason.
         run_teardown = False
         with self._teardown_lock:
             if not self._teardown_done:
                 self._teardown_done = True
+                self.close_reason = reason
                 run_teardown = True
         if run_teardown:
-            try:
-                self._teardown_persistence(self.close_reason)
-            except (KeyboardInterrupt, SystemExit) as error:
-                fatal = error
-            except BaseException:
-                logger.exception("State persistence teardown was cancelled for kernel %s", self.id)
-
-        with self:
-            with self.lock:
-                for key in self.page_status:
-                    self.page_status[key] = PageStatus.CLOSED
-                if self._last_kernel_cull_task:
-                    self._last_kernel_cull_task.cancel()
-                    self._last_kernel_cull_task = None
-                if self._last_kernel_cull_future:
-                    self._last_kernel_cull_future.cancel()
-                    self._last_kernel_cull_future = None
-                had_app = self.app_object is not None
-                app_object = self.app_object
-                kernel_to_close = self.kernel
-
+            self._teardown_persistence(reason)
+        with self, self.lock:
+            for key in self.page_status:
+                self.page_status[key] = PageStatus.CLOSED
+            if self._last_kernel_cull_task:
+                self._last_kernel_cull_task.cancel()
+                # drop our reference: a cancelled task keeps its CancelledError whose
+                # traceback holds the kernel_cull frame, whose closure holds `self` -
+                # keeping the reference would turn that into a reference cycle through
+                # the whole context, which refcounting cannot free
+                self._last_kernel_cull_task = None
+            if self._last_kernel_cull_future:
+                self._last_kernel_cull_future.cancel()
+                self._last_kernel_cull_future = None
+            if self.closed_event.is_set():
+                logger.error("Tried to close a kernel context that is already closed: %s", self.id)
+                return
             logger.info("Shut down virtual kernel: %s", self.id)
-            while True:
-                with self._lifecycle_lock:
-                    if not self._on_close_callbacks:
-                        break
-                    callbacks = self._on_close_callbacks
-                    self._on_close_callbacks = []
-                callback_fatal = self._run_close_callbacks(callbacks)
-                if fatal is None:
-                    fatal = callback_fatal
-            self._clear_generation_stores()
-
-            with self.lock:
-                if self.app_object is app_object:
-                    self.app_object = None
-            cleanup_steps = [("widgets", widgets.Widget.close_all), ("kernel", kernel_to_close.close)]
-            if isinstance(app_object, reacton.core._RenderContext):
-                cleanup_steps.insert(0, ("render context", app_object.close))
-            for label, cleanup in cleanup_steps:
-                try:
-                    cleanup()
-                except (KeyboardInterrupt, SystemExit) as error:
-                    if fatal is None:
-                        fatal = error
-                except BaseException:
-                    logger.exception("Could not close %s", label)
-            with self.lock:
-                self.kernel = None  # type: ignore
-
-        if contexts.get(self.id) is self:
-            with _init_lock:
-                if contexts.get(self.id) is self:
-                    del contexts[self.id]
-        for key, context in list(current_context.items()):
-            if context is self:
-                del current_context[key]
-
-        while True:
-            with self._lifecycle_lock:
-                if self._on_close_callbacks:
-                    callbacks = self._on_close_callbacks
-                    self._on_close_callbacks = []
-                else:
-                    self._lifecycle_state = _LifecycleState.CLOSED
-                    self.closed_event.set()
-                    break
-            callback_fatal = self._run_close_callbacks(callbacks)
-            if fatal is None:
-                fatal = callback_fatal
-
+            for f in reversed(self._on_close_callbacks):
+                f()
+            had_app = self.app_object is not None
+            if self.app_object is not None:
+                if isinstance(self.app_object, reacton.core._RenderContext):
+                    try:
+                        self.app_object.close()
+                    except Exception as e:
+                        logger.exception("Could not close render context: %s", e)
+                        # we want to continue, so we at least close all widgets
+                # drop the reference: anything that still (indirectly) references this
+                # closed context should not keep the whole render tree alive with it
+                self.app_object = None
+            widgets.Widget.close_all()
+            # what if we reference each other
+            # import gc
+            # gc.collect()
+            self.kernel.close()
+            self.kernel = None  # type: ignore
+            # Only remove our OWN slot: a reconnect that raced this close (it treats a closing
+            # context as absent, see initialize_virtual_kernel) may have already installed a fresh
+            # context under this id. Deleting unconditionally would drop the replacement.
+            if contexts.get(self.id) is self:
+                del contexts[self.id]
+            del current_context[get_current_thread_key()]
+            # We saw in memleak_test that there are sometimes other entries in current_context
+            # In which _DummyThread's reference this context, so we remove those references too
+            # TODO: Think about what to do with those Threads
+            _contexts = current_context.copy()
+            for key, _ctx in _contexts.items():
+                if _ctx is self:
+                    del current_context[key]
+            self.closed_event.set()
         # only when the kernel rendered an app: a bare context holds nothing worth a full
         # collection, and a gc storm from many short-lived contexts (e.g. the unit test
         # suite closes one per test) pauses all threads, breaking timing-sensitive code
         if had_app and solara.server.settings.kernel.gc_after_close:
             _schedule_gc_after_kernel_close()
-        if fatal is not None:
-            raise fatal
 
     def _state_reset(self):
         state_directory = Path(".") / "states"
@@ -448,19 +316,29 @@ class VirtualKernelContext:
                 logger.debug("State: %r", state)
                 pickle.dump(state, f)
 
-    def page_connect(self, page_id: str):
-        if self.is_closing():
+    def page_connect(self, page_id: str) -> int:
+        """Signal that a page has connected, and cancel a scheduled kernel cull.
+
+        Returns a number for this connection.
+        Pass it to `page_disconnect`, so a page with several connections, as during a reconnect,
+        stays connected until the last one disconnects.
+        A counter keeps no reference to the transport, and two connects never get the same number.
+        """
+        if self.closed_event.is_set():
             raise RuntimeError("Cannot connect a page to a closed kernel")
         logger.info("Connect page %s for kernel %s", page_id, self.id)
         with self.lock:
-            if self.is_closing():
+            if self.closed_event.is_set():
                 raise RuntimeError("Cannot connect a page to a closed kernel")
             if page_id in self.page_status and self.page_status.get(page_id) == PageStatus.CLOSED:
                 raise RuntimeError("Cannot connect a page that is already closed")
             self.page_status[page_id] = PageStatus.CONNECTED
+            connection = next(self._connection_numbers)
+            self._page_connections.setdefault(page_id, set()).add(connection)
             if self._last_kernel_cull_task:
                 logger.info("Cancelling previous kernel cull task for virtual kernel %s", self.id)
                 self._last_kernel_cull_task.cancel()
+            return connection
 
     def _cull_timeout_seconds(self) -> float:
         """The cull timeout for this kernel (design §5.4).
@@ -542,7 +420,7 @@ class VirtualKernelContext:
             self._last_kernel_cull_future = asyncio.run_coroutine_threadsafe(create_task(), keep_alive_event_loop)
             return future
 
-    def page_disconnect(self, page_id: str) -> "Optional[asyncio.Future[None]]":
+    def page_disconnect(self, page_id: str, connection: int) -> "Optional[asyncio.Future[None]]":
         """Signal that a page has disconnected, and schedule a kernel cull if needed.
 
         During the kernel reconnect window, we will keep the kernel alive, even if all pages have disconnected.
@@ -550,11 +428,26 @@ class VirtualKernelContext:
         Will return a future that is set when the kernel cull is done, when an event loop is available.
         The scheduled kernel cull can be cancelled when a new page connects, a new disconnect is scheduled,
         or a page if explicitly closed.
+
+        `connection` is the number that `page_connect` returned.
+        While the page has another connection, the page stays connected and no kernel cull is scheduled.
         """
 
         logger.info("Disconnect page %s for kernel %s", page_id, self.id)
         future: "asyncio.Future[None]" = asyncio.Future()
         with self.lock:
+            connections = self._page_connections.get(page_id)
+            if connections is None or connection not in connections:
+                # never connected, or already disconnected: nothing to undo
+                future.set_result(None)
+                return future
+            connections.discard(connection)
+            if connections:
+                # a reconnect: another connection of this page is still open
+                logger.info("Page %s still has %d connection(s) for kernel %s", page_id, len(connections), self.id)
+                future.set_result(None)
+                return future
+            del self._page_connections[page_id]
             if self.page_status[page_id] == PageStatus.CLOSED:
                 # this happens when the close beackon call happens before the websocket disconnect
                 logger.info("Page %s already closed for kernel %s", page_id, self.id)
@@ -971,10 +864,10 @@ def initialize_virtual_kernel(session_id: str, kernel_id: str, websocket: websoc
         # client reconnects on the SAME kernel id (the socket dropped); it needs a FRESH context
         # that restores from the backend, not the doomed one - reusing it would race close() and
         # raise "Cannot connect a page to a closed kernel" in page_connect once closed_event is
-        # set. is_closing() also covers close delegated to an in-progress restart, before teardown
-        # begins. close() guards its own `del contexts` by identity, so overwriting the slot below
-        # is safe.
-        if context is not None and (context.is_closing() or context._teardown_done or context.closed_event.is_set()):
+        # set. _teardown_done flips at the very start of close(), before the socket drop that
+        # triggers the reconnect, so it reliably flags the doomed context here. close() guards its
+        # own `del contexts` by identity, so overwriting the slot below is safe.
+        if context is not None and (context._teardown_done or context.closed_event.is_set()):
             context = None
         mismatch = context is not None and context.session_id != session_id
         newly_created = False
@@ -1035,6 +928,11 @@ def initialize_virtual_kernel(session_id: str, kernel_id: str, websocket: websoc
             context.close(reason="superseded")
             return initialize_virtual_kernel(session_id, kernel_id, websocket)
         logger.info("reusing virtual kernel: %s", kernel_id)
+        # A new kernel takes the event loop of the websocket that creates it. In threaded mode each
+        # websocket runs its own loop, which closes with that websocket, so move the kernel to the
+        # loop of this connection, the same way. Otherwise anything scheduled onto the kernel after
+        # a reconnect (task results, call_soon_threadsafe from other threads) lands on a closed loop.
+        context.event_loop = _get_or_create_event_loop()
         worker = context.state_flush_worker
         if worker is not None:
             # a genuine client reconnect starts a new connection epoch: reset the one-re-takeover

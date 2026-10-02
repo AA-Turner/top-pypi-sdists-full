@@ -1,0 +1,733 @@
+#pragma once
+
+#include "openscad_cpp_evaluator/value.hpp"
+
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
+#include <vector>
+
+namespace oscadeval {
+
+// Recycles the blocks that TrailView/IndexedTrailView's own shared_ptrs are
+// made of. Deriving one EvalContext opens three trail levels -- dyn, let_,
+// dynPositions -- and each was a fresh make_shared: ~2M allocations in one
+// Anklet.scad render, all of them the same size, almost all of them freed in
+// reverse order a few microseconds later. This hands the same block straight
+// back out.
+//
+// It changes WHERE the memory comes from and nothing else: no lifetime, no
+// visibility, no popLevel timing. That is the whole point -- the trail's
+// escaping-closure rules are the most delicate thing in this file, and an
+// allocator cannot get them wrong.
+//
+// One size class, because there is exactly one: every block is the control
+// block plus one view object. Anything else falls through to the global
+// allocator rather than being kept.
+//
+// Worth ~1% of an Anklet.scad render, for 2M allocations removed -- a modest
+// return, and deliberately recorded here as such: macOS's own small-object
+// allocator is already a free list, so swapping it for another one only pays
+// for the bookkeeping either side of it. Removing an allocation that also
+// removed real work (a vector's worth of Value moves, say) has paid far
+// better everywhere it has been tried in this codebase.
+class ViewBlockPool {
+public:
+    ViewBlockPool() { free_.reserve(kMaxKept); }
+    ~ViewBlockPool() {
+        for (void* p : free_) ::operator delete(p);
+    }
+    ViewBlockPool(const ViewBlockPool&) = delete;
+    ViewBlockPool& operator=(const ViewBlockPool&) = delete;
+
+    void* take(std::size_t bytes) {
+        if (bytes == blockSize_ && !free_.empty()) {
+            void* p = free_.back();
+            free_.pop_back();
+            return p;
+        }
+        if (blockSize_ == 0) blockSize_ = bytes;
+        return ::operator new(bytes);
+    }
+    // noexcept is safe: free_ was reserved to kMaxKept up front and is never
+    // pushed past it, so this push_back cannot reallocate and cannot throw.
+    void give(void* p, std::size_t bytes) noexcept {
+        if (bytes != blockSize_ || free_.size() >= kMaxKept) {
+            ::operator delete(p);
+            return;
+        }
+        free_.push_back(p);
+    }
+
+private:
+    static constexpr std::size_t kMaxKept = 512;
+    std::size_t blockSize_ = 0;
+    std::vector<void*> free_;
+};
+
+// A STATELESS allocator over one pool per view type (each type has exactly
+// one block size, so each gets its own single-size-class pool). Stateless
+// matters twice over: std::allocate_shared stores a copy of the allocator
+// inside the very block it allocated, so a stateful one both grows every
+// block and -- if it held a shared_ptr to keep the pool alive past the last
+// view, which a pool owned by the storage would need -- pays an atomic
+// refcount pair per allocation. That version was measured, and it was SLOWER
+// than not pooling at all.
+//
+// thread_local, so no locking and no cross-thread sharing, and it outlives
+// every view on its thread, which is what makes "keep the pool alive for the
+// final deallocate" a non-problem rather than a lifetime puzzle.
+template <typename T>
+class ViewBlockAllocator {
+public:
+    using value_type = T;
+    ViewBlockAllocator() = default;
+    template <typename U>
+    ViewBlockAllocator(const ViewBlockAllocator<U>&) {}
+
+    T* allocate(std::size_t n) { return static_cast<T*>(pool().take(n * sizeof(T))); }
+    void deallocate(T* p, std::size_t n) noexcept { pool().give(p, n * sizeof(T)); }
+
+    template <typename U>
+    bool operator==(const ViewBlockAllocator<U>&) const noexcept {
+        return true;
+    }
+    template <typename U>
+    bool operator!=(const ViewBlockAllocator<U>&) const noexcept {
+        return false;
+    }
+
+private:
+    static ViewBlockPool& pool() {
+        static thread_local ViewBlockPool p;
+        return p;
+    }
+};
+
+template <typename T>
+class ScopeTrailStorage {
+public:
+    // `parentLevel`: the calling view's own level, or 0 to terminate the
+    // ancestry chain here (an isolating derivation -- see openChild).
+    int openLevel(int parentLevel) {
+        int level = ++nextLevel_;
+        parent_.push_back(parentLevel); // index == level; see parent_'s own comment
+        return level;
+    }
+
+    void set(const std::string& name, T value, int level) {
+        std::vector<Entry>& vec = stacks_[name];
+        // A rebind of the SAME name at the level that's already current
+        // (a for-loop variable set every iteration without opening a new
+        // level each time, e.g. C-style for's init/incr -- see
+        // expr_eval.cpp's ListCompCFor case) overwrites the existing
+        // top-of-stack entry in place instead of pushing another one: a
+        // 999,999-iteration loop used to accumulate 999,999 Entry objects
+        // (and 999,999 duplicate name copies in dirty_[level]) that were
+        // never read again, all held until the level closed and popLevel()
+        // walked and popped every one of them in a single O(N) sweep.
+        // Nothing ever reads a stale same-level entry once a newer one at
+        // that same level exists (a level is one scope instantiation,
+        // never reopened), so this is a pure win, not just a memory
+        // optimization: it also collapses that O(N) unwind to O(1).
+        if (!vec.empty() && vec.back().level == level) {
+            vec.back().value = std::move(value);
+            return;
+        }
+        vec.push_back(Entry{std::move(value), level});
+        dirty_[level].push_back(name);
+    }
+
+    // Pops every entry pushed at `level`, across every name that was
+    // touched at that level (dirty_[level], recorded by set() above) --
+    // O(bindings made at this level) in the common case, not O(total
+    // names). Left-in-place, possibly-now-empty per-name vectors are NOT
+    // erased from `stacks_`: ponytail: real scripts rebind the same small
+    // name set repeatedly (loop vars, $fn, ...), so paying one
+    // erase+reinsert per pop is pure waste; revisit only if memory
+    // footprint (not speed) ever measurably matters for a script with a
+    // huge, non-repeating variable vocabulary.
+    //
+    // Removes the entry matching THIS level specifically, not just
+    // whatever's currently last -- these can differ once an escaping
+    // closure is in play (TrailView::parentView_, see its own doc
+    // comment): a closure can keep one ancestor level alive well past its
+    // own natural (LIFO, call/return-order) lifetime, while an EARLIER,
+    // otherwise-unrelated level that happens to touch the same NAME pops
+    // normally in the meantime. If that earlier level's own entry is no
+    // longer physically last in `vec` (the kept-alive later one is still
+    // sitting on top), a blind pop_back() would silently remove the WRONG
+    // entry -- the still-live, captured one, not the one actually being
+    // popped. Caught by a real repro: `function make(x,table)=
+    // let(table=...) x!=undef? make(table=table)(v=x) : function(v)
+    // v!=undef? let(nt=concat(table,[v])) make(table=nt) : table;` --
+    // invoking the returned closure read undef for a `table` that was
+    // bound directly at the closure's OWN captured level (not even an
+    // ancestor hop away), because an unrelated, earlier `table` push from
+    // a sibling recursive call got popped out of order and silently ate
+    // it. Scans from the back (the common case -- this level's own push
+    // usually IS at or near the top) rather than assuming position 0.
+    void popLevel(int level) {
+        auto it = dirty_.find(level);
+        if (it != dirty_.end()) {
+            for (const std::string& name : it->second) {
+                auto sit = stacks_.find(name);
+                if (sit == stacks_.end()) continue;
+                std::vector<Entry>& vec = sit->second;
+                for (auto rit = vec.rbegin(); rit != vec.rend(); ++rit) {
+                    if (rit->level == level) {
+                        vec.erase(std::next(rit).base());
+                        break;
+                    }
+                }
+            }
+            dirty_.erase(it);
+        }
+        markDead(level);
+    }
+
+    // nullptr if `name` has no binding on `myLevel`'s own ancestry chain.
+    // Both `it->second` (a name's own pushes, chronological -- and since
+    // level numbers are assigned in one global monotonically increasing
+    // sequence, chronological order IS ascending-by-level order) and
+    // myLevel's own ancestry chain (myLevel, parent(myLevel), ...,
+    // descending) are sorted -- so this is a standard sorted-merge search
+    // for the largest value common to both: whichever side currently
+    // points at the larger level advances (skip a too-deep/unrelated
+    // push, or walk one step further up my own ancestry); equal levels
+    // mean this push IS on my ancestry chain, and being the largest such
+    // common value, it's also the innermost (most specific) applicable
+    // one. O(pushes to this name that postdate my nearest common
+    // ancestor's own binding, plus my own ancestry depth to that point) --
+    // in the common case (read shortly after write, or the name's own
+    // pushes are all real ancestors) this is a handful of steps, not a
+    // full O(map-size) scan.
+    const T* lookup(const std::string& name, int myLevel) const {
+        auto it = stacks_.find(name);
+        if (it == stacks_.end()) return nullptr;
+        const std::vector<Entry>& vec = it->second;
+        auto idx = static_cast<long>(vec.size()) - 1;
+        int ancestor = myLevel;
+        while (ancestor > 0 && idx >= 0) {
+            const int entryLevel = vec[static_cast<size_t>(idx)].level;
+            if (entryLevel > ancestor) {
+                --idx;
+            } else if (entryLevel == ancestor) {
+                return &vec[static_cast<size_t>(idx)].value;
+            } else {
+                ancestor = parent_[static_cast<size_t>(ancestor)];
+            }
+        }
+        return nullptr;
+    }
+
+    bool has(const std::string& name, int myLevel) const { return lookup(name, myLevel) != nullptr; }
+
+    // Test-only introspection: how many physical Entry objects exist for
+    // `name` (across every level, not just the current one) -- lets
+    // ScopeTrailStorageTest assert the same-level-overwrite optimization
+    // actually bounds growth (a for-loop variable set N times at one level
+    // should hold ~1 entry, not N), not just that lookup() still returns
+    // the right value either way.
+    size_t debugEntryCountForTesting(const std::string& name) const {
+        auto it = stacks_.find(name);
+        return it == stacks_.end() ? 0 : it->second.size();
+    }
+    // Test-only: how many level slots `parent_` currently holds (index 0
+    // included) -- lets ScopeTrailStorageTest assert that popping levels in
+    // call/return order really does shrink it back, and that an escaping
+    // closure's still-live level stops the shrink at itself.
+    size_t debugLevelSlotsForTesting() const { return parent_.size(); }
+
+    // Ancestry-filtered snapshot -- O(total distinct names ever bound so
+    // far in the whole evaluation), not O(names visible now). Only used
+    // by debug-REPL/children()-splice enumeration (never a hot path); see
+    // this class's own module comment for why this asymmetry with
+    // lookup()'s much cheaper cost is accepted, not optimized.
+    std::vector<std::pair<std::string, T>> items(int myLevel) const {
+        std::vector<std::pair<std::string, T>> result;
+        for (const auto& [name, stack] : stacks_) {
+            if (const T* v = lookup(name, myLevel)) result.emplace_back(name, *v);
+        }
+        return result;
+    }
+
+private:
+    struct Entry {
+        T value;
+        int level;
+    };
+    std::unordered_map<std::string, std::vector<Entry>> stacks_;
+    std::unordered_map<int, std::vector<std::string>> dirty_;
+    // level -> parent level (0 = chain terminates here, which is also what a
+    // popped level reads back as). Levels come from `++nextLevel_`, so they are
+    // dense and monotonic and this is a plain vector indexed BY level, with
+    // element 0 the unused stand-in for "no parent" -- push_back in openLevel()
+    // keeps index == level. It used to be an unordered_map<int,int>, which cost
+    // one hash-node allocation per scope derivation (3 of the 10 allocations a
+    // user function call makes, ~2M of them in one Anklet.scad render) and made
+    // lookup()'s ancestry walk -- run on every variable read -- a hash probe per
+    // hop instead of an array index. It never shrinks: 4 bytes per level ever
+    // opened (~2.6MB for Anklet.scad), traded knowingly for the allocation.
+    // Levels are NEVER renumbered or reused -- lookup()'s sorted-merge walk
+    // depends on level numbers being globally monotonic.
+    std::vector<int> parent_{0};
+    int nextLevel_ = 0;
+
+    // A popped level is marked -1 (0 is a live level with no parent -- an
+    // isolated root -- so the two must stay distinguishable). Then, whenever
+    // the level being popped is the newest one, `parent_` shrinks back past
+    // every dead level above the newest still-live one, and its number is
+    // handed out again by the next openLevel(). This keeps every invariant
+    // lookup() relies on: a reused number is greater than every level still
+    // holding an entry (all higher levels were dead, and popLevel already
+    // removed their entries), so a name's push-stack stays ascending, and a
+    // live level's number never changes -- an escaping closure that keeps a
+    // level alive simply stops the shrink at it. Without this, `parent_`
+    // grew by one int per level for the whole run and never shrank: 3 x
+    // 64MB for a 13M-call script, plus the copy of each doubling.
+    void markDead(int level) {
+        parent_[static_cast<size_t>(level)] = -1;
+        if (level == nextLevel_) {
+            while (nextLevel_ > 0 && parent_[static_cast<size_t>(nextLevel_)] < 0) {
+                parent_.pop_back();
+                --nextLevel_;
+            }
+        }
+    }
+};
+
+// Per-EvalContext handle onto a shared ScopeTrailStorage<T>: this view's
+// own `level_` is both what new writes via set() get tagged with AND the
+// starting point for a read's ancestry walk (see ScopeTrailStorage::
+// lookup) -- see eval_context.cpp for how each of withScope()/childCtx()/
+// callCtx()/letChildCtx() derives it. Scope-exit is automatic via this
+// class's own destructor, which calls storage_->popLevel(level_) (normal
+// return, an early `return`, or exception unwind all trigger it
+// identically, no try/catch needed at any call site) -- safe specifically
+// because a TrailView is only ever reached through shared_ptr<TrailView<T>>
+// (every field that holds one, e.g. EvalContext::let_, is that shared_ptr,
+// never the object itself), so the *outer* shared_ptr's own refcounting
+// already guarantees the destructor fires exactly once, on the last live
+// reference. Copy/move are deleted to keep that invariant enforced rather
+// than merely documented -- this used to be a separate `shared_ptr<void>
+// guard_` member with its own custom-deleter control-block allocation
+// (belt-and-suspenders against a direct-copy hazard that can't actually
+// happen given the invariant above); folding popLevel() into ~TrailView()
+// directly halves childCtx()/callCtx()'s allocation count (4 trails * 2
+// allocations each down to 4 trails * 1) with no change to the
+// ancestry-walk/isolation logic itself.
+template <typename T>
+class TrailView : public std::enable_shared_from_this<TrailView<T>> {
+public:
+    static std::shared_ptr<TrailView<T>> makeRoot() {
+        auto storage = std::make_shared<ScopeTrailStorage<T>>();
+        int level = storage->openLevel(0);
+        return std::allocate_shared<TrailView<T>>(ViewBlockAllocator<TrailView<T>>(), storage,
+                                                  level);
+    }
+
+    // Open a fresh level for writes. `isolate=true` terminates the new
+    // view's ancestry chain at itself (callCtx()'s isolation of
+    // let_/dynPositions -- nothing from the caller is visible, matching
+    // an isolated call's own fresh scope); `isolate=false` continues the
+    // chain through this view's own level (childCtx()/letChildCtx() --
+    // reads see through to the caller's own bindings, while only this
+    // scope's own writes get popped away on exit).
+    //
+    // The child also holds a shared_ptr back to THIS view (parentView_,
+    // isolate=false only) -- not just the ancestor level NUMBER already
+    // tracked in ScopeTrailStorage::parent_. Ancestry-chain VISIBILITY
+    // (lookup()'s walk) only needs the number; but an escaping closure
+    // (Closure::capturedLet, value.hpp) keeps exactly one TrailView alive
+    // past its own scope's normal exit by holding an extra shared_ptr
+    // reference to it -- and that view is very often an intermediate
+    // level (e.g. a let()'s own child level, one hop below the call level
+    // that actually bound the captured variable, see EvalContext::
+    // letChildCtx()), not the outermost one. Without parentView_, nothing
+    // keeps that OUTER level's own TrailView alive once its own creating
+    // call returns; ~TrailView() pops ITS bindings from ScopeTrailStorage
+    // (erasing the very data the still-alive child's ancestry walk needs)
+    // even though the walk can still numerically reach that ancestor level
+    // via ScopeTrailStorage::parent_ (that entry is untouched -- only
+    // the DATA is gone). Caught by a closure created inside a let()
+    // nested one level inside its own enclosing call reading undef for a
+    // variable bound at the call's own (now-popped) level, not the let()'s
+    // (kept alive) one. Holding parentView_ makes keeping a leaf level
+    // alive transitively keep its whole ancestor chain's data alive too,
+    // cascading in the same reverse-of-creation order an ordinary nested
+    // call/return already unwinds in (member destruction order below), so
+    // normal (non-escaping) scopes pop exactly as before -- this only
+    // changes what happens when something holds an EXTRA reference.
+    std::shared_ptr<TrailView<T>> openChild(bool isolate) const {
+        int level = storage_->openLevel(isolate ? 0 : level_);
+        auto child = std::allocate_shared<TrailView<T>>(ViewBlockAllocator<TrailView<T>>(),
+                                                       storage_, level);
+        if (!isolate) child->parentView_ = this->shared_from_this();
+        return child;
+    }
+
+    TrailView(std::shared_ptr<ScopeTrailStorage<T>> storage, int level)
+        : storage_(std::move(storage)), level_(level) {}
+    ~TrailView() { storage_->popLevel(level_); }
+    TrailView(const TrailView&) = delete;
+    TrailView& operator=(const TrailView&) = delete;
+    TrailView(TrailView&&) = delete;
+    TrailView& operator=(TrailView&&) = delete;
+
+    void set(const std::string& name, T value) { storage_->set(name, std::move(value), level_); }
+    const T* find(const std::string& name) const { return storage_->lookup(name, level_); }
+    bool count(const std::string& name) const { return storage_->has(name, level_) ? 1 : 0; }
+    bool empty() const { return storage_->items(level_).empty(); }
+    const T& at(const std::string& name) const {
+        const T* v = find(name);
+        if (!v) throw std::out_of_range("TrailView::at: key not found");
+        return *v;
+    }
+    std::vector<std::pair<std::string, T>> items() const { return storage_->items(level_); }
+
+private:
+    std::shared_ptr<ScopeTrailStorage<T>> storage_;
+    int level_;
+    // Declared LAST so it's destroyed FIRST (reverse declaration order),
+    // i.e. immediately after ~TrailView()'s own body (which pops THIS
+    // view's own level) -- releasing (and, if this was the last
+    // reference, cascading into) the parent's own pop right away, in the
+    // same order a normal nested call/return already unwinds in. `const`:
+    // openChild() is itself const, so shared_from_this() resolves to the
+    // const overload -- only lifetime-extension is needed here, never
+    // mutation through this pointer.
+    std::shared_ptr<const TrailView<T>> parentView_;
+};
+
+// Shared bidirectional name<->small-int interning table for $-prefixed
+// dynamic variables. Owned jointly by dyn's and dynExplicit's storage (see
+// EvalContext::makeRoot()) so a name like "$fn" interns to the SAME id in
+// both -- required since assigning a $-var writes dyn and marks
+// dynExplicit using that one id. The distinct-name vocabulary of any real
+// script is tiny (a handful of builtins plus whatever the script defines),
+// so this table stays small and is effectively populated once.
+class DynNameIntern {
+public:
+    int idFor(const std::string& name) {
+        auto it = ids_.find(name);
+        if (it != ids_.end()) return it->second;
+        int id = static_cast<int>(names_.size());
+        ids_.emplace(name, id);
+        names_.push_back(name);
+        return id;
+    }
+    const std::string& nameFor(int id) const { return names_[static_cast<size_t>(id)]; }
+
+private:
+    std::unordered_map<std::string, int> ids_;
+    std::vector<std::string> names_;
+};
+
+// The int-keyed twin of ScopeTrailStorage above, used only for $-dynamic
+// variables (dyn/dynExplicit): the identical ancestry-chain visibility
+// algorithm, but keyed by a small interned integer (via DynNameIntern)
+// instead of a raw std::string, so each name's own push-stack lives in a
+// directly-indexed std::vector rather than an unordered_map<string,...> --
+// no per-access string hashing/comparison once a name has been interned.
+// The public API still takes plain std::string names (interning happens
+// internally, transparent to every existing call site) -- this alone
+// removes string-vs-string comparison during hashmap collision resolution
+// and improves cache locality; the larger win (skipping the interning
+// lookup entirely) is realized once the bytecode compiler (a later phase)
+// resolves a name to its id ONCE at compile time and threads the id
+// through as an instruction immediate instead of re-interning on every
+// execution.
+template <typename T>
+class IndexedScopeTrailStorage {
+public:
+    explicit IndexedScopeTrailStorage(std::shared_ptr<DynNameIntern> intern) : intern_(std::move(intern)) {}
+
+    int openLevel(int parentLevel) {
+        int level = ++nextLevel_;
+        parent_.push_back(parentLevel); // index == level; see parent_'s own comment
+        return level;
+    }
+
+    void set(const std::string& name, T value, int level) {
+        int id = intern_->idFor(name);
+        ensureSize(id);
+        std::vector<Entry>& vec = stacks_[static_cast<size_t>(id)];
+        // Same same-level-overwrite optimization as ScopeTrailStorage::set()
+        // -- see that one's doc comment for the full rationale. Applies
+        // here too: e.g. `$fn = 1; $fn = 2;` as sibling top-level
+        // statements share one level (evalChildren's per-statement
+        // EvalContext only swaps `scope`, aliasing the same trail/level --
+        // see EvalContext::withScope's own doc comment), so repeated
+        // same-block reassignment of a $-variable used to accumulate
+        // entries here exactly like a for-loop's plain variable did.
+        if (!vec.empty() && vec.back().level == level) {
+            vec.back().value = std::move(value);
+            return;
+        }
+        vec.push_back(Entry{std::move(value), level});
+        dirty_[level].push_back(id);
+    }
+
+    // Level-aware, NOT a blind pop_back() -- the exact fix
+    // ScopeTrailStorage::popLevel (above) already carries, for the exact
+    // out-of-order-pop bug class its own doc comment describes; this
+    // indexed twin never got the same fix because nothing violated LIFO
+    // view destruction on the dyn trail until Op::CallChildren's
+    // forwarding frame (bytecode_vm.cpp): its evalCtx (a dyn level opened
+    // AFTER the call's own effCtx level) is moved into a VmFrame and
+    // OUTLIVES effCtx, so effCtx's pop runs while evalCtx's later entry
+    // is still physically on top of the same name's stack -- the blind
+    // pop_back() silently removed the still-live forwarded value instead
+    // of the one actually being popped (caught for real: a
+    // children($fn=9) named-$ override read back as the root default 0
+    // inside the forwarded child).
+    void popLevel(int level) {
+        auto it = dirty_.find(level);
+        if (it != dirty_.end()) {
+            for (int id : it->second) {
+                auto& stack = stacks_[static_cast<size_t>(id)];
+                for (auto rit = stack.rbegin(); rit != stack.rend(); ++rit) {
+                    if (rit->level == level) {
+                        stack.erase(std::next(rit).base());
+                        break;
+                    }
+                }
+            }
+            dirty_.erase(it);
+        }
+        markDead(level);
+    }
+
+    // Same sorted-merge ancestry walk as ScopeTrailStorage::lookup -- see
+    // its own doc comment for the full algorithm rationale.
+    const T* lookup(const std::string& name, int myLevel) const { return lookupById(intern_->idFor(name), myLevel); }
+
+    const T* lookupById(int id, int myLevel) const {
+        if (id < 0 || static_cast<size_t>(id) >= stacks_.size()) return nullptr;
+        const std::vector<Entry>& vec = stacks_[static_cast<size_t>(id)];
+        auto idx = static_cast<long>(vec.size()) - 1;
+        int ancestor = myLevel;
+        while (ancestor > 0 && idx >= 0) {
+            const int entryLevel = vec[static_cast<size_t>(idx)].level;
+            if (entryLevel > ancestor) {
+                --idx;
+            } else if (entryLevel == ancestor) {
+                return &vec[static_cast<size_t>(idx)].value;
+            } else {
+                ancestor = parent_[static_cast<size_t>(ancestor)];
+            }
+        }
+        return nullptr;
+    }
+
+    bool has(const std::string& name, int myLevel) const { return lookup(name, myLevel) != nullptr; }
+
+    // See ScopeTrailStorage::debugEntryCountForTesting's own doc comment.
+    size_t debugEntryCountForTesting(const std::string& name) const {
+        int id = intern_->idFor(name);
+        return id >= 0 && static_cast<size_t>(id) < stacks_.size() ? stacks_[static_cast<size_t>(id)].size() : 0;
+    }
+    size_t debugLevelSlotsForTesting() const { return parent_.size(); } // see ScopeTrailStorage's
+
+    std::vector<std::pair<std::string, T>> items(int myLevel) const {
+        std::vector<std::pair<std::string, T>> result;
+        for (size_t id = 0; id < stacks_.size(); ++id) {
+            if (const T* v = lookupById(static_cast<int>(id), myLevel)) {
+                result.emplace_back(intern_->nameFor(static_cast<int>(id)), *v);
+            }
+        }
+        return result;
+    }
+
+private:
+    struct Entry {
+        T value;
+        int level;
+    };
+    void ensureSize(int id) {
+        if (static_cast<size_t>(id) >= stacks_.size()) stacks_.resize(static_cast<size_t>(id) + 1);
+    }
+    std::shared_ptr<DynNameIntern> intern_;
+    std::vector<std::vector<Entry>> stacks_;
+    std::unordered_map<int, std::vector<int>> dirty_;
+    std::vector<int> parent_{0}; // see ScopeTrailStorage::parent_
+    int nextLevel_ = 0;
+
+    void markDead(int level) { // see ScopeTrailStorage::markDead
+        parent_[static_cast<size_t>(level)] = -1;
+        if (level == nextLevel_) {
+            while (nextLevel_ > 0 && parent_[static_cast<size_t>(nextLevel_)] < 0) {
+                parent_.pop_back();
+                --nextLevel_;
+            }
+        }
+    }
+};
+
+// Per-EvalContext handle onto a shared IndexedScopeTrailStorage<T> -- the
+// int-keyed twin of TrailView<T> above; see that class's doc comment for
+// the destructor-based scope-exit mechanism and why copy/move are deleted,
+// unchanged here.
+template <typename T>
+class IndexedTrailView {
+public:
+    static std::shared_ptr<IndexedTrailView<T>> makeRoot(std::shared_ptr<DynNameIntern> intern) {
+        auto storage = std::make_shared<IndexedScopeTrailStorage<T>>(std::move(intern));
+        int level = storage->openLevel(0);
+        return std::allocate_shared<IndexedTrailView<T>>(
+            ViewBlockAllocator<IndexedTrailView<T>>(), storage, level);
+    }
+
+    std::shared_ptr<IndexedTrailView<T>> openChild(bool isolate) const {
+        int level = storage_->openLevel(isolate ? 0 : level_);
+        return std::allocate_shared<IndexedTrailView<T>>(
+            ViewBlockAllocator<IndexedTrailView<T>>(), storage_, level);
+    }
+
+    IndexedTrailView(std::shared_ptr<IndexedScopeTrailStorage<T>> storage, int level)
+        : storage_(std::move(storage)), level_(level) {}
+    ~IndexedTrailView() { storage_->popLevel(level_); }
+    IndexedTrailView(const IndexedTrailView&) = delete;
+    IndexedTrailView& operator=(const IndexedTrailView&) = delete;
+    IndexedTrailView(IndexedTrailView&&) = delete;
+    IndexedTrailView& operator=(IndexedTrailView&&) = delete;
+
+    void set(const std::string& name, T value) { storage_->set(name, std::move(value), level_); }
+    const T* find(const std::string& name) const { return storage_->lookup(name, level_); }
+    bool count(const std::string& name) const { return storage_->has(name, level_) ? 1 : 0; }
+    bool empty() const { return storage_->items(level_).empty(); }
+    const T& at(const std::string& name) const {
+        const T* v = find(name);
+        if (!v) throw std::out_of_range("IndexedTrailView::at: key not found");
+        return *v;
+    }
+    std::vector<std::pair<std::string, T>> items() const { return storage_->items(level_); }
+
+private:
+    std::shared_ptr<IndexedScopeTrailStorage<T>> storage_;
+    int level_;
+};
+
+// dyn and dynExplicit ("which $-names the SCRIPT itself explicitly
+// assigned", as opposed to merely present via an ambient seed/default)
+// used to be two fully independent IndexedTrailViews, always opened
+// together at every derivation site (see eval_context.cpp) but never
+// actually sharing storage -- two heap allocations per childCtx()/
+// callCtx()/letChildCtx() call where one would do. DynEntry/DynValueView/
+// DynExplicitView below combine them into ONE underlying
+// IndexedTrailView<DynEntry>, cutting that to one allocation; the two
+// view classes are thin, distinctly-typed PROJECTIONS of the very same
+// shared_ptr<IndexedTrailView<DynEntry>> (shared via a plain shared_ptr
+// copy between them -- a refcount bump, not a second heap object), so
+// every existing dyn/dynExplicit call site keeps reading/writing through
+// the exact same method names/shapes it always did (find/set/count/
+// items/empty), via each view's operator-> returning `this` (so
+// `ctx.dyn->find(...)` keeps compiling unchanged even though `dyn` is now
+// a plain value member, not a shared_ptr).
+//
+// dyn and dynExplicit are set INDEPENDENTLY at many call sites -- e.g. a
+// parameter default binds only the value (dynExplicit untouched), while
+// an explicit `$fn=64;` assignment binds both. A write through EITHER
+// view must not clobber the OTHER field's own ancestry-visible value for
+// that name at this exact level, so both views' set() read the name's
+// CURRENTLY VISIBLE combined entry first (via the shared ancestry walk)
+// and carry the other field forward unchanged, rather than resetting it.
+struct DynEntry {
+    Value value;
+    bool explicitlySet = false;
+};
+
+class DynValueView {
+public:
+    DynValueView() = default;
+    explicit DynValueView(std::shared_ptr<IndexedTrailView<DynEntry>> trail) : trail_(std::move(trail)) {}
+
+    DynValueView* operator->() { return this; }
+    const DynValueView* operator->() const { return this; }
+
+    // The raw shared trail, so EvalContext's derivation methods can open
+    // ONE new level and wrap it into both a DynValueView and a
+    // DynExplicitView, rather than each view opening its own (which would
+    // silently re-fork them into two independent trails again).
+    const std::shared_ptr<IndexedTrailView<DynEntry>>& trail() const { return trail_; }
+
+    void set(const std::string& name, Value value) {
+        bool explicitlySet = false;
+        if (const DynEntry* existing = trail_->find(name)) explicitlySet = existing->explicitlySet;
+        trail_->set(name, DynEntry{std::move(value), explicitlySet});
+    }
+    const Value* find(const std::string& name) const {
+        const DynEntry* e = trail_->find(name);
+        return e ? &e->value : nullptr;
+    }
+    bool count(const std::string& name) const { return find(name) != nullptr; }
+    bool empty() const { return trail_->empty(); }
+    const Value& at(const std::string& name) const {
+        const Value* v = find(name);
+        if (!v) throw std::out_of_range("DynValueView::at: key not found");
+        return *v;
+    }
+    std::vector<std::pair<std::string, Value>> items() const {
+        std::vector<std::pair<std::string, Value>> result;
+        for (auto& [name, entry] : trail_->items()) result.emplace_back(name, entry.value);
+        return result;
+    }
+
+private:
+    std::shared_ptr<IndexedTrailView<DynEntry>> trail_;
+};
+
+class DynExplicitView {
+public:
+    DynExplicitView() = default;
+    explicit DynExplicitView(std::shared_ptr<IndexedTrailView<DynEntry>> trail) : trail_(std::move(trail)) {}
+
+    DynExplicitView* operator->() { return this; }
+    const DynExplicitView* operator->() const { return this; }
+
+    void set(const std::string& name, bool explicitlySet) {
+        Value value;
+        if (const DynEntry* existing = trail_->find(name)) value = existing->value;
+        trail_->set(name, DynEntry{std::move(value), explicitlySet});
+    }
+    bool find(const std::string& name) const {
+        const DynEntry* e = trail_->find(name);
+        return e && e->explicitlySet;
+    }
+    bool count(const std::string& name) const { return find(name); }
+    // NOT trail_->empty() -- the shared trail can hold plenty of
+    // value-only entries (a seeded default, viewportParams, ...) with
+    // explicitlySet=false. dynExplicit's own "empty" means "no NAME has
+    // ever been explicitly assigned", which only items() (already
+    // filtering on that flag) can answer correctly.
+    bool empty() const {
+        for (auto& [name, entry] : trail_->items()) {
+            if (entry.explicitlySet) return false;
+        }
+        return true;
+    }
+    std::vector<std::pair<std::string, bool>> items() const {
+        std::vector<std::pair<std::string, bool>> result;
+        for (auto& [name, entry] : trail_->items()) result.emplace_back(name, entry.explicitlySet);
+        return result;
+    }
+
+private:
+    std::shared_ptr<IndexedTrailView<DynEntry>> trail_;
+};
+
+using NameSet = std::unordered_set<std::string>;
+
+inline NameSet explicitSnapshot(const DynExplicitView& trail) {
+    NameSet result;
+    for (auto& [name, v] : trail.items()) {
+        if (v) result.insert(name);
+    }
+    return result;
+}
+
+} // namespace oscadeval

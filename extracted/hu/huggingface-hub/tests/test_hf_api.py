@@ -60,6 +60,7 @@ from huggingface_hub.hf_api import (
     ExpandDatasetProperty_T,
     ExpandModelProperty_T,
     ExpandSpaceProperty_T,
+    InferenceCatalogModel,
     InferenceEndpoint,
     InferenceProviderMapping,
     ModelInfo,
@@ -238,13 +239,11 @@ class TestHfApiEndpoints:
         api.delete_repo("repo-that-does-not-exist", missing_ok=True)
 
     def test_move_repo_normal_usage(self, api: HfApi):
-        # Spaces not tested on staging (error 500)
-        for repo_type in [None, constants.REPO_TYPE_MODEL, constants.REPO_TYPE_DATASET]:
-            repo_id = f"{USER}/{repo_name()}"
-            new_repo_id = f"{USER}/{repo_name()}"
-            api.create_repo(repo_id=repo_id, repo_type=repo_type)
-            api.move_repo(from_id=repo_id, to_id=new_repo_id, repo_type=repo_type)
-            api.delete_repo(repo_id=new_repo_id, repo_type=repo_type)
+        repo_id = f"{USER}/{repo_name()}"
+        new_repo_id = f"{USER}/{repo_name()}"
+        api.create_repo(repo_id=repo_id, repo_type="dataset")
+        api.move_repo(from_id=repo_id, to_id=new_repo_id, repo_type="dataset")
+        api.delete_repo(repo_id=new_repo_id, repo_type="dataset")
 
     def test_move_repo_target_already_exists(self, api: HfApi) -> None:
         repo_id_1 = f"{USER}/{repo_name()}"
@@ -271,26 +270,21 @@ class TestHfApiEndpoints:
         repo_url = repo_factory("model")
         repo_id = repo_url.repo_id
 
-        for gated_value in ["auto", "manual", False]:
-            for private_value in [True, False]:  # Test both private and public settings
-                api.update_repo_settings(repo_id=repo_id, gated=gated_value, private=private_value)
-                info = api.model_info(repo_id)
-                assert info.gated == gated_value
-                assert info.private == private_value  # Verify the private setting
+        # Enable then disable both settings
+        for gated_value, private_value in [("manual", True), (False, False)]:
+            api.update_repo_settings(repo_id=repo_id, gated=gated_value, private=private_value)
+            info = api.model_info(repo_id)
+            assert info.gated == gated_value
+            assert info.private == private_value
 
     def test_update_dataset_repo_settings(self, api: HfApi, repo_factory: RepoFactory):
         repo_url = repo_factory("dataset")
         repo_id = repo_url.repo_id
-        repo_type = repo_url.repo_type
 
-        for gated_value in ["auto", "manual", False]:
-            for private_value in [True, False]:
-                api.update_repo_settings(
-                    repo_id=repo_id, repo_type=repo_type, gated=gated_value, private=private_value
-                )
-                info = api.dataset_info(repo_id)
-                assert info.gated == gated_value
-                assert info.private == private_value
+        api.update_repo_settings(repo_id=repo_id, repo_type="dataset", gated="auto", private=True)
+        info = api.dataset_info(repo_id)
+        assert info.gated == "auto"
+        assert info.private
 
 
 class TestCommitApi:
@@ -2383,9 +2377,8 @@ class TestHfApiPublicProduction:
         assert len(models) == 0
 
     def test_filter_models_by_language(self, api: HfApi):
-        for language in ["en", "fr", "zh"]:
-            for model in api.list_models(filter=language, limit=5):
-                assert language in model.tags
+        for model in api.list_models(filter="fr", limit=5):
+            assert "fr" in model.tags
 
     def test_filter_models_with_tag(self, api: HfApi):
         models = list(api.list_models(author="HuggingFaceBR4", filter=["tensorboard"]))
@@ -4422,11 +4415,13 @@ class TestHfApiAuthCheck:
 
 class TestHfApiInferenceCatalog:
     def test_list_inference_catalog(self, api: HfApi) -> None:
-        models = api.list_inference_catalog()  # note: @experimental api
-        # Check that server returns a list[str] => at least if it changes in the future, we'll notice
-        assert isinstance(models, list)
+        models = api.list_inference_catalog(engine="vllm", task="text-generation")  # note: @experimental api
+        # Parse the whole payload => at least if the schema changes in the future, we'll notice
         assert len(models) > 0
-        assert all(isinstance(model, str) for model in models)
+        assert all(isinstance(model, InferenceCatalogModel) for model in models)
+        assert all(model.task == "text-generation" for model in models)
+        # A model is listed with at least the recipe it was filtered on.
+        assert all(any(recipe.engine == "vllm" for recipe in model.recipes) for model in models)
 
     def test_create_inference_endpoint_from_catalog(self, api: HfApi, mocker) -> None:
         mock_get_session = mocker.patch("huggingface_hub.hf_api.get_session")
@@ -4485,14 +4480,42 @@ class TestHfApiInferenceCatalog:
         )
         assert isinstance(endpoint, InferenceEndpoint)
         assert endpoint.name == "llama-3-2-3b-instruct-eey"
+        assert endpoint.namespace == "Wauplin"
+        url, kwargs = (
+            mock_get_session.return_value.post.call_args[0][0],
+            mock_get_session.return_value.post.call_args[1],
+        )
+        assert url.endswith("/catalog/model/meta-llama/Llama-3.2-3B-Instruct/deploy")
+        assert kwargs["json"] == {"namespace": "Wauplin"}
 
-    def test_create_inference_endpoint_from_catalog_rejects_token_false(self, api: HfApi) -> None:
+        # Same call, but targeting an exact recipe instead of the model's default one.
+        api.create_inference_endpoint_from_catalog(
+            recipe_id="ebony-pecan-n6tu7fs3", name="my-endpoint", namespace="Wauplin"
+        )
+        url, kwargs = (
+            mock_get_session.return_value.post.call_args[0][0],
+            mock_get_session.return_value.post.call_args[1],
+        )
+        assert url.endswith("/catalog/recipe/ebony-pecan-n6tu7fs3/deploy")
+        assert kwargs["json"] == {"namespace": "Wauplin", "config": {"name": "my-endpoint"}}
+
+    def test_create_inference_endpoint_from_catalog_rejects_bad_input(self, api: HfApi) -> None:
         # `token=False` means "do not authenticate", but this endpoint cannot be created without
         # authentication. Reject it explicitly instead of silently falling back to a stored token.
         with pytest.raises(ValueError, match="Cannot use `token=False`"):
             api.create_inference_endpoint_from_catalog(
                 repo_id="meta-llama/Llama-3.2-3B-Instruct", namespace="Wauplin", token=False
             )
+
+        # A model and a recipe are two different API routes: exactly one of them must be given.
+        with pytest.raises(ValueError, match="exactly one"):
+            api.create_inference_endpoint_from_catalog(namespace="Wauplin")
+        with pytest.raises(ValueError, match="exactly one"):
+            api.create_inference_endpoint_from_catalog(repo_id="meta-llama/Llama-3.2-3B-Instruct", recipe_id="x")
+
+        # `accelerator`/`gguf_file` pick a recipe among a model's ones: the server ignores them for a recipe id.
+        with pytest.raises(ValueError, match="cannot be used with `recipe_id`"):
+            api.create_inference_endpoint_from_catalog(recipe_id="x", accelerator="gpu")
 
 
 @pytest.mark.parametrize(

@@ -1,0 +1,37 @@
+[package]
+name = "yaml12"
+version = "0.2.0"
+description = "A modern YAML 1.2 parser and emitter for Python, written in Rust."
+edition = "2021"
+# `ordered-float` 5.5 requires Rust 1.90, so Cargo.lock retains 5.4.
+rust-version = "1.83"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/posit-dev/py-yaml12"
+publish = false
+include = [
+    "/src/**",
+    "/tests/yaml-test-suite/**",
+    "/tests_py/**",
+    "/Cargo.lock",
+    "/Cargo.toml",
+    "/LICENSE",
+    "/NEWS.md",
+    "/README.md",
+    "/pyproject.toml",
+    "/yaml12.pyi",
+]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "yaml12"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = "0.29.2"
+saphyr = { git = "https://github.com/t-kalinowski/saphyr", branch = "r-patched" }
+saphyr-parser = { git = "https://github.com/t-kalinowski/saphyr", branch = "r-patched" }
+
+[features]
+default = ["abi3"]
+abi3 = ["pyo3/abi3-py310"]

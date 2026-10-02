@@ -1,0 +1,7 @@
+---
+features:
+  - |
+    The ``--list`` (``-l``) action now takes an optional branch parameter,
+    filtering the output to only include changes for the branch indicated.
+    If no branch is specified, the full list of open changes is still
+    returned as before.

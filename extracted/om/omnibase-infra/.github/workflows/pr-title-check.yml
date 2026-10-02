@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# OMN-6912
+
+name: PR Title Check
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+concurrency:
+  # OMN-13949: cancel superseded PR runs to free saturated runners. merge_group
+  # entries carry a unique github.ref, so queue entries never cross-cancel.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pr-title:
+    uses: OmniNode-ai/onex_change_control/.github/workflows/pr-title-check-reusable.yml@ebe30bc3589c9f803e8920b941ddaef07b17ed90
+    permissions:
+      pull-requests: read

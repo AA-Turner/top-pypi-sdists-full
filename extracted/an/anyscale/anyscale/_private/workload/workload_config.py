@@ -28,9 +28,7 @@ class WorkloadConfig(ModelBase):
 
     image_uri: Optional[str] = field(
         default=None,
-        metadata={
-            "docstring": "URI of an existing image. Exclusive with `containerfile`."
-        },
+        metadata={"docstring": "URI of an existing image. Exclusive with `containerfile`."},
     )
 
     def _validate_image_uri(self, image_uri: Optional[str]):
@@ -78,7 +76,7 @@ class WorkloadConfig(ModelBase):
         default=None,
         repr=False,
         metadata={
-            "docstring": "Directory that will be used as the working directory for the application. If a local directory is provided, it will be uploaded to cloud storage automatically. When running inside a workspace, this defaults to the current working directory ('.')."
+            "docstring": "Directory that will be used as the working directory for the application. If a local directory is provided, it will be uploaded to cloud storage automatically. To use a directory that already exists inside the container image, pass a 'local://' URI such as 'local:///app'. When running inside a workspace, this defaults to the current working directory ('.')."
         },
     )
 
@@ -96,8 +94,7 @@ class WorkloadConfig(ModelBase):
 
     def _validate_excludes(self, excludes: Optional[List[str]]):
         if excludes is not None and (
-            not isinstance(excludes, list)
-            or not all(isinstance(e, str) for e in excludes)
+            not isinstance(excludes, list) or not all(isinstance(e, str) for e in excludes)
         ):
             raise TypeError("'excludes' must be a list of strings.")
 
@@ -113,12 +110,8 @@ class WorkloadConfig(ModelBase):
         if requirements is None or isinstance(requirements, str):
             return
 
-        if not isinstance(requirements, list) or not all(
-            isinstance(r, str) for r in requirements
-        ):
-            raise TypeError(
-                "'requirements' must be a string (file path) or list of strings."
-            )
+        if not isinstance(requirements, list) or not all(isinstance(r, str) for r in requirements):
+            raise TypeError("'requirements' must be a string (file path) or list of strings.")
 
     env_vars: Optional[Dict[str, str]] = field(
         default=None,
@@ -133,16 +126,12 @@ class WorkloadConfig(ModelBase):
             return
 
         if not isinstance(env_vars, dict):
-            raise TypeError(
-                "'env_vars' must be a Dict[str, str], "
-                f"but got type {type(env_vars)}."
-            )
+            raise TypeError(f"'env_vars' must be a Dict[str, str], but got type {type(env_vars)}.")
 
         for k, v in env_vars.items():
             if not isinstance(k, str):
                 raise TypeError(
-                    "'env_vars' must be a Dict[str, str], "
-                    f"but got key of type {type(k)}: {k}."
+                    f"'env_vars' must be a Dict[str, str], but got key of type {type(k)}: {k}."
                 )
 
             if not isinstance(v, str):
@@ -161,8 +150,7 @@ class WorkloadConfig(ModelBase):
 
     def _validate_py_modules(self, py_modules: Optional[List[str]]):
         if py_modules is not None and (
-            not isinstance(py_modules, list)
-            or not all(isinstance(m, str) for m in py_modules)
+            not isinstance(py_modules, list) or not all(isinstance(m, str) for m in py_modules)
         ):
             raise TypeError("'py_modules' must be a list of strings.")
 
@@ -209,9 +197,7 @@ class WorkloadConfig(ModelBase):
     )
 
     def _validate_registry_login_secret(self, registry_login_secret: Optional[str]):
-        if registry_login_secret is not None and not isinstance(
-            registry_login_secret, str
-        ):
+        if registry_login_secret is not None and not isinstance(registry_login_secret, str):
             raise TypeError("'registry_login_secret' must be a string.")
 
     ray_version: Optional[str] = field(

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dbus-fast"
-version = "5.0.22"
+version = "5.0.25"
 description = "A faster version of dbus-next"
 authors = ["Bluetooth Devices Authors <bluetooth@koston.org>"]
 license = "MIT"
@@ -61,7 +61,7 @@ blockbuster = ">=1.5.5,<2.0.0"
 branch = "main"
 version_toml = ["pyproject.toml:tool.poetry.version"]
 version_variables = ["src/dbus_fast/__version__.py:__version__"]
-build_command = "pip install poetry && poetry build"
+build_command = "pip install poetry && poetry build --format sdist"
 
 [tool.pytest.ini_options]
 addopts = "-v --cov=dbus_fast --cov-report=term-missing:skip-covered"
@@ -142,8 +142,6 @@ ignore = [
     "PYI034", # too many to fix
     "E721",  # many are as intended
     ## should fix these sooner
-    "B007", # too many to fix -- should fix sooner
-    "SIM103", # too many to fix -- should fix sooner
     "SIM110", # too many to fix -- should fix sooner
     "RUF012", # too many to fix -- should fix sooner
     "TRY002", # too many to fix -- should fix sooner
@@ -156,20 +154,16 @@ ignore = [
     "B011", # too many to fix -- should fix sooner
     "PLR1714", # too many to fix -- should fix sooner
     "PLR0915", # too many to fix -- should fix sooner
-    "PERF102", # too many to fix -- should fix sooner
     "TRY401", # too many to fix -- should fix sooner
     "PLR0913", # too many to fix -- should fix sooner
+    "PLR0917", # api is public
     "PLR0912", # too many to fix -- should fix sooner
     "PERF203", # too many to fix -- should fix sooner
     "G201", # too many to fix -- should fix sooner
     "TRY301", # too many to fix -- should fix sooner
     "B020", # too many to fix -- should fix sooner
     "S314", # too many to fix -- should fix sooner
-    "RET504", # too many to fix -- should fix sooner
-    "SIM105", # too many to fix -- should fix sooner
     "TRY300", # too many to fix -- should fix sooner
-    "PLW2901", # too many to fix -- should fix sooner
-    "PERF402", # too many to fix -- should fix sooner
 
 ]
 select = [
@@ -212,6 +206,9 @@ select = [
     "TRY", # tryceratops
 ]
 
+[tool.ruff.lint.flake8-pytest-style]
+raises-require-match-for = ["*"]
+
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*" = [
@@ -225,11 +222,9 @@ select = [
     "SLF001",
     "PLW", # too many to fix
     "TRY",# too many to fix right now
-    "PT",# too many to fix right now
     "B",# too many to fix right now
     "RET",# too many to fix right now
     "PLR2004", # too many to fix right now
-    "PT011", # too many to fix right now
     "PT006", # too many to fix right now
     "PGH003", # too many to fix right now
     "PT007", # too many to fix right now
@@ -241,6 +236,9 @@ select = [
     "PLR0124", # too many to fix right now
     "SIM202" , # too many to fix right now
     "PT012" , # too many to fix right now
+    "PT017", # too many to fix right now
+    "PT030", # too many to fix right now
+    "PT031", # too many to fix right now
     "TID252", # too many to fix right now
     "PLR0913", # skip this one
     "SIM102" , # too many to fix right now

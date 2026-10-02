@@ -1,0 +1,86 @@
+"""TreeView component."""
+
+import html
+from typing import Any, Optional
+
+from djust import Component
+
+
+class TreeView(Component):
+    """Expandable tree view component.
+
+    Args:
+        nodes: list of dicts with keys: id, label, expanded (bool), children (list)
+        expand_event: dj-click event for expanding nodes
+        select_event: dj-click event for selecting nodes
+        selected: currently selected node id"""
+
+    #: ADR-033 D3: the walked state keys; ``nodes`` (the data) compares by
+    #: identity, so reassign it to re-render — never a per-node walk per click.
+    fingerprint_fields = ()
+
+    def __init__(
+        self,
+        nodes: Optional[list] = None,
+        expand_event: str = "tree_expand",
+        select_event: str = "tree_select",
+        selected: str = "",
+        custom_class: str = "",
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(
+            nodes=nodes,
+            expand_event=expand_event,
+            select_event=select_event,
+            selected=selected,
+            custom_class=custom_class,
+            **kwargs,
+        )
+        self.nodes = nodes or []
+        self.expand_event = expand_event
+        self.select_event = select_event
+        self.selected = selected
+        self.custom_class = custom_class
+
+    def _render_node(self, node: object, depth: int) -> str:
+        """Render a single tree node recursively."""
+        if not isinstance(node, dict):
+            return ""
+        node_id = node.get("id", "")
+        label = html.escape(str(node.get("label", "")))
+        children = node.get("children", [])
+        expanded = node.get("expanded", False)
+        has_children = bool(children)
+        sel_cls = " tree-node-selected" if str(node.get("id", "")) == str(self.selected) else ""
+        exp_cls = " tree-node-expanded" if expanded else ""
+        indent = depth * 1.25
+        toggle_html = (
+            f'<button class="tree-toggle" {self.event_attrs(self.expand_event, value=node_id)}>'
+            f"{'&#9662;' if expanded else '&#9656;'}</button>"
+            if has_children
+            else '<span class="tree-toggle-placeholder"></span>'
+        )
+        children_html = ""
+        if has_children and expanded:
+            children_html = (
+                '<div class="tree-children">'
+                + "".join(self._render_node(c, depth + 1) for c in children)
+                + "</div>"
+            )
+        return (
+            f'<div class="tree-node{sel_cls}{exp_cls}" style="padding-left:{indent}rem">'
+            f'<div class="tree-node-row">{toggle_html}'
+            f'<button class="tree-node-label" {self.event_attrs(self.select_event, value=node_id)}>'
+            f"{label}</button></div>"
+            f"{children_html}</div>"
+        )
+
+    def _render_custom(self) -> str:
+        """Render the treeview HTML."""
+        if not self.nodes:
+            return '<div class="tree"></div>'
+        cls = "tree"
+        if self.custom_class:
+            cls += f" {html.escape(self.custom_class)}"
+        nodes_html = "".join(self._render_node(n, 0) for n in self.nodes)
+        return f'<div class="{cls}">{nodes_html}</div>'

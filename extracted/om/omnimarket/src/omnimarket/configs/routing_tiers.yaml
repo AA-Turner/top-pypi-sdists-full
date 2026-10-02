@@ -1,0 +1,575 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 OmniNode Team
+#
+# routing_tiers.yaml — Declarative delegation escalation ladder.
+#
+# Loaded by node_delegation_routing_reducer at startup.
+# To change tier order, model assignments, or retry counts, edit this file only.
+# No handler changes are needed for operational tuning.
+#
+# Tier evaluation order: local → cheap_cloud → claude
+# The handler iterates tiers top-to-bottom, stopping at the first accepted result.
+#
+# OMN-13215: every tier — INCLUDING the ceiling (claude) — resolves provider +
+# endpoint + model + api_key_ref per-tier from this contract deep-merged with the
+# overlay, and executes through the canonical HTTP inference path (Bifrost
+# complete-URL-from-contract) identical to the lower tiers. The ceiling tier model
+# maps to an HTTP frontier backend (default backend_id ``cloud-gemini-pro`` since
+# OMN-14625 — repointed off direct z.ai GLM (``cloud-glm``) on a "route is DEAD"
+# finding that OMN-6790 has since disproved: the GLM route authenticates and
+# serves 200s on the Coding Plan endpoint. The ceiling stays on Gemini for
+# quota-domain independence, not because GLM is dead); OMN-13667 previously
+# repointed off free-tier AI
+# Studio Gemini that 503s on escalation; OMN-13351 before that repointed off
+# the dead Anthropic ``cloud-sonnet``); it is swappable across gemini / glm /
+# openrouter / claude purely via contract overlay (repoint the model's
+# backend_id, or override the backend's endpoint_url / model_name /
+# secret_ref) — no code change, no env var, no CLI shell-out. The former
+# shelled ``codex-cli`` / ``cli_agents`` tiers were REMOVED.
+#
+# Endpoint URLs are resolved from the repo bifrost contract deep-merged with
+# the user overlay at ~/.omninode/delegation/bifrost_overrides.yaml. The
+# backend_id field maps each model to a backend entry in the merged contract.
+# See OMN-10657 and OMN-10717.
+#
+# Related Tickets:
+#   - OMN-8029: Delegation pipeline — local→cheap-cloud→claude routing
+#   - OMN-10657: Endpoint resolution from bifrost contract, not env vars
+#   - OMN-10717: Default contract + endpoint overlay merge semantics
+#   - OMN-13215: Canonical, provider-swappable ceiling tier; remove shelled CLI
+#   - OMN-14625: GLM z.ai route believed dead from .201 — cheap_cloud/ceiling/
+#     judge repointed to Gemini (cloud-gemini-pro). Premise DISPROVED by
+#     OMN-6790; the ceiling/judge stay on Gemini by choice, not by necessity.
+#   - OMN-6790: GLM endpoint pinned to the Coding Plan surface
+#     (https://api.z.ai/api/coding/paas/v4) in the contract, with a test. The
+#     repeated "GLM is out of money" rediscovery was a wrong-endpoint defect.
+tiers:
+  - name: local
+    cost_per_1k_tokens: 0.0
+    # OMN-13234: typed per-tier cost model. local is served on owned GPUs
+    # (.201/.200) — no marginal API cost. The dollar figure for a local call,
+    # when surfaced, comes from the pricing manifest's GPU compute_cost
+    # (electricity + amortization), not a per-token rate.
+    cost:
+      cost_type: free_local
+    models:
+      # OMN-16419: was "Qwen3.6-35B-A3B" — repointed to match the corrected
+      # bifrost_delegation.yaml local-coder model_name (live-verified served id
+      # "Qwen3.6-35B-A3B" at .201:8000). Keeping this id in sync with the backend's
+      # model_name is required for the task_model_overrides id-match escape
+      # hatch in task_class_contracts.v1.yaml to resolve (see that file's
+      # header comment) — a mismatch here would strand routing.
+      - id: Qwen3.8-27B
+        backend_id: local-coder
+        max_context_tokens: 65536
+        # OMN-13599 (SUPERSEDED by OMN-16442 for `test`): local-coder was the
+        # CODE backend only; `test` and `research` were removed here so the
+        # code-only fast_path_threshold did not bleed local-coder into task
+        # types the local-reasoner rung owned. That rung is GONE — OMN-16442
+        # deleted the local-reasoner entry because its endpoint (.201:8001) is
+        # the RTX 4090 slot physically removed for RMA (OMN-16407; re-probed
+        # 2026-08-28: `curl .201:8001/v1/models` → exit 7
+        # "Couldn't connect to server"). `test` was left with ZERO local rung
+        # by that deletion, so it is restored here rather than demoted to the
+        # metered cheap_cloud tier. This is not a reversal of OMN-13599's
+        # reasoning: bifrost_delegation.yaml's `test` routing_rule ALREADY
+        # declares backend_ids [local-coder, cloud-gemini-pro], so the two
+        # surfaces now agree instead of contradicting each other. `research`
+        # is deliberately NOT restored here — it keeps two live local rungs
+        # (local-heavy-reasoning, local-ds-v4-flash) without local-coder.
+        #
+        # OMN-15630: validator_generation added — its DoD (compiles_without_errors,
+        # final_artifact_only, passes_existing_tests) is an exact match for
+        # code_generation's, and required_capabilities is {code_completion}, a
+        # subset of code_generation's. Before this the class had NO local server
+        # (task_class_contracts.v1.yaml declares it with no task_model_overrides
+        # entry, so unpinned selection returned None on every local-tier model —
+        # a routing-completeness gap, not a deliberate cloud-only class).
+        use_for:
+          - code_generation
+          - code_review
+          - refactor
+          - validator_generation
+          # OMN-16442: restored — see the block comment above.
+          - test
+        # OMN-13599: AI-PC local-coder is the preferred local code backend when
+        # its Tailscale hostname overlay is present. Without a threshold, the
+        # fast-path selector can prefer later local models that also declare
+        # code_generation.
+        fast_path_threshold_tokens: 65536
+      # OMN-16442: the `local-reasoner` rung (id Qwen3.6-27B-MTP-IQ4_XS.gguf,
+      # .201:8001) was DELETED here. That endpoint is the RTX 4090 slot
+      # physically removed from .201 for RMA (OMN-16407); re-probed 2026-08-28
+      # against the canonical inventory (omni_home/docs/reference/
+      # AI_LAB_HARDWARE.md, "Last verified: 2026-08-28"), `curl
+      # .201:8001/v1/models` returns exit 7 "Couldn't connect
+      # to server" and the inventory marks the slot DEAD / RETIRED. It was the
+      # FIRST unpinned pick for test/research/reasoning/planning/review/
+      # document/documentation/summarization (OMN-16442's defect report), so
+      # every one of those requests paid a health-probe-then-fallback round
+      # trip to reach a live backend. Its task types are rehomed, not dropped:
+      # `test` -> local-coder above; documentation + summarization ->
+      # local-heavy-reasoning below; research/reasoning/planning/review/
+      # document were already served by local-heavy-reasoning and/or
+      # local-ds-v4-flash. Proof that no task_type lost its last backend is the
+      # before/after resolution table on OMN-16442 and
+      # test_no_task_type_loses_its_last_local_backend_omn16442.
+      # OMN-16419: was "Qwen3.6-35B-A3B" — same repoint as local-coder above
+      # (same .201:8000 SGLang endpoint, live-verified served id "Qwen3.6-35B-A3B").
+      # OMN-16442 re-probe 2026-08-28: GET .201:8000/v1/models still reports
+      # id "Qwen3.6-35B-A3B" with max_model_len 131072. The endpoint currently permits
+      # ONE running generation request, so concurrency must be queued ABOVE
+      # the model server — a second concurrent delegation to this backend
+      # queues rather than parallelizes. local-coder and local-heavy-reasoning
+      # are the SAME physical endpoint, so that single-slot budget is shared
+      # across both rungs.
+      - id: Qwen3.8-27B
+        backend_id: local-heavy-reasoning
+        max_context_tokens: 8192
+        use_for:
+          - research
+          - reasoning
+          - complex_reasoning
+          - planning
+          - review
+          - document
+          # OMN-16811: escalation added. Before this the escalation class's
+          # ENTIRE ladder was one rung — claude/cloud-gemini-pro — the only
+          # admitted class with no credential-free fallback, so a
+          # quota-exhausted or unreachable Gemini stranded it while every
+          # other class kept routing on the owned GPUs (dev-lane matrix: 11 of
+          # 13 classes terminated, escalation did not). This backend already
+          # serves ``complex_reasoning``, the hardest reasoning class in the
+          # taxonomy, so serving escalation's declared ``reasoning`` capability
+          # is not a new claim. escalation's other declared capability,
+          # ``context_window_large``, stays mechanically honoured rather than
+          # asserted: ``max_context_tokens`` (8192 here) excludes this model
+          # from selection for any prompt that does not fit, which escalates to
+          # the large-window rungs below / the ceiling instead.
+          - escalation
+          # OMN-16442: documentation and summarization rehomed here from the
+          # deleted local-reasoner rung. Both are the prose family OMN-15630
+          # placed alongside `document`, which this backend already serves with
+          # the identical required_capabilities/pricing/latency profile — so
+          # this inherits an existing placement rather than making a new
+          # capability claim. Without it both classes would have had NO local
+          # rung at all, which the OMN-15630 routing-completeness gate rejects:
+          # both declare `local` in their escalation_policy.tier_order, and a
+          # declared tier that serves none of a class's capabilities is exactly
+          # the decorative/unreachable rung that gate exists to forbid.
+          #
+          # Known consequence, made explicit because it flips a behaviour that
+          # only ever held by accident: `documentation` becomes genuinely
+          # local-routable for the first time. OMN-16868's
+          # test_documentation_is_not_a_substitute_for_document asserted
+          # `first_eligible_tier("documentation") != "local"` — but that was
+          # never a contract, it was the observable effect of `documentation`'s
+          # ONLY local declarant (local-reasoner, added by OMN-15630) pointing
+          # at .201:8001, which was already dead. The class was declared local
+          # and un-routable at the same time. Repairing the endpoint side of
+          # that makes the declared contract true; the OMN-16868 assertion is
+          # rewritten to guard the exact-token trap it actually cares about
+          # (`document` and `documentation` are DISTINCT classes with distinct
+          # contracts) rather than a tier accident.
+          - documentation
+          - summarization
+        fast_path_threshold_tokens: 8192
+      # OMN-16833: the `ds-v4-flash` rung (backend_id local-ds-v4-flash, the
+      # LARGE-window 65536 local entry) was REMOVED from this tier. The backend
+      # DECLARATION is deliberately kept and parked in bifrost_delegation.yaml —
+      # only the tier reference goes — because the endpoint is STOPPED, not
+      # retired, and comes back by flipping one flag.
+      #
+      # Measured 2026-09-10, not inferred: GET .200:8101/v1/models
+      # -> curl exit 7 "Couldn't connect to server", http=000.
+      # Controls proving the probe ran and the host is up: `ping .200`
+      # -> 2/2 packets, 0.0% loss, and the same probe against .201:8000 -> HTTP
+      # 200. All THREE lab lane overlays (dev, judge, lakshman) declare
+      # `serving: false` on this backend per OMN-16999 — a stopped
+      # operator-started service on the workstation — and the onex-dev overlay
+      # declares `locale: cloud` with zero local backends. So the renderer
+      # writes `endpoint_url: null` on every lane in the fleet and
+      # `_load_bifrost_endpoints` drops it SILENTLY: the rung was declared and
+      # unreachable at the same time, which is what this ticket was filed for.
+      #
+      # What this costs, stated rather than glossed: `escalation` loses its
+      # LARGE-window (65536) local rung, so an escalation prompt too big for
+      # local-heavy-reasoning's 8192 window now goes to the metered ceiling.
+      # That is the state the fleet was ALREADY in — the rung was being dropped
+      # at load time — so this records the truth rather than changing routing.
+      # `code_generation` keeps its zero-cost local rung on local-coder above;
+      # what it loses is OMN-15180's same-tier retry SIBLING, which was likewise
+      # already absent in fact. See
+      # test_local_tier_keeps_a_same_tier_sibling_for_code_generation, which now
+      # asserts the sibling guarantee CONDITIONALLY on the endpoint being back.
+      #
+      # RESTORE, in this order and not another: start the ds4 server on .200:8101,
+      # re-probe, update omnibase_infra tests/fixtures/bifrost_served_models_probe.json,
+      # flip `serving: true` in the three lane overlays, move the id from
+      # NOT_SERVING_LOCAL_BACKENDS to LANE_BOUND_LOCAL_BACKENDS in
+      # omnimarket.validators.routing_tier_backend_bindability, and only THEN
+      # restore this entry. Endpoint first, tier reference last.
+      # OMN-16442: `id` here is the routing CATALOG KEY, not the served id —
+      # the served ids at .200:8101 are {deepseek-v4-flash, deepseek-v4-pro}
+      # (live readback 2026-08-28), and bifrost_delegation.yaml's
+      # local-ds-v4-flash.model_name carries the served id per OMN-16833.
+      #
+      # OMN-16442: the `local-coder-mlx` rung (id
+      # mlx-community/Qwen3.6-35B-A3B-8bit, .200:8401) was DELETED here for the
+      # same reason as local-reasoner above — the endpoint is dead and the
+      # named artifact is served nowhere on the fleet. Live probe 2026-08-28:
+      # `curl .200:8401/v1/models` → exit 7 "Couldn't connect
+      # to server". The Mac Studio's MLX server was replaced (canonical
+      # inventory omni_home/docs/reference/AI_LAB_HARDWARE.md, verified
+      # 2026-08-28): it now serves `Qwen3.8-27B-8bit` on 127.0.0.1:8099 and is
+      # bound LOCALHOST-ONLY, so it is not reachable from the .201 runtime and
+      # must NOT be re-registered as a routable rung until it has explicit
+      # availability semantics + a health check — the same gate the inventory
+      # places on the mini/laptop/Gemma-canary endpoints. That re-registration
+      # is the scoped follow-on recorded on OMN-16442, not this pass.
+      #
+      # OMN-15180's same-tier fallback (sibling_backend_available_in_tier) is
+      # NOT lost: code_generation keeps two local siblings (local-coder,
+      # local-ds-v4-flash), so a transport failure on the first still retries
+      # inside `local` before escalating to cheap_cloud.
+    eval_before_accept: true
+    eval_model: qwen3.6-35b
+    max_retries: 2
+  - name: cheap_cloud
+    cost_per_1k_tokens: 0.002
+    # OMN-13234: metered tier — billed per token at a fixed rate (direct z.ai
+    # GLM key + Gemini Flash key), no monthly cap. Mirrors the legacy
+    # cost_per_1k_tokens above; the typed model is the authoritative source for
+    # the projection's actual-cost computation.
+    cost:
+      cost_type: metered
+      rate_per_1k_usd: 0.002
+    models:
+      # OMN-20173: the two direct GLM Coding Plan rungs (glm-5.3-flash on
+      # backend cloud-glm, then glm-5.3 on cloud-glm-5-3) are REMOVED from this
+      # tier: they called z.ai's Coding Plan endpoint directly from this node,
+      # which the plan's terms bar (knowledge-base-internal
+      # reference/zai-glm-coding-plan-terms.md, OMN-20154). The Gemini rungs
+      # below serve every class those rungs served, so no class is stranded.
+      # GLM is used only through Claude Code (the internal harness-delegate
+      # skill), never from routing.
+      # OMN-14625 (historical): this entry was PRIMARY-by-declaration-order
+      # for cheap-cloud code-gen, repointed here off direct z.ai GLM on a
+      # "GLM route is DEAD from .201" finding (resolve_api_key succeeded but
+      # every completion call 401s — see reference_glm_zai_wiring_and_consumers).
+      # OMN-6790 later disproved that premise: the GLM route authenticates and
+      # serves 200s on the Coding Plan endpoint. OMN-13640 moved this entry
+      # AFTER cloud-glm above (see that entry's comment) so the flat-rate
+      # backend wins the tiebreak for every class both serve; this backend is
+      # unchanged otherwise — still resolvable (secret_ref llm.gemini.api_key,
+      # live 200s), still the ceiling's Gemini entry below, still the model
+      # every one of these task classes falls through to when GLM's quota
+      # domain trips.
+      - id: gemini-2.5-flash
+        backend_id: cloud-gemini-pro
+        max_context_tokens: 1000000
+        use_for:
+          - code_generation
+          # OMN-13541: code_review added so the cheap_cloud tier is a real
+          # escalation fallback for code_review (its escalation_policy.tier_order
+          # is [local, cheap_cloud]). Without it code_review could only route to
+          # the single local-coder backend — a single point of failure.
+          - code_review
+          - reasoning
+          - research
+          - test
+          - refactor
+          # OMN-15503: these classes declare cheap_cloud as a closed-set
+          # fallback, so the tier must explicitly serve them rather than remain
+          # a decorative/unreachable policy rung.
+          - planning
+          - review
+          # OMN-15961: agent_delegation REMOVED here too — see the local-tier
+          # comment above (routing_tiers.yaml:88-98) for the full rationale.
+          # This entry was the same false capability claim one tier over.
+          # OMN-15630: validator_generation added — mirrors code_generation/
+          # test/refactor above (same DoD family); the class declared
+          # cheap_cloud in its closed tier_order but no cheap_cloud model
+          # served it, another decorative/unreachable rung of the class above.
+          - validator_generation
+        fast_path_threshold_tokens: 8192
+      - id: gemini-flash
+        backend_id: cloud-gemini-flash
+        max_context_tokens: 1000000
+        use_for:
+          # OMN-13599: Gemini remains available for prose/simple work, but it is
+          # intentionally not a code_generation fallback. Code routes local first,
+          # then direct z.ai GLM, avoiding the AI Studio failures seen in dogfood.
+          - summarization
+          - simple_tasks
+          - document
+          # OMN-15630: documentation is document's docstring-flavored sibling
+          # (same required_capabilities/pricing/latency profile); mirrors
+          # document's existing placement on this backend.
+          - documentation
+      # OMN-16833: the `vertex-gemini-flash` rung (backend_id
+      # cloud-vertex-gemini, added by OMN-12971 as the ADDITIVE ADC /
+      # $500-credit path next to gemini-flash) was REMOVED from this tier. The
+      # backend DECLARATION is deliberately kept and parked in
+      # bifrost_delegation.yaml — only the tier reference goes. Reason: NO lane
+      # in the fleet can bind it, so this was a rung that was declared and
+      # unreachable at the same time.
+      #
+      #   * `cloud-vertex-gemini` carries `endpoint_url: null` and expects
+      #     BIFROST_VERTEX_GEMINI_ENDPOINT_URL to populate it — but
+      #     omnibase_infra's `render_bifrost_delegation_contract` "never reads
+      #     endpoint or model bindings from the process environment" (its own
+      #     module docstring), so that env var is inert on the render path. The
+      #     sole binding authority is the typed lane overlay, and
+      #     `ModelBifrostLaneBackendBinding` admits ONLY unauthenticated local
+      #     http:// chat-completions endpoints on an authorized host table — a
+      #     bearer-authenticated cloud backend is unrepresentable there by
+      #     construction.
+      #   * dev lane, live readback 2026-08-29 (`docker exec omninode-runtime`):
+      #     the resolver maps `llm.vertex.access_token` to the FILE
+      #     /run/secrets/vertex_access_token, and that path is a character
+      #     device 1,3 (i.e. /dev/null) — the credential is absent, not stale.
+      #   * onex-dev lane: k8s/onex-dev/runtime/configmap.yaml pins
+      #     `BIFROST_VERTEX_GEMINI_ENDPOINT_URL: ""` with an in-tree comment
+      #     parking the Vertex path "until the ADC token mount is present".
+      #
+      # Consequence on the lane, measured not inferred: `_load_bifrost_endpoints`
+      # drops any backend without a complete endpoint_url SILENTLY, so
+      # cloud-vertex-gemini was already absent from BACKENDS_LOADED while this
+      # tier still pointed at it. Nothing lost a route — `gemini-flash` above
+      # already serves summarization / simple_tasks / documentation / document
+      # on this tier, and every one of those classes keeps a zero-cost local
+      # rung ahead of it.
+      #
+      # RE-ENABLE by mounting a real ADC token at /run/secrets/vertex_access_token
+      # and giving the backend a concrete endpoint_url through the binding
+      # authority — then restore this entry. Do NOT restore it first: the
+      # OMN-16833 gate (omnimarket.validators.routing_tier_backend_bindability)
+      # fails on a tier that references a non-local backend with a null endpoint.
+    eval_before_accept: true
+    eval_model: qwen3.6-35b
+    max_retries: 1
+  # cheap_frontier tier — high-capability free-tier cloud models for the June 5
+  # model-experimentation campaign (OMN-12492). Requires OPENROUTER_API_KEY.
+  #
+  # OMN-16891: this is now an ACTIVE working tier for the CODE-class family,
+  # per the operator directive "openrouter can also do work for ... code" — not
+  # the last-resort rung it was originally admitted as. The header's "sits
+  # between cheap_cloud and claude" describes the DECLARATION order below; the
+  # order that actually routes is each task class's closed
+  # escalation_policy.tier_order, where cheap_frontier precedes every metered
+  # tier (OMN-14225 free-before-paid). Under this ticket the remaining code
+  # classes (code_review, validator_generation, test) were given the same
+  # placement code_generation and refactor already had, so the free coder rung
+  # carries the whole family rather than two members of it.
+  #
+  # Free-only is ABSOLUTE (OMN-14225 / operator ruling R9-amended): only models
+  # OpenRouter serves at genuinely zero cost may sit here — never a paid model
+  # through the aggregator, and never the paid slug of a model whose free slug
+  # was retired. The live 2026-08-28 probe confirmed the pinned model still
+  # reports `"cost": 0, "is_byok": false` in the provider's OWN usage
+  # accounting, so `cost_type: free_local` below remains TRUE rather than
+  # asserted.
+  - name: cheap_frontier
+    cost_per_1k_tokens: 0.0
+    # OMN-13234: free_local-class cost — the OpenRouter Qwen3-Coder-480B entry is
+    # the genuinely FREE tier (zero marginal API cost). Modeled as free_local so
+    # the projection records 0 actual cost without a per-token rate.
+    cost:
+      cost_type: free_local
+    models:
+      # Qwen3 Coder 480B via OpenRouter free tier — cheap frontier direct (OMN-12492)
+      - id: openrouter-qwen3-coder-480b
+        backend_id: openrouter-qwen3-coder-480b
+        max_context_tokens: 262144
+        # OMN-16891: code_review and validator_generation ADDED, completing the
+        # code-class family (code_generation, code_review, refactor,
+        # validator_generation, test) on the free coder rung. Both were already
+        # served by this backend's declared `code_generation` capability in
+        # bifrost_delegation.yaml and share code_generation's DoD family
+        # (OMN-15630 established validator_generation as an exact DoD match;
+        # OMN-13541 established code_review's cheap-tier need), so this
+        # inherits existing placements rather than making a new capability
+        # claim.
+        #
+        # Placement constraint, stated rather than discovered in production:
+        # this rung is a POOR fit for terse or tightly-budgeted structured
+        # output. Live 2026-08-28 probe — asked to "Reply with exactly: ok"
+        # under max_tokens 16, it spent 18 reasoning tokens and returned its
+        # own deliberation ("The user wants me to reply with exactly ok...")
+        # instead of the answer, a live reproduction of OMN-12717. The backend
+        # carries a 65536-token output budget in bifrost_delegation.yaml for
+        # exactly this reason; do not narrow it for this rung.
+        use_for:
+          - code_generation
+          - code_review
+          - reasoning
+          # OMN-19432: `review` added beside `reasoning`; see the class contract.
+          - review
+          - research
+          - refactor
+          - test
+          - validator_generation
+          # OMN-13640: the three PROSE classes ADDED, so this genuinely-free
+          # rung is actually reachable for prose. Before this, `cheap_frontier`
+          # appeared in no prose class's escalation_policy.tier_order and no
+          # cheap_frontier model listed a prose class here -- the free cloud
+          # rung was never attempted for prose, and every prose escalation went
+          # straight to the metered cheap_cloud tier (4 of 4 accepted drafts on
+          # 2026-09-14, $0.001809 mean, answered by gemini-2.5-flash-lite).
+          #
+          # This is NOT a capability stretch on a code-only model. The entry
+          # `id` above is HISTORICAL -- it is the tier-model id, kept stable
+          # because task_model_overrides and the id-match escape hatch key on
+          # it. The model this backend actually serves is declared in
+          # bifrost_delegation.yaml as
+          # `model_name: nvidia/nemotron-3-ultra-550b-a55b:free` -- a GENERAL
+          # instruction model, not a coder-only one -- so serving
+          # natural_language_generation here is what the backend already is.
+          # Do not read the id as the served model.
+          #
+          # Placement caveat, already recorded above and unchanged: this rung is
+          # a poor fit for terse, tightly-budgeted output (it spends reasoning
+          # tokens deliberating). Prose responses are not terse and the backend
+          # carries a 65536-token output budget, so the fit is the right way
+          # round here; do not narrow that budget for this rung.
+          - document
+          - documentation
+          - summarization
+        fast_path_threshold_tokens: 8192
+      # OMN-19432: the second free OpenRouter model, declared after the ultra rung so
+      # a failed or refused call on it retries here inside the free tier. The same
+      # classes, because both are general instruction models measured on the same
+      # tasks (bifrost_delegation.yaml carries the numbers).
+      - id: nvidia/nemotron-3-super-120b-a12b:free
+        backend_id: openrouter-nemotron-super
+        max_context_tokens: 262144
+        use_for:
+          - code_generation
+          - code_review
+          - review
+          - reasoning
+          - research
+          - refactor
+          - test
+          - validator_generation
+          - document
+          - documentation
+          - summarization
+        fast_path_threshold_tokens: 8192
+      # OMN-19432: the third free OpenRouter model, declared last; code_review is left
+      # off because it passed 2 of 5 of those tasks on the delegate gate.
+      - id: cohere/north-mini-code:free
+        backend_id: openrouter-north-mini-code
+        max_context_tokens: 256000
+        use_for:
+          - code_generation
+          - review
+          - reasoning
+          - research
+          - refactor
+          - test
+          - validator_generation
+          - document
+          - documentation
+          - summarization
+        fast_path_threshold_tokens: 8192
+    eval_before_accept: true
+    eval_model: qwen3.6-35b
+    max_retries: 1
+  # Ceiling tier (OMN-13215). Executes through the canonical HTTP inference path
+  # like every lower tier — NO subprocess, NO shelled CLI. The model maps to an
+  # HTTP frontier backend. To swap the ceiling provider (gemini / glm / openrouter
+  # / claude) edit ONLY this contract/overlay: repoint backend_id to another HTTP
+  # backend, or override that backend's endpoint_url / model_name / secret_ref in
+  # bifrost_overrides.yaml. No code change required.
+  #
+  # OMN-13351: the ceiling backend was repointed from the dead Anthropic
+  # ``cloud-sonnet`` (secret_ref llm.anthropic.api_key, which resolves to None in
+  # every lane — this org has NO Anthropic key, Claude Code is OAuth) to the
+  # resolvable Gemini frontier backend ``cloud-gemini-pro`` (secret_ref
+  # llm.gemini.api_key, model gemini-2.5-flash). The 2026-06-19 stability-test
+  # escalation reprove proved the Anthropic key resolves to None and the ceiling
+  # terminated ``no_routable_backend_for_task`` on every escalation; a live
+  # key-resolution + 1-token model probe this ticket confirmed llm.gemini.api_key
+  # resolves and gemini-2.5-flash returns HTTP 200 (gemini-2.5-pro is quota-zero
+  # 429 on the only resolvable Gemini key, OMN-12890-class free-tier exhaustion).
+  #
+  # OMN-13667: ceiling repointed a second time — from free-tier AI Studio Gemini
+  # (cloud-gemini-pro, gemini-2.5-flash) which 503s on every escalation to
+  # GLM-5.2 z.ai direct (cloud-glm, secret_ref llm.glm.api_key) — the proven
+  # backend already used by the judge lane and the cheap_cloud tier. Cost model
+  # updated to metered (0.002 / 1k tokens) to match the billed z.ai direct key.
+  # max_retries raised 0 → 2 for resilience against transient z.ai errors.
+  # A fallback model entry (openrouter-qwen3-coder-480b, separate provider,
+  # genuinely free tier) is added so the ceiling is not a single point of failure.
+  #
+  # OMN-14625: ceiling repointed a THIRD time — from GLM-5.2 z.ai direct
+  # (cloud-glm) back to Gemini (cloud-gemini-pro, gemini-2.5-flash). The z.ai
+  # GLM route is DEAD from the .201 runtime: resolve_api_key succeeds but every
+  # completion call 401s / loops FAILED-only (forensics this ticket; see memory
+  # reference_glm_zai_wiring_and_consumers). The openrouter-qwen3-coder-480b
+  # fallback entry added under OMN-13667 is REMOVED — with the primary ceiling
+  # back on a proven-resolvable backend, the free-aggregator fallback is not
+  # worth its markup-avoidance tradeoff on the ceiling slot specifically
+  # (cheap_frontier below still carries the same OpenRouter model for the
+  # lower-cost escalation path).
+  #
+  # The tier slot is kept named ``claude`` because every task-class
+  # escalation_policy.tier_order and the handler cost_tier_map key on this literal
+  # tier name; ``claude`` is now a stable ceiling-slot identifier, NOT a provider
+  # claim.
+  - name: claude
+    cost_per_1k_tokens: 0.002
+    # OMN-14625: ceiling repointed off GLM-5.2 z.ai direct (cloud-glm) to Gemini
+    # (cloud-gemini-pro) — same billed/metered rate class as cheap_cloud above.
+    cost:
+      cost_type: metered
+      rate_per_1k_usd: 0.002
+    models:
+      # OMN-14625: primary ceiling model repointed from GLM-5.2 z.ai direct
+      # (cloud-glm) to Gemini (cloud-gemini-pro, model gemini-2.5-flash). The
+      # z.ai GLM route is DEAD from the .201 runtime — resolve_api_key succeeds
+      # but every completion call 401s / loops FAILED-only (OMN-14625
+      # forensics; see reference_glm_zai_wiring_and_consumers). Gemini's
+      # cloud-gemini-pro backend is proven resolvable on this lane (live 200s,
+      # secret_ref llm.gemini.api_key). The OpenRouter Qwen3-Coder-480B
+      # fallback entry that previously sat below GLM is REMOVED from this
+      # ceiling: it is not a routine escalation backend (OpenRouter is
+      # reserved for the genuinely-free cheap_frontier tier per OMN-14225
+      # policy), and with the primary ceiling now on a proven-resolvable
+      # backend a paid-tier single point of failure is preferable to a free
+      # aggregator markup as the ceiling's own fallback.
+      - id: gemini-2.5-flash
+        backend_id: cloud-gemini-pro
+        max_context_tokens: 1000000
+        use_for:
+          - escalation
+          - complex_reasoning
+          # OMN-15961: agent_delegation REMOVED — see the local-tier comment
+          # (routing_tiers.yaml:88-98) for the full rationale. OMN-15503's
+          # framing ("agent_orchestration is the required-capability label,
+          # not a routable task taxonomy value") was itself the false
+          # premise: agent_orchestration IS the capability this ceiling
+          # cannot provide, which is exactly why claiming agent_delegation
+          # here was wrong.
+          - code_generation
+          - reasoning
+          - planning
+          - test
+          - document
+          - research
+          # OMN-15630: refactor and validator_generation added. Both classes
+          # declare `claude` as their tier_order ceiling but this backend did
+          # not serve either — the ceiling rung was unreachable (refactor's
+          # explicit task_model_overrides pin to this exact model id already
+          # resolved here regardless of use_for, and validator_generation's
+          # implicit default_task_model_ref pin does not match this tier's id,
+          # so both silently terminated no_routable_backend_for_task instead
+          # of reaching a capability that already declares code_generation/
+          # test for the identical DoD family).
+          - refactor
+          - validator_generation
+    eval_before_accept: false
+    max_retries: 2

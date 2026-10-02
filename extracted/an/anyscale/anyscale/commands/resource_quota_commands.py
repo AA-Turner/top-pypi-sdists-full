@@ -113,7 +113,10 @@ def _format_resource_quotas(resource_quotas: List[ResourceQuota]) -> str:
     is_beta=True,
 )
 @click.option(
-    "-n", "--name", required=True, help="Name of the resource quota to create.",
+    "-n",
+    "--name",
+    required=True,
+    help="Name of the resource quota to create.",
 )
 @click.option(
     "--cloud",
@@ -165,9 +168,7 @@ def _format_resource_quotas(resource_quotas: List[ResourceQuota]) -> str:
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice(
-        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
-    ),
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
     help="Output format for the created resource quota.",
@@ -218,9 +219,7 @@ def create(  # noqa: PLR0913
         if num_cpus:
             create_resource_quota_message.append(f"Number of CPUs: {num_cpus}")
         if num_instances:
-            create_resource_quota_message.append(
-                f"Number of instances: {num_instances}"
-            )
+            create_resource_quota_message.append(f"Number of instances: {num_instances}")
         if num_gpus:
             create_resource_quota_message.append(f"Number of GPUs: {num_gpus}")
         if num_accelerators:
@@ -234,9 +233,7 @@ def create(  # noqa: PLR0913
         log.info(f"Resource quota created successfully ID: {resource_quota.id}")
 
     except ValueError as e:
-        raise UserError(
-            f"Error creating resource quota: {e}", legacy_exit_code=0
-        ) from None
+        raise UserError(f"Error creating resource quota: {e}", legacy_exit_code=0) from None
 
 
 @command_metadata(
@@ -272,13 +269,21 @@ def create(  # noqa: PLR0913
     output_schema=ResourceQuota,
 )
 @resource_quota_cli.command(
-    name="list", short_help="List resource quotas.", cls=AnyscaleCommand, is_beta=True,
+    name="list",
+    short_help="List resource quotas.",
+    cls=AnyscaleCommand,
+    is_beta=True,
 )
 @click.option(
-    "-n", "--name", required=False, help="The name filter for the resource quotas.",
+    "-n",
+    "--name",
+    required=False,
+    help="The name filter for the resource quotas.",
 )
 @click.option(
-    "--cloud", required=False, help="The cloud filter for the resource quotas.",
+    "--cloud",
+    required=False,
+    help="The cloud filter for the resource quotas.",
 )
 @click.option(
     "--creator-id",
@@ -304,9 +309,7 @@ def create(  # noqa: PLR0913
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice(
-        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
-    ),
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
     help="Output format for the result.",
@@ -372,9 +375,7 @@ def delete(id: str) -> None:  # noqa: A002
         with log.spinner("Deleting resource quota..."):
             anyscale.resource_quota.delete(resource_quota_id=id)
     except ValueError as e:
-        raise UserError(
-            f"Error deleting resource quota: {e}", legacy_exit_code=0
-        ) from None
+        raise UserError(f"Error deleting resource quota: {e}", legacy_exit_code=0) from None
 
     log.info(f"Resource quota with ID {id} deleted successfully.")
 
@@ -413,9 +414,7 @@ def enable(id: str) -> None:  # noqa: A002
         with log.spinner("Setting resource quota status..."):
             anyscale.resource_quota.enable(resource_quota_id=id)
     except ValueError as e:
-        raise UserError(
-            f"Error enabling resource quota: {e}", legacy_exit_code=0
-        ) from None
+        raise UserError(f"Error enabling resource quota: {e}", legacy_exit_code=0) from None
 
     log.info(f"Enabled resource quota with ID {id} successfully.")
 
@@ -454,8 +453,6 @@ def disable(id: str) -> None:  # noqa: A002
         with log.spinner("Setting resource quota status..."):
             anyscale.resource_quota.disable(resource_quota_id=id)
     except ValueError as e:
-        raise UserError(
-            f"Error disabling resource quota: {e}", legacy_exit_code=0
-        ) from None
+        raise UserError(f"Error disabling resource quota: {e}", legacy_exit_code=0) from None
 
     log.info(f"Disabled resource quota with ID {id} successfully.")

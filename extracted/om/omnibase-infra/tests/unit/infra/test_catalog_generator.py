@@ -1,0 +1,378 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Tests for the compose generator."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from omnibase_infra.docker.catalog.generator import generate_compose
+from omnibase_infra.docker.catalog.resolver import CatalogResolver
+
+CATALOG_DIR = str(Path(__file__).resolve().parents[3] / "docker" / "catalog")
+
+
+@pytest.mark.unit
+def test_generated_compose_preserves_container_names() -> None:
+    resolver = CatalogResolver(catalog_dir=CATALOG_DIR)
+    resolved = resolver.resolve(bundles=["core"])
+    compose = generate_compose(resolved)
+    services = compose["services"]
+    assert services["postgres"]["container_name"] == "omnibase-infra-postgres"
+    assert services["redpanda"]["container_name"] == "omnibase-infra-redpanda"
+
+
+@pytest.mark.unit
+def test_generated_compose_preserves_healthcheck_timing() -> None:
+    """The generator must carry the catalog's timing through verbatim.
+
+    Values updated by OMN-17150: postgres went from ``30s/10s/3/10s`` to
+    ``10s/10s/5/180s`` when its healthcheck was right-sized for a cold initdb
+    (the old 10s ``start_period`` covered none of the init-script phase, during
+    which the whole forward-migration tree runs). This test asserts the
+    GENERATOR is faithful, so it tracks the catalog rather than pinning a
+    policy; the policy itself — TCP probe, and a floor under ``start_period`` —
+    is asserted by ``tests/scripts/test_migration_one_shot_initdb_race.py``.
+    """
+    resolver = CatalogResolver(catalog_dir=CATALOG_DIR)
+    resolved = resolver.resolve(bundles=["core"])
+    compose = generate_compose(resolved)
+    pg_hc = compose["services"]["postgres"]["healthcheck"]
+    assert pg_hc["interval"] == "10s"
+    assert pg_hc["timeout"] == "10s"
+    assert pg_hc["retries"] == 5
+    assert pg_hc["start_period"] == "180s"
+
+
+@pytest.mark.unit
+def test_generated_compose_preserves_depends_on_conditions() -> None:
+    resolver = CatalogResolver(catalog_dir=CATALOG_DIR)
+    resolved = resolver.resolve(bundles=["runtime"])
+    compose = generate_compose(resolved)
+    rt_deps = compose["services"]["omninode-runtime"]["depends_on"]
+    assert rt_deps["migration-gate"]["condition"] == "service_healthy"
+
+
+@pytest.mark.unit
+def test_generated_runtime_compose_preserves_runtime_image_build() -> None:
+    resolver = CatalogResolver(catalog_dir=CATALOG_DIR)
+    resolved = resolver.resolve(bundles=["runtime"])
+    compose = generate_compose(resolved)
+
+    build = compose["services"]["omninode-runtime"]["build"]
+    assert build["context"] == ".."
+    assert build["dockerfile"] == "docker/Dockerfile.runtime"
+    assert build["args"]["BUILD_SOURCE"] == "${BUILD_SOURCE:-release}"
+    assert build["args"]["EXPECTED_BUILD_SOURCE"] == "${EXPECTED_BUILD_SOURCE:-release}"
+    assert build["args"]["GIT_SHA"] == "${GIT_SHA:-unknown}"
+    assert build["args"]["VCS_REF"] == "${VCS_REF:-}"
+    assert build["args"]["BUILD_DATE"] == "${BUILD_DATE:-}"
+
+
+@pytest.mark.unit
+def test_runtime_image_build_carries_no_silent_omni_home_default() -> None:
+    """OMN-16852 AC3: the render must not hand the build an empty OMNI_HOME.
+
+    ``OMNI_HOME`` is an internal build input (2026-08-28 boundary ruling): only
+    a ``BUILD_SOURCE=workspace`` build reads it, to stage sibling repositories
+    from the operator's registry, and every sanctioned workspace build passes it
+    as ``--build-arg`` after refusing an unset value (the deploy agent's
+    ``_build_source_args`` and ``deploy-runtime.sh``). A ``${OMNI_HOME:-}``
+    entry in the render added nothing but a silent empty default, so the
+    Dockerfile's own workspace guard is left to fail fast instead.
+    """
+    resolver = CatalogResolver(catalog_dir=CATALOG_DIR)
+    resolved = resolver.resolve(bundles=["runtime"])
+    compose = generate_compose(resolved)
+
+    rendered_build_args = [
+        (service_name, key, value)
+        for service_name, service in compose["services"].items()
+        for key, value in service.get("build", {}).get("args", {}).items()
+    ]
+    assert rendered_build_args, (
+        "positive control: the runtime bundle renders build args"
+    )
+    offenders = [
+        (service_name, key, value)
+        for service_name, key, value in rendered_build_args
+        if key == "OMNI_HOME" or "${OMNI_HOME:-" in str(value)
+    ]
+    assert not offenders, offenders
+
+
+@pytest.mark.unit
+def test_generated_compose_preserves_redpanda_ulimits() -> None:
+    resolver = CatalogResolver(catalog_dir=CATALOG_DIR)
+    resolved = resolver.resolve(bundles=["core"])
+    compose = generate_compose(resolved)
+    redpanda = compose["services"]["redpanda"]
+
+    assert redpanda["ulimits"] == {"nofile": {"soft": 65535, "hard": 65535}}
+
+
+@pytest.mark.unit
+def test_intelligence_migration_uses_lane_namespaced_container_name() -> None:
+    """OMN-13201: intelligence-migration must carry the lane prefix.
+
+    Regression for the DEV effects crash-loop's migration gap: the base
+    (DEV-lane) intelligence-migration one-shot used the fixed, non-lane-prefixed
+    container_name ``omnibase-intelligence-migration`` while every other lane and
+    every sibling migration service uses the ``omnibase-infra-`` prefix
+    (``omnibase-infra-forward-migration``, ``omnibase-infra-migration-gate``).
+    The mismatched name meant the DEV one-shot never ran, so
+    ``015_create_db_metadata.sql`` was never applied to the DEV omniintelligence
+    database and the runtime entrypoint logged "relation public.db_metadata does
+    not exist" on every effects boot. The name must match its siblings.
+    """
+    resolver = CatalogResolver(catalog_dir=CATALOG_DIR)
+    resolved = resolver.resolve(bundles=["runtime"])
+    compose = generate_compose(resolved)
+    services = compose["services"]
+    assert (
+        services["intelligence-migration"]["container_name"]
+        == "omnibase-infra-intelligence-migration"
+    )
+    # Sibling migration one-shots define the shared lane-prefix convention.
+    assert (
+        services["forward-migration"]["container_name"]
+        == "omnibase-infra-forward-migration"
+    )
+    assert (
+        services["migration-gate"]["container_name"] == "omnibase-infra-migration-gate"
+    )
+
+
+@pytest.mark.unit
+def test_generated_compose_preserves_one_shot_semantics() -> None:
+    resolver = CatalogResolver(catalog_dir=CATALOG_DIR)
+    resolved = resolver.resolve(bundles=["runtime"])
+    compose = generate_compose(resolved)
+    fm = compose["services"]["forward-migration"]
+    assert fm["restart"] == "no"
+    assert "healthcheck" not in fm  # one-shot entries have no healthcheck
+    assert fm["environment"]["NODE_POSTGRES_DB"] == "omnidash_analytics"
+
+
+@pytest.mark.unit
+def test_generated_migration_gate_requires_projection_tables() -> None:
+    resolver = CatalogResolver(catalog_dir=CATALOG_DIR)
+    resolved = resolver.resolve(bundles=["runtime"])
+    compose = generate_compose(resolved)
+    gate = compose["services"]["migration-gate"]
+    assert gate["environment"]["NODE_POSTGRES_DB"] == "omnidash_analytics"
+    assert (
+        gate["environment"]["REQUIRED_PROJECTION_TABLES"]
+        == "delegation_events node_service_registry"
+    )
+
+
+@pytest.mark.unit
+def test_generated_compose_injects_bundle_env() -> None:
+    resolver = CatalogResolver(catalog_dir=CATALOG_DIR)
+    resolved = resolver.resolve(bundles=["runtime", "memgraph"])
+    compose = generate_compose(resolved)
+    rt_env = compose["services"]["omninode-runtime"]["environment"]
+    assert rt_env["OMNIMEMORY_ENABLED"] == "true"
+
+
+@pytest.mark.unit
+def test_generated_compose_omits_bundle_env_when_unselected() -> None:
+    resolver = CatalogResolver(catalog_dir=CATALOG_DIR)
+    resolved = resolver.resolve(bundles=["runtime"])
+    compose = generate_compose(resolved)
+    rt_env = compose["services"]["omninode-runtime"]["environment"]
+    assert "OMNIMEMORY_ENABLED" not in rt_env
+
+
+@pytest.mark.unit
+def test_runtime_catalog_propagates_topic_partition_override() -> None:
+    """Runtime services share the contract default and operator override."""
+    resolver = CatalogResolver(catalog_dir=CATALOG_DIR)
+    resolved = resolver.resolve(bundles=["runtime-core", "canary"])
+    compose = generate_compose(resolved)
+
+    expected = (
+        "${ONEX_TOPIC_PROVISIONER_MAX_PARTITIONS:-"
+        "${DEV_TOPIC_PROVISIONER_MAX_PARTITIONS:?runtime policy contract must set "
+        "DEV_TOPIC_PROVISIONER_MAX_PARTITIONS}}"
+    )
+    runtime_services = {
+        name
+        for name, manifest in resolved.manifests.items()
+        if manifest.layer.value == "runtime"
+    }
+    assert runtime_services
+    for service_name in runtime_services:
+        environment = compose["services"][service_name]["environment"]
+        assert environment["ONEX_TOPIC_PROVISIONER_MAX_PARTITIONS"] == expected
+
+    # The setting belongs to runtime containers, not to the broker itself.
+    assert "ONEX_TOPIC_PROVISIONER_MAX_PARTITIONS" not in compose["services"][
+        "redpanda"
+    ].get("environment", {})
+
+
+@pytest.mark.unit
+def test_generated_runtime_services_export_onex_state_dir() -> None:
+    resolver = CatalogResolver(catalog_dir=CATALOG_DIR)
+    resolved = resolver.resolve(bundles=["runtime"])
+    compose = generate_compose(resolved)
+
+    for service_name in ("omninode-runtime", "runtime-effects", "runtime-worker"):
+        runtime_env = compose["services"][service_name]["environment"]
+        assert runtime_env["ONEX_STATE_ROOT"] == "/app/data/.onex_state"
+        assert runtime_env["ONEX_STATE_DIR"] == runtime_env["ONEX_STATE_ROOT"]
+
+
+@pytest.mark.unit
+def test_generated_runtime_effects_requires_deploy_agent_hmac_secret() -> None:
+    """The deploy effect must never emit an unsigned rebuild command."""
+    resolver = CatalogResolver(catalog_dir=CATALOG_DIR)
+    resolved = resolver.resolve(bundles=["runtime-core"])
+    compose = generate_compose(resolved)
+
+    effects_env = compose["services"]["runtime-effects"]["environment"]
+    assert effects_env["DEPLOY_AGENT_HMAC_SECRET"] == (
+        "${DEPLOY_AGENT_HMAC_SECRET:?DEPLOY_AGENT_HMAC_SECRET must be set in "
+        "~/.omnibase/.env}"
+    )
+
+
+_CLAUDE_CREDS_VOLUME = (
+    "${CODING_AGENT_CLAUDE_CREDS_HOST_DIR:-"
+    "/var/lib/omninode/optional-bind-source-absent}:/home/omniinfra/.claude:ro"
+)
+
+
+@pytest.mark.unit
+def test_runtime_effects_defaults_unset_optional_claude_credentials_to_a_directory() -> (
+    None
+):
+    """An unset optional directory must not become a file-to-directory mount.
+
+    The compose default is a directory, so Docker binds an empty read-only
+    directory rather than being handed ``/dev/null`` (a file) for a directory
+    target -- the OMN-13248 defect. The entry is still emitted, because dropping
+    it made the render a property of the render host (OMN-17291).
+    """
+    resolver = CatalogResolver(catalog_dir=CATALOG_DIR)
+    compose = generate_compose(
+        resolver.resolve(bundles=["runtime-core"]), environment={}
+    )
+
+    volumes = compose["services"]["runtime-effects"]["volumes"]
+    assert _CLAUDE_CREDS_VOLUME in volumes
+    assert not any("/dev/null:/home/omniinfra/.claude" in volume for volume in volumes)
+    assert (
+        "${CODING_AGENT_CODEX_AUTH_HOST_FILE:-/dev/null}:"
+        "/home/omniinfra/.codex/auth.json:ro" in volumes
+    )
+
+
+@pytest.mark.unit
+def test_runtime_effects_renders_configured_optional_claude_directory(
+    tmp_path: Path,
+) -> None:
+    """A configured credential directory stays read-only and env-backed."""
+    resolver = CatalogResolver(catalog_dir=CATALOG_DIR)
+    compose = generate_compose(
+        resolver.resolve(bundles=["runtime-core"]),
+        environment={"CODING_AGENT_CLAUDE_CREDS_HOST_DIR": str(tmp_path)},
+    )
+
+    volumes = compose["services"]["runtime-effects"]["volumes"]
+    assert _CLAUDE_CREDS_VOLUME in volumes
+
+
+@pytest.mark.unit
+def test_optional_bind_mount_render_does_not_depend_on_the_render_host(
+    tmp_path: Path,
+) -> None:
+    """Set and unset sources render a byte-identical volume list.
+
+    This is the property the committed required-env declaration relies on.
+    Before OMN-17291 the two renders differed by one entry carrying a
+    ``${VAR:?}`` name, so one commit produced two required-var name sets and the
+    parity test's verdict was a property of the machine that ran it -- it passed
+    on a workstation with ambient coding-agent credentials and failed on a lab
+    host without them.
+    """
+    resolver = CatalogResolver(catalog_dir=CATALOG_DIR)
+    resolved = resolver.resolve(bundles=["runtime-core"])
+
+    without_source = generate_compose(resolved, environment={})
+    with_source = generate_compose(
+        resolved,
+        environment={"CODING_AGENT_CLAUDE_CREDS_HOST_DIR": str(tmp_path)},
+    )
+
+    assert (
+        without_source["services"]["runtime-effects"]["volumes"]
+        == with_source["services"]["runtime-effects"]["volumes"]
+    )
+
+
+@pytest.mark.unit
+def test_runtime_effects_rejects_file_for_optional_claude_directory(
+    tmp_path: Path,
+) -> None:
+    """The directory-only declaration must fail closed for a file source."""
+    credential_file = tmp_path / "credential-file"
+    credential_file.touch()
+    resolver = CatalogResolver(catalog_dir=CATALOG_DIR)
+
+    with pytest.raises(
+        ValueError,
+        match="CODING_AGENT_CLAUDE_CREDS_HOST_DIR must point to an existing absolute directory",
+    ):
+        generate_compose(
+            resolver.resolve(bundles=["runtime-core"]),
+            environment={"CODING_AGENT_CLAUDE_CREDS_HOST_DIR": str(credential_file)},
+        )
+
+
+@pytest.mark.unit
+def test_generated_compose_includes_network_and_volumes() -> None:
+    resolver = CatalogResolver(catalog_dir=CATALOG_DIR)
+    resolved = resolver.resolve(bundles=["core"])
+    compose = generate_compose(resolved)
+    assert "omnibase-infra-network" in compose["networks"]
+    assert "postgres_data" in compose.get("volumes", {})
+
+
+@pytest.mark.unit
+def test_runtime_effects_stays_on_default_network() -> None:
+    """runtime-effects should only join the default runtime bridge."""
+    resolver = CatalogResolver(catalog_dir=CATALOG_DIR)
+    resolved = resolver.resolve(bundles=["runtime"])
+    compose = generate_compose(resolved)
+    svc_networks = compose["services"]["runtime-effects"]["networks"]
+    assert svc_networks == ["omnibase-infra-network"]
+
+
+@pytest.mark.unit
+def test_runtime_bundle_has_no_external_networks() -> None:
+    """The reduced runtime bundle should not declare external helper networks."""
+    resolver = CatalogResolver(catalog_dir=CATALOG_DIR)
+    resolved = resolver.resolve(bundles=["runtime"])
+    compose = generate_compose(resolved)
+    top_networks = compose["networks"]
+    assert top_networks == {
+        "omnibase-infra-network": {"name": "omnibase-infra-network", "driver": "bridge"}
+    }
+
+
+@pytest.mark.unit
+def test_extra_networks_absent_for_services_without_them() -> None:
+    """Services without extra_networks must only be on omnibase-infra-network."""
+    resolver = CatalogResolver(catalog_dir=CATALOG_DIR)
+    resolved = resolver.resolve(bundles=["core"])
+    compose = generate_compose(resolved)
+    pg_networks = compose["services"]["postgres"]["networks"]
+    assert pg_networks == ["omnibase-infra-network"]
+    assert compose["networks"] == {
+        "omnibase-infra-network": {"name": "omnibase-infra-network", "driver": "bridge"}
+    }

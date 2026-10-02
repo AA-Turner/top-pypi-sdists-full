@@ -1,0 +1,47 @@
+[build-system]
+build-backend = 'mesonpy'
+requires = ['meson-python>=0.14.0', 'numpy']
+
+[project]
+name = "pysciqlop-cache"
+description="A simple and fast on disk cache library"
+authors = [{name="Alexis Jeandet", email="alexis.jeandet@member.fsf.org"}]
+summary = "A simple and fast on disk cache library"
+requires-python=">=3.9"
+license = {file="COPYING"}
+readme = "README.md"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+]
+dependencies = []
+dynamic = [
+  'version',
+]
+[project.urls]
+homepage = "https://github.com/SciQLop/Sciqlop-cache"
+documentation = "https://sciqlop-cache.readthedocs.io/en/latest/"
+repository = "https://github.com/SciQLop/Sciqlop-cache"
+
+[tool.meson-python.args]
+install = ['--tags=runtime,python-runtime']
+setup = ['-Doptimization=3', '-Dcpp_std=c++20', '--force-fallback-for=sqlite3,blosc2,liblz4', '--vsenv']
+
+
+[tool.cibuildwheel]
+archs = ["auto"]
+build-frontend = "default"
+
+[tool.cibuildwheel.windows]
+before-build = "python -m pip install delvewheel"
+repair-wheel-command = "python -m delvewheel repair -v --add-path C:/Windows/System32 -w {dest_dir} {wheel}"

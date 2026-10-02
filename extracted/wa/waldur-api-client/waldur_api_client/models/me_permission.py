@@ -1,0 +1,238 @@
+import datetime
+from collections.abc import Mapping
+from typing import Any, TypeVar, Union, cast
+from uuid import UUID
+
+from attrs import define as _attrs_define
+from attrs import field as _attrs_field
+from dateutil.parser import isoparse
+
+from ..types import UNSET, Unset
+
+T = TypeVar("T", bound="MePermission")
+
+
+@_attrs_define
+class MePermission:
+    """
+    Attributes:
+        role_name (Union[Unset, str]):
+        role_uuid (Union[Unset, UUID]):
+        scope_type (Union[None, Unset, str]):
+        scope_uuid (Union[Unset, UUID]):
+        scope_name (Union[Unset, str]):
+        customer_uuid (Union[Unset, UUID]):
+        customer_name (Union[Unset, str]):
+        project_uuid (Union[None, UUID, Unset]):
+        resource_uuid (Union[None, UUID, Unset]):
+        expiration_time (Union[None, Unset, datetime.datetime]):
+    """
+
+    role_name: Union[Unset, str] = UNSET
+    role_uuid: Union[Unset, UUID] = UNSET
+    scope_type: Union[None, Unset, str] = UNSET
+    scope_uuid: Union[Unset, UUID] = UNSET
+    scope_name: Union[Unset, str] = UNSET
+    customer_uuid: Union[Unset, UUID] = UNSET
+    customer_name: Union[Unset, str] = UNSET
+    project_uuid: Union[None, UUID, Unset] = UNSET
+    resource_uuid: Union[None, UUID, Unset] = UNSET
+    expiration_time: Union[None, Unset, datetime.datetime] = UNSET
+    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        role_name = self.role_name
+
+        role_uuid: Union[Unset, str] = UNSET
+        if not isinstance(self.role_uuid, Unset):
+            role_uuid = str(self.role_uuid)
+
+        scope_type: Union[None, Unset, str]
+        if isinstance(self.scope_type, Unset):
+            scope_type = UNSET
+        else:
+            scope_type = self.scope_type
+
+        scope_uuid: Union[Unset, str] = UNSET
+        if not isinstance(self.scope_uuid, Unset):
+            scope_uuid = str(self.scope_uuid)
+
+        scope_name = self.scope_name
+
+        customer_uuid: Union[Unset, str] = UNSET
+        if not isinstance(self.customer_uuid, Unset):
+            customer_uuid = str(self.customer_uuid)
+
+        customer_name = self.customer_name
+
+        project_uuid: Union[None, Unset, str]
+        if isinstance(self.project_uuid, Unset):
+            project_uuid = UNSET
+        elif isinstance(self.project_uuid, UUID):
+            project_uuid = str(self.project_uuid)
+        else:
+            project_uuid = self.project_uuid
+
+        resource_uuid: Union[None, Unset, str]
+        if isinstance(self.resource_uuid, Unset):
+            resource_uuid = UNSET
+        elif isinstance(self.resource_uuid, UUID):
+            resource_uuid = str(self.resource_uuid)
+        else:
+            resource_uuid = self.resource_uuid
+
+        expiration_time: Union[None, Unset, str]
+        if isinstance(self.expiration_time, Unset):
+            expiration_time = UNSET
+        elif isinstance(self.expiration_time, datetime.datetime):
+            expiration_time = self.expiration_time.isoformat()
+        else:
+            expiration_time = self.expiration_time
+
+        field_dict: dict[str, Any] = {}
+        field_dict.update(self.additional_properties)
+        field_dict.update({})
+        if role_name is not UNSET:
+            field_dict["role_name"] = role_name
+        if role_uuid is not UNSET:
+            field_dict["role_uuid"] = role_uuid
+        if scope_type is not UNSET:
+            field_dict["scope_type"] = scope_type
+        if scope_uuid is not UNSET:
+            field_dict["scope_uuid"] = scope_uuid
+        if scope_name is not UNSET:
+            field_dict["scope_name"] = scope_name
+        if customer_uuid is not UNSET:
+            field_dict["customer_uuid"] = customer_uuid
+        if customer_name is not UNSET:
+            field_dict["customer_name"] = customer_name
+        if project_uuid is not UNSET:
+            field_dict["project_uuid"] = project_uuid
+        if resource_uuid is not UNSET:
+            field_dict["resource_uuid"] = resource_uuid
+        if expiration_time is not UNSET:
+            field_dict["expiration_time"] = expiration_time
+
+        return field_dict
+
+    @classmethod
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
+        role_name = d.pop("role_name", UNSET)
+
+        _role_uuid = d.pop("role_uuid", UNSET)
+        role_uuid: Union[Unset, UUID]
+        if isinstance(_role_uuid, Unset):
+            role_uuid = UNSET
+        else:
+            role_uuid = UUID(_role_uuid)
+
+        def _parse_scope_type(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        scope_type = _parse_scope_type(d.pop("scope_type", UNSET))
+
+        _scope_uuid = d.pop("scope_uuid", UNSET)
+        scope_uuid: Union[Unset, UUID]
+        if isinstance(_scope_uuid, Unset):
+            scope_uuid = UNSET
+        else:
+            scope_uuid = UUID(_scope_uuid)
+
+        scope_name = d.pop("scope_name", UNSET)
+
+        _customer_uuid = d.pop("customer_uuid", UNSET)
+        customer_uuid: Union[Unset, UUID]
+        if isinstance(_customer_uuid, Unset):
+            customer_uuid = UNSET
+        else:
+            customer_uuid = UUID(_customer_uuid)
+
+        customer_name = d.pop("customer_name", UNSET)
+
+        def _parse_project_uuid(data: object) -> Union[None, UUID, Unset]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                project_uuid_type_0 = UUID(data)
+
+                return project_uuid_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, UUID, Unset], data)
+
+        project_uuid = _parse_project_uuid(d.pop("project_uuid", UNSET))
+
+        def _parse_resource_uuid(data: object) -> Union[None, UUID, Unset]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                resource_uuid_type_0 = UUID(data)
+
+                return resource_uuid_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, UUID, Unset], data)
+
+        resource_uuid = _parse_resource_uuid(d.pop("resource_uuid", UNSET))
+
+        def _parse_expiration_time(data: object) -> Union[None, Unset, datetime.datetime]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                expiration_time_type_0 = isoparse(data)
+
+                return expiration_time_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, Unset, datetime.datetime], data)
+
+        expiration_time = _parse_expiration_time(d.pop("expiration_time", UNSET))
+
+        me_permission = cls(
+            role_name=role_name,
+            role_uuid=role_uuid,
+            scope_type=scope_type,
+            scope_uuid=scope_uuid,
+            scope_name=scope_name,
+            customer_uuid=customer_uuid,
+            customer_name=customer_name,
+            project_uuid=project_uuid,
+            resource_uuid=resource_uuid,
+            expiration_time=expiration_time,
+        )
+
+        me_permission.additional_properties = d
+        return me_permission
+
+    @property
+    def additional_keys(self) -> list[str]:
+        return list(self.additional_properties.keys())
+
+    def __getitem__(self, key: str) -> Any:
+        return self.additional_properties[key]
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self.additional_properties[key] = value
+
+    def __delitem__(self, key: str) -> None:
+        del self.additional_properties[key]
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.additional_properties

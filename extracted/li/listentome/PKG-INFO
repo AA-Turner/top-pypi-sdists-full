@@ -1,0 +1,231 @@
+Metadata-Version: 2.5
+Name: listentome
+Version: 0.1.0
+Summary: Async-first audio I/O for Python, built on PortAudio.
+Author-email: Marcelo Trylesinski <marcelotryle@gmail.com>
+Requires-Python: >=3.10
+Requires-Dist: anyio>=4
+Requires-Dist: cffi>=1.17
+Requires-Dist: typing-extensions>=4.12
+Description-Content-Type: text/markdown
+
+# listentome
+
+**listentome** is an async-first audio I/O library for Python, built on [PortAudio](https://github.com/PortAudio/portaudio).
+
+The key features are:
+
+- **Async native**: streams are async context managers and async iterators. No callbacks, no queues, no `call_soon_threadsafe`.
+- **Bytes in, bytes out**: audio blocks are plain `bytes`. No NumPy requirement, no raw/array duality.
+- **No global state**: no mutable module defaults. You pass the device, samplerate, and dtype explicitly.
+- **Explicit backpressure**: you decide what happens when the consumer falls behind - drop or raise.
+- **Testable without hardware**: every stream accepts a `Backend` protocol, so tests inject a fake and never touch a device.
+- **Sync facade**: `play()` and `record()` for scripts, built on the same async core.
+
+## Requirements
+
+The PortAudio system library:
+
+```bash
+brew install portaudio        # macOS
+apt install libportaudio2     # Debian/Ubuntu
+```
+
+## Installation
+
+```bash
+uv add listentome
+```
+
+## Example
+
+### Record
+
+Create a file `main.py` with:
+
+```python
+import anyio
+
+import listentome as ltm
+
+
+async def main() -> None:
+    async with ltm.InputStream(samplerate=48_000, channels=1) as stream:
+        async for block in stream:
+            print(f"got {len(block)} bytes")
+
+
+anyio.run(main)
+```
+
+Run it:
+
+```bash
+uv run main.py
+```
+
+That's it. The stream opens the default microphone, and each iteration gives you one block of raw
+`float32` samples as `bytes`. Pass `dtype="int16"` (or `int32`, `int8`, `uint8`) for a different
+sample format, and `blocksize` to control how many frames each block carries.
+
+> [!WARNING]
+> **Backpressure is explicit.** If you iterate slower than audio arrives, the oldest blocks are
+> dropped so latency stays bounded. Pass `on_overflow="raise"` to get an `Overflow` exception
+> instead, and `max_buffered_blocks` to size the buffer. A dropped block in a live conversation is
+> a glitch; unbounded latency is a broken conversation.
+
+### Play
+
+`write()` returns once the device has consumed the audio:
+
+```python
+import anyio
+
+import listentome as ltm
+
+
+async def main() -> None:
+    tone = bytes(48_000 * 4)  # one second of float32 silence
+    async with ltm.OutputStream(samplerate=48_000, channels=1) as stream:
+        await stream.write(tone)
+
+
+anyio.run(main)
+```
+
+### Duplex
+
+`DuplexStream` captures and plays through the same device pair - `read()` (or `async for`) for
+capture, `write()` for playback:
+
+```python
+import anyio
+
+import listentome as ltm
+
+
+async def main() -> None:
+    async with ltm.DuplexStream(samplerate=48_000, channels=1) as stream:
+        async for block in stream:
+            await stream.write(block)
+
+
+anyio.run(main)
+```
+
+## Use with Pydantic AI
+
+This is what listentome is built for: realtime speech-to-speech agents without audio plumbing.
+
+With callback-based libraries, wiring a microphone to a realtime session takes a PortAudio callback,
+a thread-safe queue, `loop.call_soon_threadsafe`, and a hand-rolled drop-oldest policy. With
+listentome, the microphone is an async iterator and the speaker is an awaitable - the plumbing
+disappears into the library:
+
+```python
+import anyio
+
+import listentome as ltm
+from pydantic_ai import Agent, PartDeltaEvent, SpeechPartDelta
+
+# OpenAI's realtime models speak and listen in 24 kHz mono PCM16 audio.
+SAMPLE_RATE = 24_000
+BLOCK_SIZE = 2_400  # 100 ms per audio block
+
+agent = Agent(
+    instructions="You are a friendly voice assistant. Keep your replies short and conversational."
+)
+
+
+@agent.tool_plain
+def get_weather(city: str) -> str:
+    """Look up the current weather in a city."""
+    return f"It is currently 21 degrees and sunny in {city}."
+
+
+async def main() -> None:
+    mic = ltm.InputStream(samplerate=SAMPLE_RATE, channels=1, dtype="int16", blocksize=BLOCK_SIZE)
+    speaker = ltm.OutputStream(samplerate=SAMPLE_RATE, channels=1, dtype="int16", blocksize=BLOCK_SIZE)
+
+    async with (
+        agent.realtime("openai:gpt-realtime").session() as session,
+        mic,
+        speaker,
+        anyio.create_task_group() as tg,
+    ):
+
+        async def stream_mic() -> None:
+            async for block in mic:
+                await session.send_audio(block)
+
+        tg.start_soon(stream_mic)
+        print("Listening - start talking (Ctrl-C to quit).")
+
+        async for event in session:
+            match event:
+                case PartDeltaEvent(delta=SpeechPartDelta(audio_chunk=chunk)) if chunk:
+                    await speaker.write(chunk)
+
+        tg.cancel_scope.cancel()
+
+
+anyio.run(main)
+```
+
+The mic loop is `async for block in mic` - the drop-oldest queue is the stream's own overflow
+policy. The speaker is `await speaker.write(chunk)` - `write()` suspends until the device consumed
+the audio, so the model's audio never runs unboundedly ahead of what the user hears.
+
+> [!NOTE]
+> **Barge-in.** A production assistant also handles interruption: on
+> `RealtimeInputSpeechStartEvent`, stop feeding the speaker and call `session.interrupt()` with how
+> much was actually played. See the [Pydantic AI realtime docs](https://ai.pydantic.dev/) for the
+> full event set.
+
+## Devices
+
+There is no global default state. Query devices explicitly and pass an index to the stream:
+
+```python
+import listentome as ltm
+
+for device in ltm.devices():
+    print(device.index, device.name, device.max_input_channels, device.max_output_channels)
+```
+
+`ltm.default_input()` and `ltm.default_output()` return the system defaults, or `None` when no
+device exists. `Device` is a frozen dataclass - there is nothing to mutate.
+
+## Sync facade
+
+For scripts that do not need an event loop:
+
+```python
+import listentome as ltm
+
+data = ltm.record(2.0, samplerate=48_000, channels=1)
+ltm.play(data, samplerate=48_000, channels=1)
+```
+
+These run the async streams on an internal `anyio` portal. There is a single implementation
+underneath - the sync functions are conveniences, not a parallel API.
+
+## Testing without hardware
+
+Every stream and query function accepts a `backend` argument satisfying the `Backend` protocol:
+
+```python
+class Backend(Protocol):
+    def devices(self) -> list[Device]: ...
+    def default_input(self) -> Device | None: ...
+    def default_output(self) -> Device | None: ...
+    def open(self, ...) -> RawStream: ...
+```
+
+Inject a fake backend in tests to drive streams without any audio device - including simulated
+device failures your real hardware would never produce. See `tests/fake_backend.py` for a
+reference implementation; listentome's own suite runs at 100% coverage without touching a device.
+
+## License
+
+MIT

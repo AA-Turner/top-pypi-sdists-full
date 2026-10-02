@@ -1,0 +1,1631 @@
+#
+# This file is part of pysmi software.
+#
+# Copyright (c) 2015-2019, Ilya Etingof <etingof@gmail.com>
+# License: https://github.com/pysnmp/pysmi/blob/main/LICENSE.rst
+#
+"""Driving the transformation of MIB modules.
+
+:class:`MibCompiler` ties together the other parts of PySMI: readers pull ASN.1
+text from somewhere, a parser turns it into an AST, a code generator renders it
+into the destination format, a writer stores the result, searchers decide what
+can be skipped and borrowers supply a pre-compiled module when compilation
+fails.
+"""
+
+import copy
+import logging
+import re
+from collections.abc import Sequence
+from dataclasses import dataclass
+from functools import cache
+from hashlib import sha256
+from importlib import resources
+from typing import Any, Final
+
+from pysmi import __name__ as packageName
+from pysmi import __version__ as packageVersion
+from pysmi import error
+from pysmi._aliases import deprecated_camel_case
+from pysmi.borrower.base import AbstractBorrower
+from pysmi.cache.base import AbstractParseCache
+from pysmi.cache.memory import InMemoryParseCache
+from pysmi.codegen.base import REPAIRED_IMPORTS_KEY, AbstractCodeGen
+from pysmi.codegen.symtable import SymtableCodeGen
+from pysmi.mibinfo import (
+    MibInfo,
+    normalise_revision,
+    source_digest,
+    strip_comments,
+)
+from pysmi.parser.base import AbstractParser
+from pysmi.reader.base import AbstractReader
+from pysmi.searcher.base import AbstractSearcher
+from pysmi.writer.base import AbstractWriter
+
+logger = logging.getLogger(__name__)
+
+_AT_MIB_SUFFIX: Final = " at MIB %s"
+
+#: RFC 2578 ExtUTCTime, in either the 11-character two-digit-year form or the
+#: 13-character four-digit one. Read straight off the ASN.1 text: comparing
+#: two copies of a module must not cost a parse of each.
+_LAST_UPDATED: Final = re.compile(r'LAST-UPDATED\s+"(\d{10}Z|\d{12}Z)"')
+
+
+#: Why one copy of a module was compiled and the others passed over. Carried
+#: on :py:attr:`MibStatus.precedence` and named in the log, so a build can show
+#: not only what it resolved to but which rule resolved it.
+PRECEDENCE_NEWEST_REVISION: Final = "newest MODULE-IDENTITY revision"
+PRECEDENCE_NO_REVISION: Final = "source order; no MODULE-IDENTITY revision to compare"
+PRECEDENCE_EQUAL_REVISIONS: Final = "source order; equal MODULE-IDENTITY revisions"
+
+
+def rank_by_revision(revisions: Sequence[str | None]) -> tuple[list[int], str]:
+    """Order candidate copies of one module, newest MODULE-IDENTITY first.
+
+    The rule in one place, because it is implemented more than once and in
+    more than one repository: :py:meth:`~pysmi.compiler.MibCompiler.resolve`
+    ranks a module found in several sources, pysnmp ranks the same module found in
+    several MIB directories and again when several corpora carry it. They
+    have to agree, and none of them can import the others
+    (pysnmp/pysmi#248), so this is what
+    :py:mod:`pysmi.corpus.precedence` publishes vectors for.
+
+    Comparing revisions takes one on every copy: an undated copy cannot be
+    placed against a dated one, so a single undated candidate leaves the
+    whole decision to the order it was given in. The sort is stable, so
+    copies sharing the newest revision keep that order too.
+
+    Args:
+        revisions: one normalised revision per candidate, in the order the
+            caller's configuration supplies them, ``None`` where the
+            candidate declares no MODULE-IDENTITY.
+
+    Returns:
+        Indices into *revisions*, best first, and which rule put that one
+        first -- one of the ``PRECEDENCE_*`` constants, or ``""`` when there
+        is nothing to rank.
+    """
+    if len(revisions) < 2:
+        return list(range(len(revisions))), ""
+
+    if not all(revisions):
+        return list(range(len(revisions))), PRECEDENCE_NO_REVISION
+
+    if len(set(revisions)) == 1:
+        return list(range(len(revisions))), PRECEDENCE_EQUAL_REVISIONS
+
+    order = sorted(
+        range(len(revisions)),
+        key=lambda i: revisions[i] or "",
+        reverse=True,
+    )
+
+    return order, PRECEDENCE_NEWEST_REVISION
+
+
+@cache
+def bundled_mib_names(package: str) -> frozenset[str]:
+    """Name every MIB module *package* carries a copy of.
+
+    This is the set of modules pysmi claims authority over -- each one pinned
+    by ``scripts/bundled_mibs.json`` to the RFC, IANA registry or IEEE 802.1
+    file that publishes it, and re-checked against that source on a schedule.
+    Nothing else has that guarantee, which is why the set is what decides
+    whether the compiler may adjudicate between two sources offering the same
+    module or must leave the caller's source order alone. See pysnmp/pysmi#133
+    and ``docs/source/bundled-mibs.rst``.
+    """
+    return frozenset(
+        entry.name
+        for entry in resources.files(package).iterdir()
+        if entry.is_file() and not entry.name.startswith("__")
+    )
+
+
+def revision_of(mibData: str) -> str | None:
+    """Read a module's MODULE-IDENTITY LAST-UPDATED, normalised for comparison.
+
+    The two-digit-year form is widened the way RFC 2578 Section 2 reads it, so
+    that a 1996 revision sorts below a 2006 one rather than above it.
+
+    Args:
+        mibData: the raw ASN.1 text of a MIB module.
+
+    Returns:
+        The timestamp as ``YYYYMMDDHHMMZ``, or ``None`` for a module carrying
+        no MODULE-IDENTITY -- every SMIv1 module, and the SMI modules
+        themselves.
+    """
+    match = _LAST_UPDATED.search(strip_comments(mibData))
+
+    if not match:
+        return None
+
+    return normalise_revision(match[1])
+
+
+@deprecated_camel_case
+class MibStatus(str):
+    """Indicate MIB transformation result.
+
+    *MibStatus* is a subclass of Python string type. Some additional
+    attributes may be set to indicate the details.
+
+    The following *MibStatus* class instances are defined:
+
+    * *compiled* - MIB is successfully transformed
+    * *untouched* - fresh transformed version of this MIB already exisits
+    * *failed* - MIB transformation failed. *error* attribute carries details.
+    * *unprocessed* - MIB transformation required but waived for some reason
+    * *missing* - ASN.1 MIB source can't be found
+    * *borrowed* - MIB transformation failed but pre-transformed version was used
+    """
+
+    # Set by set_options() when the compiler records an outcome, so which of
+    # these exist depends on the status. Reading one that was never set raises
+    # AttributeError.
+
+    #: Symbols imported to repair a missing IMPORTS entry, mapped to the
+    #: module each came from. Empty unless ``repairImports`` was asked for.
+    repaired: dict[str, str]
+    #: Paths of the other copies of this module that were passed over, when
+    #: their content differed from the one used. Empty in the usual case that
+    #: only one configured source had the module.
+    shadowed: tuple[str, ...]
+    #: Which rule picked the copy that was used, one of the ``PRECEDENCE_*``
+    #: constants. Set only when something was ``shadowed``, since with one
+    #: copy there was nothing to decide.
+    precedence: str
+    #: URL the MIB was read from.
+    path: str
+    #: File the MIB was read from.
+    file: str
+    #: Name the MIB was found under, when it differs from its module name.
+    alias: str
+    #: MODULE-IDENTITY OID.
+    oid: str
+    #: All OIDs defined in the module.
+    oids: tuple[str, ...]
+    #: MODULE-IDENTITY OID.
+    identity: str
+    #: MIB revision.
+    revision: str
+    #: Enterprise OID.
+    enterprise: tuple[str, ...]
+    #: MODULE-COMPLIANCE OIDs.
+    compliance: tuple[str, ...]
+    #: NOTIFICATION-TYPE OIDs, including converted TRAP-TYPEs.
+    notification: tuple[str, ...]
+    #: Why the transformation failed.
+    error: error.PySmiError
+
+    def set_options(self, **kwargs: Any) -> "MibStatus":
+        """Return a copy of this status carrying extra attributes.
+
+        The module-level statuses are shared constants, so detail about one
+        particular MIB is attached to a copy rather than to the original.
+
+        Detail already on this status is carried over, so a second call adds
+        to the first rather than replacing it -- a status is built up in more
+        than one place (what a module resolved to is known before whether it
+        compiled), and dropping the earlier half would take ``error`` off a
+        failure with it.
+        """
+        n = self.__class__(self)
+        n.__dict__.update(self.__dict__)
+        for k, v in kwargs.items():
+            setattr(n, k, v)
+        return n
+
+
+statusCompiled: Final = MibStatus("compiled")
+statusUntouched: Final = MibStatus("untouched")
+statusFailed: Final = MibStatus("failed")
+statusUnprocessed: Final = MibStatus("unprocessed")
+statusMissing: Final = MibStatus("missing")
+statusBorrowed: Final = MibStatus("borrowed")
+statusPruned: Final = MibStatus("pruned")
+
+
+@dataclass(frozen=True)
+class MibResolution:
+    """Which copy of one MIB module a set of sources supplies.
+
+    What :py:meth:`MibCompiler.resolve` reports: the file that would be
+    compiled, the ones passed over, and the rule that chose between them.
+    """
+
+    #: The module name asked for.
+    name: str
+    #: URL the copy that wins was read from.
+    path: str
+    #: File name that copy was found under.
+    file: str
+    #: Its ASN.1 text.
+    data: str
+    #: Digest of that text, as ``source_digest`` computes it.
+    digest: str
+    #: Paths of the copies passed over, where their content differed.
+    shadowed: tuple[str, ...] = ()
+    #: Which rule put the winner first, one of the ``PRECEDENCE_*``
+    #: constants. Empty when only one source had the module.
+    precedence: str = ""
+    #: The reader that supplied the winning copy, or ``None`` where the
+    #: resolution was built without one. A caller that configured its sources
+    #: knows what each one is for -- a corpus build knows which namespace --
+    #: and ``path`` alone does not say, since two namespaces can be two
+    #: directories under one root. Identity is the lookup: this is the same
+    #: object that was passed to :py:meth:`MibCompiler.add_sources`.
+    source: "AbstractReader | None" = None
+
+
+@deprecated_camel_case
+class MibCompiler:
+    """Top-level, user-facing, composite MIB compiler object.
+
+    MibCompiler implements high-level MIB transformation processing logic.
+    It executes its actions by calling the following specialized objects:
+
+      * *readers* - to acquire ASN.1 MIB data
+      * *searchers* - to see if transformed MIB already exists and no processing is necessary
+      * *parser* - to parse ASN.1 MIB into AST
+      * *code generator* - to perform actual MIB transformation
+      * *borrowers* - to fetch pre-transformed MIB if transformation is impossible
+      * *writer* - to store transformed MIB data
+
+    Required components must be passed to MibCompiler on instantiation. Those
+    components are: *parser*, *codegenerator* and *writer*.
+
+    Optional components could be set or modified at later phases of MibCompiler
+    life. Unlike singular, required components, optional one can be present
+    in sequences to address many possible sources of data. They are
+    *readers*, *searchers* and *borrowers*.
+    """
+
+    indexFile = "index"
+
+    #: Dotted package holding the bundled base MIB ASN.1 sources -- read
+    #: through :py:class:`~pysmi.reader.package.PackageReader` when
+    #: ``useBundledMibs`` is set. See pysnmp/pysmi#113.
+    bundledMibsPackage = "pysmi.mibs.asn1"
+
+    def __init__(
+        self,
+        parser: "AbstractParser",
+        codegen: "AbstractCodeGen",
+        writer: "AbstractWriter",
+        useBundledMibs: bool = True,
+        preferConfiguredSources: bool = False,
+        parseCache: "AbstractParseCache | None" = None,
+    ) -> None:
+        """Creates an instance of *MibCompiler* class.
+
+        Args:
+            parser: ASN.1 MIB parser object
+            codegen: MIB transformation object
+            writer: transformed MIB storing object
+
+        Keyword Args:
+            useBundledMibs: register pysmi's own bundled copy of the base
+                MIBs (``SNMPv2-SMI`` and friends) as a priority source, tried
+                ahead of everything added through :py:meth:`add_sources`. It
+                is a source of its own rather than a last-resort fallback:
+                where an :py:meth:`add_sources` reader has one of those
+                modules too, the newest MODULE-IDENTITY revision supplies it
+                and this ordering only breaks the tie -- :py:meth:`compile`
+                states the whole rule. Set to ``False`` to compile from
+                :py:meth:`add_sources` alone, so a misconfigured call fails
+                loudly instead of silently succeeding from the bundled copy.
+            preferConfiguredSources: put :py:meth:`add_sources` ahead of the
+                bundled copy where the revisions do not decide -- a module
+                with no MODULE-IDENTITY to compare, or two copies carrying
+                the same one. The newest revision still wins when there is
+                one on every copy; this only settles what the bundle would
+                otherwise settle by being asked first. Nearly half the
+                bundled modules carry no MODULE-IDENTITY at all
+                (``SNMPv2-SMI`` and the other SMI modules among them), so
+                for those this is the difference between the caller's copy
+                being used and the bundled one.
+            parseCache: where to keep parse trees between :py:meth:`compile`
+                calls, as an :py:class:`~pysmi.cache.base.AbstractParseCache`.
+                A driver compiling many source sets on one compiler -- see
+                :py:meth:`set_sources` -- then parses the standard tree once
+                instead of once per set. Defaults to
+                :py:class:`~pysmi.cache.memory.InMemoryParseCache`;
+                :py:class:`~pysmi.cache.file.FileParseCache` survives process
+                exit, for a build that is a shell loop rather than one
+                process; :py:class:`~pysmi.cache.null.NullParseCache` turns
+                caching off. A provider is used as passed and never resolved
+                by name or from configuration, so the trust boundary is the
+                caller's own code -- which matters, because a provider that
+                stores trees outside this process reconstructs arbitrary
+                Python objects when it reads them back.
+        """
+        self._parser = parser
+        self._codegen = codegen
+        self._symbolgen = SymtableCodeGen()
+        self._writer = writer
+        self._sources: list[AbstractReader] = []
+        self._priority_sources: list[AbstractReader] = []
+        self._searchers: list[AbstractSearcher] = []
+        self._borrowers: list[AbstractBorrower] = []
+
+        self._preferConfiguredSources = preferConfiguredSources
+        #: Where parse trees are kept between :py:meth:`compile` calls.
+        self._parseCache: AbstractParseCache = (
+            InMemoryParseCache() if parseCache is None else parseCache
+        )
+        #: Identifies what would do the parsing, so a cached tree is never
+        #: offered to a different producer. Only a cache outliving this
+        #: process can encounter that, and one of those is exactly what
+        #: :py:class:`~pysmi.cache.file.FileParseCache` is.
+        #:
+        #: The class alone is not enough to identify a parser.
+        #: :py:func:`~pysmi.parser.smi.parserFactory` names every
+        #: specialization it builds ``SmiParser``, so ``SmiV1Parser``,
+        #: ``SmiV1CompatParser`` and ``SmiV2Parser`` -- all three of the
+        #: shipped parsers -- share a module and qualname while accepting
+        #: different grammars. The relaxations and the start symbol are what
+        #: separate them.
+        self._parserId = "/".join(
+            (
+                packageVersion,
+                f"{type(parser).__module__}.{type(parser).__qualname__}",
+                ",".join(getattr(type(parser), "grammarOptions", ())),
+                str(getattr(parser, "startSym", "")),
+            )
+        )
+        #: The reader serving the bundled copies, kept so that precedence can
+        #: name it apart from anything the caller added. ``None`` when
+        #: ``useBundledMibs`` was not asked for.
+        self._bundledSource: AbstractReader | None = None
+
+        if useBundledMibs:
+            from pysmi.reader.package import PackageReader
+
+            self._bundledSource = PackageReader(self.bundledMibsPackage)
+            self.add_priority_sources(self._bundledSource)
+
+    def add_sources(self, *sources: "AbstractReader") -> "MibCompiler":
+        """Add more ASN.1 MIB source repositories.
+
+        MibCompiler.compile will invoke each of configured source objects
+        in order of their addition asking each to fetch MIB module specified
+        by name. **The first source that has a module supplies it**, and
+        every :py:meth:`add_priority_sources` source is asked first, whatever
+        order either was added in.
+
+        The one exception is a module pysmi bundles a copy of, where the
+        newest MODULE-IDENTITY revision wins instead -- when every copy found
+        carries one -- and this order only breaks the tie. Where it does fall
+        to this order, ``preferConfiguredSources`` on the constructor puts
+        these sources ahead of the bundled copy. :py:meth:`compile` documents
+        the whole rule.
+
+        Args:
+            sources: reader object(s)
+
+        Returns:
+            reference to itself (can be used for call chaining)
+
+        """
+        self._sources.extend(sources)
+
+        logger.debug(
+            "current MIB source(s): %s",
+            ", ".join(str(x) for x in self._sources),
+            extra={"sources": [str(x) for x in self._sources]},
+        )
+
+        return self
+
+    def set_sources(self, *sources: "AbstractReader") -> "MibCompiler":
+        """Replace the ASN.1 sources, keeping everything else about this compiler.
+
+        For a driver compiling many source sets in turn -- a corpus build over
+        several hundred vendor namespaces, each with its own directory and each
+        importing the same standard modules. Building a fresh compiler per set
+        re-parses that standard tree once per set, because the parse cache
+        lives in :py:meth:`compile` and dies with the call; swapping the
+        sources on one compiler keeps it.
+
+        Only :py:meth:`add_sources` readers are replaced.
+        :py:meth:`add_priority_sources` ones, the bundled base MIBs among them,
+        are left in place -- they are the part that does not vary between
+        namespaces, and re-registering them per set is what this exists to
+        avoid.
+
+        Swapping sources cannot make a stale answer reachable: the parse cache
+        is keyed by the digest of the text parsed, never by module name, so a
+        namespace carrying a different module under a name another namespace
+        used is different bytes and a different key. What a swap does change is
+        which sources are *asked*, and that takes effect immediately -- a
+        module only the previous set had stops resolving.
+
+        Args:
+            sources: reader object(s) to use from now on
+
+        Returns:
+            reference to itself (can be used for call chaining)
+
+        """
+        self._sources = list(sources)
+
+        logger.debug(
+            "MIB source(s) replaced with: %s",
+            ", ".join(str(x) for x in self._sources),
+            extra={"sources": [str(x) for x in self._sources]},
+        )
+
+        return self
+
+    def clear_parse_cache(self) -> "MibCompiler":
+        """Drop every parse tree the configured cache holds.
+
+        Never needed for correctness -- a key is derived from the text and its
+        producer, so an entry is only ever reused for identical input. It is
+        here for a caller that wants the space back at a known point.
+
+        Returns:
+            reference to itself (can be used for call chaining)
+
+        """
+        self._parseCache.clear()
+
+        return self
+
+    def _parse_cache_key(self, digest: str) -> str:
+        """The cache key for text with the given digest.
+
+        The digest alone would be enough within one process, and is what makes
+        reuse safe across a :py:meth:`set_sources` swap: two namespaces
+        carrying different modules under one name are different text and so a
+        different key.
+
+        The producer is folded in for the caches that outlive a process. A
+        parse tree is this parser's output at this pysmi version, not a
+        versioned interchange format, so an entry written by a different
+        release must not be readable by this one. Putting that in the key means
+        a provider never has to reason about invalidation, and cannot get it
+        wrong.
+        """
+        return sha256(f"{self._parserId}\n{digest}".encode()).hexdigest()
+
+    def _parse_source(self, digest: str, data: str) -> list[Any]:
+        """The parse trees for *data*, reusing any the cache already holds.
+
+        A copy is handed out rather than the cached tree itself. Neither the
+        symbol generator nor the shipped code generators write to the tree they
+        are given, but a copy costs about a tenth of a parse, and that is
+        cheaper than depending on every present and future generator leaving it
+        alone. It also means an in-process cache can hand back its own object
+        without a provider having to know why that would otherwise be unsafe.
+        """
+        key = self._parse_cache_key(digest)
+        cached = self._parseCache.get(key)
+
+        if cached is None:
+            cached = list(self._parser.parse(data))
+            self._parseCache.set(key, cached)
+
+        return copy.deepcopy(cached)
+
+    def add_priority_sources(self, *sources: "AbstractReader") -> "MibCompiler":
+        """Add ASN.1 MIB source repositories to be asked ahead of the rest.
+
+        Every one of these is tried, for every MIB, before any
+        :py:meth:`add_sources` source, whatever order either was added in.
+        Use it for a source that is more trustworthy than whatever the caller
+        happens to have configured, such as pysmi's own bundled base MIBs
+        (see ``useBundledMibs`` on the constructor).
+
+        A distribution's ``/usr/share/snmp/mibs`` routinely carries a base MIB
+        frozen years ago, and taking that over a copy pinned to its RFC is
+        almost never what anyone wanted. Overriding a bundled module is still
+        possible -- ship a newer MODULE-IDENTITY revision of it, pass
+        ``preferConfiguredSources=True`` so :py:meth:`add_sources` outranks
+        the bundle wherever revisions do not decide, or pass
+        ``useBundledMibs=False`` to drop the bundle entirely.
+
+        Args:
+            sources: reader object(s)
+
+        Returns:
+            reference to itself (can be used for call chaining)
+
+        """
+        self._priority_sources.extend(sources)
+
+        logger.debug(
+            "current priority MIB source(s): %s",
+            ", ".join(str(x) for x in self._priority_sources),
+            extra={"priority_sources": [str(x) for x in self._priority_sources]},
+        )
+
+        return self
+
+    def _all_sources(self) -> list["AbstractReader"]:
+        """Every configured source, in the order they are asked."""
+        return [*self._priority_sources, *self._sources]
+
+    def list_mibs(self, includeBundled: bool = False) -> list[str]:
+        """Every module name the configured sources can be asked to enumerate.
+
+        This is what turns "compile this collection" into a list of modules
+        without anyone having to write the list down. A source that cannot be
+        listed -- a web server answering a ``@mib@`` URL template -- reports
+        nothing, so what comes back is the modules held locally.
+
+        The bundled base MIBs are left out by default. They are a resolution
+        source, supplying whatever a compiled module imports; a caller asking
+        what to build normally means its own collection, not pysmi's copy of
+        the standard MIBs on top of it.
+
+        Keyword Args:
+            includeBundled: also enumerate the bundled base MIBs.
+
+        Returns:
+            Module names in source order, each appearing once.
+        """
+        sources = self._all_sources()
+
+        if not includeBundled and self._bundledSource is not None:
+            sources = [x for x in sources if x is not self._bundledSource]
+
+        seen: dict[str, None] = {}
+
+        for source in sources:
+            for mibname in source.list_mibs():
+                seen.setdefault(mibname, None)
+
+        logger.debug(
+            "configured sources hold %d MIB modules",
+            len(seen),
+            extra={"modules": len(seen)},
+        )
+
+        return list(seen)
+
+    def _read_source(
+        self, source: "AbstractReader", mibname: str
+    ) -> tuple[MibInfo, str] | None:
+        """Ask one source for one module, or report that it does not have it.
+
+        Returns:
+            The file's :py:class:`~pysmi.mibinfo.MibInfo`, digest filled in,
+            and its ASN.1 text -- or ``None`` when this source has no such
+            module or cannot decode the one it has.
+        """
+        try:
+            fileInfo, fileData = source.get_data(mibname)
+
+        except error.PySmiReaderFileNotFoundError:
+            logger.debug(
+                "no %s found at %s",
+                mibname,
+                source,
+                extra={"mib": mibname, "source": str(source)},
+            )
+            return None
+
+        except UnicodeDecodeError:
+            logger.debug(
+                "cannot decode %s found at %s",
+                mibname,
+                source,
+                extra={"mib": mibname, "source": str(source)},
+            )
+            return None
+
+        fileInfo.digest = source_digest(fileData)
+
+        return fileInfo, fileData
+
+    def _candidate_sources(
+        self, mibname: str
+    ) -> tuple[list[tuple["AbstractReader", MibInfo, str]], str]:
+        """Every source that can supply *mibname*, the one to use first.
+
+        The newest MODULE-IDENTITY revision wins, whatever the module is.
+        Source order breaks the tie, and only the tie: a copy carrying no
+        revision to compare, or every copy carrying the same one.
+
+        This applies to every name found in more than one source, not only to
+        the modules pysmi bundles. Restricting it to those left a caller
+        resolving a vendor module by the order they happened to configure
+        their sources in, which is a choice nobody made -- and where the
+        sources are a directory tree walked by a build, it is not even
+        stable. A decision that follows from the text is worth more than one
+        that follows from an argument order.
+
+        It does not follow that the loser is redundant. Two copies of a name
+        can be two revisions of one specification, or two different modules
+        that reuse a name -- some vendors register a product line on its own
+        arc and carry the previous line's module names on it. The rule picks
+        one deterministically; it cannot make one text answer for both, and
+        neither can any other rule, since a caller asking for a name can be
+        given exactly one module. What the compiler owes such a caller is to
+        say so, which is what ``MibStatus.shadowed`` and
+        ``MibStatus.precedence`` are for, and what ``strictSources`` turns
+        into an error.
+
+        Comparing revisions takes one on every copy found: an undated copy
+        cannot be placed against a dated one, so a single undated copy leaves
+        the whole decision to source order. That is the usual case for the SMI
+        modules themselves, which carry no MODULE-IDENTITY at all, and it is
+        what ``preferConfiguredSources`` exists to settle the other way.
+
+        Sources past the first hit are read only when reading them is a local
+        lookup, and only so that the loser can be named in the report.
+
+        Returns:
+            The candidates, best first, and which rule put that one first --
+            one of the ``PRECEDENCE_*`` constants.
+        """
+        candidates: list[tuple[AbstractReader, MibInfo, str]] = []
+
+        for source in self._all_sources():
+            if candidates and not getattr(source, "isLocal", False):
+                break
+
+            found = self._read_source(source, mibname)
+
+            if found:
+                candidates.append((source, *found))
+
+        if len(candidates) < 2:
+            return candidates, ""
+
+        if self._preferConfiguredSources:
+            # Stable, so the caller's own sources keep their order among
+            # themselves and only the bundled copy moves.
+            candidates.sort(key=lambda c: c[0] is self._bundledSource)
+
+        order, precedence = rank_by_revision(
+            [revision_of(data) for _, _, data in candidates]
+        )
+
+        return [candidates[i] for i in order], precedence
+
+    def resolve(self, mibname: str) -> "MibResolution | None":
+        """Which copy of *mibname* the configured sources supply, without compiling it.
+
+        :py:meth:`compile` answers this on the way past, on
+        ``MibStatus.path``, ``MibStatus.shadowed`` and
+        ``MibStatus.precedence`` -- but only for a module it went on to
+        compile, and only after it has. A driver publishing the ASN.1 beside
+        the compiled output has to answer it for every module it holds,
+        including the ones that fail, and has to answer it the same way the
+        compile will. Asking here is what makes the two agree by
+        construction rather than by inspection.
+
+        The rule is :py:meth:`compile`'s own, applied by the same code: the
+        newest MODULE-IDENTITY revision wins, source order breaks the tie.
+
+        Args:
+            mibname: MIB module name
+
+        Returns:
+            What the sources hold for that name, or ``None`` when none of
+            them has it.
+        """
+        candidates, precedence = self._candidate_sources(mibname)
+
+        if not candidates:
+            return None
+
+        source, mibInfo, mibData = candidates[0]
+
+        return MibResolution(
+            name=mibname,
+            path=mibInfo.path,
+            file=mibInfo.file,
+            data=mibData,
+            digest=mibInfo.digest,
+            shadowed=tuple(
+                info.path
+                for _, info, _ in candidates[1:]
+                if info.digest != mibInfo.digest
+            ),
+            precedence=precedence,
+            source=source,
+        )
+
+    def add_searchers(self, *searchers: "AbstractSearcher") -> "MibCompiler":
+        """Add more transformed MIBs repositories.
+
+        MibCompiler.compile will invoke each of configured searcher objects
+        in order of their addition asking each if already transformed MIB
+        module already exists and is more recent than specified.
+
+        Args:
+            searchers: searcher object(s)
+
+        Returns:
+            reference to itself (can be used for call chaining)
+
+        """
+        self._searchers.extend(searchers)
+
+        logger.debug(
+            "current compiled MIBs location(s): %s",
+            ", ".join(str(x) for x in self._searchers),
+            extra={"searchers": [str(x) for x in self._searchers]},
+        )
+
+        return self
+
+    def add_borrowers(self, *borrowers: "AbstractBorrower") -> "MibCompiler":
+        """Add more transformed MIBs repositories to borrow MIBs from.
+
+        Whenever MibCompiler.compile encounters MIB module which neither of
+        the *searchers* can find or fetched ASN.1 MIB module can not be
+        parsed (due to syntax errors), these *borrowers* objects will be
+        invoked in order of their addition asking each if already transformed
+        MIB can be fetched (borrowed).
+
+        Args:
+            borrowers: borrower object(s)
+
+        Returns:
+            reference to itself (can be used for call chaining)
+
+        """
+        self._borrowers.extend(borrowers)
+
+        logger.debug(
+            "current MIB borrower(s): %s",
+            ", ".join(str(x) for x in self._borrowers),
+            extra={"borrowers": [str(x) for x in self._borrowers]},
+        )
+
+        return self
+
+    def compile(self, *mibnames: str, **options: Any) -> dict[str, MibStatus]:
+        """Transform requested and possibly referred MIBs.
+
+        The *compile* method should be invoked when *MibCompiler* object
+        is operational meaning at least *sources* are specified.
+
+        Once called with a MIB module name, *compile* will:
+
+        * fetch ASN.1 MIB module with given name by calling *sources*
+        * make sure no such transformed MIB already exists (with *searchers*)
+        * parse ASN.1 MIB text with *parser*
+        * perform actual MIB transformation into target format with *code generator*
+        * may attempt to borrow pre-transformed MIB through *borrowers*
+        * write transformed MIB through *writer*
+
+        The above sequence will be performed for each MIB name given in
+        *mibnames* and may be performed for all MIBs referred to from
+        MIBs being processed.
+
+        Args:
+            mibnames: list of ASN.1 MIBs names
+            options: options that affect the way PySMI components work
+
+        Keyword Args:
+            strictSources: fail a MIB that more than one configured source
+                has a different copy of, rather than taking one and
+                reporting the other on ``MibStatus.shadowed``.
+
+        Returns:
+            A dictionary of MIB module names processed (keys) and *MibStatus*
+            class instances (values)
+
+        Note:
+            **Which copy of a module gets compiled**, when more than one
+            source has it:
+
+            1. For a module pysmi bundles a copy of, the newest
+               MODULE-IDENTITY LAST-UPDATED wins -- provided every copy
+               found carries one. An undated copy cannot be placed against
+               a dated one, so a single one of those drops the module to
+               rule 2 whatever the others carry.
+            2. Otherwise -- to break a tie between equal revisions, for a
+               module with an undated copy, and for everything pysmi does
+               not bundle -- source order wins: every
+               :py:meth:`add_priority_sources` reader, then every
+               :py:meth:`add_sources` reader, each in the order it was
+               added. ``preferConfiguredSources`` moves the bundled copy
+               behind :py:meth:`add_sources` for this rule only.
+
+            Rule 1 is deliberately confined to the bundled names. Those are
+            pinned to an RFC or to IANA and re-checked against it, so two
+            copies of one are the same specification at two revisions and the
+            newer is simply better. Two copies of a vendor module are not
+            that: they are a collision, or two firmware revisions, and which
+            one was meant is what the caller's source order says.
+
+            Rule 2 carries more than it looks like it does: 13 of the 27
+            bundled modules -- ``SNMPv2-SMI``, ``SNMPv2-TC``, ``SNMPv2-CONF``
+            and the other SMI and RFC-numbered ones -- have no
+            MODULE-IDENTITY at all, so for those rule 1 can never fire and
+            the bundled copy is used unless ``preferConfiguredSources`` or
+            ``useBundledMibs=False`` says otherwise.
+
+            ``MibStatus.path`` names the file a module was compiled from,
+            ``MibStatus.shadowed`` the copies passed over, and
+            ``MibStatus.precedence`` which of these rules chose between
+            them -- so a build can record what it resolved to, why, and
+            reproduce it later.
+
+        """
+        processed: dict[str, MibStatus] = {}
+        parsedMibs: dict[str, Any] = {}
+        failedMibs: dict[str, Any] = {}
+        borrowedMibs: dict[str, Any] = {}
+        builtMibs: dict[str, Any] = {}
+        symbolTableMap: dict[str, Any] = {}
+        mibsToParse = list(mibnames)
+        canonicalMibNames: dict[str, Any] = {}
+        shadowedMibs: dict[str, list[str]] = {}
+        precedenceOfMib: dict[str, str] = {}
+        usedPathOfMib: dict[str, str] = {}
+
+        while mibsToParse:
+            mibname = mibsToParse.pop(0)
+
+            if mibname in parsedMibs:
+                logger.debug("MIB %s already parsed", mibname, extra={"mib": mibname})
+                continue
+
+            if mibname in failedMibs:
+                logger.debug("MIB %s already failed", mibname, extra={"mib": mibname})
+                continue
+
+            candidates, precedence = self._candidate_sources(mibname)
+
+            shadowed = [
+                info.path
+                for _, info, _ in candidates[1:]
+                if info.digest != candidates[0][1].digest
+            ]
+
+            if shadowed:
+                shadowedMibs[mibname] = shadowed
+                precedenceOfMib[mibname] = precedence
+                usedPathOfMib[mibname] = candidates[0][1].path
+
+                logger.warning(
+                    "%s taken from %s by %s, shadowing a different copy at %s",
+                    mibname,
+                    candidates[0][1].path,
+                    precedence,
+                    ", ".join(shadowed),
+                    extra={
+                        "mib": mibname,
+                        "path": candidates[0][1].path,
+                        "precedence": precedence,
+                        "shadowed": shadowed,
+                    },
+                )
+
+                if options.get("strictSources"):
+                    conflict = error.PySmiError(
+                        f"{mibname} found at {candidates[0][1].path} and, with different content, "
+                        f"at {', '.join(shadowed)}"
+                    )
+                    conflict.mibname = mibname
+
+                    failedMibs[mibname] = conflict
+                    processed[mibname] = statusFailed.set_options(error=conflict)
+                    continue
+
+            for source, fileInfo, fileData in candidates:
+                logger.debug(
+                    "trying source %s",
+                    source,
+                    extra={"mib": mibname, "source": str(source)},
+                )
+
+                try:
+                    for mibTree in self._parse_source(fileInfo.digest, fileData):
+                        mibInfo, symbolTable = self._symbolgen.gen_code(
+                            mibTree,
+                            symbolTableMap,
+                            repairImports=options.get("repairImports", True),
+                        )
+
+                        symbolTableMap[mibInfo.name] = symbolTable
+
+                        parsedMibs[mibInfo.name] = fileInfo, mibInfo, mibTree
+
+                        failedMibs.pop(mibname, None)
+
+                        # An earlier candidate that failed to parse left its
+                        # error as this module's status. This one parsed, so
+                        # that status is stale -- and it would otherwise
+                        # stand, since the statuses set further down only
+                        # fill in a module that has none yet. Without this a
+                        # module compiled from a fallback copy is written to
+                        # disk and still reported failed.
+                        processed.pop(mibname, None)
+
+                        # The copy that parses is the copy that is used, and
+                        # it is not always the first one found -- a candidate
+                        # that fails to parse falls through to the next. So
+                        # the copies passed over, and the path used, are only
+                        # known here. Key them by the name the module turned
+                        # out to have, which is what everything downstream is
+                        # keyed by; the lookup name keeps its own entry, for
+                        # a strictSources failure to report.
+                        if shadowedMibs.get(mibname):
+                            shadowedMibs[mibInfo.name] = [
+                                info.path
+                                for _, info, _ in candidates
+                                if info.path != fileInfo.path
+                                and info.digest != fileInfo.digest
+                            ]
+                            precedenceOfMib[mibInfo.name] = precedenceOfMib[mibname]
+                            usedPathOfMib[mibInfo.name] = fileInfo.path
+
+                        mibsToParse.extend(mibInfo.imported)
+
+                        if fileInfo.name in mibnames:
+                            if mibInfo.name not in canonicalMibNames:
+                                canonicalMibNames[mibInfo.name] = []
+                            canonicalMibNames[mibInfo.name].append(fileInfo.name)
+
+                        logger.debug(
+                            "%s (%s) read from %s, immediate dependencies: %s",
+                            mibInfo.name,
+                            mibname,
+                            fileInfo.path,
+                            ", ".join(mibInfo.imported) or "<none>",
+                            extra={
+                                "mib": mibInfo.name,
+                                "requested_mib": mibname,
+                                "path": fileInfo.path,
+                                "imported": list(mibInfo.imported),
+                            },
+                        )
+
+                    break
+
+                except error.PySmiError as exc:
+                    exc.source = source
+                    exc.mibname = mibname
+                    exc.msg += _AT_MIB_SUFFIX % mibname
+
+                    logger.debug(
+                        "%serror %s from %s",
+                        "ignoring " if options.get("ignoreErrors") else "failing on ",
+                        exc,
+                        source,
+                        extra={
+                            "mib": mibname,
+                            "source": str(source),
+                            "error": str(exc),
+                            "ignored": bool(options.get("ignoreErrors")),
+                        },
+                    )
+
+                    failedMibs[mibname] = exc
+
+                    processed[mibname] = statusFailed.set_options(error=exc)
+
+            else:
+                notFound = error.PySmiError(f"MIB source {mibname} not found")
+                notFound.mibname = mibname
+                logger.debug("no %s found everywhere", mibname, extra={"mib": mibname})
+
+                if mibname not in failedMibs:
+                    failedMibs[mibname] = notFound
+
+                if mibname not in processed:
+                    processed[mibname] = statusMissing
+
+        logger.debug(
+            "MIBs analyzed %d, MIBs failed %d",
+            len(parsedMibs),
+            len(failedMibs),
+            extra={"analyzed": len(parsedMibs), "failed": len(failedMibs)},
+        )
+
+        #
+        # See what MIBs need generating
+        #
+
+        for mibname in tuple(parsedMibs):
+            fileInfo, mibInfo, mibTree = parsedMibs[mibname]
+
+            logger.debug(
+                "checking if %s requires updating", mibname, extra={"mib": mibname}
+            )
+
+            for searcher in self._searchers:
+                try:
+                    searcher.file_exists(
+                        mibname,
+                        fileInfo.mtime,
+                        rebuild=bool(options.get("rebuild")),
+                        digest=fileInfo.digest,
+                    )
+
+                except error.PySmiFileNotFoundError:
+                    logger.debug(
+                        "no compiled MIB %s available through %s",
+                        mibname,
+                        searcher,
+                        extra={"mib": mibname, "searcher": str(searcher)},
+                    )
+                    continue
+
+                except error.PySmiFileNotModifiedError:
+                    logger.debug(
+                        "will be using existing compiled MIB %s found by %s",
+                        mibname,
+                        searcher,
+                        extra={"mib": mibname, "searcher": str(searcher)},
+                    )
+                    del parsedMibs[mibname]
+                    processed[mibname] = statusUntouched
+                    break
+
+                except error.PySmiError as exc:
+                    exc.searcher = searcher
+                    exc.mibname = mibname
+                    exc.msg += _AT_MIB_SUFFIX % mibname
+                    logger.debug(
+                        "error from %s: %s",
+                        searcher,
+                        exc,
+                        extra={
+                            "mib": mibname,
+                            "searcher": str(searcher),
+                            "error": str(exc),
+                        },
+                    )
+                    continue
+
+            else:
+                logger.debug(
+                    "no suitable compiled MIB %s found anywhere",
+                    mibname,
+                    extra={"mib": mibname},
+                )
+
+                if options.get("noDeps") and mibname not in canonicalMibNames:
+                    logger.debug(
+                        "excluding imported MIB %s from code generation",
+                        mibname,
+                        extra={"mib": mibname},
+                    )
+                    del parsedMibs[mibname]
+                    processed[mibname] = statusUntouched
+                    continue
+
+        logger.debug(
+            "MIBs parsed %d, MIBs failed %d",
+            len(parsedMibs),
+            len(failedMibs),
+            extra={"parsed": len(parsedMibs), "failed": len(failedMibs)},
+        )
+
+        #
+        # Generate code for parsed MIBs
+        #
+
+        for mibname in parsedMibs.copy():
+            fileInfo, mibInfo, mibTree = parsedMibs[mibname]
+
+            logger.debug(
+                "compiling %s read from %s",
+                mibname,
+                fileInfo.path,
+                extra={"mib": mibname, "path": fileInfo.path},
+            )
+
+            comments = [
+                f"ASN.1 source {fileInfo.file or fileInfo.path}",
+                f"Source digest {fileInfo.digest}",
+                f"Produced by {packageName}-{packageVersion}",
+            ]
+
+            try:
+                mibInfo, mibData = self._codegen.gen_code(
+                    mibTree,
+                    symbolTableMap,
+                    comments=comments,
+                    genTexts=options.get("genTexts"),
+                    textFilter=options.get("textFilter"),
+                )
+
+                builtMibs[mibname] = fileInfo, mibInfo, mibData
+                del parsedMibs[mibname]
+
+                logger.debug(
+                    "%s read from %s and compiled by %s",
+                    mibname,
+                    fileInfo.path,
+                    self._writer,
+                    extra={
+                        "mib": mibname,
+                        "path": fileInfo.path,
+                        "writer": str(self._writer),
+                    },
+                )
+
+            except error.PySmiError as exc:
+                exc.handler = self._codegen
+                exc.mibname = mibname
+                exc.msg += _AT_MIB_SUFFIX % mibname
+
+                logger.debug(
+                    "error from %s: %s",
+                    self._codegen,
+                    exc,
+                    extra={
+                        "mib": mibname,
+                        "codegen": str(self._codegen),
+                        "error": str(exc),
+                    },
+                )
+
+                processed[mibname] = statusFailed.set_options(error=exc)
+
+                failedMibs[mibname] = exc
+                del parsedMibs[mibname]
+
+        logger.debug(
+            "MIBs built %d, MIBs failed %d",
+            len(parsedMibs),
+            len(failedMibs),
+            extra={"built": len(parsedMibs), "failed": len(failedMibs)},
+        )
+
+        #
+        # Try to borrow pre-compiled MIBs for failed ones
+        #
+
+        for mibname in failedMibs.copy():
+            if options.get("noDeps") and mibname not in canonicalMibNames:
+                logger.debug(
+                    "excluding imported MIB %s from borrowing",
+                    mibname,
+                    extra={"mib": mibname},
+                )
+                continue
+
+            for borrower in self._borrowers:
+                logger.debug(
+                    "trying to borrow %s from %s",
+                    mibname,
+                    borrower,
+                    extra={"mib": mibname, "borrower": str(borrower)},
+                )
+                try:
+                    fileInfo, fileData = borrower.get_data(
+                        mibname, genTexts=options.get("genTexts")
+                    )
+
+                    borrowedMibs[mibname] = (
+                        fileInfo,
+                        MibInfo(name=mibname, imported=[]),
+                        fileData,
+                    )
+
+                    del failedMibs[mibname]
+
+                    logger.debug(
+                        "%s borrowed with %s",
+                        mibname,
+                        borrower,
+                        extra={"mib": mibname, "borrower": str(borrower)},
+                    )
+                    break
+
+                except error.PySmiError as exc:
+                    logger.debug(
+                        "error from %s: %s",
+                        borrower,
+                        exc,
+                        extra={
+                            "mib": mibname,
+                            "borrower": str(borrower),
+                            "error": str(exc),
+                        },
+                    )
+
+        logger.debug(
+            "MIBs available for borrowing %d, MIBs failed %d",
+            len(borrowedMibs),
+            len(failedMibs),
+            extra={"borrowed": len(borrowedMibs), "failed": len(failedMibs)},
+        )
+
+        #
+        # See what MIBs need borrowing
+        #
+
+        for mibname in borrowedMibs.copy():
+            logger.debug(
+                "checking if failed MIB %s requires borrowing",
+                mibname,
+                extra={"mib": mibname},
+            )
+
+            fileInfo, mibInfo, mibData = borrowedMibs[mibname]
+
+            for searcher in self._searchers:
+                try:
+                    searcher.file_exists(
+                        mibname, fileInfo.mtime, rebuild=bool(options.get("rebuild"))
+                    )
+
+                except error.PySmiFileNotFoundError:
+                    logger.debug(
+                        "no compiled MIB %s available through %s",
+                        mibname,
+                        searcher,
+                        extra={"mib": mibname, "searcher": str(searcher)},
+                    )
+                    continue
+
+                except error.PySmiFileNotModifiedError:
+                    logger.debug(
+                        "will be using existing compiled MIB %s found by %s",
+                        mibname,
+                        searcher,
+                        extra={"mib": mibname, "searcher": str(searcher)},
+                    )
+                    del borrowedMibs[mibname]
+                    processed[mibname] = statusUntouched
+                    break
+
+                except error.PySmiError as exc:
+                    exc.searcher = searcher
+                    exc.mibname = mibname
+                    exc.msg += _AT_MIB_SUFFIX % mibname
+
+                    logger.debug(
+                        "error from %s: %s",
+                        searcher,
+                        exc,
+                        extra={
+                            "mib": mibname,
+                            "searcher": str(searcher),
+                            "error": str(exc),
+                        },
+                    )
+
+                    continue
+            else:
+                logger.debug(
+                    "no suitable compiled MIB %s found anywhere",
+                    mibname,
+                    extra={"mib": mibname},
+                )
+
+                if options.get("noDeps") and mibname not in canonicalMibNames:
+                    logger.debug(
+                        "excluding imported MIB %s from borrowing",
+                        mibname,
+                        extra={"mib": mibname},
+                    )
+                    processed[mibname] = statusUntouched
+
+                else:
+                    logger.debug("will borrow MIB %s", mibname, extra={"mib": mibname})
+                    builtMibs[mibname] = borrowedMibs[mibname]
+
+                    processed[mibname] = statusBorrowed.set_options(
+                        path=fileInfo.path, file=fileInfo.file, alias=fileInfo.name
+                    )
+
+                del borrowedMibs[mibname]
+
+        logger.debug(
+            "MIBs built %d, MIBs failed %d",
+            len(builtMibs),
+            len(failedMibs),
+            extra={"built": len(builtMibs), "failed": len(failedMibs)},
+        )
+
+        #
+        # A module that failed takes down what imports it, and nothing else.
+        #
+        # The unit of failure is the module, not the call. A corpus is compiled
+        # a namespace at a time, hundreds of modules per call, and some of what
+        # vendors publish does not compile; discarding the whole call because
+        # one module is defective loses every good module beside it. What
+        # cannot be kept is a module that imports one that failed -- it names
+        # symbols nothing defines -- and, for the same reason, whatever imports
+        # that, transitively.
+        #
+        if failedMibs:
+            tainted = set(failedMibs)
+
+            while True:
+                spreading = {
+                    mibname
+                    for mibname, (_, mibInfo, _) in builtMibs.items()
+                    if mibname not in tainted
+                    and tainted.intersection(mibInfo.imported or ())
+                }
+
+                if not spreading:
+                    break
+
+                tainted |= spreading
+
+            for mibname in tainted.intersection(builtMibs):
+                processed[mibname] = statusUnprocessed
+                del builtMibs[mibname]
+
+            logger.debug(
+                "problem MIBs %s, also omitting %d dependent MIBs",
+                ", ".join(failedMibs),
+                len(tainted) - len(failedMibs),
+                extra={
+                    "failed_mibs": list(failedMibs),
+                    "dependent_mibs": sorted(tainted - set(failedMibs)),
+                },
+            )
+
+        logger.debug(
+            "proceeding with built MIBs %s, failed MIBs %s",
+            ", ".join(builtMibs),
+            ", ".join(failedMibs),
+            extra={"built_mibs": list(builtMibs), "failed_mibs": list(failedMibs)},
+        )
+
+        #
+        # Store compiled MIBs
+        #
+
+        for mibname in builtMibs.copy():
+            fileInfo, mibInfo, mibData = builtMibs[mibname]
+
+            try:
+                if options.get("writeMibs", True):
+                    self._writer.put_data(
+                        mibname, mibData, dryRun=bool(options.get("dryRun"))
+                    )
+
+                logger.debug(
+                    "%s stored by %s",
+                    mibname,
+                    self._writer,
+                    extra={"mib": mibname, "writer": str(self._writer)},
+                )
+
+                del builtMibs[mibname]
+
+                if mibname not in processed:
+                    processed[mibname] = statusCompiled.set_options(
+                        path=fileInfo.path,
+                        file=fileInfo.file,
+                        alias=fileInfo.name,
+                        oid=mibInfo.oid,
+                        oids=mibInfo.oids,
+                        identity=mibInfo.identity,
+                        revision=mibInfo.revision,
+                        enterprise=mibInfo.enterprise,
+                        compliance=mibInfo.compliance,
+                        notification=mibInfo.notification,
+                        repaired=symbolTableMap.get(mibname, {}).get(
+                            REPAIRED_IMPORTS_KEY, {}
+                        ),
+                        shadowed=tuple(shadowedMibs.get(mibname, ())),
+                        precedence=precedenceOfMib.get(mibname, ""),
+                    )
+
+            except error.PySmiError as exc:
+                exc.handler = self._codegen
+                exc.mibname = mibname
+                exc.msg += _AT_MIB_SUFFIX % mibname
+
+                logger.debug(
+                    "error %s from %s",
+                    exc,
+                    self._writer,
+                    extra={
+                        "mib": mibname,
+                        "writer": str(self._writer),
+                        "error": str(exc),
+                    },
+                )
+
+                processed[mibname] = statusFailed.set_options(error=exc)
+                failedMibs[mibname] = exc
+                del builtMibs[mibname]
+
+        # A module the searchers found up to date was still chosen between,
+        # and an incremental build is exactly where a copy quietly resolving
+        # to something other than the caller's own would go unmentioned. The
+        # compiled ones already carry this; give it to the rest too.
+        for mibname, shadowed in shadowedMibs.items():
+            status = processed.get(mibname)
+
+            if not shadowed or status is None or getattr(status, "shadowed", None):
+                continue
+
+            carried: dict[str, Any] = {
+                "shadowed": tuple(shadowed),
+                "precedence": precedenceOfMib.get(mibname, ""),
+            }
+
+            if not getattr(status, "path", None):
+                carried["path"] = usedPathOfMib[mibname]
+
+            processed[mibname] = status.set_options(**carried)
+
+        logger.debug(
+            "MIBs modified: %s",
+            ", ".join(x for x in processed if processed[x] in ("compiled", "borrowed")),
+            extra={
+                "modified": [
+                    x for x in processed if processed[x] in ("compiled", "borrowed")
+                ]
+            },
+        )
+
+        return processed
+
+    def build_index(self, processedMibs: dict[str, MibStatus], **options: Any) -> None:
+        """Generate and store an index over the MIBs just compiled.
+
+        Args:
+            processedMibs: MIB module names mapped to their compilation results
+
+        Keyword Args:
+            dryRun: build the index but do not store it
+            ignoreErrors: log a failure to build the index instead of raising
+
+        Raises:
+            PySmiError: the index could not be built or stored, unless
+                ``ignoreErrors`` is set.
+        """
+        comments = [
+            f"Produced by {packageName}-{packageVersion}",
+        ]
+
+        try:
+            self._writer.put_data(
+                self.indexFile,
+                self._codegen.gen_index(
+                    processedMibs,
+                    comments=comments,
+                    old_index_data=self._writer.get_data(self.indexFile),
+                ),
+                dryRun=bool(options.get("dryRun")),
+            )
+        except error.PySmiError as exc:
+            exc.msg += f" at MIB index {self.indexFile}"
+
+            logger.debug(
+                "error %s when building %s",
+                exc,
+                self.indexFile,
+                extra={"index_file": self.indexFile, "error": str(exc)},
+            )
+
+            if options.get("ignoreErrors"):
+                return
+
+            raise
+
+    def prune(self, **options: Any) -> dict[str, MibStatus]:
+        """Remove previously stored output whose source MIB no longer exists.
+
+        *compile* only ever acts on the MIBs it is asked for, so output for a
+        module that has since been removed from every configured source
+        lingers in the destination forever. *prune* closes that gap: it asks
+        the writer what it currently holds (:py:meth:`~pysmi.writer.base.AbstractWriter.list_data`,
+        which reports nothing for a writer that cannot enumerate its own
+        output, e.g. :py:class:`~pysmi.writer.callback.CallbackWriter`), and
+        for each name tries every configured source in turn. A name none of
+        them have any more is removed.
+
+        Only output carrying this package's own "Produced by" marker is ever
+        considered -- a file the writer holds that this tool did not
+        generate is left alone, whatever else is true of it.
+
+        Every source has :py:meth:`~pysmi.reader.base.AbstractReader.clear_cache`
+        called on it first, so a reader already warmed up by an earlier
+        *compile* in this same run reports what exists right now rather than
+        what existed when it was first asked.
+
+        Keyword Args:
+            dryRun: report what would be removed without removing anything
+            ignoreErrors: keep going after a source or writer error instead
+                of raising
+
+        Returns:
+            A dictionary of MIB module names the writer held (keys) and
+            *MibStatus* instances (values) -- *pruned* if removed, *untouched*
+            if a source still has it, *failed* if removal itself failed.
+
+        Raises:
+            PySmiError: a source or the writer failed, unless ``ignoreErrors``
+                is set.
+        """
+        processed: dict[str, MibStatus] = {}
+
+        for source in self._all_sources():
+            source.clear_cache()
+
+        for mibname in self._writer.list_data():
+            if mibname in processed:
+                continue
+
+            stillSourced = False
+
+            for source in self._all_sources():
+                try:
+                    source.get_data(mibname)
+                    stillSourced = True
+                    break
+
+                except error.PySmiReaderFileNotFoundError:
+                    continue
+
+                except error.PySmiError as exc:
+                    logger.debug(
+                        "error %s from %s while checking %s, leaving it alone",
+                        exc,
+                        source,
+                        mibname,
+                        extra={
+                            "mib": mibname,
+                            "source": str(source),
+                            "error": str(exc),
+                        },
+                    )
+
+                    if not options.get("ignoreErrors"):
+                        exc.mibname = mibname
+                        raise
+
+                    # An error checking a source is not proof the MIB is
+                    # gone, so it is kept rather than risk deleting output
+                    # whose source merely could not be read this run.
+                    stillSourced = True
+                    break
+
+            if stillSourced:
+                logger.debug(
+                    "%s still has a source, keeping it", mibname, extra={"mib": mibname}
+                )
+                processed[mibname] = statusUntouched
+                continue
+
+            logger.debug(
+                "%s has no source left, pruning", mibname, extra={"mib": mibname}
+            )
+
+            try:
+                self._writer.del_data(mibname, dryRun=bool(options.get("dryRun")))
+                processed[mibname] = statusPruned
+
+            except error.PySmiError as exc:
+                exc.mibname = mibname
+
+                logger.debug(
+                    "error %s from %s while pruning %s",
+                    exc,
+                    self._writer,
+                    mibname,
+                    extra={
+                        "mib": mibname,
+                        "writer": str(self._writer),
+                        "error": str(exc),
+                    },
+                )
+
+                if not options.get("ignoreErrors"):
+                    raise
+
+                processed[mibname] = statusFailed.set_options(error=exc)
+
+        logger.debug(
+            "MIBs pruned: %s",
+            ", ".join(x for x in processed if processed[x] == "pruned") or "<none>",
+            extra={"pruned": [x for x in processed if processed[x] == "pruned"]},
+        )
+
+        return processed

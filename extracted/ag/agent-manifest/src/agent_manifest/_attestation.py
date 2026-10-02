@@ -1,0 +1,789 @@
+"""Attestation-chain verification for boot-time attestation reports (issue #204).
+
+A boot-time ``AttestationReport`` is only trustworthy to a third party once a
+verifier has checked three things:
+
+1. **Signature / quote chain** — the report is signed by genuine platform
+   hardware. For AMD SEV-SNP this is implemented (:mod:`._snp_verify`): the
+   report's ECDSA-P384 signature is verified against the VCEK, and the
+   VCEK<-ASK<-ARK chain against the AMD root. For Intel TDX the self-contained
+   DCAP quote is verified (ECDSA-P256 signature, QE binding, and the PCK chain
+   to the pinned Intel SGX Root CA) — see :mod:`._tdx_verify`. Both were
+   validated against reports captured from real silicon (SEV-SNP + TDX).
+2. **Launch measurement** — ``MEASUREMENT`` / ``MRTD`` / PCRs match a known-good
+   value (or an allow-list of accepted measurements). Implemented below.
+3. **Bound field** — the guest-supplied ``REPORT_DATA`` carries the expected
+   manifest hash. Implemented below. NOTE: this applies to the *direct* SNP
+   model where the guest controls ``REPORT_DATA``. On Azure confidential VMs
+   the guest does not control ``REPORT_DATA`` (the paravisor binds the vTPM AK
+   there); manifest binding on Azure is instead a vTPM AK-signed quote over a
+   PCR derived from the manifest hash, chained to REPORT_DATA via the runtime
+   data. This function establishes that chain itself, by calling
+   :func:`._azure_verify.verify_azure_manifest_binding` against evidence
+   carried on the report (``quote_msg``, ``quote_sig``, ``ak_pub_pem``,
+   ``runtime_data_hex`` in ``report.raw``, and the SNP report bytes). A
+   ``platform`` value only selects which of the above applies; it is never
+   itself evidence that any of them ran, and neither is any boolean a caller
+   might supply -- this function does not accept one. The only way Azure's
+   binding step can report ``True`` is for this function to have verified
+   the cryptographic chain itself.
+
+:func:`verify_attestation_chain` **fails closed**: ``passed`` is ``True`` only
+when the hardware signature is ``VERIFIED``, the manifest-hash binding matches,
+the measurement is accepted (or no allow-list was requested), and the signed
+report comes from a production guest: SEV-SNP guest policy DEBUG clear and
+VMPL 0, TDX TDATTRIBUTES.DEBUG clear. If no VCEK / certificate material is
+supplied, the signature step is reported as ``NOT_IMPLEMENTED`` (not
+performed) and the result cannot pass.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import hmac
+import re
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any, Optional
+
+# `expected_manifest_hash` must be exactly the literal "sha256:" prefix
+# followed by 64 hex characters -- see the call site below (the non-Azure
+# REPORT_DATA binding step) for why a bare `split(":", 1)` is not
+# sufficient: it would accept "md5:<64 hex>" or "foo:<64 hex>" just as
+# readily as "sha256:<64 hex>", leaving the hash algorithm ambiguous and
+# caller-controlled at the exact point this value is compared against the
+# report's bound field.
+_MANIFEST_HASH_RE = re.compile(r"sha256:[0-9a-fA-F]{64}")
+
+
+class SignatureStatus(str, Enum):
+    """Outcome of the hardware signature / quote-chain check."""
+
+    VERIFIED = "verified"
+    FAILED = "failed"
+    # No verification material supplied, or a platform whose backend is not yet
+    # implemented (Intel TDX Quote verification is tracked in #204/#205).
+    NOT_IMPLEMENTED = "not_implemented"
+
+
+@dataclass
+class ChainVerificationResult:
+    """Result of verifying a boot-time attestation report against expectations.
+
+    ``passed`` requires ALL of: signature ``VERIFIED``, the launch measurement
+    accepted (or not requested), and the manifest-hash binding matched. Until
+    the signature backends land (#204), ``passed`` is always ``False`` and
+    ``reasons`` explains why.
+
+    For ``"azure-cvm-sev-snp"`` reports, ``report_data_matched`` reflects the
+    outcome of :func:`._azure_verify.verify_azure_manifest_binding`, run
+    directly by :func:`verify_attestation_chain` against evidence on the
+    report -- never a caller-supplied flag. It is a definite ``True``/
+    ``False`` here, the same as every other platform: ``True`` only when the
+    full composite chain (PCR-in-quote, AK signature, AK identity, runtime
+    data -> REPORT_DATA binding) verified; ``False`` for any missing,
+    malformed, or mismatched evidence, including simply having none at all.
+
+    ``debug`` is the debug state read from the signed report once the
+    signature verified (SNP guest policy bit 19, TDX TDATTRIBUTES bit 0), and
+    ``None`` when there were no verified signed bytes to read it from or the
+    platform has no such field (TPM). ``vmpl`` is the signed SNP VMPL, and
+    ``None`` for other platforms or an unverified signature.
+    """
+
+    passed: bool
+    signature: SignatureStatus
+    report_data_matched: bool
+    measurement_matched: Optional[bool]  # None = no allow-list supplied
+    reasons: list[str] = field(default_factory=list)
+    debug: Optional[bool] = None
+    vmpl: Optional[int] = None
+
+
+@dataclass
+class _SignedFields:
+    """Fields read out of hardware-signed bytes after the signature verified.
+
+    ``report_data`` is the guest-supplied field the hardware signed (SNP
+    ``REPORT_DATA``, TDX ``REPORTDATA``, TPM ``extraData``); ``measurement`` is
+    the launch measurement it signed (SNP ``MEASUREMENT``, TDX ``MRTD``, TPM
+    PCR digest). Populated only by a signature step that returned ``VERIFIED``.
+    """
+
+    report_data: Optional[bytes] = None
+    measurement: Optional[bytes] = None
+    # Debug state from the signed bytes (SNP policy bit 19, TDX TDATTRIBUTES
+    # bit 0); None for platforms that carry no such field. vmpl is SNP only.
+    debug: Optional[bool] = None
+    vmpl: Optional[int] = None
+
+
+def _raw_str(report: Any, key: str) -> Optional[str]:
+    """Return ``report.raw[key]`` when it is a string, else ``None``.
+
+    ``report.raw`` is a provider convenience copy. Nothing signs it, so it is
+    never the source of a verdict once signed bytes are available; it is only
+    cross-checked against them (GHSA-cf88-228w-w58h).
+    """
+    raw = getattr(report, "raw", None)
+    if not isinstance(raw, dict):
+        return None
+    value = raw.get(key)
+    return value if isinstance(value, str) else None
+
+
+def _report_data_hex(report: Any) -> Optional[str]:
+    """Return the hex of the guest-supplied report-data field, if present."""
+    # SNP/TDX providers expose the guest field under "report_data".
+    return _raw_str(report, "report_data")
+
+
+def _raw_disagrees(report: Any, key: str, signed: bytes) -> bool:
+    """True when ``report.raw[key]`` is present and is not the signed value."""
+    raw = getattr(report, "raw", None)
+    if not isinstance(raw, dict) or key not in raw:
+        return False
+    value = raw.get(key)
+    if not isinstance(value, str):
+        return True
+    return not hmac.compare_digest(value.lower(), signed.hex())
+
+
+def _verify_snp_signature_step(
+    report: Any,
+    snp_report_bytes: Optional[bytes],
+    vcek_cert_der: Optional[bytes],
+    cert_chain_pem: Optional[bytes],
+    trusted_ark_der: Optional[bytes],
+    reasons: list[str],
+    signed: Optional[_SignedFields] = None,
+) -> SignatureStatus:
+    """Run the AMD SEV-SNP signature + VCEK-chain check, if material is present.
+
+    Returns ``VERIFIED`` only when the report signature and the VCEK<-ASK<-ARK
+    chain both check out. Returns ``FAILED`` when material is supplied but does
+    not verify, and ``NOT_IMPLEMENTED`` when no VCEK/chain was provided. On
+    ``VERIFIED``, ``signed`` (when given) receives ``REPORT_DATA`` and
+    ``MEASUREMENT`` from the bytes the signature covers.
+    """
+    if vcek_cert_der is None or cert_chain_pem is None:
+        reasons.append(
+            "hardware signature not checked: no VCEK certificate / chain supplied"
+        )
+        return SignatureStatus.NOT_IMPLEMENTED
+
+    # The raw SNP report bytes come from the explicit argument, else the
+    # report's quote blob (SEVSNPProvider stows the raw report there).
+    raw = snp_report_bytes
+    if raw is None:
+        raw = getattr(report, "quote", None)
+    if not raw:
+        reasons.append(
+            "hardware signature not checked: no raw SNP report bytes on the report"
+        )
+        return SignatureStatus.NOT_IMPLEMENTED
+
+    from ._snp_verify import (
+        SnpVerificationError,
+        parse_snp_report,
+        verify_snp_signature,
+        verify_vcek_chain,
+    )
+
+    try:
+        parsed = parse_snp_report(raw)
+        if not verify_snp_signature(parsed, vcek_cert_der):
+            reasons.append("SNP report signature did not verify against the VCEK")
+            return SignatureStatus.FAILED
+        verify_vcek_chain(vcek_cert_der, cert_chain_pem, trusted_ark_der=trusted_ark_der)
+    except SnpVerificationError as e:
+        reasons.append(f"SNP certificate chain verification failed: {e}")
+        return SignatureStatus.FAILED
+    except (TypeError, ValueError) as e:
+        reasons.append(f"SNP verification material is malformed: {e}")
+        return SignatureStatus.FAILED
+    if signed is not None:
+        signed.report_data = parsed.report_data
+        signed.measurement = parsed.measurement
+        signed.debug = parsed.debug
+        signed.vmpl = parsed.vmpl
+    return SignatureStatus.VERIFIED
+
+
+def _verify_tdx_signature_step(
+    report: Any,
+    reasons: list[str],
+    trusted_tdx_root_pem: Optional[bytes] = None,
+    signed: Optional[_SignedFields] = None,
+) -> SignatureStatus:
+    """Verify a self-contained Intel TDX DCAP quote (signature + PCK chain).
+
+    The quote carries its own PCK certificate chain, so no external material is
+    needed: the report's ``quote`` blob is verified against the pinned Intel SGX
+    Root CA (or ``trusted_tdx_root_pem`` when supplied). Returns ``VERIFIED`` /
+    ``FAILED`` / ``NOT_IMPLEMENTED`` (no quote).
+    """
+    quote = getattr(report, "quote", None)
+    if not quote:
+        reasons.append("hardware signature not checked: no TDX quote on the report")
+        return SignatureStatus.NOT_IMPLEMENTED
+    from ._tdx_verify import TdxVerificationError, parse_tdx_quote, verify_tdx_quote
+
+    try:
+        if verify_tdx_quote(quote, trusted_root_pem=trusted_tdx_root_pem):
+            if signed is not None:
+                parsed = parse_tdx_quote(quote)
+                signed.report_data = parsed.report_data
+                signed.measurement = parsed.mrtd
+                signed.debug = parsed.debug
+            return SignatureStatus.VERIFIED
+        reasons.append("TDX quote signature did not verify")
+        return SignatureStatus.FAILED
+    except TdxVerificationError as e:
+        reasons.append(f"TDX quote verification failed: {e}")
+        return SignatureStatus.FAILED
+
+
+def _verify_tpm_signature_step(
+    tpm_attest: Optional[bytes],
+    tpm_signature: Optional[bytes],
+    tpm_ak_chain_pem: Optional[bytes],
+    tpm_trusted_roots_pem: Optional[bytes],
+    expected_qualifying_data: Optional[bytes],
+    expected_pcr_digest: Optional[bytes],
+    reasons: list[str],
+    signed: Optional[_SignedFields] = None,
+) -> SignatureStatus:
+    """Verify a TPM 2.0 quote (AK chain + AK signature + bindings), if supplied.
+
+    Requires the TPMS_ATTEST blob, its AK signature, the AK certificate chain,
+    and the caller's trusted TPM roots (there is no single published TPM root).
+    Returns ``VERIFIED`` / ``FAILED`` / ``NOT_IMPLEMENTED`` (material absent).
+    """
+    if not (tpm_attest and tpm_signature and tpm_ak_chain_pem and tpm_trusted_roots_pem):
+        reasons.append(
+            "hardware signature not checked: TPM attest/signature/AK-chain/"
+            "trusted-roots not all supplied"
+        )
+        return SignatureStatus.NOT_IMPLEMENTED
+    from ._tpm_verify import TpmVerificationError, parse_tpm_quote, verify_tpm_quote
+
+    try:
+        ok = verify_tpm_quote(
+            tpm_attest,
+            tpm_signature,
+            tpm_ak_chain_pem,
+            trusted_roots_pem=tpm_trusted_roots_pem,
+            expected_qualifying_data=expected_qualifying_data,
+            expected_pcr_digest=expected_pcr_digest,
+        )
+    except TpmVerificationError as e:
+        reasons.append(f"TPM quote verification failed: {e}")
+        return SignatureStatus.FAILED
+    if ok:
+        if signed is not None:
+            parsed = parse_tpm_quote(tpm_attest)
+            signed.report_data = parsed.qualifying_data
+            signed.measurement = parsed.pcr_digest
+        return SignatureStatus.VERIFIED
+    reasons.append("TPM quote signature or binding did not verify")
+    return SignatureStatus.FAILED
+
+
+def _guest_state_rejects(
+    signed: _SignedFields, reasons: list[str], *, allow_debug: bool = False
+) -> bool:
+    """True when the signed guest state rules the report out.
+
+    Read only from bytes whose signature verified. A debug guest (SNP guest
+    policy DEBUG, TDX TDATTRIBUTES.DEBUG) lets the host read and write guest
+    memory, so REPORT_DATA and the running code are the host's to choose, and
+    a genuine signature over them proves nothing about the workload.
+
+    An SNP report at a VMPL other than 0 was requested by a less privileged
+    layer than the one this package's producers request from:
+    ``SEVSNPProvider`` uses the configfs-TSM default privilege level 0, and on
+    Azure the paravisor, which runs at VMPL0, requests the report. Neither
+    emits another VMPL, so one appearing is refused rather than guessed at.
+    """
+    rejected = False
+    if signed.debug:
+        if allow_debug:
+            reasons.append(
+                "guest is debug-enabled (the host can read and modify its "
+                "memory); accepted only because allow_debug=True"
+            )
+        else:
+            reasons.append(
+                "guest is debug-enabled (SNP guest policy DEBUG / TDX "
+                "TDATTRIBUTES.DEBUG): the host can read and modify its memory, "
+                "so the report binds nothing the guest controls"
+            )
+            rejected = True
+    if signed.vmpl is not None and signed.vmpl != 0:
+        reasons.append(
+            f"SNP report was requested at VMPL{signed.vmpl}; only VMPL0 reports "
+            "are accepted"
+        )
+        rejected = True
+    return rejected
+
+
+def verify_attestation_chain(
+    report: Any,
+    *,
+    expected_manifest_hash: str,
+    expected_measurements: Optional[set[str]] = None,
+    snp_report_bytes: Optional[bytes] = None,
+    vcek_cert_der: Optional[bytes] = None,
+    cert_chain_pem: Optional[bytes] = None,
+    trusted_ark_der: Optional[bytes] = None,
+    trusted_tdx_root_pem: Optional[bytes] = None,
+    tpm_attest: Optional[bytes] = None,
+    tpm_signature: Optional[bytes] = None,
+    tpm_ak_chain_pem: Optional[bytes] = None,
+    tpm_trusted_roots_pem: Optional[bytes] = None,
+    expected_qualifying_data: Optional[bytes] = None,
+    expected_pcr_digest: Optional[bytes] = None,
+    azure_expected_pcr_index: int = 16,
+    allow_debug: bool = False,
+) -> ChainVerificationResult:
+    """Verify a boot-time ``AttestationReport`` against expected values.
+
+    Args:
+        report: An ``AttestationReport`` from a hardware provider.
+        expected_manifest_hash: The manifest hash the report must bind, in
+            ``"sha256:<hex>"`` form.
+        expected_measurements: Optional allow-list of acceptable launch
+            measurements (hex). If ``None``, the measurement step is skipped
+            (recorded as ``measurement_matched=None``) and does not gate the
+            result; pass a set to enforce it.
+        snp_report_bytes: Raw SEV-SNP attestation report (1184 bytes). If
+            omitted, the report's ``quote`` attribute is used.
+        vcek_cert_der: The VCEK leaf certificate (DER) for the report's chip and
+            TCB. Supply this together with ``cert_chain_pem`` to have the
+            hardware signature actually verified. Fetch via
+            :func:`._snp_verify.fetch_vcek`, or read from the report aux blob.
+        cert_chain_pem: The AMD KDS ``cert_chain`` blob (ASK then ARK, PEM).
+        trusted_ark_der: Optional pinned AMD root (ARK) certificate. When given,
+            the chain's ARK public key must match it.
+        azure_expected_pcr_index: For ``"azure-cvm-sev-snp"`` reports, the PCR
+            index the manifest hash was extended into -- i.e. the value the
+            caller's ``AzureCVMProvider`` was actually configured with (its
+            ``pcr_index``). Defaults to 16, ``AzureCVMProvider``'s own
+            default. This is verifier configuration the caller supplies, not
+            something inferred from a self-reported field on the report
+            (``report.raw`` is not signed by anything).
+        allow_debug: Accept a debug-enabled guest (SEV-SNP guest policy
+            DEBUG, bit 19; TDX TDATTRIBUTES.DEBUG, bit 0). Default ``False``:
+            a debug guest's memory is open to the host, so the report fails.
+            Set it only for development against a debug guest; the result's
+            ``debug`` field and ``reasons`` still record it. It does not
+            relax the SEV-SNP VMPL0 requirement.
+
+    Returns:
+        A :class:`ChainVerificationResult`. ``passed`` is ``True`` only when the
+        hardware signature is ``VERIFIED``, the manifest-hash binding matches,
+        the measurement is accepted (or no allow-list was requested), and the
+        signed report is from a non-debug guest (for SEV-SNP, also requested
+        at VMPL0). Without VCEK material the signature step is not performed and the result
+        cannot pass, because an unverified report proves nothing. An
+        unrecognized ``report.platform`` value also cannot pass: the signature
+        step is reported as ``NOT_IMPLEMENTED`` rather than falling through to
+        a verifier for a different profile. For ``"azure-cvm-sev-snp"``
+        reports, the manifest-hash binding step is established by this
+        function itself (:func:`._azure_verify.verify_azure_manifest_binding`
+        against evidence carried on the report) -- there is no caller-supplied
+        flag that can substitute for that check. A ``platform`` value only
+        selects which verification procedure applies; it is never itself
+        evidence that the procedure ran.
+    """
+    reasons: list[str] = []
+    platform = getattr(report, "platform", "") or ""
+    signed = _SignedFields()
+
+    # Step 1: hardware signature / quote chain, dispatched by platform.
+    # AMD SEV-SNP (bare-metal and Azure's paravisor variant, which carries a
+    # real SNP report too) verifies the report signature + VCEK<-ASK<-ARK
+    # chain (needs the VCEK material). Intel TDX verifies the self-contained
+    # DCAP quote + PCK chain to the pinned Intel SGX Root CA. TPM/AWS Nitro
+    # verify an AK-signed quote. Dispatch is an explicit allow-list, not a
+    # catch-all: an unrecognized platform label must fail closed rather than
+    # silently inherit a verifier meant for a different profile.
+    if platform == "intel-tdx":
+        signature = _verify_tdx_signature_step(
+            report, reasons, trusted_tdx_root_pem, signed
+        )
+    elif platform in ("tpm", "aws-nitro"):
+        signature = _verify_tpm_signature_step(
+            tpm_attest,
+            tpm_signature,
+            tpm_ak_chain_pem,
+            tpm_trusted_roots_pem,
+            expected_qualifying_data,
+            expected_pcr_digest,
+            reasons,
+            signed,
+        )
+    elif platform in ("amd-sev-snp", "azure-cvm-sev-snp"):
+        signature = _verify_snp_signature_step(
+            report,
+            snp_report_bytes,
+            vcek_cert_der,
+            cert_chain_pem,
+            trusted_ark_der,
+            reasons,
+            signed,
+        )
+    else:
+        signature = SignatureStatus.NOT_IMPLEMENTED
+        reasons.append(f"platform {platform!r} is not a supported attestation profile")
+
+    # Every verdict below reads the bound fields from the bytes the signature
+    # covers. report.raw is a provider convenience copy that nothing signs:
+    # before 0.14.0 REPORT_DATA and the measurement were read from it, so a
+    # genuine report for one manifest and measurement verified as binding any
+    # other the caller wrote into raw (GHSA-cf88-228w-w58h). When the
+    # signature did not verify there are no signed bytes to read; raw is then
+    # still consulted so the result explains itself, but `passed` cannot be
+    # True without VERIFIED.
+    verified = signature == SignatureStatus.VERIFIED
+
+    # Step 3: manifest-hash binding (software-checkable).
+    #
+    # Does not apply on Azure via REPORT_DATA: the guest never controls that
+    # field there (the paravisor sets it to sha256(runtime_data) to bind the
+    # vTPM AK, not the manifest hash). Azure's real binding is a vTPM
+    # AK-signed quote over a PCR derived from the manifest hash, chained to
+    # REPORT_DATA via the runtime data. This step must never be set True from
+    # the platform label alone, and must never be set True from a
+    # caller-supplied flag either -- a `platform` value says which procedure
+    # applies, it is not evidence that the procedure ran, and neither is
+    # someone's say-so. The only way to establish it is to actually run the
+    # composite check, here, against evidence carried on the report itself.
+    azure_paravisor = platform == "azure-cvm-sev-snp"
+    if azure_paravisor:
+        from ._azure_verify import verify_azure_manifest_binding
+
+        # report is typed Any here -- a caller-forged or malformed report
+        # object can have any truthy value on .raw (a str, int, list), not
+        # just the documented dict. `getattr(..., {}) or {}` only guards the
+        # falsy cases (missing attribute, None, {}, ""); a truthy non-dict
+        # still reaches `.get()` below and raises AttributeError, breaking
+        # this function's own fail-closed contract (see the measurement
+        # check further down, which already guards this the same way).
+        raw_azure_candidate = getattr(report, "raw", {}) or {}
+        raw_azure = raw_azure_candidate if isinstance(raw_azure_candidate, dict) else {}
+        report_data_matched = verify_azure_manifest_binding(
+            expected_manifest_hash=expected_manifest_hash,
+            expected_pcr_index=azure_expected_pcr_index,
+            quote_msg_b64=raw_azure.get("quote_msg"),
+            quote_sig_b64=raw_azure.get("quote_sig"),
+            ak_pub_pem=raw_azure.get("ak_pub_pem"),
+            runtime_data_hex=raw_azure.get("runtime_data_hex"),
+            # Only fall back to report.quote when the caller didn't supply
+            # snp_report_bytes at all (None) -- not merely "falsy". `or`
+            # here would treat an explicit `snp_report_bytes=b""` (or any
+            # other falsy-but-supplied value) the same as "not given",
+            # silently discarding the caller's supplied evidence and
+            # substituting self-reported report.quote instead. In a
+            # security-sensitive verifier, supplied (even if invalid)
+            # evidence must be rejected on its own terms --
+            # verify_azure_manifest_binding's own type/emptiness guard
+            # already fails closed on b"" -- never silently replaced with a
+            # different source.
+            snp_report_bytes=(
+                snp_report_bytes
+                if snp_report_bytes is not None
+                else getattr(report, "quote", None)
+            ),
+        )
+        if report_data_matched:
+            reasons.append(
+                "Azure manifest binding verified: PCR value is one extension "
+                "of the manifest hash, the AK-signed TPM quote covers that "
+                "PCR, the AK is the one runtime_data names, and runtime_data "
+                "is bound into this report's REPORT_DATA -- all checked "
+                "directly by verify_attestation_chain, not accepted from a "
+                "caller-supplied flag"
+            )
+        else:
+            reasons.append(
+                "Azure manifest binding not established: the composite "
+                "check (PCR value in the AK-signed quote, AK signature, AK "
+                "identity in runtime_data, runtime_data->REPORT_DATA "
+                "binding) did not fully verify against the evidence on this "
+                "report (quote_msg/quote_sig/ak_pub_pem/runtime_data_hex in "
+                "report.raw and the SNP report bytes)"
+            )
+    elif not isinstance(expected_manifest_hash, str) or not _MANIFEST_HASH_RE.fullmatch(
+        expected_manifest_hash
+    ):
+        # Fail closed on a malformed/wrong-algorithm expected_manifest_hash
+        # instead of silently treating whatever follows a colon as the
+        # SHA-256 digest (see _MANIFEST_HASH_RE above).
+        report_data_matched = False
+        reasons.append(
+            "expected_manifest_hash is not in the required 'sha256:<64 hex>' form"
+        )
+    else:
+        expected_digest = expected_manifest_hash[len("sha256:"):].lower()
+        actual_hex: Optional[str]
+        if verified and signed.report_data is not None:
+            actual_hex = signed.report_data.hex()
+        elif verified:
+            actual_hex = None
+        else:
+            actual_hex = _report_data_hex(report)
+        if actual_hex is None:
+            report_data_matched = False
+            reasons.append("report has no 'report_data' field to check the manifest binding against")
+        else:
+            # The first 32 bytes (64 hex chars) of REPORT_DATA carry the digest.
+            report_data_matched = hmac.compare_digest(actual_hex[:64].lower(), expected_digest)
+            if not report_data_matched:
+                reasons.append("manifest hash does not match the report_data binding")
+        if (
+            report_data_matched
+            and signed.report_data is not None
+            and _raw_disagrees(report, "report_data", signed.report_data)
+        ):
+            report_data_matched = False
+            reasons.append(
+                "report.raw['report_data'] disagrees with the REPORT_DATA in the "
+                "signed report; the unsigned copy was altered"
+            )
+
+    # Step 2: launch-measurement allow-list (software-checkable, optional).
+    measurement_matched: Optional[bool]
+    if expected_measurements is None:
+        measurement_matched = None
+        reasons.append("no measurement allow-list supplied; launch measurement not checked")
+    else:
+        actual_measurement: Optional[str]
+        if verified and signed.measurement is not None:
+            actual_measurement = signed.measurement.hex()
+        elif verified:
+            actual_measurement = None
+        else:
+            actual_measurement = _raw_str(report, "measurement")
+        allow = {m.lower() for m in expected_measurements if isinstance(m, str)}
+        measurement_matched = (
+            isinstance(actual_measurement, str) and actual_measurement.lower() in allow
+        )
+        if not measurement_matched:
+            reasons.append("launch measurement is not in the supplied allow-list")
+        elif signed.measurement is not None and _raw_disagrees(
+            report, "measurement", signed.measurement
+        ):
+            measurement_matched = False
+            reasons.append(
+                "report.raw['measurement'] disagrees with the measurement in the "
+                "signed report; the unsigned copy was altered"
+            )
+
+    # Step 4: guest state, from the signed bytes. Without it a debug guest
+    # with an allow-listed measurement passed, although the host could have
+    # written its REPORT_DATA.
+    guest_rejected = verified and _guest_state_rejects(
+        signed, reasons, allow_debug=allow_debug
+    )
+
+    passed = bool(
+        signature == SignatureStatus.VERIFIED
+        and report_data_matched
+        and measurement_matched is not False
+        and not guest_rejected
+    )
+
+    return ChainVerificationResult(
+        passed=passed,
+        signature=signature,
+        report_data_matched=report_data_matched,
+        measurement_matched=measurement_matched,
+        reasons=reasons,
+        debug=signed.debug if verified else None,
+        vmpl=signed.vmpl if verified else None,
+    )
+
+
+def _runtime_quote_binds(
+    report: Any,
+    qualifying: bytes,
+    *,
+    vcek_cert_der: Optional[bytes],
+    cert_chain_pem: Optional[bytes],
+    trusted_ark_der: Optional[bytes],
+    trusted_tdx_root_pem: Optional[bytes],
+    tpm_attest: Optional[bytes],
+    tpm_signature: Optional[bytes],
+    tpm_ak_chain_pem: Optional[bytes],
+    tpm_trusted_roots_pem: Optional[bytes],
+    reasons: list[str],
+) -> bool:
+    """True when a verified hardware quote signs ``qualifying`` for this report.
+
+    The caller-controlled field the provider wrote (SNP ``REPORT_DATA``, TDX
+    ``REPORTDATA``: ``qualifying || 32 zero bytes``; TPM and Azure vTPM
+    ``extraData``: ``qualifying``) is read from the signed bytes after the
+    signature verifies. Nothing on the report object itself counts. A debug
+    guest, or an SNP report not requested at VMPL0, never binds; there is no
+    opt-in here, because a nonce the host could have written is not evidence
+    of freshness.
+    """
+    platform = getattr(report, "platform", "") or ""
+    signed = _SignedFields()
+    padded = qualifying + bytes(32)
+
+    if platform in ("amd-sev-snp", "azure-cvm-sev-snp"):
+        status = _verify_snp_signature_step(
+            report, None, vcek_cert_der, cert_chain_pem, trusted_ark_der, reasons, signed
+        )
+        if status != SignatureStatus.VERIFIED or signed.report_data is None:
+            return False
+        if _guest_state_rejects(signed, reasons):
+            return False
+        if platform == "amd-sev-snp":
+            if not hmac.compare_digest(signed.report_data, padded):
+                reasons.append("the signed REPORT_DATA does not carry this nonce and context")
+                return False
+            return True
+        from ._azure_verify import verify_azure_runtime_quote
+
+        raw_candidate = getattr(report, "raw", None)
+        raw = raw_candidate if isinstance(raw_candidate, dict) else {}
+        if not verify_azure_runtime_quote(
+            expected_qualifying_data=qualifying,
+            quote_msg_b64=raw.get("quote_msg"),
+            quote_sig_b64=raw.get("quote_sig"),
+            ak_pub_pem=raw.get("ak_pub_pem"),
+            runtime_data_hex=raw.get("runtime_data_hex"),
+            snp_report_bytes=getattr(report, "quote", None),
+        ):
+            reasons.append(
+                "the AK-signed vTPM quote does not carry this nonce and context, "
+                "or its AK is not the one bound into the signed SNP report"
+            )
+            return False
+        return True
+
+    if platform == "intel-tdx":
+        status = _verify_tdx_signature_step(report, reasons, trusted_tdx_root_pem, signed)
+        if status != SignatureStatus.VERIFIED or signed.report_data is None:
+            return False
+        if _guest_state_rejects(signed, reasons):
+            return False
+        if not hmac.compare_digest(signed.report_data, padded):
+            reasons.append("the signed REPORTDATA does not carry this nonce and context")
+            return False
+        return True
+
+    if platform in ("tpm", "aws-nitro"):
+        status = _verify_tpm_signature_step(
+            tpm_attest,
+            tpm_signature,
+            tpm_ak_chain_pem,
+            tpm_trusted_roots_pem,
+            qualifying,
+            None,
+            reasons,
+            signed,
+        )
+        return (
+            status == SignatureStatus.VERIFIED
+            and signed.report_data is not None
+            and hmac.compare_digest(signed.report_data, qualifying)
+        )
+
+    reasons.append(f"platform {platform!r} carries no hardware quote to verify")
+    return False
+
+
+def verify_runtime_quote(
+    report: Any,
+    nonce: bytes,
+    context_hash: str,
+    *,
+    vcek_cert_der: Optional[bytes] = None,
+    cert_chain_pem: Optional[bytes] = None,
+    trusted_ark_der: Optional[bytes] = None,
+    trusted_tdx_root_pem: Optional[bytes] = None,
+    tpm_attest: Optional[bytes] = None,
+    tpm_signature: Optional[bytes] = None,
+    tpm_ak_chain_pem: Optional[bytes] = None,
+    tpm_trusted_roots_pem: Optional[bytes] = None,
+    reasons: Optional[list[str]] = None,
+) -> bool:
+    """Verify a RuntimeAttestationReport's hardware quote binds this nonce.
+
+    Implementation of :func:`agent_manifest._verify.verify_runtime_report`;
+    see that function for the contract. ``reasons``, when given, collects why
+    the check failed.
+    """
+    notes: list[str] = reasons if reasons is not None else []
+    if not isinstance(nonce, (bytes, bytearray)) or not isinstance(context_hash, str):
+        notes.append("nonce must be bytes and context_hash a 'sha256:<hex>' string")
+        return False
+    if not _MANIFEST_HASH_RE.fullmatch(context_hash):
+        notes.append("context_hash is not in the required 'sha256:<64 hex>' form")
+        return False
+    qualifying = hashlib.sha256(bytes(nonce) + bytes.fromhex(context_hash[7:])).digest()
+
+    expected_field = "sha256:" + hashlib.sha256(qualifying).hexdigest()
+    reported = getattr(report, "report_data_hash", None)
+    if not isinstance(reported, str) or not hmac.compare_digest(reported, expected_field):
+        notes.append("report_data_hash is not derived from this nonce and context")
+        return False
+
+    return _runtime_quote_binds(
+        report,
+        qualifying,
+        vcek_cert_der=vcek_cert_der,
+        cert_chain_pem=cert_chain_pem,
+        trusted_ark_der=trusted_ark_der,
+        trusted_tdx_root_pem=trusted_tdx_root_pem,
+        tpm_attest=tpm_attest,
+        tpm_signature=tpm_signature,
+        tpm_ak_chain_pem=tpm_ak_chain_pem,
+        tpm_trusted_roots_pem=tpm_trusted_roots_pem,
+        reasons=notes,
+    )
+
+
+# Re-export the runtime freshness check so the verification surface lives in
+# one place. (verify_runtime_report is defined in _verify.py.)
+def verify_runtime_freshness(
+    report: Any,
+    nonce: bytes,
+    context_hash: str,
+    *,
+    vcek_cert_der: Optional[bytes] = None,
+    cert_chain_pem: Optional[bytes] = None,
+    trusted_ark_der: Optional[bytes] = None,
+    trusted_tdx_root_pem: Optional[bytes] = None,
+    tpm_attest: Optional[bytes] = None,
+    tpm_signature: Optional[bytes] = None,
+    tpm_ak_chain_pem: Optional[bytes] = None,
+    tpm_trusted_roots_pem: Optional[bytes] = None,
+) -> bool:
+    """Alias for :func:`agent_manifest._verify.verify_runtime_report`.
+
+    Returns ``True`` only when the report's hardware quote verifies and the
+    caller-controlled field inside the signed bytes carries
+    ``sha256(nonce || context_hash_bytes)``. See ``verify_runtime_report``.
+    """
+    from ._verify import verify_runtime_report
+
+    return verify_runtime_report(
+        report,
+        nonce,
+        context_hash,
+        vcek_cert_der=vcek_cert_der,
+        cert_chain_pem=cert_chain_pem,
+        trusted_ark_der=trusted_ark_der,
+        trusted_tdx_root_pem=trusted_tdx_root_pem,
+        tpm_attest=tpm_attest,
+        tpm_signature=tpm_signature,
+        tpm_ak_chain_pem=tpm_ak_chain_pem,
+        tpm_trusted_roots_pem=tpm_trusted_roots_pem,
+    )

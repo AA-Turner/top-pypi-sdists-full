@@ -36,16 +36,15 @@ def verify_s3_access(
     )
 
 
-def _verify_resource_based_s3_access(
-    s3_bucket: Any, iam_role: Any, logger: BlockLogger
-) -> bool:
+def _verify_resource_based_s3_access(s3_bucket: Any, iam_role: Any, logger: BlockLogger) -> bool:
     try:
         policy = s3_bucket.Policy().policy
         policy_document = json.loads(policy)
         allow_actions = filter_actions_from_policy_document(
             policy_document,
-            lambda statement: statement["Effect"] == "Allow"
-            and iam_role.name in str(statement["Principal"]),
+            lambda statement: (
+                statement["Effect"] == "Allow" and iam_role.name in str(statement["Principal"])
+            ),
         )
         # TODO(#16330) ListBucket must be on `BUCKET_ARN`, while GetObject must be on `BUCKET_ARN/*`
         if len(allow_actions) > 0:
@@ -54,9 +53,7 @@ def _verify_resource_based_s3_access(
                 return True
             logger.info(
                 f"Bucket {s3_bucket.name} grants {iam_role.name} some permissions, "
-                "but is missing the following permissions:\n[{}]".format(
-                    ",".join(missing_actions)
-                )
+                "but is missing the following permissions:\n[{}]".format(",".join(missing_actions))
             )
     except ClientError as e:
         if e.response.get("Error", {}).get("Code") != "NoSuchBucketPolicy":
@@ -72,10 +69,12 @@ def _verify_identity_based_s3_access(
     allow_actions_on_role = filter_actions_associated_with_role(
         boto3_session,
         iam_role,
-        lambda statement: statement["Effect"] == "Allow"
-        and (
-            "*" in _coerce_to_list(statement.get("Resource"))
-            or s3_bucket.name in str(statement.get("Resource"))
+        lambda statement: (
+            statement["Effect"] == "Allow"
+            and (
+                "*" in _coerce_to_list(statement.get("Resource"))
+                or s3_bucket.name in str(statement.get("Resource"))
+            )
         ),
     )
     if len(allow_actions_on_role) == 0:
@@ -85,8 +84,6 @@ def _verify_identity_based_s3_access(
         return True
     logger.info(
         f"Role {iam_role.name} has some permissions to access {s3_bucket.name}, "
-        "but is missing the following permissions:\n[{}]".format(
-            ",".join(missing_actions)
-        )
+        "but is missing the following permissions:\n[{}]".format(",".join(missing_actions))
     )
     return False

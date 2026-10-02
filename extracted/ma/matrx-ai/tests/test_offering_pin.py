@@ -142,28 +142,35 @@ class TestPinnedOfferingResolution:
         # silently re-route.
         self._expect_raise(_loaded_manager(), "off-other-model", "belongs to model_id")
 
-    def test_unavailable_offering_raises(self):
-        self._expect_raise(_loaded_manager(), "off-unavailable", "is_available=false")
+    def test_unavailable_offering_runs_its_class_sibling(self):
+        # A pin is a CLASS (endpoint) choice: an unavailable row runs the best
+        # available offering on the SAME endpoint (ep-together → off-together).
+        manager = _loaded_manager()
+        chosen = _resolve_pinned_offering(
+            manager.offerings_for("model-1"),
+            manager,
+            offering_id="off-unavailable",
+            model_id="model-1",
+            model_name="gpt-oss-120b",
+        )
+        assert chosen.id == "off-together"
 
     def test_inactive_endpoint_offering_raises(self):
         self._expect_raise(_loaded_manager(), "off-dead-endpoint", "missing or inactive")
 
-    def test_no_silent_fallback_to_preferred(self):
+    def test_no_silent_fallback_to_another_class(self):
         # The failure mode the pin exists to prevent: an unroutable pin must
-        # NEVER return the preferred offering.
+        # NEVER return the preferred offering of ANOTHER class (off-cerebras).
         manager = _loaded_manager()
-        offerings = manager.offerings_for("model-1")
-        try:
-            _resolve_pinned_offering(
-                offerings,
-                manager,
-                offering_id="off-unavailable",
-                model_id="model-1",
-                model_name="gpt-oss-120b",
-            )
-        except ValueError:
-            return
-        raise AssertionError("pinned resolution silently fell back to preferred")
+        chosen = _resolve_pinned_offering(
+            manager.offerings_for("model-1"),
+            manager,
+            offering_id="off-unavailable",
+            model_id="model-1",
+            model_name="gpt-oss-120b",
+        )
+        assert chosen.id != "off-cerebras"
+        assert chosen.endpoint_id == "ep-together"
 
 
 class TestResolvedProfileRoute:

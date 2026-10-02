@@ -1070,6 +1070,17 @@ class PeopleCountingConfig:
         """
         ...
 
+class PeopleCountingExtendedConfig:
+    # ``people_counting`` plus appearance-based re-identification.
+    #
+    #     Every field below is additive and defaulted, so this behaves exactly
+    #     like :class:`PeopleCountingConfig` when ReID is off or unavailable.
+    #     Tunable from the post-processing config without a code change -- which
+    #     is the point: ``reid_match_threshold`` and ``reid_gallery_capacity``
+    #     are expected to be calibrated against real footage.
+
+    def validate(self: Any) -> List[str]: ...
+
 class PeopleTrackingConfig:
     # Configuration for People Tracking use case with polygon/abline counting.
 

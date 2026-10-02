@@ -1,9 +1,0 @@
-metadata:
-  title: Exit or restart with choices
-  documentation: "https://docassemble.org/docs/questions.html#special buttons"
----
-question: We are all done.
-choices:
-  - Exit: exit
-  - Restart: restart
-mandatory: True

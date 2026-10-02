@@ -71,6 +71,7 @@ from pytorch_optimizer.optimizer.lomo import LOMO, AdaLOMO
 from pytorch_optimizer.optimizer.lookahead import Lookahead
 from pytorch_optimizer.optimizer.lora_rite import LoRARite
 from pytorch_optimizer.optimizer.madgrad import MADGRAD
+from pytorch_optimizer.optimizer.magma import Magma
 from pytorch_optimizer.optimizer.mars import MARS
 from pytorch_optimizer.optimizer.msvag import MSVAG
 from pytorch_optimizer.optimizer.muon import AdaGO, AdaMuon, DistributedMuon, Muon, prepare_muon_parameters
@@ -201,6 +202,7 @@ OPTIMIZER_LIST: List[OptimizerType] = [
     Lamb,
     Lion,
     MADGRAD,
+    Magma,
     MARS,
     MSVAG,
     Muon,
@@ -360,8 +362,13 @@ def create_optimizer(
     """
     optimizer_name = optimizer_name.lower()
 
+    if optimizer_name != 'lbfgs':
+        kwargs['weight_decay'] = weight_decay
+
     parameters = (
-        get_optimizer_parameters(model, weight_decay, wd_ban_list) if weight_decay > 0.0 else model.parameters()
+        get_optimizer_parameters(model, weight_decay, wd_ban_list)
+        if weight_decay > 0.0
+        else [{'params': model.parameters(), 'weight_decay': weight_decay}]
     )
 
     optimizer_class: OptimizerType = load_optimizer(optimizer_name)
@@ -373,7 +380,7 @@ def create_optimizer(
     elif optimizer_name in ('muon', 'adamuon', 'adago'):
         warn(f'highly recommend you to manually create the {optimizer_name} manually.', UserWarning, stacklevel=1)
 
-        optimizer = prepare_muon_parameters(model, optimizer_name, lr=lr, weight_decay=weight_decay, **kwargs)
+        optimizer = prepare_muon_parameters(model, optimizer_name, lr=lr, **kwargs)
     else:
         optimizer = optimizer_class(parameters, lr=lr, **kwargs)
 

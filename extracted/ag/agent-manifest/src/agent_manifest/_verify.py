@@ -1,0 +1,2306 @@
+"""Agent Manifest verification engine and FastAPI endpoint.
+
+Two hosting modes (spec Section 5.1 / SPEC-07):
+  SDK-hosted:    FastAPI server embedded in the agent process, served over
+                 mTLS using the agent's SPIFFE SVID.  Runtime artifact hashes
+                 are computed by the trusted component that holds the manifest.
+  OPAQUE-hosted: Results are served from hashes pushed by the agent SDK at
+                 startup to OPAQUE's attestation service.
+
+The verification engine itself is hosting-agnostic - it takes a Manifest
+dict and a set of running artifact hashes and produces a VerificationResult.
+The FastAPI router wires the engine to HTTP.
+"""
+from __future__ import annotations
+
+import email.message
+import hashlib
+import hmac
+import uuid
+from datetime import datetime, timezone
+from enum import Enum
+from typing import Any, Callable, Literal, Optional, Union
+
+from pydantic import BaseModel, Field, TypeAdapter, field_validator
+
+from ._audit_continuity import AuditCheckpoint, verify_continuity
+from ._cose import (
+    COSE_MANIFEST_VERSION,
+    MEDIA_TYPE_MANIFEST_COSE,
+    CoseVerification,
+)
+from .evidence_requirements import EXPERIMENTAL_PROFILE as _EVIDENCE_REQUIREMENTS_PROFILE
+
+
+# ---------------------------------------------------------------------------
+# Timestamp parsing
+# ---------------------------------------------------------------------------
+
+# Manifest timestamps are typed `datetime` on the model, so Pydantic accepts and
+# normalizes several representations that datetime.fromisoformat() rejects:
+# decimal epoch seconds ("1769904000") and a lowercase zone designator
+# ("...T00:00:00z") among them. The schema gate reports no violation for those,
+# which meant a verifier re-parsing the raw signed string with fromisoformat()
+# saw a ValueError for a value the model considers perfectly well formed.
+#
+# Parsing here through the same TypeAdapter the model uses keeps the verifier's
+# reading of a timestamp identical to the model's. Anything it still cannot read
+# is unparseable to this verifier, and the callers below fail closed on it: a
+# validity window that cannot be evaluated is not a validity window that passed.
+_DATETIME_ADAPTER = TypeAdapter(datetime)
+
+
+def _parse_timestamp(value: Any) -> datetime:
+    """Parse a manifest timestamp to an aware UTC datetime, or raise ValueError."""
+    try:
+        parsed = _DATETIME_ADAPTER.validate_python(value)
+    except Exception as exc:  # pydantic ValidationError and anything below it
+        raise ValueError(f"unparseable timestamp: {value!r}") from exc
+    if parsed.tzinfo is None:
+        # An offset-naive timestamp is ambiguous. The spec writes instants in
+        # UTC, so read it as UTC rather than as local time on the verifying host.
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+# ---------------------------------------------------------------------------
+# Result types
+# ---------------------------------------------------------------------------
+
+
+class OverallResult(str, Enum):
+    VALID = "VALID"
+    MISMATCH = "MISMATCH"
+    EXPIRED = "EXPIRED"
+    REVOKED = "REVOKED"
+    INCOMPLETE = "INCOMPLETE"
+    ATTESTATION_UNAVAILABLE = "ATTESTATION_UNAVAILABLE"
+    INCOMPATIBLE_VERSION = "INCOMPATIBLE_VERSION"
+    # Fail-closed statuses (spec 5.3: VALID requires a valid signature):
+    # SIGNATURE_MISSING - the manifest carries no signature block at all.
+    SIGNATURE_MISSING = "SIGNATURE_MISSING"
+    # UNVERIFIABLE - a signature or delegation chain is present but the
+    # verifier lacks the key material to verify it. MUST NOT be treated
+    # as VALID by relying parties.
+    UNVERIFIABLE = "UNVERIFIABLE"
+
+
+class FieldResult(str, Enum):
+    MATCH = "MATCH"
+    MISMATCH = "MISMATCH"
+    NOT_BOUND = "NOT_BOUND"
+    EXPIRED = "EXPIRED"
+    # decision_trace only (spec 3.2.7.1): the running audit chain is not the
+    # root signed at T0, but continuity evidence proves it descends from it by
+    # append only. Without that proof a diverged root stays MISMATCH.
+    EXTENDED = "EXTENDED"
+
+
+class DelegationResult(str, Enum):
+    VALID = "VALID"
+    INVALID = "INVALID"
+    NOT_PRESENT = "NOT_PRESENT"
+    # Chain present but the verifier lacks the public keys (or constraint
+    # evaluation capability) to verify it - spec 3.4.1 / 5.2.
+    UNVERIFIABLE = "UNVERIFIABLE"
+
+
+class ConfigurationAssurance(str, Enum):
+    """Spec 3.2.1.1 / 5.2. Reported separately from `system_prompt` because the
+    two answer different questions: the field result says which prompt is
+    running, this says whether the approved prompt was ever assessed."""
+
+    PASSED = "PASSED"
+    FLAGGED = "FLAGGED"
+    NOT_ASSESSED = "NOT_ASSESSED"
+
+
+class HitlResult(str, Enum):
+    APPROVED = "APPROVED"
+    EXPIRED = "EXPIRED"
+    NOT_REQUIRED = "NOT_REQUIRED"
+    MISSING = "MISSING"
+    APPROVAL_INSUFFICIENT = "APPROVAL_INSUFFICIENT"
+    INVALID = "INVALID"
+    UNVERIFIABLE = "UNVERIFIABLE"
+
+
+class HitlAdmissibility(str, Enum):
+    """Present applicability, separate from the existing approval checks."""
+
+    UNDECIDABLE = "UNDECIDABLE"
+    NOT_REQUIRED = "NOT_REQUIRED"
+
+
+class HitlAdmissibilityResult(BaseModel):
+    """No positive verdict without evidence of current authority and state."""
+
+    status: HitlAdmissibility = HitlAdmissibility.UNDECIDABLE
+    reason: Literal[
+        "verification_incomplete",
+        "approval_not_required",
+        "current_state_evidence_unavailable",
+        "approval_checks_not_satisfied",
+    ] = "verification_incomplete"
+
+
+class MismatchDetail(BaseModel):
+    field: str
+    expected_hash: str
+    actual_hash: str
+    delta_detected_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class FieldsVerified(BaseModel):
+    system_prompt: FieldResult = FieldResult.NOT_BOUND
+    policy_bundle: FieldResult = FieldResult.NOT_BOUND
+    tool_manifest: FieldResult = FieldResult.NOT_BOUND
+    model_identity: FieldResult = FieldResult.NOT_BOUND
+    rag_corpus: FieldResult = FieldResult.NOT_BOUND
+    memory_baseline: FieldResult = FieldResult.NOT_BOUND
+    decision_trace: FieldResult = FieldResult.NOT_BOUND
+    supply_chain: FieldResult = FieldResult.NOT_BOUND
+    delegation_chain: DelegationResult = DelegationResult.NOT_PRESENT
+    hitl_record: HitlResult = HitlResult.NOT_REQUIRED
+
+
+class EvidencePack(BaseModel):
+    trace_id: Optional[str] = None
+    signed_by: Optional[str] = None
+    pack_hash: Optional[str] = None
+    pack_uri: Optional[str] = None
+
+
+class AgentCorrelation(BaseModel):
+    """The join key between a manifest and the runtime evidence emitted
+    under it (spec 6.4.2).
+
+    `agent_uid` is the stable logical identity and `agent_instance_uid` the
+    session-scoped one, mirroring the OCSF `ai_agent` split. The latter is
+    None on a manifest that governs more than one run; a producer supplies its
+    own session identifier there and must not reuse `agent_uid` for it, or the
+    two concepts collapse and "every run of this agent" stops being a query.
+    """
+
+    agent_uid: str
+    agent_instance_uid: Optional[str] = None
+    manifest_id: str
+
+
+class VerificationResult(BaseModel):
+    verification_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    manifest_id: str
+    verified_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    # Spec 5.1.2. The nonce is echoed unchanged so a relying party can tell this
+    # result was produced for its live request; the context hash is what it
+    # asked for. Neither verification_id nor verified_at can do that job:
+    # the service picks both.
+    challenge_nonce: Optional[str] = None
+    verification_context_hash: Optional[str] = None
+    result: OverallResult
+    signature_verified: bool = False
+    # True only when a receipt/entry was independently appraised against the
+    # relying party's transparency-service trust policy. Presence alone is not
+    # verification because COSE unprotected headers are attacker-malleable.
+    transparency_verified: bool = False
+    attestation_verified: bool = False
+    fields_verified: FieldsVerified = Field(default_factory=FieldsVerified)
+    # Spec 5.2. NOT_ASSESSED is the default because absence of an assessment is
+    # not a pass, and reporting it is what lets a relying party tell the two
+    # apart instead of inferring one from silence.
+    configuration_assurance: ConfigurationAssurance = ConfigurationAssurance.NOT_ASSESSED
+    hitl_admissibility: HitlAdmissibilityResult = Field(default_factory=HitlAdmissibilityResult)
+    mismatch_details: list[MismatchDetail] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    # Spec 5.2 / 6.4.2: what a consumer joins this manifest to its runtime
+    # evidence with. Conforming manifests always carry agent_id, so this is
+    # absent only when reporting malformed input that omitted the required ID.
+    correlation: Optional[AgentCorrelation] = None
+    evidence_pack: Optional[EvidencePack] = None
+    verification_signature: Optional[str] = None
+
+
+class ErrorResponse(BaseModel):
+    """Error response schema (Schema F-13 fix - closes spec gap)."""
+
+    error_code: str
+    error_message: str
+    request_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    retry_after_seconds: Optional[int] = None
+
+
+class RevocationRecord(BaseModel):
+    manifest_id: str
+    revoked_at: datetime
+    reason: str
+    revoked_by: str
+
+
+class VerifyRequest(BaseModel):
+    """Request body for ``POST /verify``.
+
+    ``trusted_keys`` maps key_id (sha256 hex of the raw public key bytes) to
+    the base64url-encoded public key. Signature verification is fail-closed:
+    without trusted keys, a signed manifest yields ``UNVERIFIABLE`` and an
+    unsigned manifest yields ``SIGNATURE_MISSING`` - never ``VALID``.
+
+    ``trusted_key_issuers`` maps each trusted key_id to the issuer SPIFFE URIs
+    authorized to sign manifests with that key. When supplied, key-to-issuer
+    authorization is fail-closed.
+
+    ``approver_public_keys`` maps the human-attributable ``approver_id`` on a
+    HITL approval to its trusted Ed25519 public key. HITL verification is
+    fail-closed: an approval without a trusted key is ``UNVERIFIABLE`` and an
+    invalid signature is ``INVALID``; neither can produce ``VALID``.
+    """
+
+    manifest_id: str
+    enforce_hitl: bool = False
+    enforce_attestation: bool = False
+    # key_id (sha256 hex of pub key bytes) -> base64url-encoded public key bytes
+    trusted_keys: dict[str, str] = Field(default_factory=dict)
+    # key_id -> issuer SPIFFE URIs authorized to use that signing key
+    trusted_key_issuers: Optional[dict[str, list[str]]] = Field(default=None)
+    # principal_id -> base64url-encoded public key bytes (for delegation chain)
+    delegation_public_keys: dict[str, str] = Field(default_factory=dict)
+    # approver_id -> base64url-encoded Ed25519 public key bytes (for HITL)
+    approver_public_keys: dict[str, str] = Field(default_factory=dict)
+    # Digests/IDs produced by an independently trusted transparency verifier.
+    verified_transparency_entry_ids: set[str] = Field(default_factory=set)
+    verified_transparency_receipt_hashes: set[str] = Field(default_factory=set)
+    transparency_evidence_manifest_id: Optional[str] = None
+    # Independent hardware-attestation appraisal results; see VerificationContext.
+    verified_attestation_manifest_hashes: set[str] = Field(default_factory=set)
+    attestation_evidence_manifest_id: Optional[str] = None
+    require_transparency: bool = False
+    # When True, a manifest without a delegation_chain is a verification failure
+    require_delegation: bool = False
+
+    # These seven fields exist to hold key/id material for the hops,
+    # approvers, and keys actually referenced by *one* manifest - never more
+    # than a handful in practice. Without a ceiling, a caller can hand this
+    # endpoint a small request body containing a dict/set with millions of
+    # short entries and force it to be fully buffered and validated before
+    # verify_manifest ever runs. A byte cap on the raw request body
+    # (MAX_VERIFY_BODY_BYTES, enforced in create_router's verify_post) catches
+    # large bodies; this catches the same attack shape hiding behind short
+    # keys/values in a small body.
+    #
+    # verified_attestation_manifest_hashes is the same set[str] shape as
+    # verified_transparency_entry_ids / verified_transparency_receipt_hashes
+    # immediately above it and reaches VerificationContext via the identical
+    # path in verify_post below - it is included here even though the
+    # upstream issue report's field list omitted it, since leaving it out
+    # would just hand an attacker an uncapped field to use instead of the
+    # six named ones.
+    @field_validator(
+        "trusted_keys",
+        "trusted_key_issuers",
+        "delegation_public_keys",
+        "approver_public_keys",
+        "verified_transparency_entry_ids",
+        "verified_transparency_receipt_hashes",
+        "verified_attestation_manifest_hashes",
+    )
+    @classmethod
+    def _cap_collection_size(cls, v: Any) -> Any:
+        if v is None:
+            return v
+        if len(v) > MAX_VERIFY_COLLECTION_ENTRIES:
+            raise ValueError(
+                f"exceeds {MAX_VERIFY_COLLECTION_ENTRIES}-entry limit"
+            )
+        return v
+
+
+# ---------------------------------------------------------------------------
+# Verification engine
+# ---------------------------------------------------------------------------
+
+
+class AuditChainContinuity(BaseModel):
+    """Evidence that a running audit chain descends from the signed root.
+
+    Spec Section 3.2.7.1. The runtime supplies this alongside
+    `audit_chain_root` whenever the chain has advanced past the state bound at
+    manifest signing time. Hex strings, not bytes, so the whole context stays
+    JSON-serializable over the Section 5.1 endpoint.
+    """
+
+    # Chain state at manifest signing time, as served by the runtime. Both
+    # MUST agree with decision_trace.audit_chain_root / entry_count when the
+    # manifest carries them; a disagreement is discontinuity, not a hint.
+    signed_tree_size: int = Field(ge=0)
+    current_tree_size: int = Field(ge=0)
+    signed_seq: int = Field(default=0, ge=0)
+    current_seq: int = Field(default=0, ge=0)
+    observed_at: Optional[datetime] = None
+    ttl_seconds: int = Field(default=300, ge=60, le=7_776_000)
+    # merkle-log: RFC 9162 consistency proof nodes, lowercase hex.
+    consistency_proof: list[str] = Field(default_factory=list)
+    # hash-chained: entry leaf hashes appended after the signed position, in
+    # order, lowercase hex (see _audit_continuity.entry_leaf).
+    appended_entry_leaves: list[str] = Field(default_factory=list)
+
+
+class VerificationContext(BaseModel):
+    """Runtime artifact hashes and keys provided by the trusted component."""
+
+    system_prompt_hash: Optional[str] = None
+    policy_bundle_hash: Optional[str] = None
+    # Spec 6.2: the runtime's attested policy-enforcement mode ("enforce",
+    # "advisory", or "audit-only"). Compared against
+    # artifacts.policy_bundle.enforcement_mode when the manifest declares one.
+    # A caller whose runtime has no notion of enforcement mode simply leaves
+    # this unset, which skips the check (matches today's behavior).
+    enforcement_mode: Optional[str] = None
+    tool_catalog_hash: Optional[str] = None
+    model_version: Optional[str] = None
+    rag_corpus_merkle_root: Optional[str] = None
+    memory_snapshot_hash: Optional[str] = None
+    audit_chain_root: Optional[str] = None
+    # Present only when the running chain has advanced past the signed
+    # root (spec 3.2.7.1). Absent + diverged root = MISMATCH, unchanged.
+    audit_chain_continuity: Optional[AuditChainContinuity] = None
+    container_image_digest: Optional[str] = None
+    # Spec 5.1.2: the relying party's challenge, hex, at least 128 bits from a
+    # CSPRNG, used once. Optional here because a caller verifying a historical
+    # manifest has no freshness requirement to bind.
+    challenge_nonce: Optional[str] = None
+    # Spec 5.1 request context. These do not change what is verified; they are
+    # what the caller declared it was asking, and they travel into the context
+    # hash so the answer is bound to the question.
+    purpose: Optional[str] = None
+    verifier_id: Optional[str] = None
+    enforce_hitl: bool = False
+    enforce_attestation: bool = False
+    min_slsa_level: int = 0
+    # key_id (sha256 hex of pub key bytes) -> base64url-encoded public key bytes
+    trusted_keys: dict[str, str] = Field(default_factory=dict)
+    # key_id -> issuer SPIFFE URIs authorized to use that signing key
+    trusted_key_issuers: Optional[dict[str, list[str]]] = Field(default=None)
+    # principal_id -> base64url-encoded public key bytes (for delegation chain)
+    delegation_public_keys: dict[str, str] = Field(default_factory=dict)
+    # approver_id -> base64url-encoded Ed25519 public key bytes (for HITL)
+    approver_public_keys: dict[str, str] = Field(default_factory=dict)
+    # Legacy Rekor entry UUIDs and sha256 hex digests of raw COSE receipt bytes
+    # that the relying party has independently verified against a trusted log.
+    # These are evidence inputs, not presence assertions made by the envelope.
+    verified_transparency_entry_ids: set[str] = Field(default_factory=set)
+    verified_transparency_receipt_hashes: set[str] = Field(default_factory=set)
+    # The manifest to which the independent appraisal bound those IDs/digests.
+    # This prevents a verified receipt allow-list from becoming replayable.
+    transparency_evidence_manifest_id: Optional[str] = None
+    # Hardware-attestation evidence, on exactly the same footing as the
+    # transparency inputs above: an appraisal the relying party performed, not
+    # an assertion the document makes about itself.
+    #
+    # Each entry is a manifest hash ("sha256:<hex>") for which an independent
+    # hardware appraisal - verify_attestation_chain(), or an equivalent external
+    # verifier - returned passed=True. The engine matches against the hash it
+    # computes locally, never against the manifest's own manifest_hash_in_report,
+    # so nothing an attacker writes into the attestation block can put a value
+    # in this set.
+    verified_attestation_manifest_hashes: set[str] = Field(default_factory=set)
+    # The manifest the appraisal was bound to, so a passing appraisal for one
+    # manifest cannot be replayed against another.
+    attestation_evidence_manifest_id: Optional[str] = None
+    # Level 1+ implies this requirement even when the flag is false.
+    require_transparency: bool = False
+    # When True, bound artifacts without runtime hashes cause INCOMPLETE result
+    # Safe by default: an authentic manifest is not proof that the running
+    # artifacts match it. Callers performing an intentional signature-only
+    # appraisal must opt out explicitly.
+    strict_artifact_verification: bool = True
+    # When True, manifest must have a delegation chain
+    require_delegation: bool = False
+    # Conformance level for enforcing spec §3.2.5.1 poisoning_scan rules.
+    # Level 0: not-scanned is permitted (warning only).
+    # Level 1+: not-scanned is a verification failure.
+    conformance_level: int = 0
+
+
+# Manifest spec versions this verifier implementation can process (spec 2.4).
+# The envelope follows the version, not a flag (ADR-0011): 0.1 is the detached
+# canonical-JSON signature block, 0.2 is COSE. A 0.2 manifest presented as a
+# bare dict has no signature at all - the COSE structure is the signature - so
+# it is reported SIGNATURE_MISSING rather than reinterpreted.
+SUPPORTED_MANIFEST_VERSIONS: frozenset[str] = frozenset({"0.1", "0.2"})
+_HYBRID_ED25519_PUBLIC_KEY_BYTES = 32
+
+# Signature algorithms that satisfy each declared crypto_profile (spec 4.1 /
+# 4.2). The rule is deliberately one-directional: it rejects a signature that
+# provides less than the declared profile requires, and permits one that
+# provides more. A post-quantum profile carrying a classical-only signature is
+# the downgrade spec 4.2 tells verifiers to reject; a standard profile carrying
+# an ML-DSA-65 or hybrid signature is an issuer moving to dual-signing ahead of
+# the profile flip, which is strictly stronger and not an attack.
+KNOWN_SIGNATURE_ALGORITHMS: frozenset[str] = frozenset(
+    {"Ed25519", "ML-DSA-65", "hybrid-Ed25519-ML-DSA-65"}
+)
+PROFILE_SIGNATURE_ALGORITHMS: dict[str, frozenset[str]] = {
+    "standard": KNOWN_SIGNATURE_ALGORITHMS,
+    "post-quantum": frozenset({"ML-DSA-65", "hybrid-Ed25519-ML-DSA-65"}),
+}
+
+
+def _split_hybrid_public_key(
+    key_id: str,
+    public_key_bytes: bytes,
+) -> tuple[bytes, bytes]:
+    """Split and authenticate a combined Ed25519 || ML-DSA-65 public key."""
+    # Lazy import, like other `_signing` uses in this module - keeps the
+    # `[pq]` extra optional. Reads the length from `_signing` instead of
+    # hardcoding 1952 here so the two can't drift apart.
+    from ._signing import _ML_DSA_65_PUBLIC_LEN
+
+    expected_len = _HYBRID_ED25519_PUBLIC_KEY_BYTES + _ML_DSA_65_PUBLIC_LEN
+    if len(public_key_bytes) != expected_len:
+        raise ValueError(
+            "Hybrid public key must be Ed25519 public key bytes "
+            f"({_HYBRID_ED25519_PUBLIC_KEY_BYTES} bytes) followed by "
+            f"ML-DSA-65 public key bytes ({_ML_DSA_65_PUBLIC_LEN} bytes): "
+            f"expected {expected_len} bytes total, got {len(public_key_bytes)}"
+        )
+
+    actual_key_id = hashlib.sha256(public_key_bytes).hexdigest()
+    if not hmac.compare_digest(actual_key_id, key_id):
+        raise ValueError(
+            "Hybrid public key bytes do not match signature.key_id"
+        )
+
+    return (
+        public_key_bytes[:_HYBRID_ED25519_PUBLIC_KEY_BYTES],
+        public_key_bytes[_HYBRID_ED25519_PUBLIC_KEY_BYTES:],
+    )
+
+
+def _signature_key_issuer_mismatch(
+    manifest: dict[str, Any],
+    key_id: str,
+    trusted_key_issuers: Optional[dict[str, list[str]]],
+) -> Optional[MismatchDetail]:
+    """Return a mismatch when a trusted key is not authorized for the issuer."""
+    if trusted_key_issuers is None:
+        return None
+
+    issuer = manifest.get("issuer")
+    if not isinstance(issuer, str) or not issuer:
+        return MismatchDetail(
+            field="signature.issuer",
+            expected_hash="<manifest issuer authorized for signature key>",
+            actual_hash="<missing manifest issuer>",
+        )
+
+    allowed_issuers = trusted_key_issuers.get(key_id)
+    if not allowed_issuers:
+        return MismatchDetail(
+            field="signature.issuer",
+            expected_hash=f"<key_id={key_id} authorized for issuer={issuer!r}>",
+            actual_hash="<key_id has no issuer authorization>",
+        )
+
+    if issuer not in allowed_issuers:
+        return MismatchDetail(
+            field="signature.issuer",
+            expected_hash=f"<issuer in trusted_key_issuers[{key_id!r}]>",
+            actual_hash=f"<issuer={issuer!r}>",
+        )
+
+    return None
+
+
+# The full-binding requirement, checked on the raw document.
+#
+# models.Manifest enforces this in _validate_manifest_profile, which is a
+# mode="after" model validator: Pydantic runs it only once every field has
+# validated. So an unrelated omission deeper in the document stops it running,
+# and _strict_schema_violations then filters the nested "missing" error away for
+# legacy compatibility. Nothing survives, and a manifest that is missing a
+# required binding *and* a nested field verified while one missing only the
+# required binding was MISMATCH. Removing more made the verdict better.
+#
+# Checking the invariant here as well makes it independent of whether the model
+# validator got a chance to run. It is deliberately a duplicate of the rule in
+# models.py rather than a refactor of it: the model has to keep enforcing it for
+# producers, and this path has to keep enforcing it for verifiers even when the
+# model never completes.
+_FULL_BINDING_REQUIRED = ("system_prompt", "policy_bundle", "model_identity")
+
+
+def _full_binding_violation(manifest: dict[str, Any]) -> Optional[tuple[str, str]]:
+    """Return a violation when a full-binding manifest omits a required artifact."""
+    profile = manifest.get("profile")
+    if profile is not None and profile != _EVIDENCE_REQUIREMENTS_PROFILE:
+        # composition-only declares its own unbound set. The experimental
+        # evidence-requirements profile keeps the full-binding rule.
+        return None
+    artifacts = manifest.get("artifacts")
+    if not isinstance(artifacts, dict):
+        return None  # a missing or malformed artifacts block is its own violation
+    missing = [
+        name for name in _FULL_BINDING_REQUIRED if artifacts.get(name) is None
+    ]
+    if not missing:
+        return None
+    return (
+        "artifacts",
+        "full-binding manifest is missing required artifacts: " + ", ".join(missing),
+    )
+
+
+def _strict_schema_violations(manifest: dict[str, Any]) -> list[tuple[str, str]]:
+    """Run the manifest through the Pydantic schema and return fail-closed errors.
+
+    Returns a list of (location, message) tuples for every validation error,
+    except legacy omissions inside individual artifact-binding objects, and a
+    missing top-level ``issuer`` on a v0.1 manifest specifically. The verifier
+    historically appraises incomplete artifact bindings as ``NOT_BOUND``; that
+    compatibility does not extend to the other required top-level claims that
+     define the manifest's identity, authority, validity, and signed contents.
+
+    The ``issuer`` exception is scoped to v0.1 only. ``issuer`` did not exist
+    on v0.1 manifests, so a v0.1 record omitting it is unremarkable and stays
+    compatible (CHANGELOG: "legacy v0.1 issuer omission remains compatible").
+    The v0.2 spec makes ``issuer`` REQUIRED, and it is a meaningful security
+    property there - ``_signature_key_issuer_mismatch`` uses it for key
+    authorization - so a v0.2 manifest missing it is a genuine schema
+    violation and must fail closed like any other missing required claim.
+
+    ``approval_duration_seconds`` is excluded from that carve-out: it bounds
+    a HITL approval's validity window (ADR-0006), so omitting it must fail
+    closed the same way setting it to 0 does, not be waved through as an
+    approval that never expires.
+    """
+    from pydantic import ValidationError
+
+    from .models import Manifest
+
+    # An empty delegation_chain means "no delegation"; the engine already
+    # normalizes it to absent (``manifest.get("delegation_chain") or []``).
+    # The schema models it as ``min_length=1`` (omit when empty), so drop an
+    # empty/None chain before validating to avoid flagging the benign idiom.
+    if not manifest.get("delegation_chain"):
+        manifest = {k: v for k, v in manifest.items() if k != "delegation_chain"}
+
+    is_legacy_v01 = manifest.get("version") == "0.1"
+    is_evidence_requirements = (
+        manifest.get("profile") == _EVIDENCE_REQUIREMENTS_PROFILE
+    )
+
+    try:
+        Manifest.model_validate(manifest)
+    except ValidationError as exc:
+        violations: list[tuple[str, str]] = []
+        for err in exc.errors():
+            loc_parts = err.get("loc", ())
+            # The experimental evidence-requirements profile is new, so it has
+            # no legacy omissions to tolerate: every missing field fails closed.
+            is_legacy_omission = (
+                not is_evidence_requirements
+                and err.get("type") == "missing"
+                and (
+                    len(loc_parts) > 1
+                    or (loc_parts == ("issuer",) and is_legacy_v01)
+                )
+            )
+            if loc_parts and loc_parts[-1] == "approval_duration_seconds":
+                is_legacy_omission = False
+            if is_legacy_omission:
+                continue
+            loc = ".".join(str(p) for p in loc_parts)
+            violations.append((loc, err.get("msg", "schema error")))
+        # A filtered nested omission may have kept the profile validator from
+        # running at all, so re-check that invariant directly.
+        extra = _full_binding_violation(manifest)
+        if extra is not None and not any(
+            msg.startswith("full-binding manifest is missing") for _loc, msg in violations
+        ):
+            violations.append(extra)
+        return violations
+    return []
+
+
+def _check_decision_trace(
+    dt: dict[str, Any],
+    context: "VerificationContext",
+    mismatches: list["MismatchDetail"],
+    check: Callable[[str, Optional[str], Optional[str]], FieldResult],
+) -> FieldResult:
+    """Verify artifact #7 against the running audit chain (spec 3.2.7 / 3.2.7.1).
+
+    `audit_chain_root` is the chain state at manifest signing time, so a
+    running chain that has recorded a single decision since then no longer
+    matches it. Three outcomes, and the middle one is the point of #273:
+
+      MATCH      roots identical - the chain has not moved.
+      EXTENDED   roots differ, and continuity evidence proves the signed root
+                 is an append-only prefix of the running root.
+      MISMATCH   roots differ with no proof, a failed proof, a rollback, or a
+                 stale checkpoint. Unchanged fail-closed behaviour: an
+                 unproven divergence is exactly the rebuilt-chain case
+                 Section 3.2.7 already requires a verifier to reject.
+    """
+    signed_root = dt.get("audit_chain_root")
+    running_root = context.audit_chain_root
+    if signed_root is None or running_root is None:
+        # Unbound, or bound with nothing to compare against: the inner _check
+        # owns NOT_BOUND and the strict_artifact_verification bookkeeping.
+        return check("decision_trace", signed_root, running_root)
+    if hmac.compare_digest(signed_root, running_root):
+        return FieldResult.MATCH
+
+    continuity = context.audit_chain_continuity
+    if continuity is None:
+        mismatches.append(MismatchDetail(
+            field="decision_trace",
+            expected_hash=signed_root,
+            actual_hash=running_root,
+        ))
+        return FieldResult.MISMATCH
+
+    signed_count = dt.get("entry_count")
+    if signed_count is not None and signed_count != continuity.signed_tree_size:
+        # entry_count is the only size the issuer signed. If the runtime
+        # reports a different signed size, the proof is being anchored at a
+        # position the manifest never committed to.
+        mismatches.append(MismatchDetail(
+            field="decision_trace",
+            expected_hash=signed_root,
+            actual_hash=running_root,
+        ))
+        return FieldResult.MISMATCH
+
+    observed_at = continuity.observed_at or datetime.now(timezone.utc)
+    verdict = verify_continuity(
+        AuditCheckpoint(
+            audit_chain_root=signed_root,
+            tree_size=continuity.signed_tree_size,
+            seq=continuity.signed_seq,
+            observed_at=observed_at,
+            ttl_seconds=continuity.ttl_seconds,
+        ),
+        AuditCheckpoint(
+            audit_chain_root=running_root,
+            tree_size=continuity.current_tree_size,
+            seq=continuity.current_seq,
+            observed_at=observed_at,
+            ttl_seconds=continuity.ttl_seconds,
+        ),
+        trace_type=dt.get("trace_type") or "hash-chained",
+        consistency_proof=_hex_nodes(continuity.consistency_proof),
+        appended_entry_leaves=_hex_nodes(continuity.appended_entry_leaves),
+    )
+    if verdict.accepted:
+        return FieldResult.EXTENDED
+    mismatches.append(MismatchDetail(
+        field="decision_trace",
+        expected_hash=signed_root,
+        actual_hash=running_root,
+    ))
+    return FieldResult.MISMATCH
+
+
+def _hex_nodes(values: list[str]) -> list[bytes]:
+    """Decode hex proof nodes, mapping anything malformed to a value that
+    cannot verify. Raising here would turn a hostile proof into a 500."""
+    nodes: list[bytes] = []
+    for value in values:
+        try:
+            nodes.append(bytes.fromhex(value))
+        except (ValueError, TypeError):
+            nodes.append(b"")
+    return nodes
+
+
+# Spec 5.1.2 rule 6. Domain separated so the derived value cannot be presented
+# as a verification challenge in its own right.
+_RUNTIME_NONCE_DOMAIN = b"am-runtime-nonce"
+
+# The context inputs this implementation lets affect a verification decision.
+# Spec 5.1.2 rule 2 requires every such input to be inside the hash; an
+# implementation that drops one is asserting a decision it did not make. The
+# runtime artifact hashes and key material in VerificationContext are not in
+# this list because they are the evidence being checked and the trust anchors
+# doing the checking, not the question the relying party asked.
+_CONTEXT_HASH_FIELDS: tuple[str, ...] = (
+    "conformance_level",
+    "enforce_attestation",
+    "enforce_hitl",
+    "min_slsa_level",
+    "purpose",
+    "require_delegation",
+    "require_transparency",
+    "strict_artifact_verification",
+    "verifier_id",
+)
+
+
+def verification_context_hash(context: "VerificationContext") -> str:
+    """`sha256:` digest of the RFC 8785 canonical JSON of the request context.
+
+    Spec 5.1.2 rule 2. `challenge_nonce` is deliberately excluded (rule 3): the
+    relying party compares the nonce directly, and leaving it out means two
+    requests asking the same question hash the same, which is what makes the
+    value comparable across requests at all.
+    """
+    from ._canonicalize import canonicalize
+
+    declared = {
+        name: getattr(context, name)
+        for name in _CONTEXT_HASH_FIELDS
+        if getattr(context, name, None) is not None
+    }
+    return "sha256:" + hashlib.sha256(canonicalize(declared)).hexdigest()
+
+
+def derive_runtime_nonce(challenge_nonce: str) -> bytes:
+    """Derive the section 3.3.2 runtime-report nonce from a 5.1.2 challenge.
+
+    `sha256("am-runtime-nonce" || challenge_nonce_bytes)`. A runtime report
+    whose nonce is not this derivation is evidence about a different challenge,
+    which leaves the two freshness domains replayable independently of each
+    other -- the composition failure spec 5.1.2 rule 6 exists to prevent.
+
+    Raises ValueError if *challenge_nonce* is not hex or is under 128 bits.
+    """
+    try:
+        raw = bytes.fromhex(challenge_nonce)
+    except (ValueError, TypeError) as exc:
+        raise ValueError("challenge_nonce must be hex") from exc
+    if len(raw) < 16:
+        raise ValueError(
+            f"challenge_nonce must carry at least 128 bits, got {len(raw) * 8}"
+        )
+    return hashlib.sha256(_RUNTIME_NONCE_DOMAIN + raw).digest()
+
+
+def verify_manifest(
+    manifest: Union[dict[str, Any], bytes],
+    context: VerificationContext,
+    revocation_store: "RevocationStore",
+    *,
+    _envelope: Optional[CoseVerification] = None,
+) -> VerificationResult:
+    """Core verification engine - hosting-model agnostic and fail-closed.
+
+    Checks version compatibility, signature, expiry, revocation, artifact
+    hashes, delegation chain, and HITL. Returns a VerificationResult with
+    per-field status and mismatch details.
+
+    Accepts either envelope, selected by what it is given (ADR-0011):
+
+    - A ``dict`` is a version 0.1 manifest carrying a detached ``signature``
+      block, verified over the RFC 8785 pre-image exactly as it always has been.
+    - ``bytes`` are a version 0.2 COSE envelope (``COSE_Sign1`` or
+      ``COSE_Sign``). The signature is checked over the payload as received,
+      and receipts, attestation, and approvals are read from the unprotected
+      header after the signature is settled.
+
+    Fail-closed semantics (spec 5.3 - VALID requires a valid signature):
+
+    - A manifest with an unsupported (or missing) ``version`` returns
+      ``INCOMPATIBLE_VERSION`` without further processing (spec 2.4).
+    - A manifest without a ``signature`` block returns ``SIGNATURE_MISSING``.
+    - A signed manifest verified without any ``trusted_keys`` in the context
+      returns ``UNVERIFIABLE`` - never ``VALID``.
+    - A delegation chain that cannot be verified (no
+      ``delegation_public_keys``) is marked ``UNVERIFIABLE`` and the overall
+      result is ``UNVERIFIABLE`` (spec 3.4.1 / 5.2).
+    - A delegation chain that verifies signatures and scope narrowing but
+      carries a non-empty ``scope_grant.constraints`` (a Cedar statement this
+      verifier does not parse or evaluate) is also marked ``UNVERIFIABLE``,
+      not ``VALID`` (spec 3.4.1 / 5.2).
+    - ``enforce_hitl=True`` with no ``hitl_record`` in the manifest is a
+      failure (``HitlResult.MISSING`` and a non-VALID overall result).
+    - An approval is never ``APPROVED`` unless its own signature verifies with
+      a trusted approver key and binds the current manifest ID and scope.
+
+    The ``_envelope`` parameter is internal: it carries an already-appraised
+    COSE envelope into the shared pipeline and is not part of the public API.
+    """
+    from cryptography.exceptions import InvalidSignature
+
+    if isinstance(manifest, (bytes, bytearray)):
+        return _verify_cose_envelope(bytes(manifest), context, revocation_store)
+
+    # Version negotiation is the prerequisite for every current-schema
+    # interpretation below (spec 2.4). Read only the discriminator first. A
+    # future-shaped manifest must not be classified against today's schema.
+    version = manifest.get("version")
+    if version not in SUPPORTED_MANIFEST_VERSIONS:
+        return VerificationResult(
+            manifest_id="unknown",
+            result=OverallResult.INCOMPATIBLE_VERSION,
+        )
+
+    manifest_id = manifest.get("manifest_id", "unknown")
+    result = VerificationResult(manifest_id=manifest_id, result=OverallResult.VALID)
+    agent_uid = manifest.get("agent_id")
+    if isinstance(agent_uid, str) and agent_uid:
+        instance_uid = manifest.get("agent_instance_id")
+        result.correlation = AgentCorrelation(
+            agent_uid=agent_uid,
+            agent_instance_uid=instance_uid if isinstance(instance_uid, str) else None,
+            manifest_id=manifest_id,
+        )
+    result.verification_context_hash = verification_context_hash(context)
+    result.challenge_nonce = context.challenge_nonce
+    mismatches: list[MismatchDetail] = []
+    fields = result.fields_verified
+    transparency_present = False
+    transparency_unverifiable = False
+
+    # --- Schema validation (fail-closed). verify_manifest accepts a raw dict,
+    # so it must run a supported manifest through the Pydantic guards before
+    # trusting current-version fields. This makes extra="forbid" (unknown
+    # fields), enum/type constraints, the expiry window, and timestamp parsing
+    # actually apply on the verify path. A malformed expires_at is a schema
+    # failure here, not a silently non-expiring manifest.
+    #
+    # Required top-level claims fail closed. Missing runtime observations in the
+    # VerificationContext still produce NOT_BOUND; legacy omissions nested in
+    # individual artifact bindings retain that same compatibility behavior.
+    schema_violations = _strict_schema_violations(manifest)
+    if schema_violations:
+        result.result = OverallResult.MISMATCH
+        for loc, msg in schema_violations:
+            mismatches.append(MismatchDetail(
+                field=f"schema:{loc}" if loc else "schema",
+                expected_hash="<schema-valid manifest>",
+                actual_hash=f"<{msg}>",
+            ))
+        result.mismatch_details = mismatches
+        return result
+
+    # --- Revocation check (must happen before VALID can be returned)
+    if revocation_store.is_revoked(manifest_id):
+        result.result = OverallResult.REVOKED
+        return result
+
+    # --- Validity-window check (spec 5.3: issued_at <= now < expires_at)
+    issued_at = manifest.get("issued_at")
+    expires_at = manifest.get("expires_at")
+    if issued_at and expires_at:
+        try:
+            issued = _parse_timestamp(issued_at)
+            exp = _parse_timestamp(expires_at)
+            now = datetime.now(timezone.utc)
+            if issued > now:
+                result.result = OverallResult.MISMATCH
+                result.mismatch_details = [MismatchDetail(
+                    field="validity.issued_at",
+                    expected_hash="<issued_at at or before verification time>",
+                    actual_hash=f"<{issued_at}>",
+                )]
+                return result
+            if exp <= now:
+                result.result = OverallResult.EXPIRED
+                return result
+        except (ValueError, AttributeError):
+            # Fail closed. These strings are inside the signing pre-image, so an
+            # unreadable one is not a transport artefact; it is a manifest whose
+            # validity window this verifier cannot evaluate. Skipping the check
+            # let a correctly signed but expired manifest reach VALID.
+            result.result = OverallResult.MISMATCH
+            result.mismatch_details = [MismatchDetail(
+                field="validity.timestamps",
+                expected_hash="<parseable issued_at and expires_at>",
+                actual_hash=f"<issued_at={issued_at!r} expires_at={expires_at!r}>",
+            )]
+            return result
+
+    # --- Crypto profile downgrade check (spec 4.2: a verifier MUST reject
+    # rather than silently fall back, "this prevents downgrade attacks during
+    # the transition period").
+    #
+    # crypto_profile is inside the signing pre-image (SIGNED_FIELDS) but
+    # signature.algorithm is not - the whole signature block is excluded from
+    # the pre-image by section 3.6. An intermediary can therefore rewrite the
+    # algorithm identifier without disturbing the signed bytes. Cross-checking
+    # the unsigned identifier against the signed profile is what binds the two,
+    # and it runs independently of trusted_keys: a post-quantum manifest
+    # presented with a classical-only signature is a downgrade whether or not
+    # this verifier holds the key to check that signature.
+    #
+    # None of this applies to a COSE envelope. There ``alg`` is in the
+    # protected header, covered by the signature, so there is no unsigned
+    # identifier to cross-check; the profile check ran during envelope
+    # appraisal, and the signature was verified over the payload as received.
+    # An empty sig_block skips both branches below.
+    if _envelope is not None:
+        sig_block: dict[str, Any] = {}
+        signature_missing = False
+        result.signature_verified = _envelope.verified
+        # The key-to-issuer authorization is NOT part of envelope appraisal -
+        # it is this engine's policy check, and skipping it on the COSE path
+        # would let any trusted key sign for any issuer, which the v0.1 path
+        # rejects. Every signer must be authorized, so a hybrid manifest
+        # cannot smuggle an unauthorized component key alongside a valid one.
+        for _signature in _envelope.signatures:
+            _issuer_mismatch = _signature_key_issuer_mismatch(
+                manifest, _signature.key_id, context.trusted_key_issuers
+            )
+            if _issuer_mismatch is not None:
+                mismatches.append(_issuer_mismatch)
+    else:
+        sig_block = manifest.get("signature") or {}
+        signature_missing = not sig_block
+        if sig_block and manifest.get("version") == COSE_MANIFEST_VERSION:
+            # The envelope follows the version (ADR-0011), and for 0.2 that is
+            # COSE. `signature` is not a v0.2 field at all - the COSE structure
+            # is the signature - so a 0.2 manifest carrying a detached block is
+            # claiming the new version while using the old envelope, with the
+            # unauthenticated algorithm identifier and the canonicalize-before-
+            # verify step that ADR-0011 moved away from. Verifying it under v0.1
+            # rules would make the version gate advisory and leave the phase 5
+            # deprecation unenforceable, so it is rejected rather than accepted.
+            mismatches.append(MismatchDetail(
+                field="signature",
+                expected_hash=(
+                    f"<COSE envelope for manifest version "
+                    f"{COSE_MANIFEST_VERSION}>"
+                ),
+                actual_hash="<v0.1 detached signature block>",
+            ))
+            sig_block = {}
+            signature_missing = False
+    profile_downgrade = False
+    if sig_block:
+        declared_profile = manifest.get("crypto_profile", "standard")
+        permitted = PROFILE_SIGNATURE_ALGORITHMS.get(declared_profile)
+        declared_algorithm = sig_block.get("algorithm")
+        if declared_algorithm is None:
+            # spec 3.6: algorithm is REQUIRED and unauthenticated, so an absent
+            # identifier must not fall back to the classical default.
+            profile_downgrade = True
+            mismatches.append(MismatchDetail(
+                field="signature.algorithm",
+                expected_hash="<algorithm declared>",
+                actual_hash="<algorithm absent>",
+            ))
+        # An unrecognised algorithm identifier is left to the signature
+        # verification branch below, which reports it as such.
+        elif (
+            permitted is not None
+            and declared_algorithm in KNOWN_SIGNATURE_ALGORITHMS
+            and declared_algorithm not in permitted
+        ):
+            profile_downgrade = True
+            mismatches.append(MismatchDetail(
+                field="signature.algorithm",
+                expected_hash=(
+                    f"<crypto_profile={declared_profile} permits "
+                    f"{'|'.join(sorted(permitted))}>"
+                ),
+                actual_hash=f"<algorithm={declared_algorithm}>",
+            ))
+
+    # --- Signature verification (CRYPTO-004, fail-closed per spec 5.3)
+    if sig_block and context.trusted_keys and not profile_downgrade:
+        algorithm = sig_block.get("algorithm", "Ed25519")
+        key_id = sig_block.get("key_id", "")
+        pub_b64 = context.trusted_keys.get(key_id)
+        if pub_b64 is None:
+            mismatches.append(MismatchDetail(
+                field="signature",
+                expected_hash=f"<key_id={key_id} in trusted_keys>",
+                actual_hash="<key_id not found in trusted_keys>",
+            ))
+        else:
+            issuer_mismatch = _signature_key_issuer_mismatch(
+                manifest,
+                key_id,
+                context.trusted_key_issuers,
+            )
+            if issuer_mismatch is not None:
+                mismatches.append(issuer_mismatch)
+            else:
+                from ._signing import (
+                    AlgorithmUnavailableError,
+                    Ed25519Verifier,
+                    MlDsa65Verifier,
+                    HybridVerifier,
+                    _b64url_decode,
+                )
+                try:
+                    pub_bytes = _b64url_decode(pub_b64)
+                    if algorithm == "Ed25519":
+                        Ed25519Verifier(pub_bytes).verify(manifest, sig_block.get("signature_value", ""))
+                        result.signature_verified = True
+                    elif algorithm == "ML-DSA-65":
+                        MlDsa65Verifier(pub_bytes).verify(manifest, sig_block.get("signature_value", ""))
+                        result.signature_verified = True
+                    elif algorithm == "hybrid-Ed25519-ML-DSA-65":
+                        # Hybrid key_id covers the registered combined public key:
+                        # sha256(Ed25519 public bytes || ML-DSA-65 public bytes).
+                        # Component key ids from the unsigned signature block are
+                        # intentionally ignored.
+                        ed_bytes, pq_bytes = _split_hybrid_public_key(key_id, pub_bytes)
+                        HybridVerifier(ed_bytes, pq_bytes).verify(manifest, sig_block)
+                        result.signature_verified = True
+                    else:
+                        mismatches.append(MismatchDetail(
+                            field="signature",
+                            expected_hash="<known algorithm: Ed25519|ML-DSA-65|hybrid-Ed25519-ML-DSA-65>",
+                            actual_hash=f"<unknown algorithm: {algorithm!r}>",
+                        ))
+                except AlgorithmUnavailableError as e:
+                    # The post-quantum profile needs the optional [pq] extra.
+                    # Without it this build cannot appraise an ML-DSA-65 or
+                    # hybrid signature at all. That is a capability gap, not a
+                    # bad manifest, so it must not be reported as MISMATCH -
+                    # and it must not escape as an exception either, since a
+                    # manifest is untrusted input and verify_manifest() is
+                    # expected to return a verdict. signature_verified stays
+                    # False, so the fail-closed chain below yields UNVERIFIABLE
+                    # (spec 4.2: a verifier that does not support the profile
+                    # rejects rather than silently falling back).
+                    result.warnings.append(
+                        f"signature algorithm {algorithm} is not supported by this "
+                        f"build, so the signature could not be appraised: {e}"
+                    )
+                except InvalidSignature:
+                    mismatches.append(MismatchDetail(
+                        field="signature",
+                        expected_hash="<valid signature>",
+                        actual_hash="<invalid signature>",
+                    ))
+                except ValueError as e:
+                    mismatches.append(MismatchDetail(
+                        field="signature",
+                        expected_hash="<valid signature>",
+                        actual_hash=f"<malformed: {e}>",
+                    ))
+
+    # --- Artifact hash verification
+    artifacts = manifest.get("artifacts") or {}
+    unverified_bound: list[str] = []  # bound artifacts with no runtime hash (VERIFY-001)
+
+    def _check(field_name: str, manifest_val: Optional[str], runtime_val: Optional[str]) -> FieldResult:
+        if manifest_val is None:
+            return FieldResult.NOT_BOUND
+        if runtime_val is None:
+            unverified_bound.append(field_name)
+            return FieldResult.NOT_BOUND
+        # Constant-time comparison to prevent timing side-channels (CRYPTO-002)
+        if hmac.compare_digest(manifest_val, runtime_val):
+            return FieldResult.MATCH
+        mismatches.append(MismatchDetail(
+            field=field_name,
+            expected_hash=manifest_val,
+            actual_hash=runtime_val,
+        ))
+        return FieldResult.MISMATCH
+
+    sp = artifacts.get("system_prompt") or {}
+    fields.system_prompt = _check(
+        "system_prompt",
+        sp.get("hash"),
+        context.system_prompt_hash,
+    )
+
+    pb = artifacts.get("policy_bundle") or {}
+    fields.policy_bundle = _check(
+        "policy_bundle",
+        pb.get("hash"),
+        context.policy_bundle_hash,
+    )
+    # Spec 6.2: a manifest that declares an enforcement_mode is asserting the
+    # runtime must be attested as operating in that mode. The hash matching
+    # is not sufficient on its own -- the same approved policy bundle could
+    # be loaded while the runtime enforces it differently (e.g. "advisory"
+    # instead of "enforce"), which is exactly the gap this closes. Only
+    # runs when the manifest actually declares a mode, so a manifest that
+    # doesn't (or a caller that doesn't pass context.enforcement_mode) keeps
+    # today's behavior unchanged.
+    declared_mode = pb.get("enforcement_mode")
+    if declared_mode is not None and fields.policy_bundle != FieldResult.NOT_BOUND:
+        if context.enforcement_mode is None:
+            mismatches.append(MismatchDetail(
+                field="policy_bundle.enforcement_mode",
+                expected_hash=declared_mode,
+                actual_hash="<not provided>",
+            ))
+            fields.policy_bundle = FieldResult.MISMATCH
+        elif declared_mode != context.enforcement_mode:
+            mismatches.append(MismatchDetail(
+                field="policy_bundle.enforcement_mode",
+                expected_hash=declared_mode,
+                actual_hash=context.enforcement_mode,
+            ))
+            fields.policy_bundle = FieldResult.MISMATCH
+
+    tm = artifacts.get("tool_manifest") or {}
+    fields.tool_manifest = _check(
+        "tool_manifest",
+        tm.get("catalog_hash"),
+        context.tool_catalog_hash,
+    )
+    # Spec 3.2.3: the declared root also commits to the adjacent tools. A
+    # matching runtime hash cannot establish that internal consistency.
+    # Preserve legacy omitted bindings, but hash an explicitly empty catalog.
+    if tm.get("catalog_hash") is not None and "tools" in tm:
+        from ._merkle import build_catalog_tree
+        from ._types import HashValue
+        from .models import ToolEntry
+
+        try:
+            # HashValue fields were validated by the schema gate, but its str
+            # coercions are not applied to this raw dict. Reject Python-only
+            # tool IDs before passing them to the builder.
+            catalog_tools = []
+            for tool in tm["tools"]:
+                if not isinstance(tool, dict) or not isinstance(tool.get("tool_id"), str):
+                    raise ValueError("catalog tools require string tool IDs")
+                # Construct only the Merkle inputs so legacy omissions of
+                # nonhashed metadata do not become new validation failures.
+                catalog_tools.append(ToolEntry.model_construct(
+                    tool_id=tool["tool_id"],
+                    schema_hash=HashValue(tool["schema_hash"]),
+                    description_hash=HashValue(tool["description_hash"]),
+                ))
+            computed_catalog_hash = build_catalog_tree(
+                catalog_tools, algorithm=HashValue(tm["catalog_hash"]).algorithm,
+            )
+        except (KeyError, ValueError):
+            # Missing leaf inputs and construction failures cannot prove a root.
+            computed_catalog_hash = "<unverifiable tools>"
+        if _check(
+            "tool_manifest.catalog_hash", tm["catalog_hash"], computed_catalog_hash,
+        ) == FieldResult.MISMATCH:
+            fields.tool_manifest = FieldResult.MISMATCH
+
+    mi = artifacts.get("model_identity") or {}
+    # For api-deployed models, bind by version string, not binary hash
+    mi_bound = mi.get("model_hash") or mi.get("version")
+    fields.model_identity = _check(
+        "model_identity",
+        mi_bound,
+        context.model_version,
+    )
+
+    rc = artifacts.get("rag_corpus") or {}
+    fields.rag_corpus = _check(
+        "rag_corpus",
+        rc.get("merkle_root"),
+        context.rag_corpus_merkle_root,
+    )
+
+    # --- Configuration assurance (spec §3.2.1.1, issue #254)
+    # Same rule shape as the poisoning scan below, and the same reasoning: an
+    # assessment that ran and failed is evidence against the configuration, so
+    # carrying it while returning VALID would make the field decorative. An
+    # absent or not-assessed block is reported, never inferred as a pass, and
+    # does not affect the overall result in v0.2 -- which conformance level
+    # requires an assessment is deliberately still open.
+    assurance = (artifacts.get("system_prompt") or {}).get("assurance_test") or {}
+    assurance_result = assurance.get("result")
+    if assurance_result == "passed":
+        result.configuration_assurance = ConfigurationAssurance.PASSED
+    elif assurance_result == "flagged":
+        result.configuration_assurance = ConfigurationAssurance.FLAGGED
+        mismatches.append(MismatchDetail(
+            field="system_prompt.assurance_test",
+            expected_hash="<result: passed or not-assessed>",
+            actual_hash="<result: flagged>",
+        ))
+    else:
+        result.configuration_assurance = ConfigurationAssurance.NOT_ASSESSED
+        if assurance_result == "not-assessed":
+            result.warnings.append(
+                "system_prompt.assurance_test.result is 'not-assessed'; the "
+                "approved prompt's behaviour has not been assessed"
+            )
+
+    # --- Poisoning scan rules (spec §3.2.5.1)
+    poisoning_scan = rc.get("poisoning_scan") or {}
+    poisoning_result = poisoning_scan.get("result")
+    if poisoning_result == "flagged":
+        mismatches.append(MismatchDetail(
+            field="rag_corpus.poisoning_scan",
+            expected_hash="<result: clean or not-scanned>",
+            actual_hash="<result: flagged>",
+        ))
+    elif poisoning_result == "not-scanned":
+        if context.conformance_level >= 1:
+            mismatches.append(MismatchDetail(
+                field="rag_corpus.poisoning_scan",
+                expected_hash="<result: clean>",
+                actual_hash="<result: not-scanned>",
+            ))
+        else:
+            result.warnings.append(
+                "rag_corpus.poisoning_scan.result is 'not-scanned'; scan before Level 1 conformance"
+            )
+
+    mb = artifacts.get("memory_baseline") or {}
+    if mb:
+        from datetime import timedelta
+        # Check TTL expiry for memory baseline
+        ttl = mb.get("ttl_seconds")
+        approved_at = mb.get("approved_at")
+        baseline_expired = False
+        if ttl and approved_at:
+            try:
+                approved = _parse_timestamp(approved_at)
+                if datetime.now(timezone.utc) > approved + timedelta(seconds=ttl):
+                    baseline_expired = True
+            except (ValueError, AttributeError):
+                # Same fail-closed rule as the validity window and the HITL
+                # approval window (HITL-001): a TTL that cannot be evaluated is
+                # treated as elapsed, never as still current.
+                baseline_expired = True
+        if baseline_expired:
+            fields.memory_baseline = FieldResult.EXPIRED
+        else:
+            fields.memory_baseline = _check(
+                "memory_baseline",
+                mb.get("snapshot_hash"),
+                context.memory_snapshot_hash,
+            )
+
+    dt = artifacts.get("decision_trace") or {}
+    fields.decision_trace = _check_decision_trace(dt, context, mismatches, _check)
+
+    sc = artifacts.get("supply_chain") or {}
+    fields.supply_chain = _check(
+        "supply_chain",
+        sc.get("container_image_digest"),
+        context.container_image_digest,
+    )
+
+    # --- Delegation chain (VERIFY-002)
+    chain = manifest.get("delegation_chain") or []
+    if chain:
+        if context.delegation_public_keys:
+            try:
+                from ._delegation import DelegationUnverifiable, verify_delegation_chain
+                from ._signing import _b64url_decode
+                pub_keys = {
+                    pid: _b64url_decode(b64)
+                    for pid, b64 in context.delegation_public_keys.items()
+                }
+                # Bind the chain root to the manifest signing identity so a
+                # valid chain cannot be grafted onto an unrelated manifest.
+                manifest_issuer = manifest.get("issuer") or manifest.get("agent_id")
+                verify_delegation_chain(
+                    chain, pub_keys, manifest_id, manifest_issuer=manifest_issuer
+                )
+                fields.delegation_chain = DelegationResult.VALID
+            except DelegationUnverifiable:
+                # Spec 3.4.1 / 5.2: the chain is structurally and
+                # cryptographically sound, but carries non-empty Cedar
+                # scope_grant.constraints this verifier cannot parse or
+                # evaluate. This MUST NOT be reported as VALID.
+                fields.delegation_chain = DelegationResult.UNVERIFIABLE
+            except (InvalidSignature, ValueError) as e:
+                fields.delegation_chain = DelegationResult.INVALID
+                mismatches.append(MismatchDetail(
+                    field="delegation_chain",
+                    expected_hash="<valid chain>",
+                    actual_hash=f"<invalid: {e}>",
+                ))
+        else:
+            # No public keys provided - the chain cannot be verified.
+            # Fail closed: surface UNVERIFIABLE rather than VALID (spec 3.4.1 / 5.2).
+            fields.delegation_chain = DelegationResult.UNVERIFIABLE
+    else:
+        fields.delegation_chain = DelegationResult.NOT_PRESENT
+        if context.require_delegation:
+            mismatches.append(MismatchDetail(
+                field="delegation_chain",
+                expected_hash="<delegation chain present>",
+                actual_hash="<delegation chain absent>",
+            ))
+
+    # --- HITL
+    hitl = manifest.get("hitl_record")
+    if hitl and isinstance(hitl, dict):
+        required = hitl.get("required", False)
+        approvals = hitl.get("approvals") or []
+        if not required and not context.enforce_hitl:
+            fields.hitl_record = HitlResult.NOT_REQUIRED
+        elif not approvals:
+            if context.enforce_hitl:
+                mismatches.append(MismatchDetail(
+                    field="hitl_record",
+                    expected_hash="<approval present>",
+                    actual_hash="<none>",
+                ))
+            fields.hitl_record = HitlResult.MISSING
+        else:
+            # Approval entries attach outside the manifest/COSE signature and
+            # MUST be authenticated independently (spec 3.5, 3.6, and 5.3).
+            # Presence, lifetime, and method checks alone do not prove that a
+            # human approved this manifest: the signature pre-image binds the
+            # manifest ID, approver, timestamp, and exact scope.
+            from datetime import timedelta
+
+            from ._delegation import (
+                _check_hitl_approval_duration,
+                _parse_hitl_approval_timestamp,
+                verify_hitl_approval,
+            )
+            from ._signing import _b64url_decode
+
+            now = datetime.now(timezone.utc)
+            # Spec 5.3: a VALID result requires *at least one* approval that is
+            # present, valid, unexpired, and sufficient for the declared risk
+            # tier - not that *every* approval in the array meets that bar.
+            # Each approval is therefore evaluated independently and the loop
+            # only stops early once an approval that clears every check is
+            # found. Approvals that fail must not short-circuit the
+            # evaluation of the approvals that follow them (HITL-004).
+            any_approved = False
+            approval_insufficient = False
+            approval_invalid = False
+            approval_unverifiable = False
+            any_expired = False
+            for approval in approvals:
+                # Establish the shapes this loop reads before interpreting
+                # them - same discipline verify_hitl_approval() applies to
+                # the same fields - so a malformed entry in the approvals
+                # array always lands in the approval_invalid bucket below
+                # rather than raising an incidental AttributeError out of
+                # this loop and crashing verify_manifest() entirely. Schema
+                # validation already rejects these shapes before this loop
+                # runs; this is defense in depth.
+                if not isinstance(approval, dict):
+                    approval_invalid = True
+                    continue
+                approved_scope = approval.get("approved_scope")
+                if not isinstance(approved_scope, dict):
+                    approval_invalid = True
+                    continue
+                duration = approved_scope.get("approval_duration_seconds", 0)
+                # Same check verify_hitl_approval() uses (HITL-003, spec
+                # 3.5) - shared so the two can't drift apart again.
+                try:
+                    _check_hitl_approval_duration(duration)
+                except ValueError:
+                    approval_invalid = True
+                    continue
+                try:
+                    # Same parse+tz-awareness check verify_hitl_approval()
+                    # uses (shared so the two can't drift apart again). A
+                    # tz-naive approved_at ("2026-09-16T10:00:00") parses
+                    # fine with a bare datetime.fromisoformat() but then
+                    # raises TypeError when compared below against `now`
+                    # (aware) - that TypeError isn't in this except clause
+                    # on purpose, so a regression here would be loud rather
+                    # than silently escaping verify_manifest() again.
+                    ap_time = _parse_hitl_approval_timestamp(approval.get("approved_at", ""))
+                    if now > ap_time + timedelta(seconds=duration):
+                        any_expired = True
+                        continue
+                except (ValueError, OverflowError):
+                    # Unparseable/tz-naive timestamp or out-of-range
+                    # duration - treat as expired to fail safe (HITL-001).
+                    any_expired = True
+                    continue
+                if context.conformance_level >= 2:
+                    risk_tier = approved_scope.get("risk_tier")
+                    method = approval.get("approval_method")
+                    if method == "software-key" or (
+                        risk_tier in {"high", "critical"} and method != "hardware-key"
+                    ):
+                        approval_insufficient = True
+                        continue
+
+                approver_id = approval.get("approver_id")
+                if not isinstance(approver_id, str):
+                    approval_invalid = True
+                    continue
+                public_key_b64 = context.approver_public_keys.get(approver_id)
+                if public_key_b64 is None:
+                    approval_unverifiable = True
+                    continue
+                try:
+                    verify_hitl_approval(
+                        approval,
+                        manifest_id,
+                        _b64url_decode(public_key_b64),
+                    )
+                except (InvalidSignature, KeyError, TypeError, ValueError):
+                    approval_invalid = True
+                    continue
+
+                # This approval independently satisfies every requirement
+                # (present, unexpired, sufficient for the risk tier, and
+                # authenticated). Spec 5.3 only requires one such approval.
+                any_approved = True
+                break
+
+            if any_approved:
+                fields.hitl_record = HitlResult.APPROVED
+
+            elif approval_invalid:
+                # A cryptographically broken/tampered approval is positive,
+                # concrete evidence of a problem. It always outranks
+                # UNVERIFIABLE (a mere lack of key configuration on this
+                # verifier's part, which produces no mismatch entry below)
+                # so that proof of tampering is never masked by an unrelated
+                # approval this verifier simply lacks the key to check
+                # (HITL-004). This mirrors the final overall-result
+                # computation elsewhere in this function, where any
+                # concrete `mismatches` entry already takes priority over
+                # an UNVERIFIABLE state.
+                mismatches.append(MismatchDetail(
+                    field="hitl_record.approval_signature",
+                    expected_hash="<valid approval signature bound to this manifest>",
+                    actual_hash="<invalid or malformed approval signature>",
+                ))
+                fields.hitl_record = HitlResult.INVALID
+            elif approval_insufficient:
+                mismatches.append(MismatchDetail(
+                    field="hitl_record",
+                    expected_hash="<approval method sufficient for declared risk tier>",
+                    actual_hash="<approval method insufficient>",
+                ))
+                fields.hitl_record = HitlResult.APPROVAL_INSUFFICIENT
+            elif any_expired:
+                # Expired approvals always add to mismatches regardless of enforce_hitl (HITL-002)
+                mismatches.append(MismatchDetail(
+                    field="hitl_record",
+                    expected_hash="<valid unexpired approval>",
+                    actual_hash="<approval expired or unparseable>",
+                ))
+                fields.hitl_record = HitlResult.EXPIRED
+            elif approval_unverifiable:
+                # Reached only when no approval produced concrete evidence
+                # of a problem (no invalid signature, no insufficient
+                # method, no expiry) - i.e. every failing approval failed
+                # solely because this verifier has no trusted key for its
+                # approver_id. There is nothing to add to `mismatches` here;
+                # this is an indeterminate state, not a proven negative.
+                fields.hitl_record = HitlResult.UNVERIFIABLE
+                result.warnings.append(
+                    "HITL approval could not be authenticated: no trusted "
+                    "approver key is available for its approver_id"
+                )
+            else:
+                # Defensive fallback: approvals was non-empty, so every entry
+                # must have set one of the flags above unless it was
+                # approved. Fail closed rather than silently pass.
+                mismatches.append(MismatchDetail(
+                    field="hitl_record",
+                    expected_hash="<valid unexpired approval>",
+                    actual_hash="<no approval satisfied requirements>",
+                ))
+                fields.hitl_record = HitlResult.EXPIRED
+    elif context.enforce_hitl:
+        # enforce_hitl with no hitl_record at all - fail closed. Omitting the
+        # record entirely MUST NOT be weaker than declaring it with no approvals.
+        fields.hitl_record = HitlResult.MISSING
+        mismatches.append(MismatchDetail(
+            field="hitl_record",
+            expected_hash="<hitl_record with valid approval>",
+            actual_hash="<hitl_record absent>",
+        ))
+
+    # Approval duration and signature checks do not establish current authority,
+    # successor state, or applicability. Report this limitation separately;
+    # preserve the existing HITL enforcement and overall-result calculation.
+    if fields.hitl_record == HitlResult.NOT_REQUIRED:
+        result.hitl_admissibility = HitlAdmissibilityResult(
+            status=HitlAdmissibility.NOT_REQUIRED, reason="approval_not_required"
+        )
+    elif fields.hitl_record == HitlResult.APPROVED:
+        result.hitl_admissibility = HitlAdmissibilityResult(
+            reason="current_state_evidence_unavailable"
+        )
+    else:
+        result.hitl_admissibility = HitlAdmissibilityResult(
+            reason="approval_checks_not_satisfied"
+        )
+
+    # --- Attestation block verification (HW-010)
+    # Check that manifest_hash_in_report matches the computed manifest hash.
+    # In a COSE envelope the report is in the unprotected header, and what it
+    # binds is sha256 of the payload bytes (envelope spec 5) - there is no
+    # field subset to reconstruct and nothing to keep in sync.
+    if _envelope is not None:
+        attestation_block = _envelope.attestation or {}
+    else:
+        attestation_block = manifest.get("attestation") or {}
+    if attestation_block:
+        reported_hash = attestation_block.get("manifest_hash_in_report", "")
+        if reported_hash:
+            from ._canonicalize import canonicalize as _canonicalize
+            import hashlib as _hashlib
+            if _envelope is not None:
+                expected_attest_hash = _envelope.manifest_hash
+            else:
+                # Spec 3.3: the pre-image excludes the attestation block AND the
+                # top-level transparency_log_entry (populated after log submission).
+                subset = {
+                    k: v
+                    for k, v in manifest.items()
+                    if k not in ("attestation", "transparency_log_entry")
+                }
+                expected_attest_hash = "sha256:" + _hashlib.sha256(_canonicalize(subset)).hexdigest()
+            if hmac.compare_digest(reported_hash, expected_attest_hash):
+                # The hash matching proves the report is *about this manifest*.
+                # It proves nothing about hardware: for a v0.1 manifest the
+                # attestation block is outside the signing pre-image (spec 3.3
+                # excludes it), and for a v0.2 COSE envelope it rides in the
+                # unprotected header. Either way a party holding any validly
+                # signed manifest can append a self-asserted digest it computed
+                # itself. Treating that as attestation let a software-only
+                # manifest satisfy enforce_attestation=True and reach VALID.
+                #
+                # So the binding is necessary and not sufficient. The verdict
+                # also needs an independent appraisal, supplied by the caller
+                # and bound to this manifest, exactly as transparency receipts
+                # are handled below.
+                attestation_evidence_bound = (
+                    context.attestation_evidence_manifest_id == manifest_id
+                )
+                if (
+                    attestation_evidence_bound
+                    and expected_attest_hash in context.verified_attestation_manifest_hashes
+                ):
+                    result.attestation_verified = True
+                else:
+                    result.warnings.append(
+                        "attestation block binds this manifest but no independent "
+                        "hardware appraisal was supplied; attestation_verified "
+                        "reflects the binding only, not hardware provenance"
+                    )
+            else:
+                # A present attestation that binds a different manifest is a
+                # mismatch whether or not the caller asked for enforcement
+                # (spec 3.3, issue #265). Absent is a policy question and
+                # enforce_attestation still governs it; present-and-wrong is
+                # not: it is a report about some other document, and the case
+                # that produces it is the stale attestation left on a re-signed
+                # manifest. Gating it on enforce_attestation meant the default
+                # verifier returned VALID for exactly that.
+                mismatches.append(MismatchDetail(
+                    field="attestation",
+                    expected_hash=expected_attest_hash,
+                    actual_hash=reported_hash,
+                ))
+
+    # --- Transparency receipt. The envelope field/header is untrusted input;
+    # only an entry ID or receipt digest supplied by an independent log
+    # appraisal can make this true. Level 1+ is production conformance and
+    # therefore requires transparency under spec sections 3.6 and 5.3.
+    require_transparency = context.require_transparency or context.conformance_level >= 1
+    transparency_evidence_bound = context.transparency_evidence_manifest_id == manifest_id
+    if _envelope is not None:
+        for receipt in _envelope.receipts:
+            if not isinstance(receipt, bytes):
+                continue
+            transparency_present = True
+            digest = hashlib.sha256(receipt).hexdigest()
+            if (
+                transparency_evidence_bound
+                and digest in context.verified_transparency_receipt_hashes
+            ):
+                result.transparency_verified = True
+    else:
+        entry = manifest.get("transparency_log_entry")
+        if isinstance(entry, dict):
+            entry_id = entry.get("entry_uuid")
+            transparency_present = isinstance(entry_id, str) and bool(entry_id)
+            if (
+                transparency_evidence_bound
+                and entry_id in context.verified_transparency_entry_ids
+            ):
+                result.transparency_verified = True
+
+    if require_transparency and transparency_present and not result.transparency_verified:
+        result.warnings.append(
+            "transparency receipt is present but was not independently verified "
+            "against a trusted transparency-service policy"
+        )
+        transparency_unverifiable = require_transparency
+    elif require_transparency and not transparency_present:
+        result.warnings.append("no transparency receipt was supplied")
+
+    # --- Final result (fail-closed: VALID requires a verified signature and
+    # a verifiable delegation chain - spec 5.3)
+    result.mismatch_details = mismatches
+    if mismatches:
+        result.result = OverallResult.MISMATCH
+    elif signature_missing:
+        result.result = OverallResult.SIGNATURE_MISSING
+    elif not result.signature_verified:
+        # Signature present but no trusted keys (or verification never ran) -
+        # the manifest cannot be authenticated. Never VALID.
+        result.result = OverallResult.UNVERIFIABLE
+    elif transparency_unverifiable and OverallResult.VALID == result.result:
+        result.result = OverallResult.UNVERIFIABLE
+    elif fields.delegation_chain == DelegationResult.UNVERIFIABLE:
+        result.result = OverallResult.UNVERIFIABLE
+    elif fields.hitl_record == HitlResult.UNVERIFIABLE:
+        result.result = OverallResult.UNVERIFIABLE
+    elif OverallResult.VALID == result.result:
+        # A composition-only document authenticates a contribution to a future
+        # agent, not a complete agent instance. INCOMPLETE is deliberate: it
+        # can be verified and inspected but cannot be mistaken for Level 0.
+        if manifest.get("profile") == "composition-only":
+            result.result = OverallResult.INCOMPLETE
+        elif require_transparency and not transparency_present:
+            result.result = OverallResult.INCOMPLETE
+        # VERIFY-001: bound artifacts with no runtime hashes in strict mode
+        elif context.strict_artifact_verification and unverified_bound:
+            result.result = OverallResult.INCOMPLETE
+        elif context.enforce_attestation and not result.attestation_verified:
+            result.result = OverallResult.ATTESTATION_UNAVAILABLE
+        elif context.enforce_attestation and attestation_block.get("audit_key_sealed") is not True:
+            # Spec v0.2 5.3 requires audit_key_sealed=true in the attestation
+            # block under enforcement. The engine read audit_chain_root and
+            # reacted to it, but never read this flag, so a manifest declaring
+            # audit_key_sealed=false returned exactly the same VALID as one
+            # declaring true. An unsealed audit key means the audit chain can be
+            # rewritten by whoever holds it, which is the thing sealing prevents.
+            result.result = OverallResult.ATTESTATION_UNAVAILABLE
+            result.warnings.append(
+                "enforce_attestation is set but attestation.audit_key_sealed is "
+                "not true (spec 5.3)"
+            )
+        elif context.enforce_attestation and not _audit_key_sealed_is_signed(manifest):
+            # GHSA-489r-r3g9-g24r. The attestation block is outside the
+            # signature and outside the hash the hardware report binds (spec
+            # 3.3), and in a COSE envelope it rides in the unprotected header,
+            # so the flag checked above is one anyone can flip after signing.
+            # The same claim is made, signed, by artifact #7
+            # (artifacts.decision_trace.audit_key_sealed, spec 3.2.7), which
+            # sits inside SIGNED_FIELDS and inside the attestation-bound hash.
+            # Enforcement accepts the claim only when that signed copy makes
+            # it. The signing pre-image is unchanged, so no existing signature
+            # is invalidated.
+            result.result = OverallResult.ATTESTATION_UNAVAILABLE
+            result.warnings.append(
+                "enforce_attestation is set but the signed "
+                "artifacts.decision_trace.audit_key_sealed is not true; the "
+                "attestation block's copy is not covered by the signature "
+                "(spec 3.2.7, 5.3)"
+            )
+
+    # Surface bound-but-unchecked artifacts even in non-strict mode so callers
+    # never read a VALID result as proof that artifact bindings were checked.
+    # A signature-only VALID means the manifest is authentic, not that the
+    # running artifacts match what it bound (VERIFY-001).
+    if unverified_bound:
+        result.warnings.append(
+            "artifact bindings NOT verified (no runtime hashes provided for "
+            + ", ".join(sorted(unverified_bound))
+            + "); VALID reflects signature only"
+        )
+
+    return result
+
+
+def _audit_key_sealed_is_signed(manifest: dict[str, Any]) -> bool:
+    """True when the signed artifact #7 binding declares a sealed audit key.
+
+    Reads ``artifacts.decision_trace.audit_key_sealed`` from the manifest the
+    signature covers (the COSE payload for version 0.2). Only a JSON ``true``
+    counts; absent, ``false`` or any other value does not.
+    """
+    artifacts = manifest.get("artifacts")
+    if not isinstance(artifacts, dict):
+        return False
+    decision_trace = artifacts.get("decision_trace")
+    if not isinstance(decision_trace, dict):
+        return False
+    return decision_trace.get("audit_key_sealed") is True
+
+
+def _cose_manifest_id(cose_bytes: bytes) -> str:
+    """Best-effort manifest_id for reporting a failed envelope.
+
+    Reads the payload without appraising anything. Used only to label a
+    result that has already been decided against the manifest.
+    """
+    from ._cose import read_payload_manifest
+
+    try:
+        manifest_id = read_payload_manifest(cose_bytes).get("manifest_id")
+    except Exception:
+        return "unknown"
+    return manifest_id if isinstance(manifest_id, str) else "unknown"
+
+
+def _verify_cose_envelope(
+    cose_bytes: bytes,
+    context: VerificationContext,
+    revocation_store: "RevocationStore",
+) -> VerificationResult:
+    """Appraise a version 0.2 COSE envelope, then run the shared pipeline.
+
+    The envelope is settled first and in full (envelope spec section 6): the
+    structure, the protected header, the version, the profile, and the
+    signature. Only then is the unprotected header read, and what it carries
+    is evaluated by the same engine that evaluates a v0.1 manifest - approvals
+    against the signed HITL requirement, the attestation report against the
+    payload hash - so a v0.2 manifest gets the identical set of checks.
+    """
+    from cryptography.exceptions import InvalidSignature
+
+    from ._cose import (
+        CoseDowngradeError,
+        CoseKeyError,
+        CoseStructureError,
+        CoseVersionError,
+        verify_cose_manifest,
+    )
+    from ._signing import AlgorithmUnavailableError
+
+    try:
+        envelope = verify_cose_manifest(cose_bytes, context.trusted_keys)
+    except CoseVersionError:
+        # spec 2.4: an unsupported version is never silently misinterpreted.
+        return VerificationResult(
+            manifest_id=_cose_manifest_id(cose_bytes),
+            result=OverallResult.INCOMPATIBLE_VERSION,
+        )
+    except AlgorithmUnavailableError as exc:
+        # A capability gap, not a bad manifest, and never a fallback to a
+        # weaker signature entry (envelope spec 2.1 and 6 step 6).
+        return VerificationResult(
+            manifest_id=_cose_manifest_id(cose_bytes),
+            result=OverallResult.UNVERIFIABLE,
+            warnings=[
+                f"the COSE signature could not be appraised by this build: {exc}"
+            ],
+        )
+    except (
+        CoseStructureError,
+        CoseKeyError,
+        CoseDowngradeError,
+        InvalidSignature,
+        ValueError,
+    ) as exc:
+        return VerificationResult(
+            manifest_id=_cose_manifest_id(cose_bytes),
+            result=OverallResult.MISMATCH,
+            mismatch_details=[
+                MismatchDetail(
+                    field="signature",
+                    expected_hash="<valid COSE manifest envelope>",
+                    actual_hash=f"<{exc}>",
+                )
+            ],
+        )
+
+    # Step 7. Approvals attach after signing, so they are merged back onto the
+    # signed HITL requirement for evaluation. The requirement itself came out
+    # of the payload and is covered by the signature; the approvals are not,
+    # and each carries its own approval_signature (v0.1 section 3.5).
+    payload_manifest = dict(envelope.manifest)
+    approvals = envelope.approvals
+    if approvals is not None:
+        hitl_record = payload_manifest.get("hitl_record")
+        if isinstance(hitl_record, dict):
+            payload_manifest["hitl_record"] = {**hitl_record, "approvals": approvals}
+
+    result = verify_manifest(
+        payload_manifest, context, revocation_store, _envelope=envelope
+    )
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Runtime attestation verification
+# ---------------------------------------------------------------------------
+
+
+def verify_runtime_report(
+    report: Any,
+    nonce: bytes,
+    context_hash: str,
+    *,
+    vcek_cert_der: Optional[bytes] = None,
+    cert_chain_pem: Optional[bytes] = None,
+    trusted_ark_der: Optional[bytes] = None,
+    trusted_tdx_root_pem: Optional[bytes] = None,
+    tpm_attest: Optional[bytes] = None,
+    tpm_signature: Optional[bytes] = None,
+    tpm_ak_chain_pem: Optional[bytes] = None,
+    tpm_trusted_roots_pem: Optional[bytes] = None,
+) -> bool:
+    """Verify that a RuntimeAttestationReport's hardware quote binds this nonce.
+
+    With ``qualifying = sha256(nonce || bytes.fromhex(context_hash_hex))``,
+    returns ``True`` only when all of these hold:
+
+    1. ``report.report_data_hash == "sha256:" + sha256(qualifying)``;
+    2. the hardware quote's signature and certificate chain verify; and
+    3. the caller-controlled field read out of the signed quote carries
+       ``qualifying``: ``REPORT_DATA == qualifying || 32 zero bytes`` on
+       ``amd-sev-snp`` and ``intel-tdx``, and the AK-signed TPM quote's
+       ``extraData == qualifying`` on ``tpm``, ``aws-nitro`` and
+       ``azure-cvm-sev-snp``.
+
+    Before 0.14.0 only step 1 ran. ``report_data_hash`` is computed by the
+    provider and signed by nothing, so a replayed quote carrying an old nonce,
+    or no quote at all, verified as fresh once the field was recomputed for
+    the new nonce (GHSA-32q9-m5rc-rp3w).
+
+    Verification material, by platform:
+
+    * ``amd-sev-snp``: ``report.quote`` (the raw SNP report), plus
+      ``vcek_cert_der`` and ``cert_chain_pem``. The chain is pinned to AMD's
+      published ARKs unless ``trusted_ark_der`` names another root.
+    * ``intel-tdx``: ``report.quote`` only; the PCK chain travels inside it
+      and is pinned to the Intel SGX Root CA unless ``trusted_tdx_root_pem``
+      is given.
+    * ``azure-cvm-sev-snp``: ``report.quote`` (the SNP report) with the VCEK
+      material as for ``amd-sev-snp``, and ``quote_msg``, ``quote_sig``,
+      ``ak_pub_pem`` and ``runtime_data_hex`` in ``report.raw`` (what
+      ``AzureCVMProvider.attest_runtime_state`` returns).
+    * ``tpm`` / ``aws-nitro``: ``tpm_attest`` (the ``TPMS_ATTEST`` the AK
+      signed), ``tpm_signature``, ``tpm_ak_chain_pem`` and
+      ``tpm_trusted_roots_pem``.
+
+    Missing material, an unverified signature, or a platform with no hardware
+    quote (for example ``software``) returns ``False``.
+
+    Args:
+        report:       RuntimeAttestationReport returned by attest_runtime_state().
+        nonce:        The freshness token you supplied to attest_runtime_state().
+        context_hash: The context hash you supplied to attest_runtime_state(),
+                      in "sha256:<hex>" format.
+
+    Returns:
+        True if the verified quote binds the nonce and context.
+    """
+    from ._providers import RuntimeAttestationReport as _RRT
+    if not isinstance(report, _RRT):
+        raise TypeError(f"expected RuntimeAttestationReport, got {type(report).__name__}")
+
+    from ._attestation import verify_runtime_quote
+
+    return verify_runtime_quote(
+        report,
+        nonce,
+        context_hash,
+        vcek_cert_der=vcek_cert_der,
+        cert_chain_pem=cert_chain_pem,
+        trusted_ark_der=trusted_ark_der,
+        trusted_tdx_root_pem=trusted_tdx_root_pem,
+        tpm_attest=tpm_attest,
+        tpm_signature=tpm_signature,
+        tpm_ak_chain_pem=tpm_ak_chain_pem,
+        tpm_trusted_roots_pem=tpm_trusted_roots_pem,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Revocation store
+# ---------------------------------------------------------------------------
+
+
+class RevocationStore:
+    """In-memory revocation store. Production should use a persistent backend."""
+
+    def __init__(self) -> None:
+        self._revoked: dict[str, RevocationRecord] = {}
+
+    def revoke(self, record: RevocationRecord) -> None:
+        self._revoked[record.manifest_id] = record
+
+    def is_revoked(self, manifest_id: str) -> bool:
+        return manifest_id in self._revoked
+
+    def get_record(self, manifest_id: str) -> Optional[RevocationRecord]:
+        return self._revoked.get(manifest_id)
+
+
+# ---------------------------------------------------------------------------
+# FastAPI router
+# ---------------------------------------------------------------------------
+
+
+# A manifest is a few kilobytes (envelope spec section 4, which cites size as
+# the reason payloads are inline rather than detached). The cap is generous
+# against that and small enough that a body is bounded before anything parses
+# it - the decoder is never handed an unbounded allocation. Shared by both
+# POST /verify (JSON) and POST /verify/cose (CBOR) so the two routes carry the
+# same defense-in-depth posture; it was named MAX_COSE_ENVELOPE_BYTES when
+# only the COSE endpoint enforced it.
+MAX_VERIFY_BODY_BYTES = 1 << 20  # 1 MiB
+
+# Ceiling on entry count for each of VerifyRequest's dict/set fields
+# (trusted_keys, trusted_key_issuers, delegation_public_keys,
+# approver_public_keys, verified_transparency_entry_ids,
+# verified_transparency_receipt_hashes, verified_attestation_manifest_hashes).
+# Far above what any real deployment needs - these maps exist to hold keys
+# for the hops/approvers/keys actually referenced by one manifest - and
+# catches a small-request-with-huge-collection case that the byte cap alone
+# might miss if someone sends short key strings.
+MAX_VERIFY_COLLECTION_ENTRIES = 10_000
+
+
+def create_router(
+    manifest_store: dict[str, dict[str, Any]],
+    revocation_store: RevocationStore,
+    cose_context: Optional[VerificationContext] = None,
+) -> Any:
+    """Return a FastAPI APIRouter with /verify and /revocation-status endpoints.
+
+    Args:
+        manifest_store: Dict mapping manifest_id -> manifest dict.
+        revocation_store: Revocation store instance.
+        cose_context: Trust configuration for ``POST /verify/cose``, held by
+            the server rather than accepted from the caller. Omit it and that
+            endpoint is fail-closed: every result is ``UNVERIFIABLE``, never
+            ``VALID``, exactly as ``GET /verify`` behaves without keys.
+    """
+    try:
+        from fastapi import APIRouter, HTTPException, Query, Request, Response
+        from fastapi.responses import JSONResponse  # noqa: F401
+    except ImportError:
+        raise ImportError(
+            "FastAPI is required for the verification endpoint. "
+            'Install with: pip install "agent-manifest[server]"'
+        )
+
+    router = APIRouter()
+
+    def _lookup_manifest(manifest_id: str) -> dict[str, Any]:
+        """Validate manifest_id format and fetch the manifest or raise."""
+        from ._types import ManifestId
+        try:
+            ManifestId._validate(manifest_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=ErrorResponse(
+                    error_code="INVALID_MANIFEST_ID",
+                    error_message="manifest_id must be a UUID v7",
+                ).model_dump(),
+            )
+
+        manifest = manifest_store.get(manifest_id)
+        if manifest is None:
+            raise HTTPException(
+                status_code=404,
+                detail=ErrorResponse(
+                    error_code="MANIFEST_NOT_FOUND",
+                    error_message="The requested manifest was not found.",
+                ).model_dump(),
+            )
+        return manifest
+
+    @router.get("/verify", response_model=VerificationResult)
+    async def verify(
+        manifest_id: str = Query(..., description="UUID v7 manifest identifier"),
+        enforce_hitl: bool = Query(False),
+        enforce_attestation: bool = Query(False),
+    ) -> VerificationResult:
+        """Verify a manifest without caller-supplied key material.
+
+        This endpoint cannot receive trusted keys, so signature verification
+        is fail-closed: a signed manifest returns ``UNVERIFIABLE`` and an
+        unsigned manifest returns ``SIGNATURE_MISSING`` - never ``VALID``.
+        Callers that hold the issuer's public keys MUST use ``POST /verify``
+        and supply ``trusted_keys`` to obtain a ``VALID`` result.
+        """
+        manifest = _lookup_manifest(manifest_id)
+        ctx = VerificationContext(
+            enforce_hitl=enforce_hitl,
+            enforce_attestation=enforce_attestation,
+        )
+        return verify_manifest(manifest, ctx, revocation_store)
+
+    # `verify_post` takes a raw `Request` (not `VerifyRequest`) so the body can
+    # be stream-capped before Pydantic parses it - see below. That means
+    # FastAPI can no longer *infer* the request body schema from the
+    # parameter type the way it does for a normal Pydantic-model parameter,
+    # so the OpenAPI/Swagger docs would otherwise show no body schema at all
+    # for this route. `openapi_extra` restores it explicitly from the same
+    # `VerifyRequest` model actually used to validate the body, so the
+    # documented contract for callers and codegen tools is unchanged.
+    _verify_post_openapi_extra = {
+        "requestBody": {
+            "required": True,
+            "content": {"application/json": {"schema": VerifyRequest.model_json_schema()}},
+        }
+    }
+
+    async def verify_post(request: "Request") -> VerificationResult:
+        """Verify a manifest with caller-supplied trusted keys.
+
+        The request body carries ``trusted_keys`` (key_id -> base64url public
+        key) used for manifest signature verification, optionally
+        ``trusted_key_issuers`` (key_id -> issuer SPIFFE URIs) for key issuer
+        authorization, optionally ``delegation_public_keys`` (principal_id ->
+        base64url public key) for delegation chain verification, and optionally
+        ``approver_public_keys`` (approver_id -> base64url Ed25519 public key)
+        for HITL approval verification.
+        Verification is fail-closed - see :func:`verify_manifest`.
+
+        **Only JSON request bodies are accepted.** ``Content-Type`` is
+        checked against the same rule FastAPI itself uses to decide whether
+        to parse a Pydantic-model body as JSON: ``application/json``, a
+        ``+json`` vendor subtype (e.g. ``application/vnd.api+json``), or no
+        ``Content-Type`` header at all. Anything else - ``text/plain``,
+        ``application/xml``, a bogus or empty subtype - is rejected with
+        ``415`` before the body is even read. Taking a raw ``Request``
+        instead of a ``VerifyRequest`` parameter (see below) means FastAPI's
+        own automatic content-type gate no longer runs for this route, so it
+        is reproduced here explicitly; skipping this check would let a
+        caller submit a JSON payload under any (or no) media type, silently
+        widening what the documented ``application/json``-only contract
+        actually accepts.
+
+        **The body is bounded before it is parsed**, mirroring ``POST
+        /verify/cose``: the stream is capped at ``MAX_VERIFY_BODY_BYTES``
+        regardless of the declared ``Content-Length`` (a claim, not a
+        guarantee), so an oversized body is rejected before Pydantic ever
+        buffers or validates it. Each chunk is checked *before* it is
+        appended, not after, so the buffer itself is never intentionally
+        grown past the limit - the cap holds regardless of how large a
+        single ASGI receive chunk is. Independently, ``VerifyRequest`` caps
+        the entry count of each of its dict/set fields at
+        ``MAX_VERIFY_COLLECTION_ENTRIES``, which catches a small body that
+        hides an oversized collection behind short keys/values.
+        """
+        content_type_value = request.headers.get("content-type")
+        if content_type_value is not None:
+            message = email.message.Message()
+            message["content-type"] = content_type_value
+            subtype = message.get_content_subtype()
+            is_json = message.get_content_maintype() == "application" and (
+                subtype == "json" or subtype.endswith("+json")
+            )
+            if not is_json:
+                raise HTTPException(
+                    status_code=415,
+                    detail=ErrorResponse(
+                        error_code="UNSUPPORTED_MEDIA_TYPE",
+                        error_message=(
+                            "POST /verify accepts application/json "
+                            "(or a +json subtype) only."
+                        ),
+                    ).model_dump(),
+                )
+         # Cap the stream too: Content-Length is a claim, not a guarantee.
+        # Checked before extend(), not after, so the buffer itself is never
+        # intentionally grown past the limit regardless of how large a
+        # single ASGI receive chunk is.
+        body = bytearray()
+        async for chunk in request.stream():
+            if len(body) + len(chunk) > MAX_VERIFY_BODY_BYTES:
+                raise HTTPException(
+                    status_code=413,
+                    detail=ErrorResponse(
+                        error_code="VERIFY_REQUEST_TOO_LARGE",
+                        error_message=(
+                            f"Request body may not exceed "
+                            f"{MAX_VERIFY_BODY_BYTES} bytes."
+                        ),
+                    ).model_dump(),
+                )
+            body.extend(chunk)
+
+        from pydantic import ValidationError
+
+        try:
+            parsed = VerifyRequest.model_validate_json(bytes(body))
+        except ValidationError as exc:
+            # include_context=False / include_input=False: pydantic's `ctx`
+            # can carry a raw exception object (not JSON-serializable), and
+            # `input` would echo the caller's payload - including, in the
+            # oversized-collection case this validator exists to catch, a
+            # large one - back into the error response. The "body" prefix on
+            # `loc` matches what FastAPI's own request-body validation would
+            # have produced here before this endpoint took the raw Request,
+            # so error-shape parity for existing callers is preserved.
+            errors = exc.errors(
+                include_url=False, include_context=False, include_input=False
+            )
+            for error in errors:
+                error["loc"] = ("body", *error["loc"])
+            raise HTTPException(status_code=422, detail=errors)
+        manifest = _lookup_manifest(parsed.manifest_id)
+        ctx = VerificationContext(
+            enforce_hitl=parsed.enforce_hitl,
+            enforce_attestation=parsed.enforce_attestation,
+            trusted_keys=parsed.trusted_keys,
+            trusted_key_issuers=parsed.trusted_key_issuers,
+            delegation_public_keys=parsed.delegation_public_keys,
+            approver_public_keys=parsed.approver_public_keys,
+            verified_transparency_entry_ids=parsed.verified_transparency_entry_ids,
+            verified_transparency_receipt_hashes=parsed.verified_transparency_receipt_hashes,
+            transparency_evidence_manifest_id=parsed.transparency_evidence_manifest_id,
+            verified_attestation_manifest_hashes=parsed.verified_attestation_manifest_hashes,
+            attestation_evidence_manifest_id=parsed.attestation_evidence_manifest_id,
+            require_transparency=parsed.require_transparency,
+            require_delegation=parsed.require_delegation,
+        )
+        return verify_manifest(manifest, ctx, revocation_store)
+
+    # Same reason as verify_cose below: `from __future__ import annotations`
+    # makes this a string annotation, and `Request` is imported lazily inside
+    # this function rather than at module scope, so it is not resolvable
+    # against the module globals FastAPI uses to evaluate annotations. Bind
+    # the real class before registering the route.
+    verify_post.__annotations__["request"] = Request
+    router.add_api_route(
+        "/verify",
+        verify_post,
+        methods=["POST"],
+        response_model=VerificationResult,
+        openapi_extra=_verify_post_openapi_extra,
+    )
+
+    async def verify_cose(
+        request: "Request",
+        response: "Response",
+        enforce_hitl: bool = Query(False),
+        enforce_attestation: bool = Query(False),
+    ) -> VerificationResult:
+        """Verify a version 0.2 COSE manifest submitted as raw CBOR.
+
+        The body is the ``COSE_Sign1`` or ``COSE_Sign`` object itself, sent as
+        ``Content-Type: application/agent-manifest+cose``. The manifest is
+        self-contained - the payload travels inside the signature - so unlike
+        the other endpoints there is nothing to look up and no
+        ``manifest_id`` to trust from the caller.
+
+        Three deliberate choices, each of which is a security property rather
+        than a convenience:
+
+        **The media type is the gate.** Only the exact registered type is
+        accepted. A vendor-tree alias is refused (envelope spec section 7:
+        two valid type values for one object is the ambiguity ``typ`` exists
+        to remove), and so is an absent or guessed type - the server never
+        sniffs the body to decide what it is.
+
+        **No key material crosses the wire.** Trust comes from
+        ``cose_context``, configured server-side when the router is built.
+        A verification service that accepts caller-supplied trusted keys is
+        only as trustworthy as its caller, and public keys in a URL or header
+        end up in proxy logs and access logs. Without a configured trust
+        store this endpoint returns ``UNVERIFIABLE``, never ``VALID``.
+
+        **The body is bounded before it is parsed.** ``Content-Length`` is
+        checked when present and the stream is capped regardless, because a
+        declared length is attacker-controlled and may lie.
+
+        A malformed or unverifiable envelope is a *verdict*, not a transport
+        error: the response is 200 with a non-``VALID`` result. Parser detail
+        is not reflected back, so this endpoint cannot be used as an oracle
+        for how the decoder behaves.
+
+        Authentication, authorization and rate limiting are deployment
+        concerns and are deliberately not implemented here; mount this router
+        behind them (spec 5.1: mTLS with the agent's SPIFFE SVID).
+        """
+        media_type = (request.headers.get("content-type") or "").split(";")[0]
+        if media_type.strip().lower() != MEDIA_TYPE_MANIFEST_COSE:
+            raise HTTPException(
+                status_code=415,
+                detail=ErrorResponse(
+                    error_code="UNSUPPORTED_MEDIA_TYPE",
+                    error_message=(
+                        f"This endpoint accepts {MEDIA_TYPE_MANIFEST_COSE} only."
+                    ),
+                ).model_dump(),
+            )
+
+        declared_length = request.headers.get("content-length")
+        if declared_length is not None:
+            try:
+                if int(declared_length) > MAX_VERIFY_BODY_BYTES:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=ErrorResponse(
+                            error_code="ENVELOPE_TOO_LARGE",
+                            error_message=(
+                                f"A COSE manifest may not exceed "
+                                f"{MAX_VERIFY_BODY_BYTES} bytes."
+                            ),
+                        ).model_dump(),
+                    )
+            except ValueError:
+                raise HTTPException(
+                    status_code=400,
+                    detail=ErrorResponse(
+                        error_code="INVALID_CONTENT_LENGTH",
+                        error_message="Content-Length is not an integer.",
+                    ).model_dump(),
+                )
+
+        # Cap the stream too: Content-Length is a claim, not a guarantee.
+        # Checked before extend(), not after, so the buffer itself is never
+        # intentionally grown past the limit regardless of how large a
+        # single ASGI receive chunk is.
+        body = bytearray()
+        async for chunk in request.stream():
+            if len(body) + len(chunk) > MAX_VERIFY_BODY_BYTES:
+                raise HTTPException(
+                    status_code=413,
+                    detail=ErrorResponse(
+                        error_code="ENVELOPE_TOO_LARGE",
+                        error_message=(
+                            f"A COSE manifest may not exceed "
+                            f"{MAX_VERIFY_BODY_BYTES} bytes."
+                        ),
+                    ).model_dump(),
+                )
+            body.extend(chunk)
+
+        ctx = (cose_context or VerificationContext()).model_copy(
+            update={
+                "enforce_hitl": enforce_hitl,
+                "enforce_attestation": enforce_attestation,
+            }
+        )
+        # A verification result is a security decision about a specific set of
+        # bytes at a point in time. It must not be cached or content-sniffed.
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        return verify_manifest(bytes(body), ctx, revocation_store)
+
+    # This module uses `from __future__ import annotations`, so annotations are
+    # strings, and FastAPI resolves them against the module globals - where
+    # `Request` and `Response` do not appear, because fastapi is an optional
+    # extra imported inside this function. Binding the real classes before
+    # registering the route keeps the import lazy without FastAPI mistaking
+    # the two parameters for query parameters.
+    verify_cose.__annotations__["request"] = Request
+    verify_cose.__annotations__["response"] = Response
+    router.add_api_route(
+        "/verify/cose",
+        verify_cose,
+        methods=["POST"],
+        response_model=VerificationResult,
+    )
+
+    @router.get("/revocation-status")
+    async def revocation_status(
+        manifest_id: str = Query(...),
+    ) -> RevocationRecord:
+        # Validate manifest_id to prevent log injection (INJ-005/SEC-009)
+        from ._types import ManifestId
+        try:
+            ManifestId._validate(manifest_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=ErrorResponse(
+                    error_code="INVALID_MANIFEST_ID",
+                    error_message="manifest_id must be a UUID v7",
+                ).model_dump(),
+            )
+        record = revocation_store.get_record(manifest_id)
+        if record is None:
+            raise HTTPException(
+                status_code=404,
+                detail=ErrorResponse(
+                    error_code="NOT_REVOKED",
+                    error_message="The requested manifest has no revocation record.",
+                ).model_dump(),
+            )
+        return record
+
+    return router

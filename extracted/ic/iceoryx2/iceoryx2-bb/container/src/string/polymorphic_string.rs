@@ -1,0 +1,280 @@
+// Copyright (c) 2025 Contributors to the Eclipse Foundation
+//
+// See the NOTICE file(s) distributed with this work for additional
+// information regarding copyright ownership.
+//
+// This program and the accompanying materials are made available under the
+// terms of the Apache Software License 2.0 which is available at
+// https://www.apache.org/licenses/LICENSE-2.0, or the MIT license
+// which is available at https://opensource.org/licenses/MIT.
+//
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
+//! String implementation with a polymorphic stateful allocator.
+//!
+//! # Example
+//!
+//! ```no_run
+//! # extern crate iceoryx2_bb_loggers;
+//!
+//! use iceoryx2_bb_testing::allocator::Allocator;
+//! use iceoryx2_bb_container::string::*;
+//!
+//! # use core::ptr::NonNull;
+//!
+//! # fn main() -> Result<(), Box<dyn core::error::Error>> {
+//! let allocator = Allocator::new();
+//! let capacity: usize = 123;
+//! let mut my_str =
+//!     PolymorphicString::<Allocator>::new(&allocator, capacity)?;
+//!
+//! my_str.push_bytes(b"all glory to the hypnotoad"); // returns false, when capacity is exceeded
+//! # Ok(())
+//! # }
+//! ```
+
+use alloc::format;
+use core::{
+    alloc::Layout,
+    cmp::Ordering,
+    fmt::{Debug, Display},
+    hash::Hash,
+    mem::MaybeUninit,
+    ops::Deref,
+    ptr::NonNull,
+};
+
+use iceoryx2_bb_elementary_traits::{
+    allocator::{Allocate, AllocationError, Deallocate},
+    pointer::Pointer,
+};
+
+use crate::string::*;
+
+/// Runtime fixed-size string variant with a polymorphic allocator, meaning an
+/// allocator with a state can be attached to the string instead of using a
+/// stateless allocator like the heap-allocator.
+pub struct PolymorphicString<'a, Allocator: Allocate<NonNull<u8>> + Deallocate<NonNull<u8>>> {
+    data_ptr: *mut MaybeUninit<u8>,
+    len: u64,
+    capacity: u64,
+    allocator: &'a Allocator,
+}
+
+impl<Allocator: Allocate<NonNull<u8>> + Deallocate<NonNull<u8>>> Drop
+    for PolymorphicString<'_, Allocator>
+{
+    fn drop(&mut self) {
+        unsafe {
+            self.allocator.deallocate(
+                NonNull::new_unchecked(self.data_ptr.cast()),
+                Layout::array::<MaybeUninit<u8>>(self.capacity as usize + 1)
+                    .expect("Memory size for the array is smaller than isize::MAX"),
+            )
+        };
+    }
+}
+
+impl<Allocator: Allocate<NonNull<u8>> + Deallocate<NonNull<u8>>> internal::StringView
+    for PolymorphicString<'_, Allocator>
+{
+    fn data(&self) -> &[MaybeUninit<u8>] {
+        unsafe { core::slice::from_raw_parts(self.data_ptr, self.capacity() + 1) }
+    }
+
+    unsafe fn data_mut(&mut self) -> &mut [MaybeUninit<u8>] {
+        unsafe { core::slice::from_raw_parts_mut(self.data_ptr, self.capacity() + 1) }
+    }
+
+    unsafe fn set_len(&mut self, len: u64) {
+        self.len = len;
+    }
+}
+
+impl<Allocator: Allocate<NonNull<u8>> + Deallocate<NonNull<u8>>> Debug
+    for PolymorphicString<'_, Allocator>
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "PolymorphicString::<{}> {{ capacity: {}, len: {}, data: \"{}\" }}",
+            core::any::type_name::<Allocator>(),
+            self.capacity,
+            self.len,
+            as_escaped_string(self.as_bytes())
+        )
+    }
+}
+
+unsafe impl<Allocator: Allocate<NonNull<u8>> + Deallocate<NonNull<u8>>> Send
+    for PolymorphicString<'_, Allocator>
+{
+}
+
+impl<Allocator: Allocate<NonNull<u8>> + Deallocate<NonNull<u8>>>
+    PartialOrd<PolymorphicString<'_, Allocator>> for PolymorphicString<'_, Allocator>
+{
+    fn partial_cmp(&self, other: &PolymorphicString<'_, Allocator>) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<Allocator: Allocate<NonNull<u8>> + Deallocate<NonNull<u8>>> Ord
+    for PolymorphicString<'_, Allocator>
+{
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.as_bytes().cmp(other.as_bytes())
+    }
+}
+
+impl<Allocator: Allocate<NonNull<u8>> + Deallocate<NonNull<u8>>> Hash
+    for PolymorphicString<'_, Allocator>
+{
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        state.write(self.as_bytes())
+    }
+}
+
+impl<Allocator: Allocate<NonNull<u8>> + Deallocate<NonNull<u8>>> Deref
+    for PolymorphicString<'_, Allocator>
+{
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        self.as_bytes()
+    }
+}
+
+impl<Allocator: Allocate<NonNull<u8>> + Deallocate<NonNull<u8>>>
+    PartialEq<PolymorphicString<'_, Allocator>> for PolymorphicString<'_, Allocator>
+{
+    fn eq(&self, other: &PolymorphicString<'_, Allocator>) -> bool {
+        *self.as_bytes() == *other.as_bytes()
+    }
+}
+
+impl<Allocator: Allocate<NonNull<u8>> + Deallocate<NonNull<u8>>> Eq
+    for PolymorphicString<'_, Allocator>
+{
+}
+
+impl<Allocator: Allocate<NonNull<u8>> + Deallocate<NonNull<u8>>> PartialEq<&[u8]>
+    for PolymorphicString<'_, Allocator>
+{
+    fn eq(&self, other: &&[u8]) -> bool {
+        *self.as_bytes() == **other
+    }
+}
+
+impl<Allocator: Allocate<NonNull<u8>> + Deallocate<NonNull<u8>>> PartialEq<&str>
+    for PolymorphicString<'_, Allocator>
+{
+    fn eq(&self, other: &&str) -> bool {
+        *self.as_bytes() == *other.as_bytes()
+    }
+}
+
+impl<Allocator: Allocate<NonNull<u8>> + Deallocate<NonNull<u8>>>
+    PartialEq<PolymorphicString<'_, Allocator>> for &str
+{
+    fn eq(&self, other: &PolymorphicString<'_, Allocator>) -> bool {
+        *self.as_bytes() == *other.as_bytes()
+    }
+}
+
+impl<const OTHER_CAPACITY: usize, Allocator: Allocate<NonNull<u8>> + Deallocate<NonNull<u8>>>
+    PartialEq<[u8; OTHER_CAPACITY]> for PolymorphicString<'_, Allocator>
+{
+    fn eq(&self, other: &[u8; OTHER_CAPACITY]) -> bool {
+        *self.as_bytes() == *other
+    }
+}
+
+impl<const OTHER_CAPACITY: usize, Allocator: Allocate<NonNull<u8>> + Deallocate<NonNull<u8>>>
+    PartialEq<&[u8; OTHER_CAPACITY]> for PolymorphicString<'_, Allocator>
+{
+    fn eq(&self, other: &&[u8; OTHER_CAPACITY]) -> bool {
+        *self.as_bytes() == **other
+    }
+}
+
+impl<Allocator: Allocate<NonNull<u8>> + Deallocate<NonNull<u8>>> Display
+    for PolymorphicString<'_, Allocator>
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}", as_escaped_string(self.as_bytes()))
+    }
+}
+
+impl<'a, Allocator: Allocate<NonNull<u8>> + Deallocate<NonNull<u8>>>
+    PolymorphicString<'a, Allocator>
+{
+    /// Creates a new [`PolymorphicString`].
+    pub fn new(allocator: &'a Allocator, capacity: usize) -> Result<Self, AllocationError> {
+        let layout = Layout::array::<MaybeUninit<u8>>(capacity + 1)
+            .expect("Memory size for the array is smaller than isize::MAX");
+        let mut data_ptr = match allocator.allocate(layout) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let origin = format!(
+                    "PolymorphicString::<{}>::new(.., {})",
+                    core::any::type_name::<Allocator>(),
+                    capacity
+                );
+                fail!(from origin, with e,
+                    "Failed to create new PolymorphicString due to a failure while allocating memory ({e:?}).");
+            }
+        };
+
+        // zero the first byte to signal an empty string
+        unsafe { *data_ptr.as_mut_ptr() = 0 };
+
+        Ok(Self {
+            data_ptr: data_ptr.as_mut_ptr().cast(),
+            len: 0,
+            capacity: capacity as _,
+            allocator,
+        })
+    }
+
+    /// Same as clone but it can fail when the required memory could not be
+    /// allocated from the [`Allocate`].
+    pub fn try_clone(&self) -> Result<Self, AllocationError> {
+        let layout = Layout::array::<MaybeUninit<u8>>(self.capacity as usize + 1)
+            .expect("Memory size for the array is smaller than isize::MAX");
+
+        let mut data_ptr = match self.allocator.allocate(layout) {
+            Ok(ptr) => ptr,
+            Err(e) => {
+                let origin = format!(
+                    "PolymorphicString::<{}>::try_clone()",
+                    core::any::type_name::<Allocator>(),
+                );
+                fail!(from origin, with e,
+                    "Failed to clone PolymorphicString due to a failure while allocating memory ({e:?}).");
+            }
+        };
+
+        let mut new_self = Self {
+            data_ptr: data_ptr.as_mut_ptr().cast(),
+            len: 0,
+            capacity: self.capacity,
+            allocator: self.allocator,
+        };
+
+        unsafe { new_self.insert_bytes_unchecked(0, self.as_bytes()) };
+        Ok(new_self)
+    }
+}
+
+impl<Allocator: Allocate<NonNull<u8>> + Deallocate<NonNull<u8>>> String
+    for PolymorphicString<'_, Allocator>
+{
+    fn capacity(&self) -> usize {
+        self.capacity as usize
+    }
+
+    fn len(&self) -> usize {
+        self.len as usize
+    }
+}

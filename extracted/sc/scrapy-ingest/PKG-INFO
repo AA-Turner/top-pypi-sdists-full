@@ -1,0 +1,307 @@
+Metadata-Version: 2.4
+Name: scrapy-ingest
+Version: 1.5.0
+Summary: One pipeline. Full crawl observability in SQL or Elasticsearch.
+Home-page: https://github.com/fawadss1/scrapy-ingest
+Author: Fawad Ali
+Author-email: fawadstar6@gmail.com
+Project-URL: Documentation, https://scrapy-ingest.readthedocs.io/
+Project-URL: Source, https://github.com/fawadss1/scrapy-ingest
+Project-URL: Tracker, https://github.com/fawadss1/scrapy-ingest/issues
+Keywords: scrapy,database,postgresql,mysql,web-scraping,data-pipeline
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Framework :: Scrapy
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Database
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: scrapy>=2.18.0
+Requires-Dist: psycopg2-binary>=2.9.12
+Requires-Dist: itemadapter>=0.13.1
+Requires-Dist: pytz>=2026.3
+Requires-Dist: w3lib>=2.4.1
+Requires-Dist: PyMySQL>=1.2.0
+Requires-Dist: opensearch-py>=3.2.0
+Provides-Extra: docs
+Requires-Dist: sphinx>=5.0.0; extra == "docs"
+Requires-Dist: sphinx_rtd_theme>=1.2.0; extra == "docs"
+Requires-Dist: myst-parser>=0.18.0; extra == "docs"
+Requires-Dist: sphinx-autodoc-typehints>=1.19.0; extra == "docs"
+Requires-Dist: sphinx-copybutton>=0.5.0; extra == "docs"
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
+Requires-Dist: black>=22.0.0; extra == "dev"
+Requires-Dist: flake8>=5.0.0; extra == "dev"
+Requires-Dist: mypy>=0.991; extra == "dev"
+Requires-Dist: pre-commit>=2.20.0; extra == "dev"
+Provides-Extra: test
+Requires-Dist: pytest>=7.0.0; extra == "test"
+Requires-Dist: pytest-cov>=4.0.0; extra == "test"
+Requires-Dist: pytest-mock>=3.8.0; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/fawadss1/scrapy-ingest/master/static/logo.png" alt="scrapy-ingest" width="640">
+</p>
+
+# Scrapy Ingest
+
+[![PyPI version](https://img.shields.io/pypi/v/scrapy-ingest?color=blue)](https://pypi.org/project/scrapy-ingest/)
+[![Python versions](https://img.shields.io/pypi/pyversions/scrapy-ingest)](https://pypi.org/project/scrapy-ingest/)
+[![Downloads](https://static.pepy.tech/badge/scrapy-ingest)](https://pepy.tech/project/scrapy-ingest)
+[![Documentation](https://readthedocs.org/projects/scrapy-ingest/badge/?version=latest)](https://scrapy-ingest.readthedocs.io/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://github.com/fawadss1/scrapy-ingest/blob/master/LICENSE)
+[![Changelog](https://img.shields.io/badge/changelog-releases-informational)](https://github.com/fawadss1/scrapy-ingest/releases)
+
+**One pipeline. Full crawl observability in SQL or Elasticsearch.**
+
+Set `DB_URL`, `SEARCH_URL`, or both — items, requests, logs, stats, parent URLs, and errors are captured automatically.
+
+## Install
+
+```bash
+pip install scrapy-ingest
+```
+
+This installs all runtime dependencies, including `psycopg2-binary`, `PyMySQL`, and `opensearch-py`.
+
+## Minimal setup (settings.py)
+
+Only the item pipeline is required — requests, logs, stats, parent_url, and error logging are enabled automatically:
+
+```python
+ITEM_PIPELINES = {
+    "scrapy_ingest.pipelines.IngestPipeline": 300,
+}
+
+DB_URL = "postgresql://user:password@localhost:5432/database"
+```
+
+Run your spider:
+
+```bash
+scrapy crawl your_spider
+```
+
+Log level follows Scrapy `LOG_LEVEL`.
+
+## Choose your destination
+
+Set **`DB_URL`** (or `DB_*` fields) for Postgres/MySQL, **`SEARCH_URL`** for Elasticsearch/OpenSearch, or both. **At least one must be configured.**
+
+| Mode                                | Settings                | Result                                   |
+|-------------------------------------|-------------------------|------------------------------------------|
+| **Database only**                   | `DB_URL` or `DB_*`      | SQL only                                 |
+| **Elasticsearch / OpenSearch only** | `SEARCH_URL`            | Indexes only                             |
+| **Both**                            | `DB_URL` + `SEARCH_URL` | SQL first, then Elasticsearch/OpenSearch |
+
+```python
+# Database only
+DB_URL = "postgresql://user:password@localhost:5432/database"
+
+# Elasticsearch / OpenSearch only
+SEARCH_URL = "http://localhost:9200"
+
+# Both
+DB_URL = "postgresql://user:password@localhost:5432/database"
+SEARCH_URL = "http://localhost:9200"
+```
+
+When both are configured, SQL is written first, then Elasticsearch/OpenSearch indexes. An indexing failure after a successful SQL write is logged but does not roll back database rows.
+
+## Database configuration
+
+PostgreSQL or MySQL — pick **one** connection style.
+
+**Single URL:**
+
+```python
+DB_URL = "postgresql://user:password@localhost:5432/database"
+# DB_URL = "mysql://user:password@localhost:3306/database"
+```
+
+**Discrete fields** (no URL encoding for special characters in passwords):
+
+```python
+DB_TYPE = "postgres"   # or "mysql" / "mariadb"
+DB_HOST = "localhost"
+DB_PORT = 5432         # MySQL: 3306
+DB_USER = "user"
+DB_PASSWORD = "password"
+DB_NAME = "database"
+```
+
+Tables are created automatically when `CREATE_TABLES = True` (default).
+
+## Elasticsearch / OpenSearch configuration
+
+Elasticsearch and OpenSearch use the same REST bulk API. The package connects via **`opensearch-py`**, which works with both.
+
+**Minimum:**
+
+```python
+SEARCH_URL = "http://localhost:9200"
+```
+
+**With authentication (optional):**
+
+```python
+SEARCH_URL = "https://search.example.com:9200"
+SEARCH_USER = "elastic"
+SEARCH_PASSWORD = "secret"
+SEARCH_SSL_VERIFY = True   # set False only for self-signed certs in dev
+```
+
+**Index names** match SQL table names by default:
+
+| Table / index         | Contents                                              |
+|-----------------------|-------------------------------------------------------|
+| `ingest_jobs`         | Job metadata: status, counts, elapsed time, stats     |
+| `ingest_items`        | Scraped items as JSON documents                       |
+| `ingest_requests`     | Requests: url, fingerprint, parent_url, status, error |
+| `ingest_logs`         | Log lines: level, logger, message, exception          |
+
+Override table/index names with `JOBS_TABLE`, `ITEMS_TABLE`, `REQUESTS_TABLE`, and `LOGS_TABLE` (same setting for SQL and Elasticsearch/OpenSearch).
+
+Indexes are created on first write if they do not exist.
+
+## What is stored
+
+### Relational database (Postgres / MySQL)
+
+| Table             | Contents                                                                                                                                                                                                                                                      |
+|-------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `ingest_jobs`     | One row per crawl: `id`, unique `job_id` string, spider, status, start/finish, counts, items/min, stats. `errors_count` = failed requests + standalone ERROR/CRITICAL logs (not double-counted from `scrapy.core.scraper` when the request is already failed) |
+| `ingest_items`    | JSON items (`crawled_at` added). `job_id` = `ingest_jobs.id` (CASCADE)                                                                                                                                                                                        |
+| `ingest_requests` | url, parent_url, parent_id, status, response_time_secs, fingerprint, error, success (download errors, HTTP 4xx/5xx, spider callback tracebacks)                                                                                                               |
+| `ingest_logs`     | time, logger, level, message, exception                                                                                                                                                                                                                       |
+
+Request `parent_url` is the page that scheduled the request (e.g. sitemap → product). Start URLs are `null`. The request `fingerprint` is a SHA1 hash of method + canonical URL for parent lookup.
+
+### Elasticsearch / OpenSearch
+
+Same crawl data as JSON documents in the indexes listed above. Documents include the string `job_id` (not the integer SQL primary key). Elasticsearch/OpenSearch mode does not link `parent_id`; `parent_url` is stored on each request document.
+
+## Batch flush and crawl summary
+
+Data flushes on batch size, every 10 seconds, and on engine/process stop.
+
+When the spider closes, a crawl summary is printed to stderr (visible even when `LOG_LEVEL` is `ERROR`) with job id, spider, database URL, Elasticsearch/OpenSearch URL, table/index names, counts, and elapsed time. Set `INGEST_SHOW_SUMMARY = False` to hide it.
+
+## CLI
+
+Run from your Scrapy project directory (loads `settings.py` via Scrapy).
+
+### `check-config`
+
+Validate settings and ping configured destinations before running a spider:
+
+```bash
+scrapy-ingest check-config
+scrapy-ingest check-config --db-url "postgresql://user:pass@localhost:5432/db"
+scrapy-ingest check-config --search-url "http://localhost:9200"
+```
+
+Shows a spinner per step, prints a summary table to stderr, and exits `0` when all configured destinations are reachable.
+
+### `jobs show`
+
+List recent jobs or print one job summary from SQL or Elasticsearch/OpenSearch (requires `DB_URL` and/or `SEARCH_URL`). When both are configured, queries use SQL; crawls still dual-write to both.
+
+```bash
+scrapy-ingest jobs show                                    # list recent jobs
+scrapy-ingest jobs show --limit 20                         # list up to 20 jobs
+scrapy-ingest jobs show --status running                   # filter by status (list mode)
+scrapy-ingest jobs show --spider Rs_Spider                 # filter by spider (list mode)
+scrapy-ingest jobs show Rs_Spider-178826754-a1b2            # one job (Field | Value table)
+scrapy-ingest jobs show --search-url "http://localhost:9200"
+```
+
+**List mode** (no job id): table of recent jobs — job id, spider, status, timestamps, counts. **Detail mode** (with job id): Field | Value table from the `jobs` row. `--status` and `--spider` apply in list mode only.
+
+The job id is the string shown in the end-of-crawl summary (or your `JOB_ID` setting). Exit `0` on success (including an empty list); exit `1` if a specific job id is missing or the destination is unreachable.
+
+Typical workflow:
+
+```bash
+scrapy-ingest check-config
+scrapy crawl your_spider
+scrapy-ingest jobs show
+scrapy-ingest jobs show --status finished --spider your_spider
+scrapy-ingest jobs show <job_id>
+```
+
+See [CLI docs](https://scrapy-ingest.readthedocs.io/en/latest/cli.html) for details.
+
+## Useful settings
+
+| Setting                                                     | Default        | Description                                                 |
+|-------------------------------------------------------------|----------------|-------------------------------------------------------------|
+| `DB_URL` / `DB_*`                                           | —              | Database connection (enables SQL ingest)                    |
+| `SEARCH_URL`                                                | —              | Elasticsearch or OpenSearch URL (enables indexing)          |
+| `SEARCH_USER` / `SEARCH_PASSWORD`                           | —              | HTTP basic auth for Elasticsearch/OpenSearch (optional)     |
+| `SEARCH_SSL_VERIFY`                                         | `True`         | Verify HTTPS certificates                                   |
+| `CREATE_TABLES`                                             | `True`         | Auto-create SQL tables on startup                           |
+| `INGEST_BATCH_SIZE`                                         | `50`           | Flush when this many rows are buffered                      |
+| `INGEST_FLUSH_INTERVAL`                                     | `10`           | Periodic flush in seconds                                   |
+| `INGEST_SHOW_SUMMARY`                                       | `True`         | Print crawl summary when the spider closes                  |
+| `DB_TYPE`                                                   | `postgres`     | `postgres` / `mysql` / `mariadb` for discrete `DB_*` fields |
+| `ITEMS_TABLE`, `REQUESTS_TABLE`, `LOGS_TABLE`, `JOBS_TABLE` | see defaults   | Override SQL table and index names (same value for both)    |
+| `TIMEZONE`                                                  | `Asia/Karachi` | Timezone for `created_at`                                   |
+| `JOB_ID`                                                    | auto           | Omit to auto-generate (`Rs_Spider-178826754-a1b2`)          |
+
+## Troubleshooting
+
+- **Password has `@` or `$` in `DB_URL`?** Encode them: `@` → `%40`, `$` → `%24`. Or use discrete `DB_*` fields.
+- **Yield items** from callbacks (not only `return` inside a generator).
+- **Elasticsearch / OpenSearch connection refused?** Check `SEARCH_URL`, firewall, and that the cluster is running. Test with `curl http://localhost:9200`.
+- **HTTPS / self-signed cert?** Set `SEARCH_SSL_VERIFY = False` in development only.
+
+## Standalone components
+
+If you only want part of the collection:
+
+```python
+# Items only
+ITEM_PIPELINES = {"scrapy_ingest.pipelines.ItemsPipeline": 300}
+
+# Requests only (parent_url + errors)
+ITEM_PIPELINES = {"scrapy_ingest.pipelines.RequestsPipeline": 300}
+
+# Logs only
+EXTENSIONS = {"scrapy_ingest.extensions.LoggingExtension": 500}
+```
+
+## Links
+
+- Docs: https://scrapy-ingest.readthedocs.io/
+- Changelog: [docs/development/changelog.rst](docs/development/changelog.rst)
+- Issues: https://github.com/fawadss1/scrapy-ingest/issues
+
+## License
+
+MIT License. See [LICENSE](LICENSE).

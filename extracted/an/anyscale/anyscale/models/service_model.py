@@ -16,7 +16,8 @@ class UserServiceAccessTypes(str, enum.Enum):
 
 class ServiceConfig(BaseHAJobConfig):
     name: str = Field(
-        ..., description="Name of service to be submitted.",
+        ...,
+        description="Name of service to be submitted.",
     )
     access: UserServiceAccessTypes = Field(
         UserServiceAccessTypes.public,
@@ -85,7 +86,8 @@ class ServiceConfig(BaseHAJobConfig):
     )
 
     config: Optional[Dict[str, Any]] = Field(
-        None, description="Target Service's configuration",
+        None,
+        description="Target Service's configuration",
     )
 
     auto_complete_rollout: Optional[bool] = Field(
@@ -100,9 +102,9 @@ class ServiceConfig(BaseHAJobConfig):
 
     @root_validator
     def validates_config(cls, values) -> Dict[str, Any]:
-        assert (
-            values.get("runtime_env") is None
-        ), "runtime_env should not be set for Services on v2 clouds."
+        assert values.get("runtime_env") is None, (
+            "runtime_env should not be set for Services on v2 clouds."
+        )
 
         return values
 

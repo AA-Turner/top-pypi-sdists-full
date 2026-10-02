@@ -1,3 +1,20 @@
 [build]
   publish = ".vitepress/dist"
   command = "pnpm run build"
+
+[build.environment]
+  NODE_VERSION = "24"
+
+[context.production.environment]
+  # Git builds publish next.taskfile.dev. Releases build latest separately and
+  # publish taskfile.dev with `task website:deploy:prod` and --no-build.
+  DOCS_CHANNEL = "next"
+  DOCS_SITE = "production"
+
+[context.deploy-preview.environment]
+  DOCS_CHANNEL = "next"
+  DOCS_SITE = "preview"
+
+[context.branch-deploy.environment]
+  DOCS_CHANNEL = "next"
+  DOCS_SITE = "preview"

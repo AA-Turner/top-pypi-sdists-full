@@ -14,8 +14,8 @@ jobs:
     name: Format
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.x"
       - name: Check manifest
@@ -32,19 +32,20 @@ jobs:
           - "3.12"
           - "3.13"
           - "3.14"
+          - "3.15"
 
     name: Check Python ${{ matrix.python-version }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
 
-      - uses: astral-sh/setup-uv@v8.1.0
+      - uses: astral-sh/setup-uv@v10.0.1
 
       - name: Install package
         run: uv pip install --system -e .[test]
@@ -53,6 +54,6 @@ jobs:
         run: python -m pytest --doctest-modules --cov=src/hepunits --cov-report=xml
 
       - name: Test coverage with Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

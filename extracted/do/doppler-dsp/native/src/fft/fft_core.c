@@ -1,0 +1,184 @@
+#include "doppler/fft/fft_core.h"
+#include <string.h>
+
+/* A pocketfft plan is fixed at state->n and writes every one of those n
+ * bins, so it can never be pointed at a buffer smaller than n.  When a
+ * caller's capacity is short, transform into scratch and hand back the
+ * prefix that fits -- the same answer the sized call would have put in
+ * those slots, just fewer of them.  The scratch is sized for CF64 so one
+ * allocation serves both plans, and it is allocated on first use: every
+ * in-tree caller (and the Python binding, which sizes from *_max_out())
+ * passes max_out == n and never touches this path. */
+static double _Complex *
+trunc_buf (dp_fft_state_t *state)
+{
+  if (!state->work_trunc)
+    state->work_trunc
+        = (double _Complex *)dp_xcalloc (state->n, sizeof *state->work_trunc);
+  return state->work_trunc;
+}
+
+dp_fft_state_t *
+dp_fft_create (size_t n, int sign, int nthreads)
+{
+  (void)nthreads;
+  dp_fft_state_t *state = malloc (sizeof (*state));
+  if (!state)
+    return NULL;
+  state->plan_f64 = dp_pocketfft_plan_1d (n, sign);
+  state->plan_f32 = dp_pocketfft_plan_1d (n, sign);
+  if (!state->plan_f64 || !state->plan_f32)
+    {
+      dp_pocketfft_destroy_plan (state->plan_f64);
+      dp_pocketfft_destroy_plan (state->plan_f32);
+      free (state);
+      return NULL;
+    }
+  state->n          = n;
+  state->sign       = sign;
+  state->work_trunc = NULL;
+  return state;
+}
+
+void
+dp_fft_destroy (dp_fft_state_t *state)
+{
+  if (!state)
+    return;
+  dp_pocketfft_destroy_plan (state->plan_f64);
+  dp_pocketfft_destroy_plan (state->plan_f32);
+  free (state->work_trunc);
+  free (state);
+}
+
+void
+dp_fft_reset (dp_fft_state_t *state)
+{
+  (void)state; /* plans are immutable after creation */
+}
+
+size_t
+dp_fft_execute_cf64_max_out (dp_fft_state_t *state)
+{
+  return state->n;
+}
+
+size_t
+dp_fft_execute_cf64 (dp_fft_state_t *state, const double _Complex *in,
+                     size_t n_in, double _Complex *out, size_t max_out)
+{
+  (void)n_in;
+  if (max_out >= state->n)
+    {
+      dp_pocketfft_execute_1d (state->plan_f64, in, out);
+      return state->n;
+    }
+  double _Complex *scratch = trunc_buf (state);
+  dp_pocketfft_execute_1d (state->plan_f64, in, scratch);
+  memcpy (out, scratch, max_out * sizeof (*out));
+  return max_out;
+}
+
+size_t
+dp_fft_execute_cf32_max_out (dp_fft_state_t *state)
+{
+  return state->n;
+}
+
+size_t
+dp_fft_execute_cf32 (dp_fft_state_t *state, const float _Complex *in,
+                     size_t n_in, float _Complex *out, size_t max_out)
+{
+  (void)n_in;
+  if (max_out >= state->n)
+    {
+      dp_pocketfft_execute_1d_cf32 (state->plan_f32, in, out);
+      return state->n;
+    }
+  float _Complex *scratch = (float _Complex *)trunc_buf (state);
+  dp_pocketfft_execute_1d_cf32 (state->plan_f32, in, scratch);
+  memcpy (out, scratch, max_out * sizeof (*out));
+  return max_out;
+}
+
+size_t
+dp_fft_execute_inplace_cf64_max_out (dp_fft_state_t *state)
+{
+  return state->n;
+}
+
+size_t
+dp_fft_execute_inplace_cf64 (dp_fft_state_t *state, const double _Complex *in,
+                             size_t n_in, double _Complex *out, size_t max_out)
+{
+  /* Copy in→out so the plan can transform the buffer in place.
+   * Avoids a scratch allocation inside pocketfft at the cost of
+   * one memcpy per call.  n_in is documented as state->n; clamp so a
+   * longer input cannot walk off the end of a correctly sized out. */
+  const size_t n = n_in < state->n ? n_in : state->n;
+  if (max_out >= state->n)
+    {
+      memcpy (out, in, n * sizeof (*out));
+      dp_pocketfft_execute_1d (state->plan_f64, out, out);
+      return state->n;
+    }
+  double _Complex *scratch = trunc_buf (state);
+  memcpy (scratch, in, n * sizeof (*scratch));
+  dp_pocketfft_execute_1d (state->plan_f64, scratch, scratch);
+  memcpy (out, scratch, max_out * sizeof (*out));
+  return max_out;
+}
+
+size_t
+dp_fft_execute_inplace_cf32_max_out (dp_fft_state_t *state)
+{
+  return state->n;
+}
+
+size_t
+dp_fft_execute_inplace_cf32 (dp_fft_state_t *state, const float _Complex *in,
+                             size_t n_in, float _Complex *out, size_t max_out)
+{
+  const size_t n = n_in < state->n ? n_in : state->n;
+  if (max_out >= state->n)
+    {
+      memcpy (out, in, n * sizeof (*out));
+      dp_pocketfft_execute_1d_cf32 (state->plan_f32, out, out);
+      return state->n;
+    }
+  float _Complex *scratch = (float _Complex *)trunc_buf (state);
+  memcpy (scratch, in, n * sizeof (*scratch));
+  dp_pocketfft_execute_1d_cf32 (state->plan_f32, scratch, scratch);
+  memcpy (out, scratch, max_out * sizeof (*out));
+  return max_out;
+}
+
+size_t
+dp_fft_execute_ci16_max_out (dp_fft_state_t *state)
+{
+  return state->n;
+}
+
+size_t
+dp_fft_execute_ci16 (dp_fft_state_t *state, const int16_t *in, size_t n_in,
+                     float _Complex *out)
+{
+  (void)n_in;
+  dp_pocketfft_execute_1d_ci16 (state->plan_f32, in, out);
+  return state->n;
+}
+
+size_t
+dp_fft_execute_ci8_max_out (dp_fft_state_t *state)
+{
+  return state->n;
+}
+
+size_t
+dp_fft_execute_ci8 (dp_fft_state_t *state, const int8_t *in, size_t n_in,
+                    float _Complex *out)
+{
+  (void)n_in;
+  dp_pocketfft_execute_1d_ci8 (state->plan_f32, in, out);
+  return state->n;
+}

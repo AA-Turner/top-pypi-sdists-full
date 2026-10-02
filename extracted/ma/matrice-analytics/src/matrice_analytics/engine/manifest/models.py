@@ -98,6 +98,9 @@ __all__ = [
     "TrackConfig",
     "UniqueCountConfig",
     "VelocityStateConfig",
+    "VerificationConfig",
+    "VerificationFrames",
+    "VerificationVote",
     "ZoneOccupancyConfig",
     "ZonesSpec",
     "resolve_derived",
@@ -1665,6 +1668,125 @@ class StateMachineConfig(PrimitiveConfig):
         return _validate_confirm_frames(value, "state_machine.confirm_frames")
 
 
+# --- verification ----------------------------------------------------------
+
+#: The VSS verifier's own limit (``POST /vss/verify``): one VLM call per frame, serialised on Thor.
+VERIFY_MAX_FRAMES = 8
+
+
+class VerificationFrames(ManifestModel):
+    """``verification.frames`` — which recorded frames the verifier looks at.
+
+    Mirrors the server's model field for field so a bad block fails at load, not as a 422 that
+    the worker can only log (a 422 is never retried).
+    """
+
+    window_seconds: float = Field(default=4.0, ge=0, le=30)
+    spacing_seconds: float = Field(default=1.0, ge=0.2, le=30)
+    position: Literal["after", "around", "before"] = "after"
+
+    @property
+    def count(self) -> int:
+        """``floor(window / spacing) + 1`` — the server's formula, so the two cannot disagree."""
+        return int(self.window_seconds // self.spacing_seconds) + 1
+
+    @model_validator(mode="after")
+    def _check_count(self) -> VerificationFrames:
+        if self.count > VERIFY_MAX_FRAMES:
+            raise ValueError(
+                f"verification.frames asks for {self.count} frames (floor(window_seconds "
+                f"{self.window_seconds} / spacing_seconds {self.spacing_seconds}) + 1); the "
+                f"verifier accepts at most {VERIFY_MAX_FRAMES}. Widen the spacing or shorten the "
+                f"window."
+            )
+        return self
+
+
+class VerificationVote(ManifestModel):
+    """``verification.vote`` — how per-frame answers combine into one verdict."""
+
+    rule: Literal["majority", "any", "all", "at_least"] = "majority"
+    at_least: int | None = Field(default=None, ge=1)
+    min_decided: int = Field(default=1, ge=1)
+
+    @model_validator(mode="after")
+    def _check_rule(self) -> VerificationVote:
+        if (self.rule == "at_least") != (self.at_least is not None):
+            raise ValueError(
+                "verification.vote.at_least is required by rule: at_least and meaningless for "
+                f"any other rule (got rule: {self.rule}, at_least: {self.at_least}). Set both or "
+                "neither — an ignored at_least reads as a tuning knob that does nothing (PY-12)."
+            )
+        return self
+
+
+class VerificationConfig(PrimitiveConfig):
+    """``verification`` — hold an alert candidate until the VSS VLM confirms it.
+
+    Non-blocking: the stage submits to the engine-owned worker (``engine/verify``) on a candidate
+    frame and applies the verdict on a later one. ``source`` is ``<stage>.<value>`` of an
+    **earlier** stage, checked in :meth:`AppManifest._check_ordering`.
+    """
+
+    PRIMITIVE: ClassVar[str] = "verification"
+    STATIC_OUTPUTS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "verified_rank",
+            "verified",
+            "verification_pending",
+            "verification_suppressed",
+            "verification_rejected",
+            "verification_dropped",
+            "verification_skipped",
+            "verification_votes_confirmed",
+            "verification_votes_total",
+        }
+    )
+    #: ``window()`` republishes exactly the per-frame keys (flags as "at any point this window").
+    STATIC_WINDOW_OUTPUTS: ClassVar[frozenset[str] | None] = None
+
+    kind: Literal["verification"] = "verification"
+    source: str = Field(description='"<stage>.<value>" of an earlier stage, e.g. custom.rank.')
+    above: float = Field(default=0.0, description="A frame is a candidate when source > above.")
+    query: str = Field(min_length=1, max_length=1000, description="Yes/no question; yes = real.")
+    frames: VerificationFrames = Field(default_factory=VerificationFrames)
+    vote: VerificationVote = Field(default_factory=VerificationVote)
+    mode: Literal["gate", "shadow"] = Field(
+        default="gate", description="gate blocks unconfirmed candidates; shadow only records."
+    )
+    on_unverifiable: Literal["pass", "block"] = "pass"
+    on_unavailable: Literal["pass", "block"] = Field(
+        default="pass", description="Also applies to bad_request and to an unsendable candidate."
+    )
+    cooldown_seconds: float = Field(default=120.0, gt=0)
+    clear_after_quiet_seconds: float = Field(default=10.0, gt=0)
+
+    @field_validator("source")
+    @classmethod
+    def _check_source_shape(cls, value: str) -> str:
+        stage, _, key = value.partition(".")
+        if not stage or not key:
+            raise ValueError(
+                f"verification.source {value!r} is not '<stage>.<value>', e.g. "
+                "'incident_quantise.level_rank'."
+            )
+        return value
+
+    @model_validator(mode="after")
+    def _check_vote_fits_frames(self) -> VerificationConfig:
+        count = self.frames.count
+        for name, needed in (
+            ("at_least", self.vote.at_least),
+            ("min_decided", self.vote.min_decided),
+        ):
+            if needed is not None and needed > count:
+                raise ValueError(
+                    f"verification.vote.{name} is {needed} but frames yields only {count} "
+                    f"frame(s); the vote could never settle and the server rejects it (422)."
+                )
+        return self
+
+
 # --- proximity -------------------------------------------------------------
 
 
@@ -2435,6 +2557,7 @@ PipelineStage = Annotated[
         RatioComplianceConfig,
         IncidentQuantiseConfig,
         StateMachineConfig,
+        VerificationConfig,
         ProximityConfig,
         KeypointPoseConfig,
         SegmentationAreaConfig,
@@ -2462,6 +2585,7 @@ PRIMITIVES: dict[str, type[PrimitiveConfig]] = {
         RatioComplianceConfig,
         IncidentQuantiseConfig,
         StateMachineConfig,
+        VerificationConfig,
         ProximityConfig,
         KeypointPoseConfig,
         SegmentationAreaConfig,
@@ -3483,10 +3607,45 @@ class AppManifest(ManifestModel):
                             f"which is not a stage declared before it. Stages so far: "
                             f"{_joined(seen)}.{_did_you_mean(gated_on, list(PRIMITIVES))}"
                         )
+            if isinstance(stage, VerificationConfig):
+                self._check_verification_source(index, stage)
             seen.append(stage.stage_name)
             if stage.PRIMITIVE not in seen:
                 # Reference either by explicit name or by primitive name.
                 seen.append(stage.PRIMITIVE)
+
+    def _check_verification_source(self, index: int, stage: VerificationConfig) -> None:
+        """``verification.source`` must name an **earlier** stage by its real stage name.
+
+        Stricter than ``dwell.gate``: the stage reads ``ctx.previous[<stage>]``, which is keyed by
+        stage name only, so a primitive-name alias that ``resolve_source`` would accept for a
+        metric resolves to nothing at runtime. A later stage has not run yet on the frame, and an
+        ``all_in_one`` stage never runs in a zone bucket; either way the source would be an
+        unresolvable-source error on the first candidate rather than here (``09`` §3).
+        """
+        where = f"pipeline[{index}].{stage.stage_name}.source"
+        name = stage.source.partition(".")[0]
+        earlier = {s.stage_name: s for s in self.pipeline[:index]}
+        upstream = earlier.get(name)
+        if upstream is None:
+            later = {s.stage_name for s in self.pipeline[index:]}
+            why = (
+                "which runs at or after this stage, so it has not run yet on any frame"
+                if name in later
+                else "which is not a stage name in this pipeline"
+            )
+            raise ValueError(
+                f"{where} is {stage.source!r}: {name!r} is {why}. It must name a stage declared "
+                f"before it (by its 'name:' if it has one). Stages so far: {_joined(earlier)}."
+                f"{_did_you_mean(name, earlier)}"
+            )
+        if upstream.all_in_one:
+            raise ValueError(
+                f"{where} is {stage.source!r}, and {name!r} declares 'zones: all_in_one' — it runs "
+                f"only in the 'global' bucket, so every zone bucket's verification stage would "
+                f"find no source. Drop 'zones: all_in_one' from {name!r}."
+            )
+        resolve_source(self, stage.source, where=where)
 
     def _check_attribute_order(self) -> None:
         """``attribute_vote`` must run before ``attribute_count`` on the same attribute.
@@ -3712,7 +3871,7 @@ class AppManifest(ManifestModel):
                 elif value in stage_names:
                     stage = self._stage_by_name(value)
                     if stage is not None and not isinstance(
-                        stage, (IncidentQuantiseConfig, CustomConfig)
+                        stage, (IncidentQuantiseConfig, CustomConfig, VerificationConfig)
                     ):
                         raise ValueError(
                             f"{where}.severity_from names the {value!r} stage, which does not "
@@ -3720,6 +3879,20 @@ class AppManifest(ManifestModel):
                             f"a fixed level ({', '.join(SEVERITY_LEVELS)}), or a metric threshold "
                             f"such as {{{next(iter(metric_keys), 'my_metric')}: {{'>': 0}}}}."
                         )
+                    if isinstance(stage, VerificationConfig):
+                        # It only re-emits its source stage's events, so a source that raises
+                        # none (detect, a count) would leave this incident type dead forever.
+                        upstream = self._stage_by_name(stage.source.partition(".")[0])
+                        if not isinstance(
+                            upstream, (IncidentQuantiseConfig, CustomConfig, VerificationConfig)
+                        ):
+                            raise ValueError(
+                                f"{where}.severity_from names the {value!r} verification stage, "
+                                f"which re-emits the events of its source stage — and "
+                                f"{stage.source!r} raises none, so this incident could never "
+                                f"open. Source an 'incident_quantise' (or custom) stage, or "
+                                f"threshold a metric on '{stage.stage_name}.verified_rank'."
+                            )
                 else:
                     raise ValueError(
                         f"{where}.severity_from is {value!r}, which is neither a severity level "

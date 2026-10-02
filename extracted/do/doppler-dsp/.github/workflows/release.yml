@@ -1,0 +1,964 @@
+name: Release
+
+# Triggered by pushing a version tag: git tag v0.2.0 && git push --tags
+on:
+  push:
+    tags:
+      - 'v[0-9]*'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  # ------------------------------------------------------------------
+  # Sanity check: tag version matches pyproject.toml
+  # ------------------------------------------------------------------
+  verify-version:
+    name: Verify version consistency
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      version: ${{ steps.get.outputs.version }}
+      jm_version: ${{ steps.get.outputs.jm_version }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Extract tag version
+        id: get
+        run: |
+          TAG="${GITHUB_REF_NAME}"          # e.g. v0.2.1
+          VERSION="${TAG#v}"                # e.g.   0.2.1
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          # The jm pin the SDK image bakes in — asked of the Makefile, which
+          # already derives JM_VERSION from just-makeit.toml for the docker-*
+          # targets. This step had its own grep/sed doing the same job, so one
+          # pin had two extractions that agreed only by luck, and the image's
+          # jm depended on which caller you went through.
+          echo "jm_version=$(make -s print-jm-version)" >> "$GITHUB_OUTPUT"
+
+      # `make version-check` is the SSOT for "the manifests agree": it probes
+      # pyproject.toml, CMakeLists.txt and ffi/rust/Cargo.toml, and fails if any
+      # disagrees with VERSION (the tag) or with each other — the same three
+      # checks this job used to open-code with three grep/sed blocks. On a
+      # mismatch: `make bump-version VERSION=<tag>`.
+      - name: Verify every manifest matches the tag
+        run: make version-check VERSION="${{ steps.get.outputs.version }}"
+
+  # ------------------------------------------------------------------
+  # Belt-and-suspenders test gate.
+  #
+  # release.yml is tag-triggered and runs independently of ci.yml — so without
+  # this, a tag on a red commit would still publish to PyPI (irreversible). The
+  # PR flow keeps `main` green, but this re-runs the suite on the tagged commit,
+  # and `publish-python` needs it, so a failing test blocks the PyPI upload.
+  #
+  # Scoped to ubuntu-latest — the same surface ci.yml's `python` job gates. The
+  # macOS *Python* suite has never been part of CI (the macOS CI job runs only
+  # CTest), and running it here surfaced two pre-existing, macOS-only bugs that
+  # are not release regressions and must be fixed on their own:
+  #   * #66 — ring buffers assume 4 KB pages; broken on macOS arm64 (16 KB)
+  #   * #67 — qpsk/cf32 compose-vs-CLI byte-parity divergence on macOS
+  # Re-add macos-latest once both are fixed. macOS wheels still build + the
+  # macOS CTest suite still runs in ci.yml.
+  # ------------------------------------------------------------------
+  # ------------------------------------------------------------------
+  # Confirm the tagged commit already passed CI on main — don't re-run the
+  # suite. The release bump lands via a PR, so the merge to main is the real
+  # gate; here we just poll the "CI passed" aggregator check on this SHA (see
+  # the ci-passed job in ci.yml and the release-process skill).
+  # ------------------------------------------------------------------
+  verify-ci:
+    name: Verify CI passed on the tagged commit
+    needs: verify-version
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      checks: read
+      contents: read
+    steps:
+      - name: Poll for the "CI passed" check on this SHA
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        # `shell: bash` for pipefail: the `| head -n1` below otherwise
+        # reports head's status and a failed `gh api` reads as an empty
+        # answer. The `|| line=""` keeps that tolerance DELIBERATE rather
+        # than accidental -- this is a poll loop, so one API blip should
+        # cost a retry, not the release; with pipefail and `-e` and no
+        # `||`, the assignment itself would end the step.
+        shell: bash
+        run: |
+          for i in $(seq 1 60); do
+            line="$(gh api "repos/$REPO/commits/$SHA/check-runs" --paginate \
+              --jq '.check_runs[] | select(.name == "CI passed")
+                    | "\(.status) \(.conclusion)"' | head -n1)" || line=""
+            status="${line%% *}"; conclusion="${line#* }"
+            if [[ "$status" == "completed" && "$conclusion" == "success" ]]; then
+              echo "CI passed on $SHA."; exit 0
+            elif [[ "$status" == "completed" && -n "$conclusion" \
+                    && "$conclusion" != "success" ]]; then
+              echo "::error::CI concluded '$conclusion' on $SHA — refusing to release."
+              exit 1
+            fi
+            echo "Waiting for 'CI passed' on $SHA... ($i/60)"; sleep 20
+          done
+          echo "::error::Timed out waiting for 'CI passed' on $SHA."; exit 1
+
+  # ------------------------------------------------------------------
+  # Build Python wheels
+  #
+  # just-buildit is a minimal PEP 517 backend
+  # that calls `make just-build` (cmake + pyext), assembles the wheel
+  # from output_dir, detects the platform tag from the .so suffix, and
+  # runs `uvx auditwheel repair` to produce a manylinux wheel.
+  #
+  # Each Python version gets its own docker run so the .so suffix
+  # (cpXYZ) matches the interpreter that will load it.
+  #
+  # The sdist is built once on the host runner.
+  # ------------------------------------------------------------------
+  build-python:
+    name: Build wheels (manylinux_2_28 ${{ matrix.arch.tag }})
+    needs: verify-version
+    runs-on: ${{ matrix.arch.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        python: [cp39, cp310, cp311, cp312, cp313, cp314]
+        # aarch64 wheels build NATIVELY on GitHub's arm64 runners (free
+        # for public repos) — same manylinux flow as x86_64, no QEMU or
+        # cross-toolchain anywhere. Publishing the aarch64 wheel is also
+        # what lets Dockerfile.cli pip-install on linux/arm64 instead of
+        # compiling the whole tree under emulation (~19 min/release).
+        arch:
+          - { tag: x86_64, runner: ubuntu-latest }
+          - { tag: aarch64, runner: ubuntu-24.04-arm }
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build wheel (${{ matrix.python }}) in manylinux container
+        # `make wheel` (= uv build --wheel) is the reference wheel build and is
+        # what build-macos uses. This leg deliberately does NOT call it: the
+        # wheel must bind to one specific manylinux interpreter
+        # (/opt/python/<cpXYZ>) and is built --no-isolation against pre-installed
+        # deps for speed, which the generic target cannot express. Same backend
+        # (just-buildit) either way; only the interpreter pinning differs.
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/project" \
+            -w /project \
+            quay.io/pypa/manylinux_2_28_${{ matrix.arch.tag }} \
+            bash -euxc "
+              dnf install -y cmake pkg-config
+              PYTHON=/opt/python/${{ matrix.python }}-${{ matrix.python }}/bin/python
+              export PATH=\"\$(dirname \$PYTHON):\$PATH\"
+              \$PYTHON -m pip install --quiet numpy uv build just-buildit
+              mkdir -p dist
+              \$PYTHON -m build --no-isolation --wheel --outdir dist/
+            "
+
+      - name: Verify wheel is portable (no -native SIMD leak)
+        # A distributed wheel must run on any CPU of its arch: `-march=native`
+        # (x86) or `-mcpu=native` (aarch64) on the build host sprays wide SIMD
+        # across every function and SIGILLs on older hardware — doppler 0.5.1
+        # shipped exactly that bug. Wide SIMD is legitimate only inside
+        # runtime-dispatched functions, which carry the ISA in their name and
+        # sit behind a __builtin_cpu_supports() check.
+        #
+        # ONE step, not two: `make wheel-check` detects the arch, so the x86
+        # and aarch64 scans — identical but for the register pattern and the
+        # allowed function-name substring — no longer need a condition each.
+        run: make wheel-check
+
+      - name: Upload wheel (${{ matrix.python }})
+        uses: actions/upload-artifact@v7
+        with:
+          name: python-dist-${{ matrix.python }}-${{ matrix.arch.tag }}
+          path: dist/*.whl
+
+  # ------------------------------------------------------------------
+  # Build Python wheels (macOS arm64)
+  #
+  # Uses the same just-buildit backend; delocate-wheel (run via uvx)
+  # bundles dylib deps and stamps the macosx platform tag.
+  # ------------------------------------------------------------------
+  build-macos:
+    name: Build wheels (macOS arm64)
+    needs: verify-version
+    runs-on: macos-14
+    timeout-minutes: 45
+    # Pin the build to arm64-only, min-os 11.0 (the floor for all Apple
+    # Silicon). Some setup-uv Pythons (3.9/3.11/3.12) are universal2 builds
+    # whose sysconfig reports `macosx-10.13-universal2`, so the wheel got that
+    # tag — but cmake produces an arm64-only .so on this runner, and delocate
+    # then fails demanding the absent x86_64 slice. MACOSX_DEPLOYMENT_TARGET
+    # sets the .so's min-os (cmake reads it); _PYTHON_HOST_PLATFORM overrides
+    # sysconfig.get_platform() so the wheel is tagged macosx_11_0_arm64 to
+    # match the binary. Uniform across every matrix Python.
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "11.0"
+      _PYTHON_HOST_PLATFORM: "macosx-11.0-arm64"
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv + Python ${{ matrix.python }}
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install system dependencies
+        timeout-minutes: 25
+        run: make install-deps-ci
+
+      - name: Build wheel (Python ${{ matrix.python }})
+        # Build through the make target, the same way CI builds the extension
+        # (make pyext). `make wheel` runs `uv build --wheel`, whose just-buildit
+        # backend calls `make just-build` (cmake + pyext) and delocate-repairs
+        # the macOS wheel. UV_PYTHON — set by setup-uv's python-version above —
+        # selects the interpreter, so each matrix job emits its own cpXYZ wheel.
+        # No hand-rolled `uv venv`/`uv pip`: the make target owns the build env,
+        # so there is no stray `.venv` for a later step to collide with.
+        run: make wheel
+
+      - name: Upload wheel (Python ${{ matrix.python }})
+        uses: actions/upload-artifact@v7
+        with:
+          name: python-dist-macos-${{ matrix.python }}
+          path: dist/*.whl
+
+  # ------------------------------------------------------------------
+  # Build Python wheels (Windows x64, clang-cl)
+  #
+  # The same `make wheel` as build-macos, on the toolchain ci.yml's Windows
+  # job builds and tests the extensions with on every PR: clang-cl + Ninja
+  # under the MSVC environment. just-buildit's repair step is
+  # `delvewheel repair` on Windows, which bundles any non-system DLL and
+  # stamps win_amd64. It carries the same surface as every other wheel,
+  # wfmgen and StreamSink included (#1579, #1581); ci.yml's
+  # wheel-smoke-windows builds and smokes it on every PR (doppler#1586).
+  # ------------------------------------------------------------------
+  build-windows:
+    name: Build wheels (Windows x64)
+    needs: verify-version
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    env:
+      # Read by pyext's configure, which `make wheel` reaches through
+      # just-buildit's `make just-build`: the same flags ci.yml passes.
+      CMAKE_ARGS: -G Ninja -DCMAKE_C_COMPILER=clang-cl
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: MSVC developer environment (x64)
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install uv + Python ${{ matrix.python }}
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Build wheel (Python ${{ matrix.python }})
+        run: make wheel
+
+      - name: Upload wheel (Python ${{ matrix.python }})
+        uses: actions/upload-artifact@v7
+        with:
+          name: python-dist-windows-${{ matrix.python }}
+          path: dist/*.whl
+
+  # ------------------------------------------------------------------
+  # Build sdist (source distribution for PyPI)
+  # ------------------------------------------------------------------
+  build-sdist:
+    name: Build sdist
+    needs: verify-version
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Build sdist
+        # `make sdist` = `uv build --sdist`, whose isolated PEP 517 build pulls
+        # the backend (just-buildit + numpy) from pyproject's build-system
+        # requires — no hand-rolled venv/pip bootstrap to drift from build-macos.
+        run: make sdist
+
+      - name: Upload sdist
+        uses: actions/upload-artifact@v7
+        with:
+          name: python-dist-sdist
+          path: dist/*.tar.gz
+
+  # ------------------------------------------------------------------
+  # Build and package C libraries (headers + static + shared)
+  # for Linux x86_64, Linux aarch64, and macOS arm64.
+  # ------------------------------------------------------------------
+  # One matrixed job, not two near-identical ones. The x86_64 and aarch64 legs
+  # differed only in the image arch and the platform string they hand-typed
+  # into `tar` — the same shape build-python's arch matrix already uses. The
+  # tarball itself is `make package-c-tarball`, which derives the platform from
+  # uname, so a leg cannot label itself as an arch it did not build on.
+  build-c-linux:
+    name: Package C library (manylinux_2_28 ${{ matrix.arch.tag }})
+    needs: verify-version
+    strategy:
+      fail-fast: false
+      matrix:
+        # Native ARM64 runner (free for public repos), same as build-python's
+        # aarch64 leg — no QEMU or cross-toolchain anywhere.
+        arch:
+          - { tag: x86_64, runner: ubuntu-latest }
+          - { tag: aarch64, runner: ubuntu-24.04-arm }
+    runs-on: ${{ matrix.arch.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build + tar the C library in the manylinux container
+        run: |
+          # The script reaches the container on STDIN through a QUOTED
+          # heredoc, so the runner's shell performs no expansion on it.
+          # It was a double-quoted argument until v0.43.0, and a COMMENT in it
+          # carrying an unbalanced `"` closed that string early -- everything
+          # after it was parsed by the RUNNER, so `make package-starter-tarball`
+          # ran as the runner user against a `build/` cmake had just created as
+          # root inside the container. It surfaced as `mkdir: cannot create
+          # directory 'build/starter-pkg': Permission denied`: a permissions
+          # error with no permissions bug behind it (doppler#948).
+          docker run --rm -i \
+            -v "${{ github.workspace }}:/project" \
+            -w /project \
+            quay.io/pypa/manylinux_2_28_${{ matrix.arch.tag }} \
+            bash -euxs <<'IN_CONTAINER'
+              # Container-context dep install (2 packages); a jbx/bootstrap.toml
+              # bootstrap here would add a CDN dependency to the C build for no
+              # gain. make itself ships in the manylinux image.
+              dnf install -y make cmake pkg-config tar gzip rpm-build
+              make package-c-tarball VERSION=${{ needs.verify-version.outputs.version }}
+              # The starter ships the SDK inside it, so it is built here where
+              # that SDK has just been built rather than in a job of its own
+              # that would compile doppler a second time.
+              #
+              # `safe.directory` because `git archive` runs as root against a
+              # checkout owned by the runner user, and git refuses that as
+              # dubious ownership. Both halves measured in this image rather
+              # than assumed: without the line `git archive` prints "detected
+              # dubious ownership" and writes nothing, and with it the export
+              # is complete (41 files).
+              #
+              # git is NOT added to the dnf list above: the image already
+              # ships 2.55.0 at /usr/local/bin/git, and `dnf install git` adds
+              # a second, older one at /usr/bin/git that PATH never reaches —
+              # a slow metadata fetch on every release leg, for no change.
+              git config --global --add safe.directory /project
+              make package-starter-tarball VERSION=${{ needs.verify-version.outputs.version }}
+              # The .deb and .rpm (doppler#1409), here because this image IS
+              # the glibc floor they claim. Their own build tree (build-pkg),
+              # the path ci.yml's linux-packages job exercises on every PR:
+              # a system prefix and a per-format libdir, which the relocatable
+              # tarball build above must not inherit.
+              make package-deb package-rpm
+          IN_CONTAINER
+
+      - name: Upload C library + starter (Linux ${{ matrix.arch.tag }})
+        uses: actions/upload-artifact@v7
+        with:
+          name: c-dist-linux-${{ matrix.arch.tag }}
+          # Matches BOTH doppler-<ver>- and doppler-starter-<ver>-, which is
+          # why the starter is named that way: it rides the existing glob, and
+          # a release page shows the two side by side saying what each is.
+          path: dist/doppler-*-linux-${{ matrix.arch.tag }}.tar.gz
+
+      # Its own artifact so the files sit at the artifact ROOT: the release
+      # job merges every c-dist-* into dist/ and publishes `dist/*`, which
+      # does not descend into a subdirectory.
+      - name: Upload .deb + .rpm (Linux ${{ matrix.arch.tag }})
+        uses: actions/upload-artifact@v7
+        with:
+          name: c-dist-linux-packages-${{ matrix.arch.tag }}
+          path: dist/linux-packages/*
+          if-no-files-found: error
+
+  build-c-macos:
+    name: Package C library (macOS arm64)
+    needs: verify-version
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install system dependencies
+        timeout-minutes: 25
+        run: make install-deps-ci
+
+      - name: Build + tar the C library
+        # Same target the Linux legs run in their container, and the same one a
+        # developer can run before cutting a tag — the tarball is no longer an
+        # artifact that only a release could produce.
+        run: make package-c-tarball VERSION="${{ needs.verify-version.outputs.version }}"
+
+      - name: Build + tar the starter project
+        # Same job as the SDK it bundles, so doppler is compiled once.
+        run: make package-starter-tarball VERSION="${{ needs.verify-version.outputs.version }}"
+
+      - name: Upload C library + starter (macOS)
+        uses: actions/upload-artifact@v7
+        with:
+          name: c-dist-macos
+          path: dist/doppler-*-macos-arm64.tar.gz
+
+  # The Windows C library, as a .zip -- built with clang-cl against the MSVC
+  # runtime, which is the build ci.yml's binding Windows job packages and
+  # consumes on every PR, so the tag cannot meet a Windows build nothing
+  # tested. No starter archive: it bundles the downstream project's Python
+  # extension, and doppler's extensions are not built on Windows yet.
+  build-c-windows:
+    name: Package C library (Windows x86_64)
+    needs: verify-version
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: MSVC developer environment (x64)
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Build + zip the C library
+        run: |
+          make package-c-tarball \
+            VERSION="${{ needs.verify-version.outputs.version }}" \
+            CMAKE_ARGS="-G Ninja -DCMAKE_C_COMPILER=clang-cl"
+
+      - name: Upload C library (Windows)
+        uses: actions/upload-artifact@v7
+        with:
+          name: c-dist-windows
+          path: dist/doppler-*-windows-x86_64.zip
+
+  # ------------------------------------------------------------------
+  # Publish to PyPI (uses trusted publishing — configure in PyPI)
+  # ------------------------------------------------------------------
+  # ------------------------------------------------------------------
+  # Pre-publish smoke: install the just-built wheel in a clean interpreter and
+  # run the published-wheel e2e (deploy/validation/wfm_e2e.py) — validates the
+  # actual artifact, not the source tree, before it goes to PyPI.
+  # ------------------------------------------------------------------
+  smoke-wheel:
+    name: Smoke-test the built wheel (${{ matrix.arch.tag }})
+    needs: [build-python, build-windows]
+    runs-on: ${{ matrix.arch.runner }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - { tag: x86_64, runner: ubuntu-latest, artifact: python-dist-cp312-x86_64 }
+          - { tag: aarch64, runner: ubuntu-24.04-arm, artifact: python-dist-cp312-aarch64 }
+          - { tag: win_amd64, runner: windows-latest, artifact: python-dist-windows-3.12 }
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      # `make wheel-smoke` builds the throwaway venv with uv (a make target,
+      # not the old inline step), so uv must be on PATH — setup-python alone is
+      # not enough.
+      - uses: astral-sh/setup-uv@v7
+
+      - name: Download the cp312 wheel
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ matrix.arch.artifact }}
+          path: dist/
+
+      - name: Install the built wheel + run the e2e from a clean dir
+        # Installs into a THROWAWAY venv and runs from a clean cwd, so
+        # `import doppler` can only resolve to the wheel and never to ./src.
+        # The venv's bin/ goes on PATH because two of the e2e's ten checks
+        # shell out to the `wfmgen` console script — running the target before
+        # wiring it is what caught that, and it read as "the wheel is broken"
+        # (8/10) when it was the harness.
+        run: make wheel-smoke
+
+  publish-python:
+    name: Publish to PyPI
+    needs: [verify-version, verify-ci, smoke-wheel, build-sdist, build-python, build-macos, build-windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: pypi
+    permissions:
+      id-token: write   # required for OIDC trusted publishing
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: python-dist-*
+          merge-multiple: true
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # Idempotent publish: a later job in this release failing (e.g. the
+          # container smoke-test) must be recoverable by re-running the run.
+          # Without this, the re-run's publish aborts on the already-uploaded
+          # files and the release can never reach the GitHub-release job.
+          skip-existing: true
+
+  # ------------------------------------------------------------------
+  # Publish a "pull and run" container: ghcr.io/doppler-dsp/doppler:X.Y.Z
+  # (+ :latest). BOTH architectures install the just-published PyPI wheel
+  # rather than rebuilding from source — the manylinux wheels (x86_64 +
+  # aarch64) already bundle their shared-lib deps via auditwheel repair,
+  # so the image needs no build toolchain, and it guarantees the
+  # container runs the exact artifact smoke-wheel already tested, not an
+  # independent rebuild that could drift from it. See
+  # deploy/docker/Dockerfile.cli.
+  # ------------------------------------------------------------------
+  publish-container:
+    name: Build container images (${{ matrix.arch.tag }})
+    needs: [verify-version, publish-python]
+    runs-on: ${{ matrix.arch.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        # Native runners, same pair the wheel and C-package legs use.
+        include:
+          - arch: { tag: amd64, runner: ubuntu-latest, platform: linux/amd64 }
+          - arch: { tag: arm64, runner: ubuntu-24.04-arm, platform: linux/arm64 }
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Wait for the version to be resolvable on PyPI
+        # The SIMPLE INDEX is what pip actually reads, and curl is always
+        # present. This job has NO setup-python, so the bare `pip index
+        # versions` this used to run was never guaranteed to exist -- and
+        # `2>/dev/null` turned its absence into "not indexed yet", forever.
+        # A check that can only fail is not a check: v0.43.0 timed out at 5
+        # minutes and v0.43.1 at 15, both while the version was live on PyPI
+        # the whole time, and both took the container images and the GitHub
+        # Release down with them. Widening the budget was treating the symptom.
+        #
+        # The pattern anchors on the character after the version so that
+        # 0.43.1 does not match 0.43.10: a wheel is `doppler_dsp-<v>-...whl`
+        # and an sdist `doppler_dsp-<v>.tar.gz`.
+        shell: bash
+        run: |
+          VERSION="${{ needs.verify-version.outputs.version }}"
+          INDEX="https://pypi.org/simple/doppler-dsp/"
+          ATTEMPTS=60
+          for i in $(seq 1 $ATTEMPTS); do
+            if curl -fsS "$INDEX" | grep -q "doppler_dsp-$VERSION[-.]"; then
+              echo "doppler-dsp==$VERSION is on the index (after $(( (i - 1) * 10 ))s)."
+              exit 0
+            fi
+            echo "Waiting for PyPI to index doppler-dsp==$VERSION... ($i/$ATTEMPTS)"
+            sleep 10
+          done
+          echo "::error::doppler-dsp==$VERSION is not on the simple index after $(( ATTEMPTS * 10 ))s."
+          echo "The index currently lists:"
+          curl -fsS "$INDEX" | grep -o "doppler_dsp-[0-9][0-9.]*" | sort -u | tail -20
+          exit 1
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      # NO QEMU. Each arch builds on its own runner, which is what every other
+      # aarch64 leg in this file already does ("no QEMU or cross-toolchain
+      # anywhere"). This job was the last holdout, and it was the expensive
+      # one: the SDK and downstream images COMPILE doppler from source, so
+      # their arm64 layer was a C build under emulation — 28 min of a 36 min
+      # job, and the whole critical path of a 43 min release (#1369).
+      #
+      # Each image is pushed BY DIGEST, untagged; the merge job below assembles
+      # the two digests into one multi-arch tag. That is the documented buildx
+      # pattern and it is why nothing here names a tag.
+      - name: Build and push the runtime image by digest
+        id: runtime
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: deploy/docker/Dockerfile.cli
+          platforms: ${{ matrix.arch.platform }}
+          build-args: |
+            DOPPLER_VERSION=${{ needs.verify-version.outputs.version }}
+          outputs: type=image,name=ghcr.io/${{ github.repository }},push-by-digest=true,name-canonical=true,push=true
+
+      # The SDK image (ghcr.io/doppler-dsp/doppler-sdk) — the "build ON
+      # doppler" artifact: doppler installed to /usr/local + toolchain + uv/jm.
+      # It compiles doppler from source, which is precisely why it must not be
+      # emulated. Version-lock is by source, so no PyPI wait.
+      - name: Build and push the SDK image by digest
+        id: sdk
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: deploy/docker/Dockerfile.examples
+          target: sdk
+          platforms: ${{ matrix.arch.platform }}
+          build-args: |
+            JM_VERSION=${{ needs.verify-version.outputs.jm_version }}
+          outputs: type=image,name=ghcr.io/${{ github.repository }}-sdk,push-by-digest=true,name-canonical=true,push=true
+
+      # The iqtools showcase (ghcr.io/doppler-dsp/doppler-downstream-jm) — the
+      # flagship worked downstream, shipped already built with its whole suite
+      # green (the build RUNs `make test`). Natively now, so that suite runs at
+      # full speed instead of under an emulator.
+      - name: Build and push the downstream-jm showcase image by digest
+        id: downstream
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: deploy/docker/Dockerfile.examples
+          target: downstream-jm
+          platforms: ${{ matrix.arch.platform }}
+          build-args: |
+            JM_VERSION=${{ needs.verify-version.outputs.jm_version }}
+          outputs: type=image,name=ghcr.io/${{ github.repository }}-downstream-jm,push-by-digest=true,name-canonical=true,push=true
+
+      # One file per image per arch. The merge job globs them, so adding a
+      # fourth image means adding it here and in IMAGES below, nowhere else.
+      - name: Record the digests
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/digests
+          echo "${{ steps.runtime.outputs.digest }}"    > "/tmp/digests/runtime.${{ matrix.arch.tag }}"
+          echo "${{ steps.sdk.outputs.digest }}"        > "/tmp/digests/sdk.${{ matrix.arch.tag }}"
+          echo "${{ steps.downstream.outputs.digest }}" > "/tmp/digests/downstream.${{ matrix.arch.tag }}"
+          for f in /tmp/digests/*; do
+            printf '%s: %s\n' "$(basename "$f")" "$(cat "$f")"
+            # An empty digest means the build silently produced nothing —
+            # catch it here, not in `imagetools create`'s error message.
+            test -s "$f"
+          done
+
+      - name: Upload the digests
+        uses: actions/upload-artifact@v7
+        with:
+          name: container-digests-${{ matrix.arch.tag }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # ------------------------------------------------------------------
+  # Assemble each image's per-arch digests into one multi-arch tag, then
+  # smoke the result. Split from the builds because a manifest list cannot
+  # be written until BOTH arches exist, and because the smoke tests must run
+  # against the tag a user will actually pull.
+  # ------------------------------------------------------------------
+  publish-container-merge:
+    name: Merge + smoke container manifests
+    needs: [verify-version, publish-container]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download the digests
+        uses: actions/download-artifact@v8
+        with:
+          pattern: container-digests-*
+          merge-multiple: true
+          path: /tmp/digests
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Create the multi-arch tags
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ needs.verify-version.outputs.version }}"
+          REPO="ghcr.io/${{ github.repository }}"
+          # name:repo-suffix — the suffix is what distinguishes the three.
+          IMAGES="runtime: sdk:-sdk downstream:-downstream-jm"
+          for entry in $IMAGES; do
+            name="${entry%%:*}"
+            suffix="${entry#*:}"
+            image="${REPO}${suffix}"
+            refs=""
+            for f in /tmp/digests/"$name".*; do
+              refs="$refs ${image}@$(cat "$f")"
+            done
+            echo "==> $image  <- $refs"
+            docker buildx imagetools create \
+              --tag "${image}:${VERSION}" \
+              --tag "${image}:latest" \
+              $refs
+            docker buildx imagetools inspect "${image}:${VERSION}"
+          done
+
+      # QEMU is needed HERE and only here: the smoke runs `docker run
+      # --platform linux/arm64` on an amd64 runner. That is a `--version`-shaped
+      # command, not a build — it measured 0 min even when the builds above
+      # were 28.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+        with:
+          platforms: arm64
+
+      - name: Smoke-test the pushed image (both architectures)
+        # Same scripts/smoke-image.sh that `make docker-runtime` runs, so the
+        # published-image check cannot drift from the CI check.
+        run: |
+          make smoke-image KIND=runtime \
+            IMAGE="ghcr.io/${{ github.repository }}:${{ needs.verify-version.outputs.version }}"
+
+      - name: Smoke-test the pushed SDK image (both architectures)
+        # scripts/smoke-image.sh sdk builds + links + runs consumer_shared —
+        # the SAME real link-test `make docker-sdk` uses. (The previous inline
+        # copy had silently degraded to a bare `pkg-config --modversion`, a
+        # strictly weaker gate on the PUBLISHED image than CI ran.)
+        run: |
+          make smoke-image KIND=sdk \
+            IMAGE="ghcr.io/${{ github.repository }}-sdk:${{ needs.verify-version.outputs.version }}"
+
+      - name: Smoke-test the pushed downstream-jm image (both architectures)
+        # Same scripts/smoke-image.sh that `make docker-downstream` runs — one
+        # definition of the check (this is where the #601 quoting SyntaxError
+        # lived, precisely because it was a hand-typed second copy).
+        run: |
+          make smoke-image KIND=downstream \
+            IMAGE="ghcr.io/${{ github.repository }}-downstream-jm:${{ needs.verify-version.outputs.version }}"
+
+  # ------------------------------------------------------------------
+  # GitHub Release with auto-generated notes
+  # ------------------------------------------------------------------
+  github-release:
+    name: Create GitHub Release
+    needs:
+      - verify-version
+      - verify-ci
+      - build-sdist
+      - build-python
+      - build-macos
+      - build-c-linux
+      - build-c-macos
+      - build-c-windows
+      - publish-python
+      # The MERGE job, not the per-arch builds: until it runs, the images
+      # exist only as untagged digests and `:<version>` resolves to nothing.
+      - publish-container-merge
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download Python artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: python-dist-*
+          merge-multiple: true
+          path: dist/
+
+      - name: Download C artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: c-dist-*
+          merge-multiple: true
+          path: dist/
+
+      - name: Build the release body from the CHANGELOG
+        # `make release-notes`, not an inline template. The body is the Install
+        # instructions PLUS this version's CHANGELOG section, so the curated
+        # Breaking/Added/Changed prose is actually published rather than merely
+        # linked. It was linked-only until now — the body ended "See
+        # CHANGELOG.md for details", so the part written with care never
+        # reached the page a consumer lands on.
+        #
+        # The target exits non-zero when the version has no section, which is
+        # exactly what an unpromoted [Unreleased] heading looks like. Failing
+        # the release beats publishing a page whose notes are silently empty,
+        # and `make release-notes VERSION=x.y.z` shows the same output locally
+        # before a tag is ever cut.
+        run: |
+          make -s release-notes \
+            VERSION="${{ needs.verify-version.outputs.version }}" \
+            > "${RUNNER_TEMP}/release-notes.md"
+          echo "release body: $(wc -l < "${RUNNER_TEMP}/release-notes.md") lines"
+
+      - name: Create release
+        uses: softprops/action-gh-release@v3
+        with:
+          generate_release_notes: true
+          files: dist/*
+          # body_path takes precedence over body; the action then APPENDS its
+          # own auto-generated "What's Changed" PR list after this text.
+          body_path: ${{ runner.temp }}/release-notes.md
+
+  # ------------------------------------------------------------------
+  # Post-release smoke test: download the just-published C-library
+  # tarball and verify a downstream can consume it via find_package and
+  # pkg-config, static and shared, with no libzmq dependency anywhere.
+  # ------------------------------------------------------------------
+  smoke-c:
+    name: Post-release C smoke (${{ matrix.plat }})
+    needs:
+      - verify-version
+      - github-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            plat: linux-x86_64
+          - os: ubuntu-24.04-arm
+            plat: linux-aarch64
+          - os: macos-14
+            plat: macos-arm64
+          - os: windows-latest
+            plat: windows-x86_64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install pkg-config (macOS)
+        if: runner.os == 'macOS'
+        run: brew install pkg-config
+
+      # The consumer is compiled with clang-cl, which needs the MSVC
+      # environment exactly as the build did.
+      - name: MSVC developer environment (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Smoke-test the published archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: make release-smoke VERSION="${{ needs.verify-version.outputs.version }}"
+
+  # ------------------------------------------------------------------
+  # Post-release package smoke: download THIS arch's .deb/.rpm from the
+  # release just published and install each with the distro's own package
+  # manager in four distros (glibc 2.28 floor included), then build the
+  # consumer from /usr with find_package and pkg-config.
+  #
+  # ci.yml's linux-packages job runs the same script on every PR, but on
+  # packages it just BUILT, x86_64 only. Until this, nothing installed a
+  # published package on any arch, and no aarch64 package had ever been
+  # installed at all (doppler#1413). Like smoke-c it gates the RELEASE, not
+  # the upload.
+  # ------------------------------------------------------------------
+  smoke-packages:
+    name: Post-release package smoke (${{ matrix.arch.tag }})
+    needs:
+      - verify-version
+      - github-release
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - { tag: x86_64, runner: ubuntu-latest }
+          - { tag: aarch64, runner: ubuntu-24.04-arm }
+    runs-on: ${{ matrix.arch.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install the published packages in each distro
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: make release-smoke-packages VERSION="${{ needs.verify-version.outputs.version }}"
+
+  # ------------------------------------------------------------------
+  # Post-release Python smoke: install doppler-dsp FROM PyPI and run the
+  # same end-to-end that smoke-wheel runs before the upload.
+  #
+  # smoke-wheel installs a LOCAL FILE, so without this nothing in a release
+  # ever exercised the index — the C tarball had a post-publish smoke and
+  # the wheel did not (#1347). This is what catches a partial or yanked
+  # upload, index metadata the resolver rejects, or platform tags that
+  # resolve wrongly on one arch; both manylinux wheels are exercised.
+  #
+  # It cannot gate the publish (PyPI is immutable and already written by
+  # now) — it gates the RELEASE, failing the run so a human sees that what
+  # users can install is not what was tested.
+  # ------------------------------------------------------------------
+  smoke-pypi:
+    name: Post-release PyPI smoke (${{ matrix.arch.tag }})
+    needs:
+      - verify-version
+      - publish-python
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - { tag: x86_64, runner: ubuntu-latest }
+          - { tag: aarch64, runner: ubuntu-24.04-arm }
+          - { tag: win_amd64, runner: windows-latest }
+    runs-on: ${{ matrix.arch.runner }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      # `make release-smoke-pypi` builds the throwaway venv with uv, so uv
+      # must be on PATH — setup-python alone is not enough.
+      - uses: astral-sh/setup-uv@v7
+
+      - name: Install from PyPI and run the e2e
+        run: make release-smoke-pypi VERSION="${{ needs.verify-version.outputs.version }}"

@@ -1,0 +1,688 @@
+#!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Dev-lane refresh health-gate + receipt emission [OMN-14889].
+
+Dev-lane analog of ``verify_stability_refresh.py`` (OMN-14873), reused for
+structure/shape but NOT for its hardcoded container-name map: the dev lane's
+``docker-compose.infra.yml`` does not set an explicit ``container_name`` for
+``runtime-worker`` (compose-assigned instead), and the dev lane is routinely
+GC-reclaimed to zero containers (OMN-13414) unlike the always-warm
+stability-test lane. Container IDs are therefore resolved by the CALLER
+(``refresh_dev_lane.sh``, via ``docker compose ps -q``) and passed in as a
+JSON map (``--container-ids``), never assumed here.
+
+Every check is required (fail-closed AND-of-all-checks):
+
+  1. **Digest changed** (warm branch only; skipped via
+     ``--no-require-digest-change`` on the cold-aware branch, where there is
+     no baseline image to diff against) -- each core service's running image
+     ID differs from the pre-refresh snapshot.
+  2. **Manifest count** -- ``/v1/introspection/manifest`` contract count is
+     >= ``--min-contracts``.
+  3. **Health endpoint** [strictness fixed in OMN-17563] -- ``/health``
+     returns HTTP 200 with a body whose top-level ``status`` is exactly
+     ``healthy``; ``degraded``/``unhealthy``/absent fail closed. Shares the
+     verdict with the stability gate via ``health_payload.py`` -- the
+     permissive ``details.healthy`` OR had been copied into both.
+  4. **Cluster health** -- ``rpk cluster health`` inside the broker container
+     reports healthy.
+  5. **Revision readback** -- the ``org.opencontainers.image.revision``
+     label on each core container equals the intended new ref (prefix
+     match tolerated).
+
+Consumer-group Stable-state checking (present in the stability-test gate) is
+intentionally NOT included here: this dev-lane gate was built against a lane
+whose core services were not live at build time, so there was no way to
+capture verified-real group names (the stability gate's own consumer_groups
+file needed a live-lane correction during ITS build for exactly this
+reason -- see that file's header). Declaring unverified group names here
+would be a plausible-but-unverified check, worse than omitting it. Folding
+dev-lane consumer-group coverage in is flagged as follow-up, not silently
+faked.
+
+Exit codes: 0 PASS, 1 FAIL, 2 INFRA_ERROR (mirrors verify_stability_refresh.py).
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+from collections.abc import Callable
+from dataclasses import asdict, dataclass, field
+
+from health_payload import (
+    DEFAULT_MAX_VERDICT_AGE,
+    HEALTH_POLICY_STATUS_ONLY_STRICT,
+    HealthDimension,
+    HealthVerdict,
+    default_max_verdict_age,
+    derive_verdict_wait_bound,
+    evaluate_health_body,
+    unreachable_verdict,
+    wait_for_verdict,
+)
+
+# Sibling module in this same directory. These verifiers are executed as
+# scripts (``python scripts/runtime_build/verify_*.py`` or ``uv run python
+# <path>``), so ``sys.path[0]`` is this directory and the plain import
+# resolves. Sharing the verdict rather than re-copying it is the point:
+# OMN-17563 was one defect that had already been duplicated into both files.
+from manifest_fetch import (
+    MANIFEST_FETCH_HISTORY_LIMIT,
+    MANIFEST_FETCH_INTERVAL_SECONDS,
+    MANIFEST_FETCH_WINDOW_SECONDS,
+    RetryBudget,
+    fetch_manifest_contract_count,
+)
+
+_REVISION_LABEL = "org.opencontainers.image.revision"
+
+DEFAULT_MIN_CONTRACTS = 288
+DEFAULT_BROKER_ADDRESS = os.environ.get("OMNIBASE_DEV_BROKER_ADDRESS", "redpanda:9092")
+
+CORE_SERVICE_NAMES = (
+    "omninode-runtime",
+    "runtime-effects",
+    "runtime-worker",
+    "projection-api",
+)
+
+
+@dataclass
+class ServiceDigestCheck:
+    service: str
+    container: str | None
+    pre_image_id: str | None
+    post_image_id: str | None
+    digest_changed: bool
+    revision_label: str | None
+    expected_revision: str
+    revision_match: bool
+    # OMN-16753: the container's live `.State.Status`, and whether that status is
+    # ``running``. A service whose container sits in ``created`` behind an unmet
+    # ``depends_on`` produces ZERO log lines, so it is invisible to every
+    # log-grep triage; on 2026-09-08 two of the four core services sat there for
+    # 53 minutes while the only signal was an anonymous revision-readback
+    # mismatch. ``None`` means compose has no container for the service at all.
+    container_state: str | None = None
+    running: bool = False
+    error: str | None = None
+
+
+# OMN-16753: boot tolerance for the introspection-manifest fetch, mirroring
+# ``verify_stability_refresh``. The health probe beside it already waits a
+# derived window for the same runtime; a single-shot manifest fetch turns a
+# still-booting lane into INFRA_ERROR. The window is a single shared
+# ``RetryBudget`` for the whole gate run, bounded by
+# ``MANIFEST_FETCH_WINDOW_SECONDS`` and still fail-closed on expiry.
+
+
+@dataclass
+class HealthGateReport:
+    lane: str
+    services: list[ServiceDigestCheck] = field(default_factory=list)
+    manifest_count: int | None = None
+    manifest_floor: int = DEFAULT_MIN_CONTRACTS
+    manifest_ok: bool = False
+    health_ok: bool = False
+    health_detail: str | None = None
+    # OMN-17563 AC-3: the receipt names the policy that produced ``health_ok``
+    # and the raw status it saw, so a later reader can tell a strict PASS from
+    # a lenient one without re-deriving the whole probe.
+    health_status: str | None = None
+    health_policy: str = HEALTH_POLICY_STATUS_ONLY_STRICT
+    # OMN-17624 AC-3: the bound that was waited, with its arithmetic.
+    verdict_wait: str | None = None
+    # OMN-16753: every non-HEALTHY runtime_health dimension the probe saw, so
+    # the failing criterion survives into the log and the receipt instead of
+    # being reduced to one opaque `(verdict gate: runtime_degraded)` string.
+    health_dimensions: list[dict[str, str]] = field(default_factory=list)
+    # OMN-16753: the last few manifest-fetch failures, oldest first, so a
+    # persistent failure is distinguishable from an intermittent one instead of
+    # being collapsed into whichever error happened to be last.
+    manifest_fetch_attempts: list[str] = field(default_factory=list)
+    cluster_healthy: bool = False
+    cluster_detail: str | None = None
+    errors: list[str] = field(default_factory=list)
+    require_digest_change: bool = True
+
+    @property
+    def digests_changed(self) -> bool:
+        return bool(self.services) and all(s.digest_changed for s in self.services)
+
+    @property
+    def revisions_match(self) -> bool:
+        return bool(self.services) and all(s.revision_match for s in self.services)
+
+    @property
+    def core_services_running(self) -> bool:
+        """Every core service has a container and that container is running.
+
+        A lane-HEALTH dimension, not a provenance one: the caller uses it to
+        decide whether a destructive rollback is warranted (OMN-16729).
+        """
+        return bool(self.services) and all(s.running for s in self.services)
+
+    @property
+    def core_services_not_running(self) -> list[str]:
+        """Name every core service that is not running, with the state it is in.
+
+        Named rather than merely counted so the failure reads as
+        ``runtime-effects=created`` instead of a bare False.
+        """
+        return [
+            f"{s.service}={s.container_state or 'absent'}"
+            for s in self.services
+            if not s.running
+        ]
+
+    @property
+    def overall(self) -> str:
+        if self.errors:
+            return "INFRA_ERROR"
+        digest_ok = self.digests_changed if self.require_digest_change else True
+        if (
+            digest_ok
+            and self.manifest_ok
+            and self.health_ok
+            and self.cluster_healthy
+            and self.core_services_running
+            and self.revisions_match
+        ):
+            return "PASS"
+        return "FAIL"
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "lane": self.lane,
+            "require_digest_change": self.require_digest_change,
+            "digest_changed": self.digests_changed,
+            "manifest_count": self.manifest_count,
+            "manifest_floor": self.manifest_floor,
+            "manifest_ok": self.manifest_ok,
+            "health_ok": self.health_ok,
+            "health_detail": self.health_detail,
+            "health_status": self.health_status,
+            "health_policy": self.health_policy,
+            "verdict_wait": self.verdict_wait,
+            "health_dimensions": self.health_dimensions,
+            "manifest_fetch_attempts": self.manifest_fetch_attempts,
+            "cluster_healthy": self.cluster_healthy,
+            "cluster_detail": self.cluster_detail,
+            "revision_readback_ok": self.revisions_match,
+            "core_services_running": self.core_services_running,
+            "core_services_not_running": self.core_services_not_running,
+            "services": [asdict(s) for s in self.services],
+            "errors": self.errors,
+            "overall": self.overall,
+        }
+
+
+def _run(
+    cmd: list[str], *, runner: object | None = None, timeout: int = 30
+) -> subprocess.CompletedProcess[str]:
+    run_fn = runner or subprocess.run
+    return run_fn(cmd, capture_output=True, text=True, timeout=timeout, check=False)  # type: ignore[operator, no-any-return]
+
+
+def get_image_id(
+    container: str, *, runner: object | None = None
+) -> tuple[str | None, str | None]:
+    try:
+        result = _run(
+            ["docker", "inspect", container, "--format", "{{.Image}}"], runner=runner
+        )
+    except subprocess.TimeoutExpired:
+        return None, f"timed out inspecting {container}"
+    except FileNotFoundError:
+        return None, "docker command not found"
+    if result.returncode != 0:
+        return (
+            None,
+            f"docker inspect failed (exit {result.returncode}): {(result.stderr or '').strip()}",
+        )
+    image_id = (result.stdout or "").strip()
+    if not image_id:
+        return None, f"empty image id for {container}"
+    return image_id, None
+
+
+def get_revision_label(
+    container: str, *, runner: object | None = None
+) -> tuple[str | None, str | None]:
+    try:
+        result = _run(
+            [
+                "docker",
+                "inspect",
+                container,
+                "--format",
+                f'{{{{index .Config.Labels "{_REVISION_LABEL}"}}}}',
+            ],
+            runner=runner,
+        )
+    except subprocess.TimeoutExpired:
+        return None, f"timed out inspecting {container}"
+    except FileNotFoundError:
+        return None, "docker command not found"
+    if result.returncode != 0:
+        return (
+            None,
+            f"docker inspect failed (exit {result.returncode}): {(result.stderr or '').strip()}",
+        )
+    revision = (result.stdout or "").strip()
+    if not revision or revision == "<no value>":
+        return None, f"no {_REVISION_LABEL} label on {container}"
+    return revision, None
+
+
+def get_container_state(
+    container: str, *, runner: object | None = None
+) -> tuple[str | None, str | None]:
+    """Return ``(state, error)`` for a container's live ``.State.Status``.
+
+    OMN-16753: ``docker compose ps -q`` returns nothing for a container that is
+    not running, so a service stranded in ``created`` behind an unmet
+    ``depends_on`` looked identical to a service compose had never created. The
+    caller now resolves ids with ``ps -aq`` and this reads the real state, so
+    the gate can say ``runtime-effects=created`` instead of "no container".
+    """
+    try:
+        result = _run(
+            ["docker", "inspect", container, "--format", "{{.State.Status}}"],
+            runner=runner,
+        )
+    except subprocess.TimeoutExpired:
+        return None, f"timed out inspecting state of {container}"
+    except FileNotFoundError:
+        return None, "docker command not found"
+    if result.returncode != 0:
+        return (
+            None,
+            f"docker inspect (state) failed (exit {result.returncode}): "
+            f"{(result.stderr or '').strip()}",
+        )
+    state = (result.stdout or "").strip()
+    if not state:
+        return None, f"empty container state for {container}"
+    return state, None
+
+
+def _revisions_match(actual: str, expected: str) -> bool:
+    a, b = actual.strip().lower(), expected.strip().lower()
+    if not a or not b:
+        return False
+    return a == b or a.startswith(b) or b.startswith(a)
+
+
+def check_service_digest(
+    service: str,
+    container: str | None,
+    pre_image_id: str | None,
+    expected_revision: str,
+    *,
+    runner: object | None = None,
+) -> ServiceDigestCheck:
+    if not container:
+        return ServiceDigestCheck(
+            service=service,
+            container=None,
+            pre_image_id=pre_image_id,
+            post_image_id=None,
+            digest_changed=False,
+            revision_label=None,
+            expected_revision=expected_revision,
+            revision_match=False,
+            container_state=None,
+            running=False,
+            error="no container resolved for this service (compose has none)",
+        )
+    post_image_id, image_err = get_image_id(container, runner=runner)
+    revision, rev_err = get_revision_label(container, runner=runner)
+    state, state_err = get_container_state(container, runner=runner)
+    running = state == "running"
+    error = image_err or rev_err or state_err
+    if error is None and not running:
+        # Named, so the receipt carries the state rather than a bare False.
+        error = f"container is {state!r}, not running"
+    digest_changed = bool(
+        pre_image_id and post_image_id and pre_image_id != post_image_id
+    )
+    revision_match = bool(revision) and _revisions_match(
+        revision or "", expected_revision
+    )
+    return ServiceDigestCheck(
+        service=service,
+        container=container,
+        pre_image_id=pre_image_id,
+        post_image_id=post_image_id,
+        digest_changed=digest_changed,
+        revision_label=revision,
+        expected_revision=expected_revision,
+        revision_match=revision_match,
+        container_state=state,
+        running=running,
+        error=error,
+    )
+
+
+def check_health(
+    health_url: str,
+    *,
+    opener: object | None = None,
+    require_verdict: bool = False,
+    max_verdict_age_seconds: float | None = None,
+) -> HealthVerdict:
+    """Probe ``/health`` once and report what it said.
+
+    OMN-17624: the default is unchanged on purpose -- the verdict REQUIREMENT
+    belongs to the gate (``check_health_with_retry``), not to the probe.
+    """
+    open_fn = opener or urllib.request.urlopen
+    try:
+        with open_fn(health_url, timeout=10) as resp:  # type: ignore[operator]
+            status_code = getattr(resp, "status", 200)
+            raw = resp.read()
+    except (urllib.error.URLError, OSError) as exc:
+        return unreachable_verdict(f"health fetch failed: {exc}")
+    if status_code and status_code != 200:
+        return unreachable_verdict(f"health endpoint returned HTTP {status_code}")
+    return evaluate_health_body(
+        raw,
+        require_verdict=require_verdict,
+        max_verdict_age_seconds=max_verdict_age_seconds,
+    )
+
+
+def check_health_with_retry(
+    health_url: str,
+    *,
+    opener: object | None = None,
+    require_verdict: bool = True,
+    max_verdict_age_seconds: float | None | object = DEFAULT_MAX_VERDICT_AGE,
+    check_interval_seconds: float = 300.0,
+    boot_grace_seconds: float = 120.0,
+    sleep_fn: Callable[[float], None] | None = None,
+) -> tuple[HealthVerdict, str]:
+    """Probe until a monitor verdict exists, for a bounded window (OMN-17624).
+
+    The dev lane is blind in exactly the same window as stability: the monitor
+    publishes nothing for ~300s after a recreate, which is when a refresh gate
+    runs. Fixing only the stability gate would leave the identical false PASS
+    reachable here.
+    """
+    if not require_verdict:
+        verdict = check_health(health_url, opener=opener, require_verdict=False)
+        return verdict, "verdict_wait: skipped (require_verdict=False, opted out)"
+
+    bound = derive_verdict_wait_bound(
+        check_interval_seconds=check_interval_seconds,
+        boot_grace_seconds=boot_grace_seconds,
+    )
+    # OMN-17624 review (omnibase_infra#3208): freshness must NOT be opt-in.
+    # A monitor that publishes one verdict and then crashes serves that same
+    # verdict forever; a gate with no ceiling accepts it forever, which turns
+    # this fix's blind window into "before first verdict, plus always".
+    if max_verdict_age_seconds is DEFAULT_MAX_VERDICT_AGE:
+        effective_max_age: float | None = default_max_verdict_age(
+            check_interval_seconds
+        )
+    elif max_verdict_age_seconds is None or isinstance(
+        max_verdict_age_seconds, int | float
+    ):
+        effective_max_age = max_verdict_age_seconds
+    else:
+        raise TypeError("max_verdict_age_seconds must be a number, None, or omitted")
+
+    def _probe() -> HealthVerdict:
+        return check_health(
+            health_url,
+            opener=opener,
+            require_verdict=True,
+            max_verdict_age_seconds=effective_max_age,
+        )
+
+    # Unpacked rather than returned directly: health_payload is imported by
+    # plain sibling name, so its types resolve to Any here and a bare
+    # passthrough trips no-any-return. An explicit tuple keeps the
+    # annotation honest without a suppression.
+    verdict, described = wait_for_verdict(_probe, bound=bound, sleep_fn=sleep_fn)
+    return verdict, described
+
+
+def check_cluster_health(
+    broker_container: str,
+    broker_address: str = DEFAULT_BROKER_ADDRESS,
+    *,
+    runner: object | None = None,
+) -> tuple[bool, str]:
+    try:
+        result = _run(
+            [
+                "docker",
+                "exec",
+                broker_container,
+                "rpk",
+                "cluster",
+                "health",
+                "-X",
+                f"brokers={broker_address}",
+            ],
+            runner=runner,
+        )
+    except subprocess.TimeoutExpired:
+        return False, f"timed out probing cluster health via {broker_container}"
+    except FileNotFoundError:
+        return False, "docker command not found"
+    if result.returncode != 0:
+        return (
+            False,
+            f"rpk cluster health failed (exit {result.returncode}): {(result.stderr or '').strip()}",
+        )
+    stdout = result.stdout or ""
+    healthy = bool(re.search(r"Healthy:\s*true\b", stdout, re.IGNORECASE)) or (
+        "cluster is healthy" in stdout.lower()
+    )
+    return healthy, stdout.strip().splitlines()[0] if stdout.strip() else "no output"
+
+
+def run_health_gate(
+    *,
+    lane: str,
+    pre_image_ids: dict[str, str],
+    container_ids: dict[str, str],
+    expected_revision: str,
+    manifest_url: str,
+    health_url: str,
+    broker_container: str,
+    min_contracts: int,
+    runner: object | None = None,
+    opener: object | None = None,
+    require_digest_change: bool = True,
+    sleep_fn: Callable[[float], None] | None = None,
+    require_verdict: bool = True,
+    max_verdict_age_seconds: float | None = None,
+    health_check_interval_seconds: float = 300.0,
+    health_boot_grace_seconds: float = 120.0,
+    manifest_window_seconds: float = MANIFEST_FETCH_WINDOW_SECONDS,
+    manifest_clock_fn: Callable[[], float] = time.monotonic,
+) -> HealthGateReport:
+    report = HealthGateReport(
+        lane=lane,
+        manifest_floor=min_contracts,
+        require_digest_change=require_digest_change,
+    )
+
+    for service in CORE_SERVICE_NAMES:
+        report.services.append(
+            check_service_digest(
+                service,
+                container_ids.get(service) or None,
+                pre_image_ids.get(service),
+                expected_revision,
+                runner=runner,
+            )
+        )
+
+    # OMN-16753: ONE budget for every manifest fetch in this run, sized to the
+    # health leg's own window rather than granted per URL.
+    manifest_budget = RetryBudget(
+        total_seconds=manifest_window_seconds,
+        interval_seconds=MANIFEST_FETCH_INTERVAL_SECONDS,
+        sleep_fn=sleep_fn or time.sleep,
+        monotonic_fn=manifest_clock_fn,
+    )
+    count, err, fetch_history = fetch_manifest_contract_count(
+        manifest_url, opener=opener, budget=manifest_budget
+    )
+    report.manifest_count = count
+    report.manifest_fetch_attempts = list(fetch_history[-MANIFEST_FETCH_HISTORY_LIMIT:])
+    if err is not None:
+        report.errors.append(err)
+    else:
+        report.manifest_ok = count is not None and count >= min_contracts
+
+    health_verdict, verdict_wait = check_health_with_retry(
+        health_url,
+        opener=opener,
+        require_verdict=require_verdict,
+        max_verdict_age_seconds=max_verdict_age_seconds,
+        check_interval_seconds=health_check_interval_seconds,
+        boot_grace_seconds=health_boot_grace_seconds,
+        sleep_fn=sleep_fn,
+    )
+    report.health_ok = health_verdict.ok
+    report.health_detail = health_verdict.detail
+    report.health_status = health_verdict.status
+    report.health_policy = health_verdict.policy
+    report.verdict_wait = verdict_wait
+    report.health_dimensions = [
+        {"name": d.name, "status": d.status, "detail": d.detail}
+        for d in health_verdict.dimensions
+    ]
+
+    cluster_healthy, cluster_detail = check_cluster_health(
+        broker_container, runner=runner
+    )
+    report.cluster_healthy = cluster_healthy
+    report.cluster_detail = cluster_detail
+
+    return report
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--lane", default="dev")
+    parser.add_argument("--expected-revision", required=True)
+    parser.add_argument(
+        "--pre-image-ids",
+        default="{}",
+        help="JSON dict of {service: pre_refresh_image_id}. Empty on the cold-aware branch.",
+    )
+    parser.add_argument(
+        "--container-ids",
+        required=True,
+        help=(
+            "JSON dict of {service: container_id}, resolved by the caller via "
+            "`docker compose ps -aq` -- ALL states, so a service stranded in "
+            "State=created behind an unmet depends_on is a named not-running "
+            "finding rather than an anonymous missing container (OMN-16753)."
+        ),
+    )
+    # fallback-ok: fixed dev lane ops-tooling defaults (port 8085); the
+    # automated caller (refresh_dev_lane.sh) always passes these explicitly.
+    # url-authority-ok: no contract/routing-authority exists for this standalone
+    # ops script; the lane's port is a fixed, documented convention.
+    manifest_url_default = "http://localhost:8085/v1/introspection/manifest"  # fallback-ok  # url-authority-ok: fixed lane port, no routing authority applies
+    health_url_default = "http://localhost:8085/health"  # fallback-ok  # url-authority-ok: fixed lane port, no routing authority applies
+    parser.add_argument("--manifest-url", default=manifest_url_default)
+    parser.add_argument("--health-url", default=health_url_default)
+    parser.add_argument("--broker-container", default="omnibase-infra-redpanda")
+    parser.add_argument("--min-contracts", type=int, default=DEFAULT_MIN_CONTRACTS)
+    parser.add_argument("--json", action="store_true", dest="json_output")
+    parser.add_argument(
+        "--no-require-digest-change",
+        action="store_false",
+        dest="require_digest_change",
+        default=True,
+        help="Skip the digest-changed requirement (cold-aware branch or post-rollback re-verification).",
+    )
+    args = parser.parse_args(argv)
+
+    try:
+        pre_image_ids = json.loads(args.pre_image_ids)
+    except json.JSONDecodeError as exc:
+        print(f"ERROR: --pre-image-ids is not valid JSON: {exc}", file=sys.stderr)
+        return 2
+    try:
+        container_ids = json.loads(args.container_ids)
+    except json.JSONDecodeError as exc:
+        print(f"ERROR: --container-ids is not valid JSON: {exc}", file=sys.stderr)
+        return 2
+
+    report = run_health_gate(
+        lane=args.lane,
+        pre_image_ids=pre_image_ids,
+        container_ids=container_ids,
+        expected_revision=args.expected_revision,
+        manifest_url=args.manifest_url,
+        health_url=args.health_url,
+        broker_container=args.broker_container,
+        min_contracts=args.min_contracts,
+        require_digest_change=args.require_digest_change,
+    )
+
+    if args.json_output:
+        print(json.dumps(report.to_dict(), indent=2))
+    else:
+        print(f"Health gate for lane={report.lane}: {report.overall}")
+        print(
+            f"  digest_changed={report.digests_changed} (required={report.require_digest_change})"
+        )
+        print(
+            f"  manifest_count={report.manifest_count} (floor={report.manifest_floor}) ok={report.manifest_ok}"
+        )
+        for attempt in report.manifest_fetch_attempts:
+            print(f"  manifest fetch attempt: {attempt}")
+        print(f"  health_ok={report.health_ok} ({report.health_detail})")
+        for dimension in report.health_dimensions:
+            print(
+                f"  health dimension {dimension['name']}: {dimension['status']}"
+                f" — {dimension['detail']}"
+            )
+        print(
+            f"  core_services_running={report.core_services_running}"
+            + (
+                f" not_running={report.core_services_not_running}"
+                if not report.core_services_running
+                else ""
+            )
+        )
+        print(f"  cluster_healthy={report.cluster_healthy} ({report.cluster_detail})")
+        for s in report.services:
+            print(
+                f"  service {s.service}: state={s.container_state or 'absent'} "
+                f"digest_changed={s.digest_changed} "
+                f"revision_match={s.revision_match} (label={s.revision_label})"
+                + (f" error={s.error}" if s.error else "")
+            )
+        if report.errors:
+            print(f"  errors={report.errors}")
+
+    if report.overall == "PASS":
+        return 0
+    if report.overall == "INFRA_ERROR":
+        return 2
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

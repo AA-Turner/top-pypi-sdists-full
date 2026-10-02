@@ -170,6 +170,7 @@ from mypy_boto3_elementalinference.client import ElementalInferenceClient
 from mypy_boto3_emr.client import EMRClient
 from mypy_boto3_emr_containers.client import EMRContainersClient
 from mypy_boto3_emr_serverless.client import EMRServerlessClient
+from mypy_boto3_endusermessaging.client import EndUserMessagingClient
 from mypy_boto3_entityresolution.client import EntityResolutionClient
 from mypy_boto3_es.client import ElasticsearchServiceClient
 from mypy_boto3_eventbridgev2.client import EventBridgeV2Client
@@ -248,6 +249,7 @@ from mypy_boto3_lakeformation.client import LakeFormationClient
 from mypy_boto3_lambda.client import LambdaClient
 from mypy_boto3_lambda_core.client import LambdaCoreClient
 from mypy_boto3_lambda_microvms.client import LambdaMicroVMsClient
+from mypy_boto3_lambda_web.client import LambdaWebClient
 from mypy_boto3_launch_wizard.client import LaunchWizardClient
 from mypy_boto3_lex_models.client import LexModelBuildingServiceClient
 from mypy_boto3_lex_runtime.client import LexRuntimeServiceClient
@@ -3230,6 +3232,24 @@ def client(
 
 @overload
 def client(
+    service_name: Literal["endusermessaging"],
+    region_name: str | None = ...,
+    api_version: str | None = ...,
+    use_ssl: bool | None = ...,
+    verify: bool | str | None = ...,
+    endpoint_url: str | None = ...,
+    aws_access_key_id: str | None = ...,
+    aws_secret_access_key: str | None = ...,
+    aws_session_token: str | None = ...,
+    config: Config | None = ...,
+    aws_account_id: str | None = ...,
+) -> EndUserMessagingClient:
+    """
+    Create client for EndUserMessaging service.
+    """
+
+@overload
+def client(
     service_name: Literal["entityresolution"],
     region_name: str | None = ...,
     api_version: str | None = ...,
@@ -4558,6 +4578,24 @@ def client(
 ) -> LambdaMicroVMsClient:
     """
     Create client for LambdaMicroVMs service.
+    """
+
+@overload
+def client(
+    service_name: Literal["lambda-web"],
+    region_name: str | None = ...,
+    api_version: str | None = ...,
+    use_ssl: bool | None = ...,
+    verify: bool | str | None = ...,
+    endpoint_url: str | None = ...,
+    aws_access_key_id: str | None = ...,
+    aws_secret_access_key: str | None = ...,
+    aws_session_token: str | None = ...,
+    config: Config | None = ...,
+    aws_account_id: str | None = ...,
+) -> LambdaWebClient:
+    """
+    Create client for LambdaWeb service.
     """
 
 @overload

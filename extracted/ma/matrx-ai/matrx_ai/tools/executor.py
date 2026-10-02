@@ -151,6 +151,10 @@ def _is_expected_domain_failure(*, tool_name: str, error_type: str) -> bool:
         "not_allowed",
         "not_found",
         "validation",
+        # The on-screen write guard (on_screen_write_guard.py): a deliberate
+        # refusal that names the right door, never an operational error.
+        "record_on_screen",
+        "person_declined_this_change",
     } or normalized_error_type.endswith("_not_found"):
         return True
     if (
@@ -1177,6 +1181,51 @@ class ToolExecutor:
                 )
                 stream = ToolStreamManager(ctx.emitter, ctx.call_id, tool_name)
                 await stream.error(_admin_msg, error_type="admin_only")
+                return result.to_tool_result_content(), result
+
+        # --- On-screen write guard (W-60) ---
+        # A record the person has open on a page with a live write target is
+        # changed only through that page's approval (apply_surface_write) —
+        # never by a server writer the model picks instead, and never after the
+        # person declined it this turn. See matrx_ai/tools/on_screen_write_guard.py.
+        if not is_delegated_pre:
+            from matrx_ai.context.app_context import try_get_app_context
+            from matrx_ai.tools.on_screen_write_guard import guarded_write_refusal
+
+            _app = try_get_app_context()
+            _refusal = guarded_write_refusal(
+                canonical_name, arguments, getattr(_app, "metadata", None) if _app else None
+            )
+            if _refusal is not None:
+                _err_type, _msg = _refusal
+                result = ToolResult(
+                    success=False,
+                    error=ToolError(
+                        error_type=_err_type,
+                        message=_msg,
+                        suggested_action=(
+                            "Use apply_surface_write for the record on screen, or tell the person."
+                        ),
+                    ),
+                    started_at=started_at,
+                    completed_at=time.time(),
+                    tool_name=tool_name,
+                    call_id=ctx.call_id,
+                )
+                logger.warning(
+                    "[ToolExecutor] on-screen write guard refused %s (%s)", tool_name, _err_type
+                )
+                result.compute_duration()
+                await self._record_rejected(
+                    ctx,
+                    tool_name=as_called,
+                    arguments=arguments,
+                    result=result,
+                    tool_type=tool_def.tool_type.value,
+                    canonical_name=canonical_name,
+                )
+                stream = ToolStreamManager(ctx.emitter, ctx.call_id, tool_name)
+                await stream.error(_msg, error_type=_err_type)
                 return result.to_tool_result_content(), result
 
         # --- Pre-flight: validate arguments against the declared schema ---
@@ -2349,6 +2398,54 @@ class ToolExecutor:
     # Batch execution
     # ------------------------------------------------------------------
 
+    def _write_chain_key(
+        self,
+        called: str,
+        arguments: Any,
+        client_tools: frozenset[str] | None,
+    ) -> str | None:
+        """The tool a call WRITES through, or None when it may run concurrently.
+
+        Read through the destructive-operations register: a call whose
+        invocation class is read-only (or a paid read) is None. Anything else —
+        including an unclassified or unresolvable tool, read fail-closed as the
+        most destructive class — is keyed by its canonical tool name, so every
+        write to that tool in one batch runs in emission order.
+        """
+        from matrx_ai.tools.agent_projection import lookup_projected_tool
+        from matrx_ai.tools.side_effect_class import (
+            PAID_READ,
+            READ_ONLY,
+            effective_invocation_side_effect_class,
+        )
+        from matrx_ai.tools.tool_aliases import lookup_canonical
+
+        if not called or (client_tools and called in client_tools):
+            return None
+        try:
+            name = self._normalize_called_name(called)
+            if client_tools and name in client_tools:
+                return None
+            tool_def = lookup_projected_tool(name)
+            canonical = name
+            if tool_def is None:
+                aliased = lookup_canonical(name)
+                if aliased is not None:
+                    canonical = aliased
+                tool_def = self.registry.get(canonical)
+            if tool_def is not None and tool_def.tool_type == ToolType.AGENT:
+                # A sub-agent fan-out is parallel on purpose; its own tool
+                # calls are batched — and ordered — inside the child run.
+                return None
+            effect = effective_invocation_side_effect_class(
+                tool_def, arguments, tool_name=canonical
+            )
+        except Exception:  # noqa: BLE001 — ordering is never a reason to fail dispatch
+            return called
+        if effect in (READ_ONLY, PAID_READ):
+            return None
+        return canonical
+
     async def execute_batch(
         self,
         tool_calls: list[dict[str, Any]],
@@ -2356,16 +2453,29 @@ class ToolExecutor:
         client_tools: frozenset[str] | None = None,
         allowed_tools: frozenset[str] | None = None,
     ) -> tuple[list[dict[str, Any]], list[ToolResult]]:
-        """Execute multiple tool calls concurrently.
+        """Execute multiple tool calls concurrently — except that the writes
+        to one tool run in the order the model emitted them (``_write_chain_key``).
 
         Each item in ``tool_calls`` must have:
           - ``name``: tool name
           - ``arguments``: dict of arguments
           - ``call_id`` or ``id``: the tool call id
         """
-        tasks = []
         child_contexts: list[ToolContext] = []
-        for tc in tool_calls:
+        # 🚨 WRITES TO ONE TOOL RUN IN THE ORDER THE MODEL EMITTED THEM.
+        # A model that says "create the sections, then file these rules under
+        # them" emits both calls in one response. Running them concurrently let
+        # the second read the record before the first had written it (walk 24:
+        # `rulebook` update_meta started 2.5 ms before add_rules; add_rules
+        # read "Its sections are: `G`" and was refused, and the model's retry
+        # narration leaked to the Expert). Each write chain runs its calls one
+        # after another, each in its OWN child task (so per-task ContextVar
+        # isolation is unchanged); read-only calls and different tools still
+        # run concurrently. Client-delegated tools are not chained — the
+        # client owns their execution.
+        chains: dict[str, list[int]] = {}
+        chain_of: list[str | None] = []
+        for idx, tc in enumerate(tool_calls):
             name = tc.get("name", "")
             arguments = tc.get("arguments", {})
             call_id = tc.get("call_id") or tc.get("id") or str(uuid4())
@@ -2377,15 +2487,63 @@ class ToolExecutor:
                 }
             )
             child_contexts.append(child_ctx)
-            tasks.append(self.execute(name, arguments, child_ctx, client_tools, allowed_tools))
+            key = self._write_chain_key(name, arguments, client_tools)
+            chain_of.append(key)
+            if key is not None:
+                chains.setdefault(key, []).append(idx)
 
-        raw_results = await asyncio.gather(*tasks, return_exceptions=True)
+        def _run(idx: int) -> Awaitable[tuple[dict[str, Any], ToolResult]]:
+            tc = tool_calls[idx]
+            return self.execute(
+                tc.get("name", ""),
+                tc.get("arguments", {}),
+                child_contexts[idx],
+                client_tools,
+                allowed_tools,
+            )
+
+        slots: list[Any] = [None] * len(tool_calls)
+
+        def _batch_cancelled() -> bool:
+            task = asyncio.current_task()
+            return bool(task and task.cancelling())
+
+        # Every call's outcome lands in its own slot, exactly as the previous
+        # gather(return_exceptions=True) recorded it — a call cancelled on its
+        # own (not the batch) is that call's result, never a sibling's loss.
+        async def _run_chain(indices: list[int]) -> None:
+            for idx in indices:
+                try:
+                    slots[idx] = await asyncio.create_task(_run(idx))
+                except asyncio.CancelledError as exc:
+                    if _batch_cancelled():
+                        raise
+                    slots[idx] = exc
+                except Exception as exc:  # noqa: BLE001 — mirrors gather(return_exceptions=True)
+                    slots[idx] = exc
+
+        async def _run_one(idx: int) -> None:
+            try:
+                slots[idx] = await _run(idx)
+            except asyncio.CancelledError as exc:
+                if _batch_cancelled():
+                    raise
+                slots[idx] = exc
+            except Exception as exc:  # noqa: BLE001 — mirrors gather(return_exceptions=True)
+                slots[idx] = exc
+
+        units: list[Awaitable[None]] = [
+            _run_one(idx) for idx, key in enumerate(chain_of) if key is None
+        ]
+        units.extend(_run_chain(indices) for indices in chains.values())
+        await asyncio.gather(*units)
+        raw_results = slots
 
         content_results: list[dict[str, Any]] = []
         full_results: list[ToolResult] = []
 
         for idx, r in enumerate(raw_results):
-            if isinstance(r, Exception):
+            if isinstance(r, BaseException):
                 tc = tool_calls[idx]
                 child_ctx = child_contexts[idx]
                 call_id = child_ctx.call_id

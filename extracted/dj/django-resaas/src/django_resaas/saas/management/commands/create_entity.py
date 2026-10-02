@@ -1,0 +1,46 @@
+from django.core.management.base import BaseCommand
+from django_resaas.saas.core.services.user_service import UserService
+from django_resaas.saas.core.services.bootstrap_service import BootstrapService
+from django_resaas.saas.core.services.bootstrap_email_service import send_bootstrap_welcome_email
+
+
+
+
+
+
+class Command(BaseCommand):
+    help = "Bootstrap inicial do SaaS"
+
+    def handle(self, *args, **options):
+        self.stdout.write(self.style.MIGRATE_HEADING("🚀 Bootstrap SaaS \n\n"))
+
+        entity_type = input("Enter your Entity Type name.: ")
+        entity = input("Enter your Entity name.: ")
+        branch = input("Enter your branch name: ")
+        group = "Admin"
+
+        user, password = UserService.get_or_create_superuser(self.stdout, style=self.style)
+ 
+        result = BootstrapService.run(entity_type, entity, branch, user, group, stdout=self.stdout, style=self.style)
+
+        self.stdout.write(
+            self.style.SUCCESS(f"✔ Superuser created:\t{user.email} \n")
+        )
+        self.stdout.write(
+            self.style.NOTICE(f"👤 Username:\t{user.username} \n")
+        )
+
+        email_sent = send_bootstrap_welcome_email(
+            user,
+            entity=result.get("entity"),
+            entity_type=result.get("entity_type"),
+            branch=result.get("branch"),
+            group=result.get("group"),
+            password=password,
+        )
+        if email_sent:
+            self.stdout.write(self.style.SUCCESS(f"✔ Welcome email sent to {user.email}"))
+        else:
+            self.stdout.write(self.style.WARNING("⚠ Welcome email was not sent (no provider configured or send failed)."))
+
+        self.stdout.write(self.style.SUCCESS("\n 🛠 ⚙️ Ready-to-use system\n"))

@@ -1,0 +1,1098 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# refresh_stability_lane.sh -- OMN-14263/OMN-14873: health-gated, rollback-on-
+# failure refresh of the .201 `.201 stability-test` proof lane to a named ref.
+#
+# The .201 stability-test lane (compose project omnibase-infra-stability-test,
+# ports 18085/18086) is the "preferred proof lane for synthetic integration
+# evidence" (CLAUDE.md), but has no refresh cadence -- it silently runs
+# whatever code happened to be there the last time someone manually rebuilt
+# it (OMN-14263). This script wraps the PROVEN manual recipe (workspace-mode
+# build scoped to the 4 known-good core services + targeted recreate) into a
+# single command with:
+#
+#   - pre-state capture (image IDs + a preflight rollback tag) BEFORE any
+#     mutation,
+#   - a forward-progress ancestry assertion (refuses to "refresh" backwards),
+#   - a build SCOPED to the 4 core services only (omninode-runtime,
+#     runtime-effects, runtime-worker, projection-api) via the new
+#     RUNTIME_BUILD_SERVICES_OVERRIDE knob in deploy-runtime.sh -- this routes
+#     around the still-open BUILD_SOURCE selector-mismatch defect on the 4
+#     release-only services (agent-actions-consumer, skill-lifecycle-consumer,
+#     intelligence-api, omninode-contract-resolver; OMN-14262 residual) as a
+#     CONTROLLED decision, not a side effect of a partial build failure,
+#   - a health-gate (verify_stability_refresh.py): digest changed, manifest
+#     contract-count floor, /health, rpk cluster health, declared consumer
+#     groups Stable, and image-revision readback,
+#   - automatic rollback-and-re-verify on a LANE-HEALTH failure only
+#     (OMN-18061: shared with refresh_dev_lane.sh via lane_rollback_decision.py
+#     -- a provenance-only failure on a serving lane is reported, never
+#     recreated, because no container recreate repairs a revision label), and
+#   - a durable JSON receipt (~/.omnibase/state/stability_lane_refresh/) so a
+#     future session can trust freshness from one cheap file read instead of
+#     re-deriving the whole forensic chain by hand.
+#
+# This script is hardcoded to the stability-test lane ONLY. It does not accept
+# a --lane flag and refuses to run against any other compose project (mirrors
+# cut-lab-ref.sh's lane refusal for prod/judge) -- the stability-test lane is
+# the only lane this session is authorized to mutate.
+#
+# Intended to run ON the host where the lane's containers live (.201) from
+# the canonical omnibase_infra clone, the same way deploy-runtime.sh and
+# cut-lab-ref.sh already do -- NOT from a worktree, NOT over ssh wrapping.
+#
+# Required environment (OMN-15218 lane-deploy attribution + grant interlock):
+#   ONEX_DEPLOY_REASON      MANDATORY. Why this refresh is happening (a real
+#                           justification, ideally naming a ticket). Recorded with
+#                           the actor (user/uid/host/ssh peer/parent command) in
+#                           ~/.omnibase/infra/deploy-log.jsonl and in this script's
+#                           own receipt. Two unattributed stability rebuilds in two
+#                           days (2026-07-26, 2026-07-27) are why this is required.
+#   ONEX_DEPLOY_GRANT_ACK   Comma-separated grant ids. This refresh is REFUSED
+#                           while unconsumed, unexpired prod-promotion grants at
+#                           onex_change_control@main pin the lane's proof —
+#                           refreshing invalidates the stability-proven premise
+#                           those grants rest on. Proceeding requires naming EVERY
+#                           live grant id (the acknowledgement is recorded).
+#
+# Optional environment:
+#   RUNTIME_COMPOSE_WAIT_TIMEOUT_SECONDS (OMN-15718)  Bounded wall-clock
+#                           deadline (seconds, default 300) applied to every
+#                           `docker compose ... up ...` call this script and
+#                           deploy-runtime.sh issue (scripts/runtime_build/
+#                           compose_wait_timeout.sh). Closes the 2026-08-05
+#                           defect where the rollback's targeted recreate hung
+#                           indefinitely on a depends_on:condition:service_healthy
+#                           dependency (migration-gate) that could never become
+#                           healthy, never reaching the health-gate/receipt
+#                           stage.
+#
+# Usage:
+#   refresh_stability_lane.sh [--ref <ref>] [--min-contracts <n>] [--execute]
+#       [--lock-timeout <seconds>]
+#
+# Exit codes:
+#   0  plan printed (dry-run) or refresh SUCCEEDED (health-gate PASS)
+#   1  refresh FAILED and the lane is HEALTHY -- either the rollback restored it
+#      (FAILED_ROLLED_BACK) or no rollback was needed because the only failing
+#      dimensions were build provenance on an otherwise healthy lane
+#      (FAILED_BUILD_PROVENANCE, OMN-18061; the lane was left exactly as it was)
+#   2  refresh FAILED and rollback ALSO could not restore health -- STOP AND
+#      REPORT, do not retry-until-green. Includes FAILED_ROLLBACK_STRANDED_CONTAINERS
+#      (OMN-15718): the rollback recreate timed out or otherwise could not
+#      bring every core-service container back to running, and at least one
+#      was explicitly torn down (docker rm -f) rather than left stranded in
+#      'Created' -- see rollback.stranded_services / rollback.census in the
+#      receipt for exactly which service(s) and pre/post container state.
+#      Also includes FAILED_ROLLBACK_ANCHOR_INCOMPLETE (OMN-18061): the lane is
+#      unhealthy and a rollback IS warranted, but this run could not anchor
+#      every service it deployed, so restoring the subset would leave the lane
+#      on a revision combination nothing has ever run. The lane is left as
+#      found; see rollback.missing_rollback_anchors in the receipt.
+#   64 usage / precondition error
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+DEPLOY_RUNTIME="${DEPLOY_RUNTIME:-${REPO_ROOT}/scripts/deploy-runtime.sh}"
+
+# OMN-16729: per-compose-project host lane lock. This wrapper holds it across
+# its WHOLE critical section -- pre-state capture, build, health gate, readback,
+# receipt -- which is the window deploy-runtime.sh's own .deploy.lock never
+# covered and in which two sanctioned refreshes collided on 2026-09-08.
+# shellcheck source=./lane_lock.sh
+source "${SCRIPT_DIR}/lane_lock.sh"
+
+# OMN-15718: bounded compose-up deadline + stranded-container reconciliation,
+# shared with deploy-runtime.sh. See that file for RUNTIME_COMPOSE_WAIT_TIMEOUT_SECONDS,
+# compose_up_bounded, reconcile_container_running_state, container_status.
+# shellcheck source=./compose_wait_timeout.sh
+source "${SCRIPT_DIR}/compose_wait_timeout.sh"
+
+# OMN-16729: the ONE derivation of a lane's `docker compose -f ...` token
+# sequence, shared with deploy-runtime.sh and refresh_dev_lane.sh. This script
+# already spelled both files correctly by hand, but a hand-spelled copy is
+# exactly what silently lost the dev lane's overlay on the sibling script's
+# rollback path; there is now one copy and every caller reads it.
+# shellcheck source=./compose_files.sh
+source "${SCRIPT_DIR}/compose_files.sh"
+VERIFY_SCRIPT="${SCRIPT_DIR}/verify_stability_refresh.py"
+# OMN-18061: the ONE rule that decides whether a failed refresh may DESTROY the
+# lane, shared byte-for-byte with refresh_dev_lane.sh. Both scripts hand it the
+# gate JSON they just wrote; neither re-derives the health/provenance split.
+# Two implementations of one rule is how the stability lane kept the dev lane's
+# 2026-09-08T18:48:41Z rollback trigger for eight hours after the dev lane was
+# fixed.
+DECISION_SCRIPT="${SCRIPT_DIR}/lane_rollback_decision.py"
+CONSUMER_GROUPS_FILE="${SCRIPT_DIR}/consumer_groups_stability.yaml"
+
+log() { printf '[refresh-stability-lane] %s\n' "$*" >&2; }
+err() { printf '[refresh-stability-lane] ERROR: %s\n' "$*" >&2; }
+# OMN-14984: fail-fast-by-name helper for values this script expects the
+# already-sourced docker/runtime-policy.env (contracts/services/
+# runtime_policy.contract.yaml) to have provided, instead of re-declaring a
+# hardcoded default that silently drifts from the contract.
+require_contract_var() {
+    local var_name="$1"
+    if [[ -z "${!var_name:-}" ]]; then
+        err "${var_name} is not set -- expected from docker/runtime-policy.env"
+        err "  (generated from contracts/services/runtime_policy.contract.yaml)."
+        err "  Verify docker/runtime-policy.env exists and was sourced above, and"
+        err "  that the contract still renders ${var_name} for the stability_test lane."
+        exit 64
+    fi
+}
+
+# Source the same contract-rendered runtime policy + operator env that
+# deploy-runtime.sh sources at its own top (docker/runtime-policy.env, then
+# ~/.omnibase/.env). deploy-runtime.sh's OWN docker compose calls already do
+# this internally, but this script ALSO issues a direct `docker compose`
+# invocation for the rollback targeted-recreate (step 6 below) -- without
+# these vars in scope, that compose invocation fails at config-interpolation
+# time (e.g. BIFROST_VERIFY_ENDPOINTS) before it can even attempt the
+# recreate. Preserve any operator-set OMNI_HOME/HEALTH_CHECK_URL exactly the
+# way deploy-runtime.sh's own header does.
+_OPERATOR_OMNI_HOME="${OMNI_HOME:-}"
+# OMN-14958: operator env path is parameterized (same knob as deploy-runtime.sh)
+# so the containerized deploy runner can point at its provisioned read-only
+# mount instead of a ${HOME} that carries no operator env.
+OMNIBASE_OPERATOR_ENV_FILE="${OMNIBASE_OPERATOR_ENV_FILE:-${HOME}/.omnibase/.env}"
+if [[ -f "${REPO_ROOT}/docker/runtime-policy.env" ]]; then
+    set -a
+    # shellcheck source=/dev/null
+    source "${REPO_ROOT}/docker/runtime-policy.env"
+    # OMN-14983: a bare `-f` (exists) check silently treats an EXISTING but
+    # UNREADABLE file the same as an absent one -- the operator env file is
+    # then just skipped with no error, and the real failure surfaces later
+    # and misleadingly (e.g. a missing POSTGRES_PASSWORD during compose
+    # interpolation) instead of here, at the actual root cause. Distinguish
+    # "missing" (still optional -- unchanged behavior) from "present but
+    # unreadable" (always a fail-fast error, never silent).
+    if [[ -e "${OMNIBASE_OPERATOR_ENV_FILE}" ]]; then
+        if [[ ! -r "${OMNIBASE_OPERATOR_ENV_FILE}" ]]; then
+            {
+                echo "[refresh-stability-lane] ERROR: OPERATOR_ENV_UNREADABLE -- operator env file exists but this process cannot read it:"
+                echo "  ${OMNIBASE_OPERATOR_ENV_FILE}"
+                echo "  effective uid=$(id -u) ($(id -un 2>/dev/null || echo unknown))"
+                echo "  Check the file's ownership/permissions. A silent skip here would let the"
+                echo "  refresh proceed without the operator env (POSTGRES_PASSWORD etc.) and fail"
+                echo "  later at a less obvious point (OMN-14983)."
+            } >&2
+            exit 64
+        fi
+        # shellcheck source=/dev/null
+        source "${OMNIBASE_OPERATOR_ENV_FILE}"
+    fi
+    set +a
+fi
+if [[ -n "${_OPERATOR_OMNI_HOME}" ]]; then
+    export OMNI_HOME="${_OPERATOR_OMNI_HOME}"
+fi
+
+# --- hardcoded lane identity (no --lane flag; stability-test ONLY) ---------
+# OMN-14984: COMPOSE_PROJECT duplicated the contract-rendered
+# STABILITY_TEST_COMPOSE_PROJECT (docker/runtime-policy.env, generated from
+# contracts/services/runtime_policy.contract.yaml) as a second, independently
+# hand-maintained bash literal -- re-render the contract and this script goes
+# stale silently. Read it from the file this script already sources above
+# instead; fail fast BY NAME (rule 8) if the sourced file didn't provide it,
+# rather than falling back to a hardcoded default.
+require_contract_var STABILITY_TEST_COMPOSE_PROJECT
+readonly LANE="stability-test"
+readonly COMPOSE_PROJECT="${STABILITY_TEST_COMPOSE_PROJECT}"
+# REDPANDA_CONTAINER / CORE_SERVICES / CORE_CONTAINERS / MIN_CONTRACTS below
+# are NOT currently rendered into docker/runtime-policy.env -- verified
+# against contracts/services/runtime_policy.contract.yaml (OMN-14984 recon):
+# only compose_project/main_port/effects_port are declared per lane there.
+# These stay hardcoded here (no contract-rendered source to read from without
+# fabricating one); a future lane-descriptor YAML analogous to
+# consumer_groups_stability.yaml, or a contract schema extension, is the
+# correct home for them, out of scope for this config-duplication kill.
+readonly REDPANDA_CONTAINER="omnibase-infra-stability-test-redpanda"
+readonly CORE_SERVICES=(omninode-runtime runtime-effects runtime-worker projection-api)
+# OMN-17562: the six standalone projection writers this lane introduces.
+#
+# BUILD SCOPE, NOT VERIFICATION SCOPE. This array is handed to
+# RUNTIME_BUILD_SERVICES_OVERRIDE and nothing else. CORE_SERVICES stays the
+# narrow four because it also drives the health gate, the pre-image-id capture,
+# the rollback anchors and CORE_CONTAINERS, and verify_stability_refresh.py
+# carries its own CORE_SERVICE_NAMES that must stay matched to it. Widening the
+# VERIFICATION surface is a separate change with its own live proof; widening
+# the BUILD surface is what stops the drift, and it is the half provable here.
+# Same split, same reason, as refresh_dev_lane.sh.
+#
+# Without this the writers would be declared in the overlay, censused by
+# lane-manifest.yaml, and NEVER BUILT: this script has always exported a scoped
+# override (to route around the open OMN-14262 BUILD_SOURCE selector mismatch on
+# the four release-only services), and deploy-runtime.sh treats an explicit
+# override as an instruction to touch ONLY the named services. A writer left out
+# keeps running on last-release code behind `restart: unless-stopped`, which
+# reads as healthy -- a slower version of the silent-loss defect these services
+# exist to end, on the lane `stability-proven` is resolved from.
+#
+# The OMN-14262 defect does not reach these: they build from
+# docker/Dockerfile.runtime, the same image the four core services build from,
+# not the release-only selector path that is still broken in workspace mode.
+readonly REFRESH_BUILD_SERVICES=(
+    "${CORE_SERVICES[@]}"
+    projection-tenant-registry-writer
+    projection-delegation-writer
+    projection-registration-writer
+    projection-savings-writer
+    projection-tenant-credentials-writer
+    projection-live-events-writer
+    # OMN-18114 -- the tenant-projection profile CARRIER. Here for a DIFFERENT
+    # reason than the six writers above, stated separately so the two do not
+    # merge. Those exist only in this lane's overlay; this one is declared in
+    # docker/docker-compose.infra.yml behind the inert `profile-carrier-optin`
+    # compose profile, and what makes it a real service HERE is this lane's
+    # `profiles: !override` promoting it into `runtime`.
+    #
+    # Membership is mandatory, not tidiness. deploy-runtime.sh keeps the same
+    # name in STABILITY_TEST_LANE_ONLY_RUNTIME_SERVICES, but
+    # resolve_lane_runtime_services returns early whenever
+    # RUNTIME_BUILD_SERVICES_OVERRIDE is set -- and this script ALWAYS sets it.
+    # So that array is unreachable on the governed path and THIS array is the
+    # whole restart set. OMN-18114 landed the carrier everywhere except here,
+    # which left it declared, censused as critical drift, and never running:
+    # the lane census read `container_absent` on the surface the
+    # `stability-proven` premise of every live prod grant resolves from.
+    #
+    # It builds from docker/Dockerfile.runtime -- the same image as the four
+    # core services -- so the open OMN-14262 BUILD_SOURCE selector mismatch
+    # that scopes this array does not reach it.
+    tenant-projection-writer
+)
+# OMN-18061: the ROLLBACK set is the DEPLOYED set, not the core four.
+#
+# The refresh builds and recreates all ten REFRESH_BUILD_SERVICES, but the
+# preflight anchor, the retag and the recreate all used CORE_SERVICES. A
+# rollback therefore restored four services and left six on the new image --
+# a lane on MIXED revisions that was never built, tested or proven in that
+# combination. Measured twice: attempt 2 (2026-09-08T17:41Z) and attempt 3
+# (2026-09-09T00:06Z), which ended with four core services on 2ea74bc4 and six
+# projection writers on 915a1044.
+#
+# CORE_SERVICES stays the narrow four: it drives the health gate, the pre-image
+# census and CORE_CONTAINERS, and verify_stability_refresh.py carries its own
+# CORE_SERVICE_NAMES matched to it. Widening the VERIFICATION surface is a
+# separate change with its own live proof. What must not stay narrow is the
+# set a DESTRUCTIVE operation touches: a rollback narrower than its deploy is
+# not a rollback.
+readonly ROLLBACK_SERVICES=(
+    "${REFRESH_BUILD_SERVICES[@]}"
+)
+# service -> lane-scoped container_name (docker-compose.stability-test.yml).
+# projection-api's container_name is prefixed "omnimarket-", not "omninode-" --
+# resolve by explicit map, never assume a pattern (OMN-13826-class lesson).
+declare -A CORE_CONTAINERS=(
+    [omninode-runtime]="omninode-stability-test-runtime"
+    [runtime-effects]="omninode-stability-test-runtime-effects"
+    [runtime-worker]="omninode-stability-test-runtime-worker"
+    [projection-api]="omnimarket-stability-test-projection-api"
+)
+# Siblings pinned to --ref via deploy-runtime.sh's DEPLOY_REF (RT-1, OMN-14438)
+# during workspace staging, PLUS the omnibase_infra ambient clone itself (which
+# is NOT part of that sibling set -- deploy-runtime.sh reads git_sha from
+# wherever it is invoked FROM, i.e. this clone's own HEAD).
+# The clones this refresh records prior HEADs for and moves to the deployed
+# ref: SIBLING_LANE_REFRESH_REPOS from sibling_clone_manifest.sh, the single
+# place a sibling set is spelled (OMN-19072). Same membership as the literal
+# list it replaced; omnibase_spi is excluded there, by name, with its reason.
+# shellcheck source=./sibling_clone_manifest.sh
+source "${SCRIPT_DIR}/sibling_clone_manifest.sh"
+readonly ALL_TRACKED_REPOS=("${SIBLING_LANE_REFRESH_REPOS[@]}")
+
+# --- defaults ---------------------------------------------------------------
+# OMN-14958: the health-gate probe host is parameterized. `localhost` is only
+# correct when this script runs ON the lane host itself; inside the
+# containerized deploy runner (bridge network) localhost is the runner
+# container, both probes die ECONNREFUSED, and a healthy lane gets reported
+# as a false "lane unhealthy" STOP (deploy run 29977968728). The runner
+# compose sets LANE_PROBE_HOST=host.docker.internal (host-gateway alias);
+# --manifest-url/--health-url flags still override entirely.
+# OMN-14984: the manifest/health default port duplicated the contract-rendered
+# STABILITY_TEST_RUNTIME_MAIN_PORT as a hardcoded 18085 literal in these two
+# URLs. Read it from the sourced runtime-policy.env instead; fail fast BY NAME
+# if absent. --manifest-url/--health-url still fully override these defaults.
+require_contract_var STABILITY_TEST_RUNTIME_MAIN_PORT
+# OMN-15837: the health gate now derives its declared consumer-group set from
+# the introspection manifests the refreshed image serves. The EFFECTS runtime
+# serves its own profile-filtered manifest, and its contracts mint consumer
+# groups the main runtime's manifest never describes (273 live on this lane), so
+# the gate needs both. Read the port from the same contract-rendered source as
+# the main port -- never a second hardcoded literal.
+require_contract_var STABILITY_TEST_RUNTIME_EFFECTS_PORT
+LANE_PROBE_HOST="${LANE_PROBE_HOST:-localhost}" # fallback-ok: localhost IS the lane host in the documented primary context (script runs ON .201); containerized runner overrides via compose env (OMN-14958)
+REF="origin/dev"
+MIN_CONTRACTS=288
+MANIFEST_URL="http://${LANE_PROBE_HOST}:${STABILITY_TEST_RUNTIME_MAIN_PORT}/v1/introspection/manifest"
+EFFECTS_MANIFEST_URL="http://${LANE_PROBE_HOST}:${STABILITY_TEST_RUNTIME_EFFECTS_PORT}/v1/introspection/manifest"
+HEALTH_URL="http://${LANE_PROBE_HOST}:${STABILITY_TEST_RUNTIME_MAIN_PORT}/health"
+MODE="plan"
+# OMN-16729: bounded wait for the per-lane host lock, in seconds. 15 minutes by
+# default -- long enough to queue behind a legitimate peer refresh of the same
+# lane, short enough that a wedged holder surfaces as a named refusal, never a
+# hang. The lock is never stolen at any timeout value.
+LANE_LOCK_TIMEOUT_SECONDS="${LANE_LOCK_TIMEOUT_SECONDS:-900}"
+
+usage() {
+    sed -n '4,83p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    exit "${1:-0}"
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --ref)
+            [[ -n "${2:-}" ]] || { err "--ref requires a value"; exit 64; }
+            REF="$2"; shift 2 ;;
+        --min-contracts)
+            [[ -n "${2:-}" ]] || { err "--min-contracts requires a value"; exit 64; }
+            MIN_CONTRACTS="$2"; shift 2 ;;
+        --manifest-url)
+            [[ -n "${2:-}" ]] || { err "--manifest-url requires a value"; exit 64; }
+            MANIFEST_URL="$2"; shift 2 ;;
+        --health-url)
+            [[ -n "${2:-}" ]] || { err "--health-url requires a value"; exit 64; }
+            HEALTH_URL="$2"; shift 2 ;;
+        --lock-timeout)
+            [[ -n "${2:-}" ]] || { err "--lock-timeout requires a value"; exit 64; }
+            [[ "$2" =~ ^[0-9]+$ ]] || { err "--lock-timeout must be a non-negative integer number of seconds"; exit 64; }
+            LANE_LOCK_TIMEOUT_SECONDS="$2"; shift 2 ;;
+        --execute)
+            MODE="execute"; shift ;;
+        --help|-h)
+            usage 0 ;;
+        *)
+            err "unknown option: $1"; usage 64 ;;
+    esac
+done
+
+# --- preconditions -----------------------------------------------------------
+OMNI_HOME="${OMNI_HOME:-}"
+if [[ -z "${OMNI_HOME}" ]]; then
+    err "OMNI_HOME must be set (the ambient clones under it are the deploy source)."
+    exit 64
+fi
+
+# Safety: refuse to run if the operator env has repointed the compose project
+# at a non-stability-test target (e.g. a sourced prod/judge env file). This
+# script has no --lane flag by design; COMPOSE_PROJECT is hardcoded above, but
+# deploy-runtime.sh resolves ITS OWN compose project from
+# OMNIBASE_INFRA_COMPOSE_PROJECT at call time -- this script always exports the
+# correct value explicitly below, so this guard is a defense against a caller
+# who exported a conflicting value expecting it to leak through.
+if [[ -n "${OMNIBASE_INFRA_COMPOSE_PROJECT:-}" && "${OMNIBASE_INFRA_COMPOSE_PROJECT}" != "${COMPOSE_PROJECT}" ]]; then
+    err "OMNIBASE_INFRA_COMPOSE_PROJECT='${OMNIBASE_INFRA_COMPOSE_PROJECT}' is set in the environment but"
+    err "  this script ONLY drives '${COMPOSE_PROJECT}' (stability-test). Refusing to run against a"
+    err "  possibly-different target -- unset OMNIBASE_INFRA_COMPOSE_PROJECT before calling this script."
+    exit 64
+fi
+
+for cmd in docker git curl jq; do
+    command -v "${cmd}" >/dev/null 2>&1 || { err "'${cmd}' is required but not found in PATH."; exit 64; }
+done
+
+if [[ ! -x "${DEPLOY_RUNTIME}" && ! -f "${DEPLOY_RUNTIME}" ]]; then
+    err "deploy-runtime.sh not found at ${DEPLOY_RUNTIME}"
+    exit 64
+fi
+if [[ ! -f "${VERIFY_SCRIPT}" ]]; then
+    err "verify_stability_refresh.py not found at ${VERIFY_SCRIPT}"
+    exit 64
+fi
+if [[ ! -f "${DECISION_SCRIPT}" ]]; then
+    # Fail here rather than fall back to "roll back on any FAIL": the fallback
+    # IS the defect this script's decision module removes (OMN-18061).
+    err "lane_rollback_decision.py not found at ${DECISION_SCRIPT}"
+    exit 64
+fi
+
+PYTHON_BIN=""
+if [[ -x "${REPO_ROOT}/.venv/bin/python" ]]; then
+    PYTHON_BIN="${REPO_ROOT}/.venv/bin/python"
+elif command -v uv &>/dev/null; then
+    PYTHON_BIN="uv-run"
+elif command -v python3 &>/dev/null; then
+    PYTHON_BIN="python3"
+else
+    err "No Python interpreter available to run the health-gate."
+    exit 64
+fi
+
+run_verify() {
+    # Run verify_stability_refresh.py with the given extra args, print JSON to stdout.
+    run_python "${VERIFY_SCRIPT}" "$@"
+}
+
+run_python() {
+    # Run a sibling python script under whichever interpreter this host has.
+    # OMN-18061: extracted from run_verify() so the shared rollback decision
+    # reaches the SAME interpreter selection rather than growing a second one.
+    local script="$1"; shift
+    if [[ "${PYTHON_BIN}" == "uv-run" ]]; then
+        uv run --project "${REPO_ROOT}" python "${script}" "$@"
+    else
+        "${PYTHON_BIN}" "${script}" "$@"
+    fi
+}
+
+# --- ambient-clone git wrapper (OMN-14900) ----------------------------------
+# The clones under OMNI_HOME are owned by the uid that provisioned them, but
+# this script can run as a DIFFERENT uid -- e.g. inside the self-hosted deploy
+# runner container. git then refuses every operation on them with "fatal:
+# detected dubious ownership in repository at '<clone>'" and exits 128. Five
+# release-train-lab.yml runs on 2026-07-21 died exactly there, before a single
+# fetch happened.
+#
+# That was relieved out-of-band on the host with an ad hoc `git config
+# --global --add safe.directory ...`, but that relief is NOT DURABLE: the
+# runner's /home/runner is not a named volume, so the global gitconfig -- and
+# with it the exemption -- is lost on any `--force-recreate` of the runner
+# container, and the next tag push fails the same way. Carry the exemption
+# in-repo instead, scoped per invocation: `-c safe.directory=<clone>` is
+# protected configuration git honours from the command line, applies to
+# exactly one git process and one path, requires no host change, writes
+# nothing to the user's global gitconfig, and is never the blanket
+# `safe.directory=*`. (Ported verbatim from refresh_dev_lane.sh.)
+git_clone() {
+    local clone="$1"
+    shift
+    git -c "safe.directory=${clone}" -C "${clone}" "$@"
+}
+
+# --- state / receipt paths ---------------------------------------------------
+STATE_DIR="${HOME}/.omnibase/state/stability_lane_refresh"
+HISTORY_DIR="${STATE_DIR}/history"
+mkdir -p "${HISTORY_DIR}"
+UTC_NOW="$(date -u +%Y%m%dT%H%M%SZ)"
+WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/refresh-stability-lane.XXXXXX")"
+trap 'rm -rf "${WORKDIR}"' EXIT
+
+# --- lane lock (OMN-16729) --------------------------------------------------
+# Taken before ANY live read of lane state, because the collision this closes
+# severed a post-deploy readback, not a build. Held until this script exits;
+# deploy-runtime.sh below inherits ONEX_LANE_LOCK_HELD and re-enters without
+# deadlocking. Plan mode takes nothing -- it mutates nothing, and a dry run must
+# not be blocked by a legitimately running refresh.
+if [[ "${MODE}" == "execute" ]]; then
+    if ! lane_lock_acquire "${COMPOSE_PROJECT}" "${LANE}" "${REF}" "${LANE_LOCK_TIMEOUT_SECONDS}" "refresh_stability_lane.sh" "--ref" "${REF}"; then
+        err "lane '${COMPOSE_PROJECT}' is held by another process; refusing to start a second refresh on it."
+        err "  Nothing was read, built, recreated or rolled back. See the holder named above."
+        exit 2
+    fi
+    trap 'lane_lock_release; rm -rf "${WORKDIR}"' EXIT
+fi
+
+
+# --- plan / logging -----------------------------------------------------------
+log "lane            : ${LANE} (compose project ${COMPOSE_PROJECT})"
+log "ref             : ${REF}"
+log "min contracts   : ${MIN_CONTRACTS}"
+log "core services   : ${CORE_SERVICES[*]}"
+log "build scope     : ${REFRESH_BUILD_SERVICES[*]}"
+log "mode            : ${MODE}"
+
+# =============================================================================
+# 0a. Lane-deploy ATTRIBUTION + live-grant INTERLOCK (OMN-15218)
+#
+# Runs BEFORE the ambient-clone checkout, the preflight image tags, and the
+# build — i.e. before this script's FIRST mutation, not just before
+# deploy-runtime.sh's. deploy-runtime.sh runs the same preflight itself, but
+# steps 2 and 3 below (docker tag / git checkout --force) happen earlier and
+# would otherwise be unattributed and un-interlocked.
+#
+# Refuses when ONEX_DEPLOY_REASON is absent/placeholder, or when unconsumed,
+# unexpired prod-promotion grants at onex_change_control@main pin this lane's
+# proof (acknowledge each grant id via ONEX_DEPLOY_GRANT_ACK to proceed on the
+# record). Fails closed when grant state cannot be resolved.
+# =============================================================================
+ATTRIBUTION_PREFLIGHT="${REPO_ROOT}/scripts/preflight_lane_deploy_attribution.py"
+ATTRIBUTION_RECORD_JSON="null"
+if [[ ! -f "${ATTRIBUTION_PREFLIGHT}" ]]; then
+    err "lane-deploy attribution preflight not found: ${ATTRIBUTION_PREFLIGHT}"
+    err "  Refusing to refresh ${LANE} with no attribution mechanism (OMN-15218)."
+    exit 64
+fi
+ATTRIBUTION_ARGS=(
+    --lane "${LANE}"
+    --compose-project "${COMPOSE_PROJECT}"
+    --source "refresh_stability_lane.sh"
+    --invoking-command "refresh_stability_lane.sh --ref ${REF} (mode=${MODE})"
+)
+if [[ "${MODE}" != "execute" ]]; then
+    ATTRIBUTION_ARGS+=(--check-only)
+fi
+ATTRIBUTION_EXIT=0
+if [[ "${PYTHON_BIN}" == "uv-run" ]]; then
+    ATTRIBUTION_RECORD_JSON="$(uv run --project "${REPO_ROOT}" python "${ATTRIBUTION_PREFLIGHT}" \
+        "${ATTRIBUTION_ARGS[@]}")" || ATTRIBUTION_EXIT=$?
+else
+    ATTRIBUTION_RECORD_JSON="$("${PYTHON_BIN}" "${ATTRIBUTION_PREFLIGHT}" \
+        "${ATTRIBUTION_ARGS[@]}")" || ATTRIBUTION_EXIT=$?
+fi
+if [[ "${ATTRIBUTION_EXIT}" -ne 0 ]]; then
+    err "lane-deploy attribution preflight REFUSED this refresh (exit ${ATTRIBUTION_EXIT})."
+    err "  Nothing was tagged, checked out, built, or restarted."
+    exit 64
+fi
+if ! jq -e . >/dev/null 2>&1 <<<"${ATTRIBUTION_RECORD_JSON}"; then
+    ATTRIBUTION_RECORD_JSON="null"
+fi
+
+if [[ "${MODE}" != "execute" ]]; then
+    log "dry-run: no fetch/checkout/build/restart performed. Re-run with --execute."
+    log "would run: OMNI_HOME=${OMNI_HOME} OMNIBASE_INFRA_COMPOSE_PROJECT=${COMPOSE_PROJECT} \\"
+    log "  BUILD_SOURCE=workspace DEPLOY_REF=${REF} \\"
+    log "  RUNTIME_BUILD_SERVICES_OVERRIDE=\"${REFRESH_BUILD_SERVICES[*]}\" \\"
+    log "  ${DEPLOY_RUNTIME} --execute --force --restart"
+    exit 0
+fi
+
+# =============================================================================
+# 0. Ensure the private runner clones exist (OMN-14900)
+#    Idempotent: clones any of the 5 repos missing under OMNI_HOME (the deploy
+#    runner's PRIVATE bind mount) and asserts each is operable by this euid.
+#    Committed provisioning, never a remembered manual host step.
+# =============================================================================
+OMNI_HOME="${OMNI_HOME}" bash "${SCRIPT_DIR}/ensure_runner_clones.sh"
+
+# =============================================================================
+# 1. Capture PRE-STATE (before touching anything)
+# =============================================================================
+log "=== Capture pre-state ==="
+
+declare -A PRE_IMAGE_IDS
+# OMN-15718: pre-attempt container STATE census, alongside the pre-attempt
+# image-id census above. Used post-rollback to prove the rollback restored
+# every core service to its pre-attempt running state, not merely that image
+# tags point at the right digest again.
+declare -A PRE_CONTAINER_STATUS
+for svc in "${CORE_SERVICES[@]}"; do
+    container="${CORE_CONTAINERS[${svc}]}"
+    image_id="$(docker inspect "${container}" --format '{{.Image}}' 2>/dev/null || true)"
+    if [[ -z "${image_id}" ]]; then
+        err "Could not resolve running image ID for ${container} (${svc}). Is the lane up?"
+        exit 64
+    fi
+    PRE_IMAGE_IDS["${svc}"]="${image_id}"
+    PRE_CONTAINER_STATUS["${svc}"]="$(container_status "${container}")"
+    log "  ${svc} (${container}): pre_image_id=${image_id} pre_status=${PRE_CONTAINER_STATUS[${svc}]}"
+done
+
+OLD_INFRA_REVISION="$(docker inspect "${CORE_CONTAINERS[omninode-runtime]}" \
+    --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' 2>/dev/null || true)"
+log "  current org.opencontainers.image.revision=${OLD_INFRA_REVISION:-<none>}"
+
+declare -A PRIOR_REFS
+for repo in "${ALL_TRACKED_REPOS[@]}"; do
+    clone="${OMNI_HOME}/${repo}"
+    if [[ ! -d "${clone}/.git" ]]; then
+        err "Expected clone not found: ${clone}"
+        exit 64
+    fi
+    PRIOR_REFS["${repo}"]="$(git_clone "${clone}" rev-parse HEAD)"
+    log "  ${repo} prior HEAD: ${PRIOR_REFS[${repo}]:0:12}"
+done
+
+# =============================================================================
+# 2. Preflight rollback tag (BEFORE any build can overwrite :latest in place)
+# =============================================================================
+# OMN-18061: anchored over the FULL rollback set (== the deployed set), not the
+# core four. An anchor that covers fewer services than the rollback recreates
+# cannot restore them, and produces the mixed-revision lane attempt 3 ended on.
+# A service with no `:latest` to anchor is recorded by name rather than skipped:
+# the rollback refuses a PARTIAL restore, and the refusal has to be able to say
+# which services it could not have restored.
+log "=== Tag preflight rollback anchor (${UTC_NOW}) ==="
+MISSING_ROLLBACK_ANCHORS=()
+for svc in "${ROLLBACK_SERVICES[@]}"; do
+    image_tag="${COMPOSE_PROJECT}-${svc}"
+    if docker tag "${image_tag}:latest" "${image_tag}:preflight-${UTC_NOW}" 2>/dev/null; then
+        log "  tagged ${image_tag}:latest -> ${image_tag}:preflight-${UTC_NOW}"
+    else
+        MISSING_ROLLBACK_ANCHORS+=("${svc}")
+        err "  NO preflight anchor for ${image_tag}:latest -- a rollback could not restore this service"
+    fi
+done
+if [[ "${#MISSING_ROLLBACK_ANCHORS[@]}" -gt 0 ]]; then
+    err "preflight anchor INCOMPLETE: ${MISSING_ROLLBACK_ANCHORS[*]}"
+    err "  a rollback from this run would be PARTIAL and will be refused rather than performed."
+fi
+
+# =============================================================================
+# 3. Refresh the omnibase_infra ambient clone itself to --ref
+#    (deploy-runtime.sh reads its own git_sha from THIS clone's HEAD; DEPLOY_REF
+#    below only pins the 4 SIBLING repos staged by stage_workspace.sh -- it
+#    does not touch omnibase_infra's own tree.)
+#
+#    OMN-14889 canary finding: this clone's local `dev` branch may already be
+#    checked out in a SIBLING worktree on the same host (e.g. deploy-agent's
+#    runtime-sync-worktrees/OMN-12618) -- git refuses to check that branch out
+#    a second time ("already checked out at <path>"), hard-failing this whole script on
+#    an environment collision that has nothing to do with lane health. Resolve
+#    --ref to a commit SHA first and check it out DETACHED: a detached HEAD
+#    carries no branch identity, so it can never collide with another
+#    worktree regardless of what branch that worktree holds. --force discards
+#    any local modifications the same way the previous checkout+reset --hard
+#    pair did.
+# =============================================================================
+log "=== Refresh omnibase_infra ambient clone to ${REF} ==="
+INFRA_CLONE="${OMNI_HOME}/omnibase_infra"
+# OMN-15837: the health gate reads this file's literal KAFKA_CONSUMER_GROUP
+# values as a derivation source for the standalone projection writers'
+# consumer groups. It must be the AMBIENT clone's copy -- the same tree
+# `docker compose` is driven from below -- not this script's own checkout,
+# which may be a different revision.
+LANE_COMPOSE_FILE="${INFRA_CLONE}/docker/docker-compose.stability-test.yml"
+# The lane's compose file list, resolved once from the shared resolver and used
+# by every compose invocation this script makes -- notably the rollback recreate
+# below. Never spell a `-f` path inline (OMN-16729).
+declare -a LANE_COMPOSE_FILE_ARGS
+resolve_compose_file_args LANE_COMPOSE_FILE_ARGS "${INFRA_CLONE}" "${COMPOSE_PROJECT}"
+git_clone "${INFRA_CLONE}" fetch origin --prune
+RESOLVED_REF_SHA="$(git_clone "${INFRA_CLONE}" rev-parse "${REF}^{commit}")"
+git_clone "${INFRA_CLONE}" checkout --force --detach "${RESOLVED_REF_SHA}"
+NEW_INFRA_SHA="$(git_clone "${INFRA_CLONE}" rev-parse HEAD)"
+NEW_INFRA_SHA_SHORT="$(git_clone "${INFRA_CLONE}" rev-parse --short=12 HEAD)"
+log "  omnibase_infra now at ${NEW_INFRA_SHA_SHORT} (full: ${NEW_INFRA_SHA})"
+
+# =============================================================================
+# 4. Build + restart (scoped to the 4 core services) via deploy-runtime.sh
+# =============================================================================
+log "=== Build + restart (scoped to: ${REFRESH_BUILD_SERVICES[*]}) ==="
+DEPLOY_EXIT=0
+(
+    export OMNI_HOME
+    export OMNIBASE_INFRA_COMPOSE_PROJECT="${COMPOSE_PROJECT}"
+    export BUILD_SOURCE="workspace"
+    export DEPLOY_REF="${REF}"
+    export RUNTIME_BUILD_SERVICES_OVERRIDE="${REFRESH_BUILD_SERVICES[*]}"
+    bash "${DEPLOY_RUNTIME}" --execute --force --restart
+) || DEPLOY_EXIT=$?
+
+if [[ "${DEPLOY_EXIT}" -ne 0 ]]; then
+    # OMN-17289: this used to log "proceeding to health-gate anyway" and carry
+    # on, on the theory that the health-gate below is the source of truth. It
+    # is not, for this failure: a failed deploy means the lane is running some
+    # OTHER build than the one this refresh was asked to install, and the
+    # health-gate answers "is something healthy?", never "is the thing I just
+    # asked for what is running?". A green health verdict over the PREVIOUS
+    # image reads as a successful refresh, which is how a failed deploy got
+    # recorded as a good one -- and the stability lane is where the
+    # `stability-proven` premise of every live prod grant is resolved from
+    # (OMN-15243), so a falsely-green refresh erodes that basis.
+    #
+    # A failed deploy now fails the refresh. The EXIT trap still runs its
+    # cleanup (guarded by OMN-17287 so it cannot rm -rf a deploy dir live
+    # containers are bind-mounted to), and the operator gets the real exit code
+    # instead of a health verdict about the wrong build.
+    err "deploy-runtime.sh exited ${DEPLOY_EXIT} -- failing the refresh"
+    err "  The lane was NOT refreshed to ${REF} (${NEW_INFRA_SHA_SHORT})."
+    err "  Not proceeding to the health-gate: it reports whether SOMETHING is"
+    err "  healthy, not whether the requested build is the one running, so a"
+    err "  green verdict here would describe the previously-deployed image."
+    if [[ "${DEPLOY_EXIT}" -eq 124 ]]; then
+        err "  Exit 124 is the compose_up_bounded deadline"
+        err "  (RUNTIME_COMPOSE_WAIT_TIMEOUT_SECONDS=${RUNTIME_COMPOSE_WAIT_TIMEOUT_SECONDS}s),"
+        err "  not a compose failure -- the process was still running when it was killed."
+    fi
+    exit "${DEPLOY_EXIT}"
+fi
+
+# =============================================================================
+# 5. Capture NEW refs (post-refresh) for every tracked repo + ancestry proof
+# =============================================================================
+declare -A NEW_REFS
+ANCESTRY_OK=true
+ANCESTRY_COMMANDS=()
+for repo in "${ALL_TRACKED_REPOS[@]}"; do
+    clone="${OMNI_HOME}/${repo}"
+    NEW_REFS["${repo}"]="$(git_clone "${clone}" rev-parse HEAD)"
+    cmd="git -c safe.directory=${clone} -C ${clone} merge-base --is-ancestor ${PRIOR_REFS[${repo}]} ${NEW_REFS[${repo}]}"
+    ANCESTRY_COMMANDS+=("${cmd}")
+    if git_clone "${clone}" merge-base --is-ancestor "${PRIOR_REFS[${repo}]}" "${NEW_REFS[${repo}]}"; then
+        log "  ${repo}: ${PRIOR_REFS[${repo}]:0:12} -> ${NEW_REFS[${repo}]:0:12} (forward progress OK)"
+    else
+        err "  ${repo}: ${PRIOR_REFS[${repo}]:0:12} -> ${NEW_REFS[${repo}]:0:12} is NOT forward progress!"
+        ANCESTRY_OK=false
+    fi
+done
+
+if [[ "${ANCESTRY_OK}" != true ]]; then
+    err "Forward-progress assertion FAILED for at least one repo. This refresh would REGRESS"
+    err "the lane. Refusing to certify success regardless of health-gate outcome."
+fi
+
+# =============================================================================
+# 6. Health-gate
+# =============================================================================
+log "=== Health-gate ==="
+PRE_IMAGE_IDS_JSON="$(
+    printf '%s\n' "${!PRE_IMAGE_IDS[@]}" | while read -r k; do
+        printf '%s\t%s\n' "${k}" "${PRE_IMAGE_IDS[${k}]}"
+    done | jq -Rn '[inputs | split("\t") | {(.[0]): .[1]}] | add'
+)"
+
+GATE1_JSON="${WORKDIR}/gate1.json"
+GATE_EXIT=0
+run_verify \
+    --lane "${LANE}" \
+    --expected-revision "${NEW_INFRA_SHA_SHORT}" \
+    --pre-image-ids "${PRE_IMAGE_IDS_JSON}" \
+    --manifest-url "${MANIFEST_URL}" \
+    --health-url "${HEALTH_URL}" \
+    --broker-container "${REDPANDA_CONTAINER}" \
+    --min-contracts "${MIN_CONTRACTS}" \
+    --consumer-groups-file "${CONSUMER_GROUPS_FILE}" \
+    --effects-manifest-url "${EFFECTS_MANIFEST_URL}" \
+    --lane-compose-file "${LANE_COMPOSE_FILE}" \
+    --json > "${GATE1_JSON}" || GATE_EXIT=$?
+
+# Defensive: if the health-gate crashed before printing valid JSON (should not
+# happen -- run_verify's own main() always emits JSON on every documented exit
+# path -- but a receipt-writing script must never itself crash on a malformed
+# upstream artifact), fall back to a minimal INFRA_ERROR placeholder so the
+# jq reads below (and the final receipt assembly) always have valid JSON.
+if ! jq -e . "${GATE1_JSON}" >/dev/null 2>&1; then
+    err "health-gate did not produce valid JSON (exit ${GATE_EXIT}) -- writing INFRA_ERROR placeholder"
+    jq -n --arg lane "${LANE}" '{lane: $lane, overall: "INFRA_ERROR", errors: ["health-gate produced no valid JSON output"]}' > "${GATE1_JSON}"
+fi
+
+GATE1_OVERALL="$(jq -r '.overall // "INFRA_ERROR"' "${GATE1_JSON}" 2>/dev/null || echo "INFRA_ERROR")"
+log "health-gate result: ${GATE1_OVERALL} (exit ${GATE_EXIT})"
+cat "${GATE1_JSON}" >&2
+
+# OMN-15718: declared here (not just inside the rollback branch below) so
+# receipt assembly at the bottom of the script can reference them under
+# `set -u` even on the no-rollback (health-gate PASS) path.
+ROLLBACK_TRIGGERED=false
+ROLLBACK_RECREATE_TIMED_OUT=false
+STRANDED_SERVICES=()
+declare -A POST_CONTAINER_STATUS
+GATE2_JSON=""
+RESULT="FAILED"
+
+# --- the shared rollback decision (OMN-18061) --------------------------------
+# One object, called by both lanes, over the gate JSON this run just wrote. It
+# separates the dimensions that say the lane is SERVING (health, manifest,
+# cluster, core containers running, and the gate's own ability to probe at all)
+# from the dimensions that say what the lane is RUNNING (revision label, image
+# digest, clone ancestry). A DESTRUCTIVE rollback is gated on the first group
+# and on nothing else, because no container recreate repairs the second.
+#
+# This branch is always `warm` for this script: the preflight anchor above ran
+# unconditionally, so a rollback target exists (its completeness is a separate
+# question, answered by MISSING_ROLLBACK_ANCHORS).
+DECISION_JSON="${WORKDIR}/rollback_decision.json"
+run_python "${DECISION_SCRIPT}" \
+    --gate-json "${GATE1_JSON}" \
+    --ancestry-ok "${ANCESTRY_OK}" \
+    --branch warm > "${DECISION_JSON}"
+DECISION_RESULT="$(jq -r '.result' "${DECISION_JSON}")"
+DECISION_UNHEALTHY="$(jq -r '.unhealthy_dimensions | join(", ")' "${DECISION_JSON}")"
+DECISION_PROVENANCE="$(jq -r '.provenance_failures | join(", ")' "${DECISION_JSON}")"
+log "rollback decision: ${DECISION_RESULT}"
+log "  lane health dimensions failing: [${DECISION_UNHEALTHY}]"
+log "  build provenance failing      : [${DECISION_PROVENANCE}]"
+
+if [[ "${GATE1_OVERALL}" == "PASS" && "${ANCESTRY_OK}" == true ]]; then
+    RESULT="SUCCESS"
+    log "=== SUCCESS: health-gate PASS, ancestry OK ==="
+    # Prune old preflight tags (keep last 3) -- bounded local rollback history.
+    # Over the full anchored set (OMN-18061), or the writers accumulate tags
+    # forever because nothing ever prunes what nothing ever anchored.
+    for svc in "${ROLLBACK_SERVICES[@]}"; do
+        image_tag="${COMPOSE_PROJECT}-${svc}"
+        old_tags="$(docker images --format '{{.Tag}}' "${image_tag}" | grep '^preflight-' | sort -r | tail -n +4 || true)"
+        for t in ${old_tags}; do
+            docker rmi "${image_tag}:${t}" >/dev/null 2>&1 || true
+        done
+    done
+elif [[ "${DECISION_RESULT}" == "FAILED_BUILD_PROVENANCE" ]]; then
+    # ============================================================
+    # BUILD-PROVENANCE FINDING -- report, do NOT recreate (OMN-18061)
+    # ============================================================
+    # The shared decision says this lane is SERVING on every health dimension
+    # and the only failing dimensions are provenance ones -- the running
+    # containers do not carry the revision this refresh expected, and/or no
+    # image digest changed, and/or a tracked clone did not move forward.
+    #
+    # No container recreate repairs any of those. It can only take a serving
+    # lane down, which is what it did to the dev lane at 2026-09-08T18:48:41Z
+    # on a receipt carrying health_ok=true, manifest_ok=true and errors=[].
+    # This lane is the surface every live prod grant's `stability-proven`
+    # premise resolves from, so the same trigger here rolls the proof lane
+    # back onto the image the refresh was replacing.
+    RESULT="FAILED_BUILD_PROVENANCE"
+    log "=== FAILURE: build-provenance only -- lane is healthy, NOT rolling back ==="
+    log "  failing provenance dimensions: ${DECISION_PROVENANCE:-<none named>}"
+    log "  the lane was NOT recreated and NOT retagged; it is exactly as this run found it."
+    err "STOP AND REPORT: the refresh did not land the ref it intended, but the"
+    err "lane is SERVING. Investigate the build/staging provenance -- do not"
+    err "recreate containers to 'fix' a label mismatch."
+elif [[ "${#MISSING_ROLLBACK_ANCHORS[@]}" -gt 0 ]]; then
+    # ============================================================
+    # REFUSE A PARTIAL ROLLBACK (OMN-18061 item 6)
+    # ============================================================
+    # The lane IS unhealthy and a rollback is warranted, but this run could not
+    # anchor every service it deployed. Restoring the subset it can would leave
+    # the lane on a revision combination that was never built, tested or
+    # proven -- exactly the mixed state attempt 3 ended on, arrived at
+    # deliberately this time. Refusing is the honest outcome: it leaves the
+    # lane where the operator can see it, and names what could not be restored.
+    RESULT="FAILED_ROLLBACK_ANCHOR_INCOMPLETE"
+    log "=== FAILURE: lane unhealthy (${DECISION_UNHEALTHY:-unknown}) but the rollback would be PARTIAL ==="
+    err "REFUSING to roll back: no preflight anchor exists for ${MISSING_ROLLBACK_ANCHORS[*]}"
+    err "  Rolling back the rest would leave this lane on MIXED revisions -- a"
+    err "  combination nothing has ever run. The lane is left as this run found"
+    err "  it; see rollback.missing_rollback_anchors in the receipt."
+else
+    log "=== FAILURE: lane is not healthy (${DECISION_UNHEALTHY:-unknown}) -- triggering rollback ==="
+    ROLLBACK_TRIGGERED=true
+
+    # OMN-18061: retag the FULL deployed set. Rolling back four of ten is what
+    # left attempt 3 on four core services at 2ea74bc4 and six projection
+    # writers at 915a1044.
+    for svc in "${ROLLBACK_SERVICES[@]}"; do
+        image_tag="${COMPOSE_PROJECT}-${svc}"
+        docker tag "${image_tag}:preflight-${UTC_NOW}" "${image_tag}:latest"
+        log "  rolled back ${image_tag}:latest <- ${image_tag}:preflight-${UTC_NOW}"
+    done
+
+    # Targeted recreate against the rolled-back images (same command shape as
+    # deploy-runtime.sh's restart_services(), scoped to the 4 core services).
+    # Guarded (never let a compose failure here abort the script under set -e
+    # -- a rollback-recreate failure must still reach the health-gate +
+    # receipt below, not crash silently with no receipt at all).
+    #
+    # OMN-15718: bounded via compose_up_bounded(). `--no-deps` skips STARTING
+    # dependencies, but compose still honors each target service's own
+    # depends_on:condition:service_healthy before creating/starting it (e.g.
+    # migration-gate for runtime-effects/runtime-worker) -- observed live
+    # 2026-08-05: that dependency can never become healthy once
+    # forward-migration has failed, and the unbounded `up` call hung
+    # indefinitely instead of failing fast, never reaching the health-gate or
+    # writing a receipt.
+    ROLLBACK_RECREATE_EXIT=0
+    ROLLBACK_RECREATE_TIMED_OUT=false
+    compose_up_bounded "${RUNTIME_COMPOSE_WAIT_TIMEOUT_SECONDS}" \
+        docker compose -p "${COMPOSE_PROJECT}" \
+        "${LANE_COMPOSE_FILE_ARGS[@]}" \
+        --profile runtime \
+        up -d --no-deps --no-build --force-recreate \
+        "${ROLLBACK_SERVICES[@]}" || ROLLBACK_RECREATE_EXIT=$?
+    if [[ "${ROLLBACK_RECREATE_EXIT}" -eq 124 ]]; then
+        ROLLBACK_RECREATE_TIMED_OUT=true
+        err "ROLLBACK_RECREATE_TIMEOUT: targeted recreate did not complete within ${RUNTIME_COMPOSE_WAIT_TIMEOUT_SECONDS}s -- killed."
+        err "  Proceeding to container-state reconciliation below instead of hanging (OMN-15718)."
+    elif [[ "${ROLLBACK_RECREATE_EXIT}" -ne 0 ]]; then
+        err "rollback targeted-recreate exited ${ROLLBACK_RECREATE_EXIT} -- proceeding to health-gate anyway (it will report the true state)"
+    fi
+
+    # OMN-15718: reconcile every core-service container back to running (or
+    # explicitly tear it down) BEFORE the health-gate re-verify below -- a
+    # container merely 'Created' (never started) is not a lane the health-gate
+    # can fairly judge, and it is exactly the state a timed-out or partial
+    # recreate can leave behind. Never leave a container stranded requiring
+    # manual `docker start`/`docker ps` forensics.
+    log "=== Reconciling core-service container state post-rollback ==="
+    STRANDED_SERVICES=()
+    for svc in "${CORE_SERVICES[@]}"; do
+        container="${CORE_CONTAINERS[${svc}]}"
+        if ! reconcile_container_running_state "${container}" "${svc}"; then
+            STRANDED_SERVICES+=("${svc}")
+        fi
+    done
+
+    # OMN-15718: verify the post-rollback container-state census matches the
+    # pre-attempt census (step 1) -- proves the rollback restored actual
+    # container start state, not merely image tags.
+    log "=== Post-rollback container-state census ==="
+    declare -A POST_CONTAINER_STATUS
+    CENSUS_MATCHES=true
+    for svc in "${CORE_SERVICES[@]}"; do
+        container="${CORE_CONTAINERS[${svc}]}"
+        POST_CONTAINER_STATUS["${svc}"]="$(container_status "${container}")"
+        if [[ "${POST_CONTAINER_STATUS[${svc}]}" == "${PRE_CONTAINER_STATUS[${svc}]}" ]]; then
+            log "  ${svc}: pre=${PRE_CONTAINER_STATUS[${svc}]} post=${POST_CONTAINER_STATUS[${svc}]} (match)"
+        else
+            err "  ${svc}: pre=${PRE_CONTAINER_STATUS[${svc}]} post=${POST_CONTAINER_STATUS[${svc}]} (MISMATCH)"
+            CENSUS_MATCHES=false
+        fi
+    done
+    if [[ "${CENSUS_MATCHES}" == true ]]; then
+        log "Post-rollback census MATCHES pre-attempt census for all ${#CORE_SERVICES[@]} core services."
+    else
+        err "Post-rollback census does NOT fully match pre-attempt census (see per-service lines above)."
+    fi
+    if [[ "${#STRANDED_SERVICES[@]}" -gt 0 ]]; then
+        err "STRANDED_CONTAINERS_TORN_DOWN: ${STRANDED_SERVICES[*]} could not be recovered to running and were torn down (docker rm -f)."
+        err "  The rollback did NOT fully restore prior container start state for these services -- a full recreate (not just an image-tag rollback) is required."
+    fi
+
+    log "=== Re-verifying health after rollback ==="
+    GATE2_JSON="${WORKDIR}/gate2.json"
+    GATE2_EXIT=0
+    run_verify \
+        --lane "${LANE}" \
+        --expected-revision "${OLD_INFRA_REVISION:-unknown}" \
+        --pre-image-ids '{}' \
+        --manifest-url "${MANIFEST_URL}" \
+        --health-url "${HEALTH_URL}" \
+        --broker-container "${REDPANDA_CONTAINER}" \
+        --min-contracts "${MIN_CONTRACTS}" \
+        --consumer-groups-file "${CONSUMER_GROUPS_FILE}" \
+        --effects-manifest-url "${EFFECTS_MANIFEST_URL}" \
+        --lane-compose-file "${LANE_COMPOSE_FILE}" \
+        --no-require-digest-change \
+        --json > "${GATE2_JSON}" || GATE2_EXIT=$?
+
+    if ! jq -e . "${GATE2_JSON}" >/dev/null 2>&1; then
+        err "post-rollback health-gate did not produce valid JSON (exit ${GATE2_EXIT}) -- writing INFRA_ERROR placeholder"
+        jq -n --arg lane "${LANE}" '{lane: $lane, overall: "INFRA_ERROR", errors: ["post-rollback health-gate produced no valid JSON output"]}' > "${GATE2_JSON}"
+    fi
+
+    GATE2_OVERALL="$(jq -r '.overall // "INFRA_ERROR"' "${GATE2_JSON}" 2>/dev/null || echo "INFRA_ERROR")"
+    log "post-rollback health-gate result: ${GATE2_OVERALL} (exit ${GATE2_EXIT})"
+    cat "${GATE2_JSON}" >&2
+
+    if [[ "${GATE2_OVERALL}" == "PASS" ]]; then
+        RESULT="FAILED_ROLLED_BACK"
+        log "Rollback restored a healthy lane. Refresh FAILED but the lane is HEALTHY."
+    elif [[ "${GATE2_OVERALL}" == "INFRA_ERROR" ]]; then
+        # OMN-14958: an INFRA_ERROR gate means the probes could not RUN (e.g.
+        # ${HEALTH_URL} unreachable from THIS execution context, docker/rpk
+        # missing) -- the lane was never actually observed unhealthy. Do NOT
+        # claim lane damage the gate never saw; that false alarm is exactly
+        # what deploy run 29977968728 emitted from inside the runner container.
+        RESULT="FAILED"
+        err "=============================================================="
+        err "STOP AND REPORT: post-rollback health-gate is INFRA_ERROR -- the"
+        err "lane is UNREACHABLE FROM THIS PROBE CONTEXT, not proven unhealthy."
+        err "Probes attempted: ${HEALTH_URL} / ${MANIFEST_URL}."
+        err "If this ran inside the containerized deploy runner, localhost is"
+        err "the runner container, not the lane host -- set LANE_PROBE_HOST"
+        err "(or --health-url/--manifest-url) to a host reachable from here,"
+        err "then verify the lane's true state from a host that can reach it"
+        err "(e.g. curl the lane's /health on the lane host) before treating"
+        err "this as lane damage. Do not retry automatically."
+        err "=============================================================="
+    else
+        RESULT="FAILED"
+        err "=============================================================="
+        err "STOP AND REPORT: rollback did NOT restore a healthy lane."
+        err "The stability-test lane may be UNHEALTHY right now (health-gate"
+        err "readback FAILED -- this is an observed-unhealthy verdict, not a"
+        err "probe-context error). Do not retry automatically -- this is a"
+        err "STOP condition per operating rules."
+        err "Suggested Linear ticket:"
+        err "  title: stability-test lane unhealthy after refresh+rollback (OMN-14263 recurrence)"
+        err "  body: refresh to ${REF} failed health-gate; rollback to preflight-${UTC_NOW}"
+        err "        images ALSO failed health-gate. Manual intervention required."
+        err "=============================================================="
+    fi
+
+    # OMN-15718: a torn-down (stranded) container means the rollback did NOT
+    # fully restore prior container start state regardless of what the
+    # health-gate concluded -- override to a distinct, typed RESULT so a
+    # caller can act on this specific failure mode (a targeted recreate is
+    # needed, not just a re-run) without manual docker start/docker ps
+    # forensics. Takes priority over FAILED_ROLLED_BACK: a lane missing a
+    # service is not actually "rolled back to healthy" even if a
+    # not-yet-comprehensive health probe happened to pass.
+    if [[ "${#STRANDED_SERVICES[@]}" -gt 0 ]]; then
+        RESULT="FAILED_ROLLBACK_STRANDED_CONTAINERS"
+        err "RESULT overridden to FAILED_ROLLBACK_STRANDED_CONTAINERS: ${STRANDED_SERVICES[*]}"
+        err "  were torn down and are not running. See rollback.stranded_services in the receipt."
+    fi
+fi
+
+# =============================================================================
+# 7. Emit receipt
+# =============================================================================
+PRIOR_REFS_JSON="$(for r in "${ALL_TRACKED_REPOS[@]}"; do printf '%s\t%s\n' "${r}" "${PRIOR_REFS[${r}]}"; done | jq -Rn '[inputs | split("\t") | {(.[0]): .[1]}] | add')"
+NEW_REFS_JSON="$(for r in "${ALL_TRACKED_REPOS[@]}"; do printf '%s\t%s\n' "${r}" "${NEW_REFS[${r}]:-${PRIOR_REFS[${r}]}}"; done | jq -Rn '[inputs | split("\t") | {(.[0]): .[1]}] | add')"
+ANCESTRY_COMMANDS_JSON="$(printf '%s\n' "${ANCESTRY_COMMANDS[@]}" | jq -Rn '[inputs]')"
+BUILD_SCOPE_JSON="$(printf '%s\n' "${REFRESH_BUILD_SERVICES[@]}" | jq -Rn '[inputs]')"
+ROLLBACK_SCOPE_JSON="$(printf '%s\n' "${ROLLBACK_SERVICES[@]}" | jq -Rn '[inputs]')"
+if [[ "${#MISSING_ROLLBACK_ANCHORS[@]}" -gt 0 ]]; then
+    MISSING_ANCHORS_JSON="$(printf '%s\n' "${MISSING_ROLLBACK_ANCHORS[@]}" | jq -Rn '[inputs]')"
+else
+    MISSING_ANCHORS_JSON='[]'
+fi
+# OMN-18061: the shared decision, verbatim, so a receipt reader can tell a
+# suppressed-by-design rollback from one that never got the chance to run --
+# and can see WHICH dimensions were consulted, without re-deriving them.
+DECISION_RECORD_JSON="$(cat "${DECISION_JSON}")"
+ROLLBACK_GATE_JSON="null"
+if [[ -n "${GATE2_JSON}" && -f "${GATE2_JSON}" ]]; then
+    ROLLBACK_GATE_JSON="$(cat "${GATE2_JSON}")"
+fi
+# OMN-15718: rollback container-state reconciliation detail -- pre/post
+# census per core service, which (if any) were torn down, and whether the
+# rollback recreate itself hit the bounded timeout. Present (possibly empty)
+# on every run so a receipt reader never has to special-case the no-rollback
+# path.
+STRANDED_SERVICES_JSON="$(printf '%s\n' "${STRANDED_SERVICES[@]:-}" | jq -R 'select(length > 0)' | jq -s '.')"
+PRE_STATUS_JSON="$(for svc in "${CORE_SERVICES[@]}"; do printf '%s\t%s\n' "${svc}" "${PRE_CONTAINER_STATUS[${svc}]:-unknown}"; done | jq -Rn '[inputs | split("\t") | {(.[0]): .[1]}] | add')"
+POST_STATUS_JSON="$(for svc in "${CORE_SERVICES[@]}"; do printf '%s\t%s\n' "${svc}" "${POST_CONTAINER_STATUS[${svc}]:-unknown}"; done | jq -Rn '[inputs | split("\t") | {(.[0]): .[1]}] | add')"
+
+RECEIPT_PATH="${HISTORY_DIR}/${UTC_NOW}-${NEW_INFRA_SHA_SHORT}.json"
+jq -n \
+    --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    --arg lane "${LANE}" \
+    --argjson prior_refs "${PRIOR_REFS_JSON}" \
+    --argjson new_refs "${NEW_REFS_JSON}" \
+    --argjson ancestry_ok "${ANCESTRY_OK}" \
+    --argjson ancestry_cmds "${ANCESTRY_COMMANDS_JSON}" \
+    --argjson build_scope "${BUILD_SCOPE_JSON}" \
+    --slurpfile health_gate "${GATE1_JSON}" \
+    --argjson rollback_triggered "${ROLLBACK_TRIGGERED}" \
+    --argjson rollback_gate "${ROLLBACK_GATE_JSON}" \
+    --argjson rollback_recreate_timed_out "${ROLLBACK_RECREATE_TIMED_OUT}" \
+    --argjson rollback_stranded_services "${STRANDED_SERVICES_JSON}" \
+    --argjson rollback_census_pre "${PRE_STATUS_JSON}" \
+    --argjson rollback_census_post "${POST_STATUS_JSON}" \
+    --argjson attribution "${ATTRIBUTION_RECORD_JSON}" \
+    --argjson rollback_scope "${ROLLBACK_SCOPE_JSON}" \
+    --argjson missing_rollback_anchors "${MISSING_ANCHORS_JSON}" \
+    --argjson decision "${DECISION_RECORD_JSON}" \
+    --arg result "${RESULT}" \
+    '{
+        ts_utc: $ts,
+        lane: $lane,
+        prior_refs: $prior_refs,
+        new_refs: $new_refs,
+        ancestry_proof: {merge_base_is_ancestor: $ancestry_ok, commands: $ancestry_cmds},
+        build_scope: $build_scope,
+        health_gate: $health_gate[0],
+        rollback: {
+            triggered: $rollback_triggered,
+            gate: $rollback_gate,
+            recreate_timed_out: $rollback_recreate_timed_out,
+            stranded_services: $rollback_stranded_services,
+            census: {pre: $rollback_census_pre, post: $rollback_census_post},
+            scope: $rollback_scope,
+            missing_rollback_anchors: $missing_rollback_anchors,
+            decision: $decision
+        },
+        attribution: $attribution,
+        result: $result
+    }' > "${RECEIPT_PATH}"
+
+cp "${RECEIPT_PATH}" "${STATE_DIR}/latest.json"
+log "=== Receipt written: ${RECEIPT_PATH} (and ${STATE_DIR}/latest.json) ==="
+log "result: ${RESULT}"
+
+case "${RESULT}" in
+    SUCCESS) exit 0 ;;
+    # 1 == refresh failed, lane HEALTHY. FAILED_ROLLED_BACK got there by being
+    # restored; FAILED_BUILD_PROVENANCE got there by never being touched
+    # (OMN-18061).
+    FAILED_ROLLED_BACK|FAILED_BUILD_PROVENANCE) exit 1 ;;
+    *) exit 2 ;;
+esac

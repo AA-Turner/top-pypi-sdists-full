@@ -1,7 +1,14 @@
 """Managers for killboard."""
 
 # Standard Library
+import time
 from typing import TYPE_CHECKING, Any
+
+# Third Party
+import requests
+
+# Pydantic
+from pydantic import ValidationError
 
 # Django
 from django.db import models, transaction
@@ -9,19 +16,17 @@ from django.db import models, transaction
 # Alliance Auth (External Libs)
 from eve_sde.models import ItemType
 
+# AA Killstats
+from killstats.helpers.killmailbody import KillmailBody, zKBWebKillmail
+
 if TYPE_CHECKING:
     # AA Killstats
-    from killstats.helpers.killmail import KillmailBody
     from killstats.models.killboard import Killmail as KillmailContext
 
-# Alliance Auth
-from allianceauth.services.hooks import get_extension_logger
 
 # AA Killstats
-from killstats import __title__
-from killstats.providers import AppLogger
-
-logger = AppLogger(get_extension_logger(__name__), __title__)
+from killstats import USER_AGENT_TEXT, __title__, app_settings
+from killstats.providers import logger
 
 
 class KillmailQueryCore(models.QuerySet):
@@ -121,6 +126,99 @@ class KillmailQueryMining(KillmailQueryCore):
 
 
 class KillmailQuerySet(KillmailQueryMining):
+    def for_victim_entity(self, entity_type: str, entity_id: int):
+        """Filter killmails where the given entity was the victim."""
+        field_map = {
+            "alliance": "victim_alliance_id",
+            "corporation": "victim_corporation_id",
+            "character": "victim_id",
+        }
+        lookup = field_map.get(entity_type)
+        return self.filter(**{lookup: entity_id}) if lookup else self.none()
+
+    # pylint: disable=too-many-positional-arguments,too-many-locals
+    def get_paged_ids(
+        self,
+        entity_type: str,
+        entity_id: int,
+        mode: str,
+        att_date_q: models.Q,
+        km_date_q: models.Q,
+        page: int = 1,
+        page_size: int = 50,
+    ) -> tuple[list[int], int]:
+        """Return (paged_killmail_ids, total_count) for pagination across kills/losses."""
+        # pylint: disable=import-outside-toplevel
+        # AA Killstats
+        from killstats.models.killboard import Attacker
+
+        page_num = max(1, page)
+        limit = min(max(1, page_size), 250)
+        offset = (page_num - 1) * limit
+
+        if mode == "kills":
+            kills_qs = (
+                Attacker.objects.for_entity(entity_type, entity_id)
+                .filter(att_date_q)
+                .values_list("killmail_id", "killmail__killmail_date")
+                .order_by("-killmail__killmail_date")
+            )
+            total = kills_qs.values("killmail_id").distinct().count()
+            paged_ids = list(
+                kills_qs.values_list("killmail_id", flat=True).distinct()[
+                    offset : offset + limit
+                ]
+            )
+        elif mode == "losses":
+            losses_qs = (
+                self.for_victim_entity(entity_type, entity_id)
+                .filter(km_date_q)
+                .order_by("-killmail_date")
+            )
+            total = losses_qs.count()
+            paged_ids = list(
+                losses_qs.values_list("killmail_id", flat=True)[offset : offset + limit]
+            )
+        else:
+            # mode == "all": combine kills and losses via index-friendly union
+            kills_qs = (
+                Attacker.objects.for_entity(entity_type, entity_id)
+                .filter(att_date_q)
+                .values_list("killmail_id", "killmail__killmail_date")
+            )
+            losses_qs = (
+                self.for_victim_entity(entity_type, entity_id)
+                .filter(km_date_q)
+                .values_list("killmail_id", "killmail_date")
+            )
+            combined_qs = kills_qs.union(losses_qs).order_by("-killmail__killmail_date")
+            total = combined_qs.count()
+            paged_ids = [row[0] for row in combined_qs[offset : offset + limit]]
+
+        return paged_ids, total
+
+    def for_paged_killboard(self, killmail_ids: list[int]):
+        """Load and annotate killmails with victim details, pilot counts, and final blow."""
+        # pylint: disable=import-outside-toplevel
+        # AA Killstats
+        from killstats.models.killboard import Attacker
+
+        return (
+            self.filter(killmail_id__in=killmail_ids)
+            .select_related("victim", "victim_ship")
+            .prefetch_related(
+                models.Prefetch(
+                    "attacker_killmail",
+                    queryset=Attacker.objects.filter(final_blow=True).select_related(
+                        "character"
+                    ),
+                    to_attr="final_blow_attacker",
+                )
+            )
+            .annotate(pilot_count=models.Count("attacker_killmail", distinct=True))
+            .order_by("-killmail_date")
+        )
+
     def visible_to(self, user):
         # superusers get all visible
         if user.is_superuser:
@@ -138,6 +236,33 @@ class KillmailManager(models.Manager["KillmailContext"]):
     def get_queryset(self):
         return KillmailQuerySet(self.model, using=self._db)
 
+    def for_victim_entity(self, entity_type: str, entity_id: int):
+        return self.get_queryset().for_victim_entity(entity_type, entity_id)
+
+    # pylint: disable=too-many-positional-arguments
+    def get_paged_ids(
+        self,
+        entity_type: str,
+        entity_id: int,
+        mode: str,
+        att_date_q: models.Q,
+        km_date_q: models.Q,
+        page: int = 1,
+        page_size: int = 50,
+    ) -> tuple[list[int], int]:
+        return self.get_queryset().get_paged_ids(
+            entity_type=entity_type,
+            entity_id=entity_id,
+            mode=mode,
+            att_date_q=att_date_q,
+            km_date_q=km_date_q,
+            page=page,
+            page_size=page_size,
+        )
+
+    def for_paged_killboard(self, killmail_ids: list[int]):
+        return self.get_queryset().for_paged_killboard(killmail_ids)
+
     def visible_to(self, user):
         return self.get_queryset().visible_to(user)
 
@@ -153,7 +278,93 @@ class KillmailManager(models.Manager["KillmailContext"]):
     def filter_structure(self, exclude=False):
         return self.get_queryset().filter_structure(exclude=exclude)
 
-    def create_from_killmail(self, killmail_body: "KillmailBody"):
+    # pylint: disable=too-many-locals
+    def check_missing_killmails(
+        self,
+        corporation_id: int | None = None,
+        alliance_id: int | None = None,
+        pages: int = 3,
+        delay_between_pages: float = 1.0,
+    ) -> list[KillmailBody]:
+        """
+        Fetch up to `pages` from zKillboard for corporation_id and/or alliance_id and compare against database.
+        Pre-caches missing killmails as KillmailBody objects.
+
+        Args:
+            corporation_id: The ID of the corporation to fetch killmails for.
+            alliance_id: The ID of the alliance to fetch killmails for.
+            pages: The number of pages to fetch from zKillboard.
+            delay_between_pages: The delay between fetching each page, in seconds.
+
+        Returns:
+            A list of KillmailBody objects representing the missing killmails.
+        """
+        # pylint: disable=import-outside-toplevel
+        # AA Killstats
+        from killstats.models import Killmail
+
+        if not corporation_id and not alliance_id:
+            raise ValueError("Either corporation_id or alliance_id must be provided.")
+
+        path_parts = []
+        if corporation_id:
+            path_parts.append(f"corporationID/{corporation_id}")
+        if alliance_id:
+            path_parts.append(f"allianceID/{alliance_id}")
+
+        base_path = "/".join(path_parts) + "/"
+
+        all_killmail_ids = set()
+        killmail_bodies: dict[int, KillmailBody] = {}
+        pages_fetched = 0
+        headers = {"User-Agent": USER_AGENT_TEXT, "Content-Type": "application/json"}
+
+        for page in range(1, max(1, pages) + 1):
+            if page > 1 and delay_between_pages > 0:
+                time.sleep(delay_between_pages)
+
+            try:
+                url = f"{app_settings.ZKILLBOARD_API_URL}{base_path}page/{page}/"
+                response = requests.get(url, headers=headers, timeout=15)
+                response.raise_for_status()
+                # Validate and parse the response JSON into a list of zKBWebKillmail objects.
+                killmails: list[zKBWebKillmail] = []
+                zkb_mails = response.json()
+                if not zkb_mails:
+                    logger.debug(
+                        "Page %s returned 0 killmails; reached end of feed.", page
+                    )
+                    break
+                for zkb_mail in zkb_mails:
+
+                    killmails.append(zKBWebKillmail.model_validate(zkb_mail))
+            except (ValidationError, requests.RequestException) as exc:
+                logger.error(
+                    "Error fetching zKillboard page %s in check_missing: %s",
+                    page,
+                    exc,
+                    exc_info=True,
+                )
+                break
+
+            for km in killmails:
+                # Add the killmail ID to the set of all killmail IDs and store the raw killmail data by ID.
+                all_killmail_ids.add(km.killmail_id)
+                killmail_bodies[km.killmail_id] = km.convert_to_killmail_body()
+            pages_fetched += 1
+
+        # Determine which killmail IDs are already present in the database.
+        existing_ids = set(
+            Killmail.objects.filter(killmail_id__in=all_killmail_ids).values_list(
+                "killmail_id", flat=True
+            )
+        )
+
+        # Determine which killmail IDs are missing from the database.
+        missing_ids = sorted(list(all_killmail_ids - existing_ids), reverse=True)
+        return [killmail_bodies[km_id] for km_id in missing_ids]
+
+    def create_from_killmail(self, killmail_body: KillmailBody):
         """create a new EveKillmail from a Killmail object and returns it"""
         # AA Killstats
         # pylint: disable=import-outside-toplevel
@@ -162,25 +373,25 @@ class KillmailManager(models.Manager["KillmailContext"]):
         with transaction.atomic():
             attackers_list = []
 
-            corporation_id = killmail_body.victim.corporation_id
-            region_id = killmail_body.get_region_id(killmail_body.solar_system_id)
-            victim_ship = ItemType.objects.get(id=killmail_body.victim.ship_type_id)
+            corporation_id = killmail_body.esi.victim.corporation_id
+            region_id = killmail_body.get_region_id(killmail_body.esi.solar_system_id)
+            victim_ship = ItemType.objects.get(id=killmail_body.esi.victim.ship_type_id)
             victim = None
 
-            if killmail_body.victim.character_id:
+            if killmail_body.esi.victim.character_id:
                 victim = killmail_body.get_or_create_entity(
-                    killmail_body.victim.character_id
+                    killmail_body.esi.victim.character_id
                 )
-            elif killmail_body.victim.alliance_id:
+            elif killmail_body.esi.victim.alliance_id:
                 victim = killmail_body.get_or_create_entity(
-                    killmail_body.victim.alliance_id
+                    killmail_body.esi.victim.alliance_id
                 )
-            elif killmail_body.victim.corporation_id:
+            elif killmail_body.esi.victim.corporation_id:
                 victim = killmail_body.get_or_create_entity(
-                    killmail_body.victim.corporation_id
+                    killmail_body.esi.victim.corporation_id
                 )
 
-            for attacker in killmail_body.attackers:
+            for attacker in killmail_body.esi.attackers:
                 if attacker.character_id:
                     attackers_list.append(attacker.character_id)
 
@@ -193,22 +404,22 @@ class KillmailManager(models.Manager["KillmailContext"]):
                     logger.debug("Error on Create Names: %s", e, exc_info=True)
 
             km = Killmail.objects.create(
-                killmail_id=killmail_body.id,
-                killmail_date=killmail_body.time,
+                killmail_id=killmail_body.esi.killmail_id,
+                killmail_date=killmail_body.esi.killmail_time,
                 victim=victim,
                 victim_ship=victim_ship,
                 victim_corporation_id=corporation_id,
-                victim_alliance_id=killmail_body.victim.alliance_id,
+                victim_alliance_id=killmail_body.esi.victim.alliance_id,
                 hash=killmail_body.zkb.hash,
-                victim_total_value=killmail_body.zkb.total_value,
-                victim_fitted_value=killmail_body.zkb.fitted_value,
-                victim_destroyed_value=killmail_body.zkb.destroyed_value,
-                victim_dropped_value=killmail_body.zkb.dropped_value,
+                victim_total_value=killmail_body.zkb.totalValue,
+                victim_fitted_value=killmail_body.zkb.fittedValue,
+                victim_destroyed_value=killmail_body.zkb.destroyedValue,
+                victim_dropped_value=killmail_body.zkb.droppedValue,
                 victim_region_id=region_id,
-                victim_solar_system_id=killmail_body.solar_system_id,
-                victim_position_x=killmail_body.position.x,
-                victim_position_y=killmail_body.position.y,
-                victim_position_z=killmail_body.position.z,
+                victim_solar_system_id=killmail_body.esi.solar_system_id,
+                victim_position_x=killmail_body.esi.victim.position.x,
+                victim_position_y=killmail_body.esi.victim.position.y,
+                victim_position_z=killmail_body.esi.victim.position.z,
             )
 
             killmail_body.get_or_create_attackers(km, killmail_body)
@@ -216,14 +427,34 @@ class KillmailManager(models.Manager["KillmailContext"]):
         return km
 
     def update_or_create_from_killmail(
-        self, killmail: "KillmailBody"
+        self, killmail: KillmailBody
     ) -> tuple[Any, bool]:
         """Update or create new EveKillmail from a Killmail object."""
         with transaction.atomic():
             try:
-                self.get(killmail_id=killmail.id).delete()
+                self.get(killmail_id=killmail.killmail_id).delete()
                 created = False
             except self.model.DoesNotExist:
                 created = True
             obj = self.create_from_killmail(killmail)
         return obj, created
+
+
+class AttackerQuerySet(models.QuerySet):
+    def for_entity(self, entity_type: str, entity_id: int):
+        """Filter attackers belonging to an entity (alliance, corporation, or character)."""
+        field_map = {
+            "alliance": "alliance_id",
+            "corporation": "corporation_id",
+            "character": "character_id",
+        }
+        lookup = field_map.get(entity_type)
+        return self.filter(**{lookup: entity_id}) if lookup else self.none()
+
+
+class AttackerManager(models.Manager):
+    def get_queryset(self):
+        return AttackerQuerySet(self.model, using=self._db)
+
+    def for_entity(self, entity_type: str, entity_id: int):
+        return self.get_queryset().for_entity(entity_type, entity_id)

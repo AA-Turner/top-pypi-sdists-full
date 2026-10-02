@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Optional
 from datetime import date
 from enum import Enum
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 
 class JobType(Enum):
@@ -137,8 +137,8 @@ class Country(Enum):
     VENEZUELA = ("venezuela", "ve")
     VIETNAM = ("vietnam", "vn", "com")
 
-    # internal for ziprecruiter
     US_CANADA = ("usa/ca", "www")
+    """Deprecated since 1.2.0: unused; will be removed in 2.0."""
 
     # internal for linkedin
     WORLDWIDE = ("worldwide", "www")
@@ -162,7 +162,7 @@ class Country(Enum):
             raise Exception(f"Glassdoor is not available for {self.name}")
 
     def get_glassdoor_url(self):
-        return f"https://{self.glassdoor_domain_value}/"
+        return f"https://{self.glassdoor_domain_value}"
 
     @classmethod
     def from_string(cls, country_str: str):
@@ -234,7 +234,7 @@ class Compensation(BaseModel):
 class DescriptionFormat(Enum):
     MARKDOWN = "markdown"
     HTML = "html"
-
+    PLAIN = "plain"
 
 class JobPost(BaseModel):
     id: str | None = None
@@ -267,7 +267,6 @@ class JobPost(BaseModel):
     company_revenue: str | None = None
     company_description: str | None = None
     company_logo: str | None = None
-    banner_photo_url: str | None = None
 
     # LinkedIn only atm
     job_function: str | None = None
@@ -312,14 +311,20 @@ class ScraperInput(BaseModel):
     job_type: JobType | None = None
     easy_apply: bool | None = None
     offset: int = 0
+    fetch_description: bool = False
     linkedin_fetch_description: bool = False
+    """Deprecated since 1.2.0: use fetch_description; will be removed in 2.0."""
     linkedin_company_ids: list[int] | None = None
     description_format: DescriptionFormat | None = DescriptionFormat.MARKDOWN
 
-    request_timeout: int = 60
-
     results_wanted: int = 15
     hours_old: int | None = None
+
+    @model_validator(mode="after")
+    def _merge_linkedin_fetch_description(self):
+        if self.linkedin_fetch_description:
+            self.fetch_description = True
+        return self
 
 
 class Scraper(ABC):

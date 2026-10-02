@@ -1,0 +1,2378 @@
+"""Canonical slash metadata shared by terminal and headless frontends.
+
+Keep this registry free of widget imports: creating a runtime's first canonical
+snapshot must not import Textual just to learn command names and capabilities.
+The TUI reexports these objects for existing callers.
+
+Argument and echo semantics are the SAME on every host; only the action
+destination and its presentation differ. ``desktop_destination`` carries that
+one host-specific fact per entry so a desktop surface never needs a second
+command registry to diverge from — an entry without one is not offered on the
+desktop at all (see ``/mobile``).
+"""
+
+from typing import Any, Mapping, Sequence
+
+from local_operator.tui.autocomplete import ArgumentMode, ArgumentShape, SlashCommand
+
+#: ONE sentence for ONE instruction, carried verbatim by every surface that
+#: mentions ``/model default``: the bare-``/model`` notice, the switch receipt,
+#: the model picker's footer and the ``/help`` row. They used to say it four
+#: different ways within two keystrokes of each other — "saves this provider and
+#: model as the boot default", "to make it the boot default", "saves the boot
+#: default", "persists it" — so a user met a new phrasing on every surface
+#: instead of learning one string.
+#:
+#: Sized by its TIGHTEST site. The picker footer truncates at the card's width
+#: and this clause sits after the access note, so it has to be complete and short.
+#: "Saves provider and model" named the payload but not why it mattered; "saves
+#: this for new sessions" names the consequence, fits the same slot, and includes
+#: the article the clipped phrase lacked. The budget arithmetic is in the last
+#: paragraph below — one set of figures, so nobody "fixes" the string toward a
+#: stale number.
+#:
+#: REPOINTED BACK at `/model default`, after #369 briefly pointed it at a `d`
+#: key on a picker row. That key is gone: inside a filter every printable
+#: character belongs to the query, so a `d` that saved config on an empty query
+#: and narrowed the list otherwise was a mode with nothing on screen to mark it.
+#: The ambiguity #369 reported is closed by the COMMAND being unambiguous — a
+#: bare `/model default` writes the model the session is already on and switches
+#: nothing — not by moving the write onto a keystroke.
+#:
+#: ONE route named here, not both. The second route (the `/settings` model rows)
+#: does not fit: this string is sized by the picker footer, whose budget is 43
+#: cells at 50 columns (card width minus `_GUTTER_CELLS` + `_EDGE_MARGIN`), and
+#: this clause is 42. Any "; /settings too" tail measures 57 and truncates
+#: mid-word at the one width where the instruction most needs to survive whole.
+#: So the footer gets the command and the roomier surfaces get the pair: the
+#: bare-`/model` notice names `/settings` in `_persist_hint_notice`, which wraps
+#: instead of truncating, and the `/help` row is reachable at any width.
+PERSIST_HINT = "/model default saves this for new sessions"
+
+#: The one flag ``/session`` takes: copy the current session ID instead of
+#: opening the view. Exact and case-sensitive, like every WORD vocabulary here
+#: (``_is_single_word``). The TUI handler and the desktop route's refusal compare
+#: against THIS constant, and the catalogue publishes it, so the three cannot
+#: disagree about the spelling.
+SESSION_COPY_FLAG = "--copy"
+
+
+#: The subcommand vocabulary of ``/network`` — and, because the CLI's verbs and
+#: the TUI's must be ONE list, the words :func:`_network_command` accepts as its
+#: first token.
+#:
+#: A frozen tuple beside the registry rather than a list inside the handler,
+#: because three readers have to agree on it: the handler (which refuses an
+#: unknown word), the picker (which offers the rows) and
+#: :func:`command_argument_words` (which publishes it to the desktop catalogue and
+#: the route). The same rule ``MCP_SUBCOMMANDS`` already follows — drift between
+#: the word a handler accepts and the word the picker offers is a defect class
+#: this repo has paid for.
+#:
+#: ONE TOKEN PER ENTRY, deliberately, even where the picker's row reads as two
+#: words (``member rm``). The vocabulary is what a validator matches ``parts[0]``
+#: against, so a two-word entry would make ``/network member rm …`` fail the very
+#: check it exists to pass; the row's description carries the fuller spelling
+#: instead. ``new`` maps to the CLI's ``init`` (the verb a user reads is not the
+#: verb a shell types) and ``rm``/``rename`` are the operator's own words for the
+#: local forget/relabel pair.
+#:
+#: THE INSTALLATION VERBS ARE ABSENT ON PURPOSE — ``serve``, ``start``, ``stop``,
+#: ``restart`` and ``uninstall [--purge] [--purge-identity]`` install, supervise
+#: and remove a LaunchAgent. A composer row that boots out the operator's relay,
+#: or deletes this device's identity keypair and its networks, is the same class
+#: of one-keystroke mistake the incident verbs take a typed confirmation for
+#: (``mesh-ui.md`` §1.1). Installation stays the CLI's alone.
+#:
+#: ``pool`` is absent too, and that is a fact about the tree rather than a
+#: decision: ``lop network`` has no ``pool`` parser (compute-pool is not
+#: implemented), and a picker row for a verb the CLI lacks is the
+#: offered-but-broken defect ``/mobile``'s entry records. Add it here the day the
+#: parser lands, not before.
+NETWORK_SUBCOMMANDS: tuple[str, ...] = (
+    "disconnect",
+    "doctor",
+    "invite",
+    "join",
+    "log",
+    "ls",
+    "member",
+    "new",
+    "panic",
+    "peers",
+    "rename",
+    "rm",
+    # THE SESSION PLANE, and it is the observer for the one WRITE this family has.
+    # `/new remote <peer>` creates a session on another device, and without this
+    # row the receipt in the transcript is the only place it exists: nothing in
+    # the TUI can list it, warm it or stop it (review round 4, MINOR 3; design
+    # §1.2's deferred producer). The CLI's own verb does all three
+    # (`--peer`/`--all-peers` to list, `--create`, `--engage`, `--stop`), so the
+    # arm passes its tail through rather than growing a second session API here.
+    "sessions",
+    "show",
+    "status",
+    "trust",
+)
+
+#: The picker's one line of help per verb, KEYED BY THE VOCABULARY WORD — so
+#: :func:`network_subcommand_rows` can be total over ``NETWORK_SUBCOMMANDS`` and a
+#: new verb cannot be added without its help line (the test that pins the two
+#: vocabularies equal is what enforces that, not a comment here).
+#:
+#: AND THE VOCABULARY IS APPEARANCE-ONLY BEYOND ITS FIRST TOKEN. The shape the
+#: row declares (``ArgumentShape.SUBCOMMAND``) accepts at most TWO tokens, so
+#: ``/network sessions --peer d_x --engage s_y`` is this command in the terminal
+#: (``_dispatch_network_cli`` reads the raw pieces) while the desktop's admission
+#: rule would plan it as prose. That boundary is accepted and recorded
+#: (``mesh-ui.md`` §2.8.3, review round 4's adjudication) because no desktop
+#: surface queries this family yet — ``desktop_destination`` is deliberately
+#: unset. It becomes a defect the day that tab lands, which is the PR the doc
+#: names for revisiting it.
+#:
+#: The descriptions name the ACT rather than restating the word: a row that read
+#: "status — status" spends a picker line teaching nothing. Where a verb needs a
+#: second token to be useful (``member`` needs ``rm <network> <device>``), the
+#: help says so, because the vocabulary is one token per entry and the row is the
+#: only place the fuller spelling can live.
+NETWORK_SUBCOMMAND_HELP: dict[str, str] = {
+    "disconnect": "Leave; stop trusting; close links",
+    "doctor": "Diagnose a link",
+    "invite": "Mint a single-use invite",
+    # The refusal is the point: pairing needs a human comparing two codes on two
+    # screens, so this terminal's answer is the CLI command to run. That is the
+    # same call the installation verbs get — withheld from a surface that cannot
+    # complete them — and the help line says it before the row is chosen.
+    "join": "Join from an invite (needs a terminal)",
+    "log": "Recent mesh events",
+    "ls": "Networks this device is in",
+    "member": "Member administration: member rm <network> <device>",
+    "new": "Create a network on this device",
+    "panic": "Broadcast revoke and rotate the secret",
+    "peers": "Reachable peers right now",
+    "rename": "Rename a network locally",
+    "rm": "Forget a network locally",
+    # THE FLAG IS NAMED FIRST, because the bare form is REFUSED (UX round 1,
+    # U5): the session plane acts on a session that lives on ONE device, so the
+    # CLI requires `--peer <device>` or `--all-peers` and answers
+    # "name a device with --peer, or ask every device with --all-peers"
+    # otherwise. A row that offered the bare verb would be the U4 shape one
+    # verb over — an offer the handler refuses.
+    #
+    # AND IT IS SHORT ENOUGH THAT BOTH SPELLINGS SURVIVE THE ROW (UX round 2,
+    # U15). Naming the flags was the U5 fix, and the row then truncated exactly
+    # before the half that did it: measured through the real picker, the
+    # description column is 56 cells at a 110-column terminal and 46 at 100, so
+    # the 75-cell sentence it used to carry painted as "…stop (--peer <" — the
+    # every-device spelling a person with several peers needs was the part cut.
+    # At 42 cells both flags are whole at every width the picker is used at. The
+    # three verbs left the row rather than being half-shown; the README and the
+    # CLI's own help carry them, and a flag that is never shown cannot be
+    # guessed, which is why the flags won the cells.
+    "sessions": "Peers' sessions: --peer <dev>, --all-peers",
+    "show": "Members, roles and endpoints",
+    "status": "Relay health and this device's links",
+    "trust": "Trust an untrusted network again",
+}
+
+
+def network_subcommand_rows() -> tuple[tuple[str, str], ...]:
+    """``(word, help)`` for every ``NETWORK_SUBCOMMANDS`` entry, in that order.
+
+    THE ONE READER the picker builds its rows from, and deliberately not a second
+    list: the words come from the vocabulary the handler accepts and the route
+    validates, so the row a user picks is the word the handler runs. A missing
+    help line raises here rather than shipping a blank row — ``KeyError`` at import
+    of the first caller, which is the loudest available failure for a table that
+    has exactly one reason to be wrong.
+    """
+    return tuple((word, NETWORK_SUBCOMMAND_HELP[word]) for word in NETWORK_SUBCOMMANDS)
+
+
+#: The subcommand vocabulary of ``/project`` — ONE frozen tuple beside the
+#: registry, for the same three readers ``NETWORK_SUBCOMMANDS`` serves: the
+#: handler (which refuses an unknown word), the picker (which offers the rows)
+#: and :func:`command_argument_words` (which publishes the words to the desktop
+#: catalogue and the command route's validator). Milestone editing is NOT a
+#: slash verb: that is tool/API/UI work. ``board`` and ``timeline`` are the two
+#: page entries beside the verbs — the all-projects subjects, so the operator
+#: can open the views without naming a project first (S3b).
+PROJECT_SUBCOMMANDS: tuple[str, ...] = (
+    "list",
+    "show",
+    "new",
+    "delete",
+    "link",
+    "unlink",
+    "board",
+    "timeline",
+)
+
+#: The verbs whose TUI form is the FULL-PAGE view: the app intercepts these and
+#: opens the page, while the routed mirror answers text. ``show`` is here in
+#: both its forms — nameless it opens the calling session's set on the board,
+#: named it lands on that project's row.
+PROJECT_PAGE_VERBS: tuple[str, ...] = ("show", "board", "timeline")
+
+#: ``/aida``'s reserved subcommand words. Parsed by the TUI handler, exactly
+#: like ``/team``'s ``chart`` and ``/project``'s verbs — except these are NOT
+#: a published `argument_shape` vocabulary, because ``/aida <anything else>``
+#: is a REQUEST (arbitrary text she is given), and a SUBCOMMAND shape would
+#: make the command route refuse one (the ``/team ops fix this`` precedent).
+#: One escape covers all of them: ``/aida =pause ...`` is a message.
+#:
+#: These count as the WHOLE argument; ``rename`` — parsed beside them in
+#: ``_cmd_aida`` — is the one that TAKES the rest of the line as its
+#: argument (``/aida rename <name>``), because a name with a space in it is
+#: one name, not three words of a request.
+AIDA_SUBCOMMANDS: tuple[str, ...] = ("pause", "resume", "status")
+
+#: The verbs whose SECOND argument slot is an existing project NAME (so the
+#: editor offers name rows there). ``list`` takes nothing, ``new`` takes a name
+#: that does not exist yet, and the rest resolve an existing row.
+PROJECT_NAME_VERBS: tuple[str, ...] = ("show", "delete", "link", "unlink")
+
+#: The picker's one line of help per word, keyed by the vocabulary word so
+#: :func:`project_subcommand_rows` is total over ``PROJECT_SUBCOMMANDS`` (the
+#: test that pins the two tables equal is what enforces a new word's help line).
+PROJECT_SUBCOMMAND_HELP: dict[str, str] = {
+    "list": "Every tracked project and where it stands",
+    "show": "One project: progress, milestones, its sessions",
+    "new": "Create a project and link this session",
+    "delete": "Remove a project permanently",
+    "link": "Link this session to a project",
+    "unlink": "Detach this session from a project",
+    "board": "Every project as a status board",
+    "timeline": "Every project on one time axis",
+}
+
+
+def project_subcommand_rows() -> tuple[tuple[str, str], ...]:
+    """``(word, help)`` for every ``PROJECT_SUBCOMMANDS`` entry, in that order.
+
+    The ONE reader the picker builds its rows from — the same contract
+    :func:`network_subcommand_rows` states: the words come from the vocabulary
+    the handler accepts, so the row a user picks is the word the handler runs,
+    and a missing help line raises ``KeyError`` at import rather than painting
+    a blank row.
+    """
+    return tuple((word, PROJECT_SUBCOMMAND_HELP[word]) for word in PROJECT_SUBCOMMANDS)
+
+
+AGENT_SUBCOMMANDS: tuple[str, ...] = ("class",)
+
+AGENT_SUBCOMMAND_HELP: dict[str, str] = {
+    "class": "Show or switch an agent's class (proactive|reactive)",
+}
+
+
+def agent_subcommand_rows() -> tuple[tuple[str, str], ...]:
+    """``(word, help)`` for every ``AGENT_SUBCOMMANDS`` entry, in that order.
+
+    The same contract :func:`project_subcommand_rows` states: the picker's
+    words come from the vocabulary the handler accepts, so the row a user
+    picks is the word the handler runs, and a missing help line raises
+    ``KeyError`` at import rather than painting a blank row (UX round 1, U3).
+    """
+    return tuple((word, AGENT_SUBCOMMAND_HELP[word]) for word in AGENT_SUBCOMMANDS)
+
+
+def project_unavailable_text() -> str:
+    """The ONE sentence both ``/project`` handlers answer a registry-less host with.
+
+    The TUI (``app.py::_cmd_project``) and the owner runtime
+    (``serving.py::_project_slash``) print the same words for the same state —
+    they are two front ends of one command, and a viewer that reported one
+    sentence while the owner reported another would make the same session look
+    like two products.
+    """
+    return "projects are unavailable in this session. Ask the agent to create one."
+
+
+def project_listing_rows(
+    projects: Sequence[Any],
+    *,
+    states: Mapping[str, dict[str, Any]] | None = None,
+    now: float | None = None,
+    window: float | None = None,
+) -> list[str]:
+    """One row per project — the listing receipt both ``/project`` handlers print.
+
+    ``states`` is :func:`local_operator.projects.scan_runtime_states`'s answer,
+    passed by the caller because ONE scan serves a whole listing (the desktop
+    listing's rule); a live count is only stated when the caller could know it.
+    The row cap (``projects.PROJECT_ROW_CAP``), the age arithmetic and the
+    truncation are the store module's — one copy each — so the operator's
+    surface and the model's cannot disagree about them; the rows themselves
+    differ by surface (the tool words its session field differently, this one
+    is context-free).
+
+    The session count is the WORKING set (``sessions``); a filing gets its own
+    clause so "1 working session" can never mean a live chief-of-staff link.
+    """
+    rows: list[str] = []
+    from local_operator.projects import (
+        display_name,
+        progress_is_stale,
+        refreshed_age_text,
+        reported_age,
+        truncate_row,
+    )
+
+    for project in projects:
+        label = display_name(project)
+        if project.title:
+            # Title-first, key secondary: the key stays beside the label
+            # because it is what every slash verb and ``@project:<name>``
+            # takes, and this listing is where a reader meets the project.
+            label = f"{label} ({project.name})"
+        parts = [f"- {label} [{project.status}]"]
+        if project.estimate is not None:
+            suffix = "pt" if project.estimate_unit == "points" else "d"
+            parts.append(f"est {project.estimate:g}{suffix}")
+        if project.target_date:
+            parts.append(f"→{project.target_date}")
+        if project.milestones:
+            done = sum(1 for milestone in project.milestones if milestone.completed_at)
+            parts.append(f"M {done}/{len(project.milestones)}")
+        sessions = len(project.sessions)
+        wanted = f"{sessions} working session" + ("" if sessions == 1 else "s")
+        if states is not None:
+            live = sum(
+                1
+                for session_id in project.sessions
+                if (states.get(session_id) or {}).get("state") == "live"
+            )
+            parts.append(f"{wanted} ({live} live)")
+        else:
+            parts.append(wanted)
+        filed = len(project.coordination_sessions)
+        if filed:
+            parts.append(f"{filed} filed")
+        age = reported_age(project, now=now)
+        if age is None:
+            parts.append("no progress")
+        else:
+            stale = " (stale)" if progress_is_stale(project, now=now, window=window) else ""
+            parts.append(f"progress {age} ago{stale}")
+            refreshed = refreshed_age_text(project, now=now)
+            if refreshed is not None:
+                parts.append(f"refreshed {refreshed} ago")
+        row = " · ".join(parts)
+        summary = (project.description or "").strip()
+        if summary:
+            row += f' · "{summary}"'
+        rows.append(truncate_row(row))
+    return rows
+
+
+def refresh_project_store(registry: Any) -> None:
+    """Give a refusal ONE bounded re-read before it is believed.
+
+    Both refusal checks (the runner's verb gate and the app's ``show`` branch)
+    run BEFORE any store read, and a read is what refreshes the snapshot — so
+    a store repaired since the flag was set kept refusing on the LIVE surface
+    (QA round 2, Q5: eight receipts over eleven seconds after a ``chmod``
+    back, all stale; fresh registries and ``new`` recovered, which is how the
+    gap was spotted). Entities without a ``refresh`` (test doubles) are left
+    alone; the real registry's is one stat + one listing.
+    """
+    refresh = getattr(registry, "refresh", None)
+    if callable(refresh):
+        refresh()
+
+
+def project_store_unreadable_text() -> str:
+    """The refusal an UNREADABLE store answers — never the empty-store sentence.
+
+    "nothing is stored" and "nothing could be read" are different facts, and a
+    reader who sees the empty sentence over a broken store (or the no-such-
+    project refusal while the row exists on disk) is being told a falsehood by
+    the surface about a store it merely failed to open (QA round 1, Q4). No
+    path: the sentence is for a user, not a stack trace.
+    """
+    return (
+        "the project store is unreadable — check the projects directory's "
+        "permissions, then try again."
+    )
+
+
+def project_empty_text() -> str:
+    """The empty-store sentence, both handlers and the view's empty canvas."""
+    return (
+        "no projects yet — /project new <name> (or ask an agent: create a project "
+        "and link this session)."
+    )
+
+
+def project_needs_name_text(word: str) -> str:
+    """``/project <verb>`` with no name — the one sentence both handlers print."""
+    return f"name a project: /project {word} <name>"
+
+
+def project_show_refusal_text(name: str) -> str:
+    """``no project named …`` — names ``list``; never a silent no-op (design §5.3)."""
+    return f"no project named {name!r} — /project list shows every tracked project."
+
+
+def project_listing_hint_text() -> str:
+    """The listing's FOOTER: the two page entries, named (S3b).
+
+    One short line at the END of a non-empty listing — the last thing in the
+    receipt and the first a narrow surface can lose. It is omitted entirely on
+    an empty store, where the empty sentence stands alone, and it never
+    precedes a row.
+    """
+    return "open the board: /project board · the timeline: /project timeline"
+
+
+def project_associated_heading_text(count: int) -> str:
+    """The nameless ``show`` receipt's heading when the session HAS links (S3b)."""
+    return f"this session's projects ({count}) — /project board opens them on the board:"
+
+
+def project_jump_no_live_text(name: str, sessions: Sequence[tuple[str, str]]) -> str:
+    """``↵`` on a project with no live session: what exists, and the way in (S3b).
+
+    Never a bare refusal: a linked-but-stopped session is named with its state
+    and ``/resume <id>`` is the command that starts one, and a project with no
+    links at all is told how to get one. With exactly ONE linked session the
+    spelling is the concrete command — ``/resume cd34ef56ab12 starts it`` — the
+    same shape the redial verdict uses (UX round 1, U4); the placeholder stays
+    for the multi-id case, where no single command is right.
+    """
+    if not sessions:
+        return (
+            f"{name!r} has no linked sessions — /project link {name} links this one, "
+            "or ask an agent to link a session."
+        )
+    listed = ", ".join(f"{session_id} [{state}]" for session_id, state in sessions[:3])
+    more = f" (+{len(sessions) - 3} more)" if len(sessions) > 3 else ""
+    if len(sessions) == 1:
+        return (
+            f"no live session to open for {name!r} — linked: {listed}{more}. "
+            f"/resume {sessions[0][0]} starts it."
+        )
+    return (
+        f"no live session to open for {name!r} — linked: {listed}{more}. "
+        "/resume <id> starts one."
+    )
+
+
+def project_unexpected_argument_text(word: str) -> str:
+    """``/project board extra`` — the page entries take no argument (review r1, NIT 4)."""
+    return f"/project {word} takes no argument — it opens every project."
+
+
+def project_jump_already_text(name: str, session_id: str) -> str:
+    """``↵`` on the project THIS terminal is already in (S3b)."""
+    return f"already in {name!r} — this terminal is its live session ({session_id})."
+
+
+def project_overview_receipt(
+    registry: Any,
+    *,
+    config_dir: Any,
+    session_id: str | None,
+    now: float | None = None,
+) -> tuple[str, str]:
+    """The text mirror of the page's nameless entries (S3b).
+
+    ``session_id`` (when the caller has one) selects the associated set first:
+    the page opens the board with exactly those rows marked, and this receipt
+    names and lists the same set. No links — or no session at all — falls back
+    to the all-projects listing, because NEITHER state is a refusal: a reader
+    with no project of their own still gets the overview.
+    """
+    from local_operator.projects import (
+        scan_runtime_states,
+        stale_after_s,
+        store_error_text,
+    )
+
+    associated: list[Any] = []
+    if session_id:
+        try:
+            associated = list(registry.projects_for_session(session_id))
+        except Exception:  # noqa: BLE001 — an unreadable store answered above
+            associated = []
+    if associated:
+        states = scan_runtime_states(config_dir)
+        rows = project_listing_rows(
+            associated,
+            states=states,
+            now=now,
+            window=stale_after_s(config_dir),
+        )
+        return (
+            "\n".join([project_associated_heading_text(len(associated)), *rows]),
+            "info",
+        )
+    try:
+        projects = list(registry.list_projects())
+    except Exception as exc:  # noqa: BLE001 — an overview is never worth an error
+        return (f"could not list projects: {store_error_text(exc)}", "warning")
+    if not projects:
+        return (project_empty_text(), "info")
+    states = scan_runtime_states(config_dir)
+    rows = project_listing_rows(projects, states=states, now=now, window=stale_after_s(config_dir))
+    return ("\n".join([*rows, project_listing_hint_text()]), "info")
+
+
+def project_delete_rehearsal_text(name: str) -> str:
+    """The typed-``yes`` rehearsal — what WOULD be removed, and the exact way to say go.
+
+    Mirrors ``/delete``'s two-step shape (``_cmd_delete``): the bare form
+    rehearses, and only a submission carrying ``yes`` removes. The word is
+    typed rather than picked because a row with one keystroke cannot be a
+    confirmation (the ``/delete`` argument row's own reasoning).
+    """
+    return (
+        f"deleting project {name!r} removes its row and every session link; "
+        "session directories are untouched. Nothing was deleted — run "
+        f"/project delete {name} yes to confirm."
+    )
+
+
+def project_show_receipt(view: Mapping[str, Any], *, now: float | None = None) -> str:
+    """The textual twin of the TUI page's detail: fields, progress, sessions.
+
+    What a caller WITHOUT a page prints for ``/project show <name>`` (the
+    routed/mobile path). Same composition as the page — ``build_project_view``
+    — so the two surfaces cannot disagree about a session's state; ``null``
+    counts are omitted, never rendered as zeroes.
+    """
+    raw_project = view.get("project")
+    project: Mapping[str, Any] = raw_project if isinstance(raw_project, dict) else {}
+    # ``age_text``: the receipt holds a composed JSON row, not a ``Project``,
+    # so it reads the raw-stamp arithmetic the model-side helper layers over.
+    from local_operator.projects import (
+        age_text,
+        display_name,
+        history_lines,
+        refreshed_note,
+    )
+
+    key = project.get("name") or ""
+    lines = [f"{display_name(project) or '(unnamed)'} [{project.get('status') or 'active'}]"]
+    if project.get("title"):
+        # The title is the display name; the key is what addressing uses, so
+        # the key must stay in the record.
+        lines.append(f"key: {key or '(unnamed)'}")
+    lines.append(f"description: {project.get('description') or '(unstated)'}")
+    lines.append(f"owner: {project.get('owner') or '(unstated)'}")
+    lines.append(f"team: {project.get('team') or '(unstated)'}")
+    estimate = "no estimate"
+    if project.get("estimate") is not None:
+        suffix = "pt" if (project.get("estimate_unit") or "points") == "points" else "d"
+        estimate = f"est {project['estimate']:g}{suffix}"
+    lines.append(f"estimate: {estimate}")
+    lines.append(
+        f"dates: start {project.get('start_date') or '—'} · target "
+        f"{project.get('target_date') or '—'} · completed {project.get('completed_at') or '—'}"
+    )
+    # The tags line the project tool prints: the two `show` readers state the
+    # same fields (agent review round 1, finding 5's related note).
+    tags_value = project.get("tags")
+    tags = [str(tag) for tag in tags_value] if isinstance(tags_value, list) else []
+    lines.append(f"tags: {', '.join(tags) if tags else '(none)'}")
+    age = age_text(project.get("progress_updated_at") if project.get("progress") else None, now=now)
+    if age is None:
+        freshness = "none recorded"
+    else:
+        # The staleness flag comes from the COMPOSITION (one threshold, one
+        # place), never a second derivation here.
+        stale = ", stale" if view.get("progress_stale") else ""
+        freshness = f"reported {age} ago{stale}"
+    reporter = project.get("progress_reported_by") or ""
+    by = f" by {reporter}" if reporter else ""
+    lines.append(f"progress ({freshness}{by}): {project.get('progress') or '—'}")
+    # The refresh assertion, as its own line: "refreshed 1h ago by session Y —
+    # no new content since 2026-09-29" (the one sentence, ``refreshed_note``).
+    note = refreshed_note(project, now=now)
+    if note is not None:
+        lines.append(note)
+    # The history section the project tool's `show` prints: one copy of the
+    # renderer (``history_lines``), reading the composed row — the same
+    # fields rule the tags line above states.
+    lines.extend(history_lines(project))
+    milestones_value = project.get("milestones")
+    milestones: list[Any] = milestones_value if isinstance(milestones_value, list) else []
+    if milestones:
+        from local_operator.projects import ProjectMilestone, milestone_state
+
+        lines.append(f"milestones ({len(milestones)}):")
+        for milestone in milestones:
+            entry: Mapping[str, Any] = milestone if isinstance(milestone, dict) else {}
+            try:
+                model = ProjectMilestone.model_validate(entry)
+                label, state, target = (
+                    model.name,
+                    milestone_state(model.completed_at, model.target_date),
+                    model.target_date or "—",
+                )
+            except Exception:  # noqa: BLE001 — one bad row must not crash a receipt
+                # A malformed entry still PRINTS (a reader should see the row is
+                # there) but without a derived status this reader cannot trust —
+                # the tolerant shape every sibling reader uses. The old direct
+                # `model_validate` raised out of a keystroke handler on the
+                # routed/mobile path (agent review round 1, finding 5).
+                label = str(entry.get("name") or "(unnamed milestone)")
+                state = "unknown"
+                target = str(entry.get("target_date") or "—")
+            lines.append(f"  - {label} [{state}] target {target}")
+    else:
+        lines.append("milestones: (none)")
+    rows_value = view.get("sessions")
+    rows: list[Any] = rows_value if isinstance(rows_value, list) else []
+    working = [row for row in rows if isinstance(row, dict) and row.get("role") != "coordination"]
+    filed = [row for row in rows if isinstance(row, dict) and row.get("role") == "coordination"]
+    if not working and not filed:
+        lines.append("linked sessions: (none)")
+    else:
+        if working:
+            lines.append(f"working sessions ({len(working)}):")
+            for row in working[:8]:
+                session_id = row.get("session_id")
+                title = row.get("title") or "(untitled)"
+                if row.get("exists") is False:
+                    # `missing`, the word the guide promises — not `stopped`, which
+                    # would be a wrong statement about a session whose directory is
+                    # gone (agent review round 1, finding 5; QA F5).
+                    lines.append(f"  - {session_id} [missing] {title}")
+                    continue
+                runtime_value = row.get("runtime")
+                runtime: Mapping[str, Any] = (
+                    runtime_value if isinstance(runtime_value, dict) else {}
+                )
+                state = str(runtime.get("state") or "stopped")
+                busy = ", busy" if runtime.get("busy") else ""
+                bits = [state + busy]
+                subagents_value = row.get("subagents")
+                subagents: Mapping[str, Any] = (
+                    subagents_value if isinstance(subagents_value, dict) else {}
+                )
+                if subagents.get("running") is not None and subagents.get("settled") is not None:
+                    bits.append(
+                        f"{int(subagents['running'])} running · "
+                        f"{int(subagents['settled'])} settled subagents"
+                    )
+                todos_value = row.get("todos")
+                todos: Mapping[str, Any] = todos_value if isinstance(todos_value, dict) else {}
+                # Both counts must exist: a snapshot-less session carries the key
+                # with null counts and `todos None/None` is user-visible junk
+                # (UX round 1, U2).
+                if todos.get("open") is not None and todos.get("total") is not None:
+                    bits.append(f"todos {todos['open']}/{todos['total']}")
+                if row.get("archived"):
+                    bits.append("archived")
+                lines.append(f"  - {session_id} [{' · '.join(bits)}] {title}")
+            if len(working) > 8:
+                lines.append(f"  … +{len(working) - 8} more")
+        if filed:
+            # A filing is provenance, never a runtime claim: the row's state
+            # word is `filed`, and it carries no subagents/todos to print.
+            lines.append(f"filed by ({len(filed)}):")
+            for row in filed[:8]:
+                session_id = row.get("session_id")
+                title = row.get("title") or "(untitled)"
+                if row.get("exists") is False:
+                    lines.append(f"  - {session_id} [filed · missing] {title}")
+                    continue
+                bits = ["filed"]
+                if row.get("archived"):
+                    bits.append("archived")
+                lines.append(f"  - {session_id} [{' · '.join(bits)}] {title}")
+            if len(filed) > 8:
+                lines.append(f"  … +{len(filed) - 8} more")
+    return "\n".join(lines)
+
+
+def project_unknown_word_text(word: str) -> str:
+    """``unknown /project subcommand 'x' — try: ...`` — the refusal both print."""
+    return f"unknown /project subcommand {word!r} — try: " + ", ".join(PROJECT_SUBCOMMANDS)
+
+
+def run_project_slash_op(
+    word: str,
+    rest: str,
+    *,
+    registry: Any,
+    config_dir: Any,
+    session_id: str | None = None,
+    now: float | None = None,
+) -> tuple[str, str]:
+    """Run ONE ``/project`` verb against the store; return ``(text, style)``.
+
+    THE one implementation both front ends call — the TUI's ``_cmd_project``
+    and the runtime's ``_project_slash`` — so a receipt can never print one way
+    on the owner and another on the viewer (the rule every ``project_*_text``
+    sibling states). ``show`` is answered here as a bounded TEXT receipt for
+    callers with no page to paint; the TUI intercepts ``show`` first and opens
+    the full-page view instead.
+
+    Store failures are sentences, never exceptions: a slash command is a
+    keystroke path and must not crash the app (the same contract the slice-1
+    handlers kept).
+    """
+    from pydantic import ValidationError
+
+    from local_operator.projects import (
+        _SESSION_ID_RE,
+        ProjectEdit,
+        ProjectNameConflictError,
+        ProjectSchemaGuardError,
+        build_project_view,
+        readable_error,
+        scan_runtime_states,
+        stale_after_s,
+        store_error_text,
+    )
+
+    word = (word or "list").casefold()
+    linkable = session_id if session_id and _SESSION_ID_RE.fullmatch(session_id) else None
+
+    if word in ("list", "show", "delete", "link", "unlink", "board", "timeline"):
+        # An UNREADABLE store must not answer with the empty-store sentence or
+        # the no-such-project refusal: the row may exist and simply not be
+        # readable, and a reader told otherwise is being lied to by the
+        # surface (QA round 1, Q4). `new` is exempt — the write itself carries
+        # the honest failure below.
+        if getattr(registry, "load_error", None) is not None:
+            # …but a refusal must not be STICKY: this check runs before any
+            # read would refresh the snapshot, so re-read once before believing
+            # it (QA round 2, Q5 — a repaired store kept refusing here).
+            refresh_project_store(registry)
+        if getattr(registry, "load_error", None) is not None:
+            return (project_store_unreadable_text(), "warning")
+
+    if word == "list":
+        try:
+            projects = list(registry.list_projects())
+        except Exception as exc:  # noqa: BLE001 — a listing is never worth an error
+            return (f"could not list projects: {store_error_text(exc)}", "warning")
+        if not projects:
+            return (project_empty_text(), "info")
+        states = scan_runtime_states(config_dir)
+        rows = project_listing_rows(
+            projects, states=states, now=now, window=stale_after_s(config_dir)
+        )
+        # The listing's footer (S3b): the two page entries, named. A FOOTER —
+        # after every row, absent on an empty store.
+        return ("\n".join([*rows, project_listing_hint_text()]), "info")
+
+    if word in PROJECT_PAGE_VERBS:
+        name = rest.strip()
+        if word == "show" and not name:
+            # Nameless `show`: the calling session's own projects first, else
+            # the all-projects overview (S3b) — never the old name refusal.
+            return project_overview_receipt(
+                registry,
+                config_dir=config_dir,
+                session_id=linkable,
+                now=now,
+            )
+        if word in ("board", "timeline"):
+            # The all-projects entries take NO argument: silently ignoring a
+            # trailing word made `/project board alpha` open everything with
+            # no acknowledgement (review round 1, NIT 4 / UX round 1, U5).
+            if rest:
+                return (project_unexpected_argument_text(word), "warning")
+            # A caller with no page gets the overview and the hint names the
+            # page verb they asked for.
+            return project_overview_receipt(
+                registry,
+                config_dir=config_dir,
+                session_id=None,
+                now=now,
+            )
+
+    if word == "show":
+        name = rest.strip()
+        try:
+            project = registry.get_project_by_name(name)
+        except Exception as exc:  # noqa: BLE001
+            return (f"could not read the projects store: {store_error_text(exc)}", "warning")
+        if project is None:
+            return (project_show_refusal_text(name), "warning")
+        view = build_project_view(project, config_dir=config_dir)
+        return (project_show_receipt(view, now=now), "info")
+
+    if word == "new":
+        name = rest.strip()
+        if not name:
+            return (project_needs_name_text("new"), "warning")
+        # The chief of staff's auto-link is FILED, not working — the same
+        # write-surface decision the tool's create makes (one policy, two
+        # surfaces; the store stays role-agnostic).
+        coordination = False
+        if linkable:
+            from local_operator.aida.state import is_aida_session
+
+            coordination = is_aida_session(config_dir, linkable)
+        try:
+            project = registry.create_project(
+                ProjectEdit(name=name),
+                sessions=[] if coordination else ([linkable] if linkable else []),
+                coordination_sessions=[linkable] if (linkable and coordination) else [],
+            )
+        except ProjectNameConflictError as exc:
+            # BARE name in the embedded command: the quoted form was a command
+            # that did not run when copied (agent review round 1, finding 6 /
+            # QA F6 — the prose keeps its quotes, the command drops them).
+            return (f"{exc} — /project show {name} opens the existing row.", "warning")
+        except ProjectSchemaGuardError as exc:
+            return (str(exc), "warning")
+        except (ValueError, ValidationError) as exc:
+            return (readable_error(exc), "warning")
+        except Exception as exc:  # noqa: BLE001
+            # `store_error_text`, never the exception's own text: an OSError
+            # stringifies with the absolute path it touched, and a receipt must
+            # not leak one (QA round 1, Q4).
+            return (f"could not create the project: {store_error_text(exc)}", "warning")
+        if linkable and coordination:
+            return (
+                f"created project {project.name!r} [{project.status}]; filed by this "
+                f"session ({linkable}) — a coordination link, not a working session.",
+                "info",
+            )
+        if linkable:
+            return (
+                f"created project {project.name!r} [{project.status}] and linked this "
+                f"session ({linkable}).",
+                "info",
+            )
+        return (
+            f"created project {project.name!r} [{project.status}] with no session link "
+            "(this session has no linkable id).",
+            "info",
+        )
+
+    if word in ("link", "unlink"):
+        name = rest.strip()
+        if not name:
+            return (project_needs_name_text(word), "warning")
+        try:
+            project = registry.get_project_by_name(name)
+        except Exception as exc:  # noqa: BLE001
+            return (f"could not read the projects store: {store_error_text(exc)}", "warning")
+        if project is None:
+            return (project_show_refusal_text(name), "warning")
+        if linkable is None:
+            return ("this session has no linkable id — nothing to link.", "warning")
+        # The pre-state decides which receipt is true: a filed id that links
+        # MOVES lists, and the receipt must say its liveness role changed.
+        was_filed = linkable in project.coordination_sessions
+        # SELF-FILING: `/project link` is always a self-link, so a chief of
+        # staff session FILES rather than joins — the tool op's role decision,
+        # one copy each — and an existing work link is never demoted.
+        self_filing = False
+        if word == "link" and linkable not in project.sessions:
+            from local_operator.aida.state import is_aida_session
+
+            self_filing = is_aida_session(config_dir, linkable)
+        try:
+            if word == "link":
+                project, changed = registry.link_session(
+                    project.id, linkable, role="coordination" if self_filing else "work"
+                )
+            else:
+                project, changed = registry.unlink_session(project.id, linkable)
+        except (ValueError, ValidationError) as exc:
+            return (readable_error(exc), "warning")
+        except Exception as exc:  # noqa: BLE001
+            return (f"could not update the link set: {store_error_text(exc)}", "warning")
+        working = f"{len(project.sessions)} working"
+        if project.coordination_sessions:
+            working += f" + {len(project.coordination_sessions)} filed"
+        if word == "link":
+            if self_filing:
+                if changed:
+                    return (
+                        f"filed session {linkable} on {project.name!r} — a coordination "
+                        f"link, not a working session.",
+                        "info",
+                    )
+                return (
+                    f"session {linkable} is already filed on {project.name!r} — a "
+                    f"coordination link, not a working session.",
+                    "info",
+                )
+            if not changed:
+                return (
+                    f"session {linkable} was already linked to {project.name!r} as a "
+                    f"working session ({working}).",
+                    "info",
+                )
+            if was_filed:
+                return (
+                    f"moved session {linkable} from filed to working links on "
+                    f"{project.name!r} ({working} now).",
+                    "info",
+                )
+            return (
+                f"linked session {linkable} to {project.name!r} as a working session "
+                f"({working} now).",
+                "info",
+            )
+        if not changed:
+            return (
+                f"session {linkable} is not linked to {project.name!r}; "
+                f"/project show {name} lists its sessions and filings.",
+                "warning",
+            )
+        return (
+            f"unlinked session {linkable} from {project.name!r} ({working} now).",
+            "info",
+        )
+
+    if word == "delete":
+        # The typed-`yes` confirm: `/project delete <name>` rehearses, and only
+        # `/project delete <name> yes` removes (the `_cmd_delete` shape). A
+        # trailing `yes` is the confirmation only when something PRECEDES it;
+        # a project literally NAMED `yes` therefore reads as the name and
+        # rehearses, whose receipt spells out the `yes yes` form — the old
+        # parse stripped the lone `yes` as a confirmation and answered
+        # `name a project`, which neither said the row existed nor named its
+        # spelling (agent review round 1, finding 7 / QA F7).
+        tokens = rest.split()
+        confirmed = bool(tokens) and tokens[-1].casefold() == "yes" and len(tokens) > 1
+        name = " ".join(tokens[:-1]) if confirmed else rest.strip()
+        if not name:
+            return (project_needs_name_text("delete"), "warning")
+        try:
+            project = registry.get_project_by_name(name)
+        except Exception as exc:  # noqa: BLE001
+            return (f"could not read the projects store: {store_error_text(exc)}", "warning")
+        if project is None:
+            return (project_show_refusal_text(name), "warning")
+        if not confirmed:
+            return (project_delete_rehearsal_text(project.name), "warning")
+        try:
+            registry.delete_project(project.id)
+        except ProjectSchemaGuardError as exc:
+            return (str(exc), "warning")
+        except Exception as exc:  # noqa: BLE001
+            return (f"could not delete the project: {exc}", "warning")
+        return (f"deleted project {project.name!r}.", "info")
+
+    return (project_unknown_word_text(word), "warning")
+
+
+#: Slash commands handled synchronously before any prompt is sent. One
+#: registry entry per command; aliases live on the entry (TUI-014).
+#:
+#: ``echo`` says whether running the command leaves a user row in the visible
+#: ledger. It USED to be unconditional, on the reasoning that typing a command
+#: is the same visible commitment as sending a prompt. That reasoning had the
+#: wrong subject: a prompt is echoed because the transcript is the only record
+#: of what the user said, whereas every handler below already reports what it
+#: did — ``/usage`` opens the panel that IS the answer, ``/provider`` prints the
+#: list, ``/model p/id`` names both labels — so the echo was a row restating a
+#: row underneath it. The reading record kept the keystrokes and gained nothing.
+#:
+#: So the test is not "did the user commit to something" but "would the receipt
+#: be missing something without it", and exactly one thing qualifies: an
+#: argument that becomes part of what the MODEL is told. Comment per entry
+#: below; the table is pinned in ``tests/unit/tui/test_slash_echo.py``.
+SLASH_COMMANDS: list[SlashCommand] = [
+    # The help table is the receipt.
+    SlashCommand("help", "List all commands", desktop_destination="commands"),
+    # The app is gone; there is no ledger left to read.
+    SlashCommand("exit", "Quit the app", aliases=("quit",), desktop_destination="window.close"),
+    # Empties the surface the echo would land on — it was wiped a line later.
+    SlashCommand(
+        "clear",
+        "Clear the transcript (history is untouched)",
+        desktop_destination="transcript.clear",
+    ),
+    # Beside `/clear` because they are the two commands that act on the
+    # TRANSCRIPT AS A DOCUMENT rather than on the conversation: one empties the
+    # surface, the other takes a message out of it. Deliberately NOT beside
+    # `/compact`, which shares its first three letters and nothing else —
+    # compaction rewrites history for the model, this reads the frame for the
+    # human.
+    #
+    # NOT an echo. The clipboard receipt names how much landed there, which is
+    # strictly more than the typed word, and nothing here reaches the model —
+    # `/approvals`' rule exactly.
+    #
+    # The description names WHAT CAN BE PICKED, not one message, because the
+    # command opens a chooser: a whole answer, or a single code block or quote
+    # out of it. "the last agent message" described the pre-picker behaviour and
+    # would now send a user looking for the one thing the command no longer
+    # does. 35 cells, inside the ~55 the description column wraps past (see
+    # `/model` and `/theme`, where a wrapping row renders a phantom command name
+    # in `/help`).
+    SlashCommand(
+        "copy", "Copy an agent message or code block", desktop_destination="transcript.copy"
+    ),
+    # The companion surface to `/copy` — same shape, a different verb — and
+    # placed beside it because both answer "something in the conversation that I
+    # want to take out of it". NOT an echo, `/approvals`' rule: the receipt is
+    # the browser opening or a warning naming why it did not, and nothing here
+    # reaches the model.
+    #
+    # It exists because the terminal cannot offer the gesture. lop holds mouse
+    # reporting, and a terminal reporting mouse events to an application does
+    # not run its own click-to-open — so the OSC-8 hyperlink the transcript
+    # paints is correct and unclickable under Ghostty, and a bare URL is in the
+    # same position. Shift+click is the terminal's own bypass and never reaches
+    # the app, so the app needs a route of its own, and the typed command is the
+    # one that works on every terminal.
+    #
+    # NO KEYBOARD CHORD, the rule `test_copy_command.py` records: one shipped
+    # for `/copy` (ctrl+o) and was withdrawn with the picker, because a global
+    # chord that opens a modal is a different gesture from one that acts in
+    # place and the keymap surface is worth spending once. A convenient chord
+    # here would also have to take a `ctrl+<letter>`, and every one of those is
+    # held: the app has ctrl+b/f/g/l/n/s/t, the composer holds
+    # ctrl+a/e/k/o/u/v/w/x/y/z, and Textual holds ctrl+p/ctrl+q.
+    #
+    # The description names WHERE the links come from rather than what happens
+    # to them, because "open" alone reads as "open a file" in a command list
+    # that already has `/move` and `/resume`. 48 cells, inside the ~55 the
+    # description column wraps past (see `/model` and `/theme`, where a wrapping
+    # row renders a phantom command name in `/help`).
+    #
+    # NOT offered on the desktop: `desktop_destination` is deliberately unset,
+    # which keeps it out of `command_catalogue()` and therefore out of the
+    # command palette and the slash popup — the rule `/mobile` states in full.
+    # The reason is this command's own reason read the other way: what the
+    # terminal cannot do is run the CLICK, and a desktop browser renders the
+    # same markdown with real, clickable links, so a picker proxied over the
+    # transcript would add nothing the frame does not already offer. Stated on
+    # the entry rather than only in `test_desktop_controls.py`'s comment,
+    # because this is where an editor looks when they wonder why no destination
+    # is set; that test asserts the withheld set, so an entry arriving in it
+    # without a decision still fails there.
+    SlashCommand("links", "Open a link from this conversation in a browser"),
+    # Replaces the transcript; a row describing the old one would not survive.
+    SlashCommand(
+        "new",
+        "Start a new conversation",
+        # The word is the new-session picker's SELECTION (`selected=args`), so a
+        # whole-draft `/new foo` is that picker's gesture; a sentence after the word
+        # is prose.
+        #
+        # ``remote_peer`` rather than ``WORD``, and a SUPERSET of it: the shape
+        # accepts the legacy single word (above) *and* the two-token
+        # ``remote <peer>`` form, which ``WORD`` refuses by construction — so
+        # without a shape of its own, ``/new remote devon`` would be planned as
+        # PROSE and spend a paid model turn on a control the user typed on
+        # purpose (``mesh-ui.md`` §1.4.1 Change B). The peer's name is resolved
+        # against this device's own member lists, never against a dial, because
+        # the picker's list opens on a keystroke and a relay-less device must
+        # still offer its known peers (``/new remote`` is the ONE way to reach a
+        # device whose relay is down, so a vocabulary that needed the network
+        # would withhold the form exactly when it is useful).
+        arguments=ArgumentMode.OPTIONAL,
+        argument_shape=ArgumentShape.REMOTE_PEER,
+        desktop_destination="sessions.new",
+    ),
+    # In-process reboot cannot load a replaced wheel; this command exists so
+    # ``/update`` is not the only way to pick up new code. Same relaunch
+    # helper as ``/update`` — the conversation comes back via ``--resume``.
+    SlashCommand(
+        "reload",
+        "Relaunch this conversation on the current install",
+        # The word is the reload picker's SELECTION (`selected=args`).
+        argument_shape=ArgumentShape.WORD,
+        desktop_destination="sessions.reload",
+    ),
+    # The notice (or the relaunch) is the receipt. echo=False is the default;
+    # pin it in ECHO_POLICY so a later flip cannot sneak a user row onto an
+    # empty splash that ``/update`` is required to leave standing.
+    SlashCommand(
+        "update", "Install the latest version from PyPI and relaunch", desktop_destination="updates"
+    ),
+    # The picker (or "resuming session <id>…") is the receipt, and a resume
+    # replaces the transcript anyway.
+    SlashCommand(
+        "resume",
+        "Pick a past conversation to resume, or resume one (id)",
+        aliases=("recall",),
+        # The word is the resume picker's SELECTION (`selected=args`) — a session id
+        # or name, one token; a sentence after the word is prose.
+        argument_shape=ArgumentShape.WORD,
+        desktop_destination="sessions.resume",
+    ),
+    # Aida: opens her one long conversation, and a trailing request is a
+    # prompt she is given — so like `/team`, `_submit_prompt` writes the user
+    # row the request reaches the model as, and echoing the slash line above
+    # it would restate it. Bare `/aida` prints no row either: the transition
+    # (resuming session …) is the receipt.
+    #
+    # `pause`/`resume`/`status` are RESERVED words (AIDA_SUBCOMMANDS) parsed
+    # by the handler, the `/team chart` / `/project` precedent; a message that
+    # merely starts with one is escaped with `=`. `rename` rides the same
+    # namespace as its one ARGUMENT-TAKING verb (`/aida rename <name>`; bare
+    # `rename` reports), because she is renameable and the command surface
+    # says so. ANY, not SUBCOMMAND, for the
+    # reason `AIDA_SUBCOMMANDS` documents: everything else after the word is
+    # the request, and the `/team` shape (`consumes_prompt` + `prefixes_text`)
+    # is what makes an inline engage reassemble the draft as that request
+    # rather than splice mid-sentence.
+    SlashCommand(
+        "aida",
+        "Open your chief of staff, or send her a request",
+        arguments=ArgumentMode.OPTIONAL,
+        consumes_prompt=True,
+        prefixes_text=True,
+        argument_shape=ArgumentShape.ANY,
+        desktop_destination="aida.open",
+    ),
+    # Beside the session-transition family because it changes the same session
+    # rather than replacing it: `/new` discards the conversation, `/resume`
+    # moves to another, and this one keeps the conversation and changes WHERE
+    # it works. Placed after `/resume` and before `/rename` because those two
+    # are the other commands that alter a session in place.
+    #
+    # NOT an echo, the rule `/approvals` and `/rename` follow: the argument is
+    # a setting rather than words the model is given, and the receipt names the
+    # directory that ended up in force — strictly more than the typed words,
+    # which may have been `~/x` or a relative path the app resolved.
+    #
+    # TWO GRAMMARS UNDER ONE WORD, and that is a documented decision rather than
+    # drift (``mesh-ui.md`` §1.7): `/move <path>` changes the working directory,
+    # `/move [<session>] --to <peer|local> [--keep]` moves a SESSION between
+    # devices. The discriminant is the presence of `--to` and nothing else
+    # (``tui/session_move.parse_move_to``). A THIRD meaning would be the design
+    # smell §1.7 names — give it its own command instead. The description below
+    # stays the path form's: it is the one every install has, and the mesh form
+    # is taught where the mesh is (`/network`, the design's §1.6 strings).
+    SlashCommand(
+        "move",
+        # Names the two ways to answer it, because the argument form is the
+        # half a picker cannot teach: a user who has only ever seen the list
+        # will not guess that a path can be typed straight in. 44 cells, inside
+        # the ~55 at which the description column wraps (see `/model`, where a
+        # wrapping row renders a phantom command name in `/help`).
+        "Change this session's working directory",
+        # OPTIONAL: a bare `/move` opens the picker, which is the discoverable
+        # route, and the space offers the same suggestions for a user who would
+        # rather type. Enter on the bare command still does something useful,
+        # which is exactly the distinction `/approvals` and `/effort` draw
+        # against `/login`'s REQUIRED.
+        arguments=ArgumentMode.OPTIONAL,
+        # The desktop EXECUTES the path (`argsBehavior: "execute"`), and a path is
+        # arbitrary text — two words included — so every whole-draft `/move …` is the
+        # command.
+        argument_shape=ArgumentShape.ANY,
+        desktop_destination="session.move",
+    ),
+    # Beside `/resume` because it names the thing the picker lists. NOT an echo:
+    # the argument is the conversation's own label — it goes on the band and the
+    # terminal tab, never into anything the model is told — and the receipt
+    # quotes the title that ended up in force, which is strictly more than the
+    # typed words (the store trims and caps them).
+    #
+    # `/title` is an ALIAS, not a second entry, and that is the whole design of
+    # the refresh word. The two things a user wants to do to a conversation's
+    # name — say what it is, or ask for it to be worked out again — are one
+    # subject, and splitting them across `/rename` and a sibling `/retitle`
+    # would put two nearly-identical rows in `/help` whose difference is four
+    # letters in the middle of the word. One entry with `refresh` as its
+    # argument states the relationship instead: `/title <words>` is the
+    # imperative, `/title refresh` is the request, and a bare `/title` reports.
+    #
+    # OPTIONAL rather than NONE now that an argument has a value list: the space
+    # offers `--refresh` to a user who does not know the capability exists, and
+    # Enter on the bare command still reports the current name — the exact
+    # distinction `/approvals` and `/effort` draw against `/login`'s REQUIRED.
+    # Free typing is unaffected, so an arbitrary title still submits.
+    SlashCommand(
+        "rename",
+        # 43 cells, inside the ~55 at which the description column wraps and
+        # renders a phantom command name in `/help` (see `/model`, `/theme`);
+        # composed with the 20-cell name column that is a 63-cell row, one line
+        # at 80 columns.
+        # The `--refresh` flag has to be HERE because the help table is where a
+        # user learns the command exists at all, and the capability it names is
+        # the reason this entry changed. The INVOCATION is spelled out rather
+        # than the bare flag alone because this is the only surface that teaches
+        # the words to TYPE: "or --refresh the name" reads as though the flag
+        # takes "the name" as a value — and `parse_title_arg("--refresh the
+        # name")` really does store that literal as the conversation's title,
+        # so the misreading is reachable, not pedantic. The picker needs no
+        # such help: it supplies the argument itself, so its row teaches the
+        # flag alone.
+        "Name this conversation, or /title --refresh",
+        aliases=("title",),
+        arguments=ArgumentMode.OPTIONAL,
+        # The title is arbitrary text: `native_action` pre-fills the form's text field
+        # with it and the OWNER dispatch hands it to the runtime.
+        argument_shape=ArgumentShape.ANY,
+        desktop_destination="session.rename",
+    ),
+    # Beside the session-transition family because it is one: /fork is the entry
+    # the table was missing, the one that carries history INTO a fresh session
+    # (/new discards it, /resume moves to an existing one).
+    #
+    # echo=True, and it is the case the registry's echo rule was written for: the
+    # argument becomes a user turn the MODEL is given — in the FORK. The receipt
+    # names both session ids, but only the echo shows what the fork was asked to
+    # do, and that text is not visible anywhere in this window otherwise.
+    #
+    # consumes_prompt=True because the argument is free text destined for a
+    # model, so an inline /fork reassembles to the front of the composer rather
+    # than splicing into the middle of a sentence.
+    SlashCommand(
+        "fork",
+        # Terse for the reason `/model` and `/theme` record above: the
+        # description column wraps past ~55 cells. The long form was 76
+        # characters — the longest of all 32 commands — and it was the ONLY row
+        # in `/help` that wrapped at 100 columns, hanging its orphan word back
+        # in the COMMAND column so the listing rendered a phantom command named
+        # `message`. The picker truncated it before the argument clause at every
+        # common width, cutting exactly the half that says the argument exists.
+        #
+        # `<message>` is front-loaded rather than trailing so it survives that
+        # truncation: at 60 columns a user still sees that the argument is a
+        # message the branch STARTS ON, which is what stops them typing a title
+        # and being billed for a turn in the fork. `docs/fork.md` carries
+        # the rest.
+        "Branch this chat; --switch here, --window elsewhere; <message> starts work",
+        echo=True,
+        consumes_prompt=True,
+        # The trailing text is the branch's starting instruction, so a message
+        # that merely OPENS with `/fork` is still prose — the desktop half of the
+        # same fact `consumes_prompt` carries for the TUI (see the field's
+        # docstring).
+        prefixes_text=True,
+        # ANY, not the NONE default: the command owns its trailing text
+        # whatever it says (see ArgumentShape's precedence note).
+        argument_shape=ArgumentShape.ANY,
+        desktop_destination="session.fork",
+    ),
+    # THE ARCHIVE PAIR AND THE DELETE, in the session-transition family because
+    # that is what they are: `/archive` changes whether the conversation is
+    # OFFERED, `/unarchive` changes it back, `/delete` ends it for good.
+    #
+    # NO ECHO ON ANY OF THE THREE, `/stop`'s rule: the receipt names the state
+    # that ended up in force — and, for `/delete`, what survived — which is
+    # strictly more than the typed word, and nothing here reaches the model.
+    #
+    # `/archive` takes no argument and acts on the CURRENT session, because
+    # that is the only session a terminal is standing in. Archiving another
+    # conversation by name is a bulk/browser gesture and deliberately not built
+    # (see the design record's "what this does not do"); the picker's archived
+    # list is where a user goes to find them again.
+    SlashCommand(
+        "archive",
+        # Kept short for the reason `/model` records: the description column
+        # wraps past ~55 cells and renders a phantom command name in `/help`.
+        # 41 cells, and it names the way BACK rather than the way in, because
+        # the way back is what a user who has just hidden a conversation needs.
+        "Hide from the lists, still resumable by id",
+        desktop_destination="sessions.archive",
+    ),
+    # OFFERED ONLY WHILE THE CURRENT SESSION IS ARCHIVED — the one command in
+    # this registry whose presence depends on session state, filtered out of the
+    # suggestion list by the app (`OperatorApp._slash_suggestions`). Typed when
+    # it does not apply it answers with a sentence rather than silence, which is
+    # what keeps a user who learned the word elsewhere from reading the refusal
+    # as a bug.
+    SlashCommand(
+        "unarchive",
+        "Show this conversation in the lists again",
+        desktop_destination="sessions.unarchive",
+    ),
+    # THE DANGER CONFIRMATION IS A TYPED WORD, not a picked row: `/delete`
+    # explains what will be removed and the user repeats the command with `yes`.
+    # The argument list is an OFFER beside that (`ArgumentMode.OPTIONAL`, like
+    # `/stop`), carrying the one word that completes the confirmation — and it
+    # is what lets the picker PAINT the command as dangerous: the row is marked
+    # ``alert`` and ``delete`` joins ``Editor.DESTRUCTIVE_COMMANDS``, so choosing
+    # it fills the word and a second Enter runs it rather than one Enter
+    # deleting a conversation. `WORD` is the desktop's half: `/delete yes` on the
+    # wire is this command and its argument rather than prose, so the desktop's
+    # own confirm control is what authorises it.
+    SlashCommand(
+        "delete",
+        "Delete this conversation for good; asks to confirm",
+        arguments=ArgumentMode.OPTIONAL,
+        # The word is the confirmation token this command owns. See the comment
+        # above for why the list holds exactly one row.
+        argument_shape=ArgumentShape.WORD,
+        desktop_destination="sessions.delete",
+    ),
+    # The switch receipt names the old AND new label — strictly more than the
+    # typed selector, which may have been elided to `default`.
+    SlashCommand(
+        "model",
+        # A `/help`-specific carrier, NOT `PERSIST_HINT` verbatim: the footer
+        # hint is sized by the picker (42 cells), and every ≤12-cell lead that
+        # kept it whole here left the row a fragment (`Switch;` was 49 cells
+        # and stayed whole, but read as a broken sentence beside the
+        # `Switch color theme; …` neighbour — design review round 2, D7).
+        # `Switch model; ` + the hint measured 56 cells at 80 columns and
+        # orphaned "sessions" on its own line (D2), so the answer is a shorter
+        # sentence of its own: name the thing being switched and drop the
+        # "saves this" carrier the footer needs for its 43-cell budget. The
+        # notice a bare `/model` prints is the surface with room for the full
+        # three-route sentence; `/help` needs only the persist command's name.
+        "Switch model; /model default saves it for new sessions",
+        aliases=("models",),
+        # The trailing selector is a value this command owns, not the start of a
+        # message: `/model gpt-5` is the model command, while
+        # `/mcp logout seems to cause a crash` is prose. See the field docstring.
+        prefixes_text=True,
+        # ANY, not the NONE default: the command owns its trailing text
+        # whatever it says (see ArgumentShape's precedence note).
+        argument_shape=ArgumentShape.ANY,
+        desktop_destination="session.model",
+    ),
+    # Next to `/model` because it is the same question one level down: which
+    # model, and then how hard it thinks.
+    #
+    # NOT an echo. The argument is a setting, not words the model is given, and
+    # the receipt names the resulting level — the durable fact — where the typed
+    # word is only how it was reached. Exactly `/approvals`' rule.
+    SlashCommand(
+        "effort",
+        "Show or set reasoning effort (shift+tab cycles)",
+        # OPTIONAL: the space offers this model's rungs, and a bare `/effort`
+        # still prints the ladder with the current one marked. The list is what
+        # the printed ladder could never be — the rungs are OFFERED rather than
+        # transcribed by hand from a line of prose.
+        arguments=ArgumentMode.OPTIONAL,
+        # Trailing text is the level name, a value this command owns.
+        prefixes_text=True,
+        # ANY, not the NONE default: the command owns its trailing text
+        # whatever it says (see ArgumentShape's precedence note).
+        argument_shape=ArgumentShape.ANY,
+        desktop_destination="session.effort",
+    ),
+    # Beside `/effort` because they are the two dials on the SAME request, and a
+    # user comparing "make it quicker" against "make it think less" should find
+    # them adjacent. They are not the same axis: effort changes how hard the
+    # model thinks, fast mode buys the identical answer sooner at a premium
+    # price (`model.speed` opens with the distinction).
+    #
+    # NOT an echo, the same rule `/effort` and `/approvals` follow: the argument
+    # is a setting rather than words the model is given, and the receipt names
+    # the resulting state — the durable fact — where the typed word is only how
+    # it was reached.
+    SlashCommand(
+        "fast",
+        # Names the TRADE, not just the effect. This is the only dial in the app
+        # that costs meaningfully more money, and a description promising speed
+        # while omitting the premium would sell half the bargain. 47 cells, in
+        # under the ~55 at which the description column wraps.
+        "Toggle faster output at premium pricing",
+        # OPTIONAL: bare `/fast` toggles, and the space offers on/off/status for
+        # a user who wants to name the resulting state rather than flip into it.
+        arguments=ArgumentMode.OPTIONAL,
+        # WORD: ONE whitespace-free token is the command, and the picker's
+        # on/off list is PRESENTATION (`choices` on the field), not the admission
+        # rule — so `/fast maybe` is refused too, because the desktop runs the
+        # whole-draft form whatever the token says. The vocabulary this shape may
+        # carry (`command_argument_words`) is empty here and honoured by both
+        # arms, so declaring one later is a one-line change rather than a second
+        # rule.
+        argument_shape=ArgumentShape.WORD,
+        desktop_destination="session.fast",
+    ),
+    # NOT an echo, same rule as `/approvals`: the argument is a setting, and
+    # the receipt names the theme that ended up in force — strictly more than
+    # the typed word, which may have been an abbreviation the matcher resolved.
+    SlashCommand(
+        "theme",
+        # Terse like `/model`'s: the description column wraps past ~55 cells.
+        # "live preview" is the half the list cannot teach on its own — a user
+        # has to know arrowing is safe before they will browse with it.
+        "Switch color theme; arrows preview live",
+        aliases=("themes",),
+        # OPTIONAL: a bare `/theme` reports the active theme, and the space
+        # offers every registered ramp with the current one marked.
+        arguments=ArgumentMode.OPTIONAL,
+        # Trailing text is the theme name, a value this command owns — the
+        # desktop's `inline` list, which is the second half of the union the
+        # field docstring describes.
+        prefixes_text=True,
+        # ANY, not the NONE default: the command owns its trailing text
+        # whatever it says (see ArgumentShape's precedence note).
+        argument_shape=ArgumentShape.ANY,
+        desktop_destination="appearance",
+    ),
+    # The listing is the receipt.
+    SlashCommand(
+        "provider",
+        "List providers and their login/usage state",
+        # The word is the provider the panel opens on (`selection=args`).
+        argument_shape=ArgumentShape.WORD,
+        desktop_destination="providers",
+    ),
+    # The PAGE is the receipt, the same rule `/usage` and `/analytics` follow:
+    # it replaces the transcript region, so a notice printed behind it would
+    # only be readable after leaving. Beside `/theme` and `/search` because it
+    # is the surface that contains both of them.
+    SlashCommand(
+        "settings",
+        "Change every setting on one page",
+        aliases=("config",),
+        # The word is the settings FILTER (`filter=args`).
+        argument_shape=ArgumentShape.WORD,
+        desktop_destination="settings",
+    ),
+    SlashCommand(
+        "sidebar",
+        # `focus` is named because it is the only way into the list's keyboard
+        # mode now that a pointer press no longer takes it (design round D1),
+        # and because the panel's own footer advertises it: a description that
+        # omitted the argument told a user the command had none. 49 cells — the
+        # description column wraps past ~55, which would render a phantom
+        # command name in `/help` (see the `/copy` note above).
+        "Show or hide conversations; 'focus' keys the list",
+        desktop_destination="sessions.sidebar",
+    ),
+    SlashCommand(
+        "search",
+        "Configure web search providers and load balancing",
+        # `filter=args`: the route's presentation payload carries the word. The
+        # desktop's own `/search` fixes that filter to `web-search` and reads no
+        # word, so this is one of the two DELIBERATE EXCEPTIONS to the criterion
+        # (see `ArgumentShape`) — kept because a whole-draft `/search <word>` is a
+        # control the composer runs, while a sentence after the word is prose.
+        argument_shape=ArgumentShape.WORD,
+        desktop_destination="settings.search",
+    ),
+    # The listing is the receipt.
+    SlashCommand(
+        "accounts",
+        "List stored credentials",
+        # `selection=args` — the account/provider the panel opens on.
+        argument_shape=ArgumentShape.WORD,
+        desktop_destination="accounts",
+    ),
+    # The listing is the receipt — the cascade tree IS the whole answer, and
+    # the command takes no argument to restate.
+    #
+    # NO `failover` singular alias, despite it being an equally natural spelling:
+    # the picker sizes its name column on the widest `/name  /alias` pair, and
+    # `/failovers  /failover` (21 cells) is 3 wider than the current widest, so
+    # the alias permanently narrows the DESCRIPTION column for every command at
+    # every width (it truncated `List all commands` on the 41-cell frame that
+    # `test_descriptions_come_back_above_the_collapse_width` pins). The singular
+    # still reaches this command through the picker's prefix match, which is the
+    # cheap half of what an alias would buy.
+    SlashCommand(
+        "failovers",
+        "Show the model failover cascade and what is serving",
+        desktop_destination="session.failovers",
+    ),
+    # The panel is the receipt — the row the owner reported as noise.
+    SlashCommand(
+        "usage",
+        "Show provider usage quota",
+        # The word is the view the panel opens on (`selection=args`).
+        argument_shape=ArgumentShape.WORD,
+        desktop_destination="usage",
+    ),
+    SlashCommand(
+        "context",
+        "Show prompt, tool-schema and message token usage",
+        # NONE, and the criterion is why: a shape is published only where the
+        # desktop's command path USES the trailing text. This one DROPS it —
+        # `_slash_result` calls `_context_slash_result(SlashResult)` with no args
+        # (`app.py`) and `native_action` has no branch, so `/context x` would run
+        # the command and silently discard `x` exactly as `/compact hello` does.
+        # That is the operator's own complaint, so the text is prose.
+        desktop_destination="session.context",
+    ),
+    # `session.diagnostics` rather than a reuse of `analytics`: both read the
+    # same ledger, but this one is scoped to the CURRENT session id and the
+    # analytics view is explicitly all-sessions (`daily_scope`), so pointing
+    # them at one destination would make the desktop render a whole-install
+    # total for a command documented as current-session only. The host already
+    # has the session-scoped read it needs (`/v1/desktop/analytics?session_id=`);
+    # like `/context`, it is a read-only view with no owner execution, so it
+    # needs no `native_action` branch or `OWNER_COMMANDS` entry.
+    #
+    # WORD with a one-word vocabulary (`SESSION_COPY_FLAG`, via
+    # `command_argument_words`) rather than NONE, because `--copy` is a control:
+    # under NONE the messages endpoint admitted `/session --copy` as a paid model
+    # turn. Deliberately NOT a value list (`ArgumentMode.OPTIONAL`): a one-row
+    # list RUNS on a single Enter, so `/session ` + Enter would copy instead of
+    # opening the view — the description teaches the flag instead, the way
+    # `/fork --switch` is taught. 54 cells, inside the ~55 the column wraps past.
+    SlashCommand(
+        "session",
+        "Usage, cost, diagnostics; --copy copies the session ID",
+        argument_shape=ArgumentShape.WORD,
+        desktop_destination="session.diagnostics",
+    ),
+    # Beside `/session` because it is the same family — a read-only diagnostic
+    # screen with no owner execution — but a WIDER scope: `/session` describes
+    # one conversation's spend, `/info` describes the INSTALL and every runtime
+    # on the machine. It is the screen a user is asked to paste into an issue,
+    # which is why it takes no argument at all: there is one answer, and making
+    # someone name it would be a gate in front of a command that has one.
+    #
+    # No `desktop_destination` used to live here, because every field it
+    # renders is a fact about THIS process and THIS host (install prefix, pids,
+    # RSS, the in-memory subagent graph), so a desktop surface pointed at it
+    # would describe the machine the host runs on rather than the one the user
+    # is asking about. The destination now EXISTS and that caveat survives as
+    # the PANEL'S HOST LABEL rather than as a reason to withhold the row: the
+    # desktop normally talks to a loopback backend on the same machine, but the
+    # transport is a URL (`LOCAL_OPERATOR_DESKTOP_BACKEND_URL`), so the panel
+    # names what it is showing as "the machine this app is connected to". The
+    # destination is `info`, served by `GET /v1/desktop/info`.
+    #
+    # Like `/context` it needs no `native_action` branch or `OWNER_COMMANDS`
+    # entry: it is a read-only view with no owner execution.
+    SlashCommand(
+        "info",
+        # "running sessions", not "sessions": `/analytics` describes past
+        # CONVERSATIONS and this describes live PROCESSES, and both descriptions
+        # sit in one picker where the shared word read as the same thing (UX
+        # round 1, U9). One word buys the distinction.
+        "Install, version, and running sessions on this machine",
+        desktop_destination="info",
+        # NO ALIASES, deliberately — `version`/`about` were added for UX round 1
+        # U8 and reverted the same round. The claim that alias rows "cost no
+        # space" is false here: the picker measures ONE name column across every
+        # row, so `/info  /version  /about` at 23 cells became the widest entry
+        # (previous max `/settings  /config`, 18) and took those 5 cells from
+        # every other command's description. Measured consequence at 80 columns:
+        # `/help`'s description collapsed to `List all co…`, and the `/model`
+        # and `ctrl+v` rows in `/help` wrapped. Discoverability for one command
+        # is not worth truncating the descriptions of all of them, and `/help`
+        # already lists this one. See `test_descriptions_come_back_above_the_
+        # collapse_width`, which is the guard that caught it.
+    ),
+    # The screen it opens IS the receipt (same rule as `/usage`). The argument
+    # names WHICH analytics view; today only `usage` exists, so the list is an
+    # OFFER — a bare `/analytics` opens the usage view rather than doing
+    # nothing, which is what makes the single-view case feel like one command
+    # while leaving room for `/analytics cost`, `/analytics latency`, ... later.
+    SlashCommand(
+        "analytics",
+        "Aggregated token-consumption analytics across all sessions",
+        arguments=ArgumentMode.OPTIONAL,
+        # The word is the view to open (`selection=args`).
+        argument_shape=ArgumentShape.WORD,
+        desktop_destination="analytics",
+    ),
+    # The argument becomes both a standing objective and an ordinary user
+    # message. Submission owns its user row; status/clear never start a turn.
+    SlashCommand(
+        "goal",
+        # 52 cells, inside the ~55 at which the description column wraps (see
+        # `/model`, `/rename`). The flag is NAMED here for the reason `/rename`
+        # names `--refresh`: the palette and the `/help` table are where a user
+        # learns the form exists, and `--clear` is otherwise only discoverable by
+        # guessing the bare word `clear`. "show" gave up its cell to it — a bare
+        # `/goal` still reports the goal, while an unstated flag was reachable
+        # from nowhere.
+        #
+        # "clears it", not a synonym: the picker row offers "Clear the standing
+        # goal" and the receipt reads "goal cleared", so the third phrasing of
+        # the same act was the odd one out beside a flag literally spelled
+        # `--clear` (round 1, D3). Same 52 cells, so nothing re-sizes.
+        "Set the goal and start work; /goal --clear clears it",
+        echo=True,
+        consumes_prompt=True,
+        # The trailing text is the objective, this command's own argument.
+        prefixes_text=True,
+        # ANY, not the NONE default: the command owns its trailing text
+        # whatever it says (see ArgumentShape's precedence note).
+        argument_shape=ArgumentShape.ANY,
+        # OPTIONAL, like `/rename`: the space offers the `--clear` row for a user
+        # who has a goal to unset, and Enter on the bare command still reports
+        # the current goal — the distinction `/login`'s REQUIRED draws. NOT a
+        # name slot: `--clear` is a flag, and `/goal ship it` stays free text, so
+        # `name_argument` is left at its default.
+        arguments=ArgumentMode.OPTIONAL,
+        desktop_destination="session.goal",
+    ),
+    # Not an exception: LOOP_PROMPT is app-authored, not the user's words, and
+    # `_loop_worker` already labels every iteration it starts (`· loop 1/3`), so
+    # no agent output here is left unattributed. `echo=False` suppresses the
+    # command's own slash-echo row; the live path additionally registers
+    # LOOP_PROMPT in `_pending_user_echoes` (in `_loop_worker`) so the
+    # session's user MessageStartEvent is consumed silently rather than
+    # painted — two different receipts for two different events (the typed
+    # command, and the prompt the turn later announces).
+    SlashCommand(
+        "loop",
+        # Advertises the forms the command actually has on every host: free text
+        # is a goal a judge decides is met, a number is a bounded iteration
+        # count, and the stop flag is the escape hatch — which used to appear
+        # only in a launch notice or an already-running refusal, i.e. after the
+        # user needed it (UX round 1, U6).
+        #
+        # 53 cells, sized against the `/help` description budget at 80 columns —
+        # `W - 26` (4-cell block indent + 20-cell name column), so 54 there, the
+        # common narrow terminal. The 62-cell form this replaces was measured at
+        # the WRONG width: rendered from the base commit at 100 columns it painted
+        # one 95-cell line and did not wrap, so the comment claiming it was "one
+        # of the two rows that wrapped in `/help` at 100 columns" was wrong about
+        # its own evidence (round 1, QA Q2). What it actually did was wrap at 90
+        # columns and below, i.e. long before the 80-column band this is read at;
+        # the replacement is a single line at 80 (re-measured through
+        # `RichBlock.render_line`, see the PR's evidence).
+        #
+        # `--clear` is deliberately NOT in this clause. It is a word the TUI
+        # cannot honour as a dismissal of published state (it publishes none) and
+        # the runtime refuses while a loop runs, so naming it here would teach a
+        # form in the one place it works least; the picker row that offers each
+        # flag, and `docs/DESKTOP_CONTROLS.md`, carry that distinction.
+        "Loop toward a goal: /loop <goal>, <n>; --stop cancels",
+        consumes_prompt=True,
+        # The trailing text is the loop instruction or count, this command's own
+        # argument.
+        prefixes_text=True,
+        # ANY, not the NONE default: the command owns its trailing text
+        # whatever it says (see ArgumentShape's precedence note).
+        argument_shape=ArgumentShape.ANY,
+        # OPTIONAL for the same reason `/goal` is, and NOT a name slot: the
+        # running loop's `--stop` row is the offer, the iteration count and the
+        # goal text stay free text, so `name_argument` is left at its default.
+        arguments=ArgumentMode.OPTIONAL,
+        desktop_destination="session.loop",
+    ),
+    # NOT an exception, and the reason IS the feature. The question does reach
+    # the model, but only for one off-the-record request that never joins the
+    # conversation (`SessionProtocol.complete_aside`) — so a user row in the
+    # ledger would be the one trace the aside promises not to leave, and would
+    # still be sitting there after Esc claimed to have thrown the exchange
+    # away. The card is the receipt; `^f` inside it is how an exchange gets a
+    # row, as a real turn rather than an echo.
+    SlashCommand(
+        "btw",
+        "Ask a side question off the record (esc closes it)",
+        consumes_prompt=True,
+        # The trailing text is the aside question, this command's own argument.
+        prefixes_text=True,
+        # ANY, not the NONE default: the command owns its trailing text
+        # whatever it says (see ArgumentShape's precedence note).
+        argument_shape=ArgumentShape.ANY,
+        desktop_destination="session.aside",
+    ),
+    # NOT an echo, and the receipt is the reason. The pass narrates itself
+    # through the same `compacting context…` / `context compacted · 128.4k →
+    # 21.9k tokens` notices the automatic one emits, and a refusal says why it
+    # did not run — nothing typed here reaches the model, so a user row above
+    # that would only restate the word.
+    SlashCommand("compact", "Compact the context now", desktop_destination="session.compact"),
+    # The kill switch (design §12): bare stops THIS session, `/stop <target>`
+    # stops another one (the `send` target vocabulary: name / session id /
+    # pid / substring), `/stop all` arms a 10 s window and a repeat executes.
+    # The receipt is the stop line itself, so no echo: nothing here reaches
+    # the model, and the receipt names what was stopped — strictly more than
+    # the typed word.
+    SlashCommand(
+        "stop",
+        "End this session, another by name/pid, or all — /resume reopens it",
+        arguments=ArgumentMode.OPTIONAL,
+        # The word is the same TARGET vocabulary the TUI's `/stop <target>` takes,
+        # and the second of the two DELIBERATE EXCEPTIONS to the criterion (see
+        # `ArgumentShape`): the desktop's picker owns `targets=[session_id]` and
+        # drops the word, but a whole-draft `/stop <word>` is a control the
+        # composer runs while a sentence after the word is prose.
+        argument_shape=ArgumentShape.WORD,
+        desktop_destination="sessions.stop",
+    ),
+    # The receipt states the resulting mode, which is the durable fact; the
+    # typed argument is only how it was reached.
+    SlashCommand(
+        "approvals",
+        # Names the SCOPE word, not the modes: the modes are rows in the list a
+        # space opens, where they can carry which one is live and which one the
+        # next launch will use. `default` is the half a list cannot teach on its
+        # own, because a user has to suspect it exists to go looking for it —
+        # the same job `PERSIST_HINT` does on `/model`.
+        "Show or set tool approval mode for this session",
+        arguments=ArgumentMode.OPTIONAL,
+        # Trailing text is the mode name, a value this command owns.
+        prefixes_text=True,
+        # ANY, not the NONE default: the command owns its trailing text
+        # whatever it says (see ArgumentShape's precedence note).
+        argument_shape=ArgumentShape.ANY,
+        desktop_destination="session.approvals",
+    ),
+    # The listing is the receipt.
+    SlashCommand(
+        "skills",
+        "List loaded skills",
+        # `selection=args`.
+        argument_shape=ArgumentShape.WORD,
+        desktop_destination="skills",
+    ),
+    # The listing is the receipt; the subcommands configure servers or manage
+    # the OAuth grants startup never opens a browser for. OPTIONAL: bare
+    # `/mcp` answers something (the listing), so Enter still sends it and the
+    # subcommand list is an offer for the next keystroke, matching
+    # `/approvals`. The description names the SHAPE rather than all six verbs —
+    # the argument picker enumerates them with a line of help each, which is
+    # more than this one truncating row can carry.
+    SlashCommand(
+        "mcp",
+        "List MCP servers; add/remove one, or manage an OAuth grant",
+        arguments=ArgumentMode.OPTIONAL,
+        # The route parses `<subcommand> [name]` against `MCP_SUBCOMMANDS` and
+        # `SERVER_NAME_RE`, so `/mcp logout` is the command and `/mcp logout seems to
+        # cause a crash` is a message.
+        argument_shape=ArgumentShape.SUBCOMMAND,
+        desktop_destination="mcp",
+    ),
+    # The flow narrates itself: URL block, progress notices, then success.
+    # REQUIRED for both: bare, neither has anything to run — the provider list
+    # IS the command, which is why completing the word opens it instead of
+    # submitting a no-op over the list it just drew.
+    SlashCommand(
+        "login",
+        "Authenticate a provider",
+        arguments=ArgumentMode.REQUIRED,
+        # The route resolves the word against the provider registry — a known id is
+        # the command, an unknown one is prose.
+        argument_shape=ArgumentShape.PROVIDER,
+        desktop_destination="auth.login",
+    ),
+    # The worker reports the removal, naming the provider.
+    SlashCommand(
+        "logout",
+        "Remove stored provider credentials",
+        arguments=ArgumentMode.REQUIRED,
+        # Same lookup as `/login`: a known provider id is the command, an unknown one
+        # is prose.
+        argument_shape=ArgumentShape.PROVIDER,
+        desktop_destination="auth.logout",
+    ),
+    # The listing is the receipt, and the argument is a WORD the command reads
+    # (`read`), never model text -- so no echo, and no prompt to consume.
+    # `desktop_destination` is deliberately UNSET, following `/mobile` above: the
+    # desktop's affordance for this is its own sidebar control, and a
+    # destination the renderer has no adapter for is an offered-but-broken row.
+    #
+    # 50 cells, inside the /help wrap budget (74 at 80 columns). The word
+    # `notifications` is long enough that the description has to stay short or
+    # the composed row wraps and the tail lands in the glyph gutter.
+    #
+    # THE VERB IS `read`, and neither rejected alternative is spelled here
+    # (design round 1, D1): `clear` collides with `/clear` on the one surface a
+    # user reads BEFORE typing, and `all` is content-free next to the command's
+    # own name while over-claiming the scope -- this clears the completions the
+    # app paints, not everything unseen on the machine. The row taught both
+    # words and the command refuses both by name, which is how a user learns a
+    # vocabulary it then rejects. The receipt below says "marks … read", so the
+    # row and the answer now use one verb for one act.
+    SlashCommand(
+        "notifications",
+        "Unread completions; read marks them read",
+        arguments=ArgumentMode.OPTIONAL,
+        # The vocabulary is one word (`read`). Declared `WORD` rather than
+        # `NONE` because the trailing text IS read by the handler, which is the
+        # criterion `ArgumentShape` states: a second word is refused by name
+        # rather than silently run as the marking form.
+        argument_shape=ArgumentShape.WORD,
+    ),
+    # Uses this computer's Radient login and user service. The final setup or
+    # status notice is its receipt, so the command has no model-facing echo.
+    #
+    # NOT offered on the desktop: `desktop_destination` is deliberately unset,
+    # which keeps it out of `command_catalogue()` and therefore out of the
+    # command palette and the slash popup. It previously advertised
+    # `radient.mobile`, a destination the renderer has no adapter for, so the
+    # command was fully discoverable and then dead-ended in an error naming an
+    # internal id (code review 8, design D4, UX U8).
+    #
+    # Offered-but-broken is the worst of the three options. The remaining two
+    # are to build it or to withhold it, and building it is not a remediation:
+    # phone provisioning has no proxy behind `/v1/desktop/radient` (which
+    # serves account, billing, usage and agent catalogue only), so a desktop
+    # host would have to invent an upstream contract. The terminal command is
+    # untouched and still does the whole job.
+    SlashCommand("mobile", "Radient phone access: status, enable, stop, billing"),
+    # THE SECOND "this machine's connectivity" command, and the reason it sits
+    # beside `/mobile`. One grouped command with a declared vocabulary rather
+    # than a word per verb: a mesh has several verbs that are variations of one
+    # noun (ls/show/status/peers), and the argument picker enumerates them with a
+    # line of help each, which one truncating `/help` row cannot.
+    #
+    # ``echo=False`` — the listing or the receipt IS the answer, the rule
+    # `/approvals` and `/rename` follow.
+    #
+    # NOT offered on the desktop in this pass, for `/mobile`'s reason and not by
+    # oversight: `desktop_destination` is deliberately unset. The tab that WILL
+    # show networks and devices is the node graph ``docs/design/mesh-ui.md``
+    # §2.8 records, and it is not a renderer over a slash command; advertising a
+    # destination with no adapter behind it is the exact offered-but-dead
+    # failure the `/mobile` entry above documents.
+    #
+    # Every verb runs through the CLI's own authenticated paths (the family the
+    # agent guide drives) rather than a second implementation inside the TUI: the
+    # guards, the epochs and the audit lines live there, and a TUI that re-derived
+    # them would be a second answer to "what does disconnect do".
+    SlashCommand(
+        "network",
+        "Networks, peers, and this device's mesh state",
+        arguments=ArgumentMode.OPTIONAL,
+        argument_shape=ArgumentShape.SUBCOMMAND,
+        subcommands=NETWORK_SUBCOMMANDS,
+    ),
+    # The listing (or the masked paste prompt) is the receipt. The argument is
+    # a KEY NAME, never the secret, so echoing it would only restate the
+    # notice that already names what was stored or forgotten.
+    SlashCommand(
+        "credential",
+        # Describes the GESTURE, and describes it FIRST. The old copy ("paste is
+        # masked") named only the clipboard route, so the operator who TYPED the
+        # secret — the obvious human gesture — had no reason to expect it to
+        # work, and in fact it did not: the line fell through to this command
+        # with the secret as its argument.
+        #
+        # THE LEAD IS LOAD-BEARING, not a style choice. The picker ellipsizes the
+        # description's TAIL, and measured on the real app it keeps ~47
+        # characters at 100 columns and fewer at 80 — the previous copy rendered
+        # as "Hand the agent a secret it can use but never re…", dropping its
+        # own verb. So the two words that tell the operator the mode exists
+        # ("Type or") have to come before the guarantee, because the guarantee is
+        # the half that survives cropping either way.
+        #
+        # AND IT IS SHORT ENOUGH TO SURVIVE. The first attempt at this copy still
+        # cropped before its own promise at EVERY width measured, 120 included
+        # ("…can use but never rea…" — a truncated reassurance dangling mid-word,
+        # which an operator completes wrongly). Measured, not estimated: the row
+        # keeps ~31 cells at 60 columns and ~47 at 100, and the budget is not
+        # monotonic in width because the transcript gutter indents it more as the
+        # terminal grows (design round 1, D5; QA round 1, Q2). At 44 cells this
+        # one paints whole from 80 columns up and still leads with the gesture
+        # everywhere below that. The SPACE is named because it is what arms the
+        # mode and nothing else on screen says so (UX round 1, U5).
+        "Type or paste a secret after a space; masked",
+        aliases=("cred",),
+        arguments=ArgumentMode.OPTIONAL,
+        # ANY, and this row is the reason the shape vocabulary needed a third
+        # entry in its exception list: the command route REFUSES hand-typed text
+        # and names the masked form instead ("Enter credentials in the masked
+        # credential form, not command text"), so the text after the word belongs
+        # to this command and must never be planned as PROSE by another path.
+        #
+        # The default `none` said the opposite — "no source at all, so text after
+        # the word is a message" — and that made the published fact false in the
+        # unsafe direction: the messages endpoint's admission rule agreed with it
+        # and admitted a whole-draft `/credential <secret>` as a MESSAGE, so a
+        # client whose composer plans that draft as prose posted a raw credential
+        # to the model. Measured on the released code: `/credential <canary>` and
+        # `/cred <canary>` reached a transcript as a `type=message, role=user`
+        # record — the whole-draft forms this shape now refuses.
+        #
+        # ANY rather than WORD because the refusal is about the text, not its
+        # token count: a secret is arbitrary text, and a single-token shape would
+        # leave `/credential my pass phrase` admitted as a message — the same leak
+        # for the multi-token case. The INLINE form is the composer's own capture
+        # route rather than this predicate's subject, so `please /credential
+        # <secret>` stays a message here by the whole-draft rule — measured, and
+        # pinned in `MESSAGE_DRAFTS`.
+        argument_shape=ArgumentShape.ANY,
+        desktop_destination="session.credential",
+    ),
+    # NOT an echo. `/team <name> <request>` does reach the model, but as
+    # the request text itself via `_submit_prompt`, which already writes
+    # the user row. Echoing the slash line would duplicate it. Bare
+    # `/team` is a listing and the listing is the receipt.
+    SlashCommand(
+        "team",
+        "List teams, chart a team's org, or send a request to a team's manager",
+        aliases=("teams",),
+        arguments=ArgumentMode.OPTIONAL,
+        # The first token is a ROSTER NAME with free text after it, which is a
+        # different fact from "the space opens a list" (see the field).
+        name_argument=True,
+        # The request AFTER the team name is a prompt the manager is given, so an
+        # inline `/team` reassembles to the front (name from the autofill, the
+        # draft as the request) rather than eating the draft as the name.
+        consumes_prompt=True,
+        # Name AND request are this command's own argument: `/team ops fix this`
+        # is the team command, while a draft that merely opens with the word is
+        # prose. See the field docstring.
+        prefixes_text=True,
+        # ANY, not the NONE default: the command owns its trailing text
+        # whatever it says (see ArgumentShape's precedence note).
+        argument_shape=ArgumentShape.ANY,
+        desktop_destination="session.team",
+    ),
+    # Same echo reasoning as `/team`, which this command mirrors surface for
+    # surface: bare `/agent` is a listing (the listing is the receipt), a
+    # named attach prints a notice, and `/agent <name> <message>` reaches the
+    # model as the MESSAGE via `_submit_prompt`, which writes the user row.
+    # This is the USER-driven way to adopt a role/specialist mid-session; the
+    # `agent` TOOL is the model-driven way to author and inspect them — two
+    # surfaces over one registry, not a collision.
+    SlashCommand(
+        "agent",
+        # D4: "agents", standardizing the noun with the listing header and the
+        # attach/detach notices rather than saying "agent profiles" here.
+        "List agents, switch an agent's class, or speak to this session as one",
+        aliases=("agents",),
+        arguments=ArgumentMode.OPTIONAL,
+        # Same name slot as `/team`, whose every surface this mirrors.
+        name_argument=True,
+        # The message AFTER the agent name is a prompt the persona is given, so
+        # an inline `/agent` reassembles to the front like `/team`.
+        consumes_prompt=True,
+        # Name AND message are this command's own argument, exactly as `/team`.
+        prefixes_text=True,
+        # ANY, not the NONE default: the command owns its trailing text
+        # whatever it says (see ArgumentShape's precedence note).
+        argument_shape=ArgumentShape.ANY,
+        desktop_destination="session.agent",
+    ),
+    # The projects primitive: one entry with a RESERVED subcommand vocabulary
+    # (``PROJECT_SUBCOMMANDS``) beside the registry, the `/network` precedent.
+    #
+    # NOT an echo: the listing or the receipt IS the answer, and nothing here is
+    # words the model is told — the project TOOL is how the model writes project
+    # rows, while this surface is the operator's own list/show/new/link/delete.
+    # Same reasoning as `/team` and `/usage` in `ECHO_POLICY`.
+    #
+    # ``arguments=OPTIONAL`` so bare `/project` lists (matching `/team`), and
+    # ``argument_shape=SUBCOMMAND`` + its own vocabulary so `/project delete x`
+    # is the command (the route's validator and the desktop catalogue both read
+    # the words through `command_argument_words`) while `/project delete this
+    # thing` stays prose (the shape's two-token cap, `autocomplete.py`).
+    #
+    # ``desktop_destination="project"`` and DELIBERATELY not in
+    # ``server/utils/desktop_commands.OWNER_COMMANDS``: the desktop renders
+    # `/project` as a presentation-only native action (the renderer's Projects
+    # panel/dialogs), never as an owner-side command (design §5.2).
+    SlashCommand(
+        "project",
+        "Track workstreams: list, show, new, delete, link, unlink",
+        arguments=ArgumentMode.OPTIONAL,
+        argument_shape=ArgumentShape.SUBCOMMAND,
+        subcommands=PROJECT_SUBCOMMANDS,
+        desktop_destination="project",
+    ),
+]
+
+
+def slash_command_for(text: str) -> SlashCommand | None:
+    """The registry entry a typed line invokes, or ``None`` if nothing matches.
+
+    Resolves through :attr:`SlashCommand.names`, so an alias answers with the
+    same entry as its primary name — ``/quit`` must not get a different echo
+    policy from ``/exit`` just because it was spelled the other way.
+
+    Matching is case-insensitive because registry names are lowercase and this
+    is the ONE resolver both the echo permission and
+    :meth:`OperatorApp._run_slash_command`'s dispatch read. Only one function
+    ever decides what a typed word means, so ``/Usage`` cannot echo as one
+    command and run as another.
+    """
+    token = text.split(maxsplit=1)[0].lower() if text.strip() else ""
+    if not token.startswith("/"):
+        return None
+    name = token[1:]
+    return next((entry for entry in SLASH_COMMANDS if name in entry.names), None)
+
+
+def command_prefixes_text(spec: SlashCommand) -> bool:
+    """Whether text typed after ``spec``'s word is an argument the command owns.
+
+    The union of the two vocabularies a host can follow the word with: free text
+    destined for a model (``consumes_prompt``) and a value chosen from a list
+    (``prefixes_text``, which the desktop carries for exactly that reason). One
+    predicate, read by the messages endpoint's admission test and by the desktop
+    composer's planner.
+
+    It exists so the route and the planner cannot answer "is this trailing text
+    the command's argument" differently. That second decision is a named defect
+    class here: the composer decided with the caret in hand while the endpoint
+    decided on the leading word, so a prose draft could be planned as prose and
+    then refused by the route forever — a refusal no resend clears.
+
+    The TWO halves only. A command's text can also be one the desktop VALIDATES
+    or FORWARDS without either a prompt or a list — ``/mcp logout`` is a
+    subcommand, ``/login openai`` a provider id — and that third source is
+    :attr:`SlashCommand.argument_shape`, read by
+    :func:`command_argument_is_used`. This predicate stays the composer's
+    vocabulary on its own: a caller asking "can I complete text here inline"
+    wants exactly these two.
+    """
+    return spec.consumes_prompt or spec.prefixes_text
+
+
+def _is_single_word(args: str, words: tuple[str, ...]) -> bool:
+    """One whitespace-free token, optionally drawn from ``words``.
+
+    ``words`` empty means "any single token" — the published reading of an empty
+    ``argument_words``. The vocabulary is a parameter rather than a second lookup
+    so this arm and the two below cannot disagree with the catalogue about which
+    words a shape accepts: both read :func:`command_argument_words`.
+    """
+    parts = args.split()
+    if len(parts) != 1:
+        return False
+    return not words or parts[0] in words
+
+
+def command_argument_words(spec: SlashCommand) -> tuple[str, ...]:
+    """The vocabulary a shape's first token must come from; empty means any word.
+
+    THE ONE derivation, read by the validators below AND by the desktop
+    catalogue's ``argument_words``, so the word a renderer accepts and the word
+    this endpoint accepts cannot drift. A shape whose vocabulary is live or
+    elsewhere — the provider registry, the MCP subcommands — is resolved HERE,
+    lazily, for the same reason ``slash_commands`` imports no provider SDK at
+    module scope: this is the module every host imports first.
+    """
+    if spec.argument_shape is ArgumentShape.PROVIDER:
+        from local_operator.providers.registry import known_provider_ids
+
+        return known_provider_ids()
+    if spec.argument_shape is ArgumentShape.SUBCOMMAND:
+        # A row's OWN vocabulary wins when it declares one, and the fallback is
+        # MCP's — resolved lazily at the same place it always was, so `/mcp` is
+        # unchanged by the field's existence. This branch is the ONE place a
+        # declared vocabulary enters the wire: the route validates against it and
+        # the desktop catalogue publishes it, both through this call.
+        if spec.subcommands:
+            return tuple(sorted(spec.subcommands))
+        from local_operator.session.frontend_state import MCP_SUBCOMMANDS
+
+        return tuple(sorted(MCP_SUBCOMMANDS))
+    if spec.argument_shape is ArgumentShape.REMOTE_PEER:
+        # Published as a vocabulary too, because the picker and the desktop's
+        # argument list both persist it; resolved from the OFFLINE member lists
+        # (``network/peers.py``) rather than from the relay, so an install with
+        # no relay still offers the peers it knows. Empty on a device with no
+        # networks, which is a true statement rather than a failure.
+        from local_operator.network.peers import known_peer_names
+
+        return known_peer_names()
+    if spec.name == "session":
+        return (SESSION_COPY_FLAG,)
+    return ()
+
+
+def _is_provider(args: str) -> bool:
+    """Whether ``args`` is one token naming a provider THIS INSTALL knows.
+
+    The command route's own lookup (``get_provider_definition``, which resolves
+    legacy aliases too) reached through the vocabulary the catalogue publishes,
+    so ``/login openai`` and ``/login zzz`` get one answer on both paths —
+    including for an alias, which a hand-listed vocabulary would have missed.
+    """
+    from local_operator.providers.registry import get_provider_definition
+
+    return get_provider_definition(args.strip()) is not None
+
+
+def _is_remote_peer(args: str) -> bool:
+    """``remote <peer>`` — or the legacy single word this shape still owns.
+
+    Three accepted forms and one refusal, and the LEGACY half is load-bearing
+    rather than lenient: ``/new <word>`` is the desktop's new-session picker
+    selection (``selected=args``), so a predicate that demanded the two-token
+    form would plan the operator's own ``/new foo`` as PROSE. The superset is
+    written down here rather than left to a reader to infer from ``WORD``.
+
+    * ``<peer>`` — the legacy single token, any non-empty word (``WORD``'s rule:
+      the picker owns the vocabulary, the predicate does not second-guess it).
+    * ``remote <peer>`` — the canonical form, case-folded on the keyword.
+    * ``remote <peer>#<id>`` — the hover-card form: the id is carried after a
+      ``#`` so a name that collides across two networks is still addressable,
+      and the token is ONE word so the shape's token count cannot depend on
+      whether the user disambiguated.
+
+    A THIRD token is prose again (``/new remote devon and then…``), which is the
+    same boundary ``_is_mcp_invocation`` draws and the reason this is a shape
+    rather than ``ANY``. The peer name itself is NOT resolved here: admission
+    answers "is this text this command's argument", and a name this device does
+    not know is the HANDLER's refusal with its own sentence — a predicate that
+    refused it would answer a question it has no sentence for.
+    """
+    parts = args.split()
+    if not parts or len(parts) > 2:
+        return False
+    if len(parts) == 1:
+        return True
+    return parts[0].casefold() == "remote"
+
+
+def _is_mcp_invocation(args: str, words: tuple[str, ...]) -> bool:
+    """``<subcommand> [name]`` — the shape the MCP setup form exists for.
+
+    The command route's own parse, moved here so the route and the admission
+    test cannot drift: at most two tokens, the first a real subcommand (from the
+    published vocabulary), the second a server name. Anything else is prose, which
+    is what keeps ``/mcp logout seems to cause a crash`` (the operator's own
+    draft) a message.
+    """
+    from local_operator.mcp.config import SERVER_NAME_RE
+
+    parts = args.split()
+    if not parts or len(parts) > 2 or (words and parts[0] not in words):
+        return False
+    return len(parts) == 1 or bool(SERVER_NAME_RE.fullmatch(parts[1]))
+
+
+def command_argument_is_used(spec: SlashCommand, args: str) -> bool:
+    """Whether the desktop USES ``args`` as ``spec``'s argument — the ONE answer.
+
+    Read by the messages endpoint's admission test (``whole_draft_command``) and,
+    for the shapes the command route validates, by that route itself
+    (:func:`command_argument_refusal`), so "is this trailing text this command's
+    argument" has one derivation rather than one per call site.
+
+    Three sources, in the order they are asked: free text destined for a model
+    (``consumes_prompt``), a value chosen from a list (``prefixes_text``), and the
+    shape the entry declares (``argument_shape``) for text the desktop validates
+    or forwards. A blank ``args`` is the command itself, which is why the first
+    test is emptiness rather than a shape.
+
+    WHY THE SHAPE IS A THIRD SOURCE RATHER THAN A WIDENING OF THE FIRST TWO, and
+    it is the defect this predicate was narrowed to avoid: the two booleans
+    answer "can the composer COMPLETE this text inline", and the desktop's own
+    command route consumes more than that. ``/login openai``, ``/mcp logout``,
+    ``/rename my thing``, ``/move ~/x`` and ``/usage on`` are all whole-draft
+    controls the desktop runs today, and refusing only the completable two would
+    leave each of them accepted here and planned as a command by the composer —
+    a paid model turn for a control, which the guard exists to prevent.
+
+    The SHAPE is what keeps a sentence a message: ``/usage on`` is a selector
+    word while ``/usage more prose`` is a sentence, ``/mcp logout`` is a valid
+    subcommand while ``/mcp logout seems to cause a crash`` is not.
+    """
+    if not args.strip():
+        return True
+    # The BOOLEANS FIRST, and they are the whole answer when either is true: the
+    # shape is the third source, asked only for text neither can describe. The
+    # boolean-carried rows declare ``ANY`` as well, so a consumer that reads this
+    # field alone (or ORs the three facts) reaches the same answer — and ``NONE``
+    # can never be misread as "the booleans decide".
+    if command_prefixes_text(spec):
+        return True
+    shape = spec.argument_shape
+    words = command_argument_words(spec)
+    if shape is ArgumentShape.ANY:
+        return True
+    if shape is ArgumentShape.WORD:
+        return _is_single_word(args, words)
+    if shape is ArgumentShape.PROVIDER:
+        return _is_provider(args)
+    if shape is ArgumentShape.SUBCOMMAND:
+        return _is_mcp_invocation(args, words)
+    if shape is ArgumentShape.REMOTE_PEER:
+        return _is_remote_peer(args)
+    return False
+
+
+def command_argument_refusal(spec: SlashCommand, args: str) -> str | None:
+    """The command ROUTE's own 422 sentence for ``args``, or ``None`` when it forwards them.
+
+    The route asks a narrower question than :func:`command_argument_is_used`:
+    "is this a WELL-FORMED argument", not "would this text have been a control".
+    Only the two shapes the route has ever validated answer, each with the
+    sentence it has always used, and both decisions come from the same per-shape
+    validators — so the route cannot start refusing a text the admission rule
+    accepts, nor the reverse.
+
+    The shapes it does NOT cover are deliberate rather than forgotten: for a
+    SELECTOR the route forwards whatever it is given (``selection=args``), and
+    tightening that here would make ``/usage more prose`` a 422 on the command
+    endpoint, where today it opens the panel. That asymmetry is stated once, in
+    ``ArgumentShape``, rather than restated per call site.
+    """
+    if not args.strip():
+        return None
+    if spec.argument_shape is ArgumentShape.PROVIDER and not _is_provider(args):
+        return "Choose a provider in the authentication panel"
+    if spec.argument_shape is ArgumentShape.SUBCOMMAND and not _is_mcp_invocation(
+        args, command_argument_words(spec)
+    ):
+        # The MCP sentence is the family's OWN — it names the form that exists for
+        # it. A row with a DECLARED vocabulary gets a sentence that names its
+        # words instead, because telling a `/network git push` author to use the
+        # MCP setup form is a refusal that names a surface they are not in.
+        if spec.subcommands:
+            return "Use " + ", ".join(command_argument_words(spec))
+        return "Use the MCP setup form for configuration and secret references"
+    if spec.argument_shape is ArgumentShape.REMOTE_PEER and not _is_remote_peer(args):
+        # One sentence, and it states the FORM rather than listing peers: the
+        # list is the picker's to paint (it has the row budget), and a refusal
+        # that enumerated a device's peers would be a second rendering of the
+        # catalogue in a 422 body.
+        return "Use /new remote <peer> — or /new for a session on this device"
+    return None
+
+
+#: The forms the unknown-flag refusal names, per command — the flag spelled
+#: beside words the user can actually type, so the sentence teaches the vocabulary
+#: rather than only complaining about what it received.
+#:
+#: The clause after ``sets it`` NAMES the flags instead of giving each its own
+#: verb, and that is a budget decision rather than a wording preference: four
+#: flags now share a single notice row, and ``--clear/--done/--history`` is 24
+#: cells where three verb clauses are 45 — over budget by the width of the row
+#: itself. The verbs live where there is room for them and where the user is
+#: looking when they need one: the palette row reads "Set the goal and start
+#: work; /goal --clear clears it", and each picker row spells its own action
+#: ("Clear the standing goal", "Mark the standing goal done"). So the round-2
+#: pin (D5, UX U7, reviewer NIT-5) still holds — the sentence names no flag the
+#: neighbourhood does not also describe — while staying on ONE painted row.
+#:
+#: The rest of the sentence is spelled to the WRAP BUDGET rather than to the
+#: roomier "sets a goal": the refusal paints inside a notice whose body budget at
+#: an 80-column terminal is 70 cells, and the ``unknown flag <token> — `` prefix
+#: spends 22 of them on a ``--stop``-shaped token. "sets a goal" is 4 cells
+#: longer than "sets it", which puts the sentence at 71: it then wraps with the
+#: pronoun ALONE on the second row — the shape D5 captured, and the reason the
+#: shorter clause was chosen rather than D5's own three-word suggestion, which
+#: dangles a two-word tail in the same place. As written the sentence is 67 cells
+#: for ``--stop`` and 69 for ``--clearx``: one painted row at 80 columns for
+#: both, measured through a real ``NoticeBlock``.
+_FLAG_FORMS: dict[str, str] = {
+    "goal": "/goal <text> sets it, --clear/--done/--history",
+    "loop": "/loop <goal> loops toward a goal, /loop <n> runs n turns, /loop --stop cancels",
+}
+
+
+def unknown_flag_refusal(command: str, arguments: str) -> str | None:
+    """The refusal for a BARE ``--token`` that names no flag of ``command``.
+
+    Two flag vocabularies are now taught side by side — ``--clear`` unsets the
+    goal, ``--stop`` ends the loop — so reaching for the wrong one is the
+    expected mistake rather than an exotic one. Under the whole-argument flag
+    rule (`session/goal.py::GOAL_FLAG_ARGS`,
+    `session/goal_loop.py::LOOP_CLEAR_ARGS`)
+    that mistake was not refused at all: it became the VALUE. ``/goal --stop``
+    stored ``--stop`` as the standing objective and submitted a turn carrying it,
+    and ``/loop --stop now`` started a paid goal-mode loop toward that literal
+    text (round 1: UX U6, reviewer NIT-5).
+
+    Deliberately NARROW, and the narrowness is the contract: only a whole-argument
+    token is treated as a flag ATTEMPT. ``/goal --clear the flaky job`` keeps its
+    tail and stays an objective, which is the same whole-argument rule the flags
+    themselves are matched by — one rule, so `--clear`'s meaning cannot depend on
+    which side of an arbitrary word count it falls.
+
+    Returns ``None`` for every command that declares no flags, so a host may call
+    this unconditionally on its argument path.
+    """
+    # Imported here rather than at module scope: this module is the registry every
+    # host imports, and the vocabularies live in the session layer it should not
+    # pull in at import time.
+    from local_operator.session.goal import GOAL_FLAG_ARGS
+    from local_operator.session.goal_loop import LOOP_CLEAR_ARGS, LOOP_STOP_ARGS
+
+    known: frozenset[str] | None = {
+        # EVERY flag `/goal` honours, not just the clearing ones: this map is what
+        # decides whether a bare token is refused as an unknown flag, so a new
+        # flag of this command that is not in it is refused — which is the loud,
+        # correct failure, and the reason the set is imported rather than listed.
+        "goal": GOAL_FLAG_ARGS,
+        # `status` is a WORD the runtime loop branch answers with its state
+        # block, not a flag — accepted here so the refusal does not name the
+        # forms and then contradict itself on the one word it already honours.
+        "loop": LOOP_STOP_ARGS | LOOP_CLEAR_ARGS | {"status"},
+    }.get(command)
+    if known is None:
+        return None
+    token = arguments.strip()
+    if not token.startswith("--") or token.lower() in known:
+        return None
+    if any(char.isspace() for char in token):
+        # Not a bare token: this is free text that happens to open with dashes.
+        return None
+    return f"unknown flag {token} — {_FLAG_FORMS[command]}"
+
+
+def whole_draft_command(text: str) -> tuple[SlashCommand, str] | None:
+    """The command a WHOLE draft invokes, or ``None`` when the draft is PROSE.
+
+    The ONE answer to "would this text have been a control rather than a
+    message", stated as the whole-draft branch of the composer's own rule
+    (``slash-submit.ts``): a command claims a draft only when the draft IS the
+    command — its word, plus (for a command that takes one) the argument that
+    follows on the same line.
+
+    A draft containing a NEWLINE is never a whole-draft command, and that is
+    load-bearing rather than incidental. The composer decides per LINE with the
+    CARET in hand: a body that opens with a command word is prose there whenever
+    the caret is off the command line (QA round 2 Q4's shape), so this endpoint,
+    which has no caret, reads any newline as prose rather than trying to guess a
+    line.
+
+    WHY THAT IS THE RIGHT RELAXATION even though a trailing newline can be a
+    `whole` plan on the current consumer: a `whole` plan runs the command IN the
+    composer and never posts the draft here, so accepting it is unreachable in
+    practice and cannot turn a control into paid chat. Measured both ways —
+    round 2's review drove the composer head (`fix/slash-prose-and-highlight`,
+    which decides from this wire field) and measured `whole` for a command word
+    followed only by a newline (`/usage`, `/compact`, `/login openai`, `/mcp
+    logout`) and for the whitespace-only tails (spaces, a blank line, a CRLF); the
+    older planner on `main` plans `send` for those same drafts at an end-of-draft
+    caret, which is exactly the refusal this rule removes. Both hosts are served
+    by accepting them, and neither is served by the earlier "interior newline
+    only" test, which sent them in opposite directions.
+
+    Whitespace that is not a newline still does not make prose: leading and
+    trailing spaces are stripped, so `  /compact` and `/compact   ` are the
+    command, because neither turns the draft into two lines.
+
+    Anything that is not a whole-draft command is accepted as a message.
+    """
+    if "\n" in text:
+        return None
+    stripped = text.strip()
+    if not stripped:
+        return None
+    # The SAME boundary the tokenizer uses. `slash_command_for` splits a line on
+    # arbitrary whitespace, so cutting on a LITERAL space here read
+    # `/usage\rfix it` as `(usage, "it")` — one WORD-shaped token, therefore a
+    # 422 — while both composers read it as `/usage` plus the two-token argument
+    # `fix it` and plan `send`. Planned prose and refused here is the
+    # permanent-refusal class.
+    #
+    # THAT FIX MOVES A WHOLE CLASS, not just the `\r` case, and the class is
+    # stated so it is not rediscovered: ANY whitespace separator is now the
+    # boundary, so a tab-separated draft decides exactly as the SAME draft with a
+    # space does. Measured over 294 such drafts (every registry name and alias ×
+    # six argument shapes): all 294 agree with their space form, and 48 of them
+    # CHANGED decision — 36 refused→prose and 12 prose→refused. Both directions
+    # are corrections toward what the other host plans, which is why the count is
+    # not the argument. The twelve are the Owner-dispatched commands
+    # (`/move\tsome prose`): the old split cut at the first LITERAL space, so its
+    # "argument" was the word `prose` alone, the booleans said "not for me", and a
+    # draft both composers run as `/move` with `some prose` was admitted as chat.
+    # The thirty-six are the reverse: it read the whole draft as one WORD with an
+    # argument it could not see, and refused `/usage\tsome prose` and
+    # `/mcp logout\tand then`, which both composers plan `send`. One boundary, two
+    # hosts, one answer.
+    parts = stripped.split(None, 1)
+    word = parts[0]
+    rest = parts[1] if len(parts) == 2 else ""
+    if not word.startswith("/"):
+        return None
+    spec = slash_command_for(word)
+    if spec is None:
+        return None
+    if not command_argument_is_used(spec, rest):
+        return None
+    return spec, rest
+
+
+def primary_slash_name(command: str) -> str:
+    """``command`` as its registry PRIMARY name; unchanged when nothing matches.
+
+    The bare-word counterpart to :func:`slash_command_for`, for the dispatchers
+    that receive a command NAME off the wire rather than a typed line. Both
+    routed dispatchers (``OperatorApp._slash_result`` and the detached
+    runtime's) match string literals, so without this an ALIAS — ``/title``,
+    ``/models``, ``/recall`` — falls past every branch and is answered with an
+    unsupported-command refusal for a command the owner in fact implements.
+    That is the same bug ``slash_command_for`` was introduced to fix on the
+    LOCAL path, which had already shipped once: the registry advertises the
+    alias, the picker completes it, and running it says "unknown command".
+
+    Unknown words pass through untouched so the caller's own fallback still
+    sees what was actually asked for.
+    """
+    entry = slash_command_for(f"/{command}")
+    return entry.name if entry is not None else command

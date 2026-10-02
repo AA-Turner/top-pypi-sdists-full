@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 import pytest
@@ -13,6 +14,7 @@ from lib_layered_config.adapters.dotenv.default import (
 from lib_layered_config.adapters.dotenv.default import (
     _parse_dotenv as parse,
 )
+from lib_layered_config.adapters.file_loaders import structured as structured_module
 from lib_layered_config.domain.errors import InvalidFormatError
 from tests.support.os_markers import os_agnostic
 
@@ -150,6 +152,50 @@ def test_dotenv_loader_explicit_path_missing_returns_empty(tmp_path: Path) -> No
     data = loader.load(dotenv_path=str(missing))
     assert data == {}
     assert loader.last_loaded_path is None
+
+
+@os_agnostic
+def test_dotenv_loader_rejects_file_over_size_cap(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(structured_module, "MAX_CONFIG_FILE_BYTES", 20)
+    env_file = tmp_path / ".env"
+    # Bytes, not text: write_text turns "\n" into "\r\n" on Windows, which changes the size.
+    env_file.write_bytes(b"A=1\n" + b"#" * 17)
+    assert env_file.stat().st_size == 21
+    loader = DefaultDotEnvLoader()
+    with pytest.raises(InvalidFormatError):
+        loader.load(str(tmp_path))
+
+
+@os_agnostic
+def test_dotenv_loader_accepts_file_at_size_cap(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    cap = 20
+    monkeypatch.setattr(structured_module, "MAX_CONFIG_FILE_BYTES", cap)
+    prefix = b"A=1\n"
+    env_file = tmp_path / ".env"
+    # Bytes, not text: write_text turns "\n" into "\r\n" on Windows, which changes the size.
+    env_file.write_bytes(prefix + b"#" * (cap - len(prefix)))
+    assert env_file.stat().st_size == cap
+    loader = DefaultDotEnvLoader()
+    data = loader.load(str(tmp_path))
+    assert data["a"] == "1"
+
+
+@os_agnostic
+def test_dotenv_loader_explicit_path_directory_warns_and_returns_empty(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    directory = tmp_path / "config.env"
+    directory.mkdir()
+    caplog.set_level(logging.WARNING, logger="lib_layered_config")
+    loader = DefaultDotEnvLoader()
+    data = loader.load(dotenv_path=str(directory))
+    assert data == {}
+    assert loader.last_loaded_path is None
+    assert any(
+        record.message == "config_directory_skipped"
+        and record.__dict__.get("context", {}).get("path") == str(directory)
+        for record in caplog.records
+    )
 
 
 @os_agnostic

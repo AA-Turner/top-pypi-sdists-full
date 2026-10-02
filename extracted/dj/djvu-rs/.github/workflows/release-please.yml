@@ -1,0 +1,141 @@
+name: Release Please
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+  # actions: write lets the dispatch-publish-packages job below start
+  # publish-packages.yml via `gh workflow run` (workflow_dispatch).
+  actions: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      # Two passes of the same action, split by token.
+      #
+      # Pass 1 (GITHUB_TOKEN) creates the tag and the GitHub Release once a release
+      # PR is merged. It must stay on GITHUB_TOKEN: GitHub skips workflow runs for
+      # pushes authored by GITHUB_TOKEN, so the tag does NOT start publish.yml
+      # (`push: tags: ['v*']`). The publish job below publishes the crates instead;
+      # an App-authored tag would start publish.yml as well and publish twice.
+      #
+      # The same guard means the tag does not start publish-packages.yml either
+      # (PyPI + npm). workflow_dispatch is exempt from that guard (GitHub docs:
+      # "workflow_dispatch and repository_dispatch events always create workflow
+      # runs"), so the dispatch-publish-packages job starts it explicitly.
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          skip-github-pull-request: true
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      # Pass 2 (GitHub App token) opens and updates the release PR. A PR pushed by
+      # GITHUB_TOKEN gets its `pull_request` runs held for manual approval, so the
+      # required checks never start without a click. A PR pushed by an App starts
+      # them like any other PR. Dispatching ci.yml on the release branch does not
+      # help (#800): checks from a workflow_dispatch run are not linked to the PR.
+      #
+      # The App (contents, pull requests, issues: write) is installed on this repo;
+      # its client ID is the RELEASE_APP_CLIENT_ID variable and its private key the
+      # RELEASE_APP_PRIVATE_KEY secret. A short-lived token is minted per run, so
+      # nothing expires (a personal access token broke the 0.25.0 release).
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          skip-github-release: true
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  publish:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created }}
+    runs-on: ubuntu-latest
+    environment: crates-io
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Publish crates to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          crates=(
+            "djvu-zp:crates/djvu-zp/Cargo.toml"
+            "djvu-iff:crates/djvu-iff/Cargo.toml"
+            "djvu-bitmap:crates/djvu-bitmap/Cargo.toml"
+            "djvu-pixmap:crates/djvu-pixmap/Cargo.toml"
+            "djvu-bzz:crates/djvu-bzz/Cargo.toml"
+            "djvu-jb2:crates/djvu-jb2/Cargo.toml"
+            "djvu-iw44:crates/djvu-iw44/Cargo.toml"
+            "djvu-rs:Cargo.toml"
+          )
+
+          for entry in "${crates[@]}"; do
+            name="${entry%%:*}"
+            manifest="${entry#*:}"
+            version=$(sed -n 's/^version = "\(.*\)"/\1/p' "$manifest" | head -1)
+
+            if cargo info "$name@$version" --registry crates-io >/dev/null 2>&1; then
+              echo "$name $version already on crates.io — skipping."
+              continue
+            fi
+
+            cargo publish -p "$name" --no-verify
+            sleep 20
+
+            for i in $(seq 1 30); do
+              if cargo info "$name@$version" --registry crates-io >/dev/null 2>&1; then
+                echo "$name $version is live."
+                break
+              fi
+              if [ "$i" = 30 ]; then
+                echo "::error::$name $version did not appear on crates.io within 5 minutes"
+                exit 1
+              fi
+              echo "[$i/30] waiting for $name $version on crates.io..."
+              sleep 10
+            done
+          done
+
+  dispatch-publish-packages:
+    name: Dispatch publish-packages (PyPI + npm)
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created }}
+    runs-on: ubuntu-latest
+    steps:
+      # publish-packages.yml also listens for `push: tags:`, but the tag this
+      # workflow just created was pushed by GITHUB_TOKEN, so that push event never
+      # fires it (see the comment on the release-please steps above). Start it
+      # explicitly instead — workflow_dispatch is exempt from that guard, so this
+      # works with the job's own GITHUB_TOKEN and needs no personal access token.
+      - name: Trigger publish-packages.yml for ${{ needs.release-please.outputs.tag_name }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+          gh workflow run publish-packages.yml \
+            --repo "${{ github.repository }}" \
+            -f "tag=$TAG"

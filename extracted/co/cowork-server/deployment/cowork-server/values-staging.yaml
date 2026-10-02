@@ -1,0 +1,68 @@
+# Staging enables the ingress restriction first, and it is the only place it can
+# be rehearsed: cowork-server has no deployment in the dev namespace and PR
+# environments take base values only.
+#
+# The prerequisite outside this repo is now in place. `newdev-gha-runner` gets
+# `create networkpolicies` in this namespace from the `<env>-gha-runner-deploy`
+# role in Kubernetes-Foundational-Services. Without it the release fails and
+# --atomic rolls the whole deploy back, so confirm the runner chart was rolled
+# before merging a change here:
+#   kubectl --context newdev -n staging auth can-i create networkpolicies \
+#     --as=system:serviceaccount:infrastructure:newdev-gha-runner
+#
+# Watch both replicas stay Ready through the rollout, then run the forged-header
+# curl from a pod in another namespace. A port-forward cannot see this policy:
+# it enters the pod's network namespace and never crosses the veth where the
+# policy is enforced.
+networkPolicy:
+  enabled: true
+
+deployment:
+  ingress:
+    enabled: true
+    name: cowork-server
+    annotations:
+      nginx.ingress.kubernetes.io/enable-cors: "true"
+      nginx.ingress.kubernetes.io/cors-allow-origin: "https://console.staging.mindshub.ai, https://staging.mdb.ai, https://hub.staging.mindsdb.com"
+      nginx.ingress.kubernetes.io/auth-url: "http://auth.staging.svc.cluster.local:80/v1/authenticate/"
+    hosts:
+      - host: cowork.staging.mindshub.ai
+        enableMultiPath: true
+        paths:
+          # Narrowed from / to /api: the cowork-frontend chart owns / (static
+          # SPA) on this host; cowork-server owns the same-origin API prefix.
+          - path: /api
+            serviceName: cowork-server
+            servicePort: 80
+
+  extraEnvs:
+
+    - name: ENV
+      value: "staging"
+
+    - name: LOG_LEVEL
+      value: "WARNING"
+
+    # Org-mode identity enforcement. 'enforce': requests without identity
+    # headers are rejected with 401.
+    - name: COWORK_IDENTITY_ENFORCE
+      value: "enforce"
+
+    # Shows the organization picker. The expected-organization boundary refuses
+    # a mismatched tab whatever this says; see README.md.
+    - name: COWORK_ORGANIZATION_SWITCH_ENABLED
+      value: "true"
+
+    - name: COWORK_TURN_MINDS_BASE_URL
+      value: "https://api.staging.mindshub.ai/v1"
+
+    # Agent tool budgets — deployment-level DEFAULTS for users who never set
+    # the per-user setting (hosted has no Settings UI; inference cost lands on
+    # the operator). Uncommented values below equal the code defaults, so
+    # enabling them as-is is behavior-neutral; LOWER them to run hosted more
+    # conservatively. Changing these requires a pod restart (env is read once
+    # per process).
+    # - name: COWORK_DEFAULT_MAX_TOOL_ROUNDS
+    #   value: "50"
+    # - name: COWORK_DEFAULT_MAX_CONTINUATIONS
+    #   value: "5"

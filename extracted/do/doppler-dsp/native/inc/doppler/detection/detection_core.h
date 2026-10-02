@@ -1,0 +1,759 @@
+/**
+ * @file detection_core.h
+ * @brief Detection-theory utilities for the amplitude-ratio test statistic.
+ *
+ * The doppler detector forms the test statistic:
+ *
+ *   test_stat = peak_mag / noise_est
+ *
+ * With M-point coherent integration (dwell = M) and per-sample amplitude
+ * SNR `snr` (signal amplitude / noise amplitude, linear):
+ *
+ *   Under H0 (noise only):   test_stat ~ Rayleigh(1)
+ *   Under H1 (signal+noise): test_stat ~ Rice(a, 1),
+ *                            a = sqrt(2*M) * snr
+ *
+ * False-alarm probability (threshold-only, M-independent):
+ *
+ *   Pfa = exp(-eta^2/2)  =>  eta = sqrt(-2 ln Pfa)     (exact)
+ *
+ * Detection probability:
+ *
+ *   Pd = Q_1(a, eta)    (Marcum Q function, order 1)
+ *
+ * All functions are stateless and thread-safe.
+ */
+#ifndef DP_DETECTION_CORE_H
+#define DP_DETECTION_CORE_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/**
+ * @brief Marcum Q function Q_M(a, b) for integer M >= 1.
+ *
+ * Probability that a Rice(a, sigma=1) random variable exceeds b.
+ * For M=1: Q_1(a, b) = P(Rice(a,1) > b).  General integer M relates
+ * to the noncentral chi-squared CDF with 2M degrees of freedom.
+ *
+ * Computed via the Poisson-weighted chi-squared series (exact for M=1):
+ *
+ *   Q_M(a, b) = sum_{k=0}^inf  w_k * Q_{M+k}(0, b)
+ *
+ * where:
+ *   w_k       = exp(-u) * u^k/k!                    (u = a^2/2)
+ *   Q_n(0,b)  = exp(-v) * sum_{j=0}^{n-1} v^j/j!   (v = b^2/2)
+ *
+ * Each iteration advances both the Poisson weight and the chi-sum in O(1)
+ * using the recurrences w_{k+1} = w_k * u/(k+1) and
+ * Q_{n+1}(0,b) = Q_n(0,b) + exp(-v)*v^n/n!.
+ *
+ * The window is CENTRED on the Poisson mode k ~ u = a^2/2 and its half-width
+ * scales as 12*sqrt(u+1) + 60 terms, so the term count grows with `a` rather
+ * than being the fixed ~60 this comment used to claim: about 60 terms at
+ * a = 0, but ~187 at a = 15. That scaling is the whole point -- a Poisson(u)
+ * distribution's mass sits at k ~ u with spread ~sqrt(u), so a fixed window
+ * anchored at k = 0 misses it entirely once `a` is large, which is a real
+ * bug this code already carries a comment about (see marcum_q.c).
+ * Total cost: O(sqrt(u) + M).
+ *
+ * Special cases:
+ *   - a = 0:   Q_M(0, b) = exp(-b^2/2) * sum_{j=0}^{M-1} (b^2/2)^j/j!
+ *   - b <= 0:  Q_M(a, b) = 1.0
+ *
+ * @param m  Integration order; must be >= 1.
+ * @param a  Non-centrality parameter (signal strength).  a = 0 for H0.
+ * @param b  Threshold (same units as test_stat).
+ * @return   Q_M(a, b) in &#91;0, 1&#93;.
+ *
+ * @code
+ * >>> from doppler.detection import marcum_q
+ * >>> round(marcum_q(m=1, a=0.0, b=1.0), 5)  # P(Rayleigh>1) = exp(-.5)
+ * 0.60653
+ * >>> round(marcum_q(m=1, a=0.0, b=2.0), 5)   # exp(-2)
+ * 0.13534
+ * >>> round(marcum_q(m=2, a=0.0, b=2.0), 5)   # 3*exp(-2)
+ * 0.40601
+ * >>> round(marcum_q(m=1, a=2.0, b=1.0), 5)   # signal present (a=2)
+ * 0.91811
+ *
+ * @endcode
+ */
+double dp_marcum_q(int m, double a, double b);
+
+/**
+ * @brief Threshold eta for a given false-alarm probability.
+ *
+ * Exact closed-form inversion of Pfa = exp(-eta^2/2):
+ *
+ *   eta = sqrt(-2 * ln(pfa))
+ *
+ * The threshold is independent of dwell and SNR; it depends only on the
+ * desired Pfa.
+ *
+ * @param pfa  Desired false-alarm probability, in (0, 1).
+ * @return     Threshold eta > 0; NaN for @p pfa outside (0, 1).
+ *
+ * @code
+ * >>> from doppler.detection import det_threshold
+ * >>> round(det_threshold(pfa=1e-6), 4)
+ * 5.2565
+ *
+ * @endcode
+ */
+double dp_det_threshold(double pfa);
+
+/**
+ * @brief Detection probability for given per-sample amplitude SNR and dwell.
+ *
+ * Computes Pd = Q_1(a, eta) where a = sqrt(2 * dwell) * snr.
+ *
+ * At snr = 0, det_pd returns Pfa (the false-alarm rate, as expected for a
+ * noise-only input).  As snr or dwell increase, Pd approaches 1.
+ *
+ * @param snr        Per-sample amplitude SNR (signal / noise amplitude,
+ *                   linear).  snr = 0 gives Pd = Pfa.
+ * @param dwell      Coherent integration depth; must be >= 1.
+ * @param threshold  Test-stat threshold eta, e.g. from dp_det_threshold().
+ * @return           Detection probability in &#91;0, 1&#93;.
+ *
+ * @code
+ * >>> from doppler.detection import det_pd, det_threshold
+ * >>> thr = det_threshold(pfa=1e-6)
+ * >>> round(det_pd(snr=1.613, dwell=8, threshold=thr), 2)  # Pd 0.9
+ * 0.9
+ * >>> round(det_pd(snr=0.0, dwell=8, threshold=thr), 6)    # Pd = Pfa
+ * 1e-06
+ *
+ * @endcode
+ */
+double dp_det_pd(double snr, int dwell, double threshold);
+
+/**
+ * @brief Minimum dwell such that Pd >= pd_min for the given SNR and Pfa.
+ *
+ * Iterates dwell = 1, 2, ..., max_dwell, computing dp_det_pd() at each step.
+ * Returns the first dwell that satisfies the Pd requirement, or -1 if none
+ * is found within max_dwell iterations.
+ *
+ * @param snr        Per-sample amplitude SNR (linear).
+ * @param pd_min     Required detection probability, in (0, 1), e.g. 0.9.
+ * @param pfa        False-alarm probability, in (0, 1); used to derive eta.
+ * @param max_dwell  Search upper bound; prevents infinite loops for low SNR.
+ * @return           Minimum dwell >= 1, or -1 if not achievable or if
+ *                   either probability is outside (0, 1).
+ *
+ * @code
+ * >>> from doppler.detection import det_dwell
+ * >>> det_dwell(snr=0.5, pd_min=0.9, pfa=1e-6, max_dwell=256)
+ * 84
+ *
+ * @endcode
+ */
+int dp_det_dwell(double snr, double pd_min, double pfa, int max_dwell);
+
+/**
+ * @brief Minimum per-sample amplitude SNR achieving Pd >= pd_min.
+ *
+ * Binary search over SNR in &#91;0, hi&#93; where hi is doubled from 1.0 until
+ * det_pd(hi, dwell, threshold) >= pd_min.  64 bisection iterations yield
+ * ~1e-19 relative precision on the final interval.
+ *
+ * @param dwell   Coherent integration depth; must be >= 1.
+ * @param pd_min  Required detection probability, in (0, 1).
+ * @param pfa     False-alarm probability, in (0, 1); used to derive eta.
+ * @return        Minimum amplitude SNR >= 0; NaN if either probability is
+ *                outside (0, 1).
+ *
+ * @code
+ * >>> from doppler.detection import det_snr, det_pd, det_threshold
+ * >>> snr = det_snr(dwell=8, pd_min=0.9, pfa=1e-6)
+ * >>> round(snr, 3)
+ * 1.613
+ * >>> pd = det_pd(snr=snr, dwell=8, threshold=det_threshold(pfa=1e-6))
+ * >>> abs(pd - 0.9) < 1e-9   # det_snr inverts det_pd, to tolerance
+ * True
+ *
+ * @endcode
+ */
+double dp_det_snr(int dwell, double pd_min, double pfa);
+
+/* ── Non-coherent integration ────────────────────────────────────────────── */
+/*                                                                            */
+/* Non-coherent integration sums the squared magnitude of n_noncoh coherent  */
+/* "looks", each itself an n_coh-sample coherent integration.  The normalized */
+/* statistic R = sqrt(sum |z_k|^2 / noise) has, under H0, P(R > b) =          */
+/* marcum_q(n_noncoh, 0, b) (order-M central Marcum-Q), and under H1          */
+/* P(R > b) = marcum_q(n_noncoh, sqrt(2*n_coh*n_noncoh)*snr, b).  All three    */
+/* helpers reduce to their coherent (order-1) counterparts at n_noncoh = 1.   */
+
+/**
+ * @brief CFAR threshold eta_nc for a non-coherent detector of n_noncoh looks.
+ *
+ * Solves marcum_q(n_noncoh, 0, eta_nc) = pfa (the order-M central tail,
+ * monotone decreasing in eta_nc) by bisection.  For n_noncoh = 1 this is the
+ * exact closed form sqrt(-2 ln pfa) (== det_threshold).
+ *
+ * @param pfa       Per-test false-alarm probability in (0, 1).
+ * @param n_noncoh  Number of non-coherent looks; must be >= 1.
+ * @return          Threshold eta_nc on the normalized statistic R; NaN for
+ *                  @p pfa outside (0, 1).
+ *
+ * @code
+ * >>> from doppler.detection import det_threshold_noncoherent
+ * >>> from doppler.detection import det_threshold
+ * >>> round(det_threshold_noncoherent(pfa=1e-3, n_noncoh=4), 3)
+ * 5.111
+ * >>> det_threshold_noncoherent(pfa=1e-6, n_noncoh=1) == det_threshold(
+ * ...     pfa=1e-6)
+ * True
+ *
+ * @endcode
+ */
+double dp_det_threshold_noncoherent(double pfa, int n_noncoh);
+
+/* ── Gaussian test statistic ─────────────────────────────────────────────── */
+/*                                                                            */
+/* The helpers above size the amplitude-ratio detector, whose H0 law is       */
+/* Rayleigh. A different family of detectors in this tree threshold a         */
+/* statistic that is GAUSSIAN under H0 -- a lock metric block-averaged over   */
+/* enough looks for the CLT to hold. Those three (symsync's timing lock,      */
+/* dll's code lock, the carrier NDA lock) share one sizing chain, and it      */
+/* lives here so they cannot drift apart.                                     */
+/*                                                                            */
+/* Do NOT reach for dp_det_threshold() on a Gaussian statistic. It inverts       */
+/* Pfa = exp(-eta^2/2), the envelope law, and returns 4.9409 where            */
+/* dp_det_q_inv() returns 4.4172 at the same pfa = 5e-6 -- two plausible small   */
+/* numbers near 5, only one of which is a sigma count.                        */
+
+/**
+ * @brief Upper-tail quantile of the standard normal: the eta with Q(eta) = p.
+ *
+ * `Q(eta) = 0.5*erfc(eta/sqrt(2))`, so this is `sqrt(2)*erfcinv(2p)`.
+ * Everything below is expressed in it, and a caller thresholding its own
+ * zero-mean Gaussian statistic wants `det_q_inv(pfa) * sd_H0`.
+ *
+ * **Signed, and that matters.** Above the median the quantile is negative,
+ * which is exactly why dp_det_dwell_gauss()'s `Q_inv(pfa) - Q_inv(pd)` is a sum
+ * of two tails rather than a difference: every caller's `pd` is above 0.5.
+ * Clamping it to zero there halves the dwell without failing anything.
+ *
+ * @param p  Tail probability in (0, 1).
+ * @return   Quantile in H0 sigmas -- positive below the median, exactly 0 at
+ *           it, negative above. NaN for p outside (0, 1) -- not 0.0, which
+ *           is the median's quantile.
+ *
+ * @code
+ * >>> from doppler.detection import det_q_inv, det_threshold
+ * >>> round(det_q_inv(p=5e-6), 4)     # the carrier lock metric's 4.42 sigma
+ * 4.4172
+ * >>> round(det_q_inv(p=0.5), 4)      # the median
+ * 0.0
+ * >>> round(det_q_inv(p=0.99), 4)     # above it: NEGATIVE, by design
+ * -2.3263
+ * >>> round(det_threshold(pfa=5e-6), 4)   # the OTHER law -- not this one
+ * 4.9409
+ *
+ * @endcode
+ */
+double dp_det_q_inv(double p);
+
+/**
+ * @brief Looks a Gaussian statistic must average to separate H1 from H0.
+ *
+ * The classic sizing: with a per-look H0 variance @p var and an H1 mean
+ * @p mean (H0 mean zero), block-averaging `n` looks shrinks the H0 spread as
+ * `1/n`, and the smallest `n` whose H0 and H1 tails clear both budgets is
+ *
+ *   `n = var * ((Q_inv(pfa) - Q_inv(pd)) / mean)^2`
+ *
+ * `Q_inv(pd)` is negative for `pd > 0.5`, so the difference is the total
+ * separation both tails must fit inside.
+ *
+ * @param mean  H1 mean of one look, > 0 (H0 mean is taken as zero).
+ * @param var   H0 variance of one look, > 0.
+ * @param pd    Required detection probability, in (0, 1).
+ * @param pfa   Allowed false-alarm probability, in (0, 1) and below @p pd.
+ * @return      Looks needed, rounded up and clamped to >= 1; -1 on invalid
+ *              input.
+ *
+ * @code
+ * >>> from doppler.detection import det_dwell_gauss
+ * >>> det_dwell_gauss(mean=0.4, var=0.5, pd=0.99, pfa=1e-5)
+ * 136
+ * >>> det_dwell_gauss(mean=0.8, var=0.5, pd=0.99, pfa=1e-5)   # 2x mean
+ * 34
+ * >>> det_dwell_gauss(mean=0.0, var=0.5, pd=0.99, pfa=1e-5)   # no signal
+ * -1
+ *
+ * @endcode
+ */
+int dp_det_dwell_gauss(double mean, double var, double pd, double pfa);
+
+/**
+ * @brief Declare threshold for a Gaussian statistic sized by det_dwell_gauss.
+ *
+ * The crossover point that meets both budgets at once, in the statistic's own
+ * units:
+ *
+ *   `thresh = Q_inv(pfa) * mean / (Q_inv(pfa) - Q_inv(pd))`
+ *
+ * Independent of the variance and of the look count -- those set how many
+ * looks are needed to reach this point, not where it is.
+ *
+ * @param mean  H1 mean of one look, > 0.
+ * @param pd    Required detection probability, in (0, 1).
+ * @param pfa   Allowed false-alarm probability, in (0, 1) and below @p pd.
+ * @return      Threshold in the statistic's units; NaN on invalid input.
+ *
+ * @code
+ * >>> from doppler.detection import det_threshold_gauss
+ * >>> round(det_threshold_gauss(mean=0.4, pd=0.99, pfa=1e-5), 4)
+ * 0.2588
+ * >>> round(det_threshold_gauss(mean=0.8, pd=0.99, pfa=1e-5), 4)  # scales
+ * 0.5176
+ *
+ * @endcode
+ */
+double dp_det_threshold_gauss(double mean, double pd, double pfa);
+
+/**
+ * @brief EMA coefficient for a target estimator SNR (DC level in noise).
+ *
+ * Sizes a first-order EMA `y = (1-alpha)*y + alpha*x` that estimates a DC
+ * level from noisy i.i.d. measurements x. Per sample the estimator SNR
+ * (mean^2 / variance) is `snr_in`; the EMA improves it by its variance
+ * reduction `(2-alpha)/alpha`, so the output SNR is
+ * `snr_out = snr_in * (2-alpha)/alpha`. Solving for the coefficient:
+ *
+ *   alpha = 2 * snr_in / (snr_in + snr_out)      (SNRs linear)
+ *
+ * Returns 1.0 (no averaging) when snr_out_db <= snr_in_db. Typical inputs:
+ * a signal-free power reference |n|^2 is exponential (0 dB per sample); a
+ * lock signal at known C/N0 has per-look SNR from its coherent integration
+ * (minus squaring loss), and this picks the smoothing bandwidth that makes
+ * the lock decision variable meet a chosen decision SNR.
+ *
+ * @param snr_in_db   Per-sample estimator SNR, dB (mean^2 / variance).
+ * @param snr_out_db  Desired EMA-output estimator SNR, dB.
+ * @return            EMA coefficient alpha in (0, 1].
+ *
+ * @code
+ * >>> from doppler.detection import det_ema_alpha
+ * >>> det_ema_alpha(0.0, 0.0)      # no gain requested -> no averaging
+ * 1.0
+ * >>> round(1 / det_ema_alpha(0.0, 20.0), 1)   # 20 dB gain ~ 50 looks
+ * 50.5
+ * >>> round(1 / det_ema_alpha(10.0, 30.0), 1)  # same 20 dB gain, shifted
+ * 50.5
+ *
+ * @endcode
+ */
+double dp_det_ema_alpha(double snr_in_db, double snr_out_db);
+
+/**
+ * @brief Verify count: consecutive looks needed to compound to a budget.
+ *
+ * n consecutive independent looks at per-look probability p compound to
+ * ~p^n, so the smallest n with `p_look^n <= p_target` is
+ * `ceil(ln p_target / ln p_look)` (clamped to >= 1).
+ *
+ * That `~` is a BUDGET, and deliberately the conservative side of one: a
+ * consecutive-run detector's exact declare rate is `p^n (1-p)/(1-p^n)`
+ * (lockdet_core.h), which is lower, so sizing on p^n over-provisions n
+ * rather than under. The gap is ~p -- negligible where a detector is
+ * really sized, 10% at p = 0.1 -- so pick n here and predict what a
+ * caller will observe with dp_det_verify_delay().
+ *
+ * One function serves
+ * both sides of a lock detector (lockdet_core.h): the declare count from
+ * (per-look pfa, false-declare budget) and the drop count from (per-look
+ * miss rate 1 - pd, false-drop budget). Degenerate inputs resolve
+ * naturally: a target already met by one look returns 1; p_look >= 1
+ * can never compound below a smaller target and returns INT_MAX.
+ *
+ * @param p_look    Per-look probability (pfa or 1 - pd), in &#91;0, 1&#93;.
+ * @param p_target  Compound probability budget, in (0, 1).
+ * @return          Smallest verify count n with p_look^n <= p_target; -1
+ *                  for a probability outside its range.
+ *
+ * @code
+ * >>> from doppler.detection import det_verify_count
+ * >>> det_verify_count(1e-3, 1e-6)   # two 1e-3 looks reach 1e-6
+ * 2
+ * >>> det_verify_count(1e-3, 1e-9)
+ * 3
+ * >>> det_verify_count(0.5, 1e-3)    # drop side: pd = 0.5 per look
+ * 10
+ * >>> det_verify_count(1e-3, 0.5)    # budget already met -> 1
+ * 1
+ *
+ * @endcode
+ */
+int dp_det_verify_count(double p_look, double p_target);
+
+/**
+ * @brief Expected looks until a run of n consecutive successes completes.
+ *
+ * The mean waiting time of the consecutive-run process a lockdet verify
+ * counter implements: at per-look success probability p, the first run of
+ * n straight successes takes on average
+ *
+ *   `E[T]` = (1 - p^n) / (p^n * (1 - p))     looks,
+ *
+ * which is the declare latency bought by a verify count of n (multiply by
+ * the look period for time). Limits are handled exactly: p = 1 gives n
+ * (the run completes immediately), p = 0 gives infinity.
+ *
+ * @param p_look  Per-look success probability (e.g. pd), in &#91;0, 1&#93;.
+ * @param n       Run length (the verify count); clamped to >= 1.
+ * @return        Expected number of looks to the first length-n run; NaN
+ *                for @p p_look outside &#91;0, 1&#93;.
+ *
+ * @code
+ * >>> from doppler.detection import det_verify_delay
+ * >>> det_verify_delay(1.0, 8)             # certain hits: exactly n
+ * 8.0
+ * >>> round(det_verify_delay(0.5, 2), 6)   # 2 straight coin heads: 6
+ * 6.0
+ * >>> round(det_verify_delay(0.9, 8), 1)
+ * 13.2
+ *
+ * @endcode
+ */
+double dp_det_verify_delay(double p_look, int n);
+
+/**
+ * @brief Upper quantile of F(n, n) — the exact H0 law for a ratio test
+ *        whose noise reference is estimated from as many samples as the
+ *        signal sum.
+ *
+ * A chi-square threshold (det_threshold_noncoherent) prices a statistic
+ * normalised by a KNOWN noise power. When the noise power is instead
+ * estimated from n same-burst samples (the BurstDespreader lock test:
+ * sum Re^2 against sum Im^2), the ratio's tail fattens to F(n, n) and the
+ * chi-square gate realizes tens of times the priced pfa (41x at n = 16,
+ * pfa = 1e-3). This helper returns the exact gate:
+ * P(chi2_n / chi2_n > g) = I_{1/(1+g)}(n/2, n/2) = pfa, solved on the
+ * regularized incomplete beta — valid for every n >= 1, odd included.
+ * As n grows the estimate hardens and g approaches the known-noise
+ * value.  Threshold a BurstDespreader as
+ * `lock_stat > sqrt(stat_n * det_threshold_f(pfa, stat_n))`.
+ *
+ * @param pfa  Tail probability budget, in (0, 1).
+ * @param n    Degrees of freedom on each side (>= 1).
+ * @return     The F(n, n) upper-pfa quantile; NaN on invalid input.
+ *
+ * @code
+ * >>> from doppler.detection import det_threshold_f
+ * >>> round(det_threshold_f(1e-3, 2), 6)  # exact: (1 - pfa)/pfa
+ * 999.0
+ * >>> round(det_threshold_f(1e-3, 4), 4)
+ * 53.4358
+ * >>> round(det_threshold_f(1e-3, 64), 4)  # hardens toward known-noise
+ * 2.1931
+ *
+ * @endcode
+ */
+double dp_det_threshold_f(double pfa, int n);
+
+/**
+ * @brief Detection probability for n_noncoh non-coherent looks.
+ *
+ * Computes Pd = Q_{n_noncoh}(a, threshold) with the non-centrality
+ * a = sqrt(2 * n_coh * n_noncoh) * snr.  At n_noncoh = 1 this is exactly
+ * det_pd(snr, n_coh, threshold); at snr = 0 it returns the per-test Pfa.
+ *
+ * @param snr        Per-sample amplitude SNR (signal / noise amplitude).
+ * @param n_coh      Coherent integration length in samples (dwell * N).
+ * @param n_noncoh   Number of non-coherent looks; must be >= 1.
+ * @param threshold  Threshold eta_nc, e.g. from dp_det_threshold_noncoherent().
+ * @return           Detection probability in &#91;0, 1&#93;.
+ *
+ * @code
+ * >>> from doppler.detection import det_pd_noncoherent, det_pd
+ * >>> from doppler.detection import det_threshold_noncoherent
+ * >>> from doppler.detection import det_threshold
+ * >>> eta = det_threshold(pfa=1e-6)
+ * >>> det_pd_noncoherent(snr=0.5, n_coh=8, n_noncoh=1, threshold=eta) \
+ * ...     == det_pd(snr=0.5, dwell=8, threshold=eta)  # -> coherent
+ * True
+ * >>> eta4 = det_threshold_noncoherent(pfa=1e-3, n_noncoh=4)
+ * >>> round(det_pd_noncoherent(
+ * ...     snr=0.3, n_coh=16, n_noncoh=4, threshold=eta4), 2)
+ * 0.19
+ *
+ * @endcode
+ */
+double dp_det_pd_noncoherent(double snr, int n_coh, int n_noncoh,
+                          double threshold);
+
+/**
+ * @brief Minimum non-coherent looks achieving Pd >= pd_min at fixed n_coh.
+ *
+ * Iterates n_noncoh = 1, 2, ..., max_n_noncoh, recomputing the threshold
+ * (det_threshold_noncoherent, which grows with the look count) at each step.
+ * Returns the first look count that meets the Pd requirement, or -1 if none
+ * does within max_n_noncoh.  Used by the acquisition engine's (M, N_nc) split.
+ *
+ * @param snr            Per-sample amplitude SNR (linear).
+ * @param n_coh          Coherent integration length in samples (dwell * N).
+ * @param pd_min         Required detection probability, in (0, 1), e.g. 0.9.
+ * @param pfa            Per-test false-alarm probability, in (0, 1).
+ * @param max_n_noncoh   Search upper bound on the look count.
+ * @return               Minimum n_noncoh >= 1, or -1 if not achievable or
+ *                       if either probability is outside (0, 1).
+ *
+ * @code
+ * >>> from doppler.detection import det_n_noncoh
+ * >>> det_n_noncoh(
+ * ...     snr=2.0, n_coh=16, pd_min=0.9, pfa=1e-3, max_n_noncoh=64)
+ * 1
+ *
+ * @endcode
+ */
+int dp_det_n_noncoh(double snr, int n_coh, double pd_min, double pfa,
+                 int max_n_noncoh);
+
+/* ── Power detector ──────────────────────────────────────────────────────── */
+/*                                                                            */
+/* The power detector uses power_stat = |R[0]|² / mean(|R[τ]|²) instead of  */
+/* the envelope ratio.  Under H0 (noise only):                               */
+/*                                                                            */
+/*   power_stat ~ Exponential(1)   →   P(power_stat > p) = exp(-p)          */
+/*                                                                            */
+/* The threshold is simply p = -ln(Pfa), and the detection probability is    */
+/*                                                                            */
+/*   Pd = Q_1(sqrt(2·dwell·snr_power), sqrt(2·p))                           */
+/*                                                                            */
+/* where snr_power = snr_amplitude^2 (signal power / noise power per sample  */
+/* at the correlator output).                                                 */
+/*                                                                            */
+/* Since sqrt(2·p) = sqrt(-2·ln(Pfa)) = det_threshold(Pfa), the Pd formula  */
+/* is identical to the envelope case expressed in power units.  The two      */
+/* detectors are equivalent in performance (same Pd at the same SNR in dB); */
+/* the power detector offers a simpler threshold formula and an exponential  */
+/* null distribution.                                                         */
+
+/**
+ * @brief Power threshold p from Pfa for the power detector.
+ *
+ * Exact closed-form: P(Exponential(1) > p) = exp(-p) = Pfa, so
+ *
+ *   p = -ln(Pfa)
+ *
+ * @param pfa  Desired false-alarm probability, in (0, 1).
+ * @return     Threshold p > 0; NaN for @p pfa outside (0, 1).
+ *
+ * @code
+ * >>> from doppler.detection import det_threshold_power
+ * >>> round(det_threshold_power(pfa=1e-6), 3)   # -ln(1e-6) = 6*ln(10)
+ * 13.816
+ *
+ * @endcode
+ */
+double dp_det_threshold_power(double pfa);
+
+/**
+ * @brief Detection probability for the power detector.
+ *
+ * Pd = Q_1(sqrt(2·dwell·snr_power), sqrt(2·power_threshold))
+ *
+ * @param snr_power       Per-sample power SNR (signal power / noise power at
+ *                        the correlator output, linear).  0 gives Pd = Pfa.
+ * @param dwell           Coherent integration depth; must be >= 1.
+ * @param power_threshold Threshold p, e.g. from dp_det_threshold_power().
+ * @return                Detection probability in &#91;0, 1&#93;.
+ *
+ * @code
+ * >>> from doppler.detection import det_pd_power, det_threshold_power
+ * >>> thr = det_threshold_power(pfa=1e-6)
+ * >>> round(det_pd_power(
+ * ...     snr_power=2.6017, dwell=8, power_threshold=thr), 2)
+ * 0.9
+ *
+ * @endcode
+ * The result equals dp_det_pd() at the equivalent amplitude SNR: power SNR
+ * `s` corresponds to amplitude SNR `sqrt(s)`, and the Q_1 arguments match.
+ */
+double dp_det_pd_power(double snr_power, int dwell, double power_threshold);
+
+/**
+ * @brief Minimum dwell such that Pd >= pd_min for the power detector.
+ *
+ * @param snr_power  Per-sample power SNR (linear).
+ * @param pd_min     Required detection probability, in (0, 1).
+ * @param pfa        False-alarm probability, in (0, 1); used to derive p.
+ * @param max_dwell  Search upper bound.
+ * @return           Minimum dwell >= 1, or -1 if not achievable or if
+ *                   either probability is outside (0, 1).
+ *
+ * @code
+ * >>> from doppler.detection import det_dwell_power
+ * >>> det_dwell_power(
+ * ...     snr_power=0.25, pd_min=0.9, pfa=1e-6, max_dwell=256)
+ * 84
+ *
+ * @endcode
+ */
+int dp_det_dwell_power (double snr_power, double pd_min, double pfa,
+                     int max_dwell);
+
+/**
+ * @brief Minimum per-sample power SNR achieving Pd >= pd_min.
+ *
+ * @param dwell   Coherent integration depth; must be >= 1.
+ * @param pd_min  Required detection probability, in (0, 1).
+ * @param pfa     False-alarm probability, in (0, 1).
+ * @return        Minimum power SNR >= 0; NaN if either probability is
+ *                outside (0, 1).
+ *
+ * @code
+ * >>> from doppler.detection import (det_snr_power, det_pd_power,
+ * ...                                det_threshold_power)
+ * >>> sp = det_snr_power(dwell=8, pd_min=0.9, pfa=1e-6)
+ * >>> round(sp, 4)
+ * 2.6017
+ * >>> pd = det_pd_power(snr_power=sp, dwell=8,
+ * ...                   power_threshold=det_threshold_power(pfa=1e-6))
+ * >>> abs(pd - 0.9) < 1e-9   # det_snr_power inverts det_pd_power
+ * True
+ *
+ * @endcode
+ */
+double dp_det_snr_power(int dwell, double pd_min, double pfa);
+
+/* ── Search-level quantities ─────────────────────────────────────────────── */
+/* A detector searches many cells, measures its noise from some of them, and */
+/* is specified in C/N0. These turn each of those into the per-cell,         */
+/* amplitude-SNR terms the functions above take.                             */
+
+/**
+ * @brief The per-cell false-alarm probability that gives a search of
+ * n_cells independent cells the false-alarm probability pfa (Sidak).
+ *
+ * The search false-alarms when ANY cell does, so n cells each at pc miss
+ * together with probability (1 - pc)^n. Solving 1 - (1 - pc)^n = pfa gives
+ * pc = 1 - (1 - pfa)^(1/n), computed through dp_complement_power() because
+ * the direct form cancels at the small pfa every search uses.
+ *
+ * Exact for independent cells, and for Gaussian noise an upper bound on the
+ * search's Pfa at ANY correlation between cells (Sidak's inequality): the
+ * events |z_i| <= c are symmetric convex sets, whose joint probability under
+ * a Gaussian is at least their product. Bonferroni's pfa/n, the first term
+ * of the same series, holds for any noise distribution too, at a cost of
+ * about pfa/2 relative -- ~1e-4 dB of threshold at pfa = 1e-3. A shared CFAR
+ * reference makes the cells' test sets data-dependent, where the inequality
+ * is well motivated rather than proven.
+ *
+ * @param pfa      The search's false-alarm probability, in (0, 1).
+ * @param n_cells  Independent cells searched, >= 1 (any real count).
+ * @return         The per-cell pfa to set each threshold from; NaN for
+ *                 @p pfa outside (0, 1) or @p n_cells below 1.
+ *
+ * @code
+ * >>> from doppler.detection import det_pfa_cell
+ * >>> det_pfa_cell(pfa=1e-3, n_cells=1.0)          # one cell: pfa itself
+ * 0.001
+ * >>> round(det_pfa_cell(pfa=1e-3, n_cells=1000.0) * 1e6, 6)
+ * 1.0005
+ *
+ * @endcode
+ */
+double dp_det_pfa_cell(double pfa, double n_cells);
+
+/**
+ * @brief The per-sample amplitude SNR this module's functions take, from a
+ * C/N0 and a sample rate.
+ *
+ * Power SNR per sample is (C/N0)/fs, and snr is its square root: the
+ * convention of dp_det_pd(), dp_det_dwell() and every coherent function here.
+ *
+ * @param cn0_dbhz  Carrier-to-noise density, dB-Hz.
+ * @param fs        Sample rate, Hz.
+ * @return          sqrt(10^(cn0_dbhz/10) / fs).
+ *
+ * @code
+ * >>> from doppler.detection import det_cn0_to_snr, det_snr_to_cn0
+ * >>> round(det_cn0_to_snr(cn0_dbhz=60.0, fs=1e6), 12)   # 0 dB per sample
+ * 1.0
+ * >>> round(det_snr_to_cn0(snr=det_cn0_to_snr(45.0, 2e6), fs=2e6), 9)
+ * 45.0
+ *
+ * @endcode
+ */
+double dp_det_cn0_to_snr(double cn0_dbhz, double fs);
+
+/**
+ * @brief The C/N0, dB-Hz, of a per-sample amplitude SNR at a sample rate:
+ * the inverse of dp_det_cn0_to_snr().
+ *
+ * @param snr  Per-sample amplitude SNR (linear, > 0).
+ * @param fs   Sample rate, Hz.
+ * @return     20 log10(snr) + 10 log10(fs).
+ *
+ * @code
+ * >>> from doppler.detection import det_snr_to_cn0
+ * >>> round(det_snr_to_cn0(snr=1.0, fs=1e6), 12)
+ * 60.0
+ *
+ * @endcode
+ */
+double dp_det_snr_to_cn0(double snr, double fs);
+
+/**
+ * @brief Pd of a cell-averaging CFAR test: the gate is dp_det_pd()'s threshold
+ * scaled by a noise reference MEASURED as the mean magnitude of k cells,
+ * the test cell's own included.
+ *
+ * dp_det_pd() prices the noise as known. A detector that measures it pays
+ * twice: the reference is noisy, and it contains the signal. With T =
+ * threshold*sqrt(2/pi) in mean-magnitude units, the test fires when the
+ * peak R clears T times the mean of the k cells; moving the peak's own
+ * share to the left, R (1 - T/k) > T (k-1)/k S, so the peak faces
+ * T (k-1)/(k-T) S, S the mean of the OTHER k-1 cells. S is Gaussian to
+ * good approximation -- Rayleigh cells of mean sqrt(pi/2) and variance
+ * (4-pi)/2 -- raised by the signal energy @p leak that sits in those cells
+ * (sidelobes, and what a straddle slid out of the peak), spread over
+ * @p leak_cells of them: a cell holding non-centrality nu^2 has mean
+ * magnitude ~ sqrt(pi/2 + nu^2), exact at 0 and for a large one. The
+ * expectation over S is 2-point Gauss-Hermite (dp_gauss_hermite()), within
+ * 5e-5 of 6 points.
+ *
+ * k -> infinity is dp_det_pd() at @p threshold exactly, and a reference too
+ * small to hold the gate (k <= T + 1) is answered as dp_det_pd().
+ *
+ * @param snr         Per-sample amplitude SNR of the test cell.
+ * @param dwell       Coherent integration length M, as in dp_det_pd().
+ * @param threshold   The known-noise threshold eta, as dp_det_threshold().
+ * @param k           Reference cells, the test cell included.
+ * @param leak        Signal non-centrality energy in the other k-1 cells,
+ *                    in the units of dp_det_pd()'s a^2 = 2 M snr^2; <= 0 is
+ *                    none.
+ * @param leak_cells  Cells that energy is spread over, at most k-1; <= 0
+ *                    spreads it over all of them.
+ * @return            Detection probability, between 0 and 1.
+ *
+ * @code
+ * >>> from doppler.detection import det_pd, det_pd_cfar, det_threshold
+ * >>> eta = det_threshold(pfa=1e-3)
+ * >>> round(det_pd(snr=0.3, dwell=64, threshold=eta), 4)   # noise known
+ * 0.4285
+ * >>> round(det_pd_cfar(0.3, 64, eta, 128.0, 0.0, 0.0), 4)  # 128-cell ref
+ * 0.4068
+ * >>> round(det_pd_cfar(0.3, 64, eta, 128.0, 40.0, 4.0), 4)  # signal in it
+ * 0.3299
+ * >>> round(det_pd_cfar(0.3, 64, eta, 1e12, 0.0, 0.0), 4)   # k -> inf
+ * 0.4285
+ *
+ * @endcode
+ */
+double dp_det_pd_cfar(double snr, int dwell, double threshold, double k,
+                   double leak, double leak_cells);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* DETECTION_CORE_H */

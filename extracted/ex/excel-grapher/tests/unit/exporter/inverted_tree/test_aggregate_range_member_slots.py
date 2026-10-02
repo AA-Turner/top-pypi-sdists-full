@@ -1,0 +1,259 @@
+"""Literal aggregate ranges resolve catalog slots per statement member (#775).
+
+Sparse catalogs have irregular flattened slots, so classifying a `SUM`
+column window through the affine block-axis origin fails closed. Dense tables
+must not freeze the first member's `take` indices for every host cell. In-SCC
+producers demand each selected instance instead of reading an incomplete tuple.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+from tests.unit.exporter.inverted_tree.helpers import (
+    bindings_document,
+    generate_inverted,
+    invoke_public_compute,
+    load_package,
+    series_entry,
+    write_workbook,
+)
+
+_SPARSE_TOTALS = (11.0, 122.0, 1033.0)
+_DENSE_TOTALS = (16.0, 122.0, 1033.0)
+_SCC_TOTALS = (66.0, 55.0, 33.0)
+
+
+def test_range_crossing_input_and_formula_owners_uses_actual_coordinates(tmp_path: Path) -> None:
+    workbook = write_workbook(
+        tmp_path / "mixed_owners.xlsx",
+        {
+            "Engine": {
+                "A2": "a",
+                "A3": "b",
+                "A4": "c",
+                "B1": 2020,
+                "C1": 2021,
+                "D1": 2022,
+                "B2": 1,
+                "C2": 2,
+                "D2": 3,
+                "B3": "=10",
+                "C3": 20,
+                "D3": "=30",
+                "B4": "=100",
+                "C4": "=200",
+                "D4": "=300",
+                "B6": "=SUM(B2:B4)",
+                "C6": "=SUM(C2:C4)",
+                "D6": "=SUM(D2:D4)",
+            }
+        },
+    )
+    document = bindings_document(
+        _grid_entry("inputs", ["Engine!B2:D2", "Engine!C3"], direction="input"),
+        _grid_entry("formulas", ["Engine!B3", "Engine!D3", "Engine!B4:D4"], direction="internal"),
+        _totals_entry(),
+    )
+    package = load_package(generate_inverted(workbook, document), tmp_path)
+    supplied = package.data.INPUTS.with_records(
+        [(("a", 2020), 1.0), (("a", 2021), 2.0), (("a", 2022), 3.0), (("b", 2021), 20.0)],
+    )
+    result = invoke_public_compute(package, package.compute_totals, dict(inputs=supplied))
+    assert (result[2020], result[2021], result[2022]) == (111.0, 222.0, 333.0)
+
+
+def test_aggregate_uses_each_members_actual_range(tmp_path: Path) -> None:
+    workbook = write_workbook(
+        tmp_path / "diagonal.xlsx",
+        {
+            "Engine": {
+                "A2": "a",
+                "A3": "b",
+                "B1": 2020,
+                "C1": 2021,
+                "D1": 2022,
+                "B2": 1,
+                "C2": 2,
+                "D2": 3,
+                "B3": 10,
+                "C3": 20,
+                "D3": 30,
+                "B6": "=SUM(B2:C2)",
+                "C6": "=SUM(C3:D3)",
+            }
+        },
+    )
+    document = bindings_document(
+        _grid_entry("vintages", "Engine!B2:D3"),
+        series_entry(
+            "totals",
+            "Engine!B6:C6",
+            layout="series",
+            direction="output",
+            header_row=1,
+            compute_name="compute_totals",
+        ),
+    )
+    modules = generate_inverted(workbook, document)
+    package = load_package(modules, tmp_path, name="diagonal")
+    result = invoke_public_compute(package, package.compute_totals, {})
+    assert (result[2020], result[2021]) == (3.0, 50.0)
+
+
+def _time_dim() -> dict[str, Any]:
+    return {
+        "id": "TIME_PERIOD",
+        "concept": "TIME_PERIOD",
+        "role": "key",
+        "scope": "cell",
+        "bind": {"kind": "column_header", "header_row": 1, "read": "int"},
+    }
+
+
+def _country_dim() -> dict[str, Any]:
+    return {
+        "id": "COUNTRY",
+        "concept": "COUNTRY",
+        "role": "key",
+        "scope": "cell",
+        "bind": {"kind": "row_label", "label_column": "A", "read": "string"},
+    }
+
+
+def _grid_entry(
+    series_id: str,
+    data_range: str | list[str],
+    *,
+    direction: str = "constant",
+) -> dict[str, Any]:
+    if isinstance(data_range, list):
+        sheet = data_range[0].split("!", 1)[0]
+    else:
+        sheet = data_range.split("!", 1)[0]
+    entry: dict[str, Any] = {
+        "id": series_id,
+        "sheet": sheet,
+        "data_range": data_range,
+        "layout": "series",
+        "key": ["COUNTRY", "TIME_PERIOD"],
+        "structure": {
+            "measure": {
+                "concept": "OBS_VALUE",
+                "dtype": "float",
+                "bind": {"kind": "data_cell", "read": "float"},
+            },
+            "dimensions": [_time_dim(), _country_dim()],
+        },
+    }
+    if direction in {"constant", "internal", "input"}:
+        entry[direction] = {}
+    else:
+        raise ValueError(f"unknown direction {direction!r}")
+    return entry
+
+
+def _totals_entry() -> dict[str, Any]:
+    return series_entry(
+        "totals",
+        "Engine!B6:D6",
+        layout="series",
+        direction="output",
+        header_row=1,
+        compute_name="compute_totals",
+    )
+
+
+def _column_sum_cells(*, b3: object, b4: object, c4: object, d4: object) -> dict[str, object]:
+    return {
+        "A2": "a",
+        "A3": "b",
+        "A4": "c",
+        "B1": 2020,
+        "C1": 2021,
+        "D1": 2022,
+        "B2": 1,
+        "C2": 2,
+        "D2": 3,
+        "B3": b3,
+        "C3": 20,
+        "D3": 30,
+        "B4": b4,
+        "C4": c4,
+        "D4": d4,
+        "B6": "=SUM(B2:B4)",
+        "C6": "=SUM(C2:C4)",
+        "D6": "=SUM(D2:D4)",
+    }
+
+
+def _sparse_workbook(tmp_path: Path) -> Path:
+    cells = _column_sum_cells(b3=None, b4=10, c4=100, d4=1000)
+    del cells["B3"]
+    return write_workbook(tmp_path / "agg_sparse.xlsx", {"Engine": cells})
+
+
+def _dense_workbook(tmp_path: Path) -> Path:
+    return write_workbook(
+        tmp_path / "agg_dense.xlsx",
+        {"Engine": _column_sum_cells(b3=5, b4=10, c4=100, d4=1000)},
+    )
+
+
+def _scc_workbook(tmp_path: Path) -> Path:
+    return write_workbook(
+        tmp_path / "agg_scc.xlsx",
+        {"Engine": _column_sum_cells(b3=10, b4="=C6", c4="=D6", d4=0)},
+    )
+
+
+def _sparse_bindings() -> dict[str, Any]:
+    return bindings_document(
+        _grid_entry("vintages", ["Engine!B2:D2", "Engine!C3:D3", "Engine!B4:D4"]),
+        _totals_entry(),
+    )
+
+
+def _dense_bindings() -> dict[str, Any]:
+    return bindings_document(_grid_entry("vintages", "Engine!B2:D4"), _totals_entry())
+
+
+def _scc_bindings() -> dict[str, Any]:
+    return bindings_document(
+        _grid_entry("vintages", "Engine!B2:D4", direction="internal"),
+        _totals_entry(),
+    )
+
+
+def test_sparse_column_sum_exports_and_matches_column_totals(tmp_path: Path) -> None:
+    workbook = _sparse_workbook(tmp_path)
+    modules = generate_inverted(
+        workbook,
+        _sparse_bindings(),
+        blank_ranges=["Engine!B3"],
+    )
+    pkg = load_package(modules, tmp_path, name="agg_sparse")
+    result = invoke_public_compute(pkg, pkg.compute_totals, {})
+    assert [result[year] for year in (2020, 2021, 2022)] == pytest.approx(_SPARSE_TOTALS)
+
+
+def test_dense_column_sum_does_not_freeze_first_column(tmp_path: Path) -> None:
+    workbook = _dense_workbook(tmp_path)
+    modules = generate_inverted(workbook, _dense_bindings())
+    internals = modules["internals.py"]
+    pkg = load_package(modules, tmp_path, name="agg_dense")
+    got = invoke_public_compute(pkg, pkg.compute_totals, {})
+    assert [got[year] for year in (2020, 2021, 2022)] != pytest.approx((_DENSE_TOTALS[0],) * 3)
+    assert [got[year] for year in (2020, 2021, 2022)] == pytest.approx(_DENSE_TOTALS)
+    assert "time_period" in internals
+
+
+def test_in_scc_column_sum_demands_selected_instances(tmp_path: Path) -> None:
+    workbook = _scc_workbook(tmp_path)
+    modules = generate_inverted(workbook, _scc_bindings())
+    pkg = load_package(modules, tmp_path, name="agg_scc")
+    result = invoke_public_compute(pkg, pkg.compute_totals, {})
+    assert [result[year] for year in (2020, 2021, 2022)] == pytest.approx(_SCC_TOTALS)

@@ -1,25 +1,30 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: python-jobspy
-Version: 1.1.82
-Summary: Job scraper for LinkedIn, Indeed, Glassdoor, ZipRecruiter & Bayt
-Keywords: jobs-scraper,linkedin,indeed,glassdoor,ziprecruiter,bayt,naukri
+Version: 1.2.0
+Summary: Job scraper for LinkedIn, Indeed, Glassdoor, Google, ZipRecruiter, Bayt, Naukri & BDJobs
+License-Expression: MIT
+License-File: LICENSE
+Keywords: jobs-scraper,linkedin,indeed,glassdoor,google,ziprecruiter,bayt,naukri,bdjobs
 Author: Cullen Watson
 Author-email: cullen@cullenwatson.com
-Requires-Python: >=3.10,<4.0
+Maintainer: Kirk Watson
+Maintainer-email: kirk@klwindustries.com
+Requires-Python: >=3.10
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: NUMPY (==1.26.3)
-Requires-Dist: beautifulsoup4 (>=4.12.2,<5.0.0)
-Requires-Dist: markdownify (>=0.13.1,<0.14.0)
-Requires-Dist: pandas (>=2.1.0,<3.0.0)
-Requires-Dist: pydantic (>=2.3.0,<3.0.0)
-Requires-Dist: regex (>=2024.4.28,<2025.0.0)
-Requires-Dist: requests (>=2.31.0,<3.0.0)
-Requires-Dist: tls-client (>=1.0.1,<2.0.0)
-Project-URL: Homepage, https://github.com/cullenwatson/JobSpy
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Requires-Dist: beautifulsoup4 (>=4.12.2)
+Requires-Dist: curl_cffi (>=0.16.2)
+Requires-Dist: markdownify (>=1.1.0)
+Requires-Dist: pandas (>=2.1.2)
+Requires-Dist: pydantic (>=2.3.0)
+Requires-Dist: requests (>=2.31.0)
+Project-URL: Homepage, https://github.com/speedyapply/JobSpy
+Project-URL: Issues, https://github.com/speedyapply/JobSpy/issues
 Description-Content-Type: text/markdown
 
 <img src="https://github.com/cullenwatson/JobSpy/assets/78247585/ae185b7e-e444-4712-8bb9-fa97f53e896b" width="400">
@@ -28,7 +33,7 @@ Description-Content-Type: text/markdown
 
 ## Features
 
-- Scrapes job postings from **LinkedIn**, **Indeed**, **Glassdoor**, **Google**, **ZipRecruiter**, & other job boards concurrently
+- Scrapes job postings from **LinkedIn**, **Indeed**, **Glassdoor**, **ZipRecruiter**, & other job boards concurrently
 - Aggregates the job postings in a dataframe
 - Proxies support to bypass blocking
 
@@ -49,15 +54,14 @@ import csv
 from jobspy import scrape_jobs
 
 jobs = scrape_jobs(
-    site_name=["indeed", "linkedin", "zip_recruiter", "google"], # "glassdoor", "bayt", "naukri", "bdjobs"
+    site_name=["indeed", "linkedin", "zip_recruiter", "glassdoor"], # "bayt", "naukri", "bdjobs"
     search_term="software engineer",
-    google_search_term="software engineer jobs near San Francisco, CA since yesterday",
     location="San Francisco, CA",
     results_wanted=20,
     hours_old=72,
     country_indeed='USA',
     
-    # linkedin_fetch_description=True # gets more info such as description, direct job url (slower)
+    # fetch_description=True # for boards whose search results don't include the description (slower)
     # proxies=["208.195.175.46:65095", "208.195.175.45:65095", "localhost"],
 )
 print(f"Found {len(jobs)} jobs")
@@ -83,7 +87,7 @@ zip_recruiter Software Developer                 TEKsystems        Phoenix      
 ```plaintext
 Optional
 ├── site_name (list|str): 
-|    linkedin, zip_recruiter, indeed, glassdoor, google, bayt, bdjobs
+|    linkedin, zip_recruiter, indeed, glassdoor, google, bayt, bdjobs, naukri
 |    (default is all)
 │
 ├── search_term (str)
@@ -109,11 +113,10 @@ Optional
 |    number of job results to retrieve for each site specified in 'site_name'
 │
 ├── easy_apply (bool): 
-|    filters for jobs that are hosted on the job board site (LinkedIn easy apply filter no longer works)
+|    filters for jobs that are hosted on the job board site
 |
 ├── user_agent (str): 
 |    override the default user agent which may be outdated
-|
 │
 ├── description_format (str): 
 |    markdown, html (Format type of the job descriptions. Default is markdown.)
@@ -123,14 +126,19 @@ Optional
 │
 ├── hours_old (int): 
 |    filters jobs by the number of hours since the job was posted 
-|    (ZipRecruiter and Glassdoor round up to next day.)
+|    (Glassdoor rounds up to next day.)
 │
 ├── verbose (int) {0, 1, 2}: 
 |    Controls the verbosity of the runtime printouts 
-|    (0 prints only errors, 1 is errors+warnings, 2 is all logs. Default is 2.)
+|    (0 prints only errors, 1 is errors+warnings, 2 is all logs. Default is 0.)
 
+├── fetch_description (bool): 
+|    for boards whose search results don't include the job description: fetches each job's
+|    page for the description and other details (e.g. job type). Without it these are empty
+|    for those boards. Adds one request per job, so use proxies for larger searches
+│
 ├── linkedin_fetch_description (bool): 
-|    fetches full description and direct job url for LinkedIn (Increases requests by O(n))
+|    deprecated, use fetch_description (still works; removed in 2.0)
 │
 ├── linkedin_company_ids (list[int]): 
 |    searches for linkedin jobs with specific company ids
@@ -143,19 +151,6 @@ Optional
 |
 ├── ca_cert (str)
 |    path to CA Certificate file for proxies
-```
-
-```
-├── Indeed limitations:
-|    Only one from this list can be used in a search:
-|    - hours_old
-|    - job_type & is_remote
-|    - easy_apply
-│
-└── LinkedIn limitations:
-|    Only one from this list can be used in a search:
-|    - hours_old
-|    - easy_apply
 ```
 
 ## Supported Countries for Job Searching
@@ -196,18 +191,26 @@ You can specify the following countries when searching on Indeed (use the exact 
 
 ### **Bayt**
 
-Bayt only uses the search_term parameter currently and searches internationally
+Bayt searches all countries unless `location` names one it covers, e.g. `"Dubai, UAE"` or `"Saudi Arabia"`.
 
+### **BDJobs**
+
+BDJobs searches Bangladesh. `location` takes a division or district, e.g. `"Dhaka"` or `"Chattogram Division"`.
+
+### **Naukri**
+
+Naukri searches India. `location` takes a city, e.g. `"Pune"`.
 
 
 ## Notes
 * Indeed is the best scraper currently with no rate limiting.  
+* Indeed filters `hours_old` on when a job was added to Indeed, while `date_posted` is when the employer published it, so it can be older.  
 * All the job board endpoints are capped at around 1000 jobs on a given search.  
 * LinkedIn is the most restrictive and usually rate limits around the 10th page with one ip. Proxies are a must basically.
+* Glassdoor rate limits after about 30 requests per ip, which `fetch_description` reaches quickly.
 
 ## Frequently Asked Questions
 
----
 **Q: Why is Indeed giving unrelated roles?**  
 **A:** Indeed searches the description too.
 
@@ -225,7 +228,7 @@ This searches the description/title and must include software, summer, 2025, one
 ---
 
 **Q: No results when using "google"?**  
-**A:** You have to use super specific syntax. Search for google jobs on your browser and then whatever pops up in the google jobs search box after applying some filters is what you need to copy & paste into the google_search_term. 
+**A:** Google Jobs is currently unavailable.
 
 ---
 

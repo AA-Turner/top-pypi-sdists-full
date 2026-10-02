@@ -27,6 +27,7 @@ import logging
 import re
 import time
 import traceback
+from types import SimpleNamespace
 from typing import Any
 
 from pydantic import ValidationError
@@ -64,13 +65,91 @@ _BATCH_MIN_SUB_CHARS = 2_000
 
 
 def _budget_note(total: int, shown: int, next_offset: int | None, key: str, budget: int) -> str:
-    """The honest sentence for a read cut to the result budget."""
+    """The sentence for a read cut to the result budget: what was seen, what was
+    not, and the exact next call — sized to what a single read can carry, so the
+    advertised capacity and the page that follows can never disagree."""
+    start = 0 if next_offset is None else max(0, next_offset - shown)
+    end = start + shown
+    remaining = max(0, total - end)
+    next_chars = min(remaining, _MAX_RESULT_CHARS) or _DEFAULT_PAGE_CHARS
     return (
-        f"'{key}' is {total:,} chars; this result carries at most {budget:,}, so you "
-        f"are seeing chars 0-{shown:,}. Nothing was dropped: read on with "
-        f"context(action='get', key='{key}', mode='page', offset={next_offset}, "
-        f"chars=<up to {budget}>)."
+        f"PARTIAL READ: '{key}' is {total:,} chars; this result carries at most "
+        f"{budget:,}, so you have seen chars {start:,}-{end:,} and {remaining:,} more "
+        f"remain unread. Anything after char {end:,} is not in this result. Read it "
+        f"before answering: context(action='get', key='{key}', mode='page', "
+        f"offset={next_offset}, chars={next_chars})."
     )
+
+
+async def _materialize_window(
+    materialize: Any,
+    source: Any,
+    *,
+    mode: str,
+    offset: int,
+    chars: int,
+    user_id: str,
+) -> Any:
+    """One window of a lazy source, filled to ``chars``.
+
+    A resolver may cap a single slice below what was asked (aidream's processed
+    document resolver holds 24,000); the window this tool advertises is its own
+    contract, so it pages the resolver until the window is full or the body ends
+    (2026-10-01: a 33,890-char text came back as 24,000 while the same result
+    said it could carry 34,767). Returns ``None`` when no resolver answered.
+    """
+    first = await materialize(source, mode=mode, offset=offset, chars=chars, user_id=user_id)
+    if first is None:
+        return None
+    parts = [first.text or ""]
+    filled = len(parts[0])
+    last = first
+    while (
+        last.has_more
+        and last.next_offset is not None
+        and last.next_offset > (last.offset or 0)
+        and filled < chars
+    ):
+        want = last.next_offset
+        try:
+            nxt = await materialize(
+                source, mode="page", offset=want, chars=chars - filled, user_id=user_id
+            )
+        except Exception as exc:  # noqa: BLE001 — what was read stands, with its continuation
+            logger.warning("context: follow-up slice of %s failed at %s: %s", source, want, exc)
+            break
+        # The fill ends — what was read stands, with its continuation — when a
+        # resolver does not page by offset (answers the same slice again) or the
+        # body changed underneath (another representation, or a new length:
+        # raw text becoming clean mid-read must never be stitched into one).
+        if (
+            nxt is None
+            or not nxt.text
+            or (nxt.offset or 0) != want
+            or nxt.representation != first.representation
+            or nxt.total_chars != first.total_chars
+        ):
+            break
+        last = nxt
+        parts.append(last.text)
+        filled += len(last.text)
+    if len(parts) == 1:
+        return first
+    text = "".join(parts)
+    end = (first.offset or 0) + len(text)
+    total = first.total_chars or end
+    # One window now spans several resolver slices, so a single slice's
+    # page_range no longer describes it.
+    fields = {
+        "text": text,
+        "has_more": end < total,
+        "next_offset": end if end < total else None,
+        "page_range": None,
+    }
+    if hasattr(first, "model_copy"):
+        return first.model_copy(update=fields)
+    return SimpleNamespace(**{**vars(first), **fields})
+
 
 _ATTACHED_DOCUMENT_KEY_PREFIX = "attached_document_"
 
@@ -122,6 +201,51 @@ def _resolve_key_alias(key: str, available: list[str]) -> tuple[str | None, list
     if len(hits) > 1:
         return None, sorted(hits)
     return None, []
+
+
+_TRAILING_UUID = re.compile(
+    r"(?P<id>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$"
+)
+
+
+def _resolve_identity_alias(key: str, objects: list[Any]) -> tuple[str | None, list[str]]:
+    """Reconcile a key that names a resource by id against the object holding that id.
+
+    A file or document keeps ONE identity for a conversation's life, but the key
+    it was offered under on an earlier turn may differ from this turn's (a first
+    turn's client-sent ``attached_file_<id>`` became the server-seeded
+    ``resource_file_<id>``). Both name the same object, so exactly one manifest
+    object whose source id equals the key's trailing UUID IS what the caller
+    means — never "does not exist". More than one → refuse and name them.
+    """
+    match = _TRAILING_UUID.search(key or "")
+    if match is None:
+        return None, []
+    resource_id = match.group("id").lower()
+    hits = [
+        str(getattr(o, "key", "") or "")
+        for o in objects
+        if getattr(o, "source", None) is not None
+        and str(getattr(o.source, "id", "") or "").lower() == resource_id
+    ]
+    if len(hits) == 1:
+        return hits[0], []
+    if len(hits) > 1:
+        return None, sorted(hits)
+    return None, []
+
+
+def _names_same_resource(key: str, keys: Any) -> bool:
+    """True when ``key`` and one of ``keys`` end in the same resource id (any key spelling)."""
+    match = _TRAILING_UUID.search(key or "")
+    if match is None:
+        return False
+    resource_id = match.group("id").lower()
+    for other in keys:
+        hit = _TRAILING_UUID.search(str(other or ""))
+        if hit is not None and hit.group("id").lower() == resource_id:
+            return True
+    return False
 
 
 def _did_you_mean(key: str, available: list[str]) -> list[str]:
@@ -542,7 +666,11 @@ async def _ctx_get_body(
         # this tool). Checked before any alias reconciliation or prior-turn lookup,
         # so nothing about the value is read or named.
         excluded = (getattr(app_ctx, "metadata", None) or {}).get(_EXCLUDED_KEYS_METADATA_KEY) or ()
-        if key in excluded or _normalize_key(key) in {_normalize_key(k) for k in excluded}:
+        if (
+            key in excluded
+            or _normalize_key(key) in {_normalize_key(k) for k in excluded}
+            or _names_same_resource(key, excluded)
+        ):
             return ToolResult(
                 success=False,
                 error=ToolError(
@@ -581,15 +709,26 @@ async def _ctx_get_body(
             available_objects = list(manifest.all())
             available = [str(getattr(o, "key", "") or "") for o in available_objects]
             resolved, ambiguous = _resolve_key_alias(key, available)
+            by_identity = False
+            if resolved is None and not ambiguous:
+                resolved, ambiguous = _resolve_identity_alias(key, available_objects)
+                by_identity = resolved is not None
             if resolved is not None:
                 obj = manifest.get(resolved)
             if obj is not None and resolved is not None:
                 _log_key_alias_coercion(key, resolved, ctx)
-                notices.append(
-                    f"NOTICE: no context key is named '{key}'; it matched the "
-                    f"attached key '{resolved}' on spelling alone and was "
-                    f"resolved for you. Use '{resolved}' exactly, next call."
-                )
+                if by_identity:
+                    notices.append(
+                        f"NOTICE: '{key}' names the same object as the attached "
+                        f"key '{resolved}' (same id); it was resolved for you. "
+                        f"Use '{resolved}' exactly, next call."
+                    )
+                else:
+                    notices.append(
+                        f"NOTICE: no context key is named '{key}'; it matched the "
+                        f"attached key '{resolved}' on spelling alone and was "
+                        f"resolved for you. Use '{resolved}' exactly, next call."
+                    )
                 key = resolved
             elif ambiguous:
                 # More than one candidate — never guess. Name them all.
@@ -685,7 +824,8 @@ async def _ctx_get_body(
             # Never unbounded: mode=full asks for the budget, a page is clamped
             # to it. The resolver's has_more / next_offset carry the rest.
             page_chars = min(chars, budget) if (mode == "page" and chars > 0) else budget
-            slice_ = await materialize(
+            slice_ = await _materialize_window(
+                materialize,
                 obj.source,
                 mode=mode,
                 offset=page_offset,
@@ -1020,6 +1160,9 @@ async def ctx_batch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         # ONE budget for the whole batch — 20 full reads are 20x the cap
         # otherwise. Each sub-read gets what is left; once too little is left a
         # key is DEFERRED with its own exact call, never dropped or squeezed.
+        # Entries are measured as serialized JSON (escapes included), deferred
+        # ones too; the batch's short top-level notes ride in the headroom
+        # between this budget and the size gate's soft cap.
         remaining = _MAX_RESULT_CHARS
         deferred: list[str] = []
         for i, sub in enumerate(requests):
@@ -1059,6 +1202,7 @@ async def ctx_batch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                         },
                     }
                 )
+                remaining -= len(json.dumps(results[-1], ensure_ascii=False, default=str))
                 continue
 
             sub_result = await ctx_get(sub, ctx, budget=remaining)
@@ -1087,6 +1231,46 @@ async def ctx_batch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             remaining -= len(json.dumps(entry, ensure_ascii=False, default=str))
             if stop_on_error and not sub_result.success:
                 break
+
+        # A partial read is surfaced at the TOP of the batch, not only inside
+        # its own entry: an agent that skims a batch must still see that a key
+        # was cut short and the exact call that reads the rest (W-36).
+        # Only reads that asked for the whole value are flagged: a page the
+        # agent chose (mode='page') is deliberate paging, not a cut.
+        partial: list[str] = []
+        for r, sub in zip(results, requests, strict=False):
+            out = r.get("output") if r.get("success") else None
+            asked_page = isinstance(sub, dict) and sub.get("mode") == "page"
+            if (
+                isinstance(out, dict)
+                and not asked_page
+                and out.get("has_more")
+                and out.get("chars_returned")
+                and out.get("next_offset") is not None
+                and r.get("key") not in deferred
+            ):
+                k = r.get("key")
+                total = int(out.get("total_chars") or 0)
+                nxt = int(out.get("next_offset") or 0)
+                start = int(out.get("offset") or 0)
+                partial.append(
+                    f"'{k}' (seen chars {start:,}-{nxt:,} of {total:,}; next: context(action='get', "
+                    f"key='{k}', mode='page', offset={nxt}, "
+                    f"chars={min(total - nxt, _MAX_RESULT_CHARS)}))"
+                )
+        notes: list[str] = []
+        if partial:
+            notes.append(
+                f"PARTIAL READS — {len(partial)} key(s) were not read to the end; read the "
+                f"rest before answering: {'; '.join(partial)}."
+            )
+        if deferred:
+            notes.append(
+                f"{len(deferred)} key(s) were not read because the batch "
+                f"reached its {_MAX_RESULT_CHARS:,}-char budget: "
+                f"{', '.join(deferred)}. Read each with action='get'."
+            )
+        batch_note = " ".join(notes)
 
         top_error: ToolError | None = None
         if any_failed:
@@ -1147,17 +1331,7 @@ async def ctx_batch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                     "count": len(results),
                     "requested": len(requests),
                     "results": results,
-                    **(
-                        {
-                            "note": (
-                                f"{len(deferred)} key(s) were not read because the batch "
-                                f"reached its {_MAX_RESULT_CHARS:,}-char budget: "
-                                f"{', '.join(deferred)}. Read each with action='get'."
-                            )
-                        }
-                        if deferred
-                        else {}
-                    ),
+                    **({"note": batch_note} if batch_note else {}),
                 },
                 error=top_error,
                 output_self_capped=True,

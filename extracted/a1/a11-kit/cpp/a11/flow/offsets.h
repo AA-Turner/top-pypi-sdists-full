@@ -1,0 +1,116 @@
+/*
+ * Copyright 2026 The A11 Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#ifndef A11_FLOW_OFFSETS_H_
+#define A11_FLOW_OFFSETS_H_
+
+#include <cstddef>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+#include <nlohmann/json_fwd.hpp>
+
+namespace a11::flow {
+
+// A document, and the offset arithmetic every editor protocol needs over it. So
+// the conversion lives here, once, and both protocol adapters use it.
+/// A document, and the offset arithmetic every editor protocol needs over it.
+///
+/// Converts between byte offsets and editor position units.
+///
+/// Flow offsets count bytes from the start of the file. LSP positions count
+/// UTF-16 code units from the start of a line, while JVM offsets count UTF-16
+/// code units from the start of the document. Both protocol adapters use this
+/// conversion.
+class TextIndex {
+ public:
+  TextIndex() = default;
+  explicit TextIndex(std::string text);
+
+  [[nodiscard]] const std::string& Text() const { return text_; }
+
+  [[nodiscard]] size_t LineCount() const { return line_starts_.size(); }
+
+  /// How many UTF-16 units of the document precede this byte offset.
+  [[nodiscard]] size_t Utf16Of(size_t byte_offset) const;
+
+  /// The byte offset that many UTF-16 units into the document.
+  [[nodiscard]] size_t ByteOf(size_t utf16_offset) const;
+
+  /// The LSP position -- zero-based line, UTF-16 units into it -- of a byte
+  /// offset.
+  [[nodiscard]] std::pair<int, int> PositionOf(size_t byte_offset) const;
+
+  /// The byte offset of an LSP position, clamped into the document.
+  [[nodiscard]] size_t ByteOfPosition(int line, int character) const;
+
+ private:
+  /// How many bytes the character at `offset` takes, and how many UTF-16 units
+  /// it is: two only outside the basic plane, which is the one case a count of
+  /// code points and a count of UTF-16 units disagree about.
+  [[nodiscard]] std::pair<size_t, size_t> Step(size_t offset) const;
+
+  [[nodiscard]] size_t LineEnd(size_t line) const;
+
+  std::string text_;
+  /// The byte offset each line starts at.
+  std::vector<size_t> line_starts_;
+  /// How many UTF-16 units precede each line, so a position inside one is a
+  /// walk
+  /// along that line rather than along the file.
+  std::vector<size_t> line_utf16_starts_;
+};
+
+/// Which basis the offsets in a request and its answer are counted in.
+enum class OffsetBasis {
+  /// Bytes from the start of the file: the language's own, and the default.
+  kBytes,
+  /// UTF-16 code units from the start of the file: what a JVM or JavaScript
+  /// editor host indexes its document buffer with.
+  kUtf16,
+};
+
+/// The basis a request named, or `kBytes` when it named none.
+///
+/// `false` when the name is not one of the two, so a client with a typo is told
+/// rather than quietly served the wrong arithmetic.
+bool OffsetBasisFromName(std::string_view name, OffsetBasis& basis);
+
+/// The name of a basis, for a message and for the JSON.
+std::string_view OffsetBasisName(OffsetBasis basis);
+
+/// Rewrite every document offset in an answer from bytes into UTF-16 units.
+///
+/// The rule, and it is the whole rule: a **numeric** field named `start`,
+/// `end`,
+/// `offset` or `prefix_start` is a byte offset into the document, at any depth.
+/// That is true of every `flow.*` envelope by construction -- those four names
+/// are
+/// not used for anything else in any of them -- so this converts exactly the
+/// right
+/// set and needs no table of shapes to fall out of step with the emitters.
+///
+/// Two near matches are left unchanged. `range.start` and `range.end` are
+/// *objects*, and the offset inside each is the `offset` field this does
+/// convert. A proposal's `caret` counts into the text that proposal inserts,
+/// not into the document, so a document-basis conversion of it would be wrong.
+void RebaseToUtf16(nlohmann::json& answer, const TextIndex& index);
+
+}  // namespace a11::flow
+
+#endif  // A11_FLOW_OFFSETS_H_

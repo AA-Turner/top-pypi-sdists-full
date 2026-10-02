@@ -93,6 +93,16 @@ def register_csv_payload(app: Flask) -> None:
         return jsonify(rows)
 
 
+def register_identical_query_parameters(app: Flask) -> None:
+    @app.route("/api/twin_a", methods=["GET"])
+    def twin_a_endpoint() -> Any:
+        return jsonify({"twin": "a"})
+
+    @app.route("/api/twin_b", methods=["GET"])
+    def twin_b_endpoint() -> Any:
+        return jsonify({"twin": "b"})
+
+
 def register_flaky(app: Flask) -> None:
     app.config["flaky_should_fail"] = True
 
@@ -394,3 +404,21 @@ def register_additional_properties_bug(app: Flask) -> None:
             if not isinstance(value, str):
                 return jsonify({"error": "values must be strings"}), 400
         return jsonify({"ok": True}), 200
+
+
+def register_languages_with_codes(app: Flask) -> None:
+    @app.route("/languages/", methods=["GET"])
+    def list_languages() -> Any:
+        return jsonify({"results": [{"code": "en"}]}), 200
+
+    @app.route("/languages/<code>", methods=["DELETE"])
+    def delete_language(code: str) -> Any:
+        return "", 204
+
+
+def register_basic_with_query(app: Flask) -> None:
+    @app.route("/api/basic_query", methods=["GET"])
+    def basic_query_endpoint() -> Any:
+        if request.headers.get("Authorization") == _BASIC_AUTH_TOKEN:
+            return jsonify({"ok": True})
+        return {"detail": "Unauthorized"}, 401

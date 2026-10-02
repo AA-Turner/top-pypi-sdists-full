@@ -1,0 +1,21 @@
+[package]
+name = "ffsim"
+version = "0.0.0"
+edition = "2021"
+readme = "README.md"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "ffsim"
+crate-type = ["cdylib"]
+
+[dependencies]
+ndarray = { version = "0.15", features = ["rayon"] }
+num-integer = "0.1"
+numpy = "0.27"
+pyo3 = { version = "0.27", features = [
+    "extension-module",
+    "num-complex",
+    "abi3-py311",
+] }
+rayon = "1.11"

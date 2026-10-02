@@ -1,0 +1,101 @@
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+
+from attrs import define as _attrs_define
+from attrs import field as _attrs_field
+
+from ..types import UNSET, Unset
+
+from ..types import UNSET, Unset
+
+
+
+
+
+
+T = TypeVar("T", bound="RunConfigWithVersionListDtoItemVersionConfigComputeEnvRunVerbs")
+
+
+
+@_attrs_define
+class RunConfigWithVersionListDtoItemVersionConfigComputeEnvRunVerbs:
+    """ Image-supplied solver-lifecycle verb scripts. Omit to use the platform default verbs.
+
+        Attributes:
+            reset (str): Terminate any in-flight agent and clear prior-run state (idempotent).
+            submit (str): Launch the agent on $PROMPT, detached; the platform polls status afterward.
+            status (str): Print exactly one ComputeRunPhase token to stdout.
+            result (str): Print the successful run result to stdout (read on completed).
+            error (str): Print failure diagnostics to stdout (read on failed).
+            readiness (str | Unset): Optional child-container readiness probe; prints a verdict token before launch.
+     """
+
+    reset: str
+    submit: str
+    status: str
+    result: str
+    error: str
+    readiness: str | Unset = UNSET
+
+
+
+
+
+    def to_dict(self) -> dict[str, Any]:
+        reset = self.reset
+
+        submit = self.submit
+
+        status = self.status
+
+        result = self.result
+
+        error = self.error
+
+        readiness = self.readiness
+
+
+        field_dict: dict[str, Any] = {}
+
+        field_dict.update({
+            "reset": reset,
+            "submit": submit,
+            "status": status,
+            "result": result,
+            "error": error,
+        })
+        if readiness is not UNSET:
+            field_dict["readiness"] = readiness
+
+        return field_dict
+
+
+
+    @classmethod
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
+        reset = d.pop("reset")
+
+        submit = d.pop("submit")
+
+        status = d.pop("status")
+
+        result = d.pop("result")
+
+        error = d.pop("error")
+
+        readiness = d.pop("readiness", UNSET)
+
+        run_config_with_version_list_dto_item_version_config_compute_env_run_verbs = cls(
+            reset=reset,
+            submit=submit,
+            status=status,
+            result=result,
+            error=error,
+            readiness=readiness,
+        )
+
+        return run_config_with_version_list_dto_item_version_config_compute_env_run_verbs
+

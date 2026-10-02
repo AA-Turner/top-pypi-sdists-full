@@ -610,6 +610,24 @@ class EngineBackend:
                     camera_id,
                     exc_info=True,
                 )
+        # After the flush, which may still collect a verdict, and only for an app that has a
+        # `verification` stage: the worker is a process-wide singleton, so an unrelated app's
+        # backend closing must not stop it for the one that uses it. Session has no close(),
+        # and a primitive's reset() runs every window -- this is the only teardown point.
+        if any(
+            getattr(stage, "PRIMITIVE", "") == "verification"
+            for stage in self._loaded.manifest.pipeline
+        ):
+            try:
+                from ..engine.verify import close_all_workers
+
+                close_all_workers()
+            except Exception:  # noqa: BLE001 - close must not raise  # pragma: no cover - defensive
+                logger.warning(
+                    "engine backend: closing the verification worker failed for app %s",
+                    self.app_id,
+                    exc_info=True,
+                )
         try:
             self._publisher.close()
         except Exception:  # noqa: BLE001 - close must not raise  # pragma: no cover - defensive

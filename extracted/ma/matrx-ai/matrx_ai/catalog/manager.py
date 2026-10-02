@@ -761,7 +761,36 @@ class AiCatalogManager:
                 key: rule.model_dump(exclude_none=True)
                 for key, rule in compiled.rules.items()
             },
+            "classes": self.model_classes(str(model_id)),
         }
+
+    def model_classes(self, model_id: str) -> list[dict[str, Any]]:
+        """The model's CLASSES a person chooses between — one per serving endpoint.
+
+        A class is an ``ai.endpoint`` ("Matrx Fast", "Matrx Lightning"…): a
+        separate product. Within one class the offerings are equivalent, so each
+        class is represented by its PREFERRED available offering (lowest
+        priority) — the ``offering_id`` a client sends as the class pin.
+        Ordered like ``offerings_for`` (the model's preferred class first).
+        """
+        classes: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for offering in self.offerings_for(str(model_id)):
+            endpoint_id = str(offering.endpoint_id)
+            if endpoint_id in seen:
+                continue
+            seen.add(endpoint_id)
+            endpoint = self._endpoints.get(endpoint_id)
+            classes.append(
+                {
+                    "offering_id": offering.id,
+                    "served_via": (endpoint.display_name or endpoint.internal_name)
+                    if endpoint is not None
+                    else endpoint_id,
+                    "priority": offering.priority,
+                }
+            )
+        return classes
 
 
 ai_catalog_manager = AiCatalogManager()

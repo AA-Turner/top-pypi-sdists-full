@@ -1081,36 +1081,54 @@ class RedisFaceMatcher:
         if self._redis_connection_params:
             return self._redis_connection_params
 
-        if not self.face_client:
-            self.logger.warning("Cannot fetch Redis connection parameters without face_client")
-            return None
-
         await self._ensure_app_deployment_id()
 
+        # The Redis is looked up on be-action by this worker's instance id, the same route
+        # the LPR, incident and business-metrics consumers use. The sidecar's own
+        # ``/v1/facial_recognition/get_redis_details`` handed its password to any logged-in
+        # caller and is being removed (audit finding bg-facial_recognition-01).
+        session = await self._ensure_session()
+        if session is None:
+            return None
+
+        loop = asyncio.get_running_loop()
+        instance_id = await loop.run_in_executor(None, self._resolve_instance_id_sync, session)
+        if not instance_id:
+            self.logger.warning("instanceID missing in action details; cannot look up the FR Redis")
+            return None
+
         try:
-            response = await self.face_client.fetch_redis_details()
-        except Exception as exc:
+            server = await loop.run_in_executor(
+                None,
+                AnalyticsClient(session=session).actions.fetch_redis_server,
+                instance_id,
+            )
+        except CallFailure as exc:
             self.logger.error(
-                "Failed to fetch Redis details from facial recognition server: %s",
+                "Failed to fetch the Redis server for instance %s: %s",
+                instance_id,
                 exc,
                 exc_info=True,
             )
             return None
 
-        if response is None:
-            self.logger.warning("Redis details API returned failure")
+        if server is None:
+            self.logger.warning("No Redis server record for instance %s", instance_id)
             return None
 
-        if not response.host or not response.port:
-            self.logger.warning("Redis details missing REDIS_IP or REDIS_PORT")
+        # ``RedisServer.port`` is a string -- the producer declares it that way.
+        try:
+            port = int(server.port)
+        except ValueError:
+            port = 0
+        if not server.host or not port:
+            self.logger.warning("Redis server record for instance %s has no host or port", instance_id)
             return None
 
-        # ``port`` is already an int -- the model declares it, so the int() that used to
-        # guard a string from the wire, and the try/except around it, are both gone.
         self._redis_connection_params = {
-            "host": response.host,
-            "port": response.port,
-            "password": response.password or None,
+            "host": server.host,
+            "port": port,
+            "password": server.password or None,
             "username": None,
             "db": 0,
             "connection_timeout": 120,
@@ -1118,6 +1136,23 @@ class RedisFaceMatcher:
             "ssl": False,
         }
         return self._redis_connection_params
+
+    def _resolve_instance_id_sync(self, session) -> str | None:
+        """This worker's ``instanceID``, read off its action record.
+
+        Blocking, and called through ``run_in_executor`` for that reason. The action
+        record is cached per process, so this costs no round trip once
+        :meth:`_ensure_app_deployment_id` has read it.
+        """
+        action_id = self._action_id or bootstrap.scrape_action_id()
+        if not action_id:
+            self.logger.warning("Unable to determine action_id for Redis face matcher")
+            return None
+        action_details = self._fetch_action_details_sync(session, action_id)
+        if not action_details:
+            return None
+        instance_id = action_details.get("instanceID") or action_details.get("instanceId")
+        return str(instance_id) if instance_id else None
 
     def _fetch_action_details_sync(self, session, action_id: str) -> Dict[str, Any] | None:
         """The action's own details, or ``None`` if the record could not be read.

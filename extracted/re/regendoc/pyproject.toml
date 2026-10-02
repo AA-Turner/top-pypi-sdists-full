@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>45", "setuptools_scm[toml]>6.3.1", "wheel"]
+build-backend = "setuptools.build_meta"
+
+
+[tool.setuptools_scm]
+
+
+[tool.mypy]
+python_version =  "3.9"
+mypy_path = [
+    "$MYPY_CONFIG_FILE_DIR/src",
+    "$MYPY_CONFIG_FILE_DIR"
+]
+
+[[tool.mymy.overrides]]
+module =  [ "regendoc.*", "test_regendoc"]
+strict = true

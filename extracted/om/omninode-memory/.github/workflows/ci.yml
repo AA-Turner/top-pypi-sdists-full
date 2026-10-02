@@ -1,0 +1,841 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+name: CI
+
+on:
+  push:
+    branches: [main, 'hotfix/**']
+  pull_request:
+    branches: [main, dev]
+  merge_group:
+  workflow_dispatch:
+
+# Cancel previous runs when new commits are pushed to save CI resources
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  CACHE_VERSION: "0.1.0"
+
+jobs:
+  # =============================================================================
+  # JOB ORDERING RATIONALE (Fail-Fast Optimization)
+  # =============================================================================
+  #
+  # Phase 1 - Quick Validation (parallel, ~2-5 min):
+  #   - migration-freeze: Block new DB migrations during schema freeze (OMN-2055)
+  #   - lint: Code quality (ruff format, ruff check, mypy strict)
+  #   - pyright: Type checking (complementary to mypy)
+  #   - onex-validation: ONEX pattern validation (pydantic, naming, enums, etc.)
+  #   - check-handshake: Architecture handshake verification (cross-repo)
+  #
+  # Phase 2 - Full Test Suite (after Phase 1 completes):
+  #   - test: Run all tests (depends on lint, pyright, onex-validation)
+  #   Note: check-handshake runs independently and is evaluated in ci-summary,
+  #   NOT in test's needs, because it may be skipped on fork PRs and GitHub Actions
+  #   propagates skipped status to dependent jobs.
+  #
+  # Phase 3 - Aggregation:
+  #   - ci-summary: Aggregates all job results
+  #
+  # CONFIGURATION SYNC NOTE:
+  # These validations are synchronized with .pre-commit-config.yaml
+  # Pre-commit runs subset at commit time, full validation at pre-push
+  #
+  # SHARED CONFIGURATION FILES (synchronized with .pre-commit-config.yaml):
+  # - pyproject.toml: ruff [tool.ruff] (^0.8.0), mypy [tool.mypy] (^1.14.0), pyright (^1.1.390)
+  # - pyrightconfig.json: pyright settings (typeCheckingMode: basic, python 3.12)
+  # NOTE: UP007 (PEP 604 union syntax) is ENABLED and organizationally mandated
+  #
+  # CI-TO-HOOK SYNCHRONIZATION MAP:
+  # CI Job          | Pre-commit Hook                   | Command
+  # ----------------|-----------------------------------|----------------------------------
+  # migration-freeze| migration-freeze-check (pre-commit)| ./scripts/check_migration_freeze.sh [--ci]
+  # lint            | ruff-format (pre-commit)          | ruff format --check src/ tests/
+  # lint            | ruff (pre-commit)                 | ruff check src/ tests/
+  # lint            | mypy-type-check (pre-push)        | mypy --show-error-codes --no-error-summary src/omnimemory
+  # pyright         | pyright-type-check (pre-push)     | pyright src/omnimemory
+  # onex-validation | validate-pydantic-patterns        | python scripts/validation/validate_pydantic_patterns.py src/
+  # onex-validation | validate-single-class-per-file    | python scripts/validation/validate_single_class_per_file.py src/omnimemory/models/
+  # onex-validation | validate-enum-casing              | python scripts/validation/validate_enum_casing.py src/omnimemory/enums/
+  # onex-validation | validate-no-backward-compatibility| python scripts/validation/validate_no_backward_compatibility.py -d src/
+  # onex-validation | validate-secrets                  | python scripts/validation/validate_secrets.py src/
+  # onex-validation | onex-validate-naming              | python scripts/validation/validate_naming.py src/
+  # onex-validation | validate-http-imports             | python scripts/validation/validate_http_imports.py src/
+  # onex-validation | validate-kafka-imports            | python scripts/validation/validate_kafka_imports.py src/
+  # onex-validation | validate-model-locations          | python scripts/validation/validate_model_locations.py src/
+  # onex-validation | validate-no-env-fallbacks         | python scripts/validation/validate_no_env_fallbacks.py
+  # transport-import-guard | validate-no-transport-imports | python scripts/validate_no_transport_imports.py --src-dir src/omnimemory --exclude src/omnimemory/runtime --whitelist tests/audit/transport_import_whitelist.yaml
+  # contract-validation | contract-linter                | python -m omnimemory.tools.contract_linter <contracts>
+  # io-audit        | io-audit                          | python -m omnimemory.audit
+  #
+  # IMPORTANT: When modifying any CI step, update the corresponding hook in .pre-commit-config.yaml
+  # =============================================================================
+
+  # Phase 1 - Migration Freeze Enforcement
+  # Blocks new migrations when .migration_freeze exists (DB-per-repo refactor OMN-2055)
+  # SYNC: Pre-commit hook 'migration-freeze-check' at pre-commit stage
+  migration-freeze:
+    name: Migration Freeze Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # Needed for three-dot diff (merge-base with origin/main)
+
+      - name: Check migration freeze
+        run: ./scripts/check_migration_freeze.sh --ci
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+
+  # Phase 1 - Code Quality
+  lint:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install dependencies
+        run: uv sync --locked --reinstall-package omnibase-core --reinstall-package omnibase-spi --reinstall-package omnibase-infra
+
+      # SYNC: Pre-commit hook 'ruff-format' at pre-commit stage
+      # Both pre-commit and CI use --check for consistent validation
+      - name: Check ruff formatting
+        run: uv run --with 'ruff>=0.8.0,<1.0.0' ruff format --check src/ tests/
+
+      # SYNC: Pre-commit hook 'ruff-check' at pre-commit stage
+      # Both pre-commit and CI use check-only mode (no --fix)
+      - name: Check ruff linting (includes import sorting)
+        run: uv run --with 'ruff>=0.8.0,<1.0.0' ruff check src/ tests/
+
+      # SYNC: Pre-commit hook 'mypy-type-check' at pre-push stage
+      # Both pre-commit and CI use same flags for consistent output
+      - name: Run mypy type checking (strict)
+        run: uv run --with 'mypy>=1.14.0,<2.0.0' --with 'types-pyyaml>=6.0.12.20250915' --with 'types-cachetools>=6.2.0' mypy --show-error-codes --no-error-summary src/omnimemory
+
+  # Phase 1 - Pyright Type Checking
+  pyright:
+    name: Pyright Type Checking
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install dependencies
+        run: uv sync --locked --reinstall-package omnibase-core --reinstall-package omnibase-spi --reinstall-package omnibase-infra
+
+      # SYNC: Pre-commit hook 'pyright-type-check' at pre-push stage
+      # Uses pyrightconfig.json for project-level settings
+      - name: Run pyright type checking
+        run: uv run --with 'pyright>=1.1.408' pyright src/omnimemory
+
+  # Phase 1 - ONEX Validation
+  onex-validation:
+    name: ONEX Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install dependencies
+        run: uv sync --locked --reinstall-package omnibase-core --reinstall-package omnibase-spi --reinstall-package omnibase-infra
+
+      - name: Run the whole-tree pre-commit suite
+        run: uv run pre-commit run --all-files --show-diff-on-failure
+
+      # SYNC: Pre-commit hook 'validate-pydantic-patterns' at pre-commit stage
+      - name: Validate Pydantic patterns
+        run: uv run python scripts/validation/validate_pydantic_patterns.py src/
+
+      # SYNC: Pre-commit hook 'validate-single-class-per-file' at pre-commit stage
+      - name: Validate single class per file
+        run: uv run python scripts/validation/validate_single_class_per_file.py src/omnimemory/models/
+
+      # SYNC: Pre-commit hook 'validate-enum-casing' at pre-commit stage
+      - name: Validate enum casing
+        run: uv run python scripts/validation/validate_enum_casing.py src/omnimemory/enums/
+
+      # SYNC: Pre-commit hook 'validate-no-backward-compatibility' at pre-commit stage
+      - name: Validate no backward compatibility
+        run: uv run python scripts/validation/validate_no_backward_compatibility.py -d src/
+
+      # SYNC: Pre-commit hook 'validate-secrets' at pre-commit stage
+      - name: Validate secrets
+        run: uv run python scripts/validation/validate_secrets.py src/
+
+      # SYNC: Pre-commit hook 'onex-validate-naming' at pre-commit stage
+      # Both local and CI run naming validation at the same stage for consistency
+      - name: Validate naming conventions
+        run: uv run python scripts/validation/validate_naming.py src/
+
+      # SYNC: Pre-commit hook 'validate-http-imports' at pre-commit stage
+      # Enforces HTTP import boundary - all HTTP calls must go through adapter layer
+      - name: Validate HTTP import boundary
+        run: uv run python scripts/validation/validate_http_imports.py src/
+
+      # SYNC: Pre-commit hook 'validate-kafka-imports' at pre-commit stage
+      # Enforces ARCH-002 - runtime owns all Kafka plumbing, nodes use EventBus SPI
+      - name: Validate Kafka import boundary (ARCH-002)
+        run: uv run python scripts/validation/validate_kafka_imports.py src/
+
+      # SYNC: Pre-commit hook 'validate-no-env-fallbacks' at pre-commit stage (OMN-10735)
+      # Prevents silent fallback to localhost defaults via os.getenv/os.environ.get
+      - name: Validate no silent env fallbacks
+        run: uv run python scripts/validation/validate_no_env_fallbacks.py
+
+      # SYNC: Pre-commit hook 'validate-model-locations' at pre-commit stage
+      - name: Validate model locations
+        run: uv run python scripts/validation/validate_model_locations.py src/
+
+      # SYNC: Pre-commit hook 'no-hardcoded-bolt-fallback' at pre-commit stage
+      - name: Validate no hardcoded bolt fallback (whole-tree backstop)
+        run: bash scripts/check_no_hardcoded_bolt.sh
+
+      # SYNC: Pre-commit hook 'kafka-no-hardcoded-fallback' at pre-commit stage
+      - name: Validate no hardcoded Kafka fallback (whole-tree backstop)
+        run: bash scripts/validation/check_kafka_no_hardcoded_fallback.sh
+
+      # SYNC: Pre-commit hook 'no-internal-ips' at pre-commit stage
+      - name: Validate no internal IPs (whole-tree backstop)
+        run: bash scripts/validation/check_no_internal_ips.sh
+
+      # CI counterpart of the no-git-precommit-additional-dependencies hook.
+      - name: Pre-commit dependencies come from package indexes (OMN-19666)
+        run: bash tests/test_precommit_additional_dependencies_omn19666.sh
+
+      # SYNC: Pre-commit hook 'validate-gitignore-baseline' at pre-commit stage (OMN-18033)
+      # This step and the hook both pin released omnibase-core==0.47.23,
+      # matching uv.lock and carrying the packaged baseline spec; move them together.
+      # OMN-19666: do not use git+ URLs for this validator.
+      - name: Validate gitignore baseline (OMN-18033)
+        run: uv run --isolated --no-project --with "omnibase-core==0.47.23" python -m omnibase_core.validators.gitignore_baseline .
+
+      - name: ONEX validation summary
+        if: always()
+        run: |
+          echo "## ONEX Validation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Validated the following ONEX patterns:" >> $GITHUB_STEP_SUMMARY
+          echo "- Pydantic patterns" >> $GITHUB_STEP_SUMMARY
+          echo "- Single class per file" >> $GITHUB_STEP_SUMMARY
+          echo "- Enum member casing (UPPER_SNAKE_CASE)" >> $GITHUB_STEP_SUMMARY
+          echo "- No backward compatibility anti-patterns" >> $GITHUB_STEP_SUMMARY
+          echo "- Secret detection" >> $GITHUB_STEP_SUMMARY
+          echo "- Naming conventions" >> $GITHUB_STEP_SUMMARY
+          echo "- HTTP import boundary enforcement" >> $GITHUB_STEP_SUMMARY
+          echo "- Kafka import boundary enforcement (ARCH-002)" >> $GITHUB_STEP_SUMMARY
+          echo "- Pydantic model location enforcement" >> $GITHUB_STEP_SUMMARY
+          echo "- No silent env fallbacks (OMN-10735)" >> $GITHUB_STEP_SUMMARY
+          echo "- No hardcoded bolt fallback" >> $GITHUB_STEP_SUMMARY
+          echo "- No hardcoded Kafka fallback" >> $GITHUB_STEP_SUMMARY
+          echo "- No hardcoded internal IPs" >> $GITHUB_STEP_SUMMARY
+
+  # Phase 1 - Transport Import Guard (ARCH-002)
+  # SYNC: Pre-commit hook 'validate-no-transport-imports' (omnibase_core remote hook)
+  # OMN-13283: consolidated into omnibase_core; runs the canonical core validator.
+  transport-import-guard:
+    name: Transport Import Guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install dependencies
+        run: uv sync --locked --reinstall-package omnibase-core --reinstall-package omnibase-spi --reinstall-package omnibase-infra
+
+      - name: Validate no transport imports in nodes (ARCH-002)
+        run: |
+          files=$(find src/omnimemory -name '*.py' -not -path '*/runtime/*')
+          uv run python -m omnibase_core.validation.validator_transport_import $files
+
+  # Phase 1 - Contract Validation
+  # SYNC: Pre-commit hook 'contract-linter' at pre-commit stage
+  # Added: OMN-2218
+  contract-validation:
+    name: Contract Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install dependencies
+        run: uv sync --locked --reinstall-package omnibase-core --reinstall-package omnibase-spi --reinstall-package omnibase-infra
+
+      - name: Find and validate contract YAML files
+        run: |
+          contracts=$(find src/omnimemory/nodes src/omnimemory/handlers -name "contract.yaml" -type f 2>/dev/null)
+          if [ -z "$contracts" ]; then
+            echo "No contract files found - skipping validation"
+            exit 0
+          fi
+          echo "Found contract files:"
+          echo "$contracts"
+          echo ""
+          uv run python -m omnimemory.tools.contract_linter --verbose $contracts
+
+  # Phase 1 - I/O Audit (node purity)
+  # SYNC: Pre-commit hook 'node-purity' (omnibase_core remote hook)
+  # OMN-13283: consolidated into omnibase_core; runs the canonical core validator.
+  io-audit:
+    name: I/O Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install dependencies
+        run: uv sync --locked --reinstall-package omnibase-core --reinstall-package omnibase-spi --reinstall-package omnibase-infra
+
+      - name: Run node-purity audit
+        run: |
+          files=$(find src/omnimemory/nodes -name '*.py')
+          uv run python -m omnibase_core.validation.validator_node_purity $files
+
+  # Phase 1 - Architecture Handshake Verification
+  check-handshake:
+    name: Verify Architecture Handshake
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Skip on fork PRs - forks may not have access to cross-repo checkout
+    if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name != 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      # Uses default GITHUB_TOKEN which has read access to public repos in the org.
+      # Same pattern as omniclaude ci-cd.yml. If omnibase_core becomes private,
+      # add: token: ${{ secrets.OMNIBASE_CORE_ACCESS_TOKEN }}
+      - name: Checkout omnibase_core
+        uses: actions/checkout@v7
+        with:
+          repository: OmniNode-ai/omnibase_core
+          path: omnibase_core
+
+      - name: Verify handshake is current
+        id: verify-handshake
+        run: |
+          echo "::group::Architecture Handshake Verification"
+          if [ ! -f "./omnibase_core/architecture-handshakes/check-handshake.sh" ]; then
+            echo "::error::check-handshake.sh not found in omnibase_core"
+            exit 1
+          fi
+          echo "Verifying .claude/architecture-handshake.md matches source in omnibase_core..."
+          echo ""
+          ./omnibase_core/architecture-handshakes/check-handshake.sh ./omnibase_core
+          echo "::endgroup::"
+
+      - name: Handshake verification summary
+        if: always()
+        run: |
+          result="${{ steps.verify-handshake.outcome }}"
+          echo "## Architecture Handshake" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${result}" = "success" ]; then
+            echo "Verified .claude/architecture-handshake.md matches source in omnibase_core" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Handshake verification failed or was skipped; see logs." >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # Phase 2a - Smart Test Selection (OMN-10762)
+  # Computes which test paths to run based on changed files.
+  # When ENABLE_SMART_TESTS != 'true', emits full-suite selection (10 shards).
+  test-select:
+    name: Smart Test Selection
+    needs: [lint, pyright, onex-validation, transport-import-guard, contract-validation, io-audit, contract-compliance]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      selected_paths: ${{ steps.select.outputs.selected_paths }}
+      split_count: ${{ steps.select.outputs.split_count }}
+      matrix: ${{ steps.select.outputs.matrix }}
+      is_full_suite: ${{ steps.select.outputs.is_full_suite }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install dependencies
+        run: uv sync --locked --reinstall-package omnibase-core --reinstall-package omnibase-spi --reinstall-package omnibase-infra
+
+      - name: Compute changed files
+        id: changed
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          uv run python scripts/ci/collect_changed_files.py \
+            --event-name "$EVENT_NAME" \
+            --base-ref "$BASE_REF" \
+            --base-sha "$BASE_SHA" \
+            --head-sha "$HEAD_SHA" \
+            --output /tmp/changed_files.txt
+
+      - name: Run smart test selection
+        id: select
+        run: |
+          FEATURE_FLAG="${{ vars.ENABLE_SMART_TESTS == 'true' && 'on' || 'off' }}"
+          SELECTION=$(uv run python scripts/ci/detect_test_paths.py \
+            --changed-files-from /tmp/changed_files.txt \
+            --ref-name "${{ github.ref_name }}" \
+            --event-name "${{ github.event_name }}" \
+            --feature-flag "$FEATURE_FLAG")
+          echo "Selection: $SELECTION"
+          echo "selected_paths=$(echo "$SELECTION" | python3 -c "import json,sys; d=json.load(sys.stdin); print(json.dumps(d['selected_paths']))")" >> "$GITHUB_OUTPUT"
+          echo "split_count=$(echo "$SELECTION" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['split_count'])")" >> "$GITHUB_OUTPUT"
+          echo "matrix=$(echo "$SELECTION" | python3 -c "import json,sys; d=json.load(sys.stdin); print(json.dumps(d['matrix']))")" >> "$GITHUB_OUTPUT"
+          echo "is_full_suite=$(echo "$SELECTION" | python3 -c "import json,sys; d=json.load(sys.stdin); print(str(d['is_full_suite']).lower())")" >> "$GITHUB_OUTPUT"
+
+  # Phase 2b - Test Suite (matrix-parallel, OMN-10762)
+  test:
+    name: Tests (${{ matrix.index }}/${{ needs.test-select.outputs.split_count }})
+    needs: [test-select]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        index: ${{ fromJSON(needs.test-select.outputs.matrix) }}
+    env:
+      PERF_THRESHOLD_MS: "100"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install dependencies
+        run: uv sync --locked --reinstall-package omnibase-core --reinstall-package omnibase-spi --reinstall-package omnibase-infra
+
+      - name: Run tests (shard ${{ matrix.index }}/${{ needs.test-select.outputs.split_count }})
+        run: |
+          SELECTED_PATHS='${{ needs.test-select.outputs.selected_paths }}'
+          SPLIT_COUNT=${{ needs.test-select.outputs.split_count }}
+          INDEX=${{ matrix.index }}
+
+          # Build path args from JSON array
+          PATHS=$(python3 -c "import json,sys; paths=json.loads('$SELECTED_PATHS'); print(' '.join(paths))")
+
+          uv run --with 'pytest-cov>=6.0.0,<8.0.0' \
+            --with 'pytest-timeout>=2.3.1,<3.0.0' \
+            --with 'pytest-xdist>=3.8.0,<4.0.0' \
+            --with 'pytest-split>=0.11.0,<1.0.0' \
+            --with 'pytest-asyncio>=1.3.0,<2.0.0' \
+            pytest $PATHS \
+            --splits "$SPLIT_COUNT" \
+            --group "$INDEX" \
+            -n auto \
+            --timeout=60 \
+            --timeout-method=signal \
+            --tb=short \
+            --junitxml=junit-${{ matrix.index }}.xml \
+            --cov=src/omnimemory \
+            --cov-report=xml:coverage-${{ matrix.index }}.xml \
+            --cov-report=term-missing
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-${{ matrix.index }}
+          path: junit-${{ matrix.index }}.xml
+          retention-days: 7
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-report-${{ matrix.index }}
+          path: coverage-${{ matrix.index }}.xml
+          retention-days: 7
+
+  # Phase 2c - Tests gate (aggregates matrix shards)
+  tests-gate:
+    name: Tests Gate
+    needs: [test-select, test]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check all shards passed
+        run: |
+          selection_result="${{ needs.test-select.result }}"
+          result="${{ needs.test.result }}"
+
+          if [[ "$selection_result" == "skipped" ]]; then
+            echo "Test selection was skipped because an upstream prerequisite did not pass."
+            echo "CI Summary will report the blocking prerequisite."
+            exit 0
+          fi
+
+          if [[ "$selection_result" != "success" ]]; then
+            echo "Test selection did not complete successfully: $selection_result"
+            exit 1
+          fi
+
+          if [[ "$result" != "success" ]]; then
+            echo "Test shards failed: $result"
+            exit 1
+          fi
+          echo "All test shards passed"
+
+  # NOTE: Version Pin Compliance check (OMN-4809) removed — prerequisite
+  # OMN-4803 (check_version_pins.py in omni_home/standards/) not yet shipped,
+  # and cross-repo checkout of private OmniNode-ai/omni_home requires a PAT.
+  # Re-add when OMN-4803 lands and a CROSS_REPO_TOKEN secret is configured.
+
+  # Phase 2.5 - ONEX Compliance Check
+  # Runs `onex compliance check` to validate contracts, handlers, and schemas.
+  # External-service checks WARN only (not FAIL) — structural failures remain FAIL.
+  # Conditional: only runs if the `onex compliance` command is available.
+  compliance:
+    name: Contract Compliance
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install dependencies
+        run: uv sync --locked --reinstall-package omnibase-core --reinstall-package omnibase-spi --reinstall-package omnibase-infra
+
+      - name: Check if onex compliance command exists
+        id: check-command
+        run: |
+          if uv run onex compliance check --help >/dev/null 2>&1; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::onex compliance check command not available yet — skipping"
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run onex compliance check
+        id: compliance
+        if: steps.check-command.outputs.available == 'true'
+        run: |
+          mkdir -p .onex_state/compliance
+          if uv run onex compliance check --repo-root . --output .onex_state/compliance/report.yaml; then
+            echo "result=pass" >> "$GITHUB_OUTPUT"
+          else
+            echo "result=fail" >> "$GITHUB_OUTPUT"
+            echo "::warning::ONEX compliance check reported failures (warn-only for external-service checks)"
+          fi
+
+      - name: Upload compliance report
+        if: always() && steps.check-command.outputs.available == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: compliance-report
+          path: .onex_state/compliance/report.yaml
+          retention-days: 30
+
+  # Phase 3 - Aggregation
+
+  contract-compliance:
+    name: Contract Compliance Check
+    # OMNI_RUNNER_SELECTOR_V1 (OMN-16437): `uv sync` here resolves onex_change_control's
+    # dependency set from the internal-only `.201` Tailscale PyPI mirror
+    # (http://omninode-pc.tail75df5e.ts.net:3141/root/pypi/...).
+    # onex-allow-internal-ip OMN-16437 reason="doc comment naming the host this fix routes around; not runnable"
+    # `ubuntu-latest` is GitHub-hosted, non-tailnet, and cannot resolve that hostname.
+    # Same defect class as OMN-16413 (omnibase_core#1579), OMN-16427
+    # (omninode_infra#969), OMN-16428 (omnimarket), and OMN-16431 (omniclaude#2023,
+    # same job name/shape) -- adopts the identical fork-aware selector: only an
+    # ACTUAL fork PR (head repo != base repo) routes to the public ubuntu-latest
+    # runner; every same-repo pull_request, push, and merge_group gets the
+    # tailnet-connected self-hosted omnibase-ci fleet, which CAN reach the .201
+    # mirror. This does NOT widen the trust boundary: untrusted fork code still
+    # never reaches the self-hosted fleet.
+    runs-on: >-
+      ${{
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name != github.repository)
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+      }}
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group' || github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v7
+      - name: Checkout onex_change_control
+        uses: actions/checkout@v7
+        with:
+          repository: OmniNode-ai/onex_change_control
+          path: onex_change_control
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: 'onex_change_control/uv.lock'
+
+      - name: Install onex_change_control
+        working-directory: onex_change_control
+        run: uv sync --locked --all-extras
+
+      - name: Validate contract YAML files
+        working-directory: onex_change_control
+        run: |
+          CONTRACTS=$(find "$GITHUB_WORKSPACE/onex_change_control/contracts" -maxdepth 1 -name "OMN-*.yaml" 2>/dev/null)
+          if [ -z "$CONTRACTS" ]; then
+            echo "No contract YAML files found — skipping validation"
+            exit 0
+          fi
+          uv run validate-yaml $CONTRACTS
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  no-noncanonical-lifecycle-classes:
+    name: no-noncanonical-lifecycle-classes
+    # OMN-14350: non-canonical lifecycle-class ratchet. Unconditional (never skips);
+    # wired into required CI Summary via needs: + strict success-only verdict check.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.8.3"
+      - name: Ratchet non-canonical lifecycle-word classes against frozen allowlist (OMN-14350)
+        run: |
+          uv run --no-project \
+            --with 'omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@63635097705d832e0ee9c4811093efb31349105c' \
+            python -m omnibase_core.validators.no_noncanonical_lifecycle_classes \
+            --check-stale \
+            --allowlist .onex_ratchets/noncanonical_class_allowlist.yaml \
+            src/omnimemory
+
+  # ============================================================================
+  # Detect Secrets - the CI half of the .secrets.baseline gate (OMN-18669)
+  # ============================================================================
+  # This repository carried a committed `.secrets.baseline` that NO hook and NO
+  # workflow read. Measured 2026-09-18 (integration probe R9): the file was
+  # present, the repository looked protected, and a full scan against it
+  # surfaced 47 findings in 18 files nothing had ever been asked to approve.
+  # Nobody had loosened a gate -- there was no gate.
+  #
+  # Uses detect-secrets-hook, which compares findings to the baseline on the
+  # full equality model (hashed_secret + type) and exits non-zero only for
+  # findings NOT already baselined. Same pin, same baseline and the same
+  # exclusions as the `detect-secrets` pre-commit hook in
+  # .pre-commit-config.yaml -- if the two selections differ, a commit passes
+  # locally and this check fails, or worse, the reverse.
+  #
+  # Wired into the required `CI Summary` context through needs: below, with a
+  # strict success-only verdict, so it gates merges rather than advising.
+  detect-secrets:
+    name: Detect Secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      # detect-secrets is a CI-only scanning tool, not a project dependency.
+      # Installed via pip (not uv) because it is not declared in pyproject.toml.
+      - name: Install detect-secrets
+        run: pip install detect-secrets==1.5.0
+
+      - name: Run detect-secrets-hook
+        run: |
+          # -n/--no-verify (OMN-15063): several plugins (SlackDetector,
+          # StripeDetector, ...) call the live vendor API to "verify" each
+          # regex-matched candidate, then silently drop anything that comes
+          # back VERIFIED_FALSE. A negative or uncertain live-verification
+          # result must not silently remove a finding (fail-closed). Never
+          # remove this flag without re-proving the miss is fixed another way.
+          set +e
+          git ls-files -z | xargs -0 detect-secrets-hook \
+            --no-verify \
+            --baseline .secrets.baseline \
+            --exclude-files 'uv\.lock' \
+            --exclude-files '\.venv/' \
+            --exclude-files 'tests/fixtures/' \
+            --exclude-files '\.git/' \
+            --exclude-files '\.secrets\.baseline' \
+            --exclude-files '\.github/workflows/.*\.ya?ml'  # workflow YAML legitimately references the secrets context
+          HOOK_EXIT=$?
+          set -e
+
+          if [[ $HOOK_EXIT -eq 0 ]]; then
+            echo "## Secrets Scan" >> $GITHUB_STEP_SUMMARY
+            echo "No new secrets detected (all findings are baselined)." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## New Secrets Detected" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Findings are present that .secrets.baseline does not carry." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "If they are real, remove them and rotate under the credential-rotation" >> $GITHUB_STEP_SUMMARY
+            echo "runbook. If they are false positives, audit them into the baseline:" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo 'detect-secrets scan --no-verify --exclude-files "uv\.lock" --exclude-files "\.venv/" --exclude-files "tests/fixtures/" --exclude-files "\.git/" --exclude-files "\.secrets\.baseline" --exclude-files "\.github/workflows/.*\.ya?ml" --force-use-all-plugins > .secrets.baseline' >> $GITHUB_STEP_SUMMARY
+            echo 'detect-secrets audit .secrets.baseline' >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Never loosen the hook or widen the exclusions to clear this." >> $GITHUB_STEP_SUMMARY
+            exit $HOOK_EXIT
+          fi
+
+  ci-summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    needs: [migration-freeze, lint, pyright, onex-validation, transport-import-guard, contract-validation, io-audit, check-handshake, test-select, tests-gate, compliance, contract-compliance, no-noncanonical-lifecycle-classes, detect-secrets]
+    if: always()
+
+    steps:
+      - name: Check test results
+        run: |
+          # OMN-14350: strict fail-closed gate on the non-canonical lifecycle-class
+          # ratchet - only 'success' passes; skipped/cancelled/failure ALL block. It is
+          # in needs: so this job WAITS for it (no race).
+          if [[ "${{ needs.no-noncanonical-lifecycle-classes.result }}" != "success" ]]; then
+            echo "::error::no-noncanonical-lifecycle-classes ratchet did not pass (result: ${{ needs.no-noncanonical-lifecycle-classes.result }}) - fail-closed (OMN-14350)"
+            exit 1
+          fi
+          # OMN-18669: strict fail-closed gate on the secrets scan - only 'success'
+          # passes; skipped/cancelled/failure ALL block. A secrets gate that a
+          # skipped job can satisfy is the state this ticket exists to remove.
+          if [[ "${{ needs.detect-secrets.result }}" != "success" ]]; then
+            echo "::error::detect-secrets did not pass (result: ${{ needs.detect-secrets.result }}) - fail-closed (OMN-18669)"
+            exit 1
+          fi
+          migration_freeze="${{ needs.migration-freeze.result }}"
+          lint="${{ needs.lint.result }}"
+          pyright="${{ needs.pyright.result }}"
+          onex="${{ needs.onex-validation.result }}"
+          transport="${{ needs.transport-import-guard.result }}"
+          contracts="${{ needs.contract-validation.result }}"
+          io_audit="${{ needs.io-audit.result }}"
+          handshake="${{ needs.check-handshake.result }}"
+          test_select="${{ needs.test-select.result }}"
+          tests_gate="${{ needs.tests-gate.result }}"
+          compliance="${{ needs.compliance.result }}"
+          central_contracts="${{ needs.contract-compliance.result }}"
+
+          if [[ "$migration_freeze" == "success" ]] && \
+             [[ "$lint" == "success" ]] && \
+             [[ "$pyright" == "success" ]] && \
+             [[ "$onex" == "success" ]] && \
+             [[ "$transport" == "success" ]] && \
+             [[ "$contracts" == "success" ]] && \
+             [[ "$io_audit" == "success" ]] && \
+             [[ "$handshake" == "success" || "$handshake" == "skipped" ]] && \
+             [[ "$test_select" == "success" ]] && \
+             [[ "$tests_gate" == "success" ]] && \
+             [[ "$compliance" == "success" || "$compliance" == "skipped" ]] && \
+             [[ "$central_contracts" == "success" ]]; then
+            echo "All tests passed successfully"
+            echo "Migration Freeze: Passed"
+            echo "Code Quality: Passed"
+            echo "Pyright Type Checking: Passed"
+            echo "ONEX Validation: Passed"
+            echo "Transport Import Guard: Passed"
+            echo "Contract Validation: Passed"
+            echo "I/O Audit: Passed"
+            echo "Architecture Handshake: $handshake"
+            echo "Smart Test Selection: Passed"
+            echo "Tests Gate: Passed"
+            echo "Contract Compliance: $compliance"
+            echo "Central Contract Compliance: Passed"
+            exit 0
+          else
+            echo "Tests failed"
+            echo "Migration Freeze: $migration_freeze"
+            echo "Lint: $lint"
+            echo "Pyright: $pyright"
+            echo "ONEX Validation: $onex"
+            echo "Transport Import Guard: $transport"
+            echo "Contract Validation: $contracts"
+            echo "I/O Audit: $io_audit"
+            echo "Architecture Handshake: $handshake"
+            echo "Smart Test Selection: $test_select"
+            echo "Tests Gate: $tests_gate"
+            echo "Contract Compliance: $compliance"
+            echo "Central Contract Compliance: $central_contracts"
+            exit 1
+          fi
+
+  ai-slop-check:
+    name: AI-Slop Pattern Check (strict, PR diff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Compute changed Python/Markdown files vs PR base
+        id: changed
+        run: |
+          if [ -n "${{ github.base_ref }}" ]; then
+            git fetch origin "${{ github.base_ref }}" --no-tags --depth=1
+            FILES=$(git diff --name-only "origin/${{ github.base_ref }}"...HEAD -- '*.py' '*.md' | tr '\n' ' ')
+          else
+            FILES=$(git diff --name-only HEAD~1 -- '*.py' '*.md' 2>/dev/null | tr '\n' ' ')
+          fi
+          echo "files=$FILES" >> "$GITHUB_OUTPUT"
+      - name: Check changed files for AI-slop patterns (strict)
+        run: |
+          FILES="${{ steps.changed.outputs.files }}"
+          if [ -z "$FILES" ]; then exit 0; fi
+          python scripts/validation/check_ai_slop.py --strict $FILES

@@ -10,7 +10,9 @@ from setuptools import find_packages, setup
 def find_version(path):
     with open(path) as f:
         match = re.search(
-            r"^__version__ = ['\"]([^'\"]*)['\"]", f.read(), re.MULTILINE,
+            r"^__version__ = ['\"]([^'\"]*)['\"]",
+            f.read(),
+            re.MULTILINE,
         )
         if match:
             return match.group(1)
@@ -68,12 +70,8 @@ def package_files(directory):
     return paths
 
 
-VERSION_PATH = os.path.join(
-    os.path.dirname(os.path.realpath(__file__)), "anyscale", "version.py"
-)
-REQUIREMENTS_PATH = os.path.join(
-    os.path.dirname(os.path.realpath(__file__)), "requirements.in"
-)
+VERSION_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "anyscale", "version.py")
+REQUIREMENTS_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "requirements.in")
 
 with open("README.md") as fh:
     long_description = fh.read()

@@ -1,0 +1,72 @@
+name: Upstream
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+    paths-ignore:
+    - 'docs/**'
+  pull_request:
+    branches: [ "main" ]
+    types: [opened, reopened, synchronize, labeled]
+    paths-ignore:
+    - 'docs/**'
+  schedule:
+    - cron: "0 0 * * *"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-upstream:
+    name: upstream-build
+    if: |
+      always()
+      && (
+          (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+          || contains( github.event.pull_request.labels.*.name, 'test-upstream')
+      )
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: prefix-dev/setup-pixi@v0.9.3
+        with:
+          pixi-version: v0.59.0
+          environments: upstream
+
+      - name: Install pixi upstream environment
+        run: |
+          pixi install --environment upstream
+
+      - name: Overlay dev versions of upstream libraries
+        # See ci/upstream-overrides.txt for why these aren't in pyproject.toml.
+        run: |
+          pixi run -e upstream install-upstream-overrides
+
+      - name: List installed libraries
+        run: |
+          pixi list --environment upstream
+
+      - name: Cache tutorial data
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/xarray_tutorial_data
+          key: xarray-tutorial-data
+
+      - name: Running Tests
+        run: |
+          pixi run -e upstream run-tests-xml-cov
+
+      - name: Upload code coverage to Codecov
+        uses: codecov/codecov-action@v5.5.1
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          env_vars: OS,PYTHON
+          name: codecov-umbrella
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}

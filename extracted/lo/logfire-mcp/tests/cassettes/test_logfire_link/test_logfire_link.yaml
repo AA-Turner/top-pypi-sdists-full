@@ -1,0 +1,56 @@
+interactions:
+- request:
+    body: ''
+    headers:
+      accept:
+      - '*/*'
+      accept-encoding:
+      - gzip, deflate
+      connection:
+      - keep-alive
+      host:
+      - logfire-us.pydantic.dev
+      user-agent:
+      - logfire-mcp/0.3.2.dev7+6fc4700
+    method: GET
+    uri: https://logfire-us.pydantic.dev/v1/read-token-info
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAA/12NQQ7CIBBF78LaSYBSKF7GDDA0aIWmxRg13t1WuzBdTeb/vP9erJYL5VMK7MiM
+        NI3TFEByoUAJ4aEzpIEikgncK4rEDqxMPeb0xJrKBgoRsO3QQRO6CAqlB6t0C8EuR3GH5O0enG9u
+        9lMav884YF528prXJVw141TO5OvPELS23ooA3MoGFLkItnUI2EnlnZVSGr43ZLzSgg6lj2n6X9yK
+        Hivd8cHeH0L28pQFAQAA
+    headers:
+      CF-RAY:
+      - 9a49b1affcbccf8c-MAD
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 26 Nov 2025 13:22:20 GMT
+      Nel:
+      - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+      Report-To:
+      - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=ohqPeR1qOhHTfrK8Ol0t2yNds%2BiXMlvqFQ44Wr9xA7T1HvYcxqGf1iWAnHbgXaE5sjgXlL8KG4zqobVVhk6ukX6288UTZgJmNNJ8nui%2BqjFKcGG%2B"}]}'
+      Server:
+      - cloudflare
+      Transfer-Encoding:
+      - chunked
+      access-control-expose-headers:
+      - traceresponse
+      cf-cache-status:
+      - DYNAMIC
+      traceresponse:
+      - 00-019ac0544a2bb64ebcb217bff0a2f286-21e29cc6573172cd-01
+      via:
+      - 1.1 google
+      x-api-version:
+      - aolOI3LqYyHtai+Ejr/G5PpjjvGOAvPaQSoxeX84qXU=
+    status:
+      code: 200
+      message: OK
+version: 1

@@ -1,0 +1,63 @@
+[project]
+name = "django-google-cloud-tasks"
+version = "2.21.0"
+description = "Async Tasks with HTTP endpoints"
+authors = [
+    {name = "Joao Daher", email = "joao@daher.dev"},
+]
+maintainers = [
+    {name = "Lucas Gomide"},
+    {name = "Rodrigo Almeida"},
+    {name = "Diego Freire"},
+    {name = "Guilherme Araujo"},
+]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "django>=4",
+    "drf-kit>=1.45.0",
+    "gcp-pilot[pubsub,tasks]>=1.32.0",
+]
+
+[dependency-groups]
+dev = [
+    "coverage>=7.6.9",
+    "factory-boy>=3.3.1",
+    "freezegun>=1.5.1",
+    "pytest-cov>=6.0.0",
+    "pytest-django>=4.9.0",
+    "pytest-random-order>=1.1.1",
+    "pytest-rerunfailures>=15.0",
+    "pytest-sugar>=1.0.0",
+    "pytest-timeout>=2.3.1",
+    "pytest-xdist>=3.6.1",
+    "ruff>=0.8.2",
+    "safety>=3.2.11",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+
+
+[tool.pytest.ini_options]
+addopts = "-n auto --reruns 2 --random-order --timeout 100 --cov"
+python_files = ["tests_*.py"]
+DJANGO_SETTINGS_MODULE = "sample_project.settings"
+pythonpath = [".", "sample_project", "django_cloud_tasks"]
+
+
+[tool.coverage.run]
+branch = true
+source = ["django_cloud_tasks"]
+omit = ["*/manage.py", "*/settings.py", "*/wsgi.py"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["django_cloud_tasks"]
+
+[tool.uv]
+package = false

@@ -1,0 +1,788 @@
+#!/usr/bin/env python3
+"""Tests for static model discovery functionality."""
+
+import hashlib
+import os
+from unittest.mock import MagicMock, patch
+
+import httpx
+import pytest
+
+from esperanto import AIFactory
+from esperanto.common_types import Model
+from esperanto.model_discovery import (
+    PROVIDER_MODELS_REGISTRY,
+    _create_cache_key,
+    _model_cache,
+    get_anthropic_models,
+    get_cohere_models,
+    get_google_models,
+    get_minimax_models,
+    get_openai_compatible_models,
+    get_openai_models,
+    get_siliconflow_models,
+)
+
+
+class TestCacheKeyCreation:
+    """Test cache key generation."""
+
+    def test_create_cache_key_simple(self):
+        """Test cache key creation with simple params."""
+        key = _create_cache_key("openai", base_url="https://api.openai.com")
+        assert key == "openai:base_url=https://api.openai.com"
+
+    def test_create_cache_key_with_api_key(self):
+        """Test that API keys are hashed in cache keys."""
+        key = _create_cache_key("openai", api_key="sk-test123")
+
+        # API key should be hashed
+        expected_hash = hashlib.sha256("sk-test123".encode()).hexdigest()[:16]
+        assert f"api_key={expected_hash}" in key
+        assert "sk-test123" not in key
+
+    def test_create_cache_key_sorted(self):
+        """Test that cache keys are deterministic (sorted)."""
+        key1 = _create_cache_key("openai", base_url="url", api_key="key", organization="org")
+        key2 = _create_cache_key("openai", organization="org", api_key="key", base_url="url")
+
+        assert key1 == key2
+
+    def test_create_cache_key_ignores_none(self):
+        """Test that None values are excluded from cache key."""
+        key = _create_cache_key("openai", base_url="url", api_key=None)
+        assert "api_key" not in key
+        assert "base_url=url" in key
+
+
+class TestOpenAIDiscovery:
+    """Test OpenAI model discovery."""
+
+    @patch("esperanto.model_discovery.httpx.get")
+    def test_get_openai_models_success(self, mock_get):
+        """Test successful OpenAI model discovery."""
+        # Mock response
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": [
+                {"id": "gpt-4", "owned_by": "openai"},
+                {"id": "gpt-3.5-turbo", "owned_by": "openai"},
+                {"id": "text-embedding-3-small", "owned_by": "openai"},
+            ]
+        }
+        mock_get.return_value = mock_response
+
+        # Test
+        models = get_openai_models(api_key="test-key", model_type="language")
+
+        # Should only return language models
+        assert len(models) == 2
+        assert all(m.id.startswith("gpt") for m in models)
+        assert all(isinstance(m, Model) for m in models)
+
+    @patch("esperanto.model_discovery.httpx.get")
+    def test_get_openai_models_all_types(self, mock_get):
+        """Test OpenAI discovery returns all types when model_type=None."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": [
+                {"id": "gpt-4", "owned_by": "openai"},
+                {"id": "text-embedding-3-small", "owned_by": "openai"},
+                {"id": "whisper-1", "owned_by": "openai"},
+                {"id": "tts-1", "owned_by": "openai"},
+            ]
+        }
+        mock_get.return_value = mock_response
+
+        models = get_openai_models(api_key="test-key", model_type=None)
+
+        assert len(models) == 4
+
+    def test_get_openai_models_no_api_key(self):
+        """Test that ValueError is raised when API key is missing."""
+        with patch.dict(os.environ, {}, clear=True):
+            with pytest.raises(ValueError, match="OpenAI API key not found"):
+                get_openai_models()
+
+    @patch("esperanto.model_discovery.httpx.get")
+    def test_get_openai_models_api_error(self, mock_get):
+        """Test that API errors are properly handled."""
+        mock_response = MagicMock()
+        mock_response.status_code = 401
+        mock_response.json.return_value = {
+            "error": {"message": "Invalid API key"}
+        }
+        mock_get.return_value = mock_response
+
+        with pytest.raises(RuntimeError, match="OpenAI API error"):
+            get_openai_models(api_key="bad-key")
+
+    @patch("esperanto.model_discovery.httpx.get")
+    def test_get_openai_models_caching(self, mock_get):
+        """Test that results are cached."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": [{"id": "gpt-4", "owned_by": "openai"}]
+        }
+        mock_get.return_value = mock_response
+
+        # Clear cache first
+        _model_cache.clear()
+
+        # First call
+        models1 = get_openai_models(api_key="test-key", model_type="language")
+
+        # Second call should use cache
+        models2 = get_openai_models(api_key="test-key", model_type="language")
+
+        # Should only make one HTTP request
+        assert mock_get.call_count == 1
+        assert models1 == models2
+
+    @patch("esperanto.model_discovery.httpx.get")
+    def test_get_openai_models_with_env_var(self, mock_get):
+        """Test that OpenAI API key can come from environment."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": []}
+        mock_get.return_value = mock_response
+
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "env-key"}):
+            get_openai_models()
+
+            # Verify API key was used
+            call_args = mock_get.call_args
+            assert call_args.kwargs["headers"]["Authorization"] == "Bearer env-key"
+
+    @patch("esperanto.model_discovery.httpx.get")
+    def test_get_openai_models_custom_base_url_param(self, mock_get):
+        """Test that explicit base_url param overrides the default."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": []}
+        mock_get.return_value = mock_response
+
+        _model_cache.clear()
+        get_openai_models(api_key="test-key", base_url="https://my-litellm.example.com/v1")
+
+        call_args = mock_get.call_args
+        assert call_args.args[0] == "https://my-litellm.example.com/v1/models"
+
+    @patch("esperanto.model_discovery.httpx.get")
+    def test_get_openai_models_base_url_from_env(self, mock_get):
+        """Test that OPENAI_BASE_URL env var is used when no explicit base_url given."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": []}
+        mock_get.return_value = mock_response
+
+        _model_cache.clear()
+        with patch.dict(os.environ, {"OPENAI_BASE_URL": "https://env-proxy.example.com/v1", "OPENAI_API_KEY": "test-key"}):
+            get_openai_models()
+
+        call_args = mock_get.call_args
+        assert call_args.args[0] == "https://env-proxy.example.com/v1/models"
+
+    @patch("esperanto.model_discovery.httpx.get")
+    def test_get_openai_models_param_overrides_env(self, mock_get):
+        """Test that explicit base_url param takes precedence over OPENAI_BASE_URL env var."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": []}
+        mock_get.return_value = mock_response
+
+        _model_cache.clear()
+        with patch.dict(os.environ, {"OPENAI_BASE_URL": "https://env-proxy.example.com/v1"}):
+            get_openai_models(api_key="test-key", base_url="https://my-litellm.example.com/v1")
+
+        call_args = mock_get.call_args
+        assert call_args.args[0] == "https://my-litellm.example.com/v1/models"
+
+
+class TestAnthropicDiscovery:
+    """Test Anthropic model discovery."""
+
+    def test_get_anthropic_models(self):
+        """Test Anthropic model discovery returns hardcoded list."""
+        models = get_anthropic_models()
+
+        assert len(models) > 0
+        assert all(isinstance(m, Model) for m in models)
+        assert all(m.owned_by == "anthropic" for m in models)
+        assert any("claude" in m.id for m in models)
+        # Anthropic has withdrawn the entire claude-3 family — discovery must
+        # not recommend models that can no longer be called.
+        assert not any(m.id.startswith("claude-3") for m in models)
+
+    def test_get_anthropic_models_caching(self):
+        """Test that Anthropic models are cached."""
+        _model_cache.clear()
+
+        models1 = get_anthropic_models()
+        models2 = get_anthropic_models()
+
+        # Should return same objects (from cache)
+        assert models1 is models2
+
+
+class TestGoogleDiscovery:
+    """Test Google/Gemini model discovery."""
+
+    @patch("esperanto.model_discovery.httpx.get")
+    def test_get_google_models_success(self, mock_get):
+        """Test successful Google model discovery."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "models": [
+                {
+                    "name": "models/gemini-pro",
+                    "supportedGenerationMethods": ["generateContent"],
+                },
+                {
+                    "name": "models/gemini-pro-vision",
+                    "supportedGenerationMethods": ["generateContent"],
+                },
+            ]
+        }
+        mock_get.return_value = mock_response
+
+        models = get_google_models(api_key="test-key")
+
+        assert len(models) == 2
+        assert all(isinstance(m, Model) for m in models)
+        assert models[0].id == "gemini-pro"
+
+    def test_get_google_models_no_api_key(self):
+        """Test that ValueError is raised when API key is missing."""
+        with patch.dict(os.environ, {}, clear=True):
+            with pytest.raises(ValueError, match="Google API key not found"):
+                get_google_models()
+
+
+class TestCohereDiscovery:
+    """Test Cohere model discovery."""
+
+    @patch("esperanto.model_discovery.httpx.get")
+    def test_get_cohere_models_success(self, mock_get):
+        """Test successful Cohere model discovery with endpoint-based typing."""
+        _model_cache.clear()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "models": [
+                {"name": "command-a-03-2025", "endpoints": ["chat"], "context_length": 256000},
+                {"name": "embed-v4.0", "endpoints": ["embed"]},
+                {"name": "rerank-v4.0-pro", "endpoints": ["rerank"]},
+            ]
+        }
+        mock_get.return_value = mock_response
+
+        models = get_cohere_models(api_key="test-key")
+
+        assert len(models) == 3
+        assert all(isinstance(m, Model) for m in models)
+        by_id = {m.id: m for m in models}
+        assert by_id["command-a-03-2025"].type == "language"
+        assert by_id["embed-v4.0"].type == "embedding"
+        assert by_id["rerank-v4.0-pro"].type == "reranker"
+
+    def test_get_cohere_models_no_api_key(self):
+        """Test that ValueError is raised when API key is missing."""
+        with patch.dict(os.environ, {}, clear=True):
+            with pytest.raises(ValueError, match="Cohere API key not found"):
+                get_cohere_models()
+
+    @patch("esperanto.model_discovery.httpx.get")
+    def test_get_cohere_models_with_env_var(self, mock_get):
+        """Test that the Cohere API key from the environment reaches the request."""
+        _model_cache.clear()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"models": []}
+        mock_get.return_value = mock_response
+
+        with patch.dict(os.environ, {"COHERE_API_KEY": "env-key"}):
+            get_cohere_models()
+
+        headers = mock_get.call_args.kwargs["headers"]
+        assert headers["Authorization"] == "Bearer env-key"
+
+    @patch("esperanto.model_discovery.httpx.get")
+    def test_get_cohere_models_paginates(self, mock_get):
+        """Test that all pages are followed via next_page_token."""
+        _model_cache.clear()
+        page1 = MagicMock()
+        page1.status_code = 200
+        page1.json.return_value = {
+            "models": [{"name": "command-a-03-2025", "endpoints": ["chat"]}],
+            "next_page_token": "tok2",
+        }
+        page2 = MagicMock()
+        page2.status_code = 200
+        page2.json.return_value = {
+            "models": [{"name": "embed-v4.0", "endpoints": ["embed"]}],
+        }
+        mock_get.side_effect = [page1, page2]
+
+        models = get_cohere_models(api_key="test-key")
+
+        assert mock_get.call_count == 2
+        assert {m.id for m in models} == {"command-a-03-2025", "embed-v4.0"}
+        # Second call carries the page token from the first response.
+        assert mock_get.call_args_list[1].kwargs["params"]["page_token"] == "tok2"
+
+    @patch("esperanto.model_discovery.httpx.get")
+    def test_get_google_models_with_env_var(self, mock_get):
+        """Test that Google API key can come from environment."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"models": []}
+        mock_get.return_value = mock_response
+
+        with patch.dict(os.environ, {"GOOGLE_API_KEY": "env-key"}):
+            get_google_models()
+
+            # Verify API key was used in query params
+            call_args = mock_get.call_args
+            assert call_args.kwargs.get("params", {}).get("key") == "env-key"
+
+
+class TestOpenAICompatibleDiscovery:
+    """Test OpenAI-compatible model discovery."""
+
+    def test_get_openai_compatible_models_no_base_url(self):
+        """Test that ValueError is raised when base_url is missing."""
+        with pytest.raises(ValueError, match="base_url is required"):
+            get_openai_compatible_models()
+
+    @patch("esperanto.model_discovery.httpx.get")
+    def test_get_openai_compatible_models_success(self, mock_get):
+        """Test successful OpenAI-compatible model discovery."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": [
+                {"id": "local-model-1", "owned_by": "local"},
+                {"id": "local-model-2", "owned_by": "local"},
+            ]
+        }
+        mock_get.return_value = mock_response
+
+        models = get_openai_compatible_models(base_url="http://localhost:1234/v1")
+
+        assert len(models) == 2
+        assert all(isinstance(m, Model) for m in models)
+        assert models[0].id == "local-model-1"
+
+    @patch("esperanto.model_discovery.httpx.get")
+    def test_get_openai_compatible_models_with_type_filter(self, mock_get):
+        """Test OpenAI-compatible discovery with type filtering."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": [
+                {"id": "llama-chat", "owned_by": "meta"},
+                {"id": "text-embedding-local", "owned_by": "local"},
+            ]
+        }
+        mock_get.return_value = mock_response
+
+        # Filter for language models
+        models = get_openai_compatible_models(
+            base_url="http://localhost:1234/v1",
+            model_type="language"
+        )
+
+        assert len(models) == 1
+        assert "chat" in models[0].id.lower()
+
+    @patch("esperanto.model_discovery.httpx.get")
+    def test_get_openai_compatible_models_with_api_key(self, mock_get):
+        """Test that API key is included in headers."""
+        _model_cache.clear()
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": []}
+        mock_get.return_value = mock_response
+
+        get_openai_compatible_models(
+            base_url="http://localhost:1234/v1",
+            api_key="test-key"
+        )
+
+        # Check that the API was called with Authorization header
+        mock_get.assert_called_once()
+        call_kwargs = mock_get.call_args.kwargs
+        assert "headers" in call_kwargs
+        assert call_kwargs["headers"]["Authorization"] == "Bearer test-key"
+
+    @patch("esperanto.model_discovery.httpx.get")
+    def test_get_openai_compatible_models_strips_trailing_slash(self, mock_get):
+        """Test that trailing slash is stripped from base_url."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": []}
+        mock_get.return_value = mock_response
+
+        get_openai_compatible_models(base_url="http://localhost:1234/v1/")
+
+        call_args = mock_get.call_args
+        assert call_args.args[0] == "http://localhost:1234/v1/models"
+
+
+class TestSiliconFlowDiscovery:
+    """Test SiliconFlow model discovery."""
+
+    @patch("esperanto.model_discovery.httpx.get")
+    def test_get_siliconflow_models_success(self, mock_get):
+        """Test successful SiliconFlow model discovery."""
+        _model_cache.clear()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": [
+                {"id": "deepseek-ai/DeepSeek-V3.1-Terminus", "owned_by": "siliconflow"},
+                {"id": "Qwen/Qwen3-235B-A22B", "owned_by": "siliconflow"},
+            ]
+        }
+        mock_get.return_value = mock_response
+
+        models = get_siliconflow_models(api_key="test-key")
+
+        assert len(models) == 2
+        assert all(isinstance(m, Model) for m in models)
+        assert models[0].id == "deepseek-ai/DeepSeek-V3.1-Terminus"
+        assert mock_get.call_args.args[0] == "https://api.siliconflow.com/v1/models"
+
+    def test_get_siliconflow_models_no_api_key(self):
+        """Test that ValueError is raised when API key is missing."""
+        with patch.dict(os.environ, {}, clear=True):
+            with pytest.raises(ValueError, match="SiliconFlow API key not found"):
+                get_siliconflow_models()
+
+    @patch("esperanto.model_discovery.httpx.get")
+    def test_get_siliconflow_models_cn_base_url_param(self, mock_get):
+        """Test that explicit base_url can target the China endpoint."""
+        _model_cache.clear()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": []}
+        mock_get.return_value = mock_response
+
+        get_siliconflow_models(
+            api_key="test-key",
+            base_url="https://api.siliconflow.cn/v1",
+        )
+
+        assert mock_get.call_args.args[0] == "https://api.siliconflow.cn/v1/models"
+
+    @patch("esperanto.model_discovery.httpx.get")
+    def test_get_siliconflow_models_strips_trailing_slash(self, mock_get):
+        """Test that trailing slash is stripped from base_url."""
+        _model_cache.clear()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": []}
+        mock_get.return_value = mock_response
+
+        get_siliconflow_models(
+            api_key="test-key",
+            base_url="https://api.siliconflow.com/v1/",
+        )
+
+        assert mock_get.call_args.args[0] == "https://api.siliconflow.com/v1/models"
+
+    @patch("esperanto.model_discovery.httpx.get")
+    def test_get_siliconflow_models_empty_owned_by_falls_back(self, mock_get):
+        """Test empty owned_by values fall back to the provider owner."""
+        _model_cache.clear()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": [{"id": "Qwen/Qwen3-235B-A22B", "owned_by": ""}]
+        }
+        mock_get.return_value = mock_response
+
+        models = get_siliconflow_models(api_key="test-key")
+
+        assert models[0].owned_by == "siliconflow"
+
+    @patch("esperanto.model_discovery.httpx.get")
+    def test_get_siliconflow_models_base_url_from_env(self, mock_get):
+        """Test that SILICONFLOW_BASE_URL is used when no explicit base_url is given."""
+        _model_cache.clear()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": []}
+        mock_get.return_value = mock_response
+
+        with patch.dict(
+            os.environ,
+            {
+                "SILICONFLOW_API_KEY": "env-key",
+                "SILICONFLOW_BASE_URL": "https://api.siliconflow.cn/v1",
+            },
+        ):
+            get_siliconflow_models()
+
+        assert mock_get.call_args.args[0] == "https://api.siliconflow.cn/v1/models"
+
+
+class TestMiniMaxDiscovery:
+    """Test MiniMax language and TTS model discovery."""
+
+    @patch("esperanto.model_discovery.get_openai_compatible_models")
+    def test_get_minimax_models_enriches_context_and_adds_tts(self, mock_discovery):
+        mock_discovery.return_value = [
+            Model(id="MiniMax-M3", owned_by="minimax"),
+            Model(id="MiniMax-M2.7", owned_by="minimax"),
+        ]
+
+        models = get_minimax_models(api_key="test-key")
+
+        by_id = {model.id: model for model in models}
+        assert by_id["MiniMax-M3"].context_window == 1_000_000
+        assert by_id["MiniMax-M3"].type == "language"
+        assert by_id["MiniMax-M2.7"].context_window == 204_800
+        assert by_id["speech-2.8-hd"].type == "text_to_speech"
+        mock_discovery.assert_called_once_with(
+            base_url="https://api.minimax.io/v1",
+            api_key="test-key",
+        )
+
+    @patch("esperanto.model_discovery.get_openai_compatible_models")
+    def test_get_minimax_models_can_filter_tts_without_http(self, mock_discovery):
+        with patch.dict(os.environ, {}, clear=True):
+            models = get_minimax_models(model_type="text_to_speech")
+
+        assert models
+        assert all(model.type == "text_to_speech" for model in models)
+        mock_discovery.assert_not_called()
+
+    def test_get_minimax_models_requires_api_key(self):
+        with patch.dict(os.environ, {}, clear=True):
+            with pytest.raises(ValueError, match="MiniMax API key not found"):
+                get_minimax_models()
+
+class TestProviderRegistry:
+    """Test the provider registry."""
+
+    def test_registry_contains_all_providers(self):
+        """Test that registry has entries for all supported providers."""
+        expected_providers = [
+            "openai", "openai-compatible", "anthropic", "google", "vertex", "mistral",
+            "groq", "deepseek", "siliconflow", "ollama", "openrouter", "xai",
+            "perplexity", "jina", "voyage", "azure", "transformers", "minimax"
+        ]
+
+        for provider in expected_providers:
+            assert provider in PROVIDER_MODELS_REGISTRY
+
+    def test_registry_functions_are_callable(self):
+        """Test that all registry entries are callable functions."""
+        for provider, func in PROVIDER_MODELS_REGISTRY.items():
+            assert callable(func), f"{provider} registry entry is not callable"
+
+
+class TestAIFactoryIntegration:
+    """Test AIFactory.get_provider_models() integration."""
+
+    def test_get_provider_models_openai(self):
+        """Test AIFactory.get_provider_models() for OpenAI."""
+        # Patch the registry instead of the function
+        with patch.dict("esperanto.model_discovery.PROVIDER_MODELS_REGISTRY") as mock_registry:
+            mock_func = MagicMock(return_value=[Model(id="gpt-4", owned_by="openai")])
+            mock_registry["openai"] = mock_func
+
+            models = AIFactory.get_provider_models("openai", api_key="test-key")
+
+            assert len(models) == 1
+            assert models[0].id == "gpt-4"
+            mock_func.assert_called_once()
+
+    def test_get_provider_models_anthropic(self):
+        """Test AIFactory.get_provider_models() for Anthropic."""
+        # Patch the registry
+        with patch.dict("esperanto.model_discovery.PROVIDER_MODELS_REGISTRY") as mock_registry:
+            mock_func = MagicMock(return_value=[Model(id="claude-3-opus", owned_by="anthropic")])
+            mock_registry["anthropic"] = mock_func
+
+            models = AIFactory.get_provider_models("anthropic")
+
+            assert len(models) == 1
+            mock_func.assert_called_once()
+
+    def test_get_provider_models_invalid_provider(self):
+        """Test that invalid provider raises ValueError."""
+        with pytest.raises(ValueError, match="Provider 'invalid' not supported"):
+            AIFactory.get_provider_models("invalid")
+
+    def test_get_provider_models_with_model_type(self):
+        """Test that model_type is passed to OpenAI discovery."""
+        with patch.dict("esperanto.model_discovery.PROVIDER_MODELS_REGISTRY") as mock_registry:
+            mock_func = MagicMock(return_value=[])
+            mock_registry["openai"] = mock_func
+
+            AIFactory.get_provider_models("openai", api_key="test", model_type="embedding")
+
+            # Should pass model_type in config
+            call_args = mock_func.call_args
+            assert call_args.kwargs.get("model_type") == "embedding"
+
+    def test_get_provider_models_passes_model_type_to_minimax(self):
+        with patch.dict("esperanto.model_discovery.PROVIDER_MODELS_REGISTRY") as mock_registry:
+            mock_func = MagicMock(return_value=[])
+            mock_registry["minimax"] = mock_func
+
+            AIFactory.get_provider_models(
+                "minimax", api_key="test", model_type="text_to_speech"
+            )
+
+            mock_func.assert_called_once_with(
+                api_key="test", model_type="text_to_speech"
+            )
+
+    def test_get_provider_models_flattens_config_dict(self):
+        """Test provider model discovery accepts the same config dict shape as factory creation."""
+        with patch.dict("esperanto.model_discovery.PROVIDER_MODELS_REGISTRY") as mock_registry:
+            mock_func = MagicMock(return_value=[])
+            mock_registry["openai"] = mock_func
+
+            AIFactory.get_provider_models(
+                "openai",
+                config={
+                    "api_key": "config-key",
+                    "base_url": "https://custom.openai-compatible.test/v1",
+                },
+            )
+
+            mock_func.assert_called_once_with(
+                api_key="config-key",
+                base_url="https://custom.openai-compatible.test/v1",
+            )
+
+    def test_get_provider_models_direct_config_overrides_nested_config(self):
+        """Test direct discovery kwargs override nested config dict values."""
+        with patch.dict("esperanto.model_discovery.PROVIDER_MODELS_REGISTRY") as mock_registry:
+            mock_func = MagicMock(return_value=[])
+            mock_registry["openai"] = mock_func
+
+            AIFactory.get_provider_models(
+                "openai",
+                config={
+                    "api_key": "config-key",
+                    "base_url": "https://config.example/v1",
+                },
+                base_url="https://direct.example/v1",
+            )
+
+            mock_func.assert_called_once_with(
+                api_key="config-key",
+                base_url="https://direct.example/v1",
+            )
+
+    @pytest.mark.parametrize("nested_config", [False, 0, "", []])
+    def test_get_provider_models_rejects_falsey_non_dict_config(self, nested_config):
+        """Test falsey non-dict nested config values are not silently ignored."""
+        with patch.dict("esperanto.model_discovery.PROVIDER_MODELS_REGISTRY") as mock_registry:
+            mock_func = MagicMock(return_value=[])
+            mock_registry["openai"] = mock_func
+
+            with pytest.raises(TypeError, match="config must be a dictionary"):
+                AIFactory.get_provider_models("openai", config=nested_config)
+
+            mock_func.assert_not_called()
+
+    def test_get_provider_models_ignores_none_nested_config(self):
+        """Test explicit None keeps the optional nested config behavior."""
+        with patch.dict("esperanto.model_discovery.PROVIDER_MODELS_REGISTRY") as mock_registry:
+            mock_func = MagicMock(return_value=[])
+            mock_registry["openai"] = mock_func
+
+            AIFactory.get_provider_models("openai", config=None, api_key="direct-key")
+
+            mock_func.assert_called_once_with(api_key="direct-key")
+
+    def test_get_provider_models_case_insensitive(self):
+        """Test that provider names are case-insensitive."""
+        with patch.dict("esperanto.model_discovery.PROVIDER_MODELS_REGISTRY") as mock_registry:
+            mock_func = MagicMock(return_value=[])
+            mock_registry["openai"] = mock_func
+
+            AIFactory.get_provider_models("OpenAI", api_key="test")
+            AIFactory.get_provider_models("OPENAI", api_key="test")
+
+            assert mock_func.call_count == 2
+
+
+class TestModelCacheIntegration:
+    """Test ModelCache integration in discovery."""
+
+    def test_cache_expiration(self):
+        """Test that cache entries expire after TTL."""
+        _model_cache.clear()
+
+        # This is a bit tricky to test without waiting an hour
+        # We'll just verify the cache can be cleared
+        get_anthropic_models()
+        assert len(_model_cache._cache) > 0
+
+        _model_cache.clear()
+        assert len(_model_cache._cache) == 0
+
+    def test_different_configs_different_cache(self):
+        """Test that different configs create different cache entries."""
+        _model_cache.clear()
+
+        with patch("esperanto.model_discovery.httpx.get") as mock_get:
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"data": []}
+            mock_get.return_value = mock_response
+
+            # Two different API keys should create different cache entries
+            get_openai_models(api_key="key1", model_type="language")
+            get_openai_models(api_key="key2", model_type="language")
+
+            # Should make two HTTP requests (different cache keys)
+            assert mock_get.call_count == 2
+
+
+class TestErrorHandling:
+    """Test error handling in discovery functions."""
+
+    @patch("esperanto.model_discovery.httpx.get")
+    def test_http_timeout_error(self, mock_get):
+        """Test that HTTP timeout errors are handled."""
+        mock_get.side_effect = httpx.TimeoutException("Request timed out")
+
+        with pytest.raises(RuntimeError, match="Failed to fetch OpenAI models"):
+            get_openai_models(api_key="test-key")
+
+    @patch("esperanto.model_discovery.httpx.get")
+    def test_network_error(self, mock_get):
+        """Test that network errors are handled."""
+        mock_get.side_effect = httpx.NetworkError("Connection failed")
+
+        with pytest.raises(RuntimeError, match="Failed to fetch OpenAI models"):
+            get_openai_models(api_key="test-key")
+
+    @patch("esperanto.model_discovery.httpx.get")
+    def test_malformed_response(self, mock_get):
+        """Test handling of malformed API responses."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.side_effect = ValueError("Invalid JSON")
+        mock_get.return_value = mock_response
+
+        with pytest.raises(Exception):  # Should propagate the JSON error
+            get_openai_models(api_key="test-key")
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

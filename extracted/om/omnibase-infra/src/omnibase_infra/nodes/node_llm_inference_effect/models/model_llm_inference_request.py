@@ -1,0 +1,317 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""LLM inference request model for the LLM Inference Effect node.
+
+ModelLlmInferenceRequest, the input model for the
+LLM inference effect node. It captures all parameters needed to make an
+inference call to an OpenAI-compatible LLM endpoint.
+
+Related:
+    - ModelLlmInferenceResponse: Output model for the inference call
+    - ModelLlmToolDefinition: Tool definitions sent in the request
+    - ModelLlmToolChoice: Caller constraint on tool selection
+    - EnumLlmOperationType: Type of LLM operation (CHAT_COMPLETION, COMPLETION)
+    - OMN-2107: Phase 7 OpenAI-compatible inference handler
+    - OMN-10489: endpoint_url field — full URL, bypasses base_url + path construction
+    - OMN-12815: endpoint_url is the COMPLETE contract endpoint, posted VERBATIM;
+      the handler performs no URL construction (no base_url + path append).
+"""
+
+from __future__ import annotations
+
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SecretStr,
+    field_validator,
+    model_validator,
+)
+
+from omnibase_core.enums.cost import EnumUsageSource
+from omnibase_core.types import JsonType
+from omnibase_infra.enums import EnumLlmOperationType
+from omnibase_infra.models.llm.model_llm_tool_choice import (
+    ModelLlmToolChoice,
+)
+from omnibase_infra.models.llm.model_llm_tool_definition import (
+    ModelLlmToolDefinition,
+)
+
+
+class ModelLlmInferenceRequest(BaseModel):
+    """Input model for LLM inference operations.
+
+    Captures all parameters needed to make an inference call to an
+    OpenAI-compatible LLM endpoint. The handler translates these
+    fields into the provider-specific wire format.
+
+    Attributes:
+        endpoint_url: The COMPLETE endpoint URL to POST to, as the routing
+            authority resolves it for the backend.
+            OMN-12815: this is the contract endpoint posted VERBATIM — the handler
+            performs no URL construction and appends no path. Required for every
+            inference call; the routing authority resolves it complete.
+        base_url: Routing/observability label for the LLM endpoint host (e.g.
+            ``"http://192.168.86.201:8000"``). It is NOT used to construct the POST
+            URL — the handler posts ``endpoint_url`` verbatim. Retained as the
+            required routing/metrics field consumed by the metrics publisher.
+        operation_type: Type of LLM operation to perform.
+        model: Model identifier to use for inference.
+        messages: Chat messages for CHAT_COMPLETION operations.
+        prompt: Text prompt for COMPLETION operations.
+        system_prompt: Optional system prompt prepended as a system message.
+        max_tokens: Maximum number of tokens to generate.
+        temperature: Sampling temperature (0.0 = deterministic, 2.0 = very random).
+        top_p: Nucleus sampling parameter.
+        stop: Stop sequences that halt generation.
+        tools: Tool definitions to make available to the model.
+        tool_choice: Constraint on how the model should use tools.
+        api_key: Optional API key for Bearer auth. If None, no auth header is sent.
+        extra_headers: Additional HTTP headers injected into the outbound request.
+            Used for custom authentication schemes (e.g. HMAC ``X-ONEX-Signature``).
+        timeout_seconds: HTTP request timeout in seconds (default 30.0). Applied
+            to both authenticated and unauthenticated calls. Must be between 1.0
+            and 1800.0 inclusive. (OMN-15115: raised from 600.0 -- some local
+            model endpoints have real sustained throughput well below the rate
+            assumed when a caller's per-model timeout was sized, and 600.0 was
+            an unreachable ceiling for those endpoints regardless of what a
+            caller configured.)
+        max_retries: Maximum retry attempts for a failed/timed-out call (default
+            3, matching ``MixinLlmHttpTransport._execute_llm_http_call``'s
+            historical hardcoded default). Total attempts = 1 + max_retries.
+            OMN-15115: exposed as a request field so slow-but-reliable local
+            endpoints can opt into fewer retries -- retrying a call that is
+            failing because the endpoint is systematically slow (not because
+            of a transient blip) just re-consumes the same wall-clock budget
+            without changing the outcome, and on a single-concurrency-slot
+            endpoint it also extends how long that slot is held by doomed
+            requests.
+
+    Example:
+        >>> req = ModelLlmInferenceRequest(
+        ...     base_url="http://192.168.86.201:8000",
+        ...     operation_type=EnumLlmOperationType.CHAT_COMPLETION,
+        ...     model="qwen2.5-coder-14b",
+        ...     messages=[{"role": "user", "content": "Hello"}],
+        ... )
+        >>> req.model
+        'qwen2.5-coder-14b'
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
+
+    endpoint_url: str | None = Field(
+        default=None,
+        min_length=1,
+        description=(
+            "The COMPLETE contract endpoint URL, posted VERBATIM (OMN-12815). The "
+            "handler performs no URL construction and appends no path. Required for "
+            "every inference call; resolved complete by the routing authority."
+        ),
+    )
+    base_url: str = Field(
+        ...,
+        min_length=1,
+        description=(
+            "Routing/observability label for the LLM endpoint host. NOT used to "
+            "construct the POST URL — the handler posts endpoint_url verbatim "
+            "(OMN-12815). Consumed by the metrics publisher as the endpoint label."
+        ),
+    )
+    operation_type: EnumLlmOperationType = Field(
+        ...,
+        description="Type of LLM operation to perform.",
+    )
+    model: str = Field(
+        ...,
+        min_length=1,
+        description="Model identifier to use for inference.",
+    )
+    messages: tuple[dict[str, JsonType], ...] = Field(
+        default_factory=tuple,
+        description="Chat messages for CHAT_COMPLETION operations.",
+    )
+    prompt: str | None = Field(
+        default=None,
+        description="Text prompt for COMPLETION operations.",
+    )
+    system_prompt: str | None = Field(
+        default=None,
+        description="Optional system prompt prepended as a system message.",
+    )
+    max_tokens: int | None = Field(
+        default=None,
+        ge=1,
+        description="Maximum number of tokens to generate.",
+    )
+    temperature: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=2.0,
+        description="Sampling temperature.",
+    )
+    top_p: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Nucleus sampling parameter.",
+    )
+    stop: tuple[str, ...] = Field(
+        default_factory=tuple,
+        description="Stop sequences that halt generation.",
+    )
+    tools: tuple[ModelLlmToolDefinition, ...] = Field(
+        default_factory=tuple,
+        description="Tool definitions to make available to the model.",
+    )
+    tool_choice: ModelLlmToolChoice | None = Field(
+        default=None,
+        description="Constraint on how the model should use tools.",
+    )
+    # OMN-18385: ``SecretStr``, not ``str``. This model crosses the runtime
+    # boundary, so it is reachable by the dead-letter path that copied two
+    # customer bearer tokens onto a durable topic in cleartext. The single
+    # unwrap point is the handler that builds the outbound HTTP auth header.
+    # NOTE: ``provider_config`` can also carry a key under a free-form dict
+    # entry, which no type can cover -- the dead-letter publisher's
+    # field-name redaction is what catches that case.
+    api_key: SecretStr | None = Field(
+        default=None,
+        repr=False,
+        description="Optional API key for Bearer auth.",
+    )
+    extra_headers: dict[str, str] = Field(
+        default_factory=dict,
+        repr=False,
+        description=(
+            "Additional HTTP headers injected into the outbound request. "
+            "Used for custom authentication schemes such as HMAC signatures "
+            "(e.g. ``X-ONEX-Signature``). Keys and values must be ASCII strings."
+        ),
+    )
+    extra_body: dict[str, JsonType] = Field(
+        default_factory=dict,
+        repr=False,
+        description=(
+            "Provider-specific JSON fields merged into the request body, for "
+            "inference parameters the typed schema does not model directly. "
+            "Example: ``{'chat_template_kwargs': {'enable_thinking': False}}`` to "
+            "suppress reasoning output on Qwen vLLM backends (OMN-12816). Default "
+            "empty so existing callers are unaffected; declared payload fields take "
+            "precedence over identically-named ``extra_body`` keys."
+        ),
+    )
+    timeout_seconds: float = Field(
+        default=30.0,
+        ge=1.0,
+        le=1800.0,
+        description="HTTP request timeout in seconds.",
+    )
+    max_retries: int = Field(
+        default=3,
+        ge=0,
+        le=10,
+        description=(
+            "Maximum retry attempts for a failed/timed-out call. Total "
+            "attempts = 1 + max_retries. Default of 3 preserves the prior "
+            "hardcoded transport behavior for all existing callers."
+        ),
+    )
+    gpu_type: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=64,
+        description="Configured GPU type for local-model compute evidence.",
+    )
+    gpu_count: int | None = Field(
+        default=None,
+        ge=1,
+        le=32767,
+        description="Configured GPU count for local-model compute evidence.",
+    )
+    compute_usage_source: EnumUsageSource | None = Field(
+        default=None,
+        description="Optional compute usage provenance.",
+    )
+
+    @field_validator("base_url")
+    @classmethod
+    def _validate_base_url_scheme(cls, v: str) -> str:
+        """Validate that base_url starts with http:// or https://.
+
+        Args:
+            v: The base_url value to validate.
+
+        Returns:
+            The validated base_url value (unchanged).
+
+        Raises:
+            ValueError: If the URL does not start with ``http://`` or ``https://``.
+        """
+        if not v.startswith(("http://", "https://")):
+            raise ValueError(
+                f"base_url must start with 'http://' or 'https://', got: {v!r}"
+            )
+        return v
+
+    @field_validator("endpoint_url")
+    @classmethod
+    def _validate_endpoint_url_scheme(cls, v: str | None) -> str | None:
+        """Validate that endpoint_url starts with http:// or https:// when set.
+
+        Args:
+            v: The endpoint_url value to validate.
+
+        Returns:
+            The validated endpoint_url value (unchanged), or None.
+
+        Raises:
+            ValueError: If the URL does not start with ``http://`` or ``https://``.
+        """
+        if v is not None and not v.startswith(("http://", "https://")):
+            raise ValueError(
+                f"endpoint_url must start with 'http://' or 'https://', got: {v!r}"
+            )
+        return v
+
+    @model_validator(mode="after")
+    def _validate_prompt_or_messages(self) -> ModelLlmInferenceRequest:
+        """Enforce that the correct input field is populated for the operation type.
+
+        - CHAT_COMPLETION requires at least one message in ``messages``, or a
+          non-empty ``system_prompt`` (the handler prepends it as a system message).
+        - COMPLETION requires a non-None ``prompt``.
+
+        Returns:
+            The validated instance (unchanged).
+
+        Raises:
+            ValueError: If the required field is missing for the operation type.
+        """
+        if (
+            self.operation_type is EnumLlmOperationType.CHAT_COMPLETION
+            and len(self.messages) == 0
+            and not self.system_prompt
+        ):
+            raise ValueError(
+                "CHAT_COMPLETION requires at least one message in messages"
+                " or a non-empty system_prompt"
+            )
+        if (
+            self.operation_type is EnumLlmOperationType.COMPLETION
+            and self.prompt is None
+        ):
+            raise ValueError("COMPLETION requires a non-None prompt")
+        if (self.gpu_type is None) != (self.gpu_count is None):
+            raise ValueError("gpu_type and gpu_count must be provided together")
+        if self.compute_usage_source is not None and (
+            self.gpu_type is None or self.gpu_count is None
+        ):
+            raise ValueError(
+                "compute_usage_source requires gpu_type and gpu_count to be provided"
+            )
+        return self
+
+
+__all__: list[str] = ["ModelLlmInferenceRequest"]

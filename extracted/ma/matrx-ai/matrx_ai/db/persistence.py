@@ -1281,6 +1281,7 @@ async def persist_completed_request(
         # 3. REQUEST ROWS — one per iteration (written FIRST so the
         #    aggregate in step 4 can read them back from the DB)
         # ============================================================
+        _last_iteration = max((int(r.get("iteration", 1)) for r in req_list), default=1)
         for req in req_list if _should_persist else []:
             iteration_num = req.get("iteration", 1)
             # Per-turn barrier: skip cx_request cost rows already committed by a
@@ -1378,6 +1379,18 @@ async def persist_completed_request(
             # iterations resolved from their response and keep the default
             # 'completed'. The structured error (with parsed status_code for
             # reporting) goes here; the exact payload is in cx_request_snapshot.
+            # A person's Stop ends the call it interrupted CANCELLED, never
+            # 'completed' (PB-05 run 2, ac170b56…: user_request said cancelled,
+            # its stopped call's row said completed). Only the LAST call of a
+            # cancelled run, and only when it did not finish on its own — a
+            # Stop that lands between calls leaves every call finished.
+            if (
+                ur_data.get("status") == "cancelled"
+                and int(iteration_num) == _last_iteration
+                and not req.get("finish_reason")
+            ):
+                req_create_data["status"] = "cancelled"
+
             if _request_failed and not _resolved_from_response:
                 req_create_data["status"] = "failed"
                 req_create_data["error"] = _build_cx_request_error(ur_data)

@@ -1,0 +1,124 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# Market Contract-State-Coverage Gate (OMN-13781)
+#
+# Extracts each node's declared state set from contract.yaml (FSM
+# states/transitions for orchestrators; output classes/event types for
+# compute/effect/reducer) and diffs it against the states asserted by that
+# node's tests. FAILs when a directly-touched node has an uncovered
+# declared state — see scripts/validate_state_coverage.py for the full
+# extraction/coverage/baseline rules.
+#
+# Runs on every PR/merge_group event with no paths filter (mirrors
+# node-drift-gate's OMN-12706 fix): a required status check must report on
+# every PR, including ones that touch neither src/omnimarket/nodes/** nor
+# tests/**, otherwise it stays permanently "expected" and blocks the queue.
+# `--check-stale` audits baseline freshness even when no node was touched.
+
+name: state-coverage-gate
+
+on:
+  pull_request:
+    branches: [main, dev]
+  merge_group:
+  workflow_dispatch:
+
+concurrency:
+  group: state-coverage-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  state-coverage-gate:
+    name: state-coverage-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # On PRs GitHub otherwise defaults this checkout to a synthetic merge
+          # commit. The validator must inspect the immutable event head, then
+          # compare it to the immutable event base below; a later target-branch
+          # advance must never enter this changed-node selection.
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.event_name == 'merge_group' && github.event.merge_group.head_sha || github.sha }}
+
+      - name: Clone omnibase_core
+        run: git clone --depth=1 https://github.com/OmniNode-ai/omnibase_core.git ../omnibase_core
+
+      - name: Clone omnibase_compat
+        run: git clone --depth=1 https://github.com/OmniNode-ai/omnibase_compat.git ../omnibase_compat
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Resolve immutable validation range
+        id: validation_range
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}
+          MERGE_GROUP_HEAD_SHA: ${{ github.event.merge_group.head_sha }}
+          EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          case "$EVENT_NAME" in
+            pull_request)
+              BASE_SHA="$PR_BASE_SHA"
+              HEAD_SHA="$PR_HEAD_SHA"
+              ;;
+            merge_group)
+              BASE_SHA="$MERGE_GROUP_BASE_SHA"
+              HEAD_SHA="$MERGE_GROUP_HEAD_SHA"
+              ;;
+            workflow_dispatch)
+              HEAD_SHA="$EVENT_SHA"
+              BASE_SHA="$(git rev-parse "${HEAD_SHA}^" 2>/dev/null)" || {
+                echo "::error::state-coverage-gate: workflow_dispatch requires a head with a parent" >&2
+                exit 1
+              }
+              ;;
+            *)
+              echo "::error::state-coverage-gate: unsupported event '$EVENT_NAME' has no immutable changed-files range" >&2
+              exit 1
+              ;;
+          esac
+
+          for sha in "$BASE_SHA" "$HEAD_SHA"; do
+            if [[ ! "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "::error::state-coverage-gate: missing or invalid immutable SHA for $EVENT_NAME" >&2
+              exit 1
+            fi
+          done
+
+          # Keep full ancestry from checkout and fetch this immutable base
+          # object explicitly; validate_state_coverage derives the unique
+          # merge-base(BASE_SHA, HEAD_SHA), never the moving branch name.
+          git fetch --no-tags origin "$BASE_SHA"
+          for sha in "$BASE_SHA" "$HEAD_SHA"; do
+            git cat-file -e "${sha}^{commit}" || {
+              echo "::error::state-coverage-gate: immutable commit $sha is unavailable" >&2
+              exit 1
+            }
+          done
+          echo "base_sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Run contract-state-coverage gate (changed nodes, strict)
+        env:
+          BASE_SHA: ${{ steps.validation_range.outputs.base_sha }}
+          HEAD_SHA: ${{ steps.validation_range.outputs.head_sha }}
+        run: |
+          uv run python scripts/validate_state_coverage.py \
+            --check-changed "$BASE_SHA" --head-ref "$HEAD_SHA" --strict --check-stale

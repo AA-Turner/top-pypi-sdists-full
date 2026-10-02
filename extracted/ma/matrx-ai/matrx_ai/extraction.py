@@ -54,4 +54,5 @@ async def extract_spans(
         labels,
         threshold=threshold,
         model_class=profile.provider_model_id,
+        profile=profile,
     )

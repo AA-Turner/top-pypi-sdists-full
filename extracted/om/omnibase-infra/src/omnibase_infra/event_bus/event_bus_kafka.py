@@ -1,0 +1,5051 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Kafka Event Bus implementation for production message streaming.
+
+Implements ProtocolEventBus interface using Apache Kafka (via aiokafka) for
+production-grade message delivery with resilience patterns including circuit
+breaker, retry with exponential backoff, and dead letter queue support.
+
+Features:
+    - Topic-based message routing with Kafka partitioning
+    - Async publish/subscribe with callback handlers
+    - Circuit breaker for connection failure protection
+    - Retry with exponential backoff on publish failures
+    - Dead letter queue (DLQ) for failed message processing
+    - Resilience against transient Kafka broker failures (per platform-wide rule #8)
+    - Support for environment/group-based routing
+    - Proper producer/consumer lifecycle management
+
+Environment Variables:
+    Configuration can be overridden using environment variables. All variables
+    are optional and fall back to defaults if not set.
+
+    Connection Settings:
+        KAFKA_BOOTSTRAP_SERVERS: Kafka broker addresses (comma-separated)
+            Default: "localhost:19092"
+            Example: "kafka1:9092,kafka2:9092,kafka3:9092"
+
+        KAFKA_ENVIRONMENT: Environment identifier for message routing
+            Default: "local"
+            Example: "dev", "staging", "prod"
+
+    Timeout and Retry Settings:
+        KAFKA_TIMEOUT_SECONDS: Timeout for Kafka operations (integer seconds)
+            Default: 30
+            Range: 1-300
+            Example: "60"
+
+        KAFKA_MAX_RETRY_ATTEMPTS: Maximum publish retry attempts
+            Default: 3
+            Range: 0-10
+            Example: "5"
+
+            NOTE: This is the BUS-LEVEL retry for Kafka connection/publish failures.
+            This is distinct from MESSAGE-LEVEL retry tracked in ModelEventHeaders
+            (retry_count/max_retries), which is for application-level message
+            delivery tracking across services. See "Dual Retry Configuration" below.
+
+        KAFKA_RETRY_BACKOFF_BASE: Base delay for exponential backoff (float seconds)
+            Default: 1.0
+            Range: 0.1-60.0
+            Example: "2.0"
+
+    Circuit Breaker Settings:
+        KAFKA_CIRCUIT_BREAKER_THRESHOLD: Failures before circuit opens
+            Default: 5
+            Range: 1-100
+            Example: "10"
+
+        KAFKA_CIRCUIT_BREAKER_RESET_TIMEOUT: Seconds before circuit resets
+            Default: 30.0
+            Range: 1.0-3600.0
+            Example: "60.0"
+
+    Consumer Settings:
+        KAFKA_CONSUMER_SLEEP_INTERVAL: Sleep between poll iterations (float seconds)
+            Default: 0.1
+            Range: 0.01-10.0
+            Example: "0.2"
+
+        KAFKA_AUTO_OFFSET_RESET: Offset reset policy
+            Default: "latest"
+            Options: "earliest", "latest"
+
+        KAFKA_ENABLE_AUTO_COMMIT: Auto-commit consumer offsets
+            Default: true
+            Options: "true", "1", "yes", "on" (case-insensitive) = True
+                     All other values = False
+            Example: "false"
+
+    Producer Settings:
+        KAFKA_ACKS: Producer acknowledgment policy
+            Default: "all"
+            Options: "all" (all replicas), "1" (leader only), "0" (no ack)
+
+        KAFKA_ENABLE_IDEMPOTENCE: Enable idempotent producer
+            Default: true
+            Options: "true", "1", "yes", "on" (case-insensitive) = True
+                     All other values = False
+            Example: "true"
+
+    Dead Letter Queue Settings:
+        KAFKA_DEAD_LETTER_TOPIC: Topic name for failed messages
+            Default: None (DLQ disabled)
+            Example: "dlq-events"
+
+            When configured, messages that fail processing will be published
+            to this topic with comprehensive failure metadata including:
+            - Original topic and message
+            - Failure reason and timestamp
+            - Correlation ID for tracking
+            - Retry count and error type
+
+    Instance Discriminator (OMN-2251):
+        KAFKA_INSTANCE_ID: Instance discriminator for consumer group IDs
+            Default: None (no discrimination, single-container behavior)
+            Example: "container-1", "pod-abc123"
+
+            When set, appended as '.__i.{instance_id}' to consumer group IDs
+            so each container instance gets its own consumer group and receives
+            all partitions for its subscribed topics. This prevents the Kafka
+            rebalance problem where multiple containers sharing a consumer group
+            ID cause some consumers to get zero partition assignments.
+
+Dual Retry Configuration:
+    ONEX uses TWO distinct retry mechanisms that serve different purposes:
+
+    1. **Bus-Level Retry** (EventBusKafka internal):
+       - Configured via: max_retry_attempts, retry_backoff_base
+       - Purpose: Handle transient Kafka connection/publish failures
+       - Scope: Single publish operation within the event bus
+       - Applies to: Producer.send() failures, timeouts, connection errors
+       - Example: If Kafka broker is temporarily unreachable, retry 3 times
+         with exponential backoff before failing
+
+    2. **Message-Level Retry** (ModelEventHeaders):
+       - Configured via: retry_count, max_retries in message headers
+       - Purpose: Track application-level message delivery attempts
+       - Scope: End-to-end message delivery across services
+       - Applies to: Business logic failures, handler exceptions
+       - Example: If order processing fails, increment retry_count and
+         republish; stop after max_retries reached
+
+    These mechanisms are INDEPENDENT and work together:
+    - Bus-level retry handles infrastructure failures (network, broker)
+    - Message-level retry handles application failures (handler errors)
+
+    A single message publish may trigger multiple bus-level retries,
+    while still counting as a single message-level delivery attempt.
+
+Usage:
+    ```python
+    from omnibase_infra.event_bus.event_bus_kafka import EventBusKafka
+    from omnibase_infra.event_bus.models.config import ModelKafkaEventBusConfig
+    from omnibase_infra.models import ModelNodeIdentity
+
+    # Option 1: Use defaults with environment variable overrides
+    bus = EventBusKafka.default()
+    await bus.start()
+
+    # Option 2: Explicit configuration via config model
+    config = ModelKafkaEventBusConfig(
+        bootstrap_servers="kafka:9092",
+        environment="dev",
+    )
+    bus = EventBusKafka(config=config)
+    await bus.start()
+
+    # Subscribe to a topic with node identity
+    identity = ModelNodeIdentity(
+        env="dev",
+        service="my-service",
+        node_name="event-processor",
+        version="v1",
+    )
+
+    async def handler(msg):
+        print(f"Received: {msg.value}")
+    unsubscribe = await bus.subscribe("events", identity, handler)
+
+    # Publish a message
+    await bus.publish("events", b"key", b"value")
+
+    # Cleanup
+    await unsubscribe()
+    await bus.close()
+    ```
+
+Protocol Compatibility:
+    Duck-typed against ProtocolEventBus (omnibase_core). No explicit inheritance
+    per ONEX patterns — structural compatibility is verified at startup.
+
+    TODO(OMN-6655): Consider formalizing the EventBusKafka interface as a Protocol
+    (ProtocolEventBusKafka) in the future to enable better static type checking
+    and IDE support for consumers that depend on Kafka-specific features.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import hashlib
+import inspect
+import json
+import logging
+import os
+import random
+import socket
+import threading
+import time
+from collections import OrderedDict, defaultdict
+from collections.abc import Awaitable, Callable, Mapping, Sequence
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Final, cast
+from uuid import UUID, uuid4
+
+from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+from aiokafka.errors import (
+    BrokerNotAvailableError,
+    InvalidPartitionsError,
+    InvalidProducerEpoch,
+    KafkaError,
+    MessageSizeTooLargeError,
+    OutOfOrderSequenceNumber,
+    TopicAuthorizationFailedError,
+    UnknownProducerId,
+    UnknownTopicOrPartitionError,
+)
+from aiokafka.structs import TopicPartition
+
+from omnibase_infra.enums import (
+    EnumConsumerGroupPurpose,
+    EnumDlqFailureClass,
+    EnumInfraTransportType,
+)
+from omnibase_infra.errors import (
+    DispatchDeadlineExceededError,
+    EventPayloadTooLargeError,
+    EventTopicAuthorizationError,
+    InfraConnectionError,
+    InfraTimeoutError,
+    InfraUnavailableError,
+    ModelInfraErrorContext,
+    ModelTimeoutErrorContext,
+    ProjectionNotMaterializedError,
+    ProjectionWedgeExhaustedError,
+    ProtocolConfigurationError,
+)
+from omnibase_infra.event_bus.concurrent_commit_ledger import ConcurrentCommitLedger
+from omnibase_infra.event_bus.consumer_health_emitter import ConsumerHealthEmitter
+from omnibase_infra.event_bus.consumer_rejoin_policy import (
+    ModelConsumerRejoinPolicy,
+)
+from omnibase_infra.event_bus.consumer_rejoin_supervisor import (
+    REJOIN_HISTORY_CAPACITY as CONSUMER_REJOIN_HISTORY_CAPACITY,
+)
+from omnibase_infra.event_bus.consumer_rejoin_supervisor import (
+    ConsumerRejoinSupervisor,
+    ModelConsumerPollBatch,
+)
+from omnibase_infra.event_bus.kafka_auth import (
+    MSKTokenProvider,
+    OAuthBearerTokenProvider,
+    build_aiokafka_auth_kwargs,
+)
+from omnibase_infra.event_bus.kafka_connect_retry import connect_with_bounded_retry
+from omnibase_infra.event_bus.lane_client_transport_binding import (
+    resolve_lane_client_transport,
+)
+from omnibase_infra.event_bus.mixin_kafka_broadcast import MixinKafkaBroadcast
+from omnibase_infra.event_bus.mixin_kafka_dlq import (
+    _REPLAY_COUNT_HEADER,
+    _REPLAY_COUNT_PARSE_FAILURE_SENTINEL,
+    MixinKafkaDlq,
+)
+from omnibase_infra.event_bus.models import (
+    ModelEventBusReadiness,
+    ModelEventHeaders,
+    ModelEventMessage,
+    ModelPublishReceipt,
+)
+from omnibase_infra.event_bus.models.config import ModelKafkaEventBusConfig
+from omnibase_infra.event_bus.models.config.model_kafka_connect_retry_policy import (
+    ModelKafkaConnectRetryPolicy,
+)
+from omnibase_infra.event_bus.topic_constants import is_dlq_topic
+from omnibase_infra.event_bus.topic_violation_alerter import TopicViolationAlerter
+from omnibase_infra.mixins import MixinAsyncCircuitBreaker
+from omnibase_infra.models import ModelNodeIdentity
+from omnibase_infra.models.health.enum_consumer_health_event_type import (
+    EnumConsumerHealthEventType,
+)
+from omnibase_infra.models.health.enum_consumer_health_severity import (
+    EnumConsumerHealthSeverity,
+)
+from omnibase_infra.models.health.model_consumer_group_rejoin_event import (
+    ModelConsumerGroupRejoinEvent,
+)
+from omnibase_infra.models.health.model_consumer_sync_status import (
+    ModelConsumerSyncStatus,
+)
+from omnibase_infra.models.health.model_dispatch_deadline_status import (
+    ModelDispatchDeadlineStatus,
+)
+from omnibase_infra.observability.wiring_health import (
+    MixinEmissionCounter,
+)
+from omnibase_infra.protocols.protocol_rejoinable_consumer import (
+    ProtocolRejoinableConsumer,
+)
+from omnibase_infra.topics.topic_namespace import apply_topic_namespace
+from omnibase_infra.utils import apply_instance_discriminator, compute_consumer_group_id
+from omnibase_infra.utils.util_consumer_group import KAFKA_CONSUMER_GROUP_MAX_LENGTH
+from omnibase_infra.utils.util_error_sanitization import sanitize_error_message
+from omnibase_infra.utils.util_onex_topic_format import (
+    TopicValidationResult,
+    validate_onex_topic_format,
+)
+from omnibase_infra.utils.util_topic_validation import validate_topic_name
+
+logger = logging.getLogger(__name__)
+
+# OMN-17497: the idempotent-producer fatal error family.
+#
+# With ``enable_idempotence=True`` the broker tracks a (producer id, epoch,
+# partition) -> next-expected-sequence triple. When a produce request arrives
+# carrying a sequence the broker does not expect, it rejects it and the
+# producer instance's sequence state is unrecoverable: aiokafka does not
+# re-init the producer id in place, so EVERY subsequent send from that same
+# instance carries a sequence the broker still refuses. Retrying on the same
+# producer therefore cannot succeed -- which is exactly the observed live
+# signature on onex-dev, ``[Error 45] OutOfOrderSequenceNumber`` failing all
+# four attempts against ``onex.dlq.omnibase-infra.quarantine.v1``.
+#
+# The only recovery is a NEW producer: ``InitProducerId`` mints a fresh
+# (pid, epoch) whose sequences start at 0 again. So this family destroys the
+# producer and lets the retry loop mint a replacement, rather than burning
+# the retry budget against permanently-broken local state.
+#
+# It also says nothing about broker reachability -- the broker answered, and
+# answered with a producer-state verdict -- so it must NOT be counted as a
+# connection-health failure. Same rationale as the ``UnknownTopicOrPartitionError``
+# (OMN-9553) and ``MessageSizeTooLargeError`` (OMN-16267) exemptions below.
+_IDEMPOTENT_PRODUCER_FATAL_ERRORS: Final[tuple[type[KafkaError], ...]] = (
+    OutOfOrderSequenceNumber,
+    UnknownProducerId,
+    InvalidProducerEpoch,
+)
+
+# OMN-15232: pause between fail-closed rewinds so a persistently unreachable DLQ
+# does not turn the consume loop into a hot spin over the same offset. The
+# rewind itself is what keeps the data safe; this only bounds the retry rate.
+DLQ_UNPERSISTED_REWIND_BACKOFF_SECONDS: float = 1.0
+
+
+def _record_coordinate(msg: object) -> tuple[int, int] | None:
+    """The ``(partition, offset)`` of a raw Kafka record, or ``None``.
+
+    OMN-17379. Used to key the per-record withhold bound. Returns ``None`` when
+    either coordinate is absent or not an integer -- a record that cannot be
+    identified must not share a counter with a different one, and the caller
+    then leaves the withhold unbounded, which is the pre-bound behaviour and the
+    safe direction.
+    """
+    partition = getattr(msg, "partition", None)
+    offset = getattr(msg, "offset", None)
+    if isinstance(partition, bool) or isinstance(offset, bool):
+        return None
+    if not isinstance(partition, int) or not isinstance(offset, int):
+        return None
+    return (partition, offset)
+
+
+@dataclass(frozen=True)
+class OrphanedDispatch:
+    """What an abandoned dispatch was doing when its deadline expired (OMN-19355)."""
+
+    topic: str
+    group_id: str
+    subscription_id: str
+    correlation_id: UUID
+    record_coordinate: tuple[int, int] | None
+    started_at: float
+
+    def describe(self, now: float) -> str:
+        partition, offset = self.record_coordinate or (None, None)
+        return (
+            f"{self.topic} partition={partition} offset={offset} "
+            f"subscription={self.subscription_id} age={now - self.started_at:.0f}s"
+        )
+
+
+class SerialBatchWithhold:
+    """Pins a serial batch's fetch positions while one dispatch is slow (OMN-19355).
+
+    After ``getmany`` the consumer's fetch position is past the whole batch,
+    and under ``enable_auto_commit`` that position is what the client commits
+    on its own cadence. Seeking is the only action that withholds it
+    (OMN-15232). ``engage`` seeks the in-flight record's partition back to that
+    record and every partition of the batch not yet started back to its first
+    record, so the next auto-commit covers nothing that has not finished. The
+    serial loop then refetches from those positions instead of continuing the
+    batch it already holds.
+    """
+
+    __slots__ = ("_consumer", "_positions", "engaged")
+
+    def __init__(
+        self,
+        consumer: AIOKafkaConsumer,
+        positions: list[tuple[TopicPartition, int]],
+    ) -> None:
+        self._consumer = consumer
+        self._positions = positions
+        self.engaged = False
+
+    def engage(self) -> None:
+        if self.engaged:
+            return
+        self.engaged = True
+        for partition, offset in self._positions:
+            try:
+                self._consumer.seek(partition, offset)
+            except Exception:
+                logger.exception(
+                    "slow_dispatch_withhold_failed topic=%s partition=%s offset=%s "
+                    "-- could not pin the fetch position at an unfinished record; "
+                    "auto-commit may commit past it (OMN-19355)",
+                    partition.topic,
+                    partition.partition,
+                    offset,
+                )
+
+
+class EventBusKafka(
+    MixinKafkaBroadcast,
+    MixinKafkaDlq,
+    MixinAsyncCircuitBreaker,
+    MixinEmissionCounter,
+):
+    """Kafka-backed event bus for production message streaming.
+
+    Implements ProtocolEventBus interface using Apache Kafka (via aiokafka)
+    with resilience patterns including circuit breaker, retry with exponential
+    backoff, dead letter queue support, and resilience against transient
+    broker failures (per platform-wide rule #8: Kafka is required infrastructure).
+
+    Features:
+        - Topic-based message routing with Kafka partitioning
+        - Multiple subscribers per topic with callback-based delivery
+        - Circuit breaker for connection failure protection
+        - Retry with exponential backoff on publish failures
+        - Dead letter queue (DLQ) for failed message processing
+        - Environment-based message routing
+        - Proper async producer/consumer lifecycle management
+        - Readiness checking with per-topic partition assignment tracking
+
+    Attributes:
+        environment: Environment identifier (e.g., "local", "dev", "prod")
+        adapter: Returns self (for protocol compatibility)
+
+    Architecture:
+        This class uses mixin composition to organize functionality:
+        - MixinKafkaBroadcast: Environment broadcast messaging, envelope publishing
+        - MixinKafkaDlq: Dead letter queue handling and metrics
+        - MixinAsyncCircuitBreaker: Circuit breaker resilience pattern
+        - MixinEmissionCounter: Wiring health emission tracking (OMN-1895)
+        - (consumption counting is on EventBusSubcontractWiring, not here — see OMN-6515)
+
+        The core class provides:
+        - Factory methods (3): from_config, from_yaml, default
+        - Properties (3): config, adapter, environment
+        - Lifecycle methods (4): start, initialize, shutdown, close
+        - Pub/Sub methods (3): publish, subscribe, start_consuming
+        - Health/Readiness (2): health_check, get_readiness_status
+
+    Example:
+        ```python
+        from omnibase_infra.models import ModelNodeIdentity
+
+        config = ModelKafkaEventBusConfig(
+            bootstrap_servers="kafka:9092",
+            environment="dev",
+        )
+        bus = EventBusKafka(config=config)
+        await bus.start()
+
+        # Subscribe with node identity
+        identity = ModelNodeIdentity(
+            env="dev",
+            service="my-service",
+            node_name="event-processor",
+            version="v1",
+        )
+
+        async def handler(msg):
+            print(f"Received: {msg.value}")
+        unsubscribe = await bus.subscribe("events", identity, handler)
+
+        # Publish
+        await bus.publish("events", b"key", b"value")
+
+        # Cleanup
+        await unsubscribe()
+        await bus.close()
+        ```
+    """
+
+    def __init__(
+        self,
+        config: ModelKafkaEventBusConfig | None = None,
+    ) -> None:
+        """Initialize the Kafka event bus.
+
+        Args:
+            config: Configuration model containing all settings. If not provided,
+                defaults are used with environment variable overrides.
+
+        Raises:
+            ProtocolConfigurationError: If circuit_breaker_threshold is not a positive integer
+
+        Example:
+            ```python
+            # Using config model (recommended)
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers="kafka:9092",
+                environment="prod",
+            )
+            bus = EventBusKafka(config=config)
+
+            # Using factory methods
+            bus = EventBusKafka.default()
+            bus = EventBusKafka.from_yaml(Path("kafka.yaml"))
+            ```
+        """
+        # Use provided config or create default with environment overrides
+        if config is None:
+            config = ModelKafkaEventBusConfig.default()
+
+        # Store config reference
+        self._config = config
+
+        # OMN-17379: consecutive withholds per record coordinate, so the offset
+        # withhold has a ceiling. Keyed by (topic, partition, offset,
+        # subscription_id) -> (count, failure_fingerprint). An ``OrderedDict``
+        # rather than a plain dict because the capacity bound below evicts the
+        # OLDEST entry, and insertion order is what makes "oldest" meaningful.
+        #
+        # PROCESS-LOCAL AND DELIBERATELY SO, with the residual stated: a pod
+        # restart resets every count, so a crash-looping consumer could withhold
+        # indefinitely without ever reaching the bound. Persisting the count
+        # would mean a second durable store on the consume path for a fact whose
+        # whole purpose is to bound an in-process stall; the crash-loop case is
+        # already loud (a restarting pod is visible where a Stable/lag-0 wedge is
+        # not), which is why this is the residual accepted rather than closed.
+        self._projection_withholds: OrderedDict[
+            tuple[str, int, int, str], tuple[int, str]
+        ] = OrderedDict()
+
+        # Apply config values
+        self._bootstrap_servers = config.bootstrap_servers
+        self._environment = config.environment
+        self._timeout_seconds = config.timeout_seconds
+        self._max_retry_attempts = config.max_retry_attempts
+        self._retry_backoff_base = config.retry_backoff_base
+
+        # Circuit breaker configuration
+        if config.circuit_breaker_threshold < 1:
+            context = ModelInfraErrorContext.with_correlation(
+                transport_type=EnumInfraTransportType.KAFKA,
+                operation="init",
+                target_name="kafka_event_bus",
+            )
+            raise ProtocolConfigurationError(
+                f"circuit_breaker_threshold must be a positive integer, got {config.circuit_breaker_threshold}",
+                context=context,
+                parameter="circuit_breaker_threshold",
+                value=config.circuit_breaker_threshold,
+            )
+
+        # Initialize circuit breaker mixin
+        self._init_circuit_breaker(
+            threshold=config.circuit_breaker_threshold,
+            reset_timeout=config.circuit_breaker_reset_timeout,
+            service_name=f"kafka.{self._environment}",
+            transport_type=EnumInfraTransportType.KAFKA,
+        )
+
+        # Kafka producer and consumer
+        self._producer: AIOKafkaProducer | None = None
+        self._consumers: dict[str, AIOKafkaConsumer] = {}
+        self._group_consumers: dict[tuple[str, str], AIOKafkaConsumer] = {}
+        # OMN-18640: one rejoin supervisor per (topic, group). Holds the
+        # per-consumer stall state and the typed rejoin history a readiness
+        # probe reads.
+        self._rejoin_supervisors: dict[tuple[str, str], ConsumerRejoinSupervisor] = {}
+        # Bus-level rejoin history. Held here rather than only on the
+        # supervisors because a supervisor is discarded when its topic is
+        # unsubscribed, and the evidence that this runtime wedged and
+        # recovered must outlive the consumer it happened to.
+        self._consumer_rejoin_events: list[ModelConsumerGroupRejoinEvent] = []
+        # Keys currently being started (reserved under lock before await consumer.start())
+        self._pending_consumer_keys: set[tuple[str, str]] = set()
+
+        # OMN-18852: contract-declared in-flight bound per (topic, group_id).
+        # A key that is ABSENT means the serial default, which is not "a
+        # semaphore of size one" but the unchanged inline ``await`` branch of
+        # ``_consume_loop``. Written by ``declare_consume_concurrency`` before
+        # the ``subscribe`` that starts the loop; read once when the loop
+        # starts.
+        self._consume_concurrency: dict[tuple[str, str], int] = {}
+
+        # OMN-20117: every subscriber dispatch that has not settled, on every
+        # path. ``close()`` waits for these with the producer still open, so a
+        # handler that finishes during shutdown can still publish its terminal,
+        # and cancels the ones left at the end of the drain so a
+        # cancellation-aware handler can answer its caller before the bus
+        # refuses publishes.
+        self._live_dispatches: set[asyncio.Future[None]] = set()
+        # OMN-20117: the concurrent driver's per-record tasks, which own the
+        # finish-and-commit accounting for a settled dispatch. ``close()``
+        # waits for them after settling the dispatches so the commit lands
+        # before the consumers stop.
+        self._record_tasks: set[asyncio.Task[None]] = set()
+
+        # OMN-19355: dispatches abandoned at their deadline that have not
+        # returned yet, oldest first, with what they were dispatching. A Python
+        # thread cannot be killed, so these are counted rather than stopped:
+        # each one still holds whatever its handler held.
+        self._orphaned_dispatches: OrderedDict[
+            asyncio.Future[None], OrphanedDispatch
+        ] = OrderedDict()
+        self._dispatch_deadline_expiries = 0
+
+        # Subscriber registry: topic -> list of (group_id, subscription_id, callback) tuples
+        self._subscribers: dict[
+            str, list[tuple[str, str, Callable[[ModelEventMessage], Awaitable[None]]]]
+        ] = defaultdict(list)
+
+        # OMN-18914: topics on which a headerless publish had no identity to
+        # derive from its body, so one was minted. Held to report that once per
+        # topic rather than once per message -- a minted identity is a standing
+        # property of a producer, not an event.
+        self._minted_identity_topics: set[str] = set()
+
+        # Lock for coroutine safety (protects all shared state)
+        self._lock = asyncio.Lock()
+
+        # State flags
+        self._started = False
+        self._shutdown = False
+        self._closing = False
+
+        # Background consumer tasks
+        self._consumer_tasks: dict[str, asyncio.Task[None]] = {}
+        self._group_consumer_tasks: dict[tuple[str, str], asyncio.Task[None]] = {}
+
+        # Topics marked as required for readiness (OMN-1931)
+        # Readiness is blocked until all required topics have active consumers
+        self._required_topics: set[str] = set()
+
+        # Producer lock for independent producer access (avoids deadlock with main lock)
+        self._producer_lock = asyncio.Lock()
+        # OMN-18925: how many connect attempts the last successful start()
+        # needed. A broker that answers first time and one that answers on
+        # the third are different facts, and the second is the early
+        # warning the 2026-09-21 stall gave nobody.
+        self._connect_attempts = 0
+
+        # Initialize DLQ mixin (metrics tracking, callback hooks)
+        self._init_dlq()
+
+        # Initialize emission counter mixin (wiring health monitoring)
+        self._init_emission_counter()
+
+        # ONEX topic format enforcement (OMN-5209)
+
+        _mode_raw = (
+            os.environ.get("ONEX_TOPIC_ENFORCEMENT_MODE", "warn").lower().strip()
+        )
+        self._topic_enforcement_mode: str = (
+            _mode_raw if _mode_raw in ("warn", "reject", "off") else "warn"
+        )
+        self._topic_violation_alerter: TopicViolationAlerter | None = (
+            TopicViolationAlerter() if self._topic_enforcement_mode != "off" else None
+        )
+
+        # Consumer health emitter (OMN-5518) — initialized after producer starts
+        # Gated by ENABLE_CONSUMER_HEALTH_EMITTER env var
+        self._health_emitter: ConsumerHealthEmitter | None = None
+
+    # =========================================================================
+    # Factory Methods
+    # =========================================================================
+
+    @classmethod
+    def from_config(cls, config: ModelKafkaEventBusConfig) -> EventBusKafka:
+        """Create EventBusKafka from a configuration model.
+
+        Args:
+            config: Configuration model containing all settings
+
+        Returns:
+            EventBusKafka instance configured with the provided settings
+
+        Example:
+            ```python
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers="kafka:9092",
+                environment="prod",
+                timeout_seconds=60,
+            )
+            bus = EventBusKafka.from_config(config)
+            ```
+        """
+        return cls(config=config)
+
+    @classmethod
+    def from_bootstrap(cls, bootstrap: str) -> EventBusKafka:
+        """Create EventBusKafka from a bootstrap server override string.
+
+        This is the provider factory that ``RuntimeLocal`` (omnibase_core)
+        invokes through the ``onex.backends:event_bus_kafka`` entry point when a
+        ``--backend kafka_bootstrap=host:port`` override is supplied. The core
+        runtime resolves this class by name and calls ``from_bootstrap`` so the
+        bootstrap override is applied without a process-wide environment
+        mutation (OMN-13445).
+
+        The default configuration (with environment overrides applied) is used
+        as the base, then ``bootstrap_servers`` is set to the explicit override
+        so the caller-supplied value wins over ``KAFKA_BOOTSTRAP_SERVERS``.
+
+        THE LANE TRANSPORT (OMN-18432). ``RuntimeLocal`` can hand this factory
+        an address and nothing else -- its accepted override keys are a closed
+        five-element set and ``omnibase_core`` must not name an infra symbol.
+        So a caller that resolved a lane's DECLARED protocol and mechanism, and
+        its own identity for that lane, states them through the scoped binding
+        in ``lane_client_transport_binding`` and this factory reads them back
+        for the matching address. Without a binding for THIS address the
+        construction below is byte-for-byte what it has always been, which is
+        what keeps every container and CI runner on the environment path they
+        already use.
+
+        Args:
+            bootstrap: Kafka bootstrap servers string (``host:port`` format)
+
+        Returns:
+            EventBusKafka instance bound to the supplied bootstrap servers
+
+        Example:
+            ```python
+            bus = EventBusKafka.from_bootstrap("localhost:19092")
+            await bus.start()
+            ```
+        """
+        config = ModelKafkaEventBusConfig.default().model_copy(
+            update={"bootstrap_servers": bootstrap}
+        )
+        lane_transport = resolve_lane_client_transport(bootstrap)
+        if lane_transport is not None:
+            logger.info(
+                "EventBusKafka: lane %s transport applied for %s (%s), declared in %s",
+                lane_transport.lane,
+                bootstrap,
+                lane_transport.security_protocol,
+                lane_transport.declared_in,
+            )
+            config = config.model_copy(
+                update=lane_transport.as_client_config_overrides()
+            )
+        return cls(config=config)
+
+    @classmethod
+    def from_yaml(cls, path: Path) -> EventBusKafka:
+        """Create EventBusKafka from a YAML configuration file.
+
+        Loads configuration from a YAML file with environment variable
+        overrides applied automatically.
+
+        Args:
+            path: Path to YAML configuration file
+
+        Returns:
+            EventBusKafka instance configured from the YAML file
+
+        Raises:
+            FileNotFoundError: If the YAML file does not exist
+            ValueError: If the YAML content is invalid
+
+        Example:
+            ```python
+            bus = EventBusKafka.from_yaml(Path("/etc/kafka/config.yaml"))
+            ```
+        """
+        config = ModelKafkaEventBusConfig.from_yaml(path)
+        return cls(config=config)
+
+    @classmethod
+    def default(cls) -> EventBusKafka:
+        """Create EventBusKafka with default configuration.
+
+        Creates an instance with default settings and environment variable
+        overrides applied automatically. This is the recommended way to
+        create a EventBusKafka for most use cases.
+
+        Returns:
+            EventBusKafka instance with default configuration
+
+        Example:
+            ```python
+            bus = EventBusKafka.default()
+            await bus.start()
+            ```
+        """
+        return cls(config=ModelKafkaEventBusConfig.default())
+
+    # =========================================================================
+    # Properties
+    # =========================================================================
+
+    @property
+    def config(self) -> ModelKafkaEventBusConfig:
+        """Get the configuration model.
+
+        Returns:
+            Configuration model instance used by this event bus
+        """
+        return self._config
+
+    @property
+    def adapter(self) -> EventBusKafka:
+        """Return self for protocol compatibility.
+
+        Returns:
+            Self reference (Kafka bus is its own adapter)
+        """
+        return self
+
+    @property
+    def environment(self) -> str:
+        """Get the environment identifier.
+
+        Returns:
+            Environment string (e.g., "local", "dev", "prod")
+        """
+        return self._environment
+
+    @property
+    def bootstrap_servers(self) -> str:
+        """Return the configured broker endpoint as public transport identity.
+
+        Together with ``environment`` this is the runtime identity the bounded
+        delegation route gate matches against a lane declaration (OMN-18933).
+        Credentials (a ``user:pass@`` prefix) are stripped, as everywhere else
+        this class exposes the value, because callers log it.
+        """
+        return self._sanitize_bootstrap_servers(self._bootstrap_servers)
+
+    @property
+    def health_emitter(self) -> ConsumerHealthEmitter | None:
+        """Get the consumer health emitter (OMN-5518).
+
+        Returns None if the feature flag is off or bus has not started.
+        """
+        return self._health_emitter
+
+    # =========================================================================
+    # Auth / TLS helpers
+    # =========================================================================
+
+    def _build_auth_kwargs(self) -> dict[str, object]:
+        """Build auth/TLS kwargs to spread into AIOKafkaProducer/Consumer."""
+        return build_aiokafka_auth_kwargs(self._config)
+
+    def _build_client_version_kwargs(
+        self, client_cls: type[object]
+    ) -> dict[str, object]:
+        """Build optional aiokafka client-version kwargs."""
+        if self._config.api_version is None:
+            return {}
+        try:
+            parameters = inspect.signature(client_cls.__init__).parameters
+        except (TypeError, ValueError):
+            return {}
+        if "api_version" not in parameters:
+            return {}
+        return {"api_version": self._config.api_version}
+
+    async def start(self) -> None:
+        """Start the event bus and connect to Kafka.
+
+        Initializes the Kafka producer with connection retry and circuit
+        breaker protection. Per platform-wide rule #8, Kafka is required
+        infrastructure — connection failures raise and must be treated as
+        fatal by the caller.
+
+        OMN-18925: until this change the docstring above was false in its
+        most load-bearing word. The retry this promised did not exist on the
+        connect path — the class's retry loop wraps PUBLISH only — so a
+        broker stall longer than ``timeout_seconds`` failed the whole start
+        on the first try. The fields, the docstring and the publish-side loop
+        all agreed with each other and not with the code, which is precisely
+        why it survived so long. The connect is now retried under the shared
+        :class:`ModelKafkaConnectRetryPolicy`, and the circuit breaker still
+        records exactly ONE failure per exhausted ``start()`` rather than one
+        per attempt: a threshold of 5 must keep meaning five failed starts,
+        not two.
+
+        Raises:
+            InfraTimeoutError: If every connect attempt times out
+            InfraConnectionError: If connection fails after retries
+        """
+        if self._started:
+            logger.debug("EventBusKafka already started")
+            return
+
+        correlation_id = uuid4()
+
+        async with self._lock:
+            if self._started:
+                return
+
+            # Check circuit breaker before attempting connection
+            # Note: Circuit breaker requires its own lock to be held
+            async with self._circuit_breaker_lock:
+                await self._check_circuit_breaker(
+                    operation="start", correlation_id=correlation_id
+                )
+
+            connect_policy = ModelKafkaConnectRetryPolicy.from_bus_config(
+                self._config,
+                attempt_timeout_seconds=float(self._timeout_seconds),
+            )
+
+            async def _connect() -> None:
+                # Apply producer configuration from config model. Rebuilt on
+                # every attempt: a producer whose start() failed is not
+                # documented as restartable, so reusing it would test a
+                # different path from the one a fresh connect takes.
+                self._producer = AIOKafkaProducer(
+                    bootstrap_servers=self._bootstrap_servers,
+                    acks=self._config.acks_aiokafka,
+                    enable_idempotence=self._config.enable_idempotence,
+                    max_request_size=self._config.max_request_size,
+                    retry_backoff_ms=self._config.reconnect_backoff_ms,
+                    **self._build_client_version_kwargs(AIOKafkaProducer),
+                    **self._build_auth_kwargs(),
+                )
+                await self._producer.start()
+
+            async def _cleanup_attempt() -> None:
+                async with self._producer_lock:
+                    if self._producer is not None:
+                        current, self._producer = self._producer, None
+                        await current.stop()
+
+            try:
+                self._connect_attempts = await connect_with_bounded_retry(
+                    policy=connect_policy,
+                    connect=_connect,
+                    cleanup=_cleanup_attempt,
+                    target=self._sanitize_bootstrap_servers(self._bootstrap_servers),
+                )
+
+                self._started = True
+                self._shutdown = False
+                self._closing = False
+
+                # Initialize consumer health emitter if feature flag is on (OMN-5518)
+                if ConsumerHealthEmitter.is_enabled() and self._producer is not None:
+                    self._health_emitter = ConsumerHealthEmitter(self._producer)
+                    logger.info(
+                        "ConsumerHealthEmitter initialized (ENABLE_CONSUMER_HEALTH_EMITTER=on)"
+                    )
+
+                # Reset circuit breaker on success
+                async with self._circuit_breaker_lock:
+                    await self._reset_circuit_breaker()
+
+                logger.info(
+                    "EventBusKafka started",
+                    extra={
+                        "environment": self._environment,
+                        "bootstrap_servers": self._sanitize_bootstrap_servers(
+                            self._bootstrap_servers
+                        ),
+                    },
+                )
+
+            except TimeoutError as e:
+                # Clean up producer on failure to prevent resource leak (thread-safe)
+                async with self._producer_lock:
+                    if self._producer is not None:
+                        try:
+                            await self._producer.stop()
+                        except Exception as cleanup_err:  # noqa: BLE001 — boundary: logs warning and degrades
+                            logger.warning(
+                                "Cleanup failed for Kafka producer stop: %s",
+                                cleanup_err,
+                                exc_info=True,
+                            )
+                    self._producer = None
+                # Record failure (circuit breaker lock required)
+                async with self._circuit_breaker_lock:
+                    await self._record_circuit_failure(
+                        operation="start", correlation_id=correlation_id
+                    )
+                # Sanitize servers for safe logging (remove credentials)
+                sanitized_servers = self._sanitize_bootstrap_servers(
+                    self._bootstrap_servers
+                )
+                timeout_ctx = ModelTimeoutErrorContext(
+                    transport_type=EnumInfraTransportType.KAFKA,
+                    operation="start",
+                    target_name=f"kafka.{self._environment}",
+                    correlation_id=correlation_id,
+                    timeout_seconds=self._timeout_seconds,
+                )
+                logger.warning(
+                    f"Timeout connecting to Kafka after {self._timeout_seconds}s",
+                    extra={
+                        "environment": self._environment,
+                        "correlation_id": str(correlation_id),
+                    },
+                )
+                raise InfraTimeoutError(
+                    f"Timeout connecting to Kafka after {self._timeout_seconds}s",
+                    context=timeout_ctx,
+                    servers=sanitized_servers,
+                ) from e
+
+            except Exception as e:
+                # Clean up producer on failure to prevent resource leak (thread-safe)
+                async with self._producer_lock:
+                    if self._producer is not None:
+                        try:
+                            await self._producer.stop()
+                        except Exception as cleanup_err:  # noqa: BLE001 — boundary: logs warning and degrades
+                            logger.warning(
+                                "Cleanup failed for Kafka producer stop: %s",
+                                cleanup_err,
+                                exc_info=True,
+                            )
+                    self._producer = None
+                # Record failure (circuit breaker lock required)
+                async with self._circuit_breaker_lock:
+                    await self._record_circuit_failure(
+                        operation="start", correlation_id=correlation_id
+                    )
+                # Sanitize servers for safe logging (remove credentials)
+                sanitized_servers = self._sanitize_bootstrap_servers(
+                    self._bootstrap_servers
+                )
+                context = ModelInfraErrorContext.with_correlation(
+                    correlation_id=correlation_id,
+                    transport_type=EnumInfraTransportType.KAFKA,
+                    operation="start",
+                    target_name=f"kafka.{self._environment}",
+                )
+                logger.warning(
+                    f"Failed to connect to Kafka: {e}",
+                    extra={
+                        "environment": self._environment,
+                        "error": str(e),
+                        "correlation_id": str(correlation_id),
+                    },
+                )
+                raise InfraConnectionError(
+                    f"Failed to connect to Kafka: {e}",
+                    context=context,
+                    servers=sanitized_servers,
+                ) from e
+
+    async def initialize(self, config: dict[str, object]) -> None:
+        """Initialize the event bus with configuration.
+
+        Protocol method for compatibility with ProtocolEventBus.
+        Extracts configuration and delegates to start(). Config updates
+        are applied atomically with lock protection to prevent races.
+
+        Args:
+            config: Configuration dictionary with optional keys:
+                - environment: Override environment setting
+                - bootstrap_servers: Override bootstrap servers
+                - timeout_seconds: Override timeout setting
+        """
+        # Apply config updates atomically under lock to prevent races
+        async with self._lock:
+            if "environment" in config:
+                self._environment = str(config["environment"])
+            if "bootstrap_servers" in config:
+                self._bootstrap_servers = str(config["bootstrap_servers"])
+            if "timeout_seconds" in config:
+                self._timeout_seconds = int(str(config["timeout_seconds"]))
+
+        # Start after config updates are complete
+        await self.start()
+
+    async def shutdown(self) -> None:
+        """Gracefully shutdown the event bus.
+
+        Protocol method that stops consuming and closes connections.
+        """
+        await self.close()
+
+    async def close(self) -> None:
+        """Close the event bus and release all resources.
+
+        Stops all background consumer tasks, closes all consumers, and
+        stops the producer. Safe to call multiple times. Uses proper
+        synchronization to prevent races during shutdown.
+        """
+        # Signal shutdown and snapshot consumer tasks in a single lock
+        # acquisition to prevent another coroutine from modifying
+        # _consumer_tasks between the flag set and the snapshot.
+        async with self._lock:
+            if self._shutdown:
+                # Already shutting down or shutdown
+                return
+            # OMN-20117: stop taking records FIRST, and only that. The consume
+            # loops stop dispatching on ``_shutdown``; publishing stays open
+            # until the dispatches already running have settled, because a
+            # handler that finishes during shutdown still owes its caller a
+            # terminal. Refusing publishes here, as this method used to, sent
+            # six delegate-skill terminals to the DLQ on one dev-lane restart.
+            self._shutdown = True
+
+        await self._settle_live_dispatches()
+
+        async with self._lock:
+            self._closing = True
+            self._started = False
+            tasks_to_cancel = list(
+                {
+                    id(task): task for task in self._group_consumer_tasks.values()
+                }.values()
+            )
+
+        # Cancel circuit breaker active recovery timer to prevent it from
+        # outliving the EventBusKafka instance (inherited from MixinAsyncCircuitBreaker)
+        await self.cancel_active_recovery()
+
+        for task in tasks_to_cancel:
+            if not task.done():
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+
+        # Clear task registry
+        async with self._lock:
+            self._consumer_tasks.clear()
+            self._group_consumer_tasks.clear()
+
+        # Close all consumers
+        consumers_to_close = []
+        async with self._lock:
+            consumers_to_close = list(
+                {
+                    id(consumer): consumer
+                    for consumer in self._group_consumers.values()
+                }.values()
+            )
+            self._consumers.clear()
+            self._group_consumers.clear()
+            # OMN-18640: the supervisors hold per-group stall state that is
+            # meaningless once the consumers are gone.
+            self._rejoin_supervisors.clear()
+
+        for consumer in consumers_to_close:
+            try:
+                await consumer.stop()
+            except Exception as e:  # noqa: BLE001 — boundary: logs warning and degrades
+                logger.warning(f"Error stopping consumer: {e}")
+
+        # Close producer with proper locking
+        async with self._producer_lock:
+            if self._producer is not None:
+                try:
+                    await self._producer.stop()
+                except Exception as e:  # noqa: BLE001 — boundary: logs warning and degrades
+                    logger.warning(f"Error stopping producer: {e}")
+                self._producer = None
+
+        # Clear subscribers
+        async with self._lock:
+            self._subscribers.clear()
+
+        # OMN-19355: an abandoned dispatch is still a pending task. Cancel it so
+        # it does not outlive the bus; a worker thread under it, if any, runs
+        # on until its handler returns, which is the limit stated where it was
+        # abandoned.
+        for dispatch in list(self._orphaned_dispatches):
+            dispatch.cancel()
+
+        logger.info(
+            "EventBusKafka closed",
+            extra={"environment": self._environment},
+        )
+
+    async def _settle_live_dispatches(self) -> None:
+        """Let running dispatches finish, then cancel the rest (OMN-20117).
+
+        Runs with the producer open. First waits up to
+        ``consumer_shutdown_drain_seconds`` for every live subscriber dispatch
+        to return, so a handler that finishes in that window publishes its
+        terminal and has its record committed. Then cancels whatever is still
+        running and waits up to ``consumer_shutdown_cancel_grace_seconds`` for
+        those to settle: a handler that answers its cancellation with a typed
+        failure terminal publishes it here, so its caller is told instead of
+        waiting out its window. A cancelled dispatch that returns nothing is
+        never committed past, so the next consumer redelivers its record.
+
+        Only the INNER dispatch futures are cancelled, never the consume
+        tasks awaiting them. Those tasks see the dispatch settle through their
+        own ``asyncio.wait`` and account for it exactly as for any other
+        outcome: a returned dispatch is finished and committed, a cancelled
+        one is not.
+        """
+        live = {dispatch for dispatch in self._live_dispatches if not dispatch.done()}
+        drain = self._config.consumer_shutdown_drain_seconds
+        grace = self._config.consumer_shutdown_cancel_grace_seconds
+        if live:
+            logger.info(
+                "shutdown_drain_started live_dispatches=%d drain_seconds=%.1f "
+                "-- publishing stays open until they settle (OMN-20117)",
+                len(live),
+                drain,
+            )
+            if drain > 0:
+                _, live = await asyncio.wait(live, timeout=drain)
+        if live:
+            logger.warning(
+                "shutdown_drain_expired cancelling=%d cancel_grace_seconds=%.1f "
+                "-- a handler may answer its cancellation with a failure "
+                "terminal; a record whose handler does not is left uncommitted "
+                "and is redelivered to the next consumer (OMN-20117)",
+                len(live),
+                grace,
+            )
+            for dispatch in live:
+                dispatch.cancel()
+            if grace > 0:
+                _, unsettled = await asyncio.wait(live, timeout=grace)
+                if unsettled:
+                    logger.warning(
+                        "shutdown_cancel_grace_expired unsettled=%d -- these "
+                        "dispatches ignored cancellation; their records stay "
+                        "uncommitted (OMN-20117)",
+                        len(unsettled),
+                    )
+        # Let the record tasks awaiting the settled dispatches run their
+        # accounting (finish, commit) before the consumers are stopped.
+        accounting = {task for task in self._record_tasks if not task.done()}
+        if accounting:
+            await asyncio.wait(accounting, timeout=max(grace, 1.0))
+
+    async def publish(
+        self,
+        topic: str,
+        key: bytes | None,
+        value: bytes,
+        headers: ModelEventHeaders | None = None,
+    ) -> ModelPublishReceipt:
+        """Publish message to topic and return its durability coordinate.
+
+        Publishes a message to the specified Kafka topic with retry and
+        circuit breaker protection.
+
+        Returns the broker-assigned ``(partition, offset)`` as a
+        ``ModelPublishReceipt`` (OMN-15861). Before this change the method
+        returned ``None`` and the ``record_metadata`` the broker handed back was
+        written to a debug log and discarded, so a caller could not tell "the
+        produce call did not raise" from "the record is at a coordinate I can
+        read back" -- and every durable-outbox ack in the platform was built on
+        the former while claiming the latter.
+
+        The receipt is NOT itself a durability claim. Canonical invariant 7: a
+        publish return is not durability. To make a durable claim, pass the
+        receipt to a ``ProtocolConfirmationStrategy``
+        (``omnibase_infra.event_bus.confirmation``), which reads the coordinate
+        back off an authoritative surface.
+
+        Args:
+            topic: Target topic name
+            key: Optional message key (for partitioning)
+            value: Message payload as bytes
+            headers: Optional event headers with metadata. ``idempotency_key``,
+                when set, is carried onto the wire and onto the receipt.
+
+        Returns:
+            ModelPublishReceipt: The coordinate the broker assigned.
+
+        Raises:
+            InfraUnavailableError: If the bus has not been started
+            InfraConnectionError: If publish fails after all retries
+        """
+        if not self._started:
+            context = ModelInfraErrorContext.with_correlation(
+                correlation_id=(
+                    headers.correlation_id if headers is not None else None
+                ),
+                transport_type=EnumInfraTransportType.KAFKA,
+                operation="publish",
+                target_name=f"kafka.{self._environment}",
+            )
+            raise InfraUnavailableError(
+                "Event bus not started. Call start() first.",
+                context=context,
+                topic=topic,
+            )
+
+        # Create headers if not provided, deriving identity from the body
+        # rather than inventing it (OMN-18914).
+        if headers is None:
+            headers = self._headers_for_unheadered_publish(topic, value)
+
+        # Validate topic name (Kafka naming rules)
+        self._validate_topic_name(topic, headers.correlation_id)
+
+        # Enforce ONEX canonical topic format (OMN-5209)
+        await self._enforce_onex_topic_format(topic, headers.correlation_id)
+
+        # Check circuit breaker - propagate correlation_id from headers (thread-safe)
+        async with self._circuit_breaker_lock:
+            await self._check_circuit_breaker(
+                operation="publish", correlation_id=headers.correlation_id
+            )
+
+        # Convert headers to Kafka format
+        kafka_headers = self._model_headers_to_kafka(headers)
+
+        # Publish with retry
+        return await self._publish_with_retry(topic, key, value, kafka_headers, headers)
+
+    async def _ensure_producer(self, correlation_id: UUID) -> None:
+        """Lazily recreate the Kafka producer if it was destroyed.
+
+        When a timeout destroys the producer (sets self._producer = None) but
+        the bus is still logically started (self._started is True), this method
+        recreates the producer so subsequent publish attempts can succeed once
+        Kafka is healthy again.
+
+        Must be called under self._producer_lock to prevent thundering herd
+        (multiple coroutines recreating simultaneously).
+
+        Args:
+            correlation_id: Correlation ID for error context and logging.
+
+        Raises:
+            InfraConnectionError: If the producer cannot be recreated.
+            InfraTimeoutError: If the producer recreation times out.
+        """
+        # NOTE: Lock.locked() only proves *some* coroutine holds the lock,
+        # not that the caller does.  All call-sites are guarded by
+        # `async with self._producer_lock:`, so this is a reasonable
+        # best-effort assertion in asyncio's cooperative model.
+        if not self._producer_lock.locked():
+            raise RuntimeError(
+                "_ensure_producer must be called with _producer_lock held"
+            )
+
+        if self._producer is not None:
+            return
+
+        if not self._started:
+            return
+
+        logger.info(
+            "Recreating Kafka producer after previous failure",
+            extra={
+                "environment": self._environment,
+                "correlation_id": str(correlation_id),
+            },
+        )
+
+        try:
+            self._producer = AIOKafkaProducer(
+                bootstrap_servers=self._bootstrap_servers,
+                acks=self._config.acks_aiokafka,
+                enable_idempotence=self._config.enable_idempotence,
+                max_request_size=self._config.max_request_size,
+                retry_backoff_ms=self._config.reconnect_backoff_ms,
+                **self._build_client_version_kwargs(AIOKafkaProducer),
+                **self._build_auth_kwargs(),
+            )
+
+            await asyncio.wait_for(
+                self._producer.start(),
+                timeout=self._timeout_seconds,
+            )
+
+            logger.info(
+                "Kafka producer recreated successfully",
+                extra={
+                    "environment": self._environment,
+                    "correlation_id": str(correlation_id),
+                },
+            )
+
+        except TimeoutError as e:
+            # Clean up the failed producer
+            if self._producer is not None:
+                try:
+                    await self._producer.stop()
+                except Exception as cleanup_err:  # noqa: BLE001 — boundary: logs warning and degrades
+                    logger.warning(
+                        "Cleanup failed for Kafka producer stop during recreation: %s",
+                        cleanup_err,
+                        exc_info=True,
+                    )
+            self._producer = None
+
+            logger.warning(
+                "Kafka producer recreation timed out: %s",
+                sanitize_error_message(e),
+                extra={
+                    "environment": self._environment,
+                    "correlation_id": str(correlation_id),
+                    "error": sanitize_error_message(e),
+                },
+            )
+            timeout_ctx = ModelTimeoutErrorContext(
+                transport_type=EnumInfraTransportType.KAFKA,
+                operation="recreate_producer_timeout",
+                target_name=f"kafka.{self._environment}",
+                correlation_id=correlation_id,
+                timeout_seconds=self._timeout_seconds,
+            )
+            raise InfraTimeoutError(
+                "Producer recreation timed out",
+                context=timeout_ctx,
+            ) from e
+
+        except Exception as e:
+            # Clean up the failed producer
+            if self._producer is not None:
+                try:
+                    await self._producer.stop()
+                except Exception as cleanup_err:  # noqa: BLE001 — boundary: logs warning and degrades
+                    logger.warning(
+                        "Cleanup failed for Kafka producer stop during recreation: %s",
+                        cleanup_err,
+                        exc_info=True,
+                    )
+            self._producer = None
+
+            logger.warning(
+                "Failed to recreate Kafka producer: %s",
+                sanitize_error_message(e),
+                extra={
+                    "environment": self._environment,
+                    "correlation_id": str(correlation_id),
+                    "error": sanitize_error_message(e),
+                },
+            )
+            raise InfraConnectionError(
+                f"Failed to recreate Kafka producer: {sanitize_error_message(e)}",
+                context=ModelInfraErrorContext.with_correlation(
+                    correlation_id=correlation_id,
+                    transport_type=EnumInfraTransportType.KAFKA,
+                    operation="recreate_producer",
+                    target_name=f"kafka.{self._environment}",
+                ),
+            ) from e
+
+    async def _record_publish_circuit_failure(
+        self, topic: str, correlation_id: UUID
+    ) -> bool:
+        """Charge one publish failure to the shared connection breaker, or don't.
+
+        OMN-17497. The breaker this bus owns is keyed on the CONNECTION
+        (``kafka.<environment>``), so every failure recorded against it is a
+        verdict about the whole broker connection and blocks every publisher on
+        this instance while it is open. That is the correct shape for a real
+        connectivity failure and the wrong shape for a failure that is already
+        somebody else's error path.
+
+        A publish to a DLQ / quarantine sink is by construction the failure
+        path: something upstream already failed, and this publish exists only to
+        make that failure durable. Letting it vote on connection health inverts
+        the blast radius -- one poison event on one low-value topic gets to
+        decide that the broker is unavailable for the gateway session path on
+        the same pod. That is the live onex-dev incident this method closes:
+        ``HandlerRendererCapabilityProjection`` raising on every event ->
+        quarantine fallback publish -> that publish failing -> breaker opened
+        108 times in two hours, taking gateway attach/heartbeat/detach
+        envelopes with it.
+
+        Excluding these publishes does not hide the failure: the retry loop
+        still retries, the caller still gets ``InfraConnectionError`` when the
+        retries are exhausted, and the DLQ-publish failure is still logged at
+        ERROR by the caller that requested it. Only the connection-wide verdict
+        is withheld, because a DLQ publish failure is not evidence about the
+        connection that the primary path shares.
+
+        Returns:
+            ``True`` when the failure was charged to the breaker, ``False``
+            when it was withheld because the target is a failure-path sink.
+        """
+        if is_dlq_topic(topic):
+            logger.warning(
+                "Publish to failure-path sink %s failed — NOT recording a "
+                "circuit failure: a DLQ/quarantine publish is already an error "
+                "path and must not open the connection-wide breaker (OMN-17497)",
+                topic,
+                extra={
+                    "topic": topic,
+                    "correlation_id": str(correlation_id),
+                    "service_name": self.service_name,
+                },
+            )
+            return False
+        async with self._circuit_breaker_lock:
+            await self._record_circuit_failure(
+                operation="publish", correlation_id=correlation_id
+            )
+        return True
+
+    async def _publish_with_retry(
+        self,
+        topic: str,
+        key: bytes | None,
+        value: bytes,
+        kafka_headers: list[tuple[str, bytes]],
+        headers: ModelEventHeaders,
+    ) -> ModelPublishReceipt:
+        """Publish message with exponential backoff retry.
+
+        Args:
+            topic: Target topic name
+            key: Optional message key
+            value: Message payload
+            kafka_headers: Kafka-formatted headers
+            headers: Original headers model
+
+        Returns:
+            ModelPublishReceipt: Coordinate from the successful attempt's
+            ``record_metadata``. Only a completed produce yields a receipt; every
+            other path raises, so a returned receipt always corresponds to a
+            broker acknowledgement under the configured ``acks`` policy.
+
+        Raises:
+            InfraConnectionError: If publish fails after all retries
+        """
+        last_exception: Exception | None = None
+
+        for attempt in range(self._max_retry_attempts + 1):
+            if self._closing:
+                context = ModelInfraErrorContext.with_correlation(
+                    correlation_id=headers.correlation_id,
+                    transport_type=EnumInfraTransportType.KAFKA,
+                    operation="publish",
+                    target_name=f"kafka.{topic}",
+                )
+                raise InfraUnavailableError(
+                    "Kafka event bus is shutting down",
+                    context=context,
+                    topic=topic,
+                )
+
+            try:
+                # Acquire lock only for producer check and reference capture,
+                # then release before network I/O to avoid serializing all publishes.
+                async with self._producer_lock:
+                    # Lazily recreate producer if it was destroyed by a previous
+                    # timeout but the bus is still logically started.
+                    await self._ensure_producer(headers.correlation_id)
+
+                    producer = self._producer
+                    if producer is None:
+                        if not self._started:
+                            raise InfraUnavailableError(
+                                "Kafka event bus is shutting down",
+                                context=ModelInfraErrorContext.with_correlation(
+                                    correlation_id=headers.correlation_id,
+                                    transport_type=EnumInfraTransportType.KAFKA,
+                                    operation="publish",
+                                    target_name=f"kafka.{topic}",
+                                ),
+                                topic=topic,
+                            )
+                        raise InfraConnectionError(
+                            "Kafka producer not initialized",
+                            context=ModelInfraErrorContext.with_correlation(
+                                correlation_id=headers.correlation_id,
+                                transport_type=EnumInfraTransportType.KAFKA,
+                                operation="publish",
+                                target_name=f"kafka.{topic}",
+                            ),
+                        )
+
+                # Send outside lock to allow concurrent publishes.
+                #
+                # Intentional TOCTOU trade-off: The producer reference was
+                # captured under _producer_lock above, but send() runs without
+                # the lock held.  A concurrent close() could stop the producer
+                # while send() is in-flight.  Holding the lock during send()
+                # would serialize ALL publishers for the duration of each
+                # network round-trip, which is worse than the occasional
+                # spurious error log during shutdown.  The _closing re-check
+                # below narrows the window.
+                if self._closing:
+                    context = ModelInfraErrorContext.with_correlation(
+                        correlation_id=headers.correlation_id,
+                        transport_type=EnumInfraTransportType.KAFKA,
+                        operation="publish",
+                        target_name=f"kafka.{topic}",
+                    )
+                    raise InfraUnavailableError(
+                        "Kafka event bus is shutting down",
+                        context=context,
+                        topic=topic,
+                    )
+
+                future = await producer.send(
+                    # PHYSICAL name: the canonical suffix was validated and
+                    # logged above, and the namespace is applied here so a
+                    # namespaced runtime cannot publish onto the shared
+                    # unprefixed topic (OMN-18891).
+                    apply_topic_namespace(topic),
+                    value=value,
+                    key=key,
+                    headers=kafka_headers,
+                )
+
+                # Wait for completion outside lock to allow other operations
+                record_metadata = await asyncio.wait_for(
+                    future,
+                    timeout=self._timeout_seconds,
+                )
+
+                # Success - reset circuit breaker (thread-safe)
+                async with self._circuit_breaker_lock:
+                    await self._reset_circuit_breaker()
+
+                # Record emission for wiring health monitoring
+                await self._record_emission(topic)
+
+                logger.debug(
+                    f"Published to topic {topic}",
+                    extra={
+                        "partition": record_metadata.partition,
+                        "offset": record_metadata.offset,
+                        "correlation_id": str(headers.correlation_id),
+                    },
+                )
+                # OMN-15861: surface the coordinate instead of logging and
+                # discarding it. `record_metadata.topic` is preferred over the
+                # requested `topic` so the receipt names the topic the broker
+                # actually wrote to.
+                return ModelPublishReceipt(
+                    topic=str(getattr(record_metadata, "topic", topic) or topic),
+                    partition=int(record_metadata.partition),
+                    offset=int(record_metadata.offset),
+                    cluster=self._bootstrap_servers,
+                    produced_at=datetime.now(UTC),
+                    transport=EnumInfraTransportType.KAFKA,
+                    idempotency_key=headers.idempotency_key,
+                )
+
+            except TimeoutError as e:
+                # Clean up producer on timeout to prevent resource leak (thread-safe)
+                async with self._producer_lock:
+                    if self._producer is not None:
+                        try:
+                            await self._producer.stop()
+                        except Exception as cleanup_err:  # noqa: BLE001 — boundary: logs warning and degrades
+                            logger.warning(
+                                "Cleanup failed for Kafka producer stop during publish: %s",
+                                cleanup_err,
+                                exc_info=True,
+                            )
+                    self._producer = None
+                last_exception = e
+                await self._record_publish_circuit_failure(
+                    topic, headers.correlation_id
+                )
+                logger.warning(
+                    f"Publish timeout (attempt {attempt + 1}/{self._max_retry_attempts + 1})",
+                    extra={
+                        "topic": topic,
+                        "correlation_id": str(headers.correlation_id),
+                    },
+                )
+
+            except UnknownTopicOrPartitionError as e:
+                # Topic does not exist — configuration error, not a broker connectivity
+                # failure. Do NOT record a circuit failure; topic-not-found must not open
+                # the circuit breaker and block subsequent publishes to healthy topics.
+                # No retry benefit either: the topic won't appear between attempts. (OMN-9553)
+                last_exception = e
+                logger.warning(
+                    "Topic not found on broker — skipping circuit failure record "
+                    "(attempt %d, no retry on configuration errors): %s",
+                    attempt + 1,
+                    topic,
+                    extra={
+                        "topic": topic,
+                        "correlation_id": str(headers.correlation_id),
+                    },
+                )
+                break  # No retry benefit; fall through to error raise
+
+            except MessageSizeTooLargeError as e:
+                # OMN-16267: the payload exceeds the configured max_request_size.
+                # aiokafka raises this synchronously in producer.send()'s
+                # _serialize() step, BEFORE any network I/O -- it is a
+                # deterministic function of the payload's byte size, so
+                # retrying the identical payload can never succeed. Do NOT
+                # record a circuit failure (an oversized payload says nothing
+                # about broker health) and do NOT burn the retry budget with
+                # exponential backoff sleeps (same no-retry-benefit rationale
+                # as the UnknownTopicOrPartitionError branch above).
+                last_exception = e
+                logger.warning(
+                    "Publish payload exceeds max_request_size — skipping retry "
+                    "and circuit failure record (attempt %d, no retry benefit; "
+                    "size is deterministic): %s",
+                    attempt + 1,
+                    topic,
+                    extra={
+                        "topic": topic,
+                        "payload_size_bytes": len(value),
+                        "max_request_size_bytes": self._config.max_request_size,
+                        "correlation_id": str(headers.correlation_id),
+                    },
+                )
+                break  # No retry benefit; fall through to error raise
+
+            except TopicAuthorizationFailedError as e:
+                # OMN-18627: the broker refused this send on the TOPIC'S ACLs.
+                # An ACL does not appear between two attempts milliseconds
+                # apart, so the three remaining attempts and their exponential
+                # backoff sleeps re-earn the identical rejection -- the same
+                # no-retry-benefit rationale the UnknownTopicOrPartitionError
+                # and MessageSizeTooLargeError branches above already carry.
+                #
+                # Do NOT record a circuit failure. The broker ANSWERED, with a
+                # verdict about permissions; that is not evidence the
+                # connection is unavailable, and letting a single ungranted
+                # topic open the shared breaker would take healthy topics down
+                # with it (the OMN-17497 failure mode, different cause).
+                #
+                # The cost of not having this was measured and was not the
+                # wasted latency. The ladder outlasted the caller's publish
+                # timeout, so ``asyncio.wait_for`` cancelled it and the caller
+                # saw ``TimeoutError`` -- a denial that can NEVER succeed,
+                # wearing the one exception shape that means "try again
+                # shortly". node_event_emit_effect's spool drain stops at the
+                # first failure to preserve ordering, so it retried the same
+                # unpublishable record every cycle for 20 hours and held 126
+                # records of four authorized classes behind it.
+                last_exception = e
+                logger.warning(
+                    "Publish refused by topic ACLs — skipping retry and "
+                    "circuit failure record (attempt %d, no retry benefit; an "
+                    "ACL will not appear between attempts): %s",
+                    attempt + 1,
+                    topic,
+                    extra={
+                        "topic": topic,
+                        "correlation_id": str(headers.correlation_id),
+                        "error_type": type(e).__name__,
+                    },
+                )
+                break  # No retry benefit; fall through to error raise
+
+            except _IDEMPOTENT_PRODUCER_FATAL_ERRORS as e:
+                # OMN-17497: the broker rejected this send on the idempotent
+                # producer's OWN sequence/epoch state, not on connectivity.
+                # See _IDEMPOTENT_PRODUCER_FATAL_ERRORS for the full rationale.
+                #
+                # Two consequences, both handled here:
+                #
+                # 1. Retrying on the same producer can never succeed — the
+                #    sequence the broker refused is the sequence this instance
+                #    will keep sending. Destroy the producer so the next
+                #    attempt's ``_ensure_producer`` mints a fresh (pid, epoch)
+                #    whose sequences restart at 0. The retry budget is then
+                #    spent on something that can actually work, instead of
+                #    four guaranteed-identical rejections.
+                # 2. Do NOT record a circuit failure. The broker answered; it
+                #    answered with a verdict about producer-local state. That
+                #    is not evidence the connection is unavailable, and on
+                #    onex-dev it was the whole mechanism by which one poison
+                #    event opened the shared breaker 108 times in two hours.
+                last_exception = e
+                async with self._producer_lock:
+                    if self._producer is not None:
+                        try:
+                            await self._producer.stop()
+                        except Exception as cleanup_err:  # noqa: BLE001 — boundary: logs warning and degrades
+                            logger.warning(
+                                "Cleanup failed for Kafka producer stop during "
+                                "idempotent-producer state reset: %s",
+                                cleanup_err,
+                                exc_info=True,
+                            )
+                    self._producer = None
+                logger.warning(
+                    "Idempotent producer state rejected by broker on publish "
+                    "(attempt %d/%d) — discarding the producer so the next "
+                    "attempt mints a fresh producer id, and skipping the "
+                    "circuit failure record (producer-local state is not "
+                    "broker health): %s",
+                    attempt + 1,
+                    self._max_retry_attempts + 1,
+                    sanitize_error_message(e),
+                    extra={
+                        "topic": topic,
+                        "correlation_id": str(headers.correlation_id),
+                        "error_type": type(e).__name__,
+                    },
+                )
+
+            except KafkaError as e:  # NOTE: UnknownTopicOrPartitionError, MessageSizeTooLargeError and every member of _IDEMPOTENT_PRODUCER_FATAL_ERRORS are KafkaError subclasses — all those handlers MUST appear before this block
+                last_exception = e
+                await self._record_publish_circuit_failure(
+                    topic, headers.correlation_id
+                )
+                logger.warning(
+                    f"Kafka error on publish (attempt {attempt + 1}/{self._max_retry_attempts + 1}): {e}",
+                    extra={
+                        "topic": topic,
+                        "correlation_id": str(headers.correlation_id),
+                    },
+                )
+
+            except Exception as e:  # noqa: BLE001 — boundary: logs warning and degrades
+                last_exception = e
+                await self._record_publish_circuit_failure(
+                    topic, headers.correlation_id
+                )
+                logger.warning(
+                    f"Publish error (attempt {attempt + 1}/{self._max_retry_attempts + 1}): {e}",
+                    extra={
+                        "topic": topic,
+                        "correlation_id": str(headers.correlation_id),
+                    },
+                )
+
+            # Calculate backoff with jitter
+            if attempt < self._max_retry_attempts:
+                delay = self._retry_backoff_base * (2**attempt)
+                jitter = random.uniform(0.5, 1.5)
+                delay *= jitter
+                await asyncio.sleep(delay)
+
+        # All retries exhausted - differentiate timeout vs connection errors
+        context = ModelInfraErrorContext.with_correlation(
+            correlation_id=headers.correlation_id,
+            transport_type=EnumInfraTransportType.KAFKA,
+            operation="publish",
+            target_name=f"kafka.{topic}",
+        )
+        if isinstance(last_exception, TimeoutError):
+            timeout_ctx = ModelTimeoutErrorContext(
+                transport_type=EnumInfraTransportType.KAFKA,
+                operation="publish",
+                target_name=f"kafka.{topic}",
+                correlation_id=headers.correlation_id,
+                timeout_seconds=self._timeout_seconds,
+            )
+            raise InfraTimeoutError(
+                f"Timeout publishing to topic {topic} after {self._max_retry_attempts + 1} attempts",
+                context=timeout_ctx,
+                topic=topic,
+                retry_count=self._max_retry_attempts + 1,
+            ) from last_exception
+        if isinstance(last_exception, TopicAuthorizationFailedError):
+            # OMN-18627: attributable and distinct. Without its own type the
+            # caller could only see a timeout, and "this record can never be
+            # published" is a different decision from "try again shortly" --
+            # a spool drain must quarantine the first and re-queue the second.
+            raise EventTopicAuthorizationError(
+                f"Publish to topic '{topic}' refused by the broker's ACLs. The "
+                f"publishing principal has no WRITE grant on it, or the topic "
+                f"is not provisioned on a broker that reports an absent topic "
+                f"as unauthorized. Retrying cannot change either.",
+                context=context,
+                topic=topic,
+            ) from last_exception
+        if isinstance(last_exception, UnknownTopicOrPartitionError):
+            # Topic does not exist — raise as a configuration error, not a connection error.
+            # Callers must be able to distinguish "topic missing" from "broker unreachable". (OMN-9553)
+            raise ProtocolConfigurationError(
+                f"Topic '{topic}' not found on broker. Ensure the topic is provisioned before publishing.",
+                context=context,
+                parameter="topic",
+                value=topic,
+            ) from last_exception
+        if isinstance(last_exception, MessageSizeTooLargeError):
+            # OMN-16267: payload exceeds max_request_size — raise as a distinct,
+            # correctly-attributed error rather than InfraConnectionError so
+            # callers can tell "payload too large" from "broker unreachable"
+            # without string-matching the message.
+            payload_size = len(value)
+            raise EventPayloadTooLargeError(
+                f"Publish to topic '{topic}' rejected: payload is {payload_size} "
+                f"bytes, exceeding the configured max_request_size of "
+                f"{self._config.max_request_size} bytes.",
+                context=context,
+                payload_size_bytes=payload_size,
+                max_request_size_bytes=self._config.max_request_size,
+                topic=topic,
+            ) from last_exception
+        raise InfraConnectionError(
+            f"Failed to publish to topic {topic} after {self._max_retry_attempts + 1} attempts",
+            context=context,
+            topic=topic,
+            retry_count=self._max_retry_attempts + 1,
+        ) from last_exception
+
+    def declare_consume_concurrency(
+        self,
+        *,
+        topic: str,
+        group_id: str,
+        max_in_flight_records: int,
+    ) -> None:
+        """Bound concurrently in-flight records for one ``(topic, group_id)``.
+
+        Satisfies ``ProtocolConsumeConcurrencyDeclarer``. Call before the
+        ``subscribe`` that starts the consume loop for this pair -- the loop
+        reads the bound once, when it starts, so a declaration made afterwards
+        does not take effect until the consumer is rebuilt.
+
+        ``group_id`` is the group the subscription RESOLVES to (what
+        ``subscribe`` computes from ``node_identity`` via
+        ``compute_consumer_group_id``), because that is the value
+        ``_group_consumers`` and ``_consume_loop`` are keyed by. It is not the
+        effective id sent to Kafka, which carries the per-topic suffix.
+
+        A bound of 1 is recorded but changes nothing: ``_consume_loop`` treats
+        1 and "undeclared" identically and takes the inline serial path.
+
+        Args:
+            topic: Topic the subscription consumes.
+            group_id: Resolved consumer group id for the subscription.
+            max_in_flight_records: Records this loop may dispatch at once.
+
+        Raises:
+            ValueError: ``max_in_flight_records`` is below 1. A bound that
+                admits nothing is a wedged consumer, not a configuration.
+        """
+        if max_in_flight_records < 1:
+            raise ValueError(
+                f"max_in_flight_records must be >= 1, got {max_in_flight_records} "
+                f"for topic={topic} group={group_id}"
+            )
+        self._consume_concurrency[(topic, group_id)] = max_in_flight_records
+
+    async def subscribe(
+        self,
+        topic: str,
+        node_identity: ModelNodeIdentity | None = None,
+        on_message: Callable[[ModelEventMessage], Awaitable[None]] | None = None,
+        *,
+        group_id: str | None = None,
+        purpose: EnumConsumerGroupPurpose = EnumConsumerGroupPurpose.CONSUME,
+        required_for_readiness: bool = False,
+        auto_offset_reset: str | None = None,
+    ) -> Callable[[], Awaitable[None]]:
+        """Subscribe to topic with callback handler.
+
+        Registers a callback to be invoked for each message received on the topic.
+        Returns an unsubscribe function to remove the subscription.
+
+        The consumer group ID is either provided directly via ``group_id`` or
+        derived from ``node_identity`` using the canonical format:
+        ``{env}.{service}.{node_name}.{purpose}.{version}``.
+
+        Note: Unlike typical Kafka consumer groups, this implementation maintains
+        a subscriber registry and fans out messages to all registered callbacks,
+        matching the EventBusInmemory interface.
+
+        Args:
+            topic: Topic to subscribe to
+            node_identity: Node identity used to derive the consumer group ID.
+                Contains env, service, node_name, and version components.
+                Required if ``group_id`` is not provided.
+            on_message: Async callback invoked for each message
+            group_id: Explicit consumer group ID. When provided, takes precedence
+                over derivation from ``node_identity``. Useful for domain plugins
+                that manage their own group naming.
+            purpose: Consumer group purpose classification. Defaults to CONSUME.
+                Used in the consumer group ID derivation for disambiguation.
+                Ignored when ``group_id`` is provided explicitly.
+            required_for_readiness: Whether this subscription must have active
+                partition assignments for the runtime to report as ready via
+                ``/ready``. Defaults to False (does not block readiness).
+            auto_offset_reset: Optional per-subscription override of this
+                consumer's ``auto_offset_reset`` policy ("earliest"/"latest").
+                When ``None`` (the default, unchanged behavior), the bus-level
+                ``self._config.auto_offset_reset`` applies, as before this
+                parameter existed. Each ``(topic, group_id)`` pair already
+                gets its own dedicated ``AIOKafkaConsumer``
+                (``_start_consumer_for_topic_unlocked``), so this override is
+                scoped to exactly the one consumer this call creates -- it
+                does not affect any other subscription's offset-reset
+                behavior. Added for OMN-15789 so the
+                ``event_bus_substrate`` fixture's ``real_broker`` leg can
+                exercise the same per-call ``auto_offset_reset`` surface
+                ``EventBusSemanticFake`` (omnibase_core) already has, instead
+                of needing a separate ``EventBusKafka`` instance per offset
+                policy under test.
+
+        Returns:
+            Async unsubscribe function to remove this subscription
+
+        Raises:
+            ValueError: If neither ``node_identity`` nor ``group_id`` is provided,
+                or if ``on_message`` is not provided.
+
+        Example:
+            ```python
+            from omnibase_infra.models import ModelNodeIdentity
+            from omnibase_infra.enums import EnumConsumerGroupPurpose
+
+            identity = ModelNodeIdentity(
+                env="dev",
+                service="my-service",
+                node_name="event-processor",
+                version="v1",
+            )
+
+            async def handler(msg):
+                print(f"Received: {msg.value}")
+
+            # Standard subscription (group_id: dev.my-service.event-processor.consume.v1)
+            unsubscribe = await bus.subscribe("events", identity, handler)
+
+            # With explicit group_id (domain plugins)
+            unsubscribe = await bus.subscribe(
+                topic="events", group_id="my-group", on_message=handler,
+            )
+
+            # ... later ...
+            await unsubscribe()
+            ```
+        """
+        if on_message is None:
+            raise ValueError("on_message callback is required")
+
+        subscription_id = str(uuid4())
+        correlation_id = uuid4()
+
+        # Resolve consumer group ID: explicit group_id takes precedence
+        if group_id is not None:
+            effective_group_id = group_id
+        elif node_identity is not None:
+            effective_group_id = compute_consumer_group_id(node_identity, purpose)
+        else:
+            raise ValueError("subscribe() requires either node_identity or group_id")
+
+        # Validate topic name
+        self._validate_topic_name(topic, correlation_id)
+
+        need_consumer_start = False
+        async with self._lock:
+            # Track readiness-required topics (OMN-1931)
+            if required_for_readiness:
+                self._required_topics.add(topic)
+
+            # Add to subscriber registry
+            self._subscribers[topic].append(
+                (effective_group_id, subscription_id, on_message)
+            )
+
+            # Determine whether we need to start a new consumer for this
+            # (topic, group_id) pair.  Mark pending inside the lock so that
+            # concurrent subscribe() calls on the same key see the reservation
+            # immediately and do not try to start a duplicate consumer.
+            consumer_key = (topic, effective_group_id)
+            if (
+                consumer_key not in self._group_consumers
+                and consumer_key not in self._pending_consumer_keys
+                and self._started
+            ):
+                self._pending_consumer_keys.add(consumer_key)
+                need_consumer_start = True
+
+        # Start the consumer outside the lock: consumer.start() involves
+        # a Kafka group-join round-trip (5-10 s per topic) and must not hold
+        # the shared lock, which would serialize all concurrent subscribe()
+        # calls during cold start.  _pending_consumer_keys (set above under
+        # the lock) guards against duplicate starts across concurrent callers.
+        if need_consumer_start:
+            await self._start_consumer_for_topic_unlocked(
+                topic, effective_group_id, auto_offset_reset_override=auto_offset_reset
+            )
+
+        async with self._lock:
+            logger.debug(
+                "Subscriber added",
+                extra={
+                    "topic": topic,
+                    "group_id": effective_group_id,
+                    "subscription_id": subscription_id,
+                    "required_for_readiness": required_for_readiness,
+                },
+            )
+
+        async def unsubscribe() -> None:
+            """Remove this subscription from the topic."""
+            async with self._lock:
+                try:
+                    # Find and remove the subscription
+                    subs = self._subscribers.get(topic, [])
+                    for i, (_gid, sid, _) in enumerate(subs):
+                        if sid == subscription_id:
+                            subs.pop(i)
+                            break
+
+                    logger.debug(
+                        "Subscriber removed",
+                        extra={
+                            "topic": topic,
+                            "group_id": effective_group_id,
+                            "subscription_id": subscription_id,
+                        },
+                    )
+
+                    # Stop consumer if no more subscribers for this topic
+                    remaining = self._subscribers.get(topic, [])
+                    if not any(
+                        sub_group_id == effective_group_id
+                        for sub_group_id, _, _ in remaining
+                    ):
+                        await self._stop_consumer_for_topic(topic, effective_group_id)
+
+                except Exception as e:  # noqa: BLE001 — boundary: logs warning and degrades
+                    logger.warning(f"Error during unsubscribe: {e}")
+
+        return unsubscribe
+
+    async def _start_consumer_for_topic(self, topic: str, group_id: str) -> None:
+        """Start a Kafka consumer for a specific topic.
+
+        Guards against duplicate starts, then delegates to
+        ``_start_consumer_for_topic_unlocked``.  Callers that have already
+        added the key to ``_pending_consumer_keys`` (e.g. ``subscribe()``)
+        should call ``_start_consumer_for_topic_unlocked`` directly to avoid
+        the redundant pending check.
+        """
+        consumer_key = (topic, group_id)
+        if (
+            consumer_key in self._group_consumers
+            or consumer_key in self._pending_consumer_keys
+        ):
+            return
+        self._pending_consumer_keys.add(consumer_key)
+        await self._start_consumer_for_topic_unlocked(topic, group_id)
+
+    def _resolve_effective_group_id(
+        self,
+        group_id: str,
+        topic: str,
+        correlation_id: UUID,
+        consumer_key: tuple[str, str],
+    ) -> str:
+        """Compute the effective Kafka consumer group ID for a topic subscription.
+
+        Validates group_id, applies the per-topic suffix, applies the instance
+        discriminator, and enforces the 255-char Kafka limit via hash truncation.
+
+        Raises:
+            ProtocolConfigurationError: on empty/whitespace group_id or invalid instance_id
+        """
+        # Validate group_id before any processing — reject whitespace-only IDs
+        # immediately so callers get a clear error.
+        stripped_group_id = group_id.strip()
+        if not stripped_group_id:
+            self._pending_consumer_keys.discard(consumer_key)
+            context = ModelInfraErrorContext.with_correlation(
+                correlation_id=correlation_id,
+                transport_type=EnumInfraTransportType.KAFKA,
+                operation="start_consumer",
+                target_name=f"kafka.{topic}",
+            )
+            raise ProtocolConfigurationError(
+                f"Consumer group ID is required for topic '{topic}'. "
+                "Internal error: compute_consumer_group_id() should have been called.",
+                context=context,
+                parameter="group_id",
+                value=group_id,
+            )
+
+        # Scope group_id per topic to prevent rebalance storms.
+        #
+        # Each subscribe() call creates a separate AIOKafkaConsumer for one topic.
+        # If multiple consumers share the same group_id, Kafka treats them as
+        # competing members and constantly rebalances partitions between them —
+        # but since each consumer is subscribed to only its own topic, the
+        # partition assignments thrash without any messages being processed.
+        #
+        # Appending the topic name ensures each per-topic consumer gets its own
+        # consumer group, which is the correct Kafka semantics for this pattern.
+        #
+        # The suffix uses a distinctive delimiter (".__t.") to prevent false
+        # positives from coincidental name collisions.  A plain ".{topic}" suffix
+        # could match an unrelated segment of a structured group_id — for example,
+        # group_id="foo.bar" with topic="bar" would incorrectly match ".bar" even
+        # though the ".bar" in the group_id is an unrelated segment, not a
+        # previously-applied topic suffix.
+        #
+        # The ".__t." infix is chosen because:
+        #   - It is unlikely to appear in organic group IDs
+        #   - It is short enough to stay within Kafka's 255-char group_id limit
+        #   - It makes the idempotency check unambiguous
+        topic_suffix = f".__t.{topic}"
+
+        # Strip topic suffix before applying instance discriminator so that
+        # pre-scoped group IDs (already ending with .__t.{topic}) don't end up
+        # with the instance discriminator AFTER the topic suffix and the topic
+        # suffix appended again (OMN-2251 / CodeRabbit review).
+        base_group_id = (
+            stripped_group_id[: -len(topic_suffix)]
+            if stripped_group_id.endswith(topic_suffix)
+            else stripped_group_id
+        )
+
+        # Apply instance discriminator for multi-container dev environments
+        # (OMN-2251). When instance_id is configured, each container gets its
+        # own consumer group membership so Kafka assigns all partitions to each
+        # instance rather than rebalancing between them. When instance_id is
+        # None (default), this is a no-op and single-container behavior is
+        # preserved.
+        try:
+            instance_discriminated_id = apply_instance_discriminator(
+                base_group_id, self._config.instance_id
+            )
+        except ValueError as e:
+            context = ModelInfraErrorContext.with_correlation(
+                correlation_id=correlation_id,
+                transport_type=EnumInfraTransportType.KAFKA,
+                operation="start_consumer",
+                target_name=f"kafka.{topic}",
+            )
+            raise ProtocolConfigurationError(
+                f"Invalid KAFKA_INSTANCE_ID: {self._config.instance_id!r}",
+                context=context,
+                parameter="instance_id",
+                value=self._config.instance_id,
+            ) from e
+
+        effective_group_id = f"{instance_discriminated_id}{topic_suffix}"
+
+        # Enforce Kafka's 255-char group_id limit on the *final* ID (after
+        # both instance discriminator and topic suffix have been applied).
+        # apply_instance_discriminator() enforces the limit on its own output,
+        # but the topic suffix added above can push the total over the max.
+        #
+        # Truncation strategy: preserve the topic suffix for debuggability.
+        #
+        # The group ID has the structure: {prefix}{topic_suffix} where the
+        # prefix is the instance-discriminated base ID and topic_suffix is
+        # ".__t.{topic}".  Naive truncation from the right destroys the
+        # topic suffix, making it impossible to tell which topic a consumer
+        # group belongs to when inspecting Kafka admin tools.
+        #
+        # Instead, we:
+        #   1. Extract the topic suffix (.__t.{topic})
+        #   2. Compute available space for the prefix: max - len(suffix) - 1 - 8
+        #      (1 for underscore separator, 8 for hash)
+        #   3. Truncate the prefix, append _<hash>, then re-append the suffix
+        #   4. If even the suffix + hash alone exceed max length, fall back to
+        #      a full hash truncation without suffix preservation
+        # Truncation logic is tested in TestKafkaEventBusInstanceDiscriminator:
+        #   test_effective_group_id_enforces_max_length (basic case)
+        #   test_truncation_with_very_long_topic_name (suffix near limit)
+        #   test_truncation_hash_fallback_path (suffix exceeds limit)
+        #   test_truncation_preserves_topic_suffix_when_possible
+        if len(effective_group_id) > KAFKA_CONSUMER_GROUP_MAX_LENGTH:
+            hash_input = f"{base_group_id}|{self._config.instance_id or ''}|{topic}"
+            hash_suffix = hashlib.sha256(hash_input.encode()).hexdigest()[:8]
+
+            # Try to preserve topic suffix for debuggability
+            # hash_overhead = 1 (underscore) + 8 (hash hex chars) = 9
+            hash_overhead = 9
+            available_for_prefix = (
+                KAFKA_CONSUMER_GROUP_MAX_LENGTH - len(topic_suffix) - hash_overhead
+            )
+
+            if available_for_prefix > 0:
+                # Suffix-preserving truncation: {truncated_prefix}_{hash}{topic_suffix}
+                truncated_prefix = instance_discriminated_id[:available_for_prefix]
+                effective_group_id = f"{truncated_prefix}_{hash_suffix}{topic_suffix}"
+            else:
+                # Topic suffix + hash alone exceed max length; fall back to
+                # plain prefix truncation without suffix preservation.
+                max_prefix_length = KAFKA_CONSUMER_GROUP_MAX_LENGTH - hash_overhead
+                effective_group_id = (
+                    f"{effective_group_id[:max_prefix_length]}_{hash_suffix}"
+                )
+
+        return effective_group_id
+
+    def _resolve_group_instance_id(self, effective_group_id: str) -> str:
+        """Derive or return the static Kafka group.instance.id for this consumer.
+
+        Uses the configured override when available; otherwise auto-derives from
+        effective_group_id + hostname with hash-based truncation to stay within
+        the 255-char limit. (OMN-7601)
+        """
+        if self._config.group_instance_id is not None:
+            return self._config.group_instance_id
+
+        raw_hostname = socket.gethostname()
+        safe_hostname = "".join(
+            c if c.isalnum() or c in "._-" else "-" for c in raw_hostname
+        )
+        candidate = f"{effective_group_id}.{safe_hostname}"
+        if len(candidate) <= KAFKA_CONSUMER_GROUP_MAX_LENGTH:
+            return candidate
+
+        host_hash = hashlib.sha256(
+            f"{effective_group_id}|{safe_hostname}".encode()
+        ).hexdigest()[:8]
+        # Reserve room for separator + hash (9 chars: "." + 8 hex digits).
+        host_budget = (
+            KAFKA_CONSUMER_GROUP_MAX_LENGTH
+            - len(effective_group_id)
+            - len(host_hash)
+            - 2  # "." separator + "-" before hash
+        )
+        if host_budget > 0:
+            return f"{effective_group_id}.{safe_hostname[:host_budget]}-{host_hash}"
+
+        # No room for any hostname characters — use group prefix + hash.
+        prefix_budget = KAFKA_CONSUMER_GROUP_MAX_LENGTH - len(host_hash) - 1
+        return f"{effective_group_id[:prefix_budget]}-{host_hash}"
+
+    def _build_consumer(
+        self,
+        topic: str,
+        effective_group_id: str,
+        group_instance_id: str,
+        auto_offset_reset: str,
+        *,
+        group_id: str,
+    ) -> AIOKafkaConsumer:
+        """Construct (but do not start) a consumer for one topic and group.
+
+        The single place these kwargs are spelled. Before OMN-18640 they
+        appeared twice; the forced-rejoin path would have made three, and a
+        rejoin that quietly differed from the original construction in one
+        setting would be a very hard defect to see.
+
+        Args:
+            topic: Topic to subscribe to.
+            effective_group_id: Group id after instance/topic discrimination.
+            group_instance_id: Static membership id (KIP-345).
+            auto_offset_reset: Offset reset policy for this consumer.
+            group_id: The SUBSCRIPTION group id, the key the declared consume
+                concurrency is stored under.
+
+        Returns:
+            An unstarted ``AIOKafkaConsumer``.
+        """
+        # OMN-20117: a subscription that declared consume concurrency commits
+        # its own low watermark (``ConcurrentCommitLedger``). Auto-commit would
+        # commit the fetch position instead, which is past every record still
+        # in flight, so a restart would resume past them and they would never
+        # be redelivered.
+        concurrent = self._consume_concurrency.get((topic, group_id), 1) > 1
+        return AIOKafkaConsumer(
+            # PHYSICAL name. Every other use of ``topic`` in this class -- the
+            # ``_group_consumers`` key, the ``_consume_loop`` argument, the
+            # subscriber registry -- stays CANONICAL, so handler dispatch and
+            # topic comparison are unaffected by the deployment namespace and
+            # only the wire subscription moves (OMN-18891).
+            apply_topic_namespace(topic),
+            bootstrap_servers=self._bootstrap_servers,
+            group_id=effective_group_id,
+            group_instance_id=group_instance_id,
+            auto_offset_reset=auto_offset_reset,
+            enable_auto_commit=self._config.enable_auto_commit and not concurrent,
+            session_timeout_ms=self._config.session_timeout_ms,
+            heartbeat_interval_ms=self._config.heartbeat_interval_ms,
+            max_poll_interval_ms=self._config.max_poll_interval_ms,
+            retry_backoff_ms=self._config.reconnect_backoff_ms,
+            # OMN-15837: a per-consumer buffer ceiling, deliberately decoupled
+            # from the producer's max_request_size. An auto-wired runtime holds
+            # one consumer per wired topic, so this value is multiplied by the
+            # consumer count against a fixed container memory limit -- see the
+            # field docstring on ModelKafkaEventBusConfig for the measurements
+            # and for why the OMN-16267 ">= max_request_size" coupling is not
+            # required against a KIP-74 broker.
+            max_partition_fetch_bytes=self._config.max_partition_fetch_bytes,
+            **self._build_client_version_kwargs(AIOKafkaConsumer),
+            **self._build_auth_kwargs(),
+        )
+
+    async def _start_consumer_for_topic_unlocked(
+        self,
+        topic: str,
+        group_id: str,
+        *,
+        auto_offset_reset_override: str | None = None,
+    ) -> None:
+        """Start a Kafka consumer without holding the shared lock.
+
+        The caller MUST have already added ``(topic, group_id)`` to
+        ``_pending_consumer_keys`` before calling this method.  This invariant
+        is what prevents duplicate consumers from being created by concurrent
+        ``subscribe()`` calls.
+
+        This method performs the slow part of consumer startup (Kafka
+        group-join, partition assignment) outside ``self._lock`` so that many
+        topics can be subscribed concurrently via ``asyncio.gather``.
+
+        Args:
+            topic: Topic to consume from
+            group_id: Base consumer group ID. This should be derived
+                from ``compute_consumer_group_id()`` or an explicit override.
+                The topic name is appended as a ``.__t.{topic}`` suffix to
+                create per-topic consumer groups and prevent rebalance storms.
+
+                The suffix is **idempotent**: if ``group_id`` already ends with
+                ``.__t.{topic}``, the suffix is not appended again.  This
+                prevents double-suffixing when callers pass a pre-scoped
+                group ID (e.g. ``"my-group.__t.events"`` with
+                ``topic="events"``).
+
+            auto_offset_reset_override: Optional per-consumer override of
+                ``auto_offset_reset``. ``None`` (the default) preserves the
+                pre-OMN-15789 behavior of always using
+                ``self._config.auto_offset_reset``.
+
+        Raises:
+            ProtocolConfigurationError: If group_id is empty or contains only
+                whitespace (must be derived from compute_consumer_group_id or
+                provided as explicit override)
+            InfraTimeoutError: If consumer startup times out after timeout_seconds
+            InfraConnectionError: If consumer fails to connect to Kafka brokers
+        """
+        consumer_key = (topic, group_id)
+
+        correlation_id = uuid4()
+        sanitized_servers = self._sanitize_bootstrap_servers(self._bootstrap_servers)
+
+        effective_group_id = self._resolve_effective_group_id(
+            group_id, topic, correlation_id, consumer_key
+        )
+        resolved_group_instance_id = self._resolve_group_instance_id(effective_group_id)
+        resolved_auto_offset_reset = (
+            auto_offset_reset_override
+            if auto_offset_reset_override is not None
+            else self._config.auto_offset_reset
+        )
+
+        # Apply consumer configuration from config model
+        consumer = self._build_consumer(
+            topic,
+            effective_group_id,
+            resolved_group_instance_id,
+            resolved_auto_offset_reset,
+            group_id=group_id,
+        )
+
+        # Redpanda (and Kafka) can return UnknownTopicOrPartitionError,
+        # InvalidPartitionsError, or BrokerNotAvailableError during
+        # consumer.start() when topic or partition metadata has not yet
+        # propagated after topic creation. These are transient in Redpanda
+        # --smp 1 --mode dev-container: UnknownTopicOrPartitionError appears
+        # when metadata has not propagated yet; InvalidPartitionsError
+        # (Kafka error 37) appears when the broker acknowledges the topic exists
+        # but has not finalized partition metadata; BrokerNotAvailableError
+        # appears while the broker cannot yet serve metadata for the topic.
+        # None is permanent when topic provisioning is still converging.
+        #
+        # aiokafka raises these from _wait_topics() inside consumer.start(). They
+        # propagate out of asyncio.wait_for before the timeout fires, so
+        # KAFKA_TIMEOUT_SECONDS alone does not help.
+        #
+        # Fix: retry metadata errors with exponential backoff within the
+        # timeout budget. Each failed attempt stops and discards the consumer;
+        # a fresh AIOKafkaConsumer is created for each retry to avoid stale
+        # state.
+        metadata_retry_deadline = (
+            asyncio.get_event_loop().time() + self._timeout_seconds
+        )
+        metadata_retry_backoff = 2.0  # seconds; doubles each attempt, capped at 10s
+
+        while True:
+            try:
+                await asyncio.wait_for(
+                    consumer.start(),
+                    timeout=self._timeout_seconds,
+                )
+                break  # success — exit retry loop
+
+            except asyncio.CancelledError:
+                self._pending_consumer_keys.discard(consumer_key)
+                try:
+                    await consumer.stop()
+                except Exception as cleanup_err:  # noqa: BLE001 — boundary: logs warning and degrades
+                    logger.warning(
+                        "Cleanup failed for cancelled Kafka consumer start (topic=%s): %s",
+                        topic,
+                        cleanup_err,
+                        exc_info=True,
+                    )
+                raise
+
+            except (
+                UnknownTopicOrPartitionError,
+                InvalidPartitionsError,
+                BrokerNotAvailableError,
+            ) as e:
+                # Transient metadata propagation lag — stop the failed consumer,
+                # wait briefly, and retry if still within the timeout budget.
+                error_type = type(e).__name__
+                try:
+                    await consumer.stop()
+                except Exception as cleanup_err:  # noqa: BLE001
+                    logger.debug(
+                        "Cleanup after %s (topic=%s): %s",
+                        error_type,
+                        topic,
+                        cleanup_err,
+                    )
+
+                remaining = metadata_retry_deadline - asyncio.get_event_loop().time()
+                if remaining <= metadata_retry_backoff:
+                    # Out of budget — propagate as timeout
+                    self._pending_consumer_keys.discard(consumer_key)
+                    timeout_ctx = ModelTimeoutErrorContext(
+                        transport_type=EnumInfraTransportType.KAFKA,
+                        operation="start_consumer",
+                        target_name=f"kafka.{topic}",
+                        correlation_id=correlation_id,
+                        timeout_seconds=self._timeout_seconds,
+                    )
+                    logger.exception(
+                        f"Timeout waiting for topic metadata for {topic} after {self._timeout_seconds}s "
+                        f"({error_type} on all retries)",
+                        extra={
+                            "topic": topic,
+                            "group_id": group_id,
+                            "correlation_id": str(correlation_id),
+                            "timeout_seconds": self._timeout_seconds,
+                            "servers": sanitized_servers,
+                            "error_type": error_type,
+                        },
+                    )
+                    raise InfraTimeoutError(
+                        f"Timeout starting consumer for topic {topic} after {self._timeout_seconds}s "
+                        f"(topic metadata unavailable after all retries)",
+                        context=timeout_ctx,
+                        topic=topic,
+                        servers=sanitized_servers,
+                    ) from e
+
+                logger.warning(
+                    "Topic metadata not yet available for %s (%s); "
+                    "retrying in %.1fs (%.0fs remaining in budget)",
+                    topic,
+                    error_type,
+                    metadata_retry_backoff,
+                    remaining,
+                    extra={
+                        "topic": topic,
+                        "group_id": group_id,
+                        "correlation_id": str(correlation_id),
+                    },
+                )
+                await asyncio.sleep(metadata_retry_backoff)
+                metadata_retry_backoff = min(metadata_retry_backoff * 2, 10.0)
+
+                # Recreate consumer for the next attempt — a consumer that failed
+                # start() cannot be restarted.
+                consumer = self._build_consumer(
+                    topic,
+                    effective_group_id,
+                    resolved_group_instance_id,
+                    resolved_auto_offset_reset,
+                    group_id=group_id,
+                )
+
+            except TimeoutError as e:
+                self._pending_consumer_keys.discard(consumer_key)
+                # Clean up consumer on failure to prevent resource leak
+                try:
+                    await consumer.stop()
+                except Exception as cleanup_err:  # noqa: BLE001 — boundary: logs warning and degrades
+                    logger.warning(
+                        "Cleanup failed for Kafka consumer stop (topic=%s): %s",
+                        topic,
+                        cleanup_err,
+                        exc_info=True,
+                    )
+
+                # Propagate timeout error to surface startup failures (differentiate from connection errors)
+                timeout_ctx = ModelTimeoutErrorContext(
+                    transport_type=EnumInfraTransportType.KAFKA,
+                    operation="start_consumer",
+                    target_name=f"kafka.{topic}",
+                    correlation_id=correlation_id,
+                    timeout_seconds=self._timeout_seconds,
+                )
+                logger.exception(
+                    f"Timeout starting consumer for topic {topic} after {self._timeout_seconds}s",
+                    extra={
+                        "topic": topic,
+                        "group_id": group_id,
+                        "correlation_id": str(correlation_id),
+                        "timeout_seconds": self._timeout_seconds,
+                        "servers": sanitized_servers,
+                        "error_type": "timeout",
+                    },
+                )
+                raise InfraTimeoutError(
+                    f"Timeout starting consumer for topic {topic} after {self._timeout_seconds}s",
+                    context=timeout_ctx,
+                    topic=topic,
+                    servers=sanitized_servers,
+                ) from e
+
+            except Exception as e:
+                self._pending_consumer_keys.discard(consumer_key)
+                # Clean up consumer on failure to prevent resource leak
+                try:
+                    await consumer.stop()
+                except Exception as cleanup_err:  # noqa: BLE001 — boundary: logs warning and degrades
+                    logger.warning(
+                        "Cleanup failed for Kafka consumer stop (topic=%s): %s",
+                        topic,
+                        cleanup_err,
+                        exc_info=True,
+                    )
+
+                # Propagate connection error to surface startup failures (differentiate from timeout)
+                context = ModelInfraErrorContext.with_correlation(
+                    correlation_id=correlation_id,
+                    transport_type=EnumInfraTransportType.KAFKA,
+                    operation="start_consumer",
+                    target_name=f"kafka.{topic}",
+                )
+                logger.exception(
+                    f"Failed to start consumer for topic {topic}: {e}",
+                    extra={
+                        "topic": topic,
+                        "group_id": group_id,
+                        "correlation_id": str(correlation_id),
+                        "error": str(e),
+                        "error_type": type(e).__name__,
+                        "servers": sanitized_servers,
+                    },
+                )
+                raise InfraConnectionError(
+                    f"Failed to start consumer for topic {topic}: {e}",
+                    context=context,
+                    topic=topic,
+                    servers=sanitized_servers,
+                ) from e
+
+        self._pending_consumer_keys.discard(consumer_key)
+        self._group_consumers[consumer_key] = consumer
+        self._refresh_topic_consumer_views(topic)
+
+        # Start background task to consume messages with correlation tracking
+        task = asyncio.create_task(self._consume_loop(topic, group_id, correlation_id))
+        self._group_consumer_tasks[consumer_key] = task
+        self._refresh_topic_consumer_views(topic)
+
+        logger.info(
+            f"Started consumer for topic {topic}",
+            extra={
+                "topic": topic,
+                "group_id": effective_group_id,
+                "correlation_id": str(correlation_id),
+                "servers": sanitized_servers,
+            },
+        )
+
+        # Emit consumer started health event (OMN-5518)
+        if self._health_emitter is not None:
+            try:
+                await self._health_emitter.emit_event(
+                    consumer_identity=f"eventbus.{topic}",
+                    consumer_group=effective_group_id,
+                    topic=topic,
+                    event_type=EnumConsumerHealthEventType.CONSUMER_STARTED,
+                    severity=EnumConsumerHealthSeverity.INFO,
+                    correlation_id=correlation_id,
+                    service_label="EventBusKafka",
+                )
+            except Exception:  # noqa: BLE001 - best-effort emission
+                logger.debug(
+                    "Failed to emit consumer started health event", exc_info=True
+                )
+
+    def _refresh_topic_consumer_views(self, topic: str) -> None:
+        """Refresh compatibility maps keyed only by topic.
+
+        ``_group_consumers`` and ``_group_consumer_tasks`` are the authoritative
+        registries. ``_consumers`` and ``_consumer_tasks`` are retained as
+        topic-keyed compatibility views for readiness and older tests.
+        """
+        group_keys = [key for key in self._group_consumers if key[0] == topic]
+        if not group_keys:
+            self._consumers.pop(topic, None)
+            self._consumer_tasks.pop(topic, None)
+            return
+
+        primary_key = sorted(group_keys)[0]
+        self._consumers[topic] = self._group_consumers[primary_key]
+        task = self._group_consumer_tasks.get(primary_key)
+        if task is not None:
+            self._consumer_tasks[topic] = task
+        else:
+            self._consumer_tasks.pop(topic, None)
+
+    async def _stop_consumer_for_topic(
+        self,
+        topic: str,
+        group_id: str | None = None,
+    ) -> None:
+        """Stop the consumer for a specific topic or topic/group pair.
+
+        Args:
+            topic: Topic to stop consuming from.
+            group_id: Optional consumer group ID. When provided, only the
+                matching topic/group consumer is stopped.
+        """
+        group_keys = (
+            [(topic, group_id)]
+            if group_id is not None
+            else [key for key in self._group_consumers if key[0] == topic]
+        )
+
+        for consumer_key in group_keys:
+            topic_name, group_name = consumer_key
+
+            task = self._group_consumer_tasks.pop(consumer_key, None)
+            if task is not None and not task.done():
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+
+            consumer = self._group_consumers.pop(consumer_key, None)
+            self._rejoin_supervisors.pop(consumer_key, None)  # OMN-18640
+            if consumer is not None:
+                try:
+                    await consumer.stop()
+                except Exception as e:  # noqa: BLE001 — boundary: logs warning and degrades
+                    logger.warning(
+                        "Error stopping consumer for topic %s group %s: %s",
+                        topic_name,
+                        group_name,
+                        e,
+                    )
+
+        self._refresh_topic_consumer_views(topic)
+
+    @staticmethod
+    def _extract_event_type_from_msg(msg: object) -> str:
+        """Best-effort extraction of event_type from a raw Kafka message's headers."""
+        try:
+            raw_headers = getattr(msg, "headers", None) or []
+            for hdr_key, hdr_val in raw_headers:
+                if hdr_key == "event_type" and hdr_val is not None:
+                    return hdr_val.decode("utf-8")
+        except Exception:  # noqa: BLE001 — boundary: logs warning and degrades
+            pass
+        return "unknown"
+
+    # ------------------------------------------------------------------
+    # OMN-17379: bounding the offset withhold
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _projection_failure_fingerprint(exc: BaseException) -> str:
+        """Identify a failure so "the same refusal again" is decidable.
+
+        The count must reset when the failure CHANGES, because a write path
+        being repaired in stages reports a different error as it goes and such a
+        record is progressing toward a row rather than stuck. Fingerprinting on
+        the type alone would miss that -- every refusal on this path is a
+        ``ProjectionNotMaterializedError`` -- so the underlying cause's type and
+        the rendered message are folded in. The message is hashed rather than
+        stored: it carries the payload's own identifiers on some paths, and a
+        cache of error strings keyed by offset is not a thing this class should
+        hold.
+        """
+        cause = exc.__cause__
+        parts = f"{type(exc).__name__}|{type(cause).__name__ if cause else ''}|{exc}"
+        return hashlib.sha256(parts.encode("utf-8", "replace")).hexdigest()[:32]
+
+    def _record_projection_withhold(
+        self,
+        key: tuple[str, int, int, str],
+        fingerprint: str,
+    ) -> int:
+        """Count consecutive identical refusals of ONE record, and return the count.
+
+        A DIFFERENT fingerprint restarts the count at 1 rather than incrementing
+        it: two different failures are not one record failing to progress.
+        """
+        previous = self._projection_withholds.get(key)
+        count = (
+            previous[0] + 1
+            if previous is not None and previous[1] == fingerprint
+            else 1
+        )
+        self._projection_withholds[key] = (count, fingerprint)
+        self._projection_withholds.move_to_end(key)
+        capacity = self._config.projection_withhold_tracking_capacity
+        while len(self._projection_withholds) > capacity:
+            # Evict the least recently touched coordinate. Losing a count only
+            # ever restores that record's full budget, which is the safe
+            # direction: it can delay a release, never cause an early one.
+            self._projection_withholds.popitem(last=False)
+        return count
+
+    def _clear_projection_withhold(self, key: tuple[str, int, int, str]) -> None:
+        """Forget a coordinate's history.
+
+        Called when the record projects successfully and when it is
+        dead-lettered. Without the first, a record that failed during an outage
+        would carry that history and be released early on a later, unrelated
+        refusal.
+        """
+        self._projection_withholds.pop(key, None)
+
+    async def _await_dispatch_within_deadline(
+        self,
+        callback: Callable[[ModelEventMessage], Awaitable[None]],
+        event_message: ModelEventMessage,
+        *,
+        topic: str,
+        group_id: str,
+        subscription_id: str,
+        correlation_id: UUID,
+        record_coordinate: tuple[int, int] | None,
+        on_slow_dispatch: Callable[[], None] | None,
+    ) -> None:
+        """Await one subscriber callback, abandoning it at its deadline (OMN-19355).
+
+        The callback's own exception, if it raises in time, propagates
+        unchanged into the caller's existing arms. If it has not returned by
+        ``effective_dispatch_deadline_seconds`` it is ABANDONED, not cancelled,
+        and :class:`DispatchDeadlineExceededError` is raised in its place.
+
+        Why not cancel. Projection handlers run their blocking work through
+        ``asyncio.to_thread``. Cancelling the awaiting task frees the task and
+        leaves the thread running, and it also releases the projection gate
+        slot the thread still occupies, so the process would lose count of
+        exactly the resource that is leaking. Leaving the task running keeps
+        it observable: it is counted in ``dispatch_deadline_status`` until the
+        handler really returns.
+
+        ``on_slow_dispatch`` is called once, if the dispatch is still running
+        after ``consumer_dispatch_withhold_after_seconds``. The serial loop
+        uses it to pin the fetch position (``SerialBatchWithhold``).
+        """
+        loop = asyncio.get_running_loop()
+        started_at = loop.time()
+        deadline = self._config.effective_dispatch_deadline_seconds
+        dispatch = asyncio.ensure_future(callback(event_message))
+        self._live_dispatches.add(dispatch)
+        dispatch.add_done_callback(self._live_dispatches.discard)
+        try:
+            if on_slow_dispatch is None:
+                done, _ = await asyncio.wait({dispatch}, timeout=deadline)
+            else:
+                withhold_after = min(
+                    self._config.consumer_dispatch_withhold_after_seconds, deadline
+                )
+                done, _ = await asyncio.wait({dispatch}, timeout=withhold_after)
+                if not done:
+                    on_slow_dispatch()
+                    done, _ = await asyncio.wait(
+                        {dispatch}, timeout=deadline - withhold_after
+                    )
+        except asyncio.CancelledError:
+            # The consume loop itself is being cancelled (shutdown). The
+            # dispatch goes with it, exactly as it did when it was awaited
+            # inline.
+            dispatch.cancel()
+            raise
+
+        if done:
+            dispatch.result()
+            return
+
+        self._adopt_orphaned_dispatch(
+            dispatch,
+            OrphanedDispatch(
+                topic=topic,
+                group_id=group_id,
+                subscription_id=subscription_id,
+                correlation_id=correlation_id,
+                record_coordinate=record_coordinate,
+                started_at=started_at,
+            ),
+        )
+        partition, offset = record_coordinate or (None, None)
+        raise DispatchDeadlineExceededError(
+            f"subscriber {subscription_id} did not return within "
+            f"{deadline:.1f}s for {topic} partition {partition} offset {offset}; "
+            "the dispatch was abandoned, not cancelled, and the record was "
+            "quarantined so the consumer can keep polling (OMN-19355)",
+            topic=topic,
+            partition=partition,
+            offset=offset,
+            subscription_id=subscription_id,
+            deadline_seconds=deadline,
+        )
+
+    def _adopt_orphaned_dispatch(
+        self, dispatch: asyncio.Future[None], orphan: OrphanedDispatch
+    ) -> None:
+        """Count an abandoned dispatch until it returns on its own (OMN-19355)."""
+        self._orphaned_dispatches[dispatch] = orphan
+        self._dispatch_deadline_expiries += 1
+        dispatch.add_done_callback(self._on_orphaned_dispatch_settled)
+
+        now = asyncio.get_running_loop().time()
+        suspended_at = "unknown"
+        if isinstance(dispatch, asyncio.Task):
+            frames = dispatch.get_stack()
+            if frames:
+                innermost = frames[-1]
+                suspended_at = (
+                    f"{innermost.f_code.co_filename}:{innermost.f_lineno} "
+                    f"in {innermost.f_code.co_name}"
+                )
+        orphaned = len(self._orphaned_dispatches)
+        limit = self._config.consumer_dispatch_orphan_limit
+        logger.error(
+            "dispatch_deadline_exceeded %s deadline=%.1fs suspended_at=%s "
+            "orphaned=%s limit=%s live_threads=%s correlation_id=%s -- the "
+            "handler did not return and was ABANDONED: a Python thread cannot "
+            "be killed, so if it is parked in a to_thread worker that worker "
+            "stays parked until the handler returns or the process exits. The "
+            "record is quarantined and the consume loop keeps polling. At %s "
+            "abandoned dispatches the bus reports UNHEALTHY (OMN-19355)",
+            orphan.describe(now),
+            self._config.effective_dispatch_deadline_seconds,
+            suspended_at,
+            orphaned,
+            limit,
+            threading.active_count(),
+            str(orphan.correlation_id),
+            limit,
+            extra={
+                "topic": orphan.topic,
+                "group_id": orphan.group_id,
+                "subscription_id": orphan.subscription_id,
+                "correlation_id": str(orphan.correlation_id),
+                "orphaned_dispatches": orphaned,
+                "orphan_limit": limit,
+                "suspended_at": suspended_at,
+            },
+        )
+
+    def _on_orphaned_dispatch_settled(self, dispatch: asyncio.Future[None]) -> None:
+        """An abandoned dispatch finally returned; stop counting it."""
+        orphan = self._orphaned_dispatches.pop(dispatch, None)
+        outcome = "cancelled"
+        if not dispatch.cancelled():
+            error = dispatch.exception()
+            outcome = "returned" if error is None else f"raised {type(error).__name__}"
+        if orphan is None:
+            return
+        now = asyncio.get_running_loop().time()
+        logger.warning(
+            "orphaned_dispatch_settled %s outcome=%s orphaned=%s -- an abandoned "
+            "dispatch finished after its record was quarantined; its result is "
+            "discarded (OMN-19355)",
+            orphan.describe(now),
+            outcome,
+            len(self._orphaned_dispatches),
+            extra={
+                "topic": orphan.topic,
+                "group_id": orphan.group_id,
+                "subscription_id": orphan.subscription_id,
+                "correlation_id": str(orphan.correlation_id),
+                "orphaned_dispatches": len(self._orphaned_dispatches),
+            },
+        )
+
+    def dispatch_deadline_status(self) -> ModelDispatchDeadlineStatus:
+        """Abandoned dispatches this bus still holds (OMN-19355).
+
+        Implements ``ProtocolDispatchDeadlineSource``. Performs no I/O.
+        """
+        try:
+            now = asyncio.get_running_loop().time()
+        except RuntimeError:
+            now = time.monotonic()
+        orphans = list(self._orphaned_dispatches.values())
+        return ModelDispatchDeadlineStatus(
+            deadline_seconds=self._config.effective_dispatch_deadline_seconds,
+            orphan_limit=self._config.consumer_dispatch_orphan_limit,
+            orphaned_dispatches=len(orphans),
+            deadline_expiries_total=self._dispatch_deadline_expiries,
+            oldest_orphan_age_seconds=(
+                max(0.0, now - orphans[0].started_at) if orphans else 0.0
+            ),
+            orphans=tuple(orphan.describe(now) for orphan in orphans),
+        )
+
+    async def _dispatch_to_subscriber(
+        self,
+        callback: Callable[[ModelEventMessage], Awaitable[None]],
+        subscription_id: str,
+        event_message: ModelEventMessage,
+        topic: str,
+        group_id: str,
+        correlation_id: UUID,
+        *,
+        record_coordinate: tuple[int, int] | None = None,
+        on_slow_dispatch: Callable[[], None] | None = None,
+    ) -> bool:
+        """Invoke a single subscriber callback, routing to DLQ on exhausted retries.
+
+        ``record_coordinate`` is the ``(partition, offset)`` of the record under
+        dispatch. It is what makes the OMN-17379 withhold bound PER RECORD: a
+        per-partition or per-correlation counter would release the wrong thing
+        (a correlation id is shared by a delegation terminal and its quality
+        verdict, and a partition counter would dead-letter the Nth DIFFERENT
+        record during an ordinary database outage). ``None`` means the caller
+        could not resolve a coordinate, and the bound is then not applied at
+        all -- the withhold stays unbounded, which is the pre-OMN-17379-bound
+        behaviour and the safe direction when the record cannot be identified.
+
+        The callback is awaited under the OMN-19355 per-dispatch deadline (see
+        ``_await_dispatch_within_deadline``). A callback that outlives it is
+        abandoned and its record quarantined with failure class
+        ``dispatch_deadline_exceeded``. ``on_slow_dispatch`` is passed through
+        to that method by the serial loop.
+
+        Returns:
+            ``True`` when it is safe for the partition offset to advance past
+            this message — the callback succeeded, retries remain (so the
+            message is still live), or the DLQ write for an exhausted message
+            was confirmed durable. ``False`` when retries were exhausted AND
+            the DLQ write was NOT confirmed: the message then exists nowhere
+            durable, so the caller must rewind rather than let the offset move
+            (OMN-15232, same discipline as the OMN-14936 gate in
+            ``runtime/event_bus_subcontract_wiring.py``) — or when the callback
+            raised :class:`ProjectionNotMaterializedError`, which is offset-unsafe
+            unconditionally and independently of the retry budget (OMN-17379).
+        """
+        try:
+            await self._await_dispatch_within_deadline(
+                callback,
+                event_message,
+                topic=topic,
+                group_id=group_id,
+                subscription_id=subscription_id,
+                correlation_id=correlation_id,
+                record_coordinate=record_coordinate,
+                on_slow_dispatch=on_slow_dispatch,
+            )
+            # A record that projected has no withhold history worth keeping: a
+            # repaired write path must restore the full budget, or an outage's
+            # leftover count would release a later record early.
+            if record_coordinate is not None:
+                self._clear_projection_withhold(
+                    (topic, record_coordinate[0], record_coordinate[1], subscription_id)
+                )
+        except DispatchDeadlineExceededError as deadline_error:
+            # OMN-19355: the handler is still running, abandoned, and will not
+            # un-hang on redelivery -- a redelivery only abandons a second
+            # copy. So this does not consult the retry budget: the record is
+            # quarantined on its first expiry. The offset may advance only on a
+            # CONFIRMED quarantine; an unconfirmed one returns False and the
+            # caller rewinds, per OMN-15232, because a record that exists
+            # nowhere durable is worse than a second abandoned dispatch.
+            dlq_result = await self._publish_to_dlq(
+                original_topic=topic,
+                failed_message=event_message,
+                error=deadline_error,
+                correlation_id=correlation_id,
+                consumer_group=group_id,
+                failure_class=EnumDlqFailureClass.DISPATCH_DEADLINE_EXCEEDED,
+                validation_detail=str(deadline_error),
+            )
+            return dlq_result is not False
+        except ProjectionNotMaterializedError as projection_error:
+            # OMN-17379: a projection consumed a well-formed event and wrote no
+            # row because its WRITE PATH failed. Every other arm below decides
+            # between "DLQ it" and "retries remain", and both of those end in
+            # `return True` — the offset advances and the fact is gone. Neither
+            # is right here: the event is valid and still owed a row, and the
+            # remedy is an operator repair (a missing GRANT, a dead database),
+            # not a copy in a dead-letter topic.
+            #
+            # Return False unconditionally so the caller rewinds this partition
+            # to the failed message's own offset. Under `enable_auto_commit=True`
+            # that rewind is the ONLY action that withholds the offset — merely
+            # declining to commit does nothing, because the client commits the
+            # fetch position on its own cadence (see
+            # `_rewind_after_unpersisted_dlq`).
+            #
+            # The feed then stalls with visible lag until the write path is
+            # repaired, which is the intended outcome: `pr_merged_events` ran
+            # green at TOTAL-LAG 0 for 24 days precisely because this path
+            # returned True.
+            logger.exception(
+                "projection_not_materialized_offset_withheld topic=%s "
+                "subscription_id=%s correlation_id=%s -- a projection consumed "
+                "this event and wrote no row for a non-content reason; the "
+                "partition is rewound so the record is redelivered after the "
+                "write path is repaired (OMN-17379)",
+                topic,
+                subscription_id,
+                str(correlation_id),
+                extra={
+                    "topic": topic,
+                    "group_id": group_id,
+                    "subscription_id": subscription_id,
+                    "correlation_id": str(correlation_id),
+                },
+            )
+            # OMN-17379 (bound): withholding forever is its own outage. The arm
+            # above is right for a TRANSIENT write-path failure -- the record is
+            # still owed a row and redelivery materialises it once the path is
+            # repaired. It is wrong for a record whose refusal never changes:
+            # that record blocks every LATER record on its partition, including
+            # ones that would project fine, and nothing ever ends the stall.
+            #
+            # Measured on the onex-dev staging namespace 2026-09-15:
+            # delegation-completed.v1 p0 o286 (a tenant-registry refusal) and
+            # quality-gate-result.v1 p0 o300 (a NOT NULL violation) each
+            # re-refused about once per second, and the staging business-proof
+            # gate went red and stayed red behind them. Both are POISON by
+            # omnimarket's own projection error classification -- which this
+            # dispatch path never consults, because the writer is wired by this
+            # runtime rather than by BaseProjectionRunner.
+            #
+            # So: the SAME record failing the SAME way past a declared bound is
+            # quarantined with a typed reason and the partition is released. A
+            # changed failure resets the count, and a successful projection
+            # clears it, so nothing that is still progressing is discarded.
+            if record_coordinate is not None:
+                partition, offset = record_coordinate
+                fingerprint = self._projection_failure_fingerprint(projection_error)
+                withhold_key = (topic, partition, offset, subscription_id)
+                withheld = self._record_projection_withhold(withhold_key, fingerprint)
+                bound = self._config.projection_withhold_max_redeliveries
+                if withheld > bound:
+                    reason = (
+                        f"projection withhold exhausted after {withheld} "
+                        f"consecutive identical refusals of {topic} partition "
+                        f"{partition} offset {offset} by {subscription_id} "
+                        f"(bound {bound}, fingerprint {fingerprint}): "
+                        f"{projection_error}"
+                    )
+                    wedge_error = ProjectionWedgeExhaustedError(
+                        reason,
+                        projection_type=getattr(
+                            projection_error, "projection_type", None
+                        ),
+                    )
+                    wedge_error.__cause__ = projection_error
+                    dlq_result = await self._publish_to_dlq(
+                        original_topic=topic,
+                        failed_message=event_message,
+                        error=wedge_error,
+                        correlation_id=correlation_id,
+                        consumer_group=group_id,
+                        failure_class=EnumDlqFailureClass.PROJECTION_WEDGE_EXHAUSTED,
+                        validation_detail=reason,
+                    )
+                    # OMN-15232 is NOT relaxed here. Only a CONFIRMED durable
+                    # quarantine releases the partition; an unconfirmed one keeps
+                    # stalling, because a record that exists nowhere is worse
+                    # than a feed that is visibly stuck.
+                    if dlq_result is not False:
+                        self._clear_projection_withhold(withhold_key)
+                        # TRY400 suppressed: the refusal's traceback was already
+                        # emitted by the ``logger.exception`` above this block.
+                        # This line reports the RELEASE outcome, not a second
+                        # copy of that stack.
+                        logger.error(  # noqa: TRY400
+                            "projection_wedge_released topic=%s partition=%s "
+                            "offset=%s subscription_id=%s correlation_id=%s "
+                            "withheld=%s bound=%s -- this record refused the "
+                            "same way past its bound and was quarantined so the "
+                            "partition can advance (OMN-17379)",
+                            topic,
+                            partition,
+                            offset,
+                            subscription_id,
+                            str(correlation_id),
+                            withheld,
+                            bound,
+                            extra={
+                                "topic": topic,
+                                "group_id": group_id,
+                                "subscription_id": subscription_id,
+                                "correlation_id": str(correlation_id),
+                                "partition": partition,
+                                "offset": offset,
+                                "withheld": withheld,
+                                "bound": bound,
+                            },
+                        )
+                        return True
+            return False
+        except Exception as e:
+            retry_count = event_message.headers.retry_count
+            max_retries = event_message.headers.max_retries
+            retries_exhausted = retry_count >= max_retries
+
+            logger.exception(
+                "Subscriber callback failed",
+                extra={
+                    "topic": topic,
+                    "group_id": group_id,
+                    "subscription_id": subscription_id,
+                    "correlation_id": str(correlation_id),
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                    "retry_count": retry_count,
+                    "max_retries": max_retries,
+                    "retries_exhausted": retries_exhausted,
+                },
+            )
+
+            if retries_exhausted:
+                dlq_result = await self._publish_to_dlq(
+                    original_topic=topic,
+                    failed_message=event_message,
+                    error=e,
+                    correlation_id=correlation_id,
+                    consumer_group=group_id,
+                )
+                # OMN-15232: only an explicit ``False`` counts as a confirmed
+                # non-persist -- duck-typed hosts/test doubles that still
+                # return ``None`` keep their prior behavior, matching the
+                # allowance the OMN-14936 gate makes in
+                # runtime/event_bus_subcontract_wiring.py.
+                dlq_persisted = dlq_result is not False
+                if not dlq_persisted:
+                    # TRY400 suppressed below: the handler traceback was
+                    # already emitted by the logger.exception above; this line
+                    # reports the DLQ persistence outcome, not a second copy of
+                    # that stack.
+                    logger.error(  # noqa: TRY400
+                        "dlq_publish_not_persisted topic=%s subscription_id=%s "
+                        "correlation_id=%s error_type=%s -- retries exhausted and "
+                        "the DLQ write was NOT confirmed; offset will be rewound "
+                        "instead of advancing (OMN-15232)",
+                        topic,
+                        subscription_id,
+                        str(correlation_id),
+                        type(e).__name__,
+                        extra={
+                            "topic": topic,
+                            "group_id": group_id,
+                            "subscription_id": subscription_id,
+                            "correlation_id": str(correlation_id),
+                            "error_type": type(e).__name__,
+                        },
+                    )
+                return dlq_persisted
+            else:
+                logger.warning(
+                    f"Handler failed but retries available ({retry_count}/{max_retries})",
+                    extra={
+                        "topic": topic,
+                        "correlation_id": str(correlation_id),
+                        "retry_count": retry_count,
+                        "max_retries": max_retries,
+                    },
+                )
+
+        return True
+
+    async def _rewind_after_unpersisted_dlq(
+        self,
+        consumer: AIOKafkaConsumer,
+        msg: object,
+        topic: str,
+        group_id: str,
+        correlation_id: UUID,
+        failure_stage: str,
+        *,
+        rewind_sink: dict[int, int] | None = None,
+    ) -> None:
+        """Withhold offset advancement after an unconfirmed DLQ write (OMN-15232).
+
+        The consumers this class builds run with
+        ``enable_auto_commit=self._config.enable_auto_commit``, which defaults
+        to ``True``: the client commits the *fetch position* on its own cadence,
+        and this loop never calls ``commit`` itself. So — unlike the manual-commit
+        path in ``runtime/event_bus_subcontract_wiring.py``, where the OMN-14936
+        gate simply returns without committing — merely declining to commit here
+        does nothing. The offset advances anyway and the message is lost.
+
+        The fail-closed action that works under BOTH commit models is a rewind of
+        the fetch position to the failed message's own offset
+        (``consumer.seek(tp, msg.offset)``) — the identical "does NOT advance the
+        committed offset" mechanism ``KafkaTransport.nack`` uses in
+        ``event_bus/kafka_transport.py``. Under auto-commit the committer then
+        commits the rewound position, which cannot be past the message; under
+        manual commit the message is simply refetched. Either way Kafka
+        redelivers and the DLQ write is retried instead of the record being
+        silently dropped.
+
+        Only the failed message's own partition is rewound; sibling partitions
+        are untouched (same per-partition discipline as OMN-14757).
+
+        OMN-18852: when ``rewind_sink`` is supplied this method RECORDS the
+        request instead of performing the seek. It is supplied only by the
+        concurrent driver, where siblings are still running and a seek from
+        inside one of them races the others and is undone by whichever
+        finishes next. ``None`` -- every subscription that did not declare
+        ``consume_concurrency`` -- takes the seek path below unchanged.
+        """
+        msg_topic = getattr(msg, "topic", None) or topic
+        partition = getattr(msg, "partition", None)
+        offset = getattr(msg, "offset", None)
+
+        if partition is None or offset is None:
+            logger.error(
+                "dlq_unpersisted_rewind_impossible topic=%s stage=%s "
+                "correlation_id=%s -- message carries no partition/offset "
+                "coordinate, so offset advancement cannot be withheld; this "
+                "record may be lost (OMN-15232)",
+                topic,
+                failure_stage,
+                str(correlation_id),
+                extra={
+                    "topic": topic,
+                    "group_id": group_id,
+                    "correlation_id": str(correlation_id),
+                    "failure_stage": failure_stage,
+                },
+            )
+            return
+
+        if rewind_sink is not None:
+            # OMN-18852: concurrent driver. Record the request; the driver
+            # drains and seeks once per partition, to the LOWEST offset here.
+            # Seeking now would race the siblings still running.
+            existing = rewind_sink.get(int(partition))
+            if existing is None or int(offset) < existing:
+                rewind_sink[int(partition)] = int(offset)
+            logger.error(
+                "dlq_unpersisted_rewind_requested topic=%s partition=%s "
+                "offset=%s stage=%s correlation_id=%s -- DLQ persistence was "
+                "NOT confirmed; rewind deferred to the consume loop, which "
+                "drains in-flight siblings before moving the fetch position "
+                "(OMN-15232/OMN-18852)",
+                msg_topic,
+                partition,
+                offset,
+                failure_stage,
+                str(correlation_id),
+                extra={
+                    "topic": msg_topic,
+                    "group_id": group_id,
+                    "partition": partition,
+                    "offset": offset,
+                    "failure_stage": failure_stage,
+                    "correlation_id": str(correlation_id),
+                },
+            )
+            return
+
+        try:
+            consumer.seek(TopicPartition(msg_topic, int(partition)), int(offset))
+        except Exception as seek_error:
+            logger.exception(
+                "dlq_unpersisted_rewind_failed topic=%s partition=%s offset=%s "
+                "stage=%s correlation_id=%s error=%s -- could NOT withhold offset "
+                "advancement after an unconfirmed DLQ write; this record may be "
+                "lost (OMN-15232)",
+                msg_topic,
+                partition,
+                offset,
+                failure_stage,
+                str(correlation_id),
+                str(seek_error),
+                extra={
+                    "topic": msg_topic,
+                    "group_id": group_id,
+                    "partition": partition,
+                    "offset": offset,
+                    "failure_stage": failure_stage,
+                    "correlation_id": str(correlation_id),
+                },
+            )
+            return
+
+        logger.error(
+            "dlq_unpersisted_offset_rewound topic=%s partition=%s offset=%s "
+            "stage=%s correlation_id=%s -- DLQ persistence was NOT confirmed; "
+            "fetch position rewound so the offset cannot advance past an "
+            "undelivered DLQ write (OMN-15232)",
+            msg_topic,
+            partition,
+            offset,
+            failure_stage,
+            str(correlation_id),
+            extra={
+                "topic": msg_topic,
+                "group_id": group_id,
+                "partition": partition,
+                "offset": offset,
+                "failure_stage": failure_stage,
+                "correlation_id": str(correlation_id),
+            },
+        )
+
+        if DLQ_UNPERSISTED_REWIND_BACKOFF_SECONDS > 0:
+            await asyncio.sleep(DLQ_UNPERSISTED_REWIND_BACKOFF_SECONDS)
+
+    async def _emit_consume_loop_error_health_event(
+        self,
+        topic: str,
+        group_id: str,
+        correlation_id: UUID,
+        e: Exception,
+    ) -> None:
+        """Emit a consumer health event for an unexpected consume-loop error."""
+        if self._health_emitter is None:
+            return
+        error_type_name = type(e).__name__
+        is_session_timeout = (
+            "session" in error_type_name.lower() or "timeout" in str(e).lower()
+        )
+        event_type = (
+            EnumConsumerHealthEventType.SESSION_TIMEOUT
+            if is_session_timeout
+            else EnumConsumerHealthEventType.CONNECTION_LOST
+        )
+        severity = (
+            EnumConsumerHealthSeverity.CRITICAL
+            if is_session_timeout
+            else EnumConsumerHealthSeverity.ERROR
+        )
+        try:
+            _subs = self._subscribers.get(topic, [])
+            _consumer_group = group_id if _subs else "unknown"
+            await self._health_emitter.emit_event(
+                consumer_identity=f"eventbus.{topic}",
+                consumer_group=_consumer_group,
+                topic=topic,
+                event_type=event_type,
+                severity=severity,
+                correlation_id=correlation_id,
+                error_message=str(e)[:500],
+                error_type=error_type_name,
+                hostname=os.environ.get("HOSTNAME", ""),  # ONEX_EXCLUDE: env
+                service_label="EventBusKafka",
+            )
+        except Exception:  # noqa: BLE001 - best-effort emission must not propagate
+            logger.debug(
+                "Failed to emit health event for consumer loop error",
+                exc_info=True,
+            )
+
+    def consumer_rejoin_events(
+        self,
+    ) -> tuple[ModelConsumerGroupRejoinEvent, ...]:
+        """Every forced consumer-group rejoin this bus has performed (OMN-18640).
+
+        Typed records, in-process, with no feature flag between the fact and
+        the reader. A readiness dimension answers "did this runtime wedge and
+        recover itself?" from this, which is the surface that did not exist
+        during the 2026-09-17 and 2026-09-18 outages -- where the only evidence
+        was twenty thousand log lines and a lag that did not move.
+
+        Returns:
+            Rejoin events across all consumers, oldest first.
+        """
+        return tuple(self._consumer_rejoin_events)
+
+    def consumer_sync_statuses(self) -> tuple[ModelConsumerSyncStatus, ...]:
+        """Sync state of every consumer group this bus currently owns (OMN-18640 AC1).
+
+        Implements ``ProtocolConsumerSyncSource``. This is the surface the
+        runtime's ``consumer_sync`` readiness dimension reads, and through it
+        the container healthcheck and the deploy agent's force-recreate.
+
+        One supervisor exists per ``(topic, group)`` from its first poll, so
+        the set answered here is exactly the set this PROCESS consumes --
+        already scoped to its runtime profile by construction, with no
+        manifest filter to get wrong. Before any consumer has started the
+        tuple is empty, which is a boot state and not a finding.
+
+        Returns:
+            One status per consumed ``(topic, consumer group)``, no I/O issued.
+        """
+        return tuple(
+            supervisor.sync_status() for supervisor in self._rejoin_supervisors.values()
+        )
+
+    def _rejoin_supervisor_for(
+        self, topic: str, group_id: str
+    ) -> ConsumerRejoinSupervisor:
+        """Return (creating on first use) the rejoin supervisor for one group."""
+        key = (topic, group_id)
+        existing = self._rejoin_supervisors.get(key)
+        if existing is not None:
+            return existing
+
+        async def _recreate() -> ProtocolRejoinableConsumer:
+            return cast(
+                "ProtocolRejoinableConsumer",
+                await self._rebuild_consumer_for_rejoin(topic, group_id),
+            )
+
+        supervisor = ConsumerRejoinSupervisor(
+            topic=topic,
+            group_id=group_id,
+            policy=ModelConsumerRejoinPolicy(
+                stall_seconds=self._config.consumer_stall_seconds,
+                required_consecutive_stalls=(
+                    self._config.consumer_stall_required_confirmations
+                ),
+                rejoin_cooldown_seconds=self._config.consumer_rejoin_cooldown_seconds,
+                sync_unready_seconds=self._config.consumer_sync_unready_seconds,
+            ),
+            poll_timeout_ms=self._config.consumer_poll_timeout_ms,
+            recreate_consumer=_recreate,
+            emit_event=self._record_consumer_rejoin_event,
+        )
+        self._rejoin_supervisors[key] = supervisor
+        return supervisor
+
+    async def _rebuild_consumer_for_rejoin(
+        self, topic: str, group_id: str
+    ) -> AIOKafkaConsumer:
+        """Build and start a replacement consumer for a wedged group.
+
+        The replacement carries the same group id, the same static membership
+        id and the same offset-reset policy as the original, so it rejoins the
+        SAME group and resumes from the SAME committed offsets. Nothing is
+        replayed from the beginning and nothing is skipped; the only thing that
+        changes is that the client, its connections and its coordinator state
+        are new -- which is precisely what recreating the container did by hand
+        on both recorded outages.
+
+        Args:
+            topic: Topic the wedged consumer was subscribed to.
+            group_id: The SUBSCRIPTION group id -- the key ``_group_consumers``
+                is indexed by, not the effective group id sent to Kafka. The
+                two differ: the effective id carries the per-topic ``.__t.``
+                suffix and the instance discriminator. Resolving it here rather
+                than accepting it is what keeps the replacement in the same
+                Kafka group as the consumer it replaces; joining a different
+                group would resume from a different committed offset and
+                silently replay or skip.
+
+        Returns:
+            A started replacement consumer, already published into
+            ``_group_consumers`` so shutdown addresses the live handle.
+
+        Raises:
+            Exception: Propagated to the supervisor, which records a failed
+                rejoin and retries after the cooldown.
+        """
+        effective_group_id = self._resolve_effective_group_id(
+            group_id, topic, uuid4(), (topic, group_id)
+        )
+        resolved_group_instance_id = self._resolve_group_instance_id(effective_group_id)
+        consumer = self._build_consumer(
+            topic,
+            effective_group_id,
+            resolved_group_instance_id,
+            self._config.auto_offset_reset,
+            group_id=group_id,
+        )
+        await asyncio.wait_for(consumer.start(), timeout=self._timeout_seconds)
+        self._group_consumers[(topic, group_id)] = consumer
+        logger.warning(
+            "consumer_group_rejoined topic=%s group=%s -- replacement consumer "
+            "started and rejoined from committed offsets (OMN-18640)",
+            topic,
+            effective_group_id,
+            extra={"topic": topic, "group_id": effective_group_id},
+        )
+        return consumer
+
+    async def _record_consumer_rejoin_event(
+        self, event: ModelConsumerGroupRejoinEvent
+    ) -> None:
+        """Record a rejoin on the bus, and mirror it onto the health topic.
+
+        The bus-level record is the load-bearing surface: in-process, typed
+        and ungated, so a readiness dimension can read it whatever the health
+        pipeline's feature flag says. The emission below is the fleet-visible
+        mirror and is best-effort, because that pipeline is flagged off by
+        default and a recovery record that only exists when an optional flag
+        is on is the failure this ticket is about, one layer up.
+        """
+        self._consumer_rejoin_events.append(event)
+        if len(self._consumer_rejoin_events) > CONSUMER_REJOIN_HISTORY_CAPACITY:
+            del self._consumer_rejoin_events[
+                0 : len(self._consumer_rejoin_events) - CONSUMER_REJOIN_HISTORY_CAPACITY
+            ]
+
+        if self._health_emitter is None:
+            return
+        await self._health_emitter.emit_event(
+            consumer_identity=f"eventbus.{event.topic}",
+            consumer_group=event.consumer_group,
+            topic=event.topic,
+            event_type=(
+                EnumConsumerHealthEventType.CONSUMER_GROUP_REJOINED
+                if event.rejoin_succeeded
+                else EnumConsumerHealthEventType.CONSUMER_GROUP_STALLED
+            ),
+            severity=EnumConsumerHealthSeverity.CRITICAL,
+            correlation_id=event.event_id,
+            error_message=(
+                f"reason={event.reason.value} "
+                f"stalled_seconds={event.stalled_seconds:.0f} "
+                f"backlog={event.backlog_records} "
+                f"{event.failure_detail}"
+            ).strip()[:500],
+            error_type=event.reason.value,
+            hostname=os.environ.get("HOSTNAME", ""),  # ONEX_EXCLUDE: env
+            service_label="EventBusKafka",
+        )
+
+    async def _process_consumed_record(
+        self,
+        msg: object,
+        topic: str,
+        group_id: str,
+        correlation_id: UUID,
+        consumer: AIOKafkaConsumer,
+        *,
+        rewind_sink: dict[int, int] | None = None,
+        on_slow_dispatch: Callable[[], None] | None = None,
+    ) -> bool:
+        """Dispatch one fetched record to its subscribers.
+
+        Extracted verbatim from the body of ``_consume_loop`` by OMN-18640 so
+        the loop above it can poll with a deadline instead of iterating the
+        consumer forever. The dispatch, DLQ and offset-withhold behaviour is
+        unchanged.
+
+        Args:
+            msg: The raw fetched record.
+            topic: Topic being consumed.
+            group_id: Subscription group id.
+            correlation_id: Correlation id for this consumer task.
+            consumer: Consumer handle, used to seek on the serial path.
+            rewind_sink: OMN-18852. ``None`` on the serial path, which is
+                every subscription that did not declare ``consume_concurrency``
+                -- the rewind then seeks inline, exactly as before. When the
+                concurrent driver supplies a sink, this record RECORDS its
+                rewind request there instead of seeking: with siblings running,
+                a seek from inside a task races the other tasks and is undone
+                by whichever of them finishes next. The driver drains and then
+                seeks once, to the lowest offset in the sink.
+            on_slow_dispatch: OMN-19355. Serial path only: called once if a
+                dispatch of this record outlives the withhold threshold, so the
+                loop can pin the fetch position before auto-commit passes it.
+
+        Returns:
+            True when this record's partition must not advance -- because the
+            fetch position was rewound (serial) or a rewind was requested
+            (concurrent). The serial caller MUST then discard the rest of that
+            partition's batch: those records sit past the rewind point and
+            Kafka will redeliver them.
+        """
+        # Get subscribers snapshot early - needed for consumer group in DLQ
+        async with self._lock:
+            subscribers = [
+                subscriber
+                for subscriber in self._subscribers.get(topic, [])
+                if subscriber[0] == group_id
+            ]
+
+        effective_consumer_group = group_id if subscribers else "unknown"
+
+        # Warn when a message arrives but no subscribers are registered.
+        # The message will be silently dropped (no DLQ entry) since there
+        # is no handler to fail. This typically indicates a race between
+        # unsubscribe and the consumer loop, or a misconfigured topic.
+        if not subscribers:
+            event_type = self._extract_event_type_from_msg(msg)
+            logger.warning(
+                "Message received on topic '%s' with event_type='%s' "
+                "for consumer_group='%s' but no subscribers are registered; "
+                "message will be dropped",
+                topic,
+                event_type,
+                group_id,
+                extra={
+                    "topic": topic,
+                    "group_id": group_id,
+                    "event_type": event_type,
+                    "correlation_id": str(correlation_id),
+                },
+            )
+
+        # Convert Kafka message to ModelEventMessage - handle conversion errors
+        try:
+            event_message = self._kafka_msg_to_model(msg, topic)
+        except Exception as e:
+            logger.exception(
+                f"Failed to convert Kafka message to event model for topic {topic}",
+                extra={
+                    "topic": topic,
+                    "correlation_id": str(correlation_id),
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+            )
+            # Deserialization errors are permanent failures - route to DLQ
+            # Create minimal message from raw Kafka data for DLQ context
+            dlq_result = await self._publish_raw_to_dlq(
+                original_topic=topic,
+                raw_msg=msg,
+                error=e,
+                correlation_id=correlation_id,
+                failure_type="deserialization_error",
+                consumer_group=effective_consumer_group,
+            )
+            # OMN-15232: an undeserializable message that did NOT reach
+            # the DLQ exists nowhere durable. Skipping it here while the
+            # client auto-commits the position is a silent, committed,
+            # unrecoverable drop -- the OMN-14936 failure mode at a call
+            # site that fix did not cover. Rewind instead so Kafka
+            # redelivers and the DLQ write is retried. Only an explicit
+            # ``False`` counts as a confirmed non-persist (duck-typed
+            # hosts returning ``None`` keep prior behavior).
+            if dlq_result is False:
+                await self._rewind_after_unpersisted_dlq(
+                    consumer,
+                    msg,
+                    topic,
+                    group_id,
+                    correlation_id,
+                    "deserialization_error",
+                    rewind_sink=rewind_sink,
+                )
+                # OMN-18640: the fetch position was just moved back to this
+                # record. Every later record already buffered for this
+                # partition is now stale, so the caller must drop the rest
+                # of the batch rather than process past the rewind point.
+                return True
+            return False
+
+        # Dispatch to all subscribers
+        offset_may_advance = True
+        for _sub_group_id, subscription_id, callback in subscribers:
+            dispatch_offset_safe = await self._dispatch_to_subscriber(
+                callback,
+                subscription_id,
+                event_message,
+                topic,
+                group_id,
+                correlation_id,
+                record_coordinate=_record_coordinate(msg),
+                on_slow_dispatch=on_slow_dispatch,
+            )
+            # OMN-15232: same gate on the dispatch path. Every subscriber
+            # still gets the message (one failing subscriber must not
+            # starve the others), but if ANY of them exhausted retries
+            # without a confirmed DLQ record, the offset must not move.
+            # Redelivery may duplicate for the subscribers that
+            # succeeded -- at-least-once, which is the delivery contract
+            # here, and strictly preferable to losing the record.
+            if dispatch_offset_safe is False:
+                offset_may_advance = False
+
+        if not offset_may_advance:
+            await self._rewind_after_unpersisted_dlq(
+                consumer,
+                msg,
+                topic,
+                group_id,
+                correlation_id,
+                "handler_retries_exhausted",
+                rewind_sink=rewind_sink,
+            )
+            return True
+
+        return False
+
+    async def _consume_loop(
+        self,
+        topic: str,
+        group_id: str,
+        correlation_id: UUID,
+    ) -> None:
+        """Background loop to consume messages and dispatch to subscribers.
+
+        This method runs in a background task and continuously polls the Kafka consumer
+        for new messages. It handles graceful cancellation, dispatches messages to all
+        registered subscribers, and logs all errors without terminating the loop.
+
+        Args:
+            topic: Topic being consumed.
+            group_id: Consumer group ID for this loop.
+            correlation_id: Correlation ID for tracking this consumer task.
+        """
+        consumer = self._group_consumers.get((topic, group_id))
+        if consumer is None:
+            logger.warning(
+                f"Consumer not found for topic {topic} group {group_id} in consume loop",
+                extra={
+                    "topic": topic,
+                    "group_id": group_id,
+                    "correlation_id": str(correlation_id),
+                },
+            )
+            return
+
+        logger.debug(
+            f"Consumer loop started for topic {topic}",
+            extra={
+                "topic": topic,
+                "correlation_id": str(correlation_id),
+            },
+        )
+
+        supervisor = self._rejoin_supervisor_for(topic, group_id)
+
+        # OMN-18852: read the contract-declared in-flight bound ONCE, here.
+        # Absent or 1 means the inline serial path below, unchanged.
+        max_in_flight = self._consume_concurrency.get((topic, group_id), 1)
+
+        try:
+            if max_in_flight > 1:
+                await self._consume_loop_concurrent(
+                    topic=topic,
+                    group_id=group_id,
+                    correlation_id=correlation_id,
+                    consumer=consumer,
+                    supervisor=supervisor,
+                    max_in_flight=max_in_flight,
+                )
+                return
+
+            # OMN-18640: poll with a deadline rather than iterating the
+            # consumer. ``async for msg in consumer`` never returns and never
+            # raises while aiokafka retries a dead group coordinator in its own
+            # background task, so a client that lost its coordinator across a
+            # broker restart waited here indefinitely -- 30 minutes on
+            # 2026-09-17 and 97 on 2026-09-18, both cleared only by recreating
+            # the container. Every bounded poll that comes back empty is an
+            # opportunity for the supervisor to ask whether the silence is
+            # idleness or a wedge, and to rebuild the consumer if it is a wedge.
+            while not self._shutdown:
+                batch = await supervisor.next_batch(consumer)
+                consumer = cast("AIOKafkaConsumer", batch.consumer)
+                await self._process_serial_batch(
+                    batch.records,
+                    topic=topic,
+                    group_id=group_id,
+                    correlation_id=correlation_id,
+                    consumer=consumer,
+                )
+
+        except asyncio.CancelledError:
+            # Graceful cancellation - this is expected during shutdown
+            logger.info(
+                f"Consumer loop cancelled for topic {topic}",
+                extra={
+                    "topic": topic,
+                    "correlation_id": str(correlation_id),
+                },
+            )
+            raise  # Re-raise to properly handle task cancellation
+
+        except Exception as e:
+            logger.exception(
+                f"Consumer loop error for topic {topic}: {e}",
+                extra={
+                    "topic": topic,
+                    "correlation_id": str(correlation_id),
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+            )
+            await self._emit_consume_loop_error_health_event(
+                topic, group_id, correlation_id, e
+            )
+            # Don't raise - allow task to complete and cleanup to proceed
+
+        finally:
+            logger.info(
+                f"Consumer loop exiting for topic {topic}",
+                extra={
+                    "topic": topic,
+                    "correlation_id": str(correlation_id),
+                },
+            )
+
+    async def _process_serial_batch(
+        self,
+        records: Mapping[TopicPartition, Sequence[object]],
+        *,
+        topic: str,
+        group_id: str,
+        correlation_id: UUID,
+        consumer: AIOKafkaConsumer,
+    ) -> None:
+        """Dispatch one fetched batch inline, one record at a time.
+
+        OMN-19355 adds two exits to what was a plain nested loop, and both end
+        the batch early with every unfinished record's partition seeked back,
+        so the next poll refetches it and nothing is skipped:
+
+        * **A slow dispatch.** Once a dispatch outlives
+          ``consumer_dispatch_withhold_after_seconds`` the fetch positions are
+          pinned at the unfinished records (``SerialBatchWithhold``), so
+          auto-commit cannot commit past a record that may never finish. When
+          the dispatch settles -- returned, or abandoned at its deadline and
+          quarantined -- the position moves just past it and the loop polls
+          again.
+        * **The poll budget.** A record is not started unless its full
+          deadline still fits inside ``serial_batch_poll_budget_seconds`` of
+          this poll. Without it a batch could run fast records for most of the
+          poll interval and then give the last one a whole deadline, and the
+          member would be evicted anyway.
+
+        A fast batch meets neither and is processed exactly as before: no seek,
+        no refetch.
+        """
+        loop = asyncio.get_running_loop()
+        polled_at = loop.time()
+        deadline = self._config.effective_dispatch_deadline_seconds
+        budget = self._config.serial_batch_poll_budget_seconds
+        partitions = [
+            (partition, list(partition_records))
+            for partition, partition_records in records.items()
+            if partition_records
+        ]
+
+        for index, (partition, partition_records) in enumerate(partitions):
+            for position, msg in enumerate(partition_records):
+                coordinate = _record_coordinate(msg)
+                if self._shutdown:
+                    logger.debug(
+                        f"Consumer loop shutdown signal received for topic {topic}",
+                        extra={
+                            "topic": topic,
+                            "correlation_id": str(correlation_id),
+                        },
+                    )
+                    # OMN-20117: the rest of this batch was fetched but never
+                    # processed. Under auto-commit the fetch position is past
+                    # all of it, and the consumer commits that position when
+                    # it stops, so pin it at the first unprocessed record of
+                    # every partition left or the restart resumes past them.
+                    remaining = (
+                        [] if coordinate is None else [(partition, coordinate[1])]
+                    )
+                    for later_partition, later_records in partitions[index + 1 :]:
+                        later = _record_coordinate(later_records[0])
+                        if later is not None:
+                            remaining.append((later_partition, later[1]))
+                    if remaining:
+                        SerialBatchWithhold(consumer, remaining).engage()
+                    return
+
+                if coordinate is None:
+                    # No offset to pin or resume from: dispatched as before,
+                    # under the deadline alone.
+                    rewound = await self._process_consumed_record(
+                        msg, topic, group_id, correlation_id, consumer
+                    )
+                    if rewound:
+                        break
+                    continue
+
+                unfinished = [(partition, coordinate[1])]
+                for later_partition, later_records in partitions[index + 1 :]:
+                    later = _record_coordinate(later_records[0])
+                    if later is not None:
+                        unfinished.append((later_partition, later[1]))
+
+                started = index > 0 or position > 0
+                if started and loop.time() - polled_at + deadline > budget:
+                    SerialBatchWithhold(consumer, unfinished).engage()
+                    logger.info(
+                        "serial_batch_cut_at_poll_budget topic=%s partition=%s "
+                        "offset=%s elapsed=%.1fs deadline=%.1fs budget=%.1fs -- "
+                        "the next record's deadline no longer fits before the "
+                        "poll interval expires; the rest of the batch is "
+                        "refetched (OMN-19355)",
+                        topic,
+                        coordinate[0],
+                        coordinate[1],
+                        loop.time() - polled_at,
+                        deadline,
+                        budget,
+                    )
+                    return
+
+                withhold = SerialBatchWithhold(consumer, unfinished)
+                rewound = await self._process_consumed_record(
+                    msg,
+                    topic,
+                    group_id,
+                    correlation_id,
+                    consumer,
+                    on_slow_dispatch=withhold.engage,
+                )
+                if withhold.engaged:
+                    if not rewound:
+                        # Settled: returned, or quarantined with a confirmed
+                        # durable copy. Resume just past it.
+                        try:
+                            consumer.seek(partition, coordinate[1] + 1)
+                        except Exception:
+                            logger.exception(
+                                "slow_dispatch_resume_seek_failed topic=%s "
+                                "partition=%s offset=%s -- the record will be "
+                                "redelivered once (OMN-19355)",
+                                topic,
+                                coordinate[0],
+                                coordinate[1],
+                            )
+                    return
+                if rewound:
+                    # Fetch position moved back; the remainder of this
+                    # partition's batch is stale.
+                    break
+
+    async def _consume_loop_concurrent(
+        self,
+        *,
+        topic: str,
+        group_id: str,
+        correlation_id: UUID,
+        consumer: AIOKafkaConsumer,
+        supervisor: ConsumerRejoinSupervisor,
+        max_in_flight: int,
+    ) -> None:
+        """Poll driver for a subscription that declared ``max_in_flight > 1``.
+
+        Reached only from ``_consume_loop``, and only when the node's
+        ``contract.yaml`` declared ``consume_concurrency``. Every other
+        subscription takes the inline ``await`` above and never enters here.
+
+        **What this gives up, stated rather than implied.** Records on an
+        opted-in topic no longer complete in partition order: they are
+        dispatched in order and finish in whatever order their handlers do.
+        Delegations and inference intents are independent per correlation id,
+        so only per-key ordering is required and no key is split across
+        concurrent records -- but a consumer that needs global partition
+        ordering must NOT declare this key.
+
+        **Why concurrency is not scoped to one poll batch.** The topic this
+        was built for has one partition and records arrive one per fetch, so
+        a driver that parallelised only within a batch would measure green in
+        a test and change nothing on the lane. Tasks therefore stay in flight
+        across polls, bounded by the semaphore rather than by the batch.
+
+        **Rewind safety, which is the hard part and is fail-closed.** On the
+        serial path a rewind is safe by construction: exactly one record is in
+        flight, so ``consumer.seek`` can only race itself. Here it cannot be,
+        for two reasons -- two tasks seeking the same ``TopicPartition``
+        concurrently is a race whose loser silently wins, and a sibling that
+        finishes AFTER a seek drives the fetch position forward again past the
+        record the seek was protecting. So a task never seeks. It records its
+        offset in ``rewind_requests``; the driver then stops spawning, drains
+        every in-flight task, and seeks once per partition to the LOWEST
+        offset that asked. Nothing at or after the rewind point is skipped.
+
+        The cost is redelivery of up to ``max_in_flight - 1`` siblings that
+        already completed. That is at-least-once, which
+        ``_process_consumed_record`` already documents as this path's delivery
+        contract, and it is strictly preferable to losing a record.
+
+        Args:
+            topic: Topic being consumed.
+            group_id: Subscription group id (the ``_group_consumers`` key).
+            correlation_id: Correlation id for this consumer task.
+            consumer: The started consumer handle to poll.
+            supervisor: Rejoin supervisor for this ``(topic, group_id)``.
+            max_in_flight: Declared bound, guaranteed greater than 1.
+        """
+        semaphore = asyncio.Semaphore(max_in_flight)
+        in_flight: set[asyncio.Task[None]] = set()
+        # partition -> lowest offset that asked for a rewind. Written only
+        # from task bodies, and only between awaits, so the read-compare-write
+        # there is atomic on the single-threaded event loop.
+        rewind_requests: dict[int, int] = {}
+        # Set by a task the instant it records a request. The driver races
+        # this against the poll so a rewind settles as soon as the requesting
+        # handler returns, rather than waiting out the poll deadline -- that
+        # window is time in which the auto-committer can commit past a record
+        # that exists nowhere durable, which is the whole failure OMN-15232
+        # closed on the serial path.
+        rewind_pending = asyncio.Event()
+        task_errors: list[BaseException] = []
+        poll_task: asyncio.Task[ModelConsumerPollBatch] | None = None
+        # OMN-20117: this subscription's consumer is built without auto-commit
+        # (``_build_consumer``); the ledger is the position it commits
+        # instead, and it is never past a record that has not finished.
+        ledger = ConcurrentCommitLedger()
+        commit_lock = asyncio.Lock()
+
+        async def _drain() -> None:
+            """Wait for every dispatched record to finish."""
+            while in_flight:
+                await asyncio.gather(*list(in_flight), return_exceptions=True)
+
+        async def _commit_low_watermark(physical_topic: str) -> None:
+            """Commit every partition whose finished prefix moved (OMN-20117).
+
+            A refused commit (a rebalance revoked the partition, the group is
+            rejoining) is logged and left for the next finish to retry with a
+            position at least as high. Delivery stays at-least-once either
+            way: the worst case is a redelivery, never a skip.
+            """
+            async with commit_lock:
+                moved = ledger.advanced(rewind_floors=rewind_requests)
+                if not moved:
+                    return
+                offsets = {
+                    TopicPartition(physical_topic, partition): position
+                    for partition, position in moved.items()
+                }
+                try:
+                    await consumer.commit(offsets)
+                except Exception as commit_error:  # noqa: BLE001 — boundary: logs warning and degrades
+                    logger.warning(
+                        "concurrent_commit_refused topic=%s group=%s offsets=%s "
+                        "error=%s -- the position is retried on the next "
+                        "finished record; unfinished records stay uncommitted "
+                        "(OMN-20117)",
+                        topic,
+                        group_id,
+                        moved,
+                        commit_error,
+                    )
+                    return
+                for partition, position in moved.items():
+                    ledger.committed(partition, position)
+
+        async def _dispatch_one(msg: object) -> None:
+            coordinate = _record_coordinate(msg)
+            try:
+                await self._process_consumed_record(
+                    msg,
+                    topic,
+                    group_id,
+                    correlation_id,
+                    consumer,
+                    rewind_sink=rewind_requests,
+                )
+                if coordinate is not None:
+                    # Settled: returned, quarantined, or asked for a rewind
+                    # (the rewind floor caps the commit below it). Only now
+                    # may the position move past it.
+                    ledger.finished(*coordinate)
+                    await _commit_low_watermark(str(getattr(msg, "topic", topic)))
+            except asyncio.CancelledError:
+                # Not finished: the record keeps the position pinned at or
+                # below it, so the next consumer is handed it again.
+                raise
+            except BaseException as task_error:  # noqa: BLE001 - re-raised by the driver
+                # Mirror the serial path: an unexpected error reaches
+                # ``_consume_loop``'s handler, which logs it and emits the
+                # health event. Swallowing it here would turn a dead consumer
+                # into a silent one.
+                task_errors.append(task_error)
+            finally:
+                if rewind_requests:
+                    rewind_pending.set()
+                semaphore.release()
+
+        async def _settle_rewinds() -> None:
+            """Drain, then move the fetch position back. Nothing may be running."""
+            await _drain()
+            await self._apply_deferred_rewinds(
+                consumer=consumer,
+                topic=topic,
+                group_id=group_id,
+                correlation_id=correlation_id,
+                rewind_requests=rewind_requests,
+            )
+            for partition, offset in rewind_requests.items():
+                ledger.rebase(partition, offset)
+            rewind_requests.clear()
+            rewind_pending.clear()
+
+        try:
+            while not self._shutdown:
+                if poll_task is None:
+                    poll_task = asyncio.create_task(supervisor.next_batch(consumer))
+                rewind_waiter = asyncio.create_task(rewind_pending.wait())
+                try:
+                    await asyncio.wait(
+                        {poll_task, rewind_waiter},
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
+                finally:
+                    rewind_waiter.cancel()
+
+                if rewind_requests:
+                    # A handler asked for a rewind. Discard the outstanding
+                    # fetch rather than applying records the seek is about to
+                    # invalidate, settle, and poll again from the new
+                    # position.
+                    poll_task.cancel()
+                    poll_task = None
+                    await _settle_rewinds()
+                    continue
+
+                if not poll_task.done():
+                    continue
+
+                batch = poll_task.result()
+                poll_task = None
+                consumer = cast("AIOKafkaConsumer", batch.consumer)
+
+                for records in batch.records.values():
+                    if self._shutdown or rewind_requests or task_errors:
+                        break
+                    for msg in records:
+                        if self._shutdown:
+                            logger.debug(
+                                f"Consumer loop shutdown signal received for topic {topic}",
+                                extra={
+                                    "topic": topic,
+                                    "correlation_id": str(correlation_id),
+                                },
+                            )
+                            break
+                        if rewind_requests or task_errors:
+                            # A rewind is pending: every later record in this
+                            # batch sits past the rewind point and is stale.
+                            break
+                        # Backpressure. Acquiring yields to the running
+                        # handlers, so the bound is an upper bound on
+                        # concurrency rather than a target.
+                        await semaphore.acquire()
+                        coordinate = _record_coordinate(msg)
+                        if coordinate is not None:
+                            ledger.dispatched(*coordinate)
+                        task = asyncio.create_task(_dispatch_one(msg))
+                        in_flight.add(task)
+                        task.add_done_callback(in_flight.discard)
+                        self._record_tasks.add(task)
+                        task.add_done_callback(self._record_tasks.discard)
+
+                if task_errors:
+                    break
+        finally:
+            if poll_task is not None:
+                poll_task.cancel()
+            # Shutdown, a rejoin failure or an unexpected error must not leave
+            # a dispatched record running against a bus that is closing: under
+            # auto-commit the position can advance past work that never
+            # finished, which is the drop this whole mechanism exists to stop.
+            await _drain()
+            if rewind_requests:
+                # A request recorded on the way out is still a record that
+                # exists nowhere durable. Settle it before the loop exits.
+                await self._apply_deferred_rewinds(
+                    consumer=consumer,
+                    topic=topic,
+                    group_id=group_id,
+                    correlation_id=correlation_id,
+                    rewind_requests=rewind_requests,
+                )
+                for partition, offset in rewind_requests.items():
+                    ledger.rebase(partition, offset)
+                rewind_requests.clear()
+
+        if task_errors:
+            raise task_errors[0]
+
+    async def _apply_deferred_rewinds(
+        self,
+        *,
+        consumer: AIOKafkaConsumer,
+        topic: str,
+        group_id: str,
+        correlation_id: UUID,
+        rewind_requests: dict[int, int],
+    ) -> None:
+        """Seek each partition back to the lowest offset that asked (OMN-18852).
+
+        Called by the concurrent driver only, with nothing in flight. The
+        seek is applied to the CURRENT consumer handle, which may be a
+        replacement the supervisor rejoined while records were running -- a
+        replacement resumes from the same committed offsets, so the rewind
+        means the same thing on it.
+        """
+        for partition, offset in sorted(rewind_requests.items()):
+            try:
+                consumer.seek(TopicPartition(topic, partition), offset)
+            except Exception as seek_error:
+                logger.exception(
+                    "dlq_unpersisted_rewind_failed topic=%s partition=%s "
+                    "offset=%s stage=deferred_concurrent correlation_id=%s "
+                    "error=%s -- could NOT withhold offset advancement after "
+                    "an unconfirmed DLQ write; this record may be lost "
+                    "(OMN-15232/OMN-18852)",
+                    topic,
+                    partition,
+                    offset,
+                    str(correlation_id),
+                    str(seek_error),
+                    extra={
+                        "topic": topic,
+                        "group_id": group_id,
+                        "partition": partition,
+                        "offset": offset,
+                        "correlation_id": str(correlation_id),
+                    },
+                )
+                continue
+
+            logger.error(
+                "dlq_unpersisted_offset_rewound topic=%s partition=%s "
+                "offset=%s stage=deferred_concurrent correlation_id=%s -- DLQ "
+                "persistence was NOT confirmed for at least one concurrently "
+                "dispatched record; fetch position rewound to the LOWEST such "
+                "offset, so siblings after it are redelivered rather than the "
+                "record being lost (OMN-15232/OMN-18852)",
+                topic,
+                partition,
+                offset,
+                str(correlation_id),
+                extra={
+                    "topic": topic,
+                    "group_id": group_id,
+                    "partition": partition,
+                    "offset": offset,
+                    "correlation_id": str(correlation_id),
+                },
+            )
+
+        if DLQ_UNPERSISTED_REWIND_BACKOFF_SECONDS > 0:
+            await asyncio.sleep(DLQ_UNPERSISTED_REWIND_BACKOFF_SECONDS)
+
+    async def start_consuming(self) -> None:
+        """Start the consumer loop.
+
+        Protocol method for ProtocolEventBus compatibility.
+        Blocks until shutdown() is called.
+        """
+        if not self._started:
+            await self.start()
+
+        # Collect topics that need consumers while holding lock briefly.
+        # Pre-populate _pending_consumer_keys inside the lock so concurrent
+        # _start_consumer_for_topic_unlocked calls (via asyncio.gather below)
+        # cannot race and create duplicate consumers — the same reservation
+        # pattern used by subscribe().
+        topics_to_start: list[tuple[str, str]] = []
+        async with self._lock:
+            for topic in self._subscribers:
+                seen_group_ids: set[str] = set()
+                for group_id, _, _ in self._subscribers[topic]:
+                    if group_id in seen_group_ids:
+                        continue
+                    seen_group_ids.add(group_id)
+                    consumer_key = (topic, group_id)
+                    if (
+                        consumer_key not in self._group_consumers
+                        and consumer_key not in self._pending_consumer_keys
+                    ):
+                        self._pending_consumer_keys.add(consumer_key)
+                        topics_to_start.append((topic, group_id))
+
+        # Start consumers concurrently but bounded (OMN-12448). An unbounded
+        # gather over hundreds of group-joins stampedes the broker group
+        # coordinator on cold start; tail latency then blows the per-consumer
+        # start timeout. A single failure aborting the whole boot crash-loops
+        # the runtime — and each failed boot leaves half-formed groups that make
+        # the next boot slower. So: cap in-flight starts at
+        # consumer_start_concurrency and retry a transiently-failing start up to
+        # consumer_start_max_retries times before letting it fail the boot.
+        if topics_to_start:
+            semaphore = asyncio.Semaphore(self._config.consumer_start_concurrency)
+            max_retries = self._config.consumer_start_max_retries
+
+            async def _start_bounded(topic: str, group_id: str) -> Exception | None:
+                async with semaphore:
+                    last_error: Exception | None = None
+                    for attempt in range(max_retries + 1):
+                        try:
+                            await self._start_consumer_for_topic_unlocked(
+                                topic, group_id
+                            )
+                            return None
+                        except (
+                            InfraConnectionError,
+                            InfraTimeoutError,
+                            InfraUnavailableError,
+                        ) as exc:
+                            last_error = exc
+                            if attempt >= max_retries:
+                                break
+                            # Every failure path discards the pending-key
+                            # reservation; re-reserve it before retrying so the
+                            # next attempt is not treated as a duplicate.
+                            self._pending_consumer_keys.add((topic, group_id))
+                            # Yield so other in-flight starts make progress and
+                            # the coordinator settles before we retry.
+                            await asyncio.sleep(0)
+                    return last_error
+
+            results = await asyncio.gather(
+                *[
+                    _start_bounded(topic, group_id)
+                    for topic, group_id in topics_to_start
+                ]
+            )
+            errors = [r for r in results if isinstance(r, Exception)]
+            if errors:
+                raise errors[0]
+
+        # Block until shutdown
+        while not self._shutdown:
+            await asyncio.sleep(self._config.consumer_sleep_interval)
+
+    async def health_check(self) -> dict[str, object]:
+        """Check event bus health.
+
+        Protocol method for ProtocolEventBus compatibility.
+
+        Returns:
+            Dictionary with health status information:
+                - healthy: Whether the bus is operational
+                - started: Whether start() has been called
+                - environment: Current environment
+                - bootstrap_servers: Kafka bootstrap servers
+                - circuit_state: Current circuit breaker state
+                - subscriber_count: Total number of active subscriptions
+                - topic_count: Number of topics with subscribers
+                - consumer_count: Number of active consumers
+                - degraded: OMN-19355, True while any abandoned dispatch is
+                  still running and the orphan limit is not reached
+                - dispatch_deadline: OMN-19355 ``ModelDispatchDeadlineStatus``
+                  dump; at the orphan limit ``healthy`` is False
+        """
+        async with self._lock:
+            subscriber_count = sum(len(subs) for subs in self._subscribers.values())
+            topic_count = len(self._subscribers)
+            consumer_count = max(len(self._consumers), len(self._group_consumers))
+            started = self._started
+
+        # Get circuit breaker state (thread-safe access)
+        async with self._circuit_breaker_lock:
+            circuit_state = "open" if self._circuit_breaker_open else "closed"
+
+        # Check if producer is healthy (thread-safe access)
+        producer_healthy = False
+        async with self._producer_lock:
+            if self._producer is not None:
+                try:
+                    # Check if producer client is not closed
+                    producer_healthy = not getattr(self._producer, "_closed", True)
+                except Exception:  # noqa: BLE001 — boundary: returns degraded response
+                    producer_healthy = False
+
+        dispatch_deadline = self.dispatch_deadline_status()
+        return {
+            "healthy": started
+            and producer_healthy
+            and dispatch_deadline.status != "unhealthy",
+            "degraded": dispatch_deadline.status == "degraded",
+            "started": started,
+            "environment": self._environment,
+            "bootstrap_servers": self._sanitize_bootstrap_servers(
+                self._bootstrap_servers
+            ),
+            "circuit_state": circuit_state,
+            "subscriber_count": subscriber_count,
+            "topic_count": topic_count,
+            "consumer_count": consumer_count,
+            "dispatch_deadline": dispatch_deadline.model_dump(mode="json"),
+        }
+
+    def get_consumer_groups(self) -> dict[tuple[str, str], str]:
+        """Return active topic/group keys mapped to effective Kafka group IDs."""
+        consumer_groups: dict[tuple[str, str], str] = {}
+        for key, consumer in self._group_consumers.items():
+            _topic, group_id = key
+            consumer_groups[key] = str(getattr(consumer, "_group_id", group_id))
+        return consumer_groups
+
+    async def get_readiness_status(self) -> ModelEventBusReadiness:
+        """Check event bus readiness for serving traffic.
+
+        Readiness is separate from liveness (health_check). A bus is ready when
+        all topics marked ``required_for_readiness=True`` at subscribe time have:
+        - An active consumer with partition assignments
+        - A running consume loop task
+
+        Readiness is continuously evaluated: loss of partition assignments
+        flips readiness to False.
+
+        Returns:
+            Structured readiness status with per-topic partition assignments,
+            task liveness, and overall readiness determination.
+        """
+        last_error = ""
+
+        try:
+            async with self._lock:
+                consumers_started = self._started
+                required_topics = tuple(sorted(self._required_topics))
+
+                # Collect partition assignments and task liveness per topic
+                assignments: dict[str, list[int]] = {}
+                consume_tasks_alive: dict[str, bool] = {}
+
+                consumer_views: list[tuple[tuple[str, str], AIOKafkaConsumer]] = list(
+                    self._group_consumers.items()
+                )
+                if not consumer_views:
+                    consumer_views = [
+                        ((topic, "compat"), consumer)
+                        for topic, consumer in self._consumers.items()
+                    ]
+
+                for (topic, _group_id), consumer in consumer_views:
+                    try:
+                        topic_partitions = consumer.assignment()
+                        topic_assignment = sorted(
+                            tp.partition for tp in topic_partitions
+                        )
+                    except Exception:  # noqa: BLE001 — boundary: catch-all for resilience
+                        topic_assignment = []
+                    prior_assignment = assignments.get(topic, [])
+                    assignments[topic] = sorted(
+                        set(prior_assignment) | set(topic_assignment)
+                    )
+
+                task_views: list[tuple[tuple[str, str], asyncio.Task[None]]] = list(
+                    self._group_consumer_tasks.items()
+                )
+                if not task_views:
+                    task_views = [
+                        ((topic, "compat"), task)
+                        for topic, task in self._consumer_tasks.items()
+                    ]
+
+                for (topic, _group_id), task in task_views:
+                    consume_tasks_alive[topic] = consume_tasks_alive.get(
+                        topic, False
+                    ) or (not task.done())
+
+            # Determine required topics readiness
+            required_topics_ready = consumers_started and all(
+                topic in assignments
+                and len(assignments[topic]) > 0
+                and consume_tasks_alive.get(topic, False)
+                for topic in required_topics
+            )
+
+            # Overall readiness: started AND all required topics ready
+            # If no required topics, readiness is True when started
+            is_ready = consumers_started and required_topics_ready
+
+        except Exception as e:  # noqa: BLE001 — boundary: catch-all for resilience
+            last_error = str(e)
+            is_ready = False
+            consumers_started = False
+            assignments = {}
+            consume_tasks_alive = {}
+            required_topics = ()
+            required_topics_ready = False
+
+        return ModelEventBusReadiness(
+            is_ready=is_ready,
+            consumers_started=consumers_started,
+            assignments=assignments,
+            consume_tasks_alive=consume_tasks_alive,
+            required_topics=required_topics,
+            required_topics_ready=required_topics_ready,
+            last_error=last_error,
+        )
+
+    # =========================================================================
+    # Helper Methods
+    # =========================================================================
+
+    def _sanitize_bootstrap_servers(self, servers: str) -> str:
+        """Sanitize bootstrap servers string to remove potential credentials.
+
+        Removes any authentication tokens, passwords, or sensitive data from
+        the bootstrap servers string before logging or including in errors.
+
+        Args:
+            servers: Raw bootstrap servers string (may contain credentials)
+
+        Returns:
+            Sanitized servers string safe for logging and error messages
+
+        Example:
+            "user:pass@kafka:9092" -> "kafka:9092"
+            "kafka:9092,kafka2:9092" -> "kafka:9092,kafka2:9092"
+        """
+        if not servers:
+            return "unknown"
+
+        # Split by comma for multiple servers
+        server_list = [s.strip() for s in servers.split(",")]
+        sanitized = []
+
+        for server in server_list:
+            # Remove any user:pass@ prefix (credentials)
+            if "@" in server:
+                # Keep only the part after @
+                server = server.split("@", 1)[1]
+            sanitized.append(server)
+
+        return ",".join(sanitized)
+
+    def _validate_topic_name(self, topic: str, correlation_id: UUID) -> None:
+        """Validate Kafka topic name according to Kafka naming rules.
+
+        Delegates to ``validate_topic_name()`` in
+        ``omnibase_infra.utils.util_topic_validation``. Kept as a private
+        method on ``KafkaEventBus`` for backward compatibility with existing
+        call sites inside this class.
+
+        Args:
+            topic: Topic name to validate.
+            correlation_id: Correlation ID for error context.
+
+        Raises:
+            ProtocolConfigurationError: If topic name is invalid.
+
+        See Also:
+            omnibase_infra.utils.util_topic_validation.validate_topic_name:
+                The standalone utility usable outside ``KafkaEventBus``.
+        """
+        validate_topic_name(topic, correlation_id=correlation_id)
+
+    async def _enforce_onex_topic_format(
+        self, topic: str, correlation_id: UUID
+    ) -> None:
+        """Enforce ONEX canonical topic format on outbound publishes (OMN-5209).
+
+        Validates the topic against the 5-segment ONEX format. In ``warn`` mode,
+        logs a warning and triggers a debounced Slack alert. In ``reject`` mode,
+        raises ``ProtocolConfigurationError`` to block the publish.
+
+        Args:
+            topic: Topic name to validate.
+            correlation_id: Correlation ID for error context.
+
+        Raises:
+            ProtocolConfigurationError: If mode is ``reject`` and topic is invalid.
+        """
+        if self._topic_enforcement_mode == "off":
+            return
+
+        result, reason = validate_onex_topic_format(topic)
+        if result in (
+            TopicValidationResult.VALID,
+            TopicValidationResult.VALID_TENANT_WIRE,
+            TopicValidationResult.VALID_LEGACY_DLQ,
+            TopicValidationResult.SKIPPED_INTERNAL,
+        ):
+            return
+
+        # Topic is invalid
+        if self._topic_enforcement_mode == "reject":
+            context = ModelInfraErrorContext.with_correlation(
+                correlation_id=correlation_id,
+                transport_type=EnumInfraTransportType.KAFKA,
+                operation="publish",
+                target_name=topic,
+            )
+            raise ProtocolConfigurationError(
+                reason,
+                context=context,
+                parameter="topic",
+                value=topic,
+            )
+
+        # mode == "warn"
+        logger.warning(
+            "ONEX topic format violation (warn mode): %s",
+            reason,
+            extra={"topic": topic, "correlation_id": str(correlation_id)},
+        )
+        if self._topic_violation_alerter is not None:
+            await self._topic_violation_alerter.maybe_alert(topic, reason)
+
+    @staticmethod
+    def _uuid_or_none(value: object) -> UUID | None:
+        """Return ``value`` as a UUID, or None if it is not one.
+
+        A body is untrusted input. A field that is present but malformed must
+        neither reach a UUID column nor fail a publish that would otherwise
+        have succeeded, so this narrows rather than raises (OMN-18914 AC3).
+        """
+        if not isinstance(value, str):
+            return None
+        try:
+            return UUID(value)
+        except ValueError:
+            return None
+
+    def _headers_for_unheadered_publish(
+        self, topic: str, value: bytes
+    ) -> ModelEventHeaders:
+        """Build wire headers for a caller that supplied none (OMN-18914).
+
+        The identity on the wire is the identity in the BODY wherever the body
+        states one. This is not a convenience: ``handler_ledger_projection``
+        fills ``public.event_ledger``'s ``correlation_id`` and ``envelope_id``
+        columns from these headers and never from the body, so a minted header
+        files the record under a correlation no other hop shares. That is what
+        left the delegation chain's head hop unjoinable and the chain canary
+        reporting ``ledger_chain_incomplete`` -- measured on the .201 dev lane,
+        a delegation whose body said ``da706588-…`` reached the wire as
+        ``3564c149-…``.
+
+        Only IDENTITY is derived. ``event_type`` stays the topic and ``source``
+        stays this bus's environment, deliberately: both already match every
+        correctly-headered row in ``event_ledger``, no defect argues against
+        them, and a body's own ``event_type`` is a different vocabulary (the
+        gateway writes ``omnimarket.delegate-skill`` where the wire says
+        ``onex.cmd.omnimarket.delegate-skill.v1``). Changing established
+        columns with no defect behind the change is how a fix acquires a
+        blast radius it was never measured for. ``ModelEventHeaders`` has no
+        ``tenant_id`` field at all, so no tenant can be carried here; that half
+        belongs to the gateway publisher (OMN-18915).
+
+        Minting survives where there is nothing to derive, and says so once per
+        topic -- a producer publishing without identity is a standing finding
+        worth a line, and worth exactly one.
+        """
+        body: object = None
+        try:
+            body = json.loads(value)
+        except (UnicodeDecodeError, ValueError):
+            body = None
+
+        correlation_id: UUID | None = None
+        message_id: UUID | None = None
+        if isinstance(body, dict):
+            correlation_id = self._uuid_or_none(body.get("correlation_id"))
+            message_id = self._uuid_or_none(body.get("envelope_id"))
+
+        if correlation_id is None and topic not in self._minted_identity_topics:
+            self._minted_identity_topics.add(topic)
+            logger.warning(
+                "Publishing to '%s' with no caller headers and no derivable "
+                "identity in the body; minting a correlation id. Records from "
+                "this producer cannot be joined to a delegation chain "
+                "(OMN-18914).",
+                topic,
+                extra={"topic": topic, "environment": self._environment},
+            )
+
+        identity: dict[str, UUID] = {}
+        if correlation_id is not None:
+            identity["correlation_id"] = correlation_id
+        if message_id is not None:
+            identity["message_id"] = message_id
+
+        return ModelEventHeaders(
+            source=self._environment,
+            event_type=topic,
+            timestamp=datetime.now(UTC),
+            **identity,
+        )
+
+    def _model_headers_to_kafka(
+        self, headers: ModelEventHeaders
+    ) -> list[tuple[str, bytes]]:
+        """Convert ModelEventHeaders to Kafka header format.
+
+        Args:
+            headers: Model headers
+
+        Returns:
+            List of (key, value) tuples with bytes values
+        """
+        kafka_headers: list[tuple[str, bytes]] = [
+            ("content_type", headers.content_type.encode("utf-8")),
+            ("correlation_id", str(headers.correlation_id).encode("utf-8")),
+            ("message_id", str(headers.message_id).encode("utf-8")),
+            ("timestamp", headers.timestamp.isoformat().encode("utf-8")),
+            ("source", headers.source.encode("utf-8")),
+            ("event_type", headers.event_type.encode("utf-8")),
+            ("schema_version", headers.schema_version.encode("utf-8")),
+            ("priority", headers.priority.encode("utf-8")),
+            ("retry_count", str(headers.retry_count).encode("utf-8")),
+            ("max_retries", str(headers.max_retries).encode("utf-8")),
+        ]
+
+        # Add optional headers if present
+        if headers.destination:
+            kafka_headers.append(("destination", headers.destination.encode("utf-8")))
+        if headers.trace_id:
+            kafka_headers.append(("trace_id", headers.trace_id.encode("utf-8")))
+        if headers.span_id:
+            kafka_headers.append(("span_id", headers.span_id.encode("utf-8")))
+        if headers.parent_span_id:
+            kafka_headers.append(
+                ("parent_span_id", headers.parent_span_id.encode("utf-8"))
+            )
+        # OMN-18116: the causal edge. Conditional like every other optional
+        # header, so a chain HEAD emits no key at all rather than an empty
+        # string -- an absent edge and a blank one must not read alike.
+        if headers.parent_message_id is not None:
+            kafka_headers.append(
+                ("parent_message_id", str(headers.parent_message_id).encode("utf-8"))
+            )
+        if headers.operation_name:
+            kafka_headers.append(
+                ("operation_name", headers.operation_name.encode("utf-8"))
+            )
+        if headers.routing_key:
+            kafka_headers.append(("routing_key", headers.routing_key.encode("utf-8")))
+        if headers.partition_key:
+            kafka_headers.append(
+                ("partition_key", headers.partition_key.encode("utf-8"))
+            )
+        if headers.idempotency_key:
+            kafka_headers.append(
+                ("idempotency_key", headers.idempotency_key.encode("utf-8"))
+            )
+        if headers.ttl_seconds is not None:
+            kafka_headers.append(
+                ("ttl_seconds", str(headers.ttl_seconds).encode("utf-8"))
+            )
+
+        return kafka_headers
+
+    @staticmethod
+    def _parse_uuid_header(value: str | None) -> UUID:
+        """Parse a UUID header value, falling back to a new UUID on failure."""
+        if value:
+            try:
+                return UUID(value)
+            except (ValueError, AttributeError):
+                pass
+        return uuid4()
+
+    @staticmethod
+    def _parse_optional_uuid_header(value: str | None) -> UUID | None:
+        """Parse an optional UUID header, returning None rather than minting one.
+
+        OMN-18116: this is the causal-edge counterpart to
+        ``_parse_uuid_header``. That method mints a fresh UUID when the header
+        is absent or malformed, which is correct for an identity every message
+        must have. For an EDGE it would be a fabrication: a chain head would
+        acquire an invented parent, and a verifier's re-derivation would then
+        be comparing against a number nothing produced. Absent means absent.
+        """
+        if not value:
+            return None
+        try:
+            return UUID(value)
+        except (ValueError, AttributeError):
+            logger.warning(
+                "Malformed parent_message_id header %r, recording no causal edge",
+                value,
+            )
+            return None
+
+    @staticmethod
+    def _parse_int_header(value: str | None, default: int, field_name: str) -> int:
+        """Parse an integer header value, logging a warning and returning default on failure."""
+        if value:
+            try:
+                return int(value)
+            except (ValueError, TypeError):
+                logger.warning(
+                    "Malformed %s header %r, defaulting to %d",
+                    field_name,
+                    value,
+                    default,
+                )
+        return default
+
+    def _kafka_headers_to_model(
+        self, kafka_headers: list[tuple[str, bytes | None]] | None
+    ) -> ModelEventHeaders:
+        """Convert Kafka headers to ModelEventHeaders.
+
+        Args:
+            kafka_headers: Kafka header list
+
+        Returns:
+            ModelEventHeaders instance
+        """
+        if not kafka_headers:
+            return ModelEventHeaders(
+                source="unknown",
+                event_type="unknown",
+                timestamp=datetime.now(UTC),
+            )
+
+        idempotency_values = [
+            value for key, value in kafka_headers if key == "idempotency_key"
+        ]
+        if len(idempotency_values) > 1:
+            raise ValueError("duplicate idempotency_key Kafka header")
+        if idempotency_values == [None]:
+            raise ValueError("nullable idempotency_key Kafka header")
+
+        headers_dict: dict[str, str] = {}
+        for key, value in kafka_headers:
+            if value is not None:
+                headers_dict[key] = value.decode("utf-8")
+
+        correlation_id = self._parse_uuid_header(headers_dict.get("correlation_id"))
+        message_id = self._parse_uuid_header(headers_dict.get("message_id"))
+        # OMN-18116: the causal edge, parsed WITHOUT the mint-on-absence
+        # fallback the two above use. `_parse_uuid_header` invents a UUID when
+        # a header is missing or malformed, which is right for an identity that
+        # must always exist and catastrophic for an edge: it would fabricate a
+        # parent for a chain head and turn a broken chain into a verifiable-
+        # looking one. Absent or unparseable means None, which is a chain head
+        # or a refusal, never an invention.
+        parent_message_id = self._parse_optional_uuid_header(
+            headers_dict.get("parent_message_id")
+        )
+
+        # Parse timestamp from ISO format string to datetime (with fallback to now)
+        timestamp_str = headers_dict.get("timestamp")
+        if timestamp_str:
+            timestamp = datetime.fromisoformat(timestamp_str)
+            # Assume UTC if the stored ISO string lacks timezone info, since the
+            # rest of the codebase (publish, DLQ, health) uses UTC-aware datetimes.
+            if timestamp.tzinfo is None:
+                timestamp = timestamp.replace(tzinfo=UTC)
+        else:
+            timestamp = datetime.now(UTC)
+
+        # Parse priority with validation (default to "normal" if invalid)
+        priority_str = headers_dict.get("priority", "normal")
+        valid_priorities = ("low", "normal", "high", "critical")
+        priority = priority_str if priority_str in valid_priorities else "normal"
+
+        # Parse integer fields with fallback defaults.
+        # Kafka headers are byte strings; malformed values (e.g. "abc", "1.5")
+        # must not crash the consume loop, so each int() call is guarded.
+        retry_count = self._parse_int_header(
+            headers_dict.get("retry_count"), 0, "retry_count"
+        )
+
+        # OMN-14551: a message republished by node_dlq_replay_effect carries
+        # x-replay-count instead of retry_count (see mixin_kafka_dlq.py's
+        # _REPLAY_COUNT_HEADER doc for the producer/reader contract). When
+        # present it is the authoritative replay lineage counter and wins
+        # over any stale "retry_count" header -- the replay engine never
+        # stamps "retry_count", so its presence here is unrelated/stale data.
+        # Every ModelEventMessage built from this method flows into
+        # _publish_raw_to_dlq (handler_exception / subcontract-wiring call
+        # sites) and _publish_to_dlq (typed path, reads
+        # failed_message.headers.retry_count directly) -- if this conversion
+        # drops the header, both paths reset replay lineage to 0 on every
+        # republish and should_replay's guard never trips (the 2026-08-05
+        # dev DLQ amplification incident).
+        replay_count_str = headers_dict.get(_REPLAY_COUNT_HEADER)
+        if replay_count_str is not None:
+            try:
+                parsed_replay_count = int(replay_count_str)
+            except (ValueError, TypeError):
+                logger.warning(
+                    "Malformed %s header %r, failing closed to stop replay",
+                    _REPLAY_COUNT_HEADER,
+                    replay_count_str,
+                )
+                retry_count = _REPLAY_COUNT_PARSE_FAILURE_SENTINEL
+            else:
+                if parsed_replay_count < 0:
+                    logger.warning(
+                        "Negative %s header value %d, failing closed to stop replay",
+                        _REPLAY_COUNT_HEADER,
+                        parsed_replay_count,
+                    )
+                    retry_count = _REPLAY_COUNT_PARSE_FAILURE_SENTINEL
+                else:
+                    retry_count = parsed_replay_count
+
+        max_retries = self._parse_int_header(
+            headers_dict.get("max_retries"), 3, "max_retries"
+        )
+        ttl_seconds_str = headers_dict.get("ttl_seconds")
+        ttl_seconds: int | None = None
+        if ttl_seconds_str:
+            try:
+                ttl_seconds = int(ttl_seconds_str)
+            except (ValueError, TypeError):
+                logger.warning(
+                    "Malformed ttl_seconds header %r, defaulting to None",
+                    ttl_seconds_str,
+                )
+
+        return ModelEventHeaders(
+            content_type=headers_dict.get("content_type", "application/json"),
+            correlation_id=correlation_id,
+            message_id=message_id,
+            timestamp=timestamp,
+            source=headers_dict.get("source", "unknown"),
+            event_type=headers_dict.get("event_type", "unknown"),
+            schema_version=headers_dict.get("schema_version", "1.0.0"),
+            destination=headers_dict.get("destination"),
+            trace_id=headers_dict.get("trace_id"),
+            span_id=headers_dict.get("span_id"),
+            parent_span_id=headers_dict.get("parent_span_id"),
+            parent_message_id=parent_message_id,
+            operation_name=headers_dict.get("operation_name"),
+            priority=priority,
+            routing_key=headers_dict.get("routing_key"),
+            partition_key=headers_dict.get("partition_key"),
+            retry_count=retry_count,
+            max_retries=max_retries,
+            ttl_seconds=ttl_seconds,
+            idempotency_key=headers_dict.get("idempotency_key"),
+        )
+
+    def _kafka_msg_to_model(self, msg: object, topic: str) -> ModelEventMessage:
+        """Convert Kafka ConsumerRecord to ModelEventMessage.
+
+        Args:
+            msg: Kafka ConsumerRecord
+            topic: Topic name
+
+        Returns:
+            ModelEventMessage instance
+        """
+        # Extract fields from Kafka message
+        key = getattr(msg, "key", None)
+        value = getattr(msg, "value", b"")
+        offset = getattr(msg, "offset", None)
+        partition = getattr(msg, "partition", None)
+        kafka_headers = getattr(msg, "headers", None)
+
+        # Convert key to bytes if it's a string
+        if isinstance(key, str):
+            key = key.encode("utf-8")
+
+        # Ensure value is bytes
+        if isinstance(value, str):
+            value = value.encode("utf-8")
+
+        headers = self._kafka_headers_to_model(kafka_headers)
+
+        return ModelEventMessage(
+            topic=topic,
+            key=key,
+            value=value,
+            headers=headers,
+            offset=str(offset) if offset is not None else None,
+            partition=partition,
+        )
+
+
+__all__: list[str] = ["EventBusKafka"]

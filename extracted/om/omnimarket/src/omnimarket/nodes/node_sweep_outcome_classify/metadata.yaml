@@ -1,0 +1,23 @@
+name: node_sweep_outcome_classify
+version: "1.0.0"
+description: "Classifies merge-sweep effect outcomes into terminal outcome buckets"
+omnibase_core_compat: ">=0.39.0,<1.0.0"
+entry_points:
+  onex.nodes:
+    node_sweep_outcome_classify: "omnimarket.nodes.node_sweep_outcome_classify"
+capabilities:
+  standalone: true
+  full_runtime: true
+  requires_network: false
+  requires_repo: false
+  requires_secrets: false
+  requires_docker: false
+  side_effect_class: read_only
+dependencies:
+  - "omnibase_core>=0.39.0"
+authors: ["OmniNode Platform Team"]
+license: "MIT"
+tags: ["merge-sweep", "outcome", "classify", "compute"]
+pack: "merge-sweep"
+display_name: "Sweep Outcome Classify"
+node_role: "compute"

@@ -12,14 +12,18 @@ on:
         required: false
 jobs:
   build:
+    name: Create release & publish to PyPI
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # MANDATORY for trusted publishing to PyPI
+      contents: write  # MANDATORY for the Github release action
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: 3.x
       - name: Install Dependencies
@@ -29,7 +33,7 @@ jobs:
           python -m build
           twine check --strict dist/*
       - name: Create Release Notes
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: >
@@ -39,6 +43,3 @@ jobs:
             });
       - name: Publish distribution 📦 to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          user: __token__
-          password: ${{ secrets.pypi_password }}

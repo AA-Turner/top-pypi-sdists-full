@@ -1,0 +1,590 @@
+"""Named-axis primitives and Excel operators for inverted-tree codegen."""
+
+from __future__ import annotations
+
+import math
+import types
+from collections.abc import Callable
+from typing import Any, Literal, cast
+
+import pytest
+
+from excel_grapher.exporter.inverted_tree.excel import (
+    XlError,
+    as_measure,
+    is_error,
+    xl_abs,
+    xl_add,
+    xl_and,
+    xl_at,
+    xl_average,
+    xl_bool,
+    xl_choose,
+    xl_div,
+    xl_eq,
+    xl_exp,
+    xl_ge,
+    xl_gt,
+    xl_if,
+    xl_index,
+    xl_isnumber,
+    xl_le,
+    xl_lt,
+    xl_match,
+    xl_max,
+    xl_mul,
+    xl_ne,
+    xl_normdist,
+    xl_not,
+    xl_or,
+    xl_pow,
+    xl_raise,
+    xl_sub,
+    xl_sum,
+    xl_sumproduct,
+    xl_value,
+    xl_vlookup,
+)
+from excel_grapher.exporter.inverted_tree.runtime import (
+    InstanceCycleError,
+    as_records,
+    eval_instance,
+    publish,
+    require_aligned,
+    take,
+)
+
+
+def test_coordinate_reader_memoizes_labels_and_detects_same_coordinate_cycles() -> None:
+    from excel_grapher.exporter.export_runtime.tensor import Axis, CoordinateError, Domain
+    from excel_grapher.exporter.inverted_tree.runtime import CoordinateReader
+
+    domain = Domain.product(Axis("year", (2025, 2027, 2028), int))
+    calls = []
+
+    def compute(year):
+        calls.append((year,))
+        if year == 2025:
+            return 10
+        if year == 2027:
+            return reader[2025] + 2
+        return reader[2028]
+
+    reader = CoordinateReader("debt", domain, compute)
+    assert reader[2027] == 12
+    assert reader[2027] == 12
+    assert calls == [(2027,), (2025,)]
+    with pytest.raises(CoordinateError, match="2026"):
+        reader[2026]
+    with pytest.raises(InstanceCycleError, match="debt.*2028"):
+        reader[2028]
+    assert reader[2025] == 10
+
+
+def test_coordinate_reader_blank_on_sparse_absence() -> None:
+    from excel_grapher.exporter.export_runtime.tensor import Axis, CoordinateError, Domain
+    from excel_grapher.exporter.inverted_tree.runtime import CoordinateReader
+
+    years = Axis("year", (2024, 2025, 2026), int)
+    domain = Domain.explicit(axes=(years,), coordinates=((2024,), (2026,)))
+    reader = CoordinateReader("stock", domain, lambda year: year)
+    assert reader[2024] == 2024
+    assert reader[2025] is None
+    assert reader[2026] == 2026
+    with pytest.raises(CoordinateError, match="2023"):
+        reader[2023]
+
+
+def test_require_aligned_returns_common_length() -> None:
+    assert require_aligned((1, 2, 3), ("a", "b", "c")) == 3
+
+
+def test_require_aligned_rejects_mismatched_lengths() -> None:
+    with pytest.raises(ValueError, match="misaligned"):
+        require_aligned((1, 2), (1, 2, 3))
+
+
+def test_require_aligned_rejects_empty_call() -> None:
+    with pytest.raises(ValueError, match="at least one"):
+        require_aligned()
+
+
+def test_require_annotated_domain_accepts_literal_or_interval() -> None:
+    from typing import Annotated
+
+    from excel_grapher.exporter.inverted_tree.runtime import (
+        RealBetween,
+        require_annotated_domain,
+    )
+
+    annotation = Literal["n.a."] | Annotated[float, RealBetween(-1.0, 1.0)]
+    require_annotated_domain("n.a.", annotation, series_id="sentinel")
+    require_annotated_domain(0.25, annotation, series_id="sentinel")
+    require_annotated_domain(1, annotation, series_id="sentinel")
+    with pytest.raises(ValueError, match=r"sentinel out of domain"):
+        require_annotated_domain("nope", annotation, series_id="sentinel")
+    with pytest.raises(ValueError, match=r"sentinel out of domain"):
+        require_annotated_domain(1.5, annotation, series_id="sentinel")
+
+
+def test_require_annotated_domain_rejects_int_for_bool_literal() -> None:
+    from excel_grapher.exporter.inverted_tree.runtime import require_annotated_domain
+
+    annotation = Literal[True, False]
+    require_annotated_domain(True, annotation, series_id="flag")
+    require_annotated_domain(False, annotation, series_id="flag")
+    with pytest.raises(ValueError, match=r"flag out of domain"):
+        require_annotated_domain(1, annotation, series_id="flag")
+    with pytest.raises(ValueError, match=r"flag out of domain"):
+        require_annotated_domain(0, annotation, series_id="flag")
+
+
+def test_require_input_domain_reexports_shared_helper() -> None:
+    from excel_grapher.exporter.inverted_tree.excel import require_input_domain
+    from excel_grapher.series_bindings.input_coerce import (
+        require_input_domain as shared,
+    )
+
+    assert require_input_domain is shared
+    require_input_domain(0, {"enum": frozenset({0, 1})}, series_id="flag")
+    with pytest.raises(ValueError, match=r"flag out of domain"):
+        require_input_domain(2, {"enum": frozenset({0, 1})}, series_id="flag")
+
+
+def test_coerce_input_measure_reexports_shared_helper() -> None:
+    from excel_grapher.exporter.inverted_tree.excel import coerce_input_measure
+    from excel_grapher.series_bindings.input_coerce import (
+        coerce_input_measure as shared,
+    )
+
+    assert coerce_input_measure is shared
+    assert type(coerce_input_measure(0, dtype="float", series_id="share")) is float
+
+
+def test_apply_input_value_map_reexports_shared_helper() -> None:
+    from excel_grapher.exporter.inverted_tree.excel import apply_input_value_map
+    from excel_grapher.series_bindings.input_coerce import (
+        apply_input_value_map as shared,
+    )
+
+    assert apply_input_value_map is shared
+    assert apply_input_value_map("High", {"High": "High "}, series_id="selector") == "High "
+    with pytest.raises(ValueError, match=r"selector value 'Nope' is not in value_map"):
+        apply_input_value_map("Nope", {"High": "High "}, series_id="selector")
+
+
+def test_take_gathers_by_index() -> None:
+    assert take((10, 20, 30, 40, 50), (0, 1, 2)) == (10, 20, 30)
+    assert take((10, 20, 30, 40, 50), (1, 3)) == (20, 40)
+    assert take((10, 20, 30), (2,)) == (30,)
+
+
+def test_take_rejects_out_of_range() -> None:
+    with pytest.raises(ValueError, match="take index 3"):
+        take((1, 2, 3), (3,))
+    with pytest.raises(ValueError, match="take index -1"):
+        take((1, 2, 3), (-1,))
+
+
+def test_take_accepts_range() -> None:
+    values = (10, 20, 30, 40, 50)
+    assert take(values, range(0, 3)) == (10, 20, 30)
+    assert take(values, range(1, 5, 2)) == (20, 40)
+
+
+def test_take_accepts_slice() -> None:
+    values = (10, 20, 30, 40, 50)
+    assert take(values, slice(0, 3)) == (10, 20, 30)
+    assert take(values, slice(1, 5, 2)) == (20, 40)
+    assert take(values, slice(None, 2)) == (10, 20)
+    assert take(values, slice(3, None)) == (40, 50)
+
+
+def test_take_slice_fails_closed_when_stop_exceeds_length() -> None:
+    with pytest.raises(ValueError, match="take index 3"):
+        take((1, 2, 3), slice(0, 4))
+
+
+def test_xl_div_and_div_zero() -> None:
+    assert xl_div(10.0, 2.0) == 5.0
+    with pytest.raises(XlError) as exc:
+        xl_div(1.0, 0.0)
+    assert exc.value.code == "#DIV/0!"
+
+
+@pytest.mark.parametrize(
+    ("op", "left", "right", "expected"),
+    [
+        (xl_div, "abc", 2, "#VALUE!"),
+        (xl_div, '"', 100, "#VALUE!"),
+        (xl_add, "n/a", 1, "#VALUE!"),
+        (xl_sub, 5, "--", "#VALUE!"),
+        (xl_mul, "..", 2, "#VALUE!"),
+        (xl_pow, "abc", 2, "#VALUE!"),
+    ],
+)
+def test_arithmetic_non_numeric_text_is_value_error(
+    op: Callable[[object, object], float], left: object, right: object, expected: str
+) -> None:
+    with pytest.raises(XlError) as exc:
+        op(left, right)
+    assert exc.value.code == expected
+
+
+def test_xl_div_coerces_blank_and_bool() -> None:
+    with pytest.raises(XlError) as exc:
+        xl_div("", 2)
+    assert exc.value.code == "#VALUE!"
+    with pytest.raises(XlError) as exc:
+        xl_add("", 5)
+    assert exc.value.code == "#VALUE!"
+    assert xl_div(None, 2) == 0.0
+    assert xl_div(True, 2) == 0.5
+    assert xl_div(False, 2) == 0.0
+    assert xl_mul(True, 4) == 4.0
+
+
+def test_xl_div_coerces_numeric_text() -> None:
+    assert xl_div("10", "2") == 5.0
+    assert xl_div(True, 2) == 0.5
+
+
+def test_xl_div_string_measure_is_value_error() -> None:
+    with pytest.raises(XlError) as exc:
+        xl_div('"', 100)
+    assert exc.value.code == "#VALUE!"
+    with pytest.raises(XlError) as exc:
+        xl_div(1, '"')
+    assert exc.value.code == "#VALUE!"
+
+
+def test_comparisons_use_excel_type_ordering() -> None:
+    assert xl_lt(1, "a") is True
+    assert xl_lt("a", True) is True
+    assert xl_lt(100, True) is True
+    assert xl_gt(True, "z") is True
+    assert xl_eq("abc", 1) is False
+    assert xl_ne("abc", 1) is True
+    assert xl_eq("Nominal", "nominal") is True
+    assert xl_le(1, 1) is True
+    assert xl_ge("b", "a") is True
+
+
+def test_xl_choose_and_out_of_range() -> None:
+    assert xl_choose(2, 10.0, 20.0, 30.0) == 20.0
+    with pytest.raises(XlError) as exc:
+        xl_choose(0, 1.0)
+    assert exc.value.code == "#VALUE!"
+
+
+def test_as_measure_preserves_blank() -> None:
+    assert as_measure(None) is None
+    assert as_measure(None, "int") is None
+
+
+def test_xl_match_exact_and_na() -> None:
+    assert xl_match("Litellia", ("Borvelia", "Litellia", "Aurelium"), 0) == 2
+    assert xl_match("Loan", (("Note",), (None,), ("Title",), ("Bond",), ("Loan",)), 0) == 5
+    with pytest.raises(XlError) as exc:
+        xl_match("Nope", ("Borvelia",), 0)
+    assert exc.value.code == "#N/A"
+
+
+def test_xl_match_accepts_scalar_index_results() -> None:
+    assert xl_match("Loan", "Loan", 0) == 1
+    assert xl_match(None, None, 0) == 1
+    with pytest.raises(XlError, match="#N/A"):
+        xl_match("Loan", None, 0)
+
+
+def test_xl_index_intersection_blank_and_ref() -> None:
+    table = (
+        ("Note", None, None, 2020, 2021),
+        (None, None, None, None, None),
+        ("Title", None, None, None, None),
+        ("Bond", None, None, 10.0, 11.0),
+        ("Loan", None, None, 20.0, 21.0),
+    )
+    assert xl_index(table, 5, 4) == pytest.approx(20.0)
+    assert xl_index(table, 3, 4) is None
+    with pytest.raises(XlError) as exc:
+        xl_index(table, 99, 1)
+    assert exc.value.code == "#REF!"
+    with pytest.raises(XlError) as exc:
+        xl_index(table, 1, 99)
+    assert exc.value.code == "#REF!"
+
+
+def test_xl_isnumber_blank_number_and_error() -> None:
+    assert xl_isnumber(lambda: None) is False
+    assert xl_isnumber(lambda: 1.5) is True
+    assert xl_isnumber(lambda: True) is False
+    assert xl_isnumber(lambda: "#N/A") is False
+
+
+def test_xl_vlookup_exact_and_empty_table() -> None:
+    table = ((1, 10, 100), (2, 20, 200))
+    assert xl_vlookup(1, table, 3, False) == 100
+    empty = ((None, None, None), (None, None, None), (None, None, None))
+    with pytest.raises(XlError) as exc:
+        xl_vlookup(1, empty, 3, False)
+    assert exc.value.code == "#N/A"
+
+
+def test_xl_at_and_out_of_range() -> None:
+    assert xl_at((10.0, 20.0, 30.0), 1) == 20.0
+    assert xl_at((10.0, 20.0, 30.0), xl_sub(2, 1)) == 20.0
+    with pytest.raises(XlError) as exc:
+        xl_at((10.0,), -1)
+    assert exc.value.code == "#VALUE!"
+    with pytest.raises(XlError) as exc:
+        xl_at((10.0,), 1)
+    assert exc.value.code == "#VALUE!"
+
+
+def test_xl_raise() -> None:
+    with pytest.raises(XlError) as exc:
+        xl_raise("#N/A")
+    assert exc.value.code == "#N/A"
+
+
+def test_xl_if_elementwise_and_scalar() -> None:
+    assert xl_if(True, 10, 20) == 10
+    assert xl_if(False, 10, 20) == 20
+    assert xl_if(((True,), (False,)), ((10,), (20,)), 0) == [[10], [0]]
+    with pytest.raises(XlError) as exc:
+        xl_if(((True,), (False,)), ((1,), (2,), (3,)), 0)
+    assert exc.value.code == "#VALUE!"
+
+
+def test_xl_and_or_not_scalars_and_ranges() -> None:
+    assert xl_and(True, True) is True
+    assert xl_and(True, False) is False
+    assert xl_or(False, True) is True
+    assert xl_or(False, False) is False
+    assert xl_not(True) is False
+    assert xl_not(False) is True
+    assert xl_and((True, False, True)) is False
+    assert xl_or((False, False, True)) is True
+    assert xl_and((False, "#DIV/0!")) is False
+    assert xl_or((True, "#DIV/0!")) is True
+    with pytest.raises(XlError) as exc:
+        xl_and(("#DIV/0!", False))
+    assert exc.value.code == "#DIV/0!"
+    with pytest.raises(XlError) as exc:
+        xl_not("#VALUE!")
+    assert exc.value.code == "#VALUE!"
+
+
+def test_xl_normdist_cdf_density_and_num_error() -> None:
+    assert xl_normdist(0, 0, 1, True) == pytest.approx(0.5)
+    assert xl_normdist(0, 0, 1, 1) == pytest.approx(0.5)
+    assert xl_normdist(0, 0, 1, False) == pytest.approx(1.0 / math.sqrt(2.0 * math.pi))
+    with pytest.raises(XlError) as exc:
+        xl_normdist(0, 0, 0, True)
+    assert exc.value.code == "#NUM!"
+    with pytest.raises(XlError) as exc:
+        xl_normdist(0, 0, -1, 1)
+    assert exc.value.code == "#NUM!"
+    with pytest.raises(XlError) as exc:
+        xl_normdist("#DIV/0!", 0, 1, True)
+    assert exc.value.code == "#DIV/0!"
+    with pytest.raises(XlError) as exc:
+        xl_normdist(0, 0, 1)
+    assert exc.value.code == "#VALUE!"
+
+
+def test_xl_exp_numeric_and_overflow() -> None:
+    assert xl_exp(0) == pytest.approx(1.0)
+    assert xl_exp(1) == pytest.approx(math.e)
+    assert xl_exp(True) == pytest.approx(math.e)
+    with pytest.raises(XlError) as exc:
+        xl_exp(1000)
+    assert exc.value.code == "#NUM!"
+    with pytest.raises(XlError) as exc:
+        xl_exp("not a number")
+    assert exc.value.code == "#VALUE!"
+    with pytest.raises(XlError) as exc:
+        xl_exp(1, 2)
+    assert exc.value.code == "#VALUE!"
+
+
+def test_xl_abs_numeric_and_text() -> None:
+    assert xl_abs(-3) == 3.0
+    with pytest.raises(XlError) as exc:
+        xl_abs("not a number")
+    assert exc.value.code == "#VALUE!"
+
+
+def test_xl_value_parses_numeric_text() -> None:
+    assert xl_value("6522014") == 6522014.0
+    with pytest.raises(XlError) as exc:
+        xl_value("abc")
+    assert exc.value.code == "#VALUE!"
+
+
+def test_xl_bool_rejects_non_boolean_text() -> None:
+    assert xl_bool(1) is True
+    assert xl_bool(0) is False
+    assert xl_bool("TRUE") is True
+    with pytest.raises(XlError) as exc:
+        xl_bool("nope")
+    assert exc.value.code == "#VALUE!"
+
+
+def test_as_measure_preserves_error_codes() -> None:
+    assert as_measure(1.5) == 1.5
+    assert as_measure("#REF!") == "#REF!"
+    assert as_measure("#DIV/0!") == "#DIV/0!"
+    assert is_error("#REF!")
+    assert not is_error(1.5)
+    assert not is_error("REF")
+
+
+def test_as_measure_preserves_cached_text_sentinels() -> None:
+    assert as_measure("n/a") == "n/a"
+    assert as_measure("..") == ".."
+    assert as_measure("--") == "--"
+    assert as_measure("") == ""
+    assert not is_error("n/a")
+
+
+def test_as_measure_str_keeps_numeric_excel_types() -> None:
+    """String dtype must not stringify formula numbers (`INDEX(...)=1`, #916)."""
+    assert as_measure(1, "str") == 1
+    assert as_measure(0, "str") == 0
+    assert as_measure(1.5, "str") == 1.5
+    assert as_measure(True, "str") is True
+    assert as_measure("1", "str") == "1"
+    assert as_measure("Yes", "str") == "Yes"
+
+
+def test_eval_instance_memos_and_detects_cycles() -> None:
+    memo: dict[tuple[str, int], float] = {}
+    stack: set[tuple[str, int]] = set()
+    calls = {"n": 0}
+
+    def compute(index: int) -> float:
+        calls["n"] += 1
+        if index == 0:
+            return 1.0
+        return eval_instance("s", index - 1, compute, memo, stack) + 1.0
+
+    assert eval_instance("s", 2, compute, memo, stack) == 3.0
+    assert eval_instance("s", 2, compute, memo, stack) == 3.0
+    assert calls["n"] == 3
+
+    def loop(_index: int) -> float:
+        return eval_instance("c", 0, loop, memo, stack)
+
+    with pytest.raises(InstanceCycleError, match="distance-zero cycle"):
+        eval_instance("c", 0, loop, memo, stack)
+
+
+def test_eval_instance_stores_error_codes() -> None:
+    memo: dict[tuple[str, int], float | str] = {}
+    stack: set[tuple[str, int]] = set()
+
+    def compute(index: int) -> float | str:
+        del index
+        return "#REF!"
+
+    assert eval_instance("s", 0, compute, memo, stack) == "#REF!"
+
+
+def test_xl_sum_over_sequence_and_stored_errors() -> None:
+    assert xl_sum((1.0, 2.0, 3.0)) == 6.0
+    assert xl_sum(1.0, 2.0) == 3.0
+    with pytest.raises(XlError) as exc:
+        xl_sum((1.0, "#DIV/0!"))
+    assert exc.value.code == "#DIV/0!"
+
+
+def test_publish_mutates_and_returns_the_same_function() -> None:
+    def sample(value: int) -> int:
+        return value
+
+    decorated = publish(key=("TIME_PERIOD",), domain=(2020, 2021), holes=(1,))(sample)
+    assert decorated is sample
+    assert type(sample) is types.FunctionType
+    meta = cast(Any, sample)
+    assert meta.__key__ == ("TIME_PERIOD",)
+    assert meta.__domain__ == (2020, 2021)
+    assert meta.__holes__ == (1,)
+    assert not hasattr(sample, "__constants__")
+
+
+def test_publish_sets_constants_only_when_given() -> None:
+    def without_constants() -> None:
+        return None
+
+    publish(key=(), domain=((),))(without_constants)
+    assert cast(Any, without_constants).__holes__ == ()
+    assert not hasattr(without_constants, "__constants__")
+
+    def with_constants() -> None:
+        return None
+
+    publish(key=(), domain=((),), constants=("gdp_deflator",))(with_constants)
+    assert cast(Any, with_constants).__constants__ == ("gdp_deflator",)
+    publish(key=(), domain=((),), constants=())(with_constants)
+    assert cast(Any, with_constants).__constants__ == ()
+
+
+def test_as_records_reads_metadata_from_published_function() -> None:
+    def compute() -> tuple[float, ...]:
+        return (1.5, 2.5)
+
+    publish(key=("TIME_PERIOD",), domain=(2008, 2009))(compute)
+    assert as_records(compute, compute()) == [
+        {"TIME_PERIOD": 2008, "OBS_VALUE": 1.5},
+        {"TIME_PERIOD": 2009, "OBS_VALUE": 2.5},
+    ]
+
+
+def test_as_records_zips_one_key_and_matrix_keys() -> None:
+    series = type("SeriesCompute", (), {"__key__": ("TIME_PERIOD",), "__domain__": (2008, 2009)})()
+    assert as_records(series, (1.5, 2.5)) == [
+        {"TIME_PERIOD": 2008, "OBS_VALUE": 1.5},
+        {"TIME_PERIOD": 2009, "OBS_VALUE": 2.5},
+    ]
+    matrix = type(
+        "MatrixCompute",
+        (),
+        {
+            "__key__": ("SCENARIO", "TIME_PERIOD"),
+            "__domain__": (("paris", 2050), ("paris", 2075), ("baseline", 2050)),
+        },
+    )()
+    records = as_records(matrix, (10.0, 11.0, 12.0), measure="GAP")
+    assert records[0] == {"SCENARIO": "paris", "TIME_PERIOD": 2050, "GAP": 10.0}
+    assert records[-1] == {"SCENARIO": "baseline", "TIME_PERIOD": 2050, "GAP": 12.0}
+
+
+def test_as_records_rejects_length_mismatch() -> None:
+    compute = type("Compute", (), {"__key__": ("TIME_PERIOD",), "__domain__": (1, 2, 3)})()
+    with pytest.raises(ValueError, match="length"):
+        as_records(compute, (1.0, 2.0))
+
+
+def test_xl_sumproduct_over_aligned_sequences() -> None:
+    assert xl_sumproduct((1.0, 2.0), (3.0, 4.0)) == 11.0
+    with pytest.raises(XlError) as exc:
+        xl_sumproduct((1.0, "#N/A"), (1.0, 1.0))
+    assert exc.value.code == "#N/A"
+
+
+def test_xl_average_skips_logicals_in_arrays() -> None:
+    assert xl_average((1.0, 3.0, 5.0)) == 3.0
+    assert xl_average([[False], [2.0]]) == 2.0
+    with pytest.raises(XlError) as exc:
+        xl_average((1.0, "#DIV/0!"))
+    assert exc.value.code == "#DIV/0!"
+
+
+def test_xl_max_skips_logicals_in_arrays() -> None:
+    assert xl_max((-10.0, -20.0)) == -10.0
+    assert xl_max([[False], [-20.0]]) == -20.0
+    with pytest.raises(XlError) as exc:
+        xl_max((1.0, "#N/A"))
+    assert exc.value.code == "#N/A"

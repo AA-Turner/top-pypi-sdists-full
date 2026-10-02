@@ -1,0 +1,144 @@
+[build-system]
+requires = [
+  "maturin>=1.9,<2",
+  "patchelf>=0.17.2; sys_platform == 'linux'",
+]
+build-backend = "maturin"
+
+[project]
+name = "sqlbuild"
+version = "0.130.1"
+description = "Typed, test-first SQL pipelines with local E2E testing"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "duckdb>=1.3.2",
+  "filelock>=3.20.3",
+  "orjson>=3.10.0",
+  "polyglot-sql-chio==0.13.8",
+  "pydantic-settings>=2,<3",
+  "PyYAML>=6.0.2",
+  "rich>=15.0.0",
+]
+
+[project.optional-dependencies]
+dbt = [
+  "jinja2>=3.1",
+]
+snowflake = [
+  "snowflake-connector-python>=4.7.1,<5",
+]
+bigquery = [
+  "google-cloud-bigquery>=3.37.0",
+]
+databricks = [
+  "databricks-sql-connector[pyarrow]>=4.1.2",
+]
+dagster = [
+  "dagster>=1.13.0",
+  "dagster-webserver>=1.13.0",
+]
+postgres = [
+  "psycopg[binary]>=3.2.0",
+]
+sqlserver = [
+  "pymssql>=2.3.0",
+]
+ingestr = [
+  "ingestr>=1.0.0",
+]
+dlt = [
+  "dlt[duckdb,filesystem,sql_database]>=1.28.0,<2",
+]
+rivers = [
+  "rivers>=0.1.4",
+]
+
+[project.scripts]
+sqb = "sqlbuild.cli.entry.main.entry:main"
+sqlbuild = "sqlbuild.cli.entry.main.entry:main"
+
+[dependency-groups]
+dev = [
+  "commitizen>=4.9.1",
+  "dbt-core>=1.11.6,<1.12",
+  "dbt-bigquery>=1.9.0,<1.11",
+  "dbt-databricks>=1.9.0,<1.11",
+  "dbt-duckdb>=1.9.0,<1.11",
+  "dbt-postgres>=1.9.0,<1.11",
+  "dbt-snowflake==1.12.0b1",
+  "dbt-sqlserver>=1.9.0,<1.11",
+  "dlt[duckdb,filesystem,sql_database]>=1.28.0,<2",
+  "ingestr>=1.0.0",
+  "jsonschema>=4.23.0",
+  "maturin>=1.9,<2",
+  "pre-commit>=4.3.0",
+  "pytest>=8.4.2",
+  "pytest-cov>=7.0.0",
+  "pytest-xdist>=3.8.0",
+  "ruff>=0.12.0",
+  "fensu>=0.23.0",
+  "testcontainers>=4.8.1",
+  "ty>=0.0.1a19",
+]
+
+[tool.maturin]
+manifest-path = "crates/sqlbuild-rules-native/Cargo.toml"
+module-name = "sqlbuild._native"
+python-source = "src"
+features = ["extension-module"]
+include = [
+  { path = "LICENSE", format = ["sdist", "wheel"] },
+]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version_provider = "pep621"
+version_scheme = "semver2"
+update_changelog_on_bump = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--import-mode=importlib"]
+pythonpath = ["."]
+norecursedirs = [".venv", "dist", "*.egg-info", ".git", ".tox"]
+markers = [
+  "dbt: tests that require dbt interop dependencies and dbt project setup",
+  "real_warehouse: tests that require live external warehouse credentials",
+  "snowflake: tests that require a live Snowflake warehouse",
+  "bigquery: tests that require a live BigQuery warehouse",
+  "databricks: tests that require a live Databricks warehouse",
+  "postgres: tests that require a live PostgreSQL database",
+  "sqlserver: tests that require a live Microsoft SQL Server database",
+  "motherduck: tests that require live MotherDuck credentials",
+  "performance: opt-in performance guard tests",
+  "cold_compile_performance: fresh-process semantic compile scaling guards",
+  "cache_compile_performance: fresh-process warm and incremental compile cache guards",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+# The website's example projects are sample SQLBuild projects, not package code.
+extend-exclude = ["website"]
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "PLR0913", "PLR0915", "UP"]
+
+[tool.ruff.lint.pylint]
+max-args = 10
+max-statements = 70
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/test_*.py" = ["E501"]
+"tests/**/helpers.py" = ["PLR0913"]
+
+[tool.uv]
+package = true
+cache-keys = [
+  { file = "pyproject.toml" },
+  { file = "Cargo.toml" },
+  { file = "crates/sqlbuild-rules-native/Cargo.toml" },
+  { file = "crates/sqlbuild-rules-native/src/**/*.rs" },
+  { file = "src/sqlbuild/_native.pyi" },
+]

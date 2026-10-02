@@ -1,0 +1,139 @@
+"""Typing cases for validate_arrayNx3."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+import numpy as np
+import numpy.typing as npt
+from type_assert import assert_types
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+from pyvista_validation import validate_arrayNx3
+from pyvista_validation._typing import _AnyDType
+from pyvista_validation._typing import _AnyScalar
+from pyvista_validation._typing import _Array2D
+from pyvista_validation._typing import _Scalar
+
+_ArrayNx3Out = (
+    _Array2D[_Scalar]
+    | list[list[bool]]
+    | list[list[int]]
+    | list[list[float]]
+    | tuple[tuple[bool, bool, bool], ...]
+    | tuple[tuple[int, int, int], ...]
+    | tuple[tuple[float, float, float], ...]
+)
+_ArrayNx3AnyOut = (
+    _Array2D[_AnyDType]
+    | list[list[bool]]
+    | list[list[int]]
+    | list[list[float]]
+    | list[list[str]]
+    | tuple[tuple[bool, bool, bool], ...]
+    | tuple[tuple[int, int, int], ...]
+    | tuple[tuple[float, float, float], ...]
+    | tuple[tuple[str, str, str], ...]
+)
+
+
+def flag() -> bool:
+    """Return a bool no type checker can narrow to a literal."""
+    return False
+
+
+assert_types(validate_arrayNx3(np.zeros((2, 3), dtype=np.float32)), _Array2D[np.float32])
+assert_types(validate_arrayNx3(np.zeros((2, 3)) > 0, must_be_real=False), _Array2D[np.bool_])
+assert_types(validate_arrayNx3([[True, False, True]], must_be_real=False), _Array2D[np.bool_])
+assert_types(validate_arrayNx3([[1, 2, 3]]), _Array2D[np.int64])
+assert_types(validate_arrayNx3([[1.5, 2.5, 3.5]]), _Array2D[np.float64])
+assert_types(validate_arrayNx3([['a', 'b', 'c']], must_be_real=False), _Array2D[np.str_])
+assert_types(validate_arrayNx3([[1, 2, 3]], dtype_out=np.float32), _Array2D[np.float32])
+assert_types(validate_arrayNx3([[1, 2, 3]], dtype_out=bool), _Array2D[np.bool_])
+assert_types(validate_arrayNx3([[1, 2, 3]], dtype_out=int), _Array2D[np.int64])
+assert_types(validate_arrayNx3([[1, 2, 3]], dtype_out=float), _Array2D[np.float64])
+assert_types(validate_arrayNx3([[1, 2, 3]], dtype_out='float32'), _Array2D[_Scalar])
+assert_types(
+    validate_arrayNx3([['a', 'b', 'c']], must_be_real=False, dtype_out='U1'),
+    _Array2D[_AnyScalar],
+)
+assert_types(
+    validate_arrayNx3([[True, False, True]], must_be_real=False, to_list=True),
+    list[list[bool]],
+)
+assert_types(validate_arrayNx3([[1, 2, 3]], to_list=True), list[list[int]])
+assert_types(validate_arrayNx3([[1.5, 2.5, 3.5]], to_list=True), list[list[float]])
+assert_types(
+    validate_arrayNx3([['a', 'b', 'c']], must_be_real=False, to_list=True),
+    list[list[str]],
+)
+assert_types(validate_arrayNx3([[1, 2, 3]], dtype_out=bool, to_list=True), list[list[bool]])
+assert_types(validate_arrayNx3([[1, 2, 3]], dtype_out=int, to_list=True), list[list[int]])
+assert_types(validate_arrayNx3([[1, 2, 3]], dtype_out=float, to_list=True), list[list[float]])
+assert_types(
+    validate_arrayNx3([[1, 2, 3]], dtype_out='float32', to_list=True),
+    list[list[bool]] | list[list[int]] | list[list[float]],
+)
+assert_types(
+    validate_arrayNx3([['a', 'b', 'c']], must_be_real=False, dtype_out='U1', to_list=True),
+    list[list[bool]] | list[list[int]] | list[list[float]] | list[list[str]],
+)
+assert_types(
+    validate_arrayNx3([[True, False, True]], must_be_real=False, to_tuple=True),
+    tuple[tuple[bool, bool, bool], ...],
+)
+assert_types(validate_arrayNx3([[1, 2, 3]], to_tuple=True), tuple[tuple[int, int, int], ...])
+assert_types(
+    validate_arrayNx3([[1.5, 2.5, 3.5]], to_tuple=True),
+    tuple[tuple[float, float, float], ...],
+)
+assert_types(
+    validate_arrayNx3([['a', 'b', 'c']], must_be_real=False, to_tuple=True),
+    tuple[tuple[str, str, str], ...],
+)
+assert_types(
+    validate_arrayNx3([[1, 2, 3]], dtype_out=bool, to_tuple=True),
+    tuple[tuple[bool, bool, bool], ...],
+)
+assert_types(
+    validate_arrayNx3([[1, 2, 3]], dtype_out=int, to_tuple=True),
+    tuple[tuple[int, int, int], ...],
+)
+assert_types(
+    validate_arrayNx3([[1, 2, 3]], dtype_out=float, to_tuple=True),
+    tuple[tuple[float, float, float], ...],
+)
+assert_types(
+    validate_arrayNx3([[1, 2, 3]], dtype_out='float32', to_tuple=True),
+    (
+        tuple[tuple[bool, bool, bool], ...]
+        | tuple[tuple[int, int, int], ...]
+        | tuple[tuple[float, float, float], ...]
+    ),
+)
+assert_types(
+    validate_arrayNx3([['a', 'b', 'c']], must_be_real=False, dtype_out='U1', to_tuple=True),
+    (
+        tuple[tuple[bool, bool, bool], ...]
+        | tuple[tuple[int, int, int], ...]
+        | tuple[tuple[float, float, float], ...]
+        | tuple[tuple[str, str, str], ...]
+    ),
+)
+assert_types(validate_arrayNx3([[1, 2, 3]], to_list=flag()), _ArrayNx3Out)
+assert_types(
+    validate_arrayNx3([['a', 'b', 'c']], must_be_real=False, to_list=flag()),
+    _ArrayNx3AnyOut,
+)
+assert_types(validate_arrayNx3([1, 2, 3]), _Array2D[np.int64])
+assert_types(validate_arrayNx3([[1, 2, 3]], reshape=False), _Array2D[np.int64])
+
+
+def float32_points() -> npt.NDArray[np.float32] | Sequence[Sequence[np.float32]]:
+    """Return a value typed as either an array or a nested sequence."""
+    return np.ones((2, 3), dtype=np.float32)
+
+
+assert_types(validate_arrayNx3(float32_points()), _Array2D[np.float32])

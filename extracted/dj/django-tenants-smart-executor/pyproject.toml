@@ -1,0 +1,95 @@
+[project]
+name = "django-tenants-smart-executor"
+version = "0.3.1"
+description = "Executors for django-tenants which check whether any migrations need running before running them, making it faster."
+authors = [
+    {name = "Mikuláš Poul", email = "mikulas.poul@xelix.com"}
+]
+license = "MIT"
+license-files = [
+    "LICENSE",
+]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "django-tenants (>=3.8)"
+]
+keywords = ["django", "django-tenants", "migrations"]
+packages = [{include = "django_tenants_smart_executor"}]
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: MIT License",
+    "Framework :: Django",
+]
+
+[project.urls]
+"Repository" = "https://github.com/xelixdev/django-tenants-smart-executor"
+
+
+[tool.poetry]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.1"
+pytest-django = ">=4.14.0"
+ruff = "^0.15.22"
+psycopg = {extras = ["binary"], version = "^3.2.9"}
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    # https://github.com/charliermarsh/ruff#pyflakes-f
+    "F",
+    # https://github.com/charliermarsh/ruff#pycodestyle-e-w
+    "E",
+    "W",
+    # https://github.com/charliermarsh/ruff#isort-i
+    "I",
+    # https://github.com/charliermarsh/ruff#pep8-naming-n
+    "N",
+    # https://github.com/charliermarsh/ruff#pyupgrade-up
+    "UP",
+    # https://github.com/charliermarsh/ruff#flake8-bugbear-b
+    "B",
+    # https://github.com/charliermarsh/ruff#flake8-comprehensions-c4
+    "C4",
+    # https://github.com/charliermarsh/ruff#flake8-debugger-t10
+    "T10",
+    # https://github.com/charliermarsh/ruff#flake8-pie-pie
+    "PIE",
+    # https://github.com/charliermarsh/ruff#flake8-return-ret
+    "RET",
+    # https://github.com/charliermarsh/ruff#flake8-simplify-sim
+    "SIM",
+]
+
+# Never enforce...
+ignore = [
+    "E501",   # line length violations
+    "SIM108", # use-ternary-operator
+    "RET505", # superfluous-else-return
+    "RET506", # superfluous-else-raise
+    "RET507", # superfluous-else-continue
+    "RET508", # superfluous-else-break
+    "B027",   # empty-method-without-abstract-decorator
+    "N999",   # invalid-module-name
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.test_project.settings"
+
+[tool.coverage.run]
+source = ["django_tenants_smart_executor"]

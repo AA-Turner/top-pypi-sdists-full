@@ -1,0 +1,92 @@
+// Copyright (c) 2025 Contributors to the Eclipse Foundation
+//
+// See the NOTICE file(s) distributed with this work for additional
+// information regarding copyright ownership.
+//
+// This program and the accompanying materials are made available under the
+// terms of the Apache Software License 2.0 which is available at
+// https://www.apache.org/licenses/LICENSE-2.0, or the MIT license
+// which is available at https://opensource.org/licenses/MIT.
+//
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
+use iceoryx2_bb_derive_macros::ZeroCopySend;
+use iceoryx2_bb_elementary_traits::zero_copy_send::ZeroCopySend;
+use iceoryx2_cal::zero_copy_connection::ChannelId;
+
+use crate::{
+    active_request::RequestId,
+    identifiers::{UniqueClientId, UniqueNodeId, UniqueServerId},
+    service::header::payload_header::PayloadHeader,
+};
+
+/// Request header used by
+/// [`MessagingPattern::RequestResponse`](crate::service::messaging_pattern::MessagingPattern::RequestResponse)
+#[derive(Debug, Copy, Clone, ZeroCopySend)]
+#[repr(C)]
+pub struct RequestHeader {
+    pub(crate) node_id: UniqueNodeId,
+    pub(crate) client_id: UniqueClientId,
+    pub(crate) channel_id: ChannelId,
+    pub(crate) request_id: RequestId,
+    pub(crate) number_of_elements: u64,
+    pub(crate) payload_offset: u64,
+}
+
+impl RequestHeader {
+    /// Returns the [`UniqueClientId`] of the [`Client`](crate::port::client::Client)
+    /// which sent the [`RequestMut`](crate::request_mut::RequestMut)
+    pub fn client_id(&self) -> UniqueClientId {
+        self.client_id
+    }
+
+    /// Returns the payload offset.
+    pub fn payload_offset(&self) -> u64 {
+        self.payload_offset
+    }
+}
+
+impl PayloadHeader for RequestHeader {
+    fn node_id(&self) -> UniqueNodeId {
+        self.node_id
+    }
+
+    fn number_of_elements(&self) -> u64 {
+        self.number_of_elements
+    }
+}
+
+/// Response header used by
+/// [`MessagingPattern::RequestResponse`](crate::service::messaging_pattern::MessagingPattern::RequestResponse)
+#[derive(Debug, Copy, Clone, ZeroCopySend)]
+#[repr(C)]
+pub struct ResponseHeader {
+    pub(crate) node_id: UniqueNodeId,
+    pub(crate) server_id: UniqueServerId,
+    pub(crate) request_id: RequestId,
+    pub(crate) number_of_elements: u64,
+    pub(crate) payload_offset: u64,
+}
+
+impl ResponseHeader {
+    /// Returns the [`UniqueServerId`] of the [`Server`](crate::port::server::Server)
+    /// which sent the [`Response`](crate::response::Response)
+    pub fn server_id(&self) -> UniqueServerId {
+        self.server_id
+    }
+
+    /// Returns the payload offset.
+    pub fn payload_offset(&self) -> u64 {
+        self.payload_offset
+    }
+}
+
+impl PayloadHeader for ResponseHeader {
+    fn number_of_elements(&self) -> u64 {
+        self.number_of_elements
+    }
+
+    fn node_id(&self) -> UniqueNodeId {
+        self.node_id
+    }
+}

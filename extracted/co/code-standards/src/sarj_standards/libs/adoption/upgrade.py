@@ -1,0 +1,673 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, replace
+from pathlib import Path
+import re
+import shutil
+import tomllib
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Final
+
+from packaging.version import Version
+
+from sarj_standards._meta import CONFIGS_DIR
+from sarj_standards.libs.diagnostics import baseline
+from sarj_standards.libs.filesystem import is_link_like
+from sarj_standards.libs.repository import ledger
+
+from . import (
+    age_transition,
+    doctor,
+    hooks,
+    lifecycle,
+    manifest,
+    packagemanager,
+    retired_suppressions,
+    scaffold,
+    transaction,
+    uvtool,
+)
+from .configs import MOBILE_COMPANION_CONFIGS, PYTHON_COMPANION_CONFIGS, TYPESCRIPT_COMPANION_CONFIGS
+
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+
+
+_BUNDLE_LINE = re.compile(r'(?m)^bundle\s*=\s*"[^"]*"\s*$')
+_INSTALL_REMEDIABLE_FINDING_IDS = frozenset(
+    {
+        "doctor.eslint.override",
+        "doctor.eslint.peer",
+        "doctor.python.legacy-in-project-tool",
+    }
+)
+_MANUAL_POSTFLIGHT_FINDING_IDS = frozenset(
+    {
+        "doctor.eslint.shadowed-config",
+        "doctor.ci.gate",
+        "doctor.precommit.rev",
+        "doctor.pyright.deprecated",
+        "doctor.ruff.authority",
+    }
+)
+
+
+_INSTALL_MUTATED_NAMES: Final = frozenset(
+    {
+        "bun.lock",
+        "bun.lockb",
+        "package-lock.json",
+        "package.json",
+        "pnpm-lock.yaml",
+        "pyproject.toml",
+        "uv.lock",
+        "yarn.lock",
+    }
+)
+_CONFIG_SOURCES = MappingProxyType(
+    {
+        "ruff": ("ruff.strict.toml", "ruff.application.toml", ".ruff-strict.toml", "python"),
+        "pyright": ("pyright.strict.json", "pyright.strict.json", ".pyright-strict.json", "python"),
+        "eslint": ("eslint.strict.mjs", "eslint.application.mjs", "eslint.strict.mjs", "typescript"),
+        "swiftformat": ("swiftformat.strict", "swiftformat.strict", ".swiftformat", "swift"),
+        "swiftlint": ("swiftlint.strict.yml", "swiftlint.strict.yml", ".swiftlint.yml", "swift"),
+        "ktlint": ("ktlint.strict.editorconfig", "ktlint.strict.editorconfig", ".editorconfig", "kotlin"),
+        "detekt": ("detekt.strict.yml", "detekt.strict.yml", "config/detekt/detekt.yml", "kotlin"),
+        "mobile-security": ("mobsf.strict.yml", "mobsf.strict.yml", ".mobsf", "root"),
+        "markdownlint": ("markdownlint.strict.yaml", "markdownlint.strict.yaml", ".markdownlint.yaml", "root"),
+        "shellcheck": ("shellcheck.strict.rc", "shellcheck.strict.rc", ".shellcheckrc", "root"),
+        "taplo": ("taplo.strict.toml", "taplo.strict.toml", ".taplo.toml", "root"),
+        "yamllint": ("yamllint.strict.yaml", "yamllint.strict.yaml", ".yamllint.yaml", "root"),
+        "zizmor": ("zizmor.strict.yml", "zizmor.strict.yml", "zizmor.yml", "root"),
+        "checkov": ("checkov.strict.yml", "checkov.strict.yml", ".checkov.yml", "root"),
+    }
+)
+_MIRROR_EXCLUDED_PARTS: Final = frozenset({"example", "examples", "fixture", "fixtures", "test", "tests"})
+
+
+@dataclass(frozen=True)
+class Change:
+    path: Path
+    reason: str
+
+
+@dataclass
+class UpgradePlan:
+    root: Path
+    adopted: manifest.Manifest
+    ecosystems: scaffold.Ecosystems
+    scaffold_plan: scaffold.Plan
+    changes: list[Change]
+    config_writes: list[tuple[Path, Path]]
+    pin_writes: list[tuple[Path, str]]
+    lockfiles: tuple[Path, ...]
+    javascript_install_roots: tuple[Path, ...]
+    javascript_lockfiles: tuple[Path, ...]
+    suppression_writes: list[tuple[Path, str]]
+    baseline_writes: list[tuple[Path, str]]
+    manifest_text: str
+    preconditions: dict[Path, bytes | None]
+    preexisting_drift: frozenset[tuple[str, str]]
+
+
+def build_plan(root: Path) -> UpgradePlan:  # ruff: ignore[too-many-locals] -- one plan resolves every owned site once
+    root = root.resolve()
+    adopted = _load_upgrade_manifest(root)
+    _validate_upgrade_version(adopted)
+    path = manifest.manifest_path(root)
+    current_text = path.read_text(encoding="utf-8")
+    parsed: object = tomllib.loads(current_text)
+    hooks_table = manifest.table_field(manifest.as_table(parsed), "hooks")
+    hook_manager = adopted.hook_manager if "manager" in hooks_table else hooks.detect_manager(root)
+    adopted = replace(adopted, hook_manager=hook_manager)
+    detected_ecosystems = scaffold.detect_adopted(root, adopted)
+    scaffold_plan = _upgrade_scaffold(root, adopted, detected_ecosystems)
+    ecosystems = scaffold.configured_ecosystems(detected_ecosystems, adopted.configs)
+
+    installed = manifest.installed_versions()
+    pin_updates = doctor.plan_version_pin_updates(root, installed)
+    # Compose pin migrations into scaffold rewrites of the same file.
+    scaffold_plan.writes = [
+        (
+            path,
+            doctor.rewrite_file_version_pins(
+                root, path, contents, installed, exclusions=adopted.doctor_excluded_paths
+            ).contents,
+        )
+        for path, contents in scaffold_plan.writes
+    ]
+    scaffold_write_paths = {path for path, _contents in scaffold_plan.writes}
+    pin_writes = [(update.path, update.contents) for update in pin_updates if update.path not in scaffold_write_paths]
+    lockfiles = _python_lockfiles(pin_updates)
+    javascript_install_roots = _javascript_install_roots(root, ecosystems, pin_updates)
+    javascript_lockfiles = _javascript_lockfiles(javascript_install_roots)
+
+    manifest_text = _updated_manifest_text(path, current_text, adopted, has_manager="manager" in hooks_table)
+    changes: list[Change] = []
+    if manifest_text != current_text:
+        changes.append(Change(path, f"adopt standards {manifest.adopted_version()}"))
+
+    config_writes = _upgrade_config_writes(root, adopted, changes)
+    reserved_paths = {
+        path,
+        *(target for _source, target in config_writes),
+        *(target for target, _contents in pin_writes),
+        *(target for target, _contents in (*scaffold_plan.writes, *scaffold_plan.edits)),
+        *scaffold_plan.deletes,
+    }
+    suppression_writes = [
+        (rewrite.path, rewrite.contents)
+        for rewrite in retired_suppressions.plan(doctor.authored_files(root))
+        if rewrite.path not in reserved_paths
+    ]
+    baseline_writes = _diagnostic_baseline_writes(root, adopted)
+    plan = UpgradePlan(
+        root,
+        adopted,
+        ecosystems,
+        scaffold_plan,
+        changes,
+        config_writes,
+        pin_writes,
+        lockfiles,
+        javascript_install_roots,
+        javascript_lockfiles,
+        suppression_writes,
+        baseline_writes,
+        manifest_text,
+        {},
+        frozenset(),
+    )
+    _append_upgrade_changes(plan, path, pin_updates)
+    planned_paths = _upgrade_targets(plan, path)
+    transaction.validate_targets(root, planned_paths)
+    plan.preconditions = {target: target.read_bytes() if target.is_file() else None for target in planned_paths}
+    plan.preexisting_drift = frozenset(
+        (finding.id, finding.where) for finding in doctor.diagnose(root) if finding.level is doctor.Level.DRIFT
+    )
+    return plan
+
+
+def _load_upgrade_manifest(root: Path) -> manifest.Manifest:
+    if not root.is_dir():
+        msg = f"repository root {root} is not a directory"
+        raise ValueError(msg)
+    adopted = manifest.load(root)
+    if adopted is None:
+        msg = "repository is not adopted; run `code-standards setup` first"
+        raise ValueError(msg)
+    return adopted
+
+
+def _validate_upgrade_version(adopted: manifest.Manifest) -> None:
+    executing_version = Version(manifest.adopted_version())
+    declared_version = Version(adopted.version)
+    if declared_version > executing_version:
+        msg = (
+            f"repository uses newer standards {adopted.version}; executing bundle is "
+            f"{manifest.adopted_version()}. Install the newer code-standards release and rerun update"
+        )
+        raise ValueError(msg)
+
+
+def _append_upgrade_changes(plan: UpgradePlan, path: Path, pin_updates: Sequence[doctor.VersionPinUpdate]) -> None:
+    for target, _contents in (*plan.scaffold_plan.writes, *plan.scaffold_plan.edits):
+        if target != path:
+            plan.changes.append(Change(target, "repair adoption wiring"))
+    plan.changes.extend(Change(target, "remove retired repository launcher") for target in plan.scaffold_plan.deletes)
+    plan.changes.extend(
+        Change(update.path, f"refresh {'/'.join(update.packages)} version pin") for update in pin_updates
+    )
+    plan.changes.extend(Change(lockfile, "refresh Python lockfile") for lockfile in plan.lockfiles)
+    plan.changes.extend(Change(lockfile, "refresh JavaScript lockfile") for lockfile in plan.javascript_lockfiles)
+    plan.changes.extend(Change(path, "migrate retired rule reference") for path, _contents in plan.suppression_writes)
+    plan.changes.extend(Change(path, "migrate diagnostic baseline") for path, _contents in plan.baseline_writes)
+
+
+def _upgrade_targets(plan: UpgradePlan, path: Path) -> tuple[Path, ...]:
+    return tuple(
+        dict.fromkeys(
+            [path]
+            + [target for _source, target in plan.config_writes]
+            + [target for target, _contents in plan.pin_writes]
+            + list(plan.lockfiles)
+            + list(plan.javascript_lockfiles)
+            + [target for target, _contents in plan.suppression_writes]
+            + [target for target, _contents in plan.baseline_writes]
+            + [target for target, _contents in (*plan.scaffold_plan.writes, *plan.scaffold_plan.edits)]
+            + list(plan.scaffold_plan.deletes)
+        )
+    )
+
+
+def _upgrade_scaffold(
+    root: Path, adopted: manifest.Manifest, detected_ecosystems: scaffold.Ecosystems
+) -> scaffold.Plan:
+    scaffold_plan = scaffold.build_plan(
+        root,
+        force=False,
+        configs=adopted.configs,
+        python_dest=adopted.python_dest if detected_ecosystems.python else None,
+        typescript_dest=adopted.typescript_dest if detected_ecosystems.typescript else None,
+        swift_dest=adopted.swift_dest if detected_ecosystems.swift else None,
+        kotlin_dest=adopted.kotlin_dest if detected_ecosystems.kotlin else None,
+        profile=adopted.profile,
+        hook_manager=adopted.hook_manager,
+        allow_existing_nested_eslint=True,
+    )
+    if scaffold_plan.errors:
+        raise ValueError("; ".join(scaffold_plan.errors))
+    manifest_target = manifest.manifest_path(root)
+    scaffold_plan.writes = [(path, contents) for path, contents in scaffold_plan.writes if path != manifest_target]
+    return scaffold_plan
+
+
+def _python_lockfiles(pin_updates: Sequence[doctor.VersionPinUpdate]) -> tuple[Path, ...]:
+    lockfile_candidates: set[Path] = set()
+    for update in pin_updates:
+        sibling_lock = update.path.with_name("uv.lock")
+        if update.path.name == "pyproject.toml" and sibling_lock.is_file():
+            lockfile_candidates.add(sibling_lock)
+    return tuple(sorted(lockfile_candidates))
+
+
+def _javascript_install_roots(
+    root: Path, ecosystems: scaffold.Ecosystems, pin_updates: Sequence[doctor.VersionPinUpdate]
+) -> tuple[Path, ...]:
+    primary_javascript_root = ecosystems.typescript_install_root or ecosystems.typescript_root
+    return tuple(
+        sorted(
+            {
+                install_root
+                for update in pin_updates
+                if update.path.name == "package.json"
+                and (install_root := packagemanager.workspace_root(update.path.parent, root)) != primary_javascript_root
+                and any((install_root / name).is_file() for name, _manager in packagemanager.LOCKFILES)
+            }
+        )
+    )
+
+
+def _upgrade_config_writes(root: Path, adopted: manifest.Manifest, changes: list[Change]) -> list[tuple[Path, Path]]:
+    destinations = {
+        "root": root,
+        "python": (root / adopted.python_dest).resolve(),
+        "typescript": (root / adopted.typescript_dest).resolve(),
+        "swift": (root / adopted.swift_dest).resolve(),
+        "kotlin": (root / adopted.kotlin_dest).resolve(),
+    }
+    config_writes: list[tuple[Path, Path]] = []
+    for name in adopted.configs:
+        spec = _CONFIG_SOURCES.get(name)
+        if spec is None:
+            msg = f"manifest declares unknown config {name!r}"
+            raise ValueError(msg)
+        standard, _application, target_name, kind = spec
+        destination = destinations[kind]
+        try:
+            destination.relative_to(root.resolve())
+        except ValueError as exc:
+            msg = f"manifest destination for {name} escapes repository root"
+            raise ValueError(msg) from exc
+        source = CONFIGS_DIR / standard
+        target = destination / target_name
+        if not target.is_file() or target.read_bytes() != source.read_bytes():
+            targets = (target, *_identical_config_mirrors(root, target))
+            for config_target in targets:
+                changes.append(Change(config_target, f"sync {name} config"))
+                config_writes.append((source, config_target))
+        companions: Mapping[str, tuple[str, str]] = {}
+        if name == "pyright":
+            companions = PYTHON_COMPANION_CONFIGS
+        elif name == "eslint":
+            companions = TYPESCRIPT_COMPANION_CONFIGS
+        _append_companion_writes(destination, companions, changes, config_writes)
+
+    if not set(adopted.configs).isdisjoint(
+        set(manifest.SWIFT_CONFIGS) | set(manifest.KOTLIN_CONFIGS) | set(manifest.MOBILE_CONFIGS)
+    ):
+        _append_companion_writes(root, MOBILE_COMPANION_CONFIGS, changes, config_writes)
+
+    return config_writes
+
+
+def _append_companion_writes(
+    destination: Path,
+    companions: Mapping[str, tuple[str, str]],
+    changes: list[Change],
+    config_writes: list[tuple[Path, Path]],
+) -> None:
+    for companion_name, (companion_source, companion_target) in companions.items():
+        companion_source_path = CONFIGS_DIR / companion_source
+        companion_target_path = destination / companion_target
+        if (
+            not companion_target_path.is_file()
+            or companion_target_path.read_bytes() != companion_source_path.read_bytes()
+        ):
+            changes.append(Change(companion_target_path, f"sync {companion_name} companion config"))
+            config_writes.append((companion_source_path, companion_target_path))
+
+
+def _diagnostic_baseline_writes(root: Path, adopted: manifest.Manifest) -> list[tuple[Path, str]]:
+    baseline_writes: list[tuple[Path, str]] = []
+    if adopted.diagnostic_baseline is not None:
+        baseline_target = root / adopted.diagnostic_baseline
+        if baseline_target.exists():
+            selectors = {
+                f"sarj-{entry.kind}-lint:{entry.id}"
+                for entry in ledger.load().retired
+                if entry.kind not in {ledger.ESLINT, ledger.CODE}
+            }
+            removal = baseline.remove_rules(
+                baseline_target,
+                selectors=selectors,
+                bundle_version=manifest.adopted_version(),
+                consumer_base_sha=baseline.repository_base_sha(root),
+                catalog_digest=baseline.bundled_catalog_digest(),
+            )
+            if removal.removed or adopted.version != manifest.adopted_version():
+                baseline_writes.append((baseline_target, removal.contents))
+    return baseline_writes
+
+
+def _javascript_lockfiles(javascript_install_roots: tuple[Path, ...]) -> tuple[Path, ...]:
+    return tuple(
+        sorted(
+            lockfile
+            for install_root in javascript_install_roots
+            for name, _manager in packagemanager.LOCKFILES
+            if (lockfile := install_root / name).is_file()
+        )
+    )
+
+
+def _updated_manifest_text(path: Path, current_text: str, adopted: manifest.Manifest, *, has_manager: bool) -> str:
+    if not _BUNDLE_LINE.search(current_text):
+        msg = f"{path} has no replaceable top-level bundle field"
+        raise ValueError(msg)
+    implicit_disabled = (
+        set(manifest.ALL_CAPABILITIES) - set(adopted.enabled_capabilities) - set(adopted.disabled_capabilities)
+    )
+    if implicit_disabled:
+        # Version gates are effective capability choices too. Serialize them
+        # before a bundle bump can enable tools absent from this upgrade plan.
+        updated = replace(adopted, version=manifest.adopted_version())
+        return scaffold._render_manifest_preserving_extensions(  # ruff: ignore[private-member-access]  # pyright: ignore[reportPrivateUsage] -- reuse the adoption writer that preserves consumer extension tables.
+            current_text, updated.render()
+        )
+    manifest_text = _BUNDLE_LINE.sub(f'bundle = "{manifest.adopted_version()}"', current_text, count=1)
+    if not has_manager:
+        separator = "" if manifest_text.endswith("\n\n") else "\n"
+        manifest_text += f'{separator}[hooks]\nmanager = "{adopted.hook_manager}"\n'
+    return manifest_text
+
+
+def _identical_config_mirrors(root: Path, target: Path) -> tuple[Path, ...]:
+    if not target.is_file() or is_link_like(target):
+        return ()
+    expected = target.read_bytes()
+    return tuple(
+        path
+        for path in doctor.authored_files(root)
+        if path != target
+        and path.name == target.name
+        and not any(part.lower() in _MIRROR_EXCLUDED_PARTS for part in path.relative_to(root).parts)
+        and path.read_bytes() == expected
+    )
+
+
+def unsafe_retired_findings(plan: UpgradePlan) -> list[doctor.Finding]:
+    replaced = [target for _source, target in plan.config_writes]
+    owned = {target.relative_to(plan.root).as_posix() for target in replaced}
+    planned = {path.relative_to(plan.root).as_posix(): (path, contents) for path, contents in plan.suppression_writes}
+    planned_baselines = {
+        path.relative_to(plan.root).as_posix(): (path, contents) for path, contents in plan.baseline_writes
+    }
+    projected = {
+        path.relative_to(plan.root).as_posix(): (path, contents) for path, contents in plan.scaffold_plan.writes
+    }
+    blockers: list[doctor.Finding] = []
+    for finding in doctor.diagnose(plan.root):
+        if finding.id != "doctor.rule.retired" or finding.level is not doctor.Level.DRIFT:
+            continue
+        relative, _, reference = finding.where.partition(": ")
+        if relative in owned:
+            continue
+        rewrite = planned.get(relative)
+        retired_id = reference.rsplit(" x", maxsplit=1)[0]
+        if rewrite is not None and retired_id not in doctor.retired_rule_references(*rewrite):
+            continue
+        baseline_write = planned_baselines.get(relative)
+        if baseline_write is not None and retired_id not in doctor.retired_rule_counts(
+            *baseline_write, configured=True
+        ):
+            continue
+        scaffold_write = projected.get(relative)
+        if scaffold_write is not None and retired_id not in doctor.retired_rule_references(*scaffold_write):
+            continue
+        blockers.append(finding)
+    return blockers
+
+
+def apply(
+    plan: UpgradePlan,
+    *,
+    install: bool = True,
+    allow_retired_debt: bool = False,
+) -> int:
+    if Version(plan.adopted.version) > Version(manifest.adopted_version()):
+        return 2
+    blockers = unsafe_retired_findings(plan)
+    if blockers and not allow_retired_debt:
+        return 2
+    try:
+        transaction.validate_targets(plan.root, tuple(plan.preconditions))
+        stale = any(
+            (path.read_bytes() if path.is_file() else None) != expected for path, expected in plan.preconditions.items()
+        )
+    except OSError:
+        return 2
+    if stale:
+        return 2
+
+    paths = tuple(
+        [manifest.manifest_path(plan.root)]
+        + [target for _source, target in plan.config_writes]
+        + [path for path, _contents in plan.pin_writes]
+        + list(plan.lockfiles)
+        + list(plan.javascript_lockfiles)
+        + [path for path, _contents in plan.suppression_writes]
+        + [path for path, _contents in plan.baseline_writes]
+        + [path for path, _contents in (*plan.scaffold_plan.writes, *plan.scaffold_plan.edits)]
+        + list(plan.scaffold_plan.deletes)
+    )
+    file_transaction = transaction.FileTransaction.capture(plan.root, paths)
+    environment = None if plan.ecosystems.python_root is None else plan.ecosystems.python_root / ".venv"
+    environment_existed = environment is not None and environment.exists()
+    try:
+        status = _apply_and_validate(
+            plan,
+            file_transaction,
+            install=install,
+            allow_retired_debt=allow_retired_debt,
+        )
+    except KeyboardInterrupt:
+        _recover_or_raise(file_transaction, environment, environment_existed=environment_existed)
+        return 130
+    except OSError, TypeError, ValueError:
+        _recover_or_raise(file_transaction, environment, environment_existed=environment_existed)
+        return 2
+    if status:
+        _recover_or_raise(file_transaction, environment, environment_existed=environment_existed)
+    return status
+
+
+def _recover_or_raise(
+    file_transaction: transaction.FileTransaction,
+    environment: Path | None,
+    *,
+    environment_existed: bool,
+) -> None:
+    errors = tuple(
+        detail
+        for detail in (
+            file_transaction.rollback().render(),
+            None
+            if _cleanup_new_environment(environment, existed=environment_existed)
+            else "could not remove new environment",
+        )
+        if detail
+    )
+    if errors:
+        raise OSError("upgrade recovery incomplete: " + "; ".join(errors))
+
+
+def _cleanup_new_environment(environment: Path | None, *, existed: bool) -> bool:
+    if existed or environment is None or not environment.is_dir():
+        return True
+    try:
+        shutil.rmtree(environment)
+    except OSError:
+        return False
+    return True
+
+
+def _apply_and_validate(
+    plan: UpgradePlan,
+    file_transaction: transaction.FileTransaction,
+    *,
+    install: bool,
+    allow_retired_debt: bool,
+) -> int:
+    _write_plan(plan, file_transaction)
+    if install:
+        # PNPM validates the existing lockfile before resolving replacements.
+        # Retain its previously approved exact versions only until installation finishes.
+        policies = age_transition.retain_previous_approvals(file_transaction, plan.preconditions)
+        status = lifecycle.execute(_upgrade_install_commands(plan))
+        _mark_installer_writes(file_transaction)
+        if status:
+            return status
+        for path, canonical in policies:
+            file_transaction.write_text(path, canonical)
+    return _validate_applied_upgrade(plan, install=install, allow_retired_debt=allow_retired_debt)
+
+
+def _validate_applied_upgrade(plan: UpgradePlan, *, install: bool, allow_retired_debt: bool) -> int:
+    drifted = _upgrade_drift(plan.root, install=install)
+    if not allow_retired_debt and any(finding.id == "doctor.rule.retired" for finding in drifted):
+        return 1
+    if allow_retired_debt:
+        drifted = [finding for finding in drifted if finding.id != "doctor.rule.retired"]
+    drifted = [finding for finding in drifted if (finding.id, finding.where) not in plan.preexisting_drift]
+    drifted = [finding for finding in drifted if finding.id not in _MANUAL_POSTFLIGHT_FINDING_IDS]
+    return 1 if drifted else 0
+
+
+def _upgrade_drift(root: Path, *, install: bool) -> list[doctor.Finding]:
+    findings = doctor.diagnose(root)
+    drifted = [finding for finding in findings if finding.level is doctor.Level.DRIFT]
+    if not install:
+        drifted = [finding for finding in drifted if not is_install_remediable(finding)]
+    return drifted
+
+
+def _upgrade_install_commands(plan: UpgradePlan) -> list[lifecycle.Command]:
+    return [
+        *(
+            lifecycle.Command("Python lockfile", uvtool.lock_argv(lockfile.parent), lockfile.parent)
+            for lockfile in plan.lockfiles
+        ),
+        *(
+            lifecycle.Command(
+                "JavaScript lockfile",
+                packagemanager.install_argv(
+                    (manager := packagemanager.detect(install_root)),
+                    workspace=(
+                        manager is packagemanager.PackageManager.PNPM
+                        or (install_root / "pnpm-workspace.yaml").is_file()
+                    ),
+                    yarn=packagemanager.yarn_variant(install_root),
+                ),
+                install_root,
+            )
+            for install_root in plan.javascript_install_roots
+        ),
+        *lifecycle.install_commands(
+            plan.root,
+            plan.ecosystems,
+            hook_manager=plan.adopted.hook_manager,
+        ),
+    ]
+
+
+def changes_bundle_version(plan: UpgradePlan) -> bool:
+    return Version(plan.adopted.version) < Version(manifest.adopted_version())
+
+
+def is_install_remediable(finding: doctor.Finding) -> bool:
+    return finding.id in _INSTALL_REMEDIABLE_FINDING_IDS
+
+
+def pending_install_findings(root: Path) -> list[doctor.Finding]:
+    return [
+        finding
+        for finding in doctor.diagnose(root)
+        if finding.level is doctor.Level.DRIFT and is_install_remediable(finding)
+    ]
+
+
+def _write_plan(plan: UpgradePlan, file_transaction: transaction.FileTransaction) -> None:
+    transaction.validate_targets(
+        plan.root,
+        tuple(
+            [manifest.manifest_path(plan.root)]
+            + [target for _source, target in plan.config_writes]
+            + [path for path, _contents in plan.pin_writes]
+            + [path for path, _contents in plan.suppression_writes]
+            + [path for path, _contents in plan.baseline_writes]
+            + [path for path, _contents in (*plan.scaffold_plan.writes, *plan.scaffold_plan.edits)]
+            + list(plan.scaffold_plan.deletes)
+        ),
+    )
+    manifest_target = manifest.manifest_path(plan.root)
+    transaction.assert_expected(plan.root, manifest_target, plan.preconditions[manifest_target])
+    transaction.atomic_write_text(plan.root, manifest_target, plan.manifest_text)
+    _mark_direct_write(file_transaction, manifest_target)
+    for source, target in plan.config_writes:
+        if is_link_like(target) or (target.exists() and not target.is_file()):
+            msg = f"refusing unsafe generated-config target {target}"
+            raise OSError(msg)
+        transaction.assert_expected(plan.root, target, plan.preconditions[target])
+        transaction.atomic_write_bytes(plan.root, target, source.read_bytes())
+        _mark_direct_write(file_transaction, target)
+    for target, contents in plan.pin_writes:
+        transaction.assert_expected(plan.root, target, plan.preconditions[target])
+        transaction.atomic_write_text(plan.root, target, contents)
+        _mark_direct_write(file_transaction, target)
+    for target, contents in plan.suppression_writes:
+        transaction.assert_expected(plan.root, target, plan.preconditions[target])
+        transaction.atomic_write_text(plan.root, target, contents)
+        _mark_direct_write(file_transaction, target)
+    for target, contents in plan.baseline_writes:
+        transaction.assert_expected(plan.root, target, plan.preconditions[target])
+        transaction.atomic_write_text(plan.root, target, contents)
+        _mark_direct_write(file_transaction, target)
+    scaffold.apply(plan.scaffold_plan, preconditions=plan.preconditions)
+    for target, _contents in (*plan.scaffold_plan.writes, *plan.scaffold_plan.edits):
+        _mark_direct_write(file_transaction, target)
+    for target in plan.scaffold_plan.deletes:
+        _mark_direct_write(file_transaction, target)
+
+
+def _mark_direct_write(file_transaction: transaction.FileTransaction, path: Path) -> None:
+    file_transaction.mark_written(path)
+
+
+def _mark_installer_writes(file_transaction: transaction.FileTransaction) -> None:
+    file_transaction.mark_written(*(path for path in file_transaction.before if path.name in _INSTALL_MUTATED_NAMES))
+
+
+def render(changes: Sequence[Change]) -> str:
+    return "\n".join(f"update: {change.path} -- {change.reason}" for change in changes)

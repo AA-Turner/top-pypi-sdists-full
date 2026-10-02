@@ -50,6 +50,9 @@ from coord.models import (
     CLOSES_ISSUE_TYPES,
     WORK_LIKE_TYPES,
     Assignment,
+    IssueResolution,
+    effective_issue_resolution,
+    parse_issue_resolution,
     trust_issue_closed_for,
 )
 from coord.pr_body_lint import downgrade_closing_keywords, find_closing_references
@@ -57,6 +60,7 @@ from coord.state import (
     COORD_DIR,
     baseline_red_merge_blocked,
     baseline_red_streak,
+    comment_on_issue,
     dismiss_drive_escalation,
     record_uat_verdict,
 )
@@ -554,10 +558,19 @@ class ApprovalScan(NamedTuple):
       — that verdict needs no head SHA to be true, so ``unknown_head`` is
       False and every surface reads the genuine refusal. See
       :func:`_latest_review_verdict`.
+
+    - ``review_assignment`` — (#3502) the approving review's own
+      :class:`~coord.models.Assignment`, when ``approved`` is ``True`` and
+      ``None`` otherwise. Added so a caller that needs to read something
+      ELSE off the SAME approving review (e.g. its own `ISSUE_RESOLUTION:`
+      judgment, via :func:`coord.review.fetch_review_findings_from_github`)
+      reuses this one walk instead of re-implementing "which review
+      approved this" a second time (#2096: one question, one answer).
     """
 
     approved: bool
     unknown_head: bool
+    review_assignment: Assignment | None = None
 
 
 def _latest_review_verdict(pool, branch_work_ids: set | frozenset) -> str | None:
@@ -703,14 +716,14 @@ def scan_approved_reviews(
                     patch_id_attempted = True
                 if current_patch_id is not None and review_patch_id == current_patch_id:
                     # content-identical rebase — approval still covers it
-                    return ApprovalScan(approved=True, unknown_head=False)
+                    return ApprovalScan(approved=True, unknown_head=False, review_assignment=a)
             if current_sha is None:
                 # Refused because we don't KNOW the head, not because we
                 # checked and it moved. Same (closed) gate verdict, but a
                 # display surface must not call this "not approved".
                 unknown_head = True
             continue  # stale/unconfirmed: cannot prove this approval covers the current head
-        return ApprovalScan(approved=True, unknown_head=False)
+        return ApprovalScan(approved=True, unknown_head=False, review_assignment=a)
     if unknown_head and _latest_review_verdict(pool, branch_work_ids) != "approve":
         # #2704 follow-up: an unreadable branch head only explains the
         # refusal while the approval is the chain's last word. The #1966
@@ -6485,11 +6498,11 @@ def staging_items(board, config, gh_ops: "GhOps | None" = None) -> list[StagingI
 @dataclass
 class MergeEvent:
     entry: QueuedMerge
-    kind: str  # "opened" | "sized" | "merged" | "conflict" | "skipped" | "error" | "reopened"
+    kind: str  # "opened" | "sized" | "merged" | "merged_partial" | "conflict" | "skipped" | "error" | "reopened"
     message: str = ""
 
 
-def _briefing_body(entry: QueuedMerge) -> str:
+def _briefing_body(entry: QueuedMerge, board=None, gh_ops: "GhOps | None" = None) -> str:
     # `Closes #N` makes GitHub auto-close the linked issue when the PR
     # merges — without it the issue stays stranded open and the TUI's
     # lifecycle ledger shows the row as In-flight forever (the brain
@@ -6501,7 +6514,21 @@ def _briefing_body(entry: QueuedMerge) -> str:
     # entry's issue_number is the milestone's tracking issue — closing it on
     # merge is wrong (the epic reads "done" while its sub-issues are still
     # open), so it gets the non-closing `Refs #N` instead.
-    keyword = "Closes" if entry.assignment_type in CLOSES_ISSUE_TYPES else "Refs"
+    #
+    # #3502: even for a `CLOSES_ISSUE_TYPES` entry, the worker's/reviewer's
+    # own `ISSUE_RESOLUTION:` judgment (:func:`_issue_resolution_for_entry`)
+    # can veto the closing keyword — this call site is reached when
+    # `process()` finds no `pr_number` yet, i.e. right before merging, by
+    # which point a review has almost always already run, so both halves of
+    # the judgment are usually available. *board*/*gh_ops* default to
+    # ``None`` (every pre-#3502 test/call site) which reads as "resolved" —
+    # unchanged behaviour.
+    resolution = _issue_resolution_for_entry(entry, board, gh_ops)
+    keyword = (
+        "Closes"
+        if entry.assignment_type in CLOSES_ISSUE_TYPES and resolution.value == "resolved"
+        else "Refs"
+    )
     return (
         f"{keyword} #{entry.issue_number}\n\n"
         f"Automated merge from the coordinator for assignment "
@@ -6528,6 +6555,58 @@ def _work_assignment_for_entry(entry: QueuedMerge, board) -> Assignment | None:
         if getattr(a, "assignment_id", None) == entry.assignment_id and getattr(a, "type", None) == "work":
             return a
     return None
+
+
+def _issue_resolution_for_entry(
+    entry: QueuedMerge, board, gh_ops: "GhOps | None" = None,
+) -> IssueResolution:
+    """(#3502) The EFFECTIVE `ISSUE_RESOLUTION:` verdict for *entry* — the
+    worker's own judgment (its `completion_summary`), folded with the
+    approving reviewer's judgment (when one exists), reviewer winning any
+    disagreement that makes it MORE cautious, never less
+    (:func:`coord.models.effective_issue_resolution`).
+
+    Both halves degrade gracefully to "resolved" (today's unconditional
+    behaviour) when unavailable:
+
+    * *board* is ``None``, or the originating `work` assignment can't be
+      found on it (:func:`_work_assignment_for_entry`) — no worker claim to
+      read.
+    * No approving review is found (:func:`scan_approved_reviews`), or its
+      findings can't be recovered from the GitHub message bus
+      (:func:`coord.review.fetch_review_findings_from_github` — the one
+      review-findings source this module can reach without a notify.py/
+      state.py DB round trip) — no reviewer claim to read.
+
+    Deferred-imports `coord.review` to avoid a circular import (`review.py`
+    does not import `merge_queue.py` at module level, but keeping the
+    import local here mirrors every other cross-module deferred import in
+    this file).
+    """
+    work = _work_assignment_for_entry(entry, board)
+    worker_resolution = parse_issue_resolution(
+        getattr(work, "completion_summary", None) if work is not None else None
+    )
+
+    reviewer_resolution: IssueResolution | None = None
+    if board is not None:
+        scan = scan_approved_reviews(entry, board, gh_ops)
+        review_assignment = scan.review_assignment
+        if scan.approved and review_assignment is not None:
+            from coord.review import fetch_review_findings_from_github  # noqa: PLC0415
+
+            try:
+                findings = fetch_review_findings_from_github(
+                    entry.repo_github,
+                    entry.issue_number,
+                    review_assignment.assignment_id,
+                )
+            except Exception:  # noqa: BLE001 — best-effort; falls back to the worker's claim
+                findings = None
+            if findings is not None:
+                reviewer_resolution = findings.issue_resolution
+
+    return effective_issue_resolution(worker_resolution, reviewer_resolution)
 
 
 def _test_author_effective_issue_number(entry: QueuedMerge, board) -> int | None:
@@ -7228,6 +7307,18 @@ def process(
     an ``epic_closing_keyword_in_commit_forced`` warning event is still
     emitted — the override is never silent.
 
+    #3522: the identical commit-message shape for THIS entry's own issue
+    (``issue_resolution_closing_keyword_in_commit`` — a `partial`/
+    `investigation` ``ISSUE_RESOLUTION:`` verdict contradicted by its own
+    commit message) is, unlike the epic case above, actually remedied: the
+    moment the refusal fires, *board* and *config* permitting, this
+    dispatches a message-only reword-commit worker
+    (:func:`coord.conflict_fix.dispatch_conflict_fix` with
+    ``reword_commit=True``) so a future `coord merge` attempt can clear the
+    refusal without an operator force-push. The merge itself still refuses
+    THIS attempt either way — the dispatch is fire-and-forget, never
+    awaited inline.
+
     Mutates `items` in place; the caller saves the queue after.
     """
     events: list[MergeEvent] = []
@@ -7702,7 +7793,7 @@ def process(
                         base=entry.target_branch,
                         head=entry.branch,
                         title=f"#{entry.issue_number}: {entry.issue_title}",
-                        body=_briefing_body(entry),
+                        body=_briefing_body(entry, board, gh_ops),
                     )
                 except Exception as e:  # noqa: BLE001 — surface gh failure as event
                     events.append(MergeEvent(entry, "error", f"create_pr failed: {e}"))
@@ -8330,16 +8421,37 @@ def process(
                         _epic_cache[n] = False
                 return _epic_cache[n]
 
-            # #1196 hole 2 / #1318: GitHub's own closing-keyword magic reads
-            # the PR body directly at merge time and never calls
+            # #3502: resolve the EFFECTIVE worker+reviewer `ISSUE_RESOLUTION:`
+            # verdict for this entry ONCE, up front — before the PR-body lint
+            # below (which must downgrade an already-existing `Closes #N` to
+            # `Refs #N` whenever the verdict is not "resolved", the headline
+            # bug this issue fixes: a PR opened early with the worker's
+            # `resolved` claim baked into its body, later overridden by a
+            # more-cautious reviewer verdict, never gets its body rewritten
+            # today) and the post-merge close/comment decision further below
+            # (which reuses this exact same value rather than recomputing it
+            # — avoiding a second `gh`/GitHub review-findings round trip for
+            # every `CLOSES_ISSUE_TYPES` merge).
+            issue_resolution = (
+                _issue_resolution_for_entry(entry, board, gh_ops)
+                if entry.assignment_type in CLOSES_ISSUE_TYPES
+                else IssueResolution()
+            )
+
+            # #1196 hole 2 / #1318 / #3502: GitHub's own closing-keyword magic
+            # reads the PR body directly at merge time and never calls
             # `github_ops.close_issue` — that chokepoint's open-children
-            # guard can't stop it. Scan the body for `Closes #N`/`Fixes
-            # #N`/`Resolves #N` and downgrade to `Refs #N` for any N that
-            # either currently has open children (#1196) or carries the
-            # epic/tracking label (#1318 — an epic can have zero open
-            # children today and still be the wrong thing to auto-close),
-            # before the merge lands. Best effort throughout: a lint
-            # failure must never block a merge.
+            # guard (and the `ISSUE_RESOLUTION:` veto above) can't stop it.
+            # Scan the body for `Closes #N`/`Fixes #N`/`Resolves #N` and
+            # downgrade to `Refs #N` for any N that either currently has open
+            # children (#1196), carries the epic/tracking label (#1318 — an
+            # epic can have zero open children today and still be the wrong
+            # thing to auto-close), or whose EFFECTIVE `ISSUE_RESOLUTION:` is
+            # not "resolved" (#3502 — a reviewer's `partial`/`investigation`
+            # verdict, posted after the PR already existed with the worker's
+            # `resolved` claim baked into `Closes #N`, must still win), before
+            # the merge lands. Best effort throughout: a lint failure must
+            # never block a merge.
             try:
                 pr_body = gh_ops.get_pr_body(entry.repo_github, entry.pr_number)
             except Exception:  # noqa: BLE001
@@ -8355,16 +8467,33 @@ def process(
                         pass
                     if _is_epic(n):
                         blocking.add(n)
+                    if (
+                        n == entry.issue_number
+                        and entry.assignment_type in CLOSES_ISSUE_TYPES
+                        and issue_resolution.value != "resolved"
+                    ):
+                        blocking.add(n)
                 if blocking:
                     new_body, downgraded = downgrade_closing_keywords(pr_body, blocking)
                     if downgraded:
+                        issue_resolution_hit = (
+                            entry.issue_number in downgraded
+                            and entry.assignment_type in CLOSES_ISSUE_TYPES
+                            and issue_resolution.value != "resolved"
+                        )
+                        reason = (
+                            f"open children / epic / ISSUE_RESOLUTION:"
+                            f" {issue_resolution.value} — #1196/#1318/#3502"
+                            if issue_resolution_hit
+                            else "open children / epic — #1196/#1318"
+                        )
                         try:
                             gh_ops.edit_pr_body(entry.repo_github, entry.pr_number, new_body)
                             events.append(MergeEvent(
                                 entry, "pr_body_downgraded",
                                 "downgraded closing keyword to Refs for "
                                 + ", ".join(f"#{n}" for n in downgraded)
-                                + " (open children / epic — #1196/#1318)",
+                                + f" ({reason})",
                             ))
                         except Exception as e:  # noqa: BLE001
                             events.append(MergeEvent(
@@ -8416,6 +8545,111 @@ def process(
                     ))
                     continue  # #1318: refuse — never merge a branch that will
                     # auto-close an epic via a commit message we can't rewrite.
+
+            # #3502: the identical gap, for THIS entry's own issue. The
+            # PR-body lint above can rewrite `Closes #N` -> `Refs #N` in the
+            # PR *body* when the effective `ISSUE_RESOLUTION:` verdict is
+            # not "resolved" — but a worker's own commit SUBJECT using a
+            # closing keyword (this repo's own convention, e.g. `Fix #N: ...`
+            # — confirmed to match `_CLOSING_RE` regardless of the trailing
+            # colon) auto-closes the issue via GitHub's commit-message scan
+            # once it lands on the base branch, independent of the PR body
+            # entirely. Same unrewritable-history constraint as the epic
+            # case above: block rather than let a `partial`/`investigation`
+            # verdict be silently defeated, with the same `--force-merge`
+            # escape hatch.
+            if (
+                entry.assignment_type in CLOSES_ISSUE_TYPES
+                and issue_resolution.value != "resolved"
+                and entry.issue_number in commit_referenced
+            ):
+                msg = (
+                    f"a commit message on this branch contains a closing keyword "
+                    f"(Closes/Fixes/Resolves) for #{entry.issue_number}, but this "
+                    f"PR is marked `ISSUE_RESOLUTION: {issue_resolution.value}` — "
+                    f"GitHub would auto-close the issue on merge regardless of the "
+                    f"PR body (#3502). Reword the commit message(s) to 'refs #N' "
+                    f"and push, or pass --force-merge to merge anyway (the issue "
+                    f"WILL still auto-close). The coordinator dispatches an "
+                    f"automatic reword-commit worker for this (#3522); resuming "
+                    f"a drive session cannot fix it on its own."
+                )
+                if force_merge:
+                    events.append(MergeEvent(
+                        entry, "issue_resolution_closing_keyword_in_commit_forced", msg,
+                    ))
+                else:
+                    entry.error = msg
+                    events.append(MergeEvent(
+                        entry, "issue_resolution_closing_keyword_in_commit", msg,
+                    ))
+                    # #3522: nothing ever remedied this refusal before — a
+                    # worker's own commit convention (e.g. `Fix #N: ...`)
+                    # deadlocked every retry, and the drive-queue's own
+                    # resume sweep (`coord.drive_queue._reconcile_blocked`)
+                    # burned its resume budget relaunching into the
+                    # identical, unfixable-by-relaunch block
+                    # (claude-coordinator#3519). Dispatch the narrow,
+                    # message-only remedy the instant the gate fires, right
+                    # here — the SAME dispatcher #241/#3349 already use for
+                    # the mechanical/stale-CI shapes, so this is one more
+                    # caller of an existing worker, not a new mechanism.
+                    # Best-effort: *board*/*config* are only ``None`` for a
+                    # caller that never wired merge-gate state through in
+                    # the first place (dry runs, some unit tests), and a
+                    # dispatch failure (no machine, agent unreachable, …)
+                    # must never take down the merge refusal it's trying to
+                    # remedy.
+                    if board is not None and config is not None:
+                        # #3522 review (non-blocking): align with every other
+                        # `dispatch_conflict_fix` call site
+                        # (`commands/merge.py`'s `_machine_for_assignment`,
+                        # `notify.py`'s `prefer_machine=work.machine_name`) —
+                        # prefer the original worker's machine (it already
+                        # has the repo/branch checked out), opt into the
+                        # #3353 live-liveness check via `status_fetcher` (so
+                        # a machine that merely LOOKS idle because it's
+                        # offline isn't picked), and capture a rich decline
+                        # reason via `machine_pick_out` instead of the bare
+                        # `fix is None` the original code silently swallowed.
+                        from coord.conflict_fix import (  # noqa: PLC0415
+                            describe_conflict_fix_decline,
+                            dispatch_conflict_fix,
+                        )
+                        from coord.network import fetch_status  # noqa: PLC0415
+
+                        pick_out: list = []
+                        fix = None
+                        try:
+                            prefer = None
+                            target = board.find_by_id(entry.assignment_id)
+                            if target is not None:
+                                prefer = target.machine_name
+
+                            fix = dispatch_conflict_fix(
+                                entry, board, config, reword_commit=True,
+                                prefer_machine=prefer,
+                                status_fetcher=fetch_status,
+                                machine_pick_out=pick_out,
+                            )
+                        except Exception:  # noqa: BLE001
+                            fix = None
+                        if fix is not None:
+                            events.append(MergeEvent(
+                                entry, "issue_resolution_reword_dispatched",
+                                f"dispatched a reword-commit worker to "
+                                f"{fix.machine_name} for #{entry.issue_number} "
+                                f"(#3522)",
+                            ))
+                        else:
+                            events.append(MergeEvent(
+                                entry, "conflict_fix_dispatch_declined",
+                                "reword-commit dispatch declined: "
+                                + describe_conflict_fix_decline(pick_out),
+                            ))
+                    continue  # #3502: refuse — never merge a branch that will
+                    # auto-close an issue marked not-yet-resolved via a commit
+                    # message we can't rewrite.
 
             # #1467: pre-flight linearity check. GitHub refuses to
             # rebase-merge any branch containing a merge commit ("This
@@ -8487,7 +8721,21 @@ def process(
                 # entry's issue_number is the milestone's tracking issue —
                 # closing it here would be the exact #1077 bug regardless of
                 # what the PR body says.
-                if entry.assignment_type in CLOSES_ISSUE_TYPES:
+                #
+                # #3502: NOT ENOUGH, though — even for a CLOSES_ISSUE_TYPES
+                # entry, the worker's/reviewer's own `ISSUE_RESOLUTION:`
+                # judgment can veto the close. Already resolved once per
+                # merge, up near the PR-body lint above (which needs the
+                # same verdict to decide whether to downgrade an
+                # already-existing `Closes #N` to `Refs #N` BEFORE
+                # `gh_ops.merge_pr` runs) — reused here as-is so the
+                # close-or-not decision, the PR-body lint, and the comment
+                # posted below all read the identical verdict, and so this
+                # doesn't cost a second `gh`/review-findings round trip.
+                if (
+                    entry.assignment_type in CLOSES_ISSUE_TYPES
+                    and issue_resolution.value == "resolved"
+                ):
                     try:
                         gh_ops.close_issue(entry.repo_github, entry.issue_number)
                         events.append(MergeEvent(
@@ -8501,6 +8749,40 @@ def process(
                             f"merged PR #{entry.pr_number} (warning: could not "
                             f"close issue #{entry.issue_number}: {e}){bypass_note}",
                         ))
+                elif (
+                    entry.assignment_type in CLOSES_ISSUE_TYPES
+                    and issue_resolution.value != "resolved"
+                ):
+                    # #3502: the worker/reviewer said this PR does NOT
+                    # resolve the issue — never close it, and tell anyone
+                    # watching the issue (not just the queue DB) what
+                    # remains, quoting whichever side's judgment won
+                    # (`_issue_resolution_for_entry`/`effective_issue_resolution`).
+                    remainder = (
+                        issue_resolution.reason
+                        or "the worker/reviewer marked this PR as not fully "
+                        "resolving the issue — see the PR for details."
+                    )
+                    comment_body = (
+                        f"Merged PR #{entry.pr_number}, but this is marked "
+                        f"`ISSUE_RESOLUTION: {issue_resolution.value}` — this "
+                        f"issue is intentionally left OPEN.\n\nWhat remains: "
+                        f"{remainder}"
+                    )
+                    try:
+                        comment_on_issue(
+                            entry.repo_name, entry.issue_number, comment_body,
+                            repo_github=entry.repo_github,
+                        )
+                        comment_note = ""
+                    except Exception as e:  # noqa: BLE001 — never fail a merge on a comment
+                        comment_note = f" (warning: could not post remainder comment: {e})"
+                    events.append(MergeEvent(
+                        entry, "merged_partial",
+                        f"merged PR #{entry.pr_number}; issue #{entry.issue_number} "
+                        f"left open ({issue_resolution.value}: {remainder})"
+                        f"{bypass_note}{comment_note}",
+                    ))
                 else:
                     events.append(MergeEvent(
                         entry, "merged",

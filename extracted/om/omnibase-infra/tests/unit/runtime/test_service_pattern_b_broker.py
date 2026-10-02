@@ -1,0 +1,1406 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+from __future__ import annotations
+
+import asyncio
+import json
+from datetime import UTC, datetime
+from pathlib import Path
+from types import SimpleNamespace
+from typing import ClassVar
+from unittest.mock import AsyncMock
+from uuid import uuid4
+
+import pytest
+
+from omnibase_core.models.dispatch.model_dispatch_bus_command import (
+    ModelDispatchBusCommand,
+)
+from omnibase_core.models.dispatch.model_dispatch_bus_terminal_result import (
+    ModelDispatchBusTerminalResult,
+)
+from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
+from omnibase_infra.errors import ProtocolConfigurationError
+from omnibase_infra.event_bus.event_bus_inmemory import EventBusInmemory
+from omnibase_infra.event_bus.models.model_event_message import ModelEventMessage
+from omnibase_infra.event_bus.topic_constants import derive_event_type_alias_for_topic
+from omnibase_infra.runtime.auto_wiring.handler_wiring import (
+    _make_sync_event_publisher,
+)
+from omnibase_infra.runtime.contract_terminal_events import load_terminal_event_topics
+from omnibase_infra.runtime.runtime_host_process import RuntimeHostProcess
+from omnibase_infra.runtime.runtime_local_ingress import (
+    ModelRuntimeLocalIngressRoute,
+    discover_runtime_local_ingress_routes,
+)
+from omnibase_infra.runtime.service_pattern_b_broker import RuntimePatternBBroker
+
+pytestmark = pytest.mark.unit
+
+
+# OMN-18013: the auto-wired consume boundary stamps the DERIVED ALIAS for a
+# topic, never the topic string. Deriving it here means these tests cannot pass
+# on a spelling the bus does not carry.
+_PATTERN_B_TOPIC = "onex.cmd.omnibase-infra.pattern-b-dispatch.v1"  # onex-topic-allow: the topic whose alias is derived below
+_PATTERN_B_EVENT_TYPE = derive_event_type_alias_for_topic(_PATTERN_B_TOPIC)
+
+
+def _route() -> ModelRuntimeLocalIngressRoute:
+    return ModelRuntimeLocalIngressRoute(
+        node_name="node_session_orchestrator",
+        contract_name="session_orchestrator",
+        command_topic="onex.cmd.omnimarket.session-orchestrator-start.v1",
+        event_type="omnimarket.session-orchestrator-start",
+        terminal_event="onex.evt.omnimarket.session-orchestrator-completed.v1",
+        contract_path="/tmp/node_session_orchestrator/contract.yaml",  # noqa: S108
+        package_name="omnimarket",
+    )
+
+
+def _route_with_failure_terminal() -> ModelRuntimeLocalIngressRoute:
+    route = _route()
+    return ModelRuntimeLocalIngressRoute(
+        node_name=route.node_name,
+        contract_name=route.contract_name,
+        command_topic=route.command_topic,
+        event_type=route.event_type,
+        terminal_event=route.terminal_event,
+        contract_path=route.contract_path,
+        package_name=route.package_name,
+        terminal_events=(
+            "onex.evt.omnimarket.session-orchestrator-completed.v1",
+            "onex.evt.omnimarket.session-orchestrator-failed.v1",
+        ),
+    )
+
+
+def _route_with_plural_only_terminal() -> ModelRuntimeLocalIngressRoute:
+    route = _route()
+    return ModelRuntimeLocalIngressRoute(
+        node_name=route.node_name,
+        contract_name=route.contract_name,
+        command_topic=route.command_topic,
+        event_type=route.event_type,
+        terminal_event=None,
+        contract_path=route.contract_path,
+        package_name=route.package_name,
+        terminal_events=("onex.evt.omnimarket.session-orchestrator-completed.v1",),
+    )
+
+
+async def _collect_terminal_result(
+    bus: EventBusInmemory,
+    response_topic: str,
+) -> asyncio.Queue[ModelDispatchBusTerminalResult]:
+    queue: asyncio.Queue[ModelDispatchBusTerminalResult] = asyncio.Queue(maxsize=1)
+
+    async def on_message(message: ModelEventMessage) -> None:
+        envelope = ModelEventEnvelope[
+            ModelDispatchBusTerminalResult
+        ].model_validate_json(message.value)
+        if queue.empty():
+            await queue.put(envelope.payload)
+
+    await bus.subscribe(
+        response_topic,
+        group_id=f"collector-{uuid4()}",
+        on_message=on_message,
+    )
+    return queue
+
+
+class _FakeAIOKafkaConsumer:
+    created: ClassVar[list[_FakeAIOKafkaConsumer]] = []
+    stop_error: ClassVar[Exception | None] = None
+    topic_partitions_by_topic: ClassVar[dict[str, set[int]] | None] = None
+    require_metadata_refresh: ClassVar[bool] = False
+
+    def __init__(
+        self,
+        *topics: object,
+        api_version: str | None = None,
+        **kwargs: object,
+    ) -> None:
+        self.topics = topics
+        if api_version is not None:
+            kwargs["api_version"] = api_version
+        self.kwargs = kwargs
+        self._client = _FakeAIOKafkaClient(self)
+        self.messages: asyncio.Queue[SimpleNamespace] = asyncio.Queue()
+        self.assigned_partitions: set[object] = set()
+        self.metadata_refreshed = False
+        self.topics_calls = 0
+        self.set_topics_calls: list[tuple[str, ...]] = []
+        self.seeked_to_end = False
+        # True once the consume leg has pinned its read position to the current
+        # end — either the legacy lazy ``seek_to_end`` or, post-OMN-13118, the
+        # synchronous ``end_offsets`` + ``seek`` pinning.
+        self.positioned = False
+        self.started = False
+        self.stopped = False
+        type(self).created.append(self)
+
+    async def start(self) -> None:
+        await asyncio.sleep(0)
+        self.started = True
+
+    async def topics(self) -> set[str]:
+        await asyncio.sleep(0)
+        self.topics_calls += 1
+        self.metadata_refreshed = True
+        if type(self).topic_partitions_by_topic is not None:
+            return set(type(self).topic_partitions_by_topic)
+        return {"onex.evt.omnimarket.session-orchestrator-completed.v1"}
+
+    def partitions_for_topic(self, topic: str) -> set[int]:
+        if not self.started or not topic:
+            return set()
+        if type(self).require_metadata_refresh and not self.metadata_refreshed:
+            return set()
+        if (
+            type(self).require_metadata_refresh
+            and topic not in self._client.tracked_topics
+        ):
+            return set()
+        if type(self).topic_partitions_by_topic is not None:
+            return set(type(self).topic_partitions_by_topic.get(topic, set()))
+        return {0}
+
+    def assign(self, partitions: set[object]) -> None:
+        self.assigned_partitions = partitions
+
+    def assignment(self) -> set[object]:
+        return self.assigned_partitions
+
+    async def seek_to_end(self, *_assignment: object) -> None:
+        await asyncio.sleep(0)
+        self.seeked_to_end = True
+        self.positioned = True
+
+    async def end_offsets(self, partitions: object) -> dict[object, int]:
+        # Synchronous broker round-trip returning the current HWM per partition
+        # (queue-backed fake delivers regardless of offset, so 0 is faithful for
+        # the "next message" offset here). Does not change position.
+        await asyncio.sleep(0)
+        return dict.fromkeys(partitions, 0)
+
+    def seek(self, _partition: object, _offset: int) -> None:
+        # Synchronous pin (OMN-13118): the position is fixed at open() time.
+        self.positioned = True
+
+    async def getone(self) -> SimpleNamespace:
+        return await self.messages.get()
+
+    async def stop(self) -> None:
+        await asyncio.sleep(0)
+        if type(self).stop_error is not None:
+            raise type(self).stop_error
+        self.stopped = True
+
+
+class _FakeAIOKafkaClient:
+    def __init__(self, consumer: _FakeAIOKafkaConsumer) -> None:
+        self._consumer = consumer
+        self.tracked_topics: set[str] = set()
+
+    def set_topics(self, topics: list[str]) -> bool:
+        self.tracked_topics = set(topics)
+        self._consumer.set_topics_calls.append(tuple(topics))
+        self._consumer.metadata_refreshed = True
+        return True
+
+
+def _install_fake_aiokafka_consumer(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    stop_error: Exception | None = None,
+) -> list[_FakeAIOKafkaConsumer]:
+    _FakeAIOKafkaConsumer.created = []
+    _FakeAIOKafkaConsumer.stop_error = stop_error
+    _FakeAIOKafkaConsumer.topic_partitions_by_topic = None
+    _FakeAIOKafkaConsumer.require_metadata_refresh = False
+    monkeypatch.setattr(
+        "omnibase_infra.runtime.service_pattern_b_broker.AIOKafkaConsumer",
+        _FakeAIOKafkaConsumer,
+    )
+    return _FakeAIOKafkaConsumer.created
+
+
+class _FakeKafkaTransport:
+    config = SimpleNamespace(
+        session_timeout_ms=45000,
+        heartbeat_interval_ms=15000,
+        max_poll_interval_ms=300000,
+        reconnect_backoff_ms=2000,
+        api_version="2.8.0",
+    )
+    _bootstrap_servers = "pattern-b-test-broker"
+
+    def __init__(
+        self,
+        route: ModelRuntimeLocalIngressRoute,
+        consumers: list[_FakeAIOKafkaConsumer],
+        *,
+        terminal_topic: str | None = None,
+        terminal_payload: dict[str, object] | None = None,
+        assert_seeked: bool = False,
+    ) -> None:
+        self._route = route
+        self._consumers = consumers
+        self._terminal_topic = terminal_topic
+        self._terminal_payload = terminal_payload or {
+            "status": "complete",
+            "dispatch_count": 5,
+        }
+        self._assert_seeked = assert_seeked
+
+    def _build_auth_kwargs(self) -> dict[str, object]:
+        return {}
+
+    async def publish(
+        self,
+        _topic: str,
+        _key: bytes | None,
+        value: bytes,
+        _headers: object | None = None,
+    ) -> None:
+        assert self._consumers
+        command_envelope = ModelEventEnvelope[object].model_validate_json(value)
+        terminal_topic = self._terminal_topic or self._route.terminal_event or "unknown"
+
+        # OMN-13128: the broker opens one INDEPENDENT consumer per terminal topic.
+        # Deliver the terminal to the consumer that actually holds the terminal
+        # topic's partition (mirrors the real broker producing to a topic and the
+        # subscribed consumer reading it). Fall back to the last-created consumer
+        # for the single-terminal-topic routes where there is exactly one.
+        target = next(
+            (
+                consumer
+                for consumer in self._consumers
+                if any(
+                    getattr(partition, "topic", "") == terminal_topic
+                    for partition in consumer.assigned_partitions
+                )
+            ),
+            self._consumers[-1],
+        )
+        if self._assert_seeked:
+            assert all(consumer.positioned is True for consumer in self._consumers)
+
+        terminal_envelope = ModelEventEnvelope[object](
+            payload=self._terminal_payload,
+            correlation_id=command_envelope.correlation_id,
+            envelope_timestamp=datetime.now(UTC),
+            event_type=terminal_topic,
+            source_tool="session_orchestrator",
+        )
+        await target.messages.put(
+            SimpleNamespace(
+                topic=terminal_topic,
+                value=terminal_envelope.model_dump_json().encode(),
+            )
+        )
+
+    def subscribe(
+        self,
+        *_args: object,
+        **_kwargs: object,
+    ) -> object:
+        pytest.fail("Kafka-backed terminal waits should use a direct consumer")
+
+
+@pytest.mark.asyncio
+async def test_service_pattern_b_broker_round_trips_terminal_event() -> None:
+    bus = EventBusInmemory(environment="test", group="pattern-b")
+    await bus.start()
+
+    route = _route()
+    broker = RuntimePatternBBroker(
+        bus,
+        command_topic="onex.cmd.omnibase-infra.pattern-b-dispatch.v1",
+        routes={"session_orchestrator": route},
+    )
+    await broker.start()
+
+    async def worker(message: ModelEventMessage) -> None:
+        envelope = ModelEventEnvelope[object].model_validate_json(message.value)
+        terminal_envelope = ModelEventEnvelope[object](
+            payload={"status": "complete", "dispatch_count": 5},
+            correlation_id=envelope.correlation_id,
+            envelope_timestamp=datetime.now(UTC),
+            event_type=route.terminal_event,
+            source_tool="session_orchestrator",
+        )
+        await bus.publish(
+            route.terminal_event or "unknown",
+            None,
+            terminal_envelope.model_dump_json().encode("utf-8"),
+            None,
+        )
+
+    await bus.subscribe(route.command_topic, group_id="worker", on_message=worker)
+
+    response_topic = "onex.evt.pattern-b.dispatch-completed.v1"
+    results = await _collect_terminal_result(bus, response_topic)
+
+    command = ModelDispatchBusCommand(
+        command_name="session_orchestrator",
+        requester="codex",
+        payload={"dry_run": True},
+        response_topic=response_topic,
+        timeout_seconds=1,
+    )
+    envelope = ModelEventEnvelope[ModelDispatchBusCommand](
+        payload=command,
+        correlation_id=command.correlation_id,
+        envelope_timestamp=datetime.now(UTC),
+        event_type=_PATTERN_B_EVENT_TYPE,
+        source_tool="codex",
+    )
+    await bus.publish(
+        "onex.cmd.omnibase-infra.pattern-b-dispatch.v1",
+        None,
+        envelope.model_dump_json().encode("utf-8"),
+        None,
+    )
+
+    result = await asyncio.wait_for(results.get(), timeout=2)
+
+    assert result.status == "completed"
+    assert result.payload == {"status": "complete", "dispatch_count": 5}
+
+    await broker.stop()
+    await bus.close()
+
+
+@pytest.mark.asyncio
+async def test_service_pattern_b_broker_returns_failed_for_failure_terminal() -> None:
+    bus = EventBusInmemory(environment="test", group="pattern-b")
+    await bus.start()
+
+    route = _route_with_failure_terminal()
+    failure_topic = route.terminal_events[1]
+    broker = RuntimePatternBBroker(
+        bus,
+        command_topic="onex.cmd.omnibase-infra.pattern-b-dispatch.v1",
+        routes={"session_orchestrator": route},
+    )
+    await broker.start()
+
+    async def worker(message: ModelEventMessage) -> None:
+        envelope = ModelEventEnvelope[object].model_validate_json(message.value)
+        terminal_envelope = ModelEventEnvelope[object](
+            payload={"payload": {"failure_reason": "configured endpoint missing"}},
+            correlation_id=envelope.correlation_id,
+            envelope_timestamp=datetime.now(UTC),
+            event_type=failure_topic,
+            source_tool="session_orchestrator",
+        )
+        await bus.publish(
+            failure_topic,
+            None,
+            terminal_envelope.model_dump_json().encode("utf-8"),
+            None,
+        )
+
+    await bus.subscribe(route.command_topic, group_id="worker", on_message=worker)
+
+    response_topic = "onex.evt.pattern-b.dispatch-completed.v1"
+    results = await _collect_terminal_result(bus, response_topic)
+
+    command = ModelDispatchBusCommand(
+        command_name="session_orchestrator",
+        requester="codex",
+        payload={"dry_run": True},
+        response_topic=response_topic,
+        timeout_seconds=1,
+    )
+    envelope = ModelEventEnvelope[ModelDispatchBusCommand](
+        payload=command,
+        correlation_id=command.correlation_id,
+        envelope_timestamp=datetime.now(UTC),
+        event_type=_PATTERN_B_EVENT_TYPE,
+        source_tool="codex",
+    )
+    await bus.publish(
+        "onex.cmd.omnibase-infra.pattern-b-dispatch.v1",
+        None,
+        envelope.model_dump_json().encode("utf-8"),
+        None,
+    )
+
+    result = await asyncio.wait_for(results.get(), timeout=2)
+
+    assert result.status == "failed"
+    assert result.error_message == "configured endpoint missing"
+
+    await broker.stop()
+    await bus.close()
+
+
+@pytest.mark.asyncio
+async def test_service_pattern_b_broker_kafka_waiter_pins_end_offset_before_dispatch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    route = _route()
+    created_consumers = _install_fake_aiokafka_consumer(monkeypatch)
+
+    broker = RuntimePatternBBroker(
+        _FakeKafkaTransport(route, created_consumers, assert_seeked=True),
+        command_topic="onex.cmd.omnibase-infra.pattern-b-dispatch.v1",
+        routes={"session_orchestrator": route},
+    )
+    command = ModelDispatchBusCommand(
+        command_name="session_orchestrator",
+        requester="codex",
+        payload={"dry_run": True},
+        response_topic="onex.evt.pattern-b.dispatch-completed.v1",
+        timeout_seconds=1,
+    )
+
+    resolved_route, result = await broker.dispatch_request(command)
+
+    assert resolved_route == route
+    assert result.status == "completed"
+    assert result.payload == {"status": "complete", "dispatch_count": 5}
+    assert created_consumers[0].kwargs["group_id"] is None
+    assert created_consumers[0].kwargs["api_version"] == "2.8.0"
+    assert created_consumers[0].assigned_partitions
+    assert created_consumers[0].stopped is True
+
+
+@pytest.mark.asyncio
+async def test_service_pattern_b_broker_kafka_waiter_refreshes_topic_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    route = _route()
+    created_consumers = _install_fake_aiokafka_consumer(monkeypatch)
+    _FakeAIOKafkaConsumer.require_metadata_refresh = True
+
+    broker = RuntimePatternBBroker(
+        _FakeKafkaTransport(route, created_consumers, assert_seeked=True),
+        command_topic="onex.cmd.omnibase-infra.pattern-b-dispatch.v1",
+        routes={"session_orchestrator": route},
+    )
+    command = ModelDispatchBusCommand(
+        command_name="session_orchestrator",
+        requester="codex",
+        payload={"dry_run": True},
+        response_topic="onex.evt.pattern-b.dispatch-completed.v1",
+        timeout_seconds=1,
+    )
+
+    resolved_route, result = await broker.dispatch_request(command)
+
+    assert resolved_route == route
+    assert result.status == "completed"
+    assert created_consumers[0].set_topics_calls
+    assert created_consumers[0].assigned_partitions
+
+
+@pytest.mark.asyncio
+async def test_service_pattern_b_broker_kafka_waiter_consumes_failure_terminal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    route = _route_with_failure_terminal()
+    failure_topic = route.terminal_events[1]
+    created_consumers = _install_fake_aiokafka_consumer(monkeypatch)
+
+    broker = RuntimePatternBBroker(
+        _FakeKafkaTransport(
+            route,
+            created_consumers,
+            terminal_topic=failure_topic,
+            terminal_payload={
+                "payload": {"failure_reason": "routing contract missing"}
+            },
+        ),
+        command_topic="onex.cmd.omnibase-infra.pattern-b-dispatch.v1",
+        routes={"session_orchestrator": route},
+    )
+    command = ModelDispatchBusCommand(
+        command_name="session_orchestrator",
+        requester="codex",
+        payload={"dry_run": True},
+        response_topic="onex.evt.pattern-b.dispatch-completed.v1",
+        timeout_seconds=1,
+    )
+
+    resolved_route, result = await broker.dispatch_request(command)
+
+    assert resolved_route == route
+    # OMN-13128: one INDEPENDENT consumer per terminal topic, never one consumer
+    # holding both subscriptions. The broker opens completed then failed, so two
+    # consumers are created, each assigned the partitions of EXACTLY ONE topic.
+    assert len(created_consumers) == len(route.terminal_events)
+    assert all(consumer.topics == () for consumer in created_consumers)
+    assert all(consumer.kwargs["group_id"] is None for consumer in created_consumers)
+    per_consumer_topics = [
+        {getattr(partition, "topic", "") for partition in consumer.assigned_partitions}
+        for consumer in created_consumers
+    ]
+    # Each consumer's assignment is confined to a single terminal topic, and the
+    # union across the independent consumers covers both terminal topics.
+    assert all(len(topics) == 1 for topics in per_consumer_topics)
+    assert set().union(*per_consumer_topics) == set(route.terminal_events)
+    assert result.status == "failed"
+    assert result.error_message == "routing contract missing"
+    assert all(consumer.stopped is True for consumer in created_consumers)
+
+
+@pytest.mark.asyncio
+async def test_service_pattern_b_broker_correlates_completed_when_failed_topic_partitionless(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """OMN-13128: a never-produced FAILED topic must not block the COMPLETED win.
+
+    The runtime opens ONE independent consumer per terminal topic. When the FAILED
+    reply topic has never been produced to (zero partitions advertised — the
+    Redpanda auto-create-on-produce steady state, #1970), its consumer assigns the
+    empty set and its poll sleeps out the timeout, while the COMPLETED consumer —
+    its own independent subscription, positioned pre-publish — correlates the
+    terminal and wins the race. The prior single-consumer-both-topics shape could
+    not express this: it assigned both topics to one consumer and required BOTH to
+    surface partitions before it would assign at all.
+    """
+    route = _route_with_failure_terminal()
+    completed_topic, failed_topic = route.terminal_events
+    created_consumers = _install_fake_aiokafka_consumer(monkeypatch)
+    # COMPLETED has a partition (produced to); FAILED never has (partition-less).
+    _FakeAIOKafkaConsumer.topic_partitions_by_topic = {
+        completed_topic: {0},
+        failed_topic: set(),
+    }
+    _FakeAIOKafkaConsumer.require_metadata_refresh = True
+
+    broker = RuntimePatternBBroker(
+        _FakeKafkaTransport(route, created_consumers, terminal_topic=completed_topic),
+        command_topic="onex.cmd.omnibase-infra.pattern-b-dispatch.v1",
+        routes={"session_orchestrator": route},
+    )
+    command = ModelDispatchBusCommand(
+        command_name="session_orchestrator",
+        requester="codex",
+        payload={"dry_run": True},
+        response_topic="onex.evt.pattern-b.dispatch-completed.v1",
+        timeout_seconds=1,
+    )
+
+    resolved_route, result = await broker.dispatch_request(command)
+
+    assert resolved_route == route
+    # Two independent consumers were opened, one per terminal topic.
+    assert len(created_consumers) == len(route.terminal_events)
+    completed_consumer = next(
+        c
+        for c in created_consumers
+        if any(
+            getattr(p, "topic", "") == completed_topic for p in c.assigned_partitions
+        )
+    )
+    failed_consumer = next(c for c in created_consumers if c is not completed_consumer)
+    # The COMPLETED consumer holds its real partition; the partition-less FAILED
+    # consumer assigns the empty set and never blocks the COMPLETED win.
+    assert completed_consumer.assigned_partitions
+    assert not failed_consumer.assigned_partitions
+    assert result.status == "completed"
+    assert result.payload == {"status": "complete", "dispatch_count": 5}
+    assert all(consumer.stopped is True for consumer in created_consumers)
+
+
+@pytest.mark.asyncio
+async def test_service_pattern_b_broker_sanitizes_terminal_failure_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    route = _route_with_failure_terminal()
+    failure_topic = route.terminal_events[1]
+    created_consumers = _install_fake_aiokafka_consumer(monkeypatch)
+
+    broker = RuntimePatternBBroker(
+        _FakeKafkaTransport(
+            route,
+            created_consumers,
+            terminal_topic=failure_topic,
+            terminal_payload={
+                "payload": {
+                    "failure_reason": (
+                        "failed to connect to postgres://user:pass@db:5432/app"
+                    )
+                }
+            },
+        ),
+        command_topic="onex.cmd.omnibase-infra.pattern-b-dispatch.v1",
+        routes={"session_orchestrator": route},
+    )
+    command = ModelDispatchBusCommand(
+        command_name="session_orchestrator",
+        requester="codex",
+        payload={"dry_run": True},
+        response_topic="onex.evt.pattern-b.dispatch-completed.v1",
+        timeout_seconds=1,
+    )
+
+    _resolved_route, result = await broker.dispatch_request(command)
+
+    assert result.error_message == "[REDACTED - potentially sensitive data]"
+
+
+@pytest.mark.asyncio
+async def test_service_pattern_b_broker_accepts_plural_only_terminal_events() -> None:
+    bus = EventBusInmemory(environment="test", group="pattern-b")
+    await bus.start()
+
+    route = _route_with_plural_only_terminal()
+    broker = RuntimePatternBBroker(
+        bus,
+        command_topic="onex.cmd.omnibase-infra.pattern-b-dispatch.v1",
+        routes={"session_orchestrator": route},
+    )
+    await broker.start()
+
+    async def worker(message: ModelEventMessage) -> None:
+        envelope = ModelEventEnvelope[object].model_validate_json(message.value)
+        terminal_topic = route.terminal_events[0]
+        terminal_envelope = ModelEventEnvelope[object](
+            payload={"status": "complete"},
+            correlation_id=envelope.correlation_id,
+            envelope_timestamp=datetime.now(UTC),
+            event_type=terminal_topic,
+            source_tool="session_orchestrator",
+        )
+        await bus.publish(
+            terminal_topic,
+            None,
+            terminal_envelope.model_dump_json().encode("utf-8"),
+            None,
+        )
+
+    await bus.subscribe(route.command_topic, group_id="worker", on_message=worker)
+
+    command = ModelDispatchBusCommand(
+        command_name="session_orchestrator",
+        requester="codex",
+        payload={"dry_run": True},
+        response_topic="onex.evt.pattern-b.dispatch-completed.v1",
+        timeout_seconds=1,
+    )
+
+    _, result = await broker.dispatch_request(command)
+
+    assert result.status == "completed"
+    assert result.payload == {"status": "complete"}
+
+
+@pytest.mark.asyncio
+async def test_service_pattern_b_broker_preserves_result_when_kafka_stop_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    route = _route()
+    created_consumers = _install_fake_aiokafka_consumer(
+        monkeypatch,
+        stop_error=RuntimeError("failed to close terminal consumer"),
+    )
+
+    broker = RuntimePatternBBroker(
+        _FakeKafkaTransport(route, created_consumers),
+        command_topic="onex.cmd.omnibase-infra.pattern-b-dispatch.v1",
+        routes={"session_orchestrator": route},
+    )
+    command = ModelDispatchBusCommand(
+        command_name="session_orchestrator",
+        requester="codex",
+        payload={"dry_run": True},
+        response_topic="onex.evt.pattern-b.dispatch-completed.v1",
+        timeout_seconds=1,
+    )
+
+    resolved_route, result = await broker.dispatch_request(command)
+
+    assert resolved_route == route
+    assert result.status == "completed"
+    assert result.payload == {"status": "complete", "dispatch_count": 5}
+
+
+def test_service_pattern_b_broker_decodes_target_runtime_address_during_core_skew(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delitem(
+        ModelDispatchBusCommand.model_fields,
+        "target_runtime_address",
+        raising=False,
+    )
+    command = RuntimePatternBBroker._decode_dispatch_command_payload(
+        {
+            "command_name": "session_orchestrator",
+            "requester": "codex",
+            "payload": {"dry_run": True},
+            "response_topic": "onex.evt.pattern-b.dispatch-completed.v1",
+            "timeout_seconds": 1,
+            "target_runtime_address": "runtime://omninode-pc/stability-test/main",
+        }
+    )
+
+    assert command.command_name == "session_orchestrator"
+    assert command.requester == "codex"
+
+
+@pytest.mark.asyncio
+async def test_service_pattern_b_broker_publishes_timeout_result() -> None:
+    bus = EventBusInmemory(environment="test", group="pattern-b")
+    await bus.start()
+
+    route = _route()
+    broker = RuntimePatternBBroker(
+        bus,
+        command_topic="onex.cmd.omnibase-infra.pattern-b-dispatch.v1",
+        routes={"session_orchestrator": route},
+    )
+    await broker.start()
+
+    response_topic = "onex.evt.pattern-b.dispatch-completed.v1"
+    results = await _collect_terminal_result(bus, response_topic)
+
+    command = ModelDispatchBusCommand(
+        command_name="session_orchestrator",
+        requester="codex",
+        payload={"dry_run": True},
+        response_topic=response_topic,
+        timeout_seconds=1,
+    )
+    envelope = ModelEventEnvelope[ModelDispatchBusCommand](
+        payload=command,
+        correlation_id=command.correlation_id,
+        envelope_timestamp=datetime.now(UTC),
+        event_type=_PATTERN_B_EVENT_TYPE,
+        source_tool="codex",
+    )
+    await bus.publish(
+        "onex.cmd.omnibase-infra.pattern-b-dispatch.v1",
+        None,
+        envelope.model_dump_json().encode("utf-8"),
+        None,
+    )
+
+    result = await asyncio.wait_for(results.get(), timeout=2)
+
+    assert result.status == "timeout"
+    assert result.error_message is not None
+
+    await broker.stop()
+    await bus.close()
+
+
+@pytest.mark.asyncio
+async def test_service_pattern_b_broker_publishes_failed_result_for_unknown_route() -> (
+    None
+):
+    bus = EventBusInmemory(environment="test", group="pattern-b")
+    await bus.start()
+
+    broker = RuntimePatternBBroker(
+        bus,
+        command_topic="onex.cmd.omnibase-infra.pattern-b-dispatch.v1",
+        routes={},
+    )
+    await broker.start()
+
+    response_topic = "onex.evt.pattern-b.dispatch-completed.v1"
+    results = await _collect_terminal_result(bus, response_topic)
+
+    command = ModelDispatchBusCommand(
+        command_name="missing_route",
+        requester="codex",
+        payload={"dry_run": True},
+        response_topic=response_topic,
+        timeout_seconds=1,
+    )
+    envelope = ModelEventEnvelope[ModelDispatchBusCommand](
+        payload=command,
+        correlation_id=command.correlation_id,
+        envelope_timestamp=datetime.now(UTC),
+        event_type=_PATTERN_B_EVENT_TYPE,
+        source_tool="codex",
+    )
+    await bus.publish(
+        "onex.cmd.omnibase-infra.pattern-b-dispatch.v1",
+        None,
+        envelope.model_dump_json().encode("utf-8"),
+        None,
+    )
+
+    result = await asyncio.wait_for(results.get(), timeout=1)
+
+    assert result.status == "failed"
+    assert result.error_message is not None
+    assert "Unknown Pattern B route" in result.error_message
+
+    await broker.stop()
+    await bus.close()
+
+
+@pytest.mark.asyncio
+async def test_service_pattern_b_broker_sanitizes_dispatch_exception() -> None:
+    class FailingPublishTransport:
+        async def publish(
+            self,
+            _topic: str,
+            _key: bytes | None,
+            _value: bytes,
+            _headers: object | None = None,
+        ) -> None:
+            raise RuntimeError("failed to connect to postgres://user:pass@db:5432/app")
+
+        async def subscribe(
+            self,
+            _topic: str,
+            *_args: object,
+            **_kwargs: object,
+        ) -> object:
+            async def _unsubscribe() -> None:
+                return None
+
+            return _unsubscribe
+
+    route = _route()
+    broker = RuntimePatternBBroker(
+        FailingPublishTransport(),
+        command_topic="onex.cmd.omnibase-infra.pattern-b-dispatch.v1",
+        routes={"session_orchestrator": route},
+    )
+
+    command = ModelDispatchBusCommand(
+        command_name="session_orchestrator",
+        requester="codex",
+        payload={"dry_run": True},
+        response_topic="onex.evt.pattern-b.dispatch-completed.v1",
+        timeout_seconds=1,
+    )
+    resolved_route, result = await broker.dispatch_request(command)
+
+    assert resolved_route == route
+    assert result.status == "failed"
+    assert (
+        result.error_message == "RuntimeError: [REDACTED - potentially sensitive data]"
+    )
+
+
+@pytest.mark.asyncio
+async def test_runtime_host_process_starts_pattern_b_broker_when_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    route = _route()
+    captured: dict[str, object] = {}
+
+    class FakeBroker:
+        def __init__(
+            self,
+            event_bus: object,
+            *,
+            command_topic: str,
+            routes: object,
+        ) -> None:
+            captured["event_bus"] = event_bus
+            captured["command_topic"] = command_topic
+            captured["routes"] = routes
+            self.start = AsyncMock()
+            self.stop = AsyncMock()
+            captured["start_mock"] = self.start
+
+    monkeypatch.setattr(
+        "omnibase_infra.runtime.runtime_host_process.discover_runtime_local_ingress_routes",
+        lambda packages: (
+            captured.setdefault("packages", packages)
+            and {"session_orchestrator": route}
+        ),
+    )
+    monkeypatch.setattr(
+        "omnibase_infra.runtime.runtime_host_process.RuntimePatternBBroker",
+        FakeBroker,
+    )
+
+    process = RuntimeHostProcess(
+        event_bus=EventBusInmemory(environment="test", group="pattern-b"),
+        config={
+            "service_name": "test-service",
+            "node_name": "test-node",
+            "env": "test",
+            "version": "v1",
+            "pattern_b_broker": {
+                "enabled": True,
+                "command_topic": "onex.cmd.omnibase-infra.pattern-b-dispatch.v1",
+                "package_names": ["omnibase_infra", "omnimarket"],
+            },
+        },
+        dispatch_engine=AsyncMock(),
+    )
+
+    await process._start_pattern_b_broker()
+
+    assert process._pattern_b_broker is not None
+    assert captured["command_topic"] == "onex.cmd.omnibase-infra.pattern-b-dispatch.v1"
+    assert captured["packages"] == ("omnibase_infra", "omnimarket")
+    assert captured["routes"] == {"session_orchestrator": route}
+    start_mock = captured["start_mock"]
+    assert isinstance(start_mock, AsyncMock)
+    start_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_runtime_host_process_skips_pattern_b_broker_for_disallowed_profile(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("RUNTIME_PROFILE", "effects")
+    monkeypatch.setattr(
+        "omnibase_infra.runtime.runtime_host_process.discover_runtime_local_ingress_routes",
+        lambda _packages: pytest.fail("effects profile must not discover routes"),
+    )
+    monkeypatch.setattr(
+        "omnibase_infra.runtime.runtime_host_process.RuntimePatternBBroker",
+        lambda *_args, **_kwargs: pytest.fail(
+            "effects profile must not start Pattern B broker"
+        ),
+    )
+
+    process = RuntimeHostProcess(
+        event_bus=EventBusInmemory(environment="test", group="pattern-b"),
+        config={
+            "service_name": "test-service",
+            "node_name": "test-node",
+            "env": "test",
+            "version": "v1",
+            "pattern_b_broker": {
+                "enabled": True,
+                "enabled_profiles": ["main"],
+                "package_names": ["omnibase_infra", "omnimarket"],
+            },
+        },
+        dispatch_engine=AsyncMock(),
+    )
+
+    await process._start_pattern_b_broker()
+
+    assert process._pattern_b_broker is None
+
+
+def test_runtime_host_process_treats_blank_runtime_profile_as_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("RUNTIME_PROFILE", "   ")
+
+    process = RuntimeHostProcess(
+        event_bus=EventBusInmemory(environment="test", group="pattern-b"),
+        config={
+            "service_name": "test-service",
+            "node_name": "test-node",
+            "env": "test",
+            "version": "v1",
+            "pattern_b_broker": {
+                "enabled": True,
+                "enabled_profiles": ["default"],
+            },
+        },
+        dispatch_engine=AsyncMock(),
+    )
+
+    assert process._is_pattern_b_broker_effectively_enabled() is True
+
+
+@pytest.mark.asyncio
+async def test_runtime_host_process_broker_package_names_ignore_active_runtime_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    route = _route()
+    captured: dict[str, object] = {}
+
+    class FakeBroker:
+        def __init__(
+            self,
+            event_bus: object,
+            *,
+            command_topic: str,
+            routes: object,
+        ) -> None:
+            captured["routes"] = routes
+            self.start = AsyncMock()
+
+    monkeypatch.setenv("ONEX_ACTIVE_RUNTIME_PACKAGES", "omnibase_infra")
+    monkeypatch.setattr(
+        "omnibase_infra.runtime.runtime_host_process.discover_runtime_local_ingress_routes",
+        lambda packages: (
+            captured.setdefault("packages", packages)
+            and {"session_orchestrator": route}
+        ),
+    )
+    monkeypatch.setattr(
+        "omnibase_infra.runtime.runtime_host_process.RuntimePatternBBroker",
+        FakeBroker,
+    )
+
+    process = RuntimeHostProcess(
+        event_bus=EventBusInmemory(environment="test", group="pattern-b"),
+        config={
+            "service_name": "test-service",
+            "node_name": "test-node",
+            "env": "test",
+            "version": "v1",
+            "pattern_b_broker": {
+                "enabled": True,
+                "package_names": ["omnimarket"],
+            },
+        },
+        dispatch_engine=AsyncMock(),
+    )
+
+    await process._start_pattern_b_broker()
+
+    assert captured["packages"] == ("omnimarket",)
+    assert captured["routes"] == {"session_orchestrator": route}
+
+
+@pytest.mark.asyncio
+async def test_runtime_host_process_reuses_local_ingress_routes_for_pattern_b_broker(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    route = _route()
+    captured: dict[str, object] = {}
+
+    class FakeBroker:
+        def __init__(
+            self,
+            event_bus: object,
+            *,
+            command_topic: str,
+            routes: object,
+        ) -> None:
+            captured["event_bus"] = event_bus
+            captured["command_topic"] = command_topic
+            captured["routes"] = routes
+            self.start = AsyncMock()
+
+    monkeypatch.setattr(
+        "omnibase_infra.runtime.runtime_host_process.discover_runtime_local_ingress_routes",
+        lambda _packages: pytest.fail("broker should reuse local ingress routes"),
+    )
+    monkeypatch.setattr(
+        "omnibase_infra.runtime.runtime_host_process.RuntimePatternBBroker",
+        FakeBroker,
+    )
+
+    process = RuntimeHostProcess(
+        event_bus=EventBusInmemory(environment="test", group="pattern-b"),
+        config={
+            "service_name": "test-service",
+            "node_name": "test-node",
+            "env": "test",
+            "version": "v1",
+            "local_ingress": {"enabled": True},
+            "pattern_b_broker": {"enabled": True},
+        },
+        dispatch_engine=AsyncMock(),
+    )
+    process._local_ingress_routes = {"session_orchestrator": route}
+
+    await process._start_pattern_b_broker()
+
+    assert captured["routes"] == {"session_orchestrator": route}
+
+
+@pytest.mark.asyncio
+async def test_runtime_host_process_rejects_enabled_ingress_without_pattern_b_broker() -> (
+    None
+):
+    process = RuntimeHostProcess(
+        event_bus=EventBusInmemory(environment="test", group="pattern-b"),
+        config={
+            "service_name": "test-service",
+            "node_name": "test-node",
+            "env": "test",
+            "version": "v1",
+            "local_ingress": {"enabled": True},
+            "pattern_b_broker": {"enabled": False},
+        },
+        dispatch_engine=AsyncMock(),
+    )
+
+    with pytest.raises(
+        ProtocolConfigurationError,
+        match=r"local runtime ingress requires pattern_b_broker to be effectively enabled",
+    ):
+        await process._start_pattern_b_broker()
+
+
+# --------------------------------------------------------------------------- #
+# OMN-15468 cross-boundary regression: contract YAML -> route discovery ->
+# Pattern B broker -> terminal status.
+#
+# This deliberately does NOT hand-build a ModelRuntimeLocalIngressRoute. The
+# defect lived in the seam BETWEEN discovery and the broker: the broker already
+# raced every terminal topic the route carried (OMN-13118/13128), and discovery
+# simply never put the contract's declared failure topic on the route. Two
+# independent unit suites -- one asserting discovery parses the key, one
+# asserting the broker handles a route that already has it -- both passed while
+# the live path returned a false success. The test has to cross the seam.
+# --------------------------------------------------------------------------- #
+
+_GENERATION_SHAPED_CONTRACT = """
+name: gen_seam_demo
+event_bus:
+  subscribe_topics:
+    - onex.cmd.demo.gen-seam-requested.v1
+  publish_topics:
+    - onex.evt.demo.gen-seam-completed.v1
+    - onex.evt.demo.gen-seam-failed.v1
+terminal_event: onex.evt.demo.gen-seam-completed.v1
+runtime_dispatch:
+  command_topic: onex.cmd.demo.gen-seam-requested.v1
+  terminal_events:
+    success: onex.evt.demo.gen-seam-completed.v1
+    failure: onex.evt.demo.gen-seam-failed.v1
+handler_routing:
+  handlers:
+    - operation: gen_seam_demo.run
+""".strip()
+
+
+@pytest.mark.asyncio
+async def test_discovered_route_surfaces_failure_terminal_as_failed_status(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A node that publishes its declared failure terminal must not read as completed.
+
+    RED before OMN-15468: discovery dropped ``runtime_dispatch.terminal_events``,
+    so the broker subscribed only to the success topic, never saw the failure
+    terminal, and returned ``timeout`` (or, with the def-B wiring republishing the
+    returned model onto the success topic, ``completed``). Either way the caller
+    was told something other than "this failed".
+    """
+    package_root = tmp_path / "fakepkg"
+    (package_root / "nodes" / "node_gen_seam_demo").mkdir(parents=True)
+    (package_root / "__init__.py").write_text("", encoding="utf-8")
+    (package_root / "nodes" / "node_gen_seam_demo" / "contract.yaml").write_text(
+        _GENERATION_SHAPED_CONTRACT,
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "omnibase_infra.runtime.runtime_local_ingress.importlib.import_module",
+        lambda _name: SimpleNamespace(__file__=str(package_root / "__init__.py")),
+    )
+
+    route = discover_runtime_local_ingress_routes(("fakepkg",))["gen_seam_demo"]
+    failure_topic = "onex.evt.demo.gen-seam-failed.v1"
+
+    bus = EventBusInmemory(environment="test", group="pattern-b")
+    await bus.start()
+    broker = RuntimePatternBBroker(
+        bus,
+        command_topic="onex.cmd.omnibase-infra.pattern-b-dispatch.v1",
+        routes={"gen_seam_demo": route},
+    )
+    await broker.start()
+
+    async def worker(message: ModelEventMessage) -> None:
+        envelope = ModelEventEnvelope[object].model_validate_json(message.value)
+        # The node's real behaviour: contract validation failed, so the terminal
+        # goes to the DECLARED failure topic carrying the negative verdict.
+        terminal_envelope = ModelEventEnvelope[object](
+            payload={
+                "payload": {
+                    "contract_passed": False,
+                    "failure_reason": "contract YAML did not parse to a mapping",
+                }
+            },
+            correlation_id=envelope.correlation_id,
+            envelope_timestamp=datetime.now(UTC),
+            event_type=derive_event_type_alias_for_topic(failure_topic),
+            source_tool="gen_seam_demo",
+        )
+        await bus.publish(
+            failure_topic,
+            None,
+            terminal_envelope.model_dump_json().encode("utf-8"),
+            None,
+        )
+
+    await bus.subscribe(route.command_topic, group_id="worker", on_message=worker)
+
+    try:
+        _resolved_route, result = await broker.dispatch_request(
+            ModelDispatchBusCommand(
+                command_name="gen_seam_demo",
+                requester="runtime-local-ingress",
+                payload={"task_description": "anything"},
+                response_topic="onex.evt.pattern-b.dispatch-completed.v1",
+                timeout_seconds=2,
+            )
+        )
+    finally:
+        await broker.stop()
+        await bus.close()
+
+    assert result.status == "failed", (
+        f"outer status must reflect the inner terminal, got {result.status!r}"
+    )
+    assert result.error_message == "contract YAML did not parse to a mapping"
+
+
+# --------------------------------------------------------------------------- #
+# OMN-15468 slice 2 — the SAME seam, driven by the artifact that actually runs.
+#
+# The test above proves the broker terminalizes a failure terminal that arrives
+# as a ModelEventEnvelope. That is not what the node emits. On the deployed dev
+# lane (2026-07-30T17:13Z, merged 5dc68190, with #2560's subscription live) the
+# record on the failure topic was the handler's RAW model dump, published
+# through the wiring-injected `event_publisher`, while the def-B wiring's
+# applier put a full envelope on the SUCCESS topic. The forced-failure /skill
+# response was byte-identical to the success control: ok=true, status=completed,
+# error=null.
+#
+# So this test does not hand-build the failure terminal. It publishes through
+# `_make_sync_event_publisher` — the one factory that hands every def-B handler
+# its publisher — and reproduces the live emission ORDER: the handler's own
+# terminal first (it publishes before handle() returns), then the applier's
+# verdict-blind republish onto the success topic (which happens after).
+# --------------------------------------------------------------------------- #
+
+_RAW_EMISSION_CONTRACT = """
+name: raw_emit_demo
+event_bus:
+  subscribe_topics:
+    - onex.cmd.demo.raw-emit-requested.v1
+  publish_topics:
+    - onex.evt.demo.raw-emit-completed.v1
+    - onex.evt.demo.raw-emit-failed.v1
+terminal_event: onex.evt.demo.raw-emit-completed.v1
+runtime_dispatch:
+  command_topic: onex.cmd.demo.raw-emit-requested.v1
+  terminal_events:
+    success: onex.evt.demo.raw-emit-completed.v1
+    failure: onex.evt.demo.raw-emit-failed.v1
+handler_routing:
+  handlers:
+    - operation: raw_emit_demo.run
+""".strip()
+
+
+@pytest.mark.asyncio
+async def test_handler_emitted_raw_failure_terminal_is_not_reported_as_completed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A handler self-published failure terminal must not read as ``completed``.
+
+    RED before OMN-15468 slice 2: the handler's terminal went onto the failure
+    topic un-enveloped, so the broker's terminal decode dropped it, the
+    applier's envelope on the SUCCESS topic was the only terminal it could
+    accept, and ``_status_for_terminal_topic`` returned ``completed`` from the
+    arrival topic — the exact live false success, reproduced through the real
+    publisher rather than asserted from a code reading.
+    """
+    package_root = tmp_path / "rawpkg"
+    node_dir = package_root / "nodes" / "node_raw_emit_demo"
+    node_dir.mkdir(parents=True)
+    (package_root / "__init__.py").write_text("", encoding="utf-8")
+    contract_path = node_dir / "contract.yaml"
+    contract_path.write_text(_RAW_EMISSION_CONTRACT, encoding="utf-8")
+    monkeypatch.setattr(
+        "omnibase_infra.runtime.runtime_local_ingress.importlib.import_module",
+        lambda _name: SimpleNamespace(__file__=str(package_root / "__init__.py")),
+    )
+
+    route = discover_runtime_local_ingress_routes(("rawpkg",))["raw_emit_demo"]
+    success_topic = "onex.evt.demo.raw-emit-completed.v1"
+    failure_topic = "onex.evt.demo.raw-emit-failed.v1"
+    assert failure_topic in route.terminal_events, (
+        "precondition: #2560 must already put the failure terminal on the route"
+    )
+
+    bus = EventBusInmemory(environment="test", group="pattern-b")
+    await bus.start()
+
+    # The publisher the runtime injects into the handler, built from the same
+    # contract file discovery just read.
+    publisher = _make_sync_event_publisher(
+        event_bus=bus,
+        handler_name="HandlerRawEmitDemo",
+        terminal_topics=load_terminal_event_topics(contract_path),
+    )
+
+    handler_terminal_seen = asyncio.Event()
+
+    async def _observe_failure_topic(_message: ModelEventMessage) -> None:
+        handler_terminal_seen.set()
+
+    await bus.subscribe(
+        failure_topic, group_id="probe", on_message=_observe_failure_topic
+    )
+
+    broker = RuntimePatternBBroker(
+        bus,
+        command_topic="onex.cmd.omnibase-infra.pattern-b-dispatch.v1",
+        routes={"raw_emit_demo": route},
+    )
+    await broker.start()
+
+    async def worker(message: ModelEventMessage) -> None:
+        envelope = ModelEventEnvelope[object].model_validate_json(message.value)
+        correlation_id = envelope.correlation_id
+
+        # 1. The handler's own terminal: a model dump straight to bytes, routed
+        #    by verdict to the DECLARED failure topic. This is what
+        #    HandlerGenerationConsumer._emit_benchmark does.
+        publisher(
+            failure_topic,
+            json.dumps(
+                {
+                    "correlation_id": str(correlation_id),
+                    "contract_passed": False,
+                    "failure_reason": "contract YAML did not parse to a mapping",
+                }
+            ).encode("utf-8"),
+        )
+        # The injected publisher is fire-and-forget (it schedules the publish on
+        # the kernel loop). Live, the handler awaits the broker ACK before
+        # handle() returns, so the failure terminal is durable BEFORE the
+        # applier republish below; wait for it here so the ordering under test
+        # is the live ordering and not a scheduling coincidence.
+        await asyncio.wait_for(handler_terminal_seen.wait(), timeout=2)
+
+        # 2. The def-B wiring's verdict-blind republish of the returned model
+        #    onto the contract's SUCCESS terminal (handler_wiring
+        #    _select_dispatch_result_output_topic -> DispatchResultApplier).
+        #    Still present after this fix — it is the duplicate-producer defect
+        #    tracked in OMN-15469, and it is exactly what wins the race and
+        #    reports "completed" when the failure terminal is undecodable.
+        republished = ModelEventEnvelope[object](
+            payload={"contract_passed": False},
+            correlation_id=correlation_id,
+            envelope_timestamp=datetime.now(UTC),
+            event_type="demo.raw-emit-completed",
+        )
+        await bus.publish(
+            success_topic, None, republished.model_dump_json().encode("utf-8"), None
+        )
+
+    await bus.subscribe(route.command_topic, group_id="worker", on_message=worker)
+
+    try:
+        _resolved_route, result = await broker.dispatch_request(
+            ModelDispatchBusCommand(
+                command_name="raw_emit_demo",
+                requester="runtime-local-ingress",
+                payload={"task_description": "anything"},
+                response_topic="onex.evt.pattern-b.dispatch-completed.v1",
+                timeout_seconds=2,
+            )
+        )
+    finally:
+        await broker.stop()
+        await bus.close()
+
+    assert result.status == "failed", (
+        "the handler published its declared FAILURE terminal; the outer status "
+        f"must not be {result.status!r}"
+    )
+    assert result.error_message == "contract YAML did not parse to a mapping"

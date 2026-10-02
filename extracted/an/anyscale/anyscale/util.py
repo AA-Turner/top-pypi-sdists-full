@@ -212,7 +212,11 @@ def send_json_request(
     host: Optional[str] = None,
 ) -> Dict[str, Any]:
     resp = send_json_request_raw(
-        endpoint, json_args, method=method, cli_token=cli_token, host=host,
+        endpoint,
+        json_args,
+        method=method,
+        cli_token=cli_token,
+        host=host,
     )
 
     if not resp.ok:
@@ -296,11 +300,7 @@ def _client(name: str, region: str) -> Any:
 def _get_role(
     role_name: str, region: str, boto3_session: Optional[boto3.Session] = None
 ) -> Optional[Boto3Resource]:
-    iam = (
-        _resource("iam", region)
-        if boto3_session is None
-        else boto3_session.resource("iam")
-    )
+    iam = _resource("iam", region) if boto3_session is None else boto3_session.resource("iam")
     role = iam.Role(role_name)  # type: ignore
     try:
         role.load()
@@ -326,9 +326,7 @@ def _get_aws_efs_mount_target_ip(boto3_session: Any, efs_id: str) -> Optional[st
         raise e
 
 
-def _get_subnet(
-    subnet_arn: str, region: str, logger: CloudSetupLogger
-) -> Optional[Boto3Resource]:
+def _get_subnet(subnet_arn: str, region: str, logger: CloudSetupLogger) -> Optional[Boto3Resource]:
     ec2 = _resource("ec2", region)  # TODO: take a resource as an argument
     subnet = ec2.Subnet(subnet_arn)  # type: ignore
     try:
@@ -344,9 +342,7 @@ def _get_subnet(
                 f"{subnet_arn} does not exist. Please make sure the subnet arn is correct and the subnet is in the same region as the cloud."
             )
         else:
-            logger.log_resource_exception(
-                CloudAnalyticsEventCloudResource.AWS_SUBNET, e
-            )
+            logger.log_resource_exception(CloudAnalyticsEventCloudResource.AWS_SUBNET, e)
         raise e
 
 
@@ -354,9 +350,7 @@ def _get_memorydb_cluster_config(
     memorydb_cluster_id: str, region: str, logger: CloudSetupLogger
 ) -> Optional[AWSMemoryDBClusterConfig]:
     try:
-        memorydb_client = boto3.client(
-            "memorydb", region_name=region, config=_apn_config()
-        )
+        memorydb_client = boto3.client("memorydb", region_name=region, config=_apn_config())
         response = memorydb_client.describe_clusters(ClusterName=memorydb_cluster_id)
 
         if not response.get("Clusters") or not response.get("Clusters")[0]:
@@ -389,9 +383,7 @@ def _get_memorydb_cluster_config(
                 CloudSetupError.RESOURCE_NOT_FOUND,
             )
         else:
-            logger.log_resource_exception(
-                CloudAnalyticsEventCloudResource.AWS_MEMORYDB, e
-            )
+            logger.log_resource_exception(CloudAnalyticsEventCloudResource.AWS_MEMORYDB, e)
         raise e
 
 
@@ -421,9 +413,7 @@ def get_availability_zones(
     }
 
 
-def get_memorydb_supported_zones(
-    region: str, zone_ids_to_names: Dict[str, str]
-) -> List[str]:
+def get_memorydb_supported_zones(region: str, zone_ids_to_names: Dict[str, str]) -> List[str]:
     """
     Returns a list of supported zone names for MemoryDB in the given region.
     """
@@ -434,9 +424,7 @@ def get_memorydb_supported_zones(
     supported_zone_ids_for_cloud_region = memorydb_supported_zones.get(region, [])
     if len(supported_zone_ids_for_cloud_region) == 0:
         raise click.ClickException(f"MemoryDB is not supported in the region {region}.")
-    return [
-        zone_ids_to_names[zone_id] for zone_id in supported_zone_ids_for_cloud_region
-    ]
+    return [zone_ids_to_names[zone_id] for zone_id in supported_zone_ids_for_cloud_region]
 
 
 def get_project_directory_name(project_id: str, api_client: ProductApi = None) -> str:
@@ -487,19 +475,14 @@ def get_wheel_url(
     else:
         platform = "manylinux2014_x86_64"
 
-    py_version_malloc = (
-        f"{py_version}m" if py_version in _LEGACY_PY_VERSIONS else py_version
-    )
+    py_version_malloc = f"{py_version}m" if py_version in _LEGACY_PY_VERSIONS else py_version
 
     if "dev" in ray_version:
         ray_release = f"master/{ray_commit}"
     else:
         ray_release = f"releases/{ray_version}/{ray_commit}"
-    return (
-        "https://s3-us-west-2.amazonaws.com/ray-wheels/"
-        "{}/ray-{}-cp{}-cp{}-{}.whl".format(
-            ray_release, ray_version, py_version, py_version_malloc, platform
-        )
+    return "https://s3-us-west-2.amazonaws.com/ray-wheels/{}/ray-{}-cp{}-cp{}-{}.whl".format(
+        ray_release, ray_version, py_version, py_version_malloc, platform
     )
 
 
@@ -539,9 +522,7 @@ def wait_for_session_start(  # noqa: PLR0912
             block_label=block_label,
         )
     else:
-        log.info(
-            f"Waiting for cluster {session_name} to start. This may take a few minutes"
-        )
+        log.info(f"Waiting for cluster {session_name} to start. This may take a few minutes")
 
     if api_client is None:
         api_client = get_auth_api_client().api_client
@@ -577,9 +558,7 @@ def wait_for_session_start(  # noqa: PLR0912
                         f"Error while starting cluster {session_name}: {session.state_data.startup.startup_error}"
                     )
                 elif (
-                    session.state
-                    and "Errored" in session.state
-                    and session.pending_state is None
+                    session.state and "Errored" in session.state and session.pending_state is None
                 ):
                     raise click.ClickException(
                         f"Error while starting cluster {session_name}: Cluster startup failed due to an error ({session.state})."
@@ -604,13 +583,8 @@ def wait_for_session_start(  # noqa: PLR0912
                     and session.state_data.startup.startup_progress
                 ):
                     # Print the latest status
-                    print_status(
-                        "Starting up " + session.state_data.startup.startup_progress
-                    )
-                elif (
-                    session.state != "StartingUp"
-                    and session.pending_state == "StartingUp"
-                ):
+                    print_status("Starting up " + session.state_data.startup.startup_progress)
+                elif session.state != "StartingUp" and session.pending_state == "StartingUp":
                     print_status("Waiting for start up...")
             else:
                 raise click.ClickException(
@@ -627,9 +601,7 @@ def populate_session_args(cluster_config_str: str, config_file_name: str) -> str
     t = env.parse(cluster_config_str)
     for elem in t.body[0].nodes:  # type: ignore
         if isinstance(elem, jinja2.nodes.Getattr) and elem.attr not in os.environ:
-            prefixed_command = " ".join(
-                [f"{elem.attr}=<value>", "anyscale"] + sys.argv[1:]
-            )
+            prefixed_command = " ".join([f"{elem.attr}=<value>", "anyscale"] + sys.argv[1:])
             raise click.ClickException(
                 f"\tThe environment variable {elem.attr} was not set, yet it is required "
                 f"for configuration file {config_file_name}.\n\tPlease specify {elem.attr} "
@@ -658,22 +630,20 @@ def validate_non_negative_arg(ctx, param, value):  # noqa: ARG001
     Checks that an integer option to click command is non-negative.
     """
     if value is not None and value < 0:
-        raise click.ClickException(
-            f"Please specify a non-negative value for {param.opts[0]}"
-        )
+        raise click.ClickException(f"Please specify a non-negative value for {param.opts[0]}")
     return value
 
 
 def validate_service_state_filter(
-    ctx, param, value: Tuple[str, ...]  # noqa: ARG001
+    ctx,  # noqa: ARG001
+    param,
+    value: Tuple[str, ...],  # noqa: ARG001
 ) -> List[str]:
     """Validate ServiceEventCurrentState values."""
     if not value:
         return []
 
-    allowable_values_upper = {
-        s.upper() for s in ServiceEventCurrentState.allowable_values
-    }
+    allowable_values_upper = {s.upper() for s in ServiceEventCurrentState.allowable_values}
     allowed_values_str = ", ".join(ServiceEventCurrentState.allowable_values)
 
     for state_str in value:
@@ -687,7 +657,9 @@ def validate_service_state_filter(
 
 
 def validate_workspace_state_filter(
-    ctx, param, value: Tuple[str, ...]  # noqa: ARG001
+    ctx,  # noqa: ARG001
+    param,
+    value: Tuple[str, ...],  # noqa: ARG001
 ) -> List[str]:
     """Validate WorkspaceState values (case-insensitive) and return uppercase."""
     if not value:
@@ -712,9 +684,7 @@ def validate_workspace_state_filter(
     return [s.upper() for s in value]
 
 
-def _update_external_ids_for_policy(
-    original_policy: Dict[str, Any], new_external_id: str
-):
+def _update_external_ids_for_policy(original_policy: Dict[str, Any], new_external_id: str):
     """Gets All External IDs From policy Dict."""
     policy = deepcopy(original_policy)
     external_ids = [
@@ -725,8 +695,7 @@ def _update_external_ids_for_policy(
     ]
 
     external_ids = [
-        [i, new_external_id] if isinstance(i, str) else i + [new_external_id]
-        for i in external_ids
+        [i, new_external_id] if isinstance(i, str) else i + [new_external_id] for i in external_ids
     ]
 
     # remove duplicate external IDs
@@ -781,9 +750,7 @@ def _ray_version_major_minor(ray_version: str) -> Tuple[int, int]:
     To avoid introducing undesirable dependencies, partly duplicates logic from the Anyscale
     backend.
     """
-    invalid_ray_version_msg = (
-        f"The Ray version `{ray_version}` has an unexpected format."
-    )
+    invalid_ray_version_msg = f"The Ray version `{ray_version}` has an unexpected format."
     version_components = ray_version.split(".")
     assert len(version_components) >= 2, invalid_ray_version_msg
     major_str, minor_str = version_components[:2]
@@ -793,9 +760,9 @@ def _ray_version_major_minor(ray_version: str) -> Tuple[int, int]:
 
 
 def _check_python_version(python_version: str) -> None:
-    assert (
-        python_version in VALID_BYOD_PYTHON_VERSIONS
-    ), f"Expected python_version to be one of {VALID_BYOD_PYTHON_VERSIONS}, got {python_version}."
+    assert python_version in VALID_BYOD_PYTHON_VERSIONS, (
+        f"Expected python_version to be one of {VALID_BYOD_PYTHON_VERSIONS}, got {python_version}."
+    )
 
 
 def sleep_till(wake_time: float) -> None:
@@ -863,9 +830,9 @@ def str_data_size(s: str) -> int:
 
 def get_user_env_aws_account(region: str) -> str:
     """Get the AWS account used in the user environment"""
-    return boto3.client(
-        "sts", region_name=region, config=_apn_config()
-    ).get_caller_identity()["Account"]
+    return boto3.client("sts", region_name=region, config=_apn_config()).get_caller_identity()[
+        "Account"
+    ]
 
 
 def generate_inline_policy_parameter(policy: AnyscaleIAMPolicy) -> str:
@@ -911,9 +878,7 @@ def prepare_cloudformation_template(
     else:
         with open(f"{anyscale.conf.ROOT_DIR_PATH}/anyscale-cloud-setup.yaml") as f:
             body = f.read()
-        body = body.replace(
-            "$ALLOWED_ORIGIN", shared_anyscale_conf.ANYSCALE_CORS_ORIGIN
-        )
+        body = body.replace("$ALLOWED_ORIGIN", shared_anyscale_conf.ANYSCALE_CORS_ORIGIN)
 
     zone_ids_to_names = get_availability_zones(region, boto3_session)
     azs = sorted(zone_ids_to_names.values())
@@ -972,11 +937,12 @@ def prepare_cloudformation_template(
 
     body = body.replace("$SUBNETS_TEMPLATES", "\n".join(subnet_templates))
     body = body.replace(
-        "$SUBNETS_ROUTE_TABLE_ASSOCIATION", "\n".join(subnets_route_table_association),
+        "$SUBNETS_ROUTE_TABLE_ASSOCIATION",
+        "\n".join(subnets_route_table_association),
     )
     body = body.replace(
         "$SUBNETS_WITH_AVAILABILITY_ZONES",
-        f'[{",".join(subnets_with_availability_zones)}]',
+        f"[{','.join(subnets_with_availability_zones)}]",
     )
     if not is_anyscale_hosted:
         body = body.replace("$EFSMountTargets", "\n".join(efs_mount_targets))
@@ -1015,7 +981,10 @@ def prepare_cloudformation_template(
     if enable_head_node_fault_tolerance:
         supported_zone_names = get_memorydb_supported_zones(region, zone_ids_to_names)
         allowed_az_indices = sorted(azs.index(az) for az in supported_zone_names)
-        body = body.replace("$MEMORY_DB_OUTPUT", MEMORY_DB_OUTPUT,)
+        body = body.replace(
+            "$MEMORY_DB_OUTPUT",
+            MEMORY_DB_OUTPUT,
+        )
         body = body.replace(
             "$MEMORY_DB_RESOURCE",
             MEMORY_DB_RESOURCE.format(
@@ -1038,9 +1007,7 @@ def get_latest_ray_version():
         response = requests.get("https://pypi.org/pypi/ray/json")
         latest_version = response.json()["info"]["version"]
     except Exception as e:  # noqa: BLE001
-        log.debug(
-            f"Unable to get latest Ray version from https://pypi.org/pypi/ray/json {e!s}"
-        )
+        log.debug(f"Unable to get latest Ray version from https://pypi.org/pypi/ray/json {e!s}")
         latest_version = DEFAULT_RAY_VERSION
     return latest_version
 
@@ -1073,16 +1040,12 @@ def get_ray_and_py_version_for_default_cluster_env() -> Tuple[str, str]:
     return ray_version, py_version
 
 
-def validate_job_config_dict(
-    config_dict: Dict[str, Any], api_client: ProductApi
-) -> None:
+def validate_job_config_dict(config_dict: Dict[str, Any], api_client: ProductApi) -> None:
     """
     Throws an exception if there are invalid values in the config dict.
     """
     compute_config: Optional[Union[ComputeTemplate, DecoratedComputeTemplate]] = None
-    if "compute_config" in config_dict and isinstance(
-        config_dict["compute_config"], str
-    ):
+    if "compute_config" in config_dict and isinstance(config_dict["compute_config"], str):
         compute_config = get_cluster_compute_from_name(
             config_dict["compute_config"],
             api_client,
@@ -1116,10 +1079,7 @@ def validate_list_jobs_state_filter(_, param, value) -> List[str]:  # noqa: ARG0
     for each_value in value:
         upper = each_value.upper()
         # Accept both user-facing states (for v2) and backend states (for legacy)
-        if (
-            upper not in ALLOWED_USER_JOB_STATES
-            and upper not in HaJobStates.allowable_values
-        ):
+        if upper not in ALLOWED_USER_JOB_STATES and upper not in HaJobStates.allowable_values:
             raise click.ClickException(
                 f"{each_value} is not valid for {param.opts[0]}. "
                 f"For --v2 use: {', '.join(ALLOWED_USER_JOB_STATES)}"
@@ -1224,9 +1184,7 @@ def filter_actions_associated_with_role(
         filter_actions_from_policy_document(policy_document, action_filter)
         for policy_document in role_policy_documents + attached_policy_documents
     ]
-    return (
-        set.union(*list_of_allow_actions_sets) if list_of_allow_actions_sets else set()
-    )
+    return set.union(*list_of_allow_actions_sets) if list_of_allow_actions_sets else set()
 
 
 def contains_control_plane_role(
@@ -1236,10 +1194,7 @@ def contains_control_plane_role(
         if not statement:
             return False
         # Ensure it is `Allow` & `sts:AssumeRole`
-        if (
-            statement["Effect"] != "Allow"
-            or statement.get("Action") != "sts:AssumeRole"
-        ):
+        if statement["Effect"] != "Allow" or statement.get("Action") != "sts:AssumeRole":
             return False
 
         expected_accounts = {
@@ -1251,27 +1206,15 @@ def contains_control_plane_role(
             for aws_principal in _coerce_to_list(statement["Principal"].get("AWS"))
         )
 
-    return (
-        len(
-            filter_actions_from_policy_document(
-                assume_role_policy_document, action_filter
-            )
-        )
-        > 0
-    )
+    return len(filter_actions_from_policy_document(assume_role_policy_document, action_filter)) > 0
 
 
-def verify_data_plane_role_assume_role_policy(
-    assume_role_policy_document: Dict[str, Any]
-) -> bool:
+def verify_data_plane_role_assume_role_policy(assume_role_policy_document: Dict[str, Any]) -> bool:
     def action_filter(statement: dict):
         # Ensure it is `Allow` & `sts:AssumeRole`
         if not statement:
             return False
-        if (
-            statement["Effect"] != "Allow"
-            or statement.get("Action") != "sts:AssumeRole"
-        ):
+        if statement["Effect"] != "Allow" or statement.get("Action") != "sts:AssumeRole":
             return False
 
         return any(
@@ -1279,14 +1222,7 @@ def verify_data_plane_role_assume_role_policy(
             for service in _coerce_to_list(statement["Principal"].get("Service"))
         )
 
-    return (
-        len(
-            filter_actions_from_policy_document(
-                assume_role_policy_document, action_filter
-            )
-        )
-        > 0
-    )
+    return len(filter_actions_from_policy_document(assume_role_policy_document, action_filter)) > 0
 
 
 T = TypeVar("T")

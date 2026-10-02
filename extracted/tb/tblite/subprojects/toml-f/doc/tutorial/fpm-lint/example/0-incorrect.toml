@@ -1,5 +1,0 @@
-name = "demo"
-
-[extra.fpm.lint]
-package-name = "true"
-bare-keys = true

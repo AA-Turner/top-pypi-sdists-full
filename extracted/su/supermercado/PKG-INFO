@@ -1,0 +1,170 @@
+Metadata-Version: 2.4
+Name: supermercado
+Version: 0.4.0
+Summary: Supercharged mercantile
+Author-email: Mapbox Raster <raster@mapbox.com>
+License: The MIT License (MIT)
+        
+        Copyright (c) 2015 Mapbox
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+        
+Project-URL: Homepage, https://github.com/mapbox/supermercado
+Project-URL: Source, https://github.com/mapbox/supermercado
+Keywords: mapbox,mercantile,tiles
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Scientific/Engineering :: GIS
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: affine
+Requires-Dist: click
+Requires-Dist: click-plugins
+Requires-Dist: cligj
+Requires-Dist: mercantile
+Requires-Dist: numpy
+Requires-Dist: rasterio
+Provides-Extra: test
+Requires-Dist: pytest>=8.2.0; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Dynamic: license-file
+
+[![PyPI](https://img.shields.io/pypi/v/supermercado.svg)](https://pypi.org/project/supermercado/) [![Tests](https://github.com/mapbox/supermercado/actions/workflows/tests.yml/badge.svg)](https://github.com/mapbox/supermercado/actions/workflows/tests.yml)
+
+# supermercado
+
+`supermercado` extends the functionality of [`mercantile`](https://github.com/mapbox/mercantile) with additional commands
+
+
+## Quickstart
+
+```sh
+pip install supermercado
+```
+
+### Usage
+
+```sh
+Usage: supermercado [OPTIONS] COMMAND [ARGS]...
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  burn   Burn a stream of GeoJSON into a output...
+  edges  For a stream of [<x>, <y>, <z>] tiles, return...
+  union  Returns the unioned shape of a stream of...
+```
+
+#### `supermercado burn`
+
+```
+<{geojson} stream> | supermercado burn <zoom> | <[x, y, z] stream>
+```
+
+Takes an input stream of GeoJSON and returns a stream of intersecting `[x, y, z]`s for a given zoom.
+
+![image](https://cloud.githubusercontent.com/assets/5084513/14003508/94bc0994-f110-11e5-8e99-e9aadf07bf8d.png)
+
+```sh
+cat data/ellada.geojson | supermercado burn 10 | mercantile shapes | fio collect
+```
+
+![image](https://cloud.githubusercontent.com/assets/5084513/14003559/d5427ba6-f110-11e5-80d5-a2aba6433e77.png)
+
+#### `supermercado edges`
+```
+<[x, y, z] stream> | supermercado edges | <[x, y, z] stream>
+```
+Outputs a stream of `[x, y, z]`s representing the edge tiles of an input stream of `[x, y, z]`s. Edge tile = any tile that is either directly adjacent to a tile that does not exist, or diagonal to an empty tile.
+
+```
+cat data/ellada.geojson | supermercado burn 10 | supermercado edges | mercantile shapes | fio collect | geojsonio
+```
+
+![image](https://cloud.githubusercontent.com/assets/5084513/14003587/01e8e370-f111-11e5-8df4-ac3ae07bbf92.png)
+
+
+#### `supermercado union`
+
+```
+<[x, y, z] stream> | supermercado union | <{geojson} stream>
+```
+
+Outputs a stream of unioned GeoJSON from an input stream of `[x, y, z]`s. Like `mercantile shapes` but as an overall footprint instead of individual shapes for each tile.
+
+```
+cat data/ellada.geojson | supermercado burn 10 | supermercado union | fio collect | geojsonio
+```
+
+![image](https://cloud.githubusercontent.com/assets/5084513/14003622/365af88c-f111-11e5-8712-28f42253e270.png)
+
+
+#### `getting crazy`
+
+```
+cat data/ellada.geojson | supermercado burn 12 | supermercado edges | supermercado union | fio collect | geojsonio
+
+```
+
+![image](https://cloud.githubusercontent.com/assets/5084513/14003951/ccfecf3c-f113-11e5-943b-94bd6eca1536.png)
+
+
+## Contributing
+
+### Developing
+
+```sh
+git clone git@github.com:mapbox/supermercado.git
+cd supermercado
+uv venv
+source .venv/bin/activate
+uv sync --all-groups
+```
+
+### Releasing
+
+1. Within your PR, update `pyproject.toml` with the new version number
+2. Once the PR is merged, pull `main` and verify the tests
+
+```sh
+uv run pytest
+uv run ruff check .
+uv run ruff format --check .
+```
+
+3. Tag with the new version number and push
+
+```sh
+# ie
+$ git checkout main
+$ git pull
+$ git tag 1.2.3
+$ git push origin main 1.2.3
+```
+
+4. GitHub Actions builds the release, runs `uvx twine check`, and publishes to PyPI
+using the `pypi` environment token

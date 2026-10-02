@@ -1,3 +1,0 @@
----
-fixes:
-  - Fix ``ArraySymbol.all()`` for empty array symbols. See `#43 <https://github.com/dwavesystems/dwave-optimization/issues/43>`_.

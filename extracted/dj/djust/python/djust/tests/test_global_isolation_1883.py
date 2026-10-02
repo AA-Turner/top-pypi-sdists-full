@@ -1,0 +1,457 @@
+"""Regression tests for the systemic global-isolation fixture (#1883, #1882).
+
+The autouse ``_reset_djust_globals`` fixture (``tests/conftest.py`` and
+``python/djust/tests/conftest.py``) resets djust's leak-prone process-globals
+before every test, retiring the shared-process-global flaky-test class that
+produced #1862 (PR #1874), #1875 (PR #1881), #1882, #1928 (the Rust
+tag-handler registry wiped by a ``clear_tag_handlers()`` polluter), and
+#2053 (a built-in assign-tag handler mis-registered into the WRONG Rust
+registry by a polluter that didn't distinguish ``AssignTagHandler`` from
+plain ``TagHandler``).
+
+This file pins:
+
+1. The fixture is wired and resets each global it claims to (unit-level pins on
+   ``djust.test_isolation.reset_djust_globals`` — gate-off-verifiable per-global).
+2. The #1882 cure end-to-end: a deterministic, gate-off reproduction of the
+   channel-layer wire-version drift, proving the channel-layer reset is what
+   fixes it. With the reset, a stray ``djust_hotreload`` frame on a STALE shared
+   layer cannot reach the victim consumer (it's on a fresh layer), so the
+   time-travel jump lands at version 3; without the reset, it lands at 4 — the
+   exact ``got 4`` #1882 symptom.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import itertools
+
+import pytest
+from asgiref.sync import sync_to_async
+from django.test import override_settings
+
+
+# ---------------------------------------------------------------------------
+# (1) Unit pins on reset_djust_globals — one per global it resets.
+# ---------------------------------------------------------------------------
+
+
+def test_reset_clears_channel_layer_backends():
+    """The Channels layer cache is dropped (the #1875/#1882 mechanism)."""
+    pytest.importorskip("channels")
+    from channels.layers import channel_layers, get_channel_layer
+
+    from djust.test_isolation import reset_djust_globals
+
+    # Force a cached backend to exist, then assert reset drops it.
+    get_channel_layer()
+    assert channel_layers.backends, "expected a cached channel-layer backend"
+    reset_djust_globals()
+    assert not channel_layers.backends, (
+        "reset_djust_globals must clear channel_layers.backends so each test "
+        "connects to a fresh, unpolluted InMemoryChannelLayer (#1875/#1882)"
+    )
+
+
+def test_reset_clears_bug_capture_store_cache():
+    """``bug_capture_store._STORE_CACHE`` is dropped (#1561).
+
+    A store installed as a config *instance* can't be invalidated by the
+    cache's config-value comparison, so without the reset it would outlive its
+    test — and for a Redis store that means a live socket in the worker.
+    """
+    from djust import bug_capture_store
+    from djust.test_isolation import reset_djust_globals
+
+    bug_capture_store._STORE_CACHE = ("sentinel-config", bug_capture_store.InMemorySnapshotStore())
+    reset_djust_globals()
+    assert bug_capture_store._STORE_CACHE is None, (
+        "reset_djust_globals must clear the bug-capture snapshot-store cache "
+        "so a store installed by one test cannot outlive it (#1561)"
+    )
+
+
+def test_reset_resets_view_id_counter():
+    """``mixins.sticky._view_id_counter`` is reset to a fresh ``count(1)``."""
+    from djust.mixins import sticky
+    from djust.test_isolation import reset_djust_globals
+
+    # Advance the counter, then assert reset rewinds it to 1.
+    next(sticky._view_id_counter)
+    next(sticky._view_id_counter)
+    reset_djust_globals()
+    assert next(sticky._view_id_counter) == 1, (
+        "reset_djust_globals must rewind the child-view id counter to 1 so "
+        "auto-generated child_N ids are deterministic per test"
+    )
+
+
+def test_reset_resets_tooltip_id_counter():
+    """``djust_components._tooltip_id_counter`` is reset to a fresh ``count(1)``."""
+    from djust.components.templatetags import djust_components
+    from djust.test_isolation import reset_djust_globals
+
+    next(djust_components._tooltip_id_counter)
+    next(djust_components._tooltip_id_counter)
+    reset_djust_globals()
+    assert next(djust_components._tooltip_id_counter) == 1, (
+        "reset_djust_globals must rewind the tooltip id counter to 1"
+    )
+
+
+def test_reset_clears_route_map_cache():
+    """djust's URLconf-derived route-map cache is cleared (#1862-adjacent)."""
+    from djust import routing
+    from djust.test_isolation import reset_djust_globals
+
+    routing._route_map_cache[("sentinel",)] = {"x": "y"}
+    reset_djust_globals()
+    assert routing._route_map_cache == {}, (
+        "reset_djust_globals must clear the route-map cache so a stale "
+        "URLconf-derived map doesn't leak across tests"
+    )
+
+
+def test_reset_reasserts_theme_and_component_tag_handlers_1928():
+    """The reset re-registers the ``ready()``-time Rust theme/component handlers.
+
+    The #1928 class: ``clear_tag_handlers()`` (the benchmark / unit tag-registry
+    suites) wipes the process-global Rust tag-handler registry shared across an
+    xdist worker. ``DjustThemingConfig.ready()`` /
+    ``DjustComponentsConfig.ready()`` register the ``{% theme_X %}`` /
+    ``{% render_slot %}`` handlers, but ``ready()`` runs only once per process,
+    so once cleared they stay gone — and the 17 #1721 theme-tag tests then 500
+    with "Unsupported template tag". ``reset_djust_globals`` must re-assert them.
+
+    Models the polluter directly: clear the registry, prove the handlers are
+    gone, then prove the reset brings them back.
+    """
+    rust = pytest.importorskip("djust._rust")
+    has_tag_handler = rust.has_tag_handler
+    clear_tag_handlers = rust.clear_tag_handlers
+
+    from djust.test_isolation import reset_djust_globals
+
+    # The polluter: wipe the whole Rust tag-handler registry.
+    clear_tag_handlers()
+    assert not has_tag_handler("theme_panel"), (
+        "precondition: clear_tag_handlers() should have wiped the theme handler"
+    )
+    assert not has_tag_handler("render_slot"), (
+        "precondition: clear_tag_handlers() should have wiped the component handler"
+    )
+
+    # The cure: reset_djust_globals re-asserts both ready()-time registrars.
+    reset_djust_globals()
+
+    assert has_tag_handler("theme_panel"), (
+        "reset_djust_globals must re-register the theme tag handlers wiped by a "
+        "clear_tag_handlers() polluter, or the #1721 theme-tag tests 500 under "
+        "-n auto (#1928)"
+    )
+    assert has_tag_handler("render_slot"), (
+        "reset_djust_globals must re-register the component tag handlers wiped "
+        "by a clear_tag_handlers() polluter (#1928)"
+    )
+
+
+def test_gate_off_clear_without_reset_loses_theme_handler_1928():
+    """GATE-OFF (#1468): a bare ``clear_tag_handlers()`` (no reset) loses them.
+
+    Proves the reproduction is real and that the previous test's pass is owed to
+    the reset, not to some ambient re-registration: after the polluter wipes the
+    registry, the theme handler is genuinely absent until something re-registers
+    it. (The autouse fixture re-asserts before the NEXT test, so this leaves no
+    cross-test pollution.)
+    """
+    rust = pytest.importorskip("djust._rust")
+    has_tag_handler = rust.has_tag_handler
+    clear_tag_handlers = rust.clear_tag_handlers
+
+    clear_tag_handlers()
+    assert not has_tag_handler("theme_panel"), (
+        "gate-off: without a re-register, clear_tag_handlers() must leave the "
+        "theme handler absent — this is the #1928 symptom the reset cures. If "
+        "this no longer reproduces, the reproduction has drifted."
+    )
+
+    # Restore for the rest of THIS process tick (the autouse fixture also does
+    # this before the next test, but be a good citizen within the test body).
+    from djust.test_isolation import reset_djust_globals
+
+    reset_djust_globals()
+    assert has_tag_handler("theme_panel")
+
+
+@pytest.fixture
+def assign_registry_probe(monkeypatch):
+    """Keep the legacy assign-registry regression independent of regroup's bridge."""
+    rust = pytest.importorskip("djust._rust")
+    from djust.template_tags import AssignTagHandler, _registered_handlers
+
+    class ProbeHandler(AssignTagHandler):
+        def render(self, args, context):
+            return {"probe": "assigned"}
+
+    name = "isolation_assign_probe_2053"
+    handler = ProbeHandler()
+    monkeypatch.setitem(_registered_handlers, name, handler)
+    rust.register_assign_tag_handler(name, handler)
+    try:
+        yield name, handler
+    finally:
+        rust.unregister_tag_handler(name)
+        rust.unregister_assign_tag_handler(name)
+
+
+def test_reset_heals_assign_cross_registry_pollution_2053(assign_registry_probe):
+    """Reset must strip a stray plain entry, not merely restore the assign entry."""
+    rust = pytest.importorskip("djust._rust")
+    from djust.test_isolation import reset_djust_globals
+
+    name, handler = assign_registry_probe
+    rust.register_tag_handler(name, handler)
+    assert rust.has_tag_handler(name)
+    assert rust.has_assign_tag_handler(name)
+
+    reset_djust_globals()
+    assert not rust.has_tag_handler(name)
+    assert rust.has_assign_tag_handler(name)
+    assert (
+        rust.render_template("{% " + name + " %}{{ probe }}{# 2053-heals-marker #}", {})
+        == "assigned"
+    )
+
+
+def test_gate_off_stale_plain_registration_breaks_assign_render_2053(assign_registry_probe):
+    """Without reset the parser selects the wrong registry and rendering fails."""
+    rust = pytest.importorskip("djust._rust")
+    name, handler = assign_registry_probe
+    rust.register_tag_handler(name, handler)
+    assert rust.has_assign_tag_handler(name)
+    template = "{% " + name + " %}{{ probe }}{# 2053-gate-off-marker #}"
+    with pytest.raises(RuntimeError, match="must return a string"):
+        rust.render_template(template, {})
+
+
+def test_reset_is_optional_dep_safe(monkeypatch):
+    """A missing optional dependency never errors the reset.
+
+    Simulate Channels being unavailable by making the import raise; the reset
+    must still complete (and reset the other globals) without propagating.
+    """
+    import builtins
+
+    from djust.test_isolation import reset_djust_globals
+
+    real_import = builtins.__import__
+
+    def _boom(name, *args, **kwargs):
+        if name == "channels.layers":
+            raise ImportError("simulated missing Channels")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _boom)
+    # Must not raise even though channels.layers import fails.
+    reset_djust_globals()
+
+
+# ---------------------------------------------------------------------------
+# (2) #1882 cure end-to-end — deterministic + gate-off (#1468).
+# ---------------------------------------------------------------------------
+
+_TT_MOD = "djust.tests.test_recovery_version_staleness_1817"
+
+
+#: The `ref` this harness echoes on its arming event.
+_ARM_REF = 1
+
+
+async def _recv_until(comm, wanted, *, ref=None, tries=8, timeout=3):
+    """Drain frames until one of ``wanted`` type (and matching ``ref``, if given).
+
+    ``ref`` matters more than it looks. A hot-reload broadcast is not its own
+    frame type — it ships as ``{"type": "patch", "hotreload": True}`` — so
+    without a ref filter this returns the STRAY when hunting for the arming
+    patch, the caller reads the stray's version as ``v_arm``, and the whole
+    chain reads clean while the drift is happening. That silently disarmed the
+    gate-off below: it stopped going red under a reverted fix, which is the
+    decorative-pin failure (#1859). Found by re-running the gate-off after
+    #2215 removed the second suppression site (#2237).
+    """
+    last = None
+    for _ in range(tries):
+        last = await comm.receive_json_from(timeout=timeout)
+        if last.get("type") == wanted and (ref is None or last.get("ref") == ref):
+            return last
+    return last
+
+
+async def _drive_jump_with_stale_layer_sender(reset_layer: bool):
+    """mount → (stray hotreload from a STALE shared layer) → bump → jump.
+
+    Models the #1882 race: a sibling test captured the cached channel layer and
+    fires ``group_send("djust_hotreload", ...)`` to it DURING the victim's
+    session. The fixture's ``channel_layers.backends.clear()`` (here, gated on
+    ``reset_layer``) makes the victim connect to a FRESH layer, so the
+    stale-layer send cannot reach it.
+    """
+    pytest.importorskip("channels")
+    from channels.layers import channel_layers, get_channel_layer
+    from channels.testing import WebsocketCommunicator
+    from django.contrib.sessions.backends.db import SessionStore
+
+    from djust.websocket import LiveViewConsumer
+
+    # A sibling test touched the layer first -> a cached default backend exists.
+    # The sibling SENDER holds this reference and sends to it mid-session.
+    stale_layer = get_channel_layer()
+
+    # THE FIXTURE (gated): drop the cached backend so the victim connects fresh.
+    if reset_layer:
+        channel_layers.backends.clear()
+
+    def _mk():
+        s = SessionStore()
+        s.create()
+        return s.session_key
+
+    key = await sync_to_async(_mk)()
+
+    class _S:
+        def __init__(self, k):
+            self.session_key = k
+
+    comm = WebsocketCommunicator(LiveViewConsumer.as_asgi(), "/ws/")
+    comm.scope["session"] = _S(key)
+    ok, _ = await comm.connect()
+    assert ok
+    await comm.receive_json_from(timeout=2)  # connect frame
+
+    await comm.send_json_to({"type": "mount", "view": f"{_TT_MOD}._TTRecoveryView", "url": "/tt/"})
+    mount = await _recv_until(comm, "mount")
+    v_mount = mount["version"]
+
+    # SIBLING SENDER fires now (victim has joined djust_hotreload on connect),
+    # sending to the STALE cached layer it captured before the fixture ran.
+    await stale_layer.group_send("djust_hotreload", {"type": "hotreload", "file": "sibling.html"})
+    await asyncio.sleep(0.05)  # let the consumer process any stray re-render
+
+    # Arming event — first patch, read EXACTLY as the real #1882 test does.
+    await comm.send_json_to({"type": "event", "event": "bump", "params": {}, "ref": _ARM_REF})
+    ev1 = await _recv_until(comm, "patch", ref=_ARM_REF)
+    v_arm = ev1["version"]
+
+    # Jump (the render-send drift path).
+    await comm.send_json_to({"type": "time_travel_jump", "index": 0, "which": "before"})
+    v_jump = None
+    for _ in range(8):
+        f = await comm.receive_json_from(timeout=3)
+        if f.get("type") in ("patch", "html_update"):
+            v_jump = f["version"]
+            break
+
+    await comm.disconnect()
+    return v_mount, v_arm, v_jump
+
+
+@pytest.mark.django_db
+@pytest.mark.asyncio
+async def test_channel_layer_reset_keeps_wire_version_clean_1882():
+    """WITH the channel-layer reset, the jump lands at the clean version 3.
+
+    The fixture's ``channel_layers.backends.clear()`` puts the victim on a fresh
+    layer, so the stale-layer sibling send is a no-op for it and the wire-version
+    chain stays 1 -> 2 -> 3.
+
+    **Why this keeps its exact integers when #2215 relaxed the ones in
+    ``test_recovery_version_staleness_1817``.** Those were *scaffolding* — that
+    test is about recovery-version staleness, and its exact `v_arm` was
+    incidental, so a stray bump failed it for a reason it was not about. Here
+    the exact chain IS the subject: this test and its gate-off sibling below
+    are a control/treatment pair asking precisely "did an extra bump happen?",
+    and 3-vs-4 is the entire signal. Relaxing to `>` would delete the test.
+
+    So this pair stays exact deliberately, and inherits the consequence: a
+    stray bump from anywhere else reads here as "the reset failed". One real
+    such producer existed until #2215 — a hot-reload broadcast suppressed by
+    the empty-patch guard still consumed a wire version, silently, with no
+    frame on the socket. If this test fails with `got mount=1 arm=2 jump=4`
+    while the gate-off sibling ALSO passes, suspect a new silent bumper rather
+    than the reset.
+    """
+    with override_settings(LIVEVIEW_ALLOWED_MODULES=[_TT_MOD], DEBUG=True):
+        v_mount, v_arm, v_jump = await _drive_jump_with_stale_layer_sender(reset_layer=True)
+    assert (v_mount, v_arm, v_jump) == (1, 2, 3), (
+        "with the channel-layer reset the wire-version chain must stay clean "
+        f"(1 -> 2 -> 3); got mount={v_mount} arm={v_arm} jump={v_jump}"
+    )
+
+
+@pytest.mark.django_db
+@pytest.mark.asyncio
+async def test_a_stale_layer_stray_no_longer_drifts_the_version_2215():
+    """This test used to REQUIRE the drift. #2215 fixed it at the root.
+
+    It was written as the gate-off (#1468) for the companion above: without the
+    channel-layer reset the victim shared the stale layer with the sibling
+    sender, received the stray re-render, and the jump landed at 4 — the exact
+    ``got 4`` #1882 symptom. It asserted ``v_jump == 4`` and passed.
+
+    It now lands at 3, because **#1882, #1883 and #2215 were one bug.**
+    ``sibling.html`` is unrelated to the victim, so the stray re-render
+    produced ZERO patches; ``_send_update`` suppressed the broadcast (#763) and
+    returned — but the wire version had already been consumed, because
+    ``hotreload`` passed ``version=self._next_version_armed(html)`` as an
+    ARGUMENT and Python evaluates arguments before the call. A bump with no
+    frame. That is why every hunt for a stray FRAME came back empty, and why
+    #2215 was sighted repeatedly and reproduced never.
+
+    So this assertion is flipped rather than deleted: the transition from 4 to 3
+    is the end-to-end proof that #2215 cured #1882 at the source instead of
+    containing it. If it ever reads 4 again, the argument-evaluation defect (or
+    another silent bumper) is back — see
+    ``test_a_suppressed_hotreload_broadcast_consumes_no_wire_version``.
+
+    **The reset fixture is still justified**, and this test no longer proves
+    it. A stray whose re-render produces NON-empty patches sends a real frame
+    and legitimately advances the version, which would still drift a victim
+    sharing the layer; the fixture prevents that. This harness cannot construct
+    that case — the hot-reload path re-renders without mutating view state, so
+    its patches are always empty here — so the claim is left stated rather than
+    pinned, instead of faking a stray to keep a green gate-off (#1859).
+    """
+    with override_settings(LIVEVIEW_ALLOWED_MODULES=[_TT_MOD], DEBUG=True):
+        v_mount, v_arm, v_jump = await _drive_jump_with_stale_layer_sender(reset_layer=False)
+    assert (v_mount, v_arm, v_jump) == (1, 2, 3), (
+        "a stale-layer stray hotreload drifted the wire version: expected the "
+        f"clean chain 1 -> 2 -> 3, got mount={v_mount} arm={v_arm} "
+        f"jump={v_jump}.\n"
+        "This test asserted jump == 4 until #2215 — the drift was a hot-reload "
+        "broadcast consuming a wire version and then being suppressed by the "
+        "empty-patch guard, sending nothing. A 4 here means that silent bump "
+        "is back."
+    )
+
+
+# ---------------------------------------------------------------------------
+# (3) The autouse fixture is actually active in this worker.
+# ---------------------------------------------------------------------------
+
+
+def test_autouse_fixture_left_counters_clean():
+    """A plain test (no explicit fixture request) starts with reset counters.
+
+    Proves the autouse fixture ran before this test: the child-view counter is
+    at 1 even though earlier tests in the worker advanced it.
+    """
+    from djust.mixins import sticky
+
+    # The autouse fixture reset it to count(1) before this test body ran.
+    assert next(sticky._view_id_counter) == 1, (
+        "autouse _reset_djust_globals must have reset the child-view counter "
+        "before this test — got a non-1 first value, fixture not active"
+    )
+    # Leave it advanced; the next test's autouse fixture re-resets it.
+    next(sticky._view_id_counter)
+    _ = itertools  # silence unused-import lints in stripped builds

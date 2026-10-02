@@ -270,11 +270,16 @@ def spark_glob_to_snowflake_regex(glob_pattern: str) -> str:
     """Translate a Spark-style glob to a Snowflake-compatible regex.
 
     Mapping:
-        * ``**`` -> ``.*`` (cross-component wildcard)
+        * ``**`` -> ``.*`` (cross-component wildcard -- a DELIBERATE divergence from
+          Hadoop, which matches ``**`` as a single component; see
+          ``TestDoubleStarCrossesDirectoriesByContract`` before changing it)
         * ``*``  -> ``[^/]*`` (within-component wildcard)
         * ``?``  -> ``[^/]`` (single non-separator char)
         * ``[abc]`` -> ``[abc]`` (character class kept verbatim)
-        * ``{a,b,c}`` -> ``(?:a|b|c)`` (alternation group)
+        * ``{a,b,c}`` -> ``(?:a|b|c)`` (alternation group, nesting-aware like Hadoop's
+          ``curlyOpen`` counter: ``{a,{b,c}}`` -> ``(?:a|(?:b|c))``)
+        * ``[!abc]`` -> ``[^abc]`` -- Hadoop's ``GlobPattern`` spells class negation with
+          ``!``; copying the class verbatim would invert the answer
         * Backslash escapes (``\\*``, ``\\?``, ``\\[``, ``\\{``, ``\\}``)
           -> literal character.
         * Other regex metacharacters are escaped.
@@ -288,16 +293,32 @@ def spark_glob_to_snowflake_regex(glob_pattern: str) -> str:
     pattern_len = len(glob_pattern)
     while i < pattern_len:
         current_char = glob_pattern[i]
-        if (
-            current_char == "\\"
-            and i + 1 < pattern_len
-            and glob_pattern[i + 1] in "*?[]{}\\"
-        ):
+        if current_char == "\\" and i + 1 < pattern_len:
+            # Hadoop's GlobPattern treats a backslash as escaping whatever follows, not only a
+            # glob metacharacter. Restricting it to "*?[]{}\\" left "a\\.csv" to fall through
+            # and emit a literal backslash, so it matched nothing where Spark matches "a.csv".
             out.append(re.escape(glob_pattern[i + 1]))
             i += 2
             continue
         if current_char == "*":
             if i + 1 < pattern_len and glob_pattern[i + 1] == "*":
+                # DO NOT "fix" this to "[^/]*" without reading
+                # TestDoubleStarCrossesDirectoriesByContract in
+                # tests/unit_tests/test_nss_read_handlers.py first.
+                #
+                # Hadoop matches a glob component-by-component, so OSS Spark treats "**" as
+                # exactly one component -- identical to "*". Emitting ".*" here instead lets
+                # "**" cross "/", which is a real divergence from Spark. It is nonetheless
+                # DELIBERATE and depended upon: it is the only way a SCOS path glob can express
+                # "at any depth", and Hadoop globs have no such construct (which is why Spark
+                # added recursiveFileLookup). The customer in SNOW-4039483 relies on it.
+                #
+                # Making this Hadoop-faithful silently returns FEWER files -- no error, just
+                # missing rows at depths past one directory. On the NSS path there is currently
+                # no fallback: pathGlobFilter is basename-only and cannot express a directory
+                # condition, and input_file_name() yields "" because nss/ never surfaces
+                # METADATA$FILENAME, so a post-filter matches nothing. Close one of those gaps
+                # before changing this.
                 out.append(".*")
                 i += 2
             else:
@@ -314,17 +335,63 @@ def spark_glob_to_snowflake_regex(glob_pattern: str) -> str:
                 out.append(re.escape(current_char))
                 i += 1
             else:
-                # Snowflake regex character classes share Spark/Java syntax.
-                out.append(glob_pattern[i : close_bracket_idx + 1])
+                # Snowflake regex character classes share Spark/Java syntax, with one
+                # exception: Hadoop's GlobPattern spells negation "[!...]" and maps it to
+                # "[^...]". Copying the class verbatim made "[!_]*.csv" match exactly the
+                # COMPLEMENT of Spark's answer -- dropping "a.csv" and keeping "_x.csv".
+                body = glob_pattern[i + 1 : close_bracket_idx]
+                if body.startswith("!"):
+                    body = "^" + body[1:]
+                out.append(f"[{body}]")
                 i = close_bracket_idx + 1
             continue
         if current_char == "{":
-            close_brace_idx = glob_pattern.find("}", i + 1)
+            # Find the MATCHING close brace and split on TOP-LEVEL commas only. Hadoop's
+            # GlobPattern tracks nesting with a ``curlyOpen`` counter, so ``{csv,{txt,log}}``
+            # yields ``(?:csv|(?:txt|log))``. Taking the first ``}`` instead (and splitting every
+            # comma) produced ``(?:csv|\{txt|log)\}`` -- a pattern that compiles and then matches
+            # NOTHING, not even the outer ``csv`` branch, because the trailing ``\}`` demands a
+            # literal brace. A silently empty read, from a glob the user reasonably expects to
+            # work.
+            depth, close_brace_idx, j = 0, -1, i
+            while j < pattern_len:
+                if glob_pattern[j] == "\\" and j + 1 < pattern_len:
+                    j += 2
+                    continue
+                if glob_pattern[j] == "{":
+                    depth += 1
+                elif glob_pattern[j] == "}":
+                    depth -= 1
+                    if depth == 0:
+                        close_brace_idx = j
+                        break
+                j += 1
             if close_brace_idx == -1:
+                # Unbalanced: Hadoop raises here; keep the pre-existing lenient behaviour of
+                # treating the brace as a literal rather than failing the read.
                 out.append(re.escape(current_char))
                 i += 1
             else:
-                parts = glob_pattern[i + 1 : close_brace_idx].split(",")
+                body = glob_pattern[i + 1 : close_brace_idx]
+                parts, buf, inner = [], [], 0
+                k = 0
+                while k < len(body):
+                    ch = body[k]
+                    if ch == "\\" and k + 1 < len(body):
+                        buf.append(body[k : k + 2])
+                        k += 2
+                        continue
+                    if ch == "{":
+                        inner += 1
+                    elif ch == "}":
+                        inner -= 1
+                    if ch == "," and inner == 0:
+                        parts.append("".join(buf))
+                        buf = []
+                    else:
+                        buf.append(ch)
+                    k += 1
+                parts.append("".join(buf))
                 out.append(
                     "(?:"
                     + "|".join(spark_glob_to_snowflake_regex(p) for p in parts)
@@ -874,6 +941,11 @@ def compute_non_recursive_pattern(
     if len(branches) == 1:
         return branches[0]
     return "|".join(f"(?:{b})" for b in branches)
+
+
+def alternation(*regex_parts: str | None) -> str | None:
+    """Public alias -- the NSS path needs the same composition COPY uses."""
+    return _alternation(*regex_parts)
 
 
 def _alternation(*regex_parts: str | None) -> str | None:

@@ -1,0 +1,256 @@
+"""`confiture migrate down` and `down-to`."""
+
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+
+import typer
+
+from confiture.cli.commands.migrate._dry_run_render import _render_dry_run_analysis, _row_estimator
+from confiture.cli.commands.migrate._settings import _load_environment_if_present
+from confiture.cli.dry_run import display_dry_run_header
+from confiture.cli.dsn import (
+    DATABASE_URL_OPTION_HELP,
+    NO_CONFIG_OPTION_HELP,
+    config_is_explicit,
+    resolve_database_url,
+)
+from confiture.cli.error_json import cli_boundary, fail, lock_error_to_confiture
+from confiture.cli.formatters.migrate_formatter import format_migrate_down_result
+from confiture.cli.helpers import (
+    _get_tracking_table,
+    connect,
+    console,
+    emit,
+    error_console,
+    is_json,
+)
+from confiture.cli.markup import verbatim
+from confiture.cli.options import (
+    config_option,
+    database_url_option,
+    format_option,
+    migrations_dir_option,
+    output_option,
+    verbose_option,
+)
+from confiture.core import connection as _core_connection
+from confiture.core import migrator as _core_migrator
+from confiture.core.error_handler import print_error_to_console
+from confiture.core.locking import LockAcquisitionError, resolve_lock_settings
+from confiture.error_codes import exit_code_of
+
+
+@cli_boundary
+def migrate_down(
+    *,
+    ctx: typer.Context,
+    migrations_dir: Path = migrations_dir_option(),
+    config: Path = config_option(),
+    database_url: str = database_url_option(help=DATABASE_URL_OPTION_HELP),
+    no_config: bool = typer.Option(
+        False,
+        "--no-config",
+        help=NO_CONFIG_OPTION_HELP,
+    ),
+    steps: int = typer.Option(
+        1,
+        "--steps",
+        "-n",
+        help="Number of migrations to rollback (default: 1)",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Analyze rollback without executing (default: off)",
+    ),
+    lock_timeout: int | None = typer.Option(
+        None,
+        "--lock-timeout",
+        help="Lock timeout in milliseconds (default: migration.locking.timeout_ms, else 30000)",
+    ),
+    no_lock: bool | None = typer.Option(
+        None,
+        "--no-lock",
+        help="Disable migration locking (default: migration.locking.enabled; DANGEROUS in multi-pod)",
+    ),
+    verbose: bool = verbose_option(help="Show detailed analysis in dry-run (default: off)"),
+    format_output: str = format_option("text", "json"),
+    output_file: Path | None = output_option(),
+) -> None:
+    """Rollback previously applied migrations.
+
+    PROCESS:
+      Rolls back the last N applied migrations (default: 1), reverting schema
+      changes. Use --dry-run to analyze without executing.
+
+    EXAMPLES:
+      confiture migrate down
+        ↳ Rollback the last applied migration
+
+      confiture migrate down --steps 3
+        ↳ Rollback the last 3 migrations
+
+      confiture migrate down --dry-run
+        ↳ Analyze rollback without executing
+
+      confiture migrate down --verbose --format json
+        ↳ Detailed analysis in JSON format
+
+    RELATED:
+      confiture migrate up       - Apply migrations forward
+      confiture migrate status   - View migration history
+      confiture migrate validate - Check migration integrity
+
+    OPTIONS:
+      CORE: --steps
+        How many migrations to rollback (default: 1)
+
+      DRY-RUN: --dry-run, --verbose, --format, --output
+        Analyze rollback without executing, with detailed reports
+
+      OUTPUT: --format, --output
+        Control report format and destination
+    """
+
+    if verbose:
+        logging.getLogger("confiture").setLevel(logging.DEBUG)
+
+    try:
+        _db_url_override = resolve_database_url(
+            database_url,
+            config,
+            config_explicit=config_is_explicit(ctx),
+            no_config=no_config,
+            require_intentional_source=True,
+        )
+        if _db_url_override is not None:
+            config_data = {"database_url": _db_url_override}
+        else:
+            config_data = _core_connection.load_config(config)
+
+        with _core_migrator.MigratorSession(
+            None,
+            migrations_dir,
+            database_url_override=_core_connection.dsn_from_config(config_data),
+            migration_table_override=_get_tracking_table(config_data),
+            command="confiture migrate down",
+            connection_factory=connect,
+        ) as session:
+            if session.current_revision() is None:
+                console.print("[yellow]⚠️  No applied migrations to rollback.[/yellow]")
+                return
+
+            if dry_run:
+                display_dry_run_header("analysis")
+                preview = session.down(steps=steps, dry_run=True)
+                _render_dry_run_analysis(
+                    [(m.version, m.name) for m in preview.migrations_rolled_back],
+                    migrations_dir=migrations_dir,
+                    migration_id=f"dry_run_rollback_{config.stem}",
+                    execute=False,
+                    format_output=format_output,
+                    output_file=output_file,
+                    estimate_rows=_row_estimator(session.connection),
+                    rollback=True,
+                )
+                return
+
+            if not is_json(format_output):
+                console.print(
+                    f"[cyan]📦 Rolling back up to {verbatim(steps)} migration(s)[/cyan]\n"
+                )
+            env_cfg = _load_environment_if_present(config) if _db_url_override is None else None
+            lock_timeout, no_lock = resolve_lock_settings(
+                env_cfg.migration.locking if env_cfg else None, lock_timeout, no_lock
+            )
+            result = session.down(steps=steps, lock_timeout=lock_timeout, no_lock=no_lock)
+
+        format_migrate_down_result(result, format_output, output_file, console)
+
+    except LockAcquisitionError as e:
+        if is_json(format_output):
+            fail(lock_error_to_confiture(e), json_mode=True, output_file=output_file)
+        print_error_to_console(e, error_console)
+        raise typer.Exit(exit_code_of("LOCK_1300")) from e
+
+
+@cli_boundary
+def migrate_down_to(
+    *,
+    ctx: typer.Context,
+    revision: str = typer.Argument(
+        ...,
+        help="Target revision to roll back to (stays applied). Use 'migrate current' to find it.",
+    ),
+    migrations_dir: Path = migrations_dir_option(),
+    config: Path = config_option(),
+    database_url: str = database_url_option(help=DATABASE_URL_OPTION_HELP),
+    no_config: bool = typer.Option(
+        False,
+        "--no-config",
+        help=NO_CONFIG_OPTION_HELP,
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Print the rollback plan and exit 0 without applying anything.",
+    ),
+    format_output: str = format_option("text", "json"),
+    output_file: Path | None = output_option(),
+) -> None:
+    """Roll back every migration newer than <revision> (absolute rollback).
+
+    The absolute counterpart to ``migrate down --steps N``: instead of a
+    relative count, name the revision to return to. Confiture computes the
+    rollback set, validates that every required ``.down.sql`` exists *before*
+    touching the database, and rolls back newest→oldest under the migration
+    lock. If any required ``.down.sql`` is missing, it refuses atomically —
+    nothing is rolled back.
+
+    EDGE CASES:
+      <revision> == current      → no-op, exit 0 ("already at <revision>")
+      <revision> newer than current → exit 3 ("use 'migrate up --target'")
+      <revision> unknown         → exit 3 ("unknown revision")
+      any required .down.sql missing → exit 8, nothing applied (ROLLBACK_600)
+
+    OUTPUT (--format json): {from, to, rolled_back, skipped, errors}
+
+    EXAMPLES:
+      confiture migrate down-to 20260101_a -c db/environments/staging.yaml
+      confiture migrate down-to 20260101_a --dry-run --format json
+    """
+
+    override = resolve_database_url(
+        database_url,
+        config,
+        config_explicit=config_is_explicit(ctx),
+        no_config=no_config,
+        require_intentional_source=True,
+    )
+    if override is not None:
+        session = _core_migrator.MigratorSession(
+            config=None,
+            migrations_dir=migrations_dir,
+            database_url_override=override,
+            connection_factory=connect,
+        )
+    else:
+        session = _core_migrator.Migrator.from_config(
+            str(config), migrations_dir=migrations_dir, connection_factory=connect
+        )
+    with session as s:
+        result = s.down_to(revision, dry_run=dry_run, command="confiture migrate down-to")
+
+    if is_json(format_output):
+        emit(result.to_dict(), output_file, console)
+    elif result.noop:
+        console.print(f"Already at {verbatim(revision)}; nothing to roll back.")
+    else:
+        verb = "Would roll back" if dry_run else "Rolled back"
+        console.print(
+            f"{verbatim(verb)} {len(result.rolled_back)} migration(s) from {verbatim(result.from_)} to {verbatim(revision)}:"
+        )
+        for v in result.rolled_back:
+            console.print(f"  • {verbatim(v)}")

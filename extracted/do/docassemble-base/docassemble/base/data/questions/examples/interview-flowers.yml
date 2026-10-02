@@ -1,9 +1,0 @@
-event: interview_flowers_done
-question: |
-  Your favorite flower is
-  ${ favorite_flower }
----
-question: |
-  What is your favorite flower?
-fields:
-  - Fruit: favorite_flower

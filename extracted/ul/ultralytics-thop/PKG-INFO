@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ultralytics-thop
-Version: 2.2.1
+Version: 2.2.2
 Summary: Ultralytics THOP package for fast computation of PyTorch model FLOPs and parameters.
 Author-email: Ligeng Zhu <ligeng.zhu+github@gmail.com>
 Maintainer-email: Ultralytics <hello@ultralytics.com>
@@ -104,9 +104,9 @@ macs, params = profile(model, inputs=inputs, stride=32)
 
 Calls that omit `stride` retain the exact profiling behavior shown in the basic example.
 
-On torch>=1.13, `profile()` also counts the matrix products a forward runs functionally (`@`, `torch.matmul`,
-`torch.bmm` and `scaled_dot_product_attention`), which no module hook observes, except inside a module whose own
-counting rule already accounts for them.
+On torch>=1.13, `profile()` also counts the products a forward runs functionally (`@`, `torch.matmul`, `torch.bmm`,
+two-operand `torch.einsum` and `scaled_dot_product_attention`), which no module hook observes, except inside a module
+whose own counting rule already accounts for them.
 
 ### Define Custom Rules for Third-Party Modules
 

@@ -157,16 +157,16 @@ def test_aggregate_weighted_math_admin1():
     assert mo20[PRED_COL] == pytest.approx(6.35)
 
 
-def test_aggregate_obs_nan_rows_still_contribute_predictions():
+def test_aggregate_obs_nan_rows_score_on_the_same_children():
     out = aggregate_predictions(_pred_frame(), LEVEL_MAP_ADMIN1)
     ia20 = _row(out, "Iowa", 2020)
-    # Predictions aggregate over ALL counties with predictions:
-    # pred = (10*100 + 12*300)/400 = 11.5
-    assert ia20[PRED_COL] == pytest.approx(11.5)
-    assert ia20["N Units"] == 2
-    # Observed aggregates only over counties WITH an observation
-    # (Iowa Boone 2020 obs is NaN): obs = 9*100/100 = 9.0
+    # Iowa Boone 2020 has no observation, so it is in NEITHER aggregate: the
+    # scored pair must describe one child set (audit 2026-09-30 — observed
+    # over the reporting counties vs predicted over all counties was a
+    # composition artefact). obs = pred = Adair only.
     assert ia20[OBS_COL] == pytest.approx(9.0)
+    assert ia20[PRED_COL] == pytest.approx(10.0)
+    assert ia20["N Units"] == 1
 
 
 def test_aggregate_weighted_math_national():
@@ -179,11 +179,12 @@ def test_aggregate_weighted_math_national():
     assert us19[PRED_COL] == pytest.approx(9.125)
 
     us20 = _row(out, "United States Of America", 2020)
-    # pred over all 4 counties = (10*100+12*300+7.2*200+5.5*200)/800 = 8.925
-    # obs over the 3 counties with obs = (9*100+7*200+5*200)/500 = 6.6
-    assert us20[PRED_COL] == pytest.approx(8.925)
+    # Iowa Boone 2020 has no observation -> excluded from BOTH aggregates:
+    # obs  = (9*100 + 7*200 + 5*200)/500   = 6.6
+    # pred = (10*100 + 7.2*200 + 5.5*200)/500 = 7.08
+    assert us20[PRED_COL] == pytest.approx(7.08)
     assert us20[OBS_COL] == pytest.approx(6.6)
-    assert us20["N Units"] == 4
+    assert us20["N Units"] == 3
 
 
 def test_unweighted_fallback_when_area_missing(caplog):
@@ -207,9 +208,13 @@ def test_unweighted_fallback_when_weight_zero_or_nan():
     ] = 0.0
     out = aggregate_predictions(df, LEVEL_MAP_ADMIN1)
     ia19 = _row(out, "Iowa", 2019)
-    # Zero weight in the group -> the whole group falls back to unweighted.
-    assert ia19[OBS_COL] == pytest.approx(11.0)
-    assert ia19["Aggregation"] == "unweighted"
+    # A zero/NaN weight no longer flips the whole group to unweighted: the
+    # weightless child is left out of the area-weighted aggregate instead
+    # (audit 2026-09-30), so Iowa 2019 = Adair alone.
+    assert ia19[OBS_COL] == pytest.approx(10.0)
+    assert ia19["Aggregation"] == "area-weighted"
+    assert ia19["N Units"] == 1
+    assert ia19["N No Weight"] == 1
     # Other groups keep valid weights and stay area-weighted.
     assert _row(out, "Missouri", 2019)["Aggregation"] == "area-weighted"
 
@@ -344,8 +349,10 @@ def test_files_written_admin2_run(tmp_path, monkeypatch, caplog):
     m = pd.read_csv(base_csvs / "admin_1" / f"metrics_admin_1_{COUNTRY}_{CROP}_{MODEL}.csv")
     assert POOLED_LABEL in set(m["Region"])
     ia = m[m["Region"] == "Iowa"].iloc[0]
-    # Iowa scored years: 2019 (obs 11.5 / pred 11.0), 2020 (obs 9.0 / pred 11.5)
-    err = np.array([11.0 - 11.5, 11.5 - 9.0])
+    # Iowa scored years: 2019 (obs 11.5 / pred 11.0), 2020 (obs 9.0 /
+    # pred 10.0 — Boone has no observation in 2020, so it is in neither
+    # aggregate; audit 2026-09-30).
+    err = np.array([11.0 - 11.5, 10.0 - 9.0])
     rmse = float(np.sqrt(np.mean(err ** 2)))
     assert ia["rRMSE (%)"] == pytest.approx(100.0 * rmse / np.mean([11.5, 9.0]))
 

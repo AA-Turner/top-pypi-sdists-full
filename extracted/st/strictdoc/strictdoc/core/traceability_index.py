@@ -1,0 +1,1600 @@
+"""
+@relation(SDOC-SRS-28, scope=file)
+"""
+
+import datetime
+from copy import copy, deepcopy
+from typing import Any, Dict, Generator, List, Optional, Set, Tuple, Union
+
+from strictdoc.backend.sdoc.document_reference import DocumentReference
+from strictdoc.backend.sdoc.error_handling import StrictDocSemanticError
+from strictdoc.backend.sdoc.models.anchor import Anchor
+from strictdoc.backend.sdoc.models.document import SDocDocument
+from strictdoc.backend.sdoc.models.document_config import DocumentConfig
+from strictdoc.backend.sdoc.models.grammar_element import GrammarElement
+from strictdoc.backend.sdoc.models.inline_link import InlineLink
+from strictdoc.backend.sdoc.models.node import SDocNode
+from strictdoc.backend.sdoc.models.reference import (
+    ChildReqReference,
+    ParentReqReference,
+)
+from strictdoc.backend.sdoc.node_filter import NodeFilter
+from strictdoc.backend.sdoc.validations.sdoc_validator import SDocValidator
+from strictdoc.backend.sdoc_source_code.models.source_file_info import (
+    RelationMarkerType,
+    SourceFileTraceabilityInfo,
+)
+from strictdoc.core.asset_manager import AssetManager
+from strictdoc.core.constants import GraphLinkType
+from strictdoc.core.document_iterator import SDocDocumentIterator
+from strictdoc.core.document_meta import DocumentMeta
+from strictdoc.core.document_tree import DocumentTree
+from strictdoc.core.file_dependency_manager import FileDependencyManager
+from strictdoc.core.file_system.source_tree import SourceFile
+from strictdoc.core.file_traceability_index import FileTraceabilityIndex
+from strictdoc.core.graph.abstract_bucket import ALL_EDGES
+from strictdoc.core.graph_database import GraphDatabase
+from strictdoc.core.project_config import ProjectConfig
+from strictdoc.core.transforms.constants import NodeCreationOrder
+from strictdoc.core.transforms.validation_error import (
+    MultipleValidationErrorAsList,
+    SingleValidationError,
+)
+from strictdoc.core.tree_cycle_detector import TreeCycleDetector
+from strictdoc.core.validation_index import ValidationIndex
+from strictdoc.helpers.cast import assert_cast, assert_optional_cast
+from strictdoc.helpers.file_modification_time import set_file_modification_time
+from strictdoc.helpers.mid import MID
+from strictdoc.helpers.ordered_set import OrderedSet
+from strictdoc.helpers.paths import SDocRelativePath
+from strictdoc.helpers.sorting import alphanumeric_sort
+
+
+class TraceabilityIndex:
+    def __init__(
+        self,
+        document_tree: DocumentTree,
+        document_iterators: Dict[SDocDocument, SDocDocumentIterator],
+        file_traceability_index: FileTraceabilityIndex,
+        graph_database: GraphDatabase,
+        file_dependency_manager: FileDependencyManager,
+    ):
+        self._document_iterators: Dict[SDocDocument, SDocDocumentIterator] = (
+            document_iterators
+        )
+        self._file_traceability_index: FileTraceabilityIndex = (
+            file_traceability_index
+        )
+        self.validation_index: ValidationIndex = ValidationIndex()
+        self.graph_database: GraphDatabase = graph_database
+        self.document_tree: DocumentTree = document_tree
+        self.asset_manager: Optional[AssetManager] = None
+        self.file_dependency_manager: FileDependencyManager = (
+            file_dependency_manager
+        )
+        self.node_filter: Optional[NodeFilter] = None
+        self.pending_inline_links: List[InlineLink] = []
+
+        self.index_last_updated = datetime.datetime.today()
+        self.contains_included_documents = False
+        self.strictdoc_last_update: datetime.datetime = (
+            datetime.datetime.fromtimestamp(0)
+        )
+
+        # The timestamp is used by HTML/JS for invalidating the search index
+        # cache in the IndexedDB database.
+        # If no documents have to be re-generated with the second+ run of
+        # StrictDoc, this timestamp is set of a modification date of the first
+        # SDoc document, see export_static_html_search_index.
+        self.search_index_timestamp: datetime.datetime = datetime.datetime.now(
+            datetime.timezone.utc
+        )
+
+    @property
+    def document_iterators(self) -> Dict[SDocDocument, SDocDocumentIterator]:
+        return self._document_iterators
+
+    def is_small_project(self) -> bool:
+        """
+        Check if project is small to control feature availability.
+
+        This method helps to decide if StrictDoc will precompile Jinja templates
+        to Python files or not. Precompilation may take half a second time, so
+        it is only worth doing it when a project is relatively large.
+
+        Below, making some assumptions about what makes a small or larger
+        project.
+        """
+        if len(self.document_tree.document_list) >= 3:
+            return False
+        for document_ in self.document_tree.document_list:
+            if len(document_.section_contents) > 5:
+                return False
+        return (
+            self.graph_database.get_count(
+                link_type=GraphLinkType.NODE_TO_PARENT_NODES
+            )
+            <= 10
+        )
+
+    def is_up_to_date(self) -> bool:
+        """
+        True when no document in the tree needs regeneration, per the
+        persisted file dependency cache. Whole-project screens (e.g. a
+        Feature aggregating every document) can skip their own
+        regeneration when this is True, the same way per-document HTML
+        export already does.
+        """
+        for document_ in self.document_tree.document_list:
+            assert document_.meta is not None
+            if self.file_dependency_manager.must_generate(
+                document_.meta.output_document_full_path
+            ):
+                return False
+        return True
+
+    def can_edit_document(self, document: SDocDocument) -> bool:
+        assert isinstance(document, SDocDocument), document
+        return not document.autogen
+
+    def can_edit_node(self, node: Union[SDocDocument, SDocNode]) -> bool:
+        assert isinstance(node, (SDocDocument, SDocNode)), node
+        if isinstance(node, SDocDocument):
+            return not node.autogen
+
+        if node.get_parent_or_including_document().autogen or node.autogen:
+            return False
+
+        return True
+
+    def can_delete_node(self, node: Union[SDocDocument, SDocNode]) -> bool:
+        assert isinstance(node, (SDocDocument, SDocNode)), node
+        if isinstance(node, SDocDocument):
+            return not node.autogen
+
+        if node.get_parent_or_including_document().autogen:
+            return False
+
+        return not node.is_managed_by_source_code()
+
+    def can_clone_node(self, node: Union[SDocDocument, SDocNode]) -> bool:
+        assert isinstance(node, (SDocDocument, SDocNode)), node
+        if isinstance(node, SDocDocument):
+            return False
+
+        return self.can_delete_node(node)
+
+    def can_add_node(self, node: Union[SDocDocument, SDocNode]) -> bool:
+        assert isinstance(node, (SDocDocument, SDocNode)), node
+        if isinstance(node, SDocDocument):
+            return not node.autogen
+
+        if node.get_parent_or_including_document().autogen or node.autogen:
+            return False
+
+        return True
+
+    def can_insert_next_to_node(
+        self, node: Union[SDocDocument, SDocNode]
+    ) -> bool:
+        assert isinstance(node, (SDocDocument, SDocNode)), node
+        if isinstance(node, SDocDocument):
+            return True
+
+        if node.get_parent_or_including_document().autogen:
+            return False
+
+        parent = node.parent
+        if isinstance(parent, SDocNode) and parent.autogen:
+            return False
+
+        return True
+
+    def can_create_node_at(
+        self, reference_node: Union[SDocDocument, SDocNode], whereto: str
+    ) -> bool:
+        assert isinstance(reference_node, (SDocDocument, SDocNode)), (
+            reference_node
+        )
+        assert isinstance(whereto, str), whereto
+
+        if whereto == NodeCreationOrder.CHILD:
+            return self.can_add_node(reference_node)
+        if whereto in (NodeCreationOrder.BEFORE, NodeCreationOrder.AFTER):
+            return self.can_insert_next_to_node(reference_node)
+        return False
+
+    def can_move_node(self, node: Union[SDocDocument, SDocNode]) -> bool:
+        assert isinstance(node, (SDocDocument, SDocNode)), node
+        if isinstance(node, SDocDocument):
+            return not node.autogen
+
+        if node.get_parent_or_including_document().autogen or node.autogen:
+            return False
+
+        return True
+
+    def can_move_node_to(
+        self,
+        moved_node: SDocNode,
+        target_node: Union[SDocDocument, SDocNode],
+        whereto: str,
+    ) -> bool:
+        assert isinstance(moved_node, SDocNode), moved_node
+        assert isinstance(target_node, (SDocDocument, SDocNode)), target_node
+        assert isinstance(whereto, str), whereto
+
+        if not self.can_move_node(moved_node):
+            return False
+
+        if (
+            whereto == NodeCreationOrder.CHILD
+            and isinstance(target_node, SDocNode)
+            and not target_node.is_composite
+        ):
+            return self.can_insert_next_to_node(target_node)
+
+        return self.can_create_node_at(target_node, whereto)
+
+    def node_has_image(self, node: SDocNode) -> bool:
+        assert isinstance(node, SDocNode), node
+        image_markers = (".. image::", "![", "<img")
+        for field_ in node.enumerate_fields():
+            field_text = field_.get_text_value().lower()
+            for marker_ in image_markers:
+                if marker_ in field_text:
+                    return True
+        return False
+
+    def can_move_node_across_documents(self, node: SDocNode) -> bool:
+        assert isinstance(node, SDocNode), node
+        if not self.can_move_node(node):
+            return False
+        if self.subtree_has_autogenerated_content(node):
+            return False
+
+        return not self.subtree_has_image(node)
+
+    def subtree_has_autogenerated_content(self, node: SDocNode) -> bool:
+        assert isinstance(node, SDocNode), node
+        if node.get_parent_or_including_document().autogen or node.autogen:
+            return True
+
+        document_iterator = SDocDocumentIterator(
+            document=assert_cast(node.get_document(), SDocDocument)
+        )
+        for subtree_node_, _ in document_iterator.all_node_content(
+            node,
+            print_fragments=True,
+            update_levels=False,
+        ):
+            if isinstance(subtree_node_, SDocNode) and subtree_node_.autogen:
+                return True
+        return False
+
+    def subtree_has_image(self, node: SDocNode) -> bool:
+        assert isinstance(node, SDocNode), node
+
+        document_iterator = SDocDocumentIterator(
+            document=assert_cast(node.get_document(), SDocDocument)
+        )
+        for subtree_node_, _ in document_iterator.all_node_content(
+            node,
+            print_fragments=True,
+            update_levels=False,
+        ):
+            if isinstance(subtree_node_, SDocNode) and self.node_has_image(
+                subtree_node_
+            ):
+                return True
+        return False
+
+    def get_subtree_mids(self, node: SDocNode) -> Set[str]:
+        assert isinstance(node, SDocNode), node
+        document = assert_cast(node.get_document(), SDocDocument)
+        document_iterator = SDocDocumentIterator(document=document)
+        subtree_mids: Set[str] = {str(node.reserved_mid)}
+        for document_node_, _ in document_iterator.all_node_content(
+            node,
+            print_fragments=True,
+            update_levels=False,
+        ):
+            if not isinstance(document_node_, (SDocNode, SDocDocument)):
+                continue
+            subtree_mids.add(str(document_node_.reserved_mid))
+        return subtree_mids
+
+    def is_node_in_own_subtree(
+        self, node: SDocNode, candidate_target: Union[SDocDocument, SDocNode]
+    ) -> bool:
+        assert isinstance(node, SDocNode), node
+        assert isinstance(candidate_target, (SDocDocument, SDocNode)), (
+            candidate_target
+        )
+        return str(candidate_target.reserved_mid) in self.get_subtree_mids(node)
+
+    def get_subtree_node_types(self, node: SDocNode) -> Set[str]:
+        assert isinstance(node, SDocNode), node
+        document = assert_cast(node.get_document(), SDocDocument)
+        document_iterator = SDocDocumentIterator(document=document)
+        node_types: Set[str] = {node.node_type}
+        for document_node_, _ in document_iterator.all_node_content(
+            node,
+            print_fragments=True,
+            update_levels=False,
+        ):
+            if not isinstance(document_node_, SDocNode):
+                continue
+            node_types.add(document_node_.node_type)
+        return node_types
+
+    def is_move_grammar_compatible(
+        self, node: SDocNode, destination_document: SDocDocument
+    ) -> bool:
+        assert isinstance(node, SDocNode), node
+        assert isinstance(destination_document, SDocDocument), (
+            destination_document
+        )
+        if node.get_document() is destination_document:
+            return True
+        return (
+            len(
+                self.get_move_grammar_incompatibilities(
+                    node, destination_document
+                )
+            )
+            == 0
+        )
+
+    def get_move_grammar_incompatibilities(
+        self, node: SDocNode, destination_document: SDocDocument
+    ) -> List[str]:
+        assert isinstance(node, SDocNode), node
+        assert isinstance(destination_document, SDocDocument), (
+            destination_document
+        )
+        assert destination_document.grammar is not None
+
+        incompatibilities: List[str] = []
+        document_iterator = SDocDocumentIterator(
+            document=assert_cast(node.get_document(), SDocDocument)
+        )
+        # Validate each subtree node against the destination grammar. Do not
+        # require the source and destination grammars to match.
+        for subtree_node_, _ in document_iterator.all_node_content(
+            node,
+            print_fragments=True,
+            update_levels=False,
+        ):
+            if not isinstance(subtree_node_, SDocNode):
+                continue
+
+            try:
+                SDocValidator.validate_node(
+                    requirement=subtree_node_,
+                    document_grammar=destination_document.grammar,
+                    path_to_sdoc_file="<move destination>",
+                    auto_uid_mode=True,
+                )
+            except StrictDocSemanticError as exception_:
+                incompatibilities.append(
+                    f"{subtree_node_.get_display_title(False)}: "
+                    f"{exception_.title}"
+                )
+        return incompatibilities
+
+    def has_parent_requirements(self, requirement: SDocNode) -> bool:
+        assert isinstance(requirement, SDocNode)
+        if not isinstance(requirement.reserved_uid, str):
+            return False
+
+        parent_requirements = self.graph_database.get_link_values(
+            link_type=GraphLinkType.NODE_TO_PARENT_NODES,
+            lhs_node=requirement,
+            edge=ALL_EDGES,
+        )
+        return len(parent_requirements) > 0
+
+    def has_children_requirements(self, requirement: SDocNode) -> bool:
+        assert isinstance(requirement, SDocNode)
+        if not isinstance(requirement.reserved_uid, str):
+            return False
+
+        children_requirements = self.graph_database.get_link_values(
+            link_type=GraphLinkType.NODE_TO_CHILD_NODES,
+            lhs_node=requirement,
+            edge=ALL_EDGES,
+        )
+        return len(children_requirements) > 0
+
+    def has_source_file_reqs(self, source_file_rel_path: str) -> bool:
+        return self._file_traceability_index.has_source_file_reqs(
+            source_file_rel_path
+        )
+
+    def has_node_connections(self, node_uid: str) -> bool:
+        assert isinstance(node_uid, str), node_uid
+        return self.graph_database.has_any_link(
+            link_type=GraphLinkType.UID_TO_NODE,
+            lhs_node=node_uid,
+        )
+
+    def get_node_by_mid(self, node_mid: MID) -> Any:
+        assert isinstance(node_mid, MID), node_mid
+        return self.graph_database.get_link_value(
+            link_type=GraphLinkType.MID_TO_NODE, lhs_node=node_mid
+        )
+
+    def get_node_by_mid_weak(self, node_mid: MID) -> Optional[Any]:
+        assert isinstance(node_mid, MID), node_mid
+        return self.graph_database.get_link_value_weak(
+            link_type=GraphLinkType.MID_TO_NODE, lhs_node=node_mid
+        )
+
+    def get_file_traceability_index(self) -> FileTraceabilityIndex:
+        return self._file_traceability_index
+
+    def get_document_by_title(
+        self,
+        document_title: str,
+    ) -> SDocDocument:
+        for document_ in self.document_tree.document_list:
+            if document_.reserved_title == document_title:
+                return document_
+        raise LookupError(f"Document not found: '{document_title}'")
+
+    def get_document_iterator(
+        self, document: SDocDocument
+    ) -> SDocDocumentIterator:
+        return SDocDocumentIterator(
+            document=document, node_filter=self.node_filter
+        )
+
+    def get_parent_requirements(self, requirement: SDocNode) -> List[SDocNode]:
+        assert isinstance(requirement, SDocNode)
+        if not isinstance(requirement.reserved_uid, str):
+            return []
+
+        return list(
+            self.graph_database.get_link_values(
+                link_type=GraphLinkType.NODE_TO_PARENT_NODES,
+                lhs_node=requirement,
+                edge=ALL_EDGES,
+            )
+        )
+
+    def get_parent_relations_with_roles(
+        self, node: SDocNode
+    ) -> List[Tuple[SDocNode, Optional[str]]]:
+        assert isinstance(node, SDocNode)
+
+        return list(
+            self.graph_database.get_link_values_with_edges(
+                link_type=GraphLinkType.NODE_TO_PARENT_NODES,
+                lhs_node=node,
+                edge=ALL_EDGES,
+            )
+        )
+
+    def get_parent_relations_with_role(
+        self, requirement: SDocNode, role: Optional[str]
+    ) -> List[Tuple[SDocNode, Optional[str]]]:
+        assert isinstance(requirement, SDocNode)
+        if requirement.reserved_uid is None:
+            return []
+
+        return list(
+            self.graph_database.get_link_values_with_edges(
+                link_type=GraphLinkType.NODE_TO_PARENT_NODES,
+                lhs_node=requirement,
+                edge=role,
+            )
+        )
+
+    def get_child_relations_with_roles(
+        self, requirement: SDocNode
+    ) -> List[Tuple[SDocNode, Optional[str]]]:
+        assert isinstance(requirement, SDocNode)
+
+        return list(
+            self.graph_database.get_link_values_with_edges(
+                link_type=GraphLinkType.NODE_TO_CHILD_NODES,
+                lhs_node=requirement,
+                edge=ALL_EDGES,
+            )
+        )
+
+    def get_child_relations_with_role(
+        self, requirement: SDocNode, role: Optional[str]
+    ) -> List[Tuple[SDocNode, Optional[str]]]:
+        assert isinstance(requirement, SDocNode)
+        if requirement.reserved_uid is None:
+            return []
+
+        return list(
+            self.graph_database.get_link_values_with_edges(
+                link_type=GraphLinkType.NODE_TO_CHILD_NODES,
+                lhs_node=requirement,
+                edge=role,
+            )
+        )
+
+    def get_display_role_for_parent_relation(
+        self,
+        node: SDocNode,
+        parent_node: SDocNode,
+        relation_role: Optional[str],
+    ) -> Optional[str]:
+        return self._get_display_role_for_relation(
+            node=node,
+            related_node=parent_node,
+            forward_relation_type="Parent",
+            reverse_relation_type="Child",
+            relation_role=relation_role,
+        )
+
+    def get_display_role_for_child_relation(
+        self,
+        node: SDocNode,
+        child_node: SDocNode,
+        relation_role: Optional[str],
+    ) -> Optional[str]:
+        return self._get_display_role_for_relation(
+            node=node,
+            related_node=child_node,
+            forward_relation_type="Child",
+            reverse_relation_type="Parent",
+            relation_role=relation_role,
+        )
+
+    def _get_display_role_for_relation(
+        self,
+        node: SDocNode,
+        related_node: SDocNode,
+        forward_relation_type: str,
+        reverse_relation_type: str,
+        relation_role: Optional[str],
+    ) -> Optional[str]:
+        if self._node_has_direct_relation(
+            source_node=node,
+            target_node=related_node,
+            relation_type=forward_relation_type,
+            relation_role=relation_role,
+        ):
+            return relation_role
+
+        if self._node_has_direct_relation(
+            source_node=related_node,
+            target_node=node,
+            relation_type=reverse_relation_type,
+            relation_role=relation_role,
+        ):
+            reverse_role = self._get_reverse_role_from_node_grammar(
+                node=related_node,
+                relation_type=reverse_relation_type,
+                relation_role=relation_role,
+            )
+            return reverse_role if reverse_role is not None else relation_role
+
+        return relation_role
+
+    @staticmethod
+    def _node_has_direct_relation(
+        source_node: SDocNode,
+        target_node: SDocNode,
+        relation_type: str,
+        relation_role: Optional[str],
+    ) -> bool:
+        for relation_ in source_node.relations:
+            if not isinstance(
+                relation_, (ParentReqReference, ChildReqReference)
+            ):
+                continue
+            if (
+                relation_.ref_type == relation_type
+                and relation_.ref_uid == target_node.reserved_uid
+                and relation_.role == relation_role
+            ):
+                return True
+        return False
+
+    @staticmethod
+    def _get_reverse_role_from_node_grammar(
+        node: SDocNode,
+        relation_type: str,
+        relation_role: Optional[str],
+    ) -> Optional[str]:
+        document = assert_optional_cast(node.get_document(), SDocDocument)
+        if document is None or document.grammar is None:
+            return None
+
+        grammar_element = document.grammar.elements_by_type.get(node.node_type)
+        if grammar_element is None:
+            return None
+
+        return grammar_element.get_relation_reverse_role(
+            relation_type=relation_type,
+            relation_role=relation_role,
+        )
+
+    def get_children_requirements(
+        self, requirement: SDocNode
+    ) -> List[SDocNode]:
+        assert isinstance(requirement, SDocNode)
+        if not isinstance(requirement.reserved_uid, str):
+            return []
+
+        return list(
+            self.graph_database.get_link_values(
+                link_type=GraphLinkType.NODE_TO_CHILD_NODES,
+                lhs_node=requirement,
+                edge=ALL_EDGES,
+            )
+        )
+
+    def has_tags(self, document: SDocDocument) -> bool:
+        return self.graph_database.has_any_link(
+            link_type=GraphLinkType.DOCUMENT_TO_TAGS,
+            lhs_node=document.reserved_mid,
+        )
+
+    def get_counted_tags(
+        self, document: SDocDocument
+    ) -> Generator[Tuple[str, int], None, None]:
+        document_tags_or_none = self.graph_database.get_link_value(
+            link_type=GraphLinkType.DOCUMENT_TO_TAGS,
+            lhs_node=document.reserved_mid,
+        )
+        document_tags: Dict[str, int] = assert_cast(document_tags_or_none, dict)
+
+        tags = sorted(document_tags.keys(), key=alphanumeric_sort)
+        for tag in tags:
+            yield tag, document_tags[tag]
+
+    def get_requirement_file_links(
+        self, requirement: SDocNode
+    ) -> List[Tuple[str, List[RelationMarkerType]]]:
+        return self._file_traceability_index.get_requirement_file_links(
+            requirement
+        )
+
+    def get_source_file_reqs(
+        self, source_file_rel_path: str
+    ) -> Optional[List[SDocNode]]:
+        return self._file_traceability_index.get_source_file_reqs(
+            source_file_rel_path
+        )
+
+    def get_coverage_info(
+        self, source_file_rel_path: str
+    ) -> SourceFileTraceabilityInfo:
+        return self._file_traceability_index.get_coverage_info(
+            source_file_rel_path
+        )
+
+    def get_coverage_info_weak(
+        self, source_file_rel_path: str
+    ) -> Optional[SourceFileTraceabilityInfo]:
+        return self._file_traceability_index.get_coverage_info_weak(
+            source_file_rel_path
+        )
+
+    def get_node_by_uid(self, uid: str) -> Any:
+        assert isinstance(uid, str) and len(uid) > 0, uid
+        return self.graph_database.get_link_value(
+            link_type=GraphLinkType.UID_TO_NODE, lhs_node=uid
+        )
+
+    def get_node_by_uid_weak2(self, uid: str) -> Optional[Any]:
+        """
+        FIXME: This can likely replace _weak below with no problem.
+        """
+        assert isinstance(uid, str) and len(uid) > 0, uid
+        return self.graph_database.get_link_value_weak(
+            link_type=GraphLinkType.UID_TO_NODE, lhs_node=uid
+        )
+
+    def get_linkable_node_by_uid(
+        self, uid: str
+    ) -> Union[SDocDocument, SDocNode, Anchor]:
+        return assert_cast(
+            self.get_node_by_uid(uid),
+            (SDocDocument, SDocNode, Anchor),
+        )
+
+    def get_node_by_uid_weak(
+        self, uid: str
+    ) -> Union[SDocDocument, SDocNode, None]:
+        assert isinstance(uid, str), uid
+        for document in self.document_tree.document_list:
+            document_iterator = SDocDocumentIterator(document)
+            for node, _ in document_iterator.all_content(print_fragments=False):
+                if isinstance(node, SDocDocument):
+                    if node.config.uid == uid:
+                        return node
+                elif isinstance(node, SDocNode):
+                    if node.reserved_uid == uid:
+                        return node
+                else:
+                    raise NotImplementedError
+        return None
+
+    def get_linkable_node_by_uid_weak(
+        self, uid: str
+    ) -> Union[SDocDocument, SDocNode, Anchor, None]:
+        return assert_optional_cast(
+            self.graph_database.get_link_value_weak(
+                link_type=GraphLinkType.UID_TO_NODE, lhs_node=uid
+            ),
+            (SDocDocument, SDocNode, Anchor),
+        )
+
+    def get_incoming_links(
+        self, node: Union[SDocDocument, SDocNode, Anchor]
+    ) -> Optional[List[InlineLink]]:
+        incoming_links = self.graph_database.get_link_values(
+            link_type=GraphLinkType.NODE_TO_INCOMING_LINKS,
+            lhs_node=node.reserved_mid,
+        )
+        if incoming_links is None or len(incoming_links) == 0:
+            return None
+        # FIXME: Should the graph database return OrderedSet or a copied list()?
+        return list(incoming_links)
+
+    def get_grammar_element(
+        self, document_uid: str, node_type: str
+    ) -> Optional[GrammarElement]:
+        document = self.get_node_by_uid_weak2(document_uid)
+        if isinstance(document, SDocDocument) and document.grammar is not None:
+            return document.grammar.elements_by_type.get(node_type)
+        return None
+
+    def create_traceability_info(
+        self,
+        source_file: SourceFile,
+        traceability_info: SourceFileTraceabilityInfo,
+    ) -> None:
+        self._file_traceability_index.create_traceability_info(
+            source_file, traceability_info
+        )
+
+    def create_document(self, document: SDocDocument) -> None:
+        assert isinstance(document, SDocDocument)
+        if document.reserved_uid is not None:
+            self.graph_database.create_link(
+                link_type=GraphLinkType.UID_TO_NODE,
+                lhs_node=document.reserved_uid,
+                rhs_node=document,
+            )
+        self.graph_database.create_link(
+            link_type=GraphLinkType.MID_TO_NODE,
+            lhs_node=document.reserved_mid,
+            rhs_node=document,
+        )
+
+    def create_inline_link(self, new_link: InlineLink) -> None:
+        assert isinstance(new_link, InlineLink)
+
+        # InlineLink points to a section, node or to anchor.
+        assert self.graph_database.has_any_link(
+            link_type=GraphLinkType.UID_TO_NODE, lhs_node=new_link.link
+        )
+
+        node_or_anchor: Union[SDocDocument, SDocNode, Anchor] = assert_cast(
+            self.graph_database.get_link_value(
+                link_type=GraphLinkType.UID_TO_NODE,
+                lhs_node=new_link.link,
+            ),
+            (SDocDocument, SDocNode, Anchor),
+        )
+        self.graph_database.create_link(
+            link_type=GraphLinkType.NODE_TO_INCOMING_LINKS,
+            lhs_node=node_or_anchor.reserved_mid,
+            rhs_node=new_link,
+        )
+        self.graph_database.create_link(
+            link_type=GraphLinkType.MID_TO_NODE,
+            lhs_node=new_link.reserved_mid,
+            rhs_node=new_link,
+        )
+
+    def update_last_updated(self) -> None:
+        """
+        Update the index's last updated date to the current time.
+
+        This is a rather broad way of signalling that all documents of the index
+        need to be re-generated when they are opened next time. Several UI
+        actions use this method to ensure a complete re-generation of all
+        documents.
+        """
+        self.index_last_updated = datetime.datetime.today()
+
+    def create_requirement(self, requirement: SDocNode) -> None:
+        assert isinstance(requirement, SDocNode), requirement
+
+        self.graph_database.create_link(
+            link_type=GraphLinkType.MID_TO_NODE,
+            lhs_node=requirement.reserved_mid,
+            rhs_node=requirement,
+        )
+        if requirement.reserved_uid is not None:
+            self.graph_database.create_link(
+                link_type=GraphLinkType.UID_TO_NODE,
+                lhs_node=requirement.reserved_uid,
+                rhs_node=requirement,
+            )
+
+    def update_requirement_uid(
+        self, requirement: SDocNode, old_uid: Optional[str]
+    ) -> None:
+        if old_uid is None:
+            if requirement.reserved_uid:
+                self.graph_database.create_link(
+                    link_type=GraphLinkType.UID_TO_NODE,
+                    lhs_node=requirement.reserved_uid,
+                    rhs_node=requirement,
+                )
+            return
+
+        self.graph_database.delete_link(
+            link_type=GraphLinkType.UID_TO_NODE,
+            lhs_node=old_uid,
+            rhs_node=requirement,
+        )
+
+        if requirement.reserved_uid is not None:
+            self.graph_database.create_link(
+                link_type=GraphLinkType.UID_TO_NODE,
+                lhs_node=requirement.reserved_uid,
+                rhs_node=requirement,
+            )
+
+    def update_requirement_parent_uid(
+        self, requirement: SDocNode, parent_uid: str, role: Optional[str]
+    ) -> None:
+        assert requirement.reserved_uid is not None
+        assert isinstance(parent_uid, str), parent_uid
+        assert role is None or len(role) > 0, role
+        parent_nodes: OrderedSet[SDocNode] = (
+            self.graph_database.get_link_values(
+                link_type=GraphLinkType.NODE_TO_PARENT_NODES,
+                lhs_node=requirement,
+                edge=role,
+            )
+        )
+        # If a relation to the parent uid through a given role already exists,
+        # there is nothing to do.
+        if any(node_.reserved_uid == parent_uid for node_ in parent_nodes):
+            return
+
+        parent_requirement: SDocNode = self.graph_database.get_link_value(
+            link_type=GraphLinkType.UID_TO_NODE,
+            lhs_node=parent_uid,
+        )
+
+        document = assert_cast(requirement.get_document(), SDocDocument)
+        parent_requirement_document = assert_cast(
+            parent_requirement.get_document(), SDocDocument
+        )
+
+        self.graph_database.create_link(
+            link_type=GraphLinkType.NODE_TO_PARENT_NODES,
+            lhs_node=requirement,
+            rhs_node=parent_requirement,
+            edge=role,
+        )
+        self.graph_database.create_link(
+            link_type=GraphLinkType.NODE_TO_CHILD_NODES,
+            lhs_node=parent_requirement,
+            rhs_node=requirement,
+            edge=role,
+        )
+
+        cycle_detector = TreeCycleDetector()
+
+        def parent_cycle_traverse_(node_id: str) -> List[Any]:
+            node = self.graph_database.get_link_value(
+                link_type=GraphLinkType.UID_TO_NODE,
+                lhs_node=node_id,
+            )
+            return list(
+                map(
+                    lambda node_: node_.reserved_uid,
+                    self.graph_database.get_link_values(
+                        link_type=GraphLinkType.NODE_TO_PARENT_NODES,
+                        lhs_node=node,
+                    ),
+                )
+            )
+
+        cycle_detector.check_node(
+            requirement.reserved_uid,
+            parent_cycle_traverse_,
+        )
+
+        # Mark document and parent document (if different) for re-generation.
+        assert document.meta is not None
+        set_file_modification_time(
+            document.meta.input_doc_full_path, datetime.datetime.today()
+        )
+        if parent_requirement_document != document:
+            assert parent_requirement_document.meta is not None
+            set_file_modification_time(
+                parent_requirement_document.meta.input_doc_full_path,
+                datetime.datetime.today(),
+            )
+
+    def update_node_mid(self, node: SDocNode, new_mid: str) -> None:
+        """
+        Update a node’s MID identifier and update all parent and child node
+        relations to reference this new MID.
+
+        The graph database contains relations between nodes. Since these
+        relations remain unchanged, the job of this function is only to update
+        each node's original .relations, so that they point to the new MID.
+        """
+
+        old_mid = node.reserved_mid
+
+        #
+        # Update all child nodes.
+        #
+        child_nodes: OrderedSet[SDocNode] = self.graph_database.get_link_values(
+            link_type=GraphLinkType.NODE_TO_CHILD_NODES,
+            lhs_node=node,
+            edge=ALL_EDGES,
+        )
+        for child_node_ in child_nodes:
+            child_node_document = child_node_.get_document()
+            assert child_node_document is not None
+
+            if child_node_document.config.relation_field != "MID":
+                continue
+
+            for relation_ in copy(child_node_.relations):
+                if (
+                    isinstance(relation_, ParentReqReference)
+                    and relation_.ref_uid == old_mid
+                ):
+                    relation_.ref_uid = new_mid
+
+        #
+        # Update all parent nodes.
+        #
+        parent_nodes: OrderedSet[SDocNode] = (
+            self.graph_database.get_link_values(
+                link_type=GraphLinkType.NODE_TO_PARENT_NODES,
+                lhs_node=node,
+                edge=ALL_EDGES,
+            )
+        )
+        for parent_node_ in parent_nodes:
+            parent_node_document = parent_node_.get_document()
+            assert parent_node_document is not None
+
+            if parent_node_document.config.relation_field != "MID":
+                continue
+
+            for relation_ in copy(parent_node_.relations):
+                if (
+                    isinstance(relation_, ChildReqReference)
+                    and relation_.ref_uid == old_mid
+                ):
+                    relation_.ref_uid = new_mid
+
+        #
+        # Update the node itself.
+        #
+        node.set_field_value(
+            field_name="MID",
+            form_field_index=0,
+            value=new_mid,
+        )
+
+    def update_requirement_child_uid(
+        self, requirement: SDocNode, child_uid: str, role: Optional[str]
+    ) -> None:
+        assert requirement.reserved_uid is not None
+        assert isinstance(child_uid, str), child_uid
+        assert role is None or len(role) > 0, role
+        child_nodes: OrderedSet[SDocNode] = self.graph_database.get_link_values(
+            link_type=GraphLinkType.NODE_TO_CHILD_NODES,
+            lhs_node=requirement,
+            edge=role,
+        )
+
+        # If a relation to the parent uid through a given role already exists,
+        # there is nothing to do.
+        if any(node_.reserved_uid == child_uid for node_ in child_nodes):
+            return
+        child_requirement = self.graph_database.get_link_value(
+            link_type=GraphLinkType.UID_TO_NODE,
+            lhs_node=child_uid,
+        )
+
+        document = assert_cast(requirement.get_document(), SDocDocument)
+        child_requirement_document = assert_cast(
+            child_requirement.get_document(), SDocDocument
+        )
+
+        self.graph_database.create_link(
+            link_type=GraphLinkType.NODE_TO_PARENT_NODES,
+            lhs_node=child_requirement,
+            rhs_node=requirement,
+            edge=role,
+        )
+        self.graph_database.create_link(
+            link_type=GraphLinkType.NODE_TO_CHILD_NODES,
+            lhs_node=requirement,
+            rhs_node=child_requirement,
+            edge=role,
+        )
+
+        cycle_detector = TreeCycleDetector()
+
+        def child_cycle_traverse_(node_id: str) -> List[Any]:
+            node = self.graph_database.get_link_value(
+                link_type=GraphLinkType.UID_TO_NODE,
+                lhs_node=node_id,
+            )
+            return list(
+                map(
+                    lambda node_: node_.reserved_uid,
+                    self.graph_database.get_link_values(
+                        link_type=GraphLinkType.NODE_TO_CHILD_NODES,
+                        lhs_node=node,
+                    ),
+                )
+            )
+
+        cycle_detector.check_node(
+            requirement.reserved_uid,
+            child_cycle_traverse_,
+        )
+
+        # Mark document and parent document (if different) for re-generation.
+        assert document.meta is not None
+        set_file_modification_time(
+            document.meta.input_doc_full_path, datetime.datetime.today()
+        )
+        if child_requirement_document != document:
+            assert child_requirement_document.meta is not None
+            set_file_modification_time(
+                child_requirement_document.meta.input_doc_full_path,
+                datetime.datetime.today(),
+            )
+
+    def update_with_anchor(self, anchor: Anchor) -> None:
+        # By this time, we know that the validations have passed just before.
+        existing_anchor: Optional[Anchor] = (
+            self.graph_database.get_link_value_weak(
+                link_type=GraphLinkType.UID_TO_NODE,
+                lhs_node=anchor.value,
+            )
+        )
+        if existing_anchor is not None:
+            self.graph_database.delete_link(
+                link_type=GraphLinkType.MID_TO_NODE,
+                lhs_node=existing_anchor.mid,
+                rhs_node=existing_anchor,
+            )
+            self.graph_database.delete_link(
+                link_type=GraphLinkType.UID_TO_NODE,
+                lhs_node=existing_anchor.value,
+                rhs_node=existing_anchor,
+            )
+
+        self.graph_database.create_link(
+            link_type=GraphLinkType.MID_TO_NODE,
+            lhs_node=anchor.mid,
+            rhs_node=anchor,
+        )
+        self.graph_database.create_link(
+            link_type=GraphLinkType.UID_TO_NODE,
+            lhs_node=anchor.value,
+            rhs_node=anchor,
+        )
+
+    def update_disconnect_two_documents_if_no_links_left(
+        self, document: SDocDocument, other_document: SDocDocument
+    ) -> None:
+        assert document != other_document
+
+        for node, _ in self.document_iterators[document].all_content(
+            print_fragments=False
+        ):
+            if not isinstance(node, SDocNode):
+                continue
+
+            requirement_node: SDocNode = node
+
+            # If a requirement has no UID, it cannot contribute to any relation-based
+            # connection between any two documents.
+            if requirement_node.reserved_uid is None:
+                continue
+
+            requirement_parents: OrderedSet[SDocNode] = (
+                self.graph_database.get_link_values(
+                    link_type=GraphLinkType.NODE_TO_PARENT_NODES,
+                    lhs_node=requirement_node,
+                )
+            )
+
+            # If at least one parent or child relation points to the other
+            # document, terminate, not deleting the link between documents.
+            for parent_requirement in requirement_parents:
+                parent_requirement_document: SDocDocument = assert_cast(
+                    parent_requirement.get_document(), SDocDocument
+                )
+                if parent_requirement_document == other_document:
+                    return
+
+            requirement_children = self.graph_database.get_link_values(
+                link_type=GraphLinkType.NODE_TO_CHILD_NODES,
+                lhs_node=requirement_node,
+            )
+
+            for child_requirement_ in requirement_children:
+                if child_requirement_.get_document() == other_document:
+                    return
+
+    def delete_document(self, document: SDocDocument) -> None:
+        assert isinstance(document, SDocDocument), document
+
+        self.graph_database.delete_link(
+            link_type=GraphLinkType.MID_TO_NODE,
+            lhs_node=document.reserved_mid,
+            rhs_node=document,
+        )
+        if document.reserved_uid is not None:
+            self.graph_database.delete_link(
+                link_type=GraphLinkType.UID_TO_NODE,
+                lhs_node=document.reserved_uid,
+                rhs_node=document,
+            )
+
+    def delete_requirement(self, requirement: SDocNode) -> None:
+        assert isinstance(requirement, SDocNode), SDocNode
+
+        self.graph_database.delete_link(
+            link_type=GraphLinkType.MID_TO_NODE,
+            lhs_node=requirement.reserved_mid,
+            rhs_node=requirement,
+        )
+        if requirement.reserved_uid is not None:
+            self.graph_database.delete_link(
+                link_type=GraphLinkType.UID_TO_NODE,
+                lhs_node=requirement.reserved_uid,
+                rhs_node=requirement,
+            )
+            # Remove NODE_TO_CHILD_NODES links that point FROM parent nodes TO
+            # this requirement. delete_all_links only removes links where this
+            # requirement is the lhs_node (its own children), leaving stale
+            # reverse entries on parent nodes that block their own deletion.
+            parent_relations = self.graph_database.get_link_values_with_edges(
+                link_type=GraphLinkType.NODE_TO_PARENT_NODES,
+                lhs_node=requirement,
+            )
+            for parent_node_, role_ in parent_relations:
+                self.graph_database.delete_link(
+                    link_type=GraphLinkType.NODE_TO_CHILD_NODES,
+                    lhs_node=parent_node_,
+                    rhs_node=requirement,
+                    edge=role_,
+                )
+            self.graph_database.delete_all_links(
+                link_type=GraphLinkType.NODE_TO_PARENT_NODES,
+                lhs_node=requirement,
+            )
+            self.graph_database.delete_all_links(
+                link_type=GraphLinkType.NODE_TO_CHILD_NODES,
+                lhs_node=requirement,
+            )
+
+    def remove_requirement_parent_uid(
+        self, requirement: SDocNode, parent_uid: str, role: Optional[str]
+    ) -> None:
+        assert requirement.reserved_uid is not None
+        assert isinstance(parent_uid, str), parent_uid
+        assert role is None or len(role) > 0, role
+
+        parent_requirement: SDocNode = self.graph_database.get_link_value(
+            link_type=GraphLinkType.UID_TO_NODE,
+            lhs_node=parent_uid,
+        )
+
+        self.graph_database.delete_link(
+            link_type=GraphLinkType.NODE_TO_PARENT_NODES,
+            lhs_node=requirement,
+            rhs_node=parent_requirement,
+            edge=role,
+        )
+        self.graph_database.delete_link(
+            link_type=GraphLinkType.NODE_TO_CHILD_NODES,
+            lhs_node=parent_requirement,
+            rhs_node=requirement,
+            edge=role,
+        )
+
+        document = assert_cast(requirement.get_document(), SDocDocument)
+        parent_requirement_document = assert_cast(
+            parent_requirement.get_document(), SDocDocument
+        )
+
+        # If there are no requirements linking between the documents,
+        # remove the link.
+        if document != parent_requirement_document:
+            self.update_disconnect_two_documents_if_no_links_left(
+                document, parent_requirement_document
+            )
+
+        # Mark document and parent document (if different) for re-generation.
+        assert document.meta is not None
+        set_file_modification_time(
+            document.meta.input_doc_full_path, datetime.datetime.today()
+        )
+        if parent_requirement_document != document:
+            assert parent_requirement_document.meta is not None
+            set_file_modification_time(
+                parent_requirement_document.meta.input_doc_full_path,
+                datetime.datetime.today(),
+            )
+
+    def remove_requirement_child_uid(
+        self, requirement: SDocNode, child_uid: str, role: Optional[str]
+    ) -> None:
+        assert requirement.reserved_uid is not None
+        assert isinstance(child_uid, str), child_uid
+        assert role is None or len(role) > 0, role
+
+        child_requirement: SDocNode = self.graph_database.get_link_value(
+            link_type=GraphLinkType.UID_TO_NODE,
+            lhs_node=child_uid,
+        )
+        document: SDocDocument = assert_cast(
+            requirement.get_document(), SDocDocument
+        )
+        child_requirement_document: SDocDocument = assert_cast(
+            child_requirement.get_document(), SDocDocument
+        )
+
+        self.graph_database.delete_link(
+            link_type=GraphLinkType.NODE_TO_CHILD_NODES,
+            lhs_node=requirement,
+            rhs_node=child_requirement,
+            edge=role,
+        )
+        self.graph_database.delete_link(
+            link_type=GraphLinkType.NODE_TO_PARENT_NODES,
+            lhs_node=child_requirement,
+            rhs_node=requirement,
+            edge=role,
+        )
+
+        # If there are no requirements linking between the documents,
+        # remove the link.
+        if document != child_requirement_document:
+            self.update_disconnect_two_documents_if_no_links_left(
+                document, child_requirement_document
+            )
+
+        # Mark document and parent document (if different) for re-generation.
+        assert document.meta is not None
+        set_file_modification_time(
+            document.meta.input_doc_full_path, datetime.datetime.today()
+        )
+        if child_requirement_document != document:
+            assert child_requirement_document.meta is not None
+            set_file_modification_time(
+                child_requirement_document.meta.input_doc_full_path,
+                datetime.datetime.today(),
+            )
+
+    def remove_inline_link(self, inline_link: InlineLink) -> None:
+        sections_with_incoming_links = (
+            self.graph_database.get_link_values_reverse(
+                link_type=GraphLinkType.NODE_TO_INCOMING_LINKS,
+                rhs_node=inline_link,
+            )
+        )
+
+        for node_with_incoming_links in list(sections_with_incoming_links):
+            self.graph_database.delete_link(
+                link_type=GraphLinkType.NODE_TO_INCOMING_LINKS,
+                lhs_node=node_with_incoming_links,
+                rhs_node=inline_link,
+            )
+
+        self.graph_database.delete_link(
+            link_type=GraphLinkType.MID_TO_NODE,
+            lhs_node=inline_link.reserved_mid,
+            rhs_node=inline_link,
+        )
+
+    def remove_anchor_by_uid(self, anchor_uid: str) -> None:
+        anchor: Anchor = self.graph_database.get_link_value(
+            link_type=GraphLinkType.UID_TO_NODE,
+            lhs_node=anchor_uid,
+        )
+        self.graph_database.delete_link(
+            link_type=GraphLinkType.MID_TO_NODE,
+            lhs_node=anchor.mid,
+            rhs_node=anchor,
+        )
+        self.graph_database.delete_link(
+            link_type=GraphLinkType.UID_TO_NODE,
+            lhs_node=anchor_uid,
+            rhs_node=anchor,
+        )
+
+    def validate_node_against_anchors(
+        self,
+        *,
+        node: Union[SDocDocument, SDocNode, None],
+        new_anchors: List[Anchor],
+    ) -> None:
+        assert node is None or isinstance(node, (SDocDocument, SDocNode))
+        assert isinstance(new_anchors, list)
+
+        # Check that this node does not have duplicated anchors.
+        new_anchor_uids = set()
+        for anchor in new_anchors:
+            if anchor.value in new_anchor_uids:
+                raise SingleValidationError(
+                    "A node cannot have two anchors with "
+                    f"the same identifier: {anchor.value}."
+                )
+            new_anchor_uids.add(anchor.value)
+
+        # If the node is new, the validation is easier: we just need to make
+        # sure that there are no existing anchors with the UIDs brought
+        # by the new anchors.
+        if node is None:
+            for anchor_uid in new_anchor_uids:
+                if self.graph_database.has_any_link(
+                    link_type=GraphLinkType.UID_TO_NODE, lhs_node=anchor_uid
+                ):
+                    raise SingleValidationError(
+                        "A node contains an anchor that already exists: "
+                        f"{anchor_uid}."
+                    )
+            return
+
+        # If the node is an existing node, we need to check that:
+        # 1) If some of the new anchors already exist in the project tree, we
+        #    need to ensure that they exist in the current node, otherwise we
+        #    raise a duplication validation error.
+        # 2) If the new anchors do not contain some of the existing node's
+        #    current anchors, this means these anchors are being removed. In
+        #    that case, we need to check if these anchors are used by any LINKs,
+        #    raising a validation if they do.
+        existing_node_anchor_uids = set()
+
+        # FIXME: No test reaches this for Section or Document.
+        assert isinstance(node, SDocNode)
+        for node_anchor_ in node.get_anchors():
+            existing_node_anchor_uids.add(node_anchor_.value)
+
+        #
+        # Validation 1: Assert all UIDs are either:
+        # a) new
+        # b) exist in this node
+        # c) raise a duplication error.
+        #
+        for anchor_uid in new_anchor_uids:
+            if (
+                self.graph_database.has_any_link(
+                    link_type=GraphLinkType.UID_TO_NODE, lhs_node=anchor_uid
+                )
+                and anchor_uid not in existing_node_anchor_uids
+            ):
+                duplicate_anchor: Anchor = self.graph_database.get_link_value(
+                    link_type=GraphLinkType.UID_TO_NODE, lhs_node=anchor_uid
+                )
+                node_with_duplicate_anchor: SDocNode = assert_cast(
+                    duplicate_anchor.parent_node(), SDocNode
+                )
+                raise SingleValidationError(
+                    "Another node contains an anchor with the same UID: "
+                    f"{anchor_uid}. {node_with_duplicate_anchor.get_display_node_type()}: "
+                    f"{node_with_duplicate_anchor.get_display_title()}."
+                )
+
+        #
+        # Validation 2: Check that removed anchors do not have any incoming
+        # links.
+        #
+        to_be_removed_anchor_uids = existing_node_anchor_uids - new_anchor_uids
+        for to_be_removed_anchor_uid_ in to_be_removed_anchor_uids:
+            to_be_removed_anchor: Anchor = self.graph_database.get_link_value(
+                link_type=GraphLinkType.UID_TO_NODE,
+                lhs_node=to_be_removed_anchor_uid_,
+            )
+            incoming_links = self.graph_database.get_link_values(
+                link_type=GraphLinkType.NODE_TO_INCOMING_LINKS,
+                lhs_node=to_be_removed_anchor.reserved_mid,
+            )
+            if incoming_links is not None and len(incoming_links) > 0:
+                incoming_link: InlineLink = incoming_links[0]
+                incoming_link_parent_node = incoming_link.parent_node()
+                raise SingleValidationError(
+                    f"Cannot remove anchor with UID "
+                    f"'{incoming_link.link}' because it has incoming "
+                    f"links. Containing node: "
+                    f"{incoming_link_parent_node.get_display_node_type()}: "
+                    f"'{incoming_link_parent_node.get_display_title()}'."
+                )
+
+    def validate_can_remove_node(
+        self, *, node: Union[SDocNode, Anchor]
+    ) -> None:
+        incoming_links: Optional[List[InlineLink]] = self.get_incoming_links(
+            node
+        )
+        if incoming_links is not None and len(incoming_links) > 0:
+            link_list_message = ", ".join(
+                map(
+                    lambda l_: (
+                        f"'{l_.parent_node().get_display_title()}' -> '{l_.link}'"
+                    ),
+                    incoming_links,
+                )
+            )
+            raise SingleValidationError(
+                f"Cannot remove node '{node.get_display_title()}' with incoming LINKs from: {link_list_message}."
+            )
+        if isinstance(node, SDocNode):
+            child_nodes: List[SDocNode] = self.get_children_requirements(node)
+            if child_nodes is not None and len(child_nodes) > 0:
+                nodes_list_message = ", ".join(
+                    map(
+                        lambda n_: "'" + n_.get_display_title() + "'",
+                        child_nodes,
+                    )
+                )
+                raise SingleValidationError(
+                    f"Cannot remove node '{node.get_display_title()}' "
+                    f"with incoming relations from:\n{nodes_list_message}."
+                )
+
+    def validate_can_remove_document(self, document: SDocDocument) -> None:
+        errors: List[str] = []
+
+        if document.document_is_included():
+            including_document = document.get_including_document()
+            if including_document is not None:
+                errors.append(
+                    f"Cannot remove document '{document.get_display_title()}' because it is included in document '{including_document.get_display_title()}'."
+                )
+            else:
+                errors.append(
+                    f"Cannot remove document '{document.get_display_title()}' because it is included in another document."
+                )
+
+        incoming_links: Optional[List[InlineLink]] = self.get_incoming_links(
+            document
+        )
+        if incoming_links is not None and len(incoming_links) > 0:
+            link_list_message = ", ".join(
+                map(
+                    lambda l_: (
+                        f"'{l_.parent_node().get_display_title()}' -> '{l_.link}'"
+                    ),
+                    incoming_links,
+                )
+            )
+            errors.append(
+                f"Cannot remove document '{document.get_display_title()}' with incoming LINKs from: {link_list_message}."
+            )
+
+        document_iterator = SDocDocumentIterator(document=document)
+        for document_node_, _ in document_iterator.all_content(
+            print_fragments=True
+        ):
+            if not isinstance(document_node_, SDocNode):
+                continue
+
+            nodes_with_incoming_links = [
+                document_node_
+            ] + document_node_.get_anchors()
+            for node_ in nodes_with_incoming_links:
+                try:
+                    self.validate_can_remove_node(node=node_)
+                except SingleValidationError as exception_:
+                    errors.append(exception_.args[0])
+
+            parent_nodes: List[SDocNode] = self.get_parent_requirements(
+                document_node_
+            )
+            if len(parent_nodes) > 0:
+                nodes_list_message = ", ".join(
+                    map(
+                        lambda n_: "'" + n_.get_display_title() + "'",
+                        parent_nodes,
+                    )
+                )
+                errors.append(
+                    f"Cannot remove document '{document_node_.get_display_title()}' "
+                    f"with incoming relations from:\n{nodes_list_message}."
+                )
+
+        if len(errors) > 0:
+            raise MultipleValidationErrorAsList("NOT_RELEVANT", errors)
+
+    def clone_to_bundle_document(
+        self, project_config: ProjectConfig
+    ) -> Tuple["TraceabilityIndex", SDocDocument]:
+        """
+        Clone this traceability index and create a new bundle document.
+
+        The only use case for this method is the generation of a bundle document.
+        Since the bundle document does not exist on file system, some parameters
+        are set artificially:
+        - The bundle is assumed to be an input file in the root input folder.
+        - The bundle is generated to the root of the output folder (level=0).
+        - Some variables do not contribute (yet) to the final result, so they
+          are marked as NOT_RELEVANT.
+
+        @relation(SDOC-SRS-51, scope=function)
+        """
+        traceability_index_copy = deepcopy(self)
+        bundle_document = SDocDocument(
+            mid=None,
+            title=project_config.project_title,
+            config=None,
+            view=None,
+            grammar=None,
+            section_contents=[],
+            is_bundle_document=True,
+        )
+        bundle_document.config = DocumentConfig.default_config(bundle_document)
+
+        if (
+            project_config.bundle_document_uid is not None
+            and len(project_config.bundle_document_uid) > 0
+        ):
+            bundle_document.config.uid = project_config.bundle_document_uid
+
+        if (
+            project_config.bundle_document_version is not None
+            and len(project_config.bundle_document_version) > 0
+        ):
+            bundle_document.config.version = (
+                project_config.bundle_document_version
+            )
+
+        if (
+            project_config.bundle_document_date is not None
+            and len(project_config.bundle_document_date) > 0
+        ):
+            bundle_document.config.date = project_config.bundle_document_date
+
+        bundle_document.meta = DocumentMeta(
+            level=0,
+            file_tree_mount_folder="NOT_RELEVANT",
+            document_filename="bundle.sdoc",
+            document_filename_base="bundle",
+            input_doc_full_path="NOT_RELEVANT",
+            input_doc_rel_path=SDocRelativePath("bundle.sdoc"),
+            input_doc_dir_rel_path=SDocRelativePath(""),
+            input_doc_assets_dir_rel_path=SDocRelativePath("NOT_RELEVANT"),
+            output_document_dir_full_path=project_config.export_output_html_root,
+            output_document_dir_rel_path=SDocRelativePath(""),
+        )
+        traceability_index_copy.document_iterators[bundle_document] = (
+            SDocDocumentIterator(bundle_document)
+        )
+        for document_ in traceability_index_copy.document_tree.document_list:
+            # Ignore all included documents. They are anyway included by
+            # the including documents.
+            if document_.document_is_included():
+                continue
+
+            assert document_.ng_including_document_reference is not None
+            document_.ng_including_document_reference.set_document(
+                bundle_document
+            )
+            bundle_document.section_contents.append(document_)
+        traceability_index_copy.document_tree.document_list = [bundle_document]
+        bundle_document.ng_including_document_reference = DocumentReference()
+        return traceability_index_copy, bundle_document

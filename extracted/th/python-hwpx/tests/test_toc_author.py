@@ -220,7 +220,8 @@ def _entry_tab_stops(doc: HwpxDocument) -> list[list[tuple[int, str, str]]]:
                 continue
             para_pr = header.find(f".//{hh}paraPr[@id='{p.get('paraPrIDRef')}']")
             tab_pr = header.find(f".//{hh}tabPr[@id='{para_pr.get('tabPrIDRef')}']")
-            items = tab_pr.findall(f".//{hh}tabItem") if tab_pr is not None else []
+            # the HWPUNIT position in hp:case (DEV-022; hp:default holds twice it)
+            items = tab_pr.findall(f".//{hp}case/{hh}tabItem") if tab_pr is not None else []
             stops.append([(int(i.get("pos")), i.get("type"), i.get("leader")) for i in items])
     return stops
 
@@ -283,13 +284,20 @@ def test_parse_plain_regenerated_entries_inside_region():
     ta.add_native_toc(doc, headings=headings, hyperlink=False)
     # strip the HYPERLINK wrappers to simulate Hancom's plain regeneration
 
+    # (Hancom's plain entries carry neither the begin nor the end of a link.)
     _HP = "{http://www.hancom.co.kr/hwpml/2011/paragraph}"
     for sec in doc.oxml.sections:
+        link_ids = set()
         for fb in list(sec.element.iter(f"{_HP}fieldBegin")):
             if fb.get("type") == "HYPERLINK":
+                link_ids.add(fb.get("id"))
                 ctrl = fb.getparent()
                 run = ctrl.getparent()
                 run.remove(ctrl)
+        for fe in list(sec.element.iter(f"{_HP}fieldEnd")):
+            if fe.get("beginIDRef") in link_ids:
+                ctrl = fe.getparent()
+                ctrl.getparent().remove(ctrl)
     model = tf.parse_toc_model(HwpxDocument.open(doc.to_bytes()))
     assert len(model.entries) == 2
     assert all(e.target_id is None for e in model.entries)  # identity by title

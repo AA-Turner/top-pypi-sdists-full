@@ -1,0 +1,92 @@
+---
+name: process_watchdog
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: compute
+runtime_profiles: [main]
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  Infrastructure process watchdog compute node. Checks health of critical
+  platform components (emit daemon, Kafka consumers, LLM endpoints, Docker
+  containers) and emits structured health reports. Designed for periodic
+  execution via cron to detect silent failures before they compound.
+
+handler:
+  module: omnimarket.nodes.node_process_watchdog.handlers.handler_process_watchdog
+  class: HandlerProcessWatchdog
+  input_model: omnimarket.nodes.node_process_watchdog.models.model_watchdog_start_command.ModelWatchdogStartCommand
+
+handler_routing:
+  handlers:
+    - operation: process_watchdog
+      handler:
+        name: HandlerProcessWatchdog
+        module: omnimarket.nodes.node_process_watchdog.handlers.handler_process_watchdog
+    # OMN-13551: DaemonHealthCheckTarget / SocketCheckTarget / build_production_targets
+    # are check-target classes/factory used internally by HandlerProcessWatchdog,
+    # not runtime-dispatched handlers. The check-target ctors require
+    # socket_path / bootstrap_servers, so they quarantined at boot. Removed from
+    # handler_routing; still constructed internally by the watchdog handler.
+
+descriptor:
+  node_archetype: compute
+  purity: impure
+  idempotent: true
+  timeout_ms: 60000
+
+inputs:
+  check_targets:
+    type: list[str]
+    description: "Which targets to check: emit_daemon, kafka_consumers, llm_endpoints, docker_containers"
+    required: false
+    default: ["emit_daemon", "kafka_consumers", "llm_endpoints", "docker_containers"]
+  correlation_id:
+    type: str
+    description: "Watchdog run correlation ID"
+    required: true
+  dry_run:
+    type: bool
+    description: "Run without side effects (no alerts, no restarts)"
+    required: false
+    default: false
+  alert_on_degraded:
+    type: bool
+    description: "Whether to emit alerts for DEGRADED (not just DOWN)"
+    required: false
+    default: true
+
+outputs:
+  overall_status:
+    type: str
+    description: "Aggregate status (HEALTHY, DEGRADED, DOWN)"
+  checks:
+    type: list[object]
+    description: "Individual check results"
+  alerts_emitted:
+    type: int
+    description: "Number of alerts emitted"
+  restarts_attempted:
+    type: int
+    description: "Number of auto-restart attempts"
+
+terminal_event: onex.evt.omnimarket.watchdog-completed.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.watchdog-start.v1
+  publish_topics:
+    - onex.evt.omnimarket.watchdog-completed.v1
+    - onex.evt.omnimarket.watchdog-alert.v1
+
+metadata:
+  transport_type: kafka
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.watchdog-start.v1
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.watchdog-alert.v1
+  - onex.evt.omnimarket.watchdog-completed.v1

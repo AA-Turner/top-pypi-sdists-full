@@ -1,0 +1,17 @@
+name: node_projection_cost_by_repo
+version: "1.0.0"
+description: "Project delegation-completed events into the cost_by_repo_snapshots table."
+omnibase_core_compat: ">=0.39.0,<1.0.0"
+capabilities:
+  standalone: true
+  full_runtime: true
+  requires_network: true
+  requires_secrets: true
+  side_effect_class: read_write
+tags:
+  - projection
+  - cost
+  - snapshot
+pack: "data"
+display_name: "Projection: Cost by Repository"
+node_role: "reducer"

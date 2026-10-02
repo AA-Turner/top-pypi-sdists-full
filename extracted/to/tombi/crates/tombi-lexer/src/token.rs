@@ -4,19 +4,17 @@ use tombi_ast_syntax::SyntaxKind;
 pub struct Token {
     kind: SyntaxKind,
     span: tombi_text::Span,
-    range: tombi_text::Range,
 }
 
 impl Token {
-    pub fn new(kind: SyntaxKind, (span, range): (tombi_text::Span, tombi_text::Range)) -> Self {
-        Self { kind, span, range }
+    pub fn new(kind: SyntaxKind, span: tombi_text::Span) -> Self {
+        Self { kind, span }
     }
 
     pub const fn eof() -> Self {
         Self {
             kind: SyntaxKind::EOF,
             span: tombi_text::Span::MAX,
-            range: tombi_text::Range::MAX,
         }
     }
 
@@ -34,15 +32,10 @@ impl Token {
     pub fn span(&self) -> tombi_text::Span {
         self.span
     }
-
-    #[inline]
-    pub fn range(&self) -> tombi_text::Range {
-        self.range
-    }
 }
 
 impl std::fmt::Debug for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?} @{} @{}", self.kind, self.span, self.range)
+        write!(f, "{:?} @{}", self.kind, self.span)
     }
 }

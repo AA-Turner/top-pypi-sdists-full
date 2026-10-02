@@ -1,0 +1,272 @@
+Metadata-Version: 2.4
+Name: labgrid
+Version: 26.0
+Summary: embedded systems control library for development, testing and installation
+Author-email: Rouven Czerwinski <entwicklung@pengutronix.de>, Jan Luebbe <entwicklung@pengutronix.de>
+License: Copyright (C) 2016-2017 Pengutronix, Jan Luebbe <entwicklung@pengutronix.de>
+        Copyright (C) 2016-2017 Pengutronix, Rouven Czerwinski <entwicklung@pengutronix.de>
+        
+        This library is free software; you can redistribute it and/or
+        modify it under the terms of the GNU Lesser General Public
+        License as published by the Free Software Foundation; either
+        version 2.1 of the License, or (at your option) any later version.
+        
+        This library is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        Lesser General Public License for more details.
+        
+        You should have received a copy of the GNU Lesser General Public
+        License along with this library; if not, write to the Free Software
+        Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+        
+Project-URL: Homepage, https://github.com/labgrid-project/labgrid
+Project-URL: Bug Tracker, https://github.com/labgrid-project/labgrid/issues
+Classifier: Intended Audience :: Developers
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Topic :: Software Development :: Testing
+Classifier: Framework :: Pytest
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+License-File: COPYING
+Requires-Dist: attrs>=21.4.0
+Requires-Dist: exceptiongroup>=1.3.0
+Requires-Dist: grpcio<2.0.0,>=1.64.1
+Requires-Dist: grpcio-reflection<2.0.0,>=1.64.1
+Requires-Dist: protobuf>=5.27.0
+Requires-Dist: jinja2>=3.0.2
+Requires-Dist: pexpect>=4.8.0
+Requires-Dist: pyserial-labgrid>=3.4.0.1
+Requires-Dist: pytest>=7.0.0
+Requires-Dist: pyudev>=0.24.4
+Requires-Dist: pyusb>=1.2.1
+Requires-Dist: PyYAML>=6.0.1
+Requires-Dist: requests>=2.26.0
+Requires-Dist: xmodem>=0.4.6
+Provides-Extra: doc
+Requires-Dist: sphinx_rtd_theme>=1.0.0; extra == "doc"
+Requires-Dist: Sphinx<9.0.0,>=2.0.0; extra == "doc"
+Requires-Dist: sphinxcontrib-autoprogram>=0.1.9; extra == "doc"
+Provides-Extra: docker
+Requires-Dist: docker>=5.0.2; extra == "docker"
+Provides-Extra: graph
+Requires-Dist: graphviz>=0.17.0; extra == "graph"
+Provides-Extra: kasa
+Requires-Dist: python-kasa>=0.7.0; extra == "kasa"
+Provides-Extra: laa
+Requires-Dist: laam; extra == "laa"
+Provides-Extra: modbus
+Requires-Dist: pyModbusTCP>=0.2.0; extra == "modbus"
+Provides-Extra: modbusrtu
+Requires-Dist: minimalmodbus>=1.0.2; extra == "modbusrtu"
+Provides-Extra: mqtt
+Requires-Dist: paho-mqtt>=2.0.0; extra == "mqtt"
+Provides-Extra: netgear
+Requires-Dist: py-netgear-plus>=0.4.7; extra == "netgear"
+Provides-Extra: onewire
+Requires-Dist: onewire>=0.2; extra == "onewire"
+Provides-Extra: pyvisa
+Requires-Dist: pyvisa>=1.11.3; extra == "pyvisa"
+Requires-Dist: PyVISA-py>=0.5.2; extra == "pyvisa"
+Provides-Extra: snmp
+Requires-Dist: pysnmp<6,>=4.4.12; extra == "snmp"
+Requires-Dist: pyasn1<0.6.1; extra == "snmp"
+Provides-Extra: vxi11
+Requires-Dist: python-vxi11>=0.9; extra == "vxi11"
+Provides-Extra: xena
+Requires-Dist: xenavalkyrie>=3.0.1; extra == "xena"
+Provides-Extra: deb
+Requires-Dist: labgrid[modbus,onewire,snmp]; extra == "deb"
+Provides-Extra: dev
+Requires-Dist: labgrid[doc,docker,graph,kasa,modbus,modbusrtu,mqtt,netgear,onewire,pyvisa,snmp,vxi11]; extra == "dev"
+Requires-Dist: psutil>=5.8.0; extra == "dev"
+Requires-Dist: pytest-benchmark>=4.0.0; extra == "dev"
+Requires-Dist: pytest-cov>=3.0.0; extra == "dev"
+Requires-Dist: pytest-dependency>=0.5.1; extra == "dev"
+Requires-Dist: pytest-isort>=2.0.0; extra == "dev"
+Requires-Dist: pytest-mock>=3.6.1; extra == "dev"
+Requires-Dist: pylint>=3.0.0; extra == "dev"
+Requires-Dist: ruff>=0.5.7; extra == "dev"
+Requires-Dist: pystuck; extra == "dev"
+Requires-Dist: grpcio-channelz<2.0.0,>=1.64.1; extra == "dev"
+Dynamic: license-file
+
+.. image:: https://raw.githubusercontent.com/labgrid-project/labgrid/master/labgrid_logo.png
+   :alt: labgrid logo
+   :align: center
+
+Welcome to labgrid
+==================
+|license| |unit-tests| |docker-build| |coverage-status| |docs-status| |chat| |calver|
+
+Labgrid is an embedded board control python library with a focus on testing, development
+and general automation.
+It includes a remote control layer to control boards connected to other hosts.
+
+* `Getting started <#Getting-started>`_
+
+* `Purpose and Features <#purpose-and-features>`_
+
+* `Documentation <#documentation>`_
+
+* `Contributing <#contributing>`_
+
+* `Background <#background>`_
+
+* `Installation <#installation>`_
+
+  * `Install Latest Release <#install-latest-release>`_
+
+  * `Install Development State <#install-development-state>`_
+
+Getting started
+---------------
+There is a tutorial series on the Pengutronix Youtube channel you can follow to
+get started: `Labgrid Tutorial Playlist
+<https://www.youtube.com/playlist?list=PLPy6BX4pJosCEq7CIU06bt2WM7lFAy1CF>`_.
+
+The other starting point is in the `documentation
+<https://labgrid.readthedocs.io/en/latest/getting_started.html>`__.
+
+Purpose and Features
+--------------------
+The idea behind labgrid is to create an abstraction of the hardware control
+layer needed for testing of embedded systems, automatic software installation
+and automation during development.
+Labgrid itself is *not* a testing framework, but is intended to be combined with
+`pytest <https://docs.pytest.org>`_ (and additional pytest plugins).
+Please see `Design Decisions
+<https://labgrid.readthedocs.io/en/latest/design_decisions.html>`_ for more
+background information.
+
+It currently supports:
+
+- remote client-exporter-coordinator infrastructure to make boards available
+  from different computers on a network
+- pytest plugin to write automated tests for embedded systems
+- CLI and library usage for development and automation
+- interaction with bootloader and Linux shells on top of serial console or SSH
+- power/reset management via drivers for power switches
+- upload of binaries and device bootstrapping via USB
+- control of digital outputs, SD card and USB multiplexers
+- integration of audio/video/measurement devices for remote development and
+  testing
+- Docker/QEMU integration
+
+While labgrid is currently used for daily development on embedded boards and for
+automated testing, several planned features are not yet implemented and the APIs
+may be changed as more use-cases appear.
+We appreciate code contributions and feedback on using labgrid on other
+environments (see `Contributing
+<https://labgrid.readthedocs.io/en/latest/development.html#contributing>`__ for
+details).
+Please consider contacting us (via a GitHub issue) before starting larger
+changes, so we can discuss design trade-offs early and avoid redundant work.
+You can also look at `Ideas
+<https://labgrid.readthedocs.io/en/latest/development.html#ideas>`_ for
+enhancements which are not yet implemented.
+
+Documentation
+-------------
+labgrid's documentation is hosted on `Read the Docs <http://labgrid.readthedocs.io/en/latest/>`_.
+
+Contributing
+------------
+See our `Development Docs <http://labgrid.readthedocs.io/en/latest/development.html>`_.
+
+Visit us in our IRC channel ``#labgrid`` on libera.chat (bridged to the
+`Matrix channel #labgrid:matrix.org <https://app.element.io/#/room/#labgrid:matrix.org>`_)
+
+Background
+----------
+Work on labgrid started at `Pengutronix <http://pengutronix.de/>`_ in late 2016
+and is currently in active use and development.
+
+Installation
+------------
+See the `Installation section
+<http://labgrid.readthedocs.io/en/latest/getting_started.html#installation>`_
+for more details.
+
+Install Latest Release
+^^^^^^^^^^^^^^^^^^^^^^
+Install labgrid via PyPi:
+
+.. code-block:: bash
+
+   $ virtualenv -p python3 venv
+   $ source venv/bin/activate
+   venv $ pip install --upgrade pip
+   venv $ pip install labgrid
+
+Install Development State
+^^^^^^^^^^^^^^^^^^^^^^^^^
+Clone the git repository:
+
+.. code-block:: bash
+
+   $ git clone https://github.com/labgrid-project/labgrid
+
+Create and activate a virtualenv for labgrid:
+
+.. code-block:: bash
+
+   $ virtualenv -p python3 venv
+   $ source venv/bin/activate
+   venv $ pip install --upgrade pip
+
+
+Install labgrid into the virtualenv:
+
+.. code-block:: bash
+
+   venv $ pip install .
+
+Tests can now run via:
+
+.. code-block:: bash
+
+   venv $ python -m pytest --lg-env <config>
+
+To install sphinx and the dependencies needed for generating man pages and documentation run:
+
+.. code-block:: bash
+
+   venv $ pip install '.[doc]'
+
+.. |license| image:: https://img.shields.io/badge/license-LGPLv2.1-blue.svg
+    :alt: LGPLv2.1
+    :target: https://raw.githubusercontent.com/labgrid-project/labgrid/master/LICENSE
+
+.. |unit-tests| image:: https://github.com/labgrid-project/labgrid/workflows/unit%20tests/badge.svg
+    :alt: unit tests status
+    :target: https://github.com/labgrid-project/labgrid/actions?query=workflow%3A%22unit+tests%22+branch%3Amaster
+
+.. |docker-build| image:: https://github.com/labgrid-project/labgrid/workflows/docker%20build/badge.svg
+    :alt: docker build status
+    :target: https://github.com/labgrid-project/labgrid/actions?query=workflow%3A%22docker+build%22+branch%3Amaster
+
+.. |coverage-status| image:: https://codecov.io/gh/labgrid-project/labgrid/branch/master/graph/badge.svg
+    :alt: coverage status
+    :target: https://codecov.io/gh/labgrid-project/labgrid
+
+.. |docs-status| image:: https://readthedocs.org/projects/labgrid/badge/?version=latest
+    :alt: documentation status
+    :target: https://labgrid.readthedocs.io/en/latest/?badge=latest
+
+.. |chat| image:: https://matrix.to/img/matrix-badge.svg
+    :alt: chat
+    :target: https://app.element.io/#/room/#labgrid:matrix.org
+
+.. |calver| image:: https://img.shields.io/badge/calver-YY.MINOR%5B.MICRO%5D-22bfda.svg
+    :alt: chat
+    :target: https://calver.org/

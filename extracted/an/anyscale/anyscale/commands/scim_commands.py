@@ -72,7 +72,9 @@ def _format_permission_diff(result: Dict) -> str:
 
     # Users to be removed
     if users_to_remove:
-        lines.append("\n--- Users to be removed (not in any active user group) ---")
+        lines.append(
+            "\n--- Users to be removed from the organization (not in the SCIM directory) ---"
+        )
         for user in users_to_remove:
             user_email = user.get("user_email", "unknown")
             lines.append(f"  - {user_email}")
@@ -80,9 +82,7 @@ def _format_permission_diff(result: Dict) -> str:
     return "\n".join(lines)
 
 
-@click.group(
-    "scim", help="Manage SCIM (System for Cross-domain Identity Management) settings."
-)
+@click.group("scim", help="Manage SCIM (System for Cross-domain Identity Management) settings.")
 def scim_cli() -> None:
     pass
 
@@ -101,11 +101,15 @@ def scim_cli() -> None:
                 "  - clouds:\n"
                 "      - prod-cloud: collaborator -> readonly\n"
                 "  - organization: owner -> collaborator\n\n"
+                "--- Users to be removed from the organization "
+                "(not in the SCIM directory) ---\n"
+                "  - user2@example.com\n\n"
                 "(No changes were applied. Remove --dry-run to apply changes.)\n"
             ),
         ),
         CommandExample(
-            description="Apply permission changes to match user-group membership (prompts for confirmation).",
+            description="Apply the migration, removing direct permission grants and users "
+            "who are not in the SCIM directory (prompts for confirmation).",
             command="anyscale scim enforce-groups",
             output_raw="SCIM permission migration completed successfully.\n",
         ),
@@ -113,7 +117,7 @@ def scim_cli() -> None:
 )
 @scim_cli.command(
     name="enforce-groups",
-    short_help="Enforce SCIM-based user group permissions.",
+    short_help="Migrate to SCIM group-based permissions. Removes users not in the SCIM directory.",
     cls=AnyscaleCommand,
     is_beta=True,
 )
@@ -126,13 +130,21 @@ def scim_cli() -> None:
 )
 def enforce_group_permissions(dry_run: bool) -> None:
     """
-    Enforce SCIM-based user group permissions by removing individual user permissions.
+    Migrate an organization from direct user permissions to SCIM group-based permissions.
 
-    This command removes ALL direct user permissions so that users only derive
-    permissions from their user groups.
+    This is an optional one-time cutover for organizations that granted
+    permissions directly to users before adopting SCIM user groups. If you are
+    setting up SCIM for the first time and have not granted direct user
+    permissions, you do not need to run this command.
 
-    Use --dry-run to preview what permission changes users will experience
-    before actually applying them.
+    The migration removes all direct user permission grants, so that users
+    derive permissions only from their user groups. It also removes from the
+    organization every user who is not in the SCIM directory your identity
+    provider syncs to Anyscale, including organization owners. A user who
+    exists in your identity provider but is not assigned to the Anyscale SCIM
+    application is not in that directory. These changes cannot be undone.
+
+    Use --dry-run to preview the exact changes before applying them.
     """
     client = AnyscaleClient()
 
@@ -145,9 +157,7 @@ def enforce_group_permissions(dry_run: bool) -> None:
             formatted_output = _format_permission_diff(result)
             click.echo("\n=== Permission Changes Preview ===")
             click.echo(formatted_output)
-            click.echo(
-                "\n(No changes were applied. Remove --dry-run to apply changes.)"
-            )
+            click.echo("\n(No changes were applied. Remove --dry-run to apply changes.)")
             return
 
         # Live mode - first show permission changes preview
@@ -159,10 +169,16 @@ def enforce_group_permissions(dry_run: bool) -> None:
         click.echo("\n=== Permission Changes Preview ===")
         click.echo(formatted_output)
 
+        users_to_remove_count = len(diff_result.get("users_to_remove", []))
+
         click.echo(
             "\n"
             "╭─────────────────── ⚠️  Confirmation Required ───────────────────╮\n"
             "│ WARNING: This is a destructive operation that cannot be undone. │\n"
+            "│                                                                 │\n"
+            "│ Users not in the SCIM directory your identity provider syncs    │\n"
+            "│ to Anyscale will be removed from the organization. This         │\n"
+            "│ includes organization owners.                                   │\n"
             "│                                                                 │\n"
             "│ All role bindings on users will be removed.                     │\n"
             "│ Role bindings on user groups and service accounts are unchanged.│\n"
@@ -170,8 +186,15 @@ def enforce_group_permissions(dry_run: bool) -> None:
             "│ Cloud membership edges also removed (default-project access).   │\n"
             "╰─────────────────────────────────────────────────────────────────╯\n"
         )
+        click.echo(
+            f"{users_to_remove_count} "
+            f"{'user' if users_to_remove_count == 1 else 'users'} "
+            "will be removed from the organization.\n"
+        )
         click.confirm(
-            "Do you want to proceed?", default=False, abort=True,
+            "Do you want to proceed?",
+            default=False,
+            abort=True,
         )
 
         log.info("Starting SCIM permission migration...")
@@ -282,11 +305,8 @@ def check_permissions() -> None:
         noun = "user" if n == 1 else "users"
         verb = "has" if n == 1 else "have"
         click.echo(f"\n{n} {noun} {verb} incomplete permission setup.")
-        click.echo("\nRun 'anyscale policy set' to grant project-level permissions.")
-        click.echo(
-            "See https://docs.anyscale.com/administration/organization/scim"
-            " for details."
-        )
+        click.echo("\nTo grant access through SCIM user groups, contact support@anyscale.com.")
+        click.echo("For a project-level grant, see 'anyscale project add-collaborators --help'.")
 
     except click.ClickException:
         raise

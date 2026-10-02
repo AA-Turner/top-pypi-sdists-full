@@ -262,18 +262,13 @@ DELETE_CENSUS: dict[str, DeletePath] = {
         soft_via="deleted_at",
     ),
     "dataset:delete_row": DeletePath(
-        "workbench.udt_dataset_rows", "soft",
-        "usertable_delete_row archives through deleted_at (archive_where; fixed 2026-09-26); a moved table "
-        "goes through the records store's own soft delete. The server readers skip archived rows. The grid's "
-        "Postgres readers and its own delete doors are made to match by the draft "
-        "matrx-frontend/migrations/udt_dataset_rows_delete_archives_and_trash_restores.sql, which also lists "
-        "archived rows in /trash.",
+        "custom.* (records store)", "soft",
+        "the table's row is a record of the store; custom.record_delete sets deleted_at and /trash restores it",
         impl=(
             "matrx_ai.tools.implementations.datasets_tools:usertable_delete_row",
             "matrx_records.agent.dataset_arm:DatasetStoreArm.delete_row",
         ),
-        model="db.models.workbench:UdtDatasetRows",
-        soft_via="archive_where",
+        soft_via="record_delete",
     ),
     "memory:forget": DeletePath(
         "chat.agent_memory", "soft",

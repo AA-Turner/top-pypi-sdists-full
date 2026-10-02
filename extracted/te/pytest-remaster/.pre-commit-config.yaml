@@ -1,0 +1,59 @@
+ci:
+  skip: [pylint]
+
+repos:
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: "v0.15.7"
+    hooks:
+      - id: ruff-check
+        args: ["--fix"]
+      - id: ruff-format
+        types_or: [python, markdown]
+        args: ["--preview"]
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-merge-conflict
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+  - repo: https://github.com/tox-dev/pyproject-fmt
+    rev: "v2.20.0"
+    hooks:
+      - id: pyproject-fmt
+  - repo: local
+    hooks:
+      - id: pylint
+        name: pylint
+        entry: pylint
+        language: system
+        args: ["-sn", "-rn", "--enable-all-extensions"]
+        types: [python]
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.19.1
+    hooks:
+      - id: mypy
+        args: ["--strict"]
+        exclude: "tests/demo_pylint/platform_checker\\.py"
+        additional_dependencies: [pytest>=7.0, pandas-stubs]
+  - repo: https://github.com/RobertCraigie/pyright-python
+    rev: v1.1.410
+    hooks:
+      - id: pyright
+        args: ["src"]
+        pass_filenames: false
+        additional_dependencies: [pytest>=7.0, pandas-stubs]
+  - repo: local
+    hooks:
+      - id: ty
+        name: ty
+        entry: ty check src
+        language: python
+        pass_filenames: false
+        types: [python]
+        additional_dependencies: [ty, pytest>=7.0, pandas-stubs]
+  - repo: https://github.com/rbubley/mirrors-prettier
+    rev: v3.8.1
+    hooks:
+      - id: prettier
+        args: [--prose-wrap=always, --print-width=88]

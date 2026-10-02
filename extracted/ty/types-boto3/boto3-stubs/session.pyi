@@ -178,6 +178,7 @@ from types_boto3_elementalinference.client import ElementalInferenceClient
 from types_boto3_emr.client import EMRClient
 from types_boto3_emr_containers.client import EMRContainersClient
 from types_boto3_emr_serverless.client import EMRServerlessClient
+from types_boto3_endusermessaging.client import EndUserMessagingClient
 from types_boto3_entityresolution.client import EntityResolutionClient
 from types_boto3_es.client import ElasticsearchServiceClient
 from types_boto3_eventbridgev2.client import EventBridgeV2Client
@@ -256,6 +257,7 @@ from types_boto3_lakeformation.client import LakeFormationClient
 from types_boto3_lambda.client import LambdaClient
 from types_boto3_lambda_core.client import LambdaCoreClient
 from types_boto3_lambda_microvms.client import LambdaMicroVMsClient
+from types_boto3_lambda_web.client import LambdaWebClient
 from types_boto3_launch_wizard.client import LaunchWizardClient
 from types_boto3_lex_models.client import LexModelBuildingServiceClient
 from types_boto3_lex_runtime.client import LexRuntimeServiceClient
@@ -3405,6 +3407,25 @@ class Session:
     @overload
     def client(
         self,
+        service_name: Literal["endusermessaging"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: Config | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> EndUserMessagingClient:
+        """
+        Create client for EndUserMessaging service.
+        """
+
+    @overload
+    def client(
+        self,
         service_name: Literal["entityresolution"],
         region_name: str | None = ...,
         api_version: str | None = ...,
@@ -4806,6 +4827,25 @@ class Session:
     ) -> LambdaMicroVMsClient:
         """
         Create client for LambdaMicroVMs service.
+        """
+
+    @overload
+    def client(
+        self,
+        service_name: Literal["lambda-web"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: Config | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> LambdaWebClient:
+        """
+        Create client for LambdaWeb service.
         """
 
     @overload

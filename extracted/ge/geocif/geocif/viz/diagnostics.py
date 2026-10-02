@@ -16,6 +16,33 @@ from geocif.viz._style import style_ctx as _style_ctx
 from geocif.utils import friendly_stage_label, greedy_dedup_by_mutual_corr  # noqa: F401 — re-exported for callers
 
 
+def _mape_fraction(y_obs, y_pred):
+    """Mean absolute percentage error as a FRACTION (0.12 = 12 %) over the
+    rows whose observed value is non-zero and finite; NaN when none qualify.
+
+    sklearn's ``mean_absolute_percentage_error`` divides by
+    ``max(|obs|, eps)``, so one zero-yield row turns the annotation into
+    ~1e15. Every other MAPE in this package excludes ``obs == 0`` rows; the
+    scatter annotation now agrees with them.
+    """
+    y_obs = np.asarray(y_obs, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
+    ok = np.isfinite(y_obs) & np.isfinite(y_pred) & (y_obs != 0)
+    if not ok.any():
+        return np.nan
+    return float(np.mean(np.abs((y_pred[ok] - y_obs[ok]) / y_obs[ok])))
+
+
+def _mape_for_map(values, cap=100.0):
+    """MAPE values for a choropleth: numeric, capped at ``cap`` (%).
+
+    Values above the cap used to be set to NaN, which painted the WORST
+    regions in the "no data" colour. They now saturate at the top of the
+    scale instead, so a region with MAPE 180 % is visibly bad, not blank.
+    """
+    return pd.to_numeric(values, errors="coerce").clip(upper=cap)
+
+
 def _science_style_context():
     """The shared scienceplots-or-default context (viz/_style.style_ctx).
 
@@ -366,7 +393,7 @@ def scatter_obs_pred(df, title, dir_out, fname, color_by="year", yield_units="Mg
             the right choice for per-year scatters where Harvest Year is
             constant across all points.
     """
-    from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_percentage_error
+    from sklearn.metrics import mean_squared_error, r2_score
 
     obs_col  = "Observed Yield (tn per ha)"
     pred_col = "Predicted Yield (tn per ha)"
@@ -410,12 +437,14 @@ def scatter_obs_pred(df, title, dir_out, fname, color_by="year", yield_units="Mg
         colors = "steelblue"
 
     rmse = np.sqrt(mean_squared_error(y_obs, y_pred))
-    mape = mean_absolute_percentage_error(y_obs, y_pred)
+    # Over obs != 0 rows only (sklearn's version explodes on a zero yield).
+    mape = _mape_fraction(y_obs, y_pred)
     r2   = r2_score(y_obs, y_pred)
     bias = float((y_pred - y_obs).mean())  # mean signed error (pred - obs)
 
+    mape_text = "n/a" if np.isnan(mape) else f"{mape:.2%}"
     metrics_text = (
-        f"RMSE: {rmse:.2f} {yield_units}\nMAPE: {mape:.2%}\n"
+        f"RMSE: {rmse:.2f} {yield_units}\nMAPE: {mape_text}\n"
         f"Bias: {bias:+.2f} {yield_units}\n$R^2$: {r2:.2f}\nN: {len(df)}"
     )
 
@@ -1507,7 +1536,9 @@ def mape_choropleth(dg, df, countries, annotate_regions, dir_out, fname):
         return
 
     df = df.copy()
-    df.loc[df[col] > 100, col] = np.nan
+    # Cap at 100 % rather than blanking: MAPE > 100 used to be painted like
+    # "no data", hiding exactly the regions the map exists to flag.
+    df[col] = _mape_for_map(df[col])
 
     if df[col].dropna().empty:
         return

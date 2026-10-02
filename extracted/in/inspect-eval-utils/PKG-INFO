@@ -1,0 +1,624 @@
+Metadata-Version: 2.5
+Name: inspect-eval-utils
+Version: 1.3.2
+Summary: Shared utilities for METR Inspect AI eval repos: task scaffolder + common runtime helpers.
+Project-URL: Repository, https://github.com/METR/inspect-eval-utils
+Project-URL: Issues, https://github.com/METR/inspect-eval-utils/issues
+Author-email: METR <rasmus.faber-espensen@metr.org>
+License-Expression: MIT
+License-File: LICENSE
+Classifier: Development Status :: 4 - Beta
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.13
+Requires-Dist: anyio>=4.0
+Requires-Dist: boto3>=1.40
+Requires-Dist: inspect-ai>=0.3.200
+Requires-Dist: jinja2>=3.0
+Requires-Dist: libcst>=1.5
+Requires-Dist: tomlkit>=0.13
+Requires-Dist: universal-pathlib>=0.2
+Provides-Extra: report
+Requires-Dist: matplotlib>=3.8; extra == 'report'
+Description-Content-Type: text/markdown
+
+# inspect-eval-utils
+
+Shared utilities for METR Inspect AI eval repos -- used by both task authors
+and agent scaffolding:
+
+- `inspect_eval_utils.setting`: the `Setting` protocol that lets tasks declare
+  what they need from agent scaffolding (workspaces, tools, callbacks,
+  environment features). Imported by *both* tasks and the scaffolding that
+  consumes them.
+- `new_task` CLI: scaffold a new Inspect AI task into any compatible repo.
+- `inspect_eval_utils.common`: runtime helpers for tasks (`get_sandbox_files`,
+  `expand_template`, `load_text_file`, etc.).
+
+## Installation
+
+### Install (recommended)
+
+```bash
+uv tool install inspect-eval-utils
+new_task my_eval
+```
+
+### For one-off use without installing
+
+```bash
+uvx --from inspect-eval-utils new_task my_eval
+```
+
+
+## Shared task secrets
+
+Updated evals can read shared task secrets directly while still working in old
+Hawk and local workflows. Use `get_task_secret()` for values that might come
+from either an environment variable or AWS Secrets Manager:
+
+```python
+from inspect_eval_utils.common import get_task_secret
+
+hf_token = get_task_secret("HF_TOKEN")
+```
+
+Lookup order is:
+
+1. Return the environment variable named `HF_TOKEN` if it is set.
+2. Otherwise fetch AWS Secrets Manager secret
+   `${INSPECT_TASK_SECRETS_DEFAULT_ARN_PREFIX}HF_TOKEN`.
+
+The secret name suffix is verbatim, so `HF_TOKEN` maps to
+`inspect-tasks/HF_TOKEN`, not a lowercased variant. In normal Hawk runs and
+`hawk local`, the default prefix is provided through
+`INSPECT_TASK_SECRETS_DEFAULT_ARN_PREFIX`. The prefix must include the trailing
+slash, for example
+`arn:aws:secretsmanager:us-west-2:123456789012:secret:inspect-tasks/`. When
+running `inspect eval` directly, set that variable yourself or pass `arn=` to
+`get_task_secret()`.
+
+## Setting protocol
+
+`Setting` is the contract a task publishes to agent scaffolding. It answers
+one question: *what does the agent need to operate on this task?* The
+scaffolding reads a Setting and wires up the agent accordingly. Neither side
+needs to know the other's internals.
+
+```python
+from inspect_eval_utils.setting import Setting, Workspace, Features
+
+Setting(
+    workspaces=(Workspace(name="default", description="Your working environment"),),
+    tools=(check_flag(),),
+    features=Features(internet=True),
+)
+```
+
+### Concepts
+
+#### What a Workspace is (and isn't)
+
+A Workspace is like an SSH login handed to the agent. It names a sandbox to
+which the agent should have direct shell and file access. For each workspace,
+the scaffolding should create a new instance of each of its normal environment
+interaction tools (e.g. a `bash` and a `python` tool) that is bound to that
+sandbox.
+
+A Workspace may also declare a `workdir`: the directory the agent works in
+within that sandbox. It is the default working directory for those tools, the
+project root that the task's files live under, and the directory whose state is
+captured during checkpointing. Omit it to use the sandbox's own default.
+
+**Not every sandbox is a Workspace.** A CTF task might have three containers --
+an attacker box, a target web server, and a database. Only the attacker box is a
+Workspace. The target and database are infrastructure; the agent reaches them
+over the network or through task tools. By leaving them out of `workspaces`, the
+task hides them from the agent by design.
+
+> If a human would SSH into it, it's a Workspace. If the agent attacks it over
+> the network, it's not.
+
+#### Setting is exhaustive
+
+When a Setting is present, it is authoritative. **Empty `workspaces` means no
+bash/python tools.** A task that wants shell access *and* custom tools must
+declare both:
+
+```python
+# Wrong -- custom tool but no shell access
+Setting(tools=(my_tool(),))
+
+# Right -- explicit about both
+Setting(workspaces=(Workspace(),), tools=(my_tool(),))
+```
+
+A pure-API task (call an endpoint, evaluate the result) genuinely has no
+workspace. Scaffolding that silently adds shell tools would undermine that
+constraint.
+
+#### Three layers of tools
+
+The agent's tool surface has three distinct origins:
+
+| Layer | Source | Examples |
+|---|---|---|
+| Task tools | `Setting.tools` | `check_flag`, `submit_image` |
+| Workspace tools | Scaffolding, per workspace | `bash`, `python` |
+| Framework tools | Scaffolding's own concerns | `set_timeout`, `submit` |
+
+The task owns the first layer. The scaffolding owns the other two.
+
+#### Per-turn callbacks: `on_turn` and `monitor`
+
+Some tasks need to do work between agent turns: check progress, advance a
+simulated clock, deliver a queued message, log score evolution. `Setting`
+exposes two callbacks for this, which differ in *who decides when they fire*
+and *whether they can steer the agent*.
+
+**`on_turn`** runs at the start of every agent-loop iteration, before the model
+generates. The task author owns the cadence: it's guaranteed to fire once per
+turn. It can steer the loop by what it returns:
+
+- `False` -- stop the loop (task is over: solved, irretrievably failed, time up)
+- `str`   -- inject this string as a user message before the next generation
+            (for example: "you have a new email", "10 simulated minutes passed")
+- `None` / `True` -- proceed normally
+
+This is useful when the task model needs to *react to the turn happening*: a
+mailbox task that surfaces new messages, a clock-driven simulation that ticks
+on each step, an end-condition check that the task wants to evaluate before
+spending another model call.
+
+**`monitor`** is observational. It returns `None` and cannot steer the loop.
+The scaffolding decides when to call it -- typically at turn boundaries for
+LLM agents, or on a wall-clock schedule for human/Claude-Code style agents
+where there are no clear turns. Use it for things that should run regardless
+of agent type and where missing a tick (or getting an extra one) is fine:
+periodic score logging, transcript annotations, sandbox health checks.
+
+Rule of thumb: if the task needs to *control* what happens next, use
+`on_turn`. If it just needs to *watch*, use `monitor`.
+
+#### Features vs. tools
+
+`Features` are boolean flags about the *environment* -- `vision`, `internet`.
+They tell scaffolding "this task involves images" or "this environment has
+network access." The scaffolding responds by providing generic tools
+(`view_image`, web search) if the model supports them. If the scaffolding
+doesn't support a feature, the task still runs -- scores reflect the outcome.
+
+`Setting.tools` is the other side of the split: tools that belong to the
+*task*. Think of an agent on a task as a carpenter on a job site: hammer,
+saw, and screwdriver belong to the carpenter; walls, doors, and windows
+belong to the house. The carpenter operates on all six, but ownership is
+clean. Scaffolding tools (`bash`, `view_image`, web search) are the
+carpenter's kit, lit up by `Features` when the task says what kind of job
+this is. `Setting.tools` (`check_flag`, `make_move`, `submit_design`) ship
+with the task itself -- outside it, they're meaningless.
+
+The test:
+
+> Would this tool still make sense on a different task? If yes -- gate it on
+> a Feature. If no -- it belongs in `Setting.tools`.
+
+### For task authors
+
+#### Declaring a task environment
+
+Construct a `Setting` and pass it to `use_setting()` in your task's setup:
+
+```python
+from inspect_eval_utils.setting import Setting, Workspace, Features, use_setting
+
+Task(
+    setup=use_setting(Setting(
+        workspaces=(Workspace(name="default", user="agent"),),
+        tools=(check_flag(),),
+        on_turn=my_callback,
+        features=Features(vision=True),
+    )),
+    solver=my_agent(),
+)
+```
+
+`use_setting` also accepts a factory for per-sample Settings:
+
+```python
+use_setting(lambda sample: Setting(
+    workspaces=(Workspace(name="default", user=sample.metadata["user"]),),
+))
+```
+
+#### Examples
+
+**Simple coding task.** One workspace, no extras.
+```python
+Setting(workspaces=(Workspace(name="dev"),))
+```
+
+**CTF task.** Attacker workspace, a scoring tool, no internet. Target machine is
+NOT listed -- it's infrastructure.
+```python
+Setting(
+    workspaces=(Workspace(name="attacker", description="Your attack machine", user="hacker"),),
+    tools=(check_flag(),),
+)
+```
+
+**Creative task with vision.** Workspace for building, vision enabled so
+scaffolding provides image viewing.
+```python
+Setting(
+    workspaces=(Workspace(name="default", user="agent"),),
+    features=Features(vision=True),
+)
+```
+
+**Pure-API task.** No workspace, just a custom tool.
+```python
+Setting(tools=(call_api(),))
+```
+
+**Dynamic tools via ToolSource.** When the available tools depend on task state
+(e.g. a game where legal moves change each turn), use a `ToolSource`:
+```python
+class GameToolSource(ToolSource):
+    async def tools(self) -> list[Tool]:
+        return [move for move in legal_moves()]
+
+Setting(tools=(GameToolSource(),))
+```
+
+Scaffolding calls `tools()` before each generation, so the set stays current.
+
+When `inspect_eval_utils.tool_cli.setting_tool_cli_running()` exposes these tools
+inside a sandbox, `ToolSource` is resolved dynamically at CLI invocation time.
+Use:
+
+```bash
+tools list
+tools describe <tool-name>
+tools call <tool-name> [args...]
+tools <tool-name> [args...]
+```
+
+`tools <tool-name>` is shorthand for `tools call <tool-name>`. If a tool name
+conflicts with a built-in command such as `list`, `describe`, or `call`, use
+`tools call <tool-name>`.
+
+For schemas that are awkward to express as shell flags, pass a JSON object:
+
+```bash
+tools call <tool-name> --json-args '{"arg": "value"}'
+```
+
+The CLI keeps a short cache for list/help/completion metadata, but tool calls
+refresh the current `ToolSource` before execution.
+
+#### Running the tool CLI from a task setup solver
+
+Use `start_tool_cli` to expose `Setting`/task tools as a `tools` command for the
+agent in one line. It installs the CLI, starts the RPC service in the background,
+and returns once it's ready (raising if startup fails):
+
+```python
+from inspect_eval_utils.tool_cli import start_tool_cli
+from inspect_ai.util import sandbox
+
+@solver
+def setup() -> Solver:
+    async def solve(state: TaskState, generate: Generate) -> TaskState:
+        await start_tool_cli(MY_TOOLS, sandbox("default"), user="agent")
+        return state
+    return solve
+```
+
+The command is resolved two ways: *interactive* shells (e.g. `human_cli`) pick it
+up via a `.bashrc` alias + tab-completion; *non-interactive* shells (the model
+agent's `bash()` tool, `sandbox.exec`) find it on `PATH` at
+`/usr/local/bin/<command_name>`. Pass `on_path=False` to skip the PATH wrapper, or
+`bin_dir=...` to relocate it. `run_tool_cli_service` and `setting_tool_cli_running`
+install the PATH wrapper too (default-on).
+
+#### Common mistakes
+
+- **Listing infrastructure sandboxes as Workspaces.** Only list sandboxes the
+  agent needs direct shell/file access to. Targets, databases, and services
+  should be omitted.
+- **Assuming empty `workspaces` means "use defaults."** It means no workspaces.
+  The agent gets no bash/python.
+- **Putting generic capabilities in `Setting.tools`.** Tools like `view_image`
+  are scaffolding concerns gated on Features, not task tools.
+
+### For scaffolding developers
+
+#### Reading the Setting
+
+The Setting lives in a `ContextVar`, set per-sample by `use_setting()`. When
+`setting()` returns `None`, the task predates this protocol -- scaffolding must
+remain functional without it.
+
+```python
+from inspect_eval_utils.setting import setting
+
+s = setting()  # returns Setting | None
+if s is not None:
+    # Use Setting-aware tool creation
+    tools.append(s.tools)
+else:
+    # Fall back to existing behavior
+```
+
+#### Creating tools from workspaces
+
+Each Workspace declares a sandbox name and user. The scaffolding creates
+whatever tools it wants for each workspace:
+
+```python
+for ws in s.workspaces:
+    tools.append(bash(sandbox=ws.name, user=ws.user, timeout=timeout))
+    tools.append(python(sandbox=ws.name, user=ws.user, timeout=timeout))
+```
+
+#### Handling on_turn callbacks
+
+Call `handle_on_turn()` at the top of each agent loop iteration, before
+generating:
+
+```python
+from inspect_eval_utils.setting import handle_on_turn
+
+result = await handle_on_turn()  # returns OnTurnResult
+# result.action: "break" | "notify" | "proceed"
+# result.message: str | None (only for "notify")
+```
+
+- `"break"` -- stop the agent loop
+- `"notify"` -- inject `result.message` as a user message, then continue
+- `"proceed"` -- continue normally (also returned when no Setting or no on_turn)
+
+#### Reading Features
+
+```python
+if s.features.vision:
+    tools.append(my_view_image_tool())
+if s.features.internet:
+    tools.append(my_web_search_tool())
+```
+
+Features are advisory. If the scaffolding doesn't support a feature, skip it
+gracefully -- don't error.
+
+## Scaffolding a new task
+
+From inside a target repo (e.g. `inspect-eval-examples`):
+
+```bash
+new_task my_eval
+uv sync --group tasks
+uv run inspect eval my_eval --model mockllm/replay --limit 1
+```
+
+### What gets created
+
+After running `new_task my_eval`, you'll see a new package under `tasks/`:
+
+```
+tasks/my_eval/
+├── pyproject.toml
+├── README.md
+└── src/
+    └── metr_tasks/          # or harder_tasks/, etc., based on the target's namespace
+        └── my_eval/
+            ├── __init__.py
+            ├── _registry.py
+            ├── task.py
+            ├── version.py
+            ├── py.typed
+            ├── sandbox/
+            │   ├── compose.yaml
+            │   └── Dockerfile
+            └── assets/
+                └── instructions.md
+```
+
+The scaffolder also edits the target's root `pyproject.toml` to wire the new
+task into the workspace: it appends the package to `dependency-groups.tasks`
+and adds an entry under `tool.uv.sources` (`<package> = { workspace = true }`).
+It does NOT modify `[tool.uv.workspace].members` — that's typically a glob like
+`["tasks/*"]` which automatically picks up the new directory. This is the most
+common surprise — the scaffolder modifies a file outside `tasks/my_eval/`, so
+review the diff before committing.
+
+### Generated eval-set config
+
+The scaffolder also writes a minimal Hawk eval-set skeleton to
+`eval_sets/<name>.eval-set.yaml` (creating `eval_sets/` if needed). This is the
+config you run a batch grid with:
+
+```bash
+hawk eval-set eval_sets/my_eval.eval-set.yaml
+```
+
+The task `package` URL is derived from the target repo's git `origin` remote and
+current branch, e.g.
+`git+ssh://git@github.com/METR/<repo>@<branch>#subdirectory=tasks/my_eval`. When
+the metadata can't be determined, a TODO marker is left in its place:
+
+- no `origin` remote → the whole `package` value is a `TODO:` string,
+- detached HEAD (no branch) → the ref becomes `TODO-set-ref`.
+
+The skeleton is intentionally minimal (one model, one solver). An existing
+`eval_sets/<name>.eval-set.yaml` is only overwritten with `--force`.
+
+### How substitution works
+
+The scaffolder rewrites two things in the same pass:
+
+1. **Task name**: every reference to `template` in the source (file names,
+   function names, imports, project name, etc.) is renamed to your new task
+   name.
+2. **Namespace**: imports like `from metr_tasks.template.task import template`
+   are rewritten to use your repo's actual Python namespace (e.g.
+   `from harder_tasks.my_eval.task import my_eval`). This is what makes the
+   same canonical template work for any METR repo.
+
+### Template selection
+
+The scaffolder uses, in order:
+
+1. `--template <path>` if specified.
+2. `<target>/tasks/template/` if it exists.
+3. The bundled canonical template (a known-good `metr_tasks` template).
+
+### Per-repo target configuration
+
+The scaffolder needs to know your target repo's Python namespace and project
+prefix. It picks them up via the following decision tree:
+
+- **Auto-detected (no config needed)**: if the target repo already has at
+  least one task under `tasks/`, the scaffolder reads its namespace and
+  project prefix from there.
+- **Required config**: if the target repo has no existing tasks under `tasks/`
+  for the scaffolder to inspect, you must declare the namespace explicitly.
+  Add the following to the root `pyproject.toml` (use whatever namespace your
+  repo uses; it's `metr_tasks` for `inspect-eval-examples`, `harder_tasks` for
+  `harder-tasks`, etc.). Without this, the scaffolder errors out on a fresh
+  repo even if you'd be using `metr_tasks`:
+
+  ```toml
+  [tool.task-scaffolder]
+  namespace = "your_namespace"
+  # project-prefix optional, defaults to namespace.replace("_", "-") + "-"
+  ```
+
+- **CLI override**: `--namespace` and `--project-prefix` flags always win,
+  useful for one-offs.
+
+### Examples
+
+#### Example 1 — canonical `metr_tasks` repo (e.g. `inspect-eval-examples`)
+
+```bash
+cd ~/src/metr/inspect-eval-examples
+new_task my_eval
+uv sync
+uv run inspect eval my_eval --model mockllm/replay --limit 1
+```
+
+What you get: `tasks/my_eval/` with the `metr_tasks.my_eval` namespace.
+
+#### Example 2 — cross-namespace repo (e.g. `harder-tasks`)
+
+First, ensure the target's root `pyproject.toml` has:
+
+```toml
+[tool.task-scaffolder]
+namespace = "harder_tasks"
+```
+
+(Skip this if the repo already has tasks the scaffolder can detect from.)
+
+Then:
+
+```bash
+cd ~/src/metr/harder-tasks
+new_task my_eval
+uv sync
+uv run inspect eval my_eval --model mockllm/replay --limit 1
+```
+
+What you get: `tasks/my_eval/` with the `harder_tasks.my_eval` namespace,
+automatically rewritten from the canonical `metr_tasks` template.
+
+### Troubleshooting
+
+- **"target has no pyproject.toml"** — the resolved target directory doesn't
+  contain a `pyproject.toml`. You're either not in the repo root, or
+  `--target <path>` pointed somewhere wrong. `cd` to the repo root, or pass
+  the correct `--target`.
+- **"task name 'template' matches the template name; choose a different
+  name"** — pick something else. `template` is reserved.
+- **"<path> already exists (use --force to overwrite)"** — pass `--force` if
+  you want to overwrite the existing task directory.
+
+## Common helpers
+
+```python
+from inspect_eval_utils.common import (
+    get_sandbox_files,
+    expand_template,
+    load_text_file,
+)
+```
+
+These were ported from `harder-tasks` and are now shared across METR
+Inspect AI eval repos.
+
+## Per-sample reports and artifacts
+
+METR evals write two kinds of per-sample output next to the active sample's
+eval log. The destination works for a local path or an `s3://...` URL — the
+same code path serves both (via `universal-pathlib`).
+
+- `reports/{sample_uuid}/` — one report per sample (possibly several files that
+  together form it, e.g. `report.html` + `plot.png`).
+- `artifacts/{sample_uuid}/` — many files, which may accumulate over the run.
+
+```python
+from inspect_eval_utils.artifacts import (
+    report_dir,
+    artifacts_dir,
+    write_report_async,
+    write_artifacts_async,
+    write_artifact_async,
+)
+
+# Folder paths (do not create the directory; None outside an eval):
+report_dir(sample_uuid)      # -> {eval_log_folder}/reports/{sample_uuid}/
+artifacts_dir(sample_uuid)   # -> {eval_log_folder}/artifacts/{sample_uuid}/
+
+# Write the report (replaces the whole report directory):
+await write_report_async(sample_uuid, {"report.html": html, "plot.png": png_bytes})
+
+# Write artifacts (additive; pass clear=True to wipe the folder first):
+await write_artifacts_async(sample_uuid, {"trace.json": data})
+await write_artifact_async(sample_uuid, "screenshot.png", png_bytes)
+```
+
+Each function returns `None` when there is no active sample (e.g. running
+outside an Inspect AI evaluation). The writers return the destination
+directory path, except `write_artifact`, which returns the written file path.
+File and folder names are restricted to single flat path components (no
+separators, `..`, or drive letters).
+
+**Use the `_async` writers from tasks.** Inspect AI scorers and solvers are
+always coroutines, and a report goes to S3 in production, so the synchronous
+`write_report` / `write_artifacts` / `write_artifact` block the event loop --
+and therefore every other sample in the run -- for the whole round trip. They
+remain available for synchronous callers such as scripts and tests. Anything
+expensive you do to *build* the report (rendering a plot, say) blocks the loop
+too, so wrap the whole thing rather than just the write:
+
+```python
+import anyio
+
+await anyio.to_thread.run_sync(build_and_write_my_report, state)
+```
+
+## Development
+
+```bash
+uv sync
+uv run pytest                       # fast tests
+uv run pytest --runslow             # + slow end-to-end
+uv run ruff check .
+uv run basedpyright
+```
+
+## License
+
+MIT. See [LICENSE](LICENSE).

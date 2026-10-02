@@ -1,5 +1,0 @@
----
-features:
-  - Add C++ ``PartialProdNode``.
-  - Add ``PartialProd`` symbol.
-  - Add ``axis`` keyword argument to ``ArraySymbol.prod()`` method.

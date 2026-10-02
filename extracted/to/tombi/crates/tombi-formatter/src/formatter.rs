@@ -23,6 +23,23 @@ pub struct Formatter<'a> {
     source_uri_or_path: Option<Either<&'a tombi_uri::Uri, &'a std::path::Path>>,
     schema_store: &'a tombi_schema_store::SchemaStore,
     buf: String,
+    /// Memoized results of `exceeds_line_width` for arrays and inline tables.
+    ///
+    /// Without it, every nesting level re-evaluates its children twice
+    /// (once recursively, once through `format_to_string`), which is exponential in the depth.
+    exceeds_line_width_cache: std::collections::HashMap<ExceedsLineWidthKey, bool>,
+}
+
+/// Everything `exceeds_line_width` depends on besides the immutable options.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) struct ExceedsLineWidthKey {
+    is_array: bool,
+    range: (tombi_text::Offset, tombi_text::Offset),
+    current_line_width: usize,
+    indent_depth: u8,
+    skip_indent: bool,
+    skip_comment: bool,
+    single_line_mode: bool,
 }
 
 impl<'a> Formatter<'a> {
@@ -44,13 +61,23 @@ impl<'a> Formatter<'a> {
             source_uri_or_path,
             schema_store,
             buf: String::new(),
+            exceeds_line_width_cache: Default::default(),
         }
     }
 
     /// Format a TOML document and return the result as a string
-    pub async fn format(mut self, source: &str) -> Result<String, Vec<Diagnostic>> {
-        let parsed = tombi_parser::parse(source);
+    pub async fn format(self, source: &str) -> Result<String, Vec<Diagnostic>> {
+        self.format_parsed(&tombi_parser::parse(source)).await
+    }
 
+    /// Format a parsed TOML document and return the result as a string.
+    ///
+    /// The caller can keep [`tombi_parser::ParseResult::line_index`] to convert the spans of
+    /// the diagnostics into ranges, without indexing the lines of the source again.
+    pub async fn format_parsed(
+        mut self,
+        parsed: &tombi_parser::ParseResult<'_>,
+    ) -> Result<String, Vec<Diagnostic>> {
         let root = parsed.root();
         let (source_schema, tombi_document_comment_directive) = (
             self.schema_store
@@ -78,7 +105,7 @@ impl<'a> Formatter<'a> {
                     log::info!("skip formatting for stdin due to `format.disable`");
                 }
             }
-            return Ok(source.to_string());
+            return Ok(parsed.line_index().text().to_string());
         }
 
         self.toml_version = tombi_document_comment_directive
@@ -97,14 +124,12 @@ impl<'a> Formatter<'a> {
             tombi_config::LineEnding::Crlf => "\r\n",
         };
 
-        let (root, errors) = parsed.into_root_and_errors();
-
-        if !errors.is_empty() {
+        if !parsed.errors.is_empty() {
             log::trace!("parsed TOML AST with errors: {:#?}", root);
 
             let mut diagnostics = vec![];
-            for error in errors {
-                error.set_diagnostics(&mut diagnostics);
+            for error in &parsed.errors {
+                error.clone().set_diagnostics(&mut diagnostics);
             }
 
             return Err(diagnostics);
@@ -115,7 +140,7 @@ impl<'a> Formatter<'a> {
             Either::Right(path) => Some(path.to_path_buf()),
         });
 
-        let root = crate::editor::edit(
+        let edited_source = crate::editor::edit(
             root,
             source_path.as_deref(),
             &tombi_schema_store::SchemaContext {
@@ -148,6 +173,19 @@ impl<'a> Formatter<'a> {
             },
         )
         .await;
+
+        let edited = edited_source.as_deref().map(tombi_parser::parse);
+        let root = match &edited {
+            Some(edited) if edited.errors.is_empty() => edited.root(),
+            Some(edited) => {
+                log::error!(
+                    "formatter source rewrite produced invalid TOML: {:#?}",
+                    edited.errors
+                );
+                root
+            }
+            None => root,
+        };
 
         log::trace!("edited TOML AST: {:#?}", root);
 
@@ -196,7 +234,8 @@ impl<'a> Formatter<'a> {
         &mut self,
         content: &str,
     ) -> Result<String, std::fmt::Error> {
-        let Ok(root) = tombi_parser::parse(content).try_into_root() else {
+        let parsed = tombi_parser::parse(content);
+        let Ok(root) = parsed.try_root() else {
             return Ok(content.trim().to_string());
         };
         self.single_line_mode = true;
@@ -347,9 +386,9 @@ impl<'a> Formatter<'a> {
     }
 
     #[inline]
-    pub(crate) fn key_value_equal_alignment_width(
+    pub(crate) fn key_value_equal_alignment_width<'b, 't: 'b>(
         &self,
-        key_values: impl Iterator<Item = &'a tombi_ast_syntax::KeyValue>,
+        key_values: impl Iterator<Item = &'b tombi_ast_syntax::KeyValue<'t>>,
     ) -> Option<AlignmentWidth> {
         if self.definitions.key_value_equal_alignment {
             key_values
@@ -415,14 +454,37 @@ impl<'a> Formatter<'a> {
         self.indent_depth = 0;
     }
 
+    pub(crate) fn exceeds_line_width_key(
+        &self,
+        is_array: bool,
+        node: &tombi_ast_syntax::SyntaxNode,
+    ) -> ExceedsLineWidthKey {
+        let span = node.span();
+        ExceedsLineWidthKey {
+            is_array,
+            range: (span.start, span.end),
+            current_line_width: self.current_line_width(),
+            indent_depth: self.indent_depth,
+            skip_indent: self.skip_indent,
+            skip_comment: self.skip_comment,
+            single_line_mode: self.single_line_mode,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn cached_exceeds_line_width(&self, key: &ExceedsLineWidthKey) -> Option<bool> {
+        self.exceeds_line_width_cache.get(key).copied()
+    }
+
+    #[inline]
+    pub(crate) fn cache_exceeds_line_width(&mut self, key: ExceedsLineWidthKey, value: bool) {
+        self.exceeds_line_width_cache.insert(key, value);
+    }
+
     #[inline]
     pub(crate) fn current_line_width(&self) -> usize {
-        self.buf
-            .split("\n")
-            .last()
-            .unwrap_or_default()
-            .graphemes(true)
-            .count()
+        let line_start = self.buf.rfind('\n').map_or(0, |index| index + 1);
+        self.buf[line_start..].graphemes(true).count()
     }
 }
 

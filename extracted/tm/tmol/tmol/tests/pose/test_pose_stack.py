@@ -1,0 +1,167 @@
+import numpy
+import pytest
+import torch
+import attrs
+from tmol.io import pose_stack_from_pdb
+from tmol.pose import PoseStackBuilder
+
+
+def test_n_poses(ubq_40_60_pose_stack):
+    assert ubq_40_60_pose_stack.n_poses == 2
+
+
+def test_max_n_blocks(ubq_40_60_pose_stack):
+    assert ubq_40_60_pose_stack.max_n_blocks == 60
+
+
+def test_max_n_atoms(ubq_40_60_pose_stack):
+    assert (
+        ubq_40_60_pose_stack.max_n_atoms
+        == ubq_40_60_pose_stack.packed_block_types.max_n_atoms
+    )
+
+
+def test_max_n_block_atoms(ubq_40_60_pose_stack):
+    assert (
+        ubq_40_60_pose_stack.max_n_block_atoms
+        == ubq_40_60_pose_stack.packed_block_types.max_n_atoms
+    )
+
+
+def test_max_n_pose_atoms(ubq_40_60_pose_stack):
+    ps = ubq_40_60_pose_stack
+    pbt = ps.packed_block_types
+    actual_n_atoms = sum(
+        pbt.active_block_types[ps.block_type_ind64[1, i]].n_atoms for i in range(60)
+    )
+    assert ubq_40_60_pose_stack.max_n_pose_atoms == actual_n_atoms
+
+
+def test_n_ats_per_pose_block(ubq_40_60_pose_stack):
+    n_ats_per_block_gold = torch.zeros((2, 60), dtype=torch.int32)
+    for i in range(2):
+        for j in range(ubq_40_60_pose_stack.max_n_blocks):
+            j_bt = ubq_40_60_pose_stack.block_type_ind[i, j]
+            if j_bt < 0:
+                continue
+            n_ats_per_block_gold[i, j] = (
+                ubq_40_60_pose_stack.packed_block_types.active_block_types[j_bt].n_atoms
+            )
+    numpy.testing.assert_equal(
+        n_ats_per_block_gold, ubq_40_60_pose_stack.n_ats_per_block.cpu().numpy()
+    )
+
+
+def test_real_atoms(ubq_40_60_pose_stack):
+    max_n_pose_atoms = ubq_40_60_pose_stack.max_n_pose_atoms
+    real_ats_gold = torch.zeros((2, max_n_pose_atoms), dtype=bool)
+    n_ats_per_pose = torch.sum(ubq_40_60_pose_stack.n_ats_per_block, dim=1).cpu()
+    real_ats_gold[0, : n_ats_per_pose[0]] = 1
+    real_ats_gold[1, : n_ats_per_pose[1]] = 1
+
+    numpy.testing.assert_equal(
+        real_ats_gold.numpy(), ubq_40_60_pose_stack.real_atoms.cpu().numpy()
+    )
+
+
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float64])
+def test_expand_coords(ubq_40_60_pose_stack, torch_device, dtype):
+    poses = attrs.evolve(
+        ubq_40_60_pose_stack, coords=ubq_40_60_pose_stack.coords.to(dtype)
+    )
+    expanded_coords_gold = torch.zeros(
+        (2, poses.max_n_blocks, poses.max_n_block_atoms, 3),
+        dtype=dtype,
+        device=torch_device,
+    )
+    real_expanded_coords_gold = torch.zeros(
+        (2, poses.max_n_blocks, poses.max_n_block_atoms),
+        dtype=torch.bool,
+        device=torch_device,
+    )
+    n_ats_per_block = poses.n_ats_per_block
+    for i in range(2):
+        for j in range(poses.max_n_blocks):
+            j_bt = poses.block_type_ind[i, j]
+            if j_bt < 0:
+                continue
+            ij_nats = n_ats_per_block[i, j]
+            ij_offset = poses.block_coord_offset[i, j]
+            expanded_coords_gold[i, j, :ij_nats] = poses.coords[
+                i, ij_offset : (ij_offset + ij_nats)
+            ]
+            real_expanded_coords_gold[i, j, :ij_nats] = True
+
+    expanded_coords, real_expanded_coords = poses.expand_coords()
+    numpy.testing.assert_equal(
+        expanded_coords_gold.cpu().numpy(), expanded_coords.cpu().numpy()
+    )
+    numpy.testing.assert_equal(
+        real_expanded_coords.cpu().numpy(), real_expanded_coords.cpu().numpy()
+    )
+
+
+def test_round_trip_irregular_pose_stack_and_split(
+    default_database, ubq_pdb, torch_device
+):
+    n_poses = 4
+    poses = [
+        pose_stack_from_pdb(ubq_pdb, torch_device, residue_start=0, residue_end=20 + i)
+        for i in range(n_poses)
+    ]
+    pose_stack = PoseStackBuilder.from_poses(poses, torch_device)
+    for i in range(n_poses):
+        split_pose_stack = pose_stack.split(i)
+        assert split_pose_stack.n_poses == 1
+        assert split_pose_stack.max_n_blocks == pose_stack.max_n_blocks
+        assert split_pose_stack.max_n_atoms == pose_stack.max_n_atoms
+        assert split_pose_stack.max_n_block_atoms == pose_stack.max_n_block_atoms
+        assert split_pose_stack.max_n_pose_atoms == pose_stack.max_n_pose_atoms
+        i_pose = poses[i]
+        torch.testing.assert_close(
+            split_pose_stack.coords[:, : i_pose.max_n_pose_atoms], i_pose.coords
+        )
+        torch.testing.assert_close(
+            split_pose_stack.block_coord_offset[:, : i_pose.max_n_blocks],
+            i_pose.block_coord_offset,
+        )
+        torch.testing.assert_close(
+            split_pose_stack.block_coord_offset64[:, : i_pose.max_n_blocks],
+            i_pose.block_coord_offset64,
+        )
+
+        torch.testing.assert_close(
+            split_pose_stack.inter_residue_connections[:, : i_pose.max_n_blocks],
+            i_pose.inter_residue_connections,
+        )
+        torch.testing.assert_close(
+            split_pose_stack.inter_residue_connections64[:, : i_pose.max_n_blocks],
+            i_pose.inter_residue_connections64,
+        )
+
+        torch.testing.assert_close(
+            split_pose_stack.inter_block_bondsep[
+                :, : i_pose.max_n_blocks, : i_pose.max_n_blocks
+            ],
+            i_pose.inter_block_bondsep,
+        )
+        torch.testing.assert_close(
+            split_pose_stack.inter_block_bondsep64[
+                :, : i_pose.max_n_blocks, : i_pose.max_n_blocks
+            ],
+            i_pose.inter_block_bondsep64,
+        )
+        torch.testing.assert_close(
+            split_pose_stack.block_type_ind[:, : i_pose.max_n_blocks],
+            i_pose.block_type_ind,
+        )
+        torch.testing.assert_close(
+            split_pose_stack.block_type_ind64[:, : i_pose.max_n_blocks],
+            i_pose.block_type_ind64,
+        )
+        torch.testing.assert_close(
+            split_pose_stack.chain_id[:, : i_pose.max_n_blocks], i_pose.chain_id
+        )
+        torch.testing.assert_close(
+            split_pose_stack.chain_id64[:, : i_pose.max_n_blocks], i_pose.chain_id64
+        )

@@ -75,6 +75,61 @@ class DelegationNotDurable(RuntimeError):
 #: action-request resolver resolves it (Lane L live walk, 2026-09-28).
 PARKED_ON_KEY = "parked_on"
 
+#: ``chat.tool_call.metadata`` key naming the person whose TURN made the call —
+#: stamped at INSERT from the turn's own ``ctx.user_id``. ``created_by`` cannot
+#: answer this: the table is a COMPONENT, so the trigger rewrites it to the
+#: conversation OWNER whoever ran the turn (db-rules §6d-1). Whose desktop may
+#: claim a desktop-bound call, and whose extension may materialize an
+#: authenticator code, is this person — never every editor of the conversation.
+#: A named domain fact, never an access key in RLS (§6d-1).
+TURN_ACTOR_KEY = "turn_actor_user_id"
+
+
+#: ``AppContext.metadata`` key carrying the ``chat.tool_call`` ROW id of the
+#: ``agent_call`` whose child run is in progress. ``agent_call`` binds it for the
+#: child's task context only (never on the shared dict), so every tool call the
+#: child makes — and the child's own ``agent_call``, which then rebinds it for
+#: ITS child — is written with ``parent_call_id`` pointing at the call that
+#: spawned it. That FK (``fk_cx_tool_call_parent`` → ``chat.tool_call.id``) is
+#: what lets a reloaded transcript nest a sub-agent's work under the card that
+#: ran it, exactly as the live stream shows it (Arman, 2026-10-01). The parent
+#: row is durable before the child writes: the child fork finalizes the parent's
+#: coordinator first (``persistence.queue_helpers._child_coordinator_scope``).
+PARENT_TOOL_CALL_ROW_KEY = "agent_call_parent_tool_call_row_id"
+
+
+def _stamp_parent_call(data: dict[str, Any]) -> None:
+    """Stamp ``parent_call_id`` from the running ``agent_call`` (if any).
+
+    EVERY method that INSERTs a chat.tool_call row must call this (guard:
+    tests/test_agent_call_child_rows_name_their_parent.py) — a child row
+    without it vanishes from the reloaded transcript's nesting.
+    """
+    if data.get("parent_call_id"):
+        return
+    from matrx_ai.context.app_context import try_get_app_context
+
+    ctx = try_get_app_context()
+    metadata = getattr(ctx, "metadata", None) if ctx is not None else None
+    if not isinstance(metadata, dict):
+        return
+    parent = metadata.get(PARENT_TOOL_CALL_ROW_KEY)
+    if isinstance(parent, str) and parent:
+        data["parent_call_id"] = parent
+
+
+def turn_actor_of(row: Any) -> str:
+    """The person whose turn made this tool call ("" when unknown).
+
+    Rows written before the stamp existed fall back to ``created_by`` — on those
+    the turn could only have been the owner's (a non-owner turn became possible
+    the same day the stamp did)."""
+    metadata = row.get("metadata") if isinstance(row, dict) else getattr(row, "metadata", None)
+    if isinstance(metadata, dict) and metadata.get(TURN_ACTOR_KEY):
+        return str(metadata[TURN_ACTOR_KEY])
+    created_by = row.get("created_by") if isinstance(row, dict) else getattr(row, "created_by", None)
+    return str(created_by) if created_by else ""  # component-created-by-ok: legacy rows only — before the turn-actor stamp, only the owner could take a turn
+
 
 def _cxm():
     # Lazy: resolving cxm constructs host-injected ORM managers, which requires
@@ -208,6 +263,32 @@ class ToolExecutionLogger:
             return ""
         return _TOOL_CALL_ROW_BY_CALL_ID.get(key or "") or ""
 
+    @staticmethod
+    async def known_row_id(*, call_id: str, conversation_id: str | None) -> str | None:
+        """The ``chat.tool_call`` row id for a call — from what this process
+        already KNOWS before anything is read from the database.
+
+        🚨 A ROW THIS TURN JUST CREATED IS NOT ON DISK YET. ``log_started``
+        queues its INSERT write-behind on the request coordinator and registers
+        ``(conversation_id, call_id) -> row_id`` in the same instant. A database
+        read made moments later (a park, a link, a stamp) finds NOTHING until
+        the coordinator commits — and failing on our own write-behind is a lie
+        about the system. ``action_requests.park`` did exactly that on
+        2026-10-01: "no chat.tool_call row … never persisted" while the INSERT
+        sat queued; the person was told the turn could not be held, and a retry
+        a moment later succeeded. So: registry first; the database only on a
+        genuine miss (another process, or an expired entry whose INSERT has
+        long since committed). ``None`` = neither knows the call.
+        """
+        cached = _TOOL_CALL_ROW_BY_CALL_ID.get(_call_row_key(conversation_id, call_id) or "")
+        if cached:
+            return cached
+        filters: dict[str, Any] = {"call_id": call_id}
+        if conversation_id:
+            filters["conversation_id"] = conversation_id
+        rows = await _cxm().tool_call.filter_items(**filters)
+        return str(rows[0].id) if rows else None
+
     # ------------------------------------------------------------------
     # Phase 1: log_started (INSERT)
     # ------------------------------------------------------------------
@@ -287,6 +368,9 @@ class ToolExecutionLogger:
             }
         if ctx.message_id:
             data["message_id"] = ctx.message_id
+        if ctx.user_id:
+            data["metadata"] = {**data["metadata"], TURN_ACTOR_KEY: str(ctx.user_id)}
+        _stamp_parent_call(data)
 
         stamp_row_owner(data, ctx.user_id)
 
@@ -568,6 +652,7 @@ class ToolExecutionLogger:
         }
         if ctx.message_id:
             data["message_id"] = ctx.message_id
+        _stamp_parent_call(data)
 
         stamp_row_owner(data, ctx.user_id)
 
@@ -883,6 +968,15 @@ class ToolExecutionLogger:
             coordinator = None
 
         if coordinator is not None:
+            if parked_on is not None:
+                # log_delegated MERGES the marker into the row's existing
+                # metadata, which it reads from disk. The row's own INSERT may
+                # still be write-behind on this coordinator (park runs moments
+                # after log_started), so the read would find nothing and the
+                # park would REPLACE the INSERT's metadata (execution
+                # authorization, candidate disposition, tool origin). Commit the
+                # INSERT first; then the merge reads the real metadata.
+                await coordinator.finalize(reason=f"{reason}_pre_park_metadata_read")
             await self.log_delegated(
                 row_id,
                 expires_at=expires_at,

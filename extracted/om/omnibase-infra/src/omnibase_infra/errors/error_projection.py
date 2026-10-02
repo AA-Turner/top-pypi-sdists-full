@@ -1,0 +1,297 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""ProjectionError — raised by NodeProjectionEffect on projection failure.
+
+Projection failure blocks Kafka publish (OMN-2363 / OMN-2510).  This error
+class makes that failure explicit and carries enough context for the runtime
+to log a full incident report before routing to retry / dead-letter.
+
+Error hierarchy:
+    ModelOnexError (omnibase_core)
+    └── RuntimeHostError (omnibase_infra)
+        └── ProjectionError   ← this module
+
+Related:
+    - OMN-2508: NodeProjectionEffect (omnibase_spi)
+    - OMN-2510: Runtime wires projection before Kafka publish
+    - error_infra.py: RuntimeHostError base class
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+from uuid import UUID
+
+from omnibase_infra.errors.error_infra import RuntimeHostError
+
+if TYPE_CHECKING:
+    from omnibase_infra.models.errors.model_infra_error_context import (
+        ModelInfraErrorContext,
+    )
+
+
+class ProjectionError(RuntimeHostError):
+    """Raised when a synchronous projection write fails.
+
+    The runtime catches this error in DispatchResultApplier and:
+        1. Skips Kafka publish entirely.
+        2. Routes the originating message to retry / dead-letter handling.
+        3. Logs the failure with projector_key, event_type, and exception details.
+
+    Attributes:
+        originating_event_id: UUID of the event that triggered the projection.
+        projection_type: The projection table / projector class that failed.
+
+    Example:
+        >>> from uuid import uuid4
+        >>> from omnibase_infra.errors.error_projection import ProjectionError
+        >>> from omnibase_infra.models.errors.model_infra_error_context import (
+        ...     ModelInfraErrorContext,
+        ... )
+        >>> from omnibase_infra.enums import EnumInfraTransportType
+        >>>
+        >>> context = ModelInfraErrorContext(
+        ...     transport_type=EnumInfraTransportType.DATABASE,
+        ...     operation="projection_effect.execute",
+        ...     correlation_id=uuid4(),
+        ... )
+        >>> raise ProjectionError(
+        ...     "NodeRegistration projection write failed — connection refused",
+        ...     context=context,
+        ...     originating_event_id=uuid4(),
+        ...     projection_type="NodeRegistration",
+        ... )
+    """
+
+    def __init__(
+        self,
+        message: str,
+        context: ModelInfraErrorContext | None = None,
+        originating_event_id: UUID | None = None,
+        projection_type: str | None = None,
+        **extra_context: object,
+    ) -> None:
+        """Initialize ProjectionError with structured projection context.
+
+        Args:
+            message: Human-readable description of the projection failure.
+            context: Infrastructure context (transport_type, operation,
+                correlation_id).
+            originating_event_id: UUID of the event that triggered this
+                projection.  Included in logs for correlation across services.
+            projection_type: The projection table or projector class name.
+                Helps operators quickly identify which projector failed.
+            **extra_context: Additional context fields forwarded to
+                RuntimeHostError for structured logging.
+        """
+        # Inject projection-specific fields into extra_context before
+        # forwarding to RuntimeHostError (same pattern as RepositoryError).
+        if originating_event_id is not None:
+            extra_context["originating_event_id"] = str(originating_event_id)
+        if projection_type is not None:
+            extra_context["projection_type"] = projection_type
+
+        super().__init__(message, error_code=None, context=context, **extra_context)
+
+        # Store typed attributes for programmatic access
+        self.originating_event_id = originating_event_id
+        self.projection_type = projection_type
+
+
+class ProjectionTenantContextError(ProjectionError):
+    """Raised when a tenant projection has no valid authenticated authority.
+
+    OMN-15421. Tenant-scoped projection tables compare their UUID tenant key
+    with the transaction-local ``app.tenant_id`` setting. The adapter accepts
+    only an opaque capability minted after canonical signed-envelope verification
+    and an authoritative signer-to-tenant binding check. Ordinary security-context
+    fields, gateway metadata, request/payload values, environment values, empty
+    strings, slugs, and shared sentinels are never authority or fallbacks.
+
+    Distinct from the generic :class:`ProjectionError` so callers and operators
+    can tell a tenant-attribution refusal apart from a connection or schema
+    failure; the two have completely different remediations.
+    """
+
+
+class ProjectionNotMaterializedError(ProjectionError):
+    """A projection consumed an event and wrote no row for a NON-content reason.
+
+    OMN-17379. The auto-wired projection dispatch callback caught every handler
+    exception, logged one ERROR line, best-effort-DLQ'd, and returned ``None``.
+    A callback that returns normally IS an ACK: the consume boundary reads "no
+    exception" as success and the offset advances. The fact the event carried is
+    then gone from the projection forever while every external surface still
+    reports health.
+
+    Live proof on the ``.201`` dev lane (2026-08-31): ``pr_merged_events`` held
+    28 rows whose newest was 2026-08-03 while its consumer group sat at
+    ``Stable / TOTAL-LAG 0 / CURRENT-OFFSET 97 = LOG-END``. Rewinding the group
+    to offset 94 and letting the real wired path re-consume 94→96 produced three
+
+        InsufficientPrivilege: permission denied for sequence
+        pr_merged_events_projection_cursor_seq
+
+    errors, three quarantine records, ZERO rows, and a committed offset back at
+    97. 230 merged PRs' worth of facts were acknowledged into nothing.
+
+    The distinction this type encodes is the one the old code did not make:
+
+    * A **content** failure (a ``ValidationError`` on a malformed payload) is the
+      EVENT's defect. Redelivery can never fix it, so DLQ-and-advance stays
+      correct and this type is NOT raised.
+    * A **write-path** failure — insufficient privilege, a dead connection, a
+      missing relation, a wiring bug that denies the handler its adapter — is the
+      RUNTIME's defect. The event is valid and still owed a row, so the offset
+      must be withheld and Kafka must redeliver once the write path is repaired.
+
+    Raising it is the whole mechanism: ``EventBusKafka._dispatch_to_subscriber``
+    classifies this type as offset-unsafe unconditionally, which rewinds the fetch
+    position to the failed message's own offset (the OMN-15232
+    ``_rewind_after_unpersisted_dlq`` path). That is the only action that works
+    under ``enable_auto_commit=True``, where merely declining to commit does
+    nothing and the offset advances anyway.
+
+    The consequence is deliberate and is the point: a projection whose write path
+    is broken now STALLS with visible lag instead of running green at lag 0. A
+    stalled feed is a detectable feed.
+    """
+
+
+class QuarantinePublishUnconfirmedError(ProjectionError):
+    """A refused event's quarantine publication was never confirmed durable.
+
+    OMN-17862. ``handler_wiring._route_projection_error_to_dlq`` is declared
+    ``-> bool`` and returns ``False`` on three separate failures — no publishable
+    event bus bound, the bound bus's ``publish`` attribute not callable, and the
+    publish itself raising — each logged at ERROR, with its own docstring calling
+    the whole function "best-effort". **Its one call site discarded that
+    boolean**: the call was a bare ``await`` expression statement, so
+    ``write_path_failure`` stayed ``None``, the guard below it did not fire, and
+    the callback returned normally. A callback that returns normally IS an ACK.
+    On a broker refusal, a wedged connection, or a lane brought up with no bus,
+    a refused record was therefore **neither projected nor quarantined and its
+    offset advanced** — reached through the arm the design called the safe one.
+    ``record_active_error()`` fires at the top of that function regardless, so
+    the COUNTER moved while the RECORD was gone.
+
+    It is raised — and bound into ``write_path_failure`` — so the offset is
+    withheld until the quarantine actually lands. That deliberately answers the
+    "best-effort, so it cannot wedge the consumer" rationale rather than ignoring
+    it: withholding does stall the partition, and a stall is recoverable and
+    loud where a dropped record is neither. Redelivery re-refuses the record and
+    re-attempts the quarantine, so the stall clears as soon as the bus does.
+
+    **This type must be an EXCEPTION, never the boolean it replaces.**
+    ``write_path_failure = False`` satisfies the ``is not None`` guard and then
+    makes ``raise ProjectionNotMaterializedError(...) from False`` a ``TypeError``
+    (*exception causes must derive from BaseException*). A ``TypeError`` is not a
+    ``ProjectionNotMaterializedError``, so the offset-withholding arm does not
+    catch it; it falls to the bounded-retry loop's generic handler and then to the
+    boundary catch-all, which routes it to the swallowed-exception path and
+    returns normally — the same silent drop, one exception type further along.
+
+    Purpose-named rather than re-using the original refusal, because
+    ``ProjectionNotMaterializedError``'s message renders
+    ``type(write_path_failure).__name__``: binding the bare parse failure there
+    would name the PARSE while the QUARANTINE is what actually withheld the
+    offset, pointing an operator at the wrong seam. The parse failure stays
+    reachable through ``__cause__``.
+
+    Distinct from :class:`ProjectionNotMaterializedError` and deliberately NOT a
+    subclass of it: this is the *cause* bound into ``write_path_failure``, and
+    the withholding type is raised *from* it.
+    """
+
+
+class ProjectionQueryRowBudgetError(ProjectionNotMaterializedError):
+    """A projection read matched more rows than the seam will materialise.
+
+    OMN-17888. ``ProjectionDatabaseOperations._execute_query`` emitted
+    ``SELECT *`` with no row bound for any caller and then materialised the
+    result set twice, both copies alive at once
+    (``[dict(record) for record in cursor.fetchall()]``). Measured in the
+    deployed container against the live ``omnidash_analytics`` database, one
+    call over the ``session_id`` holding 91,633 of
+    ``public.session_replay_snapshots``' 94,571 rows cost 225.4 MiB: 200.7 MiB
+    of driver rows plus 24.8 MiB of plain dicts. ``asyncio.to_thread`` ran the
+    blocking handler on the loop's default 32-worker executor, so four to five
+    concurrent calls produced the ~1,062 MB RSS step that memcg-OOM-killed
+    ``onex-runtime`` on the ``.201`` DEV lane about every three minutes.
+
+    Raising is the deliberate choice over appending a ``LIMIT``. A truncated
+    answer is indistinguishable from a complete one at the call site, so a
+    ``LIMIT`` would convert an OOM into silently wrong projections -- the
+    silent-fallback shape this codebase refuses everywhere else. The refusal
+    names the relation, the bound, and the filter keys so the offending caller
+    is identifiable from one log line.
+
+    Classified as a write-path failure, not a content failure: the event is
+    well-formed and still owed a row, so the offset must be withheld and the
+    record redelivered once the caller is repaired. The remedy is never to
+    raise the bound -- it is to make the caller ask a bounded question (an
+    indexed single-row read, or a paged one), which is what the read it
+    replaced already needed.
+
+    IT IS A SUBCLASS OF :class:`ProjectionNotMaterializedError`, AND THAT IS
+    THE WHOLE MECHANISM. Until OMN-17888 second pass it was a direct sibling
+    under :class:`ProjectionError` and was caught NOWHERE. Every offset-unsafe
+    arm in the runtime matches ``ProjectionNotMaterializedError`` by EXACT type
+    (``event_bus_kafka._dispatch_to_subscriber``,
+    ``message_dispatch_engine._dispatch_one``, and both
+    ``handler_wiring`` boundary arms), so a sibling fell through to the generic
+    bounded-retry loop, then to ``_route_swallowed_exception`` -> DLQ -> and the
+    offset ADVANCED. The paragraph above claimed the opposite of what the code
+    did: the event was acknowledged into a dead-letter record and the row it was
+    owed was never written -- the exact OMN-17379 swallow this error was
+    supposed to be on the safe side of.
+
+    Subclassing rather than widening four ``except`` tuples is deliberate. The
+    two types state the SAME fact -- "this projection consumed an event, wrote
+    no row, and the cause is the runtime rather than the event" -- so the
+    relationship belongs in the hierarchy, where a fifth arm added later
+    inherits it, instead of in four call sites that a fifth arm can forget.
+    """
+
+
+class ProjectionWedgeExhaustedError(ProjectionError):
+    """A projection refused the SAME record the same way past its withhold bound.
+
+    OMN-17379. The offset withhold that error's sibling
+    :class:`ProjectionNotMaterializedError` triggers has no ceiling of its own:
+    the record is rewound and redelivered until the write path is repaired. That
+    is right for a TRANSIENT failure -- a missing GRANT, a dead database, an
+    unapplied migration -- where the record is still owed a row.
+
+    It is wrong for a record whose refusal never changes. Such a record blocks
+    every LATER record on its partition, including ones that would project
+    fine, and nothing ends the stall. Measured on the onex-dev staging
+    namespace 2026-09-15: ``delegation-completed.v1`` partition 0
+    offset 286 (a tenant-registry refusal for an unmirrored historical tenant)
+    and ``quality-gate-result.v1`` partition 0 offset 300 (a NOT NULL violation
+    on ``delegation_events.task_type``) each re-refused about once per second,
+    and the staging business-proof gate went red behind them and would have
+    stayed red on every subsequent deploy.
+
+    This type is the REASON carried on the dead-letter that ends such a stall,
+    not something a handler raises. It is deliberately NOT a subclass of
+    :class:`ProjectionNotMaterializedError`: every offset-unsafe arm in the
+    runtime matches that type, and inheriting from it would make the very
+    quarantine that releases the partition withhold the offset again.
+
+    The honest limit: the count that reaches this bound is process-local, so a
+    crash-looping consumer can withhold indefinitely without ever reaching it.
+    A restarting pod is a visible failure where a Stable/lag-0 wedge is not,
+    which is why that residual is accepted rather than closed with a second
+    durable store on the consume path.
+    """
+
+
+__all__ = [
+    "ProjectionError",
+    "ProjectionNotMaterializedError",
+    "ProjectionQueryRowBudgetError",
+    "ProjectionTenantContextError",
+    "ProjectionWedgeExhaustedError",
+    "QuarantinePublishUnconfirmedError",
+]

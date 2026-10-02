@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=70.1", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "superdoc-sdk"
+version = "2.16.1"
+description = "SuperDoc SDK (CLI-backed)"
+requires-python = ">=3.9"
+license = "AGPL-3.0"
+authors = [{ name = "SuperDoc" }]
+dependencies = [
+  "superdoc-sdk-cli-darwin-arm64==2.16.1; platform_system == 'Darwin' and (platform_machine == 'arm64' or platform_machine == 'aarch64' or platform_machine == 'ARM64')",
+  "superdoc-sdk-cli-darwin-x64==2.16.1; platform_system == 'Darwin' and (platform_machine == 'x86_64' or platform_machine == 'AMD64' or platform_machine == 'amd64')",
+  "superdoc-sdk-cli-linux-x64==2.16.1; platform_system == 'Linux' and (platform_machine == 'x86_64' or platform_machine == 'AMD64' or platform_machine == 'amd64')",
+  "superdoc-sdk-cli-linux-arm64==2.16.1; platform_system == 'Linux' and (platform_machine == 'arm64' or platform_machine == 'aarch64' or platform_machine == 'ARM64')",
+  "superdoc-sdk-cli-windows-x64==2.16.1; platform_system == 'Windows' and (platform_machine == 'x86_64' or platform_machine == 'AMD64' or platform_machine == 'amd64')",
+]
+
+[tool.uv.sources]
+superdoc-sdk-cli-darwin-arm64 = { path = "platforms/superdoc-sdk-cli-darwin-arm64" }
+superdoc-sdk-cli-darwin-x64 = { path = "platforms/superdoc-sdk-cli-darwin-x64" }
+superdoc-sdk-cli-linux-arm64 = { path = "platforms/superdoc-sdk-cli-linux-arm64" }
+superdoc-sdk-cli-linux-x64 = { path = "platforms/superdoc-sdk-cli-linux-x64" }
+superdoc-sdk-cli-windows-x64 = { path = "platforms/superdoc-sdk-cli-windows-x64" }
+
+[dependency-groups]
+dev = [
+  "pytest>=8.4.2",
+  "pytest-asyncio>=1.2.0",
+]
+
+[tool.setuptools]
+packages = [
+  "superdoc",
+  "superdoc.generated",
+  "superdoc.presets",
+  "superdoc.skills",
+  "superdoc.tools",
+]
+
+[tool.setuptools.package-data]
+superdoc = [
+  "skills/*.md",
+  "tools/*.md",
+  "tools/*.json",
+]

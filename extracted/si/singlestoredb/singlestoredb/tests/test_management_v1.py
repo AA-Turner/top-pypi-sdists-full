@@ -1,0 +1,2053 @@
+#!/usr/bin/env python
+# type: ignore
+"""
+SingleStoreDB v1 Management API testing.
+
+Everything here targets management API v1 -- workspaces, workspace groups and
+the resources hanging off them. No test in this file may branch on version;
+the v2 equivalents live in ``test_management_v2.py``, the version-neutral
+helper units in ``test_management_utils.py``, and the structural cross-version
+invariants in ``test_management_versioning.py``.
+
+The whole module carries ``@pytest.mark.management_v1`` (see ``pytestmark``
+below) so that the v1 endpoints can be switched off as a group now that
+``management.version`` defaults to v2: ``-m 'not management_v1'`` for a normal
+run, ``-m 'management_v1'`` for the nightly that still proves v1 works. The
+marker is separate from ``management`` because this file also holds mocked
+units that need no token -- those are v1-specific too, and go away with
+``management/v1/``.
+"""
+import datetime
+import os
+import pathlib
+import random
+import re
+import secrets
+import unittest
+from unittest.mock import MagicMock
+from unittest.mock import patch
+from unittest.mock import PropertyMock
+
+import pytest
+
+import singlestoredb as s2
+from singlestoredb.management.job import Status
+from singlestoredb.management.job import TargetType
+from singlestoredb.management.region import Region
+from singlestoredb.management.utils import NamedList
+from singlestoredb.tests import utils
+
+
+TEST_DIR = pathlib.Path(os.path.dirname(__file__))
+
+#: Applies to every test in this module, live or mocked.
+pytestmark = pytest.mark.management_v1
+
+
+def clean_name(s):
+    """Change all non-word characters to -."""
+    return re.sub(r'[^\w]', r'-', s).replace('_', '-').lower()
+
+
+def shared_database_name(s):
+    """Return a shared database name. Cannot contain special characters except -"""
+    return re.sub(r'[^\w]', '', s).replace('-', '_').lower()
+
+
+@pytest.mark.management
+class TestWorkspace(unittest.TestCase):
+
+    manager = None
+    workspace_group = None
+    workspace = None
+    password = None
+
+    @classmethod
+    def setUpClass(cls):
+        # Pinned: manage_workspaces() follows the management.version
+        # option, and this is the v1 suite.
+        cls.manager = s2.manage_workspaces(version='v1')
+
+        us_regions = [x for x in cls.manager.regions if 'US' in x.name]
+        cls.password = utils.admin_password()
+
+        name = clean_name(secrets.token_urlsafe(20)[:20])
+
+        cls.workspace_group = cls.manager.create_workspace_group(
+            f'wg-test-{name}',
+            region=random.choice(us_regions).id,
+            admin_password=cls.password,
+            firewall_ranges=['0.0.0.0/0'],
+            expires_at=utils.DEPLOYMENT_EXPIRES_AT,
+        )
+
+        try:
+            # No expiry of its own: only the group has an expiresAt, and it
+            # takes its workspaces with it. See utils.DEPLOYMENT_EXPIRES_AT.
+            cls.workspace = cls.workspace_group.create_workspace(
+                f'ws-test-{name}-x',
+                wait_on_active=True,
+            )
+        except Exception:
+            # Guarded: an unguarded terminate here would replace the create
+            # failure with whatever the DELETE raised. utils.cleanup_tracked
+            # retries it and reports it.
+            try:
+                cls.workspace_group.terminate(force=True)
+            except Exception:
+                pass
+            raise
+
+    @classmethod
+    def tearDownClass(cls):
+        if cls.workspace_group is not None:
+            cls.workspace_group.terminate(force=True)
+        cls.workspace_group = None
+        cls.workspace = None
+        cls.manager = None
+        cls.password = None
+
+    def test_str(self):
+        assert self.workspace.name in str(self.workspace.name)
+        assert self.workspace_group.name in str(self.workspace_group.name)
+
+    def test_repr(self):
+        assert repr(self.workspace) == str(self.workspace)
+        assert repr(self.workspace_group) == str(self.workspace_group)
+
+    def test_region_str(self):
+        s = str(self.workspace_group.region)
+        assert 'Azure' in s or 'GCP' in s or 'AWS' in s, s
+
+    def test_region_repr(self):
+        assert repr(self.workspace_group.region) == str(self.workspace_group.region)
+
+    def test_regions(self):
+        out = self.manager.regions
+        providers = {x.provider for x in out}
+        names = [x.name for x in out]
+        assert 'Azure' in providers, providers
+        assert 'GCP' in providers, providers
+        assert 'AWS' in providers, providers
+
+        objs = {}
+        ids = []
+        for item in out:
+            ids.append(item.id)
+            objs[item.id] = item
+            if item.name not in objs:
+                objs[item.name] = item
+
+        name = random.choice(names)
+        assert out[name] == objs[name]
+        id = random.choice(ids)
+        assert out[id] == objs[id]
+
+    def test_workspace_groups(self):
+        workspace_groups = self.manager.workspace_groups
+        ids = [x.id for x in workspace_groups]
+        names = [x.name for x in workspace_groups]
+        assert self.workspace_group.id in ids
+        assert self.workspace_group.name in names
+
+        assert workspace_groups.ids() == ids
+        assert workspace_groups.names() == names
+
+        objs = {}
+        for item in workspace_groups:
+            # setdefault, and name before id, so this resolves a key the way
+            # NamedList._find_item does: to the *first* match. Plain assignment
+            # kept the last, which disagrees as soon as the listing carries two
+            # entries of one name -- terminated groups stay in the listing, so
+            # a suite that recreates a group under its old name produces that.
+            objs.setdefault(item.name, item)
+            objs.setdefault(item.id, item)
+
+        name = random.choice(names)
+        assert workspace_groups[name] == objs[name]
+        id = random.choice(ids)
+        assert workspace_groups[id] == objs[id]
+
+    def test_workspaces(self):
+        spaces = self.workspace_group.workspaces
+        ids = [x.id for x in spaces]
+        names = [x.name for x in spaces]
+        assert self.workspace.id in ids
+        assert self.workspace.name in names
+
+        assert spaces.ids() == ids
+        assert spaces.names() == names
+
+        objs = {}
+        for item in spaces:
+            # First match wins, as in test_workspace_groups above.
+            objs.setdefault(item.name, item)
+            objs.setdefault(item.id, item)
+
+        name = random.choice(names)
+        assert spaces[name] == objs[name]
+        id = random.choice(ids)
+        assert spaces[id] == objs[id]
+
+    def test_get_workspace_group(self):
+        group = self.manager.get_workspace_group(self.workspace_group.id)
+        assert group.id == self.workspace_group.id, group.id
+
+        with self.assertRaises(s2.ManagementError) as cm:
+            group = self.manager.get_workspace_group('bad id')
+
+        assert 'UUID' in cm.exception.msg, cm.exception.msg
+
+    def test_get_workspace(self):
+        space = self.manager.get_workspace(self.workspace.id)
+        assert space.id == self.workspace.id, space.id
+
+        with self.assertRaises(s2.ManagementError) as cm:
+            space = self.manager.get_workspace('bad id')
+
+        assert 'UUID' in cm.exception.msg, cm.exception.msg
+
+    def test_update(self):
+        assert self.workspace_group.name.startswith('wg-test-')
+
+        name = self.workspace_group.name.replace('wg-test-', 'wg-foo-')
+        self.workspace_group.update(name=name)
+
+        group = self.manager.get_workspace_group(self.workspace_group.id)
+        assert group.name == name, group.name
+
+    def test_no_manager(self):
+        space = self.manager.get_workspace(self.workspace.id)
+        space._manager = None
+
+        with self.assertRaises(s2.ManagementError) as cm:
+            space.refresh()
+
+        assert 'No workspace manager' in cm.exception.msg, cm.exception.msg
+
+        with self.assertRaises(s2.ManagementError) as cm:
+            space.terminate()
+
+        assert 'No workspace manager' in cm.exception.msg, cm.exception.msg
+
+    def test_connect(self):
+        with self.workspace.connect(user='admin', password=self.password) as conn:
+            with conn.cursor() as cur:
+                cur.execute('show databases')
+                assert 'cluster' in [x[0] for x in list(cur)]
+
+        # Test missing endpoint
+        space = self.manager.get_workspace(self.workspace.id)
+        space.endpoint = None
+
+        with self.assertRaises(s2.ManagementError) as cm:
+            space.connect(user='admin', password=self.password)
+
+        assert 'endpoint' in cm.exception.msg, cm.exception.msg
+
+
+@pytest.mark.management
+class TestStarterWorkspace(unittest.TestCase):
+
+    manager = None
+    starter_workspace = None
+
+    @classmethod
+    def setUpClass(cls):
+        cls.manager = s2.manage_workspaces(version='v1')
+
+        shared_tier_regions: NamedList[Region] = [
+            x for x in cls.manager.shared_tier_regions if 'US' in x.name
+        ]
+        name = shared_database_name(secrets.token_urlsafe(20)[:20])
+
+        # The starter-tier user name has to be unique across every starter
+        # deployment in the project, not just within this one, so it is
+        # namespaced like the deployment and the database are. Otherwise this
+        # class collides with TestStarterCluster in test_management_v2 -- they
+        # run on different xdist workers -- and with anything an earlier failed
+        # run leaked. The API answers the collision with a bare 500.
+        cls.starter_username = f'starter_user_{name[:8]}'
+        cls.password = utils.admin_password()
+
+        cls.database_name = f'starter_db_{name}'
+
+        shared_tier_region: Region = random.choice(shared_tier_regions)
+
+        if not shared_tier_region:
+            raise ValueError('No shared tier regions found')
+
+        cls.starter_workspace = cls.manager.create_starter_workspace(
+            f'starter-ws-test-{name}',
+            database_name=cls.database_name,
+            provider=shared_tier_region.provider,
+            region_name=shared_tier_region.region_name,
+        )
+
+        cls.starter_workspace.create_user(
+            username=cls.starter_username,
+            password=cls.password,
+        )
+
+    @classmethod
+    def tearDownClass(cls):
+        if cls.starter_workspace is not None:
+            cls.starter_workspace.terminate()
+        cls.manager = None
+        cls.password = None
+
+    def test_str(self):
+        assert self.starter_workspace.name in str(self.starter_workspace.name)
+
+    def test_repr(self):
+        assert repr(self.starter_workspace) == str(self.starter_workspace)
+
+    def test_get_starter_workspace(self):
+        workspace = self.manager.get_starter_workspace(self.starter_workspace.id)
+        assert workspace.id == self.starter_workspace.id, workspace.id
+
+        with self.assertRaises(s2.ManagementError) as cm:
+            workspace = self.manager.get_starter_workspace('bad id')
+
+        assert 'UUID' in cm.exception.msg, cm.exception.msg
+
+    def test_starter_workspaces(self):
+        workspaces = self.manager.starter_workspaces
+        ids = [x.id for x in workspaces]
+        names = [x.name for x in workspaces]
+        assert self.starter_workspace.id in ids
+        assert self.starter_workspace.name in names
+
+        objs = {}
+        for item in workspaces:
+            # First match wins, as in test_workspace_groups above.
+            objs.setdefault(item.name, item)
+            objs.setdefault(item.id, item)
+
+        name = random.choice(names)
+        assert workspaces[name] == objs[name]
+        id = random.choice(ids)
+        assert workspaces[id] == objs[id]
+
+    def test_no_manager(self):
+        workspace = self.manager.get_starter_workspace(self.starter_workspace.id)
+        workspace._manager = None
+
+        with self.assertRaises(s2.ManagementError) as cm:
+            workspace.refresh()
+
+        assert 'No workspace manager' in cm.exception.msg, cm.exception.msg
+
+        with self.assertRaises(s2.ManagementError) as cm:
+            workspace.terminate()
+
+        assert 'No workspace manager' in cm.exception.msg, cm.exception.msg
+
+    def test_connect(self):
+        with self.starter_workspace.connect(
+            user=self.starter_username,
+            password=self.password,
+        ) as conn:
+            with conn.cursor() as cur:
+                cur.execute('show databases')
+                assert self.database_name in [x[0] for x in list(cur)]
+
+        # Test missing endpoint
+        workspace = self.manager.get_starter_workspace(self.starter_workspace.id)
+        workspace.endpoint = None
+
+        with self.assertRaises(s2.ManagementError) as cm:
+            workspace.connect(user=self.starter_username, password=self.password)
+
+        assert 'endpoint' in cm.exception.msg, cm.exception.msg
+
+
+@pytest.mark.management
+class TestStage(unittest.TestCase):
+
+    manager = None
+    wg = None
+    password = None
+
+    @classmethod
+    def setUpClass(cls):
+        cls.manager = s2.manage_workspaces(version='v1')
+
+        us_regions = [x for x in cls.manager.regions if 'US' in x.name]
+        cls.password = utils.admin_password()
+
+        name = clean_name(secrets.token_urlsafe(20)[:20])
+
+        cls.wg = cls.manager.create_workspace_group(
+            f'wg-test-{name}',
+            region=random.choice(us_regions).id,
+            admin_password=cls.password,
+            firewall_ranges=['0.0.0.0/0'],
+            expires_at=utils.DEPLOYMENT_EXPIRES_AT,
+        )
+
+    @classmethod
+    def tearDownClass(cls):
+        if cls.wg is not None:
+            cls.wg.terminate(force=True)
+        cls.wg = None
+        cls.manager = None
+        cls.password = None
+
+    def test_upload_file(self):
+        st = self.wg.stage
+
+        upload_test_sql = f'upload_test_{id(self)}.sql'
+        upload_test2_sql = f'upload_test2_{id(self)}.sql'
+
+        root = st.info('/')
+        assert str(root.path) == '/'
+        assert root.type == 'directory'
+
+        # Upload file
+        f = st.upload_file(TEST_DIR / 'test.sql', upload_test_sql)
+        assert str(f.path) == upload_test_sql
+        assert f.type == 'file'
+
+        # Download and compare to original
+        txt = f.download(encoding='utf-8')
+        assert txt == open(TEST_DIR / 'test.sql').read()
+
+        # Make sure we can't overwrite
+        with self.assertRaises(OSError):
+            st.upload_file(TEST_DIR / 'test.sql', upload_test_sql)
+
+        # Force overwrite with new content; use file object this time
+        f = st.upload_file(
+            open(TEST_DIR / 'test2.sql', 'r'),
+            upload_test_sql,
+            overwrite=True,
+        )
+        assert str(f.path) == upload_test_sql
+        assert f.type == 'file'
+
+        # Verify new content
+        txt = f.download(encoding='utf-8')
+        assert txt == open(TEST_DIR / 'test2.sql').read()
+
+        # Try to upload folder
+        with self.assertRaises(IsADirectoryError):
+            st.upload_file(TEST_DIR, 'test3.sql')
+
+        lib = st.mkdir('/lib/')
+        assert str(lib.path) == 'lib/'
+        assert lib.type == 'directory'
+
+        # Try to overwrite stage folder with file
+        with self.assertRaises(IsADirectoryError):
+            st.upload_file(TEST_DIR / 'test2.sql', lib.path, overwrite=True)
+
+        # Write file into folder
+        f = st.upload_file(
+            TEST_DIR / 'test2.sql',
+            os.path.join(lib.path, upload_test2_sql),
+        )
+        assert str(f.path) == 'lib/' + upload_test2_sql
+        assert f.type == 'file'
+
+    def test_open(self):
+        st = self.wg.stage
+
+        open_test_sql = f'open_test_{id(self)}.sql'
+
+        # See if error is raised for non-existent file
+        with self.assertRaises(s2.ManagementError):
+            st.open(open_test_sql, 'r')
+
+        # Load test file
+        st.upload_file(TEST_DIR / 'test.sql', open_test_sql)
+
+        # Read file using `open`
+        with st.open(open_test_sql, 'r') as rfile:
+            assert rfile.read() == open(TEST_DIR / 'test.sql').read()
+
+        # Read file using `open` with 'rt' mode
+        with st.open(open_test_sql, 'rt') as rfile:
+            assert rfile.read() == open(TEST_DIR / 'test.sql').read()
+
+        # Read file using `open` with 'rb' mode
+        with st.open(open_test_sql, 'rb') as rfile:
+            assert rfile.read() == open(TEST_DIR / 'test.sql', 'rb').read()
+
+        # Read file using `open` with 'rb' mode
+        with self.assertRaises(ValueError):
+            with st.open(open_test_sql, 'b') as rfile:
+                pass
+
+        # Attempt overwrite file using `open` with mode 'x'
+        with self.assertRaises(OSError):
+            with st.open(open_test_sql, 'x') as wfile:
+                pass
+
+        # Attempt overwrite file using `open` with mode 'w'
+        with st.open(open_test_sql, 'w') as wfile:
+            wfile.write(open(TEST_DIR / 'test2.sql').read())
+
+        txt = st.download_file(open_test_sql, encoding='utf-8')
+
+        assert txt == open(TEST_DIR / 'test2.sql').read()
+
+        open_raw_test_sql = f'open_raw_test_{id(self)}.sql'
+
+        # Test writer without context manager
+        wfile = st.open(open_raw_test_sql, 'w')
+        for line in open(TEST_DIR / 'test.sql'):
+            wfile.write(line)
+        wfile.close()
+
+        txt = st.download_file(open_raw_test_sql, encoding='utf-8')
+
+        assert txt == open(TEST_DIR / 'test.sql').read()
+
+        # Test reader without context manager
+        rfile = st.open(open_raw_test_sql, 'r')
+        txt = ''
+        for line in rfile:
+            txt += line
+        rfile.close()
+
+        assert txt == open(TEST_DIR / 'test.sql').read()
+
+    def test_obj_open(self):
+        st = self.wg.stage
+
+        obj_open_test_sql = f'obj_open_test_{id(self)}.sql'
+        obj_open_dir = f'obj_open_dir_{id(self)}'
+
+        # Load test file
+        f = st.upload_file(TEST_DIR / 'test.sql', obj_open_test_sql)
+
+        # Read file using `open`
+        with f.open() as rfile:
+            assert rfile.read() == open(TEST_DIR / 'test.sql').read()
+
+        # Make sure directories error out
+        d = st.mkdir(obj_open_dir)
+        with self.assertRaises(IsADirectoryError):
+            d.open()
+
+        # Write file using `open`
+        with f.open('w', encoding='utf-8') as wfile:
+            wfile.write(open(TEST_DIR / 'test2.sql').read())
+
+        assert f.download(encoding='utf-8') == open(TEST_DIR / 'test2.sql').read()
+
+        # Test writer without context manager
+        wfile = f.open('w')
+        for line in open(TEST_DIR / 'test.sql'):
+            wfile.write(line)
+        wfile.close()
+
+        txt = st.download_file(f.path, encoding='utf-8')
+
+        assert txt == open(TEST_DIR / 'test.sql').read()
+
+        # Test reader without context manager
+        rfile = f.open('r')
+        txt = ''
+        for line in rfile:
+            txt += line
+        rfile.close()
+
+        assert txt == open(TEST_DIR / 'test.sql').read()
+
+    def test_os_directories(self):
+        st = self.wg.stage
+
+        mkdir_test_1 = f'mkdir_test_1_{id(self)}'
+        mkdir_test_2 = f'mkdir_test_2_{id(self)}'
+        mkdir_test_3 = f'mkdir_test_3_{id(self)}'
+
+        # mkdir
+        st.mkdir(mkdir_test_1)
+        st.mkdir(mkdir_test_2)
+        with self.assertRaises(s2.ManagementError):
+            st.mkdir(f'{mkdir_test_2}/nest_1/nest_2')
+        st.mkdir(f'{mkdir_test_2}/nest_1')
+        st.mkdir(f'{mkdir_test_2}/nest_1/nest_2')
+        st.mkdir(f'{mkdir_test_3}')
+
+        assert st.exists(f'{mkdir_test_1}/')
+        assert st.exists(f'{mkdir_test_2}/')
+        assert st.exists(f'{mkdir_test_2}/nest_1/')
+        assert st.exists(f'{mkdir_test_2}/nest_1/nest_2/')
+        assert not st.exists('foo/')
+        assert not st.exists('foo/bar/')
+
+        assert st.is_dir(f'{mkdir_test_1}/')
+        assert st.is_dir(f'{mkdir_test_2}/')
+        assert st.is_dir(f'{mkdir_test_2}/nest_1/')
+        assert st.is_dir(f'{mkdir_test_2}/nest_1/nest_2/')
+
+        assert not st.is_file(f'{mkdir_test_1}/')
+        assert not st.is_file(f'{mkdir_test_2}/')
+        assert not st.is_file(f'{mkdir_test_2}/nest_1/')
+        assert not st.is_file(f'{mkdir_test_2}/nest_1/nest_2/')
+
+        out = st.listdir('/')
+        assert f'{mkdir_test_1}/' in out
+        assert f'{mkdir_test_2}/' in out
+        assert f'{mkdir_test_2}/nest_1/nest_2/' not in out
+
+        out = st.listdir('/', recursive=True)
+        assert f'{mkdir_test_1}/' in out
+        assert f'{mkdir_test_2}/' in out
+        assert f'{mkdir_test_2}/nest_1/nest_2/' in out
+
+        out = st.listdir(mkdir_test_2)
+        assert f'{mkdir_test_1}/' not in out
+        assert 'nest_1/' in out
+        assert 'nest_2/' not in out
+        assert 'nest_1/nest_2/' not in out
+
+        out = st.listdir(mkdir_test_2, recursive=True)
+        assert f'{mkdir_test_1}/' not in out
+        assert 'nest_1/' in out
+        assert 'nest_2/' not in out
+        assert 'nest_1/nest_2/' in out
+
+        # rmdir
+        before = st.listdir('/', recursive=True)
+        st.rmdir(f'{mkdir_test_1}/')
+        after = st.listdir('/', recursive=True)
+        assert f'{mkdir_test_1}/' in before
+        assert f'{mkdir_test_1}/' not in after
+        assert list(sorted(before)) == list(sorted(after + [f'{mkdir_test_1}/']))
+
+        with self.assertRaises(OSError):
+            st.rmdir(f'{mkdir_test_2}/')
+
+        mkdir_test_sql = f'mkdir_test_{id(self)}.sql'
+
+        st.upload_file(TEST_DIR / 'test.sql', mkdir_test_sql)
+
+        with self.assertRaises(NotADirectoryError):
+            st.rmdir(mkdir_test_sql)
+
+        # removedirs
+        before = st.listdir('/')
+        st.removedirs(f'{mkdir_test_2}/')
+        after = st.listdir('/')
+        assert f'{mkdir_test_2}/' in before
+        assert f'{mkdir_test_2}/' not in after
+        assert list(sorted(before)) == list(sorted(after + [f'{mkdir_test_2}/']))
+
+        with self.assertRaises(s2.ManagementError):
+            st.removedirs(mkdir_test_sql)
+
+    def test_listdir_return_objects(self):
+        st = self.wg.stage
+
+        listdir_test_dir = f'listdir_test_{id(self)}'
+        listdir_test_sql = f'listdir_test_{id(self)}.sql'
+
+        # Create test directory structure
+        st.mkdir(listdir_test_dir)
+        st.mkdir(f'{listdir_test_dir}/nest_1')
+        st.upload_file(TEST_DIR / 'test.sql', listdir_test_sql)
+        st.upload_file(
+            TEST_DIR / 'test.sql',
+            f'{listdir_test_dir}/nested_test.sql',
+        )
+
+        # Test return_objects=False (default behavior)
+        out = st.listdir('/')
+        assert isinstance(out, list)
+        assert all(isinstance(item, str) for item in out)
+        assert f'{listdir_test_dir}/' in out
+        assert listdir_test_sql in out
+
+        # Test return_objects=True
+        out_objs = st.listdir('/', return_objects=True)
+        assert isinstance(out_objs, list)
+        assert all(hasattr(item, 'path') for item in out_objs)
+        assert all(hasattr(item, 'type') for item in out_objs)
+
+        # Verify we have the expected items
+        obj_paths = [obj.path for obj in out_objs]
+        assert f'{listdir_test_dir}/' in obj_paths
+        assert listdir_test_sql in obj_paths
+
+        # Verify object types
+        for obj in out_objs:
+            if obj.path == f'{listdir_test_dir}/':
+                assert obj.type == 'directory'
+            elif obj.path == listdir_test_sql:
+                assert obj.type == 'file'
+
+        # Test with subdirectory and return_objects=True
+        out_objs_sub = st.listdir(listdir_test_dir, return_objects=True)
+        assert isinstance(out_objs_sub, list)
+        obj_paths_sub = [obj.path for obj in out_objs_sub]
+        assert 'nest_1/' in obj_paths_sub
+        assert 'nested_test.sql' in obj_paths_sub
+
+        # Test recursive with return_objects=True
+        out_objs_rec = st.listdir('/', recursive=True, return_objects=True)
+        obj_paths_rec = [obj.path for obj in out_objs_rec]
+        assert f'{listdir_test_dir}/' in obj_paths_rec
+        assert f'{listdir_test_dir}/nest_1/' in obj_paths_rec
+        assert f'{listdir_test_dir}/nested_test.sql' in obj_paths_rec
+
+    def test_os_files(self):
+        st = self.wg.stage
+
+        files_test_sql = f'files_test_{id(self)}.sql'
+        files_test_1_dir = f'files_test_1_{id(self)}'
+
+        st.mkdir(files_test_1_dir)
+        st.mkdir(f'{files_test_1_dir}/nest_1')
+
+        st.upload_file(TEST_DIR / 'test.sql', files_test_sql)
+        st.upload_file(
+            TEST_DIR / 'test.sql',
+            f'{files_test_1_dir}/nest_1/nested_files_test.sql',
+        )
+        st.upload_file(
+            TEST_DIR / 'test.sql',
+            f'{files_test_1_dir}/nest_1/nested_files_test_2.sql',
+        )
+
+        # remove
+        with self.assertRaises(IsADirectoryError):
+            st.remove(f'{files_test_1_dir}/')
+
+        before = st.listdir('/')
+        st.remove(files_test_sql)
+        after = st.listdir('/')
+        assert files_test_sql in before
+        assert files_test_sql not in after
+        assert list(sorted(before)) == list(sorted(after + [files_test_sql]))
+
+        before = st.listdir(f'{files_test_1_dir}/nest_1/')
+        st.remove(f'{files_test_1_dir}/nest_1/nested_files_test.sql')
+        after = st.listdir(f'{files_test_1_dir}/nest_1/')
+        assert 'nested_files_test.sql' in before
+        assert 'nested_files_test.sql' not in after
+        assert st.is_dir(f'{files_test_1_dir}/nest_1/')
+
+        # Removing the last file does not remove empty directories
+        st.remove(f'{files_test_1_dir}/nest_1/nested_files_test_2.sql')
+        assert not st.is_file(f'{files_test_1_dir}/nest_1/nested_files_test_2.sql')
+        assert st.is_dir(f'{files_test_1_dir}/nest_1/')
+        assert st.is_dir(f'{files_test_1_dir}/')
+
+        st.removedirs(files_test_1_dir)
+        assert not st.is_dir(f'{files_test_1_dir}/nest_1/')
+        assert not st.is_dir(f'{files_test_1_dir}/')
+
+    def test_os_rename(self):
+        st = self.wg.stage
+
+        rename_test_sql = f'rename_test_{id(self)}.sql'
+        rename_test_2_sql = f'rename_test_2_{id(self)}.sql'
+        rename_test_1_dir = f'rename_test_1_{id(self)}'
+        rename_test_2_dir = f'rename_test_2_{id(self)}'
+
+        st.upload_file(TEST_DIR / 'test.sql', rename_test_sql)
+
+        with self.assertRaises(s2.ManagementError):
+            st.upload_file(
+                TEST_DIR / 'test.sql',
+                f'{rename_test_1_dir}/nest_1/nested_rename_test.sql',
+            )
+
+        st.mkdir(rename_test_1_dir)
+        st.mkdir(f'{rename_test_1_dir}/nest_1')
+
+        assert st.exists(f'/{rename_test_1_dir}/nest_1/')
+
+        st.upload_file(
+            TEST_DIR / 'test.sql',
+            f'{rename_test_1_dir}/nest_1/nested_rename_test.sql',
+        )
+
+        st.upload_file(
+            TEST_DIR / 'test.sql',
+            f'{rename_test_1_dir}/nest_1/nested_rename_test_2.sql',
+        )
+
+        # rename file
+        assert rename_test_sql in st.listdir('/')
+        assert rename_test_2_sql not in st.listdir('/')
+        st.rename(rename_test_sql, rename_test_2_sql)
+        assert rename_test_sql not in st.listdir('/')
+        assert rename_test_2_sql in st.listdir('/')
+
+        # rename directory
+        assert f'{rename_test_1_dir}/' in st.listdir('/')
+        assert f'{rename_test_2_dir}/' not in st.listdir('/')
+        st.rename(f'{rename_test_1_dir}/', f'{rename_test_2_dir}/')
+        assert f'{rename_test_1_dir}/' not in st.listdir('/')
+        assert f'{rename_test_2_dir}/' in st.listdir('/')
+        assert st.is_file(f'{rename_test_2_dir}/nest_1/nested_rename_test.sql')
+        assert st.is_file(f'{rename_test_2_dir}/nest_1/nested_rename_test_2.sql')
+
+        # rename nested
+        assert f'{rename_test_2_dir}/nest_1/nested_rename_test.sql' in st.listdir(
+            '/', recursive=True,
+        )
+        assert f'{rename_test_2_dir}/nest_1/nested_rename_test_3.sql' not in st.listdir(
+            '/', recursive=True,
+        )
+        st.rename(
+            f'{rename_test_2_dir}/nest_1/nested_rename_test.sql',
+            f'{rename_test_2_dir}/nest_1/nested_rename_test_3.sql',
+        )
+        assert f'{rename_test_2_dir}/nest_1/nested_rename_test.sql' not in st.listdir(
+            '/', recursive=True,
+        )
+        assert f'{rename_test_2_dir}/nest_1/nested_rename_test_3.sql' in st.listdir(
+            '/', recursive=True,
+        )
+        assert not st.is_file(f'{rename_test_2_dir}/nest_1/nested_rename_test.sql')
+        assert st.is_file(f'{rename_test_2_dir}/nest_1/nested_rename_test_2.sql')
+        assert st.is_file(f'{rename_test_2_dir}/nest_1/nested_rename_test_3.sql')
+
+        # non-existent file
+        with self.assertRaises(OSError):
+            st.rename('rename_foo.sql', 'rename_foo_2.sql')
+
+        # overwrite
+        with self.assertRaises(OSError):
+            st.rename(
+                rename_test_2_sql,
+                f'{rename_test_2_dir}/nest_1/nested_rename_test_3.sql',
+            )
+
+        st.rename(
+            rename_test_2_sql,
+            f'{rename_test_2_dir}/nest_1/nested_rename_test_3.sql', overwrite=True,
+        )
+
+    def test_file_object(self):
+        st = self.wg.stage
+
+        obj_test_dir = f'obj_test_{id(self)}'
+
+        st.mkdir(obj_test_dir)
+        st.mkdir(f'{obj_test_dir}/nest_1')
+
+        obj_test_sql = f'obj_test_{id(self)}.sql'
+        obj_test_2_sql = f'obj_test_2_{id(self)}.sql'
+
+        f1 = st.upload_file(TEST_DIR / 'test.sql', obj_test_sql)
+        f2 = st.upload_file(
+            TEST_DIR / 'test.sql',
+            f'{obj_test_dir}/nest_1/{obj_test_sql}',
+        )
+        d2 = st.info(f'{obj_test_dir}/nest_1/')
+
+        # is_file / is_dir
+        assert not f1.is_dir()
+        assert f1.is_file()
+        assert not f2.is_dir()
+        assert f2.is_file()
+        assert d2.is_dir()
+        assert not d2.is_file()
+
+        # abspath / basename / dirname / exists
+        assert f1.abspath() == obj_test_sql
+        assert f1.basename() == obj_test_sql
+        assert f1.dirname() == '/'
+        assert f1.exists()
+        assert f2.abspath() == f'{obj_test_dir}/nest_1/{obj_test_sql}'
+        assert f2.basename() == obj_test_sql
+        assert f2.dirname() == f'{obj_test_dir}/nest_1/'
+        assert f2.exists()
+        assert d2.abspath() == f'{obj_test_dir}/nest_1/'
+        assert d2.basename() == 'nest_1'
+        assert d2.dirname() == f'{obj_test_dir}/'
+        assert d2.exists()
+
+        # download
+        assert f1.download(encoding='utf-8') == open(TEST_DIR / 'test.sql', 'r').read()
+        assert f1.download() == open(TEST_DIR / 'test.sql', 'rb').read()
+
+        # remove
+        with self.assertRaises(IsADirectoryError):
+            d2.remove()
+
+        assert st.is_file(obj_test_sql)
+        f1.remove()
+        assert not st.is_file(obj_test_sql)
+
+        # removedirs
+        with self.assertRaises(NotADirectoryError):
+            f2.removedirs()
+
+        assert st.exists(d2.path)
+        d2.removedirs()
+        assert not st.exists(d2.path)
+
+        # rmdir
+        f1 = st.upload_file(TEST_DIR / 'test.sql', obj_test_sql)
+        d2 = st.mkdir(f'{obj_test_dir}/nest_1')
+
+        assert st.exists(f1.path)
+        assert st.exists(d2.path)
+
+        with self.assertRaises(NotADirectoryError):
+            f1.rmdir()
+
+        assert st.exists(f1.path)
+        assert st.exists(d2.path)
+
+        d2.rmdir()
+
+        assert not st.exists(f'{obj_test_dir}/nest_1/')
+        assert not st.exists(obj_test_dir)
+
+        # mtime / ctime
+        assert f1.getmtime() > 0
+        assert f1.getctime() > 0
+
+        # rename
+        assert st.exists(obj_test_sql)
+        assert not st.exists(obj_test_2_sql)
+        f1.rename(obj_test_2_sql)
+        assert not st.exists(obj_test_sql)
+        assert st.exists(obj_test_2_sql)
+        assert f1.abspath() == obj_test_2_sql
+
+
+@pytest.mark.management
+class TestSecrets(unittest.TestCase):
+
+    manager = None
+
+    @classmethod
+    def setUpClass(cls):
+        # No deployment: a secret belongs to the organization, not to a
+        # workspace group, and test_get_secret reaches it through
+        # organizations.current. This used to create a group with a firewall
+        # and an admin password that nothing in the class ever read -- a
+        # provisioning wait and a teardown for an unused fixture.
+        cls.manager = s2.manage_workspaces(version='v1')
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.manager = None
+
+    def test_get_secret(self):
+        # Per-run name; see the twin in test_management_v2.py for why the fixed
+        # 'secret_name' this used to carry -- and the leftover-clearing delete
+        # that a fixed name required -- had two concurrent runs deleting each
+        # other's secret.
+        name = f'secret_v1_test_{secrets.token_hex(4)}'
+
+        created = self.manager._post(
+            'secrets',
+            json=dict(
+                name=name,
+                value='secret_value',
+            ),
+        ).json()
+
+        # The ID comes from the create response, not from the lookup under
+        # test: binding it inside the try would leave the cleanup raising
+        # UnboundLocalError over whatever the lookup failed with. This delete is
+        # the only thing that removes the secret now -- nothing else sweeps one
+        # as it is made. test_management_v2.py's twin does it this way.
+        secret_id = created['secret']['secretID']
+        try:
+            secret = self.manager.organizations.current.get_secret(name)
+
+            assert secret.name == name
+            assert secret.value == 'secret_value'
+        finally:
+            self.manager._delete(f'secrets/{secret_id}')
+
+
+@pytest.mark.management
+class TestJob(unittest.TestCase):
+
+    manager = None
+    workspace_group = None
+    workspace = None
+    password = None
+    job_ids = []
+
+    @classmethod
+    def setUpClass(cls):
+        cls.manager = s2.manage_workspaces(version='v1')
+
+        us_regions = [x for x in cls.manager.regions if 'US' in x.name]
+        cls.password = utils.admin_password()
+
+        name = clean_name(secrets.token_urlsafe(20)[:20])
+
+        cls.workspace_group = cls.manager.create_workspace_group(
+            f'wg-test-{name}',
+            region=random.choice(us_regions).id,
+            admin_password=cls.password,
+            firewall_ranges=['0.0.0.0/0'],
+            expires_at=utils.DEPLOYMENT_EXPIRES_AT,
+        )
+
+        try:
+            # No expiry of its own: only the group has an expiresAt, and it
+            # takes its workspaces with it. See utils.DEPLOYMENT_EXPIRES_AT.
+            cls.workspace = cls.workspace_group.create_workspace(
+                f'ws-test-{name}-x',
+                wait_on_active=True,
+            )
+        except Exception:
+            # Guarded: an unguarded terminate here would replace the create
+            # failure with whatever the DELETE raised. utils.cleanup_tracked
+            # retries it and reports it.
+            try:
+                cls.workspace_group.terminate(force=True)
+            except Exception:
+                pass
+            raise
+
+    @classmethod
+    def tearDownClass(cls):
+        for job_id in cls.job_ids:
+            try:
+                cls.manager.organizations.current.jobs.delete(job_id)
+            except Exception:
+                pass
+        if cls.workspace_group is not None:
+            cls.workspace_group.terminate(force=True)
+        cls.workspace_group = None
+        cls.workspace = None
+        cls.manager = None
+        cls.password = None
+        if os.environ.get('SINGLESTOREDB_WORKSPACE', None) is not None:
+            del os.environ['SINGLESTOREDB_WORKSPACE']
+        if os.environ.get('SINGLESTOREDB_DEFAULT_DATABASE', None) is not None:
+            del os.environ['SINGLESTOREDB_DEFAULT_DATABASE']
+
+    def test_job_without_database_target(self):
+        """
+        Creates job without target database on a specific runtime
+        Waits for job to finish
+        Gets the job
+        Deletes the job
+        """
+        if os.environ.get('SINGLESTOREDB_WORKSPACE', None) is not None:
+            del os.environ['SINGLESTOREDB_WORKSPACE']
+        if os.environ.get('SINGLESTOREDB_DEFAULT_DATABASE', None) is not None:
+            del os.environ['SINGLESTOREDB_DEFAULT_DATABASE']
+
+        job_manager = self.manager.organizations.current.jobs
+        job = job_manager.run(
+            'Scheduling Test.ipynb',
+            'notebooks-cpu-small',
+            {'strParam': 'string', 'intParam': 1, 'floatParam': 1.0, 'boolParam': True},
+        )
+        self.job_ids.append(job.job_id)
+        assert job.execution_config.notebook_path == 'Scheduling Test.ipynb'
+        assert job.schedule.mode == job_manager.modes().ONCE
+        assert not job.execution_config.create_snapshot
+        assert job.completed_executions_count == 0
+        assert job.name is None
+        assert job.description is None
+        assert job.job_metadata == []
+        assert job.terminated_at is None
+        assert job.target_config is None
+        job.wait()
+        job = job_manager.get(job.job_id)
+        assert job.execution_config.notebook_path == 'Scheduling Test.ipynb'
+        assert job.schedule.mode == job_manager.modes().ONCE
+        assert not job.execution_config.create_snapshot
+        assert job.completed_executions_count == 1
+        assert job.name is None
+        assert job.description is None
+        assert job.job_metadata != []
+        assert len(job.job_metadata) == 1
+        assert job.job_metadata[0].count == 1
+        assert job.job_metadata[0].status == Status.COMPLETED
+        assert job.terminated_at is None
+        assert job.target_config is None
+        deleted = job.delete()
+        assert deleted
+        job = job_manager.get(job.job_id)
+        assert job.terminated_at is not None
+
+    def test_job_with_database_target(self):
+        """
+        Creates job with target database on a specific runtime
+        Waits for job to finish
+        Gets the job
+        Deletes the job
+        """
+        os.environ['SINGLESTOREDB_DEFAULT_DATABASE'] = 'information_schema'
+        os.environ['SINGLESTOREDB_WORKSPACE'] = self.workspace.id
+
+        job_manager = self.manager.organizations.current.jobs
+        job = job_manager.run(
+            'Scheduling Test.ipynb',
+            'notebooks-cpu-small',
+            {'strParam': 'string', 'intParam': 1, 'floatParam': 1.0, 'boolParam': True},
+        )
+        self.job_ids.append(job.job_id)
+        assert job.execution_config.notebook_path == 'Scheduling Test.ipynb'
+        assert job.schedule.mode == job_manager.modes().ONCE
+        assert not job.execution_config.create_snapshot
+        assert job.completed_executions_count == 0
+        assert job.name is None
+        assert job.description is None
+        assert job.job_metadata == []
+        assert job.terminated_at is None
+        assert job.target_config is not None
+        assert job.target_config.database_name == 'information_schema'
+        assert job.target_config.target_id == self.workspace.id
+        assert job.target_config.target_type == TargetType.WORKSPACE
+        assert not job.target_config.resume_target
+        job.wait()
+        job = job_manager.get(job.job_id)
+        assert job.execution_config.notebook_path == 'Scheduling Test.ipynb'
+        assert job.schedule.mode == job_manager.modes().ONCE
+        assert not job.execution_config.create_snapshot
+        assert job.completed_executions_count == 1
+        assert job.name is None
+        assert job.description is None
+        assert job.job_metadata != []
+        assert len(job.job_metadata) == 1
+        assert job.job_metadata[0].count == 1
+        assert job.job_metadata[0].status == Status.COMPLETED
+        assert job.terminated_at is None
+        assert job.target_config is not None
+        assert job.target_config.database_name == 'information_schema'
+        assert job.target_config.target_id == self.workspace.id
+        assert job.target_config.target_type == TargetType.WORKSPACE
+        assert not job.target_config.resume_target
+        deleted = job.delete()
+        assert deleted
+        job = job_manager.get(job.job_id)
+        assert job.terminated_at is not None
+
+
+@pytest.mark.management
+class TestFileSpaces(unittest.TestCase):
+
+    manager = None
+    personal_space = None
+    shared_space = None
+
+    @classmethod
+    def setUpClass(cls):
+        # Pinned: manage_files() follows the management.version option, and
+        # this is the v1 suite.
+        cls.manager = s2.manage_files(version='v1')
+        cls.personal_space = cls.manager.personal_space
+        cls.shared_space = cls.manager.shared_space
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.manager = None
+        cls.personal_space = None
+        cls.shared_space = None
+
+    def test_upload_file(self):
+        upload_test_ipynb = f'upload_test_{id(self)}.ipynb'
+
+        for space in [self.personal_space, self.shared_space]:
+            root = space.info('/')
+            assert str(root.path) == '/'
+            assert root.type == 'directory'
+
+            # Upload files
+            f = space.upload_file(
+                TEST_DIR / 'test.ipynb',
+                upload_test_ipynb,
+            )
+            assert str(f.path) == upload_test_ipynb
+            assert f.type == 'notebook'
+
+            # Download and compare to original
+            txt = f.download(encoding='utf-8')
+            assert txt == open(TEST_DIR / 'test.ipynb').read()
+
+            # Make sure we can't overwrite
+            with self.assertRaises(OSError):
+                space.upload_file(
+                    TEST_DIR / 'test.ipynb',
+                    upload_test_ipynb,
+                )
+
+            # Force overwrite with new content
+            f = space.upload_file(
+                TEST_DIR / 'test2.ipynb',
+                upload_test_ipynb, overwrite=True,
+            )
+            assert str(f.path) == upload_test_ipynb
+            assert f.type == 'notebook'
+
+            # Verify new content
+            txt = f.download(encoding='utf-8')
+            assert txt == open(TEST_DIR / 'test2.ipynb').read()
+
+            # Make sure we can't upload a folder
+            with self.assertRaises(s2.ManagementError):
+                space.upload_folder(TEST_DIR, 'test')
+
+            # Cleanup
+            space.remove(upload_test_ipynb)
+
+    def test_upload_file_io(self):
+        upload_test_ipynb = f'upload_test_{id(self)}.ipynb'
+
+        for space in [self.personal_space, self.shared_space]:
+            root = space.info('/')
+            assert str(root.path) == '/'
+            assert root.type == 'directory'
+
+            # Upload files
+            f = space.upload_file(
+                open(TEST_DIR / 'test.ipynb', 'r'),
+                upload_test_ipynb,
+            )
+            assert str(f.path) == upload_test_ipynb
+            assert f.type == 'notebook'
+
+            # Download and compare to original
+            txt = f.download(encoding='utf-8')
+            assert txt == open(TEST_DIR / 'test.ipynb').read()
+
+            # Make sure we can't overwrite
+            with self.assertRaises(OSError):
+                space.upload_file(
+                    open(TEST_DIR / 'test.ipynb', 'r'),
+                    upload_test_ipynb,
+                )
+
+            # Force overwrite with new content
+            f = space.upload_file(
+                open(TEST_DIR / 'test2.ipynb', 'r'),
+                upload_test_ipynb, overwrite=True,
+            )
+            assert str(f.path) == upload_test_ipynb
+            assert f.type == 'notebook'
+
+            # Verify new content
+            txt = f.download(encoding='utf-8')
+            assert txt == open(TEST_DIR / 'test2.ipynb').read()
+
+            # Make sure we can't upload a folder
+            with self.assertRaises(s2.ManagementError):
+                space.upload_folder(TEST_DIR, 'test')
+
+            # Cleanup
+            space.remove(upload_test_ipynb)
+
+    def test_open(self):
+        for space in [self.personal_space, self.shared_space]:
+            open_test_ipynb = f'open_test_ipynb_{id(self)}.ipynb'
+
+            # See if error is raised for non-existent file
+            with self.assertRaises(s2.ManagementError):
+                space.open(open_test_ipynb, 'r')
+
+            # Load test file
+            space.upload_file(TEST_DIR / 'test.ipynb', open_test_ipynb)
+
+            # Read file using `open`
+            with space.open(open_test_ipynb, 'r') as rfile:
+                assert rfile.read() == open(TEST_DIR / 'test.ipynb').read()
+
+            # Read file using `open` with 'rt' mode
+            with space.open(open_test_ipynb, 'rt') as rfile:
+                assert rfile.read() == open(TEST_DIR / 'test.ipynb').read()
+
+            # Read file using `open` with 'rb' mode
+            with space.open(open_test_ipynb, 'rb') as rfile:
+                assert rfile.read() == open(TEST_DIR / 'test.ipynb', 'rb').read()
+
+            # Read file using `open` with 'rb' mode
+            with self.assertRaises(ValueError):
+                with space.open(open_test_ipynb, 'b') as rfile:
+                    pass
+
+            # Attempt overwrite file using `open` with mode 'x'
+            with self.assertRaises(OSError):
+                with space.open(open_test_ipynb, 'x') as wfile:
+                    pass
+
+            # Attempt overwrite file using `open` with mode 'w'
+            with space.open(open_test_ipynb, 'w') as wfile:
+                wfile.write(open(TEST_DIR / 'test2.ipynb').read())
+
+            txt = space.download_file(open_test_ipynb, encoding='utf-8')
+
+            assert txt == open(TEST_DIR / 'test2.ipynb').read()
+
+            open_raw_test_ipynb = f'open_raw_test_{id(self)}.ipynb'
+
+            # Test writer without context manager
+            wfile = space.open(open_raw_test_ipynb, 'w')
+            for line in open(TEST_DIR / 'test.ipynb'):
+                wfile.write(line)
+            wfile.close()
+
+            txt = space.download_file(
+                open_raw_test_ipynb,
+                encoding='utf-8',
+            )
+
+            assert txt == open(TEST_DIR / 'test.ipynb').read()
+
+            # Test reader without context manager
+            rfile = space.open(open_raw_test_ipynb, 'r')
+            txt = ''
+            for line in rfile:
+                txt += line
+            rfile.close()
+
+            assert txt == open(TEST_DIR / 'test.ipynb').read()
+
+            # Cleanup
+            space.remove(open_test_ipynb)
+            space.remove(open_raw_test_ipynb)
+
+    def test_obj_open(self):
+        for space in [self.personal_space, self.shared_space]:
+            obj_open_test_ipynb = f'obj_open_test_{id(self)}.ipynb'
+            obj_open_dir = f'obj_open_dir_{id(self)}'
+
+            # Load test file
+            f = space.upload_file(
+                TEST_DIR / 'test.ipynb',
+                obj_open_test_ipynb,
+            )
+
+            # Read file using `open`
+            with f.open() as rfile:
+                assert rfile.read() == open(TEST_DIR / 'test.ipynb').read()
+
+            # Make sure directories error out
+            with self.assertRaises(s2.ManagementError):
+                space.mkdir(obj_open_dir)
+
+            # Write file using `open`
+            with f.open('w', encoding='utf-8') as wfile:
+                wfile.write(open(TEST_DIR / 'test2.ipynb').read())
+
+            assert f.download(encoding='utf-8') == open(TEST_DIR / 'test2.ipynb').read()
+
+            # Test writer without context manager
+            wfile = f.open('w')
+            for line in open(TEST_DIR / 'test.ipynb'):
+                wfile.write(line)
+            wfile.close()
+
+            txt = space.download_file(f.path, encoding='utf-8')
+
+            assert txt == open(TEST_DIR / 'test.ipynb').read()
+
+            # Test reader without context manager
+            rfile = f.open('r')
+            txt = ''
+            for line in rfile:
+                txt += line
+            rfile.close()
+
+            assert txt == open(TEST_DIR / 'test.ipynb').read()
+
+            # Cleanup
+            space.remove(obj_open_test_ipynb)
+
+    def test_os_directories(self):
+        mkdir_test_1_dir = f'mkdir_test_1_{id(self)}'
+
+        for space in [self.personal_space, self.shared_space]:
+            # Make sure directories error out
+            with self.assertRaises(s2.ManagementError):
+                space.mkdir(mkdir_test_1_dir)
+
+            with self.assertRaises(s2.ManagementError):
+                space.exists(f'{mkdir_test_1_dir}/')
+
+            out = space.listdir('/')
+            assert f'{mkdir_test_1_dir}/' not in out
+
+            with self.assertRaises(s2.ManagementError):
+                space.rmdir(f'{mkdir_test_1_dir}/')
+
+    def test_os_rename(self):
+        rename_test_ipynb = f'rename_test_{id(self)}.ipynb'
+        rename_test_2_ipynb = f'rename_test_2_{id(self)}.ipynb'
+        rename_test_3_ipynb = f'rename_test_3_{id(self)}.ipynb'
+
+        for space in [self.personal_space, self.shared_space]:
+            space.upload_file(
+                TEST_DIR / 'test.ipynb',
+                rename_test_ipynb,
+            )
+            assert rename_test_ipynb in space.listdir('/')
+            assert rename_test_2_ipynb not in space.listdir('/')
+
+            space.rename(
+                rename_test_ipynb,
+                rename_test_2_ipynb,
+            )
+            assert rename_test_ipynb not in space.listdir('/')
+            assert rename_test_2_ipynb in space.listdir('/')
+
+            # non-existent file
+            with self.assertRaises(OSError):
+                space.rename('rename_foo.ipynb', 'rename_foo_2.ipynb')
+
+            space.upload_file(
+                TEST_DIR / 'test.ipynb',
+                rename_test_3_ipynb,
+            )
+
+            # overwrite
+            with self.assertRaises(OSError):
+                space.rename(
+                    rename_test_2_ipynb,
+                    rename_test_3_ipynb,
+                )
+
+            space.rename(
+                rename_test_2_ipynb,
+                rename_test_3_ipynb, overwrite=True,
+            )
+
+            # Cleanup
+            space.remove(rename_test_3_ipynb)
+
+    def test_file_object(self):
+        obj_test_ipynb = f'obj_test_{id(self)}.ipynb'
+        obj_test_2_ipynb = f'obj_test_2_{id(self)}.ipynb'
+
+        for space in [self.personal_space, self.shared_space]:
+            f = space.upload_file(
+                TEST_DIR / 'test.ipynb',
+                obj_test_ipynb,
+            )
+
+            assert not f.is_dir()
+            assert f.is_file()
+
+            # abspath / basename / dirname / exists
+            assert f.abspath() == obj_test_ipynb
+            assert f.basename() == obj_test_ipynb
+            assert f.dirname() == '/'
+            assert f.exists()
+
+            # download
+            assert f.download(encoding='utf-8') == \
+                open(TEST_DIR / 'test.ipynb', 'r').read()
+            assert f.download() == open(TEST_DIR / 'test.ipynb', 'rb').read()
+
+            assert space.is_file(obj_test_ipynb)
+            f.remove()
+            assert not space.is_file(obj_test_ipynb)
+
+            # mtime / ctime
+            assert f.getmtime() > 0
+            assert f.getctime() > 0
+
+            # rename
+            f = space.upload_file(
+                TEST_DIR / 'test.ipynb',
+                obj_test_ipynb,
+            )
+            assert space.exists(obj_test_ipynb)
+            assert not space.exists(obj_test_2_ipynb)
+            f.rename(obj_test_2_ipynb)
+            assert not space.exists(obj_test_ipynb)
+            assert space.exists(obj_test_2_ipynb)
+            assert f.abspath() == obj_test_2_ipynb
+
+            # Cleanup
+            space.remove(obj_test_2_ipynb)
+
+
+@pytest.mark.management
+class TestRegions(unittest.TestCase):
+    """Test cases for region management."""
+
+    manager = None
+
+    @classmethod
+    def setUpClass(cls):
+        """Set up the test environment."""
+        # Pinned: manage_regions() follows the management.version option, and
+        # this is the v1 suite.
+        cls.manager = s2.manage_regions(version='v1')
+
+    @classmethod
+    def tearDownClass(cls):
+        """Clean up the test environment."""
+        cls.manager = None
+
+    def test_list_regions(self):
+        """Test listing all regions."""
+        regions = self.manager.list_regions()
+
+        # Verify we get a NamedList
+        assert isinstance(regions, NamedList)
+
+        # Verify we have at least one region
+        assert len(regions) > 0
+
+        # Verify region properties
+        region = regions[0]
+        assert isinstance(region, Region)
+        assert hasattr(region, 'id')
+        assert hasattr(region, 'name')
+        assert hasattr(region, 'provider')
+
+        # Verify provider values
+        providers = {x.provider for x in regions}
+        assert 'Azure' in providers or 'GCP' in providers or 'AWS' in providers
+
+    def test_list_shared_tier_regions(self):
+        """Test listing shared tier regions."""
+        regions = self.manager.list_shared_tier_regions()
+
+        # Verify we get a NamedList
+        assert isinstance(regions, NamedList)
+
+        # Verify region properties if we have any shared tier regions
+        if regions:
+            region = regions[0]
+            assert isinstance(region, Region)
+            assert hasattr(region, 'name')
+            assert hasattr(region, 'provider')
+            assert hasattr(region, 'region_name')
+
+            # Verify provider values
+            providers = {x.provider for x in regions}
+            assert any(p in providers for p in ['Azure', 'GCP', 'AWS'])
+
+    def test_str_repr(self):
+        """Test string representation of regions."""
+        regions = self.manager.list_regions()
+        if not regions:
+            self.skipTest('No regions available for testing')
+
+        region = regions[0]
+
+        # Test __str__
+        s = str(region)
+        assert region.id in s
+        assert region.name in s
+        assert region.provider in s
+
+        # Test __repr__
+        assert repr(region) == str(region)
+
+
+#
+# v1 behavior units. These need neither a management token nor a
+# container -- they drive the v1 entity classes against fake API
+# payloads. Anything version-neutral belongs in
+# test_management_utils.py instead.
+#
+
+FAKE_TOKEN = 'test-token-12345'
+FAKE_BASE_URL = 'https://api.example.com'
+FAKE_ORG_ID = 'org-12345'
+
+
+def _make_workspace_manager(version='v1', organization_id=FAKE_ORG_ID):
+    """Construct a v1 WorkspaceManager with patched token resolver."""
+    from singlestoredb.management.v1.workspace import WorkspaceManager
+    with patch(
+        'singlestoredb.management.manager.get_token',
+        return_value=FAKE_TOKEN,
+    ):
+        return WorkspaceManager(
+            access_token=FAKE_TOKEN,
+            base_url=FAKE_BASE_URL,
+            version=version,
+            organization_id=organization_id,
+        )
+
+
+def _make_workspace_group(manager=None, group_id='wsg-456', extra_obj=None):
+    """Build a v1 WorkspaceGroup from a fake API response.
+
+    ``WorkspaceGroup.from_dict`` calls ``manager.regions`` to resolve the
+    region; we stub it so no network call is made.
+    """
+    from singlestoredb.management.v1.workspace import WorkspaceGroup
+    from singlestoredb.management.v1.workspace import WorkspaceManager
+    mgr = manager or _make_workspace_manager()
+    obj = {
+        'name': 'test-group',
+        'workspaceGroupID': group_id,
+        'createdAt': '2024-01-01T00:00:00Z',
+        'regionID': 'region-789',
+        'firewallRanges': ['0.0.0.0/0'],
+    }
+    if extra_obj:
+        obj.update(extra_obj)
+    with patch.object(
+        WorkspaceManager, 'regions',
+        new_callable=PropertyMock, return_value=[],
+    ):
+        wg = WorkspaceGroup.from_dict(obj, mgr)
+    return wg, mgr, obj
+
+
+class TestTokenStorageFix(unittest.TestCase):
+    """Test that Manager authenticates with the resolved token."""
+
+    @patch('singlestoredb.management.manager.is_jwt', return_value=False)
+    @patch('singlestoredb.management.manager.get_token', return_value=FAKE_TOKEN)
+    def test_none_token_resolves(self, _mock_token, _mock_jwt):
+        """When access_token=None, the resolved token is used."""
+        from singlestoredb.management.v1.workspace import WorkspaceManager
+        mgr = WorkspaceManager(
+            access_token=None,
+            base_url=FAKE_BASE_URL,
+            version='v1',
+        )
+        self.assertEqual(
+            mgr._sess.headers['Authorization'], f'Bearer {FAKE_TOKEN}',
+        )
+
+    @patch('singlestoredb.management.manager.get_token', return_value=FAKE_TOKEN)
+    def test_explicit_token_used_as_is(self, _mock_token):
+        """When access_token is provided, it's used directly."""
+        from singlestoredb.management.v1.workspace import WorkspaceManager
+        mgr = WorkspaceManager(
+            access_token='my-explicit-token',
+            base_url=FAKE_BASE_URL,
+            version='v1',
+        )
+        self.assertEqual(
+            mgr._sess.headers['Authorization'], 'Bearer my-explicit-token',
+        )
+
+
+class TestWorkspaceFromDictNewFields(unittest.TestCase):
+    """
+    Coverage for the staged additions in ``v1/workspace.py``:
+    ``auto_scale``, ``kai_enabled``, ``scale_factor``, plus the widened
+    ``cache_config`` (now float).
+    """
+
+    def _base_obj(self):
+        return {
+            'name': 'test-ws',
+            'workspaceID': 'ws-1',
+            'workspaceGroupID': 'wsg-1',
+            'size': 'S-00',
+            'state': 'Active',
+            'createdAt': '2024-01-01T00:00:00Z',
+        }
+
+    def test_new_fields_present(self):
+        from singlestoredb.management.v1.workspace import Workspace
+        mgr = _make_workspace_manager()
+        obj = self._base_obj()
+        obj.update({
+            'autoScale': {
+                'sensitivity': 'HIGH',
+                'maxScaleFactor': 4.0,
+                'changedAt': '2024-01-01T00:00:00Z',
+                'lastAutoScaledAt': '2024-01-02T00:00:00Z',
+            },
+            'kaiEnabled': True,
+            'scaleFactor': 2.5,
+            'cacheConfig': 1.5,
+        })
+        ws = Workspace.from_dict(obj, mgr)
+        # auto_scale keys are camel_to_snake_dict-converted
+        self.assertEqual(ws.auto_scale['sensitivity'], 'HIGH')
+        self.assertEqual(ws.auto_scale['max_scale_factor'], 4.0)
+        self.assertEqual(ws.auto_scale['changed_at'], '2024-01-01T00:00:00Z')
+        self.assertEqual(
+            ws.auto_scale['last_auto_scaled_at'], '2024-01-02T00:00:00Z',
+        )
+        self.assertNotIn('maxScaleFactor', ws.auto_scale)
+        self.assertIs(ws.kai_enabled, True)
+        self.assertEqual(ws.scale_factor, 2.5)
+        self.assertEqual(ws.cache_config, 1.5)
+
+    def test_new_fields_default_to_none(self):
+        from singlestoredb.management.v1.workspace import Workspace
+        mgr = _make_workspace_manager()
+        ws = Workspace.from_dict(self._base_obj(), mgr)
+        self.assertIsNone(ws.auto_scale)
+        self.assertIsNone(ws.kai_enabled)
+        self.assertIsNone(ws.scale_factor)
+
+
+class TestWorkspaceUpdatePosting(unittest.TestCase):
+    """``Workspace.update`` must include the new fields in the PATCH body."""
+
+    def _make_workspace(self, mgr):
+        from singlestoredb.management.v1.workspace import Workspace
+        obj = {
+            'name': 'test-ws',
+            'workspaceID': 'ws-1',
+            'workspaceGroupID': 'wsg-1',
+            'size': 'S-00',
+            'state': 'Active',
+            'createdAt': '2024-01-01T00:00:00Z',
+        }
+        return Workspace.from_dict(obj, mgr)
+
+    def test_update_posts_new_fields_only_when_set(self):
+        mgr = _make_workspace_manager()
+        mgr._patch = MagicMock()
+        ws = self._make_workspace(mgr)
+        ws.refresh = MagicMock()
+
+        ws.update(
+            auto_scale={'sensitivity': 'HIGH'},
+            enable_kai=True,
+            scale_factor=2.0,
+            cache_config=1.5,
+        )
+
+        mgr._patch.assert_called_once()
+        args, kwargs = mgr._patch.call_args
+        self.assertEqual(args[0], 'workspaces/ws-1')
+        body = kwargs['json']
+        self.assertEqual(body['autoScale'], {'sensitivity': 'HIGH'})
+        self.assertIs(body['enableKai'], True)
+        self.assertEqual(body['scaleFactor'], 2.0)
+        self.assertEqual(body['cacheConfig'], 1.5)
+
+    def test_update_omits_keys_when_param_none(self):
+        mgr = _make_workspace_manager()
+        mgr._patch = MagicMock()
+        ws = self._make_workspace(mgr)
+        ws.refresh = MagicMock()
+
+        ws.update(size='S-1')
+
+        body = mgr._patch.call_args.kwargs['json']
+        self.assertEqual(body, {'size': 'S-1'})
+        self.assertNotIn('autoScale', body)
+        self.assertNotIn('enableKai', body)
+        self.assertNotIn('scaleFactor', body)
+
+
+class TestWorkspaceGroupNewFields(unittest.TestCase):
+    """Coverage for the new staged fields on ``WorkspaceGroup.from_dict``."""
+
+    def _obj_with_new_fields(self):
+        return {
+            'name': 'test-group',
+            'workspaceGroupID': 'wsg-1',
+            'createdAt': '2024-01-01T00:00:00Z',
+            'regionID': 'region-789',
+            'firewallRanges': ['0.0.0.0/0'],
+            'allowAllTraffic': True,
+            'deploymentType': 'PRODUCTION',
+            'expiresAt': '2025-06-30T23:59:59Z',
+            'highAvailabilityTwoZones': True,
+            'optInPreviewFeature': False,
+            'outboundAllowList': '203.0.113.0/24',
+            'projectID': 'proj-1',
+            'projectName': 'my-project',
+            'smartDRStatus': 'ACTIVE',
+            'state': 'ACTIVE',
+            'updateWindow': {'day': 0, 'hour': 4},
+            'provider': 'aws',
+            'regionName': 'us-east-1',
+        }
+
+    def test_all_new_fields_mapped(self):
+        from singlestoredb.management.v1.workspace import WorkspaceGroup
+        mgr = _make_workspace_manager()
+        with patch.object(
+            type(mgr), 'regions',
+            new_callable=PropertyMock, return_value=[],
+        ):
+            wg = WorkspaceGroup.from_dict(self._obj_with_new_fields(), mgr)
+        self.assertEqual(wg.deployment_type, 'PRODUCTION')
+        self.assertIsInstance(wg.expires_at, datetime.datetime)
+        self.assertIs(wg.high_availability_two_zones, True)
+        self.assertIs(wg.opt_in_preview_feature, False)
+        self.assertEqual(wg.outbound_allow_list, '203.0.113.0/24')
+        self.assertEqual(wg.project_id, 'proj-1')
+        self.assertEqual(wg.project_name, 'my-project')
+        self.assertEqual(wg.smart_dr_status, 'ACTIVE')
+        self.assertEqual(wg.state, 'ACTIVE')
+        # update_window stays a raw dict (not snake-cased)
+        self.assertEqual(wg.update_window, {'day': 0, 'hour': 4})
+        self.assertEqual(wg.provider, 'aws')
+        self.assertEqual(wg.region_name, 'us-east-1')
+
+    def test_new_fields_default_to_none(self):
+        wg, _, _ = _make_workspace_group()
+        self.assertIsNone(wg.deployment_type)
+        self.assertIsNone(wg.expires_at)
+        self.assertIsNone(wg.high_availability_two_zones)
+        self.assertIsNone(wg.opt_in_preview_feature)
+        self.assertIsNone(wg.outbound_allow_list)
+        self.assertIsNone(wg.project_id)
+        self.assertIsNone(wg.project_name)
+        self.assertIsNone(wg.smart_dr_status)
+        self.assertIsNone(wg.state)
+        self.assertIsNone(wg.update_window)
+        self.assertIsNone(wg.provider)
+        self.assertIsNone(wg.region_name)
+
+
+class TestWorkspaceGroupCreateUpdatePosting(unittest.TestCase):
+    """Body coverage for create_workspace_group / WorkspaceGroup.update."""
+
+    def test_create_workspace_group_posts_new_fields(self):
+        mgr = _make_workspace_manager()
+        # Make get_workspace_group a no-op; we only inspect the POST body.
+        post_response = MagicMock()
+        post_response.json.return_value = {'workspaceGroupID': 'wsg-new'}
+        mgr._post = MagicMock(return_value=post_response)
+        mgr.get_workspace_group = MagicMock(return_value='sentinel')
+
+        result = mgr.create_workspace_group(
+            name='wg-1',
+            region='region-789',
+            firewall_ranges=['0.0.0.0/0'],
+            provider='aws',
+            region_name='us-east-1',
+            deployment_type='PRODUCTION',
+            high_availability_two_zones=True,
+            opt_in_preview_feature=False,
+            project_id='proj-1',
+        )
+
+        self.assertEqual(result, 'sentinel')
+        body = mgr._post.call_args.kwargs['json']
+        self.assertEqual(body['provider'], 'aws')
+        self.assertEqual(body['regionName'], 'us-east-1')
+        self.assertEqual(body['deploymentType'], 'PRODUCTION')
+        self.assertIs(body['highAvailabilityTwoZones'], True)
+        self.assertIs(body['optInPreviewFeature'], False)
+        self.assertEqual(body['projectID'], 'proj-1')
+
+    def test_workspace_group_update_includes_deployment_type(self):
+        wg, mgr, _ = _make_workspace_group()
+        mgr._patch = MagicMock()
+        wg.refresh = MagicMock()
+
+        wg.update(deployment_type='NON-PRODUCTION', name='renamed')
+
+        body = mgr._patch.call_args.kwargs['json']
+        self.assertEqual(body['deploymentType'], 'NON-PRODUCTION')
+        self.assertEqual(body['name'], 'renamed')
+
+    def test_workspace_group_update_omits_unset_fields(self):
+        wg, mgr, _ = _make_workspace_group()
+        mgr._patch = MagicMock()
+        wg.refresh = MagicMock()
+
+        wg.update(name='renamed')
+
+        body = mgr._patch.call_args.kwargs['json']
+        self.assertNotIn('deploymentType', body)
+
+
+class TestJobsManagerScheduleDuration(unittest.TestCase):
+    """
+    Coverage for the staged ``max_allowed_execution_duration_in_minutes``
+    parameter on ``JobsManager.schedule``.
+    """
+
+    def _patch_post(self, mgr, response_obj):
+        post_response = MagicMock()
+        post_response.json.return_value = response_obj
+        mgr._post = MagicMock(return_value=post_response)
+        return post_response
+
+    def _fake_job_response(self):
+        return {
+            'jobID': 'job-1',
+            'name': 'j',
+            'description': None,
+            'enqueuedBy': 'me',
+            'createdAt': '2024-01-01T00:00:00Z',
+            'completedExecutionsCount': 0,
+            'jobMetadata': [],
+            'terminatedAt': None,
+            'executionConfig': {
+                'createSnapshot': True,
+                'notebookPath': '/x.ipynb',
+            },
+            'schedule': {'mode': 'Once'},
+            'targetConfig': None,
+        }
+
+    def test_duration_present_when_set(self):
+        from singlestoredb.management.v1.job import JobsManager
+        from singlestoredb.management.v1.job import Mode
+
+        ws_mgr = _make_workspace_manager()
+        jobs = JobsManager(ws_mgr)
+        self._patch_post(ws_mgr, self._fake_job_response())
+
+        with patch(
+            'singlestoredb.management.v1.job.Job.from_dict',
+            return_value='sentinel',
+        ):
+            jobs.schedule(
+                notebook_path='/x.ipynb',
+                mode=Mode.ONCE,
+                create_snapshot=True,
+                max_allowed_execution_duration_in_minutes=42,
+            )
+
+        body = ws_mgr._post.call_args.kwargs['json']
+        self.assertEqual(
+            body['executionConfig']['maxAllowedExecutionDurationInMinutes'],
+            42,
+        )
+
+    def test_duration_absent_when_unset(self):
+        from singlestoredb.management.v1.job import JobsManager
+        from singlestoredb.management.v1.job import Mode
+
+        ws_mgr = _make_workspace_manager()
+        jobs = JobsManager(ws_mgr)
+        self._patch_post(ws_mgr, self._fake_job_response())
+
+        with patch(
+            'singlestoredb.management.v1.job.Job.from_dict',
+            return_value='sentinel',
+        ):
+            jobs.schedule(
+                notebook_path='/x.ipynb',
+                mode=Mode.ONCE,
+                create_snapshot=True,
+            )
+
+        body = ws_mgr._post.call_args.kwargs['json']
+        self.assertNotIn(
+            'maxAllowedExecutionDurationInMinutes',
+            body['executionConfig'],
+        )
+
+
+class TestWorkspaceGroupRegionResolution(unittest.TestCase):
+    """
+    ``WorkspaceGroup.from_dict`` resolves its region through a fallback
+    ladder: match on ``regionID`` first, then on ``(region_name, provider)``
+    for regions that carry no ID, then the payload's own fields, then
+    ``<unknown>``.
+    """
+
+    def _region_without_id(self, name, provider, region_name):
+        from singlestoredb.management.v1.region import Region
+        return Region(
+            name=name, provider=provider, id=None, region_name=region_name,
+        )
+
+    def _wg_payload(self, **overrides):
+        obj = {
+            'name': 'test-group',
+            'workspaceGroupID': 'wsg-1',
+            'createdAt': '2024-01-01T00:00:00Z',
+            'regionID': 'region-uuid-1',
+            'regionName': 'us-west1',
+            'provider': 'GCP',
+        }
+        obj.update(overrides)
+        return obj
+
+    def test_resolves_by_region_name_and_provider_when_no_id(self):
+        from singlestoredb.management.v1.workspace import (
+            WorkspaceGroup, WorkspaceManager,
+        )
+        mgr = MagicMock(spec=WorkspaceManager)
+        mgr.regions = [
+            self._region_without_id('us-west1', 'GCP', 'us-west1'),
+            self._region_without_id('eu-central-1', 'AWS', 'eu-central-1'),
+        ]
+        wg = WorkspaceGroup.from_dict(self._wg_payload(), mgr)
+        self.assertEqual(wg.region.name, 'us-west1')
+        self.assertEqual(wg.region.provider, 'GCP')
+        self.assertEqual(wg.region.region_name, 'us-west1')
+
+    def test_match_by_id_wins(self):
+        from singlestoredb.management.v1.region import Region
+        from singlestoredb.management.v1.workspace import (
+            WorkspaceGroup, WorkspaceManager,
+        )
+        mgr = MagicMock(spec=WorkspaceManager)
+        mgr.regions = [
+            Region(
+                name='us-west1', provider='GCP',
+                id='region-uuid-1', region_name='us-west1',
+            ),
+        ]
+        wg = WorkspaceGroup.from_dict(self._wg_payload(), mgr)
+        self.assertEqual(wg.region.id, 'region-uuid-1')
+        self.assertEqual(wg.region.name, 'us-west1')
+
+    def test_no_match_falls_back_to_payload_fields(self):
+        from singlestoredb.management.v1.workspace import (
+            WorkspaceGroup, WorkspaceManager,
+        )
+        mgr = MagicMock(spec=WorkspaceManager)
+        mgr.regions = []
+        wg = WorkspaceGroup.from_dict(self._wg_payload(), mgr)
+        self.assertEqual(wg.region.name, 'us-west1')
+        self.assertEqual(wg.region.provider, 'GCP')
+        self.assertEqual(wg.region.id, 'region-uuid-1')
+        self.assertEqual(wg.region.region_name, 'us-west1')
+
+    def test_no_match_no_payload_fields_uses_unknown(self):
+        from singlestoredb.management.v1.workspace import (
+            WorkspaceGroup, WorkspaceManager,
+        )
+        mgr = MagicMock(spec=WorkspaceManager)
+        mgr.regions = []
+        obj = {
+            'name': 'test-group',
+            'workspaceGroupID': 'wsg-1',
+            'createdAt': '2024-01-01T00:00:00Z',
+        }
+        wg = WorkspaceGroup.from_dict(obj, mgr)
+        self.assertEqual(wg.region.name, '<unknown>')
+        self.assertEqual(wg.region.provider, '<unknown>')
+        self.assertIsNone(wg.region.id)
+
+
+class TestDateTimeParsingFixes(unittest.TestCase):
+    """
+    Regression test for commit 85faf724: ISO8601-Z timestamp parsing
+    on entities that go through ``to_datetime``.
+    """
+
+    def test_workspace_created_at_parsed(self):
+        from singlestoredb.management.v1.workspace import Workspace
+        mgr = _make_workspace_manager()
+        obj = {
+            'name': 'test-ws',
+            'workspaceID': 'ws-1',
+            'workspaceGroupID': 'wsg-1',
+            'size': 'S-00',
+            'state': 'Active',
+            'createdAt': '2024-03-15T12:30:45Z',
+            'lastResumedAt': '2024-03-16T08:00:00.123Z',
+        }
+        ws = Workspace.from_dict(obj, mgr)
+        self.assertIsInstance(ws.created_at, datetime.datetime)
+        self.assertEqual(ws.created_at.year, 2024)
+        self.assertEqual(ws.created_at.month, 3)
+        self.assertEqual(ws.created_at.day, 15)
+        self.assertEqual(ws.created_at.hour, 12)
+        self.assertIsInstance(ws.last_resumed_at, datetime.datetime)
+
+    def test_workspace_group_expires_at_parsed(self):
+        wg, _, _ = _make_workspace_group(
+            extra_obj={'expiresAt': '2025-06-30T23:59:59Z'},
+        )
+        self.assertIsInstance(wg.expires_at, datetime.datetime)
+        self.assertEqual(wg.expires_at.year, 2025)
+
+    def test_workspace_group_terminated_at_zero_returns_none(self):
+        """The sentinel 0001-01-01 timestamp must round-trip to None."""
+        wg, _, _ = _make_workspace_group(
+            extra_obj={'terminatedAt': '0001-01-01T00:00:00Z'},
+        )
+        self.assertIsNone(wg.terminated_at)

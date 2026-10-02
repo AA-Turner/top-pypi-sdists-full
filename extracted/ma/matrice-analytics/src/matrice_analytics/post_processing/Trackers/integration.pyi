@@ -85,6 +85,24 @@ def legacy_sort_tracker_overrides(config: Any, method: str) -> Dict[str, Any]:
         (SORT/ByteTrack use one knob for "how long to keep a lost track").
     """
     ...
+def record_untracked_frame(missing: int, total: int) -> None:
+    """
+    Record a frame whose detections carried no `track_id` at all.
+    
+        This is the exact silent-zero condition: objects were detected, none can be
+        counted, and without this the only trace was a debug-gated `print`.
+    """
+    ...
+def record_update_failure(exc: Any) -> None:
+    """
+    Record a per-frame tracker `update()` failure (runtime: fail open, loudly).
+    """
+    ...
+def tracker_health() -> Any:
+    """
+    Return the process-wide tracker health record (metrics / health checks).
+    """
+    ...
 def tracker_namespace(stream_info: Optional[Dict[str, Any]]) -> Optional[str]:
     """
     Derive a per-stream namespace for track ID isolation.
@@ -142,6 +160,30 @@ class ConfigDrivenTracker:
 
     def reset(self: Any) -> None: ...
 
+class TrackerHealth:
+    # Observable degradation state for the shared tracker seam.
+
+    def degraded(self: Any) -> bool:
+        """
+        True when tracking is not delivering usable track IDs.
+        
+                A degraded tracker means unique/new counts are zero for reasons that
+                have nothing to do with the scene. Health surfaces must report this.
+        """
+        ...
+
+    def reset(self: Any) -> None: ...
+
+    def snapshot(self: Any) -> Dict[str, Any]: ...
+
+class TrackerInitializationError:
+    # Tracking was explicitly requested but the tracker could not be built.
+    #
+    #     Raised by `ConfigDrivenTracker.get_shared_tracker`. Callers must let this
+    #     propagate (startup refusal) rather than degrade to untracked counting,
+    #     which silently reports zero.
+
+    ...
 class TrackerProfile:
     # Named `TrackerConfig` baselines measured across the 136 literal
     #     `TrackerConfig(...)` call sites in usecases/ (consolidation plan §1.8).

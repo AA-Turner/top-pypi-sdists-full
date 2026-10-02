@@ -1,0 +1,1010 @@
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+import shutil
+
+from gov import cli, gates, plane
+
+# Portable gate commands (#168): the Unix coreutils true/false do not
+# exist on Windows — "a command that exits 0/1" must not depend on PATH.
+PASS = [sys.executable, "-c", "pass"]
+FAIL = [sys.executable, "-c", "raise SystemExit(1)"]
+
+
+def _write(tmp_path: Path, data) -> Path:
+    p = tmp_path / "gates.json"
+    p.write_text(json.dumps(data), encoding="utf-8")
+    return p
+
+
+def _git_repo(tmp_path: Path) -> None:
+    for cmd in (
+        ["git", "init", "-q", "."],
+        ["git", "config", "user.email", "t@t"],
+        ["git", "config", "user.name", "t"],
+    ):
+        subprocess.run(cmd, cwd=tmp_path, check=True)
+    (tmp_path / "seed.txt").write_text("seed\n", encoding="utf-8")
+    subprocess.run(["git", "add", "-A"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "-c", "commit.gpgsign=false", "commit", "-qm", "init"],
+                   cwd=tmp_path, check=True)
+
+
+def test_load_config_valid(tmp_path):
+    p = _write(tmp_path, {"gates": [{"id": "a", "command": PASS}]})
+    modes, gs, concurrency, default_mode = gates.load_config(str(p))
+    assert [g.id for g in gs] == ["a"]
+    assert gs[0].command == PASS
+    assert concurrency == 0
+    assert default_mode is None
+    assert gs[0].enabled is True
+
+
+def test_load_config_parses_default_mode_and_enabled(tmp_path):
+    p = _write(
+        tmp_path,
+        {
+            "modes": {"all": ["a"]},
+            "defaultMode": "all",
+            "gates": [
+                {"id": "a", "command": PASS},
+                {"id": "b", "command": PASS, "enabled": False},
+            ],
+        },
+    )
+    modes, gs, concurrency, default_mode = gates.load_config(str(p))
+    assert default_mode == "all"
+    assert [g.enabled for g in gs] == [True, False]
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        {"modes": {"all": ["a"]}, "defaultMode": "ghost",
+         "gates": [{"id": "a", "command": PASS}]},
+        {"modes": {"all": ["a"]}, "defaultMode": 3,
+         "gates": [{"id": "a", "command": PASS}]},
+        {"modes": {"all": ["a"]}, "defaultMode": "",
+         "gates": [{"id": "a", "command": PASS}]},
+        {"gates": [{"id": "a", "command": PASS, "enabled": "false"}]},
+    ],
+)
+def test_load_config_rejects_bad_default_mode_or_enabled(tmp_path, data):
+    p = _write(tmp_path, data)
+    with pytest.raises(gates.ConfigError):
+        gates.load_config(str(p))
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        {"gates": [{"id": "a", "command": PASS}, {"id": "a", "command": PASS}]},
+        {"gates": [{"id": "a", "command": PASS, "needs": ["ghost"]}]},
+        {
+            "gates": [
+                {"id": "a", "command": PASS, "needs": ["b"]},
+                {"id": "b", "command": PASS, "needs": ["a"]},
+            ]
+        },
+        {"gates": [None]},
+        {"gates": "nope"},
+        {"concurrency": -1, "gates": [{"id": "a", "command": PASS}]},
+        {"gates": [{"id": "a", "command": PASS, "timeoutMs": "x"}]},
+        [],
+    ],
+)
+def test_load_config_rejects(tmp_path, data):
+    p = _write(tmp_path, data)
+    with pytest.raises(gates.ConfigError):
+        gates.load_config(str(p))
+
+
+def test_run_gates_passes():
+    gs = [gates.Gate(id="a", command=PASS), gates.Gate(id="b", command=PASS)]
+    assert gates.run_gates(gs, None, 1, False) == 0
+
+
+def test_run_gates_skips_transitively(capsys):
+    gs = [
+        gates.Gate(id="A", command=PASS, needs=["B"]),
+        gates.Gate(id="B", command=PASS, needs=["C"]),
+        gates.Gate(id="C", command=FAIL),
+    ]
+    assert gates.run_gates(gs, None, 1, False) == 1
+    out = capsys.readouterr().out
+    assert "SKIP A" in out
+    assert "SKIP B" in out
+    assert "PASS A" not in out
+
+
+def test_run_gates_missing_command():
+    gs = [gates.Gate(id="a", command=["no-such-cmd-xyz"])]
+    assert gates.run_gates(gs, None, 1, False) == 1
+
+
+def test_run_gates_reports_disabled_and_never_runs_them(capsys):
+    gs = [
+        gates.Gate(id="a", command=PASS),
+        gates.Gate(id="b", command=FAIL, enabled=False),
+    ]
+    assert gates.run_gates(gs, None, 1, False) == 0
+    out = capsys.readouterr().out
+    assert "DISABLED b" in out
+    assert "FAIL b" not in out
+
+
+def test_run_gates_selection_skips_disabled(capsys):
+    gs = [
+        gates.Gate(id="a", command=PASS),
+        gates.Gate(id="b", command=FAIL, enabled=False),
+    ]
+    assert gates.run_gates(gs, ["a", "b"], 1, False) == 0
+    out = capsys.readouterr().out
+    assert "DISABLED b" in out
+    assert "FAIL b" not in out
+
+
+def test_run_gates_advisory_failure_reports_but_does_not_block(capsys):
+    gs = [gates.Gate(id="a", command=FAIL, allow_failure=True)]
+    assert gates.run_gates(gs, None, 1, False) == 0
+    out = capsys.readouterr().out
+    assert "FAIL a" in out
+    assert "advisory" in out
+
+
+def test_main_default_mode_scopes_run(tmp_path, capsys, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    _write(
+        tmp_path,
+        {
+            "modes": {"all": ["a"], "also": ["b"]},
+            "defaultMode": "all",
+            "gates": [
+                {"id": "a", "command": PASS},
+                {"id": "b", "command": FAIL},
+            ],
+        },
+    )
+    assert gates.main([]) == 0
+    out = capsys.readouterr().out
+    assert "PASS a" in out
+    assert "FAIL b" not in out  # b is outside the default mode; it must not run
+
+
+def test_main_mode_overrides_default_mode(tmp_path, capsys, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    _write(
+        tmp_path,
+        {
+            "modes": {"all": ["a"], "just-b": ["b"]},
+            "defaultMode": "all",
+            "gates": [
+                {"id": "a", "command": PASS},
+                {"id": "b", "command": PASS},
+            ],
+        },
+    )
+    assert gates.main(["--mode", "just-b"]) == 0
+    out = capsys.readouterr().out
+    assert "PASS b" in out
+    assert "PASS a" not in out
+
+
+def test_load_config_parses_paths(tmp_path):
+    p = _write(tmp_path, {"gates": [{"id": "a", "command": PASS,
+                                     "paths": ["gov/**", "gates.json"]}]})
+    modes, gs, concurrency, default_mode = gates.load_config(str(p))
+    assert gs[0].paths == ["gov/**", "gates.json"]
+
+
+@pytest.mark.parametrize("paths", ["gov/", [""], [1]])
+def test_load_config_rejects_bad_paths(tmp_path, paths):
+    p = _write(tmp_path, {"gates": [{"id": "a", "command": PASS, "paths": paths}]})
+    with pytest.raises(gates.ConfigError):
+        gates.load_config(str(p))
+
+
+def test_glob_regex_span_and_depth():
+    assert gates._glob_regex("gov/**").match("gov/cli.py")
+    assert gates._glob_regex("gov/**").match("gov/templates/gates.json")
+    assert not gates._glob_regex("gov/*").match("gov/templates/gates.json")
+    assert gates._glob_regex("*.i18n.yaml").match("README.i18n.yaml")
+    assert not gates._glob_regex("*.i18n.yaml").match("docs/x.i18n.yaml")
+
+
+def test_select_by_paths():
+    gs = [
+        gates.Gate(id="unpathed", command=PASS),
+        gates.Gate(id="docs-gate", command=PASS, paths=["docs/**"]),
+        gates.Gate(id="off", command=PASS, enabled=False, paths=["docs/**"]),
+    ]
+    selected, out = gates._select_by_paths(gs, ["docs/a.md", "README.md"])
+    assert selected == ["unpathed", "docs-gate"]
+    assert out == []
+
+
+def test_main_base_scopes_run(tmp_path, capsys, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    _git_repo(tmp_path)
+    _write(
+        tmp_path,
+        {
+            "gates": [
+                {"id": "docs-gate", "command": PASS, "paths": ["docs/**"]},
+                {"id": "code-gate", "command": PASS, "paths": ["src/**"]},
+                {"id": "unpathed", "command": PASS},
+            ]
+        },
+    )
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text("x\n", encoding="utf-8")
+    assert gates.main(["--base", "HEAD"]) == 0
+    out = capsys.readouterr().out
+    assert "out of scope: code-gate" in out
+    assert "PASS docs-gate" in out
+    assert "PASS code-gate" not in out
+    assert "PASS unpathed" in out  # unpathed gates always run
+
+
+def test_main_only_paths_scopes_to_one_worker(tmp_path, capsys, monkeypatch):
+    """#374: a multi-worker checkout scopes a run to one worker's paths —
+    the changed set is intersected with the declared globs, path-scoped
+    gates select against THAT, unpathed gates keep judging the
+    repository, and the declared set is exported to the gates."""
+    monkeypatch.chdir(tmp_path)
+    _git_repo(tmp_path)
+    env_stub = tmp_path / "env-stub.py"
+    env_stub.write_text(
+        "import json, os, sys\n"
+        "print(json.dumps({k: os.environ.get(k) for k in"
+        " ('GOV_CHANGE_PATHS', 'GOV_CHANGE_ROOT')}))\n",
+        encoding="utf-8")
+    _write(
+        tmp_path,
+        {"gates": [
+            {"id": "py-gate", "command": [sys.executable, str(env_stub)],
+             "paths": ["src/**/*.py"]},
+            {"id": "js-gate", "command": PASS, "paths": ["web/**/*.js"]},
+            {"id": "unpathed", "command": PASS},
+        ]},
+    )
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "a.py").write_text("x = 1\n", encoding="utf-8")
+    (tmp_path / "web").mkdir()
+    (tmp_path / "web" / "b.js").write_text("let x;\n", encoding="utf-8")
+    assert gates.main(["--only-paths", "src/**/*.py"]) == 0
+    out = capsys.readouterr().out
+    assert "scope --only-paths: 1/" in out and "changed file(s)" in out
+    assert "PASS unpathed" in out
+    assert "PASS js-gate" not in out
+    # the gate's own stdout IS the env payload (the stub prints one JSON
+    # object naming the two declared-scope variables)
+    env_line = [ln for ln in out.splitlines() if ln.startswith('{"GOV')]
+    assert env_line, out
+    env = json.loads(env_line[-1])
+    assert env["GOV_CHANGE_PATHS"] == "src/**/*.py"
+    assert env["GOV_CHANGE_ROOT"] == str(tmp_path.resolve())
+
+
+def test_main_only_paths_matching_nothing_is_a_named_refusal(
+        tmp_path, capsys, monkeypatch):
+    """Rule 5: a scoped run that would judge nothing is a caller typo,
+    not a green zero."""
+    monkeypatch.chdir(tmp_path)
+    _git_repo(tmp_path)
+    _write(tmp_path, {"gates": [{"id": "a", "command": PASS,
+                                 "paths": ["src/**"]}]})
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text("x\n", encoding="utf-8")
+    assert gates.main(["--only-paths", "web/**/*.js"]) == 2
+    err = capsys.readouterr().err
+    assert "none of the " in err and "changed file(s) match" in err
+
+
+def test_main_full_gate_output_lands_in_last_run(tmp_path, capsys, monkeypatch):
+    """#375: one run yields all the evidence — a failing gate's full
+    output is captured in .gov/last-run/<gate>.log and the failure line
+    names it, so reading a failure never costs a re-run."""
+    monkeypatch.chdir(tmp_path)
+    long_fail = [sys.executable, "-c",
+                 "print('line %d' % i for i in ()) ; "
+                 "import sys; sys.stderr.write(''.join(f'l{i}\\n' for i in"
+                 " range(40)) ); raise SystemExit(1)"]
+    _write(tmp_path, {"gates": [{"id": "noisy", "command": long_fail}]})
+    assert gates.main([]) == 1
+    log = tmp_path / ".gov" / "last-run" / "noisy.log"
+    assert log.is_file()
+    body = log.read_text(encoding="utf-8")
+    assert "l0" in body and "l39" in body      # the FULL output, not a tail
+    assert "full output:" in capsys.readouterr().out
+    # the next run ROTATES what it does not write (#394: never deletes —
+    # a stale log moves to .log.prev)
+    (tmp_path / ".gov" / "last-run" / "ghost.log").write_text(
+        "stale\n", encoding="utf-8")
+    _write(tmp_path, {"gates": [{"id": "ok", "command": PASS}]})
+    assert gates.main([]) == 0
+    assert not (tmp_path / ".gov" / "last-run" / "ghost.log").exists()
+    assert (tmp_path / ".gov" / "last-run" / "ghost.log.prev"
+            ).read_text(encoding="utf-8") == "stale\n"
+
+
+def test_failing_evidence_survives_a_passing_rerun(tmp_path, capsys,
+                                                   monkeypatch):
+    """#394/#396: the transient-crash loop — a gate crashes in the DAG,
+    passes standalone seconds later, and the crash body used to be
+    overwritten by the rerun's own output. Rotation keeps one generation:
+    the rerun's .log is current, the crash's scene is .log.prev."""
+    monkeypatch.chdir(tmp_path)
+    fail_cmd = [sys.executable, "-c",
+                "import sys; sys.stderr.write('Traceback (most recent "
+                "call last):\\n  boom frame\\nValueError: dead\\n'); "
+                "raise SystemExit(1)"]
+    _write(tmp_path, {"gates": [{"id": "flaky", "command": fail_cmd}]})
+    assert gates.main([]) == 1
+    crash = (tmp_path / ".gov" / "last-run" / "flaky.log"
+             ).read_text(encoding="utf-8")
+    assert "ValueError: dead" in crash
+    pass_cmd = [sys.executable, "-c",
+                "import sys; print('clean now')"]
+    _write(tmp_path, {"gates": [{"id": "flaky", "command": pass_cmd}]})
+    assert gates.main([]) == 0
+    log = tmp_path / ".gov" / "last-run" / "flaky.log"
+    prev = tmp_path / ".gov" / "last-run" / "flaky.log.prev"
+    assert "clean now" in log.read_text(encoding="utf-8")
+    assert "ValueError: dead" in prev.read_text(encoding="utf-8"), \
+        "the crash scene must survive the passing rerun"
+
+
+def test_main_gate_flag_runs_one(tmp_path, capsys, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    _write(
+        tmp_path,
+        {"gates": [{"id": "a", "command": PASS},
+                   {"id": "b", "command": PASS}]},
+    )
+    assert gates.main(["--gate", "b"]) == 0
+    out = capsys.readouterr().out
+    assert "PASS b" in out
+    assert "PASS a" not in out
+
+
+def test_main_rejects_gate_and_mode_combo(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    _write(tmp_path, {"modes": {"all": ["a"]},
+                      "gates": [{"id": "a", "command": PASS}]})
+    assert gates.main(["--gate", "a", "--mode", "all"]) == 2
+
+
+def test_main_rejects_unknown_gate(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    _write(tmp_path, {"gates": [{"id": "a", "command": PASS}]})
+    assert gates.main(["--gate", "ghost"]) == 2
+
+
+def test_failure_summary_names_gate_and_rerun(capsys):
+    gs = [
+        gates.Gate(id="boom", command=[sys.executable, "-c",
+                                       "import sys; print('boom', file=sys.stderr); raise SystemExit(3)"]),
+        gates.Gate(id="ok", command=PASS),
+    ]
+    assert gates.run_gates(gs, None, 1, False) == 1
+    out = capsys.readouterr().out
+    assert "--- summary: 1 blocking failure(s) ---" in out
+    assert "boom: boom" in out
+    # #109: the failure line itself carries the per-gate rerun command;
+    # #375: it names where the full captured output landed.
+    assert "boom: boom (rerun: gov run --gate boom; " \
+           "full output: .gov/last-run/boom.log)" in out
+
+
+def test_failed_gate_output_is_failure_first_uncapped(capsys):
+    """#109: a failing gate's evidence is never truncated at capture time.
+
+    A gate late in the stream that fails with more output than the old
+    2000-char tail must still have its full block emitted; passing gates
+    with output keep the display-side tail-3 budget (D20).
+    """
+    gs = [
+        # earlier-stream passing gate with output → stays capped
+        gates.Gate(id="chatty-ok", command=[
+            sys.executable, "-c",
+            "print('w1'); print('w2'); print('w3'); print('w4'); "
+            "print('w5'); print('w6'); print('w7'); print('tail')"
+        ]),
+        # late-stream failing gate with output far beyond any tail budget
+        gates.Gate(id="late-boom", command=[
+            sys.executable, "-c",
+            "import sys\n"
+            "for i in range(300):\n"
+            "    print(f'evidence line {i}')\n"
+            "raise SystemExit(1)"
+        ]),
+    ]
+    assert gates.run_gates(gs, None, 1, False) == 1
+    out = capsys.readouterr().out
+    # full failed-gate evidence: head and tail both present, no clip marker
+    assert "evidence line 0" in out
+    assert "evidence line 299" in out
+    assert "truncated" not in out
+    # passing gate still subject to the budget, which now keeps the
+    # head lines too (#317: the base= judgment lives there)
+    assert "earlier line(s) not shown" in out
+    assert "w1" in out
+    assert "w3" not in out
+    assert "tail" in out
+
+
+def test_usage_prog_names_the_subcommand(tmp_path, capsys, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    _write(tmp_path, {"gates": []})
+    with pytest.raises(SystemExit) as exc:
+        gates.main(["--help"])
+    assert exc.value.code == 0
+    assert "usage: gov run" in capsys.readouterr().out
+
+
+def test_pass_with_output_stays_visible(capsys):
+    """A passing gate that printed a warning must not be silenced (P1-2)."""
+    gs = [gates.Gate(id="warny", command=[sys.executable, "-c",
+                                          "print('line1'); print('line2'); print('line3'); "
+                                          "print('line4'); print('heads up'); "
+                                          "print('last warning')"])]
+    assert gates.run_gates(gs, None, 1, False) == 0
+    out = capsys.readouterr().out
+    assert "PASS warny" in out
+    assert "passed with output" in out
+    assert "last warning" in out
+    assert "earlier line(s) not shown" in out  # middle lines are dropped
+    assert "line1" in out  # the head stays (#317: base= lines live there)
+    # the omission note reads after the shown content, not before it
+    assert out.index("last warning") < out.index("earlier line(s) not shown")
+
+
+def test_load_config_rejects_gate_in_no_mode(tmp_path):
+    """D24: mode omission is not a parking mechanism — it silently never runs."""
+    p = _write(tmp_path, {
+        "modes": {"all": ["a"]},
+        "gates": [{"id": "a", "command": PASS},
+                  {"id": "ghost-gate", "command": PASS}],
+    })
+    with pytest.raises(gates.ConfigError) as e:
+        gates.load_config(str(p))
+    assert "ghost-gate" in str(e.value)
+    assert "enabled\": false" in str(e.value)
+
+
+def test_disabled_gate_may_omit_modes(tmp_path):
+    p = _write(tmp_path, {
+        "modes": {"all": ["a"]},
+        "gates": [{"id": "a", "command": PASS},
+                  {"id": "parked", "command": PASS, "enabled": False}],
+    })
+    modes, gs, concurrency, default_mode = gates.load_config(str(p))
+    assert [g.id for g in gs] == ["a", "parked"]
+
+
+def test_gate_on_disabled_gate_fails_loud(tmp_path, capsys, monkeypatch):
+    """N4: naming a parked gate is operator error, not a silent green."""
+    monkeypatch.chdir(tmp_path)
+    _write(tmp_path, {"gates": [{"id": "a", "command": PASS, "enabled": False}]})
+    assert gates.main(["--gate", "a"]) == 2
+    assert "disabled" in capsys.readouterr().err
+
+
+def test_every_gate_ignores_default_mode(tmp_path, capsys, monkeypatch):
+    """D24: the explicit full matrix for CI."""
+    monkeypatch.chdir(tmp_path)
+    _write(tmp_path, {
+        "modes": {"all": ["a"], "also": ["b"]},
+        "defaultMode": "all",
+        "gates": [{"id": "a", "command": PASS},
+                  {"id": "b", "command": PASS}],
+    })
+    assert gates.main(["--every-gate"]) == 0
+    out = capsys.readouterr().out
+    assert "PASS a" in out and "PASS b" in out
+    # and the default run still scopes to `all`
+    assert gates.main([]) == 0
+    out = capsys.readouterr().out
+    assert "PASS b" not in out
+
+
+def test_json_mode_pure_stdout(tmp_path, capsys, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    _write(tmp_path, {"gates": [{"id": "a", "command": PASS},
+                                {"id": "off", "command": FAIL, "enabled": False}]})
+    assert gates.main(["--json", "--every-gate"]) == 0
+    import json as _json
+    captured = capsys.readouterr()
+    records = _json.loads(captured.out)  # stdout is exactly the JSON array
+    assert [r["gate"] for r in records] == ["a", "off"]
+    assert records[0]["outcome"] == "PASS"
+    assert records[1]["outcome"] == "DISABLED"
+    assert isinstance(records[0]["duration_ms"], int) and records[0]["duration_ms"] >= 0
+    assert sorted(records[0].keys()) == ["blocking", "detail", "duration_ms",
+                                         "gate", "outcome", "scoped_out",
+                                         "selected_by"]
+    assert records[0]["selected_by"] == "every-gate"  # #119
+    assert records[0]["scoped_out"] is False
+    assert "PASS a" in captured.err  # the human report moved to stderr
+
+
+def test_json_mode_names_unselected_and_scoped_out(tmp_path, capsys, monkeypatch):
+    """#119: one invocation answers the whole gate-set question — gates the
+    mode did not pick (NOT_SELECTED) and gates the diff did not touch
+    (SCOPED_OUT, scoped_out: true) appear in the record, not as absence."""
+    monkeypatch.chdir(tmp_path)
+    _write(tmp_path, {
+        "modes": {"quick": ["a"], "slow": ["a", "b"]},
+        "gates": [{"id": "a", "command": PASS},
+                  {"id": "b", "command": PASS, "paths": ["docs/**"]}],
+    })
+    assert gates.main(["--json", "--mode", "quick"]) == 0
+    import json as _json
+    records = {r["gate"]: r for r in _json.loads(capsys.readouterr().out)}
+    assert records["a"]["outcome"] == "PASS"
+    assert records["a"]["selected_by"] == "mode:quick"
+    assert records["b"]["outcome"] == "NOT_SELECTED"
+    assert records["b"]["scoped_out"] is False
+    assert records["b"]["blocking"] is False
+    # path scoping (--base against a commit touching nothing)
+    subprocess.run(["git", "init", "-q"], check=True)
+    subprocess.run(["git", "commit", "--allow-empty", "-q", "-m", "empty"],
+                   check=True, env={**os.environ, "GIT_AUTHOR_NAME": "t",
+                                    "GIT_AUTHOR_EMAIL": "t@t",
+                                    "GIT_COMMITTER_NAME": "t",
+                                    "GIT_COMMITTER_EMAIL": "t@t"})
+    assert gates.main(["--json", "--base", "HEAD"]) == 0
+    records = {r["gate"]: r for r in _json.loads(capsys.readouterr().out)}
+    # a has no paths -> always runs; b is path-scoped and nothing matched
+    assert records["a"]["outcome"] == "PASS"
+    assert records["b"]["outcome"] == "SCOPED_OUT"
+    assert records["b"]["scoped_out"] is True
+    assert records["b"]["selected_by"] == "base:HEAD"
+
+
+@pytest.mark.parametrize("selector", [
+    [], ["--mode", "quick"], ["--every-gate"], ["--gate", "notes"],
+])
+def test_json_stdout_is_pure_for_every_selector(tmp_path, capsys, monkeypatch, selector):
+    """D26: with --json, stdout is exactly one JSON value — no leaks."""
+    import json as _json
+    monkeypatch.chdir(tmp_path)
+    _git_repo(tmp_path)
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text("x\n", encoding="utf-8")  # gives --base something
+    _write(tmp_path, {
+        "modes": {"quick": ["notes"], "all": ["notes", "scope-gate"]},
+        "defaultMode": "quick",
+        "gates": [{"id": "notes", "command": PASS, "paths": ["docs/**"]},
+                  {"id": "scope-gate", "command": PASS, "paths": ["other/**"]}],
+    })
+    rc = gates.main(["--json", *selector])
+    assert rc == 0
+    records = _json.loads(capsys.readouterr().out)  # must parse as pure JSON
+    assert records and all("duration_ms" in r for r in records)
+    # --base is its own exclusive selector; its scope line must not leak
+    rc = gates.main(["--json", "--base", "HEAD"])
+    assert rc == 0
+    records = _json.loads(capsys.readouterr().out)
+    assert records
+
+
+def test_unknown_gate_key_rejects_loud(tmp_path, monkeypatch, capsys):
+    """D29: "enable": false is a typo'd park that silently parks nothing."""
+    monkeypatch.chdir(tmp_path)
+    _write(tmp_path, {"gates": [{"id": "a", "command": PASS, "enable": False}]})
+    assert gates.main([]) == 2
+    assert "unknown key(s): enable" in capsys.readouterr().err
+
+
+def test_unknown_top_level_key_rejects_loud(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    _write(tmp_path, {"concurrencyy": 4, "gates": [{"id": "a", "command": PASS}]})
+    assert gates.main([]) == 2
+    assert "unknown top-level key(s): concurrencyy" in capsys.readouterr().err
+
+
+def test_record_writes_history_by_default(tmp_path, monkeypatch):
+    """D29: recording is the default; --no-record opts out."""
+    import json as _json
+    monkeypatch.chdir(tmp_path)
+    _write(tmp_path, {"gates": [{"id": "a", "command": PASS}]})
+    assert gates.main([]) == 0
+    hist = tmp_path / ".gov" / "history" / "gates.jsonl"
+    lines = hist.read_text(encoding="utf-8").strip().splitlines()
+    assert len(lines) == 1
+    assert _json.loads(lines[0])["gates"][0]["gate"] == "a"
+    assert gates.main(["--no-record"]) == 0
+    assert len(hist.read_text(encoding="utf-8").strip().splitlines()) == 1  # unchanged
+
+
+def test_caller_tag_recorded_when_given(tmp_path, monkeypatch):
+    """#120/D42: --tag / GOV_CALLER land as caller in gates.jsonl; absent
+    keeps the record byte-shaped exactly as before (no caller key)."""
+    import json as _json
+    monkeypatch.chdir(tmp_path)
+    _write(tmp_path, {"gates": [{"id": "a", "command": PASS}]})
+    assert gates.main([]) == 0
+    assert gates.main(["--tag", "subagent-3"]) == 0
+    monkeypatch.setenv("GOV_CALLER", "supervisor")
+    assert gates.main([]) == 0
+    assert gates.main(["--tag", "flag-wins"]) == 0
+    monkeypatch.setenv("GOV_CALLER", "   ")  # whitespace-only = absent
+    assert gates.main([]) == 0
+    hist = tmp_path / ".gov" / "history" / "gates.jsonl"
+    recs = [_json.loads(l) for l in hist.read_text(encoding="utf-8").splitlines()]
+    assert len(recs) == 5
+    assert "caller" not in recs[0]            # untagged: anonymous, as before
+    assert recs[1]["caller"] == "subagent-3"  # --tag
+    assert recs[2]["caller"] == "supervisor"  # GOV_CALLER fallback
+    assert recs[3]["caller"] == "flag-wins"   # --tag wins over env
+    assert "caller" not in recs[4]            # whitespace env = absent
+
+
+def test_cost_recorded_alongside_caller(tmp_path, monkeypatch):
+    """#126/D43: --cost / $GOV_COST land as a cost object on the run line,
+    coexisting with D42's caller key; absent = record shape unchanged."""
+    import json as _json
+    monkeypatch.chdir(tmp_path)
+    _write(tmp_path, {"gates": [{"id": "a", "command": PASS}]})
+    assert gates.main(["--tag", "bridge", "--cost", "tokens=1200,calls=4"]) == 0
+    monkeypatch.setenv("GOV_COST", "tokens=10.5")
+    assert gates.main([]) == 0  # env fallback, no flag
+    monkeypatch.delenv("GOV_COST")
+    assert gates.main([]) == 0
+    recs = [_json.loads(l)
+            for l in (tmp_path / ".gov/history/gates.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert recs[0]["cost"] == {"tokens": 1200, "calls": 4}
+    assert recs[0]["caller"] == "bridge"  # one line carries both dimensions
+    assert recs[1]["cost"] == {"tokens": 10.5}
+    assert "cost" not in recs[2]  # unreported runs: pre-#126 shape
+
+
+def test_cost_malformed_fails_loud_before_any_gate(tmp_path, monkeypatch, capsys):
+    """#126/D43: bad cost input exits 2 naming the fragment — and a run
+    that would otherwise be green must not run, so nothing lands uncosted."""
+    monkeypatch.chdir(tmp_path)
+    _write(tmp_path, {"gates": [{"id": "a", "command": PASS}]})
+    monkeypatch.setenv("GOV_COST", "tokens=lots")
+    assert gates.main([]) == 2
+    assert "tokens=lots" in capsys.readouterr().err
+    monkeypatch.delenv("GOV_COST")
+    assert gates.main(["--cost", "calls"]) == 2
+    assert "unit=value" in capsys.readouterr().err
+    assert gates.main(["--cost", "tokens=-1"]) == 2
+    hist = tmp_path / ".gov/history/gates.jsonl"
+    assert not hist.exists(), "a rejected run recorded nothing"
+
+def _git_repo(tmp_path: Path) -> None:
+    for cmd in (
+        ["git", "init", "-q", "."],
+        ["git", "config", "user.email", "t@t"],
+        ["git", "config", "user.name", "t"],
+    ):
+        subprocess.run(cmd, cwd=tmp_path, check=True)
+    (tmp_path / "seed.txt").write_text("seed\n", encoding="utf-8")
+    subprocess.run(["git", "add", "-A"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "-c", "commit.gpgsign=false", "commit", "-qm", "init"],
+                   cwd=tmp_path, check=True)
+
+
+def test_config_outside_seal_refused_in_governed_repo(tmp_path, monkeypatch, capsys):
+    """N6: --config pointing outside the sealed set opts out of everything
+    the seal verified — in a governed repository that refuses, naming the
+    ritual flag."""
+    (tmp_path / ".gov").mkdir(parents=True)
+    (tmp_path / ".gov" / "rules.md").write_text("# rules\n", encoding="utf-8")
+    (tmp_path / "gates.json").write_text('{"gates": [], "modes": {}}',
+                                         encoding="utf-8")
+    (tmp_path / "evil.json").write_text(json.dumps({
+        "modes": {"all": ["pwn"]},
+        "gates": [{"id": "pwn", "command": ["touch", "pwned-flag"]}],
+    }), encoding="utf-8")
+    from gov import verify_plane as vp
+    vp.baseline(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(SystemExit) as exc:
+        gates.main(["--config", "evil.json"])
+    assert exc.value.code == 1
+    assert "--allow-unsealed-config" in capsys.readouterr().err
+    assert not (tmp_path / "pwned-flag").exists()
+
+
+def test_config_outside_seal_allowed_with_ritual_and_recorded(
+        tmp_path, monkeypatch, capsys):
+    """--allow-unsealed-config is the recorded ritual: the run proceeds
+    and the history line names the config it executed."""
+    (tmp_path / ".gov").mkdir(parents=True)
+    (tmp_path / ".gov" / "rules.md").write_text("# rules\n", encoding="utf-8")
+    (tmp_path / "gates.json").write_text('{"gates": [], "modes": {}}',
+                                         encoding="utf-8")
+    (tmp_path / "evil.json").write_text(json.dumps({
+        "modes": {"all": ["ok"]},
+        "gates": [{"id": "ok", "command": ["true"]}],
+    }), encoding="utf-8")
+    from gov import verify_plane as vp
+    vp.baseline(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    rc = gates.main(["--config", "evil.json",
+                "--allow-unsealed-config", "--no-record"])
+    assert rc == 0
+    out = capsys.readouterr().err
+    assert "--allow-unsealed-config" not in out  # not a refusal this time
+
+
+def test_stripped_constitution_still_drifts(tmp_path, monkeypatch):
+    """N7: stripping the constitution AND the seal does not reclassify a
+    governed repository as 'never adopted' — the surviving plane
+    artifacts (.gov/manifest.json) keep it in drift."""
+    from gov import verify_plane as vp
+    (tmp_path / ".gov").mkdir(parents=True)
+    (tmp_path / ".gov" / "rules.md").write_text("# rules\n", encoding="utf-8")
+    (tmp_path / "gates.json").write_text("{}", encoding="utf-8")
+    (tmp_path / ".gov" / "manifest.json").write_text("{}", encoding="utf-8")
+    vp.baseline(tmp_path)
+    (tmp_path / ".gov" / "rules.md").unlink()
+    (tmp_path / ".gov" / "plane-seal.json").unlink()
+    drift = vp.violations(tmp_path)
+    assert drift and "seal is GONE" in drift[0]
+
+
+def test_unparseable_config_refuses_as_plane_when_drifted(tmp_path, monkeypatch, capsys):
+    """N8 ordering: the seal is judged BEFORE the parse — a drifted
+    config refuses as the plane (1) even when it is also syntactically
+    broken; a clean unsealed scratch keeps its config error (2)."""
+    (tmp_path / ".gov").mkdir(parents=True)
+    (tmp_path / ".gov" / "rules.md").write_text("# rules\n", encoding="utf-8")
+    (tmp_path / "gates.json").write_text("{}", encoding="utf-8")
+    from gov import verify_plane as vp
+    vp.baseline(tmp_path)
+    (tmp_path / "gates.json").write_text("{ not json", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(SystemExit) as exc:
+        gates.main(["--json"])
+    assert exc.value.code == 1
+    assert "drifted from its seal" in capsys.readouterr().err
+
+
+def test_timeout_detail_carries_captured_output(capsys):
+    """A TIMEOUT with recovered partial output names what was seen —
+    'exceeded Nms' alone buried the evidence the runner already had."""
+    gate = gates.Gate(
+        id="slow", timeout_ms=2000,
+        command=[sys.executable, "-c",
+                 "print('partial work line', flush=True); "
+                 "import time; time.sleep(30)"],
+    )
+    assert gates.run_gates([gate], None, 1, False) == 1
+    out = capsys.readouterr().out
+    assert "TIMEOUT slow" in out
+    assert "exceeded 2000ms" in out
+    assert "partial work line" in out
+
+
+# --- N10: the ledgers refuse to be couriered outside the repository ---
+
+def test_history_ledger_symlink_warns_and_writes_nothing(tmp_path, capsys,
+                                                         monkeypatch):
+    """A gates.jsonl symlinked outside must not receive the run record:
+    the run continues (trend data, not evidence), names the refusal on
+    stderr, and the external file gains nothing."""
+    import subprocess as sp
+    outside = tmp_path / "outside.txt"
+    outside.write_text("mine\n", encoding="utf-8")
+    sp.run(["git", "init", "-q", "."], cwd=tmp_path, check=True)
+    # chdir FIRST: the warm-up must not depend on the LIVE repo's seal
+    # state — a mid-flight constitution change would otherwise break this
+    # test from inside the govrail checkout itself.
+    monkeypatch.chdir(tmp_path)
+    assert gates.main([]) == 0 or True  # warm the anchor; may refuse non-repo
+    capsys.readouterr()
+    hist = tmp_path / ".gov" / "history"
+    hist.mkdir(parents=True)
+    record = hist / "gates.jsonl"
+    record.symlink_to(outside)
+    (tmp_path / "gates.json").write_text(json.dumps(
+        {"gates": [{"id": "a", "command": PASS}]}), encoding="utf-8")
+    assert gates.main([]) == 0
+    err = capsys.readouterr().err
+    assert "NOT recorded" in err and "symlink" in err
+    assert outside.read_text(encoding="utf-8") == "mine\n"
+
+
+def test_receipt_ledger_symlink_refuses_the_receipt(tmp_path, monkeypatch,
+                                                    capsys):
+    """A receipts ledger symlinked outside: the receipt is not taken —
+    named on the output, the chain untouched, the external file intact."""
+    import subprocess as sp
+    sp.run(["git", "init", "-q", "."], cwd=tmp_path, check=True)
+    sp.run(["git", "config", "user.email", "t@t"], cwd=tmp_path, check=True)
+    sp.run(["git", "config", "user.name", "t"], cwd=tmp_path, check=True)
+    (tmp_path / "f.txt").write_text("x\n", encoding="utf-8")
+    sp.run(["git", "add", "-A"], cwd=tmp_path, check=True)
+    sp.run(["git", "-c", "commit.gpgsign=false", "commit", "-qm", "i"],
+           cwd=tmp_path, check=True)
+    assert plane.init(tmp_path) == 0
+    outside = tmp_path / "outside.txt"
+    outside.write_text("mine\n", encoding="utf-8")
+    ledger = tmp_path / ".gov" / "history" / "receipts.jsonl"
+    ledger.parent.mkdir(parents=True, exist_ok=True)
+    ledger.symlink_to(outside)
+    monkeypatch.chdir(tmp_path)  # anchor the run to the SCRATCH repo
+    capsys.readouterr()
+    assert cli.main(["run", "--receipt"]) == 0
+    out = capsys.readouterr()
+    assert "receipt: skipped" in out.out + out.err
+    assert "symlink" in out.out + out.err
+    assert outside.read_text(encoding="utf-8") == "mine\n"
+
+
+def test_history_directory_symlink_warns_and_writes_nothing(tmp_path,
+                                                             monkeypatch,
+                                                             capsys):
+    """The directory variant of the ledger escape: `.gov/history` ITSELF
+    linked outside — the final-component check cannot see it, the
+    parent-chain containment does."""
+    import subprocess as sp
+    # N15: the escape target lives OUTSIDE the worktree — git's walk-up
+    # from it finds no repository, which is exactly how the path-derived
+    # anchor stepped aside. The runner's own repo is the boundary now.
+    outside = tmp_path.parent / f"{tmp_path.name}-outside-h2"
+    outside.mkdir()
+    sp.run(["git", "init", "-q", "."], cwd=tmp_path, check=True)
+    assert plane.init(tmp_path) == 0
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".gov" / "history").symlink_to(outside,
+                                               target_is_directory=True)
+    capsys.readouterr()
+    assert gates.main([]) == 0
+    err = capsys.readouterr().err
+    assert "NOT recorded" in err
+    assert ("outside the repository" in err) or ("symlink" in err)
+    assert list(outside.iterdir()) == [], "the external dir gained a file"
+
+
+# --- issue batch: self-explaining failures and GOV_BIN propagation ----
+
+def test_failed_gate_output_is_inlined_in_the_summary(tmp_path, capsys,
+                                                      monkeypatch):
+    """#201: the failing gate's own output IS the diagnosis — it used to
+    be shown only for PASSING gates, forcing a blind re-run."""
+    _write(tmp_path, {"gates": [{"id": "red", "command": [
+        sys.executable, "-c",
+        "import sys; print('the rule is X', file=sys.stderr); "
+        "raise SystemExit(1)"]}]}),
+    monkeypatch.chdir(tmp_path)
+    assert gates.main([]) == 1
+    out = capsys.readouterr().out
+    assert "--- output of red (failed) ---" in out
+    assert "the rule is X" in out
+
+
+def test_missing_gov_resolves_through_gov_bin(tmp_path, monkeypatch, capsys):
+    """#250: the hooks resolve gov for themselves and export GOV_BIN;
+    gate commands naming `gov` inherit the resolution instead of dying
+    MISSING in environments where the entry point is not on PATH."""
+    (tmp_path / "gates.json").write_text(json.dumps(
+        {"gates": [{"id": "a", "command": ["gov", "-c", "pass"]}]}),
+        encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("GOV_BIN", f"{sys.executable}")
+    real_which = shutil.which
+    monkeypatch.setattr("shutil.which",
+                        lambda name: None if name == "gov"
+                        else real_which(name))
+    assert gates.main([]) == 0
+    assert "MISSING" not in capsys.readouterr().out
+
+
+def test_missing_gov_stays_missing_without_gov_bin(tmp_path, monkeypatch,
+                                                   capsys):
+    _write(tmp_path, {"gates": [{"id": "a",
+                                 "command": ["gov", "-c", "pass"]}]})
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("GOV_BIN", raising=False)
+    real_which = shutil.which
+    monkeypatch.setattr("shutil.which",
+                        lambda name: None if name == "gov"
+                        else real_which(name))
+    assert gates.main([]) == 1
+    out = capsys.readouterr().out
+    assert "MISSING" in out and "command not found: gov" in out
+
+
+def test_gate_description_on_the_failure_line(tmp_path, capsys, monkeypatch):
+    """#257: the rule contract in one paragraph, shown where the
+    rejection lands — no source reading required."""
+    _write(tmp_path, {"gates": [{
+        "id": "logging", "description": "L1 no bare console; L2 module logger",
+        "command": FAIL}]})
+    monkeypatch.chdir(tmp_path)
+    assert gates.main([]) == 1
+    out = capsys.readouterr().out
+    assert "— L1 no bare console; L2 module logger" in out
+
+
+def test_gate_description_is_still_schema_checked(tmp_path):
+    _write(tmp_path, {"gates": [{"id": "a", "command": PASS,
+                                 "description": 42}]})
+    with pytest.raises(gates.ConfigError, match="must be a string"):
+        gates.load_config(str(tmp_path / "gates.json"))
+
+
+def test_plane_refusal_is_version_aware(tmp_path, monkeypatch, capsys):
+    """#259: a checkout initialized with an older plane hits the seal
+    refusal the day the mechanism moves — the refusal names both sides
+    instead of assuming the running binary is the newest thing around."""
+    _git_repo(tmp_path)
+    assert plane.init(tmp_path) == 0
+    manifest = tmp_path / ".gov" / "manifest.json"
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    data["version"] = "0.1.2"
+    manifest.write_text(json.dumps(data), encoding="utf-8")
+    gates_file = tmp_path / "gates.json"
+    gates_file.write_text(
+        gates_file.read_text(encoding="utf-8") + " ", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(SystemExit):
+        gates.main([])
+    err = capsys.readouterr().err
+    assert "initialized with govrail 0.1.2" in err
+    assert "you are running" in err
+
+
+def test_failure_summary_quotes_stderr_diagnostic_not_first_stdout_line(
+        capsys):
+    """#341: a gate whose stdout carries per-item status lines and whose
+    blocking diagnostic goes to stderr gets its PROBLEM quoted in the
+    summary — quoting the combined first line named a voided card's
+    story instead of the real cause."""
+    gs = [
+        gates.Gate(id="task", command=[
+            sys.executable, "-c",
+            "print('task: voided T-0001 long story — Work complete'); "
+            "import sys; "
+            "print('task: T-0008: receipt run is not all-green', "
+            "file=sys.stderr); raise SystemExit(1)"]),
+    ]
+    assert gates.run_gates(gs, None, 1, False) == 1
+    out = capsys.readouterr().out
+    summary = out.split("--- summary: 1 blocking failure(s) ---", 1)[1]
+    assert "T-0008: receipt run is not all-green" in summary
+    assert "voided T-0001" not in summary
+
+
+def test_failure_summary_falls_back_to_stdout_when_stderr_silent(capsys):
+    """The check-gate shape: findings on stdout, stderr reserved for
+    fatal config errors. A findings failure quotes the first finding."""
+    gs = [
+        gates.Gate(id="check", command=[
+            sys.executable, "-c",
+            "print('f.js:1: [javascript/syntax] file does not parse'); "
+            "print('gov check: 1 finding(s) (1 blocking), 0 suppressed'); "
+            "raise SystemExit(1)"]),
+    ]
+    assert gates.run_gates(gs, None, 1, False) == 1
+    out = capsys.readouterr().out
+    summary = out.split("--- summary: 1 blocking failure(s) ---", 1)[1]
+    assert "check: f.js:1: [javascript/syntax]" in summary
+
+
+def test_summary_line_names_the_selecting_mechanism(capsys):
+    """#355: `8 gates: 8 pass` under --base vs `12 gates: 12 pass` bare are
+    both right and read as a contradiction; the bracket says which
+    mechanism counted."""
+    gs = [gates.Gate(id="a", command=PASS), gates.Gate(id="b", command=PASS)]
+    assert gates.run_gates(gs, ["a"], 1, False, selected_by="mode:quick") == 0
+    out = capsys.readouterr().out
+    assert "1 gates: 1 pass  [mode: quick]" in out
+    assert gates.run_gates(gs, ["a"], 1, False, selected_by="base:HEAD~1",
+                           scoped_out=["b"]) == 0
+    out = capsys.readouterr().out
+    assert "path-scoped vs HEAD~1, 1 gate(s) out of scope" in out
+    assert gates.run_gates(gs, None, 1, False, selected_by="every-gate") == 0
+    assert "[every enabled gate]" in capsys.readouterr().out

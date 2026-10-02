@@ -1,0 +1,55 @@
+import os
+from urllib.parse import urlsplit
+
+
+def _get_base_url() -> str:
+    configured_url = os.getenv(
+        "SOLCAST_API_BASE_URL", "https://api.solcast.com.au"
+    ).rstrip("/")
+    parsed_url = urlsplit(configured_url)
+    hostname = parsed_url.hostname
+    if (
+        parsed_url.scheme not in {"http", "https"}
+        or hostname is None
+        or "*" in hostname
+        or parsed_url.query
+        or parsed_url.fragment
+    ):
+        raise ValueError(
+            "SOLCAST_API_BASE_URL must be an absolute HTTP(S) URL without a "
+            "wildcard hostname, query, or fragment."
+        )
+
+    return configured_url
+
+
+base_url = _get_base_url()
+live_radiation_and_weather = "data/live/radiation_and_weather"
+live_rooftop_pv_power = "data/live/rooftop_pv_power"
+live_advanced_pv_power = "data/live/advanced_pv_power"
+live_grid_aggregations = "data/live/aggregations"
+live_soiling_kimber = "data/live/soiling/kimber"
+live_soiling_hsu = "data/live/soiling/hsu"
+historic_radiation_and_weather = "data/historic/radiation_and_weather"
+historic_rooftop_pv_power = "data/historic/rooftop_pv_power"
+historic_advanced_pv_power = "data/historic/advanced_pv_power"
+historic_soiling_kimber = "data/historic/soiling/kimber"
+historic_soiling_hsu = "data/historic/soiling/hsu"
+forecast_radiation_and_weather = "data/forecast/radiation_and_weather"
+forecast_rooftop_pv_power = "data/forecast/rooftop_pv_power"
+forecast_advanced_pv_power = "data/forecast/advanced_pv_power"
+forecast_premium_pv_power = "data/forecast/premium_pv_power"
+forecast_premium_wind_power = "data/forecast/premium_wind_power"
+forecast_grid_aggregations = "data/forecast/aggregations"
+forecast_soiling_kimber = "data/forecast/soiling/kimber"
+forecast_soiling_hsu = "data/forecast/soiling/hsu"
+tmy_radiation_and_weather = "data/tmy/radiation_and_weather"
+tmy_rooftop_pv_power = "data/tmy/rooftop_pv_power"
+pv_power_site = "resources/pv_power_site"
+pv_power_sites = "resources/pv_power_sites"
+pv_power_site_measurements = "resources/pv_power_site_measurements"
+pv_power_site_measurements_sub_units = "resources/pv_power_site_measurements/sub_units"
+wind_power_site_measurements = "resources/wind_power_site_measurements"
+wind_power_site_measurements_sub_units = (
+    "resources/wind_power_site_measurements/sub_units"
+)

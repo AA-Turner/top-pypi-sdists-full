@@ -1,0 +1,481 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Protocol ownership verification tests (INFRA-016).
+
+These tests verify that omnibase_infra does not declare new public protocol
+contracts that should live in omnibase_spi. Infra is an *implementer* of
+SPI protocols, not a *declarer* of new contract-surface protocols.
+
+Infra MAY declare narrow, implementation-specific protocols for internal use
+(DI boundaries, mixin host contracts, handler interfaces). These are tracked
+in a known allowlist and must be explicitly reviewed when adding new ones.
+
+If a test fails, it means a new Protocol class was added to omnibase_infra
+without updating the allowlist. The developer must decide:
+  1. Move the protocol to omnibase_spi (if it is a cross-repo contract)
+  2. Add it to the allowlist here (if it is infra-internal)
+
+Related:
+    - OMN-757: INFRA-016: Protocol ownership verification
+    - omnibase_spi.protocols: Canonical protocol definitions
+
+.. versionadded:: 0.11.0
+"""
+
+from __future__ import annotations
+
+import ast
+from pathlib import Path
+
+import pytest
+
+# Resolve repo root from test file location
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+_INFRA_SRC = _REPO_ROOT / "src" / "omnibase_infra"
+
+# Known infra-internal protocols that are NOT violations.
+# Each entry maps protocol name to its relative file path (from src/omnibase_infra/).
+# When adding a new protocol, you MUST add it here with a justification comment.
+#
+# Categories:
+#   [DI]     - Dependency injection boundary (narrow interface for constructor injection)
+#   [MIXIN]  - Mixin host contract (defines what the mixin expects from its host)
+#   [NODE]   - Node-internal protocol (handler/effect interface within a single node)
+#   [RUNTIME]- Runtime-internal protocol (kernel/scheduler/lifecycle internals)
+#   [OBS]    - Observability protocol (metrics/health check interface)
+KNOWN_INFRA_PROTOCOLS: dict[str, str] = {
+    # === protocols/ package (infra's own protocol contracts) ===
+    # These are infra-level abstractions over SPI, providing domain-specific
+    # contracts for the infra runtime. They bridge SPI protocols to infra internals.
+    "ProtocolCapabilityProjection": "protocols/protocol_capability_projection.py",
+    "ProtocolCapabilityQuery": "protocols/protocol_capability_query.py",
+    "ProtocolContainerAware": "protocols/protocol_container_aware.py",
+    # ProtocolDispatchEngine relocated to omnibase_spi.protocols.runtime (OMN-12549).
+    "ProtocolEventBusLike": "protocols/protocol_event_bus_like.py",
+    "ProtocolIntrospectionEventBus": "protocols/protocol_introspection_event_bus.py",  # [RUNTIME] OMN-16979 consumer-owned Pattern B publish/subscribe contract plus envelope publishing, kept infra-local because it uses infra event-header and receipt models.
+    "ProtocolConfirmationStrategy": "protocols/protocol_confirmation_strategy.py",  # [RUNTIME] OMN-15861 durability verdict layer; decides whether a publish receipt authorises a durable claim. Infra-local because it is bound to the infra bus/transport surface (ModelPublishReceipt, EnumInfraTransportType), not a cross-repo contract
+    "ProtocolReadbackSource": "protocols/protocol_readback_source.py",  # [RUNTIME] OMN-15861 fact-reporting half of the confirmation seam; one authoritative surface answering "is the record at this coordinate there?"
+    "ProtocolInmemoryHistorySource": "event_bus/confirmation/readback_source_inmemory.py",  # [RUNTIME] OMN-15861 one-method narrowing of the in-memory bus so the zero-infra readback source does not depend on the whole bus surface
+    "ProtocolSeekableConsumer": "event_bus/confirmation/readback_source_kafka.py",  # [RUNTIME] OMN-15861 five-call narrowing of AIOKafkaConsumer (assign/seek/end_offsets/getone) so the coordinate readback loop is testable without a broker
+    "ProtocolEventProjector": "protocols/protocol_event_projector.py",
+    "ProtocolCloudLedgerTransport": "gateway/client/cloud_ledger_reader.py",  # [DI] OMN-17205 two-method seam (OAuth2 client_credentials POST + one GET) for the operator cloud-ledger read. Declared beside its only consumer rather than added to ProtocolGatewayTransport: that protocol is runtime_checkable and is satisfied structurally by every existing in-memory fake, so widening it would silently un-satisfy all of them. Infra-local, not cross-repo: it is bound to this repo's ~/.onex credential store and httpx adapter. Same precedent as the ProtocolInmemoryHistorySource / ProtocolSeekableConsumer entries below, which also live beside their consumer
+    "ProtocolWhoamiTransport": "gateway/client/gateway_identity_verifier.py",  # [DI] OMN-17028 one-method seam (a single authenticated GET) for the credential-identity check `onex auth status` runs. Declared beside its only consumer for the same reason as ProtocolCloudLedgerTransport above -- ProtocolGatewayTransport is runtime_checkable and structurally satisfied by every existing in-memory fake, so widening it would silently un-satisfy all of them. Infra-local, not cross-repo: bound to this repo's ~/.onex credential store and httpx adapter
+    "ProtocolIdempotencyStore": "protocols/protocol_idempotency_store.py",
+    "ProtocolLedgerSink": "protocols/protocol_ledger_sink.py",
+    "ProtocolMessageDispatcher": "protocols/protocol_message_dispatcher.py",
+    "ProtocolMessageTypeRegistry": "protocols/protocol_message_type_registry.py",
+    "ProtocolNodeHeartbeat": "protocols/protocol_node_heartbeat.py",
+    "ProtocolNodeIntrospection": "protocols/protocol_node_introspection.py",
+    "ProtocolPayloadRegistry": "protocols/protocol_payload_registry.py",
+    "ProtocolPluginCompute": "protocols/protocol_plugin_compute.py",
+    "ProtocolProjectorSchemaValidator": "protocols/protocol_projector_schema_validator.py",
+    "ProtocolRegistryMetrics": "protocols/protocol_registry_metrics.py",
+    "ProtocolSnapshotPublisher": "protocols/protocol_snapshot_publisher.py",
+    "ProtocolSnapshotStore": "protocols/protocol_snapshot_store.py",
+    "ProtocolAutoWiringManifestLike": "protocols/protocol_auto_wiring_manifest_like.py",  # [RUNTIME] OMN-8623 manifest shape for health monitor DI
+    "ProtocolDispatchResultApplier": "protocols/protocol_dispatch_result_applier.py",  # [RUNTIME] OMN-9550 auto-wired handler output application boundary
+    "ProtocolKafkaAdminLike": "protocols/protocol_kafka_admin_like.py",  # [RUNTIME] OMN-8623 Kafka admin client boundary for health monitor DI
+    "ProtocolRejoinableConsumer": "protocols/protocol_rejoinable_consumer.py",  # [RUNTIME] OMN-18640 the consumer surface the coordinator-loss rejoin supervisor measures and rebuilds
+    "ProtocolConsumerSyncSource": "protocols/protocol_consumer_sync_source.py",  # [RUNTIME] OMN-18640 the event-bus surface the consumer_sync readiness dimension reads. Infra-local, not spi: the health monitor is handed a ProtocolEventBusLike and must ask a transport whether it can answer at all, rather than isinstance-ing one concrete Kafka class
+    "ProtocolDispatchDeadlineSource": "protocols/protocol_dispatch_deadline_source.py",  # [RUNTIME] OMN-19355 the event-bus surface the dispatch_deadline health dimension reads (abandoned consume-loop dispatches). Infra-local, not spi, for the same reason as ProtocolConsumerSyncSource: the monitor asks a transport whether it can answer rather than isinstance-ing one Kafka class
+    "ProtocolConsumeConcurrencyDeclarer": "protocols/protocol_consume_concurrency_declarer.py",  # [RUNTIME] OMN-18852 structural bound-declaration seam a bus exposes before subscribe starts its consume loop. Infra-local: widening ProtocolEventBusSubscriber (omnibase_core) for a transport-local concurrency bound would be a third-repo change, and the distinctive method name keeps isinstance a genuine capability test rather than matching every bus
+    "ProtocolDlqAdminTransport": "protocols/protocol_dlq_admin_transport.py",  # [NODE] OMN-16769 read-only DLQ offset surface for the quarantine-sink monitor. Five methods, ALL reads (list_topics/partitions_for_topic/beginning_offsets/end_offsets/offsets_for_times) — the narrowness IS the safety property: no produce/commit/topic-mutation path exists on it, so the scheduled probe is read-only by construction rather than by discipline. Infra-local, not spi: it is a node-internal test seam bound to this monitor, not a cross-repo contract. Same prior art as ProtocolSeekableConsumer above — narrow the client so the logic is testable without a broker
+    "ProtocolClusterMetadata": "protocols/protocol_cluster_metadata.py",  # [NODE] OMN-16769 the two ClusterMetadata methods (topics/partitions_for_topic) the DLQ offset reader calls. Declared structurally so the metadata snapshot is not typed as Any (the repo's Any-type gate) — aiokafka ships no stubs for this class
+    "ProtocolTopicPartition": "protocols/protocol_topic_partition.py",  # [NODE] OMN-16769 canonical infra-local topic/partition shape used by read-only Kafka surfaces that avoid importing concrete aiokafka classes at module import time.
+    "ProtocolTopicRegistry": "protocols/protocol_topic_registry.py",  # [DI] OMN-5839
+    "ProtocolValidationLedgerRepository": "protocols/protocol_validation_ledger_repository.py",
+    "ProtocolPatternBBrokerTransport": "protocols/protocol_pattern_b_broker_transport.py",  # [RUNTIME] OMN-10204 Pattern B broker transport boundary
+    "ProtocolTopicProvisioner": "protocols/protocol_topic_provisioner.py",  # [RUNTIME] OMN-13237 per-contract boot interleave provisioner boundary (provision+readiness); fake-swappable for the no-global-gather regression test
+    "DispatchTarget": "runtime/intent_effects/intent_effect_dispatch_bridge.py",  # [RUNTIME] OMN-14516 local bridge target for contract-derived projection intent dispatch
+    "CoreTransport": "runtime/core_runtime/composition.py",  # [DI] OMN-14758 S6 combined consumer+producer transport face injected into the ONE core RuntimeDispatch
+    "DefBTarget": "runtime/core_runtime/routing_map_builder.py",  # [DI] OMN-14758 S6 def-B handler target (handle(request)->response) returned by the injected handler resolver
+    "ProtocolCutoverJournalRepository": "migration/cutover/protocols/protocol_cutover_journal_repository.py",  # [DI] OMN-15420 cutover journal repository boundary injected into the cutover coordinator
+    # === [DI] Dependency injection boundaries ===
+    # ProtocolConsulClient removed in OMN-3540 (Consul removal)
+    "ProtocolEffectIdempotencyStore": "nodes/node_registry_effect/protocols/protocol_effect_idempotency_store.py",
+    "ProtocolPostgresAdapter": "nodes/node_registry_effect/protocols/protocol_postgres_adapter.py",
+    "ProtocolToolExecutor": "handlers/mcp/protocols.py",
+    "ProtocolLlmHandler": "nodes/node_llm_inference_effect/services/protocol_llm_handler.py",
+    "ProtocolContractPublisherSource": "services/contract_publisher/sources/protocol.py",
+    "ProtocolInjectionEffectivenessReader": "services/observability/injection_effectiveness/protocol_reader.py",
+    "ProtocolTopicCatalogService": "services/protocol_topic_catalog_service.py",
+    "ProtocolManifestPersistence": "services/corpus_capture.py",
+    "ProtocolSessionAggregator": "services/session/protocol_session_aggregator.py",
+    "RowLookup": "services/cost_api/handlers.py",  # [DI] OMN-10334 narrow row adapter for asyncpg.Record/test rows
+    # [DI] Publisher callable boundary for HandlerBaselinesBatchCompute (OMN-3039)
+    "ProtocolPublisher": "nodes/node_baselines_batch_compute/handlers/handler_baselines_batch_compute.py",
+    # [NODE] OMN-19085 one-method read seam (undrained count per topic) the DLQ
+    # replay handler asks before it starts a topic's consumer, so a trigger with
+    # nothing to drain never joins the replay group. Declared beside its only
+    # consumer; DlqGroupBacklogProbe in engine_dlq_replay is the one runtime
+    # implementation and unit tests supply a fake. Infra-local, not spi: bound to
+    # this node's onex-dlq-replay group, not a cross-repo contract. Same prior art
+    # as ProtocolDlqAdminTransport above: narrow the client so the logic is
+    # testable without a broker.
+    "ProtocolDlqBacklogProbe": "nodes/node_dlq_replay_effect/handlers/handler_dlq_replay.py",
+    # [DI] OMN-7404 narrow duck-typed classifier interface injected into RoutingGate
+    # (predict_proba(features) -> float); no ML-library dependency, no Task 7
+    # RoutingClassifier artifact required to exist.
+    "ProtocolRoutingClassifier": "learning/routing/gate.py",
+    # === [MIXIN] Mixin host contracts ===
+    "ProtocolCircuitBreakerAware": "mixins/protocol_circuit_breaker_aware.py",
+    "ProtocolKafkaDlqHost": "event_bus/mixin_kafka_dlq.py",
+    "ProtocolKafkaBroadcastHost": "event_bus/mixin_kafka_broadcast.py",
+    "ProtocolProjectorNotificationContext": "runtime/mixins/mixin_projector_notification_publishing.py",
+    "ProtocolProjectorContext": "runtime/mixins/mixin_projector_sql_operations.py",
+    # === [NODE] Node-internal protocols ===
+    "ProtocolArchitectureRule": "nodes/node_architecture_validator/protocols/protocol_architecture_rule.py",
+    "ProtocolRegistrationIntent": "nodes/node_registration_orchestrator/protocols.py",
+    "ProtocolReducer": "nodes/node_registration_orchestrator/protocols.py",
+    "ProtocolEffect": "nodes/node_registration_orchestrator/protocols.py",
+    "ProtocolPartialRetryRequest": "nodes/node_registry_effect/handlers/handler_partial_retry.py",
+    "ProtocolRegistrationPersistence": "nodes/node_registration_storage_effect/protocols/protocol_registration_persistence.py",
+    "ProtocolDiscoveryOperations": "nodes/node_service_discovery_effect/protocols/protocol_discovery_operations.py",
+    # [NODE] OMN-19927 the read port of node_merge_provenance_observe_effect:
+    # merge-group runs for a sha and the jobs of a run's latest attempt.
+    # HandlerMergeGroupRunReadGithub is the one runtime binding and unit tests
+    # supply a fake. Infra-local, not spi: it reads THIS repository's Actions
+    # runs for its own CI test selection, not a cross-repo contract.
+    "ProtocolMergeGroupRunReader": "nodes/node_merge_provenance_observe_effect/protocols/protocol_merge_group_run_reader.py",
+    "ProtocolLedgerPersistence": "nodes/node_ledger_write_effect/protocols/protocol_ledger_persistence.py",
+    "ProtocolGatewaySessionStore": "nodes/node_gateway_attach_effect/services/protocol_gateway_session_store.py",  # [NODE] OMN-15750 DI seam so the attach session-store backend (in-process for this slice, Valkey follow-on) is swappable without touching handlers
+    "ProtocolGatewayTransport": "protocols/protocol_gateway_transport.py",  # [NODE] OMN-15922 POST seam for the onex-auth gateway client; infra-internal (not a cross-repo contract, so not spi) and load-bearing as a seam because it is what lets the whole grant -> attach -> re-attach cycle run against an in-memory fake with no socket. Deliberately separate from ProtocolHttpClient: that one is runtime_checkable and already satisfied structurally by adapters implementing exactly get(), so adding a method would silently un-satisfy every one of them
+    "ProtocolSeedSecretStore": "nodes/node_secret_seed_effect/handlers/handler_secret_seed.py",  # [NODE] OMN-16897 the slice of spi's ProtocolSecretStore the headless seeding handler may use. Deliberately NARROWER than the spi protocol, and the narrowness IS the safety property: get_secret is ABSENT, so a handler whose whole design constraint is "never read or emit a secret value" cannot call it even by mistake — the guarantee is enforced by the type rather than promised in a docstring. Same shape and rationale as ProtocolDlqAdminTransport above. Infra-local, not spi: it is a node-internal capability restriction on an EXISTING cross-repo contract (InfisicalSecretStore satisfies both structurally), not a new contract of its own — widening spi with a read-less variant would push a node's internal safety rail into a shared surface
+    # [NODE] DI boundaries for NodeSetupOrchestrator — narrow effect interfaces injected via constructor
+    "ProtocolPreflightEffect": "nodes/node_setup_orchestrator/protocols/protocol_preflight_effect.py",
+    "ProtocolProvisionEffect": "nodes/node_setup_orchestrator/protocols/protocol_provision_effect.py",
+    "ProtocolInfisicalEffect": "nodes/node_setup_orchestrator/protocols/protocol_infisical_effect.py",
+    "ProtocolValidateEffect": "nodes/node_setup_orchestrator/protocols/protocol_validate_effect.py",
+    # === [RUNTIME] Runtime-internal protocols ===
+    "ProtocolContractDescriptor": "runtime/protocol_contract_descriptor.py",
+    "ProtocolContractSource": "runtime/protocol_contract_source.py",
+    # [RUNTIME] OMN-8550: canonical location pending resolution. Currently present in omnibase_infra.runtime.protocol_domain_plugin.
+    # See OMN-8550 for SPI migration status. Follow-up tracked separately.
+    "ProtocolDomainPlugin": "runtime/protocol_domain_plugin.py",
+    "ProtocolHandlerPluginLoader": "runtime/protocol_handler_plugin_loader.py",
+    "ProtocolHandlerDiscovery": "runtime/protocol_handler_discovery.py",
+    "ProtocolPolicy": "runtime/protocol_policy.py",
+    "ProtocolProjectionEffect": "runtime/protocol_projection_effect.py",
+    "ProtocolContractEventCallbacks": "runtime/kafka_contract_source.py",
+    "ProtocolIntentEffect": "runtime/service_intent_executor.py",
+    "ProtocolIntentPayload": "runtime/protocols/protocol_intent_payload.py",
+    "ProtocolRuntimeScheduler": "runtime/protocols/protocol_runtime_scheduler.py",
+    "ProtocolContractScopedDispatchEngine": "runtime/protocols/protocol_contract_scoped_dispatch_engine.py",  # [RUNTIME] OMN-15474 exact contract-owned dispatcher scope capability
+    "ProtocolActionAuthorizationClaimPort": "runtime/action_authorization_claim/protocol.py",  # [DI] OMN-17486 restricted nonce-claim port injected into the local Unix RPC boundary so request framing and peer authentication can be tested without a database connection.
+    "ProtocolSecretResolver": "runtime/config_discovery/models/protocol_secret_resolver.py",
+    "ProtocolSecretResolverMetrics": "runtime/secret_resolver.py",
+    "ProtocolDbTableCatalogConnection": "runtime/auto_wiring/protocol_db_table_catalog_connection.py",  # [RUNTIME] OMN-15418 narrow asyncpg catalog-query boundary for typed table ownership validation
+    "ProtocolProjectionTenantBindingResolver": "runtime/projection_tenant_authority.py",  # [DI] OMN-15421 signer-scope-to-tenant authority binding injected at the verification boundary
+    "ProtocolApplicationDatabaseRoleAttributeState": "validation/application_database_acl.py",  # [DI] OMN-15355 shared read-only role-attribute shape for generated ACL policy and observed catalog state
+    "ProtocolHandleable": "runtime/auto_wiring/handler_wiring.py",  # [RUNTIME] OMN-7656 auto-wiring dispatch
+    "ProtocolDelegationDispatchPort": "runtime/protocols/protocol_delegation_dispatch_port.py",  # [RUNTIME] OMN-E0 delegation dispatch port interface — infra-internal, narrows dispatch surface for handler injection
+    # OMN-13445: the 5 ProtocolLocalRuntime* protocols relocated to
+    # omnibase_core.protocols.runtime (Phase 1b, OMN-13444 / core #1296). Infra's
+    # copies were deleted, so they are no longer infra-owned protocols.
+    # === [OBS] Observability protocols ===
+    "ProtocolEmissionCountSource": "observability/wiring_health/protocol_emission_count_source.py",
+    "ProtocolConsumptionCountSource": "observability/wiring_health/protocol_consumption_count_source.py",
+    "ProtocolCircuitBreakerFailureRecorder": "utils/util_db_error_context.py",
+    # === [NODE] Chunking gateway protocols ===
+    # [NODE] DI boundary for DefaultEnvelopeChunker — factory callable injected via constructor (OMN-4145)
+    "EnvelopeFactory": "gateways/chunking/default_chunker.py",
+    # === [NODE] Probe-internal protocols ===
+    # [NODE] DI boundary for verification executor — structural spec interface (OMN-5261)
+    "VerificationSpec": "probes/protocol_verification_spec.py",
+    # [DI] OMN-18418 narrow structural type for the aiokafka admin client's
+    # describe_consumer_groups() return shape, so the lane probe can read
+    # `.groups` without importing an aiokafka response class. Deliberately NOT an
+    # spi contract: it describes a third-party library's response, not anything
+    # this fleet publishes or another repo implements. Same shape as the other
+    # library/row adapters already allowlisted here (RowLookup, CoreTransport).
+    # Added by omnibase_infra#3613, which did not update this allowlist and left
+    # dev red; recorded here rather than routed around (OMN-17296 lane).
+    "ConsumerGroupDescribeResponse": "backends/backend_probe.py",
+    # === [CLI] Drift-guard verdict contract ===
+    # [DI] OMN-18814 structural contract for one omnimarket drift-guard verdict.
+    # The guard returns more than one KIND of verdict (the OMN-17255
+    # off-registry check, the OMN-18814 ancestor-lag stamp) and the number of
+    # kinds is not fixed, so callers are annotated by what they need rather
+    # than by a union that every new kind would have to be added to.
+    # Deliberately NOT an spi contract: it describes how this CLI renders its
+    # own verdicts to stderr and to a receipt, and nothing outside this
+    # repository implements or consumes it.
+    # Added by omnibase_infra#3827, which did not update this allowlist and
+    # left dev red for every open pull request; recorded here rather than
+    # routed around (OMN-18833 lane).
+    "ProtocolDriftGuardVerdict": "cli/protocol_drift_guard_verdict.py",
+    "ProtocolExecutionBudget": "cli/protocol_execution_budget.py",  # [DI] OMN-19407 reads a task class's execution ceiling and delivery margin.
+    "ProtocolSelectionFallback": "cli/protocol_selection_fallback.py",  # [DI] OMN-19407 reads the fallback class for an unclaimed prompt.
+    "ProtocolTaskClassAuthority": "cli/protocol_task_class_authority.py",  # [DI] OMN-19407 reads the task-class authority contract.
+    "ProtocolTaskTypeResolution": "cli/protocol_task_type_resolution.py",  # [DI] OMN-19407 reads a resolved task type and decision rationale.
+    # === [NODE] Bifrost shadow policy protocol ===
+    # [NODE] DI boundary for shadow comparison policy — pluggable shadow policy interface (OMN-5570)
+    "ProtocolShadowPolicy": "nodes/node_llm_inference_effect/handlers/bifrost/handler_bifrost_gateway.py",
+    # === [NODE] Chain learning DI boundaries ===
+    # [NODE] DI boundary for chain retrieval effect — embedding client interface (chain-learning)
+    "ProtocolChainEmbeddingClient": "nodes/node_chain_orchestrator/models/protocol_chain_embedding_client.py",
+    # [NODE] DI boundary for chain retrieval/store effects — vector store client interface (chain-learning)
+    "ProtocolChainVectorClient": "nodes/node_chain_orchestrator/models/protocol_chain_vector_client.py",
+    # [NODE] DI boundary for A2A transport — narrows the SDK surface so the handler
+    # can be unit-tested without driving the real a2a-sdk client (OMN-9634).
+    "ProtocolA2ATransport": "nodes/node_remote_agent_invoke_effect/handlers/handler_a2a_task.py",
+    # [NODE] DI boundary for onboarding input collection — narrows interactive
+    # input surface so the handler can be tested with a fake adapter (OMN-10780).
+    "ProtocolInputAdapter": "onboarding/protocol_input_adapter.py",
+    # [NODE] DI boundary for lifecycle event emission — lets the remote-agent effect
+    # test lifecycle publication without coupling the handler to EventBusKafka (OMN-9637).
+    "ProtocolLifecycleEventSink": "nodes/node_remote_agent_invoke_effect/services/lifecycle_event_sink.py",
+    # [NODE] OMN-12912 narrow pull-consumer boundary used to enforce explicit
+    # source-offset acknowledgement after durable cross-broker delivery.
+    "ProtocolGatewayConsumer": "nodes/node_bus_forwarder_effect/services/service_gateway_delivery.py",
+    # [NODE] OMN-12912 narrow destination publisher boundary used by the
+    # gateway forwarder without coupling the node service to KafkaTransport.
+    "ProtocolGatewayPublisher": "nodes/node_bus_forwarder_effect/services/service_gateway_forwarder.py",
+    # [NODE] OMN-10392 replay compute narrows the AIOKafkaConsumer surface and
+    # Kafka record/key shapes for isolated replay handler tests.
+    "ProtocolKafkaMessage": "nodes/node_kafka_replay_compute/protocols/protocol_kafka_message.py",
+    "ProtocolKafkaReplayConsumer": "nodes/node_kafka_replay_compute/protocols/protocol_kafka_replay_consumer.py",
+    "ProtocolOffsetAndTimestamp": "nodes/node_kafka_replay_compute/protocols/protocol_offset_and_timestamp.py",
+    # [NODE] OMN-14819 narrow correlation_id envelope view; keeps the def-B replay
+    # handler core free of ModelEventEnvelope (canonical handler-shape C-core).
+    "ProtocolReplayEnvelope": "nodes/node_kafka_replay_compute/protocols/protocol_replay_envelope.py",
+    # [RUNTIME] OMN-12632 narrows the AIOKafkaConsumer.end_offsets surface so
+    # AdapterKafkaAdminLag can serve log-end offsets the pinned aiokafka 0.13.0
+    # admin omits, without a hard aiokafka import at parse time.
+    "ProtocolKafkaLagConsumer": "migration/protocols/protocol_kafka_lag_consumer.py",
+    # [NODE] OMN-11573 narrows the GitHubHttpClient surface used by the PR
+    # poller so handler tests can inject a deterministic triage adapter.
+    "ProtocolGitHubTriageClient": "nodes/node_github_pr_poller_effect/handlers/handler_github_api_poll.py",
+    # [DI] OMN-11142 callable surface for OmniGate validator adapters — narrows the
+    # entry-point-registered validator function shape so the registry can inject and
+    # unit-test validators without binding to a concrete implementation.
+    "OmniGateValidatorCallable": "gate/validator_registry.py",
+    # [NODE] OMN-11207 structural protocol for evidence bundles accepted by the writer
+    "ProtocolEvidenceBundle": "utils/util_evidence_bundle_writer.py",
+    "ProtocolConsumerFlowTarget": "nodes/node_board_probe_effect/protocols/protocol_consumer_flow_target.py",  # [NODE] OMN-19931 A1: node-local target seam pending omnibase_spi and omnibase_core releases.
+    "ProtocolForwarderStateReader": "nodes/node_board_probe_effect/protocols/protocol_forwarder_state_reader.py",  # [NODE] OMN-19930 one-method read seam (observe) the board_probe forwarder_refused_topic check grades through; the Docker CLI reader implements it and tests inject a fake. Infra-local, not spi: a node-internal test seam bound to this probe, not a cross-repo contract.
+    "ProtocolModelsTransport": "doctor/protocol_models_transport.py",  # [DI] OMN-19453 the single OpenAI-compatible models GET the delegation doctor local-model probe issues; tests inject a fake instead of opening a socket. Infra-local, not spi: it narrows the omnibase_core HTTP client surface to one method for this CLI probe and is not a cross-repo contract.
+}
+
+# Duplicate protocol names that appear in multiple files (node-internal
+# re-declarations that shadow a canonical version elsewhere). The AST scanner
+# finds these but they are legitimate internal copies.
+KNOWN_DUPLICATE_LOCATIONS: dict[str, list[str]] = {
+    "ProtocolIdempotencyStore": [
+        "idempotency/protocol_idempotency_store.py",
+    ],
+    "ProtocolRegistrationPersistence": [
+        "handlers/registration_storage/protocol_registration_persistence.py",
+    ],
+    "ProtocolDiscoveryOperations": [
+        "handlers/service_discovery/protocol_discovery_operations.py",
+    ],
+    "ProtocolIntentEffect": [
+        "nodes/node_contract_registry_reducer/contract_registration_event_router.py",
+    ],
+    # [NODE] OMN-7484: node_baseline_capture has its own publisher protocol (legitimate internal copy)
+    "ProtocolPublisher": [
+        "nodes/node_baseline_capture/handlers/handler_baseline_capture.py",
+    ],
+    "ProtocolTopicPartition": [
+        "nodes/node_kafka_replay_compute/protocols/protocol_topic_partition.py",
+    ],
+}
+
+
+def _find_protocol_declarations() -> list[tuple[str, str, int]]:
+    """Find all Protocol class declarations in omnibase_infra via AST.
+
+    Returns:
+        List of (class_name, relative_path, line_number) tuples.
+    """
+    results: list[tuple[str, str, int]] = []
+
+    for py_file in _INFRA_SRC.rglob("*.py"):
+        # Skip test files, __pycache__, and archived dirs
+        rel = py_file.relative_to(_INFRA_SRC)
+        rel_str = str(rel)
+        if "__pycache__" in rel_str or "archived" in rel_str:
+            continue
+
+        try:
+            source = py_file.read_text(encoding="utf-8")
+            tree = ast.parse(source, filename=str(py_file))
+        except SyntaxError:
+            continue
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef):
+                continue
+
+            # Check if any base class is "Protocol"
+            for base in node.bases:
+                base_name: str | None = None
+                if isinstance(base, ast.Name):
+                    base_name = base.id
+                elif isinstance(base, ast.Attribute):
+                    base_name = base.attr
+
+                if base_name == "Protocol":
+                    results.append((node.name, str(rel), node.lineno))
+                    break
+
+    return sorted(results)
+
+
+@pytest.mark.unit
+class TestProtocolOwnership:
+    """Verify infra does not declare unauthorized Protocol classes."""
+
+    def test_no_unknown_protocols(self) -> None:
+        """Every Protocol declaration must be in the known allowlist.
+
+        If this test fails, a new Protocol class was added to omnibase_infra.
+        Decide whether to:
+          1. Move it to omnibase_spi (if it is a cross-repo contract)
+          2. Add it to KNOWN_INFRA_PROTOCOLS with a category and justification
+        """
+        declarations = _find_protocol_declarations()
+        unknown: list[str] = []
+
+        for class_name, rel_path, lineno in declarations:
+            if class_name in KNOWN_INFRA_PROTOCOLS:
+                continue
+            # Check if it is a known duplicate location
+            dup_locations = KNOWN_DUPLICATE_LOCATIONS.get(class_name, [])
+            if rel_path in dup_locations:
+                continue
+            # Also check for TYPE_CHECKING-only declarations (in if TYPE_CHECKING blocks)
+            # These are forward references, not actual protocol definitions
+            unknown.append(f"  {class_name} in {rel_path}:{lineno}")
+
+        assert not unknown, (
+            "Unknown Protocol declarations found in omnibase_infra.\n"
+            "Infra should implement SPI protocols, not declare new ones.\n\n"
+            "New protocols found:\n" + "\n".join(unknown) + "\n\nTo fix:\n"
+            "  1. Move the protocol to omnibase_spi if it is a cross-repo contract\n"
+            "  2. Or add it to KNOWN_INFRA_PROTOCOLS in this test with a category tag\n"
+            "     ([DI], [MIXIN], [NODE], [RUNTIME], [OBS]) and justification"
+        )
+
+    def test_known_protocols_still_exist(self) -> None:
+        """Every entry in the allowlist must still exist in the codebase.
+
+        This prevents the allowlist from becoming stale with entries for
+        protocols that have been deleted.
+        """
+        declarations = _find_protocol_declarations()
+        declared_names = {name for name, _, _ in declarations}
+
+        stale: list[str] = []
+        for name, rel_path in KNOWN_INFRA_PROTOCOLS.items():
+            if name not in declared_names:
+                stale.append(f"  {name} (expected in {rel_path})")
+
+        assert not stale, (
+            "Stale entries in KNOWN_INFRA_PROTOCOLS allowlist.\n"
+            "These protocols no longer exist in the codebase:\n"
+            + "\n".join(stale)
+            + "\n\nRemove them from the allowlist."
+        )
+
+    def test_known_protocols_in_correct_files(self) -> None:
+        """Allowlist file paths must match actual Protocol locations.
+
+        Prevents the allowlist from becoming inaccurate when protocols
+        are moved between files.
+        """
+        declarations = _find_protocol_declarations()
+        # Build a map of name -> set of relative paths
+        name_to_paths: dict[str, set[str]] = {}
+        for name, rel_path, _ in declarations:
+            name_to_paths.setdefault(name, set()).add(rel_path)
+
+        wrong_path: list[str] = []
+        for name, expected_path in KNOWN_INFRA_PROTOCOLS.items():
+            actual_paths = name_to_paths.get(name, set())
+            if not actual_paths:
+                continue  # Handled by test_known_protocols_still_exist
+            if expected_path not in actual_paths:
+                wrong_path.append(
+                    f"  {name}: expected {expected_path}, found {sorted(actual_paths)}"
+                )
+
+        assert not wrong_path, (
+            "Allowlist file path mismatches:\n"
+            + "\n".join(wrong_path)
+            + "\n\nUpdate the file paths in KNOWN_INFRA_PROTOCOLS."
+        )
+
+    def test_known_duplicate_protocols_in_correct_files(self) -> None:
+        """Duplicate Protocol names must also stay bound to their declared paths."""
+        declarations = _find_protocol_declarations()
+        declared_locations = {(name, rel_path) for name, rel_path, _ in declarations}
+
+        missing: list[str] = []
+        for name, expected_paths in KNOWN_DUPLICATE_LOCATIONS.items():
+            for expected_path in expected_paths:
+                if (name, expected_path) not in declared_locations:
+                    missing.append(f"  {name}: expected duplicate in {expected_path}")
+
+        assert not missing, (
+            "Known duplicate Protocol location mismatches:\n"
+            + "\n".join(missing)
+            + "\n\nUpdate KNOWN_DUPLICATE_LOCATIONS."
+        )
+
+    def test_protocol_count_within_bounds(self) -> None:
+        """Total protocol count should not grow without review.
+
+        This is a soft check to flag protocol proliferation. The max count
+        should be updated when new protocols are intentionally added.
+        """
+        declarations = _find_protocol_declarations()
+        unique_names = {name for name, _, _ in declarations}
+        max_expected = len(KNOWN_INFRA_PROTOCOLS) + len(
+            {
+                name
+                for name, locations in KNOWN_DUPLICATE_LOCATIONS.items()
+                for _ in locations
+            }
+        )
+
+        assert len(unique_names) <= len(KNOWN_INFRA_PROTOCOLS), (
+            f"Protocol count ({len(unique_names)}) exceeds "
+            f"allowlist size ({len(KNOWN_INFRA_PROTOCOLS)}). "
+            "New protocols detected. Update the allowlist."
+        )
+
+    def test_ast_scanner_finds_protocols(self) -> None:
+        """Verify the AST scanner actually finds protocols (sanity check)."""
+        declarations = _find_protocol_declarations()
+        assert len(declarations) > 0, (
+            "AST scanner found zero Protocol declarations. "
+            "This likely indicates a bug in _find_protocol_declarations()."
+        )
+        # We know there are at least 19 in protocols/ package alone
+        assert len(declarations) >= 19, (
+            f"AST scanner found only {len(declarations)} protocols, "
+            "expected at least 19 from the protocols/ package."
+        )
+
+    def test_clear_error_message_for_violation(self) -> None:
+        """Verify the error message is actionable when a violation occurs.
+
+        This test validates the error message format by checking the
+        assertion message structure (not by triggering a real violation).
+        """
+        # Simulate an unknown protocol
+        unknown_entries = ["  FakeProtocol in fake/path.py:42"]
+        error_msg = (
+            "Unknown Protocol declarations found in omnibase_infra.\n"
+            "Infra should implement SPI protocols, not declare new ones.\n\n"
+            "New protocols found:\n" + "\n".join(unknown_entries) + "\n\nTo fix:\n"
+            "  1. Move the protocol to omnibase_spi if it is a cross-repo contract\n"
+            "  2. Or add it to KNOWN_INFRA_PROTOCOLS in this test with a category tag\n"
+            "     ([DI], [MIXIN], [NODE], [RUNTIME], [OBS]) and justification"
+        )
+        # Verify the message contains actionable instructions
+        assert "omnibase_spi" in error_msg
+        assert "KNOWN_INFRA_PROTOCOLS" in error_msg
+        assert "[DI]" in error_msg

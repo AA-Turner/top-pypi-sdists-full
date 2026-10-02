@@ -31,7 +31,7 @@ def fingerprint(
             contents_hasher.update(str(stat.st_mtime).encode("utf-8"))
         else:
             with open(fpath, "rb") as f:
-                for chunk in iter(lambda: f.read(2 ** 20), b""):
+                for chunk in iter(lambda: f.read(2**20), b""):
                     contents_hasher.update(chunk)
 
     to_hash = []

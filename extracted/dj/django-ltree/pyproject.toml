@@ -1,0 +1,73 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "django_ltree"
+version = "0.8.0"
+description = "Django app to support ltree postgres extension"
+readme = { file = "README.md", content-type = "text/markdown" }
+license-files = ["LICENSE"]
+authors = [
+    { name = "Mario César Señoranis Ayala", email = "mariocesar@humanzilla.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "django>=5.2"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: Django",
+    "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.0",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+
+[project.urls]
+Source = "https://github.com/mariocesar/django_ltree"
+Tracker = "https://github.com/mariocesar/django_ltree/issues"
+
+[dependency-groups]
+test = [
+    "django-coverage-plugin",
+    "pytest",
+    "pytest-django",
+    "pytest-cov",
+    "psycopg[binary]",
+]
+
+[tool.uv]
+default-groups = ["test"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.conf.settings"
+django_find_project = false
+pythonpath = ["." ,"django_ltree"]
+
+[tool.coverage.run]
+plugins = ["django_coverage_plugin"]
+branch = true
+parallel = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+        "E", # Errors
+        "F", # Pyflakes
+        "W", # Warnings about wrong format
+        "S", # Security
+        "T20", # Look for print() statements
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/{tests}/*" = ["S101", "F841"]

@@ -1,0 +1,1045 @@
+"""momwire against nec2c, fixture by fixture (issue #792, unit 3).
+
+``tests/test_portal.py`` pins the printout's *shape*: same sections, same
+columns, same token arity.  This file pins its *numbers*.  Every committed
+oracle deck is run through our daemon in-process, both printouts are read by
+ONE parser written to ``nec2/Execute``'s token positions, and the parsed values
+are compared.
+
+Nothing here needs the oracle binary — the fixtures are committed and the
+daemon is a library call.  The whole file is under two seconds.
+
+What "agreement" means
+----------------------
+nec2c is a pulse-basis point-matched NEC-2 and momwire is a B-spline Galerkin
+solver.  They will never agree digit for digit and SimNEC does not need them
+to: it reads two numbers per ANTENNA INPUT PARAMETERS row and builds a Y
+matrix.  The bar is that a design tuned against one engine behaves the same
+against the other, so the default tolerance is **5 % relative** on impedances
+and port currents and **±0.5 dB** on pattern gain.
+
+Measured at authoring time (2026-08-08, momwire 0.23.0, nec2c 5b4az.ae6ty.1.17;
+the five ``dipole_rp*`` cliff/gain-only rows added 2026-08-09 for issue #802;
+the three network rows retired 2026-08-15 for #930 and RESTORED 2026-08-20 for
+momwire#456 phase C, which also added four more of them; and
+``dipole_gd_second_medium`` retired 2026-08-19 for #458 and RESTORED 2026-08-20
+for momwire#487, which also un-retired the three ``mininec_*`` idiom rows and
+added ``mininec_vertical_rp3_cliff_at_zero``) — worst case over every row of
+every table in each fixture:
+
+===================================  ======  ======  ======  ======  =====
+fixture                               Z err   I err  YY err  I curve  dGain
+===================================  ======  ======  ======  ======  =====
+catalog_beams_moxon                   1.63%   1.63%       -   0.38%      -
+catalog_broadband_t2fd                1.41%   1.40%       -   2.57%      -
+catalog_dipoles_invvee                0.63%   0.63%       -   0.18%      -
+catalog_dipoles_ocf_dipole            0.99%   0.99%       -   0.25%      -
+catalog_dipoles_short_dipole_loaded  45.21%  45.21%       -   2.17%      -   (a)
+catalog_loops_delta_loop              1.81%   1.81%       -   0.30%      -
+catalog_multiband_trap_dipole         2.66%   2.66%       -   0.68%      -
+catalog_specialty_bowtie              1.25%   1.25%       -   0.54%      -
+catalog_verticals_vertical            2.79%   2.79%       -   0.18%      -
+catalog_wire_w8jk                     1.98%   1.99%       -   0.84%      -
+dipole_ek_extended                    0.74%   0.75%       -   0.96%      -   (i)
+dipole_ek_rearm                       0.76%   0.76%       -   0.96%      -   (i)
+dipole_ex6_gyrator                    0.76%   0.76%       -   1.02%      -   (k)
+dipole_fr_sweep                       1.29%   1.29%       -   0.96%      -
+dipole_free_space                     0.76%   0.76%       -   0.96%      -
+dipole_gd_cliff_sommerfeld            2.24%   2.23%       -   4.35%      -   (f)
+dipole_gd_second_medium               2.23%   2.23%       -   4.35%      -   (f)
+dipole_gm_translated_pair             1.10%   1.10%       -   1.13%      -
+dipole_gr_rotated_ring                1.96%   1.96%       -   1.10%      -   (j)
+dipole_gs_scaled                      0.76%   0.76%       -   0.96%      -
+dipole_gx_reflected_pair              2.15%   2.15%       -   0.73%      -   (j)
+dipole_ld_nt_colocated                0.88%   0.88%       -   2.05%      -   (l)
+dipole_load_ld0                       1.79%   1.79%       -   1.95%      -
+dipole_load_ld4                       1.64%   1.64%       -   1.62%      -
+dipole_load_ld5_conductivity          0.76%   0.76%       -   0.97%      -
+dipole_mp_multiprocessor              0.76%   0.76%       -   0.96%      -   (e)
+dipole_mp_single_process              0.76%   0.76%       -   0.96%      -   (e)
+dipole_ne_nearfield                   0.76%   0.76%       -   0.96%      -
+dipole_nh_nearfield                   0.76%   0.76%       -   0.96%      -
+dipole_nt_after_xq                    2.47%   2.47%       -   4.07%      -   (n)
+dipole_nt_all_zero                    0.52%   0.52%       -   1.24%      -   (m)
+dipole_nt_network                     1.31%   1.31%       -   4.07%      -   (b)
+dipole_pec_ground                     2.23%   2.23%       -   4.35%      -
+dipole_pt_segment_range               2.47%   2.47%       -   0.52%      -
+dipole_pt_toggle                      2.47%   2.47%   2.83%   1.10%      -
+dipole_reflection_ground              2.23%   2.23%       -   4.36%      -
+dipole_rp2_cliff_on_the_gn_card       2.23%   2.23%       -   4.35%   0.08   (g)
+dipole_rp2_linear_cliff               2.23%   2.23%       -   4.35%   0.08   (g)
+dipole_rp3_circular_cliff             2.23%   2.23%       -   4.35%   0.08   (g)
+dipole_rp3_cliff_sommerfeld           2.23%   2.23%       -   4.35%   0.08   (g)
+dipole_rp_crossed_quadrature          0.76%   0.76%       -   0.96%   0.09
+dipole_rp_gain_only                   0.76%   0.76%       -   0.96%   0.10   (h)
+dipole_rp_pattern                     0.76%   0.76%       -   0.96%   0.12
+dipole_sommerfeld_ground              2.24%   2.23%       -   4.35%      -
+dipole_tl_network                     0.27%   0.26%       -   1.27%      -   (d)
+dipole_tl_shunt_crossed               1.14%   1.14%       -   1.12%      -
+dipole_tl_zero_length                 0.10%   0.10%       -   1.27%      -
+mininec_gd_reset_by_gn_rp0            0.91%   0.91%       -   0.41%   0.03   (o)
+mininec_gd_without_gn_rp0             0.76%   0.76%       -   0.96%   0.12   (o)
+mininec_gp80_seam                     0.88%   0.88%       -   0.97%      -   (o)
+mininec_vertical_gd2_rp0              0.91%   0.91%       -   0.41%   0.03   (o)
+mininec_vertical_rp0                  0.91%   0.91%       -   0.41%   0.03   (o)
+mininec_vertical_rp3_ch               0.91%   0.91%       -   0.41%   0.03   (o)
+mininec_vertical_rp3_cliff_at_zero    0.91%   0.91%       -   0.41%   0.03   (o)
+mininec_vertical_rp3_clt              0.91%   0.91%       -   0.41%   0.03   (o)
+split_dipole_qq                      12.02%  12.02%       -   6.00%      -   (c)
+split_dipole_qq_daemon_framed        12.02%  12.02%       -   6.00%      -   (c)
+resident_two_decks                    0.77%   0.77%       -   0.96%      -
+two_source_sensor_lines               2.83%   2.83%       -   1.10%      -
+===================================  ======  ======  ======  ======  =====
+
+"I curve" is the CURRENTS AND LOCATION table normalised by its own peak ROW,
+complex — so it asks whether this is the same current DISTRIBUTION (relative
+magnitude and relative phase, segment for segment, in the same tag order) and
+leaves the overall complex scale to the port test above.  That split is what
+makes (a) legible: the short loaded dipole's distribution agrees to 2.2 %, and
+all 45 % of its port disagreement is the one global factor.  Peak-gain
+direction agrees exactly (0 steps) on both pattern fixtures.
+
+Two fixtures need more than 5 %, and both are the same phenomenon — a small
+residual between two large, nearly cancelling numbers:
+
+(a) ``catalog_dipoles_short_dipole_loaded``: a 0.25 λ dipole with a 4.65 µH
+    coil at the feed.  At 28 MHz that coil is +818 Ω, cancelling almost all of
+    the antenna's own capacitive reactance.  ``Re(Z)`` agrees to 1.8 %; the
+    reactance differs by 8.4 Ω, which is **1.0 % of the coil**.  The 45 % is
+    the residual, not the physics.
+(b) ``dipole_nt_network``: the NT branch (j0.02 S) drives most of the current
+    that would otherwise flow in the driven segment, so the segment current
+    printed in STRUCTURE EXCITATION DATA is a residual and differs by 12 %.
+    The number SimNEC actually reads — the ANTENNA INPUT PARAMETERS *source*
+    current — agrees to 1.3 %.
+
+    This row and the two ``dipole_tl_*`` ones were RETIRED in #930, when the
+    dialect went antenna-only, and restored by momwire#456 phase C.  They came
+    back at 1.31 %, 0.27 % and 1.14 % — the same three numbers to the
+    hundredth that they carried before, from a translation written fresh
+    against the same oracle.  That is the strongest single statement in this
+    file about the network semantics being right, and it is why the scores
+    were kept in prose across the retirement rather than deleted.
+(c) ``split_dipole_qq`` (the jar test deck's YY-free successor, #839):
+port 1 is the gap at the centre of a full-wave split
+    dipole, a current null with ``|Z| ≈ 3.5 kΩ``.  High-|Z| feeds are the known
+    basis-sensitive class (antennaknobs #459); the deck's other two ports agree
+    to 0.4 %.
+
+Each of those is asserted at its own tolerance below, WITH the identity that
+makes it benign, so a future regression that is not this phenomenon still
+fails.
+
+(d) is a *near* miss worth recording rather than an outlier. ``TL`` decks are
+    exposed to the same cancellation the three above are: a line at an odd
+    quarter wave is an impedance INVERTER, so a small basis difference at the
+    far end comes back magnified at the near one, and two branches across one
+    pair of gaps make a loop whose port admittance is a residual. The first
+    draft of ``dipole_tl_shunt_crossed`` hung its NT back across the same pair
+    as the TL and measured 6.6 % — 5x the same deck with the NT chained onto a
+    third dipole (1.14 %), for a structure whose printout layout is identical
+    either way. The committed decks are the chained ones; nothing here needs a
+    widened bar, and if a future TL fixture does, this is the mechanism to
+    check first.
+
+(e) is a control rather than a measurement (issue #800). Both ``MP`` fixtures
+    are ``dipole_free_space``'s geometry plus one card, and both reproduce its
+    row to the digit on BOTH engines — which is the claim the card's whole
+    treatment rests on: ``MP`` describes how the oracle fills and factors, not
+    what it computes, so there is nothing in it for momwire to honour. If these
+    rows ever drift away from ``dipole_free_space``'s, the card has stopped
+    being advisory and this engine is wrong to ignore it.
+
+(g) are the ``RP`` cliff modes (issue #802), and they are the quietest rows in
+    this table rather than the loudest — which was not the expected result.
+    The medium selection is a per-SEGMENT, per-DIRECTION discrete choice, and
+    the two engines do not share a discretisation: nec2c partitions nine pulse
+    segments, momwire partitions its own B-spline elements, so near the angle
+    where the reflection point crosses the edge the two engines put slightly
+    different amounts of current on each side. The fear was a few dB at
+    grazing, where a wrong medium shows up worst. Measured, every grazing row
+    of both fixtures sits at **exactly -0.070 dB** — one constant offset,
+    identical to the offset on the rows where no segment crosses at all, so
+    it is the pair's ordinary basis difference and the cliff contributes
+    nothing on top of it. The straddle band was deliberately placed inside the
+    grid (theta 60 and 70 of a 0-80 sweep) so that this could be read rather
+    than assumed; see ``scripts/nec_portal_capture.py`` for how the numbers
+    were chosen.
+
+(h) ``dipole_rp_gain_only`` is the ``RFLD = 0`` form, and it is a control on
+    the range as well as a capture of the shape: its gain columns must — and
+    do — reproduce the same deck's at 1000 m to the digit, because gain never
+    depended on the range, while every E column moves by three decades. The
+    two thresholds nec2c spells 1e-20 come apart exactly here, which is what
+    ``test_nec_portal.py``'s gain-only pair asserts directly.
+
+(f) is the same kind of control, for ``GD`` (issue #800's tail). Each fixture
+    is its ground fixture plus one card — ``dipole_sommerfeld_ground`` and
+    ``dipole_pec_ground`` respectively — and each reproduces its base row to
+    the digit on BOTH engines. (The PEC one was a refusal fixture between #458
+    and momwire#487, which is exactly as long as this engine refused the
+    MININEC-type ground idiom; the two cliff fixtures, which ARE that ground
+    and do read the record, kept the PEC half of the claim meanwhile.)
+    That is the claim GD's treatment rests on: NEC-2 uses the second medium
+    in the FAR FIELD only, and there only in ``RP``'s cliff modes, so nothing
+    in the matrix can see it. If a row ever drifts away from its base's,
+    the card has stopped being inert for the impedance path and this engine
+    is wrong to record it and move on.
+    Since #802 the far-field half is no longer "and there we refuse": the
+    cliff modes run, so the same control is asserted on them too, by
+    ``test_the_cliff_never_reaches_the_matrix``.
+
+(i) are the two ``EK`` fixtures, added to this table in issue #849 when the
+    card stopped being advisory (momwire 0.26.0 ships NEC's extended thin-wire
+    kernel; the portal now builds the group's solver with it). Both moved, and
+    both moved the way the card's own arithmetic says they must: these are
+    0.001 m wires at ``Δ/a ≈ 500``, where the O(a²) term the extended kernel
+    restores is worth **0.017 %** — measured, on both — and agreement with
+    nec2c went from 0.761 % to 0.745 %. ``dipole_ek_rearm``'s FIRST group is
+    ``EK -1`` and did not move at all, to the digit, which is the reduced path
+    still being the reduced path. The card's real magnitude cannot be read off
+    this corpus at all (no committed deck is fat enough); it is measured
+    against the oracle in ``test_nec_portal.py``'s fat-wire pair, where
+    ``Δ/a = 2.27`` and both engines move ~8 %.
+
+(j) are the two geometry-replication fixtures of momwire#415, captured
+    2026-08-19 when the dialect learned ``GX`` and ``GR``. Both are ordinary
+    rows — three and five parallel elements, no ground, no loading — and both
+    are deliberately framed with a ``GW`` AFTER the replication card, which
+    retires the symmetric cell. With the symmetry still live at ``GE`` the
+    oracle would fill and factor on one cell and print a cell count this
+    engine has no equivalent of, and the printout would stop being comparable
+    row for row; that is a different fixture and a different question. This
+    pair measures what the corpus mostly needs — the EXPANSION, which is 30 of
+    its 36 ``GX``/``GR`` decks. Their numbers agree; their STRUCTURE
+    SPECIFICATION bytes do not yet, which is ``test_portal.py``'s
+    ``test_portal.REPLICATED_SPEC_NAMES``.
+
+(k) ``dipole_ex6_gyrator`` is the manufactured ``EX 6`` current source — a
+    phantom wire on tag 9901, an ``EX 0`` volt on it, and a gyrator ``NT``
+    (Y12 = j1) turning that into an amp at the real segment. 52 of the 457
+    models 4nec2 bundles arrive this way, so this row is a corpus-coverage
+    claim rather than a physics one, and its number says so: 0.76 %, which is
+    ``dipole_free_space``'s own row to the digit. The gyrator forces the
+    current, so the two engines are being asked the same question about the
+    same dipole and the network contributes no disagreement of its own. The
+    phantom sits 991 wavelengths away and both engines agree it is
+    electromagnetically irrelevant (measured, phase C M3/M4).
+
+(l) ``dipole_ld_nt_colocated`` puts an ``LD`` and an ``NT`` on ONE segment,
+    which is the composition question rather than either card's own: NEC puts
+    the load on the impedance matrix's diagonal, in series inside the segment,
+    and composes the network on top of the admittance that results. The two
+    orders are a series and a parallel connection of the same two elements and
+    they are far apart — stamping the load as a second branch across the port
+    instead moves this row to 19 %, so the 0.88 % is load-bearing.
+
+(m) ``dipole_nt_all_zero``'s far endpoint is an OPEN gap, and both engines
+    print round-off in its excitation row (nec2c 1.5e-17 A against ours
+    1.1e-18). Nothing compares that row — the tables this file reads are the
+    ANTENNA INPUT PARAMETERS and CURRENTS ones — and the 0.52 % is the driven
+    port, which is perfectly well conditioned. The deck is here because an
+    engine that treated an all-zero card as a no-op would SHORT that gap
+    instead of opening it, and would then be answering a different antenna at
+    a number that still looks reasonable.
+
+(n) ``dipole_nt_after_xq`` runs two groups from one deck — the bare antenna,
+    then the same antenna with an ``NT`` attached — and the row above is the
+    WORSE of the two. Its second group is ``dipole_nt_network``'s 1.31 %; its
+    first is 2.47 %, which is this parasitic-pair geometry's ordinary basis
+    difference and not the network's doing: that group reproduces a
+    network-free control deck's printed row to the BYTE, which is what says
+    the endpoint gap cut for the second group perturbs the first not at all
+    (``test_portal.py``'s
+    ``test_the_group_before_the_network_card_reproduces_the_control_exactly``).
+
+(o) are the MININEC-type ground idiom's decks — the seven momwire#487
+    captured plus the cliff-at-zero one U2 added — and six of them are the
+    corpus's first ground-CONTACTING geometry: a quarter wave standing on the
+    plane at 30 MHz under a ``GE 1``, which is the shape the idiom exists for.
+    They are the loosest thing about that class and they are 0.91 %, with the
+    current distribution at 0.41 % and every pattern row inside 0.03 dB — so
+    the contact junction, which is the piece of physics a reader would expect
+    to be expensive here, costs nothing measurable against nec2c.
+
+    Three of them are the IDIOM itself — a ``GD`` in force under a ``GN 1`` at
+    an execute card that will not read it — and their rows are the whole of
+    momwire#487's answer: ``mininec_vertical_rp0`` and its ``GD 2`` twin score
+    what the same deck WITHOUT a live second medium scores, to the digit,
+    because the oracle runs both as plain perfect ground.
+    ``mininec_gp80_seam`` is 4nec2's own emitted deck verbatim — 51 segments
+    over five wires, three elements of an 80 m ground plane, the largest
+    structure in the corpus — and it is 0.88 %, which is the ordinary
+    ground-fixture number for a deck nothing about this table was tuned for.
+
+    Four ask a ``GD`` question the older fixtures could not: the cliff decks
+    carry ONE non-zero real each (edge distance on one, second-medium height
+    on the other) where ``dipole_rp3_circular_cliff`` carries both together
+    and could not tell a swapped pair from a read one, and
+    ``mininec_vertical_rp3_cliff_at_zero`` carries NEITHER — the cliff at
+    distance zero and height zero, which is the far field 4nec2's ``GN 3``
+    means and the one deck in the corpus where the finite medium is under
+    every ray. The rest are controls on inertness from the other side — a
+    ``GD`` a later ``GN`` resets, and a ``GD`` with no ``GN`` under it at all
+    — and the second is ``dipole_rp_pattern``'s own row to the digit, because
+    it is that deck plus one card that does nothing.
+
+    The printout half of this class was a known gap when the decks landed
+    (#488: an unprinted ground-plane banner and an unwritten ``I-``
+    connection column). U2 closed it, so these decks are in
+    ``test_portal.py``'s column-layout gate with everything else and the
+    ground-contact printout has its own direct assertion there.
+"""
+
+from __future__ import annotations
+
+import io
+import json
+import re
+from dataclasses import dataclass, field
+from pathlib import Path
+
+import pytest
+
+from momwire.portal import main, run_deck
+
+FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "nec_portal"
+MANIFEST = json.loads((FIXTURE_DIR / "manifest.json").read_text())
+NAMES = tuple(entry["name"] for entry in MANIFEST["decks"])
+
+# Default cross-basis bars.
+Z_TOL = 0.05
+GAIN_TOL_DB = 0.5
+CURVE_TOL = 0.08  # CURRENTS AND LOCATION, normalised by each table's peak row
+
+# Per-fixture widenings, each justified in the module docstring and pinned by
+# an extra identity in the test that widens it.
+Z_TOL_OVERRIDE = {
+    "catalog_dipoles_short_dipole_loaded": 0.50,  # (a) coil-cancelled reactance
+    "split_dipole_qq": 0.15,  # (c) near-open centre feed
+    "split_dipole_qq_daemon_framed": 0.15,  # (c)
+}
+# STRUCTURE EXCITATION DATA is a different table with a different bar: it
+# reports the SEGMENT current at a network node, which an NT branch can make a
+# residual. Execute never reads it (its state machine arms on the ANTENNA INPUT
+# PARAMETERS banner alone), so it is checked for sanity, not for agreement.
+NETWORK_TOL = 0.15
+
+
+# --------------------------------------------------------------------------
+# one parser, both printouts — written to nec2/Execute's token positions
+# --------------------------------------------------------------------------
+
+
+@dataclass
+class Printout:
+    """The numbers ``nec2/Execute.processResponse`` extracts from a run."""
+
+    # One list per ANTENNA INPUT PARAMETERS table; each row is (current, Z).
+    # Execute keeps only the current (fields 4 and 5, ``samplesOffset``); Z is
+    # carried for the differential.
+    ports: list[list[tuple[complex, complex]]] = field(default_factory=list)
+    # STRUCTURE EXCITATION DATA AT NETWORK CONNECTION POINTS — same row shape,
+    # never consumed by Execute.
+    network: list[tuple[complex, complex]] = field(default_factory=list)
+    # CURRENTS AND LOCATION: (tag, current) per row, ordered by tag.
+    currents: list[list[tuple[int, complex]]] = field(default_factory=list)
+    # ``-YY`` report rows, one complex per report point.
+    yy: list[list[complex]] = field(default_factory=list)
+    # RADIATION PATTERNS: (theta, phi, vertc_db, horiz_db, total_db,
+    # e_theta, e_phi) per row.
+    pattern: list[list[tuple]] = field(default_factory=list)
+
+
+def _polar(magnitude: str, phase: str) -> complex:
+    import cmath
+
+    return cmath.rect(float(magnitude), float(phase) * 3.141592653589793 / 180.0)
+
+
+def read_printout(text: str) -> Printout:
+    """Walk a NEC-2 printout the way ``Execute.processResponse`` does.
+
+    The states that matter here, and what arms each:
+
+    * ``--------- ANTENNA INPUT PARAMETERS ---------`` then ``No: No:``
+      -> rows of exactly 11 tokens, current at 4/5.  A row of any other
+      arity ends the table.
+    * ``-------- CURRENTS AND LOCATION --------`` then ``No: No:``
+      -> rows of exactly 10 tokens, tag at 1 and current at 6/7 (REAL and
+      IMAGINARY — *not* MAGN/PHASE).
+    * ``---------- RADIATION PATTERNS -----------`` then ``DEGREES DEGREES``
+      -> ``ptr = 8`` for a 12-token row and ``7`` for an 11-token one, which
+      is the SENSE column being present or blank.  Both point at the same
+      E(THETA)/E(PHI) magnitude/phase pairs.
+    * a line whose first token is ``-YY`` is read wherever it appears.
+
+    The one deliberate departure: STRUCTURE EXCITATION DATA AT NETWORK
+    CONNECTION POINTS repeats the ``No: No:`` header with the same 11-token
+    rows, and Execute walks straight past it because it never armed.  This
+    reader keeps it, separately, so the differential can see it at all.
+    """
+    out = Printout()
+    state: str | None = None
+    pending: str | None = None
+    for line in text.splitlines():
+        parts = line.split()
+        if parts[:1] == ["-YY"]:
+            values = [float(v) for v in parts[1:]]
+            out.yy.append(
+                [complex(values[i], values[i + 1]) for i in range(0, len(values), 2)]
+            )
+            continue
+        if parts[:4] == ["---------", "ANTENNA", "INPUT", "PARAMETERS"]:
+            pending, state = "ports", None
+            continue
+        if "STRUCTURE EXCITATION DATA" in line:
+            pending, state = "network", None
+            continue
+        if parts[1:4] == ["CURRENTS", "AND", "LOCATION"]:
+            pending, state = "currents", None
+            continue
+        if parts[1:3] == ["RADIATION", "PATTERNS"]:
+            pending, state = "pattern", None
+            continue
+        if pending in ("ports", "network", "currents") and parts[:2] == ["No:", "No:"]:
+            state, pending = pending, None
+            if state == "ports":
+                out.ports.append([])
+            elif state == "currents":
+                out.currents.append([])
+            continue
+        if pending == "pattern" and parts[:2] == ["DEGREES", "DEGREES"]:
+            state, pending = "pattern", None
+            out.pattern.append([])
+            continue
+        if state == "ports":
+            if len(parts) != 11:
+                state = None
+                continue
+            out.ports[-1].append(
+                (
+                    complex(float(parts[4]), float(parts[5])),
+                    complex(float(parts[6]), float(parts[7])),
+                )
+            )
+        elif state == "network":
+            if len(parts) != 11:
+                state = None
+                continue
+            out.network.append(
+                (
+                    complex(float(parts[4]), float(parts[5])),
+                    complex(float(parts[6]), float(parts[7])),
+                )
+            )
+        elif state == "currents":
+            if len(parts) != 10:
+                state = None
+                continue
+            out.currents[-1].append(
+                (int(parts[1]), complex(float(parts[6]), float(parts[7])))
+            )
+        elif state == "pattern":
+            if len(parts) not in (11, 12):
+                state = None
+                continue
+            ptr = 8 if len(parts) == 12 else 7
+            out.pattern[-1].append(
+                (
+                    float(parts[0]),
+                    float(parts[1]),
+                    float(parts[2]),
+                    float(parts[3]),
+                    float(parts[4]),
+                    _polar(parts[ptr], parts[ptr + 1]),
+                    _polar(parts[ptr + 2], parts[ptr + 3]),
+                )
+            )
+    return out
+
+
+def relative(ours: complex, theirs: complex) -> float:
+    scale = max(abs(ours), abs(theirs))
+    return abs(ours - theirs) / scale if scale else 0.0
+
+
+def our_printout(name: str) -> str:
+    """This engine's printout for a fixture deck.
+
+    A fixture holding more than one ``NX`` is a residency transcript and has to
+    go through the daemon loop, not the single-deck helper.
+    """
+    deck = (FIXTURE_DIR / f"{name}.deck").read_text()
+    if deck.count("\nNX") > 1:
+        buffer = io.StringIO()
+        assert (
+            main([], stdin=io.StringIO(deck), stdout=buffer, stderr=io.StringIO()) == 0
+        )
+        return buffer.getvalue()
+    return run_deck(deck.split("\nNX")[0])[0]
+
+
+def oracle_printout(name: str) -> str:
+    return (FIXTURE_DIR / f"{name}.out").read_text()
+
+
+@pytest.fixture(scope="module")
+def pair():
+    cache: dict[str, tuple[Printout, Printout]] = {}
+
+    def get(name: str) -> tuple[Printout, Printout]:
+        if name not in cache:
+            cache[name] = (
+                read_printout(our_printout(name)),
+                read_printout(oracle_printout(name)),
+            )
+        return cache[name]
+
+    return get
+
+
+# --------------------------------------------------------------------------
+# the support matrix — pinned, not assumed
+# --------------------------------------------------------------------------
+
+# Decks the daemon runs end to end — the whole corpus, and nothing subtracted
+# from it. The list is DERIVED rather than written out because ``REFUSED``
+# below is what is written out: a card silently falling back to the error path
+# shows up as a failure here instead of as a quiet nothing.
+#
+# The three network decks were REFUSED from #930 until momwire#456 phase C.
+# They are back in SUPPORTED, at the scores footnote (b) records, together
+# with the four network decks that unit captured.
+#
+# The four MININEC-ground decks were the last entries here: a ``GD`` in force
+# under a ``GN 1`` at an execute card that will not read it — 4nec2's own
+# emitted ``GP80`` deck verbatim, the idiom on a GROUNDED vertical with an
+# explicit ``RP 0`` in both the ``GD 0`` and ``GD 2`` spellings, and
+# ``dipole_gd_second_medium``'s request-less form on an elevated dipole. Their
+# committed ``.out`` files are the oracle answering all four as plain perfect
+# ground, which is what retired the refusal (momwire#487;
+# ``docs/design/mininec-ground-idiom.md``). They score in the table above like
+# any other fixture now.
+REFUSED: tuple[str, ...] = ()
+SUPPORTED = tuple(n for n in NAMES if n not in REFUSED)
+
+# Portal-dialect cards no fixture covers, with the substring the error path
+# must name. Written as decks rather than fixtures because the oracle's own
+# printout for them is either unpinnable or a bare abort (GN 2 with a
+# radial screen prints "RADIAL WIRE G.S. APPROXIMATION MAY NOT BE USED WITH
+# SOMMERFELD GROUND OPTION" and exits WITHOUT the NX echo — see grammar doc
+# §11, which is exactly the readLine() stall §10.1 worries about).
+# ``PT`` and ``MP`` left this table in #800 (two fixtures pin their layout, so
+# they run instead of refusing), and ``IS`` in #873 (whole-wire lossless
+# jackets ride momwire's insulation model; the unmodelled remainder refuses by
+# field). ``TL`` and ``NT`` REJOINED it in #930, and are covered by the
+# ``NETWORK_FIXTURES`` battery rather than by a hand-written deck here, since
+# the corpus already carries three of them.
+_GEOM = "GW 1 9 0. 0. -2.5 0. 0. 2.5 0.001\nGW 2 9 1. 0. -2.5 1. 0. 2.5 0.001\n"
+UNSUPPORTED = {
+    "SP": f"CE sp\n{_GEOM}GE 0\nEX 0 1 5 0 1.\nSP 0 0 0. 0. 0. 0. 0. 1.\nFR 0 1 0 0 30. 0\nXQ\n",
+    "radial ground screen": (
+        "CE gn radials\nGW 1 9 0. 0. 0.1 0. 0. 5.2 0.001\nGE -1\n"
+        "GN 2 16 0 0 13. 0.005 5.0\nEX 0 1 1 0 1.\nFR 0 1 0 0 14.1 0\nXQ\n"
+    ),
+    "RP mode": f"CE rp mode\n{_GEOM}GE 0\nEX 0 1 5 0 1.\nFR 0 1 0 0 30. 0\n"
+    "RP 4 3 3 1001 0 0 45 45 1000\nXQ\n",
+    "spherical": f"CE ne polar\n{_GEOM}GE 0\nEX 0 1 5 0 1.\nFR 0 1 0 0 30. 0\n"
+    "NE 1 3 1 3 1. 0. 0. 1. 0. 45.\nXQ\n",
+}
+
+NX_ECHO = re.compile(r"^\s*DATA CARD No:\s+\d+ NX\b", re.MULTILINE)
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("name", SUPPORTED)
+def test_supported_fixtures_run_clean(name):
+    """No fixture may quietly fall back to the error path."""
+    text = our_printout(name)
+    assert "ERROR-NEC2C" not in text, f"{name} took the error path:\n" + "\n".join(
+        ln for ln in text.splitlines() if "ERROR-NEC2C" in ln
+    )
+    assert "ANTENNA INPUT PARAMETERS" in text
+
+
+def test_the_support_matrix_covers_the_whole_corpus():
+    assert set(SUPPORTED) | set(REFUSED) == set(NAMES)
+    # 41 at the rewire (#930), plus the `dipole_gn_rearm` probe it landed
+    # with, minus `dipole_gd_second_medium` (#458) and back again (momwire#487),
+    # plus the two `GX`/`GR` fixtures of momwire#415, plus the three network
+    # decks momwire#456 phase C un-retired and the four it captured, plus the
+    # seven momwire#487 captured for the MININEC-type ground idiom and the
+    # cliff-at-zero deck U2 added to them, plus the five momwire#652 captured
+    # for the `PQ` charge report. The count is written out so a deck that
+    # quietly stops being measured shows up here.
+    assert len(SUPPORTED) == 65
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(("marker", "deck"), sorted(UNSUPPORTED.items()))
+def test_unsupported_cards_take_the_documented_error_path(marker, deck):
+    """Refused by name, and still followed by the sentinel.
+
+    The oracle's own failure mode for one of these (GN 2 + radials) is to stop
+    printing entirely — no NX echo, so ``Execute.processResponse`` blocks in
+    ``readLine()`` forever. This engine must not inherit that.
+
+    Issue #829 (Ward's 2026-08-08 reply) added a second requirement across
+    this same class: the refusal must also lead with a line whose first
+    token is exactly ``ERROR:`` — an equality test on token 0, not a
+    substring one — because that is what trips ``Execute``'s
+    ``"NEC ERROR (1)"`` warning frame and is what Ward's planned reader
+    fix will anchor to. The oracle-shaped ``ERROR-NEC2C:`` line stays right
+    behind it, for grep.
+    """
+    text = run_deck(deck)[0]
+    assert "ERROR-NEC2C: " in text
+    assert marker in text, f"the error does not name {marker!r}:\n{text[-400:]}"
+    assert NX_ECHO.search(text), "no NX sentinel on the error path"
+    error_lines = [ln for ln in text.splitlines() if ln.split()[:1] == ["ERROR:"]]
+    assert error_lines, (
+        f"no line trips Execute's token-0 `ERROR:` warning frame:\n{text[-400:]}"
+    )
+    assert marker in error_lines[0], (
+        f"the `ERROR:` line does not name {marker!r}: {error_lines[0]!r}"
+    )
+
+
+# --------------------------------------------------------------------------
+# values
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("name", SUPPORTED)
+def test_port_impedances_and_currents_agree(name, pair):
+    """The two numbers SimNEC keeps, plus the impedance they imply."""
+    ours, theirs = pair(name)
+    assert [len(t) for t in ours.ports] == [len(t) for t in theirs.ports], (
+        f"{name}: different ANTENNA INPUT PARAMETERS table shape"
+    )
+    assert ours.ports, f"{name}: no impedance table"
+    tol = Z_TOL_OVERRIDE.get(name, Z_TOL)
+    for table_index, (mine, oracle) in enumerate(
+        zip(ours.ports, theirs.ports, strict=True)
+    ):
+        for row, ((i_a, z_a), (i_b, z_b)) in enumerate(zip(mine, oracle, strict=True)):
+            where = f"{name} table {table_index} row {row}"
+            assert relative(i_a, i_b) <= tol, f"{where}: current {i_a} vs {i_b}"
+            assert relative(z_a, z_b) <= tol, f"{where}: impedance {z_a} vs {z_b}"
+
+
+@pytest.mark.integration
+def test_the_short_loaded_dipole_only_disagrees_in_the_cancelled_reactance():
+    """Justifies the 50 % widening above, so it cannot rot into a free pass.
+
+    ``LD 0 1 11 11 0 4.65e-6 0`` is +818 Ω at 28 MHz and cancels nearly all of
+    the short dipole's capacitive reactance. The RESISTANCE — which is the
+    radiating physics — must still agree at the normal bar, and the reactance
+    gap must stay small against the coil it is a residual of.
+    """
+    ours, theirs = (
+        read_printout(our_printout("catalog_dipoles_short_dipole_loaded")),
+        read_printout(oracle_printout("catalog_dipoles_short_dipole_loaded")),
+    )
+    (_ia, z_a), (_ib, z_b) = ours.ports[0][0], theirs.ports[0][0]
+    coil_ohms = 2 * 3.141592653589793 * 28.0e6 * 4.65e-6
+    assert abs(z_a.real - z_b.real) <= Z_TOL * abs(z_b.real), (
+        f"resistance {z_a.real} vs {z_b.real}"
+    )
+    assert abs(z_a.imag - z_b.imag) <= 0.03 * coil_ohms, (
+        f"reactance gap {z_a.imag - z_b.imag:.1f} ohms against a {coil_ohms:.0f} ohm coil"
+    )
+
+
+@pytest.mark.integration
+def test_the_split_dipoles_low_z_ports_agree_tightly():
+    """Justifies the 15 % widening: only the near-open port is loose.
+
+    ``split_dipole_qq`` drives three ports of a full-wave split dipole. Port 1 is
+    the centre gap — a current null at ``|Z| ~ 3.5 kOhm``, the basis-sensitive
+    high-|Z| class of antennaknobs #459. The other two are ordinary ~100 Ω
+    feeds and must agree at the normal bar.
+    """
+    ours, theirs = (
+        read_printout(our_printout("split_dipole_qq")),
+        read_printout(oracle_printout("split_dipole_qq")),
+    )
+    z_open = theirs.ports[0][0][1]
+    assert abs(z_open) > 1000.0, "port 1 is supposed to be the near-open one"
+    for table in (1, 2):
+        (i_a, z_a) = ours.ports[table][0]
+        (i_b, z_b) = theirs.ports[table][0]
+        assert relative(z_a, z_b) <= Z_TOL, f"port {table + 1}: {z_a} vs {z_b}"
+        assert relative(i_a, i_b) <= Z_TOL
+
+
+MP_FIXTURES = ("dipole_mp_multiprocessor", "dipole_mp_single_process")
+
+
+@pytest.mark.parametrize("name", MP_FIXTURES)
+def test_mp_moves_no_number_on_either_engine(name, pair):
+    """Justifies treating ``MP`` as advisory (issue #800).
+
+    The card tells the oracle how many processors to fill and factor with. If
+    that were physics, the fixture would differ from ``dipole_free_space`` —
+    same geometry, same drive, same frequency, one extra card. It does not, on
+    the oracle's side OR ours, so momwire ignoring ``#Proc``/``blockSize`` is a
+    faithful reading and not a shortcut.
+    """
+    ours, theirs = pair(name)
+    base_ours, base_theirs = pair("dipole_free_space")
+    for mine, base in ((ours, base_ours), (theirs, base_theirs)):
+        assert [len(t) for t in mine.ports] == [len(t) for t in base.ports]
+        for table, reference in zip(mine.ports, base.ports, strict=True):
+            assert table == reference, f"{name}: MP moved an impedance row"
+        assert mine.currents == base.currents, f"{name}: MP moved a segment current"
+
+
+# One pair per ground the card can ride. The PEC pair — the MININEC-type
+# ground idiom itself — was out between #458 and momwire#487, which is the
+# whole time this engine refused it; the two cliff fixtures' own
+# ``test_the_cliff_never_reaches_the_matrix`` carried the perfect-ground half
+# of the claim meanwhile and still does.
+#
+# ``mininec_vertical_rp0`` / ``mininec_gd_reset_by_gn_rp0`` is the third pair
+# and the strongest, because it is the same deck twice: one card ORDER apart,
+# ``GD``-then-``GN 1`` clearing the record that ``GN 1``-then-``GD`` leaves in
+# force. If the second medium ever reached the matrix, that pair is where it
+# would show first.
+GD_FIXTURES = (
+    ("dipole_gd_second_medium", "dipole_pec_ground"),
+    ("dipole_gd_cliff_sommerfeld", "dipole_sommerfeld_ground"),
+    ("mininec_vertical_rp0", "mininec_gd_reset_by_gn_rp0"),
+)
+
+
+@pytest.mark.parametrize(("name", "base"), GD_FIXTURES)
+def test_gd_moves_no_number_on_either_engine(name, base, pair):
+    """Justifies accepting ``GD`` and computing nothing from it.
+
+    The card names a SECOND ground medium and the cliff edge between the two.
+    If the moment method saw it, these fixtures would differ from their bases
+    — same geometry, same ground, same drive, same frequency, one extra card.
+    They do not, on the oracle's side OR ours, which is the measured form of
+    "NEC-2 uses GD in the far field alone". The far-field half of the claim
+    lives in ``test_nec_portal.py`` (``RP 0`` byte-identical, ``RP 1``-``6``
+    refused by name).
+    """
+    ours, theirs = pair(name)
+    base_ours, base_theirs = pair(base)
+    for mine, reference in ((ours, base_ours), (theirs, base_theirs)):
+        assert [len(t) for t in mine.ports] == [len(t) for t in reference.ports]
+        for table, expected in zip(mine.ports, reference.ports, strict=True):
+            assert table == expected, f"{name}: GD moved an impedance row"
+        assert mine.currents == reference.currents, f"{name}: GD moved a current"
+
+
+@pytest.mark.integration
+def test_a_deck_prints_the_network_sections_exactly_when_it_has_networks():
+    """The two network sections belong to the CARDS, both ways round.
+
+    Inverted by momwire#456 phase C from the absence-only assertion that stood
+    while the dialect was antenna-only.  Both halves matter and for different
+    reasons: a network deck that printed no block would be answering the cards
+    silently and wrongly, and an antenna-only deck that printed one would be
+    emitting a section ``Execute`` has no state for.  Read off the DECK rather
+    than off a list, so a fixture added to either side is covered the day it
+    lands.
+    """
+    for name in SUPPORTED:
+        cards = [
+            line
+            for line in (FIXTURE_DIR / f"{name}.deck").read_text().splitlines()
+            if line.split()[:1] in (["TL"], ["NT"])
+        ]
+        text = our_printout(name)
+        for banner in ("NETWORK DATA", "STRUCTURE EXCITATION DATA"):
+            assert (banner in text) == bool(cards), f"{name}: {banner}"
+
+
+@pytest.mark.integration
+def test_the_network_blocks_agree_with_the_oracle_row_for_row():
+    """The excitation block's own numbers, against nec2c's.
+
+    ``test_port_impedances_and_currents_agree`` reads the ANTENNA INPUT
+    PARAMETERS table alone, because that is the table SimNEC consumes.  This
+    one reads the block above it — same rows, same order, the STRUCTURE
+    current instead of the source's — so the composition is checked where the
+    two engines can actually disagree about the NETWORK rather than about the
+    antenna.
+
+    ``dipole_nt_network`` and ``dipole_nt_after_xq`` — the same NT on the same
+    structure — need the wider bar, and footnote (b) is why: their
+    segment current is a residual of two larger numbers, and 12 % of it is
+    2 parts in 10 000 of what the network carries.
+
+    Two rows are excluded, both because the quantity in them is round-off on
+    BOTH engines rather than because they disagree: ``dipole_nt_all_zero``'s
+    far endpoint is an open gap (nec2c 1.5e-17 A, footnote (m)), and
+    ``dipole_ex6_gyrator``'s phantom-wire row is a 2.4e-4 m sliver parked 991
+    wavelengths away carrying ~1e-7 A, which is the deck's whole point — the
+    phantom exists to be irrelevant, and the row that says so is the one row
+    of the block nobody should be gating. Its REAL row, the amp the gyrator
+    delivers into tag 1 segment 5, is checked here at the ordinary bar and
+    again in ``test_portal.py``.
+    """
+    tolerance = {"dipole_nt_network": 0.15, "dipole_nt_after_xq": 0.15}
+    dust = {"dipole_nt_all_zero": (0,), "dipole_ex6_gyrator": (1,)}
+    for name in SUPPORTED:
+        ours = read_printout(our_printout(name))
+        theirs = read_printout(oracle_printout(name))
+        assert len(ours.network) == len(theirs.network), f"{name}: block shape"
+        for row, ((i_a, z_a), (i_b, z_b)) in enumerate(
+            zip(ours.network, theirs.network, strict=True)
+        ):
+            if row in dust.get(name, ()):
+                continue
+            bar = tolerance.get(name, Z_TOL)
+            assert relative(i_a, i_b) <= bar, f"{name} row {row}: I {i_a} vs {i_b}"
+            assert relative(z_a, z_b) <= bar, f"{name} row {row}: Z {z_a} vs {z_b}"
+
+
+@pytest.mark.parametrize("name", SUPPORTED)
+def test_current_distributions_track(name, pair):
+    """CURRENTS AND LOCATION, each table normalised by its own peak ROW.
+
+    A per-row relative test is meaningless here: the current goes to zero at
+    every wire end, so the last row divides by nothing. Dividing each table by
+    its largest entry — as a COMPLEX number, so the overall phase goes with it
+    — asks the question that matters: is this the same current distribution,
+    segment for segment, in the same tag order, with the same relative phases
+    and signs. A flipped wire, a mis-ordered tag, or a segment reading another
+    wire's current (which is what a crossed pair produced before the
+    element match learned to check direction as well as position) shows up
+    immediately.
+
+    The overall complex scale is deliberately NOT tested here — it is exactly
+    what ``test_port_impedances_and_currents_agree`` covers, and separating the
+    two is what makes the short-loaded-dipole outlier legible instead of
+    alarming.
+    """
+    ours, theirs = pair(name)
+    assert [len(t) for t in ours.currents] == [len(t) for t in theirs.currents]
+    for table, (mine, oracle) in enumerate(
+        zip(ours.currents, theirs.currents, strict=True)
+    ):
+        if not oracle:
+            continue
+        assert [tag for tag, _c in mine] == [tag for tag, _c in oracle], (
+            f"{name} table {table}: tag order differs"
+        )
+        peak = max(range(len(oracle)), key=lambda i: abs(oracle[i][1]))
+        scale_a, scale_b = mine[peak][1], oracle[peak][1]
+        assert scale_a and scale_b, f"{name} table {table}: zero peak current"
+        for row, ((_ta, a), (_tb, b)) in enumerate(zip(mine, oracle, strict=True)):
+            assert abs(a / scale_a - b / scale_b) <= CURVE_TOL, (
+                f"{name} table {table} row {row}: "
+                f"{a / scale_a} vs {b / scale_b} (normalised)"
+            )
+
+
+PATTERN_FIXTURES = (
+    "dipole_rp_pattern",
+    "dipole_rp_crossed_quadrature",
+    "dipole_rp_gain_only",
+    "dipole_rp2_linear_cliff",
+    "dipole_rp2_cliff_on_the_gn_card",
+    "dipole_rp3_circular_cliff",
+    "dipole_rp3_cliff_sommerfeld",
+    # momwire#487's decks that carry an RP card — every one of them but
+    # `mininec_gp80_seam`, which is 4nec2's own emitted deck and has no
+    # request at all. Four are `RP 0` controls on which a `GD` is inert
+    # (including the two forms of the IDIOM, which is the pattern half of what
+    # U2 flipped: the oracle's `RP 0` answer over the idiom is the
+    # perfect-ground pattern, and so is ours). Three are cliff requests over a
+    # GROUND-CONTACTING vertical — a geometry no earlier pattern fixture had —
+    # reading one non-zero GD real each, and then both at zero, which is the
+    # MININEC far field itself.
+    "mininec_gd_reset_by_gn_rp0",
+    "mininec_gd_without_gn_rp0",
+    "mininec_vertical_rp0",
+    "mininec_vertical_gd2_rp0",
+    "mininec_vertical_rp3_clt",
+    "mininec_vertical_rp3_ch",
+    "mininec_vertical_rp3_cliff_at_zero",
+)
+
+# The two cliff fixtures that differ by one digit of the RP card, and the
+# azimuth along which a straight edge and a circular one are the same edge.
+CLIFF_PAIR = ("dipole_rp2_linear_cliff", "dipole_rp3_circular_cliff")
+
+
+@pytest.mark.parametrize("name", CLIFF_PAIR)
+def test_the_cliff_never_reaches_the_matrix(name, pair):
+    """Same control ``GD`` gets, now that the far field acts on the card.
+
+    ``RP`` is read after the solve; the second medium is a far-field construct
+    and nothing in the impedance path may notice it. Both cliff fixtures are
+    the same structure over the same ``GN 1``, so every ANTENNA INPUT
+    PARAMETERS row and every segment current must equal ``dipole_pec_ground``'s
+    — on the oracle's side and ours alike. If one of these ever drifts, the
+    cliff has leaked backwards out of the pattern.
+    """
+    ours, theirs = pair(name)
+    base_ours, base_theirs = pair("dipole_pec_ground")
+    for mine, reference in ((ours, base_ours), (theirs, base_theirs)):
+        assert mine.ports == reference.ports, f"{name}: the cliff moved an impedance"
+        assert mine.currents == reference.currents, f"{name}: the cliff moved a current"
+
+
+def test_the_linear_and_circular_cliffs_agree_only_where_they_are_one_edge():
+    """The discriminator between ``RP 2`` and ``RP 3``, pinned on both engines.
+
+    The edge of a LINEAR cliff is the line ``x = CLT``; the edge of a CIRCULAR
+    one is the circle ``r = CLT``. For an antenna standing on the axis they
+    are the same edge along ``phi = 0`` and nowhere else, so the two tables
+    must be identical down that column and must differ off it. Getting the two
+    modes the wrong way round, or reading the radius where the abscissa was
+    meant, passes every other assertion in this file and fails this one.
+    """
+    linear, circular = CLIFF_PAIR
+    for source in (our_printout, oracle_printout):
+        a = read_printout(source(linear)).pattern[0]
+        b = read_printout(source(circular)).pattern[0]
+        on_axis = [(x, y) for x, y in zip(a, b, strict=True) if x[1] == 0.0]
+        off_axis = [(x, y) for x, y in zip(a, b, strict=True) if x[1] != 0.0]
+        assert on_axis and off_axis
+        for x, y in on_axis:
+            assert x[4] == y[4], f"phi=0 theta={x[0]}: {x[4]} vs {y[4]}"
+        assert any(x[4] != y[4] for x, y in off_axis), (
+            "the circular cliff matched the linear one at every azimuth"
+        )
+
+
+@pytest.mark.parametrize("name", PATTERN_FIXTURES)
+def test_pattern_gain_agrees_at_every_angle(name, pair):
+    """TOTAL gain within 0.5 dB, everywhere the oracle reports a real number.
+
+    Rows at nec2c's -999.99 floor are skipped on the oracle side but must be at
+    the floor on ours too — that floor is the ``|E|² <= 1e-20`` test, and
+    getting it wrong is how a pattern quietly acquires lobes in its own nulls.
+    """
+    ours, theirs = pair(name)
+    assert [len(t) for t in ours.pattern] == [len(t) for t in theirs.pattern]
+    assert ours.pattern, f"{name}: no RADIATION PATTERNS table"
+    for mine, oracle in zip(ours.pattern, theirs.pattern, strict=True):
+        for row_a, row_b in zip(mine, oracle, strict=True):
+            assert (row_a[0], row_a[1]) == (row_b[0], row_b[1]), "angle grid differs"
+            if row_b[4] <= -900.0:
+                assert row_a[4] <= -900.0, f"{name} at {row_b[:2]}: null filled in"
+                continue
+            assert abs(row_a[4] - row_b[4]) <= GAIN_TOL_DB, (
+                f"{name} at theta={row_b[0]} phi={row_b[1]}: "
+                f"{row_a[4]:.2f} vs {row_b[4]:.2f} dB"
+            )
+
+
+@pytest.mark.parametrize("name", PATTERN_FIXTURES)
+def test_peak_gain_direction_agrees_within_one_step(name, pair):
+    ours, theirs = pair(name)
+    for mine, oracle in zip(ours.pattern, theirs.pattern, strict=True):
+        best_a = max(mine, key=lambda r: r[4])
+        best_b = max(oracle, key=lambda r: r[4])
+        thetas = sorted({r[0] for r in oracle})
+        phis = sorted({r[1] for r in oracle})
+        d_theta = thetas[1] - thetas[0] if len(thetas) > 1 else 0.0
+        d_phi = phis[1] - phis[0] if len(phis) > 1 else 0.0
+        assert abs(best_a[0] - best_b[0]) <= d_theta, (
+            f"{name}: peak theta {best_a[0]} vs {best_b[0]}"
+        )
+        assert abs(best_a[1] - best_b[1]) <= d_phi, (
+            f"{name}: peak phi {best_a[1]} vs {best_b[1]}"
+        )
+
+
+@pytest.mark.parametrize("name", PATTERN_FIXTURES)
+def test_pattern_polarisation_split_sums_to_the_total(name, pair):
+    """VERTC and HORIZ must add up to TOTAL, on our side and the oracle's.
+
+    Reading the two polarisations out of the wrong pair of columns still
+    produces a plausible-looking table; only this identity notices.
+
+    The bar has to admit the VERTC column's own rounding. That column is
+    ``%10.2g`` — two SIGNIFICANT figures, which is why a -21.07 dB direction
+    prints ``-21`` — so above 10 dB in magnitude the printed value cannot
+    resolve the identity better than half a dB however right the physics is.
+    The cliff fixtures reach that range and the flat ones never did (issue
+    #802). Half the column's last-place step is added to the bar rather than
+    the bar being widened flat, so every well-resolved row stays at the
+    original 0.06 and only the coarsely printed ones relax.
+    """
+    import math
+
+    def halfstep(value: float) -> float:
+        """Half the last place of a ``%.2g`` rendering of ``value``."""
+        if value == 0.0:
+            return 0.0
+        return 0.5 * 10.0 ** (math.floor(math.log10(abs(value))) - 1)
+
+    ours, _theirs = pair(name)
+    for table in ours.pattern:
+        for theta, phi, vertc, horiz, total, _et, _ep in table:
+            if total <= -900.0:
+                continue
+            linear = 0.0
+            slack = 0.06
+            for value in (vertc, horiz):
+                if value > -900.0:
+                    linear += 10.0 ** (value / 10.0)
+                    slack += halfstep(value)
+
+            assert abs(10.0 * math.log10(linear) - total) <= slack, (
+                f"{name} at theta={theta} phi={phi}: {vertc} + {horiz} != {total} dB"
+            )
+
+
+@pytest.mark.integration
+def test_the_sense_column_is_what_makes_a_row_twelve_tokens():
+    """The unknown-list item, resolved against both pattern fixtures.
+
+    ``Execute.processResponse`` reads the E-field pair at ``ptr = 8`` for a
+    12-token row and ``ptr = 7`` for an 11-token one. The only thing that
+    changes the count is the SENSE column, which nec2c blanks exactly when
+    BOTH field components fall under its 1e-20 threshold — the same test that
+    prints the -999.99 gain floor. So: a row with a named sense has a real
+    field, an 11-token row is a null, and the two forms address the same
+    columns. Reproduced on both sides of every pattern fixture.
+    """
+    seen_words = set()
+    arities = {11: 0, 12: 0}
+    for name in PATTERN_FIXTURES:
+        for text in (our_printout(name), oracle_printout(name)):
+            armed = False
+            counts = {11: 0, 12: 0}
+            for line in text.splitlines():
+                parts = line.split()
+                if parts[:2] == ["DEGREES", "DEGREES"]:
+                    armed = True
+                    continue
+                if not armed:
+                    continue
+                if len(parts) not in (11, 12):
+                    armed = False
+                    continue
+                counts[len(parts)] += 1
+                if len(parts) == 12:
+                    seen_words.add(parts[7])
+                    assert float(parts[4]) > -900.0, (
+                        f"{name}: a named SENSE on a floored row: {line!r}"
+                    )
+                else:
+                    assert float(parts[4]) <= -900.0, (
+                        f"{name}: a blank SENSE on a live row: {line!r}"
+                    )
+            assert counts[12], f"{name}: no row carries a SENSE word"
+            for arity, count in counts.items():
+                arities[arity] += count
+    # Both arities must occur, but not necessarily in the same table:
+    # dipole_rp_pattern is a linear dipole and half its rows are nulls, while
+    # every direction off the crossed quadrature pair carries a field, so its
+    # rows are all 12 tokens.
+    assert arities[11] and arities[12], arities
+    # dipole_rp_pattern can only ever say LINEAR; the crossed pair in
+    # quadrature is what reaches the circular forms.
+    assert seen_words == {"LINEAR", "LEFT"}, seen_words

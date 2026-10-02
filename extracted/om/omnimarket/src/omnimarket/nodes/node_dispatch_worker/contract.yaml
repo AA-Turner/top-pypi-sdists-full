@@ -1,0 +1,177 @@
+---
+name: node_dispatch_worker
+contract_version: {major: 1, minor: 1, patch: 0}
+node_type: compute
+runtime_profiles: [main]
+node_version: {major: 1, minor: 1, patch: 0}
+
+template_version: "1.2.0"
+template_steward: "team-lead"
+
+description: >
+  Validate and compile a worker dispatch spec into a role-templated agent prompt.
+  Pure prep — reads TaskList state, validates inputs, compiles role templates with
+  collision fences, and returns structured spawn args. Does NOT call Agent(),
+  TaskCreate, or any external APIs.
+
+  When knowledge_context_level is set (L0–L3), the handler assembles a KB context
+  bundle and injects it as a ## Knowledge Context section before returning.
+
+handler:
+  module: omnimarket.nodes.node_dispatch_worker.handlers.handler_dispatch_worker
+  class: HandlerDispatchWorker
+  input_model: omnimarket.nodes.node_dispatch_worker.models.model_dispatch_worker_command.ModelDispatchWorkerCommand
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: dispatch_worker
+      handler:
+        name: HandlerDispatchWorker
+        module: omnimarket.nodes.node_dispatch_worker.handlers.handler_dispatch_worker
+    # OMN-13551: write_dispatch_record is an internal helper called by
+    # HandlerDispatchWorker (handler_dispatch_worker.py), not a runtime-dispatched
+    # handler. It was misclassified here and quarantined at boot (requires a
+    # `record` arg). Removed from handler_routing; still invoked internally.
+
+descriptor:
+  node_archetype: compute
+  purity: impure
+  idempotent: false
+  timeout_ms: 12000
+
+inputs:
+  name:
+    type: str
+    required: true
+    description: "Worker handle (used in task subject and agent name)"
+  team:
+    type: str
+    required: true
+    description: "Team name for task scoping"
+  role:
+    type: str
+    required: true
+    description: "Worker role: watcher|fixer|designer|auditor|synthesizer|sweep|ops"
+  scope:
+    type: str
+    required: true
+    description: "Goal description for the worker"
+  targets:
+    type: list
+    required: true
+    description: "Tickets/PRs/paths this worker owns"
+  collision_fences:
+    type: list
+    required: false
+    default: []
+    description: "Auto-populated from TaskList if empty"
+  reports_to:
+    type: str
+    required: false
+    default: "team-lead"
+    description: "Agent name to SendMessage reports to"
+  wall_clock_cap_min:
+    type: int
+    required: false
+    description: "Wall-clock cap in minutes (defaults by role: watcher=90, fixer=90, designer=120, auditor=60, synthesizer=90, sweep=10, ops=480)"
+  model:
+    type: str
+    required: false
+    default: "sonnet"
+    description: "Model to pass to Agent() spawn args"
+  replace:
+    type: bool
+    required: false
+    default: false
+    description: "Kill existing in_progress worker with same name and restart"
+  knowledge_context_level:
+    type: str
+    required: false
+    default: "none"
+    description: >
+      KB context injection level. One of: none, L0, L1, L2, L3.
+      'none' = no context injected (default, backward-compatible).
+      L0 = scope summary only.
+      L1 = scope + target ticket context.
+      L2 = L1 + repo overview.
+      L3 = L2 + extended decision context.
+      When != 'none', assembles KB bundle and injects ## Knowledge Context into prompt.
+
+outputs:
+  validated_task_description:
+    type: str
+    description: "Ready-to-pass to TaskCreate()"
+  validated_prompt_template:
+    type: str
+    description: "Ready-to-pass to Agent(prompt=...)"
+  proposed_agent_spawn_args:
+    type: dict
+    description: "name, team_name, model, subagent_type args for Agent()"
+  collision_fence_embeds:
+    type: list
+    description: "Auto-populated fence list (for audit)"
+  rejected_reason:
+    type: str
+    description: "Non-empty string if the node rejected the request"
+  knowledge_context_bundle_hash:
+    type: str
+    description: "SHA-256[:16] of the injected KB bundle. Empty when level='none'."
+  bundle_level:
+    type: str
+    description: "The knowledge_context_level applied. Mirrors command input."
+  source_backends_used:
+    type: list
+    description: "KB backends that contributed context (e.g. ['repowise', 'wiki'])."
+  degraded_backends:
+    type: list
+    description: "Backends requested but unavailable or timed out."
+  injected_context_char_count:
+    type: int
+    description: "Character count of the injected ## Knowledge Context section."
+
+env_dependencies:
+  CLAUDE_TASKS_DIR:
+    required: false
+    description: "Directory path for Claude Code task files; used to read active task list when compiling collision fences (defaults to '~/.claude/tasks')"
+
+terminal_event: onex.evt.omnimarket.dispatch-worker-compiled.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.dispatch-worker-compile.v1
+  publish_topics:
+    - onex.evt.omnimarket.dispatch-worker-compiled.v1
+
+dod_evidence:
+  PYTEST:
+    description: all dispatch_worker tests pass including KB context tests
+    command: uv run pytest tests/ -k "dispatch_worker" -v
+    pass_criteria: all 51+ tests pass; KB context injection verified
+  CI:
+    description: template behavioral invariants check passes
+    command: python check_template_behavioral_invariants.py
+    pass_criteria: all role template invariants green; template_version bumped if content changed
+
+metadata:
+  transport_type: kafka
+
+config:
+  ONEX_PARENT_SESSION_ID:
+    description: "Parent session ID for dispatch worker correlation."
+    required: false
+  CLAUDE_TASKS_DIR:
+    description: "Directory path for Claude task files."
+    required: false
+  OMNI_WORKTREES:
+    description: "Root directory for omni worktrees."
+    required: false
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.dispatch-worker-compile.v1
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.dispatch-worker-compiled.v1

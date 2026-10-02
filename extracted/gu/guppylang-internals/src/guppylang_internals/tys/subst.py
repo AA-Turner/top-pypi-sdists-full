@@ -1,0 +1,139 @@
+import functools
+from collections.abc import Sequence
+from dataclasses import replace
+from typing import Any
+
+from guppylang_internals.error import InternalGuppyError
+from guppylang_internals.tys.arg import Argument, ConstArg, TypeArg
+from guppylang_internals.tys.common import Transformer, Visitor
+from guppylang_internals.tys.const import (
+    BoundConstVar,
+    Const,
+    ConstBase,
+    ExistentialConstVar,
+)
+from guppylang_internals.tys.protocol import ProtocolInst
+from guppylang_internals.tys.ty import (
+    BoundTypeVar,
+    ExistentialTypeVar,
+    FunctionType,
+    Type,
+    TypeBase,
+)
+from guppylang_internals.tys.var import BoundVar, ExistentialVar
+
+Subst = dict[ExistentialVar, Type | Const]
+Inst = tuple[Argument, ...]
+PartialInst = Sequence["Argument | None"]
+
+
+def is_concrete_inst(inst: Inst) -> bool:
+    """Whether an instantiation contains no opaque bound variables."""
+    return all(not arg.bound_vars for arg in inst)
+
+
+class Substituter(Transformer):
+    """Type transformer that applies a substitution of existential variables."""
+
+    def __init__(self, subst: Subst) -> None:
+        self.subst = subst
+
+    @functools.singledispatchmethod
+    def transform(self, ty: Any) -> Any | None:
+        return None
+
+    @transform.register
+    def _transform_ExistentialTypeVar(self, ty: ExistentialTypeVar) -> Type | None:
+        if s := self.subst.get(ty, None):
+            assert not isinstance(s, ConstBase)
+            return s
+        if ty.implements:
+            return replace(
+                ty,
+                implements=tuple(
+                    impl.transform(self) or impl for impl in ty.implements
+                ),
+            )
+        return None
+
+    @transform.register
+    def _transform_ExistentialConstVar(self, c: ExistentialConstVar) -> Const | None:
+        s = self.subst.get(c, None)
+        assert not isinstance(s, TypeBase)
+        return s
+
+
+class Instantiator(Transformer):
+    """Type transformer that instantiates bound variables."""
+
+    def __init__(self, inst: PartialInst, allow_partial: bool = False) -> None:
+        self.allow_partial = allow_partial
+        self.inst = inst
+
+    @functools.singledispatchmethod
+    def transform(self, ty: Any) -> Any | None:
+        return None
+
+    @transform.register
+    def _transform_ExistentialTypeVar(self, ty: ExistentialTypeVar) -> Type | None:
+        return replace(
+            ty, implements=tuple(self.transform(impl) or impl for impl in ty.implements)
+        )
+
+    @transform.register
+    def _transform_BoundTypeVar(self, ty: BoundTypeVar) -> Type | None:
+        # Instantiate if type for the index is available
+        if ty.idx < len(self.inst):
+            arg = self.inst[ty.idx]
+            if arg is None and self.allow_partial:
+                return None
+            assert isinstance(arg, TypeArg)
+            return arg.ty
+
+        # Otherwise, lower the de Bruijn index
+        return BoundTypeVar(
+            ty.display_name,
+            ty.idx - len(self.inst),
+            ty.copyable,
+            ty.droppable,
+            tuple(self.transform(impl) or impl for impl in ty.implements),
+        )
+
+    @transform.register
+    def _transform_BoundConstVar(self, c: BoundConstVar) -> Const | None:
+        # Instantiate if const value for the index is available
+        if c.idx < len(self.inst):
+            arg = self.inst[c.idx]
+            if arg is None and self.allow_partial:
+                return None
+            assert isinstance(arg, ConstArg)
+            return arg.const
+
+        # Otherwise, lower the de Bruijn index
+        return BoundConstVar(
+            self.transform(c.ty) or c.ty, c.display_name, c.idx - len(self.inst)
+        )
+
+    @transform.register
+    def _transform_FunctionType(self, ty: FunctionType) -> Type | None:
+        if ty.parametrized:
+            raise InternalGuppyError("Tried to instantiate under binder")
+        return None
+
+    @transform.register
+    def _transform_ProtocolInst(self, inst: ProtocolInst) -> ProtocolInst | None:
+        return inst.transform(self)
+
+
+class BoundVarFinder(Visitor):
+    """Type transformer that extracts bound variables."""
+
+    bound_vars: list[BoundVar]
+
+    def __init__(self) -> None:
+        self.bound_vars = []
+
+    def visit(self, arg: Any, /) -> bool:
+        if isinstance(arg, BoundVar):
+            self.bound_vars.append(arg)
+        return False  # Return False to continue recursive descent

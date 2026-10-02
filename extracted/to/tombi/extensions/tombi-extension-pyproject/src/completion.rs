@@ -6,8 +6,8 @@ use tombi_schema_store::{Accessor, matches_accessors};
 
 pub async fn completion(
     text_document_uri: &tombi_uri::Uri,
-    document_tree: &tombi_document_tree_syntax::DocumentTree,
-    position: tombi_text::Position,
+    document_tree: &tombi_document_tree_syntax::DocumentTree<'_>,
+    offset: tombi_text::Offset,
     accessors: &[Accessor],
     _toml_version: TomlVersion,
     _completion_hint: Option<CompletionHint>,
@@ -38,7 +38,7 @@ pub async fn completion(
         .unwrap_or_default()
         .value()
         .then(|| {
-            completion_pyproject_file_path(text_document_uri, document_tree, position, accessors)
+            completion_pyproject_file_path(text_document_uri, document_tree, offset, accessors)
         })
         .flatten()
     {
@@ -50,15 +50,15 @@ pub async fn completion(
 
 fn completion_pyproject_file_path(
     text_document_uri: &tombi_uri::Uri,
-    document_tree: &tombi_document_tree_syntax::DocumentTree,
-    position: tombi_text::Position,
+    document_tree: &tombi_document_tree_syntax::DocumentTree<'_>,
+    offset: tombi_text::Offset,
     accessors: &[Accessor],
 ) -> Option<Vec<CompletionContent>> {
     // Pyproject workspace: directory paths only (members, exclude)
     if matches_accessors!(accessors, ["tool", "uv", "workspace", "members", _])
         || matches_accessors!(accessors, ["tool", "uv", "workspace", "exclude", _])
     {
-        return completion_directory_path(text_document_uri, document_tree, position, accessors);
+        return completion_directory_path(text_document_uri, document_tree, offset, accessors);
     }
 
     // Pyproject sources: path to local package (file or directory)
@@ -66,7 +66,7 @@ fn completion_pyproject_file_path(
         return completion_file_path_from_uri(
             text_document_uri,
             document_tree,
-            position,
+            offset,
             accessors,
             Some(&[]),
         );
@@ -82,7 +82,7 @@ fn completion_pyproject_file_path(
         return completion_file_path_from_uri(
             text_document_uri,
             document_tree,
-            position,
+            offset,
             accessors,
             Some(&[]),
         );

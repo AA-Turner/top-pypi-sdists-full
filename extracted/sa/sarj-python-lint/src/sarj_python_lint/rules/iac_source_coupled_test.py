@@ -1,0 +1,127 @@
+from __future__ import annotations
+
+import ast
+from pathlib import PurePosixPath
+from typing import TYPE_CHECKING, ClassVar, final, override
+
+from sarj_python_lint.rule_base import (
+    Diagnostic,
+    ExampleFile,
+    ExampleOutcome,
+    Rule,
+    RuleCategory,
+    RuleDocumentation,
+    RuleExample,
+    Severity,
+)
+from sarj_python_lint.rules._paths import is_test_path
+from sarj_python_lint.rules.no_raw_source_text_test_oracle import (
+    IAC_JSON_SOURCE_SUFFIXES,
+    FunctionAnalyzer,
+    module_source_path_tuples,
+    top_level_test_functions,
+)
+
+
+if TYPE_CHECKING:
+    from sarj_python_lint._file_context import PythonFileContext
+
+
+IAC_SOURCE_SUFFIXES = (".hcl", ".tf", ".tfvars", ".tftest.hcl", *IAC_JSON_SOURCE_SUFFIXES)
+
+
+@final
+class IacSourceCoupledTest(Rule):
+    id = "iac-source-coupled-test"
+    code = "SARJ412"
+    documentation: ClassVar[RuleDocumentation | None] = RuleDocumentation(
+        default_level=Severity.WARNING,
+        summary="Test uses raw Terraform/HCL text as an infrastructure-behavior oracle.",
+        rationale=(
+            "Substring and regex checks can pass on comments, formatting, or unreachable Terraform configuration "
+            "without proving the plan or deployed behavior."
+        ),
+        remediation=(
+            "Assert on parsed configuration, Terraform test or rendered plan/state JSON, provider state, or runtime behavior. "
+            "When exact source representation is the contract, suppress the assertion with that rationale."
+        ),
+        category=RuleCategory.TESTING,
+        limitations=(
+            "The rule follows local aliases, path collections, context-managed reads, common normalization, and direct comprehension reads unpacked from stable module-level path tuples; interprocedural flows remain unreported.",
+            "Files produced beneath recognized temporary-directory fixtures are generated outputs and remain unreported.",
+            "The Python detector currently owns Terraform and HCL suffixes; YAML remains with the general source-coupled rule.",
+            "Fixture, golden, and snapshot paths are treated as deliberate representation contracts; other packaging, formatter, and compatibility contracts require an exact suppression.",
+        ),
+        examples=(
+            RuleExample(
+                example_id="rendered-plan-contract",
+                title="Assert on structured Terraform plan behavior",
+                outcome=ExampleOutcome.NO_MATCH,
+                files=(
+                    ExampleFile.python(
+                        "tests/test_policy.py",
+                        "def test_policy(rendered_plan_json: str):\n"
+                        "    plan = json.loads(rendered_plan_json)\n"
+                        "    changes = plan['resource_changes']\n"
+                        "    assert changes[0]['change']['actions'] == ['create']\n",
+                    ),
+                ),
+                focus_path=PurePosixPath("tests/test_policy.py"),
+                expected_count=0,
+                public=True,
+            ),
+            RuleExample(
+                example_id="terraform-substring-contract",
+                title="Do not prove Terraform behavior with a substring",
+                outcome=ExampleOutcome.MATCH,
+                files=(
+                    ExampleFile.python(
+                        "tests/test_policy.py",
+                        "from pathlib import Path\n\ndef test_policy():\n    source = Path('main.tf').read_text()\n    assert 'prevent_destroy = true' in source\n",
+                    ),
+                ),
+                focus_path=PurePosixPath("tests/test_policy.py"),
+                expected_count=1,
+                public=True,
+            ),
+        ),
+    )
+    description = documentation.summary
+
+    @override
+    def check_context(self, context: PythonFileContext) -> list[Diagnostic]:
+        path = context.path
+        if not is_test_path(path) or context.generated:
+            return []
+        tree = context.tree
+        if not isinstance(tree, ast.Module):
+            return []
+        imports = context.module_imports
+        source_lines = context.source_lines
+        module_tuples = module_source_path_tuples(tree, imports, IAC_SOURCE_SUFFIXES)
+        assertions = [
+            assertion
+            for function, unittest_style in top_level_test_functions(tree, imports)
+            for assertion in FunctionAnalyzer(
+                IAC_SOURCE_SUFFIXES,
+                module_path_tuples=module_tuples,
+                imports=imports,
+                suppression_code=self.code,
+                suppression_lines=source_lines,
+                unittest_style=unittest_style,
+            ).analyze(function)
+        ]
+        return [
+            Diagnostic(
+                path=path,
+                line=assertion.lineno,
+                col=assertion.col_offset + 1,
+                code=self.code,
+                severity=Severity.WARNING,
+                message=(
+                    "raw Terraform/HCL text is being used to infer infrastructure behavior; assert on parsed configuration, "
+                    "rendered plan or state, provider state, or runtime behavior instead."
+                ),
+            )
+            for assertion in assertions
+        ]

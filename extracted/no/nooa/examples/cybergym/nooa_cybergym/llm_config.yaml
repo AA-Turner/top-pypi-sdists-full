@@ -1,0 +1,24 @@
+# Model aliases used by the CyberGym portfolio. Set OPENAI_BASE_URL (or
+# OPENAI_API_BASE) to an OpenAI-compatible gateway exposing these identifiers;
+# util.make_llm supplies that endpoint and OPENAI_API_KEY to each client.
+models:
+  glm-5.2:
+    model_name: openai/nvidia/zai-org/glm-5.2
+    api_base: https://inference-api.nvidia.com/v1
+    api_key_env: OPENAI_API_KEY
+    context_window: 272000
+    max_tokens: 32768
+
+  nvidia/nemotron-3-ultra:
+    model_name: openai/nvidia/nvidia/nemotron-3-ultra
+    api_base: https://inference-api.nvidia.com/v1
+    api_key_env: OPENAI_API_KEY
+    context_window: 272000
+    max_tokens: 32768
+
+  deepseek-v4-flash:
+    model_name: openai/nvidia/deepseek-ai/deepseek-v4-flash
+    api_base: https://inference-api.nvidia.com/v1
+    api_key_env: OPENAI_API_KEY
+    context_window: 272000
+    max_tokens: 32768

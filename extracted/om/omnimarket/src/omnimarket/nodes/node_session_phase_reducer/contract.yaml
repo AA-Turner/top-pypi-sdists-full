@@ -1,0 +1,174 @@
+---
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# ONEX Node Contract — node_session_phase_reducer
+#
+# Pure reducer: delta(state, event) -> new_state
+# Materializes canonical phase state from session events into the DATABASE,
+# via the runtime's state_io dispatch seam (see the `state_io` block below).
+#
+# Related Tickets:
+#   - OMN-11230: Task 6: Create node_session_phase_reducer (REDUCER)
+#   - OMN-11224: Session phase control loop epic
+#   - OMN-16924: state of record moved from .onex_state to the database
+name: node_session_phase_reducer
+node_type: reducer
+contract_version: {major: 1, minor: 1, patch: 0}
+node_version: {major: 1, minor: 1, patch: 0}
+
+description: >
+  Pure reducer that materializes canonical session phase state from events.
+  delta(state, event) -> new_state. As of 1.1.0 (OMN-16924) the state of record
+  is a session_id-keyed row in the database, loaded and CAS-persisted by the
+  runtime's state_io dispatch seam; the handler performs no I/O.
+  REDUCER nodes return projections[] only — no events, intents, or result.
+
+# OMN-16924: the durable binding for this reducer's state.
+#
+# Operator ruling 2026-08-29, verbatim: "onex_state should be configurable via
+# contract overlay right? for our purposes, state should only be kept in the
+# database. if you disagree, let's have a conversation."
+#
+# Before this, the reducer's state of record was a cwd-relative
+# `.onex_state/session/phase_state.yaml`. The runtime container's cwd is /app
+# (root:root 0755) while the process runs as omniinfra, so every bus dispatch
+# raised `PermissionError: [Errno 13] Permission denied: '.onex_state'` and
+# DLQ'd — 100% failure on all three subscribed topics, on every lane.
+#
+# `database` and `table` resolve through the sanctioned `${env.VAR:default}`
+# contract-overlay convention (omnibase_infra.runtime.overlay.contract_env_ref),
+# so an operator rebinds this node's state of record per lane without a code
+# change. An env var set to an empty value resolves to "" and the runtime fails
+# closed at wiring time — there is no local-file fallback to silently take.
+#
+# `key` names BOTH the wire payload field the row is keyed on and the row's
+# primary-key column. It is `session_id`, not `correlation_id`: a REDUCER folds
+# per DOMAIN entity, `delta` explicitly rejects an event whose session_id
+# disagrees with the folded state's, and the omniclaude hooks mint a fresh
+# correlation_id per event — keying on it would scatter one session's fold
+# across N rows.
+#
+# Runtime activation is gated on the paired omnibase_infra wiring (contract-
+# declared state_io key + migration 101_create_session_phase_state.sql). On a
+# runtime that predates it the key falls back to the previous hardcoded
+# behaviour; on this one it is honoured.
+state_io:
+  database: "${env.ONEX_SESSION_PHASE_STATE_DATABASE:omnibase_infra}"
+  table: "${env.ONEX_SESSION_PHASE_STATE_TABLE:session_phase_state}"
+  key: "session_id"
+  codec:
+    module: "omnimarket.nodes.node_session_phase_reducer.state_codec"
+    name: "StateIoCodec"
+
+input_model:
+  name: ModelSessionPhaseReducerInput
+  module: omnimarket.nodes.node_session_phase_reducer.handlers.handler_session_phase_reducer
+  # OMN-16790: this is the WIRE payload of ONE subscribed message. It is NOT a
+  # {state, event} envelope — no wire schema on any subscribe topic carries a
+  # `state` field. OMN-16924: prior state is supplied by the runtime from the
+  # `state_io` row above, not read by the handler from anywhere.
+  description: "The wire payload of one subscribed session event."
+
+output_model:
+  name: ModelSessionPhaseState
+  module: omnimarket.nodes.node_session_phase_reducer.handlers.handler_session_phase_reducer
+  description: "New canonical phase state after applying the event."
+
+handler:
+  module: omnimarket.nodes.node_session_phase_reducer.handlers.handler_session_phase_reducer
+  class: HandlerSessionPhaseReducer
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: reduce_session_phase
+      handler:
+        name: HandlerSessionPhaseReducer
+        module: omnimarket.nodes.node_session_phase_reducer.handlers.handler_session_phase_reducer
+
+descriptor:
+  # OMN-16924 AC3: `purity: pure` is now literally true. The handler performs no
+  # I/O at all — the runtime's state_io seam owns the database read and write.
+  # Before this it claimed `pure` while writing a YAML file on every fold.
+  node_archetype: reducer
+  purity: pure
+  idempotent: true
+  timeout_ms: 5000
+
+event_bus:
+  subscribe_topics:
+    - onex.evt.omniclaude.session-started.v1
+    - onex.evt.omniclaude.session-ended.v1
+    - onex.evt.omnimarket.session-phase-state.v1
+  publish_topics:
+    - onex.evt.omnimarket.session-phase-state-reduced.v1
+
+terminal_event: onex.evt.omnimarket.session-phase-state-reduced.v1
+
+metadata:
+  transport_type: kafka
+  description: "Session phase state reducer — materializes canonical phase state from events"
+  author: "OmniNode Platform Team"
+  created: "2026-05-18"
+  tags:
+    - reducer
+    - session
+    - phase
+    - OMN-11230
+    - OMN-11224
+  related_tickets:
+    - OMN-11230
+    - OMN-11224
+
+# OMN-13734: machine-readable FSM (transcribed from authoritative handler/model logic).
+state_machine:
+  version: {major: 1, minor: 0, patch: 0}
+  state_machine_name: session_phase_fsm
+  state_machine_version: {major: 1, minor: 0, patch: 0}
+  description: "session_phase_fsm"
+  initial_state: idle
+  terminal_states: [ended]
+  error_states: []
+  persistence_enabled: true
+  states:
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: idle
+      state_type: operational
+      description: "No active session."
+      required_data: []
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: active
+      state_type: operational
+      description: "Session active; phase state materialized."
+      required_data: []
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: ended
+      state_type: terminal
+      description: "Session ended (terminal)."
+      is_terminal: true
+      is_recoverable: false
+      required_data: []
+  transitions:
+    # Session started.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: idle_to_active_on_session_started
+      from_state: idle
+      to_state: active
+      trigger: session_started
+    # Phase-state event folded (evaluation updated).
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: active_to_active_on_session_phase_state
+      from_state: active
+      to_state: active
+      trigger: session_phase_state
+    # Session ended.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: active_to_ended_on_session_ended
+      from_state: active
+      to_state: ended
+      trigger: session_ended
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.session-phase-state-reduced.v1

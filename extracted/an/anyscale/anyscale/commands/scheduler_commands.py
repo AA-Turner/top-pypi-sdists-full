@@ -1,16 +1,27 @@
 from datetime import datetime
-import json as json_module
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 import click
-import tabulate
-import yaml
 
 import anyscale
 from anyscale.cli_logger import BlockLogger
 from anyscale.commands import command_examples
+from anyscale.commands.doc_metadata import (
+    command_metadata,
+    CommandExample,
+    ReleaseStatus,
+)
+from anyscale.commands.output_format import (
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    OutputFormat,
+    print_output,
+)
 from anyscale.commands.util import AnyscaleCommand
 from anyscale.scheduler.models import (
+    MatchExpression,
+    Operator,
+    ResourceFlavor,
     SchedulerConfig,
     SchedulerConfigVersion,
     SchedulerConfigVersionSummary,
@@ -21,14 +32,18 @@ from anyscale.util import validate_non_negative_arg
 log = BlockLogger()
 
 
-_OUTPUT_CHOICES_FULL = ["table", "json", "yaml"]
-_OUTPUT_CHOICES_SINGLE = ["json", "yaml"]
-
 _CONFIRMATION_PHRASE = "change config"
+
+_NO_CATCH_ALL_RULE_WARNING = (
+    "No catch-all scheduling rule is configured (a rule with no selector "
+    "matches every workload). Workloads that do not match any scheduling "
+    "rule will be rejected and fail."
+)
 
 
 @click.group(
-    "scheduler", help="Manage the Anyscale Global Resource Scheduler.", hidden=True,
+    "scheduler",
+    help="Manage the Anyscale Global Resource Scheduler.",
 )
 def scheduler_cli() -> None:
     pass
@@ -39,11 +54,23 @@ def config_cli() -> None:
     pass
 
 
+@command_metadata(
+    status=ReleaseStatus.BETA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Apply a scheduler config from a YAML file.",
+            command="anyscale scheduler config apply -f scheduler-config.yaml",
+            output_raw=command_examples.SCHEDULER_CONFIG_APPLY_EXAMPLE,
+        ),
+    ],
+)
 @config_cli.command(
     name="apply",
+    short_help="Apply a scheduler config, creating a new active version.",
     cls=AnyscaleCommand,
-    is_alpha=True,
-    example=command_examples.SCHEDULER_CONFIG_APPLY_EXAMPLE,
+    is_beta=True,
 )
 @click.option(
     "-f",
@@ -53,7 +80,11 @@ def config_cli() -> None:
     help="Path to a YAML file containing the scheduler config.",
 )
 @click.option(
-    "--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation.",
+    "--yes",
+    "-y",
+    is_flag=True,
+    default=False,
+    help="Skip asking for confirmation.",
 )
 def apply(config_file: str, yes: bool) -> None:
     """Apply a scheduler config, creating a new active version.
@@ -69,30 +100,10 @@ def apply(config_file: str, yes: bool) -> None:
         ) from None
 
     if _should_warn_no_catch_all_rule(config):
-        log.warning(
-            "No catch-all scheduling rule is configured (a rule with no selector "
-            "matches every workload). Workloads that do not match any scheduling "
-            "rule will be rejected and fail."
-        )
+        log.warning(_NO_CATCH_ALL_RULE_WARNING)
 
     if not yes:
-        click.echo(
-            "\nOnce applied, all workloads in your organization will be admitted, "
-            "scheduled, run, or rejected according to this new configuration.\n",
-            err=True,
-        )
-        typed = click.prompt(
-            f'Type "{_CONFIRMATION_PHRASE}" to proceed, or press Ctrl+C to cancel',
-            type=str,
-            # Click re-prompts forever on a blank line unless a default is set.
-            default="",
-            show_default=False,
-            err=True,
-        )
-        if typed.strip() != _CONFIRMATION_PHRASE:
-            raise click.ClickException(
-                f'You must type "{_CONFIRMATION_PHRASE}" to apply. Nothing was applied.'
-            )
+        _confirm_config_change("apply")
 
     try:
         with log.spinner("Applying scheduler config..."):
@@ -103,11 +114,103 @@ def apply(config_file: str, yes: bool) -> None:
     log.info(f"Applied scheduler config (version {version}).")
 
 
+@command_metadata(
+    status=ReleaseStatus.BETA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Roll back to scheduler config version 2.",
+            command="anyscale scheduler config rollback --version 2",
+            output_raw=command_examples.SCHEDULER_CONFIG_ROLLBACK_EXAMPLE,
+        ),
+    ],
+)
+@config_cli.command(
+    name="rollback",
+    short_help="Roll back to a scheduler config version, creating a new active version.",
+    cls=AnyscaleCommand,
+    is_beta=True,
+)
+@click.option(
+    "--version",
+    "version",
+    required=True,
+    type=int,
+    help="Version whose config is applied as the new active version.",
+)
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    default=False,
+    help="Skip asking for confirmation.",
+)
+def rollback(version: int, yes: bool) -> None:
+    """Roll back to a scheduler config version, creating a new active version.
+
+    The config of `--version N` is applied as a new version. Version N stays in
+    history unchanged, so `config list` keeps every version and a rollback can
+    itself be rolled back.
+    """
+    try:
+        with log.spinner(_get_spinner_text(version)):
+            source: SchedulerConfigVersion = anyscale.scheduler.get_config(version=version)
+    except (ValueError, RuntimeError) as e:
+        raise click.ClickException(str(e)) from None
+
+    if _should_warn_no_catch_all_rule(source.config):
+        log.warning(_NO_CATCH_ALL_RULE_WARNING)
+
+    if not yes:
+        _confirm_config_change("roll back")
+
+    try:
+        with log.spinner(f"Rolling back to scheduler config version {version}..."):
+            new_version: int = anyscale.scheduler.rollback_config(version=version)
+    except (ValueError, RuntimeError) as e:
+        raise click.ClickException(str(e)) from None
+
+    log.info(
+        f"Rolled back to scheduler config version {version} (applied as version {new_version})."
+    )
+
+
+@command_metadata(
+    status=ReleaseStatus.BETA,
+    since="0.0.0",
+    output_formats=[OutputFormat.YAML, OutputFormat.JSON],
+    examples=[
+        CommandExample(
+            description="Get the active scheduler config.",
+            command="anyscale scheduler config get",
+            output_instance=lambda: SchedulerConfigVersion(
+                version=3,
+                is_active=True,
+                created_at=datetime(2026, 4, 25, 10, 0, 0),
+                creator_id="usr_abc123",
+                config=SchedulerConfig(
+                    resource_flavors=[
+                        ResourceFlavor(
+                            name="spot",
+                            selector=[
+                                MatchExpression(
+                                    key="market", operator=Operator.IN, values=["spot"]
+                                )
+                            ],
+                        )
+                    ],
+                ),
+            ),
+        ),
+    ],
+    output_schema=SchedulerConfigVersion,
+)
 @config_cli.command(
     name="get",
+    short_help="Get the active scheduler config, or a specific version.",
     cls=AnyscaleCommand,
-    is_alpha=True,
-    example=command_examples.SCHEDULER_CONFIG_GET_EXAMPLE,
+    is_beta=True,
 )
 @click.option(
     "--version",
@@ -118,15 +221,15 @@ def apply(config_file: str, yes: bool) -> None:
     help="Version to fetch. Omit to fetch the active config.",
 )
 @click.option(
-    "-o",
-    "--output",
-    "output",
-    type=click.Choice(_OUTPUT_CHOICES_SINGLE, case_sensitive=False),
-    default="yaml",
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([OutputFormat.YAML.value, OutputFormat.JSON.value]),
+    default=OutputFormat.YAML.value,
     show_default=True,
-    help="Output format.",
+    help="Output format for the result.",
 )
-def get(version: Optional[int], output: str) -> None:
+def get(version: Optional[int], output_format: str) -> None:
     """Get the active scheduler config, or a specific version."""
     try:
         with log.spinner(_get_spinner_text(version)):
@@ -136,15 +239,38 @@ def get(version: Optional[int], output: str) -> None:
     except (ValueError, RuntimeError) as e:
         raise click.ClickException(str(e)) from None
 
-    payload = _version_to_dict(result)
-    click.echo(_render(payload, output))
+    print_output(result, output_format)
 
 
+@command_metadata(
+    status=ReleaseStatus.BETA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TABLE, OutputFormat.JSON, OutputFormat.YAML],
+    examples=[
+        CommandExample(
+            description="List scheduler config versions.",
+            command="anyscale scheduler config list",
+            output_instance=lambda: [
+                SchedulerConfigVersionSummary(
+                    version=3,
+                    created_at=datetime(2026, 4, 25, 10, 0, 0),
+                    creator_id="usr_abc123",
+                ),
+                SchedulerConfigVersionSummary(
+                    version=2,
+                    created_at=datetime(2026, 4, 20, 8, 30, 0),
+                    creator_id="usr_abc123",
+                ),
+            ],
+        ),
+    ],
+    output_schema=SchedulerConfigVersionSummary,
+)
 @config_cli.command(
     name="list",
+    short_help="List scheduler config versions, newest first.",
     cls=AnyscaleCommand,
-    is_alpha=True,
-    example=command_examples.SCHEDULER_CONFIG_LIST_EXAMPLE,
+    is_beta=True,
 )
 @click.option(
     "--max-items",
@@ -156,36 +282,64 @@ def get(version: Optional[int], output: str) -> None:
     help="Maximum number of versions to return.",
 )
 @click.option(
-    "-o",
-    "--output",
-    "output",
-    type=click.Choice(_OUTPUT_CHOICES_FULL, case_sensitive=False),
-    default="table",
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice(
+        [OutputFormat.TABLE.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
+    ),
+    default=OutputFormat.TABLE.value,
     show_default=True,
-    help="Output format.",
+    help="Output format for the result.",
 )
-def list_versions(max_items: int, output: str,) -> None:  # noqa: A001
+def list_versions(
+    max_items: int,
+    output_format: str,
+) -> None:  # noqa: A001
     """List scheduler config versions, newest first.
 
     Use `config get --version N` to fetch the full config for a version.
     """
     try:
         with log.spinner("Fetching scheduler config versions..."):
-            results: List[
-                SchedulerConfigVersionSummary
-            ] = anyscale.scheduler.list_config_versions(max_items=max_items,)
+            results: List[SchedulerConfigVersionSummary] = anyscale.scheduler.list_config_versions(
+                max_items=max_items,
+            )
     except (ValueError, RuntimeError) as e:
         raise click.ClickException(str(e)) from None
 
-    if output == "table":
-        click.echo(_render_versions_table(results))
+    if not results and output_format == OutputFormat.TABLE.value:
+        log.info("No scheduler config versions found.")
         return
 
-    payload = [_summary_to_dict(s) for s in results]
-    click.echo(_render(payload, output))
+    print_output(results, output_format)
 
 
 # ---- helpers ----
+
+
+def _confirm_config_change(action: str) -> None:
+    """Gate an org-wide config change behind the typed confirmation phrase.
+
+    `action` completes the sentence "You must type ... to <action>".
+    """
+    click.echo(
+        "\nOnce applied, all workloads in your organization will be admitted, "
+        "scheduled, run, or rejected according to this new configuration.\n",
+        err=True,
+    )
+    typed = click.prompt(
+        f'Type "{_CONFIRMATION_PHRASE}" to proceed, or press Ctrl+C to cancel',
+        type=str,
+        # Click re-prompts forever on a blank line unless a default is set.
+        default="",
+        show_default=False,
+        err=True,
+    )
+    if typed.strip() != _CONFIRMATION_PHRASE:
+        raise click.ClickException(
+            f'You must type "{_CONFIRMATION_PHRASE}" to {action}. Nothing was applied.'
+        )
 
 
 def _should_warn_no_catch_all_rule(config: SchedulerConfig) -> bool:
@@ -208,41 +362,3 @@ def _get_spinner_text(version: Optional[int]) -> str:
         if version is not None
         else "Fetching active scheduler config..."
     )
-
-
-def _version_to_dict(v: SchedulerConfigVersion) -> Dict[str, Any]:
-    return {
-        "version": v.version,
-        "is_active": v.is_active,
-        "created_at": _iso(v.created_at),
-        "creator_id": v.creator_id,
-        "config": v.config.to_dict(exclude_none=True),
-    }
-
-
-def _summary_to_dict(s: SchedulerConfigVersionSummary) -> Dict[str, Any]:
-    return {
-        "version": s.version,
-        "created_at": _iso(s.created_at),
-    }
-
-
-def _iso(value: Any) -> Any:
-    if isinstance(value, datetime):
-        return value.isoformat()
-    return value
-
-
-def _render(payload: Any, output: str) -> str:
-    if output == "json":
-        return json_module.dumps(payload, indent=2, sort_keys=False, default=str)
-    if output == "yaml":
-        return yaml.safe_dump(payload, sort_keys=False).rstrip()
-    raise click.UsageError(f"Unsupported output format: {output}")
-
-
-def _render_versions_table(results: List[SchedulerConfigVersionSummary]) -> str:
-    if not results:
-        return "No scheduler config versions found."
-    rows = [[s.version, _iso(s.created_at)] for s in results]
-    return tabulate.tabulate(rows, headers=["VERSION", "CREATED AT"], tablefmt="plain",)

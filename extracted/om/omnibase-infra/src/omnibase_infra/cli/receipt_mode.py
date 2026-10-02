@@ -1,0 +1,1380 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""Receipt-mode execution for ``onex node`` (OMN-13094).
+
+Layer A of the skill-output-suppression slice
+(``docs/plans/2026-06-12-skill-output-suppression-plan.md``, Phase 2 item 1):
+
+- ALL runtime logging routes to a run_id-suffixed capture file under the
+  node's state root — console handlers are never installed, which kills the
+  25-50-line RuntimeLocal INFO stream at the source.
+- After the run, the full capture log and the full handler result are written
+  to the content-addressed artifact store (omnibase_core, OMN-13093),
+  ``artifact.captured`` + ``tool.output.captured`` events are emitted via the
+  emit daemon socket, and stdout receives exactly ONE typed
+  :class:`~omnibase_core.models.dispatch.model_skill_result.ModelSkillResult`
+  JSON object carrying the FULL result.
+
+Skill lifecycle projection (OMN-13830):
+
+- Headless ``onex skill/node <name>`` invocations also emit a
+  ``skill-started`` event *before* the node body runs and a ``skill-completed``
+  event *after* it finishes, through the SAME emit daemon socket used by the
+  two capture events. Both share one ``run_id`` (the projection join key) and
+  one ``correlation_id`` so the ``skill_executions`` projection (migration
+  ``048_create_skill_executions.sql``, consumed by
+  ``services/observability/skill_lifecycle/consumer.py``) is populated for CLI
+  runs — not only for omniclaude hook-driven invocations. The concrete topic
+  strings are resolved from the canonical topic registry
+  (``omnibase_infra.topics``); they are never hardcoded and are never imported
+  from omniclaude (layering).
+
+Artifact store root resolution (OMN-13537):
+
+- The artifact store root defaults to ``<state_root>/artifacts`` when
+  ``ONEX_ARTIFACT_STORE_ROOT`` is unset, so durable capture succeeds for the
+  CLI surface (``onex node/skill/delegate --output receipt``) without the
+  operator pre-exporting the env var. An explicit override always wins.
+  Before this, the unset env var raised ``KeyError`` in the store constructor
+  and the path **failed open** — receipts were silently never captured.
+
+Failure asymmetry (capture vs telemetry):
+
+- Artifact write failure (a genuine OSError/quota/etc., NOT a missing-env
+  default) ⇒ the FULL output is printed instead of the receipt
+  (no hidden loss — parent invariant 1; no silent fallback).
+- Artifact write success but event emission failure ⇒ the receipt still
+  prints; the event is dropped (no spool, no alternate path, no warning:
+  OMN-20146). A missing or transient emit-daemon outage never re-floods the
+  caller when the artifact exists.
+
+.. versionadded:: OMN-13094
+.. versionchanged:: OMN-13537
+   Artifact store root defaults to ``<state_root>/artifacts`` when unset
+   (was: KeyError → fail-open, receipts silently dropped).
+.. versionchanged:: OMN-13830
+   Emit ``skill-started`` / ``skill-completed`` lifecycle events so headless
+   CLI invocations populate the ``skill_executions`` projection.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+import socket
+import threading
+import time
+import traceback
+import uuid
+from collections.abc import Callable
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import cast
+
+import click
+from pydantic import JsonValue, ValidationError
+
+from omnibase_core.artifacts.artifact_store import (
+    ARTIFACT_STORE_ROOT_ENV,
+    ArtifactStore,
+)
+from omnibase_core.enums.enum_skill_result_status import EnumSkillResultStatus
+from omnibase_core.enums.enum_workflow_result import EnumWorkflowResult
+from omnibase_core.models.artifacts.model_artifact_ref import ModelArtifactRef
+from omnibase_core.models.dispatch.model_skill_result import ModelSkillResult
+from omnibase_core.runtime.runtime_local import RuntimeLocal
+from omnibase_infra.cli.model_delegate_locus_decision import (
+    ModelDelegateLocusDecision,
+)
+from omnibase_infra.cli.model_receipt_runtime_summary import ModelReceiptRuntimeSummary
+from omnibase_infra.errors import InfraConnectionError, InfraTimeoutError
+from omnibase_infra.runtime_identity import (
+    collect_runtime_identity,
+    render_identity_line,
+)
+from omnibase_infra.topics import (
+    SUFFIX_OMNICLAUDE_SKILL_COMPLETED,
+    SUFFIX_OMNICLAUDE_SKILL_STARTED,
+)
+
+__all__ = [
+    "CAPTURE_DIR_NAME",
+    "RUNS_DIR_NAME",
+    "capture_log_path",
+    "default_emit_socket_path",
+    "run_receipt_mode",
+]
+
+logger = logging.getLogger(__name__)
+
+# Capture logs live under the node's state root (matching the
+# workflow_result.json convention — plan Open Question 4).
+CAPTURE_DIR_NAME = "captures"
+
+# Per-invocation subtree of the state root (OMN-16533). ``RuntimeLocal``
+# serialises its workflow result to ``<its state_root>/workflow_result.json``
+# — one fixed filename — so every invocation handed the SAME state root was
+# handed the same file, and the default state root is the relative string
+# ``.onex_state``, which resolves against whatever working directory the
+# process happens to be in. Unrelated invocations collided by accident rather
+# than by choice. Giving the runtime a root private to this run makes the
+# collision unaddressable instead of merely detectable.
+RUNS_DIR_NAME = "runs"
+
+# Artifact store root is a sub-directory of the node's state root by default.
+# The receipt's durable captures (capture log + handler result) belong with the
+# run's other state, so the artifact store shares the state root rather than
+# living in an unrelated location.
+ARTIFACT_STORE_DIR_NAME = "artifacts"
+
+# Socket timeout for emit-daemon calls. Emission is telemetry, never the
+# critical path — a slow daemon must not stall the dispatch.
+_EMIT_TIMEOUT_SECONDS = 2.0
+
+_MAX_EMIT_RESPONSE_BYTES = 65536
+
+
+# Receipt mode intentionally owns process-global logging, environment, and
+# stdout for the duration of a dispatch.  A process-local lock makes that
+# ownership exclusive when callers dispatch more than one receipt in-process.
+class ReceiptModeLockState:
+    """Mutable holder so an after-fork hook can replace the inherited lock."""
+
+    lock = threading.RLock()
+
+
+_RECEIPT_MODE_LOCK_STATE = ReceiptModeLockState()
+
+
+def _reset_receipt_mode_lock_after_fork() -> None:
+    """Give a forked child a lock not held by a vanished parent thread."""
+    _RECEIPT_MODE_LOCK_STATE.lock = threading.RLock()
+
+
+def _register_receipt_mode_lock_at_fork(registrar: object) -> None:
+    """Register the child-lock reset when the platform exposes a registrar."""
+    if callable(registrar):
+        registrar(after_in_child=_reset_receipt_mode_lock_after_fork)
+
+
+_register_receipt_mode_lock_at_fork(getattr(os, "register_at_fork", None))
+
+_WORKFLOW_TO_STATUS: dict[EnumWorkflowResult, EnumSkillResultStatus] = {
+    EnumWorkflowResult.COMPLETED: EnumSkillResultStatus.SUCCESS,
+    EnumWorkflowResult.PARTIAL: EnumSkillResultStatus.PARTIAL,
+    EnumWorkflowResult.FAILED: EnumSkillResultStatus.FAILED,
+    EnumWorkflowResult.TIMEOUT: EnumSkillResultStatus.FAILED,
+}
+
+# The ``skill_executions.status`` column CHECK constraint (migration 048) admits
+# only 'success' | 'failed' | 'partial'. Map every receipt status onto that set;
+# ERROR (and any non-success/partial outcome) collapses to 'failed'.
+_SKILL_STATUS_DB_VALUE: dict[EnumSkillResultStatus, str] = {
+    EnumSkillResultStatus.SUCCESS: "success",
+    EnumSkillResultStatus.PARTIAL: "partial",
+    EnumSkillResultStatus.FAILED: "failed",
+    EnumSkillResultStatus.ERROR: "failed",
+}
+
+# Repository identity stamped onto skill lifecycle events emitted by this CLI.
+# ``skill_executions.repo_id`` is NOT NULL and disambiguates skill-name
+# collisions across repos; receipt-mode events originate from the omnibase_infra
+# ``onex`` CLI, so that is the honest emitter identity.
+_RECEIPT_EMIT_REPO_ID = "omnibase_infra"
+
+# Optional Claude Code session correlation, when the caller exports it.
+_SESSION_ID_ENV = "ONEX_SESSION_ID"
+
+
+def default_emit_socket_path() -> Path:
+    """Deterministic address of the live emit daemon's Unix domain socket.
+
+    ``~/.claude/emit.sock`` — the same default as omniclaude's emit client
+    wrapper. This is the daemon's published address; nothing is ever written
+    there by this module. Override per-invocation via ``onex node --emit-socket``.
+    """
+    return Path.home() / ".claude" / "emit.sock"
+
+
+def _emit_via_socket(
+    socket_path: Path, event_type: str, payload: dict[str, JsonValue]
+) -> None:
+    """Send one event to the emit daemon (newline-delimited JSON protocol).
+
+    Raises on any failure — the caller decides what a lost emit means.
+    """
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    sock.settimeout(_EMIT_TIMEOUT_SECONDS)
+    try:
+        sock.connect(str(socket_path))
+        request = {"event_type": event_type, "payload": payload}
+        sock.sendall(json.dumps(request).encode("utf-8") + b"\n")
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            chunk = sock.recv(4096)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > _MAX_EMIT_RESPONSE_BYTES:
+                raise ConnectionError(
+                    f"emit daemon response exceeded {_MAX_EMIT_RESPONSE_BYTES} bytes"
+                )
+            chunks.append(chunk)
+            if b"\n" in chunk:
+                break
+        raw = b"".join(chunks).split(b"\n", 1)[0].decode("utf-8").strip()
+        if not raw:
+            raise ConnectionError("emit daemon closed connection without responding")
+        response: object = json.loads(raw)
+        if not isinstance(response, dict) or response.get("status") != "queued":
+            raise RuntimeError(f"emit daemon rejected {event_type}: {response!r}")
+    finally:
+        sock.close()
+
+
+def _emit_best_effort(
+    event_type: str,
+    payload: dict[str, JsonValue],
+    *,
+    socket_path: Path,
+) -> bool:
+    """Emit ``event_type`` via the daemon socket; a lost emit is not an error.
+
+    Telemetry asymmetry (plan Phase 2 item 1): once the artifact exists, an
+    emission failure must never re-flood the caller, and it has no alternate
+    path: no local outbox and no warning (OMN-20146). An install with no emit
+    daemon is the normal state of a fresh machine, so an unreachable daemon is
+    logged at DEBUG only.
+
+    Returns:
+        ``True`` when the daemon accepted the event, ``False`` when it did not.
+        Callers that need to record whether an upstream emit succeeded (e.g.
+        ``skill_executions.started_emit_failed``) read this.
+    """
+    try:
+        _emit_via_socket(socket_path, event_type, payload)
+        return True
+    except (OSError, ValueError, RuntimeError) as exc:
+        # OSError covers socket/connection/timeout failures; ValueError covers
+        # malformed daemon JSON; RuntimeError covers daemon rejections.
+        # Never raise past this point.
+        logger.debug(
+            "receipt_mode: emit of %s not delivered (%s)",
+            event_type,
+            type(exc).__name__,
+        )
+        return False
+
+
+def _skill_started_payload(
+    *,
+    run_id: uuid.UUID,
+    correlation_id: uuid.UUID,
+    node_name: str,
+    contract_path: Path,
+    session_id: str | None,
+) -> dict[str, JsonValue]:
+    """Build a ``skill-started`` event payload shaped for migration 048 columns.
+
+    ``run_id`` is the projection join key shared with the paired
+    ``skill-completed`` event; ``event_id`` is unique per event (the table's
+    idempotency primary key).
+    """
+    return {
+        "event_id": str(uuid.uuid4()),
+        "run_id": str(run_id),
+        "skill_name": node_name,
+        "skill_id": str(contract_path),
+        "repo_id": _RECEIPT_EMIT_REPO_ID,
+        "correlation_id": str(correlation_id),
+        "session_id": session_id,
+        "emitted_at": datetime.now(UTC).isoformat(),
+    }
+
+
+def _skill_completed_payload(
+    *,
+    run_id: uuid.UUID,
+    correlation_id: uuid.UUID,
+    node_name: str,
+    status: EnumSkillResultStatus,
+    duration_ms: int,
+    error_type: str | None,
+    started_emit_failed: bool,
+    session_id: str | None,
+) -> dict[str, JsonValue]:
+    """Build a ``skill-completed`` event payload shaped for migration 048 columns.
+
+    Shares ``run_id`` / ``correlation_id`` with the paired ``skill-started``
+    event; ``status`` is mapped onto the DB CHECK set (ERROR ⇒ 'failed').
+    """
+    return {
+        "event_id": str(uuid.uuid4()),
+        "run_id": str(run_id),
+        "skill_name": node_name,
+        "repo_id": _RECEIPT_EMIT_REPO_ID,
+        "correlation_id": str(correlation_id),
+        "status": _SKILL_STATUS_DB_VALUE.get(status, "failed"),
+        "duration_ms": duration_ms,
+        "error_type": error_type,
+        "started_emit_failed": started_emit_failed,
+        "session_id": session_id,
+        "emitted_at": datetime.now(UTC).isoformat(),
+    }
+
+
+def _configure_capture_logging(capture_path: Path, *, verbose: bool) -> logging.Handler:
+    """Route ALL logging to ``capture_path``; install no console handlers.
+
+    Existing root handlers are detached, not closed: the receipt-mode wrapper
+    restores them after this invocation.  That preserves a host process's
+    logging configuration while still ensuring runtime INFO cannot leak to
+    stdout/stderr in receipt mode (F7).
+    """
+    capture_path.parent.mkdir(parents=True, exist_ok=True)
+    root = logging.getLogger()
+    for handler in list(root.handlers):
+        root.removeHandler(handler)
+    capture_handler = logging.FileHandler(capture_path, encoding="utf-8")
+    capture_handler.setFormatter(
+        logging.Formatter(
+            "%(asctime)s %(levelname)-8s %(name)s — %(message)s",
+            datefmt="%H:%M:%S",
+        )
+    )
+    root.setLevel(logging.DEBUG if verbose else logging.INFO)
+    root.addHandler(capture_handler)
+    return capture_handler
+
+
+def _close_capture_logging(capture_handler: logging.Handler) -> None:
+    """Flush and close all root handlers, then install a ``NullHandler``.
+
+    The ``NullHandler`` prevents Python's ``lastResort`` handler from leaking
+    post-capture log records to stderr — receipt mode allows nothing but the
+    receipt on stdout/stderr.
+    """
+    root = logging.getLogger()
+    root.removeHandler(capture_handler)
+    capture_handler.flush()
+    capture_handler.close()
+    root.addHandler(logging.NullHandler())
+
+
+def _json_str(value: JsonValue) -> str:
+    """Render a workflow-result field as a string, or "" when it is absent.
+
+    Absence is reported as empty rather than as a placeholder like "unknown":
+    a receipt written by a runtime that predates the field genuinely does not
+    know, and inventing a value there would be the fabricated-claim shape this
+    whole change exists to remove.
+    """
+    return value if isinstance(value, str) else ""
+
+
+def _json_uuid(value: JsonValue) -> uuid.UUID | None:
+    """Parse a workflow-result field as a UUID, or ``None`` when it is not one.
+
+    A malformed value is reported as absent rather than propagated: this field
+    is a join key, and a receipt that carries an unparseable one invites a
+    downstream query that silently matches nothing.
+    """
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        return uuid.UUID(value)
+    except ValueError:
+        logger.warning(
+            "receipt_mode: workflow_result.json declares a non-UUID "
+            "wire_correlation_id (%r); reporting it as absent",
+            value,
+        )
+        return None
+
+
+def _format_dispatch_target(decision: ModelDelegateLocusDecision) -> str:
+    """One-line statement of where the command went and who was listening."""
+    if not decision.lane_consumer_groups:
+        return ""
+    return (
+        f"{decision.command_topic} via {decision.broker}; live consumers: "
+        + ", ".join(decision.lane_consumer_groups)
+    )
+
+
+def _restore_root_logging_state(
+    original_handlers: list[logging.Handler],
+    original_level: int,
+    original_disabled: bool,
+) -> None:
+    """Restore root logging without closing handlers owned by the host process."""
+    root = logging.getLogger()
+    original_handler_ids = {id(handler) for handler in original_handlers}
+    for handler in list(root.handlers):
+        root.removeHandler(handler)
+        if id(handler) not in original_handler_ids:
+            handler.flush()
+            handler.close()
+    for handler in original_handlers:
+        root.addHandler(handler)
+    root.setLevel(original_level)
+    root.disabled = original_disabled
+
+
+def _fully_qualified_name(obj: object) -> str:
+    """Return ``module.QualName`` for the concrete type of ``obj``."""
+    cls = type(obj)
+    return f"{cls.__module__}.{cls.__qualname__}"
+
+
+def _extract_correlation_id(
+    workflow_data: dict[str, JsonValue],
+    expected_correlation_id: uuid.UUID | None = None,
+) -> uuid.UUID:
+    """Resolve the correlation id this receipt reports as its own.
+
+    When the caller minted a correlation id for THIS invocation
+    (``onex delegate`` does — it writes the id into the request payload), that
+    id IS the run's identity and wins unconditionally. Reading the id back out
+    of the workflow content instead is what let a receipt announce a foreign
+    run's correlation as though it were this run's (OMN-17295 / OMN-14872).
+
+    Only when the caller has no identity to offer (``onex node`` /
+    ``onex skill``, which mint none) does this fall back to whatever the
+    workflow content declares, and finally to a fresh id.
+    """
+    if expected_correlation_id is not None:
+        return expected_correlation_id
+    for key in ("handler_result", "terminal_payload"):
+        candidate = workflow_data.get(key)
+        if isinstance(candidate, dict):
+            raw = candidate.get("correlation_id")
+            if isinstance(raw, str):
+                try:
+                    return uuid.UUID(raw)
+                except ValueError:
+                    continue
+    return uuid.uuid4()
+
+
+WORKFLOW_RESULT_FILENAME = "workflow_result.json"
+
+
+def capture_log_path(state_root: Path, node_name: str, run_id: str) -> Path:
+    """Where receipt mode writes one run's capture log.
+
+    The one spelling of this path, so a caller that has to NAME the capture log
+    to an operator (OMN-19131) names the file this module actually wrote.
+    """
+    return state_root.resolve() / CAPTURE_DIR_NAME / f"{node_name}-{run_id}.log"
+
+
+def resolve_run_state_root(state_root: Path, run_id: uuid.UUID) -> Path:
+    """The subtree of ``state_root`` that belongs to THIS invocation alone.
+
+    ``--state-root`` names where a caller's state lives; it has never named
+    *whose* state, and ``workflow_result.json`` has one fixed name under it.
+    Two invocations sharing a state root therefore shared one result file:
+    the second overwrote the first, and a run whose file was overwritten
+    before it read it back lost the result it had genuinely produced (the
+    OMN-15449 / OMN-17295 joins correctly refuse the foreign content, so the
+    loss surfaces as an explicit "no receipt found" rather than as a wrong
+    answer — fail-closed, but still a lost result).
+
+    Keying the runtime's root by ``run_id`` removes the shared address. A
+    peer invocation cannot name this path, so there is nothing to serialise,
+    nothing to lock, and no window between the write and the read.
+
+    The caller's own ``state_root`` is unchanged for everything the CLI owns
+    — captures, the artifact store, ``ONEX_STATE_DIR`` —
+    so a caller still finds one place to look.
+    """
+    return state_root / RUNS_DIR_NAME / str(run_id)
+
+
+def _load_workflow_data(state_root: Path) -> dict[str, JsonValue]:
+    """Read ``workflow_result.json`` if the runtime wrote one."""
+    result_path = state_root / WORKFLOW_RESULT_FILENAME
+    if not result_path.exists():
+        return {}
+    parsed: object = json.loads(result_path.read_text(encoding="utf-8"))
+    if not isinstance(parsed, dict):
+        return {}
+    return cast("dict[str, JsonValue]", parsed)
+
+
+def _verify_workflow_data_identity(
+    workflow_data: dict[str, JsonValue], run_id: uuid.UUID
+) -> tuple[dict[str, JsonValue], str | None]:
+    """Fail-closed anchor join against ``workflow_result.json`` (OMN-15449).
+
+    ``workflow_result.json`` lives at a FIXED path shared by every ``onex``
+    invocation against the same ``state_root``. Reading it back after
+    ``runtime.run()`` returns and simply trusting its content is the
+    mechanism behind a reported false-Done class: a concurrent invocation
+    against the same ``state_root`` (or a ``RuntimeLocal`` exit path that
+    returns without writing state at all) can leave a DIFFERENT run's
+    content there, and nothing in the old read path could tell — a receipt
+    could report ``status=success`` with a fully green, fully populated
+    ``result`` table that belongs to a different ticket/run than the one
+    just requested, while this run's own capture log correctly names what
+    it actually resolved.
+
+    ``RuntimeLocal`` (OMN-15449, omnibase_core) now stamps its own
+    ``run_id`` into every write. This function is the join: content is
+    trusted ONLY when its ``run_id`` field equals the run_id THIS process
+    generated for THIS invocation.
+
+    Returns ``(workflow_data, None)`` unchanged when the file is empty
+    (nothing to distrust — a genuinely fresh state_root, or a run that
+    legitimately produced no workflow data) or when its ``run_id`` matches.
+    Returns ``({}, reason)`` — discarding the untrusted content entirely —
+    on any mismatch, INCLUDING an absent ``run_id`` field: an old writer
+    that predates this stamp is indistinguishable from a mismatch and must
+    fail closed the same way (UNKNOWN reads as untrustworthy, never as
+    fresh — the same discipline OMN-15396 AC5 applies to freshness).
+    """
+    if not workflow_data:
+        return workflow_data, None
+    stamped = workflow_data.get("run_id")
+    if stamped == str(run_id):
+        return workflow_data, None
+    reason = (
+        f"OMN-15449 anchor-join refusal: {WORKFLOW_RESULT_FILENAME} run_id "
+        f"{stamped!r} does not match this invocation's run_id {str(run_id)!r} "
+        "— discarding untrusted workflow data instead of serving another "
+        "run's result as this run's own."
+    )
+    return {}, reason
+
+
+def _declared_correlation_ids(workflow_data: dict[str, JsonValue]) -> set[str]:
+    """Every ``correlation_id`` the loaded workflow content claims for itself.
+
+    Both levels are read. A delegate terminal is a ``ModelEventEnvelope``
+    dump: the envelope carries ``correlation_id`` at the top and the domain
+    payload carries its own copy under ``payload``. A wrong-run envelope can
+    disagree with this run at either level, so both are collected and the
+    caller requires the whole set to be this run's id.
+    """
+    found: set[str] = set()
+    for key in ("handler_result", "terminal_payload"):
+        candidate = workflow_data.get(key)
+        if not isinstance(candidate, dict):
+            continue
+        containers: list[object] = [candidate, candidate.get("payload")]
+        for container in containers:
+            if not isinstance(container, dict):
+                continue
+            raw = container.get("correlation_id")
+            if isinstance(raw, str) and raw:
+                found.add(raw)
+    return found
+
+
+def _has_receipt_content(workflow_data: dict[str, JsonValue]) -> bool:
+    """Whether the stored file holds anything a receipt could render as a result.
+
+    ``workflow_result.json`` always carries bookkeeping — ``result``,
+    ``exit_code``, ``workflow``, ``run_id``, ``handler_locus``, and (on a
+    dispatched run) ``wire_correlation_id``. None of that is a receipt.
+    The receipt is the terminal envelope or the handler's own return value,
+    and those are the only two keys :func:`_declared_correlation_ids` reads.
+
+    The distinction matters because a run that produced NO receipt — it timed
+    out, or it never reached the broker — is a different fact from a run whose
+    receipt belongs to somebody else, and only the second is a join failure.
+    """
+    return any(
+        workflow_data.get(key) is not None
+        for key in ("handler_result", "terminal_payload")
+    )
+
+
+def _verify_workflow_data_correlation(
+    workflow_data: dict[str, JsonValue],
+    expected_correlation_id: uuid.UUID | None,
+    *,
+    workflow_result: EnumWorkflowResult | None,
+) -> tuple[dict[str, JsonValue], str | None]:
+    """Select the receipt strictly by THIS run's correlation id (OMN-17295).
+
+    The OMN-15449 anchor join above proves the FILE was written by this
+    invocation. It says nothing about whose terminal envelope the runtime put
+    inside it, and that is a distinct failure:
+    ``RuntimeLocal._on_terminal_event`` adopts the FIRST terminal that arrives
+    on the subscribed terminal topic with no correlation predicate, so a
+    retained terminal from an earlier run (a fresh Kafka consumer group reads
+    from the beginning of a topic that still holds last night's events)
+    becomes this run's ``terminal_payload`` and is written out under this
+    run's ``run_id``. Live shape, this repo's ``.onex_state`` on 2026-08-31:
+    ``run_id`` fresh at 04:11 local, ``terminal_payload.envelope_timestamp``
+    ``2026-08-30T23:02:44Z``, ``payload.prompt_text`` a different prompt
+    entirely — a confident, wrong answer with nothing on the surface marking
+    it as wrong.
+
+    The CLI is the last boundary that still knows which correlation id it
+    minted, so the join lands here. Content is served ONLY when every
+    correlation id it declares is this run's own. Anything else — a foreign
+    id, a mix, or no id at all — is discarded and reported as an explicit
+    "no receipt found", because an unattributable receipt and a wrong receipt
+    are the same defect from the caller's side.
+
+    Absent ids fail closed for the same reason the anchor join refuses an
+    absent ``run_id``: UNKNOWN provenance is never read as ours.
+
+    ``expected_correlation_id`` is ``None`` for callers that mint no
+    correlation id of their own (``onex node``, ``onex skill``); those paths
+    are left exactly as they were.
+
+    **A run that produced no receipt is not a join failure.** The join exists
+    to stop a WRONG answer being rendered as this run's own. When the stored
+    file holds no terminal envelope and no handler result there is no answer
+    to render, so a refusal protects nothing — and it costs something real:
+    it replaces the run's own truthful outcome (``timeout``, ``failed``) with
+    a sentence about receipt selection, and it discards the bookkeeping the
+    caller needs to diagnose the actual break, ``wire_correlation_id``
+    included. Measured live on 2026-09-16 (lane ``bus-dogfood-1305``,
+    8 ``onex delegate --bus kafka --lane dev`` runs): 4 runs produced no
+    terminal — two published and timed out with ``events received: 0``, two
+    never published at all because the broker refused connections for ~30 s
+    and the terminal consumer never got a partition assignment. Every one of
+    the four stored ``result`` ``timeout``/``failed`` **and** a
+    ``wire_correlation_id`` equal to this run's own correlation, and every one
+    was reported as ``the stored receipt names no correlation id at all`` —
+    a sentence that is false twice over, and that sent the reporting lane
+    looking for a receipt-join defect that was not there.
+
+    So content-free data passes through, with its outcome and its wire
+    correlation intact — EXCEPT when the runtime claims it COMPLETED. A
+    completed dispatched run that stored no terminal is the one content-free
+    shape that could still mislead, and it keeps failing closed.
+    """
+    if expected_correlation_id is None or not workflow_data:
+        return workflow_data, None
+    expected = str(expected_correlation_id)
+    declared = _declared_correlation_ids(workflow_data)
+    if declared == {expected}:
+        return workflow_data, None
+    if declared:
+        observed = ", ".join(sorted(declared))
+        detail = f"the stored receipt names correlation {observed}"
+    elif _has_receipt_content(workflow_data):
+        detail = "the stored receipt carries content naming no correlation id at all"
+    elif workflow_result is EnumWorkflowResult.COMPLETED:
+        detail = (
+            "the run reports completed yet stored no terminal envelope and no "
+            "handler result"
+        )
+    else:
+        # No receipt at all, and the run says so itself. Nothing to attribute,
+        # nothing to refuse — hand the bookkeeping back so the receipt can
+        # report the real outcome.
+        return workflow_data, None
+    reason = (
+        f"OMN-17295 correlation-join refusal: no receipt found for this run's "
+        f"correlation {expected} — {detail}. Discarding it rather than "
+        "rendering another run's envelope as this run's result."
+    )
+    return {}, reason
+
+
+def _explain_absent_receipt(
+    workflow_data: dict[str, JsonValue],
+    expected_correlation_id: uuid.UUID | None,
+    workflow_result: EnumWorkflowResult | None,
+) -> str:
+    """Say why a non-success run has no receipt, in the receipt's own ``error``.
+
+    The pass-through arm above deliberately raises no refusal, which would
+    otherwise leave ``error`` empty on exactly the runs a reader most needs
+    explained. This states the fact plainly and names the wire correlation to
+    grep the lane with, instead of leaving the reader to infer it from the
+    inlined capture log.
+    """
+    if expected_correlation_id is None:
+        return ""
+    if workflow_result is None or workflow_result is EnumWorkflowResult.COMPLETED:
+        return ""
+    if _has_receipt_content(workflow_data):
+        return ""
+    wire = workflow_data.get("wire_correlation_id")
+    wire_clause = (
+        f" The command was published as correlation {wire}; grep the lane for it."
+        if isinstance(wire, str) and wire
+        else " No command reached the broker, so the lane has nothing to grep."
+    )
+    return (
+        f"This run produced no receipt: it ended in {workflow_result.value} with no "
+        f"terminal envelope for correlation {expected_correlation_id}."
+        f"{wire_clause} See the inlined capture log for the transport or timeout "
+        "cause — this is not a receipt-selection failure."
+    )
+
+
+def _load_merge_sweep_handler_result(
+    state_root: Path, correlation_id: JsonValue
+) -> dict[str, JsonValue] | None:
+    """Load durable merge-sweep output when runtime terminal capture missed it."""
+    if not isinstance(correlation_id, str) or not correlation_id:
+        return None
+    merge_sweep_root = state_root / "merge-sweep"
+    if not merge_sweep_root.is_dir():
+        return None
+    for result_path in sorted(
+        merge_sweep_root.glob("*/result.json"),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    ):
+        try:
+            raw = json.loads(result_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(raw, dict) or raw.get("correlation_id") != correlation_id:
+            continue
+        return {
+            "correlation_id": raw.get("correlation_id", correlation_id),
+            "prs_inventoried": raw.get("prs_inventoried", 0),
+            "prs_merged": raw.get("prs_merged", 0),
+            "prs_fixed": raw.get("prs_fixed", 0),
+            "prs_skipped": raw.get("prs_skipped", 0),
+            "prs_verified": raw.get("prs_verified", 0),
+            "prs_verification_blocked": raw.get("prs_verification_blocked", 0),
+            "verification_breakdown": raw.get("verification_breakdown", {}),
+            "final_state": raw.get("final_state", "FAILED"),
+            "error_message": raw.get("error_message"),
+            "org_wide_open_count": raw.get("org_wide_open_count", 0),
+            "org_wide_open_remainders": raw.get("org_wide_open_remainders", []),
+        }
+    return None
+
+
+def _print_full_output_on_capture_failure(
+    *,
+    reason: str,
+    capture_text: str,
+    workflow_data: dict[str, JsonValue],
+    runtime_error: str,
+) -> None:
+    """No-hidden-loss path: artifact write failed, so print EVERYTHING.
+
+    Parent invariant 1 / no-silent-fallback: when durable capture is not
+    possible, suppression is not allowed — the full output passes through.
+    """
+    click.echo(
+        f"receipt mode: artifact capture failed ({reason}); "
+        "printing full output instead of a receipt (no hidden loss).",
+        err=True,
+    )
+    if capture_text:
+        click.echo(capture_text, nl=False)
+    if runtime_error:
+        click.echo(runtime_error, nl=False)
+    if workflow_data:
+        click.echo(json.dumps(workflow_data, indent=2))
+
+
+def _resolve_artifact_store_root(state_root: Path) -> Path:
+    """Resolve the artifact store root for receipt-mode capture (boundary).
+
+    The artifact store (omnibase_core) resolves its root *only* from
+    ``ONEX_ARTIFACT_STORE_ROOT`` and ``KeyError``\\s when unset — fail-fast by
+    design (Operating Rule 8). But the receipt-mode CLI is invoked from operator
+    shells that set ``ONEX_STATE_DIR`` but NOT ``ONEX_ARTIFACT_STORE_ROOT``
+    (only the hook backstop exports it, OMN-13095). Without a default here, the
+    unset env var caught the KeyError and the path **failed open** — receipts
+    were silently never captured (OMN-13537).
+
+    This function is the config-resolution boundary between the CLI's
+    ``--state-root`` flag and the store's env-var contract (the same class of
+    boundary as ``runtime/config_discovery`` / ``service_kernel``): an explicit
+    operator-set ``ONEX_ARTIFACT_STORE_ROOT`` always wins; otherwise the store
+    root defaults to ``<state_root>/artifacts``, the convention the hook backstop
+    already encodes. This is NOT a silent fallback to a wrong path — it is the
+    documented home for this run's durable captures, co-located with the run's
+    other state. The resolved default is published to the environment so the
+    pinned ``ArtifactStore`` constructor reads it through its sole resolution
+    path (one source of truth for the store root; no second resolution surface).
+
+    Returns:
+        The resolved artifact store root (absolute path under ``state_root`` when
+        no explicit override is set).
+    """
+    # Explicit operator override wins; only default when truly unset/empty.
+    if os.environ.get(ARTIFACT_STORE_ROOT_ENV):
+        return Path(os.environ[ARTIFACT_STORE_ROOT_ENV])
+    resolved = (state_root / ARTIFACT_STORE_DIR_NAME).resolve()
+    os.environ[ARTIFACT_STORE_ROOT_ENV] = str(resolved)
+    return resolved
+
+
+def run_receipt_mode(
+    *,
+    node_name: str,
+    contract_path: Path,
+    input_path: Path | None,
+    state_root: Path,
+    backend_overrides: dict[str, str],
+    timeout: int,
+    verbose: bool,
+    emit_socket: Path,
+    expected_correlation_id: uuid.UUID | None = None,
+    receipt_validator: Callable[[object], str | None] | None = None,
+    receipt_callback: Callable[[object], None] | None = None,
+    host_handlers: bool = True,
+    locus_decision: ModelDelegateLocusDecision | None = None,
+    receipt_renderer: Callable[[object], bool] | None = None,
+) -> int:
+    """Serialize receipt mode and restore its process-global state on exit."""
+    with _RECEIPT_MODE_LOCK_STATE.lock:
+        root = logging.getLogger()
+        original_handlers = list(root.handlers)
+        original_level = root.level
+        original_disabled = root.disabled
+        previous_onex_state_dir = os.environ.get("ONEX_STATE_DIR")
+        previous_artifact_store_root = os.environ.get(ARTIFACT_STORE_ROOT_ENV)
+        operation_error: BaseException | None = None
+        try:
+            return _run_receipt_mode(
+                node_name=node_name,
+                contract_path=contract_path,
+                input_path=input_path,
+                state_root=state_root,
+                backend_overrides=backend_overrides,
+                timeout=timeout,
+                verbose=verbose,
+                emit_socket=emit_socket,
+                expected_correlation_id=expected_correlation_id,
+                receipt_validator=receipt_validator,
+                receipt_callback=receipt_callback,
+                host_handlers=host_handlers,
+                locus_decision=locus_decision,
+                receipt_renderer=receipt_renderer,
+            )
+        except BaseException as exc:
+            operation_error = exc
+            raise
+        finally:
+            cleanup_errors: list[BaseException] = []
+            cleanup_actions: tuple[Callable[[], None], ...] = (
+                lambda: _restore_root_logging_state(
+                    original_handlers, original_level, original_disabled
+                ),
+                lambda: _restore_environment_value(
+                    "ONEX_STATE_DIR", previous_onex_state_dir
+                ),
+                lambda: _restore_environment_value(
+                    ARTIFACT_STORE_ROOT_ENV, previous_artifact_store_root
+                ),
+            )
+            for cleanup_action in cleanup_actions:
+                try:
+                    cleanup_action()
+                except BaseException as exc:  # noqa: BLE001 - preserve the operation error
+                    cleanup_errors.append(exc)
+            if cleanup_errors:
+                if operation_error is not None:
+                    for cleanup_error in cleanup_errors:
+                        operation_error.add_note(
+                            "receipt-mode cleanup failed after the operation "
+                            f"raised: {type(cleanup_error).__name__}: {cleanup_error}"
+                        )
+                else:
+                    raise cleanup_errors[0]
+
+
+def _restore_environment_value(name: str, previous_value: str | None) -> None:
+    """Restore one receipt-mode environment variable to its exact prior state."""
+    if previous_value is None:
+        os.environ.pop(name, None)
+    else:
+        os.environ[name] = previous_value
+
+
+def _run_receipt_mode(
+    *,
+    node_name: str,
+    contract_path: Path,
+    input_path: Path | None,
+    state_root: Path,
+    backend_overrides: dict[str, str],
+    timeout: int,
+    verbose: bool,
+    emit_socket: Path,
+    expected_correlation_id: uuid.UUID | None = None,
+    receipt_validator: Callable[[object], str | None] | None = None,
+    receipt_callback: Callable[[object], None] | None = None,
+    host_handlers: bool = True,
+    locus_decision: ModelDelegateLocusDecision | None = None,
+    receipt_renderer: Callable[[object], bool] | None = None,
+) -> int:
+    """Execute the node and print exactly one ``ModelSkillResult`` JSON.
+
+    ``host_handlers`` (OMN-17304) selects the runtime's role. ``True`` (the
+    default, and every non-delegate caller) hosts the contract's handlers and
+    executes in-process. ``False`` publishes the command and awaits this run's
+    own correlated terminal, hosting nothing, so the work is done by whatever
+    runtime consumes the command topic. ``locus_decision`` carries the
+    evidence behind that choice into the receipt and the capture log — without
+    it a receipt from a dispatched run is byte-indistinguishable from a
+    receipt from a local one, which is the OMN-17295 defect.
+
+    ``expected_correlation_id`` (OMN-17295) is the correlation id the CALLER
+    minted for this invocation, when it has one. ``onex delegate`` mints it,
+    writes it into the request payload, and passes it here so the receipt can
+    be selected strictly by this run's identity — see
+    :func:`_verify_workflow_data_correlation`. Callers that mint no
+    correlation id (``onex node``, ``onex skill``) pass ``None`` and keep the
+    pre-existing behaviour unchanged.
+
+    ``receipt_callback`` is invoked after the typed receipt is assembled and
+    before stdout serialization. ``onex delegate`` uses this to persist its
+    customer-facing run files without parsing stdout, which must remain one
+    receipt JSON line. Callback failures propagate so required durable files
+    cannot be mistaken for successful dispatch evidence.
+
+    ``receipt_renderer`` (OMN-20124) replaces the stdout receipt JSON line. It
+    prints its own output and returns whether the run succeeded. ``None`` keeps
+    the one-JSON-line contract every other caller relies on.
+
+    Returns the process exit code (the runtime's exit code; 1 when the
+    runtime raised before producing a workflow result).
+    """
+    state_root = state_root.resolve()
+    run_id = uuid.uuid4()
+    # One correlation id shared by the skill-started / skill-completed pair so
+    # the skill_executions projection can join the two rows (OMN-13830). This is
+    # decided BEFORE the run because the started event fires before the body.
+    lifecycle_correlation_id = uuid.uuid4()
+    session_id = os.environ.get(_SESSION_ID_ENV) or None
+    capture_path = capture_log_path(state_root, node_name, str(run_id))
+    # OMN-16533: the root the RUNTIME writes into is this run's own, so its
+    # fixed-name workflow result is keyed by the run that produced it.
+    run_state_root = resolve_run_state_root(state_root, run_id)
+    capture_handler = _configure_capture_logging(capture_path, verbose=verbose)
+
+    # --- Skill lifecycle: skill-started (before the body runs) -------------
+    # Emitted through the SAME emit daemon socket as the capture events; the
+    # daemon accept outcome feeds started_emit_failed on the completed
+    # event so consumers can detect orphaned completions.
+    started_emit_ok = _emit_best_effort(
+        SUFFIX_OMNICLAUDE_SKILL_STARTED,
+        _skill_started_payload(
+            run_id=run_id,
+            correlation_id=lifecycle_correlation_id,
+            node_name=node_name,
+            contract_path=contract_path,
+            session_id=session_id,
+        ),
+        socket_path=emit_socket,
+    )
+
+    if locus_decision is not None:
+        # Written into the capture BEFORE the run so it survives even a
+        # crashed or timed-out invocation — a run that produced no receipt
+        # still has to be able to say where it was going to run.
+        logger.info(
+            "receipt_mode: execution locus=%s (%s); orchestrator contract=%s "
+            "from %s; command topic=%s broker=%s live lane consumers=%s "
+            "consumer bind wait=%.1fs",
+            locus_decision.locus.value,
+            locus_decision.resolved_from,
+            locus_decision.orchestrator_contract,
+            locus_decision.orchestrator_distribution,
+            locus_decision.command_topic,
+            locus_decision.broker or "(none — in-process bus)",
+            ", ".join(locus_decision.lane_consumer_groups) or "(none)",
+            locus_decision.consumer_bind_wait_seconds,
+        )
+
+    started = time.monotonic()
+    runtime_error = ""
+    runtime_error_type: str | None = None
+    runtime_error_is_transport = False
+    workflow_result: EnumWorkflowResult | None = None
+    exit_code = 1
+    handler_result_obj: object | None = None
+    previous_onex_state_dir = os.environ.get("ONEX_STATE_DIR")
+    os.environ["ONEX_STATE_DIR"] = str(state_root.resolve())
+    try:
+        runtime = RuntimeLocal(
+            workflow_path=contract_path,
+            # OMN-16533: private to this run. RuntimeLocal writes its workflow
+            # result to a FIXED filename under whatever root it is given, and
+            # also injects that root into any handler declaring a ``state_root``
+            # parameter — both are now per-invocation, which is the isolation
+            # a handler writing run evidence wants anyway. A handler that needs
+            # the caller's shared root still reads ``ONEX_STATE_DIR``, set just
+            # above to exactly that.
+            state_root=run_state_root,
+            backend_overrides=backend_overrides,
+            input_path=input_path,
+            timeout=timeout,
+            # OMN-15449: same run_id this function already uses for the
+            # skill-lifecycle events, threaded into the writer so the reader
+            # below can verify the file it reads back is THIS run's own.
+            run_id=run_id,
+            # OMN-17304: locus is a resolved property of the run, decided by
+            # the caller and passed in — never inferred here from whichever
+            # transport happened to be reachable.
+            host_handlers=host_handlers,
+        )
+        workflow_result = runtime.run()
+        exit_code = runtime.exit_code
+        handler_result_obj = runtime.handler_result
+    except Exception as exc:
+        # RuntimeLocal.run() records execution failures itself; reaching here
+        # means contract load / bus construction raised. Errors are never
+        # hidden: the traceback goes to the capture AND inline in the result.
+        runtime_error = traceback.format_exc()
+        runtime_error_type = type(exc).__name__
+        # OMN-18925: classify HERE, where the exception object still exists.
+        # Bus construction and bus start are the two things that raise out of
+        # RuntimeLocal before any workflow result, and a transport failure is
+        # the one class the delegate CLI can write a truthful typed terminal
+        # for. Deciding it by isinstance at the catch site rather than by
+        # matching a class NAME downstream is deliberate: a renamed or
+        # re-homed exception would silently stop matching a string, and the
+        # symptom would be the return of the exact silence this closes.
+        runtime_error_is_transport = isinstance(
+            exc, (InfraConnectionError, InfraTimeoutError)
+        )
+        logger.exception("receipt_mode: runtime raised")
+    finally:
+        if previous_onex_state_dir is None:
+            os.environ.pop("ONEX_STATE_DIR", None)
+        else:
+            os.environ["ONEX_STATE_DIR"] = previous_onex_state_dir
+    duration_ms = int((time.monotonic() - started) * 1000)
+
+    _close_capture_logging(capture_handler)
+    capture_text = (
+        capture_path.read_text(encoding="utf-8") if capture_path.exists() else ""
+    )
+    # OMN-16533: read back from THIS run's own root. A peer invocation cannot
+    # write here, so the joins below can no longer be tripped by a stranger's
+    # file — they stay as defence in depth against a writer that stamps the
+    # wrong identity into a file it did own.
+    workflow_data = _load_workflow_data(run_state_root)
+    workflow_data, identity_refusal = _verify_workflow_data_identity(
+        workflow_data, run_id
+    )
+    # OMN-17295: two independent joins, both fail-closed. The anchor join
+    # above proves the FILE is this run's; this one proves the CONTENT is.
+    workflow_data, correlation_refusal = _verify_workflow_data_correlation(
+        workflow_data, expected_correlation_id, workflow_result=workflow_result
+    )
+    # OMN-17295: a run that produced no receipt is reported as what it was —
+    # a timeout or a transport failure — not as a join refusal.
+    absent_receipt_explanation = _explain_absent_receipt(
+        workflow_data, expected_correlation_id, workflow_result
+    )
+    for refusal, refusal_type in (
+        (identity_refusal, "WorkflowResultIdentityMismatch"),
+        (correlation_refusal, "WorkflowResultCorrelationMismatch"),
+    ):
+        if not refusal:
+            continue
+        logger.error(refusal)
+        if not runtime_error:
+            runtime_error = refusal
+            runtime_error_type = refusal_type
+            # AC3 (OMN-15449): "refuse (non-verified, non-zero exit)" — a
+            # RuntimeLocal that itself returned COMPLETED/exit 0 must not
+            # let that success code escape once a join has decided its own
+            # workflow data cannot be trusted.
+            exit_code = 1
+    correlation_id = _extract_correlation_id(workflow_data, expected_correlation_id)
+    handler_result_model_name: str | None = (
+        _fully_qualified_name(handler_result_obj)
+        if handler_result_obj is not None
+        else None
+    )
+
+    if (
+        node_name == "node_pr_lifecycle_orchestrator"
+        and workflow_data.get("handler_result") is None
+    ):
+        merge_sweep_result = _load_merge_sweep_handler_result(
+            state_root, str(correlation_id)
+        )
+        if merge_sweep_result is not None:
+            workflow_data["handler_result"] = merge_sweep_result
+            handler_result_model_name = (
+                "omnimarket.nodes.node_pr_lifecycle_orchestrator.handlers."
+                "handler_pr_lifecycle_orchestrator.ModelPrLifecycleResult"
+            )
+
+    if runtime_error:
+        status = EnumSkillResultStatus.ERROR
+    else:
+        # workflow_result is always set when runtime_error is empty.
+        status = _WORKFLOW_TO_STATUS[
+            workflow_result
+            if workflow_result is not None
+            else EnumWorkflowResult.FAILED
+        ]
+
+    # --- Skill lifecycle: skill-completed (after the body finishes) --------
+    # Emitted before the artifact-capture block so it always fires, even when a
+    # genuine artifact-write failure short-circuits to the full-output path.
+    # Shares run_id + correlation_id with the started event above.
+    _emit_best_effort(
+        SUFFIX_OMNICLAUDE_SKILL_COMPLETED,
+        _skill_completed_payload(
+            run_id=run_id,
+            correlation_id=lifecycle_correlation_id,
+            node_name=node_name,
+            status=status,
+            duration_ms=duration_ms,
+            error_type=runtime_error_type,
+            started_emit_failed=not started_emit_ok,
+            session_id=session_id,
+        ),
+        socket_path=emit_socket,
+    )
+
+    # --- Layer B: durable capture (parent invariant 1) -------------------
+    # Resolve the artifact store root BEFORE constructing the store: default it
+    # to <state_root>/artifacts when unset so durable capture succeeds instead
+    # of failing open on a missing ONEX_ARTIFACT_STORE_ROOT (OMN-13537). An
+    # explicit operator override still wins.
+    _resolve_artifact_store_root(state_root)
+    handler_result_json = workflow_data.get("handler_result")
+    artifact_payloads: list[dict[str, JsonValue]] = []
+    artifact_refs: list[ModelArtifactRef] = []
+    try:
+        store = ArtifactStore()
+        captures: list[tuple[bytes, str, str]] = [
+            (capture_text.encode("utf-8"), "text/plain", "runtime_capture_log"),
+        ]
+        if handler_result_json is not None:
+            captures.append(
+                (
+                    json.dumps(handler_result_json).encode("utf-8"),
+                    "application/json",
+                    "handler_result",
+                )
+            )
+        for data, media_type, artifact_kind in captures:
+            ref = store.write_blob(
+                data,
+                media_type=media_type,
+                artifact_kind=artifact_kind,
+                source_system="onex_cli",
+                scope_ref=node_name,
+                correlation_id=str(correlation_id),
+            )
+            artifact_refs.append(ref)
+            artifact_payloads.append(
+                {
+                    "artifact_ref": ref.ref,
+                    "artifact_hash": ref.hex_digest,
+                    "artifact_size_bytes": len(data),
+                    "artifact_media_type": media_type,
+                    "artifact_kind": artifact_kind,
+                    "source_system": "onex_cli",
+                    "scope_ref": node_name,
+                    "correlation_id": str(correlation_id),
+                    "run_id": str(run_id),
+                    "redaction_state": "raw",
+                }
+            )
+    except (KeyError, OSError, ValueError) as exc:
+        # Artifact write failed ⇒ NO receipt, FULL output (invariant 1).
+        reason = f"{type(exc).__name__}: {exc}"
+        _print_full_output_on_capture_failure(
+            reason=reason,
+            capture_text=capture_text,
+            workflow_data=workflow_data,
+            runtime_error=runtime_error,
+        )
+        return exit_code
+
+    # --- Telemetry: emit best-effort (never re-floods the caller) -----------
+    socket_path = emit_socket
+    for index, event_payload in enumerate(artifact_payloads):
+        _emit_best_effort(
+            "artifact.captured",
+            event_payload,
+            socket_path=socket_path,
+        )
+    _emit_best_effort(
+        "tool.output.captured",
+        {
+            "tool_name": "onex_node",
+            "node_name": node_name,
+            "suppression_decision": "receipt_mode",
+            "correlation_id": str(correlation_id),
+            "run_id": str(run_id),
+            "exit_code": exit_code,
+            "status": status.value,
+            "artifact_refs": [ref.ref for ref in artifact_refs],
+            "capture_log_bytes": len(capture_text.encode("utf-8")),
+        },
+        socket_path=socket_path,
+    )
+
+    # --- Layer A: exactly one typed receipt on stdout ---------------------
+    metrics: dict[str, float] = {
+        "capture_log_bytes": float(len(capture_text.encode("utf-8"))),
+    }
+    # OMN-17310 (epic OMN-17306): every evidence-producing execution
+    # self-identifies. Collected ONCE and attached to BOTH branches below --
+    # the failure branch especially, because a receipt that failed still has to
+    # say what failed. ``config_source`` is the resolved contract this dispatch
+    # actually ran, which is the field that would have shown the OMN-17295
+    # probe resolving its orchestrator out of the local venv's site-packages
+    # rather than out of the lane. Required at receipt schema >= 1.1.0: the
+    # core model REFUSES to construct an unstamped receipt, so this is not an
+    # enrichment that can quietly regress.
+    runtime_identity = collect_runtime_identity(config_source=str(contract_path))
+    receipt: ModelSkillResult[JsonValue] | ModelSkillResult[ModelReceiptRuntimeSummary]
+    if (
+        status.is_success_like
+        and handler_result_json is not None
+        and handler_result_model_name is not None
+    ):
+        receipt = ModelSkillResult[JsonValue](
+            skill_name=node_name,
+            node_name=node_name,
+            status=status,
+            correlation_id=correlation_id,
+            run_id=run_id,
+            exit_code=exit_code,
+            duration_ms=duration_ms,
+            result=handler_result_json,
+            result_model=handler_result_model_name,
+            metrics=metrics,
+            artifact_refs=artifact_refs,
+            runtime_identity=runtime_identity,
+        )
+    else:
+        summary = ModelReceiptRuntimeSummary(
+            workflow_result=(
+                workflow_result.value if workflow_result is not None else "error"
+            ),
+            exit_code=exit_code,
+            workflow=str(contract_path),
+            # OMN-17295 AC2: read back from the runtime's OWN durable record,
+            # not from the caller's request — a receipt must report what the
+            # run did, not what it was asked to do.
+            handler_locus=_json_str(workflow_data.get("handler_locus")),
+            wire_correlation_id=_json_uuid(workflow_data.get("wire_correlation_id")),
+            orchestrator_distribution=(
+                locus_decision.orchestrator_distribution
+                if locus_decision is not None
+                else ""
+            ),
+            dispatch_target=(
+                _format_dispatch_target(locus_decision)
+                if locus_decision is not None
+                else ""
+            ),
+            terminal_payload=workflow_data.get("terminal_payload"),
+            handler_result=handler_result_json,
+            error=runtime_error or absent_receipt_explanation,
+            runtime_error_type=runtime_error_type or "",
+            runtime_error_is_transport=runtime_error_is_transport,
+            # Errors are never hidden: non-success inlines the FULL capture
+            # log; success keeps it behind the artifact ref.
+            capture_log="" if status.is_success_like else capture_text,
+        )
+        receipt = ModelSkillResult[ModelReceiptRuntimeSummary](
+            skill_name=node_name,
+            node_name=node_name,
+            status=status,
+            correlation_id=correlation_id,
+            run_id=run_id,
+            exit_code=exit_code,
+            duration_ms=duration_ms,
+            result=summary,
+            result_model=_fully_qualified_name(summary),
+            metrics=metrics,
+            artifact_refs=artifact_refs,
+            runtime_identity=runtime_identity,
+        )
+
+    if receipt_validator is not None:
+        validation_error = receipt_validator(receipt)
+        if validation_error is not None:
+            summary = ModelReceiptRuntimeSummary(
+                workflow_result="error",
+                exit_code=1,
+                workflow=str(contract_path),
+                handler_locus=_json_str(workflow_data.get("handler_locus")),
+                wire_correlation_id=_json_uuid(
+                    workflow_data.get("wire_correlation_id")
+                ),
+                orchestrator_distribution=(
+                    locus_decision.orchestrator_distribution
+                    if locus_decision is not None
+                    else ""
+                ),
+                dispatch_target=(
+                    _format_dispatch_target(locus_decision)
+                    if locus_decision is not None
+                    else ""
+                ),
+                terminal_payload=workflow_data.get("terminal_payload"),
+                handler_result=handler_result_json,
+                error=validation_error,
+                capture_log=capture_text,
+            )
+            receipt = ModelSkillResult[ModelReceiptRuntimeSummary](
+                skill_name=node_name,
+                node_name=node_name,
+                status=EnumSkillResultStatus.FAILED,
+                correlation_id=correlation_id,
+                run_id=run_id,
+                exit_code=1,
+                duration_ms=duration_ms,
+                result=summary,
+                result_model=_fully_qualified_name(summary),
+                metrics=metrics,
+                artifact_refs=artifact_refs,
+                runtime_identity=runtime_identity,
+            )
+            exit_code = 1
+
+    # One line, stderr, never stdout: stdout carries exactly ONE receipt JSON
+    # and that invariant is what this whole module is built around. This is the
+    # glance-check -- the line that would have made the 08:10Z OMN-17295 probe
+    # self-evidently local ("locus=venv:...") at the terminal, instead of
+    # requiring a `docker logs | grep <correlation>` two hours later to
+    # discover it had never touched the lane.
+    click.echo(render_identity_line(runtime_identity), err=True)
+
+    # OMN-18306: RENDER FIRST, then write artifacts. These two used to run in
+    # the opposite order and therefore shared a failure domain: the delegate
+    # CLI's route-attribution writer refuses -- correctly -- to attribute a
+    # route for a run with no accepted attempt, and that raise propagated out
+    # of this function before the echo below was ever reached. A terminally
+    # failed delegation printed ZERO BYTES on stdout: no answer, no failure
+    # class, no per-rung attempt record, no cost, just the refusal line on
+    # stderr. A correct refusal about ATTRIBUTION must never erase the ANSWER.
+    #
+    # The receipt is this module's whole contract, so nothing downstream of it
+    # may be able to suppress it. Any callback failure is reported and folded
+    # into the exit code instead.
+    try:
+        if receipt_renderer is None:
+            click.echo(receipt.model_dump_json())
+        elif not receipt_renderer(receipt) and exit_code == 0:
+            # OMN-20124: a renderer that reported a failure line must not sit
+            # beside a zero exit.
+            exit_code = 1
+    except ValidationError as exc:  # pragma: no cover - construction validates
+        click.echo(f"receipt mode: receipt serialization failed: {exc}", err=True)
+        return 1
+
+    if receipt_callback is not None:
+        try:
+            receipt_callback(receipt)
+        except Exception as exc:  # noqa: BLE001 - a writer must not erase the receipt
+            click.echo(f"receipt mode: receipt callback failed: {exc}", err=True)
+            return exit_code or 1
+    return exit_code

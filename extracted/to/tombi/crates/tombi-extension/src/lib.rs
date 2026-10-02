@@ -20,5 +20,5 @@ pub use remote_cache::fetch_cached_remote_json;
 pub use tombi_ast as ast;
 pub use tombi_document_tree as document_tree;
 
-// Export completion-specific TextEdit (uses tombi_text::Range internally)
+// Export completion-specific TextEdit (uses tombi_text::Span internally)
 pub use text_edit::TextEdit;

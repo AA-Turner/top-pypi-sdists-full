@@ -1,0 +1,207 @@
+---
+name: session_bootstrap
+contract_version: {major: 2, minor: 0, patch: 0}
+node_type: orchestrator
+node_version: {major: 2, minor: 0, patch: 0}
+
+description: >
+  Session bootstrapper. Reads session inputs, writes contract snapshot to
+  .onex_state/, writes the desired launchd scheduler plan, optionally installs
+  Claude cron compatibility shims, and emits session-bootstrap-completed.
+  Runs FIRST each session.
+
+handler:
+  module: omnimarket.nodes.node_session_bootstrap.handlers.handler_session_bootstrap
+  class: HandlerSessionBootstrap
+  input_model: omnimarket.nodes.node_session_bootstrap.handlers.handler_session_bootstrap.ModelBootstrapCommand
+
+descriptor:
+  node_archetype: orchestrator
+  purity: impure
+  runtime_profiles:
+    - effects
+  # idempotent with respect to scheduler-plan emission and optional cron shim
+  # registration. State files are overwritten, not appended.
+  idempotent: true
+  timeout_ms: 30000
+  runtime_profiles:
+    - effects
+
+inputs:
+  session_id:
+    type: uuid
+    required: true
+  session_mode:
+    type: str
+    required: true
+    # Current MVP mode set -- not final taxonomy.
+    enum: [build, close-out, reporting]
+    description: "Controls which crons are activated and what halt conditions apply"
+  active_sprint_id:
+    type: str
+    required: false
+    # Transitional: "auto-detect" is a string sentinel. Target state is
+    # active_sprint_mode: auto | explicit (typed enum). Using string default
+    # until the field type is promoted.
+    default: "auto-detect"
+    description: "Linear cycle ID, or 'auto-detect' to query Linear for active sprint"
+  model_routing_preference:
+    type: str
+    required: false
+    default: "local-first"
+    enum: [local-first, frontier-only, hybrid]
+    description: "Routing preference passed to dogfood gate at dispatch time"
+  contract:
+    type: object
+    description: "ModelSessionContract -- session-level verification contract"
+    required: true
+  state_dir:
+    type: str
+    required: false
+    default: ".onex_state"
+  dry_run:
+    type: bool
+    required: false
+    default: false
+  enable_cron_shim:
+    type: bool
+    required: false
+    default: false
+    description: "Best-effort Claude cron compatibility shim. Launchd remains the primary scheduler surface."
+
+outputs:
+  session_id:
+    type: str
+  status:
+    type: str
+    description: "ready | degraded | failed"
+  contract_path:
+    type: str
+  crons_registered:
+    type: list
+    description: "List of optional cron shim IDs created or confirmed by bootstrap"
+  warnings:
+    type: list
+
+required_crons:
+  build_dispatch_pulse:
+    # Phase 1 only. merge_sweep and overseer_verify are phase 2 additions.
+    cron_name: build-dispatch-pulse
+    prompt_template_key: BUILD_DISPATCH_PULSE_PROMPT
+    timeout_budget_ms: 300000   # 5 minutes per tick
+    description: >
+      Pull Linear sprint, classify unworked tickets, dispatch workers via
+      node_dispatch_worker (dogfood path) or Agent (fallback). Verify output
+      via CronOutputVerificationRoutine after each tick.
+    interval_min: 30
+    active_modes: [build]
+    phase: 1
+    health_thresholds:
+      dispatch_count_per_tick_min: 1
+      condition: "if backlog_unworked_count > 0"
+      failure_class: VACUOUS_PULSE
+
+  # Phase 2 additions — promoted to active in v2.1
+  merge_sweep:
+    cron_name: merge-sweep
+    prompt_template_key: MERGE_SWEEP_PROMPT
+    timeout_budget_ms: 600000
+    description: >
+      Run /onex:merge_sweep — org-wide PR sweep, enable auto-merge on review-green
+      PRs. Skill-first routing: invoke /onex:merge_sweep before any raw Agent call.
+      Route all LLM calls through .201 local models. Report only actionable events;
+      silent on clean state.
+    schedule: "*/30 * * * *"
+    active_modes: [build, close-out]
+    phase: 2
+    status: active
+    health_thresholds:
+      must_not_timeout: true
+      failure_class: MERGE_SWEEP_TIMEOUT
+
+  overseer_verify:
+    cron_name: overseer-verify
+    prompt_template_key: OVERSEER_VERIFY_PROMPT
+    timeout_budget_ms: 120000
+    description: >
+      Run /onex:overseer_verify — 5-check overseer gate on recently-completed
+      tickets. Escalate on any invariant violation. Use TaskList-based stall
+      detection as fallback when overseer node is unavailable. Route LLM calls
+      through .201. Report only on violations; silent otherwise.
+    schedule: "11,31,51 * * * *"
+    active_modes: [build, close-out, reporting]
+    phase: 2
+    status: active
+    health_thresholds:
+      overseer_escalate_count_max: 0
+      failure_class: OVERSEER_VIOLATION
+
+  contract_verify:
+    cron_name: contract-verify
+    prompt_template_key: CONTRACT_VERIFY_PROMPT
+    timeout_budget_ms: 120000
+    description: >
+      Run /onex:contract_sweep — drift-mode contract health check across all repos.
+      Route LLM calls through .201. Report only on drift violations; silent on
+      clean state.
+    schedule: "7,22,37,52 * * * *"
+    active_modes: [build, close-out, reporting]
+    phase: 2
+    status: active
+    health_thresholds:
+      must_not_timeout: true
+      failure_class: CONTRACT_VERIFY_TIMEOUT
+
+dogfood_gate:
+  description: >
+    Before dispatching work via Agent(model=sonnet), check if node_dispatch_worker
+    is deployed. If deployed, route through it with local model. Only use Agent
+    as fallback when node_dispatch_worker is unavailable OR task requires
+    multi-repo reasoning/frontier synthesis.
+  # Stable identity: node name + entry point + command topic.
+  dispatch_worker_node_name: node_dispatch_worker
+  dispatch_worker_entry_point: omnimarket.nodes.node_dispatch_worker
+  dispatch_worker_command_topic: onex.cmd.omnimarket.dispatch-worker-start.v1
+  local_model_preference: "local-first"
+  log_bypass_as_dogfood_available: WARNING
+  log_bypass_as_dogfood_unavailable: INFO
+
+dod_evidence:
+  ticket: "OMN-9877"
+  check_type: "local_test"
+  check_value: "uv run pytest tests/ -m 'not kafka' -q passed"
+  verified_by: "pre-push CI + golden-chain suite"
+
+terminal_event: onex.evt.omnimarket.session-bootstrap-completed.v2
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.session-bootstrap-start.v2
+  publish_topics:
+    - onex.evt.omnimarket.session-bootstrap-completed.v2
+    - onex.evt.omnimarket.session-cron-health-violation.v1
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: session_bootstrap
+      handler:
+        name: HandlerSessionBootstrap
+        module: omnimarket.nodes.node_session_bootstrap.handlers.handler_session_bootstrap
+      event_model:
+        name: ModelBootstrapCommand
+        module: omnimarket.nodes.node_session_bootstrap.handlers.handler_session_bootstrap
+
+metadata:
+  transport_type: kafka
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.session-bootstrap-start.v2
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.session-bootstrap-completed.v2
+  # referenced outside the node graph at omnimarket/src/omnimarket/nodes/node_session_bootstrap/handlers/handler_session_bootstrap.py
+  - onex.evt.omnimarket.session-cron-health-violation.v1

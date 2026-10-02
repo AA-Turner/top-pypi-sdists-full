@@ -1,0 +1,100 @@
+name: omninode-runtime
+description: Primary ONEX runtime kernel — bootstrap and request processing
+image: runtime:latest
+layer: runtime
+container_name: omninode-runtime
+required_env:
+  - POSTGRES_PASSWORD
+  - VALKEY_PASSWORD
+  - KEYCLOAK_ADMIN_CLIENT_SECRET
+  - ONEX_SERVICE_CLIENT_SECRET
+  - ONEX_REGISTRATION_AUTO_ACK
+  - LLM_CODER_URL
+  - LLM_CODER_FAST_URL
+  - LLM_EMBEDDING_URL
+  - LLM_DEEPSEEK_R1_URL
+  - LLM_ENDPOINT_CIDR_ALLOWLIST
+  - LLM_CLOUD_ENDPOINT_HOST_ALLOWLIST
+  - LOCAL_LLM_SHARED_SECRET
+  - OMNIDASH_ANALYTICS_DB_URL
+hardcoded_env:
+  OMNIBASE_INFRA_DB_URL: 'postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}@postgres:5432/omnibase_infra'
+  OMNIINTELLIGENCE_DB_URL: 'postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}@postgres:5432/omniintelligence'
+  KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+  # OMN-19558: 240s handler + 60s margin needs deadline >= 300s;
+  # the library's 300s poll default caps the deadline at 255s.
+  KAFKA_MAX_POLL_INTERVAL_MS: '1800000'
+  KAFKA_BROKER_ALLOWLIST: 'redpanda:'
+  OMNIBASE_INFRA_SAVINGS_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+  BUS_ID: local
+  ONEX_CONTRACTS_DIR: /app/contracts
+  ONEX_STATE_ROOT: /app/data/.onex_state
+  ONEX_STATE_DIR: /app/data/.onex_state
+  ONEX_ACTIVE_RUNTIME_PACKAGES: ${ONEX_ACTIVE_RUNTIME_PACKAGES:?runtime policy contract must set ONEX_ACTIVE_RUNTIME_PACKAGES}
+  VALKEY_HOST: valkey
+  VALKEY_PORT: '6379'
+  ONEX_MARKETPLACE_SKILLS_ROOT: /app/skills
+  USE_EVENT_ROUTING: 'true'
+  KEYCLOAK_ADMIN_URL: http://keycloak:8080
+  RUNTIME_PROFILE: main
+  ONEX_RUNTIME_CAPABILITIES: ${DEV_RUNTIME_MAIN_CAPABILITIES:?runtime policy contract must set DEV_RUNTIME_MAIN_CAPABILITIES}
+  OMNIINTELLIGENCE_PUBLISH_INTROSPECTION: ${DEV_RUNTIME_MAIN_PUBLISH_INTROSPECTION:?runtime policy contract must set DEV_RUNTIME_MAIN_PUBLISH_INTROSPECTION}
+  ENABLE_RUNTIME_LOG_BRIDGE: 'true'
+operational_defaults:
+  POSTGRES_USER: postgres
+  ONEX_LOG_LEVEL: INFO
+  ONEX_ENVIRONMENT: local
+  ONEX_DATABASE_TOPOLOGY_PROFILE: local
+  KEYCLOAK_REALM: omninode
+  KEYCLOAK_ADMIN_CLIENT_ID: onex-admin
+  KEYCLOAK_ISSUER: http://localhost:28080/realms/omninode
+  ONEX_SERVICE_CLIENT_ID: onex-service
+  OTEL_SERVICE_NAME: omninode-runtime-main
+  ONEX_GROUP_ID: onex-runtime-main
+ports:
+  external: 8085
+  internal: 8085
+healthcheck:
+  # OMN-17883: the SEMANTIC probe, not `curl -sf`. `curl -sf` asserts only
+  # "status code < 400", and /health returns 200 for a running-but-DEGRADED
+  # runtime by design (ServiceHealth._handle_health), so the shallow check
+  # cannot fail on the exact condition OMN-15217 was filed for. Worse, a
+  # compose-level healthcheck OVERRIDES the image-level HEALTHCHECK, so this
+  # entry was replacing the deep probe Dockerfile.runtime already bakes in.
+  # List form renders as ["CMD", ...] and needs no shell.
+  test:
+    - python
+    - /usr/local/bin/onex-container-healthcheck
+    - --url
+    - http://localhost:8085/health
+    - --degraded-policy
+    - fail
+  interval_s: 30
+  timeout_s: 10
+  retries: 5
+  start_period_s: 1800
+volumes:
+  - runtime_logs:/app/logs
+  - runtime_data:/app/data
+  # The runtime-owned sqlite secret store, shared with runtime-effects (see there).
+  - delegation_credentials:/home/omniinfra/.omninode/delegation
+  - ../contracts:/app/contracts:ro
+tmpfs:
+  - /run/onex-runtime:uid=1000,gid=1000,mode=0770
+depends_on:
+  - service: migration-gate
+    condition: service_healthy
+  - service: redpanda
+    condition: service_healthy
+restart: unless-stopped
+resources:
+  cpus: '1.0'
+  memory: 1536M
+  cpus_reservation: '0.25'
+  memory_reservation: 256M
+stop_grace_period: 90s
+labels:
+  com.omninode.service: runtime-main
+  com.omninode.layer: runtime
+  com.omninode.version: ${RUNTIME_VERSION:-0.1.0}
+  autoheal: 'false'

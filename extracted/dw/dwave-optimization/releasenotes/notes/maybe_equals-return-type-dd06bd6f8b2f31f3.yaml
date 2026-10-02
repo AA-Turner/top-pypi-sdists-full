@@ -1,3 +1,0 @@
----
-fixes:
-  - Fix return type of ``Symbol.maybe_equals()`` to be integer instead of boolean. See `#23 <https://github.com/dwavesystems/dwave-optimization/issues/23>`_.

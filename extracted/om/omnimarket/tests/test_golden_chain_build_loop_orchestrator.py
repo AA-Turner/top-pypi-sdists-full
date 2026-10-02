@@ -1,0 +1,653 @@
+"""Golden chain tests for node_build_loop_orchestrator.
+
+Verifies the orchestrator composes sub-handlers via FSM:
+  start command -> phase transitions with sub-handler invocations -> completion.
+Uses mock sub-handlers and EventBusInmemory.
+
+Related:
+    - OMN-7583: Migrate build loop orchestrator
+    - OMN-7575: Build loop migration epic
+"""
+
+from __future__ import annotations
+
+import json
+from datetime import UTC, datetime
+from uuid import UUID, uuid4
+
+import pytest
+from omnibase_core.event_bus.event_bus_inmemory import EventBusInmemory
+
+from omnimarket.nodes.node_build_loop.models.model_loop_start_command import (
+    ModelLoopStartCommand,
+)
+from omnimarket.nodes.node_build_loop.models.model_loop_state import (
+    EnumBuildLoopPhase,
+)
+from omnimarket.nodes.node_build_loop_orchestrator.handlers.handler_build_loop_orchestrator import (
+    HandlerBuildLoopOrchestrator,
+)
+from omnimarket.nodes.node_build_loop_orchestrator.models.model_orchestrator_start_command import (
+    ModelOrchestratorStartCommand,
+)
+from omnimarket.nodes.node_build_loop_orchestrator.protocols.protocol_sub_handlers import (
+    BuildTarget,
+    ClassifyRequest,
+    ClassifyResult,
+    CloseoutResult,
+    DelegationPayload,
+    DispatchResult,
+    RsdFillRequest,
+    RsdFillResult,
+    ScoredTicket,
+    VerifyResult,
+)
+
+# Topic strings for test assertions — match contract.yaml publish_topics
+TOPIC_PHASE_TRANSITION = (
+    "onex.evt.omnimarket.build-loop-orchestrator-phase-transition.v1"
+)
+TOPIC_DOD_CHECKED = "onex.evt.omnimarket.build-loop-dod-checked.v1"
+
+# --- Mock sub-handlers ---
+
+
+class MockCloseout:
+    """Mock closeout handler that always succeeds."""
+
+    def __init__(self, *, fail: bool = False) -> None:
+        self._fail = fail
+        self.call_count = 0
+
+    async def handle(
+        self, *, correlation_id: UUID, dry_run: bool = False
+    ) -> CloseoutResult:
+        self.call_count += 1
+        if self._fail:
+            msg = "Closeout failed"
+            raise RuntimeError(msg)
+        return CloseoutResult(success=True)
+
+
+class MockVerify:
+    """Mock verify handler."""
+
+    def __init__(self, *, pass_checks: bool = True) -> None:
+        self._pass = pass_checks
+        self.call_count = 0
+
+    async def handle(
+        self, *, correlation_id: UUID, dry_run: bool = False
+    ) -> VerifyResult:
+        self.call_count += 1
+        return VerifyResult(all_critical_passed=self._pass)
+
+
+class MockRsdFill:
+    """Mock RSD fill handler."""
+
+    def __init__(self, tickets: tuple[ScoredTicket, ...] = ()) -> None:
+        self._tickets = tickets
+        self.call_count = 0
+
+    async def handle(self, request: RsdFillRequest) -> RsdFillResult:
+        self.call_count += 1
+        return RsdFillResult(
+            selected_tickets=self._tickets,
+            total_selected=len(self._tickets),
+        )
+
+
+class MockClassify:
+    """Mock classify handler."""
+
+    def __init__(self, targets: tuple[BuildTarget, ...] = ()) -> None:
+        self._targets = targets
+        self.call_count = 0
+
+    async def handle(
+        self,
+        request: ClassifyRequest,
+    ) -> ClassifyResult:
+        self.call_count += 1
+        return ClassifyResult(classifications=self._targets)
+
+
+class MockDispatch:
+    """Mock dispatch handler."""
+
+    def __init__(
+        self,
+        dispatched: int = 0,
+        delegation_payloads: tuple[DelegationPayload, ...] = (),
+    ) -> None:
+        self._dispatched = dispatched
+        self._delegation_payloads = delegation_payloads
+        self.call_count = 0
+
+    async def handle(
+        self,
+        *,
+        correlation_id: UUID,
+        targets: tuple[BuildTarget, ...],
+        dry_run: bool = False,
+    ) -> DispatchResult:
+        self.call_count += 1
+        return DispatchResult(
+            total_dispatched=self._dispatched,
+            delegation_payloads=self._delegation_payloads,
+        )
+
+
+def _make_command(
+    skip_closeout: bool = False,
+    dry_run: bool = False,
+    max_cycles: int = 1,
+) -> ModelLoopStartCommand:
+    return ModelLoopStartCommand(
+        correlation_id=uuid4(),
+        max_cycles=max_cycles,
+        skip_closeout=skip_closeout,
+        dry_run=dry_run,
+        requested_at=datetime.now(tz=UTC),
+    )
+
+
+async def _make_orchestrator(
+    *,
+    closeout: MockCloseout | None = None,
+    verify: MockVerify | None = None,
+    rsd_fill: MockRsdFill | None = None,
+    classify: MockClassify | None = None,
+    dispatch: MockDispatch | None = None,
+    event_bus: EventBusInmemory | None = None,
+) -> HandlerBuildLoopOrchestrator:
+    raw_bus = event_bus or EventBusInmemory()
+    if not raw_bus._started:
+        await raw_bus.start()
+    return HandlerBuildLoopOrchestrator(
+        closeout=closeout or MockCloseout(),
+        verify=verify or MockVerify(),
+        rsd_fill=rsd_fill or MockRsdFill(),
+        classify=classify or MockClassify(),
+        dispatch=dispatch or MockDispatch(),
+        event_bus=raw_bus,
+    )
+
+
+@pytest.mark.unit
+class TestBuildLoopOrchestratorGoldenChain:
+    """Golden chain: orchestrator composes sub-handlers through FSM cycle."""
+
+    async def test_full_cycle_all_phases_succeed(self) -> None:
+        """All 6 phases succeed -> COMPLETE with cycles_completed=1."""
+        tickets = (
+            ScoredTicket(ticket_id="OMN-1", title="Test", rsd_score=3.0, priority=2),
+        )
+        targets = (
+            BuildTarget(ticket_id="OMN-1", title="Test", buildability="auto_buildable"),
+        )
+        orch = await _make_orchestrator(
+            rsd_fill=MockRsdFill(tickets=tickets),
+            classify=MockClassify(targets=targets),
+            dispatch=MockDispatch(dispatched=1),
+        )
+        command = _make_command()
+
+        result = await orch.handle(command)
+
+        assert result.cycles_completed == 1
+        assert result.cycles_failed == 0
+        assert result.total_tickets_dispatched == 1
+        assert result.run_id == str(result.correlation_id)
+        assert result.workflow_name == "build_loop"
+        assert result.event_type == "build-loop-orchestrator-completed"
+        assert len(result.cycle_summaries) == 1
+        assert result.cycle_summaries[0].final_phase == EnumBuildLoopPhase.COMPLETE
+
+    async def test_contract_start_command_shape_runs_observe_mode(self) -> None:
+        """Auto-wiring passes the contract-declared start command model."""
+        command = ModelOrchestratorStartCommand(
+            correlation_id=uuid4(),
+            mode="observe",
+            max_cycles=1,
+            dry_run=True,
+            requested_at=datetime.now(tz=UTC),
+        )
+        orch = await _make_orchestrator()
+
+        result = await orch.handle(command)
+
+        assert result.cycles_completed == 1
+        assert result.cycles_failed == 0
+        assert result.run_id == str(command.correlation_id)
+
+    def test_contract_start_command_accepts_legacy_close_out_spelling(self) -> None:
+        """Support already-published close-out commands while normalizing mode."""
+        command = ModelOrchestratorStartCommand(
+            correlation_id=uuid4(),
+            mode="close-out",
+            requested_at=datetime.now(tz=UTC),
+        )
+
+        assert command.mode == "close_out"
+        assert command.skip_closeout is False
+        assert command.max_tickets == 5
+
+    async def test_close_out_mode_reaches_releasing_and_fails_there(self) -> None:
+        """Pins the RELEASING edges the contract state_machine declares (OMN-19548).
+
+        close_out mode's sequence continues past VERIFYING to RELEASING, and the
+        orchestrator has no sub-handler for RELEASING (_execute_phase answers
+        "Unknown phase"), so the phase retries in place until the circuit
+        breaker fails the cycle. This test records that behaviour as it is; it
+        is a known gap, not an endorsement.
+        """
+        bus = EventBusInmemory()
+        await bus.start()
+        orch = await _make_orchestrator(event_bus=bus)
+        command = ModelOrchestratorStartCommand(
+            correlation_id=uuid4(),
+            mode="close_out",
+            max_cycles=1,
+            dry_run=True,
+            requested_at=datetime.now(tz=UTC),
+        )
+
+        result = await orch.handle(command)
+
+        assert result.cycles_completed == 0
+        assert result.cycles_failed == 1
+        assert result.cycle_summaries[0].final_phase == EnumBuildLoopPhase.FAILED
+        assert result.cycle_summaries[0].error_message is not None
+        assert (
+            f"Unknown phase: {EnumBuildLoopPhase.RELEASING}"
+            in result.cycle_summaries[0].error_message
+        )
+
+    async def test_skip_closeout(self) -> None:
+        """skip_closeout=True skips CLOSING_OUT, goes IDLE -> VERIFYING."""
+        closeout = MockCloseout()
+        orch = await _make_orchestrator(closeout=closeout)
+        command = _make_command(skip_closeout=True)
+
+        result = await orch.handle(command)
+
+        assert result.cycles_completed == 1
+        assert closeout.call_count == 0  # Closeout was skipped
+
+    async def test_closeout_called_by_default(self) -> None:
+        """Default flow calls closeout handler."""
+        closeout = MockCloseout()
+        orch = await _make_orchestrator(closeout=closeout)
+        command = _make_command()
+
+        result = await orch.handle(command)
+
+        assert result.cycles_completed == 1
+        assert closeout.call_count == 1
+
+    async def test_verify_failure_causes_cycle_failure(self) -> None:
+        """Verification failure -> cycle fails after circuit breaker."""
+        verify = MockVerify(pass_checks=False)
+        orch = await _make_orchestrator(verify=verify)
+        command = _make_command()
+
+        result = await orch.handle(command)
+
+        # Verify fails, circuit breaker trips after 3 consecutive failures
+        assert result.cycles_failed == 1
+        assert result.cycles_completed == 0
+        # Verify called multiple times due to retry-in-place before breaker
+        assert verify.call_count == 3
+
+    async def test_sub_handler_exception_causes_failure(self) -> None:
+        """Exception in a sub-handler -> phase failure -> eventually FAILED."""
+        closeout = MockCloseout(fail=True)
+        orch = await _make_orchestrator(closeout=closeout)
+        command = _make_command()
+
+        result = await orch.handle(command)
+
+        assert result.cycles_failed == 1
+        assert result.cycles_completed == 0
+        assert closeout.call_count == 3  # Retried 3 times
+
+    async def test_dry_run_propagated(self) -> None:
+        """dry_run flag propagates through to sub-handlers."""
+        orch = await _make_orchestrator()
+        command = _make_command(dry_run=True)
+
+        result = await orch.handle(command)
+
+        assert result.cycles_completed == 1
+
+    async def test_event_bus_receives_phase_transitions(
+        self, event_bus: EventBusInmemory
+    ) -> None:
+        """Phase transition events are published to event bus."""
+        await event_bus.start()
+
+        orch = await _make_orchestrator(event_bus=event_bus, verify=MockVerify())
+        command = _make_command()
+
+        result = await orch.handle(command)
+
+        assert result.cycles_completed == 1
+
+        phase_history = await event_bus.get_event_history(
+            topic=TOPIC_PHASE_TRANSITION,
+        )
+        # 6 transitions: IDLE->CLOSING_OUT, CLOSING_OUT->VERIFYING,
+        # VERIFYING->FILLING, FILLING->CLASSIFYING, CLASSIFYING->BUILDING,
+        # BUILDING->COMPLETE
+        assert len(phase_history) == 6
+
+        # Verify first and last transitions
+        first = json.loads(phase_history[0].value)
+        assert first["from_phase"] == "idle"
+        assert first["to_phase"] == "closing_out"
+        assert first["success"] is True
+
+        last = json.loads(phase_history[-1].value)
+        assert last["from_phase"] == "building"
+        assert last["to_phase"] == "complete"
+        assert last["success"] is True
+
+        await event_bus.close()
+
+    async def test_metrics_accumulate(self) -> None:
+        """Ticket metrics accumulate across phases."""
+        tickets = (
+            ScoredTicket(ticket_id="OMN-1", title="T1", rsd_score=3.0, priority=2),
+            ScoredTicket(ticket_id="OMN-2", title="T2", rsd_score=2.0, priority=3),
+        )
+        targets = (
+            BuildTarget(ticket_id="OMN-1", title="T1", buildability="auto_buildable"),
+        )
+        orch = await _make_orchestrator(
+            rsd_fill=MockRsdFill(tickets=tickets),
+            classify=MockClassify(targets=targets),
+            dispatch=MockDispatch(dispatched=1),
+        )
+        command = _make_command()
+
+        result = await orch.handle(command)
+
+        summary = result.cycle_summaries[0]
+        assert summary.tickets_filled == 2
+        assert summary.tickets_classified == 1  # Only auto_buildable
+        assert summary.tickets_dispatched == 1
+
+    async def test_dispatch_payload_evidence_is_carried_and_published(
+        self, event_bus: EventBusInmemory
+    ) -> None:
+        """Dispatch PR refs and cost keys stay durable in the cycle summary."""
+        await event_bus.start()
+        payload_correlation_id = "11111111-1111-4111-8111-111111111111"
+        delegation_topic = "onex.cmd.omnimarket.delegate-task.v1"
+        targets = (
+            BuildTarget(
+                ticket_id="OMN-11427", title="T", buildability="auto_buildable"
+            ),
+        )
+        payload = DelegationPayload(
+            topic=delegation_topic,
+            payload={
+                "ticket_id": "OMN-11427",
+                "correlation_id": payload_correlation_id,
+                "pr_refs": [
+                    "OmniNode-ai/omnimarket#11427",
+                    "OmniNode-ai/omnimarket#11427",
+                ],
+                "cost_event_keys": ["cost-a"],
+                "cost_event_key": "cost-b",
+            },
+        )
+        orch = await _make_orchestrator(
+            rsd_fill=MockRsdFill(
+                tickets=(
+                    ScoredTicket(
+                        ticket_id="OMN-11427", title="T", rsd_score=3.0, priority=2
+                    ),
+                )
+            ),
+            classify=MockClassify(targets=targets),
+            dispatch=MockDispatch(dispatched=1, delegation_payloads=(payload,)),
+            event_bus=event_bus,
+            verify=MockVerify(),
+        )
+
+        result = await orch.handle(_make_command())
+
+        summary = result.cycle_summaries[0]
+        assert summary.pr_refs == ("OmniNode-ai/omnimarket#11427",)
+        assert summary.cost_event_keys == ("cost-a", "cost-b")
+        published = await event_bus.get_event_history(topic=delegation_topic)
+        assert len(published) == 1
+        published_payload = json.loads(published[0].value)
+        assert published_payload["payload"]["ticket_id"] == "OMN-11427"
+        assert published_payload["correlation_id"] == payload_correlation_id
+        await event_bus.close()
+
+    async def test_multiple_cycles(self) -> None:
+        """Multiple cycles run sequentially when max_cycles > 1."""
+        orch = await _make_orchestrator(dispatch=MockDispatch(dispatched=2))
+        command = _make_command(max_cycles=3)
+
+        result = await orch.handle(command)
+
+        assert result.cycles_completed == 3
+        assert result.cycles_failed == 0
+        assert result.total_tickets_dispatched == 6
+        assert len(result.cycle_summaries) == 3
+
+    async def test_zero_imports_from_omnibase_infra(self) -> None:
+        """Verify no imports from omnibase_infra in the orchestrator module."""
+        import importlib
+        import inspect
+
+        mod = importlib.import_module(
+            "omnimarket.nodes.node_build_loop_orchestrator."
+            "handlers.handler_build_loop_orchestrator"
+        )
+        source = inspect.getsource(mod)
+        assert "from omnibase_infra" not in source
+        assert "import omnibase_infra" not in source
+
+    def test_zero_arg_construction_succeeds(self) -> None:
+        """Auto-wiring runtime must be able to construct with event_bus only."""
+        from typing import cast
+
+        from omnibase_core.protocols.event_bus.protocol_event_bus_publisher import (
+            ProtocolEventBusPublisher,
+        )
+
+        orch = HandlerBuildLoopOrchestrator(
+            event_bus=cast(ProtocolEventBusPublisher, EventBusInmemory())
+        )
+        assert orch._closeout is None
+        assert orch._verify is None
+        assert orch._rsd_fill is None
+        assert orch._classify is None
+        assert orch._dispatch is None
+
+    def test_explicit_injection_still_works(self) -> None:
+        """Callers that pass sub-handlers explicitly must not be broken."""
+        from typing import cast
+
+        from omnibase_core.protocols.event_bus.protocol_event_bus_publisher import (
+            ProtocolEventBusPublisher,
+        )
+
+        closeout = MockCloseout()
+        verify = MockVerify()
+        rsd_fill = MockRsdFill()
+        classify = MockClassify()
+        dispatch = MockDispatch()
+        orch = HandlerBuildLoopOrchestrator(
+            closeout=closeout,
+            verify=verify,
+            rsd_fill=rsd_fill,
+            classify=classify,
+            dispatch=dispatch,
+            event_bus=cast(ProtocolEventBusPublisher, EventBusInmemory()),
+        )
+        assert orch._closeout is closeout
+        assert orch._verify is verify
+        assert orch._rsd_fill is rsd_fill
+        assert orch._classify is classify
+        assert orch._dispatch is dispatch
+
+
+@pytest.mark.unit
+class TestDoDVerificationGating:
+    """DoD verification gates FSM advancement after BUILDING phase.
+
+    Tests that the overseer verifier is called after dispatch and that
+    a FAIL verdict blocks FSM advancement to COMPLETE.
+
+    Related: OMN-8030
+    """
+
+    async def test_dod_pass_advances_to_complete(self) -> None:
+        """Happy path: verifier returns PASS for all targets -> COMPLETE."""
+        targets = (
+            BuildTarget(ticket_id="OMN-100", title="T1", buildability="auto_buildable"),
+        )
+        orch = await _make_orchestrator(
+            rsd_fill=MockRsdFill(
+                tickets=(
+                    ScoredTicket(
+                        ticket_id="OMN-100", title="T1", rsd_score=3.0, priority=2
+                    ),
+                )
+            ),
+            classify=MockClassify(targets=targets),
+            dispatch=MockDispatch(dispatched=1),
+        )
+        command = _make_command()
+        result = await orch.handle(command)
+        assert result.cycles_completed == 1
+        assert result.cycles_failed == 0
+        assert result.cycle_summaries[0].final_phase == EnumBuildLoopPhase.COMPLETE
+
+    async def test_dod_emits_event_on_pass(self) -> None:
+        """DoD PASS emits onex.evt.omnimarket.build-loop-dod-checked.v1 for each target."""
+        event_bus = EventBusInmemory()
+        await event_bus.start()
+        targets = (
+            BuildTarget(ticket_id="OMN-200", title="T2", buildability="auto_buildable"),
+        )
+        orch = await _make_orchestrator(
+            rsd_fill=MockRsdFill(
+                tickets=(
+                    ScoredTicket(
+                        ticket_id="OMN-200", title="T2", rsd_score=3.0, priority=2
+                    ),
+                )
+            ),
+            classify=MockClassify(targets=targets),
+            dispatch=MockDispatch(dispatched=1),
+            event_bus=event_bus,
+            verify=MockVerify(),
+        )
+        command = _make_command()
+        await orch.handle(command)
+
+        dod_events = await event_bus.get_event_history(topic=TOPIC_DOD_CHECKED)
+        assert len(dod_events) == 1
+        payload = json.loads(dod_events[0].value)
+        assert payload["task_id"] == "OMN-200"
+        assert payload["verdict"] == "PASS"
+        await event_bus.close()
+
+    async def test_dod_fail_blocks_fsm_at_building(self) -> None:
+        """DoD FAIL verdict keeps cycle in BUILDING (not COMPLETE).
+
+        The overseer verifier returns FAIL when domain is unknown or input
+        is empty. We force FAIL by providing a task_id that triggers
+        input_completeness failure — empty node_id placeholder.
+
+        Actually, since HandlerOverseerVerifier is deterministic and requires
+        real domain + node_id, the easiest way to force FAIL is to mock the
+        overseer verifier on the orchestrator instance.
+        """
+        from unittest.mock import patch
+
+        targets = (
+            BuildTarget(ticket_id="OMN-300", title="T3", buildability="auto_buildable"),
+        )
+        orch = await _make_orchestrator(
+            rsd_fill=MockRsdFill(
+                tickets=(
+                    ScoredTicket(
+                        ticket_id="OMN-300", title="T3", rsd_score=3.0, priority=2
+                    ),
+                )
+            ),
+            classify=MockClassify(targets=targets),
+            dispatch=MockDispatch(dispatched=1),
+        )
+        command = _make_command()
+
+        # Patch the overseer verifier to return FAIL verdict
+        with patch.object(
+            orch._overseer_verifier,
+            "verify",
+            return_value={
+                "verdict": "FAIL",
+                "checks": [{"name": "input_completeness", "passed": False}],
+                "failure_class": "DATA_INTEGRITY",
+                "summary": "Forced FAIL for test",
+            },
+        ):
+            result = await orch.handle(command)
+
+        assert result.cycles_completed == 0
+        assert result.cycles_failed == 1
+        assert result.cycle_summaries[0].final_phase == EnumBuildLoopPhase.FAILED
+
+    async def test_dod_fail_emits_fail_event(self) -> None:
+        """DoD FAIL emits dod-checked event with verdict=FAIL."""
+        from unittest.mock import patch
+
+        event_bus = EventBusInmemory()
+        await event_bus.start()
+        targets = (
+            BuildTarget(ticket_id="OMN-400", title="T4", buildability="auto_buildable"),
+        )
+        orch = await _make_orchestrator(
+            rsd_fill=MockRsdFill(
+                tickets=(
+                    ScoredTicket(
+                        ticket_id="OMN-400", title="T4", rsd_score=3.0, priority=2
+                    ),
+                )
+            ),
+            classify=MockClassify(targets=targets),
+            dispatch=MockDispatch(dispatched=1),
+            event_bus=event_bus,
+            verify=MockVerify(),
+        )
+        command = _make_command()
+
+        with patch.object(
+            orch._overseer_verifier,
+            "verify",
+            return_value={
+                "verdict": "FAIL",
+                "checks": [{"name": "input_completeness", "passed": False}],
+                "failure_class": "DATA_INTEGRITY",
+                "summary": "Forced FAIL for test",
+            },
+        ):
+            await orch.handle(command)
+
+        dod_events = await event_bus.get_event_history(topic=TOPIC_DOD_CHECKED)
+        assert len(dod_events) >= 1
+        payload = json.loads(dod_events[0].value)
+        assert payload["task_id"] == "OMN-400"
+        assert payload["verdict"] == "FAIL"
+        assert payload["checks_failed"] == 1
+        await event_bus.close()

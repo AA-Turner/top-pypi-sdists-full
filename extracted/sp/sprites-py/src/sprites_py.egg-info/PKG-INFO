@@ -1,0 +1,271 @@
+Metadata-Version: 2.4
+Name: sprites-py
+Version: 0.7.1
+Summary: Python SDK for Fly.io Sprites: computers for agents. Sprite management, remote command execution, filesystems, checkpoints, services, and network policy from Python.
+Author: Sprites Team
+License-Expression: MIT
+Project-URL: Homepage, https://fly.io/sprites/
+Project-URL: Documentation, https://fly.io/sprites/
+Project-URL: Repository, https://github.com/superfly/sprites-py
+Project-URL: Issues, https://github.com/superfly/sprites-py/issues
+Keywords: sprites,fly-io,ai-agents,agent-sandbox,sandbox,microvm,remote-execution,checkpoint-restore
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: httpx>=0.25.0
+Requires-Dist: websockets>=14.0
+Requires-Dist: client-signals>=0.4.4
+Provides-Extra: dev
+Requires-Dist: build>=1.2; extra == "dev"
+Requires-Dist: pytest>=7.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.21.0; extra == "dev"
+Requires-Dist: mypy<3,>=1.0; extra == "dev"
+Requires-Dist: ruff>=0.11; extra == "dev"
+Dynamic: license-file
+
+# Sprites Python SDK
+
+Python SDK for [Sprites](https://sprites.dev), providing sprite management,
+remote command execution, filesystem access, checkpoints, services, and network
+policy controls.
+
+## Installation
+
+```bash
+pip install sprites-py
+```
+
+## Quick Start
+
+```python
+import os
+
+from sprites import SpritesClient
+
+client = SpritesClient(token=os.environ["SPRITE_TOKEN"])
+sprite = client.create_sprite(os.environ["SPRITE_NAME"])
+
+# Run a command
+result = sprite.run("echo", "hello", capture_output=True)
+print(result.stdout.decode())  # "hello\n"
+
+# Or use the Go-style API
+cmd = sprite.command("ls", "-la")
+output = cmd.output()
+print(output.decode())
+
+sprite.destroy()
+```
+
+## API Overview
+
+### Async API
+
+Async applications can use the matching native asyncio client. Its network
+operations use `httpx.AsyncClient`, and command execution runs directly on the
+caller's event loop.
+
+```python
+from sprites import AsyncSpritesClient
+
+async with AsyncSpritesClient(token="your-token") as client:
+    sprite = await client.create_sprite("my-sprite")
+
+    output = await sprite.command("echo", "hello").output()
+    result = await sprite.run("uname", "-a", capture_output=True)
+
+    config = sprite.filesystem("/app") / "config.json"
+    await config.write_text('{"debug": true}')
+    print(await config.read_text())
+
+    async for path in (sprite.filesystem("/app") / ".").iterdir():
+        print(path.name)
+
+    await sprite.destroy()
+```
+
+`AsyncSpritesClient` deliberately returns distinct `AsyncSprite`, `AsyncCmd`,
+and `AsyncSpritePath` objects. This keeps every I/O method predictably
+awaitable while preserving the existing synchronous API unchanged.
+
+### SpritesClient
+
+```python
+from sprites import ListOptions, SpritesClient, URLSettings
+
+client = SpritesClient(
+    token="your-token",
+    base_url="https://api.sprites.dev",  # optional
+    timeout=30.0,  # optional
+    control_mode=False,  # optional multiplexed exec transport
+)
+
+# Create a sprite
+sprite = client.create_sprite(
+    "my-sprite",
+    url_settings=URLSettings(auth="sprite", private_access="admins"),
+    labels=["dev"],
+    wait_for_capacity=True,
+    runtime="dev",
+)
+
+# Get a sprite handle (doesn't create it)
+sprite = client.sprite("my-sprite")
+
+# Get a sprite with populated metadata
+sprite = client.get_sprite("my-sprite")
+
+# List sprites
+page = client.list_sprites(ListOptions(prefix="my-", bulk_load=True))
+for item in page.sprites:
+    print(item.name, item.status, item.labels)
+
+# Update URL settings and labels
+updated = client.update_sprite(
+    "my-sprite",
+    url_settings=URLSettings(auth="public"),
+    labels=["dev", "public-demo"],
+)
+
+# Omitted mutable fields are left unchanged by the API.
+client.update_sprite("my-sprite", labels=["dev"])
+
+# Destroy a sprite
+client.destroy_sprite("my-sprite")
+```
+
+`URLSettings.auth` is `"sprite"` or `"public"`. When `auth="sprite"`,
+`private_access` may be `"admins"` or `"org_users"`. `update_url_settings(...)`
+is kept as a compatibility convenience for updating only URL settings; prefer
+`update_sprite(...)` when changing mutable sprite fields.
+
+### Sprite
+
+```python
+# Run a command (subprocess.run style)
+result = sprite.run("echo", "hello", capture_output=True, timeout=30)
+print(result.returncode)
+print(result.stdout)
+
+# Create a command (Go exec.Cmd style)
+cmd = sprite.command("bash", "-c", "echo hello")
+output = cmd.output()  # Returns stdout
+combined = cmd.combined_output()  # Returns stdout + stderr
+
+# TTY mode
+cmd = sprite.command("bash", tty=True, tty_rows=24, tty_cols=80)
+cmd.run()
+
+# Attach to an existing session
+sessions = sprite.list_sessions()
+cmd = sprite.attach_session(sessions[0].id, timeout=2)
+cmd.run()
+```
+
+Commands use WebSockets. If `control_mode=True` is passed to `SpritesClient`,
+new commands use the multiplexed control connection when the sprite supports it
+and fall back to the standard exec WebSocket otherwise.
+Use `sprite.command(...)` instead of `sprite.run(...)` when you need streaming
+stdin/stdout/stderr handles.
+
+### Filesystem
+
+```python
+fs = sprite.filesystem("/app")
+
+(fs / "config.json").write_text('{"debug": true}')
+print((fs / "config.json").read_text())
+
+for path in (fs / ".").iterdir():
+    print(path.name)
+```
+
+### Checkpoints
+
+```python
+# List checkpoints
+checkpoints = sprite.list_checkpoints()
+
+# Create a checkpoint (five-minute network inactivity timeout by default)
+stream = sprite.create_checkpoint("my checkpoint")
+for msg in stream:
+    print(msg.type, msg.data)
+
+# Restore a checkpoint with a caller-selected timeout
+stream = sprite.restore_checkpoint("checkpoint-id", timeout=600)
+for msg in stream:
+    print(msg.type, msg.data)
+```
+
+### Services
+
+```python
+# Create or update a service and stream startup events
+stream = sprite.create_service(
+    "web",
+    cmd="python",
+    args=["-m", "http.server", "8000"],
+    http_port=8000,
+    env={"APP_ENV": "production"},
+    dir="/app",
+)
+for event in stream:
+    print(event.type, event.data)
+
+# Inspect and control services
+services = sprite.list_services()
+web = sprite.get_service("web")
+sprite.stop_service("web")
+sprite.start_service("web")
+```
+
+### Network Policy
+
+```python
+from sprites import NetworkPolicy, PolicyRule
+
+# Get current policy
+policy = sprite.get_network_policy()
+
+# Update policy
+new_policy = NetworkPolicy(rules=[
+    PolicyRule(domain="example.com", action="allow"),
+])
+sprite.update_network_policy(new_policy)
+```
+
+## Client signals
+
+Requests carry coarse, privacy-safe [client signals](https://github.com/superfly/client-signals)
+(`Fly-Client-*` headers + a User-Agent suffix) so Fly.io can estimate how much
+API traffic is human- vs. agent-driven. They're advisory only — never used for
+gating or rate-limiting.
+
+To opt out, set `SPRITES_CLIENT_SIGNALS=0` (also accepts `off`/`false`/`no`).
+When disabled, requests still send a plain `sprites-py/<version>` User-Agent and
+no `Fly-Client-*` headers — the SDK is otherwise unaffected.
+
+## Integrations
+
+Framework-specific adapters are published separately so this SDK can remain
+generic. The [OpenAI Agents integration](https://github.com/superfly/sprites-openai-agents)
+provides a Sprites-backed implementation of the Agents SDK sandbox interface.
+
+## Requirements
+
+- Python 3.9+
+- websockets
+- httpx
+- client-signals
+
+## License
+
+MIT

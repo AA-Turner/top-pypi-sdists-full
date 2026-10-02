@@ -1,0 +1,602 @@
+# SPDX-License-Identifier: LGPL-3.0-or-later
+
+__author__ = "Iftikhar Ahmad"
+__copyright__ = """
+(c) 2012 Canonical Ltd.
+(c) 2017 - 2022 Martin Pitt <martin@piware.de>
+"""
+
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tracemalloc
+import unittest
+
+import dbus
+import dbus.mainloop.glib
+from gi.repository import GLib
+from packaging.version import Version
+
+import dbusmock
+from dbusmock.templates.networkmanager import (
+    CSETTINGS_IFACE,
+    MANAGER_IFACE,
+    SETTINGS_IFACE,
+    SETTINGS_OBJ,
+    DeviceState,
+    InfrastructureMode,
+    NM80211ApSecurityFlags,
+    NMActiveConnectionState,
+    NMConnectivityState,
+    NMState,
+)
+
+tracemalloc.start(25)
+dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+
+have_nmcli = shutil.which("nmcli")
+
+
+@unittest.skipUnless(have_nmcli, "nmcli not installed")
+class TestNetworkManager(dbusmock.DBusTestCase):
+    """Test mocking NetworkManager"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.start_system_bus()
+        cls.dbus_con = cls.get_dbus(True)
+
+        os.environ["G_DEBUG"] = "fatal-warnings,fatal-criticals"
+
+        # prepare environment which avoids translations
+        cls.lang_env = os.environ.copy()
+        try:
+            del cls.lang_env["LANG"]
+        except KeyError:
+            pass
+        try:
+            del cls.lang_env["LANGUAGE"]
+        except KeyError:
+            pass
+        cls.lang_env["LC_MESSAGES"] = "C"
+
+    def setUp(self):
+        (self.p_mock, self.obj_networkmanager) = self.spawn_server_template(
+            "networkmanager", {"NetworkingEnabled": True, "WwanEnabled": False}, stdout=subprocess.PIPE
+        )
+        self.addCleanup(self.p_mock.wait)
+        self.addCleanup(self.p_mock.terminate)
+        self.addCleanup(self.p_mock.stdout.close)
+        self.dbusmock = dbus.Interface(self.obj_networkmanager, dbusmock.MOCK_IFACE)
+        self.settings = dbus.Interface(self.dbus_con.get_object(MANAGER_IFACE, SETTINGS_OBJ), SETTINGS_IFACE)
+
+    def read_general(self):
+        return subprocess.check_output(["nmcli", "--nocheck", "general"], env=self.lang_env, text=True)
+
+    def read_networking(self):
+        return subprocess.check_output(["nmcli", "--nocheck", "networking"], env=self.lang_env, text=True)
+
+    def read_connection(self):
+        return subprocess.check_output(["nmcli", "--nocheck", "connection"], env=self.lang_env, text=True)
+
+    def read_active_connection(self):
+        return subprocess.check_output(
+            ["nmcli", "--nocheck", "connection", "show", "--active"], env=self.lang_env, text=True
+        )
+
+    def read_device(self):
+        return subprocess.check_output(["nmcli", "--nocheck", "dev"], env=self.lang_env, text=True)
+
+    def read_device_wifi(self):
+        return subprocess.check_output(
+            ["nmcli", "--nocheck", "dev", "wifi", "list", "--rescan", "no"],
+            env=self.lang_env,
+            text=True,
+        )
+
+    def test_one_eth_disconnected(self):
+        self.dbusmock.AddEthernetDevice("mock_Ethernet1", "eth0", DeviceState.DISCONNECTED)
+        out = self.read_device()
+        self.assertRegex(out, r"eth0.*\sdisconnected")
+
+    def test_one_eth_connected(self):
+        self.dbusmock.AddEthernetDevice("mock_Ethernet1", "eth0", DeviceState.ACTIVATED)
+        out = self.read_device()
+        self.assertRegex(out, r"eth0.*\sconnected")
+
+    def test_two_eth(self):
+        # test with numeric state value
+        self.dbusmock.AddEthernetDevice("mock_Ethernet1", "eth0", 30)
+        self.dbusmock.AddEthernetDevice("mock_Ethernet2", "eth1", DeviceState.ACTIVATED)
+        out = self.read_device()
+        self.assertRegex(out, r"eth0.*\sdisconnected")
+        self.assertRegex(out, r"eth1.*\sconnected")
+
+    def test_wifi_without_access_points(self):
+        self.dbusmock.AddWiFiDevice("mock_WiFi1", "wlan0", DeviceState.ACTIVATED)
+        out = self.read_device()
+        self.assertRegex(out, r"wlan0.*\sconnected")
+
+    def test_eth_and_wifi(self):
+        self.dbusmock.AddEthernetDevice("mock_Ethernet1", "eth0", DeviceState.DISCONNECTED)
+        self.dbusmock.AddWiFiDevice("mock_WiFi1", "wlan0", DeviceState.ACTIVATED)
+        out = self.read_device()
+        self.assertRegex(out, r"eth0.*\sdisconnected")
+        self.assertRegex(out, r"wlan0.*\sconnected")
+
+    def test_one_wifi_with_accesspoints(self):
+        wifi = self.dbusmock.AddWiFiDevice("mock_WiFi2", "wlan0", DeviceState.ACTIVATED)
+        self.dbusmock.AddAccessPoint(
+            wifi,
+            "Mock_AP1",
+            "AP_1",
+            "00:23:F8:7E:12:BB",
+            InfrastructureMode.NM_802_11_MODE_ADHOC,
+            2425,
+            5400,
+            82,
+            NM80211ApSecurityFlags.NM_802_11_AP_SEC_NONE,
+        )
+        self.dbusmock.AddAccessPoint(
+            wifi,
+            "Mock_AP3",
+            "AP_3",
+            "00:23:F8:7E:12:BC",
+            InfrastructureMode.NM_802_11_MODE_INFRA,
+            2425,
+            5400,
+            82,
+            NM80211ApSecurityFlags.NM_802_11_AP_SEC_KEY_MGMT_PSK,
+        )
+        out = self.read_device()
+        aps = self.read_device_wifi()
+        self.assertRegex(out, r"wlan0.*\sconnected")
+        self.assertRegex(aps, r"AP_1.*\sAd-Hoc")
+        self.assertRegex(aps, r"AP_3.*\sInfra")
+
+        # connect to non-existing wifi
+        res = subprocess.run(["nmcli", "dev", "wifi", "connect", "nonexisting"], check=False, stderr=subprocess.PIPE)
+        self.assertNotEqual(res.returncode, 0)
+        self.assertRegex(res.stderr, b"No network.*nonexisting")
+        self.assertRegex(self.read_device(), r"wlan0.*\sconnected\s+--")
+
+        # TODO: for connecting to password protected Wifi we need to implement secrets agent
+        # https://github.com/martinpitt/python-dbusmock/issues/216
+        out = subprocess.check_output(["nmcli", "--version"], text=True)
+        m = re.search(r"([1-9.]+[0-9])", out)
+        assert m, "could not parse version from " + out
+        if Version(m.group(1)) >= Version("1.49.3"):
+            self.skipTest("https://github.com/martinpitt/python-dbusmock/issues/216")
+
+        # connect to existing wifi with password
+        subprocess.check_call(
+            ["timeout", "--signal=KILL", "5", "nmcli", "dev", "wifi", "connect", "AP_3", "password", "s3kr1t"]
+        )
+        self.assertRegex(self.read_device(), r"wlan0.*\sconnected\s+AP_3")
+
+        # connect to existing wifi without password
+        subprocess.check_call(["nmcli", "dev", "wifi", "connect", "AP_1"])
+        self.assertRegex(self.read_device(), r"wlan0.*\sconnected\s+AP_1")
+
+    def test_two_wifi_with_accesspoints(self):
+        wifi1 = self.dbusmock.AddWiFiDevice("mock_WiFi1", "wlan0", DeviceState.ACTIVATED)
+        wifi2 = self.dbusmock.AddWiFiDevice("mock_WiFi2", "wlan1", DeviceState.UNAVAILABLE)
+        self.dbusmock.AddAccessPoint(
+            wifi1,
+            "Mock_AP0",
+            "AP_0",
+            "00:23:F8:7E:12:BA",
+            InfrastructureMode.NM_802_11_MODE_UNKNOWN,
+            2425,
+            5400,
+            82,
+            0x400,
+        )
+        self.dbusmock.AddAccessPoint(
+            wifi2,
+            "Mock_AP1",
+            "AP_1",
+            "00:23:F8:7E:12:BB",
+            InfrastructureMode.NM_802_11_MODE_ADHOC,
+            2425,
+            5400,
+            82,
+            NM80211ApSecurityFlags.NM_802_11_AP_SEC_KEY_MGMT_PSK,
+        )
+        self.dbusmock.AddAccessPoint(
+            wifi2,
+            "Mock_AP3",
+            "AP_2",
+            "00:23:F8:7E:12:BC",
+            InfrastructureMode.NM_802_11_MODE_INFRA,
+            2425,
+            5400,
+            82,
+            0x400,
+        )
+        out = self.read_device()
+        aps = self.read_device_wifi()
+        self.assertRegex(out, r"wlan0.*\sconnected")
+        self.assertRegex(out, r"wlan1.*\sunavailable")
+        self.assertRegex(aps, r"AP_0.*\s(Unknown|N/A)")
+        self.assertRegex(aps, r"AP_1.*\sAd-Hoc")
+        self.assertRegex(aps, r"AP_2.*\sInfra")
+
+    def test_wifi_with_connection(self):
+        wifi1 = self.dbusmock.AddWiFiDevice("mock_WiFi1", "wlan0", DeviceState.ACTIVATED)
+        ap1 = self.dbusmock.AddAccessPoint(
+            wifi1,
+            "Mock_AP1",
+            "The_SSID",
+            "00:23:F8:7E:12:BB",
+            InfrastructureMode.NM_802_11_MODE_ADHOC,
+            2425,
+            5400,
+            82,
+            NM80211ApSecurityFlags.NM_802_11_AP_SEC_KEY_MGMT_PSK,
+        )
+        con1 = self.dbusmock.AddWiFiConnection(wifi1, "Mock_Con1", "The_SSID", "wpa-psk")
+
+        self.assertRegex(self.read_connection(), r"The_SSID.*\s(802-11-wireless|wifi)")
+        self.assertEqual(ap1, "/org/freedesktop/NetworkManager/AccessPoint/Mock_AP1")
+        self.assertEqual(con1, "/org/freedesktop/NetworkManager/Settings/Mock_Con1")
+
+        settings = subprocess.check_output(
+            ["nmcli", "--nocheck", "connection", "show", "The_SSID"], env=self.lang_env, text=True
+        )
+        self.assertRegex(settings, r"ipv4.method:\s*auto")
+        self.assertRegex(settings, r"ipv4.gateway:\s*--")
+        self.assertRegex(settings, r"ipv6.method:\s*auto")
+        self.assertRegex(settings, r"ipv4.gateway:\s*--")
+
+    def test_global_state(self):
+        self.dbusmock.SetGlobalConnectionState(NMState.NM_STATE_CONNECTED_GLOBAL)
+        self.assertRegex(self.read_general(), r"connected.*\sfull")
+
+        self.dbusmock.SetGlobalConnectionState(NMState.NM_STATE_CONNECTED_SITE)
+        self.assertRegex(self.read_general(), r"connected \(site only\).*\sfull")
+
+        self.dbusmock.SetGlobalConnectionState(NMState.NM_STATE_CONNECTED_LOCAL)
+        self.assertRegex(self.read_general(), r"connected \(local only\).*\sfull")
+
+        self.dbusmock.SetGlobalConnectionState(NMState.NM_STATE_CONNECTING)
+        self.assertRegex(self.read_general(), r"connecting.*\sfull")
+
+        self.dbusmock.SetGlobalConnectionState(NMState.NM_STATE_DISCONNECTING)
+        self.assertRegex(self.read_general(), r"disconnecting.*\sfull")
+
+        self.dbusmock.SetGlobalConnectionState(NMState.NM_STATE_DISCONNECTED)
+        self.assertRegex(self.read_general(), r"disconnected.*\sfull")
+
+        self.dbusmock.SetGlobalConnectionState(NMState.NM_STATE_ASLEEP)
+        self.assertRegex(self.read_general(), r"(asleep|off).*\sfull")
+
+    def test_connectivity_state(self):
+        self.dbusmock.SetConnectivity(NMConnectivityState.NM_CONNECTIVITY_FULL)
+        self.assertRegex(self.read_general(), r"connected.*\sfull")
+
+        self.dbusmock.SetConnectivity(NMConnectivityState.NM_CONNECTIVITY_LIMITED)
+        self.assertRegex(self.read_general(), r"connected.*\slimited")
+
+        self.dbusmock.SetConnectivity(NMConnectivityState.NM_CONNECTIVITY_PORTAL)
+        self.assertRegex(self.read_general(), r"connected.*\sportal")
+
+        self.dbusmock.SetConnectivity(NMConnectivityState.NM_CONNECTIVITY_NONE)
+        self.assertRegex(self.read_general(), r"connected.*\snone")
+
+    def test_networking(self):
+        self.dbusmock.SetNetworkingEnabled(False)
+        self.assertRegex(self.read_networking(), "disabled")
+
+        self.dbusmock.SetNetworkingEnabled(True)
+        self.assertRegex(self.read_networking(), "enabled")
+
+    def test_wifi_with_active_connection(self):
+        wifi1 = self.dbusmock.AddWiFiDevice("mock_WiFi1", "wlan0", DeviceState.ACTIVATED)
+        ap1 = self.dbusmock.AddAccessPoint(
+            wifi1,
+            "Mock_AP1",
+            "The_SSID",
+            "00:23:F8:7E:12:BB",
+            InfrastructureMode.NM_802_11_MODE_INFRA,
+            2425,
+            5400,
+            82,
+            NM80211ApSecurityFlags.NM_802_11_AP_SEC_KEY_MGMT_PSK,
+        )
+        con1 = self.dbusmock.AddWiFiConnection(wifi1, "Mock_Con1", "The_SSID", "")
+        active_con1 = self.dbusmock.AddActiveConnection(
+            [wifi1], con1, ap1, "Mock_Active1", NMActiveConnectionState.NM_ACTIVE_CONNECTION_STATE_ACTIVATED
+        )
+
+        self.assertEqual(ap1, "/org/freedesktop/NetworkManager/AccessPoint/Mock_AP1")
+        self.assertEqual(con1, "/org/freedesktop/NetworkManager/Settings/Mock_Con1")
+        self.assertEqual(active_con1, "/org/freedesktop/NetworkManager/ActiveConnection/Mock_Active1")
+
+        self.assertRegex(self.read_general(), r"connected.*\sfull")
+        self.assertRegex(self.read_connection(), r"The_SSID.*\s(802-11-wireless|wifi)")
+        self.assertRegex(self.read_active_connection(), r"The_SSID.*\s(802-11-wireless|wifi)")
+        self.assertRegex(self.read_device_wifi(), "The_SSID")
+
+        self.dbusmock.RemoveActiveConnection(wifi1, active_con1)
+
+        self.assertRegex(self.read_connection(), r"The_SSID.*\s(802-11-wireless|wifi)")
+        self.assertFalse(re.compile(r"The_SSID.*\s(802-11-wireless|wifi)").search(self.read_active_connection()))
+        self.assertRegex(self.read_device_wifi(), "The_SSID")
+
+        self.dbusmock.RemoveWifiConnection(wifi1, con1)
+
+        self.assertFalse(re.compile(r"The_SSID.*\s(802-11-wireless|wifi)").search(self.read_connection()))
+        self.assertRegex(self.read_device_wifi(), "The_SSID")
+
+        self.dbusmock.RemoveAccessPoint(wifi1, ap1)
+        self.assertFalse(re.compile(r"The_SSID").search(self.read_device_wifi()))
+
+    def test_add_connection(self):
+        self.dbusmock.AddWiFiDevice("mock_WiFi1", "wlan0", DeviceState.ACTIVATED)
+        uuid = "11111111-1111-1111-1111-111111111111"
+        settings = dbus.Dictionary(
+            {
+                "connection": dbus.Dictionary(
+                    {"id": "test connection", "uuid": uuid, "type": "802-11-wireless"}, signature="sv"
+                ),
+                "802-11-wireless": dbus.Dictionary({"ssid": dbus.ByteArray(b"The_SSID")}, signature="sv"),
+            },
+            signature="sa{sv}",
+        )
+        con1 = self.settings.AddConnection(settings)
+
+        self.assertEqual(con1, "/org/freedesktop/NetworkManager/Settings/0")
+        self.assertRegex(self.read_connection(), uuid + r".*\s(802-11-wireless|wifi)")
+
+        # Use the same settings, but this one will autoconnect.
+        uuid2 = "22222222-2222-2222-2222-222222222222"
+        settings["connection"]["autoconnect"] = dbus.Boolean(True)
+        settings["connection"]["uuid"] = uuid2
+
+        con2 = self.settings.AddConnection(settings)
+        self.assertEqual(con2, "/org/freedesktop/NetworkManager/Settings/1")
+
+        self.assertRegex(self.read_general(), r"connected.*\sfull")
+        self.assertRegex(self.read_connection(), uuid2 + r".*\s(802-11-wireless|wifi)")
+        self.assertRegex(self.read_active_connection(), uuid2 + r".*\s(802-11-wireless|wifi)")
+
+    def test_update_connection(self):
+        uuid = "133d8eb9-6de6-444f-8b37-f40bf9e33226"
+        settings = dbus.Dictionary(
+            {
+                "connection": dbus.Dictionary(
+                    {"id": "test wireless", "uuid": uuid, "type": "802-11-wireless"}, signature="sv"
+                ),
+                "802-11-wireless": dbus.Dictionary({"ssid": dbus.ByteArray(b"The_SSID")}, signature="sv"),
+            },
+            signature="sa{sv}",
+        )
+
+        con1 = self.settings.AddConnection(settings)
+        con1_iface = dbus.Interface(self.dbus_con.get_object(MANAGER_IFACE, con1), CSETTINGS_IFACE)
+
+        self.assertEqual(con1, "/org/freedesktop/NetworkManager/Settings/0")
+        self.assertRegex(self.read_connection(), uuid + r".*\s(802-11-wireless|wifi)")
+
+        new_settings = dbus.Dictionary(
+            {
+                "connection": dbus.Dictionary({"id": "test wired", "type": "802-3-ethernet"}, signature="sv"),
+                "802-3-ethernet": dbus.Dictionary({"name": "802-3-ethernet"}, signature="sv"),
+            },
+            signature="sa{sv}",
+        )
+
+        con1_iface.Update(new_settings)
+        self.assertRegex(self.read_connection(), uuid + r".*\s(ethernet|802-3-ethernet)")
+
+    def test_remove_connection(self):
+        wifi1 = self.dbusmock.AddWiFiDevice("mock_WiFi1", "wlan0", DeviceState.ACTIVATED)
+        ap1 = self.dbusmock.AddAccessPoint(
+            wifi1,
+            "Mock_AP1",
+            "The_SSID",
+            "00:23:F8:7E:12:BB",
+            InfrastructureMode.NM_802_11_MODE_INFRA,
+            2425,
+            5400,
+            82,
+            NM80211ApSecurityFlags.NM_802_11_AP_SEC_KEY_MGMT_PSK,
+        )
+        con1 = self.dbusmock.AddWiFiConnection(wifi1, "Mock_Con1", "The_SSID", "")
+        self.dbusmock.AddActiveConnection(
+            [wifi1], con1, ap1, "Mock_Active1", NMActiveConnectionState.NM_ACTIVE_CONNECTION_STATE_ACTIVATED
+        )
+
+        con1_i = dbus.Interface(self.dbus_con.get_object(MANAGER_IFACE, con1), CSETTINGS_IFACE)
+        con1_i.Delete()
+
+        self.assertRegex(self.read_general(), r"disconnected.*\sfull")
+        self.assertFalse(re.compile(r"The_SSID.*\s802-11-wireless").search(self.read_active_connection()))
+        self.assertRegex(self.read_device(), r"wlan0.*\sdisconnected")
+
+    def test_add_remove_settings(self):
+        connection = {
+            "connection": {
+                "timestamp": 1441979296,
+                "type": "vpn",
+                "id": "a",
+                "uuid": "11111111-1111-1111-1111-111111111111",
+            },
+            "vpn": {"service-type": "org.freedesktop.NetworkManager.openvpn", "data": {"connection-type": "tls"}},
+            "ipv4": {
+                "routes": dbus.Array([], signature="o"),
+                "never-default": True,
+                "addresses": dbus.Array([], signature="o"),
+                "dns": dbus.Array([], signature="o"),
+                "method": "auto",
+            },
+            "ipv6": {
+                "addresses": dbus.Array([], signature="o"),
+                "ip6-privacy": 0,
+                "dns": dbus.Array([], signature="o"),
+                "never-default": True,
+                "routes": dbus.Array([], signature="o"),
+                "method": "auto",
+            },
+        }
+
+        connectionA = self.settings.AddConnection(connection)
+        connection["connection"]["id"] = "b"
+        connection["connection"]["uuid"] = "11111111-1111-1111-1111-111111111112"
+        connectionB = self.settings.AddConnection(connection)
+        self.assertEqual(self.settings.ListConnections(), [connectionA, connectionB])
+
+        connectionA_i = dbus.Interface(self.dbus_con.get_object(MANAGER_IFACE, connectionA), CSETTINGS_IFACE)
+        connectionA_i.Delete()
+        self.assertEqual(self.settings.ListConnections(), [connectionB])
+
+        connection["connection"]["id"] = "c"
+        connection["connection"]["uuid"] = "11111111-1111-1111-1111-111111111113"
+        connectionC = self.settings.AddConnection(connection)
+        self.assertEqual(self.settings.ListConnections(), [connectionB, connectionC])
+
+    def test_add_update_settings(self):
+        connection = {
+            "connection": {
+                "timestamp": 1441979296,
+                "type": "vpn",
+                "id": "a",
+                "uuid": "11111111-1111-1111-1111-111111111111",
+            },
+            "vpn": {
+                "service-type": "org.freedesktop.NetworkManager.openvpn",
+                "data": dbus.Dictionary({"connection-type": "tls"}, signature="ss"),
+            },
+            "ipv4": {
+                "routes": dbus.Array([], signature="o"),
+                "never-default": True,
+                "addresses": dbus.Array([], signature="o"),
+                "dns": dbus.Array([], signature="o"),
+                "method": "auto",
+            },
+            "ipv6": {
+                "addresses": dbus.Array([], signature="o"),
+                "ip6-privacy": 0,
+                "dns": dbus.Array([], signature="o"),
+                "never-default": True,
+                "routes": dbus.Array([], signature="o"),
+                "method": "auto",
+            },
+        }
+
+        connectionA = self.settings.AddConnection(connection)
+        self.assertEqual(self.settings.ListConnections(), [connectionA])
+
+        connectionA_i = dbus.Interface(self.dbus_con.get_object(MANAGER_IFACE, connectionA), CSETTINGS_IFACE)
+        connection["connection"]["id"] = "b"
+
+        def do_update():
+            connectionA_i.Update(connection)
+
+        caught = []
+        ml = GLib.MainLoop()
+
+        def catch(*_, **kwargs):
+            if (
+                kwargs["interface"] == "org.freedesktop.NetworkManager.Settings.Connection"
+                and kwargs["member"] == "Updated"
+            ):
+                caught.append(kwargs["path"])
+                ml.quit()
+
+        self.dbus_con.add_signal_receiver(
+            catch, interface_keyword="interface", path_keyword="path", member_keyword="member"
+        )
+
+        GLib.timeout_add(200, do_update)
+        # ensure that the loop quits even when we don't catch anything
+        GLib.timeout_add(3000, ml.quit)
+        ml.run()
+
+        self.assertEqual(connectionA_i.GetSettings(), connection)
+        self.assertEqual(caught, [connectionA])
+
+    def test_settings_secrets(self):
+        secrets = dbus.Dictionary(
+            {
+                "cert-pass": "certificate password",
+                "password": "the password",
+            },
+            signature="ss",
+        )
+
+        connection = {
+            "connection": {
+                "timestamp": 1441979296,
+                "type": "vpn",
+                "id": "a",
+                "uuid": "11111111-1111-1111-1111-111111111111",
+            },
+            "vpn": {
+                "service-type": "org.freedesktop.NetworkManager.openvpn",
+                "data": dbus.Dictionary(
+                    {
+                        "connection-type": "password-tls",
+                        "remote": "remotey",
+                        "ca": "/my/ca.crt",
+                        "cert": "/my/cert.crt",
+                        "cert-pass-flags": "1",
+                        "key": "/my/key.key",
+                        "password-flags": "1",
+                    },
+                    signature="ss",
+                ),
+                "secrets": secrets,
+            },
+            "ipv4": {
+                "routes": dbus.Array([], signature="o"),
+                "never-default": True,
+                "addresses": dbus.Array([], signature="o"),
+                "dns": dbus.Array([], signature="o"),
+                "method": "auto",
+            },
+            "ipv6": {
+                "addresses": dbus.Array([], signature="o"),
+                "ip6-privacy": 0,
+                "dns": dbus.Array([], signature="o"),
+                "never-default": True,
+                "routes": dbus.Array([], signature="o"),
+                "method": "auto",
+            },
+        }
+
+        connectionPath = self.settings.AddConnection(connection)
+        self.assertEqual(self.settings.ListConnections(), [connectionPath])
+
+        connection_i = dbus.Interface(self.dbus_con.get_object(MANAGER_IFACE, connectionPath), CSETTINGS_IFACE)
+
+        # We expect there to be no secrets in the normal settings dict
+        del connection["vpn"]["secrets"]
+        self.assertEqual(connection_i.GetSettings(), connection)
+
+        # Secrets request should contain just vpn section with the secrets in
+        self.assertEqual(connection_i.GetSecrets("vpn"), {"vpn": {"secrets": secrets}})
+
+    def test_get_conn_by_uuid(self):
+        uuid = "133d8eb9-6de6-444f-8b37-f40bf9e33226"
+        settings = dbus.Dictionary(
+            {
+                "connection": dbus.Dictionary(
+                    {"id": "test wireless", "uuid": uuid, "type": "802-11-wireless"}, signature="sv"
+                ),
+                "802-11-wireless": dbus.Dictionary({"ssid": dbus.ByteArray(b"The_SSID")}, signature="sv"),
+            },
+            signature="sa{sv}",
+        )
+        connectionPath = self.settings.AddConnection(settings)
+        self.assertEqual(self.settings.GetConnectionByUuid(uuid), connectionPath)
+
+        with self.assertRaisesRegex(dbus.exceptions.DBusException, "No connection with the UUID was found."):
+            self.settings.GetConnectionByUuid("123123123213213")
+
+
+if __name__ == "__main__":
+    unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout))

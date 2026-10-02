@@ -74,7 +74,9 @@ class ProjectBlock:
             self.project_dir = anyscale.project_utils.find_project_root(os.getcwd())
 
         parent_cloud_id = self._get_parent_cloud_id(
-            self.cloud_name, self.cluster_compute_name, self.cluster_compute_dict,
+            self.cloud_name,
+            self.cluster_compute_name,
+            self.cluster_compute_dict,
         )
 
         left_pad = " " * 2
@@ -108,9 +110,7 @@ class ProjectBlock:
                 block_label=self.block_label,
             )
         else:
-            self.project_id, self.project_name = self._get_default_project(
-                parent_cloud_id
-            )
+            self.project_id, self.project_name = self._get_default_project(parent_cloud_id)
         self.log.close_block(self.block_label)
 
     def _get_default_project(self, parent_cloud_id: str) -> Tuple[str, str]:
@@ -140,12 +140,12 @@ class ProjectBlock:
         parent_cloud_id: Optional[str] = None
         if cloud_name:
             parent_cloud_id, _ = get_cloud_id_and_name(
-                api_client=self.api_client, cloud_id=None, cloud_name=cloud_name,
+                api_client=self.api_client,
+                cloud_id=None,
+                cloud_name=cloud_name,
             )
         elif cluster_compute_name:
-            cluster_compute = get_cluster_compute_from_name(
-                cluster_compute_name, self.api_client
-            )
+            cluster_compute = get_cluster_compute_from_name(cluster_compute_name, self.api_client)
             parent_cloud_id = cluster_compute.config.cloud_id
         elif cluster_compute_dict:
             cluster_compute_config_obj = ComputeTemplateConfig(**cluster_compute_dict)
@@ -153,9 +153,7 @@ class ProjectBlock:
         else:
             # Get organization default cloud or last used cloud
             default_cloud_name = get_organization_default_cloud(self.api_client)
-            cloud_name = default_cloud_name or get_last_used_cloud(
-                None, self.anyscale_api_client
-            )
+            cloud_name = default_cloud_name or get_last_used_cloud(None, self.anyscale_api_client)
             parent_cloud_id, _ = get_cloud_id_and_name(
                 self.api_client, cloud_id=None, cloud_name=cloud_name
             )
@@ -168,7 +166,10 @@ class ProjectBlock:
         return parent_cloud_id
 
     def _ensure_project_setup_at_dir(
-        self, project_dir: str, project_name: Optional[str], parent_cloud_id: str,
+        self,
+        project_dir: str,
+        project_name: Optional[str],
+        parent_cloud_id: str,
     ) -> Tuple[str, str]:
         """
         Get or create an Anyscale project rooted at the given dir. If .anyscale.yaml
@@ -188,9 +189,7 @@ class ProjectBlock:
         if os.path.exists(project_yaml):
             # Validate format of project yaml and get project id
             proj_def = anyscale.project_utils.ProjectDefinition(project_dir)
-            project_id: Optional[str] = anyscale.project_utils.get_project_id(
-                proj_def.root
-            )
+            project_id: Optional[str] = anyscale.project_utils.get_project_id(proj_def.root)
             if not project_id:
                 raise click.ClickException(
                     f"{project_yaml} is not correctly formatted. Please attach to a different "
@@ -209,9 +208,7 @@ class ProjectBlock:
             )
             return project_id, project_response.result.name
 
-        project_id = find_project_id(
-            self.anyscale_api_client, project_name, parent_cloud_id
-        )
+        project_id = find_project_id(self.anyscale_api_client, project_name, parent_cloud_id)
         if project_id is None:
             # Create a new project in the local directory with given name, because
             # project with this name doesn't exist yet.
@@ -259,9 +256,7 @@ class ProjectBlock:
         Returns:
         The project id and project name of the project being used.
         """
-        project_id = find_project_id(
-            self.anyscale_api_client, project_name, parent_cloud_id
-        )
+        project_id = find_project_id(self.anyscale_api_client, project_name, parent_cloud_id)
         if project_id is None:
             self.log.info(
                 f"Creating new project named {BlockLogger.highlight(project_name)}.",

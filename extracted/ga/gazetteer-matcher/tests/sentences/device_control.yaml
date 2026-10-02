@@ -1,0 +1,124 @@
+language: en
+
+cases:
+  - sentence: turn on the kitchen lights
+    frames:
+      - intent: HassTurnOn
+        combination: area_domain
+        response_key: lights_area
+        slots: {area: kitchen, domain: light}
+
+  - sentence: turn on the living room light
+    frames:
+      - intent: HassTurnOn
+        combination: area_domain
+        response_key: lights_area
+        slots: {area: living_room, domain: light}
+
+  - sentence: turn on the ceiling lights in the living room
+    frames:
+      - intent: HassTurnOn
+        combination: name_only
+        response_key: default
+        slots: {name: light.living_room_ceiling}
+
+  - sentences:
+      - return rover to base
+      - rover return to base
+      - send rover home
+      - put rover on the charger
+      - park rover
+    frames:
+      - intent: HassVacuumReturnToBase
+        combination: name_only
+        response_key: default
+        slots: {name: vacuum.rover}
+
+  - sentence: turn off ceiling fan
+    frames:
+      - intent: HassTurnOff
+        combination: name_only
+        response_key: default
+        slots: {name: fan.bedroom}
+
+  - sentence: please turn on the TV
+    context_area: Living Room
+    frames:
+      - intent: HassTurnOn
+        combination: name_only
+        response_key: default
+        slots: {name: media_player.living_room}
+
+  - sentences:
+      - could you lock the front door
+      - front door lock
+      - secure the front door
+    frames:
+      - intent: HassTurnOn
+        combination: name_only
+        response_key: lock
+        slots: {name: lock.front_door}
+
+  - sentence: extinguish the bedroom lamp
+    frames:
+      - intent: HassTurnOff
+        combination: name_only
+        response_key: default
+        slots: {name: light.bedroom_lamp}
+
+  - sentences:
+      - unlock the front door
+      - front door unlock
+    frames:
+      - intent: HassTurnOff
+        combination: name_only
+        response_key: lock
+        slots: {name: lock.front_door}
+
+  - sentences:
+      - is the front door locked
+      - front door is locked
+      - is the front door currently locked
+    frames:
+      - intent: HassGetState
+        combination: name_state
+        response_key: one_yesno
+        slots: {name: lock.front_door, state: locked}
+
+  - sentences:
+      - are any doors unlocked
+      - are any doors currently unlocked
+      - check whether any doors are unlocked
+    frames:
+      - intent: HassGetState
+        combination: domain_state
+        response_key: any
+        slots: {domain: lock, state: unlocked}
+
+  - sentence: set bedroom fan speed to 50%
+    frames:
+      - intent: HassFanSetSpeed
+        combination: name_only
+        response_key: default
+        slots: {name: fan.bedroom, percentage: 50}
+
+  - sentence: set bedroom fan to half
+    frames:
+      - intent: HassFanSetSpeed
+        combination: name_only
+        response_key: default
+        slots: {name: fan.bedroom, percentage: 50}
+
+  - sentence: set thermostat to 70°
+    frames:
+      - intent: HassClimateSetTemperature
+        combination: name_temperature
+        response_key: default
+        slots: {name: climate.ecobee, temperature: 70}
+
+  - sentence: set Ecobee to seventy degrees
+    frames:
+      - intent: HassClimateSetTemperature
+        combination: name_temperature
+        response_key: default
+        slots: {name: climate.ecobee, temperature: 70}

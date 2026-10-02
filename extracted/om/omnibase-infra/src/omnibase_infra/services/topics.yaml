@@ -1,0 +1,52 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# Topics produced by infrastructure services (not nodes).
+# Scanned by ContractTopicExtractor.extract_from_skill_manifests().
+#
+# Topics listed here are NOT declared in any node contract.yaml but ARE
+# registered in ALL_PROVISIONED_TOPIC_SPECS (platform_topic_suffixes.py).
+# Without this manifest the contract-first TopicProvisioner would skip them,
+# causing TopicStartupValidator failures (OMN-5633).
+#
+# Ticket: OMN-4622, OMN-5633
+topics:
+  - onex.evt.omnibase-infra.llm-endpoint-health.v1
+  - onex.evt.omnibase-infra.runtime-health-check.v1
+  # --- Platform topics not owned by any node contract (OMN-5633) ---
+  - onex.evt.platform.service-heartbeat.v1
+  - onex.evt.platform.feature-flag-changed.v1
+  - onex.evt.platform.resolution-decided.v1
+  # --- Omnibase-infra topics not owned by any node contract (OMN-5633) ---
+  - onex.evt.omnibase-infra.circuit-breaker.v1
+  - onex.evt.omnibase-infra.gmail-archive-purged.v1
+  - onex.evt.omnibase-infra.wiring-health-snapshot.v1
+  # --- DLQ aggregation topic for omnidash (OMN-6136) ---
+  - onex.evt.platform.dlq-message.v1
+  # --- Canonical runtime DLQ topics not owned by node contracts (OMN-9649) ---
+  - onex.dlq.omnibase-infra.intents.v1
+  - onex.dlq.omnibase-infra.events.v1
+  - onex.dlq.omnibase-infra.commands.v1
+  # --- GitHub PR merged event (OMN-6726) ---
+  - onex.evt.github.pr-merged.v1
+  # --- Post-merge check chain result (OMN-6727) ---
+  - onex.evt.github.post-merge-result.v1
+  # --- A/B eval completed event (OMN-6779) ---
+  - onex.evt.omnibase-infra.eval-completed.v1
+  # --- Intelligence pipeline gap-fill topics (OMN-7810) ---
+  - onex.evt.omniintelligence.pattern-refined.v1
+  - onex.evt.omnimemory.document-ingested.v1
+  - onex.cmd.omninode.routing-requested.v1
+  - onex.evt.omninode.routing-completed.v1
+  # --- Cross-repo consumer-only command topic (OMN-13808) ---
+  # onex.cmd.omnimarket.node-generation-requested.v1 is declared in the
+  # omnimarket node_generation_consumer contract (event_bus.subscribe_topics),
+  # but this broker auto-creates topics only on PRODUCE, not on subscribe. The
+  # only producer is the projection-API /api/generate route, which does not run
+  # on the runtime lane — so the topic stays at 0 partitions and the effects-
+  # profile consumer cannot bind (generation golden chains G-01..G-05 blocked).
+  # omnimarket is not a build dependency of omnibase_infra, so its contract is
+  # not guaranteed to be in the in-repo/installed-package scan on every lane;
+  # mirror the command topic here so the TopicProvisioner creates it explicitly
+  # (p1/r1 default, matching sibling onex.cmd.* topics — see line above for the
+  # onex.cmd.omninode.routing-requested.v1 precedent). Sibling of OMN-13771.
+  - onex.cmd.omnimarket.node-generation-requested.v1

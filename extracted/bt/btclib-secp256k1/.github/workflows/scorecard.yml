@@ -1,0 +1,67 @@
+---
+name: scorecard
+
+# OpenSSF Scorecard: a third-party, external audit of this repository's
+# supply-chain posture, run independently rather than by anything this
+# organization asked itself. btclib-org/.github#339 is where this
+# sentinel and its permissions are decided; this file adopts it, and
+# does not restate the reasoning.
+#
+# This repository is public and is not a fork, which is the property
+# section 10 of the standard keys the sentinel on:
+#
+#   gh api repos/btclib-org/btclib-secp256k1 --jq '.fork, .private'
+#
+# answers `false` and `false`.
+#
+# The analysis job -- its checkout, the scan itself, the artifact and
+# the SARIF upload -- is btclib-org/.github's reusable-scorecard.yml,
+# called at @main so a fix there reaches this tree in one landing
+# (btclib-org/.github#35). The trigger, the cron minute, the
+# workflow-level permissions and the concurrency group stay here: the
+# callee takes no inputs and does not hold them.
+
+on:
+  push:
+    # only the default branch is analysed -- ossf/scorecard-action's own
+    # README names this and schedule as the supported triggers and calls
+    # workflow_dispatch experimental, so unlike every other workflow here
+    # this one carries no dispatch and no pull_request: its triggers are
+    # the action's, not section 10's general rule
+    branches: [main]
+  schedule:
+    # Sunday, hour 05: section 10's calendar, where scorecard is the
+    # last row. The minute is this repository's own row in that section's
+    # second table -- neither is this file's to restate.
+    - cron: "8 5 * * 0"
+
+# least privilege for the GITHUB_TOKEN at the workflow level, elevated
+# on the calling job below -- each grant explained at its own line
+# there -- and pushes nothing back to the tree.
+permissions:
+  contents: read
+
+concurrency:
+  # named literally, never through github.workflow. A run with no pull
+  # request -- every run of this workflow, since it carries none -- has
+  # no number and groups by github.ref, which is refs/heads/main for the
+  # one trigger this workflow has, so two pushes in quick succession
+  # supersede each other -- wanted, since they ask the same question of
+  # the same tree
+  group: scorecard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analysis:
+    uses: btclib-org/.github/.github/workflows/reusable-scorecard.yml@main
+    # a called workflow's own permissions: block can only downgrade, not
+    # restore, what this calling job grants -- GitHub's own docs on
+    # reusing workflow configurations -- so every scope the callee's job
+    # asks for is named here too, or the run fails before any job starts
+    # (a startup_failure, README.md section 11's "the bound refuses
+    # rather than trims", measured in btclib-org/.github#912)
+    permissions:
+      id-token: write # the OpenSSF transparency log publish
+      security-events: write # the SARIF upload
+      contents: read
+      actions: read # the Packaging check's workflow-run history read

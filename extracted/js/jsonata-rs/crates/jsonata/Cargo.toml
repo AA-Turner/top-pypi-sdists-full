@@ -1,0 +1,14 @@
+[package]
+name = "jsonata"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "JSONata reference port to Rust (ported from jsonata-java)"
+
+[dependencies]
+indexmap = "2"
+regex = "1"
+fancy-regex = "0.18"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+
+[dev-dependencies]

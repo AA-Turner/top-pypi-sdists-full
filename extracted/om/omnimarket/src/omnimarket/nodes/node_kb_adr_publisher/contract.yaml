@@ -1,0 +1,219 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+
+# ONEX Contract: node_kb_adr_publisher
+# EFFECT node — clones KB repo, renders ADRs from canary output, opens PR.
+# [OMN-11808]
+
+name: "node_kb_adr_publisher"
+contract_version: {major: 1, minor: 1, patch: 0}
+node_version: {major: 1, minor: 1, patch: 0}
+uuid: "d4e5f6a7-b8c9-0123-def0-123456789abc"
+node_type: effect
+input_model: "ModelKBADRPublishRequest"
+output_model: "ModelKBADRPublishResult"
+handler:
+  module: omnimarket.nodes.node_kb_adr_publisher.handlers.handler_kb_adr_publisher
+  class: HandlerKBADRPublisher
+  input_model: ModelKBADRPublishRequest
+descriptor:
+  node_archetype: effect
+  purity: impure
+  idempotent: false
+  runtime_profiles:
+    - effects
+description: |
+  Subscribes to kb-adr-publish-requested.v1 commands. Reads
+  extracted_decisions.json from the canary run directory, filters by
+  model_key, renders each ModelADRDraft via render_adr_to_kb adapter,
+  validates source-owned repository provenance and a closed KB destination
+  before any publish subprocess. It clones only the contract-pinned public or
+  private knowledge base, creates a branch, and writes destination-specific
+  artifacts: public proposals are flat adrs/ADR-NNNN-<slug>.md files with
+  proposed frontmatter; private proposals are
+  reference/decisions/<slug>.md internal decision records. It then opens a PR
+  for human review. Private sources may publish only to the private KB; private,
+  restricted, and needs-review evidence may never publish to the public KB.
+  Emits kb-adr-publish-completed.v1 with PR URL and ADR count.
+  dry_run=true exits cleanly without filesystem writes, git ops, or gh CLI.
+
+# === DOD EVIDENCE ===
+dod_evidence:
+  ticket: "OMN-11808"
+  parent_epic: "OMN-11786"
+  node_type: effect
+  no_hardcoded_paths: true
+  no_hardcoded_topic_literals: true
+  no_bare_os_environ_get: true
+  unit_tests: true
+  bus_bypass_free: true
+
+# === IO OPERATIONS ===
+io_operations:
+  - operation_type: "filesystem_read"
+    atomic: false
+    timeout_seconds: 30
+    description: "Read extracted_decisions.json from canary run dir"
+  - operation_type: "subprocess"
+    atomic: false
+    timeout_seconds: 120
+    description: "Clone KB repo, create branch, push, open PR via gh CLI"
+
+# === TRANSACTION MANAGEMENT ===
+transaction_management:
+  enabled: false
+
+# === TOOL SPECIFICATION ===
+tool_specification:
+  tool_name: "kb_adr_publisher"
+  main_tool_class: "NodeKBADRPublisher"
+
+# === SERVICE CONFIGURATION ===
+service_configuration:
+  is_persistent_service: false
+  requires_external_dependencies: true
+
+# === NODE CONFIGURATION ===
+config: {}
+
+# === INPUT/OUTPUT STATE ===
+input_state:
+  object_type: "object"
+  required: ["canary_run_dir", "model_key", "kb_destination", "source_provenance"]
+  optional: ["dry_run"]
+
+output_state:
+  object_type: "object"
+  required: ["success", "adr_count"]
+
+# === ACTIONS ===
+actions:
+  - name: "publish_adrs"
+    description: "Render ADRs and open a policy-authorized KB PR"
+    inputs: ["canary_run_dir", "model_key", "kb_destination", "source_provenance", "dry_run"]
+    outputs: ["success", "adr_count", "pr_url", "branch", "kb_destination", "kb_repository", "error_code", "error"]
+
+# === PUBLICATION AUTHORITY ===
+publication_policy:
+  source_provenance:
+    required: true
+    identity_fields: ["source_repository", "source_visibility", "publication_classification"]
+    candidate_match_required: true
+    source_document_hashes_required: true
+    infer_from_git_remote: false
+    infer_from_checkout_path: false
+  destinations:
+    public:
+      repository: "OmniNode-ai/knowledge-base"
+      artifact_layout: "public_flat_adr"
+      artifact_directory: "adrs"
+    private:
+      repository: "OmniNode-ai/knowledge-base-internal"
+      artifact_layout: "private_reference_decision"
+      artifact_directory: "reference/decisions"
+  rules:
+    - "private source visibility permits only private destination"
+    - "public source visibility permits public or private destination"
+    - "private, restricted, and needs_review classifications prohibit public destination"
+    - "missing, unknown, malformed, or conflicting provenance rejects before subprocess"
+  source_hash_trust_boundary:
+    verification_point: "ingestion-to-segmentation before LLM extraction"
+    verifier: "HandlerBusAdrSegmentation"
+    publisher_input: "hash-only durable candidate evidence"
+    rationale: >
+      The publisher may not have authority to reopen a private source checkout.
+      It trusts source hashes only after the earlier source-byte verifier rejects
+      mismatches; it never receives machine-local source paths as authority.
+  sanitization:
+    policy_config: "src/omnimarket/configs/adr_canary_sanitization_gate.v1.yaml"
+    preflight: "typed candidate and branch/PR-surface scan before any publisher subprocess"
+    public_artifact_validator: "uv run python scripts/validate.py in checked-out public KB"
+    public_validator_order: "after render, before git add/commit/push/pr"
+    private_destination: "private references allowed; secrets remain blocking"
+
+# === DEPENDENCIES ===
+dependencies:
+  - name: "gh"
+    dependency_type: "subprocess"
+    description: "GitHub CLI for repo clone and PR creation"
+    required: true
+  - name: "git"
+    dependency_type: "subprocess"
+    description: "git CLI for branch creation and commit"
+    required: true
+
+# === PERFORMANCE ===
+performance:
+  max_response_time_ms: 180000
+
+# === EVENT TYPE CONFIGURATION ===
+event_type:
+  version: {major: 1, minor: 0, patch: 0}
+  primary_events: ["kb-adr-publish-completed"]
+  event_categories: ["adr", "kb", "effect", "publish"]
+  publish_events: true
+  subscribe_events: true
+  invocation_mode: "subscription"
+  event_routing: "adr"
+
+# === EVENT BUS SUBCONTRACT ===
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+
+  subscribe_topics:
+    - "onex.cmd.omnimarket.kb-adr-publish-requested.v1"
+
+  publish_topics:
+    - "onex.evt.omnimarket.kb-adr-publish-completed.v1"
+
+  subscribe_topic_metadata:
+    "onex.cmd.omnimarket.kb-adr-publish-requested.v1":
+      schema_ref: "omnimarket.nodes.node_kb_adr_publisher.models.model_publish_request.ModelKBADRPublishRequest"
+      description: "Command to render canary ADR extractions and open a KB PR."
+
+  publish_topic_metadata:
+    "onex.evt.omnimarket.kb-adr-publish-completed.v1":
+      schema_ref: "omnimarket.nodes.node_kb_adr_publisher.models.model_publish_result.ModelKBADRPublishResult"
+      description: "Completed publish — PR URL, ADR count, and branch name."
+
+# === HANDLER ROUTING ===
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: "publish_adrs"
+      handler_class: "HandlerKBADRPublisher"
+      handler_module: "omnimarket.nodes.node_kb_adr_publisher.handlers.handler_kb_adr_publisher"
+      handler:
+        name: "HandlerKBADRPublisher"
+        module: "omnimarket.nodes.node_kb_adr_publisher.handlers.handler_kb_adr_publisher"
+
+# === VALIDATION RULES ===
+validation_rules:
+  strict_typing_enabled: true
+  input_validation_enabled: true
+  output_validation_enabled: true
+
+# === TAGS ===
+tags:
+  - adr
+  - kb
+  - effect
+  - publish
+  - canary
+  - omn-11808
+
+metadata:
+  transport_type: kafka
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.kb-adr-publish-requested.v1
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.kb-adr-publish-completed.v1

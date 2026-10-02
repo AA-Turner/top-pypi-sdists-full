@@ -1,0 +1,1289 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Kafka consumer with acceptance protocol.
+
+POISON PILLS ARE QUARANTINED, NEVER RE-READ FOREVER (OMN-16442)
+---------------------------------------------------------------
+
+``onex.cmd.deploy.rebuild-requested.v1`` is a control topic with one consumer:
+this agent. A record it cannot decode used to take the whole control plane
+down, because the failure happened *before* the offset commit and redelivery
+reproduced it exactly. Measured on the .201 dev lane on 2026-09-08: one record
+published with snappy compression by an ``rpk topic produce`` default, against
+a ``kafka-python`` client with no snappy codec installed, raised
+``UnsupportedCodecError`` on every poll -- twelve crashes in sixty seconds, six
+systemd restarts, then the start limit, ``ActiveState=failed``. Nothing on the
+host could recover it: every restart re-read the same offset.
+
+Two distinct classes reach the agent, and they surface in different places:
+
+* **Fetch-level** -- the batch cannot be decompressed or is corrupt on the
+  wire. ``kafka-python`` raises inside ``poll()``; no record object exists, so
+  the offset must be recovered from the consumer's own position.
+* **Record-level** -- the bytes decompress but are not a JSON object, or are a
+  JSON object that ``ModelRebuildRequested`` refuses. A record object exists
+  and names its own partition and offset.
+
+Both are quarantined the same way: a durable local record, a best-effort
+dead-letter publish, a CRITICAL log, and **the offset committed past it**.
+
+WHY COMMITTING IS RIGHT HERE, WHERE THE BOUNDARY DLQ WITHHOLDS
+--------------------------------------------------------------
+
+``omnibase_infra.runtime.auto_wiring`` deliberately withholds the offset when a
+dead-letter write is not durable (``BoundaryDlqNotPersistedError``): there, the
+record still exists on the source topic, so withholding preserves it for the
+rewind path. That argument does not transfer. A command this agent cannot
+decode can never be decoded by redelivery -- retrying is not recovery, it is
+the outage -- and the cost of withholding is not one lost record but every
+subsequent deploy command on the partition, which is what actually happened.
+So the commit is unconditional and the durability is best-effort *and*
+recorded, in that order. The gateway-delivery path made the same call for the
+same reason (OMN-15748).
+
+WHAT IS DELIBERATELY *NOT* QUARANTINED
+--------------------------------------
+
+Only the two decode-failure error classes are caught at fetch level. A broker
+that is down, a SASL handshake that fails, a rebalance -- all of those are
+transient and must NOT advance an offset, so they propagate. Skipping records
+because the network hiccuped would be a worse failure than the one this fixes.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+import tempfile
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+from uuid import UUID
+
+from kafka import KafkaConsumer, TopicPartition
+from kafka.errors import CommitFailedError, CorruptRecordError, UnsupportedCodecError
+from kafka.structs import OffsetAndMetadata
+
+from deploy_agent.auth import verify_command
+from deploy_agent.coalesce import (
+    SHA_RE,
+    AncestryResolver,
+    ModelCoalescePlan,
+    ModelQueuedCommand,
+    ModelSupersession,
+    plan_coalesce,
+)
+from deploy_agent.events import (
+    TOPIC_DEPLOY_COMMAND_DLQ,
+    TOPIC_REBUILD_REQUESTED,
+    EnumRejectionReason,
+    EnumRuntimeLane,
+    ModelLineageDecision,
+    ModelRebuildRequested,
+    ModelRejectionNotice,
+    Scope,
+)
+from deploy_agent.host_slot import HostSlot
+from deploy_agent.job_state import JobStore
+from deploy_agent.kafka_config import ModelDeployAgentKafkaConfig
+from deploy_agent.lane_policy import (
+    LaneNotAllowedError,
+    assert_lane_allowed,
+)
+from deploy_agent.lineage_fence import (
+    ModelRunningBuild,
+    RefResolver,
+    RunningBuildReader,
+    decide_lineage,
+    is_workspace_rebuild,
+)
+from deploy_agent.load_gate import EnumLoadGateVerdict, LoadGate
+from deploy_agent.queue_depth import LagSampler, ModelControlTopicLag
+from deploy_agent.routing import ROUTED_LANES, DeployRouter
+
+logger = logging.getLogger(__name__)
+
+
+def _broker_timestamp(msg: Any) -> datetime | None:
+    """The record's broker timestamp, the lineage fence's fallback publish time.
+
+    OMN-19270. On this topic it is set by the hop that FORWARDS the command,
+    just before this agent reads it, so it is never earlier than the running
+    build's start: a command that carries no ``requested_at`` is therefore never
+    superseded on time, which is the direction that builds.
+    """
+    raw = getattr(msg, "timestamp", None)
+    if not isinstance(raw, int) or raw < 0:
+        return None
+    return datetime.fromtimestamp(raw / 1000, tz=UTC)
+
+
+# OMN-16442. Invoked at the PRE_ACCEPT job boundary with a callback that rewinds
+# this consumer's committed offset to the command being examined. The hook is
+# expected not to return when it decides to update: it replaces the process
+# image, and the rewound offset is what makes the replacement process re-read
+# the command instead of skipping it.
+SelfUpdateHook = Callable[[Callable[[], None]], None]
+
+# OMN-18143. Invoked once per command the coalescing scan folds into a newer
+# one, AFTER its durable ``superseded`` job record has been written and BEFORE
+# the runner is accepted. The agent supplies the publisher; this consumer holds
+# no producer of its own, and giving it one so it could emit its own terminal
+# events would put a second bus writer in the process for no gain.
+#
+# A hook that raises is logged and the scan continues: the durable record is
+# already written and carries ``result_publish_pending``, so the agent's own
+# retry loop owes the event either way. Losing the coalescing decision because
+# a broker was briefly away would be the worse trade.
+SupersededHook = Callable[[ModelSupersession], None]
+
+# OMN-17079. The consumer decides six of the eight rejection reasons and, before this
+# hook, expressed each as a bare string returned to a caller that only logged it -- so
+# six of eight refusals never reached the rejection topic at all. This is their route to
+# the agent's single publish helper, and it deliberately mirrors ``SupersededHook``
+# rather than inventing a second mechanism.
+RejectedHook = Callable[[ModelRejectionNotice], None]
+
+# Stamped on the rewound offset so `rpk group describe` shows WHY the group's
+# committed offset moved BACKWARDS onto a record it had already fetched.
+SELF_UPDATE_REWIND_METADATA = "onex-deploy-agent:rewound-for-self-update"
+
+ENV_QUARANTINE_DIR = "DEPLOY_AGENT_QUARANTINE_DIR"
+
+# Fetch-level failures that redelivery can never fix. Kept deliberately narrow:
+# anything transient must propagate rather than advance an offset.
+UNDECODABLE_FETCH_ERRORS: tuple[type[BaseException], ...] = (
+    UnsupportedCodecError,
+    CorruptRecordError,
+)
+
+# Bytes of a rejected payload kept in the quarantine record, so an operator can
+# recognise the message without the record becoming a copy of an arbitrary blob.
+RAW_PREVIEW_BYTES = 512
+
+# Stamped on the committed offset so `rpk group describe` shows WHY the group
+# is past a record it never processed, without anyone reading the journal.
+QUARANTINE_COMMIT_METADATA = "onex-deploy-agent:quarantined-undecodable"
+
+#: Stamped on every offset `_process_message` commits, so `rpk group
+#: describe` shows that the commit was bounded to ONE record rather than to
+#: the consumer's fetch position (OMN-18613).
+PROCESSED_COMMIT_METADATA = "onex-deploy-agent:processed-one-record"
+
+# kafka-python requires an explicit leader epoch; -1 is its "unknown" sentinel.
+UNKNOWN_LEADER_EPOCH = -1
+
+
+@dataclass(frozen=True)
+class UndecodableValue:
+    """Marker returned by the deserializer instead of raising inside ``poll()``.
+
+    Raising in a ``value_deserializer`` is the record-level shape of the same
+    stall: the exception escapes ``poll()``, so the record object that knows its
+    own offset is never handed back and the agent cannot commit past it.
+    """
+
+    error: str
+    raw_preview: str
+    raw_bytes: int
+
+
+def deserialize_command_value(raw: bytes) -> Any:
+    """Decode one command record, returning a marker rather than raising."""
+    try:
+        decoded = json.loads(raw.decode("utf-8"))
+    except Exception as exc:  # noqa: BLE001 — any decode failure is one class here
+        return UndecodableValue(
+            error=f"{type(exc).__name__}: {exc}",
+            raw_preview=repr(raw[:RAW_PREVIEW_BYTES]),
+            raw_bytes=len(raw),
+        )
+    if not isinstance(decoded, dict):
+        return UndecodableValue(
+            error=(
+                "command payload decoded to "
+                f"{type(decoded).__name__}, expected a JSON object"
+            ),
+            raw_preview=repr(raw[:RAW_PREVIEW_BYTES]),
+            raw_bytes=len(raw),
+        )
+    return decoded
+
+
+#: The group the single dev agent has always used. A consumer with no router
+#: keeps it; the routing table declares it for dev-201 so that instance's
+#: committed offsets carry over.
+LEGACY_CONSUMER_GROUP = "onex-deploy-agent"
+
+
+def consumer_group_for(router: DeployRouter | None) -> str:
+    """The Kafka consumer group this process subscribes with (OMN-19506 AC3)."""
+    return router.consumer_group if router is not None else LEGACY_CONSUMER_GROUP
+
+
+class DeployConsumer:
+    #: OMN-18144. The queue observer, optional and absent by default because
+    #: this consumer is also built by tests and by paths that are not serving
+    #: the queue endpoint. Declared on the CLASS so a partially constructed
+    #: consumer has the attribute: an observer nobody injected is None, which
+    #: means nothing is sampled, which means the endpoint reports the lag
+    #: unknown -- never zero.
+    lag_sampler: LagSampler | None = None
+    #: OMN-18143. Declared on the CLASS for the same reason ``lag_sampler`` is:
+    #: this consumer is also built by tests and by paths that construct it
+    #: without going through ``__init__``, and a partially constructed
+    #: consumer must read as "coalesces nothing" rather than raising
+    #: ``AttributeError`` from the middle of the accept protocol.
+    ancestry_resolver: AncestryResolver | None = None
+    on_superseded: SupersededHook | None = None
+    #: OMN-17079, on the same terms as the two above: a consumer built without
+    #: ``__init__`` must read as "notifies nobody" rather than raising
+    #: AttributeError from the middle of a refusal, which would turn a handled
+    #: rejection into an unhandled exception on the poll loop.
+    on_rejected: RejectedHook | None = None
+    #: OMN-19270, on the same terms again: a consumer built without a reader
+    #: runs no lineage fence, which is the pre-change behaviour.
+    running_build: RunningBuildReader | None = None
+    ref_resolver: RefResolver | None = None
+    tracking_ref: str | None = None
+    #: OMN-19506, on the same terms: a consumer built without a router routes
+    #: nothing and accepts every command its lane fence admits, which is the
+    #: single-instance behaviour.
+    router: DeployRouter | None = None
+    #: OMN-19544 AC1, on the same terms: a consumer built without a host slot
+    #: shares its host with nobody and accepts as before. ``host_slot_owner`` is
+    #: the name this agent's own lease carries, which never blocks it.
+    host_slot: HostSlot | None = None
+    host_slot_owner: str = "deploy-agent"
+    #: OMN-19507, on the same terms: a consumer built without a load gate
+    #: accepts whatever the steps above admit. ``load_gate_paused`` is the
+    #: partition a deferral paused, until a re-check opens the gate.
+    load_gate: LoadGate | None = None
+    load_gate_paused: TopicPartition | None = None
+
+    def __init__(
+        self,
+        kafka_config: ModelDeployAgentKafkaConfig,
+        job_store: JobStore,
+        allowed_lanes: frozenset[EnumRuntimeLane],
+        self_update_hook: SelfUpdateHook,
+        quarantine_dir: Path | None = None,
+        lag_sampler: LagSampler | None = None,
+        ancestry_resolver: AncestryResolver | None = None,
+        on_superseded: SupersededHook | None = None,
+        on_rejected: RejectedHook | None = None,
+        running_build: RunningBuildReader | None = None,
+        ref_resolver: RefResolver | None = None,
+        tracking_ref: str | None = None,
+        router: DeployRouter | None = None,
+        host_slot: HostSlot | None = None,
+        host_slot_owner: str = "deploy-agent",
+        load_gate: LoadGate | None = None,
+    ) -> None:
+        # OMN-19506 AC3. Each deploy-agent instance reads EVERY record, so each
+        # subscribes with its own declared group: in one shared group Kafka
+        # would hand a record to ONE instance, and a command routed to the
+        # other would be skipped by the only reader it reached (the
+        # MC_shared_group counterexample on the ticket).
+        self.router = router
+        self.host_slot = host_slot
+        self.host_slot_owner = host_slot_owner
+        self.load_gate = load_gate
+        self.load_gate_paused = None
+        self.consumer = KafkaConsumer(
+            TOPIC_REBUILD_REQUESTED,
+            **kafka_config.consumer_kwargs(),
+            group_id=consumer_group_for(router),
+            auto_offset_reset="latest",
+            enable_auto_commit=False,
+            value_deserializer=deserialize_command_value,
+        )
+        self.kafka_config = kafka_config
+        self.job_store = job_store
+        self.allowed_lanes = allowed_lanes
+        self.self_update_hook = self_update_hook
+        self.quarantine_dir = Path(
+            quarantine_dir
+            or os.environ.get(ENV_QUARANTINE_DIR)
+            or job_store.state_dir.parent / "quarantine"
+        )
+        # OMN-18144. The observer also holds the committed offsets the lag is
+        # measured against: `consumer.committed()` is a coordinator round trip
+        # and this is sampled once per poll, so the values this process itself
+        # committed are both cheaper and exact.
+        self.lag_sampler = lag_sampler
+        # OMN-18143. Absent by default: a consumer built without a resolver
+        # coalesces nothing and behaves exactly as it did before this change.
+        # That is the same fail-closed direction every refusal inside the scan
+        # takes -- run every command, in order.
+        self.ancestry_resolver = ancestry_resolver
+        self.on_superseded = on_superseded
+        self.on_rejected = on_rejected
+        # OMN-19270. The lineage fence reads the running build through this
+        # reader and compares infra refs through ``ancestry_resolver``; it runs
+        # only when both are present. Without a ref resolver a symbolic ref
+        # builds as requested.
+        self.running_build = running_build
+        self.ref_resolver = ref_resolver
+        self.tracking_ref = tracking_ref
+        logger.info(
+            "Deploy agent lane fence: %s",
+            ",".join(sorted(lane.value for lane in self.allowed_lanes)),
+        )
+
+    def poll_and_accept(self) -> tuple[ModelRebuildRequested | None, str | None]:
+        """Poll for one command.
+
+        Returns (command, None) on accept.
+        Returns (None, reason) on reject.
+        Returns (None, None) on no message.
+
+        Protocol:
+        1. Poll message — an undecodable batch is quarantined, not re-read
+        2. Verify HMAC signature
+        3. Validate payload (schema, scope, services legality)
+        4. Check the lane fence -> reject "lane_not_allowed"
+        5. Check busy (has_active_job) -> reject "busy"
+        5a. Check the host slot (OMN-19544) -> reject "busy" while another
+            owner, a prover, holds it
+        5b. Load gate (OMN-19507) -> DEFER while the host's model servers need
+            it: nothing committed or published, the partition paused until a
+            re-check at the top of a later poll opens the gate
+        6. Check dedup (is_duplicate) -> reject "duplicate"
+        6a. Lineage fence (OMN-19270) -> reject "superseded_by_running_build"
+            or "divergent_ref"
+        7. Self-update boundary (OMN-16442) -- may not return
+        8. Persist job state (accepted)
+        9. Commit Kafka offset
+        10. Return (command, None)
+        """
+        self._maybe_resume_after_load_gate()
+        try:
+            records = self.consumer.poll(timeout_ms=1000)
+        except UNDECODABLE_FETCH_ERRORS as exc:
+            return None, self._quarantine_undecodable_fetch(exc)
+
+        # OMN-18144. Sampled after the poll, on EVERY path including the empty
+        # one, because "nothing arrived" is exactly when a reader most needs to
+        # know whether the queue behind it is empty or three deep. Sampling is
+        # read-only and never fails the poll: a lag that cannot be read is
+        # recorded as unknown.
+        self._sample_lag()
+
+        if not records:
+            return None, None
+
+        # OMN-18143. The batch this poll ALREADY fetched is the look-ahead, and
+        # nothing beyond it is polled for. A queue deeper than one fetch simply
+        # coalesces across successive polls instead of in one, which is slower
+        # and equally correct.
+        #
+        # OMN-19259. kafka-python has already moved the fetch position past
+        # EVERY record this poll returned, and it keeps no copy of the ones this
+        # call does not process: the next poll starts at the position, not at
+        # the first record nobody looked at. So every record behind the one
+        # processed here is moved back onto the fetch path explicitly -- on the
+        # processed partition by ``_commit_through``, on any other partition
+        # below, before processing, so that no exit from the accept protocol
+        # can leave a fetched record behind the position.
+        ordered, lookahead_usable = self._order_batch(records)
+        if not ordered:
+            return None, None
+        self._return_other_partitions_to_fetch(records, ordered[0])
+        return self._process_message(
+            ordered[0], lookahead=ordered[1:] if lookahead_usable else []
+        )
+
+    def _maybe_resume_after_load_gate(self) -> None:
+        """Resume a partition a deferral paused, once a re-check opens the gate.
+
+        OMN-19507. Re-read no more often than the gate's ``recheck_seconds``;
+        the poll in between returns nothing for the paused partition. Resuming
+        fetches from the deferred record, which the deferral sought back to.
+        """
+        paused = self.load_gate_paused
+        if paused is None or self.load_gate is None:
+            return
+        if not self.load_gate.recheck_due():
+            return
+        decision = self.load_gate.check()
+        if decision.verdict is EnumLoadGateVerdict.DEFER:
+            logger.info("Load gate still shut: %s", decision.describe())
+            return
+        self.consumer.resume(paused)
+        self.load_gate_paused = None
+        logger.info("Load gate open, resuming %s: %s", paused, decision.describe())
+
+    def _order_batch(self, records: dict[Any, list[Any]]) -> tuple[list[Any], bool]:
+        """The fetched batch in control-topic order, and whether it may be scanned.
+
+        Coalescing reorders nothing, so it may only reason about records whose
+        relative order Kafka actually guarantees -- which is per partition and
+        nowhere else. A poll that returned records on more than one partition
+        therefore yields ONE message and no look-ahead: the head is processed
+        exactly as it was before this change, and the rest are read on later
+        polls. The control topic has a single partition today; this refuses to
+        depend on that staying true.
+        """
+        populated = [(tp, msgs) for tp, msgs in records.items() if msgs]
+        if not populated:
+            return [], False
+        topic_partition, messages = populated[0]
+        ordered = sorted(messages, key=lambda m: m.offset)
+        if len(populated) > 1:
+            logger.info(
+                "coalesce: this poll returned records on %d partitions, so no "
+                "look-ahead is used and %s is processed alone",
+                len(populated),
+                topic_partition,
+            )
+            return ordered[:1], False
+        return ordered, True
+
+    def _return_other_partitions_to_fetch(
+        self, records: dict[Any, list[Any]], head: Any
+    ) -> None:
+        """Seek every partition but the head's back to its first returned record.
+
+        A poll that returned records on more than one partition processes one
+        record of one partition, and the fetch position of every other
+        partition is already past everything it returned. Without this seek
+        those records are never fetched again by this process, and the next
+        commit on their partition skips them for good (OMN-19259). The control
+        topic has a single partition today; this refuses to depend on that
+        staying true, as ``_order_batch`` does.
+        """
+        for topic_partition, messages in records.items():
+            if not messages:
+                continue
+            if (topic_partition.topic, topic_partition.partition) == (
+                head.topic,
+                head.partition,
+            ):
+                continue
+            self.consumer.seek(topic_partition, min(m.offset for m in messages))
+
+    def _reject(
+        self,
+        reason: EnumRejectionReason,
+        *,
+        raw: object = None,
+        cmd: ModelRebuildRequested | None = None,
+    ) -> str:
+        """Fire the rejection hook and return the reason token the caller returns.
+
+        OMN-17079. Returning the token keeps every call site a one-liner
+        (``return None, self._reject(...)``), so a future refusal cannot be added as a
+        bare ``return None, "reason"`` without visibly departing from the shape its six
+        neighbours use.
+
+        THE IDENTIFIERS ARE RESOLVED, NEVER INVENTED. With a validated ``cmd`` both come
+        straight off it. Without one -- an undecodable record, a bad signature, a payload
+        the contract refuses -- this parses what the raw record still offers and records
+        ``None`` for whatever will not parse. A notice carrying ``None`` cannot become an
+        event, which is the intended outcome: a rejection published under a fabricated
+        correlation id is a durable record pointing at a command that never existed.
+
+        Never raises. A refusal whose notification fails is still a refusal, and the
+        offset is already committed by the caller; losing the hook must not convert that
+        into an unhandled exception on the poll loop.
+        """
+        correlation_id = cmd.correlation_id if cmd is not None else None
+        scope: Scope | None = cmd.scope if cmd is not None else None
+
+        if cmd is None and isinstance(raw, dict):
+            try:
+                correlation_id = UUID(str(raw["correlation_id"]))
+            except (KeyError, ValueError, TypeError):
+                correlation_id = None
+            try:
+                scope = Scope(str(raw["scope"]))
+            except (KeyError, ValueError, TypeError):
+                scope = None
+
+        if self.on_rejected is not None:
+            try:
+                self.on_rejected(
+                    ModelRejectionNotice(
+                        reason=reason,
+                        correlation_id=correlation_id,
+                        scope=scope,
+                    )
+                )
+            except Exception as exc:  # noqa: BLE001 — boundary: refusal still stands
+                logger.warning(
+                    "Publishing the %s rejection failed (%s: %s); the refusal itself "
+                    "stands and its offset is committed",
+                    reason.value,
+                    type(exc).__name__,
+                    exc,
+                )
+        return reason.value
+
+    def _process_message(
+        self, msg: Any, lookahead: list[Any] | None = None
+    ) -> tuple[ModelRebuildRequested | None, str | None]:
+        payload = msg.value
+
+        # Step 1b: the deserializer hands back a marker rather than raising, so
+        # this record's own offset is available to commit past.
+        if isinstance(payload, UndecodableValue):
+            self._quarantine_record(
+                msg,
+                reason="undecodable_payload",
+                detail=payload.error,
+                raw_preview=payload.raw_preview,
+            )
+            self._commit_through(msg)
+            return None, self._reject(
+                EnumRejectionReason.UNDECODABLE_PAYLOAD, raw=payload.raw_preview
+            )
+
+        correlation_id_str = payload.get("correlation_id", "unknown")
+
+        # Step 2: Verify HMAC signature
+        if not verify_command(payload):
+            logger.warning(
+                "Rejecting command (correlation_id=%s): invalid_signature",
+                correlation_id_str,
+            )
+            self._commit_through(msg)
+            return None, self._reject(
+                EnumRejectionReason.INVALID_SIGNATURE, raw=payload
+            )
+
+        # Step 3: Validate payload. The signature is transport metadata, not
+        # part of the command contract itself.
+        try:
+            command_payload = {k: v for k, v in payload.items() if k != "_signature"}
+            cmd = ModelRebuildRequested.model_validate(command_payload)
+        except Exception as e:  # noqa: BLE001
+            # A signed command the contract refuses is as permanent as an
+            # undecodable one -- the bytes will not change on redelivery -- so
+            # it is quarantined with the reason rather than merely logged. This
+            # is the class that took the dev lane's operator entry point out:
+            # the trigger script published `reason` and omitted `runtime_lane`
+            # for weeks and the only trace was a warning line.
+            self._quarantine_record(
+                msg,
+                reason="invalid_payload",
+                detail=str(e),
+                raw_preview=None,
+            )
+            self._commit_through(msg)
+            return None, self._reject(EnumRejectionReason.INVALID_PAYLOAD, raw=payload)
+
+        # Step 4: Lane fence (OMN-16939). The dev control bus carries both dev
+        # and stability-test rebuild commands, so "which bus am I on" does not
+        # bound which lane this process may mutate. The offset is committed:
+        # the command is not for this agent and re-reading it forever would
+        # stall every command behind it.
+        try:
+            assert_lane_allowed(cmd.runtime_lane, self.allowed_lanes)
+        except LaneNotAllowedError as e:
+            logger.warning(
+                "Rejecting command %s: lane_not_allowed (%s)", cmd.correlation_id, e
+            )
+            self._commit_through(msg)
+            return None, self._reject(EnumRejectionReason.LANE_NOT_ALLOWED, cmd=cmd)
+
+        # Step 4a: Instance routing (OMN-19506). A command the routing table,
+        # read at the command's own ref, gives to another deploy-agent instance
+        # is skipped: offset committed, NOTHING published. A rejection here
+        # would race the other instance's acceptance at the redeploy effect,
+        # and a busy or duplicate rejection from this instance would too, which
+        # is why this runs before both.
+        if self.router is not None and cmd.runtime_lane in ROUTED_LANES:
+            mine, decision = self.router.is_mine(cmd)
+            if not mine:
+                logger.info(
+                    "Skipping command %s: routed to instance %s by the %s; this "
+                    "is instance %s. Nothing is published.",
+                    cmd.correlation_id,
+                    decision.instance,
+                    decision.basis,
+                    self.router.instance.name,
+                )
+                self._commit_through(msg)
+                return None, None
+
+        # Step 5: Check busy
+        if self.job_store.has_active_job():
+            logger.info("Rejecting command %s: agent busy", cmd.correlation_id)
+            self._commit_through(msg)
+            return None, self._reject(EnumRejectionReason.BUSY, cmd=cmd)
+
+        # Step 5a: Host slot (OMN-19544 AC1). On a host this agent shares with
+        # a prover (the .105 laptop, whose VM holds the lane or a proof stack,
+        # not both), a lease another owner holds refuses the command as `busy`,
+        # the reason a running job already gives. Read here, before anything is
+        # accepted or folded; the job takes the lease itself before its first
+        # phase, and a prover that won the slot in between makes that job end
+        # without touching the host.
+        if self.host_slot is not None:
+            holder = self.host_slot.held_by_other(self.host_slot_owner)
+            if holder is not None:
+                logger.info(
+                    "Rejecting command %s: busy, %s",
+                    cmd.correlation_id,
+                    holder.describe(),
+                )
+                self._commit_through(msg)
+                return None, self._reject(EnumRejectionReason.BUSY, cmd=cmd)
+
+        # Step 5b: Load gate (OMN-19507). After routing, so a command for
+        # another instance is still skipped whatever this host's load, and
+        # after busy and the host slot, whose refusals stand as they were. A
+        # deferral is not a refusal: the record goes back onto the fetch path
+        # uncommitted and the partition is paused, so the next polls return
+        # nothing (the group keeps its membership) until a re-check opens the
+        # gate. Nothing is published, because nothing about the command is
+        # wrong; it is taken, or coalesced past, once the host has room.
+        if self.load_gate is not None:
+            gate = self.load_gate.check()
+            if gate.verdict is EnumLoadGateVerdict.DEFER:
+                topic_partition = TopicPartition(msg.topic, msg.partition)
+                self.consumer.seek(topic_partition, msg.offset)
+                self.consumer.pause(topic_partition)
+                self.load_gate_paused = topic_partition
+                logger.info(
+                    "Deferring command %s: load gate %s",
+                    cmd.correlation_id,
+                    gate.describe(),
+                )
+                return None, None
+
+        # Step 6: Check dedup
+        if self.job_store.is_duplicate(cmd.correlation_id):
+            logger.info("Rejecting command %s: duplicate", cmd.correlation_id)
+            self._commit_through(msg)
+            return None, self._reject(EnumRejectionReason.DUPLICATE, cmd=cmd)
+
+        # Step 6a: Lineage fence (OMN-19270). Compared with the build the lane
+        # already runs, by ancestry against its provenance. On 2026-09-23 a
+        # command at an infra commit from 10:32Z was accepted at 14:32Z and
+        # rebuilt a lane already on a newer commit, and four more full
+        # rebuilds re-delivered omnimarket merges the lane already vendored.
+        # A CI command whose every ref is already running is recorded
+        # superseded and acknowledged, so it neither runs nor blocks the
+        # commands behind it. Any other command at or behind the running
+        # build builds at the running ref, never behind it. A diverged ref off
+        # the tracking branch is refused. A signed rollback declaration is the
+        # one way backwards. Every comparison the host cannot make lets the
+        # command build as requested.
+        lineage = self._lineage_decision(cmd, msg)
+        if lineage is not None and lineage.verdict.refuses:
+            logger.warning(
+                "Rejecting command %s: %s", cmd.correlation_id, lineage.journal_line()
+            )
+            self._commit_through(msg)
+            return None, self._reject(EnumRejectionReason.DIVERGENT_REF, cmd=cmd)
+        if lineage is not None and lineage.verdict.supersedes:
+            logger.info(
+                "Superseding command %s: %s", cmd.correlation_id, lineage.journal_line()
+            )
+            self.job_store.record_superseded_by_running_build(
+                cmd.correlation_id,
+                command=self._command_payload(msg),
+                lineage=lineage,
+            )
+            self._commit_through(msg)
+            return None, self._reject(
+                EnumRejectionReason.SUPERSEDED_BY_RUNNING_BUILD, cmd=cmd
+            )
+        if lineage is not None and not lineage.verdict.permits_coalescing:
+            lookahead = []
+
+        # Step 6b: Coalesce (OMN-18143). The newest foldable command in the
+        # batch runs; every one it replaces gets a durable terminal record and
+        # a terminal event naming it. Everything below this point -- the
+        # self-update boundary, the accept, the commit and the returned
+        # command -- is about the RUNNER, which is this message only when
+        # nothing was folded.
+        runner_cmd, runner_msg, superseded_ids = self._coalesce(cmd, msg, lookahead)
+
+        # Step 7: Self-update boundary (OMN-16442). This is the last point at
+        # which nothing is in flight: the command has passed every acceptance
+        # check but is not yet marked started and its offset is not yet
+        # committed. If the agent is behind its tracking ref, the hook replaces
+        # the process image here and does not return -- having first rewound
+        # the committed offset to this message, so the replacement process
+        # re-reads it. Update-then-process, rather than the process-then-die
+        # that killed command 8d0c861a-f91e-4ca2-954e-a073759dd39d when the
+        # same check ran mid-deploy.
+        #
+        # A self-update failure must not cost a valid command: it is logged and
+        # the command is processed on the current image, exactly as the
+        # method's own dirty-tree and fetch-failure rails already do.
+        try:
+            self.self_update_hook(lambda: self._rewind_committed_offset_to(runner_msg))
+        except Exception as e:  # noqa: BLE001
+            logger.error(  # noqa: TRY400
+                "Self-update at the pre-accept boundary failed for %s, "
+                "proceeding on the current image: %s "
+                "friction_type=self_update_boundary_failed",
+                runner_cmd.correlation_id,
+                e,
+            )
+
+        # Step 8: Persist job state. The lineage decision is the head's, so it
+        # is recorded, and its build ref applied, only when the head is what
+        # runs. A folded runner descends from a head the fence found at or
+        # ahead of the running build, so it builds its own ref.
+        runner_lineage = lineage if runner_cmd is cmd else None
+        self.job_store.accept(
+            correlation_id=runner_cmd.correlation_id,
+            command=self._command_payload(runner_msg),
+            superseded_correlation_ids=superseded_ids,
+            lineage=runner_lineage,
+        )
+        if (
+            runner_lineage is not None
+            and runner_lineage.build_ref != runner_cmd.git_ref
+        ):
+            runner_cmd = runner_cmd.model_copy(
+                update={"git_ref": runner_lineage.build_ref}
+            )
+
+        # Step 9: Commit offset. The runner's offset is at or past every
+        # superseded record's, so one commit covers the whole group.
+        #
+        # OMN-20133: the job is already on disk as accepted, so a refused
+        # commit must not escape. Raising here killed the process, the
+        # replacement recovered the job as crashed with every phase skipped,
+        # and refused the redelivered command as a duplicate: nothing was
+        # deployed (job 7b970ab9, 2026-09-30). The job runs instead. The
+        # uncommitted record is redelivered after the group rejoin and is then
+        # refused as the duplicate it really is.
+        try:
+            self._commit_through(runner_msg)
+        except CommitFailedError as e:
+            logger.error(  # noqa: TRY400
+                "Accepted command %s but its offset commit was refused, "
+                "running it anyway; its redelivery after the group rejoin "
+                "will be refused as a duplicate: %s "
+                "friction_type=accept_commit_failed",
+                runner_cmd.correlation_id,
+                e,
+            )
+
+        # Step 10: Return accepted command
+        logger.info(
+            "Accepted command %s (scope=%s, superseded=%d)",
+            runner_cmd.correlation_id,
+            runner_cmd.scope,
+            len(superseded_ids),
+        )
+        return runner_cmd, None
+
+    def _lineage_decision(
+        self, cmd: ModelRebuildRequested, msg: Any
+    ) -> ModelLineageDecision | None:
+        """The lineage fence's verdict for ``cmd``, or ``None`` when it is off.
+
+        Off means this consumer was built without a running-build reader or
+        without an ancestry resolver, which is every test that does not ask
+        for the fence. The verdict is journalled on every path, so an accepted
+        command still records which comparison let it through.
+        """
+        if self.running_build is None or self.ancestry_resolver is None:
+            return None
+        reader = self.running_build
+        decision = decide_lineage(
+            cmd,
+            read_running_build=lambda: self._with_producing_job(
+                reader(cmd.runtime_lane)
+            ),
+            contains=self.ancestry_resolver,
+            resolve_ref=self.ref_resolver,
+            tracking_ref=self.tracking_ref,
+            published_at=cmd.requested_at or _broker_timestamp(msg),
+        )
+        if not (decision.verdict.refuses or decision.verdict.supersedes):
+            logger.info("%s %s", cmd.correlation_id, decision.journal_line())
+        return decision
+
+    def _with_producing_job(
+        self, running: ModelRunningBuild | None
+    ) -> ModelRunningBuild | None:
+        """Attach the job that produced the running image, when it can be named.
+
+        OMN-19270. The job is the one whose accept-to-complete window contains
+        the image's ``build_time``. Its ``accepted_at`` is at or before the
+        moment the build staged its siblings, so it is the conservative start
+        to compare a command's publish time with. A job whose pinned ref names
+        a different commit than the image is not trusted as its producer.
+        """
+        if running is None or running.build_time is None:
+            return running
+        job = self.job_store.job_covering(running.build_time)
+        if job is None:
+            return running
+        pinned = str(job.command.get("git_ref", ""))
+        built = job.lineage.build_ref if job.lineage is not None else pinned
+        if SHA_RE.match(built) and built != running.infra_ref:
+            logger.info(
+                "lineage: job %s covers the running image's build time but built "
+                "%s, not %s; its start is not used",
+                job.correlation_id,
+                built,
+                running.infra_ref,
+            )
+            return running
+        return running.model_copy(
+            update={
+                "started_at": job.accepted_at,
+                "workspace_sourced": is_workspace_rebuild(job.command),
+                "producing_job": str(job.correlation_id),
+            }
+        )
+
+    @staticmethod
+    def _command_payload(msg: Any) -> dict[str, Any]:
+        """The command as the contract sees it: the record minus its signature.
+
+        The signature is transport metadata, not part of the command, and the
+        job record has never carried it. Factored out because the coalescing
+        scan needs the same projection for a message the head path never
+        decoded.
+        """
+        return {k: v for k, v in msg.value.items() if k != "_signature"}
+
+    # ── coalescing (OMN-18143) ───────────────────────────────────────────────
+    def _coalesce(
+        self,
+        cmd: ModelRebuildRequested,
+        msg: Any,
+        lookahead: list[Any] | None,
+    ) -> tuple[ModelRebuildRequested, Any, list[UUID]]:
+        """Decide which of the fetched batch runs; record the ones it replaces.
+
+        Returns the command to run, its Kafka record, and the correlation ids
+        it superseded. With no resolver, no look-ahead, or nothing foldable,
+        it returns the head unchanged and an empty list -- the pre-change
+        behaviour, reached by the same code path rather than by a branch
+        around it.
+        """
+        if self.ancestry_resolver is None or not lookahead:
+            return cmd, msg, []
+
+        queued = [
+            ModelQueuedCommand(command=cmd, partition=msg.partition, offset=msg.offset)
+        ]
+        messages_by_offset: dict[int, Any] = {msg.offset: msg}
+        for candidate in lookahead:
+            decoded = self._decode_for_lookahead(candidate)
+            if decoded is None:
+                # A record the scan cannot cleanly read is left completely
+                # alone -- not quarantined, not committed past, not counted.
+                # It will be polled again and handled by the head path, which
+                # is the one place that owns refusing a command. The group
+                # ends here because the scan may not reorder around it.
+                break
+            queued.append(
+                ModelQueuedCommand(
+                    command=decoded,
+                    partition=candidate.partition,
+                    offset=candidate.offset,
+                )
+            )
+            messages_by_offset[candidate.offset] = candidate
+
+        plan = plan_coalesce(queued, contains=self.ancestry_resolver)
+        logger.info("%s", plan.journal_line())
+        if not plan.superseded:
+            return cmd, msg, []
+
+        return (
+            plan.runner.command,
+            messages_by_offset[plan.runner.offset],
+            self._record_supersessions(plan, messages_by_offset),
+        )
+
+    def _record_supersessions(
+        self, plan: ModelCoalescePlan, messages_by_offset: dict[int, Any]
+    ) -> list[UUID]:
+        """Write each superseded command's terminal record, then announce it.
+
+        Record first, announce second, and never the reverse: the durable
+        record is what makes the supersession survive a broker outage or a
+        crash, and it carries ``result_publish_pending`` so the agent's own
+        retry loop owes the event even if the hook below never fires.
+        """
+        ids: list[UUID] = []
+        for supersession in plan.superseded:
+            superseded_cmd = supersession.superseded.command
+            record_msg = messages_by_offset[supersession.superseded.offset]
+            self.job_store.record_superseded(
+                correlation_id=superseded_cmd.correlation_id,
+                command=self._command_payload(record_msg),
+                superseded_by_sha=supersession.superseded_by_sha,
+                superseded_by_correlation_id=supersession.superseded_by_correlation_id,
+            )
+            logger.info(
+                "coalesce: %s (ref=%s) superseded by %s (ref=%s)",
+                superseded_cmd.correlation_id,
+                superseded_cmd.git_ref,
+                supersession.superseded_by_correlation_id,
+                supersession.superseded_by_sha,
+            )
+            if self.on_superseded is not None:
+                try:
+                    self.on_superseded(supersession)
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "coalesce: publishing the superseded event for %s "
+                        "failed (%s: %s); the durable record is written and "
+                        "the publish is still owed",
+                        superseded_cmd.correlation_id,
+                        type(exc).__name__,
+                        exc,
+                    )
+            ids.append(superseded_cmd.correlation_id)
+        return ids
+
+    def _decode_for_lookahead(self, msg: Any) -> ModelRebuildRequested | None:
+        """Read a queued record without consuming it, or return ``None``.
+
+        Deliberately SILENT about every refusal and deliberately without side
+        effects. The head path owns quarantining, dead-lettering and
+        committing past a bad record, and doing any of that from here would
+        mean a record is refused by a scan that was only supposed to look at
+        it -- with its rejection event published before the agent had even
+        reached it in the queue.
+        """
+        payload = msg.value
+        if isinstance(payload, UndecodableValue) or not isinstance(payload, dict):
+            return None
+        if not verify_command(payload):
+            return None
+        try:
+            cmd = ModelRebuildRequested.model_validate(
+                {k: v for k, v in payload.items() if k != "_signature"}
+            )
+        except Exception:  # noqa: BLE001 - an unreadable candidate is not foldable
+            return None
+        try:
+            assert_lane_allowed(cmd.runtime_lane, self.allowed_lanes)
+        except LaneNotAllowedError:
+            return None
+        # OMN-19506: another instance's command is never folded into this
+        # instance's runner, which would record it superseded here while the
+        # other instance runs it.
+        if self.router is not None and cmd.runtime_lane in ROUTED_LANES:
+            mine, _decision = self.router.is_mine(cmd)
+            if not mine:
+                return None
+        return cmd
+
+    def _sample_lag(self) -> None:
+        """Record how many control-topic records this agent has not dealt with.
+
+        Measured against the COMMITTED offset, not the fetch position. Between
+        a poll that returned a batch and the processing of its first record,
+        the position is past records ``poll_and_accept`` has never looked at,
+        so a position-based lag reports zero while commands wait -- the same
+        off-by-a-batch OMN-18613 found in ``_commit_through``, from the other
+        side. Where this process has not committed anything yet the position is
+        used and the basis says so, because a first-poll under-report by one
+        batch is better than no number at all and the reader can see which it got.
+
+        Never raises. A sampler that could fail a poll would trade the agent's
+        actual job for an observation of it.
+        """
+        if self.lag_sampler is None:
+            return
+        try:
+            assignment = self.consumer.assignment()
+            if not assignment:
+                self.lag_sampler.record(
+                    ModelControlTopicLag.unknown(
+                        "this consumer holds no partition assignment yet, so "
+                        "there is no offset to measure a lag against"
+                    )
+                )
+                return
+            total = 0
+            bases: set[str] = set()
+            for topic_partition in assignment:
+                highwater = self.consumer.highwater(topic_partition)
+                if highwater is None:
+                    self.lag_sampler.record(
+                        ModelControlTopicLag.unknown(
+                            f"no highwater is known for {topic_partition} yet, "
+                            "so the records beyond this agent cannot be counted"
+                        )
+                    )
+                    return
+                committed = self.lag_sampler.committed(topic_partition)
+                if committed is None:
+                    committed = self.consumer.position(topic_partition)
+                    basis = "position"
+                else:
+                    basis = "committed"
+                if committed is None:
+                    self.lag_sampler.record(
+                        ModelControlTopicLag.unknown(
+                            f"no offset is known for {topic_partition} yet, so "
+                            "this agent's place in the topic cannot be read"
+                        )
+                    )
+                    return
+                bases.add(basis)
+                total += max(0, int(highwater) - int(committed))
+            self.lag_sampler.record(
+                ModelControlTopicLag(
+                    value=total,
+                    basis="+".join(sorted(bases)),
+                    observed_at=datetime.now(UTC),
+                )
+            )
+        except Exception as exc:  # noqa: BLE001 - an unreadable lag is unknown, never fatal
+            logger.debug("control-topic lag unreadable: %s", exc)
+            self.lag_sampler.record(
+                ModelControlTopicLag.unknown(
+                    f"the control-topic lag could not be read: "
+                    f"{type(exc).__name__}: {exc}"
+                )
+            )
+
+    def _commit_through(self, msg: Any) -> None:
+        """Commit past THIS record and no further, and fetch from just after it.
+
+        A bare ``self.consumer.commit()`` commits the consumer's POSITION for
+        every assigned partition. After a ``poll()`` that returned a batch the
+        position is past every record FETCHED, not past the one record
+        ``_process_message`` was handed -- ``poll_and_accept`` deliberately
+        processes the first record and returns. So a bare commit silently marks
+        records the agent has never looked at as done.
+
+        Measured 2026-09-17 (OMN-18613): accepting offset 262 committed 264,
+        past an unprocessed 263 carrying the rebuild command for omnimarket#2622.
+        That command was never delivered again -- no job record, no acceptance
+        line, no rejection line and no quarantine record.
+
+        THE COMMIT ALONE IS HALF THE FIX (OMN-19259). Bounding the commit
+        leaves 263 uncommitted, but kafka-python's fetch position is still past
+        it: the next ``poll()`` in this process starts at 264, and nothing holds
+        263 in memory for it. Only a group rejoin or a re-exec read from the
+        committed offset again, and the next record this process processes
+        commits past 263 for good. Measured in a replay against a real broker
+        with the pinned kafka-python 2.3.2: a dev command fetched behind a
+        refused head was never delivered, the committed offset stayed at the
+        refused record plus one, and a later accepted command made the loss
+        permanent. So the position is moved back to the same place the commit
+        names, and the records behind this one are fetched again by the next
+        poll. That costs a re-fetch of at most one poll batch per record
+        processed, on a topic whose records are a few hundred bytes each.
+
+        Advancing past a record the agent REFUSES stays deliberate: step 4's own
+        comment notes that re-reading a refused command forever "would stall
+        every command behind it". What is bounded here is the reach of that
+        advance, not its direction.
+        """
+        topic_partition = TopicPartition(msg.topic, msg.partition)
+        self.consumer.commit(
+            {
+                topic_partition: OffsetAndMetadata(
+                    msg.offset + 1, PROCESSED_COMMIT_METADATA, UNKNOWN_LEADER_EPOCH
+                )
+            }
+        )
+        self.consumer.seek(topic_partition, msg.offset + 1)
+        # OMN-18144: what the next lag sample measures against.
+        if self.lag_sampler is not None:
+            self.lag_sampler.note_commit(topic_partition, msg.offset + 1)
+
+    def _rewind_committed_offset_to(self, msg: Any) -> None:
+        """Commit this message's own offset so it is re-read, not skipped.
+
+        Called immediately before the process image is replaced. Seeking to
+        ``msg.offset`` and committing the resulting position makes the
+        committed offset point AT this command rather than past it, so the
+        replacement process fetches the same command again.
+
+        Relying on the message simply being uncommitted is not enough: this
+        consumer is configured ``auto_offset_reset="latest"``, so a group with
+        no committed offset yet -- the first command a freshly created group
+        ever sees -- would resume past the message and lose it.
+        """
+        topic_partition = TopicPartition(msg.topic, msg.partition)
+        self.consumer.seek(topic_partition, msg.offset)
+        self.consumer.commit(
+            {
+                topic_partition: OffsetAndMetadata(
+                    msg.offset, SELF_UPDATE_REWIND_METADATA, UNKNOWN_LEADER_EPOCH
+                )
+            }
+        )
+        # OMN-18144: a rewind moves the committed offset BACK, and a lag
+        # measured against the old value would under-report the record this
+        # rewind exists to have re-read.
+        if self.lag_sampler is not None:
+            self.lag_sampler.note_commit(topic_partition, msg.offset)
+        logger.info(
+            "Rewound committed offset to %s@%d:%d before self-update re-exec",
+            msg.topic,
+            msg.partition,
+            msg.offset,
+        )
+
+    # ── quarantine ───────────────────────────────────────────────────────────
+
+    def _quarantine_undecodable_fetch(self, exc: BaseException) -> str:
+        """Advance past a batch the client cannot decode, one offset at a time.
+
+        No record object exists, so the poison offset is read from the
+        consumer's own position. Only partitions with an unconsumed record
+        (``position < highwater``) are candidates: a caught-up partition has
+        nothing pending and advancing it would skip a future command.
+
+        Exactly ONE offset is skipped per candidate partition per event, never
+        a bulk seek to the end. On the single-partition control topic that is
+        precisely the poison record; were the topic ever repartitioned, the
+        worst case is one good command per extra candidate partition, and every
+        skipped coordinate is written to the quarantine record rather than
+        being lost silently.
+        """
+        advanced: list[dict[str, Any]] = []
+        for tp in sorted(
+            self.consumer.assignment(), key=lambda p: (p.topic, p.partition)
+        ):
+            position = self.consumer.position(tp)
+            highwater = self.consumer.highwater(tp)
+            if position is None or highwater is None or position >= highwater:
+                continue
+            self.consumer.seek(tp, position + 1)
+            self.consumer.commit(
+                {
+                    tp: OffsetAndMetadata(
+                        position + 1, QUARANTINE_COMMIT_METADATA, UNKNOWN_LEADER_EPOCH
+                    )
+                }
+            )
+            # OMN-18144: a quarantined record has been dealt with, so the lag
+            # must not keep counting it.
+            if self.lag_sampler is not None:
+                self.lag_sampler.note_commit(tp, position + 1)
+            advanced.append(
+                {
+                    "topic": tp.topic,
+                    "partition": tp.partition,
+                    "skipped_offset": position,
+                    "committed_offset": position + 1,
+                }
+            )
+
+        record = {
+            "quarantined_at": datetime.now(UTC).isoformat(),
+            "class": "undecodable_fetch",
+            "reason": f"{type(exc).__name__}: {exc}",
+            "advanced": advanced,
+        }
+
+        if not advanced:
+            # Honest rather than silent: the stall was NOT cleared, and saying
+            # so is the only way the next restart is diagnosable.
+            logger.critical(
+                "metric_name=deploy_command_quarantine_failed class=undecodable_fetch "
+                "error=%s: no assigned partition had a pending record to skip, so "
+                "the offset could not be advanced and this fetch will fail again. "
+                "friction_type=deploy_command_poison_pill_unrecoverable",
+                record["reason"],
+            )
+            self._write_quarantine_file(record)
+            return "undecodable_fetch_unrecovered"
+
+        logger.critical(
+            "metric_name=deploy_command_quarantined class=undecodable_fetch "
+            "error=%s advanced=%s — offset committed past the undecodable record. "
+            "friction_type=deploy_command_poison_pill",
+            record["reason"],
+            json.dumps(advanced),
+        )
+        self._write_quarantine_file(record)
+        self._publish_dlq(record)
+        return "undecodable_fetch"
+
+    def _quarantine_record(
+        self,
+        msg: Any,
+        *,
+        reason: str,
+        detail: str,
+        raw_preview: str | None,
+    ) -> None:
+        """Record one permanently-unprocessable message before committing past it."""
+        record = {
+            "quarantined_at": datetime.now(UTC).isoformat(),
+            "class": reason,
+            "reason": detail,
+            "topic": msg.topic,
+            "partition": msg.partition,
+            "skipped_offset": msg.offset,
+            "committed_offset": msg.offset + 1,
+            "key": None if msg.key is None else str(msg.key),
+            "raw_preview": raw_preview,
+        }
+        logger.critical(
+            "metric_name=deploy_command_quarantined class=%s topic=%s partition=%s "
+            "offset=%s error=%s — offset committed past it. "
+            "friction_type=deploy_command_poison_pill",
+            reason,
+            msg.topic,
+            msg.partition,
+            msg.offset,
+            detail,
+        )
+        self._write_quarantine_file(record)
+        self._publish_dlq(record)
+
+    def _write_quarantine_file(self, record: dict[str, Any]) -> None:
+        """Write the durable local copy. Best-effort, and loud when it fails."""
+        try:
+            self.quarantine_dir.mkdir(parents=True, exist_ok=True)
+            stamp = record["quarantined_at"].replace(":", "").replace("-", "")
+            path = self.quarantine_dir / f"{stamp}-{record['class']}.json"
+            fd, tmp = tempfile.mkstemp(dir=self.quarantine_dir, suffix=".tmp")
+            with os.fdopen(fd, "w") as handle:
+                json.dump(record, handle, indent=2, sort_keys=True)
+            Path(tmp).replace(path)
+            logger.info("Quarantine record written: %s", path)
+        except Exception as exc:
+            logger.exception(
+                "metric_name=deploy_command_quarantine_write_failed error=%s record=%s",
+                exc,
+                json.dumps(record, default=str),
+            )
+
+    def _publish_dlq(self, record: dict[str, Any]) -> None:
+        """Dead-letter the quarantine record. Best-effort: the commit already stands."""
+        from kafka import KafkaProducer
+
+        try:
+            producer = KafkaProducer(
+                **self.kafka_config.producer_kwargs(),
+                compression_type=None,
+                value_serializer=lambda v: json.dumps(v, default=str).encode("utf-8"),
+            )
+            try:
+                producer.send(TOPIC_DEPLOY_COMMAND_DLQ, value=record)
+                producer.flush(timeout=10)
+            finally:
+                producer.close()
+            logger.info(
+                "Dead-lettered quarantine record to %s", TOPIC_DEPLOY_COMMAND_DLQ
+            )
+        except Exception as exc:
+            logger.exception(
+                "metric_name=deploy_command_dlq_publish_failed topic=%s error=%s — "
+                "the durable local quarantine record is the surviving evidence",
+                TOPIC_DEPLOY_COMMAND_DLQ,
+                exc,
+            )
+
+    def close(self) -> None:
+        self.consumer.close()

@@ -1,0 +1,296 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# delegation-regression-nightly.yml — Layer-2 delegation regression runner (OMN-13540).
+#
+# Runs the versioned golden-task corpus (tests/delegation_golden/corpus.yaml)
+# end-to-end against a live lab lane via a self-hosted runner that has bus +
+# Postgres access. Publishes each integration case to the live bus, reads the
+# delegation_events projection, asserts the expected behavioral block, and
+# uploads the scoreboard artifact. Fails on any HARD (non-xfail) assertion break.
+#
+# NIGHTLY (not pre-merge). The Layer-1 contract/unit gate runs on every PR via
+# the existing ci.yml pytest job (tests under tests/delegation_golden/ that are
+# NOT gated on OMN_ALLOW_LIVE_E2E_PROBE).
+#
+# ---------------------------------------------------------------------------
+# OMN-18349 — WHY THIS JOB PINS ITS RUNNER LABEL AND ITS LANE
+# ---------------------------------------------------------------------------
+#
+# This workflow failed 60 of 60 runs between 2026-07-17 and 2026-09-13 and has
+# never once been green. It never published a single golden case. One cause is
+# fatal on its own; two more would have surfaced the moment it was fixed:
+#
+#   (1) THE RUNNER. `runs-on` read `vars.OMNI_TRUSTED_CI_RUNS_ON_JSON`, which
+#       holds `["ubuntu-latest"]` at BOTH org scope (set 2026-08-27T04:36:53Z)
+#       and this repo's shadow scope (2026-09-07T12:57:48Z). The job ran
+#       `self-hosted, omnibase-ci` up to run 32944432318 (2026-08-26) and on a
+#       GitHub-hosted Azure runner from run 33064565660 (2026-08-27) onward.
+#       A hosted runner has no route to the lab network, so `asyncpg.connect`
+#       hung and died on its 60-second default at
+#       tests/delegation_golden/runner.py, before a single case was published.
+#       The nine "TimeoutError"s on run 34745641907 are nine repeats of that
+#       one connect timeout, not delegation timeouts, and the three cases that
+#       looked like passes are the xfail-marked ones failing identically.
+#
+#       The label is therefore pinned as a LITERAL here rather than read from
+#       a routing variable. LAN reachability is a network-namespace fact about
+#       where the runner sits, not a trust fact, and a shared single-owner
+#       routing variable (CLAUDE.md rule 14) is owned by whichever lane last
+#       flipped it. dlq-depth-monitor.yml in omnibase_infra carries the same
+#       pin for the same reason after the same defect (OMN-17163). Verified
+#       2026-09-13: every one of the 88 online org runners carries
+#       `self-hosted,Linux,X64,omnibase-ci`, and a TCP probe from inside one of
+#       those runner containers reaches the lab lane broker and Postgres ports.
+#
+#   (2) THE ADDRESS. The runner carried the stability lane bootstrap address as
+#       its hardcoded default for EVERY lane, so a `--lane dev` dispatch read
+#       the dev lane's Postgres while publishing to the stability lane's
+#       broker. Nobody had noticed, because (1) meant no dispatch ever got far
+#       enough to publish. The address now comes from the checked-in lane
+#       overlay config/ci_bus_lanes.yaml through scripts/ci_bus_lanes.py — the
+#       same resolver the OCC publishers use — under a `stability-test` key
+#       distinct from the overlay's `stability`, which stays `inmemory` so the
+#       OCC publishers' accidental-lane guard is untouched.
+#
+#   (3) THE TRANSPORT. The two lanes do not share one. Verified live
+#       2026-09-13: the stability lane EXTERNAL listener answers an
+#       unauthenticated cluster-metadata request, and the dev lane listener
+#       refuses one — it has required SASL/SCRAM-SHA-256 over PLAINTEXT since
+#       OMN-18012 Phase B (2026-09-07T16:40Z). The runner published plaintext
+#       unconditionally, so a `--lane dev` dispatch would have hung against a
+#       listener requiring SASL. The transport is now declared per lane beside
+#       its broker and read, never inferred from the presence of credentials.
+#
+#   (4) THE PACE. Fixing (1)-(3) got the corpus published for the first time
+#       (run 34810939133, 2026-09-14) and exposed the next layer. The runner
+#       published all nine cases at once under ONE deadline, on the premise that
+#       the platform serves them concurrently. It does not: the delegate-skill
+#       command consumer's poll loop is serial, the tier every case enters on is
+#       one physical endpoint permitting one running generation, and a handler
+#       that hits its execution budget stops WAITING for its delegation rather
+#       than stopping it -- so each abandoned workflow kept competing for that
+#       single slot. Measured on that run: cases three through seven were each
+#       cancelled at an exact 240.000s cadence (06:00:37.87, 06:04:37.88,
+#       06:08:37.88, 06:12:37.89, 06:16:37.89), every one having spent its whole
+#       budget behind work the probe had already given up on. The runner now
+#       publishes at the declared serving rate and waits for each wave.
+#
+#   (5) THE DEADLINE'S SOURCE. The per-case deadline was derived from
+#       `node_delegation_orchestrator`'s `completion_bound.max_wall_seconds`
+#       (900s) -- a real contract, for a different node. The node that serves
+#       this probe is `node_delegate_skill_orchestrator`, whose own
+#       `handler_execution_budget.max_handler_duration_seconds` (240s, OMN-15504)
+#       is what actually terminalises a case. 660 of those 900 seconds were
+#       spent waiting for an event the platform had already decided not to
+#       produce. That the two declared bounds disagree is a real finding and is
+#       NOT resolved here; the probe simply reads the one that binds.
+#
+# WHAT THIS IS NOT. An earlier revision of this header claimed the stability
+# lane had no runtime and was therefore unable to serve the probe at all. That
+# was wrong and is corrected here rather than quietly deleted: the census that
+# produced it ran during a lane rebuild and matched on container name only. Read
+# back afterwards, the lane carries 19 containers including three runtime
+# containers, and its delegate-skill consumer group is Stable with zero lag on
+# all six partitions. Its delegation_events projection is frozen at
+# 2026-09-06T10:17:59Z because nothing has published a delegation to it since —
+# which is what (1) guarantees — not because nothing would consume one. The lane
+# therefore stays the default target. One honest caveat, named rather than
+# assumed away: `omninode-stability-test-runtime` has reported unhealthy for 46
+# hours, and whether that affects this probe is not established here.
+#
+# The lane Postgres password arrives as STABILITY_TEST_POSTGRES_PASSWORD. That
+# name is now wider than its lane: verified 2026-09-13 by digest comparison,
+# the dev and stability lane Postgres instances currently authenticate with the
+# same value, so one secret serves both and no new credential is minted here.
+# If they ever diverge, the preflight below fails naming the address rather
+# than hanging, which is the whole point of the fail-fast connect.
+
+name: Delegation Regression (nightly)
+
+# OMN-19311 -- THE RUN TITLE NAMES THE LANE, and staging delivery reads it.
+#
+# This workflow's verdict blocks staging delivery (operator ruling
+# 2026-09-23T17:12:15Z; omnibase_infra deliver-dev-candidate-to-staging.yml and
+# omninode_infra lab_pass_gate.py both read the newest completed run on dev).
+# The verdict that binds is the stability-test measurement. A dispatch takes a
+# `lane` input, and a green dispatch against the dev lane would otherwise read
+# exactly like a green stability-test night -- the red would be dropped by
+# changing what is measured rather than by fixing it. The run API does not carry
+# dispatch inputs, so the lane is rendered into the run title here, and the
+# delivery gates count a dispatched run only when its title carries
+# `lane=stability-test`. A scheduled run takes no inputs and measures the
+# default lane, so its title says so too. Do not drop the `lane=` token:
+# tests/test_delegation_nightly_placement.py asserts it.
+run-name: Delegation Regression (nightly) lane=${{ github.event.inputs.lane || 'stability-test' }}
+
+on:
+  schedule:
+    # 07:30 UTC nightly — after the dev/stability redeploy window settles.
+    - cron: '30 7 * * *'
+  workflow_dispatch:
+    inputs:
+      lane:
+        description: 'Lane to probe (stability-test | dev)'
+        type: string
+        required: false
+        default: 'stability-test'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: delegation-regression-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  golden-tasks:
+    name: Layer-2 golden tasks (live)
+    # PINNED LITERAL, deliberately — see "(1) THE RUNNER" in the header above.
+    # This job's entire premise is a socket to the lab network. Do not replace
+    # this with a routing-variable read; tests/test_delegation_nightly_placement.py
+    # fails the build if you do.
+    runs-on: [self-hosted, omnibase-ci]
+    # Sized to the probe's OWN derived ceiling, not to a habit. The corpus is
+    # published in waves of the lane's declared serving concurrency (1), each
+    # wave bounded by the delegate-skill orchestrator's declared handler
+    # execution budget (240s) plus a projection margin and a supersession settle
+    # window, so nine cases can legitimately take 54 minutes of wall clock.
+    # scripts/ci/check_nightly_corpus_budget.py recomputes that from the corpus,
+    # the contract and the overlay and FAILS if this number is below it: a job
+    # cancelled mid-corpus skips its `if: always()` uploads and leaves a red
+    # night with no scoreboard, which is the AC3 failure by another route.
+    timeout-minutes: 70
+    env:
+      ONEX_E2E_LANE: ${{ github.event.inputs.lane || 'stability-test' }}
+      # The BROKER is resolved from config/ci_bus_lanes.yaml by the runner and
+      # is deliberately not wired here — see "(3) THE TRANSPORT" above.
+      #
+      # ONEX_E2E_POSTGRES_HOST / _PORT are likewise NOT wired. The previous
+      # revision set them from repo vars that exist at no scope, so they
+      # resolved empty on every run and the runner silently used its own
+      # lane-keyed defaults anyway — wiring that reads as configuration and is
+      # not. The projection address is resolved, once, in
+      # tests/delegation_golden/runner.py, keyed on the lane; override it there
+      # or by exporting those two variables for a local run.
+      ONEX_E2E_POSTGRES_DB: omnidash_analytics
+      ONEX_E2E_POSTGRES_USER: postgres
+      ONEX_E2E_POSTGRES_PASSWORD: ${{ secrets.STABILITY_TEST_POSTGRES_PASSWORD || secrets.POSTGRES_PASSWORD }}
+      # The lane-declared SASL principal (OMN-18012), used only by lanes whose
+      # overlay entry declares a SASL protocol — today that is `dev` and not
+      # `stability-test`. The overlay declares the protocol and the mechanism;
+      # only the principal is a secret, and a PLAINTEXT lane ignores it.
+      KAFKA_SASL_USERNAME: ${{ secrets.KAFKA_SASL_USERNAME }}
+      KAFKA_SASL_PASSWORD: ${{ secrets.KAFKA_SASL_PASSWORD }}
+      # Opt-in guard that the Layer-2 pytest module / runner require.
+      OMN_ALLOW_LIVE_E2E_PROBE: 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      # OMN-13953: unconditionally self-hosted (persistent workspace) — the
+      # sibling clones below outlive the job, so clean before cloning or every
+      # run after the first on a given runner fails with exit 128.
+      - name: Clean stale dependency clones
+        run: rm -rf ../omnibase_core ../omnibase_compat ../omnimemory
+
+      - name: Clone sibling repos (workspace deps)
+        run: |
+          git clone --depth=1 https://github.com/OmniNode-ai/omnibase_core.git ../omnibase_core
+          git clone --depth=1 https://github.com/OmniNode-ai/omnibase_compat.git ../omnibase_compat
+          git clone --depth=1 https://github.com/OmniNode-ai/omnimemory.git ../omnimemory
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      # OMN-18349: the placement check comes FIRST and costs a second. The
+      # failure it catches is the one that consumed 60 nightly runs, and it was
+      # invisible because the symptom arrived nine minutes later wearing the
+      # vocabulary of a delegation regression.
+      - name: Preflight — runner placement, lane wiring, lane reachability
+        run: |
+          set -euo pipefail
+          if [ "${RUNNER_ENVIRONMENT:-}" = "github-hosted" ]; then
+            echo "::error::This job is running on a GitHub-hosted runner (${RUNNER_NAME:-unknown})."
+            echo "::error::It probes the lab lane over the LAN and a hosted runner has no route to it."
+            echo "::error::See OMN-18349 in this file's header: the label must stay a self-hosted literal."
+            exit 1
+          fi
+          if [ -z "${ONEX_E2E_POSTGRES_PASSWORD}" ]; then
+            echo "::error::STABILITY_TEST_POSTGRES_PASSWORD / POSTGRES_PASSWORD is not set."
+            echo "::error::The nightly Layer-2 runner cannot reach the lane Postgres without it."
+            exit 1
+          fi
+          uv run python scripts/ci/preflight_delegation_lane.py
+
+      # OMN-19446 AC2: the xfail baseline can only shrink, and every run
+      # prints the live count so a red night's reader (and this job's own
+      # summary) can see at a glance how many cases the nightly cannot fail
+      # on. Runs before the corpus publish so a violation is visible even if
+      # the corpus run itself times out.
+      - name: Print xfail ratchet count (OMN-19446)
+        run: |
+          uv run python -m tests.delegation_golden.xfail_ratchet | tee -a "${GITHUB_STEP_SUMMARY}"
+
+      - name: Run Layer-2 golden-task runner (scoreboard)
+        id: runner
+        run: |
+          uv run python -m tests.delegation_golden.runner \
+            --out delegation_regression_scoreboard.json
+
+      # OMN-18349: this step ASSERTS the run above; it no longer re-runs the
+      # corpus. It reads the scoreboard that step wrote, so these assertions
+      # and the uploaded artifact describe the same run, the lane serves nine
+      # delegations a night rather than eighteen, and the sequential worst case
+      # can no longer exceed the job budget and take the artifact uploads down
+      # with it.
+      - name: Run Layer-2 pytest (xfail-aware, fails on hard breaks)
+        if: always()
+        env:
+          ONEX_E2E_SCOREBOARD_PATH: delegation_regression_scoreboard.json
+        run: |
+          uv run pytest tests/delegation_golden/test_layer2_live_runner.py \
+            -v -m e2e --no-header \
+            --junitxml=delegation_regression_junit.xml
+
+      # OMN-16809: the step above CANNOT fail for absence of coverage. The live
+      # class self-skips (no lane flag, no lane password) and an all-skipped
+      # pytest session exits 0 — which is how this job reported a green pytest
+      # step for seven consecutive nights while executing zero live cases. The
+      # guard reads the JUnit report and turns silence into a failure. Its config
+      # is nightly-scoped on purpose: the merge-gating one treats the live-opt-in
+      # skip as legitimate, which is right on a PR and wrong here.
+      - name: Guard — zero executed live cases is a failure, not a pass (OMN-16809)
+        if: always()
+        run: |
+          uv run python scripts/ci/check_integration_skips.py \
+            --junit delegation_regression_junit.xml \
+            --config scripts/ci/nightly_chain_skip_guard.yaml
+
+      - name: Upload JUnit report
+        if: always()
+        # SHA-pinned to v4 — the pin this repo already uses at 10 other call
+        # sites, and the majority convention for this action here.
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: delegation-regression-junit
+          path: delegation_regression_junit.xml
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload scoreboard artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: delegation-regression-scoreboard
+          path: delegation_regression_scoreboard.json
+          if-no-files-found: warn
+          retention-days: 30

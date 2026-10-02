@@ -20,10 +20,20 @@ class AuditServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_audit__pb2.GetAuditLogsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_audit__pb2.GetAuditLogsResponse.FromString,
         )
+        self.GetTeamAuditLogs = channel.unary_unary(
+            "/chalk.server.v1.AuditService/GetTeamAuditLogs",
+            request_serializer=chalk_dot_server_dot_v1_dot_audit__pb2.GetTeamAuditLogsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_audit__pb2.GetTeamAuditLogsResponse.FromString,
+        )
         self.GetAuditedEndpoints = channel.unary_unary(
             "/chalk.server.v1.AuditService/GetAuditedEndpoints",
             request_serializer=chalk_dot_server_dot_v1_dot_audit__pb2.GetAuditedEndpointsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_audit__pb2.GetAuditedEndpointsResponse.FromString,
+        )
+        self.GetTeamAuditedEndpoints = channel.unary_unary(
+            "/chalk.server.v1.AuditService/GetTeamAuditedEndpoints",
+            request_serializer=chalk_dot_server_dot_v1_dot_audit__pb2.GetTeamAuditedEndpointsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_audit__pb2.GetTeamAuditedEndpointsResponse.FromString,
         )
 
 
@@ -36,7 +46,19 @@ class AuditServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetTeamAuditLogs(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def GetAuditedEndpoints(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetTeamAuditedEndpoints(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -50,10 +72,20 @@ def add_AuditServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_audit__pb2.GetAuditLogsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_audit__pb2.GetAuditLogsResponse.SerializeToString,
         ),
+        "GetTeamAuditLogs": grpc.unary_unary_rpc_method_handler(
+            servicer.GetTeamAuditLogs,
+            request_deserializer=chalk_dot_server_dot_v1_dot_audit__pb2.GetTeamAuditLogsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_audit__pb2.GetTeamAuditLogsResponse.SerializeToString,
+        ),
         "GetAuditedEndpoints": grpc.unary_unary_rpc_method_handler(
             servicer.GetAuditedEndpoints,
             request_deserializer=chalk_dot_server_dot_v1_dot_audit__pb2.GetAuditedEndpointsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_audit__pb2.GetAuditedEndpointsResponse.SerializeToString,
+        ),
+        "GetTeamAuditedEndpoints": grpc.unary_unary_rpc_method_handler(
+            servicer.GetTeamAuditedEndpoints,
+            request_deserializer=chalk_dot_server_dot_v1_dot_audit__pb2.GetTeamAuditedEndpointsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_audit__pb2.GetTeamAuditedEndpointsResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.AuditService", rpc_method_handlers)
@@ -94,6 +126,35 @@ class AuditService(object):
         )
 
     @staticmethod
+    def GetTeamAuditLogs(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.AuditService/GetTeamAuditLogs",
+            chalk_dot_server_dot_v1_dot_audit__pb2.GetTeamAuditLogsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_audit__pb2.GetTeamAuditLogsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
     def GetAuditedEndpoints(
         request,
         target,
@@ -112,6 +173,35 @@ class AuditService(object):
             "/chalk.server.v1.AuditService/GetAuditedEndpoints",
             chalk_dot_server_dot_v1_dot_audit__pb2.GetAuditedEndpointsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_audit__pb2.GetAuditedEndpointsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetTeamAuditedEndpoints(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.AuditService/GetTeamAuditedEndpoints",
+            chalk_dot_server_dot_v1_dot_audit__pb2.GetTeamAuditedEndpointsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_audit__pb2.GetTeamAuditedEndpointsResponse.FromString,
             options,
             channel_credentials,
             insecure,

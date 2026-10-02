@@ -1,0 +1,120 @@
+# Copyright 2026 The A11 Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""HTTP/2 SSE server for the browser-client echo guide.
+
+Run with ``python -m a11.demos.echo_server``. The service accepts the SSE
+connect POST at ``/demos/echo`` and outbound messages at the default
+``/streams/{id}/message``, and executes one action named ``echo``.
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+
+import a11
+from absl import logging
+
+ECHO_SCHEMA = a11.ActionSchema(
+    name="echo",
+    description="Return the supplied text unchanged.",
+    inputs={
+        "input": a11.ActionPortSchema(
+            name="input", type="text/plain", typeinfo=str, required=True
+        )
+    },
+    outputs={
+        "output": a11.ActionPortSchema(
+            name="output", type="text/plain", typeinfo=str, required=True
+        )
+    },
+)
+
+
+async def echo(action: a11.Action) -> None:
+    """Copy the final input value to the action's output node."""
+
+    logging.info("Running echo action %s", action.get_id())
+    value = await action["input"].consume(str)
+    await action["output"].put(value, final=True)
+    logging.info("Completed echo action %s", action.get_id())
+
+
+def make_registry() -> a11.ActionRegistry:
+    """Return the action registry shared by all accepted sessions."""
+
+    registry = a11.ActionRegistry()
+    registry.register("echo", ECHO_SCHEMA, echo)
+    return registry
+
+
+async def serve(
+    host: str = "127.0.0.1",
+    port: int = 80,
+    certificate: str = "",
+    private_key: str = "",
+) -> None:
+    """Serve echo sessions until interrupted."""
+
+    registry = make_registry()
+
+    # The service owns session creation and stream lifecycle management.
+    service = a11.Service(action_registry=registry)
+
+    options = a11.HttpSseOptions()
+    options.connect_endpoint = "/demos/echo"
+    # Nothing to say about cross-origin access any more: it is permissive by
+    # default, and A11's own response headers -- including the `x-a11-stream-id`
+    # this page reads -- are exposed by default, because the SSE transport does
+    # not work without them.
+    if certificate:
+        http2_options = options.http2_options
+        tls_options = http2_options.tls
+        tls_options.enabled = True
+        tls_options.certificate_pem_file = certificate
+        tls_options.key_pem_file = private_key
+        http2_options.tls = tls_options
+        options.http2_options = http2_options
+    server = a11.HttpSseServer.create(host, port, service.accept, options)
+    scheme = "https" if certificate else "http"
+    logging.info(
+        "Echo server listening at %s://%s:%d/demos/echo",
+        scheme,
+        host,
+        server.port,
+    )
+    try:
+        await asyncio.Event().wait()
+    finally:
+        server.stop()
+
+
+def main() -> None:
+    a11.enable_logging("debug")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", default=80, type=int)
+    parser.add_argument("--certificate", default="", help="TLS certificate PEM")
+    parser.add_argument("--private-key", default="", help="TLS private-key PEM")
+    args = parser.parse_args()
+    if bool(args.certificate) != bool(args.private_key):
+        parser.error(
+            "--certificate and --private-key must be supplied together"
+        )
+    asyncio.run(serve(args.host, args.port, args.certificate, args.private_key))
+
+
+if __name__ == "__main__":
+    main()

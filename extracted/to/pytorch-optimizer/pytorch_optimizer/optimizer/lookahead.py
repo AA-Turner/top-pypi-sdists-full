@@ -48,8 +48,7 @@ class Lookahead(BaseOptimizer):
 
             for p in group['params']:
                 state = self.state[p]
-                state['slow_params'] = torch.empty_like(p)
-                state['slow_params'].copy_(p)
+                state['slow_params'] = p.detach().clone()
                 if self.pullback_momentum == 'pullback':
                     state['slow_momentum'] = torch.zeros_like(p)
 
@@ -86,8 +85,7 @@ class Lookahead(BaseOptimizer):
         for group in self.param_groups:
             for p in group['params']:
                 state = self.state[p]
-                state['backup_params'] = torch.empty_like(p)
-                state['backup_params'].copy_(p)
+                state['backup_params'] = p.detach().clone()
                 p.data.copy_(state['slow_params'])
 
     def clear_and_load_backup(self) -> None:
@@ -99,14 +97,34 @@ class Lookahead(BaseOptimizer):
                 del state['backup_params']
 
     def state_dict(self) -> State:
-        lookahead_state: State = {p: dict(param_state) for p, param_state in self.state.items()}
+        lookahead_state: State = {
+            (group_index, parameter_index): dict(self.state[p])
+            for group_index, group in enumerate(self.param_groups)
+            for parameter_index, p in enumerate(group['params'])
+            if p in self.state
+        }
         return {'lookahead_state': lookahead_state, 'base_optimizer': self.optimizer.state_dict()}
 
     def load_state_dict(self, state: State) -> None:
         r"""Load state."""
-        lookahead_state = state['lookahead_state']
-        self.state = defaultdict(dict, {p: dict(param_state) for p, param_state in lookahead_state.items()})
+        saved_state = state['lookahead_state']
+        restored_state: State = {}
+        for group_index, group in enumerate(self.param_groups):
+            for parameter_index, p in enumerate(group['params']):
+                key = (group_index, parameter_index)
+                if key in saved_state:
+                    restored_state[p] = dict(saved_state[key])
+                elif p in saved_state:
+                    restored_state[p] = dict(saved_state[p])
+        parameter_count = sum(len(group['params']) for group in self.param_groups)
+        if len(restored_state) != len(saved_state) or len(restored_state) != parameter_count:
+            raise ValueError('lookahead state does not match the current parameters')
+
         self.optimizer.load_state_dict(state['base_optimizer'])
+        for parameter_state in restored_state.values():
+            if 'slow_momentum' in parameter_state:
+                parameter_state['slow_momentum'] = parameter_state['slow_momentum'].clone()
+        self.state = defaultdict(dict, restored_state)
 
     @torch.no_grad()
     def update(self, group: Dict):
@@ -126,10 +144,8 @@ class Lookahead(BaseOptimizer):
 
             if self.pullback_momentum == 'pullback':
                 internal_momentum = self.optimizer.state[p]['momentum_buffer']
-                self.optimizer.state[p]['momentum_buffer'] = internal_momentum.mul_(self.alpha).add_(
-                    state['slow_momentum'], alpha=1.0 - self.alpha
-                )
-                state['slow_momentum'] = self.optimizer.state[p]['momentum_buffer']
+                internal_momentum.lerp_(state['slow_momentum'], weight=1.0 - self.alpha)
+                state['slow_momentum'].copy_(internal_momentum)
             elif self.pullback_momentum == 'reset':
                 self.optimizer.state[p]['momentum_buffer'] = torch.zeros_like(p)
 

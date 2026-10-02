@@ -1,0 +1,1299 @@
+import os
+import shutil
+import unittest
+from pysciqlop_cache import  Cache
+from pysciqlop_cache import FanoutCache, FanoutIndex, Index, PickleOOBSerializer, PickleSerializer
+import gc
+import tempfile
+import time
+
+class TestCache(unittest.TestCase):
+
+    def setUp(self):
+        """
+        Set up the test environment.
+        """
+        self.tmp_dir = tempfile.mkdtemp()
+        self.cache = Cache(self.tmp_dir)
+
+    def tearDown(self):
+        """
+        Clean up the test environment.
+        """
+        if hasattr(self, 'cache'):
+            del self.cache
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+
+    def test_simple_set_get(self):
+        """
+        Test the Cache functionality.
+        """
+
+        key = "test_key"
+        value = "test_value"
+
+        # Test setting a value
+        self.cache.set(key, value)
+        assert self.cache.get(key) == value
+
+
+    def test_expiration(self):
+        # Test expiration
+        key = "test_expire_key"
+        value = "test_expire_value"
+        self.cache.set(key, value, expire=1)
+        time.sleep(2)
+        assert self.cache.get(key) is None, "Cache should return None after expiration"
+
+
+
+
+    def test_incr_new_key(self):
+        result = self.cache.incr("counter")
+        self.assertEqual(result, 1)
+
+    def test_incr_existing_key(self):
+        self.cache.set("counter", 10)
+        result = self.cache.incr("counter", 5)
+        self.assertEqual(result, 15)
+
+    def test_incr_with_default(self):
+        result = self.cache.incr("counter", 1, 100)
+        self.assertEqual(result, 101)
+
+    def test_decr(self):
+        self.cache.set("counter", 10)
+        result = self.cache.decr("counter", 3)
+        self.assertEqual(result, 7)
+
+    def test_decr_new_key(self):
+        result = self.cache.decr("counter")
+        self.assertEqual(result, -1)
+
+    def test_incr_multiple(self):
+        self.cache.incr("counter")
+        self.cache.incr("counter")
+        result = self.cache.incr("counter")
+        self.assertEqual(result, 3)
+
+    def test_incr_preserves_as_gettable(self):
+        self.cache.incr("counter", 42)
+        value = self.cache.get("counter")
+        self.assertEqual(value, 42)
+
+
+    def test_memoize_caches_result(self):
+        call_count = 0
+
+        @self.cache.memoize()
+        def add(a, b):
+            nonlocal call_count
+            call_count += 1
+            return a + b
+
+        self.assertEqual(add(1, 2), 3)
+        self.assertEqual(call_count, 1)
+        self.assertEqual(add(1, 2), 3)
+        self.assertEqual(call_count, 1)  # not called again
+
+    def test_memoize_different_args(self):
+        call_count = 0
+
+        @self.cache.memoize()
+        def multiply(a, b):
+            nonlocal call_count
+            call_count += 1
+            return a * b
+
+        self.assertEqual(multiply(2, 3), 6)
+        self.assertEqual(multiply(3, 4), 12)
+        self.assertEqual(call_count, 2)
+
+    def test_memoize_with_kwargs(self):
+        @self.cache.memoize()
+        def greet(name, greeting="hello"):
+            return f"{greeting} {name}"
+
+        self.assertEqual(greet("world"), "hello world")
+        self.assertEqual(greet("world", greeting="hi"), "hi world")
+        self.assertEqual(greet("world"), "hello world")  # from cache
+
+    def test_memoize_typed(self):
+        call_count = 0
+
+        @self.cache.memoize(typed=True)
+        def identity(x):
+            nonlocal call_count
+            call_count += 1
+            return x
+
+        identity(1)
+        identity(1.0)
+        self.assertEqual(call_count, 2)  # different types = different keys
+
+    def test_memoize_not_typed(self):
+        call_count = 0
+
+        @self.cache.memoize(typed=False)
+        def identity(x):
+            nonlocal call_count
+            call_count += 1
+            return x
+
+        identity(1)
+        identity(1.0)
+        self.assertEqual(call_count, 2)  # still different because repr differs
+
+    def test_memoize_with_tag(self):
+        @self.cache.memoize(tag="math")
+        def square(x):
+            return x * x
+
+        self.assertEqual(square(5), 25)
+        self.cache.evict_tag("math")
+        # After eviction, should recompute
+        call_count = 0
+        original_fn = square.__wrapped__
+
+        @self.cache.memoize(tag="math")
+        def square2(x):
+            nonlocal call_count
+            call_count += 1
+            return x * x
+
+        square2(5)
+        self.assertEqual(call_count, 1)  # recomputed after eviction
+
+    def test_memoize_with_expiry(self):
+        call_count = 0
+
+        @self.cache.memoize(expire=1)
+        def compute(x):
+            nonlocal call_count
+            call_count += 1
+            return x * 2
+
+        self.assertEqual(compute(3), 6)
+        self.assertEqual(call_count, 1)
+        self.assertEqual(compute(3), 6)
+        self.assertEqual(call_count, 1)
+        time.sleep(2)
+        self.assertEqual(compute(3), 6)
+        self.assertEqual(call_count, 2)  # expired, recomputed
+
+    def test_memoize_caches_none(self):
+        call_count = 0
+
+        @self.cache.memoize()
+        def returns_none(x):
+            nonlocal call_count
+            call_count += 1
+            return None
+
+        self.assertIsNone(returns_none(1))
+        self.assertEqual(call_count, 1)
+        self.assertIsNone(returns_none(1))
+        self.assertEqual(call_count, 1)  # None was cached
+
+    def test_memoize_cache_key(self):
+        @self.cache.memoize()
+        def func(x):
+            return x
+
+        key = func.__cache_key__(42)
+        self.assertIsInstance(key, str)
+        self.assertIn("func", key)
+
+
+    def test_del(self):
+        self.cache.set("to_delete", "value")
+        self.assertTrue(self.cache.exists("to_delete"))
+        self.cache.delete("to_delete")
+        self.assertFalse(self.cache.exists("to_delete"))
+
+    def test_del_nonexistent(self):
+        self.assertFalse(self.cache.delete("no_such_key"))
+
+    def test_pop(self):
+        self.cache.set("pop_key", [1, 2, 3])
+        result = self.cache.pop("pop_key")
+        self.assertEqual(result, [1, 2, 3])
+        self.assertIsNone(self.cache.get("pop_key"))
+
+    def test_pop_nonexistent(self):
+        result = self.cache.pop("no_such_key")
+        self.assertIsNone(result)
+
+    def test_pop_with_default(self):
+        result = self.cache.pop("no_such_key", default="fallback")
+        self.assertEqual(result, "fallback")
+
+    def test_getitem_setitem(self):
+        self.cache["dictkey"] = "dictval"
+        self.assertEqual(self.cache["dictkey"], "dictval")
+
+    def test_getitem_missing(self):
+        with self.assertRaises(KeyError):
+            self.cache["missing"]
+        self.assertIsNone(self.cache.get("missing"))
+
+    def test_delitem(self):
+        self.cache.set("delme", 42)
+        del self.cache["delme"]
+        self.assertIsNone(self.cache.get("delme"))
+
+    def test_len(self):
+        self.assertEqual(len(self.cache), 0)
+        self.cache.set("a", 1)
+        self.cache.set("b", 2)
+        self.assertEqual(len(self.cache), 2)
+
+    def test_keys(self):
+        self.cache.set("x", 1)
+        self.cache.set("y", 2)
+        self.cache.set("z", 3)
+        keys = sorted(self.cache.keys())
+        self.assertEqual(keys, ["x", "y", "z"])
+
+    def test_keys_excludes_expired(self):
+        self.cache.set("alive", 1)
+        self.cache.set("dead", 2, expire=0)
+        time.sleep(0.1)
+        keys = self.cache.keys()
+        self.assertIn("alive", keys)
+        self.assertNotIn("dead", keys)
+
+    def test_exists(self):
+        self.cache.set("present", "yes")
+        self.assertTrue(self.cache.exists("present"))
+        self.assertFalse(self.cache.exists("absent"))
+
+    def test_exists_expired(self):
+        self.cache.set("temp", "val", expire=0)
+        time.sleep(0.1)
+        self.assertFalse(self.cache.exists("temp"))
+
+    def test_add(self):
+        self.assertTrue(self.cache.add("newkey", "newval"))
+        self.assertEqual(self.cache.get("newkey"), "newval")
+
+    def test_add_existing_key_fails(self):
+        self.cache.set("occupied", "original")
+        self.assertFalse(self.cache.add("occupied", "replacement"))
+        self.assertEqual(self.cache.get("occupied"), "original")
+
+    def test_add_with_expire(self):
+        self.cache.add("expiring", "val", expire=1)
+        self.assertEqual(self.cache.get("expiring"), "val")
+        time.sleep(2)
+        self.assertIsNone(self.cache.get("expiring"))
+
+    def test_add_with_tag(self):
+        self.cache.add("tagged", "val", tag="mytag")
+        self.assertEqual(self.cache.get("tagged"), "val")
+        self.cache.evict_tag("mytag")
+        self.assertIsNone(self.cache.get("tagged"))
+
+    def test_set_with_tag(self):
+        self.cache.set("t1", "v1", tag="grp")
+        self.cache.set("t2", "v2", tag="grp")
+        self.cache.set("t3", "v3")
+        self.cache.evict_tag("grp")
+        self.assertIsNone(self.cache.get("t1"))
+        self.assertIsNone(self.cache.get("t2"))
+        self.assertEqual(self.cache.get("t3"), "v3")
+
+    def test_set_with_expire_and_tag(self):
+        self.cache.set("combo", "val", expire=3600, tag="combo_tag")
+        self.assertEqual(self.cache.get("combo"), "val")
+        self.cache.evict_tag("combo_tag")
+        self.assertIsNone(self.cache.get("combo"))
+
+    def test_evict_tag_nonexistent(self):
+        evicted = self.cache.evict_tag("no_such_tag")
+        self.assertEqual(evicted, 0)
+
+    def test_clear(self):
+        self.cache.set("a", 1)
+        self.cache.set("b", 2)
+        self.cache.clear()
+        self.assertEqual(len(self.cache), 0)
+        self.assertIsNone(self.cache.get("a"))
+
+    def test_check(self):
+        self.assertTrue(self.cache.check().ok)
+
+    def test_get_default(self):
+        self.assertEqual(self.cache.get("missing", "fallback"), "fallback")
+
+    def test_get_default_none(self):
+        self.assertIsNone(self.cache.get("missing"))
+
+    def test_touch(self):
+        from datetime import timedelta
+        self.cache.set("touchme", "val", expire=3600)
+        self.cache.touch("touchme", timedelta(seconds=0))
+        self.cache.expire()
+        time.sleep(0.1)
+        self.assertIsNone(self.cache.get("touchme"))
+
+    def test_touch_accepts_int_seconds(self):
+        self.cache.set("touchme", "val", expire=3600)
+        self.assertTrue(self.cache.touch("touchme", expire=0))
+        self.cache.expire()
+        self.assertIsNone(self.cache.get("touchme"))
+
+    def test_expire_zero_is_expired_even_across_a_second_boundary(self):
+        # Expiry is compared with SQLite's unixepoch('now'). On Windows SQLite
+        # reads a coarse (~15 ms) clock, std::chrono a precise one: right
+        # after a second ticks over, an expire computed from std::chrono was
+        # still one second in SQLite's future. Loop past a boundary.
+        deadline = time.monotonic() + 1.2
+        while time.monotonic() < deadline:
+            self.cache.set("k", "v", expire=0)
+            self.assertIsNone(self.cache.get("k"))
+            self.cache.set("k", "v", expire=3600)
+            self.assertTrue(self.cache.touch("k", expire=0))
+            self.assertIsNone(self.cache.get("k"))
+
+    def test_touch_accepts_float_seconds(self):
+        self.cache.set("touchme", "val", expire=3600)
+        self.assertTrue(self.cache.touch("touchme", expire=0.0))
+        self.cache.expire()
+        self.assertIsNone(self.cache.get("touchme"))
+
+    def test_touch_without_expire_removes_expiration(self):
+        self.cache.set("keep", "val", expire=2)
+        self.assertTrue(self.cache.touch("keep"))
+        self.cache.set("keep2", "val", expire=2)
+        self.assertTrue(self.cache.touch("keep2", expire=None))
+        time.sleep(2.1)
+        self.cache.expire()
+        self.assertEqual(self.cache.get("keep"), "val")
+        self.assertEqual(self.cache.get("keep2"), "val")
+
+    def test_touch_extends_lifetime(self):
+        self.cache.set("extend", "val", expire=2)
+        self.assertTrue(self.cache.touch("extend", expire=3600))
+        time.sleep(2.1)
+        self.cache.expire()
+        self.assertEqual(self.cache.get("extend"), "val")
+
+    def test_touch_missing_key_returns_false(self):
+        self.assertFalse(self.cache.touch("missing", expire=10))
+
+    def test_touch_expired_key_returns_false_and_does_not_resurrect(self):
+        self.cache.set("dead", "val", expire=0)
+        self.assertFalse(self.cache.touch("dead", expire=3600))
+        self.assertIsNone(self.cache.get("dead"))
+
+    def test_expire(self):
+        self.cache.set("short", "val", expire=0)
+        self.cache.set("long", "val")
+        time.sleep(0.1)
+        self.cache.expire()
+        self.assertIsNone(self.cache.get("short"))
+        self.assertEqual(self.cache.get("long"), "val")
+
+    def test_big_value_roundtrip(self):
+        big = b"x" * (1024 * 1024)
+        self.cache.set("bigkey", big)
+        result = self.cache.get("bigkey")
+        self.assertEqual(result, big)
+
+    def test_big_value_clear(self):
+        big = b"x" * (1024 * 1024)
+        self.cache.set("big1", big)
+        self.cache.set("big2", big)
+        self.cache.clear()
+        self.assertEqual(len(self.cache), 0)
+
+    def test_max_size_constructor(self):
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
+            cache = Cache(td, max_size=500)
+            data = b"a" * 100
+            for i in range(10):
+                cache.set(f"k{i}", data)
+            cache.evict()
+            self.assertLessEqual(len(cache), 5)
+
+    def test_various_python_types(self):
+        self.cache.set("int", 42)
+        self.assertEqual(self.cache.get("int"), 42)
+        self.cache.set("float", 3.14)
+        self.assertAlmostEqual(self.cache.get("float"), 3.14)
+        self.cache.set("list", [1, "two", 3.0])
+        self.assertEqual(self.cache.get("list"), [1, "two", 3.0])
+        self.cache.set("dict", {"a": 1})
+        self.assertEqual(self.cache.get("dict"), {"a": 1})
+        self.cache.set("none", None)
+        # None values need sentinel to distinguish from missing
+        self.cache.set("bool", True)
+        self.assertEqual(self.cache.get("bool"), True)
+
+    def test_set_overwrite(self):
+        self.cache.set("key", "first")
+        self.cache.set("key", "second")
+        self.assertEqual(self.cache.get("key"), "second")
+
+
+class TestIndex(unittest.TestCase):
+
+    def setUp(self):
+        self.tmp_dir = tempfile.mkdtemp()
+        from pysciqlop_cache import Index
+        self.index = Index(self.tmp_dir)
+
+    def tearDown(self):
+        if hasattr(self, 'index'):
+            del self.index
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+
+    def test_set_get(self):
+        self.index.set("key", "hello")
+        self.assertEqual(self.index.get("key"), "hello")
+
+    def test_get_missing(self):
+        self.assertIsNone(self.index.get("nope"))
+        self.assertEqual(self.index.get("nope", "default"), "default")
+
+    def test_add(self):
+        self.assertTrue(self.index.add("k", 42))
+        self.assertFalse(self.index.add("k", 99))
+        self.assertEqual(self.index.get("k"), 42)
+
+    def test_delete(self):
+        self.index.set("k", "val")
+        self.index.delete("k")
+        self.assertIsNone(self.index.get("k"))
+
+    def test_pop(self):
+        self.index.set("k", [1, 2, 3])
+        self.assertEqual(self.index.pop("k"), [1, 2, 3])
+        self.assertIsNone(self.index.get("k"))
+
+    def test_pop_missing(self):
+        with self.assertRaises(KeyError):
+            self.index.pop("nope")
+        self.assertEqual(self.index.pop("nope", "fallback"), "fallback")
+
+    def test_keys_count(self):
+        self.index.set("a", 1)
+        self.index.set("b", 2)
+        self.assertEqual(len(self.index), 2)
+        self.assertEqual(sorted(self.index.keys()), ["a", "b"])
+
+    def test_contains(self):
+        self.index.set("k", "v")
+        self.assertTrue("k" in self.index)
+        self.assertFalse("nope" in self.index)
+
+    def test_iter(self):
+        self.index.set("x", 1)
+        self.index.set("y", 2)
+        self.assertEqual(sorted(self.index), ["x", "y"])
+
+    def test_dict_interface(self):
+        self.index["key"] = "value"
+        self.assertEqual(self.index["key"], "value")
+        del self.index["key"]
+        self.assertIsNone(self.index.get("key"))
+
+    def test_incr_decr(self):
+        self.assertEqual(self.index.incr("c"), 1)
+        self.assertEqual(self.index.incr("c"), 2)
+        self.assertEqual(self.index.decr("c"), 1)
+
+    def test_clear(self):
+        self.index.set("a", 1)
+        self.index.set("b", 2)
+        self.index.clear()
+        self.assertEqual(len(self.index), 0)
+
+    def test_big_value(self):
+        big = b"x" * (1024 * 1024)
+        self.index.set("bigkey", big)
+        result = self.index.get("bigkey")
+        self.assertEqual(result, big)
+
+    def test_context_manager(self):
+        from pysciqlop_cache import Index
+        with Index(self.tmp_dir) as idx:
+            idx.set("k", "v")
+            self.assertEqual(idx.get("k"), "v")
+
+    def test_repr(self):
+        self.assertIn("Index(", repr(self.index))
+
+    def test_entries_never_expire(self):
+        self.index.set("permanent", "data")
+        import time
+        time.sleep(0.1)
+        self.assertEqual(self.index.get("permanent"), "data")
+
+
+class TestTransact(unittest.TestCase):
+
+    def setUp(self):
+        self.tmp_dir = tempfile.mkdtemp()
+        self.cache = Cache(self.tmp_dir)
+
+    def tearDown(self):
+        if hasattr(self, 'cache'):
+            del self.cache
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+
+    def test_transact_commits_on_clean_exit(self):
+        with self.cache.transact():
+            self.cache.set("a", 1)
+            self.cache.set("b", 2)
+        self.assertEqual(self.cache.get("a"), 1)
+        self.assertEqual(self.cache.get("b"), 2)
+
+    def test_transact_rolls_back_on_exception(self):
+        self.cache.set("pre", "existing")
+        with self.assertRaises(ValueError):
+            with self.cache.transact():
+                self.cache.set("x", 10)
+                raise ValueError("boom")
+        self.assertIsNone(self.cache.get("x"))
+        self.assertEqual(self.cache.get("pre"), "existing")
+
+    def test_transact_as_txn_syntax(self):
+        with self.cache.transact() as txn:
+            txn.set("k", "v")
+        self.assertEqual(self.cache.get("k"), "v")
+
+    def test_transact_returns_self(self):
+        with self.cache.transact() as txn:
+            self.assertIs(txn, self.cache)
+
+    def test_nested_transact_is_supported(self):
+        # Nested transact() on the same thread is reentrant: only the
+        # outermost level issues a real BEGIN/COMMIT (depth-counted), inner
+        # levels are no-ops. Matches diskcache semantics. An outer rollback
+        # discards inner work (no real savepoints).
+        with self.cache.transact():
+            with self.cache.transact():
+                self.cache.set("nested_k", "v")
+        self.assertEqual(self.cache.get("nested_k"), "v")
+
+    def test_nested_transact_outer_rollback_discards_inner(self):
+        self.cache.set("rb_k", "outer")
+        try:
+            with self.cache.transact():
+                self.cache.set("rb_k", "outer-modified")
+                with self.cache.transact():
+                    self.cache.set("rb_k", "inner")
+                raise RuntimeError("abort outer")
+        except RuntimeError:
+            pass
+        self.assertEqual(self.cache.get("rb_k"), "outer")
+
+    def test_transact_on_index(self):
+        from pysciqlop_cache import Index
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
+            idx = Index(td)
+            with idx.transact() as txn:
+                txn.set("a", 1)
+            self.assertEqual(idx.get("a"), 1)
+
+    def test_transact_index_rollback(self):
+        from pysciqlop_cache import Index
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
+            idx = Index(td)
+            with self.assertRaises(ValueError):
+                with idx.transact():
+                    idx.set("x", 42)
+                    raise ValueError("rollback")
+            self.assertIsNone(idx.get("x"))
+
+
+class TestFanoutCache(unittest.TestCase):
+
+    def setUp(self):
+        self.tmp_dir = tempfile.mkdtemp()
+        from pysciqlop_cache import FanoutCache
+        self.cache = FanoutCache(self.tmp_dir, shard_count=4)
+
+    def tearDown(self):
+        if hasattr(self, 'cache'):
+            del self.cache
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+
+    def test_set_get(self):
+        self.cache.set("key1", "value1")
+        self.assertEqual(self.cache.get("key1"), "value1")
+
+    def test_touch_accepts_int_seconds(self):
+        self.cache.set("touchme", "val", expire=3600)
+        self.assertTrue(self.cache.touch("touchme", expire=0))
+        self.cache.expire()
+        self.assertIsNone(self.cache.get("touchme"))
+
+    def test_touch_without_expire_removes_expiration(self):
+        self.cache.set("keep", "val", expire=2)
+        self.assertTrue(self.cache.touch("keep"))
+        time.sleep(2.1)
+        self.cache.expire()
+        self.assertEqual(self.cache.get("keep"), "val")
+
+    def test_touch_missing_key_returns_false(self):
+        self.assertFalse(self.cache.touch("missing", expire=10))
+
+    def test_count_and_size(self):
+        self.cache.set("k1", "aaa")
+        self.cache.set("k2", "bbbbb")
+        self.assertEqual(self.cache.count(), 2)
+
+    def test_keys(self):
+        self.cache.set("k1", "v1")
+        self.cache.set("k2", "v2")
+        self.assertEqual(sorted(self.cache.keys()), ["k1", "k2"])
+
+    def test_delete(self):
+        self.cache.set("k1", "v1")
+        self.cache.delete("k1")
+        self.assertIsNone(self.cache.get("k1"))
+
+    def test_clear(self):
+        for i in range(10):
+            self.cache.set(f"key{i}", "val")
+        self.cache.clear()
+        self.assertEqual(self.cache.count(), 0)
+
+    def test_shard_count(self):
+        self.assertEqual(self.cache.shard_count(), 4)
+
+    def test_stats(self):
+        self.cache.set("k1", "v1")
+        self.cache.get("k1")
+        self.cache.get("missing")
+        s = self.cache.stats()
+        self.assertEqual(s["hits"], 1)
+        self.assertEqual(s["misses"], 1)
+
+    def test_evict_tag(self):
+        self.cache.set("t1", "v1", tag="group")
+        self.cache.set("t2", "v2", tag="group")
+        self.cache.set("t3", "v3")
+        evicted = self.cache.evict_tag("group")
+        self.assertEqual(evicted, 2)
+        self.assertEqual(self.cache.count(), 1)
+
+    def test_dict_interface(self):
+        self.cache["dictkey"] = "dictval"
+        self.assertEqual(self.cache["dictkey"], "dictval")
+
+    def test_contains(self):
+        self.cache.set("k", "v")
+        self.assertTrue("k" in self.cache)
+        self.assertFalse("nope" in self.cache)
+
+    def test_iter(self):
+        self.cache.set("x", 1)
+        self.cache.set("y", 2)
+        self.assertEqual(sorted(self.cache), ["x", "y"])
+
+    def test_repr(self):
+        self.assertIn("FanoutCache(", repr(self.cache))
+
+    def test_various_types(self):
+        self.cache.set("int", 42)
+        self.assertEqual(self.cache.get("int"), 42)
+        self.cache.set("list", [1, 2, 3])
+        self.assertEqual(self.cache.get("list"), [1, 2, 3])
+
+    def test_expiration(self):
+        self.cache.set("exp", "val", expire=1)
+        time.sleep(2)
+        self.assertIsNone(self.cache.get("exp"))
+
+    def test_incr_decr(self):
+        self.assertEqual(self.cache.incr("counter"), 1)
+        self.assertEqual(self.cache.incr("counter"), 2)
+        self.assertEqual(self.cache.decr("counter"), 1)
+
+    def test_pop(self):
+        self.cache.set("k", "v")
+        self.assertEqual(self.cache.pop("k"), "v")
+        self.assertIsNone(self.cache.get("k"))
+
+    def test_add(self):
+        self.assertTrue(self.cache.add("newkey", "newval"))
+        self.assertFalse(self.cache.add("newkey", "other"))
+        self.assertEqual(self.cache.get("newkey"), "newval")
+
+
+    def test_transact_commits(self):
+        with self.cache.transact("k") as txn:
+            txn.set("k", "v")
+        self.assertEqual(self.cache.get("k"), "v")
+
+    def test_transact_rollback(self):
+        self.cache.set("pre", "existing")
+        with self.assertRaises(ValueError):
+            with self.cache.transact("x"):
+                self.cache.set("x", 10)
+                raise ValueError("boom")
+        self.assertIsNone(self.cache.get("x"))
+        self.assertEqual(self.cache.get("pre"), "existing")
+
+
+class TestFanoutIndex(unittest.TestCase):
+
+    def setUp(self):
+        self.tmp_dir = tempfile.mkdtemp()
+        from pysciqlop_cache import FanoutIndex
+        self.index = FanoutIndex(self.tmp_dir, shard_count=4)
+
+    def tearDown(self):
+        if hasattr(self, 'index'):
+            del self.index
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+
+    def test_set_get(self):
+        self.index.set("key1", "value1")
+        self.assertEqual(self.index.get("key1"), "value1")
+
+    def test_count(self):
+        self.index.set("k1", "aaa")
+        self.index.set("k2", "bbbbb")
+        self.assertEqual(self.index.count(), 2)
+
+    def test_keys(self):
+        self.index.set("k1", "v1")
+        self.index.set("k2", "v2")
+        self.assertEqual(sorted(self.index.keys()), ["k1", "k2"])
+
+    def test_delete(self):
+        self.index.set("k1", "v1")
+        self.index.delete("k1")
+        self.assertIsNone(self.index.get("k1"))
+
+    def test_clear(self):
+        self.index.set("a", 1)
+        self.index.set("b", 2)
+        self.index.clear()
+        self.assertEqual(len(self.index), 0)
+
+    def test_dict_interface(self):
+        self.index["key"] = "value"
+        self.assertEqual(self.index["key"], "value")
+
+    def test_repr(self):
+        self.assertIn("FanoutIndex(", repr(self.index))
+
+    def test_transact_commits(self):
+        with self.index.transact("k") as txn:
+            txn.set("k", "v")
+        self.assertEqual(self.index.get("k"), "v")
+
+    def test_transact_rollback(self):
+        self.index.set("pre", "existing")
+        with self.assertRaises(ValueError):
+            with self.index.transact("x"):
+                self.index.set("x", 42)
+                raise ValueError("rollback")
+        self.assertIsNone(self.index.get("x"))
+        self.assertEqual(self.index.get("pre"), "existing")
+
+
+class TestSerializerIsRecorded(unittest.TestCase):
+    """Every store records its serializer, so reopening it without one reads
+    the values back correctly instead of unpickling them with the default."""
+
+    STORES = (Cache, Index, FanoutCache, FanoutIndex)
+
+    def setUp(self):
+        self.tmp_dir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        gc.collect()
+        shutil.rmtree(self.tmp_dir)
+
+    def test_reopen_without_serializer_uses_the_recorded_one(self):
+        for cls in self.STORES:
+            with self.subTest(cls.__name__):
+                path = os.path.join(self.tmp_dir, cls.__name__)
+                store = cls(path, serializer=PickleOOBSerializer())
+                store["k"] = [1, 2, 3]
+                del store
+                gc.collect()
+                reopened = cls(path)
+                self.assertEqual(reopened.serializer.name, "pickle-oob")
+                self.assertEqual(reopened["k"], [1, 2, 3])
+                del reopened
+
+    def test_reopen_with_an_incompatible_serializer_raises(self):
+        for cls in self.STORES:
+            with self.subTest(cls.__name__):
+                path = os.path.join(self.tmp_dir, cls.__name__)
+                del_me = cls(path, serializer=PickleOOBSerializer())
+                del del_me
+                gc.collect()
+                with self.assertRaises(ValueError):
+                    cls(path, serializer=PickleSerializer())
+
+
+class TestCheckResult(unittest.TestCase):
+
+    def test_check_returns_result_object(self):
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as d:
+            c = Cache(os.path.join(d, "check_test"))
+            c["key"] = b"value"
+            result = c.check()
+            self.assertTrue(result.ok)
+            self.assertEqual(result.orphaned_files, 0)
+            self.assertEqual(result.dangling_rows, 0)
+            self.assertEqual(result.size_mismatches, 0)
+            self.assertTrue(result.counters_consistent)
+            self.assertTrue(result.sqlite_integrity_ok)
+
+    def test_check_fix(self):
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as d:
+            c = Cache(os.path.join(d, "check_fix"))
+            c["key"] = b"value"
+            result = c.check(fix=True)
+            self.assertTrue(result.ok)
+
+    def test_fanout_check_returns_result_object(self):
+        from pysciqlop_cache import FanoutCache
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as d:
+            fc = FanoutCache(os.path.join(d, "fanout_check"), shard_count=4)
+            fc["key1"] = b"value1"
+            fc["key2"] = b"value2"
+            result = fc.check()
+            self.assertTrue(result.ok)
+            self.assertEqual(result.orphaned_files, 0)
+            self.assertEqual(result.dangling_rows, 0)
+
+    def test_fanout_check_fix(self):
+        from pysciqlop_cache import FanoutCache
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as d:
+            fc = FanoutCache(os.path.join(d, "fanout_check_fix"), shard_count=4)
+            fc["key"] = b"data"
+            result = fc.check(fix=True)
+            self.assertTrue(result.ok)
+
+    def test_fanout_index_check_returns_result_object(self):
+        from pysciqlop_cache import FanoutIndex
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as d:
+            fi = FanoutIndex(os.path.join(d, "fanout_idx_check"), shard_count=4)
+            fi["key1"] = b"value1"
+            result = fi.check()
+            self.assertTrue(result.ok)
+            self.assertEqual(result.orphaned_files, 0)
+            self.assertEqual(result.dangling_rows, 0)
+
+
+class TestMmapCache(unittest.TestCase):
+    """Tests for the mmap handle cache in DiskStorage.
+
+    Values >8KB are stored as files and served via mmap. The cache keeps
+    recently-used mmap handles alive to avoid repeated open/mmap/munmap/close.
+    """
+
+    def setUp(self):
+        self.tmp_dir = tempfile.mkdtemp()
+        self.cache = Cache(self.tmp_dir)
+        # 16KB values — above the 8KB file threshold
+        self.large_value = b"x" * (16 * 1024)
+
+    def tearDown(self):
+        if hasattr(self, 'cache'):
+            del self.cache
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+
+    def test_no_key_mixup(self):
+        for i in range(20):
+            self.cache.set(f"key{i}", bytes([i]) * (16 * 1024))
+        for i in range(20):
+            val = self.cache.get(f"key{i}")
+            self.assertEqual(val, bytes([i]) * (16 * 1024))
+
+    def test_repeated_get_same_value(self):
+        self.cache.set("big", self.large_value)
+        for _ in range(100):
+            self.assertEqual(self.cache.get("big"), self.large_value)
+
+    def test_overwrite_invalidates_cache(self):
+        self.cache.set("key", b"A" * (16 * 1024))
+        self.assertEqual(self.cache.get("key"), b"A" * (16 * 1024))
+        self.cache.set("key", b"B" * (16 * 1024))
+        self.assertEqual(self.cache.get("key"), b"B" * (16 * 1024))
+
+    def test_delete_invalidates_cache(self):
+        self.cache.set("key", self.large_value)
+        self.cache.get("key")  # populate mmap cache
+        del self.cache["key"]
+        self.assertIsNone(self.cache.get("key"))
+
+    def test_eviction_beyond_capacity(self):
+        # Default capacity is 128; write 200 large values to force LRU eviction
+        for i in range(200):
+            self.cache.set(f"k{i}", bytes([i % 256]) * (16 * 1024))
+        # All values should still be readable (eviction only drops the mmap
+        # handle, not the file — re-reading just re-opens the file)
+        for i in range(200):
+            val = self.cache.get(f"k{i}")
+            self.assertEqual(val, bytes([i % 256]) * (16 * 1024))
+
+    def test_mixed_small_and_large(self):
+        self.cache.set("small", "hello")
+        self.cache.set("large", self.large_value)
+        self.assertEqual(self.cache.get("small"), "hello")
+        self.assertEqual(self.cache.get("large"), self.large_value)
+        # Repeat to exercise cache hit path
+        self.assertEqual(self.cache.get("large"), self.large_value)
+        self.assertEqual(self.cache.get("small"), "hello")
+
+
+class TestIterkeys(unittest.TestCase):
+
+    def setUp(self):
+        self.tmp_dir = tempfile.mkdtemp()
+        self.cache = Cache(self.tmp_dir)
+
+    def tearDown(self):
+        if hasattr(self, 'cache'):
+            del self.cache
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+
+    def test_iterkeys_empty(self):
+        self.assertEqual(list(self.cache.iterkeys()), [])
+
+    def test_iterkeys_matches_keys(self):
+        for i in range(20):
+            self.cache.set(f"k{i}", f"v{i}")
+        self.assertEqual(sorted(self.cache.iterkeys()), sorted(self.cache.keys()))
+
+    def test_iterkeys_skips_expired(self):
+        self.cache.set("alive", "v")
+        self.cache.set("dead", "v", expire=0)
+        time.sleep(0.1)
+        keys = list(self.cache.iterkeys())
+        self.assertIn("alive", keys)
+        self.assertNotIn("dead", keys)
+
+    def test_iter_uses_iterkeys(self):
+        self.cache.set("a", 1)
+        self.cache.set("b", 2)
+        self.assertEqual(sorted(self.cache), sorted(self.cache.keys()))
+
+    def test_iterkeys_index(self):
+        from pysciqlop_cache import Index
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
+            idx = Index(td)
+            idx.set("x", 1)
+            idx.set("y", 2)
+            self.assertEqual(sorted(idx.iterkeys()), ["x", "y"])
+
+    def test_iterkeys_fanout(self):
+        from pysciqlop_cache import FanoutCache
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
+            fc = FanoutCache(td, shard_count=4)
+            for i in range(10):
+                fc.set(f"k{i}", f"v{i}")
+            self.assertEqual(sorted(fc.iterkeys()), sorted(fc.keys()))
+
+
+class TestErrorHandling(unittest.TestCase):
+
+    def test_bad_path_raises(self):
+        # NUL character is invalid in paths on every platform — Windows treats
+        # /dev/null/... as a creatable relative path so we can't use it for
+        # cross-platform "bad path" testing.
+        with self.assertRaises((RuntimeError, ValueError, OSError)):
+            Cache("bad\x00path")
+
+
+class TestLock(unittest.TestCase):
+
+    def setUp(self):
+        self.tmp_dir = tempfile.mkdtemp()
+        self.cache = Cache(self.tmp_dir)
+
+    def tearDown(self):
+        if hasattr(self, 'cache'):
+            del self.cache
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+
+    def test_lock_context_manager(self):
+        with self.cache.lock("mylock"):
+            self.assertIn("mylock", self.cache)
+        self.assertNotIn("mylock", self.cache)
+
+    def test_lock_acquire_release(self):
+        from pysciqlop_cache import Lock
+        lock = Lock(self.cache, "mylock")
+        lock.acquire()
+        self.assertTrue(lock.locked())
+        lock.release()
+        self.assertFalse(lock.locked())
+
+    def test_lock_released_on_exception(self):
+        with self.assertRaises(ValueError):
+            with self.cache.lock("errlock"):
+                raise ValueError("boom")
+        self.assertNotIn("errlock", self.cache)
+
+    def test_lock_with_expire(self):
+        lock = self.cache.lock("explock", expire=1)
+        lock.acquire()
+        self.assertTrue(lock.locked())
+        time.sleep(2)
+        self.assertFalse(lock.locked())
+
+    def test_lock_blocks_second_acquire(self):
+        import threading
+        results = []
+        lock = self.cache.lock("contested")
+        lock.acquire()
+
+        def try_acquire():
+            with self.cache.lock("contested"):
+                results.append("acquired")
+
+        t = threading.Thread(target=try_acquire)
+        t.start()
+        time.sleep(0.05)
+        self.assertEqual(results, [])
+        lock.release()
+        t.join(timeout=5)
+        self.assertEqual(results, ["acquired"])
+
+    def test_fanout_lock(self):
+        from pysciqlop_cache import FanoutCache
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
+            fc = FanoutCache(td, shard_count=4)
+            with fc.lock("fanout_lock"):
+                self.assertIn("fanout_lock", fc)
+            self.assertNotIn("fanout_lock", fc)
+
+
+class TestMemoryViewLifetime(unittest.TestCase):
+    """Reproducer: memoryview from a temporary Buffer can dangle after Buffer is GC'd."""
+
+    def setUp(self):
+        self.tmp_dir = tempfile.mkdtemp()
+        from pysciqlop_cache._pysciqlop_cache import Index as _RawIndex
+        self.index = _RawIndex(path=self.tmp_dir)
+
+    def tearDown(self):
+        del self.index
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+
+    def test_memoryview_from_temporary_buffer_dangling(self):
+        """Get a memoryview from a temporary Buffer (no variable holds the Buffer).
+        Then delete the key to evict the mmap cache entry. The memoryview should
+        still be readable if the lifetime is correctly tied."""
+        import gc
+        large_value = b"\xab" * 16_000  # >8KB → stored as file → mmap path
+        self.index.set("k", large_value)
+
+        # Get memoryview from a temporary — Buffer refcount drops immediately
+        mv = self.index.get("k").memoryview()
+
+        # Delete the key — this evicts the mmap cache entry too
+        self.index.delete("k")
+        gc.collect()
+
+        # If lifetime is wrong, this reads from unmapped memory (segfault or garbage)
+        self.assertEqual(bytes(mv), large_value)
+
+
+class TestClose(unittest.TestCase):
+    """Reproducer for #11: diskcache-migrated code calls cache.close(); it
+    must exist and must not raise, even though it isn't required for
+    correctness (GC already releases resources deterministically)."""
+
+    def setUp(self):
+        self.tmp_dir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+
+    def test_cache_close_does_not_raise(self):
+        cache = Cache(self.tmp_dir)
+        cache.set("k", "v")
+        cache.close()
+
+    def test_cache_close_is_idempotent(self):
+        cache = Cache(self.tmp_dir)
+        cache.close()
+        cache.close()
+
+    def test_rmtree_after_close_with_small_values_only(self):
+        """Reproducer for #13, isolated from the mmap-cache half of the bug:
+        no file-backed values here, so this fails only if close() leaves the
+        main sciqlop-cache.db connection itself as a SQLite "zombie". That
+        happens because Database's own BEGIN/COMMIT statements are prepared
+        once in open() and reused for every transaction, but close() never
+        finalized them -- sqlite3_close_v2() defers releasing the connection
+        (including its OS file handle) until every statement prepared
+        against it is finalized, so the real close only happened once the
+        whole Database object (and thus the Python Cache) was garbage
+        collected. On Windows that left sciqlop-cache.db locked right after
+        an explicit close(), failing an immediate shutil.rmtree()."""
+        cache = Cache(self.tmp_dir)
+        cache.set("k", "v")
+        cache.close()
+        shutil.rmtree(self.tmp_dir)
+        self.assertFalse(os.path.exists(self.tmp_dir))
+
+    def test_rmtree_after_close_removes_file_backed_values(self):
+        """Reproducer for #13: close() must release the mmap LRU cache, not
+        just the SQLite connection. A file-backed value that had been read
+        stayed memory-mapped after close(); on Windows a mapped file can't
+        be deleted, so a diskcache-style `cache.close(); shutil.rmtree(dir)`
+        cleanup silently left those value files (and the directory) behind.
+        This runs cross-platform in CI (test_wheels: macOS/Windows/Linux) so
+        it actually exercises the Windows-only failure mode, not just a
+        Linux-side proxy for it."""
+        cache = Cache(self.tmp_dir)
+        big = b"x" * 16000  # > the 8 KiB blob threshold: stored as a file
+        cache.set("a", big)
+        cache.set("b", big)
+        # get() loads the value into the storage's mmap LRU cache.
+        self.assertEqual(cache.get("a"), big)
+        self.assertEqual(cache.get("b"), big)
+        cache.close()
+        shutil.rmtree(self.tmp_dir)
+        self.assertFalse(os.path.exists(self.tmp_dir))
+
+    def test_rmtree_after_fanout_close_removes_file_backed_values(self):
+        from pysciqlop_cache import FanoutCache
+        cache = FanoutCache(self.tmp_dir, shard_count=4)
+        big = b"x" * 16000
+        cache.set("a", big)
+        cache.set("b", big)
+        self.assertEqual(cache.get("a"), big)
+        self.assertEqual(cache.get("b"), big)
+        cache.close()
+        shutil.rmtree(self.tmp_dir)
+        self.assertFalse(os.path.exists(self.tmp_dir))
+
+    def test_index_close_does_not_raise(self):
+        from pysciqlop_cache import Index
+        index = Index(self.tmp_dir)
+        index.set("k", "v")
+        index.close()
+
+    def test_fanout_cache_close_does_not_raise(self):
+        from pysciqlop_cache import FanoutCache
+        cache = FanoutCache(self.tmp_dir, shard_count=4)
+        cache.set("k", "v")
+        cache.close()
+
+    def test_fanout_index_close_does_not_raise(self):
+        from pysciqlop_cache import FanoutIndex
+        index = FanoutIndex(self.tmp_dir, shard_count=4)
+        index.set("k", "v")
+        index.close()
+
+    def test_context_manager_closes_on_exit(self):
+        with Cache(self.tmp_dir) as cache:
+            cache.set("k", "v")
+            self.assertEqual(cache.get("k"), "v")
+        # Reopening the same path right after exit must see the committed
+        # value and must not hang behind a still-open writer connection.
+        reopened = Cache(self.tmp_dir)
+        self.assertEqual(reopened.get("k"), "v")
+
+    def test_reentrant_with_blocks_share_live_cache(self):
+        """Reproducer for #12: `with cache:` must not permanently close the
+        object. diskcache's own __exit__ calls close(), but diskcache's
+        close() is a cheap per-thread connection reset that reopens lazily
+        on next access — ours is a one-way shutdown, so mirroring the
+        "call close() on exit" surface behavior (added, unrequested, in #11)
+        silently killed reuse across sequential `with` blocks."""
+        cache = Cache(self.tmp_dir)
+        with cache as c:
+            c.set("k", "v")
+        with cache as c:
+            self.assertEqual(c.get("k"), "v")
+
+    def test_index_reentrant_with_blocks_share_live_index(self):
+        from pysciqlop_cache import Index
+        index = Index(self.tmp_dir)
+        with index as i:
+            i.set("k", "v")
+        with index as i:
+            self.assertEqual(i.get("k"), "v")
+
+    def test_fanout_cache_reentrant_with_blocks_share_live_cache(self):
+        from pysciqlop_cache import FanoutCache
+        cache = FanoutCache(self.tmp_dir, shard_count=4)
+        with cache as c:
+            c.set("k", "v")
+        with cache as c:
+            self.assertEqual(c.get("k"), "v")
+
+    def test_fanout_index_reentrant_with_blocks_share_live_index(self):
+        from pysciqlop_cache import FanoutIndex
+        index = FanoutIndex(self.tmp_dir, shard_count=4)
+        with index as i:
+            i.set("k", "v")
+        with index as i:
+            self.assertEqual(i.get("k"), "v")
+
+    def test_get_on_closed_cache_raises(self):
+        cache = Cache(self.tmp_dir)
+        cache.set("k", "v")
+        cache.close()
+        with self.assertRaises(RuntimeError):
+            cache.get("k")
+
+    def test_set_on_closed_cache_raises(self):
+        cache = Cache(self.tmp_dir)
+        cache.close()
+        with self.assertRaises(RuntimeError):
+            cache.set("k", "v")
+
+    def test_get_on_closed_index_raises(self):
+        from pysciqlop_cache import Index
+        index = Index(self.tmp_dir)
+        index.set("k", "v")
+        index.close()
+        with self.assertRaises(RuntimeError):
+            index.get("k")
+
+    def test_get_on_closed_fanout_cache_raises(self):
+        from pysciqlop_cache import FanoutCache
+        cache = FanoutCache(self.tmp_dir, shard_count=4)
+        cache.set("k", "v")
+        cache.close()
+        with self.assertRaises(RuntimeError):
+            cache.get("k")
+
+    def test_get_on_closed_fanout_index_raises(self):
+        from pysciqlop_cache import FanoutIndex
+        index = FanoutIndex(self.tmp_dir, shard_count=4)
+        index.set("k", "v")
+        index.close()
+        with self.assertRaises(RuntimeError):
+            index.get("k")
+
+    def test_transact_on_closed_cache_raises(self):
+        """opencode review of 31ac89c: begin_user_transaction() constructed
+        Transaction(store._db.get(), ...) directly, bypassing db()'s check --
+        Transaction(nullptr) is a silent no-op, so transact() on a closed
+        store entered the `with` block instead of raising at entry."""
+        cache = Cache(self.tmp_dir)
+        cache.close()
+        with self.assertRaises(RuntimeError):
+            with cache.transact():
+                pass
+
+    def test_transact_on_closed_fanout_cache_raises(self):
+        from pysciqlop_cache import FanoutCache
+        cache = FanoutCache(self.tmp_dir, shard_count=4)
+        cache.close()
+        with self.assertRaises(RuntimeError):
+            with cache.transact("k"):
+                pass
+
+
+if __name__ == "__main__":
+    unittest.main()

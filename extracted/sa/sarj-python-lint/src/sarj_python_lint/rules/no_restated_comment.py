@@ -1,0 +1,417 @@
+from __future__ import annotations
+
+import ast
+from io import StringIO
+from pathlib import PurePosixPath
+import re
+from textwrap import dedent
+import tokenize
+from typing import TYPE_CHECKING, ClassVar, override
+
+from sarj_python_lint.rule_base import (
+    AutofixPolicy,
+    ColumnEncoding,
+    Diagnostic,
+    ExampleFile,
+    ExampleOutcome,
+    Rule,
+    RuleCategory,
+    RuleDocumentation,
+    RuleExample,
+    Severity,
+)
+from sarj_python_lint.rules._ast_index import nodes
+from sarj_python_lint.rules._comments import (
+    PositionedComment,
+    code_tokens,
+    comment_runs,
+    content_tokens,
+    is_protected,
+    nested_comment_lines,
+    restates,
+    standalone_comments,
+    statement_comment_walls,
+)
+
+
+if TYPE_CHECKING:
+    from sarj_python_lint._file_context import PythonFileContext
+    from sarj_python_lint.rules._ast_index import NodeIndex
+
+
+_MAX_WORDS = 8
+_MAX_ASCII = 127
+# A single content word labels a statement rather than restating it.
+_MIN_CONTENT_TOKENS = 2
+
+# Three same-indent lines form a labelled region; two remain eligible because
+# they commonly represent an action followed by its assertion.
+_SECTION_REGION_LINES = 3
+
+# Directive comments, in the broad spelling — this rule sees Python only, but the
+# list is kept in step with the TypeScript twin so the two cannot drift.
+_DIRECTIVE_RE = re.compile(
+    r"^\s*(?:todo|fixme|hack\b|xxx|note:|nb:|warning:|important:|"
+    r"noqa|sarj-noqa|type:|pragma|pyright|mypy|fmt:|isort|ruff|pylint|flake8|nosec|nosemgrep|"
+    r"-\*-|!/|coding[:=])",
+    re.IGNORECASE,
+)
+
+# Commented-out code and section banners belong to SARJ016.
+_CODEY_RE = re.compile(r"^[\w.\[\]'\"]+\s*[:=]\s*\S|^[\w.]+\(")
+_CODE_KEYWORD_RE = re.compile(r"^(?:assert|return|raise|await|yield|del|import|from|print|global|nonlocal)\b")
+_CODE_SIGNAL_RE = re.compile(r"[=()\[\]{}]")
+_BANNERISH_RE = re.compile(r"[=\-─-╿*#~_.]{3,}|^[A-Z0-9 _:-]+$")
+
+# Modality, lead-ins, emphasis, and negation add meaning identifiers cannot.
+_MODALITY_RE = re.compile(r"\b(?:can|could|should|shall|may|might|must|will|would|cannot)\b", re.IGNORECASE)
+_LEAD_IN_RE = re.compile(r":$")
+_EMPHASIS_RE = re.compile(r"\*\w[^*]*\*|`[^`]+`")
+_NEGATION_WORD_RE = re.compile(r"\b(?:no|not|never|neither|nor|without|none|non)\b", re.IGNORECASE)
+_CONTEXT_QUALIFIER_RE = re.compile(
+    r"\b(?:all|any|both|each|every|some|only|need|needs|needed|require|requires|required)\b|"
+    r"^\s*(?:and|after|before|finally|given|next|then|when)\b",
+    re.IGNORECASE,
+)
+_NAVIGATION_HEADING_RE = re.compile(r"^\s*(?:sheet|slide|step)\s+\d+\s*(?:[:.\-]|$)", re.IGNORECASE)
+
+# A positive comment can usefully translate negatively expressed code.
+_CODE_NEGATION_RE = re.compile(r"\bnot\b|!=|\bis None\b|\.empty\(|assert(?:Not|False)")
+
+# A statement whose head a comment could be restating.
+_SIMPLE_STMT_RE = re.compile(
+    r"^\s*(?:return\b|yield\b|raise\b|await |del |assert |"
+    r"[\w.\[\]\"'()]+\s*(?:[:+\-*/|&]?=)\s*\S|[\w.]+\(|await\s+[\w.]+\()"
+)
+# Plain data declarations are labels; eligible statements perform an action.
+_ACTION_STMT_RE = re.compile(r"[\w.\]\)]\s*\(|^\s*(?:return|raise|yield|await|del)\b")
+
+# Anything whose *body* the comment could be labelling instead.
+_BLOCK_OPENER_RE = re.compile(
+    r"^\s*(?:def |class |async def|if |elif |else\s*:|for |while |with |try\s*:|except|finally\s*:|match |case |@)"
+)
+
+# Statement "shapes" used only to spot a group label: a comment whose statement
+# is followed by a same-indent sibling of the same shape heads a run.
+_IMPORT_SHAPE_RE = re.compile(r"^\s*(?:import\b|from\b)")
+_KV_SHAPE_RE = re.compile(r"""^\s*["'][^"']+["']\s*:""")
+_ASSIGN_SHAPE_RE = re.compile(r"^\s*[\w.\[\]]+\s*(?::[^=]+)?=[^=]|^\s*[\w.\[\]]+\s*:\s*\S+,?\s*$")
+_UNPACK_ASSIGN_SHAPE_RE = re.compile(r"^\s*(?:\([^)]*,[^)]*\)|\[[^\]]*,[^\]]*\]|[\w.]+(?:\s*,\s*[\w.]+)+)\s*=")
+_ELEMENT_SHAPE_RE = re.compile(r"""^\s*["'\[{(].*,?\s*$|^\s*[\w.'"]+,\s*$""")
+# Calls and assertions can form labelled sibling groups too.
+_CALL_SHAPE_RE = re.compile(r"^\s*(?:await\s+)?[\w.]+\s*\(")
+_ASSERT_SHAPE_RE = re.compile(r"^\s*assert\b")
+_NUMBERED_WALKTHROUGH_RE = re.compile(r"^(\d+)[.)]\s+\S")
+_NUMBERED_WALKTHROUGH_MIN = 3
+
+
+def _indent_of(line: str) -> int:
+    return len(line) - len(line.lstrip())
+
+
+def _statement_end(lines: list[str], index: int) -> int:
+    snippet = dedent("\n".join(lines[index:]))
+    try:
+        for token in tokenize.generate_tokens(StringIO(snippet).readline):
+            if token.type == tokenize.NEWLINE:
+                return index + token.end[0] - 1
+    except IndentationError, tokenize.TokenError:
+        pass
+    return index
+
+
+def _is_group_label(lines: list[str], index: int) -> bool:
+    first = lines[index]
+    shape = _statement_shape(first)
+    if shape is None:
+        return False
+    following = _statement_end(lines, index) + 1
+    if following >= len(lines):
+        return False
+    nxt = lines[following]
+    if not nxt.strip():
+        return False
+    return _indent_of(nxt) == _indent_of(first) and _statement_shape(nxt) == shape
+
+
+def _statement_shape(line: str) -> str | None:
+    if _IMPORT_SHAPE_RE.match(line):
+        return "import"
+    if _KV_SHAPE_RE.match(line):
+        return "kv"
+    if _ASSIGN_SHAPE_RE.match(line) or _UNPACK_ASSIGN_SHAPE_RE.match(line):
+        return "assign"
+    if _ASSERT_SHAPE_RE.match(line):
+        return "assert"
+    if _CALL_SHAPE_RE.match(line):
+        return "call"
+    if _ELEMENT_SHAPE_RE.match(line):
+        return "element"
+    return None
+
+
+def _region_size(lines: list[str], index: int) -> int:
+    indent = _indent_of(lines[index])
+    size = 0
+    cursor = index
+    while cursor < len(lines):
+        line = lines[cursor]
+        if not line.strip() or _indent_of(line) < indent:
+            break
+        if _indent_of(line) == indent:
+            if cursor != index and line.lstrip().startswith("#"):
+                break
+            size += 1
+        cursor = _statement_end(lines, cursor) + 1
+    return size
+
+
+def _protected_comment_body(body: str) -> bool:
+    if not body or body.endswith("?"):
+        return True
+    if _DIRECTIVE_RE.match(body) or _is_commented_out_code(body) or _BANNERISH_RE.search(body):
+        return True
+    if _has_non_ascii_prose(body) or is_protected(body):
+        return True
+    if _MODALITY_RE.search(body) or _LEAD_IN_RE.search(body) or _EMPHASIS_RE.search(body):
+        return True
+    if _NEGATION_WORD_RE.search(body):
+        return True
+    if _CONTEXT_QUALIFIER_RE.search(body) or _NAVIGATION_HEADING_RE.search(body):
+        return True
+    return len(body.split()) > _MAX_WORDS
+
+
+def _has_non_ascii_prose(body: str) -> bool:
+    return any(ord(ch) > _MAX_ASCII and ch.isalpha() for ch in body)
+
+
+def _is_commented_out_code(body: str) -> bool:
+    if _CODEY_RE.match(body):
+        return True
+    if not _CODE_KEYWORD_RE.match(body) or not _CODE_SIGNAL_RE.search(body):
+        return False
+    try:
+        ast.parse(body)
+    except SyntaxError:
+        return False
+    return True
+
+
+def _is_action_assignment(node: ast.stmt | None) -> bool:
+    match node:
+        case ast.AnnAssign(value=ast.Call() | ast.Await()) | ast.Assign(value=ast.Call() | ast.Await()):
+            return True
+        case _:
+            return False
+
+
+def _is_declarative_field(node: ast.stmt | None) -> bool:
+    if not isinstance(node, ast.AnnAssign) or not isinstance(node.value, ast.Call):
+        return False
+    function = node.value.func
+    return (isinstance(function, ast.Name) and function.id == "Field") or (
+        isinstance(function, ast.Attribute) and function.attr == "Field"
+    )
+
+
+def _structural_code_tokens(code: str) -> set[str]:
+    structural: set[str] = set()
+    try:
+        tokens = tokenize.generate_tokens(StringIO(code).readline)
+        for token in tokens:
+            if token.type == tokenize.NAME:
+                structural.update(code_tokens(token.string))
+    except IndentationError, tokenize.TokenError:
+        return set()
+    return structural
+
+
+def _numbered_walkthrough_lines(
+    tree: ast.Module, standalone: list[PositionedComment], *, node_index: NodeIndex | None = None
+) -> frozenset[int]:
+    owners = [*nodes(tree, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef, index=node_index)]
+
+    def owner_of(line: int) -> int:
+        containing = [node for node in owners if node.lineno <= line <= (node.end_lineno or node.lineno)]
+        return id(max(containing, key=lambda node: node.lineno)) if containing else id(tree)
+
+    grouped: dict[tuple[int, int], list[tuple[int, int]]] = {}
+    for line, col, body in standalone:
+        if match := _NUMBERED_WALKTHROUGH_RE.match(body):
+            grouped.setdefault((owner_of(line), col), []).append((line, int(match.group(1))))
+
+    protected: set[int] = set()
+    for entries in grouped.values():
+        _protect_walkthrough_run(entries, protected)
+    return frozenset(protected)
+
+
+class NoRestatedComment(Rule):
+    id: str = "no-restated-comment"
+    code: str = "SARJ049"
+    documentation: ClassVar[RuleDocumentation | None] = RuleDocumentation(
+        default_level=Severity.WARNING,
+        summary="Short standalone comment lexically restates the immediately following simple action.",
+        rationale=(
+            "When a comment adds no rationale, scope, ordering, or constraint, it duplicates code and can become stale. "
+            "Lexical similarity is advisory rather than proof of author intent."
+        ),
+        remediation=(
+            "Delete it if it merely narrates one statement. Preserve or rewrite comments that explain a reason, "
+            "constraint, consequence, ordering requirement, or meaningful region label."
+        ),
+        category=RuleCategory.MAINTAINABILITY,
+        autofix=AutofixPolicy.SUGGESTION,
+        limitations=(
+            "Detection uses conservative lexical heuristics for short standalone comments above simple actions.",
+            "Generated files, directives, protected comments, section labels, and comments adding novel context are excluded.",
+        ),
+        examples=(
+            RuleExample(
+                example_id="restated-action",
+                title="Comment repeats the action",
+                outcome=ExampleOutcome.MATCH,
+                files=(
+                    ExampleFile.python(
+                        "service.py",
+                        "def load_profile(profile_id):\n"
+                        "    # Get profile by ID\n"
+                        "    return get_profile_by_id(profile_id)\n",
+                    ),
+                ),
+                focus_path=PurePosixPath("service.py"),
+                expected_count=1,
+                public=True,
+            ),
+            RuleExample(
+                example_id="comment-explains-constraint",
+                title="Comment adds operational context",
+                outcome=ExampleOutcome.NO_MATCH,
+                files=(
+                    ExampleFile.python(
+                        "service.py",
+                        "def load_profile(profile_id):\n"
+                        "    # The replica may lag after signup, so read from primary.\n"
+                        "    return get_profile_by_id(profile_id)\n",
+                    ),
+                ),
+                focus_path=PurePosixPath("service.py"),
+                expected_count=0,
+                public=True,
+            ),
+        ),
+    )
+    description: str = documentation.summary
+
+    @override
+    def check_context(self, context: PythonFileContext) -> list[Diagnostic]:
+        path = context.path
+        source = context.source
+        if context.generated:
+            return []
+        try:
+            standalone, _ = standalone_comments(source)
+            nested = nested_comment_lines(source)
+        except tokenize.TokenError, IndentationError, SyntaxError:
+            return []
+        lines = context.source_lines
+        wall_members = frozenset(
+            line for members in statement_comment_walls(path, source, standalone).values() for line in members
+        )
+        candidates = [
+            run[0]
+            for run in comment_runs(standalone)
+            if len(run) == 1 and run[0][0] not in nested and run[0][0] not in wall_members
+        ]
+        if not candidates:
+            return []
+        tree = context.tree
+        if tree is None:
+            return []
+        numbered_walkthrough = _numbered_walkthrough_lines(tree, standalone, node_index=context.node_index)
+        action_assignments = _action_assignments(candidates, lines, tree, node_index=context.node_index)
+        diags: list[Diagnostic] = []
+        for line, col, body in candidates:
+            if line in numbered_walkthrough:
+                continue
+            if self._restates_below(body, line, lines, action_assignments.get(line + 1)):
+                diags.append(
+                    Diagnostic(
+                        path=path,
+                        line=line,
+                        col=col + 1,
+                        code=self.code,
+                        message=(
+                            f"Comment {body!r} appears to repeat the next action; delete it if it adds no reason, "
+                            "constraint, consequence, ordering, or region label."
+                        ),
+                        severity=Severity.WARNING,
+                        column_encoding=ColumnEncoding.CODEPOINTS,
+                    )
+                )
+        return diags
+
+    @staticmethod
+    def _restates_below(
+        body: str,
+        line: int,
+        lines: list[str],
+        action_assignment: ast.stmt | None,
+    ) -> bool:
+        if _protected_comment_body(body):
+            return False
+        tokens = content_tokens(body)
+        if len(tokens) < _MIN_CONTENT_TOKENS:
+            return False
+        index = line  # `line` is 1-based, so this indexes the row BELOW it
+        if index >= len(lines):
+            return False
+        code = lines[index]
+        if not code.strip() or code.lstrip().startswith("#"):
+            return False
+        if (not _SIMPLE_STMT_RE.match(code) and not _is_action_assignment(action_assignment)) or _BLOCK_OPENER_RE.match(
+            code
+        ):
+            return False
+        if _CODE_NEGATION_RE.search(code):
+            return False
+        if not _ACTION_STMT_RE.search(code):
+            return False
+        if _is_declarative_field(action_assignment):
+            return False
+        if _is_group_label(lines, index):
+            return False
+        if _region_size(lines, index) >= _SECTION_REGION_LINES:
+            return False
+        compared_code = ast.unparse(action_assignment) if action_assignment is not None else code
+        full_tokens = code_tokens(compared_code)
+        structural_tokens = _structural_code_tokens(compared_code)
+        return restates(tokens, full_tokens) and any(restates((token,), structural_tokens) for token in tokens)
+
+
+def _protect_walkthrough_run(entries: list[tuple[int, int]], protected: set[int]) -> None:
+    run: list[tuple[int, int]] = []
+    for entry in entries:
+        if run and entry[1] != run[-1][1] + 1:
+            if len(run) >= _NUMBERED_WALKTHROUGH_MIN:
+                protected.update(line for line, _ in run)
+            run = []
+        run.append(entry)
+    if len(run) >= _NUMBERED_WALKTHROUGH_MIN:
+        protected.update(line for line, _ in run)
+
+
+def _action_assignments(
+    candidates: list[PositionedComment], lines: list[str], tree: ast.Module, *, node_index: NodeIndex | None = None
+) -> dict[int, ast.Assign | ast.AnnAssign]:
+    action_lines = {
+        line + 1
+        for line, _, _ in candidates
+        if line < len(lines) and not _SIMPLE_STMT_RE.match(lines[line]) and _ACTION_STMT_RE.search(lines[line])
+    }
+    return {
+        node.lineno: node
+        for node in nodes(tree, ast.Assign, ast.AnnAssign, index=node_index)
+        if node.lineno in action_lines and _is_action_assignment(node)
+    }

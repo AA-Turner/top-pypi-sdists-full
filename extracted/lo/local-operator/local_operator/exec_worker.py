@@ -1,0 +1,493 @@
+"""Detached background exec worker — ``python -m local_operator.exec_worker``.
+
+This is the process ``exec --background`` spawns (see ``exec_mode``): it
+receives the prompt and selectors via argv, builds a session through the
+shared composition root, runs exactly one prompt headless, and exits with
+the run's outcome. The parent CLI never waits on it (``start_new_session``);
+stdout/stderr are already redirected to the job log by the spawner.
+
+SIGTERM safety: SIGTERM is the expected shutdown signal for these detached
+jobs. The handler aborts the running turn and lets the async main flush its
+renderer output and dispose the session before exiting 130 — a hard kill
+here would truncate the log mid-write and leak provider connections.
+
+STOP ATTRIBUTION (the 2026-09-30 18:14 wave: twelve of these workers signalled
+inside seventeen seconds, every ledger row an anonymous ``cancelled``): the exit
+code 130 is shared by a deliberate stop and an unexplained SIGTERM, so the
+terminal row carries what the worker KNEW about the stop. The SIGTERM handler
+writes an ARRIVAL row to the ledger before it does anything else (no ``status``
+key, so it merges without regressing state and survives a SIGKILL inside the
+settle window), pairing the signal with any stop marker staged for this run
+(``session/runtime/signal_receipt``); a supervisor ``stop`` marks ``via``
+``control-stop``. ``main`` hands those facts to ``update_job_exit``, which
+classifies the run: exit 130/143 with deliberate evidence is ``cancelled``; with
+none it is ``interrupted`` (the sender is not knowable on this platform, so the
+ledger says so instead of calling it a cancellation). A normal exit carries none
+of these keys.
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import inspect
+import logging
+import os
+import signal
+import sys
+from typing import TYPE_CHECKING, Any, Awaitable, Callable
+
+if TYPE_CHECKING:
+    # Type-only: the worker's whole design is that engine imports stay lazy
+    # so a background spawn pays for them once, inside the factory.
+    from local_operator.session.protocol import SessionProtocol
+
+#: Exit code for an interrupted (SIGTERM/SIGINT) run — distinct from the
+#: engine's 0/1 success/error codes so job ledgers can tell them apart.
+EXIT_INTERRUPTED = 130
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """Parse the worker's mirror flags (see ``exec_mode.build_worker_argv``)."""
+    parser = argparse.ArgumentParser(
+        prog="local_operator.exec_worker",
+        description="Run one local-operator prompt headless (background exec worker)",
+    )
+    parser.add_argument("--prompt", type=str, required=True, help="The prompt to execute")
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_mode",
+        help="Emit one JSON line per agent event",
+    )
+    parser.add_argument("--yolo", action="store_true", help="Auto-approve all tool tiers")
+    parser.add_argument(
+        "--train",
+        action="store_true",
+        help="Training mode: append the transcript to the agent directory (legacy --train)",
+    )
+    parser.add_argument("--agent", type=str, default=None, help="Agent name selector")
+    parser.add_argument("--agent-id", type=str, default=None, dest="agent_id", help="Agent id")
+    parser.add_argument(
+        "--job-id",
+        type=str,
+        default=None,
+        dest="job_id",
+        help="Ledger job id; when set, the worker appends a terminal record"
+        " (finished_at + exit_code) to the JSONL ledger on exit",
+    )
+    parser.add_argument(
+        "--control",
+        action="store_true",
+        help="Publish a session record and serve the control socket for this run",
+    )
+    parser.add_argument("--hosting", type=str, default=None, help="Hosting platform override")
+    parser.add_argument("--model", type=str, default=None, help="Model override")
+    parser.add_argument(
+        "--resume",
+        type=str,
+        default=None,
+        metavar="SESSION_ID",
+        # A background job is the same request run elsewhere, so it has to be able
+        # to continue a session. Without this the flag was accepted by the front
+        # end, dropped at the process boundary, and the worker started a fresh
+        # session while reporting success.
+        help="Resume a previous session by id (or '@latest')",
+    )
+    from local_operator.exec_startup import add_startup_arguments
+
+    add_startup_arguments(parser)
+    return parser
+
+
+def _record_arrival(
+    session_box: list[SessionProtocol], job_id: str | None, stop_facts: dict[str, Any]
+) -> None:
+    """Record that SIGTERM arrived: the exec worker's signal receipt. NEVER RAISES.
+
+    The ledger IS this worker's receipt (it has no turn journal, and its
+    conversation directory may not exist yet when a signal lands during provider
+    discovery), so the arrival is appended to ``exec-jobs.jsonl`` immediately and
+    kept in ``stop_facts`` for the terminal row. The row has NO ``status`` key on
+    purpose: ``job_status`` ranks a status-less row as 0 and merges it with
+    ``setdefault``, so it can neither regress nor spoof a state, and it closes the
+    window between the signal and a SIGKILL inside the 5 s settle.
+
+    A SIGNAL THAT LANDS BEFORE THE SESSION EXISTS CANNOT BE PAIRED, and that gap
+    is stated rather than hidden (agent review round 1, MINOR 4): with no
+    session there is no conversation directory to read a stop marker from, so a
+    SIGTERM during provider discovery is recorded ``sanction: none`` and
+    classified ``unattributed-signal`` even where a ladder had staged a marker
+    for this run. The supervisor's own ``stop`` op is unaffected — it cancels the
+    lifetime and the row says ``via: control-stop``, which is deliberate evidence
+    that needs no marker.
+    """
+    try:
+        import time as _time
+
+        from local_operator.session.runtime import signal_receipt
+
+        session = session_box[0] if session_box else None
+        directory = getattr(getattr(session, "_transcript", None), "directory", None)
+        session_id = str(getattr(session, "session_id", "") or "")
+        entry = signal_receipt.observe(
+            directory,
+            session_id=session_id,
+            pid=os.getpid(),
+            started_at=None,
+            name=signal.SIGTERM.name,
+            number=int(signal.SIGTERM.value),
+            in_flight=session is not None,
+            action="stop",
+        )
+        entry.setdefault("at", _time.time())
+        # LATEST WINS, the rule ``signal_receipt.cut_off_verdict`` states for every
+        # caller: a later signal that a covering deliberate marker explains is a
+        # stop somebody asked for, and deciding on the FIRST would let an
+        # unexplained early SIGTERM outrank it on this path only.
+        stop_facts["signal"] = entry
+        stop_facts["signal_count"] = int(stop_facts.get("signal_count") or 0) + 1
+        stop_facts["session_id"] = session_id
+        if job_id:
+            from local_operator.exec_mode import _append_job_update
+
+            _append_job_update({"id": job_id, "signal": entry})
+    except Exception:  # noqa: BLE001 — an instrument must never fail the handler
+        logging.getLogger(__name__).debug("exec signal receipt unavailable", exc_info=True)
+
+
+def _note_stop_cause(session: Any, signal_entry: dict[str, Any] | None, count: int = 1) -> None:
+    """Say WHY this turn is about to be aborted, BEFORE ``session.abort`` runs.
+
+    The aborted turn's own end event publishes ahead of any dispose rung, and an
+    aborted end carrying no cause is the taxonomy's default for the USER's stop
+    (``interrupted/user-stop``). Left un-noted, every external SIGTERM was recorded as
+    the user's own stop — eleven times in the 2026-09-30 20:00 wave, with no marker
+    and no ladder call. The verdict comes from the shared discriminator
+    (``signal_receipt.cut_off_verdict``): a covering DELIBERATE marker records positive
+    evidence of the stop (so those read exactly as before); anything else records the
+    signal's cut-off cause. Best-effort and non-raising: a handler must never fail on
+    bookkeeping, and a session double without the hooks keeps its old behaviour.
+    """
+    try:
+        from local_operator.session.runtime import signal_receipt
+
+        verdict = signal_receipt.cut_off_verdict(signal_entry, count=count)
+        if verdict is None:
+            note_stop = getattr(session, "note_deliberate_stop", None)
+            if callable(note_stop):
+                note_stop()
+            return
+        note = getattr(session, "note_cut_off", None)
+        if callable(note):
+            note(*verdict)
+    except Exception:  # noqa: BLE001 — see the docstring
+        logging.getLogger(__name__).debug("could not note the stop cause", exc_info=True)
+
+
+def _install_sigterm_handler(
+    loop: asyncio.AbstractEventLoop,
+    session_box: list[SessionProtocol],
+    interrupted: asyncio.Event,
+    stop_facts: dict[str, Any] | None = None,
+    job_id: str | None = None,
+) -> None:
+    """SIGTERM -> signal ``interrupted``; async_main returns 130 (CL-03).
+
+    ``session_box`` holds the live session once constructed (a list because
+    the handler is installed before the session exists). The handler aborts
+    the running turn (best effort) and sets the event; ``async_main`` races
+    the turn against the event and owns the exit code — the handler never
+    stops the loop itself, so disposal and flushing stay in normal flow.
+    Best-effort: a platform without loop signal support falls back to
+    default handling.
+    """
+
+    facts = stop_facts if stop_facts is not None else {}
+
+    def handler() -> None:
+        # FIRST: the arrival receipt (see ``_record_arrival``). Every arrival is
+        # recorded, and the LATEST becomes the cause (see ``_record_arrival``).
+        _record_arrival(session_box, job_id, facts)
+        session = session_box[0] if session_box else None
+        if session is not None:
+            _note_stop_cause(session, facts.get("signal"), int(facts.get("signal_count") or 1))
+            try:
+                session.abort("terminated")
+            except Exception:  # noqa: BLE001 — must never raise in a handler
+                pass
+        interrupted.set()
+
+    try:
+        loop.add_signal_handler(signal.SIGTERM, handler)
+    except (NotImplementedError, RuntimeError):
+        # Non-POSIX or pre-loop environments: fall back to a plain handler
+        # that cannot schedule into the loop.
+        signal.signal(signal.SIGTERM, lambda *_: sys.exit(EXIT_INTERRUPTED))
+
+
+def _install_sighup_ignore(loop: asyncio.AbstractEventLoop) -> None:
+    """SIGHUP is IGNORED: this worker's lifetime is not an interface's to end.
+
+    A background worker is spawned detached (``start_new_session=True``) and
+    writes its log to a file, so losing a controlling terminal is not a reason
+    to drop a run half-done. Left at the default disposition a HUP kills the
+    interpreter outright, which truncates the job log mid-write, skips the
+    ledger's terminal record (``--job-id``) and leaks provider connections —
+    the same hard-exit shape SIGTERM handling exists to prevent.
+
+    SIGTERM remains the one signal that ends this run (``_install_sigterm_handler``);
+    a HUP only produces a bounded, one-shot log line, which is why ``main()``
+    configures console logging: the job log IS this process's stderr, and a
+    survival nobody can find in the record is the attribution gap this PR exists
+    to close (review round 1, MINOR-1).
+    """
+    hup_logged = False
+
+    def handler() -> None:
+        nonlocal hup_logged
+        if hup_logged:
+            return
+        hup_logged = True
+        logging.getLogger(__name__).info(
+            "exec worker: ignoring SIGHUP (pid %d); this worker is detached from interfaces",
+            os.getpid(),
+        )
+
+    # ``SIGHUP`` is POSIX-only; a platform without it must not fail to start a
+    # worker over a signal it could not have received. The same shape as
+    # ``session/runtime/process.amain``, which ignores a HUP for the same
+    # reason.
+    sighup = getattr(signal, "SIGHUP", None)
+    if sighup is None:
+        return
+    try:
+        loop.add_signal_handler(sighup, handler)
+        return
+    except (NotImplementedError, RuntimeError, ValueError):
+        pass
+    # THE FALLBACK CANNOT BE ALLOWED TO RAISE, and it is the branch that plants
+    # an INHERITABLE ignore: ``signal.signal`` works only on the main thread
+    # (``ValueError`` otherwise, which is how a loop that refused for that reason
+    # would then kill the run this function protects), and a SIG_IGN survives
+    # ``exec`` — CPython's ``restore_signals`` resets only SIGPIPE/SIGXFZ/SIGXFSZ
+    # — so anything spawned after it would inherit an ignored HUP. Nothing
+    # reaches here on the shipped path (the loop takes the callback).
+    try:
+        signal.signal(sighup, signal.SIG_IGN)
+    except (ValueError, OSError, RuntimeError):
+        logging.getLogger(__name__).warning("could not install the SIGHUP ignore", exc_info=True)
+
+
+def _default_session_factory(
+    parsed: argparse.Namespace, team: Any | None = None
+) -> Awaitable[SessionProtocol]:
+    """Build the real session via the shared composition root.
+
+    Returns an awaitable session; all engine imports stay lazy inside
+    ``session_factory.create_session``.
+
+    ``team`` is the worker's own ``resolve_startup`` result -- the detached run
+    re-resolves the saved registry rather than trusting the spawner's copy --
+    and only its stored model suggestion is forwarded, as the fresh-path
+    fallback the foreground factory also carries (design §4.4).
+    """
+    from local_operator.config import ConfigManager
+    from local_operator.paths import config_dir
+    from local_operator.session_factory import create_session
+
+    session_args = argparse.Namespace(
+        hosting=parsed.hosting,
+        model=parsed.model,
+        agent_name=parsed.agent,
+        agent_id=parsed.agent_id,
+        yolo=parsed.yolo,
+        train=bool(getattr(parsed, "train", False)),
+        resume=parsed.resume,
+        # The DETACHED half of the same field ``exec_mode`` fills for the
+        # foreground path: the worker is spawned with `--workstream` when the
+        # front end was given it (``STARTUP_FIELDS``), and this is what carries
+        # it the last hop to the session factory. Dropped here, a
+        # `--background --workstream` run would come back hidden while the
+        # operator's own command said otherwise.
+        workstream=bool(getattr(parsed, "workstream", False)),
+        # Same field, same semantics as ``exec_mode._make_default_session_factory``'s
+        # namespace: the team-launch model suggestion, or None. The worker is
+        # spawned with `--team` forwarded (``STARTUP_FIELDS``), so it resolves
+        # the same team object and carries the same suggestion across the
+        # process boundary.
+        team_model_suggestion=team.model_suggestion if team is not None else None,
+    )
+    # config_dir(), not ``Path.home() / ".local-operator"``: a missed copy of the
+    # hardcoded root that ``exec_mode._make_default_session_factory`` already
+    # fixed for the foreground path (see the comment there). This is the
+    # BACKGROUND worker, which inherits the spawner's environment, so leaving it
+    # hardcoded made ``exec --background`` ignore LOCAL_OPERATOR_CONFIG_DIR while
+    # the foreground run honoured it — the same entry point resolving two
+    # different roots depending on a flag. It also reaches the analytics
+    # session-name backfill through ``create_session``'s store-maintenance pass,
+    # which writes to whatever root it is handed.
+    base_dir = config_dir()
+    config_manager = ConfigManager(base_dir)
+
+    from local_operator.agents import AgentRegistry  # lazy: heavy module
+
+    agent_registry = AgentRegistry(base_dir)
+    return create_session(session_args, config_manager, agent_registry)
+
+
+def run(
+    parsed: argparse.Namespace,
+    session_factory: Callable[[], SessionProtocol | Awaitable[SessionProtocol]] | None = None,
+    stop_facts: dict[str, Any] | None = None,
+) -> int:
+    """Build the session, run one prompt, return the exit code.
+
+    The engine's ``prompt`` never raises on provider errors (stream A
+    contract — errors surface as ``agent_end`` with ``error`` set), so the
+    exit code comes straight from ``run_print_mode``'s renderer tracking.
+
+    ``session_factory`` is injectable for tests; the default wires the real
+    engine through the shared composition root.
+
+    ``stop_facts`` is the CARRIER for what this run learned about how it was
+    stopped (``signal`` entry, ``via``), filled in place for ``main`` to hand to
+    the ledger. Optional and keyword-last so every existing caller — the suite
+    calls ``run(parsed, session_factory=...)`` — is unchanged; ``None`` makes a
+    private dict, so a caller that does not care pays nothing.
+    """
+    facts: dict[str, Any] = stop_facts if stop_facts is not None else {}
+    from local_operator.exec_session import run_session
+    from local_operator.exec_startup import resolve_startup
+
+    # Worker preflight precedes even the injected session factory. The legacy
+    # selector is called agent_name by the launcher and agent on worker argv.
+    parsed.agent_name = parsed.agent
+    team = resolve_startup(parsed)
+    factory = session_factory or (lambda: _default_session_factory(parsed, team))
+
+    async def async_main() -> int:
+        loop = asyncio.get_running_loop()
+        interrupted = asyncio.Event()
+        session_box: list[SessionProtocol] = []
+        _install_sigterm_handler(
+            loop, session_box, interrupted, facts, getattr(parsed, "job_id", None)
+        )
+        # After the kill switch, deliberately: the two handlers are independent,
+        # but a failure inside this registration (``signal.signal`` on a
+        # non-main thread raises) must not be able to cost the run its SIGTERM
+        # path. Ordering the terminating disposition first makes that failure
+        # harmless instead of fatal.
+        _install_sighup_ignore(loop)
+
+        async def execute() -> int:
+            source = factory()
+            session: SessionProtocol = await source if inspect.isawaitable(source) else source
+            session_box.append(session)
+            return await run_session(session, parsed.prompt, parsed, team)
+
+        # Race the WHOLE lifetime, not just the first prompt: a worker waiting
+        # on provider discovery must still honour termination and finalize.
+        prompt_task = asyncio.ensure_future(execute())
+        interrupt_task = asyncio.ensure_future(interrupted.wait())
+        await asyncio.wait({prompt_task, interrupt_task}, return_when=asyncio.FIRST_COMPLETED)
+        if interrupted.is_set():
+            # Give the turn a bounded window to settle (flush renderer output,
+            # dispose the session) before reporting the interrupt.
+            prompt_task.cancel()
+            try:
+                await asyncio.wait_for(prompt_task, timeout=5.0)
+            except (Exception, asyncio.CancelledError):
+                # The explicit interrupt owns the outcome, including when the
+                # provider was initializing rather than streaming a turn.
+                pass
+            return EXIT_INTERRUPTED
+        interrupt_task.cancel()
+        try:
+            return prompt_task.result()
+        except asyncio.CancelledError:
+            # A supervisor `stop` cancels the whole lifetime rather than
+            # signalling the process, and ``CancelledError`` is a
+            # BaseException — unhandled it would skip main()'s terminal ledger
+            # write, leaving reconciliation to report a deliberate stop as an
+            # abrupt `interrupted`. Deliberate termination is `cancelled`.
+            #
+            # AND IT IS THE ONE PATH THAT PROVES THE STOP WAS ASKED FOR: only the
+            # supervisor's control op cancels the lifetime, so the ledger can
+            # classify this exit as deliberate without any marker.
+            facts.setdefault("via", "control-stop")
+            return EXIT_INTERRUPTED
+
+    try:
+        code = asyncio.run(async_main())
+    except KeyboardInterrupt:
+        # SIGINT's default disposition: nobody staged it and this worker has no
+        # handler for it, so it is recorded as an interrupt of unknown origin.
+        facts.setdefault("via", "interrupt")
+        return EXIT_INTERRUPTED
+    except asyncio.CancelledError:
+        facts.setdefault("via", "control-stop")
+        return EXIT_INTERRUPTED
+    if code == EXIT_INTERRUPTED and "signal" in facts:
+        facts.setdefault("via", "signal")
+    return code
+
+
+def main() -> int:
+    """Console entry: parse argv, run, flush, exit.
+
+    When the spawner passed ``--job-id`` (CL-09), the worker appends the
+    terminal ledger record (``finished_at`` + ``exit_code``) before exiting —
+    best effort; ledger bookkeeping must never change the exit code.
+
+    The SIGHUP ignore is armed on the first lines of ``async_main`` — as early
+    as the loop allows, so it covers the turn and everything the turn builds. The
+    residual window is this function's argv/preflight work and the loop
+    bootstrap, and it is deliberately not closed with a process-wide
+    ``SIG_IGN`` set here: this entry point is callable in-process (the suite
+    calls it), and a disposition set there would outlive the call in the
+    caller's process with nothing to restore it. ``_install_sighup_ignore`` says
+    the same about the runtime's entry.
+    """
+    parsed = build_parser().parse_args()
+    # THE JOB LOG IS THIS PROCESS'S STDERR, so console logging is what makes the
+    # worker's diagnostics reach the record a person reads — including the
+    # one-shot SIGHUP survival line, which was silently discarded before this
+    # because the root logger's default level is WARNING and nothing configured a
+    # handler (review round 1, MINOR-1). Mirrors ``cli.main``'s own call; the
+    # spawner already redirects this stderr into the job log (``exec_mode``).
+    from local_operator.logger import configure_cli_logging
+
+    configure_cli_logging()
+    stop_facts: dict[str, Any] = {}
+    try:
+        code = run(parsed, stop_facts=stop_facts)
+    except Exception as exc:  # noqa: BLE001 — a log file is the only surface
+        sys.stderr.write(f"exec_worker error: {exc}\n")
+        code = 1
+    if getattr(parsed, "job_id", None):
+        try:
+            from local_operator.exec_mode import update_job_exit
+
+            update_job_exit(parsed.job_id, code, stop=stop_facts)
+        except Exception:  # noqa: BLE001 — best-effort ledger
+            pass
+    # Flush before returning: the spawner owns this file's lifetime and the
+    # process may be reaped right after exit.
+    sys.stdout.flush()
+    sys.stderr.flush()
+    return code
+
+
+if __name__ == "__main__":
+    # The Linux comm axis (see :func:`procname.brand_this_process`): macOS names
+    # this worker from the image its parent exec'd it through, Linux has no such
+    # image, so the process has to name itself. Called in the ``__main__``
+    # branch rather than inside ``main()`` because ``main()`` is callable
+    # in-process (the suite calls it), and a comm set on the CALLER's thread
+    # would outlive the call — the same reason ``_install_sighup_ignore`` sits
+    # where it does.
+    from local_operator import procname
+
+    procname.brand_this_process()
+    sys.exit(main())

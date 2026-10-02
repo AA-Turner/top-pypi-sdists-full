@@ -88,30 +88,43 @@ _get_widgets_dict = _widgets_dict_getter()
 # via the widget constructed hook: diffing the global widgets dict per widget
 # creation is O(total widgets), and solara replaces that dict with a context
 # aware mapping we should not depend on.
-_construction_recording: Optional[List["widgets.Widget"]] = None
+# The recording is per thread, so no lock is held while a widget is constructed:
+# construction opens a comm, and in a server that send can wait for a slow client,
+# which with a process wide lock stalled widget creation on every other thread.
+class _ConstructionRecording(threading.local):
+    # where the widgets constructed on this thread go, between _start_recording_constructed and
+    # _stop_recording_constructed
+    constructed: Optional[List["widgets.Widget"]] = None
+
+
+_construction_recording = _ConstructionRecording()
 _chained_construction_callback: Optional[Callable] = None
 
 
 def _record_constructed_widget(widget: "widgets.Widget"):
-    if _construction_recording is not None:
-        _construction_recording.append(widget)
+    constructed = _construction_recording.constructed
+    if constructed is not None:
+        constructed.append(widget)
     if _chained_construction_callback is not None:
         _chained_construction_callback(widget)
 
 
-def _start_recording_constructed(recording: List["widgets.Widget"]):
-    global _construction_recording, _chained_construction_callback
+def _start_recording_constructed(recording: List["widgets.Widget"]) -> Optional[List["widgets.Widget"]]:
+    """Record the widgets this thread constructs; returns what to pass to _stop_recording_constructed."""
+    global _chained_construction_callback
     current = getattr(widgets.Widget, "_widget_construction_callback", None)
     if current is not _record_constructed_widget:
         # first time, or someone else registered a callback after us: chain it
         _chained_construction_callback = current
         widgets.Widget.on_widget_constructed(_record_constructed_widget)
-    _construction_recording = recording
+    # a widget whose constructor renders records in its own list; the outer recording continues afterwards
+    previous = _construction_recording.constructed
+    _construction_recording.constructed = recording
+    return previous
 
 
-def _stop_recording_constructed():
-    global _construction_recording
-    _construction_recording = None
+def _stop_recording_constructed(previous: Optional[List["widgets.Widget"]]):
+    _construction_recording.constructed = previous
 
 
 _last_rc = None  # used for testing
@@ -334,7 +347,6 @@ class Element(Generic[W]):
     # to make every unique on_value callback to a unique wrapper
     # so that we can remove the listeners
     _callback_wrappers: Dict[Tuple[str, str, Callable], Callable] = {}
-    create_lock: ContextManager = threading.Lock()
     _shared = False
 
     def __init__(self, component, args=None, kwargs=None):
@@ -499,32 +511,30 @@ class Element(Generic[W]):
         # we can't use our own kwarg, since that contains elements, not widgets
         kwargs, listeners = self._split_kwargs(kwargs)
         assert isinstance(self.component, ComponentWidget)
-        # The recording is global state, so we need a lock.
-        with self.create_lock:
-            rc = get_render_context(required=True)
-            recorded: List[widgets.Widget] = []
-            _start_recording_constructed(recorded)
+        rc = get_render_context(required=True)
+        recorded: List[widgets.Widget] = []
+        previous_recording = _start_recording_constructed(recorded)
+        try:
             try:
-                try:
-                    widget = self.component.widget(**kwargs)
-                    hold_trait_notifications = widget.hold_trait_notifications
+                widget = self.component.widget(**kwargs)
+                hold_trait_notifications = widget.hold_trait_notifications
 
-                    @contextlib.contextmanager
-                    def hold_trait_notifications_extra(*args, **kwargs):
-                        with rc, hold_trait_notifications(*args, **kwargs):
-                            yield
+                @contextlib.contextmanager
+                def hold_trait_notifications_extra(*args, **kwargs):
+                    with rc, hold_trait_notifications(*args, **kwargs):
+                        yield
 
-                    widget.hold_trait_notifications = hold_trait_notifications_extra
+                widget.hold_trait_notifications = hold_trait_notifications_extra
 
-                    if self._meta:
-                        widget._react_meta = dict(self._meta)
-                except Exception as e:
-                    raise RuntimeError(f"Could not create widget {self.component.widget} with {kwargs}") from e
-                for name, callback in listeners.items():
-                    if callback is not None:
-                        self._add_widget_event_listener(widget, name, callback)
-            finally:
-                _stop_recording_constructed()
+                if self._meta:
+                    widget._react_meta = dict(self._meta)
+            except Exception as e:
+                raise RuntimeError(f"Could not create widget {self.component.widget} with {kwargs}") from e
+            for name, callback in listeners.items():
+                if callback is not None:
+                    self._add_widget_event_listener(widget, name, callback)
+        finally:
+            _stop_recording_constructed(previous_recording)
         widgets_dict = _get_widgets_dict()
         orphans = {w.model_id for w in recorded if w is not widget and w.comm is not None and w.model_id in widgets_dict}
         return widget, orphans
@@ -1334,6 +1344,9 @@ class _RenderContext:
 
     def __init__(self, element: Element, container: widgets.Widget = None, children_trait="children", handle_error: bool = True, initial_state=None):
         self.element = element
+        # the last requested root element: the thread that holds the render lock copies it to
+        # self.element at the start of each pass (see render)
+        self._element_next = element
         self.container = container
         self.children_next_trait = children_trait
         self.first_render = True
@@ -1345,6 +1358,9 @@ class _RenderContext:
         self.last_root_widget: widgets.Widget = None
         self._is_rendering = False
         self._rerender_needed = False
+        self._state_set_by_other_thread = False
+        # used for tests only: called when a render loop is done, right after its last look at _rerender_needed
+        self._on_render_loop_done: Optional[Callable[[], None]] = None
         # the reasons are only read for the "too many renders" error message, and a reason
         # holds the previous and next state value: keeping all of them kept every old state
         # value alive until close(). REACTON_RERENDER_REASONS keeps more, for debugging.
@@ -1400,15 +1416,27 @@ class _RenderContext:
     _find = find  # for backward compatibility
 
     def close(self):
+        # close() waits for the render lock, so it cannot run in its own render: it would wait for itself
+        if self._lock_thread == threading.current_thread():
+            raise RuntimeError("close() called during a render of this render context, current thread: %r" % threading.current_thread())
+        if self._closing:
+            # closed or closing: a second close(), or an effect cleanup that calls close() during close()
+            return
         with self.thread_lock:
+            if self._closing:
+                return  # another thread closed us while we waited for the lock
             self._closing = True
             # snapshot the component contexts before _remove_element detaches them from
             # their parents: detached contexts would escape the teardown below while the
             # setter/handler closures in their state still reference them and us
-            all_contexts: List[ComponentContext] = []
+            # by id: after a failed render, a context can be in both children and children_next, and
+            # a visit per path to it is 2**depth visits
+            all_contexts: Dict[int, ComponentContext] = {}
 
             def collect(context: ComponentContext):
-                all_contexts.append(context)
+                if id(context) in all_contexts:
+                    return
+                all_contexts[id(context)] = context
                 for child in list(context.children.values()) + list(context.children_next.values()):
                     collect(child)
 
@@ -1433,7 +1461,7 @@ class _RenderContext:
             exceptions = [*self.context.exceptions_children, *self.context_root.exceptions_self]
             # break the reference cycles through the tree (see _teardown_component_context);
             # _closing stays True, making stray setters and event handlers no-ops
-            for context in all_contexts:
+            for context in all_contexts.values():
                 _teardown_component_context(context)
             self.context = None
             self.context_root = None  # type: ignore
@@ -1441,6 +1469,7 @@ class _RenderContext:
             # widgets reference their elements, whose kwargs hold user callbacks - which
             # capture use_state setters and therefore this render context
             self.element = None  # type: ignore
+            self._element_next = None  # type: ignore
             self.container = None
             self.last_root_widget = None
             self._old_element_ids.clear()
@@ -1564,6 +1593,9 @@ class _RenderContext:
                 # TODO: enable
                 context.needs_render = True
                 _mark_needs_render_ancestors(context)
+                if self._lock_thread is not threading.current_thread():
+                    # not part of the render loop of the thread that renders (see render)
+                    self._state_set_by_other_thread = True
                 if self._rerender_needed is False:
                     if DEBUG:
                         trigger_stack = traceback.format_stack()
@@ -1590,8 +1622,13 @@ class _RenderContext:
             return
         # a forced update re-walks the whole tree, no subtree skipping
         self._walk_all = True
+        # mark before we look at _is_rendering, like a setter: a render that is ending then sees the
+        # mark after it released the lock (see render), or we see that no render runs
+        if self._rerender_needed is False:
+            self._rerender_needed_reasons.append(RerenderReason(reason="forced update"))
+            self._rerender_needed = True
         if not self._is_rendering:
-            self.render(self.element, self.container)
+            self.render()
 
     def use_effect(self, effect: EffectCallable, dependencies=None):
         assert self.context is not None
@@ -1613,17 +1650,13 @@ class _RenderContext:
             self.context.effect_index += 1
 
     def update(self, element: Element):
-        self._walk_all = True
-        if self._is_rendering:
-            self.element = element
-            self._rerender_needed_reasons.append(RerenderReason(reason="root element changed"))
-            self._rerender_needed = True
-        else:
-            self.render(element, self.container)
+        # the element first: force_update marks, and the render takes _element_next after it saw the mark
+        self._element_next = element
+        self.force_update()
 
     def _possible_rerender(self):
         if not self._is_rendering and self._batch_counter.current() == 0:
-            self.render(self.element, self.container)
+            self.render()
         else:
             logger.info("No render phase triggered, already rendering")
 
@@ -1640,8 +1673,12 @@ class _RenderContext:
         # state), and a context created by the aborted pass owns no widgets yet, it is simply
         # reused or pruned by the next render
         contexts: List[ComponentContext] = [self.context_root]
+        seen: Set[int] = set()  # a context can be in both children and children_next (see close)
         while contexts:
             context = contexts.pop()
+            if id(context) in seen:
+                continue
+            seen.add(id(context))
             for effect in context.effects:
                 effect.next = None
             context.root_element_next = None
@@ -1656,41 +1693,60 @@ class _RenderContext:
         self._shared_elements_next = set()
         self.context = self.context_root
 
-    def render(self, element: Element, container: widgets.Widget = None):
+    def render(self, element: Optional[Element] = None, container: widgets.Widget = None):
         # render + consolidate
+        # We never wait for the render lock: the caller may hold a lock that the render needs (a
+        # deadlock). So we first mark the request, then only try the lock. When another thread holds
+        # it, that thread renders the request: it takes _element_next at the start of each pass, and
+        # looks at _rerender_needed again after it released the lock (below).
+        widget, rendered = self._render_once(element, container)
+        # A request from another thread (a setter, update(), render()) sets _rerender_needed, and leaves
+        # the render to us while we render or hold the render lock. We released the lock, and look again
+        # now: either we see the request here, or that thread got the lock and renders it itself. A loop,
+        # not a recursion: this can repeat many times in a row while another thread changes state.
+        while rendered and self._rerender_needed and not self._is_rendering and self._batch_counter.current() == 0:
+            widget, rendered = self._render_once(None, container)
+        return widget
+
+    def _render_once(self, element: Optional[Element], container: widgets.Widget) -> Tuple[Any, bool]:
+        # returns the root widget, and whether we rendered (False: another thread holds the render
+        # lock and renders our request, or we are closed, or we rendered an error message)
+        if self._lock_thread == threading.current_thread():
+            raise RuntimeError("Recursive render detected (avoided deadlock), current thread: %r" % threading.current_thread())
         widget = None
         if container is None:
             container = self.container
-        was_locked = False
-        if self.thread_lock.locked():
-            if self._lock_thread == threading.current_thread():
-                raise RuntimeError("Recursive render detected (avoided deadlock), current thread: %r" % threading.current_thread())
-            logger.info(
-                "Render phase still in progress, waiting for mutex to release (locked obtained by %r, we are in thread %r)",
-                self._lock_thread,
-                threading.current_thread(),
-            )
-            was_locked = True
-        with self.thread_lock:
+        if element is not None:
+            self._element_next = element
+        if self._rerender_needed is False:
+            self._rerender_needed_reasons.append(RerenderReason(reason="render requested"))
+            self._rerender_needed = True
+        locked = False
+        try:
+            # acquire inside the try, in one statement with the assignment: an exception raised
+            # on the next line (an interrupt, a cancel from a trace function) still releases the lock
+            locked = self.thread_lock.acquire(blocking=False)
+            if not locked:
+                logger.info("Render phase in progress in thread %r, leaving the render to it", self._lock_thread)
+                return container, False
             self._lock_thread = threading.current_thread()
-            if was_locked:
-                logger.info("Mutex released, continuing render phase")
             if self._closing or self.context is None:
                 # close() won the race for the lock (a disconnect can close the
                 # kernel while an update was waiting to render): the tree is
                 # torn down, there is nothing to render into anymore
                 logger.info("Render requested on a closing/closed render context, ignoring")
-                return container
+                return container, False
             prev_rc = getattr(local, "rc", None)
             # an exception that escapes while this is True aborted a render pass (see the except below)
             in_render_phase = True
             try:
                 local.rc = self
-                self.element = element
-                del element
                 main_render_phase = not self._is_rendering
                 render_count = self.render_count  # make a copy
+                # clear before taking the element: a request that comes in between is seen by the loop
                 self._rerender_needed = False
+                self._state_set_by_other_thread = False
+                self.element = self._element_next
                 logger.info("Render phase: %r %r of %r", self.render_count, "main" if main_render_phase else "(nested)", self.element)
                 self.render_count += 1
                 self._is_rendering = True
@@ -1715,11 +1771,18 @@ class _RenderContext:
                 if main_render_phase:
                     stable = False
                     render_counts = 0
+                    render_limit = 50
                     while not stable and not self.context_root.exceptions_children:
                         # we started the rendering loop (main_render_phase is True), so we keep going
                         # but if an exception bubbled up, we should stop
                         while self._rerender_needed and not self.context_root.exceptions_children:
-                            if render_counts > 50:
+                            if self._state_set_by_other_thread:
+                                # another thread changed state during a pass (a progress update for
+                                # instance): that is not a render loop of our own, so allow more passes.
+                                # But not without end: our caller would not return, and close() waits.
+                                self._state_set_by_other_thread = False
+                                render_limit = 100
+                            if render_counts > render_limit:
 
                                 def format(reason: RerenderReason):
                                     f = f"Reason: {reason.reason}\nValue changed from {reason.prev_value} to {reason.next_value}\n"
@@ -1729,13 +1792,17 @@ class _RenderContext:
                                         f += f"Triggered at: {''.join(reason.trigger_stack)}\n"
                                     return f
 
-                                msg = f"Too many renders triggered, your render loop does not stop\nLast reason: {format(self._rerender_needed_reasons[-1])}\n"
+                                msg = "Too many renders triggered, your render loop does not stop\n"
+                                if render_limit > 50:
+                                    msg += "Another thread changes state during every render pass: add a pause between its changes\n"
+                                msg += f"Last reason: {format(self._rerender_needed_reasons[-1])}\n"
                                 if len(self._rerender_needed_reasons) >= 2:
                                     previous = reversed(list(self._rerender_needed_reasons)[:-1])
                                     msg += f"Previous reasons: {''.join(format(reason) for reason in previous)}\n"
                                 raise RuntimeError(msg)
                             logger.info("Entering nested render phase: %r", self._rerender_needed_reasons[-1])
                             self._rerender_needed = False
+                            self.element = self._element_next
                             self._shared_elements_next = set()
                             self.context.exception_handler = False
                             self.context.exceptions_children = []
@@ -1809,6 +1876,8 @@ class _RenderContext:
                             stable = False
                         else:
                             stable = True
+                            if self._on_render_loop_done is not None:
+                                self._on_render_loop_done()
 
                     self._is_rendering = False
                 self.context = context_prev
@@ -1835,13 +1904,18 @@ class _RenderContext:
             finally:
                 local.rc = prev_rc  # type: ignore
                 self._is_rendering = False
-                # clear before the lock is released: a stale _lock_thread makes the
-                # recursion guard above fire for a thread that merely rendered last,
-                # while a *different* thread holds the lock (false "Recursive render")
-                self._lock_thread = None
                 assert self.context is self.context_root
+            # read the errors of this render while we hold the lock: once it is released, close()
+            # on another thread can tear the tree down (self.context is None then)
+            exceptions = [*self.context.exceptions_children, *self.context_root.exceptions_self]
+        finally:
+            if locked:
+                # clear before the lock is released, on every way out (also the return for a closed
+                # render context): a stale _lock_thread makes the checks for a render or close() in
+                # its own render fire for a thread that merely rendered last
+                self._lock_thread = None
+                self.thread_lock.release()
 
-        exceptions = [*self.context.exceptions_children, *self.context_root.exceptions_self]
         if exceptions:
             exc = exceptions[0]
             if DEBUG:
@@ -1858,10 +1932,10 @@ class _RenderContext:
                     value = html.escape(error)
                 from . import ipywidgets as w
 
-                return self.render(w.HTML(value="<pre>" + value + "</pre>", layout=w.Layout(overflow="auto")), self.container)
+                return self.render(w.HTML(value="<pre>" + value + "</pre>", layout=w.Layout(overflow="auto")), self.container), False
             else:
                 raise exc
-        return widget
+        return widget, True
 
     def _render(self, element: Element, default_key: str, parent_key: str):
         if not isinstance(element, Element):

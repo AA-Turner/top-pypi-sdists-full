@@ -315,9 +315,7 @@ def list(  # noqa: A001, PLR0913
         ValueError: If both cloud_id and cloud_name are provided
     """
     if cloud_id and cloud_name:
-        raise ValueError(
-            "Only one of cloud_id or cloud_name can be provided, not both."
-        )
+        raise ValueError("Only one of cloud_id or cloud_name can be provided, not both.")
 
     return _private_sdk.list_compute_configs(  # type: ignore
         name=name,

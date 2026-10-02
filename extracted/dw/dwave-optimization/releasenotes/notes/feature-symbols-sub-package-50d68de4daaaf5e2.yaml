@@ -1,3 +1,0 @@
----
-features:
-  - Make `dwave.optimization.symbols` a sub-package rather than a sub-module.

@@ -120,11 +120,50 @@ def _extract_session_url_from_action(action: dict[str, Any]) -> str | None:
     return None
 
 
+def _extract_typed_text(payload: dict[str, Any]) -> list[tuple[str, str]]:
+    """Collect text the user typed into `plain_text_input` elements.
+
+    Slack reports current input state in `payload["state"]["values"]`,
+    a dict of block ID -> action ID -> element dict. This lets a message
+    pair reason buttons with a "note" text box whose contents ride along
+    with the click.
+
+    Args:
+        payload: The parsed Slack interaction payload.
+
+    Returns:
+        `(action_id, value)` pairs for each non-empty input, in payload
+        order; values stripped and truncated to 1000 chars each. Empty
+        when the payload carries no usable `state`.
+    """
+    state = payload.get("state")
+    if not isinstance(state, dict):
+        return []
+    values = state.get("values")
+    if not isinstance(values, dict):
+        return []
+
+    typed: list[tuple[str, str]] = []
+    for block in values.values():
+        if not isinstance(block, dict):
+            continue
+        for element_action_id, element in block.items():
+            if not isinstance(element, dict):
+                continue
+            if element.get("type") != "plain_text_input":
+                continue
+            value = element.get("value")
+            if isinstance(value, str) and value.strip():
+                typed.append((str(element_action_id), value.strip()[:1000]))
+    return typed
+
+
 def _format_slack_notification(
     action: dict[str, Any],
     user: dict[str, Any],
     message_text: str | None = None,
     approval_reply_url: str | None = None,
+    typed_text: list[tuple[str, str]] | None = None,
 ) -> str:
     """Format a notification message for a Devin session from a Slack action.
 
@@ -135,6 +174,8 @@ def _format_slack_notification(
         approval_reply_url: Optional Slack message URL for the approval
             thread reply. When present, MCP tools can use this as an
             `approval_slack_url` to verify the approver's identity.
+        typed_text: Optional `(action_id, value)` pairs for text the user
+            entered into `plain_text_input` elements in the same message.
 
     Returns:
         Formatted notification string.
@@ -146,6 +187,9 @@ def _format_slack_notification(
     parts = [
         f"Slack action received: @{user_name} clicked '{button_text}'",
     ]
+
+    for input_action_id, value in typed_text or []:
+        parts.append(f"Text entered in the message ({input_action_id}): {value}")
 
     if message_text:
         # Truncate for context
@@ -526,6 +570,11 @@ def handle_slack_interaction(payload: dict[str, Any]) -> dict[str, Any]:
 
     bot_token = _get_slack_bot_token()
 
+    # Text typed into `plain_text_input` elements in the same message
+    # (e.g. a "note" box paired with reason buttons) rides along with
+    # every action in this payload.
+    typed_text = _extract_typed_text(payload)
+
     notified = 0
     errors = 0
 
@@ -570,7 +619,11 @@ def handle_slack_interaction(payload: dict[str, Any]) -> dict[str, Any]:
             )
 
         notification = _format_slack_notification(
-            action, user, message_text, approval_reply_url=approval_reply_url
+            action,
+            user,
+            message_text,
+            approval_reply_url=approval_reply_url,
+            typed_text=typed_text,
         )
         result = inject_message(session_url, notification)
 

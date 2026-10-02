@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: workspace-mcp
-Version: 1.30.0
+Version: 1.30.1
 Summary: Comprehensive, highly performant Google Workspace Streamable HTTP & SSE MCP Server for Calendar, Gmail, Docs, Sheets, Slides & Drive
 Author-email: Taylor Wilsdon <taylor@taylorwilsdon.com>
 License-Expression: MIT
@@ -35,15 +35,15 @@ Requires-Dist: google-api-python-client>=2.168.0
 Requires-Dist: google-auth-httplib2>=0.2.0
 Requires-Dist: google-auth-oauthlib>=1.2.2
 Requires-Dist: httpx>=0.28.1
-Requires-Dist: urllib3>=2.7.0
+Requires-Dist: urllib3>=2.8.0
 Requires-Dist: py-key-value-aio>=0.3.0
-Requires-Dist: pyjwt>=2.12.0
+Requires-Dist: pyjwt>=2.15.0
 Requires-Dist: python-dotenv>=1.1.0
 Requires-Dist: pyyaml>=6.0.2
 Requires-Dist: cryptography>=50.0.0
 Requires-Dist: defusedxml>=0.7.1
 Requires-Dist: email-validator>=2.0.0
-Requires-Dist: pypdf>=6.15.0
+Requires-Dist: pypdf>=6.19.0
 Requires-Dist: pytz>=2026.1.post1
 Requires-Dist: tzdata>=2026.1
 Requires-Dist: markdown-it-py>=3.0.0
@@ -53,6 +53,7 @@ Provides-Extra: disk
 Requires-Dist: py-key-value-aio[filetree]>=0.3.0; extra == "disk"
 Provides-Extra: valkey
 Requires-Dist: py-key-value-aio[valkey]>=0.3.0; extra == "valkey"
+Requires-Dist: valkey-glide>=2.3.0; extra == "valkey"
 Provides-Extra: otel
 Requires-Dist: opentelemetry-sdk>=1.20.0; extra == "otel"
 Requires-Dist: opentelemetry-exporter-otlp>=1.20.0; extra == "otel"
@@ -339,6 +340,8 @@ The **[Advanced Deployment guide](https://workspacemcp.com/docs/deployment?utm_s
 In external OAuth provider mode every request's `ya29.*` token is checked against Google's userinfo endpoint on a dedicated worker pool, and a request that finds the pool full is rejected with `401` rather than queued. The pool is shared by every caller of the process and defaults to 4 workers, so a gateway fronting many users should raise `WORKSPACE_MCP_TOKEN_VALIDATION_WORKERS` to the number of concurrent tool calls it expects. Invalid or non-positive values fail server startup.
 
 Set `WORKSPACE_MCP_TOKEN_VALIDATION_CACHE_TTL` to a number of seconds to remember each validated token's identity for that long, so repeat calls with the same token skip the round-trip and do not occupy a validation worker. Only a hash of the token is kept, and failures are never cached. The trade-off is that a token revoked or expired within the TTL still passes this check (Google rejects it on the actual API call), so keep the TTL short; values above 300 are clamped to 300. Unset or `0` disables the cache; invalid or negative values fail server startup.
+
+For orchestrators, `/health` is the liveness probe and never touches external systems. `/health/ready` is the readiness probe: it reads a sentinel key from the OAuth proxy storage backend and returns `200 {"storage": "ok"}`, or `503 {"storage": "unavailable", ...}` when the backend errors or takes longer than `WORKSPACE_MCP_READINESS_TIMEOUT_SECONDS` (default `1`; an invalid value logs a warning and uses the default). The memory backend answers locally, so it always reports ready; the disk backend also answers locally but can still return `503` on filesystem errors (e.g. an unreadable or permission-denied storage directory) or corrupt stored data. Point readiness, not liveness, at `/health/ready`, so an unreachable Valkey takes the instance out of rotation rather than restarting it.
 
 Optional per-download payload ceiling for container deployments: set `WORKSPACE_MCP_MAX_FILE_BYTES` to a positive byte count (e.g. `5242880` for 5 MiB) to reject Drive / Gmail / Chat / Google Docs downloads that would otherwise be fully buffered in-process. Unset or `0` leaves the total size uncapped; uncapped Drive transfers still use 256 KiB transport chunks instead of the Google client's 100 MiB default. This is a file-size limit, not a process-RSS limit: leave headroom for parsing, base64/JSON representation, and concurrent tool calls. Invalid or negative values fail server startup instead of silently disabling the limit. Downloads streamed directly to disk are not subject to this in-memory payload ceiling.
 

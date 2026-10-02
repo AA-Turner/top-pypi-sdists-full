@@ -2,16 +2,16 @@ use crate::LazyInstance;
 use std::borrow::Cow;
 
 use crate::{
-    compiler,
+    compiler::{self, TargetNode},
     keywords::{BoxedValidator, CompilationResult},
-    node::SchemaNode,
     paths::{LazyLocation, Location, RefTracker},
     types::JsonType,
     validator::{EvaluationResult, Validate, ValidationContext},
     Json, ValidationError,
 };
-use referencing::Resolved;
+use referencing::{unescape_segment, uri, Resolved, Uri};
 use serde_json::{Map, Value};
+use std::sync::Arc;
 
 /// Tracks `$ref` traversals for recursive references where the target is behind `BoxedValidator<F>`
 /// (either a `PendingSchemaNode` or a cached node returned by `lookup_maybe_recursive`).
@@ -25,6 +25,8 @@ struct RefValidator<F: Json> {
     /// E.g., `/$defs/Item` when `$ref` points to `#/$defs/Item`.
     /// Used for computing validator suffixes at runtime.
     ref_target_base: Location,
+    /// Absolute URI of the `$ref` target, if its resource has one.
+    target_location: Option<Arc<Uri<String>>>,
 }
 
 impl<F: Json> Validate<F> for RefValidator<F> {
@@ -89,21 +91,22 @@ impl<F: Json> Validate<F> for RefValidator<F> {
     ///
     /// Per JSON Schema 2020-12 Core Section 12.4.2, `schema_path` "MUST NOT include
     /// by-reference applicators such as `$ref` or `$dynamicRef`".
-    fn canonical_location(&self) -> Option<&Location> {
-        Some(&self.ref_target_base)
+    fn canonical_location(&self) -> Option<(&Location, Option<&Arc<Uri<String>>>)> {
+        Some((&self.ref_target_base, self.target_location.as_ref()))
     }
 }
 
-/// Like `RefValidator` but holds a concrete `SchemaNode<F>` instead of `BoxedValidator<F>`,
+/// Like `RefValidator` but holds a concrete target instead of `BoxedValidator<F>`,
 /// eliminating one layer of vtable dispatch on every validation call.
-/// Used for non-recursive refs where the target is fully resolved at compile time.
-struct DirectRefValidator<F: Json> {
-    inner: SchemaNode<F>,
+/// Used for non-recursive refs: a compiled node, or a placeholder for a deferred one.
+struct DirectRefValidator<T> {
+    inner: T,
     ref_suffix: Location,
     ref_target_base: Location,
+    target_location: Option<Arc<Uri<String>>>,
 }
 
-impl<F: Json> Validate<F> for DirectRefValidator<F> {
+impl<F: Json, T: Validate<F>> Validate<F> for DirectRefValidator<T> {
     fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
         self.inner.is_valid(instance, ctx)
     }
@@ -161,8 +164,8 @@ impl<F: Json> Validate<F> for DirectRefValidator<F> {
         )
     }
 
-    fn canonical_location(&self) -> Option<&Location> {
-        Some(&self.ref_target_base)
+    fn canonical_location(&self) -> Option<(&Location, Option<&Arc<Uri<String>>>)> {
+        Some((&self.ref_target_base, self.target_location.as_ref()))
     }
 }
 
@@ -182,6 +185,18 @@ fn extract_ref_target_base(alias: &referencing::Uri<String>) -> Location {
     Location::new()
 }
 
+/// Absolute URI of the target at `location` within the resource `base` names.
+///
+/// `None` when that resource has no URI of its own, i.e. only the default base URI.
+fn target_location(base: &Uri<String>, location: &Location) -> Option<Arc<Uri<String>>> {
+    if base.scheme().as_str() == compiler::DEFAULT_SCHEME {
+        return None;
+    }
+    let mut fragment = uri::EncodedBuffer::new();
+    fragment.encode_str::<uri::Path>(location.as_str());
+    Some(Arc::new(base.with_fragment(Some(fragment.as_estr()))))
+}
+
 /// Whether `alias` names its target by an anchor rather than a JSON Pointer.
 fn is_named(alias: &referencing::Uri<String>) -> bool {
     alias.fragment().is_some_and(|fragment| {
@@ -199,6 +214,50 @@ fn named_target_base<F: Json>(
     Ok(ctx
         .anchor_location(resource.contents(), resolved.contents())
         .expect("A named target lives in its resolver's resource"))
+}
+
+/// Length of the `pointer` prefix leading to the innermost `$id` subschema it passes through.
+///
+/// Zero when the pointer stays in the resource `alias` names.
+fn embedded_resource_start<F: Json>(
+    ctx: &compiler::Context<F>,
+    alias: &Uri<String>,
+    pointer: &Location,
+    resolved: &Resolved<'_>,
+) -> Result<usize, referencing::Error> {
+    let target_base = resolved.resolver().base_uri();
+    if alias
+        .as_str()
+        .strip_prefix(target_base.as_str())
+        .is_some_and(|fragment| fragment.is_empty() || fragment.starts_with('#'))
+    {
+        return Ok(0);
+    }
+    let alias_base = alias
+        .as_str()
+        .split_once('#')
+        .map_or(alias.as_str(), |(base, _)| base);
+    let resource = resolved.resolver().lookup("")?.contents();
+    let document = ctx.lookup(alias_base)?;
+    let mut node = document.contents();
+    let mut offset = 0;
+    let mut start = 0;
+    for segment in pointer.as_str().split('/').skip(1) {
+        offset += 1 + segment.len();
+        let next = match node {
+            Value::Object(map) => map.get(unescape_segment(segment).as_ref()),
+            Value::Array(items) => segment.parse::<usize>().ok().and_then(|idx| items.get(idx)),
+            _ => None,
+        };
+        let Some(next) = next else {
+            break;
+        };
+        node = next;
+        if std::ptr::eq(node, resource) {
+            start = offset;
+        }
+    }
+    Ok(start)
 }
 
 fn compile_reference_validator<'a, F: Json>(
@@ -226,13 +285,28 @@ fn compile_reference_validator<'a, F: Json>(
         Ok(resolved) => resolved,
         Err(error) => return Some(Err(ValidationError::from(error))),
     };
-    let ref_target_base = if is_named(&alias) {
+    // A pointer counts from the resource the reference names, an anchor from the one it is in.
+    let (ref_target_base, target_location, resource_start) = if is_named(&alias) {
         match named_target_base(ctx, &resolved) {
-            Ok(location) => location,
+            Ok(location) => {
+                let target = target_location(&resolved.resolver().base_uri(), &location);
+                (location, target, 0)
+            }
             Err(error) => return Some(Err(ValidationError::from(error))),
         }
     } else {
-        ref_target_base
+        match embedded_resource_start(ctx, &alias, &ref_target_base, &resolved) {
+            Ok(0) => {
+                let target = target_location(&alias, &ref_target_base);
+                (ref_target_base, target, 0)
+            }
+            Ok(start) => {
+                let within = Location::from_escaped(&ref_target_base.as_str()[start..]);
+                let target = target_location(&resolved.resolver().base_uri(), &within);
+                (ref_target_base, target, start)
+            }
+            Err(error) => return Some(Err(ValidationError::from(error))),
+        }
     };
 
     // Direct self-reference - skip to avoid infinite recursion. This compares node identity
@@ -247,12 +321,13 @@ fn compile_reference_validator<'a, F: Json>(
         return None;
     }
 
-    match ctx.lookup_maybe_recursive(reference) {
+    match ctx.lookup_maybe_recursive(reference, resolved.resolver()) {
         Ok(Some(validator)) => {
             return Some(Ok(Box::new(RefValidator {
                 inner: validator,
                 ref_suffix,
                 ref_target_base,
+                target_location,
             })));
         }
         Ok(None) => {}
@@ -261,6 +336,16 @@ fn compile_reference_validator<'a, F: Json>(
 
     if let Err(error) = ctx.mark_seen(reference) {
         return Some(Err(ValidationError::from(error)));
+    }
+
+    if ctx.defers_ref_target(&resolved, &alias) {
+        let placeholder = ctx.defer_ref_target(resolved, ref_target_base.clone(), alias);
+        return Some(Ok(Box::new(DirectRefValidator {
+            inner: placeholder,
+            ref_suffix,
+            ref_target_base,
+            target_location,
+        })));
     }
 
     let (contents, resolver, draft) = resolved.into_inner();
@@ -272,17 +357,24 @@ fn compile_reference_validator<'a, F: Json>(
         vocabularies,
         ref_target_base.clone(),
     ) {
-        Ok(inner_ctx) => inner_ctx,
+        Ok(inner_ctx) => inner_ctx.with_resource_start(resource_start),
         Err(error) => return Some(Err(error)),
     };
     Some(
-        compiler::compile_with_alias(&inner_ctx, resource_ref, alias)
-            .map(|node| {
-                Box::new(DirectRefValidator {
+        ctx.compile_ref_target(|| compiler::compile_with_alias(&inner_ctx, resource_ref, alias))
+            .map(|target| match target {
+                TargetNode::Owned(node) => Box::new(DirectRefValidator {
                     inner: node,
                     ref_suffix,
                     ref_target_base,
-                }) as Box<dyn Validate<F>>
+                    target_location,
+                }) as Box<dyn Validate<F>>,
+                TargetNode::Shared(_) => Box::new(RefValidator {
+                    inner: target.into_validator(),
+                    ref_suffix,
+                    ref_target_base,
+                    target_location,
+                }),
             })
             .map_err(ValidationError::to_owned),
     )
@@ -296,13 +388,18 @@ fn compile_recursive_validator<'a, F: Json>(
     let (alias, ref_target_base) = ctx
         .ref_target(reference, extract_ref_target_base)
         .map_err(ValidationError::from)?;
+    let resolved = ctx
+        .lookup_recursive_reference()
+        .map_err(ValidationError::from)?;
+    let target_location = target_location(&resolved.resolver().base_uri(), &ref_target_base);
 
-    match ctx.lookup_maybe_recursive(reference) {
+    match ctx.lookup_maybe_recursive(reference, resolved.resolver()) {
         Ok(Some(validator)) => {
             return Ok(Box::new(RefValidator {
                 inner: validator,
                 ref_suffix,
                 ref_target_base,
+                target_location,
             }));
         }
         Ok(None) => {}
@@ -313,9 +410,6 @@ fn compile_recursive_validator<'a, F: Json>(
         return Err(ValidationError::from(error));
     }
 
-    let resolved = ctx
-        .lookup_recursive_reference()
-        .map_err(ValidationError::from)?;
     let (contents, resolver, draft) = resolved.into_inner();
     let vocabularies = resolver.find_vocabularies(draft, contents);
     let resource_ref = draft.create_resource_ref(contents);
@@ -323,12 +417,12 @@ fn compile_recursive_validator<'a, F: Json>(
     let inner_ctx =
         ctx.with_resolver_and_draft(resolver, resource_ref.draft(), vocabularies, target_base)?;
     compiler::compile_with_alias(&inner_ctx, resource_ref, alias)
-        .map(|node| {
-            let inner: BoxedValidator<F> = Box::new(node);
+        .map(|target| {
             Box::new(RefValidator {
-                inner,
+                inner: target.into_validator(),
                 ref_suffix,
                 ref_target_base,
+                target_location,
             }) as Box<dyn Validate<F>>
         })
         .map_err(ValidationError::to_owned)
@@ -730,6 +824,425 @@ mod tests {
         for (pointer, keyword_location) in expected {
             tests_util::assert_keyword_location(&validator, instance, pointer, keyword_location);
         }
+    }
+
+    // A reference node reports the location of its target, in the target's own resource.
+    #[test_case(
+        &json!({
+            "$id": "https://example.com/root",
+            "properties": {"a": {"$ref": "https://example.com/leaf"}},
+            "$defs": {"leaf": {"$id": "https://example.com/leaf", "type": "string"}}
+        }),
+        &json!({"a": 1}),
+        &[
+            ("", "https://example.com/root#"),
+            ("/properties", "https://example.com/root#/properties"),
+            ("/properties/a", "https://example.com/root#/properties/a"),
+            ("/properties/a/$ref", "https://example.com/leaf#"),
+            ("/properties/a/$ref/type", "https://example.com/leaf#/type"),
+        ]
+    ; "$ref to another resource")]
+    #[test_case(
+        &json!({
+            "properties": {"a": {"$ref": "https://example.com/leaf"}},
+            "$defs": {"leaf": {"$id": "https://example.com/leaf", "type": "string"}}
+        }),
+        &json!({"a": 1}),
+        &[
+            ("", ""),
+            ("/properties", "/properties"),
+            ("/properties/a", "/properties/a"),
+            ("/properties/a/$ref", "https://example.com/leaf#"),
+            ("/properties/a/$ref/type", "https://example.com/leaf#/type"),
+        ]
+    ; "$ref to another resource from a root without $id")]
+    #[test_case(
+        &json!({
+            "$id": "https://example.com/root",
+            "properties": {"a": {"$ref": "https://example.com/leaf#/$defs/inner"}},
+            "$defs": {
+                "leaf": {
+                    "$id": "https://example.com/leaf",
+                    "$defs": {"inner": {"type": "string"}}
+                }
+            }
+        }),
+        &json!({"a": 1}),
+        &[
+            ("", "https://example.com/root#"),
+            ("/properties", "https://example.com/root#/properties"),
+            ("/properties/a", "https://example.com/root#/properties/a"),
+            ("/properties/a/$ref", "https://example.com/leaf#/$defs/inner"),
+            ("/properties/a/$ref/type", "https://example.com/leaf#/$defs/inner/type"),
+        ]
+    ; "$ref to a pointer in another resource")]
+    #[test_case(
+        &json!({
+            "$id": "https://example.com/root",
+            "properties": {"a": {"$ref": "https://example.com/leaf#string"}},
+            "$defs": {
+                "leaf": {
+                    "$id": "https://example.com/leaf",
+                    "$defs": {"inner": {"$anchor": "string", "type": "string"}}
+                }
+            }
+        }),
+        &json!({"a": 1}),
+        &[
+            ("", "https://example.com/root#"),
+            ("/properties", "https://example.com/root#/properties"),
+            ("/properties/a", "https://example.com/root#/properties/a"),
+            ("/properties/a/$ref", "https://example.com/leaf#/$defs/inner"),
+            ("/properties/a/$ref/type", "https://example.com/leaf#/$defs/inner/type"),
+        ]
+    ; "$ref to an anchor in another resource")]
+    #[test_case(
+        &json!({
+            "$id": "https://example.com/root",
+            "properties": {"a": {"$ref": "#/$defs/leaf"}},
+            "$defs": {"leaf": {"type": "string"}}
+        }),
+        &json!({"a": 1}),
+        &[
+            ("", "https://example.com/root#"),
+            ("/properties", "https://example.com/root#/properties"),
+            ("/properties/a", "https://example.com/root#/properties/a"),
+            ("/properties/a/$ref", "https://example.com/root#/$defs/leaf"),
+            ("/properties/a/$ref/type", "https://example.com/root#/$defs/leaf/type"),
+        ]
+    ; "$ref within the same resource")]
+    #[test_case(
+        &json!({
+            "$id": "https://example.com/root",
+            "properties": {"a": {"$ref": "#/$defs/f"}},
+            "$defs": {"f": false}
+        }),
+        &json!({"a": 1}),
+        &[
+            ("", "https://example.com/root#"),
+            ("/properties", "https://example.com/root#/properties"),
+            ("/properties/a", "https://example.com/root#/properties/a"),
+            ("/properties/a/$ref", "https://example.com/root#/$defs/f"),
+        ]
+    ; "$ref to a boolean schema")]
+    #[test_case(
+        &json!({
+            "$id": "https://example.com/root",
+            "properties": {"a": {"$ref": "https://example.com/leaf#/$defs/f"}},
+            "$defs": {"leaf": {"$id": "https://example.com/leaf", "$defs": {"f": false}}}
+        }),
+        &json!({"a": 1}),
+        &[
+            ("", "https://example.com/root#"),
+            ("/properties", "https://example.com/root#/properties"),
+            ("/properties/a", "https://example.com/root#/properties/a"),
+            ("/properties/a/$ref", "https://example.com/leaf#/$defs/f"),
+        ]
+    ; "$ref to a boolean schema in another resource")]
+    #[test_case(
+        &json!({
+            "$id": "https://example.com/root",
+            "properties": {"a": {"$dynamicRef": "https://example.com/leaf#node"}},
+            "$defs": {
+                "leaf": {
+                    "$id": "https://example.com/leaf",
+                    "$dynamicAnchor": "node",
+                    "type": "string"
+                }
+            }
+        }),
+        &json!({"a": 1}),
+        &[
+            ("", "https://example.com/root#"),
+            ("/properties", "https://example.com/root#/properties"),
+            ("/properties/a", "https://example.com/root#/properties/a"),
+            ("/properties/a/$dynamicRef", "https://example.com/leaf#"),
+            ("/properties/a/$dynamicRef/type", "https://example.com/leaf#/type"),
+        ]
+    ; "$dynamicRef to another resource")]
+    #[test_case(
+        &json!({
+            "$schema": "https://json-schema.org/draft/2019-09/schema",
+            "$id": "https://example.com/root",
+            "$recursiveAnchor": true,
+            "type": "object",
+            "properties": {"a": {"$ref": "https://example.com/tree"}},
+            "$defs": {
+                "tree": {
+                    "$id": "https://example.com/tree",
+                    "$recursiveAnchor": true,
+                    "properties": {"child": {"$recursiveRef": "#"}}
+                }
+            }
+        }),
+        &json!({"a": {"child": 1}}),
+        &[
+            ("", "https://example.com/root#"),
+            ("/type", "https://example.com/root#/type"),
+            ("/properties", "https://example.com/root#/properties"),
+            ("/properties/a", "https://example.com/root#/properties/a"),
+            ("/properties/a/$ref", "https://example.com/tree#"),
+            ("/properties/a/$ref/properties", "https://example.com/tree#/properties"),
+            ("/properties/a/$ref/properties/child", "https://example.com/tree#/properties/child"),
+            ("/properties/a/$ref/properties/child/$recursiveRef", "https://example.com/root#"),
+            ("/properties/a/$ref/properties/child/$recursiveRef/type", "https://example.com/root#/type"),
+            ("/properties/a/$ref/properties/child/$recursiveRef/properties", "https://example.com/root#/properties"),
+        ]
+    ; "$recursiveRef to another resource")]
+    fn reference_node_schema_location(schema: &Value, instance: &Value, expected: &[(&str, &str)]) {
+        let validator = crate::validator_for(schema).expect("Invalid schema");
+        let output = serde_json::to_value(validator.evaluate(instance).list())
+            .expect("Output should serialize");
+        let locations: Vec<(&str, &str)> = output["details"]
+            .as_array()
+            .expect("List output has details")
+            .iter()
+            .map(|node| {
+                (
+                    node["evaluationPath"].as_str().expect("Evaluation path"),
+                    node["schemaLocation"].as_str().expect("Schema location"),
+                )
+            })
+            .collect();
+        assert_eq!(locations, expected);
+    }
+
+    // A JSON Pointer that enters a subschema with its own `$id` counts from that subschema.
+    #[test_case(
+        &json!({
+            "$id": "https://example.com/root",
+            "properties": {"a": {"$ref": "#/$defs/leaf/properties/x"}},
+            "$defs": {
+                "leaf": {
+                    "$id": "https://example.com/leaf",
+                    "properties": {"x": {"type": "string"}}
+                }
+            }
+        }),
+        &[],
+        &[
+            ("", "https://example.com/root#"),
+            ("/properties", "https://example.com/root#/properties"),
+            ("/properties/a", "https://example.com/root#/properties/a"),
+            ("/properties/a/$ref", "https://example.com/leaf#/properties/x"),
+            ("/properties/a/$ref/type", "https://example.com/leaf#/properties/x/type"),
+        ],
+        &["https://example.com/leaf#/properties/x/type"]
+    ; "pointer below an embedded resource")]
+    #[test_case(
+        &json!({
+            "$id": "https://example.com/root",
+            "properties": {"a": {"$ref": "#/$defs/leaf"}},
+            "$defs": {"leaf": {"$id": "https://example.com/leaf", "type": "string"}}
+        }),
+        &[],
+        &[
+            ("", "https://example.com/root#"),
+            ("/properties", "https://example.com/root#/properties"),
+            ("/properties/a", "https://example.com/root#/properties/a"),
+            ("/properties/a/$ref", "https://example.com/leaf#"),
+            ("/properties/a/$ref/type", "https://example.com/leaf#/type"),
+        ],
+        &["https://example.com/leaf#/type"]
+    ; "pointer to an embedded resource")]
+    #[test_case(
+        &json!({
+            "properties": {"a": {"$ref": "#/$defs/leaf/properties/x"}},
+            "$defs": {
+                "leaf": {
+                    "$id": "https://example.com/leaf",
+                    "properties": {"x": {"type": "string"}}
+                }
+            }
+        }),
+        &[],
+        &[
+            ("", ""),
+            ("/properties", "/properties"),
+            ("/properties/a", "/properties/a"),
+            ("/properties/a/$ref", "https://example.com/leaf#/properties/x"),
+            ("/properties/a/$ref/type", "https://example.com/leaf#/properties/x/type"),
+        ],
+        &["https://example.com/leaf#/properties/x/type"]
+    ; "pointer below an embedded resource from a root without $id")]
+    #[test_case(
+        &json!({
+            "$id": "https://example.com/root",
+            "properties": {"a": {"$ref": "#/$defs/leaf/$defs/inner/properties/x"}},
+            "$defs": {
+                "leaf": {
+                    "$id": "https://example.com/leaf",
+                    "$defs": {
+                        "inner": {
+                            "$id": "https://example.com/inner",
+                            "properties": {"x": {"type": "string"}}
+                        }
+                    }
+                }
+            }
+        }),
+        &[],
+        &[
+            ("", "https://example.com/root#"),
+            ("/properties", "https://example.com/root#/properties"),
+            ("/properties/a", "https://example.com/root#/properties/a"),
+            ("/properties/a/$ref", "https://example.com/inner#/properties/x"),
+            ("/properties/a/$ref/type", "https://example.com/inner#/properties/x/type"),
+        ],
+        &["https://example.com/inner#/properties/x/type"]
+    ; "pointer below two embedded resources")]
+    #[test_case(
+        &json!({"$ref": "https://example.com/ext#/$defs/n"}),
+        &[(
+            "https://example.com/ext",
+            json!({
+                "$id": "https://example.com/ext",
+                "$defs": {"n": {"$id": "https://example.com/inner", "type": "string"}}
+            }),
+        )],
+        &[
+            ("", ""),
+            ("/$ref", "https://example.com/inner#"),
+            ("/$ref/type", "https://example.com/inner#/type"),
+        ],
+        &["https://example.com/inner#/type"]
+    ; "pointer into a registry resource to an embedded resource")]
+    #[test_case(
+        &json!({
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$id": "https://example.com/root",
+            "properties": {"a": {"$ref": "#/definitions/leaf/properties/x"}},
+            "definitions": {
+                "leaf": {
+                    "$id": "https://example.com/leaf",
+                    "properties": {"x": {"type": "string"}}
+                }
+            }
+        }),
+        &[],
+        &[
+            ("", "https://example.com/root#"),
+            ("/properties", "https://example.com/root#/properties"),
+            ("/properties/a", "https://example.com/root#/properties/a"),
+            ("/properties/a/$ref", "https://example.com/leaf#/properties/x"),
+            ("/properties/a/$ref/type", "https://example.com/leaf#/properties/x/type"),
+        ],
+        &["https://example.com/leaf#/properties/x/type"]
+    ; "Draft 7 pointer below an embedded resource")]
+    #[test_case(
+        &json!({
+            "$schema": "https://json-schema.org/draft/2019-09/schema",
+            "$id": "https://example.com/root",
+            "properties": {"a": {"$ref": "#/$defs/leaf/properties/x"}},
+            "$defs": {
+                "leaf": {
+                    "$id": "https://example.com/leaf",
+                    "properties": {"x": {"type": "string"}}
+                }
+            }
+        }),
+        &[],
+        &[
+            ("", "https://example.com/root#"),
+            ("/properties", "https://example.com/root#/properties"),
+            ("/properties/a", "https://example.com/root#/properties/a"),
+            ("/properties/a/$ref", "https://example.com/leaf#/properties/x"),
+            ("/properties/a/$ref/type", "https://example.com/leaf#/properties/x/type"),
+        ],
+        &["https://example.com/leaf#/properties/x/type"]
+    ; "Draft 2019-09 pointer below an embedded resource")]
+    fn pointer_through_embedded_resource(
+        schema: &Value,
+        resources: &[(&str, Value)],
+        expected_evaluation: &[(&str, &str)],
+        expected_errors: &[&str],
+    ) {
+        let mut registry = crate::Registry::new();
+        for (uri, resource) in resources {
+            registry = registry.add(*uri, resource).expect("Valid resource");
+        }
+        let registry = registry.prepare().expect("Registry should prepare");
+        let validator = crate::options()
+            .with_registry(&registry)
+            .build(schema)
+            .expect("Invalid schema");
+        let instance = json!({"a": 1});
+        let output = serde_json::to_value(validator.evaluate(&instance).list())
+            .expect("Output should serialize");
+        let evaluation: Vec<(&str, &str)> = output["details"]
+            .as_array()
+            .expect("List output has details")
+            .iter()
+            .map(|node| {
+                (
+                    node["evaluationPath"].as_str().expect("Evaluation path"),
+                    node["schemaLocation"].as_str().expect("Schema location"),
+                )
+            })
+            .collect();
+        let errors: Vec<String> = validator
+            .iter_errors(&instance)
+            .map(|error| {
+                error
+                    .absolute_keyword_location()
+                    .expect("Absolute keyword location")
+                    .to_string()
+            })
+            .collect();
+        assert_eq!(
+            (evaluation, errors),
+            (
+                expected_evaluation.to_vec(),
+                expected_errors.iter().map(ToString::to_string).collect()
+            )
+        );
+    }
+
+    // Annotations collected at a reference node carry the target's location.
+    #[test_case(
+        &json!({
+            "$id": "https://example.com/root",
+            "properties": {"a": {"$ref": "https://example.com/leaf"}},
+            "$defs": {"leaf": {"$id": "https://example.com/leaf", "x-note": 1}}
+        }),
+        ("https://example.com/leaf#", Some("https://example.com/leaf#"))
+    ; "another resource")]
+    #[test_case(
+        &json!({
+            "properties": {"a": {"$ref": "https://example.com/leaf"}},
+            "$defs": {"leaf": {"$id": "https://example.com/leaf", "x-note": 1}}
+        }),
+        ("https://example.com/leaf#", Some("https://example.com/leaf#"))
+    ; "another resource from a root without $id")]
+    #[test_case(
+        &json!({
+            "$id": "https://example.com/root",
+            "properties": {"a": {"$ref": "#/$defs/leaf"}},
+            "$defs": {"leaf": {"x-note": 1}}
+        }),
+        ("https://example.com/root#/$defs/leaf", Some("https://example.com/root#/$defs/leaf"))
+    ; "same resource")]
+    #[test_case(
+        &json!({
+            "properties": {"a": {"$ref": "#/$defs/leaf"}},
+            "$defs": {"leaf": {"x-note": 1}}
+        }),
+        ("/$defs/leaf", None)
+    ; "same resource without $id")]
+    fn reference_node_annotation_location(schema: &Value, expected: (&str, Option<&str>)) {
+        let validator = crate::validator_for(schema).expect("Invalid schema");
+        let evaluation = validator.evaluate(&json!({"a": "x"}));
+        let locations: Vec<(&str, Option<&str>)> = evaluation
+            .iter_annotations()
+            .filter(|entry| entry.annotations.value() == &json!({"x-note": 1}))
+            .map(|entry| {
+                (
+                    entry.schema_location,
+                    entry.absolute_keyword_location.map(Uri::as_str),
+                )
+            })
+            .collect();
+        assert_eq!(locations, vec![expected]);
     }
 
     #[test]
@@ -2038,5 +2551,122 @@ mod tests {
         ] {
             tests_util::is_not_valid_with(&validator, &instance);
         }
+    }
+
+    fn dynamic_anchor_via_pointer(entry: &str) -> Value {
+        json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://example.com/root",
+            "$defs": {
+                "sub": {
+                    "$id": "sub",
+                    "$defs": {
+                        "bind": {"$dynamicAnchor": "T", "type": "number"},
+                        "middle": {"$ref": "https://example.com/shared"}
+                    }
+                },
+                "shared": {
+                    "$id": "shared",
+                    "$defs": {"fallback": {"$dynamicAnchor": "T", "type": "string"}},
+                    "items": {"$dynamicRef": "#T"}
+                }
+            },
+            "properties": {
+                entry: {"$ref": "sub#/$defs/middle"},
+                "b": {"$ref": "shared"}
+            }
+        })
+    }
+
+    fn dynamic_anchor_beside_stray_id(entry: &str) -> Value {
+        json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://example.com/root",
+            "$defs": {
+                "holder": {
+                    "$id": "holder",
+                    "$defs": {
+                        "bind": {"id": "stray", "$dynamicAnchor": "T", "type": "number"},
+                        "use": {"$ref": "https://example.com/shared"}
+                    }
+                },
+                "shared": {
+                    "$id": "shared",
+                    "$defs": {"fallback": {"$dynamicAnchor": "T", "type": "string"}},
+                    "items": {"$dynamicRef": "#T"}
+                }
+            },
+            "properties": {
+                entry: {"$ref": "holder#/$defs/use"},
+                "b": {"$ref": "shared"}
+            }
+        })
+    }
+
+    fn recursive_anchor_via_pointer(entry: &str) -> Value {
+        json!({
+            "$schema": "https://json-schema.org/draft/2019-09/schema",
+            "$id": "https://example.com/root",
+            "$defs": {
+                "sub": {
+                    "$id": "sub",
+                    "$recursiveAnchor": true,
+                    "type": "number",
+                    "$defs": {"middle": {"$ref": "https://example.com/shared"}}
+                },
+                "shared": {
+                    "$id": "shared",
+                    "$recursiveAnchor": true,
+                    "anyOf": [
+                        {"type": "string"},
+                        {"type": "array", "items": {"$recursiveRef": "#"}}
+                    ]
+                }
+            },
+            "properties": {
+                entry: {"$ref": "sub#/$defs/middle"},
+                "b": {"$ref": "shared"}
+            }
+        })
+    }
+
+    #[test_case(dynamic_anchor_via_pointer, "a" ; "dynamic anchor, entry compiled first")]
+    #[test_case(dynamic_anchor_via_pointer, "z" ; "dynamic anchor, entry compiled last")]
+    #[test_case(dynamic_anchor_beside_stray_id, "a" ; "stray id, entry compiled first")]
+    #[test_case(dynamic_anchor_beside_stray_id, "z" ; "stray id, entry compiled last")]
+    #[test_case(recursive_anchor_via_pointer, "a" ; "recursive anchor, entry compiled first")]
+    #[test_case(recursive_anchor_via_pointer, "z" ; "recursive anchor, entry compiled last")]
+    fn anchor_binding_does_not_depend_on_property_order(schema: fn(&str) -> Value, entry: &str) {
+        let validator = crate::validator_for(&schema(entry)).expect("Invalid schema");
+        let results: Vec<bool> = [
+            json!({entry: [1]}),
+            json!({entry: ["s"]}),
+            json!({"b": [1]}),
+            json!({"b": ["s"]}),
+        ]
+        .iter()
+        .map(|instance| validator.is_valid(instance))
+        .collect();
+        assert_eq!(results, vec![true, false, false, true]);
+    }
+
+    #[test_case("$ref"; "ref")]
+    #[test_case("$dynamicRef"; "dynamic ref")]
+    fn malformed(keyword: &str) {
+        tests_util::assert_compile_error(
+            &json!({keyword: 5}),
+            "5 is not of type \"string\"",
+            &format!("/{keyword}"),
+        );
+    }
+
+    #[test]
+    fn malformed_draft7() {
+        tests_util::assert_compile_error_with(
+            &crate::options().with_draft(crate::Draft::Draft7),
+            &json!({"$ref": 5}),
+            "5 is not of type \"string\"",
+            "/$ref",
+        );
     }
 }

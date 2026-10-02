@@ -70,7 +70,7 @@ async def test_direct_consumer_uses_provider_model_without_http(monkeypatch):
 
     monkeypatch.setattr(runner, "ensure_pricing_lookup", lambda: _priced())
     monkeypatch.setattr(runner.TokenUsage, "calculate_catalog_cost", lambda *_args: 0.01)
-    monkeypatch.setattr(runner, "admit_provider_call", _admission)
+    monkeypatch.setattr("matrx_ai.providers.admission.admit_provider_call", _admission)
     captured = {}
 
     async def resolver(*_args, **_kwargs):
@@ -113,7 +113,7 @@ async def test_pricing_failure_after_paid_response_retains_usage(monkeypatch):
 
     monkeypatch.setattr(runner, "ensure_pricing_lookup", lambda: _priced())
     monkeypatch.setattr(runner.TokenUsage, "calculate_catalog_cost", lambda *_args: None)
-    monkeypatch.setattr(runner, "admit_provider_call", _admission)
+    monkeypatch.setattr("matrx_ai.providers.admission.admit_provider_call", _admission)
 
     async def resolver(*_args, **_kwargs):
         return _profile()

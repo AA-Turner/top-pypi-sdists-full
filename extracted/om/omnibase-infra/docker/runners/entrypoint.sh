@@ -1,0 +1,630 @@
+#!/usr/bin/env bash
+# GitHub Actions runner entrypoint with bounded re-registration
+# Ticket: OMN-3275 / Epic: OMN-3273
+#
+# Re-registration policy:
+#   - Max 3 retries with exponential backoff: 20s / 40s / 80s
+#   - Only re-register on known "not registered" error strings
+#   - Unknown errors exit immediately (do not retry; surface the real error)
+#   - After max retries: sleep 5m then exit 1
+#     → compose restart: unless-stopped will recover automatically
+#
+# Credential cache:
+#   - Cache key = SHA256(RUNNER_LABELS + GITHUB_ORG_URL)
+#   - Avoids re-registration if version hash matches (token reuse across restarts)
+#   - Cache stored at /home/runner/.runner-creds/<cache-key>
+
+set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Docker socket GID fix (runs as root, before dropping to runner)
+# ---------------------------------------------------------------------------
+# When /var/run/docker.sock is bind-mounted from the host, its GID may not
+# match the container's 'docker' group GID. The GOAL is socket access for the
+# `runner` user; renumbering the container's docker group is only ONE way to
+# get it, and on some hosts it is not available at all.
+#
+# OMN-17477, measured on the `.101` Mac mini: Docker Desktop presents the
+# socket inside the container with GID 0, which already belongs to `root`.
+# `groupmod -g 0 docker` therefore refuses with "GID '0' already exists", the
+# entrypoint dies under `set -e`, and the container restart-loops without ever
+# registering a runner. The symptom is deceptive -- the container reports
+# `Restarting`, not `Exited`, and the last log line reads "Adjusting container
+# docker group GID to 0", which looks like progress.
+#
+# So: if the socket's GID already belongs to a group, add `runner` to THAT
+# group. Only renumber `docker` when the GID is unclaimed, which is the
+# primary host's case (984) and keeps its 60 runners on exactly the behaviour
+# they have today.
+
+_fix_docker_socket_gid() {
+    # DOCKER_SOCKET_PATH exists so the portability tests can point this at a
+    # fixture instead of the real socket; nothing in production sets it.
+    local socket="${DOCKER_SOCKET_PATH:-/var/run/docker.sock}"
+    if [[ ! -S "${socket}" ]]; then
+        echo "[entrypoint] No Docker socket at ${socket} — skipping GID fix"
+        return 0
+    fi
+
+    local host_gid
+    host_gid=$(stat -c '%g' "${socket}" 2>/dev/null || echo "")
+    if [[ -z "${host_gid}" ]]; then
+        echo "[entrypoint] Could not determine Docker socket GID — skipping"
+        return 0
+    fi
+
+    local container_gid
+    container_gid=$(getent group docker | cut -d: -f3 2>/dev/null || echo "")
+
+    if [[ "${host_gid}" == "${container_gid}" ]]; then
+        echo "[entrypoint] Docker socket GID (${host_gid}) matches container docker group"
+        return 0
+    fi
+
+    echo "[entrypoint] Docker socket GID mismatch: socket=${host_gid}, container docker group=${container_gid}"
+
+    # Is the socket's GID already claimed by a group in this image?
+    local owning_group
+    owning_group=$(getent group "${host_gid}" | cut -d: -f1 2>/dev/null || echo "")
+
+    if [[ -n "${owning_group}" ]]; then
+        # Claimed -- renumbering is impossible, and unnecessary. Grant the
+        # runner user membership of the group that already owns the socket.
+        echo "[entrypoint] Socket GID ${host_gid} is held by group '${owning_group}'; adding runner to it"
+        usermod -aG "${owning_group}" runner
+        echo "[entrypoint] runner added to '${owning_group}' for Docker socket access"
+        return 0
+    fi
+
+    echo "[entrypoint] Adjusting container docker group GID to ${host_gid}"
+    groupmod -g "${host_gid}" docker
+    echo "[entrypoint] Docker group GID updated to ${host_gid}"
+}
+
+if [[ "$(id -u)" -eq 0 ]]; then
+    _fix_docker_socket_gid
+fi
+
+# ---------------------------------------------------------------------------
+# Required environment variables
+# ---------------------------------------------------------------------------
+# RUNNER_TOKEN is optional — only required for first-time registration.
+# After initial setup, cached credentials are used and the token is not needed.
+: "${RUNNER_NAME:?RUNNER_NAME must be set}"
+: "${RUNNER_LABELS:?RUNNER_LABELS must be set}"
+: "${GITHUB_ORG_URL:?GITHUB_ORG_URL must be set}"
+
+# OMN-14900: no-colon default -- an EXPLICITLY EMPTY RUNNER_GROUP is the
+# opt-out signal for repository-scoped registration (config.sh hard-fails on
+# --runnergroup at repo scope, which would brick re-registration after a
+# container recreate). Unset still defaults to the org fleet group.
+RUNNER_GROUP="${RUNNER_GROUP-omnibase-ci}"
+RUNNER_WORK_DIR="${RUNNER_WORK_DIR:-_work}"
+
+MAX_RETRIES=3
+BACKOFF_SECONDS=(20 40 80)
+CRED_CACHE_DIR="/home/runner/.runner-creds"
+LOG_FILE="${LOG_FILE:-/tmp/runner-listener.log}"
+
+# ---------------------------------------------------------------------------
+# Listener watchdog (OMN-13915)
+# ---------------------------------------------------------------------------
+# Incident: Runner.Listener died inside 37/48 containers while the run.sh
+# wrapper tree stayed alive, so the entrypoint never saw an exit code and the
+# container sat "Up (healthy)" for four days. The watchdog closes that gap:
+# while run.sh is running, assert a bin/Runner.Listener process exists. After
+# LISTENER_SUPERVISE_MISSES consecutive misses (the grace window covers runner
+# self-update, which briefly restarts the listener), kill the wrapper tree so
+# the main loop restarts the runner with the cached in-place credentials.
+# Bounded by LISTENER_RESTART_MAX to surface a genuinely crash-looping
+# listener as a container exit (compose restart policy + runner-monitor alert)
+# instead of hiding it behind unbounded silent restarts.
+LISTENER_SUPERVISE_INTERVAL="${LISTENER_SUPERVISE_INTERVAL:-60}"
+LISTENER_SUPERVISE_MISSES="${LISTENER_SUPERVISE_MISSES:-5}"
+LISTENER_RESTART_MAX="${LISTENER_RESTART_MAX:-50}"
+# LISTENER_PGREP_PATTERN is derived from RUNNER_HOME below (after RUNNER_HOME
+# is resolved) so it matches THIS runner home's listener binary only.
+
+# ---------------------------------------------------------------------------
+# Hung-listener heartbeat watchdog (OMN-14564)
+# ---------------------------------------------------------------------------
+# Incident (2026-07-16..23): 11/64 runners went GitHub-offline for ~6 days
+# with the Runner.Listener process STILL ALIVE — deadlocked inside the
+# AAD/OAuth token-refresh HTTP call while acknowledging a broker job
+# assignment (terminal _diag line: "AAD Correlation ID for this token
+# request: Unknown"). A hung listener passes the OMN-13915 process-existence
+# watchdog forever, never exits (so run.sh never respawns it), and only the
+# Docker healthcheck's _diag heartbeat layer flagged it — with nothing acting
+# on the signal. This watchdog turns that same detection into remediation:
+# when the listener process exists but the newest _diag *.log is older than
+# LISTENER_HEARTBEAT_MAX_AGE_SECONDS (same find-mmin condition as
+# healthcheck.sh layer 2) for LISTENER_HEARTBEAT_MISSES consecutive supervise
+# ticks, kill the listener explicitly and recycle the wrapper tree. The
+# recycle NEVER fires while a Runner.Worker is executing a job.
+#
+# The KILL threshold is deliberately DECOUPLED from the healthcheck's ALERT
+# threshold (RUNNER_HEALTH_MAX_DIAG_AGE_SECONDS). Live readback
+# 2026-07-23T05:25-06:02Z: a fleet-wide broker-quiet window silenced _diag on
+# 53/64 listeners for 35-50 min while GitHub kept every one of them online
+# and docker-"unhealthy" runners were actively EXECUTING jobs (runners 4 and
+# 40 busy while heartbeat-stale); runner-2 and runner-45 both resumed on
+# their own after ~37 min blocked in the same token-refresh path that hangs
+# the true zombies forever. Killing at the then-current 900s alert threshold
+# would have mass-recycled ~50 healthy-but-quiet listeners mid-window. 3600s
+# clears the observed benign ceiling (~50 min) with margin while still
+# recovering a true AAD-deadlock zombie in ~1h instead of the 6 days the
+# 2026-07-16..23 incident took.
+#
+# OMN-15233 flipped the ORDER of the two thresholds, not their independence:
+# the alert threshold is now 4500s, ABOVE this 3600s kill threshold. That is
+# intentional. This watchdog is the narrower signal — it additionally requires
+# LISTENER_HEARTBEAT_MISSES consecutive ticks and refuses to fire while a
+# Runner.Worker is executing — so it can afford to act on staleness the
+# unconditional, retry-free healthcheck must not flag. Do NOT "restore
+# ordering" by dropping the alert threshold back toward 900s: that is the
+# arithmetic false positive OMN-15233 removed.
+#
+# RE-DERIVATION ATTEMPT (2026-08-10, omn15776-wedge-verify): OMN-15776 asked
+# whether this threshold could be tightened toward sub-900s to close the gap
+# between GitHub's ~600s broker-dispatch-wedge orphan timeout and this
+# watchdog's eventual recycle (see scripts/ci/runner_broker_dispatch_wedge_rerun.sh
+# for that mechanism). Measured LIVE, read-only, against 5 healthy fleet
+# runners' own _diag/Runner_*.log inter-line gaps (not a hypothetical):
+#
+#   runner  log window (real)        max observed gap
+#   -----   ------------------------  -----------------
+#   19      04:50-08:09 UTC (~19.7h)  3007s (~50.1min)
+#   20      Aug8 22:14-Aug9 08:09     3009s (~50.2min)
+#   29      04:04-08:09 UTC (~4.1h)   2960s (~49.3min)
+#   2, 4    partial windows (fleet    319-508s (windows
+#           under load, no full            did not span a
+#           idle cycle observed)           full idle cycle)
+#
+# Max observed normal-idle gap across the sample: 3009s. This corroborates,
+# not contradicts, the 2026-07-23 finding above (~50min benign ceiling) and
+# the independent OMN-15233 healthcheck.sh derivation (~50min OAuth/AAD
+# token-refresh cadence while idle). CONCLUSION: sub-900s detection is NOT
+# supported by evidence — a threshold anywhere near 900s-3000s would
+# reproduce the exact mass-recycle false-positive class OMN-15233 fixed,
+# just on this watchdog's KILL path instead of the healthcheck's ALERT path.
+# 3600s already sits ~590-600s (~20%) above the measured ceiling, which is
+# the intended margin, not slack to cut. Threshold left UNCHANGED at 3600s.
+# The broker-dispatch-wedge false-red this was evaluated against is instead
+# closed by scripts/ci/runner_broker_dispatch_wedge_rerun.sh's targeted
+# rerun, which does not depend on this watchdog's timing.
+LISTENER_HEARTBEAT_MAX_AGE_SECONDS="${LISTENER_HEARTBEAT_MAX_AGE_SECONDS:-3600}"
+LISTENER_HEARTBEAT_MISSES="${LISTENER_HEARTBEAT_MISSES:-3}"
+
+# ---------------------------------------------------------------------------
+# Orphan reap before respawn (OMN-15233)
+# ---------------------------------------------------------------------------
+# Incident (2026-07-27, runners 1/43/55/57): a Runner.Listener survived the
+# death of its wrapper tree, was reparented to PPID 1, and kept holding this
+# runner's GitHub broker session. This loop then spawned a REPLACEMENT listener
+# on top of it, which crash-looped every ~5 min on
+# TaskAgentSessionConflictException — the orphan still owned the session. Each
+# crash minted a fresh Runner_*.log, so the _diag mtime heartbeat read HEALTHY
+# forever and no signal surfaced the state (88-234 log files vs 3-7 normal).
+#
+# Spawn-without-reap is what MANUFACTURES the session conflict. Reaping is
+# therefore unconditional and precedes every run.sh spawn, not just the
+# watchdog-recycle path: any listener still matching this runner home's pattern
+# at the top of the loop is by definition left over from a previous
+# incarnation (the loop only ever gets here after the previous run.sh exited or
+# was recycled), so it is killed and confirmed gone before a replacement is
+# started.
+LISTENER_REAP_TIMEOUT_SECONDS="${LISTENER_REAP_TIMEOUT_SECONDS:-30}"
+
+# ---------------------------------------------------------------------------
+# Credential cache helpers
+# ---------------------------------------------------------------------------
+
+_cache_key() {
+    echo -n "${RUNNER_LABELS}:${GITHUB_ORG_URL}" | sha256sum | awk '{print $1}'
+}
+
+_restore_cached_creds() {
+    local key
+    key=$(_cache_key)
+    local cache_file="${CRED_CACHE_DIR}/${key}"
+    if [[ -d "${cache_file}" ]]; then
+        echo "[entrypoint] Restoring cached runner credentials (key=${key:0:12}...)"
+        local restored=0
+        for f in .runner .credentials .credentials_rsaparams; do
+            if [[ -f "${cache_file}/${f}" ]]; then
+                cp "${cache_file}/${f}" "${RUNNER_HOME}/${f}"
+                chown runner:runner "${RUNNER_HOME}/${f}"
+                restored=$((restored + 1))
+            fi
+        done
+        if [[ -f "${RUNNER_HOME}/.runner" && -f "${RUNNER_HOME}/.credentials" ]]; then
+            return 0
+        fi
+        rm -f -- \
+            "${RUNNER_HOME}/.runner" \
+            "${RUNNER_HOME}/.credentials" \
+            "${RUNNER_HOME}/.credentials_rsaparams"
+        echo "[entrypoint] Credential cache is incomplete; falling back to registration."
+    fi
+    return 1
+}
+
+_save_creds() {
+    local key
+    key=$(_cache_key)
+    local cache_file="${CRED_CACHE_DIR}/${key}"
+    mkdir -p "${cache_file}"
+    # Store the registration credential files
+    for f in .runner .credentials .credentials_rsaparams; do
+        if [[ -f "${RUNNER_HOME}/${f}" ]]; then
+            cp "${RUNNER_HOME}/${f}" "${cache_file}/${f}"
+            chown runner:runner "${cache_file}/${f}"
+        fi
+    done
+    echo "[entrypoint] Runner credentials cached (key=${key:0:12}...)"
+}
+
+_clear_cached_creds() {
+    local key
+    key=$(_cache_key)
+    local cache_file="${CRED_CACHE_DIR}/${key}"
+    if [[ -d "${cache_file}" ]]; then
+        rm -rf "${cache_file}"
+        echo "[entrypoint] Cleared stale credential cache (key=${key:0:12}...)"
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Known registration error detection
+# These strings indicate the runner token is stale or the runner was removed
+# from the org — a re-registration is needed.
+# ---------------------------------------------------------------------------
+
+_is_registration_error() {
+    local log_content="${1}"
+    local known_patterns=(
+        "not registered"
+        "HTTP 401"
+        "Failed to get session"
+        "Unable to connect to server"
+        "unauthorized"
+        "invalid token"
+        "runner registration token"
+        "RegistrationError"
+    )
+    for pattern in "${known_patterns[@]}"; do
+        if echo "${log_content}" | grep -qi "${pattern}"; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# ---------------------------------------------------------------------------
+# Privilege de-escalation helper
+# ---------------------------------------------------------------------------
+# If running as root (default after Dockerfile change), use gosu to run
+# commands as the 'runner' user. If already running as runner, execute directly.
+
+_as_runner() {
+    if [[ "$(id -u)" -eq 0 ]]; then
+        gosu runner "$@"
+    else
+        "$@"
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Registration
+# ---------------------------------------------------------------------------
+
+_register() {
+    echo "[entrypoint] Registering runner: ${RUNNER_NAME} @ ${GITHUB_ORG_URL}"
+    echo "[entrypoint] Labels: ${RUNNER_LABELS} | Group: ${RUNNER_GROUP:-<none: repo-scoped>}"
+
+    local config_args=(
+        --url "${GITHUB_ORG_URL}"
+        --token "${RUNNER_TOKEN}"
+        --name "${RUNNER_NAME}"
+        --labels "${RUNNER_LABELS}"
+        --work "${RUNNER_WORK_DIR}"
+        --unattended
+        --disableupdate
+        --replace
+    )
+    # OMN-14900: --runnergroup only when a group is actually set. Repo-scoped
+    # registration (GITHUB_ORG_URL pointing at a repository, as the deploy
+    # runner does) rejects --runnergroup outright.
+    if [[ -n "${RUNNER_GROUP}" ]]; then
+        config_args+=(--runnergroup "${RUNNER_GROUP}")
+    fi
+
+    _as_runner "${RUNNER_HOME}/config.sh" "${config_args[@]}"
+}
+
+_deregister() {
+    if [[ -z "${RUNNER_TOKEN:-}" ]]; then
+        echo "[entrypoint] Skipping de-registration (no RUNNER_TOKEN available)"
+        return 0
+    fi
+    echo "[entrypoint] Attempting graceful de-registration..."
+    _as_runner "${RUNNER_HOME}/config.sh" remove --token "${RUNNER_TOKEN}" 2>/dev/null || true
+}
+
+# ---------------------------------------------------------------------------
+# Main entrypoint loop
+# ---------------------------------------------------------------------------
+
+RUNNER_HOME="${RUNNER_HOME:-/home/runner/actions-runner}"
+cd "${RUNNER_HOME}"
+
+shutdown_requested=0
+_request_shutdown() {
+    shutdown_requested=1
+    echo "[entrypoint] Shutdown requested; runner listener will not be relaunched."
+}
+trap _request_shutdown TERM INT
+
+# Watchdog pattern (OMN-13915): match THIS runner home's listener binary path.
+# Dots escaped for pgrep's ERE matching.
+LISTENER_PGREP_PATTERN="${LISTENER_PGREP_PATTERN:-${RUNNER_HOME//./\\.}/bin/Runner\.Listener}"
+# Worker pattern (OMN-14564): a Runner.Worker process means a job is executing
+# — the heartbeat watchdog must NEVER recycle mid-job.
+WORKER_PGREP_PATTERN="${WORKER_PGREP_PATTERN:-${RUNNER_HOME//./\\.}/bin/Runner\.Worker}"
+# run-helper pattern (OMN-15776): match THIS runner home's run.sh->run-helper.sh
+# wrapper (the direct parent of Runner.Listener — see healthcheck.sh's process
+# tree comment). MUST be RUNNER_HOME-anchored like the two patterns above: an
+# unanchored "run-helper" pkill matches ANY process on the host whose cmdline
+# contains that substring, including the real fleet runner's own run-helper.sh
+# when a nested/synthetic entrypoint.sh (e.g. the functional tests in
+# tests/ci/test_runner_listener_liveness.py) runs in the same PID namespace —
+# this is the confirmed root cause of self-hosted CI jobs mid-run receiving an
+# out-of-band shutdown signal ("[HostContext] Runner will be shutdown for
+# UserCancelled") while test_entrypoint_recycles_hung_listener exercises this
+# recycle path elsewhere in the same container.
+RUN_HELPER_PGREP_PATTERN="${RUN_HELPER_PGREP_PATTERN:-${RUNNER_HOME//./\\.}.*run-helper}"
+
+# OMN-14564: same find-mmin condition as healthcheck.sh layer 2 — returns 0
+# (stale) when no _diag *.log was modified within
+# LISTENER_HEARTBEAT_MAX_AGE_SECONDS (the kill threshold; the healthcheck
+# alerts earlier at RUNNER_HEALTH_MAX_DIAG_AGE_SECONDS — see the decoupling
+# rationale above). A missing _diag directory under a "live" listener is the
+# same divergence and also reads as stale; the LISTENER_HEARTBEAT_MISSES
+# grace window covers first-registration startup before the listener writes
+# its first log.
+_listener_heartbeat_stale() {
+    local diag_dir="${RUNNER_HOME}/_diag"
+    local max_age_minutes=$(( (LISTENER_HEARTBEAT_MAX_AGE_SECONDS + 59) / 60 ))
+    local fresh_file
+    fresh_file=$(find "${diag_dir}" -type f -name '*.log' -mmin "-${max_age_minutes}" -print 2>/dev/null | head -n 1)
+    [[ -z "${fresh_file}" ]]
+}
+
+# Kill the wrapper tree AND the listener binary itself (TERM, grace, KILL).
+# The explicit listener pkill is load-bearing for OMN-14564: a listener
+# deadlocked in its token-refresh HTTP call ignores the wrapper-tree TERM,
+# and a surviving hung listener would collide with the respawned listener's
+# broker session.
+_recycle_runner_tree() {
+    local pid="${1}"
+    kill -TERM "${pid}" 2>/dev/null || true
+    pkill -TERM -f "${RUN_HELPER_PGREP_PATTERN}" 2>/dev/null || true
+    pkill -TERM -f "${LISTENER_PGREP_PATTERN}" 2>/dev/null || true
+    sleep 10
+    kill -KILL "${pid}" 2>/dev/null || true
+    pkill -KILL -f "${RUN_HELPER_PGREP_PATTERN}" 2>/dev/null || true
+    pkill -KILL -f "${LISTENER_PGREP_PATTERN}" 2>/dev/null || true
+}
+
+# OMN-15233: reap any listener left over from a previous incarnation BEFORE
+# spawning a replacement. Returns 0 when no listener remains (safe to spawn),
+# 1 when one survived even SIGKILL (the caller must not spawn into a contested
+# session). TERM first so a healthy-but-stranded listener can deregister its
+# session cleanly; escalate to KILL after LISTENER_REAP_TIMEOUT_SECONDS because
+# a listener deadlocked in its token-refresh call ignores TERM (OMN-14564).
+_reap_orphaned_listeners() {
+    local pids
+    pids=$(pgrep -f "${LISTENER_PGREP_PATTERN}" 2>/dev/null || true)
+    if [[ -z "${pids}" ]]; then
+        return 0
+    fi
+    echo "[entrypoint] REAP: Runner.Listener survived from a previous incarnation (pids: ${pids//$'\n'/ }) — killing before spawning a replacement (OMN-15233: spawn-without-reap manufactures TaskAgentSessionConflictException)"
+    pkill -TERM -f "${LISTENER_PGREP_PATTERN}" 2>/dev/null || true
+    local waited=0
+    while pgrep -f "${LISTENER_PGREP_PATTERN}" >/dev/null 2>&1; do
+        if [[ ${waited} -ge ${LISTENER_REAP_TIMEOUT_SECONDS} ]]; then
+            echo "[entrypoint] REAP: listener ignored TERM for ${waited}s — escalating to KILL"
+            pkill -KILL -f "${LISTENER_PGREP_PATTERN}" 2>/dev/null || true
+            sleep 2
+            break
+        fi
+        sleep 1
+        waited=$((waited + 1))
+    done
+    if pgrep -f "${LISTENER_PGREP_PATTERN}" >/dev/null 2>&1; then
+        echo "[entrypoint] REAP: FAILED — a Runner.Listener survived SIGKILL; refusing to spawn a replacement into a contested session"
+        return 1
+    fi
+    echo "[entrypoint] REAP: no Runner.Listener remains — safe to spawn replacement"
+    return 0
+}
+
+# Check for credentials in priority order:
+# 1. In-place (container restart — files already in RUNNER_HOME)
+# 2. Volume cache (fresh container — restore from mounted volume)
+# 3. Fresh registration (first-time setup — requires RUNNER_TOKEN)
+if [[ -f "${RUNNER_HOME}/.runner" && -f "${RUNNER_HOME}/.credentials" ]]; then
+    echo "[entrypoint] Found in-place credentials — skipping registration (container restart)"
+elif _restore_cached_creds; then
+    echo "[entrypoint] Restored credentials from volume cache — skipping registration"
+else
+    if [[ -z "${RUNNER_TOKEN:-}" ]]; then
+        echo "[entrypoint] ERROR: No credentials found and RUNNER_TOKEN is not set."
+        echo "[entrypoint] For first-time registration, set RUNNER_TOKEN in the environment."
+        echo "[entrypoint] Generate a token at: https://github.com/organizations/OmniNode-ai/settings/actions/runners/new"
+        echo "[entrypoint] Token is valid for 1 hour. After registration, cached credentials are used."
+        exit 1
+    fi
+    echo "[entrypoint] No cached credentials found — registering with RUNNER_TOKEN..."
+    _register
+    _save_creds
+fi
+
+# ---------------------------------------------------------------------------
+# Real CPU count for job tools (OMN-19960)
+# ---------------------------------------------------------------------------
+# nproc inside the container reports every host core, not the `cpus:` quota,
+# so pre-commit and `pytest -n auto` fan out 16x too wide and hit the memory
+# limit. Export the cgroup's own count before run.sh is spawned; gosu keeps
+# the environment, so every job step inherits it. See cgroup-cpu-env.sh.
+#
+# The file is baked into the image (v11+), but this entrypoint is bind-mounted
+# from the host's staged copy, which converges ahead of any image rebuild. A
+# runner still on an older image restarts with this entrypoint and no file, so
+# a missing file is logged and skipped, never fatal under `set -e`.
+if [[ -r /usr/local/bin/cgroup-cpu-env.sh ]]; then
+    source /usr/local/bin/cgroup-cpu-env.sh
+    omni_cgroup_cpu_env
+    echo "[entrypoint] cgroup CPU count: ${OMNI_CGROUP_CPUS:-unlimited} (PRE_COMMIT_NO_CONCURRENCY=${PRE_COMMIT_NO_CONCURRENCY:-unset})"
+else
+    echo "[entrypoint] cgroup-cpu-env.sh absent (runner image older than v11); CPU count not exported"
+fi
+
+attempt=0
+listener_restarts=0
+while true; do
+    # OMN-15233: never spawn on top of a surviving listener. A leftover listener
+    # still owns the GitHub broker session, so the replacement would crash-loop
+    # on TaskAgentSessionConflictException while keeping _diag fresh enough to
+    # read HEALTHY. Exiting here surfaces the state to the container restart
+    # policy + runner-monitor instead of hiding it in a silent loop.
+    if ! _reap_orphaned_listeners; then
+        echo "[entrypoint] REAP: unreapable listener — exiting so the container restart policy replaces the whole PID namespace"
+        exit 1
+    fi
+
+    echo "[entrypoint] Starting runner (attempt $((attempt + 1)))"
+    set +e
+    _as_runner "${RUNNER_HOME}/run.sh" > >(tee "${LOG_FILE}") 2>&1 &
+    runner_pid=$!
+
+    # Watchdog: run.sh alive but no Runner.Listener process = the OMN-13915
+    # zombie mode. Recycle the wrapper tree so this loop restarts the runner.
+    # Listener process alive but _diag heartbeat stale (and no job running)
+    # = the OMN-14564 hung-listener mode; same recycle, plus an explicit
+    # listener kill because a hung listener never exits on its own.
+    supervised_kill=0
+    misses=0
+    hb_misses=0
+    while kill -0 "${runner_pid}" 2>/dev/null; do
+        sleep "${LISTENER_SUPERVISE_INTERVAL}"
+        kill -0 "${runner_pid}" 2>/dev/null || break
+        if pgrep -f "${LISTENER_PGREP_PATTERN}" >/dev/null 2>&1; then
+            misses=0
+            # OMN-14564: process existence is NOT liveness. A worker process
+            # means a job is executing — never recycle mid-job, whatever the
+            # heartbeat says (the Docker healthcheck still surfaces it).
+            if pgrep -f "${WORKER_PGREP_PATTERN}" >/dev/null 2>&1; then
+                hb_misses=0
+                continue
+            fi
+            if _listener_heartbeat_stale; then
+                hb_misses=$((hb_misses + 1))
+                echo "[entrypoint] WATCHDOG: listener process alive but no _diag heartbeat within ${LISTENER_HEARTBEAT_MAX_AGE_SECONDS}s (miss ${hb_misses}/${LISTENER_HEARTBEAT_MISSES}) — OMN-14564 hung-listener mode"
+                if [[ ${hb_misses} -ge ${LISTENER_HEARTBEAT_MISSES} ]]; then
+                    echo "[entrypoint] WATCHDOG: listener hung (alive but silent) — killing listener and recycling runner wrapper tree (OMN-14564)"
+                    supervised_kill=1
+                    _recycle_runner_tree "${runner_pid}"
+                    break
+                fi
+            else
+                hb_misses=0
+            fi
+            continue
+        fi
+        misses=$((misses + 1))
+        echo "[entrypoint] WATCHDOG: run.sh alive (pid ${runner_pid}) but no Runner.Listener process (miss ${misses}/${LISTENER_SUPERVISE_MISSES})"
+        if [[ ${misses} -ge ${LISTENER_SUPERVISE_MISSES} ]]; then
+            echo "[entrypoint] WATCHDOG: listener dead-in-container — recycling runner wrapper tree (OMN-13915)"
+            supervised_kill=1
+            _recycle_runner_tree "${runner_pid}"
+            break
+        fi
+    done
+
+    wait "${runner_pid}"
+    exit_code=$?
+    set -e
+
+    log_content=$(cat "${LOG_FILE}" 2>/dev/null || echo "")
+
+    if [[ ${shutdown_requested} -eq 1 ]]; then
+        echo "[entrypoint] Runner exited during shutdown; stopping entrypoint loop."
+        exit 0
+    fi
+
+    if [[ ${supervised_kill} -eq 1 ]]; then
+        listener_restarts=$((listener_restarts + 1))
+        if [[ ${listener_restarts} -gt ${LISTENER_RESTART_MAX} ]]; then
+            echo "[entrypoint] WATCHDOG: listener died ${listener_restarts} times (> ${LISTENER_RESTART_MAX}). Exiting so the container restart policy + runner-monitor surface it."
+            exit 1
+        fi
+        echo "[entrypoint] WATCHDOG: restarting runner after listener death (restart ${listener_restarts}/${LISTENER_RESTART_MAX})"
+        sleep 10
+        continue
+    fi
+
+    if [[ ${exit_code} -eq 0 ]]; then
+        # GitHub runner exits 0 even when registration is server-side deleted
+        # ("no retry needed" from its perspective). Check log for this case.
+        if echo "${log_content}" | grep -qiE "registration has been deleted|Not configured"; then
+            echo "[entrypoint] Runner registration was deleted by GitHub (exit 0 but stale)."
+            echo "[entrypoint] Clearing cached credentials and will re-register on next attempt."
+            _clear_cached_creds
+            # Remove in-place credentials so fresh registration can proceed
+            rm -f "${RUNNER_HOME}/.runner" "${RUNNER_HOME}/.credentials" "${RUNNER_HOME}/.credentials_rsaparams"
+            if [[ -z "${RUNNER_TOKEN:-}" ]]; then
+                echo "[entrypoint] ERROR: Cannot re-register — RUNNER_TOKEN is not set."
+                echo "[entrypoint] Generate a token at: https://github.com/organizations/OmniNode-ai/settings/actions/runners/new"
+                exit 1
+            fi
+            # Fall through to the registration retry loop below
+        else
+            echo "[entrypoint] Runner exited cleanly (exit 0). Relaunching listener after short backoff."
+            sleep 5
+            attempt=0
+            continue
+        fi
+    fi
+
+    echo "[entrypoint] Runner exited with code ${exit_code}"
+
+    if ! _is_registration_error "${log_content}"; then
+        echo "[entrypoint] Unknown error (not a registration error). Exiting immediately."
+        echo "[entrypoint] Last log output:"
+        tail -20 "${LOG_FILE}" 2>/dev/null || true
+        exit "${exit_code}"
+    fi
+
+    echo "[entrypoint] Registration error detected."
+    _clear_cached_creds
+
+    if [[ ${attempt} -ge ${MAX_RETRIES} ]]; then
+        echo "[entrypoint] Max retries (${MAX_RETRIES}) reached. Sleeping 5m before exit 1."
+        echo "[entrypoint] Compose restart: unless-stopped will recover."
+        sleep 300
+        exit 1
+    fi
+
+    backoff=${BACKOFF_SECONDS[${attempt}]}
+    echo "[entrypoint] Re-registering in ${backoff}s (retry $((attempt + 1))/${MAX_RETRIES})..."
+    sleep "${backoff}"
+
+    _deregister
+    _register
+    _save_creds
+
+    attempt=$((attempt + 1))
+done
+
+echo "[entrypoint] Exiting."

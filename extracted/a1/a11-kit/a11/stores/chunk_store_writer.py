@@ -1,0 +1,153 @@
+# Copyright 2026 The A11 Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""The Python-facing protocol for the native `ChunkStoreWriter`.
+
+A `ChunkStoreWriter` is the write cursor over a
+[ChunkStore][a11.stores.chunk_store.ChunkStore]: it admits
+[Chunk][a11.data.types.Chunk] values into the store in sequence, applying
+backpressure through its `ChunkStoreWriterOptions` buffer. Each write returns
+an `asyncio.Future` that completes once the backing store accepts the chunk, so
+a producer can pace itself by awaiting it. Most code reaches a writer through
+an [AsyncNode][a11.nodes.async_node.AsyncNode], but it is usable directly.
+
+The class exported here is the native ``a11._native.ChunkStoreWriter``; this
+module attaches its validating constructor and async ``put`` protocol via
+[attach_protocol][a11._native_protocol.attach_protocol].
+"""
+
+from __future__ import annotations
+
+import asyncio
+from typing import Any
+
+from a11 import _native
+from a11._asyncio import _flush_before_awaiting
+from a11._native_options import install_native_options
+from a11._native_protocol import attach_protocol
+from a11.data import types
+from a11.status import Status, StatusCode
+from a11.stores.chunk_store import ChunkStore, native_chunk_store
+
+from a11._native import ChunkStoreWriterOptions
+
+install_native_options(
+    ChunkStoreWriterOptions,
+    {
+        "offset": (int, 0),
+        "max_chunks_to_write_at_once": (int, 8),
+        "num_chunks_to_buffer": (int | None, None),
+        "sticky_mimetype": (bool, False),
+    },
+)
+ChunkStoreWriterOptions.__module__ = __name__
+
+from a11._native import ChunkStoreWriter
+
+# Native descriptors captured before ``attach_protocol`` overwrites them.
+_native_init = ChunkStoreWriter.__init__
+_native_enqueue_chunk = ChunkStoreWriter.enqueue_chunk
+
+
+class _ChunkStoreWriterProtocol:
+    """A buffered, backpressured write cursor over a ChunkStore."""
+
+    def __init__(
+        self,
+        chunk_store: ChunkStore,
+        options: ChunkStoreWriterOptions | dict[str, Any] | None = None,
+    ) -> None:
+        """Open a writer over ``chunk_store``.
+
+        ``options`` (a `ChunkStoreWriterOptions` or plain dict) tunes the
+        starting offset, sticky mimetypes, and how much is buffered/flushed at
+        once.
+        """
+        if options is None:
+            options = ChunkStoreWriterOptions()
+        elif not isinstance(options, ChunkStoreWriterOptions):
+            options = ChunkStoreWriterOptions.model_validate(options)
+        _native_init(self, native_chunk_store(chunk_store), options)
+
+    async def put(
+        self,
+        obj: Any,
+        seq: int | None = None,
+        final: bool = False,
+    ) -> asyncio.Future[int]:
+        """Write a chunk and return its store-confirmation future.
+
+        The writer operates at the chunk level; pass an already-serialized
+        [Chunk][a11.data.types.Chunk] (use
+        [AsyncNode][a11.nodes.async_node.AsyncNode]
+        to write arbitrary Python objects). Returns a `asyncio.Future`
+        resolving to the stored sequence number.
+        """
+        if not isinstance(obj, types.Chunk):
+            raise Status(
+                code=StatusCode.UNIMPLEMENTED,
+                message=(
+                    "ChunkStoreWriter.put is not implemented for generic"
+                    " objects."
+                ),
+            ).to_exception()
+        return await self.put_chunk(obj, seq=seq, final=final)
+
+    async def put_chunk(
+        self,
+        chunk: types.Chunk,
+        seq: int | None = None,
+        final: bool = False,
+    ) -> asyncio.Future[int]:
+        """Enqueue a native chunk and return its store-confirmation future.
+
+        Set ``final=True`` on the last chunk when readers must know the logical
+        end of the sequence. Calling `drain_and_close` later only flushes and
+        closes the writer; it does not add that final marker for you. A node
+        does both at once -- see `AsyncNode.finalize`.
+
+        Examples:
+            Checkpoint only after the store accepts the final event:
+
+            ```python
+            confirmation = await writer.put_chunk(
+                a11.to_chunk(event), final=True
+            )
+            stored_seq = await confirmation
+            await checkpoints.save(stored_seq)
+            ```
+
+        Awaiting the confirmation flushes the writer on this thread, so a
+        store that accepts the write without waiting resolves it without an
+        event-loop turn. Awaiting only this coroutine does not flush: the
+        write goes out on the writer's own pump, which is what lets a producer
+        run ahead of a slow store.
+        """
+        confirmation, admission = _native_enqueue_chunk(
+            self, chunk, seq=seq, final=final
+        )
+        _flush_before_awaiting(confirmation, self.flush)
+        if admission is not None:
+            try:
+                await admission
+            except BaseException:
+                confirmation.cancel()
+                raise
+        return confirmation
+
+
+attach_protocol(ChunkStoreWriter, _ChunkStoreWriterProtocol)
+ChunkStoreWriter.__module__ = __name__
+
+__all__ = ["ChunkStoreWriter", "ChunkStoreWriterOptions"]

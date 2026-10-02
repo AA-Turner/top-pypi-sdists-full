@@ -42,10 +42,19 @@ TIME_FORMAT = "%B-%d-%Y %H:%M:%S"   # arrow MMMM-DD-YYYY HH:mm:ss
 
 
 def _written_at(df):
-    """Wall-clock write timestamp per row: parsed Time, falling back to Date."""
-    ts = pd.to_datetime(df["Time"], format=TIME_FORMAT, errors="coerce")
-    return ts.fillna(pd.to_datetime(df["Date"], format=DATE_FORMAT,
-                                    errors="coerce"))
+    """Wall-clock write timestamp per row: parsed Time, falling back to Date.
+
+    Either column may be absent (an exporter that did not fetch them, or an
+    old table): missing timestamps come back NaT and the stable sort in
+    :func:`dedup_upserts` then resolves ties by insertion order.
+    """
+    ts = pd.Series(pd.NaT, index=df.index, dtype="datetime64[ns]")
+    if "Time" in df.columns:
+        ts = pd.to_datetime(df["Time"], format=TIME_FORMAT, errors="coerce")
+    if "Date" in df.columns:
+        ts = ts.fillna(pd.to_datetime(df["Date"], format=DATE_FORMAT,
+                                      errors="coerce"))
+    return ts
 
 
 def dedup_upserts(df, key, label=""):
@@ -58,9 +67,10 @@ def dedup_upserts(df, key, label=""):
 
     ``key`` is the logical identity of a row. Callers differ: the viz loaders
     key on the renamed ``(Model, Region, year, stage)``; an exporter reading
-    the raw table keys on the DB's own column names. Requires ``Date`` and
-    ``Time`` — the ordering is done on the PARSED timestamp, never the raw
-    strings, which are month-name-first and so do not sort chronologically.
+    the raw table keys on the DB's own column names. Uses ``Date`` and
+    ``Time`` when present — the ordering is done on the PARSED timestamp,
+    never the raw strings, which are month-name-first and so do not sort
+    chronologically; without them the last-inserted copy wins.
     """
     if df.empty or not df.duplicated(key).any():
         return df

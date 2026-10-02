@@ -37,7 +37,9 @@ class Resources(object):
         'gpu': 'int',
         'memory': 'int',
         'object_store_memory': 'int',
-        'custom_resources': 'dict(str, int)'
+        'custom_resources': 'dict(str, int)',
+        'system_reserved_cpu_millicpu': 'int',
+        'system_reserved_memory_bytes': 'int'
     }
 
     attribute_map = {
@@ -45,10 +47,12 @@ class Resources(object):
         'gpu': 'gpu',
         'memory': 'memory',
         'object_store_memory': 'object_store_memory',
-        'custom_resources': 'custom_resources'
+        'custom_resources': 'custom_resources',
+        'system_reserved_cpu_millicpu': 'system_reserved_cpu_millicpu',
+        'system_reserved_memory_bytes': 'system_reserved_memory_bytes'
     }
 
-    def __init__(self, cpu=None, gpu=None, memory=None, object_store_memory=None, custom_resources=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, cpu=None, gpu=None, memory=None, object_store_memory=None, custom_resources=None, system_reserved_cpu_millicpu=None, system_reserved_memory_bytes=None, local_vars_configuration=None):  # noqa: E501
         """Resources - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -59,6 +63,8 @@ class Resources(object):
         self._memory = None
         self._object_store_memory = None
         self._custom_resources = None
+        self._system_reserved_cpu_millicpu = None
+        self._system_reserved_memory_bytes = None
         self.discriminator = None
 
         if cpu is not None:
@@ -71,6 +77,10 @@ class Resources(object):
             self.object_store_memory = object_store_memory
         if custom_resources is not None:
             self.custom_resources = custom_resources
+        if system_reserved_cpu_millicpu is not None:
+            self.system_reserved_cpu_millicpu = system_reserved_cpu_millicpu
+        if system_reserved_memory_bytes is not None:
+            self.system_reserved_memory_bytes = system_reserved_memory_bytes
 
     @property
     def cpu(self):
@@ -186,6 +196,52 @@ class Resources(object):
         """
 
         self._custom_resources = custom_resources
+
+    @property
+    def system_reserved_cpu_millicpu(self):
+        """Gets the system_reserved_cpu_millicpu of this Resources.  # noqa: E501
+
+        CPU reserved for Ray system processes, in millicpu (1000 = 1 core). Passed to `ray start ... --system-reserved-cpu` only when Ray core resource isolation is enabled on the cluster; otherwise ignored.  # noqa: E501
+
+        :return: The system_reserved_cpu_millicpu of this Resources.  # noqa: E501
+        :rtype: int
+        """
+        return self._system_reserved_cpu_millicpu
+
+    @system_reserved_cpu_millicpu.setter
+    def system_reserved_cpu_millicpu(self, system_reserved_cpu_millicpu):
+        """Sets the system_reserved_cpu_millicpu of this Resources.
+
+        CPU reserved for Ray system processes, in millicpu (1000 = 1 core). Passed to `ray start ... --system-reserved-cpu` only when Ray core resource isolation is enabled on the cluster; otherwise ignored.  # noqa: E501
+
+        :param system_reserved_cpu_millicpu: The system_reserved_cpu_millicpu of this Resources.  # noqa: E501
+        :type: int
+        """
+
+        self._system_reserved_cpu_millicpu = system_reserved_cpu_millicpu
+
+    @property
+    def system_reserved_memory_bytes(self):
+        """Gets the system_reserved_memory_bytes of this Resources.  # noqa: E501
+
+        Memory reserved for Ray system processes, in bytes. Passed to `ray start ... --system-reserved-memory` only when Ray core resource isolation is enabled on the cluster; otherwise ignored.  # noqa: E501
+
+        :return: The system_reserved_memory_bytes of this Resources.  # noqa: E501
+        :rtype: int
+        """
+        return self._system_reserved_memory_bytes
+
+    @system_reserved_memory_bytes.setter
+    def system_reserved_memory_bytes(self, system_reserved_memory_bytes):
+        """Sets the system_reserved_memory_bytes of this Resources.
+
+        Memory reserved for Ray system processes, in bytes. Passed to `ray start ... --system-reserved-memory` only when Ray core resource isolation is enabled on the cluster; otherwise ignored.  # noqa: E501
+
+        :param system_reserved_memory_bytes: The system_reserved_memory_bytes of this Resources.  # noqa: E501
+        :type: int
+        """
+
+        self._system_reserved_memory_bytes = system_reserved_memory_bytes
 
     def to_dict(self):
         """Returns the model properties as a dict"""

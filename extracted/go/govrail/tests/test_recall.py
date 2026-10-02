@@ -1,0 +1,303 @@
+from gov import recall
+
+
+def _memory(root):
+    notes = root / ".agents" / "notes" / "implemented" / "architecture"
+    notes.mkdir(parents=True)
+    (notes / "2026-01-01-gate-runner.md").write_text(
+        "# Agent Note: the gate runner DAG\n\nStatus: implemented\n\n"
+        "## Problem\nconcurrency was unbounded.\n\n"
+        "## Decision\nthe runner respects the needs DAG.\n\n"
+        "## Alternatives considered\na plain loop.\n"
+    , encoding="utf-8")
+    (notes / "2026-01-02-pairing.md").write_text(
+        "# Agent Note: pairing by blob hash\n\nStatus: implemented\n\n"
+        "## Problem\ndrift between languages.\n\n"
+        "## Decision\nhashes pin the pair.\n\n"
+        "## Alternatives considered\nmanual review.\n"
+    , encoding="utf-8")
+    docs = root / "docs"
+    docs.mkdir()
+    (docs / "decisions.md").write_text(
+        "# log\n\n## D1 — 默认运行集\n\n- **状态**：已决\n- **决定**：defaultMode 声明默认集。\n\n"
+        "## D2 — pairing 约定\n\n- **状态**：已决\n"
+    , encoding="utf-8")
+    pm = docs / "postmortem"
+    pm.mkdir()
+    (pm / "2026-01-03-outage.md").write_text("# Postmortem: the outage\n\n## Root cause\ndrift.\n", encoding="utf-8")
+    (pm / "README.md").write_text("# Postmortems\ncontract only\n", encoding="utf-8")
+
+
+def test_recall_ranks_title_above_body(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    _memory(tmp_path)
+    assert recall.main(["pairing"]) == 0
+    out = capsys.readouterr().out
+    note_line = [l for l in out.splitlines() if "2026-01-02-pairing.md" in l][0]
+    d_line = [l for l in out.splitlines() if "decisions.md#D2" in l][0]
+    assert "matched in title" in note_line
+    assert "matched in title" in d_line  # the D-heading is the entry's title
+    # 'defaultMode' appears only inside D1's body → body match
+    assert recall.main(["defaultMode"]) == 0
+    body_out = capsys.readouterr().out
+    body_line = [l for l in body_out.splitlines() if "decisions.md#D1" in l][0]
+    assert "matched in body" in body_line
+    assert "README" not in out  # the postmortem contract is not an entry
+
+
+def test_recall_requires_all_terms(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    _memory(tmp_path)
+    assert recall.main(["pairing", "quantum-nonsense"]) == 1
+    assert "no match" in capsys.readouterr().out
+
+
+def test_miss_prints_per_term_hit_counts(tmp_path, monkeypatch, capsys):
+    """#148: a miss distinguishes 'corpus lacks the term' from 'AND failed'."""
+    monkeypatch.chdir(tmp_path)
+    _memory(tmp_path)
+    assert recall.main(["pairing", "quantum-nonsense"]) == 1
+    out = capsys.readouterr().out
+    assert "per-term hits: pairing: 2 / quantum-nonsense: 0" in out
+    assert "--any" in out  # the hint names the relaxed retry
+
+
+def test_miss_without_any_hit_skips_the_any_hint(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    _memory(tmp_path)
+    assert recall.main(["quantum-nonsense", "void"]) == 1
+    out = capsys.readouterr().out
+    assert "per-term hits: quantum-nonsense: 0 / void: 0" in out
+    assert "--any" not in out
+
+
+def test_corpus_statement_on_every_invocation(tmp_path, monkeypatch, capsys):
+    """#148: what was searched is stated on stderr; stdout stays the hits."""
+    monkeypatch.chdir(tmp_path)
+    _memory(tmp_path)
+    assert recall.main(["pairing"]) == 0
+    captured = capsys.readouterr()
+    assert ("corpus — notes 2 (implemented 2, archived 0), "
+            "decisions 2 (docs/decisions.md), "
+            "postmortems 1 (docs/postmortem/)") in captured.err
+    # the ranked results still lead stdout (the skill reads the top lines)
+    assert captured.out.splitlines()[0].startswith(".agents/notes/")
+    # misses state the corpus too — via the same stderr line
+    assert recall.main(["quantum-nonsense"]) == 1
+    assert "corpus — notes 2" in capsys.readouterr().err
+
+
+def test_corpus_statement_names_a_missing_decisions_source(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    notes = tmp_path / ".agents" / "notes" / "implemented" / "architecture"
+    notes.mkdir(parents=True)
+    (notes / "2026-01-01-solo.md").write_text("# Agent Note: solo\n\n## Problem\nx\n", encoding="utf-8")
+    assert recall.main(["solo"]) == 0
+    assert "decisions 0 (no source)" in capsys.readouterr().err
+
+
+def test_any_ranks_partial_matches(tmp_path, monkeypatch, capsys):
+    """#148: --any ranks entries by terms matched instead of refusing."""
+    monkeypatch.chdir(tmp_path)
+    _memory(tmp_path)
+    terms = ["pairing", "drift", "quantum-nonsense"]
+    assert recall.main(terms) == 1  # strict AND: no entry carries all three
+    capsys.readouterr()
+    assert recall.main(["--any", *terms]) == 0
+    out = capsys.readouterr().out
+    assert "matched 2/3 terms" in out  # the pairing note: title + body
+    assert "matched 1/3 terms" in out  # D2 (title) and the postmortem (body)
+    ranked = [l for l in out.splitlines() if "matched" in l and " — " in l]
+    assert "2/3" in ranked[0]
+
+
+def test_any_tiers_title_hits_above_body_hits(tmp_path, monkeypatch, capsys):
+    """#395: --any keeps the strict-AND contract's ranking (title >
+    heading > body) as its primary key — a title hit surfaces even when
+    a body-only entry matched more terms, and the header says so."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".agents" / "notes" / "implemented" / "feature").mkdir(
+        parents=True)
+    (tmp_path / ".agents" / "notes" / "implemented" / "feature" /
+     "2026-01-01-titled.md").write_text(
+        "# Agent Note: the zephyr gate\n\nStatus: implemented\n\n"
+        "## Problem\nnothing relevant here\n\n"
+        "## Decision\nplain words only\n\n"
+        "## Alternatives considered\nnone\n", encoding="utf-8")
+    (tmp_path / ".agents" / "notes" / "implemented" / "bug-fix").mkdir(
+        parents=True)
+    (tmp_path / ".agents" / "notes" / "implemented" / "bug-fix" /
+     "2026-01-02-body-heavy.md").write_text(
+        "# Agent Note: unrelated title\n\nStatus: implemented\n\n"
+        "## Problem\nzephyr appears here and zephyr again, twice in the "
+        "body\n\n"
+        "## Decision\nmore zephyr mentions still\n\n"
+        "## Alternatives considered\nno zephyr in the title though\n",
+        encoding="utf-8")
+    assert recall.main(["--any", "zephyr", "absent-word"]) == 0
+    out = capsys.readouterr().out
+    ranked = [ln for ln in out.splitlines() if "matched" in ln and " — " in ln]
+    assert "in title" in ranked[0], ranked
+    assert "in body" in ranked[1], ranked
+    assert "title > heading > body" in out
+
+
+def test_any_with_zero_matches_still_fails_loud(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    _memory(tmp_path)
+    assert recall.main(["--any", "quantum-nonsense"]) == 1
+    out = capsys.readouterr().out
+    assert "no match" in out and "quantum-nonsense: 0" in out
+
+
+def test_recall_decisions_sections_are_entries(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    _memory(tmp_path)
+    assert recall.main(["默认运行集"]) == 0
+    out = capsys.readouterr().out
+    assert "decisions.md#D1" in out and "matched in title" in out
+
+
+def test_recall_no_sources_fails_loud(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    # An empty corpus is "no match, fail loud" (1) — same verdict family
+    # as a miss; 2 stays reserved for usage errors.
+    assert recall.main(["anything"]) == 1
+
+
+def test_recall_archived_notes_searchable(tmp_path, monkeypatch, capsys):
+    arch = tmp_path / ".agents" / "notes" / "archived" / "process"
+    arch.mkdir(parents=True)
+    (arch / "2026-01-01-old.md").write_text("# Agent Note: the old way\n\n## Problem\nhistory.\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    assert recall.main(["old way"]) == 0
+    assert "archived/process/2026-01-01-old.md" in capsys.readouterr().out
+
+
+def test_implemented_outranks_archived_at_equal_rank(tmp_path, monkeypatch, capsys):
+    """F4: current authority lists before frozen evidence."""
+    monkeypatch.chdir(tmp_path)
+    for rel in ("implemented/architecture", "archived/architecture"):
+        d = tmp_path / ".agents" / "notes" / rel
+        d.mkdir(parents=True)
+        (d / "2026-01-01-pairing.md").write_text(
+            "# Agent Note: pairing\n\n## Problem\nx\n", encoding="utf-8")
+    assert recall.main(["pairing"]) == 0
+    lines = [l for l in capsys.readouterr().out.splitlines() if "2026-01-01-pairing.md" in l]
+    assert lines[0].startswith(".agents/notes/implemented/")
+
+
+def test_snippet_prints_the_matched_line(tmp_path, monkeypatch, capsys):
+    """--snippet: the evidence is printed inline under each hit, trimmed,
+    indented — the address AND the quote."""
+    _memory(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    assert recall.main(["--snippet", "gate", "runner"]) == 0
+    out = capsys.readouterr().out
+    assert "matched in title" in out
+    assert "    Agent Note: the gate runner DAG" in out
+    # the miss path is untouched by --snippet
+    capsys.readouterr()
+    assert recall.main(["--snippet", "quantum-entangle"]) == 1
+
+
+def test_single_quoted_phrase_searches_its_words(tmp_path, monkeypatch,
+                                                 capsys):
+    """#346: quote marks are shell syntax, not a phrase operator — one
+    argv carrying spaces must search the same terms as separate args,
+    or the most natural invocation always misses."""
+    monkeypatch.chdir(tmp_path)
+    _memory(tmp_path)
+    # the two words live in DIFFERENT entries, so the word-AND misses and
+    # the per-term line names both terms (the old literal-phrase read
+    # showed one undiagnosable term instead)
+    assert recall.main(["runner outage"]) == 1
+    out = capsys.readouterr().out
+    assert "per-term hits: runner: 1 / outage: 1" in out
+    # exact equivalence with the separate-argument form
+    capsys.readouterr()
+    assert recall.main(["runner", "outage"]) == 1
+    assert capsys.readouterr().out == out
+
+
+def test_phrase_split_hits_cross_line(tmp_path, monkeypatch, capsys):
+    """The words need not sit adjacent — 'pairing' (title) and 'drift'
+    (body) are one entry's match under the word-AND."""
+    monkeypatch.chdir(tmp_path)
+    _memory(tmp_path)
+    assert recall.main(["pairing drift"]) == 0
+    out = capsys.readouterr().out
+    assert "2026-01-02-pairing.md" in out
+
+
+def test_recent_digest_needs_no_query(tmp_path, monkeypatch, capsys):
+    """#344: the cold-start primer — newest entries, title + one line."""
+    monkeypatch.chdir(tmp_path)
+    _memory(tmp_path)
+    assert recall.main(["--recent"]) == 0
+    out = capsys.readouterr().out
+    assert "recent entry/ies" in out
+    assert "2026-01-02-pairing.md" in out
+    assert "README" not in out  # the postmortem contract is not an entry
+    # each hit carries a one-line summary; Status:/heading furniture is
+    # skipped in favor of the first substantive line
+    pairing_block = out.split("2026-01-02-pairing.md")[1]
+    first_body = pairing_block.splitlines()[1].strip()
+    assert first_body.startswith("drift between languages")
+
+
+def test_recent_orders_newest_first_and_caps(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    _memory(tmp_path)
+    assert recall.main(["--recent", "2"]) == 0
+    out = capsys.readouterr().out
+    lines = [l for l in out.splitlines()
+             if l.startswith((".agents", "docs/"))]
+    assert len(lines) == 2
+    assert "2026-01-03-outage.md" in lines[0]     # newest first
+    assert "2026-01-02-pairing.md" in lines[1]
+
+
+def test_recent_zero_refused(tmp_path, monkeypatch):
+    import pytest
+    monkeypatch.chdir(tmp_path)
+    _memory(tmp_path)
+    with pytest.raises(SystemExit):
+        recall.main(["--recent", "0"])
+
+
+def test_bare_recall_is_a_usage_error_not_a_crash(tmp_path, monkeypatch):
+    import pytest
+    monkeypatch.chdir(tmp_path)
+    _memory(tmp_path)
+    with pytest.raises(SystemExit):
+        recall.main([])
+
+
+def test_superseded_notes_are_marked_and_rank_below_current(tmp_path,
+                                                            monkeypatch,
+                                                            capsys):
+    """#364: the forward pointer is optional and additive; recall must
+    make it visible — and a note that says it was replaced must not
+    outrank the note that replaced it."""
+    monkeypatch.chdir(tmp_path)
+    _memory(tmp_path)
+    notes = tmp_path / ".agents" / "notes" / "implemented" / "architecture"
+    (notes / "2026-01-01-old-runner.md").write_text(
+        "# Agent Note: the runner shapes\n\nStatus: implemented\n"
+        "Superseded by: 2026-01-02-new-runner.md\n\n"
+        "## Problem\nthe old way.\n\n## Decision\nold shape.\n\n"
+        "## Alternatives considered\nnone.\n", encoding="utf-8")
+    (notes / "2026-01-02-new-runner.md").write_text(
+        "# Agent Note: the runner shapes, again\n\nStatus: implemented\n"
+        "Supersedes 2026-01-01-old-runner.md (rule 4's back-link).\n\n"
+        "## Problem\nthe old way.\n\n## Decision\nnew shape.\n\n"
+        "## Alternatives considered\nkeeping it.\n", encoding="utf-8")
+    assert recall.main(["shapes"]) == 0
+    out = capsys.readouterr().out
+    old_line = [l for l in out.splitlines() if "old-runner" in l][0]
+    new_line = [l for l in out.splitlines() if "new-runner" in l][0]
+    assert "(superseded by 2026-01-02-new-runner.md)" in old_line
+    assert "superseded" not in new_line
+    assert out.index(new_line) < out.index(old_line), (
+        "the replacement outranks the note it replaced at equal rank")

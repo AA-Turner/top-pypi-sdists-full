@@ -427,7 +427,7 @@ mod goto_declaration_tests {
                 };
                 toml_text.remove(index);
                 let line_index =
-                tombi_text::LineIndex::new(&toml_text, tombi_text::EncodingKind::Utf16);
+                tombi_text::LineIndex::new(toml_text.as_str());
 
                 handle_did_open(
                     backend,
@@ -445,9 +445,7 @@ mod goto_declaration_tests {
                 let params = GotoDefinitionParams {
                     text_document_position_params: TextDocumentPositionParams {
                         text_document: TextDocumentIdentifier { uri: toml_file_url },
-                        position: (tombi_text::Position::default()
-                            + tombi_text::RelativePosition::of(&toml_text[..index]))
-                        .into_lsp(&line_index),
+                        position: tombi_text::Offset::of(&toml_text[..index]).into_lsp(&line_index, tombi_text::EncodingKind::Utf16),
                     },
                     work_done_progress_params: WorkDoneProgressParams::default(),
                     partial_result_params: PartialResultParams::default(),

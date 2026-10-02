@@ -1,0 +1,40 @@
+"""gnome-shell screensaver mock template
+
+This creates the expected methods and properties of the
+org.gnome.ScreenSaver object.
+"""
+
+# SPDX-License-Identifier: LGPL-3.0-or-later
+
+__author__ = "Bastien Nocera"
+__copyright__ = """
+(c) 2013 Red Hat Inc.
+(c) 2017 - 2022 Martin Pitt <martin@piware.de>
+"""
+
+BUS_NAME = "org.gnome.ScreenSaver"
+MAIN_OBJ = "/org/gnome/ScreenSaver"
+MAIN_IFACE = "org.gnome.ScreenSaver"
+SYSTEM_BUS = False
+
+
+def load(mock, _parameters):
+    mock.AddMethods(
+        MAIN_IFACE,
+        [
+            ("GetActive", "", "b", "ret = self.is_active"),
+            ("GetActiveTime", "", "u", "ret = 1"),
+            (
+                "SetActive",
+                "b",
+                "",
+                'self.is_active = args[0]; self.EmitSignal("", "ActiveChanged", "b", [self.is_active])',
+            ),
+            ("Lock", "", "", "time.sleep(1); self.SetActive(True)"),
+            ("ShowMessage", "sss", "", ""),
+            ("SimulateUserActivity", "", "", ""),
+        ],
+    )
+
+    # default state
+    mock.is_active = False

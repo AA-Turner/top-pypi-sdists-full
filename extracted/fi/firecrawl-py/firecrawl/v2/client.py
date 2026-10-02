@@ -116,7 +116,8 @@ class FirecrawlClient:
         api_url: str = "https://api.firecrawl.dev",
         timeout: Optional[float] = None,
         max_retries: int = 3,
-        backoff_factor: float = 0.5
+        backoff_factor: float = 0.5,
+        origin: Optional[str] = None,
     ):
         """
         Initialize the Firecrawl client.
@@ -127,6 +128,8 @@ class FirecrawlClient:
             timeout: Request timeout in seconds
             max_retries: Maximum number of retries for failed requests
             backoff_factor: Exponential backoff factor for retries (e.g. 0.5 means wait 0.5s, then 1s, then 2s between retries)
+            origin: Attribution string stamped into API request payloads
+                (defaults to ``python-sdk@<version>``)
         """
         if api_key is None:
             api_key = os.getenv("FIRECRAWL_API_KEY")
@@ -150,6 +153,7 @@ class FirecrawlClient:
             timeout=timeout,
             max_retries=max_retries,
             backoff_factor=backoff_factor,
+            origin=origin,
         )
     
     def scrape(
@@ -881,7 +885,39 @@ class FirecrawlClient:
         request = CrawlRequest(**request_kwargs)
 
         return crawl_module.start_crawl(self.http_client, request)
-    
+
+    def wait_crawl(
+        self,
+        job_id: str,
+        poll_interval: int = 2,
+        timeout: Optional[int] = None,
+        *,
+        request_timeout: Optional[float] = None,
+    ) -> CrawlJob:
+        """
+        Poll a crawl job until it reaches a terminal state.
+
+        Args:
+            job_id: ID of the crawl job
+            poll_interval: Seconds between status checks
+            timeout: Maximum seconds to wait for the whole job (None waits indefinitely)
+            request_timeout: Optional timeout (in seconds) for each status request
+
+        Returns:
+            CrawlJob in a terminal state ("completed", "failed", or "cancelled")
+
+        Raises:
+            CrawlJobTimeoutError: If the job does not finish within timeout (a
+                ``TimeoutError`` subclass that carries ``job_id`` and ``timeout``)
+        """
+        return crawl_module.wait_for_crawl_completion(
+            self.http_client,
+            job_id,
+            poll_interval=poll_interval,
+            timeout=timeout,
+            request_timeout=request_timeout,
+        )
+
     def get_crawl_status(
         self,
         job_id: str,
@@ -1484,7 +1520,7 @@ class FirecrawlClient:
             schema: Target JSON schema for the output (dict or Pydantic BaseModel)
             integration: Integration tag/name
             max_credits: Maximum credits to use (optional)
-            model: Model to use for the agent ("spark-1-pro" (default), "spark-1-mini", or "spark-2")
+            model: Model to use for the agent ("spark-2", the default; "spark-1-pro" and "spark-1-mini" are deprecated and run spark-2)
             effort: Reasoning effort for the agent ("low", "medium", or "high")
             webhook: Webhook URL or configuration for notifications
             threat_protection: Enterprise per-request override of the team's
@@ -1544,7 +1580,7 @@ class FirecrawlClient:
             poll_interval: Seconds between status checks
             timeout: Maximum seconds to wait (None for no timeout)
             max_credits: Maximum credits to use (optional)
-            model: Model to use for the agent ("spark-1-pro" (default), "spark-1-mini", or "spark-2")
+            model: Model to use for the agent ("spark-2", the default; "spark-1-pro" and "spark-1-mini" are deprecated and run spark-2)
             effort: Reasoning effort for the agent ("low", "medium", or "high")
             webhook: Webhook URL or configuration for notifications
             threat_protection: Enterprise per-request override of the team's

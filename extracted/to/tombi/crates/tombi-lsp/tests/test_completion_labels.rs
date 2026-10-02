@@ -3613,7 +3613,7 @@ mod completion_labels {
                     );
                 };
                 let line_index =
-                    tombi_text::LineIndex::new(&toml_text, tombi_text::EncodingKind::Utf16);
+                    tombi_text::LineIndex::new(toml_text.as_str());
 
                 let source_path = args.source_file_path.as_deref().unwrap_or(temp_file.path());
                 let toml_file_url = Url::from_file_path(source_path)
@@ -3665,9 +3665,7 @@ mod completion_labels {
                     CompletionParams {
                         text_document_position: TextDocumentPositionParams {
                             text_document: TextDocumentIdentifier { uri: toml_file_url },
-                            position: (tombi_text::Position::default()
-                                + tombi_text::RelativePosition::of(&toml_text[..index]))
-                            .into_lsp(&line_index),
+                            position: tombi_text::Offset::of(&toml_text[..index]).into_lsp(&line_index, tombi_text::EncodingKind::Utf16),
                         },
                         work_done_progress_params: WorkDoneProgressParams::default(),
                         partial_result_params: PartialResultParams {
@@ -3683,7 +3681,7 @@ mod completion_labels {
 
                 let completion_items = completions
                     .into_iter()
-                    .map(|content| content.into_lsp_type(&line_index))
+                    .map(|content| content.into_lsp_type(&line_index, tombi_text::EncodingKind::Utf16))
                     .sorted_by(|a, b| {
                         a.sort_text
                             .as_ref()

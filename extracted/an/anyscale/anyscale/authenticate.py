@@ -23,7 +23,9 @@ import anyscale.conf
 from anyscale.sdk import anyscale_client
 from anyscale.sdk.anyscale_client.api.default_api import DefaultApi as AnyscaleApi
 import anyscale.shared_anyscale_utils.conf as shared_anyscale_conf
+from anyscale.utils.proxy_util import get_proxy_config
 from anyscale.utils.rate_limit_retry_util import build_rate_limit_retry
+from anyscale.utils.ssl_ca_cert_util import get_ssl_ca_cert_from_env
 
 
 CREDENTIALS_FILE = "~/.anyscale/credentials.json"
@@ -82,7 +84,9 @@ class AuthenticationBlock:
         if validate_credentials:
             self._validate_credentials_format(self.credentials)
 
-        self.api_client = self._instantiate_api_client(raise_structured_exception,)
+        self.api_client = self._instantiate_api_client(
+            raise_structured_exception,
+        )
         self.anyscale_api_client = self._instantiate_anyscale_client(
             raise_structured_exception, use_asyncio=use_asyncio
         )
@@ -113,7 +117,8 @@ class AuthenticationBlock:
                 readable string.
         """
         configuration = openapi_client.Configuration(host=self.host)
-        configuration.proxy = os.environ.get("https_proxy")
+        configuration.proxy, configuration.proxy_headers = get_proxy_config(configuration.host)
+        configuration.ssl_ca_cert = get_ssl_ca_cert_from_env()
         configuration.connection_pool_maxsize = 100
         configuration.retries = build_rate_limit_retry(logger=self.log)
 
@@ -130,7 +135,9 @@ class AuthenticationBlock:
         return api_instance
 
     def _instantiate_anyscale_client(
-        self, raise_structured_exception: bool, use_asyncio: bool = False,
+        self,
+        raise_structured_exception: bool,
+        use_asyncio: bool = False,
     ) -> AnyscaleApi:
         """
         Instantiates client to interact with our externalized APIs
@@ -143,7 +150,8 @@ class AuthenticationBlock:
                 a threadpool. Invocations of the api client will return coroutines.
         """
         configuration = anyscale_client.Configuration(host=self.host + "/ext/v0")
-        configuration.proxy = os.environ.get("https_proxy")
+        configuration.proxy, configuration.proxy_headers = get_proxy_config(configuration.host)
+        configuration.ssl_ca_cert = get_ssl_ca_cert_from_env()
         configuration.connection_pool_maxsize = 100
         configuration.retries = build_rate_limit_retry(logger=self.log)
 
@@ -183,9 +191,7 @@ class AuthenticationBlock:
         are valid for the internal product API will also be valid for the external
         API.
         """
-        old_raise_structured_exception_val = (
-            self.api_client.api_client.raise_structured_exception
-        )
+        old_raise_structured_exception_val = self.api_client.api_client.raise_structured_exception
         self.api_client.api_client.raise_structured_exception = True
         try:
             self.api_client.get_user_info_api_v2_userinfo_get()
@@ -257,9 +263,7 @@ class AuthenticationBlock:
         if received_token is None:
             raise click.ClickException(
                 "The credential file is not valid. Please regenerate it by following "
-                "the instructions at {}".format(
-                    anyscale.util.get_endpoint("/v2/api-keys")
-                )
+                "the instructions at {}".format(anyscale.util.get_endpoint("/v2/api-keys"))
             )
         return received_token, CREDENTIALS_FILE
 

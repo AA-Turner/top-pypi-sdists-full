@@ -1,0 +1,247 @@
+import warnings
+from typing import Union
+
+import torch
+
+from . import Labels, TensorBlock, TensorMap
+
+
+def isinstance_metatensor(value: Union[Labels, TensorBlock, TensorMap], typename: str):
+    assert typename in ("Labels", "TensorBlock", "TensorMap")
+
+    if torch.jit.is_scripting():
+        if typename == "Labels":
+            return isinstance(value, Labels)
+        elif typename == "TensorBlock":
+            return isinstance(value, TensorBlock)
+        elif typename == "TensorMap":
+            return isinstance(value, TensorMap)
+
+    # For custom classes (TensorMap, …), the `values` is an instance of
+    # `torch.ScriptObject` and not the class itself, so we use `_type`
+    # to get the type name
+    if isinstance(value, torch.ScriptObject):
+        qualified_name = value._type().qualified_name()
+        if qualified_name.startswith("__torch__.torch.classes.metatensor"):
+            return value._type().name() == typename
+
+    return False
+
+
+def _is_empty(value):
+    """
+    Check if ``value`` is a container without any data inside, potentially nested inside
+    other empty containers (e.g. ``[[], [[]]]``).
+    """
+    if isinstance(value, (dict, list, tuple)):
+        values = value.values() if isinstance(value, dict) else value
+        return all(_is_empty(v) for v in values)
+    else:
+        return False
+
+
+# WARNING: this is duplicated in metatensor.learn.nn._module, make sure to change both
+# versions of the function at the same time. The legacy path only exists here.
+def _metatensor_data_to(value, dtype, device, legacy=False):
+    """
+    Convert metatensor data to the given dtype/device, returning the new data and a
+    bool to indicate if the value was modified.
+    """
+    if isinstance_metatensor(value, "Labels"):
+        return value.to(device=device), True
+    elif isinstance_metatensor(value, "TensorBlock"):
+        return value.to(device=device, dtype=dtype), True
+    elif isinstance_metatensor(value, "TensorMap"):
+        return value.to(device=device, dtype=dtype), True
+    elif isinstance(value, dict):
+        if _is_empty(value):
+            return value, False
+
+        updated = {}
+        all_changed = True
+        some_changed = False
+        for name, dict_value in value.items():
+            if _is_empty(dict_value):
+                some_changed = True
+                updated[name] = dict_value
+                continue
+            updated_value, changed = _metatensor_data_to(
+                dict_value, dtype, device, legacy=legacy
+            )
+            all_changed = all_changed and changed
+            some_changed = some_changed or changed
+            updated[name] = updated_value
+
+        if some_changed:
+            if not all_changed and not legacy:
+                raise ValueError(
+                    "dicts containing both metatensor and non-metatensor data as "
+                    "values are not supported"
+                )
+            return updated, True
+
+    elif isinstance(value, list):
+        if _is_empty(value):
+            return value, False
+
+        updated = []
+        all_changed = True
+        some_changed = False
+        for list_value in value:
+            if _is_empty(list_value):
+                some_changed = True
+                updated.append(list_value)
+                continue
+            updated_value, changed = _metatensor_data_to(
+                list_value, dtype, device, legacy=legacy
+            )
+            all_changed = all_changed and changed
+            some_changed = some_changed or changed
+            updated.append(updated_value)
+
+        if some_changed:
+            if not all_changed and not legacy:
+                raise ValueError(
+                    "lists containing both metatensor and non-metatensor data "
+                    "are not supported"
+                )
+            return updated, True
+
+    elif isinstance(value, tuple):
+        if _is_empty(value):
+            return value, True
+
+        updated = []
+        some_changed = False
+        for tuple_value in value:
+            updated_value, changed = _metatensor_data_to(
+                tuple_value, dtype, device, legacy=legacy
+            )
+            some_changed = some_changed or changed
+            updated.append(updated_value)
+
+        if some_changed:
+            return tuple(updated), True
+
+    return value, False
+
+
+def _apply_metatensor(module):
+    if "_mts_helper" not in module._buffers:
+        return
+
+    device = module._mts_helper.device
+    dtype = module._mts_helper.dtype
+
+    if isinstance(module, torch.jit.RecursiveScriptModule):
+        # Determine which attributes to process. Modules without _mts_buffer_names are
+        # exported from metatensor-learn<0.6. We allow dict/list to contain both
+        # metatensor and non-metatensor data in this case.
+        legacy = False
+        if module._c.hasattr("_mts_buffer_names"):
+            names = list(module._c.getattr("_mts_buffer_names"))
+        else:
+            # Fallback: parse all attributes from the string representation
+            # (backward compatibility with modules that don't use register_buffer)
+            legacy = True
+
+            warnings.warn(
+                "module does not have '_mts_buffer_names'; "
+                "falling back to processing all attributes. "
+                "This is deprecated and will be removed in a future version, update "
+                "your version of metatensor-learn and use `register_buffer` explicitly "
+                "to remove this warning.",
+                stacklevel=2,
+            )
+            attributes = module._c.dump_to_str(code=False, attrs=True, params=False)
+            names = _parse_rsm_attributes(attributes)
+
+        # Update the attributes and re-add them to the module with
+        # `_register_attribute` (which does an update when the attribute already
+        # exists.)
+        for name in names:
+            value = module._c.getattr(name)
+
+            value, changed = _metatensor_data_to(
+                value, dtype=dtype, device=device, legacy=legacy
+            )
+            if changed:
+                typ = _get_torch_type(value)
+                module._c._register_attribute(name, typ, value)
+
+
+def _get_torch_type(value):
+    if isinstance(value, torch.ScriptObject):
+        return value._type()
+    elif isinstance(value, int):
+        return torch._C.IntType.get()
+    elif isinstance(value, float):
+        return torch._C.FloatType.get()
+    elif isinstance(value, str):
+        return torch._C.StringType.get()
+    elif isinstance(value, bool):
+        return torch._C.BoolType.get()
+    elif isinstance(value, torch.Tensor):
+        return torch._C.TensorType.get()
+    elif isinstance(value, dict):
+        # assume that all keys/values have the same type, TorchScript would enforce it
+        # anyway
+        key, value = next(iter(value.items()))
+        return torch._C.DictType(_get_torch_type(key), _get_torch_type(value))
+    elif isinstance(value, list):
+        # assume that all values have the same type, TorchScript would enforce it
+        # anyway
+        value = next(iter(value))
+        return torch._C.ListType(_get_torch_type(value))
+    elif isinstance(value, tuple):
+        return torch._C.TupleType([_get_torch_type(v) for v in value])
+    else:
+        return None
+
+
+def _parse_rsm_attributes(string):
+    """
+    Parse the output of ``ScriptModule.dump_to_str()`` to extract the list of attributes
+    on a module.
+    """
+    attributes = []
+    in_attributes = False
+    for line in string.splitlines():
+        if not in_attributes:
+            if "attributes {" in line:
+                in_attributes = True
+                continue
+
+        else:
+            splited = line.split("=")
+            if len(splited) == 2:
+                name = splited[0].strip()
+                attributes.append(name)
+            elif line.endswith("}"):
+                # we are done
+                return attributes
+            else:
+                raise RuntimeError(f"failed to parse line in attributes: '{line}'")
+
+    raise RuntimeError(f"failed to parse attributes section in:\n{string}")
+
+
+def patch_torch_jit_module():
+    """
+    Monkey-patch `torch.jit.RecursiveScriptModule._apply` to also handle metatensor
+    data, similar to what's happening in `metatensor.learn.nn.Module._apply`
+    """
+
+    _original_rsm_apply = torch.jit.RecursiveScriptModule._apply
+
+    def _new_rsm_apply(self, fn, recurse=True):
+        output = _original_rsm_apply(self, fn, recurse=recurse)
+        _apply_metatensor(self)
+
+        if recurse:
+            for module in self.children():
+                _apply_metatensor(module)
+
+        return output
+
+    torch.jit.RecursiveScriptModule._apply = _new_rsm_apply

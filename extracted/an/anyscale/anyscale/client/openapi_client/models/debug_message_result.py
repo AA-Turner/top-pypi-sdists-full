@@ -34,15 +34,17 @@ class DebugMessageResult(object):
     """
     openapi_types = {
         'debug_session_id': 'str',
-        'analysis': 'DebugAnalysis'
+        'analysis': 'DebugAnalysis',
+        'metadata': 'object'
     }
 
     attribute_map = {
         'debug_session_id': 'debug_session_id',
-        'analysis': 'analysis'
+        'analysis': 'analysis',
+        'metadata': 'metadata'
     }
 
-    def __init__(self, debug_session_id=None, analysis=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, debug_session_id=None, analysis=None, metadata=None, local_vars_configuration=None):  # noqa: E501
         """DebugMessageResult - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -50,10 +52,13 @@ class DebugMessageResult(object):
 
         self._debug_session_id = None
         self._analysis = None
+        self._metadata = None
         self.discriminator = None
 
         self.debug_session_id = debug_session_id
         self.analysis = analysis
+        if metadata is not None:
+            self.metadata = metadata
 
     @property
     def debug_session_id(self):
@@ -104,6 +109,29 @@ class DebugMessageResult(object):
             raise ValueError("Invalid value for `analysis`, must not be `None`")  # noqa: E501
 
         self._analysis = analysis
+
+    @property
+    def metadata(self):
+        """Gets the metadata of this DebugMessageResult.  # noqa: E501
+
+        Internal-only run signals, e.g. slack_thread.  # noqa: E501
+
+        :return: The metadata of this DebugMessageResult.  # noqa: E501
+        :rtype: object
+        """
+        return self._metadata
+
+    @metadata.setter
+    def metadata(self, metadata):
+        """Sets the metadata of this DebugMessageResult.
+
+        Internal-only run signals, e.g. slack_thread.  # noqa: E501
+
+        :param metadata: The metadata of this DebugMessageResult.  # noqa: E501
+        :type: object
+        """
+
+        self._metadata = metadata
 
     def to_dict(self):
         """Returns the model properties as a dict"""

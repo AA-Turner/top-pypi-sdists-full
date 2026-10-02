@@ -1,0 +1,94 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyplugs"
+authors = [{ name = "Geir Arne Hjelle", email = "geirarne@gmail.com" }]
+description = "PyPlugs, decorator based plug-in architecture for Python"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+dynamic = ["version"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+keywords = ["plugin", "decorator"]
+requires-python = ">=3.10"
+dependencies = []
+
+[project.urls]
+Home = "https://github.com/gahjelle/pyplugs"
+
+[dependency-groups]
+build = ["build>=1.2.2.post1", "twine>=6.1.0"]
+dev = [
+    "bumpver>=2025.1131",
+    "interrogate>=1.7.0",
+    "ipython>=8.37.0",
+    "mypy>=1.17.1",
+    "pre-commit>=4.2.0",
+    "ruff>=0.12.7",
+]
+test = ["pytest>=8.4.1", "pytest-cov>=6.2.1"]
+
+[tool.setuptools.dynamic]
+version = { attr = "pyplugs.__version__" }
+
+
+[tool.interrogate]
+ignore-init-method = false
+ignore-init-module = false
+ignore-magic = false
+ignore-semiprivate = false
+ignore-private = false
+ignore-module = false
+ignore-overloaded-functions = true
+fail-under = 100
+verbose = 0
+
+[tool.ruff]
+target-version = "py310"
+exclude = [".git", "venv", "migrations", "node_modules"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "COM812", # Trailing comma missing (handled by formatter)
+    "D203",   # Force blank line before class docstring (incompatible with D211)
+    "D213",   # Start docstring on second line (incompatible with D212)
+]
+
+[tool.ruff.lint.per-file-ignores]
+# PLR2004: Magic value used in comparison (OK for tests)
+# S101: Use of `assert` (OK for tests)
+# UP018: Replace with string/integer/... literal (OK for typed tests)
+"tests/test_*.py" = ["PLR2004", "S101", "UP018"]
+
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+
+[tool.bumpver]
+current_version = "v0.5.4"
+version_pattern = "vMAJOR.MINOR.PATCH"
+commit_message = "bump version {old_version} -> {new_version}"
+tag_message = "{new_version}"
+tag_scope = "default"
+commit = true
+tag = true
+push = true
+
+[tool.bumpver.file_patterns]
+"pyproject.toml" = ['current_version = "{version}"']
+"src/pyplugs/__init__.py" = ['__version__ = "MAJOR.MINOR.PATCH"']

@@ -71,9 +71,7 @@ def get_build_from_cluster_env_identifier(
                 "the form <cluster-env-name>:<revision>. For example, `my_cluster_env:1`."
             )
         # ID of cluster env and not build itself
-        cluster_env_id = get_cluster_env_from_name(
-            cluster_env_name, anyscale_api_client
-        ).id
+        cluster_env_id = get_cluster_env_from_name(cluster_env_name, anyscale_api_client).id
     builds = list_builds(cluster_env_id, anyscale_api_client)
     if cluster_env_revision:
         for build in builds:
@@ -157,7 +155,8 @@ def list_builds(
 
 
 def validate_successful_build(
-    build_id: str, anyscale_api_client: Optional[DefaultApi] = None,
+    build_id: str,
+    anyscale_api_client: Optional[DefaultApi] = None,
 ) -> None:
     """
     Validate build_id provided is of a successfully completed build.
@@ -173,6 +172,6 @@ def validate_successful_build(
         ).result
         raise click.ClickException(
             f"The cluster environment build {cluster_env.name}:{build.revision} currently is in state: {build.status}. "
-            f'More information about this build can be viewed at {get_endpoint(f"configurations/app-config-details/{build_id}")}. '
+            f"More information about this build can be viewed at {get_endpoint(f'configurations/app-config-details/{build_id}')}. "
             "Please provide a cluster environment that has already been built successfully."
         )

@@ -1,0 +1,1726 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# omninode-system-slack-report.sh — the .201 host system-health Slack reporter.
+#
+# WHAT THIS IS
+#   This is the producer behind the Slack messages "*OmniNode system alert*",
+#   "*OmniNode morning system digest*" and "*[OmniNode alert resolved]*".
+#   It is executed as root on the `.201` host (omninode-pc) by
+#   /etc/cron.d/omninode-system-slack-report:
+#       5 8  * * *  root  <this script> --mode digest
+#       */15 * * * * root <this script> --mode alert
+#   The deployed copy lives at /data/maintenance/bin/omninode-system-slack-report.sh.
+#   `deploy/maintenance/cron.d/omninode-system-slack-report` in this repo is the
+#   as-deployed cron unit.
+#
+# WHY IT IS IN THIS REPO NOW (OMN-15509)
+#   Until 2026-07-30 this script existed ONLY on the host, untracked by any
+#   repository. That is why the defect below survived: there was no diff to
+#   review, no test to fail, and no grep in any repo that could find it. The
+#   file is version-controlled here so a change to what the platform alarms on
+#   is a reviewable diff with a test attached.
+#
+# THE DEFECT THIS FIXES (OMN-15509)
+#   The as-deployed `collect()` probed exactly five endpoints:
+#       runtime-18085, runtime-28085, projection-api-13002,
+#       deploy-agent-8099, web-3003
+#   The dev/lab lane's main runtime port (:8085) was ABSENT. On 2026-07-30 the
+#   dev runtime sat at Docker `health: starting` with :8085 returning 503, zero
+#   registered handlers, and dependent containers stuck in `Created`, for at
+#   least 26 minutes — and the 16:30:02Z Slack message reported every listed
+#   runtime endpoint as `HTTP 200 (OK)`. The monitor was structurally incapable
+#   of observing the thing that broke.
+#
+#   Four separate false-green mechanisms are closed here:
+#     1. Lane coverage. Every lane's MAIN runtime health endpoint is probed,
+#        and the lane->port map is read from `docker/runtime-policy.env` (the
+#        rendered runtime-policy contract that `deploy-runtime.sh` and
+#        `scripts/system_health_check.sh` already read) rather than being
+#        hardcoded per call site. A lane cannot be silently dropped.
+#     2. Body honesty. A runtime `/health` can return 200 with a body that says
+#        it is NOT healthy. The old check used `grep -Ei 'healthy|ok'` against
+#        the body, which MATCHES `{"healthy": false}` — the substring is there.
+#        Runtime endpoints now resolve a real status from the JSON body and go
+#        CRITICAL when it is not healthy, or when no status can be resolved.
+#     3. `health: starting`. A container whose healthcheck has never once passed
+#        reports neither `unhealthy` nor `Exited`, so it was invisible. A
+#        container still `starting` past its own `start_period` is now CRITICAL.
+#     4. Exit accounting. `Exited` was reported but excluded from the CRITICAL
+#        condition, so a crashed container was silent. Non-zero exits are now
+#        CRITICAL; Exit(0) one-shots (migration/init containers) are not — they
+#        are expected to finish.
+#
+#   Fail-closed throughout: an endpoint that cannot be probed (connection
+#   refused, DNS failure, timeout -> code 000) is CRITICAL, never skipped; a
+#   docker query that fails is CRITICAL, never treated as "nothing wrong".
+#
+# WHAT OMN-16789 FIXES ON TOP (found by the operator, in Slack, as noise)
+#   OMN-15509 taught this reporter to SEE a dead lane and OMN-15525 taught it to
+#   SAY so. Neither addressed how often it says it. On 2026-08-27 the operator
+#   reported #omninode-notifications receiving the same three criticals over and
+#   over. Measured from /data/maintenance/logs/ across 39 consecutive ticks
+#   (09:30Z-18:30Z): 22 posted, 17 suppressed.
+#
+#   The de-duplication was not missing — it was defeated. It hashed the WHOLE
+#   issue set and compared to the previous hash, which is sound only against a
+#   stable input. `runtime-stability-test-18085` bounced CRITICAL(000)/OK(200)
+#   on nearly every tick, so the set alternated {c,s,d}/{c,d}, the hash changed
+#   every tick, and the comparison never once suppressed anything. And because
+#   `$issues` stayed non-empty on the shrink, the "one critical cleared" tick
+#   re-posted the entire alert digest instead of reading as a recovery.
+#
+#   The bounce itself was self-inflicted: a hardcoded `curl --max-time 4`
+#   against a lane whose first response after idle measures ~3.2s under host
+#   load average ~9-10. See PROBE_TIMEOUT_SECONDS.
+#
+#   Three changes, all env-tunable, no literals in the decision path:
+#     1. Per-key state (see the state machine below) instead of one set hash, so
+#        one key changing cannot re-page every other standing key.
+#     2. Hysteresis. CONFIRM_TICKS before a key may page; CLEAR_TICKS of
+#        continuous absence before it is called recovered, with the notified
+#        flag RETAINED across a short absence so a bounce cannot re-arm it.
+#     3. RENOTIFY_SECONDS, so a standing critical is re-surfaced on a long
+#        cadence rather than going silent forever after its first alert.
+#   The daily 08:05 digest remains the only unconditional post — a clean fleet
+#   still produces nothing on the */15 cadence.
+#
+# WHAT OMN-15525 FIXES ON TOP (found by actually deploying the above)
+#   The OMN-15509 revision was installed on .201 on 2026-07-30T18:12Z and
+#   immediately reported CRITICAL for all three lanes against a demonstrably
+#   HEALTHY fleet (all three /health returned 200 with "healthy":true). It was
+#   rolled back at 18:13:29Z, before the 18:15 cron fired. Two defects:
+#
+#     A. False-RED from a truncated parse. `check_runtime_lane` cut the body to
+#        180 bytes for display and then handed THAT to jq. A real runtime
+#        /health body on .201 is 2644 bytes, so jq always failed with
+#        "Unfinished string at EOF", the verdict was always "unresolvable", and
+#        fail-closed correctly turned an unparseable input into CRITICAL. The
+#        rule was right; the input was mutilated before it got there. The body
+#        is now parsed whole and truncated only for the reported excerpt.
+#        This is why the unit fixtures did not catch it: HEALTHY_BODY was 63
+#        bytes, comfortably under the cut. Fixtures now carry a realistic
+#        >180-byte body so the truncation boundary is inside test coverage.
+#
+#     C. The alert could not fire at all. `$issues`, `$issue_keys`,
+#        `$critical_count` and `$warning_count` were all selected with
+#        `$2=="CRITICAL"`, but endpoint rows carry their status in `$1` (only
+#        disk/docker rows use `$2`). So no endpoint failure — no runtime lane,
+#        projection-api, deploy-agent or web — ever reached `$issues`, and
+#        `--mode alert` took the "clean" branch and posted nothing. The digest
+#        text rendered the CRITICAL lines because `format_digest` happened to
+#        handle both shapes, which is why the .201 run printed three CRITICAL
+#        lanes directly under `Issues: *0 critical*`. OMN-15509 taught this
+#        script to SEE a dead lane; defect C is what kept it from SAYING so.
+#        See `row_status` / `row_key` near the bottom of this file.
+#
+#     B. Silent hardcoded port fallback (rule 8). `policy_env_value` returned
+#        SUCCESS when the policy file did not exist, and `lane_main_port`
+#        substituted a literal 8085/18085/28085 for an empty value. A renamed
+#        key or an unrendered runtime-policy.env degraded to probing guessed
+#        ports with no signal. An unresolvable lane port is now CRITICAL.
+#
+#   A monitor has two failure directions and both are fatal to it: blind (the
+#   OMN-15509 defect) and crying wolf (defect A). A permanent CRITICAL on a
+#   healthy fleet gets the channel muted, after which the blind spot is back
+#   with extra steps.
+#
+# PROD IS READ-ONLY
+#   Every runtime lane this script probes is probed with a plain GET against
+#   /health and nothing else. This script never mutates any lane.
+#
+# THE LAB COMPOSE PROD LANE IS RETIRED (OMN-18320)
+#   `prod` (:28085) moved from RUNTIME_LANE_SPECS to RUNTIME_LANE_UNPROBED on
+#   2026-09-16: the compose project it named (omnibase-infra-prod) was shut
+#   down 2026-09-13 and no longer exists on .201. Production is the AWS
+#   onex-prod namespace, which this script has never probed. See the
+#   RUNTIME_LANE_UNPROBED comment below for the full reasoning.
+
+set -euo pipefail
+
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ENV_FILE=${OMNINODE_ALERT_ENV_FILE:-/data/omninode/omnibase_infra/.env}
+# Repo root that carries the rendered runtime policy. Defaults to the parent of
+# ENV_FILE's directory-of-record so the deployed layout needs no extra config.
+INFRA_REPO_ROOT=${OMNINODE_INFRA_REPO_ROOT:-/data/omninode/omnibase_infra}
+STATE_DIR=${OMNINODE_ALERT_STATE_DIR:-/data/maintenance/state}
+LOG_DIR=${OMNINODE_ALERT_LOG_DIR:-/data/maintenance/logs}
+LOCK_FILE=${OMNINODE_ALERT_LOCK_FILE:-/run/omninode-system-slack-report.lock}
+PROBE_HOST=${OMNINODE_ALERT_PROBE_HOST:-127.0.0.1} # fallback-ok: this reporter runs ON the .201 host as root via cron and probes that host's OWN published lane ports, so the loopback IS the target, not a stand-in for a remote address; same posture as LANE_PROBE_HOST in scripts/system_health_check.sh
+# Grace applied to a `health: starting` container whose image declares no
+# start_period. Fail-closed: a finite grace, not "never alarm".
+STARTING_GRACE_SECONDS=${OMNINODE_ALERT_STARTING_GRACE_SECONDS:-180}
+# How long a container may sit in Docker `created` status before it is counted
+# at all (OMN-18571). See classify_created_containers() for what this bounds.
+#
+# 600s is chosen against the measured legitimate hold: compose creates a
+# container and holds it until its `depends_on: service_healthy` dependency
+# passes, which on the .201 dev lane resolves well inside one tick of the */15
+# cron. It is a config entry rather than a literal in the classifier for the
+# same reason PROBE_TIMEOUT_SECONDS is: a lane that measures a longer honest
+# hold raises this, it does not edit the decision path.
+CREATED_FLOOR_SECONDS=${OMNINODE_ALERT_CREATED_FLOOR_SECONDS:-600}
+# How much of a response body is quoted into the Slack message / log line. This
+# bounds DISPLAY ONLY. It must never be applied before a body is parsed or
+# pattern-matched (OMN-15525) — see check_runtime_lane.
+BODY_EXCERPT_BYTES=${OMNINODE_ALERT_BODY_EXCERPT_BYTES:-180}
+# How long an endpoint probe may take before it is scored unreachable (000).
+#
+# OMN-16789. This was a hardcoded `--max-time 4` at both probe call sites, and 4
+# seconds is BELOW the measured legitimate response time of a warm-but-loaded
+# lane on .201. Six probes of :18085/health at 2026-08-27T18:34Z, 3s apart:
+# 000/000/000/000 then 200 at t=3.196s then 200 at t=0.013s — the lane was up
+# the entire time; the first response after idle simply takes ~3.2s while the
+# host sits at load average ~9-10. At a 4s ceiling that is a coin flip, so the
+# monitor manufactured its own flapping input and then faithfully alerted on it.
+# Fail-closed on 000 is correct and unchanged; feeding it a timeout that a
+# healthy lane cannot reliably beat is what was wrong.
+PROBE_TIMEOUT_SECONDS=${OMNINODE_ALERT_PROBE_TIMEOUT_SECONDS:-15}
+# --- alert cadence (OMN-16789) -------------------------------------------
+# All three are env-overridable and carry no literal anywhere else in the file.
+#
+# CONFIRM_TICKS  consecutive ticks a key must hold the SAME status before it is
+#                allowed to page. Trades time-to-alert (2 ticks = 30 min on the
+#                */15 cron) for immunity to single-tick blips. This is a host
+#                digest, not a customer-facing pager; the operator's complaint
+#                was noise, and a one-tick transient is not news.
+# CLEAR_TICKS    consecutive ticks a key must be ABSENT before it is reported
+#                recovered and dropped from state. This is the half that kills
+#                flap spam: while a key is briefly absent its notified flag is
+#                RETAINED, so a key that comes back does not re-page. Without
+#                it, every OK->CRITICAL bounce re-arms the alert.
+# RENOTIFY_SECONDS  how often a still-standing, already-notified key is
+#                re-surfaced, so a permanent critical cannot go permanently
+#                silent. Set to 0 to disable re-notification entirely.
+CONFIRM_TICKS=${OMNINODE_ALERT_CONFIRM_TICKS:-2}
+CLEAR_TICKS=${OMNINODE_ALERT_CLEAR_TICKS:-8}
+RENOTIFY_SECONDS=${OMNINODE_ALERT_RENOTIFY_SECONDS:-21600}
+MODE=digest
+
+if [[ "${1:-}" == "--mode" ]]; then
+  MODE="${2:-digest}"
+elif [[ -n "${1:-}" ]]; then
+  MODE="$1"
+fi
+
+mkdir -p "$STATE_DIR" "$LOG_DIR"
+LOG_FILE="$LOG_DIR/omninode-system-slack-report-$(date -u +%Y%m%dT%H%M%SZ).log"
+# dry-run is the human/CI inspection mode: keep its report on stdout instead of
+# burying it in a log file, so it can be read (and asserted on) directly.
+if [[ "$MODE" != "dry-run" ]]; then
+  exec >>"$LOG_FILE" 2>&1
+fi
+exec 9>"$LOCK_FILE"
+if ! flock -n 9; then
+  echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) another system report is already running"
+  exit 0
+fi
+
+if [[ -f "$ENV_FILE" ]]; then
+  set -a
+  set +u
+  # shellcheck disable=SC1090
+  . "$ENV_FILE"
+  set -u
+  set +a
+fi
+
+# --- GitHub reads on the read-only App token (OMN-19852) -------------------
+#
+# Every GitHub call this reporter makes is a READ: the required-context probe
+# (about 158 calls a tick, measured 2026-09-27), the fleet probe and its hourly
+# scheduled-workflow sweep (about 730 calls a sweep, measured the same day) and
+# the backup-freshness read. They ran on GH_PAT, which is the operator's own
+# login, and so spent about 1,400 of the one per-user 5,000/hour bucket that
+# merges and arming need (operator ruling 2026-09-25T14:18:52Z: lane reads move
+# to the read-only App onexbot-pr-reader, writes stay on the operator).
+#
+# When OMNINODE_GH_READ_TOKEN_FILE names a file holding an installation token of
+# that App (refreshed by the host's token cron), it replaces GH_PAT, GITHUB_TOKEN
+# and GH_TOKEN for this process and every probe it starts. A token file that is
+# set but missing, empty or older than the bound is NOT used -- the reads fall
+# back to GH_PAT -- and check_gh_read_identity says so in a WARNING row, so a dead
+# token cron is visible instead of quietly moving the load back.
+GH_READ_TOKEN_FILE=${OMNINODE_GH_READ_TOKEN_FILE:-}
+# An installation token lives 60 minutes; the detached fleet sweep can run 15.
+# A file no older than 40 minutes leaves the sweep a token with 20 to spare.
+GH_READ_TOKEN_MAX_AGE_SECONDS=${OMNINODE_GH_READ_TOKEN_MAX_AGE_SECONDS:-2400}
+GH_READ_IDENTITY=operator
+GH_READ_TOKEN_PROBLEM=""
+if [[ -n "$GH_READ_TOKEN_FILE" ]]; then
+  if [[ -r "$GH_READ_TOKEN_FILE" && -s "$GH_READ_TOKEN_FILE" ]]; then
+    gh_read_token_age=$(( $(date +%s) - $(date -r "$GH_READ_TOKEN_FILE" +%s) ))
+    if (( gh_read_token_age <= GH_READ_TOKEN_MAX_AGE_SECONDS )); then
+      GH_PAT="$(head -n 1 "$GH_READ_TOKEN_FILE")"
+      GITHUB_TOKEN="$GH_PAT"
+      GH_TOKEN="$GH_PAT"
+      export GH_PAT GITHUB_TOKEN GH_TOKEN
+      GH_READ_IDENTITY=app
+    else
+      GH_READ_TOKEN_PROBLEM="reader token file ${GH_READ_TOKEN_FILE} is ${gh_read_token_age}s old (bound ${GH_READ_TOKEN_MAX_AGE_SECONDS}s); GitHub reads fell back to GH_PAT, the operator's bucket. Check the host's token cron"
+    fi
+  else
+    GH_READ_TOKEN_PROBLEM="reader token file ${GH_READ_TOKEN_FILE} is missing, unreadable or empty; GitHub reads fell back to GH_PAT, the operator's bucket. Check the host's token cron"
+  fi
+fi
+
+if [[ "$MODE" != "dry-run" ]]; then
+  : "${SLACK_BOT_TOKEN:?SLACK_BOT_TOKEN must be set in $ENV_FILE}"
+  SLACK_CHANNEL_ID="${SLACK_CHANNEL_ID:-${SLACK_DEFAULT_CHANNEL:-}}"
+  : "${SLACK_CHANNEL_ID:?SLACK_CHANNEL_ID or SLACK_DEFAULT_CHANNEL must be set in $ENV_FILE}"
+else
+  SLACK_CHANNEL_ID="${SLACK_CHANNEL_ID:-${SLACK_DEFAULT_CHANNEL:-dry-run}}"
+fi
+
+DATA_WARN_PCT=${DATA_WARN_PCT:-95}
+DATA_CRIT_PCT=${DATA_CRIT_PCT:-98}
+DATA_WARN_FREE_GB=${DATA_WARN_FREE_GB:-200}
+DATA_CRIT_FREE_GB=${DATA_CRIT_FREE_GB:-50}
+ROOT_WARN_PCT=${ROOT_WARN_PCT:-85}
+ROOT_CRIT_PCT=${ROOT_CRIT_PCT:-92}
+ROOT_WARN_FREE_GB=${ROOT_WARN_FREE_GB:-50}
+ROOT_CRIT_FREE_GB=${ROOT_CRIT_FREE_GB:-20}
+
+# ---------------------------------------------------------------------------
+# Lane -> main runtime port map (OMN-15509 AC2)
+#
+# Read by targeted key extraction from the rendered runtime policy, NOT by
+# `source`: that file is a generated artifact whose key set changes when the
+# contract is re-rendered, and sourcing it would let a future render silently
+# redefine this script's other variables. Same idiom, same file, and the same
+# reasoning as scripts/system_health_check.sh.
+#
+# There are NO literal fallback ports (OMN-15525). The original revision of this
+# block fell back to hardcoded 8085/18085/28085 whenever the policy file was
+# missing or a key was renamed, and `policy_env_value` even returned SUCCESS on
+# a missing file. That is a silent default masquerading as a resolved contract —
+# CLAUDE.md rule 8 forbids exactly this, and it is the same false-green family
+# OMN-15509 closed: the probe would keep reporting on a guessed port and the
+# operator would never learn the lane map had stopped resolving. An unresolvable
+# lane port is now a CRITICAL fact, reported the same as an unreachable endpoint.
+# ---------------------------------------------------------------------------
+LANE_PORT_UNRESOLVED='__unresolved__'
+
+runtime_policy_file() {
+  printf '%s' "${OMNINODE_RUNTIME_POLICY_ENV:-${INFRA_REPO_ROOT}/docker/runtime-policy.env}"
+}
+
+# Echo the value for `key`, or return non-zero when the policy file is absent or
+# the key is not present in it. Fail-fast: never returns a substitute value.
+policy_env_value() {
+  local key="$1" file value
+  file="$(runtime_policy_file)"
+  [[ -f "$file" ]] || return 1
+  value=$(sed -n "s/^${key}=//p" "$file" | tail -n 1 | tr -d "\"'")
+  [[ -n "$value" ]] || return 1
+  printf '%s' "$value"
+}
+
+# label|policy-key -- a pure data table, no comments inside the array (the
+# fallback-port guard parses every line in it as lane|key).
+#
+# Together with RUNTIME_LANE_UNPROBED below, must cover EVERY lane declaring a
+# *_RUNTIME_MAIN_PORT in runtime-policy.env.
+# Held in two-way parity by
+# tests/unit/scripts/test_omninode_system_slack_report.py, which DERIVES the
+# lane set from the policy instead of restating it: a row dropped here, or a
+# lane added to the policy and not here, fails that module.
+#
+# judge (:48085) is read-only and NOT authorized for mutation, but it runs
+# seven containers on .201 and was omitted from this table through OMN-15509
+# and OMN-15525, so a dead judge runtime paged nobody (OMN-15556). Probing it
+# is a plain GET /health, which is a read.
+RUNTIME_LANE_SPECS=(
+  "dev|DEV_RUNTIME_MAIN_PORT"
+  "stability-test|STABILITY_TEST_RUNTIME_MAIN_PORT"
+  "judge|JUDGE_RUNTIME_MAIN_PORT"
+)
+
+# label|policy-key -- lanes deliberately NOT probed. Same pure-data shape and
+# same no-hardcoded-port guard as the table above; no comments inside the array.
+#
+# This list exists so that "not probed" is a DECLARATION rather than an absence.
+# The parity test requires RUNTIME_LANE_SPECS + RUNTIME_LANE_UNPROBED to cover
+# the policy's lane set exactly, and separately requires dev / stability-test /
+# judge to be in the PROBED table specifically. So a lane can never
+# vanish from this file quietly -- the OMN-15556 judge blind spot -- it can only
+# move, visibly and with a reason, into the list below.
+#
+# lakshman (:58085, OMN-17150) is a collaborator sandbox owned by one external
+# collaborator. It is expected to be down: it is declared `optional: true` in
+# deploy/lane-census/lane-manifest.yaml precisely so its absence is not drift,
+# and as of this writing it has never been built. Paging the on-call digest
+# every tick for a lane nobody promised to keep up is the alert-fatigue failure
+# that gets the REAL rows above ignored -- the same outcome, by a different
+# route, as not probing them at all. Its owner watches it directly.
+#
+# prod (:28085, OMN-18320) is not a collaborator sandbox -- it is a compose
+# project (omnibase-infra-prod) that no longer exists on .201 at all. It was
+# shut down 2026-09-13 under an operator consent row and removed from
+# deploy/lane-census/lane-manifest.yaml (omnibase_infra#3489); AWS onex-prod is
+# the real production runtime and is untouched. docker/runtime-policy.env
+# still renders PROD_RUNTIME_MAIN_PORT (deliberately -- OMN-18320 left that
+# entry and docker-compose.prod.yml in place as a lane definition that still
+# parses, and repointing/deleting them is a separate decision), so this lane
+# cannot simply be dropped from the table below the parity test enforces --
+# it has to be declared unprobed, with this reason, or the parity test itself
+# fails. Left in RUNTIME_LANE_SPECS, every tick faithfully reports a real fact
+# (connection refused) as a fresh CRITICAL for a lane nobody is bringing back,
+# which is exactly the alert-fatigue failure the lakshman entry above
+# describes -- measured live: every /15 sample from 2026-09-13 onward paged
+# HTTP 000 for runtime-prod-28085 with no incident behind it.
+#
+# dogfood (:49085, OMN-18693) is an isolated private sandbox on .105. This
+# reporter runs only on .201, so a loopback probe would not observe that lane;
+# inventing a cross-host target here would turn a local host-health check into a
+# new network dependency. Its owner validates the lane directly.
+# shellcheck disable=SC2034  # declaration-only: read by the parity test, not by this script
+RUNTIME_LANE_UNPROBED=(
+  "dogfood|DOGFOOD_RUNTIME_MAIN_PORT"
+  "lakshman|LAKSHMAN_RUNTIME_MAIN_PORT"
+  "prod|PROD_RUNTIME_MAIN_PORT"
+)
+
+# Resolve a lane's main runtime port, or emit $LANE_PORT_UNRESOLVED. A value that
+# is not a bare integer is also unresolved — probing "http://host:garbage/health"
+# would just produce a confusing connection error instead of naming the real
+# problem (the lane map).
+lane_main_port() {
+  local key="$1" value
+  if ! value="$(policy_env_value "$key")" || [[ ! "$value" =~ ^[0-9]+$ ]]; then
+    printf '%s' "$LANE_PORT_UNRESOLVED"
+    return 0
+  fi
+  printf '%s' "$value"
+}
+
+post_slack() {
+  local text="$1"
+  local color="${2:-#439FE0}"
+  local payload
+  payload=$(jq -n \
+    --arg channel "$SLACK_CHANNEL_ID" \
+    --arg text "$text" \
+    --arg color "$color" \
+    '{channel:$channel,text:$text,attachments:[{color:$color,text:$text,mrkdwn_in:["text"]}]}')
+  curl -fsS --retry 2 --max-time 10 \
+    -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
+    -H 'Content-Type: application/json; charset=utf-8' \
+    -d "$payload" \
+    https://slack.com/api/chat.postMessage | jq -e '.ok == true' >/dev/null
+}
+
+df_line() {
+  local mount="$1"
+  df -BG --output=target,size,used,avail,pcent "$mount" | awk 'NR==2 {gsub("G","",$4); gsub("%","",$5); print $1"|"$2"|"$3"|"$4"|"$5}'
+}
+
+classify_disk() {
+  local mount="$1" pct="$2" avail_gb="$3" warn_pct="$4" crit_pct="$5" warn_free="$6" crit_free="$7"
+  if (( pct >= crit_pct || avail_gb <= crit_free )); then
+    echo "CRITICAL"
+  elif (( pct >= warn_pct || avail_gb <= warn_free )); then
+    echo "WARNING"
+  else
+    echo "OK"
+  fi
+}
+
+check_http() {
+  local label="$1" url="$2" expect_regex="${3:-}"
+  local tmp code status body body_excerpt
+  tmp=$(mktemp)
+  code=$(curl -sS --max-time "$PROBE_TIMEOUT_SECONDS" -o "$tmp" -w '%{http_code}' "$url" 2>/dev/null || true)
+  # Match against the WHOLE body; truncate only the excerpt that gets reported.
+  # See BODY_EXCERPT_BYTES — matching an excerpt makes the verdict depend on
+  # where the payload happens to be cut.
+  body=$(tr '\n' ' ' <"$tmp")
+  body_excerpt=$(printf '%s' "$body" | head -c "$BODY_EXCERPT_BYTES")
+  rm -f "$tmp"
+  status="OK"
+  if [[ ! "$code" =~ ^2 ]]; then
+    status="CRITICAL"
+  elif [[ -n "$expect_regex" ]] && ! grep -Eiq "$expect_regex" <<<"$body"; then
+    status="WARNING"
+  fi
+  printf '%s|%s|%s|%s\n' "$status" "$label" "${code:-000}" "$body_excerpt"
+}
+
+# Resolve a runtime /health body to healthy / unhealthy / unresolvable.
+#
+# Substring matching is NOT usable here: `{"healthy": false}` contains both
+# "healthy" and "false", and the old `grep -Ei 'healthy|ok'` scored it OK. The
+# body is parsed as JSON and an explicit boolean/status field is required.
+# Anything that cannot be resolved to an affirmative healthy signal is
+# unresolvable, and unresolvable is CRITICAL (fail-closed) — a monitor that
+# cannot tell is not allowed to say green.
+runtime_body_verdict() {
+  local body="$1" verdict
+  verdict=$(jq -r '
+    def norm: if type == "string" then ascii_downcase else . end;
+    if type != "object" then "unresolvable"
+    elif (.healthy? != null and (.healthy | type) == "boolean")
+      then (if .healthy then "healthy" else "unhealthy" end)
+    elif (.details?.healthy? != null and (.details.healthy | type) == "boolean")
+      then (if .details.healthy then "healthy" else "unhealthy" end)
+    elif (.status? != null)
+      then (if (.status | norm) == "healthy" or (.status | norm) == "ok" or (.status | norm) == "pass"
+            then "healthy" else "unhealthy" end)
+    else "unresolvable"
+    end
+  ' <<<"$body" 2>/dev/null) || verdict="unresolvable"
+  [[ -n "$verdict" ]] || verdict="unresolvable"
+  printf '%s' "$verdict"
+}
+
+# Name the failing health dimension(s) from the FULL body (OMN-18435).
+#
+# BODY_EXCERPT_BYTES bounds DISPLAY, and on `.201` the real body is ~4.3 KB, so
+# every recorded 503 row stopped long before the dimension that actually failed.
+# Measured 2026-09-14..09-16: three of the twenty critical ticks were a RUNNING
+# runtime failing a health dimension, and which dimension is not recoverable
+# from the logs for any of them. A monitor that records a verdict without its
+# reason cannot be used to diagnose the thing it alarmed about.
+#
+# Computed from the whole body, never the excerpt — the OMN-15525 rule. An
+# unparseable or bodiless response yields an empty string, which the caller
+# renders as `unresolved`; it must never be rendered as "nothing wrong".
+runtime_unhealthy_reasons() {
+  local body="$1" out
+  out=$(jq -r '
+    def d: (.details? // {});
+    [
+      (if (d.is_running? == false) then "is_running=false" else empty end),
+      (if (d.event_bus_healthy? == false) then "event_bus_healthy=false" else empty end),
+      (if (d.startup_in_progress? == true) then "startup_in_progress=true" else empty end),
+      (if (d.no_handlers_registered? == true) then "no_handlers_registered=true" else empty end),
+      (if ((d.failed_handlers? // {}) | length) > 0
+        then "failed_handlers=" + ((d.failed_handlers | keys) | join(","))
+        else empty end),
+      ((d.components? // {}) | to_entries[]
+        | select((.value | type) == "object" and .value.status? != null and .value.status != "healthy")
+        | "component:" + .key + "=" + (.value.status | tostring))
+    ] | join(" ")
+  ' <<<"$body" 2>/dev/null) || out=""
+  printf '%s' "$out"
+}
+
+# The container publishing a lane's MAIN runtime port, or empty when that cannot
+# be established to be exactly one container.
+#
+# The PORT is the join key, deliberately. It is the same port the probe already
+# resolved from the rendered runtime policy, so this introduces no second lane
+# table to drift out of sync with the first, and no container name is hardcoded
+# anywhere (rule 8). Zero matches or more than one is unresolvable, and the
+# caller fails closed on that.
+lane_runtime_container() {
+  local port="$1" raw matches count
+  raw=$(docker ps --format '{{.Names}}\t{{.Ports}}' 2>/dev/null || true)
+  [[ -n "$raw" ]] || { printf ''; return 0; }
+  matches=$(awk -F'\t' -v needle=":${port}->" 'index($2, needle) {print $1}' <<<"$raw")
+  [[ -n "$matches" ]] || { printf ''; return 0; }
+  count=$(grep -c . <<<"$matches")
+  [[ "$count" == 1 ]] || { printf ''; return 0; }
+  printf '%s' "$matches"
+}
+
+# `<age>/<grace>` while a container is still inside its OWN declared
+# start_period, empty otherwise (OMN-18435).
+#
+# This is the concept `starting_past_start_period` already applies on the
+# CONTAINER path, applied to the ENDPOINT path, and it reuses that function's
+# exact rules: the container's declared start_period when it has one, the
+# env-tunable STARTING_GRACE_SECONDS when it does not, and epoch_from_iso for
+# the age. A container that cannot be AGED returns empty — cannot measure is
+# cannot prove, which is CRITICAL, the same fail-closed verdict the container
+# path records as `age-unknown`.
+lane_within_start_period() {
+  local name="$1" started start_period_ns grace_s started_epoch now_epoch age_s
+  [[ -n "$name" ]] || { printf ''; return 0; }
+  started=$(docker inspect -f '{{.State.StartedAt}}' "$name" 2>/dev/null || true)
+  start_period_ns=$(docker inspect -f '{{if .Config.Healthcheck}}{{.Config.Healthcheck.StartPeriod}}{{else}}0{{end}}' "$name" 2>/dev/null || true)
+  [[ "$start_period_ns" =~ ^[0-9]+$ ]] || start_period_ns=0
+  grace_s=$(( start_period_ns / 1000000000 ))
+  (( grace_s > 0 )) || grace_s="$STARTING_GRACE_SECONDS"
+  started_epoch=$(epoch_from_iso "$started")
+  (( started_epoch > 0 )) || { printf ''; return 0; }
+  now_epoch=$(date -u +%s)
+  age_s=$(( now_epoch - started_epoch ))
+  (( age_s <= grace_s )) || { printf ''; return 0; }
+  printf '%s/%s' "$age_s" "$grace_s"
+}
+
+# Probe one lane's MAIN runtime health endpoint. Read-only GET on every lane,
+# prod included.
+check_runtime_lane() {
+  local lane="$1" port="$2"
+  local label="runtime-${lane}-${port}"
+  local tmp code body body_excerpt status detail verdict
+  tmp=$(mktemp)
+  code=$(curl -sS -X GET --max-time "$PROBE_TIMEOUT_SECONDS" -o "$tmp" -w '%{http_code}' "http://${PROBE_HOST}:${port}/health" 2>/dev/null || true)
+  # The verdict is computed from the FULL body; only the reported excerpt is
+  # truncated. Truncating BEFORE the verdict was OMN-15525: a real .201 runtime
+  # /health body is ~2.6 KB, so the 180-byte excerpt handed to jq was always
+  # invalid JSON ("Unfinished string at EOF"), every lane resolved to
+  # "unresolvable", and fail-closed turned that into CRITICAL on a fully healthy
+  # fleet. Fail-closed is right; feeding it a mutilated input is not.
+  body=$(tr '\n' ' ' <"$tmp")
+  body_excerpt=$(printf '%s' "$body" | head -c "$BODY_EXCERPT_BYTES")
+  rm -f "$tmp"
+  code="${code:-000}"
+
+  if [[ ! "$code" =~ ^2 ]]; then
+    # Covers 5xx AND connection-refused/timeout (code 000). Never skipped.
+    status="CRITICAL"
+    detail="$body_excerpt"
+  else
+    verdict=$(runtime_body_verdict "$body")
+    case "$verdict" in
+      healthy)      status="OK";       detail="$body_excerpt" ;;
+      unhealthy)    status="CRITICAL"; detail="HTTP 200 but health body is NOT healthy: $body_excerpt" ;;
+      *)            status="CRITICAL"; detail="HTTP 200 but health status could not be resolved from body (fail-closed): $body_excerpt" ;;
+    esac
+  fi
+
+  # A NOT-healthy lane records WHY, from the full body (OMN-18435).
+  if [[ "$status" != "OK" ]]; then
+    local reasons
+    reasons=$(runtime_unhealthy_reasons "$body")
+    detail="reasons=[${reasons:-unresolved}] ${detail}"
+  fi
+
+  # A lane inside its container's OWN declared start_period is BOOTING, not
+  # down, and is scored as its own status so it neither pages nor reads green
+  # (OMN-18435).
+  #
+  # WHY THIS IS NOT A BLANKET GRACE. The delivery chain recreates the dev lane
+  # dozens of times a day and the runtime image declares start_period=1800s, so
+  # Docker itself never calls the lane unhealthy during a boot -- only this
+  # reporter did. Measured over 242 ticks (2026-09-14T00:00Z-09-16T11:45Z):
+  # 20 CRITICAL ticks, EVERY one a single isolated tick with the next tick back
+  # at 200, RestartCount 0 throughout, and eleven of the fourteen 503s carrying
+  # `is_running=false` -- a runtime serving HTTP whose kernel had not started.
+  #
+  # The bound is the container's own declared budget and nothing else. Past that
+  # budget, with no container on the port, or with a container that cannot be
+  # aged, this stays CRITICAL. That is the whole of the fail-closed rule this
+  # file's header insists on: a monitor that cannot tell is not allowed to say
+  # green, and a lane that is down for longer than it promised to take booting
+  # is not booting.
+  if [[ "$status" == "CRITICAL" ]]; then
+    local container within
+    container=$(lane_runtime_container "$port")
+    within=$(lane_within_start_period "$container")
+    if [[ -n "$within" ]]; then
+      status="STARTING"
+      detail="inside ${container} declared start_period (age ${within%/*}s of ${within#*/}s): ${detail}"
+    fi
+  fi
+  printf '%s|%s|%s|%s\n' "$status" "$label" "$code" "$detail"
+}
+
+# ISO-8601 -> epoch seconds. GNU `date -d` on the deploy host; BSD `date -j -f`
+# fallback so the hermetic test can drive this same artifact on macOS (rule 11a
+# runs gates on .200). Returns 0 when the timestamp cannot be parsed, which the
+# caller treats as "cannot age this container" -> fail-closed.
+epoch_from_iso() {
+  local ts="$1" out
+  [[ -n "$ts" ]] || { printf '0'; return 0; }
+  out=$(date -u -d "$ts" +%s 2>/dev/null || true)
+  if [[ ! "$out" =~ ^[0-9]+$ ]]; then
+    # Docker emits e.g. 2026-07-30T16:19:02.123456789Z — trim to whole seconds.
+    local trimmed="${ts%%.*}"
+    trimmed="${trimmed%Z}"
+    out=$(date -u -j -f '%Y-%m-%dT%H:%M:%S' "$trimmed" +%s 2>/dev/null || true)
+  fi
+  [[ "$out" =~ ^[0-9]+$ ]] || out=0
+  printf '%s' "$out"
+}
+
+# Containers stuck in `health: starting` past their own start_period.
+#
+# This is the state that produced the silent 26-minute outage: a healthcheck
+# that has never once passed reports neither `unhealthy` nor `Exited`, so every
+# count the old script kept was zero.
+starting_past_start_period() {
+  local names name started start_period_ns grace_s started_epoch now_epoch age_s
+  now_epoch=$(date -u +%s)
+  names=$(docker ps --filter 'health=starting' --format '{{.Names}}' 2>/dev/null || echo "__DOCKER_QUERY_FAILED__")
+  if [[ "$names" == "__DOCKER_QUERY_FAILED__" ]]; then
+    printf '%s' "__DOCKER_QUERY_FAILED__"
+    return 0
+  fi
+  local out=()
+  while IFS= read -r name; do
+    [[ -n "$name" ]] || continue
+    started=$(docker inspect -f '{{.State.StartedAt}}' "$name" 2>/dev/null || true)
+    start_period_ns=$(docker inspect -f '{{if .Config.Healthcheck}}{{.Config.Healthcheck.StartPeriod}}{{else}}0{{end}}' "$name" 2>/dev/null || true)
+    [[ "$start_period_ns" =~ ^[0-9]+$ ]] || start_period_ns=0
+    grace_s=$(( start_period_ns / 1000000000 ))
+    (( grace_s > 0 )) || grace_s="$STARTING_GRACE_SECONDS"
+    started_epoch=$(epoch_from_iso "$started")
+    if (( started_epoch == 0 )); then
+      # Cannot age the container -> cannot prove it is still inside its grace.
+      out+=("${name}(age-unknown)")
+      continue
+    fi
+    age_s=$(( now_epoch - started_epoch ))
+    if (( age_s > grace_s )); then
+      out+=("${name}(${age_s}s>${grace_s}s)")
+    fi
+  done <<<"$names"
+  printf '%s' "${out[*]:-}"
+}
+
+# Containers sitting in Docker `created` status, classified by AGE and by
+# OWNERSHIP (OMN-18571).
+#
+# THE DEFECT THIS REPLACES
+#   `created` was one grep — `docker ps -a ... | grep -Eci 'Created'` — and ANY
+#   nonzero value set docker_status=CRITICAL. No age floor, no ownership
+#   distinction, no retention exclusion. Measured on .201 2026-09-17T10:57Z
+#   (census lab-hygiene-census-1054-20260917T1057Z.md §1), that produced two
+#   false REDs at once, in opposite directions:
+#
+#   (a) TOO EARLY. Compose creates a container and holds it in `created` until
+#       its `depends_on: ... service_healthy` dependency passes. Three
+#       containers of the `omnibase-infra` project were in that state seconds
+#       before the probe, mid-redeploy, with omninode-runtime still
+#       `health: starting`. The delivery chain recreates the dev lane dozens of
+#       times a day, so the check reddened on every one of them. A monitor that
+#       alarms on its own platform working is a monitor that gets muted.
+#
+#   (b) TOO LONG. 48 containers carried no compose project label at all —
+#       ad hoc `docker run` probes, and crashed Python testcontainers sessions
+#       that stranded both the workload container AND their own Ryuk reaper, so
+#       nothing was ever going to reap them. They spanned three days and were
+#       still accumulating. The host therefore sat CRITICAL permanently with
+#       zero unhealthy, zero restarting and zero dead — this file's header
+#       calls that the "crying wolf" direction and it is the one that hides a
+#       real fault, because a row that is always red carries no information.
+#
+# THE THREE CLASSES, AND WHY EACH LANDS WHERE IT DOES
+#   fresh     — younger than CREATED_FLOOR_SECONDS, whatever its ownership.
+#               Not counted. This is (a): a deploy in progress.
+#   pending   — older than the floor AND carrying a com.docker.compose.project
+#               label. Reported per project, WARNING. A compose project still
+#               holding a container ten minutes on is worth saying, but there
+#               is a declared lane that owns it, so it is attributable work,
+#               not debris — and the lane map already alarms separately if that
+#               lane's runtime is actually down.
+#   unowned   — older than the floor, no compose project, not retained. This is
+#               (b), and it is the count worth acting on: `unowned_debris=<n>`,
+#               WARNING.
+#
+#   Retention-labelled containers (`onex.cleanup-owner`, or an `onex.purpose`
+#   ENDING `-retention`) are listed by name and counted in NO class. Somebody
+#   labelled them "keep this" for a named ticket; counting them as a problem
+#   argues for their deletion, which is the opposite of what the label says.
+#   The purpose match is anchored to the end of the value rather than a
+#   substring (CLAUDE.md rule 15): `retention-policy-probe` describes a test OF
+#   retention, not a container anyone asked to keep.
+#
+# WHAT STILL PAGES, UNCHANGED
+#   unhealthy, restarting, dead, a container past its own declared start_period
+#   (OMN-15509), a non-zero exit (OMN-15509), and a docker query that did not
+#   run. This change narrows exactly one input and nothing else.
+#
+# FAIL-CLOSED, IN THE DIRECTION THAT MATTERS
+#   The floor is an excuse for NOT counting something, so nothing gets it
+#   without proof. A container whose creation timestamp cannot be parsed cannot
+#   be proven younger than the floor, so it is counted, not excused — treating
+#   "cannot age" as "too young" would convert every unparseable timestamp into
+#   silence. A failed docker query stays __DOCKER_QUERY_FAILED__ and CRITICAL.
+#
+# Emits one space-separated `key=value` fragment for the container_issues row.
+classify_created_containers() {
+  local names name inspected created_at project owner purpose
+  local now_epoch created_epoch age_s fresh=0 unowned=0
+  local pending_names="" retained_names=""
+  now_epoch=$(date -u +%s)
+  names=$(docker ps -a --filter status=created --format '{{.Names}}' 2>/dev/null \
+    || echo "__DOCKER_QUERY_FAILED__")
+  if [[ "$names" == "__DOCKER_QUERY_FAILED__" ]]; then
+    printf '%s' "__DOCKER_QUERY_FAILED__"
+    return 0
+  fi
+
+  while IFS= read -r name; do
+    [[ -n "$name" ]] || continue
+    # One inspect per container, four fields. The `if .Config.Labels` guards
+    # are required: `index` on a nil label map renders `<no value>`, which
+    # would read as a project name.
+    inspected=$(docker inspect -f \
+      '{{.Created}}|{{if .Config.Labels}}{{index .Config.Labels "com.docker.compose.project"}}{{end}}|{{if .Config.Labels}}{{index .Config.Labels "onex.cleanup-owner"}}{{end}}|{{if .Config.Labels}}{{index .Config.Labels "onex.purpose"}}{{end}}' \
+      "$name" 2>/dev/null || true)
+    IFS='|' read -r created_at project owner purpose <<<"$inspected"
+
+    if [[ -n "$owner" || "$purpose" == *-retention ]]; then
+      retained_names="${retained_names}${name},"
+      continue
+    fi
+
+    created_epoch=$(epoch_from_iso "$created_at")
+    if (( created_epoch > 0 )); then
+      age_s=$(( now_epoch - created_epoch ))
+      if (( age_s < CREATED_FLOOR_SECONDS )); then
+        fresh=$(( fresh + 1 ))
+        continue
+      fi
+    fi
+    # Past the floor, or unageable (fail-closed: unprovable age does not earn
+    # the floor's excuse).
+    if [[ -n "$project" ]]; then
+      pending_names="${pending_names}${project}"$'\n'
+    else
+      unowned=$(( unowned + 1 ))
+    fi
+  done <<<"$names"
+
+  local pending="none"
+  if [[ -n "$pending_names" ]]; then
+    # project:count pairs, one per project, deterministic order. sort/uniq
+    # rather than an associative array: this file has to run under the bash on
+    # every host that executes it, and bash 3.2 has no `declare -A`.
+    pending=$(printf '%s' "$pending_names" | sort | uniq -c \
+      | awk '{printf "%s%s:%s", (NR>1 ? "," : ""), $2, $1}')
+  fi
+  local retained="${retained_names%,}"
+  printf 'created_floor_seconds=%s created_fresh=%s created_pending=%s unowned_debris=%s created_retained=%s' \
+    "$CREATED_FLOOR_SECONDS" "$fresh" "$pending" "$unowned" "${retained:-none}"
+}
+
+# Read one field back out of classify_created_containers()'s fragment. The
+# fragment is rendered into the Slack row verbatim, so the status decision
+# reads the SAME string the operator reads — there is no second, private copy
+# of the numbers that could disagree with the published one.
+created_class_field() {
+  local key="$1" fragment="$2"
+  sed -E "s/.*${key}=([^ ]*).*/\1/" <<<"$fragment"
+}
+
+# Containers that exited non-zero. Exit(0) one-shots (migration/init) are
+# expected to finish and must not alarm.
+exited_nonzero() {
+  local raw
+  raw=$(docker ps -a --format '{{.Names}}\t{{.Status}}' 2>/dev/null || echo "__DOCKER_QUERY_FAILED__")
+  if [[ "$raw" == "__DOCKER_QUERY_FAILED__" ]]; then
+    printf '%s' "__DOCKER_QUERY_FAILED__"
+    return 0
+  fi
+  awk -F'\t' '$2 ~ /Exited \([1-9][0-9]*\)/ {printf "%s ", $1}' <<<"$raw" | sed 's/ $//'
+}
+
+# Required GitHub status contexts that never reported (OMN-15550).
+#
+# WHY THIS LIVES HERE AND NOT IN GITHUB ACTIONS
+#   A required check that never reports is ABSENT, not RED. Branch protection
+#   blocks the PR identically, but an absent context has no row in any list, so
+#   `gh pr checks` reads all-green while every PR in the repo is unmergeable.
+#   On 2026-07-30 (OMN-15536) `omnibase_infra`'s ci.yml failed to assemble;
+#   `CI Summary` is that repo's SOLE required context, so all 7 open PRs wedged
+#   silently for ~2.5h until a human noticed. A detector living inside the CI
+#   system it watches would have failed to assemble with it -- so it runs here,
+#   on a host that does not depend on GitHub Actions.
+#
+#   Folding it into this reporter rather than building a second alerter is the
+#   net-negative-surface rule: it inherits this script's Slack poster, its
+#   state-change de-duplication, its resolved-notification and its */15 cron.
+#   No new cron unit, no second Slack integration.
+#
+# The probe emits `ci|STATUS|key|detail` rows, which `row_status()` reads at
+# column 2 and `row_key()` de-duplicates as `ci|<key>`. A probe failure is a
+# WARNING row, never silence: "could not look" must not render as "nothing
+# wrong". It is deliberately not CRITICAL -- an unreachable API is not evidence
+# that PRs are stranded, and paging on every network blip mutes the channel.
+check_ci_required_contexts() {
+  # Both artifacts are installed side by side in /data/maintenance/bin by the
+  # host maintenance sync, so `dirname $0` resolves the probe on the host. In
+  # the repo the probe lives under scripts/ (the env-read gate's approved
+  # location for operational Python), not next to this file.
+  local probe="${OMNINODE_CI_PROBE_SCRIPT:-$(dirname "$0")/omninode-ci-required-context-probe.py}"
+  local python_bin="${OMNINODE_CI_PROBE_PYTHON:-python3}"
+
+  if [[ "${OMNINODE_CI_PROBE_ENABLED:-1}" != "1" ]]; then
+    return 0
+  fi
+  if [[ ! -r "$probe" ]]; then
+    printf 'ci|WARNING|required-contexts|probe script missing or unreadable at %s\n' "$probe"
+    return 0
+  fi
+  if ! command -v "$python_bin" >/dev/null 2>&1; then
+    printf 'ci|WARNING|required-contexts|%s not found; required-context probe did not run\n' "$python_bin"
+    return 0
+  fi
+
+  local out
+  # A hung probe must not wedge the whole 15-minute health tick, so it is
+  # bounded and a timeout is reported as a WARNING row like any other
+  # "we could not look" outcome.
+  if ! out=$(timeout "${OMNINODE_CI_PROBE_TIMEOUT:-120}" "$python_bin" "$probe" 2>/dev/null); then
+    printf 'ci|WARNING|required-contexts|probe exited non-zero or timed out; required-context state unknown\n'
+    return 0
+  fi
+  if [[ -z "$out" ]]; then
+    printf 'ci|WARNING|required-contexts|probe produced no rows; required-context state unknown\n'
+    return 0
+  fi
+  printf '%s\n' "$out"
+}
+
+# OMN-18567: surface the deploy runner's private clone-tree convergence.
+#
+# WHY IT LIVES HERE. `omninode-runner-tree-converge.sh` runs hourly at :49 and
+# writes one verdict line. A verdict nothing reads is a log line, and CLAUDE.md
+# rule 5 is that detection not wired to something is advisory. Folding the read
+# into this reporter rather than building a second alerter is the
+# net-negative-surface rule: it inherits this script's Slack poster, its
+# per-key state-change de-duplication, its resolved-notification and its */15
+# cron. No new cron unit, no second Slack integration -- the same argument
+# `check_ci_required_contexts` above is here on.
+#
+# WHAT IT ESCALATES, AND WHAT IT DELIBERATELY DOES NOT. The tick REFUSES while
+# a deploy job is using the tree, and exits 0 when it does, because a refusal is
+# the guard working. So a single REFUSED is not an issue and must not page. What
+# IS an issue is the tree going unconverged for a long time -- whether because
+# the runner is permanently busy, because the unit stopped being scheduled, or
+# because nobody ever installed it. All three look identical from the outside,
+# and all three are caught by ageing `last_success` rather than by reading the
+# most recent verdict. That is the whole reason the tick carries that field.
+#
+# A missing file is a WARNING, not silence: "the tick has never run" is exactly
+# the OMN-15525 condition this maintenance family exists to make visible.
+check_runner_tree_converge() {
+  local status_file="${OMNINODE_RUNNER_TREE_STATE_FILE:-$STATE_DIR/runner-tree-converge.status}"
+  local stale_hours="${OMNINODE_RUNNER_TREE_STALE_HOURS:-6}"
+
+  if [[ "${OMNINODE_RUNNER_TREE_CHECK_ENABLED:-1}" != "1" ]]; then
+    return 0
+  fi
+  if [[ ! -r "$status_file" ]]; then
+    printf 'runner-tree|WARNING|converge|no verdict at %s; the hourly converge has never run, or its unit is not installed\n' "$status_file"
+    return 0
+  fi
+
+  local line verdict last_success detail
+  line=$(tail -n1 "$status_file" 2>/dev/null)
+  verdict=$(sed -n 's/^runner-tree-converge|\([A-Z_]*\)|.*/\1/p' <<<"$line")
+  last_success=$(sed -n 's/.*|last_success=\([^|]*\)|.*/\1/p' <<<"$line")
+  detail=$(sed -n 's/.*|detail=\(.*\)$/\1/p' <<<"$line")
+  if [[ -z "$verdict" ]]; then
+    printf 'runner-tree|WARNING|converge|verdict at %s is unparseable; convergence state unknown\n' "$status_file"
+    return 0
+  fi
+
+  # A converge that could not repair is the one outcome worth a human: the tree
+  # is the build source for three deploy paths and it is now knowingly wrong.
+  if [[ "$verdict" == "FAILED" || "$verdict" == "PRECONDITION" ]]; then
+    printf 'runner-tree|CRITICAL|converge|%s — %s\n' "$verdict" "${detail:-no detail}"
+    return 0
+  fi
+
+  if [[ -z "$last_success" || "$last_success" == "never" ]]; then
+    printf 'runner-tree|WARNING|converge|last verdict %s and the tree has never been converged by the tick\n' "$verdict"
+    return 0
+  fi
+
+  local success_epoch now_epoch age_hours
+  # GNU first, BSD second. The host is Linux and only the GNU form runs there,
+  # but this script is exercised on macOS by its own tests -- and a parse that
+  # only ever succeeds on the host would mean every test took the "could not
+  # read the timestamp" branch while believing it had tested the staleness
+  # rule. A seam that silently becomes the implementation is the failure mode
+  # this file's header is about.
+  success_epoch=$(date -u -d "$last_success" +%s 2>/dev/null) \
+    || success_epoch=$(date -u -j -f '%Y-%m-%dT%H:%M:%SZ' "$last_success" +%s 2>/dev/null) \
+    || success_epoch=""
+  if [[ -z "$success_epoch" ]]; then
+    printf 'runner-tree|WARNING|converge|last_success=%s could not be read as a timestamp; staleness unknown\n' "$last_success"
+    return 0
+  fi
+  now_epoch=$(date -u +%s)
+  age_hours=$(( (now_epoch - success_epoch) / 3600 ))
+  if (( age_hours >= stale_hours )); then
+    printf 'runner-tree|WARNING|converge|last clean convergence was %sh ago (%s); latest verdict %s\n' \
+      "$age_hours" "$last_success" "$verdict"
+    return 0
+  fi
+
+  printf 'runner-tree|OK|converge|%s, last clean convergence %sh ago\n' "$verdict" "$age_hours"
+}
+
+# OMN-18942: surface FLEET failures -- red scheduled workflows across every
+# repository that has one, and the rule 24(b) lab-pass state of the `dev` head.
+#
+# WHY IT LIVES HERE. The 2026-09-20 silent-gates review measured that no chat
+# secret of any name exists at GitHub Actions organisation scope or in any
+# repository scope. The fleet's only failure-rate alerter (OMN-18254 /
+# OMN-18322) therefore runs correctly every ten minutes, names fifteen
+# continuously-red scheduled workflows, and its last log line is that Slack is
+# not configured. The mechanism was never broken; it had no destination.
+#
+# This host has one. Folding the findings in here rather than minting a Slack
+# credential into GitHub Actions is the net-negative-surface rule -- the same
+# argument `check_ci_required_contexts` and `check_runner_tree_converge` above
+# are here on. They inherit this script's Slack poster, its per-key
+# state-change de-duplication, its hysteresis, its resolved-notification and
+# its */15 cron. No new cron unit, no new Slack app, no new credential, and no
+# fourth copy of a bot token that already works.
+#
+# The probe emits `fleet|STATUS|key|detail` rows, read by `row_status()` at
+# column 2 and de-duplicated by `row_key()` as `fleet|<key>`. Every "could not
+# look" outcome is a row naming the reason -- an unreadable source is never an
+# empty green, because an absent finding set and an unevaluated finding set are
+# the two states this whole family exists to tell apart.
+check_fleet_failures() {
+  # Installed side by side in /data/maintenance/bin by the host maintenance
+  # sync, so `dirname $0` resolves it on the host. In the repo it lives under
+  # scripts/ beside the required-context probe, for the same reason.
+  local probe="${OMNINODE_FLEET_PROBE_SCRIPT:-$(dirname "$0")/omninode-fleet-failure-probe.py}"
+  local python_bin="${OMNINODE_FLEET_PROBE_PYTHON:-python3}"
+
+  if [[ "${OMNINODE_FLEET_PROBE_ENABLED:-1}" != "1" ]]; then
+    return 0
+  fi
+  if [[ ! -r "$probe" ]]; then
+    printf 'fleet|WARNING|probe|probe script missing or unreadable at %s\n' "$probe"
+    return 0
+  fi
+  if ! command -v "$python_bin" >/dev/null 2>&1; then
+    printf 'fleet|WARNING|probe|%s not found; fleet failure probe did not run\n' "$python_bin"
+    return 0
+  fi
+
+  local out
+  # The expensive sweep refreshes in a DETACHED child, so this call is a cache
+  # read plus a handful of artifact queries and is bounded well under a tick.
+  if ! out=$(timeout "${OMNINODE_FLEET_PROBE_TIMEOUT:-300}" "$python_bin" "$probe" 2>/dev/null); then
+    printf 'fleet|WARNING|probe|probe exited non-zero or timed out; fleet failure state unknown\n'
+    return 0
+  fi
+  if [[ -z "$out" ]]; then
+    printf 'fleet|WARNING|probe|probe produced no rows; fleet failure state unknown\n'
+    return 0
+  fi
+  printf '%s\n' "$out"
+}
+
+# OMN-18944: the production Postgres backup must be proven to EXIST and be FRESH.
+#
+# WHY IT LIVES HERE. `omninode_infra`'s nightly backup CronJob carries a bounded
+# failed-job history limit and nothing else. No alert rule covers CronJob
+# failure, and the alert-rule files that repo does carry are applied by no
+# workflow at all, so a failed nightly backup and a successful one were the same
+# event from outside the cluster. Folding the read into this reporter rather
+# than building a second alerter is the net-negative-surface rule -- it inherits
+# this script's Slack poster, its per-key state-change de-duplication, its
+# resolved-notification and its */15 cron. No new cron unit, no second Slack
+# integration. Same argument as the two checks above.
+#
+# WHY IT READS A WORKFLOW RUN AND NOT THE BUCKET. The verdict itself is
+# artifact-based: `scripts/check_postgres_backup_freshness.py` reads the newest
+# backup OBJECT per cluster and database out of S3 and fails on absent, stale or
+# empty. But that read needs AWS credentials, and this host has neither an `aws`
+# CLI nor any AWS credential -- measured 2026-09-21, no `~/.aws`, zero AWS names
+# in the env file against 111 keys as a positive control. The probe therefore
+# runs where the credential already is, in GitHub Actions on a four-hourly
+# schedule, and this function reads its conclusion with the GitHub token this
+# host already holds. Nothing new is minted.
+#
+# WHY A MISSING RUN IS CRITICAL AND A MISSING TOKEN IS NOT. The failure this
+# whole ticket is about is a check that quietly stops reaching anybody, so a
+# gate that has not run inside its window is exactly the condition worth a
+# human, not a lesser one -- and it is the only way "the workflow was deleted"
+# and "the workflow is failing" become distinguishable from here. A missing
+# token or an unreachable API is a different thing: we could not look, which
+# must not render as "nothing wrong" but is not evidence the backup is gone.
+# That asymmetry is the same one `check_ci_required_contexts` draws.
+# OMN-19852: which identity this tick's GitHub reads ran on. Configured-but-
+# unusable is a WARNING; not configured at all prints nothing (the pre-App
+# behaviour, unchanged for a host that has no token cron).
+check_gh_read_identity() {
+  if [[ -n "$GH_READ_TOKEN_PROBLEM" ]]; then
+    printf 'github|WARNING|read-identity|%s\n' "$GH_READ_TOKEN_PROBLEM"
+  elif [[ "$GH_READ_IDENTITY" == "app" ]]; then
+    printf 'github|OK|read-identity|GitHub reads on the read-only App token from %s\n' "$GH_READ_TOKEN_FILE"
+  fi
+}
+
+check_postgres_backup_freshness() {
+  local repo="${OMNINODE_BACKUP_GATE_REPO:-OmniNode-ai/omninode_infra}"
+  local workflow="${OMNINODE_BACKUP_GATE_WORKFLOW:-postgres-backup-freshness-gate.yml}"
+  local branch="${OMNINODE_BACKUP_GATE_BRANCH:-dev}"
+  # The gate runs every 4h. Nine hours tolerates one missed run (runner queue,
+  # jitter) and goes red on two, which is a real absence rather than a blip.
+  local stale_hours="${OMNINODE_BACKUP_GATE_STALE_HOURS:-9}"
+
+  if [[ "${OMNINODE_BACKUP_GATE_CHECK_ENABLED:-1}" != "1" ]]; then
+    return 0
+  fi
+
+  if ! command -v jq >/dev/null 2>&1; then
+    printf 'backup|WARNING|postgres-freshness|jq not found; backup freshness state unknown\n'
+    return 0
+  fi
+
+  local token="${GH_PAT:-${GITHUB_TOKEN:-}}"
+  if [[ -z "$token" ]]; then
+    printf 'backup|WARNING|postgres-freshness|neither GH_PAT nor GITHUB_TOKEN is set; backup freshness state unknown\n'
+    return 0
+  fi
+
+  # Declared as a seam so the tests drive the parsing and threshold logic
+  # against recorded payloads. A seam that only ever resolves to the real
+  # command on the host would mean the tests exercised the "could not look"
+  # branch while believing they had tested the verdict rules.
+  local fetch_cmd="${OMNINODE_BACKUP_GATE_FETCH_CMD:-}"
+  local body
+  if [[ -n "$fetch_cmd" ]]; then
+    body=$($fetch_cmd 2>/dev/null) || body=""
+  else
+    body=$(curl -sS --max-time "${OMNINODE_BACKUP_GATE_TIMEOUT:-20}" \
+      -H "Authorization: Bearer ${token}" \
+      -H "Accept: application/vnd.github+json" \
+      -H "X-GitHub-Api-Version: 2022-11-28" \
+      "https://api.github.com/repos/${repo}/actions/workflows/${workflow}/runs?branch=${branch}&per_page=10" \
+      2>/dev/null) || body=""
+  fi
+
+  if [[ -z "$body" ]]; then
+    printf 'backup|WARNING|postgres-freshness|could not reach the GitHub API for %s; backup freshness state unknown\n' "$workflow"
+    return 0
+  fi
+
+  # A 404 means the workflow file is gone from the default branch. That is the
+  # gate being DELETED, which is the loudest version of the exact failure this
+  # row exists for, so it is reported as an absence rather than folded into the
+  # generic "could not parse" branch -- the two have different remedies and
+  # only one of them is somebody removing the check.
+  local api_message
+  api_message=$(jq -r 'if type=="object" then (.message // "") else "" end' <<<"$body" 2>/dev/null) || api_message=""
+  if [[ "$api_message" == "Not Found" ]]; then
+    printf 'backup|CRITICAL|postgres-freshness|workflow %s does not exist on %s in %s; the production backup freshness gate has been removed and nothing is checking the backup\n' \
+      "$workflow" "$branch" "$repo"
+    return 0
+  fi
+
+  local total
+  total=$(jq -r 'if type=="object" and has("total_count") then .total_count else "unparseable" end' <<<"$body" 2>/dev/null) || total="unparseable"
+  if [[ "$total" == "unparseable" ]]; then
+    printf 'backup|WARNING|postgres-freshness|GitHub API response for %s was not parseable (%s); backup freshness state unknown\n' \
+      "$workflow" "${api_message:-no message}"
+    return 0
+  fi
+
+  # Scheduled and dispatched runs only. A pull_request run of this workflow
+  # exercises the gate's own unit tests and makes no claim about the live
+  # backup, so counting one as a verdict would let a green PR paper over a
+  # cluster that stopped backing up.
+  local run conclusion status started html_url
+  run=$(jq -c '[.workflow_runs[]? | select(.event=="schedule" or .event=="workflow_dispatch")] | sort_by(.run_started_at) | last // empty' <<<"$body" 2>/dev/null) || run=""
+  if [[ -z "$run" || "$run" == "null" ]]; then
+    printf 'backup|CRITICAL|postgres-freshness|%s has NO scheduled run on %s; the production backup is unverified and nothing is checking it\n' \
+      "$workflow" "$branch"
+    return 0
+  fi
+
+  conclusion=$(jq -r '.conclusion // "none"' <<<"$run")
+  status=$(jq -r '.status // "unknown"' <<<"$run")
+  started=$(jq -r '.run_started_at // ""' <<<"$run")
+  html_url=$(jq -r '.html_url // ""' <<<"$run")
+
+  local started_epoch now_epoch age_hours
+  # GNU first, BSD second -- the host is Linux and only the GNU form runs there,
+  # but these tests run on macOS, and a parse that only succeeded on the host
+  # would mean every test took the "could not read the timestamp" branch.
+  started_epoch=$(date -u -d "$started" +%s 2>/dev/null) \
+    || started_epoch=$(date -u -j -f '%Y-%m-%dT%H:%M:%SZ' "$started" +%s 2>/dev/null) \
+    || started_epoch=""
+  if [[ -z "$started_epoch" ]]; then
+    printf 'backup|WARNING|postgres-freshness|latest run timestamp %s could not be read; backup freshness state unknown\n' "$started"
+    return 0
+  fi
+  now_epoch=$(date -u +%s)
+  age_hours=$(( (now_epoch - started_epoch) / 3600 ))
+
+  # A run still in flight is not a verdict. Age it anyway: a job wedged for
+  # longer than the staleness window is the same silence as one that never ran.
+  if [[ "$status" != "completed" ]]; then
+    if (( age_hours >= stale_hours )); then
+      printf 'backup|CRITICAL|postgres-freshness|the freshness gate has been %s for %sh; the production backup is unverified — %s\n' \
+        "$status" "$age_hours" "$html_url"
+      return 0
+    fi
+    printf 'backup|OK|postgres-freshness|freshness gate %s, started %sh ago\n' "$status" "$age_hours"
+    return 0
+  fi
+
+  if (( age_hours >= stale_hours )); then
+    printf 'backup|CRITICAL|postgres-freshness|the freshness gate last ran %sh ago (bar %sh); the production backup is unverified and the gate itself may have stopped — %s\n' \
+      "$age_hours" "$stale_hours" "$html_url"
+    return 0
+  fi
+
+  if [[ "$conclusion" != "success" ]]; then
+    printf 'backup|CRITICAL|postgres-freshness|the production Postgres backup FAILED its freshness check (%s, %sh ago): a backup is absent, stale or empty in s3 — %s\n' \
+      "$conclusion" "$age_hours" "$html_url"
+    return 0
+  fi
+
+  # The OK row names the gate and the branch that answered. The digest section
+  # this lands in is what a person reads at 08:00, and "verified" with no
+  # subject cannot be told apart from a row asserting something it never
+  # measured -- which is the failure mode this whole check exists to remove.
+  printf 'backup|OK|postgres-freshness|every declared cluster has a fresh Postgres backup, verified %sh ago by %s on %s\n' \
+    "$age_hours" "$workflow" "$branch"
+}
+
+# OMN-18949: surface LANE CENSUS drift -- the live hourly census on this host
+# against the committed lane manifest.
+#
+# WHY IT LIVES HERE. Nothing refused on census drift anywhere. The hourly timer
+# on this host writes a snapshot; the committed snapshot in the repository
+# carried five findings and severity warning; the only surface that read either
+# rendered the prose string "N drift item(s) -- see census" into a doctrine
+# file, where the next refresh normalised it away. The CI gate added by the
+# same ticket catches the two COMMITTED files disagreeing, which is a different
+# question from the LIVE lane topology having moved -- CI cannot see this
+# host's docker daemon at all.
+#
+# "More than one tick" is not implemented here and must not be: CONFIRM_TICKS
+# above already requires a key to hold the same status for two consecutive
+# ticks before it pages, and CLEAR_TICKS absorbs the flap on the way back. A
+# second, private counter in this function would be a second answer to a
+# question the state machine already answers, and the two would disagree.
+#
+# Rows are `census|STATUS|key|detail`, read by `row_status()` at column 2 and
+# de-duplicated by `row_key()` as `census|<key>`. Every "could not look"
+# outcome is a row naming the reason: an unreadable census is never an empty
+# green, because an absent finding set and an unevaluated one are the two
+# states this family exists to tell apart.
+# WHOSE HOME (OMN-18949, second defect, measured 2026-09-21).
+#
+# The paths below resolved through `$HOME` and this reporter runs from
+# /etc/cron.d as ROOT, so `$HOME` is /root. Neither
+# /root/.local/state/onex/census-snapshot.json nor
+# /root/Code/omni_home/omnibase_infra exists on .201. Measured that day: eight
+# consecutive ticks emitted `census|WARNING|snapshot|no live census ...; the
+# hourly lane-census timer may have stopped` while the real snapshot was
+# twenty minutes old and carried five findings. The census leg shipped by this
+# ticket therefore delivered a FALSE reason to the channel and never once
+# reported the drift it was added to report -- the reporting half was as blind
+# as the gate half.
+#
+# The census is written by a systemd USER unit
+# (deploy/lane-census/onex-disk-gc.service.d/20-lane-census.conf, whose
+# ExecStart uses `%h`), so it lands in the census OWNER's home, not the
+# caller's. Resolve that owner through getent rather than assuming the two are
+# the same account. The repository root is the deployed checkout, the same
+# /data tree this script already reads its env file and writes its logs under.
+_census_owner_home() {
+  local home
+  home=$(getent passwd "${OMNINODE_CENSUS_OWNER:-jonah}" 2>/dev/null | cut -d: -f6)
+  printf '%s' "${home:-$HOME}"
+}
+
+check_census_drift() {
+  local live manifest checker python_bin repo owner_home
+  owner_home=$(_census_owner_home)
+  repo="${OMNINODE_REPO_ROOT:-/data/omninode/omnibase_infra}"
+  live="${OMNINODE_CENSUS_LIVE_SNAPSHOT:-}"
+  if [[ -z "$live" ]]; then
+    # The invoking user's own census wins when it exists (a human running this
+    # by hand reads their own host state); otherwise the owner's.
+    if [[ -r "$HOME/.local/state/onex/census-snapshot.json" ]]; then
+      live="$HOME/.local/state/onex/census-snapshot.json"
+    else
+      live="$owner_home/.local/state/onex/census-snapshot.json"
+    fi
+  fi
+  manifest="${OMNINODE_CENSUS_MANIFEST:-$repo/deploy/lane-census/lane-manifest.yaml}"
+  checker="${OMNINODE_CENSUS_CHECKER:-$repo/scripts/check_lane_census_drift.py}"
+  python_bin="${OMNINODE_CENSUS_PYTHON:-python3}"
+
+  if [[ "${OMNINODE_CENSUS_PROBE_ENABLED:-1}" != "1" ]]; then
+    return 0
+  fi
+  if [[ ! -r "$live" ]]; then
+    printf 'census|WARNING|snapshot|no live census at %s; the hourly lane-census timer may have stopped\n' "$live"
+    return 0
+  fi
+  if [[ ! -r "$manifest" ]]; then
+    printf 'census|WARNING|manifest|lane manifest unreadable at %s; live census cannot be judged\n' "$manifest"
+    return 0
+  fi
+
+  # Staleness first. A snapshot that stopped being written keeps reporting the
+  # last topology it saw, which reads as a healthy census indefinitely -- the
+  # exact failure the age gate exists for on the committed copy, and one this
+  # host had no reader for on the live copy.
+  local emitted age_h stale_h
+  stale_h="${OMNINODE_CENSUS_STALE_HOURS:-6}"
+  emitted=$("$python_bin" - "$live" <<'PY' 2>/dev/null || true
+import datetime as dt, json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+    t = dt.datetime.fromisoformat(d["emitted_at"])
+    if t.tzinfo is None:
+        t = t.replace(tzinfo=dt.timezone.utc)
+    print(int((dt.datetime.now(dt.timezone.utc) - t).total_seconds() // 3600))
+except Exception:
+    pass
+PY
+)
+  if [[ -z "$emitted" ]]; then
+    printf 'census|WARNING|snapshot|live census at %s has no readable emitted_at; its age is unknown\n' "$live"
+    return 0
+  fi
+  age_h="$emitted"
+  if (( age_h >= stale_h )); then
+    printf 'census|WARNING|snapshot|live census is %sh old (>= %sh); the hourly timer has stopped writing\n' "$age_h" "$stale_h"
+    return 0
+  fi
+
+  # Agreement with the manifest, evaluated by the SAME module the CI gate runs,
+  # pointed at the live snapshot instead of the committed one. A second
+  # implementation here would be a second verdict that could disagree with CI's.
+  local json rc errfile err
+  if [[ -r "$checker" ]] && command -v "$python_bin" >/dev/null 2>&1; then
+    # stderr is CAPTURED, not discarded (CLAUDE.md rule 16). A suppressed error
+    # here returns an empty result that reads exactly like a clean census, and
+    # the reason it failed is the only thing that makes the row actionable --
+    # "exit 1" and "no module named yaml" are the same row without it. The
+    # interpreter is overridable because this checker needs PyYAML and the
+    # host's bare python3 may not have it.
+    errfile=$(mktemp)
+    json=$(timeout "${OMNINODE_CENSUS_PROBE_TIMEOUT:-60}" "$python_bin" "$checker" \
+             --manifest "$manifest" --snapshot "$live" --json 2>"$errfile")
+    rc=$?
+    err=$(tail -n1 "$errfile" 2>/dev/null | tr -d '\r' | cut -c1-160)
+    rm -f "$errfile"
+    if (( rc == 2 )) || [[ -z "$json" ]]; then
+      printf 'census|WARNING|manifest|drift checker could not evaluate the live census (exit %s)%s\n' \
+        "$rc" "${err:+: $err}"
+      return 0
+    fi
+    if (( rc == 1 )); then
+      # OMN-18949: the checker now refuses on a non-zero drift count as well as
+      # on the two committed files contradicting each other, so its exit code
+      # alone no longer says WHICH happened. Split them back apart here: they
+      # are different defects with different remedies, and collapsing both into
+      # the `manifest` row would report "the census contradicts the manifest"
+      # for a lane that is merely running something undeclared. The `drift` row
+      # keeps its own key so its de-duplication and its resolution notice stay
+      # independent of the contradiction row's.
+      local summary drift_only
+      drift_only=$("$python_bin" -c 'import json,sys; f=json.load(sys.stdin)["findings"]; print("yes" if f and all(x["kind"]=="nonzero_drift_count" for x in f) else "no")' <<<"$json" 2>/dev/null)
+      if [[ "$drift_only" == "yes" ]]; then
+        summary=$("$python_bin" -c 'import json,sys; f=json.load(sys.stdin)["findings"]; print("; ".join("%s on lane(s) %s" % (x["detail"].split(";")[0], x["lane"]) for x in f[:2]))' <<<"$json" 2>/dev/null)
+        printf 'census|CRITICAL|drift|%s (census %sh old); declare it in the lane manifest or remove it from the lane\n' \
+          "${summary:-the live census reports drift}" "$age_h"
+        return 0
+      fi
+      summary=$("$python_bin" -c 'import json,sys; d=json.load(sys.stdin); f=d["findings"]; print("%d disagreement(s): %s" % (len(f), "; ".join("%s on %s (%s)" % (x["kind"], x["lane"], x["subject"]) for x in f[:3])))' <<<"$json" 2>/dev/null)
+      printf 'census|CRITICAL|manifest|the LIVE census contradicts the committed manifest -- %s\n' "${summary:-unparseable checker output}"
+      return 0
+    fi
+  else
+    printf 'census|WARNING|manifest|drift checker missing or unreadable at %s\n' "$checker"
+    return 0
+  fi
+
+  # Live topology drift. Since OMN-18949 armed the drift-count assertion the
+  # checker above refuses on this and emits the CRITICAL `drift` row, so in
+  # practice the checker path owns the non-zero case. This block stays as the
+  # fallback for the one reachable gap -- the checker present but the count
+  # read failing -- and as the surface that emits the OK row, because a census
+  # that is clean must say so rather than say nothing.
+  local drift lanes
+  drift=$("$python_bin" -c 'import json,sys; print(len(json.load(open(sys.argv[1])).get("findings",[])))' "$live" 2>/dev/null || echo "")
+  if [[ -z "$drift" ]]; then
+    printf 'census|WARNING|drift|live census findings unreadable; drift state unknown\n'
+    return 0
+  fi
+  if (( drift > 0 )); then
+    lanes=$("$python_bin" -c 'import json,sys; print(",".join(sorted({f.get("lane","?") for f in json.load(open(sys.argv[1])).get("findings",[])})))' "$live" 2>/dev/null || echo "?")
+    printf 'census|WARNING|drift|%s drift item(s) on lane(s) %s, census %sh old\n' "$drift" "$lanes" "$age_h"
+    return 0
+  fi
+  printf 'census|OK|drift|no lane drift; census %sh old and agrees with the manifest\n' "$age_h"
+}
+
+collect() {
+  local now host root data root_status data_status running unhealthy restarting dead created
+  local dangling named_dangling anonymous_dangling docker_status docker_detail
+  local starting_stuck exited_bad created_classes lane spec key port
+  now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  host=$(hostname)
+  root=$(df_line /)
+  data=$(df_line /data)
+  IFS='|' read -r _ root_size root_used root_avail root_pct <<<"$root"
+  IFS='|' read -r _ data_size data_used data_avail data_pct <<<"$data"
+  root_status=$(classify_disk / "$root_pct" "$root_avail" "$ROOT_WARN_PCT" "$ROOT_CRIT_PCT" "$ROOT_WARN_FREE_GB" "$ROOT_CRIT_FREE_GB")
+  data_status=$(classify_disk /data "$data_pct" "$data_avail" "$DATA_WARN_PCT" "$DATA_CRIT_PCT" "$DATA_WARN_FREE_GB" "$DATA_CRIT_FREE_GB")
+
+  running=$(docker ps --format '{{.Names}}' | wc -l | tr -d ' ')
+  unhealthy=$(docker ps -a --format '{{.Names}}\t{{.Status}}' | grep -Eci 'unhealthy' || true)
+  restarting=$(docker ps -a --format '{{.Names}}\t{{.Status}}' | grep -Eci 'Restarting' || true)
+  dead=$(docker ps -a --format '{{.Names}}\t{{.Status}}' | grep -Eci 'Dead' || true)
+  created=$(docker ps -a --format '{{.Names}}\t{{.Status}}' | grep -Eci 'Created' || true)
+  dangling=$(docker volume ls -qf dangling=true | wc -l | tr -d ' ')
+  anonymous_dangling=$(docker volume ls -qf dangling=true | grep -Ec '^[0-9a-f]{64}$' || true)
+  named_dangling=$(docker volume ls -qf dangling=true | grep -Evc '^[0-9a-f]{64}$' || true)
+
+  starting_stuck=$(starting_past_start_period)
+  exited_bad=$(exited_nonzero)
+  created_classes=$(classify_created_containers)
+
+  docker_status=OK
+  # `created=` stays the RAW total of created-status containers. The
+  # classification is reported in the fields beside it (OMN-18571) rather than
+  # by redefining a key anything downstream may already read — extend, never
+  # rename.
+  docker_detail="unhealthy=$unhealthy restarting=$restarting dead=$dead created=$created"
+  if [[ "$starting_stuck" == "__DOCKER_QUERY_FAILED__" || "$exited_bad" == "__DOCKER_QUERY_FAILED__" \
+        || "$created_classes" == "__DOCKER_QUERY_FAILED__" ]]; then
+    # Fail-closed: a docker query that did not run is not evidence of health.
+    docker_status=CRITICAL
+    docker_detail="$docker_detail docker_query=FAILED"
+  else
+    docker_detail="$docker_detail starting_past_start_period=${starting_stuck:-none} exited_nonzero=${exited_bad:-none} $created_classes"
+    # CRITICAL is the container states that are faults on their own terms. The
+    # `created` count is deliberately NOT among them any more (OMN-18571): the
+    # measured nonzero values were a redeploy in flight and three days of
+    # unreaped test debris, neither of which is an outage.
+    if [[ "$unhealthy" != 0 || "$restarting" != 0 || "$dead" != 0 \
+          || -n "$starting_stuck" || -n "$exited_bad" ]]; then
+      docker_status=CRITICAL
+    elif [[ "$(created_class_field unowned_debris "$created_classes")" != 0 \
+            || "$(created_class_field created_pending "$created_classes")" != none ]]; then
+      # Attributable-but-stalled, or unattributable debris. Worth naming on a
+      # row somebody reads; not worth a page.
+      docker_status=WARNING
+    fi
+  fi
+
+  {
+    echo "timestamp|$now"
+    echo "host|$host"
+    echo "disk|$root_status|/|${root_used}/${root_size}|${root_avail}G free|${root_pct}%"
+    echo "disk|$data_status|/data|${data_used}/${data_size}|${data_avail}G free|${data_pct}%"
+    echo "docker|OK|running_containers|$running"
+    echo "docker|$docker_status|container_issues|$docker_detail"
+    echo "docker|OK|dangling_volumes|total=$dangling anonymous=$anonymous_dangling named=$named_dangling"
+    # Every lane's MAIN runtime health endpoint, from the lane->port map.
+    for spec in "${RUNTIME_LANE_SPECS[@]}"; do
+      IFS='|' read -r lane key <<<"$spec"
+      port=$(lane_main_port "$key")
+      if [[ "$port" == "$LANE_PORT_UNRESOLVED" ]]; then
+        # Rule 8 / OMN-15525: refuse to probe a guessed port. An unresolvable
+        # lane map is itself the outage-shaped fact worth alarming on.
+        printf 'CRITICAL|runtime-%s-unresolved|000|lane main port unresolvable: key %s missing from %s\n' \
+          "$lane" "$key" "$(runtime_policy_file)"
+        continue
+      fi
+      check_runtime_lane "$lane" "$port"
+    done
+    check_http projection-api-13002 "http://${PROBE_HOST}:13002/health" 'ok|healthy'
+    # OMN-16789 follow-up: `deploy-agent-8099` is REMOVED, not disabled.
+    #
+    # It probed a service that does not exist on this host. Verified on `.201`
+    # 2026-08-27: no listener on 8099 (`ss -lntp`), no container publishing it
+    # (`docker ps -a`), `curl :8099/health` -> 000. The real deploy runner
+    # (`omninode-deploy-runner`, healthy) publishes NO ports --
+    # `NetworkSettings.Ports` is `{}` -- because it is HMAC-command driven
+    # (DEPLOY_AGENT_HMAC_SECRET), not an HTTP service. Port 8099 is allocated by
+    # the service catalog to an unrelated profile-gated fixture:
+    # `docker/catalog/services/fault-inject-fixture.yaml` -> ports.external 8099.
+    #
+    # So this probe could only ever return 000. Fail-closed on 000 is correct
+    # for a real endpoint and is unchanged everywhere else; the defect was that
+    # this endpoint was never real. It was CRITICAL on all 39 ticks measured in
+    # OMN-16789 and one of only two standing criticals on the host -- permanent
+    # false-RED, the "crying wolf" direction this file's header calls fatal to a
+    # monitor. A monitor nobody believes is a monitor that is not running.
+    #
+    # If a deploy agent ever does expose HTTP health, add it back with its real
+    # port from the service catalog rather than restoring this literal.
+    check_http web-3003 "http://${PROBE_HOST}:3003/" ''
+    check_ci_required_contexts
+    check_runner_tree_converge
+    check_fleet_failures
+    check_gh_read_identity
+    check_postgres_backup_freshness
+    check_census_drift
+  }
+}
+
+snapshot=$(collect)
+if [[ "$MODE" != "dry-run" ]]; then
+  echo "$snapshot"
+fi
+
+host=$(awk -F'|' '$1=="host"{print $2}' <<<"$snapshot")
+
+# The snapshot carries TWO row shapes and the status lives in a different
+# column in each:
+#
+#   disk|STATUS|name|...            <- resource rows, status in $2
+#   docker|STATUS|name|...
+#   STATUS|label|code|detail        <- endpoint rows, status in $1
+#
+# OMN-15525: every selector below used to test `$2` only, so NO endpoint row
+# could ever land in `$issues` / the counters. `format_digest` handled both
+# shapes, which is why the rendered text listed `CRITICAL runtime-dev-8085`
+# under *Active issues* while the header said `0 critical` — and, far worse,
+# why `--mode alert` computed an EMPTY `$issues`, took the "clean" branch, and
+# paged nobody. A dead runtime lane could not raise an alert even after the
+# probe was fixed: OMN-15509 taught the reporter to SEE the lane, and this is
+# what stopped it from SAYING anything. Verified live on .201 — the merged
+# revision printed three CRITICAL lanes above `Issues: *0 critical*`.
+#
+# `row_status` is the single definition of "this row's status" and everything
+# downstream keys off it.
+# STARTING (OMN-18435) is a fourth endpoint status: a lane inside its container's
+# own declared start_period. It is deliberately neither OK nor an issue -- it
+# must not page, and it must not read green either. Adding it HERE, in the single
+# definition of "this row's status", is what keeps every downstream selector
+# (issues, issue_keys, the two counters, the alert state machine) consistent; the
+# OMN-15525 defect was exactly a selector that disagreed with this function.
+row_status='function row_status() { return ($1=="OK" || $1=="WARNING" || $1=="CRITICAL" || $1=="STARTING") ? $1 : $2 }'
+# Stable identity for alert de-duplication: label + status only. Volatile
+# fields (HTTP code, body excerpt, free-GB) are deliberately excluded so a
+# flapping 000/503 on one dead lane is one alert, not one per tick.
+row_key='function row_key() { return ($1=="OK" || $1=="WARNING" || $1=="CRITICAL" || $1=="STARTING") ? $2 : $1 "|" $3 }'
+
+issues=$(awk -F'|' "$row_status"'{ s=row_status() } s=="WARNING" || s=="CRITICAL" {print}' <<<"$snapshot" || true)
+issue_keys=$(awk -F'|' "$row_status$row_key"'{ s=row_status() } s=="WARNING" || s=="CRITICAL" {print row_key() "|" s}' <<<"$snapshot" || true)
+critical_count=$(awk -F'|' "$row_status"'{ s=row_status() } s=="CRITICAL" {c++} END {print c+0}' <<<"$snapshot")
+warning_count=$(awk -F'|' "$row_status"'{ s=row_status() } s=="WARNING" {c++} END {print c+0}' <<<"$snapshot")
+# --- per-key alert state machine (OMN-16789) -------------------------------
+#
+# WHAT WAS WRONG WITH THE SINGLE HASH
+#   The previous revision reduced the whole issue set to one sha256 and posted
+#   whenever that hash changed. That is correct only if the input is stable.
+#   It was not: `runtime-stability-test-18085` alternated CRITICAL(000) /
+#   OK(200) on almost every tick (a 4s probe timeout against a ~3.2s response —
+#   see PROBE_TIMEOUT_SECONDS), so the set flipped between {c,s,d} and {c,d},
+#   the hash changed every tick, and the de-duplication never engaged once.
+#   Measured 2026-08-27 09:30Z-18:30Z: 39 ticks, 22 posted, 17 suppressed, and
+#   every post traced to that one key bouncing.
+#
+#   Worse, the shrink direction did not read as a recovery: with `$issues` still
+#   non-empty the alert branch simply re-posted the entire digest minus one
+#   line. The operator saw "the same alert again", because it was.
+#
+# WHAT REPLACES IT
+#   State is per key, not per set:
+#       key <TAB> status <TAB> present_streak <TAB> absent_streak <TAB> notified <TAB> last_notified_epoch
+#
+#   A key pages once when it has held the same status for CONFIRM_TICKS. While
+#   it is briefly absent (fewer than CLEAR_TICKS ticks) its row and its notified
+#   flag are RETAINED, so a key that bounces back does not re-arm — this is what
+#   actually absorbs the flap. Only after CLEAR_TICKS consecutive absences is it
+#   reported recovered and dropped. A key that is still standing is re-surfaced
+#   every RENOTIFY_SECONDS so a permanent critical cannot go permanently quiet.
+#
+#   A status CHANGE on a present key (WARNING <-> CRITICAL) resets the streak
+#   and re-arms notification: an escalation is a real state change, not noise.
+#
+# FAIL-CLOSED: an unreadable or malformed state file is treated as empty, which
+# re-pages standing issues rather than silencing them. Losing state must never
+# be the quiet outcome.
+state_file="$STATE_DIR/omninode-system-alert-keys.tsv"
+now_epoch=$(date -u +%s)
+current_keys_file=$(mktemp)
+prev_state_file=$(mktemp)
+printf '%s\n' "$issue_keys" | awk -F'|' 'NF>1 { st=$NF; sub(/\|[^|]*$/, "", $0); print $0 "\t" st }' >"$current_keys_file"
+# A row with the wrong field count is dropped rather than trusted (fail-closed
+# to "unknown key" -> re-page), and a missing file is simply empty.
+awk -F'\t' 'NF==6' "$state_file" 2>/dev/null >"$prev_state_file" || true
+
+# The two-file pass keys off FILENAME, NOT the usual `NR==FNR` idiom. On the
+# very first run the previous-state file is EMPTY, and `NR==FNR` is then true
+# for the first record of the SECOND file too — so every current issue would be
+# swallowed by the prior-state branch, no key would ever reach the decision
+# loop, and the reporter would go permanently silent. That is a worse failure
+# than the spam this replaces, and it is invisible until state happens to be
+# empty. Matching on FILENAME has no such edge.
+decisions=$(awk -F'\t' -v OFS='\t' \
+  -v prevfile="$prev_state_file" \
+  -v now="$now_epoch" \
+  -v confirm="$CONFIRM_TICKS" \
+  -v clear="$CLEAR_TICKS" \
+  -v renotify="$RENOTIFY_SECONDS" '
+  FILENAME==prevfile {
+    k=$1
+    p_status[k]=$2; p_present[k]=$3; p_absent[k]=$4; p_notified[k]=$5; p_last[k]=$6
+    if (!(k in seen)) { seen[k]=1; p_order[++pn]=k }
+    next
+  }
+  { k=$1; if (!(k in cur)) { cur[k]=$2; c_order[++cn]=k } }
+  END {
+    for (i=1; i<=cn; i++) {
+      k=c_order[i]; s=cur[k]
+      if ((k in seen) && p_status[k]==s) {
+        present=p_present[k]+1; notified=p_notified[k]; last=p_last[k]
+      } else {
+        # New key, or a real status change: re-arm.
+        present=1; notified=0; last=0
+      }
+      if (present>=confirm) {
+        if (notified==0)                                   { print "NEW", k, s; notified=1; last=now }
+        else if (renotify>0 && (now-last)>=renotify)       { print "RENOTIFY", k, s; last=now }
+      }
+      print "STATE", k, s, present, 0, notified, last
+      handled[k]=1
+    }
+    for (i=1; i<=pn; i++) {
+      k=p_order[i]
+      if (k in handled) continue
+      absent=p_absent[k]+1
+      if (absent>=clear) {
+        if (p_notified[k]==1) print "RECOVERED", k, p_status[k]
+        continue  # dropped from state
+      }
+      # Below the clear threshold: keep the row, the notified flag AND the
+      # present streak.
+      #
+      # Preserving the streak matters. Zeroing it looked tidier but meant a key
+      # only ever needed one clean tick between failures to keep its streak at
+      # 1 forever — so an endpoint failing every OTHER probe (a 50%-broken
+      # service, the single most likely real degradation) could never reach
+      # CONFIRM_TICKS and would never alert at all. Caught by the measured-flap
+      # replay test, which contains no two consecutive failures anywhere in it.
+      # The streak is still bounded: CLEAR_TICKS of continuous absence drops the
+      # row entirely, so this accumulates evidence within a window rather than
+      # forever.
+      print "STATE", k, p_status[k], p_present[k], absent, p_notified[k], p_last[k]
+    }
+  }
+' "$prev_state_file" "$current_keys_file")
+rm -f "$current_keys_file" "$prev_state_file"
+
+# Atomic swap: a crash mid-write must not leave a truncated state file that
+# reads as "no issues known" and re-pages everything.
+#
+# NOT IN dry-run (OMN-18942). The decisions above are computed in every mode,
+# but only `alert` posts. Persisting them from a dry run therefore records
+# `notified=1` for keys NOBODY WAS TOLD ABOUT, and the next real tick reads
+# that as "already paged" and stays silent -- so the documented way to inspect
+# this reporter would silently swallow the first alert for every standing
+# issue. Found while building the fleet failure sink, whose own proof
+# procedure is a dry run on the host. A dry run must be able to look at the
+# state machine without changing it.
+if [[ "$MODE" != "dry-run" ]]; then
+  printf '%s\n' "$decisions" | awk -F'\t' -v OFS='\t' '$1=="STATE" { $1=""; sub(/^\t/, ""); print }' >"${state_file}.tmp"
+  mv -f "${state_file}.tmp" "$state_file"
+fi
+
+new_keys=$(awk -F'\t' '$1=="NEW"       { print $2 " (" $3 ")" }' <<<"$decisions")
+renotify_keys=$(awk -F'\t' '$1=="RENOTIFY"  { print $2 " (" $3 ")" }' <<<"$decisions")
+recovered_keys=$(awk -F'\t' '$1=="RECOVERED" { print $2 }' <<<"$decisions")
+
+format_digest() {
+  local title="$1"
+  local lines endpoint_lines ci_lines tree_lines fleet_lines backup_lines census_lines issue_lines
+  lines=$(awk -F'|' '$1=="disk" {printf "- `%s`: %s, %s, %s (%s)\n", $3, $4, $5, $6, $2} $1=="docker" {printf "- Docker `%s`: %s (%s)\n", $3, $4, $2}' <<<"$snapshot")
+  # STARTING is rendered here with the rest (OMN-18435). A booting lane that
+  # vanished from this section would be the BLIND direction of monitor failure,
+  # which this file's header calls exactly as fatal as crying wolf.
+  endpoint_lines=$(awk -F'|' '$1=="OK" || $1=="WARNING" || $1=="CRITICAL" || $1=="STARTING" {printf "- `%s`: HTTP %s (%s)\n", $2, $3, $1}' <<<"$snapshot")
+  # OMN-15550. The heartbeat row renders here even when clean, so a reader can
+  # tell "scanned N repos, found nothing" apart from "did not scan" -- the
+  # detection-shelf blindness where a silent section reads as healthy.
+  ci_lines=$(awk -F'|' '$1=="ci" {printf "- `%s`: %s (%s)\n", $3, $4, $2}' <<<"$snapshot")
+  [[ -n "$ci_lines" ]] || ci_lines="- No required-context probe rows this tick"
+  # OMN-18567. Same reasoning as the CI heartbeat above: the runner-tree row
+  # renders even when clean so "converged an hour ago" and "nothing looked at
+  # the tree" are distinguishable in the digest, rather than both rendering as
+  # an absent section that reads as healthy.
+  tree_lines=$(awk -F'|' '$1=="runner-tree" {printf "- `%s`: %s (%s)\n", $3, $4, $2}' <<<"$snapshot")
+  [[ -n "$tree_lines" ]] || tree_lines="- No runner clone-tree verdict this tick"
+  # OMN-18942. Same reasoning as the two heartbeats above: the fleet section
+  # renders even when clean, so "swept thirteen repos and found nothing" and
+  # "the sweep never ran" are distinguishable in the digest rather than both
+  # rendering as an absent section a reader takes for health.
+  fleet_lines=$(awk -F'|' '$1=="fleet" {printf "- `%s`: %s (%s)\n", $3, $4, $2}' <<<"$snapshot")
+  [[ -n "$fleet_lines" ]] || fleet_lines="- No fleet failure rows this tick"
+  # OMN-18944. Same reasoning again, and it matters most here: the digest
+  # must distinguish "every cluster has a fresh backup" from "nothing looked
+  # at the backup", because those two were the SAME rendering for the entire
+  # life of the backup CronJob and that is the defect this row closes.
+  backup_lines=$(awk -F'|' '$1=="backup" {printf "- `%s`: %s (%s)\n", $3, $4, $2}' <<<"$snapshot")
+  [[ -n "$backup_lines" ]] || backup_lines="- No backup freshness verdict this tick"
+  # OMN-18949. Same reasoning as the sinks above: a section that prints nothing
+  # when the probe did not run is indistinguishable from one printing nothing
+  # because there is nothing wrong.
+  census_lines=$(awk -F'|' '$1=="census" {printf "- `%s`: %s (%s)\n", $3, $4, $2}' <<<"$snapshot")
+  [[ -n "$census_lines" ]] || census_lines="- No lane census rows this tick"
+  # `next` keeps the three row shapes mutually exclusive so a `ci` row cannot
+  # also be rendered by the generic column-2 branch below it.
+  issue_lines=$(awk -F'|' '($1=="ci" || $1=="runner-tree" || $1=="fleet" || $1=="backup" || $1=="census") && ($2=="WARNING" || $2=="CRITICAL") {printf "- %s `%s`: %s\n", $2, $3, $4; next} $2=="WARNING" || $2=="CRITICAL" {printf "- %s `%s`: %s %s %s\n", $2, $3, $4, $5, $6; next} $1=="WARNING" || $1=="CRITICAL" {printf "- %s `%s`: HTTP %s %s\n", $1, $2, $3, $4}' <<<"$snapshot")
+  if [[ -z "$issue_lines" ]]; then
+    issue_lines="- No active warning/critical checks"
+  fi
+  cat <<MSG
+$title
+Host: $host
+Issues: *$critical_count critical*, *$warning_count warning*
+
+*Disk / Docker*
+$lines
+*Runtime endpoints*
+$endpoint_lines
+*CI required contexts*
+$ci_lines
+*Runner clone tree*
+$tree_lines
+*Fleet failures*
+$fleet_lines
+*Production database backup*
+$backup_lines
+*Lane census*
+$census_lines
+*Active issues*
+$issue_lines
+MSG
+}
+
+case "$MODE" in
+  digest)
+    post_slack "$(format_digest '*OmniNode morning system digest*')" '#439FE0'
+    ;;
+  alert)
+    # Order matters: a tick that both escalates and recovers is an alert, and
+    # the recovered keys ride along in the digest's own *Active issues* delta
+    # rather than as a second message.
+    if [[ -n "$new_keys" || -n "$renotify_keys" ]]; then
+      color='warning'
+      [[ "$critical_count" != 0 ]] && color='danger'
+      post_slack "$(format_digest '*OmniNode system alert*')" "$color"
+      echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) alert posted; new=[${new_keys//$'\n'/, }] renotify=[${renotify_keys//$'\n'/, }]"
+    elif [[ -n "$recovered_keys" ]]; then
+      # Per-key recovery. The old code could not express this: with any issue
+      # still standing it re-posted the whole alert digest, so "one thing got
+      # better" was indistinguishable from "here is the same alert again".
+      recovered_list="${recovered_keys//$'\n'/, }"
+      if [[ -z "$issues" ]]; then
+        post_slack "*[OmniNode alert resolved]* .201 system checks are clean again. Recovered: ${recovered_list}." 'good'
+      else
+        post_slack "*[OmniNode alert resolved]* Recovered: ${recovered_list}. Still open: *${critical_count} critical*, *${warning_count} warning*." 'good'
+      fi
+      echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) recovery posted; recovered=[${recovered_list}]"
+    else
+      echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) no alert state change; Slack suppressed"
+    fi
+    ;;
+  dry-run)
+    format_digest '*OmniNode system dry run*'
+    ;;
+  *)
+    echo "unknown mode: $MODE" >&2
+    exit 2
+    ;;
+esac

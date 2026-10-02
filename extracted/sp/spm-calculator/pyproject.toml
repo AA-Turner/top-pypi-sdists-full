@@ -1,0 +1,85 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spm-calculator"
+version = "1.0.0.post1"
+description = "Calculate Supplemental Poverty Measure thresholds and conditional forecasts"
+readme = "README.md"
+license = "MIT"
+authors = [
+    {name = "PolicyEngine", email = "hello@policyengine.org"}
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "pandas>=2.0",
+    "numpy>=1.24",
+    "requests>=2.28",
+    "census>=0.8",
+    "us>=3.0",
+    "openpyxl>=3.1.5",
+]
+
+[project.optional-dependencies]
+ce = [
+    "curl-cffi>=0.7",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "ruff==0.15.0",
+]
+
+[project.scripts]
+spm-calculator = "spm_calculator.cli:main"
+
+[project.urls]
+Homepage = "https://policyengine.org/us/spm-calculator"
+Documentation = "https://policyengine-docs.vercel.app/spm-calculator/"
+Paper = "https://spm-threshold-paper.vercel.app/"
+Repository = "https://github.com/PolicyEngine/spm-calculator"
+Issues = "https://github.com/PolicyEngine/spm-calculator/issues"
+
+[tool.setuptools]
+packages = ["spm_calculator"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+spm_calculator = [
+    "data/*.json",
+    "data/bls/*.json",
+    "data/bls/*.xlsx",
+    "data/nowcast/*.json",
+    "data/releases/*.json",
+    "data/current/*.json",
+    "data/current/*.csv",
+    "data/current/*.xlsx",
+    "data/provenance/ast-portability-2026-09-09/*",
+]
+
+[tool.ruff]
+line-length = 79
+exclude = ["*.ipynb"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501", "E402"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "slow: tests that download CE microdata or access remote resources",
+]

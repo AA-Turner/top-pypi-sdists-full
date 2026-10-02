@@ -1,0 +1,58 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# ONEX Node Contract - Model Router Compute
+#
+# Intelligent Model Router — pure scoring of candidate models.
+# No I/O, no state mutation. Deterministic for same inputs.
+#
+# Tickets: OMN-7267, OMN-7841
+#
+# Related Tickets:
+#   - OMN-14825: HandlerScoreModels exposes the canonical def-B handle()
+#     dispatch entrypoint while preserving deterministic model scoring.
+#   - OMN-7404: Optional RoutingGate audit hook (shadow-mode only, never
+#     alters routing) injectable via HandlerScoreModels(gate=...). Defaults
+#     to None (no classifier ever trained -- Task 7 unbuilt), which
+#     reproduces prior behavior byte-for-byte.
+#
+name: "node_model_router_compute"
+node_type: "COMPUTE_GENERIC"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 3
+node_version: "1.0.3"
+description: "Pure scoring of candidate models by quality, measured cost tier, live speed metrics, and availability. Contract patch 3 adds an optional shadow-mode RoutingGate audit hook (OMN-7404) that never alters routing, on top of the OMN-14825 canonical def-B handler entrypoint flip."
+input_model:
+  name: "ModelScoringInput"
+  module: "omnibase_infra.nodes.node_model_router_compute.models.model_scoring_input"
+  description: "Combined seedless registry, health, live metrics, and constraints for scoring."
+output_model:
+  name: "ModelRoutingDecision"
+  module: "omnibase_infra.nodes.node_model_router_compute.models.model_routing_decision"
+  description: "Routing decision with selected model, scores, and rationale."
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "score_models"
+      handler:
+        name: "HandlerScoreModels"
+        module: "omnibase_infra.nodes.node_model_router_compute.handlers.handler_score_models"
+metadata:
+  description: "Pure model scoring compute for intelligent router; seed cost/speed fields are not authoritative inputs."
+  author: "OmniNode Team"
+  created: "2026-04-02"
+  updated: "2026-04-30"
+  routing_policy:
+    ticket: "OMN-7841"
+    live_metrics_threshold: 20
+    unmeasured_speed_score: 0.0
+    registry_seed_cost_speed_authoritative: false
+  tags:
+    - "compute"
+    - "scoring"
+    - "model-router"
+    - "llm"
+    - "pure-function"
+    - "seedless-registry"
+    - "live-metrics"

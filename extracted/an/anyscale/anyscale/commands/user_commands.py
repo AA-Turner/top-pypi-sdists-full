@@ -51,9 +51,7 @@ def _create_user_list_table(show_header: bool) -> Table:
     table.add_column("NAME", no_wrap=False, overflow="fold", ratio=2, min_width=12)
     table.add_column("ID", no_wrap=False, overflow="fold", ratio=2, min_width=12)
     table.add_column("ROLE", no_wrap=False, overflow="fold", ratio=1, min_width=10)
-    table.add_column(
-        "CREATED AT", no_wrap=False, overflow="fold", ratio=1, min_width=14
-    )
+    table.add_column("CREATED AT", no_wrap=False, overflow="fold", ratio=1, min_width=14)
     return table
 
 
@@ -88,7 +86,9 @@ def user_cli() -> None:
     type=str,
     help="Path to a YAML file that contains the information for user accounts to be created.",
 )
-def admin_batch_create(users_file: str,) -> None:
+def admin_batch_create(
+    users_file: str,
+) -> None:
     """
     Batch create, as an admin, users without email verification.
     """
@@ -99,8 +99,7 @@ def admin_batch_create(users_file: str,) -> None:
     try:
         created_users = anyscale.user.admin_batch_create(
             admin_create_users=[
-                AdminCreateUser(**create_user)
-                for create_user in create_users.create_users
+                AdminCreateUser(**create_user) for create_user in create_users.create_users
             ]
         )
     except ValueError as e:
@@ -234,8 +233,7 @@ def list_users(  # noqa: A001, PLR0913
     stderr.print(f"• name              = {name or '<any>'}")
     stderr.print(f"• collaborator type = {collaborator_type or '<any>'}")
     stderr.print(
-        f"• service account   = "
-        f"{service_account if service_account is not None else '<any>'}"
+        f"• service account   = {service_account if service_account is not None else '<any>'}"
     )
     stderr.print(f"• mode              = {'interactive' if interactive else 'batch'}")
     stderr.print(f"• per-page limit    = {page_size}")
@@ -244,9 +242,7 @@ def list_users(  # noqa: A001, PLR0913
 
     collaborator_type_value = collaborator_type.lower() if collaborator_type else None
 
-    formatter = (
-        (lambda user: user.to_dict()) if json_output else _format_user_output_data
-    )
+    formatter = (lambda user: user.to_dict()) if json_output else _format_user_output_data
 
     try:
         iterator = anyscale.user.list(
@@ -339,9 +335,7 @@ def list_users(  # noqa: A001, PLR0913
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice(
-        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
-    ),
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
     help="Output format for the result.",
@@ -376,8 +370,7 @@ def get_user(  # noqa: A001, PLR0913
     stderr.print(f"• name              = {name or '<not specified>'}")
     stderr.print(f"• collaborator type = {collaborator_type or '<any>'}")
     stderr.print(
-        f"• service account   = "
-        f"{service_account if service_account is not None else '<any>'}"
+        f"• service account   = {service_account if service_account is not None else '<any>'}"
     )
     stderr.print(f"\nView your Users in the UI at {get_endpoint('/collaborators')}\n")
 
@@ -398,9 +391,7 @@ def get_user(  # noqa: A001, PLR0913
         return
 
     if json_output:
-        console.print_json(
-            json=json_dumps(user.to_dict(), indent=2, cls=AnyscaleJSONEncoder)
-        )
+        console.print_json(json=json_dumps(user.to_dict(), indent=2, cls=AnyscaleJSONEncoder))
         return
 
     table = _create_user_list_table(show_header=True)
@@ -433,9 +424,7 @@ def get_user(  # noqa: A001, PLR0913
             output_raw=command_examples.USER_LIST_PERMISSIONS_EXAMPLE,
             output_instance={
                 "organization_id": "org_abc123",
-                "org_owners": [
-                    {"user_email": "admin@myorg.com", "user_id": "usr_admin123"}
-                ],
+                "org_owners": [{"user_email": "admin@myorg.com", "user_id": "usr_admin123"}],
                 "users": [
                     {
                         "user_id": "usr_abc123",
@@ -491,9 +480,7 @@ def get_user(  # noqa: A001, PLR0913
 @click.option(
     "--output-format",
     "output_format",
-    type=click.Choice(
-        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
-    ),
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
     help="Output format for the result. Ignored when writing to a file.",

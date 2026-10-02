@@ -1,0 +1,84 @@
+---
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# ONEX Node Contract - Ledger State Reducer (OMN-8950)
+name: ledger_state_reducer
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: reducer
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  Ledger demo REDUCER. Pure delta(state, event) -> (new_state, intents).
+  Handler returns dict {"state": ..., "intents": [ModelPersistStateIntent]}
+  per the pure-reducer-as-effect pattern (epic OMN-9006 / OMN-9009). The
+  downstream node_state_persist_effect consumes the intent and performs the
+  ProtocolStateStore.put() side effect — the reducer itself does no I/O.
+
+handler:
+  module: omnimarket.nodes.node_ledger_state_reducer.handlers.handler_ledger_state
+  class: HandlerLedgerStateReducer
+  input_model: omnimarket.nodes.node_ledger_hash_compute.models.model_ledger_hash_computed.ModelLedgerHashComputed
+
+handler_routing:
+  default_handler: omnimarket.nodes.node_ledger_state_reducer.handlers.handler_ledger_state:HandlerLedgerStateReducer
+
+descriptor:
+  node_archetype: reducer
+  purity: pure
+  idempotent: true
+  timeout_ms: 5000
+
+event_bus:
+  subscribe_topics:
+    - onex.evt.omnimarket.ledger-hash-computed.v1
+  publish_topics:
+    - onex.evt.omnimarket.ledger-state-reduced.v1
+
+metadata:
+  transport_type: kafka
+
+# OMN-13734: machine-readable FSM (transcribed from authoritative handler/model logic).
+state_machine:
+  version: {major: 1, minor: 0, patch: 0}
+  state_machine_name: ledger_state_fsm
+  state_machine_version: {major: 1, minor: 0, patch: 0}
+  description: "ledger_state_fsm"
+  initial_state: idle
+  terminal_states: []
+  error_states: []
+  persistence_enabled: false
+  states:
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: idle
+      state_type: operational
+      description: "No ledger hash folded yet."
+      required_data: []
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: reduced
+      state_type: operational
+      description: "Ledger state projection materialized."
+      required_data: []
+  transitions:
+    # Ledger hash computed; fold into state.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: idle_to_reduced_on_ledger_hash_computed
+      from_state: idle
+      to_state: reduced
+      trigger: ledger_hash_computed
+    # Fold another ledger hash.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: reduced_to_reduced_on_ledger_hash_computed
+      from_state: reduced
+      to_state: reduced
+      trigger: ledger_hash_computed
+    # Re-observe own projection (idempotent).
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: reduced_to_reduced_on_ledger_state_reduced
+      from_state: reduced
+      to_state: reduced
+      trigger: ledger_state_reduced
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.ledger-state-reduced.v1

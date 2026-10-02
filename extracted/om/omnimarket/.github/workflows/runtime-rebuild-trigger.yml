@@ -1,0 +1,279 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# runtime-rebuild-trigger.yml
+#
+# An omnimarket merge to dev rebuilds the .201 compose dev lane, so rule 24(a)'s
+# automatic lab pass covers this repository's runtime code instead of waiting for
+# an unrelated omnibase_infra merge to carry it.
+#
+# WHAT WAS BROKEN, MEASURED 2026-09-14
+# ------------------------------------
+# The lane's effects container vendored omnimarket at 65c237cd -- omnimarket#2538,
+# merged 07:53:57Z -- recorded in the image's own /app/build-provenance.json,
+# while its org.opencontainers.image.revision label read 732fd291 (omnibase_infra).
+# omnimarket#2537 (09:11:34Z) and #2540 (10:09:57Z) had merged since and were not
+# on the lane. The omnimarket revision was never CHOSEN: the runtime image vendors
+# this repository as a sibling and stage_workspace.sh resolves it from origin/dev
+# at staging time (DEPLOY_SIBLING_FALLBACK_REF, OMN-17135), so whichever commit
+# origin/dev happens to point at when some other repository's merge fires a
+# rebuild is the one the lane runs.
+#
+# WHY THIS FILE WAS DORMANT, AND WHY IT NO LONGER NEEDS TO BE
+# -----------------------------------------------------------
+# omnimarket#1858 (OMN-14702) reduced this workflow to `on: workflow_dispatch: {}`
+# on 2026-07-21 because the repository had no KAFKA_SASL_USERNAME /
+# KAFKA_SASL_PASSWORD / DEPLOY_AGENT_HMAC_SECRET, and RT-5 fail-closed discipline
+# correctly refused to skip-green. That reasoning was sound and is now spent: the
+# SASL pair is an org secret with ALL visibility -- the dev-lane SCRAM principal
+# the omnibase_infra trigger already publishes with -- and no HMAC secret is a
+# precondition of this producer at all. CI publishes a typed
+# onex.cmd.omnimarket.redeploy-start.v1 start command; node_redeploy's deploy
+# publish-monitor effect remains the SOLE signer and emitter of the deploy-agent
+# rebuild command downstream (OMN-12573).
+#
+# WHY THERE IS NO LOGIC HERE
+# --------------------------
+# There were already two divergent copies of trigger_rebuild_on_merge.py in the
+# org. A third caller running its own copy is how the first two happened. The
+# publisher, the runtime-path decision and the convergence guard all live in
+# omnibase_infra's reusable workflow; this file supplies facts and nothing else.
+# A docs-only merge declines there, on the same canonical omniclaude deploy-gate
+# classifier that gates every PR in four repositories.
+#
+# Tickets: OMN-18268 (this), OMN-14702 (the dormant state it replaces),
+#          OMN-12573 (node_redeploy owns the deploy lifecycle),
+#          OMN-17530 rule 24(a).
+
+name: Runtime Rebuild Trigger
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+      - dev
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # A reusable-workflow job cannot carry steps, so the changed-file list is
+  # computed here and handed over. It is the only fact this repository holds
+  # that the publisher cannot resolve for itself.
+  changed-files:
+    name: Collect changed files
+    if: github.event.pull_request.merged == true
+    runs-on: >-
+      ${{
+        (github.event.pull_request.head.repo.full_name != github.repository)
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+      }}
+    timeout-minutes: 10
+    outputs:
+      all: ${{ steps.changed-files.outputs.all_changed_files }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v47
+        with:
+          separator: ","
+
+  trigger-rebuild:
+    name: Trigger node_redeploy Start
+    needs: changed-files
+    if: github.event.pull_request.merged == true
+    # Pinned to a commit of omnibase_infra dev. The org's first-party exemption
+    # is `@main`, and omnibase_infra's main is release-synced -- it is the last
+    # RELEASE, so a `@main` reference here would point at a tree that does not
+    # carry this file until the next one. A SHA is what the pinning ratchet asks
+    # for and what omnimarket already uses for its other cross-repo reusable
+    # workflows.
+    #
+    # Advanced from e95eb9ba to 585f3d39 by OMN-18387. The pin governs which
+    # workflow FILE loads and nothing else, so it could not reach the
+    # `actions/checkout` INSIDE that file, which was written `ref: dev`. The YAML
+    # spelling `lab_pass_receipt.py probe-lane`'s arguments therefore came from
+    # e95eb9ba while the script reading them came from omnibase_infra dev. When
+    # OMN-18387 made `--projection-url` required and updated its caller in the
+    # same commit over there, the pinned YAML here kept invoking the new script
+    # without it -- run 35019423922, exit 2, "refusing to emit an invalid
+    # receipt", a FAIL compose-dev lab-pass receipt, which under rule 24(b)
+    # blocks delivery of that sha to staging.
+    #
+    # 585f3d39 (omnibase_infra#3601) checks the guard's scripts out at
+    # `github.job_workflow_sha` -- the commit THIS pin names -- so the workflow
+    # and the code it invokes can no longer diverge behind it. Do not pass
+    # `infra_ref:` below: overriding that default is how the drift comes back,
+    # and tests/ci/test_rebuild_trigger_pin_omn18387.py refuses it.
+    #
+    # Advanced from 585f3d39 to 43bd2754 by OMN-17057, which adds the
+    # job that carries this repository's merged revision on to the staging
+    # delivery workflow. Until that job existed, an omnimarket merge could
+    # not cause a delivery at all: it rode along on whatever the next
+    # omnibase_infra push happened to build, which clones every sibling at
+    # branch `dev` at that instant, so the revision this repository
+    # contributed to the image was never CHOSEN. Measured on delivery run
+    # 35013603978 -- the candidate vendored omnimarket 3038d1da, simply
+    # where this branch pointed 18 minutes after an unrelated commit merged
+    # over there.
+    #
+    # Advanced from 43bd2754 to 5ecdeef2 by OMN-18638. Two commits have changed
+    # the reusable since the previous pin: da329b6a8 (OMN-18436), which stops
+    # deriving the settle budget from whatever the convergence wait happened to
+    # leave and declares it per lane in config/lab_pass_settle_budget.yaml, and
+    # 5ecdeef24 (OMN-18602), which moves the lab-receipt guards to a
+    # three-member verify class. The pin also decides which SCRIPTS run:
+    # `infra_ref` defaults to github.job_workflow_sha, so this line selects the
+    # revision of lab_pass_receipt.py and check_dev_lane_staleness.py the job
+    # executes, not only the YAML. At 43bd2754 neither change had reached this
+    # repository's receipts.
+    #
+    # The 5ecdeef2 bump did NOT populate `agent_command_id` on the sibling
+    # receipt, and it was expected to. The OMN-18573 wiring (0c7586ec) added
+    # `--agent-command-id` to omnibase_infra's OWN caller workflow and to
+    # lab_pass_receipt.py; it never touched the reusable, whose emit step passed
+    # no such argument at any revision, so no pin bump could have delivered it.
+    #
+    # Advanced from 5ecdeef2 to e49dea8f by OMN-18638, which closes exactly that
+    # half. omnibase_infra#3748 (19c6c33c6) is the fix and is the reason for
+    # this bump: `trigger-rebuild` now declares the deploy agent's correlation
+    # id as a job output sourced from the publisher's own step output, and the
+    # emit step threads it through `CORRELATION_ID` into `--agent-command-id`.
+    # Without the job output the env reference resolves to the empty string,
+    # which reproduces the null with every other assertion still green -- so the
+    # two halves had to land together, and both are behind this pin. The field
+    # is deliberately left EMPTY when nothing was published rather than filled
+    # from this workflow's run id: a correlation no agent job can be resolved by
+    # is worse than an absent one, because a reader would believe it.
+    #
+    # One other commit changed the reusable in this range: 8c75e8148
+    # (OMN-18615), which reads the image-build ceiling off the machine the job
+    # is about to run on instead of assuming one. Nothing in this range moves
+    # config/lab_pass_settle_budget.yaml, so the settle budget this repository
+    # runs is unchanged by the bump -- the ancestry to da329b6a8 that
+    # tests/ci/test_lab_pass_settle_budget_pin_omn18638.py records still holds
+    # and is re-verified there against this SHA.
+    #
+    # That bump was workflow-only and so did not itself trigger a rebuild; the
+    # proof it named was the next runtime-affecting merge's
+    # `lab-pass-receipt-compose-dev-<sha>` artifact carrying a non-null
+    # `agent_command_id`.
+    #
+    # Advanced from e49dea8f to 73f370c8 by OMN-18685, which fixes what that
+    # very next merge then hit. omnimarket#2641 is the measurement
+    # (2026-09-18, receipt artifact 10546422861): published 11:57:25Z, the
+    # guard's clock opened 11:58:01Z, and the deploy agent did not ACCEPT the
+    # command until 12:08:41Z because it was behind an in-flight 42m07s job.
+    # Accept-to-recreate on this lane is about 22m15s, so the lane never had a
+    # 25-minute budget to spend -- it had what the queue left. The agent's own
+    # build argv read the merged `OMNIMARKET_REF` verbatim, and the guard still
+    # wrote SIBLING_NOT_CONVERGED at 12:23:16Z. `sibling_revision` was the ONLY
+    # failing check of eight, and rule 24(b) then refused a good sha for
+    # staging delivery.
+    #
+    # omnibase_infra#3760 (73f370c8b) anchors that budget to the agent's own
+    # /job/<correlation_id> `accepted_at` instead of a wall clock opened at
+    # `main()`, importing the acceptance primitives from
+    # check_dev_lane_staleness.py rather than re-implementing them so the
+    # direct caller's guard and the sibling guard this repository actually
+    # calls cannot drift on what the lane's budget means. The direct caller got
+    # that port under OMN-18573; the sibling path never did, which is why the
+    # earlier bump did not carry it. The guard's verdict is now three-valued:
+    # a budget that cannot be established, or a job that runs out of its own
+    # derived wall-clock bound first, is INDETERMINATE with a stated reason --
+    # never a PASS, and never a FAIL asserting the lane misbehaved.
+    #
+    # Fail-closed is unchanged in every direction: the guard's exit 3 is
+    # non-zero, the receipt stays non-PASS, the emitter still exits non-zero on
+    # it, and `deliver-sibling-candidate`'s success() gating still withholds the
+    # staging announcement. The lane's 25-minute grant and the job's 45-minute
+    # ceiling both move zero, so this bump widens nothing.
+    #
+    # 73f370c8b changes three files -- the reusable, check_lane_sibling_revision.py
+    # and a new test -- and none of them is config/lab_pass_settle_budget.yaml.
+    # No commit in e49dea8f2..73f370c8b moves that file either, so the settle
+    # budget this repository runs is unchanged by the bump; the ancestry to
+    # da329b6a8 and to 19c6c33c6 that
+    # tests/ci/test_lab_pass_settle_budget_pin_omn18638.py records both still
+    # hold and are re-verified there against this SHA.
+    #
+    # This merge is workflow-only and so will not itself trigger a rebuild. The
+    # proof is the NEXT runtime-affecting omnimarket merge: its
+    # `lab-pass-receipt-compose-dev-<sha>` artifact must report `sibling_revision`
+    # as PASS, or as INDETERMINATE naming a reason -- not a wall-clock FAIL on a
+    # lane that vendored the merge.
+    #
+    # Advanced from 3a7813cff to 89d4dd6cf by OMN-19383 and OMN-19375. The
+    # reusable checks its scripts out at `github.job_workflow_sha` (585f3d39,
+    # above), so this pin selects both the YAML and the classifier it runs:
+    #
+    #   057cd5591 (omnibase_infra#4053, OMN-19383) adds
+    #     `src/omnimarket/events/**` to LANE_STATE_PATH_PATTERNS.
+    #   89d4dd6cf (omnibase_infra#4057, OMN-19375/OMN-19378) widens that to all
+    #     of `src/omnimarket/**`, which the lane installs whole, and stops a
+    #     version-only bump of this repository's root pyproject.toml and its
+    #     own uv.lock entry from rebuilding the lane. For that it adds one step
+    #     to the reusable: a sparse checkout of this merge commit and its
+    #     parent, passed to the classifier as --source-checkout.
+    #
+    # Measured before this bump: omnimarket#2813 (events/) and #2817
+    # (delegation/) read "No rebuild trigger", and every post-release bot bump
+    # read runtime and rebuilt the dev lane (jobs 0805d076, e4d36317, ff4dc5de).
+    #
+    # This bump is itself workflow-only, so it will not trigger a rebuild. The
+    # proof is the next two omnimarket merges: a src/omnimarket change must log
+    # "Runtime change detected", and the post-release bot bump that follows must
+    # log "Version-only manifest change, not lane state" and "No rebuild
+    # trigger".
+    #
+    # Advanced from 89d4dd6c to 04eb6d41d by OMN-19802. The pin selects the
+    # revision of lab_pass_receipt.py this repository's receipts run, and at
+    # 89d4dd6c `probe-lane` read the lane's introspection manifest BEFORE the
+    # settle wait. On a lane the deploy agent had just recreated that GET was
+    # refused, so every omnimarket compose-dev receipt since 2026-09-26 11:21Z
+    # FAILED on node_inventory alone (artifact 10909257483, befa9cc0ab: Errno
+    # 111 beside a 200 from ready_main on the same port) and every omnimarket
+    # runtime PR waited on a lab receipt that could not pass. 04eb6d41d is
+    # omnibase_infra#4175, which reads the manifest after the wait. The bump
+    # also carries omnibase_infra#4105 (OMN-19507), the one reusable change
+    # since 89d4dd6c, which reads the lane the deploy agent routed the merge to,
+    # and #4128's compose-dev-202/compose-dev-200 settle budgets, which leave
+    # the compose-dev entry unchanged.
+    #
+    # This bump is workflow-only, so it triggers no rebuild. The proof is the
+    # next omnimarket runtime merge: its compose-dev receipt must carry
+    # node_inventory ok.
+    uses: OmniNode-ai/omnibase_infra/.github/workflows/runtime-rebuild-trigger-reusable.yml@04eb6d41d1ea8364ef41a3c5ed62bd5743014bdc
+    with:
+      source_repo: omnimarket
+      repo_slug: OmniNode-ai/omnimarket
+      # The merge commit SHA is what the lane must be proven to VENDOR; it is
+      # deliberately not the published git_ref, which has to be a commit of the
+      # build-context repository the deploy agent resets its clone to.
+      source_sha: ${{ github.event.pull_request.merge_commit_sha }}
+      base_branch: ${{ github.event.pull_request.base.ref }}
+      changed_files: ${{ needs.changed-files.outputs.all }}
+      labels: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+      pr_number: ${{ github.event.pull_request.number }}
+    secrets:
+      KAFKA_SASL_USERNAME: ${{ secrets.KAFKA_SASL_USERNAME }}
+      KAFKA_SASL_PASSWORD: ${{ secrets.KAFKA_SASL_PASSWORD }}
+      # OMN-17057. The announcement job in the reusable sends a
+      # repository_dispatch to omnibase_infra, which is gated on Contents:write
+      # on the TARGET repository -- the same org App that already announces the
+      # dev-candidate bundle across a repository boundary (OMN-16373). Passed
+      # here rather than defaulted inside the reusable because a called
+      # workflow cannot read a caller's secrets it was not handed.
+      #
+      # If these are ever absent, the announcement job REFUSES rather than
+      # skipping. The lab pass converging and its receipt publishing while
+      # nothing carries the revision onward is the precise shape of silent
+      # non-delivery this ticket exists to remove.
+      ONEXBOT_OCC_APP_ID: ${{ secrets.ONEXBOT_OCC_APP_ID }}
+      ONEXBOT_OCC_PRIVATE_KEY: ${{ secrets.ONEXBOT_OCC_PRIVATE_KEY }}

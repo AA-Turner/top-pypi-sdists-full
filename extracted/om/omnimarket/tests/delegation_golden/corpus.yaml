@@ -1,0 +1,424 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# corpus.yaml — Versioned delegation regression corpus (OMN-13540).
+#
+# A fixed, version-controlled set of delegation tasks with BEHAVIORAL
+# assertions that run repeatably so regressions are caught mechanically,
+# not by chance. Adding a regression test = adding a row here.
+#
+# Design principle (OMN-13540):
+#   Assert STRUCTURE / BEHAVIOR, never exact LLM output (output is
+#   non-deterministic). Test routing tier reached, quality-gate pass/fail,
+#   terminal state, token/cost recording, escalation/exhaustion behavior.
+#
+#   Each `expected` block encodes the INTENDED behavior per the delegation
+#   contract — NOT current (possibly-broken) behavior. A case that is broken
+#   today (e.g. metered cost_usd>0 on the escalation path, or
+#   code_generation passing quality) still asserts the CORRECT expectation;
+#   it will be RED until the real fix lands. That is the regression net
+#   working. Known-broken cases carry an `xfail` block naming the tracking
+#   ticket so the nightly is actionable, not perpetually-red noise.
+#
+# Two layers:
+#   layer: unit        — deterministic, runs in omnimarket's existing pytest
+#                        CI on every PR (no live model). Catches the
+#                        import / wiring / config regression class.
+#   layer: integration — live golden tasks, executed end-to-end through the
+#                        bus against the stability-test lane, asserted against
+#                        the delegation_events projection. NIGHTLY only.
+#
+# expected block schema (integration rows):
+#   tier_behavior: free_local_first | escalates_off_local | escalates_to_metered | all_tiers_exhaust
+#   quality_gate:  passes | fails | any
+#   terminal:      completed | failed
+#   cost:          zero | positive | any           # cost_usd in delegation_events
+#   escalation:    none | occurs | exhausts
+#   tokens:        positive | any                  # tokens_input/tokens_output > 0
+#
+# xfail block (optional, integration rows known-broken today):
+#   xfail:
+#     reason: <one-line why this is RED today>
+#     ticket: OMN-XXXX
+#
+# Calibration: docs/status/2026-06-23-dogfood-delegation-results.md was ABSENT
+# at authoring time, so xfail markers were set from the OMN-13540 known-gap list
+# (the regressions that motivated this suite): import break (OMN-13539),
+# metered cost never recorded (OMN-13408), escalation drops the completed event
+# so metered cost never reaches the projection (OMN-13535), cloud escalation
+# ladder never fires (OMN-13140).
+#
+# Reconciliation 2026-06-24 (OMN-13540) against the redeploy dogfood
+# (docs/evidence/2026-06-24-redeploy-dogfood/results.md, verifier != runner):
+#   - I5 (research) + I6 (code_review): already expected-green; the dogfood
+#     CONFIRMED both terminalize with real model_name + tokens>0 (OMN-13541 fixed,
+#     OMN-13546 forwarder fix). No corpus change.
+#   - I9 (cross-cutting model_name+tokens on every completed row): FLIPPED to
+#     expected-green — all four completed rows carried non-empty model_name and
+#     tokens>0; the empty-terminal-data regression (OMN-13535) is no longer
+#     reproduced on the redeployed dev lane.
+#   - I8 (all-tiers-exhaust): STAYS xfail — the dogfood proved only the passing
+#     paths, never an exhaustion scenario; OMN-13543/OMN-13140 remain unproven.
+#   - I2 (OMN-13140) + I4 (OMN-13408): unchanged; not re-verified this pass.
+---
+schema_version: "1.0.0"
+corpus_version: "1.1.0"
+ticket: OMN-13540
+
+# ---------------------------------------------------------------------------
+# Layer 1 — contract / unit (deterministic, PRE-MERGE CI gate)
+# ---------------------------------------------------------------------------
+# These rows are documentation/scoreboard companions for the Layer-1 unit
+# tests in test_layer1_contract_unit.py. The assertions themselves live in
+# that test module (they exercise Python imports/config, not the live bus);
+# the rows here keep the full corpus self-describing in one file.
+cases:
+  - id: U1
+    layer: unit
+    task_type: code_generation
+    prompt: "(unit) orchestrator contract loads + handler imports cleanly"
+    acceptance_criteria:
+      - "node_delegate_skill_orchestrator/contract.yaml parses"
+      - "handler_delegate_skill imports without ImportError"
+    expected:
+      assertion: contract_loads_and_handler_imports
+      regression_for: OMN-13539  # ModelPremiumCounterfactual ImportError took the orchestrator down
+
+  - id: U2
+    layer: unit
+    task_type: code_generation
+    prompt: "(unit) every routing tier resolves to complete provider+endpoint+model+api_key_ref"
+    acceptance_criteria:
+      - "each tier model maps to a known backend"
+      - "each backend resolves endpoint (literal or *_env), model_name, and (cloud) secret_ref"
+    expected:
+      assertion: every_tier_resolves_complete_backend
+
+  - id: U3
+    layer: unit
+    task_type: code_generation
+    prompt: "(unit) ModelDelegateSkillRequest validates each allowed task_type, rejects unknown"
+    acceptance_criteria:
+      - "construct request for every contract allowed_task_type"
+      - "reject an unknown task_type with ValidationError"
+    expected:
+      assertion: request_model_task_type_validation
+
+  - id: U4
+    layer: unit
+    task_type: code_generation
+    prompt: "(unit) terminal/projection schema carries model_name + token + cost fields"
+    acceptance_criteria:
+      - "projection event model has model_name"
+      - "projection event model has tokens_input / tokens_output"
+      - "projection event model has cost_usd"
+    expected:
+      assertion: terminal_projection_schema_telemetry_fields
+      regression_for: OMN-13535  # telemetry-drop: terminal data was empty
+# ---------------------------------------------------------------------------
+# Layer 2 — live golden tasks (NIGHTLY against the stability lane)
+# ---------------------------------------------------------------------------
+#
+# ACCEPTANCE VOCABULARY (OMN-18349). Every criterion below crosses the
+# delegation boundary and must be a slug the boundary declares in
+# SUPPORTED_ACCEPTANCE_CRITERIA (omnimarket.models.delegation.wire.
+# model_delegation_request), or match `max_words_per_sentence_N`. It must ALSO
+# resolve to a deterministic executor at the quality gate: request criteria are
+# merged into `dod_deterministic`, so an allowlisted-but-heuristic-only name
+# reaches the gate as an unsupported deterministic check and hard-fails every
+# response as MALFORMED. `scripts/ci/check_corpus_criteria_vocabulary.py`
+# enforces both halves as a pre-commit hook and inside the required pytest job.
+#
+# These rows previously named `non_empty`, `has_code_block`, `min_length:N` and
+# `contains:...`. None was ever in the allowlist — not on 2026-06-23 when this
+# corpus was authored, and not since — and the boundary's spelling of the first
+# has always been `response_non_empty`. The mismatch was invisible for
+# eighty-three days because the nightly died before publishing a case; the first
+# run that reached the lane (34796339016) had all nine refused.
+#
+# `min_length:N` and `contains:S` have NO equivalent here and are not coming
+# back: the platform withdrew substring/length scoring deliberately (OMN-18339
+# records the same finding against the delegation ladder's own R3b scorer —
+# substring matching measures mention, not satisfaction). Where a case used one
+# to FORCE its own precondition, the closest structural criterion is declared
+# instead and the xfail reason says the forcing function is weaker; a case is
+# never deleted, and never quietly reduced to `response_non_empty` alone while
+# still claiming to assert escalation.
+  - id: I1
+    layer: integration
+    task_type: document
+    prompt: "Write a one-sentence description of what a JSON file is."
+    # Falsifies: a trivial document task terminalises on the free local tier at
+    # zero cost with tokens recorded.
+    acceptance_criteria:
+      - "response_non_empty"   # was `non_empty`: the boundary's own spelling, same check
+    expected:
+      tier_behavior: free_local_first
+      quality_gate: passes
+      terminal: completed
+      cost: zero
+      escalation: none
+      tokens: positive
+
+  - id: I2
+    layer: integration
+    task_type: document
+    prompt: >
+      Write production-grade API reference documentation for a hypothetical
+      `delegate_skill(prompt, task_type, source)` function: include parameter
+      table, return schema, three worked examples, error semantics, and
+      thread-safety notes.
+    # Falsifies: criteria a local model cannot satisfy force escalation OFF the
+    # local tier rather than being accepted there.
+    #
+    # The forcing function was `min_length:1200` — a length floor, which the
+    # accepted vocabulary does not express and deliberately will not (OMN-18339).
+    # `docstring_present` is the closest structural stand-in: this ask is for API
+    # reference documentation with worked examples, so a real answer carries a
+    # docstring and a thin one does not. It is a WEAKER forcing function than the
+    # length floor, which is why the xfail below now names that too.
+    acceptance_criteria:
+      - "response_non_empty"
+      - "docstring_present"
+    expected:
+      tier_behavior: escalates_off_local
+      quality_gate: any
+      terminal: completed
+      cost: any
+      escalation: occurs
+      tokens: positive
+    xfail:
+      reason: >
+        cloud escalation ladder never fires (escalation topic HWM=0); cloud tier
+        unreached. Second cause since OMN-18349: this case can no longer FORCE
+        its own escalation precondition — `min_length:1200` is not expressible
+        in the boundary's acceptance vocabulary and substring/length scoring is
+        withdrawn by design (OMN-18339), so `docstring_present` stands in and a
+        thin local answer may be accepted rather than escalated.
+      ticket: OMN-13140
+      # Measured 2026-09-21 on the converged path (receipt 5281abe1, correlation
+      # 9a92c9ab): three LOCAL attempts, escalation_count 0, accepted on the
+      # third at 1.0. It never leaves the local tier, which is OMN-13140.
+      observed_stage: local_exhaustion
+
+  - id: I3
+    layer: integration
+    task_type: code_generation
+    prompt: "Write a Python function `add(a, b)` that returns the sum of two integers."
+    # Falsifies: a trivial code task terminalises on the free local tier and its
+    # artifact is real code, not prose about code.
+    acceptance_criteria:
+      - "response_non_empty"
+      - "compiles_without_errors"   # was `has_code_block`; strictly stronger — the block must PARSE
+    expected:
+      tier_behavior: free_local_first
+      quality_gate: any
+      terminal: completed
+      cost: any
+      escalation: none
+      tokens: positive
+
+  - id: I4
+    layer: integration
+    task_type: code_generation
+    prompt: >
+      Implement a thread-safe, async LRU cache decorator in Python with TTL
+      expiry, per-key locking, and a full pytest suite proving eviction order,
+      TTL expiry, and concurrent-access correctness. Production quality.
+    # Falsifies: a hard code task escalates to the metered tier AND the metered
+    # tier records cost_usd>0 in delegation_events.
+    #
+    # `min_length:2000` was a proxy for "a thin answer is not enough". The
+    # structural form of the same demand is that the prompt's own explicit
+    # requirement — a full pytest suite — be present and marked, which a thin
+    # answer fails on its own terms rather than on a character count.
+    acceptance_criteria:
+      - "response_non_empty"
+      - "compiles_without_errors"   # was `has_code_block`
+      - "uses_pytest_mark_unit"     # was `min_length:2000`, structurally: the asked-for suite, marked
+    expected:
+      tier_behavior: escalates_to_metered
+      quality_gate: any
+      terminal: completed
+      cost: positive   # metered tier MUST record cost_usd>0 — permanent metered-cost regression
+      escalation: occurs
+      tokens: positive
+    xfail:
+      # The EXPECTATION above is still the correct one and OMN-13408 is still the
+      # ticket that must fix it. What this case actually does today is a
+      # different thing, and saying so is the point of observed_stage.
+      #
+      # Measured 2026-09-21 on the converged path (receipt 817646e2, correlation
+      # 3828398f): the case terminalises `failed` after 251s on the handler's
+      # contract-declared 240s execution budget, with an EMPTY attempts list and
+      # a measured queue wait of 4 ms. It never reaches a metered tier, so the
+      # metered-cost defect OMN-13408 names cannot be what a reader is looking
+      # at on a red night. Until the budget is reached later or the case is
+      # re-shaped, this row proves nothing about metered cost.
+      #
+      # The empty attempts list after a real dispatch is OMN-19004's invariant
+      # (a summary field contradicting its own record). The 240s budget itself
+      # is not a defect to chase: OMN-18925's decision record fixes it
+      # deliberately and defers bounded-repair work.
+      reason: "terminal-path cost_usd still 0.0 on cloud escalation; metered cost never reaches delegation_events"
+      ticket: OMN-13408
+      observed_stage: handler_budget
+
+  - id: I5
+    layer: integration
+    task_type: research
+    prompt: "Summarize the tradeoffs between optimistic and pessimistic locking in two short paragraphs."
+    # Falsifies: a research task terminalises on the free local tier with tokens
+    # recorded.
+    acceptance_criteria:
+      - "response_non_empty"   # was `non_empty`
+    expected:
+      tier_behavior: free_local_first
+      quality_gate: any
+      terminal: completed
+      cost: any
+      escalation: none
+      tokens: positive
+
+  - id: I6
+    layer: integration
+    task_type: code_review
+    prompt: >
+      Review this Python snippet for correctness and security, list findings
+      by severity: `def run(cmd): import os; os.system(cmd)`
+    # Falsifies: a code_review task terminalises on the free local tier with
+    # tokens recorded.
+    acceptance_criteria:
+      - "response_non_empty"   # was `non_empty`
+    expected:
+      tier_behavior: free_local_first
+      quality_gate: any
+      terminal: completed
+      cost: any
+      escalation: none
+      tokens: positive
+
+  - id: I7
+    layer: integration
+    task_type: reasoning
+    prompt: "If a train leaves at 3pm going 60mph and another at 4pm going 80mph from the same point, when does the second catch the first? Show the steps."
+    # Falsifies: a reasoning task terminalises on the free local tier with
+    # tokens recorded.
+    acceptance_criteria:
+      - "response_non_empty"   # was `non_empty`
+    expected:
+      tier_behavior: free_local_first
+      quality_gate: any
+      terminal: completed
+      cost: any
+      escalation: none
+      tokens: positive
+
+  - id: I8
+    layer: integration
+    task_type: code_generation
+    prompt: >
+      Produce a provably-correct, formally-verified implementation of a
+      general-purpose solver for the halting problem, with a machine-checked
+      Coq proof of total correctness.
+    # Falsifies: an impossible task exhausts every tier and terminalises
+    # `failed` instead of being accepted somewhere on the ladder.
+    #
+    # The old forcing set was two exact substrings (`contains:Theorem
+    # halting_decidable`, `contains:Qed.`) plus `min_length:5000`. Neither form
+    # exists in the accepted vocabulary and neither is coming back — and the
+    # substring pair was never a real check anyway, since a model could satisfy
+    # it by emitting the literal words with no proof behind them, which is
+    # precisely the defect OMN-18339 records against the ladder's R3b scorer.
+    # The structural replacement demands that the answer BE the artifact and
+    # that the artifact parse: an answer to an impossible task is prose
+    # explaining the impossibility, which fails `final_artifact_only` and
+    # `compiles_without_errors` at every tier and exhausts the ladder without
+    # any string matching at all.
+    acceptance_criteria:
+      - "response_non_empty"
+      - "compiles_without_errors"
+      - "final_artifact_only"
+      - "uses_pytest_mark_unit"
+    expected:
+      tier_behavior: all_tiers_exhaust
+      quality_gate: fails
+      terminal: failed
+      cost: any
+      escalation: exhausts
+      tokens: any
+    # xfail REMOVED 2026-09-24 (OMN-19446 AC3). It was kept genuinely-unproven
+    # xfail because the escalation-exhaustion terminal fix (OMN-13543) and the
+    # graceful all-tiers-exhaust path (OMN-13140) were still open -- both still
+    # are. What changed: the xfail's own reason cited OMN-18339's finding that
+    # the case's PRIOR forcing check (the two exact substrings) was never a
+    # real check, which was true of that old check and is not a live reason to
+    # keep suppressing today's structural one. Measured 2026-09-24, first green
+    # scheduled run (35970840067): this case reads `passed:false`, "terminal:
+    # expected 'failed', got 'completed'" -- a real, current defect (OMN-13543
+    # / OMN-13140), not noise. It is a real, ungated assertion again and may
+    # legitimately turn the nightly red until that fix lands; that is the
+    # point of OMN-19446 (the nightly that gates staging delivery, OMN-19311,
+    # must be able to go red). Do not re-add an xfail block here without
+    # adding I8 back to tests/delegation_golden/xfail_baseline.yaml in the
+    # same reviewed PR -- xfail_ratchet.py refuses one without the other.
+
+  - id: I9
+    layer: integration
+    task_type: code_generation
+    prompt: "(cross-cutting) every completed row has non-empty model_name + tokens_input>0 + tokens_output>0"
+    # Falsifies: a completed delegation row reaches the projection without its
+    # telemetry (the OMN-13535 empty-terminal-data regression).
+    #
+    # The criterion here was the PROSE SENTENCE "applies to every completed
+    # integration row in this run", which is a description of the invariant and
+    # not a criterion at all — the boundary refused this case on it. The
+    # invariant itself is asserted by the runner over every completed row
+    # produced this run (`expected.cross_cutting` below), never by the quality
+    # gate, so this row declares only what its own published task needs.
+    acceptance_criteria:
+      - "response_non_empty"
+    expected:
+      # I9 is asserted by the runner as a cross-cutting invariant over all
+      # completed rows produced this run, not a single published task.
+      cross_cutting: completed_rows_have_model_and_tokens
+      terminal: completed
+      tokens: positive
+    # xfail removed 2026-06-24: the redeploy dogfood (verifier != runner,
+    # docs/evidence/2026-06-24-redeploy-dogfood/results.md) showed every
+    # completed delegation_events row — document, code_generation, review,
+    # research — landed with a non-empty model_name AND tokens_input/_output > 0.
+    # The empty-terminal-data regression (OMN-13535) is no longer reproduced on
+    # the redeployed dev lane, so the cross-cutting invariant is now expected-green.
+
+  - id: I10
+    layer: integration
+    task_type: document
+    prompt: "Reply with exactly the word: ok"
+    # OMN-19446 AC1: the corpus's DETERMINISTIC must-fail case. I8 asserts a
+    # typed failed terminal too, but reaches it only if the live ladder
+    # actually exhausts every tier -- unproven (OMN-13543/OMN-13140), which is
+    # exactly why I8 alone could not anchor "the nightly can fail": a fixed
+    # (or flaky) ladder could complete it and the nightly would stay green with
+    # nothing left asserting a real red is even detectable.
+    #
+    # This case instead pins an explicit backend_id the bifrost config does
+    # not declare. resolve_delegation_backend's initial-resolution branch does
+    # NOT catch that RuntimeError (port_local_delegation_dispatch.py, OMN-15156:
+    # a caller's EXPLICIT pin failing "means the caller asked for a backend
+    # that doesn't exist, and hiding that behind a silent fallback would defeat
+    # the whole point of pinning") -- it propagates to
+    # handler_delegate_skill.py's top-level `except Exception`, which commits a
+    # typed `ModelDelegateSkillFailed(status="failed", ...)` terminal
+    # (OMN-15469) that still writes a delegation_events row (OMN-14485). No
+    # live model, backend or bus content ever varies this outcome: the failure
+    # is in request-time config resolution, before any dispatch.
+    backend_id: "nonexistent-backend-omn19446"
+    acceptance_criteria:
+      - "response_non_empty"
+    expected:
+      terminal: failed
+      quality_gate: any
+      cost: zero
+      escalation: none
+      tokens: any

@@ -4,7 +4,7 @@ pub enum ErrorKind {}
 #[derive(Debug)]
 pub struct Error {
     pub kind: ErrorKind,
-    pub range: tombi_text::Range,
+    pub span: tombi_text::Span,
 }
 
 impl Error {
@@ -19,7 +19,7 @@ impl tombi_diagnostic::SetDiagnostics for Error {
         diagnostics.push(tombi_diagnostic::Diagnostic::new_error(
             self.kind.to_string(),
             self.code(),
-            self.range,
+            self.span,
         ))
     }
 }

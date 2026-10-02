@@ -1,0 +1,107 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# FSM Handler Drift Guard — omnimarket consumer gate (OMN-13735)
+#
+# Scans omnimarket's src/ for contracts with fsm_handler_binding and validates
+# that each declared handler's VALID_TRANSITIONS + GUARD_CONDITIONS match the
+# contract's state_machine.transitions exactly. Zero allowlist entries.
+#
+# Context: "fsm-handler-drift". NOT a direct branch-protection required status
+# check on either dev or main (verified live 2026-08-13 via `gh api
+# repos/OmniNode-ai/omnimarket/branches/{dev,main}/protection/required_status_checks`).
+# It IS asserted fail-closed as an L4 external context by CI Summary's
+# EXPECTED_EXTERNAL_CONTEXTS (scripts/ci/ci_summary_gate.py), which is
+# required — a red or missing run here now blocks merge transitively.
+#
+# This workflow:
+#   1. Installs omnibase_core from the PR SHA so new validator code is available.
+#   2. Runs the fsm-handler-drift integration tests (TDD: divergence fixture, aligned
+#      fixture, real node_intelligence_reducer positive test).
+#   3. Runs the validator directly on omnimarket src/ to confirm zero findings.
+#
+# When the omnibase_core PR lands, the pin-bump PR will update the rev below.
+# Until then, the workflow installs from the pinned rev that carries the validator.
+
+name: FSM Handler Drift Guard
+
+on:
+  push:
+    branches: [main, develop, dev, "hotfix/**"]
+  pull_request:
+    branches: [main, develop, dev]
+
+env:
+  PYTHON_VERSION: "3.12"
+  UV_VERSION: "0.8.3"
+
+concurrency:
+  group: fsm-handler-drift-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fsm-handler-drift:
+    name: fsm-handler-drift
+    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
+    runs-on: >-
+      ${{
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+      }}
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout omnimarket
+        uses: actions/checkout@v7
+
+      # OMN-13953: this job runs on the persistent self-hosted workspace for
+      # trusted events (see runs-on above). The runner job-started hook resets
+      # only _work/<repo>/<repo>, NOT its parent, so the ../ sibling clones below
+      # survive into the next job on the same runner and make `git clone` fail
+      # with exit 128 ("destination path already exists"). Clean first so the
+      # clone step is idempotent on a reused workspace.
+      - name: Clean stale dependency clones
+        run: rm -rf ../omnibase_core ../omnibase_compat
+
+      # OMN-13735: the validator landed on omnibase_core dev in #1360.
+      - name: Clone omnibase_core (for new validator)
+        run: git clone --depth=1 --branch dev https://github.com/OmniNode-ai/omnibase_core.git ../omnibase_core
+
+      - name: Clone omnibase_compat
+        run: git clone --depth=1 https://github.com/OmniNode-ai/omnibase_compat.git ../omnibase_compat
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Install omnimarket
+        run: uv sync
+
+      - name: Install omnibase_compat
+        run: uv pip install --python .venv/bin/python -e ../omnibase_compat
+
+      - name: Install omnibase_core (includes check-fsm-handler-drift validator)
+        run: uv pip install --python .venv/bin/python --force-reinstall --no-deps -e ../omnibase_core
+
+      - name: Run fsm-handler-drift integration tests
+        # OMNIMARKET_ALLOW_PYTHONPATH_OVERRIDE declares this PYTHONPATH override as
+        # intentional (this step deliberately points omnibase_core resolution at
+        # the sibling checkout above) to the OMN-14420 hermetic-import guard in
+        # tests/conftest.py, which otherwise fails loud on any PYTHONPATH-driven
+        # dependency resolution outside this repo's own venv.
+        env:
+          OMNIMARKET_ALLOW_PYTHONPATH_OVERRIDE: "1"
+        run: |
+          PYTHONPATH="../omnibase_core/src${PYTHONPATH:+:$PYTHONPATH}" uv run --no-sync pytest \
+            tests/validators/test_fsm_handler_drift_integration.py \
+            -v
+
+      - name: Scan omnimarket src/ for FSM handler drift (must exit 0)
+        run: PYTHONPATH="../omnibase_core/src${PYTHONPATH:+:$PYTHONPATH}" uv run --no-sync python -m omnibase_core.validators.fsm_handler_drift src/

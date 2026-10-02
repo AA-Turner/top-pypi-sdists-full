@@ -1,0 +1,114 @@
+name: Dependabot auto version bump
+
+on:
+  # pull_request_target instead of pull_request: Dependabot-triggered pull_request
+  # runs only receive Dependabot secrets, so BOT_APP_ID/BOT_APP_PRIVATE_KEY would
+  # be empty. pull_request_target runs in the base-repo context with Actions
+  # secrets; the job below is gated to Dependabot PRs from this repository.
+  # synchronize/reopened: Dependabot force-pushes an updated branch onto an
+  # already-open PR (e.g. a grouped update gets superseded before merge), which
+  # otherwise merges without a version bump since "opened" alone doesn't cover it.
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+concurrency:
+  group: dependabot-bump-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    # The commit step below pushes with the GitHub App token, so the resulting
+    # synchronize event is attributed to the app's own bot actor, not
+    # dependabot[bot] - this condition already prevents that push from
+    # retriggering this workflow, so no separate loop-guard is needed.
+    if: github.event_name == 'workflow_dispatch' || (github.actor == 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
+
+      - name: Checkout PR branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+
+      - name: Check if version already bumped
+        id: check
+        if: github.event_name == 'pull_request_target'
+        run: |
+          set -euo pipefail
+          BASE_REF="${{ github.event.pull_request.base.ref }}"
+          git fetch --depth=1 origin "$BASE_REF"
+          BASE_VERSION=$(git show "origin/${BASE_REF}:pyproject.toml" | grep '^version =' | cut -d '"' -f2)
+          CURRENT_VERSION=$(grep '^version =' pyproject.toml | cut -d '"' -f2)
+          if [ "$BASE_VERSION" != "$CURRENT_VERSION" ]; then
+            echo "Version already bumped ahead of $BASE_REF ($CURRENT_VERSION vs $BASE_VERSION), skipping."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Bump patch version
+        id: bump
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          CURRENT=$(grep '^version =' pyproject.toml | cut -d '"' -f2)
+          MAJOR=$(echo "$CURRENT" | cut -d. -f1)
+          MINOR=$(echo "$CURRENT" | cut -d. -f2)
+          PATCH=$(echo "$CURRENT" | cut -d. -f3)
+          NEW="${MAJOR}.${MINOR}.$((PATCH + 1))"
+          TODAY=$(date +%Y-%m-%d)
+          echo "current=$CURRENT" >> $GITHUB_OUTPUT
+          echo "new=$NEW" >> $GITHUB_OUTPUT
+          echo "today=$TODAY" >> $GITHUB_OUTPUT
+
+          sed -i "s/^version = \".*\"/version = \"${NEW}\"/" pyproject.toml
+
+          sed -i "s/^softwareVersion: .*/softwareVersion: ${NEW}/" publiccode.yml
+          sed -i "s/^releaseDate: .*/releaseDate: ${TODAY}/" publiccode.yml
+
+          awk -v ver="$NEW" -v date="$TODAY" '
+            BEGIN { inserted = 0 }
+            /^## \[/ && !inserted {
+              print "## [" ver "] - " date "\n\n### Changed\n\n- Updated dependencies.\n"
+              inserted = 1
+            }
+            { print }
+          ' CHANGELOG.md > CHANGELOG.md.new && mv CHANGELOG.md.new CHANGELOG.md
+
+      - name: Regenerate THIRD-PARTY-LICENSES.md
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -r requirements.txt
+          python3 -m pip install --upgrade pip
+          python3 -m pip install pip-licenses
+          python3 scripts/check_licenses.py --target-python .venv/bin/python
+
+      - name: Commit and push
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add pyproject.toml publiccode.yml CHANGELOG.md THIRD-PARTY-LICENSES.md
+          if [ -n "$(git status --porcelain)" ]; then
+            git commit -m "Bump version to ${{ steps.bump.outputs.new }}"
+            git push
+          fi

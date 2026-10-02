@@ -1,0 +1,2855 @@
+"""JSON Schema codec: ``to_json_schema`` and ``from_json_schema``.
+
+``to_json_schema`` renders a schema as a JSON Schema dictionary. Anything it does
+not recognize becomes an open schema (``{}``) rather than an error.
+``from_json_schema`` is the inverse: it builds a ``Schema`` from a JSON Schema
+dictionary, for the constructs that map cleanly. ``from_openapi`` is the same
+decoder with the OpenAPI 3.0 extras (the ``nullable`` keyword).
+
+The decoder resolves ``$ref`` against ``$defs``/``definitions`` (JSON pointers),
+memoizing each target so a reference that cycles back into a node still being
+built ties the knot on that node, turning a recursive schema into a recursive
+validator instead of looping.
+"""
+
+from __future__ import annotations
+
+import contextvars
+import datetime
+import re
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+from probatio._compile import recursion_guard
+from probatio.codecs._regex_safety import is_catastrophic
+from probatio.codecs._shared import (
+    FORMAT_BY_TYPE,
+    STRING_TYPES,
+    UNSUPPORTED,
+    ExclusiveGroup,
+    abandoned_group_names,
+    contested_names,
+    covers_every_property_name,
+    exclusive_constraint,
+    inclusive_constraints,
+    literal_any_names,
+)
+from probatio.codecs._shared import UNREPRESENTABLE as _UNREPRESENTABLE
+from probatio.codecs._shared import json_safe as _json_safe
+from probatio.codecs._shared import ordered_values as _ordered
+from probatio.error import ContainsInvalid, Invalid, MatchInvalid, SchemaError
+from probatio.markers import (
+    Alias,
+    Exclusive,
+    Forbidden,
+    Inclusive,
+    Marker,
+    Optional,
+    Remove,
+    Required,
+    Secret,
+    Self,
+    Undefined,
+    resolve_key,
+)
+from probatio.schema import ALLOW_EXTRA, REMOVE_EXTRA, Schema
+from probatio.validators import (
+    UUID,
+    All,
+    AsDate,
+    AsDatetime,
+    AsTime,
+    AsTimedelta,
+    Base64,
+    Boolean,
+    Capitalize,
+    Coerce,
+    Contains,
+    Date,
+    Datetime,
+    DefaultTo,
+    Duration,
+    Email,
+    Equal,
+    ExactSequence,
+    FqdnUrl,
+    FromEpoch,
+    FromPercentage,
+    Hostname,
+    In,
+    IPv4Address,
+    IPv6Address,
+    Length,
+    Literal,
+    Lower,
+    Match,
+    Maybe,
+    Msg,
+    MultipleOf,
+    NonEmpty,
+    NotIn,
+    Percentage,
+    Port,
+    Range,
+    SomeOf,
+    Strip,
+    Time,
+    Title,
+    Union,
+    Unique,
+    Upper,
+    Url,
+)
+from probatio.validators import Any as AnyValidator
+
+_PORT_MIN = 1
+_PORT_MAX = 65535
+_PERCENT_MIN = 0
+_PERCENT_MAX = 100
+
+_PRIMITIVE_TYPES: dict[type, str] = {
+    bool: "boolean",
+    int: "integer",
+    float: "number",
+    str: "string",
+    type(None): "null",
+}
+_STRING_FUNCS = frozenset({Lower, Upper, Capitalize, Title, Strip})
+
+# ``Boolean`` is a ``message`` factory, so each ``Boolean()`` is a fresh wrapper.
+# They all share ``__wrapped__`` (the undecorated function), which is the stable
+# identity to match against. ``functools.wraps`` sets ``__wrapped__`` at runtime,
+# where the factory's call type does not advertise it, so read it via ``getattr``
+# (no default: ``Boolean`` always carries it, and a None fallback could collide with
+# a node that has no ``__wrapped__`` at the identity check below).
+_BOOLEAN_FUNC = getattr(Boolean, "__wrapped__")  # noqa: B009
+
+# The deepest a decoded JSON Schema may nest. Generous for any real schema (which
+# rarely nests past a handful of levels), but low enough that even the most
+# stack-hungry decode path (a typeless ``contains`` chain, which spends several
+# frames per level) stays well under Python's recursion limit rather than leaking
+# a RecursionError before this guard fires.
+_MAX_SCHEMA_DEPTH = 100
+
+
+@dataclass(frozen=True)
+class _Options:
+    """The per-call ``to_json_schema`` options, read at every node."""
+
+    strict: bool = False
+    custom: Any = None
+
+
+# The active options during one ``to_json_schema`` call. A ``ContextVar`` carries
+# them to every node without threading two more arguments through the whole
+# recursive encoder; ``to_json_schema`` sets it on entry and resets it on exit.
+# The default is ``None`` (not a shared instance) so nothing mutable is shared.
+_OPTIONS: contextvars.ContextVar[_Options | None] = contextvars.ContextVar(
+    "_OPTIONS",
+    default=None,
+)
+
+
+def _options() -> _Options:
+    """Return the active options, or the plain defaults outside a conversion."""
+    return _OPTIONS.get() or _Options()
+
+
+def to_json_schema(
+    schema: Any,
+    *,
+    strict: bool = False,
+    custom_serializer: Any = None,
+) -> dict[str, Any]:
+    """Convert a schema (or ``Schema``) into a JSON Schema dictionary.
+
+    By default a construct with no JSON Schema form widens to an open schema
+    (``{}``). With ``strict=True`` such a construct raises ``SchemaError`` instead,
+    so a lossy conversion is caught rather than silently accepted.
+
+    ``custom_serializer`` is called first for each node and may return a dict to
+    override the default rendering, or the ``UNSUPPORTED`` sentinel to defer, the
+    same hook ``to_openapi`` takes.
+
+    A raw schema that references itself (a dict holding itself as a value, rather
+    than the supported ``Self`` marker) has no finite rendering, so the runaway
+    recursion is caught and reported as a clean ``SchemaError`` instead of a bare
+    ``RecursionError``.
+    """
+    token = _OPTIONS.set(_Options(strict=strict, custom=custom_serializer))
+    try:
+        return _convert(schema, required_default=False, allow_extra=False)
+    except RecursionError as exc:
+        message = (
+            "schema is too deeply nested or references itself; use the Self "
+            "marker for a recursive schema"
+        )
+        raise SchemaError(message) from exc
+    finally:
+        _OPTIONS.reset(token)
+
+
+def _open(reason: str) -> dict[str, Any]:
+    """Render an open schema for a construct with no JSON Schema form.
+
+    In strict mode the silent widening is an error (the construct's constraint
+    would be dropped); otherwise it widens to accept-anything, the default
+    best-effort behavior.
+    """
+    if _options().strict:
+        message = (
+            f"to_json_schema cannot represent {reason}; it would widen to an "
+            "open schema (pass strict=False to allow it)"
+        )
+        raise SchemaError(message)
+    return {}
+
+
+def _convert(node: Any, *, required_default: bool, allow_extra: bool) -> dict[str, Any]:
+    """Dispatch a schema node to the right JSON Schema renderer."""
+    if isinstance(node, Schema):
+        # ``REMOVE_EXTRA`` accepts extra keys on input (it strips them from the
+        # output), so for input-side fidelity it renders open like ``ALLOW_EXTRA``,
+        # not closed like the strict default.
+        return _convert(
+            node.schema,
+            required_default=node.required,
+            allow_extra=node.extra in (ALLOW_EXTRA, REMOVE_EXTRA),
+        )
+
+    if isinstance(node, _WhenType):
+        # The wrapper carries "applies only to this JSON type", which is what a
+        # JSON Schema keyword already means, so it re-emits as its contents with
+        # the type dropped. Keeping the ``type`` the inner renderer adds would
+        # narrow: ``{"pattern": "x"}`` accepts the number 123 vacuously, and
+        # ``{"type": "string", "pattern": "x"}`` rejects it.
+        inner = _convert(
+            node.subschema,
+            required_default=required_default,
+            allow_extra=allow_extra,
+        )
+        return {key: value for key, value in inner.items() if key != "type"}
+
+    custom = _options().custom
+    if custom is not None:
+        result = custom(node)
+        if result is not UNSUPPORTED:
+            return cast("dict[str, Any]", result)
+
+    if isinstance(node, dict):
+        return _convert_mapping(
+            node,
+            required_default=required_default,
+            allow_extra=allow_extra,
+        )
+
+    if isinstance(node, list | tuple | set | frozenset):
+        return _convert_sequence(
+            node, required_default=required_default, allow_extra=allow_extra
+        )
+
+    return _convert_leaf(node)
+
+
+def _child(node: Any) -> dict[str, Any]:
+    """Convert a validator-internal node with default (non-required, closed) settings.
+
+    Used where the validation engine does *not* inherit the enclosing schema's
+    required/extra policy: combinator branches, ``Maybe``, ``Contains``, and
+    ``ExactSequence`` compile their contents under their own policy. Structural
+    nesting (a dict value, a list element) does inherit, and threads the policy
+    through ``_convert`` instead.
+    """
+    return _convert(node, required_default=False, allow_extra=False)
+
+
+class _Groups:
+    """Accumulates the group-marker memberships found while walking a mapping."""
+
+    def __init__(self, abandoned: frozenset[str] = frozenset()) -> None:
+        """Start with no groups recorded, ignoring the ones already abandoned."""
+        # A group with an unrenderable member is not rendered at all; see
+        # ``abandoned_group_names``.
+        self.abandoned = abandoned
+        self.required_any: list[list[str]] = []
+        # Each group holds one entry per member: the names that satisfy it.
+        self.inclusive: dict[str, list[list[str]]] = {}
+        self.exclusive: dict[str, ExclusiveGroup] = {}
+
+    def add_required_any(self, names: list[str]) -> None:
+        """Record a group of names of which at least one must be present."""
+        self.required_any.append(names)
+
+    def add_alias(self, marker: Alias) -> None:
+        """Record a required ``Alias`` (one of its names must be present).
+
+        A ``default`` fills the empty case, so a required Alias carrying one does
+        not actually demand a name (the same rule as ``Required`` with a default
+        and a required-with-default ``Exclusive`` group); it adds no constraint.
+        """
+        if marker.required and isinstance(marker.default, Undefined):
+            self.add_required_any(list(marker.input_names))
+
+    def _keeps(self, group: str) -> bool:
+        """Whether a group still renders, or lost a member and so renders not at all."""
+        return group not in self.abandoned
+
+    def add_inclusive(self, marker: Inclusive, names: list[str]) -> None:
+        """Record an ``Inclusive`` member (all-or-none within its group).
+
+        ``names`` is what satisfies the member: one name for a literal key, several
+        for a key schema over literals, any of which counts as the member.
+        """
+        if self._keeps(marker.group_of_inclusion):
+            self.inclusive.setdefault(marker.group_of_inclusion, []).append(names)
+
+    def add_exclusive(self, marker: Exclusive, names: list[str]) -> None:
+        """Record an ``Exclusive`` member (at most one present within its group)."""
+        if not self._keeps(marker.group_of_exclusion):
+            return
+        group = self.exclusive.setdefault(marker.group_of_exclusion, ExclusiveGroup())
+        group.members.append(names)
+        group.required = group.required or marker.group_required
+        group.has_default = group.has_default or not isinstance(
+            marker.default, Undefined
+        )
+
+    def constraints(self) -> list[dict[str, Any]]:
+        """Build the ``allOf`` object-level constraints (at-least-one and exclusive groups).
+
+        ``Inclusive`` groups are not here: they render as a ``dependentRequired``
+        sibling (see ``dependent_required``), the idiomatic all-or-none keyword.
+        """
+        constraints: list[dict[str, Any]] = [
+            # At least one of the group's names must be present.
+            {"anyOf": [{"required": [name]} for name in names]}
+            for names in self.required_any
+        ]
+        constraints += [
+            exclusive_constraint(group) for group in self.exclusive.values()
+        ]
+        # An ``Inclusive`` group normally renders as the ``dependentRequired``
+        # sibling below, but one holding a member that covers several names cannot
+        # be said that way and lands here instead.
+        constraints += self._inclusive()[1]
+        return [constraint for constraint in constraints if constraint]
+
+    def dependent_required(self) -> dict[str, list[str]]:
+        """Merge every all-literal ``Inclusive`` group into one ``dependentRequired``.
+
+        Group memberships are disjoint, so the merged map's connected components
+        recover the original groups on decode.
+        """
+        return self._inclusive()[0]
+
+    def _inclusive(self) -> tuple[dict[str, list[str]], list[dict[str, Any]]]:
+        """Render the ``Inclusive`` groups, split by what can say them.
+
+        Both callers above want one half of this, and neither runs before the other,
+        so it is computed on demand rather than cached across them.
+        """
+        return inclusive_constraints(self.inclusive.values())
+
+
+def _convert_mapping(  # noqa: PLR0912 - one branch per kind of mapping key
+    node: dict[Any, Any],
+    *,
+    required_default: bool,
+    allow_extra: bool,
+) -> dict[str, Any]:
+    """Render a mapping schema as a JSON Schema object.
+
+    Nested dict values and variable-key values inherit the enclosing schema's
+    required/extra policy, mirroring the validation engine, so a nested object
+    keeps its own ``required`` list and open/closed shape. The group markers
+    (``Alias``, ``Inclusive``, ``Exclusive``) and a required ``Any`` key add
+    object-level constraints, combined under ``allOf``.
+    """
+    properties: dict[Any, Any] = {}
+    required: list[Any] = []
+    # Multiple variable keys ({str: int, int: str}) merge into one
+    # ``additionalProperties`` schema; ``allow_extra`` seeds the default.
+    variable_values: list[dict[str, Any]] = []
+    # ...and their *key* validators, which become ``propertyNames``: the mirror of
+    # the constraint ``from_json_schema`` reads back out of that keyword.
+    variable_keys: list[dict[str, Any]] = []
+    # The raw keys as well. A rendered key schema cannot answer "does this cover
+    # every property name": an unrepresentable callable renders ``{}`` exactly as
+    # ``object`` does, and the two want opposite answers.
+    variable_key_names: list[Any] = []
+    # A ``Forbidden`` over a type/callable key (``Forbidden(str)`` forbids every
+    # string key, so every JSON key) closes the object regardless of the extra
+    # policy.
+    forbid_extra = False
+    # A name two keys can match belongs to whichever the engine tries first, so a
+    # constraint over it would not agree with validation; collected up front
+    # because precedence does not follow declaration order.
+    contested = contested_names(node)
+    groups = _Groups(abandoned_group_names(node, contested))
+    for key, value in node.items():
+        # Resolve the marker chain first, so a nested marker (``Secret(Remove(...))``)
+        # is classified by the marker it actually carries, not just the outer wrapper.
+        facets = resolve_key(key)
+        marker = facets.marker
+        name = facets.key
+        value_schema = _convert(
+            value, required_default=required_default, allow_extra=allow_extra
+        )
+
+        if isinstance(marker, Forbidden):
+            # A literal forbidden key is a rejected property; a type/callable one
+            # forbids a class of keys, which for JSON (string keys) closes the
+            # object. Checked before the variable-key branch so ``Forbidden(str)``
+            # does not fall through into an accepting ``additionalProperties``.
+            if isinstance(name, str):
+                properties[name] = False
+            else:
+                forbid_extra = True
+            continue
+
+        if (names := literal_any_names(name)) is not None:
+            # ``Any`` over literal names is a fixed set of properties, not a
+            # variable key. Collapsing it to ``additionalProperties`` would hide
+            # the names from the reader of the schema.
+            decorated = _decorate_property(
+                value_schema,
+                marker,
+                secret=facets.secret,
+                description=facets.description,
+            )
+            _emit_any_key(
+                names,
+                decorated,
+                marker,
+                properties,
+                groups,
+                required_default=required_default,
+                contested=contested,
+            )
+            continue
+
+        if isinstance(name, type) or callable(name):
+            # A type/callable key is a variable key. ``Remove`` still validates a
+            # present value before dropping it, so its value schema still applies
+            # to the keys it matches, the same as a plain variable key.
+            _record_variable_key(
+                name, value_schema, variable_values, variable_keys, variable_key_names
+            )
+            continue
+
+        if not isinstance(name, str):
+            # A non-string literal key never matches a JSON object key (those are
+            # strings), so emitting ``properties[name]`` would render an entry
+            # ``json.dumps`` coerces to a string the schema does not actually
+            # match. Skip it deliberately rather than emit a misleading property.
+            continue
+
+        if isinstance(marker, Remove):
+            # A removed key is stripped from the output, but a present value is
+            # validated first, so input carrying it is valid: emit it as an
+            # optional property (never rejected as an extra key).
+            properties[name] = value_schema
+            continue
+
+        decorated = _decorate_property(
+            value_schema,
+            marker,
+            secret=facets.secret,
+            description=facets.description,
+        )
+        _emit_named_key(
+            name,
+            decorated,
+            marker,
+            properties,
+            required,
+            groups,
+            required_default=required_default,
+        )
+
+    additional: Any = (
+        False
+        if forbid_extra
+        else _additional_properties(
+            variable_values, variable_key_names, allow_extra=allow_extra
+        )
+    )
+    result: dict[str, Any] = {
+        "type": "object",
+        "properties": properties,
+        "additionalProperties": additional,
+    }
+    # ``propertyNames`` constrains *every* property name, so it can only be
+    # emitted where every name really is constrained. A declared property is
+    # matched ahead of the variable keys and never sees them, and an open mapping
+    # lets an unmatched key through with any value at all. Emitting it in either
+    # case would reject input the mapping accepts.
+    # One universal key means every name is already matched, so there is nothing
+    # a key schema could add and nothing to report dropping.
+    property_names = (
+        None
+        if any(map(covers_every_property_name, variable_key_names))
+        else _property_names(variable_keys)
+    )
+    if property_names is not None and (properties or allow_extra):
+        # Dropping it widens, so strict mode refuses: ``_open`` raises there. Its
+        # open-schema return is not wanted here, only that refusal.
+        _open("a key validator that does not constrain every property name")
+        property_names = None
+    if property_names is not None:
+        result["propertyNames"] = property_names
+    if required:
+        result["required"] = required
+    dependent = groups.dependent_required()
+    if dependent:
+        result["dependentRequired"] = dependent
+    constraints = groups.constraints()
+    if constraints:
+        result["allOf"] = constraints
+
+    return result
+
+
+def _emit_named_key(  # noqa: PLR0913, PLR0917
+    name: str,
+    decorated: dict[str, Any],
+    marker: Marker | None,
+    properties: dict[Any, Any],
+    required: list[Any],
+    groups: _Groups,
+    *,
+    required_default: bool,
+) -> None:
+    """Place a decorated property and record any group membership it carries."""
+    if isinstance(marker, Alias):
+        # An aliased key is accepted under any of its names, so each renders as a
+        # property; the "one name must be present" rule (for a required Alias)
+        # becomes an object-level constraint.
+        for alias_name in marker.input_names:
+            properties[alias_name] = decorated
+        groups.add_alias(marker)
+        return
+
+    properties[name] = decorated
+    if isinstance(marker, Inclusive):
+        groups.add_inclusive(marker, [name])
+    elif isinstance(marker, Exclusive):
+        groups.add_exclusive(marker, [name])
+    # A ``Required`` marker carrying a default does not demand presence (the
+    # default fills the key in), so it stays out of ``required``; the ``default``
+    # keyword already conveys it.
+    elif _is_required(marker, required_default=required_default):
+        required.append(name)
+
+
+def _emit_any_key(  # noqa: PLR0913
+    names: list[str],
+    decorated: dict[str, Any],
+    marker: Marker | None,
+    properties: dict[Any, Any],
+    groups: _Groups,
+    *,
+    required_default: bool,
+    contested: frozenset[str],
+) -> None:
+    """Place one property per name an ``Any`` key lists, and its presence rule.
+
+    ``Required(Any("a", "b"))`` accepts either name and demands at least one of
+    them, the same object-level constraint a required ``Alias`` adds. A
+    ``Remove`` key validates a present value but never demands one.
+
+    A group marker on such a key joins the group as a *single* member that any of
+    the names satisfies, which is how the engine reads it, so the whole key counts
+    once rather than once per name.
+
+    The engine matches a literal key ahead of any validator key, so a name a
+    literal key already declares keeps that key's value schema, whatever the
+    declaration order. Overwriting it would reject values the mapping accepts.
+
+    For the same reason a presence rule is only written when this key owns every
+    name it lists: where another key can match one, the engine may never let this
+    one see it, and the rule would disagree with validation in both directions.
+    """
+    for name in names:
+        # A copy each, so a caller that edits one emitted property does not
+        # silently edit the others this key expanded into.
+        properties.setdefault(name, dict(decorated))
+
+    grouped = isinstance(marker, Inclusive | Exclusive)
+    demands_one = not isinstance(marker, Remove) and _is_required(
+        marker, required_default=required_default
+    )
+    if (grouped or demands_one) and not contested.isdisjoint(names):
+        # Dropping the rule widens the document, which is what strict mode exists
+        # to refuse; otherwise it is the best-effort default.
+        _open("a presence rule for a name another key can also match")
+        return
+
+    if isinstance(marker, Inclusive):
+        groups.add_inclusive(marker, names)
+        return
+    if isinstance(marker, Exclusive):
+        groups.add_exclusive(marker, names)
+        return
+
+    if demands_one:
+        groups.add_required_any(names)
+
+
+def _is_required(marker: Marker | None, *, required_default: bool) -> bool:
+    """Whether a mapping key must be present in the emitted schema.
+
+    A ``Required`` marker demands presence unless it carries a default (which
+    fills the key in, so the input may omit it). A bare key follows the schema's
+    ``required`` default, and an ``Optional`` never demands presence.
+    """
+    if isinstance(marker, Required):
+        return isinstance(marker.default, Undefined)
+    if isinstance(marker, Optional):
+        return False
+    return required_default
+
+
+def _additional_properties(
+    variable_values: list[dict[str, Any]],
+    variable_keys: list[Any],
+    *,
+    allow_extra: bool,
+) -> Any:
+    """Combine the variable-key value schemas into one ``additionalProperties``.
+
+    No variable key falls back to the extra policy (open or closed). One renders
+    as its value schema; several ({str: int, int: str}) merge into an ``anyOf``
+    so no pair is silently dropped.
+
+    An *open* mapping keeps its variable-key value schema as long as *some* key
+    covers every property name, which a plain ``str`` key does: no name can miss
+    it, so the extra policy never comes into play and the value schemas describe
+    every property there is. Only partial keys are different. ``{int: int}`` with
+    ``ALLOW_EXTRA`` accepts ``{"a": None}``, because "a" matches no schema key and
+    the policy lets it through with any value, so rendering it as
+    ``additionalProperties: {"type": "integer"}`` would reject what the mapping
+    accepts. There the object renders open instead.
+
+    ``variable_keys`` holds the keys themselves, not their rendered schemas, and
+    that is load-bearing: a callable with no JSON Schema form renders ``{}`` just
+    as ``object`` does, so the rendering cannot tell a key that matches everything
+    from one that merely could not be written down.
+    """
+    if not variable_values:
+        return allow_extra
+
+    if allow_extra and not any(map(covers_every_property_name, variable_keys)):
+        # The value schemas go with the key constraint, and strict mode refuses a
+        # silent drop. ``_property_names`` reports the *key* side; this is the
+        # value side, and only when there is something to lose. An accept-anything
+        # value renders ``{}``, which ``additionalProperties: true`` already says.
+        if any(value != {} for value in variable_values):
+            _open("a variable key's value schema on an open mapping")
+        return True
+    if len(variable_values) == 1:
+        return variable_values[0]
+    return {"anyOf": variable_values}
+
+
+def _record_variable_key(
+    name: Any,
+    value_schema: dict[str, Any],
+    values: list[dict[str, Any]],
+    keys: list[dict[str, Any]],
+    names: list[Any],
+) -> None:
+    """Record one variable key: its value schema, the key itself, its rendering.
+
+    A universal key is deliberately left unrendered. It constrains nothing, so
+    the mapping can emit no ``propertyNames`` at all, and asking for a rendering
+    would report a widening that is not happening: ``Extra`` has no leaf form, so
+    strict mode refused a mapping that renders exactly, as ``additionalProperties``.
+    """
+    values.append(value_schema)
+    names.append(name)
+    if not covers_every_property_name(name):
+        keys.append(_child(name))
+
+
+# Key schemas that constrain nothing. Every JSON object key is a string, so
+# ``{"type": "string"}`` accepts them all, exactly like the empty schema.
+_ANY_KEY: tuple[dict[str, Any], ...] = ({}, {"type": "string"})
+
+
+def _property_names(variable_keys: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Combine the variable-key validators into one ``propertyNames``, or None.
+
+    None means "no constraint to emit". That covers a mapping with no variable
+    key, one whose key accepts everything (so the union does too), and one whose
+    key does not match strings, since a JSON property name always is one: a
+    coercing key like ``Coerce(int)`` renders as ``{"type": "integer"}``, which
+    no property name can satisfy, so emitting it would reject every object the
+    schema accepts. The union has to cover every key, so one unrepresentable
+    branch drops the whole keyword rather than over-constraining the rest.
+
+    Several restrictive keys ({In([...]): str, Match(...): int}) become an
+    ``anyOf``, since the engine accepts a key that matches any one of them.
+    """
+    if not variable_keys or any(key in _ANY_KEY for key in variable_keys):
+        return None
+    if not all(map(_matches_a_property_name, variable_keys)):
+        # A real key constraint with no JSON Schema form here, so it is dropped.
+        # That widens, which is what strict mode exists to refuse.
+        _open("a key validator that cannot match a property name")
+        return None
+    if len(variable_keys) == 1:
+        return variable_keys[0]
+    return {"anyOf": variable_keys}
+
+
+def _matches_a_property_name(key_schema: dict[str, Any]) -> bool:
+    """Whether a rendered key schema can match a string, the only kind of key.
+
+    A combinator is read through, with the quantifier its own semantics demand.
+    ``allOf`` holds every branch at once, so a property name has to satisfy all of
+    them; one string branch beside ``{"type": "integer"}`` describes a key nothing
+    can be, and emitting it would reject every object the mapping accepts. A union
+    only needs one branch to work out.
+
+    Anything else this cannot read reports False and drops the keyword, which
+    widens. Widening is the direction the encoder is allowed to be wrong in.
+    """
+    if key_schema.get("type") == "string":
+        return True
+    if "enum" in key_schema:
+        return all(isinstance(member, str) for member in key_schema["enum"])
+    if "const" in key_schema:
+        return isinstance(key_schema["const"], str)
+
+    # A merged ``All`` renders as ``allOf``, which is how a decoded pattern comes
+    # back around on a second trip; without this the constraint would be dropped
+    # there and the round trip would quietly widen.
+    branches = key_schema.get("allOf")
+    if isinstance(branches, list) and branches:
+        return all(
+            isinstance(branch, dict) and _matches_a_property_name(branch)
+            for branch in branches
+        )
+
+    for combinator in ("anyOf", "oneOf"):
+        union = key_schema.get(combinator)
+        if isinstance(union, list) and any(
+            isinstance(branch, dict) and _matches_a_property_name(branch)
+            for branch in union
+        ):
+            return True
+
+    return False
+
+
+def _decorate_property(
+    prop: dict[str, Any],
+    marker: Marker | None,
+    *,
+    secret: bool = False,
+    description: Any = None,
+) -> dict[str, Any]:
+    """Attach a description, default, and secret flag to a rendered value schema."""
+    if description is not None:
+        prop = {**prop, "description": description}
+    # ``Optional``, ``Required``, ``Alias``, ``Inclusive``, and ``Exclusive`` all
+    # carry a ``default``; the others do not.
+    factory = getattr(marker, "default", None)
+    if factory is not None and not isinstance(factory, Undefined):
+        # ``default`` is annotation-only, so a non-JSON default (a ``datetime``,
+        # say) is omitted rather than emitted raw and crashing ``json.dumps``.
+        default = _json_safe(factory())
+        if default is not _UNREPRESENTABLE:
+            prop = {**prop, "default": default}
+    if secret:
+        # ``writeOnly`` is JSON Schema's marker for a secret (a password field).
+        prop = {**prop, "writeOnly": True}
+
+    return prop
+
+
+def _convert_sequence(
+    node: Any,
+    *,
+    required_default: bool = False,
+    allow_extra: bool = False,
+) -> dict[str, Any]:
+    """Render a sequence/set schema as a JSON Schema array.
+
+    A list or tuple element inherits the enclosing schema's required/extra
+    policy, mirroring the validation engine (a set holds only hashable leaves,
+    so its policy is moot). Combinator branches reach ``_convert_sequence``
+    through ``_child`` with the strict default, matching the engine.
+    """
+    items = [
+        _convert(element, required_default=required_default, allow_extra=allow_extra)
+        for element in _ordered(node)
+    ]
+
+    result: dict[str, Any] = {"type": "array"}
+    if len(items) == 1:
+        result["items"] = items[0]
+    elif items:
+        result["items"] = {"anyOf": items}
+    else:
+        # An empty sequence schema (``Schema([])``) accepts only the empty list,
+        # not any array, so forbid every element rather than leave it open.
+        result["maxItems"] = 0
+
+    return result
+
+
+def _convert_leaf(node: Any) -> dict[str, Any]:
+    """Render a leaf node: a type, a literal, or a validator."""
+    if node is Self:
+        # ``Self`` means "the whole enclosing schema", the recursive reference
+        # the decoder already reads back from ``$ref: "#"``. ``#`` targets the
+        # document root, which is the top-level schema being encoded (the common
+        # recursive-schema case); a ``Self`` inside a separately nested ``Schema``
+        # would resolve against its own root, which this cannot express.
+        return {"$ref": "#"}
+
+    json_format = getattr(node, "__probatio_json_format__", None)
+
+    if json_format is not None:
+        return {"type": "string", "format": json_format}
+
+    if isinstance(node, type):
+        return _convert_type(node)
+
+    if node is None:
+        return {"type": "null"}
+
+    if isinstance(node, str | int | float | bool):
+        return {"const": node}
+
+    validator = _convert_validator(node)
+    return validator if validator is not None else _open(f"the validator {node!r}")
+
+
+def _convert_type(node: type) -> dict[str, Any]:
+    """Render a Python type as a JSON Schema type."""
+    name = _PRIMITIVE_TYPES.get(node)
+    if name is not None:
+        return {"type": name}
+
+    if node is dict:
+        return {"type": "object"}
+
+    if node is list:
+        return {"type": "array"}
+
+    if node is object:
+        # ``object`` accepts any value, so an open schema is faithful, not a loss.
+        return {}
+
+    if isinstance(node, type) and issubclass(node, Enum):
+        # An Enum class accepts its member values on the wire (``Color`` accepts
+        # ``"red"``), so it renders as an enum of those values.
+        return _enum([member.value for member in node])
+
+    return _open(f"the type {node.__name__!r}")
+
+
+def _convert_validator(node: Any) -> dict[str, Any] | None:
+    """Render a combinator, or delegate to the constraint validators."""
+    if isinstance(node, Coerce):
+        target = node.type
+        if isinstance(target, type):
+            return _convert_type(target)
+        return _open("a Coerce with a non-type target")
+
+    if isinstance(node, Msg):
+        # ``Msg`` only swaps the error message; the shape is the wrapped validator.
+        return _child(node.validator)
+
+    # ``Union``/``Switch`` accept any branch (the discriminant is an
+    # optimization), so they render as ``anyOf`` like ``Any``. Checked with
+    # ``Any`` since both wrap ``.validators``.
+    if isinstance(node, AnyValidator | Union):
+        return _convert_any([_child(validator) for validator in node.validators])
+
+    if isinstance(node, SomeOf):
+        return _convert_some_of(node)
+
+    if isinstance(node, All):
+        return _convert_all(node)
+
+    return _convert_constraint(node)
+
+
+def _convert_any(branches: list[dict[str, Any]]) -> dict[str, Any]:
+    """Render the branches of an ``Any``/``Union`` as ``anyOf``, or as less.
+
+    One branch is exactly that branch, so it renders bare. The wrapper would also
+    unsettle a round trip: ``items: {"anyOf": [x]}`` decodes to the sequence
+    ``[x]``, which renders as ``items: x``, one level flatter on every trip. No
+    branch at all (``Any()``) accepts nothing; an empty ``anyOf`` would say so too
+    but is not a schema, since the metaschema demands at least one branch, so it
+    renders as ``not: {}``, the rejection JSON Schema does spell.
+    """
+    if not branches:
+        return {"not": {}}
+    if len(branches) == 1:
+        return branches[0]
+    return {"anyOf": branches}
+
+
+def _convert_some_of(node: SomeOf) -> dict[str, Any]:
+    """Render a SomeOf for the counts JSON Schema can express, else an open schema.
+
+    Exactly one branch (``min == max == 1``) is ``oneOf``; at least one
+    (``min == 1``, ``max`` the branch count) is ``anyOf``; every branch
+    (``min == max == count``) is ``allOf``. Any other count has no clean JSON
+    Schema form, so it widens to an open schema.
+    """
+    branches = [_child(validator) for validator in node.validators]
+    count = len(branches)
+    if node.min_valid == node.max_valid == 1:
+        return {"oneOf": branches}
+    if node.min_valid == 1 and node.max_valid == count:
+        return {"anyOf": branches}
+    if node.min_valid == node.max_valid == count:
+        return {"allOf": branches}
+    return _open("a SomeOf with a min/max count JSON Schema cannot express")
+
+
+def _convert_all(node: All[Any]) -> dict[str, Any]:
+    """Merge an All's validators into one schema, or ``allOf`` when keys conflict.
+
+    Merging with ``dict.update`` is the common, compact case (``All(int, Range)``
+    → one object). Two validators may emit the same keyword with the same value
+    (``All(str, Match(...))``: both say ``type: string``), which merges without
+    loss. When they disagree (``All(Any(...), Any(...))`` both emit ``anyOf``), a
+    plain update would drop the earlier one and widen the schema, so the render
+    falls back to ``allOf``, which keeps every facet, since a value must satisfy
+    them all.
+
+    Agreement has to merge for a round trip to settle: a decoded ``{"type":
+    "string", "pattern": ...}`` is ``All(str, pattern)``, and rendering that as an
+    ``allOf`` would wrap the document one level deeper on every trip, forever.
+
+    Agreement is judged under JSON's type model, since the document is read by a
+    JSON Schema consumer: ``const: 1`` and ``const: true`` are different values
+    there, however Python compares them, so they keep their own branches.
+    """
+    parts = [_child(validator) for validator in node.validators]
+    merged: dict[str, Any] = {}
+    for part in parts:
+        if any(
+            not _json_equal(part[key], merged[key])
+            for key in part.keys() & merged.keys()
+        ):
+            return {"allOf": [part for part in parts if part]}
+        merged.update(part)
+
+    return _retarget_length(merged)
+
+
+# JSON Schema spells "length" three ways depending on the type: minLength for a
+# string, minItems for an array, minProperties for an object. A Length validator
+# always renders the string form, so an All that pins an array or object length
+# has to move the bounds onto the matching keyword.
+_LENGTH_KEYS_BY_TYPE: dict[str, tuple[str, str]] = {
+    "array": ("minItems", "maxItems"),
+    "object": ("minProperties", "maxProperties"),
+}
+
+
+def _retarget_length(merged: dict[str, Any]) -> dict[str, Any]:
+    """Move a merged Length's string-length keys onto the array/object keyword."""
+    keys = _LENGTH_KEYS_BY_TYPE.get(merged.get("type", ""))
+    if keys is None:
+        return merged
+
+    min_key, max_key = keys
+    if "minLength" in merged:
+        merged[min_key] = merged.pop("minLength")
+    if "maxLength" in merged:
+        merged[max_key] = merged.pop("maxLength")
+
+    return merged
+
+
+def _enum(container: Any) -> dict[str, Any]:
+    """Render a membership container as an ``enum``, or open when unrepresentable.
+
+    A member with no JSON form (a ``datetime``, an ``Enum``, a ``bytes``) would
+    make the emitted enum non-serializable; dropping the constraint to an open
+    schema keeps the output valid rather than crashing, since a narrower emission
+    is not available.
+    """
+    values = _json_safe(list(_ordered(container)))
+    if values is _UNREPRESENTABLE:
+        return _open("an enum member with no JSON form")
+    return {"enum": values}
+
+
+def _const(value: Any) -> dict[str, Any]:
+    """Render an equality target as a ``const``, or open when unrepresentable.
+
+    Null is the one target with a type of its own, and ``{"type": "null"}`` is how
+    the bare ``None`` schema and ``Maybe`` already spell it. Spelling it the same
+    here keeps the round trip still: the decoder reads either form as one
+    validator, and that validator has to render back to one document.
+    """
+    if value is None:
+        return {"type": "null"}
+    converted = _json_safe(value)
+    if converted is _UNREPRESENTABLE:
+        return _open("a const value with no JSON form")
+    return {"const": converted}
+
+
+def _convert_equality(node: Any) -> dict[str, Any] | None:
+    """Render the equality/membership validators as enum/const/not, or None."""
+    if isinstance(node, In):
+        return _enum(node.container)
+
+    if isinstance(node, NotIn):
+        enum = _enum(node.container)
+        # An unrepresentable ``NotIn`` container already widened (or raised in
+        # strict mode) inside ``_enum``, so a truthy ``enum`` is the only case here.
+        return {"not": enum} if enum else enum
+
+    if isinstance(node, Equal):
+        return _const(node.target)
+
+    if isinstance(node, Literal):
+        return _const(node.lit)
+
+    # The decoder's JSON-strict enum/const (numbers and booleans kept distinct)
+    # re-emit their keyword, so a decoded schema round-trips.
+    if isinstance(node, _JsonEnum):
+        return _enum(node.values)
+
+    if isinstance(node, _JsonConst):
+        return _const(node.value)
+
+    return None
+
+
+def _convert_constraint(node: Any) -> dict[str, Any] | None:
+    """Render a constraint validator, or delegate to the named validators."""
+    equality = _convert_equality(node)
+    if equality is not None:
+        return equality
+
+    if isinstance(node, Range):
+        return _convert_range(node)
+
+    if isinstance(node, Length):
+        return _convert_length(node)
+
+    if isinstance(node, Match | _JsonPattern):
+        return _convert_match(node)
+
+    if isinstance(node, Maybe):
+        return {"anyOf": [{"type": "null"}, _child(node.validator)]}
+
+    temporal = _convert_temporal_node(node)
+    if temporal is not None:
+        return temporal
+
+    # A Unix timestamp on the wire is a number (``FromEpoch`` takes an int or a
+    # fractional-second float); the datetime is internal.
+    if isinstance(node, FromEpoch):
+        return {"type": "number"}
+
+    # ``Unique`` and the decoder's JSON-value uniqueness check (which re-emits its
+    # keyword so a decoded schema round-trips) both render as ``uniqueItems``.
+    if isinstance(node, Unique | _JsonUnique):
+        return {"uniqueItems": True}
+
+    if isinstance(node, Contains):
+        return {"contains": _child(node.item)}
+
+    if isinstance(node, ExactSequence):
+        return _convert_exact_sequence(node)
+
+    misc = _convert_misc(node)
+    if misc is not None:
+        return misc
+
+    typed = _convert_typed(node)
+    if typed is not None:
+        return typed
+
+    return _convert_named(node)
+
+
+def _convert_contains_count(node: _ContainsCount) -> dict[str, Any]:
+    """Render a decoded counted-contains back to ``contains`` with its count bounds.
+
+    ``minContains`` is emitted only when it differs from the spec default of 1,
+    and ``maxContains`` only when a bound was set, so a plain ``contains`` round
+    trips as a plain ``contains``.
+    """
+    result: dict[str, Any] = {"contains": _child(node.item)}
+    if node.minimum != 1:
+        result["minContains"] = node.minimum
+    if node.maximum is not None:
+        result["maxContains"] = node.maximum
+    return result
+
+
+def _convert_misc(node: Any) -> dict[str, Any] | None:
+    """Render the small single-keyword validators, or None if not one.
+
+    Includes the decoder's ``not`` and counted-``contains`` wrappers, which
+    re-emit their keyword so a schema decoded from ``{"not": ...}`` or
+    ``{"contains": ...}`` round-trips instead of collapsing to an open schema.
+    """
+    if isinstance(node, _Not):
+        return {"not": _child(node.subschema)}
+
+    if isinstance(node, _ContainsCount):
+        return _convert_contains_count(node)
+
+    if isinstance(node, Duration | AsTimedelta):
+        # ``duration`` is the standard JSON Schema format for an ISO 8601 duration
+        # (draft 2019-09 onward), the string these validators accept.
+        return {"type": "string", "format": "duration"}
+
+    if isinstance(node, NonEmpty):
+        # ``NonEmpty`` requires a non-empty value; ``minLength`` carries that for a
+        # string (the common case), and is ignored for a non-string per the spec.
+        return {"minLength": 1}
+
+    if isinstance(node, DefaultTo):
+        # ``DefaultTo`` accepts any value and substitutes its default for a missing
+        # one, so the only JSON Schema it carries is the ``default`` annotation.
+        default = _json_safe(node.default())
+        return {} if default is _UNREPRESENTABLE else {"default": default}
+
+    return None
+
+
+def _convert_typed(node: Any) -> dict[str, Any] | None:
+    """Render the network, identifier, and numeric-bound validators."""
+    for validator_type, json_format in FORMAT_BY_TYPE.items():
+        if isinstance(node, validator_type):
+            return {"type": "string", "format": json_format}
+
+    if isinstance(node, STRING_TYPES):
+        return {"type": "string"}
+
+    if isinstance(node, Port):
+        return {"type": "integer", "minimum": _PORT_MIN, "maximum": _PORT_MAX}
+
+    if isinstance(node, Percentage | FromPercentage):
+        return {"type": "number", "minimum": _PERCENT_MIN, "maximum": _PERCENT_MAX}
+
+    if isinstance(node, MultipleOf):
+        return {"multipleOf": node.factor}
+
+    if isinstance(node, Base64):
+        return {"type": "string", "contentEncoding": "base64"}
+
+    # The decoder's JSON-strict numeric types re-emit their keyword, so a
+    # decoded schema round-trips.
+    if isinstance(node, _JsonNumberType):
+        return {"type": "integer" if node.integer else "number"}
+
+    return None
+
+
+def _convert_named(node: Any) -> dict[str, Any] | None:
+    """Render the identity-comparable string and boolean validators."""
+    if getattr(node, "__wrapped__", None) is _BOOLEAN_FUNC:
+        return {"type": "boolean"}
+
+    if node is Email:
+        return {"type": "string", "format": "email"}
+
+    if node in (Url, FqdnUrl):
+        return {"type": "string", "format": "uri"}
+
+    if node in _STRING_FUNCS:
+        return {"type": "string"}
+
+    return None
+
+
+# Regex syntax that Python's ``re`` accepts but JSON Schema's ECMA-262 dialect does
+# not. A ``pattern`` using one of these would be rejected, or silently behave
+# differently, in an external (non-Python) validator. The detection is conservative:
+# a false negative (a Python-only construct not listed) emits an invalid pattern, so
+# err toward listing; a false positive only drops a valid pattern, the safe direction.
+_PYTHON_ONLY_REGEX = re.compile(
+    r"\(\?P[<=]"  # named group (?P<n>...) or backreference (?P=n)
+    r"|\(\?\#"  # inline comment (?#...)
+    r"|\(\?\("  # conditional (?(id)yes|no)
+    r"|\(\?>"  # atomic group (?>...)
+    r"|\(\?[aiLmsux]+[:)]"  # inline flags (?i) or scoped (?im:...)
+    r"|\(\?[aiLmsux]*-[aiLmsux]+:"  # negated/mixed scoped flags (?-i:...)
+    r"|(?<!\\)[*+?}]\+"  # possessive quantifier (*+ ++ ?+ }+), not an escape
+    r"|\\[AZ]",  # \A / \Z anchors, which ECMA-262 spells ^ / $
+)
+
+
+def _convert_match(node: Match | _JsonPattern) -> dict[str, Any]:
+    """Render a Match as a string, with a JSON Schema ``pattern`` when ECMA-safe.
+
+    JSON Schema patterns are ECMA-262 regular expressions, while ``Match`` holds a
+    Python ``re`` pattern. A pattern that uses Python-only syntax is dropped, leaving
+    a plain ``{"type": "string"}``, so the emitted schema stays valid for an external
+    validator rather than carrying a pattern that validator would reject.
+
+    ``Match`` validates with ``re.match`` (anchored at the start), while a JSON
+    Schema ``pattern`` is an unanchored ``re.search``. Wrapping an unanchored
+    source as ``^(?:...)`` preserves the start anchoring, so the emitted schema
+    does not accept a value with a matching suffix that ``Match`` rejects. A
+    ``_JsonPattern`` came *from* a JSON Schema ``pattern`` and already searches,
+    so it needs no wrapper and keeps its meaning across a round trip.
+
+    A ``bytes`` pattern has no JSON Schema (JSON strings are text), so it renders
+    as a plain string rather than crashing on the ``str``/``bytes`` mismatch.
+    """
+    source = node.pattern.pattern
+    if isinstance(source, bytes) or _PYTHON_ONLY_REGEX.search(source):
+        return {"type": "string"}
+
+    # A decoded ``pattern`` already carries the spec's search semantics, so it
+    # goes back out exactly as it came in.
+    if isinstance(node, _JsonPattern):
+        return {"type": "string", "pattern": source}
+
+    # A source already anchored at the start needs no wrapper; otherwise wrap it
+    # (grouped, so a top-level alternation stays under the anchor).
+    anchored = source if source.startswith("^") else f"^(?:{source})"
+    return {"type": "string", "pattern": anchored}
+
+
+def _convert_range(node: Range) -> dict[str, Any]:
+    """Render a Range as JSON Schema minimum/maximum bounds.
+
+    A non-numeric bound (a ``datetime``, say) has no JSON Schema numeric keyword
+    and would make the output non-serializable, so such a bound is omitted rather
+    than emitted raw.
+    """
+    result: dict[str, Any] = {}
+    minimum = _json_safe(node.min)
+    maximum = _json_safe(node.max)
+    if node.min is not None and isinstance(minimum, int | float):
+        result["minimum" if node.min_included else "exclusiveMinimum"] = minimum
+    if node.max is not None and isinstance(maximum, int | float):
+        result["maximum" if node.max_included else "exclusiveMaximum"] = maximum
+
+    return result
+
+
+def _convert_length(node: Length) -> dict[str, Any]:
+    """Render a Length as JSON Schema string-length bounds."""
+    result: dict[str, Any] = {}
+    if node.min is not None:
+        result["minLength"] = node.min
+    if node.max is not None:
+        result["maxLength"] = node.max
+
+    return result
+
+
+def _convert_temporal_node(node: Any) -> dict[str, Any] | None:
+    """Render any date/time validator (string or As* parser), or None if not one.
+
+    Date and Time subclass Datetime, so they are matched first. The As* parsers
+    are not subclasses, but describe the same string on the wire, so they map to
+    the same ``format``.
+    """
+    if isinstance(node, Date | AsDate):
+        return _convert_temporal(node, "date")
+
+    if isinstance(node, Time | AsTime):
+        return _convert_temporal(node, "time")
+
+    if isinstance(node, Datetime | AsDatetime):
+        return _convert_temporal(node, "date-time")
+
+    return None
+
+
+def _convert_temporal(node: Any, json_format: str) -> dict[str, Any]:
+    """Render a Date/Datetime (or its As* parser) as a string, format when ISO.
+
+    The ``format`` keyword only carries meaning for the ISO form; a custom
+    ``strptime`` pattern has no JSON Schema equivalent, so the result is a plain
+    string in that case. This makes ``Datetime()`` round-trip with the decoder,
+    which reads ``format: date-time`` back into a ``Datetime``. The string
+    validators mark ISO with their ``DEFAULT_FORMAT``; the ``As*`` parsers use
+    ``format=None``, so comparing against ``DEFAULT_FORMAT`` (absent, so ``None``)
+    covers both.
+    """
+    result: dict[str, Any] = {"type": "string"}
+    if node.format == getattr(node, "DEFAULT_FORMAT", None):
+        result["format"] = json_format
+    return result
+
+
+def _convert_exact_sequence(node: ExactSequence) -> dict[str, Any]:
+    """Render an ExactSequence as a fixed-length positional (``prefixItems``) array.
+
+    Each position becomes one entry in ``prefixItems``; ``items: false`` forbids
+    extra elements and the matching ``minItems``/``maxItems`` pin the length, so
+    the array must have exactly the listed positions.
+    """
+    prefix = [_child(validator) for validator in node.validators]
+    return {
+        "type": "array",
+        "prefixItems": prefix,
+        "items": False,
+        "minItems": len(prefix),
+        "maxItems": len(prefix),
+    }
+
+
+def _iso_parsable(value: str) -> str:
+    """Normalize an RFC 3339 string for ``fromisoformat``.
+
+    RFC 3339 allows a lowercase ``z`` suffix; ``fromisoformat`` accepts only the
+    uppercase form, so the suffix is normalized before parsing.
+    """
+    return value[:-1] + "Z" if value.endswith("z") else value
+
+
+class _JsonDateTime:
+    """Decode of ``format: date-time``: an RFC 3339 timestamp.
+
+    ``Datetime()`` validates one ``strptime`` format (fractional seconds and a
+    literal ``Z`` both mandatory), which rejects most valid RFC 3339 timestamps:
+    ``2024-01-01T00:00:00Z``, any numeric UTC offset. The decoded validator
+    parses with ``fromisoformat`` instead, which accepts the RFC 3339 forms
+    (``Z`` or an offset, any fraction length, lowercase markers). A timestamp
+    without an offset is accepted too: the spec requires one, but probatio's own
+    temporal validators treat naive timestamps as valid, and rejecting them
+    would surprise more than it protects.
+    """
+
+    __probatio_json_format__ = "date-time"
+
+    def __repr__(self) -> str:
+        """Render readably for error paths."""
+        return "JsonDateTime()"
+
+    def __call__(self, value: Any) -> Any:
+        """Return the value if it is an RFC 3339 timestamp, else raise Invalid."""
+        # ``fromisoformat`` also accepts a bare date, which ``date-time``
+        # forbids, so the date/time separator at position 10 is checked first.
+        ok = isinstance(value, str) and len(value) > 10 and value[10] in "Tt"
+        if ok:
+            try:
+                datetime.datetime.fromisoformat(_iso_parsable(value))
+            except ValueError:
+                ok = False
+        if not ok:
+            raise Invalid(translation_key="expected_iso_datetime")
+        return value
+
+
+class _JsonTime:
+    """Decode of ``format: time``: an RFC 3339 time of day.
+
+    ``Time()`` validates ``%H:%M:%S`` only, rejecting fractional seconds and UTC
+    offsets that are valid per the spec. The decoded validator parses with
+    ``fromisoformat`` and requires at least ``HH:MM:SS`` (the spec's
+    partial-time; ``fromisoformat`` alone would accept ``14:30``). As with
+    ``date-time``, the offset stays optional.
+    """
+
+    __probatio_json_format__ = "time"
+
+    def __repr__(self) -> str:
+        """Render readably for error paths."""
+        return "JsonTime()"
+
+    def __call__(self, value: Any) -> Any:
+        """Return the value if it is an RFC 3339 time, else raise Invalid."""
+        ok = isinstance(value, str) and len(value) >= 8
+        if ok:
+            try:
+                datetime.time.fromisoformat(_iso_parsable(value))
+            except ValueError:
+                ok = False
+        if not ok:
+            raise Invalid(translation_key="expected_iso_time")
+        return value
+
+
+# JSON Schema "format" values that map to a built probatio string validator.
+# Email/Url are factories (like voluptuous), so they are called once here.
+_FROM_FORMATS: dict[str, Any] = {
+    "email": Email(),
+    "uri": Url(),
+    "url": Url(),
+    "date-time": _JsonDateTime(),
+    "date": Date(),
+    "time": _JsonTime(),
+    "ipv4": IPv4Address(),
+    "ipv6": IPv6Address(),
+    "uuid": UUID(),
+    "hostname": Hostname(),
+}
+# JSON Schema scalar types that map to a fixed probatio fragment. ``null`` maps
+# to the ``NoneType`` type check, not the bare ``None`` schema: ``None`` is also
+# the "no facet" sentinel the facet collector drops, so a bare ``{"type": "null"}``
+# would otherwise lose its constraint and widen to accept anything. A type check
+# also admits exactly ``None``, where an equality check (``Literal(None)``) would
+# admit any value whose ``__eq__`` claims to be it.
+_SIMPLE_TYPES: dict[str, Any] = {"boolean": bool, "null": type(None)}
+
+
+class _JsonNumberType:
+    """Decode of ``type: integer``/``number`` under the JSON data model.
+
+    Python's ``bool`` subclasses ``int``, so a plain type check accepts ``True``
+    as an integer and rejects ``1.0``, both against the spec: JSON has no
+    boolean-as-number, and Draft 2020-12 defines ``integer`` as any number with
+    a zero fractional part.
+    """
+
+    def __init__(self, *, integer: bool) -> None:
+        """Remember whether the fractional part must be zero (read as ``.integer``)."""
+        self.integer = integer
+
+    def __repr__(self) -> str:
+        """Render readably for error paths."""
+        return "JsonInteger()" if self.integer else "JsonNumber()"
+
+    def __call__(self, value: Any) -> Any:
+        """Return the value if it is a JSON number (an integer when required)."""
+        bad = isinstance(value, bool) or not isinstance(value, int | float)
+        if not bad and self.integer and isinstance(value, float):
+            bad = not value.is_integer()
+        if bad:
+            raise Invalid(
+                translation_key="expected_type",
+                placeholders={"expected": "integer" if self.integer else "number"},
+            )
+        return value
+
+
+_JSON_INTEGER = _JsonNumberType(integer=True)
+_JSON_NUMBER = _JsonNumberType(integer=False)
+
+
+class _DeferredRef:
+    """A placeholder for a ``$ref``, resolved once its target schema is built.
+
+    Returned for a recursive reference (a ``$ref`` met while its own target is
+    still being built) so the recursion binds to the *referenced node*, not the
+    document root. Its ``schema`` is always set before any validation runs.
+    """
+
+    # Validating a ``$ref`` re-enters the same schema, so the code generator must
+    # not compile a mapping holding one: a deep failure would make every level bail
+    # to the interpreted engine and re-validate its whole subtree, an exponential
+    # cascade. This marks the value so ``probatio._codegen`` leaves such a mapping
+    # interpreted, the same way ``Self`` recursion is left interpreted.
+    _probatio_recursive_ref = True
+
+    def __init__(self) -> None:
+        """Start unresolved; ``schema`` is filled in when the target finishes."""
+        self.schema: Schema | None = None
+
+    def __call__(self, data: Any) -> Any:
+        """Validate ``data`` against the resolved target schema, depth-guarded.
+
+        A recursive ``$ref`` (a linked list or tree in the schema) recurses here,
+        so it shares the same depth guard as ``Self``: deep or cyclic attacker
+        data raises a clean ``Invalid`` instead of a ``RecursionError``.
+        """
+        if self.schema is None:  # pragma: no cover - set before validation
+            message = "unresolved schema reference"
+            raise RuntimeError(message)
+
+        with recursion_guard():
+            return self.schema(data)
+
+
+@dataclass
+class _Decode:
+    """The context threaded through a decode: the root, mode, and ref cache."""
+
+    root: dict[str, Any]
+    openapi: bool
+    refs: dict[str, _DeferredRef] = field(default_factory=dict)
+    # Current nesting depth, guarded so a deeply nested untrusted schema raises a
+    # clean SchemaError instead of exhausting the Python stack with RecursionError.
+    depth: int = 0
+
+
+def from_json_schema(schema: dict[str, Any]) -> Schema:
+    """Build a ``Schema`` from a JSON Schema dictionary.
+
+    This is the inverse of ``to_json_schema`` for the constructs that map cleanly:
+    objects (with ``properties``, ``required``, ``additionalProperties``, and
+    ``propertyNames``, which becomes the mapping's key validator), arrays
+    (``items``, ``minItems``/``maxItems``), the primitive types, ``enum``,
+    ``const``, ``anyOf``, ``allOf``, ``oneOf`` (with its exact "one branch only"
+    semantics), a ``type`` array like ``["string", "null"]``, and the string and
+    number constraints. ``$ref`` is resolved against ``$defs``/``definitions``. A
+    permissive keyword probatio does not model is ignored, so a partial schema still
+    yields a usable validator; a *restrictive* one it cannot honor is refused, since
+    silently dropping a constraint would widen an untrusted schema (see
+    ``_UNSUPPORTED_KEYWORDS``).
+
+    The schema may come from an untrusted source, so two safeguards apply: a
+    ``pattern`` that backtracks catastrophically (a nested unbounded quantifier)
+    is refused with ``SchemaError`` rather than compiled, and a document nested
+    past ``_MAX_SCHEMA_DEPTH`` levels is refused rather than overflowing the
+    stack. Both are conservative; an unusual but legitimate schema can trip them.
+    """
+    return _decode(schema, openapi=False)
+
+
+def from_openapi(schema: dict[str, Any]) -> Schema:
+    """Build a ``Schema`` from an OpenAPI Schema object.
+
+    The same decoder as ``from_json_schema`` plus the OpenAPI 3.0 ``nullable``
+    keyword (a nullable value also accepts ``None``). The inverse of ``to_openapi``
+    for the constructs that map cleanly.
+    """
+    return _decode(schema, openapi=True)
+
+
+def _decode(schema: dict[str, Any], *, openapi: bool) -> Schema:
+    """Run a decode from the root schema, wrapping the result in a Schema.
+
+    The schema is untrusted, and exhaustively type-checking every field of an
+    arbitrary document is impractical, so the decode fails closed: a structural
+    mismatch a specific check did not already catch (a bool where a list was
+    expected, an unhashable ``format``, and the like) is converted to a clean
+    ``SchemaError`` rather than leaking the raw ``TypeError``/``AttributeError``.
+    A ``SchemaError`` a specific check raised keeps its own message.
+    """
+    try:
+        node = _from_node(schema, _Decode(root=schema, openapi=openapi))
+    except SchemaError:
+        raise
+    except (TypeError, AttributeError, KeyError, IndexError, ValueError) as exc:
+        message = f"could not decode the schema; it is malformed: {exc}"
+        raise SchemaError(message) from exc
+    return node if isinstance(node, Schema) else Schema(node)
+
+
+def _from_node(node: Any, ctx: _Decode) -> Any:
+    """Convert one JSON Schema node into a probatio schema fragment, depth-guarded."""
+    ctx.depth += 1
+    try:
+        if ctx.depth > _MAX_SCHEMA_DEPTH:
+            message = (
+                f"JSON Schema nests deeper than {_MAX_SCHEMA_DEPTH} levels; "
+                "refusing to decode it"
+            )
+            raise SchemaError(message)
+        return _build_node(node, ctx)
+    finally:
+        ctx.depth -= 1
+
+
+def _build_node(node: Any, ctx: _Decode) -> Any:
+    """Convert one JSON Schema node into a probatio schema fragment.
+
+    A node is normally an object, but JSON Schema also allows a boolean schema:
+    ``true`` accepts any value, ``false`` accepts none. The ``writeOnly`` and
+    (in OpenAPI mode) ``nullable`` keywords wrap whatever the node produces, so
+    they apply uniformly, including to ``enum``, ``const``, ``anyOf``, ``allOf``,
+    and ``$ref`` nodes.
+    """
+    if isinstance(node, bool):
+        return object if node else In([])
+
+    if not isinstance(node, dict):
+        message = (
+            f"JSON Schema node must be an object or boolean, got {type(node).__name__}"
+        )
+        raise SchemaError(message)
+
+    _reject_unsupported(node)
+
+    facets = _collect_facets(node, ctx)
+    if not facets:
+        result: Any = object
+    elif len(facets) == 1:
+        result = facets[0]
+    else:
+        result = All(*facets)
+
+    if ctx.openapi and node.get("nullable") is True:
+        result = Maybe(result)
+
+    return result
+
+
+def _collect_facets(node: dict[str, Any], ctx: _Decode) -> list[Any]:
+    """Collect every facet of a node, to be ANDed together.
+
+    JSON Schema keywords are conjunctive: a value must satisfy every facet
+    present, including combinators, sibling types, and constraints. Dropping any
+    of them would widen an untrusted schema.
+    """
+    facets: list[Any] = []
+    if "$ref" in node:
+        facets.append(_from_ref(node["$ref"], ctx))
+    if "const" in node:
+        facets.append(_from_const(node["const"]))
+    elif "enum" in node:
+        facets.append(_from_enum(node["enum"]))
+    if "not" in node:
+        facets.append(_Not(_from_node(node["not"], ctx)))
+    if "allOf" in node:
+        facets.append(_from_combinator(node["allOf"], "allOf", All, ctx))
+    if "anyOf" in node:
+        facets.append(_from_combinator(node["anyOf"], "anyOf", AnyValidator, ctx))
+    if "oneOf" in node:
+        facets.append(_from_oneof(node["oneOf"], ctx))
+
+    typed = _typed_facet(node, ctx)
+    if typed is not None:
+        facets.append(typed)
+
+    return facets
+
+
+def _typed_facet(node: dict[str, Any], ctx: _Decode) -> Any:
+    """Return the ``type``-based or standalone-constraint facet of a node, or None.
+
+    None means a node carries neither a ``type`` nor a recognized constraint
+    keyword, so a node that is only a combinator (an ``allOf`` with no sibling
+    assertions) does not pick up a redundant accept-anything facet.
+    """
+    if "type" in node:
+        return _from_typed(node, ctx)
+    return _combine_constraints(node, ctx)
+
+
+# Restrictive keywords probatio does not implement. Silently ignoring one would
+# widen an untrusted schema (accept data the author meant to forbid), so the
+# decoder fails closed and refuses the document instead.
+_UNSUPPORTED_KEYWORDS = frozenset(
+    {
+        "if",
+        "patternProperties",
+        # ``propertyNames`` is not refused: a mapping key is itself validated by a
+        # schema, so it decodes to the key side of the mapping (see
+        # ``_from_property_names``).
+        #
+        # ``dependentRequired`` is not blanket-refused: its symmetric all-or-none
+        # form decodes to an ``Inclusive`` group (see ``_from_object``). The
+        # asymmetric form it cannot honor is refused there instead.
+        "dependentSchemas",
+        "dependencies",
+        # Draft 2019-09/2020-12 keywords probatio does not evaluate; ignoring one
+        # would widen the schema (accept data the author forbade), so fail closed.
+        "unevaluatedProperties",
+        "unevaluatedItems",
+        # Dynamic references are restrictive (they point at a constraint), so they
+        # fail closed too. Their anchors are declarations, not constraints: with
+        # every dynamic reference refused, a leftover anchor is inert, so anchors
+        # are not refused.
+        "$dynamicRef",
+        "$recursiveRef",
+    },
+)
+
+
+def _reject_unsupported(node: dict[str, Any]) -> None:
+    """Refuse a node carrying a restrictive keyword probatio cannot honor."""
+    unsupported = _UNSUPPORTED_KEYWORDS & node.keys()
+    if unsupported:
+        names = ", ".join(sorted(unsupported))
+        message = (
+            f"JSON Schema keyword(s) not supported; refusing to silently ignore a "
+            f"constraint: {names}"
+        )
+        raise SchemaError(message)
+
+
+def _json_equal(a: Any, b: Any) -> bool:
+    """Equality under JSON's type model: a boolean is never equal to a number.
+
+    Python's ``==`` conflates them (``1 == True``), so a decoded ``enum`` or
+    ``const`` would accept booleans for numbers and the reverse, against the
+    JSON data model. Numbers still compare across int/float (``1 == 1.0``),
+    which matches the spec. Containers compare element-wise so a nested boolean
+    stays distinct too.
+    """
+    if isinstance(a, bool) or isinstance(b, bool):
+        return isinstance(a, bool) and isinstance(b, bool) and a == b
+    # The value side can be a hostile subclass whose __len__, __iter__,
+    # __getitem__, or key equality raises, so the container walks are guarded
+    # just like the plain equality: any failure is a mismatch, never a leak.
+    try:
+        if isinstance(a, list) and isinstance(b, list):
+            return len(a) == len(b) and all(map(_json_equal, a, b))
+        if isinstance(a, dict) and isinstance(b, dict):
+            return a.keys() == b.keys() and all(
+                _json_equal(item, b[key]) for key, item in a.items()
+            )
+        return bool(a == b)
+    except Exception:  # noqa: BLE001 - the value's dunders are user code; never leak
+        return False
+
+
+def _needs_json_equality(value: Any) -> bool:
+    """Whether Python ``==`` could conflate the value with a boolean or number.
+
+    Only booleans and numbers (anywhere in the value) are ambiguous; strings,
+    null, and containers of them compare identically under both models, so those
+    keep the plain validators and their round-trip shape.
+    """
+    if isinstance(value, bool | int | float):
+        return True
+    if isinstance(value, list):
+        return any(_needs_json_equality(item) for item in value)
+    if isinstance(value, dict):
+        return any(_needs_json_equality(item) for item in value.values())
+    return False
+
+
+class _JsonConst:
+    """Decode of ``const`` holding a number or boolean: JSON-strict equality."""
+
+    def __init__(self, value: Any) -> None:
+        """Store the value the input must equal (read as ``.value``)."""
+        self.value = value
+
+    def __repr__(self) -> str:
+        """Render readably for error paths."""
+        return f"JsonConst({self.value!r})"
+
+    def __call__(self, value: Any) -> Any:
+        """Return the value if it JSON-equals the const, else raise Invalid."""
+        if not _json_equal(value, self.value):
+            raise Invalid(
+                translation_key="value_not_equal",
+                placeholders={"target": self.value},
+            )
+        return value
+
+
+class _JsonEnum:
+    """Decode of ``enum`` holding numbers or booleans: JSON-strict membership."""
+
+    def __init__(self, values: list[Any]) -> None:
+        """Store the allowed members (read as ``.values``)."""
+        self.values = values
+
+    def __repr__(self) -> str:
+        """Render readably for error paths."""
+        return f"JsonEnum({self.values!r})"
+
+    def __call__(self, value: Any) -> Any:
+        """Return the value if a member JSON-equals it, else raise Invalid."""
+        if not any(_json_equal(value, member) for member in self.values):
+            raise Invalid(
+                translation_key="value_one_of",
+                placeholders={"values": self.values},
+            )
+        return value
+
+
+def _from_const(value: Any) -> Any:
+    """Build a const equality check.
+
+    A scalar is returned as a literal (a ``Schema`` validates a literal by
+    equality). A list or dict literal would instead be read as a structural
+    sub-schema, so it is wrapped in ``Equal`` to keep const's equality semantics.
+    A value carrying a number or boolean anywhere gets the JSON-strict check,
+    since Python equality would conflate ``1`` with ``True``. Null is the same
+    ``NoneType`` check that ``{"type": "null"}`` decodes to: the bare ``None``
+    schema is also the "no facet" sentinel, so returned here it would read as an
+    absent subschema (``additionalProperties: {"const": null}`` closed the object).
+    """
+    if _needs_json_equality(value):
+        return _JsonConst(value)
+    if isinstance(value, list | dict):
+        return Equal(value)
+    if value is None:
+        return type(None)
+    return value
+
+
+class _Not:
+    """Decode of JSON Schema ``not``: accept a value only if the subschema rejects it."""
+
+    def __init__(self, subschema: Any) -> None:
+        """Compile the subschema the value must NOT match."""
+        # Kept raw (unwrapped) so the encoder can re-emit ``{"not": ...}``.
+        self.subschema = subschema
+        self._schema = Schema(subschema)
+
+    def __repr__(self) -> str:
+        """Render readably for error paths."""
+        return f"Not({self._schema.schema!r})"
+
+    def __call__(self, value: Any) -> Any:
+        """Return the value if the subschema rejects it, else raise Invalid."""
+        try:
+            self._schema(value)
+        except Invalid:
+            return value
+
+        raise Invalid(translation_key="must_not_match_not_schema")
+
+
+class _JsonPattern:
+    """Decode of JSON Schema ``pattern``: an unanchored search, not a match.
+
+    JSON Schema defines ``pattern`` as "the regular expression matches somewhere
+    in the string", the semantics of ``re.search``. ``Match`` mirrors voluptuous
+    and uses ``re.match``, which is anchored at the start, so decoding a pattern
+    to it rejected values the document allows. On its own that only narrowed, and
+    went unnoticed; under ``not`` it inverted into a widening, accepting exactly
+    what the document forbids.
+
+    The pattern is kept compiled (read the source as ``.pattern.pattern``) so the
+    encoder can re-emit it unanchored and the round trip keeps its meaning.
+    """
+
+    def __init__(self, pattern: str) -> None:
+        """Compile the pattern (already vetted by ``_safe_pattern``)."""
+        self.pattern = re.compile(pattern)
+
+    def __repr__(self) -> str:
+        """Render readably for error paths."""
+        return f"JsonPattern({self.pattern.pattern!r})"
+
+    def __call__(self, value: Any) -> Any:
+        """Return the value if the pattern is found anywhere in it."""
+        try:
+            found = self.pattern.search(value)
+        except TypeError as exc:  # pragma: no cover - scoped to strings already
+            # Unreachable: both construction sites sit behind a string check now.
+            # Kept so the class cannot leak a raw TypeError if that ever changes.
+            raise MatchInvalid(translation_key="expected_string") from exc
+
+        if not found:
+            raise MatchInvalid(translation_key="does_not_match_pattern")
+
+        return value
+
+
+def _unique_key(value: Any) -> Any:
+    """Reduce a JSON value to a hashable key with JSON equality semantics.
+
+    Lists and objects (unhashable in Python, but comparable JSON values) are
+    frozen recursively. Booleans are tagged so they stay distinct from ``1``
+    and ``0``; plain numbers keep Python's cross-type equality (``1 == 1.0``),
+    both as JSON equality demands. Anything that is not a JSON value falls
+    through unfrozen; an unhashable one is reported by the caller.
+    """
+    if isinstance(value, bool):
+        return ("bool", value)
+    if isinstance(value, list):
+        return ("list", tuple(_unique_key(item) for item in value))
+    if isinstance(value, dict):
+        return (
+            "dict",
+            frozenset((key, _unique_key(item)) for key, item in value.items()),
+        )
+    return value
+
+
+class _JsonUnique:
+    """Decode of ``uniqueItems``: value-based uniqueness over JSON data.
+
+    ``Unique()`` builds a ``set`` of the items (voluptuous parity), so an array
+    of arrays or objects, all valid and comparable JSON, is rejected as
+    "unhashable" instead of compared. This validator freezes JSON containers
+    into hashable keys first, keeping the check linear. Per the spec the
+    keyword only constrains arrays, so any other value passes vacuously.
+    """
+
+    def __repr__(self) -> str:
+        """Render readably for error paths."""
+        return "JsonUnique()"
+
+    def __call__(self, value: Any) -> Any:
+        """Return the value if its items are distinct JSON values, else raise."""
+        if not isinstance(value, list | tuple):
+            return value
+
+        seen: set[Any] = set()
+        duplicates: list[Any] = []
+        for item in value:
+            try:
+                key = _unique_key(item)
+                new = key not in seen
+                if new:
+                    seen.add(key)
+            except TypeError as exc:
+                raise Invalid(
+                    translation_key="contains_unhashable_elements",
+                    placeholders={"detail": str(exc)},
+                ) from exc
+            if not new:
+                duplicates.append(item)
+
+        if duplicates:
+            raise Invalid(
+                translation_key="contains_duplicate_items",
+                placeholders={"items": duplicates},
+            )
+        return value
+
+
+def _from_enum(values: Any) -> Any:
+    """Build a membership check from a JSON Schema ``enum``, rejecting a non-array.
+
+    An enum carrying a number or boolean anywhere gets the JSON-strict check
+    (``In`` uses Python ``==``, which would conflate ``1`` with ``True``); a
+    purely string/null enum keeps ``In`` and its friendlier miss suggestions.
+    """
+    if not isinstance(values, list):
+        message = f"JSON Schema 'enum' must be an array, got {type(values).__name__}"
+        raise SchemaError(message)
+    if any(_needs_json_equality(value) for value in values):
+        return _JsonEnum(list(values))
+    return In(list(values))
+
+
+def _from_combinator(
+    subschemas: Any,
+    keyword: str,
+    factory: Any,
+    ctx: _Decode,
+) -> Any:
+    """Build an Any/All from ``anyOf``/``allOf``, rejecting a non-array."""
+    if not isinstance(subschemas, list):
+        message = (
+            f"JSON Schema {keyword!r} must be an array, got {type(subschemas).__name__}"
+        )
+        raise SchemaError(message)
+    return factory(*[_from_node(sub, ctx) for sub in subschemas])
+
+
+def _from_oneof(subschemas: Any, ctx: _Decode) -> Any:
+    """Decode ``oneOf`` with its exact "one and only one branch matches" semantics.
+
+    ``SomeOf`` with ``min_valid == max_valid == 1`` is exactly that: a value
+    matching zero or two-or-more branches is rejected, unlike the looser ``anyOf``.
+    This keeps an untrusted ``oneOf`` from widening into "any branch matches".
+    """
+    if not isinstance(subschemas, list):
+        message = (
+            f"JSON Schema 'oneOf' must be an array, got {type(subschemas).__name__}"
+        )
+        raise SchemaError(message)
+    branches = [_from_node(sub, ctx) for sub in subschemas]
+    return SomeOf(branches, min_valid=1, max_valid=1)
+
+
+def _from_ref(ref: str, ctx: _Decode) -> Any:
+    """Resolve a ``$ref`` JSON pointer to a (memoized) validator for its target.
+
+    The placeholder is cached before the target is built, so a recursive
+    reference resolves to the same deferred validator and ties the knot on the
+    referenced node rather than the document root.
+    """
+    if not isinstance(ref, str):
+        message = f"JSON Schema '$ref' must be a string, got {type(ref).__name__}"
+        raise SchemaError(message)
+
+    existing = ctx.refs.get(ref)
+    if existing is not None:
+        return existing
+
+    deferred = _DeferredRef()
+    ctx.refs[ref] = deferred
+    target = _resolve_pointer(ref, ctx.root)
+    deferred.schema = Schema(_from_node(target, ctx))
+
+    return deferred
+
+
+def _resolve_pointer(ref: str, root: dict[str, Any]) -> Any:
+    """Resolve a local JSON pointer (``#``, ``#/a/b``, ``#/a/0``) against the document."""
+    if ref == "#":
+        # A bare ``#`` is the whole document, the common way a recursive schema
+        # references its own root, so there is nothing to traverse.
+        return root
+
+    if not ref.startswith("#/"):
+        message = f"only local JSON pointers are supported, got {ref!r}"
+        raise SchemaError(message)
+
+    target: Any = root
+    for raw in ref[2:].split("/"):
+        token = raw.replace("~1", "/").replace("~0", "~")
+        try:
+            # A list segment is addressed by an integer index (RFC 6901).
+            target = target[int(token)] if isinstance(target, list) else target[token]
+        except (KeyError, IndexError, ValueError, TypeError) as exc:
+            message = f"cannot resolve JSON pointer {ref!r}"
+            raise SchemaError(message) from exc
+
+    return target
+
+
+def _from_typed(node: dict[str, Any], ctx: _Decode) -> Any:
+    """Dispatch on the ``type`` keyword, one of the seven JSON Schema type names.
+
+    Only reached when ``type`` is present (a typeless node is handled by its
+    constraints upstream), so the keyword must be a string or an array of them.
+    """
+    json_type = node.get("type")
+    if isinstance(json_type, list):
+        return _from_type_list(node, json_type, ctx)
+
+    # A non-string, non-array ``type`` (including an explicit ``null``) is malformed.
+    # Reject it rather than letting it leak as a hashing or membership error, or fall
+    # through and widen to an accept-anything schema.
+    if not isinstance(json_type, str):
+        message = (
+            f"JSON Schema 'type' must be a string or array, "
+            f"got {type(json_type).__name__}"
+        )
+        raise SchemaError(message)
+
+    if json_type in _SIMPLE_TYPES:
+        return _SIMPLE_TYPES[json_type]
+
+    if json_type == "object":
+        return _from_object(node, ctx)
+
+    if json_type == "array":
+        return _from_array(node, ctx)
+
+    if json_type == "string":
+        return _from_string(node)
+
+    if json_type in ("integer", "number"):
+        base = _JSON_INTEGER if json_type == "integer" else _JSON_NUMBER
+        return _from_number(node, base=base)
+
+    # A non-empty ``type`` that is none of the seven JSON Schema types is malformed.
+    # The schema may be untrusted, so it fails closed here rather than ignoring the
+    # type and widening to an accept-anything ``object`` that would swallow the
+    # sibling constraint keywords and accept input the author meant to forbid.
+    message = f"JSON Schema 'type' is not a recognized type name: {json_type!r}"
+    raise SchemaError(message)
+
+
+def _from_type_list(node: dict[str, Any], types: list[Any], ctx: _Decode) -> Any:
+    """Render a ``type`` array (``["string", "null"]``) as an Any of each type.
+
+    ``types`` is untrusted JSON, so each entry must be a string: a non-string entry
+    (a ``null`` becomes a ``type`` of None, which would otherwise fall through to an
+    accept-anything schema and silently widen validation) is refused.
+    """
+    for name in types:
+        if not isinstance(name, str):
+            message = (
+                f"JSON Schema 'type' array entries must be strings, "
+                f"got {type(name).__name__}"
+            )
+            raise SchemaError(message)
+
+    validators = [
+        None if name == "null" else _from_typed({**node, "type": name}, ctx)
+        for name in types
+    ]
+    return AnyValidator(*validators)
+
+
+_NUMERIC_BOUND_KEYS = frozenset(
+    {"minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum"},
+)
+
+# Object and array assertion keywords. On a node without a ``type``, these still
+# constrain instances of their type (any other instance passes them vacuously),
+# so a typeless node carrying one must not decode to an accept-anything schema.
+_OBJECT_KEYWORDS = frozenset(
+    {
+        "properties",
+        "required",
+        "additionalProperties",
+        "propertyNames",
+        "minProperties",
+        "maxProperties",
+        "dependentRequired",
+    },
+)
+_ARRAY_KEYWORDS = frozenset({"items", "prefixItems", "minItems", "maxItems"})
+
+# The Python types a JSON number can arrive as, for scoping the numeric keywords.
+# ``bool`` is absent by design; ``_WhenType`` passes booleans through, since
+# Python calls one an ``int`` and JSON does not.
+_JSON_NUMBER_TYPES = (int, float)
+
+
+class _WhenType:
+    """Apply a subschema only to instances of one JSON type.
+
+    JSON Schema object and array keywords constrain only instances of their own
+    type; every other value passes them vacuously. This wrapper carries that
+    conditional applicability for a typeless node, so ``properties`` or ``items``
+    without a ``type`` is honored on matching instances without rejecting the
+    rest.
+    """
+
+    def __init__(self, base: type | tuple[type, ...], subschema: Any) -> None:
+        """Compile the subschema and remember the instance type it applies to."""
+        self._base = base
+        # Kept raw (unwrapped) so the encoder can re-emit it.
+        self.subschema = subschema
+        self._schema = Schema(subschema)
+
+    def __repr__(self) -> str:
+        """Render readably for error paths."""
+        names = (
+            self._base.__name__
+            if isinstance(self._base, type)
+            else "|".join(base.__name__ for base in self._base)
+        )
+        return f"WhenType({names}, {self._schema.schema!r})"
+
+    def __call__(self, value: Any) -> Any:
+        """Validate instances of the type; pass every other value through."""
+        # A JSON boolean is not a string, a number, an array or an object, so it
+        # passes vacuously like any other value of the wrong type. Spelled out
+        # because Python calls a boolean an ``int`` and JSON does not.
+        if isinstance(value, bool) or not isinstance(value, self._base):
+            return value
+        return self._schema(value)
+
+
+def _combine_constraints(node: dict[str, Any], ctx: _Decode) -> Any:
+    """Combine a node's standalone constraint keywords into one validator, or None.
+
+    With no ``type``, a JSON Schema still carries meaning through keywords like
+    ``minimum``, ``minLength``, ``multipleOf``, ``uniqueItems``, and ``contains``.
+    Each becomes its matching validator so the encoder's typeless output (a bare
+    ``Range``, ``Length``, ``MultipleOf``, ``Unique``, or ``ContainsCount``) round
+    trips. Object and array assertions (``properties``, ``required``, ``items``,
+    and their siblings) also apply without a ``type``, scoped to instances of
+    their type. None means the node carries no recognized constraint.
+    """
+    constraints = _from_constraints(node, ctx)
+    if not constraints:
+        return None
+
+    if len(constraints) == 1:
+        return constraints[0]
+
+    return All(*constraints)
+
+
+def _from_constraints(node: dict[str, Any], ctx: _Decode) -> list[Any]:
+    """Collect the standalone constraint validators present on a node."""
+    constraints: list[Any] = []
+    has_array = bool(_ARRAY_KEYWORDS & node.keys())
+    if _NUMERIC_BOUND_KEYS & node.keys():
+        constraints.append(_WhenType(_JSON_NUMBER_TYPES, _from_range(node)))
+    if "multipleOf" in node:
+        constraints.append(
+            _WhenType(_JSON_NUMBER_TYPES, MultipleOf(_numeric(node, "multipleOf"))),
+        )
+    if "minLength" in node or "maxLength" in node:
+        constraints.append(
+            _WhenType(
+                str,
+                Length(
+                    min=_item_count(node, "minLength"),
+                    max=_item_count(node, "maxLength"),
+                ),
+            ),
+        )
+    if "pattern" in node:
+        constraints.append(_WhenType(str, _JsonPattern(_safe_pattern(node["pattern"]))))
+    # When array keywords are present, the array facet below reads uniqueItems
+    # and contains itself, scoped to arrays; adding them standalone here too
+    # would double-apply them.
+    if node.get("uniqueItems") is True and not has_array:
+        constraints.append(_JsonUnique())
+    if "contains" in node and not has_array:
+        constraints.append(_WhenType(list, _from_contains(node, ctx)))
+    if _OBJECT_KEYWORDS & node.keys():
+        constraints.append(_WhenType(dict, _from_object(node, ctx)))
+    if has_array:
+        constraints.append(_WhenType(list, _from_array(node, ctx)))
+
+    return constraints
+
+
+def _apply_inclusive_groups(dependent: Any, mapping: dict[Any, Any]) -> None:
+    """Rebuild the ``Inclusive`` groups a symmetric ``dependentRequired`` encodes.
+
+    ``dependentRequired`` is refused in general: its asymmetric form ("a needs b"
+    without the reverse) has no probatio equivalent. The symmetric all-or-none
+    form is exactly an ``Inclusive`` group, so it is honored here: each connected
+    set of mutually dependent optional properties becomes one group. Anything else
+    (asymmetric, a self-dependency, a member that is not a declared optional
+    property) is refused, so the decoder never silently widens.
+    """
+    # An index makes the group id, not the member names joined: a property name
+    # may contain any character, so no join separator is collision-free (``a_b``
+    # plus ``c`` and ``a`` plus ``b_c`` would both read ``a_b_c`` and merge two
+    # unrelated groups). Components are sorted, so the ids are stable.
+    for index, members in enumerate(_symmetric_groups(dependent)):
+        group = f"inclusive_{index}"
+        for name in members:
+            key = _optional_key(mapping, name)
+            replacement = Inclusive(
+                name,
+                group,
+                msg=key.msg,
+                default=key.default,
+                description=key.description,
+            )
+            mapping[replacement] = mapping.pop(key)
+
+
+def _symmetric_groups(dependent: Any) -> list[list[str]]:
+    """Validate a ``dependentRequired`` map and return its all-or-none groups.
+
+    Returns one member list per connected group of two or more (a lone or empty
+    dependency is a no-op and yields no group). A connected, symmetric group is
+    all-or-none: any member present forces its neighbours present, and by
+    connectivity the whole group. Raises ``SchemaError`` for any shape that is not
+    a clean symmetric all-or-none.
+    """
+    if not isinstance(dependent, dict):
+        message = (
+            "JSON Schema 'dependentRequired' must be an object, got "
+            f"{type(dependent).__name__}"
+        )
+        raise SchemaError(message)
+
+    graph: dict[str, set[str]] = {}
+    for name, deps in dependent.items():
+        if not isinstance(name, str):
+            message = "JSON Schema 'dependentRequired' keys must be property names"
+            raise SchemaError(message)
+        if not (isinstance(deps, list) and all(isinstance(dep, str) for dep in deps)):
+            message = (
+                f"JSON Schema 'dependentRequired[{name}]' must be an array of "
+                "property names"
+            )
+            raise SchemaError(message)
+        if name in deps:
+            message = f"JSON Schema 'dependentRequired[{name}]' cannot depend on itself"
+            raise SchemaError(message)
+        graph[name] = {str(dep) for dep in deps}
+
+    _require_symmetric(graph)
+    return _connected_groups(graph)
+
+
+def _require_symmetric(graph: dict[str, set[str]]) -> None:
+    """Refuse an asymmetric ``dependentRequired``: it is not an all-or-none group."""
+    for name, deps in graph.items():
+        for dep in deps:
+            if dep not in graph or name not in graph[dep]:
+                message = (
+                    "asymmetric 'dependentRequired' is not supported (only the "
+                    f"symmetric all-or-none form maps to Inclusive): '{name}' "
+                    f"requires '{dep}' but not the reverse"
+                )
+                raise SchemaError(message)
+
+
+def _connected_groups(graph: dict[str, set[str]]) -> list[list[str]]:
+    """Return the connected components of a symmetric graph, keeping those of size 2+.
+
+    Each component and the list of components are sorted, so the caller's group
+    ids are stable regardless of the input's key order.
+    """
+    seen: set[str] = set()
+    groups: list[list[str]] = []
+    for start in graph:
+        if start in seen:
+            continue
+        stack = [start]
+        component: list[str] = []
+        while stack:
+            member = stack.pop()
+            if member in seen:
+                continue
+            seen.add(member)
+            component.append(member)
+            stack.extend(graph[member] - seen)
+        if len(component) > 1:
+            groups.append(sorted(component))
+    return sorted(groups)
+
+
+def _optional_key(mapping: dict[Any, Any], name: str) -> Optional:
+    """Find the plain ``Optional`` marker for ``name``, or refuse the group.
+
+    An ``Inclusive`` member must be a declared optional property. A name that is
+    required, secret, or undeclared cannot form an all-or-none group, so it is
+    refused rather than silently dropped.
+    """
+    for key in mapping:
+        if type(key) is Optional and key.schema == name:
+            return key
+    message = (
+        f"JSON Schema 'dependentRequired' names '{name}', which is not a declared "
+        "optional property, so it cannot form an Inclusive group"
+    )
+    raise SchemaError(message)
+
+
+def _from_object(node: dict[str, Any], ctx: _Decode) -> Any:
+    """Render a JSON Schema object as a mapping schema."""
+    properties = node.get("properties", {})
+    if not isinstance(properties, dict):
+        message = f"JSON Schema 'properties' must be an object, got {type(properties).__name__}"
+        raise SchemaError(message)
+
+    required_raw = node.get("required", [])
+    if not isinstance(required_raw, list):
+        message = f"JSON Schema 'required' must be an array, got {type(required_raw).__name__}"
+        raise SchemaError(message)
+
+    # ``required`` entries are property names, so every entry must be a string. A
+    # non-string entry (a number, or an unhashable nested array or object) never
+    # matches a property name, so it would silently make a required field optional;
+    # refuse it rather than honor a malformed document.
+    if not all(isinstance(entry, str) for entry in required_raw):
+        message = "JSON Schema 'required' must contain only property names (strings)"
+        raise SchemaError(message)
+
+    key_validator = _from_property_names(node, ctx)
+    allowed = _key_filter(key_validator)
+
+    required: set[Any] = set(required_raw)
+
+    # A required name the key schema rejects has to be present and may never be
+    # present, so nothing satisfies the object. Rendering the individual key as
+    # forbidden would still accept every object that simply omits it, which is
+    # wider than the document allows; refuse the lot instead.
+    if not all(map(allowed, required)):
+        return In([])
+
+    mapping: dict[Any, Any] = {}
+    for name, subschema in properties.items():
+        # ``propertyNames`` covers declared names too, so a property its key
+        # schema rejects can never legally appear. That is what ``Forbidden``
+        # says, and it is already how a ``properties`` entry of ``false`` renders.
+        if subschema is False or not allowed(name):
+            mapping[Forbidden(name)] = object
+            continue
+        key = _from_key(name, subschema, required=name in required)
+        mapping[key] = _from_node(subschema, ctx)
+
+    additional = node.get("additionalProperties")
+    additional_schema = (
+        _from_node(additional, ctx) if isinstance(additional, dict) else None
+    )
+
+    # An undeclared name is an additional property, so ``additionalProperties:
+    # false`` forbids it while ``required`` demands it: nothing satisfies the
+    # object. Treating the name as declared would accept the very objects the
+    # document rules out.
+    if additional is False and required - properties.keys():
+        return In([])
+
+    # A ``required`` name with no ``properties`` entry is still a presence
+    # constraint; dropping it would widen an untrusted schema. Its value schema
+    # is whatever ``additionalProperties`` says (an undeclared property), or
+    # anything.
+    for name in sorted(required - properties.keys()):
+        mapping[Required(name)] = (
+            additional_schema if additional_schema is not None else object
+        )
+
+    # An undeclared key is validated by the mapping's variable key. Without
+    # ``propertyNames`` that is plain ``str`` (every JSON key); with it, the
+    # decoded key schema, so the constraint reaches the keys it was written for.
+    if additional_schema is not None:
+        mapping[str if key_validator is _NO_KEY_SCHEMA else key_validator] = (
+            additional_schema
+        )
+    elif key_validator is not _NO_KEY_SCHEMA and additional is not False:
+        # Names constrained, values not: undeclared keys stay allowed, but each
+        # one still has to satisfy the key schema.
+        mapping[key_validator] = object
+
+    if "dependentRequired" in node:
+        _apply_inclusive_groups(node["dependentRequired"], mapping)
+
+    base = _object_base(
+        mapping,
+        additional,
+        declared="properties" in node,
+        constrained_keys=key_validator is not _NO_KEY_SCHEMA,
+    )
+    min_props = _item_count(node, "minProperties")
+    max_props = _item_count(node, "maxProperties")
+    if min_props is not None or max_props is not None:
+        return All(base, Length(min=min_props, max=max_props))
+
+    return base
+
+
+# "This node carries no key constraint", distinct from every value a key schema
+# can decode to. ``None`` cannot serve: ``{"const": null}`` decodes to it and is a
+# real constraint (no JSON key is null), so sharing the sentinel would drop it.
+_NO_KEY_SCHEMA = object()
+
+
+def _from_property_names(node: dict[str, Any], ctx: _Decode) -> Any:
+    """Decode ``propertyNames`` into a key validator, or ``_NO_KEY_SCHEMA``.
+
+    A mapping key is itself validated by a schema, so ``propertyNames`` maps onto
+    the key side of the mapping directly. A key schema that accepts anything
+    (``{}`` or ``true``) constrains nothing, so it reports ``_NO_KEY_SCHEMA`` and
+    the object keeps whatever shape ``additionalProperties`` alone would give it.
+
+    Plain ``{"type": "string"}`` is *not* folded away, even though every JSON key
+    is a string: the decoded schema also runs against Python mappings, where a
+    non-string key is reachable. It costs nothing anyway, since ``str`` is the key
+    the mapping would use regardless.
+    """
+    if "propertyNames" not in node:
+        return _NO_KEY_SCHEMA
+
+    key_validator = _from_node(node["propertyNames"], ctx)
+    if key_validator is object:
+        return _NO_KEY_SCHEMA
+
+    # The key validator goes in as a dict key, so an unhashable decode (a nested
+    # mapping schema) cannot be installed at all. Refuse it rather than let the
+    # dict write raise, and rather than drop the constraint.
+    try:
+        hash(key_validator)
+    except TypeError:
+        message = (
+            "JSON Schema 'propertyNames' does not decode to a usable key "
+            "validator; refusing to silently ignore the constraint"
+        )
+        raise SchemaError(message) from None
+
+    # A key schema that decodes to a plain value (``{"const": "a"}`` or
+    # ``{"type": "null"}``) would go in as a *literal* key, and a marker compares
+    # equal to its own name (``Optional("a") == "a"``, same hash), so it would
+    # silently replace a declared property rather than constrain the key. Wrapping
+    # it keeps it a key *validator*, which the engine matches separately.
+    if not callable(key_validator):
+        return Equal(key_validator)
+
+    return key_validator
+
+
+def _key_filter(key_validator: Any) -> Callable[[str], bool]:
+    """Build the "may this property name appear" test for a decoded key schema.
+
+    The key schema is compiled once here rather than per name, and a name it
+    rejects is reported as not allowed. Only ``Invalid`` counts as a rejection;
+    any other failure is a malformed schema and belongs to ``_decode``.
+
+    A key schema that refers to the schema still being built (``{"$ref": "#"}``)
+    is the one case this cannot answer: running it would re-enter a reference
+    whose target does not exist yet. Guessing would either forbid a property the
+    document allows or accept one it forbids, so the document is refused instead.
+    """
+    if key_validator is _NO_KEY_SCHEMA:
+        return lambda _name: True
+
+    compiled = Schema(key_validator)
+
+    def allowed(name: str) -> bool:
+        try:
+            compiled(name)
+        except Invalid:
+            return False
+        except RuntimeError as exc:
+            message = (
+                "JSON Schema 'propertyNames' refers to the schema being built, so "
+                "it cannot be resolved against a declared property name; refusing "
+                "rather than guessing at the constraint"
+            )
+            raise SchemaError(message) from exc
+        return True
+
+    return allowed
+
+
+def _object_base(
+    mapping: dict[Any, Any],
+    additional: Any,
+    *,
+    declared: bool,
+    constrained_keys: bool,
+) -> Any:
+    """Pick the base object schema from the property map and additionalProperties.
+
+    A declared property set is a closed contract (probatio's deliberate strict
+    default). But ``{"type": "object"}`` with no declared properties and no
+    explicit ``additionalProperties`` is "any object", not a closed empty one; an
+    explicit ``additionalProperties: false`` keeps an empty object closed. And a
+    ``required`` list without a ``properties`` set constrains presence only, so
+    undeclared extra keys stay allowed.
+
+    A ``propertyNames`` key schema is the exception to all of that: it constrains
+    every key, so the object can never render open. ``ALLOW_EXTRA`` would wave
+    through precisely the keys the key schema exists to reject.
+    """
+    if constrained_keys:
+        return mapping
+
+    if additional is True:
+        return Schema(mapping, extra=ALLOW_EXTRA)
+
+    if not declared and additional is None:
+        return Schema(mapping, extra=ALLOW_EXTRA) if mapping else dict
+
+    return mapping
+
+
+def _from_key(name: str, subschema: Any, *, required: bool) -> Marker:
+    """Build the Required/Optional marker for one object property.
+
+    A ``writeOnly`` property is a secret, so the key is wrapped in ``Secret`` (its
+    value is redacted from error output), the counterpart of the ``writeOnly`` that
+    ``to_json_schema`` emits for a ``Secret`` key.
+
+    JSON Schema ``default`` is an annotation: it never satisfies ``required``. A
+    probatio ``Required`` marker with a default does (it fills the value in), so a
+    required property keeps presence enforcement and drops the default. On an
+    optional property the default only fills the output, leaving the accept set
+    unchanged, so there it is applied.
+    """
+    marker_cls = Required if required else Optional
+    description = subschema.get("description") if isinstance(subschema, dict) else None
+    if not required and isinstance(subschema, dict) and "default" in subschema:
+        marker: Marker = marker_cls(
+            name,
+            default=subschema["default"],
+            description=description,
+        )
+    else:
+        marker = marker_cls(name, description=description)
+
+    if isinstance(subschema, dict) and subschema.get("writeOnly") is True:
+        return Secret(marker)
+    return marker
+
+
+def _from_prefix_items(prefix: Any, node: dict[str, Any], ctx: _Decode) -> Any:
+    """Decode a closed positional ``prefixItems`` array into an ``ExactSequence``.
+
+    Only the closed form (``items: false``, what ``to_json_schema`` emits for an
+    ``ExactSequence``) maps cleanly. With ``items`` absent or a schema, JSON Schema
+    allows additional items beyond the prefix, which ``ExactSequence`` (a
+    fixed-length tuple) cannot represent, so the open tail is refused rather than
+    silently rejecting valid arrays that carry extra items.
+    """
+    if not isinstance(prefix, list):
+        message = (
+            f"JSON Schema 'prefixItems' must be an array, got {type(prefix).__name__}"
+        )
+        raise SchemaError(message)
+
+    if node.get("items") is not False:
+        message = (
+            "JSON Schema 'prefixItems' is only supported with 'items': false "
+            "(a closed, fixed-length array); a schema or open tail does not map "
+            "to a probatio sequence"
+        )
+        raise SchemaError(message)
+
+    return ExactSequence([_from_node(element, ctx) for element in prefix])
+
+
+def _from_array(node: dict[str, Any], ctx: _Decode) -> Any:
+    """Render a JSON Schema array as a sequence schema, honoring item-count bounds.
+
+    ``prefixItems`` with ``items: false`` (a closed, fixed-length positional array)
+    round-trips an ``ExactSequence``. Without ``prefixItems``, ``items: false``
+    forbids every element (only the empty array validates) and ``items: true``
+    carries no per-item schema, so it reads as an unconstrained list.
+    """
+    prefix = node.get("prefixItems")
+    if prefix is not None:
+        return _from_prefix_items(prefix, node, ctx)
+
+    items = node.get("items")
+    if items is True:
+        items = None
+    elif items is not None and items is not False and not isinstance(items, dict):
+        # The Draft-4 positional form ``items: [schema, ...]`` is not supported;
+        # the supported positional form is ``prefixItems``. Refuse it cleanly
+        # rather than leaking a TypeError from the node decoder.
+        message = (
+            "JSON Schema array 'items' must be an object; the positional list "
+            "form is not supported (use 'prefixItems')"
+        )
+        raise SchemaError(message)
+
+    min_items = _item_count(node, "minItems")
+    max_items = _item_count(node, "maxItems")
+    bounded = min_items is not None or max_items is not None
+    has_contains = "contains" in node
+    has_unique = node.get("uniqueItems") is True
+
+    if items is False:
+        # ``items: false`` with no ``prefixItems``: no element is allowed, so
+        # only the empty array validates (an empty sequence schema is exactly
+        # that).
+        sequence: Any = []
+    elif items is None:
+        # No item schema: any list. Length, uniqueItems, and contains still apply,
+        # so a constrained array accepts any element ([object]) but must satisfy
+        # them.
+        if not bounded and not has_contains and not has_unique:
+            return list
+        sequence = [object]
+    elif items.keys() == {"anyOf"}:
+        # The encoder renders a multi-item sequence schema ([int, str]) as an
+        # ``items`` carrying only an ``anyOf``; decode that shape back to the
+        # branch list. Any sibling keyword beside the ``anyOf`` makes it a
+        # normal node whose facets must all apply, handled below.
+        sequence = [_from_node(sub, ctx) for sub in items["anyOf"]]
+    else:
+        sequence = [_from_node(items, ctx)]
+
+    constraints: list[Any] = []
+    if bounded:
+        constraints.append(Length(min=min_items, max=max_items))
+    if has_unique:
+        constraints.append(_JsonUnique())
+    if has_contains:
+        constraints.append(_from_contains(node, ctx))
+    if constraints:
+        return All(sequence, *constraints)
+
+    return sequence
+
+
+def _from_contains(node: dict[str, Any], ctx: _Decode) -> Any:
+    """Build a contains check, honoring ``minContains``/``maxContains`` counts.
+
+    JSON Schema ``contains`` requires at least one element to match a subschema
+    (the spec default of ``minContains: 1``); a count bound sets how many. This
+    is schema-matching, not membership, so it must not decode to probatio's
+    ``Contains`` (which tests whether a literal value is an element). The
+    counting validator carries the right semantics for the plain case too.
+    """
+    item = _from_node(node["contains"], ctx)
+    min_count = _item_count(node, "minContains")
+    max_count = _item_count(node, "maxContains")
+    return _ContainsCount(item, 1 if min_count is None else min_count, max_count)
+
+
+class _ContainsCount:
+    """Require between ``minContains`` and ``maxContains`` items to match a schema."""
+
+    def __init__(self, item_schema: Any, minimum: int, maximum: int | None) -> None:
+        """Compile the item schema and store the count bounds."""
+        # ``item`` kept raw so the encoder can re-emit ``{"contains": ...}``.
+        self.item = item_schema
+        self._schema = Schema(item_schema)
+        self.minimum = minimum
+        self.maximum = maximum
+
+    def __repr__(self) -> str:
+        """Render readably for error paths."""
+        return f"ContainsCount(min={self.minimum}, max={self.maximum})"
+
+    def __call__(self, value: Any) -> Any:
+        """Return the value if the matching-item count is in range, else raise."""
+        try:
+            items = list(value)
+        except TypeError as exc:  # pragma: no cover - scoped to arrays already
+            # Unreachable: both construction sites sit behind a list check now.
+            # Kept so the class cannot leak a raw TypeError if that ever changes.
+            raise ContainsInvalid(translation_key="not_a_collection") from exc
+
+        count = 0
+        for element in items:
+            try:
+                self._schema(element)
+            except Invalid:
+                continue
+            count += 1
+
+        if count < self.minimum:
+            raise ContainsInvalid(
+                translation_key="min_contains",
+                placeholders={"min": self.minimum},
+            )
+        if self.maximum is not None and count > self.maximum:
+            raise ContainsInvalid(
+                translation_key="max_contains",
+                placeholders={"max": self.maximum},
+            )
+
+        return value
+
+
+def _item_count(node: dict[str, Any], key: str) -> int | None:
+    """Read a non-negative integer item-count bound (``minItems``/``maxItems``), or None.
+
+    A non-integer or negative bound would otherwise leak a TypeError from the
+    ``Length`` check or silently validate data under a malformed count, so it is
+    refused at decode with a clean ``SchemaError``. The JSON Schema count keywords
+    are non-negative integers.
+    """
+    value = node.get(key)
+    if value is None:
+        return None
+
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        message = f"JSON Schema {key!r} must be a non-negative integer, got {value!r}"
+        raise SchemaError(message)
+
+    return value
+
+
+def _numeric(node: dict[str, Any], key: str) -> Any:
+    """Read a numeric bound (``minimum``/``multipleOf``/...), or None.
+
+    Reject bad bounds while decoding, before they can leak as comparison or
+    modulo errors during validation.
+    """
+    value = node.get(key)
+    if value is None or (
+        isinstance(value, int | float) and not isinstance(value, bool)
+    ):
+        return value
+    message = f"JSON Schema {key!r} must be a number, got {type(value).__name__}"
+    raise SchemaError(message)
+
+
+def _safe_pattern(pattern: Any) -> Any:
+    """Reject a catastrophically backtracking ``pattern`` from an untrusted schema.
+
+    The pattern may come from an untrusted document. Reject non-strings,
+    catastrophic patterns, and invalid regular expressions while decoding.
+    """
+    if not isinstance(pattern, str):
+        message = (
+            f"JSON Schema 'pattern' must be a string, got {type(pattern).__name__}"
+        )
+        raise SchemaError(message)
+
+    if is_catastrophic(pattern):
+        message = (
+            f"refusing to compile a potentially catastrophic regular "
+            f"expression from an untrusted schema: {pattern!r}"
+        )
+        raise SchemaError(message)
+
+    try:
+        re.compile(pattern)
+    except re.error as exc:
+        message = (
+            f"JSON Schema 'pattern' is not a valid regular expression: {pattern!r}"
+        )
+        raise SchemaError(message) from exc
+
+    return pattern
+
+
+def _from_string(node: dict[str, Any]) -> Any:
+    """Render a JSON Schema string, attaching format and length constraints.
+
+    A ``format`` that names a probatio validator (``date-time``, ``ipv4``,
+    ``uuid``, and the rest of ``_FROM_FORMATS``) becomes that validator, and
+    ``contentEncoding: base64`` becomes ``Base64`` (so a ``Base64`` round-trips);
+    everything else stays a plain string with the length and pattern constraints.
+    """
+    # ``format`` comes from an untrusted document; a non-string value (a dict, say)
+    # is not a hashable lookup key and is not a known format, so treat it as absent.
+    fmt = node.get("format", "")
+    base = _FROM_FORMATS.get(fmt, str) if isinstance(fmt, str) else str
+
+    # ``contentEncoding: base64`` (JSON Schema) and ``format: byte`` (OpenAPI)
+    # both mean a base64 string.
+    if base is str and (
+        node.get("contentEncoding") == "base64" or node.get("format") == "byte"
+    ):
+        base = Base64()
+
+    constraints: list[Any] = []
+    if "minLength" in node or "maxLength" in node:
+        constraints.append(
+            Length(
+                min=_item_count(node, "minLength"), max=_item_count(node, "maxLength")
+            ),
+        )
+    if "pattern" in node:
+        constraints.append(_JsonPattern(_safe_pattern(node["pattern"])))
+    if not constraints:
+        return base
+
+    return All(base, *constraints)
+
+
+def _from_number(node: dict[str, Any], *, base: Any) -> Any:
+    """Render a numeric JSON Schema, attaching range and multiple constraints."""
+    constraints: list[Any] = []
+    if _NUMERIC_BOUND_KEYS & node.keys():
+        constraints.append(_from_range(node))
+    if "multipleOf" in node:
+        constraints.append(MultipleOf(_numeric(node, "multipleOf")))
+    if not constraints:
+        return base
+
+    return All(base, *constraints)
+
+
+def _from_range(node: dict[str, Any]) -> Range:
+    """Build a Range from JSON Schema minimum/maximum bounds.
+
+    The Draft 2020-12 form makes ``minimum`` and ``exclusiveMinimum`` independent
+    numbers, so when both are present the binding lower bound is the more
+    restrictive one. The Draft-04 form (``exclusiveMinimum: true`` beside a
+    ``minimum``) reads the same way once the boolean is resolved.
+    """
+    minimum, min_included = _resolve_bound(node, "minimum", "exclusiveMinimum")
+    maximum, max_included = _resolve_bound(node, "maximum", "exclusiveMaximum")
+    return Range(
+        min=minimum,
+        max=maximum,
+        min_included=min_included,
+        max_included=max_included,
+    )
+
+
+def _resolve_bound(
+    node: dict[str, Any],
+    inclusive_key: str,
+    exclusive_key: str,
+) -> tuple[Any, bool]:
+    """Resolve one bound to (value, included), reconciling inclusive and exclusive.
+
+    Handles the Draft-04 boolean ``exclusive*`` (a flag on ``minimum``) and the
+    Draft 2020-12 numeric ``exclusive*`` (a bound in its own right). When both an
+    inclusive and a numeric exclusive bound are present, the tighter one wins.
+    """
+    inclusive = _numeric(node, inclusive_key)
+    raw_exclusive = node.get(exclusive_key)
+
+    # Draft-04: ``exclusiveMinimum: true`` flips ``minimum`` to exclusive. The
+    # boolean form is only meaningful beside its inclusive partner (Draft 4
+    # requires it); without one there is no bound to flip, so the document is
+    # malformed and silently producing no constraint would widen it.
+    if isinstance(raw_exclusive, bool):
+        if inclusive is None:
+            message = (
+                f"JSON Schema boolean {exclusive_key!r} (Draft 4 form) requires "
+                f"{inclusive_key!r} beside it"
+            )
+            raise SchemaError(message)
+        return inclusive, not raw_exclusive
+
+    exclusive = _numeric(node, exclusive_key)
+    if exclusive is None:
+        return inclusive, True
+    if inclusive is None:
+        return exclusive, False
+
+    # Both present (Draft 2020-12): keep the tighter lower/upper bound.
+    if inclusive_key == "minimum":
+        return (exclusive, False) if exclusive >= inclusive else (inclusive, True)
+    return (exclusive, False) if exclusive <= inclusive else (inclusive, True)

@@ -1,0 +1,84 @@
+# model_policy.yaml — OmniNode model tier policy declarations
+#
+# All LLM endpoint URLs are resolved at runtime from environment variables.
+# No hardcoded IPs or hostnames. Absent env var = RuntimeError at startup.
+#
+# Tier values: local | cloud | cloud_glm | cloud_google | cloud_openai
+# env_var: environment variable name that must be set to an OpenAI-compatible base URL
+
+policies:
+  coder:
+    tier: local
+    fallback_tier: cloud
+    env_var: LLM_CODER_URL
+    model_id_env_var: LLM_CODER_MODEL_NAME
+    max_tokens: 4096
+    context_window: 64000
+    timeout_seconds: 120.0
+    description: "Primary local code generation backend"
+
+  coder_fast:
+    tier: local
+    fallback_tier: cloud
+    env_var: LLM_CODER_FAST_URL
+    model_id_env_var: LLM_CODER_FAST_MODEL_NAME
+    max_tokens: 2048
+    context_window: 40000
+    timeout_seconds: 60.0
+    description: "Fast local model for classification and simple tasks"
+
+  judge:
+    tier: local
+    fallback_tier: cloud
+    env_var: LLM_DEEPSEEK_R1_URL
+    model_id_env_var: LLM_DEEPSEEK_R1_MODEL_NAME
+    max_tokens: 4096
+    context_window: 32000
+    timeout_seconds: 90.0
+    description: "Reasoning specialist for PR review verification"
+
+  delegation:
+    tier: cloud_glm
+    env_var: LLM_GLM_URL
+    api_key_env_var: LLM_GLM_API_KEY
+    model_id_env_var: LLM_GLM_MODEL_NAME
+    max_tokens: 8192
+    context_window: 128000
+    timeout_seconds: 120.0
+    description: "Primary frontier code generation backend"
+
+  delegation_review:
+    tier: cloud_glm
+    env_var: LLM_GLM_URL
+    api_key_env_var: LLM_GLM_API_KEY
+    model_id_env_var: LLM_GLM_REVIEW_MODEL_NAME
+    max_tokens: 2048
+    context_window: 203000
+    timeout_seconds: 30.0
+    description: "Frontier code reviewer"
+
+  openai:
+    tier: cloud_openai
+    endpoint_ref: env:LLM_OPENAI_URL
+    api_key_env_var: OPENAI_API_KEY
+    model_id_env_var: LLM_OPENAI_MODEL_NAME
+    max_tokens: 4096
+    context_window: 128000
+    timeout_seconds: 120.0
+    description: "OpenAI-compatible frontier fallback"
+
+  google:
+    tier: cloud_google
+    endpoint_ref: env:LLM_GOOGLE_URL
+    api_key_env_var: GOOGLE_API_KEY
+    model_id_env_var: LLM_GOOGLE_MODEL_NAME
+    max_tokens: 8192
+    context_window: 1000000
+    timeout_seconds: 120.0
+    description: "Google/Gemini frontier fallback via OpenAI-compatible endpoint"
+
+  embedding:
+    tier: cloud
+    env_var: LLM_EMBEDDING_URL
+    model_id_env_var: LLM_EMBEDDING_MODEL_NAME
+    description: "Embedding model for semantic search and retrieval"

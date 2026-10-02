@@ -146,6 +146,9 @@ async def cloud_file(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         parsed = CloudFileArgs.model_validate(args).root
     except ValidationError as exc:
         return _validation_error(format_args_error(exc), started_at, ctx)
+    # Read the wire model's coerced values (e.g. a JSON-string list decoded), never the
+    # raw arguments they were coerced from (the 2026-10-01 dataset update_row class).
+    args = {**args, **parsed.model_dump(exclude_unset=True)}
     action = parsed.action
 
     db = _get_file_db()

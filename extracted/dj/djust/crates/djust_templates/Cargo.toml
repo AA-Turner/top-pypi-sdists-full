@@ -1,0 +1,71 @@
+[package]
+name = "djust_templates"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["rlib"]
+
+[features]
+# The LiveView half of the engine: the `djust_vdom::VNode` loop parse cache,
+# the `<!--dj-if-->` VDOM boundary markers and the `djust_components`
+# renderer path. Default ON. `--no-default-features` is the plain
+# Django-backend engine (#2519) — still a PyO3 crate (the tag-handler and
+# filter registries are Python-backed); that is a different, larger cut.
+default = ["liveview"]
+liveview = ["dep:djust_vdom", "dep:djust_components"]
+
+[dependencies]
+indexmap = { workspace = true }
+pyo3.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+ahash.workspace = true
+smallvec.workspace = true
+regex.workspace = true
+once_cell.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+chrono-tz.workspace = true
+tracing = { workspace = true }
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
+# `markup5ever::data::NAMED_ENTITIES` is byte-identical to CPython's
+# `html.entities.html5` (2231 entries, equality asserted in the parity suite),
+# which is what `html.unescape` resolves against — and `html.unescape` is what
+# `HTMLParser(convert_charrefs=True)` runs over every run of text, so the HTML
+# truncators cannot match Django without it. NOT a new dependency: html5ever
+# already pulls markup5ever into this workspace for djust_vdom, so this only
+# adds an edge, not a crate.
+markup5ever = "0.39"
+# `Truncator.chars`'s NFC and `slugify`'s NFKD fold (#2319) — see the
+# workspace Cargo.toml for why a Unicode table is safe here when the
+# `isprintable` one (#2292) was not.
+unicode-normalization = { workspace = true }
+djust_core = { path = "../djust_core" }
+djust_vdom = { path = "../djust_vdom", optional = true }
+djust_components = { path = "../djust_components", optional = true }
+
+[dev-dependencies]
+criterion = "0.8"
+tempfile = "3.27"
+# Lexes this crate's own source for the `value_to_json` structural pin (#2249).
+# A pin that greps RAW text counts comments as code; `proc-macro2` is Rust's own
+# lexer, so a comment is gone before the pin sees it and a string literal is one
+# opaque token. Test-only, and already in the lockfile via `pyo3-macros` — no new
+# supply-chain surface. Works outside a proc macro via its fallback backend,
+# which is the use case the crate exists for.
+proc-macro2 = "1.0"
+
+[[bench]]
+name = "variable_extraction"
+harness = false
+
+[[bench]]
+name = "tag_registry"
+harness = false
+
+[[bench]]
+name = "loop_render_cache"
+harness = false

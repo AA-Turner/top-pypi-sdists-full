@@ -119,6 +119,111 @@ class TestReorder:
         assert [x.assignment_id for x in out] == ["a", "b"]
 
 
+# ── #3502: ISSUE_RESOLUTION marker parsing + combinator ─────────────────────
+
+
+class TestIssueResolutionMarker:
+    """`coord.models.parse_issue_resolution`/`effective_issue_resolution` —
+    the shared parser both the worker side (`completion_summary`) and
+    reviewer side (review `body`) read, and the combinator the merge gate
+    uses to fold the two into one verdict."""
+
+    def test_absent_marker_defaults_to_resolved(self) -> None:
+        from coord.models import IssueResolution, parse_issue_resolution
+
+        assert parse_issue_resolution(None) == IssueResolution("resolved", "")
+        assert parse_issue_resolution("") == IssueResolution("resolved", "")
+        assert parse_issue_resolution("Fixed the bug, all good.") == IssueResolution(
+            "resolved", ""
+        )
+
+    def test_malformed_value_defaults_to_resolved(self) -> None:
+        from coord.models import parse_issue_resolution
+
+        result = parse_issue_resolution("ISSUE_RESOLUTION: half-done — nope")
+        assert result.value == "resolved"
+
+    def test_partial_with_reason(self) -> None:
+        from coord.models import parse_issue_resolution
+
+        result = parse_issue_resolution(
+            "### Summary\nFixed the symptom.\n\n"
+            "ISSUE_RESOLUTION: partial — root cause is a quadraui gap, "
+            "quadraui#999 filed."
+        )
+        assert result.value == "partial"
+        assert "quadraui#999" in result.reason
+
+    def test_investigation_with_reason(self) -> None:
+        from coord.models import parse_issue_resolution
+
+        result = parse_issue_resolution(
+            "ISSUE_RESOLUTION: investigation — ruled out one hypothesis."
+        )
+        assert result.value == "investigation"
+        assert "ruled out one hypothesis" in result.reason
+
+    def test_resolved_explicit_has_no_reason_required(self) -> None:
+        from coord.models import parse_issue_resolution
+
+        result = parse_issue_resolution("ISSUE_RESOLUTION: resolved")
+        assert result.value == "resolved"
+
+    def test_last_occurrence_wins(self) -> None:
+        from coord.models import parse_issue_resolution
+
+        text = (
+            "ISSUE_RESOLUTION: partial — first draft\n"
+            "...\n"
+            "ISSUE_RESOLUTION: resolved"
+        )
+        assert parse_issue_resolution(text).value == "resolved"
+
+    def test_reviewer_partial_overrides_worker_resolved(self) -> None:
+        from coord.models import IssueResolution, effective_issue_resolution
+
+        worker = IssueResolution("resolved", "")
+        reviewer = IssueResolution("partial", "root cause elsewhere")
+        result = effective_issue_resolution(worker, reviewer)
+        assert result.value == "partial"
+        assert result.reason == "root cause elsewhere"
+
+    def test_reviewer_resolved_never_downgrades_worker_partial(self) -> None:
+        """'Never the reverse' — a reviewer saying 'resolved' cannot
+        silently revert a worker's own 'partial'/'investigation' claim."""
+        from coord.models import IssueResolution, effective_issue_resolution
+
+        worker = IssueResolution("partial", "root cause elsewhere")
+        reviewer = IssueResolution("resolved", "")
+        result = effective_issue_resolution(worker, reviewer)
+        assert result.value == "partial"
+        assert result.reason == "root cause elsewhere"
+
+    def test_reviewer_investigation_overrides_worker_partial(self) -> None:
+        """Reviewer may make it MORE cautious still."""
+        from coord.models import IssueResolution, effective_issue_resolution
+
+        worker = IssueResolution("partial", "worker's half-claim")
+        reviewer = IssueResolution("investigation", "actually nothing fixed")
+        result = effective_issue_resolution(worker, reviewer)
+        assert result.value == "investigation"
+
+    def test_no_reviewer_opinion_uses_workers(self) -> None:
+        from coord.models import IssueResolution, effective_issue_resolution
+
+        worker = IssueResolution("investigation", "nothing fixed yet")
+        result = effective_issue_resolution(worker, None)
+        assert result == worker
+
+    def test_both_resolved_stays_resolved(self) -> None:
+        from coord.models import IssueResolution, effective_issue_resolution
+
+        result = effective_issue_resolution(
+            IssueResolution("resolved", ""), IssueResolution("resolved", "")
+        )
+        assert result.value == "resolved"
+
+
 # ── Persistence (SQLite-based) ────────────────────────────────────────────────
 
 class TestPersistence:
@@ -757,6 +862,339 @@ class TestProcess:
         body = _briefing_body(entry)
         assert "Refs #1" in body
         assert "Closes #1" not in body
+
+    # ── #3502: ISSUE_RESOLUTION marker honoured at merge time ──────────────
+
+    @staticmethod
+    def _board_with_work(completion_summary: str | None, aid: str = "a") -> "Board":
+        from coord.models import Assignment, Board
+
+        work = Assignment(
+            machine_name="m1", repo_name="api", issue_number=1, issue_title="t",
+            assignment_id=aid, type="work", status="done",
+            branch=f"worker/{aid}", completion_summary=completion_summary,
+        )
+        return Board(active=[], completed=[work])
+
+    def test_worker_partial_marker_skips_close_and_uses_refs_in_fallback_pr(
+        self,
+    ) -> None:
+        # #3502: a "work" entry would normally close its issue — but when
+        # the worker's own completion_summary says `ISSUE_RESOLUTION:
+        # partial`, merging must NOT close it, and the fallback PR body
+        # (`_briefing_body`, reached when no PR was opened upstream) must
+        # use `Refs #N`.
+        from coord.merge_queue import _briefing_body
+
+        board = self._board_with_work(
+            "Fixed the symptom.\n\nISSUE_RESOLUTION: partial — root cause "
+            "is a quadraui gap, quadraui#999 now filed."
+        )
+        entry = _q("a", assignment_type="work")
+        body = _briefing_body(entry, board)
+        assert "Refs #1" in body
+        assert "Closes #1" not in body
+
+        items = [entry]
+        events = process(items, gh := FakeGh(), board=board)
+        assert items[0].state == MERGED
+        assert gh.close_calls == []
+        partial_events = [e for e in events if e.kind == "merged_partial"]
+        assert partial_events, [e.kind for e in events]
+        assert "quadraui#999" in partial_events[0].message
+
+    def test_worker_investigation_marker_skips_close(self) -> None:
+        board = self._board_with_work(
+            "ISSUE_RESOLUTION: investigation — ruled out one hypothesis, "
+            "bug still reproducible."
+        )
+        items = [_q("a", assignment_type="work")]
+        events = process(items, gh := FakeGh(), board=board)
+        assert items[0].state == MERGED
+        assert gh.close_calls == []
+        assert any(e.kind == "merged_partial" for e in events)
+
+    def test_worker_resolved_marker_still_closes(self) -> None:
+        # Explicit `ISSUE_RESOLUTION: resolved` behaves exactly like the
+        # default (no marker) #806 behaviour.
+        board = self._board_with_work("ISSUE_RESOLUTION: resolved")
+        items = [_q("a", assignment_type="work")]
+        events = process(items, gh := FakeGh(), board=board)
+        assert items[0].state == MERGED
+        assert gh.close_calls == [(items[0].repo_github, items[0].issue_number)]
+        assert any(e.kind == "merged" for e in events)
+
+    def test_no_completion_summary_still_closes_as_before(self) -> None:
+        # #3502 must not regress #806: a work assignment with NO
+        # completion_summary at all (the pre-#3502/pre-#874 shape) still
+        # closes its issue on merge.
+        board = self._board_with_work(None)
+        items = [_q("a", assignment_type="work")]
+        events = process(items, gh := FakeGh(), board=board)
+        assert items[0].state == MERGED
+        assert gh.close_calls == [(items[0].repo_github, items[0].issue_number)]
+        assert any(e.kind == "merged" for e in events)
+
+    def test_partial_marker_posts_a_remainder_comment_on_the_issue(self) -> None:
+        # #3502: the issue must be told WHY it's staying open, not just
+        # silently left alone.
+        from unittest.mock import patch
+
+        board = self._board_with_work(
+            "ISSUE_RESOLUTION: partial — root cause is a quadraui gap, "
+            "quadraui#999 now filed."
+        )
+        items = [_q("a", assignment_type="work")]
+        with patch("coord.merge_queue.comment_on_issue") as fake_comment:
+            events = process(items, FakeGh(), board=board)
+        assert items[0].state == MERGED
+        assert any(e.kind == "merged_partial" for e in events)
+        assert fake_comment.call_count == 1
+        call_args, call_kwargs = fake_comment.call_args
+        assert call_args[0] == "api"
+        assert call_args[1] == 1
+        assert "quadraui#999" in call_args[2]
+        assert call_kwargs.get("repo_github") == "acme/api"
+
+    def test_comment_failure_does_not_revert_the_merge(self) -> None:
+        # Same best-effort posture as `close_issue` failures (#806).
+        from unittest.mock import patch
+
+        board = self._board_with_work("ISSUE_RESOLUTION: partial — oops")
+        items = [_q("a", assignment_type="work")]
+        with patch(
+            "coord.merge_queue.comment_on_issue",
+            side_effect=RuntimeError("gh comment failed"),
+        ):
+            events = process(items, FakeGh(), board=board)
+        assert items[0].state == MERGED
+        partial_events = [e for e in events if e.kind == "merged_partial"]
+        assert partial_events and "could not post remainder comment" in partial_events[0].message
+
+    def test_reviewer_partial_overrides_a_resolved_worker_claim(self) -> None:
+        # #3502: the reviewer's own ISSUE_RESOLUTION judgment, fetched via
+        # the GitHub message bus, can veto an otherwise-"resolved" worker
+        # claim.
+        from unittest.mock import patch
+
+        from coord.models import Assignment, Board, IssueResolution
+        from coord.review import ReviewFindings
+
+        work = Assignment(
+            machine_name="m1", repo_name="api", issue_number=1, issue_title="t",
+            assignment_id="a", type="work", status="done", branch="worker/a",
+            completion_summary="Fixed it outright.",
+        )
+        review = Assignment(
+            machine_name="m2", repo_name="api", issue_number=1, issue_title="t",
+            assignment_id="rev-a", type="review", status="done",
+            review_of_assignment_id="a", review_verdict="approve",
+        )
+        board = Board(active=[], completed=[work, review])
+        items = [_q("a", assignment_type="work")]
+
+        findings = ReviewFindings(
+            verdict="approve",
+            body="ISSUE_RESOLUTION: partial — reviewer caught it",
+            issue_resolution=IssueResolution("partial", "reviewer caught it"),
+        )
+        with patch(
+            "coord.review.fetch_review_findings_from_github", return_value=findings,
+        ):
+            events = process(items, gh := FakeGh(), board=board)
+
+        assert items[0].state == MERGED
+        assert gh.close_calls == []
+        partial_events = [e for e in events if e.kind == "merged_partial"]
+        assert partial_events and "reviewer caught it" in partial_events[0].message
+
+    def test_existing_pr_body_downgraded_when_reviewer_overrides_worker(self) -> None:
+        # #3502 review (blocking finding): the headline scenario. A PR
+        # already exists (`pr_number` set, body baked in with "Closes #N"
+        # from the WORKER's own "resolved" claim, written before any
+        # review ran) and the REVIEWER later overrides with `partial`.
+        # `process()` never re-enters `_briefing_body` once `pr_number` is
+        # set, so the only thing that can still stop GitHub's own
+        # closing-keyword auto-close is the existing #1196/#1318 PR-body
+        # lint — it must now also catch a non-"resolved" `ISSUE_RESOLUTION`
+        # verdict and rewrite the body to "Refs #N" BEFORE `gh_ops.merge_pr`
+        # runs.
+        from coord.models import Assignment, Board, IssueResolution
+        from coord.review import ReviewFindings
+
+        work = Assignment(
+            machine_name="m1", repo_name="api", issue_number=1, issue_title="t",
+            assignment_id="a", type="work", status="done", branch="worker/a",
+            completion_summary="Fixed it outright.",
+        )
+        review = Assignment(
+            machine_name="m2", repo_name="api", issue_number=1, issue_title="t",
+            assignment_id="rev-a", type="review", status="done",
+            review_of_assignment_id="a", review_verdict="approve",
+        )
+        board = Board(active=[], completed=[work, review])
+        items = [_q("a", assignment_type="work", pr=100)]
+        gh = FakeGh(pr_bodies={100: "Closes #1\n\nAutomated merge from the coordinator."})
+
+        findings = ReviewFindings(
+            verdict="approve",
+            body="ISSUE_RESOLUTION: partial — reviewer caught it",
+            issue_resolution=IssueResolution("partial", "reviewer caught it"),
+        )
+        with patch(
+            "coord.review.fetch_review_findings_from_github", return_value=findings,
+        ):
+            events = process(items, gh, board=board)
+
+        assert items[0].state == MERGED
+        # The coordinator's own deterministic close must be skipped...
+        assert gh.close_calls == []
+        # ...AND the PR body itself must have been rewritten BEFORE
+        # merge_pr ran, so GitHub's own native closing-keyword scan (which
+        # never goes through close_issue()) doesn't auto-close it either.
+        assert gh.edit_body_calls, "PR-body lint must downgrade the existing Closes keyword"
+        assert gh.pr_bodies[100] == "Refs #1\n\nAutomated merge from the coordinator."
+        downgraded_events = [e for e in events if e.kind == "pr_body_downgraded"]
+        assert downgraded_events, [e.kind for e in events]
+        assert "ISSUE_RESOLUTION" in downgraded_events[0].message
+        partial_events = [e for e in events if e.kind == "merged_partial"]
+        assert partial_events and "reviewer caught it" in partial_events[0].message
+        # merge_pr must have been called AFTER the body was already rewritten.
+        assert gh.merge_calls == [("acme/api", 100, "rebase")]
+
+    def test_existing_pr_body_with_closing_keyword_not_touched_when_resolved(
+        self,
+    ) -> None:
+        # Control for the test above: when the effective verdict IS
+        # "resolved" (today's behaviour), an existing "Closes #N" body must
+        # be left alone and the issue must still close.
+        board = self._board_with_work("ISSUE_RESOLUTION: resolved")
+        items = [_q("a", assignment_type="work", pr=100)]
+        gh = FakeGh(pr_bodies={100: "Closes #1\n\nAutomated merge."})
+
+        events = process(items, gh, board=board)
+
+        assert items[0].state == MERGED
+        assert gh.close_calls == [("acme/api", 1)]
+        assert gh.edit_body_calls == []
+        assert gh.pr_bodies[100] == "Closes #1\n\nAutomated merge."
+        assert not [e for e in events if e.kind == "pr_body_downgraded"]
+
+    def test_commit_message_closing_keyword_blocks_merge_when_partial(self) -> None:
+        # #3502 review (non-blocking concern): a commit SUBJECT using a
+        # closing keyword (this repo's own `Fix #N: ...` convention) also
+        # auto-closes the issue via GitHub's commit-message scan once it
+        # lands on the base branch — independent of the PR body entirely,
+        # and unrewritable by this `gh`-only wire layer. Must block rather
+        # than silently let a `partial` verdict be defeated.
+        board = self._board_with_work(
+            "ISSUE_RESOLUTION: partial — root cause elsewhere"
+        )
+        items = [_q("a", assignment_type="work", pr=100)]
+        gh = FakeGh(pr_commit_messages={100: ["Fix #1: patch the symptom"]})
+
+        events = process(items, gh, board=board)
+
+        assert items[0].state == CONFLICT or items[0].state != MERGED
+        assert gh.merge_calls == []
+        blocked = [
+            e for e in events if e.kind == "issue_resolution_closing_keyword_in_commit"
+        ]
+        assert blocked, [e.kind for e in events]
+
+    def test_commit_message_closing_keyword_force_merge_overrides(self) -> None:
+        board = self._board_with_work(
+            "ISSUE_RESOLUTION: partial — root cause elsewhere"
+        )
+        items = [_q("a", assignment_type="work", pr=100)]
+        gh = FakeGh(pr_commit_messages={100: ["Fix #1: patch the symptom"]})
+
+        events = process(items, gh, board=board, force_merge=True)
+
+        assert items[0].state == MERGED
+        forced = [
+            e for e in events
+            if e.kind == "issue_resolution_closing_keyword_in_commit_forced"
+        ]
+        assert forced, [e.kind for e in events]
+
+    def test_commit_message_closing_keyword_dispatches_reword_commit_worker(
+        self,
+    ) -> None:
+        # #3522: the gate refusal above used to be a dead end — nothing
+        # ever remedied it, so every retry hit the identical refusal
+        # forever (claude-coordinator#3519). `process()` must now dispatch
+        # the message-only reword-commit worker itself, the moment the
+        # gate fires, rather than leaving it to a separate sweep.
+        board = self._board_with_work(
+            "ISSUE_RESOLUTION: partial — root cause elsewhere"
+        )
+        items = [_q("a", assignment_type="work", pr=100)]
+        gh = FakeGh(pr_commit_messages={100: ["Fix #1: patch the symptom"]})
+
+        fake_fix = Assignment(
+            machine_name="laptop", repo_name="api", issue_number=1,
+            issue_title="[reword-commit-fix] t", assignment_id="fix-1",
+            type="conflict-fix", status="running",
+        )
+        with patch(
+            "coord.conflict_fix.dispatch_conflict_fix", return_value=fake_fix,
+        ) as mock_dispatch:
+            events = process(items, gh, board=board, config=object())
+
+        assert items[0].state != MERGED
+        assert mock_dispatch.call_count == 1
+        _, kwargs = mock_dispatch.call_args
+        assert kwargs.get("reword_commit") is True
+        dispatched = [
+            e for e in events if e.kind == "issue_resolution_reword_dispatched"
+        ]
+        assert dispatched, [e.kind for e in events]
+        assert "laptop" in dispatched[0].message
+
+    def test_commit_message_closing_keyword_no_dispatch_without_config(
+        self,
+    ) -> None:
+        """Without *config* wired through (today's default for most
+        callers), the refusal still fires but no dispatch is attempted —
+        existing behaviour for every caller that predates #3522."""
+        board = self._board_with_work(
+            "ISSUE_RESOLUTION: partial — root cause elsewhere"
+        )
+        items = [_q("a", assignment_type="work", pr=100)]
+        gh = FakeGh(pr_commit_messages={100: ["Fix #1: patch the symptom"]})
+
+        with patch("coord.conflict_fix.dispatch_conflict_fix") as mock_dispatch:
+            process(items, gh, board=board)
+
+        assert mock_dispatch.call_count == 0
+
+    def test_commit_message_closing_keyword_dispatch_failure_is_best_effort(
+        self,
+    ) -> None:
+        """A dispatch failure (no machine, agent unreachable, …) must never
+        take down the merge refusal it's trying to remedy — the refusal
+        event still fires, just without the remedy event alongside it."""
+        board = self._board_with_work(
+            "ISSUE_RESOLUTION: partial — root cause elsewhere"
+        )
+        items = [_q("a", assignment_type="work", pr=100)]
+        gh = FakeGh(pr_commit_messages={100: ["Fix #1: patch the symptom"]})
+
+        with patch(
+            "coord.conflict_fix.dispatch_conflict_fix",
+            side_effect=RuntimeError("no machine"),
+        ):
+            events = process(items, gh, board=board, config=object())
+
+        assert items[0].state != MERGED
+        blocked = [
+            e for e in events if e.kind == "issue_resolution_closing_keyword_in_commit"
+        ]
+        assert blocked, [e.kind for e in events]
+        assert not [
+            e for e in events if e.kind == "issue_resolution_reword_dispatched"
+        ]
 
     def test_conflict_does_not_halt_other_repo_groups(self) -> None:
         """A conflict in one (repo, target) group must not touch other groups."""

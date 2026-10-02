@@ -1,0 +1,175 @@
+"""
+ComponentMixin - Component lifecycle and management for LiveView.
+"""
+
+from typing import TYPE_CHECKING, Any, Dict, Optional
+
+from ..serialization import normalize_django_value
+
+if TYPE_CHECKING:
+    from django.http import HttpRequest
+
+    from ..components.base import LiveComponent
+
+
+class ComponentMixin:
+    """Component methods: mount, handle_component_event, update_component, etc."""
+
+    if TYPE_CHECKING:
+        # Cooperating attribute supplied by the host class (LiveView, set in
+        # __init__). Declared type-only so the strict-island mypy run resolves
+        # it on the mixin without a runtime change — this mixin is never
+        # instantiated standalone.
+        _components: Dict[str, "LiveComponent"]
+
+    def mount(self, request: "HttpRequest", **kwargs: Any) -> None:
+        """
+        Called when the view is mounted. Override to set initial state.
+
+        Args:
+            request: The Django request object
+            **kwargs: URL parameters
+        """
+        pass
+
+    def handle_component_event(self, component_id: str, event: str, data: Dict[str, Any]) -> None:
+        """
+        Handle events sent from child components.
+
+        Override this method to respond to component events sent via send_parent().
+        """
+        pass
+
+    def update_component(self, component_id: str, **props: Any) -> None:
+        """
+        Update a child component's props.
+
+        Args:
+            component_id: ID of the component to update
+            **props: New prop values to pass to component
+        """
+        from ..components.base import BoundComponent, LiveComponent
+
+        component = self._components.get(component_id)
+        if component and isinstance(component, LiveComponent):
+            # ``LiveComponent.update`` (base.py) sets each prop as an instance
+            # attribute; subclasses may override it for coercion or
+            # selective-prop logic. See #1947.
+            component.update(**props)
+        elif isinstance(component, BoundComponent):
+            for key, value in props.items():
+                setattr(component, key, value)
+
+    def _register_component(self, component: Any, attr_name: Optional[str] = None) -> None:
+        """
+        Register a child component for event handling.
+
+        ``attr_name`` is the view attribute the component is held under
+        (``self.table`` → ``"table"``); it is recorded on the component so
+        ``LiveComponent.trigger_update`` can hand it to ``set_changed_keys``
+        (#2779 — without it a component's in-place mutation never re-synced
+        ``{{ table.render }}`` to the Rust context).
+        """
+        from ..components.base import LiveComponent
+
+        if isinstance(component, LiveComponent):
+            # component_id is Optional[str] on the class but always set by the
+            # time a component is registered (descriptor/auto-id assignment).
+            self._components[component.component_id] = component  # type: ignore[index]
+            if component._parent is None:
+                component._parent = self
+            if attr_name:
+                component._parent_attr = attr_name
+
+            def component_callback(event_data: Dict[str, Any]) -> None:
+                self.handle_component_event(
+                    event_data["component_id"],
+                    event_data["event"],
+                    event_data["data"],
+                )
+
+            component._set_parent_callback(component_callback)
+
+    def _extract_component_state(self, component: Any) -> Dict[str, Any]:
+        """
+        Extract state from a component for session storage.
+        """
+        import json as json_module
+
+        from ..components.base import BoundComponent, Component
+
+        if isinstance(component, BoundComponent):
+            # ADR-031 D7: a bound component is saved as its State, nothing else.
+            return dict(component.state)
+        if isinstance(component, Component):
+            # ADR-033 D6: a plain component's kwargs are its state; the
+            # restore writes them back through ``__setattr__``.
+            return dict(component.state)
+
+        state: Dict[str, Any] = {}
+        for key in dir(component):
+            if not key.startswith("_") and key not in ("template_name",):
+                try:
+                    value = getattr(component, key)
+                    if not callable(value):
+                        try:
+                            json_module.dumps(value)
+                            state[key] = value
+                        except (TypeError, ValueError):
+                            pass  # Value not JSON-serializable; skip
+                except (AttributeError, TypeError):
+                    pass  # Attribute not accessible; skip
+        return state
+
+    def _restore_component_state(self, component: Any, state: Dict[str, Any]) -> None:
+        """
+        Restore state to a component from session storage.
+
+        #2252: the session write ran through ``normalize_django_value(...,
+        state_roundtrip=True)``, so a ``Decimal`` arrives here in the tagged
+        form. Decode before assigning — the single decode point for both
+        callers (``mixins/request.py``'s POST restore and ``runtime.py``'s
+        mount restore).
+        """
+        from ..serialization import decode_state_roundtrip
+
+        state = decode_state_roundtrip(state)
+        for key, value in state.items():
+            if not key.startswith("_"):
+                try:
+                    setattr(component, key, value)
+                except (AttributeError, TypeError):
+                    pass
+
+    def _assign_component_ids(self) -> None:
+        """
+        Automatically assign IDs to components based on their attribute names.
+        """
+        from ..components.base import Component, LiveComponent
+
+        for key, value in self.__dict__.items():
+            if isinstance(value, (Component, LiveComponent)) and not key.startswith("_"):
+                # _auto_id is a dynamic framework slot read via hasattr in
+                # components/base.py (_generate_id); not declared on the class.
+                value._auto_id = key  # type: ignore[union-attr]
+
+    def _save_components_to_session(self, request: "HttpRequest", context: Dict[str, Any]) -> None:
+        """
+        Save component state to session with stable IDs.
+        """
+        from ..components.base import SESSION_COMPONENT_TYPES
+
+        view_key = f"liveview_{request.path}"
+        component_state: Dict[str, Any] = {}
+
+        for key, component in context.items():
+            if isinstance(component, SESSION_COMPONENT_TYPES):
+                # component_id is declared on LiveComponent; on the plain
+                # Component branch it is set dynamically here (stable session ID).
+                component.component_id = key  # type: ignore[union-attr]
+                component_state[key] = self._extract_component_state(component)
+
+        request.session[f"{view_key}_components"] = normalize_django_value(
+            component_state, state_roundtrip=True
+        )
+        request.session.modified = True

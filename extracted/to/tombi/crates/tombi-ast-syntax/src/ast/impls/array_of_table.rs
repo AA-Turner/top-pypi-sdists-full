@@ -1,15 +1,14 @@
 use tombi_ast_syntax::{SyntaxKind::*, T};
-use tombi_toml_version::TomlVersion;
 
 use crate::{
-    ArrayOfTable, AstNode, DanglingCommentGroupOr, KeyValueGroup, TableOrArrayOfTable,
+    AstNode, DanglingCommentGroupOr, KeyValueGroup, TableOrArrayOfTable,
     TombiValueCommentDirective, support,
 };
 
-impl crate::ArrayOfTable {
-    /// Range from the opening double bracket through the last non-trivia
+impl<'t> crate::ArrayOfTable<'t> {
+    /// Span from the opening double bracket through the last non-trivia
     /// element owned directly by this array-of-table.
-    pub fn content_range(&self) -> Option<tombi_text::Range> {
+    pub fn content_span(&self) -> Option<tombi_text::Span> {
         let mut elements = self.syntax().child_elements();
         let first = elements.find(|element| element.kind() == T!("[["))?;
         let last = self
@@ -23,10 +22,7 @@ impl crate::ArrayOfTable {
                 )
             })
             .last()?;
-        Some(tombi_text::Range::new(
-            first.range().start,
-            last.range().end,
-        ))
+        Some(tombi_text::Span::new(first.span().start, last.span().end))
     }
 
     #[inline]
@@ -52,7 +48,7 @@ impl crate::ArrayOfTable {
     /// [[table]]
     /// ```
     #[inline]
-    pub fn header_leading_comments(&self) -> impl Iterator<Item = crate::LeadingComment> {
+    pub fn header_leading_comments(&self) -> impl Iterator<Item = crate::LeadingComment<'t>> {
         support::comment::leading_comments(self.syntax().child_elements())
     }
 
@@ -62,7 +58,7 @@ impl crate::ArrayOfTable {
     /// [[table]]  # This comment
     /// ```
     #[inline]
-    pub fn header_trailing_comment(&self) -> Option<crate::TrailingComment> {
+    pub fn header_trailing_comment(&self) -> Option<crate::TrailingComment<'t>> {
         support::comment::trailing_comment(self.syntax().child_elements(), T!("]]"))
     }
 
@@ -79,7 +75,7 @@ impl crate::ArrayOfTable {
     /// key = "value"
     /// ```
     #[inline]
-    pub fn dangling_comment_groups(&self) -> impl Iterator<Item = crate::DanglingCommentGroup> {
+    pub fn dangling_comment_groups(&self) -> impl Iterator<Item = crate::DanglingCommentGroup<'t>> {
         support::comment::dangling_comment_groups(
             self.syntax()
                 .child_elements()
@@ -88,7 +84,9 @@ impl crate::ArrayOfTable {
         )
     }
 
-    pub fn key_value_groups(&self) -> impl Iterator<Item = DanglingCommentGroupOr<KeyValueGroup>> {
+    pub fn key_value_groups(
+        &self,
+    ) -> impl Iterator<Item = DanglingCommentGroupOr<'t, KeyValueGroup<'t>>> {
         support::comment::dangling_comment_group_or(
             self.syntax()
                 .child_elements()
@@ -100,22 +98,22 @@ impl crate::ArrayOfTable {
     }
 
     #[inline]
-    pub fn key_values(&self) -> impl Iterator<Item = crate::KeyValue> {
+    pub fn key_values(&self) -> impl Iterator<Item = crate::KeyValue<'t>> {
         self.key_value_groups()
             .filter_map(DanglingCommentGroupOr::into_item_group)
             .flat_map(KeyValueGroup::into_key_values)
     }
 
     #[inline]
-    pub fn contains_header(&self, position: tombi_text::Position) -> bool {
+    pub fn contains_header(&self, offset: tombi_text::Offset) -> bool {
         self.double_bracket_start()
-            .is_some_and(|start| start.range().end <= position)
+            .is_some_and(|start| start.span().end <= offset)
             && self
                 .double_bracket_end()
-                .is_none_or(|end| position <= end.range().start)
+                .is_none_or(|end| offset <= end.span().start)
     }
 
-    /// Returns an iterator over the sub-tables of this table.
+    /// Returns the last of the sub-tables of this table.
     ///
     /// ```toml
     /// [[foo]]  # <- This is a self array of table
@@ -128,73 +126,22 @@ impl crate::ArrayOfTable {
     /// key = true
     /// ```
     #[inline]
-    pub fn sub_tables(&self) -> impl Iterator<Item = TableOrArrayOfTable> + '_ {
-        support::node::next_siblings_nodes(self)
-            .skip(1)
-            .take_while(|t: &TableOrArrayOfTable| {
-                let Some(keys) = t.header() else {
-                    return false;
-                };
-                let Some(self_keys) = self.header() else {
-                    return false;
-                };
-
-                keys.starts_with(&self_keys) && keys.keys().count() != self_keys.keys().count()
-            })
+    pub fn last_sub_table(&self) -> Option<TableOrArrayOfTable<'t>> {
+        let id = crate::header_info(self.syntax()).last_sub_table?;
+        TableOrArrayOfTable::cast(self.syntax().node_at(id))
     }
 
+    /// The number of distinct shorter key-prefixes of the header that were already declared by a
+    /// preceding `[table]` / `[[array_of_tables]]` header.
     #[inline]
-    pub fn parent_table_or_array_of_table_keys(
-        &self,
-        toml_version: TomlVersion,
-    ) -> impl Iterator<Item = crate::Keys> + '_ {
-        support::node::prev_siblings_nodes(self)
-            .filter_map(|node: TableOrArrayOfTable| node.header())
-            .take_while(move |keys| {
-                match (
-                    self.header().and_then(|header| header.keys().next()),
-                    keys.keys().next(),
-                ) {
-                    (Some(a), Some(b)) => match (
-                        a.try_to_content(toml_version),
-                        b.try_to_content(toml_version),
-                    ) {
-                        (Ok(a), Ok(b)) => a == b,
-                        _ => false,
-                    },
-                    _ => false,
-                }
-            })
-            .filter(|keys| {
-                self.header()
-                    .map(|header_keys| header_keys.starts_with(keys))
-                    .unwrap_or_default()
-            })
+    pub fn parent_table_or_array_of_table_count(&self) -> usize {
+        crate::header_info(self.syntax()).parent_header_count
     }
 
+    /// For each key-prefix of the header (prefix length `i + 1` at index `i`), the number of
+    /// preceding `[[array_of_tables]]` headers that equal that prefix.
     #[inline]
-    pub fn parent_array_of_tables_keys(&self) -> impl Iterator<Item = crate::Keys> + '_ {
-        support::node::prev_siblings_nodes(self)
-            .filter_map(|node: ArrayOfTable| node.header())
-            .take_while(move |keys| {
-                match (
-                    self.header().and_then(|header| header.keys().next()),
-                    keys.keys().next(),
-                ) {
-                    (Some(a), Some(b)) => match (
-                        a.try_to_content(TomlVersion::latest()),
-                        b.try_to_content(TomlVersion::latest()),
-                    ) {
-                        (Ok(a), Ok(b)) => a == b,
-                        _ => false,
-                    },
-                    _ => false,
-                }
-            })
-            .filter(|keys| {
-                self.header()
-                    .map(|header_keys| header_keys.starts_with(keys))
-                    .unwrap_or_default()
-            })
+    pub fn parent_array_of_tables_prefix_counts(&self) -> Vec<usize> {
+        crate::header_info(self.syntax()).array_of_tables_counts
     }
 }

@@ -37,9 +37,7 @@ _APPLY_ARG_DOCSTRINGS = {"config": "The config options defining the schedule."}
     doc_py_example=_APPLY_EXAMPLE,
     arg_docstrings=_APPLY_ARG_DOCSTRINGS,
 )
-def apply(
-    config: ScheduleConfig, *, _private_sdk: Optional[PrivateScheduleSDK] = None
-) -> str:
+def apply(config: ScheduleConfig, *, _private_sdk: Optional[PrivateScheduleSDK] = None) -> str:
     """Apply or update a schedule.
 
     Returns the id of the schedule.
@@ -86,7 +84,11 @@ def set_state(
     Returns the id of the schedule.
     """
     return _private_sdk.set_state(  # type: ignore
-        id=id, name=name, cloud=cloud, project=project, state=state,
+        id=id,
+        name=name,
+        cloud=cloud,
+        project=project,
+        state=state,
     )
 
 
@@ -117,8 +119,7 @@ def status(
     project: Optional[str] = None,
     _private_sdk: Optional[PrivateScheduleSDK] = None,
 ) -> ScheduleStatus:
-    """Return the status of the schedule.
-    """
+    """Return the status of the schedule."""
     return _private_sdk.status(id=id, name=name, cloud=cloud, project=project)  # type: ignore
 
 
@@ -149,8 +150,7 @@ def trigger(
     project: Optional[str] = None,
     _private_sdk: Optional[PrivateScheduleSDK] = None,
 ) -> str:
-    """Trigger the execution of the schedule.
-    """
+    """Trigger the execution of the schedule."""
     return _private_sdk.trigger(id=id, name=name, cloud=cloud, project=project)  # type: ignore
 
 

@@ -7,8 +7,7 @@ from anyscale._private.models import ModelBase
 
 @dataclass(frozen=True)
 class CreateResourceQuota(ModelBase):
-    """Resource quota creation model.
-    """
+    """Resource quota creation model."""
 
     __doc_py_example__ = """\
 import anyscale
@@ -81,9 +80,7 @@ create_resource_quota = CreateResourceQuota(
 
     num_instances: Optional[int] = field(
         default=None,
-        metadata={
-            "docstring": "The quota limit for the number of instances. (optional)."
-        },
+        metadata={"docstring": "The quota limit for the number of instances. (optional)."},
     )
 
     def _validate_num_instances(self, num_instances: Optional[int]):
@@ -92,9 +89,7 @@ create_resource_quota = CreateResourceQuota(
 
     num_gpus: Optional[int] = field(
         default=None,
-        metadata={
-            "docstring": "The quota limit for the total number of GPUs (optional)."
-        },
+        metadata={"docstring": "The quota limit for the total number of GPUs (optional)."},
     )
 
     def _validate_num_gpus(self, num_gpus: Optional[int]):
@@ -103,9 +98,7 @@ create_resource_quota = CreateResourceQuota(
 
     num_accelerators: Optional[Dict[str, int]] = field(
         default=None,
-        metadata={
-            "docstring": "The quota limit for the number of accelerators (optional)."
-        },
+        metadata={"docstring": "The quota limit for the number of accelerators (optional)."},
     )
 
     def _validate_num_accelerators(self, num_accelerators: Optional[Dict[str, int]]):
@@ -132,8 +125,7 @@ create_resource_quota = CreateResourceQuota(
 
 @dataclass(frozen=True)
 class Quota(ModelBase):
-    """Resource quota limit
-    """
+    """Resource quota limit"""
 
     __doc_py_example__ = """\
 import anyscale
@@ -173,9 +165,7 @@ quota: Quota = resource_quota.quota
 
     num_instances: Optional[int] = field(
         default=None,
-        metadata={
-            "docstring": "The quota limit for the number of instances. (optional)."
-        },
+        metadata={"docstring": "The quota limit for the number of instances. (optional)."},
     )
 
     def _validate_num_instances(self, num_instances: Optional[int]):
@@ -184,9 +174,7 @@ quota: Quota = resource_quota.quota
 
     num_gpus: Optional[int] = field(
         default=None,
-        metadata={
-            "docstring": "The quota limit for the total number of GPUs (optional)."
-        },
+        metadata={"docstring": "The quota limit for the total number of GPUs (optional)."},
     )
 
     def _validate_num_gpus(self, num_gpus: Optional[int]):
@@ -195,9 +183,7 @@ quota: Quota = resource_quota.quota
 
     num_accelerators: Optional[Dict[str, int]] = field(
         default=None,
-        metadata={
-            "docstring": "The quota limit for the number of accelerators (optional)."
-        },
+        metadata={"docstring": "The quota limit for the number of accelerators (optional)."},
     )
 
     def _validate_num_accelerators(self, num_accelerators: Optional[Dict[str, int]]):
@@ -213,8 +199,7 @@ quota: Quota = resource_quota.quota
 
 @dataclass(frozen=True)
 class ResourceQuota(ModelBase):
-    """Resource quota
-    """
+    """Resource quota"""
 
     __doc_py_example__ = """\
 import anyscale
@@ -287,9 +272,7 @@ resource_quota: ResourceQuota = anyscale.resource_quota.create(create_resource_q
 
     user_id: Optional[str] = field(
         default=None,
-        metadata={
-            "docstring": "ID of the user that this resource quota applies to (optional)."
-        },
+        metadata={"docstring": "ID of the user that this resource quota applies to (optional)."},
     )
 
     def _validate_user_id(self, user_id: Optional[str]):

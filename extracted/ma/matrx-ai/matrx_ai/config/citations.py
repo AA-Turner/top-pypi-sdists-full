@@ -223,6 +223,176 @@ def normalize_anthropic_citation(citation: dict[str, Any]) -> NormalizedCitation
 
 
 # ---------------------------------------------------------------------------
+# Grounding — a citation stays only when the text it points at holds the claim
+# ---------------------------------------------------------------------------
+#
+# Anthropic returns, with every citation, the exact source text the model
+# pointed at (``cited_text``) and the answer span it attached it to. The model
+# can point at the wrong block: PB-04 (2026-10-01, conversation 548c09c9) cited
+# a CSV row's crate tag to the customs PDF and a note's building manager to an
+# unrelated note. A citation whose source text does not contain the claim's
+# codes and most of its words is removed — a Sources entry is truthful or
+# absent, never wrong.
+
+_DASHES = str.maketrans({c: "-" for c in "‐‑‒–—−"})
+_QUOTES = str.maketrans({"‘": "'", "’": "'", "“": '"', "”": '"'})
+_THOUSANDS_RE = re.compile(r"(?<=\d),(?=\d{3}\b)")
+#: An identifier: letters then digits (CB-60417, W-318, U1) or digits joined to
+#: letters by a hyphen (3-person). Ordinals (14th) and units (5kg) are numbers.
+_CODE_RE = re.compile(r"(?<![a-z0-9])(?:[a-z]+-?\d[a-z0-9-]*|\d+-[a-z][a-z0-9-]*)")
+_NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
+_WORD_RE = re.compile(r"[^\W\d_]+", re.UNICODE)
+_CJK_RE = re.compile(r"[぀-ヿ㐀-䶿一-鿿가-힯]")
+_STOPWORDS = frozenset(
+    "that this with from have were been which their there they them then than "
+    "into onto upon also only each every what when where while your yours "
+    "about after before above below over under more most some such very will "
+    "would should could shall must here these those other".split()
+)
+#: Share of a claim's content words its cited text must contain (stems: the
+#: first four letters, so "weekly"/"week" and "inspections"/"inspected" meet).
+GROUNDING_MIN_WORD_SHARE = 0.5
+#: A span citing several sources holds a fact from each; each source is held to
+#: its share of the claim's words instead of all of them.
+GROUNDING_MIN_WORD_SHARE_SHARED = 0.25
+
+
+def _normalize(text: str) -> str:
+    return _THOUSANDS_RE.sub("", text.translate(_DASHES).translate(_QUOTES).lower())
+
+
+def _number_values(text: str) -> set[float]:
+    return {float(n) for n in _NUMBER_RE.findall(text)}
+
+
+def _grounding_parts(text: str) -> tuple[set[str], set[float], set[str], set[str]]:
+    """(codes, numbers outside codes, content-word stems, CJK bigrams)."""
+    norm = _normalize(text)
+    codes = set(_CODE_RE.findall(norm))
+    rest = _CODE_RE.sub(" ", norm)
+    stems = {
+        w[:4] for w in _WORD_RE.findall(rest)
+        if len(w) >= 4 and w not in _STOPWORDS and not _CJK_RE.search(w)
+    }
+    cjk = "".join(_CJK_RE.findall(norm))
+    bigrams = {cjk[i : i + 2] for i in range(len(cjk) - 1)}
+    return codes, _number_values(rest), stems, bigrams
+
+
+def citation_supports_claim(
+    claim_text: str | None, cited_text: str | None, *, shared: bool = False
+) -> bool:
+    """True when ``cited_text`` can be the source of ``claim_text``.
+
+    Alone on its span, a citation's source must hold every identifier and
+    number of the claim (number VALUES: "06:00" meets "6:00", "$1,250.00" meets
+    "$1250") and half its content words. A span citing several sources
+    (``shared``) holds a fact from each, so each must hold one of the claim's
+    identifiers or numbers, or a quarter of its words.
+    A claim with nothing to check, or a citation with no cited text, is kept.
+    """
+    if not claim_text or not cited_text:
+        return True
+    codes, numbers, stems, bigrams = _grounding_parts(claim_text)
+    norm_source = _normalize(cited_text)
+    src_codes, _, src_stems, src_bigrams = _grounding_parts(cited_text)
+    src_numbers = _number_values(norm_source)
+    code_hits = {c for c in codes if c in src_codes or c in norm_source}
+    number_hits = numbers & src_numbers
+    if shared and (code_hits or number_hits):
+        return True
+    if not shared and (len(code_hits) < len(codes) or len(number_hits) < len(numbers)):
+        return False
+    threshold = GROUNDING_MIN_WORD_SHARE_SHARED if shared else GROUNDING_MIN_WORD_SHARE
+    if bigrams:
+        return len(bigrams & src_bigrams) / len(bigrams) >= threshold
+    if not stems:
+        return True
+    return len(stems & src_stems) / len(stems) >= threshold
+
+
+def grounded_citations(
+    claim_text: str | None, citations: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """The citations of one answer span that its cited text actually supports.
+
+    Removals are announced (never silent) with what was dropped and why.
+    """
+    sources = {
+        (c.get("file_id") or c.get("url") or c.get("title"), c.get("cited_text"))
+        for c in citations
+        if isinstance(c, dict)
+    }
+    shared = len(sources) > 1
+    kept: list[dict[str, Any]] = []
+    for citation in citations:
+        if not isinstance(citation, dict) or citation_supports_claim(
+            claim_text, citation.get("cited_text"), shared=shared
+        ):
+            kept.append(citation)
+            continue
+        vcprint(
+            {
+                "claim": (claim_text or "")[:160],
+                "title": citation.get("title"),
+                "cited_text": (citation.get("cited_text") or "")[:160],
+            },
+            "[citations] removed a citation whose source text does not contain "
+            "the claim it was attached to (the model pointed at the wrong source)",
+            color="yellow",
+        )
+    return kept
+
+
+def passage_page_and_label(page_numbers: Any) -> tuple[int | None, str]:
+    """The page a passage can truthfully claim, and its title suffix.
+
+    One page → that page (" — page 3"). A passage spanning several pages has no
+    single page: claiming its first one sent the PB-04 customs fact (page 3) to
+    "p.1". It carries the range in its title (" — pages 1–4") and no page.
+    """
+    pages: set[int] = set()
+    for p in page_numbers or []:
+        try:
+            value = float(p)
+        except (TypeError, ValueError):
+            continue
+        if value.is_integer() and value >= 1:
+            pages.add(int(value))
+    pages = sorted(pages)
+    if not pages:
+        return None, ""
+    if len(pages) == 1:
+        return pages[0], f" — page {pages[0]}"
+    return None, f" — pages {pages[0]}\u2013{pages[-1]}"
+
+
+def passage_source_name(hit: dict[str, Any]) -> str | None:
+    """A search hit's human name: the source title wherever the hit carries it.
+
+    knowledge_search nests a note's or file's title under ``metadata.source``;
+    reading only the top level fell through to the raw ``source_kind`` and the
+    Sources list showed "note" / "cld_file".
+    """
+    metadata = hit.get("metadata") if isinstance(hit.get("metadata"), dict) else {}
+    nested = metadata.get("source") if isinstance(metadata.get("source"), dict) else {}
+    for value in (
+        metadata.get("title"),
+        nested.get("title"),
+        metadata.get("file_name"),
+        nested.get("file_name"),
+        metadata.get("name"),
+        nested.get("name"),
+        metadata.get("source_label"),
+        hit.get("title"),
+        hit.get("name"),
+    ):
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+# ---------------------------------------------------------------------------
 # OpenAI (Responses API annotations)
 # ---------------------------------------------------------------------------
 
@@ -1046,15 +1216,8 @@ def citable_wire_blocks_from_output(
             snippet = hit.pop("snippet", "")
             if not snippet:
                 continue
-            pages = hit.get("page_numbers") or []
-            page = int(pages[0]) if pages else None
-            hit_meta = hit.get("metadata") or {}
-            name = (
-                hit_meta.get("title")
-                or hit_meta.get("file_name")
-                or hit_meta.get("name")
-                or hit_meta.get("source_label")
-            )
+            page, page_label = passage_page_and_label(hit.get("page_numbers"))
+            name = passage_source_name(hit)
             file_id = (
                 str(hit["source_id"])
                 if hit.get("source_kind") == "cld_file" and hit.get("source_id")
@@ -1063,7 +1226,7 @@ def citable_wire_blocks_from_output(
             passages.append(
                 _passage_wire_block(
                     texts=[snippet],
-                    title=_identity_title(hit.get("document_id"), page, name),
+                    title=f"{name or 'Document'}{page_label}",
                     file_id=file_id,
                     document_id=str(
                         hit.get("processed_document_id") or hit.get("document_id") or ""

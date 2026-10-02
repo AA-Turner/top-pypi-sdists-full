@@ -46,9 +46,7 @@ def session_logs(name: Optional[str], command_id: Optional[int]) -> None:
                 command_id = command["id"]
         if not command_id:
             raise click.ClickException(
-                "No comand was run yet on the latest active session {}".format(
-                    session["name"]
-                )
+                "No comand was run yet on the latest active session {}".format(session["name"])
             )
     resp_out = send_json_request(
         "/api/v2/session_commands/{session_command_id}/execution_logs".format(
@@ -71,13 +69,11 @@ def session_logs(name: Optional[str], command_id: Optional[int]) -> None:
 
 
 # Note: These functions are not normally updated, please cc yiran or ijrsvt on changes.
-@session_cli.command(
-    name="upload_command_logs", help="Upload logs for a command.", hidden=True
-)
-@click.option(
-    "--command-id", help="ID of the command to upload logs for", type=str, default=None
-)
-def session_upload_command_logs(command_id: Optional[str],) -> None:
+@session_cli.command(name="upload_command_logs", help="Upload logs for a command.", hidden=True)
+@click.option("--command-id", help="ID of the command to upload logs for", type=str, default=None)
+def session_upload_command_logs(
+    command_id: Optional[str],
+) -> None:
     session_upload_command_logs_impl(command_id)
 
 
@@ -113,15 +109,9 @@ def session_upload_command_logs_impl(
 
 
 # Note: These functions are not normally updated, please cc yiran or ijrsvt on changes.
-@session_cli.command(
-    name="finish_command", help="Finish executing a command.", hidden=True
-)
-@click.option(
-    "--command-id", help="ID of the command to finish", type=str, required=True
-)
-@click.option(
-    "--stop", help="Stop session after command finishes executing.", is_flag=True
-)
+@session_cli.command(name="finish_command", help="Finish executing a command.", hidden=True)
+@click.option("--command-id", help="ID of the command to finish", type=str, required=True)
+@click.option("--stop", help="Stop session after command finishes executing.", is_flag=True)
 @click.option(
     "--terminate",
     help="Terminate session after command finishes executing.",
@@ -137,9 +127,7 @@ def session_finish_command(command_id: str, stop: bool, terminate: bool) -> None
     )
 
 
-@session_cli.command(
-    name="web_terminal_server", help="Start the web terminal server", hidden=True
-)
+@session_cli.command(name="web_terminal_server", help="Start the web terminal server", hidden=True)
 @click.option(
     "--deploy-environment",
     help="Anyscale deployment type (development, test, staging, production)",
@@ -147,7 +135,9 @@ def session_finish_command(command_id: str, stop: bool, terminate: bool) -> None
     required=True,
 )
 @click.option(
-    "--use-debugger", help="Activate the Anyscale debugger.", is_flag=True,
+    "--use-debugger",
+    help="Activate the Anyscale debugger.",
+    is_flag=True,
 )
 @click.option(
     "--cli-token",
@@ -168,7 +158,10 @@ def session_finish_command(command_id: str, stop: bool, terminate: bool) -> None
     required=True,
 )
 @click.option(
-    "--session-id", help="The session id of this web terminal", type=str, required=True,
+    "--session-id",
+    help="The session id of this web terminal",
+    type=str,
+    required=True,
 )
 def web_terminal_server(
     deploy_environment: str,

@@ -1,0 +1,394 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""TDD-first: deploy-agent rebuild phase must pass --build-arg GIT_SHA to docker compose build.
+
+Without this, Docker's layer cache silently serves stale COPY src/ layers even when
+git is at the correct SHA (root cause of PR #1231 verification failure).
+
+Also covers OMN-10728 / OMN-11542: OMNIBASE_COMPAT_REF, OMNIMARKET_REF, and
+OMNIBASE_COMPAT_REF/OMNIMARKET_REF must be passed as full commit SHAs so the uv cache mount
+(keyed on URL) misses when main advances.
+"""
+
+from __future__ import annotations
+
+import subprocess
+from unittest.mock import patch
+
+import pytest
+from deploy_agent.events import Phase, PhaseStatus, Scope
+
+pytestmark = pytest.mark.unit
+from deploy_agent.executor import DeployExecutor
+
+
+def _noop_phase_update(phase: Phase, status: PhaseStatus) -> None:
+    pass
+
+
+def _make_ok_result(stdout: str = "") -> subprocess.CompletedProcess:
+    return subprocess.CompletedProcess(args=[], returncode=0, stdout=stdout, stderr="")
+
+
+class TestCacheBust:
+    """_compose_build must pass --build-arg GIT_SHA=<sha> so Docker invalidates COPY layers."""
+
+    def test_compose_build_includes_git_sha_build_arg(self) -> None:
+        """_compose_build must call docker compose build with --build-arg GIT_SHA=<sha>."""
+        executor = DeployExecutor()
+        git_sha = "abc1234def56"
+
+        captured_cmds: list[list[str]] = []
+
+        def fake_run(
+            cmd: list[str], timeout: int, **kwargs
+        ) -> subprocess.CompletedProcess:
+            captured_cmds.append(cmd)
+            return _make_ok_result()
+
+        with patch("deploy_agent.executor._run", side_effect=fake_run):
+            executor._compose_build(Scope.RUNTIME, git_sha, _noop_phase_update)
+
+        build_cmds = [c for c in captured_cmds if "build" in c]
+        assert build_cmds, "Expected at least one 'docker compose build' call"
+        build_cmd = build_cmds[0]
+
+        assert "--build-arg" in build_cmd, (
+            "Build command must contain --build-arg to invalidate Docker layer cache"
+        )
+        git_sha_arg_idx = build_cmd.index("--build-arg") + 1
+        git_sha_arg = build_cmd[git_sha_arg_idx]
+        assert git_sha_arg == f"GIT_SHA={git_sha}", (
+            f"Expected --build-arg GIT_SHA={git_sha}, got {git_sha_arg!r}"
+        )
+
+    def test_runtime_build_does_not_retag_from_project_image(self) -> None:
+        """Runtime build must not overwrite runtime:latest from a stale project tag."""
+        executor = DeployExecutor()
+        captured_cmds: list[list[str]] = []
+
+        def fake_run(
+            cmd: list[str], timeout: int, **kwargs
+        ) -> subprocess.CompletedProcess:
+            captured_cmds.append(cmd)
+            return _make_ok_result()
+
+        with patch("deploy_agent.executor._run", side_effect=fake_run):
+            executor._compose_build(Scope.RUNTIME, "abc1234", _noop_phase_update)
+
+        assert ["docker", "tag"] not in [cmd[:2] for cmd in captured_cmds]
+        assert not any(
+            cmd[:2] == ["docker", "tag"]
+            and "omnibase-infra-omninode-runtime:latest" in cmd
+            and "runtime:latest" in cmd
+            for cmd in captured_cmds
+        )
+
+    def test_compose_build_called_before_compose_up_in_rebuild_scope(self) -> None:
+        """rebuild_scope must call _compose_build before _compose_up so images are fresh."""
+        executor = DeployExecutor()
+        git_sha = "abc1234def56"
+        call_order: list[str] = []
+
+        def fake_build(scope: Scope, sha: str, cb, **kwargs) -> None:
+            call_order.append("build")
+
+        def fake_up(
+            phase: Phase, scope: Scope, services: list[str], cb, **kwargs
+        ) -> None:
+            call_order.append("up")
+
+        executor._compose_build = fake_build  # type: ignore[method-assign]
+        executor._compose_up = fake_up  # type: ignore[method-assign]
+
+        executor.rebuild_scope(Scope.RUNTIME, [], _noop_phase_update, git_sha=git_sha)
+
+        # OMN-18108: the default lane is DEV, which issues a second additive
+        # build for the dev-lane-only services. What this test pins is the
+        # ORDER -- every build precedes every up, so nothing is recreated from
+        # a stale image.
+        assert call_order.count("up") == 1, call_order
+        assert call_order.index("up") == len(call_order) - 1, (
+            f"_compose_build must precede _compose_up, got order: {call_order}"
+        )
+        assert call_order[0] == "build"
+
+    def test_compose_build_called_for_full_scope(self) -> None:
+        """Full scope rebuild must call _compose_build for both core and runtime."""
+        executor = DeployExecutor()
+        git_sha = "abc1234def56"
+        build_scopes: list[Scope] = []
+
+        def fake_build(scope: Scope, sha: str, cb, **kwargs) -> None:
+            build_scopes.append(scope)
+
+        def fake_up(
+            phase: Phase, scope: Scope, services: list[str], cb, **kwargs
+        ) -> None:
+            pass
+
+        executor._compose_build = fake_build  # type: ignore[method-assign]
+        executor._compose_up = fake_up  # type: ignore[method-assign]
+
+        executor.rebuild_scope(Scope.FULL, [], _noop_phase_update, git_sha=git_sha)
+
+        assert Scope.CORE in build_scopes, "Full scope must build core"
+        assert Scope.RUNTIME in build_scopes, "Full scope must build runtime"
+
+    def test_git_sha_forwarded_from_agent_to_executor(self) -> None:
+        """The git SHA returned from git_pull must be forwarded to rebuild_scope."""
+        executor = DeployExecutor()
+        git_sha_seen_in_build: list[str] = []
+
+        def fake_build(scope: Scope, sha: str, cb, **kwargs) -> None:
+            git_sha_seen_in_build.append(sha)
+
+        def fake_up(
+            phase: Phase, scope: Scope, services: list[str], cb, **kwargs
+        ) -> None:
+            pass
+
+        executor._compose_build = fake_build  # type: ignore[method-assign]
+        executor._compose_up = fake_up  # type: ignore[method-assign]
+
+        sentinel_sha = "deadbeef1234"
+        executor.rebuild_scope(
+            Scope.RUNTIME, [], _noop_phase_update, git_sha=sentinel_sha
+        )
+
+        # OMN-18108: every build on the DEV path carries the same sha, the
+        # dev-lane-only addendum build included -- a second build on a
+        # different sha would ship two source trees in one deploy.
+        assert git_sha_seen_in_build, "no build was issued at all"
+        assert set(git_sha_seen_in_build) == {sentinel_sha}, (
+            f"Expected git_sha={sentinel_sha!r} forwarded to every _compose_build, "
+            f"got {git_sha_seen_in_build}"
+        )
+
+
+class TestUvCacheBustPluginRefs:
+    """Builds must pass plugin refs as full SHAs for BuildKit cache invalidation.
+
+    OMN-10728 covered omnimarket and onex_change_control. OMN-11542 adds
+    omnibase_compat because runtime evidence DTOs were stale even though the
+    installed package version looked current.
+    """
+
+    def _fake_run_ok(
+        self, cmd: list[str], timeout: int, **kwargs
+    ) -> subprocess.CompletedProcess:
+        return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="", stderr="")
+
+    def test_compose_build_passes_omnimarket_ref_build_arg(self) -> None:
+        """_compose_build must include --build-arg OMNIMARKET_REF=<sha>."""
+        executor = DeployExecutor()
+        sentinel_sha = "cafe1234abcd5678"
+
+        captured_cmds: list[list[str]] = []
+
+        def fake_run(
+            cmd: list[str], timeout: int, **kwargs
+        ) -> subprocess.CompletedProcess:
+            captured_cmds.append(cmd)
+            return subprocess.CompletedProcess(
+                args=cmd, returncode=0, stdout="", stderr=""
+            )
+
+        with (
+            patch.dict("os.environ", {"OMNI_HOME": "/workspace/omni_home"}),
+            patch("deploy_agent.executor._run", side_effect=fake_run),
+            patch.object(
+                DeployExecutor, "_resolve_plugin_ref", return_value=sentinel_sha
+            ),
+        ):
+            executor._compose_build(Scope.RUNTIME, "abc123", _noop_phase_update)
+
+        build_cmds = [c for c in captured_cmds if "build" in c]
+        assert build_cmds, "Expected at least one 'docker compose build' call"
+        build_cmd = build_cmds[0]
+
+        # Collect all --build-arg values from the command
+        build_args = {
+            build_cmd[i + 1]
+            for i, tok in enumerate(build_cmd)
+            if tok == "--build-arg" and i + 1 < len(build_cmd)
+        }
+        assert f"OMNIMARKET_REF={sentinel_sha}" in build_args, (
+            f"Expected OMNIMARKET_REF={sentinel_sha!r} in build args; got {build_args}"
+        )
+
+    def test_compose_build_passes_omnibase_compat_ref_build_arg(self) -> None:
+        """_compose_build must include --build-arg OMNIBASE_COMPAT_REF=<sha>."""
+        executor = DeployExecutor()
+        sentinel_sha = "face1234abcd5678"
+
+        captured_cmds: list[list[str]] = []
+
+        def fake_run(
+            cmd: list[str], timeout: int, **kwargs
+        ) -> subprocess.CompletedProcess:
+            captured_cmds.append(cmd)
+            return subprocess.CompletedProcess(
+                args=cmd, returncode=0, stdout="", stderr=""
+            )
+
+        with (
+            patch.dict("os.environ", {"OMNI_HOME": "/workspace/omni_home"}),
+            patch("deploy_agent.executor._run", side_effect=fake_run),
+            patch.object(
+                DeployExecutor, "_resolve_plugin_ref", return_value=sentinel_sha
+            ),
+        ):
+            executor._compose_build(Scope.RUNTIME, "abc123", _noop_phase_update)
+
+        build_cmds = [c for c in captured_cmds if "build" in c]
+        assert build_cmds, "Expected at least one 'docker compose build' call"
+        build_cmd = build_cmds[0]
+        build_args = {
+            build_cmd[i + 1]
+            for i, tok in enumerate(build_cmd)
+            if tok == "--build-arg" and i + 1 < len(build_cmd)
+        }
+        assert f"OMNIBASE_COMPAT_REF={sentinel_sha}" in build_args, (
+            f"Expected OMNIBASE_COMPAT_REF={sentinel_sha!r} in build args; got {build_args}"
+        )
+
+    def test_compose_build_omits_onex_change_control_ref_build_arg(self) -> None:
+        """_compose_build must NOT pass ONEX_CHANGE_CONTROL_REF (OMN-16296).
+
+        onex_change_control is no longer installed into the runtime image, so
+        Dockerfile.runtime declares no such ARG. Passing it would be a dead
+        build-arg -- docker warns "One or more build-args were not consumed",
+        and the pin would silently read as meaningful when nothing consumes it.
+        This asserts the removal rather than merely deleting the old positive
+        test, so a future re-add has to be deliberate.
+        """
+        executor = DeployExecutor()
+        sentinel_sha = "dead0000beef1111"
+
+        captured_cmds: list[list[str]] = []
+
+        def fake_run(
+            cmd: list[str], timeout: int, **kwargs
+        ) -> subprocess.CompletedProcess:
+            captured_cmds.append(cmd)
+            return subprocess.CompletedProcess(
+                args=cmd, returncode=0, stdout="", stderr=""
+            )
+
+        with (
+            patch.dict("os.environ", {"OMNI_HOME": "/workspace/omni_home"}),
+            patch("deploy_agent.executor._run", side_effect=fake_run),
+            patch.object(
+                DeployExecutor, "_resolve_plugin_ref", return_value=sentinel_sha
+            ),
+        ):
+            executor._compose_build(Scope.RUNTIME, "abc123", _noop_phase_update)
+
+        build_cmds = [c for c in captured_cmds if "build" in c]
+        assert build_cmds, "Expected at least one 'docker compose build' call"
+        build_cmd = build_cmds[0]
+
+        build_args = {
+            build_cmd[i + 1]
+            for i, tok in enumerate(build_cmd)
+            if tok == "--build-arg" and i + 1 < len(build_cmd)
+        }
+        occ_args = {a for a in build_args if a.startswith("ONEX_CHANGE_CONTROL_REF=")}
+        assert not occ_args, (
+            "ONEX_CHANGE_CONTROL_REF must not be passed: onex_change_control is "
+            f"not installed into the runtime image (OMN-16296); got {occ_args}"
+        )
+
+    def test_resolve_plugin_ref_returns_sha_from_git(self) -> None:
+        """_resolve_plugin_ref must return the SHA from git rev-parse HEAD."""
+        expected_sha = "abcdef1234567890abcdef1234567890abcdef12"
+        mock_result = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=f"{expected_sha}\n", stderr=""
+        )
+        with patch("subprocess.run", return_value=mock_result):
+            sha = DeployExecutor._resolve_plugin_ref("/fake/repo", fallback="dev")
+        assert sha == expected_sha
+
+    def test_resolve_plugin_ref_falls_back_to_the_caller_supplied_branch(
+        self,
+    ) -> None:
+        """OMN-16442: the fallback branch is supplied, never hardcoded.
+
+        It used to be a literal ``"main"``. Both sibling repos integrate on
+        ``dev``, and this repo's ``main`` is release-synced, so that literal
+        pinned a stale branch on a git failure. ``_compose_build`` now passes
+        the declared tracking ref down.
+        """
+        mock_result = subprocess.CompletedProcess(
+            args=[], returncode=128, stdout="", stderr="fatal: not a git repo"
+        )
+        with patch("subprocess.run", return_value=mock_result):
+            sha = DeployExecutor._resolve_plugin_ref(
+                "/nonexistent/repo", fallback="dev"
+            )
+        assert sha == "dev"
+
+    def test_resolve_plugin_ref_does_not_invent_main_as_a_fallback(self) -> None:
+        mock_result = subprocess.CompletedProcess(
+            args=[], returncode=128, stdout="", stderr="fatal: not a git repo"
+        )
+        with patch("subprocess.run", return_value=mock_result):
+            sha = DeployExecutor._resolve_plugin_ref(
+                "/nonexistent/repo", fallback="staging"
+            )
+        assert sha == "staging"
+
+    def test_compose_build_uses_dev_fallback_for_omnimarket_when_omni_home_unset(
+        self,
+    ) -> None:
+        """When OMNI_HOME is not set, OMNIMARKET_REF defaults to 'dev' (OMN-12195: dev is the default branch)."""
+        executor = DeployExecutor()
+        captured_cmds: list[list[str]] = []
+
+        def fake_run(
+            cmd: list[str], timeout: int, **kwargs
+        ) -> subprocess.CompletedProcess:
+            captured_cmds.append(cmd)
+            return subprocess.CompletedProcess(
+                args=cmd, returncode=0, stdout="", stderr=""
+            )
+
+        import os
+
+        env_without_omni_home = {
+            k: v for k, v in os.environ.items() if k != "OMNI_HOME"
+        }
+        # patch.dict(clear=True) wipes the declared tracking ref that the
+        # conftest fixture sets, and _compose_build requires it (OMN-16442).
+        env_without_omni_home["DEPLOY_AGENT_TRACKING_REF"] = "dev"
+
+        with (
+            patch("deploy_agent.executor._run", side_effect=fake_run),
+            patch.dict("os.environ", env_without_omni_home, clear=True),
+        ):
+            executor._compose_build(Scope.RUNTIME, "abc123", _noop_phase_update)
+
+        build_cmds = [c for c in captured_cmds if "build" in c]
+        assert build_cmds
+        build_cmd = build_cmds[0]
+        build_args = {
+            build_cmd[i + 1]
+            for i, tok in enumerate(build_cmd)
+            if tok == "--build-arg" and i + 1 < len(build_cmd)
+        }
+        # OMN-16442: both sibling refs now fall back to the DECLARED tracking
+        # ref. omnimarket already used "dev" (OMN-12195: dev is its default
+        # branch); omnibase_compat used the literal "main" for no stated
+        # reason, on a repo whose default branch is likewise "dev".
+        assert "OMNIMARKET_REF=dev" in build_args, (
+            f"Expected OMNIMARKET_REF=dev when OMNI_HOME unset; got {build_args}"
+        )
+        assert "OMNIBASE_COMPAT_REF=dev" in build_args, (
+            f"Expected OMNIBASE_COMPAT_REF=dev when OMNI_HOME unset; got {build_args}"
+        )
+        occ_args = {a for a in build_args if a.startswith("ONEX_CHANGE_CONTROL_REF=")}
+        assert not occ_args, (
+            "ONEX_CHANGE_CONTROL_REF must not be passed even when OMNI_HOME is "
+            f"unset (OMN-16296); got {occ_args}"
+        )

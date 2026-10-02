@@ -1,0 +1,122 @@
+---
+# OMN-13088 (NC-15): projection contract for
+# onex.snapshot.projection.delegation.inference-response-text.v1
+#
+# Verified gap: neither node_projection_delegation nor node_llm_delegation_projection
+# publish_topics include this snapshot topic.  This reducer closes the coverage gap.
+
+name: node_projection_delegation_inference_response
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: reducer
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  Materializes inference response text snapshots from delegation inference events
+  into projection_delegation_inference_response_text.  Subscribes to
+  onex.evt.omnibase-infra.inference-response.v1 and upserts a singleton snapshot
+  row whose recent_responses JSONB column maintains a rolling window (max 10) of
+  recent responses.  Closes the NC-15 coverage gap where omnidash declared
+  the inference-response-text projection snapshot but no reducer was producing it
+  (OMN-12745 / OMN-12746).  OMN-13088.
+
+input_model: >-
+  omnibase_core.models.delegation.wire.model_orchestrator_intents.ModelInferenceResponseData
+
+# OMN-17556: this projection writes a TENANT-domain table, so its handler
+# resolves the tenant_projection binding. That binding's credential is a
+# store-resolved secret_ref read through SecretResolver at the binding
+# boundary, and exactly one process holds it: the consolidated writer that
+# boots RUNTIME_PROFILE=tenant-projection and owns every TENANT-domain
+# projection contract. `tenant-projection` is a registered, consumer-attached
+# runtime profile, so this contract is drained by that writer and is
+# deliberately absent from `main` and `effects` -- neither of those processes
+# carries the credential, and per the 2026-09-03 operator ruling neither ever
+# will as a container env var. This is the permanent ownership boundary, not
+# a temporary orphaning.
+runtime_profiles: [tenant-projection]
+
+handler:
+  module: >-
+    omnimarket.nodes.node_projection_delegation_inference_response.handlers.handler_projection_delegation_inference_response
+  class: HandlerProjectionDelegationInferenceResponse
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: project_inference_response
+      event_model: >-
+        omnibase_core.models.delegation.wire.model_orchestrator_intents.ModelInferenceResponseData
+      handler:
+        name: HandlerProjectionDelegationInferenceResponse
+        module: >-
+          omnimarket.nodes.node_projection_delegation_inference_response.handlers.handler_projection_delegation_inference_response
+  default_handler: HandlerProjectionDelegationInferenceResponse
+
+terminal_event: onex.snapshot.projection.delegation.inference-response-text.v1  # onex-topic-allow: projection snapshot topic
+
+event_bus:
+  subscribe_topics:
+    - onex.evt.omnibase-infra.inference-response.v1
+  publish_topics:
+    - onex.snapshot.projection.delegation.inference-response-text.v1  # onex-topic-allow: projection snapshot topics use onex.snapshot.* prefix by convention
+  # OMN-14494: without a declared DLQ, a projection write error (e.g. the
+  # OMN-14487 "can't adapt type 'dict'" crash) is dropped to a container
+  # ERROR log line and reaches NO topic -- a DLQ-only reaper misses it
+  # entirely. Four sibling projection nodes (node_projection_delegation,
+  # node_projection_intent_classification, node_projection_live_events,
+  # node_projection_savings) already declare dlq_topics; this closes the
+  # same observability gap for this node.
+  dlq_topics:
+    - onex.dlq.omnimarket.projection-delegation-inference-response-malformed.v1
+
+externally_consumed_topics:
+  - onex.snapshot.projection.delegation.inference-response-text.v1  # onex-topic-allow: projection snapshot topic served by projection-API
+
+db_io:
+  db_tables:
+    - name: projection_delegation_inference_response_text
+      database_ref: application
+      schema: public
+      migration: "0001_create_projection_delegation_inference_response_text.sql"
+      access: write
+      role: projection
+
+reducer_contract:
+  state_update: "delta(singleton_state, event) -> upserted_snapshot_row"
+  owns_state: true
+  idempotent: true
+  ordering_authority: kafka_topic_partition_offset
+  duplicate_key_fields:
+    - singleton_key
+
+projection_api:
+  expose: true
+  exposures:
+    - topic: onex.snapshot.projection.delegation.inference-response-text.v1  # onex-topic-allow: projection snapshot topics use onex.snapshot.* prefix by convention
+      key_grain: "mutable"
+      table: projection_delegation_inference_response_text
+      schema: public
+      columns:
+        - tenant_id
+        - latest_correlation_id
+        - latest_model_name
+        - latest_task_type
+        - latest_generated_text
+        - latest_prompt_tokens
+        - latest_completion_tokens
+        - latest_latency_ms
+        - source_topic
+        - recent_responses
+        - captured_at
+        - provisioned
+      json_columns:
+        - recent_responses
+      freshness_column: captured_at
+      limit: 1
+
+metadata:
+  transport_type: kafka
+  demo_path: true
+  # OMN-12777 topic gate: verify this widget topic has a producing reducer.
+  widget_topics:
+    - onex.snapshot.projection.delegation.inference-response-text.v1  # onex-topic-allow: projection snapshot topic

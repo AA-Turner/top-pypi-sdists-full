@@ -5,6 +5,7 @@ from pathlib import Path
 
 import jsonschema_rs
 import pytest
+from flask import jsonify, request
 from hypothesis import HealthCheck, Phase, assume, find, given, settings
 from hypothesis import strategies as st
 from hypothesis.errors import FailedHealthCheck, NoSuchExample, Unsatisfiable
@@ -838,6 +839,91 @@ def test_serializing_shared_header_parameters(ctx):
     test()
 
 
+FORM_BODY = {
+    "type": "object",
+    "properties": {"a": {"enum": ["value"]}},
+    "required": ["a"],
+    "additionalProperties": False,
+}
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        {"application/json": {"schema": {"type": "object"}}, "text/plain": {"schema": {"type": "string"}}},
+        {"application/x-www-form-urlencoded": {"schema": FORM_BODY}},
+        {"multipart/form-data": {"schema": FORM_BODY}},
+    ],
+    ids=["json-and-text", "urlencoded", "multipart"],
+)
+def test_declared_content_type_header_matches_the_sent_body(ctx, app_runner, content):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items": {
+                "post": {
+                    "parameters": [
+                        {"in": "header", "name": "Content-Type", "required": True, "schema": {"type": "string"}}
+                    ],
+                    "requestBody": {"required": True, "content": content},
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+
+    @app.route("/items", methods=["POST"])
+    def items():
+        return jsonify({"mimetype": request.mimetype, "form": request.form.to_dict()})
+
+    schema = schemathesis.openapi.from_url(app_runner.openapi_url(app))
+
+    @given(case=schema["/items"]["POST"].as_strategy(generation_mode=GenerationMode.POSITIVE))
+    @settings(max_examples=10, deadline=None, suppress_health_check=list(HealthCheck))
+    def test(case):
+        form = case.body if case.media_type in ("application/x-www-form-urlencoded", "multipart/form-data") else {}
+        assert case.call().json() == {"mimetype": case.media_type, "form": form}
+
+    test()
+
+
+@pytest.mark.parametrize(
+    ("header_schema", "expected"),
+    [
+        ({"enum": ["application/xml"]}, {"application/xml"}),
+        ({"type": "string", "pattern": "^text/"}, {"text/plain"}),
+    ],
+    ids=["media-type-excluded", "one-media-type-admitted"],
+)
+def test_declared_content_type_header_keeps_values_its_schema_admits(ctx, header_schema, expected):
+    schema = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "post": {
+                    "parameters": [{"in": "header", "name": "Content-Type", "required": True, "schema": header_schema}],
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {"schema": {"type": "object"}},
+                            "text/plain": {"schema": {"type": "string"}},
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    seen = set()
+
+    @given(case=schema["/items"]["POST"].as_strategy(generation_mode=GenerationMode.POSITIVE))
+    @settings(max_examples=10, deadline=None, suppress_health_check=list(HealthCheck))
+    def test(case):
+        if case.media_type == "text/plain" or "application/xml" in expected:
+            seen.add(case.headers["Content-Type"])
+
+    test()
+    assert seen == expected
+
+
 def test_filter_urlencoded(ctx):
     # When API schema allows for inputs that can't be serialized to `application/x-www-form-urlencoded`
     # Then such examples should be filtered out during generation
@@ -1155,6 +1241,42 @@ def test_positive_bias_keeps_path_integer_within_bounds(ctx, item_schema):
     inner()
     out_of_range = [value for value in values if value > 2147483647 or value < -2147483648]
     assert not out_of_range, f"Out-of-range path integers: {sorted(set(out_of_range))}"
+
+
+@pytest.mark.hypothesis_nested
+@pytest.mark.parametrize(
+    "item_schema",
+    [
+        {"type": "integer", "enum": [0, 5]},
+        {"type": "integer", "multipleOf": 5},
+        {"type": "integer", "maximum": 1, "exclusiveMaximum": True},
+        {"type": "integer", "not": {"enum": [1]}},
+    ],
+    ids=["enum", "multipleOf", "exclusiveMaximum", "not"],
+)
+def test_positive_bias_keeps_path_integer_schema_valid(ctx, item_schema):
+    schema = ctx.openapi.load_schema(
+        {
+            "/items/{item_id}": {
+                "get": {
+                    "parameters": [{"name": "item_id", "in": "path", "required": True, "schema": item_schema}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    operation = schema["/items/{item_id}"]["GET"]
+    validator = Draft4Validator(item_schema)
+    values = []
+
+    @given(case=operation.as_strategy(generation_mode=GenerationMode.POSITIVE))
+    # Enough draws for the probabilistic positive-ID bias to fire on a non-positive value at least once.
+    @settings(max_examples=20, deadline=None, derandomize=True, suppress_health_check=list(HealthCheck))
+    def inner(case):
+        values.append(case.path_parameters["item_id"])
+
+    inner()
+    assert [value for value in values if not validator.is_valid(value)] == []
 
 
 def test_custom_format_with_bytes(testdir):

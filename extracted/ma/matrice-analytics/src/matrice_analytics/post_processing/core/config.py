@@ -459,6 +459,107 @@ class PeopleCountingConfig(BaseConfig):
 
 
 @dataclass
+class PeopleCountingExtendedConfig(PeopleCountingConfig):
+    """``people_counting`` plus appearance-based re-identification.
+
+    Every field below is additive and defaulted, so this behaves exactly
+    like :class:`PeopleCountingConfig` when ReID is off or unavailable.
+    Tunable from the post-processing config without a code change -- which
+    is the point: ``reid_match_threshold`` and ``reid_gallery_capacity``
+    are expected to be calibrated against real footage.
+    """
+
+    #: Master switch. Off => byte-identical to people_counting.
+    enable_reid: bool = True
+
+    #: Cosine similarity required to call two sightings the same person.
+    #: 0.67 is measured, not guessed: on a 7-person reference clip this
+    #: counted 10, against 11 at 0.70 and 19 at 0.45. Lowering it further is
+    #: counter-productive -- a looser threshold admits more rows, a fuller
+    #: gallery pushes the top two candidates together, and
+    #: ``reid_match_margin`` then vetoes matches that would otherwise pass
+    #: (19 margin vetoes at 0.45 against 8 at 0.60, with zero rejected for
+    #: being below threshold). Raising it costs missed re-identifications
+    #: (over-count by one, recoverable); lowering it risks false merges
+    #: (under-count AND a poisoned prototype). Still worth calibrating per
+    #: deployment: measure same-person p5 against different-person p99.
+    reid_match_threshold: float = 0.67
+
+    #: Required gap between the best and second-best candidate. The ratio
+    #: test -- a lone high score in a crowded gallery is far less
+    #: trustworthy than one clearly separated from the runner-up.
+    reid_match_margin: float = 0.06
+
+    #: DEPRECATED and inert. The gallery is bounded by identity COUNT, not
+    #: by elapsed time -- see ``reid_gallery_capacity``. Still accepted so a
+    #: deployment that sets it keeps loading; it has no effect.
+    reid_gallery_window_s: float = 0.0
+
+    #: How many identities the gallery remembers: the most recently seen
+    #: ``reid_gallery_capacity`` people, and nobody else. An identity leaves
+    #: only when this many *other* people have been seen more recently --
+    #: there is no clock. Memory is preallocated, so this fixes RAM at
+    #: capacity * dim * 4 B (100 x 512 x 4 B = 200 KB per stream).
+    reid_gallery_capacity: int = 100
+
+    #: Ignore gallery entries seen more recently than this (seconds) -- a
+    #: person who was visible a moment ago is not "returning".
+    reid_min_absence_s: float = 3.0
+
+    #: Crops embedded per worker batch.
+    reid_max_crops_per_frame: int = 8
+
+    #: Frames a track may wait for its ReID verdict before being counted
+    #: with its raw id. Bounds the worst case: a slow worker delays a count,
+    #: it never loses or duplicates one.
+    reid_max_defer_frames: int = 15
+
+    #: Consecutive frames a track must be present before it is worth
+    #: embedding. Most raw ids are detector noise, not people.
+    reid_min_track_frames: int = 3
+
+    #: Frames between refresh embeddings for an already-known track.
+    reid_refresh_interval_frames: int = 45
+
+    # --- crop quality gates (a bad crop poisons a prototype) ---
+    reid_min_crop_height: int = 96
+    reid_min_crop_width: int = 40
+    reid_min_aspect_ratio: float = 1.6
+    reid_max_aspect_ratio: float = 4.5
+    reid_edge_margin_px: int = 6
+    reid_max_occlusion_iou: float = 0.25
+    reid_min_confidence: float = 0.5
+
+    #: Half precision on GPU. Validated at cosine 0.99998 vs FP32.
+    reid_fp16: bool = True
+
+    #: Run on CPU when CUDA is absent. On by default: this use case exists to
+    #: report UNIQUE people, and without re-identification it reports the same
+    #: person once per track instead -- a wrong number, not a degraded one.
+    #: A slower frame is the better failure. Set false to prefer throughput
+    #: over correctness on a box with no GPU.
+    reid_allow_cpu: bool = True
+
+    #: Explicit checkpoint path. Set this (or MATRICE_REID_MODEL_PATH) to a
+    #: file baked into the image for fully offline operation.
+    reid_model_path: Optional[str] = None
+
+    def validate(self) -> List[str]:
+        errors = super().validate()
+        if not 0.0 < self.reid_match_threshold <= 1.0:
+            errors.append("reid_match_threshold must be in (0, 1]")
+        if self.reid_match_margin < 0:
+            errors.append("reid_match_margin must be >= 0")
+        if self.reid_gallery_capacity < 1:
+            errors.append("reid_gallery_capacity must be >= 1")
+        if self.reid_max_crops_per_frame < 1:
+            errors.append("reid_max_crops_per_frame must be >= 1")
+        if self.reid_max_defer_frames < 0:
+            errors.append("reid_max_defer_frames must be >= 0")
+        return errors
+
+
+@dataclass
 class IntrusionAdvancedTrackerConfig:
     """AdvancedTracker (BYTE-style) tuning for ``intrusion_detection``.
 
@@ -1166,6 +1267,22 @@ def _template_defaults(usecase: str, config_class: type) -> Dict[str, Any]:
     return {k: v for k, v in data.items() if k in ConfigManager._accepted_kwargs(config_class)}
 
 
+#: Config class per people-counting variant. A module-level table rather than a
+#: conditional inside `create_config`: that method is already ~2,250 lines and
+#: ~550 branches against caps of 120 and 20, so every added branch worsens an
+#: over-cap function. Only `people_counting_extended` carries the `reid_*`
+#: fields; the other two keep the plain config, so their behaviour is untouched.
+#:
+#: The long `filtered_kwargs` line in `create_config` carries `# fmt: skip` for
+#: the reason documented below: wrapping it would add lines to an over-cap
+#: function, and the two gates cannot both be satisfied there.
+_PEOPLE_COUNTING_CONFIG_CLASSES: Dict[str, type] = {
+    "people_counting": PeopleCountingConfig,
+    "fast_people_counting": PeopleCountingConfig,
+    "people_counting_extended": PeopleCountingExtendedConfig,
+}
+
+
 # WHY `# fmt: skip` APPEARS SEVEN TIMES IN THE TWO METHODS BELOW.
 #
 # `create_config` and `get_config_template` carry a handful of lines written when
@@ -1184,8 +1301,7 @@ class ConfigManager:
     def __init__(self):
         """Initialize configuration manager."""
         self._config_classes = {
-            "people_counting": PeopleCountingConfig,
-            "fast_people_counting": PeopleCountingConfig,
+            **_PEOPLE_COUNTING_CONFIG_CLASSES,
             "customer_service": CustomerServiceConfig,
             "advanced_customer_service": CustomerServiceConfig,
             "intrusion_detection": IntrusionConfig,
@@ -2543,7 +2659,7 @@ class ConfigManager:
                 alert_config=alert_config,
                 **filtered_kwargs,
             )
-        elif usecase in ("people_counting", "fast_people_counting"):
+        elif usecase in ("people_counting", "fast_people_counting", "people_counting_extended"):
             # Handle nested configurations
             zone_config = kwargs.pop("zone_config", None)
             if zone_config and isinstance(zone_config, dict):
@@ -2554,9 +2670,9 @@ class ConfigManager:
                 alert_config = AlertConfig(**alert_config)
 
             # Filter kwargs to only include valid parameters
-            filtered_kwargs = self._filter_kwargs_for_config(PeopleCountingConfig, kwargs)
-
-            config = PeopleCountingConfig(
+            pc_cls = _PEOPLE_COUNTING_CONFIG_CLASSES[usecase]  # table, not a branch
+            filtered_kwargs = self._filter_kwargs_for_config(pc_cls, {**_load_default_config_json(usecase), **kwargs})  # fmt: skip
+            config = pc_cls(
                 category=category or "general",
                 usecase=usecase,
                 zone_config=zone_config,

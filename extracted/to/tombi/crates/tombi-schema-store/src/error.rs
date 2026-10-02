@@ -143,11 +143,11 @@ pub struct DuplicateSchemaResourceAcrossDocuments {
 
 impl Error {
     #[inline]
-    pub fn to_warning_diagnostic(&self, range: tombi_text::Range) -> tombi_diagnostic::Diagnostic {
+    pub fn to_warning_diagnostic(&self, span: tombi_text::Span) -> tombi_diagnostic::Diagnostic {
         tombi_diagnostic::Diagnostic::new_warning(
             self.to_string(),
             SCHEMA_RESOLUTION_DIAGNOSTIC_CODE,
-            range,
+            span,
         )
     }
 }

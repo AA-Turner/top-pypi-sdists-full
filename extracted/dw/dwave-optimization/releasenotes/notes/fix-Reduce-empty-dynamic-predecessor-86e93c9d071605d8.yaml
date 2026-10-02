@@ -1,3 +1,0 @@
----
-fixes:
-  - Fix ``Reduce`` symbol's bounds when given a dynamic predecessor that is always empty.

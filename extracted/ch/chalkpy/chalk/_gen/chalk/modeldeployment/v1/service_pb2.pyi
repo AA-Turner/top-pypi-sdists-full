@@ -3,7 +3,10 @@ from chalk._gen.chalk.container.v1 import service_pb2 as _service_pb2
 from chalk._gen.chalk.models.v1 import model_version_pb2 as _model_version_pb2
 from chalk._gen.chalk.runtime.v1 import remote_python_call_pb2 as _remote_python_call_pb2
 from chalk._gen.chalk.scalinggroup.v1 import service_pb2 as _service_pb2_1
+from google.protobuf import empty_pb2 as _empty_pb2
+from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from typing import (
@@ -16,6 +19,25 @@ from typing import (
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class ModelScalingGroupSortColumn(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    MODEL_SCALING_GROUP_SORT_COLUMN_UNSPECIFIED: _ClassVar[ModelScalingGroupSortColumn]
+    MODEL_SCALING_GROUP_SORT_COLUMN_CREATED_AT: _ClassVar[ModelScalingGroupSortColumn]
+    MODEL_SCALING_GROUP_SORT_COLUMN_UPDATED_AT: _ClassVar[ModelScalingGroupSortColumn]
+
+class ModelScalingGroupSortOrder(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    MODEL_SCALING_GROUP_SORT_ORDER_UNSPECIFIED: _ClassVar[ModelScalingGroupSortOrder]
+    MODEL_SCALING_GROUP_SORT_ORDER_DESC: _ClassVar[ModelScalingGroupSortOrder]
+    MODEL_SCALING_GROUP_SORT_ORDER_ASC: _ClassVar[ModelScalingGroupSortOrder]
+
+MODEL_SCALING_GROUP_SORT_COLUMN_UNSPECIFIED: ModelScalingGroupSortColumn
+MODEL_SCALING_GROUP_SORT_COLUMN_CREATED_AT: ModelScalingGroupSortColumn
+MODEL_SCALING_GROUP_SORT_COLUMN_UPDATED_AT: ModelScalingGroupSortColumn
+MODEL_SCALING_GROUP_SORT_ORDER_UNSPECIFIED: ModelScalingGroupSortOrder
+MODEL_SCALING_GROUP_SORT_ORDER_DESC: ModelScalingGroupSortOrder
+MODEL_SCALING_GROUP_SORT_ORDER_ASC: ModelScalingGroupSortOrder
+
 class ModelContainerSpec(_message.Message):
     __slots__ = (
         "tags",
@@ -27,6 +49,7 @@ class ModelContainerSpec(_message.Message):
         "secret_refs",
         "readiness_probe",
         "startup_probe",
+        "chalk_workload_identity",
     )
     class TagsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -53,6 +76,7 @@ class ModelContainerSpec(_message.Message):
     SECRET_REFS_FIELD_NUMBER: _ClassVar[int]
     READINESS_PROBE_FIELD_NUMBER: _ClassVar[int]
     STARTUP_PROBE_FIELD_NUMBER: _ClassVar[int]
+    CHALK_WORKLOAD_IDENTITY_FIELD_NUMBER: _ClassVar[int]
     tags: _containers.ScalarMap[str, str]
     resources: _service_pb2.ResourceLimits
     env_vars: _containers.ScalarMap[str, str]
@@ -62,6 +86,7 @@ class ModelContainerSpec(_message.Message):
     secret_refs: _containers.RepeatedCompositeFieldContainer[_service_pb2.SecretRef]
     readiness_probe: _service_pb2.ReadinessProbe
     startup_probe: _service_pb2.StartupProbe
+    chalk_workload_identity: _service_pb2.ChalkWorkloadIdentity
     def __init__(
         self,
         tags: _Optional[_Mapping[str, str]] = ...,
@@ -73,11 +98,13 @@ class ModelContainerSpec(_message.Message):
         secret_refs: _Optional[_Iterable[_Union[_service_pb2.SecretRef, _Mapping]]] = ...,
         readiness_probe: _Optional[_Union[_service_pb2.ReadinessProbe, _Mapping]] = ...,
         startup_probe: _Optional[_Union[_service_pb2.StartupProbe, _Mapping]] = ...,
+        chalk_workload_identity: _Optional[_Union[_service_pb2.ChalkWorkloadIdentity, _Mapping]] = ...,
     ) -> None: ...
 
 class CreateModelScalingGroupRequest(_message.Message):
-    __slots__ = ("name", "model_name", "identifier", "container_spec", "scaling_spec", "handler", "image")
+    __slots__ = ("name", "spec", "model_name", "identifier", "container_spec", "scaling_spec", "handler", "image")
     NAME_FIELD_NUMBER: _ClassVar[int]
+    SPEC_FIELD_NUMBER: _ClassVar[int]
     MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
     IDENTIFIER_FIELD_NUMBER: _ClassVar[int]
     CONTAINER_SPEC_FIELD_NUMBER: _ClassVar[int]
@@ -85,6 +112,7 @@ class CreateModelScalingGroupRequest(_message.Message):
     HANDLER_FIELD_NUMBER: _ClassVar[int]
     IMAGE_FIELD_NUMBER: _ClassVar[int]
     name: str
+    spec: ModelScalingGroupSpec
     model_name: str
     identifier: _model_version_pb2.ModelVersionIdentifier
     container_spec: ModelContainerSpec
@@ -94,6 +122,7 @@ class CreateModelScalingGroupRequest(_message.Message):
     def __init__(
         self,
         name: _Optional[str] = ...,
+        spec: _Optional[_Union[ModelScalingGroupSpec, _Mapping]] = ...,
         model_name: _Optional[str] = ...,
         identifier: _Optional[_Union[_model_version_pb2.ModelVersionIdentifier, _Mapping]] = ...,
         container_spec: _Optional[_Union[ModelContainerSpec, _Mapping]] = ...,
@@ -122,31 +151,268 @@ class ModelVersionSelector(_message.Message):
         identifier: _Optional[_Union[_model_version_pb2.ModelVersionIdentifier, _Mapping]] = ...,
     ) -> None: ...
 
-class ListModelScalingGroupsRequest(_message.Message):
-    __slots__ = ("model_version",)
+class ModelScalingGroupSpec(_message.Message):
+    __slots__ = ("model_version", "container_spec", "scaling_spec", "handler", "image")
     MODEL_VERSION_FIELD_NUMBER: _ClassVar[int]
+    CONTAINER_SPEC_FIELD_NUMBER: _ClassVar[int]
+    SCALING_SPEC_FIELD_NUMBER: _ClassVar[int]
+    HANDLER_FIELD_NUMBER: _ClassVar[int]
+    IMAGE_FIELD_NUMBER: _ClassVar[int]
     model_version: ModelVersionSelector
-    def __init__(self, model_version: _Optional[_Union[ModelVersionSelector, _Mapping]] = ...) -> None: ...
+    container_spec: ModelContainerSpec
+    scaling_spec: _service_pb2_1.ScalingSpec
+    handler: str
+    image: str
+    def __init__(
+        self,
+        model_version: _Optional[_Union[ModelVersionSelector, _Mapping]] = ...,
+        container_spec: _Optional[_Union[ModelContainerSpec, _Mapping]] = ...,
+        scaling_spec: _Optional[_Union[_service_pb2_1.ScalingSpec, _Mapping]] = ...,
+        handler: _Optional[str] = ...,
+        image: _Optional[str] = ...,
+    ) -> None: ...
+
+class ModelScalingGroupTraffic(_message.Message):
+    __slots__ = ("targets",)
+    TARGETS_FIELD_NUMBER: _ClassVar[int]
+    targets: _containers.RepeatedCompositeFieldContainer[ModelScalingGroupTrafficTarget]
+    def __init__(
+        self, targets: _Optional[_Iterable[_Union[ModelScalingGroupTrafficTarget, _Mapping]]] = ...
+    ) -> None: ...
+
+class ModelScalingGroupTrafficTarget(_message.Message):
+    __slots__ = ("model_scaling_group_revision_id", "latest_revision", "percent")
+    MODEL_SCALING_GROUP_REVISION_ID_FIELD_NUMBER: _ClassVar[int]
+    LATEST_REVISION_FIELD_NUMBER: _ClassVar[int]
+    PERCENT_FIELD_NUMBER: _ClassVar[int]
+    model_scaling_group_revision_id: str
+    latest_revision: _empty_pb2.Empty
+    percent: int
+    def __init__(
+        self,
+        model_scaling_group_revision_id: _Optional[str] = ...,
+        latest_revision: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ...,
+        percent: _Optional[int] = ...,
+    ) -> None: ...
+
+class UpdateModelScalingGroupRequest(_message.Message):
+    __slots__ = ("model_scaling_group_id", "model_scaling_group_name", "spec", "traffic", "update_mask")
+    MODEL_SCALING_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+    MODEL_SCALING_GROUP_NAME_FIELD_NUMBER: _ClassVar[int]
+    SPEC_FIELD_NUMBER: _ClassVar[int]
+    TRAFFIC_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_MASK_FIELD_NUMBER: _ClassVar[int]
+    model_scaling_group_id: str
+    model_scaling_group_name: str
+    spec: ModelScalingGroupSpec
+    traffic: ModelScalingGroupTraffic
+    update_mask: _field_mask_pb2.FieldMask
+    def __init__(
+        self,
+        model_scaling_group_id: _Optional[str] = ...,
+        model_scaling_group_name: _Optional[str] = ...,
+        spec: _Optional[_Union[ModelScalingGroupSpec, _Mapping]] = ...,
+        traffic: _Optional[_Union[ModelScalingGroupTraffic, _Mapping]] = ...,
+        update_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...,
+    ) -> None: ...
+
+class UpdateModelScalingGroupResponse(_message.Message):
+    __slots__ = ("scaling_group",)
+    SCALING_GROUP_FIELD_NUMBER: _ClassVar[int]
+    scaling_group: _service_pb2_1.ScalingGroupResponse
+    def __init__(
+        self, scaling_group: _Optional[_Union[_service_pb2_1.ScalingGroupResponse, _Mapping]] = ...
+    ) -> None: ...
+
+class GetModelScalingGroupRequest(_message.Message):
+    __slots__ = ("model_scaling_group_id", "model_scaling_group_name", "include_deleted")
+    MODEL_SCALING_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+    MODEL_SCALING_GROUP_NAME_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_DELETED_FIELD_NUMBER: _ClassVar[int]
+    model_scaling_group_id: str
+    model_scaling_group_name: str
+    include_deleted: bool
+    def __init__(
+        self,
+        model_scaling_group_id: _Optional[str] = ...,
+        model_scaling_group_name: _Optional[str] = ...,
+        include_deleted: bool = ...,
+    ) -> None: ...
+
+class GetModelScalingGroupResponse(_message.Message):
+    __slots__ = ("scaling_group",)
+    SCALING_GROUP_FIELD_NUMBER: _ClassVar[int]
+    scaling_group: _service_pb2_1.ScalingGroupResponse
+    def __init__(
+        self, scaling_group: _Optional[_Union[_service_pb2_1.ScalingGroupResponse, _Mapping]] = ...
+    ) -> None: ...
+
+class ListModelScalingGroupsRequest(_message.Message):
+    __slots__ = (
+        "model_version",
+        "cursor",
+        "limit",
+        "include_deleted",
+        "filters",
+        "search",
+        "sort_column",
+        "sort_order",
+    )
+    MODEL_VERSION_FIELD_NUMBER: _ClassVar[int]
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_DELETED_FIELD_NUMBER: _ClassVar[int]
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
+    SEARCH_FIELD_NUMBER: _ClassVar[int]
+    SORT_COLUMN_FIELD_NUMBER: _ClassVar[int]
+    SORT_ORDER_FIELD_NUMBER: _ClassVar[int]
+    model_version: ModelVersionSelector
+    cursor: str
+    limit: int
+    include_deleted: bool
+    filters: ListModelScalingGroupsFilters
+    search: str
+    sort_column: ModelScalingGroupSortColumn
+    sort_order: ModelScalingGroupSortOrder
+    def __init__(
+        self,
+        model_version: _Optional[_Union[ModelVersionSelector, _Mapping]] = ...,
+        cursor: _Optional[str] = ...,
+        limit: _Optional[int] = ...,
+        include_deleted: bool = ...,
+        filters: _Optional[_Union[ListModelScalingGroupsFilters, _Mapping]] = ...,
+        search: _Optional[str] = ...,
+        sort_column: _Optional[_Union[ModelScalingGroupSortColumn, str]] = ...,
+        sort_order: _Optional[_Union[ModelScalingGroupSortOrder, str]] = ...,
+    ) -> None: ...
+
+class ListModelScalingGroupsFilters(_message.Message):
+    __slots__ = ("statuses", "images", "model_name")
+    STATUSES_FIELD_NUMBER: _ClassVar[int]
+    IMAGES_FIELD_NUMBER: _ClassVar[int]
+    MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
+    statuses: _containers.RepeatedScalarFieldContainer[str]
+    images: _containers.RepeatedScalarFieldContainer[str]
+    model_name: str
+    def __init__(
+        self,
+        statuses: _Optional[_Iterable[str]] = ...,
+        images: _Optional[_Iterable[str]] = ...,
+        model_name: _Optional[str] = ...,
+    ) -> None: ...
 
 class ListModelScalingGroupsResponse(_message.Message):
-    __slots__ = ("scaling_groups",)
+    __slots__ = ("scaling_groups", "next_cursor")
     SCALING_GROUPS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_CURSOR_FIELD_NUMBER: _ClassVar[int]
     scaling_groups: _containers.RepeatedCompositeFieldContainer[_service_pb2_1.ScalingGroupResponse]
+    next_cursor: str
     def __init__(
-        self, scaling_groups: _Optional[_Iterable[_Union[_service_pb2_1.ScalingGroupResponse, _Mapping]]] = ...
+        self,
+        scaling_groups: _Optional[_Iterable[_Union[_service_pb2_1.ScalingGroupResponse, _Mapping]]] = ...,
+        next_cursor: _Optional[str] = ...,
+    ) -> None: ...
+
+class DeleteModelScalingGroupRequest(_message.Message):
+    __slots__ = ("model_scaling_group_id", "model_scaling_group_name")
+    MODEL_SCALING_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+    MODEL_SCALING_GROUP_NAME_FIELD_NUMBER: _ClassVar[int]
+    model_scaling_group_id: str
+    model_scaling_group_name: str
+    def __init__(
+        self, model_scaling_group_id: _Optional[str] = ..., model_scaling_group_name: _Optional[str] = ...
+    ) -> None: ...
+
+class DeleteModelScalingGroupResponse(_message.Message):
+    __slots__ = ("scaling_group",)
+    SCALING_GROUP_FIELD_NUMBER: _ClassVar[int]
+    scaling_group: _service_pb2_1.ScalingGroupResponse
+    def __init__(
+        self, scaling_group: _Optional[_Union[_service_pb2_1.ScalingGroupResponse, _Mapping]] = ...
+    ) -> None: ...
+
+class GetModelScalingGroupRevisionRequest(_message.Message):
+    __slots__ = ("model_scaling_group_id", "model_scaling_group_name", "revision_id", "include_deleted")
+    MODEL_SCALING_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+    MODEL_SCALING_GROUP_NAME_FIELD_NUMBER: _ClassVar[int]
+    REVISION_ID_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_DELETED_FIELD_NUMBER: _ClassVar[int]
+    model_scaling_group_id: str
+    model_scaling_group_name: str
+    revision_id: str
+    include_deleted: bool
+    def __init__(
+        self,
+        model_scaling_group_id: _Optional[str] = ...,
+        model_scaling_group_name: _Optional[str] = ...,
+        revision_id: _Optional[str] = ...,
+        include_deleted: bool = ...,
+    ) -> None: ...
+
+class GetModelScalingGroupRevisionResponse(_message.Message):
+    __slots__ = ("revision",)
+    REVISION_FIELD_NUMBER: _ClassVar[int]
+    revision: _service_pb2_1.ScalingGroupRevisionResponse
+    def __init__(
+        self, revision: _Optional[_Union[_service_pb2_1.ScalingGroupRevisionResponse, _Mapping]] = ...
+    ) -> None: ...
+
+class ListModelScalingGroupRevisionsRequest(_message.Message):
+    __slots__ = ("model_scaling_group_id", "model_scaling_group_name", "cursor", "limit", "include_deleted")
+    MODEL_SCALING_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+    MODEL_SCALING_GROUP_NAME_FIELD_NUMBER: _ClassVar[int]
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_DELETED_FIELD_NUMBER: _ClassVar[int]
+    model_scaling_group_id: str
+    model_scaling_group_name: str
+    cursor: str
+    limit: int
+    include_deleted: bool
+    def __init__(
+        self,
+        model_scaling_group_id: _Optional[str] = ...,
+        model_scaling_group_name: _Optional[str] = ...,
+        cursor: _Optional[str] = ...,
+        limit: _Optional[int] = ...,
+        include_deleted: bool = ...,
+    ) -> None: ...
+
+class ListModelScalingGroupRevisionsResponse(_message.Message):
+    __slots__ = ("revisions", "next_cursor")
+    REVISIONS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_CURSOR_FIELD_NUMBER: _ClassVar[int]
+    revisions: _containers.RepeatedCompositeFieldContainer[_service_pb2_1.ScalingGroupRevisionResponse]
+    next_cursor: str
+    def __init__(
+        self,
+        revisions: _Optional[_Iterable[_Union[_service_pb2_1.ScalingGroupRevisionResponse, _Mapping]]] = ...,
+        next_cursor: _Optional[str] = ...,
     ) -> None: ...
 
 class CallModelRequest(_message.Message):
-    __slots__ = ("model_version", "remote_call_request", "enqueue_remote_call_request")
+    __slots__ = (
+        "model_version",
+        "model_scaling_group_id",
+        "model_scaling_group_name",
+        "remote_call_request",
+        "enqueue_remote_call_request",
+    )
     MODEL_VERSION_FIELD_NUMBER: _ClassVar[int]
+    MODEL_SCALING_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+    MODEL_SCALING_GROUP_NAME_FIELD_NUMBER: _ClassVar[int]
     REMOTE_CALL_REQUEST_FIELD_NUMBER: _ClassVar[int]
     ENQUEUE_REMOTE_CALL_REQUEST_FIELD_NUMBER: _ClassVar[int]
     model_version: ModelVersionSelector
+    model_scaling_group_id: str
+    model_scaling_group_name: str
     remote_call_request: _remote_python_call_pb2.CallFunctionRequest
     enqueue_remote_call_request: _remote_python_call_pb2.EnqueueRemoteCallRequest
     def __init__(
         self,
         model_version: _Optional[_Union[ModelVersionSelector, _Mapping]] = ...,
+        model_scaling_group_id: _Optional[str] = ...,
+        model_scaling_group_name: _Optional[str] = ...,
         remote_call_request: _Optional[_Union[_remote_python_call_pb2.CallFunctionRequest, _Mapping]] = ...,
         enqueue_remote_call_request: _Optional[
             _Union[_remote_python_call_pb2.EnqueueRemoteCallRequest, _Mapping]

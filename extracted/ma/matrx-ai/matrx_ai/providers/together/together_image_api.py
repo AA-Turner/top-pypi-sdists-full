@@ -29,7 +29,7 @@ from matrx_ai.providers.base_media import (
     BaseMediaGeneration,
     GeneratedAsset,
 )
-from matrx_ai.providers.keys import keyed_provider_client
+from matrx_ai.providers.keys import NO_SDK_RETRIES, keyed_provider_client
 from matrx_ai.providers.sdk_drift import route_undeclared_params
 
 # Together applies dynamic per-model request limits in one-second windows and
@@ -64,7 +64,7 @@ class TogetherImageGeneration(BaseMediaGeneration):
 
     client = keyed_provider_client(
         "TOGETHER_API_KEY",
-        factory=lambda api_key: AsyncTogether(api_key=api_key),
+        factory=lambda api_key: AsyncTogether(api_key=api_key, max_retries=NO_SDK_RETRIES),
     )
 
     def _build_kwargs(

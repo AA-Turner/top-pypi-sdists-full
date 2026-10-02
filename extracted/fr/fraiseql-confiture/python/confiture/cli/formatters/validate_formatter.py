@@ -1,0 +1,563 @@
+"""Rendering for ``confiture migrate validate`` modes.
+
+Each ``render_*`` function takes a typed result (produced by a
+``confiture.core.validation`` handler) and either prints the human-readable form
+or **returns** the JSON payload. Collapsing the per-mode ``if format_output ==
+"json"`` branches here keeps the ``migrate_validate`` dispatcher thin and the
+output shapes in one place.
+
+Renderers return their payload rather than writing it (#187): checks compose,
+so a run can produce several payloads and only the runner knows whether they go
+out verbatim or wrapped. Emitting from here would produce two JSON documents on
+one stdout.
+
+These functions never decide exit codes — the runner aggregates outcomes;
+genuine failures travel as ``ConfiturError`` to the ``fail()`` boundary.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path as _Path
+from typing import Any
+
+from rich.markup import escape
+
+from confiture.cli.formatters.common import display_drift_report, display_signature_drift_report
+from confiture.cli.helpers import console
+from confiture.cli.markup import markup, verbatim
+from confiture.core.linting.schema_linter import RuleSeverity
+
+
+def _violation_dict(
+    violation: Any,
+    *,
+    include_object_type: bool = False,
+    include_line: bool = False,
+) -> dict[str, Any]:
+    """Serialize one lint violation in the JSON shape its check publishes."""
+    payload: dict[str, Any] = {
+        "rule_id": violation.rule_id,
+        "severity": violation.severity.value,
+        "object_name": violation.object_name,
+    }
+    if include_object_type:
+        payload["object_type"] = violation.object_type
+    payload["message"] = violation.message
+    payload["file_path"] = violation.file_path
+    if include_line:
+        payload["line_number"] = violation.line_number
+    return payload
+
+
+def render_acl_coverage(report: Any, *, json_mode: bool) -> dict[str, Any] | None:
+    """Render the ``--check-acls`` LintReport."""
+    if json_mode:
+        return {
+            "check": "acl_coverage",
+            "violations": [
+                _violation_dict(v) for v in (report.errors + report.warnings + report.info)
+            ],
+            "hints": [],
+        }
+    if report.has_errors:
+        console.print(f"[red]❌ ACL coverage check failed: {len(report.errors)} violation(s)[/red]")
+        for v in report.errors:
+            # Escape the rule_id brackets so Rich doesn't read them as markup.
+            console.print(
+                f"  [red]✗[/red] \\[{v.rule_id}] {verbatim(v.object_name)}: {verbatim(v.message)}"
+            )
+    else:
+        console.print("[green]✅ All migrations have ACL coverage[/green]")
+    return None
+
+
+def render_ownership_coverage(report: Any, *, json_mode: bool) -> dict[str, Any] | None:
+    """Render the ``--check-ownership-coverage`` result."""
+
+    if json_mode:
+        return {
+            "check": "ownership_coverage",
+            "violations": [_violation_dict(v, include_line=True) for v in report.violations],
+        }
+    if report.violations:
+        console.print(
+            f"[red]❌ Ownership coverage check failed: {len(report.violations)} violation(s)[/red]"
+        )
+        for v in report.violations:
+            color = "red" if v.severity == RuleSeverity.ERROR else "yellow"
+            mark = "✗" if v.severity == RuleSeverity.ERROR else "⚠"
+            console.print(
+                f"  [{color}]{verbatim(mark)}[/{color}] \\[{v.rule_id}] {verbatim(v.object_name)}: {verbatim(v.message)}"
+            )
+    else:
+        console.print("[green]✅ All migrations have ownership coverage[/green]")
+    return None
+
+
+def render_function_uniqueness(report: Any, *, json_mode: bool) -> dict[str, Any] | None:
+    """Render the ``--check-function-uniqueness`` result."""
+    if json_mode:
+        return {
+            "check": "function_uniqueness",
+            "violations": [
+                _violation_dict(v, include_object_type=True, include_line=True)
+                for v in report.violations
+            ],
+        }
+    if report.violations:
+        console.print(
+            f"[red]❌ Function uniqueness check failed: {len(report.violations)} violation(s)[/red]"
+        )
+        for v in report.violations:
+            console.print(
+                f"  [red]✗[/red] \\[{v.rule_id}] {verbatim(v.object_name)}: {verbatim(v.message)}"
+            )
+    else:
+        console.print("[green]✅ All callables have unique signatures[/green]")
+    return None
+
+
+def render_data_assertions(report: Any, *, json_mode: bool) -> dict[str, Any] | None:
+    """Render the ``--check-data-assertions`` result.
+
+    Warnings, not violations. The construct is legal SQL that works against a
+    populated database; what makes it a problem is *where* it runs, and only
+    the author can decide whether their preflight topology is the schema-only
+    one confiture recommends.
+    """
+    if json_mode:
+        return {
+            "check": "data_assertions",
+            "severity": "warning",
+            "scanned": report.scanned,
+            "warnings": [
+                {
+                    "file": str(a.file),
+                    "line": a.line,
+                    "variable": a.variable,
+                    "relation": a.relation,
+                    "condition": a.condition,
+                    "message": a.message,
+                    "remedy": (
+                        f"Move this assertion to a .verify.sql sidecar beside the "
+                        f"migration; `migrate preflight` replays up() against a "
+                        f"schema-only database where {a.relation} is empty."
+                    ),
+                }
+                for a in report.assertions
+            ],
+            "unanalysed": [str(p) for p in report.unanalysed],
+        }
+
+    if not report.has_findings:
+        console.print(
+            f"[green]✅ No data assertions inside up() ({verbatim(report.scanned)} migration(s) "
+            "scanned)[/green]"
+        )
+        return None
+
+    if report.assertions:
+        console.print(
+            f"[yellow]⚠️  {len(report.assertions)} data assertion(s) inside up() — "
+            "`migrate preflight` runs up() against a schema-only database[/yellow]"
+        )
+        for a in report.assertions:
+            console.print(f"  [yellow]![/yellow] {verbatim(a.file)}:{verbatim(a.line)}")
+            console.print(
+                f"      RAISE guarded on `{verbatim(a.condition)}`, where `{verbatim(a.variable)}` counts "
+                f"{verbatim(a.relation)} — 0 rows there"
+            )
+        console.print(
+            "\n  [dim]Move the assertion to a .verify.sql sidecar: `migrate verify` runs "
+            "it separately,\n  after apply, against the database that has the rows. See "
+            "docs/guides/migration-verification.md[/dim]"
+        )
+    for path in report.unanalysed:
+        console.print(
+            f"  [dim]?[/dim] {verbatim(path)} — not analysed (unreadable body or dynamic SQL)"
+        )
+    return None
+
+
+_PATH_READ_REMEDY = (
+    "Embed the SQL in the migration as a module constant; a replay then installs "
+    "the text the migration shipped with, and the file stays free to move."
+)
+
+
+def _path_read_dict(report: Any, read: Any) -> dict[str, Any]:
+    entry: dict[str, Any] = {"migration": report.shown(read.migration), "line": read.line}
+    if read.file is None:
+        entry["reason"] = read.reason
+    else:
+        entry["file"] = report.shown(read.file)
+        entry["exists"] = read.exists
+    return entry
+
+
+def render_path_reads(
+    report: Any, *, json_mode: bool, scope: dict[str, Any] | None
+) -> dict[str, Any] | None:
+    """Render the ``--check-path-reads`` result."""
+    if json_mode:
+        return {
+            "check": "path_reads",
+            "scanned": report.scanned,
+            "scope": scope,
+            "violations": [_path_read_dict(report, r) for r in report.violations],
+            "out_of_scope": [_path_read_dict(report, r) for r in report.out_of_scope],
+            "unresolved": [_path_read_dict(report, r) for r in report.unresolved],
+            "remedy": _PATH_READ_REMEDY,
+        }
+    if not report.violations:
+        console.print(
+            f"[green]✅ No migration in scope reads a schema file "
+            f"({verbatim(report.scanned)} migration(s) scanned)[/green]"
+        )
+    else:
+        console.print(
+            f"[red]✗ {len(report.violations)} read(s) of a schema file by a migration[/red]"
+        )
+    for mark, reads in (
+        ("[red]✗[/red]", report.violations),
+        ("[yellow]![/yellow]", report.out_of_scope),
+    ):
+        for read in reads:
+            gone = "" if read.exists else " (already gone: replay is broken)"
+            console.print(
+                f"  {markup(mark)} {verbatim(report.shown(read.migration))}:{verbatim(read.line)} "
+                f"reads {verbatim(report.shown(read.file))}{verbatim(gone)}"
+            )
+    if report.out_of_scope:
+        console.print(
+            "  [dim]! outside the git scope: already history, reported only; "
+            "`migrate squash` retires it[/dim]"
+        )
+    for read in report.unresolved:
+        console.print(
+            f"  [dim]?[/dim] {verbatim(report.shown(read.migration))}:{verbatim(read.line)} "
+            f"reads a path that is not static: {verbatim(read.reason)}"
+        )
+    if report.violations:
+        console.print(f"\n  [dim]{verbatim(_PATH_READ_REMEDY)}[/dim]")
+    return None
+
+
+def render_security_definer(report: Any, *, json_mode: bool) -> dict[str, Any] | None:
+    """Render the ``--check-security-definer`` result."""
+
+    if json_mode:
+        return {
+            "check": "security_definer",
+            "violations": [
+                _violation_dict(v, include_object_type=True, include_line=True)
+                for v in report.violations
+            ],
+        }
+    if report.violations:
+        console.print(
+            f"[yellow]⚠[/yellow] Security-definer check: {len(report.violations)} violation(s)"
+        )
+        for v in report.violations:
+            color = "red" if v.severity == RuleSeverity.ERROR else "yellow"
+            mark = "✗" if v.severity == RuleSeverity.ERROR else "⚠"
+            loc = f" ({v.file_path}:{v.line_number})" if v.line_number else ""
+            console.print(
+                f"  [{color}]{verbatim(mark)}[/{color}] \\[{v.rule_id}] {verbatim(v.object_name)}{verbatim(loc)}: {verbatim(v.message)}"
+            )
+    else:
+        console.print("[green]✅ No unpinned SECURITY DEFINER functions found[/green]")
+    return None
+
+
+def render_import_check(result: Any, *, json_mode: bool) -> dict[str, Any] | None:
+    """Render the ``--check-imports`` ImportCheckResult."""
+
+    if json_mode:
+        return {"check": "imports", **result.to_dict()}
+    if result.success:
+        console.print(
+            f"[green]✅ All {verbatim(result.checked)} Python migration(s) passed import check[/green]"
+        )
+        if result.skipped_sql:
+            console.print(f"  [dim]({verbatim(result.skipped_sql)} SQL migration(s) skipped)[/dim]")
+    else:
+        console.print(
+            f"[red]❌ Import check failed: {verbatim(result.failed)}/{verbatim(result.checked)} "
+            f"file(s) have issues[/red]"
+        )
+        for v in result.violations:
+            console.print(
+                f"  [red]✗[/red] [{v.rule}] {verbatim(_Path(v.file_path).name)}: {verbatim(v.message)}"
+            )
+    return None
+
+
+def render_naming(
+    *,
+    duplicate_versions: dict[str, list[Any]],
+    orphaned_files: list[Any],
+    fixed: dict[str, Any] | None,
+    json_mode: bool,
+    dry_run: bool,
+) -> dict[str, Any] | None:
+    """Render ``migrate validate``'s default mode: duplicate versions + orphans.
+
+    ``fixed`` is the ``fix_orphaned_sql_files`` result when ``--fix-naming`` ran,
+    else ``None``. Duplicate versions are a hard error and pre-empt fixing;
+    orphans alone are a warning that still exits 0.
+    """
+    if duplicate_versions:
+        return _naming_duplicates(duplicate_versions, orphaned_files, json_mode=json_mode)
+    if not orphaned_files:
+        return _naming_clean(json_mode=json_mode)
+    if fixed is not None:
+        return _naming_fixed(fixed, json_mode=json_mode, dry_run=dry_run)
+    return _naming_orphaned(orphaned_files, json_mode=json_mode)
+
+
+def _naming_duplicates(
+    duplicate_versions: dict[str, list[Any]], orphaned_files: list[Any], *, json_mode: bool
+) -> dict[str, Any] | None:
+    if json_mode:
+        payload: dict[str, Any] = {
+            "status": "issues_found",
+            "duplicate_versions": {
+                v: [f.name for f in files] for v, files in duplicate_versions.items()
+            },
+        }
+        if orphaned_files:
+            payload["orphaned_files"] = [f.name for f in orphaned_files]
+        return payload
+    console.print("[red]❌ Duplicate migration versions detected[/red]")
+    console.print("[red]Multiple migration files share the same version number:[/red]\n")
+    for version, files in sorted(duplicate_versions.items()):
+        console.print(f"  Version {verbatim(version)}:")
+        for f in files:
+            console.print(f"    • {verbatim(f.name)}")
+    console.print("\n[yellow]💡 Rename files to use unique version prefixes.[/yellow]")
+    console.print(
+        "[yellow]   Use 'confiture migrate generate' to auto-assign the next version.[/yellow]"
+    )
+    return None
+
+
+def _naming_clean(*, json_mode: bool) -> dict[str, Any] | None:
+    if json_mode:
+        return {
+            "status": "ok",
+            "message": "No orphaned migration files found",
+            "fixed": [],
+            "errors": [],
+        }
+    console.print("[green]✅ No orphaned migration files found[/green]")
+    return None
+
+
+def _naming_fixed(
+    fixed: dict[str, Any], *, json_mode: bool, dry_run: bool
+) -> dict[str, Any] | None:
+    if json_mode:
+        return {
+            "status": "preview" if dry_run else "fixed",
+            "fixed": fixed.get("renamed", []),
+            "errors": fixed.get("errors", []),
+        }
+    if dry_run:
+        console.print("[cyan]📋 DRY-RUN: Would fix the following orphaned files:[/cyan]")
+    else:
+        console.print("[green]✅ Fixed orphaned migration files:[/green]")
+    for old_name, new_name in fixed.get("renamed", []):
+        console.print(f"  • {verbatim(old_name)} → {verbatim(new_name)}")
+    if fixed.get("errors"):
+        console.print("[red]Errors:[/red]")
+        for filename, error_msg in fixed.get("errors", []):
+            console.print(f"  ❌ {verbatim(filename)}: {verbatim(error_msg)}")
+    return None
+
+
+def _naming_orphaned(orphaned_files: list[Any], *, json_mode: bool) -> dict[str, Any] | None:
+    if json_mode:
+        return {
+            "status": "issues_found",
+            "orphaned_files": [f.name for f in orphaned_files],
+        }
+    console.print("[yellow]⚠️  WARNING: Orphaned migration files detected[/yellow]")
+    console.print("[yellow]These SQL files exist but won't be applied by Confiture:[/yellow]")
+    for orphaned_file in orphaned_files:
+        console.print(
+            f"  • {verbatim(orphaned_file.name)} → rename to: {verbatim(orphaned_file.stem)}.up.sql"
+        )
+    console.print()
+    console.print("[cyan]To automatically fix these files, run:[/cyan]")
+    console.print("[cyan]  confiture migrate validate --fix-naming[/cyan]")
+    console.print()
+    console.print("[cyan]Or preview the changes first with:[/cyan]")
+    console.print("[cyan]  confiture migrate validate --fix-naming --dry-run[/cyan]")
+    return None
+
+
+def render_live_drift(report: Any, *, json_mode: bool) -> dict[str, Any] | None:
+    """Render the ``--check-live-drift`` DriftReport."""
+
+    if json_mode:
+        return {"check": "live_drift", **report.to_dict()}
+    display_drift_report(report, console)
+    return None
+
+
+def _print_unified_diff(unified_diff: str) -> None:
+    """Print a unified diff with rich-highlighted +/- lines, indented."""
+    for line in unified_diff.splitlines():
+        if line.startswith("+") and not line.startswith("+++"):
+            color = "green"
+        elif line.startswith("-") and not line.startswith("---"):
+            color = "red"
+        elif line.startswith("@@"):
+            color = "cyan"
+        else:
+            color = "dim"
+        # Escape any Rich markup in the SQL so brackets aren't parsed as tags.
+        console.print(f"      [{color}]{escape(line)}[/{color}]")
+
+
+def _display_body_drift_report(report: Any, *, show_diff: bool = False) -> None:
+    """Print a FunctionBodyDriftReport to the console in human-readable form."""
+    if not report.has_drift:
+        console.print(
+            f"[green]✓[/green] 0 function body drift(s) detected "
+            f"({verbatim(report.functions_checked)} checked, "
+            f"{report.detection_time_ms:.1f}ms)"
+        )
+        return
+
+    console.print(
+        f"[yellow]⚠[/yellow]  {len(report.body_drifts)} function body "
+        f"drift(s) detected ({verbatim(report.functions_checked)} checked)"
+    )
+    for drift in report.body_drifts:
+        console.print(f"\n  [bold]{verbatim(drift.signature_key)}[/bold]")
+        console.print(f"    Source hash:   [cyan]{verbatim(drift.source_hash)}[/cyan]")
+        console.print(f"    Database hash: [red]{verbatim(drift.db_hash)}[/red]")
+        if show_diff and drift.unified_diff:
+            console.print("    [dim]Unified diff (expected → live, normalised):[/dim]")
+            _print_unified_diff(drift.unified_diff)
+        console.print(
+            "    Hint: function body differs — run "
+            "[bold]fix-signatures --mode apply[/bold] to re-apply from source"
+        )
+
+
+def render_signature_drift(
+    drift_report: Any,
+    body_report: Any,
+    *,
+    json_mode: bool,
+    show_diff: bool = False,
+) -> dict[str, Any] | None:
+    """Render the ``--check-signatures`` (+ ``--check-body``) result.
+
+    ``show_diff`` (from ``--show-diff``) surfaces each drifted function's bodies
+    and unified diff; when ``False`` the output is hash-only for both JSON and
+    text, the terse default.
+    """
+
+    if json_mode:
+        payload: dict[str, Any] = {
+            "check": "function_signature_drift",
+            **drift_report.to_dict(),
+        }
+        if body_report is not None:
+            payload["body_drift"] = body_report.to_dict(include_bodies=show_diff)
+        return payload
+
+    display_signature_drift_report(drift_report, console)
+    if body_report is not None:
+        _display_body_drift_report(body_report, show_diff=show_diff)
+    return None
+
+
+def render_replay_drift(
+    body_report: Any,
+    *,
+    json_mode: bool,
+    show_diff: bool = False,
+) -> dict[str, Any] | None:
+    """Render the ``--check-body-replay`` FunctionBodyDriftReport.
+
+    Reuses the function-body report shape but frames drifts as
+    out-of-band hot-patches — definitions live has but a clean migration replay
+    does not produce. ``show_diff`` surfaces the expected/live bodies + diff.
+    """
+    if json_mode:
+        return {"check": "replay_body_drift", **body_report.to_dict(include_bodies=show_diff)}
+
+    if not body_report.has_drift:
+        console.print(
+            f"[green]✓[/green] 0 out-of-band hot-patch(es) detected "
+            f"({verbatim(body_report.functions_checked)} checked, {body_report.detection_time_ms:.1f}ms)"
+        )
+        return None
+
+    console.print(
+        f"[yellow]⚠[/yellow]  {len(body_report.body_drifts)} out-of-band hot-patch(es) "
+        f"detected ({verbatim(body_report.functions_checked)} checked) — live differs from a clean "
+        f"migration replay"
+    )
+    for drift in body_report.body_drifts:
+        console.print(f"\n  [bold]{verbatim(drift.signature_key)}[/bold]")
+        console.print(f"    Replayed hash: [cyan]{verbatim(drift.source_hash)}[/cyan]")
+        console.print(f"    Database hash: [red]{verbatim(drift.db_hash)}[/red]")
+        if show_diff and drift.unified_diff:
+            console.print("    [dim]Unified diff (replayed → live, normalised):[/dim]")
+            _print_unified_diff(drift.unified_diff)
+        console.print(
+            "    Hint: no migration produced this body — capture the live change in a "
+            "migration, or re-apply the migration-produced definition"
+        )
+    return None
+
+
+_RELKIND_LABEL = {"v": "view", "m": "materialized view"}
+
+
+def render_view_drift(
+    view_report: Any,
+    *,
+    json_mode: bool,
+    show_diff: bool = False,
+) -> dict[str, Any] | None:
+    """Render the ``--check-body-views`` ViewBodyDriftReport.
+
+    ``show_diff`` (from ``--show-diff``) surfaces each drifted view's expected
+    and live definitions plus a unified diff; otherwise output stays hash-only.
+    """
+    if json_mode:
+        return {"check": "view_body_drift", **view_report.to_dict(include_defs=show_diff)}
+
+    if not view_report.has_drift:
+        console.print(
+            f"[green]✓[/green] 0 view definition drift(s) detected "
+            f"({verbatim(view_report.views_checked)} checked, {view_report.detection_time_ms:.1f}ms)"
+        )
+        return None
+
+    console.print(
+        f"[yellow]⚠[/yellow]  {len(view_report.body_drifts)} view definition "
+        f"drift(s) detected ({verbatim(view_report.views_checked)} checked)"
+    )
+    for drift in view_report.body_drifts:
+        label = _RELKIND_LABEL.get(drift.relkind, drift.relkind)
+        console.print(
+            f"\n  [bold]{verbatim(drift.schema)}.{verbatim(drift.name)}[/bold] [dim]({verbatim(label)})[/dim]"
+        )
+        console.print(f"    Source hash:   [cyan]{verbatim(drift.source_hash)}[/cyan]")
+        console.print(f"    Database hash: [red]{verbatim(drift.db_hash)}[/red]")
+        if show_diff and drift.unified_diff:
+            console.print("    [dim]Unified diff (expected → live, deparsed):[/dim]")
+            _print_unified_diff(drift.unified_diff)
+        console.print(
+            "    Hint: view definition differs from source — re-apply the committed "
+            "DDL or capture the live change in a migration"
+        )
+    return None

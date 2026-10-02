@@ -1,0 +1,158 @@
+name: Auto-release and publish to PyPI
+
+# Stable release stream: on every push to main, cut a CalVer release and
+# publish it to PyPI. The publish job MUST live in this top-level workflow
+# (not a reusable one) — PyPI Trusted Publishing does not support reusable
+# workflows, and matches the OIDC claim on THIS filename. Register
+# publish.yml as a trusted publisher (environment `pypi`) at
+# https://pypi.org/manage/project/cowork-server/settings/publishing/
+#
+# THIS IS THE PROD PIPELINE. `prod-build-deploy.yml` used to run on the same event
+# and contained nothing this file does not: the same unit tests and the same notify
+# job. It was a second run tree per release that reported on a subset of the first,
+# so it is gone and its image build lives here as the `build-deploy` job. The wheel
+# published below is still what the desktop app installs; the image serves the
+# hosted prod deployment.
+
+# No workflow-level `permissions:` block. It used to grant `contents: write` to
+# every job in this file, which only `release` needs — the unit tests and the
+# image build got it for nothing, and so would anything added later without
+# thinking. Each job below states its own, so the default (read) applies to the
+# rest.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: auto-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  unit-tests:
+    # Explicit, though `contents: read` is also the repo default. A caller job's
+    # `permissions` is the CAP on the workflow it calls, so leaving it off makes
+    # this file's blast radius a property of Settings -> Actions rather than of
+    # the file, and an org-wide flip to read/write would silently widen it.
+    # tests-unit.yml declares `contents: read` itself, so this matches exactly.
+    permissions:
+      contents: read
+    uses: ./.github/workflows/tests-unit.yml
+
+  build-deploy:
+    # The container image and the prod Helm rollout. Independent of the release
+    # chain on purpose: a scan finding should not hold up the wheel the desktop
+    # installs from, and a failed publish should not hide a broken image. Both
+    # land in this one run tree, and `notify` covers both. Mirrors the same job
+    # in `publish-staging.yml`.
+    #
+    # workflow_dispatch can select any ref. Refuse a non-main selection before
+    # it enters the reusable production path, while leaving push-to-main
+    # unchanged. This is defense in depth against an accidental dispatch, not
+    # the credential boundary: a selected branch can change this workflow. The
+    # prod GitHub Environment must first have a nonempty reviewer rule, prevent
+    # self-review, disable admin bypass, and allow exactly one `main` Branch
+    # rule. Add credentials only after that policy is active. Count evidence
+    # only from a fresh attempt 1 started afterward and approved at the prod gate
+    # by an eligible reviewer other than both the actor and triggering actor.
+    # See README.md.
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build-deploy.yml
+    with:
+      build-environment: production
+      build-runner: mdb-prod
+      # On again now that prod is stood up. It was off because the rollout ran
+      # against a namespace with no cowork-server release and no
+      # scratchpad-controller, which failed every push to main.
+      deploy-enabled: true
+    secrets: inherit
+
+  wheels-available:
+    # Gates the publish below. A dependency's wheel matrix can change with no
+    # commit here at all, so this has to run on the release path and not only
+    # on PRs — that is exactly how the ENG-2864 regression shipped.
+    permissions:
+      contents: read
+    uses: ./.github/workflows/wheels-available.yml
+
+  release:
+    # Waits for `wheels-available` as well, so a red gate means NO TAG. With
+    # `needs: unit-tests` alone the two ran in parallel: the stable tag and its
+    # GitHub Release were created, then `publish` was skipped, leaving a
+    # version that exists on GitHub and not on PyPI and a tag to clean up
+    # before the fixed commit could re-release.
+    needs: [unit-tests, wheels-available]
+    # workflow_dispatch can be pointed at any ref; only main cuts a stable release.
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write  # tag push + release creation
+    uses: mindsdb/github-actions/.github/workflows/calver-release.yml@main
+    with:
+      calver-major: "0"
+      runs-on: ubuntu-latest
+
+  publish:
+    name: Build and publish to PyPI
+    # `wheels-available` is redundant now that `release` waits for it too, and
+    # deliberately kept: it is the edge that actually stops a broken wheel
+    # reaching PyPI, so it should not disappear if the `release` edge is ever
+    # refactored away.
+    needs: [release, wheels-available]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write  # required for trusted publisher (OIDC)
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+          fetch-depth: 0  # hatch-vcs needs tags to derive version
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+
+      - name: Build package
+        run: uv build
+
+      # This pipeline has no anton-agent pin (unlike publish-staging.yml): the
+      # wheel ships whatever satisfies the loose floor in pyproject.toml, which
+      # can be a stable anton release that predates a symbol this commit's code
+      # already imports at module scope (ENG-2065). Import the wheel we are
+      # about to ship, from outside the checkout so a local cowork/ package
+      # can't shadow it (see the identical check in publish-staging.yml and its
+      # review discussion for why that matters).
+      - name: Verify anton-agent satisfies this build
+        run: |
+          set -euo pipefail
+          uv venv .smoke-venv
+          uv pip install --python .smoke-venv "$(ls dist/*.whl)"
+          VENV_PY="$(pwd)/.smoke-venv/bin/python"
+          cd /tmp && "$VENV_PY" -c "import cowork.server"
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        # Trusted publisher (OIDC) — publish.yml must be registered at the
+        # PyPI project's publishing settings (environment: pypi).
+
+  notify:
+    # Alert the eng channel if ANY job in the release/publish pipeline fails.
+    # One job covers both outcomes: a `uses:` job cannot branch on status, so
+    # the aggregate result picks the failed or recovered message, and a
+    # cancelled run stays silent.
+    needs: [unit-tests, build-deploy, wheels-available, release, publish]
+    if: ${{ !cancelled() && !contains(needs.*.result, 'cancelled') }}
+    permissions:
+      contents: read
+      actions: read  # the prior-run lookup behind the recovery message
+    uses: mindsdb/github-actions/.github/workflows/notify-main-failure.yml@main
+    with:
+      env-name: "auto-release + PyPI publish"
+      status: ${{ contains(needs.*.result, 'failure') && 'failed' || 'recovered' }}
+      runs-on: ubuntu-latest
+    secrets: inherit

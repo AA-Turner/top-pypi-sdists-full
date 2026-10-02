@@ -79,8 +79,25 @@ def _parse_shell_name(name: str) -> ShellType:
 MAX_SHELL_SCAN_BYTES = 64 * 1024
 
 
+def _utf8_length(value: str) -> int:
+    if value.isascii():
+        return len(value)
+    return len(value.encode("utf-8", "surrogatepass"))
+
+
+def _truncate_utf8(value: str) -> str:
+    if value.isascii():
+        return value[:MAX_SHELL_SCAN_BYTES]
+    truncated = value.encode("utf-8", "surrogatepass")[:MAX_SHELL_SCAN_BYTES]
+    while True:
+        try:
+            return truncated.decode("utf-8", "surrogatepass")
+        except UnicodeDecodeError:
+            truncated = truncated[:-1]
+
+
 def has_non_printable(value: str | bytes) -> bool:
-    """Check if value contains ASCII control characters."""
+    """Check if value contains control, line separator or other non-printable characters."""
     if isinstance(value, bytes):
         try:
             value = value.decode("utf-8")
@@ -89,11 +106,11 @@ def has_non_printable(value: str | bytes) -> bool:
             return True
 
     # Above the cap, skip the scan and force the escape path; truncation marker comes from `escape_for_shell`.
-    if len(value) > MAX_SHELL_SCAN_BYTES:
+    if _utf8_length(value) > MAX_SHELL_SCAN_BYTES:
         return True
 
-    # Check for ASCII control characters: 0-31 and 127 (DEL)
-    return any(ord(c) < 32 or ord(c) == 127 for c in value)
+    # Unicode line separators and C1 controls break the printed command into several lines
+    return not value.isprintable()
 
 
 def _truncated_marker(total_bytes: int) -> str:
@@ -108,9 +125,9 @@ def escape_for_shell(value: str, shell: ShellType | None = None) -> EscapeResult
     # Truncate before the per-char escape: `_escape_with_ansi_c` builds a
     # ~10x list-of-chars; an MB input would explode without this guard.
     truncated = False
-    full_size = len(value)
+    full_size = _utf8_length(value)
     if full_size > MAX_SHELL_SCAN_BYTES:
-        value = value[:MAX_SHELL_SCAN_BYTES]
+        value = _truncate_utf8(value)
         truncated = True
 
     # Fast path: no non-printable characters
@@ -129,7 +146,8 @@ def escape_for_shell(value: str, shell: ShellType | None = None) -> EscapeResult
             shell_used=shell,
         )
 
-    original_bytes = value.encode("utf-8")
+    # Lone surrogates cannot be sent, but must not crash failure reporting
+    original_bytes = value.encode("utf-8", "surrogatepass")
     suffix = _truncated_marker(full_size) if truncated else ""
 
     # Bash/Zsh: Use ANSI-C quoting $'...\xHH'
@@ -144,9 +162,8 @@ def escape_for_shell(value: str, shell: ShellType | None = None) -> EscapeResult
 
     # Fish: Use \xHH in single quotes
     if shell.supports_hex_in_quotes:
-        escaped = _escape_with_hex(value)
         return EscapeResult(
-            escaped_value=f"'{escaped}'{suffix}",
+            escaped_value=f"{_escape_with_hex(value)}{suffix}",
             needs_warning=truncated,
             original_bytes=None,
             shell_used=shell,
@@ -166,8 +183,6 @@ def _escape_with_ansi_c(value: str) -> str:
     """Escape string for ANSI-C quoting ($'...') used in bash/zsh."""
     result = []
     for char in value:
-        code = ord(char)
-
         # Readable escapes for common control characters
         if char == "\t":
             result.append("\\t")
@@ -175,14 +190,10 @@ def _escape_with_ansi_c(value: str) -> str:
             result.append("\\n")
         elif char == "\r":
             result.append("\\r")
-        elif code < 32:
-            # Other control characters as hex
-            result.append(f"\\x{code:02x}")
-        elif code == 127:
-            # DEL character
-            result.append("\\x7f")
-        elif char in ("'", "\\", "$", "`"):
-            # Shell special characters that need escaping in $'...'
+        elif not char.isprintable():
+            result.append(_hex_bytes(char))
+        elif char in ("'", "\\"):
+            # The only characters that end or escape inside $'...'; `$` and backticks are literal there
             result.append(f"\\{char}")
         else:
             result.append(char)
@@ -190,33 +201,31 @@ def _escape_with_ansi_c(value: str) -> str:
     return "".join(result)
 
 
+def _hex_bytes(char: str) -> str:
+    # UTF-8 bytes keep the escape independent of the shell's locale
+    return "".join(f"\\x{byte:02x}" for byte in char.encode("utf-8", "surrogatepass"))
+
+
 def _escape_with_hex(value: str) -> str:
-    r"""Escape string with \xHH notation for fish shell.
+    r"""Quote value for fish, with escapes outside the quotes.
 
-    Fish interprets \x escapes directly in single quotes.
-    We still need to escape single quotes and backslashes.
+    Fish reads `\xHH`, `\n` and friends only in unquoted text, so each run of printable
+    characters is single-quoted and everything else is escaped between the quoted runs.
     """
-    result = []
+    parts = []
+    quoted: list[str] = []
     for char in value:
-        code = ord(char)
+        if char.isprintable():
+            # Inside fish single quotes only `'` and `\` need escaping
+            quoted.append(f"\\{char}" if char in ("'", "\\") else char)
+            continue
+        if quoted:
+            parts.append(f"'{''.join(quoted)}'")
+            quoted = []
+        parts.append(_READABLE_ESCAPES.get(char) or _hex_bytes(char))
+    if quoted or not parts:
+        parts.append(f"'{''.join(quoted)}'")
+    return "".join(parts)
 
-        # Readable escapes for common control characters
-        if char == "\t":
-            result.append("\\t")
-        elif char == "\n":
-            result.append("\\n")
-        elif char == "\r":
-            result.append("\\r")
-        elif code < 32 or code == 127:
-            # Control characters as hex
-            result.append(f"\\x{code:02x}")
-        elif char == "'":
-            # Escape single quote for fish
-            result.append("\\'")
-        elif char == "\\":
-            # Escape backslash
-            result.append("\\\\")
-        else:
-            result.append(char)
 
-    return "".join(result)
+_READABLE_ESCAPES = {"\t": "\\t", "\n": "\\n", "\r": "\\r"}

@@ -1,0 +1,820 @@
+"""#1985 / ADR-024 — Django-parity template callable auto-call.
+
+Doc-claim-verbatim tests (#1046): one asserting test per row of the ADR-024
+semantics table, the two reported symptoms as regressions through the real
+render path, the kill-switch gate-off (#1468), and the eager-site guard sweep
+(Decision 2; #1104 — N sites, N tests).
+
+The sidecar tests route values through ``get_context_data`` from a private
+attr: eager serialization stringifies/skips the custom object, so the dotted
+lookup misses the eager value-stack and exercises the REAL
+``Context::resolve`` sidecar getattr walk (`crates/djust_core/src/context.rs`)
+— the exact path the divergence lived on (reproduction fidelity).
+"""
+
+import logging
+
+import pytest
+
+from djust import LiveView
+from djust.testing import LiveViewTestClient
+
+
+class _Probe:
+    """Callable-bearing helper covering every semantics-table row."""
+
+    def __init__(self):
+        self.alters_data_called = False
+        self.do_not_call_called = False
+
+    def get_greeting(self):
+        return "hello-from-method"
+
+    def get_settings(self):
+        class _S:
+            theme = "dark"
+
+        return _S()
+
+    def needs_args(self, required):  # args-required → renders empty
+        return required
+
+    def raises_internal_typeerror(self):
+        raise TypeError("internal bug — must propagate")
+
+    def raises_valueerror(self):
+        raise ValueError("must propagate")
+
+    @property
+    def destructive(self):
+        def _destroy():
+            self.alters_data_called = True
+            return "DESTROYED"
+
+        _destroy.alters_data = True
+        return _destroy
+
+    @property
+    def guarded(self):
+        def _guarded():
+            self.do_not_call_called = True
+            return "CALLED"
+
+        _guarded.do_not_call_in_templates = True
+        return _guarded
+
+
+def _make_view(template):
+    class _V(LiveView):
+        def mount(self, request, **kwargs):
+            self._probe = _Probe()
+
+        def get_context_data(self, **kwargs):
+            ctx = super().get_context_data(**kwargs)
+            ctx["probe"] = self._probe
+            return ctx
+
+    _V.template = template
+    return _V
+
+
+def _render(template):
+    client = LiveViewTestClient(_make_view(template))
+    client.mount()
+    html, _, _ = client.render_with_patches()
+    return html, client
+
+
+@pytest.mark.django_db
+class TestAutoCallSemantics:
+    """One test per ADR-024 semantics-table row (doc-claim-verbatim, #1046)."""
+
+    def test_no_arg_method_is_auto_called(self):
+        html, _ = _render("<div>{{ probe.get_greeting }}</div>")
+        assert "hello-from-method" in html
+        assert "bound method" not in html
+
+    def test_mid_path_call_continues_the_walk(self):
+        """Django auto-calls at EVERY segment: {{ probe.get_settings.theme }}
+        calls get_settings() mid-walk, then reads .theme on the result."""
+        html, _ = _render("<div>{{ probe.get_settings.theme }}</div>")
+        assert "dark" in html
+
+    def test_args_required_callable_renders_empty(self):
+        """TypeError from a callable that genuinely requires arguments is
+        Django's string_if_invalid → empty, never a crash."""
+        html, _ = _render("<div>[{{ probe.needs_args }}]</div>")
+        assert "[]" in html
+
+    def test_do_not_call_in_templates_is_not_called(self):
+        html, client = _render("<div>{{ probe.guarded }}</div>")
+        assert client.view_instance._probe.do_not_call_called is False, (
+            "do_not_call_in_templates callables must be used as-is, never invoked"
+        )
+        assert "CALLED" not in html
+
+    def test_alters_data_is_refused_and_renders_empty(self):
+        """The data-destruction guard: alters_data callables are NEVER
+        executed (side-effect sentinel, not just output) and the expression
+        renders empty."""
+        html, client = _render("<div>[{{ probe.destructive }}]</div>")
+        assert client.view_instance._probe.alters_data_called is False, (
+            "alters_data callable was EXECUTED — the ADR-024 guard is broken "
+            "(a template typo like {{ user.delete }} would destroy data)"
+        )
+        assert "DESTROYED" not in html
+        assert "[]" in html
+
+    def test_internal_typeerror_propagates(self):
+        """A TypeError raised INSIDE a zero-arg method is a real bug and must
+        propagate (Django's signature-bind distinction), not render empty."""
+        with pytest.raises(Exception, match="internal bug"):
+            _render("<div>{{ probe.raises_internal_typeerror }}</div>")
+
+    def test_other_exceptions_propagate(self):
+        with pytest.raises(Exception, match="must propagate"):
+            _render("<div>{{ probe.raises_valueerror }}</div>")
+
+
+@pytest.mark.django_db
+class TestKillSwitch:
+    """LIVEVIEW_CONFIG['template_auto_call'] — gate-off (#1468) + wiring."""
+
+    def test_kill_switch_restores_plain_getattr_walk(self):
+        """With auto-call disabled on the Rust view, the pre-ADR behavior
+        returns: the bound method stringifies instead of being called. This
+        is the behavioral gate-off — it fails if the kill-switch stops
+        gating the new code path."""
+        client = LiveViewTestClient(_make_view("<div>{{ probe.get_greeting }}</div>"))
+        client.mount()
+        client.render_with_patches()  # _rust_view initializes lazily on first render
+        client.view_instance._rust_view.set_template_auto_call(False)
+        html, _, _ = client.render_with_patches()
+        assert "hello-from-method" not in html
+        assert "bound method" in html  # the pre-ADR stringified method object
+
+    def test_flag_wiring_reads_config(self, monkeypatch):
+        """_apply_template_auto_call_flag forwards the config value to Rust
+        (mirrors the #1967 loop-cache flag plumbing)."""
+        client = LiveViewTestClient(_make_view("<div>x</div>"))
+        client.mount()
+        client.render_with_patches()  # _rust_view initializes lazily on first render
+        view = client.view_instance
+        assert view._rust_view.template_auto_call_enabled() is True  # default ON
+
+        from djust import config as djust_config
+
+        class _FakeConfig:
+            def get(self, key, default=None):
+                return False if key == "template_auto_call" else default
+
+        monkeypatch.setattr(djust_config, "get_config", lambda: _FakeConfig())
+        view._apply_template_auto_call_flag()
+        assert view._rust_view.template_auto_call_enabled() is False
+
+
+@pytest.mark.django_db
+class TestReportedSymptoms:
+    """The two #1985 symptoms as regressions through the real render path."""
+
+    def test_request_scoped_user_get_full_name(self):
+        """Symptom 1: `{{ user.get_full_name }}` rendered
+        `<bound method AbstractUser.get_full_name of ...>`. Request-scoped
+        `user` (auth context processor) is deliberately excluded from eager
+        state, so it resolves ONLY via the sidecar walk."""
+        from django.contrib.auth.models import User
+
+        user = User.objects.create_user(username="jordan", first_name="Jordan", last_name="Reyes")
+        client = LiveViewTestClient(_make_view("<div>{{ user.get_full_name }}</div>"))
+        client.user = user
+        client.mount()
+        html, _, _ = client.render_with_patches()
+        assert "Jordan Reyes" in html
+        assert "bound method" not in html
+
+    def test_manager_method_count_via_sidecar(self):
+        """Symptom 2: `{{ workspace.memberships.count }}` rendered empty.
+        Reverse/M2M managers are never eagerly serialized, so `.count` is
+        reachable only via the sidecar walk — here with the real
+        `user.groups` ManyRelatedManager."""
+        from django.contrib.auth.models import Group, User
+
+        user = User.objects.create_user(username="counter")
+        user.groups.add(Group.objects.create(name="g1"), Group.objects.create(name="g2"))
+
+        class _V(LiveView):
+            template = "<div>[{{ member.groups.count }}]</div>"
+
+            def mount(self, request, **kwargs):
+                self._member = user
+
+            def get_context_data(self, **kwargs):
+                ctx = super().get_context_data(**kwargs)
+                ctx["member"] = self._member
+                return ctx
+
+        client = LiveViewTestClient(_V)
+        client.mount()
+        html, _, _ = client.render_with_patches()
+        assert "[2]" in html
+
+    def test_orm_autocall_warning_is_emitted_once(self, caplog):
+        """Observability rider: an auto-call bound to a Manager/QuerySet emits
+        a one-shot warning on the djust.templates logger (debug mode — the
+        Rust side reads settings.DEBUG live, so override_settings works).
+        Uses a DISTINCT dotted path — the one-shot set is per-path
+        per-process."""
+        from django.contrib.auth.models import User
+        from django.test import override_settings
+
+        user = User.objects.create_user(username="warn-probe")
+
+        class _V(LiveView):
+            template = "<div>{{ warnee.groups.count }}</div>"
+
+            def mount(self, request, **kwargs):
+                self._warnee = user
+
+            def get_context_data(self, **kwargs):
+                ctx = super().get_context_data(**kwargs)
+                ctx["warnee"] = self._warnee
+                return ctx
+
+        with (
+            override_settings(DEBUG=True),
+            caplog.at_level(logging.WARNING, logger="djust.templates"),
+        ):
+            client = LiveViewTestClient(_V)
+            client.mount()
+            client.render_with_patches()
+        matching = [r for r in caplog.records if "auto-calls an ORM method" in r.getMessage()]
+        assert matching, "expected the ADR-024 ORM auto-call warning on first render"
+
+
+@pytest.mark.django_db
+class TestSidecarSerializationFloor:
+    """#1986 review — the sidecar getattr walk must honor the serialization
+    floor (SECURE_DEFAULTS Pattern 1), or auto-call/raw-model access leaks
+    denylisted fields (password, is_superuser) and sensitive methods
+    (get_session_auth_hash) to the client. Both explicitly-assigned models
+    and request-scoped `user` are covered by _SidecarModelProxy."""
+
+    def _user(self, is_superuser=False):
+        from django.contrib.auth.models import Group, User
+
+        u = User.objects.create_user(
+            username="jordan",
+            first_name="Jordan",
+            last_name="Reyes",
+            password="s3cret-pw",
+            is_superuser=is_superuser,
+        )
+        u.groups.add(Group.objects.create(name="a"), Group.objects.create(name="b"))
+        return u
+
+    def test_explicit_model_floor_fields_do_not_leak(self):
+        u = self._user()
+
+        class _V(LiveView):
+            template = (
+                "<div>pw=[{{ m.password }}] su=[{{ m.is_superuser }}] "
+                "st=[{{ m.is_staff }}] sess=[{{ m.get_session_auth_hash }}]</div>"
+            )
+
+            def mount(self, request, **kwargs):
+                self._m = u
+
+            def get_context_data(self, **kwargs):
+                ctx = super().get_context_data(**kwargs)
+                ctx["m"] = self._m
+                return ctx
+
+        client = LiveViewTestClient(_V)
+        client.mount()
+        html, _, _ = client.render_with_patches()
+        assert "pbkdf2" not in html, f"password hash leaked: {html}"
+        assert "pw=[]" in html and "su=[]" in html and "st=[]" in html
+        assert "sess=[]" in html, f"session-auth hash leaked: {html}"
+
+    def test_request_scoped_user_floor_fields_do_not_leak(self):
+        """The pre-existing request-scoped leak (`{{ user.password }}`) is
+        closed by the same proxy — request-scoped `user` is wrapped too."""
+        u = self._user()
+
+        class _V(LiveView):
+            template = "<div>pw=[{{ user.password }}] su=[{{ user.is_superuser }}]</div>"
+
+            def mount(self, request, **kwargs):
+                pass
+
+            def get_context_data(self, **kwargs):
+                return super().get_context_data(**kwargs)
+
+        client = LiveViewTestClient(_V)
+        client.user = u
+        client.mount()
+        html, _, _ = client.render_with_patches()
+        assert "pbkdf2" not in html, f"request-scoped password leaked: {html}"
+        assert "pw=[]" in html and "su=[]" in html
+
+    def test_floor_holds_with_kill_switch_off(self):
+        """The floor is NOT gated on template_auto_call — flipping the
+        kill-switch off must not re-open the field leak (the #1986 review
+        confirmed the retention was ungated)."""
+        u = self._user()
+
+        class _V(LiveView):
+            template = "<div>pw=[{{ m.password }}]</div>"
+
+            def mount(self, request, **kwargs):
+                self._m = u
+
+            def get_context_data(self, **kwargs):
+                ctx = super().get_context_data(**kwargs)
+                ctx["m"] = self._m
+                return ctx
+
+        client = LiveViewTestClient(_V)
+        client.mount()
+        client.render_with_patches()  # lazy _rust_view init
+        client.view_instance._rust_view.set_template_auto_call(False)
+        html, _, _ = client.render_with_patches()
+        assert "pbkdf2" not in html, f"kill-switch-off leaked password: {html}"
+
+    def test_legit_methods_and_managers_still_work(self):
+        """The proxy must NOT over-block: safe fields, get_* methods, and
+        managers still resolve (the ADR-024 feature)."""
+        u = self._user()
+
+        class _V(LiveView):
+            template = (
+                "<div>n=[{{ m.get_full_name }}] g=[{{ m.groups.count }}] u=[{{ m.username }}]</div>"
+            )
+
+            def mount(self, request, **kwargs):
+                self._m = u
+
+            def get_context_data(self, **kwargs):
+                ctx = super().get_context_data(**kwargs)
+                ctx["m"] = self._m
+                return ctx
+
+        client = LiveViewTestClient(_V)
+        client.mount()
+        html, _, _ = client.render_with_patches()
+        assert "Jordan Reyes" in html
+        assert "g=[2]" in html
+        assert "jordan" in html
+
+    def test_custom_sensitive_field_refused(self, settings):
+        """A DJUST_SENSITIVE_FIELDS-configured field is refused by the same
+        authority (not just the built-in floor)."""
+        settings.DJUST_SENSITIVE_FIELDS = ["last_name"]
+        u = self._user()
+
+        class _V(LiveView):
+            template = "<div>ln=[{{ m.last_name }}] fn=[{{ m.first_name }}]</div>"
+
+            def mount(self, request, **kwargs):
+                self._m = u
+
+            def get_context_data(self, **kwargs):
+                ctx = super().get_context_data(**kwargs)
+                ctx["m"] = self._m
+                return ctx
+
+        client = LiveViewTestClient(_V)
+        client.mount()
+        html, _, _ = client.render_with_patches()
+        assert "ln=[]" in html, f"configured-sensitive last_name leaked: {html}"
+        assert "Jordan" in html  # first_name (not sensitive) still renders
+
+    def test_manager_traversal_does_not_leak(self):
+        """#1986 re-review 🔴: a model returned by an auto-called manager/
+        queryset method (`.first`/`.get`) must itself be floor-wrapped, or the
+        next segment reads a raw model and leaks. Transitive protection."""
+        u = self._user()
+
+        class _V(LiveView):
+            template = (
+                "<div>f=[{{ m.groups.first.user_set.first.password }}] "
+                "g=[{{ m.groups.first.user_set.get.password }}]</div>"
+            )
+
+            def mount(self, request, **kwargs):
+                self._m = u
+
+            def get_context_data(self, **kwargs):
+                ctx = super().get_context_data(**kwargs)
+                ctx["m"] = self._m
+                return ctx
+
+        client = LiveViewTestClient(_V)
+        client.mount()
+        html, _, _ = client.render_with_patches()
+        assert "pbkdf2" not in html, f"manager-traversal leaked password: {html}"
+        assert "f=[]" in html and "g=[]" in html
+
+    def test_for_loop_iteration_floor_and_fields(self):
+        """#1986 re-review 🔴: queryset items in a `{% for %}` went through the
+        Rust `__dict__` bulk-dump (which filtered only `_`-names), leaking
+        `password`. Items must be denylist-filtered dicts: floor field empty,
+        safe field works."""
+        u = self._user()
+
+        class _V(LiveView):
+            template = (
+                "<ul>{% for x in m.groups.first.user_set.all %}"
+                "<li>pw=[{{ x.password }}] u=[{{ x.username }}]</li>"
+                "{% endfor %}</ul>"
+            )
+
+            def mount(self, request, **kwargs):
+                self._m = u
+
+            def get_context_data(self, **kwargs):
+                ctx = super().get_context_data(**kwargs)
+                ctx["m"] = self._m
+                return ctx
+
+        client = LiveViewTestClient(_V)
+        client.mount()
+        html, _, _ = client.render_with_patches()
+        assert "pbkdf2" not in html, f"for-loop iteration leaked password: {html}"
+        assert "pw=[]" in html
+        assert "u=[jordan]" in html, f"for-loop lost the safe field: {html}"
+
+    def test_values_projection_refused_no_leak(self):
+        """#1986 re-review vector 5: `.values()` / `.values_list()` yield raw
+        dict/tuple rows with no model identity — `.first`/`.get`/index/iteration
+        would each hand back an unfiltered row. Projections are refused
+        wholesale in the sidecar (empty), so no floor field leaks and no safe
+        field renders either (precompute in get_context_data instead)."""
+        u = self._user()
+
+        class _V(LiveView):
+            template = (
+                "<div>"
+                "{% for x in m.groups.first.user_set.values %}<span>vpw=[{{ x.password }}]</span>{% endfor %}"
+                "{% for x in m.groups.first.user_set.values_list %}<span>lpw=[{{ x.1 }}]</span>{% endfor %}"
+                "<b>first=[{{ m.groups.first.user_set.values.first.password }}]</b>"
+                "</div>"
+            )
+
+            def mount(self, request, **kwargs):
+                self._m = u
+
+            def get_context_data(self, **kwargs):
+                ctx = super().get_context_data(**kwargs)
+                ctx["m"] = self._m
+                return ctx
+
+        client = LiveViewTestClient(_V)
+        client.mount()
+        html, _, _ = client.render_with_patches()
+        assert "pbkdf2" not in html, f".values()/.values_list() leaked password: {html}"
+        assert "first=[]" in html  # .values.first.password refused
+        # projection refused → no <li> rows emitted at all
+        assert "vpw=" not in html and "lpw=" not in html
+
+    def test_underscore_prefixed_refused(self):
+        """#1986 re-review 🟡: `_`-prefixed names must be refused (Django
+        parity). `{{ obj._meta }}` would otherwise segfault the worker
+        (Options extraction) and `{{ obj._meta.db_table }}` disclose schema.
+
+        Since #2418 there are TWO layers and this pins both, because they are
+        different seams and either one alone would leave the other untested:
+
+        1. the template carrying `._` no longer COMPILES — Django's
+           `Variable.__init__` rule, now implemented in the parser, so no
+           resolve walk runs at all;
+        2. `_SidecarModelProxy.__getattr__` still refuses the name when it is
+           reached DIRECTLY, which is what protects a value materialised
+           without a template naming it.
+
+        Layer 1 alone would make layer 2 unreachable from a template and so
+        untested by any render (#2233); layer 2 alone is what this test pinned
+        before #2418 existed.
+        """
+        from djust._rust import render_template  # noqa: PLC0415
+
+        from djust.serialization import _SidecarModelProxy  # noqa: PLC0415
+
+        u = self._user()
+
+        # Layer 1 — the template does not compile.
+        for source in ("{{ m._meta }}", "{{ m._meta.db_table }}", "{{ m._state }}"):
+            with pytest.raises(RuntimeError, match="may not begin with underscores"):
+                render_template(source, {"m": {"pk": 1}})
+
+        # Layer 2 — the proxy still refuses the name on its own.
+        proxy = _SidecarModelProxy(u)
+        for name in ("_meta", "_state"):
+            with pytest.raises(AttributeError):
+                getattr(proxy, name)
+        # ...and a safe field still delegates, so the refusal is about the
+        # NAME and not about the proxy refusing everything.
+        assert proxy.username == u.username
+
+    def test_non_model_intermediary_does_not_leak(self):
+        """#1986 re-review vector 6: a non-model, non-JSON-serializable custom
+        object placed in the context — a "presenter"/view-model — that exposes
+        a raw Django model / manager / queryset must not leak floor fields
+        reached THROUGH it. `_protect_sidecar_value` returns a custom object
+        unchanged, so the Python proxies can't cover this; the Rust resolve
+        walk's `protect_sidecar` chokepoint wraps the model/manager/queryset the
+        moment it materializes (getattr OR auto-called method result)."""
+        u = self._user(is_superuser=True)
+
+        class _Presenter:
+            def __init__(self, user):
+                self.user = user  # raw Model
+                self.qs = type(user).objects.all()  # raw QuerySet
+                self.mgr = user.groups  # raw Manager
+
+            def get_user(self):  # method returning a raw Model (Rust auto-calls)
+                return self.user
+
+        class _V(LiveView):
+            template = (
+                "<div>"
+                "a=[{{ p.user.password }}] b=[{{ p.user.is_superuser }}] "
+                "c=[{{ p.get_user.password }}] d=[{{ p.mgr.first.password }}] "
+                # `e=[{{ p.user._meta.db_table }}]` was here until #2418, when
+                # the template stopped compiling — a `._` path is refused at
+                # parse time now, which is a stronger guarantee than the empty
+                # render this asserted. The schema-disclosure vector is pinned
+                # by `test_underscore_prefixed_refused` above, at both layers.
+                ""
+                "{% for x in p.qs %}<i>f=[{{ x.password }}] u=[{{ x.username }}]</i>{% endfor %}"
+                "</div>"
+            )
+
+            def mount(self, request, **kwargs):
+                self._p = _Presenter(u)
+
+            def get_context_data(self, **kwargs):
+                ctx = super().get_context_data(**kwargs)
+                ctx["p"] = self._p
+                return ctx
+
+        client = LiveViewTestClient(_V)
+        client.mount()
+        html, _, _ = client.render_with_patches()
+        assert "pbkdf2" not in html, f"non-model intermediary leaked password: {html}"
+        assert "b=[]" in html and "auth_user" not in html
+        # `auth_user` can no longer arrive via `._meta.db_table` because that
+        # template does not compile (#2418); the assertion above is kept as the
+        # backstop for every OTHER way the table name could reach the page.
+        assert "f=[]" in html  # queryset-via-custom-object row floored
+        assert "u=[jordan]" in html  # ...but the safe field still renders
+
+    def test_container_of_models_does_not_leak(self):
+        """#1986 re-review vector 7: a raw list/tuple of models reached via a
+        non-model intermediary. `_protect_sidecar_value` wraps a Model but not a
+        list *containing* models, so the raw models reach the Rust
+        `FromPyObject` `Vec<Value>` extraction → `__dict__` bulk-dump. Closed at
+        the conversion root: `FromPyObject` routes any raw Django model through
+        `normalize_django_value` (denylist-filtered) instead of the `__dict__`
+        dump, covering list/tuple/dict-value containers in one place."""
+        u = self._user()
+
+        class _Holder:
+            def __init__(self, users):
+                self.items = list(users)  # raw LIST of raw models
+                self.tup = tuple(users)  # raw TUPLE of raw models
+
+        class _V(LiveView):
+            template = (
+                "<div>"
+                "{% for x in h.items %}<i>lp=[{{ x.password }}] lu=[{{ x.username }}]</i>{% endfor %}"
+                "{% for x in h.tup %}<i>tp=[{{ x.password }}]</i>{% endfor %}"
+                "</div>"
+            )
+
+            def mount(self, request, **kwargs):
+                self._h = _Holder(type(u).objects.all())
+
+            def get_context_data(self, **kwargs):
+                ctx = super().get_context_data(**kwargs)
+                ctx["h"] = self._h
+                return ctx
+
+        client = LiveViewTestClient(_V)
+        client.mount()
+        html, _, _ = client.render_with_patches()
+        assert "pbkdf2" not in html, f"container of models leaked password: {html}"
+        assert "lp=[]" in html and "tp=[]" in html
+        assert "lu=[jordan]" in html  # safe field through the raw list still renders
+
+    def test_proxy_unit_floor_and_delegation(self):
+        """Gate-off / unit pin (#1468): the proxy IS load-bearing — it raises
+        AttributeError for floor fields + sensitive methods and delegates
+        everything else. This fails if the proxy stops enforcing the floor."""
+        from djust.serialization import _SidecarModelProxy
+
+        u = self._user()
+        proxy = _SidecarModelProxy(u)
+
+        for refused in ("password", "is_superuser", "is_staff", "get_session_auth_hash"):
+            with pytest.raises(AttributeError):
+                getattr(proxy, refused)
+
+        assert proxy.username == "jordan"  # safe field delegates
+        assert callable(proxy.get_full_name)  # method delegates (callable)
+        assert proxy.get_full_name() == "Jordan Reyes"
+
+
+@pytest.mark.django_db
+class TestEagerSiteGuards:
+    """ADR-024 Decision 2 — the pre-existing eager auto-call sites share the
+    same alters_data / do_not_call_in_templates guards (#1104: N sites, N
+    tests)."""
+
+    def test_serializer_skips_alters_data_get_method(self, monkeypatch):
+        """_add_safe_model_methods must not call a get_* method stamped
+        alters_data=True (side-effect sentinel)."""
+        from django.contrib.auth.models import User
+
+        from djust.serialization import DjangoJSONEncoder
+
+        executed = []
+
+        def get_marker(self):
+            executed.append(True)
+            return "MARKER"
+
+        get_marker.alters_data = True
+        monkeypatch.setattr(User, "get_marker", get_marker, raising=False)
+
+        user = User.objects.create_user(username="serializer-guard")
+        result = DjangoJSONEncoder()._serialize_model_safely(user)
+
+        assert not executed, "serializer executed an alters_data get_* method"
+        assert "get_marker" not in str(result)
+
+    def test_serializer_skips_do_not_call_get_method(self, monkeypatch):
+        from django.contrib.auth.models import User
+
+        from djust.serialization import DjangoJSONEncoder
+
+        executed = []
+
+        def get_marker2(self):
+            executed.append(True)
+            return "MARKER2"
+
+        get_marker2.do_not_call_in_templates = True
+        monkeypatch.setattr(User, "get_marker2", get_marker2, raising=False)
+
+        user = User.objects.create_user(username="serializer-guard2")
+        DjangoJSONEncoder()._serialize_model_safely(user)
+
+        assert not executed, "serializer executed a do_not_call_in_templates method"
+
+    def test_codegen_emits_guards_at_both_method_call_sites(self):
+        """The JIT codegen's generated source guards BOTH method-call sites
+        (root get_* leaf and nested get_*/all/count/exists leaf) with the
+        shared semantics."""
+        from djust.optimization.codegen import generate_serializer_code
+
+        code_root = generate_serializer_code("Post", ["get_status"], "ser_root_guard")
+        code_nested = generate_serializer_code("Post", ["author.get_bio"], "ser_nested_guard")
+
+        for code in (code_root, code_nested):
+            assert "alters_data" in code, "generated serializer lost the alters_data guard"
+            assert "do_not_call_in_templates" in code
+
+    def test_codegen_generated_code_skips_alters_data_at_runtime(self):
+        """Compile the generated serializer and prove the guard executes:
+        an alters_data method on the object is NOT called."""
+        from djust.optimization.codegen import compile_serializer, generate_serializer_code
+
+        executed = []
+
+        class _Obj:
+            pk = 1
+            id = 1
+
+            def get_marker(self):
+                executed.append(True)
+                return "MARKER"
+
+        _Obj.get_marker.alters_data = True
+
+        code = generate_serializer_code("Obj", ["get_marker"], "ser_guard_rt")
+        func = compile_serializer(code, "ser_guard_rt")
+        result = func(_Obj())
+
+        assert not executed, "generated serializer executed an alters_data method"
+        assert "get_marker" not in result
+
+
+@pytest.mark.django_db
+class TestFilterArgErrorPolicy2202:
+    """A resolution error in FILTER-ARG position propagates (#2202 review).
+
+    #2202 made built-in filters resolve a bare-identifier argument against the
+    context. Its first pass used ``.ok().flatten()``, which discarded the one
+    thing ``Context::resolve`` returns ``Err`` for: an exception raised inside
+    a method auto-called during resolution (ADR-024).
+
+    A lookup MISS is ``Ok(None)`` and was a separate question. #2202 answered
+    it "fall back to the argument's raw text"; #2328 changed that answer to
+    "raise, as Django does", once measurement showed all twenty-nine
+    argument-taking built-ins raise ``VariableDoesNotExist`` in Django and none
+    of them did here. So BOTH outcomes now reach the caller as an error, by two
+    different routes and for two different reasons.
+
+    Swallowing it would have left ``{{ x|default:obj.raising }}`` rendering the
+    literal text ``obj.raising`` into the page — the exact silent-wrong-output
+    failure #2202 exists to remove, reintroduced on the error branch. Three
+    sibling paths propagate: the custom-filter path
+    (``filter_registry.rs``), the main variable path (``renderer.rs``), and
+    Django itself.
+    """
+
+    def test_exception_in_a_filter_arg_method_propagates(self):
+        # The value position already propagates (test_other_exceptions_propagate).
+        # This pins the FILTER-ARG position, which is the path #2202 added.
+        with pytest.raises(Exception, match="must propagate"):
+            _render("<div>{{ blank|default:probe.raises_valueerror }}</div>")
+
+    def test_a_lookup_miss_in_a_filter_arg_raises(self):
+        # This asserted the OPPOSITE until #2328: the miss fell back to the
+        # argument's raw text, so the page rendered the literal word
+        # "nosuchvariable". Django raises `VariableDoesNotExist`, and the two
+        # error routes carry different messages so a reader can tell which
+        # one fired.
+        with pytest.raises(Exception, match="does not resolve"):
+            _render("<div>{{ blank|default:nosuchvariable }}</div>")
+
+    def test_the_two_error_routes_are_distinguishable(self):
+        # Guards against a future refactor collapsing them: an auto-call
+        # exception must NOT be reported as a resolution miss, or the ADR-024
+        # propagation above would be indistinguishable from a typo'd variable.
+        with pytest.raises(Exception) as raised:
+            _render("<div>{{ blank|default:probe.raises_valueerror }}</div>")
+        assert "does not resolve" not in str(raised.value)
+
+
+class TestOneSharedFlagReader:
+    """Every framework path reads the flag through ONE function (#2508, #1646).
+
+    The #2508 fix converged three of the four framework readers and left
+    ``RustBridgeMixin._apply_template_auto_call_flag`` on its own inline
+    ``get_config().get(...)`` — while its own docstring claimed to be the
+    single reader and enumerated three paths. No behavioural drift had
+    occurred, because both copies were identical; the parallel path #1646
+    exists to retire was simply still standing.
+
+    Pinning the reader SET (not a floor) is what makes the convergence
+    mechanical rather than a claim: a new inline read fails this immediately.
+    """
+
+    def test_no_module_reads_the_flag_inline(self):
+        """Grep the SINK, not the callers you expect — that omission is
+        exactly how the fourth reader survived the fix that cited #1646."""
+        import pathlib
+
+        import djust
+
+        root = pathlib.Path(djust.__file__).parent
+        offenders = []
+        for path in root.rglob("*.py"):
+            if "/tests/" in str(path) or path.name.startswith("test_"):
+                continue
+            text = path.read_text(encoding="utf-8", errors="replace")
+            if 'get("template_auto_call"' in text or "get('template_auto_call'" in text:
+                # config.py IS the shared reader; everything else must call it.
+                if path.name != "config.py":
+                    offenders.append(str(path.relative_to(root)))
+        assert not offenders, (
+            "these read LIVEVIEW_CONFIG['template_auto_call'] inline instead of "
+            f"calling config.template_auto_call_enabled(): {offenders}"
+        )
+
+    def test_every_framework_render_path_calls_the_shared_reader(self):
+        """The four paths the shared reader's docstring names, pinned."""
+        import pathlib
+
+        import djust
+
+        root = pathlib.Path(djust.__file__).parent
+        expected = {
+            "template/rendering.py",
+            "simple_live_view.py",
+            "components/base.py",
+            "mixins/rust_bridge.py",
+        }
+        actual = set()
+        for p in root.rglob("*.py"):
+            # NOT `if "/tests/" in str(p) is False` — Python chains that into
+            # `("/tests/" in s) and (s is False)`, which is always False, so
+            # the set came out empty and the assertion passed vacuously in the
+            # other direction. Caught on the first run.
+            if "/tests/" in str(p) or p.name == "config.py":
+                continue
+            if "template_auto_call_enabled" in p.read_text(encoding="utf-8", errors="replace"):
+                actual.add(str(p.relative_to(root)))
+        assert expected <= actual, f"a framework path stopped calling it: {expected - actual}"

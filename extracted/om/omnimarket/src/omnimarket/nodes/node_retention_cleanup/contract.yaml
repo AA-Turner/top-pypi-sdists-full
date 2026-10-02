@@ -1,0 +1,60 @@
+---
+name: retention_cleanup
+contract_version:
+  major: 1
+  minor: 2
+  patch: 0
+node_type: effect
+node_version:
+  major: 1
+  minor: 1
+  patch: 0
+description: >
+  Prunes stale records from projection tables per declarative retention policy.
+  Deletes never-store topics immediately, high-volume topics after 3 days,
+  and general events after 5 days. Tables and retention windows are
+  declared in this contract — changes require a contract bump, not a handler edit.
+handler:
+  module: omnimarket.nodes.node_retention_cleanup.handlers.handler_retention_cleanup
+  class: NodeRetentionCleanup
+  input_model: omnimarket.nodes.node_retention_cleanup.handlers.handler_retention_cleanup.RetentionCleanupRequest
+
+handler_routing:
+  handlers:
+    - operation: retention_cleanup
+      handler:
+        name: NodeRetentionCleanup
+        module: omnimarket.nodes.node_retention_cleanup.handlers.handler_retention_cleanup
+descriptor:
+  node_archetype: effect
+  purity: impure
+  idempotent: false
+  timeout_ms: 120000
+  runtime_profiles:
+    - effects
+terminal_event: onex.evt.omnimarket.retention-cleanup-completed.v1
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.retention-cleanup-requested.v1
+  publish_topics:
+    - onex.evt.omnimarket.retention-cleanup-completed.v1
+retention_policy:
+  targets:
+    - table: agent_actions
+      column: created_at
+      retention_days: 30
+    - table: agent_routing_decisions
+      column: created_at
+      retention_days: 30
+
+metadata:
+  transport_type: kafka
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.retention-cleanup-requested.v1
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.retention-cleanup-completed.v1

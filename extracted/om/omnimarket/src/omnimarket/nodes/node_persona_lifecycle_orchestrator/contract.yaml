@@ -1,0 +1,63 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+
+name: "node_persona_lifecycle_orchestrator"
+contract_version: {major: 0, minor: 1, patch: 0}
+node_version: {major: 0, minor: 1, patch: 0}
+description: >
+  Orchestrator node that coordinates persona snapshot builds. Handles tick-driven fan-out (up to 100 users
+  per tick) and on-demand single-user builds. Phase 3 Adaptive Personalization (OMN-7305).
+node_type: orchestrator
+runtime_profiles:
+  - main
+input_model: "ModelPersonaLifecycleRequest"
+output_model: "ModelPersonaLifecycleResponse"
+
+event_bus:
+  subscribe_topics:
+    - "onex.cmd.omnimemory.runtime-tick.v1"
+    - "onex.cmd.omnimemory.build-persona.v1"
+  publish_topics:
+    - "onex.evt.omnimemory.persona-snapshot-created.v1"
+
+externally_consumed_topics:
+  - "onex.evt.omnimemory.persona-snapshot-created.v1"
+
+handler_routing:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  routing_strategy: operation_match
+  handlers:
+    - operation: on_tick
+      handler:
+        name: "HandlerPersonaRebuild"
+        module: "omnimarket.nodes.node_persona_lifecycle_orchestrator.handlers.handler_persona_rebuild"
+    - operation: on_demand
+      handler:
+        name: "HandlerPersonaRebuild"
+        module: "omnimarket.nodes.node_persona_lifecycle_orchestrator.handlers.handler_persona_rebuild"
+  default_handler: null
+
+tags:
+  - persona
+  - orchestrator
+  - lifecycle
+  - phase-3
+
+metadata:
+  transport_type: kafka
+  runtime_owner: memory
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimemory.build-persona.v1
+
+# OMN-18013 -- explicit external PRODUCER declaration (contract topic graph closure).
+# Replaces the deleted contract_topic_graph_baseline.yaml external_producers map:
+# the declaration now lives beside the subscription it explains.
+externally_produced_topics:
+  - topic: onex.cmd.omnimemory.runtime-tick.v1
+    producer: "the onex skill/CLI dispatcher (`onex run-node` / `uv run onex skill ...`), which publishes this command directly -- not a node contract"

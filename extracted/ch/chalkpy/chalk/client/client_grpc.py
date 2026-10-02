@@ -169,6 +169,7 @@ from chalk._gen.chalk.server.v1.training_runs_pb2_grpc import TrainingRunService
 from chalk._gen.chalk.streaming.v1.simple_streaming_service_pb2_grpc import SimpleStreamingServiceStub
 from chalk._reporting.rich.color import CHALK_WEBSITE_GREEN
 from chalk.client import ChalkAuthException, ChalkError, FeatureReference
+from chalk.client._model_remote import with_model_deployment_key
 from chalk.client.client_headers import (
     CHALK_BRANCH_ID_HEADER,
     CHALK_DEPLOYMENT_TAG_HEADER_LOWERCASE,
@@ -178,6 +179,18 @@ from chalk.client.client_headers import (
 )
 from chalk.client.client_impl import _validate_context_dict  # pyright: ignore[reportPrivateUsage]
 from chalk.client.exc import ChalkCustomException
+from chalk.client.model_deployment import (
+    DEPLOY_MODEL_VERSION_DEPRECATION,
+    ListModelDeploymentRevisionsResponse,
+    ListModelDeploymentsResponse,
+    ModelDeployment,
+    ModelDeploymentRevision,
+    ModelDeploymentSpec,
+    ModelServingArtifact,
+    merge_model_spec,
+    model_deployment_from_proto,
+    model_deployment_revision_from_proto,
+)
 from chalk.client.model_image import (
     build_image_from_spec_bytes,
     build_image_from_spec_with_files,
@@ -265,11 +278,14 @@ from chalk.ml.utils import (
 )
 from chalk.parsed._proto.utils import datetime_to_proto_timestamp, value_to_proto
 from chalk.scalinggroup.spec import (
+    AutoScalingSpec,
     DeleteScalingGroupResponse,
     GrpcReadinessProbe,
     GrpcStartupProbe,
     ListScalingGroupsResponse,
     ScalingGroup,
+    ScalingGroupResourceRequest,
+    auto_scaling_spec_to_proto,
     proto_to_scaling_group,
 )
 from chalk.utils import df_utils
@@ -301,6 +317,11 @@ if TYPE_CHECKING:
     )
     from chalk._gen.chalk.aggregate.v1.service_pb2_grpc import AggregateServiceStub
     from chalk._gen.chalk.dataframe.v1.dataframe_pb2 import DataFramePlan
+    from chalk._gen.chalk.modeldeployment.v1.service_pb2 import (
+        CreateModelScalingGroupResponse,
+        GetModelScalingGroupResponse,
+        ModelScalingGroupSpec,
+    )
     from chalk._gen.chalk.server.v1.builder_pb2 import StartBranchResponse
     from chalk._gen.chalk.server.v1.builder_pb2_grpc import BuilderServiceStub
     from chalk._gen.chalk.server.v1.dataframe_pb2 import GetDataFrameRunResponse
@@ -1041,6 +1062,16 @@ def _python_value_to_proto(v: Any) -> "struct_pb2.Value":
     if v is None:
         return struct_pb2.Value(null_value=struct_pb2.NullValue.NULL_VALUE)
     return struct_pb2.Value(string_value=str(v))
+
+
+def _advance_cursor(seen: "set[str]", next_cursor: Optional[str]) -> Optional[str]:
+    """The cursor for the next page, or ``None`` on the last; raises if the server repeats a cursor."""
+    if not next_cursor:
+        return None
+    if next_cursor in seen:
+        raise RuntimeError(f"Server returned pagination cursor {next_cursor!r} twice; refusing to loop forever")
+    seen.add(next_cursor)
+    return next_cursor
 
 
 def _model_artifact_spec_from_proto(artifact: Any) -> ModelArtifactSpec:
@@ -3263,16 +3294,8 @@ class ChalkGRPCClient:
             latest_model_version=m.latest_model_version,
         )
 
-    def get_model_version(self, name: str, version: Optional[int] = None) -> ModelVersionResponse:
-        """Retrieve a single model version. `version=None` resolves the model's latest version.
-
-        Returns a `DeployedModelVersion` if the version has a scaling
-        group, otherwise a `RegisteredModelVersion`.
-
-        ``.remote()`` is available on a DeployedModelVersion.
-        """
-        from chalk.client._model_remote import ModelNotDeployedError, resolve_scaling_group_web_url
-
+    def _model_version_fields(self, name: str, version: Optional[int]) -> Dict[str, Any]:
+        """Registry fields shared by every `ModelVersionResponse`; ``version=None`` means the latest."""
         try:
             if version is None:
                 model_resp: GetModelResponse = self._stub_refresher.call_model_stub(
@@ -3293,7 +3316,7 @@ class ChalkGRPCClient:
         if not input_features and isinstance(artifact.input_schema, dict):
             # Image-only models declare their inputs via the schema, not input_features.
             input_features = list(artifact.input_schema.keys())
-        common: Dict[str, Any] = dict(
+        return dict(
             model_id=mv.id,
             model_name=mv.model_name,
             version=mv.version,
@@ -3303,11 +3326,53 @@ class ChalkGRPCClient:
             input_features=input_features,
             output_features=list(mv.model_artifact.spec.output_features),
         )
-        try:
-            web_url = resolve_scaling_group_web_url(self, name, version=mv.version)
-        except ModelNotDeployedError:
-            return RegisteredModelVersion(**common)
-        return DeployedModelVersion(_client=self, _web_url=web_url, **common)
+
+    def get_model_version(
+        self,
+        name: str,
+        version: Optional[int] = None,
+        *,
+        deployment_id: Optional[str] = None,
+        deployment_name: Optional[str] = None,
+    ) -> ModelVersionResponse:
+        """Retrieve a single model version.
+
+        Returns a `DeployedModelVersion` if the version's deployment is serving at a
+        public URL, otherwise a `RegisteredModelVersion`. See
+        `ChalkClient.get_model_version` for how a deployment is chosen.
+        """
+        from chalk.client._model_remote import (
+            ModelDeploymentNotReadyError,
+            ModelNotDeployedError,
+            resolve_model_deployment,
+        )
+        from chalk.client.model_deployment import model_version_from_metadata
+
+        group = None
+        if deployment_id is not None or deployment_name is not None:
+            # An explicit selection raises if it cannot be served, rather than falling back.
+            group = resolve_model_deployment(
+                self, name, version=version, deployment_id=deployment_id, deployment_name=deployment_name
+            )
+            if not group.web_url:
+                raise ModelDeploymentNotReadyError(
+                    f"Model deployment {group.name!r} has no public URL yet (status: {group.status or 'unknown'})"
+                )
+            if version is None:
+                version = model_version_from_metadata(group.metadata)[1]
+
+        fields = self._model_version_fields(name, version)
+        if group is None:
+            try:
+                group = resolve_model_deployment(self, name, version=fields["version"])
+            except ModelNotDeployedError:
+                return RegisteredModelVersion(**fields)
+            if not group.web_url:
+                return RegisteredModelVersion(**fields)
+        deployment = dataclasses.replace(
+            model_deployment_from_proto(group, self), _input_features=tuple(fields["input_features"])
+        )
+        return DeployedModelVersion(_deployment=deployment, **fields)
 
     def register_model_namespace(
         self,
@@ -5517,6 +5582,313 @@ class ChalkGRPCClient:
         volume_mounts = [volume_mount]
         return model_version, volume_mounts, image_uri, serving_handler
 
+    def _model_artifact(self, model_name: str, model_version: int, validate: bool) -> ModelServingArtifact:
+        """Build or upload what deploying ``model_version`` needs. This is the expensive step."""
+        version, volumes, image, serving_handler = self._ensure_model_image(
+            model_name, model_version, validate=validate
+        )
+        return ModelServingArtifact(version=version, volumes=volumes, image=image, serving_handler=serving_handler)
+
+    def _resolve_secret_refs(self, secrets: Sequence[Any]) -> List[Any]:
+        try:
+            from chalkcompute import (  # pyright: ignore[reportMissingImports]
+                ConnectClient,
+                Secret,
+                resolve_lazy_secrets,
+            )
+        except ImportError:
+            raise ImportError("Please install `chalkcompute` to enable injecting secrets into model deployments.")
+        if not all(isinstance(s, Secret) for s in secrets):
+            raise TypeError("Input `secrets` must be a list of Secret")
+        resolved_secrets, _ = resolve_lazy_secrets(list(secrets), ConnectClient(chalk_client=self))
+        return [s._to_proto_dict() for s in resolved_secrets]  # pyright: ignore[reportPrivateUsage]
+
+    def _build_model_scaling_group_spec(
+        self,
+        model_name: str,
+        model_version: int,
+        scaling: Optional[AutoScalingSpec],
+        resources: Optional[ScalingGroupResourceRequest],
+        handler: Optional[str],
+        env_vars: Optional[Mapping[str, str]],
+        secrets: Optional[Sequence[Any]],
+        readiness_probe: Optional["GrpcReadinessProbe"],
+        startup_probe: Optional["GrpcStartupProbe"],
+        chalk_workload_identity: bool,
+        validate: bool,
+    ) -> "ModelScalingGroupSpec":
+        """Build a complete model-serving spec for a new deployment."""
+        from chalk._gen.chalk.modeldeployment.v1 import service_pb2 as md_pb
+        from chalk._gen.chalk.models.v1.model_version_pb2 import ModelVersionIdentifier
+
+        artifact = self._model_artifact(model_name, model_version, validate)
+        base = md_pb.ModelScalingGroupSpec(
+            model_version=md_pb.ModelVersionSelector(
+                model_name=model_name,
+                identifier=ModelVersionIdentifier(version=artifact.version),
+            ),
+            # The server requires container_spec on every deploy, even when empty.
+            container_spec=md_pb.ModelContainerSpec(),
+            scaling_spec=auto_scaling_spec_to_proto(scaling or AutoScalingSpec()),
+        )
+        if chalk_workload_identity:
+            base.container_spec.chalk_workload_identity.SetInParent()
+        return merge_model_spec(
+            base,
+            artifact=artifact,
+            resources=resources,
+            handler=handler,
+            env_vars=env_vars,
+            secret_refs=self._resolve_secret_refs(secrets) if secrets is not None else None,
+            readiness_probe=readiness_probe,
+            startup_probe=startup_probe,
+        )
+
+    def _create_model_scaling_group(
+        self, deployment_name: str, spec: "ModelScalingGroupSpec"
+    ) -> "CreateModelScalingGroupResponse":
+        from chalk._gen.chalk.modeldeployment.v1 import service_pb2 as md_pb
+
+        # Sent through the top-level create fields rather than `spec`: every server that
+        # can create a model deployment accepts them, while `spec` is only understood by
+        # servers that also have the revision lifecycle RPCs.
+        request = md_pb.CreateModelScalingGroupRequest(
+            name=deployment_name,
+            model_name=spec.model_version.model_name,
+            identifier=spec.model_version.identifier,
+            container_spec=spec.container_spec,
+            scaling_spec=spec.scaling_spec,
+            handler=spec.handler if spec.HasField("handler") else None,
+            image=spec.image if spec.HasField("image") else None,
+        )
+        return self._stub_refresher.call_model_deployment_stub(lambda stub: stub.CreateModelScalingGroup(request))
+
+    def create_model_deployment(
+        self,
+        name: str,
+        model_name: str,
+        model_version: int,
+        scaling: Optional[AutoScalingSpec] = None,
+        resources: Optional[ScalingGroupResourceRequest] = None,
+        handler: Optional[str] = None,
+        env_vars: Optional[Mapping[str, str]] = None,
+        secrets: Optional[Sequence[Any]] = None,
+        readiness_probe: Optional["GrpcReadinessProbe"] = None,
+        startup_probe: Optional["GrpcStartupProbe"] = None,
+        validate: bool = True,
+        wait_ready: bool = True,
+        wait_timeout: float = 300,
+        chalk_workload_identity: bool = False,
+    ) -> ModelDeployment:
+        """Deploy a registered model version behind a stable, named endpoint.
+
+        See `ChalkClient.create_model_deployment` for parameter details.
+        """
+        spec = self._build_model_scaling_group_spec(
+            model_name=model_name,
+            model_version=model_version,
+            scaling=scaling,
+            resources=resources,
+            handler=handler,
+            env_vars=env_vars,
+            secrets=secrets,
+            readiness_probe=readiness_probe,
+            startup_probe=startup_probe,
+            chalk_workload_identity=chalk_workload_identity,
+            validate=validate,
+        )
+        deployment = model_deployment_from_proto(self._create_model_scaling_group(name, spec).scaling_group, self)
+        return deployment.wait_ready(timeout=wait_timeout) if wait_ready else deployment
+
+    def _get_model_scaling_group(
+        self, id: Optional[str], name: Optional[str], include_deleted: bool = False
+    ) -> "GetModelScalingGroupResponse":
+        from chalk._gen.chalk.modeldeployment.v1 import service_pb2 as md_pb
+
+        request = with_model_deployment_key(
+            md_pb.GetModelScalingGroupRequest(
+                include_deleted=include_deleted,
+            ),
+            id,
+            name,
+        )
+        return self._stub_refresher.call_model_deployment_stub(lambda stub: stub.GetModelScalingGroup(request))
+
+    def get_model_deployment(
+        self,
+        *,
+        id: Optional[str] = None,
+        name: Optional[str] = None,
+        include_deleted: bool = False,
+    ) -> ModelDeployment:
+        """Get a model deployment by exactly one of ID or name."""
+        response = self._get_model_scaling_group(id, name, include_deleted)
+        return model_deployment_from_proto(response.scaling_group, self)
+
+    def list_model_deployments(
+        self,
+        *,
+        model_name: Optional[str] = None,
+        model_version: Optional[int] = None,
+        cursor: Optional[str] = None,
+        limit: Optional[int] = None,
+        include_deleted: bool = False,
+    ) -> ListModelDeploymentsResponse:
+        """List one page of model deployments, optionally filtered to a model or model version.
+
+        Pass ``next_cursor`` back as ``cursor`` for the following page.
+        """
+        from chalk._gen.chalk.modeldeployment.v1 import service_pb2 as md_pb
+        from chalk._gen.chalk.models.v1.model_version_pb2 import ModelVersionIdentifier
+
+        request = md_pb.ListModelScalingGroupsRequest(cursor=cursor, limit=limit, include_deleted=include_deleted)
+        if model_version is not None:
+            if model_name is None:
+                raise ValueError("model_version requires model_name")
+            request.model_version.CopyFrom(
+                md_pb.ModelVersionSelector(
+                    model_name=model_name, identifier=ModelVersionIdentifier(version=model_version)
+                )
+            )
+        elif model_name is not None:
+            request.filters.model_name = model_name
+        response = self._stub_refresher.call_model_deployment_stub(lambda stub: stub.ListModelScalingGroups(request))
+        return ListModelDeploymentsResponse(
+            deployments=[model_deployment_from_proto(g, self) for g in response.scaling_groups],
+            next_cursor=response.next_cursor if response.HasField("next_cursor") and response.next_cursor else None,
+        )
+
+    def update_model_deployment(
+        self,
+        *,
+        id: Optional[str] = None,
+        name: Optional[str] = None,
+        spec: ModelDeploymentSpec,
+        validate: bool = True,
+        wait_ready: bool = True,
+        wait_timeout: float = 300,
+    ) -> ModelDeployment:
+        """Replace a deployment's whole spec with a new, selected revision.
+
+        See `ChalkClient.update_model_deployment` for parameter details.
+        """
+        from chalk._gen.chalk.modeldeployment.v1 import service_pb2 as md_pb
+
+        # Only the model name is read: it is fixed for the deployment's lifetime, and the
+        # new spec is built entirely from `spec`, so nothing else is carried over.
+        model_name = self.get_model_deployment(id=id, name=name).model_name
+        request = with_model_deployment_key(md_pb.UpdateModelScalingGroupRequest(), id, name)
+        request.spec.CopyFrom(
+            self._build_model_scaling_group_spec(
+                model_name=model_name,
+                model_version=spec.model_version,
+                scaling=spec.scaling,
+                resources=spec.resources,
+                handler=spec.handler,
+                env_vars=spec.env_vars,
+                secrets=spec.secrets,
+                readiness_probe=spec.readiness_probe,
+                startup_probe=spec.startup_probe,
+                chalk_workload_identity=spec.chalk_workload_identity,
+                validate=validate,
+            )
+        )
+        request.update_mask.paths.append("spec")
+        return self._update_model_scaling_group(request, wait_ready, wait_timeout)
+
+    def rollback_model_deployment(
+        self,
+        *,
+        id: Optional[str] = None,
+        name: Optional[str] = None,
+        revision_id: str,
+        wait_ready: bool = True,
+        wait_timeout: float = 300,
+    ) -> ModelDeployment:
+        """Serve an existing revision of a deployment.
+
+        See `ChalkClient.rollback_model_deployment` for parameter details.
+        """
+        from chalk._gen.chalk.modeldeployment.v1 import service_pb2 as md_pb
+
+        if not revision_id:
+            raise ValueError("rollback_model_deployment requires a revision_id")
+        request = with_model_deployment_key(md_pb.UpdateModelScalingGroupRequest(), id, name)
+        request.traffic.targets.add(model_scaling_group_revision_id=revision_id, percent=100)
+        request.update_mask.paths.append("traffic")
+        return self._update_model_scaling_group(request, wait_ready, wait_timeout)
+
+    def _update_model_scaling_group(self, request: Any, wait_ready: bool, wait_timeout: float) -> ModelDeployment:
+        response = self._stub_refresher.call_model_deployment_stub(lambda stub: stub.UpdateModelScalingGroup(request))
+        deployment = model_deployment_from_proto(response.scaling_group, self)
+        return deployment.wait_ready(timeout=wait_timeout) if wait_ready else deployment
+
+    def delete_model_deployment(
+        self,
+        *,
+        id: Optional[str] = None,
+        name: Optional[str] = None,
+    ) -> ModelDeployment:
+        """Delete a model deployment by exactly one of ID or name, returning its final state."""
+        from chalk._gen.chalk.modeldeployment.v1 import service_pb2 as md_pb
+
+        request = with_model_deployment_key(md_pb.DeleteModelScalingGroupRequest(), id, name)
+        response = self._stub_refresher.call_model_deployment_stub(lambda stub: stub.DeleteModelScalingGroup(request))
+        return model_deployment_from_proto(response.scaling_group, self)
+
+    def get_model_deployment_revision(
+        self,
+        revision_id: str,
+        *,
+        deployment_id: Optional[str] = None,
+        deployment_name: Optional[str] = None,
+        include_deleted: bool = False,
+    ) -> ModelDeploymentRevision:
+        """Get one revision of the deployment identified by exactly one of ``deployment_id`` or ``deployment_name``."""
+        from chalk._gen.chalk.modeldeployment.v1 import service_pb2 as md_pb
+
+        request = with_model_deployment_key(
+            md_pb.GetModelScalingGroupRevisionRequest(
+                revision_id=revision_id,
+                include_deleted=include_deleted,
+            ),
+            deployment_id,
+            deployment_name,
+        )
+        response = self._stub_refresher.call_model_deployment_stub(
+            lambda stub: stub.GetModelScalingGroupRevision(request)
+        )
+        return model_deployment_revision_from_proto(response.revision)
+
+    def list_model_deployment_revisions(
+        self,
+        *,
+        deployment_id: Optional[str] = None,
+        deployment_name: Optional[str] = None,
+        cursor: Optional[str] = None,
+        limit: Optional[int] = None,
+        include_deleted: bool = False,
+    ) -> ListModelDeploymentRevisionsResponse:
+        """List one page of a deployment's revisions. Exactly one of ``deployment_id`` or ``deployment_name`` is required."""
+        from chalk._gen.chalk.modeldeployment.v1 import service_pb2 as md_pb
+
+        request = with_model_deployment_key(
+            md_pb.ListModelScalingGroupRevisionsRequest(
+                cursor=cursor,
+                limit=limit,
+                include_deleted=include_deleted,
+            ),
+            deployment_id,
+            deployment_name,
+        )
+        response = self._stub_refresher.call_model_deployment_stub(
+            lambda stub: stub.ListModelScalingGroupRevisions(request)
+        )
+        return ListModelDeploymentRevisionsResponse(
+            revisions=[model_deployment_revision_from_proto(r) for r in response.revisions],
+            next_cursor=response.next_cursor if response.HasField("next_cursor") and response.next_cursor else None,
+        )
+
     def deploy_model_version_to_scaling_group(
         self,
         name: str,
@@ -5534,115 +5906,71 @@ class ChalkGRPCClient:
         secrets: Optional[List[Any]] = None,
         readiness_probe: Optional["GrpcReadinessProbe"] = None,
         startup_probe: Optional["GrpcStartupProbe"] = None,
+        chalk_workload_identity: bool = False,
     ) -> dict[str, Any]:
-        """Deploy a registered model version as a scaling group.
+        """Deprecated: use `create_model_deployment`.
 
-        Uses the authenticated gRPC channel with a raw unary call since
-        Python scaling group proto stubs are not yet generated.
+        Deploys without waiting for readiness and returns the raw
+        ``CreateModelScalingGroupResponse`` as a dictionary.
         """
-        model_version, inferred_volumes, image_uri, serving_handler = self._ensure_model_image(
-            model_name, model_version, validate=validate
+        warnings.warn(DEPLOY_MODEL_VERSION_DEPRECATION, DeprecationWarning, stacklevel=2)
+        return self._deploy_model_version_to_scaling_group(
+            name=name,
+            model_name=model_name,
+            model_version=model_version,
+            min_replicas=min_replicas,
+            max_replicas=max_replicas,
+            cpu=cpu,
+            memory=memory,
+            gpu=gpu,
+            handler=handler,
+            env_vars=env_vars,
+            target_cpu_utilization_percentage=target_cpu_utilization_percentage,
+            validate=validate,
+            secrets=secrets,
+            readiness_probe=readiness_probe,
+            startup_probe=startup_probe,
+            chalk_workload_identity=chalk_workload_identity,
         )
 
-        if serving_handler is not None:
-            if handler is None:
-                handler = serving_handler
-            if env_vars is None:
-                env_vars = {}
-            env_vars.setdefault("PYTHONPATH", "/app")
-            env_vars.setdefault("CHALK_FNQ_STREAMS_SUPPORTED", "true")
-
-        # Build protobuf-compatible JSON request matching CreateModelScalingGroupRequest
-        request_data: Dict[str, Any] = {
-            "name": name,
-            "model_name": model_name,
-            "identifier": {"version": model_version},
-            "scaling_spec": {
-                "min_replicas": min_replicas,
-                "max_replicas": max_replicas,
-            },
-        }
-
-        if target_cpu_utilization_percentage is not None:
-            request_data["scaling_spec"]["target_cpu_utilization_percentage"] = target_cpu_utilization_percentage
-
-        container_spec: Dict[str, Any] = {}
-        if cpu is not None or memory is not None or gpu is not None:
-            resources: Dict[str, str] = {}
-            if cpu is not None:
-                resources["cpu"] = cpu
-            if memory is not None:
-                resources["memory"] = memory
-            if gpu is not None:
-                resources["gpu"] = gpu
-            container_spec["resources"] = resources
-
-        if env_vars:
-            container_spec["env_vars"] = env_vars
-
-        if secrets is not None:
-            try:
-                from chalkcompute import (  # pyright: ignore[reportMissingImports]
-                    ConnectClient,
-                    Secret,
-                    resolve_lazy_secrets,
-                )
-
-                if not all(isinstance(s, Secret) for s in secrets):
-                    raise TypeError("Input `secrets` must be a list of Secret")
-
-                resolved_secrets, _ = resolve_lazy_secrets(secrets, ConnectClient(chalk_client=self))
-                container_spec["secretRefs"] = [
-                    s._to_proto_dict() for s in resolved_secrets  # pyright: ignore[reportPrivateUsage]
-                ]
-
-            except ImportError:
-                raise ImportError("Please install `chalkcompute` to enable injecting secrets into Scaling Groups.")
-
-        if inferred_volumes:
-            container_spec["volumes"] = inferred_volumes
-
-        if readiness_probe is not None:
-            grpc_readiness_probe: Dict[str, Any] = {}
-            if readiness_probe.service is not None:
-                grpc_readiness_probe["service"] = readiness_probe.service
-            readiness_probe_data: Dict[str, Any] = {"grpc": grpc_readiness_probe}
-            if readiness_probe.period_seconds is not None:
-                readiness_probe_data["period_seconds"] = readiness_probe.period_seconds
-            if readiness_probe.timeout_seconds is not None:
-                readiness_probe_data["timeout_seconds"] = readiness_probe.timeout_seconds
-            if readiness_probe.failure_threshold is not None:
-                readiness_probe_data["failure_threshold"] = readiness_probe.failure_threshold
-            container_spec["readiness_probe"] = readiness_probe_data
-
-        if startup_probe is not None:
-            grpc_startup_probe: Dict[str, Any] = {}
-            if startup_probe.method is not None:
-                grpc_startup_probe["method"] = startup_probe.method
-            container_spec["startup_probe"] = {"grpc": grpc_startup_probe}
-
-        # The server requires container_spec on every deploy, even when empty.
-        request_data["container_spec"] = container_spec
-
-        if handler is not None:
-            request_data["handler"] = handler
-
-        if image_uri is not None:
-            request_data["image"] = image_uri
-
-        from google.protobuf import json_format
-
-        request_json = json.dumps(request_data)
-
-        from chalk._gen.chalk.modeldeployment.v1 import service_pb2
-
-        def create_request_and_call(stub: ModelDeploymentServiceStub) -> dict[str, Any]:
-            req = service_pb2.CreateModelScalingGroupRequest()
-            json_format.Parse(request_json, req)
-            resp = stub.CreateModelScalingGroup(req)
-            return json_format.MessageToDict(resp)
-
-        return self._stub_refresher.call_model_deployment_stub(create_request_and_call)
+    def _deploy_model_version_to_scaling_group(
+        self,
+        name: str,
+        model_name: str,
+        model_version: int,
+        min_replicas: int,
+        max_replicas: int,
+        cpu: Optional[str],
+        memory: Optional[str],
+        gpu: Optional[str],
+        handler: Optional[str],
+        env_vars: Optional[Mapping[str, str]],
+        target_cpu_utilization_percentage: Optional[int],
+        validate: bool,
+        secrets: Optional[Sequence[Any]],
+        readiness_probe: Optional["GrpcReadinessProbe"],
+        startup_probe: Optional["GrpcStartupProbe"],
+        chalk_workload_identity: bool,
+    ) -> dict[str, Any]:
+        """The legacy deploy: shares create_model_deployment's request but never waits."""
+        spec = self._build_model_scaling_group_spec(
+            model_name=model_name,
+            model_version=model_version,
+            scaling=AutoScalingSpec(
+                min_replicas=min_replicas,
+                max_replicas=max_replicas,
+                target_cpu_utilization_percentage=target_cpu_utilization_percentage,
+            ),
+            resources=ScalingGroupResourceRequest(cpu=cpu, memory=memory, gpu=gpu),
+            handler=handler,
+            env_vars=env_vars,
+            secrets=secrets,
+            readiness_probe=readiness_probe,
+            startup_probe=startup_probe,
+            chalk_workload_identity=chalk_workload_identity,
+            validate=validate,
+        )
+        return json_format.MessageToDict(self._create_model_scaling_group(name, spec))
 
     def list_scaling_groups(self) -> ListScalingGroupsResponse:
         """List all scaling groups in the current environment.
@@ -5652,15 +5980,17 @@ class ChalkGRPCClient:
         ListScalingGroupsResponse
             Response containing a list of scaling groups.
         """
-
-        def do_call(stub: ScalingGroupManagerServiceStub):
-            req = scalinggroup_service_pb2.ListScalingGroupsRequest()
-            resp = stub.ListScalingGroups(req)
-            return resp
-
-        resp = self._stub_refresher.call_scaling_group_stub(do_call)
-        scaling_groups = [proto_to_scaling_group(sg) for sg in resp.scaling_groups]
-        return ListScalingGroupsResponse(scalingGroups=scaling_groups)
+        groups: List[ScalingGroup] = []
+        cursor: Optional[str] = None
+        seen_cursors: set[str] = set()
+        while True:
+            request = scalinggroup_service_pb2.ListScalingGroupsRequest(cursor=cursor)
+            resp = self._stub_refresher.call_scaling_group_stub(lambda stub: stub.ListScalingGroups(request))
+            groups.extend(proto_to_scaling_group(sg) for sg in resp.scaling_groups)
+            cursor = _advance_cursor(seen_cursors, resp.next_cursor if resp.HasField("next_cursor") else None)
+            if cursor is None:
+                break
+        return ListScalingGroupsResponse(scalingGroups=groups)
 
     def get_scaling_group(self, name: Optional[str] = None, id: Optional[str] = None) -> ScalingGroup:
         """Get a scaling group by name or id.

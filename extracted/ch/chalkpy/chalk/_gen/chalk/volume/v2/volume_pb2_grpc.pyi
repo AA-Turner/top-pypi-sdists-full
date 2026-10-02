@@ -24,6 +24,8 @@ from chalk._gen.chalk.volume.v2.volume_pb2 import (
     GetCommitStatusResponse,
     GetFileRequest,
     GetFileResponse,
+    GetVolumeCredentialsRequest,
+    GetVolumeCredentialsResponse,
     GetVolumeRequest,
     GetVolumeResponse,
     GetVolumeStatsRequest,
@@ -62,6 +64,10 @@ class VolumeServiceStub:
     GetVolume: UnaryUnaryMultiCallable[
         GetVolumeRequest,
         GetVolumeResponse,
+    ]
+    GetVolumeCredentials: UnaryUnaryMultiCallable[
+        GetVolumeCredentialsRequest,
+        GetVolumeCredentialsResponse,
     ]
     GetVolumeStats: UnaryUnaryMultiCallable[
         GetVolumeStatsRequest,
@@ -138,6 +144,12 @@ class VolumeServiceServicer(metaclass=ABCMeta):
         request: GetVolumeRequest,
         context: ServicerContext,
     ) -> GetVolumeResponse: ...
+    @abstractmethod
+    def GetVolumeCredentials(
+        self,
+        request: GetVolumeCredentialsRequest,
+        context: ServicerContext,
+    ) -> GetVolumeCredentialsResponse: ...
     @abstractmethod
     def GetVolumeStats(
         self,

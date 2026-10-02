@@ -2,29 +2,23 @@
 from unittest.mock import MagicMock
 
 # Django
-from django.test import TestCase
 from django.urls import reverse
 
 # AA Killstats
 from killstats.auth_hooks import KillstatsMenuItem, register_charlink_hook
-from killstats.tests.testdata.load_allianceauth import load_allianceauth
-from killstats.tests.testdata.utils import create_user_from_evecharacter_with_access
+from killstats.tests import AuthTestCase
 
 
-class TestAuthHooks(TestCase):
+class TestAuthHooks(AuthTestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        load_allianceauth()
 
-        cls.user, cls.character_ownership = create_user_from_evecharacter_with_access(
-            character_id=1001, disconnect_signals=True
-        )
         cls.html_menu = f"""
             <li class="d-flex flex-wrap m-2 p-2 pt-0 pb-0 mt-0 mb-0 me-0 pe-0">
                 <i class="nav-link fas fa-star fa-fw fa-fw align-self-center me-3 active"></i>
-                <a class="nav-link flex-fill align-self-center me-auto active" href="{reverse('killstats:index')}">
+                <a class="nav-link flex-fill align-self-center me-auto active" href="{reverse('killstats:react_base')}">
                     Killstats
                 </a>
             </li>
@@ -34,7 +28,7 @@ class TestAuthHooks(TestCase):
         self.client.force_login(self.user)
 
         response = self.client.get(
-            reverse("killstats:index"), follow=True
+            reverse("killstats:react_base"), follow=True
         )  # Follow redirects
 
         # Überprüfen, ob der Benutzer korrekt weitergeleitet wurde

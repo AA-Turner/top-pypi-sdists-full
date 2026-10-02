@@ -383,6 +383,8 @@ class Platform(Trait):
             **super().info(),
             # Extra fields from distro.info().
             "distro_id": None,
+            # Product release a version does not carry, like Windows "11".
+            "release": None,
             "version": None,
             "version_parts": {"major": None, "minor": None, "build_number": None},
             "like": None,
@@ -440,8 +442,10 @@ class Shell(Trait):
 
     Most shells answer to their {attr}`~extra_platforms.Trait.id` alone, so the
     field stays empty. {data}`~extra_platforms.POWERSHELL` ships as ``pwsh`` on
-    every platform since ``6.0`` and as ``powershell_ise`` on Windows, and
-    {data}`~extra_platforms.NUSHELL` as ``nu``. Detection matches the resolved
+    every platform since ``6.0`` and as ``powershell_ise`` on Windows,
+    {data}`~extra_platforms.NUSHELL` as ``nu``, and
+    {data}`~extra_platforms.KSH` as ``ksh93`` on Fedora and illumos, where
+    ``ksh`` links to it. Detection matches the resolved
     ``SHELL`` path and the parent process tree against
     {attr}`executable_names`, and so does
     {func}`~extra_platforms.shell_from_path`.
@@ -478,11 +482,9 @@ class Shell(Trait):
                 info["version"] = environ.get(self.version_env_var)
             # Prefer the actual running binary from the process tree over the
             # configured login shell in SHELL.
-            from .detection import _running_shell_path
+            from .detection import _shell_path
 
-            info["path"] = _running_shell_path(self.executable_names) or environ.get(
-                "SHELL"
-            )
+            info["path"] = _shell_path(self.executable_names)
         return info
 
 

@@ -1,0 +1,42 @@
+[package]
+name = "chalk-remote-call-server"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "_native"
+crate-type = ["cdylib"]
+
+[dependencies]
+chalk-remote-call-proto = { path = "../chalk-remote-call-proto" }
+redis = { version = "1.0.2", features = ["aio", "tokio-comp", "streams", "connection-manager"] }
+pyo3 = { version = "0.27", features = ["extension-module"] }
+tonic = "0.12"
+tonic-health = "0.12"
+tonic-reflection = "0.12"
+prost = "0.13"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "signal", "time"] }
+tokio-stream = "0.1"
+arrow = { version = "54", default-features = false, features = ["ipc"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+bytes = "1"
+serde_json = "1"
+uuid = { version = "1", features = ["v4"] }
+dashmap = "5"
+futures-util = "0.3"
+
+# Linux-only: the self-consumer (chalk-queue) and its metrics pipeline
+# (chalk_metrics / chalk_statsd) run only on the Linux scaling-group pods. These
+# chalk-private git deps don't build off-Linux — chalk_metrics pulls rdkafka
+# whose `sasl` feature requires cyrus-sasl (no Windows support), and chalk-protos
+# needs protoc — so gating them to Linux keeps the gRPC server/client wheel
+# installable on macOS/Windows (where chalkcompute consumes it). Pinned to a
+# chalk-private commit, mirroring how chalkcompute_remote_client depends on
+# chalk_remote_call_client. chalk-queue declares `redis = "1.0.2"`; with no
+# `[patch.crates-io]` here it builds against vanilla crates.io redis (it only
+# uses standard APIs). Metrics and StatsD share a revision so their client types agree.
+[target.'cfg(target_os = "linux")'.dependencies]
+chalk-queue = { git = "https://github.com/chalk-ai/chalk-private.git", rev = "1460144ea659debbaee9dccadcd4d7dbf383ccf8" }
+chalk_metrics = { git = "https://github.com/chalk-ai/chalk-private.git", rev = "a0f8932ec10d3b8340af3e98cf63b800d60b4926" }
+chalk_statsd = { git = "https://github.com/chalk-ai/chalk-private.git", rev = "a0f8932ec10d3b8340af3e98cf63b800d60b4926" }

@@ -1,0 +1,59 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Infisical adapter configuration model.
+
+.. versionadded:: 0.9.0
+    Initial implementation for OMN-2286.
+"""
+
+from __future__ import annotations
+
+import os
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
+
+
+class ModelInfisicalAdapterConfig(BaseModel):
+    """Configuration for the Infisical adapter.
+
+    Attributes:
+        host: Infisical server URL.
+        client_id: Machine identity client ID for Universal Auth.
+        client_secret: Machine identity client secret for Universal Auth.
+        project_id: Default Infisical project ID.
+        environment_slug: Default environment slug (e.g., ``dev``, ``staging``, ``prod``).
+        secret_path: Default secret path prefix (e.g., ``/``).
+    """
+
+    model_config = ConfigDict(
+        frozen=True,
+        extra="forbid",
+        from_attributes=True,
+    )
+
+    host: str = Field(
+        default_factory=lambda: os.environ["INFISICAL_ADDR"],
+        description="Infisical server URL.",
+    )
+    client_id: SecretStr = Field(
+        ...,
+        description="Machine identity client ID for Universal Auth.",
+    )
+    client_secret: SecretStr = Field(
+        ...,
+        description="Machine identity client secret for Universal Auth.",
+    )
+    project_id: UUID = Field(
+        ...,
+        description="Default Infisical project ID.",
+    )
+    environment_slug: str = Field(
+        default="prod",
+        min_length=1,
+        description="Default environment slug.",
+    )
+    secret_path: str = Field(
+        default="/",
+        description="Default secret path prefix.",
+    )

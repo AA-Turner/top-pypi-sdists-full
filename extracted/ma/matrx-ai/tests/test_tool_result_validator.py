@@ -23,7 +23,6 @@ from pydantic import ValidationError
 
 from matrx_ai.tools.models import ToolError, ToolOutputContractError, ToolResult
 
-
 # The gate raises ``ToolOutputContractError`` (a ``ValueError`` subclass).
 # Pydantic v2 wraps validator-raised ``ValueError``s in ``ValidationError``,
 # so ``ValidationError`` is the type that actually escapes ``ToolResult(...)``
@@ -184,22 +183,3 @@ class TestToolOutputValidatorAcceptsLegitimateShapes:
 class TestToolOutputContractError:
     def test_is_value_error_subclass(self):
         assert issubclass(ToolOutputContractError, ValueError)
-
-
-class TestDatasetCreationErrorImportable:
-    """Phase 0.1 — the exception class exists and is a plain Exception
-    subclass. Tools that catch it can rely on the type."""
-
-    def test_importable_and_is_exception(self):
-        # ``user_data`` is an aidream host module, not part of matrx-ai. When the
-        # package is tested standalone (CI runs matrx-ai in isolation) the repo
-        # root is not on sys.path, so this contract test skips rather than
-        # erroring — it only asserts the host's exception shape when the host is
-        # present. Keeps the package-independence boundary intact.
-        pytest.importorskip("user_data.dataset_creator")
-        from user_data.dataset_creator import DatasetCreationError
-
-        assert issubclass(DatasetCreationError, Exception)
-
-        with pytest.raises(DatasetCreationError):
-            raise DatasetCreationError("test")

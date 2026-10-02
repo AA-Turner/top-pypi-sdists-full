@@ -1,0 +1,531 @@
+"""
+@relation(SDOC-SRS-21, scope=file)
+"""
+
+from collections import OrderedDict
+from typing import Any, Dict, Generator, List, Optional, Tuple, Union
+
+from strictdoc.backend.sdoc.models.model import (
+    RequirementFieldName,
+)
+from strictdoc.helpers.auto_described import auto_described
+from strictdoc.helpers.mid import MID
+
+
+class RequirementFieldType:
+    STRING = "String"
+    SINGLE_CHOICE = "SingleChoice"
+    MULTIPLE_CHOICE = "MultipleChoice"
+    TAG = "Tag"
+
+
+class GrammarReferenceType:
+    PARENT_REQ_REFERENCE = "ParentReqReference"
+    CHILD_REQ_REFERENCE = "ChildReqReference"
+    FILE_REFERENCE = "FileReference"
+
+
+class ReferenceType:
+    PARENT = "Parent"
+    CHILD = "Child"
+    FILE = "File"
+
+    GRAMMAR_REFERENCE_TYPE_MAP = {
+        PARENT: GrammarReferenceType.PARENT_REQ_REFERENCE,
+        CHILD: GrammarReferenceType.CHILD_REQ_REFERENCE,
+        FILE: GrammarReferenceType.FILE_REFERENCE,
+    }
+
+
+@auto_described
+class GrammarElementField:
+    def __init__(self) -> None:
+        self.title: str = ""
+        self.human_title: Optional[str] = None
+        self.gef_type: str = ""
+        self.required: bool = False
+        self.mid: MID = MID.create()
+
+    def get_field_human_name(self) -> str:
+        if self.human_title is not None:
+            return self.human_title
+        return self.title
+
+
+@auto_described
+class GrammarElementFieldString(GrammarElementField):
+    def __init__(
+        self, parent: Any, title: str, human_title: Optional[str], required: str
+    ) -> None:
+        super().__init__()
+        self.parent: Any = parent
+        self.title: str = title
+        self.human_title: Optional[str] = human_title
+        self.gef_type = RequirementFieldType.STRING
+        self.required: bool = required == "True"
+        self.mid: MID = MID.create()
+
+
+@auto_described
+class GrammarElementFieldSingleChoice(GrammarElementField):
+    def __init__(
+        self,
+        parent: Any,
+        title: str,
+        human_title: Optional[str],
+        options: List[str],
+        required: str,
+    ) -> None:
+        super().__init__()
+        self.parent: Any = parent
+        self.title: str = title
+        self.human_title: Optional[str] = human_title
+        self.gef_type = RequirementFieldType.SINGLE_CHOICE
+
+        processed_options = []
+        for option_ in options:
+            processed_options.append(option_.strip('"'))
+        self.options: List[str] = processed_options
+
+        self.required: bool = required == "True"
+        self.mid: MID = MID.create()
+
+    def get_unprocessed_options(self) -> List[str]:
+        unprocessed_options = []
+        for option_ in self.options:
+            if any(char_ in option_ for char_ in ["(", ")"]):
+                unprocessed_options.append('"' + option_ + '"')
+            else:
+                unprocessed_options.append(option_)
+        return unprocessed_options
+
+
+@auto_described
+class GrammarElementFieldMultipleChoice(GrammarElementField):
+    def __init__(
+        self,
+        parent: Any,
+        title: str,
+        human_title: Optional[str],
+        options: List[str],
+        required: str,
+    ) -> None:
+        super().__init__()
+        self.parent: Any = parent
+        self.title: str = title
+        self.human_title: Optional[str] = human_title
+        self.gef_type = RequirementFieldType.MULTIPLE_CHOICE
+        self.options: List[str] = options
+        self.required: bool = required == "True"
+        self.mid: MID = MID.create()
+
+
+@auto_described
+class GrammarElementFieldTag(GrammarElementField):
+    def __init__(
+        self, parent: Any, title: str, human_title: Optional[str], required: str
+    ) -> None:
+        super().__init__()
+        self.parent: Any = parent
+        self.title: str = title
+        self.human_title: Optional[str] = human_title
+        self.gef_type = RequirementFieldType.TAG
+        self.required: bool = required == "True"
+        self.mid: MID = MID.create()
+
+
+GrammarElementFieldType = Union[
+    GrammarElementFieldString,
+    GrammarElementFieldSingleChoice,
+    GrammarElementFieldMultipleChoice,
+    GrammarElementFieldTag,
+]
+
+
+@auto_described
+class GrammarElementRelationParent:  # noqa: PLW1641
+    def __init__(
+        self,
+        parent: Any,
+        relation_type: str,
+        relation_role: Optional[str],
+        reverse_relation_role: Optional[str] = None,
+    ) -> None:
+        assert relation_type == "Parent"
+        self.parent: Any = parent
+        self.relation_type: str = relation_type
+        self.relation_role: Optional[str] = (
+            relation_role
+            if relation_role is not None and len(relation_role) > 0
+            else None
+        )
+        self.reverse_relation_role: Optional[str] = (
+            reverse_relation_role
+            if reverse_relation_role is not None
+            and len(reverse_relation_role) > 0
+            else None
+        )
+        self.mid: MID = MID.create()
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, GrammarElementRelationParent):
+            raise AssertionError(self, other)  # pragma: no cover
+        return (
+            self.mid == other.mid
+            and self.relation_type == other.relation_type
+            and self.relation_role == other.relation_role
+            and self.reverse_relation_role == other.reverse_relation_role
+        )
+
+
+@auto_described
+class GrammarElementRelationChild:
+    def __init__(
+        self,
+        parent: Any,
+        relation_type: str,
+        relation_role: Optional[str],
+        reverse_relation_role: Optional[str] = None,
+    ):
+        assert relation_type == "Child"
+        self.parent: Any = parent
+        self.relation_type = relation_type
+        self.relation_role: Optional[str] = (
+            relation_role
+            if relation_role is not None and len(relation_role) > 0
+            else None
+        )
+        self.reverse_relation_role: Optional[str] = (
+            reverse_relation_role
+            if reverse_relation_role is not None
+            and len(reverse_relation_role) > 0
+            else None
+        )
+        self.mid: MID = MID.create()
+
+
+@auto_described
+class GrammarElementRelationFile:
+    def __init__(
+        self,
+        parent: Any,
+        relation_type: str,
+        relation_role: Optional[str],
+        reverse_relation_role: Optional[str] = None,
+    ):
+        assert relation_type == "File"
+        self.parent: Any = parent
+        self.relation_type = relation_type
+        self.relation_role: Optional[str] = (
+            relation_role
+            if relation_role is not None and len(relation_role) > 0
+            else None
+        )
+        self.reverse_relation_role: Optional[str] = (
+            reverse_relation_role
+            if reverse_relation_role is not None
+            and len(reverse_relation_role) > 0
+            else None
+        )
+        self.mid: MID = MID.create()
+
+
+GrammarElementRelationType = Union[
+    GrammarElementRelationParent,
+    GrammarElementRelationChild,
+    GrammarElementRelationFile,
+]
+
+
+@auto_described()
+class GrammarElement:
+    def __init__(
+        self,
+        *,
+        parent: Any,
+        tag: str,
+        property_is_composite: str,
+        property_prefix: str,
+        property_view_style: str,
+        fields: List[GrammarElementFieldType],
+        relations: List[GrammarElementRelationType],
+    ) -> None:
+        self.parent: Any = parent
+        self.tag: str = tag
+
+        assert property_is_composite in ("", "True", "False")
+        self.property_is_composite: Optional[bool] = (
+            None
+            if property_is_composite == ""
+            else (property_is_composite == "True")
+        )
+
+        self.property_prefix: Optional[str] = (
+            property_prefix if property_prefix not in (None, "") else None
+        )
+
+        assert property_view_style in (
+            "",
+            "Plain",
+            "Narrative",
+            "Simple",
+            "Inline",
+            "Table",
+            "Zebra",
+        )
+        self.property_view_style: Optional[str] = (
+            property_view_style if property_view_style != "" else None
+        )
+        self.property_view_style_lower: Optional[str] = (
+            property_view_style.lower() if property_view_style != "" else None
+        )
+
+        self.fields: List[GrammarElementFieldType] = fields
+
+        self.relations: List[GrammarElementRelationType] = (
+            relations if relations is not None and len(relations) > 0 else []
+        )
+
+        fields_map: OrderedDict[str, GrammarElementField] = OrderedDict()
+
+        statement_field: Optional[Tuple[str, int]] = None
+        description_field: Optional[Tuple[str, int]] = None
+        content_field: Optional[Tuple[str, int]] = None
+        for field_idx_, field_ in enumerate(fields):
+            fields_map[field_.title] = field_
+            if field_.title == RequirementFieldName.STATEMENT:
+                statement_field = (RequirementFieldName.STATEMENT, field_idx_)
+            elif field_.title == "DESCRIPTION":
+                description_field = (
+                    RequirementFieldName.DESCRIPTION,
+                    field_idx_,
+                )
+            elif field_.title == "CONTENT":
+                content_field = (RequirementFieldName.CONTENT, field_idx_)
+            else:
+                pass
+        self.fields_map: Dict[str, GrammarElementField] = fields_map
+
+        self.field_titles: List[str] = list(
+            map(lambda field__: field__.title, self.fields)
+        )
+
+        self.content_field: Tuple[str, int] = (
+            statement_field or description_field or content_field or ("", -1)
+        )
+
+        # The following rule governs which fields are treated as single-line and
+        # which are treated as multiline:
+        # 1) If a node has a content field, e.g., STATEMENT, CONTENT or
+        # DESCRIPTION, then the fields before it are treated as single-line, and
+        # the fields starting from it and after it are treated as multiline.
+        # 2) If there is no content field, use TITLE as a boundary between the
+        # single-line and multiline. Note that this also covers the case when
+        # the TITLE is the last field in which case there are no multiline fields.
+        # 3) If there is no content field and no TITLE, treat all fields as
+        # multiline by setting the multiline_field_index to -1, which is less
+        # than any valid field index.
+        if self.content_field[1] != -1:
+            multiline_field_index = self.content_field[1]
+        else:
+            try:
+                multiline_field_index = (
+                    self.get_field_titles().index("TITLE") + 1
+                )
+            except ValueError:
+                multiline_field_index = -1
+        self._multiline_field_index: int = multiline_field_index
+
+        self.mid: MID = MID.create()
+        self.ng_line_start: Optional[int] = None
+        self.ng_col_start: Optional[int] = None
+
+    @staticmethod
+    def create_default(tag: str) -> "GrammarElement":
+        return GrammarElement(
+            parent=None,
+            tag=tag,
+            property_is_composite="",
+            property_prefix="",
+            property_view_style="",
+            fields=[
+                GrammarElementFieldString(
+                    parent=None,
+                    title="UID",
+                    human_title=None,
+                    required="False",
+                ),
+                GrammarElementFieldString(
+                    parent=None,
+                    title="TITLE",
+                    human_title=None,
+                    required="False",
+                ),
+                GrammarElementFieldString(
+                    parent=None,
+                    title="STATEMENT",
+                    human_title=None,
+                    required="False",
+                ),
+            ],
+            relations=[],
+        )
+
+    @staticmethod
+    def create_default_relations(
+        parent: "GrammarElement",
+        include_child: bool = False,
+    ) -> List[GrammarElementRelationType]:
+        relations: List[GrammarElementRelationType] = [
+            GrammarElementRelationParent(
+                parent=parent,
+                relation_type="Parent",
+                relation_role=None,
+                reverse_relation_role=None,
+            ),
+        ]
+        if include_child:
+            relations.append(
+                GrammarElementRelationChild(
+                    parent=parent,
+                    relation_type="Child",
+                    relation_role=None,
+                    reverse_relation_role=None,
+                )
+            )
+        relations.append(
+            GrammarElementRelationFile(
+                parent=parent,
+                relation_type="File",
+                relation_role=None,
+                reverse_relation_role=None,
+            )
+        )
+        return relations
+
+    def is_field_multiline(self, field_name: str) -> bool:
+        field_index = self.field_titles.index(field_name)
+        return self.is_field_idx_multiline(field_index)
+
+    def is_field_idx_multiline(self, field_idx: int) -> bool:
+        """
+        Determine whether a given field shall be treated as single-line or
+        multiline.
+
+        Currently this method is used for two StrictDoc decisions at the SDoc
+        markup and GUI levels:
+
+        1) Single-line vs multiline. When writing Python objects from memory to
+           an SDoc file, StrictDoc must know a field's type in order to serialize
+           it as either single-line or multiline (>>>...<<<).
+        2) Meta vs content. Usually, all meta fields are rendered in a separate
+           block above/before the multiline fields.
+
+        We may introduce a more formal SDoc model to distinguish between
+        single-line vs multilines and meta vs content fields in the future.
+        See this discussion for more details:
+
+        https://github.com/strictdoc-project/strictdoc/discussions/2221
+        """
+
+        field_name = self.field_titles[field_idx]
+
+        # Reserved single-line/meta fields can never be multiline.
+        if field_name in RequirementFieldName.RESERVED_SINGLELINE_FIELDS:
+            return False
+
+        # If there is none of TITLE-STATEMENT-DESCRIPTION-CONTENT present, i.e.,
+        # multiline_field_index is -1, every field will be treated as multiline.
+        is_multiline = self._multiline_field_index <= field_idx
+        if not is_multiline:
+            return False
+
+        # If the field should be multiline according to its index, we additionally
+        # check if it is of a non-String type because all non-String types are
+        # currently treated as single-line.
+        field = self.fields_map[field_name]
+        if field.gef_type != RequirementFieldType.STRING:
+            return False
+
+        return True
+
+    def get_view_style(self) -> Optional[str]:
+        if self.property_view_style_lower is not None:
+            return self.property_view_style_lower
+        # For backward compatibility with older versions that didn't have the
+        # [[NODE]] syntax and didn't enter the corresponding template migration,
+        # keep the TEXT nodes to have a "plain" style unless their type is
+        # specified by the grammar.
+        if self.tag == "TEXT":
+            return "plain"
+        return None
+
+    def get_relation_types(self) -> List[str]:
+        return list(
+            map(lambda relation_: relation_.relation_type, self.relations)
+        )
+
+    def get_field_titles(self) -> List[str]:
+        return self.field_titles
+
+    def get_tag_lower(self) -> str:
+        return self.tag.lower()
+
+    def has_relation_type_role(
+        self, relation_type: str, relation_role: Optional[str]
+    ) -> bool:
+        assert relation_role is None or len(relation_role) > 0
+        for relation_ in self.relations:
+            if (
+                relation_.relation_type == relation_type
+                and relation_.relation_role == relation_role
+            ):
+                return True
+        return False
+
+    def get_relation_reverse_role(
+        self, relation_type: str, relation_role: Optional[str]
+    ) -> Optional[str]:
+        assert relation_role is None or len(relation_role) > 0
+        for relation_ in self.relations:
+            if (
+                relation_.relation_type == relation_type
+                and relation_.relation_role == relation_role
+            ):
+                return relation_.reverse_relation_role
+        return None
+
+    def enumerate_table_meta_field_titles(self) -> Generator[str, None, None]:
+        for field in self.fields:
+            if field.title in (
+                RequirementFieldName.TITLE,
+                RequirementFieldName.STATEMENT,
+            ):
+                break
+            if field.title in RequirementFieldName.RESERVED_NON_META_FIELDS:
+                continue
+            # LEVEL is excluded because the Table screen always displays it
+            # separately as a table's second column.
+            if field.title == RequirementFieldName.LEVEL:
+                continue
+            yield field.title
+
+    def enumerate_table_non_reserved_content_field_titles(
+        self,
+    ) -> Generator[str, None, None]:
+        after_title_or_statement = False
+        for field in self.fields:
+            if field.title in (
+                RequirementFieldName.TITLE,
+                RequirementFieldName.STATEMENT,
+            ):
+                after_title_or_statement = True
+            if field.title in RequirementFieldName.RESERVED_NON_META_FIELDS:
+                continue
+            if not after_title_or_statement:
+                continue
+            # LEVEL is excluded because the Table screen always displays it
+            # separately as a table's second column.
+            if field.title == RequirementFieldName.LEVEL:
+                continue
+            yield field.title

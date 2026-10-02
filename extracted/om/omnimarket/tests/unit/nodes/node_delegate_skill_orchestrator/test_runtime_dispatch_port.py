@@ -1,0 +1,600 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Unit tests for RuntimeDelegationDispatchPort."""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from uuid import uuid4
+
+import pytest
+from omnibase_core.models.delegation.wire import (
+    EnumDelegationTerminalFailureCause,
+    EnumDelegationTrafficClass,
+    EnumQualityScoreComparison,
+    ModelDelegationProvenance,
+)
+from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
+from omnibase_infra.event_bus.event_bus_inmemory import EventBusInmemory
+from omnibase_infra.event_bus.models.model_event_message import ModelEventMessage
+
+from omnimarket.nodes.node_delegate_skill_orchestrator.models import (
+    ModelRuntimeDelegationDispatchConfig,
+    ModelRuntimeDelegationDispatchTopics,
+)
+from omnimarket.nodes.node_delegate_skill_orchestrator.ports import (
+    RuntimeDelegationDispatchPort,
+)
+from omnimarket.nodes.node_delegation_orchestrator.contract_topics import (
+    TOPIC_ID_DELEGATION_COMPLETED as TOPIC_DELEGATION_COMPLETED,
+)
+from omnimarket.nodes.node_delegation_orchestrator.contract_topics import (
+    TOPIC_ID_DELEGATION_FAILED as TOPIC_DELEGATION_FAILED,
+)
+from omnimarket.nodes.node_delegation_orchestrator.contract_topics import (
+    TOPIC_ID_DELEGATION_REQUEST as TOPIC_DELEGATION_REQUEST,
+)
+from omnimarket.nodes.node_delegation_orchestrator.models.model_delegation_request import (
+    ModelDelegationRequest,
+)
+from omnimarket.nodes.node_delegation_orchestrator.models.model_delegation_result import (
+    ModelDelegationResult,
+)
+
+
+class _CapturingEventBus:
+    def __init__(self) -> None:
+        self.published: list[tuple[str, bytes]] = []
+        self.subscriptions: list[tuple[str, str | None]] = []
+
+    async def publish(
+        self,
+        topic: str,
+        key: bytes | None,
+        value: bytes,
+        headers: object = None,
+    ) -> None:
+        self.published.append((topic, value))
+
+    async def subscribe(
+        self,
+        topic: str,
+        node_identity: object | None = None,
+        on_message: object | None = None,
+        **kwargs: object,
+    ) -> object:
+        group_id = kwargs.get("group_id")
+        self.subscriptions.append(
+            (topic, group_id if isinstance(group_id, str) else None)
+        )
+
+        async def unsubscribe() -> None:
+            return None
+
+        return unsubscribe
+
+
+def _runtime_dispatch_config() -> ModelRuntimeDelegationDispatchConfig:
+    return ModelRuntimeDelegationDispatchConfig(
+        topics=ModelRuntimeDelegationDispatchTopics(
+            command="test.cmd.delegation-request",
+            completed="test.evt.delegation-completed",
+            failed="test.evt.delegation-failed",
+        ),
+        request_message_type="test.delegation-request",
+        source_tool="test-delegate-port",
+        consumer_group_prefix="test-delegate-port",
+        wait_timeout_seconds=1,
+    )
+
+
+async def _publish_terminal_response(
+    bus: EventBusInmemory,
+    message: ModelEventMessage,
+    *,
+    topic: str,
+    result: ModelDelegationResult,
+    received_requests: list[ModelDelegationRequest] | None = None,
+) -> None:
+    envelope = ModelEventEnvelope[ModelDelegationRequest].model_validate_json(
+        message.value
+    )
+    if received_requests is not None:
+        received_requests.append(envelope.payload)
+    # OMN-14600: the runtime publishes a SINGLE canonical ModelEventEnvelope
+    # whose payload is the unwrapped ModelDelegationResult directly — no
+    # bespoke inner envelope. This mirrors DispatchResultApplier's actual
+    # wire shape (service_dispatch_result_applier.py).
+    response = ModelEventEnvelope[ModelDelegationResult](
+        payload=result,
+        correlation_id=result.correlation_id,
+        envelope_timestamp=datetime.now(UTC),
+        event_type=topic,
+        source_tool="delegate-skill-port-test",
+    )
+    await bus.publish(
+        topic,
+        None,
+        response.model_dump_json().encode("utf-8"),
+        None,
+    )
+
+
+@pytest.mark.unit
+async def test_runtime_dispatch_port_publishes_message_type_not_topic_as_event_type() -> (
+    None
+):
+    """Envelope event_type must be the routing key, not the full topic string.
+
+    The MessageDispatchEngine matches on envelope.event_type against the route's
+    message_type filter ("omnibase-infra.delegation-request"). When event_type is
+    set to the full topic string ("onex.cmd.omnibase-infra.delegation-request.v1"),
+    the route-level filter rejects the message and no dispatcher runs (OMN-12197).
+    """
+    bus = EventBusInmemory(environment="test", group="delegate-skill-port")
+    captured_envelopes: list[dict[str, object]] = []
+    await bus.start()
+
+    async def on_command(message: ModelEventMessage) -> None:
+        import json
+
+        raw = json.loads(message.value)
+        captured_envelopes.append(raw)
+
+    try:
+        await bus.subscribe(
+            TOPIC_DELEGATION_REQUEST,
+            group_id=f"delegate-skill-port-event-type-test-{uuid4()}",
+            on_message=on_command,
+        )
+        port = RuntimeDelegationDispatchPort(event_bus=bus)
+        await port.dispatch(
+            prompt="Write tests",
+            task_type="test",
+            correlation_id=uuid4(),
+            max_tokens=512,
+            source_file_path=None,
+            source_session_id=None,
+            wait=False,
+            execution_timeout_seconds=240,
+            terminal_delivery_margin_seconds=60,
+            quality_contract_mode="replace_task_class",
+            acceptance_criteria=(),
+            tenant_id=None,
+        )
+    finally:
+        await bus.close()
+
+    assert len(captured_envelopes) == 1
+    env = captured_envelopes[0]
+    assert env.get("event_type") == "omnibase-infra.delegation-request", (
+        f"envelope event_type must be the routing key, not the full topic string, "
+        f"got: {env.get('event_type')!r}"
+    )
+
+
+@pytest.mark.unit
+async def test_runtime_dispatch_port_uses_contract_derived_transport_config() -> None:
+    bus = _CapturingEventBus()
+    correlation_id = uuid4()
+    port = RuntimeDelegationDispatchPort(
+        event_bus=bus,
+        config=_runtime_dispatch_config(),
+    )
+
+    await port.dispatch(
+        prompt="Write tests",
+        task_type="test",
+        correlation_id=correlation_id,
+        max_tokens=512,
+        source_file_path=None,
+        source_session_id=None,
+        wait=False,
+        execution_timeout_seconds=240,
+        terminal_delivery_margin_seconds=60,
+        quality_contract_mode="replace_task_class",
+        acceptance_criteria=(),
+        tenant_id=None,
+    )
+    unsubscribe, _queue = await port._subscribe_for_result(correlation_id)
+    await unsubscribe()
+
+    assert len(bus.published) == 1
+    topic, value = bus.published[0]
+    assert topic == "test.cmd.delegation-request"
+
+    import json
+
+    envelope = json.loads(value)
+    assert envelope["event_type"] == "test.delegation-request"
+    assert envelope["source_tool"] == "test-delegate-port"
+    assert envelope["payload"]["requested_timeout_seconds"] == 240
+    for optional_field in (
+        "backend_id",
+        "response_contract",
+        "system_prompt",
+        "temperature",
+        "response_format",
+    ):
+        assert optional_field not in envelope["payload"]
+    assert bus.subscriptions == [
+        ("test.evt.delegation-completed", f"test-delegate-port-{correlation_id.hex}"),
+        ("test.evt.delegation-failed", f"test-delegate-port-{correlation_id.hex}"),
+    ]
+
+
+@pytest.mark.unit
+async def test_runtime_dispatch_port_round_trips_internal_delegation_result() -> None:
+    bus = EventBusInmemory(environment="test", group="delegate-skill-port")
+    received_requests: list[ModelDelegationRequest] = []
+    original_correlation_id = uuid4()
+    provenance = ModelDelegationProvenance(
+        source="external-client",
+        traffic_class=EnumDelegationTrafficClass.SYNTHETIC,
+        source_surface="scheduled-chain-canary",
+        requested_by="chain-canary",
+    )
+    await bus.start()
+
+    async def on_command(message: ModelEventMessage) -> None:
+        await _publish_terminal_response(
+            bus,
+            message,
+            topic=TOPIC_DELEGATION_COMPLETED,
+            result=ModelDelegationResult(
+                correlation_id=original_correlation_id,
+                task_type="test",
+                model_used="Qwen3-Coder-30B",
+                endpoint_url="https://qwen.local",
+                content="delegated content",
+                quality_passed=True,
+                quality_score=1.0,
+                latency_ms=42,
+                prompt_tokens=8,
+                completion_tokens=13,
+                total_tokens=21,
+                fallback_to_claude=False,
+                failure_reason="",
+                provenance=provenance,
+            ),
+            received_requests=received_requests,
+        )
+
+    try:
+        await bus.subscribe(
+            TOPIC_DELEGATION_REQUEST,
+            group_id=f"delegate-skill-port-test-{uuid4()}",
+            on_message=on_command,
+        )
+        port = RuntimeDelegationDispatchPort(event_bus=bus)
+        result = await port.dispatch(
+            prompt="Write tests",
+            task_type="test",
+            correlation_id=original_correlation_id,
+            max_tokens=512,
+            source_file_path="tests/fixtures/example.py",
+            source_session_id="session-1",
+            wait=True,
+            execution_timeout_seconds=240,
+            terminal_delivery_margin_seconds=60,
+            quality_contract_mode="replace_task_class",
+            acceptance_criteria=("exactly_two_sentences",),
+            tenant_id=None,
+            provenance=provenance,
+            backend_id="cloud-gemini-pro",
+            response_contract={"type": "object", "required": ["answer"]},
+            system_prompt="Return one JSON object.",
+            temperature=0.2,
+            response_format={"type": "json_object"},
+        )
+    finally:
+        await bus.close()
+
+    assert result["status"] == "completed"
+    assert result["model_used"] == "Qwen3-Coder-30B"
+    assert result["content"] == "delegated content"
+    assert len(received_requests) == 1
+
+    request = received_requests[0]
+    assert request.correlation_id == original_correlation_id
+    assert request.task_type == "test"
+    assert request.source_file_path == "tests/fixtures/example.py"
+    assert request.source_session_id == "session-1"
+    assert request.max_tokens == 512
+    assert request.quality_contract_mode == "replace_task_class"
+    assert request.acceptance_criteria == ("exactly_two_sentences",)
+    assert request.backend_id == "cloud-gemini-pro"
+    assert request.response_contract == {"type": "object", "required": ["answer"]}
+    assert request.system_prompt == "Return one JSON object."
+    assert request.temperature == 0.2
+    assert request.response_format == {"type": "json_object"}
+    assert request.provenance == provenance
+    assert result["provenance"] == provenance.model_dump(mode="json")
+    assert request.emitted_at
+
+
+@pytest.mark.unit
+async def test_runtime_dispatch_port_threads_verified_tenant_id_onto_published_request() -> (
+    None
+):
+    """OMN-14349: a verified tenant_id passed to dispatch() must reach the
+    REAL ModelDelegationRequest published on the bus, not just be accepted
+    as a parameter. ModelDelegationRequest.tenant_id already existed
+    (OMN-14058) but nothing populated it on this path -- this pins the
+    plumbing end to end via the actual bus-published, actual-model-decoded
+    envelope, not a mock.
+    """
+    bus = EventBusInmemory(environment="test", group="delegate-skill-port")
+    received_requests: list[ModelDelegationRequest] = []
+    correlation_id = uuid4()
+    await bus.start()
+
+    async def on_command(message: ModelEventMessage) -> None:
+        await _publish_terminal_response(
+            bus,
+            message,
+            topic=TOPIC_DELEGATION_COMPLETED,
+            result=ModelDelegationResult(
+                correlation_id=correlation_id,
+                task_type="test",
+                model_used="Qwen3-Coder-30B",
+                endpoint_url="https://qwen.local",
+                content="ok",
+                quality_passed=True,
+                quality_score=1.0,
+                latency_ms=1,
+                prompt_tokens=1,
+                completion_tokens=1,
+                total_tokens=2,
+                fallback_to_claude=False,
+                failure_reason="",
+            ),
+            received_requests=received_requests,
+        )
+
+    try:
+        await bus.subscribe(
+            TOPIC_DELEGATION_REQUEST,
+            group_id=f"delegate-skill-port-tenant-test-{uuid4()}",
+            on_message=on_command,
+        )
+        port = RuntimeDelegationDispatchPort(event_bus=bus)
+        await port.dispatch(
+            prompt="Write tests",
+            task_type="test",
+            correlation_id=correlation_id,
+            max_tokens=512,
+            source_file_path=None,
+            source_session_id=None,
+            wait=True,
+            execution_timeout_seconds=240,
+            terminal_delivery_margin_seconds=60,
+            quality_contract_mode="replace_task_class",
+            acceptance_criteria=(),
+            tenant_id="acme",
+        )
+    finally:
+        await bus.close()
+
+    assert len(received_requests) == 1
+    assert received_requests[0].tenant_id == "acme"
+
+
+@pytest.mark.unit
+async def test_runtime_dispatch_port_publishes_backend_id_pin() -> None:
+    bus = _CapturingEventBus()
+    port = RuntimeDelegationDispatchPort(
+        event_bus=bus,
+        config=_runtime_dispatch_config(),
+    )
+
+    await port.dispatch(
+        prompt="Write tests",
+        task_type="code_generation",
+        correlation_id=uuid4(),
+        max_tokens=512,
+        source_file_path=None,
+        source_session_id=None,
+        wait=False,
+        execution_timeout_seconds=240,
+        terminal_delivery_margin_seconds=60,
+        quality_contract_mode="replace_task_class",
+        acceptance_criteria=(),
+        tenant_id=None,
+        backend_id="local-coder-mlx",
+    )
+
+    request = (
+        ModelEventEnvelope[ModelDelegationRequest]
+        .model_validate_json(bus.published[0][1])
+        .payload
+    )
+    assert request.backend_id == "local-coder-mlx"
+
+
+@pytest.mark.unit
+async def test_runtime_dispatch_port_publishes_response_contract() -> None:
+    bus = _CapturingEventBus()
+    port = RuntimeDelegationDispatchPort(
+        event_bus=bus,
+        config=_runtime_dispatch_config(),
+    )
+
+    await port.dispatch(
+        prompt="Decide the next tactical action",
+        task_type="agent_delegation",
+        correlation_id=uuid4(),
+        max_tokens=512,
+        source_file_path=None,
+        source_session_id=None,
+        wait=False,
+        execution_timeout_seconds=240,
+        terminal_delivery_margin_seconds=60,
+        quality_contract_mode="extend_task_class",
+        acceptance_criteria=(),
+        tenant_id=None,
+        response_contract={"type": "object"},
+    )
+
+    request = (
+        ModelEventEnvelope[ModelDelegationRequest]
+        .model_validate_json(bus.published[0][1])
+        .payload
+    )
+    assert request.response_contract == {"type": "object"}
+
+
+@pytest.mark.unit
+async def test_runtime_dispatch_port_unwraps_delegation_event_payload() -> None:
+    bus = EventBusInmemory(environment="test", group="delegate-skill-port")
+    original_correlation_id = uuid4()
+    await bus.start()
+
+    async def on_command(message: ModelEventMessage) -> None:
+        await _publish_terminal_response(
+            bus,
+            message,
+            topic=TOPIC_DELEGATION_FAILED,
+            result=ModelDelegationResult(
+                correlation_id=original_correlation_id,
+                task_type="test",
+                model_used="",
+                endpoint_url="",
+                content="",
+                quality_passed=False,
+                quality_score=0.0,
+                latency_ms=0,
+                prompt_tokens=0,
+                completion_tokens=0,
+                total_tokens=0,
+                fallback_to_claude=False,
+                failure_reason="configured endpoint missing",
+            ),
+        )
+
+    try:
+        await bus.subscribe(
+            TOPIC_DELEGATION_REQUEST,
+            group_id=f"delegate-skill-port-test-{uuid4()}",
+            on_message=on_command,
+        )
+        port = RuntimeDelegationDispatchPort(event_bus=bus)
+        result = await port.dispatch(
+            prompt="Write tests",
+            task_type="test",
+            correlation_id=original_correlation_id,
+            max_tokens=512,
+            source_file_path="tests/fixtures/example.py",
+            source_session_id="session-1",
+            wait=True,
+            execution_timeout_seconds=240,
+            terminal_delivery_margin_seconds=60,
+            quality_contract_mode="extend_task_class",
+            acceptance_criteria=(),
+            tenant_id=None,
+        )
+    finally:
+        await bus.close()
+
+    assert result["status"] == "failed"
+    assert result["failure_reason"] == "configured endpoint missing"
+    assert result["error_message"] == "configured endpoint missing"
+    assert result["terminal_topic"] == "onex.evt.omnibase-infra.delegation-failed.v1"
+
+
+@pytest.mark.unit
+async def test_runtime_dispatch_port_ignores_early_empty_pattern_b_terminal() -> None:
+    bus = EventBusInmemory(environment="test", group="delegate-skill-port")
+    original_correlation_id = uuid4()
+    await bus.start()
+
+    async def on_command(message: ModelEventMessage) -> None:
+        await bus.publish(
+            "onex.evt.omnibase-infra.pattern-b-dispatch-completed.v1",
+            None,
+            b'{"payload":{"status":"completed","payload":{}}}',
+            None,
+        )
+        await _publish_terminal_response(
+            bus,
+            message,
+            topic=TOPIC_DELEGATION_FAILED,
+            result=ModelDelegationResult(
+                correlation_id=original_correlation_id,
+                task_type="test",
+                model_used="Qwen3-Coder-30B",
+                endpoint_url="https://qwen.local",
+                content="scored failure content",
+                quality_passed=False,
+                quality_score=0.9,
+                required_quality_bar=0.85,
+                score_vs_required_bar=(EnumQualityScoreComparison.AT_OR_ABOVE_BAR),
+                failed_acceptance_criteria=("TASK_MISMATCH",),
+                latency_ms=84,
+                prompt_tokens=68,
+                completion_tokens=17,
+                total_tokens=85,
+                fallback_to_claude=False,
+                failure_reason="provider quota exhausted after quality rejection",
+                tokens_to_compliance=85,
+                compliance_attempts=3,
+                escalation_history=(
+                    {
+                        "tier_name": "cheap_cloud",
+                        "model_used": "Qwen3-Coder-30B",
+                        "quality_score": 0.9,
+                        "failure_reasons": ["TASK_MISMATCH"],
+                    },
+                ),
+                terminal_failure_cause=(
+                    EnumDelegationTerminalFailureCause.PROVIDER_QUOTA_EXHAUSTED
+                ),
+                attempts_count=3,
+            ),
+        )
+
+    try:
+        await bus.subscribe(
+            TOPIC_DELEGATION_REQUEST,
+            group_id=f"delegate-skill-port-test-{uuid4()}",
+            on_message=on_command,
+        )
+        port = RuntimeDelegationDispatchPort(event_bus=bus)
+        result = await port.dispatch(
+            prompt="Write tests",
+            task_type="test",
+            correlation_id=original_correlation_id,
+            max_tokens=512,
+            source_file_path=None,
+            source_session_id=None,
+            wait=True,
+            execution_timeout_seconds=240,
+            terminal_delivery_margin_seconds=60,
+            quality_contract_mode="extend_task_class",
+            acceptance_criteria=(),
+            tenant_id=None,
+        )
+    finally:
+        await bus.close()
+
+    assert result["status"] == "failed"
+    assert result["content"] == "scored failure content"
+    assert result["quality_score"] == 0.9
+    assert result["required_quality_bar"] == 0.85
+    assert result["score_vs_required_bar"] == "at_or_above_bar"
+    assert result["failed_acceptance_criteria"] == ["TASK_MISMATCH"]
+    assert result["terminal_failure_cause"] == "provider_quota_exhausted"
+    assert result["attempts_count"] == 3
+    assert result["escalation_history"] == [
+        {
+            "tier_name": "cheap_cloud",
+            "model_used": "Qwen3-Coder-30B",
+            "quality_score": 0.9,
+            "failure_reasons": ["TASK_MISMATCH"],
+        }
+    ]
+    assert result["prompt_tokens"] == 68
+    assert result["completion_tokens"] == 17
+    assert result["total_tokens"] == 85
+    assert result["tokens_to_compliance"] == 85
+    assert result["compliance_attempts"] == 3

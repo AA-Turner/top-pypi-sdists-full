@@ -1,0 +1,145 @@
+---
+name: node_thread_reply_effect
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: effect
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  Thread reply effect node. Routes an LLM-generated reply to an open PR review
+  thread via gh api. Posts as a draft comment tagged <!-- omni-draft --> by default
+  (draft-first policy). Direct posting enabled by ONEX_THREAD_REPLY_DIRECT_POST=true
+  (Phase 3 opt-in). CI always forces draft-first regardless of env var.
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: thread_reply
+      handler:
+        name: HandlerThreadReply
+        module: omnimarket.nodes.node_thread_reply_effect.handlers.handler_thread_reply
+
+handler:
+  module: omnimarket.nodes.node_thread_reply_effect.handlers.handler_thread_reply
+  class: HandlerThreadReply
+  input_model: omnimarket.nodes.node_merge_sweep_triage_orchestrator.models.model_triage_request.ModelThreadReplyCommand
+
+env_dependencies:
+  LLM_CODER_URL:
+    required: false
+    description: "Primary thread-reply endpoint URL supplied by runtime overlay"
+  LLM_GLM_URL:
+    required: false
+    description: "Fallback thread-reply endpoint URL supplied by runtime overlay"
+  LLM_CODER_FAST_URL:
+    required: false
+    description: "vLLM fast model endpoint URL (secondary local option)"
+  ONEX_CI_MODE:
+    required: false
+    description: "When set to '1', 'true', or 'yes', forces draft-first posting regardless of ONEX_THREAD_REPLY_DIRECT_POST; disables live GitHub API calls in CI environments"
+
+descriptor:
+  node_archetype: effect
+  purity: impure
+  idempotent: false
+  timeout_ms: 60000
+  runtime_profiles:
+    - effects
+
+model_routing:
+  primary: thread_replier_primary
+  fallback: thread_replier_fallback
+  fallback_allowed_roles:
+    - thread_replier
+  max_tokens: 2048
+  ci_override:
+    primary: thread_replier_primary
+
+inputs:
+  correlation_id:
+    type: uuid
+    description: "Correlation ID flowing through the pipeline"
+    required: true
+  pr_number:
+    type: int
+    description: "GitHub PR number containing the thread"
+    required: true
+  repo:
+    type: str
+    description: "GitHub repo slug (org/repo)"
+    required: true
+  thread_body:
+    type: str
+    description: "Full body of the review thread to reply to"
+    required: true
+  routing_policy:
+    type: dict
+    description: "ModelRoutingPolicy dict from the command envelope"
+    required: true
+
+outputs:
+  pr_number:
+    type: int
+    description: "PR number acted upon"
+  repo:
+    type: str
+    description: "GitHub repo slug"
+  comment_id:
+    type: str
+    description: "GitHub comment ID of the posted reply, or None if not posted"
+    nullable: true
+  reply_posted:
+    type: bool
+    description: "Whether a reply was successfully posted"
+  is_draft:
+    type: bool
+    description: "Whether the reply was posted as a draft (<!-- omni-draft --> tagged)"
+  used_fallback:
+    type: bool
+    description: "True if the fallback LLM model was used"
+
+secrets:
+  # OMN-12856: GitHub token is contract-declared so the handler reads the ref
+  # name from here — not a bare source literal. Value is resolved at the effect
+  # boundary via the canonical secret-store resolver.
+  GITHUB_TOKEN:
+    description: "GitHub PAT or Actions token for posting PR comments via REST."
+    required: true
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.pr-thread-reply.v1
+  publish_topics:
+    - onex.evt.omnimarket.pr-thread-replied.v1
+
+dod_evidence:
+  phase: 2
+  wave: 1
+  artifacts:
+    - tests/nodes/node_thread_reply_effect/test_handler_thread_reply.py
+  validation_notes: >
+    Phase 2 Wave 1: scaffold + TDD tests. Real LLM calls land in OMN-8990 Wave 2.
+
+metadata:
+  transport_type: kafka
+
+config:
+  LLM_CODER_URL:
+    description: "Primary thread-reply endpoint URL."
+    required: false
+  LLM_GLM_URL:
+    description: "Fallback thread-reply endpoint URL."
+    required: false
+  LLM_CODER_FAST_URL:
+    description: "Fast model endpoint URL."
+    required: false
+  ONEX_CI_MODE:
+    description: "When set, forces draft-first posting and disables live GitHub API calls."
+    required: false
+  ONEX_THREAD_REPLY_DIRECT_POST:
+    description: "When 'true', enables direct posting (Phase 3 opt-in)."
+    required: false
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.pr-thread-replied.v1

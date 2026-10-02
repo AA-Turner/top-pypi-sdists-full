@@ -1,0 +1,231 @@
+Metadata-Version: 2.5
+Name: excel-grapher
+Version: 24.1.3
+Summary: Build and analyze dependency graphs from Excel workbooks
+Project-URL: Homepage, https://github.com/Teal-Insights/excel-grapher
+Project-URL: Repository, https://github.com/Teal-Insights/excel-grapher
+Author-email: Teal Insights <info@tealinsights.com>
+License: MIT License
+        
+        Copyright (c) 2026 Teal Insights
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+License-File: LICENSE
+Keywords: dependency,excel,formula,graph,spreadsheet,transpiler
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Office/Business :: Financial :: Spreadsheet
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
+Requires-Python: >=3.11
+Requires-Dist: fastpyxl>=1.1.0
+Requires-Dist: jsonschema>=4.26.0
+Requires-Dist: pyyaml>=6.0.3
+Requires-Dist: ruamel-yaml>=0.19.1
+Provides-Extra: all
+Requires-Dist: graphviz>=0.20; extra == 'all'
+Requires-Dist: networkx>=3.0; extra == 'all'
+Requires-Dist: numpy>=1.24; extra == 'all'
+Provides-Extra: fast
+Requires-Dist: numpy>=1.24; extra == 'fast'
+Provides-Extra: networkx
+Requires-Dist: networkx>=3.0; extra == 'networkx'
+Provides-Extra: skills
+Requires-Dist: excel-grapher-author-bindings; extra == 'skills'
+Provides-Extra: viz
+Requires-Dist: graphviz>=0.20; extra == 'viz'
+Requires-Dist: networkx>=3.0; extra == 'viz'
+Requires-Dist: numpy>=1.24; extra == 'viz'
+Description-Content-Type: text/markdown
+
+## `excel-grapher`
+
+Build and analyze dependency graphs from Excel workbooks, **evaluate formulas with Excel semantics**, and **export standalone Python code**.
+
+**Documentation:** [https://teal-insights.github.io/excel-grapher/](https://teal-insights.github.io/excel-grapher/)
+
+### Why this exists
+
+- **Transpilation support**: trace formula dependencies to enable Excel → Python translation.
+- **Interpretability**: visualize and sanity-check spreadsheet logic (GraphViz, Mermaid, NetworkX).
+- **Performance-minded**: focuses on targeted dependency closure from specific output cells/ranges.
+- **Excel semantics in Python**: run workbook logic in-process with a full Excel-like evaluator.
+- **Exportable**: emit standalone Python packages that embed only the runtime surface you need.
+
+---
+
+### Library layout
+
+The unified distribution is `excel-grapher` and exposes a single import package, `excel_grapher`, with five main subpackages:
+
+- `excel_grapher/core/` — shared semantic types, coercions, and scalar operators.
+- `excel_grapher/runtime/` — Excel-equivalent function implementations and runtime semantics.
+- `excel_grapher/grapher/` — workbook loading, graph extraction, Excel write-back, and visualization logic.
+- `excel_grapher/evaluator/` — `FormulaEvaluator`: an Excel emulator for recomputing formulas in the extracted graph in Python.
+- `excel_grapher/exporter/` — `CodeGenerator`: an transpiler for exporting the extracted graph as a standalone Python library.
+
+Typical imports:
+
+```python
+from excel_grapher.grapher import create_dependency_graph, DependencyGraph
+from excel_grapher.evaluator import FormulaEvaluator
+from excel_grapher.exporter import CodeGenerator
+from excel_grapher.core import XlError  # and other shared types, if needed
+```
+
+---
+
+### Installation
+
+Released under the [MIT license](LICENSE). Install from GitHub:
+
+**Using `uv` (recommended):**
+
+```bash
+# Basic install (NumPy-free)
+uv add git+https://github.com/Teal-Insights/excel-grapher
+
+# With vectorized operator / SUMPRODUCT acceleration
+uv add "excel-grapher[fast] @ git+https://github.com/Teal-Insights/excel-grapher"
+
+# With NetworkX support
+uv add "excel-grapher[networkx] @ git+https://github.com/Teal-Insights/excel-grapher"
+
+# With the HTML graph viewers (NumPy + NetworkX layouts, Graphviz)
+uv add "excel-grapher[viz] @ git+https://github.com/Teal-Insights/excel-grapher"
+
+# With all optional dependencies (includes `fast`)
+uv add "excel-grapher[all] @ git+https://github.com/Teal-Insights/excel-grapher"
+```
+
+**Using `pip`:**
+
+```bash
+pip install git+https://github.com/Teal-Insights/excel-grapher
+
+# With extras:
+pip install "excel-grapher[fast] @ git+https://github.com/Teal-Insights/excel-grapher"
+pip install "excel-grapher[networkx] @ git+https://github.com/Teal-Insights/excel-grapher"
+pip install "excel-grapher[viz] @ git+https://github.com/Teal-Insights/excel-grapher"
+pip install "excel-grapher[all] @ git+https://github.com/Teal-Insights/excel-grapher"
+```
+
+The default install is correct without NumPy. Install the **`fast`** extra when
+evaluating large workbooks and you want vectorized operator / `SUMPRODUCT`
+acceleration. Exported standalone code stays NumPy-free either way.
+
+The author-bindings agent skill is **not** in the library wheel. Copy it into
+the consumer project. From a git clone or the `excel-grapher` sdist:
+
+```bash
+mkdir -p .agents/skills
+cp -R skills/author-bindings .agents/skills/author-bindings
+```
+
+Claude Code uses `.claude/skills/author-bindings`. User-level installs go under
+`~/.agents/skills/author-bindings`. The optional
+`excel-grapher-author-bindings` package is only a file source for that copy.
+
+---
+
+### High-level usage
+
+The library supports a three-stage pipeline, plus Excel write-back of the same
+graph views used for Python export:
+
+1. **Build a dependency graph** from an Excel workbook (`excel_grapher.grapher`).
+2. **Evaluate formulas with Excel semantics** over that graph (`excel_grapher.evaluator.FormulaEvaluator`).
+3. **Export** standalone Python (`excel_grapher.exporter.CodeGenerator`) and/or a
+   **new `.xlsx`** from the same `GraphReadView` (`excel_grapher.grapher.write_workbook`).
+
+A minimal end‑to‑end example:
+
+```python
+from pathlib import Path
+
+from excel_grapher.grapher import create_dependency_graph, write_workbook
+from excel_grapher.evaluator import FormulaEvaluator
+from excel_grapher.exporter import CodeGenerator
+from excel_grapher.series_bindings import load_series_bindings
+
+workbook_path = Path("model.xlsx")
+targets = ["Sheet1!A10"]
+
+# 1) Build a dependency graph
+graph = create_dependency_graph(workbook_path, targets, load_values=True)
+print(len(graph))  # number of visited nodes
+
+# 2) Evaluate with Excel semantics
+with FormulaEvaluator(graph) as ev:
+    results = ev.evaluate(targets)
+
+# 3a) Export a standalone Python package (requires series bindings)
+bindings = load_series_bindings(workbook_path.with_suffix(".bindings.yaml"))
+with CodeGenerator(graph) as gen:
+    modules = gen.generate_modules(
+        series_bindings=bindings,
+        bindings_workbook=workbook_path,
+    )
+
+# 3b) Write a new workbook from the graph (or a ProjectionResult)
+write_workbook(graph, Path("edited.xlsx"))
+```
+
+### Series bindings
+
+Optional sidecar manifests (`.bindings.yaml`) declare structured input/output APIs for **exported**
+code — inverted-tree `compute_*` functions over named tensors and scalars (`as_records` for a Records
+view). Validate sidecars from the shell with
+`excel-grapher bindings validate`. Authoring agents should follow the
+[Authoring series bindings](https://teal-insights.github.io/excel-grapher/user-guide/binding-authoring.html)
+skill and the same `audit` / `burndown` / `upsert` CLI. See the
+[Series bindings guide](https://teal-insights.github.io/excel-grapher/user-guide/series-bindings.html)
+and [Code export](https://teal-insights.github.io/excel-grapher/user-guide/export.html) guide.
+
+### User guide
+
+Detailed documentation lives in the [User Guide](https://teal-insights.github.io/excel-grapher/user-guide/dependency-graphs.html):
+
+| Topic | Page |
+| --- | --- |
+| Dependency graphs | [Read guide](https://teal-insights.github.io/excel-grapher/user-guide/dependency-graphs.html) |
+| Visualization | [Read guide](https://teal-insights.github.io/excel-grapher/user-guide/visualization.html) |
+| Formula evaluation | [Read guide](https://teal-insights.github.io/excel-grapher/user-guide/evaluator.html) |
+| End-to-end demo | [Read guide](https://teal-insights.github.io/excel-grapher/user-guide/end-to-end-demo.html) |
+| Series bindings | [Read guide](https://teal-insights.github.io/excel-grapher/user-guide/series-bindings.html) |
+| Authoring bindings | [Read guide](https://teal-insights.github.io/excel-grapher/user-guide/binding-authoring.html) |
+| Code export | [Read guide](https://teal-insights.github.io/excel-grapher/user-guide/export.html) |
+| Parity testing | [Read guide](https://teal-insights.github.io/excel-grapher/user-guide/parity-testing.html) |
+| Contributing | [Read guide](https://teal-insights.github.io/excel-grapher/user-guide/contributing.html) |
+
+### Examples
+
+Hands-on walkthroughs (Markdown on GitHub):
+
+| Topic | Walkthrough |
+| --- | --- |
+| Graph extraction | [extraction_basics.md](https://github.com/Teal-Insights/excel-grapher/blob/main/examples/micro_workbooks/extraction_basics.md) |
+| Graph evaluation | [codegen_basics.md](https://github.com/Teal-Insights/excel-grapher/blob/main/examples/micro_workbooks/codegen_basics.md) |
+| Series bindings | [series_bindings.md](https://github.com/Teal-Insights/excel-grapher/blob/main/examples/micro_workbooks/series_bindings.md) |
+| Induced graph | [induced_graph.md](https://github.com/Teal-Insights/excel-grapher/blob/main/examples/induced_graph/induced_graph.md) |

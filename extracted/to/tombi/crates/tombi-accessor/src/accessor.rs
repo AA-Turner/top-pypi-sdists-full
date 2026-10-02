@@ -145,7 +145,7 @@ pub enum AccessorKeyKind {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KeyContext {
     pub kind: AccessorKeyKind,
-    pub range: tombi_text::Range,
+    pub span: tombi_text::Span,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

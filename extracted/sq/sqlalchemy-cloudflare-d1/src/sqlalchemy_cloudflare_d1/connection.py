@@ -7,6 +7,7 @@ Supports two connection modes:
 """
 
 import os
+import re
 from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple, Union
 
 try:
@@ -102,9 +103,12 @@ def _prepare_parameters(parameters: Optional[Sequence]) -> Optional[List]:
 
 
 def _build_description(
-    operation: str, columns: List[str], result_data: Optional[List[Dict[str, Any]]]
+    operation: str, columns: List[str], result_data: Optional[List[Any]]
 ) -> Optional[List[tuple]]:
     """Build cursor description from query result.
+
+    Column names sent by D1 are used whatever the statement starts with, so
+    a leading comment, EXPLAIN or VALUES still gets a description.
 
     Args:
         operation: The SQL operation that was executed
@@ -112,8 +116,13 @@ def _build_description(
         result_data: The result data rows
 
     Returns:
-        List of 7-tuples for SELECT-like statements, None otherwise
+        List of 7-tuples when D1 sent column names or the statement is
+        SELECT-like, None otherwise
     """
+    # Build description from columns
+    if columns:
+        return [(name, None, None, None, None, None, None) for name in columns]
+
     operation_upper = operation.strip().upper()
     is_select_like = (
         operation_upper.startswith(("SELECT", "PRAGMA", "WITH"))
@@ -123,10 +132,7 @@ def _build_description(
     if not is_select_like:
         return None
 
-    # Build description from columns
-    if columns:
-        return [(name, None, None, None, None, None, None) for name in columns]
-    elif result_data:
+    if result_data and isinstance(result_data[0], dict):
         # Fallback to first row keys if columns not available
         first_row = result_data[0]
         return [(name, None, None, None, None, None, None) for name in first_row.keys()]
@@ -219,6 +225,68 @@ def _parse_all_result(all_result: Any) -> Dict[str, Any]:
     }
 
 
+def _is_read_statement(query: str) -> bool:
+    """Recognize reads without mistaking a WITH-prefixed mutation for a read."""
+    tokens = re.finditer(
+        r"--[^\n]*|/\*[\s\S]*?\*/|'(?:''|[^'])*'|"
+        r'"(?:""|[^"])*"|`(?:``|[^`])*`|\[[^\]]*\]|[(),]|[A-Za-z_][A-Za-z_0-9$]*',
+        query,
+    )
+    first = None
+    depth = 0
+    after_cte = False
+    for match in tokens:
+        token = match.group()
+        if token.startswith(("--", "/*", "'", '"', "`", "[")):
+            continue
+        if token == "(":
+            depth += 1
+            continue
+        if token == ")":
+            depth -= 1
+            after_cte = depth == 0
+            continue
+        if depth:
+            continue
+        if token == ",":
+            after_cte = False
+            continue
+        keyword = token.upper()
+        if first is None:
+            first = keyword
+            if first != "WITH":
+                return first in ("SELECT", "VALUES", "EXPLAIN")
+        elif after_cte and keyword in (
+            "SELECT",
+            "VALUES",
+            "INSERT",
+            "UPDATE",
+            "DELETE",
+            "REPLACE",
+        ):
+            return keyword in ("SELECT", "VALUES")
+    return False
+
+
+async def _execute_worker_statement(stmt: Any, query: str) -> Dict[str, Any]:
+    """Keep read rows positional and execute mutations once with their metadata.
+
+    A native JavaScript options object is required by D1; a Python dict does
+    not reliably expose columnNames to the binding in Pyodide.
+    """
+    if not _is_read_statement(query):
+        return _parse_all_result(await stmt.all())
+
+    from js import JSON  # type: ignore[import-not-found]
+
+    raw_result = await stmt.raw(JSON.parse('{"columnNames":true}'))
+    if hasattr(raw_result, "to_py"):
+        raw_result = raw_result.to_py()
+    columns = list(raw_result[0]) if raw_result else []
+    rows = [[_convert_js_null(value) for value in row] for row in raw_result[1:]]
+    return {"results": rows, "columns": columns, "meta": {}, "success": True}
+
+
 # MARK: - Row Class
 
 
@@ -290,7 +358,7 @@ class BaseCursorMixin:
     """
 
     # These attributes must be defined by subclasses
-    _result_data: Optional[List[Dict[str, Any]]]
+    _result_data: Optional[List[Any]]
     _description: Optional[List[tuple]]
     _rowcount: int
     _arraysize: int
@@ -335,6 +403,10 @@ class BaseCursorMixin:
 
         row_data = self._result_data[self._position]
         self._position += 1
+
+        # Reads preserve column order; mutation results may still contain dict rows
+        if not isinstance(row_data, dict):
+            return tuple(row_data)
 
         if self._description:
             column_names = [desc[0] for desc in self._description]
@@ -566,13 +638,10 @@ class Connection:
                 columns = raw_results.get("columns", [])
                 rows = raw_results.get("rows", [])
 
-                # Convert rows from arrays to dicts using column names
-                results = []
-                for row in rows:
-                    results.append(dict(zip(columns, row)))
-
+                # Keep rows as arrays so columns with the same name keep
+                # their own values
                 return {
-                    "results": results,
+                    "results": rows,
                     "columns": columns,
                     "meta": query_result.get("meta", {}),
                     "success": query_result.get("success", True),
@@ -674,44 +743,7 @@ class WorkerConnection:
                 else:
                     stmt = stmt.bind(parameters)
 
-            # MARK: - Execute using all() for reliable structured results
-            # all() returns {results: [{col: val, ...}, ...], meta: {...}}
-            # This avoids the raw() bug where single-row results lose the
-            # column names header row, causing data to end up in description.
-            all_result = await stmt.all()
-
-            parsed = _parse_all_result(all_result)
-
-            # MARK: - Fall back to raw() for column names on empty results
-            # all() doesn't return column info when results are empty.
-            # raw({columnNames: true}) works correctly for 0-row results.
-            # Only do this for SELECT queries to avoid re-executing mutations.
-            if (
-                not parsed["columns"]
-                and not parsed["results"]
-                and query.strip().upper().startswith("SELECT")
-            ):
-                try:
-                    stmt2 = self._d1.prepare(query)
-                    if parameters:
-                        if isinstance(parameters, (tuple, list)):
-                            stmt2 = stmt2.bind(*parameters)
-                        elif isinstance(parameters, dict):
-                            stmt2 = stmt2.bind(*parameters.values())
-                        else:
-                            stmt2 = stmt2.bind(parameters)
-                    raw_result = await stmt2.raw({"columnNames": True})
-                    if hasattr(raw_result, "to_py"):
-                        raw_result = raw_result.to_py()
-                    if raw_result and len(raw_result) > 0:
-                        first_row = raw_result[0]
-                        if hasattr(first_row, "to_py"):
-                            first_row = first_row.to_py()
-                        parsed["columns"] = list(first_row) if first_row else []
-                except Exception:
-                    pass  # Column names are best-effort for empty results
-
-            return parsed
+            return await _execute_worker_statement(stmt, query)
 
         except Exception as e:
             raise OperationalError(f"D1 Worker query failed: {e}")
@@ -935,13 +967,10 @@ class AsyncConnection:
                 columns = raw_results.get("columns", [])
                 rows = raw_results.get("rows", [])
 
-                # Convert rows from arrays to dicts using column names
-                results = []
-                for row in rows:
-                    results.append(dict(zip(columns, row)))
-
+                # Keep rows as arrays so columns with the same name keep
+                # their own values
                 return {
-                    "results": results,
+                    "results": rows,
                     "columns": columns,
                     "meta": query_result.get("meta", {}),
                     "success": query_result.get("success", True),
@@ -1186,49 +1215,7 @@ class SyncWorkerConnection:
                     else:
                         stmt = stmt.bind(convert_param(parameters))
 
-                # MARK: - Execute using all() for reliable structured results
-                # all() returns {results: [{col: val, ...}, ...], meta: {...}}
-                # This avoids the raw() bug where single-row results lose the
-                # column names header row, causing data to end up in description.
-                all_result = await stmt.all()
-
-                # For empty results, fall back to raw() for column names
-                # all() doesn't return column info when results are empty.
-                # raw({columnNames: true}) works correctly for 0-row results.
-                # Only do this for SELECT queries to avoid re-executing mutations.
-                fallback_columns = None
-                parsed = _parse_all_result(all_result)
-                if (
-                    not parsed["columns"]
-                    and not parsed["results"]
-                    and query.strip().upper().startswith("SELECT")
-                ):
-                    try:
-                        stmt2 = self._d1.prepare(query)
-                        if parameters:
-                            if isinstance(parameters, (tuple, list)):
-                                converted2 = [convert_param(p) for p in parameters]
-                                stmt2 = stmt2.bind(*converted2)
-                            elif isinstance(parameters, dict):
-                                converted2 = [
-                                    convert_param(v) for v in parameters.values()
-                                ]
-                                stmt2 = stmt2.bind(*converted2)
-                            else:
-                                stmt2 = stmt2.bind(convert_param(parameters))
-                        raw_result = await stmt2.raw({"columnNames": True})
-                        if hasattr(raw_result, "to_py"):
-                            raw_result = raw_result.to_py()
-                        if raw_result and len(raw_result) > 0:
-                            first_row = raw_result[0]
-                            if hasattr(first_row, "to_py"):
-                                first_row = first_row.to_py()
-                            fallback_columns = list(first_row) if first_row else []
-                    except Exception:
-                        pass
-                if fallback_columns:
-                    parsed["columns"] = fallback_columns
-                return parsed
+                return await _execute_worker_statement(stmt, query)
 
             return run_sync(_run())  # type: ignore[no-any-return]
 

@@ -1,0 +1,315 @@
+name: Build
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test_rust:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update Rust
+        run: rustup update stable && rustup default stable
+      - name: Test
+        run: cargo test --release
+      - name: Test C ABI
+        run: cargo test --release -p discord-markdown-c
+      # The wasm profiler sits behind an off-by-default feature so the published bundle carries
+      # neither the collector nor its export, which also keeps its tests out of the run above.
+      - name: Test wasm profiler
+        run: cargo test --release -p discord-markdown-wasm --features profile
+
+  # The fuzz_rust_* jobs treat honggfuzz as a source of candidates, not of verdicts: it finds
+  # inputs inside a ptraced, coverage-instrumented, persistent-mode process, so neither its timing
+  # nor the fuzz targets' wall-clock guards are trustworthy on their own. Each saved input is
+  # replayed against an uninstrumented build (fuzz/src/bin/replay.rs) by fuzz-report.sh, which
+  # fails the job only when the replay reproduces and otherwise leaves a warning. Either way the
+  # inputs are uploaded, so a finding never has to be recovered out of the raw logs.
+
+  fuzz_rust_crash:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update Rust
+        run: rustup update stable && rustup default stable
+      - name: Install system dependencies
+        run: sudo apt-get install build-essential binutils-dev libunwind-dev libblocksruntime-dev liblzma-dev
+      - name: Install hfuzz
+        run: cd fuzz && cargo install honggfuzz --version 0.5.57 && cd -
+      # Plain cargo, not `cargo hfuzz build`, so the replay stays free of the instrumentation
+      # whose measurements it exists to second-guess.
+      - name: Build replay tool
+        run: cd fuzz && cargo build --release --bin replay && cd -
+      - name: Fuzz
+        run: cd fuzz && HFUZZ_RUN_ARGS="--run_time 30 --timeout 3 --verifier --only_printable --crashdir ./hfuzz_workspace/crashes" cargo hfuzz run crash && cd -
+      # This target saves inputs only when it actually crashes, so the replay budget is generous:
+      # it is here to catch a hang, not to police parse time. That is the timeout target's job.
+      - name: Replay and report
+        if: always()
+        run: .github/workflows/fuzz-report.sh crash 5000
+      - name: Upload fuzz workspace
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-crash
+          path: |
+            fuzz/hfuzz_workspace/crashes/
+            fuzz/hfuzz_workspace/crash/HONGGFUZZ.REPORT.TXT
+          if-no-files-found: ignore
+
+  fuzz_rust_timeout:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update Rust
+        run: rustup update stable && rustup default stable
+      - name: Install system dependencies
+        run: sudo apt-get install build-essential binutils-dev libunwind-dev libblocksruntime-dev liblzma-dev
+      - name: Install hfuzz
+        run: cd fuzz && cargo install honggfuzz --version 0.5.57 && cd -
+      # Plain cargo, not `cargo hfuzz build`, so the replay stays free of the instrumentation
+      # whose measurements it exists to second-guess.
+      - name: Build replay tool
+        run: cd fuzz && cargo build --release --bin replay && cd -
+      # The target's own guard (fuzz_targets/timeout/main.rs) is what converts a slow parse into a
+      # saved input, so honggfuzz's --timeout has to sit above it. Both are deliberately loose;
+      # the replay below is what decides whether an input is actually slow.
+      - name: Fuzz
+        run: cd fuzz && HFUZZ_RUN_ARGS="--run_time 60 --timeout 20 --verifier --only_printable --crashdir ./hfuzz_workspace/crashes" cargo hfuzz run timeout && cd -
+      # 1000ms matches the ceiling the #[timeout(1000)] regression tests in src/lib.rs hold the
+      # parser to, and is ~1000x what a few KB of input should cost.
+      - name: Replay and report
+        if: always()
+        run: .github/workflows/fuzz-report.sh timeout 1000
+      - name: Upload fuzz workspace
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-timeout
+          path: |
+            fuzz/hfuzz_workspace/crashes/
+            fuzz/hfuzz_workspace/timeout/HONGGFUZZ.REPORT.TXT
+          if-no-files-found: ignore
+
+  test_js:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update Rust
+        run: rustup update stable && rustup default stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: true
+      - uses: jetli/wasm-pack-action@v0.4.0
+        with:
+          version: 'v0.13.1'
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm -r build
+      - run: pnpm -r test
+
+  check_js:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: true
+      - name: Run Biome
+        run: pnpm biome ci --verbose .
+
+  check_rust:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update Rust
+        run: rustup update stable && rustup default stable
+      - name: Check
+        run: cargo fmt --check
+
+  # The e2e_react_native_* jobs validate @discord/markdown-react-native end-to-end by
+  # building the checked-in example app (lib/react-native/example) for release — exercising
+  # codegen, autolinking, and the in-repo Rust builds — then driving it on an
+  # emulator/simulator with Maestro (lib/react-native/example/.maestro/parse.yaml), asserting
+  # on the AST the app renders. They also pack the npm tarball afterwards and assert the
+  # prebuilt Rust artifacts ship in it.
+
+  e2e_react_native_android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      # The runner starts with ~14 GB free, which the React Native build plus the emulator's
+      # userdata partition exceed; drop preinstalled tooling this job never uses.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          df -h /
+
+      - name: Update Rust
+        run: rustup update stable && rustup default stable && rustup target add x86_64-linux-android
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+
+      - name: Install dependencies
+        run: pnpm install --ignore-scripts
+
+      # The Gradle build drives cargo itself; the emulator is x86_64, so only that ABI is
+      # built.
+      - name: Build app
+        working-directory: lib/react-native/example/android
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon
+
+      # The build populated android/prebuilt/, so the packed tarball must now contain the
+      # Rust static library, exactly as a publish would.
+      - name: Check packed package
+        working-directory: lib/react-native
+        run: |
+          pnpm pack --pack-destination "$RUNNER_TEMP"
+          tar -tzf "$RUNNER_TEMP"/discord-markdown-react-native-*.tgz | grep -q "android/prebuilt/x86_64/libdiscord_markdown_c.a"
+
+      - name: Install Maestro
+        run: |
+          curl -Ls https://get.maestro.mobile.dev | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      # The APK is already built and the tarball packed; reclaim the build intermediates so
+      # the emulator has room for its userdata partition.
+      - name: Free build caches
+        run: |
+          rm -rf target "$HOME/.gradle/caches" lib/react-native/example/android/app/build/intermediates
+          df -h /
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: default
+          disk-size: 4096M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          script: |
+            adb install lib/react-native/example/android/app/build/outputs/apk/release/app-release.apk
+            maestro test -e APP_ID=com.markdownexample lib/react-native/example/.maestro/parse.yaml
+
+      - name: Upload Maestro debug output
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-debug-android
+          path: ~/.maestro/tests
+          if-no-files-found: ignore
+
+  e2e_react_native_ios:
+    runs-on: macos-15
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+      # Maestro's CLI runs on the JVM.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Update Rust
+        run: rustup update stable && rustup default stable && rustup target add aarch64-apple-ios-sim x86_64-apple-ios
+
+      - name: Install dependencies
+        run: pnpm install --ignore-scripts
+
+      # The Podfile drives the Rust build; PLATFORM_NAME limits it to the simulator.
+      - name: Install pods
+        working-directory: lib/react-native/example
+        env:
+          PLATFORM_NAME: iphonesimulator
+        run: |
+          bundle install
+          cd ios && bundle exec pod install
+
+      - name: Build app
+        working-directory: lib/react-native/example/ios
+        run: |
+          set -o pipefail
+          xcodebuild -workspace MarkdownExample.xcworkspace -scheme MarkdownExample -configuration Release -sdk iphonesimulator -derivedDataPath build CODE_SIGNING_ALLOWED=NO > xcodebuild.log 2>&1 || { tail -200 xcodebuild.log; exit 1; }
+
+      # The pod install populated ios/DiscordMarkdownC.xcframework, so the packed tarball
+      # must now contain it, exactly as a publish would.
+      - name: Check packed package
+        working-directory: lib/react-native
+        run: |
+          pnpm pack --pack-destination "$RUNNER_TEMP"
+          tar -tzf "$RUNNER_TEMP"/discord-markdown-react-native-*.tgz | grep -q "ios/DiscordMarkdownC.xcframework/Info.plist"
+
+      - name: Install Maestro
+        run: |
+          curl -Ls https://get.maestro.mobile.dev | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Run on simulator
+        working-directory: lib/react-native/example
+        run: |
+          UDID=$(xcrun simctl list devices available --json | jq -r '[.devices[] | .[] | select(.name | test("^iPhone"))][0].udid')
+          echo "using simulator $UDID"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" ios/build/Build/Products/Release-iphonesimulator/MarkdownExample.app
+          maestro --device "$UDID" test -e APP_ID=org.reactjs.native.example.MarkdownExample .maestro/parse.yaml
+
+      - name: Upload Maestro debug output
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-debug-ios
+          path: ~/.maestro/tests
+          if-no-files-found: ignore

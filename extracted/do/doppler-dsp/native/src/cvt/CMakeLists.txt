@@ -1,0 +1,99 @@
+# gh-1305: resolve libm to a PATH, not the bare name `m`. A bare `m` in
+# `target_link_libraries` is looked up as a CMake TARGET first, so a module
+# named `m` (`jm module m`) shadows the system math library: the object's
+# test/bench link the module's DSO and fail with `undefined reference to sqrt`,
+# and the module's own pair fail configure outright with "Target "m" of type
+# MODULE_LIBRARY may not be linked into another target". A `find_library`
+# result is an absolute path that no target name can shadow. Empty where libm
+# lives in libc (MSVC, and platforms that fold it into libSystem), which links
+# nothing.
+find_library(JM_MATH_LIBRARY m)
+if(NOT JM_MATH_LIBRARY)
+  set(JM_MATH_LIBRARY "")
+endif()
+
+add_library(cvt_core OBJECT cvt_core.c int_to_bin.c hex_to_bin.c bytes_to_bin.c bin_to_int.c bin_to_hex.c bin_to_nrz.c nrz_to_bin.c)
+target_include_directories(cvt_core PUBLIC ${CMAKE_SOURCE_DIR}/native/inc)
+
+if(BUILD_PYTHON)
+# cvt Python module — aggregates: F32ToI8, F32ToI16, F32ToI32, I8ToF32, U8ToF32, I16ToF32, I32ToF32, F32ToI16U32, F32ToI16U64, I16U32ToF32, I16U64ToF32, F32ToUQ15, UQ15ToF32, ADC
+Python3_add_library(cvt MODULE WITH_SOABI cvt_ext.c)
+target_link_libraries(cvt PRIVATE
+    cvt_core
+    f32_to_i8_core
+    f32_to_i16_core
+    f32_to_i32_core
+    i8_to_f32_core
+    u8_to_f32_core
+    i16_to_f32_core
+    i32_to_f32_core
+    f32_to_i16u32_core
+    f32_to_i16u64_core
+    i16u32_to_f32_core
+    i16u64_to_f32_core
+    f32_to_uq15_core
+    uq15_to_f32_core
+    adc_core
+    Python3::NumPy)
+target_include_directories(cvt PRIVATE ${CMAKE_SOURCE_DIR}/native/inc)
+set_target_properties(cvt PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${PYTHON_PACKAGE_DIR}/cvt"
+    RUNTIME_OUTPUT_DIRECTORY "${PYTHON_PACKAGE_DIR}/cvt")
+add_custom_command(TARGET cvt POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<TARGET_FILE:cvt>"
+        "${PYTHON_PACKAGE_DIR}/cvt/$<TARGET_FILE_NAME:cvt>"
+    VERBATIM
+    COMMENT "Copy cvt extension module")
+endif()
+
+add_executable(test_cvt_core
+    ${CMAKE_SOURCE_DIR}/native/tests/test_cvt_core.c)
+target_link_libraries(test_cvt_core PRIVATE
+    cvt_core
+    f32_to_i8_core
+    f32_to_i16_core
+    f32_to_i32_core
+    i8_to_f32_core
+    u8_to_f32_core
+    i16_to_f32_core
+    i32_to_f32_core
+    f32_to_i16u32_core
+    f32_to_i16u64_core
+    i16u32_to_f32_core
+    i16u64_to_f32_core
+    f32_to_uq15_core
+    uq15_to_f32_core
+    adc_core
+    ${JM_MATH_LIBRARY})
+target_include_directories(test_cvt_core
+    PRIVATE ${CMAKE_SOURCE_DIR}/native/inc)
+add_test(NAME test_cvt_core COMMAND test_cvt_core)
+
+add_executable(bench_cvt_core
+    ${CMAKE_SOURCE_DIR}/native/benchmarks/bench_cvt_core.c)
+target_link_libraries(bench_cvt_core PRIVATE
+    cvt_core
+    f32_to_i8_core
+    f32_to_i16_core
+    f32_to_i32_core
+    i8_to_f32_core
+    u8_to_f32_core
+    i16_to_f32_core
+    i32_to_f32_core
+    f32_to_i16u32_core
+    f32_to_i16u64_core
+    i16u32_to_f32_core
+    i16u64_to_f32_core
+    f32_to_uq15_core
+    uq15_to_f32_core
+    adc_core
+    ${JM_MATH_LIBRARY})
+target_include_directories(bench_cvt_core
+    PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+            ${CMAKE_SOURCE_DIR}/native/benchmarks)
+
+# Your own CMake for this directory goes in cvt_extra.cmake beside this
+# file: jm includes it and never writes it (gh-1351). This file is
+# regenerated.
+include(${CMAKE_CURRENT_LIST_DIR}/cvt_extra.cmake OPTIONAL)

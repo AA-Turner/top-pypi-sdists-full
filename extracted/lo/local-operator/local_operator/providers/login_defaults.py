@@ -1,0 +1,320 @@
+"""The ONE rule for what a successful login writes to config.
+
+Why this module exists: this decision had two implementations — one in
+``providers/auth_cli`` for ``local-operator login``, one in ``tui/app`` for
+``/login`` — and they drifted on every axis that mattered. They wrote different
+hosting ids for the same provider (raw ``provider_id`` vs
+``credential_provider_id``), decided "is the current hosting broken?" by
+different tests (a registry lookup vs a TUI-only state flag), and therefore
+produced different config for identical input: logging into ``xai-oauth`` from a
+corrupted config yielded ``xai`` + ``grok-3`` on one path and ``xai-oauth`` +
+the dead model on the other.
+
+That divergence is not incidental to the bug this module was extracted for. The
+original defect — a config naming a provider the registry does not own leaving
+the session unbootable and unrepairable — survived precisely because the
+"recover from a bad provider" logic lived in more than one place and no single
+place was responsible for being right. Fixing it in two copies would have
+rebuilt the same trap. Both front ends now call :func:`plan_login_defaults`, so
+a change to the policy is a change to one function.
+
+Pure and side-effect-free by construction: it reads no config file, writes no
+config file, and prints nothing. Callers own their own ``ConfigManager`` and
+their own reporting surface (stdout for the CLI, a transcript notice for the
+TUI), which is the only thing that legitimately differs between them.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+from local_operator.model.defaults import suggested_model_for
+from local_operator.providers.registry import (
+    credential_provider_id,
+    get_provider_definition,
+)
+
+if TYPE_CHECKING:
+    from local_operator.config import ConfigManager
+
+
+@dataclass(frozen=True)
+class LoginDefaults:
+    """What a login should write, and how to describe it.
+
+    ``model_name`` is ``None`` when the caller must leave the stored value
+    alone, and ``""`` when it must CLEAR it — a distinction that carries real
+    weight (see :func:`plan_login_defaults`), so it cannot be collapsed into a
+    single falsy check.
+    """
+
+    #: The hosting id to write, or ``None`` to leave hosting untouched.
+    hosting: str | None
+    #: ``None`` = leave as-is, ``""`` = clear it, otherwise the id to write.
+    model_name: str | None
+    #: One-line receipt for the user, or ``None`` when nothing was written.
+    receipt: str | None
+    #: True when this replaces a hosting the registry does not own, as opposed
+    #: to filling in an empty one. Callers use it only for wording.
+    repairing: bool
+    #: The display name of ``model_name`` when it is the provider's suggestion
+    #: ("Claude Opus 5.5"), so a surface that renders names rather than ids -- the
+    #: desktop's "Default model set to ..." -- need not look one up. ``None``
+    #: whenever no model is written, or it is cleared.
+    model_label: str | None = None
+
+
+def is_unusable_hosting(hosting: str | None) -> bool:
+    """True when ``hosting`` is set but names no provider the engine accepts.
+
+    Asked of the registry rather than a hardcoded id list, for the same reason
+    the startup resolver does it that way: ``get_provider_definition`` resolves
+    legacy aliases (``noop`` -> ``test``), so a membership test against ids
+    would classify a WORKING alias config as corrupt and silently repoint a
+    user's default. Empty hosting is not "unusable" — it is the separate
+    nothing-configured case, which has its own first-run handling.
+    """
+    return bool(hosting) and get_provider_definition(str(hosting)) is None
+
+
+def plan_login_defaults(
+    provider_id: str,
+    hosting: str | None,
+    model_name: str | None,
+    *,
+    oauth: bool | None = None,
+) -> LoginDefaults:
+    """Decide what a just-completed login for ``provider_id`` should write.
+
+    Three cases, in order:
+
+    1. **Hosting already set and usable** — write nothing. A user logging into
+       a second provider to switch models later has not asked to change their
+       default, and silently repointing it would be a surprise.
+    2. **Hosting empty** — adopt this provider and its default model. Without
+       this, ``login`` stored a credential but left hosting empty, so the very
+       command the "not configured" error recommends looped straight back to
+       the same error.
+    3. **Hosting set but unusable** — REPLACE it. That config cannot boot, and
+       the error it produces recommends this command as the remedy, so
+       "already set, leave it alone" would loop one level deeper.
+
+    …and providers that can serve no CHAT turn are exempt from ALL THREE: a
+    DECISION-ONLY one (``registry.is_decision_only`` — TypeSafe's Jev, whose
+    wire rejects ``chat/completions`` on every host we reach it through) and a
+    SPEECH-ONLY one (``registry.is_speech_only`` — ElevenLabs and ``openai-key``,
+    whose wires serve speech and never chat). Logging in to one of them stores a credential the
+    harness's other layers use — resource classification for Jev, the mobile
+    voice path for ElevenLabs — and is not a statement about chat routing at
+    all, so the routing is left exactly as it was and the plan carries a RECEIPT
+    saying so (``hosting=None`` + ``receipt``, the dataclass's own "wrote nothing,
+    but here is why" shape — callers print it instead of the write receipt).
+    Adopting either kind in case 2 would produce a config whose very next
+    session cannot answer a turn: the same trap the catalogue, the ``/model``
+    ranking, the session-model resolver and the failover chain each refuse, and
+    login is the fifth door to it. For ElevenLabs the exemption is the ONLY
+    correct outcome — storing the key is the whole point of its login, and its
+    row exists so that key can be stored at all. Neither is deliberately NOT
+    repaired in case 3 either — a hosting that is already broken is not improved
+    by replacing it with one that cannot serve a session.
+
+    The exemption is checked BEFORE case 1, and that ordering is load-bearing
+    rather than incidental: the receipt is the only place a user learns why this
+    login left their routing alone, and case 1 — a working hosting already
+    configured, the most common state there is — returns before any receipt a
+    later branch could produce. Behind it, the note was unreachable exactly when
+    it was most needed (review round 1, Q4).
+
+    A fourth, narrower write sits inside case 1: hosting set and usable, naming
+    THIS provider, with ``model_name`` empty. The runtime would already boot on
+    the provider's suggestion there (``session_factory`` falls back to it), so
+    writing it only makes the choice visible and stable -- the desktop's model
+    picker reads the config, not the resolver, and showed nothing selected. It is
+    deliberately limited to the SAME provider: a user logging into Y while
+    configured on X with an empty model is still running X's default, and
+    writing Y's model beside X's hosting would produce a pair that fails at
+    stream time.
+
+    ``oauth`` names the credential the login produced, because one provider id
+    can reach two hosts that spell the suggestion differently (Kimi: ``kimi-k3``
+    for an API key, ``k3`` on the coding-plan host an OAuth grant reaches; see
+    ``model.defaults.OAUTH_SUGGESTED_MODELS``). ``None`` derives it from the
+    login the provider id runs -- an API-key login is not OAuth, anything else
+    is -- which is what the CLI and TUI mean. The desktop's key-save route passes
+    ``False`` explicitly, because it stores a key under a provider whose own
+    login may be OAuth.
+
+    The credential is never in question here: storing it is the caller's step
+    and it has already happened by the time this runs.
+
+    The model is resolved through ``credential_provider_id`` and, when
+    repairing, is always overwritten — cleared if the provider has no known
+    default. Both halves of that are load-bearing:
+
+    - A login FLAVOUR (``xai-oauth``, ``openai-device``, ``zai-oauth``) is an
+      authentication route, not a hosting id, and it has no default model of
+      its own. Writing the raw flavour id as hosting left the stale model in
+      place beside it, producing a config that BOOTS — ``configure_model``
+      accepts the pair — and then fails at stream time on a model the provider
+      never heard of. Trading a boot failure the app explains for a runtime
+      failure it cannot is strictly worse than the bug being repaired.
+    - Clearing (rather than keeping) a model with no known default is what
+      makes the repair safe for a provider that resolves to no default at all
+      (the local runtimes -- ``ollama``, ``vllm`` -- whose models are whatever
+      the user pulled). A model belonging to a provider that never existed is
+      strictly worse: it boots and then fails at stream time, where the app
+      cannot explain it.
+
+      An empty ``model_name`` is NOT a fully-configured state, and this module
+      must not pretend otherwise — an earlier version of this docstring claimed
+      the startup resolver "already handles" it, which was false and shipped a
+      dead end. What the resolver actually does is raise
+      ``ModelNotConfiguredError`` (``session_factory``), a RECOVERABLE member of
+      the ``HostingNotConfiguredError`` family: the TUI opens in the setup state
+      where ``/model`` supplies the missing value and boots the session, and the
+      non-interactive paths still fail fast with a message naming concrete model
+      ids. So the repair trades an unbootable config for one that needs one more
+      answer from the user, and the surface that asks for it is reachable —
+      which is the property that has to hold, and the reason the boot-level test
+      in ``tests/unit/tui/test_app_pilot.py`` asserts it end to end rather than
+      stopping at the config file.
+    """
+    # The credential's storage id is the real hosting: an OAuth flavour stores
+    # under the provider it authenticates, and that is what the app must point
+    # at. This is also what gives the flavour a default model to inherit.
+    resolved = credential_provider_id(provider_id)
+    # The module's entire purpose is "never write a hosting the registry does
+    # not own". `credential_provider_id` PASSES UNKNOWN ids through, so without
+    # this a careless caller (`plan_login_defaults("not-a-provider", ...)`)
+    # would write exactly the unusable hosting this planner exists to refuse.
+    # Both current front ends reach here only after a successful login against
+    # a registry-resolved definition, so this is a belt, not a currently-hit
+    # path -- and a no-op plan is the honest answer when there is nothing
+    # legitimate to write.
+    definition = get_provider_definition(resolved)
+    if definition is not None and (definition.decision_only or definition.speech_only):
+        # BEFORE the "hosting already set and usable" case, deliberately: this branch
+        # writes nothing in EVERY configuration, and its receipt is the only place a
+        # user learns why logging in to TypeSafe left their routing alone. Returning
+        # at the early exit below instead made the note unreachable in the MOST COMMON
+        # state of all — a working hosting already configured — which is exactly the
+        # silent-login failure this branch exists to remove (review round 1, Q4).
+        #
+        # The COPY is design round 1's D5 and round 2's D8, and it is deliberately in
+        # the user's terms: the first version named Jev, decision-model calls, chat
+        # completions and resource recommendations (149 characters of the harness's own
+        # vocabulary, never one row at any width) and never said what would actually
+        # serve their chats. What it says instead is the answer to the only question
+        # the person who just pasted a key has — "did this change my model?" — plus the
+        # name of whatever IS serving, which is the fact they can act on.
+        #
+        # The length is a MEASUREMENT, not a preference: the designer read the rendered
+        # row capacity at 100 columns and found it is exactly 90 cells, and the round-2
+        # sentence was 94 ("Nothing changed: this key only adds suggestions, chats keep
+        # running on <hosting>/<model>."), so it still wrapped to two rows. The clause
+        # that went is the one explaining WHY nothing changed — the line above already
+        # says the key was stored, and "nothing changed" is the half the user asked for.
+        #
+        # The capital is part of the sentence (D9): the CLI used to upper-case the first
+        # letter while the TUI rendered the string verbatim, so "set default hosting…"
+        # reached two front ends with two openings. Both now print what the planner
+        # wrote, and the planner writes a sentence — capital, and its own full stop (D6).
+        #
+        # Which sentence depends on the CURRENT routing, and the unusable case is not
+        # the configured one: naming a hosting this build refuses to boot on would be
+        # the opposite of the reassurance being given.
+        if hosting and not is_unusable_hosting(hosting):
+            serving = f"{hosting}/{model_name}" if model_name else str(hosting)
+            receipt = f"Nothing changed — chats keep running on {serving}."
+        else:
+            receipt = "Nothing changed — pick a chat model with /model first."
+        return LoginDefaults(
+            hosting=None,
+            model_name=None,
+            receipt=receipt,
+            repairing=False,
+        )
+
+    if oauth is None:
+        flavour = get_provider_definition(provider_id)
+        oauth = flavour is not None and flavour.login_kind not in (None, "api_key")
+    suggestion = suggested_model_for(resolved, oauth=oauth) if definition is not None else None
+    default_model = suggestion.id if suggestion is not None else ""
+
+    if hosting and not is_unusable_hosting(hosting):
+        if (
+            definition is not None
+            and not model_name
+            and default_model
+            and credential_provider_id(str(hosting)) == resolved
+        ):
+            # Case 1's one write: see the docstring. Hosting is left as it is
+            # (`None`), because it is already right.
+            return LoginDefaults(
+                hosting=None,
+                model_name=default_model,
+                receipt=f"Set default model to '{default_model}'.",
+                repairing=False,
+                model_label=suggestion.name if suggestion is not None else None,
+            )
+        return LoginDefaults(hosting=None, model_name=None, receipt=None, repairing=False)
+
+    repairing = is_unusable_hosting(hosting)
+    if definition is None:
+        return LoginDefaults(hosting=None, model_name=None, receipt=None, repairing=False)
+
+    if repairing:
+        # Always overwrite: the stored model belonged to the provider being
+        # replaced. "" clears it rather than leaving a dead id behind.
+        model_to_write: str | None = default_model
+        receipt = f"Replaced unusable hosting '{hosting}' with '{resolved}'"
+        if default_model:
+            receipt += f", model to '{default_model}'"
+        else:
+            # Named explicitly: a cleared model changes what the next launch
+            # does, so it must not be a silent side effect of logging in.
+            receipt += ", cleared the model it left behind (no default known)"
+    else:
+        # First-run: only fill an EMPTY model, so a user who deliberately chose
+        # one keeps it.
+        model_to_write = default_model if (default_model and not model_name) else None
+        receipt = f"Set default hosting to '{resolved}'"
+        if model_to_write:
+            receipt += f", model to '{model_to_write}'"
+
+    # The sentence carries its own full stop AND its own capital (design round 1, D6,
+    # D9): the two front ends used to punctuate and capitalise the SAME receipt
+    # differently — the CLI appended a period and upper-cased the first letter, the TUI
+    # did neither — so where it was read decided how it was written. Each of the four
+    # strings above is therefore complete, and neither front end touches it at all.
+    receipt += "."
+
+    return LoginDefaults(
+        hosting=resolved,
+        model_name=model_to_write,
+        receipt=receipt,
+        repairing=repairing,
+        model_label=suggestion.name if (suggestion is not None and model_to_write) else None,
+    )
+
+
+def apply_login_defaults(manager: "ConfigManager", plan: LoginDefaults) -> bool:
+    """Write ``plan`` to ``manager``; True when anything was written.
+
+    The WRITE half of the policy, shared by every front end for the same reason
+    the plan is: the callers each used to spell "write hosting, then the model
+    unless it is ``None``" themselves, and a plan that sets ONLY the model (the
+    same-provider empty-model fill) was invisible to all three, because each one
+    gated the model write on a hosting write. ``None`` leaves a field alone and
+    ``""`` clears it; the explicit ``is not None`` tests are what keep the
+    clearing case from being swallowed by a falsy check.
+    """
+    wrote = False
+    if plan.hosting is not None:
+        manager.set_config_value("hosting", plan.hosting)
+        wrote = True
+    if plan.model_name is not None:
+        manager.set_config_value("model_name", plan.model_name)
+        wrote = True
+    return wrote

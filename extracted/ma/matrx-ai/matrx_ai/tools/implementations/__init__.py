@@ -11,8 +11,6 @@ from .ctx_write import context_patch, ctx_create
 from .database import db_insert, db_query, db_schema, db_update
 from .datasets_tools import (
     usertable_add_rows,
-    usertable_create,
-    usertable_create_advanced,
     usertable_delete_row,
     usertable_get_all,
     usertable_get_data,
@@ -147,10 +145,7 @@ __all__ = [
     "code_execute_python",
     # News
     "news_get_headlines",
-    # Datasets (user-owned tabular data) — simple variant
-    "usertable_create",
-    # Datasets — advanced variant
-    "usertable_create_advanced",
+    # Datasets (a person's tables, in the record store)
     "usertable_get_all",
     "usertable_get_metadata",
     "usertable_get_fields",

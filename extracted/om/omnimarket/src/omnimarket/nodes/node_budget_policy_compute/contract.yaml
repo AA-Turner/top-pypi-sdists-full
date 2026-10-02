@@ -1,0 +1,76 @@
+---
+name: node_budget_policy_compute
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: compute
+runtime_profiles: [main]
+node_version: {major: 1, minor: 0, patch: 0}
+description: >
+  Pure deterministic budget policy evaluator. Compares context usage (tokens,
+  cost, elapsed time) against declared thresholds and returns an EnumBudgetAction
+  forcing decision. No side effects, no I/O, no bus or DB dependencies.
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: budget_policy
+      handler:
+        name: HandlerBudgetPolicy
+        module: omnimarket.nodes.node_budget_policy_compute.handlers.handler_budget_policy
+
+handler:
+  module: omnimarket.nodes.node_budget_policy_compute.handlers.handler_budget_policy
+  class: HandlerBudgetPolicy
+  input_model: omnimarket.nodes.node_budget_policy_compute.models.model_budget_policy_request.ModelBudgetPolicyRequest
+
+descriptor:
+  node_archetype: compute
+  purity: pure
+  idempotent: true
+  timeout_ms: 500
+
+inputs:
+  current_usage:
+    type: object
+    required: true
+    description: Current resource consumption (tokens, cost_usd, elapsed_time_s)
+  budget_limits:
+    type: object
+    required: true
+    description: Declared budget ceiling (max_tokens, max_cost_usd, max_time_s)
+  task_priority:
+    type: str
+    required: true
+    description: EnumTaskPriority value affecting throttle/abort thresholds
+
+outputs:
+  action:
+    type: str
+    enum: [CONTINUE, WARN, THROTTLE, ABORT]
+  reason:
+    type: str
+  dimensions_exceeded:
+    type: array
+    items:
+      type: str
+  recommended_action:
+    type: str
+
+terminal_event: onex.evt.omnimarket.budget-policy-completed.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.budget-policy-requested.v1
+  publish_topics:
+    - onex.evt.omnimarket.budget-policy-completed.v1
+
+metadata:
+  transport_type: kafka
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.budget-policy-requested.v1
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.budget-policy-completed.v1

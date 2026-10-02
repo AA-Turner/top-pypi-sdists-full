@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "whisper-s2t-reborn"
+version = "1.7.2"
+description = "A streamlined Speech-to-Text pipeline for Whisper using CTranslate2"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10,<3.15"
+authors = [
+    {name = "Blair Chintella"}
+]
+dependencies = [
+    "ctranslate2>=4.8.1,<5.0.0",
+    "huggingface-hub",
+    "numpy>=1.26.4,<3.0.0",
+    "platformdirs",
+    "requests",
+    "tokenizers",
+    "torch>=2.8.0,<3.0.0",
+    "tqdm",
+    "av>=13.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/BBC-Esq/WhisperS2T-reborn"
+
+[tool.setuptools]
+packages = ["whisper_s2t", "whisper_s2t.backends", "whisper_s2t.backends.ctranslate2", "whisper_s2t.speech_segmenter"]
+
+[tool.setuptools.package-data]
+whisper_s2t = ["assets/*"]

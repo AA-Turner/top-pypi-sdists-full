@@ -1,0 +1,139 @@
+# Self-contained integration stack for pylakekeeper.
+#
+# Lakekeeper + Postgres + Silo (S3) + Keycloak, wired for real OAuth2 client_credentials.
+# Adapted from the lakekeeper server repo's test compose; trimmed to what this client
+# needs (no kafka/nats/trino/spark/openfga; no STS nginx-split — that overlay only exists
+# to test the server's sts-endpoint override, which is not our concern).
+#
+# Host ports are pinned so the issuer of host-acquired tokens (localhost:30080) is known
+# in advance and can be added to Lakekeeper's accepted issuers.
+
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  silo:
+    # Silo is a maintained fork of MinIO (MinIO pulled its own images from Docker Hub).
+    # It serves the S3 API plus the STS AssumeRole endpoint from a single process, which
+    # is all Lakekeeper needs to vend short-lived credentials — no IAM config file, and
+    # no assumable role ARN on the warehouse. Matches the lakekeeper server repo's stacks.
+    image: pgsty/silo:RELEASE.2026-09-03T13-18-01Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: silo-root-user
+      MINIO_ROOT_PASSWORD: silo-root-password
+    ports:
+      # Host 9100, not 9000: Lakekeeper's own metrics port defaults to 9000, so a
+      # natively-running server would take it and S3 calls would hit /metrics instead.
+      - "9100:9000"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 2s
+      timeout: 10s
+      retries: 30
+      start_period: 15s
+
+  create-bucket:
+    # Silo starts with no buckets, so create the one the warehouse points at.
+    image: pgsty/silo:RELEASE.2026-09-03T13-18-01Z
+    depends_on:
+      silo:
+        condition: service_healthy
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        mc alias set local http://silo:9000 silo-root-user silo-root-password &&
+        mc mb --ignore-existing local/examples
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0.7
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    volumes:
+      - ./keycloak/realm.json:/opt/keycloak/data/import/realm.json:ro
+    ports:
+      - "31080:8080"
+    healthcheck:
+      # Keycloak's distroless image has no curl/wget; use the /dev/tcp trick.
+      test:
+        - "CMD-SHELL"
+        - 'exec 3<>/dev/tcp/127.0.0.1/8080; echo -e "GET /realms/iceberg/.well-known/openid-configuration HTTP/1.1\r\nhost: 127.0.0.1\r\nConnection: close\r\n\r\n" >&3; grep -q jwks_uri <&3'
+      interval: 3s
+      timeout: 4s
+      retries: 40
+
+  migrate:
+    image: ${LAKEKEEPER_TEST__SERVER_IMAGE:-quay.io/lakekeeper/catalog:latest-main}
+    command: ["migrate"]
+    environment:
+      LAKEKEEPER__PG_ENCRYPTION_KEY: abc
+      LAKEKEEPER__PG_DATABASE_URL_READ: postgresql://postgres:postgres@db:5432/postgres
+      LAKEKEEPER__PG_DATABASE_URL_WRITE: postgresql://postgres:postgres@db:5432/postgres
+    depends_on:
+      db:
+        condition: service_healthy
+
+  lakekeeper:
+    image: ${LAKEKEEPER_TEST__SERVER_IMAGE:-quay.io/lakekeeper/catalog:latest-main}
+    command: ["serve"]
+    environment:
+      LAKEKEEPER__PG_ENCRYPTION_KEY: abc
+      LAKEKEEPER__PG_DATABASE_URL_READ: postgresql://postgres:postgres@db:5432/postgres
+      LAKEKEEPER__PG_DATABASE_URL_WRITE: postgresql://postgres:postgres@db:5432/postgres
+      # Server validates tokens against this issuer (internal hostname).
+      LAKEKEEPER__OPENID_PROVIDER_URI: http://keycloak:8080/realms/iceberg
+      # Tokens acquired by the test from the host are issued with this issuer; accept them too.
+      LAKEKEEPER__OPENID_ADDITIONAL_ISSUERS: http://localhost:31080/realms/iceberg
+    ports:
+      - "8182:8181"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      keycloak:
+        condition: service_healthy
+      create-bucket:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8181/health || exit 1"]
+      interval: 3s
+      timeout: 4s
+      retries: 40
+
+  # One-shot runner for examples/_demo.py, in-network (so the vended storage endpoint
+  # resolves without rewriting). Profile-gated so it never starts during the test `up`.
+  # Driven by examples/run.sh; not part of the integration test stack.
+  example:
+    profiles: ["tools"]
+    image: python:3.12-slim
+    working_dir: /work
+    volumes:
+      - ../..:/work
+    environment:
+      LAKEKEEPER: http://lakekeeper:8181
+      OAUTH_TOKEN_URL: http://keycloak:8080/realms/iceberg/protocol/openid-connect/token
+      OAUTH_CLIENT_ID: spark
+      OAUTH_CLIENT_SECRET: 2OR3eRvYfSZzzZ16MlPd95jhLnOaLM52
+      PROJECT_ID: "00000000-0000-0000-0000-000000000000"
+      NAMESPACE: ai.test
+      TABLE: image_embeddings
+    command:
+      - sh
+      - -c
+      - "pip install -q . pylance pyarrow numpy && cd examples && python _demo.py"
+    depends_on:
+      lakekeeper:
+        condition: service_healthy
+      create-bucket:
+        condition: service_completed_successfully

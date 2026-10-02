@@ -1,0 +1,1153 @@
+from __future__ import annotations
+
+import base64
+import json
+import logging
+import os
+import stat
+from collections.abc import Iterable
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from uuid import UUID
+
+from sqlalchemy import case, func, tuple_
+from sqlalchemy import select as sa_select
+
+from cowork.common.paths import (
+    dir_lstat,
+    dir_rmtree,
+    dir_unlink,
+    opened_subdir_nofollow,
+)
+from cowork.db.scoped import ScopedSession
+from cowork.models.conversation import Conversation
+from cowork.models.message import Message
+from cowork.models.message_event import MessageEvent
+from cowork.models.project import Project
+from cowork.schemas.conversations import ConversationItemsPage
+from cowork.schemas.responses import Role
+from cowork.services.channel_bindings import ChannelBindingService
+from cowork.services.schedules import ScheduleService
+from cowork.services.scratchpad_sessions import remove_conversation_sessions
+from cowork.services.task_objects import TaskObjectService
+
+# Defaults/bounds for GET /conversations/{id}/items's opt-in pagination
+# (see get_messages_page). Omitting both limit and before keeps the route's
+# original bare-list, unbounded response — these only apply once a caller
+# opts in.
+_DEFAULT_PAGE_LIMIT = 50
+_MAX_PAGE_LIMIT = 200
+# How many raw rows (visible + hidden tool rows) get_messages_page will scan
+# past `limit` before giving up on filling a full page of visible items.
+# Bounded so a pathological run of consecutive tool rows can't reintroduce
+# an unbounded query; a page that hits this cap is simply reported as
+# `has_more=True` so the client just asks again.
+_SCAN_CAP_MULTIPLIER = 10
+# Batch size for _hydrate_message_items's MessageEvent `IN (...)` query —
+# comfortably under every SQLite build's bound-parameter ceiling (including
+# pre-3.32 defaults of 999) while still batching hundreds of ids per round
+# trip on the unbounded get_messages branch a 1,000+ message conversation
+# can reach.
+_EVENTS_IN_CHUNK_SIZE = 500
+# Upper bound for a decoded cursor's `seq`. Not the column's limit (`seq` is
+# INTEGER, so 2**31-1 on Postgres) — this is what the drivers tolerate. sqlite3
+# raises OverflowError rather than bind an int wider than 64 bits, and that
+# raise escapes past this module's error mapping as a 500. psycopg does not
+# raise (it promotes the value to numeric, which Postgres compares against
+# int4 happily), so this guard is what makes the two backends agree.
+_MAX_CURSOR_SEQ = 2**63 - 1
+
+# The one order every read path uses: the UI list, the paginated page, the
+# replayed LLM history, and delete_turn's anchor resolution.
+#
+# `seq` leads, and created_at is deliberately absent. created_at is written two
+# different ways depending on the path — an explicit Python datetime (bound
+# with microsecond precision) by save_user_message, vs `server_default=now()`
+# by save_assistant_turn, which SQLite stores as a bare second-precision
+# string. SQLite compares those lexicographically, not temporally, so an
+# answer persisted in the same second as its question sorts BEFORE it. Leading
+# on created_at therefore returns a turn back to front, and a cursor built
+# from one format never satisfies `<` against rows stored in the other.
+#
+# `seq` is a per-conversation monotonic ordinal assigned at insert
+# (max(seq)+1, see _next_seq) that records the real insert order created_at
+# was only approximating. It is a TOTAL order per conversation only because
+# migration 3e4b5f7586d3 backfills the pre-seq rows that all shared 0; without
+# that backfill every legacy row ties here. role/id stay as a defensive
+# tiebreak, not a load-bearing one.
+_MESSAGE_ORDER = (
+    Message.seq,
+    case((Message.role == Role.user, 0), else_=1),
+    Message.id,
+)
+
+
+def _message_cursor_key(message: Message) -> tuple[int, int, UUID]:
+    """The runtime value of each _MESSAGE_ORDER column for one row, in the
+    same order — used to build a keyset pagination cursor from it."""
+    role_rank = 0 if message.role == Role.user else 1
+    return (message.seq, role_rank, message.id)
+
+
+def _encode_message_cursor(message: Message) -> str:
+    seq, role_rank, message_id = _message_cursor_key(message)
+    payload = [seq, role_rank, str(message_id)]
+    return base64.urlsafe_b64encode(json.dumps(payload).encode()).decode()
+
+
+class InvalidPaginationParams(ValueError):
+    """A malformed `before` cursor or an out-of-range `limit` on
+    GET .../items — the route maps this to 400, distinct from the plain
+    ValueError get_conversation raises for a missing/foreign conversation
+    (mapped to 404)."""
+
+
+def _decode_message_cursor(cursor: str) -> tuple[int, int, UUID]:
+    try:
+        raw = base64.urlsafe_b64decode(cursor.encode())
+        seq, role_rank, message_id = json.loads(raw)
+        seq, role_rank, message_id = int(seq), int(role_rank), UUID(message_id)
+    except Exception as e:
+        raise InvalidPaginationParams("Malformed pagination cursor") from e
+    # Range-checked, not just shape-checked: `before` is unsigned client
+    # input, and a decodable seq wider than the column overflows inside the
+    # driver, past this function's own error mapping and out as a 500.
+    if not 0 <= seq <= _MAX_CURSOR_SEQ or role_rank not in (0, 1):
+        raise InvalidPaginationParams("Malformed pagination cursor")
+    return (seq, role_rank, message_id)
+
+
+@dataclass(frozen=True)
+class ConversationDeleteStage:
+    """DB deletes plus the filesystem cleanup deferred until their commit."""
+
+    conversation_id: UUID
+    attachment_dirs: tuple[Path, ...]
+    project_path: str | None
+
+
+def _is_tool_row(content) -> bool:
+    """True for a history-only tool block-row (all blocks are tool_use /
+    tool_result). These carry prior tool calls for LLM-history replay and are
+    hidden from the UI, which renders tool activity from message events."""
+    return (
+        isinstance(content, list)
+        and len(content) > 0
+        and all(
+            isinstance(block, dict) and block.get("type") in ("tool_use", "tool_result")
+            for block in content
+        )
+    )
+
+
+logger = logging.getLogger(__name__)
+
+# ENG-1992: swapped in for an image content block a provider permanently
+# rejected (a schema/shape mismatch, not a moderation refusal), so it must
+# read as a removal notice, not as if the user said this.
+_IMAGE_PLACEHOLDER_TEXT = (
+    "[An image here could not be sent to the model and was removed "
+    "automatically so this conversation could continue. Re-share it if you "
+    "still need it referenced.]"
+)
+
+
+def _strip_image_blocks(content):
+    """Replace image content blocks with a text placeholder, recursing into
+    tool_result blocks' own nested content (a tool can return an image, e.g.
+    a screenshot).
+
+    Returns `(content, changed)` — `content` is the exact same object when
+    nothing needed stripping, so a caller can skip a write when `changed` is
+    False. Used to repair a conversation whose stored history contains an
+    image block a provider permanently rejected (ENG-1992's
+    ContentValidationError) — once removed, replay just works again, with no
+    special-casing needed on future turns.
+    """
+    if not isinstance(content, list):
+        return content, False
+
+    changed = False
+    new_blocks = []
+    for block in content:
+        if not isinstance(block, dict):
+            new_blocks.append(block)
+            continue
+        if block.get("type") == "image":
+            new_blocks.append({"type": "text", "text": _IMAGE_PLACEHOLDER_TEXT})
+            changed = True
+            continue
+        if block.get("type") == "tool_result":
+            nested, nested_changed = _strip_image_blocks(block.get("content"))
+            if nested_changed:
+                new_blocks.append({**block, "content": nested})
+                changed = True
+                continue
+        new_blocks.append(block)
+    return (new_blocks if changed else content), changed
+
+
+def _skill_created_slug(event_data) -> str | None:
+    """The draft slug of a persisted `response.skill_created` event, else None."""
+    if (
+        not isinstance(event_data, dict)
+        or event_data.get("type") != "response.skill_created"
+    ):
+        return None
+    skill = event_data.get("skill")
+    slug = skill.get("slug") if isinstance(skill, dict) else None
+    return slug if isinstance(slug, str) and slug else None
+
+
+def _sweep_skill_drafts(session, project_id, slugs: set[str]) -> None:
+    """Remove the on-disk skill drafts for `slugs` in a project's drafts dir.
+
+    Called when a turn holding a skill card is deleted: the card's event is gone,
+    so the draft would otherwise be orphaned. Best-effort — a missing project or
+    folder is a no-op. Confined to direct children of the drafts dir.
+    """
+    project = session.get(Project, project_id)
+    if project is None or not project.path:
+        return
+    # `<project>/.anton/skill_drafts` sits under the agent-writable tree, so a
+    # planted symlink at `.anton`, `skill_drafts`, or the slug could redirect
+    # this delete into another org. Pin the dir by O_NOFOLLOW descriptor and
+    # rmtree each slug relative to it, never following a link (see
+    # opened_subdir_nofollow). slug comes from an event, so reject anything that
+    # is not a single path component before handing it to the kernel.
+    try:
+        with opened_subdir_nofollow(Path(project.path), ".anton", "skill_drafts") as d:
+            for slug in slugs:
+                if (
+                    os.sep in slug
+                    or (os.altsep and os.altsep in slug)
+                    or slug in {"", ".", ".."}
+                ):
+                    continue
+                try:
+                    st = dir_lstat(d, slug)
+                except FileNotFoundError:
+                    continue
+                try:
+                    if stat.S_ISLNK(st.st_mode):
+                        dir_unlink(d, slug)  # drop the link only, never follow it
+                    elif stat.S_ISDIR(st.st_mode):
+                        dir_rmtree(d, slug)
+                except OSError:
+                    logger.warning(
+                        "Could not sweep skill draft %r on turn delete",
+                        slug,
+                        exc_info=True,
+                    )
+    except OSError:
+        # No drafts dir (or a symlink squatting `.anton`/`skill_drafts`): nothing to sweep.
+        return
+
+
+def _discard_conversation_streams(conversation_id) -> None:
+    """Drop a conversation's stale stream buffers + handle after a turn delete.
+
+    A turn's buffer is keyed by `turn_id = len(messages)`; truncating the history
+    makes the next turn reuse a deleted turn's buffer and replay the old answer
+    instead of generating. Streaming owns the buffers — we just ask it to discard.
+    Best-effort: never breaks the delete.
+    """
+    try:
+        from cowork.streaming import discard_conversation
+
+        discard_conversation(conversation_id)
+    except Exception:
+        logger.warning(
+            "Could not discard streams for conversation %s",
+            conversation_id,
+            exc_info=True,
+        )
+
+
+class ConversationService:
+    def __init__(self, session: ScopedSession) -> None:
+        self.session = session
+
+    def _default_project_id(self) -> UUID | None:
+        """The caller's default project. Imported lazily: projects imports this
+        module's models, so a top-level import would cycle."""
+        from cowork.services.projects import ProjectService
+
+        return ProjectService(self.session).default_project_id()
+
+    def _next_seq(self, conversation_id: UUID) -> int:
+        """Next per-conversation ordinal: max(seq) + 1, or 0 when empty.
+
+        Keeps `seq` monotonic across the whole conversation so message order
+        never depends on created_at's second-level resolution.
+
+        ponytail: one extra query per persist, and max+1 races only if a single
+        conversation runs two concurrent turns — which it can't today (turns are
+        serialized). The id tiebreak in _MESSAGE_ORDER still bounds the fallout
+        if that ever changes.
+        """
+        # ORDER BY seq DESC LIMIT 1 (not func.max): expressible through the
+        # scoped .select() API, so no escape hatch to the raw session.
+        last = self.session.exec(
+            self.session.select(Message)
+            .where(Message.conversation_id == conversation_id)
+            .order_by(Message.seq.desc())
+            .limit(1)
+        ).first()
+        return 0 if last is None else last.seq + 1
+
+    def save_user_message(
+        self,
+        conversation_id: UUID,
+        content,
+        created_at: datetime | None = None,
+        *,
+        pending: bool = False,
+    ) -> Message:
+        """Persist a user message with the next monotonic `seq` (see _next_seq).
+
+        `pending=True` marks the message in-flight (ENG-1231): the streaming path
+        persists it at turn start so a mid-turn refresh shows the question, but it
+        is kept out of replayed LLM history (get_ordered_messages) until the turn
+        ends and finalize_pending clears the flag.
+        """
+        message = Message(
+            conversation_id=conversation_id,
+            role="user",
+            content=content,
+            seq=self._next_seq(conversation_id),
+            created_at=created_at,
+            pending=pending,
+        )
+        self.session.add(message)
+        self.session.commit()
+        self.session.refresh(message)
+        return message
+
+    def finalize_pending(
+        self, conversation_id: UUID, message_id: UUID | None = None
+    ) -> None:
+        """Clear the in-flight flag at turn end (ENG-1231), so the finished turn
+        rejoins replayed LLM history.
+
+        Pass `message_id` to finalize only that turn's row — the streaming
+        producers do this so a completing turn cannot silently absorb an unrelated
+        pending row that was stranded by a hard crash (killed between the pending
+        persist and finalize) on an earlier turn. Such an orphan stays pending
+        (still shown in the UI, still excluded from history) instead of being
+        folded into history as a question with no answer.
+
+        With no `message_id`, clears every pending row for the conversation — a
+        defensive/idempotent form for callers that just want a clean slate.
+
+        Idempotent: a no-op when nothing matches.
+        """
+        stmt = (
+            self.session.select(Message)
+            .where(Message.conversation_id == conversation_id)
+            .where(Message.pending == True)  # noqa: E712 — SQL boolean column, not Python identity
+        )
+        if message_id is not None:
+            stmt = stmt.where(Message.id == message_id)
+        pending_rows = self.session.exec(stmt).all()
+        if not pending_rows:
+            return
+        for message in pending_rows:
+            message.pending = False
+            self.session.add(message)
+        self.session.commit()
+
+    def repair_image_content(self, conversation_id: UUID) -> list[UUID]:
+        """Strip image content blocks from every stored message in a
+        conversation, replacing each with a text placeholder.
+
+        Called when a turn dies on ContentValidationError (ENG-1992): the
+        provider permanently rejected some image block in history, and
+        retrying identically fails identically forever, because the
+        translation that produced the bad block runs fresh from this same
+        stored data on every call. Fixing the DATA once, here, rather than
+        special-casing replay means every future turn just works — no flag,
+        no per-turn filtering to maintain.
+
+        Scans every message (including pending/tool-only rows — a poisoned
+        image could be in either) rather than trying to identify "the" one
+        culprit from the provider's error: that needs mapping a request-
+        relative index (e.g. Responses' "input[70]") back to a specific
+        stored message, which isn't reliable across providers or dialects.
+        Structurally finding every image block is deterministic and safe
+        instead.
+
+        Returns the ids of messages that were actually changed — empty if
+        none needed it (e.g. the failure turned out not to be image-shaped
+        after all, so there's nothing here to fix).
+        """
+        messages = self.get_ordered_messages(conversation_id, include_pending=True)
+        repaired: list[UUID] = []
+        for message in messages:
+            new_content, changed = _strip_image_blocks(message.content)
+            if not changed:
+                continue
+            message.content = new_content
+            self.session.add(message)
+            repaired.append(message.id)
+        if repaired:
+            self.session.commit()
+        return repaired
+
+    def last_message_at(self, conversation_id: UUID) -> datetime | None:
+        """Timestamp of the most recent message, or None for an empty
+        conversation. This is the real "last activity" — the stored
+        `conversation.modified_at` only moves on rename/move, never on a turn
+        (ENG-961), so it must be derived from the messages themselves. The
+        `messages(conversation_id, created_at)` index makes this an index seek.
+        """
+        last = self.session.exec(
+            self.session.select(Message)
+            .where(Message.conversation_id == conversation_id)
+            .order_by(Message.created_at.desc())
+            .limit(1)
+        ).first()
+        return last.created_at if last is not None else None
+
+    def list_conversations(
+        self,
+        project_id: UUID | None = None,
+        limit: int = 50,
+        all_projects: bool = False,
+    ) -> list[Conversation]:
+        """Conversations most-recently-*active* first. Ordering by derived
+        activity (not `created_at`) is what keeps the `limit` window holding
+        recently-*used* tasks rather than recently-*created* ones (ENG-961).
+
+        The order key is a correlated MAX(message.created_at) subquery rather
+        than a join+group_by so the statement stays a single-entity select —
+        the scoped session's org filter still applies and `exec()` returns
+        clean Conversation rows. Empty conversations coalesce to their own
+        `created_at` so a NULL max can't sort them to the end.
+        """
+        last_activity = func.coalesce(
+            sa_select(func.max(Message.created_at))
+            .where(Message.conversation_id == Conversation.id)
+            .correlate(Conversation)
+            .scalar_subquery(),
+            Conversation.created_at,
+        )
+        stmt = self.session.select(Conversation)
+        # Conversations are personal: the scoped session enforces the org, but
+        # user_id has no automatic scoping (see PinService), so without this
+        # every org member's tasks show in everyone's list.
+        if self.session.scope.org_mode:
+            stmt = stmt.where(Conversation.created_by == self.session.scope.user_id)
+        if not all_projects:
+            stmt = stmt.where(
+                Conversation.project_id == (project_id or self._default_project_id())
+            )
+        # created_at then id break ties deterministically so equal-activity rows
+        # (e.g. two empty conversations) keep a stable order across polls.
+        stmt = stmt.order_by(
+            last_activity.desc(), Conversation.created_at.desc(), Conversation.id
+        ).limit(limit)
+        return list(self.session.exec(stmt).all())
+
+    def list_conversations_with_activity(
+        self,
+        project_id: UUID | None = None,
+        limit: int = 50,
+        all_projects: bool = False,
+    ) -> list[tuple[Conversation, datetime]]:
+        """`list_conversations` paired with each row's last-activity timestamp
+        for serialization. The value reuses `last_message_at` (an index seek on
+        the ENG-961 composite index); callers that don't need the value (e.g.
+        search indexing) use `list_conversations` and skip the per-row lookup.
+        """
+        convs = self.list_conversations(
+            project_id=project_id, limit=limit, all_projects=all_projects
+        )
+        return [
+            (conv, self.last_message_at(conv.id) or conv.created_at) for conv in convs
+        ]
+
+    def _owned(self, conversation_id: UUID) -> Conversation | None:
+        """Fetch a conversation only if it belongs to the caller.
+
+        Conversations are personal. The scoped session enforces the org, but
+        user_id has no automatic scoping (see PinService) and a bare
+        session.get by PK bypasses even the org filter — so every by-id access
+        must go through here or a member can read/rename/delete another
+        member's chat by guessing its id. Local mode has one user, so no owner
+        filter applies.
+        """
+        stmt = self.session.select(Conversation).where(
+            Conversation.id == conversation_id
+        )
+        if self.session.scope.org_mode:
+            stmt = stmt.where(Conversation.created_by == self.session.scope.user_id)
+        return self.session.exec(stmt).first()
+
+    def owned_ids(self, conversation_ids: Iterable[UUID]) -> set[UUID]:
+        """The subset of `conversation_ids` the caller owns, in one query.
+
+        Same rule as `_owned`, batched. The artifact roots resolver walks one
+        directory per conversation and holds every id at once, so without this
+        a plain list request would issue a SELECT per directory.
+        """
+        ids = list(conversation_ids)
+        if not ids:
+            return set()
+        stmt = self.session.select(Conversation).where(Conversation.id.in_(ids))
+        if self.session.scope.org_mode:
+            stmt = stmt.where(Conversation.created_by == self.session.scope.user_id)
+        return {row.id for row in self.session.exec(stmt).all()}
+
+    def get_conversation(self, conversation_id: UUID) -> Conversation:
+        conversation = self._owned(conversation_id)
+        if conversation is None:
+            raise ValueError("Conversation not found")
+        return conversation
+
+    def create_conversation(
+        self,
+        topic: str,
+        project_id: UUID | None = None,
+        conversation_id: UUID | None = None,
+        harness: str | None = None,
+        model: str | None = None,
+        reasoning_effort: str | None = None,
+    ) -> Conversation:
+        """`conversation_id` lets the caller adopt a client-allocated id —
+        the composer allocates one up front so attachments can be uploaded
+        against it before the first stream creates the conversation."""
+        # Anchor the parent: the target project must be visible in scope —
+        # otherwise org A could link a conversation to org B's project and
+        # leak its name/path through serialization.
+        target_project_id = project_id or self._default_project_id()
+        if self.session.get(Project, target_project_id) is None:
+            raise ValueError("Project not found")
+        conversation = Conversation(
+            topic=topic,
+            project_id=target_project_id,
+            harness=harness,
+            model=model,
+            reasoning_effort=reasoning_effort,
+        )
+        if conversation_id is not None:
+            conversation.id = conversation_id
+        self.session.add(conversation)
+        self.session.commit()
+        self.session.refresh(conversation)
+        return conversation
+
+    def project_by_name(self, name: str | None) -> Project | None:
+        if not name:
+            return None
+        # Delegate so the `general` self-heal lives in one place.
+        # Lazy import: projects imports this module.
+        from cowork.services.projects import ProjectService
+
+        return ProjectService(self.session).get_or_provision_by_name_or_none(name)
+
+    def update_conversation(
+        self,
+        conversation_id: UUID,
+        topic: str | None = None,
+        project_id: UUID | None = None,
+    ) -> Conversation:
+        conversation = self._owned(conversation_id)
+        if conversation is None:
+            raise ValueError("Conversation not found")
+        if topic is not None:
+            conversation.topic = topic
+        if project_id is not None:
+            # Anchor the move target: the project must be visible in scope.
+            if self.session.get(Project, project_id) is None:
+                raise ValueError("Project not found")
+            conversation.project_id = project_id
+        self.session.add(conversation)
+        self.session.commit()
+        self.session.refresh(conversation)
+        return conversation
+
+    def update_history_compaction(
+        self,
+        conversation_id: UUID,
+        summary: str,
+        cutoff_message_id: UUID,
+    ) -> None:
+        """Persist anton's latest compacted history summary + cutoff.
+
+        Best-effort: silently no-ops if the conversation is gone (this runs
+        from a turn's cleanup path, after the turn's real outcome is settled).
+        """
+        conversation = self._owned(conversation_id)
+        if conversation is None:
+            return
+        conversation.history_summary = summary
+        conversation.history_summary_cutoff_id = cutoff_message_id
+        self.session.add(conversation)
+        self.session.commit()
+
+    def archived_messages(self, conversation_id: UUID) -> list[dict]:
+        """The messages the saved summary replaced, oldest first, as plain dicts.
+
+        These are the turns the agent no longer receives, so they are the only
+        ones worth searching (ENG-735). Empty on every path where there is no
+        archive to search:
+        - nothing compacted yet — the whole history is already in context
+        - the cutoff row is gone (deleted/truncated history), which also makes
+          the saved summary stale and the replay fall back to full history
+        """
+        conversation = self.get_conversation(conversation_id)
+        cutoff_id = conversation.history_summary_cutoff_id
+        if not conversation.history_summary or cutoff_id is None:
+            return []
+
+        # Same filter the replay applies (see AntonHarness._seed_history): the
+        # cutoff id refers to a position in the user/assistant stream, so a
+        # thought row must not shift it.
+        archived: list[dict] = []
+        for message in self.get_ordered_messages(conversation_id):
+            if message.role not in (Role.user, Role.assistant):
+                continue
+            archived.append({"role": message.role.value, "content": message.content})
+            if message.id == cutoff_id:
+                return archived
+        return []
+
+    def delete_conversation(self, conversation_id: UUID) -> bool:
+        """Owner-scoped delete for the request path: a member can only delete
+        their own conversation."""
+        conversation = self._owned(conversation_id)
+        if conversation is None:
+            return False
+        return self._delete_conversation(conversation)
+
+    def stage_delete_conversation_row(
+        self,
+        conversation: Conversation,
+        *,
+        include_org_attachments: bool,
+    ) -> ConversationDeleteStage:
+        """Stage every conversation-owned DB delete without external cleanup.
+
+        ``include_org_attachments`` has no default because its two values are
+        two different authorization decisions. True cleans every org member's
+        attachment row for this conversation's purpose, which only an
+        already-authorized org-wide cascade such as a project delete may do.
+        False keeps the delete inside the actor's own file rows, which is what
+        a direct conversation delete must ask for. A caller has to say which
+        one it is rather than inherit the owner-agnostic path by omission.
+        """
+        conversation_id = conversation.id
+        messages = self.session.exec(
+            self.session.select(Message)
+            .where(Message.conversation_id == conversation_id)
+            .order_by(*_MESSAGE_ORDER)
+        ).all()
+        for message in messages:
+            for event in self.session.exec(
+                self.session.select(MessageEvent).where(
+                    MessageEvent.message_id == message.id
+                )
+            ).all():
+                self.session.delete(event)
+            self.session.delete(message)
+        # Drop the conversation's object index too — otherwise the rows
+        # outlive the conversation as orphans pointing at artifacts no
+        # task owns anymore.
+        TaskObjectService(self.session).delete_for_conversation(conversation)
+        # Drop the conversation's uploaded attachments (rows + bytes) — they're
+        # keyed by conversation id and would otherwise orphan in the file store
+        # forever, invisible in any UI (ENG-701). Stage the row deletes into
+        # THIS transaction (single commit below, so a crash can't leave a
+        # half-deleted "ghost" conversation), then unlink the bytes only after
+        # the commit succeeds.
+        from cowork.services.files import (
+            FileService,
+            attachment_purpose,
+        )
+
+        file_service = FileService(self.session)
+        purpose = attachment_purpose(str(conversation_id))
+        if include_org_attachments:
+            attachment_dirs = file_service.delete_by_purpose_for_parent_cascade(purpose)
+        else:
+            attachment_dirs = file_service.delete_by_purpose(purpose)
+        # Three more tables point at this conversation, and unlike the rows above
+        # they are not the conversation's own data: a schedule and its runs record
+        # the conversation a run produced, and a channel binding records the one
+        # its external chat is pinned to. No foreign key in this schema declares
+        # an `ondelete`, so Postgres refuses the delete below while any of them
+        # still points here, and SQLite (desktop, and the whole test suite) runs
+        # with foreign keys off and orphans them instead. Each owning service
+        # releases its own link and keeps its rows, staged into this transaction.
+        ScheduleService(self.session).release_conversation(conversation_id)
+        ChannelBindingService(self.session).release_conversation(conversation_id)
+        # anton snapshots the scratchpad namespace to
+        # `<project>/.anton/scratchpad-sessions/<conversation_id>/` so variables survive
+        # the pad process being replaced each turn (ENG-1124). Nothing else prunes those
+        # — only a whole-project delete would — so they accumulate one directory per
+        # conversation, and a namespace can hold the injected DS_* credentials (ENG-392),
+        # making a stale snapshot data-at-rest rather than just disk.
+        # Resolve the project path HERE, while the conversation is still attached; the
+        # removal happens after the commit for the same reason as the attachment bytes.
+        session_project_path = (
+            conversation.project.path if conversation.project is not None else None
+        )
+        self.session.delete(conversation)
+        return ConversationDeleteStage(
+            conversation_id=conversation_id,
+            attachment_dirs=tuple(attachment_dirs),
+            project_path=session_project_path,
+        )
+
+    @staticmethod
+    def finalize_staged_conversation_delete(
+        stage: ConversationDeleteStage,
+        *,
+        cleanup_project_files: bool = True,
+    ) -> None:
+        """Remove external state only after the staged DB transaction commits."""
+        from cowork.services.files import (
+            remove_conversation_workspace_dir,
+            unlink_file_dirs,
+        )
+
+        # Its buffers and turn-index entry outlive the rows otherwise: on the
+        # Redis backend /in-flight keeps naming a turn whose conversation is
+        # gone, and a reused turn_id would replay a deleted turn's answer.
+        _discard_conversation_streams(stage.conversation_id)
+        unlink_file_dirs(list(stage.attachment_dirs))
+        if cleanup_project_files:
+            remove_conversation_sessions(stage.project_path, stage.conversation_id)
+            # Also drop the per-conversation workspace (staged attachments +
+            # instructions on the shared mount) so it doesn't orphan there.
+            remove_conversation_workspace_dir(
+                stage.project_path,
+                stage.conversation_id,
+            )
+
+    def _delete_conversation(self, conversation: Conversation) -> bool:
+        try:
+            # A direct delete is the actor's own: never reach past their file
+            # rows into a peer's attachment on the same conversation.
+            stage = self.stage_delete_conversation_row(
+                conversation,
+                include_org_attachments=False,
+            )
+            self.session.commit()
+        except Exception:
+            self.session.rollback()
+            raise
+        self.finalize_staged_conversation_delete(stage)
+        return True
+
+    def delete_turn(self, conversation_id: UUID, message_id: UUID) -> int:
+        """Delete a turn and everything after it, anchored at `message_id`
+        instead of a positional index — a client that has only lazily
+        loaded the most recent page of a long conversation cannot compute a
+        correct absolute position, and getting that wrong here would delete
+        the wrong range of history.
+
+        `message_id` must be one of:
+        - a visible assistant message (role=assistant, not a hidden
+          tool_use/tool_result row) — the normal case. Walks backward over
+          that turn's hidden tool rows and includes the user message that
+          opened it, exactly as the old index-based walk did.
+        - a visible user message with no visible assistant reply before
+          the next visible user message or the end of history (an orphan
+          turn — stopped or failed before any answer). Cuts from that user
+          message directly; there is nothing to walk back over.
+
+        Anything else (a hidden tool row's id, an answered user message, an
+        id from another conversation, or an id that doesn't exist at all)
+        raises the same ValueError, mapped to the same 404 either way — a
+        foreign id must not be distinguishable from a nonexistent one.
+
+        Returns the number of messages deleted.
+        """
+        conversation = self.get_conversation(conversation_id)  # raises if not found
+        messages = list(
+            self.session.exec(
+                self.session.select(Message)
+                .where(Message.conversation_id == conversation_id)
+                .order_by(*_MESSAGE_ORDER)
+            ).all()
+        )
+        anchor_index = next((i for i, m in enumerate(messages) if m.id == message_id), None)
+        if anchor_index is None:
+            raise ValueError(f"Turn anchor {message_id} not found")
+        anchor = messages[anchor_index]
+
+        cut_from: int | None = None
+        if anchor.role.value == "assistant" and not _is_tool_row(anchor.content):
+            # Walk back over this turn's hidden tool rows (the
+            # tool_result row is role=user, so a plain i-1 check would
+            # stop on it and orphan the real user input + tool_use).
+            cut_from = anchor_index
+            j = anchor_index - 1
+            while j >= 0 and _is_tool_row(messages[j].content):
+                cut_from = j
+                j -= 1
+            # Include the user message that opened the turn.
+            if j >= 0 and messages[j].role.value == "user":
+                cut_from = j
+        elif anchor.role.value == "user" and not _is_tool_row(anchor.content):
+            # Orphan anchor: valid only if nothing visible answers it yet. A
+            # visible assistant row with empty content is a turn that failed
+            # or was stopped before producing anything — save_assistant_turn
+            # still persists it when it carries events (e.g. the
+            # response.failed record), but the client renders no bubble for
+            # it and treats the user row as the orphan instead
+            # (isSkippedFailedAssistant / isOrphanUser,
+            # lib/turnVisibility.js) — the two must agree, or deleting
+            # exactly the "stopped/failed before any answer" turn the ticket
+            # calls out 404s here.
+            answered = False
+            for m in messages[anchor_index + 1 :]:
+                if _is_tool_row(m.content):
+                    continue
+                answered = m.role.value == "assistant" and bool(m.content)
+                break  # first visible row after the anchor decides it either way
+            if answered:
+                raise ValueError(f"Turn anchor {message_id} already has a reply")
+            cut_from = anchor_index
+        else:
+            raise ValueError(f"Turn anchor {message_id} is not a valid turn boundary")
+
+        to_delete = messages[cut_from:]
+        swept_slugs: set[str] = set()
+        for msg in to_delete:
+            for event in self.session.exec(
+                self.session.select(MessageEvent).where(
+                    MessageEvent.message_id == msg.id
+                )
+            ).all():
+                slug = _skill_created_slug(event.event_data)
+                if slug:
+                    swept_slugs.add(slug)
+                self.session.delete(event)
+            self.session.delete(msg)
+        # Clearing the whole history (truncate from turn 0) is the UI's
+        # "delete chat history". When nothing remains, the conversation no
+        # longer owns anything it produced — drop its object index so a
+        # cleared chat doesn't keep resurfacing old artifacts. A partial
+        # truncation leaves the index alone (rows aren't turn-scoped, and
+        # surviving turns may still reference the artifact).
+        if cut_from == 0:
+            TaskObjectService(self.session).delete_for_conversation(conversation)
+        self.session.commit()
+        # After the rows are gone, reap the on-disk drafts whose only card lived
+        # in a deleted turn (their `skill_created` events were just removed).
+        if swept_slugs:
+            _sweep_skill_drafts(self.session, conversation.project_id, swept_slugs)
+        # Drop stale stream buffers so a resend regenerates instead of replaying
+        # a deleted turn (turn_id == message count collides after truncation).
+        _discard_conversation_streams(conversation_id)
+        # Rewinding history must rewind the scratchpad too. The namespace snapshot is at
+        # the state the *deleted* turns left it in, so without this a resend reloads
+        # variables created by a turn the user just removed — the visible history and the
+        # agent's actual state would disagree. Cheapest correct answer is to drop the
+        # snapshot: the agent then rebuilds from the surviving history, which is exactly
+        # what the user asked for by truncating.
+        project = self.session.get(Project, conversation.project_id)
+        remove_conversation_sessions(project.path if project else None, conversation_id)
+        return len(to_delete)
+
+    def save_assistant_turn(
+        self,
+        conversation_id: UUID,
+        text: str,
+        events: list[dict],
+        harness: str | None = None,
+        tool_rows: list[dict] | None = None,
+    ) -> Message | None:
+        """Persist an assistant turn. Returns the created assistant Message
+        (its id is what the completion SSE frames hand back to the browser),
+        or None on the early-return below when nothing was
+        actually persisted.
+
+        `tool_rows` are the turn's tool block-messages ({role, content} with
+        `tool_use` / `tool_result` blocks). They are written as their own rows
+        AHEAD of the visible assistant message so the next turn's history
+        replays a valid tool_use → tool_result → text sequence. All rows share
+        one commit (hence one `created_at`); `seq` fixes their order, since the
+        role tiebreak in _MESSAGE_ORDER would otherwise sort tool_result (user)
+        ahead of tool_use (assistant). Hidden from the UI by `get_messages`.
+        """
+        # Persist when there's body text OR any events — an artifact-only turn
+        # (the agent writes a file and says little/nothing) carries no text but
+        # emits a `response.artifact_created` event, and that event must survive
+        # reload so the inline card replays identically.
+        if not text and not events and not tool_rows:
+            return None
+        # Anchor the write to a parent loaded through THIS session's scope —
+        # detached writers (producer) call this on a fresh session, and the
+        # conversation may be gone or out-of-scope by now.
+        self.get_conversation(conversation_id)
+        assistant_msg = Message(
+            conversation_id=conversation_id,
+            role="assistant",
+            content=text,
+            harness=harness,
+        )
+        ordered_rows = [
+            Message(
+                conversation_id=conversation_id,
+                role=row["role"],
+                content=row["content"],
+                harness=harness,
+            )
+            for row in (tool_rows or [])
+        ]
+        ordered_rows.append(assistant_msg)
+        base_seq = self._next_seq(conversation_id)
+        for offset, message in enumerate(ordered_rows):
+            message.seq = base_seq + offset
+            self.session.add(message)
+        # Flush for foreign-key ordering, but commit the text and its events
+        # together: a crash must not leave an answer without its failure marker.
+        self.session.flush()
+        for event_seq, event_data in enumerate(events):
+            self.session.add(
+                MessageEvent(
+                    message_id=assistant_msg.id,
+                    sequence_number=event_seq,
+                    event_data=event_data,
+                )
+            )
+        self.session.commit()
+        self.session.refresh(assistant_msg)
+        if events:
+            # A skill card supersedes its earlier versions: when this turn emits a
+            # `skill_created`, drop the same slug's earlier skill_created events so
+            # history holds ONE card per skill (the latest). Keeps the on-disk
+            # single-draft-per-slug model consistent with the transcript, and makes
+            # the "latest card" durable across reload (not just a render-time dedup).
+            new_slugs = {s for s in (_skill_created_slug(e) for e in events) if s}
+            if new_slugs:
+                self._supersede_skill_cards(
+                    conversation_id, assistant_msg.id, new_slugs
+                )
+        return assistant_msg
+
+    def recover_interrupted_turn(
+        self, conversation_id: UUID, turn_id: int, text: str, terminal_event: dict,
+    ) -> bool:
+        """Recover a file-backed turn, including an older partial DB commit.
+
+        A terminal event proves the existing reply was saved completely. A
+        message row alone does not: older writers committed events separately.
+        """
+        conversation = self.get_conversation(conversation_id)
+        messages = self.get_ordered_messages(conversation_id, include_pending=True)
+        if turn_id >= len(messages):
+            return False
+        question = messages[turn_id]
+        if question.role != Role.user or _is_tool_row(question.content):
+            return False
+        reply = None
+        for message in messages[turn_id + 1:]:
+            if _is_tool_row(message.content):
+                continue
+            if message.role == Role.user:
+                # A later turn owns this row; do not attach this orphan's text
+                # to it or append an answer in the wrong transcript position.
+                return False
+            if message.role == Role.assistant:
+                reply = message
+                break
+        if reply is not None:
+            events = self.session.exec(
+                self.session.select(MessageEvent)
+                .where(MessageEvent.message_id == reply.id)
+            ).all()
+            if any(e.event_data.get("type") in {"response.completed", "response.failed"} for e in events):
+                return False
+            self.session.add(MessageEvent(
+                message_id=reply.id,
+                sequence_number=max((e.sequence_number for e in events), default=-1) + 1,
+                event_data=terminal_event,
+            ))
+        question.pending = False
+        self.session.add(question)
+        if reply is None:
+            self.save_assistant_turn(
+                conversation_id, text, [terminal_event], harness=conversation.harness,
+            )
+        else:
+            self.session.commit()
+        return True
+
+    def _supersede_skill_cards(
+        self, conversation_id: UUID, keep_message_id: UUID, slugs: set[str]
+    ) -> None:
+        """Delete earlier `skill_created` events (for `slugs`) in this conversation,
+        keeping only the one on `keep_message_id`.
+
+        ponytail: scans the conversation's message events in Python (JSON slug
+        isn't portably queryable in SQL). Bounded — runs only on a skill-emitting
+        turn, which is rare; upgrade to an indexed column if skills get chatty.
+        """
+        msg_ids = [
+            m.id
+            for m in self.session.exec(
+                self.session.select(Message).where(
+                    Message.conversation_id == conversation_id
+                )
+            ).all()
+        ]
+        if not msg_ids:
+            return
+        deleted = False
+        for event in self.session.exec(
+            self.session.select(MessageEvent).where(
+                MessageEvent.message_id.in_(msg_ids)
+            )
+        ).all():
+            if event.message_id == keep_message_id:
+                continue
+            if _skill_created_slug(event.event_data) in slugs:
+                self.session.delete(event)
+                deleted = True
+        if deleted:
+            self.session.commit()
+
+    def get_ordered_messages(
+        self, conversation_id: UUID, *, include_pending: bool = False
+    ) -> list[Message]:
+        """All messages of a conversation in canonical order (see
+        _MESSAGE_ORDER). Includes history-only tool rows — harnesses replay
+        them into the LLM context; use get_messages for the UI-facing view.
+
+        Excludes the in-flight pending user message by default (ENG-1231): this is
+        the LLM-history read, and the current turn's input arrives separately, so
+        replaying it here would double-feed it. Pass include_pending=True only if a
+        caller genuinely needs the not-yet-finalized row."""
+        # Anchor the parent: Message has no org_id, so tenancy comes from
+        # resolving the conversation through the scoped session — a foreign
+        # id must answer like a nonexistent one, not leak another org's
+        # history (the remote-turn replay path passes ids from the wire).
+        self.get_conversation(conversation_id)  # raises if not found
+        stmt = self.session.select(Message).where(
+            Message.conversation_id == conversation_id
+        )
+        if not include_pending:
+            stmt = stmt.where(Message.pending == False)  # noqa: E712 — SQL boolean column, not Python identity
+        return list(self.session.exec(stmt.order_by(*_MESSAGE_ORDER)).all())
+
+    def _hydrate_message_items(self, messages: Iterable[Message]) -> list[dict]:
+        """Turn ordered Message rows into the UI-facing item-dict shape,
+        skipping hidden tool rows. Fetches every included message's events in
+        one batched query per _EVENTS_IN_CHUNK_SIZE ids instead of one per
+        message (the events relationship is intentionally not used here —
+        this keeps the query shape explicit and ordered). Chunked rather than
+        a single `IN (...)` over every id: a 1,000-message conversation (the
+        ticket's own largest verification size) would otherwise bind one
+        parameter per visible message, which is fine on Postgres and modern
+        SQLite but exceeds older SQLite builds' bound-parameter limit."""
+        visible = [m for m in messages if not _is_tool_row(m.content)]
+        if not visible:
+            return []
+        events_by_message: dict[UUID, list] = {}
+        visible_ids = [m.id for m in visible]
+        for start in range(0, len(visible_ids), _EVENTS_IN_CHUNK_SIZE):
+            chunk = visible_ids[start : start + _EVENTS_IN_CHUNK_SIZE]
+            for event in self.session.exec(
+                self.session.select(MessageEvent)
+                .where(MessageEvent.message_id.in_(chunk))
+                .order_by(MessageEvent.message_id, MessageEvent.sequence_number)
+            ).all():
+                events_by_message.setdefault(event.message_id, []).append(event.event_data)
+        result = []
+        for message in visible:
+            item = {
+                "id": message.id,
+                "role": message.role,
+                "content": message.content,
+                "created_at": message.created_at,
+                "events": events_by_message.get(message.id, []),
+            }
+            if message.harness:
+                item["harness"] = message.harness
+            result.append(item)
+        return result
+
+    def get_messages(self, conversation_id: UUID) -> list[dict]:
+        self.get_conversation(conversation_id)  # raises if not found
+        messages = self.session.exec(
+            self.session.select(Message)
+            .where(Message.conversation_id == conversation_id)
+            .order_by(*_MESSAGE_ORDER)
+        ).all()
+        return self._hydrate_message_items(messages)
+
+    def get_messages_page(
+        self,
+        conversation_id: UUID,
+        *,
+        limit: int = _DEFAULT_PAGE_LIMIT,
+        before: str | None = None,
+    ) -> ConversationItemsPage:
+        """Cursor-paginated sibling of get_messages, for GET .../items when
+        the caller opts in via limit/before. get_messages itself is left
+        alone (still used by the route's no-params branch and by callers
+        that want the whole history at once).
+
+        Walks newest-to-oldest from `before` (or from the most recent
+        message when absent), collecting up to `limit` VISIBLE (non-tool-row)
+        items — `pending` rows are included, same as get_messages, since
+        this is the same UI-facing view. Over-fetches raw rows (bounded by
+        _SCAN_CAP_MULTIPLIER) so a run of consecutive tool rows can't come
+        back as an empty page while still claiming more is available.
+        """
+        self.get_conversation(conversation_id)  # raises if not found
+        if not (1 <= limit <= _MAX_PAGE_LIMIT):
+            raise InvalidPaginationParams(f"limit must be between 1 and {_MAX_PAGE_LIMIT}")
+        cursor = _decode_message_cursor(before) if before else None
+
+        stmt = self.session.select(Message).where(Message.conversation_id == conversation_id)
+        if cursor is not None:
+            # Two predicates on purpose. The row-value comparison is the
+            # exact one, but its middle element is a CASE expression, which
+            # no index can serve as a range start-point. The plain `seq <=`
+            # alongside it is sargable, so the index seeks straight to the
+            # cursor instead of scanning and discarding every newer row.
+            stmt = stmt.where(Message.seq <= cursor[0])
+            stmt = stmt.where(tuple_(*_MESSAGE_ORDER) < tuple_(*cursor))
+        # Derived, not restated: the cursor tuple and this ORDER BY have to stay
+        # the same columns in the same sequence, and a hand-written copy drifts
+        # silently — a fourth column added to _MESSAGE_ORDER would widen the
+        # cursor while this stayed at three, and the walk would start skipping
+        # rows while the unbounded read looked fine.
+        stmt = stmt.order_by(*[column.desc() for column in _MESSAGE_ORDER])
+
+        scan_cap = limit * _SCAN_CAP_MULTIPLIER
+        raw_rows = list(self.session.exec(stmt.limit(scan_cap + 1)).all())
+
+        visible: list[Message] = []
+        consumed = 0
+        for message in raw_rows:
+            if consumed >= scan_cap:
+                break
+            consumed += 1
+            if not _is_tool_row(message.content):
+                visible.append(message)
+                if len(visible) == limit:
+                    break
+
+        if len(visible) == limit:
+            has_more = len(raw_rows) > consumed
+        else:
+            has_more = len(raw_rows) > scan_cap
+
+        # Anchor the next page off the last row actually scanned, not the
+        # last VISIBLE one — otherwise a page that's all tool rows (has_more
+        # true, nothing visible to show) would have no cursor to continue
+        # from, and the client's "load earlier" would dead-end.
+        next_before = (
+            _encode_message_cursor(raw_rows[consumed - 1]) if has_more and consumed else None
+        )
+
+        items = self._hydrate_message_items(list(reversed(visible)))
+        return ConversationItemsPage(items=items, has_more=has_more, next_before=next_before)

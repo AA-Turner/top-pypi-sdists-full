@@ -1,4 +1,0 @@
-[[tool.ick.rule]]
-name = "goodbye"
-impl = "shell"
-command = "exit 1"

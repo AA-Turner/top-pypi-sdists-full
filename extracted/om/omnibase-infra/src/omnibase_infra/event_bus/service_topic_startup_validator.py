@@ -1,0 +1,217 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Topic Startup Validator for contract-first existence checks.
+
+Validates that all contract-declared topics exist on the Kafka/Redpanda broker
+at startup time. Default behaviour is
+best-effort (log warnings). Opt-in strict mode via
+``STARTUP_VALIDATION_STRICT=1`` raises ``RuntimeError`` on missing topics.
+
+Design:
+    - Best-effort by default: logs errors for missing topics but never blocks
+    - Strict mode: ``STARTUP_VALIDATION_STRICT=1`` env var makes missing topics fatal
+    - Graceful degradation: handles missing aiokafka and unreachable brokers
+    - Follows ``TopicProvisioner`` class structure
+
+Related Tickets:
+    - OMN-3769: Registry-First Startup Assertions
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+from pathlib import Path
+from uuid import UUID, uuid4
+
+from omnibase_infra.event_bus.enum_topic_validation_status import (
+    EnumTopicValidationStatus,
+)
+from omnibase_infra.event_bus.kafka_auth import build_aiokafka_auth_kwargs_from_env
+from omnibase_infra.event_bus.model_topic_validation_result import (
+    ModelTopicValidationResult,
+)
+
+logger = logging.getLogger(__name__)
+
+# OMN-8783: No default — KAFKA_BOOTSTRAP_SERVERS must be set via overlay.
+ENV_BOOTSTRAP_SERVERS = "KAFKA_BOOTSTRAP_SERVERS"
+ENV_CONTRACTS_DIR = "ONEX_CONTRACTS_DIR"
+DEFAULT_CONTRACTS_DIR = "./contracts"
+
+
+class TopicStartupValidator:
+    """Validates that required platform topics exist on the broker.
+
+    Queries the broker for existing topics and compares against topics
+    discovered from contract YAML, skill manifests, and installed runtime
+    packages. Returns a ``ModelTopicValidationResult`` with details about
+    present and missing topics.
+
+    Thread Safety:
+        This class is coroutine-safe. All methods are async and use
+        the AIOKafkaAdminClient which handles its own connection pooling.
+
+    Example:
+        >>> validator = TopicStartupValidator()
+        >>> result = await validator.validate()
+        >>> if not result.is_valid:
+        ...     print(f"Missing: {result.missing_topics}")
+    """
+
+    def __init__(
+        self,
+        bootstrap_servers: str | None = None,
+        request_timeout_ms: int = 10000,
+        *,
+        contracts_root: Path | None = None,
+        skill_manifests_root: Path | None = None,
+        skill_manifests_roots: list[Path] | None = None,
+    ) -> None:
+        """Initialize the topic startup validator.
+
+        Args:
+            bootstrap_servers: Kafka broker addresses. If None, reads from
+                KAFKA_BOOTSTRAP_SERVERS env var (raises KeyError if absent).
+            request_timeout_ms: Timeout for admin operations in milliseconds.
+            contracts_root: Path to contract.yaml root directory. Defaults to
+                ONEX_CONTRACTS_DIR or ./contracts. Topics are discovered via
+                ContractTopicExtractor; no static topic registry is used.
+            skill_manifests_root: Optional single path to a skill manifests
+                directory. Kept for compatibility with TopicProvisioner.
+            skill_manifests_roots: Optional list of additional topics.yaml
+                manifest roots.
+        """
+        # OMN-8783: Hard-fail if not provided and env var absent.
+        self._bootstrap_servers = bootstrap_servers or os.environ[ENV_BOOTSTRAP_SERVERS]
+        self._request_timeout_ms = request_timeout_ms
+        self._contracts_root = contracts_root or Path(
+            os.environ.get(ENV_CONTRACTS_DIR, DEFAULT_CONTRACTS_DIR)
+        )
+        if not self._contracts_root.is_dir():
+            raise FileNotFoundError(
+                "contracts_root does not exist or is not a directory: "
+                f"{self._contracts_root}"
+            )
+        self._skill_manifests_root = skill_manifests_root
+        self._skill_manifests_roots = skill_manifests_roots
+
+    def _required_topics(self) -> tuple[str, ...]:
+        """Return required topics from the same contract extractor as provisioning."""
+        from omnibase_infra.tools.contract_topic_extractor import (
+            ContractTopicExtractor,
+        )
+
+        extractor = ContractTopicExtractor(include_installed_packages=True)
+        entries = extractor.extract_all(
+            contracts_root=self._contracts_root,
+            skill_manifests_root=self._skill_manifests_root,
+            skill_manifests_roots=self._skill_manifests_roots,
+        )
+        return tuple(sorted({entry.topic for entry in entries}))
+
+    async def validate(
+        self,
+        correlation_id: UUID | None = None,
+        *,
+        log_missing: bool = True,
+    ) -> ModelTopicValidationResult:
+        """Validate that all required platform topics exist on the broker.
+
+        Collects required topics from contract extraction and checks their
+        existence via ``AIOKafkaAdminClient.list_topics()``.
+
+        Args:
+            correlation_id: Optional correlation ID for tracing.
+            log_missing: Emit per-topic ``MISSING_TOPIC`` error logs when topics
+                are absent. Runtime startup uses ``False`` before its
+                best-effort auto-create pass so recoverable first-boot gaps do
+                not look like hard failures.
+
+        Returns:
+            ``ModelTopicValidationResult`` with validation outcome.
+        """
+        correlation_id = correlation_id or uuid4()
+        required = self._required_topics()
+
+        # Guard: aiokafka not installed
+        try:
+            from aiokafka.admin import AIOKafkaAdminClient
+        except ImportError:
+            logger.warning(
+                "aiokafka not available, skipping topic startup validation. "
+                "Install aiokafka to enable topic existence checks.",
+                extra={"correlation_id": str(correlation_id)},
+            )
+            return ModelTopicValidationResult(
+                required_topics=required,
+                is_valid=True,
+                status=EnumTopicValidationStatus.SKIPPED,
+            )
+
+        # Guard: broker unreachable
+        admin: AIOKafkaAdminClient | None = None
+        try:
+            auth_kwargs = build_aiokafka_auth_kwargs_from_env()
+            admin = AIOKafkaAdminClient(
+                bootstrap_servers=self._bootstrap_servers,
+                request_timeout_ms=self._request_timeout_ms,
+                **auth_kwargs,
+            )
+            await admin.start()
+
+            # list_topics() returns a dict of {topic_name: TopicMetadata}
+            broker_metadata = await admin.list_topics()
+            broker_topics = set(broker_metadata)
+
+        except Exception:  # noqa: BLE001 — boundary: logs warning and degrades
+            logger.warning(
+                "Broker unreachable at %s, skipping topic startup validation",
+                self._bootstrap_servers,
+                extra={"correlation_id": str(correlation_id)},
+            )
+            return ModelTopicValidationResult(
+                required_topics=required,
+                is_valid=True,
+                status=EnumTopicValidationStatus.UNAVAILABLE,
+            )
+
+        finally:
+            if admin is not None:
+                try:
+                    await admin.close()
+                except Exception:  # noqa: BLE001 — boundary: catch-all for resilience
+                    pass  # Best-effort cleanup
+
+        # Compute present / missing
+        present = tuple(t for t in required if t in broker_topics)
+        missing = tuple(t for t in required if t not in broker_topics)
+
+        if missing:
+            if log_missing:
+                for topic in missing:
+                    logger.error(
+                        "MISSING_TOPIC: Required topic '%s' not in broker",
+                        topic,
+                        extra={"correlation_id": str(correlation_id)},
+                    )
+            return ModelTopicValidationResult(
+                required_topics=required,
+                present_topics=present,
+                missing_topics=missing,
+                is_valid=False,
+                status=EnumTopicValidationStatus.DEGRADED,
+            )
+
+        return ModelTopicValidationResult(
+            required_topics=required,
+            present_topics=present,
+            missing_topics=(),
+            is_valid=True,
+            status=EnumTopicValidationStatus.SUCCESS,
+        )
+
+
+__all__: list[str] = [
+    "TopicStartupValidator",
+]

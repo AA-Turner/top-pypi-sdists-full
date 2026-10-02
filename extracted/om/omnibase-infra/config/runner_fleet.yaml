@@ -1,0 +1,276 @@
+# Authoritative GitHub Actions runner fleet config.
+#
+# This file is the source of truth for deploy-runners.sh, runner-monitor.sh,
+# and the runner health CLI. Do not duplicate these values in scripts.
+version: "1.0"
+github_org: OmniNode-ai
+# Use Tailscale MagicDNS so rebuild/deploy/monitor flows do not depend on the
+# runner host's current LAN or Tailscale IP address.
+runner_host: omninode-pc.tail75df5e.ts.net
+runner_group: omnibase-ci
+runner_name_prefix: omninode-runner
+# Phase-A scale-up (OMN-14029), extended for saturation recovery (OMN-15978),
+# reconciled 72 -> 88 (OMN-15978) after the live host was scaled ahead of the
+# repo's authoritative config, then capped 88 -> 60 (OMN-18411) after a CI
+# burst drove one-minute load to 100.9 on the 32-core host -- the registered
+# runner count is the worst-case concurrent-job ceiling on a fixed-core box,
+# and idle runners cost nothing, so 88 registered runners is what let a burst
+# reach that load. OMN-19077 (operator consent ROLLING_WORK_LEDGER.md:3220)
+# proposed capping 60 -> 40 after 2026-09-22's 58 concurrent jobs drove IO
+# pressure (full avg10) to 52.8 and load to 397 and crashed dockerd, and every
+# runner created 2026-09-16 had reached its full 6 GiB memory limit with
+# 2.7-5.3 GiB swapped, on the same NVMe as the docker data root and the lab
+# lanes' brokers. OPERATOR RULING 2026-09-24 (ROLLING_WORK_LEDGER.md:3794):
+# 60 is the correct steady-state count; the fix for the 2026-09-22 incident is
+# containment, not headcount. The pool runs inside one aggregate cgroup
+# (omnirunners.slice, docker/runners/systemd/) whose MemoryHigh/MemoryMax/
+# MemorySwapMax/CPUWeight bound the WHOLE pool regardless of how many
+# containers are in it, so CI yields memory and CPU to the lab lanes instead
+# of competing as equals, at 60 runners exactly as it would at 40.
+# 60 always-on steady-state runners. All 60 are steady (no burst profiles),
+# so burst_count == expected_count (no separate burst tier).
+expected_count: 60
+burst_count: 60
+# OMN-17477 — DECLARED HOST INVENTORY.
+#
+# The five scalar fields above describe ONE host, which is what the fleet was
+# until the lab grew a second and third machine. They are NOT superseded: they
+# remain the PRIMARY host's values, the model refuses an inventory that
+# disagrees with them, and every consumer that reads them behaves exactly as it
+# did before this block existed. What the list adds is the three things a second
+# host needs and a scalar cannot carry.
+#
+#   arch                which CPU. The second and third hosts are arm64 Macs.
+#                       Spelled the way Docker's TARGETARCH spells it, because
+#                       the runner image resolves its download URLs from that
+#                       value -- one spelling for the inventory, the image and
+#                       the runner label, so the three cannot drift into three
+#                       different names for the same CPU.
+#   runner_name_prefix  runner and container names are `<prefix>-<N>`. Two
+#                       hosts sharing a prefix collide on both, silently, with
+#                       the loser re-registering over the winner. Unique by
+#                       construction, and nesting (`a` vs `a-b`) is refused too
+#                       because the `<prefix>-<N>` pattern would match both.
+#   classes             capacity is not fungible. A verify-class runner cannot
+#                       pick up an action-class job, so totals are summed PER
+#                       CLASS -- `declared_total("action")` is what the
+#                       router's degraded floor reads. Counting a verify runner
+#                       toward the action fleet would tell the floor that
+#                       capacity exists which can never satisfy the jobs it
+#                       guards.
+#
+# ADDING AN ARM64 HOST TO THE `action` CLASS IS NOT A CONFIG-ONLY CHANGE. Every
+# job whose `runs-on` is `[self-hosted, omnibase-ci]` today carries no
+# architecture constraint, so an arm64 runner in that class can pick up a job
+# written on the assumption of amd64. Those jobs need `arch-amd64` added to
+# their `runs-on` FIRST; the arch label exists so that is a one-line change per
+# job rather than a re-architecture. Until then `.101` declares `verify` only,
+# which shares no label with the action fleet and therefore cannot be handed an
+# action job.
+hosts:
+  - host: omninode-pc.tail75df5e.ts.net
+    arch: amd64
+    runner_name_prefix: omninode-runner
+    expected_count: 60
+    classes: [action]
+  # .101 — Mac mini, M2 Pro, 12 cores. Docker Desktop, data root on an external
+  # volume. Deploy/verify class first: those jobs are cloud-touching
+  # (kubectl/aws/gh) and architecture-neutral, so they are the class that can
+  # move to arm64 without any workflow carrying an architecture assumption.
+  - host: stickybeatz-2.tail75df5e.ts.net
+    arch: arm64
+    runner_name_prefix: omninode-mini-runner
+    expected_count: 1
+    classes: [verify]
+  # .105 -- MacBook Air, M4, 10 cores, 32 GB. Docker Desktop 4.91.0, data folder
+  # on the internal disk (111 GiB free at provisioning, so no 1.5 TiB virtual
+  # disk like .101's external volume carries): 8 CPUs, 16384 MiB, 60 GiB. Same
+  # verify class and same reasoning as .101 -- cloud-touching jobs carry no
+  # architecture assumption, so they are the class that moves to arm64 without
+  # any workflow changing.
+  - host: omnibook.tail75df5e.ts.net
+    arch: arm64
+    runner_name_prefix: omninode-air-runner
+    expected_count: 1
+    classes: [verify]
+  # .202 -- omnipc2, RTX 4090, 32 cores, 60 GiB (OMN-19507 AC3). One verify
+  # runner, labelled host-202, for the dev-202 lane's per-merge verify job, which
+  # reads that lane's docker daemon and so must run on this host. Addressed by
+  # its LAN address because it is not on the tailnet (no tailscale on the host,
+  # read 2026-09-25). amd64, but verify class only: this host serves the model
+  # and the dev-202 and sim-202 lanes, so it takes no action-class job. It is
+  # not the `omnipc2-customer` runner, which is a separate rootless podman
+  # runner under another user and outside this inventory.
+  - host: 192.168.86.202
+    arch: amd64
+    runner_name_prefix: omnipc2-verify-runner
+    expected_count: 1
+    classes: [verify]
+  # .200 -- Mac Studio M2 Ultra, arm64, always-on (OMN-19657, operator approval
+  # ledger 2026-09-25T18:27:30Z, answering the open question at ledger
+  # 2026-09-25T10:29:02Z). One verify runner, labelled host-200, for the
+  # dev-200 lane's per-merge verify job: that job reads the dev-200 compose
+  # lane's docker daemon (OMN-19543) and so must run on this host, the same
+  # reason host-201/host-202 are pinned to their own lanes. Docker Desktop,
+  # same macOS shape as .101/.105 (no group_add, socket GID fixed by the
+  # entrypoint's root phase). Always awake by construction -- it is the
+  # primary work box, not a machine that sleeps -- so no pmset or LaunchDaemon
+  # keep-awake is declared for it.
+  - host: stickybeatz-studio.tail75df5e.ts.net
+    arch: arm64
+    runner_name_prefix: omninode-studio-runner
+    expected_count: 1
+    classes: [verify]
+# Docker subnet-pool alerting (OMN-12566). The runner host's default address
+# pool can subnet a bounded number of networks before `docker network create`
+# fails with "all predefined address pools have been fully subnetted". Alert at
+# network_pool_warn_ratio of capacity so the janitor reclaims before exhaustion.
+network_pool_capacity: 31
+network_pool_warn_ratio: 0.8
+# OMN-14027 C1 — PyPI pull-through cache (devpi) endpoint. Source of truth for the
+# egress cache the fleet points at.
+#
+# STATUS 2026-08-14: cache SERVICE LIVE, canary WIRED, fleet NOT yet activated.
+#   - devpi service is up and healthy on the runner host (container
+#     omninode-pypi-cache, 22G warmed corpus, index HTTP 200).
+#   - A 3-runner canary (omninode-runner-2/4/5) is wired via
+#     docker/docker-compose.pypi-canary.yml and verified by container-env
+#     readback. Runbook step 3 is DONE.
+#   - `active` stays false because it means FLEET-ACTIVE. Runbook step 5 gates
+#     the fleet on measured canary acceptance (hit rate >= target_hit_rate, p95
+#     `uv sync` wall time, zero UV_HTTP_TIMEOUT failures under high-concurrency
+#     load). The canary has proven the MECHANISM resolves through the cache but
+#     has NOT yet accumulated a soak under the 64/64-busy load the acceptance
+#     criteria are written against — the queue is serialized and the fleet is
+#     lightly loaded. Flipping this to true on mechanism-proof alone would skip
+#     the exact measurement the gate exists to take.
+#   - The matching UV_DEFAULT_INDEX / PIP_INDEX_URL wiring therefore stays
+#     commented in docker/docker-compose.runners.yml. Do not uncomment it here or
+#     there as a shortcut; graduate via the runbook.
+# Runbook: knowledge-base:runbooks/pypi-cache-egress-rollout.md.
+pypi_cache:
+  active: false
+  # Runners currently wired at the cache via docker/docker-compose.pypi-canary.yml.
+  # Empty once the canary graduates to the fleet or is rolled back.
+  canary_runners:
+    - omninode-runner-2
+    - omninode-runner-4
+    - omninode-runner-5
+  # Tailscale MagicDNS host + published port, matching runner_host above so the
+  # endpoint does not depend on the runner host's current LAN/Tailscale IP.
+  host: omninode-pc.tail75df5e.ts.net
+  port: 3141
+  # devpi's built-in on-demand pull-through mirror index.
+  simple_index_url: http://omninode-pc.tail75df5e.ts.net:3141/root/pypi/+simple/
+  # Keep PyPI as the fallback so a cache miss/outage degrades, not fails-closed.
+  fallback_index_url: https://pypi.org/simple/
+  # Acceptance target before fleet-wide rollout (OMN-14027 metrics).
+  target_hit_rate: 0.90
+# OMN-14027 C2 — local git mirrors (git transport egress).
+#
+# STATUS: ACTIVE on the runner host. Unlike the C1 block above this is not a
+# staged-inert endpoint: the mirrors, the git-daemon, and the 2-minute refresh
+# timer are running, and the runner-side pre-seed in
+# docker/runners/runner-job-started.sh consumes them.
+#
+# WHAT IT FIXES. runner-job-started.sh destroys the workspace before every job
+# (correct: it prevents stale sparse-checkout state leaking between jobs), which
+# means actions/checkout could never reuse an object store and every job
+# cold-cloned the whole repo from github.com. 88 runners x one uplink = the
+# `RPC failed; curl 56 GnuTLS recv error` / `fatal: early EOF` checkout kills.
+# The pre-seed hydrates the workspace from the local mirror first, so the
+# authenticated github.com fetch that actions/checkout still performs is a
+# delta. Measured on onex_change_control, 2026-08-14: 128351 objects / 32.63 MiB
+# / 8.35s from github.com cold, versus 3.82s over loopback plus a 0.95s upstream
+# fetch that received zero objects.
+#
+# The mirror is NEVER a source of truth: checkout still resolves the exact SHA
+# against github.com over its own authenticated remote. A stale mirror costs a
+# larger delta; a missing or unreachable mirror costs nothing (the pre-seed is
+# fail-open and the job proceeds exactly as it did before C2).
+git_mirror:
+  active: true
+  # Bound to the docker bridge gateway only. NOT the Tailscale/LAN hostname used
+  # by pypi_cache above: git:// is unauthenticated, so the mirrors of private
+  # repos must not be reachable beyond the runner containers, which already hold
+  # an authenticated checkout of the same code.
+  bind_address: 172.18.0.1
+  docker_network: docker_default
+  port: 9418
+  mirror_root: /home/jonah/.omnibase/runners/git-mirror
+  refresh_interval_seconds: 120
+  # One upstream fetch per repo per interval, for the whole fleet. Enforced
+  # twice: systemd Type=oneshot will not overlap runs, and the refresh script
+  # takes an flock. That serialization is the entire point of the component.
+  serialized: true
+  repos:
+    - onex_change_control
+    - omnibase_infra
+    - omnibase_core
+    - omnimarket
+    - omniclaude
+    - omniweb
+    - omnimemory
+    - omnibase_compat
+    - knowledge-base
+  # Space-separated RUNNER_NAME allowlist consumed by the pre-seed, or ALL.
+  # Narrowed on the deployed copy of the hook during canary; the committed
+  # default is the post-canary fleet-wide value.
+  runner_allowlist: ALL
+  # Per-job kill switch, honoured by the pre-seed: OMNI_GIT_MIRROR_DISABLE=1.
+  kill_switch_env: OMNI_GIT_MIRROR_DISABLE
+# OMN-14027 C2 — Actions tool cache (RUNNER_TOOL_CACHE).
+#
+# MEASURED STATE 2026-08-14, not an aspiration: 72/72 runners are already warm
+# (CPython 3.12.13 or 3.12.14 plus 3.13.15; uv 0.6.14/0.8.3/0.12.3/0.12.4), and
+# tonight's failing jobs show setup-uv restoring from cache rather than reaching
+# codeload. The tool cache is therefore NOT the current failure driver -- the
+# runner-native action tarball download is (see residual_risks below).
+#
+# THE REAL HAZARD IS DURABILITY. This path lives in the container filesystem,
+# not a volume, so any `--force-recreate` of the fleet wipes the warm cache on
+# all 72 runners at once and hands the next wave a 72-way cold CPython+uv
+# download -- manufacturing the exact stampede C2 exists to prevent. Every fleet
+# recreate must be bracketed by docker/runners/toolcache-seed.sh.
+tool_cache:
+  path: /home/runner/actions-runner/_work/_tool
+  durable: false
+  snapshot_root: /home/jonah/.omnibase/runners/toolcache-seed
+  seed_script: docker/runners/toolcache-seed.sh
+  recreate_procedure: knowledge-base:runbooks/c2-git-mirror-egress-rollout.md
+# OMN-15736 — local caching DNS resolver (unbound) endpoint. Scaling
+# precondition #1 (capacity probe: [mergesweep-0808-capacity]). STATUS:
+# pending-activation / INERT — the cache service
+# (docker/docker-compose.dns-cache.yml) is stood up and wired only at the
+# operator-gated rollout; recording the endpoint here does not activate it.
+# The matching canary `dns:` wiring lives in
+# docker/docker-compose.dns-canary.yml (non-default override, not applied by
+# any default deploy path). Runbook:
+# knowledge-base:runbooks/runner-dns-cache-rollout.md.
+dns_cache:
+  active: false
+  # `dns:` (the compose/Docker container directive) requires a raw IP, not a
+  # Tailscale MagicDNS hostname, so this is the runner host's LAN IP rather
+  # than runner_host above.
+  host: 192.168.86.201
+  port: 53
+  # Existing systemd-resolved upstream + fallback, unchanged — the cache
+  # forwards to these, it does not replace them.
+  upstream_forwarders:
+    - 192.168.86.1
+    - 1.1.1.1
+    - 8.8.8.8
+  # Acceptance targets before fleet-wide rollout (OMN-15736 AC3).
+  target_hit_rate: 0.80
+  target_dns_failure_count: 0
+# OMN-17855 — source-only model-review runner-overlay contract. These are
+# opaque logical reference identifiers; activation requires a separate,
+# authorized control-plane rollout and cannot be performed by this record.
+model_review:
+  active: false
+  runner_label: model-review
+  runner_group: omnibase-ci
+  max_observation_age_seconds: 300
+  credential_reference_id: dc9565c8-7f13-46dc-bd89-9694c13e1d2f
+  endpoint_reference_id: b2a8287b-0a9f-4cbc-b2e8-cf954f9a71f7
+  healthcheck_reference_id: 2672472a-bac9-4344-8c8c-79da6cb604ae

@@ -1,0 +1,83 @@
+[project]
+name = "codex-app-server-sdk"
+version = "0.4.1"
+description = "Async Python client for Codex app-server over stdio and websocket."
+dynamic = ["readme"]
+license = { file = "LICENSE" }
+authors = [
+    { name = "Mariusz Woloszyn", email = "emsi@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+keywords = [
+    "codex",
+    "app-server",
+    "json-rpc",
+    "asyncio",
+    "websocket",
+    "stdio",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU Affero General Public License v3",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Typing :: Typed",
+]
+dependencies = [
+    "pydantic>=2.8.0",
+    "websockets>=16,<17",
+]
+
+[project.urls]
+Documentation = "https://emsi.github.io/codex-app-server-sdk/"
+Repository = "https://github.com/emsi/codex-app-server-sdk"
+
+[build-system]
+requires = ["hatchling", "hatch-fancy-pypi-readme>=25.1.0"]
+build-backend = "hatchling.build"
+
+[project.optional-dependencies]
+dev = [
+    "build>=1.2.2",
+    "zensical>=0.0.23",
+    "mkdocstrings-python>=1.18.2",
+    "pytest>=8.2.0",
+    "twine>=7.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.38.1",
+    "black>=26.1.0",
+    "build>=1.2.2",
+    "zensical>=0.0.23",
+    "mkdocstrings-python>=1.18.2",
+    "mypy>=1.19.1",
+    "pytest>=9.0.2",
+    "ruff>=0.15.2",
+    "twine>=7.0.0",
+    "typer>=0.15",
+    "packaging>=26.3",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/codex_app_server_sdk"]
+
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/markdown"
+fragments = [{ path = "README.md" }]
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+# Keep repository links relative in source; PyPI needs a versioned absolute URL.
+pattern = '\]\(((?:CHANGELOG|RELEASE)\.md)\)'
+replacement = '](https://github.com/emsi/codex-app-server-sdk/blob/v$HFPR_VERSION/\1)'
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
+[tool.basedpyright]
+# --level filters output; explicitly keep warnings non-fatal in GitHub Actions too.
+failOnWarnings = false

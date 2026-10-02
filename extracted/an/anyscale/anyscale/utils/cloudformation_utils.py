@@ -81,16 +81,12 @@ class CloudFormationUtils:
                         Capabilities=capabilities,
                     )
                 except ClientError as update_error:
-                    raise ClickException(
-                        f"Failed to update existing stack: {update_error}"
-                    )
+                    raise ClickException(f"Failed to update existing stack: {update_error}")
             else:
                 raise ClickException(f"Failed to create CloudFormation stack: {e}")
 
         # Wait for stack completion
-        return self._wait_for_stack_completion(
-            cfn_client, stack_name, region, timeout_seconds
-        )
+        return self._wait_for_stack_completion(cfn_client, stack_name, region, timeout_seconds)
 
     def _wait_for_stack_completion(
         self, cfn_client, stack_name: str, region: str, timeout_seconds: int
@@ -119,9 +115,7 @@ class CloudFormationUtils:
                         self._cleanup_failed_stack(cfn_client, stack_name, region)
 
                         # Get error details
-                        error_details = self._get_stack_error_details(
-                            cfn_client, stack_name
-                        )
+                        error_details = self._get_stack_error_details(cfn_client, stack_name)
                         raise ClickException(
                             f"CloudFormation stack failed: {stack_status}. "
                             f"Error details: {error_details}. "
@@ -129,9 +123,7 @@ class CloudFormationUtils:
                         )
 
                     if stack_status in ("CREATE_COMPLETE", "UPDATE_COMPLETE"):
-                        self.log.info(
-                            f"CloudFormation stack {stack_name} completed successfully"
-                        )
+                        self.log.info(f"CloudFormation stack {stack_name} completed successfully")
                         return cfn_stack
 
                     # Still in progress
@@ -139,9 +131,7 @@ class CloudFormationUtils:
 
                 except ClientError as e:
                     if "does not exist" in str(e):
-                        raise ClickException(
-                            f"CloudFormation stack {stack_name} not found"
-                        )
+                        raise ClickException(f"CloudFormation stack {stack_name} not found")
                     raise ClickException(f"Error checking CloudFormation stack: {e}")
 
             # Timeout
@@ -318,9 +308,7 @@ class CloudFormationUtils:
                             return
                         raise ClickException(f"Error checking stack deletion: {e}")
 
-                raise ClickException(
-                    f"Stack deletion timed out after {timeout_seconds} seconds"
-                )
+                raise ClickException(f"Stack deletion timed out after {timeout_seconds} seconds")
 
         except ClientError as e:
             if "does not exist" in str(e):
@@ -340,9 +328,7 @@ def create_cloudformation_stack(
 ) -> Dict[str, Any]:
     """Convenience function to create a CloudFormation stack."""
     utils = CloudFormationUtils(logger)
-    return utils.create_and_wait_for_stack(
-        stack_name, template_body, parameters, region, **kwargs
-    )
+    return utils.create_and_wait_for_stack(stack_name, template_body, parameters, region, **kwargs)
 
 
 def get_cloudformation_outputs(

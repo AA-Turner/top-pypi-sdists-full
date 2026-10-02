@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.1062
+Version: 0.4.1063
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -729,6 +729,79 @@ Configured via `feature_selection` in `[ML]`:
 The `gOMP` tiers cap how many features survive: `gOMP_high` (500), `gOMP_medium` (50), `gOMP_low` (15). A county-scale sweep (usa_admin2 maize, cubist, matched county-years) found `gOMP_medium` best on **every** metric *and* 2.2× faster than both `gOMP_high` and `none` — `none` does not save time, it moves the cost into the model. Feature selection is the dominant cost of a fold (~74% at `gOMP_high`), so this setting matters more than the model choice.
 
 Selection results are cached on disk and shared across the models of a fold (see *Performance* below), since the selection depends only on the training data and method.
+
+### Data hygiene and leakage guards
+
+The 2026-09-30 code audit (`tasks/audit_2026-09-30.md`) closed a batch of bugs
+that changed features or scores (geocif 0.4.1063, geoprepare 0.6.328). What a
+run now does differently:
+
+- **No zero-fill of CID cells.** A missing index window stays NaN. CatBoost,
+  Cubist, TabPFN/TabICL/Mitra and TabFM take NaN natively; every other model is
+  median/mode-imputed from the TRAINING rows only and the same fills are applied
+  to the test rows. Zero is a real value for anomaly indices (ESI, CCI, ENSO),
+  and a forecast-year month whose EO product had not arrived used to be scored
+  as 0.
+- **Leap years.** Percentile and spell indices (TG90p, TN10p, WSDI, CSDI, R95p,
+  ...) were NaN for every leap-year window spanning Feb 29, then zero-filled.
+  Feb 29 is now kept, and the percentile base period ends with the last
+  complete calendar year instead of drifting with the merged file's calendar
+  scaffold.
+- **Hindcast folds see only training years** in the top-N Pearson screen, the
+  correlation-plot pre-selection, the low-production region filters and
+  yield-based region clustering. FLDAS/S2S forward-looking rows are admitted
+  only from the latest covered init month, never from a later init, and a
+  forecast row whose target month (init + lead) is already covered by an
+  observed window is pruned; stage labels never identify the target, so the
+  pruner keys on months, not labels.
+- **ENSO CIDs** are emitted under every stage window like any other CID and are
+  NaN until their ONI/MEI season has ended (no `ONI_curr_MAM` at a February
+  stage).
+- **Prediction intervals** (`ci_method = crepes`) are calibrated on year-grouped
+  out-of-fold residuals (five refits of the learner), not on in-sample
+  residuals, so expect wider, honest intervals for catboost / cubist / gam /
+  linear. `ci_method = mapie` keeps in-sample calibration and logs a warning.
+- **Observed yields** from the shared HarvestStat file are joined per country
+  (Malawi "Central" no longer absorbs Zambia "Central").
+- **Early stopping** (`catboost`, optuna trials, `tabpfn_ft`, `tabicl_ft`)
+  holds the validation rows out by year.
+- **Feature selection sees real gaps.** CIDs with more than 20 % NaN in the
+  training rows (`threshold_nan`) are dropped before selection; products with
+  a short record such as SMAP (2015 onwards) used to survive only because
+  their missing years were zero-filled.
+- **Multi-season countries** (Somalia Gu/Deyr, Kenya long/short rains) are
+  aggregated and scored per season in the parent aggregation and the FDW
+  accuracy export, and the FDW calendar join uses the country's own
+  HarvestStat season names.
+- **DB writes fail loudly.** A results write that fails raises instead of
+  printing and leaving the run "complete" with missing rows.
+- **Outlook readers de-duplicate** re-runs into the same DB (latest write per
+  key) and pick the chronologically latest stage, not the alphabetically last
+  `Stage Name`. The model comparison scores every model at its latest stage
+  per region-year (it pooled stages before, so `metrics_by_*`,
+  `rrmsep_summary_*` and the best-model map change for multi-stage runs);
+  the outlook index skips regions with fewer than `[ML] outlook_min_hist_years`
+  (default 3) hindcast years; parent aggregation scores observed and predicted
+  over the same children and reports `N No Weight`; the FDW national export
+  emits one row per season; an empty fair-year intersection skips the
+  cross-model rRMSEp summary with a warning instead of scoring each model on
+  its own years.
+- Smaller: `H-INDEX_*` is the h count (was the h-th value), dekads line up
+  with their labels, gaussian retrending uses the same local smooth as the
+  training anomalies, sub-monthly (`dekad_r`, `biweekly_r`) stages rank by
+  their as-of day, forward (non-`_r`) stage labels sort chronologically, and
+  every current-month decision uses America/New_York time. `fraction_season`
+  deciles are deliberately still sized per season: the forecast year's stage
+  ids must match the hindcast years'.
+
+CID caches are not invalidated automatically. Before re-running
+`indices_runner`, delete the per-year CID CSVs
+(`<country>_<crop>_s<season>_<year>.csv` under the CID output directory) for
+any project that uses percentile/spell indices on cross-February seasons,
+H-INDEX, the dekad method, or ENSO. Static and monthly layers (AEF, SoilGrids,
+DEM, PI, FLDAS, CHIRPS-MFC) are re-extracted only with `redo = True` in
+`geoextract.txt` or after deleting their CSVs; the unified mask rule does not
+touch files already on disk.
 
 ### Performance
 

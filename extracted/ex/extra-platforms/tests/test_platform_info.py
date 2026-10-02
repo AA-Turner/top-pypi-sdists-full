@@ -17,11 +17,19 @@ from __future__ import annotations
 
 import io
 import os
+import platform
 import shutil
 import subprocess
+from operator import attrgetter
 
 import pytest
 
+from extra_platforms import (
+    ALL_PLATFORMS,
+    WINDOWS,
+    detection as detection_module,
+    invalidate_caches,
+)
 from extra_platforms.platform_info import (
     _hostnamectl_os_release,
     _parse_cpe_name,
@@ -31,6 +39,7 @@ from extra_platforms.platform_info import (
     invalidate_os_release_cache,
     linux_info,
     os_release_id,
+    windows_info,
 )
 
 HOSTNAMECTL_CLOUDLINUX = """\
@@ -488,3 +497,50 @@ def test_invalidate_os_release_cache_clears_hostnamectl(
 
     invalidate_os_release_cache()
     assert _hostnamectl_os_release() == {"pretty_name": "Fedora Linux 39"}
+
+
+@pytest.fixture
+def windows_11(monkeypatch):
+    """Report the Windows version the way a Windows 11 24H2 guest does."""
+    monkeypatch.setattr(
+        platform,
+        "win32_ver",
+        lambda: ("11", "10.0.26100", "SP0", "Multiprocessor Free"),
+    )
+    monkeypatch.setattr(platform, "win32_edition", lambda: "Professional")
+
+
+def test_windows_info(windows_11):
+    """The version is the NT one, build number included; the release names it."""
+    assert windows_info() == {
+        "release": "11",
+        "version": "10.0.26100",
+        "version_parts": {"major": "10", "minor": "0", "build_number": "26100"},
+        "codename": "11 Professional",
+    }
+
+
+def test_windows_platform_info_release(monkeypatch, windows_11):
+    """``Platform.info()`` carries the Windows release beside the NT version."""
+    monkeypatch.setitem(
+        detection_module._detection_registry, "is_windows", lambda: True
+    )
+    invalidate_caches()
+    try:
+        info = WINDOWS.info()
+        assert info["release"] == "11"
+        assert info["version"] == "10.0.26100"
+        assert info["codename"] == "11 Professional"
+    finally:
+        invalidate_caches()
+
+
+@pytest.mark.parametrize(
+    "plat",
+    sorted(set(ALL_PLATFORMS) - {WINDOWS}, key=attrgetter("id")),
+    ids=attrgetter("id"),
+)
+def test_release_is_windows_only(plat):
+    """No other platform fills ``release``: on macOS, CPython's own
+    ``platform.release()`` names the Darwin kernel, another meaning."""
+    assert plat.info()["release"] is None

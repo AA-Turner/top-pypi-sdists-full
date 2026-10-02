@@ -1,0 +1,3781 @@
+import datetime
+
+import dateutil.parser
+
+from ..utils import DataikuException
+from .utils import DSSTaggableObjectListItem, DSSTaggableObjectSettings, DSSFilterOperator, DSSFilter, DSSInfoMessage
+from .discussion import DSSObjectDiscussions
+from .llm import DSSLLM, DSSLLMListItem
+from .llm_utils import get_json_schema_and_parser
+from copy import deepcopy
+import json, logging, warnings
+
+try:
+    basestring
+except NameError:
+    basestring = str
+
+class DSSRecipeListItem(DSSTaggableObjectListItem):
+    """
+    An item in a list of recipes.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.list_recipes()`
+    """
+    def __init__(self, client, data):
+        super(DSSRecipeListItem, self).__init__(data)
+        self.client = client
+
+    def to_recipe(self):
+        """
+        Gets a handle corresponding to this recipe.
+
+        :rtype: :class:`DSSRecipe`
+        """
+        return DSSRecipe(self.client, self._data["projectKey"], self._data["name"])
+
+    @property
+    def name(self):
+        """
+        Get the name of the recipe.
+
+        :rtype: string
+        """
+        return self._data["name"]
+
+    @property
+    def id(self):
+        """
+        Get the identifier of the recipe.
+
+        For recipes, the name is the identifier.
+
+        :rtype: string
+        """
+        return self._data["name"]
+
+    @property
+    def type(self):
+        """
+        Get the type of the recipe.
+
+        :return: a recipe type, for example 'sync' or 'join'
+        :rtype: string
+        """
+        return self._data["type"]
+
+class DSSRecipe(object):
+    """
+    A handle to an existing recipe on the DSS instance.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.get_recipe()`
+    """
+    def __init__(self, client, project_key, recipe_name):
+        self.client = client
+        self.project_key = project_key
+        self.recipe_name = recipe_name
+
+    @property
+    def id(self):
+        """
+        Get the identifier of the recipe.
+
+        For recipes, the name is the identifier.
+
+        :rtype: string
+        """
+        return self.recipe_name
+
+    @property
+    def name(self):
+        """
+        Get the name of the recipe.
+
+        :rtype: string
+        """
+        return self.recipe_name
+
+    @property
+    def type(self):
+        """
+        Get the type of the recipe.
+
+        :return: a recipe type, for example 'sync' or 'join'
+        :rtype: string
+        """
+        return self._get_recipe_data()["recipe"]["type"]
+
+    def _get_recipe_data(self):
+        return self.client._perform_json(
+            "GET", "/projects/%s/recipes/%s" % (self.project_key, self.recipe_name)
+        )
+
+    def compute_schema_updates(self):
+        """
+        Computes which updates are required to the outputs of this recipe.
+
+        This method only computes which changes would be needed to make the schema of the outputs
+        of the recipe match the actual schema that the recipe will produce. To effectively apply
+        these changes to the outputs, you can use the :meth:`~RequiredSchemaUpdates.apply()` on
+        the returned object.
+
+        .. note::
+
+            Not all recipe types can compute automatically the schema of their outputs. Code
+            recipes like Python recipes, notably can't. This method raises an exception in
+            these cases.
+
+        Usage example:
+
+        .. code-block:: python
+
+            required_updates = recipe.compute_schema_updates()
+            if required_updates.any_action_required():
+                print("Some schemas will be updated")
+
+            # Note that you can call apply even if no changes are required. This will be noop
+            required_updates.apply()
+
+        :return: an object containing the required updates
+        :rtype: :class:`RequiredSchemaUpdates`
+        """
+        data = self.client._perform_json(
+            "GET", "/projects/%s/recipes/%s/schema-update" % (self.project_key, self.recipe_name))
+        return RequiredSchemaUpdates(self, data)
+
+    def run(self, job_type="NON_RECURSIVE_FORCED_BUILD", partitions=None, wait=True, no_fail=False):
+        """
+        Starts a new job to run this recipe and wait for it to complete.
+
+        Raises if the job failed.
+
+        .. code-block:: python
+
+            job = recipe.run()
+            print("Job %s done" % job.id)
+
+        :param string job_type: job type. One of RECURSIVE_BUILD, NON_RECURSIVE_FORCED_BUILD or RECURSIVE_FORCED_BUILD
+        :param string partitions: if the outputs are partitioned, a partition spec. A spec is a comma-separated list of partition
+                                  identifiers, and a partition identifier is a pipe-separated list of values for the partitioning
+                                  dimensions
+        :param boolean no_fail: if True, does not raise if the job failed
+        :param boolean wait: if True, the method waits for the job completion. If False, the method returns immediately
+
+        :return: a job handle corresponding to the recipe run
+        :rtype: :class:`dataikuapi.dss.job.DSSJob`
+        """
+        project = self.client.get_project(self.project_key)
+        outputs = project.get_flow().get_graph().get_successor_computables(self)
+
+        if len(outputs) == 0:
+            raise Exception("recipe has no outputs, can't run it")
+
+        first_output = outputs[0]
+
+        object_type_map = {
+            "COMPUTABLE_DATASET": "DATASET",
+            "COMPUTABLE_FOLDER": "MANAGED_FOLDER",
+            "COMPUTABLE_SAVED_MODEL": "SAVED_MODEL",
+            "COMPUTABLE_STREAMING_ENDPOINT": "STREAMING_ENDPOINT",
+            "COMPUTABLE_MODEL_EVALUATION_STORE": "MODEL_EVALUATION_STORE",
+            "COMPUTABLE_RETRIEVABLE_KNOWLEDGE": "RETRIEVABLE_KNOWLEDGE"
+        }
+        if first_output["type"] in object_type_map:
+            jd = project.new_job(job_type)
+            jd.with_output(first_output["ref"], object_type=object_type_map[first_output["type"]], partition=partitions)
+        else:
+            raise Exception("Recipe has unsupported output type {}, can't run it".format(first_output["type"]))
+
+        if wait:
+            return jd.start_and_wait(no_fail)
+        else:
+            return jd.start()
+
+    def delete(self):
+        """
+        Delete the recipe.
+        """
+        return self.client._perform_empty(
+            "DELETE", "/projects/%s/recipes/%s" % (self.project_key, self.recipe_name))
+
+    def rename(self, new_name):
+        """
+        Rename the recipe with the new specified name
+
+        :param str new_name: the new name of the recipe
+        """
+        if self.recipe_name == new_name:
+            raise ValueError("Recipe name is already " + new_name)
+        obj = {
+            "oldName": self.recipe_name,
+            "newName": new_name
+        }
+        self.client._perform_empty("POST", "/projects/%s/actions/renameRecipe" % self.project_key, body=obj)
+        self.recipe_name = new_name
+
+    def get_settings(self):
+        """
+        Get the settings of the recipe, as a :class:`DSSRecipeSettings` or one of its subclasses.
+
+        Some recipes have a dedicated class for the settings, with additional helpers to read and modify the settings
+
+        Once you are done modifying the returned settings object, you can call :meth:`~DSSRecipeSettings.save` on it
+        in order to save the modifications to the DSS recipe.
+
+        :rtype: :class:`DSSRecipeSettings` or a subclass
+        """
+        data = self._get_recipe_data()
+        recipe_type = data["recipe"]["type"]
+
+        if recipe_type == "generate_features":
+            return GenerateFeaturesRecipeSettings(self, data)
+        if recipe_type == "grouping":
+            return GroupingRecipeSettings(self, data)
+        if recipe_type == "upsert":
+            return UpsertRecipeSettings(self, data)
+        elif recipe_type == "window":
+            return WindowRecipeSettings(self, data)
+        elif recipe_type == "sync":
+            return SyncRecipeSettings(self, data)
+        elif recipe_type == "pivot":
+            return PivotRecipeSettings(self, data)
+        elif recipe_type == "sort":
+            return SortRecipeSettings(self, data)
+        elif recipe_type == "topn":
+            return TopNRecipeSettings(self, data)
+        elif recipe_type == "distinct":
+            return DistinctRecipeSettings(self, data)
+        elif recipe_type == "join":
+            return JoinRecipeSettings(self, data)
+        elif recipe_type == "vstack":
+            return StackRecipeSettings(self, data)
+        elif recipe_type == "sampling":
+            return SamplingRecipeSettings(self, data)
+        elif recipe_type == "split":
+            return SplitRecipeSettings(self, data, self.client.get_project(self.project_key))
+        elif recipe_type == "prepare" or recipe_type == "shaker":
+            return PrepareRecipeSettings(self, data)
+        #elif recipe_type == "prediction_scoring":
+        #elif recipe_type == "clustering_scoring":
+        elif recipe_type == "download":
+            return DownloadRecipeSettings(self, data)
+        elif recipe_type == 'export':
+            return ExportRecipeSettings(self, data)
+        #elif recipe_type == "sql_query":
+        #    return WindowRecipeSettings(self, data)
+        elif recipe_type in ["python", "r", "sql_script", "pyspark", "sparkr", "spark_scala", "shell", "spark_sql_query"]:
+            return CodeRecipeSettings(self, data)
+        elif recipe_type == "nlp_llm_rag_embedding":
+            return EmbedDatasetRecipeSettings(self, data)
+        elif recipe_type == "embed_documents":
+            return EmbedDocumentsRecipeSettings(self, data)
+        elif recipe_type == "extract_content":
+            return ExtractContentRecipeSettings(self, data)
+        elif recipe_type == "extract_fields":
+            return ExtractFieldsRecipeSettings(self, data)
+        elif recipe_type == "prompt":
+            return PromptRecipeSettings(self, data)
+        else:
+            return DSSRecipeSettings(self, data)
+
+    def get_definition_and_payload(self):
+        """
+        Get the definition of the recipe.
+
+        .. attention::
+
+            Deprecated. Use :meth:`get_settings`
+
+        :return: an object holding both the raw definition of the recipe (the type, which inputs and outputs, engine settings...)
+                 and the payload (SQL script, Python code, join definition,... depending on type)
+        :rtype: :class:`DSSRecipeDefinitionAndPayload`
+        """
+        warnings.warn("Recipe.get_definition_and_payload is deprecated, please use get_settings", DeprecationWarning)
+
+        data = self.client._perform_json(
+                "GET", "/projects/%s/recipes/%s" % (self.project_key, self.recipe_name))
+        return DSSRecipeDefinitionAndPayload(self, data)
+
+    def set_definition_and_payload(self, definition):
+        """
+        Set the definition of the recipe.
+
+        .. attention::
+
+            Deprecated. Use :meth:`get_settings` then :meth:`DSSRecipeSettings.save()`
+
+        .. important::
+
+            The **definition** parameter should come from a call to :meth:`get_definition()`
+
+        :param object definition: a recipe definition, as returned by :meth:`get_definition()`
+        """
+        warnings.warn("Recipe.set_definition_and_payload is deprecated, please use get_settings", DeprecationWarning)
+        definition._payload_to_str()
+        return self.client._perform_json(
+                "PUT", "/projects/%s/recipes/%s" % (self.project_key, self.recipe_name),
+                body=definition.data)
+
+    def get_status(self):
+        """
+        Gets the status of this recipe.
+
+        The status of a recipe is made of messages from checks performed by DSS on the recipe, of messages related
+        to engines availability for the recipe, of messages about testing the recipe on the engine, ...
+
+        :return: an object to interact with the status
+        :rtype: :class:`dataikuapi.dss.recipe.DSSRecipeStatus`
+        """
+        data = self.client._perform_json(
+                "GET", "/projects/%s/recipes/%s/status" % (self.project_key, self.recipe_name))
+        return DSSRecipeStatus(self.client, data)
+
+
+    def get_metadata(self):
+        """
+        Get the metadata attached to this recipe.
+
+        The metadata contains label, description checklists, tags and custom metadata of the recipe
+
+        :return: the metadata as a dict, with fields:
+
+                    * **label** : label of the object (not defined for recipes)
+                    * **description** : description of the object (not defined for recipes)
+                    * **checklists** : checklists of the object, as a dict with a **checklists** field, which is a list of checklists, each a dict.
+                    * **tags** : list of tags, each a string
+                    * **custom** : custom metadata, as a dict with a **kv** field, which is a dict with any contents the user wishes
+                    * **customFields** : dict of custom field info (not defined for recipes)
+
+        :rtype: dict
+        """
+        return self.client._perform_json(
+                "GET", "/projects/%s/recipes/%s/metadata" % (self.project_key, self.recipe_name))
+
+    def set_metadata(self, metadata):
+        """
+        Set the metadata on this recipe.
+
+        .. important::
+
+            You should only set a **metadata** object that has been retrieved using :meth:`get_metadata()`.
+
+        :params dict metadata: the new state of the metadata for the recipe.
+        """
+        return self.client._perform_json(
+                "PUT", "/projects/%s/recipes/%s/metadata" % (self.project_key, self.recipe_name),
+                body=metadata)
+
+    def get_object_discussions(self):
+        """
+        Get a handle to manage discussions on the recipe.
+
+        :return: the handle to manage discussions
+        :rtype: :class:`dataikuapi.dss.discussion.DSSObjectDiscussions`
+        """
+        return DSSObjectDiscussions(self.client, self.project_key, "RECIPE", self.recipe_name)
+
+    def get_continuous_activity(self):
+        """
+        Get a handle on the associated continuous activity.
+
+        .. note::
+
+            Should only be used on continuous recipes.
+
+        :rtype: :class:`dataikuapi.dss.continuousactivity.DSSContinuousActivity`
+        """
+        from .continuousactivity import DSSContinuousActivity
+        return DSSContinuousActivity(self.client, self.project_key, self.recipe_name)
+
+    def move_to_zone(self, zone):
+        """
+        Move this object to a flow zone.
+
+        :param object zone: a :class:`dataikuapi.dss.flow.DSSFlowZone` where to move the object
+        """
+        if isinstance(zone, basestring):
+           zone = self.client.get_project(self.project_key).get_flow().get_zone(zone)
+        zone.add_item(self)
+
+class DSSRecipeStatus(object):
+    """
+    Status of a recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`DSSRecipe.get_status`
+    """
+    def __init__(self, client, data):
+        self.client = client
+        self.data = data
+
+    def get_selected_engine_details(self):
+        """
+        Get the selected engine for this recipe.
+
+        This method will raise if there is no selected engine, whether it's because the present recipe type
+        has no notion of engine, or because DSS couldn't find any viable engine for running the recipe.
+
+        :return: a dict of the details of the selected engine. The type of engine is in a **type** field. Depending
+                 on the type, additional field will give more details, like whether some aggregations are possible.
+        :rtype: dict
+        """
+        if not "selectedEngine" in self.data:
+            raise ValueError("This recipe doesn't have a selected engine")
+        return self.data["selectedEngine"]
+
+    def get_engines_details(self):
+        """
+        Get details about all possible engines for this recipe.
+
+        This method will raise if there is no engine, whether it's because the present recipe type
+        has no notion of engine, or because DSS couldn't find any viable engine for running the recipe.
+
+        :return: a list of dict of the details of each possible engine. See :meth:`get_selected_engine_details()` for the fields of each dict.
+        :rtype: list[dict]
+        """
+        if not "engines" in self.data:
+            raise ValueError("This recipe doesn't have engines")
+        return self.data["engines"]
+
+    def get_status_severity(self):
+        """
+        Get the overall status of the recipe.
+
+        This is the final result of checking the different parts of the recipe, and depends on the recipe type. Examples
+        of checks done include:
+
+        - checking the validity of the formulas in computed columns or filters
+        - checking if some of the input columns retrieved by joins overlap
+        - checking against the SQL database if the generated SQL is valid
+
+        :return: SUCCESS, WARNING, ERROR or INFO. None if the status has no message at all.
+        :rtype: string
+        """
+        return self.data["allMessagesForFrontend"].get("maxSeverity")
+
+    def get_status_messages(self, as_objects=False):
+        """
+        Returns status messages for this recipe.
+
+        :param boolean as_objects: if True, return a list of :class:`dataikuapi.dss.utils.DSSInfoMessage`. If False, as a list
+                                   of raw dicts.
+
+        :return: if **as_objects** is True, a list of  :class:`dataikuapi.dss.utils.DSSInfoMessage`, otherwise a list of
+                 message information, each one a dict of:
+
+                     * **severity** : severity of the error in the message. Possible values are SUCCESS, INFO, WARNING, ERROR
+                     * **isFatal** : for ERROR **severity**, whether the error is considered fatal to the operation
+                     * **code** : a string with a well-known code documented in `DSS doc <https://doc.dataiku.com/dss/latest/troubleshooting/errors/index.html>`_
+                     * **title** : short message
+                     * **message** : the error message
+                     * **details** : a more detailed error description
+
+        :rtype: list
+        """
+        if as_objects:
+            return [DSSInfoMessage(message) for message in self.data["allMessagesForFrontend"].get("messages", [])]
+        else:
+            return self.data["allMessagesForFrontend"]["messages"]
+
+
+class DSSRecipeSettings(DSSTaggableObjectSettings):
+    """
+    Settings of a recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`DSSRecipe.get_settings`
+    """
+    def __init__(self, recipe, data):
+        super(DSSRecipeSettings, self).__init__(data["recipe"])
+        self.recipe = recipe
+        self.data = data
+        self.recipe_settings = self.data["recipe"]
+        self._str_payload = self.data.get("payload", None)
+        self._obj_payload = None
+
+    def save(self):
+        """
+        Save back the recipe in DSS.
+        """
+        self._payload_to_str()
+        return self.recipe.client._perform_json(
+                "PUT", "/projects/%s/recipes/%s" % (self.recipe.project_key, self.recipe.recipe_name),
+                body=self.data)
+
+    @property
+    def type(self):
+        """
+        Get the type of the recipe.
+
+        :return: a type, like 'sync', 'python' or 'join'
+        :rtype: string
+        """
+        return self.recipe_settings["type"]
+
+    @property
+    def str_payload(self):
+        """
+        The raw "payload" of the recipe.
+
+        This is exactly the data persisted on disk.
+
+        :return: for code recipes, the payload will be the script of the recipe. For visual recipes,
+                 the payload is a JSON of settings that are specific to the recipe type, like the
+                 definitions of the aggregations for a grouping recipe.
+        :rtype: string
+        """
+        self._payload_to_str()
+        return self._str_payload
+
+    @str_payload.setter
+    def str_payload(self, payload):
+        self._str_payload = payload
+        self._obj_payload = None
+
+    @property
+    def obj_payload(self):
+        """
+        The "payload" of the recipe, parsed from JSON.
+
+        .. note::
+
+            Do not use on code recipes, their payload isn't JSON-encoded.
+
+        :return: settings that are specific to the recipe type, like the definitions of the
+                 aggregations for a grouping recipe.
+        :rtype: dict
+        """
+        self._payload_to_obj()
+        return self._obj_payload
+
+    @property
+    def raw_params(self):
+        """
+        The non-payload settings of the recipe.
+
+        :return: recipe type-specific settings that aren't stored in the payload. Typically
+                 this comprises engine settings.
+        :rtype: dict
+        """
+        return self.recipe_settings["params"]
+
+    def _payload_to_str(self):
+        if self._obj_payload is not None:
+            self._str_payload = json.dumps(self._obj_payload)
+            self._obj_payload = None
+        if self._str_payload is not None:
+            self.data["payload"] = self._str_payload
+
+    def _payload_to_obj(self):
+        if self._str_payload is not None:
+            self._obj_payload = json.loads(self._str_payload)
+            self._str_payload = None
+
+    def get_recipe_raw_definition(self):
+        """
+        Get the recipe definition.
+
+        :return: the part of the recipe's settings that aren't stored in the payload, as a dict. Notable fields are:
+
+                    * **name** and **projectKey** : identifiers of the recipe
+                    * **type** : type of the recipe
+                    * **params** : type-specific parameters of the recipe (on top of what is in the payload)
+                    * **inputs** : input roles to the recipe, as a dict of role name to role, where a role is a dict with an **items** field consisting of a list of one dict per input object. Each individual input has fields:
+
+                        * **ref** : a dataset name or a managed folder id or a saved model id. Should be prefixed by the project key for exposed items, like in "PROJECT_KEY.dataset_name"
+                        * **deps** : for partitioned inputs, a list of partition dependencies mapping output dimensions to dimensions in this input. Each partition dependency is a dict.
+
+                    * **outputs** : output roles to the recipe, as a dict of role name to role, where a role is a dict with a **items** field consisting of a list of one dict per output object. Each individual output has fields:
+
+                        * **ref** : a dataset name or a managed folder id or a saved model id. Should be prefixed by the project key for exposed items, like in "PROJECT_KEY.dataset_name"
+                        * **appendMode** : if True, the recipe should append into the output; if False, the recipe should overwrite the output when running
+
+        :rtype: dict
+        """
+        return self.recipe_settings
+
+    def get_recipe_inputs(self):
+        """
+        Get the inputs to this recipe.
+
+        :rtype: dict
+        """
+        return self.recipe_settings.get('inputs')
+
+    def get_recipe_outputs(self):
+        """
+        Get the outputs of this recipe.
+
+        :rtype: dict
+        """
+        return self.recipe_settings.get('outputs')
+
+    def get_recipe_params(self):
+        """
+        The non-payload settings of the recipe.
+
+        :return: recipe type-specific settings that aren't stored in the payload. Typically
+                 this comprises engine settings.
+        :rtype: dict
+        """
+        return self.recipe_settings.get('params')
+
+    def get_payload(self):
+        """
+        The raw "payload" of the recipe.
+
+        This is exactly the data persisted on disk.
+
+        :return: for code recipes, the payload will be the script of the recipe. For visual recipes,
+                 the payload is a JSON of settings that are specific to the recipe type, like the
+                 definitions of the aggregations for a grouping recipe.
+        :rtype: string
+        """
+        self._payload_to_str()
+        return self._str_payload
+
+    def get_json_payload(self):
+        """
+        The "payload" of the recipe, parsed from JSON.
+
+        .. note::
+
+            Do not use on code recipes, their payload isn't JSON-encoded.
+
+        :return: settings that are specific to the recipe type, like the definitions of the
+                 aggregations for a grouping recipe.
+        :rtype: dict
+        """
+        self._payload_to_obj()
+        return self._obj_payload
+
+    def set_payload(self, payload):
+        """
+        Set the payload of this recipe.
+
+        :param string payload: the payload, as a string
+        """
+        self._str_payload = payload
+        self._obj_payload = None
+
+    def set_json_payload(self, payload):
+        """
+        Set the payload of this recipe.
+
+        :param dict payload: the payload, as a dict. Will be converted to JSON internally.
+        """
+        self._str_payload = None
+        self._obj_payload = payload
+
+    def has_input(self, input_ref):
+        """
+        Whether a ref is part of the recipe's inputs.
+
+        :param string input_ref: a ref to an object in DSS, i.e. a dataset name or a managed folder id or a saved model id.
+                                 Should be prefixed by the project key for exposed items, like in "PROJECT_KEY.dataset_name"
+        :rtype: boolean
+        """
+        inputs = self.get_recipe_inputs()
+        for (input_role_name, input_role) in inputs.items():
+            for item in input_role.get("items", []):
+                if item.get("ref", None) == input_ref:
+                    return True
+        return False
+
+    def has_output(self, output_ref):
+        """
+        Whether a ref is part of the recipe's outputs.
+
+        :param string output_ref: a ref to an object in DSS, i.e. a dataset name or a managed folder id or a saved model id.
+                                  Should be prefixed by the project key for exposed items, like in "PROJECT_KEY.dataset_name"
+        :rtype: boolean
+        """
+        outputs = self.get_recipe_outputs()
+        for (output_role_name, output_role) in outputs.items():
+            for item in output_role.get("items", []):
+                if item.get("ref", None) == output_ref:
+                    return True
+        return False
+
+    def replace_input(self, current_input_ref, new_input_ref):
+        """
+        Replaces an input of this recipe by another.
+
+        If the **current_input_ref** isn't part of the recipe's inputs, this method has no effect.
+
+        :param string current_input_ref: a ref to an object in DSS, i.e. a dataset name or a managed folder id or a saved model id,
+                                         that is currently input to the recipe
+        :param string new_input_ref: a ref to an object in DSS, i.e. a dataset name or a managed folder id or a saved model id, that
+                                     **current_input_ref** should be replaced with.
+        """
+        inputs = self.get_recipe_inputs()
+        for (input_role_name, input_role) in inputs.items():
+            for item in input_role.get("items", []):
+                if item.get("ref", None) == current_input_ref:
+                    item["ref"] = new_input_ref
+
+    def replace_output(self, current_output_ref, new_output_ref):
+        """
+        Replaces an output of this recipe by another.
+
+        If the **current_output_ref** isn't part of the recipe's outputs, this method has no effect.
+
+        :param string current_output_ref: a ref to an object in DSS, i.e. a dataset name or a managed folder id or a saved model id,
+                                          that is currently output to the recipe
+        :param string new_output_ref: a ref to an object in DSS, i.e. a dataset name or a managed folder id or a saved model id, that
+                                      **current_output_ref** should be replaced with.
+        """
+        outputs = self.get_recipe_outputs()
+        for (output_role_name, output_role) in outputs.items():
+            for item in output_role.get("items", []):
+                if item.get("ref", None) == current_output_ref:
+                    item["ref"] = new_output_ref
+
+    def add_input(self, role, ref, partition_deps=None):
+        """
+        Add an input to the recipe.
+
+        For most recipes, there is only one role, named "main". Some few recipes have additional roles,
+        like scoring recipes which have a "model" role. Check the roles known to the recipe with
+        :meth:`get_recipe_inputs()`.
+
+        :param string role: name of the role of the recipe in which to add **ref** as input
+        :param string ref: a ref to an object in DSS, i.e. a dataset name or a managed folder id or a saved model id
+        :param list partition_deps: if **ref** points to a partitioned object, a list of partition dependencies, one
+                                    per dimension in the partitioning scheme
+        """
+        if partition_deps is None:
+            partition_deps = []
+        self._get_or_create_input_role(role)["items"].append({"ref": ref, "deps": partition_deps})
+
+    def add_output(self, role, ref, append_mode=False):
+        """
+        Add an output to the recipe.
+
+        For most recipes, there is only one role, named "main". Some few recipes have additional roles,
+        like evaluation recipes which have a "metrics" role. Check the roles known to the recipe with
+        :meth:`get_recipe_outputs()`.
+
+        :param string role: name of the role of the recipe in which to add **ref** as input
+        :param string ref: a ref to an object in DSS, i.e. a dataset name or a managed folder id or a saved model id
+        :param list partition_deps: if **ref** points to a partitioned object, a list of partition dependencies, one
+                                    per dimension in the partitioning scheme
+        """
+        self._get_or_create_output_role(role)["items"].append({"ref": ref, "appendMode": append_mode})
+
+    def _get_or_create_input_role(self, role):
+        inputs = self.get_recipe_inputs()
+        if not role in inputs:
+            role_obj = {"items": []}
+            inputs[role] = role_obj
+        return inputs[role]
+
+    def _get_or_create_output_role(self, role):
+        outputs = self.get_recipe_outputs()
+        if not role in outputs:
+            role_obj = {"items": []}
+            outputs[role] = role_obj
+        return outputs[role]
+
+    def _get_flat_inputs(self):
+        ret = []
+        for role_key, role_obj in self.get_recipe_inputs().items():
+            for item in role_obj["items"]:
+                ret.append((role_key, item))
+        return ret
+
+    def _get_flat_outputs(self):
+        ret = []
+        for role_key, role_obj in self.get_recipe_outputs().items():
+            for item in role_obj["items"]:
+                ret.append((role_key, item))
+        return ret
+
+    def get_flat_input_refs(self):
+        """
+        List all input refs of this recipe, regardless of the input role.
+
+        :return: a list of refs, i.e. of dataset names or managed folder ids or saved model ids
+        :rtype: list[string]
+        """
+        ret = []
+        for role_key, role_obj in self.get_recipe_inputs().items():
+            for item in role_obj["items"]:
+                ret.append(item["ref"])
+        return ret
+
+    def get_flat_output_refs(self):
+        """
+        List all output refs of this recipe, regardless of the input role.
+
+        :return: a list of refs, i.e. of dataset names or managed folder ids or saved model ids
+        :rtype: list[string]
+        """
+        ret = []
+        for role_key, role_obj in self.get_recipe_outputs().items():
+            for item in role_obj["items"]:
+                ret.append(item["ref"])
+        return ret
+
+
+class DSSRecipeDefinitionAndPayload(DSSRecipeSettings):
+    """
+    Settings of a recipe.
+
+    .. note::
+
+        Deprecated. Alias to :class:`DSSRecipeSettings`, use :meth:`DSSRecipe.get_settings()` instead.
+    """
+    pass
+
+class RequiredSchemaUpdates(object):
+    """
+    Handle on a set of required updates to the schema of the outputs of a recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`DSSRecipe.compute_schema_updates()`
+
+    For example, changes can be new columns in the output of a Group recipe when new aggregates
+    are activated in the recipe's settings.
+    """
+
+    def __init__(self, recipe, data):
+        self.recipe = recipe
+        self.data = data
+        self.drop_and_recreate = True
+        self.synchronize_metastore = True
+
+    def any_action_required(self):
+        """
+        Whether there are changes at all.
+
+        :rtype: boolean
+        """
+        return self.data["totalIncompatibilities"] > 0
+
+    def apply(self):
+        """
+        Apply the changes.
+
+        All the updates found to be required are applied, for each of the recipe's outputs.
+        """
+        results  = []
+        for computable in self.data["computables"]:
+            osu = {
+                "computableType": computable["type"],
+                # dirty
+                "computableId": computable["type"] == "DATASET" and computable["datasetName"] or computable["id"],
+                "newSchema": computable["newSchema"],
+                "dropAndRecreate": self.drop_and_recreate,
+                "synchronizeMetastore" : self.synchronize_metastore
+            }
+
+            results.append(self.recipe.client._perform_json("POST",
+                    "/projects/%s/recipes/%s/actions/updateOutputSchema" % (self.recipe.project_key, self.recipe.recipe_name),
+                    body=osu))
+        return results
+
+#####################################################
+# Recipes creation infrastructure
+#####################################################
+
+class DSSRecipeCreator(object):
+    """
+    Helper to create new recipes.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+    """
+    def __init__(self, type, name, project):
+        self.project = project
+        self.recipe_proto = {
+            "inputs" : {},
+            "outputs" : {},
+            "type" : type,
+            "name" : name
+        }
+        self.creation_settings = {
+        }
+
+    def set_name(self, name):
+        """
+        Set the name of the recipe-to-be-created.
+
+        :param string name: a recipe name. Should only use alphanum letters and underscores. Cannot contain dots.
+        """
+        self.recipe_proto["name"] = name
+
+    def _build_ref(self, object_id, project_key=None):
+        if project_key is not None and project_key != self.project.project_key:
+            return project_key + '.' + object_id
+        else:
+            return object_id
+
+    def _with_input(self, dataset_name, project_key=None, role="main"):
+        role_obj = self.recipe_proto["inputs"].get(role, None)
+        if role_obj is None:
+            role_obj = { "items" : [] }
+            self.recipe_proto["inputs"][role] = role_obj
+        role_obj["items"].append({'ref':self._build_ref(dataset_name, project_key)})
+        return self
+
+    def _with_output(self, dataset_name, append=False, role="main"):
+        role_obj = self.recipe_proto["outputs"].get(role, None)
+        if role_obj is None:
+            role_obj = { "items" : [] }
+            self.recipe_proto["outputs"][role] = role_obj
+        role_obj["items"].append({'ref':self._build_ref(dataset_name, None), 'appendMode': append})
+        return self
+
+    def _get_input_refs(self):
+        ret = []
+        for role_key, role_obj in self.recipe_proto["inputs"].items():
+            for item in role_obj["items"]:
+                ret.append(item["ref"])
+        return ret
+
+    def with_input(self, input_id, project_key=None, role="main"):
+        """
+        Add an existing object as input to the recipe-to-be-created.
+
+        :param string input_id: name of the dataset, or identifier of the managed folder
+                                or identifier of the saved model
+        :param string project_key: project containing the object, if different from the one where the recipe is created
+        :param string role: the role of the recipe in which the input should be added. Most recipes only have one
+                            role named "main".
+        """
+        return self._with_input(input_id, project_key, role)
+
+    def with_output(self, output_id, append=False, role="main"):
+        """
+        Add an existing object as output to the recipe-to-be-created.
+
+        The output dataset must already exist.
+
+        :param string output_id: name of the dataset, or identifier of the managed folder
+                                 or identifier of the saved model
+        :param boolean append: whether the recipe should append or overwrite the output when running
+                               (note: not available for all dataset types)
+        :param string role: the role of the recipe in which the input should be added. Most recipes only have one
+                            role named "main".
+        """
+        return self._with_output(output_id, append, role)
+
+    def build(self):
+        """
+        Create the recipe.
+
+        .. note::
+
+            Deprecated. Alias to :meth:`create()`
+        """
+        return self.create()
+
+    def create(self):
+        """
+        Creates the new recipe in the project, and return a handle to interact with it.
+
+        :rtype: :class:`dataikuapi.dss.recipe.DSSRecipe`
+        """
+        self._finish_creation_settings()
+        return self.project.create_recipe(self.recipe_proto, self.creation_settings)
+
+    def set_raw_mode(self):
+        """
+        Activate raw creation mode.
+
+        .. caution::
+
+            For advanced uses only.
+
+        In this mode, the field "recipe_proto" of this recipe creator is used as-is to create the recipe,
+        and if it exists, the value of creation_settings["rawPayload"] is used as the payload of the
+        created recipe. No checks of existence or validity of the inputs or outputs are done, and no
+        output is auto-created.
+        """
+        self.creation_settings["rawCreation"] = True
+
+    def _finish_creation_settings(self):
+        pass
+
+class SingleOutputRecipeCreator(DSSRecipeCreator):
+    """
+    Create a recipe that has a single output.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+    """
+
+    def __init__(self, type, name, project):
+        DSSRecipeCreator.__init__(self, type, name, project)
+        self.create_output_dataset = None
+        self.output_dataset_settings = None
+        self.create_output_folder = None
+        self.output_folder_settings = None
+
+    def with_existing_output(self, output_id, append=False):
+        """
+        Add an existing object as output to the recipe-to-be-created.
+
+        The output dataset must already exist.
+
+        :param string output_id: name of the dataset, or identifier of the managed folder
+                                 or identifier of the saved model
+        :param boolean append: whether the recipe should append or overwrite the output when running
+                               (note: not available for all dataset types)
+        """
+        assert self.create_output_dataset is None
+        self.create_output_dataset = False
+        self._with_output(output_id, append)
+        return self
+
+    def with_new_output(self, name, connection, type=None, format=None,
+                        override_sql_schema=None, partitioning_option_id=None,
+                        append=False, object_type='DATASET', overwrite=False, **kwargs):
+        """
+        Create a new dataset or managed folder as output to the recipe-to-be-created.
+
+        The dataset or managed folder is not created immediately, but when the recipe
+        is created (ie in the create() method). Whether a dataset is created or a managed
+        folder is created, depends on the recipe type.
+
+        :param string name: name of the dataset or identifier of the managed folder
+        :param string connection: name of the connection to create the dataset or managed folder on
+        :param string type: sub-type of dataset or managed folder, for connections where the type
+                            could be ambiguous. Typically applies to SSH connections, where sub-types
+                            can be SCP or SFTP
+        :param string format: name of a format preset relevant for the dataset type. Possible values are: CSV_ESCAPING_NOGZIP_FORHIVE,
+                              CSV_UNIX_GZIP, CSV_EXCEL_GZIP, CSV_EXCEL_GZIP_BIGQUERY, CSV_NOQUOTING_NOGZIP_FORPIG, PARQUET_HIVE,
+                              AVRO, ORC
+        :param boolean override_sql_schema: schema to force dataset, for SQL dataset. If left empty, will be autodetected
+        :param string partitioning_option_id: to copy the partitioning schema of an existing dataset 'foo', pass a
+                                              value of 'copy:dataset:foo'. If unset, then the output will be non-partitioned
+        :param boolean append: whether the recipe should append or overwrite the output when running
+                               (note: not available for all dataset types)
+        :param string object_type: DATASET or MANAGED_FOLDER
+        :param boolean overwrite: If the dataset being created already exists, overwrite it (and delete data)
+        """
+        for k in kwargs: #for retrop comp
+            if k == "connection_id":
+                connection = kwargs.get("connection_id")
+            elif k == "format_option_id":
+                format = kwargs.get("format_option_id")
+            elif k == "typeOptionId":
+                type = kwargs.get("typeOptionId")
+            elif k == "type_option_id":
+                type = kwargs.get("type_option_id")
+            else:
+                raise Exception("Unknown argument '{}'".format(k))
+
+        if object_type == 'DATASET':
+            assert self.create_output_dataset is None
+
+            dataset = self.project.get_dataset(name)
+            if overwrite and dataset.exists():
+                dataset.delete(drop_data=True)
+
+            self.create_output_dataset = True
+            self.output_dataset_settings = {'connectionId':connection,'typeOptionId':type,'specificSettings':{'formatOptionId':format, 'overrideSQLSchema':override_sql_schema},'partitioningOptionId':partitioning_option_id}
+            self._with_output(name, append)
+        elif object_type == 'MANAGED_FOLDER':
+            assert self.create_output_folder is None
+            self.create_output_folder = True
+            self.output_folder_settings = {'connectionId':connection,'typeOptionId':type,'partitioningOptionId':partitioning_option_id}
+            self._with_output(name, append)
+        return self
+
+    def with_output(self, output_id, append=False):
+        """
+        Add an existing object as output to the recipe-to-be-created.
+
+        .. note::
+
+            Alias of :meth:`with_existing_output()`
+        """
+        return self.with_existing_output(output_id, append)
+
+    def _finish_creation_settings(self):
+        self.creation_settings['createOutputDataset'] = self.create_output_dataset
+        self.creation_settings['outputDatasetSettings'] = self.output_dataset_settings
+        self.creation_settings['createOutputFolder'] = self.create_output_folder
+        self.creation_settings['outputFolderSettings'] = self.output_folder_settings
+
+class VirtualInputsSingleOutputRecipeCreator(SingleOutputRecipeCreator):
+    """
+    Create a recipe that has a single output and several inputs.
+    """
+
+    def __init__(self, type, name, project):
+        SingleOutputRecipeCreator.__init__(self, type, name, project)
+        self.virtual_inputs = []
+
+    def with_input(self, input_id, project_key=None):
+        """
+        Add an existing object as input to the recipe-to-be-created.
+
+        :param string input_id: name of the dataset
+        :param string project_key: project containing the object, if different from the one where the recipe is created
+        """
+        self.virtual_inputs.append(self._build_ref(input_id, project_key))
+        return self
+
+    def _finish_creation_settings(self):
+        super(VirtualInputsSingleOutputRecipeCreator, self)._finish_creation_settings()
+        self.creation_settings['virtualInputs'] = self.virtual_inputs
+
+class _MultipleOutputRecipeCreator(DSSRecipeCreator):
+    """
+    Create a recipe that has a multiple outputs.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+    """
+
+    def __init__(self, type, name, project):
+        DSSRecipeCreator.__init__(self, type, name, project)
+        self.output_datasets_settings = {}
+
+    def with_existing_output(self, output_id, append=False):
+        """
+        Add an existing object as output to the recipe-to-be-created.
+
+        The output dataset must already exist.
+
+        :param string output_id: name of the dataset, or identifier of the managed folder
+                                 or identifier of the saved model
+        :param boolean append: whether the recipe should append or overwrite the output when running
+                               (note: not available for all dataset types)
+        """
+        self._with_output(output_id, append)
+        return self
+
+    def with_new_output(self, name, connection, type=None, format=None,
+                        override_sql_schema=None, partitioning_option_id=None,
+                        append=False, overwrite=False, **kwargs):
+        """
+        Create a new dataset or managed folder as output to the recipe-to-be-created.
+
+        The dataset or managed folder is not created immediately, but when the recipe
+        is created (ie in the create() method). Whether a dataset is created or a managed
+        folder is created, depends on the recipe type.
+
+        :param string name: name of the dataset or identifier of the managed folder
+        :param string connection: name of the connection to create the dataset or managed folder on
+        :param string type: sub-type of dataset or managed folder, for connections where the type
+                            could be ambiguous. Typically applies to SSH connections, where sub-types
+                            can be SCP or SFTP
+        :param string format: name of a format preset relevant for the dataset type. Possible values are: CSV_ESCAPING_NOGZIP_FORHIVE,
+                              CSV_UNIX_GZIP, CSV_EXCEL_GZIP, CSV_EXCEL_GZIP_BIGQUERY, CSV_NOQUOTING_NOGZIP_FORPIG, PARQUET_HIVE,
+                              AVRO, ORC
+        :param boolean override_sql_schema: schema to force dataset, for SQL dataset. If left empty, will be autodetected
+        :param string partitioning_option_id: to copy the partitioning schema of an existing dataset 'foo', pass a
+                                              value of 'copy:dataset:foo'. If unset, then the output will be non-partitioned
+        :param boolean append: whether the recipe should append or overwrite the output when running
+                               (note: not available for all dataset types)
+        :param boolean overwrite: If the dataset being created already exists, overwrite it (and delete data)
+        """
+        for k in kwargs: #for retrop comp
+            if k == "connection_id":
+                connection = kwargs.get("connection_id")
+            elif k == "format_option_id":
+                format = kwargs.get("format_option_id")
+            elif k == "typeOptionId":
+                type = kwargs.get("typeOptionId")
+            elif k == "type_option_id":
+                type = kwargs.get("type_option_id")
+            else:
+                raise Exception("Unknown argument '{}'".format(k))
+
+        dataset = self.project.get_dataset(name)
+        if overwrite and dataset.exists():
+            dataset.delete(drop_data=True)
+
+        self.output_datasets_settings[name] = {
+            'connectionId': connection,
+            'typeOptionId': type,
+            'specificSettings': {
+                'formatOptionId': format,
+                'overrideSQLSchema': override_sql_schema
+            },
+            'partitioningOptionId': partitioning_option_id
+        }
+        self._with_output(name, append)
+        return self
+
+    def with_output(self, output_id, append=False):
+        """
+        Add an existing object as output to the recipe-to-be-created.
+
+        .. note::
+
+            Alias of :meth:`with_existing_output()`
+        """
+        return self.with_existing_output(output_id, append)
+
+    def _finish_creation_settings(self):
+        self.creation_settings['outputDatasetsCreationSettingsByRole'] = {
+            "main": self.output_datasets_settings
+        }
+
+#####################################################
+# Per-recipe-type classes: Visual recipes
+#####################################################
+
+class GenerateFeaturesRecipeSettings(DSSRecipeSettings):
+    """
+    Settings of a Generate features recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`DSSRecipe.get_settings()`
+    """
+    pass
+
+
+class GenerateFeaturesRecipeCreator(VirtualInputsSingleOutputRecipeCreator):
+    """
+    Create a generate features recipes
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+   """
+    def __init__(self, name, project):
+        VirtualInputsSingleOutputRecipeCreator.__init__(self, 'generate_features', name, project)
+
+
+class ExtractFailedRowsRecipeCreator(SingleOutputRecipeCreator):
+    """
+    Create an Extract failed rows recipe
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+   """
+    def __init__(self, name, project):
+        SingleOutputRecipeCreator.__init__(self, 'extract_failed_rows', name, project)
+
+    def with_output(self, output_id, append=False, role='main'):
+        """
+        Add an existing object as output to the recipe-to-be-created.
+
+        The output dataset must already exist.
+        """
+        assert self.create_output_dataset is None
+        self.create_output_dataset = False
+        self._with_output(output_id, append, role)
+        return self
+
+
+class GroupingRecipeSettings(DSSRecipeSettings):
+    """
+    Settings of a grouping recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`DSSRecipe.get_settings()`
+    """
+    def clear_grouping_keys(self):
+        """
+        Clear all grouping keys.
+        """
+        self.obj_payload["keys"] = []
+
+    def add_grouping_key(self, column):
+        """
+        Adds grouping on a column.
+
+        :param string column: column to group on
+        """
+        self.obj_payload["keys"].append({"column":column})
+
+    def set_global_count_enabled(self, enabled):
+        """
+        Activate computing the count of records per group.
+
+        :param boolean enabled: True if the global count should be activated
+        """
+        self.obj_payload["globalCount"] = enabled
+
+    def get_or_create_column_settings(self, column):
+        """
+        Get a dict representing the aggregations to perform on a column.
+
+        If the column has no aggregation on it yet, the dict is created and added to the settings.
+
+        :param string column: name of the column to aggregate on
+
+        :return: the settings of the aggregations on a particular column, as a dict. The name of
+                 the column to perform aggregates on is in a **column** field, and the aggregates
+                 are toggled on or off with boolean fields.
+        :rtype: dict
+        """
+        found = None
+        for gv in self.obj_payload["values"]:
+            if gv["column"] == column:
+                found = gv
+                break
+        if found is None:
+            found = {"column" : column}
+            self.obj_payload["values"].append(found)
+        return found
+
+    def set_column_aggregations(self, column, type=None, min=False, max=False, count=False, count_distinct=False,
+                                sum=False, concat=False, stddev=False, avg=False, mode=False):
+        """
+        Set the basic aggregations on a column.
+
+        .. note::
+
+            Not all aggregations may be possible. For example string-typed columns don't have a mean
+            or standard deviation, and some SQL databases can't compute the exact standard deviation.
+
+        The method returns a reference to the settings of the column, not a copy. Modifying the dict
+        returned by the method, then calling :meth:`DSSRecipeSettings.save()` will commit the changes.
+
+        Usage example:
+
+        .. code-block::
+
+            # activate the concat aggregate on a column, and set optional parameters
+            # pertaining to concatenation
+            settings = recipe.get_settings()
+            column_settings = settings.set_column_aggregations("my_column_name", concat=True)
+            column_settings["concatDistinct"] = True
+            column_settings["concatSeparator"] = ', '
+            settings.save()
+
+
+        :param string column: The column name
+        :param string type: The type of the column (as a DSS schema type name)
+        :param boolean min: whether the min aggregate is computed
+        :param boolean max: whether the max aggregate is computed
+        :param boolean count: whether the count aggregate is computed
+        :param boolean count_distinct: whether the count distinct aggregate is computed
+        :param boolean sum: whether the sum aggregate is computed
+        :param boolean concat: whether the concat aggregate is computed
+        :param boolean stddev: whether the standard deviation aggregate is computed
+        :param boolean avg: whether the mean aggregate is computed
+        :param boolean mode: whether the mode aggregate is computed
+
+        :return: the settings of the aggregations on a the column, as a dict. The name of the column is in a **column** field.
+        :rtype: dict
+        """
+        cs = self.get_or_create_column_settings(column)
+        if type is not None:
+            cs["type"] = type
+        cs["min"] = min
+        cs["max"] = max
+        cs["count"] = count
+        cs["countDistinct"] = count_distinct
+        cs["sum"] = sum
+        cs["concat"] = concat
+        cs["stddev"] = stddev
+        cs["avg"] = avg
+        cs["mode"] = mode
+        return cs
+
+class GroupingRecipeCreator(SingleOutputRecipeCreator):
+    """
+    Create a Group recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+    """
+    def __init__(self, name, project):
+        SingleOutputRecipeCreator.__init__(self, 'grouping', name, project)
+        self.group_key = None
+
+    def with_group_key(self, group_key):
+        """
+        Set a column as the first grouping key.
+
+        Only a single grouping key may be set at recipe creation time. To add more grouping keys,
+        get the recipe settings and use :meth:`GroupingRecipeSettings.add_grouping_key()`. To have
+        no grouping keys at all, get the recipe settings and use
+        :meth:`GroupingRecipeSettings.clear_grouping_keys()`.
+
+        :param string group_key: name of a column in the input dataset
+
+        :return: self
+        :rtype: :class:`GroupingRecipeCreator`
+        """
+        self.group_key = group_key
+        return self
+
+    def _finish_creation_settings(self):
+        super(GroupingRecipeCreator, self)._finish_creation_settings()
+        if self.group_key is not None:
+            self.creation_settings['groupKey'] = self.group_key
+
+class UpsertRecipeSettings(DSSRecipeSettings):
+    """
+    Settings of a upsert recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`DSSRecipe.get_settings()`
+    """
+    def clear_upsert_keys(self):
+        """
+        Clear all upsert keys.
+        """
+        self.obj_payload["keys"] = []
+
+    def add_upsert_key(self, column):
+        """
+        Adds upsert on a column.
+
+        :param string column: column to group on
+        """
+        self.obj_payload["keys"].append({"column":column})
+
+    def add_computed_column(self, computed_column):
+        """
+        Add a computed column applied on the input.
+
+        Use :class:`dataikuapi.dss.utils.DSSComputedColumn` to build the computed_column object.
+
+        :param dict computed_column: a computed column definition, as a dict of:
+
+                        * **mode** : type of expression used to define the computations. One of GREL or SQL.
+                        * **name** : name of the column generated
+                        * **type** : name of a DSS type for the computed column
+                        * **expr** : if **mode** is CUSTOM, a formula in DSS `formula language <https://doc.dataiku.com/dss/latest/formula/index.html>`_ . If **mode** is SQL, a SQL expression.
+        """
+        self.obj_payload["computedColumns"].append(computed_column)
+
+class UpsertRecipeCreator(SingleOutputRecipeCreator):
+    """
+    Create a Upsert recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+    """
+    def __init__(self, name, project):
+        SingleOutputRecipeCreator.__init__(self, 'upsert', name, project)
+        self.upsert_key = None
+
+    def with_upsert_key(self, upsert_key):
+        """
+        Set a column as the first upsert key.
+
+        Only a single upsert key may be set at recipe creation time. To add more upsert keys,
+        get the recipe settings and use :meth:`UpsertRecipeSettings.add_upsert_key()`. To have
+        no upsert keys at all, get the recipe settings and use
+        :meth:`UpsertRecipeSettings.clear_upsert_keys()`.
+
+        :param string upsert_key: name of a column in the input dataset
+
+        :return: self
+        :rtype: :class:`UpsertRecipeCreator`
+        """
+        self.upsert_key = upsert_key
+        return self
+
+    def _finish_creation_settings(self):
+        super(UpsertRecipeCreator, self)._finish_creation_settings()
+        if self.upsert_key is not None:
+            self.creation_settings['upsertKey'] = self.upsert_key
+
+
+class WindowRecipeSettings(DSSRecipeSettings):
+    """
+    Settings of a Window recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`DSSRecipe.get_settings()`
+    """
+    pass # TODO: Write helpers for window
+
+class WindowRecipeCreator(SingleOutputRecipeCreator):
+    """
+    Create a Window recipe
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+   """
+    def __init__(self, name, project):
+        SingleOutputRecipeCreator.__init__(self, 'window', name, project)
+
+
+class SyncRecipeSettings(DSSRecipeSettings):
+    """
+    Settings of a Sync recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`DSSRecipe.get_settings()`
+    """
+    pass # TODO: Write helpers for sync
+
+class SyncRecipeCreator(SingleOutputRecipeCreator):
+    """
+    Create a Sync recipe
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+   """
+    def __init__(self, name, project):
+        SingleOutputRecipeCreator.__init__(self, 'sync', name, project)
+
+class ContinuousSyncRecipeCreator(SingleOutputRecipeCreator):
+    """
+    Create a continuous Sync recipe
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+    """
+    def __init__(self, name, project):
+        SingleOutputRecipeCreator.__init__(self, 'csync', name, project)
+
+
+class SortRecipeSettings(DSSRecipeSettings):
+    """
+    Settings of a Sort recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`DSSRecipe.get_settings()`
+    """
+    @property
+    def row_number_column_enabled(self):
+        """
+        Get or set whether to add a row number column.
+
+        - **Getter**: Returns `True` if the row number column is enabled, `False` otherwise.
+        - **Setter**: Sets whether to add the row number column.
+
+        :returns: whether the row number column is enabled
+        :rtype: bool
+        """
+        return self.obj_payload["rowNumber"]
+    
+    @row_number_column_enabled.setter
+    def row_number_column_enabled(self, enabled):
+        self.obj_payload["rowNumber"] = enabled
+
+    @property
+    def rank_column_enabled(self):
+        """
+        Get or set whether to add a rank column.
+
+        - **Getter**: Returns `True` if the rank column is enabled, `False` otherwise.
+        - **Setter**: Sets whether to add the rank column.
+
+        :returns: whether the rank column is enabled
+        :rtype: bool
+        """
+        return self.obj_payload["rank"]
+    
+    @rank_column_enabled.setter
+    def rank_column_enabled(self, enabled):
+        self.obj_payload["rank"] = enabled
+
+    @property
+    def dense_rank_column_enabled(self):
+        """
+        Get or set whether to add a dense rank column.
+
+        - **Getter**: Returns `True` if the dense rank column is enabled, `False` otherwise.
+        - **Setter**: Sets whether to add the dense rank column.
+
+        :returns: whether the dense rank column is enabled
+        :rtype: bool
+        """
+        return self.obj_payload["denseRank"]
+    
+    @dense_rank_column_enabled.setter
+    def dense_rank_column_enabled(self, enabled):
+        self.obj_payload["denseRank"] = enabled
+
+    def clear_sorting_keys(self):
+        """
+        Removes all sorting keys from the recipe settings.
+        """
+        self.obj_payload["orders"] = []
+
+    def add_sorting_key(self, column, ascending=True):
+        """
+        Adds a column to the sorting keys.
+
+        :param str column: Name of the column to sort by.
+        :param bool ascending: Whether to sort in ascending order. Defaults to True.
+        """
+        if column is not None:
+            self.obj_payload["orders"].append({
+                "column": column,
+                "desc": not ascending
+            })
+
+class SortRecipeCreator(SingleOutputRecipeCreator):
+    """
+    Create a Sort recipe
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+   """
+    def __init__(self, name, project):
+        SingleOutputRecipeCreator.__init__(self, 'sort', name, project)
+
+class PivotRecipeSettings(DSSRecipeSettings):
+    """
+    Settings of a Pivot recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`DSSRecipe.get_settings()`
+    """
+    pass # TODO: Write helpers for sort
+
+class PivotRecipeCreator(SingleOutputRecipeCreator):
+    """
+    Create a Pivot recipe
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+   """
+    def __init__(self, name, project):
+        SingleOutputRecipeCreator.__init__(self, 'pivot', name, project)
+
+
+class TopNRecipeSettings(DSSRecipeSettings):
+    """
+    Settings of a TopN recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`DSSRecipe.get_settings()`
+    """
+    pass # TODO: Write helpers for topn
+
+class TopNRecipeCreator(DSSRecipeCreator):
+    """
+    Create a TopN recipe
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+    """
+    def __init__(self, name, project):
+        DSSRecipeCreator.__init__(self, 'topn', name, project)
+
+
+class DistinctRecipeSettings(DSSRecipeSettings):
+    """
+    Settings of a Distinct recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`DSSRecipe.get_settings()`
+    """
+    pass # TODO: Write helpers for distinct
+
+class DistinctRecipeCreator(SingleOutputRecipeCreator):
+    """
+    Create a Distinct recipe
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+    """
+    def __init__(self, name, project):
+        SingleOutputRecipeCreator.__init__(self, 'distinct', name, project)
+
+
+class PrepareRecipeSettings(DSSRecipeSettings):
+    """
+    Settings of a Prepare recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`DSSRecipe.get_settings()`
+    """
+    pass
+
+    @property
+    def raw_steps(self):
+        """
+        Get the list of the steps of this prepare recipe.
+
+        This method returns a reference to the list of steps, not a copy. Modifying the list
+        then calling :meth:`DSSRecipeSettings.save()` commits the changes.
+
+        :return: list of steps, each step as a dict. The precise settings for each step are not documented, but
+                 each dict has at least fields:
+
+                    * **metaType** : one of PROCESSOR or GROUP. If GROUP, there there is a field **steps** with a sub-list of steps.
+                    * **type** : type of the step, for example FillEmptyWithValue or ColumnRenamer (there are many types of steps)
+                    * **params** : dict of the step's own parameters. Each step type has its own parameters.
+                    * **disabled** : whether the step is disabled
+                    * **name** : label of the step
+
+        :rtype: list[dict]
+        """
+        return self.obj_payload["steps"]
+
+    def add_processor_step(self, type, params):
+        """
+        Add a step in the script.
+
+        :param string type: type of the step, for example FillEmptyWithValue or ColumnRenamer (there are many types of steps)
+        :param dict params: dict of the step's own parameters. Each step type has its own parameters.
+        """
+        step = {
+            "metaType": "PROCESSOR",
+            "type": type,
+            "params": params
+        }
+        self.raw_steps.append(step)
+
+
+class PrepareRecipeCreator(SingleOutputRecipeCreator):
+    """
+    Create a Prepare recipe
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+    """
+    def __init__(self, name, project):
+        SingleOutputRecipeCreator.__init__(self, 'shaker', name, project)
+
+
+class JoinRecipeSettings(DSSRecipeSettings):
+    """
+    Settings of a join recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`DSSRecipe.get_settings()`
+
+    In order to enable self-joins, join recipes are based on a concept of "virtual inputs".
+    Every join, computed pre-join column, pre-join filter, ... is based on one virtual input, and
+    each virtual input references an input of the recipe, by index
+
+    For example, if a recipe has inputs A and B and declares two joins:
+
+        - A->B
+        - A->A (based on a computed column)
+
+    There are 3 virtual inputs:
+
+        * 0: points to recipe input 0 (i.e. dataset A)
+        * 1: points to recipe input 1 (i.e. dataset B)
+        * 2: points to recipe input 0 (i.e. dataset A) and includes the computed column
+
+    * The first join is between virtual inputs 0 and 1
+    * The second join is between virtual inputs 0 and 2
+    """
+    pass # TODO: Write helpers for join
+
+    @property
+    def raw_virtual_inputs(self):
+        """
+        Get the list of virtual inputs.
+
+        This method returns a reference to the list of inputs, not a copy. Modifying the list
+        then calling :meth:`DSSRecipeSettings.save()` commits the changes.
+
+        :return: a list of virtual inputs, each one a dict. The field **index** holds the index of
+                 the dataset of this virtual input in the recipe's list of inputs. Pre-filter, computed
+                 columns and column selection properties (if applicable) are defined in each virtual input.
+        :rtype: list[dict]
+        """
+        return self.obj_payload["virtualInputs"]
+
+    @property
+    def raw_joins(self):
+        """
+        Get raw list of joins.
+
+        This method returns a reference to the list of joins, not a copy. Modifying the list
+        then calling :meth:`DSSRecipeSettings.save()` commits the changes.
+
+        :return: list of the join definitions, each as a dict. The **table1** and **table2** fields
+                 give the indices of the virtual inputs on the left side and right side respectively.
+        :rtype: list[dict]
+        """
+        return self.obj_payload["joins"]
+
+    def add_virtual_input(self, input_dataset_index):
+        """
+        Add a virtual input pointing to the specified input dataset of the recipe.
+
+        :param int input_dataset_index: index of the dataset in the list of input_dataset_index
+        """
+        self.raw_virtual_inputs.append({"index": input_dataset_index})
+
+    def add_pre_join_computed_column(self, virtual_input_index, computed_column):
+        """
+        Add a computed column to a virtual input.
+
+        You can use :meth:`dataikuapi.dss.utils.DSSComputedColumn.formula()` to build the computed_column object.
+
+        :param int input_dataset_index: index of the dataset in the list of input_dataset_index
+        :param dict computed_column: a computed column definition, as a dict of:
+
+                        * **mode** : type of expression used to define the computations. One of GREL or SQL.
+                        * **name** : name of the column generated
+                        * **type** : name of a DSS type for the computed column
+                        * **expr** : if **mode** is CUSTOM, a formula in DSS `formula language <https://doc.dataiku.com/dss/latest/formula/index.html>`_ . If **mode** is SQL, a SQL expression.
+        """
+        self.raw_virtual_inputs[virtual_input_index]["computedColumns"].append(computed_column)
+
+    def add_join(self, join_type="LEFT", input1=0, input2=1):
+        """
+        Add a join between two virtual inputs.
+
+        The join is initialized with no condition.
+
+        Use :meth:`add_condition_to_join()` on the return value to add a join condition (for example column equality)
+        to the join.
+
+        :return: the newly added join as a dict (see :meth:`raw_joins()`)
+        :rtype: dict
+        """
+        jp = self.obj_payload
+        if not "joins" in jp:
+            jp["joins"] = []
+        join = {
+            "conditionsMode": "AND",
+            "on": [],
+            "table1": input1,
+            "table2": input2,
+            "type": join_type
+        }
+        jp["joins"].append(join)
+        return join
+
+    @staticmethod
+    def add_condition_to_join(join, type="EQ", column1=None, column2=None):
+        """
+        Add a condition to a join.
+
+        :param dict join: definition of a join
+        :param string type: type of join condition. Possible values are EQ,  LTE, LT, GTE, GT, NE, WITHIN_RANGE, K_NEAREST,
+                            K_NEAREST_INFERIOR, CONTAINS, STARTS_WITH
+        :param string column1: name of left-side column
+        :param string column2: name of right-side column
+        """
+        cond = {
+            "type": type,
+            "column1": {"name": column1, "table": join["table1"]},
+            "column2": {"name": column2, "table": join["table2"]},
+        }
+        join["on"].append(cond)
+        return cond
+
+    def add_post_join_computed_column(self, computed_column):
+        """
+        Add a post-join computed column.
+
+        Use :class:`dataikuapi.dss.utils.DSSComputedColumn` to build the computed_column object.
+
+        .. note::
+
+            The columns accessible to the expression of the computed column are those selected in the different
+            joins, in their "output" form. For example if a virtual inputs 0 and 1 are joined, and column "bar"
+            of the first input is selected with a prefix of "foo", then the computed column can use "foobar"
+            but not "bar".
+
+        :param dict computed_column: a computed column definition, as a dict of:
+
+                        * **mode** : type of expression used to define the computations. One of GREL or SQL.
+                        * **name** : name of the column generated
+                        * **type** : name of a DSS type for the computed column
+                        * **expr** : if **mode** is CUSTOM, a formula in DSS `formula language <https://doc.dataiku.com/dss/latest/formula/index.html>`_ . If **mode** is SQL, a SQL expression.
+        """
+        self.obj_payload["computedColumns"].append(computed_column)
+
+    def set_post_filter(self, postfilter):
+        """
+        Add a post filter on the join.
+
+        Use the methods on :class:`dataikuapi.dss.utils.DSSFilter` to build filter definition.
+
+        :param dict postfilter: definition of a filter, as a dict of:
+
+                    * **distinct** : whether the records in the output should be deduplicated
+                    * **enabled** : whether filtering is enabled
+                    * **uiData** : settings of the filter, if **enabled** is True, as a dict of:
+
+                        * **mode** : type of filter. Possible values: CUSTOM, SQL, '&&' (boolean AND of conditions) and '||' (boolean OR of conditions)
+                        * **conditions** : if mode is '&&' or '||', then a list of the actual filter conditions, each one a dict
+
+                    * **expression** : if **uiData.mode** is CUSTOM, a formula in DSS `formula language <https://doc.dataiku.com/dss/latest/formula/index.html>`_ . If **uiData.mode** is SQL, a SQL expression.
+        """
+        self.obj_payload["postFilter"] = postfilter
+
+    def set_unmatched_output(self, ref, side='right', append_mode=False):
+        """
+        Adds an unmatched join output
+
+        :param str ref: name of the dataset
+        :param str side: side of the unmatched output, 'right' or 'left'.
+        :param bool append_mode: whether the recipe should append or overwrite the output when running
+        """
+        if side not in ['right', 'left']:
+            raise ValueError("Unknown side : " + side)
+        if len(self.obj_payload["joins"]) != 1:
+            raise DataikuException("Unmatched output can only be set on recipe that have a single join")
+        join_type = self.obj_payload["joins"][0]["type"]
+        if join_type not in ["RIGHT", "LEFT", "INNER"] or (side == 'left' and join_type == "LEFT") or (side == 'right' and join_type == "RIGHT"):
+            raise DataikuException("No unmatched rows for " + side + " side with join type " + join_type)
+        self._get_or_create_output_role("unmatchedRight" if side == 'right' else "unmatchedLeft")["items"] = [{"ref": ref, "appendMode": append_mode}]
+
+class JoinRecipeCreator(VirtualInputsSingleOutputRecipeCreator):
+    """
+    Create a Join recipe.
+
+    The recipe is created with default joins guessed by matching column names in the
+    inputs.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+    """
+    def __init__(self, name, project):
+        VirtualInputsSingleOutputRecipeCreator.__init__(self, 'join', name, project)
+
+class FuzzyJoinRecipeCreator(VirtualInputsSingleOutputRecipeCreator):
+    """
+    Create a FuzzyJoin recipe
+
+    The recipe is created with default joins guessed by matching column names in the
+    inputs.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+   """
+    def __init__(self, name, project):
+        VirtualInputsSingleOutputRecipeCreator.__init__(self, 'fuzzyjoin', name, project)
+
+class GeoJoinRecipeCreator(VirtualInputsSingleOutputRecipeCreator):
+    """
+    Create a GeoJoin recipe
+
+    The recipe is created with default joins guessed by matching column names in the
+    inputs.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+    """
+    def __init__(self, name, project):
+        VirtualInputsSingleOutputRecipeCreator.__init__(self, 'geojoin', name, project)
+
+class StackRecipeSettings(DSSRecipeSettings):
+    """
+    Settings of a stack recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`DSSRecipe.get_settings()`
+    """
+    @property
+    def raw_virtual_inputs(self):
+        """
+        Get the list of virtual inputs.
+
+        This method returns a reference to the list of inputs, not a copy. Modifying the list
+        then calling :meth:`DSSRecipeSettings.save()` commits the changes.
+
+        :return: a list of virtual inputs, each one a dict. The field **index** holds the index of
+                 the dataset of this virtual input in the recipe's list of inputs. Pre-filter, computed
+                 columns and column selection properties (if applicable) are defined in each virtual input.
+        :rtype: list[dict]
+        """
+        return self.obj_payload["virtualInputs"]
+    
+    @property
+    def columns_selection_mode(self):
+        """
+        Gets the current column selection mode.
+
+        Mode can either be UNION | INTERSECT | FROM_DATASET | REMAP | CUSTOM | FROM_INDEX.
+
+        :return: The current selection mode.
+        :rtype: str
+        """
+        return self.obj_payload["mode"]
+    
+    def set_union_input_schema_mode(self):
+        """
+        Sets the schema mode to 'UNION'.
+
+        In this mode, the output schema is the union of all columns from all 
+        input datasets.
+        """
+        self.obj_payload["mode"] = "UNION"
+
+    def set_intersection_input_schema_mode(self):
+        """
+        Sets the schema mode to 'INTERSECT'.
+
+        In this mode, the output schema is the intersection of columns 
+        present in all input datasets.
+        """
+        self.obj_payload["mode"] = "INTERSECT"
+
+    def set_from_dataset_input_schema_mode(self, dataset_name):
+        """
+        Sets the schema mode to 'FROM_DATASET'.
+
+        In this mode, the output schema is copied from a specific input dataset.
+
+        :param str dataset_name: The name of the input dataset 
+                                 to copy the schema from.
+        """
+        self.obj_payload["mode"] = "FROM_DATASET"
+        self.obj_payload["copySchemaFromDatasetWithName"] = dataset_name
+    
+    def set_custom_remapping_mode(self, columns_mapping):
+        """
+        Sets the schema mode to 'REMAP' for custom column mapping.
+
+        This mode allows you to define a specific output schema and map columns
+        from various input datasets to the new output columns.
+
+        The `columns_mapping` dictionary defines the output columns as keys.
+        The value for each key is another dictionary mapping the *index* of a 
+        virtual input (as an integer) to the specific column name from that 
+        input dataset.
+
+        Example:
+        
+        .. code-block:: python
+
+            {
+                "output_col_1": {
+                    0: "source_col_a", # maps "source_col_a" from virtual input 0
+                    1: "source_col_b"  # maps "source_col_b" from virtual input 1
+                },
+                "output_col_2": {
+                    2: "other_col",    # maps "other_col" from virtual input 2
+                    1: "another_col" # maps "another_col" from virtual input 1
+                }
+            }
+
+        :param dict columns_mapping: A dictionary defining the output columns 
+                                     and their corresponding input dataset 
+                                     index-to-column-name mappings.
+        """
+        self.obj_payload["mode"] = "REMAP"
+        self.obj_payload["selectedColumns"] = list(columns_mapping.keys())
+        virtual_inputs = self.obj_payload["virtualInputs"]
+        for input in virtual_inputs:
+            input["columnsMatch"] = ["" for _ in range(len(columns_mapping.keys()))]
+        for k, value in enumerate(list(columns_mapping.keys())):
+            mapping_columns_k = columns_mapping[value]
+            for index, column in mapping_columns_k.items():
+                if index >= len(virtual_inputs):
+                    warnings.warn("There is only {} inputs, cannot add column for input number {}, skipping it".format(len(virtual_inputs), index + 1))
+                else:
+                    virtual_inputs[index]["columnsMatch"][k] = column
+
+    def add_origin_column(self, column_name, dataset_origin_mapping):
+        """
+        Adds an 'origin' column to the output, indicating which input dataset each row came from.
+
+        By default, if an input dataset's index is not in the map, its 
+        original name will be used as the value.
+
+        Example `dataset_origin_mapping`:
+        
+        .. code-block:: python
+        
+            {
+                0: "dataset_origin_test", # Rows from input 0 get "dataset_origin_test"
+                2: "dataset_origin_validation" # Rows from input 2 get "dataset_origin_validation"
+            }
+
+        :param str column_name: The name for the new origin column.
+        :param dict dataset_origin_mapping: A dictionary mapping the virtual 
+                                            input index (int) to the string 
+                                            value to use in the origin column.
+        """
+        self.obj_payload["addOriginColumn"] = True
+        self.obj_payload["originColumnName"] = column_name
+        virtual_inputs = self.obj_payload["virtualInputs"]
+        for k in dataset_origin_mapping.keys():
+            if k > len(virtual_inputs) - 1:
+                warnings.warn("There is only {} inputs, cannot rename origin column for input number {}, skipping it".format(len(virtual_inputs), k + 1))
+            else:
+                virtual_inputs[k]["originLabel"] = dataset_origin_mapping[k]
+
+    def remove_origin_column(self):
+        """
+        Remove the 'addOriginColumn' setting.
+        
+        This prevents the origin column from being added to the output dataset.
+        """
+        self.obj_payload["addOriginColumn"] = False
+
+
+class StackRecipeCreator(VirtualInputsSingleOutputRecipeCreator):
+    """
+    Create a Stack recipe
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+    """
+    def __init__(self, name, project):
+        VirtualInputsSingleOutputRecipeCreator.__init__(self, 'vstack', name, project)
+
+
+class SamplingRecipeSettings(DSSRecipeSettings):
+    """
+    Settings of a sampling recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`DSSRecipe.get_settings()`
+    """
+    pass # TODO: Write helpers for sampling
+
+class SamplingRecipeCreator(SingleOutputRecipeCreator):
+    """
+    Create a Sample/Filter recipe
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+    """
+    def __init__(self, name, project):
+        SingleOutputRecipeCreator.__init__(self, 'sampling', name, project)
+
+
+class SplitRecipeSettings(DSSRecipeSettings):
+    """
+    Settings of a split recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`DSSRecipe.get_settings()`
+    """
+    def __init__(self, recipe, data, project):
+        DSSRecipeSettings.__init__(self, recipe, data)
+        self.project = project
+
+    @property
+    def split_mode(self):
+        """
+        Gets the current split mode.
+
+        Mode can either be VALUES | RANGE | RANDOM | RANDOM_COLUMNS | FILTER | CENTILE.
+
+        :return: The current split mode.
+        :rtype: str
+        """
+        if "mode" not in self.obj_payload:
+            raise DataikuException("Split mode not set yet, cannot be retrieved.")
+        return self.obj_payload["mode"]
+
+    def set_split_on_single_column_values(self, column_name, splits, default_output_index=None, default_output=None):
+        """
+        Sets the split mode to 'VALUES'.
+
+        In this mode, records are mapped to a given output dataset based on the value of the column column_name
+
+        :param str column_name: name of the column used as reference to split records
+        :param list splits: list of datasets data are mapped to when conditions are fulfilled.
+            Each split is a dict with the following keys :
+
+            * **output** : dict that dictates the behavior of this split with the following values :
+
+                * **mode** : str that can only be equal to 'drop', 'dataset' or 'index'.
+
+                    * if set to 'drop', all the data that matches the conditions of this split are dropped
+                    * if set to 'dataset', all the data that matches the conditions of this split are sent to the dataset with the name of **value**
+                    * if set to 'index', all the data that matches the conditions of this split are dispatched to the dataset at the index of **value**
+
+                * **value** : bool|str|None depending on the value of **mode**
+
+            * **value** : condition to map the record to the given output dataset, which is if the record's **column_name** value is the same as **value**
+        :param integer default_output_index: All remaining rows that are put in the Dataset corresponding to the default_output_index. If both default_output_index and default_output are unset, the data is dropped.
+        :param str default_output: All remaining rows that are put in the Dataset whose name corresponds to the default_output. If set but no dataset name matches, raises an Exception. If both default_output_index and default_output are unset, the data is dropped.
+        """
+        dataset = self.project.get_dataset(self.get_flat_input_refs()[0])
+        schema_column = next((item for item in dataset.get_schema()['columns'] if item.get("name") == column_name), None)
+        if schema_column is None:
+            raise DataikuException("column %s not found in the input dataset schema." % column_name)
+
+        column_type = schema_column.get("type", None)
+
+        self.obj_payload["mode"] = "VALUES"
+        self.obj_payload["column"] = column_name
+        self.obj_payload["valueSplits"] = self._format_value_splits(column_type, splits)
+        self.obj_payload["defaultOutputIndex"] = self._get_output_index(default_output_index, default_output)
+
+    def set_split_on_single_column_ranges(self, column_name, column_type, splits, default_output_index=None, default_output=None):
+        """
+        Sets the split mode to 'RANGE'.
+
+        In this mode, records are mapped to a given output dataset based on the value of the input column_name according to range conditions set in **splits**
+
+        :param str column_name: name of the column used as reference to split records
+        :param str column_type: type of the column used as reference to split records, can only be date, datetime or num
+        :param list splits: list of datasets data are mapped to when conditions are fulfilled.
+            Each split is a dict with the following keys :
+
+            * **output** : dict that dictates the behavior of this split with the following values :
+
+                * **mode** : str that can only be equal to 'drop', 'dataset' or 'index'.
+
+                    * if set to 'drop', all the data that matches the conditions of this split are dropped
+                    * if set to 'dataset', all the data that matches the conditions of this split are sent to the dataset with the name of **value**
+                    * if set to 'index', all the data that matches the conditions of this split are dispatched to the dataset at the index of **value**
+
+                * **value** : bool|str|None depending on the value of **mode**
+
+            * **min** : lower bound of the range split, can be a number, a date, a datetime or a string with format %Y-%m-%d %H:%M or %Y-%m-%d, and must correspond to the type set in column_type
+            * **max** : upper bound of the range split, can be a number, a date, a datetime or a string with format %Y-%m-%d %H:%M or %Y-%m-%d, and must correspond to the type set in column_type
+            * **include_min** (optional) : if true, the lower bound value is included in the range split, true by default
+            * **include_max** (optional) : if true, the upper bound value is included in the range split, true by default
+
+        :param integer default_output_index: All remaining rows that are put in the Dataset
+            corresponding to the default_output_index. If both default_output_index and default_output are unset, the data is dropped.
+
+        :param str default_output: All remaining rows that are put in the Dataset whose name corresponds to the default_output.
+            If set but no dataset name matches, raises an Exception. If both default_output_index and default_output are unset, the data is dropped.
+        """
+        self.obj_payload["mode"] = "RANGE"
+        self.obj_payload["column"] = column_name
+        self.obj_payload["rangeSetTime"] = column_type == 'datetime'
+        self.obj_payload["rangeSplits"] = self._format_range_splits(column_type, column_name, splits)
+        self.obj_payload["defaultOutputIndex"] = self._get_output_index(default_output_index, default_output)
+
+    def set_split_on_random_ratio(self, splits, seed=1337, default_output_index=None, default_output=None):
+        """
+        Sets the split mode to 'RANDOM'.
+
+        In this mode, records are mapped randomly to a given output dataset based on a ratio of data to be dispatched
+
+        :param list splits: list of datasets data are mapped to when conditions are fulfilled.
+
+            Each split is a dict with the following keys :
+
+            * **output** : dict that dictates the behavior of this split with the following values :
+
+                * **mode** : str that can only be equal to 'drop', 'dataset' or 'index'.
+
+                    * if set to 'drop', all the data that matches the conditions of this split are dropped
+                    * if set to 'dataset', all the data that matches the conditions of this split are sent to the dataset with the name of **value**
+                    * if set to 'index', all the data that matches the conditions of this split are dispatched to the dataset at the index of **value**
+
+                * **value** : bool|str|None depending on the value of **mode**
+
+            * **share** : float between 0 and 100 that describes the ratio of records to be mapped to this dataset
+
+        :param integer seed: Seed used to initialize the random number generator.
+        :param integer default_output_index: All remaining rows that are put in the Dataset corresponding to the default_output_index. If both default_output_index and default_output are unset, the data is dropped.
+        :param str default_output: All remaining rows that are put in the Dataset whose name corresponds to the default_output. If set but no dataset name matches, raises an Exception. If both default_output_index and default_output are unset, the data is dropped.
+        """
+        self.obj_payload["mode"] = "RANDOM"
+        self.obj_payload["seed"] = seed
+        self.obj_payload["randomSplits"] = self._format_splits(splits, ["share"])
+        self.obj_payload["defaultOutputIndex"] = self._get_output_index(default_output_index, default_output)
+
+    def set_split_on_random_columns(self, random_columns, splits, seed=1337, default_output_index=None, default_output=None):
+        """
+        Sets the split mode to 'RANDOM_COLUMNS'.
+
+        In this mode, records are grouped based on one or multiple columns set in random_columns, and the data is randomly split according to given ratios.
+        This mode ensures all records of a single group to end up in the same output dataset.
+        As an example, you can use this mode to create train and test sets containing distinct clients. This would enable training a machine learning model and testing it on previously unseen clients.
+        Group rows with the same values for columns and randomly dispatch on outputs
+        Grouping keys must take sufficiently diverse values, otherwise the split cannot be fair.
+
+        :param list random_columns: list of string corresponding to the list of input columns to group on.
+        :param list splits: list of datasets data are mapped to when conditions are fulfilled.
+            Each split is a dict with the following keys :
+
+            * **output** : dict that dictates the behavior of this split with the following values :
+
+                * **mode** : str that can only be equal to 'drop', 'dataset' or 'index'.
+
+                    * if set to 'drop', all the data that matches the conditions of this split are dropped
+                    * if set to 'dataset', all the data that matches the conditions of this split are sent to the dataset with the name of **value**
+                    * if set to 'index', all the data that matches the conditions of this split are dispatched to the dataset at the index of **value**
+
+                * **value** : bool|str|None depending on the value of **mode**
+
+            * **share** : float between 0 and 100 that describes the ratio of records to be mapped to this dataset
+
+        :param integer seed: Seed used to initialize the random number generator.
+        :param integer default_output_index: All remaining rows that are put in the Dataset corresponding to the default_output_index. If both default_output_index and default_output are unset, the data is dropped.
+        :param str default_output: All remaining rows that are put in the Dataset whose name corresponds to the default_output. If set but no dataset name matches, raises an Exception. If both default_output_index and default_output are unset, the data is dropped.
+        """
+        self.obj_payload["mode"] = "RANDOM_COLUMNS"
+        self.obj_payload["seed"] = seed
+        self.obj_payload["randomColumns"] = random_columns
+        self.obj_payload["randomColumnsSplits"] = self._format_splits(splits, ["share"])
+        self.obj_payload["defaultOutputIndex"] = self._get_output_index(default_output_index, default_output)
+
+    def set_split_on_filters(self, splits, default_output_index=None, default_output=None):
+        """
+        Sets the split mode to 'FILTER'.
+
+        In this mode, records are mapped to a given output dataset based on input filters containing conditions to be satisfied
+
+        Use the methods on :class:`dataikuapi.dss.utils.DSSFilter` to build filter definition.
+
+        :param list splits: list of datasets data are mapped to when conditions are fulfilled.
+            Each split is a dict with the following keys :
+
+            * **output** : dict that dictates the behavior of this split with the following values :
+
+                * **mode** : str that can only be equal to 'drop', 'dataset' or 'index'.
+
+                    * if set to 'drop', all the data that matches the conditions of this split are dropped
+                    * if set to 'dataset', all the data that matches the conditions of this split are sent to the dataset with the name of **value**
+                    * if set to 'index', all the data that matches the conditions of this split are dispatched to the dataset at the index of **value**
+
+                * **value** : bool|str|None depending on the value of **mode**
+
+            * **filter** : DSSFilter filter object to be constructed from the static methods in the helper class dataikuapi.dss.utils.DSSFilter
+
+        :param integer default_output_index: All remaining rows that are put in the Dataset corresponding to the default_output_index. If both default_output_index and default_output are unset, the data is dropped.
+        :param str default_output: All remaining rows that are put in the Dataset whose name corresponds to the default_output. If set but no dataset name matches, raises an Exception. If both default_output_index and default_output are unset, the data is dropped.
+        """
+        self.obj_payload["mode"] = "FILTERS"
+        self.obj_payload["filterSplits"] = self._format_splits(splits, ["filter"])
+        self.obj_payload["defaultOutputIndex"] = self._get_output_index(default_output_index, default_output)
+
+    def set_split_on_centiles(self, centile_orders, splits, default_output_index=None, default_output=None):
+        """
+        Sets the split mode to 'CENTILE'.
+
+        In this mode, records are ordered based on the column name and order listed in centile_orders, then mapped to a given output dataset based on a ratio of data to be dispatched
+
+        :param list centile_orders: list of columns data are ordered by before being dispatched to output datasets.
+
+            Each centile_order is a dict with the following keys :
+
+            * **column** : name of the column used as reference to order records
+            * **desc** : if true, the data is ordered in descending order, otherwise in ascending order
+
+        :param list splits: list of datasets data are mapped to when conditions are fulfilled.
+            Each split is a dict with the following keys :
+
+            * **output** : dict that dictates the behavior of this split with the following values :
+
+                * **mode** : str that can only be equal to 'drop', 'dataset' or 'index'.
+
+                    * if set to 'drop', all the data that matches the conditions of this split are dropped
+                    * if set to 'dataset', all the data that matches the conditions of this split are sent to the dataset with the name of **value**
+                    * if set to 'index', all the data that matches the conditions of this split are dispatched to the dataset at the index of **value**
+
+                * **value** : bool|str|None depending on the value of **mode**
+
+            * **share** : float between 0 and 100 that describes the ratio of records to be mapped to this dataset
+
+        :param integer default_output_index: All remaining rows that are put in the Dataset corresponding to the default_output_index. If set to None, the data is dropped.
+        :param str default_output: All remaining rows that are put in the Dataset whose name corresponds to the default_output. If set but no dataset name matches, raises an Exception. If both default_output_index and default_output are unset, the data is dropped.
+        """
+        self.obj_payload["mode"] = "CENTILE"
+        self.obj_payload["centileOrders"] = centile_orders
+        self.obj_payload["centileSplits"] = self._format_splits(splits, ["share"])
+        self.obj_payload["defaultOutputIndex"] = self._get_output_index(default_output_index, default_output)
+
+    def _get_available_outputs(self):
+        """
+        Helper method returning the list of names of all the output datasets of the recipe.
+
+        :return: The list of names of all the output datasets of the recipe.
+        :rtype: list
+        """
+        return [output.get('ref', None) for output in self.get_recipe_outputs()['main']['items'] if output.get('ref', None)]
+
+    def _get_output_index_for_split(self, output=None, available_outputs=None):
+        """
+        Helper method to get the index for a split from its mode and value
+
+        * **output** : dict that dictates the behavior of this split with the following values :
+
+            * **mode** : str that can only be equal to 'drop', 'dataset' or 'index'.
+
+                * if set to 'drop', all the data that matches the conditions of this split are dropped
+                * if set to 'dataset', all the data that matches the conditions of this split are sent to the dataset with the name of **value**
+                * if set to 'index', all the data that matches the conditions of this split are dispatched to the dataset at the index of **value**
+
+            * **value** : bool|str|None depending on the value of **mode**
+
+        :param list available_outputs: list of all the available output datasets of the recipe.
+        :return: The index of the output dataset.
+        :rtype: int
+        """
+
+        if output is None:
+            raise ValueError("No output node in split.")
+
+        mode = output.get('mode', None)
+        value = output.get('value', None)
+
+        if mode == 'index':
+            if value is None:
+                raise ValueError("value is not set for output %s." % output)
+            if not isinstance(value, int):
+                raise ValueError("Incompatible type %s for value in output %s. In index mode, the value can only be of type int." % (type(value), output))
+            if available_outputs is None:
+                available_outputs = self._get_available_outputs()
+            max_index = len(available_outputs)
+            if value >= max_index:
+                raise ValueError("Index %i for output %s must be strictly smaller than the number of available outputs : %i." % (value, output, max_index))
+            return value
+        elif mode == 'dataset':
+            if value is None:
+                raise ValueError("value is not set for output %s." % output)
+            if not isinstance(value, str):
+                raise ValueError("Incompatible type %s for value in output %s. In dataset mode, the value can only be of type str." % (type(value), output))
+            if available_outputs is None:
+                available_outputs = self._get_available_outputs()
+            return self._get_output_index(output_name=value, available_outputs=available_outputs)
+        elif mode == 'drop':
+            return -1
+        else:
+            raise ValueError("Unknown mode '%s' for output %s. This parameter can only be equal to 'dataset', 'index' or 'drop'." % (mode, output))
+
+    def _get_output_index(self, output_index=None, output_name=None, available_outputs=None):
+        """
+        Helper method to get the index from either an index or a dataset name. If both are unset, returns -1.
+
+        :param int output_index: index of the output dataset to put the data into, defaults to None.
+        :param str output_name: name of the output dataset to put the data into, defaults to None. If set but no dataset name matches, raises a ValueError exception.
+        :param list available_outputs: list of all the available output datasets of the recipe.
+        :return: The index of the output dataset.
+        :rtype: int
+        """
+        if output_index is not None:
+            return output_index
+
+        if available_outputs is None:
+            available_outputs = self._get_available_outputs()
+
+        if output_name is not None:
+            try:
+                index = available_outputs.index(output_name)
+            except ValueError:
+                raise ValueError("Output dataset '%s' not found in available outputs: %s" % (output_name, available_outputs))
+            return index
+        return -1
+
+    def _format_splits(self, splits, keys):
+        """
+        Helper method to format input splits as used by the recipe
+
+        :param list splits: list of datasets data are mapped to when conditions are fulfilled.
+            Each split is a dict with the following keys :
+
+            * **output** : dict that dictates the behavior of this split with the following values :
+
+                * **mode** : str that can only be equal to 'drop', 'dataset' or 'index'.
+
+                    * if set to 'drop', all the data that matches the conditions of this split are dropped
+                    * if set to 'dataset', all the data that matches the conditions of this split are sent to the dataset with the name of **value**
+                    * if set to 'index', all the data that matches the conditions of this split are dispatched to the dataset at the index of **value**
+
+                * **value** : bool|str|None depending on the value of **mode**
+
+            * [**keys**] : list of keys in the dict corresponding to conditions for the split to be satisfied, depending on the mode of split recipe used.
+
+        :param list keys: list of dict keys to be copied in the newly created splits
+        :return: The formatted splits.
+        :rtype: list
+        """
+        available_outputs = self._get_available_outputs()
+        output_splits = []
+        for split in splits:
+            new_split = {
+                'outputIndex': self._get_output_index_for_split(split.get('output', None), available_outputs)
+            }
+            for key in keys:
+                if key in split:
+                    new_split[key] = deepcopy(split[key])
+            output_splits.append(new_split)
+        return output_splits
+
+    def _format_value_splits(self, column_type, splits):
+        """
+        Helper method to format input value splits as used by the recipe
+        If it is boolean, the splits are completed to have a split with value true, and a split with value false in this order. Then format like it is done in all others methods.
+        Splits that did not exist are dropped
+
+        :param str column_type: type of the column the data is formatted to
+        :param list splits: list of datasets data are mapped to when conditions are fulfilled.
+            Each split is a dict with the following keys :
+
+            * **output** : dict that dictates the behavior of this split with the following values :
+
+                * **mode** : str that can only be equal to 'drop', 'dataset' or 'index'.
+
+                    * if set to 'drop', all the data that matches the conditions of this split are dropped
+                    * if set to 'dataset', all the data that matches the conditions of this split are sent to the dataset with the name of **value**
+                    * if set to 'index', all the data that matches the conditions of this split are dispatched to the dataset at the index of **value**
+
+                * **value** : bool|str|None depending on the value of **mode**
+
+        :return: The formatted splits.
+        :rtype: list
+        """
+
+        if column_type != "boolean":
+            return self._format_splits(splits, ["value"])
+
+        new_splits = []
+        for split in splits:
+            new_split = deepcopy(split)
+            if new_split.get('value') is True:
+                new_split['value'] = "true"
+            elif new_split.get('value') is False:
+                new_split['value'] = "false"
+            new_splits.append(new_split)
+
+        # Check there are no incompatible or duplicate values
+        for split in new_splits:
+            if not "value" in split or (split.get("value") != "true" and split.get("value") != "false"):
+                raise ValueError("Error in split %s : for columns of type boolean, each split must have a value that can be only equal to 'true' or 'false'." % split)
+        values = [split["value"] for split in new_splits]
+        if len(values) != len(set(values)):
+            raise DataikuException("Error : duplicates found in list of splits.")
+
+
+        # Complete the splits by adding a value true and false if missing, and drop data for missing lines
+        if all(item.get("value") != "true" for item in new_splits):
+            new_splits.append({
+                'output': {
+                    'mode': 'drop'
+                },
+                'value': 'true'
+            })
+
+        if all(item.get("value") != "false" for item in new_splits):
+            new_splits.append({
+                'output': {
+                    'mode': 'drop'
+                },
+                'value': 'false'
+            })
+
+        # we want in the UI to always have true in first position
+        if new_splits[0].get("value") == "false":
+            new_splits.reverse()
+
+        return self._format_splits(new_splits, ["value"])
+
+    def _format_range_splits(self, column_type, column_name, splits):
+        """
+        Helper method to format input range splits as used by the recipe
+
+        :param str column_type: type of the column used as reference to split records, can only be date, datetime or num
+        :param str column_name: name of the column used as reference to split records
+        :param list splits: list of datasets data are mapped to when conditions are fulfilled.
+            Each split is a dict with the following keys :
+
+            * **output** : dict that dictates the behavior of this split with the following values :
+
+                * **mode** : str that can only be equal to 'drop', 'dataset' or 'index'.
+
+                    * if set to 'drop', all the data that matches the conditions of this split are dropped
+                    * if set to 'dataset', all the data that matches the conditions of this split are sent to the dataset with the name of **value**
+                    * if set to 'index', all the data that matches the conditions of this split are dispatched to the dataset at the index of **value**
+
+                * **value** : bool|str|None depending on the value of **mode**
+
+            * **min** : lower bound of the range split, can be a number, a date, a datetime or a string with format %Y-%m-%d %H:%M or %Y-%m-%d, and must correspond to the type set in column_type
+            * **max** : upper bound of the range split, can be a number, a date, a datetime or a string with format %Y-%m-%d %H:%M or %Y-%m-%d, and must correspond to the type set in column_type
+            * **include_min** (optional) : if true, the lower bound value is included in the range split, true by default
+            * **include_max** (optional) : if true, the upper bound value is included in the range split, true by default
+
+        :return: The formatted splits.
+        :rtype: list
+        """
+        split_as_filters = []
+        for range_obj in splits:
+            filters = []
+
+            if (column_type == 'date' or column_type=='datetime') and (not 'min' in range_obj or not 'max' in range_obj):
+                raise DataikuException("Error in range split %s : for date or datetime columns, each range split must have a min and a max bound" % range_obj)
+
+            filter_obj = self._format_range_split_as_filter(SplitRecipeSettings.FieldName.MIN, column_type, column_name, range_obj)
+            if filter_obj is not None:
+                filters.append(filter_obj)
+
+            filter_obj = self._format_range_split_as_filter(SplitRecipeSettings.FieldName.MAX, column_type, column_name, range_obj)
+            if filter_obj is not None:
+                filters.append(filter_obj)
+
+            range_filter = DSSFilter.of_and_conditions(filters)
+
+            formatted_range_obj = {
+                'output': range_obj.get('output', None),
+                'filter': range_filter
+            }
+            split_as_filters.append(formatted_range_obj)
+        return self._format_splits(split_as_filters, ["filter"])
+
+    class FieldName(object):
+        MIN = "min"
+        MAX = "max"
+
+    def _format_range_split_as_filter(self, field_name, column_type, column_name, split):
+        """
+        Helper method to format an input splits as a filter (min or max). If the conditions are not met to create a filter, returns None.
+
+        :param FieldName field_name: min or max, to define if the filter is a greater than or lower than type
+        :param str column_type: type of the column used as reference to split records, can only be date, datetime or num
+        :param str column_name: name of the column used as reference to split records
+        :param dict split: dict with the following keys :
+
+            * **output** : dict that dictates the behavior of this split with the following values :
+
+                * **mode** : str that can only be equal to 'drop', 'dataset' or 'index'.
+
+                    * if set to 'drop', all the data that matches the conditions of this split are dropped
+                    * if set to 'dataset', all the data that matches the conditions of this split are sent to the dataset with the name of **value**
+                    * if set to 'index', all the data that matches the conditions of this split are dispatched to the dataset at the index of **value**
+
+                * **value** : bool|str|None depending on the value of **mode**
+
+            * **min** : lower bound of the range split, can be a number, a date, a datetime or a string with format %Y-%m-%d %H:%M or %Y-%m-%d, and must correspond to the type set in column_type
+            * **max** : upper bound of the range split, can be a number, a date, a datetime or a string with format %Y-%m-%d %H:%M or %Y-%m-%d, and must correspond to the type set in column_type
+            * **include_min** (optional) : if true, the lower bound value is included in the range split, true by default
+            * **include_max** (optional) : if true, the upper bound value is included in the range split, true by default
+
+        :return: An individual filter or None.
+        :rtype: DSSFilter or None
+        """
+
+        if not field_name in split:
+            return None
+
+        if not field_name in [SplitRecipeSettings.FieldName.MIN, SplitRecipeSettings.FieldName.MAX]:
+            raise ValueError("Invalid field %s to format as filter." % field_name)
+
+        value = split[field_name]
+        if column_type == 'num':
+            if field_name == SplitRecipeSettings.FieldName.MIN:
+                operator = DSSFilterOperator.GREATER_OR_EQUAL_NUMBER if split.get('include_min', True) else DSSFilterOperator.GREATER_NUMBER
+            elif field_name == SplitRecipeSettings.FieldName.MAX:
+                operator = DSSFilterOperator.LESS_OR_EQUAL_NUMBER if split.get('include_max', True) else DSSFilterOperator.LESS_NUMBER
+            filter_obj = DSSFilter.condition(column_name, operator, num=value)
+        elif column_type == 'date':
+            if field_name == SplitRecipeSettings.FieldName.MIN:
+                operator = DSSFilterOperator.GREATER_OR_EQUAL_DATE if split.get('include_min', True) else DSSFilterOperator.GREATER_DATE
+            elif field_name == SplitRecipeSettings.FieldName.MAX:
+                operator = DSSFilterOperator.LESS_OR_EQUAL_DATE if split.get('include_max', True) else DSSFilterOperator.LESS_DATE
+
+            if isinstance(value, datetime.datetime):
+                dt = value.astimezone(datetime.timezone.utc)
+            elif isinstance(value, datetime.date):
+                dt = value
+            elif isinstance(value, str):
+                dt = self._parse_date_str_as_date(value).astimezone(datetime.timezone.utc)
+            else:
+                raise ValueError("for column_type date, %s can only be of type str, date or datetime." % field_name)
+            date = dt.strftime('%Y-%m-%d')
+            filter_obj = DSSFilter.condition(column_name, operator, date=date, time="00:00")
+        elif column_type == 'datetime':
+            if field_name == SplitRecipeSettings.FieldName.MIN:
+                operator = DSSFilterOperator.GREATER_OR_EQUAL_DATE if split.get('include_min', True) else DSSFilterOperator.GREATER_DATE
+            elif field_name == SplitRecipeSettings.FieldName.MAX:
+                operator = DSSFilterOperator.LESS_OR_EQUAL_DATE if split.get('include_max', True) else DSSFilterOperator.LESS_DATE
+
+            if isinstance(value, datetime.datetime):
+                dt = value
+            elif isinstance(value, datetime.date):
+                dt = datetime.datetime.combine(value, datetime.time(0, 0, 0), tzinfo=datetime.timezone.utc)
+            elif isinstance(value, str):
+                dt = self._parse_date_str_as_date(value)
+            else:
+                raise ValueError("for column_type datetime, %s can only be of type str, date or datetime." % field_name)
+            date = dt.astimezone(datetime.timezone.utc).strftime('%Y-%m-%d')
+            time = dt.astimezone(datetime.timezone.utc).strftime('%H:%M')
+            filter_obj = DSSFilter.condition(column_name, operator, date=date, time=time)
+        else:
+            raise DataikuException("column_type can only be equal to date, datetime or num.")
+        return filter_obj
+
+    def _parse_date_str_as_date(self, date_str):
+        """
+        Helper method to read a string and return a date
+
+        :param str date_str: The date to be parsed
+        :return: The date parsed as a datetime
+        :rtype: datetime
+        """
+        dt = dateutil.parser.isoparse(date_str)
+        if dt.tzinfo is None:
+            # Assume naive datetimes are already in UTC
+            dt = dt.replace(tzinfo=datetime.timezone.utc)
+
+        return dt
+
+class SplitRecipeCreator(_MultipleOutputRecipeCreator):
+    """
+    Create a Split recipe
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+    """
+    def __init__(self, name, project):
+        _MultipleOutputRecipeCreator.__init__(self, "split", name, project)
+
+
+class DownloadRecipeSettings(DSSRecipeSettings):
+    """
+    Settings of a download recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`DSSRecipe.get_settings()`
+    """
+    pass # TODO: Write helpers for download
+
+class DownloadRecipeCreator(SingleOutputRecipeCreator):
+    """
+    Create a Download recipe
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+    """
+    def __init__(self, name, project):
+        SingleOutputRecipeCreator.__init__(self, 'download', name, project)
+
+
+#####################################################
+# Per-recipe-type classes: Code recipes
+#####################################################
+
+class CodeRecipeSettings(DSSRecipeSettings):
+    """
+    Settings of a code recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`DSSRecipe.get_settings()`
+    """
+    def get_code(self):
+        """
+        Get the code of the recipe.
+
+        :rtype: string
+        """
+        self._payload_to_str()
+        return self._str_payload
+
+    def set_code(self, code):
+        """
+        Update the code of the recipe.
+
+        :param string code: the new code
+        """
+        self.set_payload(code)
+
+    def get_code_env_settings(self):
+        """
+        Get the code env settings for this recipe.
+
+        :return: settings to select the code env used by the recipe, as a dict of:
+
+                    * **envMode** : one of USE_BUILTIN_MODE, INHERIT (inherit from project settings and/or instance settings), EXPLICIT_ENV
+                    * **envName** : if **envMode** is EXPLICIT_ENV, the name of the code env to use
+
+        :rtype: dict
+        """
+        rp = self.get_recipe_params()
+        if not "envSelection" in rp:
+            raise ValueError("This recipe kind does not seem to take a code env selection")
+        return rp["envSelection"]
+
+    def set_code_env(self, code_env=None, inherit=False, use_builtin=False):
+        """
+        Set which code env this recipe uses.
+
+        Exactly one of `code_env`, `inherit` or `use_builtin` must be passed.
+
+        :param string code_env: name of a code env
+        :param boolean inherit: if True, use the project's default code env
+        :param boolean use_builtin: if true, use the builtin code env
+        """
+        rp = self.get_recipe_params()
+        if not "envSelection" in rp:
+            raise ValueError("This recipe kind does not seem to take a code env selection")
+
+        if code_env is not None:
+            rp["envSelection"] = {"envMode": "EXPLICIT_ENV", "envName": code_env}
+        elif inherit:
+            rp["envSelection"] = {"envMode": "INHERIT"}
+        elif use_builtin:
+            rp["envSelection"] = {"envMode": "USE_BUILTIN_MODE"}
+        else:
+            raise ValueError("No env setting selected")
+
+class CodeRecipeCreator(DSSRecipeCreator):
+    """
+    Create a recipe running a script.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()`
+     """
+    def __init__(self, name, type, project):
+        DSSRecipeCreator.__init__(self, type, name, project)
+        self.script = None
+
+    def with_script(self, script):
+        """
+        Set the code of the recipe-to-be-created.
+
+        :param string script: code of the recipe
+        """
+        self.script = script
+        return self
+
+    def with_new_output_dataset(self, name, connection,
+                                type=None, format=None,
+                                copy_partitioning_from="FIRST_INPUT",
+                                append=False, overwrite=False,
+                                **kwargs):
+        """
+        Create a new managed dataset as output to the recipe-to-be-created.
+
+        The dataset is created immediately.
+
+        :param string name: name of the dataset
+        :param string connection: name of the connection to create the dataset on
+        :param string type: sub-type of dataset or managed folder, for connections where the type
+                            could be ambiguous. Typically applies to SSH connections, where sub-types
+                            can be SCP or SFTP
+        :param string format: name of a format preset relevant for the dataset type. Possible values are: CSV_ESCAPING_NOGZIP_FORHIVE,
+                              CSV_UNIX_GZIP, CSV_EXCEL_GZIP, CSV_EXCEL_GZIP_BIGQUERY, CSV_NOQUOTING_NOGZIP_FORPIG, PARQUET_HIVE,
+                              AVRO, ORC
+        :param string partitioning_option_id: to copy the partitioning schema of an existing dataset 'foo', pass a
+                                              value of 'copy:dataset:foo'. If unset, then the output will be non-partitioned
+        :param boolean append: whether the recipe should append or overwrite the output when running
+                               (note: not available for all dataset types)
+        :param boolean overwrite: If the dataset being created already exists, overwrite it (and delete data)
+        """
+        for k in kwargs:  # for backward compat
+            if k == "format_option_id":
+                format = kwargs.get("format_option_id")
+            elif k == "typeOptionId":
+                type = kwargs.get("typeOptionId")
+            elif k == "type_option_id":
+                type = kwargs.get("type_option_id")
+            else:
+                raise Exception("Unknown argument '{}'".format(k))
+
+        ch = self.project.new_managed_dataset_creation_helper(name)
+        ch.with_store_into(connection, type_option_id=type, format_option_id=format)
+
+        # FIXME: can't manage input folder
+        if copy_partitioning_from == "FIRST_INPUT":
+            inputs = self._get_input_refs()
+            if len(inputs) == 0:
+                logging.warn("No input declared yet, can't copy partitioning from first input")
+            else:
+                self.creation_settings["partitioningOptionId"] = "copy:dataset:%s" % (inputs[0])
+        elif copy_partitioning_from is not None:
+            self.creation_settings["partitioningOptionId"] = "copy:%s" % copy_partitioning_from
+
+        ch.create(overwrite=overwrite)
+
+        self.with_output(name, append=append)
+        return self
+
+    def with_new_output_streaming_endpoint(self, name, connection, format=None, overwrite=False, **kwargs):
+        """
+        Create a new managed streaming endpoint as output to the recipe-to-be-created.
+
+        The streaming endpoint is created immediately.
+
+        :param str name: name of the streaming endpoint to create
+        :param str connection: name of the connection to create the streaming endpoint on
+        :param str format: name of a format preset relevant for the streaming endpoint type. Possible values are:
+                           json, avro, single (kafka endpoints) or json, string (SQS endpoints). If None, uses the
+                           default
+        :param overwrite: If the streaming endpoint being created already exists, overwrite it
+        """
+        for k in kwargs:  # for backward compat
+            if k == "format_option_id":
+                format = kwargs.get("format_option_id")
+            else:
+                raise Exception("Unknown argument '{}'".format(k))
+
+        ch = self.project.new_managed_streaming_endpoint(name)
+        ch.with_store_into(connection, format_option_id=format)
+        ch.create(overwrite=overwrite)
+
+        self.with_output(name, append=False)
+        return self
+
+    def _finish_creation_settings(self):
+        super(CodeRecipeCreator, self)._finish_creation_settings()
+        self.creation_settings['script'] = self.script
+
+class PythonRecipeCreator(CodeRecipeCreator):
+    """
+    Create a Python recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+
+    A Python recipe can be defined either by its complete code, like a normal Python recipe, or
+    by a function signature.
+    """
+
+    def __init__(self, name, project):
+        DSSRecipeCreator.__init__(self, "python", name, project)
+
+    _DEFAULT_RECIPE_CODE_TMPL = """
+# This code is autogenerated by PythonRecipeCreator function mode
+import dataiku, dataiku.recipe, json
+from {module_name} import {fname}
+input_datasets = dataiku.recipe.get_inputs_as_datasets()
+output_datasets = dataiku.recipe.get_outputs_as_datasets()
+params = json.loads('{params_json}')
+
+logging.info("Reading %d input datasets as dataframes" % len(input_datasets))
+input_dataframes = [ds.get_dataframe() for ds in input_datasets]
+
+logging.info("Calling user function {fname}")
+function_input = input_dataframes if len(input_dataframes) > 1 else input_dataframes[0]
+output_dataframes = {fname}(function_input, **params)
+
+if not isinstance(output_dataframes, list):
+    output_dataframes = [output_dataframes]
+
+if not len(output_dataframes) == len(output_datasets):
+    raise Exception("Code function {fname}() returned %d dataframes but recipe expects %d output datasets", \\
+                                            (len(output_dataframes), len(output_datasets)))
+output = list(zip(output_datasets, output_dataframes))
+for ds, df in output:
+    logging.info("Writing function result to dataset %s" % ds.name)
+    ds.write_with_schema(df)
+"""
+
+    def with_function_name(self, module_name, function_name, custom_template=None, **function_args):
+        """
+        Define this recipe as being a functional recipe calling a function.
+
+        With the default template, the function must take as arguments:
+
+             * A list of dataframes corresponding to the dataframes of the input datasets. If there is
+               only one input, then a single dataframe
+             * Optional named arguments corresponding to arguments passed to the creator as kwargs
+
+        The function should then return a list of dataframes, one per recipe output. If there is a single
+        output, it is possible to return a single dataframe rather than a list.
+
+        :param string module_name: name of the module where the function is defined
+        :param string function_name: name of the function
+        :param kwargs function_args: additional parameters to the function.
+        :param string custom_template: template to use to create the code of the recipe. The template
+                                       is formatted with '{fname}' (function name), '{module_name}' (module
+                                       name) and '{params_json}' (JSON representation of **function_args**)
+        """
+        script_tmpl = PythonRecipeCreator._DEFAULT_RECIPE_CODE_TMPL if custom_template is None else custom_template
+
+        if function_args is None:
+            function_args = {}
+
+        code = script_tmpl.format(module_name=module_name, fname=function_name, params_json = json.dumps(function_args))
+        self.with_script(code)
+
+        return self
+
+    def with_function(self, fn, custom_template=None, **function_args):
+        """
+        Define this recipe as being a functional recipe calling a function.
+
+        With the default template, the function must take as arguments:
+
+             * A list of dataframes corresponding to the dataframes of the input datasets. If there is
+               only one input, then a single dataframe
+             * Optional named arguments corresponding to arguments passed to the creator as kwargs
+
+        The function should then return a list of dataframes, one per recipe output. If there is a single
+        output, it is possible to return a single dataframe rather than a list.
+
+        :param string fn: function to call
+        :param kwargs function_args: additional parameters to the function.
+        :param string custom_template: template to use to create the code of the recipe. The template
+                                       is formatted with '{fname}' (function name), '{module_name}' (module
+                                       name) and '{params_json}' (JSON representation of **function_args**)
+        """
+        import inspect
+        #TODO: add in documentation that relative imports wont work
+        module_name = inspect.getmodule(fn).__name__
+        fname = fn.__name__
+        return self.with_function_name(module_name, fname, custom_template, **function_args)
+
+class SQLQueryRecipeCreator(SingleOutputRecipeCreator):
+    """
+    Create a SQL query recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+    """
+    def __init__(self, name, project):
+        SingleOutputRecipeCreator.__init__(self, 'sql_query', name, project)
+
+#####################################################
+# Per-recipe-type classes: GenAI
+#####################################################
+
+class _BaseEmbedRecipeSettings(DSSRecipeSettings):
+    pass
+
+class _BaseEmbedRecipeCreator(DSSRecipeCreator):
+
+    def with_output_knowledge_bank(self, name, embedding_llm, vector_store_type="CHROMA", vector_store_params=None):
+        self.creation_settings["outputRetrievableKnowledgeName"] = name
+
+        if isinstance(embedding_llm, DSSLLM):
+            self.creation_settings["embeddingLLMId"] = embedding_llm.llm_id
+        elif isinstance(embedding_llm, DSSLLMListItem):
+            self.creation_settings["embeddingLLMId"] = embedding_llm.id
+        elif isinstance(embedding_llm, str):
+            self.creation_settings["embeddingLLMId"] = embedding_llm
+        else:
+            raise Exception("Unknown embedding LLM: %s" % embedding_llm)
+
+        self.creation_settings["vectorStoreType"] = vector_store_type
+
+        if vector_store_params is not None:
+            self.creation_settings.update(vector_store_params)
+
+        return self
+
+class EmbedDatasetRecipeSettings(_BaseEmbedRecipeSettings):
+    """
+    Settings of an Embed Datasets recipe.
+
+    .. important:: Do not instantiate directly, use :meth:`DSSRecipe.get_settings()`
+    """
+
+    @property
+    def embedding_column(self):
+        return self.get_json_payload().get("knowledgeColumn")
+
+    @embedding_column.setter
+    def embedding_column(self, column):
+        self.get_json_payload()["knowledgeColumn"] = column
+
+    @property
+    def max_records(self):
+        return self.get_json_payload().get("maxRecords")
+
+    @max_records.setter
+    def max_records(self, column):
+        self.get_json_payload()["maxRecords"] = column
+
+class EmbedDatasetRecipeCreator(_BaseEmbedRecipeCreator):
+
+    def __init__(self, name, project):
+        SingleOutputRecipeCreator.__init__(self, 'nlp_llm_rag_embedding', name, project)
+
+
+class EmbedDocumentsRecipeSettings(_BaseEmbedRecipeSettings):
+    pass
+
+class EmbedDocumentsRecipeCreator(_BaseEmbedRecipeCreator):
+    def __init__(self, name, project):
+        SingleOutputRecipeCreator.__init__(self, 'embed_documents', name, project)
+
+    def with_vlm(self, vlm):
+        if isinstance(vlm, DSSLLM):
+            self.creation_settings["VLMId"] = vlm.llm_id
+        elif isinstance(vlm, DSSLLMListItem):
+            self.creation_settings["VLMId"] = vlm.id
+        elif isinstance(vlm, str):
+            self.creation_settings["VLMId"] = vlm
+        else:
+            raise Exception("Unknown VLM LLM: %s" % vlm)
+        return self
+
+class ExtractContentRecipeSettings(DSSRecipeSettings):
+    pass
+
+class ExtractContentRecipeCreator(SingleOutputRecipeCreator):
+
+    def __init__(self, name, project):
+        SingleOutputRecipeCreator.__init__(self, 'extract_content', name, project)
+
+    def with_vlm(self, vlm):
+        if isinstance(vlm, DSSLLM):
+            self.creation_settings["VLMId"] = vlm.llm_id
+        elif isinstance(vlm, DSSLLMListItem):
+            self.creation_settings["VLMId"] = vlm.id
+        elif isinstance(vlm, str):
+            self.creation_settings["VLMId"] = vlm
+        else:
+            raise Exception("Unknown VLM LLM: %s" % vlm)
+        return self
+
+
+class ExtractFieldsRecipeSettings(DSSRecipeSettings):
+    pass
+
+class ExtractFieldsRecipeCreator(SingleOutputRecipeCreator):
+
+    def __init__(self, name, project):
+        SingleOutputRecipeCreator.__init__(self, 'extract_fields', name, project)
+
+    def with_vlm(self, vlm):
+        if isinstance(vlm, DSSLLM):
+            self.creation_settings["VLMId"] = vlm.llm_id
+        elif isinstance(vlm, DSSLLMListItem):
+            self.creation_settings["VLMId"] = vlm.id
+        elif isinstance(vlm, str):
+            self.creation_settings["VLMId"] = vlm
+        else:
+            raise Exception("Unknown VLM LLM: %s" % vlm)
+        return self
+
+    def with_extraction_schema(self, schema):
+        self.creation_settings["extractionSchema"], _ = get_json_schema_and_parser(schema)
+        return self
+
+#####################################################
+# Per-recipe-type classes: Other recipes
+#####################################################
+
+class ExportRecipeSettings(DSSRecipeSettings):
+    """
+    Settings of an Export recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`DSSRecipe.get_settings()`
+    """
+    pass
+
+class ExportRecipeCreator(SingleOutputRecipeCreator):
+    """
+    Create an Export recipe
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+
+    Usage example:
+
+    .. code-block:: python
+
+        # Create a new Export recipe outputting an existing input dataset to a new managed folder (option 1)
+        # or to an existing managed folder (option 2)
+
+        project = client.get_project("MYPROJECT")
+        builder = project.new_recipe("export")
+        builder.with_input("my_input_dataset")
+
+        # Option 1: output to a new managed folder
+        builder.with_new_output("my_new_output_folder_name", "filesystem_folders", object_type='MANAGED_FOLDER')
+
+        # Option 2: output to an existing managed folder (you need to know the folder id)
+        builder.with_existing_output("my_existing_output_folder_id") # Careful, id and not name
+
+        recipe = builder.create()
+
+        # Run the recipe
+        job = recipe.run()
+    """
+
+    def __init__(self, name, project):
+        SingleOutputRecipeCreator.__init__(self, 'export', name, project)
+
+    def _finish_creation_settings(self):
+        super(ExportRecipeCreator, self)._finish_creation_settings()
+
+#####################################################
+# Per-recipe-type classes: ML recipes
+#####################################################
+
+class PredictionScoringRecipeCreator(SingleOutputRecipeCreator):
+    """
+    Create a new Prediction scoring recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+
+    Usage example:
+
+    .. code-block:: python
+
+        # Create a new prediction scoring recipe outputing to a new dataset
+
+        project = client.get_project("MYPROJECT")
+        builder = project.new_recipe("prediction_scoring", "my_scoring_recipe")
+        builder.with_input_model("saved_model_id")
+        builder.with_input("dataset_to_score")
+        builder.with_new_output("my_output_dataset", "myconnection")
+
+        # Or for a filesystem output connection
+        # builder.with_new_output("my_output_dataset, "filesystem_managed", format="CSV_EXCEL_GZIP")
+
+        new_recipe = builder.build()
+    """
+
+    def __init__(self, name, project):
+        SingleOutputRecipeCreator.__init__(self, 'prediction_scoring', name, project)
+
+    def with_input_model(self, model_id):
+        """
+        Set the input model.
+
+        :param string model_id: identifier of a saved model
+        """
+        return self._with_input(model_id, self.project.project_key, "model")
+
+
+class EvaluationRecipeCreator(DSSRecipeCreator):
+    """
+    Create a new Evaluate recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+
+    Usage example:
+
+    .. code-block:: python
+
+        # Create a new evaluation recipe outputing to a new dataset, to a metrics dataset and/or to a model evaluation store
+
+        project = client.get_project("MYPROJECT")
+        builder = project.new_recipe("evaluation")
+        builder.with_input_model(saved_model_id)
+        builder.with_input("dataset_to_evaluate")
+
+        builder.with_output("output_scored")
+        builder.with_output_metrics("output_metrics")
+        builder.with_output_evaluation_store(evaluation_store_id)
+
+        new_recipe = builder.build()
+
+        # Access the settings
+
+        er_settings = new_recipe.get_settings()
+        payload = er_settings.obj_payload
+
+        # Change the settings
+
+        payload['dontComputePerformance'] = True
+        payload['outputProbabilities'] = False
+        payload['metrics'] = ["precision", "recall", "auc", "f1", "costMatrixGain"]
+
+        # Manage evaluation labels
+
+        payload['labels'] = [dict(key="label_1", value="value_1"), dict(key="label_2", value="value_2")]
+
+        # Save the settings and run the recipe
+
+        er_settings.save()
+
+        new_recipe.run()
+
+    Outputs must exist. They can be created using the following:
+
+    .. code-block:: python
+
+        builder = project.new_managed_dataset("output_scored")
+        builder.with_store_into(connection)
+        dataset = builder.create()
+
+        builder = project.new_managed_dataset("output_scored")
+        builder.with_store_into(connection)
+        dataset = builder.create()
+
+        evaluation_store_id = project.create_model_evaluation_store("output_model_evaluation").mes_id
+    """
+
+    def __init__(self, name, project):
+        DSSRecipeCreator.__init__(self, 'evaluation', name, project)
+
+    def with_input_model(self, model_id):
+        """
+        Set the input model.
+
+        :param string model_id: identifier of a saved model
+        """
+        return self._with_input(model_id, self.project.project_key, "model")
+
+    def with_output(self, output_id):
+        """
+        Set the output dataset containing the scored input.
+
+        :param string output_id: name of the dataset, or identifier of the managed folder
+                                 or identifier of the saved model
+        """
+        return self._with_output(output_id, role="main")
+
+    def with_output_metrics(self, name):
+        """
+        Set the output dataset containing the metrics.
+
+        :param string name: name of an existing dataset
+        """
+        return self._with_output(name, role="metrics")
+
+    def with_output_evaluation_store(self, mes_id):
+        """
+        Set the output model evaluation store.
+
+        :param string mes_id: identifier of a model evaluation store
+        """
+        return self._with_output(mes_id, role="evaluationStore")
+
+
+class LLMEvaluationRecipeCreator(DSSRecipeCreator):
+    """
+    Create a new LLM Evaluate recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+
+    Usage example:
+
+    .. code-block:: python
+
+        # Create a new evaluation recipe outputing to a new dataset, to a metrics dataset and/or to an LLM evaluation store
+
+        project = client.get_project("MYPROJECT")
+        builder = project.new_recipe("nlp_llm_evaluation", "myrecipe")
+        builder.with_input("dataset_to_evaluate")
+
+        builder.with_output("output_scored")
+        builder.with_output_metrics("output_metrics")
+        builder.with_output_evaluation_store(<llm_evaluation_store_id>)
+
+        new_recipe = builder.build()
+
+        # Access the settings
+
+        recipe_settings = new_recipe.get_settings()
+        payload = recipe_settings.obj_payload
+
+        # Change the settings
+
+        payload["taskType"] = "QUESTION_ANSWERING"
+        payload["inputColumnName"] = "question"
+        payload["outputColumnName"] = "answer"
+        payload["groundTruthColumnName"] = "ground_truth"
+        payload["contextColumnName"] = "context"
+
+        payload["completionLLMId"] = <your_llm_id>
+        payload["embeddingLLMId"] = <your_llm_id>
+
+        recipe_settings.get_recipe_params()["envSelection"] = {
+            "envMode": "EXPLICIT_ENV",
+            "envName": <code_env_name>,
+        }
+
+        payload["metrics"] = ["answerRelevancy", "faithfulness"]
+
+
+        # Manage evaluation labels
+
+        payload["labels"] = [dict(key="label_1", value="value_1"), dict(key="label_2", value="value_2")]
+
+        # Save the settings, update the schema and run the recipe
+
+        recipe_settings.save()
+        new_recipe.compute_schema_updates().apply()
+
+        new_recipe.run()
+
+    Outputs must exist. They can be created using the following:
+
+    .. code-block:: python
+
+        builder = project.new_managed_dataset("output")
+        builder.with_store_into(connection)
+        dataset = builder.create()
+
+        builder = project.new_managed_dataset("metrics")
+        builder.with_store_into(connection)
+        dataset = builder.create()
+
+        llm_evaluation_store_id = project.create_evaluation_store(<llm_evaluation_store_name>, "LLM").id
+    """
+
+    def __init__(self, name, project):
+        DSSRecipeCreator.__init__(self, 'nlp_llm_evaluation', name, project)
+
+    def with_output(self, output_id, append=False, role="main"):
+        """
+        Set the output dataset containing the evaluation dataset scored row by row
+
+        :param string output_id: name of an existing dataset
+        :param boolean append: whether the recipe should append or overwrite the output when running. Defaults to False.
+        """
+        return self._with_output(output_id, append, role)
+
+    def with_output_metrics(self, metrics_dataset_name, append=True):
+        """
+        Set the output dataset containing the metrics
+
+        :param string metrics_dataset_name: name of an existing dataset
+        :param boolean append: whether the recipe should append or overwrite the output when running. Defaults to True.
+        """
+        return self._with_output(metrics_dataset_name, append, role="metrics")
+
+    def with_output_evaluation_store(self, evaluation_store_id):
+        """
+        Set the output evaluation store
+
+        :param string evaluation_store_id: identifier of an LLM evaluation store
+        """
+        return self._with_output(evaluation_store_id, role="evaluationStore")
+
+
+class AgentEvaluationRecipeCreator(DSSRecipeCreator):
+    """
+    Create a new Agent Evaluation recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+
+    Usage example:
+
+    .. code-block:: python
+
+        # Create a new agent evaluation recipe outputing to a new dataset, to a metrics dataset and/or to an agent evaluation store
+
+        project = client.get_project(<project_key>)
+        builder = (
+            project.new_recipe("nlp_agent_evaluation", <recipe_name>)
+            .with_input(<input_dataset_name>)
+            .with_output(<output_dataset_name>)
+            .with_output_metrics(<metrics_dataset_name>)
+            .with_output_evaluation_store(<agent_evaluation_store_id>)
+        )
+        new_recipe = builder.create()
+
+        # Access the settings
+
+        recipe_settings = new_recipe.get_settings()
+        payload = recipe_settings.obj_payload
+
+        # Change the settings
+
+        payload["inputFormat"] = "PROMPT_RECIPE"
+        payload["groundTruthColumnName"] = <ground_truth_column_name>
+        payload["referenceToolCallsColumnName"] = <reference_tool_calls_column_name>
+
+        payload["completionLLMId"] = <your_llm_id>
+        payload["embeddingLLMId"] = <your_llm_id>
+
+        recipe_settings.get_recipe_params()["envSelection"] = {
+            "envMode": "EXPLICIT_ENV",
+            "envName": <code_env_name>,
+        }
+
+        payload["metrics"] = ["toolCallExactMatch", "toolCallPartialMatch", "toolCallPrecisionRecallF1", "agentGoalAccuracyWithoutReference"]
+
+        # Manage evaluation labels
+
+        payload["labels"] = [dict(key="label_1", value="value_1"), dict(key="label_2", value="value_2")]
+
+        # Save the settings, update the schema and run the recipe
+
+        recipe_settings.save()
+        new_recipe.compute_schema_updates().apply()
+
+        new_recipe.run()
+
+    Outputs must exist. They can be created using the following:
+
+    .. code-block:: python
+
+        builder = project.new_managed_dataset(<output_dataset_name>)
+        builder.with_store_into(<connection_name>)
+        dataset = builder.create()
+
+        builder = project.new_managed_dataset(<metrics_dataset_name>)
+        builder.with_store_into(<connection_name>)
+        dataset = builder.create()
+
+        agent_evaluation_store_id = project.create_evaluation_store(<agent_evaluation_store_name>, "AGENT").id
+    """
+
+    def __init__(self, name, project):
+        DSSRecipeCreator.__init__(self, "nlp_agent_evaluation", name, project)
+
+    def with_output(self, output_id, append=False, role="main"):
+        """
+        Set the output dataset containing the evaluation dataset scored row by row
+
+        :param string output_id: name of an existing dataset
+        :param boolean append: whether the recipe should append or overwrite the output when running. Defaults to False.
+        """
+        return self._with_output(output_id, append, role)
+
+    def with_output_metrics(self, metrics_dataset_name, append=True):
+        """
+        Set the output dataset containing the metrics
+
+        :param string metrics_dataset_name: name of an existing dataset
+        :param boolean append: whether the recipe should append or overwrite the output when running. Defaults to True.
+        """
+        return self._with_output(metrics_dataset_name, append, role="metrics")
+
+    def with_output_evaluation_store(self, evaluation_store_id):
+        """
+        Set the output evaluation store
+
+        :param string evaluation_store_id: identifier of an agent evaluation store
+        """
+        return self._with_output(evaluation_store_id, role="evaluationStore")
+
+
+class StandaloneEvaluationRecipeCreator(DSSRecipeCreator):
+    """
+    Create a new Standalone Evaluate recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+
+    Usage example:
+
+    .. code-block:: python
+
+        # Create a new standalone evaluation of a scored dataset
+
+        project = client.get_project("MYPROJECT")
+        builder = project.new_recipe("standalone_evaluation")
+        builder.with_input("scored_dataset_to_evaluate")
+        builder.with_output_evaluation_store(evaluation_store_id)
+
+        # Add a reference dataset (optional) to compute data drift
+
+        builder.with_reference_dataset("reference_dataset")
+
+        # Finish creation of the recipe
+
+        new_recipe = builder.create()
+
+        # Modify the model parameters in the SER settings
+
+        ser_settings = new_recipe.get_settings()
+        payload = ser_settings.obj_payload
+
+        payload['predictionType'] = "BINARY_CLASSIFICATION"
+        payload['targetVariable'] = "Survived"
+        payload['predictionVariable'] = "prediction"
+        payload['isProbaAware'] = True
+        payload['dontComputePerformance'] = False
+
+        # For a classification model with probabilities, the 'probas' section can be filled with the mapping of the class and the probability column
+        # e.g. for a binary classification model with 2 columns: proba_0 and proba_1
+
+        class_0 = dict(key=0, value="proba_0")
+        class_1 = dict(key=1, value="proba_1")
+        payload['probas'] = [class_0, class_1]
+
+        # Change the 'features' settings for this standalone evaluation
+        # e.g. reject the features that you do not want to use in the evaluation
+
+        feature_passengerid = dict(name="Passenger_Id", role="REJECT", type="TEXT")
+        feature_ticket = dict(name="Ticket", role="REJECT", type="TEXT")
+        feature_cabin = dict(name="Cabin", role="REJECT", type="TEXT")
+
+        payload['features'] = [feature_passengerid, feature_ticket, feature_cabin]
+
+        # To set the cost matrix properly, access the 'metricParams' section of the payload and set the cost matrix weights:
+
+        payload['metricParams'] = dict(costMatrixWeights=dict(tpGain=0.4, fpGain=-1.0, tnGain=0.2, fnGain=-0.5))
+
+        # Save the recipe and run the recipe
+        # Note that with this method, all the settings that were not explicitly set are instead set to their default value.
+
+        ser_settings.save()
+
+        new_recipe.run()
+
+    Output model evaluation store must exist. It can be created using the following:
+
+    .. code-block:: python
+
+        evaluation_store_id = project.create_model_evaluation_store("output_model_evaluation").mes_id
+    """
+
+    def __init__(self, name, project):
+        DSSRecipeCreator.__init__(self, 'standalone_evaluation', name, project)
+
+    def with_output_evaluation_store(self, mes_id):
+        """
+        Set the output model evaluation store.
+
+        :param string mes_id: identifier of a model evaluation store
+        """
+        return self._with_output(mes_id, role="main")
+
+    def with_reference_dataset(self, dataset_name):
+        """
+        Set the dataset to use as a reference in data drift computation.
+
+        :param string dataset_name: name of a dataset
+        """
+        return self._with_input(dataset_name, self.project.project_key, role="reference")
+
+
+class ClusteringScoringRecipeCreator(SingleOutputRecipeCreator):
+    """
+    Create a new Clustering scoring recipe,.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()` instead.
+
+    Usage example:
+
+    .. code-block:: python
+
+        # Create a new prediction scoring recipe outputing to a new dataset
+
+        project = client.get_project("MYPROJECT")
+        builder = project.new_recipe("clustering_scoring", "my_scoring_recipe")
+        builder.with_input_model("saved_model_id")
+        builder.with_input("dataset_to_score")
+        builder.with_new_output("my_output_dataset", "myconnection")
+
+        # Or for a filesystem output connection
+        # builder.with_new_output("my_output_dataset, "filesystem_managed", format="CSV_EXCEL_GZIP")
+
+        new_recipe = builder.build()
+
+    """
+
+    def __init__(self, name, project):
+        SingleOutputRecipeCreator.__init__(self, 'clustering_scoring', name, project)
+
+    def with_input_model(self, model_id):
+        """
+        Set the input model.
+
+        :param string model_id: identifier of a saved model
+        """
+        return self._with_input(model_id, self.project.project_key, "model")
+
+
+class PromptRecipeSettings(DSSRecipeSettings):
+    """
+    Settings of a Prompt recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`DSSRecipe.get_settings()`
+
+    A Prompt recipe allows you to use Large Language Models (LLMs) to process
+    dataset rows, typically for tasks like text summarization, classification,
+    or information extraction.
+
+    The payload of this recipe is a JSON object containing the prompt
+    template, the selected LLM, and various generation parameters
+    """
+    pass
+
+class PromptRecipeCreator(SingleOutputRecipeCreator):
+    """
+    Helper to create a new Prompt recipe.
+
+    .. important::
+
+        Do not instantiate directly, use :meth:`dataikuapi.dss.project.DSSProject.new_recipe()`
+        with type 'prompt' instead.
+
+    Usage example:
+
+    .. code-block:: python
+
+        project = client.get_project("MYPROJECT")
+        builder = project.new_recipe("prompt", "my_prompt_recipe")
+
+        # Define the input dataset and the LLM to use
+        builder.with_input("input_dataset")
+
+        # Define the llm to use, it can be an agent or simply an llm
+        builder.with_llm("my-gpt-4-connection")
+        # or using an agent, ra-llm or finetuned model like this
+        builder.with_llm("agent:agentid")
+
+        A `DSSLLMListItem` or `DSSLLM` is also supported as input for `with_llm`
+
+        # Create a new output dataset for the results
+        builder.with_new_output("output_dataset", connection="filesystem_managed")
+
+        recipe = builder.create()
+    """
+
+    def __init__(self, name, project):
+        SingleOutputRecipeCreator.__init__(self, 'prompt', name, project)
+
+    def with_llm(self, llm):
+        """
+        Sets the LLM to be used by the recipe.
+
+        :param llm: the LLM to use. Can be a :class:`dataikuapi.dss.llm.DSSLLM` handle,
+                    a :class:`dataikuapi.dss.llm.DSSLLMListItem`, or the LLM identifier string.
+        :type llm: object or str
+
+        :return: self
+        :rtype: :class:`PromptRecipeCreator`
+        """
+        if isinstance(llm, DSSLLM):
+            llm_id = llm.llm_id
+        elif isinstance(llm, DSSLLMListItem):
+            llm_id = llm.id
+        elif isinstance(llm, str):
+            llm_id = llm
+        else:
+            raise ValueError("Unknown LLM: %s" % llm)
+        initial_payload = self.creation_settings.setdefault("initialPayload", {})
+        initial_payload["llmId"] = llm_id
+        initial_payload["onlySetLLMId"] = False
+
+        chunks = llm_id.split(":")
+        llm_type = chunks[0]
+        type_to_id_index = {
+            "agent": 1,
+            "retrieval-augmented-llm": 1,
+            "saved-model": 3
+        }
+        # For agents, ra llms and finetuned models we also need to add them as input models
+        if llm_type in type_to_id_index:
+            idx = type_to_id_index[llm_type]
+            if len(chunks) <= idx:
+                raise ValueError("Malformed LLM id: %s" % llm_id)
+            model_id = chunks[idx]
+            return self._with_input(model_id, self.project.project_key, "model")
+        return self

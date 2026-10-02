@@ -150,6 +150,12 @@ class StrictJsonTruncatedError(StrictJsonError):
     """
 
 
+def _pin(offering_id: str | None) -> dict[str, Any]:
+    """Forward a class pin only when one is set — callers (and test doubles)
+    that never pin see the exact signature they always saw."""
+    return {"offering_id": offering_id} if offering_id else {}
+
+
 @mandate_carrier_passthrough(
     "a generic strict-JSON funnel: its callers (workflow AI nodes, content-plan "
     "lanes, any internal consumer) supply the Holder on the metadata they pass. "
@@ -161,6 +167,7 @@ async def _run_completion(
     system_text: str,
     *,
     model: str,
+    offering_id: str | None = None,
     max_tokens: int,
     temperature: float | None = None,
     response_format: str | dict[str, Any] | None = None,
@@ -195,6 +202,7 @@ async def _run_completion(
         messages,
         system_text,
         model=model,
+        **_pin(offering_id),
         max_tokens=max_tokens,
         temperature=temperature,
         response_format=response_format,
@@ -215,6 +223,7 @@ async def _run_completion_measured(
     system_text: str,
     *,
     model: str,
+    offering_id: str | None = None,
     max_tokens: int,
     temperature: float | None = None,
     response_format: str | dict[str, Any] | None = None,
@@ -243,6 +252,10 @@ async def _run_completion_measured(
         "max_tokens": max_tokens,
         "stream": True,
     }
+    if offering_id:
+        # The class pin (an ai.offering of THIS model) — a held call carries its
+        # Holder's chosen class; unset = the model's preferred class.
+        cfg["offering_id"] = offering_id
     if temperature is not None:
         cfg["temperature"] = temperature
     if response_format == "json":
@@ -296,6 +309,7 @@ async def _run_completion_measured(
 async def llm_to_text(
     *,
     model: str,
+    offering_id: str | None = None,
     system: str,
     user: str,
     max_tokens: int = 8092,
@@ -316,6 +330,7 @@ async def llm_to_text(
         [{"role": "user", "content": user}],
         system,
         model=model,
+        **_pin(offering_id),
         max_tokens=max_tokens,
         temperature=temperature,
         metadata=metadata,
@@ -328,6 +343,7 @@ async def llm_to_text(
 async def llm_to_text_measured(
     *,
     model: str,
+    offering_id: str | None = None,
     system: str,
     user: str,
     max_tokens: int = 8092,
@@ -355,6 +371,7 @@ async def llm_to_text_measured(
         [{"role": "user", "content": user}],
         system,
         model=model,
+        **_pin(offering_id),
         max_tokens=max_tokens,
         temperature=temperature,
         internal_web_search=internal_web_search,
@@ -367,6 +384,7 @@ async def llm_to_text_measured(
 async def llm_messages_to_text_measured(
     *,
     model: str,
+    offering_id: str | None = None,
     system: str,
     messages: list[dict[str, Any]],
     max_tokens: int = 8092,
@@ -383,6 +401,7 @@ async def llm_messages_to_text_measured(
         messages,
         system,
         model=model,
+        **_pin(offering_id),
         max_tokens=max_tokens,
         temperature=temperature,
         internal_web_search=internal_web_search,
@@ -625,6 +644,7 @@ class _DeltaEmitter:
 async def _wrapped_completion(
     *,
     model: str,
+    offering_id: str | None = None,
     system: str,
     messages: list[dict[str, Any]],
     on_delta: Callable[[str], Awaitable[None]] | None,
@@ -647,6 +667,7 @@ async def _wrapped_completion(
     """
     result = await _wrapped_completion_measured(
         model=model,
+        **_pin(offering_id),
         system=system,
         messages=messages,
         on_delta=on_delta,
@@ -667,6 +688,7 @@ async def _wrapped_completion(
 async def _wrapped_completion_measured(
     *,
     model: str,
+    offering_id: str | None = None,
     system: str,
     messages: list[dict[str, Any]],
     on_delta: Callable[[str], Awaitable[None]] | None,
@@ -706,6 +728,7 @@ async def _wrapped_completion_measured(
             messages,
             system,
             model=model,
+            **_pin(offering_id),
             max_tokens=max_tokens,
             temperature=temperature,
             response_format=response_format,
@@ -737,6 +760,7 @@ async def _wrapped_completion_measured(
 async def llm_stream_messages(
     *,
     model: str,
+    offering_id: str | None = None,
     system: str,
     messages: list[dict[str, Any]],
     on_delta: Callable[[str], Awaitable[None]] | None = None,
@@ -767,6 +791,7 @@ async def llm_stream_messages(
     """
     text, _finish = await _wrapped_completion(
         model=model,
+        **_pin(offering_id),
         system=system,
         messages=messages,
         on_delta=on_delta,
@@ -791,6 +816,7 @@ async def llm_stream_messages(
 async def llm_stream_text(
     *,
     model: str,
+    offering_id: str | None = None,
     system: str,
     user: str,
     on_delta: Callable[[str], Awaitable[None]] | None = None,
@@ -815,6 +841,7 @@ async def llm_stream_text(
     """
     return await llm_stream_messages(
         model=model,
+        **_pin(offering_id),
         system=system,
         messages=[{"role": "user", "content": user}],
         on_delta=on_delta,
@@ -831,6 +858,7 @@ async def llm_stream_text(
 async def llm_messages_to_pydantic_measured(
     *,
     model: str,
+    offering_id: str | None = None,
     system: str,
     messages: list[dict[str, Any]],
     output_cls: type[T],
@@ -912,6 +940,7 @@ async def llm_messages_to_pydantic_measured(
     ) -> tuple[str, str | None]:
         result = await _wrapped_completion_measured(
             model=model,
+            **_pin(offering_id),
             system=structured_system,
             messages=run_messages,
             on_delta=on_delta if stream else None,
@@ -1024,6 +1053,7 @@ async def llm_messages_to_pydantic_measured(
 async def llm_messages_to_pydantic(
     *,
     model: str,
+    offering_id: str | None = None,
     system: str,
     messages: list[dict[str, Any]],
     output_cls: type[T],
@@ -1046,6 +1076,7 @@ async def llm_messages_to_pydantic(
     """
     measured = await llm_messages_to_pydantic_measured(
         model=model,
+        **_pin(offering_id),
         system=system,
         messages=messages,
         output_cls=output_cls,
@@ -1071,6 +1102,7 @@ async def llm_messages_to_pydantic(
 async def llm_to_pydantic_measured(
     *,
     model: str,
+    offering_id: str | None = None,
     system: str,
     user: str,
     output_cls: type[T],
@@ -1094,6 +1126,7 @@ async def llm_to_pydantic_measured(
     """
     return await llm_messages_to_pydantic_measured(
         model=model,
+        **_pin(offering_id),
         system=system,
         messages=[{"role": "user", "content": user}],
         output_cls=output_cls,
@@ -1116,6 +1149,7 @@ async def llm_to_pydantic_measured(
 async def llm_to_pydantic(
     *,
     model: str,
+    offering_id: str | None = None,
     system: str,
     user: str,
     output_cls: type[T],
@@ -1151,6 +1185,7 @@ async def llm_to_pydantic(
     """
     return await llm_messages_to_pydantic(
         model=model,
+        **_pin(offering_id),
         system=system,
         messages=[{"role": "user", "content": user}],
         output_cls=output_cls,

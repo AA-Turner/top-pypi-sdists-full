@@ -1,0 +1,31 @@
+Metadata-Version: 2.4
+Name: cdts
+Version: 0.23.0
+Summary: Change Detection and Time Series for Python (CDTS) - LandTrendr and CCDC tools for Python
+License-Expression: GPL-2.0-or-later
+License-File: LICENSE
+License-File: THIRD_PARTY_NOTICES.md
+Requires-Dist: numpy
+Requires-Dist: numba>=0.53.0
+Requires-Dist: rasterio
+Requires-Dist: scikit-learn
+Requires-Dist: scipy
+Requires-Dist: dask[array]
+Requires-Dist: xarray
+Requires-Dist: pystac-client
+Requires-Dist: stackstac
+Requires-Dist: geopandas
+Requires-Dist: torch
+Requires-Dist: einops
+Requires-Dist: transformers
+Requires-Dist: planetary-computer
+Requires-Dist: earthengine-api
+Requires-Dist: requests
+Requires-Dist: zarr
+Requires-Dist: rioxarray
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: pymannkendall; extra == "dev"
+Requires-Dist: minisom==2.3.6; extra == "dev"
+Dynamic: license-file

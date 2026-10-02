@@ -1,0 +1,485 @@
+#include "openscad_cpp_evaluator/eval_error.hpp"
+#include "openscad_cpp_evaluator/evaluator.hpp"
+
+#include "test_helpers.hpp"
+
+#include <cmath>
+#include <gtest/gtest.h>
+#include <numbers>
+
+using namespace oscadeval;
+using namespace oscadeval::test;
+
+// -- sphere ---------------------------------------------------------------
+
+TEST(Sphere, IsWatertightAndApproximatesAnalyticVolume) {
+    Evaluated e = evalSrc("sphere(r=2, $fn=32);");
+    ASSERT_EQ(e.bodies.size(), 1u);
+    ASSERT_TRUE(e.bodies[0].body.has_value());
+    EXPECT_EQ(e.bodies[0].body->Status(), manifold::Manifold::Error::NoError);
+    const double analytic = 4.0 / 3.0 * std::numbers::pi * 2.0 * 2.0 * 2.0; // r=2
+    EXPECT_NEAR(e.bodies[0].body->Volume(), analytic, analytic * 0.05);     // polygon approximation, 5% tolerance
+}
+
+TEST(Sphere, DiameterArgumentHalvesToRadius) {
+    Evaluated withR = evalSrc("sphere(r=3, $fn=16);");
+    Evaluated withD = evalSrc("sphere(d=6, $fn=16);");
+    EXPECT_NEAR(withR.bodies[0].body->Volume(), withD.bodies[0].body->Volume(), 1e-9);
+}
+
+TEST(Sphere, DefaultRadiusIsOne) {
+    // The poles are flat polygon caps (not sharp points, matching real
+    // OpenSCAD -- see resolveSphere's doc comment), and ring latitudes are
+    // offset by half a step from the true pole, so bbox.max/min.z converge
+    // to +-r only as $fn grows -- a high segment count is needed for a
+    // tight tolerance here, not a bug in the tolerance itself.
+    Evaluated e = evalSrc("sphere($fn=256);");
+    manifold::Box bbox = e.bodies[0].body->BoundingBox();
+    EXPECT_NEAR(bbox.max.z, 1.0, 1e-3);
+    EXPECT_NEAR(bbox.min.z, -1.0, 1e-3);
+}
+
+// -- cylinder ---------------------------------------------------------------
+
+TEST(Cylinder, StraightCylinderVolumeAndBoundsWhenCentered) {
+    Evaluated e = evalSrc("cylinder(h=4, r=2, center=true, $fn=64);");
+    ASSERT_TRUE(e.bodies[0].body.has_value());
+    manifold::Box bbox = e.bodies[0].body->BoundingBox();
+    EXPECT_NEAR(bbox.min.z, -2.0, 1e-6);
+    EXPECT_NEAR(bbox.max.z, 2.0, 1e-6);
+    const double analytic = std::numbers::pi * 2.0 * 2.0 * 4.0; // pi r^2 h
+    EXPECT_NEAR(e.bodies[0].body->Volume(), analytic, analytic * 0.02);
+}
+
+TEST(Cylinder, NonNumericRadiusIsIgnoredNotCoerced) {
+    // cylinder(30, r=5, true): the `true` lands in r1's slot. The reference
+    // applies a radius only if it isNumber(), so this is the r=5 cylinder;
+    // lenient conversion made it a cone from r1=1 (BelfrySCAD #409).
+    Evaluated e = evalSrc("cylinder(30, r=5, true, $fn=32);");
+    ASSERT_TRUE(e.bodies[0].body.has_value());
+    const double analytic = std::numbers::pi * 5.0 * 5.0 * 30.0;
+    EXPECT_NEAR(e.bodies[0].body->Volume(), analytic, analytic * 0.02);
+    // Same rule for every radius spelling, and a string is not a number.
+    Evaluated s = evalSrc("cylinder(h=30, r=5, r2=\"7\", $fn=32);");
+    EXPECT_NEAR(s.bodies[0].body->Volume(), analytic, analytic * 0.02);
+}
+
+TEST(Cylinder, UncenteredSitsOnZEqualsZero) {
+    Evaluated e = evalSrc("cylinder(h=5, r=1, $fn=16);");
+    manifold::Box bbox = e.bodies[0].body->BoundingBox();
+    EXPECT_NEAR(bbox.min.z, 0.0, 1e-6);
+    EXPECT_NEAR(bbox.max.z, 5.0, 1e-6);
+}
+
+TEST(Cylinder, ConeFrustumTopWiderThanBottom) {
+    Evaluated e = evalSrc("cylinder(h=2, r1=1, r2=3, $fn=32);");
+    manifold::Box bbox = e.bodies[0].body->BoundingBox();
+    // Top (z=2) has radius 3, bottom (z=0) has radius 1 -- bbox x/y span
+    // reflects the wider end.
+    EXPECT_NEAR(bbox.max.x, 3.0, 0.05);
+}
+
+TEST(Cylinder, DiameterArgumentsHalveToRadii) {
+    Evaluated withR = evalSrc("cylinder(h=1, r1=1, r2=2, $fn=16);");
+    Evaluated withD = evalSrc("cylinder(h=1, d1=2, d2=4, $fn=16);");
+    EXPECT_NEAR(withR.bodies[0].body->Volume(), withD.bodies[0].body->Volume(), 1e-9);
+}
+
+TEST(Cylinder, NoRadiusArgumentAtAllDefaultsToRadiusOne) {
+    Evaluated withNoArgs = evalSrc("cylinder(h=5, $fn=16);");
+    Evaluated withExplicitR = evalSrc("cylinder(h=5, r=1, $fn=16);");
+    EXPECT_NEAR(withNoArgs.bodies[0].body->Volume(), withExplicitR.bodies[0].body->Volume(), 1e-9);
+}
+
+// r2 does NOT fall back to r1 -- each end defaults to 1 on its own, so
+// `cylinder(h, r1=3)` is a cone tapering 3 -> 1, not a straight r=3
+// cylinder. Verified against OpenSCAD 2022.08.22 (rbot 3, rtop 1).
+TEST(Cylinder, R1OnlyLeavesR2AtItsOwnDefaultOfOne) {
+    Evaluated withR1Only = evalSrc("cylinder(h=5, r1=3, $fn=16);");
+    Evaluated asCone = evalSrc("cylinder(h=5, r1=3, r2=1, $fn=16);");
+    Evaluated asStraight = evalSrc("cylinder(h=5, r1=3, r2=3, $fn=16);");
+    EXPECT_NEAR(withR1Only.bodies[0].body->Volume(), asCone.bodies[0].body->Volume(), 1e-9);
+    EXPECT_GT(std::abs(withR1Only.bodies[0].body->Volume() - asStraight.bodies[0].body->Volume()), 1.0);
+}
+
+// Positional order is (h, r1, r2, center) -- position 1 is r1, not r, so a
+// third positional argument really does make a cone and a fourth really
+// does centre it. This is the arg-order bug that made `cylinder(10, 5, 2)`
+// silently render as a straight r=5 cylinder.
+TEST(Cylinder, PositionalArgsAreHR1R2Center) {
+    Evaluated positional = evalSrc("cylinder(10, 5, 2, true, $fn=16);");
+    Evaluated named = evalSrc("cylinder(h=10, r1=5, r2=2, center=true, $fn=16);");
+    EXPECT_NEAR(positional.bodies[0].body->Volume(), named.bodies[0].body->Volume(), 1e-9);
+    const manifold::Box bb = positional.bodies[0].body->BoundingBox();
+    EXPECT_NEAR(bb.min.z, -5.0, 1e-9);
+    EXPECT_NEAR(bb.max.z, 5.0, 1e-9);
+}
+
+// Application order: r, then d (which overrides r outright), then r1/r2,
+// then d1/d2. Each verified against OpenSCAD 2022.08.22.
+TEST(Cylinder, DiameterAndRadiusOverrideOrderMatchesReference) {
+    // d=8 sets both ends to 4; the explicit r1=5 then overrides the bottom.
+    Evaluated dThenR1 = evalSrc("cylinder(h=10, d=8, r1=5, $fn=16);");
+    Evaluated expected1 = evalSrc("cylinder(h=10, r1=5, r2=4, $fn=16);");
+    EXPECT_NEAR(dThenR1.bodies[0].body->Volume(), expected1.bodies[0].body->Volume(), 1e-9);
+
+    // r=5 sets both ends; the explicit r2=2 then overrides the top.
+    Evaluated rThenR2 = evalSrc("cylinder(h=10, r=5, r2=2, $fn=16);");
+    Evaluated expected2 = evalSrc("cylinder(h=10, r1=5, r2=2, $fn=16);");
+    EXPECT_NEAR(rThenR2.bodies[0].body->Volume(), expected2.bodies[0].body->Volume(), 1e-9);
+
+    // d wins over r outright rather than deferring to it.
+    Evaluated dWinsOverR = evalSrc("cylinder(h=10, r=5, d=8, $fn=16);");
+    Evaluated expected3 = evalSrc("cylinder(h=10, r=4, $fn=16);");
+    EXPECT_NEAR(dWinsOverR.bodies[0].body->Volume(), expected3.bodies[0].body->Volume(), 1e-9);
+}
+
+// -- polyhedron -----------------------------------------------------------
+
+TEST(Polyhedron, TetrahedronVolumeMatchesAnalyticFormula) {
+    // Right-angle tetrahedron at the origin with legs along x/y/z of length
+    // 2: volume = (1/6) * |x * y * z| = (1/6)*2*2*2 = 4/3. Face winding
+    // (CW-from-outside, OpenSCAD convention) matches the Python reference's
+    // own test_polyhedron_tetrahedron fixture exactly.
+    Evaluated e = evalSrc("polyhedron("
+                          "points=[[0,0,0],[2,0,0],[0,2,0],[0,0,2]], "
+                          "faces=[[0,1,2],[0,3,1],[0,2,3],[1,3,2]]);");
+    ASSERT_TRUE(e.bodies[0].body.has_value());
+    EXPECT_EQ(e.bodies[0].body->Status(), manifold::Manifold::Error::NoError);
+    EXPECT_NEAR(e.bodies[0].body->Volume(), 4.0 / 3.0, 1e-6);
+}
+
+TEST(Polyhedron, MissingPointsOrFacesRaisesEvalError) {
+    EXPECT_THROW(evalSrc("polyhedron(points=[[0,0,0]]);"), EvalError);
+}
+
+// -- 2D primitives ------------------------------------------------------
+
+TEST(Primitives2d, CircleArea) {
+    Evaluated e = evalSrc("circle(r=2, $fn=64);");
+    ASSERT_EQ(e.bodies.size(), 1u);
+    ASSERT_TRUE(e.bodies[0].section.has_value());
+    const double analytic = std::numbers::pi * 2.0 * 2.0;
+    EXPECT_NEAR(e.bodies[0].section->Area(), analytic, analytic * 0.01);
+}
+
+TEST(Primitives2d, SquareAreaAndCenteredBounds) {
+    Evaluated uncentered = evalSrc("square([3,4]);");
+    EXPECT_NEAR(uncentered.bodies[0].section->Area(), 12.0, 1e-9);
+    manifold::Rect bounds = uncentered.bodies[0].section->Bounds();
+    EXPECT_NEAR(bounds.min.x, 0.0, 1e-9);
+
+    Evaluated centered = evalSrc("square([3,4], center=true);");
+    manifold::Rect cbounds = centered.bodies[0].section->Bounds();
+    EXPECT_NEAR(cbounds.min.x, -1.5, 1e-9);
+    EXPECT_NEAR(cbounds.min.y, -2.0, 1e-9);
+}
+
+TEST(Primitives2d, PolygonSingleContourArea) {
+    // Unit right triangle: area = 0.5.
+    Evaluated e = evalSrc("polygon(points=[[0,0],[1,0],[0,1]]);");
+    EXPECT_NEAR(e.bodies[0].section->Area(), 0.5, 1e-9);
+}
+
+TEST(Primitives2d, PolygonEvenOddFillsClockwiseWinding) {
+    // A clockwise-wound square (reverse of the usual CCW order) must still
+    // fill under EvenOdd -- the default Positive fill rule would silently
+    // produce an empty CrossSection for this winding, which is exactly the
+    // BOSL2 teardrop2d() bug the reference's doc calls out.
+    Evaluated e = evalSrc("polygon(points=[[0,0],[0,1],[1,1],[1,0]]);");
+    EXPECT_NEAR(e.bodies[0].section->Area(), 1.0, 1e-9);
+}
+
+TEST(Primitives2d, PolygonWithPathsSelectsIndexedContour) {
+    Evaluated e = evalSrc("polygon(points=[[0,0],[2,0],[2,2],[0,2]], paths=[[0,1,2,3]]);");
+    EXPECT_NEAR(e.bodies[0].section->Area(), 4.0, 1e-9);
+}
+
+// -- open (non-closed) polyhedron: display-only ---------------------------
+
+namespace {
+// A cube with the -x face omitted: five quads, so four boundary edges.
+constexpr const char* kOpenCube =
+    "polyhedron(points=[[0,0,0],[10,0,0],[10,10,0],[0,10,0],"
+    "                   [0,0,10],[10,0,10],[10,10,10],[0,10,10]],"
+    "           faces=[[0,1,2,3],[4,7,6,5],[0,4,5,1],[1,5,6,2],[2,6,7,3]]);";
+} // namespace
+
+// Manifold cannot represent an open surface, but silently rendering nothing
+// left no way to tell a broken polyhedron from a missing one. The triangles
+// are kept for display instead, tagged so nothing tries to CSG them.
+TEST(Polyhedron, OpenMeshIsKeptForDisplayAndWarns) {
+    std::string warning;
+    Evaluated e = evalSrc(kOpenCube, [&](const std::string& m) { warning = m; });
+
+    ASSERT_EQ(e.bodies.size(), 1u);
+    EXPECT_TRUE(e.bodies[0].isDisplayOnly());
+    EXPECT_TRUE(e.bodies[0].body->IsEmpty());       // no solid, by definition
+    EXPECT_EQ(e.bodies[0].rawMesh->triVerts.size(), 10u * 3u);  // 5 quads -> 10 tris
+
+    EXPECT_NE(warning.find("not closed"), std::string::npos) << warning;
+    EXPECT_NE(warning.find("4 boundary edge"), std::string::npos) << warning;
+}
+
+// The originalID is what maps a picked triangle back to its source line, so
+// a display-only body has to carry one or clicking it would select nothing
+// -- precisely when a user most wants to be shown the offending code.
+// A polyhedron with points but NO faces is empty geometry, not a failure.
+// BOSL2's debug_vnf() passes [verts, []] to draw vertex labels with no
+// surface at all, and real OpenSCAD 2026.02.01 accepts
+// `polyhedron(points=..., faces=[])` silently. This used to report the
+// empty mesh as NotManifold and discard it with a warning, which failed
+// four BOSL2 geometry.scad examples.
+TEST(Polyhedron, NoFacesIsEmptyGeometryAndSilent) {
+    std::string warning;
+    Evaluated e = evalSrc("polyhedron(points=[[0,0,0],[10,0,0],[10,10,0],[0,10,0]], faces=[]);",
+                          [&](const std::string& m) { warning = m; });
+
+    ASSERT_EQ(e.bodies.size(), 1u);
+    EXPECT_TRUE(e.bodies[0].body->IsEmpty());
+    EXPECT_FALSE(e.bodies[0].isDisplayOnly());   // nothing to display, not an open surface
+    EXPECT_EQ(warning, "") << warning;
+}
+
+TEST(Polyhedron, NoPointsAndNoFacesIsAlsoSilent) {
+    std::string warning;
+    Evaluated e = evalSrc("polyhedron(points=[], faces=[]);",
+                          [&](const std::string& m) { warning = m; });
+    ASSERT_EQ(e.bodies.size(), 1u);
+    EXPECT_TRUE(e.bodies[0].body->IsEmpty());
+    EXPECT_EQ(warning, "") << warning;
+}
+
+TEST(Polyhedron, OpenMeshCarriesAnOriginalIdForPicking) {
+    Evaluated e = evalSrc(kOpenCube);
+    ASSERT_EQ(e.bodies.size(), 1u);
+    const manifold::MeshGL& mesh = *e.bodies[0].rawMesh;
+    ASSERT_EQ(mesh.runOriginalID.size(), 1u);
+    EXPECT_EQ(e.ev.idToNode.count(mesh.runOriginalID[0]), 1u);
+    ASSERT_EQ(mesh.runIndex.size(), 2u);
+    EXPECT_EQ(mesh.runIndex[1], mesh.triVerts.size());
+}
+
+// A closed mesh is still a solid however badly it's wound or built -- only
+// an OPEN one takes the display-only path. Manifold's own status name for
+// that case ("NotManifold") reads as though it covers these too; it doesn't.
+TEST(Polyhedron, ClosedButUglyMeshesStillBuildSolids) {
+    // All faces reversed (inside-out).
+    Evaluated inverted = evalSrc(
+        "polyhedron(points=[[0,0,0],[10,0,0],[10,10,0],[0,10,0],"
+        "                   [0,0,10],[10,0,10],[10,10,10],[0,10,10]],"
+        "           faces=[[3,2,1,0],[5,6,7,4],[1,5,4,0],[2,6,5,1],[3,7,6,2],[0,4,7,3]]);");
+    ASSERT_EQ(inverted.bodies.size(), 1u);
+    EXPECT_FALSE(inverted.bodies[0].isDisplayOnly());
+
+    // Two tetrahedra meeting at a single (non-manifold) vertex.
+    Evaluated pinched = evalSrc(
+        "polyhedron(points=[[0,0,0],[10,0,0],[0,10,0],[0,0,10],"
+        "                   [0,0,0],[-10,0,0],[0,-10,0],[0,0,-10]],"
+        "           faces=[[0,2,1],[0,1,3],[1,2,3],[0,3,2],"
+        "                  [4,6,5],[4,5,7],[5,6,7],[4,7,6]]);");
+    ASSERT_EQ(pinched.bodies.size(), 1u);
+    EXPECT_FALSE(pinched.bodies[0].isDisplayOnly());
+}
+
+// A NaN coordinate is NOT drawable: it would poison the scene bounding box
+// and send a renderer's camera auto-fit to infinity. Such a mesh keeps the
+// old drop-it behaviour -- but now says so instead of vanishing mutely.
+TEST(Polyhedron, NonFiniteVertexIsDiscardedNotDisplayed) {
+    std::string warning;
+    Evaluated e = evalSrc("polyhedron(points=[[0,0,0],[2,0,0],[0,2,0],[0/0,0,2]],"
+                          "           faces=[[0,1,2],[0,3,1],[0,2,3],[1,3,2]]);",
+                          [&](const std::string& m) { warning = m; });
+    for (const ColoredBody& b : e.bodies) EXPECT_FALSE(b.isDisplayOnly());
+    EXPECT_NE(warning.find("NonFiniteVertex"), std::string::npos) << warning;
+}
+
+// It has no Manifold, so a boolean would have nothing to operate on. It is
+// pulled aside like a `%` body and re-joined afterwards, leaving its valid
+// siblings to merge normally.
+TEST(Polyhedron, OpenMeshIsExcludedFromCsgButSurvivesIt) {
+    Evaluated e = evalSrc(std::string("union() { translate([50,0,0]) cube(4); ") + kOpenCube + " }");
+    ASSERT_EQ(e.bodies.size(), 2u);
+
+    int solids = 0, displayOnly = 0;
+    for (const ColoredBody& b : e.bodies) {
+        if (b.isDisplayOnly()) ++displayOnly;
+        else if (b.body && !b.body->IsEmpty()) {
+            ++solids;
+            EXPECT_NEAR(b.body->Volume(), 64.0, 1e-6);  // the cube, unharmed
+        }
+    }
+    EXPECT_EQ(solids, 1);
+    EXPECT_EQ(displayOnly, 1);
+}
+
+// -- sphere(style=) -------------------------------------------------------
+//
+// A BelfrySCAD extension naming the tessellation, with BOSL2's five style
+// names and constructions. Every vertex/triangle count below was compared
+// against BOSL2's own spheroid(r=10, style=..., circum=false, $fn=24), and
+// the volumes matched exactly for aligned, stagger and icosa.
+//
+// Note BOSL2 *shadows* sphere() with its own module, so any comparison has
+// to call spheroid() from a BOSL2-including file and sphere() from one
+// without -- including BOSL2 to "check the reference" silently compares
+// BOSL2 against itself, which is how the first run of this looked correct
+// while testing nothing.
+
+namespace {
+
+struct SphereStats {
+    size_t verts = 0;
+    size_t tris = 0;
+    double volume = 0.0;
+};
+
+SphereStats sphereStats(const std::string& code) {
+    Evaluated e = evalSrc(code);
+    EXPECT_EQ(e.bodies.size(), 1u);
+    const manifold::Manifold& m = *e.bodies[0].body;
+    return {static_cast<size_t>(m.NumVert()), static_cast<size_t>(m.NumTri()), m.Volume()};
+}
+
+} // namespace
+
+TEST(SphereStyle, DefaultsToOrigAndIsUnchanged) {
+    const SphereStats def = sphereStats("sphere(r=10, $fn=24);");
+    const SphereStats orig = sphereStats("sphere(r=10, style=\"orig\", $fn=24);");
+    EXPECT_EQ(def.verts, orig.verts);
+    EXPECT_EQ(def.tris, orig.tris);
+    EXPECT_NEAR(def.volume, orig.volume, 1e-9);
+    // The pre-existing OpenSCAD construction: 24 segments x 12 stacks, no
+    // pole vertices.
+    EXPECT_EQ(orig.verts, 288u);
+}
+
+TEST(SphereStyle, AlignedPutsVerticesAtThePoles) {
+    Evaluated e = evalSrc("sphere(r=10, style=\"aligned\", $fn=24);");
+    ASSERT_EQ(e.bodies.size(), 1u);
+    const manifold::Box bb = e.bodies[0].body->BoundingBox();
+    // A pole vertex reaches the full radius; "orig" stops short of it.
+    EXPECT_NEAR(bb.max.z, 10.0, 1e-9);
+    EXPECT_NEAR(bb.min.z, -10.0, 1e-9);
+    const manifold::Box origBb = evalSrc("sphere(r=10, style=\"orig\", $fn=24);").bodies[0].body->BoundingBox();
+    EXPECT_LT(origBb.max.z, 10.0);
+}
+
+TEST(SphereStyle, AlignedTouchesTheAxesWhenFnIsDivisibleByFour) {
+    // $fn divisible by 4 puts a ring on the equator and a vertex on each of
+    // +-X and +-Y, so the bounding box reaches the full radius on every
+    // axis. That is the whole point of the style.
+    Evaluated e = evalSrc("sphere(r=10, style=\"aligned\", $fn=24);");
+    const manifold::Box bb = e.bodies[0].body->BoundingBox();
+    EXPECT_NEAR(bb.max.x, 10.0, 1e-9);
+    EXPECT_NEAR(bb.max.y, 10.0, 1e-9);
+    // ...whereas "orig" has no vertex on either axis and falls inside.
+    const manifold::Box ob = evalSrc("sphere(r=10, style=\"orig\", $fn=24);").bodies[0].body->BoundingBox();
+    EXPECT_LT(ob.max.x, 10.0);
+}
+
+TEST(SphereStyle, StaggerHasTheSameCountsAsAlignedButDiffers) {
+    const SphereStats a = sphereStats("sphere(r=10, style=\"aligned\", $fn=24);");
+    const SphereStats s = sphereStats("sphere(r=10, style=\"stagger\", $fn=24);");
+    EXPECT_EQ(a.verts, s.verts);   // same lattice size...
+    EXPECT_EQ(a.tris, s.tris);
+    EXPECT_GT(std::fabs(a.volume - s.volume), 1.0);   // ...different shape
+}
+
+TEST(SphereStyle, EveryStyleMatchesBosl2sCounts) {
+    // Compared against BOSL2 spheroid(r=10, style=..., circum=false, $fn=24).
+    EXPECT_EQ(sphereStats("sphere(r=10, style=\"aligned\", $fn=24);").verts, 266u);
+    EXPECT_EQ(sphereStats("sphere(r=10, style=\"aligned\", $fn=24);").tris, 528u);
+    EXPECT_EQ(sphereStats("sphere(r=10, style=\"stagger\", $fn=24);").verts, 266u);
+    EXPECT_EQ(sphereStats("sphere(r=10, style=\"octa\", $fn=24);").verts, 146u);
+    EXPECT_EQ(sphereStats("sphere(r=10, style=\"octa\", $fn=24);").tris, 288u);
+    EXPECT_EQ(sphereStats("sphere(r=10, style=\"icosa\", $fn=24);").verts, 252u);
+    EXPECT_EQ(sphereStats("sphere(r=10, style=\"icosa\", $fn=24);").tris, 500u);
+}
+
+TEST(SphereStyle, EveryStyleMatchesBosl2sVolume) {
+    // aligned/stagger/icosa agree with BOSL2 to the last digit. "octa" comes
+    // from Manifold::Sphere, whose octahedral subdivision distributes its
+    // vertices a little differently than BOSL2's -- same 146/288 topology,
+    // ~0.05% apart in volume.
+    EXPECT_NEAR(sphereStats("sphere(r=10, style=\"aligned\", $fn=24);").volume, 4070.5524, 1e-3);
+    EXPECT_NEAR(sphereStats("sphere(r=10, style=\"stagger\", $fn=24);").volume, 4082.1246, 1e-3);
+    EXPECT_NEAR(sphereStats("sphere(r=10, style=\"icosa\", $fn=24);").volume, 4097.2467, 1e-3);
+    EXPECT_NEAR(sphereStats("sphere(r=10, style=\"octa\", $fn=24);").volume, 4024.3239, 1e-3);
+}
+
+TEST(SphereStyle, EveryStyleIsAClosedSolidUnderTheTrueVolume) {
+    for (const char* st : {"orig", "aligned", "stagger", "octa", "icosa"}) {
+        const SphereStats s = sphereStats(std::string("sphere(r=10, style=\"") + st + "\", $fn=24);");
+        // Positive volume also means the winding is outward: an inverted
+        // solid reports a NEGATIVE volume here, which is how the first cut
+        // of aligned/stagger was caught. Checking |volume| would have missed
+        // it entirely.
+        EXPECT_GT(s.volume, 3900.0) << st;
+        EXPECT_LT(s.volume, 4188.7902) << st;   // strictly inside the true sphere
+        EXPECT_GT(s.tris, 100u) << st;
+    }
+}
+
+TEST(SphereStyle, UnknownStyleWarnsAndFallsBackToOrig) {
+    std::string last;
+    Evaluated e = evalSrc("sphere(r=10, style=\"banana\", $fn=24);",
+                           [&](const std::string& m) { last = m; });
+    EXPECT_NE(last.find("unknown style"), std::string::npos) << last;
+    ASSERT_EQ(e.bodies.size(), 1u);
+    EXPECT_EQ(static_cast<size_t>(e.bodies[0].body->NumVert()), 288u);   // orig
+}
+
+TEST(SphereStyle, StyleRespectsFnAndRadius) {
+    // Denser $fn subdivides further, and the radius scales the result.
+    EXPECT_GT(sphereStats("sphere(r=10, style=\"icosa\", $fn=64);").tris,
+              sphereStats("sphere(r=10, style=\"icosa\", $fn=24);").tris);
+    const double v10 = sphereStats("sphere(r=10, style=\"aligned\", $fn=24);").volume;
+    const double v20 = sphereStats("sphere(r=20, style=\"aligned\", $fn=24);").volume;
+    EXPECT_NEAR(v20 / v10, 8.0, 1e-6);   // volume goes as r^3
+}
+
+// cube()'s size as OpenSCAD 2026.02.01 reads it: undef, absent or explicit,
+// is the default of 1; anything but a number or three numbers warns and
+// falls back to 1. Explicit undef built a zero-size cube -- nothing at all.
+// BelfrySCAD #566: a closed tetrahedron with two faces wound backwards was
+// reported as "mesh is not closed -- 0 boundary edge(s)". It is closed; say
+// what is actually wrong, name an edge, and still draw it.
+TEST(Primitives, PolyhedronWithReversedFacesSaysSo) {
+    std::vector<std::string> log;
+    Evaluated e = evalSrc("polyhedron([[0,0,0], [10,0,0], [0,10,0], [0,0,10]],\n"
+                          "           [[0,1,2], [0,1,3], [0,2,3], [1,2,3]]);",
+                          [&](const std::string& m) { log.push_back(m); });
+    ASSERT_EQ(log.size(), 1u);
+    EXPECT_NE(log[0].find("faces are not consistently wound -- 4 edge(s)"), std::string::npos) << log[0];
+    EXPECT_NE(log[0].find("first at [0, 0, 0] - [10, 0, 0]"), std::string::npos) << log[0];
+    EXPECT_EQ(log[0].find("not closed"), std::string::npos) << log[0];
+    EXPECT_EQ(log[0].find("open surface"), std::string::npos) << log[0];
+    ASSERT_EQ(e.bodies.size(), 1u);  // still drawn, as a display-only surface
+}
+
+TEST(Primitives, CubeBadSizeIsAUnitCube) {
+    const std::pair<const char*, const char*> cases[] = {
+        {"undef", ""},
+        {"\"a\"", "size=\"a\""},
+        {"[1,2]", "size=[1, 2]"},
+        {"[1,2,undef]", "size=[1, 2, undef]"},
+        {"true", "size=true"},
+        {"[1,\"a\",3]", "size=[1, \"a\", 3]"},
+    };
+    for (const auto& [arg, shown] : cases) {
+        std::vector<std::string> log;
+        Evaluated e = evalSrc(std::string("cube(") + arg + ");", [&](const std::string& m) { log.push_back(m); });
+        ASSERT_EQ(e.bodies.size(), 1u) << arg;
+        ASSERT_TRUE(e.bodies[0].body.has_value()) << arg;
+        EXPECT_NEAR(e.bodies[0].body->Volume(), 1.0, 1e-9) << arg;
+        if (*shown == '\0') {
+            EXPECT_TRUE(log.empty()) << arg;
+        } else {
+            ASSERT_EQ(log.size(), 1u) << arg;
+            EXPECT_EQ(log[0], std::string("WARNING: Unable to convert cube(") + shown +
+                                  ", ...) parameter to a number or a vec3 of numbers in file <string>, line 1")
+                << arg;
+        }
+    }
+}

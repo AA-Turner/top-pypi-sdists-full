@@ -1,0 +1,900 @@
+# Copyright (c) The btclib developers
+# Distributed under the MIT software license, see the accompanying
+# LICENSE file or https://opensource.org/license/mit for the full text.
+
+"""Tests for the keys and xonly modules, and for the ECDSA signature forms.
+
+The scalar and point operations are cross-checked against
+`pubkey_from_prvkey` of the scalar, computed modulo the group order; the
+x-only tweaking is cross-checked against the plain public key tweaking,
+which is a distinct libsecp256k1 code path; the taproot key path is
+checked end to end, signing with the tweaked private key and verifying
+against the tweaked x-only public key.
+"""
+
+from __future__ import annotations
+
+import hashlib
+
+import pytest
+
+from btclib_secp256k1 import dsa, keys, ssa, xonly
+
+# secp256k1 group order
+N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+
+msg = hashlib.sha256(b"btclib_secp256k1").digest()
+
+
+def compress(pubkey_bytes: bytes) -> bytes:
+    """Compress an uncompressed 65-byte public key."""
+    return bytes([2 + (pubkey_bytes[64] & 1)]) + pubkey_bytes[1:33]
+
+
+def test_prvkey_verify() -> None:
+    """Accept 1 and n-1, refuse 0, n and a value above the order."""
+    assert keys.prvkey_verify(1)
+    assert keys.prvkey_verify(N - 1)
+    # zero and the group order are out of the [1, n-1] range
+    assert not keys.prvkey_verify(0)
+    assert not keys.prvkey_verify(N)
+    assert not keys.prvkey_verify(b"\xff" * 32)
+
+
+def test_prvkey_algebra() -> None:
+    """Scalar algebra on a private key matches the arithmetic mod n.
+
+    Negation, addition and multiplication are each compared with the
+    integer answer computed here, and negation is checked to be its own
+    inverse. The sum wraps at the group order, and a sum that reaches zero
+    is refused: zero is no private key, so there is no result to hand back.
+    """
+    a, b = 3, 5
+
+    assert keys.prvkey_negate(a) == (N - a).to_bytes(32, "big")
+    assert keys.prvkey_negate(keys.prvkey_negate(a)) == (a.to_bytes(32, "big"))
+    assert keys.prvkey_tweak_add(a, b) == (a + b).to_bytes(32, "big")
+    assert keys.prvkey_tweak_mul(a, b) == (a * b).to_bytes(32, "big")
+
+    # the sum wraps around the group order
+    assert keys.prvkey_tweak_add(N - 1, 3) == (2).to_bytes(32, "big")
+    # a sum which is zero has no valid private key
+    with pytest.raises(ValueError, match="private key or tweak"):
+        keys.prvkey_tweak_add(a, N - a)
+
+
+def test_pubkey_from_prvkey() -> None:
+    """The public key of 1 is the generator, in both serializations.
+
+    The generator is the one published in SEC 2 v.2 section 2.4.1, so
+    neither form is compared with a second computation of this package's.
+    Both parities are exercised, the y of 1G being even and that of 6G
+    odd: the first octet of the compressed form is what carries it, and
+    the uncompressed form drops the 32 bytes it is read from. `mult_` is
+    checked to be the uncompressed case of this function, which is what
+    keeps its 65-byte answer true.
+    """
+    generator = bytes.fromhex(
+        "0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+        "483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8"
+    )
+    assert keys.pubkey_from_prvkey(1, False) == generator
+    assert keys.pubkey_from_prvkey(1) == b"\x02" + generator[1:33]
+    # the same key given as bytes and as an int
+    assert keys.pubkey_from_prvkey((1).to_bytes(32, "big")) == b"\x02" + generator[1:33]
+
+    # the odd y, which 1G cannot exhibit
+    assert keys.pubkey_from_prvkey(6, compressed=False)[64] & 1
+    assert (
+        keys.pubkey_from_prvkey(6)
+        == b"\x03" + keys.pubkey_from_prvkey(6, compressed=False)[1:33]
+    )
+
+    # the compressed answer is the uncompressed one compressed here,
+    # which is a second reading of the same point and not the same call
+    for prvkey in (1, 6, N - 1):
+        assert keys.pubkey_from_prvkey(prvkey) == compress(
+            keys.pubkey_from_prvkey(prvkey, compressed=False)
+        )
+
+    # zero is no private key, and neither is the group order
+    with pytest.raises(ValueError, match="private key"):
+        keys.pubkey_from_prvkey(0)
+    with pytest.raises(ValueError, match="private key"):
+        keys.pubkey_from_prvkey(N)
+    with pytest.raises(ValueError, match="fit in 32 bytes"):
+        keys.pubkey_from_prvkey(2**256)
+    with pytest.raises(ValueError, match="private key must be 32 bytes"):
+        keys.pubkey_from_prvkey(b"\x01" * 31)
+
+
+def test_pubkey_algebra() -> None:
+    """Tweaking a public key matches tweaking the private key under it.
+
+    Add, multiply and negate, each against the public key of the tweaked
+    scalar, with negation checked to be its own inverse. Combining keys
+    matches adding their scalars and does not depend on the order they are
+    given in; one key combines to itself. A sum landing on the point at
+    infinity is refused, that point having no public key.
+    """
+    a, b = 3, 5
+    pubkey_a, pubkey_b = (
+        keys.pubkey_from_prvkey(a, compressed=False),
+        keys.pubkey_from_prvkey(b, compressed=False),
+    )
+
+    # tweaking a public key matches tweaking its private key
+    assert keys.pubkey_tweak_add(pubkey_a, b) == (
+        compress(keys.pubkey_from_prvkey(a + b, compressed=False))
+    )
+    assert keys.pubkey_tweak_mul(pubkey_a, b) == (
+        compress(keys.pubkey_from_prvkey(a * b, compressed=False))
+    )
+    assert keys.pubkey_negate(pubkey_a) == (
+        compress(keys.pubkey_from_prvkey(N - a, compressed=False))
+    )
+    assert keys.pubkey_negate(keys.pubkey_negate(pubkey_a)) == (compress(pubkey_a))
+
+    # adding public keys matches adding their private keys
+    combined = keys.pubkey_combine([pubkey_a, pubkey_b])
+    assert combined == compress(keys.pubkey_from_prvkey(a + b, compressed=False))
+    assert combined == keys.pubkey_combine([pubkey_b, pubkey_a])
+    # a single key is combined with itself only
+    assert keys.pubkey_combine([pubkey_a]) == compress(pubkey_a)
+
+    # the point at infinity is not a valid public key
+    with pytest.raises(ValueError, match="public key sum"):
+        keys.pubkey_combine([pubkey_a, keys.pubkey_negate(pubkey_a)])
+
+
+def test_pubkey_tweak_chain() -> None:
+    """Chained tweaks match the same tweaks added one call at a time.
+
+    `PubkeyTweakChain` parses the starting key once and carries the
+    parsed point across every `tweak_add`, rather than `pubkey_tweak_add`
+    re-parsing what the step before it just serialized; the two are
+    checked to answer the same bytes at every step, compressed and
+    uncompressed both, and to refuse the same invalid tweak and the same
+    landing on the point at infinity.
+    """
+    pubkey_bytes = keys.pubkey_from_prvkey(3, compressed=False)
+    tweaks = (5, N - 1, 11)
+
+    chain = keys.PubkeyTweakChain(pubkey_bytes)
+    key = pubkey_bytes
+    for tweak in tweaks:
+        key = keys.pubkey_tweak_add(key, tweak)
+        assert chain.tweak_add(tweak) == key
+
+    # the uncompressed form, from a chain that has not run out of state
+    uncompressed_chain = keys.PubkeyTweakChain(pubkey_bytes)
+    assert uncompressed_chain.tweak_add(5, False) == keys.pubkey_tweak_add(
+        pubkey_bytes, 5, False
+    )
+
+    # an invalid starting key, an invalid tweak, and the one sum that has
+    # no public key, all refused the same way pubkey_tweak_add refuses them
+    with pytest.raises(ValueError, match="public key"):
+        keys.PubkeyTweakChain(b"\x02" + b"\x00" * 32)
+    with pytest.raises(ValueError, match="tweak must be 32 bytes"):
+        keys.PubkeyTweakChain(pubkey_bytes).tweak_add(b"\x01" * 33)
+    with pytest.raises(ValueError, match="tweak or resulting public key"):
+        keys.PubkeyTweakChain(keys.pubkey_from_prvkey(7, compressed=False)).tweak_add(
+            N - 7
+        )
+
+
+def test_pubkey_serialization() -> None:
+    """Both serialized forms parse, and either converts to the other.
+
+    The uncompressed form is 65 octets opening with 0x04, the compressed
+    33 whose first octet carries the parity of the y being dropped.
+    """
+    pubkey_bytes = keys.pubkey_from_prvkey(7, compressed=False)
+
+    # both forms parse, and either can be serialized from the other
+    compressed = keys.serialize(keys.parse(pubkey_bytes))
+    assert compressed == compress(pubkey_bytes)
+    assert keys.serialize(keys.parse(compressed), False) == pubkey_bytes
+    assert keys.pubkey_negate(compressed, False)[0] == 0x04
+
+
+def test_pubkey_order() -> None:
+    """Sorting is by compressed serialization, whatever form is given.
+
+    Python sorting the same octets is the independent reference: what
+    libsecp256k1 orders by is that serialization, so an ordering it
+    produces is checkable without reimplementing the comparison. `cmp` is
+    checked to agree with the order pairwise and to answer zero for one
+    key against itself in the other form; sorting no key is no key rather
+    than an error, and a key that does not parse is refused.
+    """
+    uncompressed = [keys.pubkey_from_prvkey(k, compressed=False) for k in (5, 2, 9, 1)]
+    compressed = [compress(pubkey_bytes) for pubkey_bytes in uncompressed]
+    # what libsecp256k1 orders by is the compressed serialization, so
+    # python sorting the same bytes is an independent reference
+    expected = sorted(compressed)
+
+    assert keys.pubkey_sort(compressed) == expected
+    # whichever form the keys are given and returned in
+    assert keys.pubkey_sort(uncompressed) == expected
+    assert [
+        compress(pubkey_bytes)
+        for pubkey_bytes in keys.pubkey_sort(compressed, compressed=False)
+    ] == expected
+    # sorting no key at all is no key at all, not an error
+    assert keys.pubkey_sort([]) == []
+
+    for i in range(len(expected) - 1):
+        assert keys.pubkey_cmp(expected[i], expected[i + 1]) < 0
+        assert keys.pubkey_cmp(expected[i + 1], expected[i]) > 0
+    # one key equals itself, in either form
+    assert keys.pubkey_cmp(compressed[0], uncompressed[0]) == 0
+
+    with pytest.raises(ValueError, match="public key"):
+        keys.pubkey_sort([compressed[0], b"\x02" + b"\x00" * 32])
+    with pytest.raises(ValueError, match="public key"):
+        keys.pubkey_cmp(compressed[0], b"")
+
+
+def test_sorting_and_adding_the_same_parsed_keys() -> None:
+    """The aggregation the producing halves are for: parse once, sort, add.
+
+    `pubkey_sort` serializes every key it ordered and `pubkey_combine`
+    parses every key it is given, so the two composed pay a serialization
+    and a field square root per key for nothing. The inner halves hand
+    the objects along instead, and the answer is the outer halves' own.
+
+    What `pubkey_sort_` returns is the caller's own objects, and that is
+    asserted by identity rather than by value: an array element would
+    compare equal to one and dangle the moment the list it points into
+    was dropped.
+    """
+    pubkeys_bytes = [keys.pubkey_from_prvkey(k, compressed=False) for k in (5, 2, 9, 1)]
+    parsed = [keys.parse(pubkey_bytes) for pubkey_bytes in pubkeys_bytes]
+
+    ordered = keys._pubkey_sort_(parsed)
+    assert [keys.serialize(pubkey) for pubkey in ordered] == keys.pubkey_sort(
+        pubkeys_bytes
+    )
+    # the objects handed back are the ones handed in, and all of them
+    assert sorted(id(pubkey) for pubkey in ordered) == sorted(
+        id(pubkey) for pubkey in parsed
+    )
+
+    assert keys.serialize(keys._pubkey_combine_(ordered)) == keys.pubkey_combine(
+        keys.pubkey_sort(pubkeys_bytes)
+    )
+    # sorting no key at all is no key at all here too
+    assert keys._pubkey_sort_([]) == []
+    # and what the outer half refuses, this refuses: an empty sum, and
+    # one that lands on the point at infinity
+    with pytest.raises(ValueError, match="at least one public key"):
+        keys._pubkey_combine_([])
+    with pytest.raises(ValueError, match="invalid public key sum"):
+        keys._pubkey_combine_([
+            keys.parse(keys.pubkey_from_prvkey(7, compressed=False)),
+            keys.parse(
+                keys.pubkey_negate(keys.pubkey_from_prvkey(7, compressed=False))
+            ),
+        ])
+
+
+def test_xonly_from_prvkey() -> None:
+    """The x-only key of a private key, without the point in between.
+
+    `from_prvkey` is `from_pubkey` of `keys.pubkey_from_prvkey`, and the
+    equality is asserted over an even-y key and an odd-y one, the parity
+    being what the two have to agree on and not only the 32 bytes. The
+    private key is bounded exactly as everywhere else.
+    """
+    for prvkey in (7, 11):
+        assert xonly.from_prvkey(prvkey) == xonly.from_pubkey(
+            keys.pubkey_from_prvkey(prvkey)
+        )
+    # the two keys above are one of each parity, which is what makes the
+    # agreement above worth asserting
+    assert {xonly.from_prvkey(7)[1], xonly.from_prvkey(11)[1]} == {0, 1}
+
+    with pytest.raises(ValueError, match="private key"):
+        xonly.from_prvkey(0)
+    with pytest.raises(ValueError, match="private key must be 32 bytes"):
+        xonly.from_prvkey(b"\x01" * 31)
+
+
+def test_keys_invalid_inputs() -> None:
+    """Every argument the keys module bounds is refused out of range.
+
+    A private key that is not 32 octets or is zero, a tweak that is not,
+    a public key that does not parse, an empty list to combine, and the
+    two products that reach zero or infinity -- neither of which has a key
+    to answer with.
+    """
+    pubkey_bytes = keys.pubkey_from_prvkey(7, compressed=False)
+
+    with pytest.raises(ValueError, match="private key"):
+        keys.prvkey_negate(b"\x01" * 31)
+    with pytest.raises(ValueError, match="tweak must be 32 bytes"):
+        keys.prvkey_tweak_add(7, b"\x01" * 33)
+    with pytest.raises(ValueError, match="private key"):
+        keys.prvkey_negate(0)
+    with pytest.raises(ValueError, match="public key"):
+        keys.pubkey_tweak_add(b"\x02" + b"\x00" * 32, 3)
+    with pytest.raises(ValueError, match="tweak"):
+        keys.pubkey_tweak_mul(pubkey_bytes, 0)
+    with pytest.raises(ValueError, match="at least one public key"):
+        keys.pubkey_combine([])
+    # a zero tweak makes the product zero, which is no private key
+    with pytest.raises(ValueError, match="private key or tweak"):
+        keys.prvkey_tweak_mul(7, 0)
+    # tweaking by the negation of the private key lands on the point at
+    # infinity, which has no serialization
+    with pytest.raises(ValueError, match="tweak or resulting public key"):
+        keys.pubkey_tweak_add(keys.pubkey_from_prvkey(7, compressed=False), N - 7)
+
+
+def test_xonly_from_pubkey() -> None:
+    """An x-only key is the x of the public key, with the parity beside it.
+
+    Checked over three keys, in both serialized forms: the parity is the
+    one the uncompressed form carries, and it is what a caller needs to
+    lift the x back to the point it came from.
+    """
+    for prvkey in (1, 2, 3):
+        pubkey_bytes = keys.pubkey_from_prvkey(prvkey, compressed=False)
+        xonly_bytes, parity = xonly.from_pubkey(pubkey_bytes)
+        assert xonly_bytes == pubkey_bytes[1:33]
+        assert parity == pubkey_bytes[64] & 1
+        # the compressed form is accepted too
+        assert xonly.from_pubkey(compress(pubkey_bytes)) == (
+            xonly_bytes,
+            parity,
+        )
+
+
+def test_xonly_tweak_add() -> None:
+    """BIP341 tweaking of an x-only key, against the plain key path.
+
+    The same result is reached by lifting the key to its even y point and
+    tweaking that through `keys.pubkey_tweak_add`, which is what the x-only
+    call does internally. A full public key is refused rather than lifted:
+    the key used here has odd y, so accepting one would tweak a point the
+    caller did not pass, and `from_pubkey` is where that lift is asked for.
+    `tweak_add_check` then verifies the commitment without recomputing it,
+    and fails on a different tweak, key or parity.
+    """
+    prvkey, tweak = 11, hashlib.sha256(b"taproot tweak").digest()
+    xonly_bytes, _ = xonly.from_pubkey(
+        keys.pubkey_from_prvkey(prvkey, compressed=False)
+    )
+
+    tweaked_bytes, parity = xonly.tweak_add(xonly_bytes, tweak)
+
+    # the same result is reached tweaking the even y lift of the key
+    # through the plain public key code path
+    lifted = keys.pubkey_tweak_add(b"\x02" + xonly_bytes, tweak)
+    assert (tweaked_bytes, parity) == xonly.from_pubkey(lifted)
+
+    # a full public key is accepted and names the same key: the public
+    # key of 11 has odd y, and BIP340 reads it as the x it shares with
+    # its negation rather than as another point
+    assert keys.pubkey_from_prvkey(prvkey, compressed=False)[64] & 1
+    for form in (
+        keys.pubkey_from_prvkey(prvkey, compressed=False),
+        compress(keys.pubkey_from_prvkey(prvkey, compressed=False)),
+    ):
+        assert xonly.tweak_add(form, tweak) == (tweaked_bytes, parity)
+
+    # the commitment can be checked without recomputing it
+    assert xonly.tweak_add_check(tweaked_bytes, parity, xonly_bytes, tweak)
+    # a different tweak, key, or parity does not check out
+    assert not xonly.tweak_add_check(tweaked_bytes, parity, xonly_bytes, b"\x01" * 32)
+    assert not xonly.tweak_add_check(
+        tweaked_bytes,
+        parity,
+        xonly.from_pubkey(keys.pubkey_from_prvkey(12, compressed=False))[0],
+        tweak,
+    )
+    assert not xonly.tweak_add_check(tweaked_bytes, 1 - parity, xonly_bytes, tweak)
+
+    # and 32 bytes which are the x coordinate of no point at all are
+    # False rather than an error: this compares the serialization
+    # instead of parsing it, which is the whole of what it saves over
+    # recomputing the tweak. The internal key is parsed, and does raise
+    assert not xonly.tweak_add_check(b"\xff" * 32, parity, xonly_bytes, tweak)
+    with pytest.raises(ValueError, match="invalid public key"):
+        xonly.tweak_add_check(tweaked_bytes, parity, b"\xff" * 32, tweak)
+
+
+def test_taproot_key_path() -> None:
+    """Sign a taproot key path spending with a tweaked private key."""
+    prvkey, tweak = 11, hashlib.sha256(b"taproot tweak").digest()
+    internal_bytes, _ = xonly.from_pubkey(
+        keys.pubkey_from_prvkey(prvkey, compressed=False)
+    )
+    output_bytes, _ = xonly.tweak_add(internal_bytes, tweak)
+
+    tweaked_prvkey = xonly.prvkey_tweak_add(prvkey, tweak)
+    # the tweaked private key is the one of the tweaked x-only key
+    assert xonly.from_pubkey(keys.pubkey_from_prvkey(tweaked_prvkey, compressed=False))[
+        0
+    ] == (output_bytes)
+    # hence it signs for the taproot output key
+    signature_bytes = ssa.sign(msg, tweaked_prvkey)
+    assert ssa.verify(msg, output_bytes, signature_bytes)
+    # while the internal key does not
+    assert not ssa.verify(msg, internal_bytes, signature_bytes)
+
+
+def test_xonly_invalid_inputs() -> None:
+    """Every argument the xonly module bounds is refused out of range.
+
+    Thirty-two octets that are not an x coordinate, a key that is not 32
+    octets, a tweak that is not, a parity outside 0..1, a zero private
+    key, a public key that does not parse -- and the two tweaks by the
+    negation of the scalar, which land on the point at infinity and have
+    no x-only form to answer with.
+    """
+    xonly_bytes, parity = xonly.from_pubkey(
+        keys.pubkey_from_prvkey(11, compressed=False)
+    )
+
+    with pytest.raises(ValueError, match="invalid public key"):
+        # 32 bytes which are not a valid x coordinate
+        xonly.tweak_add(b"\xff" * 32, b"\x01" * 32)
+    with pytest.raises(ValueError, match="invalid public key"):
+        # 33 octets which are no point either
+        xonly.tweak_add(b"\x02" + b"\x00" * 32, b"\x01" * 32)
+    with pytest.raises(ValueError, match="tweak must be 32 bytes"):
+        xonly.tweak_add(xonly_bytes, b"\x01" * 31)
+    with pytest.raises(ValueError, match="tweaked x-only public key"):
+        xonly.tweak_add_check(xonly_bytes[1:], parity, xonly_bytes, b"\x01" * 32)
+    with pytest.raises(ValueError, match="parity"):
+        xonly.tweak_add_check(xonly_bytes, 2, xonly_bytes, b"\x01" * 32)
+    with pytest.raises(ValueError, match="private key"):
+        xonly.prvkey_tweak_add(0, b"\x01" * 32)
+    with pytest.raises(ValueError, match="public key"):
+        xonly.from_pubkey(b"\x02" + b"\x00" * 32)
+    # tweaking by the negation of the private key of the even y point
+    # lands on the point at infinity, which has no x-only form
+    with pytest.raises(ValueError, match="tweak or resulting public key"):
+        xonly.tweak_add(
+            xonly.from_pubkey(keys.pubkey_from_prvkey(1, compressed=False))[0], N - 1
+        )
+    with pytest.raises(ValueError, match="tweak or resulting private key"):
+        xonly.prvkey_tweak_add(1, N - 1)
+
+
+def test_dsa_signature_forms() -> None:
+    """The compact form is r and s, and the conversion round trips.
+
+    Both halves are checked to be in 1..n-1, as two assertions rather than
+    one conjunction so that a failure says which half. A compact signature
+    that is not 64 octets and one whose r is out of range are both
+    refused, and the DER rebuilt from the compact form still verifies.
+    """
+    prvkey = 7
+    pubkey_bytes = compress(keys.pubkey_from_prvkey(prvkey, compressed=False))
+    der_bytes = dsa.sign(msg, prvkey)
+
+    compact_bytes = dsa.to_compact(der_bytes)
+    assert len(compact_bytes) == 64
+    # the compact form is the concatenation of r and s
+    r, s = (
+        int.from_bytes(compact_bytes[:32], "big"),
+        int.from_bytes(compact_bytes[32:], "big"),
+    )
+    # two assertions, not one conjunction: a failure then says which half
+    assert 0 < r < N
+    assert 0 < s < N
+    # and the conversion round trips
+    assert dsa.to_der(compact_bytes) == der_bytes
+
+    with pytest.raises(ValueError, match="compact signature"):
+        dsa.to_der(compact_bytes[1:])
+    with pytest.raises(ValueError, match="compact signature"):
+        # an out of range r cannot be parsed
+        dsa.to_der(b"\xff" * 32 + compact_bytes[32:])
+    assert dsa.verify(msg, pubkey_bytes, dsa.to_der(compact_bytes))
+
+
+def test_dsa_low_s() -> None:
+    """A signature is made low-s, and a malleated one normalizes back.
+
+    Negating s gives the other signature of the same message under the
+    same key, which is what the low-s rule exists to rule out: it is
+    reported as not low-s and does not verify, while `normalize` returns
+    the original byte for byte and that verifies.
+    """
+    prvkey = 7
+    pubkey_bytes = compress(keys.pubkey_from_prvkey(prvkey, compressed=False))
+    der_bytes = dsa.sign(msg, prvkey)
+
+    # signatures are created in the normalized lower-s form
+    assert dsa.is_low_s(der_bytes)
+    assert dsa.normalize(der_bytes) == der_bytes
+
+    # negating s yields the malleated signature of the same message
+    compact_bytes = dsa.to_compact(der_bytes)
+    s = int.from_bytes(compact_bytes[32:], "big")
+    malleated_bytes = dsa.to_der(compact_bytes[:32] + (N - s).to_bytes(32, "big"))
+
+    assert not dsa.is_low_s(malleated_bytes)
+    # which does not verify, being a higher-s one
+    assert not dsa.verify(msg, pubkey_bytes, malleated_bytes)
+    # but normalizes back to the original signature
+    assert dsa.normalize(malleated_bytes) == der_bytes
+    assert dsa.verify(msg, pubkey_bytes, dsa.normalize(malleated_bytes))
+
+
+def test_dsa_verify_normalizes_when_it_is_told_to() -> None:
+    """`normalize=True` is that round trip, without the round trip.
+
+    The same verdict as verifying `normalize(sig)`, on the malleated
+    signature and on the one that was already low-s, and through both
+    halves of `verify`. What it does not do is make anything else
+    verify: the wrong message is still False with it on, so the answer
+    is a normalization and not a leniency. The default is unchanged and
+    is asserted here too, that being the promise the keyword is behind.
+    """
+    prvkey = 7
+    pubkey_bytes = compress(keys.pubkey_from_prvkey(prvkey, compressed=False))
+    pubkey = keys.parse(pubkey_bytes)
+    der_bytes = dsa.sign(msg, prvkey)
+
+    compact_bytes = dsa.to_compact(der_bytes)
+    s = int.from_bytes(compact_bytes[32:], "big")
+    malleated_bytes = dsa.to_der(compact_bytes[:32] + (N - s).to_bytes(32, "big"))
+
+    # the same answer the round trip through DER gives, and the public and
+    # private halves agree on it. The private one is handed a parsed
+    # signature of its own each time: `normalize=True` mutates it, which
+    # is the saving over parsing the normalized bytes back
+    assert dsa.verify(msg, pubkey_bytes, malleated_bytes, True)
+    assert dsa._verify_(msg, pubkey, dsa.parse_der(malleated_bytes), True)
+    # a signature already low-s is normalized to itself, so nothing about
+    # the ordinary case changes
+    assert dsa.verify(msg, pubkey_bytes, der_bytes, True)
+    assert dsa._verify_(msg, pubkey, dsa.parse_der(der_bytes), True)
+
+    # and the default is still the refusal, through both halves
+    assert not dsa.verify(msg, pubkey_bytes, malleated_bytes)
+    assert not dsa._verify_(msg, pubkey, dsa.parse_der(malleated_bytes))
+
+    # what `normalize=True` mutated is the caller's own object, and it is
+    # the lower-s signature afterwards rather than the one handed in
+    malleated = dsa.parse_der(malleated_bytes)
+    assert not dsa._is_low_s_(malleated)
+    assert dsa._verify_(msg, pubkey, malleated, True)
+    assert dsa._is_low_s_(malleated)
+    assert dsa.serialize_der(malleated) == der_bytes
+
+    # normalizing s says nothing about the message: a signature of
+    # another one is False either way
+    other_msg = hashlib.sha256(b"another message").digest()
+    assert not dsa.verify(other_msg, pubkey_bytes, malleated_bytes, True)
+    assert not dsa.verify(other_msg, pubkey_bytes, der_bytes, True)
+
+
+def test_size_checks_refuse_both_sides() -> None:
+    """Both x-only size checks refuse a value too short as well as too long.
+
+    The tests above pass a 33-octet key to each, which is the compressed
+    form and the mistake a caller actually makes; what they leave out is
+    the other edge, and the first mutation session found both checks
+    surviving a `!=` turned into `>`.
+    """
+    xonly_bytes, parity = xonly.from_pubkey(
+        keys.pubkey_from_prvkey(11, compressed=False)
+    )
+
+    # parse, reached through both entry points: 31 octets are none of the
+    # three serializations, and libsecp256k1 is never handed them
+    with pytest.raises(ValueError, match="invalid public key"):
+        xonly.tweak_add(xonly_bytes[:-1], b"\x01" * 32)
+
+    # and the tweaked key of the commitment check, one octet too many
+    with pytest.raises(ValueError, match="tweaked x-only public key"):
+        xonly.tweak_add_check(xonly_bytes + b"\x01", parity, xonly_bytes, b"\x01" * 32)
+
+
+def test_pubkey_verify_is_the_parse_with_nothing_kept() -> None:
+    """`keys.pubkey_verify` answers what `keys.parse` proves.
+
+    True for exactly what parses, in either serialization, and False for
+    everything else -- a point of no curve, and octets of a length no
+    public key has, which every other entry point taking a key raises
+    over. A verdict is what a library validating its own input wants:
+    `parse` would hand it an object to hold and `reserialize` the octets
+    it already had.
+    """
+    prvkey = 11
+    compressed = keys.pubkey_from_prvkey(prvkey)
+    uncompressed = keys.pubkey_from_prvkey(prvkey, compressed=False)
+
+    for form in (compressed, uncompressed):
+        assert keys.pubkey_verify(form)
+        assert keys.serialize(keys.parse(form)) == compressed
+
+    # what does not parse, in the two ways it can fail
+    for refused in (b"\x02" + bytes(32), b"\x04" + b"\xff" * 64):
+        assert not keys.pubkey_verify(refused)
+        with pytest.raises(ValueError, match="invalid public key"):
+            keys.parse(refused)
+
+    # and a length no serialization has, which is a verdict here and an
+    # exception everywhere else
+    for wrong_size in (b"", compressed[:-1], compressed + b"\x00"):
+        assert not keys.pubkey_verify(wrong_size)
+
+    # the type check is not relaxed with it: a str is no octets
+    with pytest.raises(TypeError, match="public key"):
+        keys.pubkey_verify("02" + "00" * 32)  # type: ignore[arg-type]
+
+
+def test_pubkey_sum_answers_the_infinity_combine_refuses() -> None:
+    """`keys.pubkey_sum` is `pubkey_combine` with the identity as a value.
+
+    The two are one call and differ in what they do with the one sum that
+    is no public key: `P + (-P)` is the identity, which a caller doing
+    arithmetic has a use for and which has no serialization to answer
+    with. Everywhere else the two agree, octet for octet and in both
+    forms.
+    """
+    a, b = 3, 5
+    pubkey_a, pubkey_b = (
+        keys.pubkey_from_prvkey(a, compressed=False),
+        keys.pubkey_from_prvkey(b, compressed=False),
+    )
+
+    for compressed in (True, False):
+        assert keys.pubkey_sum([pubkey_a, pubkey_b], compressed) == keys.pubkey_combine(
+            [pubkey_a, pubkey_b], compressed
+        )
+        assert keys.pubkey_sum([pubkey_a], compressed) == keys.pubkey_combine(
+            [pubkey_a], compressed
+        )
+
+    # the one place they part: infinity, which combine refuses
+    negated = keys.pubkey_negate(pubkey_a)
+    assert keys.pubkey_sum([pubkey_a, negated]) is None
+    with pytest.raises(ValueError, match="public key sum"):
+        keys.pubkey_combine([pubkey_a, negated])
+    # and an intermediate sum at infinity is not the same as a final one:
+    # P + (-P) + P is P, libsecp256k1 adding the terms rather than a
+    # running total this side would have to serialize
+    assert keys.pubkey_sum([pubkey_a, negated, pubkey_a]) == compress(pubkey_a)
+
+    # what is refused stays refused: an empty sequence has no sum at all,
+    # and a key that is no point is an argument rather than a verdict
+    with pytest.raises(ValueError, match="at least one public key"):
+        keys.pubkey_sum([])
+    with pytest.raises(ValueError, match="invalid public key"):
+        keys.pubkey_sum([pubkey_a, b"\x02" + bytes(32)])
+
+
+def test_pubkey_tweak_mul_sum_is_the_arithmetic_it_names() -> None:
+    """The multi-scalar multiplication, against the scalar it comes to.
+
+    Every key here is a known multiple of the generator, so the sum of
+    the products is the generator times the sum of the products of the
+    scalars, modulo the group order. That is an algebraic invariant over
+    derived inputs and not an external vector: the scalar arithmetic is
+    python's, the point either side of the comparison is these bindings'
+    -- it catches a key paired with the wrong scalar, a wrong order
+    and a wrong reduction,
+    and it would not catch a curve that is not secp256k1. The anchor is
+    below and is the one value the equality can be pinned to without
+    computing a point here: the generator SEC 2 v.2 section 2.4.1
+    publishes, which `test_pubkey_from_prvkey` also holds this package
+    to.
+
+    The composition the entry point replaces is asserted too, and
+    separately: it is what the entry point promises to be, and both
+    serializations of it.
+    """
+    # the published generator, written out rather than derived: the sum
+    # of a term and its negation-by-scalar is 1*G, and this is what 1*G
+    # is according to SEC 2 v.2 rather than according to these bindings
+    generator = bytes.fromhex(
+        "0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+        "483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8"
+    )
+    assert keys.pubkey_tweak_mul_sum([generator, generator], [N - 1, 2], False) == (
+        generator
+    )
+
+    prvkeys = (3, 5, 7, 11)
+    tweaks = (2, 13, N - 1, 0x123456789ABCDEF)
+    pubkeys = [keys.pubkey_from_prvkey(k, compressed=False) for k in prvkeys]
+
+    total = sum(k * t for k, t in zip(prvkeys, tweaks, strict=True)) % N
+    for compressed in (True, False):
+        assert keys.pubkey_tweak_mul_sum(
+            pubkeys, tweaks, compressed
+        ) == keys.pubkey_from_prvkey(total, compressed)
+        # and the composition it stands for, term by term
+        products = [
+            keys.pubkey_tweak_mul(pubkey, tweak, False)
+            for pubkey, tweak in zip(pubkeys, tweaks, strict=True)
+        ]
+        assert keys.pubkey_tweak_mul_sum(
+            pubkeys, tweaks, compressed
+        ) == keys.pubkey_sum(products, compressed)
+
+    # one term is that term multiplied, the sum having nothing to add
+    assert keys.pubkey_tweak_mul_sum(pubkeys[:1], tweaks[:1]) == keys.pubkey_tweak_mul(
+        pubkeys[0], tweaks[0]
+    )
+
+    # a key given compressed is the same key: what the entry point does
+    # with the octets is parse them, as every other one here does
+    assert keys.pubkey_tweak_mul_sum(
+        [compress(pubkey) for pubkey in pubkeys], tweaks
+    ) == keys.pubkey_tweak_mul_sum(pubkeys, tweaks)
+
+
+def test_pubkey_tweak_mul_sum_has_no_bound_on_its_terms() -> None:
+    """Sequences of the same length are accepted however long they are.
+
+    The guard compares two lengths, and a sequence of a thousand terms is
+    as many tweaks as public keys as one of two is. The sum of a thousand
+    copies of the generator, each times one, is the generator times a
+    thousand, which `pubkey_from_prvkey` answers independently of the sum.
+    """
+    terms = 1000
+    generator = keys.pubkey_from_prvkey(1)
+    assert keys.pubkey_tweak_mul_sum(
+        [generator] * terms, [1] * terms
+    ) == keys.pubkey_from_prvkey(terms)
+
+
+def test_pubkey_tweak_mul_sum_answers_infinity_and_refuses_the_rest() -> None:
+    """The identity is a value; a wrong argument is not.
+
+    A verification equation is written to land on infinity, so the sum
+    that has no public key is `pubkey_sum`'s None here too. Everything
+    else the two sequences can be wrong about is a refusal, and the
+    lengths are the one this function has to raise itself: zip would
+    otherwise stop at the shorter of the two and answer a sum of the
+    terms that happened to pair up.
+    """
+    pubkey = keys.pubkey_from_prvkey(7, compressed=False)
+    negated = keys.pubkey_negate(pubkey, compressed=False)
+
+    # None whichever serialization was asked for: the flag is what the
+    # answer would have been written in, and there is no answer
+    for compressed in (True, False):
+        assert keys.pubkey_tweak_mul_sum([pubkey, negated], [3, 3], compressed) is None
+    # an intermediate at infinity is not a total at infinity: the terms
+    # are added by libsecp256k1, not into a running total this side
+    assert keys.pubkey_tweak_mul_sum(
+        [pubkey, negated, pubkey], [3, 3, 3]
+    ) == keys.pubkey_tweak_mul(pubkey, 3)
+
+    # the count is refused whichever sequence has more of it
+    with pytest.raises(ValueError, match="as many tweaks as public keys"):
+        keys.pubkey_tweak_mul_sum([pubkey, negated], [3])
+    with pytest.raises(ValueError, match="as many tweaks as public keys"):
+        keys.pubkey_tweak_mul_sum([pubkey], [3, 3])
+    with pytest.raises(ValueError, match="at least one public key"):
+        keys.pubkey_tweak_mul_sum([], [])
+    with pytest.raises(ValueError, match="invalid public key"):
+        keys.pubkey_tweak_mul_sum([pubkey, b"\x02" + bytes(32)], [3, 3])
+    # zero and the group order are the two scalars with no product, and
+    # a tweak of the wrong width is refused before either is asked
+    with pytest.raises(ValueError, match="invalid tweak"):
+        keys.pubkey_tweak_mul_sum([pubkey, negated], [3, 0])
+    with pytest.raises(ValueError, match="invalid tweak"):
+        keys.pubkey_tweak_mul_sum([pubkey, negated], [3, N])
+    with pytest.raises(ValueError, match="tweak must be 32 bytes"):
+        keys.pubkey_tweak_mul_sum([pubkey, negated], [3, b"\x01"])
+
+
+def test_xonly_pubkey_verify_and_to_pubkey_are_the_two_x_only_twins() -> None:
+    """The x-only twins of `keys.pubkey_verify` and of a lift.
+
+    `pubkey_verify` asks whether octets name a point, and `to_pubkey`
+    answers the point they name, which is the even-y one: a caller
+    holding an x had to write `0x02 || x` itself for either question.
+    Both take the module's three serializations, and both answer for the
+    key rather than for the form it arrived in -- a key with odd y names
+    the x-only key its negation does.
+    """
+    prvkey = 11
+    pubkey = keys.pubkey_from_prvkey(prvkey)
+    x_only, parity = xonly.from_pubkey(pubkey)
+    even_y = pubkey if parity == 0 else keys.pubkey_negate(pubkey)
+
+    for form in (
+        x_only,
+        pubkey,
+        keys.pubkey_from_prvkey(prvkey, compressed=False),
+        keys.pubkey_negate(pubkey),
+    ):
+        assert xonly.pubkey_verify(form)
+        assert xonly.to_pubkey(form) == even_y
+        assert xonly.to_pubkey(form, compressed=False) == keys.reserialize(
+            even_y, compressed=False
+        )
+        # the y is what the caller asked for, and it is the even one
+        assert xonly.to_pubkey(form, compressed=False)[64] % 2 == 0
+
+    # the round trip, both ways
+    assert xonly.from_pubkey(xonly.to_pubkey(x_only))[0] == x_only
+
+    # an x that is the x-coordinate of no point at all, and octets of a
+    # length no serialization has: a verdict for the first call and an
+    # exception for the second, as for a full public key
+    for refused in (bytes(32), b"\xff" * 32, b"", x_only[:-1]):
+        assert not xonly.pubkey_verify(refused)
+        with pytest.raises(ValueError, match="invalid public key"):
+            xonly.to_pubkey(refused)
+
+    with pytest.raises(TypeError, match="public key"):
+        xonly.pubkey_verify(11)  # type: ignore[arg-type]
+
+
+def test_a_31_octet_x_is_no_key_though_its_zero_extension_is_one() -> None:
+    """31 octets are not an x-only key, whichever octet would follow them.
+
+    BIP340 keys are 32 octets. The value here is the x of 30 times the
+    generator, which ends in a zero octet, so dropping that octet leaves
+    31 whose zero-extension is a valid x: what a parse that read 32
+    octets from a shorter value would accept.
+    """
+    x_only = xonly.from_prvkey(30)[0]
+    assert x_only[-1] == 0
+    assert xonly.pubkey_verify(x_only)
+    shortened = x_only[:-1]
+
+    assert not xonly.pubkey_verify(shortened)
+    with pytest.raises(ValueError, match="invalid public key"):
+        xonly.parse(shortened)
+    with pytest.raises(ValueError, match="invalid public key"):
+        xonly.from_pubkey(shortened)
+    with pytest.raises(ValueError, match="invalid public key"):
+        xonly.to_pubkey(shortened)
+
+
+def test_signature_verify_is_the_parse_with_nothing_kept() -> None:
+    """`dsa.signature_verify` answers what the two parses prove.
+
+    The signature twin of `keys.pubkey_verify`, and the same shape: True
+    for exactly what parses in the serialization it was told, False for
+    everything else, the lengths included. It says nothing about a key or
+    a message, and nothing about the lower-s form.
+    """
+    prvkey = 7
+    der = dsa.sign(msg, prvkey)
+    compact = dsa.to_compact(der)
+
+    assert dsa.signature_verify(der)
+    assert dsa.signature_verify(compact, compact=True)
+    # each form is refused as the other, which is what the flag is for
+    assert not dsa.signature_verify(compact)
+    assert not dsa.signature_verify(der, compact=True)
+
+    # r or s at or above the group order is what a compact signature has
+    # to be refused for, there being no encoding to malform
+    assert not dsa.signature_verify(N.to_bytes(32, "big") * 2, compact=True)
+    # and a malformed encoding is what a DER one has
+    for refused in (b"", b"\x30\x06", der[:-1], der + b"\x00"):
+        assert not dsa.signature_verify(refused)
+        with pytest.raises(ValueError, match="invalid DER signature"):
+            dsa.parse_der(refused)
+
+    for wrong_size in (b"", compact[:-1], compact + b"\x00"):
+        assert not dsa.signature_verify(wrong_size, compact=True)
+        with pytest.raises(ValueError, match="invalid compact signature"):
+            dsa.parse_compact(wrong_size)
+
+    # the lower-s form is a different question, and this is not it
+    high_s = dsa.to_der(
+        compact[:32] + (N - int.from_bytes(compact[32:], "big")).to_bytes(32, "big")
+    )
+    assert dsa.signature_verify(high_s)
+    assert not dsa.is_low_s(high_s)
+
+    with pytest.raises(TypeError, match="DER signature"):
+        dsa.signature_verify(11)  # type: ignore[arg-type]

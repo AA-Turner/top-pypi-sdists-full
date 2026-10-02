@@ -1,0 +1,581 @@
+"""Migration file generator from schema diffs.
+
+This module generates Python migration files from SchemaDiff objects.
+Each migration file contains up() and down() methods with the necessary SQL.
+"""
+
+import fcntl
+import shlex
+import subprocess
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+from confiture.core import destructive as _destructive
+from confiture.core._migrator.discovery import parse_migration_filename
+from confiture.core.change_order import apply_order
+from confiture.core.change_set import classify_statements
+from confiture.core.differ_sql import DifferSQLGenerator
+from confiture.core.risk_tier import RiskTier, worst_tier
+from confiture.core.schema_change import SchemaChange, SchemaDiff
+from confiture.core.sql_lexer import DIRECTIVE_PREFIX
+from confiture.core.sql_utils import comment_text, strip_transaction_wrappers
+from confiture.exceptions import DifferError, ExternalGeneratorError
+
+
+def _execute_call(sql: str) -> str:
+    """One ``self.execute(...)`` line whose argument is a Python literal of exactly *sql*."""
+    return f"        self.execute({_python_literal(sql)})"
+
+
+def _python_literal(sql: str) -> str:
+    """*sql* as a Python string literal, readable where that is safe.
+
+    A name in the SQL may hold any character, so the readable forms are used only
+    when nothing in *sql* can end them or be read as an escape: a one-line
+    statement with no ``"`` or backslash rides in double quotes, a multi-line one
+    (a ``CREATE TABLE``) in triple quotes when it holds no ``\"\"\"``, ends in no
+    ``"`` and has no backslash. Anything else is ``repr``.
+    """
+    if "\\" in sql or not all(c.isprintable() or c == "\n" for c in sql):
+        return repr(sql)
+    if "\n" not in sql and '"' not in sql:
+        return f'"{sql}"'
+    if '"""' not in sql and not sql.endswith('"'):
+        return f'"""{sql}"""'
+    return repr(sql)
+
+
+def _tier_of(statement: str) -> RiskTier | None:
+    """The tier the change-set classifier — the one ``migrate preflight`` runs — gives ``statement``."""
+    return worst_tier(entry.tier for entry in classify_statements(statement))
+
+
+def _with_tier(statement: str, *, floor: RiskTier | None = None) -> str:
+    """Prefix ``statement`` with its tier directive.
+
+    Read from the same classifier as preflight, so the file and the report
+    never disagree; ``floor`` raises it (a statement nothing can undo is
+    ``irreversible`` whatever its DDL says). A statement the classifier cannot
+    tier (a bare comment, SQL it cannot parse) gets no directive: five tiers,
+    no "unknown".
+    """
+    tier = worst_tier((_tier_of(statement), floor))
+    if tier is None:
+        return statement
+    return f"-- {DIRECTIVE_PREFIX}tier {tier.value}\n{statement}"
+
+
+def _terminated(sql: str) -> str:
+    """End a statement with a semicolon; leave a trailing comment line alone."""
+    sql = sql.rstrip()
+    if sql.endswith(";") or sql.rsplit("\n", 1)[-1].lstrip().startswith("--"):
+        return sql
+    return sql + ";"
+
+
+class MigrationGenerator:
+    """Generates Python migration files from schema diffs.
+
+    Example:
+        >>> generator = MigrationGenerator(migrations_dir=Path("db/migrations"))
+        >>> diff = SchemaDiff(changes=[...])
+        >>> migration_file = generator.generate(diff, name="add_users_table")
+    """
+
+    def __init__(self, migrations_dir: Path):
+        """Initialize migration generator.
+
+        Args:
+            migrations_dir: Directory where migration files will be created
+        """
+        self.migrations_dir = migrations_dir
+        self._sql_gen = DifferSQLGenerator()
+
+    def generate(
+        self,
+        diff: SchemaDiff,
+        name: str,
+        *,
+        version: str | None = None,
+        destructive: str = "gated",
+    ) -> Path:
+        """Generate migration file from schema diff.
+
+        Args:
+            diff: Schema diff containing changes
+            name: Name for the migration (snake_case)
+            version: The version stamp to use (``YYYYMMDDHHMMSS``); ``None`` takes
+                the clock. Inject it to make two runs write the same file.
+
+        Returns:
+            Path to generated migration file
+
+        Raises:
+            ValueError: If diff has no changes
+        """
+        if not diff.has_changes():
+            raise ValueError("No changes to generate migration from")
+        gated = self._gate(diff, destructive)
+
+        # Get next version number
+        version = version or self._get_next_version()
+
+        # Generate file path
+        filename = f"{version}_{name}.py"
+        filepath = self.migrations_dir / filename
+
+        # Generate migration code
+        code = self._generate_migration_code(diff, version, name, gated=gated)
+
+        # Write file
+        filepath.write_text(code)
+
+        return filepath
+
+    def generate_sql(
+        self,
+        diff: SchemaDiff,
+        name: str,
+        *,
+        version: str | None = None,
+        destructive: str = "gated",
+    ) -> Path:
+        """Write the migration as a ``.up.sql`` / ``.down.sql`` pair; return the up path.
+
+        SQL is the form every reader of a migration understands: ``migrate
+        preflight`` classifies its statements and reports their risk tier (a
+        Python migration is unclassified by contract) and ``--idempotent``
+        walks them. The down file undoes the changes in reverse; a change with
+        no derivable rollback leaves a comment saying so, for the deployer to
+        finish before shipping.
+
+        Args:
+            diff: Schema diff containing changes
+            name: Migration name (snake_case)
+            version: Version stamp; by default the next one, allocated from
+                the clock. Inject it to make two runs write the same files.
+            destructive: The gate policy — ``gated`` marks a file that loses
+                data with ``-- confiture:destructive``, ``allow`` leaves it
+                unmarked, ``forbid`` refuses to write it (``DIFFER_401``).
+
+        Returns:
+            Path to the ``.up.sql`` file
+
+        Raises:
+            ValueError: If diff has no changes
+            DifferError: If the policy is ``forbid`` and a change loses data
+        """
+        if not diff.has_changes():
+            raise ValueError("No changes to generate migration from")
+        gate = _destructive.GATE_LINE + "\n" if self._gate(diff, destructive) else ""
+        version = version or self._get_next_version()
+        header = f"-- Migration: {name}\n-- Version: {version}\n\n"
+        up_path = self.migrations_dir / f"{version}_{name}.up.sql"
+        changes = apply_order(diff.changes)
+        downs = {id(change): self._change_to_down_sql(change) for change in changes}
+        up_path.write_text(header + gate + self._up_statements(changes, downs))
+        down_path = up_path.with_name(up_path.name.replace(".up.sql", ".down.sql"))
+        down_path.write_text(header + self._down_statements(changes[::-1], downs))
+        return up_path
+
+    def _gate(self, diff: SchemaDiff, policy: str) -> bool:
+        """Whether the up side falls under the gate, and refuse it when the policy forbids."""
+        if policy not in _destructive.POLICIES:
+            raise ValueError(f"destructive must be one of {_destructive.POLICIES}; got {policy!r}")
+        losing = [
+            sql
+            for change in diff.changes
+            if (sql := self._change_to_up_sql(change)) is not None
+            and _destructive.gates(_tier_of(_terminated(sql)))
+        ]
+        if not losing:
+            return False
+        if policy == "forbid":
+            raise DifferError(
+                "Destructive change forbidden by policy (migration.destructive: forbid): "
+                + "; ".join(losing),
+                error_code="DIFFER_401",
+                resolution_hint=(
+                    "Re-run with --allow-destructive, or set migration.destructive to gated "
+                    "or allow in the environment config"
+                ),
+            )
+        return policy == "gated"
+
+    def _up_statements(self, changes: list[SchemaChange], downs: dict[int, str | None]) -> str:
+        """One tiered, terminated statement per change, each declaring what cannot be undone.
+
+        ``-- confiture:irreversible data`` precedes a statement that loses data
+        (the down file recreates the object, never its rows);
+        ``-- confiture:irreversible no rollback derived …`` precedes a statement
+        the down file cannot undo at all, and pins its tier to ``irreversible``.
+        """
+        statements = []
+        for change in changes:
+            sql = self._change_to_up_sql(change)
+            if sql is None:
+                statements.append(
+                    f"-- WARNING: no SQL derived for: {comment_text(str(change))}. "
+                    "Edit this file before deploying."
+                )
+                continue
+            reason = _destructive.irreversible_reason(
+                change, has_down=downs[id(change)] is not None
+            )
+            statement = _with_tier(
+                _terminated(sql), floor=RiskTier.IRREVERSIBLE if reason else None
+            )
+            if reason:
+                statement = f"{_destructive.irreversible_line(reason)}\n{statement}"
+            statements.append(statement)
+        return "\n\n".join(statements) + "\n"
+
+    def _down_statements(self, changes: list[SchemaChange], downs: dict[int, str | None]) -> str:
+        """The reverse of each change, or the directive that says there is none."""
+        statements = []
+        for change in changes:
+            sql = downs[id(change)]
+            if sql is None:
+                statements.append(_destructive.irreversible_line(_destructive.no_rollback(change)))
+            else:
+                statements.append(_with_tier(_terminated(sql)))
+        return "\n\n".join(statements) + "\n"
+
+    def _get_next_version(self) -> str:
+        """Generate a timestamp-based migration version (seconds precision).
+
+        Returns:
+            Version string in YYYYMMDDHHmmSS format (e.g., "20260228120530").
+            Guaranteed unique for practical migration rates (< 1/second per developer).
+
+        Note:
+            Timestamps are seconds-precision to ensure lexicographic sort order
+            matches chronological order. Collision probability at 10 migrations/day
+            per developer is negligible.
+        """
+        return datetime.now().strftime("%Y%m%d%H%M%S")
+
+    def _validate_versions(self) -> dict[str, list[Path]]:
+        """Validate migration versions for duplicates.
+
+        Returns:
+            Dict mapping version numbers to list of files with that version.
+            Empty dict if no duplicates exist.
+        """
+        version_map: dict[str, list[Path]] = {}
+
+        if not self.migrations_dir.exists():
+            return {}
+
+        for migration_file in self.migrations_dir.glob("*.py"):
+            try:
+                version = parse_migration_filename(migration_file.name)[0]
+                if version not in version_map:
+                    version_map[version] = []
+                version_map[version].append(migration_file)
+            except IndexError:
+                # Ignore malformed filenames
+                continue
+
+        # Filter to only duplicates
+        duplicates = {v: files for v, files in version_map.items() if len(files) > 1}
+        return duplicates
+
+    def _check_name_conflict(self, name: str) -> list[Path]:
+        """Check if migration name already exists with different version.
+
+        Args:
+            name: Migration name to check
+
+        Returns:
+            List of files with same name but different version
+        """
+        if not self.migrations_dir.exists():
+            return []
+
+        conflicts = []
+        conflicts.extend(self.migrations_dir.glob(f"*_{name}.py"))
+
+        return conflicts
+
+    def _check_file_exists(self, filepath: Path) -> bool:
+        """Check if a file already exists.
+
+        Args:
+            filepath: Path to check
+
+        Returns:
+            True if file exists, False otherwise
+        """
+        return filepath.exists()
+
+    def _acquire_migration_lock(self) -> Any:
+        """Acquire lock for migration generation.
+
+        Returns:
+            Lock file handle (must be released with _release_migration_lock)
+
+        Raises:
+            IOError: If lock cannot be acquired (another process has it)
+        """
+        lock_file = self.migrations_dir / ".migration_lock"
+        lock_file.parent.mkdir(parents=True, exist_ok=True)
+        lock_file.touch(exist_ok=True)
+
+        lock_fd = Path(lock_file).open()  # noqa: SIM115 - File lock requires open handle
+
+        try:
+            fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return lock_fd
+        except OSError as e:
+            lock_fd.close()
+            raise OSError(
+                "Another migration generation is in progress. "
+                "Wait for other process to complete or remove .migration_lock"
+            ) from e
+
+    def _release_migration_lock(self, lock_fd: Any) -> None:
+        """Release migration lock.
+
+        Args:
+            lock_fd: Lock file handle from _acquire_migration_lock
+        """
+        try:
+            fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        finally:
+            lock_fd.close()
+
+    def _generate_migration_code(
+        self, diff: SchemaDiff, version: str, name: str, *, gated: bool = False
+    ) -> str:
+        """Generate Python migration code.
+
+        Args:
+            diff: Schema diff containing changes
+            version: Version number
+            name: Migration name
+
+        Returns:
+            Python code as string
+        """
+        class_name = self._to_class_name(name)
+
+        changes = apply_order(diff.changes)
+        up_statements = self._generate_up_statements(changes)
+        down_statements = self._generate_down_statements(changes)
+
+        template = '''"""Migration: {name}
+
+Version: {version}
+"""
+
+from confiture.models.migration import Migration
+
+
+class {class_name}(Migration):
+    """Migration: {name}."""
+
+    version = "{version}"
+    name = "{name}"
+{destructive}
+    def up(self) -> None:
+        """Apply migration."""
+{up_statements}
+
+    def down(self) -> None:
+        """Rollback migration."""
+{down_statements}
+'''
+
+        return template.format(
+            name=name,
+            version=version,
+            class_name=class_name,
+            destructive=(
+                "    destructive = True  # data is lost: migrate up needs --allow-destructive\n"
+                if gated
+                else ""
+            ),
+            up_statements=up_statements,
+            down_statements=down_statements,
+        )
+
+    def _to_class_name(self, snake_case: str) -> str:
+        """Convert snake_case to PascalCase.
+
+        Args:
+            snake_case: String in snake_case format
+
+        Returns:
+            String in PascalCase format
+
+        Example:
+            >>> gen._to_class_name("add_users_table")
+            'AddUsersTable'
+        """
+        words = snake_case.split("_")
+        return "".join(word.capitalize() for word in words)
+
+    def _generate_up_statements(self, changes: list[SchemaChange]) -> str:
+        """Generate SQL statements for up migration.
+
+        Args:
+            changes: List of schema changes
+
+        Returns:
+            Python code with execute() calls
+        """
+        statements = []
+
+        for change in changes:
+            sql = self._change_to_up_sql(change)
+            if sql:
+                statements.append(_execute_call(sql))
+
+        return "\n".join(statements) if statements else "        pass  # No operations"
+
+    def _generate_down_statements(self, changes: list[SchemaChange]) -> str:
+        """Generate SQL statements for down migration.
+
+        Args:
+            changes: List of schema changes
+
+        Returns:
+            Python code with execute() calls
+        """
+        statements = []
+
+        # Process changes in reverse order for rollback
+        for change in reversed(changes):
+            sql = self._change_to_down_sql(change)
+            if sql:
+                statements.append(_execute_call(sql))
+            else:
+                reason = comment_text(_destructive.no_rollback(change))
+                statements.append(f"        # irreversible: {reason}")
+
+        return "\n".join(statements) if statements else "        pass  # No operations"
+
+    def _change_to_up_sql(self, change: SchemaChange) -> str | None:
+        """The statement *change* is, or ``None`` when none is derived.
+
+        A statement that loses data is written like any other; the destructive
+        gate (:mod:`confiture.core.destructive`) decides whether it ships.
+        """
+        sql = self._sql_gen.generate_up(change)
+        return None if sql is None else sql.rstrip("\n")
+
+    def run_external_generator(
+        self,
+        *,
+        generator_config: Any,
+        from_path: Path,
+        to_path: Path,
+        migration_name: str,
+        dry_run: bool = False,
+    ) -> tuple[str, Path]:
+        """Run an external generator command and return (resolved_command, output_path).
+
+        On dry_run=True: resolves the command and target filename but does NOT
+        execute the subprocess or write any file.
+
+        Args:
+            generator_config: MigrationGeneratorConfig with command template
+            from_path: Path to the old schema file
+            to_path: Path to the new schema file
+            migration_name: Name for the migration (snake_case)
+            dry_run: If True, skip execution and return resolved paths only
+
+        Returns:
+            Tuple of (resolved_command, target_up_sql_path)
+
+        Raises:
+            FileNotFoundError: If from_path or to_path does not exist
+            ExternalGeneratorError: If subprocess exits with non-zero code or writes empty file
+        """
+        version = self._get_next_version()
+        output_path = self.migrations_dir / f"{version}_{migration_name}.up.sql"
+
+        resolved = generator_config.command.format_map(
+            {
+                "from": shlex.quote(str(from_path.resolve())),
+                "to": shlex.quote(str(to_path.resolve())),
+                "output": shlex.quote(str(output_path.resolve())),
+            }
+        )
+
+        if dry_run:
+            return (resolved, output_path)
+
+        if not from_path.exists():
+            raise FileNotFoundError(f"from_path does not exist: {from_path}")
+        if not to_path.exists():
+            raise FileNotFoundError(f"to_path does not exist: {to_path}")
+
+        result = subprocess.run(
+            resolved,
+            shell=True,  # nosec B602 — `resolved` is a trusted operator-configured generator command (not user/network input); a shell is required to honor the configured pipeline.
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            raise ExternalGeneratorError(
+                f"Generator exited with code {result.returncode}.\nstderr: {result.stderr}",
+                returncode=result.returncode,
+                stderr=result.stderr,
+                resolution_hint="Check the generator command configuration and ensure the external tool is installed and accessible",
+            )
+
+        sql = output_path.read_text()
+        if not sql.strip():
+            raise ExternalGeneratorError(
+                "Generator wrote an empty SQL file; aborting to avoid a silent no-op migration.",
+                returncode=0,
+                stderr="",
+                resolution_hint="Ensure the generator command writes valid SQL to the output file path",
+            )
+        sql = _strip_transaction_wrappers(sql)
+        output_path.write_text(sql)
+
+        down_path = output_path.parent / output_path.name.replace(".up.sql", ".down.sql")
+        if not down_path.exists():
+            down_path.write_text(
+                "-- WARNING: Rollback SQL not generated. Edit this file before deploying.\n"
+                "-- If no rollback is needed, replace this with a comment explaining why.\n"
+            )
+
+        return (resolved, output_path)
+
+    def _change_to_down_sql(self, change: SchemaChange) -> str | None:
+        """The statement that undoes *change*, or ``None`` when no rollback is derived."""
+        sql = self._sql_gen.generate_down(change)
+        return sql.rstrip("\n") if sql else None
+
+    def check_name_conflict(self, name: str) -> list[Path]:
+        """Public spelling of :meth:`_check_name_conflict`."""
+        return self._check_name_conflict(name)
+
+    def get_next_version(self) -> str:
+        """Public spelling of :meth:`_get_next_version`."""
+        return self._get_next_version()
+
+    def to_class_name(self, snake_case: str) -> str:
+        """Public spelling of :meth:`_to_class_name`."""
+        return self._to_class_name(snake_case)
+
+    def acquire_migration_lock(self) -> Any:
+        """Public spelling of :meth:`_acquire_migration_lock`."""
+        return self._acquire_migration_lock()
+
+    def release_migration_lock(self, lock_fd: Any) -> None:
+        """Public spelling of :meth:`_release_migration_lock`."""
+        return self._release_migration_lock(lock_fd)
+
+
+# Backward-compatible alias — logic lives in confiture.core.sql_utils
+def _strip_transaction_wrappers(sql: str) -> str:
+    result = strip_transaction_wrappers(sql)
+    assert isinstance(result, str)
+    return result

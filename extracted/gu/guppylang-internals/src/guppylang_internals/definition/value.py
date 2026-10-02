@@ -1,0 +1,116 @@
+import ast
+from abc import abstractmethod, abstractproperty
+from collections.abc import Iterable
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, NamedTuple
+
+from hugr import Node, Wire
+
+from guppylang_internals.ast_util import AstNode
+from guppylang_internals.definition.common import CompiledDef, Definition
+from guppylang_internals.tys.subst import Subst
+from guppylang_internals.tys.ty import FunctionType, Type
+
+if TYPE_CHECKING:
+    from guppylang_internals.checker.core import Context
+    from guppylang_internals.compiler.core import CompilerContext, DFContainer
+    from guppylang_internals.tys import Effect
+
+
+@dataclass(frozen=True)
+class ValueDef(Definition):
+    """Abstract base class for definitions that represent values."""
+
+    ty: Type
+
+    description: str = field(default="value", init=False)
+
+
+@dataclass(frozen=True)
+class CompiledValueDef(ValueDef, CompiledDef):
+    """Abstract base class for compiled definitions that represent values."""
+
+    @abstractmethod
+    def load(self, dfg: "DFContainer", ctx: "CompilerContext", node: AstNode) -> Wire:
+        """Loads the defined value into a local Hugr dataflow graph."""
+
+
+class CallableEffects:
+    """Abstract base class for definitions that represent functions and whose
+    effects are known."""
+
+    @abstractproperty
+    def call_effects(self) -> Iterable["Effect"]:
+        """The maximum set of effects that may occur when calling the function."""
+
+
+@dataclass(frozen=True)
+class CallableDef(ValueDef):
+    """Abstract base class for definitions that represent functions and to which
+    calls can be type-checked."""
+
+    # Does not inherit CallableEffects as some functions do not know
+    # their effects until after checking.
+
+    ty: FunctionType
+    is_static: bool = field(kw_only=True)
+
+    @abstractmethod
+    def check_call(
+        self, args: list[ast.expr], ty: Type, node: ast.Call, ctx: "Context"
+    ) -> tuple[ast.expr, Subst]:
+        """Checks the return type of a function call against a given type."""
+
+    @abstractmethod
+    def synthesize_call(
+        self, args: list[ast.expr], node: AstNode, ctx: "Context"
+    ) -> tuple[ast.expr, Type]:
+        """Synthesizes the return type of a function call."""
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        raise RuntimeError("Guppy functions can only be called in a Guppy context")
+
+
+class CompiledCallableDef(CompiledValueDef, CallableEffects):
+    """Abstract base class for anything that compiles to a Hugr function (necessarily)
+    at module-level)."""
+
+    ty: FunctionType
+
+    @abstractmethod
+    def compile_call(
+        self,
+        args: list[Wire],
+        dfg: "DFContainer",
+        ctx: "CompilerContext",
+        node: AstNode,
+    ) -> "CallReturnWires":
+        """Compiles a call to the function.
+
+        Returns the outputs of the call together with any borrowed arguments that are
+        passed through the function.
+        """
+
+    @abstractmethod
+    def load(self, dfg: "DFContainer", ctx: "CompilerContext", node: AstNode) -> Wire:
+        """Loads the function into a local Hugr dataflow graph."""
+
+
+class CallReturnWires(NamedTuple):
+    """Output wires that are given back from a call.
+
+    Contains the regular function returns together with any borrowed arguments that are
+    passed through the function.
+    """
+
+    regular_returns: list[Wire]
+    inout_returns: list[Wire]
+
+
+class CompiledHugrNodeDef(Definition):
+    """Abstract base class for definitions that are compiled into a single Hugr node."""
+
+    @property
+    @abstractmethod
+    def hugr_node(self) -> Node:
+        """The Hugr node this definition was compiled into."""

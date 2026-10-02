@@ -1,0 +1,818 @@
+import asyncio
+import re
+from collections import defaultdict
+from typing import Any, Awaitable, Callable, Literal
+
+import ccxt.pro as cxp
+import numpy as np
+import pandas as pd
+from ccxt import BadSymbol
+
+from qubx import logger
+from qubx.core.basics import (
+    EXTERNAL_CID_PREFIX,
+    FRAMEWORK_CID_PREFIX,
+    OPTION_AVOID_STOP_ORDER_PRICE_VALIDATION,
+    OPTION_FILL_AT_SIGNAL_PRICE,
+    OPTION_REPRICE_IF_CROSSING,
+    OPTION_SIGNAL_PRICE,
+    OPTION_SKIP_PRICE_CROSS_CONTROL,
+    Balance,
+    Deal,
+    FundingRate,
+    Instrument,
+    Liquidation,
+    OpenInterest,
+    Order,
+    OrderSide,
+    OrderStatus,
+    Position,
+    RejectCause,
+    classify_origin,
+    dt_64,
+)
+from qubx.core.exceptions import BadRequest, InvalidOrderParameters
+from qubx.core.series import OrderBook, Quote, Trade
+from qubx.core.utils import recognize_time
+from qubx.utils.marketdata.ccxt import (
+    ccxt_symbol_to_instrument,
+)
+from qubx.utils.orderbook import accumulate_orderbook_levels
+from qubx.utils.time import now_utc, to_timestamp
+
+from .exceptions import (
+    CcxtLiquidationParsingError,
+    CcxtSymbolNotRecognized,
+)
+
+EXCH_SYMBOL_PATTERN = re.compile(r"(?P<base>[^/]+)/(?P<quote>[^:]+)(?::(?P<margin>.+))?")
+
+# - venue timeInForce spellings that mean post-only on the read path
+_POST_ONLY_TIF = frozenset({"GTX", "ALO", "PO", "POST_ONLY", "POSTONLY"})
+
+# - options the connector resolves itself; never forwarded as ccxt params
+FRAMEWORK_ONLY_OPTIONS = frozenset(
+    {
+        OPTION_FILL_AT_SIGNAL_PRICE,
+        OPTION_SIGNAL_PRICE,
+        OPTION_SKIP_PRICE_CROSS_CONTROL,
+        OPTION_AVOID_STOP_ORDER_PRICE_VALIDATION,
+        "stop_type",
+        OPTION_REPRICE_IF_CROSSING,
+        "reduceOnly",
+        "reduce_only",
+        "post_only",
+    }
+)
+
+# ccxt canonical order status -> framework OrderStatus. ccxt lowercases the
+# canonical `status` field; venue-specific `info.status` values are uppercase, so
+# we match case-insensitively.
+_CCXT_STATUS_MAP: dict[str, OrderStatus] = {
+    "open": OrderStatus.ACCEPTED,
+    "new": OrderStatus.ACCEPTED,
+    "accepted": OrderStatus.ACCEPTED,
+    "closed": OrderStatus.FILLED,
+    "filled": OrderStatus.FILLED,
+    "partially_filled": OrderStatus.PARTIALLY_FILLED,
+    "partial": OrderStatus.PARTIALLY_FILLED,
+    "canceled": OrderStatus.CANCELED,
+    "cancelled": OrderStatus.CANCELED,
+    "expired": OrderStatus.EXPIRED,
+    "rejected": OrderStatus.REJECTED,
+}
+
+# - ccxt normalises every venue's error into its own exception classes, so the class name is
+#   already a portable vocabulary; this is the reading of it the framework acts on. Names, not
+#   classes, so a ccxt version that drops one does not break the import.
+_REJECT_CAUSE_BY_CCXT_ERROR: dict[str, RejectCause] = {
+    "InsufficientFunds": RejectCause.INSUFFICIENT_MARGIN,
+    "OrderNotFillable": RejectCause.NOT_FILLABLE,
+    "OrderImmediatelyFillable": RejectCause.NOT_FILLABLE,
+    "RateLimitExceeded": RejectCause.RATE_LIMITED,
+    "DDoSProtection": RejectCause.RATE_LIMITED,
+    # qubx's own gate, not a ccxt class: the request never left the box, same portable reading
+    "RateLimitGateTimeout": RejectCause.RATE_LIMITED,
+    "OrderNotFound": RejectCause.NOT_FOUND,
+    "InvalidOrder": RejectCause.TOO_SMALL,
+}
+
+
+def info_float(info: dict[str, Any], key: str) -> float | None:
+    """Parse an optional numeric field from a raw venue payload; None when absent/malformed.
+
+    Venue payloads carry numerics as strings and some use ``""`` for not-applicable
+    fields (e.g. OKX outside multi-currency margin mode) — both map to None.
+    """
+    value = info.get(key)
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def normalize_margin_mode(mode: str | None) -> Literal["cross", "isolated"] | None:
+    """Map a ccxt marginMode string to the framework's canonical values; None otherwise."""
+    if mode is None:
+        return None
+    m = mode.lower()
+    return m if m in ("cross", "isolated") else None
+
+
+def ccxt_status_to_order_status(raw: str | None, info: dict[str, Any] | None = None) -> OrderStatus:
+    """Map a ccxt order status string to a framework ``OrderStatus`` enum.
+
+    ccxt reports a canonical, lowercase ``status``; for an ``open`` order some venues
+    carry the truer state (e.g. ``PARTIALLY_FILLED``) in the venue-specific
+    ``info.status`` — that refinement is applied before mapping. A genuinely unknown
+    status is logged (so it surfaces) and mapped to the non-terminal ``ACCEPTED``: it
+    is never fabricated into a terminal state, and AM's reconcile heals the true one.
+    An absent status maps the same way but only at debug level — a submit ack legitimately
+    carries none on some venues.
+    """
+    status = (raw or "").lower()
+    # For an open order, prefer the venue-specific info.status (it may say partially_filled).
+    if status == "open" and info is not None:
+        status = str(info.get("status", status)).lower()
+    mapped = _CCXT_STATUS_MAP.get(status)
+    if mapped is not None:
+        return mapped
+    if status:
+        logger.warning(f"Unknown ccxt order status '{raw}' (refined '{status}'); defaulting to ACCEPTED")
+    else:
+        # - a submit ack carries no state on some venues (OKX answers with ordId/sCode only),
+        #   so an absent status is the expected shape there rather than something to flag
+        logger.debug("Venue order payload carries no status; defaulting to ACCEPTED")
+    return OrderStatus.ACCEPTED
+
+
+def ccxt_convert_order_info(
+    instrument: Instrument, raw: dict[str, Any], *, framework_prefix: str = FRAMEWORK_CID_PREFIX
+) -> Order:
+    """
+    Convert CCXT excution record to Order object.
+
+    ``framework_prefix`` is the venue-echoed framework cid prefix the connector
+    classifies origins with (``CcxtConnector.cid_framework_prefix``).
+    """
+    ri = raw["info"]
+    if isinstance(ri, list):
+        # we don't handle case when order info is a list
+        ri = {}
+
+    # Prioritize outer level (exchange-specific parsing) for amount
+    amnt_raw = raw.get("amount") or ri.get("origQty")
+    if amnt_raw is None:
+        # Try alternative fields for different exchanges
+        amnt_raw = ri.get("sz") or ri.get("origSz") or 0.0
+    amnt = float(amnt_raw)
+
+    # Binance sends stopPrice="0" on plain orders, so a present level still has to be > 0.
+    _trigger = raw.get("triggerPrice") or raw.get("stopPrice") or ri.get("stopPrice")
+    is_trigger = bool(_trigger) and float(_trigger) > 0
+
+    # None for market orders (no limit price) — matches Order.price: float | None.
+    price = raw.get("price")
+    if price is None and is_trigger:
+        # locally-tracked stops store the trigger as their price, so mirror it
+        price = _trigger
+    # ccxt's unified fill fields; None-safe (venues omit them on fresh acks).
+
+    _filled = raw.get("filled")
+    filled_quantity = abs(float(_filled)) if _filled is not None else 0.0
+
+    _average = raw.get("average")
+    avg_fill_price = float(_average) if _average is not None else None
+
+    status = ccxt_status_to_order_status(raw.get("status"), ri)
+    if status is OrderStatus.ACCEPTED and filled_quantity > 0.0:
+        # ccxt's unified status collapses partial fills into "open", and the info.status
+        # refinement is venue-specific (OKX carries the state under info.state) — the
+        # unified `filled` field is the venue-agnostic partial-fill signal.
+        status = OrderStatus.PARTIALLY_FILLED
+
+    side_raw = raw["side"]
+    if side_raw is None:
+        side = "UNKNOWN"
+    else:
+        side = side_raw.upper()
+
+    # Prioritize outer level (exchange-specific parsing overrides) over inner level
+    _type = raw.get("type", ri.get("type"))
+    if _type is None:
+        # Fallback for exchanges that don't provide type info
+        _type = "UNKNOWN"
+    else:
+        _type = _type.upper()
+    if is_trigger and _type in ("MARKET", "LIMIT"):
+        # venues type a conditional order by how it executes once triggered, so a resting
+        # stop reads back as plain MARKET/LIMIT
+        _type = f"STOP_{_type}"
+
+    tif = raw.get("timeInForce")
+    # time_in_force stays exactly as the venue reported it; post-only is normalised onto post_only
+    post_only = bool(raw.get("postOnly")) or (tif is not None and str(tif).upper() in _POST_ONLY_TIF)
+
+    # Some venues omit clientOrderId (e.g. externally-placed orders); fall back to the
+    # framework's external-order id convention (ext:<venue_id>) so it reads as EXTERNAL and
+    # still has a stable, non-null client_order_id.
+    # Venue update time (venue clock): unified `lastUpdateTimestamp`, else raw `info.updateTime`
+    # (Binance UM). None when the venue gives neither — drives the reconciler's monotonic guard.
+    _lut = raw.get("lastUpdateTimestamp")
+    if _lut is None:
+        _lut = ri.get("updateTime")
+    last_update_time = recognize_time(int(_lut)) if _lut is not None else None
+
+    client_order_id = raw.get("clientOrderId") or f"{EXTERNAL_CID_PREFIX}{raw['id']}"
+    origin = classify_origin(client_order_id, framework_prefix=framework_prefix)
+
+    return Order(
+        client_order_id=client_order_id,
+        venue_order_id=raw["id"],
+        origin=origin,
+        type=_type,
+        instrument=instrument,
+        submitted_at=recognize_time(raw["timestamp"]),
+        last_update_time=last_update_time,
+        # Unsigned, per the framework's positive-amount rule (direction lives in side).
+        quantity=abs(amnt),
+        price=float(price) if price is not None else None,
+        side=side,
+        status=status,
+        filled_quantity=filled_quantity,
+        avg_fill_price=avg_fill_price,
+        time_in_force=tif,
+        post_only=post_only,
+        reduce_only=bool(raw.get("reduceOnly")),
+    )
+
+
+def ccxt_convert_deal_info(raw: dict[str, Any]) -> Deal:
+    # CCXT may return fee absent, an empty {}, or {"cost": None} — guard all three.
+    fee = raw.get("fee") or {}
+    _fee_cost = fee.get("cost")
+    fee_amount = float(_fee_cost) if _fee_cost is not None else None
+    fee_currency = fee.get("currency")
+    order_id = raw.get("order")
+    timestamp = raw["timestamp"]
+    amount = float(raw["amount"])
+    price = float(raw["price"])
+    # Some venues omit a per-fill id; synthesize a deterministic one from
+    # (order_id, timestamp, qty, price) so fill dedup (AccountState._seen_trade_ids) still works.
+    trade_id = raw.get("id") or f"{order_id}:{timestamp}:{amount}:{price}"
+    return Deal(
+        trade_id=trade_id,
+        order_id=order_id,
+        time=to_timestamp(timestamp, unit="ms").as_unit("ns").asm8,
+        amount=amount * (-1 if raw.get("side") == "sell" else +1),
+        price=price,
+        aggressive=raw.get("takerOrMaker") == "taker",  # absent -> maker (some venues omit it)
+        fee_amount=fee_amount,
+        fee_currency=fee_currency,
+    )
+
+
+def ccxt_extract_deals_from_exec(report: dict[str, Any]) -> list[Deal]:
+    """
+    Small helper for extracting deals (trades) from CCXT execution report
+    """
+    deals = list()
+    if trades := report.get("trades"):
+        for t in trades:
+            deals.append(ccxt_convert_deal_info(t))
+    return deals
+
+
+def ccxt_convert_trade(trade: dict[str, Any]) -> Trade:
+    price, amnt = trade["price"], trade["amount"]
+    side = int(trade["side"] == "buy") * 2 - 1
+    return Trade(recognize_time(trade["timestamp"]), price, amnt, side)
+
+
+def ccxt_convert_position(info: dict, ccxt_exchange_name: str, markets: dict[str, dict[str, Any]]) -> Position | None:
+    """Convert one ccxt unified position dict into a Position; None when the symbol is unknown
+    to the loaded markets. Loud, because reconcile reads the positions list as venue truth and
+    so reports a skipped row as flat."""
+    symbol = info["symbol"]
+    if symbol not in markets:
+        logger.error(f"snapshot: no market for {symbol}; position skipped")
+        return None
+    instr = ccxt_symbol_to_instrument(
+        ccxt_exchange_name,
+        markets[symbol],
+    )
+    quantity = abs(info["contracts"]) * (-1 if info["side"] == "short" else 1)
+    pos = Position(
+        instrument=instr,
+        quantity=quantity,
+        pos_average_price=info["entryPrice"],
+    )
+    # Always stamp the venue update time (venue clock) — not only when markPrice is present —
+    # so the reconciler's monotonic position guard has it.
+    if info.get("timestamp") is not None:
+        _pts = pd.Timestamp(info["timestamp"], unit="ms").asm8
+        pos.last_update_time = _pts  # type: ignore
+        if info.get("markPrice") is not None:
+            pos.update_market_price(_pts, info["markPrice"], 1)
+
+    # Use exchange-provided margins when reported — only the venue knows the configured leverage
+    # tier. The internal fallback cannot: with no instrument.initial_margin metadata (0.0 on
+    # BINANCE.UM) it yields 0.0, and with metadata it applies a static ratio that ignores the tier.
+    if info.get("maintenanceMargin") is not None:
+        pos.set_external_maint_margin(float(info["maintenanceMargin"]))
+
+    if info.get("initialMargin") is not None:
+        pos.set_external_initial_margin(float(info["initialMargin"]))
+
+    # Venue-reported per-instrument settings (only overwrite when the venue reports them,
+    # so a later snapshot that omits a field preserves the last-known value):
+    #   leverage/marginMode ride the unified position dict; the notional cap and adl are
+    #   venue-specific and read off the raw info.
+    # NOTE: ccxt's fetch_positions defaults to Binance's v3 positionRisk, which renamed the ADL
+    # field to ``adl`` and dropped ``leverage``/``maxNotionalValue`` entirely (they only exist on
+    # the obsolete v2 endpoint, params.useV2). Read both spellings so either payload works.
+    raw = info.get("info") or {}
+    lev = info_float(info, "leverage")
+    if lev is not None:
+        pos.leverage = lev
+    mode = normalize_margin_mode(info.get("marginMode"))
+    if mode is not None:
+        pos.margin_mode = mode
+    max_ntl = info_float(raw, "maxNotionalValue")
+    if max_ntl is not None:
+        pos.max_notional = max_ntl
+    adl = info_float(raw, "adl")  # v3
+    if adl is None:
+        adl = info_float(raw, "adlQuantile")  # v2 (useV2=True)
+    if adl is not None:
+        pos.adl_level = int(adl)
+
+    return pos
+
+
+def ccxt_convert_positions(
+    pos_infos: list[dict], ccxt_exchange_name: str, markets: dict[str, dict[str, Any]]
+) -> list[Position]:
+    """Rows whose symbol is unknown to the loaded markets are skipped (and logged there)."""
+    converted = [ccxt_convert_position(info, ccxt_exchange_name, markets) for info in pos_infos]
+    return [p for p in converted if p is not None]
+
+
+def ccxt_extract_leverage_settings(rows: list[dict] | None) -> dict[str, tuple[float | None, float | None]]:
+    """Map ccxt symbol -> (leverage, max_notional) from ``fetch_leverages`` rows.
+
+    Binance's v3 positionRisk — what ``fetch_positions`` uses — carries neither field; both are
+    v2-only, so positions come back with ``leverage``/``max_notional`` None.
+    ``fetch_leverages`` hits ``GET /fapi/v1/symbolConfig``, which carries both per symbol with
+    no open position required, and leaves the v3 payload alone. That last part matters:
+    ``params.useV2`` would bring the fields back but makes ccxt recompute
+    ``initialMargin = notional / leverage`` instead of reading the venue's value — trading a
+    cosmetic gap for a regression in a field that IS consumed (available_margin, margin_ratio).
+
+    ``maxNotionalValue`` survives only in the raw row: ccxt's ``parse_leverage`` drops it.
+    """
+    out: dict[str, tuple[float | None, float | None]] = {}
+    for row in rows or []:
+        symbol = row.get("symbol")
+        if not symbol:
+            continue
+        raw = row.get("info") or {}
+        leverage = row.get("longLeverage")
+        if leverage is None:
+            leverage = row.get("shortLeverage")
+        if leverage is None:
+            leverage = info_float(raw, "leverage")
+        max_notional = info_float(raw, "maxNotionalValue")
+        if max_notional is None:
+            max_notional = info_float(raw, "maxNotional")  # papi um/account spelling
+        out[symbol] = (
+            float(leverage) if leverage is not None else None,
+            max_notional,
+        )
+    return out
+
+
+def ccxt_extract_margin_modes(rows: list[dict] | None) -> dict[str, str]:
+    """Map ccxt symbol -> margin mode from ``fetch_leverages`` rows.
+
+    symbolConfig reports it for every symbol; positionRisk omits flat ones.
+    """
+    out: dict[str, str] = {}
+    for row in rows or []:
+        symbol = row.get("symbol")
+        mode = normalize_margin_mode(row.get("marginMode"))
+        if symbol and mode is not None:
+            out[symbol] = mode
+    return out
+
+
+def ccxt_convert_orderbook(
+    ob: dict,
+    instr: Instrument,
+    levels: int = 50,
+    tick_size_pct: float = 0.01,
+    sizes_in_quoted: bool = False,
+    current_timestamp: dt_64 | None = None,
+) -> OrderBook | None:
+    """
+    Convert a ccxt order book to an OrderBook object with a fixed tick size.
+
+    Parameters:
+        ob (dict): The order book dictionary from ccxt.
+        instr (Instrument): The instrument object containing market-specific details.
+        levels (int, optional): The number of levels to include in the order book. Default is 50.
+        tick_size_pct (float, optional): The tick size percentage. Default is 0.01%.
+        sizes_in_quoted (bool, optional): Whether the size is in the quoted currency. Default is False.
+
+    Returns:
+        OrderBook: The converted OrderBook object.
+    """
+    try:
+        # Convert timestamp to nanoseconds as a long long integer
+        dt = recognize_time(ob["datetime"]) if ob["datetime"] is not None else current_timestamp
+
+        # an aggregated book needs both sides; a half book would publish top=0
+        if not ob["bids"] or not ob["asks"]:
+            return None
+
+        if levels == 1 and tick_size_pct == 0:
+            return OrderBook(
+                time=dt,
+                top_bid=ob["bids"][0][0],
+                top_ask=ob["asks"][0][0],
+                tick_size=instr.tick_size,
+                bids=np.array([ob["bids"][0][1]], dtype=np.float64),
+                asks=np.array([ob["asks"][0][1]], dtype=np.float64),
+            )
+
+        # Determine tick size
+        if tick_size_pct == 0:
+            tick_size = instr.tick_size
+        else:
+            mid_price = (ob["bids"][0][0] + ob["asks"][0][0]) / 2
+
+            # Calculate tick size as percentage of mid price
+            raw_tick_size = max(mid_price * tick_size_pct / 100, instr.tick_size)
+
+            # Round down tick_size to align with instrument's minimum tick size
+            tick_size = instr.round_price_down(raw_tick_size)
+
+        # Pre-allocate buffers for bids and asks
+        bids_buffer = np.zeros(levels, dtype=np.float64)
+        asks_buffer = np.zeros(levels, dtype=np.float64)
+
+        raw_bids = np.array(ob["bids"])
+        raw_asks = np.array(ob["asks"])
+
+        # Extract price and size columns from raw bids and asks
+        # Some exchanges return more than 2 columns for bids and asks
+        raw_bids = raw_bids[:, :2].astype(np.float64)
+        raw_asks = raw_asks[:, :2].astype(np.float64)
+
+        # Accumulate bids and asks into the buffers
+        top_bid, bids = accumulate_orderbook_levels(raw_bids, bids_buffer, tick_size, True, levels, sizes_in_quoted)
+
+        top_ask, asks = accumulate_orderbook_levels(raw_asks, asks_buffer, tick_size, False, levels, sizes_in_quoted)
+
+        # Create and return the OrderBook object
+        return OrderBook(
+            time=dt,
+            top_bid=top_bid,
+            top_ask=top_ask,
+            tick_size=tick_size,
+            bids=bids,
+            asks=asks,
+        )
+    except Exception as e:
+        from pprint import pformat
+
+        logger.error(f"Failed to convert order book for {instr}: {e}")
+        logger.error(pformat(ob))
+        return None
+
+
+def ccxt_convert_liquidation(liq: dict[str, Any]) -> Liquidation:
+    try:
+        return Liquidation(
+            time=recognize_time(liq["datetime"]),
+            price=liq["price"],
+            quantity=liq["contracts"],
+            # ccxt's unified side; it is the closing order's side, so a "buy" closed a short
+            side=(1 if str(liq.get("side", "")).lower() == "buy" else -1),
+        )
+    except Exception as e:
+        raise CcxtLiquidationParsingError(f"Failed to parse liquidation: {e}")
+
+
+def ccxt_convert_ticker(ticker: dict[str, Any]) -> Quote:
+    """
+    Convert a ccxt ticker to a Quote object.
+    Parameters:
+        ticker (dict): The ticker dictionary from ccxt.
+    Returns:
+        Quote: The converted Quote object.
+    """
+    return Quote(
+        time=recognize_time(ticker["datetime"]) if ticker["datetime"] is not None else recognize_time(now_utc().asm8),
+        bid=ticker["bid"] if ticker["bid"] is not None else 0.0,
+        ask=ticker["ask"] if ticker["ask"] is not None else 0.0,
+        bid_size=ticker["bidVolume"] if ticker["bidVolume"] is not None else 0.0,
+        ask_size=ticker["askVolume"] if ticker["askVolume"] is not None else 0.0,
+    )
+
+
+def ccxt_convert_funding_rate(info: dict[str, Any]) -> FundingRate:
+    return FundingRate(
+        time=recognize_time(info["timestamp"]),
+        rate=info["fundingRate"],
+        interval=info["interval"],
+        next_funding_time=recognize_time(info["nextFundingTime"]),
+        mark_price=info.get("markPrice"),
+        index_price=info.get("indexPrice"),
+    )
+
+
+def ccxt_convert_balance(d: dict[str, Any], exchange: str) -> list[Balance]:
+    balances = []
+    for currency, data in d["total"].items():
+        if not data:
+            continue
+        total = float(d["total"].get(currency, 0) or 0)
+        locked = float(d["used"].get(currency, 0) or 0)
+        balances.append(Balance(exchange=exchange, currency=currency, free=total - locked, locked=locked, total=total))
+    return balances
+
+
+def set_liabilities(
+    balance: Balance,
+    *,
+    borrowed: float | None = None,
+    interest: float | None = None,
+    negative: float | None = None,
+) -> None:
+    """Set ``liabilities`` from the positive kinds (zero, negative and NaN dropped) and ``debt`` as their sum."""
+    kinds = {"borrowed": borrowed, "interest": interest, "negative": negative}
+    owed = {kind: v for kind, v in kinds.items() if v is not None and v > 0}
+    balance.liabilities = owed or None
+    balance.debt = sum(owed.values())
+
+
+def merge_funding_wallets(
+    balances: list[Balance],
+    funding_rows: Any,
+    exchange: str,
+    *,
+    main_wallet: str,
+    ccy_field: str,
+    amount_field: str,
+) -> list[Balance]:
+    """Split each balance into ``{main_wallet: total, "funding": x}`` from the venue's funding-account rows.
+
+    Both legs are always listed, zeros included; ``funding_rows`` not a list (read skipped or
+    failed) leaves ``wallets`` untouched, as a zero funding leg was not observed. The funding leg
+    is outside ``total``: a currency held only there gets a zero-total row carrying just
+    ``wallets``. Malformed rows are skipped — this runs outside the snapshot's per-leg isolation.
+    """
+    if not isinstance(funding_rows, list):
+        return balances
+    for bal in balances:
+        bal.wallets = {main_wallet: bal.total, "funding": 0.0}
+    by_ccy = {b.currency: b for b in balances}
+    for row in funding_rows:
+        if not isinstance(row, dict) or not isinstance(ccy := row.get(ccy_field), str):
+            continue
+        if not (amount := info_float(row, amount_field)):
+            continue
+        bal = by_ccy.get(ccy)
+        if bal is None:
+            bal = by_ccy[ccy] = Balance(exchange=exchange, currency=ccy)
+            balances.append(bal)
+        bal.wallets = {main_wallet: bal.total, "funding": amount}
+    return balances
+
+
+def ccxt_convert_open_interest(symbol: str, info: dict[str, Any]) -> OpenInterest:
+    # Extract open interest amount (base asset amount)
+    open_interest_amount = info.get("openInterestAmount", 0.0)
+
+    # Try to get USD value from multiple possible fields
+    open_interest_usd = info.get("openInterestValue") or info.get("openInterestUsd") or info.get("notional") or 0.0
+
+    # If USD value is still 0 or None, we'll need to calculate it using mark price
+    # For now, we'll use 0.0 and let the calling code handle price conversion if needed
+    if open_interest_usd is None:
+        open_interest_usd = 0.0
+
+    # Handle timestamp conversion more robustly
+    timestamp = info.get("timestamp")
+    if timestamp is None:
+        raise ValueError("Missing timestamp in open interest data")
+
+    return OpenInterest(
+        time=recognize_time(timestamp),
+        symbol=symbol,
+        open_interest=float(open_interest_amount),
+        open_interest_usd=float(open_interest_usd),
+    )
+
+
+def find_instrument_for_exch_symbol(exch_symbol: str, symbol_to_instrument: dict[str, Instrument]) -> Instrument:
+    match = EXCH_SYMBOL_PATTERN.match(exch_symbol)
+    if not match:
+        raise CcxtSymbolNotRecognized(f"Invalid exchange symbol {exch_symbol}")
+    base = match.group("base")
+    quote = match.group("quote")
+    symbol = f"{base}{quote}"
+    if symbol not in symbol_to_instrument:
+        raise CcxtSymbolNotRecognized(f"Unknown symbol {symbol}")
+    return symbol_to_instrument[symbol]
+
+
+def instrument_to_ccxt_symbol(instr: Instrument) -> str:
+    return f"{instr.base}/{instr.quote}:{instr.settle}" if instr.is_futures() else f"{instr.base}/{instr.quote}"
+
+
+def prepare_ccxt_order_payload(
+    instrument: Instrument,
+    order_side: OrderSide,
+    order_type: str,
+    amount: float,
+    price: float | None,
+    client_id: str | None,
+    time_in_force: str,
+    quote: Quote | None,
+    reduce_only: bool,
+    post_only: bool = False,
+    reprice_if_crossing: bool = False,
+) -> dict[str, Any]:
+    """Build the ccxt ``create_order`` payload and perform framework-side validation.
+
+    Venue-agnostic and side-effect free: the caller supplies the current ``quote``
+    (the only READ dependency) and the already-resolved ``reduce_only`` flag, so this
+    function holds no account / data-provider reference. Raises ``BadRequest`` /
+    ``InvalidOrderParameters`` for framework-side rejections — the caller is expected
+    to surface those synchronously (never on the channel).
+
+    This does not auto-detect reduce-only from positions: the connector has no account,
+    so reduce-only must arrive already resolved from the caller.
+    """
+    params: dict[str, Any] = {}
+    # order_type arrives UPPERCASE from the trading manager (OrderType StrEnum, e.g.
+    # "STOP_MARKET") — normalize so the trigger detection / split below are case-insensitive.
+    # A lowercase-only startswith silently dropped triggerPrice → Binance rejected stop orders.
+    order_type = order_type.lower()
+    _is_trigger_order = order_type.startswith("stop_")
+
+    if quote is None:
+        logger.warning(f"[<y>{instrument.symbol}</y>] :: Quote is not available for order creation.")
+        raise BadRequest(f"Quote is not available for order creation for {instrument.symbol}")
+
+    # ccxt quantizes with TRUNCATE, so 0.009999999999999998 on a 0.01 step would become '0'
+    amount = instrument.round_size_down(amount)
+    if amount == 0.0:
+        raise InvalidOrderParameters(
+            f"[{instrument.symbol}] Order amount rounds to zero at lot size {instrument.lot_size}"
+        )
+
+    if reduce_only:
+        params["reduceOnly"] = True
+    else:
+        min_notional = instrument.min_notional
+        if min_notional > 0 and abs(amount) * instrument.quantity_multiplier * quote.mid_price() < min_notional:
+            raise InvalidOrderParameters(
+                f"[{instrument.symbol}] Order amount {amount} is too small. Minimum notional is {min_notional}"
+            )
+
+    # - handle trigger (stop) orders
+    if _is_trigger_order:
+        if price is None:
+            raise InvalidOrderParameters(f"Price must be specified for '{order_type}' order")
+        params["triggerPrice"] = price
+        order_type = order_type.split("_")[1]
+
+    if client_id:
+        params["clientOrderId"] = client_id
+
+    if instrument.is_futures():
+        params["type"] = "swap"
+
+    ccxt_symbol = instrument_to_ccxt_symbol(instrument)
+
+    # stop_limit is already "limit" here and stop_market already "market"
+    if order_type == "limit":
+        time_in_force = time_in_force.upper()
+        # must ride ccxt's unified postOnly flag: bybit/okx/kraken silently drop an
+        # unrecognised timeInForce string, degrading post-only to a taking GTC
+        is_post_only = post_only or time_in_force == "GTX"
+        if is_post_only:
+            params["postOnly"] = True
+        else:
+            params["timeInForce"] = time_in_force
+        if price is None:
+            raise InvalidOrderParameters(f"Price must be specified for '{order_type}' order")
+        # only a post-only order is rejected for crossing; nudging a plain limit would turn a
+        # deliberately marketable order into a resting one
+        reprice_if_crossing = reprice_if_crossing and is_post_only
+        if reprice_if_crossing and order_side == "BUY" and price >= quote.ask:
+            logger.info(
+                f"[{instrument.symbol}] :: post-only BUY price {price} is at or above ask {quote.ask}. "
+                "Setting 1 tick below ask."
+            )
+            price = quote.ask - instrument.tick_size
+        elif reprice_if_crossing and order_side == "SELL" and price <= quote.bid:
+            logger.info(
+                f"[{instrument.symbol}] :: post-only SELL price {price} is at or below bid {quote.bid}. "
+                "Setting 1 tick above bid."
+            )
+            price = quote.bid + instrument.tick_size
+
+    return {
+        "symbol": ccxt_symbol,
+        "type": order_type.lower(),
+        "side": order_side.lower(),
+        "amount": amount,
+        "price": price,
+        "params": params,
+    }
+
+
+def ccxt_find_instrument(
+    symbol: str, exchange: cxp.Exchange, symbol_to_instrument: dict[str, Instrument] | None = None
+) -> Instrument:
+    instrument = None
+    if symbol_to_instrument is not None:
+        instrument = symbol_to_instrument.get(symbol)
+        if instrument is not None:
+            return instrument
+        try:
+            instrument = find_instrument_for_exch_symbol(symbol, symbol_to_instrument)
+        except CcxtSymbolNotRecognized:
+            pass
+    if instrument is None:
+        try:
+            symbol_info = exchange.market(symbol)
+        except BadSymbol:
+            raise CcxtSymbolNotRecognized(f"Unknown symbol {symbol}")
+        exchange_name = exchange.name
+        assert exchange_name is not None
+        instrument = ccxt_symbol_to_instrument(exchange_name, symbol_info)
+    if symbol_to_instrument is not None and symbol not in symbol_to_instrument:
+        symbol_to_instrument[symbol] = instrument
+    return instrument
+
+
+def create_market_type_batched_subscriber(
+    subscriber: Callable[[list[Instrument]], Awaitable[None]], instruments: set[Instrument]
+) -> Callable[[], Awaitable[None]]:
+    """
+    Create a batched subscriber that calls the original subscriber for each market type group.
+
+    This utility function groups instruments by market type and calls the subscriber function
+    for each group separately. This is necessary because some exchanges require separate
+    calls for different market types (e.g., spot vs futures).
+
+    Args:
+        subscriber: Function to call for each market type group
+        instruments: Set of instruments to group by market type
+
+    Returns:
+        Async function that will call subscriber for each market type group
+    """
+    # Group instruments by market type
+    instr_by_type: dict[str, list[Instrument]] = defaultdict(list)
+    for instr in instruments:
+        instr_by_type[instr.market_type].append(instr)
+
+    # Sort instruments by symbol within each group for consistent ordering
+    for instrs in instr_by_type.values():
+        instrs.sort(key=lambda i: i.symbol)
+
+    async def batched_subscriber():
+        """Execute subscriber for each market type group concurrently."""
+        await asyncio.gather(*[subscriber(instrs) for instrs in instr_by_type.values()])
+
+    return batched_subscriber
+
+
+def ccxt_convert_timeframe_to_exchange_format(timeframe: str) -> str | None:
+    """
+    Convert standard timeframe to ccxt supported format
+
+    1Min -> 1m etc
+
+    :param timeframe: timeframe
+    :type timeframe: timeframe supported by exchange
+    """
+    if timeframe is not None:
+        _t = re.match(r"(\d+)(\w+)", timeframe)
+        timeframe = f"{_t[1]}{_t[2][0].lower()}" if _t and len(_t.groups()) > 1 else timeframe
+    return timeframe
+
+
+def reject_cause_of(error: Exception) -> RejectCause:
+    """
+    Classify a ccxt error for callers that cannot read venue codes. UNKNOWN when unmapped.
+    """
+    return _REJECT_CAUSE_BY_CCXT_ERROR.get(type(error).__name__, RejectCause.UNKNOWN)

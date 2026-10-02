@@ -105,6 +105,7 @@ from polymarket._internal.context import SyncSecureClientContext
 from polymarket._internal.dispatch import (
     sync_dispatch,
     sync_paginate_keyset,
+    sync_paginate_keyset_or_resume_offset,
     sync_paginate_offset,
     sync_paginate_page_based,
 )
@@ -363,6 +364,12 @@ class SecureClient:
         """List positions for a wallet or a single market.
 
         Use ``status="CLOSED"`` for closed positions. Sizes are shares and values are USDC.
+
+        ``status="REDEEMABLE_LOST"`` lists the wallet's still-held positions that resolved
+        to a zero payout. ``status="MERGEABLE"`` lists its live complementary pairs. Both
+        are filters only: a lost position still reports ``REDEEMABLE`` and a mergeable
+        one ``OPEN``. ``sort_by`` defaults to ``TOKENS`` for ``MERGEABLE``,
+        ``REALIZED_PNL`` for ``CLOSED``, and ``CURRENT_VALUE`` for every other status.
 
         Positions have no time bounds by default. ``full_history=True`` also includes
         holdings without activity and cannot be combined with ``start`` or ``end``.
@@ -1503,7 +1510,28 @@ class SecureClient:
         order: str | None = None,
         page_size: int = 20,
     ) -> Paginator[Comment]:
-        """List comments for a market or event.
+        """List comments for an event or series.
+
+        Without ``order``, pages are newest first and ``ascending`` is ignored.
+        With ``order`` (``id`` or ``createdAt``), pages are ascending unless
+        ``ascending`` is ``False``.
+
+        Reads without ``holders_only`` or ``get_positions`` and with one of
+        those orders page through the whole thread. Their cursors continue that
+        exact query and are rejected for a different parent, order or
+        direction.
+
+        Reads with ``holders_only``, ``get_positions`` or another order serve
+        pages up to offset 200. Automatic iteration yields the final accessible
+        full page with ``limit_reached=True`` and stops normally. Its
+        ``has_more`` stays True: completeness is unknown, not proof that more
+        comments exist. Explicitly following its cursor raises
+        ``PaginationLimitError`` before any request is sent. Cursors saved from
+        earlier versions keep working with the same arguments.
+
+        ``page_size`` counts top-level comments; replies ride along in the same
+        page. A thread ending exactly on a page boundary may return one final
+        empty page.
 
         Returns:
             A paginator over matching comments.
@@ -1516,7 +1544,21 @@ class SecureClient:
             holders_only=holders_only,
             order=order,
         )
-        return sync_paginate_offset(self._ctx, spec, page_size=page_size)
+        if not _gamma_actions.comments_paginate_by_cursor(
+            get_positions=get_positions, holders_only=holders_only, order=order
+        ):
+            return sync_paginate_offset(self._ctx, spec, page_size=page_size)
+        return sync_paginate_keyset_or_resume_offset(
+            self._ctx,
+            keyset_spec=_gamma_actions.list_comments_keyset_spec(
+                parent_entity_id=parent_entity_id,
+                parent_entity_type=parent_entity_type,
+                ascending=ascending,
+                order=order,
+            ),
+            offset_spec=spec,
+            page_size=page_size,
+        )
 
     def list_comments_by_user_address(
         self,
@@ -1527,6 +1569,15 @@ class SecureClient:
         page_size: int = 20,
     ) -> Paginator[Comment]:
         """List comments authored by a user address.
+
+        Pages starting past offset 200 are not served. Automatic iteration
+        yields the final accessible full page with ``limit_reached=True`` and
+        stops normally. Its ``has_more`` stays True: completeness is unknown,
+        not proof that more comments exist. Explicitly following its cursor
+        raises ``PaginationLimitError`` before any request is sent.
+
+        This is a hard stop for this listing: there are no range filters to
+        retrieve the remaining comments.
 
         Returns:
             A paginator over matching comments.

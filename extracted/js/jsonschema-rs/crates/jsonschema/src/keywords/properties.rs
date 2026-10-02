@@ -5,7 +5,7 @@ use crate::{
     compiler,
     error::ValidationError,
     evaluation::{
-        format_schema_location, Annotations, ChildList, ErrorDescription, EvaluationNode,
+        format_keyword_location, Annotations, ChildList, ErrorDescription, EvaluationNode,
     },
     keywords::CompilationResult,
     node::SchemaNode,
@@ -16,7 +16,7 @@ use crate::{
     Json, Node, Object, SerdeJson,
 };
 use ahash::AHashMap;
-use referencing::Uri;
+use referencing::{Uri, Vocabulary};
 use serde_json::{Map, Value};
 use std::sync::Arc;
 
@@ -488,7 +488,7 @@ impl<F: Json> Validate<F> for SmallPropertiesWithRequired2Validator<F> {
                 let child = EvaluationNode::invalid(
                     crate::paths::evaluation_path(tracker, &self.required_location, ctx),
                     self.required_absolute_location.clone(),
-                    format_schema_location(
+                    format_keyword_location(
                         &self.required_location,
                         self.required_absolute_location.as_ref(),
                     ),
@@ -594,6 +594,10 @@ fn extract_required2<F: Json>(
     ctx: &compiler::Context<F>,
     parent: &Map<String, Value>,
 ) -> Option<(String, String)> {
+    // `required` compiles under the validation vocabulary only
+    if !ctx.has_vocabulary(&Vocabulary::Validation) {
+        return None;
+    }
     // No patternProperties (uses separate validator paths)
     if parent.contains_key("patternProperties") {
         return None;
@@ -952,6 +956,64 @@ mod tests {
                 ("required", "https://example.com/s.json#/required"),
                 ("required", "https://example.com/s.json#/required"),
             ],
+        );
+    }
+
+    // `required` is inert, while `properties` still applies.
+    #[test_case(&json!({"properties": {"a": false}, "required": ["b", "c"]}); "two names")]
+    #[test_case(&json!({"properties": {"a": false}, "required": ["b", "c", "d"]}); "three names")]
+    fn properties_without_validation_vocabulary(schema: &Value) {
+        let instances = [json!({}), json!({"a": 1})];
+        assert_eq!(
+            tests_util::outcomes_with_only_vocabulary("applicator", schema, &instances),
+            [
+                (true, Vec::new()),
+                (
+                    false,
+                    vec![(
+                        "/properties/a".to_string(),
+                        "False schema does not allow 1".to_string()
+                    )]
+                ),
+            ]
+        );
+    }
+
+    #[test_case(
+        &json!({}),
+        &[
+            ("\"a\" is a required property", "", "/required"),
+            ("\"b\" is a required property", "", "/required"),
+        ];
+        "required alone"
+    )]
+    #[test_case(
+        &json!({"a": 1}),
+        &[
+            ("\"b\" is a required property", "", "/required"),
+            ("1 is not of type \"string\"", "/a", "/properties/a/type"),
+        ];
+        "required with properties"
+    )]
+    #[test_case(
+        &json!({"a": 1, "b": 1}),
+        &[("1 is not of type \"string\"", "/a", "/properties/a/type")];
+        "properties alone"
+    )]
+    fn fused_required_error_locations(instance: &Value, expected: &[(&str, &str, &str)]) {
+        tests_util::assert_error_locations(
+            &json!({"properties": {"a": {"type": "string"}}, "required": ["a", "b"]}),
+            instance,
+            expected,
+        );
+    }
+
+    #[test]
+    fn malformed() {
+        tests_util::assert_compile_error(
+            &json!({"properties": 5}),
+            "5 is not of type \"object\"",
+            "/properties",
         );
     }
 }

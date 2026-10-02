@@ -1,0 +1,98 @@
+---
+# the things this repository tracks with dependabot. The pre-commit hook
+# revisions are not among them. Dependabot has a pre-commit ecosystem,
+# and the maintainer decided to keep pre-commit.ci for them instead
+# (btclib-org/.github#1391): its weekly autoupdate, configured in the ci:
+# block of .pre-commit-config.yaml, already rewrites rev: for every
+# repo: but local and meta, so a second bot on the same pin would only
+# compete with it. typos is a repo: local hook, which autoupdate skips
+# on purpose (see the comment beside it), so the version pinned in its
+# additional_dependencies moves by nobody until a hand edit does
+#
+# every pull request here runs the whole build and test matrix, tens of
+# jobs compiling libsecp256k1 from source, so each ecosystem groups its
+# updates into a single pull request. None declares a target-branch:
+# without one dependabot opens against the default branch, which is the
+# only branch a change lands on -- and a target-branch naming a branch
+# that is not there is not an error anywhere, it is a repository where
+# nothing is ever proposed.
+#
+# Weekly: deps-latest.yml upgrades everything and runs that
+# same matrix against it every Wednesday, off the critical path, so a
+# Thursday pull request is a diff whose result is already known, and a
+# smaller one is easier to read and to revert than a month of drift
+# arriving at once. That is what makes the extra machine time worth it
+# here too, tens of jobs compiling libsecp256k1 from source included.
+# Each still waits a week before proposing a release regardless: a
+# version yanked within days of publication would otherwise be a pull
+# request that opens, runs that matrix, and is then closed
+version: 2
+updates:
+  # what this buys is the exact pins: every action is pinned to a commit
+  # SHA, which nothing but this moves
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: thursday
+    groups:
+      # one PR for all action bumps instead of one PR each
+      actions:
+        patterns: ["*"]
+    cooldown:
+      default-days: 7
+
+  # uv.lock is committed, the coverage job installs from it, and the
+  # dependency groups declare no version at all: what pytest, ruff and
+  # mypy resolve to for a developer is decided entirely by the lock file,
+  # which nothing else moves. The linter versions that gate a pull
+  # request are the pre-commit revisions, updated by pre-commit.ci; these
+  # are what an editor and an ad hoc run see, and they should not drift
+  # away from those
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+      day: thursday
+    groups:
+      dev-tooling:
+        patterns: ["*"]
+    cooldown:
+      default-days: 7
+
+  # signal upstream movement of the vendored submodules. The ecosystem is
+  # configured per directory rather than per submodule: it reads the
+  # .gitmodules at that directory, so every submodule named there is
+  # covered by this one entry.
+  # note: Dependabot tracks each upstream's default branch, so its pull
+  # request says that a bump is available and not which commit to pin;
+  # CONTRIBUTING.md's conventions say what a bump of a submodule owes
+  - package-ecosystem: gitsubmodule
+    directory: /
+    schedule:
+      interval: weekly
+      day: thursday
+    groups:
+      # one PR for both submodule bumps instead of one PR each
+      submodules:
+        patterns: ["*"]
+    cooldown:
+      default-days: 7
+
+  # the ClusterFuzzLite build container: base-builder-python and uv, both
+  # pinned by digest in .clusterfuzzlite/Dockerfile
+  # (btclib-org/btclib-secp256k1#1033, #1040). directory is where that
+  # Dockerfile lives, not the repository root: docker is scoped per
+  # Dockerfile rather than per repository, and this tree has one, with
+  # two `FROM` stages for this one entry to move
+  - package-ecosystem: docker
+    directory: /.clusterfuzzlite
+    schedule:
+      interval: weekly
+      day: thursday
+    groups:
+      # one PR for both stages' image bumps instead of one PR each
+      clusterfuzzlite:
+        patterns: ["*"]
+    cooldown:
+      default-days: 7

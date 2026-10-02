@@ -51,9 +51,9 @@ from lazr.restfulclient.authorize.oauth import (
 
 from launchpadlib import uris
 
-request_token_page = "+request-token"
-access_token_page = "+access-token"
-authorize_token_page = "+authorize-token"
+request_token_page = "+request-token"  # noqa: S105
+access_token_page = "+access-token"  # noqa: S105
+authorize_token_page = "+authorize-token"  # noqa: S105
 access_token_poll_time = 1
 access_token_poll_timeout = 15 * 60
 
@@ -99,8 +99,8 @@ class Credentials(OAuthAuthorizer):
 
     _request_token = None
 
-    URI_TOKEN_FORMAT = "uri"
-    DICT_TOKEN_FORMAT = "dict"
+    URI_TOKEN_FORMAT = "uri"  # noqa: S105
+    DICT_TOKEN_FORMAT = "dict"  # noqa: S105
     ITEM_SEPARATOR = "<BR>"
     NEWLINE = "\n"
 
@@ -156,8 +156,10 @@ class Credentials(OAuthAuthorizer):
             Launchpad. If token_format is DICT_TOKEN_FORMAT, a dict of
             information about the new access token.
         """
-        assert self.consumer is not None, "Consumer not specified."
-        assert self.access_token is None, "Access token already obtained."
+        if self.consumer is None:
+            raise ValueError("Consumer not specified.")
+        if self.access_token is not None:
+            raise ValueError("Access token already obtained.")
         web_root = uris.lookup_web_root(web_root)
         params = dict(
             oauth_consumer_key=self.consumer.key,
@@ -202,9 +204,10 @@ class Credentials(OAuthAuthorizer):
         :param web_root: The base URL of the website that granted the
             request token.
         """
-        assert (
-            self._request_token is not None
-        ), "get_request_token() doesn't seem to have been called."
+        if self._request_token is None:
+            raise ValueError(
+                "get_request_token() doesn't seem to have been called."
+            )
         web_root = uris.lookup_web_root(web_root)
         params = dict(
             oauth_consumer_key=self.consumer.key,
@@ -236,16 +239,17 @@ class AccessToken(_AccessToken):
             query_string = query_string.decode("utf-8")
         params = parse_qs(query_string, keep_blank_values=False)
         key = params["oauth_token"]
-        assert len(key) == 1, "Query string must have exactly one oauth_token."
+        if len(key) != 1:
+            raise ValueError("Query string must have exactly one oauth_token.")
         key = key[0]
         secret = params["oauth_token_secret"]
-        assert len(secret) == 1, "Query string must have exactly one secret."
+        if len(secret) != 1:
+            raise ValueError("Query string must have exactly one secret.")
         secret = secret[0]
         context = params.get("lp.context")
         if context is not None:
-            assert (
-                len(context) == 1
-            ), "Query string must have exactly one context"
+            if len(context) != 1:
+                raise ValueError("Query string must have exactly one context")
             context = context[0]
         return cls(key, secret, context)
 
@@ -380,13 +384,16 @@ class KeyringCredentialStore(CredentialStore):
         serialized = self.B64MARKER + b64encode(serialized)
         try:
             keyring.set_password(
-                "launchpadlib", unique_key, serialized.decode("utf-8")
+                # coverity[hardcoded_secret_pattern_low]
+                "launchpadlib",
+                unique_key,
+                serialized.decode("utf-8"),
             )
         except NoKeyringError as e:
             # keyring < 21.2.0 raises RuntimeError rather than anything more
             # specific.  Make sure it's the exception we're interested in.
             if (
-                NoKeyringError == RuntimeError
+                NoKeyringError is RuntimeError
                 and "No recommended backend was available" not in str(e)
             ):
                 raise
@@ -400,13 +407,15 @@ class KeyringCredentialStore(CredentialStore):
         self._ensure_keyring_imported()
         try:
             credential_string = keyring.get_password(
-                "launchpadlib", unique_key
+                # coverity[hardcoded_secret_pattern_low]
+                "launchpadlib",
+                unique_key,
             )
         except NoKeyringError as e:
             # keyring < 21.2.0 raises RuntimeError rather than anything more
             # specific.  Make sure it's the exception we're interested in.
             if (
-                NoKeyringError == RuntimeError
+                NoKeyringError is RuntimeError
                 and "No recommended backend was available" not in str(e)
             ):
                 raise
@@ -729,7 +738,7 @@ class AuthorizeRequestTokenWithBrowser(AuthorizeRequestTokenWithURL):
     def __init__(
         self,
         service_root,
-        application_name,
+        application_name=None,
         consumer_name=None,
         credential_save_failed=None,
         allow_access_levels=None,
@@ -738,20 +747,31 @@ class AuthorizeRequestTokenWithBrowser(AuthorizeRequestTokenWithURL):
 
         :param service_root: See `RequestTokenAuthorizationEngine`.
         :param application_name: See `RequestTokenAuthorizationEngine`.
-        :param consumer_name: The value of this argument is
-            ignored. If we have the capability to open the end-user's
-            web browser, we must be running on the end-user's computer,
-            so we should do a full desktop integration.
-        :param credential_save_failed: See `RequestTokenAuthorizationEngine`.
-        :param allow_access_levels: The value of this argument is
-            ignored, for the same reason as consumer_name.
+        :param consumer_name: See `RequestTokenAuthorizationEngine`.
+            If application_name is provided, consumer_name and
+            allow_access_levels are ignored in favor of desktop-wide
+            integration.
+        :param credential_save_failed: Accepted for backwards
+            compatibility but unused: the credential-save callback is
+            invoked by the `CredentialStore`, not by this engine.
+        :param allow_access_levels: The Launchpad access levels to
+            offer the end-user in the web UI. See
+            `RequestTokenAuthorizationEngine`. Ignored when
+            application_name is provided, since desktop-wide
+            integration is used instead.
         """
-        # It doesn't look like we're doing anything here, but we
-        # are discarding the passed-in values for consumer_name and
-        # allow_access_levels.
-        super().__init__(
-            service_root, application_name, None, credential_save_failed
-        )
+        if application_name is not None:
+            # Desktop-wide integration: discard consumer_name and
+            # allow_access_levels.
+            super().__init__(service_root, application_name=application_name)
+        else:
+            # Application-specific integration: pass consumer_name and
+            # the requested access levels through.
+            super().__init__(
+                service_root,
+                consumer_name=consumer_name,
+                allow_access_levels=allow_access_levels,
+            )
 
     def notify_end_user_authorization_url(self, authorization_url):
         """Notify the end-user of the URL."""

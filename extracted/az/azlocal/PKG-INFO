@@ -1,0 +1,42 @@
+Metadata-Version: 2.4
+Name: azlocal
+Version: 0.2.7
+Summary: 'azlocal' - Thin wrapper around 'az' to use with Localstack
+Author-email: LocalStack Team <info@localstack.cloud>
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: certifi
+Provides-Extra: dev
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: azure-mgmt-resource; extra == "dev"
+Requires-Dist: azure-mgmt-resource-locks; extra == "dev"
+Dynamic: license-file
+
+# azcli-local
+"azlocal" - Thin wrapper around "az" to use with Localstack
+
+## Installation
+```
+pip install azlocal
+```
+
+## Usage
+```
+azlocal login
+azlocal storage account list
+```
+
+## Help
+```
+azlocal -h
+```

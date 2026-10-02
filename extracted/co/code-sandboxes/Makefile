@@ -1,0 +1,106 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+#
+# BSD 3-Clause License
+
+SHELL=/bin/bash
+
+.DEFAULT_GOAL := default
+
+.PHONY: clean build test
+
+VERSION = "0.0.3"
+PLATFORM ?= linux/amd64
+LOAD ?= --load
+
+default: all ## Default target is all.
+
+help: ## display this help.
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+
+all: clean dev ## Clean Install and Build
+
+install:
+	pip install .
+
+dev:
+	pip install ".[test,lint,typing]"
+
+build:
+	pip install build
+	python -m build .
+
+test:
+	pytest -q
+
+## Build the datalayer-sandbox doctor as a single-file zipapp.
+doctor-zipapp:
+	python -m code_sandboxes.environments.doctor.build dist/datalayer-sandbox
+
+## Regenerate the Environment JSON Schema and the sandbox contract page.
+environments-generate:
+	python -m code_sandboxes.environments schema --write
+	python -m code_sandboxes.environments contract --markdown docs/docs/environments/contract.mdx
+
+## Fail when the Environment JSON Schema or the sandbox contract page has drifted.
+environments-check:
+	python -m code_sandboxes.environments schema --check
+	python -m code_sandboxes.environments contract --check docs/docs/environments/contract.mdx
+
+## The Contents provider matrix against the real providers (skips those without credentials).
+live-matrix:
+	CODE_SANDBOXES_LIVE=1 pytest -q -m live tests/test_contents_live_matrix.py
+
+## Lose a sandbox on each live provider and check the harness says so.
+kill-relaunch:
+	CODE_SANDBOXES_LIVE=1 pytest -q -m live tests/test_the_kill_relaunch_drill.py
+
+## The managed Environment builders against the real providers: a real
+## resolved lock, build, launch, and the formal core tier (E2-11).
+environments-live:
+	CODE_SANDBOXES_LIVE=1 pytest -q -m live tests/test_environment_live_matrix.py
+
+clean: ## clean
+	git clean -fdx
+
+build-docker:
+	docker buildx build --platform $(PLATFORM) $(LOAD) -t datalayer/code-sandboxes:${VERSION} -f docker/Dockerfile .
+	docker image tag datalayer/code-sandboxes:${VERSION} datalayer/code-sandboxes:latest
+	docker image tag datalayer/code-sandboxes:${VERSION} datalayer/code-sandboxes:latest
+
+start-docker:
+	docker run -i --rm \
+	  -e SERVER_URL=http://localhost:8888 \
+	  -e TOKEN=MY_TOKEN \
+	  -e NOTEBOOK_PATH=notebook.ipynb \
+	  --network=host \
+	  datalayer/code-sandboxes:latest
+
+pull-docker:
+	docker image pull datalayer/code-sandboxes:latest
+
+push-docker:
+	docker push datalayer/code-sandboxes:${VERSION}
+	docker push datalayer/code-sandboxes:latest
+
+claude-linux:
+	NIXPKGS_ALLOW_UNFREE=1 nix run github:k3d3/claude-desktop-linux-flake \
+		--impure \
+		--extra-experimental-features flakes \
+		--extra-experimental-features nix-command
+
+jupyterlab:
+	pip uninstall -y pycrdt datalayer_pycrdt
+	pip install datalayer_pycrdt
+	jupyter lab \
+		--port 8888 \
+		--ip 0.0.0.0 \
+		--ServerApp.root_dir ./dev/content \
+		--IdentityProvider.token MY_TOKEN
+
+publish-pypi: # publish the pypi package
+	git clean -fdx && \
+		python -m build
+	@exec echo
+	@exec echo twine upload ./dist/*-py3-none-any.whl
+	@exec echo
+	@exec echo https://pypi.org/project/code-sandboxes/#history

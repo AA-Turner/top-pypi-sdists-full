@@ -1,0 +1,442 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Tests for the delegation router — ticket-to-model-tier routing."""
+
+from __future__ import annotations
+
+import asyncio
+import json
+from pathlib import Path
+
+import pytest
+
+from omnimarket.inference.local_byok_credential_adapter import (
+    LocalByokCredentialStore,
+)
+from omnimarket.nodes.node_build_loop_orchestrator.handlers import (
+    adapter_delegation_router,
+)
+from omnimarket.nodes.node_build_loop_orchestrator.handlers.adapter_delegation_router import (
+    EnumModelTier,
+    ModelDelegationHarnessSample,
+    build_endpoint_configs,
+    route_ticket_to_tier,
+)
+
+# Tier set without GLM — tests local-only routing fallback behavior
+_LOCAL_ONLY = frozenset(
+    {EnumModelTier.LOCAL_FAST, EnumModelTier.LOCAL_CODER, EnumModelTier.LOCAL_REASONING}
+)
+
+_LOCAL_PLUS_GOOGLE = _LOCAL_ONLY | {EnumModelTier.FRONTIER_GOOGLE}
+_LOCAL_PLUS_GEMINI_CLI = _LOCAL_ONLY | {EnumModelTier.GEMINI_CLI}
+_LOCAL_PLUS_GEMINI_CLI_AND_GOOGLE = _LOCAL_PLUS_GEMINI_CLI | {
+    EnumModelTier.FRONTIER_GOOGLE
+}
+
+
+def _register_local_secret(secret_ref: str, value: str) -> None:
+    """OMN-18695: register a provider credential in the local store."""
+    asyncio.run(LocalByokCredentialStore().set_secret(secret_ref, value))
+
+
+@pytest.mark.unit
+class TestRouteTicketToTier:
+    """Test ticket routing to model tiers."""
+
+    def test_glm_is_primary_when_available(self) -> None:
+        """GLM-4.5 should be selected for any task when available."""
+        tier = route_ticket_to_tier(
+            "add unit tests for handler",
+            "write comprehensive tests",
+        )
+        assert tier == EnumModelTier.FRONTIER_GLM
+
+    def test_simple_task_routes_to_local_fast_without_glm(self) -> None:
+        tier = route_ticket_to_tier(
+            "fix lint error", "rename import", available_tiers=_LOCAL_ONLY
+        )
+        assert tier == EnumModelTier.LOCAL_FAST
+
+    def test_complex_task_routes_to_frontier_without_glm(self) -> None:
+        tier = route_ticket_to_tier(
+            "design new event bus architecture",
+            "multi-repo migration needed",
+            available_tiers=_LOCAL_PLUS_GOOGLE,
+        )
+        assert tier == EnumModelTier.FRONTIER_GOOGLE
+
+    def test_medium_task_routes_to_local_coder_without_glm(self) -> None:
+        tier = route_ticket_to_tier(
+            "add unit tests for handler",
+            "write comprehensive tests",
+            available_tiers=_LOCAL_ONLY,
+        )
+        assert tier == EnumModelTier.LOCAL_CODER
+
+    def test_format_task_routes_to_local_fast_without_glm(self) -> None:
+        tier = route_ticket_to_tier(
+            "format code", "run ruff format", available_tiers=_LOCAL_ONLY
+        )
+        assert tier == EnumModelTier.LOCAL_FAST
+
+    def test_pipeline_task_routes_to_frontier_without_glm(self) -> None:
+        tier = route_ticket_to_tier(
+            "wire kafka pipeline",
+            "new pipeline for event processing",
+            available_tiers=_LOCAL_PLUS_GOOGLE,
+        )
+        assert tier == EnumModelTier.FRONTIER_GOOGLE
+
+    def test_fallback_when_frontier_unavailable(self) -> None:
+        tier = route_ticket_to_tier(
+            "design new architecture",
+            "complex multi-repo change",
+            available_tiers=frozenset(
+                {EnumModelTier.LOCAL_FAST, EnumModelTier.LOCAL_CODER}
+            ),
+        )
+        assert tier == EnumModelTier.LOCAL_CODER
+
+    def test_unknown_task_defaults_to_local_coder_without_glm(self) -> None:
+        tier = route_ticket_to_tier(
+            "some generic ticket",
+            "do something interesting",
+            available_tiers=_LOCAL_ONLY,
+        )
+        assert tier == EnumModelTier.LOCAL_CODER
+
+    def test_mature_harness_samples_override_primary_routing(self) -> None:
+        """Once >=20 samples exist, router should use harness quality evidence."""
+        samples = [
+            ModelDelegationHarnessSample(
+                model_key=EnumModelTier.FRONTIER_GLM.value,
+                task_type="code_generation",
+                score=0.30,
+            )
+            for _ in range(20)
+        ] + [
+            ModelDelegationHarnessSample(
+                model_key=EnumModelTier.LOCAL_CODER.value,
+                task_type="code_generation",
+                score=0.91,
+            )
+            for _ in range(20)
+        ]
+
+        tier = route_ticket_to_tier(
+            "add unit tests for handler",
+            "write comprehensive tests",
+            harness_samples=samples,
+        )
+
+        assert tier == EnumModelTier.LOCAL_CODER
+
+    def test_immature_harness_samples_do_not_override_primary_routing(self) -> None:
+        samples = [
+            ModelDelegationHarnessSample(
+                model_key=EnumModelTier.LOCAL_CODER.value,
+                task_type="code_generation",
+                score=0.99,
+            )
+            for _ in range(19)
+        ]
+
+        tier = route_ticket_to_tier(
+            "add unit tests for handler",
+            "write comprehensive tests",
+            harness_samples=samples,
+        )
+
+        assert tier == EnumModelTier.FRONTIER_GLM
+
+    def test_architecture_task_routes_to_gemini_cli_when_available(self) -> None:
+        """Gemini CLI should be preferred over FRONTIER_GOOGLE for architecture tasks."""
+        tier = route_ticket_to_tier(
+            "design new architecture for event bus",
+            "multi-file refactor needed across repos",
+            available_tiers=_LOCAL_PLUS_GEMINI_CLI_AND_GOOGLE,
+        )
+        assert tier == EnumModelTier.GEMINI_CLI
+
+    def test_multi_file_task_routes_to_gemini_cli_when_available(self) -> None:
+        tier = route_ticket_to_tier(
+            "cross-repo migration of schema",
+            "breaking change across multiple services",
+            available_tiers=_LOCAL_PLUS_GEMINI_CLI,
+        )
+        assert tier == EnumModelTier.GEMINI_CLI
+
+    def test_gemini_cli_preferred_over_frontier_google_for_complex_tasks(self) -> None:
+        tier = route_ticket_to_tier(
+            "new service orchestrator pipeline",
+            "kafka event bus migration",
+            available_tiers=_LOCAL_PLUS_GEMINI_CLI_AND_GOOGLE,
+        )
+        assert tier == EnumModelTier.GEMINI_CLI
+
+    def test_gemini_cli_fallback_to_frontier_google_when_cli_unavailable(self) -> None:
+        """When GEMINI_CLI is unavailable, complex tasks fall back to FRONTIER_GOOGLE."""
+        tier = route_ticket_to_tier(
+            "design new architecture",
+            "multi-repo migration needed",
+            available_tiers=_LOCAL_PLUS_GOOGLE,
+        )
+        assert tier == EnumModelTier.FRONTIER_GOOGLE
+
+    def test_gemini_cli_fallback_to_local_coder_when_no_frontier(self) -> None:
+        """When no frontier tier is available, complex tasks fall back to LOCAL_CODER."""
+        tier = route_ticket_to_tier(
+            "design new architecture",
+            "new node orchestrator pipeline",
+            available_tiers=frozenset(
+                {EnumModelTier.LOCAL_FAST, EnumModelTier.LOCAL_CODER}
+            ),
+        )
+        assert tier == EnumModelTier.LOCAL_CODER
+
+    def test_gemini_cli_not_selected_for_simple_tasks(self) -> None:
+        """Simple tasks should not be routed to GEMINI_CLI."""
+        tier = route_ticket_to_tier(
+            "fix lint error",
+            "rename import",
+            available_tiers=_LOCAL_PLUS_GEMINI_CLI,
+        )
+        assert tier == EnumModelTier.LOCAL_FAST
+
+    def test_reads_harness_result_json_for_mature_samples(self, tmp_path: Path) -> None:
+        harness_result = tmp_path / "llm_eval_results.json"
+        samples = [
+            {
+                "model_key": EnumModelTier.FRONTIER_GLM.value,
+                "task_id": f"glm-{index}",
+                "task_type": "code_generation",
+                "score": 0.30,
+            }
+            for index in range(20)
+        ] + [
+            {
+                "model_key": EnumModelTier.LOCAL_CODER.value,
+                "task_id": f"coder-{index}",
+                "task_type": "code_generation",
+                "score": 0.91,
+            }
+            for index in range(20)
+        ]
+        harness_result.write_text(json.dumps({"samples": samples}))
+
+        tier = route_ticket_to_tier(
+            "add unit tests for handler",
+            "write comprehensive tests",
+            harness_result_path=harness_result,
+        )
+
+        assert tier == EnumModelTier.LOCAL_CODER
+
+
+_ENDPOINT_ENV_KEYS = (
+    "LLM_GLM_API_KEY",
+    "LLM_GLM_URL",
+    "LLM_GLM_MODEL_NAME",
+    "LLM_GLM_REVIEW_MODEL_NAME",
+    "LLM_CODER_FAST_URL",
+    "LLM_CODER_FAST_MODEL_NAME",
+    "LLM_CODER_URL",
+    "LLM_CODER_MODEL_NAME",
+    "LLM_DEEPSEEK_R1_URL",
+    "LLM_DEEPSEEK_R1_MODEL_NAME",
+    "GEMINI_API_KEY",
+    "GEMINI_CLI_MODEL_NAME",
+    "GOOGLE_API_KEY",
+    "LLM_GOOGLE_URL",
+    "LLM_GOOGLE_MODEL_NAME",
+    "OPENAI_API_KEY",
+    "LLM_OPENAI_URL",
+    "LLM_OPENAI_MODEL_NAME",
+)
+
+
+def _clear_endpoint_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    for key in _ENDPOINT_ENV_KEYS:
+        monkeypatch.delenv(key, raising=False)
+
+
+@pytest.mark.unit
+class TestBuildEndpointConfigs:
+    """Endpoint config proof without depending on host environment variables."""
+
+    def test_empty_env_builds_no_endpoint_configs(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _clear_endpoint_env(monkeypatch)
+
+        configs = build_endpoint_configs()
+
+        assert configs == {}
+
+    def test_glm_endpoint_requires_key_and_url(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _clear_endpoint_env(monkeypatch)
+        # OMN-18695: the CREDENTIAL is registered in the local secret store.
+        # Only the endpoint and model name are config, and those stay in
+        # the environment.
+        _register_local_secret("llm.glm.api_key", "secret")
+
+        assert EnumModelTier.FRONTIER_GLM not in build_endpoint_configs()
+
+        monkeypatch.setenv("LLM_GLM_URL", "https://glm.example/v4")
+        assert EnumModelTier.FRONTIER_GLM not in build_endpoint_configs()
+
+        monkeypatch.setenv("LLM_GLM_MODEL_NAME", "glm-4.5")
+        monkeypatch.setenv("LLM_GLM_REVIEW_MODEL_NAME", "glm-review")
+
+        configs = build_endpoint_configs()
+
+        assert configs[EnumModelTier.FRONTIER_GLM].base_url == "https://glm.example/v4"
+        assert configs[EnumModelTier.FRONTIER_GLM].model_id == "glm-4.5"
+        assert configs[EnumModelTier.FRONTIER_REVIEW].model_id == "glm-review"
+
+    def test_local_endpoints_require_model_name(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _clear_endpoint_env(monkeypatch)
+        monkeypatch.setenv("LLM_CODER_FAST_URL", "http://fast.example/v1")
+        monkeypatch.setenv("LLM_CODER_URL", "http://coder.example/v1")
+        monkeypatch.setenv("LLM_DEEPSEEK_R1_URL", "http://reason.example/v1")
+
+        assert build_endpoint_configs() == {}
+
+        monkeypatch.setenv("LLM_CODER_FAST_MODEL_NAME", "fast-model")
+        monkeypatch.setenv("LLM_CODER_MODEL_NAME", "coder-model")
+        monkeypatch.setenv("LLM_DEEPSEEK_R1_MODEL_NAME", "reason-model")
+
+        configs = build_endpoint_configs()
+
+        assert configs[EnumModelTier.LOCAL_FAST].model_id == "fast-model"
+        assert configs[EnumModelTier.LOCAL_CODER].model_id == "coder-model"
+        assert configs[EnumModelTier.LOCAL_REASONING].model_id == "reason-model"
+
+    def test_gemini_key_uses_cli_when_binary_is_available(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _clear_endpoint_env(monkeypatch)
+        # OMN-18695: the CREDENTIAL is registered in the local secret store.
+        # Only the endpoint and model name are config, and those stay in
+        # the environment.
+        _register_local_secret("llm.gemini.api_key", "secret")
+        monkeypatch.setenv("GEMINI_CLI_MODEL_NAME", "gemini-cli-profile")
+        monkeypatch.setenv("LLM_GOOGLE_URL", "https://google.example/openai")
+        monkeypatch.setenv("LLM_GOOGLE_MODEL_NAME", "google-frontier")
+        monkeypatch.setattr(
+            adapter_delegation_router, "_gemini_cli_available", lambda: True
+        )
+
+        configs = build_endpoint_configs()
+
+        assert configs[EnumModelTier.GEMINI_CLI].base_url == "cli://gemini"
+        assert configs[EnumModelTier.GEMINI_CLI].model_id == "gemini-cli-profile"
+        assert configs[EnumModelTier.FRONTIER_GOOGLE].base_url == (
+            "https://google.example/openai"
+        )
+        assert configs[EnumModelTier.FRONTIER_GOOGLE].model_id == "google-frontier"
+
+    def test_gemini_key_without_model_names_adds_no_endpoint(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _clear_endpoint_env(monkeypatch)
+        # OMN-18695: the CREDENTIAL is registered in the local secret store.
+        # Only the endpoint and model name are config, and those stay in
+        # the environment.
+        _register_local_secret("llm.gemini.api_key", "secret")
+        monkeypatch.setattr(
+            adapter_delegation_router, "_gemini_cli_available", lambda: True
+        )
+
+        configs = build_endpoint_configs()
+
+        assert EnumModelTier.GEMINI_CLI not in configs
+        assert EnumModelTier.FRONTIER_GOOGLE not in configs
+
+    def test_gemini_key_skips_cli_when_binary_is_missing(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """OMN-17372: the Gemini credential resolves through the secret store.
+
+        The router reads no credential variable directly: it resolves
+        ``llm.gemini.api_key``. OMN-18695 then took the environment out of
+        that resolution entirely, so the value is REGISTERED in the local
+        secret store here rather than exported. The tier-skipping behaviour
+        under test is unchanged — only the path the credential travels.
+        """
+        _clear_endpoint_env(monkeypatch)
+        # OMN-18695: the CREDENTIAL is registered in the local secret store.
+        # Only the endpoint and model name are config, and those stay in
+        # the environment.
+        _register_local_secret("llm.gemini.api_key", "secret")
+        monkeypatch.setenv("GEMINI_CLI_MODEL_NAME", "gemini-cli-profile")
+        monkeypatch.setenv("LLM_GOOGLE_URL", "https://google.example/openai")
+        monkeypatch.setenv("LLM_GOOGLE_MODEL_NAME", "google-frontier")
+        monkeypatch.setattr(
+            adapter_delegation_router, "_gemini_cli_available", lambda: False
+        )
+
+        configs = build_endpoint_configs()
+
+        assert EnumModelTier.GEMINI_CLI not in configs
+        assert configs[EnumModelTier.FRONTIER_GOOGLE].api_key == "secret"
+        assert configs[EnumModelTier.FRONTIER_GOOGLE].model_id == "google-frontier"
+
+    def test_google_api_key_alone_no_longer_configures_a_tier(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """OMN-17372: ``GOOGLE_API_KEY`` is not a credential source any more.
+
+        The router used to read ``GEMINI_API_KEY or GOOGLE_API_KEY`` straight
+        out of the process environment — a raw ambient house credential with no
+        secret store in the path, honouring neither the lane secret mapping nor
+        any per-tenant scoping. This is the negative half of the inversion: the
+        variable is set, and no tier may pick a credential up from it.
+
+        ``FRONTIER_GOOGLE`` is still REGISTERED — that tier is gated on its
+        endpoint URL and model id, not on the key — but it must now carry an
+        empty ``api_key``. That is the intended shape: an unauthenticated call
+        that fails at the provider is an honest hard failure, where silently
+        succeeding on OmniNode's account was not. ``GEMINI_CLI`` is gated on
+        the key itself and so drops out entirely.
+        """
+        _clear_endpoint_env(monkeypatch)
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+        monkeypatch.setenv("GOOGLE_API_KEY", "house-secret")
+        monkeypatch.setenv("GEMINI_CLI_MODEL_NAME", "gemini-cli-profile")
+        monkeypatch.setenv("LLM_GOOGLE_URL", "https://google.example/openai")
+        monkeypatch.setenv("LLM_GOOGLE_MODEL_NAME", "google-frontier")
+        monkeypatch.setattr(
+            adapter_delegation_router, "_gemini_cli_available", lambda: True
+        )
+
+        configs = build_endpoint_configs()
+
+        assert EnumModelTier.GEMINI_CLI not in configs
+        assert configs[EnumModelTier.FRONTIER_GOOGLE].api_key == "", (
+            "GOOGLE_API_KEY still reached a tier's api_key — the raw house "
+            "env read deleted by OMN-17372 has come back"
+        )
+
+    def test_openai_endpoint_requires_url_and_model_name(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _clear_endpoint_env(monkeypatch)
+        monkeypatch.setenv("OPENAI_API_KEY", "secret")
+
+        assert EnumModelTier.FRONTIER_OPENAI not in build_endpoint_configs()
+
+        monkeypatch.setenv("LLM_OPENAI_URL", "https://openai.example/v1")
+        monkeypatch.setenv("LLM_OPENAI_MODEL_NAME", "openai-frontier")
+
+        configs = build_endpoint_configs()
+
+        assert configs[EnumModelTier.FRONTIER_OPENAI].base_url == (
+            "https://openai.example/v1"
+        )
+        assert configs[EnumModelTier.FRONTIER_OPENAI].model_id == "openai-frontier"

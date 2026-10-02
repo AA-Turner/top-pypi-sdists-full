@@ -1,0 +1,378 @@
+[tool.poetry]
+name = "supabase-pydantic"
+version = "0.26.25"
+description = "A Pydantic(+) model generator for Supabase"
+authors = ["K Boehm <kmbhm1@gmail.com>"]
+license = "MIT"
+repository = "https://github.com/kmbhm1/supabase-pydantic"
+homepage = "https://kmbhm1.github.io/supabase-pydantic"
+readme = "README.md"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Framework :: FastAPI",
+    "Framework :: Pydantic",
+    "Framework :: Pydantic :: 2",
+    "Framework :: Pytest",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: MacOS :: MacOS X",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: PL/SQL",
+]
+keywords = [
+    "supabase",
+    "pydantic",
+    "fastapi",
+    "sqlalchemy",
+    "REST",
+    "generator",
+    "schema",
+    "model",
+]
+packages = [{ include = "supabase_pydantic", from = "src" }]
+
+[tool.poetry.scripts]
+sb-pydantic = 'supabase_pydantic.cli:cli'
+supabase-pydantic = 'supabase_pydantic.cli:cli'
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.14"
+psycopg2-binary = "^2.9.9"
+pydantic = "^2.6.3"
+types-psycopg2 = "^2.9.21.20240417"
+faker = "^24.11.0"
+python-dotenv = "^1.0.1"
+click = "^8.1.7"
+toml = "^0.10.2"
+click-option-group = "^0.5.6"
+inflection = "^0.5.1"
+requests = ">=2.32.4"
+urllib3 = "^2.6.0"
+loguru = "^0.7.2"
+mysql-connector-python = ">=8.0.32,<9.4.0"
+
+[tool.poetry.group.dev.dependencies]
+sqlalchemy = { extras = ["mypy"], version = "^2.0.31" }
+python-semantic-release = "^9.8.5"
+pre-commit = "^3.7.1"
+commitizen = "^3.28.0"
+pytest = ">=8.2.2,<10.0.0"
+tox = "^4.11.3"
+mypy = "^1.11.0"
+pytest-mypy = "^0.10.3"
+pytest-cov = "^5.0.0"
+pytest-mock = "^3.14.0"
+types-toml = "^0.10.8.20240310"
+networkx = "^3.3"
+matplotlib = "^3.9.1.post1"
+fonttools = ">=4.60.2,<5.0.0"
+mkdocs = "^1.6.0"
+mkdocs-material = "^9.5.30"
+mkdocstrings = { extras = ["python"], version = "^0.25.1" }
+mkdocs-redirects = "^1.2.1"
+mkdocs-click = "^0.8.1"
+pymdown-extensions = "^11.0.1"
+ruff = ">=0.4.1"
+jinja2 = "^3.1.6"
+types-pyyaml = "^6.0.12.20250809"
+pyyaml = "^6.0.1"
+types-pymysql = "^1.1.0.20250711"
+vulture = "^2.14"
+
+
+[tool.supabase_pydantic]
+overwrite_existing_files = true
+nullify_base_schema = true
+
+[tool.ruff]
+line-length = 120
+indent-width = 4
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle
+    "F",  # Pyflakes
+    "UP", # pyupgrade
+    "D",  # pydocstyle
+    "I",  # isort
+    "Q",  # flake8-quotes
+    "W",  # pycodestyle
+]
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "docs",
+    "poc/",
+    # "notebooks",
+    "**/*tests*",
+    "scripts",
+    "setup.py",
+    "setup.cfg",
+    "pyproject.toml",
+    "poetry.lock",
+    "pyrightconfig.json",
+    "whitelist.py",
+    ".*.yml",
+    ".*.yaml",
+    ".*.toml",
+    ".*.md",
+    ".*.txt",
+    ".*.rst",
+    ".*.json",
+    ".*.html",
+    ".*.css",
+    ".*.js",
+    ".*.png",
+    ".*.jpg",
+    ".*.jpeg",
+    ".*.gif",
+    ".*.svg",
+    ".*.ico",
+    ".*.eot",
+    ".*.ttf",
+    ".*.woff",
+    ".*.woff2",
+    ".*.map",
+    # ".*.ipynb",
+    ".*.pyi",
+    ".*.pyc",
+    ".*.pyd",
+    ".*.pyo",
+    ".*.pyw",
+    ".*.pyz",
+    ".*.pyzw",
+    ".*.DS_Store",
+    ".*.gitignore",
+    ".*.gitkeep",
+    ".*.gitmodules",
+    ".*.gitattributes",
+    ".*.git",
+    ".*.hgignore",
+    ".*.hgkeep",
+    ".*.",
+]
+ignore = [
+    "D100", # Missing docstring in public module
+    "D101", # Missing docstring in public class
+    "D104", # Missing docstring in public package
+    "D105", # Missing docstring in magic method
+    "D107", # Missing docstring in __init__
+    "D202", # No blank lines allowed after function docstring
+    "D206", # Docstring should be indented with spaces, not tabs
+    "E101", # indentation contains mixed spaces and tabs
+    "F403", # 'from module import *' used; unable to detect undefined names
+    "Q000", # Remove bad quotes
+    "Q002", # Remove bad quotes
+    "Q003", # Unnecessary single quotes
+    "W191", # Indentation contains tabs
+    "W291", # Trailing whitespace
+]
+
+[tool.ruff.lint.flake8-quotes]
+docstring-quotes = "single"
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "tests/*",
+    'entities/*',  # generated files
+    'poc',
+    'whitelist.py'
+]
+python_version = "3.10"
+mypy_path = "."
+explicit_package_bases = true
+ignore_missing_imports = true
+warn_unused_configs = true
+warn_return_any = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+
+[tool.semantic_release]
+allow_zero_version = true
+assets = []
+branch = "main"
+build_command = ""
+build_command_env = []
+changelog_file = "CHANGELOG.md"
+commit_message = "{version}\n\nAutomatically generated by python-semantic-release"
+commit_parser = "angular"
+dist_path = "dist/"
+logging_use_named_masks = false
+major_on_zero = true
+no_git_verify = false
+patch_without_tag = true
+remove_dist = false
+tag_format = "v{version}"
+upload_to_pypi = false
+upload_to_release = true
+version_toml = ["pyproject.toml:tool.poetry.version"]
+
+[tool.semantic_release.branches.main]
+match = "(main|master)"
+prerelease_token = "rc"
+prerelease = false
+
+[tool.semantic_release.changelog]
+changelog_file = "CHANGELOG.md"
+exclude_commit_patterns = []
+mode = "update"
+
+[tool.semantic_release.changelog.environment]
+block_start_string = "{%"
+block_end_string = "%}"
+variable_start_string = "{{"
+variable_end_string = "}}"
+comment_start_string = "{#"
+comment_end_string = "#}"
+trim_blocks = false
+lstrip_blocks = false
+newline_sequence = "\n"
+keep_trailing_newline = false
+extensions = []
+autoescape = true
+
+[tool.semantic_release.commit_author]
+env = "GIT_COMMIT_AUTHOR"
+default = "KB <kmbhm1@gmail.com>"
+
+[tool.semantic_release.commit_parser_options]
+allowed_tags = [
+    "build",
+    "chore",
+    "ci",
+    "docs",
+    "feat",
+    "feature",
+    "fix",
+    "perf",
+    "style",
+    "refactor",
+    "test",
+]
+minor_tags = ["feat", "feature"]
+patch_tags = ["fix", "perf", "docs", "refactor", "chore"]
+default_bump_level = 0
+
+[tool.semantic_release.remote]
+name = "origin"
+type = "github"
+ignore_token_for_push = false
+insecure = false
+
+[tool.semantic_release.publish]
+dist_glob_patterns = ["dist/*"]
+upload_to_vcs_release = true
+
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+envlist = py310, py311, py312, py313, lint, mypy
+isolated_build = True
+skipsdist = false
+
+[testenv]
+deps =
+    pytest
+    pytest-cov
+    pytest-mypy
+    pytest-mock
+    pyyaml
+commands =
+    pytest {posargs:tests} --cov=supabase_pydantic --cov-report=term-missing
+
+[testenv:lint]
+basepython = {env:HOME}/.pyenv/versions/3.10.14/bin/python
+deps =
+    ruff>=0.4.1
+skip_install = true
+commands =
+    ruff check . --config=pyproject.toml
+    ruff format --check . --config=pyproject.toml
+
+[testenv:mypy]
+basepython = {env:HOME}/.pyenv/versions/3.10.14/bin/python
+deps =
+    mypy>=1.11.0
+    pydantic
+    types-toml
+    types-pyyaml
+    sqlalchemy
+skip_install = true
+commands =
+    mypy . --config-file=pyproject.toml
+"""
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+log_level = "INFO"
+markers = [
+    "unit: mark a test as a unit test",
+    "integration: mark a test as an integration test",
+    "db: mark a test that interacts with the database",
+    "strings: mark a test for string utilities",
+    "io: mark a test for I/O utilities",
+    "types: mark a test for type utilities",
+    "config: mark a test for configuration utilities",
+    "writers: mark a test for writers",
+    "graph: mark a test for graph operations",
+    "seed: mark a test for seed generation",
+    "constants: mark a test for constants",
+    "formatting: mark a test for formatting utilities",
+    "connection: mark a test for database connections",
+    "construction: mark a test for database schema construction",
+    "cli: mark a test for CLI functionality",
+    "marshalers: mark a test for data marshaling",
+    "models: mark a test for data models",
+    "utils: mark a test for utility functions",
+    "serialization: mark a test for data serialization",
+    "schema: mark a test for database schema",
+    "pydantic: mark a test for pydantic functionality",
+    "sqlalchemy: mark a test for sqlalchemy functionality"
+]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+[tool.coverage]
+[tool.coverage.run]
+omit = ['__init__.py', '.venv/*']
+
+[tool.coverage.report]
+skip_empty = true
+fail_under = 90
+
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+

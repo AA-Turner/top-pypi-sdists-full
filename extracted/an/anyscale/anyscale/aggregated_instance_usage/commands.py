@@ -37,8 +37,7 @@ _DOWNLOAD_ARG_DOCSTRINGS = {"filters": "The filter of the instance usage to down
 def download_csv(
     filters: DownloadCSVFilters,
     *,
-    _private_sdk: Optional[PrivateAggregatedInstanceUsageSDK] = None
+    _private_sdk: Optional[PrivateAggregatedInstanceUsageSDK] = None,
 ) -> str:
-    """Download an aggregated instance usage report as a zipped CSV to the provided directory.
-    """
+    """Download an aggregated instance usage report as a zipped CSV to the provided directory."""
     return _private_sdk.download_csv(filters)  # type: ignore

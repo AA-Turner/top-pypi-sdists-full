@@ -191,6 +191,7 @@ def _nss_read_csv(
         as_all_string_columns,
         cache_if_corrupt_record_present,
         filter_reader_options,
+        needs_locations,
         normalize_stage_paths,
         py_schema_as_nullable,
         raise_if_locations_unsupported,
@@ -251,7 +252,11 @@ def _nss_read_csv(
             # Any non-empty CSV record has at least one positional field, so an
             # inferred zero-column schema cannot carry rows as JSON {} records can.
             return empty_nss_file_read_result(
-                session, stage_path, "CSV", stage_paths=stage_paths
+                session,
+                stage_path,
+                "CSV",
+                stage_paths=stage_paths,
+                glob_patterns=glob_patterns,
             )
         if not options._get_config_setting("inferschema"):
             nss_columns = as_all_string_columns(nss_columns)
@@ -345,7 +350,7 @@ def _nss_read_csv(
             df, rel.common.plan_id
         )
     except SnowparkSQLException as exc:
-        if len(stage_paths) > 1 or any(p in (glob_patterns or {}) for p in stage_paths):
+        if needs_locations(stage_paths, glob_patterns):
             raise_if_locations_unsupported(exc, len(stage_paths))
         raise
     # Memoizable in df_cache_map, but not materialized (SNOW-3717231).

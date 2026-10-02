@@ -1,0 +1,615 @@
+/*------------------------------------------------------------------------------
+-- The MIT License (MIT)
+--
+-- Copyright © 2024, Laboratory of Plasma Physics- CNRS
+--
+-- Permission is hereby granted, free of charge, to any person obtaining a copy
+-- of this software and associated documentation files (the "Software"), to deal
+-- in the Software without restriction, including without limitation the rights
+-- to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+-- of the Software, and to permit persons to whom the Software is furnished to do
+-- so, subject to the following conditions:
+--
+-- The above copyright notice and this permission notice shall be included in all
+-- copies or substantial portions of the Software.
+--
+-- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+-- INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+-- PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+-- HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+-- OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+-- SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-------------------------------------------------------------------------------*/
+/*-- Author : Alexis Jeandet
+-- Mail : alexis.jeandet@member.fsf.org
+----------------------------------------------------------------------------*/
+#include <cdfpp/cdf.hpp>
+#include <cdfpp/cdf-io/saving/saving.hpp>
+#include <cdfpp/cdf-repr.hpp>
+#include <cdfpp/chrono/cdf-chrono.hpp>
+#include <cdfpp_config.h>
+
+#include <emscripten/bind.h>
+#include <emscripten/val.h>
+
+#include <algorithm>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
+#include <memory>
+#include <new>
+#include <sstream>
+#include <string>
+#include <vector>
+
+namespace em = emscripten;
+
+namespace
+{
+
+em::val typed_array_view(const char* ptr, std::size_t byte_count, cdf::CDF_Types type)
+{
+    using enum cdf::CDF_Types;
+    switch (type)
+    {
+        case CDF_INT1:
+        case CDF_BYTE:
+            return em::val(em::typed_memory_view(byte_count, reinterpret_cast<const int8_t*>(ptr)));
+        case CDF_UINT1:
+            return em::val(
+                em::typed_memory_view(byte_count, reinterpret_cast<const uint8_t*>(ptr)));
+        case CDF_INT2:
+            return em::val(em::typed_memory_view(
+                byte_count / 2, reinterpret_cast<const int16_t*>(ptr)));
+        case CDF_UINT2:
+            return em::val(em::typed_memory_view(
+                byte_count / 2, reinterpret_cast<const uint16_t*>(ptr)));
+        case CDF_INT4:
+            return em::val(em::typed_memory_view(
+                byte_count / 4, reinterpret_cast<const int32_t*>(ptr)));
+        case CDF_UINT4:
+            return em::val(em::typed_memory_view(
+                byte_count / 4, reinterpret_cast<const uint32_t*>(ptr)));
+        case CDF_INT8:
+        case CDF_TIME_TT2000:
+            return em::val(em::typed_memory_view(
+                byte_count / 8, reinterpret_cast<const int64_t*>(ptr)));
+        case CDF_FLOAT:
+        case CDF_REAL4:
+            return em::val(
+                em::typed_memory_view(byte_count / 4, reinterpret_cast<const float*>(ptr)));
+        case CDF_DOUBLE:
+        case CDF_REAL8:
+        case CDF_EPOCH:
+            return em::val(em::typed_memory_view(
+                byte_count / 8, reinterpret_cast<const double*>(ptr)));
+        case CDF_EPOCH16:
+            return em::val(em::typed_memory_view(
+                byte_count / 8, reinterpret_cast<const double*>(ptr)));
+        case CDF_CHAR:
+        case CDF_UCHAR:
+            return em::val(
+                em::typed_memory_view(byte_count, reinterpret_cast<const uint8_t*>(ptr)));
+        case CDF_NONE:
+            return em::val::undefined();
+    }
+}
+
+constexpr bool is_time_type(cdf::CDF_Types type)
+{
+    using enum cdf::CDF_Types;
+    return type == CDF_EPOCH || type == CDF_EPOCH16 || type == CDF_TIME_TT2000;
+}
+
+// Decode a contiguous buffer of CDF time values (CDF_TIME_TT2000 / CDF_EPOCH /
+// CDF_EPOCH16) to leap-second-corrected UTC nanoseconds since 1970, returned as
+// an owned BigInt64Array (the JS analog of datetime64[ns]). Returns undefined
+// for non-time types or an empty buffer.
+em::val time_buffer_to_ns(const char* ptr, std::size_t byte_count, cdf::CDF_Types type)
+{
+    using enum cdf::CDF_Types;
+    if (ptr == nullptr || !is_time_type(type))
+        return em::val::undefined();
+    const std::size_t n = byte_count / cdf::cdf_type_size(type);
+    if (n == 0)
+        return em::val::undefined();
+
+    std::vector<int64_t> out(n);
+    switch (type)
+    {
+        case CDF_TIME_TT2000:
+            cdf::to_ns_from_1970(
+                std::span<const cdf::tt2000_t>(reinterpret_cast<const cdf::tt2000_t*>(ptr), n),
+                out.data());
+            break;
+        case CDF_EPOCH:
+            cdf::to_ns_from_1970(
+                std::span<const cdf::epoch>(reinterpret_cast<const cdf::epoch*>(ptr), n),
+                out.data());
+            break;
+        case CDF_EPOCH16:
+            cdf::to_ns_from_1970(
+                std::span<const cdf::epoch16>(reinterpret_cast<const cdf::epoch16*>(ptr), n),
+                out.data());
+            break;
+        default:
+            return em::val::undefined();
+    }
+    // owned BigInt64Array copy (out dies after return)
+    return em::val(em::typed_memory_view(n, out.data())).call<em::val>("slice");
+}
+
+// Decode a buffer of CDF time values to an array of ISO-8601 date strings, reusing
+// cdfpp's repr formatters (cdf-repr.hpp). Those special-case the standard CDF fill
+// sentinels (e.g. EPOCH -1e31 / TT2000 INT64_MIN -> "9999-12-31...") and handle the
+// full date range, so a VALIDMIN/VALIDMAX/FILLVAL renders exactly as in pycdfpp
+// instead of as a raw number or an int64-ns overflow.
+em::val time_buffer_to_iso(const char* ptr, std::size_t byte_count, cdf::CDF_Types type)
+{
+    using enum cdf::CDF_Types;
+    if (ptr == nullptr || !is_time_type(type))
+        return em::val::undefined();
+    const std::size_t n = byte_count / cdf::cdf_type_size(type);
+    if (n == 0)
+        return em::val::undefined();
+
+    auto arr = em::val::array();
+    for (std::size_t i = 0; i < n; ++i)
+    {
+        std::ostringstream ss;
+        switch (type)
+        {
+            case CDF_EPOCH:
+                ss << reinterpret_cast<const cdf::epoch*>(ptr)[i];
+                break;
+            case CDF_EPOCH16:
+                ss << reinterpret_cast<const cdf::epoch16*>(ptr)[i];
+                break;
+            case CDF_TIME_TT2000:
+                ss << reinterpret_cast<const cdf::tt2000_t*>(ptr)[i];
+                break;
+            default:
+                return em::val::undefined();
+        }
+        arr.call<void>("push", ss.str());
+    }
+    return arr;
+}
+
+// Attribute values are returned as owned copies, not zero-copy views: attribute
+// metadata is small, and a later variable load_values() (or any allocation) grows
+// the WASM heap and detaches outstanding views, which would otherwise throw
+// "detached ArrayBuffer" when the value is read back in JS. Time-typed values are
+// decoded to ISO-8601 date strings so callers get a meaningful date (full range,
+// leap-second corrected) instead of a raw EPOCH double / TT2000 count.
+em::val data_to_string_or_copy(const cdf::data_t& data)
+{
+    auto ptr = data.bytes_ptr();
+    if (ptr == nullptr)
+        return em::val::undefined();
+    if (cdf::is_string(data.type()))
+        return em::val(std::string(ptr, data.bytes()));
+    if (is_time_type(data.type()))
+        return time_buffer_to_iso(ptr, data.bytes(), data.type());
+    return typed_array_view(ptr, data.bytes(), data.type()).call<em::val>("slice");
+}
+
+// Owned Uint8Array copy of saved bytes (the source buffer dies after return).
+em::val saved_bytes_to_js(const auto& data)
+{
+    if (std::size(data) == 0)
+        return em::val::undefined();
+    return em::val(em::typed_memory_view(
+                       std::size(data), reinterpret_cast<const uint8_t*>(data.data())))
+        .call<em::val>("slice");
+}
+
+// Same as saved_bytes_to_js, split into owned chunks of at most max_chunk bytes: Chrome refuses
+// single ArrayBuffers of 2 GiB or more, but a Blob can be built from any number of chunks.
+em::val saved_bytes_to_js_chunks(const auto& data, std::size_t max_chunk)
+{
+    auto chunks = em::val::array();
+    const auto* bytes = reinterpret_cast<const uint8_t*>(data.data());
+    for (std::size_t pos = 0; pos < std::size(data); pos += max_chunk)
+    {
+        const auto n = std::min(max_chunk, std::size(data) - pos);
+        chunks.call<void>(
+            "push", em::val(em::typed_memory_view(n, bytes + pos)).call<em::val>("slice"));
+    }
+    return chunks;
+}
+
+// Copies a Uint8Array, or an array of Uint8Array chunks, into one buffer.
+std::vector<char> js_bytes_to_buffer(const em::val& js)
+{
+    const auto parts = js.isArray() ? js : [&] { auto a = em::val::array(); a.call<void>("push", js); return a; }();
+    const auto count = parts["length"].as<std::size_t>();
+    std::size_t total = 0;
+    for (std::size_t i = 0; i < count; ++i)
+        total += parts[i]["length"].as<std::size_t>();
+    std::vector<char> buffer(total);
+    std::size_t offset = 0;
+    for (std::size_t i = 0; i < count; ++i)
+    {
+        const auto length = parts[i]["length"].as<std::size_t>();
+        em::val(em::typed_memory_view(length, reinterpret_cast<uint8_t*>(buffer.data()) + offset))
+            .call<void>("set", parts[i]);
+        offset += length;
+    }
+    return buffer;
+}
+
+bool same_bytes(const cdf::Variable& a, const cdf::Variable& b)
+{
+    return a.bytes() == b.bytes()
+        && (a.bytes() == 0 || std::memcmp(a.bytes_ptr(), b.bytes_ptr(), a.bytes()) == 0);
+}
+
+// Error paths must not allocate in the WASM heap: they also run when it is exhausted, and a
+// std::bad_alloc thrown from a catch handler escapes to JS as an opaque WebAssembly.Exception.
+// em::val(const char*) copies the text straight into a JS string.
+constexpr const char* out_of_memory_message
+    = "out of memory: this file does not fit in the memory WebAssembly can use in this browser";
+
+[[noreturn]] void throw_js_error(const char* message)
+{
+    em::val::global("Error").new_(em::val(message)).throw_();
+    std::abort(); // throw_() never returns
+}
+
+// Runs f, turning C++ exceptions into JS Errors carrying their message: otherwise JS only
+// sees an opaque WebAssembly.Exception.
+template <typename F>
+auto with_js_errors(F&& f)
+{
+    try
+    {
+        return f();
+    }
+    catch (const std::bad_alloc&)
+    {
+        throw_js_error(out_of_memory_message);
+    }
+    catch (const std::exception& e)
+    {
+        throw_js_error(e.what());
+    }
+}
+
+// Sets every variable to one codec (and drops file-level compression) for its lifetime, then
+// restores the original codecs, even if saving throws. Lets save_as avoid copying the CDF,
+// whose decoded values can take GiBs.
+class codec_override
+{
+    cdf::CDF& cdf;
+    cdf::cdf_compression_type file_codec;
+    std::vector<cdf::cdf_compression_type> variable_codecs;
+
+public:
+    codec_override(cdf::CDF& cdf, cdf::cdf_compression_type codec)
+            : cdf { cdf }, file_codec { cdf.compression }
+    {
+        cdf.compression = cdf::cdf_compression_type::no_compression;
+        for (auto& [_, variable] : cdf.variables)
+        {
+            variable_codecs.push_back(variable.compression_type());
+            variable.set_compression_type(codec);
+        }
+    }
+    ~codec_override()
+    {
+        cdf.compression = file_codec;
+        auto codec = std::cbegin(variable_codecs);
+        for (auto& [_, variable] : cdf.variables)
+            variable.set_compression_type(*codec++);
+    }
+    codec_override(const codec_override&) = delete;
+    codec_override& operator=(const codec_override&) = delete;
+};
+
+em::val to_js_string_array(const auto& map)
+{
+    auto arr = em::val::array();
+    for (const auto& [name, _] : map)
+        arr.call<void>("push", name);
+    return arr;
+}
+
+} // namespace
+
+
+struct CdfFile
+{
+    std::optional<cdf::CDF> cdf;
+
+    bool is_valid() const { return cdf.has_value(); }
+
+    em::val variable_names() const
+    {
+        if (!cdf)
+            return em::val::array();
+        return to_js_string_array(cdf->variables);
+    }
+
+    em::val attribute_names() const
+    {
+        if (!cdf)
+            return em::val::array();
+        return to_js_string_array(cdf->attributes);
+    }
+
+    em::val get_variable(const std::string& name)
+    {
+        if (!cdf)
+            return em::val::undefined();
+        auto it = cdf->variables.find(name);
+        if (it == cdf->variables.end())
+            return em::val::undefined();
+
+        auto& var = it->second;
+        auto obj = em::val::object();
+        obj.set("name", var.name());
+        obj.set("type", static_cast<int>(var.type()));
+        obj.set("type_name", std::string(cdf::cdf_type_str(var.type())));
+        obj.set("is_nrv", var.is_nrv());
+        obj.set("compression", std::string(cdf::cdf_compression_type_str(var.compression_type())));
+        obj.set("values_loaded", var.values_loaded());
+
+        auto& shape = var.shape();
+        auto js_shape = em::val::array();
+        for (std::size_t i = 0; i < std::size(shape); ++i)
+            js_shape.call<void>("push", shape[i]);
+        obj.set("shape", js_shape);
+
+        obj.set("attribute_names", to_js_string_array(var.attributes));
+
+        // Lazily provide attribute getter as a plain object, plus a parallel map
+        // of CDF type codes so callers can tell e.g. a time-typed VALIDMIN
+        // (returned as ISO date strings) from a plain numeric attribute.
+        auto attrs = em::val::object();
+        auto attr_types = em::val::object();
+        for (const auto& [aname, attr] : var.attributes)
+        {
+            attrs.set(aname, data_to_string_or_copy(attr.value()));
+            attr_types.set(aname, static_cast<int>(attr.value().type()));
+        }
+        obj.set("attributes", attrs);
+        obj.set("attribute_types", attr_types);
+
+        // values: zero-copy typed array view into WASM memory
+        var.load_values();
+        auto ptr = var.bytes_ptr();
+        if (ptr != nullptr)
+        {
+            auto byte_count = var.bytes();
+            obj.set("values", typed_array_view(ptr, byte_count, var.type()));
+            // copy_values: owned copy safe to keep after CdfFile is freed
+            obj.set("copy_values", typed_array_view(ptr, byte_count, var.type())
+                                       .call<em::val>("slice"));
+        }
+        else
+        {
+            obj.set("values", em::val::undefined());
+            obj.set("copy_values", em::val::undefined());
+        }
+
+        return obj;
+    }
+
+    // UTC nanoseconds since 1970 for a time variable (CDF_TIME_TT2000 / CDF_EPOCH /
+    // CDF_EPOCH16), leap-second corrected. Returns undefined for non-time variables.
+    // This is the JS analog of pycdfpp's datetime64[ns].
+    em::val time_values_as_ns_since_1970(const std::string& name)
+    {
+        if (!cdf)
+            return em::val::undefined();
+        auto it = cdf->variables.find(name);
+        if (it == cdf->variables.end())
+            return em::val::undefined();
+
+        auto& var = it->second;
+        if (!is_time_type(var.type()))
+            return em::val::undefined();
+
+        var.load_values();
+        return time_buffer_to_ns(var.bytes_ptr(), var.bytes(), var.type());
+    }
+
+    em::val get_attribute(const std::string& name) const
+    {
+        if (!cdf)
+            return em::val::undefined();
+        auto it = cdf->attributes.find(name);
+        if (it == cdf->attributes.end())
+            return em::val::undefined();
+
+        auto& attr = it->second;
+        auto obj = em::val::object();
+        obj.set("name", attr.name);
+        auto entries = em::val::array();
+        auto types = em::val::array();
+        for (std::size_t i = 0; i < attr.size(); ++i)
+        {
+            entries.call<void>("push", data_to_string_or_copy(attr[i]));
+            types.call<void>("push", static_cast<int>(attr[i].type()));
+        }
+        obj.set("entries", entries);
+        obj.set("types", types);
+        return obj;
+    }
+
+    std::string majority() const
+    {
+        if (!cdf)
+            return "unknown";
+        return cdf::cdf_majority_str(cdf->majority);
+    }
+
+    std::string compression() const
+    {
+        if (!cdf)
+            return "unknown";
+        return cdf::cdf_compression_type_str(cdf->compression);
+    }
+
+    em::val save_to_bytes() const
+    {
+        if (!cdf)
+            return em::val::undefined();
+        return saved_bytes_to_js(cdf::io::save(*cdf));
+    }
+
+    auto saved_with(cdf::cdf_compression_type codec)
+    {
+        const codec_override override { *cdf, codec };
+        return cdf::io::save(*cdf);
+    }
+
+    // Re-encodes every variable with one codec; the loaded file keeps its own codecs.
+    // Whole-file compression is dropped: the converter compares variable codecs.
+    em::val save_as(cdf::cdf_compression_type codec)
+    {
+        if (!cdf)
+            return em::val::undefined();
+        return with_js_errors([&] { return saved_bytes_to_js(saved_with(codec)); });
+    }
+
+    // save_as, returned as an array of Uint8Array chunks of at most max_chunk_bytes, for outputs
+    // too large for a single ArrayBuffer.
+    em::val save_as_chunks(cdf::cdf_compression_type codec, double max_chunk_bytes)
+    {
+        if (!cdf)
+            return em::val::undefined();
+        return with_js_errors([&] {
+            return saved_bytes_to_js_chunks(saved_with(codec), static_cast<std::size_t>(max_chunk_bytes));
+        });
+    }
+
+
+    // Size of every variable's decoded values, computed from shapes without loading them.
+    double decoded_nbytes() const
+    {
+        if (!cdf)
+            return 0;
+        std::size_t total = 0;
+        for (const auto& [_, variable] : cdf->variables)
+            total += variable.bytes();
+        return static_cast<double>(total);
+    }
+
+    // Byte-for-byte comparison of every variable's values (bit-exact, NaN-safe).
+    bool same_values(CdfFile& other)
+    {
+        if (!cdf || !other.cdf || std::size(cdf->variables) != std::size(other.cdf->variables))
+            return false;
+        return std::all_of(std::begin(cdf->variables), std::end(cdf->variables),
+            [&other](auto& node)
+            {
+                auto it = other.cdf->variables.find(node.first);
+                return it != other.cdf->variables.end() && same_bytes(node.second, it->second);
+            });
+    }
+};
+
+// unique_ptr: embind hands it to JS without allocating, see load_eager below.
+std::unique_ptr<CdfFile> load_cdf(em::val js_array, bool lazy)
+{
+    auto result = std::make_unique<CdfFile>();
+    try
+    {
+        result->cdf = cdf::io::load(js_bytes_to_buffer(js_array), true, lazy);
+    }
+    catch (const std::bad_alloc&)
+    {
+        em::val::global("console").call<void>(
+            "error", em::val("CDFpp load error:"), em::val(out_of_memory_message));
+    }
+    catch (const std::exception& e)
+    {
+        em::val::global("console").call<void>(
+            "error", em::val("CDFpp load error:"), em::val(e.what()));
+    }
+    catch (...)
+    {
+        em::val::global("console").call<void>("error", em::val("CDFpp load error: unknown exception"));
+    }
+    return result;
+}
+
+
+EMSCRIPTEN_BINDINGS(cdfpp)
+{
+    em::enum_<cdf::CDF_Types>("DataType")
+        .value("CDF_NONE", cdf::CDF_Types::CDF_NONE)
+        .value("CDF_INT1", cdf::CDF_Types::CDF_INT1)
+        .value("CDF_INT2", cdf::CDF_Types::CDF_INT2)
+        .value("CDF_INT4", cdf::CDF_Types::CDF_INT4)
+        .value("CDF_INT8", cdf::CDF_Types::CDF_INT8)
+        .value("CDF_UINT1", cdf::CDF_Types::CDF_UINT1)
+        .value("CDF_UINT2", cdf::CDF_Types::CDF_UINT2)
+        .value("CDF_UINT4", cdf::CDF_Types::CDF_UINT4)
+        .value("CDF_BYTE", cdf::CDF_Types::CDF_BYTE)
+        .value("CDF_FLOAT", cdf::CDF_Types::CDF_FLOAT)
+        .value("CDF_REAL4", cdf::CDF_Types::CDF_REAL4)
+        .value("CDF_DOUBLE", cdf::CDF_Types::CDF_DOUBLE)
+        .value("CDF_REAL8", cdf::CDF_Types::CDF_REAL8)
+        .value("CDF_EPOCH", cdf::CDF_Types::CDF_EPOCH)
+        .value("CDF_EPOCH16", cdf::CDF_Types::CDF_EPOCH16)
+        .value("CDF_TIME_TT2000", cdf::CDF_Types::CDF_TIME_TT2000)
+        .value("CDF_CHAR", cdf::CDF_Types::CDF_CHAR)
+        .value("CDF_UCHAR", cdf::CDF_Types::CDF_UCHAR);
+
+    em::enum_<cdf::cdf_majority>("Majority")
+        .value("row", cdf::cdf_majority::row)
+        .value("column", cdf::cdf_majority::column);
+
+    em::enum_<cdf::cdf_compression_type>("CompressionType")
+        .value("none", cdf::cdf_compression_type::no_compression)
+        .value("rle", cdf::cdf_compression_type::rle_compression)
+        .value("huffman", cdf::cdf_compression_type::huff_compression)
+        .value("adaptive_huffman", cdf::cdf_compression_type::ahuff_compression)
+        .value("gzip", cdf::cdf_compression_type::gzip_compression)
+#ifdef CDFPP_USE_ZSTD
+        .value("zstd", cdf::cdf_compression_type::zstd_compression)
+#endif
+#ifdef CDFPP_USE_BLOSC2
+        .value("blosc2", cdf::cdf_compression_type::blosc2_compression)
+#endif
+        ;
+
+    em::class_<CdfFile>("CdfFile")
+        .function("is_valid", &CdfFile::is_valid)
+        .function("variable_names", &CdfFile::variable_names)
+        .function("attribute_names", &CdfFile::attribute_names)
+        .function("get_variable", &CdfFile::get_variable)
+        .function("time_values_as_ns_since_1970", &CdfFile::time_values_as_ns_since_1970)
+        .function("get_attribute", &CdfFile::get_attribute)
+        .function("majority", &CdfFile::majority)
+        .function("compression", &CdfFile::compression)
+        .function("save", &CdfFile::save_to_bytes)
+        .function("save_as", &CdfFile::save_as)
+        .function("save_as_chunks", &CdfFile::save_as_chunks)
+        .function("decoded_nbytes", &CdfFile::decoded_nbytes)
+        .function("same_values", &CdfFile::same_values);
+
+    em::function("version", +[]() { return std::string { CDFPP_VERSION }; });
+    em::function("load", +[](em::val data) { return load_cdf(data, true); });
+    // Decodes every value up front, so timing it measures decompression too. Unlike load, errors
+    // (e.g. out of memory) are thrown as JS Errors instead of returning an invalid CdfFile.
+    // Returns a unique_ptr made inside with_js_errors: returning CdfFile by value would make
+    // embind heap-allocate the JS-owned copy after the try, where a bad_alloc escapes undecoded.
+    em::function("load_eager",
+        +[](em::val data)
+        {
+            return with_js_errors(
+                [&]
+                {
+                    auto result = std::make_unique<CdfFile>();
+                    result->cdf = cdf::io::load(js_bytes_to_buffer(data), true, false);
+                    return result;
+                });
+        });
+    em::function("type_name",
+        +[](cdf::CDF_Types type) { return std::string(cdf::cdf_type_str(type)); });
+    em::function("type_size", &cdf::cdf_type_size);
+}

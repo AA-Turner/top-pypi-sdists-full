@@ -39,6 +39,7 @@ from schemathesis.specs.openapi.checks import (
     _body_negation_becomes_valid_after_serialization,
     _is_prefix_operation,
     allow_header_conformance,
+    content_type_conformance,
     has_only_additional_properties_in_non_body_parameters,
     missing_required_header,
     negative_data_rejection,
@@ -1629,6 +1630,57 @@ def test_negative_data_rejection_encoded_path_value(ctx, response_factory):
     assert negative_data_rejection(check_context(), response_factory.requests(status_code=200), case) is None
 
 
+@pytest.mark.parametrize(
+    ("value", "reported"),
+    [
+        (EncodedPath("18"), False),
+        (EncodedPath("3,4"), False),
+        (EncodedPath("1.5"), True),
+        (EncodedPath("a"), True),
+    ],
+    ids=["integer", "comma-joined-integers", "float", "non-numeric-string"],
+)
+def test_negative_data_rejection_path_array_negated_to_scalar(ctx, response_factory, value, reported):
+    # `simple` style joins items with commas, so `18` is the wire form of the valid `[18]`.
+    schema = ctx.openapi.load_schema(
+        {
+            "/api/items/{ids}": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "ids",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "array", "items": {"type": "integer"}, "minItems": 1},
+                        }
+                    ],
+                    "responses": {"200": {"description": "Success"}, "400": {"description": "Bad Request"}},
+                }
+            }
+        }
+    )
+    case = schema["/api/items/{ids}"]["GET"].Case(
+        _meta=build_metadata(
+            path_parameters=GenerationMode.NEGATIVE,
+            generation_modes=[GenerationMode.NEGATIVE],
+            description="violates `type` at /properties/ids (was array, became integer)",
+            parameter="ids",
+            parameter_location=ParameterLocation.PATH,
+            mutations=(
+                _mutation(OperatorKind.CHANGE_TYPE, ("type",), parameter="ids", location=ParameterLocation.PATH),
+            ),
+        ),
+        path_parameters={"ids": value},
+    )
+    response = response_factory.requests(status_code=200)
+
+    if reported:
+        with pytest.raises(AcceptedNegativeData):
+            negative_data_rejection(check_context(), response, case)
+    else:
+        assert negative_data_rejection(check_context(), response, case) is None
+
+
 def test_negative_data_rejection_path_string_numeric_serialization_with_other_negation(ctx, response_factory):
     schema = ctx.openapi.load_schema(
         {
@@ -1732,6 +1784,50 @@ def test_response_schema_conformance_rejects_empty_get_body(ctx, response_factor
     case = _operation_with_json_response(ctx, "get", version).Case()
     response = Response.from_requests(response_factory.requests(content=b"", method="GET"), True)
     with pytest.raises(MalformedJson, match="Expecting value"):
+        response_schema_conformance(check_context(), response, case)
+
+
+def _operation_with_ref_sibling_response(ctx, version, sibling):
+    reference = {"$ref": "#/definitions/Base" if version == "2.0" else "#/components/schemas/Base", **sibling}
+    base = {"type": "object", "properties": {"id": {"type": "integer"}}}
+    if version == "2.0":
+        definition = {
+            "produces": ["application/json"],
+            "responses": {"200": {"description": "OK", "schema": reference}},
+        }
+        schema = ctx.openapi.load_schema({"/x": {"get": definition}}, version=version, definitions={"Base": base})
+    else:
+        definition = {
+            "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": reference}}}}
+        }
+        schema = ctx.openapi.load_schema(
+            {"/x": {"get": definition}}, version=version, components={"schemas": {"Base": base}}
+        )
+    return schema["/x"]["GET"]
+
+
+@pytest.mark.parametrize("version", ["3.0.2", "2.0"], ids=["openapi-3.0", "swagger-2"])
+def test_response_schema_conformance_ignores_keywords_next_to_ref(ctx, response_factory, version):
+    case = _operation_with_ref_sibling_response(ctx, version, {"required": ["extra"], "minProperties": 3}).Case()
+    response = Response.from_requests(response_factory.requests(content=b'{"id": 1}'), True)
+    assert response_schema_conformance(check_context(), response, case) is None
+
+
+@pytest.mark.parametrize(
+    ("version", "keyword"),
+    [("3.0.2", "nullable"), ("2.0", "x-nullable")],
+    ids=["openapi-3.0", "swagger-2"],
+)
+def test_response_schema_conformance_honors_nullable_next_to_ref(ctx, response_factory, version, keyword):
+    case = _operation_with_ref_sibling_response(ctx, version, {keyword: True, "required": ["extra"]}).Case()
+    response = Response.from_requests(response_factory.requests(content=b"null"), True)
+    assert response_schema_conformance(check_context(), response, case) is None
+
+
+def test_response_schema_conformance_applies_keywords_next_to_ref_in_openapi_31(ctx, response_factory):
+    case = _operation_with_ref_sibling_response(ctx, "3.1.0", {"required": ["extra"]}).Case()
+    response = Response.from_requests(response_factory.requests(content=b'{"id": 1}'), True)
+    with pytest.raises(JsonSchemaError, match='"extra" is a required property'):
         response_schema_conformance(check_context(), response, case)
 
 
@@ -2037,7 +2133,7 @@ _USER_PROFILE_SCHEMA = {
 }
 
 
-def _build_user_profile_chain(ctx, response_factory, *, delete_status: int):
+def _build_user_profile_chain(ctx, response_factory, *, delete_status: int, get_headers=None):
     schema = ctx.openapi.load_schema(_USER_PROFILE_SCHEMA)
     post_operation = schema["/users"]["POST"]
     delete_operation = schema["/users/{userId}"]["DELETE"]
@@ -2049,7 +2145,7 @@ def _build_user_profile_chain(ctx, response_factory, *, delete_status: int):
 
     post_response = Response.from_requests(response_factory.requests(status_code=201), True)
     delete_response = Response.from_requests(response_factory.requests(status_code=delete_status), True)
-    get_response = Response.from_requests(response_factory.requests(status_code=200), True)
+    get_response = Response.from_requests(response_factory.requests(status_code=200, headers=get_headers), True)
 
     recorder = ScenarioRecorder(label="use-after-free-test")
     recorder.record_case(parent_id=None, case=post_case, transition=None, is_transition_applied=False)
@@ -2074,6 +2170,28 @@ def test_use_after_free_fires_when_delete_succeeded(ctx, response_factory):
     context, get_case, get_response = _build_user_profile_chain(ctx, response_factory, delete_status=204)
     with pytest.raises(UseAfterFree):
         use_after_free(context, get_response, get_case)
+
+
+@pytest.mark.parametrize(
+    ("headers", "hint"),
+    [
+        ({"Age": "75430"}, "\n\nThe response came from a cache (`Age: 75430`) and may be stale"),
+        ({"X-Cache": "MISS, HIT"}, "\n\nThe response came from a cache (`X-Cache: MISS, HIT`) and may be stale"),
+        ({"Age": "0", "X-Cache": "MISS"}, ""),
+        (None, ""),
+    ],
+    ids=["age", "x-cache-hit", "fresh", "no-cache-headers"],
+)
+def test_use_after_free_hints_at_cached_response(ctx, response_factory, headers, hint):
+    context, get_case, get_response = _build_user_profile_chain(
+        ctx, response_factory, delete_status=204, get_headers=headers
+    )
+    with pytest.raises(UseAfterFree) as exc_info:
+        use_after_free(context, get_response, get_case)
+    assert exc_info.value.message == (
+        "The API did not return a `HTTP 404 Not Found` response (got `HTTP 200 OK`) for a resource that was "
+        f"previously deleted.\n\nThe resource was deleted with `DELETE /users/alice`{hint}"
+    )
 
 
 _NESTED_RESOURCE_SCHEMA = {
@@ -2169,6 +2287,28 @@ def test_unsupported_method_404_on_templated_path(
             unsupported_method(context, response, case)
     else:
         assert unsupported_method(context, response, case) is None
+
+
+@pytest.mark.parametrize(
+    "scenario", [CoverageScenario.MALFORMED_CONTENT_TYPE, CoverageScenario.UNSUPPORTED_CONTENT_TYPE]
+)
+def test_content_type_probes_skip_response_conformance(ctx, response_factory, scenario):
+    operation = ctx.openapi.load_schema(
+        {"/items": {"get": {"responses": {"200": {"description": "OK", "content": {"application/json": {}}}}}}}
+    )["/items"]["GET"]
+    case = operation.Case(
+        headers={"Content-Type": "multipart/form-data"},
+        _meta=CaseMetadata(
+            generation=GenerationInfo(time=0.1, mode=GenerationMode.NEGATIVE),
+            components={},
+            phase=PhaseInfo.coverage(scenario=scenario, description="Content-Type probe"),
+        ),
+    )
+
+    assert (
+        content_type_conformance(check_context(), response_factory.requests(status_code=200, content_type=None), case)
+        is True
+    )
 
 
 @pytest.mark.parametrize(

@@ -16,7 +16,8 @@ from matrx_ai.processing.audio.stt import (
     STTUsage,
     prepare_audio_file,
 )
-from matrx_ai.providers.keys import resolve_api_key
+from matrx_ai.providers.errors import mark_billing_checked
+from matrx_ai.providers.keys import NO_SDK_RETRIES, resolve_api_key
 from matrx_ai.providers.outbound_params import resolve_outbound_params
 from matrx_ai.providers.sdk_drift import route_undeclared_params
 
@@ -37,7 +38,7 @@ def _client() -> AsyncGroq:
     assert key is not None
     client = _clients.get(key)
     if client is None:
-        client = AsyncGroq(api_key=key)
+        client = AsyncGroq(api_key=key, max_retries=NO_SDK_RETRIES)
         _clients.clear()
         _clients[key] = client
     return client
@@ -70,11 +71,17 @@ class GroqSTT:
             create = _client().audio.translations.create
         else:
             create = _client().audio.transcriptions.create
-        response = await create(
-            **route_undeclared_params(
-                create, params, provider="groq", model=profile.provider_model_id
+        try:
+            response = await create(
+                **route_undeclared_params(
+                    create, params, provider="groq", model=profile.provider_model_id
+                )
             )
-        )
+        except BaseException as exc:
+            # A failed transcription returns no usage to bill: the adapter
+            # looked, so the seam's LAYER 2 must not call it a forgotten capture.
+            mark_billing_checked(exc)
+            raise
         return self._parse_response(
             response, profile=profile, request=request, file_size_mb=file_size_mb
         )

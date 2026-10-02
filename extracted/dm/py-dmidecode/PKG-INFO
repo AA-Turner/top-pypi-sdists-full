@@ -1,0 +1,60 @@
+Metadata-Version: 2.1
+Name: py-dmidecode
+Version: 0.1.3
+Summary: python library to parse the output of dmidecode
+Home-page: https://github.com/zaibon/py-dmidecode
+Keywords: system development
+Author: Christophe de Carvalho
+Author-email: christophe.dcpm@gmail.com
+Requires-Python: >=3.8.1,<4.0
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Project-URL: Bug Tracker, https://github.com/zaibon/py-dmidecode/issues
+Project-URL: Repository, https://github.com/zaibon/py-dmidecode
+Description-Content-Type: text/markdown
+
+# py-dmidecode [![codecov](https://codecov.io/gh/zaibon/py-dmidecode/branch/master/graph/badge.svg?token=uIHftzfsHn)](https://codecov.io/gh/zaibon/py-dmidecode) [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/zaibon/py-dmidecode/badge)](https://securityscorecards.dev/viewer/?uri=github.com/zaibon/py-dmidecode)
+
+
+Small tool that parses output of dmidecode command
+
+## How to use
+
+```python
+from dmidecode import DMIDecode
+
+# create parsing instance by passing dmidecode output
+dmi = DMIDecode()
+
+# some of the pre-defined queries
+print('Manufacturer:\t', dmi.manufacturer())
+print('Model:\t\t', dmi.model())
+print('Firmware:\t', dmi.firmware())
+print('Serial number:\t', dmi.serial_number())
+print('Processor type:\t', dmi.cpu_type())
+print('Number of CPUs:\t', dmi.cpu_num())
+print('Cores count:\t', dmi.total_enabled_cores())
+print('Total RAM:\t{} GB'.format(dmi.total_ram()))
+```
+
+Alternatively instead of running dmidecode locally you can use DMIParse by passing dmidecode output as an argument:
+
+```python
+from dmidecode import DMIParse
+dmi = DMIParse(raw)
+```
+
+Other information can be easily retrieved by analyzing dmi.data and module code.
+
+## Possible limitations
+
+Tested with dmidecode versions 2.11, 2.12 and 3.2
+

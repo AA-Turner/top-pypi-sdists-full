@@ -38,13 +38,39 @@ class CohereReranker:
         """``max_retries`` overrides the SDK's retry policy. A latency-bounded caller passes
         0: the SDK's default backoff on a 429 took 3.9 s (measured 2026-09-27), so a refused
         call surfaced as "slow" instead of as the refusal it was."""
+        from types import SimpleNamespace
+
+        from matrx_ai.providers.errors import mark_billing_checked
+        from matrx_ai.providers.unified_client import UnifiedAIClient
+
         client = await asyncio.to_thread(lambda: self.client)
-        response = await client.rerank(
-            model=model,
-            query=query,
-            documents=documents,
-            top_n=len(documents),
-            **({"request_options": {"max_retries": max_retries}} if max_retries is not None else {}),
+
+        async def _rerank() -> Any:
+            try:
+                return await client.rerank(
+                    model=model,
+                    query=query,
+                    documents=documents,
+                    top_n=len(documents),
+                    **({"request_options": {"max_retries": max_retries}} if max_retries is not None else {}),
+                )
+            except BaseException as exc:
+                # A refused rerank returns no billed search units: the adapter
+                # looked, so LAYER 2 must not report a forgotten capture.
+                mark_billing_checked(exc)
+                raise
+
+        # The shared dispatch seam: admission on the Cohere pool, the
+        # out-of-credit alarm and LAYER 2.
+        response = await UnifiedAIClient._dispatch_with_billing_net(
+            _rerank,
+            profile=SimpleNamespace(
+                vendor="cohere",
+                model_name=model,
+                endpoint_id="cohere-rerank",
+                base_url="",
+                offering_metadata={},
+            ),
         )
         scores = [0.0] * len(documents)
         for result in response.results:

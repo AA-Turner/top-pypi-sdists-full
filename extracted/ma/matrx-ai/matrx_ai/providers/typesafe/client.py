@@ -18,7 +18,11 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, StrictStr, model_validator
 
 from matrx_ai.config.usage_config import TokenUsage
-from matrx_ai.providers.errors import attach_billed_usage, mark_billing_checked
+from matrx_ai.providers.errors import (
+    attach_billed_usage,
+    classify_billing_refusal,
+    mark_billing_checked,
+)
 from matrx_ai.providers.keys import ApiKeyNotFoundError, resolve_api_key
 
 DEFAULT_BASE_URL = "https://api.typesafe.ai"
@@ -168,8 +172,37 @@ def _retry_after(headers: Mapping[str, str], *, now: datetime | None = None) -> 
     return max(0.0, delay)
 
 
+def _billing_refusal(response: httpx.Response) -> TypeSafeProviderError | None:
+    """The platform's TypeSafe account cannot pay — decided by the SHARED classifier.
+
+    Checked before the status branches: an out-of-credit refusal arriving as a
+    429 must never be retried as a rate limit. The provider's text rides only on
+    ``error_info`` (operator-facing); the exception message stays safe.
+    """
+    probe = TypeSafeProviderError(
+        error_type="provider_error",
+        message=f"TypeSafe returned HTTP {response.status_code}.",
+        status_code=response.status_code,
+    )
+    probe.body = response.text[:2000]  # type: ignore[attr-defined]
+    info = classify_billing_refusal(probe, "typesafe")
+    if info is None:
+        return None
+    error = TypeSafeProviderError(
+        error_type="billing_error",
+        message=info.user_message,
+        status_code=response.status_code,
+        is_retryable=False,
+    )
+    error.error_info = info  # type: ignore[attr-defined]
+    return error
+
+
 def _safe_http_error(response: httpx.Response) -> TypeSafeProviderError:
     status = response.status_code
+    billing = _billing_refusal(response)
+    if billing is not None:
+        return billing
     retry_after = _retry_after(response.headers)
     if status in {401, 403}:
         return TypeSafeProviderError(

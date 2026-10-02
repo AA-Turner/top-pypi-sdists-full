@@ -11,8 +11,8 @@ use super::branch_result::collect_branch_completions;
 
 pub fn find_any_of_completion_items<'a: 'b, 'b, T>(
     value: &'a T,
-    position: tombi_text::Position,
-    keys: &'a [tombi_document_tree_syntax::Key],
+    cursor: crate::CursorPosition<'a>,
+    keys: &'a [tombi_document_tree_syntax::Key<'_>],
     accessors: &'a [Accessor],
     any_of_schema: &'a tombi_schema_store::AnyOfSchema,
     current_schema: &'a CurrentSchema<'a>,
@@ -22,8 +22,9 @@ pub fn find_any_of_completion_items<'a: 'b, 'b, T>(
 where
     T: FindCompletionContents + tombi_validator::Validate + Sync + Send + std::fmt::Debug,
 {
+    let offset = cursor.offset();
     log::trace!("value = {:?}", value);
-    log::trace!("position = {:?}", position);
+    log::trace!("offset = {:?}", offset);
     log::trace!("keys = {:?}", keys);
     log::trace!("accessors = {:?}", accessors);
     log::trace!("any_of_schema = {:?}", any_of_schema);
@@ -48,7 +49,7 @@ where
         let (mut completion_items, narrow_branches) = collect_branch_completions(
             tombi_validator::Applicator::AnyOf,
             value,
-            position,
+            cursor,
             keys,
             accessors,
             &resolved_schemas,
@@ -100,7 +101,7 @@ where
                     completion_item.priority = CompletionContentPriority::Default;
                 } else if let Some(completion_item) = tombi_json_value_to_completion_default_item(
                     default,
-                    position,
+                    offset,
                     detail.clone(),
                     documentation.clone(),
                     Some(&current_schema.schema_base_uri),
@@ -122,7 +123,7 @@ where
 
                     if let Some(completion_item) = tombi_json_value_to_completion_example_item(
                         example,
-                        position,
+                        offset,
                         detail.clone(),
                         documentation.clone(),
                         Some(&current_schema.schema_base_uri),

@@ -1,0 +1,51 @@
+name: Sibling Compat Check (OMN-4315)
+
+# TEMPORARILY DEGRADED (OMN-12563 incident mitigation).
+# This required context is intentionally kept alive as a no-op PASS while the
+# sibling install compatibility process is redesigned. The prior implementation
+# performed cold, network-heavy uv/git/PyPI dependency work in merge_group and
+# repeatedly blocked the entire infra queue without reliably proving content
+# compatibility.
+
+on:
+  pull_request:
+    branches: [main, dev, develop]
+    paths:
+      - 'pyproject.toml'
+      - 'uv.lock'
+  workflow_dispatch:
+
+concurrency:
+  # OMN-13949: cancel superseded PR runs to free saturated runners. merge_group
+  # entries carry a unique github.ref, so queue entries never cross-cancel.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sibling-compat:
+    name: Sibling Compat Check (OMN-4315)
+    runs-on: >-
+      ${{
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name != github.repository)
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+      }}
+    timeout-minutes: 5
+
+    steps:
+      - name: Emergency no-op gate (OMN-12563)
+        run: |
+          echo "================================================================"
+          echo "Sibling Compat Check (OMN-4315) temporarily disabled."
+          echo "Incident: OMN-12563"
+          echo ""
+          echo "The previous check ran cold cross-repo uv/git/PyPI dependency"
+          echo "resolution inside required merge_group jobs. During the infra"
+          echo "queue incident this added a high-failure network process that"
+          echo "blocked unrelated PRs without reliably proving compatibility."
+          echo ""
+          echo "This job intentionally preserves the required GitHub context and"
+          echo "does not run checkout, Python setup, package sync, or sibling install"
+          echo "validation until the process is redesigned and re-enabled."
+          echo "================================================================"

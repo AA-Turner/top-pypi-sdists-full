@@ -27,11 +27,16 @@ pub async fn handle_get_status(
         .config_schema_store_for_uri(&text_document_uri)
         .await;
 
+    let document_source = backend
+        .document_sources
+        .read()
+        .await
+        .get(&text_document_uri)
+        .cloned();
     let (toml_version, source, schema) = {
-        let document_sources = backend.document_sources.read().await;
-        if let Some(document_source) = document_sources.get(&text_document_uri) {
+        if let Some(document_source) = document_source {
             let (toml_version, source) = backend
-                .text_document_toml_version_and_source(&text_document_uri, document_source.text())
+                .text_document_toml_version_and_source(&text_document_uri, &document_source.ast())
                 .await;
 
             let root = document_source.ast();

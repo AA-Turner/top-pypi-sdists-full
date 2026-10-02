@@ -1,4 +1,0 @@
----
-features:
-  - |
-    ``Model.add_constraints()`` now returns the symbol for the constraint.

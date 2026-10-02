@@ -1,0 +1,114 @@
+[project]
+name = "gcp-pilot"
+version = "1.41.0"
+description = "Google Cloud Platform Friendly Pilot"
+authors = [
+    {name = "Joao Daher", email = "joao@daher.dev"},
+]
+maintainers = [
+    {name = "Rodolfo Stangherlin"},
+    {name = "Diego Freire"},
+    {name = "Guilherme Araujo"},
+    {name = "Lucas Gomide"},
+]
+readme = "README.md"
+keywords = ["gcp", "google cloud python", "firestore orm"]
+requires-python = ">=3.11"
+dependencies = [
+    "factory-boy>=3.3.1",
+    "google-api-python-client>=2.154.0",
+    "pytz>=2024.2",
+    "tenacity>=9.0.0",
+]
+
+[project.optional-dependencies]
+tasks = [
+    "google-cloud-scheduler>=2.14.1",
+    "google-cloud-tasks>=2.17.1",
+]
+build = [
+    "google-cloud-build>=3.27.1",
+]
+storage = [
+    "google-cloud-storage>=2.19.0",
+]
+bigquery = [
+    "google-cloud-bigquery>=3.27.0",
+    "google-cloud-storage>=2.19.0",
+]
+speech = [
+    "google-cloud-speech>=2.28.1",
+]
+sheets = [
+    "gspread>=6.1.4",
+]
+pubsub = [
+    "google-cloud-pubsub>=2.27.1",
+]
+datastore = [
+    "google-cloud-datastore>=2.20.1",
+    "pydantic>=2.10.3",
+]
+firestore = [
+    "google-cloud-firestore>=2.20.1",
+    "pydantic>=2.10.3",
+]
+dns = [
+    "google-cloud-dns>=0.35.0",
+]
+secret = [
+    "google-cloud-secret-manager>=2.21.1",
+]
+monitoring = [
+    "google-cloud-error-reporting>=1.11.1",
+    "google-cloud-logging>=3.11.3",
+]
+healthcare = [
+    "fhir-resources>=7.1.0",
+]
+iam = [
+    "google-cloud-iam>=2.16.1",
+]
+
+[dependency-groups]
+dev = [
+    "polyfactory>=2.15.2",
+    "pyjwt>=2.10.1",
+    "pytest-asyncio>=1.0.0",
+    "pytest-cov>=6.0.0",
+    "pytest-random-order>=1.1.1",
+    "pytest-rerunfailures>=15.0",
+    "pytest-sugar>=1.0.0",
+    "pytest-timeout>=2.3.1",
+    "ruff>=0.12.0",
+]
+docs = [
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.6.14",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["RUF", "I", "PL", "F", "COM", "UP", "T10", "T20", "DTZ", "SIM", "TID", "PTH", "ERA", "TRY"]
+ignore = ["COM812","COM819", "PLR2004", "PLR0911", "PLR0912", "PLR0913", "PLR0915", "TRY003", "RUF012"]
+
+
+[tool.pytest.ini_options]
+addopts = "--reruns 2 --random-order --timeout 100 --cov"
+python_files = ["*_test.py"]
+
+
+[tool.coverage.run]
+branch = true
+source = ["gcp_pilot"]
+
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+package = false

@@ -1,0 +1,42 @@
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import Any
+
+import numpy as np
+
+from mechbench_compute import shapes as S
+from mechbench_compute.trajectory.read_header import read_header
+from mechbench_compute.trajectory.read_points import read_points
+from mechbench_compute.trajectory.read_trajectory import read_trajectory
+
+
+def project(inputs: Mapping[str, Any], params: Mapping[str, Any]) -> dict[str, Any]:
+    from mechbench_compute import directions as dirs
+
+    traj = read_trajectory(inputs.get("trajectory"))
+    d = inputs.get("direction")
+    if not isinstance(d, Mapping) or "vector" not in d:
+        raise ValueError("trajectory/project needs a `direction` record")
+    dv = dirs.coerce_array(d)
+    if dv.shape[0] != int(traj.get("d_model", dv.shape[0])):
+        raise ValueError(
+            f"direction has {dv.shape[0]} dims; the trajectory has "
+            f"{traj.get('d_model')}")
+    keep = bool(params.get("keep_vectors", False))
+    rows = []
+    for r in read_points(traj):
+        v = np.asarray(r["vector"], dtype=np.float32)
+        item = S.coordinate(
+            float(v @ dv), S.space_of(r, header=traj), d,
+            id=r.get("id"), coords=S.coords_of(r), token=r.get("token"),
+            step=r.get("step"), position=r.get("position"),
+            n_pooled=r.get("n_pooled"), steps=r.get("steps"))
+        if keep:
+            item["vector"] = r["vector"]
+        rows.append(item)
+    from mechbench_compute.lexicon import kinds as K
+
+    header = read_header(traj)
+    header["projected"] = True
+    return K.collection("activations/coordinate", rows, **header)

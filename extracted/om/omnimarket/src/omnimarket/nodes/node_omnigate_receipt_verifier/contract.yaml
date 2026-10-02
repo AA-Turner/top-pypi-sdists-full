@@ -1,0 +1,49 @@
+---
+name: node_omnigate_receipt_verifier
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: compute
+runtime_profiles: [main]
+node_version: {major: 1, minor: 0, patch: 0}
+description: >
+  Verifies inline OmniGate PR receipts against trusted base config and PR metadata.
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - handler:
+        name: HandlerReceiptVerifier
+        module: omnimarket.nodes.node_omnigate_receipt_verifier.handlers.handler_receipt_verifier
+
+handler:
+  module: omnimarket.nodes.node_omnigate_receipt_verifier.handlers.handler_receipt_verifier
+  class: HandlerReceiptVerifier
+  input_model: omnimarket.nodes.node_omnigate_receipt_verifier.models.model_receipt_verifier_input.ModelReceiptVerifierInput
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: verify_omnigate_receipt
+      handler:
+        name: HandlerReceiptVerifier
+        module: omnimarket.nodes.node_omnigate_receipt_verifier.handlers.handler_receipt_verifier
+
+descriptor:
+  node_archetype: compute
+  purity: impure
+  idempotent: true
+  timeout_ms: 120000
+
+terminal_event: onex.evt.omnimarket.omnigate-receipt-verified.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.omnigate-verify-receipt.v1
+  publish_topics:
+    - onex.evt.omnimarket.omnigate-receipt-verified.v1
+
+metadata:
+  transport_type: kafka
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.omnigate-verify-receipt.v1

@@ -33,24 +33,29 @@ class OrganizationCollaboratorsQuery(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'name_or_email': 'TextQuery'
+        'name_or_email': 'TextQuery',
+        'collaborator_type': 'CollaboratorType'
     }
 
     attribute_map = {
-        'name_or_email': 'name_or_email'
+        'name_or_email': 'name_or_email',
+        'collaborator_type': 'collaborator_type'
     }
 
-    def __init__(self, name_or_email=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name_or_email=None, collaborator_type=None, local_vars_configuration=None):  # noqa: E501
         """OrganizationCollaboratorsQuery - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._name_or_email = None
+        self._collaborator_type = None
         self.discriminator = None
 
         if name_or_email is not None:
             self.name_or_email = name_or_email
+        if collaborator_type is not None:
+            self.collaborator_type = collaborator_type
 
     @property
     def name_or_email(self):
@@ -74,6 +79,29 @@ class OrganizationCollaboratorsQuery(object):
         """
 
         self._name_or_email = name_or_email
+
+    @property
+    def collaborator_type(self):
+        """Gets the collaborator_type of this OrganizationCollaboratorsQuery.  # noqa: E501
+
+        Which kinds of account to return. Only user accounts when unset.  # noqa: E501
+
+        :return: The collaborator_type of this OrganizationCollaboratorsQuery.  # noqa: E501
+        :rtype: CollaboratorType
+        """
+        return self._collaborator_type
+
+    @collaborator_type.setter
+    def collaborator_type(self, collaborator_type):
+        """Sets the collaborator_type of this OrganizationCollaboratorsQuery.
+
+        Which kinds of account to return. Only user accounts when unset.  # noqa: E501
+
+        :param collaborator_type: The collaborator_type of this OrganizationCollaboratorsQuery.  # noqa: E501
+        :type: CollaboratorType
+        """
+
+        self._collaborator_type = collaborator_type
 
     def to_dict(self):
         """Returns the model properties as a dict"""

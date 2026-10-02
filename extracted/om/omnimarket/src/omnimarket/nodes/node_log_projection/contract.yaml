@@ -1,0 +1,46 @@
+---
+name: log_projection
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: reducer
+node_version: {major: 1, minor: 0, patch: 0}
+input_model: omnimarket.nodes.node_log_projection.handlers.handler_log_projection.ModelLogEntry
+description: >
+  Projects structured log events from all ONEX handlers into a queryable
+  log store. Enables real-time observability of handler execution without
+  grep-based log searching.
+
+terminal_event: onex.evt.omnimarket.log-projection-snapshot.v1
+
+handler:
+  module: omnimarket.nodes.node_log_projection.handlers.handler_log_projection
+  class: NodeLogProjection
+  input_model: omnimarket.nodes.node_log_projection.handlers.handler_log_projection.ModelLogEntry
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: log
+      handler:
+        name: NodeLogProjection
+        module: omnimarket.nodes.node_log_projection.handlers.handler_log_projection
+
+event_bus:
+  subscribe_topics:
+    - onex.evt.platform.log-entry.v1
+  publish_topics:
+    - onex.evt.omnimarket.log-projection-snapshot.v1
+
+metadata:
+  transport_type: kafka
+
+# OMN-18013 -- explicit external PRODUCER declaration (contract topic graph closure).
+# Replaces the deleted contract_topic_graph_baseline.yaml external_producers map:
+# the declaration now lives beside the subscription it explains.
+externally_produced_topics:
+  - topic: onex.evt.platform.log-entry.v1
+    producer: "omnimarket.logging.structured_logger.StructuredLogger.publish (structured_logger.py:131) -- the process-wide log emitter, not a node contract"
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.log-projection-snapshot.v1

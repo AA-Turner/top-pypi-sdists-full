@@ -55,15 +55,15 @@ def organization_invitation_cli() -> None:
     type=str,
     help="The emails to send the organization invitations to. Delimited by commas.",
 )
-def create(emails: str,) -> None:
+def create(
+    emails: str,
+) -> None:
     """
     Creates organization invitations for the provided emails.
     """
     log.info("Creating organization invitations...")
 
-    success_emails, error_messages = anyscale.organization_invitation.create(
-        emails.split(",")
-    )
+    success_emails, error_messages = anyscale.organization_invitation.create(emails.split(","))
 
     if success_emails:
         log.info(f"Organization invitations sent to: {', '.join(success_emails)}")
@@ -102,7 +102,9 @@ def create(emails: str,) -> None:
     output_schema=OrganizationInvitation,
 )
 @organization_invitation_cli.command(
-    name="list", short_help="List organization invitations.", cls=AnyscaleCommand,
+    name="list",
+    short_help="List organization invitations.",
+    cls=AnyscaleCommand,
 )
 @click.option(
     OUTPUT_FLAG,
@@ -151,7 +153,9 @@ def list(output_format: str) -> None:  # noqa: A001
     ],
 )
 @organization_invitation_cli.command(
-    name="delete", short_help="Delete an organization invitation.", cls=AnyscaleCommand,
+    name="delete",
+    short_help="Delete an organization invitation.",
+    cls=AnyscaleCommand,
 )
 @click.option(
     "--email",
@@ -159,7 +163,9 @@ def list(output_format: str) -> None:  # noqa: A001
     type=str,
     help="The email of the organization invitation to delete.",
 )
-def delete(email: str,) -> None:
+def delete(
+    email: str,
+) -> None:
     """
     Deletes an organization invitation.
     """

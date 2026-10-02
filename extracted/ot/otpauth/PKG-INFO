@@ -1,0 +1,66 @@
+Metadata-Version: 2.4
+Name: otpauth
+Version: 2.2.2
+Summary: Implements one time password of HOTP/TOTP
+Project-URL: Source, https://github.com/authlib/otpauth
+Project-URL: Documentation, https://otp.authlib.org/
+Project-URL: Donate, https://github.com/sponsors/authlib
+Project-URL: Blog, https://blog.authlib.org/
+Author-email: Hsiaoming Yang <me@lepture.com>
+License: BSD-3-Clause
+License-File: LICENSE
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Environment :: Web Environment
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Security
+Classifier: Topic :: Utilities
+Requires-Python: >=3.7
+Description-Content-Type: text/x-rst
+
+OTP Auth
+========
+
+One time password implementations in Python. HOTP and TOTP.
+
+**Documentation**: https://otp.authlib.org/
+**GitHub**: https://github.com/authlib/otpauth
+
+Usage
+-----
+
+Most of the time, you would use a time based one time password. You can generate and
+verify the token with ``HOTP``::
+
+    import otpauth
+
+    totp = otpauth.HOTP(b"user-secret")
+
+    # generate a code for now
+    code: int = totp.generate()
+
+    # you may want to convert it to string
+    str_code: str = totp.string_code(code)
+
+    # verify the code
+    totp.verify(code)  # => True
+    totp.verify(str_code)  # => True
+
+License
+-------
+
+Licensed under BSD. Please see LICENSE for licensing details.

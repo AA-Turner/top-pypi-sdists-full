@@ -180,9 +180,9 @@ VIEW_COLUMNS: Dict[ViewOption, List[JobQueueStatusKeys]] = {
 @click.option(
     "--max-items",
     type=int,
-    callback=lambda ctx, param, value: validate_non_negative_arg(ctx, param, value)
-    if value
-    else None,
+    callback=lambda ctx, param, value: (
+        validate_non_negative_arg(ctx, param, value) if value else None
+    ),
     help="Non-interactive max items.",
 )
 @click.option(
@@ -209,7 +209,12 @@ VIEW_COLUMNS: Dict[ViewOption, List[JobQueueStatusKeys]] = {
     help="Output format for the result.",
 )
 @click.option(
-    "-j", "--json", "json_output", is_flag=True, default=False, help="JSON output.",
+    "-j",
+    "--json",
+    "json_output",
+    is_flag=True,
+    default=False,
+    help="JSON output.",
 )
 @click.option(
     "--include-archived",
@@ -368,15 +373,17 @@ def list_job_queues(  # noqa: PLR0913
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice(
-        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
-    ),
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
     help="Output format for the result.",
 )
 @click.option(
-    "--json", "json_output", is_flag=True, default=False, help="JSON output.",
+    "--json",
+    "json_output",
+    is_flag=True,
+    default=False,
+    help="JSON output.",
 )
 def update_job_queue(
     job_queue_id: Optional[str],
@@ -455,7 +462,9 @@ def job_queue_tags_cli() -> None:
     help="Tag in key=value (or key:value) format. Repeat to add multiple.",
 )
 def add_tags(
-    job_queue_id: Optional[str], name: Optional[str], tags: Tuple[str],
+    job_queue_id: Optional[str],
+    name: Optional[str],
+    tags: Tuple[str],
 ) -> None:
     if not job_queue_id and not name:
         raise click.ClickException("Provide either --id or --name.")
@@ -494,7 +503,9 @@ def add_tags(
 @click.option("--name", "-n", type=str, help="Name of a job queue.")
 @click.option("--key", "keys", multiple=True, help="Tag key to remove. Repeatable.")
 def remove_tags(
-    job_queue_id: Optional[str], name: Optional[str], keys: Tuple[str],
+    job_queue_id: Optional[str],
+    name: Optional[str],
+    keys: Tuple[str],
 ) -> None:
     if not job_queue_id and not name:
         raise click.ClickException("Provide either --id or --name.")
@@ -534,10 +545,7 @@ def remove_tags(
 @job_queue_tags_cli.command(
     name="list",
     short_help="List tags for a job queue.",
-    help=(
-        "List tags for a job queue.\n\n"
-        "Specify the job queue by name (--name) or by ID (--id)."
-    ),
+    help=("List tags for a job queue.\n\nSpecify the job queue by name (--name) or by ID (--id)."),
     cls=AnyscaleCommand,
 )
 @click.option("--job-queue-id", "--id", "job_queue_id", help="ID of a job queue.")
@@ -636,15 +644,17 @@ def list_tags(
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice(
-        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
-    ),
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
     help="Output format for the result.",
 )
 @click.option(
-    "--json", "json_output", is_flag=True, default=False, help="JSON output.",
+    "--json",
+    "json_output",
+    is_flag=True,
+    default=False,
+    help="JSON output.",
 )
 @click.option(
     "--include-archived",
@@ -747,7 +757,10 @@ def archive_job_queue(
 
     try:
         jq_id = anyscale.job_queue.archive(
-            job_queue_id=job_queue_id, name=name, project=project, cloud=cloud,
+            job_queue_id=job_queue_id,
+            name=name,
+            project=project,
+            cloud=cloud,
         )
         stderr.print(f"Job queue '{ident}' has been archived.")
         stderr.print(f"Query the status with `anyscale job-queue status --id {jq_id}`.")
@@ -904,7 +917,8 @@ def delete_job_queue(
 
 
 def _parse_sort_fields(
-    param: str, sort_fields: List[str],
+    param: str,
+    sort_fields: List[str],
 ) -> List[JobQueueSortDirective]:
     """Convert a list of string fields into JobQueueSortDirective objects."""
     directives: List[JobQueueSortDirective] = []
@@ -916,7 +930,8 @@ def _parse_sort_fields(
             raise click.UsageError(f"{param} must be one of {opts}")
         directives.append(
             JobQueueSortDirective(
-                sort_field=raw, sort_order=SortOrder.DESC if desc else SortOrder.ASC,
+                sort_field=raw,
+                sort_order=SortOrder.DESC if desc else SortOrder.ASC,
             )
         )
     return directives
@@ -944,7 +959,11 @@ def _format_data(jq: JobQueueStatus) -> Dict[str, str]:
     return data
 
 
-def _display_single(jq: JobQueueStatus, stderr: Console, view: ViewOption,) -> None:
+def _display_single(
+    jq: JobQueueStatus,
+    stderr: Console,
+    view: ViewOption,
+) -> None:
     """Display a single job queue's details in a table using the selected view.
 
     Args:

@@ -1,0 +1,1133 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Secret-store resolution at the inference effect boundary (OMN-12824).
+
+The routing authority carries only a *reference* to a secret (``api_key_ref``)
+— the env-var / Infisical key name, never the value. The literal secret value
+is resolved here, at the provider-call effect boundary, through the canonical
+``ProtocolSecretStore`` (omnibase_spi). This replaces the direct
+``os.environ[...]`` reads that previously coupled the handlers to environment
+variables and bypassed the secret store.
+
+Resolution is fail-closed: when a backend declares an ``api_key_ref`` but the
+secret store has no value for it, resolution raises. Callers never substitute a
+default and never fall back to an empty key.
+
+Default store: ``AdapterEnvSecretStore`` (omnibase_infra) — reads from the
+process environment. The same interface resolves from Infisical when an
+Infisical-backed ``ProtocolSecretStore`` is injected (the canonical store at the
+deployed effect boundary), so no handler code changes when the secret source
+moves from env to Infisical.
+
+Secret values are wrapped in ``SecretStr`` so they are never accidentally
+printed, logged, or serialized.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import os
+from functools import lru_cache
+from pathlib import Path
+from queue import Queue
+from threading import Thread
+from typing import TYPE_CHECKING
+from uuid import UUID
+
+import yaml
+from omnibase_infra.handlers.models.infisical import ModelInfisicalHandlerConfig
+from omnibase_infra.runtime.models.model_secret_resolver_config import (
+    ModelSecretResolverConfig,
+)
+from omnibase_infra.runtime.secret_resolver import SecretResolver
+from omnibase_infra.secret_stores import AdapterEnvSecretStore
+from omnibase_spi.protocols.services import ProtocolSecretStore
+from pydantic import SecretStr, ValidationError
+
+if TYPE_CHECKING:
+    from omnibase_infra.handlers.handler_infisical import HandlerInfisical
+
+from omnimarket.enums.enum_secret_source import EnumSecretSource
+from omnimarket.inference.local_byok_credential_adapter import (
+    LocalByokCredentialStore,
+    is_local_store_only_ref,
+    local_secret_remediation,
+)
+from omnimarket.tenant_credential_ref import (
+    is_tenant_credential_ref,
+    tenant_hint_from_ref,
+)
+
+
+class SecretResolutionError(RuntimeError):
+    """Raised when a declared ``api_key_ref`` cannot be resolved fail-closed."""
+
+
+class LocalSecretNotRegisteredError(SecretResolutionError):
+    """A provider credential is declared but this machine holds no entry for it.
+
+    OMN-18695. A SUBCLASS rather than a sibling so every existing
+    ``except SecretResolutionError`` call site keeps behaving exactly as it
+    did; what it adds is a distinguishable type for the one failure a customer
+    can actually fix themselves, and a message that names the command to fix it
+    with.
+
+    It is raised INSTEAD of falling back to the environment, which is the whole
+    point: before this, a declared ``llm.*.api_key`` with no stored value was
+    answered out of ``LLM_*_API_KEY`` and the customer never learned that their
+    own key was not being used.
+    """
+
+
+class SecretStoreConfigurationError(RuntimeError):
+    """Raised when a lane declares a secret source the store cannot construct.
+
+    OMN-16984 AC2. Deliberately NOT a subclass of :class:`SecretResolutionError`:
+    a missing VALUE and an unconstructable STORE are different facts, and the
+    tenant-overlay wrapper rewrites ``SecretResolutionError`` into "the tenant
+    must register this ref", which would misattribute a lane misconfiguration to
+    the customer. This error propagates uncaught and names only variable /
+    logical names -- never a secret value.
+    """
+
+
+class _MappedSecretStore:
+    """``ProtocolSecretStore`` adapter over infra's logical secret resolver."""
+
+    def __init__(self, resolver: SecretResolver) -> None:
+        self._resolver = resolver
+
+    async def get_secret(self, key: str) -> str | None:
+        resolved = await self._resolver.get_secret_async(key, required=False)
+        if resolved is None:
+            return None
+        return resolved.get_secret_value()
+
+    async def set_secret(self, key: str, value: str) -> bool:
+        raise RuntimeError("Mapped secret store is read-only")
+
+    async def delete_secret(self, key: str) -> bool:
+        raise RuntimeError("Mapped secret store is read-only")
+
+    async def list_keys(self, prefix: str | None = None) -> list[str]:
+        del prefix
+        return []
+
+    async def health_check(self) -> bool:
+        return True
+
+    async def close(self, timeout_seconds: float = 30.0) -> None:
+        del timeout_seconds
+        return
+
+
+class _ConventionFallbackSecretStore:
+    """Default local store: literal env lookup, then dotted-ref → ENV_VAR convention.
+
+    OMN-13861: the bare ``AdapterEnvSecretStore`` resolves ``os.environ[key]``
+    LITERALLY, so a dotted logical ref (``llm.glm.api_key``) never matched the
+    canonical ``LLM_GLM_API_KEY`` env var and every authenticated cloud delegation
+    call failed to resolve its key on the bus-less local path (no
+    ``ONEX_SECRET_RESOLVER_CONFIG_PATH`` lane wired). This store composes both
+    lookups and is a STRICT SUPERSET of the prior literal-only behavior:
+
+      1. literal ``AdapterEnvSecretStore`` — a caller (or test fixture) that sets
+         the exact ref name (incl. a literal dotted ``llm.glm.api_key``) still
+         resolves, so nothing that worked before breaks;
+      2. on a miss, the ``SecretResolver`` convention fallback maps the dotted ref
+         to its canonical env-var name (``llm.glm.api_key`` → ``LLM_GLM_API_KEY``),
+         so the real ``LLM_*_API_KEY`` env vars now resolve.
+
+    A ref that is already an env-var-shaped name resolves identically in both
+    lookups. Read-only, like the sibling stores.
+
+    OMN-18694: a ref carrying the minted TENANT-credential shape is exempt from
+    all three env lookups and resolves from the local SQLite credential store
+    only. See ``get_secret``.
+    """
+
+    def __init__(self) -> None:
+        self._literal: ProtocolSecretStore = AdapterEnvSecretStore()
+        self._convention: ProtocolSecretStore = _MappedSecretStore(
+            SecretResolver(
+                config=ModelSecretResolverConfig(enable_convention_fallback=True)
+            )
+        )
+
+    async def get_secret(self, key: str) -> str | None:
+        # OMN-18694 AC4 put a tenant-ref branch here, returning the local
+        # credential store's answer before any of the three env lookups below.
+        # OMN-18695 moved that decision UP, into ``_select_resolver``, and
+        # widened it: a tenant ref and a contract-declared provider ref are
+        # both answered by the local store, so neither can reach this class at
+        # all. The branch is deleted rather than kept as a second guard --
+        # two places deciding the same thing is how they come to disagree, and
+        # the surviving one is the choke point every resolution passes
+        # through. ``test_omn18694_local_byok_openrouter.py`` still passes: it
+        # asserts the BEHAVIOUR, which is unchanged, not this call site.
+        literal = await self._literal.get_secret(key)
+        if literal:
+            return literal
+        convention = await self._convention.get_secret(key)
+        if convention:
+            return convention
+        # OMN-18695: the provider-native alias map that used to sit here
+        # (``OPENROUTER_API_KEY`` / ``GEMINI_API_KEY``, OMN-13960/OMN-16891) is
+        # DELETED, not disabled. It named exactly the two refs that are now
+        # answered only by the local secret store, so it had become
+        # unreachable -- and an unreachable env alias for a provider key is
+        # the shape this change exists to remove, not something to keep in
+        # case the routing changes back.
+        return None
+
+    async def set_secret(self, key: str, value: str) -> bool:
+        raise RuntimeError("Convention-fallback secret store is read-only")
+
+    async def delete_secret(self, key: str) -> bool:
+        raise RuntimeError("Convention-fallback secret store is read-only")
+
+    async def list_keys(self, prefix: str | None = None) -> list[str]:
+        return await self._literal.list_keys(prefix)
+
+    async def health_check(self) -> bool:
+        return True
+
+    async def close(self, timeout_seconds: float = 30.0) -> None:
+        del timeout_seconds
+        return
+
+
+# OMN-16984: the Infisical machine-identity bootstrap. These are the SAME
+# variables the intake side already reads in
+# ``omnimarket.projection.credential_publisher._build_secret_store()`` -- this
+# is the read half of the same credential plane, not a second configuration
+# surface. A machine identity is the sanctioned bootstrap exception to
+# "config comes from contracts": it is the credential that unlocks the store
+# the contracts are resolved from, and a keyring cannot unlock itself.
+_INFISICAL_BOOTSTRAP_VARS: tuple[str, ...] = (
+    "INFISICAL_ADDR",
+    "INFISICAL_CLIENT_ID",
+    "INFISICAL_CLIENT_SECRET",
+    "INFISICAL_PROJECT_ID",
+    "INFISICAL_ENVIRONMENT_SLUG",
+)
+
+_TRUTHY = frozenset({"true", "1", "yes"})
+
+
+def _infisical_required() -> bool:
+    """Whether the lane declares itself Infisical-controlled.
+
+    Mirrors ``runtime_host_process``'s reading of the same variable so a lane
+    cannot be "controlled" for the config prefetcher and uncontrolled at the
+    effect boundary.
+    """
+    raw = os.environ.get("INFISICAL_REQUIRED", "")  # ONEX_EXCLUDE: secret_resolver
+    return raw.strip().lower() in _TRUTHY
+
+
+def _infisical_declared_folder(source_path: str) -> str | None:
+    """Return the Infisical FOLDER a mapping declares, or ``None`` if it declares none.
+
+    Mirrors ``omnibase_infra.runtime.secret_resolver._split_infisical_path``,
+    which is the code that actually performs the read. A folder-qualified
+    ``source_path`` (``/dev/onex-runtime/LLM_GLM_API_KEY``) carries its folder
+    through as the per-read ``secret_path``; a flat one (``LLM_GLM_API_KEY``)
+    declares no folder and inherits the handler's configured default. Deriving
+    both from the mapping keeps the rendered lane config the single authority
+    for addressing -- no new env var.
+    """
+    raw = source_path.rsplit("#", 1)[0]
+    if "/" not in raw:
+        return None
+    folder = raw.rsplit("/", 1)[0]
+    return folder or "/"
+
+
+def _infisical_bootstrap_config(secret_path: str) -> ModelInfisicalHandlerConfig:
+    """Build the typed handler config from the lane's bootstrap env, or raise.
+
+    Raises:
+        SecretStoreConfigurationError: naming every missing/blank variable at
+            once. Variable NAMES only; no value is ever interpolated.
+    """
+    values = {
+        name: os.environ.get(name, "").strip()  # ONEX_EXCLUDE: secret_resolver
+        for name in _INFISICAL_BOOTSTRAP_VARS
+    }
+    missing = sorted(name for name, value in values.items() if not value)
+    if missing:
+        raise SecretStoreConfigurationError(
+            "Lane declares an Infisical-backed secret source but the Infisical "
+            "machine identity is not fully configured. Missing or blank: "
+            f"{missing}. Declared bootstrap variables: "
+            f"{list(_INFISICAL_BOOTSTRAP_VARS)}."
+        )
+    try:
+        return ModelInfisicalHandlerConfig(
+            host=values["INFISICAL_ADDR"],
+            client_id=SecretStr(values["INFISICAL_CLIENT_ID"]),
+            client_secret=SecretStr(values["INFISICAL_CLIENT_SECRET"]),
+            project_id=UUID(values["INFISICAL_PROJECT_ID"]),
+            environment_slug=values["INFISICAL_ENVIRONMENT_SLUG"],
+            secret_path=secret_path,
+        )
+    except (ValidationError, ValueError) as exc:
+        raise SecretStoreConfigurationError(
+            "Infisical machine-identity bootstrap failed validation "
+            f"(secret_path={secret_path!r}); check "
+            f"{list(_INFISICAL_BOOTSTRAP_VARS)}. Underlying error type: "
+            f"{type(exc).__name__}"
+        ) from exc
+
+
+def _build_infisical_handler(config: ModelInfisicalHandlerConfig) -> HandlerInfisical:
+    """Construct and initialize ``HandlerInfisical`` for this lane.
+
+    ``HandlerInfisical.initialize`` is declared ``async`` but performs no
+    awaits, and this function is reached from both sync and async call sites
+    (``_configured_secret_store`` is memoized behind ``resolve_api_key`` /
+    ``resolve_api_key_async``). Driving it with ``asyncio.run`` on a worker
+    thread is correct in both -- the same pattern
+    :func:`_resolve_api_key_from_running_loop` already uses in this module.
+
+    This function is the single CONSTRUCTION seam: tests replace it to prove
+    the wiring without reaching a real Infisical server.
+    """
+    from omnibase_core.container import ModelONEXContainer
+    from omnibase_infra.handlers.handler_infisical import HandlerInfisical as _Handler
+
+    handler = _Handler(ModelONEXContainer())
+
+    result: Queue[BaseException | None] = Queue(maxsize=1)
+
+    def _runner() -> None:
+        try:
+            asyncio.run(
+                handler.initialize(
+                    {
+                        "host": config.host,
+                        "client_id": config.client_id.get_secret_value(),
+                        "client_secret": config.client_secret.get_secret_value(),
+                        "project_id": str(config.project_id),
+                        "environment_slug": config.environment_slug,
+                        "secret_path": config.secret_path,
+                    }
+                )
+            )
+        except BaseException as exc:
+            result.put(exc)
+        else:
+            result.put(None)
+
+    thread = Thread(target=_runner, name="omnimarket-infisical-init", daemon=True)
+    thread.start()
+    thread.join()
+    error = result.get()
+    if error is not None:
+        raise SecretStoreConfigurationError(
+            "Lane declares an Infisical-backed secret source but the Infisical "
+            f"handler could not be initialized against {config.host!r} "
+            f"(environment {config.environment_slug!r}, path "
+            f"{config.secret_path!r}): {type(error).__name__}"
+        ) from error
+    return handler
+
+
+def _lane_infisical_handler(
+    config: ModelSecretResolverConfig,
+) -> HandlerInfisical | None:
+    """Return the Infisical handler this lane's config requires, or ``None``.
+
+    OMN-16984 AC1/AC2. A lane needs a handler when it DECLARES an Infisical
+    source, or when it declares itself controlled via ``INFISICAL_REQUIRED``.
+    In either case an unbuildable handler is a fail-fast refusal at store
+    construction, naming the offending logical names -- never a per-read
+    ``None`` behind a WARNING, which is what made this defect invisible.
+
+    OMN-16944 AC4. An Infisical source can be declared TWO ways, and this
+    function read only one of them. ``mappings`` names one logical name per
+    entry -- the right shape for a platform secret. A BYOK credential ref is
+    MINTED at request time (``cred_{tenant}_{provider}_{uuid4hex}``), so it
+    cannot be pre-declared; ``namespaces``
+    (:class:`ModelSecretNamespaceRule`, omnibase_infra#3085) declares the
+    anchored PATTERN and the source template every matching ref resolves
+    through, and ``SecretResolver._get_source_spec`` already consults it. A
+    lane whose only Infisical source is a namespace rule therefore built no
+    handler here, and every minted ref resolved to ``None`` behind
+    "Infisical handler not configured" -- which the tenant-overlay wrapper
+    then rewrote into "the tenant must register this ref", reporting a LANE
+    misconfiguration to the customer as their own missing credential.
+    Namespace rules are read on the same terms as mappings below.
+    """
+    infisical_mappings = [
+        mapping
+        for mapping in config.mappings
+        if mapping.source.source_type == "infisical"
+    ]
+    # Store-backed namespaces may be ``infisical`` or ``file``; only the
+    # Infisical ones need (and may demand) the machine identity. A file-backed
+    # namespace must never make a lane start requiring Infisical credentials.
+    infisical_namespaces = [
+        rule for rule in config.namespaces if rule.source_type == "infisical"
+    ]
+    required = _infisical_required()
+    if not infisical_mappings and not infisical_namespaces and not required:
+        return None
+
+    # A namespace rule's folder comes from its own ``source_path_template``, on
+    # exactly the terms a mapping's comes from its ``source_path``: the
+    # interpolated path is what ``SecretResolver`` splits per read. The
+    # template is required to carry ``{ref}`` (model validator), and ``{ref}``
+    # contains no ``/``, so the folder half is well-defined before
+    # interpolation.
+    folderless_namespaces = sorted(
+        rule.namespace
+        for rule in infisical_namespaces
+        if _infisical_declared_folder(rule.source_path_template) is None
+    )
+    if folderless_namespaces:
+        # A folder-LESS source inherits the handler's single configured
+        # default, and that default is derived from the lane's HOUSE mappings
+        # (below). So a folder-less namespace would send every tenant-minted
+        # ref to the folder the platform's own keys live in -- a tenant ref
+        # reading a house folder, which is the crossing OMN-15631 exists to
+        # prevent. It is refused here rather than resolved, because unlike a
+        # flat mapping there is no lane shape in which the inherited answer is
+        # the intended one.
+        raise SecretStoreConfigurationError(
+            "Lane declares Infisical namespace rules whose source_path_template "
+            f"names no folder: {folderless_namespaces}. A folder-less template "
+            "makes every runtime-minted ref it matches inherit the handler's "
+            "configured secret_path -- the folder this lane's own platform "
+            "secrets resolve from. Qualify each template with the folder the "
+            "credentials are written to (e.g. '/<folder>/{ref}')."
+        )
+
+    # A folder-qualified mapping carries its OWN folder through as the per-read
+    # ``secret_path`` (omnibase_infra ``_split_infisical_path``, OMN-16984,
+    # released in omnibase-infra v0.38.15), so any number of folders is
+    # addressable. An earlier revision refused two folders outright, on the
+    # grounds that the resolver "reads every Infisical mapping through the
+    # handler's single configured secret_path" -- that was true before
+    # ``_split_infisical_path`` and false after it, and it would have hard-
+    # blocked the real BYOK lane, where the house provider keys live in
+    # ``/dev/onex-runtime`` and runtime-minted tenant credentials in
+    # ``/tenant-inference-credentials`` on the SAME lane (OMN-16944).
+    folders = sorted(
+        {
+            folder
+            for mapping in infisical_mappings
+            if (folder := _infisical_declared_folder(mapping.source.source_path))
+            is not None
+        }
+    )
+    # A FLAT source declares no folder, so it can only inherit the handler's
+    # single configured default. With more than one folder declared on the lane
+    # there is no non-arbitrary default to give it, and picking whichever folder
+    # sorted first is exactly the silent wrong-folder read this gate exists to
+    # prevent. That residual ambiguity stays a loud refusal.
+    unqualified = sorted(
+        mapping.logical_name
+        for mapping in infisical_mappings
+        if _infisical_declared_folder(mapping.source.source_path) is None
+    )
+    if unqualified and len(folders) > 1:
+        raise SecretStoreConfigurationError(
+            "Lane declares Infisical sources that name no folder while also "
+            f"declaring more than one folder: {folders}. A folder-less source "
+            "inherits the handler's single configured secret_path, and there "
+            "is no non-arbitrary choice for it here. Qualify these logical "
+            f"names with their folder: {unqualified}."
+        )
+    # One declared folder is the default for any flat source; none declared
+    # means the lane is controlled (INFISICAL_REQUIRED) but routes nothing
+    # through Infisical yet, and the handler is still built so the credential
+    # is proven. With several folders declared and no flat source, every read
+    # names its own folder and this default is never consulted.
+    #
+    # Namespace folders are deliberately NOT unioned into ``folders`` here.
+    # This default is what a folder-less HOUSE source inherits, and a namespace
+    # folder is tenant-partitioned: promoting it would let a flat platform
+    # mapping read out of the tenant-credential folder. Namespace reads never
+    # consult this default -- their templates are folder-qualified, which the
+    # refusal above makes unconditional.
+    secret_path = folders[0] if len(folders) == 1 else "/"
+
+    try:
+        handler_config = _infisical_bootstrap_config(secret_path)
+    except SecretStoreConfigurationError as exc:
+        raise SecretStoreConfigurationError(
+            f"{exc} Declared Infisical logical names: "
+            f"{sorted(mapping.logical_name for mapping in infisical_mappings)}; "
+            "declared Infisical namespaces: "
+            f"{sorted(rule.namespace for rule in infisical_namespaces)}; "
+            f"INFISICAL_REQUIRED={required}."
+        ) from exc
+    return _build_infisical_handler(handler_config)
+
+
+def _load_lane_resolver_config(config_path: str) -> ModelSecretResolverConfig:
+    """Load the lane's secret-resolver config from its declared sources.
+
+    ``ONEX_SECRET_RESOLVER_CONFIG_PATH`` names the artifact
+    ``omnibase_infra.runtime.render_secret_resolver_config`` writes at boot,
+    but that renderer runs only in ``entrypoint-runtime.sh``. Workloads that
+    inherit the variable from a namespace-wide ConfigMap while overriding the
+    image command (``onex-api``, ``omnimarket-projection-*``) never render it,
+    and this function used to crash there with a bare ``FileNotFoundError``
+    from ``Path.read_text``.
+
+    The declared inline ``ONEX_SECRET_RESOLVER_CONFIG_JSON`` is the SAME source
+    the renderer itself reads first, so consulting it when the rendered
+    artifact is absent is not a fallback default -- it is the same contract
+    read from its authoritative form. With neither present this raises a
+    typed, attributable error naming both surfaces (CLAUDE.md rule 8).
+    """
+    path = Path(config_path)
+    if path.is_file():
+        try:
+            raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+        except (OSError, yaml.YAMLError) as exc:
+            raise SecretStoreConfigurationError(
+                f"Secret resolver config at {config_path!r} "
+                "(ONEX_SECRET_RESOLVER_CONFIG_PATH) could not be read: "
+                f"{type(exc).__name__}"
+            ) from exc
+        origin = f"ONEX_SECRET_RESOLVER_CONFIG_PATH={config_path!r}"
+    else:
+        inline = os.environ.get(  # ONEX_EXCLUDE: secret_resolver
+            "ONEX_SECRET_RESOLVER_CONFIG_JSON", ""
+        ).strip()
+        if not inline:
+            raise SecretStoreConfigurationError(
+                "ONEX_SECRET_RESOLVER_CONFIG_PATH declares a lane secret "
+                f"mapping at {config_path!r} but no file exists there and "
+                "ONEX_SECRET_RESOLVER_CONFIG_JSON is unset. The rendered "
+                "artifact is written by "
+                "omnibase_infra.runtime.render_secret_resolver_config, which "
+                "runs only in entrypoint-runtime.sh -- a workload that "
+                "overrides the image command must either render it or declare "
+                "the mapping inline."
+            )
+        try:
+            raw = json.loads(inline)
+        except json.JSONDecodeError as exc:
+            raise SecretStoreConfigurationError(
+                "ONEX_SECRET_RESOLVER_CONFIG_JSON is not valid JSON: "
+                f"{type(exc).__name__}"
+            ) from exc
+        origin = "ONEX_SECRET_RESOLVER_CONFIG_JSON"
+
+    if not isinstance(raw, dict):
+        raise SecretStoreConfigurationError(
+            f"Secret resolver config from {origin} must have a mapping root, "
+            f"got {type(raw).__name__}"
+        )
+    try:
+        return ModelSecretResolverConfig.model_validate(raw)
+    except ValidationError as exc:
+        raise SecretStoreConfigurationError(
+            f"Secret resolver config from {origin} failed validation; "
+            f"offending fields: {[err.get('loc') for err in exc.errors()]}"
+        ) from exc
+
+
+@lru_cache(maxsize=1)
+def _configured_secret_store() -> ProtocolSecretStore | None:
+    """Return a lane-configured logical secret store when one is declared."""
+    config_path = os.environ.get(  # ONEX_EXCLUDE: secret_resolver
+        "ONEX_SECRET_RESOLVER_CONFIG_PATH", ""
+    ).strip()
+    if not config_path:
+        return None
+
+    config = _load_lane_resolver_config(config_path)
+    resolver = SecretResolver(
+        config=config,
+        infisical_handler=_lane_infisical_handler(config),
+    )
+    store: ProtocolSecretStore = _MappedSecretStore(resolver)
+    return store
+
+
+def clear_secret_store_resolver_cache() -> None:
+    """Clear cached lane secret mapping state after config changes in tests."""
+    _configured_secret_store.cache_clear()
+
+
+def _default_secret_store() -> ProtocolSecretStore:
+    """Return the default effect-boundary secret store.
+
+    When ``ONEX_SECRET_RESOLVER_CONFIG_PATH`` is set, logical secret refs are
+    resolved through the explicit lane secret mapping before reaching the concrete
+    source (that path is authoritative and unchanged).
+
+    Otherwise (OMN-13861) the default store is a ``_ConventionFallbackSecretStore``
+    (literal env lookup, then dotted-ref → ENV_VAR convention), NOT a bare
+    ``AdapterEnvSecretStore``. The routing authority carries dotted logical
+    ``secret_ref``s (e.g. ``llm.glm.api_key``); the bare env adapter did a LITERAL
+    ``os.environ.get("llm.glm.api_key")`` that never matched the canonical
+    ``LLM_*_API_KEY`` env vars, so every authenticated cloud delegation call failed
+    to resolve its key on the bus-less local path when no
+    ``ONEX_SECRET_RESOLVER_CONFIG_PATH`` lane was wired. The composite store adds the
+    convention mapping (``llm.glm.api_key`` → ``LLM_GLM_API_KEY``) as a strict
+    SUPERSET of the prior literal behavior, so both a literal ref and the canonical
+    env-var form resolve. An explicit ``ONEX_SECRET_RESOLVER_CONFIG_PATH``
+    (Infisical/lane mapping) still overrides it above.
+    """
+    configured = _configured_secret_store()
+    if configured is not None:
+        return configured
+    store: ProtocolSecretStore = _ConventionFallbackSecretStore()
+    return store
+
+
+async def resolve_api_key_with_source_async(
+    api_key_ref: str | None,
+    *,
+    store: ProtocolSecretStore | None = None,
+    required: bool = True,
+    env_var_fallback: str | None = None,
+) -> tuple[SecretStr | None, EnumSecretSource | None]:
+    """Resolve the secret VALUE for an ``api_key_ref``, and say where it came from.
+
+    Identical to :func:`resolve_api_key_async` in every resolution decision;
+    the only difference is that it also returns the :class:`EnumSecretSource`
+    the value was actually read from, for the effect boundary to stamp onto the
+    call result and the receipt (OMN-18695). ``None`` as the source means no
+    value was resolved -- either an unauthenticated backend or a
+    ``required=False`` miss.
+
+    Args:
+        api_key_ref: The secret reference (key NAME) declared by the routing
+            authority, or ``None`` for unauthenticated backends.
+        store: The ``ProtocolSecretStore`` to resolve through. Defaults to the
+            env-backed store; inject an Infisical-backed store at the deployed
+            effect boundary.
+        required: When ``True`` (the effect-boundary default), a declared
+            reference with no secret-store value fails closed (raises). When
+            ``False``, a missing/empty value returns ``None`` — for opt-in
+            registration paths where an absent secret simply means "provider
+            not configured on this host."
+        env_var_fallback: OMN-13943. An additional literal env-var NAME to
+            check when the primary ``api_key_ref`` lookup misses. This is
+            distinct from the dotted ``secret_ref`` convention (which maps
+            through ``SecretResolver``'s ``LLM_*_API_KEY`` naming): it is the
+            backend's own contract-declared ``api_key_env`` (e.g.
+            ``GEMINI_API_KEY``, ``OPEN_ROUTER_API_KEY``) — the canonical env
+            var already defined in ``~/.omnibase/.env``. The caller always
+            supplies this from config data, never a hardcoded literal in this
+            module, so no provider-specific alias lives in code here.
+            **IGNORED for a tenant-minted ref** (OMN-16944): when
+            ``api_key_ref`` carries the tenant-credential shape this argument is
+            dropped, whatever the call site passed, so a tenant's traffic can
+            never be authenticated with a platform (house) key.
+
+    Returns:
+        The resolved secret wrapped in ``SecretStr``, or ``None`` when
+        ``api_key_ref`` is ``None`` (unauthenticated backend) or when
+        ``required`` is ``False`` and the value is absent.
+
+    Raises:
+        SecretResolutionError: When ``required`` is ``True`` and ``api_key_ref``
+            is declared but neither the secret store nor ``env_var_fallback``
+            resolve a non-empty value. Fail-closed; no default. For a
+            tenant-minted ref the error is raised by
+            :func:`resolve_tenant_scoped_api_key_async` and names the tenant.
+    """
+    if not api_key_ref:
+        return None, None
+
+    # OMN-16944 AC2/AC3. A ref carrying the minted tenant-credential shape is a
+    # TENANT's key. It is routed to the tenant-scoped resolver here, at the one
+    # choke point every effect-boundary call site funnels through, so the
+    # guarantee holds no matter what an individual call site passes:
+    # ``env_var_fallback`` is dropped unconditionally, and a required
+    # resolution that misses raises the tenant-attributed error rather than
+    # handing back a platform key. Previously this held only because
+    # ``ModelInferenceIntent`` happens to carry no ``api_key_env`` -- a property
+    # of the current DTO shape, not an enforced one, and
+    # ``resolve_tenant_scoped_api_key_async`` had zero production call sites.
+    if is_tenant_credential_ref(api_key_ref):
+        if not required:
+            # Routing-time availability probe. Still no house fallback -- an
+            # absent tenant value reports unavailable rather than borrowing one.
+            return await _resolve_ref_value(
+                api_key_ref,
+                store=store,
+                required=False,
+                env_var_fallback=None,
+            )
+        resolved = await resolve_tenant_scoped_api_key_async(
+            api_key_ref,
+            tenant_id=tenant_hint_from_ref(api_key_ref),
+            store=store,
+        )
+        _, source, _ = _select_resolver(api_key_ref, store=store)
+        return resolved, (source if resolved is not None else None)
+
+    return await _resolve_ref_value(
+        api_key_ref,
+        store=store,
+        required=required,
+        env_var_fallback=env_var_fallback,
+    )
+
+
+async def resolve_api_key_async(
+    api_key_ref: str | None,
+    *,
+    store: ProtocolSecretStore | None = None,
+    required: bool = True,
+    env_var_fallback: str | None = None,
+) -> SecretStr | None:
+    """Resolve the secret VALUE for an ``api_key_ref`` through the secret store.
+
+    The value-only form of :func:`resolve_api_key_with_source_async`, which
+    carries the full contract. Every resolution decision, refusal and
+    fail-closed guarantee lives there; this drops the source a caller does not
+    need, so the many existing call sites keep their signature.
+    """
+    resolved, _ = await resolve_api_key_with_source_async(
+        api_key_ref,
+        store=store,
+        required=required,
+        env_var_fallback=env_var_fallback,
+    )
+    return resolved
+
+
+def _select_resolver(
+    api_key_ref: str,
+    *,
+    store: ProtocolSecretStore | None,
+) -> tuple[ProtocolSecretStore, EnumSecretSource, bool]:
+    """Pick the store that answers this ref, and say what kind it is.
+
+    Returns the store, the source it would report on a hit, and whether the ref
+    is LOCAL-STORE-ONLY -- the flag that suppresses ``env_var_fallback`` and
+    selects the typed refusal.
+
+    Precedence, in order:
+
+    1. an INJECTED store wins outright. A caller passing one is naming the
+       surface to resolve through, and the deployed BYOK path injects the
+       Infisical-backed store for exactly these refs;
+    2. a lane-CONFIGURED store (``ONEX_SECRET_RESOLVER_CONFIG_PATH``) wins next,
+       for the same reason -- the lane declared its own mapping;
+    3. otherwise this is the LOCAL path, and a provider or tenant ref
+       (OMN-18695) is answered by this machine's own store and nothing else;
+    4. any other ref keeps the pre-existing convention/env behaviour unchanged.
+    """
+    if store is not None:
+        return store, EnumSecretSource.LANE_SECRET_STORE, False
+    configured = _configured_secret_store()
+    if configured is not None:
+        return configured, EnumSecretSource.LANE_SECRET_STORE, False
+    if is_local_store_only_ref(api_key_ref):
+        return LocalByokCredentialStore(), EnumSecretSource.LOCAL_STORE, True
+    # Everything else keeps the pre-existing default. Routed through
+    # :func:`_default_secret_store` rather than constructing the store inline
+    # so that function stays the single substitution seam it already is for
+    # callers that replace it.
+    return _default_secret_store(), EnumSecretSource.ENVIRONMENT, False
+
+
+async def _resolve_ref_value(
+    api_key_ref: str,
+    *,
+    store: ProtocolSecretStore | None,
+    required: bool,
+    env_var_fallback: str | None,
+) -> tuple[SecretStr | None, EnumSecretSource | None]:
+    """Resolve a declared ref through the store. No tenant/house routing here.
+
+    The single place a secret VALUE is read. :func:`resolve_api_key_async` picks
+    which posture to call it with; :func:`resolve_tenant_scoped_api_key_async`
+    calls it with the narrowed tenant posture. Keeping the read in one function
+    is what makes "a tenant ref never sees ``env_var_fallback``" checkable by
+    reading two call sites instead of auditing every boundary.
+
+    OMN-18695: it also returns WHERE the value came from. The source is read
+    off the resolution that actually happened rather than inferred by the
+    caller, so a receipt recording ``store`` is evidence rather than a claim.
+    """
+    resolver, source, store_only = _select_resolver(api_key_ref, store=store)
+
+    value = await resolver.get_secret(api_key_ref)
+    if value:
+        return SecretStr(value), source
+
+    # OMN-18695: a local-store-only ref never reaches the environment, whatever
+    # the call site passed. The guarantee is a property of the REFERENCE, so it
+    # holds without every boundary remembering to drop the argument -- the same
+    # reasoning OMN-16944 applied to tenant refs one layer up.
+    if not store_only and env_var_fallback:
+        env_value = os.environ.get(env_var_fallback) or None
+        if env_value:
+            return SecretStr(env_value), EnumSecretSource.ENVIRONMENT
+
+    if not required:
+        return None, None
+
+    if store_only:
+        raise LocalSecretNotRegisteredError(
+            f"Secret reference {api_key_ref!r} is declared by the routing "
+            "authority but this machine's local secret store holds no value "
+            f"for it. Register it with: {local_secret_remediation(api_key_ref)} "
+            "(the value is read from stdin, never from an argument). "
+            "Environment variables are not consulted for a provider "
+            "credential: a key in the environment authenticates calls on "
+            "whoever's account owns it, without the reference ever saying so."
+        )
+
+    fallback_note = (
+        f" nor did the declared fallback env var {env_var_fallback!r}"
+        if env_var_fallback
+        else ""
+    )
+    raise SecretResolutionError(
+        f"Secret reference {api_key_ref!r} declared by the routing authority "
+        f"could not be resolved from the secret store (missing or empty){fallback_note}. "
+        "No further fallback is permitted."
+    )
+
+
+def resolve_api_key(
+    api_key_ref: str | None,
+    *,
+    store: ProtocolSecretStore | None = None,
+    required: bool = True,
+    env_var_fallback: str | None = None,
+) -> SecretStr | None:
+    """Synchronous wrapper over :func:`resolve_api_key_async`.
+
+    For use at sync effect boundaries (e.g. ``HandlerInferenceIntent.handle``).
+    Drives the async secret store via ``asyncio.run``; raises if called from
+    within a running event loop (the async variant must be used there).
+
+    Raises:
+        SecretResolutionError: When ``required`` is ``True`` and the declared
+            reference cannot be resolved.
+        RuntimeError: When invoked from inside a running event loop.
+    """
+    if not api_key_ref:
+        return None
+
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        running_loop = False
+    else:
+        running_loop = True
+
+    if running_loop:
+        raise RuntimeError(
+            "resolve_api_key() is sync-only; call resolve_api_key_async() from "
+            "an async context."
+        )
+
+    return asyncio.run(
+        resolve_api_key_async(
+            api_key_ref,
+            store=store,
+            required=required,
+            env_var_fallback=env_var_fallback,
+        )
+    )
+
+
+def _resolve_api_key_from_running_loop(
+    api_key_ref: str,
+    *,
+    store: ProtocolSecretStore | None,
+    required: bool,
+    env_var_fallback: str | None = None,
+) -> SecretStr | None:
+    """Resolve from sync code that is already executing inside an event loop."""
+    result: Queue[tuple[SecretStr | None, BaseException | None]] = Queue(maxsize=1)
+
+    def _runner() -> None:
+        try:
+            resolved = asyncio.run(
+                resolve_api_key_async(
+                    api_key_ref,
+                    store=store,
+                    required=required,
+                    env_var_fallback=env_var_fallback,
+                )
+            )
+        except BaseException as exc:
+            result.put((None, exc))
+        else:
+            result.put((resolved, None))
+
+    thread = Thread(
+        target=_runner,
+        name="omnimarket-secret-availability",
+        daemon=True,
+    )
+    thread.start()
+    thread.join()
+    resolved, exc = result.get()
+    if exc is not None:
+        raise exc
+    return resolved
+
+
+def resolve_api_key_loop_safe(
+    api_key_ref: str | None,
+    *,
+    store: ProtocolSecretStore | None = None,
+    required: bool = True,
+    env_var_fallback: str | None = None,
+) -> SecretStr | None:
+    """Resolve a secret VALUE from SYNC code that may run inside an event loop.
+
+    Identical to :func:`resolve_api_key`, except that when it is invoked from
+    within a running event loop the resolution is offloaded to a worker thread
+    (via :func:`_resolve_api_key_from_running_loop`) instead of raising the
+    "sync-only" guard.
+
+    Use this from a SYNC ``handle()`` that the ONEX runtime may dispatch on the
+    event loop: ``LocalRuntimeBusAdapter`` calls a sync handler directly inside
+    its async ``on_message``, so a bare :func:`resolve_api_key` would raise
+    ``RuntimeError("resolve_api_key() is sync-only ...")`` (OMN-13843). Async
+    handlers should keep awaiting :func:`resolve_api_key_async` directly; this
+    helper exists only for handlers that must stay synchronous (e.g. because a
+    sync orchestrator port calls them in-process).
+
+    Fail-closed semantics are unchanged: with ``required=True`` a declared ref
+    with no secret-store value (and no resolvable ``env_var_fallback``) raises
+    :class:`SecretResolutionError`.
+    """
+    if not api_key_ref:
+        return None
+    try:
+        return resolve_api_key(
+            api_key_ref,
+            store=store,
+            required=required,
+            env_var_fallback=env_var_fallback,
+        )
+    except RuntimeError as exc:
+        if "sync-only" not in str(exc):
+            raise
+        return _resolve_api_key_from_running_loop(
+            api_key_ref,
+            store=store,
+            required=required,
+            env_var_fallback=env_var_fallback,
+        )
+
+
+def resolve_api_key_with_source(
+    api_key_ref: str | None,
+    *,
+    store: ProtocolSecretStore | None = None,
+    required: bool = True,
+    env_var_fallback: str | None = None,
+) -> tuple[SecretStr | None, EnumSecretSource | None]:
+    """Synchronous :func:`resolve_api_key_with_source_async` (OMN-18695).
+
+    Raises:
+        RuntimeError: When invoked from inside a running event loop; use
+            :func:`resolve_api_key_with_source_loop_safe` there.
+    """
+    if not api_key_ref:
+        return None, None
+
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        pass
+    else:
+        raise RuntimeError(
+            "resolve_api_key_with_source() is sync-only; call "
+            "resolve_api_key_with_source_loop_safe() from an async context."
+        )
+
+    return asyncio.run(
+        resolve_api_key_with_source_async(
+            api_key_ref,
+            store=store,
+            required=required,
+            env_var_fallback=env_var_fallback,
+        )
+    )
+
+
+def resolve_api_key_with_source_loop_safe(
+    api_key_ref: str | None,
+    *,
+    store: ProtocolSecretStore | None = None,
+    required: bool = True,
+    env_var_fallback: str | None = None,
+) -> tuple[SecretStr | None, EnumSecretSource | None]:
+    """Resolve a value AND its source from sync code that may be inside a loop.
+
+    The source-reporting sibling of :func:`resolve_api_key_loop_safe`, and the
+    form the LLM effect boundary uses: that handler is synchronous and the
+    local runtime dispatches it on the event loop, so the bare sync variant
+    would raise there (OMN-13843).
+    """
+    if not api_key_ref:
+        return None, None
+
+    result: Queue[
+        tuple[
+            tuple[SecretStr | None, EnumSecretSource | None] | None,
+            BaseException | None,
+        ]
+    ] = Queue(maxsize=1)
+
+    def _runner() -> None:
+        try:
+            resolved = asyncio.run(
+                resolve_api_key_with_source_async(
+                    api_key_ref,
+                    store=store,
+                    required=required,
+                    env_var_fallback=env_var_fallback,
+                )
+            )
+        except BaseException as exc:
+            result.put((None, exc))
+        else:
+            result.put((resolved, None))
+
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return resolve_api_key_with_source(
+            api_key_ref,
+            store=store,
+            required=required,
+            env_var_fallback=env_var_fallback,
+        )
+
+    thread = Thread(target=_runner, name="omnimarket-secret-with-source", daemon=True)
+    thread.start()
+    thread.join()
+    resolved, exc = result.get()
+    if exc is not None:
+        raise exc
+    assert resolved is not None
+    return resolved
+
+
+async def resolve_tenant_scoped_api_key_async(
+    api_key_ref: str | None,
+    *,
+    tenant_id: str,
+    store: ProtocolSecretStore | None = None,
+) -> SecretStr | None:
+    """Resolve a TENANT-OVERLAY backend's secret VALUE — fail-fast, no house fallback.
+
+    OMN-15631 v1(a). A backend resolved from a tenant's
+    ``delegation_routing_tenant_overlay`` row must never silently fall back to
+    an OmniNode house key when its own ``secret_ref`` is missing or unresolved
+    — that would route a tenant's traffic (and cost) through the platform's
+    own provider account without either party's knowledge. This wrapper is a
+    thin, INTENTIONALLY-narrower call of :func:`resolve_api_key_async`:
+    ``required`` is always ``True`` (fail-fast on a miss) and
+    ``env_var_fallback`` is always omitted — the house ``api_key_env``
+    convention (``BifrostBackendRef.api_key_env`` / the bifrost contract's
+    ``api_key_env`` field) has no tenant-overlay equivalent by construction
+    (migration 0001 carries no ``api_key_env`` column), so there is nothing to
+    thread here even by accident.
+
+    Args:
+        api_key_ref: The tenant-scoped secret reference name, or ``None`` for
+            an explicitly unauthenticated tenant backend.
+        tenant_id: The tenant this resolution is scoped to — carried for
+            structured logging/error attribution only; the actual store
+            lookup key is still ``api_key_ref`` (the store is not itself
+            tenant-partitioned in v1(a) — see OMN-13236's ``ProtocolSecretStore``
+            contract, which this reuses unchanged).
+        store: The ``ProtocolSecretStore`` to resolve through. Defaults to the
+            same env-backed store :func:`resolve_api_key_async` uses.
+
+    Returns:
+        The resolved secret wrapped in ``SecretStr``, or ``None`` only when
+        ``api_key_ref`` is ``None`` (an explicitly unauthenticated backend).
+
+    Raises:
+        SecretResolutionError: When ``api_key_ref`` is declared but the
+            secret store has no value for it. No further fallback exists.
+    """
+    if not api_key_ref:
+        return None
+    try:
+        # Calls the shared resolution core directly, NOT resolve_api_key_async:
+        # that function routes tenant-shaped refs back here (OMN-16944), so
+        # going through it would recurse. ``env_var_fallback=None`` is the whole
+        # point of this wrapper and is passed explicitly, never defaulted.
+        resolved, _ = await _resolve_ref_value(
+            api_key_ref,
+            store=store,
+            required=True,
+            env_var_fallback=None,
+        )
+        return resolved
+    except SecretResolutionError as exc:
+        message = (
+            f"Tenant {tenant_id!r} overlay backend declared secret_ref "
+            f"{api_key_ref!r} which could not be resolved from the secret "
+            "store. Tenant-overlay backends never fall back to a house key — "
+            "the tenant must register this ref in the secret store before "
+            "this backend is routable."
+        )
+        # OMN-18695: preserve the SUBCLASS when the miss was a local-store one.
+        # Re-raising the base type here would erase the one distinction a
+        # customer can act on -- that the fix is a command they can run -- and
+        # the tenant attribution is worth nothing if it costs that.
+        if isinstance(exc, LocalSecretNotRegisteredError):
+            raise LocalSecretNotRegisteredError(
+                f"{message} {local_secret_remediation(api_key_ref)}"
+            ) from exc
+        raise SecretResolutionError(message) from exc
+
+
+def api_key_ref_available(
+    api_key_ref: str | None,
+    *,
+    store: ProtocolSecretStore | None = None,
+    env_var_fallback: str | None = None,
+) -> bool:
+    """Return whether a secret ref resolves to a non-empty value.
+
+    This is for routing-time availability checks that must avoid selecting a
+    backend the active runtime secret store cannot use. It returns only a
+    boolean; the route decision still carries the secret reference name, never
+    the secret value.
+
+    ``env_var_fallback`` (OMN-13943): when supplied, a backend whose dotted
+    ``secret_ref`` convention mapping misses but whose own contract-declared
+    literal env var IS set is still reported available — the routing tier
+    eligibility check must agree with what the effect boundary will actually
+    resolve at call time (:func:`resolve_api_key_async`), or a tier could be
+    reported unroutable while its backend is actually callable.
+    """
+    if not api_key_ref:
+        return True
+    resolved = resolve_api_key_loop_safe(
+        api_key_ref,
+        store=store,
+        required=False,
+        env_var_fallback=env_var_fallback,
+    )
+    return resolved is not None
+
+
+__all__: list[str] = [
+    "SecretResolutionError",
+    "SecretStoreConfigurationError",
+    "api_key_ref_available",
+    "resolve_api_key",
+    "resolve_api_key_async",
+    "resolve_api_key_loop_safe",
+    "resolve_tenant_scoped_api_key_async",
+]

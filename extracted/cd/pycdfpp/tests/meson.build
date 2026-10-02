@@ -1,0 +1,119 @@
+configure_file(output : 'tests_config.hpp',
+  configuration : {
+    'DATA_PATH' : '"' + meson.current_source_dir() / 'resources' + '"'
+  }
+)
+
+catch_dep = dependency('catch2-with-main', version:'>3.0.0', required : true)
+
+
+# Catch2 3.16's test macros push MSVC past the default COFF section limit (C1128), so every
+# test executable gets /bigobj there.
+test_cpp_args = meson.get_compiler('cpp').get_argument_syntax() == 'msvc' ? ['/bigobj'] : []
+
+foreach test_name:['endianness','simple_open', 'majority', 'chrono', 'nomap', 'records_loading', 'records_saving',
+              'rle_compression', 'libdeflate_compression', 'zlib_compression', 'simple_save', 'zstd_compression', 'blosc2_compression',
+              'structural_introspection', 'record_stream', 'record_repr', 'nasa_compat_repr',
+              'pathological_time_repr']
+    exe = executable('test-'+test_name, test_name+'/main.cpp',
+                    dependencies:[catch_dep, cdfpp_dep],
+                    cpp_args: test_cpp_args,
+                    install: false
+                    )
+    test(test_name, exe)
+endforeach
+
+multiple_translation_units = executable('test-multiple_translation_units',
+    'multiple_translation_units/main.cpp', 'multiple_translation_units/other.cpp',
+    dependencies:[catch_dep, cdfpp_dep],
+    cpp_args: test_cpp_args,
+    install: false
+)
+test('multiple_translation_units', multiple_translation_units)
+
+foreach py_test:['python_loading', 'python_saving', 'python_skeletons',
+            'python_variable_set_values', 'full_corpus', 'python_chrono',
+            'python_windows_crash', 'python_structural_introspection', 'python_debug',
+            'python_cli_irsdump', 'python_threads', 'python_value_conversions',
+            'python_api_contract']
+    test(py_test, python3,
+        args:[files(py_test+'/test.py')],
+        env:['PYTHONPATH='+meson.project_build_root()],
+        timeout: 300,
+        workdir:meson.current_build_dir())
+endforeach
+
+
+nm = find_program('nm', required: false)
+if nm.found() and cdfpp_simd_libs.length() > 0
+    test('simd_isolation', python3,
+        args:[files('simd_isolation/test.py'), nm] + cdfpp_simd_libs)
+endif
+
+python_wrapper_cpp = executable('python_wrapper_cpp','python_wrapper_cpp/main.cpp',
+                dependencies:[pybind11_dep, python3.dependency(embed:true), catch_dep, cdfpp_dep, fmt_dep],
+                cpp_args: test_cpp_args,
+                install: false
+                )
+
+test('python_wrapper_cpp', python_wrapper_cpp,
+    env:['PYTHONPATH='+meson.project_build_root()],
+    timeout: 300,
+    workdir:meson.current_build_dir())
+
+manual_load = executable('manual_load','manual_load/main.cpp',
+                dependencies:[cdfpp_dep],
+                cpp_args: test_cpp_args,
+                install: false
+                )
+
+manual_load = executable('manual_save','manual_save/main.cpp',
+                dependencies:[cdfpp_dep],
+                cpp_args: test_cpp_args,
+                install: false
+                )
+
+
+foreach example:['basic_cpp']
+    exe = executable('example-'+example,'../examples/'+example+'/main.cpp',
+                    dependencies:[cdfpp_dep],
+                    cpp_args: ['-DDATA_PATH="@0@/resources"'.format(meson.current_source_dir())] + test_cpp_args,
+                    install: false
+                    )
+endforeach
+
+node = find_program('node', required: false)
+if node.found()
+    test('wacdfpp_model', node,
+        args: [files('wacdfpp_model/test.mjs')],
+        timeout: 60,
+    )
+    test('wacdfpp_format', node,
+        args: [files('wacdfpp_format/test.mjs')],
+        timeout: 60,
+    )
+    test('wacdfpp_plot', node,
+        args: [files('wacdfpp_plot/test.mjs')],
+        timeout: 60,
+    )
+    test('wacdfpp_presets', node,
+        args: [files('wacdfpp_presets/test.mjs')],
+        timeout: 60,
+    )
+    test('wacdfpp_astralint', node,
+        args: [files('wacdfpp_astralint/test.mjs')],
+        timeout: 60,
+    )
+    test('wacdfpp_diff', node,
+        args: [files('wacdfpp_diff/test.mjs')],
+        timeout: 60,
+    )
+    test('wacdfpp_yaml', node,
+        args: [files('wacdfpp_yaml/test.mjs')],
+        timeout: 60,
+    )
+    test('wacdfpp_convert', node,
+        args: [files('wacdfpp_convert/test.mjs')],
+        timeout: 60,
+    )
+endif

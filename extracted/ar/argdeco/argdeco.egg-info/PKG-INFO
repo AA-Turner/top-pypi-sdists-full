@@ -1,0 +1,24 @@
+Metadata-Version: 2.4
+Name: argdeco
+Version: 3.1.1
+Summary: specify command arguments in function decorator
+Home-page: https://github.com/klorenz/python-argdeco
+Author: Kay-Uwe (Kiwi) Lorenz
+Author-email: tabkiwi@gmail.com
+License: MIT
+Keywords: argument command argparse cli
+Description-Content-Type: text/plain
+License-File: LICENSE.md
+Requires-Dist: argcomplete
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
+
+see github for docs: https://github.com/klorenz/python-argdeco

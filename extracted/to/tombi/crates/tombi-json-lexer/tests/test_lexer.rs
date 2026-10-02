@@ -3,7 +3,7 @@
 // using macros to define test cases in a declarative way.
 
 use itertools::Itertools;
-use tombi_json_lexer::{ErrorKind, Token, tokenize};
+use tombi_json_lexer::{ErrorKind, Token, lex, tokenize};
 use tombi_json_syntax::SyntaxKind::*;
 
 macro_rules! test_tokens {
@@ -21,23 +21,20 @@ macro_rules! test_tokens {
                 )*
             ]
             .into_iter()
-            .fold((vec![], (0, tombi_text::Position::MIN)), |(mut acc, (start_offset, start_position)), (kind, text)| {
+            .fold((vec![], 0), |(mut acc, start_offset), (kind, text)| {
                 let text: &str = text;
                 let end_offset = start_offset + (text.len() as u32);
-                let end_position = start_position + tombi_text::RelativePosition::of(text);
-                let span_range = (
-                    (start_offset, end_offset).into(),
-                    (start_position, end_position).into()
-                );
+                let span = (start_offset, end_offset).into();
                 let token = if kind == STRING {
-                    Token::new_string(text.as_bytes().contains(&b'\\'), span_range)
+                    Token::new_string(text.as_bytes().contains(&b'\\'), span)
                 } else {
-                    Token::new(kind, span_range)
+                    Token::new(kind, span)
                 };
                 acc.push(Ok(token));
-                (acc, (end_offset, end_position))
+                (acc, end_offset)
             });
             pretty_assertions::assert_eq!(tokens, expected);
+            assert_line_starts($source);
         }
     };
 }
@@ -49,8 +46,6 @@ macro_rules! test_token {
             let source = textwrap::dedent($source);
             let source = source.trim();
             let tokens = tokenize(&source).collect_vec();
-            let start_position = tombi_text::Position::MIN;
-            let end_position = start_position + tombi_text::RelativePosition::of(source);
 
             pretty_assertions::assert_eq!(
                 tokens,
@@ -58,22 +53,14 @@ macro_rules! test_token {
                     Ok(if $kind == STRING {
                         Token::new_string(
                             source.as_bytes().contains(&b'\\'),
-                            (
-                                ($start_offset, $end_offset).into(),
-                                (start_position, end_position).into()
-                            )
+                            ($start_offset, $end_offset).into(),
                         )
                     } else {
-                        Token::new(
-                            $kind,
-                            (
-                                ($start_offset, $end_offset).into(),
-                                (start_position, end_position).into()
-                            )
-                        )
+                        Token::new($kind, ($start_offset, $end_offset).into())
                     })
                 ]
             );
+            assert_line_starts(source);
         }
     };
 
@@ -83,25 +70,34 @@ macro_rules! test_token {
             let source = textwrap::dedent($source);
             let source = source.trim();
             let tokens = tokenize(&source).collect_vec();
-            let start_position = tombi_text::Position::MIN;
-            let end_position = start_position + tombi_text::RelativePosition::of(source);
 
             pretty_assertions::assert_eq!(
                 tokens,
                 [
-                    Err(
-                        tombi_json_lexer::Error::new(
-                            $kind,
-                            (
-                                ($start_offset, $end_offset).into(),
-                                (start_position, end_position).into()
-                            )
-                        )
-                    )
+                    Err(tombi_json_lexer::Error::new(
+                        $kind,
+                        ($start_offset, $end_offset).into(),
+                    ))
                 ]
             );
+            assert_line_starts(source);
         }
     }
+}
+
+/// The line starts recorded while lexing match the ones found by scanning the source again.
+fn assert_line_starts(source: &str) {
+    let expected = std::iter::once(0)
+        .chain(
+            source
+                .bytes()
+                .enumerate()
+                .filter(|(_, byte)| *byte == b'\n')
+                .map(|(index, _)| index as u32 + 1),
+        )
+        .map(tombi_text::Offset::new)
+        .collect_vec();
+    pretty_assertions::assert_eq!(lex(source).line_starts, expected);
 }
 
 // Basic token tests
@@ -742,4 +738,29 @@ test_tokens! {
         Token(NULL, "null"),
         Token(BRACE_END, "}"),
     ];
+}
+
+test_token! {
+    #[test]
+    fn string_with_non_ascii("\"日本語🦅\"") -> Ok(Token(STRING, (0, 15)));
+}
+
+test_token! {
+    #[test]
+    fn error_string_with_line_break("\"a\nb\"") -> Err(Token(ErrorKind::InvalidString, (0, 5)));
+}
+
+test_token! {
+    #[test]
+    fn error_unterminated_string_with_line_break("\"a\nb") -> Err(Token(ErrorKind::InvalidString, (0, 4)));
+}
+
+test_token! {
+    #[test]
+    fn error_incomplete_unicode_escape_before_quote(r#""\u12""#) -> Err(Token(ErrorKind::InvalidString, (0, 6)));
+}
+
+test_token! {
+    #[test]
+    fn error_non_ascii_token("日本") -> Err(Token(ErrorKind::InvalidToken, (0, 6)));
 }

@@ -16,11 +16,12 @@ import numbers
 import re
 import time
 from collections.abc import Iterable, Iterator, Sequence
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 import dateutil.parser
 import dateutil.tz
 from jaraco.collections import RangeMap
+from jaraco.functools import apply
 
 if TYPE_CHECKING:
     from typing import TypeAlias
@@ -79,7 +80,7 @@ def ensure_datetime(ob: AnyDatetime) -> datetime.datetime:
 def infer_datetime(ob: AnyDatetime | StructDatetime) -> datetime.datetime:
     if isinstance(ob, (time.struct_time, tuple)):
         # '"int" is not assignable to "tzinfo"', but we don't pass that many parameters
-        ob = datetime.datetime(*ob[:6])  # type: ignore[arg-type]
+        ob = datetime.datetime(*ob[:6])  # type: ignore[arg-type]  # noqa: DTZ001  # struct_time is naive
     return ensure_datetime(ob)
 
 
@@ -345,7 +346,7 @@ def get_date_format_string(period: str | numbers.Number | datetime.timedelta) ->
         seconds_per_minute,
         seconds_per_second,
     )
-    mods = list(map(lambda interval: file_period_secs % interval, intervals))  # type: ignore[operator]
+    mods = [file_period_secs % interval for interval in intervals]  # type: ignore[operator]
     format_pieces = format_pieces[: mods.index(0) + 1]
     return ''.join(format_pieces)
 
@@ -450,6 +451,15 @@ def parse_timedelta(str: str) -> datetime.timedelta:
 
     >>> parse_timedelta('1 us')
     datetime.timedelta(microseconds=1)
+
+    Plural forms of the abbreviations are also accepted:
+
+    >>> parse_timedelta('2 hrs')
+    datetime.timedelta(seconds=7200)
+    >>> parse_timedelta('5 mins')
+    datetime.timedelta(seconds=300)
+    >>> parse_timedelta('3 secs')
+    datetime.timedelta(seconds=3)
 
     And supports the common colon-separated duration:
 
@@ -589,7 +599,7 @@ class Duration:
     datetime.timedelta(microseconds=2)
     """
 
-    _ns_per = dict(
+    _ns_per: ClassVar[dict[str, int]] = dict(
         nanoseconds=1,
         microseconds=10**3,
         milliseconds=10**6,
@@ -733,10 +743,37 @@ _unit_lookup = {
 }
 
 
+def _make_singular(unit: str):
+    """
+    >>> _make_singular('hrs')
+    'hr'
+    >>> _make_singular('hours')
+    'hour'
+    >>> _make_singular('ms')
+    'ms'
+    >>> _make_singular('mss')
+    'mss'
+    >>> _make_singular('nanos')
+    'nanos'
+    """
+    singular = unit.rstrip('s')
+    was_plural = (
+        unit.endswith('s')
+        and singular in set(_unit_lookup.values()).union(_unit_lookup.keys())
+        and len(singular) > 1
+    )
+    return singular if was_plural else unit
+
+
+def _make_plural(unit: str):
+    return unit.rstrip('s') + 's'
+
+
+@apply(_make_plural)
 def _resolve_unit(raw_match: str | None) -> str:
     if raw_match is None:
         return 'second'
-    text = raw_match.lower()
+    text = _make_singular(raw_match.lower())
     return _unit_lookup.get(text, text)
 
 
@@ -751,8 +788,6 @@ def _parse_timedelta_composite(raw_value: str, unit: str) -> _Saved_NS:
 
 def _parse_timedelta_part(match: re.Match[str]) -> _Saved_NS:
     unit = _resolve_unit(match.group('unit'))
-    if not unit.endswith('s'):
-        unit += 's'
     raw_value = match.group('value')
     if ':' in raw_value:
         return _parse_timedelta_composite(raw_value, unit)
@@ -780,7 +815,7 @@ class _Saved_NS:
 
     td = datetime.timedelta()
     nanoseconds: decimal.Decimal = decimal.Decimal(0)
-    multiplier = dict(
+    multiplier: ClassVar[dict[str, int]] = dict(
         seconds=1000000000,
         milliseconds=1000000,
         microseconds=1000,
@@ -859,7 +894,7 @@ def date_range(
     if step is None:
         step = datetime.timedelta(days=1)
     if start is None:
-        start = datetime.datetime.now()
+        start = datetime.datetime.now()  # noqa: DTZ005  # local time by design
     while start < stop:  # type: ignore[operator]  # stop may be None if not provided
         yield start
         start += step

@@ -1,4 +1,5 @@
 """Output formats for command results: json, yaml and table."""
+
 from enum import Enum
 import json
 from typing import Any, Optional, Sequence
@@ -36,7 +37,9 @@ OUTPUT_FLAG_LONG = "--output"
 
 
 def render_output(
-    data: Any, output_format: str, table_columns: Optional[Sequence[str]] = None,
+    data: Any,
+    output_format: str,
+    table_columns: Optional[Sequence[str]] = None,
 ) -> str:
     """Render data as a string in output_format (json, yaml or table)."""
     try:
@@ -46,7 +49,9 @@ def render_output(
 
 
 def print_output(
-    data: Any, output_format: str, table_columns: Optional[Sequence[str]] = None,
+    data: Any,
+    output_format: str,
+    table_columns: Optional[Sequence[str]] = None,
 ) -> None:
     """Render data in output_format and write it to stdout."""
     click.echo(render_output(data, output_format, table_columns))

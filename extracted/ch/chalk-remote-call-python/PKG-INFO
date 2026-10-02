@@ -1,0 +1,247 @@
+Metadata-Version: 2.4
+Name: chalk-remote-call-python
+Version: 1.10.2
+Summary: Chalk remote call Python runtime interface client
+Author: Chalk AI, Inc.
+Project-URL: Homepage, https://chalk.ai
+Project-URL: Documentation, https://docs.chalk.ai
+Project-URL: Changelog, https://docs.chalk.ai/docs/changelog
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python
+Classifier: Typing :: Typed
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Classifier: Topic :: Software Development :: Code Generators
+Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: <3.15,>=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: pyarrow>=14.0.0
+Provides-Extra: dev
+Requires-Dist: setuptools-rust>=1.7; extra == "dev"
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.21.0; extra == "dev"
+Requires-Dist: grpcio>=1.60.0; extra == "dev"
+Requires-Dist: grpcio-health-checking>=1.60.0; extra == "dev"
+Requires-Dist: grpcio-reflection>=1.60.0; extra == "dev"
+Requires-Dist: protobuf>=4.25.0; extra == "dev"
+Requires-Dist: grpcio-tools>=1.60.0; extra == "dev"
+Provides-Extra: tracing
+Requires-Dist: opentelemetry-api>=1.20.0; extra == "tracing"
+Requires-Dist: opentelemetry-sdk>=1.20.0; extra == "tracing"
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.20.0; extra == "tracing"
+
+# chalk-remote-call-python
+
+A Python runtime interface for Chalk's RemoteCallService. This package provides a gRPC server backed by a Rust implementation (tonic + PyO3) that lets you define a `handler(event, context)` function to process incoming Arrow-serialized requests.
+
+The server receives Arrow IPC record batches over a bidirectional gRPC stream, transforms them into a Python dict, invokes your handler, and streams the results back as Arrow IPC.
+
+## Requirements
+
+- Python >= 3.10
+- Rust toolchain (for building the native extension)
+- `pyarrow >= 14.0.0`
+
+## Usage
+
+### 1. Write a handler
+
+Create a Python module with a `handler` function:
+
+```python
+# my_handler.py
+import pyarrow as pa
+import pyarrow.compute as pc
+
+
+def on_startup():
+    """Optional -- runs once before the server starts accepting requests."""
+    print("Loading model weights...")
+
+
+def handler(event: dict[str, pa.Array], context: dict) -> pa.Array:
+    """Called for each incoming request.
+
+    Args:
+        event: dict mapping column names to pyarrow.Array values.
+        context: dict with request metadata
+
+    Returns:
+        A pyarrow.Array, pyarrow.RecordBatch, pyarrow.Table, list, dict, or scalar.
+        The framework auto-converts the result to Arrow IPC for the response.
+    """
+    return pc.multiply(event["x"], event["y"])
+
+
+def on_shutdown():
+    """Optional -- runs once after the server stops accepting requests."""
+    print("Releasing resources...")
+```
+
+### 2. Start the server
+
+```bash
+chalk-remote-call --handler my_handler.handler
+```
+
+Or via `python -m`:
+
+```bash
+python -m chalk_remote_call --handler my_handler.handler
+```
+
+### CLI options
+
+| Flag | Env var | Default | Description |
+|------|---------|---------|-------------|
+| `--handler` | | *(required)* | Dotted path to handler function |
+| `--port` | `CHALK_REMOTE_CALL_PORT` | `6666` | Port to listen on |
+| `--host` | `CHALK_REMOTE_CALL_HOST` | `[::]` | Host to bind to |
+| `--workers` | `CHALK_REMOTE_CALL_WORKERS` | `10` | Tokio runtime worker threads |
+| `--on-startup` | | | Dotted path to a startup function |
+| `--on-shutdown` | | | Dotted path to a shutdown function |
+| `--log-level` | | `INFO` | `DEBUG`, `INFO`, `WARNING`, or `ERROR` |
+
+The CLI writes Python logs to stderr as one JSON object per line, with separate
+`timestamp`, `severity`, `logger`, and `message` fields. Exceptions include an
+`exception.stacktrace` field, which the log collector uses for the traceback.
+CLI logging is configured before importing runtime dependencies. Import failures,
+invalid environment configuration, and exceptions escaping startup or the server
+emit a single ERROR record with the full traceback and exit with status 1.
+Calls to `serve()` from Python retain the embedding application's logging configuration.
+
+Missing optional StatsD endpoints or a metrics-bus topic do not emit warnings.
+Failures initializing configured metrics sinks still warn. Routine customer
+StatsD configuration messages are emitted at DEBUG by the shared metrics library;
+set `RUST_LOG=info,chalk_metrics::metrics::config=debug` to include them.
+
+### Environment variables
+
+| Variable | Description |
+|----------|-------------|
+| `CHALK_INPUT_ARGS` | Comma-separated list of column names (e.g. `x,y,z`). Renames incoming RecordBatch columns by index. If unset, the original column names are used. Reserved columns (below) are held out of this mapping and keep their own name. |
+| `CHALK_FNQ_QUEUE_PROTOCOL` | Self-consumer work transport: `list_v1` (default/backward compatible) or `stream_v1`. Deployment tooling sets this from immutable scaling-group revision metadata. |
+
+#### Reserved columns
+
+A caller may attach framework side-channel data to a request as an extra column. Reserved
+columns are matched by name, are optional on any given request, and are excluded from the
+positional `CHALK_INPUT_ARGS` mapping — so `CHALK_INPUT_ARGS` always lists exactly the
+handler's declared arguments, whether or not the caller sent one.
+
+| Column | Meaning |
+|--------|---------|
+| `__chalk_row_metadata__` | Per-row binary blob supplied by the caller (Chalk's engine sets it from `catalog_call(..., row_metadata => ...)`). Handlers read it via `chalkcompute.get_row_metadata()`. |
+
+### 3. Docker image
+
+```dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN pip install chalk-remote-call-python
+
+# Copy your handler code
+COPY my_handler.py /app
+
+EXPOSE 6666
+
+ENTRYPOINT ["chalk-remote-call"]
+CMD ["--handler", "handler.handler"]
+```
+
+Build and run:
+
+```bash
+docker build -t my-chalk-handler .
+docker run -p 6666:6666 -e CHALK_INPUT_ARGS="x,y" my-chalk-handler
+```
+
+### Programmatic usage
+
+You can also start the server from Python:
+
+```python
+from chalk_remote_call import serve
+
+def handler(event, context):
+    return list(event.values())[0]
+
+serve(handler=handler, port=8080)
+```
+
+## Local Testing
+
+Use `grpcurl` to verify the server is running:
+
+```bash
+# Check health
+grpcurl -plaintext localhost:6666 grpc.health.v1.Health/Check
+
+# List services via reflection
+grpcurl -plaintext localhost:6666 list
+```
+
+## Architecture
+
+The server uses a Rust backend via PyO3:
+
+- **tonic** — gRPC server with health checking and reflection
+- **prost** — protobuf message handling
+- **arrow-rs** — Arrow IPC validation
+- **PyO3** — FFI bridge to call Python handler functions
+
+The Rust server runs on a tokio async runtime. When a request arrives, Arrow IPC bytes are passed to Python via PyO3 (`spawn_blocking` + GIL acquisition), where the handler is invoked. Results are passed back as IPC bytes.
+
+## Development
+
+### Setup
+
+```bash
+cd chalk-remote-call-python
+uv venv --python 3.11
+uv pip install -e ".[dev]"
+```
+
+### Running tests
+
+```bash
+pytest tests/ -v
+```
+
+### Rust code
+
+Rust source lives in `chalk-remote-call-rs/`:
+
+To check the Rust code independently:
+
+```bash
+PYO3_PYTHON=python3 cargo check --manifest-path chalk-remote-call-rs/chalk-remote-call-server/Cargo.toml
+```
+
+## Remote exception transport
+
+Handler failures retain their original exception type, message, traceback,
+exception chains, and exception groups. Runtime dispatch frames are excluded
+from the user traceback; full diagnostics are retained in server logs.
+
+All call modes carry a JSON payload with `chalk_remote_error: 1` and an
+`exception` object containing the `ChalkException` fields `kind`, `message`,
+`stacktrace`, and `internal_stacktrace`. Direct calls carry the payload as the
+unescaped gRPC status message; queued calls carry it in the error message. The
+local async service additionally populates `ChalkError.exception`. This permits
+existing queue transports to forward structured errors without a protobuf
+migration. Clients must decode the versioned payload, not parse gRPC debug text
+or classify user errors by their message. Unknown versions remain opaque.
+
+Payloads are bounded for gRPC header limits. Truncation is marked explicitly,
+with complete tracebacks kept in server logs. Exception objects and locals are
+never pickled or sent. Chalk SDK-generated handlers identify their dispatch
+frames, and notebook source maps identify the deployed snapshot's lines.

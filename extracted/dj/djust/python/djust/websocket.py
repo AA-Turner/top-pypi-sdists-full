@@ -1,0 +1,4920 @@
+"""
+WebSocket consumer for LiveView real-time updates
+"""
+
+import asyncio
+import collections
+import inspect
+import json
+import logging
+import msgpack
+from typing import Any, Awaitable, Callable, ContextManager, Deque, Dict, List, Optional, Tuple
+from asgiref.sync import sync_to_async
+from channels.generic.websocket import AsyncWebsocketConsumer
+from .change_detection import (
+    CONTAINER_TYPES,
+    deep_fingerprint,
+    fingerprints_by_content,
+    warn_fingerprint_truncated,
+)
+from .serialization import DjangoJSONEncoder, fast_json_loads
+from .validation import validate_handler_params
+from .profiler import profiler
+from .security import handle_exception, sanitize_for_log
+from .config import config as djust_config
+from .rate_limit import ConnectionRateLimiter, ip_tracker
+from .websocket_utils import (
+    _call_handler,
+    _check_event_security,  # noqa: F401 - re-exported for tests
+    _ensure_handler_rate_limit,  # noqa: F401 - re-exported for tests
+    _safe_error,
+    _validate_event_security,
+    get_handler_coerce_setting,
+)
+from .signals import full_html_update, liveview_server_error
+from .mixins.async_work import has_pending_async_work
+
+logger = logging.getLogger(__name__)
+hotreload_logger = logging.getLogger("djust.hotreload")
+
+# Upper bound on server_push turns queued while the session is busy (#3001).
+# When exceeded the OLDEST is dropped, so the latest state always arrives.
+_MAX_DEFERRED_PUSHES = 64
+
+# Default for ``LiveViewConsumer._dispatch_async_work``'s ``event_name``: use the
+# event currently being handled. ``None`` means "no event owns this work".
+_CURRENT_EVENT = object()
+
+
+def _tenant_context(tenant: Any) -> ContextManager[Any]:
+    """Bind *tenant* as the current tenant for a live dispatch (Finding #6).
+
+    Lazily imports ``djust.tenants.middleware.tenant_context`` so the WS path
+    establishes the tenant ContextVar around mount + every event/url dispatch.
+    ``TenantMiddleware`` only runs on the HTTP path, so without this the
+    tenant-scoped managers see ``None`` on the live path and (fail-closed)
+    return empty querysets — or, pre-fix, disclosed every tenant's rows.
+
+    Falls back to a no-op context if the tenants module is unavailable, so the
+    consumer keeps working for non-tenant deployments.
+    """
+    try:
+        from .tenants.middleware import tenant_context
+
+        return tenant_context(tenant)
+    except Exception:  # noqa: BLE001 — tenants is optional; never break the live path
+        from contextlib import nullcontext
+
+        return nullcontext()
+
+
+def _bind_tenant(tenant: Any) -> None:
+    """Set the current tenant ContextVar for the live path (Finding #6).
+
+    Used on the mount path: after the view resolves its tenant via
+    ``_ensure_tenant``, bind it so ``mount()`` and the initial render — which
+    run later in the same consumer task — see the correct tenant in the
+    tenant-scoped managers. Cleared in :meth:`disconnect`. No-op when tenants
+    is unavailable.
+    """
+    try:
+        from .tenants.middleware import set_current_tenant
+
+        set_current_tenant(tenant)
+    except Exception:  # noqa: BLE001 — tenants is optional; never break the live path
+        pass
+
+
+__all__ = [
+    "LiveViewConsumer",
+    "_check_event_security",
+    "_ensure_handler_rate_limit",
+]
+
+# Optional PyO3 actor surface (typed by _rust.pyi). When the compiled extension
+# lacks the actor build, both names fall back to None — annotate as Optional so
+# the import and the None fallback are type-compatible. (The runtime variable
+# shadows the _rust class name, so the annotation uses the structural
+# Callable/type rather than a self-referential forward ref.)
+create_session_actor: Optional[Callable[[str], Awaitable[Any]]]
+SessionActorHandle: Optional[type]
+try:
+    from ._rust import create_session_actor, SessionActorHandle  # noqa: F811
+except ImportError:
+    create_session_actor = None
+    SessionActorHandle = None
+
+
+_IMMUTABLE_TYPES = (str, int, float, bool, type(None), bytes, tuple, frozenset)
+
+
+def _is_send_after_close_error(exc: RuntimeError) -> bool:
+    """True when *exc* is the ASGI server rejecting a send on a closed socket.
+
+    uvicorn (websockets/wsproto/sansio impls alike) raises
+    ``RuntimeError("Unexpected ASGI message 'websocket.send', after sending
+    'websocket.close'.")`` when the app sends a frame after the close
+    handshake — a benign race, not an app bug: a client that disconnects right
+    after sending a frame (page reload mid-mount) leaves that frame queued in
+    Channels, and the consumer processes it against a socket that is already
+    closed. Daphne silently drops such sends, so this only fires on servers
+    that reject them. Match on the ``'websocket.close'`` payload so unrelated
+    RuntimeErrors (including uvicorn's send-before-accept rejection) still
+    propagate.
+    """
+    return "websocket.close" in str(exc)
+
+
+def _is_allowed_origin(origin: Optional[bytes]) -> bool:
+    """
+    Check whether a WebSocket Origin header is allowed under settings.ALLOWED_HOSTS.
+
+    Policy:
+      * Missing/empty Origin header -> ALLOW. Non-browser clients (curl, Python
+        WebsocketCommunicator, native mobile) do not send an Origin header, and
+        blocking them would break legitimate integrations and every existing
+        test that uses WebsocketCommunicator without explicit headers.
+        Browsers always send Origin on cross-origin WS handshakes, so a CSWSH
+        attacker cannot forge a missing header from a victim's browser.
+      * Non-ASCII / malformed Origin -> REJECT. Malformed headers are never
+        legitimate.
+      * Otherwise extract the host (stripping scheme, port, brackets, path) and
+        compare against settings.ALLOWED_HOSTS using Django's own
+        django.http.request.validate_host() so wildcard (".example.com", "*")
+        semantics match Django's HTTP layer exactly.
+
+    This helper is defense-in-depth: DjustMiddlewareStack also wraps routers
+    in channels.security.websocket.AllowedHostsOriginValidator by default, but
+    the consumer-level check still protects apps that route directly to
+    LiveViewConsumer without going through DjustMiddlewareStack.
+
+    Note on userinfo smuggling: a hostile string like
+    ``https://evil.example@target.com/`` parses via ``urlparse`` to
+    ``hostname="target.com"`` (RFC 3986 — "evil.example" is the userinfo).
+    This is safe because RFC 6454 §7 explicitly forbids browsers from
+    serializing userinfo in the ``Origin`` header, so a real victim browser
+    will never actually send such a string. Even if an attacker constructed
+    one by hand outside a browser, the extracted host is "target.com" — the
+    attacker's claim is effectively "I'm on target.com", and that's what we
+    check against ALLOWED_HOSTS. There's no cross-host authority gain.
+
+    Similarly, a hostile string like ``https://target.com.evil.com/`` parses
+    to ``hostname="target.com.evil.com"``, which Django's ``validate_host``
+    correctly rejects when ``target.com`` is listed as an exact entry in
+    ALLOWED_HOSTS.
+
+    See #653 (CSWSH pentest finding, 2026-04-10).
+    """
+    if not origin:
+        return True  # non-browser client
+    try:
+        origin_str = origin.decode("ascii")
+    except (UnicodeDecodeError, AttributeError):
+        return False
+
+    # Parse the origin into a host (no scheme, no port, no path).
+    from urllib.parse import urlparse
+
+    try:
+        parsed = urlparse(origin_str)
+    except ValueError:
+        return False
+
+    host = parsed.hostname  # urlparse strips scheme, port, brackets, and path
+    if host is None:
+        # "null" origin (sandboxed iframes, file://) or an unparseable value.
+        # Reject conservatively: a browser that sends "null" is not on an
+        # allowed host by any definition.
+        return False
+
+    return _host_in_allowed_hosts(host)
+
+
+def _host_in_allowed_hosts(host: str) -> bool:
+    """Validate a bare hostname against ``settings.ALLOWED_HOSTS``.
+
+    This is the single ALLOWED_HOSTS check shared by the CSWSH Origin gate
+    (:func:`_is_allowed_origin`) and the WS/runtime reconstructed-request Host
+    propagation (:func:`validated_host_from_scope`), so the two cannot drift
+    (#1646). The policy mirrors Django's HTTP layer exactly:
+
+      * Re-add brackets around IPv6 literals (Django stores them with brackets).
+      * Empty ALLOWED_HOSTS -> localhost variants in DEBUG, REJECT in prod.
+      * Otherwise defer to ``django.http.request.validate_host`` so wildcard
+        (".example.com", "*") semantics match HTTP verbatim.
+
+    ``host`` must already be stripped of scheme/port/path/userinfo (e.g. the
+    output of ``urlparse(...).hostname`` or a Host header split on ":").
+    """
+    if not host:
+        return False
+
+    # urlparse strips the brackets from IPv6 literals, but Django's
+    # ALLOWED_HOSTS / get_host() stores IPv6 addresses WITH brackets
+    # (e.g. "[::1]"). Re-add them so validate_host() matches correctly.
+    if ":" in host and not host.startswith("["):
+        match_host = f"[{host.lower()}]"
+    else:
+        match_host = host.lower()
+
+    from django.conf import settings
+    from django.http.request import validate_host
+
+    allowed_hosts = list(getattr(settings, "ALLOWED_HOSTS", []) or [])
+    if not allowed_hosts:
+        # Match Django's HTTP layer: in DEBUG, fall back to localhost variants.
+        # In production, refuse rather than fail-open.
+        if getattr(settings, "DEBUG", False):
+            allowed_hosts = [".localhost", "127.0.0.1", "[::1]"]
+        else:
+            return False
+
+    return bool(validate_host(match_host, allowed_hosts))
+
+
+def validated_host_from_scope(
+    scope: Optional[Dict[str, Any]],
+) -> "tuple[Optional[str], bool]":
+    """Extract the validated client Host (and secure flag) from an ASGI scope.
+
+    Finding #26 (WS/runtime reconstructed-request host omission): the WebSocket
+    ``handle_mount`` and ``ViewRuntime._build_request`` rebuild an ``HttpRequest``
+    via ``RequestFactory().get(...)`` with NO ``HTTP_HOST``, so
+    ``request.get_host()`` defaults to ``RequestFactory``'s ``"testserver"`` on
+    the live path. Host/subdomain ``TenantResolver``\\ s then misresolve the
+    tenant (None) — cross-tenant disclosure with ``STRICT_MODE=False`` or broken
+    tenancy with the default. The HTTP (SSR) path uses the real request and is
+    unaffected; this restores parity for the live path.
+
+    Returns ``(host, is_secure)`` where:
+
+      * ``host`` is the validated bare Host header value (no port stripped — a
+        ``host:port`` value is passed through to ``HTTP_HOST`` so Django's
+        ``get_host()`` handles it the same way it does for a real request), or
+        ``None`` if the scope has no Host header OR the Host fails
+        ALLOWED_HOSTS validation. ``None`` means "fall back to the current
+        ``RequestFactory`` default" — so non-browser clients (curl, the Python
+        ``WebsocketCommunicator``) that send no Host, and spoofed Hosts outside
+        ALLOWED_HOSTS, do not break and do not gain tenant-resolution authority
+        beyond what the HTTP layer grants.
+      * ``is_secure`` is True when the handshake was over TLS (``scope["scheme"]``
+        is ``"wss"`` / ``"https"``), so a propagated request reports
+        ``request.is_secure()`` correctly too.
+
+    Validation reuses :func:`_host_in_allowed_hosts` — the SAME ALLOWED_HOSTS
+    logic the CSWSH Origin check uses — so the WS host bound here is no weaker
+    and no stronger than the HTTP layer. A browser victim cannot spoof the
+    handshake Host (the browser sets it); a non-browser client is bounded by
+    ALLOWED_HOSTS exactly as the HTTP request would be.
+    """
+    if not scope:
+        return None, False
+
+    headers = dict(scope.get("headers", []) or [])
+    raw_host = headers.get(b"host")
+    host: Optional[str] = None
+    if raw_host:
+        try:
+            host_str = raw_host.decode("ascii")
+        except (UnicodeDecodeError, AttributeError):
+            host_str = ""
+        # Extract the bare domain with Django's own ``split_domain_port`` — the
+        # exact parser ``HttpRequest.get_host()`` runs — so this boundary rejects
+        # everything ``get_host()`` would reject (userinfo ``user@host``,
+        # leading/trailing whitespace, control chars, bad characters):
+        # ``split_domain_port`` returns ``("", "")`` for any host its strict
+        # ``host_validation_re`` doesn't match. We must parse-then-validate
+        # because ``validate_host`` alone does NOT format-validate — e.g.
+        # ``"evil.com@acme.example.com"`` ``endswith(".example.com")`` and would
+        # wrongly match a wildcard ALLOWED_HOSTS entry. The FULL header (incl.
+        # port) is passed through to HTTP_HOST when valid so ``get_host()``
+        # behaves identically to a real request (#F26 review hardening).
+        if host_str:
+            from django.http.request import split_domain_port
+
+            domain, _port = split_domain_port(host_str)
+            if domain and _host_in_allowed_hosts(domain):
+                host = host_str
+
+    scheme = (scope.get("scheme") or "").lower()
+    is_secure = scheme in ("wss", "https")
+    return host, is_secure
+
+
+# F23 (#1819 traversal fix) is now implemented once in
+# ``djust.security.mount.validate_mount_url`` so the WebSocket, SSE, and
+# ``ViewRuntime`` mount paths share a single validator and cannot drift
+# (#1646). ``_validate_mount_url`` is kept as a module-level alias because
+# existing tests and call sites reference it by this name.
+from .security.mount import validate_mount_url as _validate_mount_url  # noqa: E402
+
+
+def _should_expose_timing() -> bool:
+    """
+    Whether VDOM patch responses may include server-side timing/performance data.
+
+    Returns True if either:
+      * ``settings.DEBUG`` is True (development), OR
+      * ``settings.DJUST_EXPOSE_TIMING`` is True (opt-in for staging/profiling).
+
+    Returns False in production by default. The gating is load-bearing:
+    timing/performance metadata enables side-channel attacks (code-path
+    differentiation by handler duration, internal handler/phase name
+    disclosure, load-based DoS scheduling) when combined with CSWSH (#653).
+    In debug mode the browser debug panel still receives timing via the
+    ``_attach_debug_payload`` helper, which has its own DEBUG gate — this
+    check only controls the *top-level* ``response["timing"]`` /
+    ``response["performance"]`` fields that are visible to every client.
+
+    Helper form (not a module constant) so ``django.test.override_settings``
+    works at runtime — the function reads settings each call.
+
+    See #654 (pentest finding 2026-04-10).
+    """
+    from django.conf import settings
+
+    return bool(
+        getattr(settings, "DEBUG", False) or getattr(settings, "DJUST_EXPOSE_TIMING", False)
+    )
+
+
+def _snapshot_assigns(view_instance: Any) -> Dict[str, Any]:
+    """Identity + structural snapshot of public assigns for change detection.
+
+    Uses id() for every value plus :func:`djust.change_detection.deep_fingerprint`
+    for mutable containers, so an in-place mutation anywhere inside a
+    dict/list/set of plain data (``self.columns["done"].append(card)``,
+    ``self.items[0]["name"] = "x"``) is detected without ``copy.deepcopy``
+    (#2664). Objects that are not plain containers (model instances, forms)
+    are leaves compared by id(): a reassignment is seen, an in-place attribute
+    write on them is not — call ``self.set_changed_keys('items')`` for that.
+    Setting ``self._changed_keys`` directly does NOT help: it is excluded from
+    this snapshot (``_FRAMEWORK_INTERNAL_ATTRS``), so the pre/post skip still
+    fires — the render-forcing mechanism is the ``_force_full_html`` flag that
+    ``set_changed_keys()`` sets.
+    """
+    # #762: Filter framework-internal attrs so change detection doesn't fire
+    # on attrs like ``template_name`` / ``http_method_names`` that the user
+    # never touches.
+    from .live_view import _FRAMEWORK_INTERNAL_ATTRS
+
+    _static_skip = set(getattr(view_instance, "static_assigns", []))
+    _fw_attrs: frozenset[str] = getattr(view_instance, "_framework_attrs", frozenset())
+    snapshot: Dict[str, Any] = {}
+    for k, v in view_instance.__dict__.items():
+        if k in _fw_attrs or k in _static_skip or k in _FRAMEWORK_INTERNAL_ATTRS:
+            continue
+        # Identity + STRUCTURAL fingerprint for mutable containers (#2664):
+        # ``deep_fingerprint`` walks dict/list/tuple/set down to the leaves
+        # and shares no reference with the state, so ``columns["done"]
+        # .append(card)`` changes the post-snapshot. The budget bounds the
+        # cost; past it the remainder collapses to id() and we say so once.
+        vid = id(v)
+        # Structural FIRST: ``_IMMUTABLE_TYPES`` holds ``tuple``, whose items
+        # need not be immutable (``([1],)``), so it must be walked before the
+        # value short-circuit below claims it (#2911 review, tried and reverted).
+        if fingerprints_by_content(v):
+            # A tuple is immutable but its ITEMS need not be (``([1],)``), so
+            # it is walked like the other containers — the same set of types
+            # ``_dirty_fingerprint`` and ``@computed`` walk (#2682 review). A
+            # class-level component's slot (a ``BoundComponent``, #2900) is
+            # walked as its State: the wrapper's id() never changes.
+            content_fp, truncated = deep_fingerprint(v)
+            size = len(v) if isinstance(v, CONTAINER_TYPES) else None
+            snapshot[k] = (vid, size, content_fp)
+            if truncated:
+                warn_fingerprint_truncated(type(view_instance), k, v)
+        elif isinstance(v, _IMMUTABLE_TYPES):
+            snapshot[k] = v
+        else:
+            # For other objects, just use id — reassignment is detected,
+            # in-place mutation is not (same as Phoenix LiveView).
+            snapshot[k] = vid
+    return snapshot
+
+
+def _compute_changed_keys(pre: Dict[str, Any], post: Dict[str, Any]) -> set[str]:
+    """Return set of keys that differ between two snapshots.
+
+    Detects added, removed, and modified keys (by identity or fingerprint).
+    """
+    changed = set()
+    for k in set(pre) | set(post):
+        if k not in pre or k not in post:
+            changed.add(k)
+        elif pre[k] != post[k]:
+            changed.add(k)
+    return changed
+
+
+def _resolve_skip_render(view_instance: Any) -> bool:
+    """Resolve the per-turn skip-render decision — the single owner of the
+    ``_skip_render`` vs ``_force_full_html`` precedence (#2834).
+
+    Every render turn (runtime event spine, server_push, db_notify, tick, and
+    both deferred-activity re-dispatch twins — ``ViewRuntime._dispatch_single_event``
+    and the WS consumer's ``_dispatch_single_event``, joined in #2847) ends in
+    either a render or a skip; this helper is the shared owner of that decision
+    so the parallel paths cannot drift (#1646). It reads both flags and
+    consumes ``_skip_render`` (resets it when set) so a stale True never leaks
+    into the next turn.
+
+    ``_force_full_html`` (#1981, set by ``set_changed_keys()``) ALWAYS wins
+    over ``_skip_render``: a handler that explicitly asked for a forced
+    full-HTML render must not be silently dropped by a concurrently-set
+    ``_skip_render`` — silently dropping it is the #1646 "hatch dropped"
+    class, and the flag would also leak into a later unrelated turn. This is
+    the resolution ``_tick_once`` has had since #2822; before #2834 the other
+    three paths resolved the same collision the opposite way. Callers that
+    proceed to render consume ``_force_full_html`` on their render path (one
+    render per ``set_changed_keys()``), as ``set_changed_keys``'s docstring
+    (``mixins/rust_bridge.py``) documents.
+
+    Returns True when the caller should skip its render this turn.
+    """
+    skip_render = getattr(view_instance, "_skip_render", False)
+    force_full_html = getattr(view_instance, "_force_full_html", False)
+    if skip_render:
+        view_instance._skip_render = False
+    return bool(skip_render) and not force_full_html
+
+
+def _build_context_snapshot(context: Dict[str, Any], max_value_len: int = 100) -> Dict[str, Any]:
+    """Build a JSON-safe snapshot of template context for diagnostics.
+
+    Truncates long values, converts non-serializable types to repr strings,
+    and limits to 20 keys to keep the payload small.
+    """
+    snapshot: Dict[str, Any] = {}
+    for key, value in list(context.items())[:20]:
+        if isinstance(value, (str, int, float, bool, type(None))):
+            if isinstance(value, str) and len(value) > max_value_len:
+                snapshot[key] = value[:max_value_len] + "..."
+            else:
+                snapshot[key] = value
+        elif isinstance(value, (list, tuple)):
+            snapshot[key] = f"[{type(value).__name__}, len={len(value)}]"
+        elif isinstance(value, dict):
+            snapshot[key] = f"[dict, {len(value)} keys]"
+        else:
+            snapshot[key] = f"[{type(value).__name__}]"
+    return snapshot
+
+
+def _emit_liveview_server_error(view_instance: Any, error: str, context: Dict[str, Any]) -> None:
+    """Emit the liveview_server_error signal from send_error()."""
+    if view_instance is not None:
+        view_cls = view_instance.__class__
+        view_name = f"{view_cls.__module__}.{view_cls.__qualname__}"
+    else:
+        view_cls = None
+        view_name = ""
+    liveview_server_error.send(
+        sender=view_cls,
+        error=error,
+        view_name=view_name,
+        context=context,
+    )
+
+
+def _emit_full_html_update(
+    view_instance: Any,
+    reason: str,
+    event_name: Optional[str],
+    html: Optional[str],
+    version: int,
+    patch_count: Optional[int] = None,
+    context_snapshot: Optional[Dict[str, Any]] = None,
+    html_snippet: Optional[str] = None,
+    previous_html_snippet: Optional[str] = None,
+) -> None:
+    """Emit the full_html_update signal with context about why patches weren't used."""
+    view_cls = view_instance.__class__
+    view_name = f"{view_cls.__module__}.{view_cls.__qualname__}"
+    html_size = len(html.encode("utf-8")) if html else 0
+    previous_html_size = getattr(view_instance, "_previous_html_size", None)
+    full_html_update.send(
+        sender=view_cls,
+        reason=reason,
+        event_name=event_name,
+        view_name=view_name,
+        html_size=html_size,
+        previous_html_size=previous_html_size,
+        patch_count=patch_count,
+        version=version,
+        context_snapshot=context_snapshot,
+        html_snippet=html_snippet,
+        previous_html_snippet=previous_html_snippet,
+    )
+
+
+def render_embedded_child_html(child_view: Any) -> str:
+    """Render an embedded child view's template and return its inner HTML.
+
+    Transport-agnostic render core for the embedded-child subsystem. Re-renders
+    just the child's template via Django's template engine, bypassing the
+    parent's VDOM entirely. Single-sourced (ADR-022 Iter 2 Phase 2.1, the #1646
+    cure) so the WS consumer (:meth:`LiveViewConsumer._render_embedded_child`)
+    and :class:`~djust.runtime.ViewRuntime` share ONE implementation — including
+    the security-hardened error path below — with no parallel copy to drift.
+    """
+    try:
+        context = child_view.get_context_data()
+        from django.template import engines
+
+        template_str = child_view.get_template()
+        engine = engines["django"] if "django" in engines else list(engines.all())[0]
+        tmpl = engine.from_string(template_str)
+        html = tmpl.render(context)
+        # Record the child's dj-model auto-allowlist from ITS own TEMPLATE
+        # SOURCE — child update_model events gate against the child's
+        # _dj_model_fields, and this is the child's only render path (it
+        # bypasses render_with_diff). Derived from the Rust template AST
+        # (Text-node literals), immune to rendered-output poisoning
+        # (#3 review #1646).
+        if hasattr(child_view, "_record_dj_model_fields_from_source"):
+            from .utils import get_template_dirs
+
+            child_view._record_dj_model_fields_from_source(template_str, get_template_dirs())
+        return str(html)
+    except Exception as e:
+        logger.error("Failed to render embedded child %s: %s", child_view.__class__.__name__, e)
+        # SECURITY (#1646 parallel-path drift): this site bypassed the
+        # central handle_exception / create_safe_error_response path, which
+        # is DEBUG-gated and generic in production. Returning the raw str(e)
+        # here (a) leaked exception detail into the live page in production
+        # (CWE-209) and (b) was unescaped, so an attacker-influenced message
+        # containing ``-->`` broke out of the HTML comment into live DOM
+        # (CWE-79 DOM XSS). escape() neutralises the comment-breakout and any
+        # tag injection in BOTH modes; production additionally emits no
+        # detail. Mirrors the DEBUG gate in simple_live_view.render_template.
+        from django.conf import settings
+        from django.utils.html import escape
+
+        if getattr(settings, "DEBUG", False):
+            return f"<!-- Error rendering embedded child: {escape(str(e))} -->"
+        return "<!-- Error rendering embedded child -->"
+
+
+def _find_sticky_slot_ids(html: str) -> set[str]:
+    """Return the set of ``dj-sticky-slot`` attribute values in ``html``.
+
+    Uses ``html.parser.HTMLParser`` (stdlib) — NEVER a regex — so that
+    quoted attribute values containing ``>`` and other HTML5 edge cases
+    don't derail the scan. The caller is
+    :meth:`LiveViewConsumer.handle_live_redirect_mount`, which uses the
+    result to decide which preserved sticky children to reattach on the
+    new parent.
+    """
+    if not html:
+        return set()
+    from html.parser import HTMLParser as _HTMLParser
+
+    class _SlotCollector(_HTMLParser):
+        def __init__(self) -> None:
+            super().__init__(convert_charrefs=False)
+            self.ids: set[str] = set()
+
+        def handle_starttag(self, tag: str, attrs: List[tuple[str, Optional[str]]]) -> None:
+            for name, value in attrs:
+                if name == "dj-sticky-slot" and value:
+                    self.ids.add(value)
+
+        def handle_startendtag(self, tag: str, attrs: List[tuple[str, Optional[str]]]) -> None:
+            self.handle_starttag(tag, attrs)
+
+    p = _SlotCollector()
+    try:
+        p.feed(html)
+        p.close()
+    except Exception:  # noqa: BLE001 — defensive; malformed HTML must not crash redirect
+        logger.warning("sticky-slot parse failed; returning empty set", exc_info=True)
+        return set()
+    return p.ids
+
+
+def _clear_live_handles(view_instance: Any) -> None:
+    """Drop the ADR-027 live handles a torn-down view's Rust state holds (#2539).
+
+    A ``Value::Encoded`` carries the Python object it was measured from, so ``RustLiveView.state`` — which
+    outlives a render and is only replaced key-by-key as values change — keeps
+    a strong reference to every such object for the life of the connection.
+    That is the same retention the raw-Python sidecar has, and the sidecar is
+    already cleared on every sync precisely so a stale one cannot survive; this
+    is the value-borne half of that discipline.
+
+    Called at the DISCONNECT teardown rather than per render, and the
+    distinction is load-bearing: ``update_state`` MERGES, so a key whose value
+    did not change keeps last render's ``Value``. Clearing every render would
+    strip the handle from exactly those entries and send their dotted lookups
+    to an empty attribute map.
+
+    Best-effort by construction — a teardown that raises would mask the
+    disconnect — and a no-op on a build whose Rust side predates #2539.
+    """
+    rust_view = getattr(view_instance, "_rust_view", None)
+    if rust_view is None:
+        return
+    # BOTH channels, because both hold `Py<PyAny>` for the life of the
+    # connection and draining one leaves the objects reachable through the
+    # other. The sidecar is keyed by top-level name and already has this
+    # discipline per render (`set_raw_py_values` is called on every sync
+    # INCLUDING the empty case, so a stale entry cannot survive); the handles
+    # are the value-borne half, which no per-render call reaches.
+    for name, args in (("clear_live_handles", ()), ("set_raw_py_values", ({},))):
+        method = getattr(rust_view, name, None)
+        if method is None:
+            continue
+        try:
+            method(*args)
+        except Exception:  # noqa: BLE001 — cleanup must never break a disconnect
+            logger.warning("%s failed during teardown", name, exc_info=True)
+
+
+class LiveViewConsumer(AsyncWebsocketConsumer):
+    """
+    WebSocket consumer for handling LiveView connections.
+
+    This consumer handles:
+    - Initial connection and session setup
+    - Event dispatching from client
+    - Sending DOM patches to client
+    - Session state management
+    - File uploads via binary WebSocket frames
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.view_instance: Optional[Any] = None
+        # SessionActorHandle is an optional PyO3 type bound at module load (None
+        # when the actor build is absent); annotate the handle as Any since the
+        # name is a runtime variable, not usable as a static type.
+        self.actor_handle: Any = None
+        self.session_id: Optional[str] = None
+        self.use_binary = False  # Use JSON for now (MessagePack support TODO)
+        self.use_actors = False  # Will be set based on view class
+        self._view_group: Optional[str] = None
+        self._presence_group: Optional[str] = None
+        self._tick_task = None
+        # Hot View Replacement (v0.6.1): per-consumer dedup + version
+        # counter. ``_hvr_last_reload_id`` drops duplicate broadcasts
+        # within a rapid-save burst; ``_hvr_version`` increments on each
+        # applied class swap and is echoed to the client for telemetry.
+        self._hvr_version: int = 0
+        self._hvr_last_reload_id: Optional[str] = None
+        # Consumer-owned monotonic VDOM wire version (#1788). This is the
+        # SINGLE SOURCE OF TRUTH for the ``version`` field on every
+        # client-checked outbound frame (patch / html_update / mount /
+        # html_recovery). It is decoupled from the Rust view's internal
+        # ``self.version`` (which resets to 0 on baseline loss — e.g. a
+        # patch-compression ``_rust_view.reset()``). Stamping the consumer
+        # counter keeps the wire sequence strictly monotonic per-CONNECTION,
+        # so a post-baseline-loss ``html_update`` still satisfies the client's
+        # ``clientVdomVersion === data.version - 1`` check
+        # (``static/djust/src/02-response-handler.js:58``) and the client
+        # accepts it directly without a ``request_html`` recovery round-trip.
+        # SEPARATE from ``_hvr_version`` above (telemetry for ``hvr-applied``).
+        self._last_sent_version: int = 0
+        # Sticky LiveViews (Phase B): per-connection stash of preserved
+        # sticky children staged in handle_live_redirect_mount BEFORE the
+        # old view is torn down. Re-registered on the new parent after
+        # its mount completes.
+        self._sticky_preserved: Dict[str, Any] = {}
+        # Sticky auto-detect (ADR-014): IDs that ``{% live_render sticky=True %}``
+        # already re-registered onto the new parent during template render.
+        # The post-render slot-scan reads this set and skips the second
+        # ``_register_child`` call (which would ``ValueError``) while still
+        # including the ID in the ``sticky_hold`` survivor list. Reset at
+        # every ``handle_mount`` and ``handle_live_redirect_mount`` entry.
+        self._sticky_auto_reattached: set[str] = set()
+        # Render lock: serializes tick and event render operations so they
+        # cannot concurrently access view_instance state or increment the
+        # VDOM version. This prevents the version mismatch race in #560.
+        self._render_lock = asyncio.Lock()
+        # Track whether a user event is currently being processed so ticks
+        # can yield priority to user interactions.
+        self._processing_user_event = False
+        # Set once Channels dispatches ``websocket.disconnect`` to us. The
+        # ``__call__`` backstop (#3000) runs ``disconnect()`` itself only when
+        # the dispatch loop died before that happened.
+        self._disconnect_dispatched = False
+        # server_push turns that found the session busy, replayed in order once
+        # the render lock frees (#3001). See ``_defer_server_push``.
+        self._deferred_pushes: Deque[Tuple[Any, Dict[str, Any]]] = collections.deque(
+            maxlen=_MAX_DEFERRED_PUSHES
+        )
+        self._push_drain_task: Optional["asyncio.Task[None]"] = None
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        """Run the consumer; guarantee ``disconnect()`` cleanup (#3000).
+
+        Channels dispatches messages one at a time from a single loop. If a
+        handler raises, the exception leaves that loop, so a queued
+        ``websocket.disconnect`` is never dispatched and ``disconnect()``
+        never runs: presence, channel groups and the tick task all outlive
+        the socket. uvicorn swallows its own ``ClientDisconnected`` here
+        without logging, which is how such sessions went unnoticed. When the
+        loop dies before the disconnect was dispatched, run the cleanup now,
+        then re-raise so the server still sees the failure. Cancellation
+        (server shutdown) is not intercepted.
+        """
+        try:
+            await super().__call__(scope, receive, send)
+        except Exception:
+            if not getattr(self, "_disconnect_dispatched", False):
+                self._disconnect_dispatched = True
+                try:
+                    await self.disconnect(1011)
+                except Exception:  # noqa: BLE001 — cleanup must not mask the cause
+                    logger.exception("disconnect() cleanup after a failed dispatch loop raised")
+            raise
+
+    async def websocket_disconnect(self, message: Dict[str, Any]) -> None:
+        """Record that the disconnect reached us, then run Channels' handler."""
+        self._disconnect_dispatched = True
+        try:
+            await super().websocket_disconnect(message)
+        except Exception:
+            # Channels' handler can fail before it calls disconnect() (a
+            # group_discard error). Let the __call__ backstop run the cleanup
+            # then; never run a disconnect() that already started twice.
+            if not getattr(self, "_disconnect_entered", False):
+                self._disconnect_dispatched = False
+            raise
+
+    async def _flush_push_events(self) -> None:
+        """
+        Send any pending push_event messages queued by the view during handler execution.
+
+        Called after each _send_update to deliver server-pushed events to the client.
+        """
+        if not self.view_instance:
+            return
+        if not hasattr(self.view_instance, "_drain_push_events"):
+            return
+        events = self.view_instance._drain_push_events()
+        for event_name, payload in events:
+            await self.send_json(
+                {
+                    "type": "push_event",
+                    "event": event_name,
+                    "payload": payload,
+                }
+            )
+
+    async def _flush_flash(self) -> None:
+        """
+        Send any pending flash messages queued by the view during handler execution.
+
+        Called after each _send_update to deliver flash notifications to the client.
+        """
+        if not self.view_instance:
+            return
+        if not hasattr(self.view_instance, "_drain_flash"):
+            return
+        commands = self.view_instance._drain_flash()
+        if not isinstance(commands, list):
+            return
+        for cmd in commands:
+            await self.send_json(
+                {
+                    "type": "flash",
+                    **cmd,
+                }
+            )
+
+    async def _flush_page_metadata(self) -> None:
+        """
+        Send any pending page metadata commands queued by the view.
+
+        Called after each _send_update to deliver title/meta updates to the client.
+        """
+        if not self.view_instance:
+            return
+        if not hasattr(self.view_instance, "_drain_page_metadata"):
+            return
+        commands = self.view_instance._drain_page_metadata()
+        if not isinstance(commands, list):
+            return
+        for cmd in commands:
+            await self.send_json(
+                {
+                    "type": "page_metadata",
+                    **cmd,
+                }
+            )
+
+    async def _flush_pending_layout(self) -> None:
+        """Send a pending layout-swap command queued by the view (v0.6.0).
+
+        Called after ``_flush_page_metadata`` so the layout swap
+        (replaces ``<body>``) is the last thing the client applies.
+        Any pending ``page_title`` / ``page_meta`` frames mutate
+        ``<head>`` and are delivered first; they survive the swap.
+
+        If ``view.set_layout(path)`` was called during the handler,
+        render ``path`` with the view's current context and emit a
+        ``{"type": "layout", "path": ..., "html": ...}`` frame. The
+        client swaps the document body while preserving the live
+        ``[dj-root]`` element's identity (and therefore all inner
+        LiveView state).
+
+        Error handling: ``TemplateDoesNotExist`` always warns and
+        skips. In DEBUG mode any other exception is re-raised so
+        programmer errors (``TemplateSyntaxError``, ``NoReverseMatch``,
+        attribute errors from ``get_context_data``) surface during
+        development. In production (``DEBUG=False``) the exception is
+        caught and logged so a broken layout template can't crash the
+        whole WebSocket consumer — the handler's VDOM patches still
+        flush.
+        """
+        if not self.view_instance:
+            return
+        if not hasattr(self.view_instance, "_drain_pending_layout"):
+            return
+        layout_path = self.view_instance._drain_pending_layout()
+        if not layout_path:
+            return
+        from django.conf import settings as django_settings
+        from django.template.exceptions import TemplateDoesNotExist
+        from django.template.loader import render_to_string
+
+        try:
+            context = (
+                self.view_instance.get_context_data()
+                if hasattr(self.view_instance, "get_context_data")
+                else {}
+            )
+            layout_html = render_to_string(layout_path, context)
+        except TemplateDoesNotExist:
+            logger.warning(
+                "set_layout(%r) — template not found; ignoring swap request",
+                layout_path,
+            )
+            return
+        except Exception:  # noqa: BLE001 — layout errors must not kill the WS
+            logger.exception(
+                "set_layout(%r) — template rendering raised; ignoring swap request",
+                layout_path,
+            )
+            # In DEBUG, re-raise so programmer errors are visible.
+            # TemplateSyntaxError / NoReverseMatch / missing-context-key
+            # bugs need to surface loudly during iteration.
+            if getattr(django_settings, "DEBUG", False):
+                raise
+            return
+        await self.send_json(
+            {
+                "type": "layout",
+                "path": layout_path,
+                "html": layout_html,
+            }
+        )
+
+    async def _flush_deferred(self) -> None:
+        """Drain and execute callbacks queued via :meth:`LiveView.defer`.
+
+        Wire-in pattern: this method is called from two locations —
+        (a) inside :meth:`_send_update` itself (alongside the other
+        ``_flush_*`` methods), and (b) at every per-handler post-render
+        site that already calls ``_flush_pending_layout`` (10 sites).
+        The (b) sites are technically redundant when (a) preceded — the
+        drain is idempotent on an empty queue — but they preserve
+        symmetry with the existing ``_flush_*`` family which has the same
+        redundancy. Removing only ``_flush_deferred``'s (b) wiring would
+        create asymmetry that future contributors would re-introduce.
+        See post-merge follow-up Action #163 for a milestone-level
+        cleanup that drops all redundant ``_flush_*`` calls together.
+
+        Runs **after** every other post-render flush (push events, flash,
+        page metadata, layout) so deferred callbacks observe the
+        post-patch state. Phoenix-style ``send(self(), :foo)`` semantics —
+        useful for telemetry, post-render cleanup, or follow-up side
+        effects that should fire after the user sees the change.
+
+        Each callback is invoked in a try/except. Sync callbacks run
+        directly; async callbacks (``async def`` or coroutine-returning)
+        are awaited inline. A failing deferred callback logs at WARN with
+        full traceback and continues to the next — a deferred callback's
+        failure must not break the WebSocket connection or the user's
+        interactive flow.
+
+        Does NOT trigger a re-render after callbacks complete; if a
+        callback needs to re-render, the caller should use
+        :meth:`AsyncWorkMixin.start_async` instead.
+        """
+        if not self.view_instance:
+            return
+        if not hasattr(self.view_instance, "_drain_deferred"):
+            return
+        callbacks = self.view_instance._drain_deferred()
+        # Defensive: same shape as ``_flush_flash`` — guard against test
+        # mocks (a ``Mock`` ``view_instance`` returns a ``Mock``, not a
+        # list) and any legacy view that overrode ``_drain_deferred`` to
+        # return non-list.
+        if not isinstance(callbacks, list) or not callbacks:
+            return
+        for callback, args, kwargs in callbacks:
+            try:
+                result = callback(*args, **kwargs)
+                # Async callbacks: await inline. Mirrors the inspect-based
+                # detection used elsewhere (e.g. async event handlers).
+                if inspect.iscoroutine(result):
+                    await result
+            except Exception:
+                logger.warning(
+                    "[djust] Deferred callback %s on %s raised; continuing to next",
+                    getattr(callback, "__qualname__", repr(callback)),
+                    self.view_instance.__class__.__name__,
+                    exc_info=True,
+                )
+
+    async def _send_noop(self, async_pending: bool = False, ref: Optional[int] = None) -> None:
+        """
+        Send a lightweight noop acknowledgment to the client.
+
+        Tells the client the event was processed but no DOM update is needed.
+        The client clears loading state (spinners, disabled buttons) without
+        touching the DOM.
+
+        Args:
+            async_pending: If True, tells the client to keep loading state active
+                because a start_async() callback is running in the background.
+            ref: Event reference number echoed back from the client's request (#560).
+        """
+        msg: Dict[str, Any] = {"type": "noop"}
+        if async_pending:
+            msg["async_pending"] = True
+        if ref is not None:
+            msg["ref"] = ref
+        await self.send_json(msg)
+
+    async def _send_child_update(
+        self,
+        view_id: str,
+        patches: list,
+        version: int,
+    ) -> None:
+        """Send a VDOM patch frame targeted at a specific child view.
+
+        Phase A of Sticky LiveViews introduces the ``child_update`` wire
+        frame: the client's ``45-child-view.js`` module scopes the patches
+        to the child's subtree (selector
+        ``[dj-view][data-djust-embedded="..."]``) so patch coordinates
+        don't collide with the parent view's VDOM.
+
+        Phase B added the sibling ``sticky_update`` frame for sticky
+        preservation across live_redirect (see :meth:`_send_sticky_update`).
+
+        Args:
+            view_id: The child's ``view_id`` as assigned by
+                ``StickyChildRegistry._assign_view_id``.
+            patches: VDOM patch list, same shape as ``html_update``.
+            version: Child-local VDOM version number.
+        """
+        await self.send_json(
+            {
+                "type": "child_update",
+                "view_id": view_id,
+                "patches": patches,
+                "version": version,
+            }
+        )
+
+    async def _send_sticky_update(
+        self,
+        view_id: str,
+        patches: list,
+        version: int,
+    ) -> None:
+        """Send a VDOM patch frame targeted at a preserved sticky child.
+
+        Phase B of Sticky LiveViews. ``sticky_update`` is the sibling of
+        ``child_update`` (Phase A) — same ``{view_id, patches, version}``
+        shape, but the client scopes the patches to the sticky subtree
+        (``[dj-sticky-view="<id>"]``) via the new
+        ``applyPatches(patches, rootEl)`` variant rather than the parent
+        view's root. This lets the sticky child re-render without
+        colliding with the parent's VDOM coordinates.
+
+        Args:
+            view_id: The sticky child's ``sticky_id`` (also its
+                ``view_id`` on the parent registry).
+            patches: VDOM patch list, same shape as ``html_update``.
+            version: Per-child VDOM version number; tracked on the client
+                via ``clientVdomVersions: Map<view_id, number>``.
+        """
+        await self.send_json(
+            {
+                "type": "sticky_update",
+                "view_id": view_id,
+                "patches": patches,
+                "version": version,
+            }
+        )
+
+    async def _flush_navigation(self) -> None:
+        """
+        Send any pending navigation commands (live_patch / live_redirect)
+        queued by the view during handler execution.
+        """
+        if not self.view_instance:
+            return
+        if not hasattr(self.view_instance, "_drain_navigation"):
+            return
+        commands = self.view_instance._drain_navigation()
+        for cmd in commands:
+            # Promote cmd's "type" (e.g. "live_patch") to "action" so it doesn't
+            # collide with the outer message "type" key.
+            action = cmd.get("type")
+            payload = {k: v for k, v in cmd.items() if k != "type"}
+            await self.send_json(
+                {
+                    "type": "navigation",
+                    "action": action,
+                    **payload,
+                }
+            )
+
+    async def _flush_i18n(self) -> None:
+        """
+        Send any pending i18n commands (language changes, etc.)
+        queued by the view during handler execution.
+        """
+        if not self.view_instance:
+            return
+        if not hasattr(self.view_instance, "_drain_i18n_commands"):
+            return
+        commands = self.view_instance._drain_i18n_commands()
+        for cmd in commands:
+            await self.send_json(
+                {
+                    "type": "i18n",
+                    **cmd,
+                }
+            )
+
+    async def _flush_all_pending(self) -> None:
+        """Flush every queued client side-effect at the end of a WS turn, in
+        canonical order. Single source of truth: every turn-end path (event,
+        skip-render noop, broadcast, db-notify, async completion) calls this so
+        no path can silently drop a queued command. Each ``_flush_*`` drains and
+        clears its own queue, so calling this twice in one turn is a harmless
+        no-op. Regression context: skip-render and broadcast paths used to flush
+        only push_events/flash/page_metadata/pending_layout/deferred and dropped
+        queued navigation/accessibility/i18n — so ``live_redirect()`` from a
+        state-unchanging handler never reached the client (#1643)."""
+        await self._flush_push_events()
+        await self._flush_flash()
+        await self._flush_page_metadata()
+        await self._flush_pending_layout()
+        await self._flush_deferred()
+        await self._flush_navigation()
+        await self._flush_accessibility()
+        await self._flush_i18n()
+
+    async def _flush_accessibility(self) -> None:
+        """
+        Send any pending accessibility commands (announcements, focus)
+        queued by the view during handler execution.
+        """
+        if not self.view_instance:
+            return
+
+        # Flush screen reader announcements
+        if hasattr(self.view_instance, "_drain_announcements"):
+            try:
+                announcements = self.view_instance._drain_announcements()
+                if announcements and isinstance(announcements, list) and len(announcements) > 0:
+                    await self.send_json(
+                        {
+                            "type": "accessibility",
+                            "announcements": announcements,
+                        }
+                    )
+            except Exception:
+                logger.warning("Failed to flush accessibility announcements", exc_info=True)
+
+        # Flush focus command
+        if hasattr(self.view_instance, "_drain_focus"):
+            try:
+                focus_cmd = self.view_instance._drain_focus()
+                if focus_cmd and isinstance(focus_cmd, tuple) and len(focus_cmd) == 2:
+                    selector, options = focus_cmd
+                    await self.send_json(
+                        {
+                            "type": "focus",
+                            "selector": selector,
+                            "options": options,
+                        }
+                    )
+            except Exception:
+                logger.warning("Failed to flush focus command", exc_info=True)
+
+    async def send_error(self, error: str, **context: Any) -> None:
+        """
+        Send an error response to the client with consistent formatting.
+        Also emits the liveview_server_error signal for monitor integrations.
+
+        In DEBUG mode, includes additional fields for developer diagnostics:
+        - ``debug_detail``: unsanitized error message
+        - ``traceback``: abbreviated traceback (last 3 frames)
+        - ``hint``: actionable suggestion when available
+        """
+        import traceback as tb_module
+
+        from django.conf import settings
+
+        # Keys that are debug-only and should never appear in production
+        _debug_keys = {"debug_detail", "hint", "_exc_info"}
+
+        is_debug = getattr(settings, "DEBUG", False)
+
+        # Build base response, excluding debug-only keys from context
+        response: Dict[str, Any] = {"type": "error", "error": error}
+        for k, v in context.items():
+            if k not in _debug_keys:
+                response[k] = v
+
+        if is_debug:
+            # Include the raw detail if a sanitised version was used
+            debug_detail = context.get("debug_detail")
+            if debug_detail and debug_detail != error:
+                response["debug_detail"] = debug_detail
+
+            # Abbreviated traceback (last 3 frames) from the current exception
+            exc_info = context.get("_exc_info")
+            if exc_info is None:
+                import sys as _sys
+
+                exc_info = _sys.exc_info()
+            if exc_info and exc_info[2] is not None:
+                frames = tb_module.format_tb(exc_info[2])
+                response["traceback"] = "".join(frames[-3:])
+
+            # Actionable hint
+            hint = context.get("hint")
+            if hint:
+                response["hint"] = hint
+
+        await self.send_json(response)
+        _emit_liveview_server_error(getattr(self, "view_instance", None), error, context)
+
+    async def _dispatch_async_work(self, event_name: Any = _CURRENT_EVENT) -> None:
+        """
+        Check if the handler scheduled background work via start_async().
+
+        ``event_name`` labels the result frames so the client clears the
+        right loading state. It defaults to the current user event; the
+        server-originated turns (tick, server_push, db_notify) pass ``None``,
+        since no client loading state belongs to them (#2955).
+
+        If _async_tasks is set, spawn each callback as an asyncio task
+        so they run after the current response is sent to the client.
+        When each callback completes, re-render and send updated patches.
+
+        Supports both new multi-task dict format (_async_tasks) and
+        legacy single-task tuple format (_async_pending) for backward
+        compatibility.
+        """
+        if not self.view_instance:
+            return
+
+        from .mixins.async_work import track_running_async_task
+
+        # New format: multiple named tasks
+        if event_name is _CURRENT_EVENT:
+            event_name = getattr(self, "_current_event_name", None)
+        tasks = getattr(self.view_instance, "_async_tasks", None)
+        if tasks:
+            # Spawn all pending tasks. Each is recorded as running until it
+            # finishes, so cancel_async_all() can mark it cancelled (#2969).
+            for task_name, (callback, args, kwargs) in list(tasks.items()):
+                track_running_async_task(
+                    self.view_instance,
+                    task_name,
+                    asyncio.ensure_future(
+                        self._run_async_work(
+                            task_name, callback, args, kwargs, event_name=event_name
+                        )
+                    ),
+                )
+            # Clear all scheduled tasks
+            self.view_instance._async_tasks = {}
+
+        # Legacy format: single task (_async_pending)
+        # This maintains backward compatibility with existing code
+        pending = getattr(self.view_instance, "_async_pending", None)
+        if pending:
+            self.view_instance._async_pending = None
+            callback, args, kwargs = pending
+            track_running_async_task(
+                self.view_instance,
+                "_default",
+                asyncio.ensure_future(
+                    self._run_async_work("_default", callback, args, kwargs, event_name=event_name)
+                ),
+            )
+
+    async def _run_async_work(
+        self,
+        task_name: str,
+        callback: Callable[..., Any],
+        args: Any,
+        kwargs: Any,
+        event_name: Optional[str] = None,
+    ) -> None:
+        """
+        Execute a start_async callback in a thread, then re-render the view.
+
+        This runs after the initial response has been sent (with loading state).
+        When the callback completes, render_with_diff is called and the result
+        is sent to the client, completing the loading cycle.
+
+        Updates are tagged with ``source="async"`` so the client can buffer
+        them during pending user event round-trips (event sequencing #560).
+
+        If the task was cancelled via cancel_async(), the re-render is skipped.
+
+        Args:
+            task_name: Name of the task being executed (for tracking/cancellation).
+            callback: The callback function to execute.
+            args: Positional arguments for the callback.
+            kwargs: Keyword arguments for the callback.
+            event_name: The event that triggered this async work. Included in
+                the response so the client can clear the correct loading state.
+        """
+        # Bind the mounted view to a non-None local. Background work runs after
+        # mount; if the view was torn down (view_instance nulled) there is nothing
+        # to re-render — return early (behavior-equivalent to the existing
+        # hasattr(None, ...) == False short-circuits, and the unguarded
+        # render_with_diff below would otherwise require a non-None view).
+        view = self.view_instance
+        if view is None:
+            return
+
+        # Check if task was cancelled before starting
+        if hasattr(view, "_async_cancelled"):
+            if task_name in view._async_cancelled:
+                view._async_cancelled.discard(task_name)
+                logger.debug("Async task %s was cancelled, skipping execution", task_name)
+                await self._settle_cancelled_async(view, event_name)
+                return
+
+        result = None
+        error = None
+
+        try:
+            # Dispatch through the ONE shared helper so the sync/async handling
+            # can never drift from the runtime twin (#2020, #2016 / #1646). It
+            # awaits an async callback directly and thread-dispatches a sync one
+            # (with the legacy coroutine-return unwrap for pre-v0.4.2 callbacks).
+            from .mixins.async_work import run_async_callback
+
+            result = await run_async_callback(callback, args, kwargs)
+
+            # Teardown identity-guard (#1940, #245/#1198 commit-or-rollback /
+            # identity-guard class). The callback above is the FIRST await in
+            # this detached ``ensure_future`` task; during that await window
+            # ``disconnect`` (-> ``view_instance = None``) and
+            # ``handle_live_redirect_mount`` / a re-mount (-> ``view_instance``
+            # reassigned to a NEW view) can run. ``view`` was captured BEFORE the
+            # await (line ~1122), so once control returns here the mount this
+            # task was rendering for may be gone or replaced. Re-validate that the
+            # consumer's LIVE view is still the captured one before any state
+            # mutation (``handle_async_result``) or render-send. If it changed,
+            # drop the completed work's re-render — every alternative is wrong:
+            # origin/main re-read ``self.view_instance`` LIVE (AttributeError on
+            # disconnect, or NEW-view contamination on re-mount); capturing and
+            # blindly writing the OLD view contaminates a torn-down/replaced view
+            # (#1939). The only correct action post-teardown is to stop. Cheap
+            # identity check; no new consumer state. NOTE: cancellation mid-thread
+            # cannot stop the worker (``sync_to_async`` runs in a thread pool), so
+            # an identity-guard here — not task cancellation — is the right cure.
+            if self.view_instance is not view:
+                logger.debug(
+                    "Async task %s completed after view teardown/re-mount; "
+                    "dropping stale re-render",
+                    task_name,
+                )
+                return
+
+            # Check if task was cancelled during execution
+            if hasattr(view, "_async_cancelled"):
+                if task_name in view._async_cancelled:
+                    view._async_cancelled.discard(task_name)
+                    logger.debug("Async task %s was cancelled, skipping re-render", task_name)
+                    await self._settle_cancelled_async(view, event_name)
+                    return
+
+            # Serialise on the SAME lock server_push / db_notify / _tick_once
+            # use, and for the same reason: the render helper documents that its
+            # caller must already hold it, and the PyO3 view's VDOM baseline is
+            # not thread-safe (#2830).
+            #
+            # Unlike those paths this one WAITS rather than taking a bounded
+            # wait and skipping: a skipped async render is an async result the
+            # client never receives, whereas a delayed one still lands.
+            async with self._render_lock:
+                # Call handle_async_result if defined (success path) — INSIDE
+                # the lock (#2840): a handler that mutates view state (the
+                # documented pattern — set ``self.result`` / ``self.error`` so
+                # the re-render displays it) must not interleave with a
+                # concurrent lock-holding render of the same view. The extra
+                # lock hold-time matches what ``_flush_all_pending`` below
+                # already contributes (user deferred callbacks run inline
+                # under the lock); the documented "an async render must not
+                # be slow" trade covers the handler too. Ordering: the
+                # handler still runs BEFORE the identity re-check below
+                # (mirrors the error arm), so a view torn down mid-handler
+                # still gets its user callback — only the stale re-render is
+                # dropped.
+                if hasattr(view, "handle_async_result"):
+                    await sync_to_async(view.handle_async_result)(
+                        task_name, result=result, error=None
+                    )
+
+                # Identity re-check INSIDE the lock (#1940): the guard above ran
+                # before the unbounded handler + render wait, during which the
+                # view can be torn down or replaced. Rendering the stale view
+                # would bump the connection-wide version and overwrite
+                # _recovery_html with old-view HTML. (The wait's cost to the
+                # tick / broadcast paths is documented on the error arm below.)
+                if self.view_instance is not view:
+                    return
+                # Re-render and send patches (mirrors the server_push path)
+                if hasattr(view, "_sync_state_to_rust"):
+                    await sync_to_async(view._sync_state_to_rust)()
+
+                html, patches, version = await sync_to_async(view.render_with_diff)()
+
+                if patches is not None:
+                    patch_list = fast_json_loads(patches) if patches else []
+                    # Refresh the recovery baseline so a later request_html (e.g.
+                    # an async-triggered patch that fails on the client) has fresh
+                    # HTML to serve. Mirrors handle_event and server_push (#1202).
+                    # Without this, an html_recovery that already consumed
+                    # _recovery_html leaves it None, the next request_html returns
+                    # "Recovery HTML unavailable", and the client freezes at the
+                    # transitional state even though the backend advanced (#1636).
+                    # Stamp the consumer-owned wire version (#1788), discarding the
+                    # Rust ``version`` for the wire, AND arm recovery in one step so
+                    # _recovery_version == this frame's version (#1817).
+                    version = self._next_version_armed(html)
+                    await self._send_update(
+                        patches=patch_list,
+                        version=version,
+                        event_name=event_name,
+                        source="async",
+                    )
+                else:
+                    # Full HTML fallback
+                    html_stripped, html_content = await sync_to_async(
+                        lambda h: (
+                            view._strip_comments_and_whitespace(h),
+                            view._extract_liveview_content(view._strip_comments_and_whitespace(h)),
+                        )
+                    )(html)
+                    # The fallback sends the full render to the client, so the
+                    # recovery baseline must track it too (#1636). Consumer-owned
+                    # wire version + recovery arm in one step (#1788, #1817).
+                    version = self._next_version_armed(html)
+                    await self._send_update(
+                        html=html_content,
+                        version=version,
+                        event_name=event_name,
+                        source="async",
+                    )
+
+                await self._flush_all_pending()
+
+        except Exception as e:
+            error = e
+            logger.exception(
+                "[djust] Error in start_async callback '%s' on %s",
+                task_name,
+                view.__class__.__name__ if view else "?",
+            )
+
+            # Teardown identity-guard on the ERROR path too (#1940). A callback
+            # that RAISES jumps straight here, skipping the success-path guard
+            # above — but the same await-window teardown applies: the callback's
+            # own await(s) (or the ``sync_to_async`` dispatch) can interleave a
+            # disconnect / re-mount. The error-state ``handle_async_result`` +
+            # re-render below must not write against a torn-down / replaced view.
+            if self.view_instance is not view:
+                logger.debug(
+                    "Async task %s errored after view teardown/re-mount; "
+                    "dropping stale error re-render",
+                    task_name,
+                )
+                return
+
+            # Error path: let handle_async_result (if defined) record the error,
+            # then re-render. The frame is sent even without a handler: the turn
+            # announced ``async_pending`` (#2963), and this frame is what ends
+            # the client's loading state.
+            try:
+                # Re-render to show error state
+                # Same lock as the success arm, the event path and the tick
+                # path (#2830). This arm does the SAME render +
+                # version-allocate + send, so leaving it lock-free kept a
+                # server-initiated ``source="async"`` frame — the #2829
+                # enabler — racing an event-path render. Reachable whenever a
+                # callback raises.
+                #
+                # #2840: the handler await sits INSIDE the lock too (both
+                # arms) — its error-state mutation must not interleave with
+                # a concurrent lock-holding render. Ordering is preserved
+                # (handler → identity re-check → re-render): the re-check
+                # deliberately runs AFTER the handler so a view torn down
+                # mid-handler still gets its user error callback — only the
+                # stale re-render is dropped.
+                #
+                # Cost, recorded because it is a deliberate trade: this WAITS
+                # unboundedly, so a slow render holds the lock while the tick
+                # and broadcast paths — bounded 0.1s wait, SKIP on timeout —
+                # drop their renders for that window (a stateful tick handler
+                # loses the work, not just latency). That matches the
+                # documented contention philosophy (db_notify's note), but it
+                # is why an async render must not be slow.
+                async with self._render_lock:
+                    if hasattr(view, "handle_async_result"):
+                        await sync_to_async(view.handle_async_result)(
+                            task_name, result=None, error=error
+                        )
+
+                    # Identity re-check INSIDE the lock: the guard above ran
+                    # before an UNBOUNDED wait (now handler + render), during
+                    # which the view can be torn down or replaced (#1940).
+                    # Rendering the stale view would bump the
+                    # connection-wide version and overwrite _recovery_html
+                    # with old-view HTML.
+                    if self.view_instance is not view:
+                        return
+                    if hasattr(view, "_sync_state_to_rust"):
+                        await sync_to_async(view._sync_state_to_rust)()
+
+                    html, patches, version = await sync_to_async(view.render_with_diff)()
+
+                    if patches is not None:
+                        patch_list = fast_json_loads(patches) if patches else []
+                        # Render-send: arm recovery so _recovery_version tracks
+                        # this error re-render's version (#1817). ``html`` is the
+                        # pre-strip render from render_with_diff() above.
+                        await self._send_update(
+                            patches=patch_list,
+                            version=self._next_version_armed(html),
+                            event_name=event_name,
+                            source="async",
+                        )
+                    else:
+                        html_stripped, html_content = await sync_to_async(
+                            lambda h: (
+                                view._strip_comments_and_whitespace(h),
+                                view._extract_liveview_content(
+                                    view._strip_comments_and_whitespace(h)
+                                ),
+                            )
+                        )(html)
+                        await self._send_update(
+                            html=html_content,
+                            version=self._next_version_armed(html),
+                            event_name=event_name,
+                            source="async",
+                        )
+
+            except Exception:
+                logger.exception(
+                    "[djust] Error in the error re-render for async task '%s'", task_name
+                )
+
+    async def _settle_cancelled_async(self, view: Any, event_name: Optional[str]) -> None:
+        """End the loading state a cancelled task's event announced (#2963).
+
+        The event's reply carried ``async_pending: true``, so the client keeps
+        the event's loading state until a ``source="async"`` frame naming the
+        event arrives. A cancelled task skips its result, so send that frame
+        here with the view's current state. Work no event owns
+        (``event_name`` None: tick / push / notify turns) announced nothing
+        and sends nothing.
+        """
+        if event_name is None:
+            return
+        try:
+            async with self._render_lock:
+                if self.view_instance is not view:
+                    return
+                if hasattr(view, "_sync_state_to_rust"):
+                    await sync_to_async(view._sync_state_to_rust)()
+                html, patches, version = await sync_to_async(view.render_with_diff)()
+                if patches is not None:
+                    patch_list = fast_json_loads(patches) if patches else []
+                    await self._send_update(
+                        patches=patch_list,
+                        version=self._next_version_armed(html),
+                        event_name=event_name,
+                        source="async",
+                    )
+                else:
+                    html_content = await sync_to_async(
+                        lambda h: view._extract_liveview_content(
+                            view._strip_comments_and_whitespace(h)
+                        )
+                    )(html)
+                    await self._send_update(
+                        html=html_content,
+                        version=self._next_version_armed(html),
+                        event_name=event_name,
+                        source="async",
+                    )
+                await self._flush_all_pending()
+        except Exception:  # noqa: BLE001 — a settle frame must never raise out of a task
+            logger.exception("[djust] Error settling cancelled async task for %s", event_name)
+
+    def _next_version(self) -> int:
+        """Single source of truth for the outbound VDOM wire version (#1788).
+
+        Monotonic per-CONNECTION; decoupled from the Rust view's ``self.version``
+        (which resets to 0 on baseline loss — e.g. a patch-compression
+        ``_rust_view.reset()``). Every client-checked frame stamps THIS so the
+        wire sequence stays strictly monotonic across a Rust baseline reset, and
+        a post-baseline-loss ``html_update`` still satisfies the client's
+        ``clientVdomVersion === data.version - 1`` check — no ``request_html``
+        recovery round-trip.
+
+        Uses ``getattr`` for the read so consumers built via a partial
+        constructor (test fakes that override ``__init__``, or any edge path
+        that bypasses the base ``__init__``) still get a valid monotonic
+        sequence starting at 1.
+        """
+        self._last_sent_version = getattr(self, "_last_sent_version", 0) + 1
+        return self._last_sent_version
+
+    def _arm_recovery(self, html: str) -> None:
+        """Arm the on-demand VDOM recovery baseline.
+
+        Single source of truth for the ``request_html`` recovery state
+        (``_recovery_html`` / ``_recovery_version``). Every render-send path —
+        ``handle_event``, ``server_push``, ``_run_async_work`` — calls this after
+        rendering so the baseline can never drift between paths. Hand-copying the
+        two-line assignment is exactly how the async path was missed in #1639;
+        centralizing it here (#1645) makes a new send path inherit correct arming
+        by calling one method. The one-time clear (``_recovery_html = None`` in
+        ``handle_request_html``) is the only other writer.
+
+        The recovery version is the consumer's CURRENT ``_last_sent_version``
+        (#1788) — NOT a Rust version. Recovery (``html_recovery``) sets
+        ``clientVdomVersion = data.version`` directly on the client
+        (``static/djust/src/03-websocket.js:727``), so the recovery frame MUST
+        carry the consumer version of the frame it replaces. The canonical call
+        ordering at every arming site is therefore: allocate ``v`` from
+        ``_next_version()`` FIRST, THEN arm recovery (which captures
+        ``_last_sent_version == v``), THEN send the frame with ``version=v``.
+        """
+        # Optional: cleared to None on one-time use (the recovery clear at the
+        # request_html path), so the attribute is str | None across its lifetime.
+        self._recovery_html: Optional[str] = html
+        self._recovery_version = getattr(self, "_last_sent_version", 0)
+
+    def _next_version_armed(self, html: str) -> int:
+        """Advance the wire version AND refresh the recovery baseline in one step.
+
+        This is the canonical primitive for every RENDER-SEND path — any frame
+        that ships a freshly-rendered patch/HTML the client applies as new
+        display state (and that WRITES ``clientVdomVersion = data.version``,
+        ``static/djust/src/02-response-handler.js:77``). It folds the
+        ``_next_version()`` allocation and the ``_arm_recovery(html)`` capture
+        into a single call so the two can never drift apart.
+
+        Why this exists (#1817): before #1816 (#1788) several render-send paths —
+        the async-result error arms, the deferred-activity render, the hotreload
+        frame, the time-travel jumps, and the tick / db_notify broadcasts —
+        advanced ``_next_version()`` WITHOUT arming recovery. After such a frame
+        the client's applied version was ahead of ``_recovery_version``, so a
+        later ``request_html`` returned an ``html_recovery`` stamped with the
+        STALE ``_recovery_version`` (``handle_request_html`` uses
+        ``self._recovery_version`` for the wire). The client then reset
+        ``clientVdomVersion`` backwards (``03-websocket.js:727``) and the NEXT
+        successful diff's ``data.version - 1`` no longer matched — forcing an
+        extra recovery round-trip. Routing every render-send path through this
+        helper keeps ``_recovery_version == _last_sent_version`` after each
+        applied frame, so recovery always resets the client to the version it is
+        actually on (#1646 parallel-path discipline: one helper, not N hand-copied
+        two-line pairs).
+
+        ``html`` MUST be the full PRE-STRIP HTML returned by
+        ``render_with_diff()`` (before ``_strip_comments_and_whitespace`` /
+        ``_extract_liveview_content``) — ``handle_request_html`` strips and
+        extracts the cached ``_recovery_html`` on demand, so arming with the
+        already-stripped/extracted content would double-process it.
+
+        NON-render frames (the mount baseline, ``navigate`` / ``reload`` /
+        error-only frames with no new render HTML) must stay on the bare
+        ``_next_version()`` — they advance the wire sequence but have no
+        client-applied display HTML to recover to.
+        """
+        version = self._next_version()
+        self._arm_recovery(html)
+        return version
+
+    @staticmethod
+    def _hotreload_broadcast_suppressed(patches: Optional[list]) -> bool:
+        """Should this hot-reload broadcast be dropped? (#763, #2215)
+
+        The suppression this answers used to live inside `_send_update`, and
+        that was the bug: Python evaluates arguments before the call, so the
+        armed `version=self._next_version_armed(html)` kwarg was already spent
+        by the time the guard ran, and the version went to a frame that never
+        left. Asking HERE — at the one `hotreload=True` call site, before
+        allocating — is the whole fix.
+
+        It is the ONLY place the question is asked; the guard inside
+        `_send_update` is deliberately gone rather than kept as a backstop, so
+        the two cannot drift and there is no second, silent way to fail
+        (#1646, #2233). The comment where it used to be explains why that
+        direction is the safe one.
+        """
+        return patches == []
+
+    async def _send_update(
+        self,
+        patches: Optional[list] = None,
+        html: Optional[str] = None,
+        version: int = 0,
+        cache_request_id: Optional[str] = None,
+        reset_form: bool = False,
+        timing: Optional[Dict[str, Any]] = None,
+        performance: Optional[Dict[str, Any]] = None,
+        hotreload: bool = False,
+        file_path: Optional[str] = None,
+        event_name: Optional[str] = None,
+        broadcast: bool = False,
+        async_pending: bool = False,
+        source: Optional[str] = None,
+        ref: Optional[int] = None,
+    ) -> None:
+        """
+        Send a patch or full HTML update to the client.
+
+        Handles both JSON and binary (MessagePack) modes, building the response
+        with all optional fields.
+
+        Args:
+            patches: VDOM patches to apply (if available, can be empty list)
+            html: Full HTML content (fallback when patches is None)
+            version: VDOM version for client sync
+            cache_request_id: Optional ID for client-side caching (@cache decorator)
+            reset_form: Whether to reset form state after update
+            timing: Basic timing data for backward compatibility
+            performance: Comprehensive performance data
+            hotreload: Whether this is a hot reload update
+            file_path: File path that triggered hot reload (if hotreload=True)
+            event_name: Name of the event that triggered this update (for debug payload)
+            source: Update source tag for client-side event sequencing (#560).
+                Values: "tick" (periodic ticks), "broadcast" (server_push),
+                "async" (start_async completions), "event" (user-initiated).
+                The client buffers tick/broadcast/async patches during pending
+                user event round-trips to prevent version interleaving.
+            ref: Event reference number echoed back from the client's request,
+                allowing the client to match responses to sent events (#560).
+        """
+        # #763's empty-patch hot-reload suppression USED TO LIVE HERE, and it is
+        # deliberately gone: it now happens at the one `hotreload=True` call
+        # site, before the wire version is allocated. See
+        # `_hotreload_broadcast_suppressed`.
+        #
+        # Deliberate, because the two placements fail differently (#2233 — remove
+        # the redundant mechanism rather than test around it). Suppressing HERE
+        # cannot prevent the caller from having already evaluated
+        # `version=...armed(html)` as an argument, so a caller that gets it
+        # wrong spends a version on a frame that never ships — a SILENT client
+        # version lag costing a recovery round-trip, which is #2215 and took two
+        # years to find. With the check only at the call site, a future
+        # `hotreload=True` caller that repeats that mistake instead SENDS an
+        # empty-patch frame: wasteful, exactly the #763 noise, and loud — the
+        # client's version stays consistent and
+        # `test_an_idle_connection_receives_no_unsolicited_frames` sees the
+        # frame. Trading a silent correctness bug for a visible performance one
+        # is the right direction.
+        #
+        # NON-hot-reload empty patches are still sent, unchanged: user events
+        # that legitimately produce no diff still need an acknowledgment so the
+        # client can clear loading state.
+
+        # Note: patches=[] (empty list) is valid and should be sent as "patch" type
+        # Only patches=None indicates we should send html_update
+        if patches is not None:
+            if self.use_binary:
+                patches_data = msgpack.packb(patches)
+                await self._send_frame(bytes_data=patches_data)
+            else:
+                response: Dict[str, Any] = {
+                    "type": "patch",
+                    "patches": patches,
+                    "version": version,
+                }
+                # Include HTML if provided (e.g., patch compression fallback)
+                if html:
+                    response["html"] = html
+                # #654: gate timing/performance on DEBUG or DJUST_EXPOSE_TIMING so
+                # production clients (including unauthenticated cross-origin
+                # observers under CSWSH) don't see server-side code-path timings.
+                # The browser debug panel is unaffected — it receives timing via
+                # _attach_debug_payload which has its own DEBUG gate.
+                if _should_expose_timing():
+                    if timing:
+                        response["timing"] = timing
+                    if performance:
+                        response["performance"] = performance
+                if reset_form:
+                    response["reset_form"] = True
+                if cache_request_id:
+                    response["cache_request_id"] = cache_request_id
+                if hotreload:
+                    response["hotreload"] = True
+                    if file_path:
+                        response["file"] = file_path
+                if broadcast:
+                    response["broadcast"] = True
+                if async_pending:
+                    response["async_pending"] = True
+                if event_name:
+                    response["event_name"] = event_name
+                if source:
+                    response["source"] = source
+                if ref is not None:
+                    response["ref"] = ref
+                self._attach_debug_payload(response, event_name, performance)
+                await self.send_json(response)
+                await self._flush_all_pending()
+        else:
+            response = {
+                "type": "html_update",
+                "html": html,
+                "version": version,
+            }
+            if reset_form:
+                response["reset_form"] = True
+            if cache_request_id:
+                response["cache_request_id"] = cache_request_id
+            if async_pending:
+                response["async_pending"] = True
+            if event_name:
+                response["event_name"] = event_name
+            if source:
+                response["source"] = source
+            if ref is not None:
+                response["ref"] = ref
+            self._attach_debug_payload(response, event_name)
+            await self.send_json(response)
+            await self._flush_all_pending()
+
+    async def _dispatch_single_event(
+        self,
+        target_view: Any,
+        event_name: str,
+        params: Dict[str, Any],
+        event_ref: Optional[int] = None,
+    ) -> None:
+        """Minimal event dispatch used by the activity-deferral flush path.
+
+        Invariants vs :meth:`handle_event`:
+
+        * The caller MUST already hold ``self._render_lock``. This method
+          does NOT acquire or release it — ``asyncio.Lock`` is non-reentrant
+          and the flush is driven from inside the main event handler
+          which already owns the lock.
+        * The activity-gate check is NOT re-run. Events reach this path
+          only because the flush already decided they should dispatch;
+          re-triggering the gate would re-queue them indefinitely.
+        * ``params`` MUST have any ``_activity`` marker stripped by the
+          caller.
+        * Exceptions from the handler are logged and swallowed so a single
+          bad event cannot break the remainder of the flush.
+
+        The method still runs the standard security validation pipeline
+        (unsafe name → reject, missing handler → reject, rate limit,
+        permission check) so deferred events have the same auth posture
+        as live events. After a successful handler call it re-renders
+        the view and emits exactly one patch/HTML frame (matching the
+        main ``handle_event`` output shape), then flushes push events /
+        flash / metadata / layout so downstream side-effects reach the
+        client in the same round-trip.
+        """
+        import time
+
+        # --- security / validation (shared with handle_event) -----------
+        handler = await _validate_event_security(self, event_name, target_view, self._rate_limiter)
+        if handler is None:
+            return
+
+        positional_args = (params or {}).pop("_args", []) if isinstance(params, dict) else []
+        coerce = get_handler_coerce_setting(handler)
+        validation = validate_handler_params(
+            handler,
+            params or {},
+            event_name,
+            coerce=coerce,
+            positional_args=positional_args,
+        )
+        if not validation["valid"]:
+            logger.warning(
+                "Deferred-activity event %r failed param validation: %s",
+                sanitize_for_log(event_name or ""),
+                validation["error"],
+            )
+            return
+        coerced_params = validation.get("coerced_params", params)
+
+        # --- handler invocation ----------------------------------------
+        pre_assigns = _snapshot_assigns(self.view_instance)
+        try:
+            await _call_handler(handler, coerced_params if coerced_params else None)
+        except Exception:  # noqa: BLE001 — never break the flush
+            logger.exception(
+                "Deferred-activity event %r on %s raised during dispatch",
+                sanitize_for_log(event_name or ""),
+                type(target_view).__name__,
+            )
+            return
+
+        # Waiter notification (ADR-002) — same posture as the main path.
+        if hasattr(target_view, "_notify_waiters"):
+            try:
+                target_view._notify_waiters(event_name, coerced_params or {})
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Waiter notification for deferred %r failed: %s", event_name, exc)
+
+        # --- render + emit one update frame ----------------------------
+        # Bind the mounted view to a non-None local for the direct-attribute
+        # accesses below. The caller (the activity-deferral flush) only reaches
+        # this method with a mounted view + held render lock; the guard narrows
+        # Optional[Any] and is behavior-equivalent.
+        view = self.view_instance
+        if view is None:  # pragma: no cover — caller guarantees a mounted view
+            return
+        # Auto-skip when no public assigns changed (same rule as
+        # handle_event). This keeps a deferred side-effect-only handler
+        # from triggering an unnecessary render frame on the client.
+        # _resolve_skip_render owns the skip decision (#2834/#2847) — this
+        # twin previously read the two flags inline and resolved the
+        # collision the pre-#2834 way: with BOTH flags set the noop branch
+        # won, silently dropping the forced full render AND leaking
+        # ``_force_full_html`` into a later unrelated turn (the #1646
+        # "hatch dropped" class). The helper consumes ``_skip_render``
+        # whenever set and lets ``_force_full_html`` win.
+        skip_render = _resolve_skip_render(view)
+        force_html = getattr(view, "_force_full_html", False)
+        if not skip_render and not force_html:
+            post_assigns = _snapshot_assigns(view)
+            if pre_assigns == post_assigns:
+                skip_render = True
+            else:
+                view._changed_keys = _compute_changed_keys(pre_assigns, post_assigns)
+
+        if skip_render:
+            # (_skip_render was already consumed by _resolve_skip_render —
+            # it is the single owner of that reset, #2834/#2847.)
+            has_async = has_pending_async_work(view)
+            await self._flush_all_pending()
+            await self._send_noop(async_pending=has_async, ref=event_ref)
+            # Unconditional, like the runtime twin (#1887): ``has_async`` only
+            # drives the loading flag; this is what actually starts the work
+            # ``start_async`` queued (#2946). No-op when nothing is queued.
+            await self._dispatch_async_work()
+            return
+
+        # Render + diff (mirrors the simpler arm of handle_event).
+        _gcd = view.get_context_data
+        _skip_thread = inspect.iscoroutinefunction(_gcd) or getattr(view, "sync_safe", False)
+        t0 = time.perf_counter()
+        try:
+            if _skip_thread:
+                if inspect.iscoroutinefunction(_gcd):
+                    await _gcd()
+                else:
+                    _gcd()
+                with profiler.profile(profiler.OP_RENDER):
+                    html, patches, version = view.render_with_diff()
+            else:
+
+                def _sync_context_and_render() -> Any:
+                    _gcd()
+                    with profiler.profile(profiler.OP_RENDER):
+                        return view.render_with_diff()
+
+                html, patches, version = await sync_to_async(_sync_context_and_render)()
+        except Exception:  # noqa: BLE001
+            logger.exception("Deferred-activity render failed for %s", event_name)
+            return
+        # Consume the force flag (one render per set_changed_keys()/_force_full_html,
+        # #1981) — mirrors the runtime's reset in _render_and_send; without it the
+        # flag leaks and every subsequent turn force-renders.
+        if getattr(view, "_force_full_html", False):
+            view._force_full_html = False
+        _render_ms = (time.perf_counter() - t0) * 1000
+
+        patch_list = None
+        if patches is not None:
+            patch_list = fast_json_loads(patches) if patches else []
+
+        has_async = has_pending_async_work(view)
+        if patch_list is not None:
+            # Render-send: arm recovery so _recovery_version tracks this deferred
+            # render's version (#1817). ``html`` is the pre-strip render.
+            await self._send_update(
+                patches=patch_list,
+                version=self._next_version_armed(html),
+                event_name=event_name,
+                async_pending=has_async,
+                source="event",
+                ref=event_ref,
+                timing={"render": _render_ms},
+            )
+        else:
+            # VDOM diff returned no patches — send full HTML like the
+            # main path does. Mirrors the fallback branch so clients
+            # behave identically for deferred vs live events.
+            # Capture the PRE-STRIP html for recovery arming BEFORE the
+            # strip/extract reassigns ``html`` (#1817 — _arm_recovery expects
+            # the unstripped render, which handle_request_html strips on demand).
+            recovery_html = html
+            try:
+
+                def _sync_strip_and_extract(raw_html: str) -> tuple[Any, Any]:
+                    stripped = view._strip_comments_and_whitespace(raw_html)
+                    content = view._extract_liveview_content(stripped)
+                    return stripped, content
+
+                html, html_content = await sync_to_async(_sync_strip_and_extract)(html)
+            except Exception:  # noqa: BLE001
+                logger.exception("Deferred-activity HTML strip/extract failed for %s", event_name)
+                return
+            await self._send_update(
+                html=html_content,
+                version=self._next_version_armed(recovery_html),
+                event_name=event_name,
+                async_pending=has_async,
+                source="event",
+                ref=event_ref,
+            )
+        # Unconditional for the same reason as the noop arm above (#2946).
+        await self._dispatch_async_work()
+
+    def _attach_debug_payload(
+        self,
+        response: Dict[str, Any],
+        event_name: Optional[str] = None,
+        performance: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """
+        Attach slim _debug payload to a WebSocket response when DEBUG is enabled.
+
+        Only sends variables (which change per event), performance, and patches.
+        Handler metadata is static and only sent on initial mount via
+        get_debug_info() / window.DJUST_DEBUG_INFO.
+        """
+        from django.conf import settings
+
+        if not getattr(settings, "DEBUG", False):
+            return
+
+        # The debug payload (dir() + getattr + json.dumps per attribute) adds
+        # ~2-5ms per event. Skip it when the debug panel is explicitly closed.
+        # Default is True (backward compat) — panel sends debug_panel_close
+        # to opt out of the overhead.
+        if not getattr(self, "_debug_panel_active", True):
+            return
+        if not self.view_instance:
+            return
+
+        try:
+            debug_info = self.view_instance.get_debug_update()
+            if event_name:
+                debug_info["_eventName"] = event_name
+            if performance:
+                debug_info["performance"] = performance
+            if "patches" in response:
+                debug_info["patches"] = response["patches"]
+            response["_debug"] = debug_info
+        except Exception as e:
+            logger.debug("Failed to attach debug payload: %s", e)
+
+    def _get_client_ip(self) -> Optional[str]:
+        """Extract the trustworthy client IP from the ASGI scope.
+
+        Defaults to the real socket peer; ``X-Forwarded-For`` is honored only
+        when ``DJUST_TRUSTED_PROXY_COUNT`` is set (peeled from the right). See
+        :func:`djust._client_ip.resolve_client_ip` — this keeps a client from
+        spoofing XFF to bypass per-IP rate limiting or poison a cooldown.
+        """
+        from ._client_ip import resolve_client_ip
+
+        headers = dict(self.scope.get("headers", []))
+        forwarded = headers.get(b"x-forwarded-for")
+        fwd = forwarded.decode("utf-8") if forwarded else None
+        client = self.scope.get("client")
+        peer = client[0] if client else None
+        return resolve_client_ip(fwd, peer)
+
+    async def connect(self) -> None:
+        """Handle WebSocket connection"""
+        # Per-connection default: the socket is open until a close()/disconnect()
+        # (or a send-after-close rejection) flips this. _send_frame still reads it
+        # via getattr() so a directly-instantiated consumer (unit tests) is safe
+        # before connect() runs.
+        self._ws_close_sent = False
+
+        # CSWSH defense (#653): reject the handshake if the Origin header is
+        # not in settings.ALLOWED_HOSTS *before* calling self.accept(). This
+        # is defense in depth on top of DjustMiddlewareStack's
+        # AllowedHostsOriginValidator wrap — the consumer-level check still
+        # protects apps that route directly to LiveViewConsumer.
+        headers = dict(self.scope.get("headers", []))
+        origin = headers.get(b"origin")
+        if not _is_allowed_origin(origin):
+            # decode(errors="replace") never raises on bytes, so no try/except
+            # is needed — the "if origin else ''" guard covers the None case.
+            origin_repr = origin.decode("ascii", errors="replace") if origin else ""
+            logger.warning(
+                "WebSocket connection rejected: disallowed Origin %s",
+                sanitize_for_log(origin_repr),
+            )
+            await self.close(code=4403)
+            return
+
+        await self.accept()
+
+        # Generate session ID
+        import uuid
+
+        self.session_id = str(uuid.uuid4())
+
+        # Per-IP connection limit and cooldown check
+        self._client_ip = self._get_client_ip()
+        rl_cfg = djust_config.get("rate_limit", {})
+        if not isinstance(rl_cfg, dict):
+            rl_cfg = {}
+        if self._client_ip:
+            max_per_ip = rl_cfg.get("max_connections_per_ip", 10)
+            if not ip_tracker.connect(self._client_ip, max_per_ip):
+                logger.warning("Connection rejected for IP %s (limit or cooldown)", self._client_ip)
+                await self.close(code=4429)
+                return
+
+        # Add to hot reload broadcast group
+        await self.channel_layer.group_add("djust_hotreload", self.channel_name)
+
+        # Initialize per-connection rate limiter
+        self._rate_limiter = ConnectionRateLimiter(
+            rate=rl_cfg.get("rate", 100),
+            burst=rl_cfg.get("burst", 20),
+            max_warnings=rl_cfg.get("max_warnings", 3),
+            upload_rate=rl_cfg.get("upload_rate", 200),
+            upload_burst=rl_cfg.get("upload_burst", 400),
+        )
+
+        # Send connection acknowledgment
+        await self.send_json(
+            {
+                "type": "connect",
+                "session_id": self.session_id,
+            }
+        )
+
+    async def disconnect(self, close_code: int) -> None:
+        """Handle WebSocket disconnection"""
+        self._disconnect_entered = True
+        # The socket is gone — any frame a handler still tries to send from
+        # here on would be rejected by the ASGI server (_send_frame drops it).
+        self._ws_close_sent = True
+        # Pushes deferred while the session was busy have nobody to reach
+        # (#3001). First, so a later cleanup step that raises can't leave the
+        # drain running.
+        self._cancel_deferred_pushes()
+
+        # Clear the tenant ContextVar bound at mount (Finding #6) so the
+        # consumer task doesn't carry a stale tenant if the executor/context is
+        # reused. No-op when tenants is unavailable.
+        _bind_tenant(None)
+
+        # Release observability registry entry first — it's weakly-held
+        # anyway but explicit cleanup avoids a brief stale entry window.
+        session_id = getattr(self, "session_id", None)
+        if session_id:
+            try:
+                from djust.observability.registry import unregister_view
+
+                unregister_view(session_id)
+            except Exception:  # noqa: BLE001
+                pass  # Observability never blocks shutdown.
+
+        # Release IP connection slot
+        client_ip = getattr(self, "_client_ip", None)
+        if client_ip:
+            ip_tracker.disconnect(client_ip)
+
+        # Remove from hot reload broadcast group
+        await self.channel_layer.group_discard("djust_hotreload", self.channel_name)
+
+        # Leave per-view channel group
+        if self._view_group:
+            await self.channel_layer.group_discard(self._view_group, self.channel_name)
+
+        # Leave presence group and clean up presence
+        if self._presence_group:
+            await self.channel_layer.group_discard(self._presence_group, self.channel_name)
+
+        # Leave db_notify groups registered by NotificationMixin.listen()
+        db_notify_channels = getattr(self, "_db_notify_channels", None)
+        if db_notify_channels:
+            for ch in list(db_notify_channels):
+                try:
+                    await self.channel_layer.group_discard(
+                        f"djust_db_notify_{ch}", self.channel_name
+                    )
+                except Exception as e:  # noqa: BLE001
+                    logger.warning("Error leaving db_notify group for %s: %s", ch, e)
+
+        # Clean up presence tracking if view supports it
+        if self.view_instance and hasattr(self.view_instance, "untrack_presence"):
+            try:
+                await sync_to_async(self.view_instance.untrack_presence)()
+            except Exception as e:
+                logger.warning("Error cleaning up presence: %s", e)
+
+        # Cancel tick task and wait for it to finish
+        if self._tick_task:
+            self._tick_task.cancel()
+            try:
+                await self._tick_task
+            except asyncio.CancelledError:
+                pass  # Expected when cancelling a running tick task during disconnect
+            self._tick_task = None
+
+        # Clean up actor if using actors
+        if self.use_actors and self.actor_handle:
+            try:
+                await self.actor_handle.shutdown()
+            except Exception as e:
+                logger.warning("Error shutting down actor: %s", e)
+
+        # Clean up uploads
+        if self.view_instance and hasattr(self.view_instance, "_cleanup_uploads"):
+            try:
+                self.view_instance._cleanup_uploads()
+            except Exception as e:
+                logger.warning("Error cleaning up uploads: %s", e)
+
+        # Cancel any pending wait_for_event waiters (ADR-002 Phase 1b).
+        # @background tasks awaiting on a waiter unblock with CancelledError
+        # and can clean up themselves — without this they'd leak the Future.
+        if self.view_instance and hasattr(self.view_instance, "_cancel_all_waiters"):
+            try:
+                self.view_instance._cancel_all_waiters(reason="view_disconnect")
+            except Exception as e:
+                logger.warning("Error cancelling waiters: %s", e)
+
+        # Clean up embedded child views
+        if self.view_instance and hasattr(self.view_instance, "_child_views"):
+            try:
+                for child_id in list(self.view_instance._child_views.keys()):
+                    self.view_instance._unregister_child(child_id)
+            except Exception as e:
+                logger.warning("Error cleaning up embedded children: %s", e)
+
+        # Sticky LiveViews (Phase C Fix F2): drain any sticky children that
+        # were staged on the consumer during a live_redirect but for which
+        # ``handle_mount`` has not yet completed. Without this, a WS
+        # disconnect mid-redirect (rare but reachable) leaves the preserved
+        # sticky instances alive with their background tasks still running
+        # on a "zombie" consumer whose view is gone.
+        if self._sticky_preserved:
+            for sticky_id, child in list(self._sticky_preserved.items()):
+                hook = getattr(child, "_on_sticky_unmount", None)
+                if callable(hook):
+                    try:
+                        hook()
+                    except Exception:  # noqa: BLE001 — cleanup must not raise
+                        logger.exception(
+                            "sticky %s _on_sticky_unmount during disconnect failed",
+                            sanitize_for_log(sticky_id),
+                        )
+            self._sticky_preserved = {}
+
+        # Clean up session state
+        _clear_live_handles(self.view_instance)
+        self.view_instance = None
+        self.actor_handle = None
+        # (#1919, Finding A) Also null the shared runtime's view so a later
+        # re-mount on a reused consumer/runtime is never silently no-op'd by
+        # ``dispatch_mount``'s ``if view_instance is not None`` idempotency guard.
+        runtime = getattr(self, "_runtime", None)
+        if runtime is not None:
+            runtime.view_instance = None
+
+    async def receive(
+        self, text_data: Optional[str] = None, bytes_data: Optional[bytes] = None
+    ) -> None:
+        """Handle incoming WebSocket messages"""
+        logger.debug(
+            "[WebSocket] receive called: text_data=%s, bytes_data=%s",
+            text_data[:100] if text_data else None,
+            bytes_data is not None,
+        )
+
+        try:
+            # Check message size
+            max_msg_size = djust_config.get("max_message_size", 65536)
+            if bytes_data:
+                raw_size = len(bytes_data)
+            elif text_data:
+                char_len = len(text_data)
+                # Only skip encode when even worst-case (4 bytes/char) is under limit
+                raw_size = (
+                    char_len if char_len * 4 <= max_msg_size else len(text_data.encode("utf-8"))
+                )
+            else:
+                raw_size = 0
+            if max_msg_size and raw_size > max_msg_size:
+                logger.warning("Message too large (%d bytes, max %d)", raw_size, max_msg_size)
+                await self.send_error(f"Message too large ({raw_size} bytes)")
+                return
+
+            # Check for binary upload frames
+            if bytes_data and len(bytes_data) >= 17:
+                # Check if this looks like an upload frame (first byte is 0x01-0x03)
+                frame_type = bytes_data[0]
+                if frame_type in (0x01, 0x02, 0x03):
+                    # Rate-account upload frames BEFORE dispatch (#F17). The
+                    # global gate below "applies to ALL message types (#107)",
+                    # but binary upload frames used to early-return here without
+                    # passing it — leaving the highest-volume message class
+                    # unthrottled and never tripping the abuse-disconnect. Use a
+                    # dedicated higher-ceiling upload bucket so legitimate
+                    # high-volume uploads aren't throttled, while a flood still
+                    # depletes the bucket → should_disconnect() → close(4429).
+                    if not self._rate_limiter.check_upload():
+                        if self._rate_limiter.should_disconnect():
+                            logger.warning("Upload-frame rate limit exceeded, disconnecting client")
+                            client_ip = getattr(self, "_client_ip", None)
+                            if client_ip:
+                                _rl = djust_config.get("rate_limit", {})
+                                cooldown = (
+                                    _rl.get("reconnect_cooldown", 5) if isinstance(_rl, dict) else 5
+                                )
+                                ip_tracker.add_cooldown(client_ip, cooldown)
+                            await self.close(code=4429)
+                            return
+                        await self.send_json(
+                            {
+                                "type": "rate_limit_exceeded",
+                                "message": "Too many upload frames, some are being dropped",
+                            }
+                        )
+                        return
+                    await self._handle_upload_frame(bytes_data)
+                    return
+
+            # Decode message
+            if bytes_data:
+                data = msgpack.unpackb(bytes_data, raw=False)
+            else:
+                # text_data is Optional[str] per the Channels signature; in the
+                # no-binary branch a real frame always carries text. Behavior is
+                # preserved verbatim (a None here raises TypeError, caught by the
+                # surrounding handler, exactly as before this annotation).
+                data = json.loads(text_data)  # type: ignore[arg-type]
+
+            msg_type = data.get("type")
+
+            # Global rate limit check — applies to ALL message types (#107)
+            if not self._rate_limiter.check(msg_type or "unknown"):
+                if self._rate_limiter.should_disconnect():
+                    logger.warning("Rate limit exceeded, disconnecting client")
+                    client_ip = getattr(self, "_client_ip", None)
+                    if client_ip:
+                        _rl = djust_config.get("rate_limit", {})
+                        cooldown = _rl.get("reconnect_cooldown", 5) if isinstance(_rl, dict) else 5
+                        ip_tracker.add_cooldown(client_ip, cooldown)
+                    await self.close(code=4429)
+                    return
+                await self.send_json(
+                    {
+                        "type": "rate_limit_exceeded",
+                        "message": "Too many messages, some events are being dropped",
+                    }
+                )
+                return
+
+            # ---- Frame routing (#1852) -------------------------------------
+            # Runtime-owned verbs are routed through the SINGLE
+            # ``ViewRuntime.dispatch_message`` chokepoint (runtime.py:246) so a
+            # future security/policy control added there auto-applies to the WS
+            # transport (the SSE transport already routes every inbound frame
+            # through ``dispatch_message``). Everything else is an explicit,
+            # documented WS-only extension set delegated to bespoke consumer
+            # handlers.
+            #
+            # ROUTED via dispatch_message (RUNTIME_OWNED_VERBS):
+            #   * url_change  — wire-blind, fully shared with SSE since #1237.
+            #   * event       — flipped onto the runtime in ADR-022 Iter 2 Phase
+            #     2.3b (#1907, THE FLIP). Phase 2.3a grew ``dispatch_event`` into a
+            #     functional SUPERSET of the (now deleted) bespoke
+            #     ``_handle_event_inner``: the ``event_context`` render-lock +
+            #     #1677 origin + PerformanceTracker/SQL observability, the actor
+            #     hook, ``view_id`` sticky-child + ``component_id`` LiveComponent
+            #     routing, ``dj_activity`` gate + flush, time-travel recording +
+            #     #1466 session state-save + ADR-018 sticky-child save, #1777
+            #     reauth, #700 identity push-only auto-skip, patch compression,
+            #     ``_force_full_html`` + ``embedded_update`` framing, the #1788/
+            #     #1858 consumer-owned wire version + recovery arming (via the
+            #     ``next_client_version`` hook), and the per-render observability
+            #     (DJE-053 warning + ``record_handler_timing`` +
+            #     ``_emit_full_html_update`` signal, via the ``on_render_emitted``
+            #     / ``on_handler_timing`` hooks). One event path, not two (#1646).
+            #
+            #   * mount       — flipped onto the runtime in ADR-022 Iter 3 Phase
+            #     3.3b (#1919, THE MOUNT FLIP). Phases 3.0-3.3a grew
+            #     ``dispatch_mount`` into a functional SUPERSET of the (now
+            #     deleted) bespoke ``handle_mount`` body: the F22 view resolver,
+            #     pre-mount auth+tenant sequence (``run_pre_mount_auth`` via
+            #     ``_check_auth``), ``on_mount`` hooks, session/signed-snapshot
+            #     state restore (#1466/#1552), post-mount object-permission
+            #     (ADR-017), ``handle_params``, the actor mount hook
+            #     (``dispatch_actor_mount``, #1915 Finding D), the no-arm mount
+            #     wire version (``next_mount_version``, Finding C), the sticky_hold
+            #     pre-mount frame (``on_mount_render_ready``, Finding B residual),
+            #     the auth verdict→close finalize (``finalize_mount_auth``, Finding
+            #     E), the WS post-mount channel-layer wiring + tick + flags
+            #     (``on_view_mounted``, Finding B residual), and the 2-queue
+            #     mount-time drain. One mount path, not two — the #1646 mount
+            #     convergence COMPLETE.
+            #
+            # WS-ONLY EXTENSION SET (no runtime equivalent; binary upload
+            # frames 0x01/0x02/0x03 are handled above before decode):
+            #   mount_batch, ping, live_redirect_mount, upload_register,
+            #   upload_resume, presence_heartbeat, cursor_move, request_html,
+            #   debug_panel_open, debug_panel_close, time_travel_jump,
+            #   time_travel_component_jump, forward_replay, bug_capture_share.
+            if msg_type in self.RUNTIME_OWNED_VERBS:
+                # Runtime-owned: route through the dispatch_message chokepoint
+                # rather than calling the bespoke handler directly, so future
+                # chokepoint-level controls cover this verb on the WS path. The
+                # membership check (not a hardcoded ``== "url_change"``) makes
+                # ``RUNTIME_OWNED_VERBS`` LOAD-BEARING (#1852): adding a verb to
+                # the set automatically routes it here, and the contract test
+                # (``TestRuntimeOwnedVerbsContract``) fails if the set and this
+                # arm ever drift. This is the FIRST arm, so ``event`` (#1907) AND
+                # ``mount`` (#1919, THE MOUNT FLIP) both land here — NOT the deleted
+                # ``elif`` arms that used to call the bespoke ``handle_event`` /
+                # ``handle_mount``.
+                await self._dispatch_runtime_owned(data)
+            elif msg_type == "mount_batch":
+                await self.handle_mount_batch(data)
+            elif msg_type == "ping":
+                # The client pings every 30 s and never sends
+                # ``presence_heartbeat``, so the ping is the heartbeat: without
+                # it a tracked user expired after PRESENCE_TIMEOUT (60 s) on an
+                # open page (#2968). Refreshed before the pong, so the pong
+                # means the heartbeat landed.
+                if getattr(self.view_instance, "_presence_tracked", False):
+                    await self.handle_presence_heartbeat(data)
+                await self.send_json({"type": "pong"})
+            elif msg_type == "live_redirect_mount":
+                await self.handle_live_redirect_mount(data)
+            elif msg_type == "upload_register":
+                await self._handle_upload_register(data)
+            elif msg_type == "upload_resume":
+                await self._handle_upload_resume(data)
+            elif msg_type == "presence_heartbeat":
+                await self.handle_presence_heartbeat(data)
+            elif msg_type == "cursor_move":
+                await self.handle_cursor_move(data)
+            elif msg_type == "request_html":
+                await self.handle_request_html(data)
+            elif msg_type == "debug_panel_open":
+                self._debug_panel_active = True
+            elif msg_type == "debug_panel_close":
+                self._debug_panel_active = False
+            elif msg_type == "time_travel_jump":
+                await self.handle_time_travel_jump(data)
+            elif msg_type == "time_travel_component_jump":
+                await self.handle_time_travel_component_jump(data)
+            elif msg_type == "forward_replay":
+                await self.handle_forward_replay(data)
+            elif msg_type == "bug_capture_share":
+                await self.handle_bug_capture_share(data)
+            else:
+                logger.warning("Unknown message type: %s", msg_type)
+                await self.send_error(f"Unknown message type: {msg_type}")
+
+        except json.JSONDecodeError as e:
+            error_msg = f"Invalid JSON in WebSocket message: {str(e)}"
+            logger.error(error_msg)
+            await self.send_error(_safe_error(error_msg, "Invalid message format"))
+        except Exception as e:
+            # Handle exception: logs (with stack trace only in DEBUG) and returns safe response
+            response = handle_exception(
+                e,
+                error_type="default",
+                logger=logger,
+                log_message="Error in WebSocket receive",
+            )
+            await self.send_json(response)
+
+    async def handle_mount(
+        self,
+        data: Dict[str, Any],
+        sticky_preserved: Optional[Dict[str, Any]] = None,
+        state_snapshot: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Handle view mounting by routing through :class:`ViewRuntime`.
+
+        ADR-022 Iter 3 Phase 3.3b (#1919, THE MOUNT FLIP). Until this phase,
+        ``mount`` was handled by a ~870-line bespoke WS-only body (a twin of the
+        runtime's mount path). Phases 3.0-3.3a grew
+        :meth:`ViewRuntime.dispatch_mount` into a functional SUPERSET of that
+        bespoke handler (F22 view resolver, ``run_pre_mount_auth`` pre-mount
+        auth+tenant sequence via ``_check_auth``, ``on_mount`` hooks, session +
+        signed-snapshot state restore, post-mount object-permission, ``handle_params``,
+        actor mount + render, the no-arm mount wire version, the ``sticky_hold``
+        pre-mount frame, the auth verdict→``close(4403)`` finalize, the WS
+        post-mount channel-layer wiring + tick + flags, and the 2-queue mount-time
+        drain), all wired through ``WSConsumerTransport`` hooks. Phase 3.3b adds
+        ``"mount"`` to :attr:`RUNTIME_OWNED_VERBS` so ``receive()`` now routes mount
+        frames through the single ``dispatch_message`` chokepoint (the #1646 mount
+        convergence — one mount path, not two). This method is therefore a THIN SHIM
+        mirroring :meth:`handle_url_change` / :meth:`handle_event`.
+
+        ``receive()`` no longer calls this directly for the ``mount`` verb (that
+        goes via :meth:`_dispatch_runtime_owned` → ``dispatch_message`` →
+        ``dispatch_mount``), but it is retained as a stable public entry point /
+        backward-compatible shim for the WS-only callers that invoke it directly
+        with the extra kwargs: :meth:`handle_live_redirect_mount` (passes
+        ``sticky_preserved`` so the ``sticky_hold`` frame precedes the mount frame)
+        and :meth:`_mount_one` (the ``mount_batch`` collector).
+
+        Three flip findings (ADR-022 Iter 3) handled here / by the runtime:
+
+        * **(A) Idempotency reset** — ``dispatch_mount`` early-returns when
+          ``runtime.view_instance is not None`` (the legacy GET-mount double-fire
+          guard). The consumer nulls ``self.view_instance`` on disconnect /
+          auth-fail / ``live_redirect`` teardown but NEVER ``runtime.view_instance``,
+          so a re-mount on a runtime that already mounted once would silently
+          no-op (the #560-class landmine). We null ``runtime.view_instance`` BEFORE
+          dispatching so every (re-)mount actually runs.
+        * **(B) Ownership inverts** — ``url_change`` / ``event`` mirror
+          consumer→runtime; ``mount`` CREATES the view (runtime→consumer), so we
+          read back ``self.view_instance = runtime.view_instance`` after dispatch.
+          The WS post-mount consumer attrs (``_view_group`` / ``_tick_task`` /
+          ``use_actors`` / presence + db_notify groups / ``_sticky_preserved``)
+          are written onto the consumer by the ``on_view_mounted`` /
+          ``on_mount_render_ready`` transport hooks during the runtime mount.
+        * **(C) Mount wire version** — the ``next_mount_version`` hook stamps the
+          consumer-owned monotonic ``_next_version()`` WITHOUT arming request_html
+          recovery (mount establishes the baseline; it has no prior frame to
+          recover to).
+        """
+        runtime = self._get_runtime()
+        # (A) Null the runtime's view BEFORE dispatch so a reconnect / live_redirect
+        # re-mount is never silently no-op'd by the idempotency early-return.
+        runtime.view_instance = None
+
+        # Thread the WS-only direct-caller kwargs into the shape dispatch_mount +
+        # its hooks read:
+        #   * ``sticky_preserved`` — the ``on_mount_render_ready`` hook reads
+        #     ``consumer._sticky_preserved`` (set by handle_live_redirect_mount
+        #     already; set it here too for any direct caller passing the kwarg).
+        #   * ``state_snapshot`` — ``dispatch_mount`` reads ``data.get("state_snapshot")``
+        #     (handle_live_redirect_mount already puts it in ``data``; thread the
+        #     kwarg in for direct callers without mutating the caller's dict).
+        if sticky_preserved is not None:
+            self._sticky_preserved = sticky_preserved
+        if state_snapshot is not None and data.get("state_snapshot") is None:
+            data = {**data, "state_snapshot": state_snapshot}
+
+        await runtime.dispatch_mount(data)
+
+        # (B) Mount creates the view on the runtime — read it back onto the consumer
+        # so disconnect cleanup, request_html recovery, upload/presence handlers,
+        # and the batch collector all see the freshly-mounted view (or ``None`` on
+        # an auth/hook block, which dispatch_mount cleared on the runtime).
+        self.view_instance = runtime.view_instance
+
+    async def _mount_one(
+        self, data_view: Dict[str, Any]
+    ) -> tuple[bool, Dict[str, Any], Optional[str], Optional[Dict[str, Any]], List[Any]]:
+        """Mount + render a single view and return a payload WITHOUT sending.
+
+        Collector seam for :meth:`handle_mount_batch`. Delegates to
+        ``handle_mount`` but replaces ``send_json`` on this consumer with
+        a capture list so no frames actually flow to the client. The
+        caller aggregates captured frames into a single ``mount_batch``
+        frame.
+
+        Returns a ``(success: bool, payload: dict, error: Optional[str],
+        navigate_frame: Optional[dict], push_events: list)`` tuple:
+
+        - ``success=True`` and ``payload`` is the captured ``mount`` frame
+          merged with the caller-supplied ``target_id``.
+        - ``success=False`` and ``error`` is the human-readable error
+          message; the caller stashes ``{target_id, view, error}`` in the
+          batch frame's ``failed[]`` array.
+        - ``navigate_frame`` (Fix #4): when the view's ``on_mount`` hook
+          or auth stage redirects, ``handle_mount`` emits a
+          ``{"type":"navigate","to":...}`` frame instead of a ``mount``
+          frame. The collector preserves it so
+          ``handle_mount_batch`` can forward the redirect to the client
+          in the batch response — without this, the frame was silently
+          dropped and the user was never redirected.
+        - ``push_events`` (Fix #1295): ``push_event`` frames captured
+          during mount. When ``mount()`` calls ``push_event()``,
+          ``_flush_push_events`` fires with ``send_json`` swapped for the
+          collector, so push events land in ``captured[]``.  The caller
+          flushes them after the batch response so they reach the client.
+
+        Isolation: errors in one view MUST NOT propagate and kill the
+        batch (see plan §2.3 "atomicity relaxed").
+        """
+        target_id = data_view.get("target_id") or ""
+        view_path = data_view.get("view") or ""
+
+        # Temporarily swap send_json with a collector so handle_mount's
+        # frame-sending becomes a frame-collecting call. Restore on exit.
+        captured: list = []
+        orig_send_json = self.send_json
+
+        async def _collect(payload: Dict[str, Any]) -> None:
+            captured.append(payload)
+
+        self.send_json = _collect  # type: ignore[assignment]
+        # Signal to handle_mount that it runs inside a multiplexed batch on a
+        # shared socket: an auth/hook redirect must NOT close() the socket here
+        # (that would kill sibling mounts + the collected navigate[] and
+        # reconnect-storm the client). handle_mount still clears view_instance,
+        # and the redirect's navigate frame is collected into navigate[] — so a
+        # batched login-required view is reported as a redirect, not a bypass.
+        self._mounting_in_batch = True
+        # Mount-batch is never combined with sticky preservation (sticky
+        # only runs through live_redirect_mount which doesn't batch) or
+        # state_snapshot (snapshot is for popstate restoration, also
+        # live_redirect_mount path). Always pass None for both.
+        try:
+            await self.handle_mount(
+                data_view,
+                sticky_preserved=None,
+                state_snapshot=None,
+            )
+        except Exception as exc:  # noqa: BLE001 — isolate per-view failures
+            self.send_json = orig_send_json  # type: ignore[assignment]
+            self._mounting_in_batch = False
+            logger.exception(
+                "mount_batch: _mount_one raised for view %s",
+                sanitize_for_log(view_path),
+            )
+            from django.conf import settings as _settings
+
+            # Fix #12 — do not leak exception text in production. In
+            # DEBUG mode we still expose a truncated string to help
+            # diagnose template / auth errors.
+            safe_err = "mount failed"
+            if getattr(_settings, "DEBUG", False):
+                safe_err = str(exc)[:200]
+            return False, {"target_id": target_id, "view": view_path}, safe_err, None, []
+        finally:
+            # Only restore if the try-block didn't already restore (else
+            # we'd double-restore harmlessly). Idempotent.
+            self.send_json = orig_send_json  # type: ignore[assignment]
+            self._mounting_in_batch = False
+
+        # Extract the successful mount frame; any "error" frame means failure.
+        # Fix #4: capture "navigate" frames too — those are emitted when
+        # auth or on_mount hooks redirect instead of mounting, and were
+        # previously silently dropped.
+        # Fix #1295: also capture "push_event" frames. When mount() calls
+        # push_event(), _flush_push_events runs with send_json swapped for
+        # _collect — so push events land in captured[]. Extract them and
+        # return them so handle_mount_batch can flush them after the batch
+        # response (they'd otherwise be silently dropped).
+        mount_frame = None
+        error_frame = None
+        navigate_frame = None
+        push_events: list = []
+        for frame in captured:
+            ftype = frame.get("type")
+            if ftype == "mount":
+                mount_frame = frame
+            elif ftype == "error":
+                error_frame = frame
+            elif ftype == "navigate":
+                navigate_frame = frame
+            elif ftype == "push_event":
+                push_events.append(frame)
+
+        if navigate_frame is not None:
+            # Redirect — surface through the batch response so the
+            # client dispatcher can navigate. target_id is included so
+            # the client can associate the redirect with the originating
+            # lazy element.
+            nav_payload = dict(navigate_frame)
+            nav_payload["target_id"] = target_id
+            nav_payload["view"] = view_path
+            return (
+                False,
+                {"target_id": target_id, "view": view_path},
+                None,
+                nav_payload,
+                push_events,
+            )
+
+        if error_frame is not None:
+            err_msg = error_frame.get("message", "mount failed")
+            return False, {"target_id": target_id, "view": view_path}, err_msg, None, push_events
+
+        if mount_frame is None:
+            return (
+                False,
+                {"target_id": target_id, "view": view_path},
+                "mount produced no frame",
+                None,
+                push_events,
+            )
+
+        # Inject target_id for client-side per-view DOM targeting.
+        mount_frame["target_id"] = target_id
+        return True, mount_frame, None, None, push_events
+
+    async def handle_mount_batch(self, data: Dict[str, Any]) -> None:
+        """Mount multiple views in one frame and reply with one batch frame.
+
+        Wire format:
+        - Inbound: ``{"type":"mount_batch", "views":[{view, params, url,
+          target_id, has_prerendered}, ...], "client_timezone"}``.
+        - Outbound: ``{"type":"mount_batch", "session_id", "views":[...
+          per-view payload with target_id...], "failed":[{target_id,
+          view, error}...], "navigate":[{target_id, view, to, ...}...]}``.
+
+        The optional ``navigate`` array (Fix #4) carries redirect
+        targets for views whose ``on_mount`` or auth stage returned a
+        redirect. The client's ``case 'mount_batch':`` iterates
+        ``navigate[]`` and dispatches each.
+
+        Atomicity is relaxed: one view's failure does NOT abort the
+        batch — survivors ship, failures are isolated in ``failed[]``.
+        """
+        views_list = data.get("views", [])
+        if not isinstance(views_list, list):
+            await self.send_error("mount_batch: 'views' must be a list")
+            return
+
+        client_timezone = data.get("client_timezone")
+
+        successes: list = []
+        failures: list = []
+        navigates: list = []
+        all_push_events: list = []
+        for view_data in views_list:
+            if not isinstance(view_data, dict):
+                failures.append(
+                    {
+                        "target_id": "",
+                        "view": "",
+                        "error": "mount_batch entry is not a dict",
+                    }
+                )
+                continue
+            # Propagate shared client_timezone if not per-view.
+            if client_timezone and "client_timezone" not in view_data:
+                view_data = dict(view_data)
+                view_data["client_timezone"] = client_timezone
+            ok, payload, err, nav, push_events = await self._mount_one(view_data)
+            if push_events:
+                all_push_events.extend(push_events)
+            if ok:
+                successes.append(payload)
+                continue
+            if nav is not None:
+                navigates.append(nav)
+                continue
+            failed = dict(payload)
+            failed["error"] = err or "unknown"
+            failures.append(failed)
+
+        response: Dict[str, Any] = {
+            "type": "mount_batch",
+            "session_id": self.session_id,
+            "views": successes,
+            "failed": failures,
+        }
+        if navigates:
+            response["navigate"] = navigates
+        await self.send_json(response)
+
+        # Fix #1295: flush push events that were captured during mount.
+        # When mount() calls push_event(), _flush_push_events fires with
+        # send_json swapped for _collect in _mount_one — so push events
+        # land in captured[] instead of being sent. We extract them in
+        # _mount_one and flush them here after the batch response.
+        for frame in all_push_events:
+            await self.send_json(frame)
+
+    async def handle_event(self, data: Dict[str, Any]) -> None:
+        """Handle a client event by routing through :class:`ViewRuntime`.
+
+        ADR-022 Iter 2 Phase 2.3b (#1907, THE FLIP). Until this phase, ``event``
+        was handled by the bespoke ``_handle_event_inner`` (a ~1170-line WS-only
+        twin of the runtime's event path). Phase 2.3a grew
+        :meth:`ViewRuntime.dispatch_event` into a functional SUPERSET of that
+        bespoke handler (event spine, component/sticky/embedded routing,
+        time-travel + #1466 state-save, ``event_context`` render-lock + origin +
+        observability, the actor hook, ``dj_activity`` gate + flush, #1777 reauth,
+        async dispatch, wire-version stamping), and Phase 2.3b adds ``"event"`` to
+        :attr:`RUNTIME_OWNED_VERBS` so ``receive()`` now routes events through the
+        single ``dispatch_message`` chokepoint (the #1646 convergence — one event
+        path, not two). This method is therefore a THIN SHIM mirroring
+        :meth:`handle_url_change`: ``receive()`` no longer calls it directly for the
+        ``event`` verb (that goes via :meth:`_dispatch_runtime_owned` →
+        ``dispatch_message``), but it is retained as a stable public entry point /
+        backward-compatible shim for callers that invoke it directly. The runtime
+        owns the tenant context (``dispatch_event`` wraps the turn in
+        ``_tenant_context``), the render lock, time-travel, state-save, and the
+        per-render observability (DJE-053 warning + handler timing + full-HTML-update
+        signal) via the ``on_render_emitted`` / ``on_handler_timing`` transport hooks.
+
+        Calls ``runtime.dispatch_event(data)`` DIRECTLY (mirroring
+        :meth:`handle_url_change`, which calls ``dispatch_url_change`` directly) —
+        NOT ``dispatch_message``. Direct callers of ``handle_event`` pass the EVENT
+        payload (``{"event": ..., "params": ...}``) and may omit the outer
+        ``{"type": "event"}`` wire envelope; ``dispatch_event`` reads ``event`` /
+        ``params`` and does not require ``type``, whereas ``dispatch_message`` keys
+        on ``type`` and would emit "Unknown message type" for a type-less payload.
+        The ``receive()`` wire path still routes through ``dispatch_message`` (the
+        frame there always carries ``type: event``).
+        """
+        if not self.view_instance:
+            await self.send_error("View not mounted. Please reload the page.")
+            return
+
+        runtime = self._get_runtime()
+        runtime.view_instance = self.view_instance
+        await runtime.dispatch_event(data)
+
+    # ========================================================================
+    # Embedded LiveView Rendering
+    # ========================================================================
+
+    def _render_embedded_child(self, child_view: Any) -> str:
+        """
+        Render an embedded child view's template and return the inner HTML.
+
+        This re-renders just the child's template using Django's template engine,
+        without going through the parent's VDOM at all.
+
+        Thin shim over the module-level :func:`render_embedded_child_html` so the
+        WS consumer and :class:`~djust.runtime.ViewRuntime` (ADR-022 Iter 2
+        Phase 2.1) render embedded children through ONE implementation — the
+        #1646 cure for the embedded-render subsystem. The pure (transport-blind)
+        render core, including the security-hardened error path, lives in that
+        function so there is no parallel copy to drift.
+        """
+        return render_embedded_child_html(child_view)
+
+    # ========================================================================
+    # File Upload Handling
+    # ========================================================================
+
+    def _scope_session_key(self) -> Optional[str]:
+        """Django session key of this connection, or None when it has none.
+
+        Identifies the owner of a resumable upload: recorded at
+        ``upload_register`` and compared at ``upload_resume`` (and by the
+        HTTP ``UploadStatusView``, which reads the same cookie session).
+        """
+        try:
+            session = self.scope.get("session") if hasattr(self, "scope") else None
+            if session is not None:
+                # Channels' SessionMiddlewareStack makes the key available by
+                # the time the WS message loop is running.
+                key = getattr(session, "session_key", None)
+                return key if isinstance(key, str) and key else None
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("failed to read the session key: %s", exc)
+        return None
+
+    async def _handle_upload_register(self, data: Dict[str, Any]) -> None:
+        """Handle upload_register message: client announces a file to upload."""
+        if not self.view_instance:
+            await self.send_error("View not mounted")
+            return
+
+        if (
+            not hasattr(self.view_instance, "_upload_manager")
+            or not self.view_instance._upload_manager
+        ):
+            await self.send_error("No uploads configured for this view")
+            return
+
+        mgr = self.view_instance._upload_manager
+        entry = mgr.register_entry(
+            upload_name=data.get("upload_name", ""),
+            ref=data.get("ref", ""),
+            client_name=data.get("client_name", ""),
+            client_type=data.get("client_type", ""),
+            client_size=data.get("client_size", 0),
+            session_key=self._scope_session_key(),
+        )
+
+        if entry:
+            await self.send_json(
+                {
+                    "type": "upload_registered",
+                    "ref": entry.ref,
+                    "upload_name": entry.upload_name,
+                }
+            )
+        else:
+            await self.send_error("Upload rejected (check file type, size, or max entries)")
+
+    async def _handle_upload_resume(self, data: Dict[str, Any]) -> None:
+        """Handle ``upload_resume`` — client-initiated resume of an
+        upload whose state survived a WebSocket disconnect (#821 /
+        ADR-010).
+
+        Client payload:
+
+            {"type": "upload_resume", "ref": "<upload_id>"}
+
+        Reply (always a ``upload_resumed`` JSON message with one of
+        three ``status`` values):
+
+            {"type": "upload_resumed", "ref": "...",
+             "status": "resumed" | "not_found" | "locked",
+             "bytes_received": N, "chunks_received": [0, 1, 2, ...]}
+
+        Session-scoped access: the state entry's stored ``session_key``
+        must be present and match the current WS session, else we reply
+        ``not_found`` (same response as missing, so the reply does not
+        reveal whether the id exists).
+        """
+        from .uploads.resumable import resolve_resume_request
+
+        upload_id = data.get("ref") or data.get("upload_id")
+        if not upload_id or not isinstance(upload_id, str):
+            await self.send_error("upload_resume requires a ref")
+            return
+
+        session_key = self._scope_session_key()
+
+        # Active-ref check: is another in-flight upload using this id?
+        active = False
+        try:
+            if self.view_instance and hasattr(self.view_instance, "_upload_manager"):
+                mgr = self.view_instance._upload_manager
+                if mgr is not None:
+                    existing = mgr._entries.get(upload_id)
+                    if existing and not existing._complete and not existing._error:
+                        active = True
+        except Exception:  # noqa: BLE001
+            # Defensive — resume must never crash the consumer.
+            logger.exception("upload_resume: active-ref check failed")
+
+        # Snapshot the current ``active`` value into the ref-check callable
+        # (mypy cannot infer a defaulted-param lambda, so use a typed nested def;
+        # the default-arg capture preserves the original snapshot-at-build intent).
+        def _active_ref(_uid: str, _a: bool = active) -> bool:
+            return _a
+
+        payload = resolve_resume_request(
+            upload_id=upload_id,
+            session_key=session_key,
+            active_refs=_active_ref,
+        )
+        if payload.get("status") == "resumed":
+            # The state entry only says which chunks arrived; the chunks still
+            # to come need the upload's live writer. Re-attach the upload
+            # suspended when the old session closed (#2972). Without it — a
+            # different process, an expired window, no matching slot — answer
+            # not_found so the client restarts instead of sending chunks
+            # nothing will accept.
+            mgr = (
+                getattr(self.view_instance, "_upload_manager", None) if self.view_instance else None
+            )
+            resumed = None
+            try:
+                if mgr is not None:
+                    # Off the event loop: re-attaching may abort expired
+                    # suspended uploads, which can be network I/O (S3).
+                    resumed = await sync_to_async(mgr.resume_entry)(upload_id, session_key)
+            except Exception:  # noqa: BLE001 — resume must never crash the consumer
+                logger.exception("upload_resume: re-attaching the upload failed")
+            if resumed is None:
+                payload = {
+                    "type": "upload_resumed",
+                    "ref": upload_id,
+                    "status": "not_found",
+                    "bytes_received": 0,
+                    "chunks_received": [],
+                }
+        await self.send_json(payload)
+
+    async def _handle_upload_frame(self, data: bytes) -> None:
+        """Handle binary upload frame (chunk, complete, cancel)."""
+        from .uploads import parse_upload_frame, build_progress_message
+
+        if not self.view_instance or not hasattr(self.view_instance, "_upload_manager"):
+            return
+
+        mgr = self.view_instance._upload_manager
+        if not mgr:
+            return
+
+        frame = parse_upload_frame(data)
+        if not frame:
+            logger.warning("Invalid upload frame received")
+            return
+
+        ref = frame["ref"]
+
+        if frame["type"] == "chunk":
+            # add_chunk() internally dispatches to either the disk-buffer
+            # path or (when the upload slot was configured with writer=)
+            # the writer's write_chunk() — no disk I/O on the writer path.
+            progress = mgr.add_chunk(ref, frame["chunk_index"], frame["data"])
+            if progress is not None:
+                # Send progress update (throttle to every 10%)
+                entry = mgr._entries.get(ref)
+                if entry and (progress % 10 == 0 or progress >= 100):
+                    await self.send_json(build_progress_message(ref, progress))
+            else:
+                # Surface error details (writer exception, size-limit, etc.)
+                err_entry = mgr._entries.get(ref)
+                error_msg = err_entry.error if err_entry and err_entry.error else None
+                msg = build_progress_message(ref, 0, "error")
+                if error_msg:
+                    msg["error"] = error_msg
+                await self.send_json(msg)
+
+        elif frame["type"] == "complete":
+            entry = mgr.complete_upload(ref)
+            if entry:
+                await self.send_json(build_progress_message(ref, 100, "complete"))
+            else:
+                err_entry = mgr._entries.get(ref)
+                error_msg = err_entry.error if err_entry else "Unknown error"
+                await self.send_json(
+                    {
+                        "type": "upload_progress",
+                        "ref": ref,
+                        "progress": 0,
+                        "status": "error",
+                        "error": error_msg,
+                    }
+                )
+
+        elif frame["type"] == "cancel":
+            mgr.cancel_upload(ref)
+            await self.send_json(build_progress_message(ref, 0, "cancelled"))
+
+    async def close(self, code: Optional[int] = None, reason: Optional[str] = None) -> None:
+        """Close the socket and remember it, so later sends are dropped.
+
+        Frames the client queued before our close frame reaches it (e.g. the
+        ``mount`` sent immediately after the handshake, when connect() rejects
+        with 4403/4429) still get dispatched by Channels; ``_send_frame``
+        consults this flag to drop their responses instead of hitting the
+        transport, which uvicorn would reject with a RuntimeError.
+        """
+        self._ws_close_sent = True
+        try:
+            if reason is None:
+                # channels<4.1 close() has no reason parameter.
+                await super().close(code)
+            else:
+                await super().close(code, reason)
+        except OSError as exc:
+            # The peer closed first (ASGI 2.4 OSError shape; see _send_frame).
+            # There is nothing left to close (#3000).
+            logger.debug("WebSocket close skipped: peer already closed (%r)", exc)
+
+    async def _send_frame(
+        self,
+        text_data: Optional[str] = None,
+        bytes_data: Optional[bytes] = None,
+    ) -> None:
+        """Single outbound chokepoint: drop frames once the socket is closed.
+
+        Short-circuits when the connection is known-closed and downgrades the
+        ASGI server's send-after-close rejections to a debug log — the client
+        is gone, there is nobody to answer. Two shapes: the ``RuntimeError``
+        after the close handshake (see :func:`_is_send_after_close_error`),
+        and the ``OSError`` a send raises once the peer has closed (ASGI 2.4;
+        uvicorn's ``ClientDisconnected``, #3000). Any other ``RuntimeError``
+        propagates.
+        """
+        if getattr(self, "_ws_close_sent", False):
+            logger.debug("Dropping outbound frame: WebSocket already closed")
+            return
+        try:
+            await self.send(text_data=text_data, bytes_data=bytes_data)
+        except RuntimeError as exc:
+            if not _is_send_after_close_error(exc):
+                raise
+            self._ws_close_sent = True
+            logger.debug("Dropping outbound frame: WebSocket closed during send (%s)", exc)
+        except OSError as exc:
+            # ASGI 2.4: a send on a connection the peer has closed raises a
+            # server-specific OSError subclass (uvicorn: ClientDisconnected).
+            # It arrives before the app has read ``websocket.disconnect``, so
+            # the dispatch loop is still alive; letting it propagate killed
+            # that loop and the disconnect was never dispatched (#3000).
+            self._ws_close_sent = True
+            logger.debug("Dropping outbound frame: peer closed the WebSocket (%r)", exc)
+
+    async def send_json(self, data: Dict[str, Any]) -> None:
+        """Send JSON message to client with Django type support"""
+        await self._send_frame(text_data=json.dumps(data, cls=DjangoJSONEncoder))
+
+    @staticmethod
+    def _clear_template_caches() -> int:
+        """
+        Clear Django's template loader caches.
+
+        This ensures hot reload picks up template changes by clearing:
+        - Template loader caches (cached_property on loaders)
+        - Engine-level template caches
+
+        Supports Django's built-in template backends:
+        - django.template.backends.django.DjangoTemplates
+        - django.template.backends.jinja2.Jinja2 (if installed)
+
+        Returns:
+            int: Number of caches cleared successfully
+        """
+        from django.template import engines
+
+        caches_cleared = 0
+
+        for engine in engines.all():
+            if hasattr(engine, "engine"):
+                try:
+                    # Clear cached templates from loaders
+                    if hasattr(engine.engine, "template_loaders"):
+                        for loader in engine.engine.template_loaders:
+                            if hasattr(loader, "reset"):
+                                loader.reset()
+                                caches_cleared += 1
+                except Exception as e:
+                    hotreload_logger.warning(
+                        "Could not clear template cache for %s: %s", engine.name, e
+                    )
+
+        hotreload_logger.debug("Cleared %d template caches", caches_cleared)
+        return caches_cleared
+
+    async def hotreload(self, event: Dict[str, Any]) -> None:
+        """
+        Handle hot reload broadcast messages from channel layer.
+
+        This is called when a file change is detected and a reload message
+        is broadcast to the djust_hotreload group.
+
+        Instead of full page reload, we re-render the view and send a VDOM patch.
+
+        Args:
+            event: Channel layer event containing 'file' key
+
+        Raises:
+            None - All exceptions are caught and trigger full reload fallback
+        """
+        import time
+        from channels.db import database_sync_to_async
+        from django.template import TemplateDoesNotExist
+
+        file_path = event.get("file", "unknown")
+
+        # ------------------------------------------------------------------
+        # Hot View Replacement (v0.6.1) — optional pre-step
+        # ------------------------------------------------------------------
+        # When the watcher reloaded a LiveView module, it attaches
+        # ``hvr_meta`` to the broadcast event. Try to swap the view
+        # instance's ``__class__`` to the new class so subsequent event
+        # handlers dispatch to the new code without losing state.
+        #
+        # Failure modes:
+        #   - dedup hit (same reload_id already applied) → silent no-op.
+        #   - module not resolvable / classes gone → fall through to the
+        #     legacy template-refresh path below.
+        #   - compat check rejects the swap → emit full-reload frame and
+        #     return (no point re-rendering old state against new slots).
+        hvr_meta = event.get("hvr_meta")
+        if hvr_meta and self.view_instance:
+            reload_id = hvr_meta.get("reload_id")
+            if reload_id and reload_id == self._hvr_last_reload_id:
+                # Same reload burst — already handled on this consumer.
+                return
+            if reload_id:
+                self._hvr_last_reload_id = reload_id
+
+            from djust.hot_view_replacement import (
+                _resolve_class_pairs,
+                apply_class_swap,
+            )
+
+            class_pairs = _resolve_class_pairs(
+                hvr_meta.get("module", ""),
+                hvr_meta.get("class_names", []) or [],
+            )
+            if class_pairs is not None:
+                ok, reason = apply_class_swap(self.view_instance, class_pairs)
+                if not ok:
+                    hotreload_logger.info(
+                        "HVR incompat: %s; falling back to full reload",
+                        reason,
+                    )
+                    await self.send_json(
+                        {
+                            "type": "reload",
+                            "file": file_path,
+                        }
+                    )
+                    return
+                self._hvr_version += 1
+                await self.send_json(
+                    {
+                        "type": "hvr-applied",
+                        "view": getattr(self, "_view_path", ""),
+                        "version": self._hvr_version,
+                        "file": file_path,
+                    }
+                )
+                # Continue into template-refresh path below so the
+                # re-render picks up any template or computed attr
+                # changes that also shipped in this burst.
+
+        # If we have an active view, re-render and send patch
+        if self.view_instance:
+            start_time = time.time()
+
+            try:
+                # Clear Django's template cache so we pick up the file changes
+                self._clear_template_caches()
+
+                # Force view to reload template by clearing cached template
+                if hasattr(self.view_instance, "_template"):
+                    delattr(self.view_instance, "_template")
+
+                # Get the new template content
+                try:
+                    new_template = await database_sync_to_async(self.view_instance.get_template)()
+                except TemplateDoesNotExist as e:
+                    hotreload_logger.error("Template not found for hot reload: %s", e)
+                    await self.send_json(
+                        {
+                            "type": "reload",
+                            "file": file_path,
+                        }
+                    )
+                    return
+
+                # Update the RustLiveView with the new template (keeps old VDOM for diffing!)
+                if hasattr(self.view_instance, "_rust_view") and self.view_instance._rust_view:
+                    hotreload_logger.debug("Updating template in existing RustLiveView")
+                    await database_sync_to_async(self.view_instance._rust_view.update_template)(
+                        new_template
+                    )
+
+                # Re-render the view to get patches (track time)
+                render_start = time.time()
+                html, patches, version = await database_sync_to_async(
+                    self.view_instance.render_with_diff
+                )()
+                render_time = (time.time() - render_start) * 1000  # Convert to ms
+
+                patch_count = len(patches) if patches else 0
+                hotreload_logger.info(
+                    "Generated %d patches in %.2fms, version=%d", patch_count, render_time, version
+                )
+
+                # Warn if patch generation is slow
+                if render_time > 100:
+                    hotreload_logger.warning(
+                        "Slow patch generation: %.2fms for %s", render_time, file_path
+                    )
+
+                # Handle case where no patches are generated
+                if not patches:
+                    hotreload_logger.info("No patches generated, sending full reload")
+                    await self.send_json(
+                        {
+                            "type": "reload",
+                            "file": file_path,
+                        }
+                    )
+                    return
+
+                # Parse patches if they're a JSON string
+                try:
+                    if isinstance(patches, str):
+                        patches = fast_json_loads(patches)
+                except (json.JSONDecodeError, ValueError) as e:
+                    hotreload_logger.error("Failed to parse patches JSON: %s", e)
+                    await self.send_json(
+                        {
+                            "type": "reload",
+                            "file": file_path,
+                        }
+                    )
+                    return
+
+                # Send the patches to the client.
+                # HIDDEN #1 (#1788): the hotreload patch frame is EXEMPT from the
+                # client version *check* (``!data.hotreload`` in
+                # ``02-response-handler.js:58``) but it still WRITES
+                # ``clientVdomVersion = data.version`` (line 77). So it MUST stamp
+                # the consumer counter — otherwise the NEXT normal event would be
+                # rejected against a stale client version. The separate
+                # ``_hvr_version`` (``hvr-applied`` telemetry frame) is untouched.
+                # Render-send: the hotreload frame is exempt from the client
+                # version CHECK but it still WRITES clientVdomVersion (#1788,
+                # HIDDEN #1), so it advances the client past _recovery_version.
+                # Arm recovery so a later request_html serves the post-HVR HTML,
+                # not a stale pre-HVR baseline (#1817). ``html`` is the pre-strip
+                # render from render_with_diff() above.
+                # #2215: allocate the wire version ONLY when the frame will
+                # actually be sent.
+                #
+                # `_send_update` suppresses an empty-patch hot-reload broadcast
+                # (#763) and returns early — but Python evaluates
+                # `self._next_version_armed(html)` BEFORE the call, so the
+                # version was consumed and recovery armed for a frame that never
+                # left the socket. An unrelated file change re-renders to zero
+                # patches, which is the COMMON case, so this fired on most
+                # hot-reload broadcasts.
+                #
+                # Two consequences, and the second is why this took two years to
+                # find. (1) The client's `clientVdomVersion` lags by one, so the
+                # next real diff fails its `version - 1` check and costs a
+                # `request_html` recovery round-trip — the exact class #1788 and
+                # #1817 exist to prevent, reintroduced by argument-evaluation
+                # order. (2) It is a SILENT bump: nothing reaches the socket, so
+                # the frame log shows nothing and the only evidence is a version
+                # that jumped. That is the #2215 signature — "clean mount, stray
+                # bump, nothing in the frame log" — and it is why every
+                # reproduction attempt that looked for a stray FRAME found
+                # nothing.
+                if self._hotreload_broadcast_suppressed(patches):
+                    hotreload_logger.debug(
+                        "Suppressing empty-patch hot-reload broadcast without "
+                        "consuming a wire version (unrelated file: %s)",
+                        file_path,
+                    )
+                else:
+                    await self._send_update(
+                        patches=patches,
+                        version=self._next_version_armed(html),
+                        hotreload=True,
+                        file_path=file_path,
+                    )
+
+                total_time = (time.time() - start_time) * 1000
+                hotreload_logger.info(
+                    "Sent %d patches for %s (total: %.2fms)", patch_count, file_path, total_time
+                )
+
+            except Exception as e:
+                # Catch-all for unexpected errors
+                hotreload_logger.exception("Error generating patches for %s: %s", file_path, e)
+                # Fallback to full reload on error
+                await self.send_json(
+                    {
+                        "type": "reload",
+                        "file": file_path,
+                    }
+                )
+        else:
+            # No active view, just reload the page
+            hotreload_logger.debug("No active view, sending full reload for %s", file_path)
+            await self.send_json(
+                {
+                    "type": "reload",
+                    "file": file_path,
+                }
+            )
+
+    def _get_runtime(self) -> Any:
+        """Lazy-construct the shared :class:`ViewRuntime` for this consumer.
+
+        Returns the same runtime instance across calls so per-runtime state
+        (e.g., ``view_instance``) survives. Introduced in #1237 for the
+        ``handle_url_change`` migration; subsequent PRs will route more WS
+        verbs through the runtime.
+        """
+        if getattr(self, "_runtime", None) is None:
+            from .renderers import get_renderer_factory
+            from .runtime import WSConsumerTransport, ViewRuntime
+
+            # ADR-019 LVN-I PR-3: handshake selects renderer factory by
+            # ``?platform=html|swiftui|compose``. Unknown / missing values
+            # return None → runtime defaults to HtmlRenderer at dispatch.
+            # ``scope["query_string"]`` is bytes per ASGI spec.
+            from urllib.parse import parse_qs
+
+            qs = parse_qs(self.scope.get("query_string", b"").decode("utf-8", errors="ignore"))
+            platform = (qs.get("platform") or [None])[0]
+            renderer_factory = get_renderer_factory(platform)
+
+            self._runtime = ViewRuntime(
+                WSConsumerTransport(self),
+                scope=self.scope,
+                rate_limiter=self._rate_limiter,
+                renderer_factory=renderer_factory,
+            )
+        return self._runtime
+
+    #: Inbound frame verbs that ``receive()`` routes through the single
+    #: :meth:`ViewRuntime.dispatch_message` chokepoint (#1852) rather than a
+    #: bespoke consumer handler. Keeping this as an explicit set lets a
+    #: regression test pin exactly which verbs go through the chokepoint, so a
+    #: future addition that forgets the routing is caught.
+    #:
+    #: ``event`` was added in ADR-022 Iter 2 Phase 2.3b (#1907, THE FLIP): the
+    #: runtime ``dispatch_event`` is now a functional superset of the deleted
+    #: bespoke ``_handle_event_inner`` (Phase 2.3a grew the event_context render
+    #: lock + origin + observability, the actor hook, the per-render
+    #: ``on_render_emitted`` / ``on_handler_timing`` folds, time-travel, #1466
+    #: state-save, ``dj_activity``, #1777 reauth), so every WS event now flows
+    #: through the single chokepoint — the #1646 convergence.
+    #:
+    #: ``mount`` was added in ADR-022 Iter 3 Phase 3.3b (#1919, THE MOUNT FLIP):
+    #: Phases 3.0-3.3a grew ``dispatch_mount`` into a functional superset of the
+    #: deleted bespoke ``handle_mount`` body (F22 resolver, ``run_pre_mount_auth``
+    #: pre-mount auth+tenant via ``_check_auth``, ``on_mount`` hooks, session +
+    #: signed-snapshot restore, post-mount object-perm, ``handle_params``, actor
+    #: mount, the no-arm mount wire version, the sticky_hold pre-mount frame, the
+    #: auth verdict→close finalize, the WS post-mount channel-layer wiring + tick +
+    #: flags, the 2-queue mount-time drain) via ``WSConsumerTransport`` hooks, so
+    #: every WS mount now flows through the single chokepoint — the #1646 mount
+    #: convergence COMPLETE. See the routing comment in :meth:`receive`.
+    RUNTIME_OWNED_VERBS = frozenset({"url_change", "event", "mount"})
+
+    async def _dispatch_runtime_owned(self, data: Dict[str, Any]) -> None:
+        """Route a runtime-owned frame through :meth:`ViewRuntime.dispatch_message`.
+
+        This is the WS-side seam for #1852: the runtime-owned subset of
+        ``receive()``'s verbs flows through the SINGLE ``dispatch_message``
+        chokepoint so a future security/policy control added there auto-applies
+        to the WebSocket transport. The consumer's ``view_instance`` is mirrored
+        onto the shared runtime before dispatch (the runtime is the source of
+        truth for ``view_instance`` once mount migrated in #1919).
+
+        ``view_instance`` ownership INVERTS for ``mount`` (#1919, Finding B):
+        ``url_change`` / ``event`` mirror consumer→runtime, but ``mount`` CREATES
+        the view, and ``dispatch_mount`` early-returns when ``runtime.view_instance
+        is not None`` (the legacy GET-mount double-fire guard, runtime.py). So for
+        a ``mount`` frame we NULL the runtime's view first — otherwise a
+        reconnect / re-mount on a runtime that already mounted once would silently
+        no-op (the #560-class idempotency landmine, Finding A). The shim path
+        (``handle_mount`` / ``handle_live_redirect_mount`` / ``_mount_one``) does
+        the same null+readback; this is the wire-frame twin.
+        """
+        runtime = self._get_runtime()
+        if data.get("type") == "mount":
+            runtime.view_instance = None
+        else:
+            runtime.view_instance = self.view_instance
+        await runtime.dispatch_message(data)
+        # Mount CREATES the view on the runtime (runtime→consumer read-back,
+        # Finding B): mirror it back so the consumer's ``view_instance`` (read by
+        # disconnect cleanup, request_html recovery, upload/presence handlers, the
+        # batch collector, etc.) reflects the freshly-mounted view. On an
+        # auth/hook block ``dispatch_mount`` cleared ``runtime.view_instance`` so
+        # this reads back ``None`` — matching the bespoke "clear on auth fail".
+        if data.get("type") == "mount":
+            self.view_instance = runtime.view_instance
+
+    async def handle_url_change(self, data: Dict[str, Any]) -> None:
+        """
+        Handle URL change from browser back/forward (popstate) or dj-patch clicks.
+
+        #1237: this is now a thin shim over :meth:`ViewRuntime.dispatch_url_change`
+        so the WS and SSE transports share one code path. The runtime owns the
+        handle_params + re-render + send_update orchestration.
+
+        #1852: ``receive()`` no longer calls this directly — it routes
+        ``url_change`` through :meth:`_dispatch_runtime_owned` →
+        :meth:`ViewRuntime.dispatch_message` so the verb passes the shared
+        chokepoint. This method is retained as a stable public entry point /
+        backward-compatible shim for callers that dispatch ``url_change``
+        directly; it remains behaviorally identical (``dispatch_message`` routes
+        ``url_change`` straight to ``dispatch_url_change``).
+        """
+        if not self.view_instance:
+            await self.send_error("View not mounted")
+            return
+
+        runtime = self._get_runtime()
+        runtime.view_instance = self.view_instance
+        await runtime.dispatch_url_change(data)
+
+    async def handle_live_redirect_mount(self, data: Dict[str, Any]) -> None:
+        """
+        Handle mounting a new view via live_redirect (no WS reconnect).
+
+        The client sends this after receiving a live_redirect navigation command.
+        We unmount the current view and mount the new one on the same connection.
+
+        Sticky LiveViews (Phase B):
+
+        * Before teardown, stage the old view's sticky children via
+          :meth:`LiveView._preserve_sticky_children`, passing a
+          reconstructed request for the new URL so auth is re-checked
+          against the new posture. Survivors are stashed on
+          ``self._sticky_preserved`` — they hold strong references to
+          the sticky ``LiveView`` instances so the normal old-view
+          cleanup doesn't GC them.
+        * After the new view mounts + renders, scan the rendered HTML
+          for ``[dj-sticky-slot="<id>"]`` markers. For each match, call
+          ``new_parent._register_child(id, child)`` to transplant the
+          preserved instance onto the new parent. Unmatched survivors
+          get ``_on_sticky_unmount()`` called and are discarded.
+        * Emit a ``sticky_hold`` frame BEFORE the ``mount`` frame listing
+          the final survivor ids, so the client reconciles its
+          stickyStash against an authoritative list.
+        """
+        # Reset auto-reattach tracker (ADR-014): a redirect mount starts
+        # a fresh template render; any IDs the tag claims should be tracked
+        # against this navigation only.
+        self._sticky_auto_reattached = set()
+        # Reuse handle_mount — it already handles everything
+        # But first, stage the old view's sticky children (Phase B).
+        old_view = self.view_instance
+        sticky_preserved: Dict[str, Any] = {}
+        if old_view is not None and hasattr(old_view, "_preserve_sticky_children"):
+            try:
+                new_request = self._build_live_redirect_request(data)
+                if new_request is None:
+                    # URL resolution failed — treat as "auth cannot be
+                    # re-checked" and drop every staged sticky by calling
+                    # their unmount hooks. Better to unmount than to
+                    # retain a sticky whose auth posture we can't
+                    # validate against the new URL.
+                    for _vid, child in list(
+                        old_view._get_all_child_views().items()
+                        if hasattr(old_view, "_get_all_child_views")
+                        else []
+                    ):
+                        if getattr(child, "sticky", False) is True:
+                            hook = getattr(child, "_on_sticky_unmount", None)
+                            if callable(hook):
+                                try:
+                                    hook()
+                                except Exception:  # noqa: BLE001
+                                    logger.exception("sticky child _on_sticky_unmount raised")
+                    sticky_preserved = {}
+                else:
+                    # #2998: sticky children are re-stamped with this request;
+                    # bind the browser's CSRF cookie, as _build_request does.
+                    from .security.csrf import abind_csrf_cookie
+
+                    await abind_csrf_cookie(new_request, getattr(self, "scope", None))
+                    sticky_preserved = await sync_to_async(old_view._preserve_sticky_children)(
+                        new_request
+                    )
+            except Exception:  # noqa: BLE001 — defensive: never break redirect
+                logger.exception("sticky children staging failed; proceeding without preservation")
+                sticky_preserved = {}
+        # Stash on the consumer for post-mount reattachment.
+        self._sticky_preserved = sticky_preserved
+
+        # Leave old view's channel group
+        if self._view_group:
+            await self.channel_layer.group_discard(self._view_group, self.channel_name)
+            self._view_group = None
+
+        # Cancel old tick task
+        if self._tick_task:
+            self._tick_task.cancel()
+            try:
+                await self._tick_task
+            except asyncio.CancelledError:
+                pass  # Expected when cancelling a running tick task
+            self._tick_task = None
+
+        # Pushes deferred for the old view must not reach the new one (#3001).
+        self._cancel_deferred_pushes()
+
+        # Clean up old view
+        if old_view:
+            # Before cleanup_uploads, drop sticky children from the old
+            # view's registry so the normal unregister path doesn't call
+            # their _cleanup_on_unregister hook — sticky children SURVIVE
+            # this navigation and keep running on their stash refs.
+            if hasattr(old_view, "_child_views"):
+                for sticky_id, sticky_child in sticky_preserved.items():
+                    # Child may have been registered under its auto-
+                    # generated view_id OR under its sticky_id. Find by
+                    # identity because sticky_id may differ from the
+                    # original registered view_id.
+                    for vid, c in list(old_view._child_views.items()):
+                        if c is sticky_child:
+                            # Pop WITHOUT calling _unregister_child (which
+                            # would invoke _cleanup_on_unregister). Sticky
+                            # children keep running.
+                            old_view._child_views.pop(vid, None)
+                            break
+            if hasattr(old_view, "_cleanup_uploads"):
+                try:
+                    old_view._cleanup_uploads()
+                except Exception:
+                    logger.warning("Failed to clean up uploads for old view", exc_info=True)
+
+        self.view_instance = None
+        # (#1919, Finding A) Null the shared runtime's view too BEFORE the
+        # re-mount below. ``handle_mount`` (the shim) also nulls it, but doing it
+        # here keeps the teardown self-consistent: a re-mount on this connection
+        # must never be no-op'd by ``dispatch_mount``'s idempotency early-return —
+        # this is the live_redirect re-mount landmine the Finding-A net guards.
+        runtime = getattr(self, "_runtime", None)
+        if runtime is not None:
+            runtime.view_instance = None
+
+        # Parse state_snapshot if the client sent one (v0.6.0) so it can
+        # be forwarded to handle_mount for back-nav state restoration.
+        # Per-view opt-in is still enforced inside handle_mount via the
+        # class-level ``enable_state_snapshot`` flag + slug match.
+        state_snapshot = data.get("state_snapshot")
+        if state_snapshot is not None and not isinstance(state_snapshot, dict):
+            # Malformed payload — ignore and proceed with fresh mount.
+            logger.warning("state_snapshot payload is not a dict for live_redirect_mount; ignoring")
+            state_snapshot = None
+
+        # Now mount the new view using the standard mount flow. We pass
+        # ``sticky_preserved`` so ``handle_mount`` can emit the
+        # ``sticky_hold`` frame BEFORE its ``mount`` frame — ordering
+        # is load-bearing (see Fix #1 / issue tag). ``handle_mount``
+        # mutates ``self._sticky_preserved`` to the final survivor set
+        # after the slot scan; if it raises mid-flight we drain any
+        # staged children so their background tasks don't leak.
+        #
+        # #1647: trust the DESTINATION URL over the client-supplied `view`.
+        # The client's resolveViewPath() falls back to the current container's
+        # dj-view (the SOURCE view) when its route map is empty — which is the
+        # default for apps using plain Django path() URLconfs (no
+        # live_session()). Mounting the source class against the new URL's
+        # request raises. Resolve the target view server-side from the URL; only
+        # override when it maps to a djust LiveView, so the live_session
+        # route-map path (client resolved correctly) is unaffected.
+        #
+        # NOT for back-navigation: a `state_snapshot` carries the authoritative
+        # `view_slug` for the restored view, and its `url` may be generic (e.g.
+        # "/") and resolve to an unrelated view. Skip the URL-override whenever a
+        # snapshot is present so back-nav restores the snapshot's view, not
+        # whatever the URL happens to map to.
+        resolved_view = (
+            None
+            if data.get("state_snapshot")
+            else self._resolve_view_path_from_url(data.get("url", ""))
+        )
+        if resolved_view and resolved_view != data.get("view"):
+            logger.debug(
+                "live_redirect_mount: server-resolved target view %s from URL %s (client sent %s)",
+                resolved_view,
+                sanitize_for_log(data.get("url", "")),
+                sanitize_for_log(str(data.get("view"))),
+            )
+            data = {**data, "view": resolved_view}
+        # #3036: ask the runtime to record the destination's document <title>.
+        self._live_redirect_mounting = True
+        try:
+            try:
+                await self.handle_mount(
+                    data,
+                    sticky_preserved=sticky_preserved,
+                    state_snapshot=state_snapshot,
+                )
+            finally:
+                self._live_redirect_mounting = False
+            self._queue_destination_title(
+                getattr(getattr(self, "_runtime", None), "mount_document_title", None)
+            )
+            # Anything the new view's ``mount()`` queued for the client has to
+            # go out here. On an HTTP load the document carries the title and
+            # meta tags, so nothing queued at mount ever needed sending; a
+            # redirect mount has no document render, so without this flush a
+            # view that sets ``self.page_title`` in ``mount()`` leaves the tab
+            # showing the page the reader navigated away from.
+            await self._flush_all_pending()
+        except Exception:
+            # Drain any staged stickys so their async tasks / groups
+            # clean up. Without this, a render/auth failure on the NEW
+            # view would leave preserved sticky instances alive on the
+            # consumer with background work still running on a
+            # "zombie" instance whose parent is gone.
+            for child in list(self._sticky_preserved.values()):
+                hook = getattr(child, "_on_sticky_unmount", None)
+                if callable(hook):
+                    try:
+                        hook()
+                    except Exception:  # noqa: BLE001 — best-effort cleanup
+                        logger.exception(
+                            "sticky child _on_sticky_unmount failed during redirect cleanup"
+                        )
+            self._sticky_preserved = {}
+            raise
+
+    def _queue_destination_title(self, title: Optional[str]) -> None:
+        """Queue the destination page's ``<title>`` after a live redirect (#3036).
+
+        Live navigation swaps only the ``dj-root``, so the tab kept the
+        previous page's title unless the new view set ``page_title``. When the
+        view queued no title of its own, queue the one its rendered document
+        carries (``{% block title %}``) as an ordinary ``page_metadata`` title
+        command; ``_flush_all_pending`` sends it. A view's own ``page_title``
+        always wins.
+        """
+        from .runtime import _queued_title
+
+        view = self.view_instance
+        if not title or view is None or _queued_title(view):
+            return
+        pending = getattr(view, "_pending_page_metadata", None)
+        if isinstance(pending, list):
+            pending.append({"action": "title", "value": title})
+
+    def _resolve_view_path_from_url(self, url: str) -> Optional[str]:
+        """Resolve a ``live_redirect`` destination URL to its djust LiveView
+        dotted path, server-side, via Django's URL resolver (#1647).
+
+        Returns the ``module.QualName`` of the view class wired to ``url`` in the
+        URLconf when (and only when) it is a :class:`djust.LiveView` subclass.
+        Returns ``None`` when the URL doesn't resolve, or maps to a non-LiveView
+        (e.g. a plain Django view) — the caller then keeps the client-supplied
+        ``view`` (preserving the ``live_session`` route-map path, where the
+        client already resolved the target correctly).
+        """
+        if not url:
+            return None
+        from urllib.parse import unquote
+
+        from django.urls import Resolver404, resolve
+
+        from .live_view import LiveView
+
+        try:
+            # Decoded, like the other two `resolve()` call sites that take a
+            # client-supplied URL — see `_resolve_url_kwargs` (runtime.py).
+            match = resolve(unquote(url))
+        except Resolver404:
+            return None
+        except Exception:  # noqa: BLE001 — never let URL resolution break mount
+            logger.debug("live_redirect view resolution raised for %s", sanitize_for_log(url))
+            return None
+        # View.as_view() stamps the class onto the returned callable.
+        view_class = getattr(match.func, "view_class", None)
+        if not (isinstance(view_class, type) and issubclass(view_class, LiveView)):
+            return None
+        return f"{view_class.__module__}.{view_class.__qualname__}"
+
+    def _build_live_redirect_request(self, data: Dict[str, Any]) -> Any:
+        """Reconstruct a minimal Django request for the live_redirect target.
+
+        Used to re-check sticky children's auth against the destination
+        URL. Mirrors the request-construction block inside
+        :meth:`handle_mount` — session + user come from the WS scope,
+        path from the client message. Kept as a distinct helper so the
+        sticky staging step can run BEFORE handle_mount destroys the
+        old view.
+
+        Returns ``None`` when the destination URL fails to resolve (no
+        matching URL pattern) — sticky views whose ``check_permissions``
+        relies on ``request.resolver_match.kwargs`` would otherwise
+        ``AttributeError`` or silently pass using stale data from the
+        old request. The caller treats a ``None`` return as "staging
+        impossible, unmount all staged stickys".
+        """
+        from urllib.parse import unquote
+
+        from django.test import RequestFactory
+        from django.urls import resolve, Resolver404
+
+        factory = RequestFactory()
+        # The client-supplied URL is attacker-controlled — validate it against
+        # path traversal / CRLF / absolute-URL injection before it reaches
+        # RequestFactory.get(), resolve(), and the log statements below (#1819).
+        page_url = _validate_mount_url(data.get("url", "/"))
+        request = factory.get(page_url)
+        # Session — same source as handle_mount.
+        from .utils import build_session_for_request
+
+        scope_session = self.scope.get("session") if hasattr(self, "scope") else None
+        session_key = getattr(scope_session, "session_key", None) if scope_session else None
+        # Honours settings.SESSION_ENGINE (#2210) — see the note at the twin
+        # site in runtime.py. Both go through one helper so they cannot drift.
+        session = build_session_for_request(session_key)
+        if session is not None:
+            request.session = session
+        # User — Channels scope user is a LazyObject; assign directly.
+        if hasattr(self, "scope") and "user" in self.scope:
+            request.user = self.scope["user"]
+        # Resolve the destination URL so ``request.resolver_match`` is
+        # populated. Sticky views using ``check_permissions(request)``
+        # may reference ``request.resolver_match.kwargs`` (e.g.
+        # permissions keyed by the PK from the NEW URL). Without this,
+        # they'd either ``AttributeError`` or read stale data from the
+        # old request.
+        try:
+            # `unquote` for the same reason as `_resolve_url_kwargs`
+            # (runtime.py): `resolve` expects an already-decoded path, and this
+            # one is a browser-supplied URL. An encoded segment would hand
+            # `check_permissions` a mangled kwarg — and these kwargs are what a
+            # sticky view's object-level check reads, so the failure mode is an
+            # authorization decision made against the wrong identifier.
+            request.resolver_match = resolve(unquote(page_url))
+        except Resolver404:
+            logger.warning(
+                "resolve() failed for live_redirect URL %s; sticky auth cannot be re-checked",
+                sanitize_for_log(page_url),
+            )
+            return None
+        return request
+
+    async def handle_presence_heartbeat(self, data: Dict[str, Any]) -> None:
+        """Handle presence heartbeat from client."""
+        if not self.view_instance or not hasattr(self.view_instance, "update_presence_heartbeat"):
+            return
+
+        try:
+            await sync_to_async(self.view_instance.update_presence_heartbeat)()
+        except Exception as e:
+            logger.error("Error updating presence heartbeat: %s", e)
+
+    async def handle_cursor_move(self, data: Dict[str, Any]) -> None:
+        """Handle cursor movement for live cursors."""
+        if not self.view_instance or not hasattr(self.view_instance, "handle_cursor_move"):
+            return
+
+        try:
+            x = data.get("x", 0)
+            y = data.get("y", 0)
+            await sync_to_async(self.view_instance.handle_cursor_move)(x, y)
+        except Exception as e:
+            logger.error("Error handling cursor move: %s", e)
+
+    def _has_live_sticky_children(self) -> bool:
+        """True if the parent view currently holds at least one registered
+        sticky child (a ``{% live_render sticky=True %}`` embed).
+
+        Used by :meth:`handle_request_html` to decide whether the cached
+        ``_recovery_html`` is trustworthy. The cached snapshot is taken on the
+        last PARENT render-send (mount / parent event); embedded-child events
+        deliberately do NOT re-arm it (they send a scoped ``embedded_update``,
+        not a full parent render). So after a child interaction the cached HTML
+        holds an OLD child state — replaying it would reset the sticky child to
+        that stale state (#1813). For pages WITH live sticky children we
+        re-render the parent FRESH at recovery time instead; the (b1)
+        live-instance-reuse hatch in ``live_tags.py`` makes that re-render
+        faithful to the child's current state.
+        """
+        view = self.view_instance
+        if view is None:
+            return False
+        get_all = getattr(view, "_get_all_child_views", None)
+        if not callable(get_all):
+            return False
+        try:
+            children = get_all()
+        except Exception:  # noqa: BLE001 — defensive: never break recovery
+            return False
+        return any(getattr(child, "sticky_id", None) for child in children.values())
+
+    async def handle_request_html(self, data: Dict[str, Any]) -> None:
+        """
+        Handle client request for full HTML when VDOM patches fail.
+
+        The client sends {"type": "request_html"} when applyPatches() returns
+        false (e.g., due to {% if %} blocks shifting DOM structure). Server
+        responds with the last rendered HTML for client-side DOM morphing.
+
+        #1813 (b2)(ii): when the parent has live sticky children, the cached
+        ``_recovery_html`` may be stale (it is NOT re-armed on embedded-child
+        events, which send scoped ``embedded_update`` frames rather than a full
+        parent render). Replaying it would reset the sticky child to mount /
+        pre-interaction state — the data-loss bug. For such pages we re-render
+        the parent FRESH here; the (b1) live-instance-reuse hatch in
+        ``live_tags.py`` makes the fresh render faithful to the live child's
+        current state. Recovery is rare and child events frequent, so paying
+        the re-render cost on recovery (not on every child event) is also the
+        lowest-overhead choice. Non-sticky pages keep the cached-replay path
+        unchanged.
+        """
+        if not self.view_instance:
+            await self.send_error("View not mounted")
+            return
+        # Non-None handle for the nested render closure below (mypy doesn't carry
+        # the guard's narrowing into the closure; the view is mounted here).
+        view = self.view_instance
+
+        # The html_recovery frame carries the CONSUMER version of the frame it
+        # replaces (#1788): the client sets ``clientVdomVersion = data.version``
+        # directly on html_recovery (``static/djust/src/03-websocket.js:727``),
+        # so it MUST equal ``_recovery_version`` (captured by _arm_recovery from
+        # _last_sent_version). The fresh re-render below produces a NEW Rust
+        # version which is DISCARDED for the wire — sending it would desync the
+        # client against the consumer counter.
+        version = getattr(self, "_recovery_version", 0)
+
+        if self._has_live_sticky_children():
+            # Re-render the parent fresh so the recovery HTML reflects the live
+            # sticky child's CURRENT state (#1813). Mirrors the sync/render
+            # sequence used by the async-result path (sync state to Rust, then
+            # render_with_diff for the full raw HTML). The fresh Rust version is
+            # DISCARDED (#1788) — only the HTML is taken; ``version`` stays the
+            # consumer-owned ``_recovery_version``.
+            def _sync_and_render() -> Any:
+                if hasattr(view, "_sync_state_to_rust"):
+                    view._sync_state_to_rust()
+                fresh_html, _patches, _fresh_version = view.render_with_diff()
+                return fresh_html
+
+            try:
+                html = await sync_to_async(_sync_and_render)()
+            except Exception:  # noqa: BLE001 — fall back to cached snapshot
+                logger.exception(
+                    "[djust] request_html fresh re-render failed; falling back "
+                    "to cached recovery HTML"
+                )
+                html = getattr(self, "_recovery_html", None)
+        else:
+            html = getattr(self, "_recovery_html", None)
+
+        if not html:
+            await self.send_error(
+                "Recovery HTML unavailable — the server may have restarted. "
+                "A page reload will fix this.",
+                recoverable=False,
+            )
+            return
+
+        html = await sync_to_async(self.view_instance._strip_comments_and_whitespace)(html)
+        html_content = await sync_to_async(self.view_instance._extract_liveview_content)(html)
+
+        # Clear recovery state (one-time use)
+        self._recovery_html = None
+
+        await self.send_json(
+            {
+                "type": "html_recovery",
+                "html": html_content,
+                "version": version,
+            }
+        )
+
+    # Per-frame size cap for time_travel_event frames. Set to 16 KiB —
+    # a quarter of the conventional 64 KiB WebSocket frame limit — so a
+    # view with large state (e.g. a 1000-row list) cannot flood the
+    # channel on every event. When exceeded, state_before / state_after
+    # are replaced with a truncation placeholder and the frame carries
+    # ``_truncated: True``. See Stage 11 Fix C.
+    _TT_EVENT_SIZE_CAP = 16 * 1024
+
+    async def _maybe_push_tt_event(self, view: Any, snapshot: Any) -> None:
+        """Push a ``time_travel_event`` frame to the client after a record.
+
+        Dev-only. Fan out freshly-captured :class:`EventSnapshot` entries
+        over the main djust WebSocket so the debug panel's Time Travel
+        tab can incrementally populate its history — without re-sending
+        the entire buffer on every event.
+
+        No-op when:
+            * ``snapshot`` is ``None`` (time-travel disabled on the view
+              or a guard returned early)
+            * ``DEBUG`` is off (production gate)
+            * The send itself fails (best-effort)
+
+        When the serialized entry exceeds :attr:`_TT_EVENT_SIZE_CAP`,
+        ``state_before`` / ``state_after`` are replaced with a truncation
+        placeholder so spammy handlers on large-state views can't bloat
+        the WS channel. The full state is still available server-side
+        via the ring buffer for ``time_travel_jump``.
+        """
+        if snapshot is None:
+            return
+        from django.conf import settings
+
+        if not getattr(settings, "DEBUG", False):
+            return
+        buffer = getattr(view, "_time_travel_buffer", None)
+        if buffer is None:
+            return
+        try:
+            entry = snapshot.to_dict()
+            # Serialized size check — default=str tolerates non-JSON-
+            # native types (datetimes, Decimals) the same way the rest
+            # of the debug-frame plumbing does.
+            serialized = json.dumps(entry, default=str)
+            if len(serialized) > self._TT_EVENT_SIZE_CAP:
+                state_before = entry.get("state_before") or {}
+                state_after = entry.get("state_after") or {}
+                entry["state_before"] = {
+                    "_truncated": True,
+                    "_size": len(json.dumps(state_before, default=str)),
+                }
+                entry["state_after"] = {
+                    "_truncated": True,
+                    "_size": len(json.dumps(state_after, default=str)),
+                }
+                entry["_truncated"] = True
+            # Surface __components__ at the top level too (#1151, v0.9.4)
+            # so the client doesn't have to dig into entry.state_after to
+            # find per-component state. Mirrors the existing additive-
+            # field pattern from mount-batch frames.
+            components_mirror = None
+            if not entry.get("_truncated"):
+                state_after = entry.get("state_after") or {}
+                components_mirror = state_after.get("__components__")
+            await self.send_json(
+                {
+                    "type": "time_travel_event",
+                    "entry": entry,
+                    "history_len": len(buffer),
+                    "branch_id": getattr(view, "_time_travel_branch_id", "main"),
+                    "components": components_mirror,
+                }
+            )
+        except Exception:  # noqa: BLE001 — dev-only, degrade silently
+            logger.exception("time_travel: failed to push event frame")
+
+    def _build_time_travel_state(
+        self,
+        view: Any,
+        buffer: Any,
+        cursor: int,
+        which: str,
+    ) -> Dict[str, Any]:
+        """Build the ``time_travel_state`` ack frame (#1151, v0.9.4).
+
+        Augments the v0.6.1 ack shape (cursor / which / history_len) with
+        ``branch_id``, ``forward_replay_enabled``, and ``max_events`` so
+        the debug panel UI can render the per-component scrubber, the
+        forward-replay button, and the max-events indicator without a
+        second request.
+
+        ``forward_replay_enabled`` is true iff replaying from the current
+        cursor would produce a meaningful branch — i.e., the cursor is
+        not at the canonical tip of the buffer. Tip semantics depend on
+        ``which``: with ``which="after"`` the tip is the last index;
+        with ``which="before"`` the tip is the index PAST the last (the
+        baseline before any future event would land), so a cursor at
+        ``len-1`` with ``which="before"`` is still pre-tip.
+        """
+        from djust.config import config as _djust_config
+
+        history_len = len(buffer)
+        if which == "after":
+            forward_replay_enabled = cursor < history_len - 1
+        else:  # which == "before"
+            forward_replay_enabled = cursor < history_len
+        return {
+            "type": "time_travel_state",
+            "cursor": cursor,
+            "which": which,
+            "history_len": history_len,
+            "branch_id": getattr(view, "_time_travel_branch_id", "main"),
+            "forward_replay_enabled": forward_replay_enabled,
+            "max_events": getattr(
+                buffer, "max_events", _djust_config.get("time_travel_max_events", 100)
+            ),
+        }
+
+    async def handle_time_travel_jump(self, data: Dict[str, Any]) -> None:
+        """Jump the view to a past :class:`EventSnapshot`.
+
+        Dev-only. The debug panel's Time Travel tab emits
+        ``{"type": "time_travel_jump", "index": N, "which": "before"|"after"}``;
+        the server restores the captured state onto the view and
+        re-renders via the normal patch pipeline. A ``time_travel_state``
+        frame is sent back so the client can update its cursor.
+
+        Rejected in production (``DEBUG=False``) and when the view
+        hasn't opted in via ``time_travel_enabled``.
+        """
+        from django.conf import settings
+
+        if not getattr(settings, "DEBUG", False):
+            await self.send_error("time_travel requires DEBUG=True")
+            return
+        if not self.view_instance:
+            await self.send_error("View not mounted")
+            return
+        buffer = getattr(self.view_instance, "_time_travel_buffer", None)
+        if buffer is None:
+            await self.send_error("time_travel not enabled on this view")
+            return
+
+        index = data.get("index")
+        which = data.get("which", "before")
+        if not isinstance(index, int):
+            await self.send_error("time_travel_jump: index must be int")
+            return
+        if which not in ("before", "after"):
+            await self.send_error("time_travel_jump: which must be 'before' or 'after'")
+            return
+
+        snapshot = buffer.jump(index)
+        if snapshot is None:
+            await self.send_error("time_travel_jump: no snapshot at index %d" % index)
+            return
+
+        from djust.time_travel import restore_snapshot
+
+        ok = await sync_to_async(restore_snapshot)(self.view_instance, snapshot, which)
+        if not ok:
+            await self.send_error("time_travel_jump: restore failed")
+            return
+
+        # Re-render via the existing patch pipeline so the client sees
+        # the restored state without a full mount. Use render_with_diff
+        # directly (mirrors the hotreload / broadcast paths).
+        try:
+            html, patches, version = await sync_to_async(self.view_instance.render_with_diff)()
+            patch_list = None
+            if patches is not None:
+                patch_list = fast_json_loads(patches) if patches else []
+            await self._send_update(
+                patches=patch_list,
+                html=html,
+                # Render-send: arm recovery so _recovery_version tracks this
+                # jump's version (#1817). ``html`` is the pre-strip render.
+                version=self._next_version_armed(html),
+                event_name="__time_travel_jump__",
+            )
+        except Exception as exc:  # noqa: BLE001 — dev-only, log + report
+            logger.exception("time_travel_jump: re-render failed")
+            await self.send_error("time_travel_jump: re-render failed: %s" % exc)
+            return
+
+        await self.send_json(
+            self._build_time_travel_state(self.view_instance, buffer, index, which)
+        )
+
+    async def handle_time_travel_component_jump(self, data: Dict[str, Any]) -> None:
+        """Scrub a SINGLE component's state (#1151, v0.9.4).
+
+        Dev-only. Mirrors :meth:`handle_time_travel_jump` but restores
+        only ``view._components[component_id]`` from the snapshot at
+        ``index``, leaving the parent view and other components alone.
+        Used by the debug panel's per-component scrubber.
+
+        Frame: ``{"type": "time_travel_component_jump", "index": N,
+        "component_id": "<id>", "which": "before"|"after"}``.
+        """
+        from django.conf import settings
+
+        if not getattr(settings, "DEBUG", False):
+            await self.send_error("time_travel requires DEBUG=True")
+            return
+        if not self.view_instance:
+            await self.send_error("View not mounted")
+            return
+        buffer = getattr(self.view_instance, "_time_travel_buffer", None)
+        if buffer is None:
+            await self.send_error("time_travel not enabled on this view")
+            return
+
+        index = data.get("index")
+        component_id = data.get("component_id")
+        which = data.get("which", "before")
+        if not isinstance(index, int):
+            await self.send_error("time_travel_component_jump: index must be int")
+            return
+        if not isinstance(component_id, str) or not component_id:
+            await self.send_error(
+                "time_travel_component_jump: component_id must be a non-empty string"
+            )
+            return
+        if which not in ("before", "after"):
+            await self.send_error("time_travel_component_jump: which must be 'before' or 'after'")
+            return
+
+        snapshot = buffer.jump(index)
+        if snapshot is None:
+            await self.send_error("time_travel_component_jump: no snapshot at index %d" % index)
+            return
+
+        from djust.time_travel import restore_component_snapshot
+
+        ok = await sync_to_async(restore_component_snapshot)(
+            self.view_instance, snapshot, component_id, which
+        )
+        if not ok:
+            await self.send_error("time_travel_component_jump: restore failed")
+            return
+
+        try:
+            html, patches, version = await sync_to_async(self.view_instance.render_with_diff)()
+            patch_list = None
+            if patches is not None:
+                patch_list = fast_json_loads(patches) if patches else []
+            await self._send_update(
+                patches=patch_list,
+                html=html,
+                # Render-send: arm recovery so _recovery_version tracks this
+                # component-jump's version (#1817). ``html`` is the pre-strip render.
+                version=self._next_version_armed(html),
+                event_name="__time_travel_component_jump__",
+            )
+        except Exception as exc:  # noqa: BLE001 — dev-only, log + report
+            logger.exception("time_travel_component_jump: re-render failed")
+            await self.send_error("time_travel_component_jump: re-render failed: %s" % exc)
+            return
+
+        await self.send_json(
+            self._build_time_travel_state(self.view_instance, buffer, index, which)
+        )
+
+    async def handle_forward_replay(self, data: Dict[str, Any]) -> None:
+        """Forward-replay a recorded event with optional override params (#1151, v0.9.4).
+
+        Dev-only. Restores the view to ``state_before`` of the snapshot at
+        ``from_index`` and re-invokes the recorded event handler with
+        either the original params or caller-supplied ``override_params``.
+        When the cursor is not at the buffer tip, allocates a new
+        ``branch_id`` for the resulting branched timeline.
+
+        Frame: ``{"type": "forward_replay", "from_index": N,
+        "override_params": {...}}`` (override_params is optional).
+        """
+        from django.conf import settings
+
+        if not getattr(settings, "DEBUG", False):
+            await self.send_error("time_travel requires DEBUG=True")
+            return
+        if not self.view_instance:
+            await self.send_error("View not mounted")
+            return
+        buffer = getattr(self.view_instance, "_time_travel_buffer", None)
+        if buffer is None:
+            await self.send_error("time_travel not enabled on this view")
+            return
+
+        from_index = data.get("from_index")
+        override_params = data.get("override_params")
+        if not isinstance(from_index, int):
+            await self.send_error("forward_replay: from_index must be int")
+            return
+        if override_params is not None and not isinstance(override_params, dict):
+            await self.send_error("forward_replay: override_params must be dict or null")
+            return
+
+        snapshot = buffer.jump(from_index)
+        if snapshot is None:
+            await self.send_error("forward_replay: no snapshot at index %d" % from_index)
+            return
+
+        # Decide whether this replay forks the timeline. Two conditions
+        # warrant a new branch_id (either is sufficient):
+        #   1. ``from_index`` is not the buffer tip — replaying a past
+        #      event diverges from the recorded successor.
+        #   2. ``override_params`` is non-None — replay runs with
+        #      different inputs than originally recorded, so it diverges
+        #      even when from the tip. (Caught by Stage 11 review:
+        #      replaying the LAST entry with override_params silently
+        #      merged into "main" before this fix.)
+        # Replay from the tip with no overrides just re-records to
+        # "main". Branch-id is allocated AFTER ``replay_event`` succeeds
+        # — otherwise a missing / un-decorated handler would leak a
+        # counter bump and a stale branch_id with no recorded events.
+        from djust.time_travel import next_branch_id, replay_event
+
+        history_len_before = len(buffer)
+        forks_timeline = from_index < history_len_before - 1 or override_params is not None
+
+        replayed = await sync_to_async(replay_event)(
+            self.view_instance, snapshot, override_params, True
+        )
+        if replayed is None:
+            await self.send_error("forward_replay: replay handler missing or refused")
+            return
+
+        # Replay succeeded — commit the branch_id mutation now.
+        if forks_timeline:
+            new_branch = next_branch_id(self.view_instance)
+            try:
+                self.view_instance._time_travel_branch_id = new_branch
+            except Exception:  # noqa: BLE001 — slot/descriptor readonly
+                logger.exception("forward_replay: failed to set branch_id")
+
+        try:
+            html, patches, version = await sync_to_async(self.view_instance.render_with_diff)()
+            patch_list = None
+            if patches is not None:
+                patch_list = fast_json_loads(patches) if patches else []
+            await self._send_update(
+                patches=patch_list,
+                html=html,
+                # Render-send: arm recovery so _recovery_version tracks this
+                # forward-replay's version (#1817). ``html`` is the pre-strip render.
+                version=self._next_version_armed(html),
+                event_name="__forward_replay__",
+            )
+        except Exception as exc:  # noqa: BLE001 — dev-only, log + report
+            logger.exception("forward_replay: re-render failed")
+            await self.send_error("forward_replay: re-render failed: %s" % exc)
+            return
+
+        # Cursor lands at the new tip after the replay's recorded snapshot.
+        new_cursor = len(buffer) - 1
+        await self.send_json(
+            self._build_time_travel_state(self.view_instance, buffer, new_cursor, "after")
+        )
+
+    async def handle_bug_capture_share(self, data: Dict[str, Any]) -> None:
+        """Compute a `djbug1.` bug-capture blob for the debug panel's Share button (#1562).
+
+        Dev-only, mirrors the ``handle_time_travel_jump`` gating shape.
+        Strictly read-only from the client's point of view: this never
+        mutates view state, never dispatches a handler, and the server
+        never touches the clipboard itself — it only computes the blob
+        and sends it back as a ``bug_capture_share_result`` frame; the
+        client-side debug panel (``09a-tab-time-travel.js``) is
+        responsible for the actual ``navigator.clipboard.writeText()``
+        call.
+
+        The DEBUG-vs-production gate is intentionally NOT duplicated
+        here — ``encode_view_state()`` -> ``BugCapture.encode()`` ->
+        ``_enforce_prod_gate()`` is the single authoritative check (the
+        same one the programmatic ``encode_view_state()`` API and the
+        replay viewer's URL registration both key off), so this handler
+        can't silently drift from it. A ``RuntimeError`` from that gate
+        is caught below like any other encode-time error.
+
+        Frame: ``{"type": "bug_capture_share"}`` (no other fields —
+        the field list this view's ``scrub`` applies comes from
+        ``LIVEVIEW_CONFIG['bug_capture_default_scrub']``, a *server*
+        setting; the client cannot widen or narrow what gets scrubbed).
+        """
+        if not self.view_instance:
+            await self.send_error("View not mounted")
+            return
+        if not getattr(self.view_instance, "time_travel_enabled", False):
+            await self.send_error(
+                "bug_capture_share: time_travel_enabled must be True on this view"
+            )
+            return
+
+        from djust.bug_capture import encode_view_state, scrub_fields
+        from djust.config import config as _djust_config
+
+        try:
+            _html, patches_json, _version = await sync_to_async(
+                self.view_instance.render_with_diff
+            )()
+            default_scrub = _djust_config.get("bug_capture_default_scrub", []) or []
+            scrub = scrub_fields(*default_scrub) if default_scrub else None
+            blob = await sync_to_async(encode_view_state)(
+                self.view_instance,
+                patches=patches_json or "[]",
+                scrub=scrub,
+            )
+        except (RuntimeError, ValueError) as exc:
+            await self.send_error("bug_capture_share: %s" % exc)
+            return
+        except Exception:  # noqa: BLE001 — dev tool, never crash the socket
+            logger.exception("bug_capture_share: failed to encode capture")
+            await self.send_error("bug_capture_share: failed to encode capture")
+            return
+
+        await self.send_json({"type": "bug_capture_share_result", "blob": blob})
+
+    async def presence_event(self, event: Dict[str, Any]) -> None:
+        """
+        Handle presence-related events from the channel layer.
+
+        These events are broadcasted to all users in a presence group. They are
+        forwarded only while this connection has a mounted view; with none (the
+        mount was refused or never happened) the event is dropped.
+        """
+        if not self.view_instance:
+            return
+        await self.send_json(
+            {
+                "type": "presence_event",
+                "event": event.get("event", ""),
+                "payload": event.get("payload", {}),
+            }
+        )
+
+    async def server_push(self, event: Dict[str, Any]) -> None:
+        """
+        Handle a server-push message from the channel layer.
+
+        Called when external code (Celery tasks, management commands, etc.)
+        sends an update via push_to_view().
+
+        Event sequencing: acquires _render_lock to serialize with tick and
+        event handlers. Yields to user events: a push that finds the session
+        busy (a user event or background result in progress, or the lock held
+        past 0.1 s) is deferred, not dropped, and replayed in order once the
+        lock frees (#3001). Before #3001 it was dropped, so the last push of a
+        change could leave a viewer on stale state indefinitely.
+        Tags updates with source="broadcast" so the client can buffer them.
+
+        Args:
+            event: Channel layer event with optional 'state', 'handler', 'payload'
+        """
+        if not self.view_instance:
+            return
+
+        try:
+            # Skip our OWN self-broadcast (#1677): when a handler on THIS
+            # session pushed to its own view, the originating session already
+            # got the state via its direct event response. Re-rendering for the
+            # redundant self-broadcast bumps the VDOM version, which under rapid
+            # event bursts arrives non-sequentially at the client and triggers a
+            # full-HTML recovery storm + intermittent reconnect. Other sessions
+            # (sender_channel != ours) and external pushes (sender_channel is
+            # None — Celery, cross-view, etc.) are unaffected.
+            sender_channel = event.get("sender_channel")
+            if sender_channel and sender_channel == self.channel_name:
+                logger.debug(
+                    "[djust] server_push on %s skipped — own self-broadcast (#1677)",
+                    self.view_instance.__class__.__name__,
+                )
+                return
+
+            # Yield to user events (#560) without losing the push (#3001):
+            # while a user event is being processed, or while earlier pushes
+            # are still queued (order), queue this one.
+            if self._processing_user_event or getattr(self, "_deferred_pushes", None):
+                logger.debug(
+                    "[djust] server_push on %s deferred — session busy",
+                    self.view_instance.__class__.__name__,
+                )
+                self._defer_server_push(event)
+                return
+
+            # Acquire render lock with timeout to serialize with tick/event
+            # renders. Use same 0.1s timeout as tick loop.
+            try:
+                await asyncio.wait_for(self._render_lock.acquire(), timeout=0.1)
+            except asyncio.TimeoutError:
+                logger.debug(
+                    "[djust] server_push on %s deferred — render lock held",
+                    self.view_instance.__class__.__name__,
+                )
+                self._defer_server_push(event)
+                return
+
+        except Exception as e:
+            logger.exception("Error in server_push: %s", e)
+            return
+
+        await self._run_server_push_turn(event)
+
+    async def _run_server_push_turn(self, *events: Dict[str, Any]) -> None:
+        """Apply pushes to the view, render once and send. Caller holds the lock.
+
+        Always releases ``_render_lock``. The direct path passes one push;
+        the deferred-push drain (#3001) passes every push queued while the
+        session was busy, so a backlog costs one render, not one per push.
+        Each push's hook runs in arrival order with the same guards; a hook
+        that raises is logged and skipped. The turn renders unless every
+        applied hook asked to skip (``_skip_render``), and sends nothing if
+        every hook raised.
+        """
+        try:
+            view = self.view_instance
+            dispatch_work = False
+            try:
+                if view is None:
+                    return
+                render = False
+                for event in events:
+                    # Every hook awaits: re-check the view before each push,
+                    # whether or not the previous hook raised.
+                    if self.view_instance is not view:
+                        return
+                    try:
+                        await self._apply_server_push(view, event)
+                    except Exception as e:  # noqa: BLE001
+                        logger.exception("Error in server_push: %s", e)
+                        continue
+                    # The hook succeeded: start_async work it queued runs once
+                    # the lock is released (#2955). A raising hook queues nothing.
+                    dispatch_work = True
+                    # Views can set _skip_render = True in a handler to
+                    # suppress the re-render cycle (e.g. sender ignoring its own
+                    # broadcast). _resolve_skip_render owns the decision (#2834):
+                    # _force_full_html (#1981, set_changed_keys()) wins — the
+                    # explicitly requested forced render must not be silently
+                    # dropped (#1646 class), and the skip flag is consumed here
+                    # either way, per push.
+                    if not _resolve_skip_render(view):
+                        render = True
+                if self.view_instance is not view or not dispatch_work:
+                    return
+                if not render:
+                    await self._flush_all_pending()
+                    await self._send_noop()
+                    return
+
+                # Sync state and re-render
+                # TODO: add patch compression (PATCH_COUNT_THRESHOLD) matching handle_event
+                if hasattr(view, "_sync_state_to_rust"):
+                    await sync_to_async(view._sync_state_to_rust)()
+
+                html, patches, version = await sync_to_async(view.render_with_diff)()
+
+                # Consume the force flag (one render per
+                # set_changed_keys()/_force_full_html, #1981) — mirrors
+                # _tick_once; without this a collision-served forced render
+                # leaks into a later unrelated turn.
+                if getattr(view, "_force_full_html", False):
+                    view._force_full_html = False
+
+                if patches is not None:
+                    if isinstance(patches, str):
+                        patches = fast_json_loads(patches)
+                    # Store rendered HTML for on-demand recovery, mirroring
+                    # handle_event. Without this, request_html after a failed
+                    # broadcast-triggered patch finds _recovery_html=None and
+                    # forces a page reload. See #1202.
+                    # Consumer-owned wire version + recovery arm in one step
+                    # (#1788, #1817): _recovery_version == this frame's version.
+                    wire_version = self._next_version_armed(html)
+                    await self._send_update(
+                        patches=patches,
+                        version=wire_version,
+                        broadcast=True,
+                        source="broadcast",
+                    )
+                else:
+                    # Even if no patches, flush any push_events and flash messages
+                    await self._flush_all_pending()
+            finally:
+                self._render_lock.release()
+                if dispatch_work and self.view_instance is view:
+                    await self._dispatch_async_work(event_name=None)
+
+        except Exception as e:
+            logger.exception("Error in server_push: %s", e)
+
+    async def _apply_server_push(self, view: Any, event: Dict[str, Any]) -> None:
+        """Apply one push's ``state`` and call its handler (the push's hook)."""
+        # Apply state updates before handler call so the handler can read
+        # the new values. _sync_state_to_rust runs after both to push the
+        # final Python state to Rust for rendering.
+        state = event.get("state")
+        if state and isinstance(state, dict):
+            # Apply via safe_setattr — the same guard every other
+            # state-restore sink uses (snapshot restore at ~:2311,
+            # time_travel.py:276, mixins/request.py). A channel-layer
+            # attacker (the framework's own stated threat model, see the
+            # restricted handler path just below) must NOT be able to
+            # overwrite dunders (__class__/__init__), framework internals
+            # (_framework_attrs/_components/_rust_view), or private `_`
+            # state via mass assignment (#F21, CWE-915/CWE-913).
+            from .security import safe_setattr
+
+            for key, value in state.items():
+                safe_setattr(view, key, value, allow_private=False)
+
+        # Call handler if specified — restricted to handle_* prefixed or
+        # @event_handler-decorated methods to prevent arbitrary method calls
+        # if an attacker gains access to the channel layer backend.
+        handler_name = event.get("handler")
+        if handler_name:
+            handler_fn = getattr(view, handler_name, None)
+            if handler_fn and callable(handler_fn):
+                from .decorators import is_event_handler
+
+                if not (handler_name.startswith("handle_") or is_event_handler(handler_fn)):
+                    logger.warning(
+                        "server_push: blocked handler %r — must be handle_* or @event_handler",
+                        handler_name,
+                    )
+                else:
+                    payload = event.get("payload") or {}
+                    await sync_to_async(handler_fn)(**payload)
+
+    def _defer_server_push(self, event: Dict[str, Any]) -> None:
+        """Queue a push that found the session busy, and make sure a drain runs.
+
+        An identical push already waiting is superseded, not repeated: the
+        queue keeps one entry per distinct push, at the position of its
+        latest arrival. Without this a push stream faster than the render
+        (a 100 ms room clock) would keep the queue full and the viewer
+        seconds behind for good; repeated identical pushes coalesce the way
+        ticks do. The queue is also bounded; past the bound the OLDEST push
+        is dropped, so the most recent state still arrives (#3001). Each
+        entry remembers the view it was addressed to: a push queued before a
+        live_redirect or disconnect is dropped rather than applied to a
+        different view.
+        """
+        queue = getattr(self, "_deferred_pushes", None)
+        if queue is None:
+            queue = self._deferred_pushes = collections.deque(maxlen=_MAX_DEFERRED_PUSHES)
+        view = self.view_instance
+        for queued in list(queue):
+            if queued[0] is view and queued[1] == event:
+                queue.remove(queued)
+        if len(queue) == queue.maxlen:
+            logger.debug("[djust] deferred server_push queue full — dropping the oldest")
+        queue.append((view, event))
+        task = getattr(self, "_push_drain_task", None)
+        if task is None or task.done():
+            self._push_drain_task = asyncio.ensure_future(self._drain_deferred_pushes())
+
+    async def _drain_deferred_pushes(self) -> None:
+        """Replay deferred pushes in order, each as soon as the lock frees."""
+        queue = self._deferred_pushes
+        while queue:
+            # Unbounded wait is right here: this runs in its own task, not in
+            # the dispatch loop, so it blocks nothing; whoever holds the lock
+            # (a user event, a background result, a tick) releases it.
+            await self._render_lock.acquire()
+            # Take everything queued so far: one turn, one render (#3001).
+            # Entries for a view that has since been replaced are dropped.
+            events = []
+            while queue:
+                view, event = queue.popleft()
+                if view is not None and view is self.view_instance:
+                    events.append(event)
+            if not events:
+                self._render_lock.release()
+                continue
+            await self._run_server_push_turn(*events)
+
+    def _cancel_deferred_pushes(self) -> None:
+        """Drop queued pushes and stop the drain (disconnect / view teardown)."""
+        # getattr: test doubles and subclasses may skip __init__.
+        queue = getattr(self, "_deferred_pushes", None)
+        if queue is not None:
+            queue.clear()
+        task = getattr(self, "_push_drain_task", None)
+        self._push_drain_task = None
+        if task is not None and not task.done():
+            task.cancel()
+
+    async def client_push_event(self, event: Dict[str, Any]) -> None:
+        """
+        Handle a direct push_event from the channel layer (via push_event_to_view).
+
+        Sends the event directly to the client without re-rendering. Dropped
+        when this connection has no mounted view, like ``server_push``.
+        """
+        if not self.view_instance:
+            return
+        await self.send_json(
+            {
+                "type": "push_event",
+                "event": event.get("event", ""),
+                "payload": event.get("payload", {}),
+            }
+        )
+
+    async def db_notify(self, event: Dict[str, Any]) -> None:
+        """Handle a PostgreSQL NOTIFY forwarded by ``PostgresNotifyListener``.
+
+        The listener calls ``group_send("djust_db_notify_<channel>", ...)``
+        when a NOTIFY arrives on the wire. Every consumer whose view
+        subscribed via ``self.listen(<channel>)`` receives this event.
+
+        Flow:
+          1. Dispatch a ``handle_info({"type": "db_notify", ...})`` call on
+             the view (runs under the render lock to serialize with
+             ticks and user events).
+          2. Re-sync state to Rust and emit VDOM patches via the same
+             ``source="broadcast"`` path as ``server_push``.
+
+        **Best-effort under contention (#813).** The render lock is acquired
+        with a 100ms timeout; if a user event or earlier notification is
+        still holding the lock, this db_notify is **silently dropped**
+        (debug-logged). The dropped notification does NOT queue — under
+        bursty notification streams, some re-renders will be skipped. If
+        strict "every notify causes a render" semantics are required,
+        de-dupe by primary key in your ``handle_info`` and use
+        ``self.server_push`` / ``self.live_patch`` from a handler that
+        owns the lock. The tradeoff here is deliberate: NOTIFY messages
+        carry no delivery guarantee anyway (Postgres drops them on
+        connection failure), and silently dropping contended renders is
+        preferable to deadlock or unbounded queue growth.
+        """
+        if not self.view_instance:
+            return
+
+        channel = event.get("channel", "")
+        payload = event.get("payload", {})
+        message = {"type": "db_notify", "channel": channel, "payload": payload}
+
+        try:
+            # Yield to user events: version interleaving is the same risk
+            # as server_push (#560).
+            if self._processing_user_event:
+                logger.debug(
+                    "[djust] db_notify on %s skipped — user event in progress",
+                    self.view_instance.__class__.__name__,
+                )
+                return
+
+            try:
+                await asyncio.wait_for(self._render_lock.acquire(), timeout=0.1)
+            except asyncio.TimeoutError:
+                logger.debug(
+                    "[djust] db_notify on %s skipped — render lock held",
+                    self.view_instance.__class__.__name__,
+                )
+                return
+
+            view = self.view_instance
+            dispatch_work = False
+            try:
+                handler = getattr(self.view_instance, "handle_info", None)
+                if handler and callable(handler):
+                    try:
+                        await sync_to_async(handler)(message)
+                        # start_async work handle_info queued runs once the
+                        # lock is released (#2955).
+                        dispatch_work = True
+                    except Exception as exc:  # noqa: BLE001
+                        logger.exception(
+                            "db_notify: handle_info raised on %s: %s",
+                            self.view_instance.__class__.__name__,
+                            exc,
+                        )
+                        return
+
+                # _resolve_skip_render owns the decision (#2834):
+                # _force_full_html (#1981, set_changed_keys()) wins over
+                # _skip_render — the explicitly requested forced render must
+                # not be silently dropped (#1646 class), and the skip flag
+                # is consumed here either way.
+                if _resolve_skip_render(self.view_instance):
+                    await self._flush_all_pending()
+                    await self._send_noop()
+                    return
+
+                if hasattr(self.view_instance, "_sync_state_to_rust"):
+                    await sync_to_async(self.view_instance._sync_state_to_rust)()
+
+                html, patches, version = await sync_to_async(self.view_instance.render_with_diff)()
+
+                # Consume the force flag (one render per
+                # set_changed_keys()/_force_full_html, #1981) — mirrors
+                # _tick_once; without this a collision-served forced render
+                # leaks into a later unrelated turn.
+                if getattr(self.view_instance, "_force_full_html", False):
+                    self.view_instance._force_full_html = False
+
+                if patches is not None:
+                    if isinstance(patches, str):
+                        patches = fast_json_loads(patches)
+                    # Render-send: arm recovery so _recovery_version tracks this
+                    # db_notify broadcast's version (#1817), mirroring server_push.
+                    # ``html`` is the pre-strip render from render_with_diff() above.
+                    await self._send_update(
+                        patches=patches,
+                        version=self._next_version_armed(html),
+                        broadcast=True,
+                        source="broadcast",
+                    )
+                else:
+                    await self._flush_all_pending()
+
+                # v0.7.0 — If handle_info flipped an activity to visible,
+                # drain its queue in the same round-trip. The flush is
+                # async and awaited inline. Safe no-op when no deferred
+                # events exist.
+                if hasattr(self.view_instance, "_flush_deferred_activity_events"):
+                    try:
+                        await self.view_instance._flush_deferred_activity_events(self)
+                    except Exception:  # noqa: BLE001
+                        logger.exception(
+                            "dj_activity: deferred-event flush raised (db_notify path)"
+                        )
+            finally:
+                self._render_lock.release()
+                if dispatch_work and self.view_instance is view:
+                    await self._dispatch_async_work(event_name=None)
+        except Exception as e:  # noqa: BLE001
+            logger.exception("Error in db_notify: %s", e)
+
+    async def _run_tick(self, interval_ms: int) -> None:
+        """
+        Periodic tick loop. Calls :meth:`_tick_once` every ``interval_ms``
+        milliseconds until the view goes away or the task is cancelled.
+
+        The loop is deliberately this thin: everything that decides whether a
+        tick renders and sends lives in :meth:`_tick_once`, which a test can
+        drive directly instead of waiting on a real timer. The end-to-end test
+        that waited for a real 50ms tick to fire was flaky under CPU load — the
+        first render can exceed the sampling window, so a pass/fail gate on it
+        is a wall-clock race (#2124, the class canonized by #1795 / #1830).
+        """
+        interval_s = interval_ms / 1000.0
+        # The view this loop ticks for. The runtime starts the task inside its
+        # mount, after assigning the view to itself but before the consumer
+        # reads it back (#2945).
+        runtime = getattr(self, "_runtime", None)
+        own_view = getattr(runtime, "view_instance", None)
+        if own_view is None:
+            own_view = self.view_instance
+        try:
+            while True:
+                await asyncio.sleep(interval_s)
+                # The socket is gone: stop, whatever view_instance says. A
+                # consumer whose disconnect() never ran would otherwise tick
+                # (and heartbeat presence) forever (#3000).
+                if getattr(self, "_ws_close_sent", False):
+                    break
+                view = self.view_instance
+                if own_view is not None and view is not None and view is not own_view:
+                    # Another view was mounted on this socket; it has its own
+                    # tick task.
+                    break
+                if not view:
+                    # Not read back yet: wait for the next beat while the
+                    # runtime still holds our mounting view, instead of
+                    # stopping for good (#2945). A refused mount, a teardown
+                    # or a disconnect clears or replaces the runtime's view,
+                    # so the loop still stops then.
+                    if own_view is not None and getattr(runtime, "view_instance", None) is own_view:
+                        continue
+                    break
+                try:
+                    await self._tick_once()
+                except Exception as e:
+                    logger.exception("Error in tick handler: %s", e)
+        except asyncio.CancelledError:
+            pass  # Normal shutdown path when tick loop is cancelled
+
+    async def _tick_once(self) -> bool:
+        """One tick iteration: run ``handle_tick``, render, send. Returns
+        whether a patch frame was actually sent.
+
+        Event sequencing (#560):
+        - Skips render when handle_tick() doesn't change any public assigns
+        - Skips render (and the second ``_snapshot_assigns`` call) when
+          ``handle_tick()`` sets ``_skip_render = True``, via the shared
+          ``_resolve_skip_render`` decision also used by server_push /
+          db_notify / the runtime event spine (#2834, #2822) so a tick
+          handler that knows it changed nothing (e.g. an early return for a
+          non-host session) doesn't pay for change-detection fingerprinting
+          it already knows is a no-op. ``_force_full_html`` (#1981) always
+          wins over ``_skip_render`` — on every path, not just here.
+        - Acquires _render_lock to serialize with event handlers
+        - Yields to user events: if a user event is being processed, the
+          tick is skipped instead of blocking
+        - Tags tick updates with source="tick" so the client can buffer
+          them during pending user event round-trips
+
+        Every early return here is a SKIP, not a stop — the caller keeps
+        ticking. The one condition that stops the loop (no view instance) is
+        checked by the caller, so calling this directly with no view is a
+        no-op rather than a crash.
+        """
+        if not self.view_instance:
+            return False
+
+        # User events take priority over ticks (#560). If a user event is
+        # currently being processed, skip this tick entirely — the next tick
+        # interval will pick up any changes. This prevents version
+        # interleaving.
+        if self._processing_user_event:
+            logger.debug(
+                "[djust] Tick on %s deferred — user event in progress",
+                self.view_instance.__class__.__name__,
+            )
+            return False
+
+        # Acquire render lock to serialize with event handlers. Use a short
+        # timeout so ticks don't block indefinitely if an event handler is
+        # slow.
+        try:
+            await asyncio.wait_for(self._render_lock.acquire(), timeout=0.1)
+        except asyncio.TimeoutError:
+            logger.debug(
+                "[djust] Tick on %s skipped — render lock held",
+                self.view_instance.__class__.__name__,
+            )
+            return False
+
+        view = self.view_instance
+        dispatch_work = False
+        try:
+            # Snapshot state before tick to detect changes
+            pre_assigns = _snapshot_assigns(self.view_instance)
+
+            await sync_to_async(self.view_instance.handle_tick)()
+            # start_async work handle_tick queued runs once the lock is
+            # released (#2955).
+            dispatch_work = True
+
+            # Views can set _skip_render = True inside handle_tick to
+            # suppress the re-render cycle entirely (e.g. an early return
+            # for a non-host session), which also skips the second
+            # _snapshot_assigns() call below — the expensive half of the
+            # tick's change-detection cost (#2822). _resolve_skip_render
+            # owns the decision (#2834): it consumes the flag so a stale
+            # True never leaks into the next tick, and _force_full_html
+            # (#1981) wins over _skip_render — a handler that explicitly
+            # asked for a forced full-HTML render must not be silently
+            # dropped by a concurrently-set _skip_render.
+            if _resolve_skip_render(self.view_instance):
+                logger.debug(
+                    "[djust] Tick on %s skipped render via _skip_render",
+                    self.view_instance.__class__.__name__,
+                )
+                await self._flush_all_pending()
+                return False
+
+            # Skip render if tick handler didn't change any state.
+            # Honor _force_full_html (set by set_changed_keys(), #1981)
+            # like the event paths do (runtime.py / handle_event) — an
+            # in-place mutation inside handle_tick is invisible to the
+            # snapshot, so without this guard the hatch would be
+            # silently dropped on the tick path (#1646 parallel-path).
+            force_full_html = getattr(self.view_instance, "_force_full_html", False)
+            post_assigns = _snapshot_assigns(self.view_instance)
+            if pre_assigns == post_assigns and not force_full_html:
+                logger.debug(
+                    "[djust] Tick on %s produced no state changes, skipping render",
+                    self.view_instance.__class__.__name__,
+                )
+                await self._flush_all_pending()
+                return False
+
+            if hasattr(self.view_instance, "_sync_state_to_rust"):
+                await sync_to_async(self.view_instance._sync_state_to_rust)()
+
+            html, patches, version = await sync_to_async(self.view_instance.render_with_diff)()
+
+            # Consume the force flag (one render per
+            # set_changed_keys()/_force_full_html, #1981) — mirrors
+            # the runtime's reset in _render_and_send.
+            if getattr(self.view_instance, "_force_full_html", False):
+                self.view_instance._force_full_html = False
+
+            if patches is not None:
+                if isinstance(patches, str):
+                    patches = fast_json_loads(patches)
+                # Render-send: arm recovery so _recovery_version
+                # tracks this tick's version (#1817). ``html`` is the
+                # pre-strip render from render_with_diff() above.
+                await self._send_update(
+                    patches=patches,
+                    version=self._next_version_armed(html),
+                    event_name="tick",
+                    source="tick",
+                )
+                return True
+            await self._flush_all_pending()
+            return False
+        finally:
+            self._render_lock.release()
+            if dispatch_work and self.view_instance is view:
+                await self._dispatch_async_work(event_name=None)
+
+    @classmethod
+    async def broadcast_reload(cls, file_path: str) -> None:
+        """
+        Broadcast a reload message to all connected clients.
+
+        This is called by the hot reload file watcher when files change.
+
+        Args:
+            file_path: Path of the file that changed
+        """
+        from channels.layers import get_channel_layer
+
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            await channel_layer.group_send(
+                "djust_hotreload",
+                {
+                    "type": "hotreload",
+                    "file": file_path,
+                },
+            )
+
+
+class LiveViewRouter:
+    """
+    Router for LiveView WebSocket connections.
+
+    Maps URL patterns to LiveView classes.
+    """
+
+    _routes: Dict[str, type] = {}
+
+    @classmethod
+    def register(cls, path: str, view_class: type) -> None:
+        """Register a LiveView route"""
+        cls._routes[path] = view_class
+
+    @classmethod
+    def get_view(cls, path: str) -> Optional[type]:
+        """Get the view class for a path"""
+        return cls._routes.get(path)

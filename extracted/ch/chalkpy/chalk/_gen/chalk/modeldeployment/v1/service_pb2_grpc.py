@@ -20,10 +20,35 @@ class ModelDeploymentServiceStub(object):
             request_serializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.CreateModelScalingGroupRequest.SerializeToString,
             response_deserializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.CreateModelScalingGroupResponse.FromString,
         )
+        self.UpdateModelScalingGroup = channel.unary_unary(
+            "/chalk.modeldeployment.v1.ModelDeploymentService/UpdateModelScalingGroup",
+            request_serializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.UpdateModelScalingGroupRequest.SerializeToString,
+            response_deserializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.UpdateModelScalingGroupResponse.FromString,
+        )
+        self.GetModelScalingGroup = channel.unary_unary(
+            "/chalk.modeldeployment.v1.ModelDeploymentService/GetModelScalingGroup",
+            request_serializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.GetModelScalingGroupRequest.SerializeToString,
+            response_deserializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.GetModelScalingGroupResponse.FromString,
+        )
         self.ListModelScalingGroups = channel.unary_unary(
             "/chalk.modeldeployment.v1.ModelDeploymentService/ListModelScalingGroups",
             request_serializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.ListModelScalingGroupsRequest.SerializeToString,
             response_deserializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.ListModelScalingGroupsResponse.FromString,
+        )
+        self.DeleteModelScalingGroup = channel.unary_unary(
+            "/chalk.modeldeployment.v1.ModelDeploymentService/DeleteModelScalingGroup",
+            request_serializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.DeleteModelScalingGroupRequest.SerializeToString,
+            response_deserializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.DeleteModelScalingGroupResponse.FromString,
+        )
+        self.GetModelScalingGroupRevision = channel.unary_unary(
+            "/chalk.modeldeployment.v1.ModelDeploymentService/GetModelScalingGroupRevision",
+            request_serializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.GetModelScalingGroupRevisionRequest.SerializeToString,
+            response_deserializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.GetModelScalingGroupRevisionResponse.FromString,
+        )
+        self.ListModelScalingGroupRevisions = channel.unary_unary(
+            "/chalk.modeldeployment.v1.ModelDeploymentService/ListModelScalingGroupRevisions",
+            request_serializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.ListModelScalingGroupRevisionsRequest.SerializeToString,
+            response_deserializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.ListModelScalingGroupRevisionsResponse.FromString,
         )
         self.CallModel = channel.unary_unary(
             "/chalk.modeldeployment.v1.ModelDeploymentService/CallModel",
@@ -36,13 +61,43 @@ class ModelDeploymentServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def CreateModelScalingGroup(self, request, context):
-        """CreateModelScalingGroup creates a scaling group for a model version"""
+        """Creates a model deployment or appends and selects a revision on redeploy."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def UpdateModelScalingGroup(self, request, context):
+        """UpdateModelScalingGroup updates a model scaling group's spec, traffic, or both."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetModelScalingGroup(self, request, context):
+        """GetModelScalingGroup retrieves a model-owned scaling group."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
     def ListModelScalingGroups(self, request, context):
         """ListModelScalingGroups lists model scaling groups, optionally filtered to a model version"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteModelScalingGroup(self, request, context):
+        """DeleteModelScalingGroup deletes a model scaling group and its Kubernetes resources."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetModelScalingGroupRevision(self, request, context):
+        """GetModelScalingGroupRevision retrieves one model deployment revision."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListModelScalingGroupRevisions(self, request, context):
+        """ListModelScalingGroupRevisions lists a model deployment's revisions."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -61,10 +116,35 @@ def add_ModelDeploymentServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.CreateModelScalingGroupRequest.FromString,
             response_serializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.CreateModelScalingGroupResponse.SerializeToString,
         ),
+        "UpdateModelScalingGroup": grpc.unary_unary_rpc_method_handler(
+            servicer.UpdateModelScalingGroup,
+            request_deserializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.UpdateModelScalingGroupRequest.FromString,
+            response_serializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.UpdateModelScalingGroupResponse.SerializeToString,
+        ),
+        "GetModelScalingGroup": grpc.unary_unary_rpc_method_handler(
+            servicer.GetModelScalingGroup,
+            request_deserializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.GetModelScalingGroupRequest.FromString,
+            response_serializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.GetModelScalingGroupResponse.SerializeToString,
+        ),
         "ListModelScalingGroups": grpc.unary_unary_rpc_method_handler(
             servicer.ListModelScalingGroups,
             request_deserializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.ListModelScalingGroupsRequest.FromString,
             response_serializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.ListModelScalingGroupsResponse.SerializeToString,
+        ),
+        "DeleteModelScalingGroup": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteModelScalingGroup,
+            request_deserializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.DeleteModelScalingGroupRequest.FromString,
+            response_serializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.DeleteModelScalingGroupResponse.SerializeToString,
+        ),
+        "GetModelScalingGroupRevision": grpc.unary_unary_rpc_method_handler(
+            servicer.GetModelScalingGroupRevision,
+            request_deserializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.GetModelScalingGroupRevisionRequest.FromString,
+            response_serializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.GetModelScalingGroupRevisionResponse.SerializeToString,
+        ),
+        "ListModelScalingGroupRevisions": grpc.unary_unary_rpc_method_handler(
+            servicer.ListModelScalingGroupRevisions,
+            request_deserializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.ListModelScalingGroupRevisionsRequest.FromString,
+            response_serializer=chalk_dot_modeldeployment_dot_v1_dot_service__pb2.ListModelScalingGroupRevisionsResponse.SerializeToString,
         ),
         "CallModel": grpc.unary_unary_rpc_method_handler(
             servicer.CallModel,
@@ -112,6 +192,64 @@ class ModelDeploymentService(object):
         )
 
     @staticmethod
+    def UpdateModelScalingGroup(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.modeldeployment.v1.ModelDeploymentService/UpdateModelScalingGroup",
+            chalk_dot_modeldeployment_dot_v1_dot_service__pb2.UpdateModelScalingGroupRequest.SerializeToString,
+            chalk_dot_modeldeployment_dot_v1_dot_service__pb2.UpdateModelScalingGroupResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetModelScalingGroup(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.modeldeployment.v1.ModelDeploymentService/GetModelScalingGroup",
+            chalk_dot_modeldeployment_dot_v1_dot_service__pb2.GetModelScalingGroupRequest.SerializeToString,
+            chalk_dot_modeldeployment_dot_v1_dot_service__pb2.GetModelScalingGroupResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
     def ListModelScalingGroups(
         request,
         target,
@@ -130,6 +268,93 @@ class ModelDeploymentService(object):
             "/chalk.modeldeployment.v1.ModelDeploymentService/ListModelScalingGroups",
             chalk_dot_modeldeployment_dot_v1_dot_service__pb2.ListModelScalingGroupsRequest.SerializeToString,
             chalk_dot_modeldeployment_dot_v1_dot_service__pb2.ListModelScalingGroupsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteModelScalingGroup(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.modeldeployment.v1.ModelDeploymentService/DeleteModelScalingGroup",
+            chalk_dot_modeldeployment_dot_v1_dot_service__pb2.DeleteModelScalingGroupRequest.SerializeToString,
+            chalk_dot_modeldeployment_dot_v1_dot_service__pb2.DeleteModelScalingGroupResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetModelScalingGroupRevision(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.modeldeployment.v1.ModelDeploymentService/GetModelScalingGroupRevision",
+            chalk_dot_modeldeployment_dot_v1_dot_service__pb2.GetModelScalingGroupRevisionRequest.SerializeToString,
+            chalk_dot_modeldeployment_dot_v1_dot_service__pb2.GetModelScalingGroupRevisionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListModelScalingGroupRevisions(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.modeldeployment.v1.ModelDeploymentService/ListModelScalingGroupRevisions",
+            chalk_dot_modeldeployment_dot_v1_dot_service__pb2.ListModelScalingGroupRevisionsRequest.SerializeToString,
+            chalk_dot_modeldeployment_dot_v1_dot_service__pb2.ListModelScalingGroupRevisionsResponse.FromString,
             options,
             channel_credentials,
             insecure,

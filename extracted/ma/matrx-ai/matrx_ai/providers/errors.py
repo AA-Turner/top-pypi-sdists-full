@@ -42,9 +42,23 @@ class RetryableError:
     status_code: int | None = None
     retry_after: float | None = None
     is_retryable: bool = True
-    user_message: str = "The AI service is temporarily unavailable. Retrying..."
+    # 🚨 ``user_message`` names the CONDITION, never the action in progress. It
+    # is read on terminal paths too — the stream ``error`` event, the request
+    # row's ``error`` and the failed assistant turn's stored content — so a
+    # sentence ending "Retrying..." became a screen (and a saved answer)
+    # claiming a retry that was not happening (2026-10-01, Extract Key Points
+    # on a busy OpenAI). The in-flight phrasing lives in ``retry_notice`` and
+    # is composed by ``retrying_message`` ONLY where a retry is really
+    # scheduled. Guard: tests/test_retry_wording_never_terminal.py.
+    user_message: str = "The AI service is temporarily unavailable."
     details: dict[str, object] = field(default_factory=dict)
     retry_schedule: tuple[float, ...] | None = None
+    retry_notice: str = "Retrying automatically…"
+
+    @property
+    def retrying_message(self) -> str:
+        """The sentence for a moment when a retry IS scheduled or running."""
+        return f"{self.user_message} {self.retry_notice}".strip()
 
     def get_backoff_delay(self, attempt: int) -> float:
         if self.retry_schedule:
@@ -606,16 +620,135 @@ def _handle_request_too_large(provider: str, message: str) -> RetryableError:
     )
 
 
+# Provider wording for "the account paying for this call has no credit", from
+# every provider we route to. A billing refusal is never transient: retrying it
+# burns the request's retry budget and hides the one fact the operator needs
+# (2026-10-01: OpenAI "You have no credits remaining" arrived as a bare
+# ``openai.APIError`` with no status, fell to the string fallback, and was
+# retried 3x as ``unknown_error``). Matched on the provider's own text, so a
+# new phrasing goes HERE — one list for every classifier — never into one
+# provider's branch. Guard: tests/test_provider_billing_refusal.py.
+#
+# 🚨 NEVER add "exceeded your current quota" or "check your plan and billing":
+# Google's ORDINARY per-minute 429 says exactly that ("…check your plan and
+# billing details… Please retry in 21.4s"), and a traffic limit must stay a
+# retryable rate_limit. OpenAI's real quota refusal is caught by its
+# ``insufficient_quota`` code instead. Phrases must be specific enough that a
+# 400 echoing a person's own text cannot plausibly contain them.
+_BILLING_REFUSAL_MARKERS = (
+    "no credits remaining",  # OpenAI prepaid
+    "insufficient_quota",  # OpenAI error code
+    "exceeded_current_quota",  # Moonshot
+    "credit balance is too low",  # Anthropic
+    "prepayment credits are depleted",  # Google AI Studio prepay
+    "requires billing to be enabled",  # Google
+    "billing_disabled",  # Google
+    "billing hard limit",  # OpenAI
+    "billing_hard_limit_reached",  # OpenAI
+    "insufficient balance",  # Groq / DeepSeek / Moonshot
+    "insufficient_balance",
+    "insufficient credit",
+    "insufficient quota",
+    "insufficient funds",
+    "doesn't have any credits",  # xAI
+    "does not have any credits",
+    "used all available credits",  # xAI
+    "monthly spending limit",  # xAI
+    "credit limit exceeded",  # Together AI
+    "maximum billing reached",  # Cohere 402 (documented wording)
+    "monthly included credits",  # HuggingFace
+    "credits are required for this request",  # ElevenLabs quota_exceeded
+    "account is suspended",
+    "account suspended",
+)
+
+_SUSPENSION_MARKERS = ("account is suspended", "account suspended")
+
+
+def _billing_refusal_text(exception: BaseException) -> str:
+    body = getattr(exception, "body", None)
+    return f"{exception} {body if body is not None else ''}".lower()
+
+
+def is_billing_refusal(text: str) -> bool:
+    lowered = text.lower()
+    return any(marker in lowered for marker in _BILLING_REFUSAL_MARKERS)
+
+
+# Routing keys → the name a person knows. Classifiers already pass display
+# names; the dispatcher and host fallbacks pass keys ("huggingface", "unknown").
+_PROVIDER_DISPLAY_NAMES = {
+    "openai": "OpenAI",
+    "anthropic": "Anthropic",
+    "google": "Google",
+    "groq": "Groq",
+    "xai": "xAI",
+    "together": "Together AI",
+    "cerebras": "Cerebras",
+    "huggingface": "Hugging Face",
+    "moonshot": "Moonshot",
+    "elevenlabs": "ElevenLabs",
+    "replicate": "Replicate",
+    "cohere": "Cohere",
+    "fastino": "Fastino",
+    "cartesia": "Cartesia",
+    "voyage": "Voyage AI",
+    "livekit": "LiveKit",
+}
+_UNNAMED_PROVIDERS = {"", "unknown", "ai provider", "generic_openai"}
+
+
+def _provider_display_name(provider: str) -> str | None:
+    key = (provider or "").strip().lower()
+    if key in _UNNAMED_PROVIDERS:
+        return None
+    return _PROVIDER_DISPLAY_NAMES.get(key) or provider
+
+
 def _handle_billing_error(
-    provider: str, message: str, status_code: int = 402
+    provider: str, message: str, status_code: int | None = 402
 ) -> RetryableError:
+    # The person cannot fix the platform's provider account, so the sentence
+    # names the condition only — never the provider's "add credits at <URL>",
+    # which is addressed to whoever owns the account (the operator, who gets
+    # the raw ``message`` and an ops.system_error row).
+    condition = (
+        "is suspended"
+        if any(marker in message.lower() for marker in _SUSPENSION_MARKERS)
+        else "is out of credit"
+    )
+    name = _provider_display_name(provider)
+    user_message = (
+        f"{name} refused this request: the platform's {name} account {condition}."
+        if name
+        else f"The AI provider refused this request: the platform's account {condition}."
+    )
     return RetryableError(
         error_type="billing_error",
         message=message,
         status_code=status_code,
         is_retryable=False,
-        user_message=f"There is a billing issue with the {provider} account. Please check your plan and payment details.",
+        user_message=user_message,
     )
+
+
+def classify_billing_refusal(exception: BaseException, provider: str) -> RetryableError | None:
+    """A provider's refusal because the platform's account has no credit — any provider, any shape.
+
+    Recognised before any provider-specific branch because providers report it
+    every way there is: HTTP 402, 400 (Anthropic), 401 (ElevenLabs), 403 (xAI),
+    429 (OpenAI / Google / Moonshot), or a status-less stream error (OpenAI).
+    """
+    status_code = _extract_status_code(exception)  # type: ignore[arg-type]
+    text = _billing_refusal_text(exception)
+    if status_code != 402 and not is_billing_refusal(text):
+        return None
+    result = _handle_billing_error(provider, str(exception).strip() or type(exception).__name__, status_code)
+    result.details["provider"] = provider.lower()
+    provider_error_type = _extract_error_body(exception).get("type")  # type: ignore[arg-type]
+    if provider_error_type:
+        result.details["provider_error_type"] = provider_error_type
+    return result
 
 
 def _handle_unprocessable(provider: str, message: str, body: dict[str, object]) -> RetryableError:
@@ -647,26 +780,8 @@ def _handle_rate_limit(provider: str, message: str, retry_after: float | None) -
     # Providers commonly use HTTP 429 for both a transient traffic limit and a
     # permanently exhausted/suspended account. Retrying the latter only burns
     # the request's retry budget and masks the actionable billing failure.
-    quota_markers = (
-        "insufficient balance",
-        "insufficient credit",
-        "insufficient quota",
-        "exceeded_current_quota",
-        "billing hard limit",
-        "account is suspended",
-        "account suspended",
-    )
-    if any(marker in message.lower() for marker in quota_markers):
-        return RetryableError(
-            error_type="billing_error",
-            message=message,
-            status_code=429,
-            is_retryable=False,
-            user_message=(
-                f"The {provider} account has insufficient balance or is suspended. "
-                "Add credits or check the provider plan, then try again."
-            ),
-        )
+    if is_billing_refusal(message):
+        return _handle_billing_error(provider, message, 429)
     delay = retry_after or 10.0
     return RetryableError(
         error_type="rate_limit",
@@ -674,7 +789,8 @@ def _handle_rate_limit(provider: str, message: str, retry_after: float | None) -
         status_code=429,
         retry_after=delay,
         is_retryable=True,
-        user_message=(f"{provider} rate limit reached. Retrying in {delay:.0f} seconds..."),
+        user_message=f"{provider} rate limit reached.",
+        retry_notice=f"Retrying in {delay:.0f} seconds…",
     )
 
 
@@ -707,16 +823,7 @@ def classify_moonshot_error(exception: Exception) -> RetryableError:
     elif provider_type in {"resource_not_found", "resource_not_found_error"}:
         result = _handle_not_found("Moonshot", provider_message)
     elif provider_type == "exceeded_current_quota_error":
-        result = RetryableError(
-            error_type="billing_error",
-            message=provider_message,
-            status_code=429,
-            is_retryable=False,
-            user_message=(
-                "The Moonshot account balance or token quota is exhausted. "
-                "Add credit or use another provider."
-            ),
-        )
+        result = _handle_billing_error("Moonshot", provider_message, 429)
     elif provider_type == "rate_limit_reached_error":
         # Moonshot distinguishes a traffic limit from engine overload and
         # quota exhaustion.  Retrying a traffic limit without a provider wait
@@ -798,7 +905,7 @@ def _handle_server_error(provider: str, message: str, status_code: int) -> Retry
         status_code=status_code,
         retry_after=5.0,
         is_retryable=True,
-        user_message=f"{provider} is experiencing an internal error. Retrying automatically...",
+        user_message=f"{provider} is experiencing an internal error.",
     )
 
 
@@ -810,10 +917,8 @@ def _handle_overloaded(provider: str, message: str, status_code: int) -> Retryab
         status_code=status_code,
         retry_after=None,
         is_retryable=True,
-        user_message=(
-            f"{provider} is temporarily overloaded due to high demand. "
-            "We are waiting and retrying automatically."
-        ),
+        user_message=f"{provider} is temporarily overloaded due to high demand.",
+        retry_notice="Waiting, then retrying automatically…",
         retry_schedule=schedule,
         details={
             "provider": provider.lower(),
@@ -832,7 +937,7 @@ def _handle_timeout(provider: str, message: str) -> RetryableError:
         is_retryable=True,
         user_message=(
             f"The request to {provider} timed out. "
-            "This can happen with very long prompts or high token limits. Retrying..."
+            "This can happen with very long prompts or high token limits."
         ),
     )
 
@@ -843,7 +948,8 @@ def _handle_connection_error(provider: str, message: str) -> RetryableError:
         message=message,
         retry_after=3.0,
         is_retryable=True,
-        user_message=f"Could not connect to {provider}. Checking connection and retrying...",
+        user_message=f"Could not connect to {provider}.",
+        retry_notice="Checking the connection and retrying…",
     )
 
 
@@ -868,8 +974,7 @@ def _handle_incomplete_response(provider: str, message: str) -> RetryableError:
         retry_after=2.0,
         is_retryable=True,
         user_message=(
-            f"The response from {provider} was cut off in transit before it finished. "
-            "Retrying..."
+            f"The response from {provider} was cut off in transit before it finished."
         ),
     )
 
@@ -924,6 +1029,44 @@ def _has_http_code(text: str, *codes: int) -> bool:
         return False
     alternation = "|".join(str(code) for code in codes)
     return re.search(rf"(?<!\d)(?:{alternation})(?!\d)", text) is not None
+
+
+def _classify_unbranched_status(provider: str, status_code: int, message: str) -> RetryableError | None:
+    """A real HTTP status no provider branch handled, classified by what it MEANS.
+
+    Without this, every ``*_by_status`` classifier fell through to the string
+    fallback for 415 / 422 / 451 / 408 / 425 and called them a retryable
+    ``unknown_error`` — so an unsupported audio container (415) was sent three
+    times. A 4xx means the request is wrong unless the status itself says a
+    second attempt can succeed. Guard: tests/test_unhandled_status_classification.py.
+    """
+    if status_code == 408:
+        result = _handle_timeout(provider, message)
+    elif status_code == 425:
+        result = RetryableError(
+            error_type="provider_too_early",
+            message=message,
+            retry_after=2.0,
+            is_retryable=True,
+            user_message=f"{provider} asked for the request to be retried shortly.",
+        )
+    elif status_code == 409:
+        result = _handle_conflict(provider, message)
+    elif status_code == 413:
+        result = _handle_request_too_large(provider, message)
+    elif status_code == 422:
+        result = _handle_unprocessable(provider, message, {"message": message})
+    elif 400 <= status_code < 500 and status_code != 429:
+        result = RetryableError(
+            error_type="invalid_request",
+            message=message,
+            is_retryable=False,
+            user_message=f"{provider} rejected the request (HTTP {status_code}).",
+        )
+    else:
+        return None
+    result.status_code = status_code
+    return result
 
 
 def _fallback_classify(error_str: str, provider: str) -> RetryableError:
@@ -997,7 +1140,7 @@ def _fallback_classify(error_str: str, provider: str) -> RetryableError:
         message=error_str,
         retry_after=5.0,
         is_retryable=True,
-        user_message=f"An unexpected {provider} error occurred. Retrying...",
+        user_message=f"An unexpected {provider} error occurred.",
     )
 
 
@@ -1338,7 +1481,8 @@ def classify_common_error(exception: Exception, provider: str) -> RetryableError
                 "transport_exception": exception_name,
             }
         )
-    return result
+        return result
+    return classify_billing_refusal(exception, provider)
 
 
 # ============================================================================
@@ -1448,7 +1592,7 @@ def _classify_anthropic_by_status(status_code: int, exception: Exception) -> Ret
     if status_code >= 500:
         return _handle_server_error("Anthropic", msg, status_code)
 
-    return _fallback_classify(msg, "Anthropic")
+    return _classify_unbranched_status("Anthropic", status_code, msg) or _fallback_classify(msg, "Anthropic")
 
 
 # ============================================================================
@@ -1546,7 +1690,7 @@ def _classify_openai_by_status(status_code: int, exception: Exception) -> Retrya
     if status_code >= 500:
         return _handle_server_error("OpenAI", msg, status_code)
 
-    return _fallback_classify(msg, "OpenAI")
+    return _classify_unbranched_status("OpenAI", status_code, msg) or _fallback_classify(msg, "OpenAI")
 
 
 # ============================================================================
@@ -1658,7 +1802,7 @@ def _classify_google_by_status(status_code: int, exception: Exception) -> Retrya
     if status_code >= 500:
         return _handle_server_error("Google", msg, status_code)
 
-    return _fallback_classify(msg, "Google")
+    return _classify_unbranched_status("Google", status_code, msg) or _fallback_classify(msg, "Google")
 
 
 # ============================================================================
@@ -1903,7 +2047,7 @@ def _classify_stainless_by_status(
     if status_code >= 500:
         return _handle_server_error(provider, msg, status_code)
 
-    return _fallback_classify(msg, provider)
+    return _classify_unbranched_status(provider, status_code, msg) or _fallback_classify(msg, provider)
 
 
 # ============================================================================

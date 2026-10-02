@@ -20,9 +20,7 @@ logger = BlockLogger()
 
 
 class PrivateCloudSDK(BaseSDK):
-    def add_collaborators(
-        self, cloud: str, collaborators: List[CreateCloudCollaborator]
-    ) -> None:
+    def add_collaborators(self, cloud: str, collaborators: List[CreateCloudCollaborator]) -> None:
         cloud_id = self.client.get_cloud_id(cloud_name=cloud, compute_config_id=None)
 
         self.client.add_cloud_collaborators(
@@ -37,7 +35,9 @@ class PrivateCloudSDK(BaseSDK):
         )
 
     def get(
-        self, id: Optional[str], name: Optional[str],  # noqa: A002
+        self,
+        id: Optional[str],  # noqa: A002
+        name: Optional[str],
     ) -> Optional[Cloud]:
         if (id and name) or (not id and not name):
             raise ValueError("Provide exactly one of 'id' or 'name'.")

@@ -5,8 +5,8 @@ use crate::workspace::{config_root, is_nagi_config};
 
 pub async fn completion(
     text_document_uri: &tombi_uri::Uri,
-    document_tree: &tombi_document_tree_syntax::DocumentTree,
-    position: tombi_text::Position,
+    document_tree: &tombi_document_tree_syntax::DocumentTree<'_>,
+    offset: tombi_text::Offset,
     accessors: &[Accessor],
     _completion_hint: Option<CompletionHint>,
     in_comment: bool,
@@ -33,7 +33,7 @@ pub async fn completion(
             completion_file_path_from_base_dir(
                 base_dir,
                 document_tree,
-                position,
+                offset,
                 accessors,
                 Some(&[]),
             )

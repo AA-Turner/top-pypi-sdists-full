@@ -1,0 +1,213 @@
+# Resolved materialization of node_bus_forwarder_effect/contract.yaml for the
+# one approved staging canary tenant. No secret values belong in this file.
+forwarder:
+  tenant_identity:
+    tenant_id: "79afa726-3852-464f-b7a4-d4b8b9c75ee7"
+    tenant_slug: "beta-gateway-canary-79afa7263852"
+    principal_id: "t-79afa7263852464fb7a4d4b8b9c75ee7"
+  cloud_bus:
+    broker_provider_id: "22222222-2222-2222-2222-222222222222"
+    cloud_broker_ref: "gateway.cloud.kafka.broker"
+    cloud_auth_ref: "gateway.cloud.kafka.msk_iam"
+    acl_provisioner_ref: "gateway.cloud.kafka.authorization"
+    msk_region_ref: "gateway.cloud.kafka.msk_region"
+    security_protocol: "SASL_SSL"
+    sasl_mechanism: "AWS_MSK_IAM"
+  local_transport_flavor: "containerized"
+  mirror_topic_set: "node_bus_forwarder_effect"
+  canary_topic_set: "node_bus_forwarder_effect"
+  # OMN-17034: names the contract's lane_mirror block (source lane, mirror
+  # lane set, topic set). The per-lane broker addresses are below, not here --
+  # this file may not redeclare the block itself; the loader rejects that.
+  lane_mirror_set: "node_bus_forwarder_effect"
+  heartbeat_interval_seconds: 15
+  max_silence_window_seconds: 60
+  lag_threshold_messages: 500
+  lag_threshold_seconds: 120
+  drain_deadline_seconds: 30
+  dedupe_store_path: "/app/data/gateway/delivery.sqlite3"
+  dedupe_retention_hours: 24
+  forward_retry_initial_seconds: 1
+  forward_retry_max_seconds: 30
+local_bus:
+  bootstrap_servers: "redpanda:9092"
+  environment: "beta-gateway-local"
+  timeout_seconds: 30
+  # OMN-15781: "latest" silently drops any backlog produced while the
+  # consumer group was unjoined (crash/LeaveGroup/cold restart before
+  # rejoin); enable_auto_commit=false alone does not protect against this
+  # since it only preserves offsets already inside the read window. The
+  # runtime-config model_validator (ModelGatewayForwarderRuntimeConfig)
+  # fails closed on anything other than "earliest" on either leg.
+  auto_offset_reset: "earliest"
+  enable_auto_commit: false
+  # OMN-18120: the dev lane's broker has enable_sasl=true (OMN-18012 phase B,
+  # #3276) and closes a plaintext connection at handshake. This leg dials that
+  # broker, so PLAINTEXT here is a client that cannot connect. Measured on .201
+  # 2026-09-10 with a positive control: an unauthenticated metadata request to
+  # the dev listener returns "SASL is required but not provided", while the SAME
+  # request to the stability listener returns cluster metadata.
+  #
+  # The credential is a REFERENCE, never a literal: this file is tracked in this
+  # repo and mounted into the container verbatim, so a value spelled here is a
+  # credential in git. The ref is resolved at the effect boundary
+  # (gateway_forwarder._materialize_lane_broker_credentials) against the
+  # operator-supplied lane-credential map mounted at
+  # /run/gateway/lane-credentials.yaml -- the same not-in-git, operator-mounted
+  # mechanism the cloud leg's endpoint already rides via --broker-ref-map. A
+  # missing map, a missing entry or an empty field is a refusal to start, never
+  # a plaintext fallback.
+  security_protocol: "SASL_PLAINTEXT"
+  sasl_mechanism: "SCRAM-SHA-256"
+  sasl_credential_ref: "lane.dev.kafka.scram"
+cloud_bus:
+  # bootstrap_servers is deliberately absent: OMN-15743 resolves it from the
+  # node contract's gateway_forwarder.cloud_leg.cloud_broker_ref at the
+  # effect boundary (gateway_forwarder._materialize_cloud_broker_ref), via
+  # the operator-supplied broker-ref map mounted at
+  # /run/gateway/broker-ref-map.yaml (GATEWAY_BROKER_REF_MAP_FILE). A
+  # literal here is rejected fail-closed by the loader.
+  environment: "beta-gateway-cloud"
+  timeout_seconds: 60
+  # OMN-15781: see local_bus.auto_offset_reset comment above -- same hazard,
+  # both legs are pull-based at-least-once consumers.
+  auto_offset_reset: "earliest"
+  enable_auto_commit: false
+  security_protocol: "SASL_SSL"
+  sasl_mechanism: "AWS_MSK_IAM"
+  msk_region: "us-east-1"
+# ---------------------------------------------------------------------------
+# OMN-17034 / OMN-17919: resolved broker legs for the contract-declared lane mirror.
+# ---------------------------------------------------------------------------
+# The contract NAMES lanes ("stability-test" -> ["dev"]); this is where THIS
+# deployment says which broker each named lane is. Same authority split
+# local_bus already uses.
+#
+# THE SOURCE LEG IS ADDRESSED ON THE STABILITY LANE'S *EXTERNAL* LISTENER, AND
+# THAT IS THE WHOLE FIX (OMN-17919).
+#
+# A Kafka client does not keep talking to the endpoint it was configured with.
+# It bootstraps there once, reads the cluster's ADVERTISED listener out of the
+# metadata response, and every subsequent fetch / join / commit goes to that
+# advertised address. Both lane brokers advertise their internal listener as
+# the bare name `redpanda` -- each lane's compose file names the service
+# `redpanda`, which also puts a `redpanda` network alias on both lane networks.
+# This forwarder is joined to BOTH networks. Measured on .201 2026-09-05,
+# read-only:
+#
+#   docker exec omninode-gateway-forwarder getent hosts redpanda -> 172.19.0.7
+#   omnibase-infra-redpanda                aliases [omnibase-infra-redpanda, redpanda]
+#   omnibase-infra-stability-test-redpanda aliases [omnibase-infra-stability-test-redpanda, redpanda]
+#
+# So the previous revision of this file -- which addressed BOTH legs by unique
+# container name and said in this very comment that doing so removed the
+# ambiguity -- bootstrapped correctly against stability (172.22.0.4), was handed
+# `redpanda:9092` back, re-resolved it to 172.19.0.7, and ran the entire mirror
+# against DEV. The consumer group came up Stable on dev with LAG 0 and Dead on
+# stability, holding 1 partition where stability's topic has 6, and 0 records
+# crossed. A unique container name fixes the BOOTSTRAP address; it cannot fix
+# the ADVERTISED one, and aiokafka has no way to ignore an advertised listener.
+#
+# Redpanda advertises per-listener. A client that bootstraps on stability's
+# external listener is handed the external advertised address, which this lane
+# pins to a literal routable endpoint in its own compose contract
+# (docker-compose.stability-test.yml, OMN-12832) -- a value that collides with
+# nothing. Verified live before landing, read-only, no lane mutated:
+#
+#   docker exec omnibase-infra-redpanda rpk cluster metadata \
+#     -X brokers=100.109.203.94:39092   -> BROKERS  ID 0*  HOST 100.109.203.94  PORT 39092
+#   docker exec omninode-gateway-forwarder python3 -c 'socket.connect(...)'
+#     -> CONNECT OK 100.109.203.94:39092
+#
+# This touches NOTHING on the stability lane: that advertised address is
+# pre-existing committed lane-contract data, and the leg is a read.
+#
+# The DEV mirror target stays on its unique container name. It is the asymmetry
+# the two lanes force: the dev lane interpolates its external advertised host
+# from DEV_REDPANDA_ADVERTISE_HOST at deploy time (it currently renders a
+# MagicDNS name), so there is no literal to pin, while its internal advertised
+# `redpanda` re-resolves -- from this container -- to the dev broker, which is
+# the correct destination. That leg is correct but relies on which network
+# Docker answers the alias from; the durable fix is to stop both lanes sharing
+# the name at all, recorded on OMN-17919 (needs a stability broker recreate).
+lane_mirror_source_bus:
+  bootstrap_servers: "100.109.203.94:39092" # onex-allow-kafka-broker
+  environment: "beta-gateway-lane-mirror-source"
+  timeout_seconds: 30
+  # Same OMN-15781 hazard as both trust-boundary legs: "latest" would silently
+  # drop every hook event produced while this consumer group was unjoined.
+  # Load-bearing on this deploy specifically: the group has never committed an
+  # offset on the stability broker (every commit it made went to dev), so
+  # "earliest" is what makes the accumulated hook backlog cross.
+  auto_offset_reset: "earliest"
+  enable_auto_commit: false
+  security_protocol: "PLAINTEXT"
+lane_mirror_buses:
+  dev:
+    # OMN-17201: the DEV target moved to the dev lane's EXTERNAL listener, for
+    # exactly the reason the source leg above did, and the residual recorded
+    # here on 2026-09-05 is why -- it fired.
+    #
+    # That comment said the dev leg "is correct but relies on which network
+    # Docker answers the alias from", and named the durable fix as one that
+    # needs a stability broker recreate. At 2026-09-06T20:44:38Z the DEV broker
+    # container was recreated, and while it was gone the only container still
+    # answering the shared `redpanda` alias was the STABILITY broker. The dev
+    # producer's reconnect re-resolved onto the source lane and stayed there:
+    # 754 `Lane mirror delivered` lines over three hours, every one of them a
+    # real broker acknowledgement from the wrong broker.
+    #
+    # The reason given for NOT applying the source leg's fix here was that the
+    # dev lane renders its external advertised host from
+    # `DEV_REDPANDA_ADVERTISE_HOST` at deploy time, so this repo cannot know the
+    # literal to pin. That is true of the repo and false of the deployment. The
+    # rendered value is readable off the running broker, and it is a literal
+    # that collides with nothing. Measured on .201 2026-09-07, read-only, no
+    # lane mutated:
+    #
+    #   docker inspect omnibase-infra-redpanda --format '{{json .Config.Cmd}}'
+    #     -> --advertise-kafka-addr internal://redpanda:9092,
+    #        external://omninode-pc.tail75df5e.ts.net:19092
+    #
+    #   docker exec omnibase-infra-redpanda rpk cluster metadata \
+    #     -X brokers=omninode-pc.tail75df5e.ts.net:19092
+    #     -> BROKERS  ID 0*  HOST omninode-pc.tail75df5e.ts.net  PORT 19092
+    #      (bootstrapping the external listener is handed the external
+    #       advertised address back -- it does not walk onto `redpanda`)
+    #
+    #   docker exec omninode-gateway-forwarder python3 -c 'socket.connect(...)'
+    #     -> CONNECT OK omninode-pc.tail75df5e.ts.net 19092 -> 100.109.203.94
+    #
+    # Same host as the source leg's 100.109.203.94, different PORT and
+    # therefore a different broker: 39092 is the stability lane's published
+    # external port, 19092 the dev lane's. Neither is the shared `redpanda`.
+    #
+    # A pin CAN go stale -- if the dev lane is redeployed with a different
+    # `DEV_REDPANDA_ADVERTISE_HOST` this address stops resolving. That failure
+    # is loud (the producer cannot connect, the lane's confirmed watermark
+    # stops advancing, the healthcheck's lane-mirror leg fails) and is the
+    # opposite of the silent mis-homing it replaces. The runtime destination
+    # guard is the second layer and needs no address at all: a source record
+    # read back at a coordinate this process wrote to a destination refuses the
+    # lane fail-closed, whatever the address says.
+    bootstrap_servers: "omninode-pc.tail75df5e.ts.net:19092" # onex-allow-kafka-broker
+    environment: "beta-gateway-lane-mirror-dev"
+    timeout_seconds: 30
+    auto_offset_reset: "earliest"
+    enable_auto_commit: false
+    # OMN-18120: same reason as local_bus above, and this is the leg the hook
+    # wire actually depends on. OMN-18012 flipped the dev broker to SASL and
+    # credentialed "all 15 clients" through the x-dev-lane-broker-auth-env
+    # anchor in docker-compose.dev-lane.yml; this process is in a different
+    # compose project and configures its legs here, so it was outside that
+    # enumeration and kept dialing dev as a plaintext client. Zero records
+    # crossed for four days while the forwarder logged a delivery per attempted
+    # republish -- 110 "Lane mirror delivered" lines in three minutes against
+    # four dev hook topics whose high watermarks were static.
+    #
+    # The SOURCE leg above deliberately stays PLAINTEXT: stability's external
+    # listener still accepts one, and handing a governed lane a dev-lane
+    # principal would be wrong in both directions. The asymmetry is the point.
+    security_protocol: "SASL_PLAINTEXT"
+    sasl_mechanism: "SCRAM-SHA-256"
+    sasl_credential_ref: "lane.dev.kafka.scram"

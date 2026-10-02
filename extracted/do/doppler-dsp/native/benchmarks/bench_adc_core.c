@@ -1,0 +1,83 @@
+#include "doppler/adc/adc_core.h"
+#include "doppler/dp_complex.h"
+#include "jm_bench.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+#define BENCH_N 65536
+#define ITERATIONS 200
+
+int
+main (void)
+{
+  float *in = malloc (BENCH_N * sizeof (float));
+  if (!in)
+    {
+      fprintf (stderr, "OOM\n");
+      return 1;
+    }
+  int64_t *out = malloc (BENCH_N * sizeof (int64_t));
+  if (!out)
+    {
+      fprintf (stderr, "OOM\n");
+      return 1;
+    }
+  for (int i = 0; i < BENCH_N; i++)
+    in[i] = (float)(i);
+
+  dp_adc_state_t *obj = dp_adc_create (16, -10.0f, 0);
+
+  /* volatile sink prevents DCE of the step() loop */
+  volatile int64_t _sink;
+
+  /* warmup */
+  for (int i = 0; i < 16; i++)
+    _sink = dp_adc_step (obj, in[i]);
+
+  uint64_t   t0, t1;
+  jm_bench_t _bench = { 0 };
+
+  printf ("=== adc benchmark ===\n");
+  printf ("block = %d samples,  %d iterations\n\n", BENCH_N, ITERATIONS);
+
+  double _times_step[ITERATIONS];
+  for (int r = 0; r < ITERATIONS; r++)
+    {
+      t0 = jm_bench_now_ns ();
+      for (int i = 0; i < BENCH_N; i++)
+        _sink = dp_adc_step (obj, in[i]);
+      t1             = jm_bench_now_ns ();
+      _times_step[r] = jm_bench_elapsed_sec (t0, t1);
+    }
+  jm_bench_add (&_bench, "step", _times_step, ITERATIONS, BENCH_N);
+  {
+    double _s = 0.0;
+    for (int r = 0; r < ITERATIONS; r++)
+      _s += _times_step[r];
+    printf ("  step()   %8.1f MSa/s\n",
+            (double)BENCH_N / (_s / ITERATIONS) / 1e6);
+  }
+  double _times_steps[ITERATIONS];
+  for (int r = 0; r < ITERATIONS; r++)
+    {
+      t0 = jm_bench_now_ns ();
+      dp_adc_steps (obj, in, out, BENCH_N);
+      t1              = jm_bench_now_ns ();
+      _times_steps[r] = jm_bench_elapsed_sec (t0, t1);
+    }
+  jm_bench_add (&_bench, "steps", _times_steps, ITERATIONS, BENCH_N);
+  {
+    double _s = 0.0;
+    for (int r = 0; r < ITERATIONS; r++)
+      _s += _times_steps[r];
+    printf ("  steps()  %8.1f MSa/s\n",
+            (double)BENCH_N / (_s / ITERATIONS) / 1e6);
+  }
+
+  jm_bench_write_json (&_bench, "adc");
+  dp_adc_destroy (obj);
+  free (in);
+  free (out);
+  return 0;
+}

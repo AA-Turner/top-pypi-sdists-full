@@ -6,8 +6,9 @@ from collections.abc import Sequence
 from typing import Any, Callable, List, cast
 
 from fakeredis import _msgs as msgs
-from fakeredis._command_args_parsing import extract_args
-from fakeredis._commands import CommandItem, Float, Int, Key, command
+from fakeredis._command_args_parsing import Float, Int, extract_args
+from fakeredis._commands import Key, command
+from fakeredis._core import CommandItem
 from fakeredis._helpers import OK, SimpleError, SimpleString, casematch, current_time
 from fakeredis.commands_mixins._mixin_base import CommandsMixinBase
 from fakeredis.model import Hash
@@ -17,14 +18,6 @@ DRAGONFLY_MAX_HASH_EXPIRE_SECONDS = 2**26
 
 
 class HashCommandsMixin(CommandsMixinBase):
-    _encodeint: Callable[
-        [
-            int,
-        ],
-        bytes,
-    ]
-    _encodefloat: Callable[[float, bool], bytes]
-    _scan: Callable[[Sequence[bytes], int, bytes], list[bytes | list[bytes]]]
     add_subkey_event: Callable[[bytes, bytes, Sequence[bytes]], None]
 
     def _hset(self, key: CommandItem, *args: bytes) -> int:
@@ -105,7 +98,7 @@ class HashCommandsMixin(CommandsMixinBase):
     def hscan(self, key: CommandItem, cursor: int, *args: bytes) -> list[Any]:
         no_values = any(casematch(arg, b"novalues") for arg in args)
         scan_args = tuple(arg for arg in args if not casematch(arg, b"novalues")) if no_values else args
-        scan_result = self._scan(key.value, cursor, *scan_args)
+        scan_result = self._scan(key.value, cursor, *scan_args, scanned_key=key.key)
         result_cursor = scan_result[0]
         keys: list[bytes] = cast(List[bytes], scan_result[1])
         if no_values:
@@ -257,30 +250,34 @@ class HashCommandsMixin(CommandsMixinBase):
         return res
 
     @command(
-        name="HEXPIRETIME", fixed=(Key(Hash),), repeat=(bytes,), flags=msgs.FLAG_DO_NOT_CREATE, server_types=("redis",)
+        name="HEXPIRETIME",
+        fixed=(Key(Hash),),
+        repeat=(bytes,),
+        flags=msgs.FLAG_DO_NOT_CREATE,
+        server_types=("redis", "kividb"),
     )
     def hexpiretime(self, key: CommandItem, *args: bytes) -> list[int]:
         res = self._get_expireat(b"HEXPIRETIME", key, *args)
         return [(i // 1000 if i > 0 else i) for i in res]
 
-    @command(name="HPEXPIRETIME", fixed=(Key(Hash),), repeat=(bytes,), server_types=("redis",))
+    @command(name="HPEXPIRETIME", fixed=(Key(Hash),), repeat=(bytes,), server_types=("redis", "kividb"))
     def hpexpiretime(self, key: CommandItem, *args: bytes) -> list[int]:
         res = self._get_expireat(b"HPEXPIRETIME", key, *args)
         return res
 
-    @command(name="HTTL", fixed=(Key(Hash),), repeat=(bytes,), server_types=("redis",))
+    @command(name="HTTL", fixed=(Key(Hash),), repeat=(bytes,), server_types=("redis", "kividb"))
     def httl(self, key: CommandItem, *args: bytes) -> list[int]:
         curr_expireat_ms = self._get_expireat(b"HTTL", key, *args)
         curr_time_ms = current_time()
         return [((i - curr_time_ms) // 1000) if i > 0 else i for i in curr_expireat_ms]
 
-    @command(name="HPTTL", fixed=(Key(Hash),), repeat=(bytes,), server_types=("redis",))
+    @command(name="HPTTL", fixed=(Key(Hash),), repeat=(bytes,), server_types=("redis", "kividb"))
     def hpttl(self, key: CommandItem, *args: bytes) -> list[int]:
         curr_expireat_ms = self._get_expireat(b"HPTTL", key, *args)
         curr_time_ms = current_time()
         return [(i - curr_time_ms) if i > 0 else i for i in curr_expireat_ms]
 
-    @command(name="HGETDEL", fixed=(Key(Hash),), repeat=(bytes,), server_types=("redis",))
+    @command(name="HGETDEL", fixed=(Key(Hash),), repeat=(bytes,), server_types=("redis", "kividb"))
     def hgetdel(self, key: CommandItem, *args: bytes) -> list[Any]:
         fields = _get_fields(args, command="hgetdel")
         hash_val: Hash = key.value
@@ -291,7 +288,7 @@ class HashCommandsMixin(CommandsMixinBase):
         self.add_subkey_event(b"hdel", key.key, deleted_fields)
         return res
 
-    @command(name="HGETEX", fixed=(Key(Hash),), repeat=(bytes,), server_types=("redis",))
+    @command(name="HGETEX", fixed=(Key(Hash),), repeat=(bytes,), server_types=("redis", "kividb"))
     def hgetex(self, key: CommandItem, *args: bytes) -> Any:
         (ex, px, exat, pxat, persist), left_args = extract_args(
             args,
@@ -324,6 +321,8 @@ class HashCommandsMixin(CommandsMixinBase):
         self.add_subkey_event(b"hdel", key.key, deleted_fields)
         return res
 
+    # KiviDB has HSETEX, but in the `HSETEX key seconds FIELDS numfields field value` form rather than
+    # Redis' `HSETEX key [EX seconds] FVS numfields field value`, so it stays off KiviDB's surface.
     @command(name="HSETEX", fixed=(Key(Hash),), repeat=(bytes,), server_types=("redis",))
     def hsetex(self, key: CommandItem, *args: bytes) -> Any:
         (ex, px, exat, pxat, keepttl, fnx, fxx), left_args = extract_args(

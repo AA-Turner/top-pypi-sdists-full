@@ -1,0 +1,85 @@
+site_name: Google Cloud Pilot
+site_description: A Python library that simplifies interaction with Google Cloud Platform services
+site_url: https://gcp-pilot.flamingo.codes
+repo_url: https://github.com/flamingo-run/gcp-pilot
+repo_name: flamingo-run/gcp-pilot
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - content.code.annotate
+    - content.code.copy
+    - navigation.instant
+    - navigation.sections
+    - toc.integrate
+    - content.action.edit
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - admonition # Useful for notes, warnings etc.
+  - pymdownx.details # For collapsible admonitions and other features
+  - toc:
+      permalink: true # Adds anchor links to headings
+  - attr_list # Required for custom attributes on icons/emojis
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+nav:
+  - Home: index.md
+  - Authentication: authentication.md
+  - Services:
+    - Overview: services/index.md
+    - Core Services:
+      - IAM: services/iam.md
+      - Identity Platform: services/identity_platform.md
+      - Resource Manager: services/resource.md
+      - Secret Manager: services/secret_manager.md
+      - Identity Aware Proxy: services/iap.md
+      - Service Usage: services/service_usage.md
+    - Storage and Databases:
+      - Cloud Storage: services/storage.md
+      - Cloud SQL: services/sql.md
+      - Datastore: services/datastore.md
+      - Firestore: services/firestore.md
+      - BigQuery: services/big_query.md
+    - Compute and Serverless:
+      - Cloud Functions: services/functions.md
+      - Cloud Run: services/run.md
+      - App Engine: services/app_engine.md
+    - Messaging and Integration:
+      - Pub/Sub: services/pubsub.md
+      - Cloud Tasks: services/tasks.md
+      - Cloud Scheduler: services/scheduler.md
+    - DevOps and CI/CD:
+      - Cloud Build: services/build.md
+      - Source Repositories: services/source.md
+    - Networking:
+      - Cloud DNS: services/dns.md
+      - API Gateway: services/api_gateway.md
+    - Monitoring and Logging:
+      - Error Reporting: services/error_reporting.md
+      - Logging: services/logging.md
+      - Monitoring: services/monitoring.md
+    - Specialized Services:
+      - Healthcare: services/healthcare.md
+      - Speech: services/speech.md
+      - Datastream: services/datastream.md
+    - Google Workspace Integration:
+      - Directory: services/directory.md
+      - Calendar: services/calendar.md
+      - Sheets: services/sheets.md
+      - People: services/people.md
+      - Chats: services/chats.md
+    - Development Tools:
+      - Testing Utilities: services/mocker.md

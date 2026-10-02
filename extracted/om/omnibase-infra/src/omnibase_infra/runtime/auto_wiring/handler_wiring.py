@@ -1,0 +1,12224 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# ruff: noqa: TRY400
+# TRY400 disabled: logger.error is intentional to avoid leaking sensitive data in stack traces
+"""Handler auto-wiring engine for OMN-7654.
+
+Takes a :class:`ModelAutoWiringManifest` produced by contract auto-discovery
+and wires handlers into the :class:`MessageDispatchEngine`:
+
+1. Import handler modules from ``handler_routing`` paths in each contract.
+2. Create dispatch callbacks that delegate to the imported handler.
+3. Register routes on :class:`MessageDispatchEngine`.
+4. Subscribe to Kafka topics via the event bus.
+5. Detect duplicate topic ownership at package, handler, and intra-package levels.
+6. Return a :class:`ModelAutoWiringReport` with per-contract outcomes.
+
+This module performs I/O (module imports, Kafka subscriptions) — it is NOT pure.
+
+CI gate: any PR touching this module MUST satisfy the runtime-startup gate defined in
+``CLAUDE.md`` § "Runtime Startup is a First-Class CI Gate (OMN-9126)" (repo root).
+"""
+
+from __future__ import annotations
+
+import asyncio
+import concurrent.futures
+import contextlib
+import hashlib
+import importlib
+import inspect
+import json
+import logging
+import math
+import os
+import re
+import time
+from collections import defaultdict
+from collections.abc import Awaitable, Callable, Collection, Iterator, Mapping, Sequence
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from enum import Enum
+from functools import lru_cache
+from pathlib import Path
+from types import MappingProxyType
+from typing import (
+    TYPE_CHECKING,
+    Final,
+    Protocol,
+    cast,
+    get_args,
+    get_origin,
+    runtime_checkable,
+)
+from uuid import UUID, uuid4, uuid5
+from weakref import WeakKeyDictionary
+
+from pydantic import AliasChoices, AliasPath, BaseModel, ValidationError
+
+from omnibase_core.enums.enum_core_error_code import EnumCoreErrorCode
+from omnibase_core.enums.enum_database_grant_object_type import (
+    EnumDatabaseGrantObjectType,
+)
+from omnibase_core.enums.enum_database_privilege import EnumDatabasePrivilege
+from omnibase_core.enums.enum_database_schema_domain import EnumDatabaseSchemaDomain
+from omnibase_core.enums.enum_handler_resolution_outcome import (
+    EnumHandlerResolutionOutcome,
+)
+from omnibase_core.enums.enum_node_kind import EnumNodeKind
+from omnibase_core.models.contracts.subcontracts.model_db_table_declaration import (
+    ModelDbTableDeclaration,
+)
+from omnibase_core.models.core.model_deployment_topology import ModelDeploymentTopology
+from omnibase_core.models.core.model_deployment_topology_database import (
+    ModelDeploymentTopologyDatabase,
+)
+from omnibase_core.models.dispatch.model_message_delivery_context import (
+    ModelMessageDeliveryContext,
+)
+from omnibase_core.models.errors import ModelOnexError
+from omnibase_core.models.projection import build_upsert_plan
+from omnibase_core.models.resolver.model_handler_resolver_context import (
+    ModelHandlerResolverContext,
+)
+from omnibase_core.protocols.event_bus.protocol_event_bus_subscriber import (
+    ProtocolEventBusSubscriber,
+)
+from omnibase_core.runtime.runtime_fanout_resolver import resolve_published_topic
+from omnibase_core.services.service_handler_resolver import ServiceHandlerResolver
+from omnibase_core.services.service_local_handler_ownership_query import (
+    ServiceLocalHandlerOwnershipQuery,
+)
+from omnibase_infra.errors import (
+    EnvelopeValidationError,
+    ProjectionNotMaterializedError,
+    ProjectionQueryRowBudgetError,
+    QuarantinePublishUnconfirmedError,
+    TopicReplicationPolicyError,
+)
+from omnibase_infra.event_bus.enum_contract_attach_exclusion_reason import (
+    EnumContractAttachExclusionReason,
+)
+from omnibase_infra.event_bus.enum_contract_attach_status import (
+    EnumContractAttachStatus,
+)
+from omnibase_infra.event_bus.enum_topic_readiness_status import (
+    EnumTopicReadinessStatus,
+)
+from omnibase_infra.event_bus.model_contract_attach_exclusion import (
+    ModelContractAttachExclusion,
+)
+from omnibase_infra.event_bus.model_contract_attach_result import (
+    ModelContractAttachResult,
+)
+from omnibase_infra.event_bus.model_topic_readiness_config import (
+    ModelTopicReadinessConfig,
+)
+from omnibase_infra.event_bus.model_topic_set_readiness import (
+    ModelTopicSetReadiness,
+)
+from omnibase_infra.event_bus.topic_constants import (
+    derive_event_type_alias_for_topic,
+)
+from omnibase_infra.nodes.node_bus_forwarder_effect.services.service_gateway_topic_transform import (
+    resolve_tenant_from_wire_topic,
+)
+from omnibase_infra.protocols.protocol_consume_concurrency_declarer import (
+    ProtocolConsumeConcurrencyDeclarer,
+)
+from omnibase_infra.protocols.protocol_dispatch_result_applier import (
+    ProtocolDispatchResultApplier,
+)
+from omnibase_infra.protocols.protocol_event_bus_like import ProtocolEventBusLike
+from omnibase_infra.protocols.protocol_topic_provisioner import (
+    ProtocolTopicProvisioner,
+)
+from omnibase_infra.runtime.auto_wiring.enum_quarantine_reason import (
+    EnumQuarantineReason,
+)
+from omnibase_infra.runtime.auto_wiring.fanout_seam import (
+    check_fanout_publish_coverage,
+    is_fanout_sequence,
+    normalize_fanout_sequence,
+)
+from omnibase_infra.runtime.auto_wiring.models import (
+    ModelAutoWiringManifest,
+    ModelDiscoveredContract,
+    ModelHandlerRef,
+    ModelHandlerRoutingEntry,
+)
+from omnibase_infra.runtime.auto_wiring.models.model_consume_concurrency import (
+    load_consume_concurrency,
+)
+from omnibase_infra.runtime.auto_wiring.report import (
+    EnumWiringOutcome,
+    ModelAutoWiringReport,
+    ModelContractWiringResult,
+    ModelDuplicateTopicOwnership,
+    ModelQuarantinedWiring,
+    ModelSkippedEntry,
+    ModelWiringOutcome,
+)
+from omnibase_infra.runtime.contract_terminal_events import (
+    declared_failure_terminal_topics,
+    envelope_terminal_payload,
+    load_terminal_event_topics,
+)
+from omnibase_infra.runtime.delivery_context import (
+    delivery_context_from_message,
+    engine_type_accepts_delivery,
+)
+from omnibase_infra.runtime.dispatch_envelope_context import (
+    bind_dispatch_envelope,
+    current_dispatch_envelope,
+    current_projection_tenant_authority,
+)
+from omnibase_infra.runtime.health.projection_liveness import (
+    select_projection_contracts,
+)
+from omnibase_infra.runtime.models.model_postgres_pool_config import (
+    ModelPostgresPoolConfig,
+)
+from omnibase_infra.runtime.overlay.contract_env_ref import expand_contract_env_refs
+from omnibase_infra.runtime.projection_dispatch_ledger import (
+    record_dispatch_skipped_projection,
+    record_live_projection_dispatch,
+)
+from omnibase_infra.runtime.projection_tenant_authority import (
+    VerifiedProjectionTenantAuthority,
+    assert_projection_tenant_authority_matches_event,
+    parse_canonical_tenant_uuid,
+)
+from omnibase_infra.runtime.protocols.protocol_contract_scoped_dispatch_engine import (
+    ProtocolContractScopedDispatchEngine,
+)
+from omnibase_infra.runtime.providers.provider_postgres_pool import ProviderPostgresPool
+from omnibase_infra.runtime.state_io.model_completion_bound import (
+    ModelCompletionBound,
+)
+from omnibase_infra.runtime.state_io.state_store_adapter import (
+    CONTEXTVAR_STATE_IO_ROWS,
+    StateIoUnconfiguredError,
+    StateStoreAdapter,
+)
+from omnibase_infra.shared.tenant_stamp import stamp_verified_tenant_slug
+from omnibase_infra.tools.contract_topic_extractor import read_projection_api_topics
+from omnibase_infra.topology.physical_schema_mapping import (
+    physical_grant_schema_for_table,
+)
+from omnibase_infra.utils.util_retry_optimistic import (
+    OptimisticConflictError,
+    retry_on_optimistic_conflict,
+)
+from omnibase_infra.utils.util_topic_event_type import derive_event_type_from_topic
+
+
+class BoundaryDlqNotPersistedError(Exception):
+    """Marks a boundary failure whose DLQ write was NOT confirmed durable.
+
+    OMN-14498 (Lane C): ``_route_swallowed_exception`` used to return normally
+    even when ``_publish_raw_to_dlq`` reported non-persistence via its
+    documented ``False`` return. A callback that returns normally IS an ACK --
+    ``EventBusKafka._dispatch_to_subscriber`` reads "no exception" as success
+    and lets the offset advance -- so the message was acknowledged while
+    existing nowhere durable. That made the OMN-15232 rewind path
+    (``_rewind_after_unpersisted_dlq``) structurally unreachable for every
+    auto-wired handler: the boundary swallowed its own failure before the
+    consumer loop could see it.
+
+    Raising this type in that ONE case (DLQ enabled AND the write confirmed
+    non-durable) restores the invariant a NACK is supposed to carry: the
+    offset is withheld and Kafka redelivers. It is deliberately NOT raised
+    when the DLQ write succeeded, when the flag is off, or when no
+    DLQ-capable bus is wired -- those paths keep their prior semantics.
+    """
+
+    def __init__(self, topic: str, correlation_id: object, cause: Exception) -> None:
+        super().__init__(
+            f"boundary DLQ write not persisted; offset must not advance "
+            f"(topic={topic} correlation_id={correlation_id} "
+            f"cause={type(cause).__name__})"
+        )
+        self.topic = topic
+        self.correlation_id = correlation_id
+        self.cause = cause
+
+
+class BoundaryPublishError(Exception):
+    """Marks a result-applier (publish) failure the outbox boundary must PROPAGATE.
+
+    OMN-14403 §4.3: on the state_io / in-row-outbox path, a publish failure at
+    the RESULT-APPLIER layer (the no-bus / external-applier shape) must NOT be
+    log-and-discarded. The auto-wired boundary (`_make_event_bus_callback`)
+    tags an applier failure with this type ONLY when
+    `propagate_publish_failures` is set (state_io contracts), so the outer
+    handler re-raises it instead of swallowing. Non-outbox contracts never set
+    the flag → behavior is unchanged.
+
+    OMN-14600 CORRECTION: this type is distinct from a conflict-retry
+    exhaustion (`OptimisticConflictError`) raised INSIDE the state_io
+    dispatcher itself — that exception is absorbed by
+    `MessageDispatchEngine.dispatch()`'s per-dispatcher catch-all before it
+    ever reaches this boundary at all, so it does NOT redeliver on this
+    runtime (see the detailed note at `_make_event_bus_callback`'s
+    `except (OptimisticConflictError, BoundaryPublishError)` clause). The
+    state_io in_flight-lock branch self-heals inline for that reason instead
+    of depending on redelivery.
+    """
+
+
+class BoundaryApplyPublishError(Exception):
+    """Marks a non-outbox ``result_applier.apply()`` publish failure whose
+    unconditional best-effort DLQ route (``_route_apply_publish_failure``)
+    could not durably persist the record -- offset must not advance.
+
+    OMN-14498 (adversarial verify, Linear comment 3c6da9a0): at the DEFAULT
+    (unset) ``ONEX_BOUNDARY_DLQ_ENABLED`` state, a non-``state_io`` contract
+    (``propagate_publish_failures=False``) whose ``result_applier.apply()``
+    raised used to fall through to the flag-gated ``_route_swallowed_exception``
+    path, which -- with the flag off -- logs one line and returns normally.
+    A callback that returns normally IS an ACK
+    (``EventBusKafka._dispatch_to_subscriber`` reads "no exception" as
+    success and advances the offset), so the failed publish vanished with
+    nothing durable and nothing redelivered: the silent-drop class this
+    ticket exists to close.
+
+    Unlike a raw handler/dispatch exception (still legitimately staged
+    behind ``ONEX_BOUNDARY_DLQ_ENABLED`` -- see
+    ``test_boundary_dlq_omn14507.py::TestBoundaryDlqFlagOff``), a
+    result-applier publish failure is not an unvalidated/doubtful payload:
+    the dispatch already SUCCEEDED and produced a known-good result: only
+    its downstream delivery failed. ``_route_apply_publish_failure``
+    therefore attempts the DLQ write UNCONDITIONALLY -- mirroring the same
+    unconditional idiom ``_route_sync_publisher_failure`` already uses for
+    the sync-publisher leg (#2436 / OMN-15029) -- and this type is raised
+    only when that unconditional attempt itself could not durably persist
+    the record, so the boundary must withhold the offset (NACK) instead of
+    the historical swallow-and-ACK.
+
+    Deliberately NOT caught by ``_route_swallowed_exception`` /
+    ``_boundary_dlq_enabled()`` -- the auto-wired ``callback()`` routes this
+    type straight out of the boundary instead, so a second, flag-gated
+    swallow can never re-absorb it.
+    """
+
+    def __init__(self, topic: str, correlation_id: object, cause: Exception) -> None:
+        super().__init__(
+            f"result-applier publish failed and no durable DLQ route was "
+            f"available; offset must not advance (topic={topic} "
+            f"correlation_id={correlation_id} cause={type(cause).__name__})"
+        )
+        self.topic = topic
+        self.correlation_id = correlation_id
+        self.cause = cause
+
+
+class HandlerDispatchFailureError(Exception):
+    """A handler/coercion failure the engine reported as a FAILED dispatch RESULT.
+
+    OMN-14716. ``MessageDispatchEngine.dispatch()`` wraps every dispatcher call in
+    a catch-all (``except Exception``) that records the error and RETURNS a
+    ``HANDLER_ERROR`` result instead of re-raising. A def-B handler crash (or a
+    boundary coercion failure) therefore never propagates to the consume boundary
+    as an exception — it arrives as a FAILED result, and
+    ``DispatchResultApplier.apply()`` silently skips a non-SUCCESS result that
+    carries no applicable output. The message then vanishes at HWM=0 with nothing
+    terminalized (the .201 finding-aggregator incident).
+
+    ``_raise_if_silent_dispatch_failure`` raises this from
+    ``_dispatch_with_bounded_retry`` for exactly that shape so the failure flows
+    into the SAME ``_route_swallowed_exception`` path a raised handler exception
+    would take (loud structured metric log + best-effort DLQ under
+    ``ONEX_BOUNDARY_DLQ_ENABLED``). It is classified non-retryable at that
+    boundary: the FAILED result is deterministic, so retrying only burns the
+    backoff budget.
+
+    OMN-16812: carries the FAILED result's TYPED ``error_code`` forward as the
+    boundary's fallback attribution. The engine sets it to the generic
+    ``HANDLER_EXECUTION_ERROR`` for every dispatcher crash alike, so it names
+    the SHAPE of the failure, not the failure — ``classify_boundary_failure``
+    prefers the specific code recovered from the flattened message and falls
+    back to this only when the crash carried no ONEX code at all (a bare
+    ``AttributeError``, say). ``None`` when the result carried no code.
+
+    OMN-17397: ``retryable=False`` is a statement the RAISER can make and the
+    classifier cannot derive. A record no dispatcher accepts is refused the
+    same way on every delivery, but its only class token is whatever the
+    validation detail spelled (``ValueError`` for a pydantic refusal), which
+    no retry classifier names. ``None`` leaves the derivation untouched; the
+    flag can only ever lower ``retryable``, never raise it.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        failure_code: str | None = None,
+        retryable: bool | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.failure_code = failure_code
+        self.retryable = retryable
+
+
+class UndeliverableDispatchOutputError(Exception):
+    """A dispatch SUCCEEDED and produced bus-bound output with nowhere to send it.
+
+    OMN-16798. The auto-wired consume boundary publishes a dispatcher's
+    ``output_events`` only through a ``result_applier``. When no applier is wired
+    for the subscription, the boundary previously fell straight through to
+    ``return`` — the record was consumed, the offset committed, the handler ran,
+    and the event it computed was discarded with no log, no DLQ entry and no
+    metric. That is the forbidden outcome this ticket exists to end: a committed
+    offset with no observable effect.
+
+    Raised by ``_route_undeliverable_dispatch_output`` so the record takes the
+    UNCONDITIONAL DLQ route (``_route_apply_publish_failure``), exactly like the
+    sibling case where an applier IS wired and its ``apply()`` publish fails
+    (OMN-14498). Both are "the dispatch is known-good, its output did not land",
+    so neither belongs behind the staged ``ONEX_BOUNDARY_DLQ_ENABLED`` flag that
+    exists to hold back doubtful/unvalidated payloads.
+    """
+
+
+from omnibase_spi.protocols.runtime.protocol_handler_ownership_query import (
+    ProtocolHandlerOwnershipQuery,
+)
+
+if TYPE_CHECKING:
+    from omnibase_core.container import ModelONEXContainer
+    from omnibase_core.models.dispatch.model_dispatch_route import ModelDispatchRoute
+    from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
+    from omnibase_core.models.projectors.model_projection_intent import (
+        ModelProjectionIntent,
+    )
+    from omnibase_infra.enums import EnumMessageCategory
+    from omnibase_infra.handlers.handler_infisical import HandlerInfisical
+    from omnibase_infra.models.dispatch.model_dispatch_result import (
+        ModelDispatchResult,
+    )
+    from omnibase_infra.protocols.protocol_pattern_b_broker_transport import (
+        ProtocolPatternBBrokerTransport,
+    )
+    from omnibase_infra.runtime.secret_resolver import SecretResolver
+    from omnibase_infra.runtime.service_terminal_event_consumer import (
+        TerminalEventConsumer,
+    )
+    from omnibase_spi.protocols.runtime import ProtocolDispatchEngine
+
+logger = logging.getLogger(__name__)
+
+# Matches DSNs, URLs, and connection strings that may contain credentials.
+_SENSITIVE_PATTERN = re.compile(
+    r"(?:postgresql|postgres|mysql|redis|amqp|kafka|mongodb|http|https)://\S*",
+    re.IGNORECASE,
+)
+_STRICT_DISPATCHER_COVERAGE_ENV = "ONEX_STRICT_DISPATCHER_COVERAGE"
+# OMN-14507: staged rollout for the auto-wired consume boundary DLQ fix.
+# DEFAULT OFF (warn-first) -- see _boundary_dlq_enabled() below.
+_BOUNDARY_DLQ_ENV = "ONEX_BOUNDARY_DLQ_ENABLED"
+_BOUNDARY_DLQ_MAX_ATTEMPTS = 3
+_BOUNDARY_DLQ_RETRY_BACKOFF_SECONDS: tuple[float, ...] = (0.1, 0.4)
+
+# OMN-14498 / OMN-15029: strong references to the detached DLQ-routing tasks
+# `_make_sync_event_publisher` schedules for a failed fire-and-forget publish
+# (see `_route_sync_publisher_failure`). Without this, the Task object has no
+# other referrer once `_log_publish_failure`'s local `dlq_task` variable goes
+# out of scope, which is a documented footgun for tasks scheduled via
+# `loop.create_task` outside of a structured-concurrency context (asyncio may
+# garbage-collect a task with no external references before it completes).
+# Discarded via its own done_callback once it finishes.
+_DLQ_ROUTING_TASKS: set[asyncio.Task[None]] = set()
+
+# OMN-14551: alertable counter for the boundary's one true loss window --
+# retry budget exhausted AND the best-effort DLQ publish itself also failed
+# (the ``message_lost=true`` branch of ``_route_swallowed_exception`` below).
+# Prior to this, that path was a structured-but-unalertable ``logger.error``
+# line only (forbid-verify residual ask: "a greppable log won't [page]").
+# Emitted through the same process-global default Prometheus registry the
+# runtime's existing metrics surface (``SinkMetricsPrometheus`` /
+# ``HandlerMetricsPrometheus``'s ``/metrics`` scrape endpoint, OMN-9121
+# observability profile) already exports -- mirrors the established
+# module-level ``prometheus_client.Counter`` idiom in ``handler_db.py``
+# (OMN-1366) rather than inventing a new observability surface. Scoped to
+# this one loss-path emission only -- not a refactor of the boundary's
+# other logging.
+try:
+    from prometheus_client import Counter as _PrometheusCounter
+
+    _BOUNDARY_MESSAGE_LOST_COUNTER: _PrometheusCounter | None = _PrometheusCounter(
+        "onex_boundary_message_lost_total",
+        "Count of auto-wiring boundary messages genuinely lost: handler "
+        "exception survived the bounded retry AND the best-effort DLQ "
+        "publish itself also failed. MUST page -- unlike "
+        "boundary_swallow_prevented (DLQ-routed, the success path), this "
+        "counter incrementing means the message is gone.",
+        ["topic", "error_type"],
+    )
+except (ImportError, ValueError):
+    # ImportError: prometheus_client not installed (graceful degradation,
+    # matches handler_db.py). ValueError: duplicate registration under
+    # pytest-xdist/module-reimport -- idempotent fallback, not fatal.
+    _BOUNDARY_MESSAGE_LOST_COUNTER = None
+# OMN-14600: the state_io outbox recovery sweep (re-publish + finalize any row
+# whose batch is committed but never finalized) originally ran exactly once
+# per adapter lifetime (first live dispatch only) -- a row stranded later in a
+# long-lived process's life was NOT re-scanned until the next boot/redeploy.
+# Gating on elapsed wall-clock time instead of a boolean makes the sweep
+# periodic: it re-runs opportunistically on the next dispatch once this many
+# seconds have passed since the last run. select_recoverable_batches() is a
+# cheap empty partial-index scan in steady state (docstring above), so a
+# 30s interval costs nothing while bounding the self-heal window.
+_STATE_IO_RECOVERY_SWEEP_INTERVAL_SECONDS = 30.0
+# OMN-14721: terminal FSM states for the state_io emission-completeness guard.
+# Mirrors the adapter's give-up sweep predicate (state_store_adapter.py
+# recover_stale_rows: ``state NOT IN ('COMPLETED', 'FAILED')``) and migration
+# 090's partial staleness index. A fresh seed into any NON-terminal state MUST
+# carry a durable emission (a pending_emissions batch OR an in_flight marker) —
+# a fresh non-terminal row committed with neither is structurally unrecoverable
+# by ``select_recoverable_batches`` and silently strands the workflow.
+_STATE_IO_TERMINAL_STATE_NAMES = frozenset({"COMPLETED", "FAILED"})
+# OMN-18296: the FSM state an abandoned row is closed into, and the cadence of
+# the background sweep that closes it. The interval is derived from the
+# contract's own bound rather than fixed, so a contract declaring a short bound
+# is swept proportionally often; the floor keeps a very short bound from turning
+# the sweeper into a busy loop.
+_TERMINAL_FSM_STATE_FAILED = "FAILED"
+_BOUND_SWEEP_DIVISOR = 4.0
+_BOUND_SWEEP_MIN_INTERVAL_SECONDS = 15.0
+# OMN-16924: ``state_io.key`` names both a wire payload field and a SQL
+# identifier (the row's primary-key column), so it is validated the same way
+# StateStoreAdapter validates its table name before interpolating it into SQL.
+_STATE_IO_KEY_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+_TOPIC_MIGRATION_EXECUTOR_DEPS = frozenset({"provisioner", "drain_proof_gate"})
+_DELEGATION_INFERENCE_INTENT_MODULE = "omnibase_core.models.delegation.wire"
+_DELEGATION_INFERENCE_INTENT_NAME = "ModelInferenceIntent"
+_DELEGATION_INFERENCE_INTENT_DISCRIMINATOR = "llm_inference"
+_LEDGER_DB_DSN_ENV_VARS: tuple[str, ...] = ("OMNIBASE_INFRA_DB_URL", "DATABASE_URL")
+# OMN-14600: pre-fix rows committed by the delegation orchestrator's OLD
+# bespoke terminal carrier. Those entries recorded the CARRIER's own
+# module/class_name (never the "topic" entry key -- that field did not exist
+# yet) and stored its own dump verbatim: {"topic": <str>, "payload":
+# {...ModelDelegationResult fields...}}. ModelDelegationEventEnvelope was the
+# ONLY payload type this carrier ever wrapped in this codebase (the
+# delegation orchestrator's single terminal-emit site), so the inner class is
+# hardcoded here rather than re-derived generically -- there is no other
+# legacy-shaped carrier to generalize for.
+_LEGACY_DELEGATION_ENVELOPE_CLASS_NAME = "ModelDelegationEventEnvelope"
+_LEGACY_DELEGATION_RESULT_MODULE = (
+    "omnibase_core.models.delegation.wire.model_delegation_result"
+)
+_LEGACY_DELEGATION_RESULT_NAME = "ModelDelegationResult"
+
+
+def _legacy_delegation_envelope_unwrap(
+    entry: dict[str, object],
+) -> tuple[str, dict[str, object]] | None:
+    """Detect + unwrap a pre-fix ``ModelDelegationEventEnvelope`` outbox entry.
+
+    Returns ``(topic, inner_payload_dict)`` when ``entry`` is the legacy
+    shape (see module comment above), else ``None``. A row healed once by
+    this path is re-persisted with the NEW shape by its own
+    ``_finalize_outbox_row`` call, so this is a one-time migration read, not
+    a permanent dual-shape burden.
+    """
+    if entry.get("class_name") != _LEGACY_DELEGATION_ENVELOPE_CLASS_NAME:
+        return None
+    if entry.get("topic"):
+        # Already carries the new-shape topic key -- not the legacy shape.
+        return None
+    stored_payload = entry.get("payload")
+    if not isinstance(stored_payload, dict):
+        return None
+    topic = stored_payload.get("topic")
+    inner = stored_payload.get("payload")
+    if isinstance(topic, str) and topic and isinstance(inner, dict):
+        return topic, inner
+    return None
+
+
+# OMN-14403 P3a §6ii — the def-B multi-event (fan-out) publish seam. Default OFF;
+# flipped in a separate PR once every wired fan-out handler is coverage-clean (repo
+# rule: a gate that tightens acceptance ships behind an env flag, default OFF). A
+# Sequence[BaseModel] return stops being silently dropped to output_events=[] /
+# SUCCESS and becomes the published batch. This is the ONE env read for the seam
+# (the OMN-11069 env-read gate approves this module); the pure logic + the mirror
+# read on the RuntimeLocal path (LocalRuntimeBusAdapter) both gate on this same
+# flag so the two runtimes agree. NOTE: this PR is §6ii ONLY — the §8.1
+# causation/tenant carry (seam_apply_context) is a separate lane.
+ENV_MULTI_EVENT_PUBLISH_SEAM = "ONEX_MULTI_EVENT_PUBLISH_SEAM"
+
+
+def multi_event_seam_enabled() -> bool:
+    """Return True when the def-B fan-out publish seam is enabled (default: False)."""
+    return os.environ.get(ENV_MULTI_EVENT_PUBLISH_SEAM, "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
+def _check_fanout_publish_coverage(contract: ModelDiscoveredContract) -> None:
+    """Prove fan-out handlers' emittable classes are contract-declared (§2C)."""
+    check_fanout_publish_coverage(
+        contract,
+        seam_enabled=multi_event_seam_enabled(),
+        env_flag=ENV_MULTI_EVENT_PUBLISH_SEAM,
+    )
+
+
+def _sanitize_exc(exc: BaseException) -> str:
+    """Return a sanitized one-line summary of an exception safe for logging/errors.
+
+    Strips URLs and DSNs that may carry passwords or hostnames, then truncates.
+    Only the exception type name + sanitized message is surfaced.
+    """
+    raw = str(exc) or type(exc).__name__
+    sanitized = _SENSITIVE_PATTERN.sub("<redacted>", raw)
+    return sanitized[:200]
+
+
+# Deterministic signatures raised by CPython when ``asyncio.run`` /
+# ``asyncio.Runner`` is invoked from inside an already-running event loop.
+# OMN-9457 keys containment on the exact messages so best-effort string
+# heuristics are avoided. Messages were verified empirically against CPython
+# 3.11 / 3.12 source (the runtime target) and confirmed by inspecting
+# ``asyncio.runners`` at runtime (asyncio/runners.py).
+#
+# CPython behaviour (3.11 / 3.12, verified from source):
+#   * ``asyncio.run(coro)``
+#     -> "asyncio.run() cannot be called from a running event loop"
+#     (raised at the if-running-loop guard in asyncio/runners.py::run().)
+#   * ``asyncio.Runner.run(coro)`` when another loop is active
+#     -> "Runner.run() cannot be called from a running event loop"
+#     (raised from asyncio/runners.py::Runner.run().)
+#   * ``BaseEventLoop.run_until_complete`` nested call
+#     -> "Cannot run the event loop while another loop is running"
+#     (raised from asyncio/base_events.py::run_until_complete().)
+#
+# All three variants are matched because handlers may call any of these entry
+# points, directly or transitively (e.g. a sync client that drives an async
+# call with ``asyncio.run`` or ``asyncio.Runner``).
+_ASYNC_INCOMPAT_MESSAGES: tuple[str, ...] = (
+    "asyncio.run() cannot be called from a running event loop",
+    "Runner.run() cannot be called from a running event loop",
+    "Cannot run the event loop while another loop is running",
+)
+
+
+def _is_async_incompat_runtime_error(exc: BaseException) -> bool:
+    """Return True if ``exc`` is the deterministic async-incompat signature.
+
+    Matches ``RuntimeError`` raised by CPython's ``asyncio.run`` /
+    ``asyncio.Runner.run`` when a synchronous handler constructor (or a
+    dependency it resolves) calls ``asyncio.run()`` from within
+    runtime-managed async boot. The detector walks the full exception
+    chain — ``__cause__`` and ``__context__`` — because wrapped
+    ``RuntimeError``s raised via ``raise X from original`` or propagated
+    implicitly during handling may carry the original asyncio failure on
+    either attribute (and per PEP 3134 both can be set simultaneously).
+    Matching uses exact substring presence against the known CPython
+    messages only, so unrelated ``RuntimeError``s are never misclassified.
+    """
+    visited: set[int] = set()
+    stack: list[BaseException] = [exc]
+    while stack:
+        current = stack.pop()
+        if current is None or id(current) in visited:
+            continue
+        visited.add(id(current))
+        if isinstance(current, RuntimeError):
+            message = str(current)
+            if any(needle in message for needle in _ASYNC_INCOMPAT_MESSAGES):
+                return True
+        # Explore BOTH branches of the exception chain. Per PEP 3134 an
+        # exception may carry ``__cause__`` (explicit ``raise X from Y``)
+        # and ``__context__`` (implicit propagation during handling)
+        # simultaneously; skipping one branch can hide the original
+        # asyncio failure when the handler constructor wraps it.
+        if current.__cause__ is not None:
+            stack.append(current.__cause__)
+        if current.__context__ is not None:
+            stack.append(current.__context__)
+    return False
+
+
+def _is_protocol_handler_class(handler_cls: type) -> bool:
+    """Return True when a handler routing entry points at a Protocol class."""
+    return bool(getattr(handler_cls, "_is_protocol", False))
+
+
+def _is_delegation_inference_intent_ref(event_model: ModelHandlerRef) -> bool:
+    """Return True for the canonical delegation inference-intent wire model."""
+    return (
+        event_model.module == _DELEGATION_INFERENCE_INTENT_MODULE
+        and event_model.name == _DELEGATION_INFERENCE_INTENT_NAME
+    )
+
+
+def _payload_value(payload: object, key: str) -> object:
+    if isinstance(payload, Mapping):
+        return payload.get(key)
+    return getattr(payload, key, None)
+
+
+def _payload_claims_delegation_inference_intent(payload: object) -> bool:
+    """Return True when a raw payload declares the inference-intent discriminator."""
+    intent = _payload_value(payload, "intent")
+    return intent == _DELEGATION_INFERENCE_INTENT_DISCRIMINATOR
+
+
+async def _async_resolve_from_container(
+    container: object,
+    handler_cls: type,
+) -> object | None:
+    """Try to resolve handler_cls from container using get_service_async.
+
+    Returns the resolved instance on success, None on ServiceResolutionError
+    (service not registered), and re-raises any other exception.
+
+    This avoids calling container.get_service() (sync) from inside a running
+    event loop where asyncio.run() would raise RuntimeError (OMN-9410).
+    """
+    from omnibase_core.errors.error_service_resolution import ServiceResolutionError
+
+    get_service_async = getattr(container, "get_service_async", None)
+    if get_service_async is None:
+        return None
+    try:
+        return await get_service_async(handler_cls)
+    except ServiceResolutionError:
+        return None
+
+
+# Type alias matching MessageDispatchEngine.DispatcherFunc
+DispatcherFunc = Callable[
+    ["ModelEventEnvelope[object]"],
+    Awaitable["ModelDispatchResult | None"],
+]
+
+
+@runtime_checkable
+class ProtocolHandleable(Protocol):
+    """Protocol for objects with a handle() method (auto-wired handlers)."""
+
+    async def handle(
+        self,
+        envelope: ModelEventEnvelope[object],
+    ) -> ModelDispatchResult | None: ...
+
+
+@dataclass  # internal-dataclass-ok: holds non-serializable dispatcher callables and runtime wiring state
+class PreparedWiring:
+    """Data needed to register one contract entry with the dispatch engine.
+
+    Produced by _prepare_handler_wiring (pure), consumed by
+    _commit_handler_wiring (side effects only). Two phases ensure partial
+    wiring never reaches the engine on later failure (OMN-8735).
+    ``resolution_outcome`` / ``handler_name`` / ``skip_reason`` carry the
+    resolver's per-handler outcome into the wiring report (OMN-9201).
+    ``quarantine_reason`` / ``quarantine_detail`` / ``handler_module`` carry
+    OMN-9457 containment state when handler construction deterministically
+    failed with an async-incompatible signature.
+    """
+
+    dispatcher_id: str
+    dispatcher: DispatcherFunc
+    category: EnumMessageCategory
+    message_types: set[str] | None
+    handler_name: str = ""
+    handler_module: str = ""
+    resolution_outcome: EnumHandlerResolutionOutcome = (
+        EnumHandlerResolutionOutcome.UNRESOLVABLE
+    )
+    skip_reason: str = ""
+    quarantine_reason: EnumQuarantineReason | None = None
+    quarantine_detail: str = ""
+    route_ids: list[str] = field(default_factory=list)
+    routes: list[ModelDispatchRoute] = field(default_factory=list)
+    # Type-scoping predicate built from the entry's contract-declared
+    # ``event_model``. When set, the dispatch engine selects this dispatcher
+    # only for payloads that match the event_model, so sibling handlers on a
+    # multi-handler contract are not all invoked for one message (OMN-12416).
+    payload_type_matcher: Callable[[object], bool] | None = None
+    # OMN-17562. True when this entry's dispatcher is a no-op by construction:
+    # the standalone-runner branch (OMN-15905) or the zero-route branch
+    # (OMN-17519). Carried as a typed per-ENTRY fact rather than read back out
+    # of the process-global dispatch ledger, because the subscribe decision is
+    # about this contract in this wiring pass, and because a contract with one
+    # no-op entry and one live entry must keep consuming.
+    dispatch_is_noop: bool = False
+
+    @property
+    def is_skip(self) -> bool:
+        return (
+            self.resolution_outcome
+            is EnumHandlerResolutionOutcome.RESOLVED_VIA_LOCAL_OWNERSHIP_SKIP
+        )
+
+    @property
+    def is_quarantined(self) -> bool:
+        """True when OMN-9457 containment fired for this handler."""
+        return self.quarantine_reason is not None
+
+
+@dataclass  # internal-dataclass-ok: holds non-serializable dispatcher callables and runtime wiring state
+class PreparedContractWiring:
+    """All validated wiring data for one contract — no side effects yet.
+
+    Produced by _prepare_contract_wiring (pure) and consumed by
+    _commit_contract_wiring (side effects). Exists so wire_from_manifest can
+    validate every contract before touching the dispatch engine or event bus
+    (OMN-8735 — no partial state on startup abort).
+
+    If skip_result is set, the contract was skipped and no wiring is needed.
+    _commit_contract_wiring returns skip_result directly in that case.
+    """
+
+    contract: ModelDiscoveredContract
+    prepared_wirings: list[PreparedWiring]
+    subscription_topics: list[str]  # topics to subscribe after commit
+    environment: str
+    skip_result: ModelContractWiringResult | None = None
+
+
+def _import_handler_class(module_path: str, class_name: str) -> type:
+    """Import a handler class from its fully qualified module path.
+
+    Args:
+        module_path: Dotted module path (e.g. ``omnibase_infra.handlers.handler_foo``).
+        class_name: Class name within the module.
+
+    Returns:
+        The handler class object.
+
+    Raises:
+        ImportError: If the module cannot be imported.
+        TypeError: If the class is not found in the module (OMN-12408 hard-fail).
+            A handler class declared in a contract but absent from its module is a
+            build/contract defect — not a degradable runtime condition. TypeError is
+            used (rather than AttributeError) so the caller's existing TypeError
+            catch-and-reraise path (which bypasses the ONEX_WIRING_STRICT_MODE gate)
+            propagates this failure as a startup crash regardless of strict mode.
+    """
+    mod = importlib.import_module(module_path)
+    if not hasattr(mod, class_name):
+        raise TypeError(
+            f"CLASS_NOT_FOUND (HANDLER_LOADER_011): class '{class_name}' does not "
+            f"exist in module '{module_path}'. "
+            f"A contract that names a handler class that does not exist is a "
+            f"build/contract defect, not a degradable condition (OMN-12408)."
+        )
+    return getattr(mod, class_name)  # type: ignore[no-any-return]
+
+
+def _assert_is_ownership_query(obj: object) -> None:
+    """Infra-boundary runtime protocol check for ProtocolHandlerOwnershipQuery.
+
+    The core-hosted resolver types ``ownership_query`` as ``object | None``
+    because ``compat → core → spi → infra`` forbids a core-to-spi import.
+    Conformance MUST be verified here before the object reaches the resolver.
+    See plan §Layering Invariants.
+    """
+    if not isinstance(obj, ProtocolHandlerOwnershipQuery):
+        raise ModelOnexError(
+            "handler_wiring: ownership_query does not conform to "
+            f"ProtocolHandlerOwnershipQuery (got {type(obj).__name__!r})."
+        )
+
+
+async def _skip_dispatcher(
+    envelope: ModelEventEnvelope[object],
+) -> ModelDispatchResult | None:
+    """Sentinel dispatcher for LOCAL_OWNERSHIP_SKIP entries; never registered."""
+    return None
+
+
+def _resolve_effective_handle_method(
+    handler_instance: object,
+) -> Callable[[object], object] | None:
+    """Resolve the dispatch entrypoint the runtime will actually invoke.
+
+    Prefers ``handle_async`` when the handler CLASS explicitly declares it (the
+    MRO is inspected rather than the instance so a MagicMock's dynamic attribute
+    creation does not fabricate one), otherwise ``handle``. Returns ``None`` when
+    the handler exposes neither — the caller decides whether that is fatal.
+
+    Shared by ``_make_dispatch_callback`` (which needs the callable) and
+    ``_typed_def_b_input_model`` (which needs its annotation at wiring time), so
+    the "which method is the entrypoint" rule cannot drift between the wiring
+    ARM SELECTION and the dispatch that arm performs — the OMN-16767 defect
+    class.
+    """
+    handle_async_method = next(
+        (
+            cls.__dict__["handle_async"]
+            for cls in type(handler_instance).__mro__
+            if "handle_async" in cls.__dict__
+        ),
+        None,
+    )
+    candidate_handle_async = getattr(handler_instance, "handle_async", None)
+    candidate_handle = getattr(handler_instance, "handle", None)
+    if (
+        handle_async_method is not None
+        and callable(handle_async_method)
+        and callable(candidate_handle_async)
+    ):
+        return cast("Callable[[object], object]", candidate_handle_async)
+    if callable(candidate_handle):
+        return cast("Callable[[object], object]", candidate_handle)
+    return None
+
+
+def _typed_def_b_input_model(handler_instance: object) -> type[BaseModel] | None:
+    """Return the concrete input model a def-B handler declares, else ``None``.
+
+    A canonical def-B handler is ``handle(self, request: ModelX) -> ModelY``: the
+    runtime owes it a validated ``ModelX``. This resolves ``ModelX`` from the
+    handler instance the resolver constructed, at wiring time, so the arm
+    selection in :func:`_prepare_handler_wiring` can tell a typed handler apart
+    from a projection handler (``handle(input_data: dict[str, object])``) without
+    guessing from the contract alone.
+    """
+    handle_method = _resolve_effective_handle_method(handler_instance)
+    if handle_method is None:
+        return None
+    return _resolve_def_b_input_model_type(handle_method)
+
+
+def _make_dispatch_callback(
+    handler_instance: ProtocolHandleable,
+    event_model: ModelHandlerRef | None = None,
+    handler_node_kind: EnumNodeKind | None = None,
+    published_event_names: frozenset[str] | None = None,
+    pre_dispatch_guard: Callable[[object], None] | None = None,
+) -> DispatcherFunc:
+    """Create a dispatch callback wrapping a handler instance.
+
+    Legacy handlers receive the materialized dispatch envelope. Contract-typed
+    handlers receive a validated payload model and may be sync or async. Handlers
+    that declare an envelope-shaped signature keep receiving a typed envelope
+    even when their contract declares ``event_model``.
+
+    ``handler_node_kind`` carries the contract's declared archetype (from
+    ``contract.node_type``). It is consulted only by ``_normalize_handler_result``
+    to classify a REDUCER's bare typed / Sequence return as ``projection_intents``
+    rather than events (OMN-14598); ``None`` preserves the archetype-agnostic
+    classification for every other caller.
+
+    ``published_event_names`` carries the short-name keys of the contract's
+    ``published_events`` map (OMN-14794). It refines the OMN-14598 REDUCER
+    classification: a REDUCER return whose model class IS a declared published
+    event is emitted as an EVENT (``output_events``) instead of being captured as
+    a projection — the live delegation-routing drop that stalled the FSM at
+    RECEIVED. ``None`` (non-REDUCER, or a REDUCER declaring no published events)
+    leaves the projection classification unchanged.
+
+    When a handler exposes ``handle_async`` in addition to ``handle``, the async
+    variant is preferred for dispatch.  This allows orchestrator handlers that
+    perform side-effect publishes inside ``handle_async`` (e.g. FSM-driven swarm
+    coordinators that flush command topics after each transition) to participate
+    correctly in the event-bus dispatch loop.  ``handle`` stays the test/
+    standalone entry point; ``handle_async`` is the runtime entry point.
+    See OMN-12002.
+    """
+    # Prefer handle_async when the handler class explicitly declares it.
+    # Performed once at wiring time so the per-message hot path has no overhead.
+    _resolved_handle = _resolve_effective_handle_method(handler_instance)
+    if _resolved_handle is not None:
+        _effective_handle = _resolved_handle
+    else:
+
+        def _missing_handle(_payload: object) -> object:
+            raise ModelOnexError(
+                "Auto-wired handler "
+                f"{type(handler_instance).__name__} does not expose a callable "
+                "handle() or handle_async() dispatch entrypoint."
+            )
+
+        _effective_handle = _missing_handle
+
+    async def _callback(
+        envelope: ModelEventEnvelope[object],
+    ) -> ModelDispatchResult | None:
+        handle_method = _effective_handle
+        if event_model is None:
+            from omnibase_infra.models.dispatch.model_dispatch_result import (
+                ModelDispatchResult,
+            )
+
+            # OMN-14716: an operation_match def-B handler declares no contract
+            # ``event_model``, so the typed-coercion path below never runs and the
+            # engine hands the dispatcher the raw materialized wire dict. Passing
+            # that dict straight to ``handle(request: ModelX)`` crashes on the
+            # first attribute access (``'dict' object has no attribute ...`` — the
+            # .201 finding-aggregator incident). Reach parity with runtime_local's
+            # def-B coercion (``_coercion_target_model_type``, OMN-8724): when the
+            # handler is a bare typed def-B handler (not an envelope handler),
+            # validate the extracted domain payload into its declared input model
+            # at THIS adapter boundary — never inside the handler, never by
+            # wrapping the payload in a ModelEventEnvelope.
+            #
+            # OMN-15181 Finding 4: an operation_match handler whose ``handle()``
+            # declares a CONCRETE ``ModelEventEnvelope`` annotation (e.g.
+            # ``HandlerRedeployOrchestrator.handle(self, envelope:
+            # ModelEventEnvelope[Any])``) was left OUT of the coercion above —
+            # ``dispatch_arg`` stayed the raw materialized dict
+            # (``{"payload": ..., "__bindings": {...}, "__debug_trace": {...}}``
+            # from ``MessageDispatchEngine._materialize_envelope_with_bindings``),
+            # never a ``ModelEventEnvelope`` instance. Only the sibling
+            # ``event_model is not None`` (payload_type_match) branch below
+            # called ``_materialize_typed_event_envelope`` /
+            # ``_materialize_raw_event_envelope`` before invoking an
+            # envelope-accepting handler. The live incident: a real,
+            # grant-authorized prod redeploy dispatch crashed on
+            # ``envelope.event_type`` — ``AttributeError: 'dict' object has no
+            # attribute 'event_type'`` — before the orchestrator ever emitted its
+            # first bus command. Materialize the same way here so both routing
+            # strategies hand an envelope-annotated handler a real
+            # ``ModelEventEnvelope``.
+            #
+            # Deliberately narrower than ``_handler_accepts_event_envelope``
+            # (which also matches on the bare parameter name ``envelope``
+            # regardless of annotation, to preserve untyped legacy handlers
+            # such as ``handle(self, envelope: object)`` that intentionally
+            # receive whatever raw object the engine handed them unchanged —
+            # ``test_standard_callback_calls_async_handle``). Only a
+            # CONCRETE ``ModelEventEnvelope`` annotation triggers
+            # materialization here.
+            dispatch_arg: object = envelope
+            if _handler_declares_typed_event_envelope(handle_method):
+                raw_payload = _extract_dispatch_payload(envelope)
+                dispatch_arg = _materialize_raw_event_envelope(
+                    envelope, raw_payload, fallback_event_type="unknown"
+                )
+            else:
+                target_model = _resolve_def_b_input_model_type(handle_method)
+                if target_model is not None:
+                    # OMN-16050: pass the registered input model so the unwrap
+                    # STOPS at it. ``ModelEmitRequest`` declares ``payload`` plus
+                    # four transport markers, so a marker-only heuristic unwrapped
+                    # through it and handed the handler the caller's inner
+                    # payload — every node_event_emit_effect command DLQ'd.
+                    payload = _extract_dispatch_payload(envelope, target_model)
+                    if isinstance(payload, target_model):
+                        dispatch_arg = payload
+                    elif isinstance(payload, Mapping):
+                        dispatch_arg = target_model.model_validate(payload)
+
+            raw_result_obj = handle_method(dispatch_arg)
+            raw_result = (
+                await cast("Awaitable[object]", raw_result_obj)
+                if asyncio.iscoroutine(raw_result_obj)
+                else raw_result_obj
+            )
+            if raw_result is None or isinstance(raw_result, ModelDispatchResult):
+                return raw_result
+            if isinstance(raw_result, str):
+                return cast("ModelDispatchResult | None", raw_result)
+            if is_fanout_sequence(raw_result) and not any(
+                isinstance(element, BaseModel)
+                for element in cast("Sequence[object]", raw_result)
+            ):
+                # Legacy no-bus/state_io handlers use [] as a no-op fold and may
+                # return list[str] intent markers. OMN-14403 only normalizes
+                # actual BaseModel fan-out batches here.
+                return cast("ModelDispatchResult | None", raw_result)
+            # OMN-14403 §2A. A bare list/sequence used to be cast straight through
+            # AS IF it were a ModelDispatchResult — strictly worse than the sibling
+            # silent drop, since the applier then reads .output_events/.status off a
+            # list and finds neither. Route it through the one fan-out coercion so it
+            # either becomes a validated batch (seam ON) or is dropped LOUDLY (OFF).
+            return _normalize_handler_result(
+                raw_result, envelope, None, handler_node_kind, published_event_names
+            )
+
+        # OMN-16050: resolve the contract-declared event model BEFORE extracting so
+        # the unwrap can stop at it (same fail-closed rule as the def-B branch
+        # above). Resolution failure is not fatal here — the existing try/except
+        # below owns that path — so the hint degrades to None and the extraction
+        # keeps its pre-OMN-16050 structural behaviour.
+        payload_target_model = _safe_import_event_model_class(event_model)
+        payload = _extract_dispatch_payload(envelope, payload_target_model)
+        handler_takes_envelope = _handler_accepts_event_envelope(
+            cast("Callable[..., object]", handle_method)
+        )
+        try:
+            model_cls = _import_event_model_class(event_model)
+            typed_payload: object = (
+                payload
+                if isinstance(payload, model_cls)
+                else model_cls.model_validate(payload)
+            )
+        except Exception as exc:
+            # An envelope-accepting handler (a multi-step ORCHESTRATOR) declares
+            # its ``event_model`` as the workflow ENTRYPOINT, yet it also consumes
+            # the heterogeneous follow-up events on its other subscribe topics
+            # (validated / completed / failed) whose payloads do NOT validate as
+            # the entrypoint model. Such a handler coerces ``envelope.payload``
+            # itself, keyed on ``event_type``. Re-hydrate the typed envelope with
+            # the RAW domain payload (preserving ``event_type``) so the handler's
+            # own polymorphic coercion runs — the entrypoint event still gets the
+            # typed payload via the success path above (OMN-13247). Non-envelope
+            # (typed-payload) handlers keep the strict fail-fast behavior.
+            if handler_takes_envelope:
+                fallback_envelope = _materialize_raw_event_envelope(
+                    envelope, payload, event_model.name
+                )
+                fallback_result = handle_method(fallback_envelope)
+                if asyncio.iscoroutine(fallback_result):
+                    fallback_result = await cast("Awaitable[object]", fallback_result)
+                return _normalize_handler_result(
+                    fallback_result,
+                    envelope,
+                    event_model.name,
+                    handler_node_kind,
+                    published_event_names,
+                )
+            failure_result = _build_inference_intent_validation_failure_result(
+                event_model=event_model,
+                envelope=envelope,
+                payload=payload,
+                exc=exc,
+            )
+            if failure_result is not None:
+                return failure_result
+            raise
+        if pre_dispatch_guard is not None:
+            pre_dispatch_guard(typed_payload)
+        if handler_takes_envelope:
+            handler_envelope = _materialize_typed_event_envelope(
+                envelope,
+                cast("BaseModel", typed_payload),
+                event_model.name,
+            )
+            envelope_result = handle_method(handler_envelope)
+            if asyncio.iscoroutine(envelope_result):
+                envelope_result = await cast("Awaitable[object]", envelope_result)
+            return _normalize_handler_result(
+                envelope_result,
+                envelope,
+                event_model.name,
+                handler_node_kind,
+                published_event_names,
+            )
+
+        typed_result = handle_method(typed_payload)
+        if asyncio.iscoroutine(typed_result):
+            typed_result = await cast("Awaitable[object]", typed_result)
+        return _normalize_handler_result(
+            typed_result,
+            envelope,
+            event_model.name,
+            handler_node_kind,
+            published_event_names,
+        )
+
+    return _callback
+
+
+def _format_validation_error_detail(exc: BaseException) -> str:
+    """Render a real, actionable detail string from a payload-validation failure.
+
+    A pydantic ``ValidationError`` carries structured per-field errors
+    (``loc``/``msg``/``type``); we flatten those into a compact
+    ``field: message`` list so the detail is useful in a log line or a DLQ
+    envelope without requiring the reader to re-run validation themselves.
+    Non-pydantic exceptions (e.g. a raising custom validator) fall back to
+    ``str(exc)``. Never raises.
+    """
+    errors = getattr(exc, "errors", None)
+    if callable(errors):
+        try:
+            structured = errors()
+        except Exception:  # noqa: BLE001 — best-effort detail formatting only
+            structured = None
+        if structured:
+            parts = [
+                f"{'.'.join(str(loc) for loc in err.get('loc', ()))}: {err.get('msg', '')}"
+                for err in structured
+            ]
+            return "; ".join(parts) if parts else str(exc)
+    return str(exc)
+
+
+class PayloadTypeMatcher:
+    """Callable payload-type predicate that records the real validation failure.
+
+    Built from a contract-declared ``event_model`` (OMN-12416). Answers "does
+    this payload match the handler's declared event_model?" — True when the
+    payload is already an instance of the model, or when it validates against
+    the model (e.g. a dict / raw envelope payload). Used by the dispatch
+    engine to type-scope routing so a multi-handler contract delivers each
+    message only to the handler whose event_model matches the payload.
+
+    OMN-14492: unlike a plain predicate function, a rejecting call leaves the
+    real pydantic ``ValidationError`` detail on ``last_validation_detail`` so
+    the dispatch engine can distinguish "payload failed THIS handler's
+    event_model validation" (publisher_malformed) from "no dispatcher was
+    ever a candidate" (no_dispatcher) instead of collapsing both into the
+    same unclassifiable "No dispatcher found" log line.
+
+    The event_model class is imported lazily on first call and then cached, so
+    wiring stays consistent with ``_make_dispatch_callback`` (which also defers
+    the event_model import to the per-message path) and a declared-but-not-yet-
+    importable model does not change failure timing. A payload that does not
+    validate yields False (not an exception): "not this handler's type".
+    """
+
+    def __init__(self, event_model: ModelHandlerRef) -> None:
+        self._event_model = event_model
+        self._cached_model_cls: type[BaseModel] | None = None
+        self.last_validation_detail: str | None = None
+
+    def __call__(self, payload: object) -> bool:
+        self.last_validation_detail = None
+        if self._cached_model_cls is None:
+            try:
+                self._cached_model_cls = _import_event_model_class(self._event_model)
+            except Exception:
+                if _is_delegation_inference_intent_ref(
+                    self._event_model
+                ) and _payload_claims_delegation_inference_intent(payload):
+                    return True
+                raise
+        model_cls = self._cached_model_cls
+        # OMN-16767: decide on the SAME domain payload the dispatch callback
+        # will construct the model from. The engine hands this predicate
+        # whatever it has in hand, which on the Kafka path is the transport
+        # envelope (``{"payload": {domain}, "event_type": ..., "envelope_id":
+        # ..., ...}``), while ``_make_dispatch_callback`` unwraps to the domain
+        # first. Matching on the un-unwrapped envelope makes the two disagree,
+        # and the disagreement is SILENT in the worst direction: the matcher
+        # rejects, the engine treats it as "not my message" (not an error), and
+        # the record is consumed + committed with no handler ever invoked and
+        # no DLQ entry — the phantom-wiring-death signature.
+        #
+        # Live on the .201 dev lane: every record on
+        # onex.cmd.omnibase-infra.delegation-routing-request.v1 validated
+        # cleanly as ModelRoutingIntent once unwrapped, yet the consumer group
+        # sat at lag 0 having dispatched nothing, because the matcher was
+        # asked about the envelope. Unwrapping here uses the same registered-
+        # input-model stop condition as the dispatch path (OMN-16050), so a
+        # genuine non-match still rejects.
+        #
+        # The payload AS GIVEN is tried FIRST and the unwrapped candidate only
+        # as a fallback — this predicate may only ever ADD acceptances, never
+        # remove one. Unwrapping unconditionally is not safe: a model that
+        # tolerates extra keys can validate a candidate that
+        # ``_is_registered_input_payload`` refuses to claim (its key-containment
+        # check is deliberately stricter than validation), so the unwrap walks
+        # PAST a payload that already was the model and lands on its inner
+        # payload, which then does not validate. That inverted a live selection
+        # from ``success`` to ``no_dispatcher`` for
+        # ``HandlerA2ATask``/``onex.cmd.omnibase-infra.remote-agent-invoke.v1``,
+        # caught by the committed dispatch-selection oracle
+        # (``tests/integration/runtime/test_dispatch_selection_parity.py``).
+        # Order matters, not just the candidate set.
+        candidates: list[object] = [payload]
+        unwrapped = _extract_dispatch_payload(payload, model_cls)
+        if unwrapped is not payload:
+            candidates.append(unwrapped)
+
+        first_failure: ValidationError | None = None
+        for candidate in candidates:
+            if isinstance(candidate, model_cls):
+                return True
+            try:
+                model_cls.model_validate(candidate)
+            except ValidationError as exc:
+                if first_failure is None:
+                    first_failure = exc
+                continue
+            return True
+
+        if _is_delegation_inference_intent_ref(self._event_model) and any(
+            _payload_claims_delegation_inference_intent(candidate)
+            for candidate in candidates
+        ):
+            return True
+        if first_failure is not None:
+            # Report the failure against the payload AS GIVEN — that is the
+            # object the publisher actually put on the wire, so it is the
+            # actionable detail for the OMN-14492 publisher_malformed
+            # classification.
+            self.last_validation_detail = _format_validation_error_detail(first_failure)
+        return False
+
+
+def _make_payload_type_matcher(
+    event_model: ModelHandlerRef,
+) -> Callable[[object], bool]:
+    """Build a payload-type predicate from a contract-declared ``event_model``.
+
+    Returns a ``PayloadTypeMatcher`` — a callable object satisfying
+    ``Callable[[object], bool]`` that additionally exposes
+    ``last_validation_detail`` (OMN-14492) after a rejecting call.
+    """
+    return PayloadTypeMatcher(event_model)
+
+
+def _build_inference_intent_validation_failure_result(
+    *,
+    event_model: ModelHandlerRef,
+    envelope: object,
+    payload: object,
+    exc: BaseException,
+) -> ModelDispatchResult | None:
+    """Build a correlated inference-response error for pre-handler validation misses.
+
+    Delegation's inference effect publishes ``ModelInferenceResponseData`` for
+    provider/runtime failures inside ``HandlerInferenceIntent.handle()``. Payload
+    validation and event-model import happen before that handler is called, so
+    this boundary maps only canonical ``ModelInferenceIntent`` load/validation
+    failures to the same response shape. The delegation orchestrator then handles
+    it through its normal inference-error path instead of leaving the caller to
+    wait for a timeout.
+    """
+    if not _is_delegation_inference_intent_ref(event_model):
+        return None
+    if not _payload_claims_delegation_inference_intent(payload):
+        return None
+
+    from omnibase_core.models.delegation.wire import ModelInferenceResponseData
+    from omnibase_infra.enums import EnumDispatchStatus
+    from omnibase_infra.models.dispatch.model_dispatch_result import (
+        ModelDispatchResult,
+    )
+
+    correlation_candidate = _extract_dispatch_correlation_id(envelope, payload)
+    correlation_id = _coerce_uuid_or_none(correlation_candidate)
+    if correlation_id is None:
+        return None
+
+    model_value = _payload_value(payload, "model")
+    model_used = model_value if isinstance(model_value, str) else ""
+    error_message = (
+        "ModelInferenceIntent validation failed before "
+        f"HandlerInferenceIntent.handle(): {_sanitize_exc(exc)}"
+    )
+    response = ModelInferenceResponseData(
+        correlation_id=correlation_id,
+        content="",
+        model_used=model_used,
+        llm_call_id="",
+        latency_ms=0,
+        error_message=error_message,
+    )
+    now = datetime.now(UTC)
+    return ModelDispatchResult(
+        status=EnumDispatchStatus.SUCCESS,
+        topic=_extract_dispatch_topic(envelope),
+        message_type=event_model.name,
+        started_at=now,
+        completed_at=now,
+        output_count=1,
+        output_events=[response],
+        correlation_id=correlation_id,
+    )
+
+
+def _import_event_model_class(event_model: ModelHandlerRef) -> type[BaseModel]:
+    module = importlib.import_module(event_model.module)
+    model_cls = getattr(module, event_model.name)
+    if not hasattr(model_cls, "model_validate"):
+        raise TypeError(
+            f"Event model {event_model.module}.{event_model.name} "
+            "does not expose model_validate"
+        )
+    return cast("type[BaseModel]", model_cls)
+
+
+def _safe_import_event_model_class(
+    event_model: ModelHandlerRef | None,
+) -> type[BaseModel] | None:
+    """``_import_event_model_class`` that yields None instead of raising (OMN-16050).
+
+    Used only to hint ``_extract_dispatch_payload`` with the contract-declared
+    target type. An unimportable/malformed ``event_model`` must not change dispatch
+    control flow from this call site — the caller's own
+    ``_import_event_model_class`` inside its try/except still owns that failure.
+    """
+    if event_model is None:
+        return None
+    try:
+        return _import_event_model_class(event_model)
+    except Exception:  # noqa: BLE001 — hint-only resolution, never fatal here
+        return None
+
+
+def _handler_accepts_event_envelope(handle_method: object) -> bool:
+    """Return true when a handler's first parameter is envelope-shaped."""
+    try:
+        signature = inspect.signature(cast("Callable[..., object]", handle_method))
+    except (TypeError, ValueError):
+        return False
+
+    for parameter in signature.parameters.values():
+        if parameter.name == "self":
+            continue
+        if parameter.kind not in {
+            inspect.Parameter.POSITIONAL_ONLY,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            inspect.Parameter.KEYWORD_ONLY,
+        }:
+            continue
+        if parameter.name == "envelope":
+            return True
+        return _annotation_mentions_event_envelope(parameter.annotation)
+    return False
+
+
+def _handler_declares_typed_event_envelope(handle_method: object) -> bool:
+    """Return true only when a handler's first parameter is CONCRETELY annotated
+    ``ModelEventEnvelope`` — narrower than ``_handler_accepts_event_envelope``.
+
+    ``_handler_accepts_event_envelope`` also matches on the bare parameter name
+    ``envelope`` regardless of its annotation (a legacy heuristic preserved for
+    untyped handlers like ``handle(self, envelope: object)`` that intentionally
+    receive whatever raw object the engine handed them, unchanged). This
+    stricter predicate drives ONLY the OMN-15181 Finding 4 materialization
+    decision in the ``event_model is None`` (operation_match) dispatch branch:
+    a handler must actually declare ``ModelEventEnvelope`` (or a
+    ``ModelEventEnvelope[...]`` generic alias) to receive a materialized
+    envelope instance there — a same-named-but-untyped parameter keeps
+    receiving the raw dispatch input unchanged, matching its pre-existing,
+    tested behavior.
+    """
+    try:
+        signature = inspect.signature(cast("Callable[..., object]", handle_method))
+    except (TypeError, ValueError):
+        return False
+
+    for parameter in signature.parameters.values():
+        if parameter.name == "self":
+            continue
+        if parameter.kind not in {
+            inspect.Parameter.POSITIONAL_ONLY,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            inspect.Parameter.KEYWORD_ONLY,
+        }:
+            continue
+        return _annotation_mentions_event_envelope(parameter.annotation)
+    return False
+
+
+def _annotation_mentions_event_envelope(annotation: object) -> bool:
+    if annotation is inspect.Signature.empty:
+        return False
+    if isinstance(annotation, str):
+        return "ModelEventEnvelope" in annotation
+    if getattr(annotation, "__name__", "") == "ModelEventEnvelope":
+        return True
+    origin = get_origin(annotation)
+    if getattr(origin, "__name__", "") == "ModelEventEnvelope":
+        return True
+    return any(_annotation_mentions_event_envelope(arg) for arg in get_args(annotation))
+
+
+def _resolve_def_b_input_model_type(handle_method: object) -> type[BaseModel] | None:
+    """Resolve a def-B handler's declared input model from its ``handle()`` signature.
+
+    Mirrors runtime_local's ``_coercion_target_model_type`` (OMN-8724 /
+    ``omnibase_core.runtime.runtime_local_adapter``): a canonical def-B handler
+    ``handle(self, request: ModelX) -> ModelY`` reached via ``operation_match``
+    (no contract-declared ``event_model``) must receive a validated ``ModelX``
+    instance, not the raw materialized wire dict the engine hands the dispatcher.
+    The Kafka boundary has no ``event_model`` to read for such a handler, so it
+    recovers the target model the same way runtime_local does — by introspecting
+    the single positional parameter's annotation.
+
+    Returns that annotation when it is a concrete ``BaseModel`` subclass other
+    than ``ModelEventEnvelope``; ``None`` otherwise (envelope handlers, ``**kwargs``
+    handlers, multi-positional or unannotated params — every legacy shape keeps
+    receiving the raw envelope dict unchanged). ``eval_str=True`` resolves the
+    PEP 563 string annotation every node handler carries via
+    ``from __future__ import annotations`` (without it the annotation is the
+    literal string and the BaseModel check never matches — the OMN-8724 root
+    cause), with a fall back to unevaluated annotations if resolution raises.
+    """
+    try:
+        signature = inspect.signature(
+            cast("Callable[..., object]", handle_method), eval_str=True
+        )
+    except (TypeError, ValueError, NameError):
+        try:
+            signature = inspect.signature(cast("Callable[..., object]", handle_method))
+        except (TypeError, ValueError):
+            return None
+
+    positional = [
+        parameter
+        for parameter in signature.parameters.values()
+        if parameter.name != "self"
+        and parameter.kind
+        in (
+            inspect.Parameter.POSITIONAL_ONLY,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        )
+    ]
+    if len(positional) != 1:
+        return None
+    annotation = positional[0].annotation
+    if (
+        isinstance(annotation, type)
+        and issubclass(annotation, BaseModel)
+        and annotation.__name__ != "ModelEventEnvelope"
+    ):
+        return annotation
+    return None
+
+
+def _coerce_uuid_or_none(value: object) -> object | None:
+    from uuid import UUID
+
+    if isinstance(value, UUID):
+        return value
+    if isinstance(value, str) and value:
+        try:
+            return UUID(value)
+        except ValueError:
+            return None
+    return None
+
+
+# OMN-20127: the namespace of a wire correlation id derived from a state_io row
+# key that is not itself a UUID. Fixed forever: re-publishing a batch derives the
+# same id, and the envelope id seeded from it, so consumers deduplicate.
+_STATE_IO_DOMAIN_KEY_NAMESPACE = UUID("2b43f086-074b-4b46-971b-378f12dbdd17")
+
+
+def _state_io_wire_correlation_id(
+    row_key: str, payload: BaseModel | None = None
+) -> UUID:
+    """The correlation id an outbox emission is published under (OMN-20127).
+
+    The outbox records the state_io row KEY as each entry's ``correlation_id``.
+    That key is the transport correlation id only for a correlation-keyed
+    contract (delegation). A contract keyed on a domain field (OMN-16924) stores
+    a key such as ``owner/repo#123``, which no UUID parse accepts. Such a key
+    publishes under the emitted event's own correlation id when it carries one,
+    else under an id derived from the key, never a random one.
+    """
+    parsed = _coerce_uuid_or_none(row_key)
+    if isinstance(parsed, UUID):
+        return parsed
+    own = _coerce_uuid_or_none(getattr(payload, "correlation_id", None))
+    if isinstance(own, UUID):
+        return own
+    return uuid5(_STATE_IO_DOMAIN_KEY_NAMESPACE, row_key)
+
+
+def _ingress_correlation_id(message: object) -> UUID | None:
+    """Recover the ingress correlation id from a message's TRANSPORT surface.
+
+    OMN-14498: the consume boundary must be able to establish lineage without
+    decoding the body, because the body is exactly what is unavailable for a
+    poisoned message. Three transport shapes are supported, in order:
+
+    * ``ModelEventMessage`` -- ``headers.correlation_id`` (a real ``UUID``);
+      this is what ``EventBusKafka`` hands the callback in production.
+    * a raw aiokafka ``ConsumerRecord`` -- ``headers`` as an iterable of
+      ``(str, bytes)`` pairs, matching the ``correlation_id`` header both
+      ``MixinKafkaDlq`` and ``DLQProducer.replay_message`` write.
+    * a ``ModelEventEnvelope`` passed directly (legacy in-process call shape)
+      -- its own ``correlation_id``.
+
+    Returns ``None`` when no lineage is present on the transport, leaving the
+    caller to fall back to the body and then to minting a fresh id. Never
+    raises: a malformed header must not take down the consume boundary.
+    """
+    from uuid import UUID as _UUID
+
+    headers = getattr(message, "headers", None)
+
+    header_corr = getattr(headers, "correlation_id", None)
+    coerced = _coerce_uuid_or_none(header_corr)
+    if isinstance(coerced, _UUID):
+        return coerced
+
+    if headers is not None and not isinstance(headers, (str, bytes)):
+        try:
+            for entry in headers:
+                key, value = entry
+                if key != "correlation_id":
+                    continue
+                decoded = (
+                    value.decode("utf-8", errors="replace")
+                    if isinstance(value, bytes)
+                    else value
+                )
+                coerced = _coerce_uuid_or_none(decoded)
+                if isinstance(coerced, _UUID):
+                    return coerced
+        except (TypeError, ValueError):
+            pass
+
+    coerced = _coerce_uuid_or_none(getattr(message, "correlation_id", None))
+    return coerced if isinstance(coerced, _UUID) else None
+
+
+def _ingress_message_id(message: object) -> UUID | None:
+    """Recover the ingress ENVELOPE id from a message's TRANSPORT surface.
+
+    OMN-18958, the identity half of the OMN-14498 lesson directly above.
+
+    A publisher that sends a bare contract model rather than an envelope
+    states its identity only in the wire header. The consume boundary then
+    synthesizes an envelope, and if it MINTS an id there, that mint is what
+    every hop caused by this message records as its parent -- a valid id with
+    no lineage, on no topic and in no table, so the causal edge can never
+    close. Measured on the .201 dev lane: the chain head recorded
+    ``70982614-...`` while both its children named ``53ffd454-...``, which
+    ``event_ledger`` does not contain.
+
+    Mirrors ``_ingress_correlation_id`` field for field, deliberately: the
+    two ids ride the same three transport shapes, and a second way of reading
+    the same surface is a second thing to keep in agreement.
+
+    Returns ``None`` when the transport states no identity, leaving the
+    caller to fall back to the body and then to minting. Never raises: a
+    malformed header must not take down the consume boundary.
+    """
+    from uuid import UUID as _UUID
+
+    headers = getattr(message, "headers", None)
+
+    header_id = getattr(headers, "message_id", None)
+    coerced = _coerce_uuid_or_none(header_id)
+    if isinstance(coerced, _UUID):
+        return coerced
+
+    if headers is not None and not isinstance(headers, (str, bytes)):
+        try:
+            for entry in headers:
+                key, value = entry
+                if key != "message_id":
+                    continue
+                decoded = (
+                    value.decode("utf-8", errors="replace")
+                    if isinstance(value, bytes)
+                    else value
+                )
+                coerced = _coerce_uuid_or_none(decoded)
+                if isinstance(coerced, _UUID):
+                    return coerced
+        except (TypeError, ValueError):
+            pass
+
+    coerced = _coerce_uuid_or_none(getattr(message, "envelope_id", None))
+    return coerced if isinstance(coerced, _UUID) else None
+
+
+def _coerce_datetime_or_none(value: object) -> object | None:
+    from datetime import UTC, datetime
+
+    if isinstance(value, datetime):
+        return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+    if isinstance(value, str) and value:
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
+    return None
+
+
+def _extract_dispatch_envelope_timestamp(envelope: object) -> object | None:
+    if isinstance(envelope, Mapping):
+        candidate = envelope.get("envelope_timestamp")
+        if candidate is not None:
+            return candidate
+        candidate = envelope.get("timestamp")
+        if candidate is not None:
+            return candidate
+        debug_trace = envelope.get("__debug_trace")
+        if isinstance(debug_trace, Mapping):
+            return debug_trace.get("envelope_timestamp") or debug_trace.get("timestamp")
+    return getattr(envelope, "envelope_timestamp", None)
+
+
+def _extract_dispatch_event_type(envelope: object) -> object | None:
+    if isinstance(envelope, Mapping):
+        candidate = envelope.get("event_type")
+        if candidate is not None:
+            return candidate
+        debug_trace = envelope.get("__debug_trace")
+        if isinstance(debug_trace, Mapping):
+            return debug_trace.get("event_type")
+    return getattr(envelope, "event_type", None)
+
+
+def _extract_dispatch_tenant_id(envelope: object) -> str | None:
+    """The tenant DIMENSION recorded on a consumed record, or ``None``.
+
+    OMN-16831 ruled item 2. This READS an attribution a producer already
+    recorded; it never derives, defaults or invents one. A record that recorded
+    no tenant yields ``None`` here and stays unattributed all the way to the
+    projection writer's fail-closed refusal, which is the designed behaviour
+    (OMN-16831 AC2, OMN-16804 AC3).
+
+    A blank string is treated as no tenant for the same reason
+    ``ModelEventEnvelope`` refuses one outright: it reads as recorded to a
+    writer and is indistinguishable from none to a reader.
+    """
+    candidate: object = None
+    if isinstance(envelope, Mapping):
+        candidate = envelope.get("tenant_id")
+    if candidate is None:
+        candidate = getattr(envelope, "tenant_id", None)
+    if isinstance(candidate, str) and candidate.strip():
+        return candidate
+    return None
+
+
+def _tenant_id_from_raw_message(message: object) -> str | None:
+    """The tenant recorded on an undecoded transport record, or ``None``.
+
+    OMN-16831 item 2, failure path. The boundary terminal is emitted from a
+    point that holds the RAW record rather than a materialized envelope, so the
+    dimension has to be read out of the body the same way the callback's own
+    lineage recovery reads ``correlation_id`` from it. An unreadable body yields
+    ``None`` and the terminal is still emitted unattributed -- withholding the
+    terminal over a missing tenant would restore the 120 s silent timeout
+    OMN-16812 exists to remove.
+    """
+    raw = getattr(message, "value", None)
+    if raw is None:
+        return None
+    try:
+        decoded: object = json.loads(
+            raw.decode("utf-8") if isinstance(raw, bytes) else raw
+        )
+    except (json.JSONDecodeError, UnicodeDecodeError, AttributeError, TypeError):
+        return None
+    return _extract_dispatch_tenant_id(decoded)
+
+
+def _materialize_raw_event_envelope(
+    envelope: object,
+    raw_payload: object,
+    fallback_event_type: str,
+) -> ModelEventEnvelope[object]:
+    """Re-hydrate a typed envelope carrying the RAW domain payload.
+
+    Used when an envelope-accepting ORCHESTRATOR consumes a follow-up event whose
+    payload does not validate as its declared entrypoint ``event_model`` (the
+    validated / completed / failed events of a multi-step workflow). The handler
+    coerces ``envelope.payload`` itself keyed on ``event_type``, so this preserves
+    the inbound ``event_type`` and hands the handler a typed
+    ``ModelEventEnvelope`` (never a bare dict, which would crash
+    ``envelope.event_type``) without forcing the payload into the entrypoint model
+    (OMN-13247).
+    """
+    from datetime import UTC, datetime
+    from uuid import uuid4
+
+    from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
+
+    if isinstance(envelope, ModelEventEnvelope):
+        updates: dict[str, object] = {"payload": raw_payload}
+        if envelope.event_type is None:
+            updates["event_type"] = fallback_event_type
+        return envelope.model_copy(update=updates)
+
+    correlation_id = _coerce_uuid_or_none(
+        _extract_dispatch_correlation_id(envelope, raw_payload)
+    )
+    envelope_timestamp = _coerce_datetime_or_none(
+        _extract_dispatch_envelope_timestamp(envelope)
+    )
+    event_type = _extract_dispatch_event_type(envelope)
+    return ModelEventEnvelope[object](
+        payload=raw_payload,
+        correlation_id=correlation_id if correlation_id is not None else uuid4(),
+        envelope_timestamp=(
+            envelope_timestamp if envelope_timestamp is not None else datetime.now(UTC)
+        ),
+        event_type=str(event_type or fallback_event_type),
+        source_tool="auto-wiring",
+        # OMN-16831 item 2: this re-hydration is the dict-delivery branch -- the
+        # shape EVERY Kafka record takes -- and it carried correlation, timestamp
+        # and event type across while dropping the tenant, so a handler
+        # downstream saw an unattributed envelope even when the wire record was
+        # attributed. Read, never sourced: see `_extract_dispatch_tenant_id`.
+        tenant_id=_extract_dispatch_tenant_id(envelope),
+    )
+
+
+def _materialize_typed_event_envelope(
+    envelope: object,
+    typed_payload: BaseModel,
+    fallback_event_type: str,
+) -> ModelEventEnvelope[object]:
+    from datetime import UTC, datetime
+    from uuid import uuid4
+
+    from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
+
+    if isinstance(envelope, ModelEventEnvelope):
+        updates: dict[str, object] = {"payload": typed_payload}
+        if envelope.event_type is None:
+            updates["event_type"] = fallback_event_type
+        if envelope.payload_type is None:
+            updates["payload_type"] = type(typed_payload).__name__
+        return envelope.model_copy(update=updates)
+
+    correlation_id = _coerce_uuid_or_none(
+        _extract_dispatch_correlation_id(envelope, typed_payload)
+    )
+    envelope_timestamp = _coerce_datetime_or_none(
+        _extract_dispatch_envelope_timestamp(envelope)
+    )
+    event_type = _extract_dispatch_event_type(envelope)
+
+    return ModelEventEnvelope[object](
+        payload=typed_payload,
+        correlation_id=correlation_id if correlation_id is not None else uuid4(),
+        envelope_timestamp=(
+            envelope_timestamp if envelope_timestamp is not None else datetime.now(UTC)
+        ),
+        event_type=str(event_type or fallback_event_type),
+        payload_type=type(typed_payload).__name__,
+        source_tool="auto-wiring",
+        # OMN-16831 item 2: same hop, typed branch. Both branches feed the same
+        # handler, so fixing one alone would leave the dimension dependent on
+        # whether the payload happened to validate as the declared model.
+        tenant_id=_extract_dispatch_tenant_id(envelope),
+    )
+
+
+# Transport-envelope keys the runtime adds around the domain payload. When the
+# dispatch engine materializes a ModelEventEnvelope to a dict it nests the domain
+# fields under ``payload`` and carries routing metadata (``partition_key`` etc.)
+# alongside, so a mapping that carries a ``payload`` mapping plus any marker MAY
+# be a transport envelope to unwrap. Mirrors omnimarket's
+# ``_ENVELOPE_MARKER_KEYS`` predicate (OMN-12935/12936); the auto-wiring kernel
+# unwraps here because it constructs the typed model itself, upstream of the
+# handler's own coercion (OMN-12940).
+#
+# OMN-16050 — this marker set is a NECESSARY, NOT SUFFICIENT signal. The earlier
+# text here asserted "domain models never declare these keys"; that invariant is
+# FALSE. ``ModelEmitRequest`` (node_event_emit_effect) declares ``payload`` plus
+# four of these markers (``event_type``, ``correlation_id``, ``partition_key``,
+# ``event_id``), is structurally indistinguishable from a transport envelope, and
+# was therefore unwrapped THROUGH — the handler got the caller's inner payload,
+# ``model_validate`` raised, and every command DLQ'd. The registered-input-model
+# stop condition below (``_is_registered_input_payload``) is what makes the
+# heuristic safe: structure alone can never decide this.
+_ENVELOPE_MARKER_KEYS: frozenset[str] = frozenset(
+    {
+        "partition_key",
+        "event_type",
+        "envelope_id",
+        "event_id",
+        "correlation_id",
+        "__debug_trace",
+    }
+)
+
+
+def _is_transport_envelope(value: object) -> bool:
+    """True when ``value`` is envelope-SHAPED: a ``payload`` mapping plus a marker.
+
+    Structural precondition only. A domain model may legitimately declare both a
+    ``payload`` mapping and transport-plausible marker fields (OMN-16050), so this
+    predicate is never sufficient on its own to justify an unwrap — see
+    ``_is_registered_input_payload``, the fail-closed stop condition applied by
+    ``_extract_dispatch_payload``.
+    """
+    return (
+        isinstance(value, Mapping)
+        and isinstance(value.get("payload"), Mapping)
+        and bool(_ENVELOPE_MARKER_KEYS & value.keys())
+    )
+
+
+def _validation_alias_wire_keys(alias: object) -> set[str]:
+    """Top-level wire keys a pydantic ``validation_alias`` can consume.
+
+    ``validation_alias`` has three shapes and only the plain-string one is a
+    single key. ``AliasPath("meta", "id")`` consumes the TOP-LEVEL key ``meta``
+    (the remaining segments index inside that value), and ``AliasChoices`` holds
+    a list of alternatives, each itself a string or an ``AliasPath``.
+
+    Missing the non-string shapes is fail-OPEN for OMN-16050: a model aliased
+    that way would fail ``_is_registered_input_payload``'s key-containment check
+    even when the candidate IS the registered model, the unwrap would continue
+    into the caller's payload, and the DLQ defect would return for exactly the
+    contracts that use richer aliases.
+    """
+    if isinstance(alias, str):
+        return {alias}
+    if isinstance(alias, AliasPath):
+        first = alias.path[0] if alias.path else None
+        return {first} if isinstance(first, str) else set()
+    if isinstance(alias, AliasChoices):
+        keys: set[str] = set()
+        for choice in alias.choices:
+            keys |= _validation_alias_wire_keys(choice)
+        return keys
+    return set()
+
+
+@lru_cache(maxsize=512)
+def _model_declared_wire_keys(model: type[BaseModel]) -> frozenset[str]:
+    """Every wire key ``model`` can accept: field names plus their input aliases."""
+    keys: set[str] = set()
+    for field_name, model_field in model.model_fields.items():
+        keys.add(field_name)
+        if isinstance(model_field.alias, str):
+            keys.add(model_field.alias)
+        keys |= _validation_alias_wire_keys(model_field.validation_alias)
+    return frozenset(keys)
+
+
+def _is_registered_input_payload(
+    candidate: object, target_model: type[BaseModel] | None
+) -> bool:
+    """True when ``candidate`` IS the dispatcher's registered input model on the wire.
+
+    The fail-closed stop condition for the recursive unwrap (OMN-16050). A
+    candidate is claimed by the registered model only when BOTH hold:
+
+    1. **Key containment** — every key present on the candidate is a declared
+       field (or input alias) of ``target_model``. A real transport envelope
+       always carries at least one routing/marker key the domain model does not
+       declare (``source_tool``, ``envelope_id``, ``__debug_trace``,
+       ``__bindings``, ``envelope_timestamp``, ...), so this alone keeps the
+       OMN-12940 double-wrapped case unwrapping.
+    2. **Full validation** — the candidate validates as ``target_model``, so a
+       partial structural coincidence never halts the unwrap short of the domain.
+
+    The cheap set check runs first; ``model_validate`` executes only for the rare
+    candidate whose keys are entirely owned by the target model.
+
+    Deliberately NOT a marker denylist: dropping ``event_type``/``correlation_id``
+    from ``_ENVELOPE_MARKER_KEYS`` would fix ``ModelEmitRequest`` and silently
+    break every genuine envelope that carries only those markers. This predicate
+    keys on the CONTRACT-registered target type instead of on key spelling.
+    """
+    if target_model is None or not isinstance(candidate, Mapping):
+        return False
+    if not candidate.keys() <= _model_declared_wire_keys(target_model):
+        return False
+    try:
+        target_model.model_validate(dict(candidate))
+    except Exception:  # noqa: BLE001 — any validation failure means "not the model"
+        return False
+    return True
+
+
+def _extract_dispatch_payload(
+    envelope: object, target_model: type[BaseModel] | None = None
+) -> object:
+    # The runtime may deliver a DOUBLE- (or deeper-) wrapped envelope, e.g.
+    # ``{"payload": {"payload": {domain}, ...markers}, "partition_key": None}``.
+    # Unwrap recursively until the domain payload is reached so the kernel's
+    # ``model_validate`` (and the post-handler correlation read) operate on the
+    # domain, not on an intermediate envelope (OMN-12940).
+    #
+    # OMN-16050: stop the moment the candidate IS the dispatcher's registered
+    # input model. ``target_model`` is the contract-declared type the kernel is
+    # about to construct (the def-B ``handle()`` annotation, or the handler's
+    # declared ``event_model``); when it is None the caller has no registered
+    # type in scope and the pre-existing structural behaviour is unchanged.
+    candidate: object = envelope
+    if not isinstance(candidate, Mapping):
+        candidate = getattr(candidate, "payload", candidate)
+    while _is_transport_envelope(candidate) and not _is_registered_input_payload(
+        candidate, target_model
+    ):
+        candidate = cast("Mapping[str, object]", candidate)["payload"]
+    return candidate
+
+
+def _extract_dispatch_topic(envelope: object) -> str:
+    if isinstance(envelope, Mapping):
+        debug_trace = envelope.get("__debug_trace")
+        if isinstance(debug_trace, Mapping):
+            topic = debug_trace.get("topic")
+            if isinstance(topic, str) and topic:
+                return topic
+        topic = envelope.get("topic")
+        if isinstance(topic, str) and topic:
+            return topic
+    topic = getattr(envelope, "topic", None)
+    return topic if isinstance(topic, str) and topic else "auto-wired"
+
+
+def _extract_dispatch_correlation_id(
+    envelope: object, payload: object
+) -> object | None:
+    candidate = getattr(payload, "correlation_id", None)
+    if candidate is not None:
+        return candidate
+    if isinstance(payload, Mapping):
+        candidate = payload.get("correlation_id")
+        if candidate is not None:
+            return candidate
+    if isinstance(envelope, Mapping):
+        candidate = envelope.get("correlation_id")
+        if candidate is not None:
+            return candidate
+        debug_trace = envelope.get("__debug_trace")
+        if isinstance(debug_trace, Mapping):
+            return debug_trace.get("correlation_id")
+    return getattr(envelope, "correlation_id", None)
+
+
+def _extract_state_io_key(
+    envelope: object,
+    payload: object,
+    key_name: str,
+    event_model_cls: type[BaseModel] | None = None,
+) -> object | None:
+    """Read the contract-declared ``state_io.key`` field off a dispatch message.
+
+    OMN-16924. ``correlation_id`` keeps its dedicated reader
+    (:func:`_extract_dispatch_correlation_id`), which also falls back to the
+    envelope and to ``__debug_trace``. Any other declared key is a DOMAIN field
+    and is read from the validated payload only — the transport envelope has no
+    business fields, and silently borrowing one from ``__debug_trace`` would
+    key a durable row on transport metadata.
+
+    OMN-19829: the payload handed in here is the raw materialized wire dict, not
+    the route's typed ``event_model``. A contract whose route model DERIVES the
+    key (``node_pr_landing_orchestrator``: ``landing_key`` is a property built
+    from ``repository`` and ``pr_number``, because no producer puts it on the
+    wire) therefore read ``None`` and failed every message closed -- 81 of 81
+    companion outcomes DLQ'd on the .201 dev lane on 2026-09-28. When the wire
+    dict lacks the key and the route declares an ``event_model``, the key is
+    read off that model validated from the same dict, which is exactly the
+    object the handler receives. A dict that does not validate still yields
+    ``None`` and still fails closed.
+    """
+    if key_name == "correlation_id":
+        return _extract_dispatch_correlation_id(envelope, payload)
+    candidate = getattr(payload, key_name, None)
+    if candidate is not None:
+        return candidate
+    if isinstance(payload, Mapping):
+        candidate = payload.get(key_name)
+        if candidate is not None or event_model_cls is None:
+            return candidate
+        try:
+            typed = event_model_cls.model_validate(payload)
+        except ValidationError:
+            return None
+        return getattr(typed, key_name, None)
+    return None
+
+
+def _normalize_handler_result(
+    result: object,
+    envelope: object,
+    message_type: str | None,
+    handler_node_kind: EnumNodeKind | None = None,
+    published_event_names: frozenset[str] | None = None,
+) -> ModelDispatchResult | None:
+    from datetime import UTC, datetime
+    from uuid import UUID, uuid4
+
+    from omnibase_core.models.dispatch.model_handler_output import ModelHandlerOutput
+    from omnibase_core.models.reducer.model_intent import ModelIntent
+    from omnibase_infra.enums import EnumDispatchStatus
+    from omnibase_infra.models.dispatch.model_dispatch_result import (
+        ModelDispatchResult,
+    )
+
+    if result is None or isinstance(result, ModelDispatchResult):
+        return result
+
+    payload = _extract_dispatch_payload(envelope)
+    correlation_candidate = _extract_dispatch_correlation_id(envelope, payload)
+    # Guard the coercion: a non-hex correlation candidate must fall back to a
+    # fresh uuid4() rather than crash dispatch with ``ValueError: badly formed
+    # hexadecimal UUID string`` (OMN-12940). ``_coerce_uuid_or_none`` already
+    # guards every other correlation read site (555/702/1207/1278).
+    coerced_correlation = _coerce_uuid_or_none(correlation_candidate)
+    correlation_id: UUID = (
+        coerced_correlation if isinstance(coerced_correlation, UUID) else uuid4()
+    )
+
+    output_events: list[BaseModel] = []
+    output_intents: tuple[object, ...] = ()
+    projection_intents: tuple[ModelProjectionIntent, ...] = ()
+
+    # OMN-14598: a def-B REDUCER (contract node_type REDUCER_GENERIC) that returns
+    # a bare typed projection model OR a Sequence of projection models must be
+    # classified as projections — a reducer emits projections[] ONLY (core handler-
+    # output contract). Computed BEFORE the isinstance/fan-out branches below so a
+    # reducer's return is never misrouted to output_events or a fan-out event batch.
+    reducer_projection_models: tuple[BaseModel, ...] = ()
+    if (
+        handler_node_kind is EnumNodeKind.REDUCER
+        and not isinstance(result, ModelHandlerOutput)
+        and not _is_declared_published_event_model(result, published_event_names)
+    ):
+        reducer_projection_models = _coerce_projection_models(result)
+
+    if isinstance(result, ModelHandlerOutput):
+        output_events = [
+            event for event in result.events if isinstance(event, BaseModel)
+        ]
+        output_intents = tuple(result.intents)
+        if isinstance(result.result, ModelIntent):
+            output_intents = output_intents + (result.result,)
+        elif isinstance(result.result, BaseModel):
+            output_events.append(result.result)
+        if result.projections:
+            # OMN-14598: a ModelHandlerOutput carries projections[] only for a
+            # REDUCER (validator-enforced on ModelHandlerOutput). Route them to
+            # projection_intents so DispatchResultApplier's synchronous projection
+            # sink fires; before this branch projections were read by NEITHER the
+            # events/intents/result path and were silently dropped (e.g.
+            # HandlerCodingAgentFsm's two ``for_reducer`` projections per fold).
+            projection_intents = _build_projection_intents(
+                result.projections, correlation_id, message_type
+            )
+    elif reducer_projection_models:
+        projection_intents = _build_projection_intents(
+            reducer_projection_models, correlation_id, message_type
+        )
+    elif isinstance(result, BaseModel):
+        output_events = [result]
+    elif is_fanout_sequence(result):
+        # OMN-14403 §2A — the def-B fan-out entry. Before this branch existed a
+        # Sequence return matched NEITHER branch above and fell through to
+        # output_events=[] / SUCCESS: the handler's N events were dropped and the
+        # dispatch reported success. That silent drop IS the defect. The applier
+        # resolves each element's topic via published_events (same short-name
+        # resolution the shared core resolver uses); the boot coverage gate keeps
+        # that fail-closed.
+        output_events = normalize_fanout_sequence(
+            cast("Sequence[object]", result),
+            message_type,
+            seam_enabled=multi_event_seam_enabled(),
+            env_flag=ENV_MULTI_EVENT_PUBLISH_SEAM,
+        )
+
+    return ModelDispatchResult(
+        status=EnumDispatchStatus.SUCCESS,
+        topic=_extract_dispatch_topic(envelope),
+        message_type=message_type,
+        started_at=datetime.now(UTC),
+        completed_at=datetime.now(UTC),
+        output_count=len(output_events) + len(output_intents) + len(projection_intents),
+        output_events=output_events,
+        # Why: Runtime wiring validates and narrows this payload shape before use.
+        output_intents=output_intents,  # type: ignore[arg-type]
+        projection_intents=projection_intents,
+        correlation_id=correlation_id,
+    )
+
+
+def _is_declared_published_event_model(
+    result: object,
+    published_event_names: frozenset[str] | None,
+) -> bool:
+    """True when *result* is a single typed model the contract declares as a
+    published event (OMN-14794).
+
+    OMN-14598 classifies EVERY bare-model / ``Sequence`` return from a REDUCER
+    (``node_type: REDUCER_GENERIC``) as ``projections[]``. That is correct for a
+    pure FSM fold, but a REDUCER that ALSO declares a ``published_events`` entry
+    for the model it returns emits that model as an EVENT — e.g.
+    ``node_delegation_routing_reducer`` returns ``ModelRoutingDecision``, which its
+    contract maps (``event_type: RoutingDecision``) to
+    ``onex.evt.omnibase-infra.routing-decision.v1``. Without this exception the
+    decision was captured into ``projection_intents`` and NEVER published as an
+    event, so the delegation orchestrator's ``handle_routing_decision`` never fired
+    and the workflow stalled at RECEIVED (routing-decision.v1 high-watermark flat).
+    That live drop was hotpatch-validated on the stability-test runtime: excluding
+    the declared-event return from the REDUCER->projection branch advanced the FSM
+    RECEIVED->ROUTED->COMPLETED and moved the routing-decision.v1 HW by exactly one.
+
+    Membership mirrors the applier's own topic resolver (``_outbox_topic_for`` /
+    ``resolve_published_topic``): the class name with a leading ``Model`` stripped
+    (the canonical ``event_type`` short-name), then the full class name.
+    ``published_event_names`` is the key set of the contract's ``published_events``
+    map (``load_published_events_map``). A ``None`` / empty set — every non-REDUCER
+    caller, and any REDUCER that declares no published events — preserves the
+    OMN-14598 projection classification unchanged.
+    """
+    if not published_event_names or not isinstance(result, BaseModel):
+        return False
+    class_name = type(result).__name__
+    return (
+        class_name.removeprefix("Model") in published_event_names
+        or class_name in published_event_names
+    )
+
+
+def _coerce_projection_models(result: object) -> tuple[BaseModel, ...]:
+    """Coerce a def-B REDUCER return into its projection models (OMN-14598).
+
+    A reducer's canonical def-B return is either a single typed projection model
+    or a Sequence of projection models — the multi-projection case, e.g.
+    ``node_coding_agent_fsm_reducer`` folding to ``(advanced_state,
+    trace_projection)``. A non-model / non-Sequence return yields ``()`` so the
+    caller records an empty (no-op fold) dispatch result rather than
+    misclassifying it as an event.
+    """
+    if isinstance(result, BaseModel):
+        return (result,)
+    if is_fanout_sequence(result):
+        return tuple(
+            element
+            for element in cast("Sequence[object]", result)
+            if isinstance(element, BaseModel)
+        )
+    return ()
+
+
+def _derive_projector_key(model: BaseModel) -> str:
+    """Derive a deterministic projector-registry key from a projection model.
+
+    Canonical convention (OMN-14598): strip a leading ``Model`` from the class
+    name and convert the remaining CamelCase to snake_case, e.g.
+    ``ModelCodingAgentTraceProjection`` -> ``coding_agent_trace_projection``.
+    Deterministic and self-describing so a projector can register under the same
+    key without the reducer carrying routing metadata on its return value.
+    """
+    class_name = type(model).__name__
+    stem = class_name.removeprefix("Model") or class_name
+    snake = re.sub(r"(?<!^)(?=[A-Z])", "_", stem).lower()
+    return snake or class_name.lower()
+
+
+def _build_projection_intents(
+    models: Sequence[object],
+    correlation_id: UUID,
+    message_type: str | None,
+) -> tuple[ModelProjectionIntent, ...]:
+    """Build ModelProjectionIntent entries from a reducer's projection models.
+
+    OMN-14598: converts each projection model into a ``ModelProjectionIntent`` so
+    ``ModelDispatchResult.projection_intents`` is populated (consumed by
+    ``DispatchResultApplier``'s synchronous projection sink). ``projector_key`` is
+    derived from the model type; ``event_type`` is the inbound message type (the
+    event the reducer folded), falling back to the projection model's class name
+    when the dispatch path carries no ``message_type``.
+    """
+    from omnibase_core.models.projectors.model_projection_intent import (
+        ModelProjectionIntent,
+    )
+
+    intents: list[ModelProjectionIntent] = []
+    for model in models:
+        if not isinstance(model, BaseModel):
+            continue
+        intents.append(
+            ModelProjectionIntent(
+                projector_key=_derive_projector_key(model),
+                event_type=message_type or type(model).__name__,
+                envelope=model,
+                correlation_id=correlation_id,
+            )
+        )
+    return tuple(intents)
+
+
+_TABLE_NAME_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+# OMN-13350: JSONB list columns whose name does NOT end in the _json/_jsonb
+# convention and so must be explicitly JSON-adapted. A Python list bound to a
+# JSONB column must be wrapped in psycopg2.extras.Json or psycopg2 sends a
+# Postgres ARRAY literal, which fails against a JSONB column — and the projection
+# consumer then silently commits the offset and drops the event. This set is the
+# narrow allowlist for JSONB list columns that the suffix rule does not cover; it
+# must NOT include genuine Postgres text[] ARRAY columns (e.g.
+# swarm_runs.models_used / machines_used), which are correctly passed as raw
+# lists.
+# OMN-14487: recent_responses is the same defect class as corpus_errors — a JSONB
+# array column (projection_delegation_inference_response_text, declared
+# ``JSONB NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(...) = 'array')``)
+# holding a list of objects, with no _json/_jsonb suffix. HandlerProjectionDelegation-
+# InferenceResponse handed the raw list[dict] to this adapter; psycopg2 could not
+# adapt the inner dicts (``can't adapt type 'dict'``), the inference-response
+# projection write crashed, and — with no dlq_topics declared on that node's
+# contract — the erroring event was silently dropped.
+_JSONB_LIST_COLUMNS: frozenset[str] = frozenset({"corpus_errors", "recent_responses"})
+
+
+def _should_jsonb_wrap_list(key: str, value: list[object]) -> bool:
+    """Decide whether a ``list`` row value must be JSON-wrapped for psycopg2.
+
+    Three independent rules; any one triggers wrapping:
+
+    1. Column-name suffix convention (``_json`` / ``_jsonb``).
+    2. The ``_JSONB_LIST_COLUMNS`` allowlist -- legacy unsuffixed JSONB list
+       columns (``corpus_errors``, ``recent_responses``) that predate rule 3
+       and that the structural rule below does not cover on its own (e.g. a
+       JSONB column holding ``list[str]``, which is structurally
+       indistinguishable from a genuine ``text[]`` ARRAY).
+    3. STRUCTURAL heuristic (OMN-14494): any element of the list is itself a
+       ``dict``/``list``. A genuine Postgres scalar ARRAY (``text[]``,
+       ``int[]``, ...) can only ever hold scalars, so an element that is
+       itself a dict/list can NEVER be a valid ARRAY member -- this case is
+       unambiguously a JSONB list-of-objects/list-of-lists column. This rule
+       needs no allowlist maintenance and auto-covers every future
+       unsuffixed JSONB list-of-objects column, closing the recurring defect
+       class behind OMN-13350 and OMN-14487 (both required a manual
+       allowlist edit before this fix).
+
+    A flat scalar list (``list[str]`` / ``list[int]`` with no dict/list
+    elements) that matches none of the three rules returns ``False`` here
+    and is passed raw by the caller, preserving genuine ``text[]``/``int[]``
+    ARRAY semantics (e.g. ``swarm_runs.models_used`` / ``machines_used``).
+    """
+    if str(key).endswith(("_json", "_jsonb")):
+        return True
+    if str(key) in _JSONB_LIST_COLUMNS:
+        return True
+    return any(isinstance(item, (dict, list)) for item in value)
+
+
+# Authoritative source: knowledge-base:reference/omnibase-infra-per-service-database-url-contract.md "Per-Service Database
+# URL Contract" — each OmniNode service owns its own PostgreSQL database and a
+# dedicated *_DB_URL env var. This map MUST stay in parity with that table; a
+# missing row makes the DB-injection auto-wiring reject a contract whose
+# db_io.database names a real per-service DB (e.g. F3/OMN-13158:
+# node_dispatch_outcome_bridge_effect -> database omniintelligence).
+_DB_URL_ENV_MAP: dict[str, str] = {
+    "omnibase_infra": "OMNIBASE_INFRA_DB_URL",
+    "omniintelligence": "OMNIINTELLIGENCE_DB_URL",
+    "omniclaude": "OMNICLAUDE_DB_URL",
+    "omnimemory": "OMNIMEMORY_DB_URL",
+    "omninode_cloud": "OMNINODE_CLOUD_DB_URL",
+    "omnidash_analytics": "OMNIDASH_ANALYTICS_DB_URL",
+}
+
+
+@dataclass(frozen=True)
+class ProjectionDatabaseBindingTarget:
+    """One topology-declared workload identity and its secret-free DSN carrier.
+
+    Exactly one of ``dsn_env`` / ``secret_ref`` is set, mirroring the
+    exactly-one-carrier invariant ``ModelDeploymentTopologyDatabaseBinding``
+    enforces at topology-load time (OMN-17556). Neither field ever holds a DSN
+    *value*: ``dsn_env`` names a process environment variable, ``secret_ref``
+    names a logical secret the runtime resolves through ``SecretResolver`` at
+    the binding boundary. ``carrier_description`` renders whichever is set for
+    operator-facing errors, so a wiring refusal names the thing that is
+    actually missing instead of a null env var.
+    """
+
+    binding_ref: str
+    database_ref: str
+    physical_database: str
+    principal: str
+    dsn_env: str | None = None
+    secret_ref: str | None = None
+
+    @property
+    def carrier_description(self) -> str:
+        """Name this binding's credential carrier for an operator-facing error."""
+        if self.secret_ref is not None:
+            return f"secret_ref={self.secret_ref}"
+        return f"{self.dsn_env}"
+
+
+# ---------------------------------------------------------------------------
+# OMN-17888: the projection read seam's memory budget.
+#
+# Both numbers are POLICY, derived from measurements taken in the deployed
+# container on the .201 DEV lane (image sha256:21dd9d6a7401, revision
+# 743881e38f4c) and stated here so they can be re-derived rather than guessed:
+#
+#   container memory limit                              1,536 MiB
+#   post-subscription baseline RSS, measured              ~462 MiB
+#   headroom                                            ~1,051 MiB
+#   retained cost per row, measured (24.8 MiB / 91,571)      284 B
+#   share claimed by projection reads (the line below)      271 MiB
+#
+# THE DECLARED SHARE WAS WRONG UNTIL NOW, and the test that was supposed to
+# pin it did not catch that. The block said "share allotted 256 MiB", the very
+# next sentence said the worst case is 271 MiB, and
+# `test_shipped_bounds_fit_the_runtime_container_budget` asserted a THIRD
+# number, `<= 300 MiB`, while its own docstring repeated 256. Three numbers,
+# no contradiction detected, because the loose bound admitted all of them.
+# The arithmetic is exact and is now stated once:
+#
+#   MAX_INFLIGHT * MAX_ROWS * 284 B = 8 * 125,000 * 284 = 284,000,000 B
+#                                   = 270.84 MiB
+#
+# 271 MiB is the real share and is what the test asserts, to the byte. It is
+# 25.8% of the measured 1,051 MiB headroom, leaving ~780 MiB unclaimed, so the
+# correction is a restatement of what already ships and not a widening.
+# Pairing the two constants is the whole point: bounding rows alone leaves the
+# loop's default executor free to multiply it by 32, and bounding concurrency
+# alone leaves each call unbounded.
+#
+# WHAT MAX_ROWS IS NOT. The previous revision of this block justified 125,000
+# as "clears the live hot session (91,633 rows ... growing ~800/hour) ... about
+# six weeks of runway". Both figures were wrong. Re-measured on the .201 dev
+# lane 2026-09-07T15:53Z, that same `session_id`
+# (9787a4a3-ec49-4819-8bdc-5044efb94550) held 100,441 of
+# `session_replay_snapshots`' 103,468 rows and was growing ~3,029 rows/hour --
+# 3.8x the stated rate. The runway was therefore not six weeks but about eight
+# HOURS: the bound would have been crossed around 2026-09-08T00:00Z, after
+# which every event on the busiest session would have been refused.
+#
+# That number is no longer load-bearing, because the caller was repaired in the
+# same change (OMN-17888 D1): `HandlerProjectionSessionReplay.project` used to
+# re-read the WHOLE session on EVERY event -- O(n^2) in session length -- and
+# now issues two indexed single-row reads instead (an equality lookup on
+# `snapshot_id`, and `ORDER BY sequence DESC LIMIT 1` through the ordered-read
+# capability added on this seam below). No caller in the tree now asks this
+# seam an unbounded question. MAX_ROWS is a backstop against the NEXT such
+# caller, not a schedule; when it fires, the repair is that caller.
+PROJECTION_QUERY_MAX_ROWS: Final[int] = 125_000
+
+# `asyncio.to_thread` dispatches onto the running loop's DEFAULT executor,
+# whose worker count is `min(32, os.cpu_count() + 4)` -- 32 in this container.
+# That made the per-call allocation's multiplier a property of the host's core
+# count rather than a declared number, and py-spy caught 32 live `asyncio_N`
+# threads with 86% of sampled stacks inside one projection query.
+PROJECTION_HANDLER_MAX_INFLIGHT: Final[int] = 8
+
+# OMN-17888 second pass. Streaming the cursor removed the PYTHON-object term of
+# the per-call allocation but not the libpq one: a psycopg2 cursor with no
+# `name=` is CLIENT-side, so `PQexec` buffers the entire result set inside the
+# connection's PGresult before `for record in cursor` yields its first row.
+# Iterating that is iterating a buffer that already exists -- the per-row budget
+# below cannot refuse rows libpq has already paid for, and the 200.7 MiB of
+# driver rows measured on this seam had a libpq peer nobody accounted for.
+#
+# The read below therefore DECLAREs a server-side (named) cursor and FETCHes it
+# in `itersize` batches, so the client holds at most this many rows at once and
+# the per-row budget is checked against rows that have actually been paid for.
+# 1,000 rows at the measured 284 B is ~277 KiB of client buffer per in-flight
+# read (~2.2 MiB across all 8), against 284,000,000 B if the whole budget were
+# ever buffered. psycopg2's own default is 2,000; this is stated rather than
+# inherited because it is now part of the memory arithmetic above.
+PROJECTION_QUERY_CURSOR_ITERSIZE: Final[int] = 1_000
+
+# Keyed by the running loop rather than constructed once at import: an
+# asyncio.Semaphore binds itself to the first loop that awaits it, and the test
+# suite runs many loops in one process. `WeakKeyDictionary` lets a finished
+# loop's gate go with it instead of accumulating.
+_PROJECTION_INFLIGHT_GATES: WeakKeyDictionary[
+    asyncio.AbstractEventLoop, asyncio.Semaphore
+] = WeakKeyDictionary()
+
+
+def _projection_inflight_gate() -> asyncio.Semaphore:
+    """Return this loop's gate over concurrent blocking projection invocations.
+
+    Runtime-wide rather than per handler: the budget above is a single share of
+    one container's memory, so the ceiling it buys has to be a single number.
+    A per-handler gate would multiply by however many projection contracts the
+    lane happens to wire, which is exactly the "bound is a property of the
+    deployment" shape this replaces.
+    """
+    loop = asyncio.get_running_loop()
+    gate = _PROJECTION_INFLIGHT_GATES.get(loop)
+    if gate is None:
+        gate = asyncio.Semaphore(PROJECTION_HANDLER_MAX_INFLIGHT)
+        _PROJECTION_INFLIGHT_GATES[loop] = gate
+    return gate
+
+
+@dataclass(frozen=True)
+class ProjectionCatalogBindingPolicy:
+    """Composition-root choice of existing topology catalog identities."""
+
+    read_binding: str | None = None
+    write_binding: str | None = None
+
+
+@dataclass(frozen=True)
+class ProjectionTableTarget:
+    """Topology-resolved location for one typed table declaration.
+
+    Every field beside ``table`` is a *resolution*; ``table`` alone carries the
+    raw declaration. ``physical_schema`` is the schema resolution exactly as
+    ``physical_database`` is the database resolution -- the schema PostgreSQL
+    actually holds the relation in, which during the OMN-15359 migration window
+    differs from the logically-declared ``table.schema``. Emitted SQL must
+    qualify with this field; anything reasoning about the declaration (domain,
+    contract-facing errors) reads ``table.schema``.
+    """
+
+    table: ModelDbTableDeclaration
+    database_ref: str
+    physical_database: str
+    physical_schema: str
+    domain: EnumDatabaseSchemaDomain
+    read_binding: ProjectionDatabaseBindingTarget | None
+    write_binding: ProjectionDatabaseBindingTarget | None
+
+
+@dataclass(frozen=True)
+class ProjectionDatabaseTarget:
+    """Topology-resolved, per-operation pools for one projection handler."""
+
+    tables: tuple[ModelDbTableDeclaration, ...]
+    table_targets: tuple[ProjectionTableTarget, ...]
+    physical_database: str
+
+    @property
+    def database_refs(self) -> tuple[str, ...]:
+        """Return the declared logical database references in stable order."""
+        return tuple(sorted({target.database_ref for target in self.table_targets}))
+
+    @property
+    def physical_schemas(self) -> tuple[str, ...]:
+        """Return the schemas SQL is actually issued against, in stable order."""
+        return tuple(sorted({target.physical_schema for target in self.table_targets}))
+
+    @property
+    def domains(self) -> tuple[EnumDatabaseSchemaDomain, ...]:
+        """Return the topology-derived domains in stable enum-value order."""
+        return tuple(
+            sorted(
+                {target.domain for target in self.table_targets},
+                key=lambda domain: domain.value,
+            )
+        )
+
+    @property
+    def bindings(self) -> tuple[ProjectionDatabaseBindingTarget, ...]:
+        """Return every selected operation binding in stable order."""
+        by_ref: dict[str, ProjectionDatabaseBindingTarget] = {}
+        for table_target in self.table_targets:
+            for binding in (table_target.read_binding, table_target.write_binding):
+                if binding is not None:
+                    by_ref[binding.binding_ref] = binding
+        return tuple(by_ref[key] for key in sorted(by_ref))
+
+    @property
+    def dsn_envs(self) -> tuple[str, ...]:
+        """Return every required DSN environment key in stable order.
+
+        Store-resolved bindings (``secret_ref``) contribute no env key by
+        construction and are omitted (OMN-17556) -- they are not "missing" env
+        vars, they are deliberately not carried in the process environment.
+        Callers wanting every binding regardless of carrier read ``bindings``.
+        """
+        return tuple(
+            sorted(
+                {
+                    binding.dsn_env
+                    for binding in self.bindings
+                    if binding.dsn_env is not None
+                }
+            )
+        )
+
+
+_TENANT_PROJECTION_BINDING = "tenant_projection"
+_INTERNAL_PROJECTION_BINDING = "omninode_runtime_service"
+
+
+def _resolve_projection_binding(
+    database: ModelDeploymentTopologyDatabase,
+    database_ref: str,
+    binding_ref: str,
+) -> ProjectionDatabaseBindingTarget:
+    """Resolve one explicit workload binding without a physical-DB fallback."""
+    binding = database.bindings.get(binding_ref)
+    if binding is None:
+        raise ValueError(
+            f"Projection binding {binding_ref!r} is not declared for "
+            f"database_ref {database_ref!r}"
+        )
+    if binding.database_ref != database_ref:
+        raise ValueError(
+            f"Projection binding {binding_ref!r} resolves to database_ref "
+            f"{binding.database_ref!r}, expected {database_ref!r}"
+        )
+    principal = database.principals.get(binding.principal)
+    if principal is None:
+        raise ValueError(
+            f"Projection binding {binding_ref!r} references unknown principal "
+            f"{binding.principal!r}"
+        )
+    if not principal.login or principal.bypass_rls:
+        raise ValueError(
+            f"Projection principal {binding.principal!r} must be LOGIN and NOBYPASSRLS"
+        )
+    return ProjectionDatabaseBindingTarget(
+        binding_ref=binding_ref,
+        database_ref=database_ref,
+        physical_database=database.physical_name,
+        principal=binding.principal,
+        dsn_env=binding.dsn_env,
+        secret_ref=binding.secret_ref,
+    )
+
+
+def _require_projection_binding_privileges(
+    database: ModelDeploymentTopologyDatabase,
+    binding: ProjectionDatabaseBindingTarget,
+    table: ModelDbTableDeclaration,
+    *,
+    operation: str,
+    grant_schema: str,
+) -> None:
+    """Prove the selected topology principal can perform the exact operation.
+
+    ``grant_schema`` is the caller's already-resolved physical schema, not a
+    second resolution of its own: the schema whose ACLs are checked here and
+    the schema the emitted SQL qualifies with are the same value by
+    construction (OMN-16239).
+    """
+    principal = database.principals[binding.principal]
+    has_schema_usage = any(
+        grant.object_type is EnumDatabaseGrantObjectType.SCHEMA
+        and grant.schema == grant_schema
+        and EnumDatabasePrivilege.USAGE in grant.privileges
+        for grant in principal.grants
+    )
+    required_table_privileges = (
+        {EnumDatabasePrivilege.SELECT}
+        if operation == "read"
+        else {
+            # PostgreSQL requires SELECT as well as INSERT/UPDATE for the
+            # adapter's INSERT ... ON CONFLICT DO UPDATE statement.
+            EnumDatabasePrivilege.SELECT,
+            EnumDatabasePrivilege.INSERT,
+            EnumDatabasePrivilege.UPDATE,
+        }
+    )
+    granted_table_privileges = {
+        privilege
+        for grant in principal.grants
+        if grant.object_type is EnumDatabaseGrantObjectType.TABLE
+        and grant.schema == grant_schema
+        and table.name in grant.objects
+        for privilege in grant.privileges
+    }
+    missing_table_privileges = sorted(
+        required_table_privileges - granted_table_privileges,
+        key=lambda privilege: privilege.value,
+    )
+    if not has_schema_usage or missing_table_privileges:
+        missing = []
+        if not has_schema_usage:
+            missing.append(f"USAGE on schema {grant_schema!r}")
+        if missing_table_privileges:
+            names = ", ".join(privilege.value for privilege in missing_table_privileges)
+            missing.append(f"{names} on table {table.schema}.{table.name}")
+        raise ValueError(
+            f"Projection binding {binding.binding_ref!r} principal "
+            f"{binding.principal!r} lacks declared {operation} privileges: "
+            + "; ".join(missing)
+        )
+
+
+def _projection_operation_bindings(
+    *,
+    table: ModelDbTableDeclaration,
+    database: ModelDeploymentTopologyDatabase,
+    domain: EnumDatabaseSchemaDomain,
+    physical_schema: str,
+    catalog_read_binding: str | None,
+    catalog_write_binding: str | None,
+) -> tuple[
+    ProjectionDatabaseBindingTarget | None,
+    ProjectionDatabaseBindingTarget | None,
+]:
+    """Select explicit read/write identities from domain and table access."""
+    needs_read = table.access in {"read", "read_write"}
+    needs_write = table.access in {"write", "read_write"}
+    if domain is EnumDatabaseSchemaDomain.TENANT:
+        binding_ref = _TENANT_PROJECTION_BINDING
+        read_ref = binding_ref if needs_read else None
+        write_ref = binding_ref if needs_write else None
+    elif domain is EnumDatabaseSchemaDomain.OMNINODE_INTERNAL:
+        binding_ref = _INTERNAL_PROJECTION_BINDING
+        read_ref = binding_ref if needs_read else None
+        write_ref = binding_ref if needs_write else None
+    elif domain is EnumDatabaseSchemaDomain.PLATFORM_CATALOG:
+        read_ref = catalog_read_binding if needs_read else None
+        write_ref = catalog_write_binding if needs_write else None
+        if needs_read and read_ref is None:
+            raise ValueError(
+                f"Catalog table {table.name!r} requires an explicit reader binding"
+            )
+        if needs_write and write_ref is None:
+            raise ValueError(
+                f"Catalog table {table.name!r} requires an explicit writer binding"
+            )
+    else:  # pragma: no cover - enum exhaustiveness guard
+        raise ValueError(f"Unsupported projection database domain {domain!r}")
+
+    read_binding = (
+        _resolve_projection_binding(database, table.database_ref, read_ref)
+        if read_ref is not None
+        else None
+    )
+    write_binding = (
+        _resolve_projection_binding(database, table.database_ref, write_ref)
+        if write_ref is not None
+        else None
+    )
+    if read_binding is not None:
+        _require_projection_binding_privileges(
+            database,
+            read_binding,
+            table,
+            operation="read",
+            grant_schema=physical_schema,
+        )
+    if write_binding is not None:
+        _require_projection_binding_privileges(
+            database,
+            write_binding,
+            table,
+            operation="write",
+            grant_schema=physical_schema,
+        )
+    return read_binding, write_binding
+
+
+def _resolve_projection_database_target(
+    db_tables: Sequence[ModelDbTableDeclaration],
+    topology: ModelDeploymentTopology,
+    *,
+    catalog_read_binding: str | None = None,
+    catalog_write_binding: str | None = None,
+) -> ProjectionDatabaseTarget:
+    """Resolve typed table declarations through the authoritative topology."""
+    tables = tuple(db_tables)
+    if not tables:
+        raise ValueError("Projection database target requires at least one db_table")
+
+    names = [table.name for table in tables]
+    duplicates = sorted({name for name in names if names.count(name) > 1})
+    if duplicates:
+        raise ValueError(f"Duplicate db_table declarations: {duplicates!r}")
+
+    table_targets: list[ProjectionTableTarget] = []
+    databases_by_physical_name: dict[str, ModelDeploymentTopologyDatabase] = {}
+    for table in tables:
+        database = topology.databases.get(table.database_ref)
+        if database is None:
+            raise ValueError(f"Unknown database_ref '{table.database_ref}'")
+        domain = topology.schema_domain(table.database_ref, table.schema)
+        physical_database = database.physical_name
+        databases_by_physical_name[physical_database] = database
+        # OMN-16239: resolve the physical schema exactly once, here, and feed
+        # both the grant check and the emitted SQL from it. Domain resolution
+        # above deliberately keeps using the declared schema -- the domain is a
+        # governance fact about the contract, not about physical placement.
+        physical_schema = physical_grant_schema_for_table(table.schema, table.name)
+        read_binding, write_binding = _projection_operation_bindings(
+            table=table,
+            database=database,
+            domain=domain,
+            physical_schema=physical_schema,
+            catalog_read_binding=catalog_read_binding,
+            catalog_write_binding=catalog_write_binding,
+        )
+        table_targets.append(
+            ProjectionTableTarget(
+                table=table,
+                database_ref=table.database_ref,
+                physical_database=physical_database,
+                physical_schema=physical_schema,
+                domain=domain,
+                read_binding=read_binding,
+                write_binding=write_binding,
+            )
+        )
+
+    physical_databases = tuple(sorted(databases_by_physical_name))
+    if len(physical_databases) != 1:
+        raise ValueError(
+            "Projection handler db_tables require more than one physical database "
+            f"connection, got {physical_databases!r}; split the handler or provide "
+            "an explicit multi-adapter boundary"
+        )
+    return ProjectionDatabaseTarget(
+        tables=tables,
+        table_targets=tuple(table_targets),
+        physical_database=physical_databases[0],
+    )
+
+
+_TOPIC_TO_EVENT_TYPE: dict[str, str] = {
+    "node-heartbeat": "heartbeat",
+    "node-introspection": "introspection",
+    "node-state-change": "state_change",
+}
+
+
+def _derive_projection_event_type(
+    topic: str,
+    envelope_event_type: object,
+    subscribe_topics: tuple[str, ...],
+) -> str:
+    """Derive projection handler event type from topic or dispatch alias."""
+    topic_candidate = topic
+    if not topic_candidate and len(subscribe_topics) == 1:
+        topic_candidate = subscribe_topics[0]
+
+    segment_candidates: list[str] = []
+    if topic_candidate:
+        segment_candidates.append(
+            topic_candidate.split(".")[-2]
+            if "." in topic_candidate
+            else topic_candidate
+        )
+    if envelope_event_type:
+        event_type = str(envelope_event_type).strip()
+        if event_type:
+            segment_candidates.append(event_type.split(".")[-1])
+
+    for segment in segment_candidates:
+        if segment in _TOPIC_TO_EVENT_TYPE:
+            return _TOPIC_TO_EVENT_TYPE[segment]
+
+    # Handlers that don't use _event_type (e.g. HandlerProjectionDelegation) receive
+    # the raw segment as a passthrough. Only platform-registration projection handlers
+    # require the mapped form.
+    return segment_candidates[0] if segment_candidates else ""
+
+
+def _materialized_dispatch_trace_value(
+    envelope: object,
+    key: str,
+) -> object:
+    """Extract trace metadata from a materialized dispatch dict."""
+    if not isinstance(envelope, dict):
+        return None
+    trace = envelope.get("__debug_trace")
+    if isinstance(trace, dict):
+        return trace.get(key)
+    return None
+
+
+def _extract_projection_topic(envelope: object) -> str:
+    """Extract projection route topic from envelope or materialized dispatch."""
+    if isinstance(envelope, dict):
+        value = _materialized_dispatch_trace_value(envelope, "topic")
+    else:
+        value = getattr(envelope, "topic", None)
+        if not value:
+            event_type = getattr(envelope, "event_type", None)
+            if isinstance(event_type, str) and event_type.startswith("onex."):
+                value = event_type
+    return str(value).strip() if value else ""
+
+
+def _extract_projection_event_type(envelope: object) -> object:
+    """Extract event_type from envelope or materialized dispatch trace."""
+    if isinstance(envelope, dict):
+        return _materialized_dispatch_trace_value(envelope, "event_type")
+    return getattr(envelope, "event_type", None)
+
+
+def _extract_projection_payload(envelope: object) -> object:
+    """Extract payload from envelope or materialized dispatch dict."""
+    if isinstance(envelope, dict):
+        return envelope.get("payload")
+    return getattr(envelope, "payload", None)
+
+
+def _extract_projection_envelope_id(envelope: object) -> object | None:
+    """Return the typed, stable identity of the dispatched event envelope."""
+    value = (
+        envelope.get("envelope_id")
+        if isinstance(envelope, dict)
+        else getattr(envelope, "envelope_id", None)
+    )
+    return _coerce_uuid_or_none(value)
+
+
+def _extract_projection_envelope_timestamp(envelope: object) -> datetime | None:
+    """Return the event time the PRODUCER stamped on the dispatched envelope.
+
+    OMN-18326, closing the kernel half of OMN-15583. This is the sibling of
+    :func:`_extract_projection_envelope_id` and exists for the same reason: it
+    is transport-boundary fact that the payload materialization cannot carry.
+
+    A projection whose table holds a NOT NULL event-time column has exactly one
+    authoritative source for it, and for a payload model with no time field of
+    its own -- ``ModelQualityGateResult`` is ``extra="forbid"`` with no
+    ``timestamp``/``evaluated_at``/``completed_at`` -- it is the ONLY source.
+    Without it a handler must either invent a write clock, which then reads
+    forever after as the moment the event happened, or refuse every event.
+
+    It refused every event. ``omnimarket.projection.envelope
+    .envelope_event_timestamp`` reads the time off an ``_envelope`` key that
+    only the STANDALONE runner seam (``unwrap_envelope``) attaches. OMN-18159
+    moved the delegation projection onto a runtime-KERNEL pod, this seam never
+    injected the envelope, and the reader therefore returned ``None`` every
+    time: 146 refusals in the last 3000 log lines of the onex-dev staging
+    delegation writer, and a continuous refusal loop on the onex-lab lane.
+
+    Returns ``None`` -- never ``now()``, never an invented time -- when the
+    envelope records none. The caller then injects NO key, so a reader that
+    finds nothing still refuses and the runtime never becomes the thing that
+    stamps an event-time column with its own clock.
+
+    TWO KINDS OF PRESENT-BUT-UNUSABLE VALUE ALSO RETURN ``None``, and both are
+    deliberate rather than defensive:
+
+    * a value of the WRONG TYPE -- an ISO string, an epoch int, a mapping. The
+      key this injects is contracted to be the typed ``datetime`` the runtime
+      already holds, and a consumer that has to re-parse is the very drift this
+      seam removes. Coercing here would make the contract "whatever the
+      producer sent", silently.
+    * a TIMEZONE-NAIVE ``datetime``. A wall-clock reading with no offset is not
+      an instant: it names no point in time that this process can resolve.
+      Forwarding one puts exactly the write-clock ambiguity OMN-15583 refuses
+      into a NOT NULL event-time column, and stamping it UTC to make it pass
+      would be this seam INVENTING the fact it exists to transport. The sibling
+      ``_extract_projection_envelope_id`` coerces rather than refuses because a
+      UUID has one meaning in every representation; a naive datetime does not.
+
+    Refusing is the whole point: OMN-18326 fixed a seam that made EVERY event
+    look un-timed. It must not become a seam that makes an untrustworthy one
+    look fine.
+    """
+    value = (
+        envelope.get("envelope_timestamp")
+        if isinstance(envelope, dict)
+        else getattr(envelope, "envelope_timestamp", None)
+    )
+    if not isinstance(value, datetime):
+        return None
+    if value.tzinfo is None or value.utcoffset() is None:
+        logger.warning(
+            "projection envelope carries a timezone-naive event time; treating "
+            "the event as un-timed rather than assuming an offset (OMN-18326)"
+        )
+        return None
+    return value
+
+
+def _extract_projection_envelope_tenant(envelope: object) -> str | None:
+    """Return the tenant the PRODUCER stamped on the dispatched envelope.
+
+    OMN-18565, closing the half of OMN-18326 that was left open. That ticket
+    found that this seam injected the envelope ID and the event TIME but never
+    attached the envelope itself, so a projection handler reading the raw wire
+    record under ``_envelope`` -- the STANDALONE runner seam's key -- got nothing
+    on a kernel pod. It fixed the time and did not fix the TENANT, which sits
+    one field over on the same envelope and has the same property: for a payload
+    model that carries no tenant field of its own it is the ONLY attribution a
+    projection writer can see.
+
+    The cost of the gap was not a refusal this time, which is why it survived
+    longer. ``omnimarket.projection.envelope.envelope_tenant_identity`` returned
+    ``None`` for every event on the deployed ``omnimarket-projection-delegation-
+    writer``, whatever the producer stamped, and the writer then attributed the
+    quality-gate verdict to the HOUSE tenant. ``delegation_events`` rows for one
+    correlation are written by two independent subscriptions, so when the
+    verdict won the race it CREATED the row under an identity the delegation's
+    own terminal disagreed with, and the terminal's ``ON CONFLICT DO UPDATE``
+    was refused by the ``tenant_isolation`` policy's ``USING`` half under FORCE
+    ROW LEVEL SECURITY. Roughly three of sixteen staging business-proof runs
+    passed in the 24 hours measured on 2026-09-17; the greens were the runs
+    where the terminal happened to be scheduled first.
+
+    A writer under FORCE ROW LEVEL SECURITY cannot recover this by reading:
+    with ``app.tenant_id`` unset the policy predicate is NULL and an RLS-covered
+    ``SELECT`` returns zero rows, indistinguishable from an empty table.
+    Attribution is producer-recorded or it does not exist.
+
+    Returns ``None`` -- never a default, never an invented identity -- when the
+    envelope records none, or records something that is not a non-blank string.
+    The caller then injects NO key, so a reader that finds nothing refuses
+    rather than being handed a tenant this process chose. That is the same
+    fail-closed contract as the sibling event-time extractor above, and for the
+    same reason: this seam TRANSPORTS a producer fact and must never author one.
+    """
+    value = (
+        envelope.get("tenant_id")
+        if isinstance(envelope, dict)
+        else getattr(envelope, "tenant_id", None)
+    )
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
+
+
+def _is_raw_event_projection_contract(contract: ModelDiscoveredContract) -> bool:
+    if contract.event_bus is None:
+        return False
+    consumer_purpose = (contract.event_bus.consumer_purpose or "").strip().lower()
+    return consumer_purpose in {"audit", "projection"}
+
+
+def _raw_event_projection_enabled(
+    contract: ModelDiscoveredContract,
+    result_appliers_by_contract: Mapping[str, ProtocolDispatchResultApplier] | None,
+) -> bool:
+    """Return true when a raw projection contract has an explicit effect path.
+
+    Raw audit/projection consumers carry Kafka `ModelEventMessage` bytes and
+    usually emit intents. Wiring them without a result applier would consume
+    offsets while dropping those intents, so the kernel must opt in per contract.
+    """
+    return _is_raw_event_projection_contract(contract) and (
+        result_appliers_by_contract is not None
+        and contract.name in result_appliers_by_contract
+    )
+
+
+def _read_declared_key_grains(contract_path: Path) -> tuple[str, ...]:
+    """Every ``projection_api`` exposure's declared ``key_grain``, in order.
+
+    OMN-19081. The grain is a CONTRACT fact as of OMN-18908, and this replaces
+    the literal exemption tuple OMN-18910 shipped as an interim. A copy of a
+    declared fact in the consuming repository fails quietly in both
+    directions: a genuinely content-addressed exposure added tomorrow gets no
+    exemption unless somebody edits a tuple in another repository, and an
+    exposure wrongly added to the tuple gets a permanent exemption with no
+    evidence behind it.
+
+    This reads the raw contract YAML rather than importing ``omnimarket``, on
+    exactly the seam :func:`_read_dlq_topics` already establishes for
+    ``event_bus.dlq_topics`` and for the same reason: the typed contract model
+    does not carry the field, and the declaration is resolved from the
+    contract rather than hardcoded here.
+
+    Unlike ``_read_dlq_topics`` this NEVER raises. That function guards a DLQ
+    destination, where a broken contract must surface rather than degrade
+    silently; this one feeds an observability exemption, and a contract the
+    reader cannot parse must not be able to stop a projection from being
+    wired. An unreadable contract yields ``()``, which
+    :func:`resolve_key_grain` turns into UNKNOWN, which is graded and named
+    rather than silently exempted.
+
+    Returns ``()`` for a contract with no exposed ``projection_api``, so
+    "declares nothing" and "declares nothing readable" are the same empty
+    answer and neither is an exemption.
+    """
+    try:
+        # Why: Optional integration dependency is validated at runtime but ships incomplete typing.
+        import yaml  # type: ignore[import-untyped]
+
+        with open(contract_path) as f:
+            raw = yaml.safe_load(f)
+    except (OSError, Exception):  # noqa: BLE001 -- never fail wiring over this
+        return ()
+    if not isinstance(raw, dict):
+        return ()
+    section = raw.get("projection_api")
+    if not isinstance(section, dict) or not section.get("expose"):
+        return ()
+    listed = section.get("exposures")
+    exposures = (
+        [item for item in listed if isinstance(item, dict)]
+        if isinstance(listed, list)
+        else [section]
+    )
+    grains: list[str] = []
+    for exposure in exposures:
+        grain = exposure.get("key_grain")
+        if isinstance(grain, str) and grain:
+            grains.append(grain)
+    return tuple(grains)
+
+
+def resolve_key_grain(grains: tuple[str, ...]) -> str | None:
+    """One grain for a projection from its contract's declared exposures.
+
+    OMN-19081. ``None`` is UNKNOWN and is never a grain.
+
+    A projection is treated as immutable-grained only when it declares at
+    least one exposure and EVERY one of them is immutable. A contract
+    declaring both grains is NOT exempt: the delta its writer discarded might
+    belong to either exposure, and exempting it on the strength of the
+    immutable half would hide a real loss on the mutable half. Conservative in
+    the direction that grades rather than the direction that hides.
+    """
+    if not grains:
+        return None
+    if all(grain == "immutable" for grain in grains):
+        return "immutable"
+    return "mutable"
+
+
+def _read_dlq_topics(contract_path: Path) -> list[str]:
+    """Read ``event_bus.dlq_topics`` from a contract YAML. Returns [] if absent.
+
+    OMN-13548 (D-03): projection handlers declare the DLQ destination for
+    malformed inbound events under ``event_bus.dlq_topics`` (the same field the
+    omnimarket projection runners read). The typed ``ModelEventBusSubcontract``
+    does not carry this field, so the wiring reads only this event-bus extension
+    from the raw contract YAML. Database table locations are already typed on
+    ``ModelDiscoveredContract`` and are never re-read here. The DLQ topic is
+    resolved from the contract — never hardcoded in this module.
+
+    Raises on YAML parse / file I/O failures so a broken contract is surfaced
+    rather than silently degrading to a no-DLQ projection wiring.
+    """
+    try:
+        # Why: Optional integration dependency is validated at runtime but ships incomplete typing.
+        import yaml  # type: ignore[import-untyped]
+
+        with open(contract_path) as f:
+            raw = yaml.safe_load(f)
+    except FileNotFoundError:
+        return []
+    if not isinstance(raw, dict):
+        return []
+    event_bus = raw.get("event_bus") or {}
+    if not isinstance(event_bus, dict):
+        return []
+    return [str(t) for t in (event_bus.get("dlq_topics") or [])]
+
+
+def _read_state_io(contract_path: Path) -> dict[str, object]:
+    """Read the top-level ``state_io`` block from a contract YAML.
+
+    Returns ``{}`` if ``state_io`` is absent. Raises on YAML parse errors or
+    unexpected file I/O failures, so a malformed contract is surfaced as a
+    broken contract rather than silently treated as "no state_io". Unlike
+    ``db_io``, this legacy state subcontract does not yet have a core model.
+
+    Shape (OMN-14208 opt-in runtime dispatch seam)::
+
+        state_io:
+          database: omnibase_infra   # _DB_URL_ENV_MAP key
+          table: delegation_workflow_state
+          key: correlation_id        # wire field AND row key column
+          codec:
+            module: <dotted module path resolved via importlib>
+            name: <class name>
+
+    ``database`` and ``table`` accept the standard ``${env.VAR}`` /
+    ``${env.VAR:default}`` overlay convention (OMN-16924), so an operator
+    rebinds a node's durable state to a different database or table through the
+    normal config overlay without a code change. ``key`` names BOTH the wire
+    payload field the row is keyed on and the primary-key column it is stored
+    in; it defaults to ``correlation_id`` (the pre-OMN-16924 hardcoded key).
+    """
+    try:
+        # Why: Optional integration dependency is validated at runtime but ships incomplete typing.
+        import yaml  # type: ignore[import-untyped]
+
+        with open(contract_path) as f:
+            raw = yaml.safe_load(f)
+    except FileNotFoundError:
+        return {}
+    if not isinstance(raw, dict):
+        return {}
+    state_io = raw.get("state_io") or {}
+    return state_io if isinstance(state_io, dict) else {}
+
+
+def _read_completion_bound(contract_path: Path) -> ModelCompletionBound | None:
+    """Read and validate the top-level ``completion_bound`` block (OMN-18296).
+
+    Returns ``None`` when the block is absent — a ``state_io`` contract that
+    declares no bound keeps the pre-OMN-18296 behaviour (the environment-variable
+    give-up TTL, row-only), so this is additive for every contract that has not
+    opted in. A block that IS present but malformed raises: a bound the runtime
+    cannot read is worse than no bound at all, because a reader would believe one
+    was being enforced.
+
+    Shape and rationale live in
+    :mod:`omnibase_infra.runtime.state_io.model_completion_bound`.
+    """
+    try:
+        # Why: Optional integration dependency is validated at runtime but ships incomplete typing.
+        import yaml  # type: ignore[import-untyped]
+
+        with open(contract_path) as f:
+            raw = yaml.safe_load(f)
+    except FileNotFoundError:
+        return None
+    if not isinstance(raw, dict):
+        return None
+    block = raw.get("completion_bound")
+    if block is None:
+        return None
+    if not isinstance(block, dict):
+        raise ModelOnexError(
+            f"handler_wiring: completion_bound in {contract_path} must be a "
+            f"mapping — got {type(block).__name__}."
+        )
+    try:
+        return ModelCompletionBound.model_validate(block)
+    except ValidationError as exc:
+        raise ModelOnexError(
+            f"handler_wiring: completion_bound in {contract_path} is invalid: {exc}"
+        ) from exc
+
+
+def _contract_declares_state_io(contract: ModelDiscoveredContract) -> bool:
+    return bool(_read_state_io(contract.contract_path))
+
+
+# Tenant-scoped projection tables compare ``tenant_id`` with this
+# transaction-local setting in both USING and WITH CHECK policies.
+_TENANT_GUC = "app.tenant_id"
+
+
+def _recorded_tenant_scope(values: Mapping[str, object]) -> str | None:
+    """The attribution the producer recorded, as the GUC compares against it.
+
+    OMN-16976. This is NOT an authority and it mints none: it is the very
+    ``tenant_id`` that is about to be persisted (or filtered on), rendered in
+    the text form ``current_setting('app.tenant_id', true)`` returns. Every
+    canonical tenant policy on this platform is
+    ``tenant_id = current_setting('app.tenant_id', true)`` -- with the explicit
+    ``::uuid`` cast where the column is a uuid -- so a statement issued with
+    the GUC unset compares against NULL and is denied by ``WITH CHECK``.
+
+    Returning ``None`` for an absent or blank tenant is load-bearing, not
+    defensive: it leaves the GUC unset, which leaves the row denied by the
+    relation's own policy. That is how the OMN-16831 ruling's item 4 -- a
+    tenant-less row is the PRODUCER's obligation, not this seam's to invent --
+    stays enforced by the database rather than by a Python refusal.
+    """
+    value = values.get("tenant_id")
+    if isinstance(value, UUID):
+        return str(value)
+    if isinstance(value, str):
+        return value.strip() or None
+    return None
+
+
+def _statement_tenant_scope(
+    tenant_context: VerifiedProjectionTenantAuthority | None,
+    recorded_scope: str | None,
+) -> str | None:
+    """The GUC value one statement runs under, or ``None`` for no scope at all.
+
+    A bound authority always wins: it has already been verified against the
+    dispatch event by ``_optional_tenant_context`` and, on the write path,
+    ``TenantProjectionTableOperation.upsert`` has already refused any row whose
+    ``tenant_id`` disagrees with it -- so by the time this is reached the two
+    cannot differ. ``recorded_scope`` is reached only on the unbound path, and
+    only the TENANT domain operation supplies one: the INTERNAL and CATALOG
+    operations pass none and therefore open no tenant transaction, which is the
+    behaviour their own red controls assert.
+    """
+    if tenant_context is not None:
+        return str(tenant_context.tenant_id)
+    return recorded_scope
+
+
+def _projection_tenant_context_error(message: str) -> Exception:
+    from omnibase_infra.errors.error_projection import ProjectionTenantContextError
+
+    return ProjectionTenantContextError(message)
+
+
+def _reject_canonical_tenant_field(
+    values: Mapping[str, object] | None, *, domain: EnumDatabaseSchemaDomain
+) -> None:
+    if values is not None and "tenant_id" in values:
+        raise ValueError(
+            f"{domain.value} operation rejects canonical tenant_id; "
+            "only tenant-domain operations may carry it"
+        )
+
+
+class ProjectionTableOperation:
+    """Shared SQL mechanics for one topology-resolved table declaration."""
+
+    def __init__(
+        self,
+        adapter: ProjectionDatabaseOperations,
+        target: ProjectionTableTarget,
+    ) -> None:
+        self._adapter = adapter
+        self._target = target
+
+    # Both refusals name the DECLARED schema: they report what the contract
+    # says, so they must read the way the contract reads.
+    def _assert_write_declared(self) -> None:
+        if self._target.table.access not in {"write", "read_write"}:
+            raise PermissionError(
+                f"{self._target.table.schema}.{self._target.table.name} declares "
+                f"access={self._target.table.access!r}; write refused"
+            )
+
+    def _assert_read_declared(self) -> None:
+        if self._target.table.access not in {"read", "read_write"}:
+            raise PermissionError(
+                f"{self._target.table.schema}.{self._target.table.name} declares "
+                f"access={self._target.table.access!r}; read refused"
+            )
+
+    def _prepare_write(
+        self, conflict_key: str, row: dict[str, object]
+    ) -> tuple[dict[str, object], VerifiedProjectionTenantAuthority | None, str | None]:
+        """Apply this domain's write guards and resolve the statement scope.
+
+        OMN-18159. Extracted so ``upsert`` and ``upsert_returning`` cannot
+        diverge on the guards. Each subclass overrides THIS rather than each
+        entry point, so a domain rule added later is applied to both by
+        construction -- when the attested write was first added it inherited
+        the base ``upsert`` and silently skipped the tenant-attribution and
+        canonical-field guards the subclasses apply, which is exactly the
+        shape this hook removes.
+        """
+        self._assert_write_declared()
+        return dict(row), None, None
+
+    def upsert(self, conflict_key: str, row: dict[str, object]) -> bool:
+        prepared, context, scope = self._prepare_write(conflict_key, row)
+        # OMN-18159. One composed statement, not two: a separate bool-only
+        # path would be a second place for the arm placement to drift, which
+        # is the whole failure this ticket is unwinding. A plain upsert is the
+        # same statement with no RETURNING clause.
+        self._adapter._execute_upsert_returning(
+            self._target,
+            conflict_key,
+            prepared,
+            tenant_context=context,
+            recorded_scope=scope,
+        )
+        return True
+
+    def upsert_returning(
+        self,
+        conflict_key: str,
+        row: dict[str, object],
+        *,
+        insert_only_columns: frozenset[str] = frozenset(),
+        sql_expression_columns: Mapping[str, str] = MappingProxyType({}),
+        returning: Sequence[str] = (),
+    ) -> list[dict[str, object]]:
+        """OMN-18159. The attested write, through the same access check.
+
+        The declared-access assertion runs FIRST and unconditionally, so this
+        entry point cannot become a way around it -- a relation the contract
+        declares ``read`` refuses here exactly as it refuses on ``upsert``.
+        """
+        prepared, context, scope = self._prepare_write(conflict_key, row)
+        return self._adapter._execute_upsert_returning(
+            self._target,
+            conflict_key,
+            prepared,
+            tenant_context=context,
+            recorded_scope=scope,
+            insert_only_columns=insert_only_columns,
+            sql_expression_columns=sql_expression_columns,
+            returning=returning,
+        )
+
+    def query(
+        self,
+        filters: dict[str, object] | None = None,
+        *,
+        order_by: str | None = None,
+        descending: bool = False,
+        limit: int | None = None,
+    ) -> list[dict[str, object]]:
+        """Read rows, optionally ORDERed by one column and LIMITed.
+
+        OMN-17888. ``order_by``/``descending``/``limit`` are the minimal typed
+        capability a caller needs to ask for THE LATEST ROW rather than for the
+        whole partition it would then sort in Python. They are keyword-only and
+        default to the previous behaviour exactly, so every existing caller is
+        byte-unchanged; a caller that supplies none issues the same statement it
+        always did.
+        """
+        self._assert_read_declared()
+        return self._adapter._execute_query(
+            self._target,
+            filters,
+            tenant_context=None,
+            order_by=order_by,
+            descending=descending,
+            limit=limit,
+        )
+
+
+class TenantProjectionTableOperation(ProjectionTableOperation):
+    """Tenant operation that VERIFIES attribution rather than sourcing it.
+
+    OMN-16831 (operator ruling 2026-08-28, option D): the verified capability
+    is an AUTHORIZATION artifact and must never be the SOURCE of ``tenant_id``.
+    Attribution is recorded by the producer at write time; the authority, when
+    present, only verifies the recorded claim.
+
+    Before that ruling this class resolved the authority unconditionally and
+    then overwrote ``row["tenant_id"]`` with it. Because
+    ``bind_projection_tenant_authority`` has zero non-test call sites, no real
+    dispatch on any lane ever had one bound -- so all 15 TENANT-classified
+    relations were structurally unwritable and 100% of their events were
+    quarantined before a single statement was issued. Worse than a refusal:
+    the immutable log kept a DLQ record instead of a tenant-attributed fact,
+    destroying the dimension rather than deferring the mechanism.
+
+    The isolation MECHANISM is unchanged and fully deferred (RLS vs
+    schema-per-tenant vs separate databases, OMN-15359's physical cutover, the
+    signed-envelope authority chain). Only the coupling is severed.
+    """
+
+    def _context(self) -> VerifiedProjectionTenantAuthority | None:
+        """The bound authority, or ``None`` when trusted ingress bound none.
+
+        Routes through the adapter's optional accessor so the lifecycle guard
+        (a closed adapter still refuses) survives independently of whether an
+        authority happens to be present.
+        """
+        return self._adapter._optional_tenant_context()
+
+    def _assert_supplied_tenant(
+        self,
+        supplied_tenant: object,
+        context: VerifiedProjectionTenantAuthority,
+        *,
+        operation: str,
+    ) -> None:
+        if isinstance(supplied_tenant, UUID):
+            supplied_uuid = supplied_tenant
+        elif isinstance(supplied_tenant, str):
+            supplied_uuid = parse_canonical_tenant_uuid(
+                supplied_tenant,
+                authority=f"{self._target.table.name} {operation} compatibility field",
+            )
+        else:
+            raise _projection_tenant_context_error(
+                f"{self._target.table.name} {operation} tenant_id does not match "
+                "verified projection authority"
+            )
+        if supplied_uuid != context.tenant_id:
+            raise _projection_tenant_context_error(
+                f"{self._target.table.name} {operation} tenant_id does not match "
+                "verified projection authority"
+            )
+
+    def _prepare_write(
+        self, conflict_key: str, row: dict[str, object]
+    ) -> tuple[dict[str, object], VerifiedProjectionTenantAuthority | None, str | None]:
+        """Tenant attribution and scope, applied to EVERY write entry point.
+
+        OMN-18159 moved this off ``upsert`` so the attested write gets the
+        same treatment. Nothing about the rules changed.
+        """
+        self._assert_write_declared()
+        context = self._context()
+        attributed_row = dict(row)
+        if context is None:
+            # No authority bound: record exactly what the producer recorded.
+            # Nothing is invented, defaulted, or overwritten here -- whether a
+            # row is permitted to arrive tenant-less is the producer's
+            # obligation, enforced at the write sites (ruling item 4).
+            #
+            # OMN-16976: the statement is still SCOPED to that recorded
+            # attribution. Severing attribution from authorization (OMN-16831)
+            # also, unintentionally, severed the write from the isolation
+            # MECHANISM: a bare INSERT leaves app.tenant_id unset, and every
+            # tenant-classified relation carries
+            # `WITH CHECK (tenant_id = current_setting('app.tenant_id', true))`
+            # under FORCE ROW LEVEL SECURITY, so an unset GUC compares against
+            # NULL and Postgres denied the row with InsufficientPrivilege --
+            # 40 of them per 3h on the .201 dev lane, on the one such relation
+            # currently receiving traffic. The scope value IS the row's own
+            # tenant_id, so this widens nothing: the row can only be written
+            # under the identity it already declares.
+            return (
+                attributed_row,
+                None,
+                _recorded_tenant_scope(attributed_row),
+            )
+        supplied_tenant = attributed_row.get("tenant_id")
+        if supplied_tenant is not None:
+            self._assert_supplied_tenant(supplied_tenant, context, operation="row")
+        # Reached only when the supplied tenant is absent or already verified
+        # equal, so this now normalizes representation -- it no longer
+        # substitutes an identity the event did not claim.
+        attributed_row["tenant_id"] = context.tenant_id
+        return attributed_row, context, None
+
+    def query(
+        self,
+        filters: dict[str, object] | None = None,
+        *,
+        order_by: str | None = None,
+        descending: bool = False,
+        limit: int | None = None,
+    ) -> list[dict[str, object]]:
+        self._assert_read_declared()
+        context = self._context()
+        attributed_filters = dict(filters or {})
+        if context is None:
+            # Symmetric to upsert: the read is not narrowed to an authority
+            # that does not exist. Refusing here alone was enough to DLQ every
+            # delegation event, because the writer probes for existing
+            # evidence before it upserts.
+            #
+            # OMN-16976: and symmetric in scoping too. A caller that filters on
+            # a tenant gets the statement scoped to that same tenant, because
+            # the policy's USING clause hides every row from an unset GUC --
+            # so an unscoped read-before-write returns [] on a relation that
+            # DOES hold the tenant's row, and the upsert that follows then
+            # overwrites accumulated evidence (recent_responses) instead of
+            # merging it. Silent, and worse than the refusal it replaced. A
+            # filter carrying no tenant still opens no scope: the read stays
+            # blind rather than being widened to a tenant nobody named.
+            return self._adapter._execute_query(
+                self._target,
+                attributed_filters,
+                tenant_context=None,
+                recorded_scope=_recorded_tenant_scope(attributed_filters),
+                order_by=order_by,
+                descending=descending,
+                limit=limit,
+            )
+        supplied_tenant = attributed_filters.get("tenant_id")
+        if supplied_tenant is not None:
+            self._assert_supplied_tenant(supplied_tenant, context, operation="query")
+        attributed_filters["tenant_id"] = context.tenant_id
+        return self._adapter._execute_query(
+            self._target,
+            attributed_filters,
+            tenant_context=context,
+            order_by=order_by,
+            descending=descending,
+            limit=limit,
+        )
+
+
+class InternalProjectionTableOperation(ProjectionTableOperation):
+    """Internal operation that never resolves or sets tenant context."""
+
+    def _prepare_write(
+        self, conflict_key: str, row: dict[str, object]
+    ) -> tuple[dict[str, object], VerifiedProjectionTenantAuthority | None, str | None]:
+        _reject_canonical_tenant_field(row, domain=self._target.domain)
+        conflict_keys = {key.strip() for key in conflict_key.split(",")}
+        if "source_tenant_id" in conflict_keys:
+            raise ValueError(
+                "Internal source_tenant_id is provenance only and cannot be an "
+                "upsert conflict key"
+            )
+        return super()._prepare_write(conflict_key, row)
+
+    def query(
+        self,
+        filters: dict[str, object] | None = None,
+        *,
+        order_by: str | None = None,
+        descending: bool = False,
+        limit: int | None = None,
+    ) -> list[dict[str, object]]:
+        _reject_canonical_tenant_field(filters, domain=self._target.domain)
+        return super().query(
+            filters, order_by=order_by, descending=descending, limit=limit
+        )
+
+
+class CatalogProjectionTableOperation(ProjectionTableOperation):
+    """Catalog operation enforcing the declaration's explicit access mode."""
+
+    def _prepare_write(
+        self, conflict_key: str, row: dict[str, object]
+    ) -> tuple[dict[str, object], VerifiedProjectionTenantAuthority | None, str | None]:
+        _reject_canonical_tenant_field(row, domain=self._target.domain)
+        return super()._prepare_write(conflict_key, row)
+
+    def query(
+        self,
+        filters: dict[str, object] | None = None,
+        *,
+        order_by: str | None = None,
+        descending: bool = False,
+        limit: int | None = None,
+    ) -> list[dict[str, object]]:
+        _reject_canonical_tenant_field(filters, domain=self._target.domain)
+        return super().query(
+            filters, order_by=order_by, descending=descending, limit=limit
+        )
+
+
+class ProjectionBindingConnections:
+    """Own per-binding connections, identity attestation, and transactions."""
+
+    def __init__(
+        self,
+        db_urls: Mapping[str, str],
+        target: ProjectionDatabaseTarget,
+        psycopg2_module: object,
+    ) -> None:
+        required_bindings = {binding.binding_ref for binding in target.bindings}
+        supplied_bindings = set(db_urls)
+        if supplied_bindings != required_bindings:
+            raise ValueError(
+                "Projection DSN bindings must exactly match the topology target: "
+                f"required={sorted(required_bindings)!r}, "
+                f"supplied={sorted(supplied_bindings)!r}"
+            )
+        if any(not isinstance(url, str) or not url for url in db_urls.values()):
+            raise ValueError("Projection DSN binding values must be non-empty strings")
+        self._db_urls = dict(db_urls)
+        self._connections: dict[str, object] = {}
+        self._closed = False
+        self._psycopg2 = psycopg2_module
+
+    @property
+    def connections(self) -> dict[str, object]:
+        """Expose live connections for narrow diagnostics and cleanup proofs."""
+        return self._connections
+
+    def get(self, binding: ProjectionDatabaseBindingTarget | None) -> object:
+        """Return an attested connection for one exact topology binding."""
+        self.ensure_open()
+        if binding is None:
+            raise PermissionError(
+                "Projection operation has no declared workload binding"
+            )
+        conn = self._connections.get(binding.binding_ref)
+        if conn is None or getattr(conn, "closed", False):
+            connect = self._psycopg2.connect  # type: ignore[attr-defined]
+            conn = connect(self._db_urls[binding.binding_ref])
+            try:
+                conn.autocommit = True
+                with conn.cursor() as cursor:  # type: ignore[attr-defined]
+                    cursor.execute("SELECT current_user, current_database()")
+                    identity = cursor.fetchone()
+                expected_identity = (binding.principal, binding.physical_database)
+                if (
+                    not isinstance(identity, (tuple, list))
+                    or tuple(identity) != expected_identity
+                ):
+                    raise PermissionError(
+                        f"Projection binding {binding.binding_ref!r} connected as "
+                        f"{identity!r}, expected {expected_identity!r}"
+                    )
+            except BaseException:
+                conn.close()  # type: ignore[attr-defined]
+                raise
+            self._connections[binding.binding_ref] = conn
+        return conn
+
+    def close(self) -> None:
+        """Deterministically close every per-binding connection."""
+        if self._closed:
+            return
+        self._closed = True
+        connections = tuple(self._connections.values())
+        self._connections.clear()
+        for conn in connections:
+            if not getattr(conn, "closed", False):
+                conn.close()  # type: ignore[attr-defined]
+
+    def ensure_open(self) -> None:
+        if self._closed:
+            raise RuntimeError("Projection database adapter is closed")
+
+    @contextlib.contextmanager
+    def read_transaction(self, conn: object) -> Iterator[None]:
+        """Open an explicit transaction block for one unscoped read.
+
+        OMN-17888. The read seam DECLAREs a server-side cursor, and PostgreSQL
+        refuses ``DECLARE CURSOR`` outside a transaction block. The one form
+        that is legal in autocommit -- ``WITH HOLD`` -- materialises the entire
+        result into a server-side tuplestore at commit, which moves the buffer
+        onto the server rather than removing it. The connections this adapter
+        owns sit in autocommit (``get`` sets it), so an unscoped read opens its
+        own transaction and always ends it: committed on success, rolled back on
+        any exception, autocommit restored in ``finally`` either way. Exactly the
+        lifecycle ``tenant_transaction`` guarantees, minus the GUC -- a read that
+        named no tenant scope must not acquire one here.
+        """
+        conn.autocommit = False  # type: ignore[attr-defined]
+        try:
+            yield
+            conn.commit()  # type: ignore[attr-defined]
+        except BaseException:
+            conn.rollback()  # type: ignore[attr-defined]
+            raise
+        finally:
+            conn.autocommit = True  # type: ignore[attr-defined]
+
+    @contextlib.contextmanager
+    def tenant_transaction(self, conn: object, tenant_scope: str) -> Iterator[None]:
+        """Set the GUC locally to ``tenant_scope``, then always end it.
+
+        ``tenant_scope`` is ``str(context.tenant_id)`` when an authority is
+        bound and the row's own recorded ``tenant_id`` when none is (OMN-16976).
+        This seam does not distinguish them, and must not: its whole contract is
+        that whatever scope it is handed is transaction-LOCAL (``is_local=True``)
+        and is always ended -- committed on success, rolled back on any
+        exception, with autocommit restored in ``finally`` either way. Which
+        scopes are legitimate is decided by the caller that owns the domain.
+        """
+        conn.autocommit = False  # type: ignore[attr-defined]
+        try:
+            with conn.cursor() as cursor:  # type: ignore[attr-defined]
+                cursor.execute(
+                    "SELECT set_config(%s, %s, true)",
+                    (_TENANT_GUC, tenant_scope),
+                )
+            yield
+            conn.commit()  # type: ignore[attr-defined]
+        except BaseException:
+            conn.rollback()  # type: ignore[attr-defined]
+            raise
+        finally:
+            conn.autocommit = True  # type: ignore[attr-defined]
+
+
+def _fetch_returned_rows(
+    cursor: object, returning: Sequence[str]
+) -> list[dict[str, object]]:
+    """Read back a RETURNING result, or nothing when none was asked for.
+
+    OMN-18159. A module-level function rather than a method because it touches
+    no adapter state -- and because the pattern gate counts methods, which is a
+    fair proxy here: this is statement plumbing, not part of the router's
+    surface.
+
+    An empty list for a statement that named no ``RETURNING`` columns is not a
+    guess about the stored row -- the statement was never asked for one. A
+    statement that DID ask and came back empty took the ``DO NOTHING`` arm, and
+    an empty list is equally honest there: no stored row exists for this call
+    to describe, and inventing one would be a confident-empty failure inverted.
+    """
+    if not returning:
+        return []
+    if getattr(cursor, "description", None) is None:
+        return []
+    return [
+        dict(record)
+        if isinstance(record, Mapping)
+        else dict(zip(returning, record, strict=True))
+        for record in cursor.fetchall()  # type: ignore[attr-defined]
+    ]
+
+
+class ProjectionDatabaseOperations:
+    """Router over separate table operations selected from typed topology."""
+
+    def __init__(
+        self,
+        db_urls: Mapping[str, str],
+        target: ProjectionDatabaseTarget,
+        tenant_authority: VerifiedProjectionTenantAuthority | None,
+        tenant_event: object | None,
+        psycopg2_module: object,
+        extras_module: object,
+    ) -> None:
+        self._binding_connections = ProjectionBindingConnections(
+            db_urls,
+            target,
+            psycopg2_module,
+        )
+        # Kept as a read-only diagnostic seam for existing runtime proofs.
+        self._connections = self._binding_connections.connections
+        self._extras = extras_module
+        self._tenant_authority = tenant_authority
+        self._tenant_event = tenant_event
+        operation_types: dict[
+            EnumDatabaseSchemaDomain, type[ProjectionTableOperation]
+        ] = {
+            EnumDatabaseSchemaDomain.TENANT: TenantProjectionTableOperation,
+            EnumDatabaseSchemaDomain.OMNINODE_INTERNAL: InternalProjectionTableOperation,
+            EnumDatabaseSchemaDomain.PLATFORM_CATALOG: CatalogProjectionTableOperation,
+        }
+        self._operations = {
+            table_target.table.name: operation_types[table_target.domain](
+                self, table_target
+            )
+            for table_target in target.table_targets
+        }
+
+    def _optional_tenant_context(self) -> VerifiedProjectionTenantAuthority | None:
+        """Return the verified authority when one is bound, else ``None``.
+
+        OMN-16831: attribution must not depend on the isolation mechanism, so
+        the absence of an authority is a normal state rather than a refusal.
+        What is NOT relaxed: the adapter lifecycle guard still runs first, and
+        a bound authority is still checked against the dispatch event before it
+        is honoured -- an authority that does not match its event raises here
+        exactly as it did before, so a forged or replayed capability cannot
+        become the quiet path.
+        """
+        self._binding_connections.ensure_open()
+        if self._tenant_authority is None:
+            return None
+        assert_projection_tenant_authority_matches_event(
+            self._tenant_authority,
+            self._tenant_event,
+        )
+        return self._tenant_authority
+
+    def close(self) -> None:
+        """Release authority and deterministically close every connection."""
+        self._tenant_authority = None
+        self._tenant_event = None
+        self._binding_connections.close()
+
+    def _operation(self, table: str) -> ProjectionTableOperation:
+        self._binding_connections.ensure_open()
+        operation = self._operations.get(table)
+        if operation is None:
+            raise ValueError(
+                f"Projection table {table!r} is not declared by the typed db_io contract"
+            )
+        return operation
+
+    def _adapt_row(self, row: Mapping[str, object]) -> dict[str, object]:
+        json_adapter = self._extras.Json  # type: ignore[attr-defined]
+        return {
+            key: (
+                json_adapter(value)
+                if isinstance(value, dict)
+                or (isinstance(value, list) and _should_jsonb_wrap_list(key, value))
+                else value
+            )
+            for key, value in row.items()
+        }
+
+    def _execute_upsert_returning(
+        self,
+        target: ProjectionTableTarget,
+        conflict_key: str,
+        row: dict[str, object],
+        *,
+        tenant_context: VerifiedProjectionTenantAuthority | None,
+        recorded_scope: str | None = None,
+        insert_only_columns: frozenset[str] = frozenset(),
+        sql_expression_columns: Mapping[str, str] = MappingProxyType({}),
+        returning: Sequence[str] = (),
+    ) -> list[dict[str, object]]:
+        """OMN-18159. The one composed UPSERT, with the attested-write features.
+
+        The DECISIONS come from :func:`omnibase_core.models.projection
+        .build_upsert_plan` -- which column goes on which arm, which SQL
+        expression is admissible, which identifier is safe. That plan is shared
+        with ``omnimarket``'s three sync adapters precisely so the closed set of
+        expressions that reach a statement UNCAST cannot exist in four
+        divergent copies.
+
+        The rendered SQL is NOT taken from the plan, deliberately. This adapter
+        quotes every identifier and schema-qualifies the table, which no other
+        consumer does, so rendering here keeps the statement byte-for-byte what
+        it has always been while the decisions stay in one place. A test pins
+        that byte-for-byte claim rather than leaving it asserted.
+
+        ``sql_expression_columns`` reach the statement unparameterised, on BOTH
+        arms. That is the whole point of the write attestation: a bound
+        parameter would let this process decide what the row says about who
+        wrote it, and the update arm must RESTATE the expression because a
+        column DEFAULT is consulted only on INSERT -- an existing row would
+        otherwise wear its first writer's stamp forever.
+        """
+        plan = build_upsert_plan(
+            table=target.table.name,
+            conflict_key=conflict_key,
+            row=row,
+            insert_only_columns=insert_only_columns,
+            sql_expression_columns=sql_expression_columns,
+            returning=returning,
+        )
+        # The plan validated every identifier against its own rule; this
+        # adapter's rule is narrower and is applied on top rather than
+        # replaced, so relaxing one never silently relaxes the other.
+        for name in (*plan.insert_columns, *plan.conflict_keys, *plan.returning):
+            if not _TABLE_NAME_RE.fullmatch(name):
+                raise ValueError(f"Invalid column names: {[name]!r}")
+
+        quoted_cols = ", ".join(f'"{column}"' for column in plan.bound_columns)
+        placeholders = ", ".join(f"%({column})s" for column in plan.bound_columns)
+        expression_cols = "".join(f', "{column}"' for column in plan.expression_columns)
+        expression_values = "".join(
+            f", {expression}" for expression in plan.expression_columns.values()
+        )
+        conflict_columns = ", ".join(f'"{key}"' for key in plan.conflict_keys)
+        updates = ", ".join(
+            f'"{column}" = EXCLUDED."{column}"'
+            if expression is None
+            else f'"{column}" = {expression}'
+            for column, expression in plan.update_assignments
+        )
+        action = f"DO UPDATE SET {updates}" if updates else "DO NOTHING"
+        returning_clause = (
+            " RETURNING " + ", ".join(f'"{column}"' for column in plan.returning)
+            if plan.returning
+            else ""
+        )
+        insert_sql = (
+            " ".join(
+                (
+                    f'INSERT INTO "{target.physical_schema}"."{target.table.name}"'
+                    f" ({quoted_cols}{expression_cols})",
+                    f"VALUES ({placeholders}{expression_values})",
+                    f"ON CONFLICT ({conflict_columns}) {action}",
+                )
+            )
+            + returning_clause
+        )
+        conn = self._binding_connections.get(target.write_binding)
+        adapted_row = self._adapt_row({c: row[c] for c in plan.bound_columns})
+        scope = _statement_tenant_scope(tenant_context, recorded_scope)
+        if scope is None:
+            with conn.cursor() as cursor:  # type: ignore[attr-defined]
+                cursor.execute(insert_sql, adapted_row)
+                return _fetch_returned_rows(cursor, plan.returning)
+        with self._binding_connections.tenant_transaction(conn, scope):
+            with conn.cursor() as cursor:  # type: ignore[attr-defined]
+                cursor.execute(insert_sql, adapted_row)
+                return _fetch_returned_rows(cursor, plan.returning)
+
+    def _execute_query(
+        self,
+        target: ProjectionTableTarget,
+        filters: dict[str, object] | None,
+        *,
+        tenant_context: VerifiedProjectionTenantAuthority | None,
+        recorded_scope: str | None = None,
+        order_by: str | None = None,
+        descending: bool = False,
+        limit: int | None = None,
+    ) -> list[dict[str, object]]:
+        # Schema/table originate in validated typed declarations, never request data.
+        select_sql = f'SELECT * FROM "{target.physical_schema}"."{target.table.name}"'  # noqa: S608
+        params: list[object] = []
+        if filters:
+            bad_keys = [
+                key for key in filters if not _TABLE_NAME_RE.fullmatch(str(key))
+            ]
+            if bad_keys:
+                raise ValueError(f"Invalid filter keys: {bad_keys!r}")
+            select_sql += " WHERE " + " AND ".join(f'"{key}" = %s' for key in filters)
+            params = list(filters.values())
+        # OMN-17888. The ORDERED, LIMITED read is the shape a caller uses to ask a
+        # BOUNDED question -- "the latest row of this session" -- instead of
+        # reading the session and sorting it in Python. It is not a silent
+        # truncation of an unbounded question: the caller states the ordering and
+        # the count, so a short answer is the answer it asked for. That is the
+        # exact distinction the budget refusal below preserves, and why the two
+        # coexist rather than one replacing the other.
+        if order_by is not None:
+            if not _TABLE_NAME_RE.fullmatch(str(order_by)):
+                raise ValueError(f"Invalid order_by column: {order_by!r}")
+            direction = "DESC" if descending else "ASC"
+            select_sql += f' ORDER BY "{order_by}" {direction}'
+        elif descending:
+            raise ValueError("descending requires an order_by column")
+        if limit is not None:
+            if not isinstance(limit, int) or isinstance(limit, bool) or limit < 1:
+                raise ValueError(f"limit must be a positive int, got {limit!r}")
+            select_sql += " LIMIT %s"
+            params = [*params, limit]
+        conn = self._binding_connections.get(target.read_binding)
+
+        def _query() -> list[dict[str, object]]:
+            cursor_factory = self._extras.RealDictCursor  # type: ignore[attr-defined]
+            # A SERVER-side (named) cursor. OMN-17888 second pass: with no
+            # `name=`, psycopg2 issues `PQexec` and libpq buffers the ENTIRE
+            # result set inside the connection's PGresult before the loop below
+            # sees its first row -- so streaming removed the Python-object copy
+            # and left the libpq copy, and the per-row budget could only refuse
+            # rows the process had already paid for. DECLARE + FETCH in
+            # `itersize` batches makes the client-side peak a constant.
+            cursor_name = f"onex_projection_read_{uuid4().hex}"
+            with conn.cursor(  # type: ignore[attr-defined]
+                name=cursor_name, cursor_factory=cursor_factory
+            ) as cursor:
+                cursor.itersize = PROJECTION_QUERY_CURSOR_ITERSIZE
+                cursor.execute(select_sql, params or None)
+                # OMN-17888. Two separate defects lived on this one line, which
+                # read `[dict(record) for record in cursor.fetchall()]`:
+                #
+                # (1) It materialised the result set TWICE with both copies
+                #     alive -- `fetchall()`'s full list of driver rows, plus the
+                #     comprehension's full list of plain dicts. Measured in the
+                #     deployed container against live `omnidash_analytics`, one
+                #     call over the session holding 91,633 of
+                #     `session_replay_snapshots`' 94,571 rows cost 225.4 MiB:
+                #     200.7 MiB of driver rows and 24.8 MiB of dicts. Streaming
+                #     the cursor drops each driver row as soon as it is copied,
+                #     leaving one copy: ~284 B/row, a ~9x reduction on the
+                #     measured shape.
+                #
+                # (2) It was unbounded by construction, for every caller. The
+                #     bound below is checked PER ROW, before the row is kept, so
+                #     the refusal never first allocates the thing it refuses.
+                #
+                # The refusal is deliberate over appending a `LIMIT` the caller
+                # did not ask for: a truncated result is indistinguishable from
+                # a complete one at the call site, so an implicit limit would
+                # trade an OOM for silently wrong projections. An EXPLICIT
+                # `limit=` above is the opposite -- the caller named the bound.
+                rows: list[dict[str, object]] = []
+                for record in cursor:
+                    if len(rows) >= PROJECTION_QUERY_MAX_ROWS:
+                        raise ProjectionQueryRowBudgetError(
+                            f"projection read of "
+                            f'"{target.physical_schema}"."{target.table.name}" '
+                            f"matched more than the {PROJECTION_QUERY_MAX_ROWS} "
+                            f"rows this seam will materialise "
+                            f"(filters={sorted(filters) if filters else []}); "
+                            "the read is refused rather than silently truncated "
+                            "(OMN-17888)",
+                            projection_type=target.table.name,
+                        )
+                    rows.append(dict(record))
+                return rows
+
+        scope = _statement_tenant_scope(tenant_context, recorded_scope)
+        if scope is None:
+            # A named cursor cannot be DECLAREd outside a transaction block, and
+            # the connections here sit in autocommit, so the unscoped read opens
+            # (and always ends) its own. The scoped path below is already inside
+            # one.
+            with self._binding_connections.read_transaction(conn):
+                return _query()
+        with self._binding_connections.tenant_transaction(conn, scope):
+            return _query()
+
+    def upsert(self, table: str, conflict_key: str, row: dict[str, object]) -> bool:
+        return self._operation(table).upsert(conflict_key, row)
+
+    def upsert_returning(
+        self,
+        table: str,
+        conflict_key: str,
+        row: dict[str, object],
+        *,
+        tenant: str | None = None,
+        insert_only_columns: frozenset[str] = frozenset(),
+        sql_expression_columns: Mapping[str, str] = MappingProxyType({}),
+        returning: Sequence[str] = (),
+    ) -> list[dict[str, object]]:
+        """OMN-18159. UPSERT and return the rows the database actually stored.
+
+        This is what lets an in-process projection handler stamp a write
+        attestation the writing process cannot forge -- ``writer_identity`` as
+        ``CURRENT_USER``, ``written_at`` as ``NOW()``, both restated on the
+        ``DO UPDATE`` arm -- and republish the row Postgres returned rather
+        than the dict it built. Until this existed, a handler running under
+        this kernel could not express the attestation at all, so
+        ``omnimarket``'s delegation handler refused this adapter by name
+        rather than writing a row whose attestation column would be NULL.
+
+        ``tenant`` is accepted for signature compatibility with the sync
+        projection protocol and REFUSED when supplied. Tenant scope here is
+        not the caller's to assert: it is derived from the verified projection
+        authority when one is bound, and otherwise from the row's own recorded
+        attribution. Accepting a caller-supplied override would reintroduce
+        exactly the attribution-from-the-caller path the tenant operation's
+        guards exist to close.
+        """
+        if tenant is not None:
+            raise ValueError(
+                "tenant is not a caller-supplied value on this adapter: the "
+                "statement scope is derived from the verified projection "
+                "authority, or from the row's own recorded attribution when "
+                "none is bound. Supplying it here would let a caller assert "
+                "an attribution the runtime never verified."
+            )
+        return self._operation(table).upsert_returning(
+            conflict_key,
+            row,
+            insert_only_columns=insert_only_columns,
+            sql_expression_columns=sql_expression_columns,
+            returning=returning,
+        )
+
+    def query(
+        self,
+        table: str,
+        filters: dict[str, object] | None = None,
+        *,
+        order_by: str | None = None,
+        descending: bool = False,
+        limit: int | None = None,
+    ) -> list[dict[str, object]]:
+        return self._operation(table).query(
+            filters, order_by=order_by, descending=descending, limit=limit
+        )
+
+
+# OMN-16874: the capability a runner-shaped handler declares to opt IN to
+# in-process runtime dispatch. Absent (the default) means the handler owns its
+# own consume loop and is deployed standalone, so the runtime must not dispatch
+# it a second time.
+PROJECTION_INPROCESS_DISPATCH_ATTR = "onex_runtime_inprocess_dispatch"
+
+# OMN-16911: the seam through which a handler that opened its own DB adapter
+# accepts the workload DSN the runtime resolved from the topology. Declaring
+# in-process dispatch (above) obliges a handler that owns an adapter to expose
+# this; the runtime refuses to wire one that does not.
+PROJECTION_OWNED_DATABASE_BIND_ATTR = "bind_projection_database_url"
+
+
+def _serves_its_own_database(handler_instance: object) -> bool:
+    """Whether the handler carries a DB adapter it opened itself.
+
+    A handler on the DB-injection arm receives its adapter from the runtime as
+    ``input_data["_db"]`` and holds none of its own. A runner-shaped handler
+    constructs an async pool adapter in ``__init__`` and reaches it through
+    ``self.db`` — the runtime never sees that adapter's construction and cannot
+    scope its lifetime.
+    """
+    db = getattr(handler_instance, "db", None)
+    if db is None:
+        return False
+    return callable(getattr(db, "connect", None)) and callable(
+        getattr(db, "close", None)
+    )
+
+
+def _is_standalone_projection_runner(handler_instance: object) -> bool:
+    """Whether this handler_routing entry is a standalone runner, not a target.
+
+    OMN-16874. The predicate this replaced tested ``type(h).__name__`` against
+    the suffix ``"ProjectionRunner"``. That made a *spelling* decide which of
+    two dispatch branches a handler took, and the two constraints collided:
+    ``ConsumerFlowProjectionWriter`` is named ``...Writer`` precisely because
+    the OMN-14350 type-word ratchet hard-fails ``Runner`` (and its allowlist may
+    only shrink), so satisfying one gate silently moved the node onto the other
+    branch — where the runtime pre-connected its pool on a throwaway loop and
+    every message died with ``Event loop is closed``.
+
+    Dispatch shape is now a declared capability. A handler with the runner
+    shape — its own consume loop (``run``), its own projection entrypoint
+    (``project_event``), its own topic set and its own DB adapter — is treated
+    as standalone unless it declares
+    :data:`PROJECTION_INPROCESS_DISPATCH_ATTR`. Declaring it is a statement
+    that the class also scopes its pool to the loop that uses it, which is the
+    only lifetime the runtime can honour for an adapter it did not create.
+    """
+    runner_shaped = (
+        callable(getattr(handler_instance, "project_event", None))
+        and callable(getattr(handler_instance, "run", None))
+        and hasattr(handler_instance, "topics")
+        and _serves_its_own_database(handler_instance)
+    )
+    if not runner_shaped:
+        return False
+    return not bool(
+        getattr(handler_instance, PROJECTION_INPROCESS_DISPATCH_ATTR, False)
+    )
+
+
+def _bind_handler_owned_projection_database(
+    handler_instance: object,
+    target: ProjectionDatabaseTarget,
+    db_urls: Mapping[str, str],
+) -> None:
+    """Bind a handler's own DB adapter to the topology-resolved workload DSN.
+
+    OMN-16911. ``_resolve_projection_database_target`` already selects one
+    workload identity per declared table and PROVES, via
+    ``_require_projection_binding_privileges``, that its principal holds USAGE
+    on the physical schema plus the privileges the declared access needs. That
+    proof only ever reached connections the runtime opened itself
+    (``ProjectionBindingConnections``, which additionally attests
+    ``current_user``/``current_database`` against the binding). A handler that
+    opens its own pool bypassed all of it and picked a DSN by its own means:
+    ``ConsumerFlowProjectionWriter`` inherited an omnimarket settings fallback
+    that prefers ``OMNIDASH_ANALYTICS_DB_URL`` — the dashboard-facing
+    ``tenant_projection_writer`` role — for tables it declares in
+    ``omninode_internal``, where that role has no USAGE at all. The result on
+    the .201 dev lane was ``InsufficientPrivilegeError: permission denied for
+    schema omninode_internal`` on every heartbeat, 0 rows in
+    ``consumer_flow_windows`` and a DLQ climbing ~6/min.
+
+    So the runtime hands over the DSN it resolved rather than leaving the
+    handler to guess. Two refusals keep that honest, and both are wiring-time
+    (``ValueError`` at callback construction, i.e. a boot failure), never
+    per-message:
+
+    * A handler that owns an adapter but exposes no
+      :data:`PROJECTION_OWNED_DATABASE_BIND_ATTR` is refused. Silently leaving
+      its DSN alone is what shipped this defect.
+    * A target resolving to more than one binding is refused. One pool is one
+      login role; there is no honest way to serve two workload identities
+      through it, and picking one would re-create the mismatch by choice.
+
+    Standalone runners never reach here — the runtime does not dispatch them,
+    so it does not own their configuration either.
+    """
+    if not _serves_its_own_database(handler_instance):
+        return
+    handler_name = type(handler_instance).__name__
+    binding_refs = sorted({binding.binding_ref for binding in target.bindings})
+    if len(binding_refs) != 1:
+        raise ValueError(
+            f"Projection handler {handler_name} opens its own database pool, "
+            "which can hold a single workload identity, but its declared tables "
+            f"resolve to {len(binding_refs)} topology bindings "
+            f"({', '.join(binding_refs)}); split the handler or let the runtime "
+            "inject a per-binding adapter instead"
+        )
+    bind = getattr(handler_instance, PROJECTION_OWNED_DATABASE_BIND_ATTR, None)
+    if not callable(bind):
+        binding = target.bindings[0]
+        raise ValueError(
+            f"Projection handler {handler_name} opens its own database pool and "
+            f"is dispatched in-process, so it must expose "
+            f"{PROJECTION_OWNED_DATABASE_BIND_ATTR}(dsn) to accept the "
+            f"topology-resolved DSN for binding {binding.binding_ref!r} "
+            f"(principal {binding.principal!r}, {binding.dsn_env}); without it "
+            "the pool's login role is unproven against the schemas its SQL names"
+        )
+    bind(db_urls[binding_refs[0]])
+
+
+#: OMN-18992. The optional field a projection handler uses to say "I wrote
+#: nothing ON PURPOSE, and here is how many rows an ordering guard refused".
+#: Optional by construction: a handler omitting it is read exactly as it is
+#: today, which is what makes this consumer-first across the repo boundary.
+ROWS_REFUSED_KEY: Final[str] = "rows_refused_by_ordering_guard"
+
+
+#: OMN-18910. The optional field a projection writer uses to report its
+#: CUMULATIVE count of deltas it discarded since process start. A gauge, not a
+#: per-call delta, because the graded fact is whether it RISES across windows:
+#: one discard is legitimate idempotence and a high flat count is a measured
+#: steady state, so a per-call increment could not tell those from loss.
+#:
+#: Optional on exactly the terms ``ROWS_REFUSED_KEY`` is, and for the same
+#: reason: a writer that omits it behaves precisely as it does today, which is
+#: what makes this consumer-first across the repository boundary. The producer
+#: half is an ``omnimarket`` change and is NOT in this ticket.
+#:
+#: This is NOT the projection-api's snapshot-cache drop counter. That gauge
+#: lives in a different container, is unreachable from this process, and is
+#: already graded where it belongs -- the serving cache reads itself stale on a
+#: drop streak, landed under OMN-18905 / omnimarket#2728. Do not add a second
+#: reading of it here.
+DELTAS_DROPPED_TOTAL_KEY: Final[str] = "deltas_dropped_total"
+
+
+def _extract_deltas_dropped_total(result: object) -> int | None:
+    """The writer's cumulative discarded-delta gauge, or ``None`` if unreported.
+
+    OMN-18910. ``None`` and ``0`` are different facts and must stay that way:
+    zero is a writer saying "I have discarded nothing", while ``None`` is a
+    writer that does not report at all, and recording the second as the first
+    would publish a measured clean series over a projection nobody is
+    measuring.
+    """
+    if isinstance(result, dict) and DELTAS_DROPPED_TOTAL_KEY in result:
+        try:
+            total = int(result[DELTAS_DROPPED_TOTAL_KEY])
+        except (TypeError, ValueError):
+            return None
+        return total if total >= 0 else None
+    return None
+
+
+def _extract_rows_refused(result: object) -> int:
+    """Rows a projection handler DECLINED to write, as its own count.
+
+    OMN-18992. A zero-row return has two causes the runtime cannot tell apart,
+    and it has been logging both as the same ERROR.
+
+    The first is a writer that silently wrote nothing -- a real defect, and the
+    one the error line exists to surface. The second is an ordering guard doing
+    its job: the consumer-flow writer's upsert carries
+    ``OR ingest_sequence <= EXCLUDED.ingest_sequence`` on its conflict arm and a
+    ``RETURNING`` clause, so a redelivered or out-of-order message is refused by
+    SQL and legitimately returns no rows. That guard is deliberate -- a
+    read-compare-write would race under concurrent consumers and let an older
+    redelivery win -- and it fires routinely.
+
+    Measured on the .201 dev lane at revision 430ff3434, 33 minutes: 26 zero-row
+    ERROR lines, of which 4 were this guard on a writer that was serving 500
+    rows and updating every few seconds while it emitted them. An ERROR that
+    fires on correct behaviour trains people to skip the class, so the real
+    defect it exists to surface stops being visible. That is the failure this
+    separates.
+
+    A writer that does not report refusals returns 0 here and is treated
+    exactly as it is today, which is what lets this land in ``omnibase_infra``
+    before any writer in ``omnimarket`` sends the field. The consumer tolerates
+    the absence; the producer follows.
+    """
+    if isinstance(result, dict) and ROWS_REFUSED_KEY in result:
+        try:
+            refused = int(result[ROWS_REFUSED_KEY])
+        except (TypeError, ValueError):
+            return 0
+        return refused if refused > 0 else 0
+    return 0
+
+
+def _record_projection_apply(
+    *,
+    handler_instance: object,
+    topic: str | None,
+    rows_upserted: int,
+    rows_refused: int,
+    deltas_dropped_total: int | None = None,
+) -> None:
+    """Record one projection dispatch on the process apply accumulator.
+
+    OMN-18910. Best-effort and deliberately swallowing: this is an
+    observability side-effect on the hot dispatch path, and a counter that can
+    take down a projection write is a worse defect than the one it exists to
+    detect. A failure here is logged at DEBUG and the dispatch continues -- the
+    health dimension it feeds fails CLOSED on the resulting absence, so a
+    counter that stopped recording shows up as an unobserved window rather
+    than as a clean one.
+
+    The projection identity is the handler class name, which is what every
+    other projection log line on this path already names, so an operator
+    reading a DEGRADED dimension can grep for the same token.
+    """
+    if not topic:
+        return
+    try:
+        from omnibase_infra.runtime.observability import (
+            get_projection_apply_counters,
+        )
+
+        counters = get_projection_apply_counters()
+        projection = type(handler_instance).__name__
+        counters.record_apply(
+            projection,
+            topic,
+            consumed=1,
+            upserted=max(rows_upserted, 0),
+            refused_by_guard=max(rows_refused, 0),
+        )
+        if deltas_dropped_total is not None:
+            counters.record_drop_total(projection, topic, deltas_dropped_total)
+    except Exception:  # noqa: BLE001 -- never fail a write over a counter
+        logger.debug(
+            "Projection apply counters unavailable for topic=%s", topic, exc_info=True
+        )
+
+
+def _extract_rows_upserted(result: object) -> int:
+    """Extract the rows-written count from a projection handler's return value.
+
+    OMN-13360: the projection terminal event must be gated on a real write.
+    Projection handlers return either a ModelProjectionResult-shaped mapping
+    (``{"rows_upserted": N, ...}``) or a runner-shim mapping (``{"projected":
+    bool}``). This narrows both to an integer row count:
+
+    - ``rows_upserted`` present -> coerce to int (the authoritative count).
+    - only ``projected`` present (runner shim) -> 1 when truthy, else 0. The
+      standalone runner returns ``{"projected": bool}`` where True already means
+      a row was committed (its DB execute path raises on failure).
+    - anything else -> 0 (no provable write; terminal must NOT be emitted).
+    """
+    if isinstance(result, dict):
+        if "rows_upserted" in result:
+            try:
+                return int(result["rows_upserted"])
+            except (TypeError, ValueError):
+                return 0
+        if "projected" in result:
+            return 1 if bool(result["projected"]) else 0
+    return 0
+
+
+def _is_projection_content_failure(exc: BaseException) -> bool:
+    """Is this failure the EVENT's defect rather than the write path's?
+
+    OMN-17379. The projection dispatch callback treats these two classes
+    oppositely, and conflating them is what cost ``pr_merged_events`` 230 merged
+    PRs:
+
+    * ``True`` — the inbound payload cannot be coerced into what the handler
+      declares it needs. Redelivering the identical bytes reproduces the
+      identical failure forever, so the record is DLQ'd and the offset advances.
+    * ``False`` — everything else. An ``InsufficientPrivilege`` on a sequence, a
+      refused connection, a missing relation, a tenant-authority refusal: the
+      event is well-formed and still owed a row. The offset is withheld so Kafka
+      redelivers once the runtime is repaired.
+
+    Deliberately a closed allowlist keyed on validation types, not a denylist of
+    "infrastructure" errors. A failure this function cannot positively identify
+    as the event's own defect is treated as the runtime's — the direction that
+    stalls loudly rather than the direction that discards a fact silently.
+    """
+    from pydantic import ValidationError as PydanticValidationError
+
+    return isinstance(exc, PydanticValidationError | EnvelopeValidationError)
+
+
+async def _route_projection_error_to_dlq(
+    event_bus: object | None,
+    dlq_topics: list[str],
+    envelope: object,
+    handler_name: str,
+    failure_reason: str,
+) -> bool:
+    """Publish a malformed/erroring projection event to a DLQ/quarantine sink.
+
+    OMN-13548 (D-03): when a projection handler raises (most commonly a
+    ``ValidationError`` because the inbound event is missing a required field),
+    the wiring previously logged at ERROR and dropped the message — no DLQ row,
+    no durable trace. This routes the offending raw envelope to the
+    contract-declared DLQ topic (``event_bus.dlq_topics[0]``) so the dropped
+    event is recoverable on the bus.
+
+    OMN-16777: this arm swallows the handler exception and returns to the
+    boundary as if the message succeeded, so ``_route_swallowed_exception``
+    never sees it — the OMN-16690 handlers DLQ'd every single event while the
+    boundary reported success. The flow counters are therefore incremented HERE,
+    against the task-local subscription key the boundary bound before dispatch.
+
+    The DLQ envelope carries the offending
+    payload, the failure reason, the handler name, and the correlation_id
+    (hoisted to the top level so the failure is recoverable by correlation even
+    when the payload itself is unparseable).
+
+    OMN-14492 (OMN-14487-class silent drop): when the contract declares NO
+    ``event_bus.dlq_topics``, this previously logged at ERROR and returned
+    ``False`` — the event never reached any topic, only a container log line.
+    That is the exact "quiet death" class OMN-14487 hit for
+    ``HandlerProjectionDelegationInferenceResponse``. This now falls back to
+    the platform-wide quarantine sink (``build_dlq_topic("quarantine")``) so
+    every drop reaches a declared, durable topic even when the contract has no
+    DLQ topic of its own.
+
+    Generic for ALL projection handlers, not delegation-only.
+
+    OMN-17862: returns ``True`` ONLY when the quarantine envelope's publication
+    was **confirmed**, and ``False`` on every other outcome — no publishable
+    event bus is available, the bound ``publish`` attribute is not callable, the
+    publish raises, or the publish reports no durability coordinate. Each is
+    logged at ERROR. This function no longer decides whether that failure
+    propagates: **its caller binds the return value**, and a falsy result
+    withholds the offset. The old docstring's "a DLQ publish failure never
+    propagates, so it cannot wedge the consumer" described a real property and
+    the wrong tradeoff — the single call site discarded the boolean, so a
+    quarantine that never happened acked the record anyway. Withholding does
+    stall the partition; a stall is recoverable and loud, a dropped record is
+    neither, and redelivery re-attempts the quarantine so the stall clears as
+    soon as the bus does.
+
+    Canonical invariant 7 — *a publish return is not durability* — is stated in
+    ``EventBus.publish``'s own docstring, so the returned ``ModelPublishReceipt``
+    is no longer discarded either: it is put through a
+    ``ProtocolConfirmationStrategy`` before this returns ``True``.
+    """
+    import json
+    from datetime import UTC, datetime
+
+    from omnibase_infra.enums import EnumDlqFailureClass
+    from omnibase_infra.enums.enum_confirmation_state import EnumConfirmationState
+
+    # Imported from its own MODULE, not the `confirmation` package __init__:
+    # that __init__ also re-exports `KafkaReadbackSource`, whose raw
+    # `AIOKafkaConsumer` the imperative-contract guard blocks once a live
+    # module reaches it. This seam needs only the strategy, so it takes only
+    # the strategy rather than making a dead Kafka client live (OMN-17862).
+    from omnibase_infra.event_bus.confirmation.strategy_publish_return_only import (
+        PublishReturnOnlyStrategy,
+    )
+    from omnibase_infra.event_bus.models.model_publish_receipt import (
+        ModelPublishReceipt,
+    )
+    from omnibase_infra.event_bus.topic_constants import build_dlq_topic
+    from omnibase_infra.runtime.observability import (
+        record_active_dlq,
+        record_active_error,
+    )
+
+    # OMN-16777: the handler DID raise and the message IS being dropped from the
+    # main path, whether or not the DLQ publish below succeeds. Count both facts
+    # here, at the top, so a subsequent publish failure cannot also erase the
+    # record that something failed.
+    record_active_error()
+
+    used_quarantine_fallback = not dlq_topics
+    if used_quarantine_fallback:
+        dlq_topic = build_dlq_topic("quarantine")
+        logger.error(
+            "Projection handler %s has NO DLQ topic declared in "
+            "contract.event_bus.dlq_topics — routing malformed/erroring event "
+            "to the platform quarantine sink %s instead of dropping it: %s",
+            handler_name,
+            dlq_topic,
+            failure_reason,
+        )
+    else:
+        dlq_topic = dlq_topics[0]
+    if event_bus is None or not hasattr(event_bus, "publish"):
+        logger.error(
+            "Projection handler %s would route malformed/erroring event to DLQ %s "
+            "but no publishable event bus is bound: %s",
+            handler_name,
+            dlq_topic,
+            failure_reason,
+        )
+        return False
+
+    payload = _extract_dispatch_payload(envelope)
+    correlation = _extract_dispatch_correlation_id(envelope, payload)
+    correlation_id = str(correlation) if correlation is not None else str(uuid4())
+    original_message: object
+    model_dump = getattr(payload, "model_dump", None)
+    if isinstance(payload, Mapping):
+        original_message = dict(payload)
+    elif callable(model_dump):
+        original_message = model_dump(mode="json")
+    else:
+        original_message = {"raw": str(payload)}
+    # OMN-18385: third of the three envelope-building sites (the other two are
+    # in MixinKafkaDlq). A projection payload reaches here as a decoded
+    # structure, so redact it structurally before it is serialised onto the
+    # durable dead-letter topic, and record the field names that were removed.
+    from omnibase_infra.utils.util_dlq_credential_redaction import (
+        redact_credential_fields,
+    )
+
+    original_message, redacted_fields = redact_credential_fields(original_message)
+    dlq_envelope: dict[str, object] = {
+        "original_message": original_message,
+        "failure_reason": failure_reason,
+        "failure_class": EnumDlqFailureClass.CONSUMER_ERROR.value,
+        "correlation_id": correlation_id,
+        "retry_count": 0,
+        "failed_at": datetime.now(UTC).isoformat(),
+        "handler": handler_name,
+        "quarantine_fallback": used_quarantine_fallback,
+    }
+    if redacted_fields:
+        dlq_envelope["redacted_fields"] = list(redacted_fields)
+    raw = json.dumps(dlq_envelope, default=str).encode("utf-8")
+    publish = getattr(event_bus, "publish", None)
+    if not callable(publish):
+        logger.error(
+            "Projection handler %s would route malformed/erroring event to DLQ %s "
+            "but the bound event bus publish attribute is not callable: %s",
+            handler_name,
+            dlq_topic,
+            failure_reason,
+        )
+        return False
+    try:
+        receipt = await publish(dlq_topic, None, raw)
+    except Exception as exc:  # noqa: BLE001 — reported to the caller as False, which withholds the offset
+        logger.error(
+            "Projection handler %s failed to route malformed/erroring event to DLQ %s "
+            "(correlation_id=%s): %s",
+            handler_name,
+            dlq_topic,
+            correlation_id,
+            _sanitize_exc(exc),
+        )
+        return False
+
+    # OMN-17862, canonical invariant 7: a publish RETURN is not durability. The
+    # receipt was previously discarded here, so "the produce call did not raise"
+    # was being reported to the caller as a durable quarantine.
+    #
+    # PublishReturnOnlyStrategy is the deliberately weakest shipped strategy and
+    # is NAMED here rather than assumed, which is the reason that class exists.
+    # A broker readback is the stronger choice and is not available at this seam:
+    # the auto-wiring binds an arbitrary publishable object, not a readback
+    # source, and this path is already the failure path for a record that will be
+    # redelivered and re-quarantined if the claim turns out to be wrong. What the
+    # strategy buys unconditionally is the coordinate check — even it refuses a
+    # ``None`` receipt, because a transport that cannot report a coordinate has
+    # told us nothing at all. Both shipped buses (``EventBusKafka``,
+    # ``EventBusInmemory``) return a ``ModelPublishReceipt``.
+    #
+    # A return that is not a receipt at all is treated as no coordinate: the
+    # fail-closed direction, never a reason to assume durability.
+    confirmation = await PublishReturnOnlyStrategy().confirm(
+        receipt if isinstance(receipt, ModelPublishReceipt) else None
+    )
+    if confirmation.state is not EnumConfirmationState.CONFIRMED:
+        logger.error(
+            "Projection handler %s produced a malformed/erroring event to DLQ %s "
+            "but the publication was NOT confirmed durable (correlation_id=%s, "
+            "strategy=%s, state=%s): %s — the offset must not advance (OMN-17862)",
+            handler_name,
+            dlq_topic,
+            correlation_id,
+            confirmation.strategy,
+            confirmation.state.value,
+            confirmation.detail,
+        )
+        return False
+    record_active_dlq()
+    logger.warning(
+        "Projection handler %s routed malformed/erroring event to DLQ %s "
+        "(correlation_id=%s): %s",
+        handler_name,
+        dlq_topic,
+        correlation_id,
+        failure_reason,
+    )
+    return True
+
+
+@dataclass(
+    frozen=True
+)  # internal-dataclass-ok: wiring-internal sink bundle; event_bus is a non-serializable publishable object
+class ProjectionDispatchSinks:
+    """Wiring-time collaborators for a projection dispatch callback.
+
+    Bundles the optional bus, terminal-event topic, and DLQ topics so the
+    callback factory stays within the parameter-count budget while each field
+    remains explicitly named and typed. A frozen dataclass (not a Pydantic
+    model) keeps this wiring-internal value object out of the model layer:
+    ``event_bus`` is an arbitrary publishable object (in-memory bus, Kafka
+    wiring, or a test double), so no schema validation is wanted here.
+
+    OMN-17556 added ``secret_resolver``, which is an INPUT rather than a sink,
+    so the class name is now slightly narrower than its contents -- said
+    plainly rather than papered over. It lives here anyway for the reason this
+    bundle exists at all, stated in the original docstring above: it is the
+    parameter-budget bundle for this one factory, and the alternative was a
+    sixth positional parameter that the ONEX parameter-count gate rejects.
+    Renaming the class would churn ten test modules owned by other tickets for
+    no behavioral gain.
+    """
+
+    event_bus: object | None = None
+    terminal_event: str | None = None
+    dlq_topics: tuple[str, ...] = ()
+    # Serves bindings whose credential is store-carried (`secret_ref`). None is
+    # correct and common: a lane whose bindings are all env-carried needs no
+    # store. A store-carried binding wired in a process holding no resolver is
+    # REFUSED by _resolve_binding_dsn, so this default is never load-bearing.
+    secret_resolver: SecretResolver | None = None
+    # OMN-19081. The key grain this projection's own contract declares,
+    # resolved at wiring time by resolve_key_grain(_read_declared_key_grains).
+    # Another INPUT rather than a sink, carried here for the reason the
+    # docstring above already gives: this bundle is the parameter budget for
+    # this one factory, and another positional parameter is refused by the
+    # same gate that produced the bundle. None is UNKNOWN, and the drop
+    # dimension grades an unknown grain rather than exempting it.
+    key_grain: str | None = None
+
+
+def _make_undispatched_projection_callback(
+    handler_name: str,
+    target: ProjectionDatabaseTarget,
+    contract_name: str,
+    topic_owning_handlers: tuple[str, ...],
+) -> DispatcherFunc:
+    """Dispatch callback for a projection entry this process can never reach.
+
+    OMN-17519. Selected by :func:`_projection_dispatch_owned_elsewhere`. It
+    deliberately does NOT go through :func:`_make_projection_dispatch_callback`:
+    that factory resolves a workload DSN per topology binding and raises when one
+    is unset, which is correct for an entry that IS dispatched and was fatal for
+    an entry that never is. Nothing here is softened — the requirement is simply
+    never reached, because no database is needed to dispatch nothing.
+
+    The registration is kept (dispatcher, zero routes, un-scoped exactly as the
+    projection arm registered it before) so this changes only whether a pool is
+    opened, never which routes exist.
+    """
+    record_dispatch_skipped_projection(contract_name, handler_name)
+    logger.warning(
+        "Projection %r wires handler %s with ZERO routes, so this process "
+        "cannot dispatch it and does NOT open a projection database for it "
+        "(OMN-17519). Topic-owning sibling entries on this contract: %s. A "
+        "non-empty list is the OMN-15905 shape, where a dedicated writer "
+        "process runs the owning runner and holds the workload credential. An "
+        "EMPTY list means NO entry owns a topic — the contract is orphaned in "
+        "this process and persists nothing here, and this warning is the only "
+        "signal of it. db_tables=%s",
+        contract_name or "<unnamed contract>",
+        handler_name,
+        list(topic_owning_handlers),
+        [table.name for table in target.tables],
+    )
+
+    async def _callback(
+        envelope: ModelEventEnvelope[object],
+    ) -> ModelDispatchResult | None:
+        # Unreachable by construction (no routes). Kept explicit rather than
+        # omitted so a future routing change surfaces here instead of calling a
+        # handler with no ``_db``.
+        logger.warning(
+            "Undispatchable projection handler %s received an envelope for "
+            "contract %r — a route now reaches an entry OMN-17519 proved had "
+            "none. Nothing was written. topic=%s",
+            handler_name,
+            contract_name or "<unnamed contract>",
+            _extract_projection_topic(envelope) or "unknown",
+        )
+        return None
+
+    return _callback
+
+
+def _resolve_binding_dsn(
+    binding: ProjectionDatabaseBindingTarget,
+    secret_resolver: SecretResolver | None,
+) -> str:
+    """Resolve one binding's DSN from whichever carrier the topology declares.
+
+    OMN-17556. The topology declares exactly one carrier per binding and this
+    is the single place either is read -- the *binding boundary*. Neither
+    branch defaults: an unresolvable carrier returns the empty string and the
+    caller raises, naming the binding and its carrier. That preserves the
+    pre-existing fail-closed contract exactly (a blank ``dsn_env`` was already
+    fatal under ``ONEX_WIRING_STRICT_MODE``); it does not soften it for the new
+    carrier, and it does not invent a fallback between the two.
+
+    ``secret_ref`` bindings deliberately have no environment representation.
+    Falling back to ``os.environ`` for one would re-create the exact defect the
+    store carrier exists to remove -- a credential materialized into a
+    container env -- and would let a stale env var silently shadow the store,
+    so a missing resolver is a refusal, never an env read.
+    """
+    if binding.secret_ref is not None:
+        if secret_resolver is None:
+            # Not a soft skip: returning "" routes into the caller's refusal
+            # with the binding named, which is the only honest outcome when a
+            # store-carried binding is wired in a process holding no resolver.
+            logger.error(
+                "Topology binding %r declares secret_ref %r but this process "
+                "wired no secret resolver, so its DSN cannot be resolved at the "
+                "binding boundary",
+                binding.binding_ref,
+                binding.secret_ref,
+            )
+            return ""
+        resolved = secret_resolver.get_secret(binding.secret_ref, required=False)
+        return "" if resolved is None else resolved.get_secret_value()
+    if binding.dsn_env is None:
+        return ""
+    return os.environ.get(binding.dsn_env, "")
+
+
+INFISICAL_BOOTSTRAP_VARS: Final[tuple[str, ...]] = (
+    "INFISICAL_ADDR",
+    "INFISICAL_CLIENT_ID",
+    "INFISICAL_CLIENT_SECRET",
+    "INFISICAL_PROJECT_ID",
+    "INFISICAL_ENVIRONMENT_SLUG",
+)
+"""The lane bootstrap identity a store-carried binding is resolved through.
+
+OMN-17557. Names only. No value from this tuple is ever logged or interpolated
+into an error message -- a refusal names the VARIABLES that are missing, never
+what any of them held.
+
+Every name here is a member of ``scripts/check-env-reads.sh``'s own
+``BOOTSTRAP_ALLOWLIST`` (or is not secret-ish), for the circularity that
+allowlist exists to describe: this is the identity the store resolver
+authenticates WITH, so it cannot itself be resolved from the store.
+
+``INFISICAL_ENVIRONMENT_SLUG`` and not ``INFISICAL_ENVIRONMENT`` because that
+is the name the onex-dev ``onex-runtime-config`` ConfigMap actually sets --
+verified by read-only readback of the live ConfigMap, 2026-09-08 -- and the
+name ``omnimarket.inference.secret_store_resolver`` already reads for the same
+identity.
+"""
+
+
+async def build_lane_infisical_handler(
+    container: object | None = None,
+) -> HandlerInfisical:
+    """Build the Infisical handler this lane's own bootstrap identity affords.
+
+    OMN-17557. ``SecretResolver.from_container`` used to treat an absent
+    ``HandlerInfisical`` as graceful degradation, so a lane whose rendered
+    config declared ``source_type: infisical`` still got a resolver that could
+    not read Infisical: every such logical name resolved to ``None`` behind a
+    single "Infisical handler not configured" WARNING. Nothing registers
+    ``HandlerInfisical`` in the container's service registry -- it is not
+    contract-declared, and the only other construction site
+    (``RuntimeHostProcess._prefetch_config_from_infisical``) builds an INLINE
+    handler and shuts it down again -- so on every runtime process that
+    condition was permanent, not incidental. That is what left the onex-dev
+    ``tenant_projection`` binding unresolvable and all eight tenant-domain
+    projection contracts refusing to wire with "Projection handler requires
+    topology bindings with configured DSNs: tenant_projection".
+
+    This function lives HERE rather than beside ``SecretResolver`` because this
+    module is the declared env-resolution boundary
+    (``scripts/check-env-reads.sh`` approves ``/runtime/auto_wiring/handler_wiring.py``
+    for exactly the sibling case: resolving a binding's DSN carrier at wiring
+    time). Moving the read into ``secret_resolver.py`` would have moved a
+    boundary, which that gate correctly refuses.
+
+    It is the single CONSTRUCTION seam for the handler: tests replace it to
+    prove the wiring without reaching a real Infisical server.
+
+    The handler is created WITHOUT a ``secret_path``. That is deliberate: a
+    folder-qualified mapping carries its own folder through per read (see
+    ``secret_resolver._split_infisical_path``), so configuring a default folder
+    here would silently re-root every read whose mapping declares none.
+
+    The returned handler is NOT shut down: it backs a resolver held for the
+    process lifetime, and the binding boundary may be reached again on a
+    re-wire. This differs deliberately from the config-prefetch path, whose
+    inline handler is used once and released.
+
+    Raises:
+        ProtocolConfigurationError: naming every missing or blank bootstrap
+            variable at once. A lane that declares a store-carried source and
+            holds no identity to read it with is misconfigured, and saying so
+            by name is the only honest outcome -- returning a resolver that
+            answers ``None`` to every store read is what made this invisible.
+    """
+    from omnibase_core.container import ModelONEXContainer as _Container
+    from omnibase_infra.errors import ProtocolConfigurationError
+    from omnibase_infra.handlers.handler_infisical import (
+        HandlerInfisical as _HandlerInfisical,
+    )
+
+    values = {
+        "INFISICAL_ADDR": os.environ.get("INFISICAL_ADDR", "").strip(),
+        "INFISICAL_CLIENT_ID": os.environ.get("INFISICAL_CLIENT_ID", "").strip(),
+        "INFISICAL_CLIENT_SECRET": os.environ.get(
+            "INFISICAL_CLIENT_SECRET", ""
+        ).strip(),
+        "INFISICAL_PROJECT_ID": os.environ.get("INFISICAL_PROJECT_ID", "").strip(),
+        "INFISICAL_ENVIRONMENT_SLUG": os.environ.get(
+            "INFISICAL_ENVIRONMENT_SLUG", ""
+        ).strip(),
+    }
+    missing = sorted(name for name, value in values.items() if not value)
+    if missing:
+        raise ProtocolConfigurationError(
+            "Lane declares an Infisical-backed secret source but the Infisical "
+            "machine identity is not fully configured. Missing or blank: "
+            f"{missing}. Declared bootstrap variables: "
+            f"{list(INFISICAL_BOOTSTRAP_VARS)}."
+        )
+
+    handler = _HandlerInfisical(
+        cast("ModelONEXContainer", container) if container is not None else _Container()
+    )
+    await handler.initialize(
+        {
+            "host": values["INFISICAL_ADDR"],
+            "client_id": values["INFISICAL_CLIENT_ID"],
+            "client_secret": values["INFISICAL_CLIENT_SECRET"],
+            "project_id": values["INFISICAL_PROJECT_ID"],
+            "environment_slug": values["INFISICAL_ENVIRONMENT_SLUG"],
+        }
+    )
+    return handler
+
+
+async def build_topology_secret_resolver(
+    container: object | None,
+) -> SecretResolver | None:
+    """Build the resolver that serves ``secret_ref`` topology bindings.
+
+    OMN-17556. Returns ``None`` when this lane renders no secret-resolver
+    config -- which is correct and common: a process whose bindings all carry
+    ``dsn_env`` needs no store at all, and manufacturing an empty resolver for
+    it would turn a clean "no store here" into a store that answers nothing.
+    A process that *does* wire a ``secret_ref`` binding without a resolver is
+    refused by :func:`_resolve_binding_dsn`, so the ``None`` is never silently
+    load-bearing.
+
+    The Infisical handler is resolved from the container when present, which is
+    what makes ``source_type: infisical`` mappings live. OMN-17557: nothing ever
+    registers one there, so "when present" was never true on a runtime process
+    and every store-carried binding resolved to nothing behind a single
+    "Infisical handler not configured" warning. When the rendered config
+    declares an Infisical source the handler is now built from the lane's own
+    bootstrap identity (see ``build_lane_infisical_handler``), and an
+    incomplete identity is a refusal naming the missing variables. A config
+    with no Infisical source is unchanged and still needs no identity.
+    """
+    import yaml
+
+    from omnibase_infra.errors import ProtocolConfigurationError
+    from omnibase_infra.runtime.models.model_secret_resolver_config import (
+        ModelSecretResolverConfig,
+    )
+    from omnibase_infra.runtime.runtime_profile import (
+        resolve_secret_resolver_config_path,
+    )
+    from omnibase_infra.runtime.secret_resolver import (
+        SecretResolver,
+        config_declares_infisical_source,
+    )
+
+    config_path_raw = resolve_secret_resolver_config_path()
+    if not config_path_raw:
+        return None
+    config_path = Path(config_path_raw)
+    try:
+        raw_config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+        config = ModelSecretResolverConfig.model_validate(raw_config)
+    except (OSError, ValueError, yaml.YAMLError) as exc:
+        raise ProtocolConfigurationError(
+            "Topology binding resolution requires a valid rendered "
+            f"secret-resolver config at {config_path}"
+        ) from exc
+    if container is None:
+        # No container is the standalone/test path. It still may not hand back
+        # a resolver that cannot serve a source the config declares
+        # (OMN-17557), so the same factory supplies the handler here on exactly
+        # the terms ``from_container`` applies it below.
+        if config_declares_infisical_source(config):
+            return SecretResolver(
+                config=config,
+                infisical_handler=await build_lane_infisical_handler(None),
+            )
+        return SecretResolver(config=config)
+    return await SecretResolver.from_container(
+        cast("ModelONEXContainer", container),
+        config,
+        infisical_handler_factory=lambda: build_lane_infisical_handler(container),
+    )
+
+
+def _make_projection_dispatch_callback(
+    handler_instance: object,
+    target: ProjectionDatabaseTarget,
+    subscribe_topics: tuple[str, ...],
+    sinks: ProjectionDispatchSinks | None = None,
+    contract_name: str = "",
+) -> DispatcherFunc:
+    """Create a dispatch callback for projection handlers (db_io.db_tables declared).
+
+    Builds a synchronous psycopg2 DatabaseAdapter per call and injects it into
+    input_data alongside _event_type and _topic derived from the dispatched
+    envelope (OMN-13992: _topic was computed locally for logging but never
+    injected, so any strict projection handler that requires
+    input_data['_topic'] — e.g. HandlerProjectionLiveEvents — raised a
+    ValueError on every dispatch and the event was dropped, non-fatally but
+    silently, with no DLQ topic declared to catch it).
+
+    ``sinks`` carries the bus-side outputs. When ``sinks.event_bus`` and
+    ``sinks.terminal_event`` are set, a terminal event envelope is emitted to
+    that topic after each successful projection so downstream Pattern-B
+    consumers and golden-chain tests can observe completion.
+
+    OMN-13548 (D-03): when ``sinks.dlq_topics`` is supplied (resolved from the
+    contract's ``event_bus.dlq_topics``) and the projection handler raises, the
+    offending raw envelope is routed to the DLQ topic instead of being logged +
+    dropped silently. This is the robust layer for the fail-loud/observability
+    guarantee: a malformed inbound event whose ``ValidationError`` escapes the
+    handler is now durably captured on the bus on the REAL dispatch path, not
+    only when a handler happens to catch it internally.
+
+    OMN-18910: every projection wired here is REGISTERED on the process apply
+    accumulator before any traffic, so a projection that attaches and then
+    takes nothing still emits a row every window. Registering at wiring time
+    rather than on first dispatch is the whole point -- a consumer that stopped
+    taking anything would otherwise vanish from the dimension that exists to
+    notice exactly that.
+    """
+    sinks = sinks or ProjectionDispatchSinks()
+    secret_resolver = sinks.secret_resolver
+    event_bus = sinks.event_bus
+    terminal_event = sinks.terminal_event
+    dlq_topics = list(sinks.dlq_topics)
+    handler_name = type(handler_instance).__name__
+    is_projection_runner = _is_standalone_projection_runner(handler_instance)
+    # OMN-18910. Registered before any traffic, for the reason in the
+    # docstring above: scope comes from what was wired, never from what was
+    # observed. Wrapped because an observability registration must never be
+    # the thing that stops a projection from being wired at all.
+    try:
+        from omnibase_infra.runtime.observability import (
+            get_projection_apply_counters,
+        )
+
+        apply_counters = get_projection_apply_counters()
+        for subscribe_topic in subscribe_topics:
+            # OMN-19081. The grain rides the registration, so the health
+            # monitor never reads a contract itself and never holds a copy of
+            # a fact the contract declares.
+            apply_counters.register(
+                handler_name, subscribe_topic, key_grain=sinks.key_grain
+            )
+    except Exception:  # noqa: BLE001 -- never fail wiring over a counter
+        logger.debug(
+            "Projection apply counters unavailable at wiring for handler=%s",
+            handler_name,
+            exc_info=True,
+        )
+    # OMN-18918. Only a writer the SHARED runtime dispatches in-process can
+    # be deprived of coordinates by this seam; a standalone runner reads its
+    # own records and never comes through here. Scoping the refusal to that
+    # set is what keeps it from firing on every pure fold.
+    is_inprocess_projection_writer = bool(
+        getattr(handler_instance, PROJECTION_INPROCESS_DISPATCH_ATTR, False)
+    )
+    if is_projection_runner:
+        # OMN-17448. The callback below returns None for this handler, by
+        # design (OMN-15905) -- but the kernel still SUBSCRIBES the contract's
+        # topics, so the consumer takes every message and commits every offset
+        # while nothing is written here. Recorded on the SAME branch that
+        # decides it, so the health ledger cannot drift from the wiring.
+        record_dispatch_skipped_projection(contract_name, handler_name)
+        logger.warning(
+            "Projection %r wires a standalone runner (%s): this process "
+            "subscribes its topics and dispatches NOTHING, so it persists no "
+            "rows unless a dedicated writer process is deployed for it on this "
+            "lane (OMN-15905 pattern). db_tables=%s",
+            contract_name or "<unnamed contract>",
+            handler_name,
+            [table.name for table in target.tables],
+        )
+    db_urls = (
+        {}
+        if is_projection_runner
+        else {
+            binding.binding_ref: _resolve_binding_dsn(binding, secret_resolver)
+            for binding in target.bindings
+        }
+    )
+    missing_bindings = [
+        binding
+        for binding in target.bindings
+        if not is_projection_runner and not db_urls[binding.binding_ref]
+    ]
+    if missing_bindings:
+        raise ValueError(
+            "Projection handler requires topology bindings with configured DSNs: "
+            + ", ".join(
+                f"{binding.binding_ref}:{binding.carrier_description}"
+                for binding in missing_bindings
+            )
+        )
+    if not is_projection_runner:
+        # OMN-17562. The live counterpart of the skip recorded above, written on
+        # the branch that decides it. Without it, "no skip row for this
+        # contract" and "this contract has a live dispatcher" are the same
+        # observation, and a mixed contract cannot be told from a wholly
+        # non-writing one -- six of the fifteen names the .201 lanes reported.
+        record_live_projection_dispatch(contract_name, handler_name)
+        # OMN-16911: an in-process handler that opened its own pool takes the
+        # DSN resolved and privilege-proved above, instead of resolving one of
+        # its own that the topology never vouched for.
+        _bind_handler_owned_projection_database(handler_instance, target, db_urls)
+
+    async def _callback(
+        envelope: ModelEventEnvelope[object],
+        *,
+        delivery: ModelMessageDeliveryContext | None = None,
+    ) -> ModelDispatchResult | None:
+        if is_projection_runner:
+            logger.debug(
+                "Projection runner skipped by DB-injection auto-wiring: handler=%s topic=%s",
+                type(handler_instance).__name__,
+                _extract_projection_topic(envelope) or "unknown",
+            )
+            return None
+        projected = False
+        adapter: object | None = None
+        result: object = None
+        # OMN-17379: set only for a NON-content failure — one whose remedy is to
+        # repair the runtime and redeliver, never to discard the event.
+        write_path_failure: Exception | None = None
+        try:
+            # MessageDispatchEngine hands callbacks a JSON-safe materialization.
+            # The original typed envelope is retained only for stable transport
+            # identity; it is never a tenant-authentication source.  Tenant
+            # operations require the separate cryptographically verified
+            # capability bound by trusted ingress.
+            typed_envelope = current_dispatch_envelope() or envelope
+            tenant_authority = current_projection_tenant_authority()
+            adapter = _build_projection_db_adapter(
+                db_urls,
+                target,
+                tenant_authority,
+                typed_envelope,
+            )
+            topic = _extract_projection_topic(envelope)
+            event_type = _derive_projection_event_type(
+                topic,
+                _extract_projection_event_type(envelope),
+                subscribe_topics,
+            )
+            payload = _extract_projection_payload(envelope)
+            input_data: dict[str, object] = (
+                dict(payload) if isinstance(payload, dict) else {}
+            )
+            if hasattr(payload, "model_dump"):
+                # Why: Control flow narrows this union at runtime before the attribute access.
+                input_data = payload.model_dump(mode="json")  # type: ignore[union-attr]
+            input_data["_db"] = adapter
+            input_data["_event_type"] = event_type
+            input_data["_topic"] = topic
+            # OMN-18918. The source message's own coordinates, injected only
+            # when the consume loop could actually determine them. A writer
+            # reads these to stamp the snapshot delta it publishes, and the
+            # serving cache uses that offset to tell a newer fact from a
+            # redelivery of an older one.
+            #
+            # FAIL CLOSED rather than default. Every in-process writer
+            # already falls back to 0 when the keys are absent, and a
+            # constant 0 never exceeds itself, so the cache refused every
+            # delta after the first for a given key and each key froze on
+            # its first value -- at zero consumer lag, behind a green
+            # readiness endpoint (OMN-18905). Injecting nothing preserves
+            # that old behaviour exactly, which is why the absence is
+            # LOGGED: silence here is what made the original defect take a
+            # live trace to find. Measured on the .201 dev lane before this
+            # landed, and carried over from the superseded OMN-18955 arm:
+            # 6,210,195 lifetime drops on the consumer-flow exposure, with
+            # the readiness endpoint answering 503 because it correctly
+            # refused to call a discarding cache healthy.
+            if delivery is not None:
+                input_data["_partition"] = delivery.partition
+                input_data["_offset"] = delivery.offset
+            elif is_inprocess_projection_writer:
+                logger.error(
+                    "Projection writer dispatched with no delivery context: "
+                    "handler=%s topic=%s. Its snapshot deltas will carry a "
+                    "fixed source offset, and the serving cache will discard "
+                    "every delta after the first for each key (OMN-18905). "
+                    "The consume loop could not determine the message's "
+                    "partition and offset; it does not invent them.",
+                    handler_name,
+                    topic,
+                )
+            envelope_id = _extract_projection_envelope_id(typed_envelope)
+            if envelope_id is not None:
+                # Preserve the UUID at the transport boundary. Projection
+                # handlers may use it as their durable idempotency key instead
+                # of inventing a fresh identity for every Kafka redelivery.
+                input_data["_envelope_id"] = envelope_id
+            envelope_timestamp = _extract_projection_envelope_timestamp(typed_envelope)
+            if envelope_timestamp is not None:
+                # OMN-18326 / OMN-15583. The producer-recorded event time, from
+                # the same typed envelope the id above comes from. Injected only
+                # when the producer actually recorded one: an absent key leaves a
+                # reader refusing, which is the correct terminal state for an
+                # un-timed event, whereas a defaulted one would silently write
+                # the runtime's own wall clock into an event-time column.
+                input_data["_envelope_timestamp"] = envelope_timestamp
+            envelope_tenant = _extract_projection_envelope_tenant(typed_envelope)
+            if envelope_tenant is not None:
+                # OMN-18565. The producer-recorded tenant, from the same typed
+                # envelope the id and the time above come from, and injected on
+                # the same terms: only when the producer actually recorded one.
+                # An absent key leaves a reader unattributed, which is the
+                # correct terminal state for an event nobody scoped -- whereas a
+                # defaulted one silently attributes a row to a tenant that never
+                # submitted it, and under FORCE ROW LEVEL SECURITY that row then
+                # makes the real writer's conflict-update unwritable.
+                input_data["_tenant_id"] = envelope_tenant
+
+            def _invoke_projection_handler() -> object:
+                # OMN-16874: the runtime does NOT pre-connect a handler-owned DB
+                # adapter here. It used to (`asyncio.run(db.connect())`), and that
+                # was broken by construction: `asyncio.run` closes the loop it
+                # opened, so an asyncpg pool created there was bound to a dead
+                # loop before the first message was handled and every subsequent
+                # use raised `RuntimeError: Event loop is closed` (34 occurrences
+                # on the .201 dev lane, 0 rows written, DLQ climbing ~6/min).
+                # A pool's lifetime belongs to the loop that uses it, and that
+                # loop is opened inside the handler — so the handler opens and
+                # closes the pool there too. The runtime owns only the adapter it
+                # builds itself and injects as `_db`.
+                # Why: Control flow narrows this union at runtime before the attribute access.
+                return handler_instance.handle(input_data)  # type: ignore[union-attr, attr-defined]
+
+            # OMN-17888: the gate is the declared multiplier on the read
+            # budget above. Held only across the blocking call, so it caps
+            # concurrent materialisation without serialising the async work
+            # on either side of it.
+            async with _projection_inflight_gate():
+                result = await asyncio.to_thread(_invoke_projection_handler)
+            if asyncio.iscoroutine(result):
+                result = await cast("Awaitable[object]", result)
+            # OMN-13360 (deterministic-truth gate): the terminal
+            # `projection-delegation-applied.v1` event asserts that a durable row
+            # landed, so it must be gated on the handler's actual write outcome —
+            # not merely on `handle()` not raising. The projection handler returns
+            # ModelProjectionResult.model_dump() carrying rows_upserted (0 or 1+);
+            # a zero-row / internally-swallowed path returns normally and would
+            # otherwise emit a false-positive `projected:true`. Gate on
+            # rows_upserted >= 1 and log loudly when a no-raise handler wrote zero
+            # rows so the failure surfaces instead of being masked.
+            rows_upserted = _extract_rows_upserted(result)
+            projected = rows_upserted >= 1
+            # OMN-18910. The one seam that knows, at the same instant, that an
+            # event was CONSUMED and whether a row LANDED. Every other health
+            # signal reads one or the other: lag says a consumer is moving, the
+            # DLQ ratio says it is not erroring, attachment says it is
+            # subscribed. None of them says it wrote. Recorded here, before any
+            # of the branches below, so a refusal, an early return and a
+            # success are all counted rather than only the paths that log.
+            _record_projection_apply(
+                handler_instance=handler_instance,
+                topic=topic,
+                rows_upserted=rows_upserted,
+                rows_refused=_extract_rows_refused(result),
+                deltas_dropped_total=_extract_deltas_dropped_total(result),
+            )
+            if projected:
+                logger.debug(
+                    "Projection handler completed: topic=%s event_type=%s "
+                    "rows_upserted=%s result=%s",
+                    topic,
+                    event_type,
+                    rows_upserted,
+                    result,
+                )
+            else:
+                # OMN-18992. A zero-row return has two causes and this used to
+                # log both the same way. A writer that silently wrote nothing
+                # is the defect the ERROR exists to surface; an ordering guard
+                # refusing a redelivery is correct behaviour and fires
+                # routinely. Logging the second as ERROR trains people to skip
+                # the class, at which point the first stops being visible --
+                # which is the whole point of having the line.
+                rows_refused = _extract_rows_refused(result)
+                if rows_refused > 0:
+                    logger.info(
+                        "Projection handler wrote zero rows, refused by the "
+                        "ordering guard (expected, no terminal owed): "
+                        "handler=%s topic=%s event_type=%s rows_refused=%s",
+                        type(handler_instance).__name__,
+                        topic or "unknown",
+                        event_type,
+                        rows_refused,
+                    )
+                else:
+                    logger.error(
+                        "Projection handler wrote zero rows (no terminal emitted): "
+                        "handler=%s topic=%s event_type=%s rows_upserted=%s result=%s",
+                        type(handler_instance).__name__,
+                        topic or "unknown",
+                        event_type,
+                        rows_upserted,
+                        result,
+                    )
+        except TypeError as exc:
+            logger.error(
+                "Projection handler TypeError (likely missing _db or _event_type): "
+                "handler=%s topic=%s error_type=%s",
+                handler_name,
+                _extract_projection_topic(envelope) or "unknown",
+                type(exc).__name__,
+            )
+            # OMN-17379: a TypeError here is the runtime denying the handler its
+            # own injected contract (`_db`/`_event_type`) — a WIRING defect, never
+            # the event's. The event is valid and still owed a row, so it is not
+            # DLQ'd-and-acked; the offset is withheld below.
+            write_path_failure = exc
+        except Exception as exc:  # noqa: BLE001
+            logger.error(
+                "Projection handler error: handler=%s topic=%s error_type=%s error=%s",
+                handler_name,
+                _extract_projection_topic(envelope) or "unknown",
+                type(exc).__name__,
+                exc,
+            )
+            if _is_projection_content_failure(exc):
+                # OMN-13548 (D-03): a ValidationError (e.g. a malformed delegation
+                # event missing a required field) raised by the projection handler
+                # on the REAL dispatch path lands here. The EVENT is the defect and
+                # redelivery can never repair it, so route the raw envelope to the
+                # contract-declared DLQ topic (or the platform quarantine sink) and
+                # let the offset advance — otherwise one malformed record wedges
+                # the partition forever.
+                #
+                # OMN-17862: BIND the result. This call used to be a bare
+                # `await` expression statement — nothing assigned, nothing
+                # tested — while the function it calls returns False on three
+                # failures (no publishable bus, a non-callable `publish`, a
+                # publish that raises) and now a fourth (an unconfirmed
+                # publication). `write_path_failure` stayed None, the guard
+                # below did not fire, and the callback returned normally, which
+                # the consume boundary reads as success. A record this path
+                # refused was then NEITHER projected NOR quarantined while its
+                # offset advanced — the silent drop, reached through the arm
+                # this design calls the safe one, and reproduced end to end
+                # against this exact code.
+                quarantined = await _route_projection_error_to_dlq(
+                    event_bus,
+                    dlq_topics,
+                    envelope,
+                    handler_name,
+                    f"{type(exc).__name__}: {_sanitize_exc(exc)}",
+                )
+                if not quarantined:
+                    # BIND AN EXCEPTION, NEVER THE BOOLEAN. `write_path_failure
+                    # = False` passes the `is not None` guard below and then
+                    # makes `raise ... from False` a TypeError (*exception
+                    # causes must derive from BaseException*), which is not a
+                    # ProjectionNotMaterializedError — so the offset-withholding
+                    # arm does not catch it, the bounded-retry loop's generic
+                    # handler re-raises it, and the boundary catch-all ACKs it.
+                    # That is the same silent drop this block closes, one
+                    # exception type further along.
+                    #
+                    # Purpose-named rather than re-using `exc`: the message
+                    # below renders `type(write_path_failure).__name__`, so
+                    # binding the parse failure would name the PARSE while the
+                    # QUARANTINE is what actually withheld the offset. The parse
+                    # failure stays reachable through __cause__.
+                    unconfirmed = QuarantinePublishUnconfirmedError(
+                        f"projection handler {handler_name} refused an event "
+                        f"from {_extract_projection_topic(envelope) or 'unknown'} "
+                        f"and its quarantine publication was not confirmed "
+                        f"durable, so the record is neither projected nor "
+                        f"captured (OMN-17862)",
+                        projection_type=handler_name,
+                    )
+                    unconfirmed.__cause__ = exc
+                    write_path_failure = unconfirmed
+            else:
+                # OMN-17379: the WRITE PATH is the defect, not the event. Handing
+                # the record to a DLQ here and returning normally is an ACK, and
+                # that ACK is how `pr_merged_events` acknowledged 230 merged PRs
+                # into nothing while reporting Stable/lag-0. Withhold the offset
+                # instead; the record stays on its own topic, uncommitted, and is
+                # redelivered once the write path is repaired.
+                write_path_failure = exc
+        finally:
+            if adapter is not None:
+                close = getattr(adapter, "close", None)
+                if callable(close):
+                    close()
+
+        if write_path_failure is not None:
+            raise ProjectionNotMaterializedError(
+                f"projection handler {handler_name} consumed an event from "
+                f"{_extract_projection_topic(envelope) or 'unknown'} and wrote no "
+                f"row because its write path failed "
+                f"({type(write_path_failure).__name__}: "
+                f"{_sanitize_exc(write_path_failure)}); the offset must not "
+                f"advance (OMN-17379)",
+                projection_type=handler_name,
+            ) from write_path_failure
+
+        if projected and event_bus is not None and terminal_event is not None:
+            await _emit_projection_terminal_event(
+                event_bus, terminal_event, envelope, result
+            )
+
+        return None
+
+    return _callback
+
+
+def _build_projection_db_adapter(
+    db_urls: Mapping[str, str],
+    target: ProjectionDatabaseTarget,
+    tenant_authority: VerifiedProjectionTenantAuthority | None,
+    tenant_event: object | None,
+) -> object:
+    """Build a router whose operations come only from typed topology targets."""
+    # Why: Optional integration dependency ships incomplete typing.
+    import psycopg2  # type: ignore[import-untyped]
+
+    # Why: Optional integration dependency ships incomplete typing.
+    import psycopg2.extras  # type: ignore[import-untyped]
+
+    # Keep UUIDs typed through the adapter and teach psycopg2 the final wire
+    # conversion, instead of stringifying correlation/tenant IDs in row data.
+    psycopg2.extras.register_uuid()
+
+    logger.debug(
+        "Selecting projection adapter: database_refs=%s physical_database=%s "
+        "physical_schemas=%s domains=%s",
+        target.database_refs,
+        target.physical_database,
+        target.physical_schemas,
+        [domain.value for domain in target.domains],
+    )
+    return ProjectionDatabaseOperations(
+        db_urls,
+        target,
+        tenant_authority,
+        tenant_event,
+        psycopg2,
+        psycopg2.extras,
+    )
+
+
+PROJECTION_TERMINAL_ACK_KEY = "projected"
+
+
+def _json_safe_terminal_value(value: object) -> object:
+    """Render one handler-result value in a form the wire can carry."""
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, UUID):
+        return str(value)
+    if isinstance(value, Enum):
+        return _json_safe_terminal_value(value.value)
+    if hasattr(value, "model_dump"):
+        # Why: Control flow narrows this union at runtime before the attribute access.
+        return value.model_dump(mode="json")  # type: ignore[union-attr]
+    return str(value)
+
+
+def _build_projection_terminal_payload(handler_result: object) -> dict[str, object]:
+    """The applied-event payload: the facts the handler produced, plus the ack.
+
+    OMN-16875. This used to be the literal ``{"projected": True}``, so every
+    bus-backed projection on the platform published a contentless acknowledgement
+    and the handler's own return value never reached the bus at all — it was read
+    only by :func:`_extract_rows_upserted`, which decides *whether* to emit, never
+    *what*. A consumer written against the projected record therefore could not
+    be satisfied by any producer: the record was discarded here, one layer above
+    the node that produced it. Live on the ``.201`` dev lane, that surfaced as
+    ``6 validation errors for ModelConsumerFlowStallAlertRequest`` on every
+    trigger message, with the alert evaluation topic pinned at offset 0.
+
+    Two properties are deliberate:
+
+    * ``projected`` is still set, and still ``True``. Existing Pattern-B
+      consumers and golden-chain assertions read that key; the fix adds facts,
+      it does not swap the contract out from under them.
+    * Only the handler's own keys travel. Runtime-private injections
+      (``_db``, ``_topic``, ``_event_type``, ``_envelope_id``) are filtered by
+      the leading underscore — a handler that echoes its input must not publish
+      a live database adapter onto a Kafka topic.
+
+    A value the wire cannot carry is rendered readable rather than allowed to
+    kill the terminal event; losing the whole applied event to a stray type
+    would take the downstream node's only trigger with it.
+    """
+    facts: dict[str, object] = {}
+    raw: object = handler_result
+    if not isinstance(raw, Mapping) and hasattr(raw, "model_dump"):
+        # Why: Control flow narrows this union at runtime before the attribute access.
+        raw = raw.model_dump(mode="json")  # type: ignore[union-attr]
+    if isinstance(raw, Mapping):
+        for key, value in raw.items():
+            name = str(key)
+            if name.startswith("_"):
+                continue
+            try:
+                json.dumps(value)
+            except (TypeError, ValueError):
+                facts[name] = _json_safe_terminal_value(value)
+            else:
+                facts[name] = value
+    facts[PROJECTION_TERMINAL_ACK_KEY] = True
+    return facts
+
+
+async def _emit_projection_terminal_event(
+    event_bus: object,
+    terminal_event: str,
+    source_envelope: object,
+    handler_result: object = None,
+) -> None:
+    """Publish a terminal event after a successful DB projection.
+
+    Propagates the source envelope's correlation_id so Pattern-B consumers
+    and golden-chain tests can correlate the terminal event to the command,
+    and carries the projection handler's own result as the payload (OMN-16875 —
+    see :func:`_build_projection_terminal_payload`).
+    Best-effort: publish failures are logged but never propagate.
+    """
+    from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
+    from omnibase_infra.runtime.observability import record_flow_output
+
+    try:
+        source_payload = _extract_dispatch_payload(source_envelope)
+        correlation_id = _coerce_uuid_or_none(
+            _extract_dispatch_correlation_id(source_envelope, source_payload)
+        )
+        terminal_envelope = ModelEventEnvelope[object](
+            payload=_build_projection_terminal_payload(handler_result),
+            correlation_id=correlation_id,
+            envelope_timestamp=datetime.now(UTC),
+            event_type=terminal_event,
+            source_tool="projection-reducer",
+            # OMN-16831 item 2: this publish is a handler's own DECLARED output
+            # and, by construction (OMN-17214 Defect B, noted below), does NOT
+            # go through the result applier -- so the OMN-16831 carriage fix in
+            # #3573 never reached it. A tenant's projection terminal was
+            # published unattributed.
+            tenant_id=_extract_dispatch_tenant_id(source_envelope),
+        )
+        raw = terminal_envelope.model_dump_json().encode("utf-8")
+        if hasattr(event_bus, "publish"):
+            # Why: Control flow narrows this union at runtime before the attribute access.
+            await event_bus.publish(terminal_event, None, raw)  # type: ignore[union-attr]
+            # OMN-17214 Defect B: this is a handler's own DECLARED output leaving
+            # the runtime, and it does NOT go through the result applier — so
+            # before this line the only publisher that attributed anything was
+            # the applier, and every projection/reducer whose output leaves here
+            # reported `messages_out = 0` and derived STALLED while producing.
+            # Measured on the .201 dev lane 2026-09-17: the Phase 1 writer
+            # `local.omnimarket.projection_consumer_flow` read in=76 out=0
+            # STALLED across 19 consecutive windows while its own terminal topic
+            # advanced HWM 178532 -> 178535. Recorded AFTER the await so a failed
+            # publish is not counted as an output.
+            record_flow_output(terminal_event)
+        else:
+            logger.warning(
+                "Projection terminal event not emitted: event_bus has no publish method "
+                "(topic=%s)",
+                terminal_event,
+            )
+    except Exception as exc:  # noqa: BLE001
+        logger.error(
+            "Failed to emit projection terminal event: topic=%s error_type=%s error=%s",
+            terminal_event,
+            type(exc).__name__,
+            _sanitize_exc(exc),
+        )
+
+
+@dataclass(
+    frozen=True
+)  # internal-dataclass-ok: plain scalar extraction result, no runtime state
+class StateIoMetadata:
+    """Denormalized top-level columns extracted from an opaque state_io payload."""
+
+    tenant_id: str
+    state: str
+    in_flight: bool
+
+
+def _extract_state_io_metadata(payload_json: str) -> StateIoMetadata:
+    """Extract the 3 denormalized top-level columns from an opaque state_io payload.
+
+    omnibase_infra never decodes a state_io payload's business shape, but the
+    contract-level convention (OMN-14208) is that every state_io payload
+    exposes ``tenant_id`` / ``state`` / ``in_flight`` as well-known top-level
+    JSON keys so this seam can populate the durable row's indexed columns
+    (used by staleness sweeps) without understanding anything else about the
+    payload. Missing/malformed keys degrade to safe defaults rather than
+    raising — validating the payload's full business shape is the
+    omnimarket-side codec's job, not a reason to fail the whole dispatch.
+    """
+    try:
+        parsed = json.loads(payload_json)
+    except (TypeError, ValueError):
+        parsed = {}
+    if not isinstance(parsed, dict):
+        parsed = {}
+    return StateIoMetadata(
+        tenant_id=str(parsed.get("tenant_id") or ""),
+        state=str(parsed.get("state") or ""),
+        in_flight=bool(parsed.get("in_flight", False)),
+    )
+
+
+def _consumed_envelope_id(envelope: object) -> UUID | None:
+    """The identity of the envelope this dispatch consumed, or None.
+
+    OMN-18419. ``MessageDispatchEngine`` hands a dispatcher the JSON-safe
+    MATERIALIZATION of the envelope (``_materialize_envelope_with_bindings``),
+    not the typed envelope, and binds the typed one beside it on a contextvar
+    for exactly this reason -- its own comment says "for transport identity
+    (for example envelope_id)". The stateful wrapper read ``envelope_id`` as an
+    ATTRIBUTE off that dict, which is always ``None``, so every outbox entry
+    recorded the CORRELATION id as its causation via the fallback below.
+
+    Measured on the .201 compose dev lane, correlation
+    ``41235987-425c-481b-b2e3-8970083ce512``: the routing intent's deterministic
+    id re-derives exactly as ``uuid5(correlation, f"{correlation}:ModelRoutingIntent:0")``
+    -- the self-seeded fallback -- and not from the
+    ``onex.cmd.omnibase-infra.delegation-request.v1`` envelope
+    ``f1cc9a51-ef02-40f4-b2e7-81e5b57942ed`` that actually caused it.
+
+    The contextvar is consulted FIRST and the attribute second, so a caller
+    that hands this wrapper a real envelope directly (tests, the no-bus path)
+    keeps working unchanged.
+    """
+    typed = current_dispatch_envelope()
+    if typed is not None:
+        typed_id = getattr(typed, "envelope_id", None)
+        if isinstance(typed_id, UUID):
+            return typed_id
+    direct = getattr(envelope, "envelope_id", None)
+    if isinstance(direct, UUID):
+        return direct
+    if isinstance(direct, str) and direct:
+        try:
+            return UUID(direct)
+        except ValueError:
+            return None
+    return None
+
+
+def _make_stateful_dispatch_callback(
+    handler_instance: ProtocolHandleable,
+    event_model: ModelHandlerRef | None,
+    state_io: dict[str, object],
+    *,
+    event_bus: object | None = None,
+    output_topic_map: dict[str, str] | None = None,
+    completion_bound: ModelCompletionBound | None = None,
+    pre_dispatch_guard: Callable[[object], None] | None = None,
+) -> DispatcherFunc:
+    """Create a dispatch callback for contracts that declare ``state_io``.
+
+    WRAPS (never replaces) :func:`_make_dispatch_callback` — this is a
+    load-before / CAS-persist-after boundary hook around the exact same
+    callback a non-stateful contract would get, preserving the OMN-13247
+    envelope-coercion fallback and the ``payload_type_matcher`` scoping that
+    multi-leg orchestrator contracts depend on untouched (OMN-14208).
+
+    In-row outbox (OMN-14493 / OMN-14403 §4). When ``event_bus`` +
+    ``output_topic_map`` are supplied, this wrapper is also the publish-from-row
+    author for the state_io path: a leg's emitted events are persisted into the
+    row's ``pending_emissions`` column WITHIN the same CAS that advances the FSM
+    (commit-with-intent, ``in_flight=True``); the CAS winner then publishes those
+    events FROM the committed row and CAS-finalizes (``in_flight=False``, batch
+    cleared) all within the leg. This closes the CAS-retry result-selection race
+    that stranded delegation rows at ``INFERENCE_COMPLETED`` — a losing/retried
+    attempt can no longer lose an already-emitted intent, because the committed
+    row (not the in-memory return of a possibly-losing attempt) is the publish
+    source. Finalizing within the leg is load-bearing: a leg that leaves
+    ``in_flight`` set would deadlock the next leg's CAS-retry forever. When no
+    ``event_bus`` is supplied (the legacy/no-outbox path), the wrapper commits
+    with intent and returns the result for the external applier to publish.
+
+    Per-dispatch sequence:
+
+    1. Load the correlation_id's current ``(payload_json, version)`` — ``None``
+       if no row exists yet (e.g. this is the workflow's first leg).
+    2. Set :data:`CONTEXTVAR_STATE_IO_ROWS` to ``{cid: (payload_json, version)}``
+       UNCONDITIONALLY — a ``None`` payload_json for a missing row is still a
+       *set* value, distinguishing "state_io active, no row yet" from
+       "state_io inactive" for the ContextVar's cross-repo consumer (the
+       omnimarket-side workflow-state proxy).
+    3. Run the inner (unwrapped) dispatch callback — identical to what a
+       non-stateful contract's dispatch would do.
+    4. Call ``codec.flush(cid)`` on the contract-resolved codec instance — the
+       explicit bridge to whatever the handler-side proxy decoded and mutated
+       during step 3 (OMN-14208 pair-verify M1). ``None`` means the proxy
+       never touched this correlation_id this dispatch (nothing to persist);
+       a real payload means it did. This replaced an earlier implementation
+       that expected the proxy to write its mutated payload back into
+       :data:`CONTEXTVAR_STATE_IO_ROWS` itself — the ContextVar is a
+       load-time input only, never a write-back channel.
+    5. Persist the flushed payload: ``seed()`` if no row existed yet, else
+       ``cas_update()``. A no-op dispatch (payload unchanged, or never
+       populated) skips persistence entirely.
+    6. The whole load -> handle -> persist unit is wrapped in
+       ``retry_on_optimistic_conflict`` so a losing CAS/seed reloads the
+       winning row and re-runs ``handle()`` against it — replay-safe because
+       the FSM's synchronous in-flight dedup guard observes the freshly
+       persisted flag on the retried attempt and folds without re-emitting.
+
+    An exhausted retry raises ``OptimisticConflictError`` — never swallowed —
+    so a resolvable-but-unresolved race is never reported as a successful
+    dispatch. OMN-14600 CORRECTION: earlier revisions of this docstring
+    claimed the raise "propagates — no offset commit, message redelivers".
+    That is FALSE on this runtime: ``MessageDispatchEngine.dispatch()``
+    catches every exception a wired dispatcher raises and converts it to a
+    returned ``HANDLER_ERROR`` status rather than re-raising, and
+    ``EventBusSubcontractWiring``'s consume callback has no status branch for
+    ``HANDLER_ERROR`` — it commits the Kafka offset unconditionally once
+    ``dispatch()`` returns. The raise here is still valuable (it surfaces the
+    conflict loudly in logs/metrics and, for a caller that inspects the
+    return value directly rather than going through the engine, genuinely
+    propagates), but it is NOT a redelivery mechanism on the production
+    consume path. The state_io in_flight-lock branch below (``_load_handle_
+    persist``) therefore self-heals a stuck row INLINE rather than depending
+    on this exception to trigger redelivery.
+    """
+    inner_callback = _make_dispatch_callback(
+        handler_instance,
+        event_model,
+        pre_dispatch_guard=pre_dispatch_guard,
+    )
+
+    # OMN-16924: the durable binding is overlay-configurable. ``database`` and
+    # ``table`` go through the sanctioned ``${env.VAR:default}`` contract-overlay
+    # expansion, so an operator rebinds a node's state of record to a different
+    # database or table through the normal overlay without touching code. An
+    # unset var with no inline default expands to "" and fails closed below.
+    database = expand_contract_env_refs(str(state_io.get("database") or "")) or (
+        "omnibase_infra"
+    )
+    table = expand_contract_env_refs(str(state_io.get("table") or ""))
+    # ``key`` names BOTH the wire payload field the row is keyed on AND the
+    # primary-key column it is stored in — one declaration, so a contract can
+    # never read a key from a column that holds something else. Defaults to
+    # ``correlation_id``: the pre-OMN-16924 hardcoded key, and the only key
+    # every leg of a multi-leg orchestrator carries. A REDUCER folds per DOMAIN
+    # entity rather than per request, so it declares that entity's id instead
+    # (node_session_phase_reducer: ``session_id``).
+    state_key = expand_contract_env_refs(str(state_io.get("key") or "")) or (
+        "correlation_id"
+    )
+    codec_ref = state_io.get("codec")
+    if not table:
+        raise ModelOnexError(
+            "handler_wiring: state_io.table is required when a contract "
+            "declares state_io."
+        )
+    if not _STATE_IO_KEY_PATTERN.match(state_key):
+        raise ModelOnexError(
+            f"handler_wiring: state_io.key {state_key!r} is not a valid "
+            r"identifier — must match ^[a-zA-Z_][a-zA-Z0-9_]*$ (it names both "
+            "the wire payload field and the primary-key column)."
+        )
+    if (
+        not isinstance(codec_ref, dict)
+        or not codec_ref.get("module")
+        or not codec_ref.get("name")
+    ):
+        raise ModelOnexError(
+            "handler_wiring: state_io.codec must declare {module, name} — "
+            f"got {codec_ref!r}."
+        )
+    if database not in _DB_URL_ENV_MAP:
+        raise ModelOnexError(
+            f"handler_wiring: state_io.database {database!r} is unknown — "
+            f"must be one of {sorted(_DB_URL_ENV_MAP)!r}."
+        )
+    db_url_env = _DB_URL_ENV_MAP[database]
+    db_url = os.environ.get(db_url_env, "")
+    if not db_url:
+        raise StateIoUnconfiguredError(
+            f"handler_wiring: contract declares state_io (table={table!r}) "
+            f"but {db_url_env} is unset. state_io is a REQUIRED durability "
+            "seam (OMN-14208) and fails closed at wiring time. Projection "
+            "db_io topology bindings are likewise wiring-time requirements."
+        )
+    # Resolved once, at wiring time, not on every dispatch — mirrors the
+    # fail-fast intent of every other _import_handler_class call in this
+    # module. Unlike the handler class (imported but never used directly),
+    # the codec IS used directly here: instantiated and called as the
+    # explicit post-handle bridge (``codec.flush``) to whatever the
+    # omnimarket-side ContextVar-backed workflow-state proxy decoded and
+    # mutated during ``inner_callback`` (OMN-14208 pair-verify M0/M1).
+    codec_cls = _import_handler_class(str(codec_ref["module"]), str(codec_ref["name"]))
+    codec = codec_cls()
+
+    pool_config = ModelPostgresPoolConfig.from_dsn(db_url, min_size=1, max_size=5)
+    pool_provider = ProviderPostgresPool(pool_config)
+    adapter = StateStoreAdapter(
+        db_url,
+        table=table,
+        key_column=state_key,
+        pool_factory=pool_provider.create,
+    )
+    from uuid import UUID, uuid5
+
+    publish_topic_map: dict[str, str] = dict(output_topic_map or {})
+    # 0.0 sentinel means "never run" -- always due on the first dispatch.
+    _recovery_last_run_monotonic = 0.0
+    _recovery_lock = asyncio.Lock()
+    # OMN-18296: the contract-declared completion bound, and the handle on the
+    # background task that enforces it. The task is started on the first
+    # dispatch (wiring is synchronous, so there is no running loop at wiring
+    # time) and then runs on its OWN timer for the life of the process --
+    # deliberately NOT piggybacked on dispatch traffic the way
+    # ``_ensure_stale_rows_recovered`` is. That distinction is the whole point:
+    # a lane whose last delegation was abandoned by a pod restart has, by
+    # definition, no traffic left to trigger a traffic-gated sweep, which is
+    # exactly how correlation a2fe0848 sat in_flight for half an hour past a
+    # 900s TTL on 2026-09-13 while the sweep code that would have closed it was
+    # present, correct, and never called.
+    _bound_sweeper_task: asyncio.Task[None] | None = None
+
+    def _outbox_topic_for(class_name: str) -> str | None:
+        """Resolve an outbox entry's Kafka topic from the published_events map.
+
+        The contract's ``published_events`` map is authoritative (short name with
+        the ``Model`` prefix stripped, then the full class name). A class with no
+        mapping returns ``None`` — ``_publish_outbox_batch`` then raises rather
+        than misrouting a fan-out element to a fallback topic (spec §2 Amendment C).
+        """
+        short = class_name.removeprefix("Model")
+        return publish_topic_map.get(short) or publish_topic_map.get(class_name)
+
+    def _build_outbox_entries(
+        result: ModelDispatchResult | None,
+        causation_envelope_id: str,
+        cid: str,
+        tenant_id: str,
+    ) -> list[dict[str, object]]:
+        """Serialize a leg's emitted events into row-storable outbox entries.
+
+        Each entry carries exactly what recovery needs to rebuild the emitted
+        envelope WITHOUT re-running the handler (spec §12): the event class'
+        module+name, its own JSON payload, its index, and the causation /
+        correlation / tenant scope for the deterministic id + tenant stamp.
+
+        OMN-14600: the delegation terminal (the only state_io node today) is a
+        BARE class emit — ``ModelDelegationCompleted`` / ``ModelDelegationFailed``,
+        two distinct classes with no embedded topic field — resolved purely by
+        class name via ``_outbox_topic_for`` / the contract's
+        ``published_events`` map, same as every other emitted event. An
+        earlier revision of this function detected an embedded-topic carrier
+        (a ``ModelEventEnvelope`` or a typed payload's own ``.topic`` field)
+        and fail-closed-validated it against ``allowed_output_topics`` —
+        removed: dead code for delegation (its terminal carries no topic of
+        its own to embed), and no other state_io node exists yet to need it.
+        Add it back if a future state_io node genuinely needs an embedded,
+        per-instance topic — don't carry speculative capability for a
+        hypothetical node.
+        """
+        # A non-ModelDispatchResult return (e.g. the event_model=None cast-through
+        # can hand back a raw list on clean dev — P3a's normalize coerces it) has
+        # no output_events to store; the outbox only stores a real dispatch result.
+        output_events = getattr(result, "output_events", None)
+        if not output_events:
+            return []
+        entries: list[dict[str, object]] = []
+        for idx, event in enumerate(output_events):
+            if not isinstance(event, BaseModel):
+                # OMN-14721: fail closed on a non-model element rather than the
+                # prior silent ``continue``. A non-BaseModel in output_events
+                # cannot be durably captured into a recoverable outbox entry;
+                # dropping it silently shrinks the batch (K returned > K
+                # captured) — the exact silent-emission-loss class this seam
+                # exists to eliminate. Upstream ``_normalize_handler_result``
+                # only ever hands BaseModel events here, so this is a fail-
+                # closed invariant assertion, not a live filter.
+                raise ModelOnexError(
+                    message=(
+                        "handler_wiring: state_io outbox capture received a "
+                        f"non-BaseModel fan-out element {type(event).__name__!r} "
+                        f"at index {idx} for correlation_id={cid} — cannot "
+                        "durably capture the emission; failing closed rather "
+                        "than silently shrinking the batch (OMN-14721)."
+                    ),
+                    error_code=EnumCoreErrorCode.HANDLER_EXECUTION_ERROR,
+                )
+            if publish_topic_map:
+                # OMN-14721: resolve every captured emission's publish topic
+                # through the SHARED core fan-out resolver at CAPTURE time
+                # (the same resolver LocalRuntimeBusAdapter and the publish-
+                # from-row path use). This fail-closes an unmapped emitted
+                # class HERE, on the commit path, instead of seeding an
+                # unpublishable batch the recovery sweep can never heal — it
+                # mirrors ``_publish_outbox_batch``'s publish-time topic check,
+                # moved one step earlier so capture and publish cannot diverge.
+                resolve_published_topic(
+                    publish_topic_map,
+                    event,
+                    message_type=type(event).__name__,
+                )
+            entries.append(
+                {
+                    "module": type(event).__module__,
+                    "class_name": type(event).__name__,
+                    "payload": event.model_dump(mode="json"),
+                    "index": idx,
+                    "causation_envelope_id": causation_envelope_id,
+                    "correlation_id": cid,
+                    "tenant_id": tenant_id,
+                }
+            )
+        return entries
+
+    def _rebuild_outbox_event(entry: dict[str, object]) -> BaseModel:
+        """Rebuild the typed event model from a stored outbox entry.
+
+        Stamps tenant_id + causation_id onto the payload FROM THE ROW (the
+        applier does not, and in a fresh recovery process the input envelope is
+        gone — the row is the ONLY source, spec §5 tenant-trap).
+
+        Imports the event class via ``importlib`` (not ``_import_handler_class``)
+        so the module/class recorded at commit time from an event WE emitted is
+        rebuilt directly — the handler-class loader's namespace allowlist is for
+        untrusted contract refs, not for a self-recorded outbox entry.
+
+        OMN-14600: a pre-fix legacy-shaped entry (``_legacy_delegation_envelope_
+        unwrap``) rebuilds the INNER ``ModelDelegationResult`` from the nested
+        payload dict instead of the recorded carrier class — reconstructing the
+        carrier itself would republish the double-nested bespoke shape no
+        current consumer expects.
+        """
+        import importlib
+
+        legacy = _legacy_delegation_envelope_unwrap(entry)
+        if legacy is not None:
+            _legacy_topic, inner_payload = legacy
+            module = importlib.import_module(_LEGACY_DELEGATION_RESULT_MODULE)
+            cls = getattr(module, _LEGACY_DELEGATION_RESULT_NAME)
+            model = cls.model_validate(inner_payload)
+        else:
+            module = importlib.import_module(str(entry["module"]))
+            cls = getattr(module, str(entry["class_name"]))
+            model = cls.model_validate(entry["payload"])
+        updates: dict[str, object] = {}
+        fields = type(model).model_fields
+        tenant_id = entry.get("tenant_id")
+        if (
+            tenant_id
+            and "tenant_id" in fields
+            and not getattr(model, "tenant_id", None)
+        ):
+            updates["tenant_id"] = tenant_id
+        # OMN-20127: a causation seeded from a domain row key (the bound sweep
+        # seeds the row's own key) names no envelope, so it is not stamped.
+        causation = _coerce_uuid_or_none(entry.get("causation_envelope_id"))
+        if (
+            isinstance(causation, UUID)
+            and "causation_id" in fields
+            and not getattr(model, "causation_id", None)
+        ):
+            updates["causation_id"] = causation
+        return model.model_copy(update=updates) if updates else model
+
+    async def _publish_outbox_batch(entries: list[dict[str, object]]) -> int:
+        """Publish a persisted outbox batch FROM THE ROW (recovery / resume).
+
+        Rebuilds each envelope with the causation-scoped deterministic id (spec
+        §8.1) + tenant, resolves its topic, and publishes via the bus.
+        Idempotent: row-derived ids collapse against the original at the
+        consume-path dedupe, so a duplicate re-publish is benign.
+
+        Topic resolution: the contract's ``published_events`` class-name map
+        (``_outbox_topic_for``) is authoritative — every current emit is a
+        bare, un-carried class (OMN-14600). The ONE exception is
+        ``_legacy_delegation_envelope_unwrap``: a pre-fix row committed by the
+        old bespoke ``ModelDelegationEventEnvelope`` carrier, whose OWN nested
+        dump is the only place that topic survived (the row predates the
+        ``published_events`` split into completed/failed entries) — checked
+        first so those specific stuck rows still resolve and self-heal.
+        """
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope as _Envelope,
+        )
+        from omnibase_infra.runtime.observability import record_flow_output
+
+        if event_bus is None or not hasattr(event_bus, "publish_envelope"):
+            return 0
+        published = 0
+        for entry in entries:
+            class_name = str(entry["class_name"])
+            legacy = _legacy_delegation_envelope_unwrap(entry)
+            topic = legacy[0] if legacy is not None else _outbox_topic_for(class_name)
+            if topic is None:
+                raise ModelOnexError(
+                    "handler_wiring: outbox recovery cannot resolve a topic for "
+                    f"fan-out class {class_name!r} — no published_events mapping."
+                )
+            payload = _rebuild_outbox_event(entry)
+            # OMN-20127: the row key is a UUID only for a correlation-keyed
+            # contract; a domain key (``owner/repo#123``) raised ValueError here
+            # and every batch of that contract failed to publish.
+            row_key = str(entry["correlation_id"])
+            cid_uuid = _state_io_wire_correlation_id(row_key, payload)
+            raw_causation = str(entry["causation_envelope_id"])
+            parsed_causation = _coerce_uuid_or_none(raw_causation)
+            causation = parsed_causation if isinstance(parsed_causation, UUID) else None
+            idx = int(cast("int", entry["index"]))
+            envelope_id = uuid5(
+                cid_uuid,
+                f"{causation if causation is not None else raw_causation}"
+                f":{class_name}:{idx}",
+            )
+            # OMN-14743: stamp event_type from the resolved topic using the SAME
+            # derivation the external applier uses (shared
+            # ``derive_event_type_from_topic``). Without this the outbox emitted
+            # ``event_type=None`` — this path bypasses the applier's OMN-12116
+            # stamp (the state_io winner branch returns ``(1, None)``) — so the
+            # routing reducer's type-scoped dispatcher (OMN-12294) dropped the
+            # emission and delegation stalled at RECEIVED. A non-ONEX topic
+            # derives ``None`` (the field default), so this is safe for every
+            # topic shape the outbox can resolve.
+            event_type = derive_event_type_from_topic(topic)
+            # OMN-18419: the causal edge, recorded rather than discarded.
+            #
+            # `causation` is the envelope whose consumption produced this
+            # emission. It was already in hand here -- it seeds the
+            # deterministic id one line above -- and was not put on the
+            # envelope, so every event published off this path arrived in
+            # `event_ledger` with a null `parent_message_id`: the checkable
+            # statement "chain head", asserted by hops that are not heads.
+            # `publish_envelope` binds the wire header from the envelope
+            # (`header_identity_fields_from_envelope`), so setting it here is
+            # what puts it on the wire.
+            #
+            # The ONE case that is deliberately NOT an edge is the
+            # completion-bound sweep, which seeds `causation_envelope_id` with
+            # the row's own correlation id precisely because no causing
+            # envelope exists (see `_terminalise_abandoned_rows`). A
+            # correlation id is not an envelope id, so recording it would
+            # fabricate an edge that can never close. Absence is the honest
+            # encoding of absence, the same rule `chain_replay` holds.
+            edge = (
+                None
+                if causation is None
+                or causation == cid_uuid
+                or raw_causation == row_key
+                else causation
+            )
+            out_envelope: _Envelope[BaseModel] = _Envelope(
+                envelope_id=envelope_id,
+                payload=payload,
+                correlation_id=cid_uuid,
+                event_type=event_type,
+                parent_envelope_id=edge,
+            )
+            key: bytes | None = None
+            for attr in ("entity_id", "node_id", "session_id", "correlation_id"):
+                value = getattr(payload, attr, None)
+                if value is not None:
+                    key = str(value).encode("utf-8")
+                    break
+            await event_bus.publish_envelope(  # type: ignore[attr-defined]
+                envelope=out_envelope, topic=topic, key=key
+            )
+            # OMN-17214 Defect B: the in-row outbox is the OTHER seam that
+            # publishes a handler's declared output without going through the
+            # result applier, so a stateful reducer publishing from its own row
+            # was counted as producing nothing. Recorded per envelope AFTER its
+            # await, so a batch that fails partway attributes exactly the
+            # envelopes that actually reached the broker — the same count
+            # `published` reports to the CAS-finalize below.
+            record_flow_output(topic)
+            published += 1
+        return published
+
+    async def _finalize_outbox_row(
+        cid: str,
+        tenant_id: str,
+        state: str,
+        payload_json: str,
+        expected_version: int,
+    ) -> int:
+        """CAS-finalize a published outbox row: in_flight=False + clear the batch.
+
+        A CAS (not an unconditional UPDATE, spec §4.1 D1) so a concurrent
+        recovery/leg that already finalized this row cannot be silently
+        overwritten; a lost finalize means another path owns terminal state.
+        """
+        return await adapter.cas_update(
+            cid,
+            tenant_id=tenant_id,
+            state=state,
+            in_flight=False,
+            payload_json=payload_json,
+            expected_version=expected_version,
+            pending_emissions=None,
+        )
+
+    async def _recover_outbox_batches(skip_cid: str | None = None) -> None:
+        """Boot/redeploy re-publish of any in-flight row carrying a live batch.
+
+        The adapter surfaces the recoverable rows (it has no bus); THIS wrapper
+        publishes them (it does) with the same row-derived deterministic ids and
+        CAS-finalizes — spec §4.1 D2 layering. Runs BEFORE recover_stale_rows so
+        a recoverable row is re-emitted, not blind-FAILed (spec §4.2 R1).
+
+        ``skip_cid`` is the correlation of the dispatch that TRIGGERED this boot
+        sweep: that row is owned by the triggering leg's own in_flight-lock /
+        resume path (which keys the resume on envelope_id), so the boot sweep
+        must not race it — otherwise a redelivery of the crashed input would
+        find its batch already recovered and needlessly re-run + fold the handler.
+
+        OMN-14600 (Fable-gate correction): each row is recovered in its OWN
+        try/except. Before this, one row that fails to recover (e.g. a stale
+        pre-fix legacy-shaped entry the running code cannot resolve a topic
+        for) raised out of the whole sweep — ``_ensure_stale_rows_recovered``
+        never reached its ``_recovery_last_run_monotonic`` update, so the
+        interval gate stayed permanently due and EVERY subsequent dispatch
+        re-entered this same failing sweep and re-raised, silently dropping
+        every triggering leg's own input. A row that fails here is logged and
+        skipped; the sweep still completes, the timer still advances, and the
+        failing row gets another attempt on the next interval (or self-heals
+        via ``_legacy_delegation_envelope_unwrap`` if that was the cause).
+        """
+        if event_bus is None or not hasattr(adapter, "select_recoverable_batches"):
+            return
+        for row in await adapter.select_recoverable_batches():
+            row_cid = str(row["correlation_id"])
+            if skip_cid is not None and row_cid == skip_cid:
+                continue
+            entries = list(
+                cast("list[dict[str, object]]", row.get("pending_emissions") or [])
+            )
+            if not entries:
+                continue
+            try:
+                await _publish_outbox_batch(entries)
+                await _finalize_outbox_row(
+                    row_cid,
+                    str(row["tenant_id"]),
+                    str(row["state"]),
+                    str(row["payload_json"]),
+                    int(cast("int", row["version"])),
+                )
+            except Exception as exc:  # noqa: BLE001 — per-row isolation, see docstring
+                logger.error(
+                    "state_io recovery sweep: failed to recover row cid=%s (%s) "
+                    "— skipping this row so the sweep completes and the "
+                    "interval timer still advances (OMN-14600); retried on "
+                    "the next sweep interval.",
+                    row_cid,
+                    _sanitize_exc(exc),
+                )
+
+    async def _terminalise_abandoned_rows() -> int:
+        """Emit a REAL terminal event for every row past the contract's bound.
+
+        This is the half ``recover_stale_rows`` could never do (OMN-14107, named
+        as a limitation in its own docstring since OMN-14208): it flipped the row
+        to ``FAILED`` and told nobody. Downstream, the ONLY way a gateway
+        workflow leaves ``published`` is a terminal event consumed off the bus,
+        so a row-only give-up left the customer's delegation non-terminal
+        forever while the runtime's own state of record said FAILED. Two
+        different answers to the same question, one of them invisible.
+
+        Sequencing mirrors ``_recover_outbox_batches``: build, publish, THEN
+        CAS-finalize. A crash between publish and finalize re-publishes on the
+        next sweep, and the deterministic row-derived envelope id (``uuid5`` over
+        the correlation, as everywhere else on this path) collapses the duplicate
+        at the consume-path dedupe. A crash before publish leaves the row exactly
+        as it was and the next sweep tries again. What must never happen is the
+        reverse order: a finalized row whose terminal was never published is
+        indistinguishable from a workflow that completed, and is unrecoverable
+        because the predicate that finds it no longer matches.
+
+        Per-row isolation for the same reason ``_recover_outbox_batches`` has it
+        (OMN-14600): one row the running code cannot build a terminal for must
+        not abort the sweep for every other row.
+        """
+        if completion_bound is None or event_bus is None:
+            return 0
+        if not hasattr(adapter, "select_abandoned_rows"):
+            return 0
+        builder = getattr(codec, "build_abandoned_terminal", None)
+        if builder is None:
+            logger.warning(
+                "state_io completion bound declared (max_wall_seconds=%d) but "
+                "codec %s has no build_abandoned_terminal — cannot emit a "
+                "terminal event, so abandoned rows in %s stay non-terminal. "
+                "The bound is NOT being enforced for this contract.",
+                completion_bound.max_wall_seconds,
+                type(codec).__name__,
+                table,
+            )
+            return 0
+        rows = await adapter.select_abandoned_rows(completion_bound.max_wall_seconds)
+        terminalised = 0
+        for row in rows:
+            row_cid = str(row["correlation_id"])
+            try:
+                built = builder(
+                    correlation_id=row_cid,
+                    tenant_id=str(row["tenant_id"]),
+                    state=str(row["state"]),
+                    payload_json=str(row["payload_json"]),
+                    failure_class=completion_bound.failure_class,
+                    failure_code=completion_bound.failure_code,
+                    max_wall_seconds=completion_bound.max_wall_seconds,
+                )
+            except Exception as exc:  # noqa: BLE001 — per-row isolation, see docstring
+                logger.error(
+                    "state_io completion-bound sweep: codec could not build a "
+                    "terminal for cid=%s (%s) — row left non-terminal, retried "
+                    "on the next sweep.",
+                    row_cid,
+                    _sanitize_exc(exc),
+                )
+                continue
+            if built is None:
+                continue
+            module_name, class_name, event_payload = built
+            entry: dict[str, object] = {
+                "module": module_name,
+                "class_name": class_name,
+                "payload": event_payload,
+                "correlation_id": row_cid,
+                # No causing envelope exists: the leg that would have caused this
+                # terminal is the one that was lost. The correlation is its own
+                # causation, which keeps the derived envelope id deterministic
+                # across repeated sweeps of the same row.
+                "causation_envelope_id": row_cid,
+                "index": 0,
+                "tenant_id": str(row["tenant_id"]),
+            }
+            try:
+                await _publish_outbox_batch([entry])
+                await _finalize_outbox_row(
+                    row_cid,
+                    str(row["tenant_id"]),
+                    _TERMINAL_FSM_STATE_FAILED,
+                    str(row["payload_json"]),
+                    int(cast("int", row["version"])),
+                )
+            except Exception as exc:  # noqa: BLE001 — per-row isolation, see docstring
+                logger.error(
+                    "state_io completion-bound sweep: failed to terminalise "
+                    "cid=%s (%s) — retried on the next sweep.",
+                    row_cid,
+                    _sanitize_exc(exc),
+                )
+                continue
+            terminalised += 1
+            logger.warning(
+                "state_io completion bound exceeded: cid=%s was %s and "
+                "in_flight for more than %ds — emitted %s with failure_class=%s "
+                "and closed the row FAILED.",
+                row_cid,
+                row["state"],
+                completion_bound.max_wall_seconds,
+                class_name,
+                completion_bound.failure_class,
+            )
+        return terminalised
+
+    async def _bound_sweeper_loop() -> None:
+        """Run the completion-bound sweep on its own timer, forever.
+
+        Cadence is a fraction of the bound rather than a constant, so a contract
+        that declares a short bound is swept proportionally often and one that
+        declares a long bound does not pay for a tight poll it cannot use. The
+        floor exists so a very short bound cannot turn this into a busy loop.
+        """
+        interval = max(
+            _BOUND_SWEEP_MIN_INTERVAL_SECONDS,
+            completion_bound.max_wall_seconds / _BOUND_SWEEP_DIVISOR
+            if completion_bound is not None
+            else _BOUND_SWEEP_MIN_INTERVAL_SECONDS,
+        )
+        while True:
+            await asyncio.sleep(interval)
+            try:
+                await _terminalise_abandoned_rows()
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # noqa: BLE001 — a sweep failure must not kill the sweeper
+                logger.error(
+                    "state_io completion-bound sweep raised (%s) — the sweeper "
+                    "stays alive and retries on the next interval.",
+                    _sanitize_exc(exc),
+                )
+
+    def _ensure_bound_sweeper_started() -> None:
+        """Start the bound sweeper once, on the first dispatch.
+
+        Wiring is synchronous so there is no running loop to attach to there;
+        the first dispatch is the same deterministic async point
+        ``_ensure_stale_rows_recovered`` uses. Unlike that one, what starts here
+        is a task that then runs on its own and never needs another dispatch.
+        """
+        nonlocal _bound_sweeper_task
+        if completion_bound is None:
+            return
+        if _bound_sweeper_task is not None and not _bound_sweeper_task.done():
+            return
+        _bound_sweeper_task = asyncio.create_task(_bound_sweeper_loop())
+
+    async def _ensure_stale_rows_recovered(skip_cid: str | None = None) -> None:
+        """Run outbox re-publish + the give-up sweep, at most once per interval.
+
+        Wiring is synchronous, so this cannot run at wiring time; the first live
+        dispatch is the deterministic async point. Outbox re-publish runs FIRST
+        so a recoverable in-flight batch is re-emitted before the give-up sweep
+        (which fail-closes genuinely-abandoned rows) can touch it (OMN-14208 G1,
+        OMN-14403 §4.1/§4.2 R1). Lock-guarded against concurrent same-tick runs.
+
+        OMN-14600: this used to run EXACTLY ONCE per adapter lifetime (boot-time
+        only, gated by a bool). A row whose winning leg crashes or otherwise
+        never finalizes (e.g. a retry-storm cascade exhausting the in_flight-
+        lock defer's own retries) stayed stranded until the next boot/redeploy
+        -- a live, long-running process had no way to self-heal it. Gating on
+        elapsed time instead makes this periodic: any dispatch that lands more
+        than ``_STATE_IO_RECOVERY_SWEEP_INTERVAL_SECONDS`` after the last run
+        re-triggers it, bounding how long a stranded row can survive in a busy
+        process without requiring a dedicated background task.
+        """
+        nonlocal _recovery_last_run_monotonic
+        now = time.monotonic()
+        if (
+            now - _recovery_last_run_monotonic
+            < _STATE_IO_RECOVERY_SWEEP_INTERVAL_SECONDS
+        ):
+            return
+        async with _recovery_lock:
+            now = time.monotonic()
+            if (
+                now - _recovery_last_run_monotonic
+                < _STATE_IO_RECOVERY_SWEEP_INTERVAL_SECONDS
+            ):
+                return
+            await _recover_outbox_batches(skip_cid=skip_cid)
+            # OMN-18296: ONE owner of give-up per contract. Where a completion
+            # bound is declared, giving up means emitting the contract's terminal
+            # FAILURE event; the legacy blind-FAIL must not run alongside it,
+            # because it would reach the same abandoned row first, flip it to
+            # FAILED, and leave the bound sweeper with nothing left to emit —
+            # restoring the exact silent give-up this ticket exists to remove.
+            if completion_bound is not None:
+                await _terminalise_abandoned_rows()
+            else:
+                await adapter.recover_stale_rows()
+            _recovery_last_run_monotonic = time.monotonic()
+
+    async def _find_recoverable_row(cid: str) -> dict[str, object] | None:
+        """Return this cid's in-flight-with-live-batch row, if one exists.
+
+        Backward-compatible: an adapter without ``select_recoverable_batches``
+        (a legacy fake, or any non-outbox state store) has no in-row outbox, so
+        the in_flight-lock is skipped and dispatch behaves exactly as pre-P3b.
+        In steady state the partial index (``in_flight AND pending_emissions``)
+        returns zero rows, so the per-dispatch check is a cheap empty index scan.
+        """
+        if not hasattr(adapter, "select_recoverable_batches"):
+            return None
+        for row in await adapter.select_recoverable_batches():
+            if str(row["correlation_id"]) == cid:
+                return row
+        return None
+
+    def _dispatch_result_from_entries(
+        entries: list[dict[str, object]], cid: str
+    ) -> ModelDispatchResult:
+        """Rebuild a ModelDispatchResult carrying a row's batch (no-bus resume)."""
+        from datetime import UTC, datetime
+
+        from omnibase_infra.enums import EnumDispatchStatus
+        from omnibase_infra.models.dispatch.model_dispatch_result import (
+            ModelDispatchResult as _Result,
+        )
+
+        events = [_rebuild_outbox_event(e) for e in entries]
+        return _Result(
+            status=EnumDispatchStatus.SUCCESS,
+            topic="",
+            started_at=datetime.now(UTC),
+            completed_at=datetime.now(UTC),
+            output_count=len(events),
+            output_events=events,
+            correlation_id=_state_io_wire_correlation_id(cid),
+        )
+
+    async def _load_handle_persist(
+        envelope: ModelEventEnvelope[object],
+        cid: str,
+    ) -> tuple[int, ModelDispatchResult | None]:
+        # in_flight-lock (spec §4.1 D1): a row with a live, un-finalized outbox
+        # batch MUST NOT run the handler — a concurrent leg would clobber the
+        # winner's un-published intent. Resume-from-row if THIS input is the one
+        # that created the batch (a redelivery: envelope_id == causation); else
+        # defer without running the handler (branch b) so the winner's intent is
+        # preserved. The resume predicate keys on envelope_id, NOT causation_id
+        # (spec §4.1 E1 — a redelivered input keeps its envelope_id; its own
+        # causation_id is the grandparent and would never match).
+        incoming_envelope_id = _consumed_envelope_id(envelope)
+        locked = await _find_recoverable_row(cid)
+        if locked is not None:
+            entries = list(
+                cast("list[dict[str, object]]", locked.get("pending_emissions") or [])
+            )
+            causation = str(entries[0]["causation_envelope_id"]) if entries else None
+            is_redelivery = (
+                incoming_envelope_id is not None
+                and causation is not None
+                and str(incoming_envelope_id) == causation
+            )
+            if is_redelivery and entries:
+                # Resume: re-publish the SAME batch from the row (idempotent, same
+                # ids) + CAS-finalize. Handler NOT re-run (spec §4.1 E1/E2).
+                if event_bus is not None:
+                    await _publish_outbox_batch(entries)
+                    await _finalize_outbox_row(
+                        cid,
+                        str(locked["tenant_id"]),
+                        str(locked["state"]),
+                        str(locked["payload_json"]),
+                        int(cast("int", locked["version"])),
+                    )
+                    return 1, None
+                # No bus: hand the batch back for the external applier + finalize.
+                await _finalize_outbox_row(
+                    cid,
+                    str(locked["tenant_id"]),
+                    str(locked["state"]),
+                    str(locked["payload_json"]),
+                    int(cast("int", locked["version"])),
+                )
+                return 1, _dispatch_result_from_entries(entries, cid)
+            # A DIFFERENT input arrived while the batch is un-finalized. Do NOT
+            # run the handler (would clobber the winner's un-published intent).
+            #
+            # OMN-14600 (Fable-gate correction, superseding the original
+            # WIP): this branch used to return (1, None) -- a REPORTED SUCCESS
+            # that commits the Kafka offset without ever running the handler
+            # for THIS leg. The first fix attempt reported a conflict
+            # (row_count=0) instead, relying on retry_on_optimistic_conflict's
+            # in-process retries to exhaust and raise OptimisticConflictError
+            # so the caller would redeliver. THAT DOES NOT WORK ON THIS
+            # RUNTIME: MessageDispatchEngine.dispatch() catches every
+            # exception a dispatcher raises (message_dispatch_engine.py's
+            # per-dispatcher invocation loop) and converts it to a returned
+            # HANDLER_ERROR status instead of re-raising; EventBusSubcontract
+            # Wiring's consume callback has NO status branch for
+            # HANDLER_ERROR and commits the Kafka offset unconditionally once
+            # dispatch() returns. So a raised exception here NEVER triggers
+            # redelivery -- it is silently absorbed and the message is gone.
+            #
+            # Fix: INLINE-RECOVER the winner's own batch right here instead of
+            # depending on redelivery. This leg already holds the locked row +
+            # its persisted entries -- publish them (idempotent: deterministic
+            # uuid5 ids collapse a duplicate re-publish) and CAS-finalize using
+            # the SAME helpers the is_redelivery resume branch above uses, so
+            # the winner's stalled/crashed leg is completed deterministically.
+            # Then report a conflict (row_count=0) so retry_on_optimistic_
+            # conflict re-attempts THIS leg in-process against the now-cleared
+            # lock -- it either runs the handler fresh or (if a genuinely
+            # concurrent third leg raced in) defers again, never depending on
+            # bus/engine redelivery semantics. No bus wired (test-only /
+            # legacy-adapter path; production always passes one, see the
+            # wiring call site) means we cannot publish from here -- the
+            # winner's finalize is left to the external applier or the
+            # periodic recovery sweep, unchanged from before.
+            if event_bus is not None:
+                await _publish_outbox_batch(entries)
+                await _finalize_outbox_row(
+                    cid,
+                    str(locked["tenant_id"]),
+                    str(locked["state"]),
+                    str(locked["payload_json"]),
+                    int(cast("int", locked["version"])),
+                )
+            logger.warning(
+                "state_io in_flight-lock: deferring leg (cid=%s) as a conflict "
+                "— a prior leg's outbox batch was committed but not yet "
+                "finalized; inline-recovered (published + finalized) the "
+                "winner's batch instead of relying on redelivery (OMN-14600 — "
+                "redelivery is a dead path on this runtime, see comment "
+                "above). Reported as row_count=0 so the caller retries this "
+                "leg against the now-cleared lock.",
+                cid,
+            )
+            return 0, None
+
+        loaded = await adapter.load(cid)
+        payload_json, version = loaded if loaded is not None else (None, 0)
+        token = CONTEXTVAR_STATE_IO_ROWS.set({cid: (payload_json, version)})
+        try:
+            result = await inner_callback(envelope)
+            flushed_payload_json = codec.flush(cid)
+            new_payload_json = (
+                flushed_payload_json
+                if flushed_payload_json is not None
+                else payload_json
+            )
+        finally:
+            CONTEXTVAR_STATE_IO_ROWS.reset(token)
+
+        if new_payload_json is None or (
+            loaded is not None and new_payload_json == payload_json
+        ):
+            # Nothing changed (a no-op leg, e.g. the in-flight dedup guard
+            # rejecting a duplicate without touching state) — skip
+            # persistence entirely rather than bump version on a byte-
+            # identical write. Reported as a successful (non-conflict) attempt.
+            return 1, result
+
+        metadata = _extract_state_io_metadata(new_payload_json)
+        causation_envelope_id = (
+            str(incoming_envelope_id) if incoming_envelope_id is not None else cid
+        )
+        # The in-row outbox is active only when the adapter supports it. A legacy
+        # adapter (or a non-outbox state store) whose seed/cas_update have no
+        # pending_emissions kwarg keeps the pre-P3b commit-then-return behavior
+        # exactly (no batch persisted, no publish-from-row) — fully backward-compat.
+        outbox_supported = hasattr(adapter, "select_recoverable_batches")
+        entries = (
+            _build_outbox_entries(
+                result, causation_envelope_id, cid, metadata.tenant_id
+            )
+            if outbox_supported
+            else []
+        )
+        # Commit-with-intent (spec §4.1): persist the advanced FSM state AND the
+        # intended emissions in ONE CAS. in_flight=True marks "batch committed,
+        # awaiting publish+finalize" so a crash between here and publish is
+        # recoverable from the row alone.
+        commit_in_flight = bool(entries) or metadata.in_flight
+        # Pass pending_emissions only to an outbox-capable adapter; a legacy
+        # adapter's seed/cas_update have no such kwarg (backward-compat).
+        pending = entries or None
+
+        # OMN-14721: fail-closed emission-completeness guard. A leg that NEWLY
+        # seeds a fresh workflow (``loaded is None``) into a NON-terminal FSM
+        # state MUST carry a durable emission — either a committed outbox batch
+        # (``pending_emissions``) or an ``in_flight`` marker awaiting a follow-up
+        # leg. A fresh, non-terminal row committed with in_flight=False AND an
+        # empty batch (``not commit_in_flight``) is STRUCTURALLY unrecoverable:
+        # ``select_recoverable_batches`` only re-publishes rows that are
+        # ``in_flight AND jsonb_array_length(pending_emissions) > 0``, and
+        # ``recover_stale_rows`` only give-up-FAILs it after the stale TTL — so
+        # the emission the handler was supposed to produce to progress the
+        # workflow is silently dropped forever and the row stalls (the OMN-14721
+        # delegation routing-intent regression: RECEIVED / in_flight=false /
+        # pending=∅). Convert that silent permanent drop into a LOUD dispatch
+        # failure so it is surfaced + DLQ'd (via the OMN-14716 silent-dispatch-
+        # failure guard) and can never recur unobserved.
+        # OMN-16924: the guard's whole premise is the in-row outbox — it exists
+        # because ``select_recoverable_batches`` is the only re-publish path for
+        # a committed-but-unpublished emission. A contract with no
+        # ``published_events`` map has no outbox at all (``_outbox_topic_for``
+        # returns None for every class, so ``_publish_outbox_batch`` would
+        # raise): its durable output IS the row, and there is no emission to
+        # strand. Firing the guard there converts a correct, complete REDUCER
+        # fold into a hard dispatch failure. Gate on the map the wrapper was
+        # actually given — delegation (which declares published_events) is
+        # unchanged.
+        if (
+            loaded is None
+            and outbox_supported
+            and bool(publish_topic_map)
+            and not commit_in_flight
+            and metadata.state not in _STATE_IO_TERMINAL_STATE_NAMES
+        ):
+            raise ModelOnexError(
+                message=(
+                    "handler_wiring: state_io refused to seed an unrecoverable "
+                    f"dead row for correlation_id={cid} — a fresh workflow "
+                    f"committing NON-terminal state={metadata.state!r} with "
+                    "in_flight=False and an EMPTY outbox batch can never be "
+                    "re-published by the recovery sweep "
+                    "(select_recoverable_batches requires in_flight AND a "
+                    "non-empty pending_emissions batch). The handler captured no "
+                    "durable emission for a state that must emit to progress; "
+                    "failing closed so the drop is surfaced and DLQ'd rather "
+                    "than silently stranding the workflow (OMN-14721)."
+                ),
+                error_code=EnumCoreErrorCode.HANDLER_EXECUTION_ERROR,
+            )
+
+        if loaded is None:
+            if outbox_supported:
+                won = await adapter.seed(
+                    cid,
+                    tenant_id=metadata.tenant_id,
+                    state=metadata.state,
+                    in_flight=commit_in_flight,
+                    payload_json=new_payload_json,
+                    pending_emissions=pending,
+                )
+            else:
+                won = await adapter.seed(
+                    cid,
+                    tenant_id=metadata.tenant_id,
+                    state=metadata.state,
+                    in_flight=commit_in_flight,
+                    payload_json=new_payload_json,
+                )
+            row_count = 1 if won else 0
+            committed_version = 0
+        elif outbox_supported:
+            row_count = await adapter.cas_update(
+                cid,
+                tenant_id=metadata.tenant_id,
+                state=metadata.state,
+                in_flight=commit_in_flight,
+                payload_json=new_payload_json,
+                expected_version=version,
+                pending_emissions=pending,
+            )
+            committed_version = version + 1
+        else:
+            row_count = await adapter.cas_update(
+                cid,
+                tenant_id=metadata.tenant_id,
+                state=metadata.state,
+                in_flight=commit_in_flight,
+                payload_json=new_payload_json,
+                expected_version=version,
+            )
+            committed_version = version + 1
+
+        if row_count == 0:
+            # Lost the CAS — a concurrent winner advanced the row. Retry reloads
+            # against the winner (which committed + publishes ITS own intent), so
+            # this attempt's events are correctly dropped, never lost.
+            return 0, result
+
+        # Winner. If the wrapper owns a bus AND emitted a batch, publish-from-row
+        # + CAS-finalize WITHIN this leg — leaving the row in_flight would deadlock
+        # the next leg's CAS-retry (the stuck-at-INFERENCE_COMPLETED symptom).
+        # Return None so the external applier does NOT re-publish the same batch
+        # (no double-publish — OMN-14403 §7 decision 1).
+        if entries and event_bus is not None:
+            try:
+                await _publish_outbox_batch(entries)
+            except Exception as exc:
+                raise BoundaryPublishError(
+                    "handler_wiring: state_io outbox publish-from-row failed"
+                ) from exc
+            await _finalize_outbox_row(
+                cid,
+                metadata.tenant_id,
+                metadata.state,
+                new_payload_json,
+                committed_version,
+            )
+            return 1, None
+
+        # No-bus path (test commit / non-emitting leg): hand the result back for
+        # the external applier to publish; the row keeps its committed intent.
+        return 1, result
+
+    async def _callback(
+        envelope: ModelEventEnvelope[object],
+    ) -> ModelDispatchResult | None:
+        event_model_cls = _safe_import_event_model_class(event_model)
+        payload = _extract_dispatch_payload(envelope, event_model_cls)
+        raw_key = _extract_state_io_key(envelope, payload, state_key, event_model_cls)
+        # ``correlation_id`` stays UUID-shaped (it is a UUID everywhere on the
+        # wire, and the retry helper logs it as one). A contract-declared domain
+        # key (OMN-16924) is an opaque string — ``session_id`` is not a UUID —
+        # so it is used verbatim as the row key and no UUID is handed to the
+        # retry helper's logging parameter.
+        if state_key == "correlation_id":
+            correlation_id = _coerce_uuid_or_none(raw_key)
+            if correlation_id is None:
+                raise ModelOnexError(
+                    "handler_wiring: state_io dispatch requires a correlation_id "
+                    "on every leg — got none. Legs 2-5 of a multi-leg "
+                    "orchestrator carry no tenant_id on the wire but MUST carry "
+                    "correlation_id (the state_io read key)."
+                )
+            cid = str(correlation_id)
+            retry_correlation_id = cast("UUID | None", correlation_id)
+        else:
+            cid = "" if raw_key is None else str(raw_key).strip()
+            if not cid:
+                raise ModelOnexError(
+                    f"handler_wiring: state_io dispatch requires the "
+                    f"contract-declared key {state_key!r} on every message — "
+                    f"got none. It is the read key for this node's durable "
+                    f"state row; without it the fold has no prior state to "
+                    f"fold onto and no row to persist into."
+                )
+            retry_correlation_id = None
+
+        _ensure_bound_sweeper_started()
+        await _ensure_stale_rows_recovered(skip_cid=cid)
+
+        _row_count, result = await retry_on_optimistic_conflict(
+            lambda: _load_handle_persist(envelope, cid),
+            check_conflict=lambda outcome: outcome[0] == 0,
+            correlation_id=retry_correlation_id,
+        )
+        return result
+
+    return _callback
+
+
+def _raise_if_silent_dispatch_failure(
+    result: object,
+    topic: str,
+) -> None:
+    """Raise ``HandlerDispatchFailureError`` for a FAILED dispatch result that
+    would otherwise vanish silently (OMN-14716).
+
+    ``MessageDispatchEngine.dispatch()`` converts a dispatcher crash (a def-B
+    handler AttributeError, a boundary coercion ``ValidationError``, ...) into a
+    ``HANDLER_ERROR``/``INTERNAL_ERROR`` result rather than re-raising, and
+    ``DispatchResultApplier.apply()`` silently skips a non-SUCCESS result that
+    carries no applicable output. That combination is the exact
+    "handler crashed, both terminal topics stayed HWM=0, nothing surfaced"
+    incident shape. Detect only that shape — an error status with NO
+    output_events / output_intents / projection_intents — and raise so the
+    boundary routes it through ``_route_swallowed_exception`` (loud metric log +
+    best-effort DLQ).
+
+    A partial-success ``HANDLER_ERROR`` (one sibling handler failed but another
+    produced output the applier publishes) is intentionally NOT surfaced here —
+    it is not a silent drop. Non-error statuses are left untouched here and are
+    covered by their own guards: ``_raise_if_no_dispatcher_drop`` for
+    ``NO_DISPATCHER`` and ``_route_undeliverable_dispatch_output`` for a result
+    whose output has no applier to deliver it (both OMN-16798). Guarded on a real
+    ``ModelDispatchResult`` instance so a ``MagicMock`` result in a test never
+    trips it.
+    """
+    from omnibase_infra.enums import EnumDispatchStatus
+    from omnibase_infra.models.dispatch.model_dispatch_result import (
+        ModelDispatchResult,
+    )
+
+    if not isinstance(result, ModelDispatchResult):
+        return
+    if result.status not in (
+        EnumDispatchStatus.HANDLER_ERROR,
+        EnumDispatchStatus.INTERNAL_ERROR,
+    ):
+        return
+    has_applicable_output = bool(
+        result.output_events or result.output_intents or result.projection_intents
+    )
+    if has_applicable_output:
+        return
+    # OMN-16812: forward the typed error code the engine already resolved. It is
+    # the ONE authoritative attribution available at this seam — the handler's
+    # real exception object was consumed by the engine's catch-all and only its
+    # message survives into ``error_message``.
+    error_code = result.error_code
+    raise HandlerDispatchFailureError(
+        f"dispatch to topic={topic} returned status={result.status.value} with no "
+        f"terminal output (dispatcher_id={result.dispatcher_id}): "
+        f"{result.error_message or 'handler/coercion failure'}",
+        failure_code=error_code.value if error_code is not None else None,
+    )
+
+
+def _undeliverable_dispatch_output(result: object) -> str | None:
+    """Describe bus-bound output on a dispatch result that has no applier (OMN-16798).
+
+    Returns ``None`` when there is nothing undeliverable — the caller only
+    consults this when ``result_applier is None``, so a result carrying no
+    ``output_events`` (the overwhelmingly common projection/void-return case) is
+    not a drop and must stay silent.
+
+    Scope is deliberately ``output_events`` ONLY. A declared event is the one
+    output whose destination the CONTRACT states (``published_events`` →
+    ``publish_topics``), so "computed but never published" is provably a loss
+    against a written promise. ``output_intents`` / ``projection_intents``
+    delivered without an applier are the same class of silent drop but a
+    materially different blast radius (audit/projection consumers whose appliers
+    the kernel registers on a separate, intent-executor-bearing path), and no
+    live measurement was taken for them tonight — carried as an OMN-16798
+    residual rather than folded in on speculation.
+    """
+    from omnibase_infra.models.dispatch.model_dispatch_result import (
+        ModelDispatchResult,
+    )
+
+    if not isinstance(result, ModelDispatchResult):
+        return None
+    if not result.output_events:
+        return None
+    return (
+        f"dispatch to topic={result.topic} produced "
+        f"{len(result.output_events)} output event(s) "
+        f"({', '.join(sorted({type(e).__name__ for e in result.output_events}))}) "
+        f"but no result applier is wired for this subscription "
+        f"(dispatcher_id={result.dispatcher_id}, status="
+        f"{result.status.value if result.status else 'unknown'}) — the event "
+        "would be dropped and the offset committed"
+    )
+
+
+def _is_dead_letter_source_topic(topic: str) -> bool:
+    """True when a consumed topic is itself a dead-letter sink (OMN-16798).
+
+    Both OMN-16798 totality guards answer an undeliverable record by routing it
+    to the topic's DLQ. On a record CONSUMED FROM a DLQ topic that answer is
+    circular: ``get_dlq_topic_for_original`` resolves a ``onex.dlq.*`` topic back
+    to itself, so the guard republishes the record onto the very topic it just
+    read it from, and the subscriber reads it again.
+
+    Measured live on the .201 dev lane 2026-08-27T23:49-23:51Z during the first
+    matrix run after this ticket's fix deployed: ``node_dlq_replay_effect`` and
+    ``node_ledger_projection_compute`` both consume
+    ``onex.dlq.omnibase-infra.commands.v1``; a record neither could route was
+    re-DLQ'd onto that same topic, and 24 of the last 38 records on it carried
+    ``original_topic: onex.dlq.omnibase-infra.commands.v1`` — records the guard
+    itself had authored. It converged that run (HWM stable at 188, both groups
+    Stable at lag 0), but convergence there was luck, not mechanism.
+
+    A record already sitting on a dead-letter topic is ALREADY durably captured,
+    which is the whole point of the guards. AC4's requirement — dispatch, DLQ, or
+    refuse with evidence — is satisfied by the durable record plus a loud
+    structured log. Republishing adds no evidence and risks amplification, so the
+    guards log and stop here instead.
+    """
+    return ".dlq." in topic
+
+
+def _raise_if_no_dispatcher_drop(result: object, topic: str) -> None:
+    """Raise for a ``NO_DISPATCHER`` result the auto-wired boundary would ACK (OMN-16798).
+
+    ``MessageDispatchEngine.dispatch()`` DERIVES a ``dlq_topic`` for an unroutable
+    message and logs "routing to DLQ topic '<t>'" — but it never publishes there.
+    The sibling boundary (``EventBusSubcontractWiring._create_dispatch_callback``)
+    honors that field explicitly, and withholds the offset when the DLQ write is
+    not durable (OMN-14936). The auto-wired boundary did neither: it consumed the
+    record, committed the offset, and left no DLQ entry — the "consumes+commits
+    but never dispatches" signature first filed as OMN-14755 and re-measured live
+    on OMN-16798 (``delegation-routing-request.v1`` advancing against a Stable,
+    lag-0 group with no handler invocation and nothing in any DLQ).
+
+    Raising ``HandlerDispatchFailureError`` routes it through the same
+    ``_route_swallowed_exception`` path a raised handler exception takes: a loud
+    structured metric line always, plus a best-effort DLQ write under
+    ``ONEX_BOUNDARY_DLQ_ENABLED``. The record is by definition one this contract's
+    handlers could not validate, so it belongs behind that staged flag rather
+    than on the unconditional route reserved for known-good results.
+    """
+    from omnibase_infra.enums import EnumDispatchStatus
+    from omnibase_infra.models.dispatch.model_dispatch_result import (
+        ModelDispatchResult,
+    )
+
+    if not isinstance(result, ModelDispatchResult):
+        return
+    if result.status is not EnumDispatchStatus.NO_DISPATCHER:
+        return
+    failure_class = result.error_details.get("failure_class")
+    detail = (
+        f"dispatch to topic={topic} matched no dispatcher in this contract's "
+        f"scope (failure_class={failure_class or 'unknown'}, "
+        f"derived_dlq_topic={result.dlq_topic or 'none'}): "
+        f"{result.error_message or 'no dispatcher registered'}"
+    )
+    if _is_dead_letter_source_topic(topic):
+        # The record is already on a dead-letter sink — durably captured. Re-DLQ
+        # would republish it onto the same topic (see the helper's docstring for
+        # the live amplification this caused). Evidence, then stop.
+        logger.error(
+            "metric_name=boundary_dead_letter_unroutable dlq_routed=false "
+            "reason=already_on_dead_letter_topic topic=%s detail=%s",
+            topic,
+            detail,
+        )
+        return
+    # OMN-17397: the engine already resolved the typed code --
+    # ENVELOPE_VALIDATION_FAILED for a payload a registered dispatcher refused
+    # (a task class no consumer accepts), ITEM_NOT_REGISTERED for a true wiring
+    # gap. Dropping it here left the caller's terminal with a class and no code.
+    # Either way the same record is refused identically on every delivery, so
+    # the terminal must not invite a retry.
+    error_code = result.error_code
+    raise HandlerDispatchFailureError(
+        detail,
+        failure_code=error_code.value if error_code is not None else None,
+        retryable=False,
+    )
+
+
+def _normalize_contract_dispatcher_scope(
+    dispatcher_ids: Collection[str] | None,
+    *,
+    contract_name: str,
+    allow_empty: bool,
+) -> frozenset[str]:
+    """Return a canonical unique dispatcher scope without trusting transport state.
+
+    A contract-owned Kafka callback must never fall back to process-global
+    dispatch. Two contracts can intentionally consume the same topic under
+    distinct groups; global fan-out from each callback executes both contracts'
+    handlers once per group (OMN-15474). The live engine owner registry, not a
+    serialized wiring report, is authoritative for completeness.
+    """
+    if dispatcher_ids is None:
+        raise ModelOnexError(
+            message=(
+                "handler_wiring: contract-scoped subscription is missing its "
+                f"dispatcher scope for contract {contract_name!r}; refusing "
+                "process-global fan-out."
+            ),
+            error_code=EnumCoreErrorCode.INVALID_CONFIGURATION,
+        )
+    raw_dispatcher_ids = tuple(dispatcher_ids)
+    seen: set[str] = set()
+    duplicate_ids: set[str] = set()
+    for dispatcher_id in raw_dispatcher_ids:
+        if dispatcher_id in seen:
+            duplicate_ids.add(dispatcher_id)
+        seen.add(dispatcher_id)
+    if (
+        (not raw_dispatcher_ids and not allow_empty)
+        or any(
+            not dispatcher_id or dispatcher_id != dispatcher_id.strip()
+            for dispatcher_id in raw_dispatcher_ids
+        )
+        or duplicate_ids
+    ):
+        raise ModelOnexError(
+            message=(
+                "handler_wiring: contract-scoped subscription has an empty or "
+                f"invalid dispatcher scope for contract {contract_name!r} "
+                f"(duplicates={sorted(duplicate_ids)}); "
+                "refusing process-global fan-out."
+            ),
+            error_code=EnumCoreErrorCode.INVALID_CONFIGURATION,
+        )
+    return frozenset(raw_dispatcher_ids)
+
+
+def _require_contract_dispatcher_scope(
+    dispatcher_ids: Collection[str] | None,
+    *,
+    contract_name: str,
+) -> frozenset[str]:
+    """Return a canonical non-empty dispatcher scope before subscribing."""
+    return _normalize_contract_dispatcher_scope(
+        dispatcher_ids,
+        contract_name=contract_name,
+        allow_empty=False,
+    )
+
+
+def _require_unique_canonical_contract_names(
+    contract_names: Sequence[str],
+    *,
+    identity_source: str,
+) -> frozenset[str]:
+    """Return an exact identity set or reject aliases and duplicate rows."""
+    raw_names = tuple(contract_names)
+    noncanonical_names = tuple(
+        sorted(
+            {
+                contract_name
+                for contract_name in raw_names
+                if not contract_name or contract_name != contract_name.strip()
+            }
+        )
+    )
+    if noncanonical_names:
+        raise ModelOnexError(
+            message=(
+                f"handler_wiring: noncanonical {identity_source} contract names "
+                f"are not valid subscription identities: {noncanonical_names}"
+            ),
+            error_code=EnumCoreErrorCode.INVALID_CONFIGURATION,
+        )
+
+    seen: set[str] = set()
+    duplicate_names: set[str] = set()
+    for contract_name in raw_names:
+        if contract_name in seen:
+            duplicate_names.add(contract_name)
+        seen.add(contract_name)
+    if duplicate_names:
+        raise ModelOnexError(
+            message=(
+                f"handler_wiring: duplicate {identity_source} contract names "
+                "would collapse or schedule repeated consumer attachment: "
+                f"{sorted(duplicate_names)}"
+            ),
+            error_code=EnumCoreErrorCode.INVALID_CONFIGURATION,
+        )
+    return frozenset(raw_names)
+
+
+def _validate_initial_subscription_contract_identities(
+    manifest: ModelAutoWiringManifest,
+    report: ModelAutoWiringReport,
+) -> None:
+    """Require a canonical, exact bijection between report and manifest names.
+
+    OMN-15474 ruling 4 (re-affirmed by OMN-15621 after PR #2609 narrowed this
+    to a report-subset-of-manifest check, contrary to the ruling). Both
+    directions are load-bearing for single-owner dispatch:
+
+    1. **Uniqueness** on each side. A repeated contract name would schedule a
+       repeated consumer attachment for one identity — the same
+       execute-the-command-twice class this ticket exists to close.
+    2. **report ⊆ manifest.** A report row naming a contract the manifest never
+       declared is an identity error: it would attach a consumer for a contract
+       this boot does not own.
+    3. **manifest ⊆ report.** A manifest contract with no report row at all is
+       indistinguishable from one that silently vanished from the wiring
+       pass — exactly the class of bug that produced process-global dispatch
+       (OMN-15474). This direction is safe to assert unconditionally because
+       the report is contractually TOTAL over the manifest it was built from:
+       :func:`wire_from_manifest` backfills one explicit SKIPPED row per
+       uncovered contract via :func:`build_unwired_contract_results` before it
+       returns (see the "OMN-15474 totality post-condition" comment there), so
+       a contract that failed to wire, was resolver-skipped, or was
+       quarantined still produces a row — it is simply not ``WIRED``. A
+       missing row is therefore never legitimate; it means some caller handed
+       this function a report that was never produced by the real producer
+       (e.g. a hand-truncated report in a test), or a manifest that differs
+       from the one the report was built against. Both are boot-time bugs.
+
+    A prior revision of this docstring claimed the reverse direction "refused
+    the boot outright against the full shipped manifest (missing_from_report
+    = 118 contracts)". That is not reproducible against the current producer:
+    a live run of the real main-profile manifest (118 contracts) through
+    :func:`wire_from_manifest` yields a report that is already exactly total
+    (0 missing, 0 unexpected) before this check ever runs. The 118 in that
+    docstring was the full manifest size, not a genuine gap — see OMN-15621.
+    """
+    manifest_names = _require_unique_canonical_contract_names(
+        tuple(contract.name for contract in manifest.contracts),
+        identity_source="manifest",
+    )
+    report_names = _require_unique_canonical_contract_names(
+        tuple(result.contract_name for result in report.results),
+        identity_source="report",
+    )
+    if report_names != manifest_names:
+        raise ModelOnexError(
+            message=(
+                "handler_wiring: report and manifest contract-name mismatch; "
+                "initial subscription requires an exact bijection "
+                f"(missing_from_report={sorted(manifest_names - report_names)}, "
+                f"unexpected_in_report={sorted(report_names - manifest_names)})"
+            ),
+            error_code=EnumCoreErrorCode.INVALID_CONFIGURATION,
+        )
+
+
+def _validate_unattached_contract_identities(
+    manifest: ModelAutoWiringManifest,
+    attach_results: Sequence[ModelContractAttachResult],
+) -> tuple[ModelContractAttachResult, ...]:
+    """Return uniquely named UNATTACHED rows forming a valid manifest subset.
+
+    OMN-18110. Admission is ``ModelContractAttachResult.needs_reattach`` — the
+    single shared definition the kernel's selector reads too — so NOT_READY
+    (readiness never converged) and FAILED (readiness passed, the consumer
+    attach itself raised) are both re-attempted. Filtering on ``NOT_READY``
+    alone left a group-join timeout permanently unretried.
+    """
+    manifest_names = _require_unique_canonical_contract_names(
+        tuple(contract.name for contract in manifest.contracts),
+        identity_source="manifest",
+    )
+    pending_results = tuple(
+        result for result in attach_results if result.needs_reattach
+    )
+    unattached_names = _require_unique_canonical_contract_names(
+        tuple(result.contract_name for result in pending_results),
+        identity_source="UNATTACHED",
+    )
+    unexpected_names = unattached_names.difference(manifest_names)
+    if unexpected_names:
+        raise ModelOnexError(
+            message=(
+                "handler_wiring: UNATTACHED and manifest contract-name mismatch; "
+                "reattach identities must be a manifest subset "
+                f"(unexpected={sorted(unexpected_names)})"
+            ),
+            error_code=EnumCoreErrorCode.INVALID_CONFIGURATION,
+        )
+    return pending_results
+
+
+def _require_contract_scoped_dispatch_engine(
+    dispatch_engine: object,
+    *,
+    contract_name: str,
+) -> ProtocolContractScopedDispatchEngine:
+    """Resolve the explicit scoped-dispatch capability before consumer attach."""
+    scoped_dispatch = getattr(dispatch_engine, "dispatch_scoped", None)
+    if not callable(scoped_dispatch):
+        raise ModelOnexError(
+            message=(
+                "handler_wiring: contract-scoped subscription requires an "
+                f"explicit scoped dispatch capability for contract {contract_name!r}; "
+                "refusing to attach a consumer that could fail after delivery."
+            ),
+            error_code=EnumCoreErrorCode.INVALID_CONFIGURATION,
+        )
+    return cast("ProtocolContractScopedDispatchEngine", dispatch_engine)
+
+
+def _validate_registered_contract_dispatcher_scope(
+    dispatch_engine: object,
+    dispatcher_scope: frozenset[str],
+    *,
+    contract_name: str,
+) -> frozenset[str]:
+    """Compare one normalized scope with the complete live engine owner set."""
+    scoped_engine = _require_contract_scoped_dispatch_engine(
+        dispatch_engine,
+        contract_name=contract_name,
+    )
+    ownership_validator = getattr(
+        dispatch_engine,
+        "validate_contract_dispatcher_scope",
+        None,
+    )
+    if not callable(ownership_validator):
+        raise ModelOnexError(
+            message=(
+                "handler_wiring: contract-scoped subscription requires a "
+                "dispatcher ownership validation capability for contract "
+                f"{contract_name!r}; refusing to attach without proving "
+                "current engine membership."
+            ),
+            error_code=EnumCoreErrorCode.INVALID_CONFIGURATION,
+        )
+    return scoped_engine.validate_contract_dispatcher_scope(
+        contract_name,
+        dispatcher_scope,
+    )
+
+
+def _require_registered_contract_dispatcher_scope(
+    dispatch_engine: object,
+    dispatcher_ids: Collection[str] | None,
+    *,
+    contract_name: str,
+) -> frozenset[str]:
+    """Require one non-empty exact scope to exist on the current engine."""
+    dispatcher_scope = _require_contract_dispatcher_scope(
+        dispatcher_ids,
+        contract_name=contract_name,
+    )
+    return _validate_registered_contract_dispatcher_scope(
+        dispatch_engine,
+        dispatcher_scope,
+        contract_name=contract_name,
+    )
+
+
+def _validate_contract_dispatcher_ownership(
+    dispatch_engine: object,
+    dispatcher_scopes: Sequence[tuple[str, Collection[str]]],
+    *,
+    allow_empty_scopes: bool = False,
+) -> None:
+    """Validate current engine membership and one-contract ownership.
+
+    Reports and persisted NOT_READY results are typed transport artifacts, not
+    engine authority. Validate every referenced dispatcher before provisioning
+    or attaching any consumer. One contract may own multiple unique dispatcher
+    IDs; one dispatcher ID may never be claimed by multiple contracts.
+    """
+    normalized_scopes: list[tuple[str, frozenset[str]]] = []
+    owners_by_dispatcher: dict[str, set[str]] = defaultdict(set)
+    for contract_name, dispatcher_ids in dispatcher_scopes:
+        dispatcher_scope = _normalize_contract_dispatcher_scope(
+            dispatcher_ids,
+            contract_name=contract_name,
+            allow_empty=allow_empty_scopes,
+        )
+        normalized_scopes.append((contract_name, dispatcher_scope))
+        for dispatcher_id in dispatcher_scope:
+            owners_by_dispatcher[dispatcher_id].add(contract_name)
+
+    multiply_owned = {
+        dispatcher_id: tuple(sorted(owners))
+        for dispatcher_id, owners in owners_by_dispatcher.items()
+        if len(owners) > 1
+    }
+    if multiply_owned:
+        raise ModelOnexError(
+            message=(
+                "handler_wiring: contract-scoped subscription assigns "
+                "dispatcher IDs to multiple contracts; refusing consumer "
+                f"attach: {multiply_owned}"
+            ),
+            error_code=EnumCoreErrorCode.INVALID_CONFIGURATION,
+        )
+
+    for contract_name, dispatcher_scope in normalized_scopes:
+        _validate_registered_contract_dispatcher_scope(
+            dispatch_engine,
+            dispatcher_scope,
+            contract_name=contract_name,
+        )
+
+
+async def _dispatch_to_contract_scope(
+    dispatch_engine: ProtocolContractScopedDispatchEngine,
+    topic: str,
+    envelope: ModelEventEnvelope[object],
+    allowed_dispatcher_ids: frozenset[str],
+    delivery: ModelMessageDeliveryContext | None = None,
+) -> ModelDispatchResult:
+    """Dispatch through the engine while preserving callback ownership.
+
+    OMN-18918. ``delivery`` carries the source record's own coordinates from
+    whichever consume boundary called this. THIS is the path the in-process
+    projection writers take -- the five writers the OMN-18905 defect is about
+    declare ``db_tables`` and no ``consumer_purpose``, which routes them to
+    the two callbacks above rather than to ``EventBusSubcontractWiring``. A
+    live subscription readback on the .201 dev lane measured that seam
+    dispatching 104 calls across four topics, none of them a projection
+    source, so a typed path that reached only the other protocol would inject
+    nothing for exactly the writers it was built for and log the absence on
+    every message while the exposures stayed frozen. Found in second-actor
+    review before merge rather than on the lane afterwards.
+
+    The engine is probed before the keyword is passed, for the same reason
+    the other seam probes: ``delivery`` is optional on the protocol, so an
+    engine predating it is valid and would raise ``TypeError`` on an
+    unconditional keyword.
+    """
+    if delivery is not None and engine_type_accepts_delivery(
+        type(dispatch_engine), "dispatch_scoped"
+    ):
+        return await dispatch_engine.dispatch_scoped(
+            topic,
+            envelope,
+            allowed_dispatcher_ids=allowed_dispatcher_ids,
+            delivery=delivery,
+        )
+    return await dispatch_engine.dispatch_scoped(
+        topic,
+        envelope,
+        allowed_dispatcher_ids=allowed_dispatcher_ids,
+    )
+
+
+async def _route_apply_publish_failure(
+    exc: Exception,
+    *,
+    event_bus: object | None,
+    topic: str,
+    message: object,
+    correlation_id: UUID,
+) -> None:
+    """Unconditional best-effort DLQ routing for a non-outbox
+    ``result_applier.apply()`` publish failure (OMN-14498, adversarial
+    verify comment 3c6da9a0).
+
+    OMN-16798 gives this the second member of the same class: a dispatch that
+    SUCCEEDED and produced ``output_events`` on a subscription with NO applier
+    wired at all (``UndeliverableDispatchOutputError``). "The publish failed" and
+    "there was never anything to publish with" are the same loss with the same
+    known-good result behind them, so they take the same unconditional route.
+
+    Unlike ``_route_swallowed_exception``, this is NOT gated behind
+    ``_boundary_dlq_enabled()``: the dispatch already SUCCEEDED here --
+    only the downstream publish of its (already-computed) result failed --
+    so the record is not the doubtful/unvalidated payload the staged
+    rollout exists to hold back, it is a known-good result that failed to
+    land. Mirrors the same unconditional-DLQ idiom
+    ``_route_sync_publisher_failure`` uses for the sync-publisher leg
+    (#2436 / OMN-15029).
+
+    Unlike that fire-and-forget leg, THIS boundary owns a consume offset,
+    so (unlike ``_route_sync_publisher_failure``, which has nothing to
+    NACK) a failed/unavailable DLQ write here raises
+    ``BoundaryApplyPublishError`` instead of returning -- the caller
+    (``_make_event_bus_callback.callback``) propagates that unconditionally
+    so the offset is withheld rather than silently advanced. Never swallows
+    into a log-only return: either the record is durably DLQ'd (returns
+    normally, safe to ACK) or the offset must not advance (raises).
+    """
+    from omnibase_infra.event_bus.topic_constants import get_dlq_topic_for_original
+
+    if _is_dead_letter_source_topic(topic):
+        # OMN-18084: same circular route as the NO_DISPATCHER and handler-error
+        # legs. Note this one must LOG AND RETURN rather than raise: raising
+        # withholds the offset so the record is redelivered, and a record whose
+        # apply-publish fails deterministically on a dead-letter topic would be
+        # redelivered forever. It is already durably captured on a dead-letter
+        # sink, so committing over it loses nothing.
+        logger.error(
+            "metric_name=boundary_dead_letter_apply_publish_failed dlq_routed=false "
+            "reason=already_on_dead_letter_topic topic=%s error_type=%s "
+            "correlation_id=%s",
+            topic,
+            type(exc).__name__,
+            correlation_id,
+        )
+        return
+
+    publish_dlq_fn = (
+        getattr(event_bus, "_publish_raw_to_dlq", None)
+        if event_bus is not None
+        else None
+    )
+    if publish_dlq_fn is None or not callable(publish_dlq_fn):
+        logger.error(
+            "metric_name=boundary_swallow_observed dlq_routed=false "
+            "dlq_enabled=unconditional message_lost=true topic=%s "
+            "error_type=%s correlation_id=%s",
+            topic,
+            type(exc).__name__,
+            correlation_id,
+        )
+        raise BoundaryApplyPublishError(topic, correlation_id, exc)
+
+    try:
+        dlq_persisted = await publish_dlq_fn(
+            original_topic=topic,
+            raw_msg=message,
+            error=exc,
+            correlation_id=correlation_id,
+            failure_type="apply_publish_failed",
+            consumer_group="auto-wiring",
+            dlq_topic=get_dlq_topic_for_original(topic),
+        )
+    except Exception as dlq_exc:
+        logger.error(
+            "metric_name=boundary_swallow_observed dlq_routed=false "
+            "dlq_enabled=unconditional dlq_publish_failed=true "
+            "message_lost=true topic=%s error_type=%s dlq_error=%s "
+            "correlation_id=%s",
+            topic,
+            type(exc).__name__,
+            _sanitize_exc(dlq_exc),
+            correlation_id,
+        )
+        raise BoundaryApplyPublishError(topic, correlation_id, exc) from dlq_exc
+
+    if dlq_persisted:
+        logger.error(
+            "metric_name=boundary_swallow_prevented dlq_routed=true "
+            "dlq_enabled=unconditional topic=%s error_type=%s "
+            "correlation_id=%s",
+            topic,
+            type(exc).__name__,
+            correlation_id,
+        )
+        return
+
+    # OMN-14936-class False return: the publish did NOT durably persist
+    # (rejected input, producer unavailable, or the send itself
+    # failed/timed out) WITHOUT raising. Treated identically to the
+    # except-branch above -- not durable, so the offset must be withheld.
+    logger.error(
+        "metric_name=boundary_swallow_observed dlq_routed=false "
+        "dlq_enabled=unconditional dlq_publish_failed=true "
+        "message_lost=true topic=%s error_type=%s correlation_id=%s",
+        topic,
+        type(exc).__name__,
+        correlation_id,
+    )
+    raise BoundaryApplyPublishError(topic, correlation_id, exc)
+
+
+def _make_event_bus_callback(
+    topic: str,
+    dispatch_engine: ProtocolDispatchEngine,
+    result_applier: ProtocolDispatchResultApplier | None = None,
+    *,
+    tenant_scoped: bool = False,
+    event_bus: object | None = None,
+    propagate_publish_failures: bool = False,
+    allowed_dispatcher_ids: Collection[str] | None = None,
+    consumer_group: str | None = None,
+    declares_output: bool | None = None,
+    failure_terminal_topics: Sequence[str] = (),
+    terminal_answer_topic: str | None = None,
+) -> Callable[..., Awaitable[None]]:
+    """Create a Kafka on_message callback that deserializes and dispatches to engine.
+
+    Mirrors EventBusSubcontractWiring._create_dispatch_callback but stripped of
+    DLQ/idempotency concerns. When a result applier is supplied, dispatcher
+    outputs are applied on the same auto-wired path that owns the subscription.
+
+    ``tenant_scoped`` (OMN-14349, OMN-14208 Path A): when True, derives a
+    verified tenant_id from this topic's ``tenant-<slug>.`` wire prefix and
+    stamps it into the payload before ``dispatch_engine.dispatch()`` is ever
+    called -- overwriting any client-supplied value. This is the layer where
+    ``topic`` is genuinely in scope with the envelope still mutable (proven:
+    it already derives ``event_type`` from ``topic`` below); the per-handler
+    dispatch callback further downstream (``_make_dispatch_callback``) never
+    sees ``topic`` at all, so the stamp cannot happen there. A topic with no
+    ``tenant-<slug>.`` prefix is left completely unstamped -- never given a
+    defaulted or guessed tenant (Stage-1 warn semantics, OMN-14208 §5.1).
+
+    ``event_bus`` (OMN-14507): optional handle to the bus this topic was
+    subscribed on. Duck-typed for a ``_publish_raw_to_dlq`` method exactly
+    like ``EventBusSubcontractWiring._publish_to_dlq`` -- when present AND
+    ``_boundary_dlq_enabled()`` is True, a handler exception that survives
+    the bounded retry is routed there instead of vanishing. ``None`` (the
+    default) preserves the historical no-DLQ callback shape for any
+    caller/test that does not pass one.
+
+    ``consumer_group`` (OMN-16777): the group id this subscription joined. This
+    boundary is the ONLY place that knows both the group and the topic while a
+    message is in flight, so it is where throughput is counted. Counting has to
+    happen here rather than inside ``MessageDispatchEngine.dispatch()`` because
+    the engine is handed a topic and never learns which group is consuming it.
+    ``None`` (the default) disables counting for callers/tests that do not wire
+    a group -- it never fabricates one, because a fabricated group id would
+    produce flow rows attributed to a consumer that does not exist.
+
+    ``declares_output`` (OMN-19733) is the subscription contract's bus-output
+    capability. The caller derives it from the typed ``event_bus.publish_topics``
+    allowlist, the same source used to decide whether a dispatch result applier
+    can publish. ``None`` preserves compatibility for direct callback callers
+    without a contract.
+
+    ``failure_terminal_topics`` (OMN-16812): the FAILURE terminal topics this
+    contract declares, read through ``_declared_failure_terminal_topics`` -- the
+    same single reader the applier's OMN-15468 failure-routing guard and the
+    Pattern B broker's subscription set are built from. When exactly one is
+    declared, a handler failure that this boundary is about to COMMIT AN OFFSET
+    OVER is terminalized there: a correlation-exact
+    ``ModelBoundaryFailureTerminal`` naming the failure class, its ONEX code and
+    its retryability. Without it, OMN-16798 left the record safe and the CALLER
+    stranded -- the .201 delegation matrix DLQ'd a routing-reducer failure in
+    milliseconds and the caller still burned 120 s to a ``dispatch_timeout``
+    with ``retryable: true``. Two or more is ambiguous and left alone for the
+    same reason ``apply_failure_terminal_guard`` refuses to guess.
+
+    ``terminal_answer_topic`` (OMN-17432): the contract's own declared
+    terminal/output topic — the address its SUCCESSFUL answers already go to.
+    Used only when ``failure_terminal_topics`` is empty, which is the common
+    case: most contracts, ``node_gateway_attach_effect`` among them, declare no
+    separate failure terminal, and for those OMN-16812's terminal never fired at
+    all. Silence there is not a conservative default — the caller is holding a
+    correlation open, so "no address" resolves to a full-timeout 503 rather than
+    to nothing. See ``_resolve_boundary_terminal_answer_topic`` for the full
+    precedence and the guards it keeps. ``None`` (the default) preserves the
+    pre-OMN-17432 silence for callers/tests that wire no terminal address.
+    """
+    import json
+
+    from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
+    from omnibase_infra.runtime.observability import (
+        active_flow_key,
+        get_consumer_flow_counters,
+    )
+
+    flow_counters = get_consumer_flow_counters() if consumer_group is not None else None
+    if flow_counters is not None and consumer_group is not None:
+        # Register before any traffic so a subscription that takes NOTHING still
+        # emits a zero row every window. Absent rows and zero rows mean
+        # different things (unknown vs observed-idle) and must not be conflated.
+        flow_counters.register(
+            consumer_group,
+            topic,
+            declares_output=declares_output,
+        )
+
+    dispatcher_scope = _require_contract_dispatcher_scope(
+        allowed_dispatcher_ids,
+        contract_name=topic,
+    )
+    scoped_dispatch_engine = _require_contract_scoped_dispatch_engine(
+        dispatch_engine,
+        contract_name=topic,
+    )
+
+    def _derive_event_type_from_topic(topic: str) -> str | None:
+        parts = topic.split(".")
+        if len(parts) >= 5 and parts[0] == "onex":
+            return f"{parts[2]}.{parts[3]}"
+        return None
+
+    async def _dispatch_with_bounded_retry(
+        envelope: ModelEventEnvelope[object],
+        message: object,
+    ) -> None:
+        """Dispatch + apply, retrying a bounded number of times on failure.
+
+        A single attempt (no retry, no sleep) when the boundary-DLQ flag is
+        off -- matches the pre-OMN-14507 call shape exactly (dispatch once,
+        apply once). Only the dispatch/apply step is retried: a deserialize
+        failure above this point is a content error (malformed JSON/schema)
+        that retrying can never fix.
+
+        Non-retryable classification (OMN-14507 review, gap G2): a Pydantic
+        ``ValidationError`` or ``ProtocolConfigurationError`` raised BY the
+        dispatch/apply step is itself a content/config error -- e.g. a
+        handler-level wire-model rejecting an unknown field under
+        ``extra="forbid"`` (the exact §7 death signal this boundary exists to
+        carry), or ``ProtocolConfigurationError`` from a missing dispatcher.
+        Both are deterministic: retrying burns the full backoff budget for a
+        guaranteed-identical failure. These break out of the loop on the
+        FIRST occurrence and go straight to the caller's DLQ/log handling,
+        matching the sibling classifier's (``EventBusSubcontractWiring``)
+        non-retryable treatment of content errors. Everything else (network
+        blips, transient infra errors) is retried up to
+        ``_BOUNDARY_DLQ_MAX_ATTEMPTS`` times.
+
+        Idempotency note (gap G4): a handler that performs a side effect
+        before raising will have that side effect repeated on each retry
+        attempt within a single delivery (in addition to Kafka's own
+        at-least-once redelivery). Handlers on this boundary are expected to
+        be idempotent already for that reason; this does not introduce a new
+        assumption, only a higher chance of exercising it within one message.
+        """
+        from pydantic import ValidationError as PydanticValidationError
+
+        from omnibase_infra.errors import ProtocolConfigurationError
+
+        attempts = _BOUNDARY_DLQ_MAX_ATTEMPTS if _boundary_dlq_enabled() else 1
+        last_exc: Exception | None = None
+        for attempt in range(attempts):
+            try:
+                if not await _wait_for_dispatch_engine_freeze(topic, dispatch_engine):
+                    return
+                result = await _dispatch_to_contract_scope(
+                    scoped_dispatch_engine,
+                    topic,
+                    envelope,
+                    dispatcher_scope,
+                    delivery_context_from_message(message, topic),
+                )
+                if result_applier is not None and result is not None:
+                    try:
+                        # OMN-16831: the applier is the origination site for both
+                        # the OMN-18116 causal edge and the tenant dimension, and
+                        # it reads the consumed envelope off this contextvar. The
+                        # engine binds it only around the DISPATCHER call, which
+                        # has already returned by the time we get here, so on this
+                        # boundary -- the deployed one -- the applier saw None and
+                        # every event it published was recorded as a chain head
+                        # with no tenant. Measured on the real wiring seam:
+                        # parent_envelope_id None and tenant_id None for a
+                        # consumed envelope carrying both.
+                        #
+                        # Binding here rather than moving the engine's bind keeps
+                        # the engine's narrower guarantee intact and adds the one
+                        # this seam needs. `envelope` is the record this callback
+                        # consumed, which is precisely what both dimensions are
+                        # supposed to be derived from.
+                        with bind_dispatch_envelope(envelope):
+                            await result_applier.apply(result, envelope.correlation_id)
+                    except Exception as apply_exc:
+                        # OMN-14403 §4.3: on the outbox path a publish failure
+                        # must PROPAGATE (redeliver), never be retried-then-
+                        # swallowed. Tag it so the loop breaks and the outer
+                        # handler re-raises.
+                        if propagate_publish_failures:
+                            raise BoundaryPublishError(
+                                "outbox publish failed"
+                            ) from apply_exc
+                        # OMN-14498 (adversarial verify, comment 3c6da9a0): off
+                        # the outbox path this used to ride the generic retry
+                        # arm below and, on exhaustion, fall into the
+                        # flag-gated `_route_swallowed_exception` -- which at
+                        # the DEFAULT (unset) ONEX_BOUNDARY_DLQ_ENABLED state
+                        # logs one line and returns normally (an ACK), losing
+                        # the record silently. The dispatch already SUCCEEDED
+                        # here; only the downstream publish of its result
+                        # failed, so this is routed through an UNCONDITIONAL
+                        # best-effort DLQ attempt instead of the staged-
+                        # rollout flag (mirrors the sync-publisher leg's own
+                        # unconditional route, #2436 / OMN-15029). Raises
+                        # BoundaryApplyPublishError -- never retried, never
+                        # re-absorbed by `_route_swallowed_exception` -- when
+                        # that attempt cannot durably persist the record, so
+                        # the offset is withheld instead of silently advanced.
+                        await _route_apply_publish_failure(
+                            apply_exc,
+                            event_bus=event_bus,
+                            topic=topic,
+                            message=message,
+                            correlation_id=envelope.correlation_id or uuid4(),
+                        )
+                        return
+                elif result is not None:
+                    # OMN-16798: no applier is wired for this subscription. If the
+                    # dispatch produced bus-bound output, this `return` would be a
+                    # committed offset with no observable effect — the exact shape
+                    # that left `routing-decision.v1` at a flat high-watermark
+                    # while every delegation timed out. Route the record through
+                    # the same UNCONDITIONAL DLQ leg an apply()-publish failure
+                    # takes; a result with nothing to deliver is untouched.
+                    undeliverable = _undeliverable_dispatch_output(result)
+                    if undeliverable is not None:
+                        logger.error(
+                            "Auto-wiring boundary has no result applier for output-"
+                            "producing dispatch: topic=%s correlation_id=%s detail=%s",
+                            topic,
+                            envelope.correlation_id,
+                            undeliverable,
+                        )
+                        if _is_dead_letter_source_topic(topic):
+                            # Same circular-route hazard as the NO_DISPATCHER leg
+                            # (see _is_dead_letter_source_topic): the record is
+                            # already on a dead-letter sink, so the DLQ answer
+                            # would republish it onto its own topic. The log line
+                            # above is the evidence; stop here. Guarded by
+                            # symmetry — the amplification was MEASURED on the
+                            # NO_DISPATCHER leg only, not this one.
+                            return
+                        await _route_apply_publish_failure(
+                            UndeliverableDispatchOutputError(undeliverable),
+                            event_bus=event_bus,
+                            topic=topic,
+                            message=message,
+                            correlation_id=envelope.correlation_id or uuid4(),
+                        )
+                        return
+                # OMN-16798: a NO_DISPATCHER result names a DLQ topic nobody
+                # publishes to on this boundary. Surface it so the record is
+                # DLQ'd/logged instead of consumed with no observable effect.
+                _raise_if_no_dispatcher_drop(result, topic)
+                # OMN-14716: the engine catch-all converts a dispatcher crash (a
+                # def-B handler AttributeError, a boundary coercion failure) into a
+                # FAILED result instead of re-raising, and the applier silently
+                # skips a non-SUCCESS result with no output. Surface that shape so
+                # it is logged + best-effort-DLQ'd here instead of vanishing at
+                # HWM=0 -- routed through the same _route_swallowed_exception path
+                # a raised handler exception takes.
+                _raise_if_silent_dispatch_failure(result, topic)
+                return
+            except ProjectionNotMaterializedError as exc:
+                # OMN-17379: non-retryable HERE, but for the opposite reason to
+                # the tuple below. The write path is broken for as long as it
+                # takes an operator to repair it (a missing GRANT, a dead
+                # database), so burning the local backoff budget re-issuing the
+                # same statement proves nothing. The record is preserved by
+                # withholding the offset, not by retrying in-process — Kafka
+                # redelivery is the retry, and it happens after the repair.
+                last_exc = exc
+                break
+            except (
+                PydanticValidationError,
+                ProtocolConfigurationError,
+                BoundaryPublishError,
+                BoundaryApplyPublishError,
+                HandlerDispatchFailureError,
+            ) as exc:
+                # Non-retryable: deterministic content/config error, an outbox
+                # publish failure that must propagate (not retry), a FAILED
+                # dispatch result the engine already produced deterministically
+                # (OMN-14716), or an already-exhausted unconditional DLQ
+                # attempt for a non-outbox apply() publish failure (OMN-14498)
+                # -- the handler already dispatched successfully once;
+                # re-invoking it on retry would only risk duplicate side
+                # effects for a downstream-publish problem retrying the
+                # handler itself cannot fix. No backoff, no further attempts
+                # -- see docstring gap G2 + OMN-14403 §4.3.
+                last_exc = exc
+                break
+            except Exception as exc:  # noqa: BLE001 — bounded-retry loop; re-raised below on exhaustion
+                last_exc = exc
+                if attempt < attempts - 1:
+                    backoff = _BOUNDARY_DLQ_RETRY_BACKOFF_SECONDS[
+                        min(attempt, len(_BOUNDARY_DLQ_RETRY_BACKOFF_SECONDS) - 1)
+                    ]
+                    logger.warning(
+                        "Auto-wiring callback retry: topic=%s attempt=%d/%d "
+                        "error_type=%s error=%s backoff_s=%.2f",
+                        topic,
+                        attempt + 1,
+                        attempts,
+                        type(exc).__name__,
+                        _sanitize_exc(exc),
+                        backoff,
+                    )
+                    await asyncio.sleep(backoff)
+        assert last_exc is not None
+        raise last_exc
+
+    async def _emit_boundary_failure_terminal(
+        exc: Exception,
+        correlation_id: UUID,
+        failure_reason: str,
+        message: object,
+    ) -> None:
+        """Terminalize a handler failure this boundary is about to ACK (OMN-16812).
+
+        Called at each point where ``_route_swallowed_exception`` is about to
+        return normally -- which, at this boundary, means the offset advances
+        and nothing will ever re-attempt the record. From that instant anything
+        waiting on this contract's terminals is waiting on a message that will
+        never come. OMN-16798 made that outcome safe for the RECORD (DLQ'd, or
+        loudly counted as lost); this makes it OBSERVABLE to the caller.
+
+        Deliberately NOT called on the paths that raise
+        (``BoundaryDlqNotPersistedError``): those withhold the offset so the
+        record is redelivered, and a terminal published for a correlation that
+        is about to be retried would be a lie about a still-live request.
+
+        Best-effort by construction, and last: a bus that cannot take the
+        terminal must not convert a DLQ'd (safe) record into a raised (withheld,
+        redelivered) one. The DLQ decision is already made and logged by the time
+        this runs; the failure of an observability emission may not overturn it.
+        """
+        from omnibase_infra.runtime.boundary_failure_terminal import (
+            classify_boundary_failure,
+        )
+
+        if _is_boundary_failure_terminal_record(message):
+            # A terminal is an answer, not a request: nobody is holding a
+            # correlation open behind it. Terminalizing it would answer no one
+            # and would propagate one handler failure across every contract
+            # subscribed downstream (OMN-17432).
+            logger.error(
+                "Boundary failure terminal suppressed: the failed record is "
+                "itself a failure terminal, so no caller is waiting on it "
+                "(OMN-17432) topic=%s correlation_id=%s",
+                topic,
+                correlation_id,
+            )
+            return
+
+        resolved_topic = _resolve_boundary_terminal_answer_topic(
+            failure_terminal_topics=failure_terminal_topics,
+            terminal_answer_topic=terminal_answer_topic,
+            consumed_topic=topic,
+        )
+        if resolved_topic is None:
+            logger.error(
+                "Boundary failure terminal suppressed: no unambiguous declared "
+                "address to answer at (OMN-16812/OMN-17432) topic=%s "
+                "failure_terminals=%s terminal_answer_topic=%s correlation_id=%s",
+                topic,
+                list(failure_terminal_topics),
+                terminal_answer_topic,
+                correlation_id,
+            )
+            return
+        terminal_topic = resolved_topic
+        publish_fn = getattr(event_bus, "publish", None) if event_bus else None
+        if publish_fn is None or not callable(publish_fn):
+            logger.error(
+                "Boundary failure terminal NOT emitted: no publishable event bus "
+                "on this subscription (OMN-16812) topic=%s terminal_topic=%s "
+                "correlation_id=%s",
+                topic,
+                terminal_topic,
+                correlation_id,
+            )
+            return
+
+        terminal = classify_boundary_failure(
+            exc,
+            topic=topic,
+            correlation_id=correlation_id,
+            failure_reason=failure_reason,
+            failure_code=getattr(exc, "failure_code", None),
+        )
+        envelope = ModelEventEnvelope[object](
+            payload=terminal,
+            correlation_id=correlation_id,
+            envelope_timestamp=datetime.now(UTC),
+            event_type=_derive_event_type_from_topic(terminal_topic),
+            source_tool="auto-wiring-boundary",
+            target_tool=terminal_topic,
+            payload_type=type(terminal).__name__,
+            # OMN-16831 item 2: a boundary failure terminal is the ONLY thing a
+            # tenant's abandoned request ever produces, and it was published
+            # unattributed. Read off the consumed record, never sourced.
+            tenant_id=_tenant_id_from_raw_message(message),
+        )
+        try:
+            await publish_fn(
+                terminal_topic,
+                None,
+                envelope.model_dump_json().encode("utf-8"),
+                None,
+            )
+        except Exception as publish_exc:  # noqa: BLE001 — see docstring: must not overturn the DLQ outcome
+            logger.error(
+                "Boundary failure terminal publish FAILED (OMN-16812): topic=%s "
+                "terminal_topic=%s error_type=%s error=%s correlation_id=%s",
+                topic,
+                terminal_topic,
+                type(publish_exc).__name__,
+                _sanitize_exc(publish_exc),
+                correlation_id,
+            )
+            return
+        logger.error(
+            "metric_name=boundary_failure_terminalized terminal_topic=%s "
+            "topic=%s failure_class=%s failure_code=%s retryable=%s "
+            "correlation_id=%s",
+            terminal_topic,
+            topic,
+            terminal.failure_class,
+            terminal.failure_code,
+            terminal.retryable,
+            correlation_id,
+        )
+
+    async def _route_swallowed_exception(
+        exc: Exception,
+        message: object,
+        correlation_id: UUID,
+    ) -> None:
+        """Handle a handler exception that survived dispatch (OMN-14507).
+
+        flag OFF (default): identical swallow-and-ACK semantics to the
+        pre-fix behavior -- one ``logger.error`` -- plus a structured
+        metric-shaped log line so the swallow is at least observable (the
+        DEFAULT-OFF, warn-first stage of the rollout).
+
+        flag ON: additionally attempts to durably preserve the message in
+        the topic's DLQ via the same duck-typed ``_publish_raw_to_dlq``
+        contract ``EventBusSubcontractWiring._publish_to_dlq`` already
+        depends on. If no ``event_bus`` was supplied, the bus does not
+        expose that method, or the DLQ publish itself raises, this degrades
+        to the same loud-log-only path -- it never raises and never blocks
+        the boundary from returning.
+
+        Honesty note (OMN-14507 review, gap G1): this is BEST-EFFORT DLQ
+        delivery, not true at-least-once. The offset always advances (no
+        nack/redelivery here) -- if the retry budget is exhausted AND the
+        DLQ publish itself fails, the message IS lost, just loudly instead of
+        silently. Strictly better than the pre-fix 100% swallow, but callers
+        must not read "flag ON" as a guarantee that no message can ever be
+        lost; that would require true nack/redelivery, deliberately deferred
+        to a follow-up (see G1 in the PR review).
+
+        Metric naming (gap G3): only the case that ACTUALLY prevented loss
+        (``dlq_routed=true``) is logged as ``boundary_swallow_prevented``. The
+        flag-off path and the DLQ-unavailable/DLQ-publish-failed paths are
+        logged as ``boundary_swallow_observed`` -- nothing was prevented
+        there, only observed; conflating the two would mislead an operator
+        alerting on the "prevented" counter into believing the message survived.
+        """
+        from omnibase_infra.enums import EnumInfraTransportType
+        from omnibase_infra.errors import ModelInfraErrorContext
+        from omnibase_infra.utils.util_error_sanitization import (
+            sanitize_error_message,
+        )
+
+        sanitized = sanitize_error_message(exc)
+        # OMN-16777: this is the seam a handler exception actually reaches. It
+        # is read from the closure rather than the task-local flow key because
+        # the caller's `with active_flow_key(...)` block has already exited by
+        # the time an exception propagates out of it.
+        if flow_counters is not None and consumer_group is not None:
+            flow_counters.record_error(consumer_group, topic)
+        logger.error(
+            "Auto-wiring callback error: topic=%s error_type=%s error=%s "
+            "correlation_id=%s",
+            topic,
+            type(exc).__name__,
+            sanitized,
+            correlation_id,
+        )
+        if _is_dead_letter_source_topic(topic):
+            # OMN-18084: the third and last unguarded leg. The NO_DISPATCHER
+            # leg (`_raise_if_no_dispatcher_drop`) and the no-result-applier
+            # leg have taken this branch since OMN-16798; this one had not, and
+            # OMN-18013 moved DLQ traffic onto it by making the replay handler
+            # dispatch successfully and then fail. `get_dlq_topic_for_original`
+            # is a FIXED POINT on dead-letter names, so the write below would
+            # land the record back on the topic it was just read from —
+            # measured on the .201 dev lane 2026-09-09 at 193.8 records/s,
+            # ~151 GB/day, on a mount with 590 GB free shared with prod,
+            # stability-test and judge.
+            #
+            # No terminal is emitted either. A terminal is an answer, and the
+            # caller behind a record sitting on a dead-letter sink was already
+            # answered when it was first dead-lettered (the OMN-17432
+            # rationale); a second one would answer nobody and would be written
+            # to the quarantine sink this same handler consumes.
+            logger.error(
+                "metric_name=boundary_dead_letter_handler_error dlq_routed=false "
+                "reason=already_on_dead_letter_topic topic=%s error_type=%s "
+                "error=%s correlation_id=%s",
+                topic,
+                type(exc).__name__,
+                sanitized,
+                correlation_id,
+            )
+            return
+        dlq_enabled = _boundary_dlq_enabled()
+        publish_dlq_fn = (
+            getattr(event_bus, "_publish_raw_to_dlq", None)
+            if dlq_enabled and event_bus is not None
+            else None
+        )
+        if publish_dlq_fn is None or not callable(publish_dlq_fn):
+            # metric surface: a structured, greppable log line stands in for a
+            # counter emission in this DRAFT (see PR body for the follow-up).
+            # Nothing was prevented here -- see gap G3 above.
+            logger.error(
+                "metric_name=boundary_swallow_observed dlq_routed=false "
+                "dlq_enabled=%s topic=%s error_type=%s correlation_id=%s",
+                dlq_enabled,
+                topic,
+                type(exc).__name__,
+                correlation_id,
+            )
+            # OMN-16812: the offset advances from here, so this is an ACK over a
+            # failure. Terminalize regardless of the DLQ flag -- whether the
+            # record was preserved is orthogonal to whether the caller is told.
+            await _emit_boundary_failure_terminal(
+                exc, correlation_id, sanitized, message
+            )
+            return
+
+        def _increment_message_lost_counter() -> None:
+            # OMN-14551: this IS the alertable signal -- the log line at each
+            # call site is greppable but not pageable. Never let metric
+            # emission itself become a new swallow site.
+            if _BOUNDARY_MESSAGE_LOST_COUNTER is None:
+                return
+            try:
+                _BOUNDARY_MESSAGE_LOST_COUNTER.labels(
+                    topic=topic, error_type=type(exc).__name__
+                ).inc()
+            except Exception as metric_exc:  # noqa: BLE001 — metric emission must never crash the consumer
+                context = ModelInfraErrorContext.with_correlation(
+                    correlation_id=correlation_id,
+                    transport_type=EnumInfraTransportType.KAFKA,
+                    operation="increment_message_lost_counter",
+                    target_name=topic,
+                    original_error_type=type(metric_exc).__name__,
+                )
+                logger.warning(
+                    "Failed to increment onex_boundary_message_lost_total "
+                    "metric for topic=%s (message loss above is still "
+                    "authoritative): context=%s",
+                    topic,
+                    context.model_dump(mode="json", exclude_none=True),
+                )
+
+        try:
+            from omnibase_infra.event_bus.topic_constants import (
+                get_dlq_topic_for_original,
+            )
+
+            dlq_persisted = await publish_dlq_fn(
+                original_topic=topic,
+                raw_msg=message,
+                error=exc,
+                correlation_id=correlation_id,
+                failure_type="handler_exception",
+                consumer_group="auto-wiring",
+                dlq_topic=get_dlq_topic_for_original(topic),
+            )
+            if dlq_persisted:
+                if flow_counters is not None and consumer_group is not None:
+                    flow_counters.record_dlq(consumer_group, topic)
+                logger.error(
+                    "metric_name=boundary_swallow_prevented dlq_routed=true "
+                    "dlq_enabled=%s topic=%s error_type=%s correlation_id=%s",
+                    dlq_enabled,
+                    topic,
+                    type(exc).__name__,
+                    correlation_id,
+                )
+                # OMN-16812: the record is durably parked and the offset is
+                # about to advance -- exactly the .201 shape where the DLQ
+                # write and the 120 s caller timeout coexisted. Answer the
+                # caller now, with the class the runtime already knows.
+                await _emit_boundary_failure_terminal(
+                    exc, correlation_id, sanitized, message
+                )
+            else:
+                # OMN-14936: a False return means the publish did NOT
+                # durably persist (rejected input, producer unavailable, or
+                # the send itself failed/timed out) WITHOUT raising -- the
+                # message is lost exactly like the except-branch below, just
+                # signaled through the return value instead of an exception.
+                # Reusing "dlq_publish_failed=true" here (rather than a new
+                # token) keeps this the same alertable shape as the
+                # exception path for any existing log-based consumer.
+                logger.error(
+                    "metric_name=boundary_swallow_observed dlq_routed=false "
+                    "dlq_enabled=%s dlq_publish_failed=true message_lost=true "
+                    "topic=%s error_type=%s correlation_id=%s",
+                    dlq_enabled,
+                    topic,
+                    type(exc).__name__,
+                    correlation_id,
+                )
+                _increment_message_lost_counter()
+                # OMN-14498: a NACK must never ACK the offset. Returning
+                # normally here IS an ACK -- _dispatch_to_subscriber reads
+                # "no exception" as success and lets the offset advance --
+                # so the record would be acknowledged while existing nowhere
+                # durable, and the OMN-15232 rewind path would never see it.
+                raise BoundaryDlqNotPersistedError(topic, correlation_id, exc)
+        except BoundaryDlqNotPersistedError:
+            raise
+        except Exception as dlq_exc:
+            # Best-effort DLQ failed too -- the message IS lost here (gap G1).
+            # Loud, not silent, but not prevented -- see gap G3 above.
+            logger.error(
+                "metric_name=boundary_swallow_observed dlq_routed=false "
+                "dlq_enabled=%s dlq_publish_failed=true message_lost=true "
+                "topic=%s error_type=%s dlq_error=%s correlation_id=%s",
+                dlq_enabled,
+                topic,
+                type(exc).__name__,
+                sanitize_error_message(dlq_exc),
+                correlation_id,
+            )
+            _increment_message_lost_counter()
+            # Same invariant as the False-return branch above: the DLQ write
+            # is not durable, so the offset must be withheld rather than
+            # advanced over a message that exists nowhere.
+            raise BoundaryDlqNotPersistedError(topic, correlation_id, exc) from dlq_exc
+
+    async def callback(message: object) -> None:
+        from uuid import uuid4
+
+        # OMN-14498: seed lineage from the INGRESS transport headers before
+        # anything can fail. The body is not a reliable lineage source -- a
+        # poisoned message (truncated/undecodable JSON) raises inside
+        # json.loads below, before either body-derived recovery
+        # (envelope.correlation_id / data["correlation_id"]) can run, and the
+        # boundary then fell through to the DLQ still holding a freshly
+        # minted uuid4. That produced a VALID id with the WRONG lineage: the
+        # DLQ record, and every faithful replay of it, carried a fabricated
+        # ancestry, so the resulting terminal joined to nothing upstream.
+        # Precedence is ingress header -> body -> mint, so a decodable
+        # envelope still wins (it is the authoritative in-band value) and a
+        # message with no lineage anywhere still gets a usable id.
+        correlation_id: UUID = _ingress_correlation_id(message) or uuid4()
+        try:
+            raw = getattr(message, "value", None)
+            if raw is not None:
+                data = json.loads(
+                    raw.decode("utf-8") if isinstance(raw, bytes) else raw
+                )
+                from pydantic import ValidationError as PydanticValidationError
+
+                try:
+                    envelope: ModelEventEnvelope[object] = ModelEventEnvelope[
+                        object
+                    ].model_validate(data)
+                except PydanticValidationError:
+                    # Raw command payload (no envelope wrapper) — synthesize one.
+                    from datetime import UTC, datetime
+
+                    raw_corr = (
+                        data.get("correlation_id") if isinstance(data, dict) else None
+                    )
+                    corr = _coerce_uuid_or_none(raw_corr) or uuid4()
+                    # OMN-18958: ADOPT the identity the wire states; do not
+                    # mint a rival. `ModelEventEnvelope.envelope_id` defaults
+                    # to uuid4, so omitting this argument silently produced a
+                    # SECOND id for a message that already had one -- and that
+                    # second id is what every hop caused by this message
+                    # records as its parent, via the one shared
+                    # `current_dispatch_envelope()` contextvar. The result is
+                    # an edge no reader can resolve, because the parent it
+                    # names was never on the wire.
+                    #
+                    # Same precedence as `correlation_id` immediately above
+                    # and as the comment at the top of this block states:
+                    # ingress header -> body -> mint. A body that states its
+                    # own id is the authoritative in-band value; minting
+                    # survives only where there is nothing to adopt.
+                    raw_env_id = (
+                        data.get("envelope_id") if isinstance(data, dict) else None
+                    )
+                    env_id = (
+                        _ingress_message_id(message)
+                        or _coerce_uuid_or_none(raw_env_id)
+                        or uuid4()
+                    )
+                    derived = _derive_event_type_from_topic(topic)
+                    envelope = ModelEventEnvelope[object](
+                        envelope_id=env_id,
+                        payload=data,
+                        correlation_id=corr,
+                        envelope_timestamp=datetime.now(UTC),
+                        event_type=derived or topic,
+                        source_tool="auto-wiring",
+                        tenant_id=_extract_dispatch_tenant_id(data),
+                    )
+                # OMN-18013 (operator ruling item 2): the event type a handler
+                # matches on is read from the TOPIC — the publisher's contract
+                # declares the topic, and ``derive_event_type_alias_for_topic``
+                # is the single source for the alias on both sides of the wire
+                # (OMN-17296). The payload's own ``event_type`` field is an
+                # untyped, uncontracted string that no contract declares and no
+                # gate checks; honouring it let a publisher re-key a message to
+                # any dispatcher at will, and is the only path by which the 12
+                # alias-mismatch handler entries are reachable at all. It is no
+                # longer consulted.
+                derived_event_type = _derive_event_type_from_topic(topic)
+                if derived_event_type is not None:
+                    envelope = envelope.model_copy(
+                        update={"event_type": derived_event_type}
+                    )
+                if tenant_scoped:
+                    envelope = _stamp_tenant_id_from_topic_prefix(topic, envelope)
+            else:
+                if not isinstance(message, ModelEventEnvelope):
+                    logger.warning(
+                        "Auto-wiring callback: message has no 'value' and is not a ModelEventEnvelope"
+                        " — dropping. topic=%s message_type=%s",
+                        topic,
+                        type(message).__name__,
+                    )
+                    return
+                envelope = message
+            if envelope.correlation_id is not None:
+                correlation_id = envelope.correlation_id
+            if flow_counters is None or consumer_group is None:
+                await _dispatch_with_bounded_retry(envelope, message)
+            else:
+                # OMN-16777: an envelope reaching this line HAS been handed
+                # to dispatch. Counted before the call, not after, so a
+                # handler that hangs or dies still shows the message as
+                # taken in -- counting only successful dispatches would
+                # reproduce exactly the "green because nothing was
+                # measured" defect.
+                flow_counters.record_in(consumer_group, topic)
+                with active_flow_key(consumer_group, topic):
+                    await _dispatch_with_bounded_retry(envelope, message)
+        except ProjectionNotMaterializedError:
+            # OMN-17379: propagate unconditionally, for the same reason
+            # BoundaryApplyPublishError does. Routing it through
+            # `_route_swallowed_exception` would DLQ a well-formed event and
+            # return normally — an ACK — which is precisely the swallow that let
+            # `pr_merged_events` sit 24 days behind the topic it consumes at
+            # TOTAL-LAG 0. Raising reaches `_dispatch_to_subscriber`, which
+            # classifies this type as offset-unsafe and rewinds.
+            raise
+        except BoundaryApplyPublishError as exc:
+            # OMN-14498 (adversarial verify, comment 3c6da9a0): this marks an
+            # already-exhausted UNCONDITIONAL DLQ attempt for a non-outbox
+            # result-applier publish failure (see
+            # `_route_apply_publish_failure`) -- it must never be re-routed
+            # through the flag-gated `_route_swallowed_exception`, which
+            # would silently ACK when ONEX_BOUNDARY_DLQ_ENABLED is unset
+            # (the exact silent-drop this ticket exists to close). Propagate
+            # unconditionally, un-unwrapped -- same shape as
+            # BoundaryDlqNotPersistedError's propagation on the sibling
+            # flag-gated path -- so the offset is withheld instead.
+            raise
+        except (OptimisticConflictError, BoundaryPublishError) as exc:
+            # OMN-14403 §4.3, OMN-14600 CORRECTION: this except-tuple's
+            # OptimisticConflictError arm is effectively DEAD for a dispatcher
+            # registered on MessageDispatchEngine (the state_io stateful
+            # callback IS such a dispatcher) — dispatch_engine.dispatch()
+            # catches every exception its per-dispatcher invocation loop sees
+            # and returns a HANDLER_ERROR status instead of re-raising, so an
+            # OptimisticConflictError raised inside _load_handle_persist's
+            # retry_on_optimistic_conflict call never survives to reach here.
+            # BoundaryPublishError IS live: it is raised by
+            # _dispatch_with_bounded_retry AFTER dispatch_engine.dispatch()
+            # already returned (from result_applier.apply() failing), which is
+            # outside that catch-all, so it genuinely propagates from this
+            # callback to its caller (no offset commit here). Whether that
+            # caller's non-commit actually produces a Kafka redelivery is a
+            # property of the OUTER consumer wiring, not verified at this
+            # layer — do not assume it without checking that caller.
+            if propagate_publish_failures:
+                if isinstance(exc, BoundaryPublishError) and exc.__cause__:
+                    raise exc.__cause__
+                raise
+            await _route_swallowed_exception(exc, message, correlation_id)
+        except Exception as exc:  # noqa: BLE001 — boundary: never unsubscribe; route to _route_swallowed_exception
+            await _route_swallowed_exception(exc, message, correlation_id)
+
+    return callback
+
+
+def _stamp_tenant_id_from_topic_prefix(
+    topic: str,
+    envelope: ModelEventEnvelope[object],
+) -> ModelEventEnvelope[object]:
+    """Overwrite payload["tenant_id"] with the slug from a tenant-<slug>. wire prefix.
+
+    OMN-14349 (OMN-14208 Path A). The config-bound identity always wins: this
+    overwrites any client-supplied ``tenant_id``, it never merges-if-absent
+    and never falls back to one. A topic with no matching prefix leaves the
+    payload completely untouched -- never a defaulted or guessed tenant
+    (Stage-1 warn semantics; a missing/self-reported value is handled by the
+    existing OMN-14058 flow downstream, not masked here).
+
+    OMN-15792: this is the subscribe/dispatch-side call site of the single
+    runtime topic resolver. ``resolve_tenant_from_wire_topic`` is the same
+    resolver the gateway forwarder's publish-side ``HandlerForwardOutbound``
+    resolves through (via ``prefix_topic``) -- previously this function
+    hand-rolled its own regex extraction with no slug validation, which is
+    exactly the two-independent-resolvers-disagreeing class OMN-15757/
+    OMN-15778 hit. A reserved or malformed slug embedded in a prefix-shaped
+    topic now raises (routed to the existing swallowed-exception boundary
+    handling below) instead of being silently stamped.
+    """
+    slug, _canonical_topic = resolve_tenant_from_wire_topic(topic)
+    if slug is None:
+        return envelope
+    if not isinstance(envelope.payload, dict):
+        return envelope
+    # OMN-14367: route through the single canonical stamp so this producer and
+    # the gateway forwarder's consume_inbound cannot diverge on the shape again.
+    stamped_payload = stamp_verified_tenant_slug(envelope.payload, slug)
+    # OMN-16831: the verified slug is written to the envelope's tenant DIMENSION
+    # as well as into the payload, because those were two different fields and
+    # the fleet's only reader of a tenant reads the envelope one.
+    #
+    # `ModelEventEnvelope.tenant_id` is the canonical envelope-side stamp, and
+    # omnimarket's `envelope_tenant_identity` reads it -- its docstring already
+    # named THIS function as one of the two writers of that field. It was not:
+    # it wrote `payload["tenant_id"]` only, so a producer and a consumer were
+    # split across two fields with the consumer asserting they were one, and
+    # every tenant-classified projection write was refused as unattributed.
+    #
+    # Payload and envelope carry the same verified value rather than one
+    # replacing the other: the payload copy is what the OMN-14367 gateway seam
+    # and the OMN-14058 downstream flow already read, and dropping it would
+    # trade this defect for that one.
+    return envelope.model_copy(update={"payload": stamped_payload, "tenant_id": slug})
+
+
+def _make_raw_event_projection_callback(
+    topic: str,
+    dispatch_engine: ProtocolDispatchEngine,
+    result_applier: ProtocolDispatchResultApplier,
+    *,
+    allowed_dispatcher_ids: Collection[str] | None = None,
+    consumer_group: str | None = None,
+    declares_output: bool | None = None,
+) -> Callable[..., Awaitable[None]]:
+    """Create a callback for raw Kafka `ModelEventMessage` projection contracts.
+
+    ``consumer_group`` (OMN-17214): the group id this subscription joined, wired
+    for exactly the reason and with exactly the semantics documented on
+    ``_make_event_bus_callback``. It is passed here because
+    ``_is_raw_event_projection_contract`` routes every contract declaring
+    ``consumer_purpose: audit`` or ``consumer_purpose: projection`` down THIS
+    branch, and that branch was never given a group — so those subscriptions
+    registered no counter and emitted no row at all. A missing row is read as
+    ``UNKNOWN``, not as observed-idle, so a whole node archetype (32 of the 57
+    unobserved live subscriptions measured 2026-08-30 were ``*_projection_compute``,
+    the epic's canonical ``node_gateway_link_health_projection_compute`` among
+    them at 33,971 in / 0 out) was invisible to the flow projection rather than
+    visibly stalled. ``None`` (the default) disables counting exactly as it does
+    on the sibling branch: it never fabricates a group id.
+    """
+    from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
+    from omnibase_infra.event_bus.models.model_event_message import ModelEventMessage
+    from omnibase_infra.runtime.observability import (
+        active_flow_key,
+        get_consumer_flow_counters,
+    )
+
+    flow_counters = get_consumer_flow_counters() if consumer_group is not None else None
+    if flow_counters is not None and consumer_group is not None:
+        # Register before any traffic so a subscription that takes NOTHING still
+        # emits a zero row every window. Same seam, same ordering and the same
+        # reason as the sibling branch -- absent rows and zero rows mean
+        # different things and must not be conflated.
+        flow_counters.register(
+            consumer_group,
+            topic,
+            declares_output=declares_output,
+        )
+
+    dispatcher_scope = _require_contract_dispatcher_scope(
+        allowed_dispatcher_ids,
+        contract_name=topic,
+    )
+    scoped_dispatch_engine = _require_contract_scoped_dispatch_engine(
+        dispatch_engine,
+        contract_name=topic,
+    )
+
+    async def _dispatch_and_apply_raw_projection(
+        envelope: ModelEventEnvelope[object],
+        delivery: ModelMessageDeliveryContext | None = None,
+    ) -> None:
+        result = await _dispatch_to_contract_scope(
+            scoped_dispatch_engine,
+            topic,
+            envelope,
+            dispatcher_scope,
+            delivery,
+        )
+        if result is not None:
+            # OMN-16831: same reason as the sibling boundary above -- the
+            # applier's causal edge and tenant dimension both come off the
+            # consumed envelope, which it reads from this contextvar.
+            with bind_dispatch_envelope(envelope):
+                await result_applier.apply(result, envelope.correlation_id)
+
+    async def callback(message: object) -> None:
+        try:
+            raw_message = (
+                message
+                if isinstance(message, ModelEventMessage)
+                else ModelEventMessage.model_validate(message)
+            )
+            if not await _wait_for_dispatch_engine_freeze(topic, dispatch_engine):
+                return
+            envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+                payload=cast("object", raw_message.model_dump(mode="json")),
+                correlation_id=raw_message.headers.correlation_id,
+                envelope_timestamp=raw_message.headers.timestamp,
+                event_type=(
+                    derive_event_type_alias_for_topic(topic)
+                    or raw_message.headers.event_type
+                ),
+                source_tool=raw_message.headers.source,
+                tenant_id=_tenant_id_from_raw_message(raw_message),
+            )
+            if flow_counters is None or consumer_group is None:
+                await _dispatch_and_apply_raw_projection(
+                    envelope,
+                    delivery_context_from_message(raw_message, topic),
+                )
+            else:
+                # OMN-17214: counted before the call for the same reason
+                # the sibling branch counts before its call -- an envelope
+                # reaching this line HAS been handed to dispatch, so a
+                # handler that hangs or dies still shows the message as
+                # taken in. Counting only completed dispatches would
+                # reproduce the "green because nothing was measured" defect
+                # this seam exists to close.
+                flow_counters.record_in(consumer_group, topic)
+                # The applier's publish loop records ``messages_out``
+                # against this task-local key (``record_active_out``), so
+                # the apply() call has to run INSIDE the binding --
+                # outside it, a projection that publishes is counted as
+                # producing nothing and reads STALLED while it is
+                # demonstrably producing.
+                with active_flow_key(consumer_group, topic):
+                    await _dispatch_and_apply_raw_projection(
+                        envelope,
+                        delivery_context_from_message(raw_message, topic),
+                    )
+        except Exception as exc:  # noqa: BLE001 — consumer boundary; log and continue
+            if flow_counters is not None and consumer_group is not None:
+                flow_counters.record_error(consumer_group, topic)
+            logger.error(
+                "Raw projection callback error: topic=%s error_type=%s error=%s",
+                topic,
+                type(exc).__name__,
+                exc,
+            )
+
+    return callback
+
+
+async def _wait_for_dispatch_engine_freeze(
+    topic: str,
+    dispatch_engine: object,
+) -> bool:
+    """Wait until the dispatch engine is frozen before consuming startup messages."""
+    if bool(getattr(dispatch_engine, "is_frozen", True)):
+        return True
+
+    timeout_seconds = _dispatch_freeze_wait_timeout_seconds()
+    deadline = asyncio.get_running_loop().time() + timeout_seconds
+    logger.info(
+        "Auto-wiring callback waiting for MessageDispatchEngine freeze: topic=%s",
+        topic,
+    )
+
+    while not bool(getattr(dispatch_engine, "is_frozen", True)):
+        if asyncio.get_running_loop().time() >= deadline:
+            logger.error(
+                "Auto-wiring callback timed out waiting for MessageDispatchEngine "
+                "freeze; dropping message: topic=%s timeout_seconds=%.1f",
+                topic,
+                timeout_seconds,
+            )
+            return False
+        await asyncio.sleep(0.1)
+
+    logger.info(
+        "Auto-wiring callback resumed after MessageDispatchEngine freeze: topic=%s",
+        topic,
+    )
+    return True
+
+
+def _dispatch_freeze_wait_timeout_seconds() -> float:
+    raw = os.environ.get("ONEX_DISPATCH_FREEZE_WAIT_TIMEOUT_SECONDS", "900")
+    try:
+        timeout_seconds = float(raw)
+    except ValueError:
+        logger.warning(
+            "Invalid ONEX_DISPATCH_FREEZE_WAIT_TIMEOUT_SECONDS=%r; using 900s",
+            raw,
+        )
+        return 900.0
+    if not math.isfinite(timeout_seconds):
+        logger.warning(
+            "Invalid ONEX_DISPATCH_FREEZE_WAIT_TIMEOUT_SECONDS=%r; using 900s",
+            raw,
+        )
+        return 900.0
+    return max(timeout_seconds, 0.1)
+
+
+def _derive_route_id(
+    contract_name: str,
+    handler_key: str,
+    topic: str,
+) -> str:
+    """Derive a route ID from contract name, handler entry key, and full topic path.
+
+    Uses the full topic path (sanitized) to guarantee uniqueness across topics
+    that share a common segment (OMN-8735).
+
+    When two routing entries reference the same handler class for different
+    operations (e.g. one handler bound to both ``inference.variant_a`` and
+    ``inference.variant_b`` on the same contract) and subscribe to the same
+    topic, the ``handler + topic`` pair alone produces a collision.  The
+    handler entry key includes the sanitized operation suffix when present,
+    guaranteeing each entry gets a distinct route ID (OMN-9461 / OMN-10447).
+    """
+    safe_topic = re.sub(r"[.\-]", "_", topic)
+    return f"route.auto.{contract_name}.{handler_key}.{safe_topic}"
+
+
+def _derive_dispatcher_id(contract_name: str, handler_key: str) -> str:
+    """Derive a dispatcher ID from contract name and handler entry key.
+
+    When two routing entries in the same contract reference the same handler
+    class (e.g. one handler wired for both ``inference.variant_a`` and
+    ``inference.variant_b``), the plain handler name alone produces a
+    collision.  The entry key includes the sanitized operation suffix and keeps
+    dispatcher IDs distinct (OMN-9461 / OMN-10447).
+    """
+    return f"dispatcher.auto.{contract_name}.{handler_key}"
+
+
+def _derive_handler_entry_key(entry: ModelHandlerRoutingEntry) -> str:
+    """Return the stable per-entry handler key used for pre-resolution and IDs.
+
+    The key preserves the legacy plain handler name when neither ``operation``
+    nor ``topic`` is present. When ``operation`` is present, it appends a
+    sanitized operation label plus a short digest, preventing collisions when
+    a contract uses the same handler class for multiple operations.
+
+    OMN-14580: a ``topic_match`` contract can legitimately route the SAME
+    operation to the SAME handler from several distinct topics (e.g. one
+    reducer operation invoked from N event sources, each with its own
+    ``event_model`` — see ``node_swarm_subtask_state_reducer``) — operation
+    alone no longer disambiguates that shape and produced a dispatcher-ID
+    collision (ONEX_CORE_064_DUPLICATE_REGISTRATION) on cold boot. When the
+    entry declares its own ``topic``, it is folded into the digest (not the
+    human-readable label, to avoid re-duplicating the topic that
+    ``_derive_route_id`` already appends) so each topic still gets its own
+    key.
+    """
+    handler_name = entry.handler.name
+    operation = entry.operation or ""
+    topic = entry.topic.strip() if entry.topic else ""
+    if not operation and not topic:
+        return handler_name
+
+    normalized_op = ""
+    if operation:
+        normalized_op = re.sub(r"[^A-Za-z0-9_]+", "_", operation.strip()).strip("_")
+
+    digest_source = f"{operation}|{topic}" if topic else operation
+    digest = hashlib.sha1(digest_source.encode()).hexdigest()[:8]
+    safe_op = f"{normalized_op}_{digest}" if normalized_op else digest
+    return f"{handler_name}.{safe_op}"
+
+
+def _required_handler_init_params(handler_cls: type) -> frozenset[str]:
+    """Return required constructor parameter names for a handler class."""
+    sig = inspect.signature(handler_cls)
+    return frozenset(
+        name
+        for name, param in sig.parameters.items()
+        if name != "self"
+        and param.kind
+        in {
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            inspect.Parameter.KEYWORD_ONLY,
+        }
+        and param.default is inspect.Parameter.empty
+    )
+
+
+def _should_skip_sync_container_resolution(handler_cls: type) -> bool:
+    """Return True when sync container resolution is unnecessary for handler_cls.
+
+    Zero-arg handlers can be constructed directly by the resolver, and handlers
+    that require only runtime-known ports can be constructed from materialized
+    dependencies. In both cases, calling a sync container from runtime-managed
+    async boot is unnecessary and can trip ``asyncio.run()`` crashes.
+    """
+    required_params = _required_handler_init_params(handler_cls)
+    return not required_params or required_params <= frozenset(
+        {
+            "event_bus",
+            "event_publisher",
+            "event_consumer",
+            "dispatch_port",
+            "provisioner",
+            "drain_proof_gate",
+        }
+    )
+
+
+async def _await_event_bus_publish(awaitable: Awaitable[object]) -> None:
+    await awaitable
+
+
+async def _route_sync_publisher_failure(
+    exc: Exception,
+    *,
+    event_bus: object,
+    handler_name: str,
+    topic: str,
+    payload: bytes,
+) -> None:
+    """Best-effort DLQ routing for a sync-handler's fire-and-forget publish
+    failure (OMN-14498 / OMN-15029).
+
+    ``_make_sync_event_publisher``'s ``_publish`` schedules the actual
+    downstream publish as a detached asyncio Task/Future and only logged its
+    failure via ``_log_publish_failure``'s ``add_done_callback`` — no DLQ, no
+    metric, no durable trace that the event ever existed. Confirmed still
+    live on ``origin/dev`` by the OMN-15029 false-Done reopen. There is
+    nothing to re-raise into here: the sync handler that issued the publish
+    has already returned by the time this callback runs, so propagating the
+    exception synchronously is not possible.
+
+    Mirrors the ``_make_event_bus_callback._route_swallowed_exception`` idiom
+    (OMN-14507) for the consume boundary: when the event bus exposes the
+    duck-typed ``_publish_raw_to_dlq`` contract, the payload that failed to
+    publish is durably preserved on that topic's DLQ instead of vanishing
+    with nothing but a log line. Unlike the consume-boundary version this is
+    UNCONDITIONAL — not gated behind ``ONEX_BOUNDARY_DLQ_ENABLED``: this is a
+    pure best-effort recovery channel layered on top of the EXISTING
+    fire-and-forget publish (no new retry, no change to offset/delivery
+    semantics, no control-flow change on success), so there is no
+    staged-rollout risk to hold behind a flag — leaving it flag-gated would
+    reproduce the exact live-off, still-swallowing state OMN-15029 exists to
+    close.
+
+    Never raises: a failure in the DLQ path itself is logged loudly
+    (``message_lost=true``) rather than crashing the kernel loop's task
+    processing.
+    """
+    from uuid import uuid4
+
+    from omnibase_infra.event_bus.topic_constants import get_dlq_topic_for_original
+
+    correlation_id = uuid4()
+    if _is_dead_letter_source_topic(topic):
+        # OMN-18084: this helper's target is a PUBLISH topic, and
+        # node_dlq_replay_effect declares the quarantine dead-letter sink as
+        # one — so it genuinely can be handed a DLQ topic, and answering with
+        # `get_dlq_topic_for_original` would resolve that sink to itself.
+        logger.error(
+            "metric_name=boundary_dead_letter_sync_publish_failed dlq_routed=false "
+            "reason=already_on_dead_letter_topic handler=%s topic=%s "
+            "error_type=%s correlation_id=%s",
+            handler_name,
+            topic,
+            type(exc).__name__,
+            correlation_id,
+        )
+        return
+
+    publish_dlq_fn = getattr(event_bus, "_publish_raw_to_dlq", None)
+    if publish_dlq_fn is None or not callable(publish_dlq_fn):
+        logger.error(
+            "metric_name=boundary_swallow_observed dlq_routed=false "
+            "message_lost=true handler=%s topic=%s error_type=%s "
+            "correlation_id=%s",
+            handler_name,
+            topic,
+            type(exc).__name__,
+            correlation_id,
+        )
+        return
+
+    from types import SimpleNamespace
+
+    raw_msg = SimpleNamespace(value=payload, key=None, offset=None, partition=None)
+    try:
+        dlq_persisted = await publish_dlq_fn(
+            original_topic=topic,
+            raw_msg=raw_msg,
+            error=exc,
+            correlation_id=correlation_id,
+            failure_type="sync_publisher_publish_failed",
+            consumer_group="auto-wiring-sync-publisher",
+            dlq_topic=get_dlq_topic_for_original(topic),
+        )
+        if dlq_persisted:
+            logger.error(
+                "metric_name=boundary_swallow_prevented dlq_routed=true "
+                "handler=%s topic=%s error_type=%s correlation_id=%s",
+                handler_name,
+                topic,
+                type(exc).__name__,
+                correlation_id,
+            )
+            return
+        # A False return means the DLQ publish did NOT durably persist
+        # (rejected input, producer unavailable, or the send itself
+        # failed/timed out) WITHOUT raising -- the message is lost exactly
+        # like the except-branch below, just signaled via the return value.
+        logger.error(
+            "metric_name=boundary_swallow_observed dlq_routed=false "
+            "dlq_publish_failed=true message_lost=true handler=%s topic=%s "
+            "error_type=%s correlation_id=%s",
+            handler_name,
+            topic,
+            type(exc).__name__,
+            correlation_id,
+        )
+    except Exception as dlq_exc:  # noqa: BLE001 — DLQ publish is itself a boundary; never let it crash the kernel loop
+        logger.error(
+            "metric_name=boundary_swallow_observed dlq_routed=false "
+            "dlq_publish_failed=true message_lost=true handler=%s topic=%s "
+            "error_type=%s dlq_error=%s correlation_id=%s",
+            handler_name,
+            topic,
+            type(exc).__name__,
+            _sanitize_exc(dlq_exc),
+            correlation_id,
+        )
+
+
+def _make_sync_event_publisher(
+    *,
+    event_bus: object,
+    handler_name: str,
+    terminal_topics: frozenset[str] = frozenset(),
+) -> Callable[[str, bytes], None]:
+    """Adapt async runtime event-bus publish to legacy sync handler publishers.
+
+    The publisher is constructed during ``wire_from_manifest`` while the runtime
+    kernel's event loop is running, so that loop is captured here as the owning
+    loop. Legacy sync handlers (e.g. ``HandlerContextRoiRunner``) execute on a
+    ``ThreadPoolExecutor`` worker thread — the dispatch engine offloads blocking
+    sync handlers via ``run_in_executor`` — so a publish issued from inside such
+    a handler runs on a thread that does not own the kernel loop.
+
+    The publish awaitable returned by the event bus binds its internal Futures to
+    the kernel loop. Running that awaitable on a *foreign* loop (the previous
+    behavior: ``asyncio.run`` spun a throwaway loop in the worker thread once
+    ``get_running_loop`` raised ``RuntimeError``) produced the ``got Future
+    attached to a different loop`` warning and 2-3 minute terminal-emission retry
+    delays (OMN-13658). Scheduling the coroutine back onto the owning kernel loop
+    via ``asyncio.run_coroutine_threadsafe`` keeps every Future on its loop, so
+    the publish completes immediately from any thread.
+
+    ``terminal_topics`` (OMN-15468) carries the publishing contract's declared
+    terminal topics — every site: ``terminal_event``, ``terminal_events`` and
+    ``runtime_dispatch.terminal_events``, read through the same function route
+    discovery uses. A publish to one of those topics is a TERMINAL emission and
+    is wrapped in a ``ModelEventEnvelope`` here, at the one factory that hands
+    every def-B handler its publisher.
+
+    Why here and not in the handlers: the other half of this same wiring
+    (``DispatchResultApplier``) already publishes the def-B return value as a
+    full envelope, so before this change a single contract emitted its SUCCESS
+    terminal enveloped and its handler-emitted FAILURE terminal raw — and the
+    Pattern B broker's terminal path decodes envelopes. Live on the ``.201`` dev
+    lane at merged ``5dc68190`` (2026-07-30T17:13Z), with #2560 already
+    subscribing the broker to the failure topic, a forced node-generation
+    failure still returned ``ok=true`` / ``status=completed`` / ``error=null``,
+    byte-identical to the success control, because the record waiting on the
+    failure topic was raw. Fixing that per node would mean editing every handler
+    that self-publishes a terminal; fixing it here covers the whole declared-
+    terminal set at once. Any topic that is not a declared terminal is forwarded
+    byte-for-byte unchanged.
+    """
+    publish = getattr(event_bus, "publish", None)
+    if not callable(publish):
+        raise ModelOnexError(
+            "handler_wiring: handler "
+            f"{handler_name!r} declares event_publisher, but event_bus "
+            f"{type(event_bus).__name__!r} has no callable publish()."
+        )
+
+    try:
+        kernel_loop = asyncio.get_running_loop()
+    except RuntimeError as exc:
+        raise ModelOnexError(
+            "handler_wiring: the sync event_publisher for handler "
+            f"{handler_name!r} must be constructed on the runtime kernel event "
+            "loop (wire_from_manifest runs on it), but no running loop was found."
+        ) from exc
+
+    def _publish(topic: str, payload: bytes) -> None:
+        payload = envelope_terminal_payload(
+            topic=topic,
+            payload=payload,
+            terminal_topics=terminal_topics,
+        )
+        result = publish(topic, None, payload)
+        if not inspect.isawaitable(result):
+            return
+
+        publish_awaitable = cast("Awaitable[object]", result)
+
+        def _log_publish_failure(
+            done: asyncio.Future[None] | concurrent.futures.Future[None],
+        ) -> None:
+            try:
+                done.result()
+            except Exception as exc:  # noqa: BLE001 — publish boundary logging
+                logger.error(
+                    "Auto-wired event_publisher publish failed: "
+                    "handler=%s topic=%s error_type=%s error=%s",
+                    handler_name,
+                    topic,
+                    type(exc).__name__,
+                    exc,
+                )
+                # OMN-14498 / OMN-15029: previously the failure vanished here
+                # -- logged, never routed anywhere durable. This callback is
+                # sync (it cannot itself await), so the best-effort DLQ
+                # routing is scheduled as a task on the kernel loop instead.
+                # Safe to call unconditionally: `_log_publish_failure` always
+                # executes on `kernel_loop`'s own thread, whether it was
+                # registered on an asyncio Task (the same-loop branch below)
+                # or chained from `run_coroutine_threadsafe` (the
+                # cross-thread branch) -- `_chain_future` resolves the
+                # `concurrent.futures.Future` from inside the loop's own
+                # callback dispatch, which is also where that Future invokes
+                # its done-callbacks.
+                dlq_task = kernel_loop.create_task(
+                    _route_sync_publisher_failure(
+                        exc,
+                        event_bus=event_bus,
+                        handler_name=handler_name,
+                        topic=topic,
+                        payload=payload,
+                    )
+                )
+                _DLQ_ROUTING_TASKS.add(dlq_task)
+                dlq_task.add_done_callback(_DLQ_ROUTING_TASKS.discard)
+
+        try:
+            running_loop: asyncio.AbstractEventLoop | None = asyncio.get_running_loop()
+        except RuntimeError:
+            running_loop = None
+
+        if running_loop is kernel_loop:
+            # Publishing from the kernel loop's own thread (async handler path):
+            # schedule the coroutine directly on it.
+            task = kernel_loop.create_task(_await_event_bus_publish(publish_awaitable))
+            task.add_done_callback(_log_publish_failure)
+            return
+
+        # Publishing from a ThreadPoolExecutor worker thread (or any thread that
+        # does not own the kernel loop): hand the coroutine to the kernel loop in
+        # a thread-safe way so the publish awaitable's Futures stay on their
+        # owning loop. This avoids the "got Future attached to a different loop"
+        # warning and the 2-3 minute retry delay (OMN-13658).
+        future = asyncio.run_coroutine_threadsafe(
+            _await_event_bus_publish(publish_awaitable), kernel_loop
+        )
+        future.add_done_callback(_log_publish_failure)
+
+    return _publish
+
+
+def _make_sync_event_consumer(
+    *,
+    event_bus: object,
+    handler_name: str,
+) -> TerminalEventConsumer:
+    """Materialize the blocking terminal-event consumer for request/response handlers.
+
+    Mirror of ``_make_sync_event_publisher`` for the consume leg. Some EFFECT
+    handlers (e.g. ``HandlerContextRoiRunner``, OMN-13005) publish a command and
+    then block on the correlated terminal event, reading result fields back from
+    its payload. They declare an injectable ``event_consumer``.
+
+    The returned object is directly callable with the legacy single-call shape
+    ``(terminal_topic, correlation_id, timeout_seconds) -> dict | None`` and also
+    exposes ``.open(topic) -> TerminalConsumerSession`` for the two-phase
+    (subscribe-before-publish) protocol introduced in OMN-13012: the handler
+    positions the consumer (assign + seek_to_end) BEFORE publishing its command,
+    then waits AFTER, so a terminal emitted in the publish→wait gap is not seeked
+    past.
+
+    Without this injection the handler falls back to its own no-op default that
+    returns ``None`` immediately — never honoring the timeout, so every result
+    row is a degenerate generation-failure even though the terminal event arrives
+    moments later. The concrete consumer runs the correlate-and-wait loop on an
+    isolated event loop in a worker thread so blocking does not deadlock the
+    runtime dispatch loop that delivers the awaited terminal.
+    """
+    from omnibase_infra.runtime.service_terminal_event_consumer import (
+        make_terminal_event_consumer,
+    )
+
+    return make_terminal_event_consumer(
+        event_bus=event_bus,
+        handler_name=handler_name,
+    )
+
+
+def _contracts_root_for_runtime_dependencies() -> Path:
+    raw = os.environ.get("ONEX_CONTRACTS_DIR")
+    if raw:
+        return Path(raw)
+    return Path(__file__).resolve().parents[2] / "nodes"
+
+
+def _build_topic_migration_executor_dependencies() -> dict[str, object]:
+    """Build concrete collaborators for HandlerTopicMigrationExecutor.
+
+    The handler declares these as required constructor services. Materializing
+    them here keeps generic resolver Step 2 deterministic while preserving the
+    handler's strict constructor contract.
+    """
+    from aiokafka import AIOKafkaConsumer
+    from aiokafka.admin import AIOKafkaAdminClient
+
+    from omnibase_infra.event_bus.kafka_auth import build_aiokafka_auth_kwargs_from_env
+    from omnibase_infra.event_bus.service_topic_manager import TopicProvisioner
+    from omnibase_infra.migration.adapter_kafka_admin_lag import AdapterKafkaAdminLag
+    from omnibase_infra.migration.service_consumer_lag_observer import (
+        ServiceConsumerLagObserver,
+    )
+    from omnibase_infra.migration.service_drain_proof_gate import ServiceDrainProofGate
+
+    bootstrap_servers = os.environ["KAFKA_BOOTSTRAP_SERVERS"]  # ONEX_EXCLUDE: env
+    auth_kwargs = build_aiokafka_auth_kwargs_from_env()
+    admin = AIOKafkaAdminClient(bootstrap_servers=bootstrap_servers, **auth_kwargs)
+    consumer = AIOKafkaConsumer(bootstrap_servers=bootstrap_servers, **auth_kwargs)
+    lag_admin = AdapterKafkaAdminLag(admin, consumer)
+    observer = ServiceConsumerLagObserver(lag_admin)
+    return {
+        "provisioner": TopicProvisioner(
+            bootstrap_servers=bootstrap_servers,
+            contracts_root=_contracts_root_for_runtime_dependencies(),
+        ),
+        "drain_proof_gate": ServiceDrainProofGate(observer),
+    }
+
+
+def _handler_requires_delegation_dispatch_port(handler_cls: type) -> bool:
+    parameter = inspect.signature(handler_cls).parameters.get("dispatch_port")
+    if parameter is None:
+        return False
+    annotation = parameter.annotation
+    if isinstance(annotation, str):
+        return "ProtocolDelegationDispatchPort" in annotation
+    if getattr(annotation, "__name__", "") == "ProtocolDelegationDispatchPort":
+        return True
+    return any(
+        getattr(arg, "__name__", "") == "ProtocolDelegationDispatchPort"
+        for arg in get_args(annotation)
+    )
+
+
+def _materialize_known_handler_dependencies(
+    *,
+    handler_name: str,
+    handler_cls: type,
+    materialized_explicit_dependencies: dict[str, dict[str, object]] | None,
+    event_bus: object | None,
+    container: object | None,
+    ownership_query: object | None,
+    terminal_topics: frozenset[str] = frozenset(),
+) -> dict[str, dict[str, object]] | None:
+    """Materialize infra-known constructor deps for core resolver Step 2.
+
+    Runtime images may carry a core resolver that only direct-injects
+    ``event_bus``. Threading ``container`` / ``ownership_query`` through the
+    existing explicit-dependency map keeps infra wiring deterministic without
+    requiring a synchronized core release.
+    """
+    signature = inspect.signature(handler_cls)
+    constructor_params = frozenset(
+        name
+        for name, param in signature.parameters.items()
+        if name != "self"
+        and param.kind
+        in {
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            inspect.Parameter.KEYWORD_ONLY,
+        }
+    )
+    requires_delegation_port = _handler_requires_delegation_dispatch_port(handler_cls)
+    required_params = _required_handler_init_params(handler_cls)
+    requires_event_publisher = "event_publisher" in constructor_params
+    requires_event_consumer = "event_consumer" in constructor_params
+    if (
+        not required_params
+        and not requires_delegation_port
+        and not requires_event_publisher
+        and not requires_event_consumer
+    ):
+        return materialized_explicit_dependencies
+    available = {
+        name: value
+        for name, value in (
+            ("event_bus", event_bus),
+            ("container", container),
+            ("ownership_query", ownership_query),
+        )
+        if value is not None
+    }
+    if requires_event_publisher and event_bus is not None:
+        available["event_publisher"] = _make_sync_event_publisher(
+            event_bus=event_bus,
+            handler_name=handler_name,
+            terminal_topics=terminal_topics,
+        )
+    if requires_event_consumer and event_bus is not None:
+        available["event_consumer"] = _make_sync_event_consumer(
+            event_bus=event_bus,
+            handler_name=handler_name,
+        )
+    if required_params.issubset(_TOPIC_MIGRATION_EXECUTOR_DEPS):
+        available.update(_build_topic_migration_executor_dependencies())
+    if not (
+        requires_event_publisher
+        or requires_event_consumer
+        or required_params.intersection(
+            {"container", "ownership_query", "dispatch_port"}
+        )
+        or ("dispatch_port" in constructor_params and requires_delegation_port)
+        or required_params.issubset(_TOPIC_MIGRATION_EXECUTOR_DEPS)
+    ):
+        return materialized_explicit_dependencies
+    if "dispatch_port" in constructor_params and requires_delegation_port:
+        # Pure Kafka delegation chain (OMN-12294): the delegate-skill handler
+        # dispatches via the Kafka-backed RuntimeDelegationDispatchPort. The
+        # delegation orchestrator consumes the command on its own bus
+        # subscription and emits the terminal event the broker awaits — there is
+        # no in-process bridge.
+        if event_bus is not None:
+            from omnibase_infra.runtime.service_delegation_dispatch_port import (
+                RuntimeDelegationDispatchPort,
+            )
+
+            available["dispatch_port"] = RuntimeDelegationDispatchPort(
+                cast("ProtocolPatternBBrokerTransport", event_bus)
+            )
+    if not required_params <= set(available):
+        return materialized_explicit_dependencies
+    if requires_event_publisher and "event_publisher" not in available:
+        return materialized_explicit_dependencies
+
+    merged = dict(materialized_explicit_dependencies or {})
+    handler_dependencies = dict(merged.get(handler_name, {}))
+    for name in required_params:
+        handler_dependencies.setdefault(name, available[name])
+    if "dispatch_port" in constructor_params and "dispatch_port" in available:
+        handler_dependencies.setdefault("dispatch_port", available["dispatch_port"])
+    if "db_dsn" in constructor_params:
+        from omnibase_infra.runtime.overlay.contract_env_ref import (
+            expand_contract_env_refs,
+        )
+
+        db_dsn = next(
+            (
+                resolved.strip()
+                for name in _LEDGER_DB_DSN_ENV_VARS
+                if (resolved := expand_contract_env_refs(f"${{env.{name}:}}").strip())
+            ),
+            "",
+        )
+        if db_dsn:
+            handler_dependencies.setdefault("db_dsn", db_dsn)
+    if requires_event_publisher and "event_publisher" in available:
+        handler_dependencies.setdefault("event_publisher", available["event_publisher"])
+    if requires_event_consumer and "event_consumer" in available:
+        handler_dependencies.setdefault("event_consumer", available["event_consumer"])
+    merged[handler_name] = handler_dependencies
+    return merged
+
+
+def _derive_topic_pattern_from_topic(topic: str) -> str:
+    """Derive a topic pattern from a fully qualified topic string.
+
+    Replaces the first segment (realm prefix) with a wildcard.
+    Example: ``onex.evt.platform.node-introspection.v1`` -> ``*.evt.platform.node-introspection.*``
+
+    For ONEX 5-segment topics, wildcards are placed at positions 1 and 5.
+    """
+    parts = topic.split(".")
+    if len(parts) >= 5:
+        # Standard ONEX 5-segment: onex.<kind>.<producer>.<event-name>.v<n>
+        parts[0] = "*"
+        parts[-1] = "*"
+        return ".".join(parts)
+    # Fallback: exact match
+    return topic
+
+
+def _derive_message_category(topic: str) -> str | None:
+    """Derive a message category from THIS topic's own name, or ``None`` (OMN-18013).
+
+    Delegates to :meth:`EnumMessageCategory.from_topic` — the SAME derivation
+    ``MessageDispatchEngine._dispatch`` applies to the topic a message actually
+    arrived on. Registration and dispatch therefore cannot disagree: previously
+    this function carried its own segment parser plus an unconditional
+    ``return "event"`` fallback, so 32 live topics whose kind segment is neither
+    ``evt``/``cmd``/``intent`` (``onex.dlq.*``, ``onex.snapshot.*``) were
+    REGISTERED as ``event`` while ``from_topic`` returned ``None`` at dispatch
+    and the message was rejected as "invalid topic category". A silent default
+    is exactly the shape CLAUDE.md rule 8 forbids.
+
+    Returns ``None`` — never a guess — when the topic name carries no category.
+    Callers must fail closed on ``None``; :func:`derive_route_message_category`
+    is the fail-closed wrapper the wiring path uses.
+    """
+    from omnibase_infra.enums import EnumMessageCategory
+
+    category = EnumMessageCategory.from_topic(topic)
+    return None if category is None else str(category.value)
+
+
+def derive_route_message_category(
+    contract: ModelDiscoveredContract,
+    entry: ModelHandlerRoutingEntry,
+    topic: str,
+) -> EnumMessageCategory:
+    """Return the category a route for *topic* registers under (OMN-18013).
+
+    THE CATEGORY IS THE TOPIC'S OWN, ALWAYS. It is never taken from
+    ``subscribe_topics[0]``, never from the entry's position in a list, and
+    never defaulted. That is the whole of the operator ruling's item (1):
+    a topic/category mismatch must be impossible by construction, not merely
+    detectable after a projection has silently DLQ'd for six hours
+    (OMN-16939, OMN-14605).
+
+    An explicit ``entry.message_category`` is honoured ONLY for a topic whose
+    name carries no derivable category (the ``onex.dlq.*`` family). Where the
+    name IS derivable, an explicit declaration that disagrees with it is a
+    contract lie and is refused here rather than being stamped on a route that
+    the dispatch path will then never match. ``contract-topic-category``
+    refuses the same shape at authoring time, so this raise is a backstop, not
+    the primary surface.
+    """
+    from omnibase_infra.enums import EnumMessageCategory
+
+    derived = _derive_message_category(topic)
+    declared_raw = (entry.message_category or "").strip().lower()
+    declared = declared_raw or None
+
+    if derived is not None:
+        if declared is not None and declared != derived:
+            raise ModelOnexError(
+                f"handler_wiring: contract {contract.name!r} handler entry "
+                f"{getattr(getattr(entry, 'handler', None), 'name', '?')!r} declares "
+                f"message_category={declared!r} for topic {topic!r}, whose own name "
+                f"derives {derived!r}. The dispatch engine matches on the topic's own "
+                "category, so the declared value would register a route no message can "
+                "ever reach. Remove the declaration or fix the topic."
+            )
+        return EnumMessageCategory(derived)
+
+    if declared is None:
+        raise ModelOnexError(
+            f"handler_wiring: contract {contract.name!r} subscribes to topic {topic!r}, "
+            "whose name carries no message category (EnumMessageCategory.from_topic "
+            "returns None), and the owning handler entry declares no explicit "
+            "message_category. Refusing to guess: the previous 'event' default "
+            "registered a route the dispatch path rejects as an invalid topic "
+            "category, losing 100% of the traffic while the container booted green. "
+            "Declare message_category on a topic-scoped handler entry for this topic."
+        )
+    return EnumMessageCategory(declared)
+
+
+def _node_kind_from_node_type(node_type: str | None) -> EnumNodeKind | None:
+    """Map a contract ``node_type`` (e.g. ``REDUCER_GENERIC``) to EnumNodeKind.
+
+    Only the archetype prefix matters. Returns ``None`` for an unrecognized or
+    empty node_type so the dispatch adapter keeps its archetype-agnostic
+    classification (events / intents / fan-out). Used to tell
+    ``_normalize_handler_result`` that a bare/Sequence return from a REDUCER is a
+    projection, not an event (OMN-14598).
+    """
+    prefix = (node_type or "").strip().upper()
+    if prefix.startswith("REDUCER"):
+        return EnumNodeKind.REDUCER
+    if prefix.startswith("EFFECT"):
+        return EnumNodeKind.EFFECT
+    if prefix.startswith("COMPUTE"):
+        return EnumNodeKind.COMPUTE
+    if prefix.startswith("ORCHESTRATOR"):
+        return EnumNodeKind.ORCHESTRATOR
+    return None
+
+
+def _topics_for_handler_entry(
+    contract: ModelDiscoveredContract,
+    entry: ModelHandlerRoutingEntry,
+) -> tuple[str, ...]:
+    """Return subscribe topics that can be deterministically assigned to entry."""
+    if contract.event_bus is None:
+        return ()
+
+    topics = contract.event_bus.subscribe_topics
+
+    # OMN-13825: honor a contract-declared per-handler topic (topic_match
+    # strategy). When a handler entry names its own subscribe topic, that
+    # entry deterministically owns exactly that topic — the reducer's
+    # topic_match contract (e.g. node_projection_swarm, two handlers each
+    # declaring one of two subscribe topics) previously fell through to the
+    # multi-handler ambiguity guard (return ()) and registered ZERO dispatch
+    # routes, orphaning the dispatcher ("No dispatcher found"). An entry_topic
+    # that is not an actual subscribe topic returns () so a real contract
+    # error surfaces rather than silently mis-routing.
+    entry_topic = entry.topic.strip() if entry.topic else ""
+    if entry_topic:
+        return (entry_topic,) if entry_topic in topics else ()
+
+    event_type_alias = entry.event_type.strip() if entry.event_type else ""
+    if event_type_alias:
+        matched = tuple(
+            topic
+            for topic in topics
+            if topic == event_type_alias
+            or derive_event_type_alias_for_topic(topic) == event_type_alias
+        )
+        return matched
+
+    if entry.event_model is None:
+        return topics
+
+    if len(topics) == 1:
+        return topics
+
+    # OMN-12848: a sole handler entry unambiguously owns every subscribe topic.
+    # The ambiguity guard below (return ()) only applies when MULTIPLE handler
+    # entries compete for the same topics without per-handler event_type
+    # disambiguation. A single-handler contract with an event_model and more
+    # than one subscribe topic (e.g. node_generation_consumer subscribing to
+    # both node-generation-requested and node-deploy) previously fell through to
+    # return () and registered ZERO dispatch routes — the command was consumed
+    # then DLQ'd ("No dispatcher found"). Assign all topics to the sole handler.
+    if (
+        contract.handler_routing is not None
+        and len(contract.handler_routing.handlers) == 1
+    ):
+        return topics
+
+    return ()
+
+
+def _projection_dispatch_owned_elsewhere(
+    contract: ModelDiscoveredContract,
+    entry: ModelHandlerRoutingEntry,
+) -> bool:
+    """Whether THIS process will never dispatch *entry*, so it owns no database.
+
+    OMN-17519. A multi-handler contract routes each subscribe topic to exactly
+    one entry; :func:`_topics_for_handler_entry` is that assignment, and it
+    returns ``()`` for an entry that competes for topics another entry already
+    owns unambiguously. An entry assigned zero topics registers a dispatcher
+    with zero routes: no message can reach it in this process.
+
+    That is precisely the shape OMN-15905 created. A projection contract whose
+    writes a dedicated writer Deployment owns declares TWO handler entries — the
+    standalone ``*ProjectionRunner`` the writer process runs (``command:
+    [python, -m, <runner module>]``), which declares no ``event_model`` and so
+    takes every subscribe topic, and an in-process sibling left with none. Live
+    on onex-dev: ``projection_delegation``'s nine topics all route to
+    ``DelegationProjectionRunner`` and ``HandlerProjectionDelegation`` gets zero;
+    ``projection_savings``'s five all route to ``SavingsProjectionRunner``.
+
+    Opening a projection database for such an entry is not merely waste. The
+    workload identity resolved for a TENANT-domain table is ``tenant_projection``
+    (``ONEX_TENANT_DB_URL``), so the SHARED runtime was made to demand the
+    tenant-domain credential for rows the dedicated writer owns — the OMN-15905
+    separation in reverse, and under ``ONEX_WIRING_STRICT_MODE`` the missing DSN
+    took the whole boot down (``omninode-runtime`` and ``omninode-runtime-effects``
+    in CrashLoopBackOff on candidate ``sha256:349225be``).
+
+    Single-entry contracts are deliberately out of scope: that entry owns every
+    subscribe topic, so it IS dispatched here and its database requirement is
+    real. ``node_hook_event_capture`` is exactly that case and keeps requiring
+    its binding.
+
+    The predicate is "this process will never dispatch this entry", NOT "a
+    dedicated writer exists". Those coincide on the OMN-15905 contracts, but a
+    contract where NO entry owns a topic (``projection_overnight``: three
+    ``event_model``-typed entries, three subscribe topics, zero routes for every
+    one of them) is a pre-existing orphan, not the sanctioned pattern. It is
+    caught here too — correctly, since an undispatchable entry needs no database
+    either way — and :func:`_topic_owning_handler_names` puts the difference into
+    the warning so the orphan is reported as an orphan.
+    """
+    if contract.handler_routing is None:
+        return False
+    if len(contract.handler_routing.handlers) < 2:
+        return False
+    return not _topics_for_handler_entry(contract, entry)
+
+
+def _topic_owning_handler_names(
+    contract: ModelDiscoveredContract,
+    entry: ModelHandlerRoutingEntry,
+) -> tuple[str, ...]:
+    """Names of the SIBLING entries that do own subscribe topics on *contract*.
+
+    OMN-17519. Reported verbatim in the zero-route warning so an operator can
+    tell the two cases apart without reading the contract: a non-empty list is
+    the OMN-15905 dedicated-writer shape (the standalone runner took every
+    topic); an EMPTY list means no entry owns a topic at all, i.e. the contract
+    is orphaned in this process — a real defect this warning must not dress up
+    as the sanctioned pattern.
+    """
+    if contract.handler_routing is None:
+        return ()
+    return tuple(
+        sibling.handler.name
+        for sibling in contract.handler_routing.handlers
+        if sibling is not entry and _topics_for_handler_entry(contract, sibling)
+    )
+
+
+def _literal_event_type_aliases_from_topics(
+    subscribe_topics: tuple[str, ...],
+) -> set[str]:
+    """Return literal wire-topic aliases accepted as envelope event_type keys."""
+    return {topic.strip() for topic in subscribe_topics if topic.strip()}
+
+
+def derive_entry_message_category(
+    contract: ModelDiscoveredContract,
+    entry: ModelHandlerRoutingEntry,
+) -> str:
+    """Return the ONE message category ``_prepare_handler_wiring`` stamps on this entry.
+
+    An explicit ``entry.message_category`` wins; otherwise the category falls back to
+    ``contract.event_bus.subscribe_topics[0]`` — the contract's FIRST declared subscribe
+    topic — and is then stamped on EVERY route the entry registers, regardless of each
+    topic's own real category. That single-category derivation is the OMN-14605 defect
+    mechanism, so the OMN-16939 subscriber-dispatcher-resolution ratchet MUST observe it
+    through this exact function rather than re-deriving it (a re-implementation is free to
+    drift from the runtime, which is how the class survived three prior gates).
+    """
+    topics = _topics_for_handler_entry(contract, entry)
+    categories = sorted(
+        {derived for topic in topics if (derived := _derive_message_category(topic))}
+    )
+    if len(categories) == 1:
+        return categories[0]
+    declared = (entry.message_category or "").strip().lower()
+    if declared:
+        return declared
+    if categories:
+        # A mixed-category entry has no single answer. Since OMN-18013 this
+        # value no longer decides ROUTING — every route carries its own topic's
+        # category via ``derive_route_message_category`` — so returning the
+        # first is a reporting choice, not a dispatch decision. The
+        # ``contract-topic-category`` gate refuses the shape outright.
+        return categories[0]
+    from omnibase_infra.enums import EnumMessageCategory
+
+    return str(EnumMessageCategory.EVENT.value)
+
+
+def derive_entry_message_types(
+    contract: ModelDiscoveredContract,
+    entry: ModelHandlerRoutingEntry,
+) -> set[str] | None:
+    """Return the message-type keys this entry's dispatcher is indexed under.
+
+    Mirrors ``_prepare_handler_wiring`` exactly: the ``event_model`` class name (when
+    type-scoped), every literal subscribe-topic string, and either the explicit
+    ``entry.event_type`` alias or the topic-derived ``<producer>.<event-name>`` aliases.
+    ``None`` means "un-scoped" (no keys registered).
+    """
+    message_types: set[str] | None = None
+    if entry.event_model is not None:
+        message_types = {entry.event_model.name}
+
+    subscribe_topics = contract.event_bus.subscribe_topics if contract.event_bus else ()
+    literal_topic_aliases = _literal_event_type_aliases_from_topics(subscribe_topics)
+    if literal_topic_aliases:
+        message_types = (message_types or set()).union(literal_topic_aliases)
+
+    event_type_alias = entry.event_type.strip() if entry.event_type else ""
+    if event_type_alias:
+        message_types = (message_types or set()) | {event_type_alias}
+    elif contract.event_bus:
+        topic_aliases = {
+            alias
+            for topic in subscribe_topics
+            if (alias := derive_event_type_alias_for_topic(topic)) is not None
+        }
+        if topic_aliases:
+            message_types = (message_types or set()).union(topic_aliases)
+    return message_types
+
+
+def _strict_dispatcher_coverage_enabled() -> bool:
+    """Return True when strict orchestrator dispatcher coverage is enabled."""
+    return os.environ.get(_STRICT_DISPATCHER_COVERAGE_ENV, "").lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
+def _wiring_strict_mode_enabled() -> bool:
+    """Return True when ONEX_WIRING_STRICT_MODE is active (OMN-9126).
+
+    In strict mode no failure is demoted: per-handler resolution failures
+    re-raise (preserving the pre-OMN-13203 boot-crash invariant) instead of
+    being quarantined. Mirrors the env check at ``wire_from_manifest`` so a
+    single source defines strict semantics.
+    """
+    return os.environ.get("ONEX_WIRING_STRICT_MODE", "").lower() in ("1", "true")
+
+
+def assert_strict_projection_coverage(
+    manifest: ModelAutoWiringManifest,
+    report: ModelAutoWiringReport,
+) -> None:
+    """Refuse a strict boot that DECLARED projections and wired none (OMN-18324).
+
+    The second half of what ``ONEX_WIRING_STRICT_MODE`` has to mean. The first
+    half — the OMN-9126 arm above — reacts to FAILURES, and that is the shape
+    both writer pods on the lab happened to be in on 2026-09-13
+    (``wired=0 skipped=0 failed=1`` on the delegation writer,
+    ``wired=0 skipped=0 failed=8`` on the consolidated tenant writer, both
+    reporting ``READY 1`` because neither Deployment carried the flag at all).
+
+    It is not the only shape. A process whose declared projections all resolve
+    to ``SKIPPED`` reports ``wired=0 skipped=N failed=0``: it takes no message,
+    writes no row, raises nothing, and is indistinguishable on every existing
+    signal from a process that is working. There is no exception to catch and
+    no failure to count, so the failure arm cannot see it. This arm asks the
+    question the arm above cannot: *did this boot end with a way to write?*
+
+    The predicate is deliberately narrow, and each half of it is load-bearing:
+
+    * **At least one DECLARED projection.** ``wired == 0`` alone is not a
+      finding — a process legitimately filtered to an empty projection set
+      (``projection-api``, the contract resolver, the standalone runners that
+      never reach this function at all) boots correctly with nothing wired, and
+      converting that into a crash would be a gate about writers taking down
+      surfaces that are not writers.
+    * **ZERO wired, not "some unwired".** A partially-wired process is a real
+      but weaker finding, and ``projection_attachment`` already names it. If
+      this arm fired on any unwired contract it would crash every narrow
+      runtime profile on the fleet — ``workers`` boots at ``wired=4
+      skipped=1`` — which is how a fail-closed gate earns a permanent
+      exemption instead of a fix.
+
+    The projection set comes from :func:`select_projection_contracts`, the same
+    discriminator the ``projection_attachment`` health dimension reads and the
+    same one ``_choose_dispatch_callback`` reads to pick the projection arm. A
+    gate with its own private notion of "projection" would disagree with the
+    dimension that reports the defect, and the disagreement is where the next
+    gap hides.
+
+    Raising here rather than reporting is the whole point, and it is the
+    mechanism that already exists rather than a new one: the kernel binds its
+    health server AFTER ``wire_from_manifest`` returns, so a raise is a boot
+    crash, a boot crash is a pod that never answers ``/ready``, and a pod that
+    never answers ``/ready`` is NotReady. No readiness probe has to be taught
+    anything, and no second flag is introduced.
+
+    Args:
+        manifest: This process's manifest, already filtered to its runtime
+            profile — the same object ``wire_from_manifest`` wired.
+        report: The finished wiring report for that manifest.
+
+    Raises:
+        ModelOnexError: Strict mode is active, the manifest declares at least
+            one projection, and the report carries no ``WIRED`` row.
+    """
+    if not _wiring_strict_mode_enabled():
+        return
+
+    declared = select_projection_contracts(manifest)
+    if not declared:
+        return
+    if report.total_wired > 0:
+        return
+
+    logger.error(
+        "Auto-wiring wired NOTHING for a manifest declaring %d projection(s): "
+        "this process cannot write a row. wired=%d skipped=%d failed=%d "
+        "projections=%s",
+        len(declared),
+        report.total_wired,
+        report.total_skipped,
+        report.total_failed,
+        [ref.name for ref in declared],
+    )
+    raise ModelOnexError(
+        f"Auto-wiring completed with wired=0 for a manifest declaring "
+        f"{len(declared)} projection(s) "
+        f"(skipped={report.total_skipped} failed={report.total_failed}): "
+        f"this process persists nothing. Declared projections: "
+        + ", ".join(ref.name for ref in declared)
+    )
+
+
+def _boundary_dlq_enabled() -> bool:
+    """Return True when the auto-wired consume boundary must not silently
+    discard a handler exception (OMN-14507).
+
+    ``_make_event_bus_callback`` catches every exception raised while
+    dispatching a consumed message and, historically, only logged it -- the
+    message itself (and any evidence it ever arrived) then vanished: no DLQ,
+    no redelivery, no metric. That is the root mechanism behind this
+    session's silent-death theme (reference_autowired_boundary_swallows_no_redelivery).
+
+    DEFAULT OFF (staged, warn-first rollout -- CLAUDE.md's rule that a
+    strict-tightening gate ships behind a default-off flag until downstream
+    compliance is proven): when unset/false, the boundary keeps its exact
+    historical swallow-and-ACK behavior, with one addition -- a structured
+    metric-shaped log line so the swallow is at least observable. When
+    enabled, an exception that survives the bounded retry is routed to the
+    topic's DLQ on a BEST-EFFORT basis (reusing the same
+    ``EventBusKafka._publish_raw_to_dlq`` / ``get_dlq_topic_for_original``
+    machinery ``EventBusSubcontractWiring._publish_to_dlq`` already uses)
+    instead of only being logged. This is NOT true at-least-once: the
+    consumer offset always advances regardless (no nack/redelivery), so if
+    the DLQ publish itself fails the message is still lost -- loudly
+    (``message_lost=true`` in the log) rather than silently. See
+    ``_route_swallowed_exception``'s docstring for the full gap (OMN-14507
+    review, G1).
+    """
+    return os.environ.get(_BOUNDARY_DLQ_ENV, "").lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
+def _is_orchestrator_contract(contract: ModelDiscoveredContract) -> bool:
+    """Return True when a discovered contract is an orchestrator variant."""
+    return "orchestrator" in contract.node_type.lower()
+
+
+def _start_event_type_aliases(contract: ModelDiscoveredContract) -> tuple[str, ...]:
+    """Return topic-derived event_type aliases for orchestrator start commands."""
+    if contract.event_bus is None:
+        return ()
+
+    aliases: list[str] = []
+    for topic in contract.event_bus.subscribe_topics:
+        parts = topic.split(".")
+        if (
+            len(parts) < 5
+            or parts[0] != "onex"
+            or parts[1] != "cmd"
+            or not parts[3].endswith("-start")
+            or parts[4] != "v1"
+        ):
+            continue
+        alias = derive_event_type_alias_for_topic(topic)
+        if alias is not None:
+            aliases.append(alias)
+    return tuple(dict.fromkeys(aliases))
+
+
+def _live_message_types(pcw: PreparedContractWiring) -> set[str]:
+    """Return message types that will be committed for non-skipped handlers."""
+    message_types: set[str] = set()
+    for prepared in pcw.prepared_wirings:
+        if prepared.is_skip or prepared.is_quarantined:
+            continue
+        if prepared.message_types is not None:
+            message_types.update(prepared.message_types)
+    return message_types
+
+
+def _preflight_prepared_registration_ids(
+    prepared_contracts: Sequence[PreparedContractWiring],
+    dispatch_engine: object,
+    *,
+    dynamic_materialization_authorized: bool = False,
+) -> None:
+    """Validate every derived dispatcher/route ID before the first commit.
+
+    Preparation is deliberately side-effect-free. Preserve that transaction
+    boundary by detecting cross-contract, same-contract, and normalization
+    collisions across the complete manifest before any engine registration or
+    Kafka subscription becomes visible.
+    """
+    dispatcher_origins: dict[str, list[str]] = defaultdict(list)
+    dispatcher_owners: dict[str, str] = {}
+    route_origins: dict[str, list[str]] = defaultdict(list)
+    for prepared_contract in prepared_contracts:
+        if prepared_contract.skip_result is not None:
+            continue
+        contract_name = prepared_contract.contract.name
+        for prepared in prepared_contract.prepared_wirings:
+            if prepared.is_skip or prepared.is_quarantined:
+                continue
+            origin = f"{contract_name}:{prepared.handler_name}"
+            dispatcher_origins[prepared.dispatcher_id].append(origin)
+            dispatcher_owners[prepared.dispatcher_id] = contract_name
+            for route_id in prepared.route_ids:
+                route_origins[route_id].append(origin)
+
+    duplicate_dispatcher_ids = {
+        dispatcher_id: tuple(origins)
+        for dispatcher_id, origins in dispatcher_origins.items()
+        if len(origins) > 1
+    }
+    if duplicate_dispatcher_ids:
+        raise ModelOnexError(
+            message=(
+                "handler_wiring: duplicate prepared dispatcher IDs across the "
+                f"manifest: {duplicate_dispatcher_ids}"
+            ),
+            error_code=EnumCoreErrorCode.DUPLICATE_REGISTRATION,
+        )
+
+    duplicate_route_ids = {
+        route_id: tuple(origins)
+        for route_id, origins in route_origins.items()
+        if len(origins) > 1
+    }
+    if duplicate_route_ids:
+        raise ModelOnexError(
+            message=(
+                "handler_wiring: duplicate prepared route IDs across the manifest "
+                f"(including normalized topic IDs): {duplicate_route_ids}"
+            ),
+            error_code=EnumCoreErrorCode.DUPLICATE_REGISTRATION,
+        )
+
+    from omnibase_infra.runtime.message_dispatch_engine import MessageDispatchEngine
+
+    if isinstance(dispatch_engine, MessageDispatchEngine):
+        dispatch_engine.validate_registration_batch(
+            tuple(dispatcher_origins),
+            tuple(route_origins),
+            dispatcher_owners=dispatcher_owners,
+            allow_frozen=dynamic_materialization_authorized,
+        )
+
+
+def _collect_orchestrator_dispatcher_coverage_gaps(
+    prepared_contracts: list[PreparedContractWiring],
+    failed_gaps: list[str] | None = None,
+) -> tuple[str, ...]:
+    """Find orchestrator start topics that lack a matching live dispatcher."""
+    gaps: list[str] = list(failed_gaps or [])
+    for pcw in prepared_contracts:
+        contract = pcw.contract
+        if not _is_orchestrator_contract(contract):
+            continue
+        start_aliases = _start_event_type_aliases(contract)
+        if not start_aliases:
+            continue
+        message_types = _live_message_types(pcw)
+        for alias in start_aliases:
+            if alias in message_types:
+                continue
+            gaps.append(
+                f"{contract.name}: missing dispatcher for {alias} "
+                f"(node_type={contract.node_type}, contract={contract.contract_path})"
+            )
+    return tuple(gaps)
+
+
+def _assert_orchestrator_dispatcher_coverage(
+    prepared_contracts: list[PreparedContractWiring],
+    failed_gaps: list[str] | None = None,
+) -> None:
+    """Raise when strict mode finds an orchestrator start topic without a dispatcher."""
+    gaps = _collect_orchestrator_dispatcher_coverage_gaps(
+        prepared_contracts,
+        failed_gaps,
+    )
+    if gaps:
+        raise ModelOnexError(
+            "Strict dispatcher coverage failed for orchestrator start topics: "
+            + "; ".join(gaps)
+        )
+
+
+ENV_SINGLE_OWNER_COMMAND_TOPICS = "ONEX_SINGLE_OWNER_COMMAND_TOPICS"
+
+
+def _single_owner_command_topics_strict() -> bool:
+    """True when the OMN-15474 single-owner command-topic gate must fail closed."""
+    return os.environ.get(ENV_SINGLE_OWNER_COMMAND_TOPICS, "").strip().lower() in (
+        "1",
+        "true",
+    )
+
+
+def _assert_single_owner_command_topics(
+    manifest: ModelAutoWiringManifest,
+) -> None:
+    """Fail closed when a COMMAND topic has more than one in-process consumer.
+
+    OMN-15474. A command is an instruction to execute exactly once. Every wired
+    contract joins its own consumer group (``compute_consumer_group_id`` keys on
+    node identity), so two contracts subscribed to one ``onex.cmd.*`` topic in
+    one process means the broker delivers the accepted command to BOTH: the
+    whole reducer chain runs twice, both executions carry the SAME ingress
+    correlation id, and every terminal event, projection row, LLM judge call and
+    cost line is doubled. That is the live defect measured on ``onex-dev``
+    (73 duplicated ``(correlation_id, topic)`` pairs in 48h; two quality-gate
+    evaluations returning DIFFERENT scores for one command).
+
+    ``_detect_duplicate_topics`` already SAW this — it logged
+    ``Duplicate topic ownership detected`` on every affected boot — but it ran
+    AFTER Phase 2 had already committed the subscriptions, and only at WARNING.
+    Detection that arrives after the side effect and cannot fail the boot is not
+    enforcement ([[feedback_a_rule_is_not_a_mechanism]]). This is the mechanism:
+    a preflight, before any subscription is attached.
+
+    EVENT topics are deliberately untouched. Fan-out is their contract — many
+    independent consumers legitimately observe one event on their own groups.
+    Only the command category carries the execute-exactly-once obligation.
+
+    STRICT MODE IS OFF BY DEFAULT, and that is deliberate. This repo's standing
+    rule is that a strict invariant "lands AFTER all downstream consumers are
+    compliant... if a strict gate must ship first, it ships behind an env flag
+    (default OFF) and is flipped in a separate PR once compliance is merged"
+    (CLAUDE.md, Testing and CI). Compliance is NOT met today. Measured
+    2026-08-01 by running THIS gate's own detection over
+    ``discover_contracts()`` (109 contracts, omnibase_infra only —
+    ``omnimarket`` is not installed in that venv, so its contracts are not
+    discoverable and are NOT counted here), 3 command topics have more than
+    one in-process owner:
+
+    - ``onex.cmd.omnibase-infra.build-loop-append.v1``
+      -> node_build_loop_write_effect, node_ledger_projection_compute
+    - ``onex.cmd.omnibase-infra.chain-learn.v1``
+      -> node_chain_orchestrator, node_chain_retrieval_effect
+    - ``onex.cmd.platform.request-introspection.v1``
+      -> node_ledger_projection_compute, node_registration_orchestrator
+
+    An earlier revision of this docstring claimed "8 (1 in omnibase_infra;
+    7 in omnimarket)". That is not reproducible: infra alone is 3, not 1. The
+    omnimarket figure cannot be measured from this repo's venv at all. A raw,
+    unfiltered ``contract.yaml`` scan across the infra worktree plus the
+    canonical omnimarket clone yields 16 topics with >1 declared subscriber,
+    but that is a strict superset (it applies none of the discovery, package-
+    activation, or plugin_managed filtering the gate applies). Re-measure with
+    the gate's own code path in the target deployment before flipping the flag;
+    do not trust any count in this docstring as the deployed number.
+
+    Raising unconditionally here would refuse the runtime boot on
+    the very next deploy. So: OFF ⇒ log an ERROR naming every violation
+    (louder than the pre-existing post-commit WARNING, and now emitted BEFORE
+    the subscriptions attach); ON ⇒ raise before any side effect. Flip
+    ``ONEX_SINGLE_OWNER_COMMAND_TOPICS=1`` in a follow-up once those 8 are
+    resolved.
+    """
+    from omnibase_infra.enums import EnumMessageCategory
+
+    command_topic_owners: dict[str, list[str]] = defaultdict(list)
+    for contract in manifest.contracts:
+        if contract.event_bus is None:
+            continue
+        for topic in contract.event_bus.subscribe_topics:
+            if _derive_message_category(topic) == EnumMessageCategory.COMMAND.value:
+                command_topic_owners[topic].append(contract.name)
+
+    violations = [
+        f"{topic} owned by {sorted(owners)}"
+        for topic, owners in sorted(command_topic_owners.items())
+        if len(owners) > 1
+    ]
+    if not violations:
+        return
+
+    detail = (
+        "Command topics are single-owner: a command must execute exactly once, "
+        "but these command topics have more than one in-process consumer, so "
+        "every accepted command is dispatched once per owner, under one "
+        f"correlation id (OMN-15474): {'; '.join(violations)}. Give each "
+        "command topic exactly one owning contract, or move the additional "
+        "consumers onto an event topic."
+    )
+    if _single_owner_command_topics_strict():
+        raise ModelOnexError(detail, error_code=EnumCoreErrorCode.INVALID_STATE)
+    logger.error(
+        "%s (non-strict — set %s=1 to refuse the boot instead of doubling "
+        "every accepted command on these topics)",
+        detail,
+        ENV_SINGLE_OWNER_COMMAND_TOPICS,
+    )
+
+
+def _detect_duplicate_topics(
+    manifest: ModelAutoWiringManifest,
+) -> list[ModelDuplicateTopicOwnership]:
+    """Detect duplicate topic ownership across contracts.
+
+    Checks three levels:
+    - **package-level**: Two contracts from different packages subscribe to same topic.
+    - **handler-level**: Two contracts (any package) subscribe to same topic.
+    - **intra-package**: Two contracts from the same package subscribe to same topic.
+    """
+    # Map topic -> list of (contract_name, package_name)
+    topic_owners: dict[str, list[tuple[str, str]]] = defaultdict(list)
+    for contract in manifest.contracts:
+        if contract.event_bus:
+            for topic in contract.event_bus.subscribe_topics:
+                topic_owners[topic].append((contract.name, contract.package_name))
+
+    duplicates: list[ModelDuplicateTopicOwnership] = []
+    for topic, owners in topic_owners.items():
+        if len(owners) <= 1:
+            continue
+
+        owner_names = tuple(name for name, _ in owners)
+        packages = {pkg for _, pkg in owners}
+
+        if len(packages) > 1:
+            level = "package"
+        elif len(packages) == 1:
+            level = "intra-package"
+        else:
+            level = "handler"
+
+        duplicates.append(
+            ModelDuplicateTopicOwnership(
+                topic=topic,
+                owners=owner_names,
+                level=level,
+            )
+        )
+
+    return duplicates
+
+
+UNWIRED_BACKFILL_REASON = (
+    "no wiring result produced for this manifest contract "
+    "(wiring-report totality backfill, OMN-15474)"
+)
+
+
+def build_unwired_contract_results(
+    manifest: ModelAutoWiringManifest,
+    *,
+    reason: str,
+    already_reported: Collection[str] = (),
+) -> tuple[ModelContractWiringResult, ...]:
+    """Return one explicit "did not wire" row per uncovered manifest contract.
+
+    The wiring report consumed by :func:`subscribe_wired_contract_topics` is
+    TOTAL over the manifest: every discovered contract either wired, failed, or
+    carries an explicit :attr:`EnumWiringOutcome.SKIPPED` row naming why it did
+    not. Totality is what makes the initial-subscription identity check
+    (:func:`_validate_initial_subscription_contract_identities`) a decision
+    instead of a guess — a report that merely *omits* a contract is
+    indistinguishable from one where the contract silently vanished, and
+    silently-vanished contracts are exactly the class of bug that produced
+    process-global dispatch (OMN-15474).
+
+    This is the canonical constructor for those rows. Every producer of a
+    :class:`ModelAutoWiringReport` — including test doubles standing in for the
+    wiring engine — MUST use it rather than emitting a partial report, so the
+    "did not wire" set is derived from the manifest the runtime actually holds
+    rather than hand-mirrored against it.
+
+    Args:
+        manifest: The manifest the report must be total over.
+        reason: Human-readable reason recorded on each synthesized row.
+        already_reported: Contract names that already have a result row.
+
+    Returns:
+        One SKIPPED result per manifest contract absent from
+        ``already_reported``, in manifest order. Empty when the report is
+        already total.
+    """
+    covered = frozenset(already_reported)
+    return tuple(
+        ModelContractWiringResult(
+            contract_name=contract.name,
+            package_name=contract.package_name,
+            outcome=EnumWiringOutcome.SKIPPED,
+            reason=reason,
+        )
+        for contract in manifest.contracts
+        if contract.name not in covered
+    )
+
+
+async def wire_from_manifest(
+    manifest: ModelAutoWiringManifest,
+    dispatch_engine: ProtocolDispatchEngine,
+    event_bus: object | None = None,
+    environment: str = "dev",
+    container: object | None = None,
+    *,
+    subscribe_immediately: bool = True,
+    result_appliers_by_contract: Mapping[str, ProtocolDispatchResultApplier]
+    | None = None,
+    materialized_explicit_dependencies: dict[str, dict[str, object]] | None = None,
+    topology: ModelDeploymentTopology | None = None,
+    catalog_binding_policy: ProjectionCatalogBindingPolicy | None = None,
+) -> ModelAutoWiringReport:
+    """Wire all discovered contracts into the dispatch engine and event bus.
+
+    For each contract in the manifest that has both ``handler_routing`` and
+    ``event_bus`` declarations:
+
+    1. Import handler modules from ``handler_routing.handlers[].handler``.
+    2. Instantiate handler classes via DI container (if provided) or zero-arg ctor.
+    3. Create dispatch callbacks wrapping each handler.
+    4. Register dispatchers and routes on the dispatch engine.
+    5. Subscribe to Kafka topics via the event bus (if provided).
+
+    Contracts without ``handler_routing`` or ``event_bus`` are skipped.
+    Per-contract failures are collected across the full scan; after all contracts
+    are processed, if any failures exist a ``ModelOnexError`` is raised listing
+    all of them (OMN-8735 strict invariant).
+
+    Args:
+        manifest: The auto-wiring manifest from discovery.
+        dispatch_engine: The MessageDispatchEngine to register routes on.
+        event_bus: Optional event bus for Kafka subscriptions. When None,
+            topic subscriptions are skipped (dispatchers + routes still registered).
+        environment: Environment name for consumer group derivation.
+        container: Optional DI container used to resolve handler constructor
+            deps. Threaded into ``ModelHandlerResolverContext`` and consumed
+            by ``ServiceHandlerResolver`` at precedence Step 3 (OMN-9199).
+        subscribe_immediately: When True (default), commit Kafka subscriptions
+            during this call. When False, only dispatchers/routes are registered;
+            callers must invoke ``subscribe_wired_contract_topics()`` after the
+            dispatch engine is frozen.
+        result_appliers_by_contract: Optional per-contract dispatch result
+            appliers. Only contracts present in this mapping apply dispatcher
+            outputs from auto-wired callbacks.
+        materialized_explicit_dependencies: Optional pre-built constructor
+            dependencies keyed by handler name for resolver Step 2.
+        topology: Checked-in deployment topology loaded by the composition
+            boundary. Required for every contract that declares ``db_io``.
+        catalog_binding_policy: Explicit topology binding names for catalog read
+            and write operations. Missing choices fail catalog wiring closed.
+
+    Returns:
+        A :class:`ModelAutoWiringReport` with per-contract outcomes.
+    """
+    _require_unique_canonical_contract_names(
+        tuple(contract.name for contract in manifest.contracts),
+        identity_source="manifest",
+    )
+
+    # Construct the resolver + ownership query ONCE per wiring pass from the
+    # manifest itself (OMN-9201). The ownership query is set-membership
+    # against the locally discovered node_name set — no I/O, no SQL. See
+    # omnibase_core/services/service_local_handler_ownership_query.py.
+    resolver = ServiceHandlerResolver()
+    ownership_query: object = ServiceLocalHandlerOwnershipQuery(
+        local_node_names=frozenset(c.name for c in manifest.contracts)
+    )
+    # Infra-boundary protocol conformance check. This is the ONLY place where
+    # core+spi types meet via isinstance; see plan §Layering Invariants.
+    _assert_is_ownership_query(ownership_query)
+
+    # Phase 0: Async pre-resolution — resolve handler instances from container via
+    # get_service_async before entering the sync _prepare_contract_wiring loop.
+    # This avoids calling container.get_service() (sync) from inside a running event
+    # loop where the underlying asyncio.run() raises RuntimeError (OMN-9410).
+    # Pre-resolved instances are threaded as pre_resolved_handlers so the sync resolver
+    # can skip its container Step 3 entirely for these handlers.
+    pre_resolved_handlers: dict[str, object] = {}
+    if container is not None:
+        for contract in manifest.contracts:
+            if _is_raw_event_projection_contract(
+                contract
+            ) and not _raw_event_projection_enabled(
+                contract, result_appliers_by_contract
+            ):
+                continue
+            if contract.handler_routing is None:
+                continue
+            for entry in contract.handler_routing.handlers:
+                handler_name = entry.handler.name
+                handler_key = _derive_handler_entry_key(entry)
+                if handler_key in pre_resolved_handlers:
+                    continue
+                try:
+                    handler_cls = _import_handler_class(
+                        entry.handler.module, handler_name
+                    )
+                    instance = await _async_resolve_from_container(
+                        container, handler_cls
+                    )
+                    if instance is not None:
+                        pre_resolved_handlers[handler_key] = instance
+                        logger.debug(
+                            "Auto-wiring: pre-resolved %s.%s key=%s via container (async)",
+                            entry.handler.module,
+                            handler_name,
+                            handler_key,
+                        )
+                except Exception:  # noqa: BLE001 — import errors are caught per-contract in Phase 1
+                    pass
+
+    # Phase 1: Validate and prepare ALL contracts — no engine/bus side effects yet.
+    # Failures are collected; if any exist, we raise before touching anything (OMN-8735).
+    # OMN-17556: built ONCE for the whole manifest, before any contract is
+    # prepared. Per-contract construction would re-read the rendered config and
+    # re-authenticate to the store for every projection, and would make the
+    # store's availability a per-contract accident rather than a lane fact.
+    topology_secret_resolver = await build_topology_secret_resolver(container)
+
+    prepared_contracts: list[PreparedContractWiring] = []
+    failed_results: list[ModelContractWiringResult] = []
+    dispatcher_coverage_failed_gaps: list[str] = []
+    for contract in manifest.contracts:
+        try:
+            prepared = _prepare_contract_wiring(
+                contract=contract,
+                dispatch_engine=dispatch_engine,
+                resolver=resolver,
+                ownership_query=ownership_query,
+                event_bus=event_bus,
+                environment=environment,
+                container=container,
+                pre_resolved_handlers=pre_resolved_handlers
+                if container is not None
+                else None,
+                result_appliers_by_contract=result_appliers_by_contract,
+                materialized_explicit_dependencies=materialized_explicit_dependencies,
+                topology=topology,
+                catalog_binding_policy=catalog_binding_policy,
+                secret_resolver=topology_secret_resolver,
+            )
+            prepared_contracts.append(prepared)
+        except TypeError:
+            # OMN-8735 invariant: resolver-exhaustion TypeError must NOT be
+            # demoted to a collectable failure. Propagate unchanged so the
+            # kernel crashes loudly at boot.
+            raise
+        except StateIoUnconfiguredError:
+            # OMN-14484 invariant: a REQUIRED state_io seam without its DSN is a
+            # startup-FATAL config error (OMN-14208) — never a per-contract
+            # failure to collect under non-strict mode. Propagate so boot crashes
+            # loudly instead of booting "healthy" with the orchestrator silently
+            # dead and every one of its messages routed to the DLQ.
+            raise
+        except Exception as exc:  # noqa: BLE001 — collect per-contract, raise after scan
+            exc_summary = _sanitize_exc(exc)
+            logger.error(
+                "Auto-wiring contract '%s' from package '%s' raised: %s",
+                contract.name,
+                contract.package_name,
+                type(exc).__name__,
+            )
+            failed_results.append(
+                ModelContractWiringResult(
+                    contract_name=contract.name,
+                    package_name=contract.package_name,
+                    outcome=EnumWiringOutcome.FAILED,
+                    reason=f"{type(exc).__name__}: {exc_summary}",
+                )
+            )
+            if _is_orchestrator_contract(contract):
+                for alias in _start_event_type_aliases(contract):
+                    dispatcher_coverage_failed_gaps.append(
+                        f"{contract.name}: missing dispatcher for {alias} "
+                        f"because handler preparation failed "
+                        f"({type(exc).__name__}: {exc_summary})"
+                    )
+
+    # Check for failures before committing any side effects.
+    # ONEX_WIRING_STRICT_MODE=1 raises on any failure (default OFF per OMN-9126:
+    # strict gate ships after all downstream consumers are compliant).
+    failures = failed_results
+    if failures:
+        failed_reasons = [f"{r.contract_name}: {r.reason}" for r in failures]
+        if os.environ.get("ONEX_WIRING_STRICT_MODE", "").lower() in ("1", "true"):
+            raise ModelOnexError(
+                f"Auto-wiring failed for {len(failures)} contract(s): "
+                + "; ".join(failed_reasons)
+            )
+        logger.warning(
+            "Auto-wiring failed for %d contract(s) (non-strict — set ONEX_WIRING_STRICT_MODE=1 to enforce): %s",
+            len(failures),
+            "; ".join(failed_reasons),
+        )
+
+    if _strict_dispatcher_coverage_enabled():
+        _assert_orchestrator_dispatcher_coverage(
+            prepared_contracts,
+            dispatcher_coverage_failed_gaps,
+        )
+
+    # OMN-15474: single-owner command topics, asserted BEFORE Phase 2 commits any
+    # subscription. Must stay above the commit loop — the post-commit
+    # _detect_duplicate_topics warning below is diagnosis, not a gate.
+    _assert_single_owner_command_topics(manifest)
+
+    _preflight_prepared_registration_ids(prepared_contracts, dispatch_engine)
+
+    # Phase 2: All contracts validated — commit registrations and subscriptions.
+    # Failed contracts are included in results so total_failed is accurate.
+    # service_kernel respects the flag before asserting total_failed == 0.
+    results: list[ModelContractWiringResult] = list(failed_results)
+    for pcw in prepared_contracts:
+        result = await _commit_contract_wiring(
+            pcw,
+            dispatch_engine,
+            event_bus,
+            subscribe_immediately=subscribe_immediately,
+            result_applier=(result_appliers_by_contract or {}).get(pcw.contract.name),
+        )
+        results.append(result)
+
+    # OMN-15474 totality post-condition. Phase 1 + Phase 2 above are written so
+    # that every manifest contract yields exactly one row (a prepared contract
+    # commits a row, a preparation failure collects one). That is a property of
+    # two loops, not of this function's signature, so a future refactor can
+    # break it silently — and the only downstream symptom would be
+    # subscribe_wired_contract_topics aborting the kernel at boot on a
+    # report/manifest bijection failure. Backfill instead: any manifest
+    # contract with no row gets an explicit SKIPPED row naming why, so the
+    # report this function returns is TOTAL by contract rather than by
+    # accident. This does NOT relax the downstream identity check — that check
+    # is unchanged and still rejects report rows with no manifest contract,
+    # which is the direction no backfill can repair.
+    unwired_backfill = build_unwired_contract_results(
+        manifest,
+        reason=UNWIRED_BACKFILL_REASON,
+        already_reported=tuple(r.contract_name for r in results),
+    )
+    if unwired_backfill:
+        logger.error(
+            "Auto-wiring produced no result row for %d manifest contract(s); "
+            "backfilling explicit unwired rows to keep the report total "
+            "(OMN-15474). This is a wiring-engine bug, not a contract bug: %s",
+            len(unwired_backfill),
+            sorted(r.contract_name for r in unwired_backfill),
+        )
+        results.extend(unwired_backfill)
+
+    duplicates = _detect_duplicate_topics(manifest)
+
+    for dup in duplicates:
+        logger.warning(
+            "Duplicate topic ownership detected: topic=%s owners=%s level=%s",
+            dup.topic,
+            dup.owners,
+            dup.level,
+        )
+
+    # OMN-9457: flatten per-contract quarantines into a report-level list so
+    # callers can enumerate every contained handler without walking every
+    # result. Order mirrors the per-contract scan so the flat list is
+    # deterministic across runs.
+    all_quarantined: list[ModelQuarantinedWiring] = []
+    for result in results:
+        all_quarantined.extend(result.quarantined_handlers)
+
+    report = ModelAutoWiringReport(
+        results=tuple(results),
+        duplicates=tuple(duplicates),
+        quarantined_handlers=tuple(all_quarantined),
+    )
+
+    if all_quarantined:
+        # High-visibility summary: operators tailing runtime-effects logs
+        # on first boot need to see the quarantined set without digging
+        # through per-contract DEBUG lines.
+        summary = ", ".join(
+            f"{q.contract_name}:{q.handler_name}={q.reason.value}"
+            for q in all_quarantined
+        )
+        logger.warning(
+            "Auto-wiring quarantined %d handler(s) — runtime will continue "
+            "without them. Follow-up migration required: %s",
+            len(all_quarantined),
+            summary,
+        )
+
+    logger.info(
+        "Auto-wiring complete: wired=%d skipped=%d failed=%d "
+        "quarantined=%d duplicates=%d",
+        report.total_wired,
+        report.total_skipped,
+        report.total_failed,
+        report.total_quarantined,
+        len(report.duplicates),
+    )
+
+    # OMN-18324. AFTER the summary log, so the counts an operator reads in the
+    # crash's own log tail are the counts the refusal was computed from, and
+    # LAST, so a strict refusal can never mask an earlier, more specific one.
+    assert_strict_projection_coverage(manifest, report)
+
+    return report
+
+
+def _contract_provision_topics(contract: ModelDiscoveredContract) -> tuple[str, ...]:
+    """Return the topic set this contract owns at boot (OMN-13237 §3.6, OMN-15330,
+    OMN-15832).
+
+    Subscribe topics (the consumers that attach) UNION the contract's owned
+    publish topics UNION its declared ``event_bus.dlq_topics`` UNION its served
+    ``projection_api`` topics. Names come from the contract's own declarations
+    only — never a Python literal.
+
+    OMN-15330 — DLQ topics used to be excluded here and left to the best-effort
+    universe warm. That delegation broke the moment the warm was switched off:
+    ``ONEX_BOOT_UNIVERSE_PROVISION=0`` is the standing onex-dev setting (added
+    after the 2026-07-27 >1000-topic broker near-meltdown), and with the warm
+    off NOTHING created the declared DLQ topics. The first malformed event then
+    hit ``[ONEX_CORE_041_INVALID_CONFIGURATION] Topic '<dlq>' not found on
+    broker`` inside ``_route_projection_error_to_dlq`` and the record was
+    dropped — observed live on onex-dev 2026-07-28T16:29Z for
+    ``onex.dlq.omnimarket.projection-delegation-inference-response-malformed.v1``
+    and four siblings.
+
+    The DLQ names are read with ``_read_dlq_topics`` — the SAME reader the
+    projection auto-wiring uses to build ``ModelProjectionSinks.dlq_topics`` —
+    so the provisioned string is byte-identical to the routing target by
+    construction, rather than by a second parser that can drift. DLQ topics
+    enter the readiness confirm alongside the rest: attaching a consumer whose
+    dead-letter sink is not ready guarantees silent loss on the first malformed
+    event, so this fails closed (a NOT_READY contract is retried by the
+    OMN-15215 reconciliation loop).
+
+    OMN-15832 — the same universe-warm-off gap applies to ``projection_api``
+    (``onex.snapshot.*``) topics: nothing else creates them at boot, and the
+    contract's ``event_bus`` union above never scanned that section at all.
+    ``read_projection_api_topics`` (``omnibase_infra.tools.contract_topic_extractor``)
+    is the SAME parser ``ContractTopicExtractor.extract``'s global scan uses —
+    one source of parsing truth, scoped to ``expose: true`` AND
+    ``bus_backed: true`` exposures, so the boot provision set can never diverge
+    from what ``omnimarket.projection.discovery.build_projection_topic_map``
+    will actually serve. Explicitly NOT a fix to re-enable
+    ``ONEX_BOOT_UNIVERSE_PROVISION`` or to have the consumer
+    (``SnapshotCache``) self-provision its own topics — both remain out of
+    scope by standing decision; this stays a governed, boot-side, per-contract
+    addition to the same confirm path DLQ topics already use.
+    """
+    if contract.event_bus is None:
+        return ()
+    ordered = list(contract.event_bus.subscribe_topics)
+    ordered.extend(contract.event_bus.publish_topics)
+    typed_dlq_topics = getattr(contract.event_bus, "dlq_topics", ())
+    if typed_dlq_topics:
+        ordered.extend(typed_dlq_topics)
+    else:
+        try:
+            ordered.extend(_read_dlq_topics(contract.contract_path))
+        except Exception:  # noqa: BLE001 — per-contract boot boundary
+            # ``_interleave_contract`` runs under ``asyncio.gather(...)`` with no
+            # ``return_exceptions=True``, so a raise here would abort the ENTIRE
+            # boot subscribe pass for every contract. Degrading this one contract
+            # to its pre-OMN-15330 behaviour (no DLQ provisioning) is strictly less
+            # bad, and the warning names the contract that needs fixing.
+            logger.warning(
+                "Could not read event_bus.dlq_topics for contract '%s' from %s — "
+                "its DLQ topics will NOT be provisioned at boot (OMN-15330)",
+                contract.name,
+                contract.contract_path,
+                exc_info=True,
+            )
+    try:
+        ordered.extend(read_projection_api_topics(contract.contract_path))
+    except Exception:  # noqa: BLE001 — per-contract boot boundary, see DLQ comment above
+        logger.warning(
+            "Could not read projection_api topics for contract '%s' from %s — "
+            "its snapshot topics will NOT be provisioned at boot (OMN-15832)",
+            contract.name,
+            contract.contract_path,
+            exc_info=True,
+        )
+    return tuple(dict.fromkeys(t for t in ordered if t and t.strip()))
+
+
+async def subscribe_wired_contract_topics(
+    manifest: ModelAutoWiringManifest,
+    report: ModelAutoWiringReport,
+    dispatch_engine: ProtocolDispatchEngine,
+    event_bus: object | None,
+    environment: str = "dev",
+    result_appliers_by_contract: Mapping[str, ProtocolDispatchResultApplier]
+    | None = None,
+    *,
+    provisioner: ProtocolTopicProvisioner | None = None,
+    readiness_config: ModelTopicReadinessConfig | None = None,
+    attach_results_out: list[ModelContractAttachResult] | None = None,
+    exclusions_out: list[ModelContractAttachExclusion] | None = None,
+    core_runtime_topics: frozenset[str] = frozenset(),
+    core_runtime_owners: Mapping[str, str] | None = None,
+) -> dict[str, tuple[str, ...]]:
+    """Subscribe Kafka topics for contracts that already wired successfully.
+
+    This is the post-freeze companion to ``wire_from_manifest(...,
+    subscribe_immediately=False)``. It preserves the kernel invariant that
+    consumers only start after the dispatch engine becomes read-only.
+
+    OMN-13237 — when *provisioner* is supplied, the boot interleaves
+    provision -> confirm-ready -> attach PER WIRED CONTRACT (replacing the
+    global create-all-then-subscribe-all big-bang that caused the cold-broker
+    crash-loop). Each contract keeps the provision->ready->attach ORDER
+    invariant (§3.9); bounded parallelism across contracts is allowed via
+    ``readiness_config.max_concurrent_contract_attach``. A contract whose
+    provision/readiness fails is recorded NOT-READY and SKIPPED for attach — it
+    never aborts the kernel or recycles the process (§3.5, §3.8). Per-contract
+    attach outcomes are appended to *attach_results_out* when provided so the
+    caller can build the runtime readiness tri-state.
+
+    OMN-17372 — the eligibility filters below drop contracts this function will
+    NEVER attempt, so those contracts never produce a
+    ``ModelContractAttachResult``. Each such drop is appended to
+    *exclusions_out* when provided, naming the contract and the structural
+    reason. Together the two out-params account for EVERY contract in *report*:
+    a caller can tell "has not reported yet" apart from "will never report"
+    instead of waiting forever on the second in the belief it is the first.
+    That is the whole defect OMN-17372's readiness gate hit — it required
+    ``manifest.contracts`` and could only ever be satisfied by this eligible
+    subset, so one structurally-skipped command contract pinned ``/ready`` at
+    503 for the life of the process. The exclusion list is filled BEFORE the
+    first await, so it is complete even for a caller that reads it early.
+
+    Returns the map of attached contract -> attached topics (the contracts that
+    actually subscribed). Backward-compatible: with no *provisioner* the
+    behavior is the original concurrent subscribe (no readiness gate).
+    """
+    _validate_initial_subscription_contract_identities(manifest, report)
+    if event_bus is None:
+        return {}
+
+    report_dispatcher_scopes = tuple(
+        (result.contract_name, result.dispatchers_registered)
+        for result in report.results
+    )
+    _validate_contract_dispatcher_ownership(
+        dispatch_engine,
+        report_dispatcher_scopes,
+        allow_empty_scopes=True,
+    )
+
+    contract_by_name = {contract.name: contract for contract in manifest.contracts}
+
+    # Collect eligible contracts in priority order (projection appliers first).
+    eligible: list[tuple[ModelContractWiringResult, ModelDiscoveredContract]] = []
+
+    def _exclude(
+        contract_name: str,
+        reason: EnumContractAttachExclusionReason,
+        detail: str = "",
+    ) -> None:
+        """Report a contract this function will never attempt (OMN-17372)."""
+        if exclusions_out is None:
+            return
+        exclusions_out.append(
+            ModelContractAttachExclusion(
+                contract_name=contract_name,
+                reason=reason,
+                detail=detail,
+            )
+        )
+
+    for result in _prioritize_subscription_results(
+        report,
+        result_appliers_by_contract,
+    ):
+        if result.outcome is not EnumWiringOutcome.WIRED:
+            # OMN-17372: this was the one filter of the six that logged
+            # NOTHING. A contract SKIPPED upstream (no handler_routing, no
+            # subscribe_topics) vanished here without a line, which is why a
+            # permanently-503 runtime gave no diagnostic at all. Log it at the
+            # same level as its five siblings.
+            logger.info(
+                "Auto-wiring (deferred): skipping Kafka subscription for "
+                "contract '%s' because its wiring outcome is %s, not WIRED "
+                "(OMN-17372). reason=%s",
+                result.contract_name,
+                result.outcome.value,
+                result.reason,
+            )
+            _exclude(
+                result.contract_name,
+                EnumContractAttachExclusionReason.NOT_WIRED,
+                f"outcome={result.outcome.value} reason={result.reason}",
+            )
+            continue
+        contract = contract_by_name.get(result.contract_name)
+        if contract is None:
+            logger.info(
+                "Auto-wiring (deferred): skipping Kafka subscription for "
+                "contract '%s' because it is absent from the manifest being "
+                "subscribed (OMN-17372)",
+                result.contract_name,
+            )
+            _exclude(
+                result.contract_name,
+                EnumContractAttachExclusionReason.ABSENT_FROM_MANIFEST,
+            )
+            continue
+        if not result.dispatchers_registered:
+            # Resolver-owned skips and quarantines intentionally register no
+            # local dispatcher. They therefore own no consume callback. The
+            # old path still subscribed them and a process-global dispatch
+            # could execute some other contract's matching handler; keeping
+            # them unsubscribed is the only truthful zero-owner state.
+            logger.info(
+                "Auto-wiring (deferred): skipping Kafka subscription for "
+                "contract '%s' because it owns zero dispatchers (OMN-15474)",
+                contract.name,
+            )
+            _exclude(
+                contract.name,
+                EnumContractAttachExclusionReason.NO_DISPATCHERS_REGISTERED,
+            )
+            continue
+        if _is_raw_event_projection_contract(contract) and (
+            result_appliers_by_contract is None
+            or contract.name not in result_appliers_by_contract
+        ):
+            _exclude(
+                contract.name,
+                EnumContractAttachExclusionReason.RAW_EVENT_PROJECTION_WITHOUT_APPLIER,
+            )
+            continue
+        # plugin_managed: domain plugin owns Kafka subscription (OMN-10864).
+        if contract.event_bus is not None and contract.event_bus.plugin_managed:
+            logger.info(
+                "Auto-wiring (deferred): skipping Kafka subscription for "
+                "plugin-managed contract '%s' (OMN-10864)",
+                contract.name,
+            )
+            _exclude(
+                contract.name,
+                EnumContractAttachExclusionReason.PLUGIN_MANAGED,
+            )
+            continue
+        # OMN-17562. The same withholding as the immediate seam, applied here
+        # too because this path re-derives eligibility from the wiring REPORT
+        # rather than reading ``PreparedContractWiring.subscription_topics``.
+        # The real kernel boot takes THIS path (subscribe_immediately=False,
+        # subscribe after the dispatch engine is frozen), so a fix applied only
+        # to the immediate seam would change nothing on any deployed lane.
+        if result.has_no_live_dispatcher:
+            logger.warning(
+                "Auto-wiring (deferred): skipping Kafka subscription for "
+                "contract '%s' — all %d handler entries wire a no-op dispatch "
+                "here, so consuming would commit offsets over events no "
+                "handler runs on (OMN-17562). handlers=%s",
+                contract.name,
+                len(result.wirings),
+                list(result.nonwriting_handlers),
+            )
+            _exclude(
+                contract.name,
+                EnumContractAttachExclusionReason.NO_LIVE_DISPATCHER,
+                f"nonwriting_handlers={list(result.nonwriting_handlers)}",
+            )
+            continue
+        eligible.append((result, contract))
+
+    knobs = readiness_config or ModelTopicReadinessConfig()
+    # Bounded parallelism across contracts; each contract keeps its own
+    # provision->ready->attach order (§3.9).
+    semaphore = asyncio.Semaphore(knobs.max_concurrent_contract_attach)
+
+    async def _provision_ready_attach(
+        result: ModelContractWiringResult,
+        contract: ModelDiscoveredContract,
+    ) -> ModelContractAttachResult:
+        async with semaphore:
+            return await _interleave_contract(
+                name=result.contract_name,
+                contract=contract,
+                dispatch_engine=dispatch_engine,
+                event_bus=event_bus,
+                environment=environment,
+                result_applier=(result_appliers_by_contract or {}).get(
+                    result.contract_name
+                ),
+                allowed_dispatcher_ids=result.dispatchers_registered,
+                provisioner=provisioner,
+                readiness_config=knobs,
+                core_runtime_topics=core_runtime_topics,
+                core_runtime_owners=core_runtime_owners,
+            )
+
+    attach_results = await asyncio.gather(
+        *(_provision_ready_attach(result, contract) for result, contract in eligible)
+    )
+
+    if attach_results_out is not None:
+        attach_results_out.extend(attach_results)
+
+    subscribed: dict[str, tuple[str, ...]] = {}
+    for ar in attach_results:
+        if ar.status is EnumContractAttachStatus.ATTACHED:
+            subscribed[ar.contract_name] = ar.topics_subscribed
+    return subscribed
+
+
+async def _interleave_contract(
+    *,
+    name: str,
+    contract: ModelDiscoveredContract,
+    dispatch_engine: ProtocolDispatchEngine,
+    event_bus: object,
+    environment: str,
+    result_applier: ProtocolDispatchResultApplier | None,
+    allowed_dispatcher_ids: Collection[str] | None,
+    provisioner: ProtocolTopicProvisioner | None,
+    readiness_config: ModelTopicReadinessConfig,
+    core_runtime_topics: frozenset[str] = frozenset(),
+    core_runtime_owners: Mapping[str, str] | None = None,
+) -> ModelContractAttachResult:
+    """Provision -> confirm-ready -> attach for ONE contract (§3.2, OMN-13237).
+
+    The order invariant is enforced here: every ``ensure_topic_exists`` for the
+    contract precedes its readiness confirm, which precedes consumer attach.
+    """
+    dispatcher_scope = _require_registered_contract_dispatcher_scope(
+        dispatch_engine,
+        allowed_dispatcher_ids,
+        contract_name=name,
+    )
+    provision_topics = _contract_provision_topics(contract)
+
+    readiness: ModelTopicSetReadiness | None = None
+    if provisioner is not None and provision_topics:
+        # (1) Provision the contract's topics (idempotent), in declared order.
+        for topic in provision_topics:
+            try:
+                await provisioner.ensure_topic_exists(topic_name=topic)
+            except TopicReplicationPolicyError:
+                # OMN-15395: a durability-policy violation is fail-closed and
+                # must escape this best-effort boundary. Attaching a consumer to
+                # a contract whose topics were silently skipped because one of
+                # them declares RF1 on MSK is the exact outcome the policy
+                # exists to prevent.
+                raise
+            except Exception:  # noqa: BLE001 — boundary: per-contract, never fatal
+                logger.warning(
+                    "Topic provisioning failed for contract '%s' topic '%s' "
+                    "(non-fatal, contract will be NOT-READY)",
+                    name,
+                    topic,
+                    exc_info=True,
+                )
+        # (2) Confirm broker metadata converged before attaching the consumer.
+        try:
+            readiness = await provisioner.confirm_topics_ready(
+                provision_topics,
+                config=readiness_config,
+            )
+        except Exception:  # noqa: BLE001 — boundary: per-contract, never fatal
+            logger.warning(
+                "Topic readiness confirm raised for contract '%s' "
+                "(non-fatal, contract will be NOT-READY)",
+                name,
+                exc_info=True,
+            )
+            readiness = ModelTopicSetReadiness(
+                topics=provision_topics,
+                status=EnumTopicReadinessStatus.UNAVAILABLE,
+            )
+        if not readiness.is_ready:
+            # OMN-15578: carry the classified reason (EnumTopicReadinessFailureReason,
+            # OMN-13237) and human-readable detail per topic — not just the bare
+            # topic name — so a NOT-READY boot outcome is root-causable from logs
+            # alone. Structured via extra= (OMN-14492 discipline) so the data is
+            # grep/query-able rather than buried in a formatted string.
+            failure_details = [
+                {
+                    "topic": f.topic,
+                    "reason": f.reason.value,
+                    "detail": f.detail,
+                }
+                for f in readiness.failures
+            ]
+            logger.warning(
+                "Contract '%s' NOT-READY: topic metadata did not converge "
+                "(status=%s failures=%s) — skipping consumer attach, runtime "
+                "stays live (OMN-13237)",
+                name,
+                readiness.status.value,
+                failure_details,
+                extra={
+                    "contract_name": name,
+                    "readiness_status": readiness.status.value,
+                    "readiness_failures": failure_details,
+                },
+            )
+            return ModelContractAttachResult(
+                contract_name=name,
+                status=EnumContractAttachStatus.NOT_READY,
+                dispatcher_ids=tuple(sorted(dispatcher_scope)),
+                readiness=readiness,
+                detail=f"readiness {readiness.status.value}",
+            )
+
+    # (3) Attach the consumer (readiness passed or no provisioner supplied).
+    try:
+        topics_subscribed = await _subscribe_contract_topics(
+            contract=contract,
+            dispatch_engine=dispatch_engine,
+            event_bus=event_bus,
+            environment=environment,
+            result_applier=result_applier,
+            allowed_dispatcher_ids=dispatcher_scope,
+            core_runtime_topics=core_runtime_topics,
+            core_runtime_owners=core_runtime_owners,
+        )
+    except Exception as exc:  # noqa: BLE001 — boundary: per-contract, never fatal
+        logger.warning(
+            "Contract '%s' consumer attach FAILED after readiness (non-fatal): %s",
+            name,
+            type(exc).__name__,
+            exc_info=True,
+        )
+        return ModelContractAttachResult(
+            contract_name=name,
+            status=EnumContractAttachStatus.FAILED,
+            dispatcher_ids=tuple(sorted(dispatcher_scope)),
+            readiness=readiness,
+            detail=type(exc).__name__,
+        )
+
+    return ModelContractAttachResult(
+        contract_name=name,
+        status=EnumContractAttachStatus.ATTACHED,
+        dispatcher_ids=tuple(sorted(dispatcher_scope)),
+        topics_subscribed=tuple(topics_subscribed),
+        readiness=readiness,
+    )
+
+
+# Bounded background NOT_READY reconciliation (OMN-15215, OMN-13237 follow-up).
+DEFAULT_NOT_READY_RETRY_INITIAL_DELAY_SECONDS: float = 30.0
+DEFAULT_NOT_READY_RETRY_BACKOFF_SECONDS: float = 30.0
+DEFAULT_NOT_READY_RETRY_MAX_ATTEMPTS: int = 5
+
+
+async def reattach_not_ready_contracts(
+    manifest: ModelAutoWiringManifest,
+    attach_results: Sequence[ModelContractAttachResult],
+    dispatch_engine: ProtocolDispatchEngine,
+    event_bus: object | None,
+    environment: str = "dev",
+    result_appliers_by_contract: Mapping[str, ProtocolDispatchResultApplier]
+    | None = None,
+    *,
+    provisioner: ProtocolTopicProvisioner | None = None,
+    readiness_config: ModelTopicReadinessConfig | None = None,
+    core_runtime_topics: frozenset[str] = frozenset(),
+    core_runtime_owners: Mapping[str, str] | None = None,
+) -> tuple[dict[str, tuple[str, ...]], tuple[ModelContractAttachResult, ...]]:
+    """Re-attempt provision -> confirm-ready -> attach for UNATTACHED contracts.
+
+    OMN-15215 (CONFIRMED root cause): ``subscribe_wired_contract_topics`` makes
+    exactly ONE provision->confirm->attach attempt per contract via
+    ``_interleave_contract``. A contract whose topic metadata has not converged
+    within the bounded readiness poll (``ModelTopicReadinessConfig``, 30s/60
+    attempts by default) is recorded NOT_READY and its consumer attach is
+    skipped — PERMANENTLY, for the rest of the process lifetime, because
+    nothing ever calls ``_interleave_contract`` for it again. For a
+    wide-topic-count contract (e.g. ``node_ledger_projection_compute``'s 26
+    topics, OMN-15006/OMN-15168) a transient cold-broker topic-creation race on
+    a handful of just-provisioned topics starves the ENTIRE contract's
+    consumer: since ``_subscribe_contract_topics`` subscribes a contract's
+    topics as one all-or-nothing unit, zero of its 26 topics ever get a Kafka
+    consumer group — not even the ones unrelated to the race. Live evidence
+    (fresh stability-test boot, 2026-07-27): ``NOT-READY: topic metadata did
+    not converge (status=not_ready failures=[4 OCC governance topics])``
+    logged exactly once at boot, followed by a ZERO count of "Auto-wired
+    subscription ... node=node_ledger_projection_compute" log lines across the
+    container's entire observed lifetime (3 separate contract-discovery
+    passes, ~11 minutes) — the OMN-13237 "runtime stays live" framing implies
+    eventual recoverability that was never actually implemented.
+
+    This is NOT the ``handler_routing_loader`` "Unknown routing_strategy
+    'topic_match'" fallback warning (that code path is a separate, informational
+    ``RuntimeContractConfigLoader`` boot-summary pass — its output is never
+    consumed by ``auto_wiring``'s wire/attach decision, confirmed by a real,
+    unmocked repro: the current ``discovery.py`` + ``handler_wiring.py`` path
+    already wires and attaches 26/26 topic_match entries for
+    ``node_ledger_projection_compute`` via the topic-folded dispatcher-ID
+    derivation from OMN-14580/OMN-13825). Fixing the loader's
+    ``VALID_ROUTING_STRATEGIES`` alone would NOT have unblocked OMN-15169 —
+    only closing this NOT_READY-has-no-retry gap does.
+
+    OMN-18110 widened the input from NOT_READY to every contract that did not
+    attach. ``_interleave_contract`` records a second non-attached outcome —
+    FAILED, meaning readiness PASSED and the consumer attach itself raised —
+    and nothing retried it, so one transient Kafka group-join timeout stranded
+    a contract for the rest of the process. Live on the ``.201`` dev lane,
+    boot 2026-09-10T00:03:45Z: four contracts (``node_omnigate_projection``
+    among them) each recorded ``status=failed detail=InfraTimeoutError`` over a
+    ``readiness.status=ready`` with an empty failure set, while the eleven
+    preceding boots of the same image attached all 215. The runtime then held
+    ``projection_attachment`` DEGRADED with no path back short of a restart.
+    Both outcomes are re-attemptable by this same idempotent interleave, and
+    the admission predicate is now the shared
+    ``ModelContractAttachResult.needs_reattach``.
+
+    Re-runs the SAME provision->confirm->attach interleave
+    (``_interleave_contract``) for each contract still unattached, returning
+    newly-attached topics and updated per-contract results. Callers invoke
+    this repeatedly (bounded, with backoff — see
+    ``run_not_ready_reconciliation_loop``) until every contract attaches or a
+    bounded retry budget is exhausted.
+    """
+    pending_results = _validate_unattached_contract_identities(
+        manifest,
+        attach_results,
+    )
+    if event_bus is None:
+        return {}, ()
+
+    contract_by_name = {contract.name: contract for contract in manifest.contracts}
+    still_unattached_names = tuple(result.contract_name for result in pending_results)
+    if not still_unattached_names:
+        return {}, ()
+
+    _validate_contract_dispatcher_ownership(
+        dispatch_engine,
+        tuple(
+            (result.contract_name, result.dispatcher_ids) for result in pending_results
+        ),
+    )
+
+    knobs = readiness_config or ModelTopicReadinessConfig()
+    semaphore = asyncio.Semaphore(knobs.max_concurrent_contract_attach)
+
+    pending_by_name = {result.contract_name: result for result in pending_results}
+
+    async def _retry_one(name: str) -> ModelContractAttachResult | None:
+        contract = contract_by_name.get(name)
+        previous_result = pending_by_name.get(name)
+        if contract is None or previous_result is None:
+            return None
+        async with semaphore:
+            return await _interleave_contract(
+                name=name,
+                contract=contract,
+                dispatch_engine=dispatch_engine,
+                event_bus=event_bus,
+                environment=environment,
+                result_applier=(result_appliers_by_contract or {}).get(name),
+                allowed_dispatcher_ids=previous_result.dispatcher_ids,
+                provisioner=provisioner,
+                readiness_config=knobs,
+                core_runtime_topics=core_runtime_topics,
+                core_runtime_owners=core_runtime_owners,
+            )
+
+    retried = await asyncio.gather(
+        *(_retry_one(name) for name in still_unattached_names)
+    )
+    results = tuple(r for r in retried if r is not None)
+
+    newly_subscribed: dict[str, tuple[str, ...]] = {
+        r.contract_name: r.topics_subscribed
+        for r in results
+        if r.status is EnumContractAttachStatus.ATTACHED
+    }
+    return newly_subscribed, results
+
+
+async def run_not_ready_reconciliation_loop(
+    manifest: ModelAutoWiringManifest,
+    initial_unattached: Sequence[ModelContractAttachResult],
+    dispatch_engine: ProtocolDispatchEngine,
+    event_bus: object | None,
+    environment: str = "dev",
+    result_appliers_by_contract: Mapping[str, ProtocolDispatchResultApplier]
+    | None = None,
+    *,
+    provisioner: ProtocolTopicProvisioner | None = None,
+    readiness_config: ModelTopicReadinessConfig | None = None,
+    core_runtime_topics: frozenset[str] = frozenset(),
+    core_runtime_owners: Mapping[str, str] | None = None,
+    initial_delay_seconds: float = DEFAULT_NOT_READY_RETRY_INITIAL_DELAY_SECONDS,
+    backoff_seconds: float = DEFAULT_NOT_READY_RETRY_BACKOFF_SECONDS,
+    max_attempts: int = DEFAULT_NOT_READY_RETRY_MAX_ATTEMPTS,
+    on_attempt: Callable[
+        [dict[str, tuple[str, ...]], tuple[ModelContractAttachResult, ...]], None
+    ]
+    | None = None,
+    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+) -> tuple[ModelContractAttachResult, ...]:
+    """Bounded background retry of UNATTACHED contracts (OMN-15215, OMN-18110).
+
+    Sleeps ``initial_delay_seconds``, then re-attempts every contract that is
+    still unattached via ``reattach_not_ready_contracts``, up to
+    ``max_attempts`` times with ``backoff_seconds`` between attempts. Stops
+    early once every contract has attached. Never raises on a still-unattached
+    outcome — this preserves the OMN-13237 fail-open boot contract (a contract
+    that never converges stays degraded, not crash-looping); this loop makes
+    "runtime stays live" actually recoverable instead of a permanent skip.
+    ``on_attempt`` is an optional caller hook (e.g. to fold newly-subscribed
+    topics into shared boot-time bookkeeping such as topic-collision detection)
+    invoked after each attempt with ``(newly_subscribed, results)``. ``sleep``
+    is injectable so tests can drive the loop without real wall-clock delay.
+
+    OMN-18110: the input is every non-attached result, FAILED as well as
+    NOT_READY. The budget is unchanged — widening WHICH contracts are retried
+    does not widen HOW MANY times any of them is.
+    """
+    validated_unattached = _validate_unattached_contract_identities(
+        manifest,
+        initial_unattached,
+    )
+    _validate_contract_dispatcher_ownership(
+        dispatch_engine,
+        tuple(
+            (result.contract_name, result.dispatcher_ids)
+            for result in validated_unattached
+        ),
+    )
+    pending: dict[str, ModelContractAttachResult] = {
+        r.contract_name: r for r in validated_unattached
+    }
+    if not pending:
+        return ()
+
+    await sleep(initial_delay_seconds)
+    latest: dict[str, ModelContractAttachResult] = {}
+    for attempt in range(1, max_attempts + 1):
+        if not pending:
+            break
+        newly_subscribed, results = await reattach_not_ready_contracts(
+            manifest,
+            tuple(pending.values()),
+            dispatch_engine,
+            event_bus,
+            environment,
+            result_appliers_by_contract,
+            provisioner=provisioner,
+            readiness_config=readiness_config,
+            core_runtime_topics=core_runtime_topics,
+            core_runtime_owners=core_runtime_owners,
+        )
+        for result in results:
+            latest[result.contract_name] = result
+            if result.status is EnumContractAttachStatus.ATTACHED:
+                pending.pop(result.contract_name, None)
+            else:
+                pending[result.contract_name] = result
+        if on_attempt is not None:
+            on_attempt(newly_subscribed, results)
+        logger.info(
+            "Unattached-contract reconciliation attempt %d/%d: resolved=%d "
+            "remaining=%d (OMN-15215/OMN-18110)",
+            attempt,
+            max_attempts,
+            len(newly_subscribed),
+            len(pending),
+        )
+        if pending and attempt < max_attempts:
+            await sleep(backoff_seconds)
+
+    if pending:
+        # OMN-15578: same discipline as the NOT-READY warning above — carry
+        # per-contract reason+detail, not just the bare contract name, so a
+        # reconciliation-exhaustion outcome is root-causable from logs alone.
+        #
+        failure_details = {
+            contract_name: [
+                {
+                    "topic": f.topic,
+                    "reason": f.reason.value,
+                    "detail": f.detail,
+                }
+                for f in (result.readiness.failures if result.readiness else ())
+            ]
+            for contract_name, result in pending.items()
+        }
+        # OMN-18110: the attach STATUS and its detail are carried alongside the
+        # readiness failures, not instead of them. A FAILED attach has an EMPTY
+        # ``readiness.failures`` by construction — readiness is the part that
+        # passed — so for the exact class of exhaustion this widening admits, a
+        # readiness-only rendering printed ``[]`` and the warning named the
+        # contract while saying nothing at all about why it never attached.
+        attach_details = {
+            contract_name: {
+                "status": result.status.value,
+                "detail": result.detail,
+            }
+            for contract_name, result in pending.items()
+        }
+        logger.warning(
+            "Unattached-contract reconciliation exhausted after %d attempts, "
+            "still unattached: %s readiness=%s (OMN-15215/OMN-18110/OMN-13237, "
+            "runtime stays live degraded)",
+            max_attempts,
+            attach_details,
+            failure_details,
+            extra={
+                "max_attempts": max_attempts,
+                "pending_contracts": sorted(pending),
+                "readiness_failures": failure_details,
+                "attach_failures": attach_details,
+            },
+        )
+    return tuple(latest.values())
+
+
+def _prioritize_subscription_results(
+    report: ModelAutoWiringReport,
+    result_appliers_by_contract: Mapping[str, ProtocolDispatchResultApplier]
+    | None = None,
+) -> tuple[ModelContractWiringResult, ...]:
+    """Return wired results with explicitly-applied contracts first.
+
+    Contract-specific result appliers represent durable side effects such as
+    projection writes. Subscribing them before the generic backlog avoids
+    missing readiness-critical events during long Kafka group-join startup.
+    """
+    if not result_appliers_by_contract:
+        return tuple(report.results)
+
+    priority_contracts = frozenset(result_appliers_by_contract)
+    indexed_results = tuple(enumerate(report.results))
+    return tuple(
+        result
+        for _, result in sorted(
+            indexed_results,
+            key=lambda item: (
+                0 if item[1].contract_name in priority_contracts else 1,
+                item[0],
+            ),
+        )
+    )
+
+
+def _prepare_contract_wiring(
+    *,
+    contract: ModelDiscoveredContract,
+    dispatch_engine: object,
+    resolver: ServiceHandlerResolver,
+    ownership_query: object,
+    event_bus: object | None,
+    environment: str,
+    container: object | None = None,
+    materialized_explicit_dependencies: (dict[str, dict[str, object]] | None) = None,
+    pre_resolved_handlers: dict[str, object] | None = None,
+    result_appliers_by_contract: Mapping[str, ProtocolDispatchResultApplier]
+    | None = None,
+    topology: ModelDeploymentTopology | None = None,
+    catalog_binding_policy: ProjectionCatalogBindingPolicy | None = None,
+    secret_resolver: SecretResolver | None = None,
+) -> PreparedContractWiring:
+    """Prepare one contract for wiring — NO side effects.
+
+    Skipped contracts encode the skip on ``skip_result``. Handler-preparation
+    failures raise ``ModelOnexError`` (caller collects across contracts).
+    Resolver-Step-6 ``TypeError`` propagates unchanged to preserve the
+    OMN-8735 fail-fast invariant.
+    """
+    if contract.handler_routing is None:
+        return PreparedContractWiring(
+            contract=contract,
+            prepared_wirings=[],
+            subscription_topics=[],
+            environment=environment,
+            skip_result=ModelContractWiringResult(
+                contract_name=contract.name,
+                package_name=contract.package_name,
+                outcome=EnumWiringOutcome.SKIPPED,
+                reason="No handler_routing declared in contract",
+            ),
+        )
+
+    if contract.event_bus is None or not contract.event_bus.subscribe_topics:
+        return PreparedContractWiring(
+            contract=contract,
+            prepared_wirings=[],
+            subscription_topics=[],
+            environment=environment,
+            skip_result=ModelContractWiringResult(
+                contract_name=contract.name,
+                package_name=contract.package_name,
+                outcome=EnumWiringOutcome.SKIPPED,
+                reason="No event_bus.subscribe_topics declared in contract",
+            ),
+        )
+
+    if _is_raw_event_projection_contract(
+        contract
+    ) and not _raw_event_projection_enabled(contract, result_appliers_by_contract):
+        consumer_purpose = (contract.event_bus.consumer_purpose or "").strip().lower()
+        # OMN-14516/OMN-14530: a contract that DECLARES consumer_purpose=audit|
+        # projection AND subscribe_topics is asserting it must consume and persist.
+        # Reaching this branch means no result applier is wired for it — a kernel
+        # MISCONFIGURATION, not a valid opt-out. It is FAILED, never SKIPPED.
+        #
+        # SKIPPED is not counted by total_failed, so the runtime booted GREEN with
+        # the contract silently unwired: zero handlers, zero subscriptions, class
+        # never constructed. node_ledger_projection_compute died exactly this way —
+        # event_ledger held ZERO rows while 1,028,463 events flowed past, on
+        # stability-test AND prod, because nobody hand-added its name to the
+        # kernel's result-applier allowlist. That allowlist is now DELETED: an
+        # audit/projection consumer wires itself by declaring
+        # intent_consumption.intent_routing_table (the kernel DERIVES the applier).
+        # If it reaches here it declared neither an applier nor a resolvable routing
+        # table, so FAILED makes the gap loud and lets ONEX_WIRING_STRICT_MODE catch
+        # it (the strict assert reads total_failed, which SKIPPED sailed past).
+        #
+        # Same fail-closed reasoning as the StateIoUnconfiguredError seam
+        # (OMN-14484): a declared-but-unconfigured durability seam is a startup
+        # error, not a per-contract shrug. Do NOT soften this back to SKIPPED to
+        # make a boot go green — declare the routing table (kernel derivation wires
+        # it) or remove consumer_purpose from the contract.
+        return PreparedContractWiring(
+            contract=contract,
+            prepared_wirings=[],
+            subscription_topics=[],
+            environment=environment,
+            skip_result=ModelContractWiringResult(
+                contract_name=contract.name,
+                package_name=contract.package_name,
+                outcome=EnumWiringOutcome.FAILED,
+                reason=(
+                    f"consumer_purpose={consumer_purpose!r} declares a raw event "
+                    f"projection but no result applier is wired for contract "
+                    f"{contract.name!r} — it would consume offsets and drop every "
+                    f"intent. Declare intent_consumption.intent_routing_table so the "
+                    f"kernel derives a DispatchResultApplier, or remove "
+                    f"consumer_purpose."
+                ),
+            ),
+        )
+
+    # OMN-14403 §2C: prove every fan-out handler's emittable classes are declared
+    # in this contract's published_events BEFORE registering any dispatch route —
+    # an unmapped fan-out element would fall back to the single output_topic and
+    # silently misroute. Warn-only while the seam is OFF; fail-closed once ON.
+    _check_fanout_publish_coverage(contract)
+
+    prepared_wirings: list[PreparedWiring] = []
+    for entry in contract.handler_routing.handlers:
+        try:
+            prepared = _prepare_handler_wiring(
+                contract=contract,
+                entry=entry,
+                dispatch_engine=dispatch_engine,
+                resolver=resolver,
+                ownership_query=ownership_query,
+                event_bus=event_bus,
+                container=container,
+                materialized_explicit_dependencies=materialized_explicit_dependencies,
+                pre_resolved_handlers=pre_resolved_handlers,
+                topology=topology,
+                catalog_binding_policy=catalog_binding_policy,
+                secret_resolver=secret_resolver,
+            )
+            prepared_wirings.append(prepared)
+        except TypeError:
+            # OMN-8735 invariant: resolver Step 6 exhaustion must NOT be
+            # wrapped. Propagate unchanged so the kernel crashes loudly.
+            raise
+        except StateIoUnconfiguredError:
+            # OMN-14484 invariant: an unconfigured REQUIRED state_io durability
+            # seam is a startup-FATAL configuration error (OMN-14208), not a
+            # per-handler wiring bug to wrap-and-collect. Propagate UNWRAPPED so
+            # wire_from_manifest re-raises it and boot fails loudly. Wrapping it
+            # into a generic ModelOnexError + collecting it under non-strict mode
+            # turned this fail-CLOSED seam into fail-SILENT: it dropped every
+            # dispatcher of the contract while the runtime booted "healthy", so
+            # node_delegation_orchestrator (the only state_io contract) DLQ'd
+            # 100% of its command/event traffic on any lane missing the DSN.
+            raise
+        except Exception as exc:
+            exc_summary = _sanitize_exc(exc)
+            logger.error(
+                "Failed to prepare handler '%s' for contract '%s' (package '%s'): %s",
+                entry.handler.name,
+                contract.name,
+                contract.package_name,
+                type(exc).__name__,
+            )
+            raise ModelOnexError(
+                f"Auto-wiring contract '{contract.name}' failed: "
+                f"handler={entry.handler.name}: {type(exc).__name__}: {exc_summary}"
+            ) from exc
+
+    # OMN-17562. A contract EVERY handler entry of which wires a no-op dispatch
+    # is not consumable by this process: the callback returns None before any
+    # handler runs, so subscribing would take every message, commit every
+    # offset and destroy the events -- unrecoverably, since a committed offset
+    # on a topic no process re-reads cannot be backfilled by deploying the
+    # writer later. Withholding the subscription instead leaves them on the
+    # broker, replayable by the dedicated writer that owns the rows (OMN-15905).
+    # Same treatment as plugin_managed below; the dispatchers and routes are
+    # still registered, so a future routing change surfaces on them.
+    #
+    # The test is per ENTRY and requires ALL of them: projection_pattern_learning
+    # and projection_routing_decision each declare one subscribe topic and two
+    # entries, one standalone runner and one LIVE in-process handler that writes
+    # rows on every message. A contract-name rule would silently stop both.
+    no_live_dispatcher = bool(prepared_wirings) and all(
+        prepared.dispatch_is_noop for prepared in prepared_wirings
+    )
+    # plugin_managed: domain plugin owns Kafka subscription for this contract's
+    # topics (OMN-10864). Dispatch routes are still registered so the engine
+    # can route messages consumed via the plugin's EventBusSubcontractWiring.
+    subscription_topics: list[str] = (
+        []
+        if contract.event_bus.plugin_managed or no_live_dispatcher
+        else list(contract.event_bus.subscribe_topics)
+    )
+    if contract.event_bus.plugin_managed:
+        logger.info(
+            "Auto-wiring: skipping Kafka subscription for plugin-managed contract "
+            "'%s' — domain plugin owns topic subscription (OMN-10864)",
+            contract.name,
+        )
+    elif no_live_dispatcher:
+        logger.warning(
+            "Auto-wiring: skipping Kafka subscription for contract '%s' — all "
+            "%d handler entries wire a no-op dispatch here, so consuming would "
+            "commit offsets over events no handler runs on (OMN-17562). Its "
+            "rows depend on a dedicated writer process for this lane; the "
+            "events stay on the broker until that writer reads them. "
+            "handlers=%s",
+            contract.name,
+            len(prepared_wirings),
+            [prepared.handler_name for prepared in prepared_wirings],
+        )
+
+    return PreparedContractWiring(
+        contract=contract,
+        prepared_wirings=prepared_wirings,
+        subscription_topics=subscription_topics,
+        environment=environment,
+    )
+
+
+async def _commit_contract_wiring(
+    pcw: PreparedContractWiring,
+    dispatch_engine: object,
+    event_bus: object | None,
+    *,
+    subscribe_immediately: bool = True,
+    result_applier: ProtocolDispatchResultApplier | None = None,
+    dynamic_materialization_authorized: bool = False,
+) -> ModelContractWiringResult:
+    """Commit a validated PreparedContractWiring to the engine and event bus.
+
+    All side effects (dispatcher/route registration, Kafka subscriptions)
+    happen here. OMN-8735 requires every contract in the manifest has been
+    prepared successfully before this is called. Per-handler resolver
+    outcomes are projected into ``ModelContractWiringResult.wirings``;
+    LOCAL_OWNERSHIP_SKIP entries land in ``skipped_handlers`` (OMN-9201).
+    """
+    if pcw.skip_result is not None:
+        # Why: Runtime validation guarantees the returned value matches the contract.
+        return pcw.skip_result  # type: ignore[return-value]
+
+    # Why: Runtime compatibility requires assigning through a broader static type.
+    contract: ModelDiscoveredContract = pcw.contract  # type: ignore[assignment]
+    dispatchers_registered: list[str] = []
+    routes_registered: list[str] = []
+    topics_subscribed: list[str] = []
+    nonwriting_handlers: list[str] = []
+    wirings: list[ModelWiringOutcome] = []
+    skipped_handlers: list[ModelSkippedEntry] = []
+    quarantined: list[ModelQuarantinedWiring] = []
+
+    for prepared in pcw.prepared_wirings:
+        dispatcher_id, route_ids = _commit_handler_wiring(
+            prepared,
+            dispatch_engine,
+            owner_contract_name=contract.name,
+            dynamic_materialization_authorized=dynamic_materialization_authorized,
+        )
+        if prepared.is_quarantined:
+            assert prepared.quarantine_reason is not None  # narrow for mypy
+            quarantined.append(
+                ModelQuarantinedWiring(
+                    contract_name=contract.name,
+                    package_name=contract.package_name,
+                    handler_module=prepared.handler_module,
+                    handler_name=prepared.handler_name,
+                    reason=prepared.quarantine_reason,
+                    detail=prepared.quarantine_detail,
+                )
+            )
+        elif prepared.is_skip:
+            skipped_handlers.append(
+                ModelSkippedEntry(
+                    handler_name=prepared.handler_name,
+                    reason=prepared.skip_reason,
+                )
+            )
+        else:
+            dispatchers_registered.append(dispatcher_id)
+            routes_registered.extend(route_ids)
+        if prepared.dispatch_is_noop:
+            nonwriting_handlers.append(prepared.handler_name)
+        wirings.append(
+            ModelWiringOutcome(
+                handler_name=prepared.handler_name,
+                resolution_outcome=prepared.resolution_outcome,
+                skipped_reason=prepared.skip_reason,
+            )
+        )
+
+    # Fail-closed phantom-wiring guard (OMN-14141). A contract that declares
+    # subscribe topics but registered ZERO dispatchers — and quarantined /
+    # resolver-skipped NOTHING — is a silent phantom-wire: the topic would be
+    # consumed and its Kafka offsets committed with no handler ever running.
+    # This is the wiring-side backstop for the flat-schema silent-zero-parse
+    # defect (the parse guard in discovery._parse_handler_routing is the first
+    # line). When all four hold, pcw.prepared_wirings was empty — handler_routing
+    # produced no parseable handlers. Legacy top-level ``handler:`` fallbacks and
+    # resolver-ownership skips always leave a dispatcher, a skipped_handler, or a
+    # quarantine, so this never fires on them. Returned as FAILED (not WIRED) so
+    # total_failed is accurate and ONEX_WIRING_STRICT_MODE crashes boot loudly;
+    # the topic is NOT subscribed either way.
+    if (
+        pcw.subscription_topics
+        and not dispatchers_registered
+        and not skipped_handlers
+        and not quarantined
+    ):
+        return ModelContractWiringResult(
+            contract_name=contract.name,
+            package_name=contract.package_name,
+            outcome=EnumWiringOutcome.FAILED,
+            reason=(
+                "phantom wiring: contract declares "
+                f"{len(pcw.subscription_topics)} subscribe topic(s) but "
+                "registered zero dispatchers (handler_routing produced no "
+                "parseable handlers). Convert flat handler_class/handler_module "
+                "entries to nested handler:{name,module} (OMN-14141)."
+            ),
+            wirings=tuple(wirings),
+            skipped_handlers=tuple(skipped_handlers),
+            quarantined_handlers=tuple(quarantined),
+        )
+
+    if (
+        subscribe_immediately
+        and event_bus is not None
+        and pcw.subscription_topics
+        and dispatchers_registered
+    ):
+        topics_subscribed.extend(
+            await _subscribe_contract_topics(
+                contract=contract,
+                dispatch_engine=dispatch_engine,
+                event_bus=event_bus,
+                environment=pcw.environment,
+                result_applier=result_applier,
+                allowed_dispatcher_ids=dispatchers_registered,
+            )
+        )
+    elif (
+        subscribe_immediately
+        and event_bus is not None
+        and pcw.subscription_topics
+        and not dispatchers_registered
+    ):
+        logger.info(
+            "Auto-wiring: skipping Kafka subscription for contract '%s' "
+            "because it owns zero dispatchers (OMN-15474)",
+            contract.name,
+        )
+
+    # OMN-9457: when every prepared handler was quarantined, report SKIPPED
+    # with reason "all handlers quarantined" — there is nothing wired on
+    # the dispatch engine and the quarantine is the reason. A mixed
+    # contract where some handlers were resolver-skipped (not quarantined)
+    # and the rest quarantined does NOT take this path: "all handlers
+    # quarantined" must mean *every* handler quarantined, not "no live
+    # handlers and at least one quarantined". Mixed skip+quarantine
+    # contracts fall through to the normal WIRED return below so the
+    # existing resolver-skip reasoning remains authoritative for the
+    # skipped handlers.
+    all_handlers_quarantined = bool(pcw.prepared_wirings) and all(
+        p.is_quarantined for p in pcw.prepared_wirings
+    )
+    if all_handlers_quarantined:
+        return ModelContractWiringResult(
+            contract_name=contract.name,
+            package_name=contract.package_name,
+            outcome=EnumWiringOutcome.SKIPPED,
+            reason="all handlers quarantined",
+            wirings=tuple(wirings),
+            skipped_handlers=tuple(skipped_handlers),
+            quarantined_handlers=tuple(quarantined),
+        )
+
+    return ModelContractWiringResult(
+        contract_name=contract.name,
+        package_name=contract.package_name,
+        outcome=EnumWiringOutcome.WIRED,
+        dispatchers_registered=tuple(dispatchers_registered),
+        routes_registered=tuple(routes_registered),
+        topics_subscribed=tuple(topics_subscribed),
+        wirings=tuple(wirings),
+        skipped_handlers=tuple(skipped_handlers),
+        quarantined_handlers=tuple(quarantined),
+        nonwriting_handlers=tuple(nonwriting_handlers),
+    )
+
+
+async def _subscribe_contract_topics(
+    *,
+    contract: ModelDiscoveredContract,
+    dispatch_engine: object,
+    event_bus: object,
+    environment: str,
+    result_applier: ProtocolDispatchResultApplier | None = None,
+    allowed_dispatcher_ids: Collection[str] | None = None,
+    core_runtime_topics: frozenset[str] = frozenset(),
+    core_runtime_owners: Mapping[str, str] | None = None,
+) -> list[str]:
+    """Subscribe all declared event-bus topics for a wired contract.
+
+    OMN-14758 (S6): topics in ``core_runtime_topics`` are owned by the ONE core
+    ``RuntimeDispatch`` loop, not the legacy push path. The legacy callback is NOT
+    built/subscribed for those topics — this split is the mechanism that makes the
+    ``RuntimeDispatch ⟂ legacy`` single-owner assertion hold. Default EMPTY ⇒ every
+    topic is subscribed by the legacy path exactly as before (zero behavior change).
+
+    OMN-14771 (S8 §D1=4b): ``core_runtime_owners`` maps an allowlisted topic to the ONE
+    contract whose consumption MOVED to the core runtime. For a genuine fan-out topic the
+    legacy callback is skipped ONLY for the OWNER; the topic's OTHER subscribers stay
+    legacy fan-out consumers on their own distinct consumer groups. When a topic has no
+    owner entry (a single-owner allowlist topic, or owners unavailable), the S6 behavior
+    is preserved: the sole subscriber's legacy callback is skipped.
+    """
+    owner_by_topic = dict(core_runtime_owners or {})
+    if contract.event_bus is None or not contract.event_bus.subscribe_topics:
+        return []
+
+    dispatcher_scope = _require_registered_contract_dispatcher_scope(
+        dispatch_engine,
+        allowed_dispatcher_ids,
+        contract_name=contract.name,
+    )
+
+    from omnibase_infra.enums import EnumConsumerGroupPurpose
+    from omnibase_infra.models import ModelNodeIdentity
+    from omnibase_infra.runtime.event_bus_subcontract_wiring import (
+        load_published_events_map,
+    )
+    from omnibase_infra.runtime.service_dispatch_result_applier import (
+        build_contract_result_applier,
+    )
+    from omnibase_infra.utils import compute_consumer_group_id
+
+    typed_bus: ProtocolEventBusSubscriber = cast(
+        "ProtocolEventBusSubscriber", event_bus
+    )
+    effective_result_applier = result_applier
+    output_topic = _select_dispatch_result_output_topic(contract)
+    # This is the authoritative output-capability source: the same typed
+    # publish allowlist that gates result-applier construction below. A terminal
+    # event can only be selected when it is present in this allowlist.
+    declares_output = bool(contract.event_bus.publish_topics)
+    # OMN-16798: ``db_io`` used to suppress this applier entirely. That is the
+    # same conflation OMN-16767 removed from arm selection, one hop later:
+    # ``db_io`` declares GOVERNED DB ACCESS (which tables, under which role) and
+    # says nothing about whether a dispatch RESULT must be delivered. Since
+    # OMN-16767 a typed def-B handler on a db_io contract takes the TYPED arm and
+    # returns its declared event model — with the applier suppressed, that model
+    # reached no topic at all and the delegation FSM waited out its budget on an
+    # event that was computed and then dropped. The suppression is also
+    # unnecessary for genuine projection handlers: ``_make_projection_dispatch_
+    # callback`` returns ``None`` on every path, so an applier it is handed is
+    # provably inert (the projection arm still owns its own persistence and
+    # terminal-event emission). Gate on what actually decides deliverability —
+    # a declared publish topic — not on the storage subcontract.
+    if (
+        effective_result_applier is None
+        and contract.event_bus is not None
+        and output_topic is not None
+    ):
+        # ProtocolEventBusLike is @runtime_checkable; isinstance both narrows
+        # the type for mypy and provides a runtime use of the import (avoiding
+        # CodeQL py/unused-import false positive when cast() is the only ref).
+        assert isinstance(event_bus, ProtocolEventBusLike), (
+            f"event_bus must implement ProtocolEventBusLike, got {type(event_bus).__name__}"
+        )
+        # Route each returned model to ITS declared topic via the contract's
+        # published_events map (event_type short-name -> topic). Without this,
+        # a multi-publish-topic contract (e.g. the LLM call effect publishing
+        # both delegation-call-completed and inference-response) would route
+        # every returned model to the single ``output_topic`` fallback (the
+        # first publish topic), mis-routing the inference response (OMN-12416).
+        # Resolved from the contract's own discovered path, so the map is read
+        # from the installed contract regardless of cwd.
+        output_topic_map = load_published_events_map(contract.contract_path)
+        # OMN-15468 AC2: built through the ONE contract-derived factory so this
+        # path and every applier registered by ``service_kernel`` derive the
+        # same two routing inputs — the published_events map (class-based
+        # routing to a declared ``…Failed`` topic) and the contract's DECLARED
+        # failure terminal (the payload-verdict guard's re-route destination).
+        # Hand-rolling either here is what let the kernel's by-NAME
+        # registration ship an applier with both missing and no warning.
+        effective_result_applier = build_contract_result_applier(
+            event_bus=event_bus,
+            contract_path=contract.contract_path,
+            publish_topics=contract.event_bus.publish_topics,
+            output_topic=output_topic,
+            output_topic_map=output_topic_map,
+            allowed_output_topics=contract.event_bus.publish_topics,
+        )
+    node_identity = ModelNodeIdentity(
+        env=environment,
+        service=contract.package_name,
+        node_name=contract.name,
+        version=str(contract.contract_version),
+    )
+    consumer_group = compute_consumer_group_id(
+        node_identity, EnumConsumerGroupPurpose.CONSUME
+    )
+
+    # OMN-18852: a node may declare how many consumed records its handler may
+    # have in flight at once. Absent -- which is every node in the fleet today
+    # -- resolves to 1, and 1 leaves the consume loop on the inline serial
+    # ``await`` it has always taken, so an undeclared node is unchanged.
+    #
+    # Declared BEFORE ``subscribe``, because ``subscribe`` is what starts the
+    # consume loop and the loop reads the bound once, when it starts.
+    #
+    # A malformed declaration raises out of ``load_consume_concurrency`` and
+    # fails wiring for this contract rather than degrading to 1: an operator
+    # who believes a bound is in force and is silently running serial is the
+    # position this ticket started from.
+    consume_concurrency = load_consume_concurrency(contract.contract_path)
+    concurrency_declarer: ProtocolConsumeConcurrencyDeclarer | None = None
+    if not consume_concurrency.is_serial:
+        if not isinstance(event_bus, ProtocolConsumeConcurrencyDeclarer):
+            raise TypeError(
+                f"contract '{contract.name}' declares consume_concurrency."
+                f"max_in_flight_records={consume_concurrency.max_in_flight_records}, "
+                f"but the wired event bus ({type(event_bus).__name__}) cannot "
+                "bound in-flight records. A declared bound that silently does "
+                "nothing is the defect OMN-18852 exists to remove"
+            )
+        concurrency_declarer = event_bus
+
+    # Build callbacks for all topics first (synchronous, no I/O).
+    topic_callbacks: list[tuple[str, Callable[..., Awaitable[None]]]] = []
+    for topic in contract.event_bus.subscribe_topics:
+        # OMN-14758 (S6) / OMN-14771 (S8 §D1=4b): the ONE core RuntimeDispatch owns this
+        # topic's OWNER route. Skip the legacy push callback for the OWNER only, so
+        # ownership is disjoint (single-owner invariant §c.3). A designated-but-different
+        # owner means this contract is a legacy fan-out consumer that KEEPS its
+        # subscription on its own distinct consumer group. No owner entry ⇒ S6 behavior
+        # (skip the sole subscriber).
+        if topic in core_runtime_topics:
+            owner = owner_by_topic.get(topic)
+            if owner is None or owner == contract.name:
+                logger.info(
+                    "Auto-wiring: skipping legacy subscription for topic=%s node=%s "
+                    "(ownership=core-runtime, OMN-14758/OMN-14771)",
+                    topic,
+                    contract.name,
+                )
+                continue
+            logger.info(
+                "Auto-wiring: keeping legacy fan-out subscription for topic=%s node=%s "
+                "(core-runtime owner=%s, non-owner stays legacy on its own group, "
+                "OMN-14771 §4b)",
+                topic,
+                contract.name,
+                owner,
+            )
+        if _is_raw_event_projection_contract(contract):
+            if effective_result_applier is None:
+                raise ModelOnexError(
+                    f"Raw event projection contract {contract.name!r} requires "
+                    "an explicit result applier to avoid dropping intents."
+                )
+            callback = _make_raw_event_projection_callback(
+                topic,
+                # Why: Runtime wiring validates and narrows this payload shape before use.
+                dispatch_engine,  # type: ignore[arg-type]
+                effective_result_applier,
+                allowed_dispatcher_ids=dispatcher_scope,
+                # OMN-17214: the SAME group id the sibling branch is given, from
+                # the same `compute_consumer_group_id` call above. Without it the
+                # audit/projection subscription kinds registered no flow counter
+                # and emitted no row at all.
+                consumer_group=consumer_group,
+                declares_output=declares_output,
+            )
+        else:
+            callback = _make_event_bus_callback(
+                topic,
+                # Why: Runtime wiring validates and narrows this payload shape before use.
+                dispatch_engine,  # type: ignore[arg-type]
+                result_applier=effective_result_applier,
+                tenant_scoped=contract.event_bus.tenant_scoped_ingress,
+                # OMN-14507: gives the boundary a DLQ target (duck-typed
+                # _publish_raw_to_dlq) when ONEX_BOUNDARY_DLQ_ENABLED is set.
+                event_bus=typed_bus,
+                # OMN-14493 §4.3: on the state_io / in-row-outbox path ONLY, a
+                # publish-from-row failure + conflict-retry exhaustion PROPAGATE
+                # (redeliver) instead of being log-and-discarded. Non-state_io
+                # contracts keep the historical swallow behavior unchanged.
+                propagate_publish_failures=_contract_declares_state_io(contract),
+                allowed_dispatcher_ids=dispatcher_scope,
+                # OMN-16777: this is the only layer that holds BOTH the group id
+                # and the topic while a message is in flight, so it is where
+                # per-(consumer_group, topic) throughput is counted.
+                consumer_group=consumer_group,
+                declares_output=declares_output,
+                # OMN-16812: the SAME declared failure terminals the applier's
+                # OMN-15468 guard re-routes a failure-verdict RETURN value to.
+                # A handler that RAISES produces no return value to re-route,
+                # so the applier guard can never fire for it -- the boundary is
+                # the only surface that can answer, and this is the address it
+                # answers at.
+                failure_terminal_topics=_declared_failure_terminal_topics(
+                    contract, success_topic=output_topic or ""
+                ),
+                # OMN-17432: the address of last resort when the contract
+                # declares no separate failure terminal — its own declared
+                # terminal/output topic, which is where the caller is already
+                # listening for this contract's answer. Same value the applier
+                # publishes SUCCESS to, so it is inside the publish allowlist by
+                # construction and needs no second derivation.
+                terminal_answer_topic=output_topic,
+            )
+        topic_callbacks.append((topic, callback))
+
+    # Subscribe all topics concurrently.  Each subscribe() triggers a Kafka
+    # consumer group-join (5-10 s per topic); running them in parallel reduces
+    # cold-start time from O(n*t) to O(t) for n topics.
+    async def _subscribe_one(
+        topic: str,
+        cb: Callable[..., Awaitable[None]],
+    ) -> str:
+        # OMN-18852: strictly before ``subscribe``, which starts the consume
+        # loop that reads this bound once at start. Scoped to the topics this
+        # contract actually subscribes to, so a topic skipped as core-runtime
+        # owned never carries a bound nothing reads.
+        if concurrency_declarer is not None:
+            concurrency_declarer.declare_consume_concurrency(
+                topic=topic,
+                group_id=consumer_group,
+                max_in_flight_records=consume_concurrency.max_in_flight_records,
+            )
+            logger.info(
+                "Auto-wired consume concurrency: topic=%s consumer_group=%s "
+                "node=%s max_in_flight_records=%d -- this topic no longer "
+                "preserves global partition ordering (OMN-18852)",
+                topic,
+                consumer_group,
+                contract.name,
+                consume_concurrency.max_in_flight_records,
+            )
+        await typed_bus.subscribe(
+            topic=topic,
+            node_identity=node_identity,
+            on_message=cb,
+        )
+        logger.info(
+            "Auto-wired subscription: topic=%s consumer_group=%s node=%s",
+            topic,
+            consumer_group,
+            contract.name,
+        )
+        return topic
+
+    topics_subscribed: list[str] = list(
+        await asyncio.gather(*(_subscribe_one(t, cb) for t, cb in topic_callbacks))
+    )
+
+    return topics_subscribed
+
+
+def _is_boundary_failure_terminal_record(message: object) -> bool:
+    """Is the record this boundary just failed ITSELF a boundary failure terminal?
+
+    The distinction the emission depends on: a boundary answers CALLERS, and a
+    caller is something that sent a command and is holding a correlation open
+    for its answer. A failure terminal *is* an answer — whoever was waiting on
+    that correlation has already been told. Terminalizing a terminal answers
+    nobody.
+
+    It is also the amplification vector, which is not hypothetical: a downstream
+    contract subscribed to the topic a terminal now lands on has a dispatcher
+    registered for that topic's event_type, so the terminal reaches
+    ``model_validate`` against the SUCCESS model, fails it, and raises
+    ``publisher_malformed``. Without this guard that raise terminalizes onto the
+    downstream's own answer topic, and one handler failure walks the graph one
+    contract per hop. Proven by
+    ``test_a_downstream_consumer_of_the_answer_topic_does_not_cascade``, which
+    fails loudly if this guard is removed.
+
+    Read from the wire ``payload_type`` the emitter stamps, not from the payload
+    shape: the shape of a failure record is not distinctive enough to key on,
+    and a false positive here would silence a genuine answer.
+    """
+    from omnibase_infra.runtime.boundary_failure_terminal import (
+        ModelBoundaryFailureTerminal,
+    )
+
+    raw = getattr(message, "value", None)
+    if not isinstance(raw, bytes | bytearray | str):
+        return False
+    try:
+        decoded = json.loads(raw)
+    except (ValueError, UnicodeDecodeError):
+        return False
+    if not isinstance(decoded, dict):
+        return False
+    return decoded.get("payload_type") == ModelBoundaryFailureTerminal.__name__
+
+
+def _resolve_boundary_terminal_answer_topic(
+    *,
+    failure_terminal_topics: Sequence[str],
+    terminal_answer_topic: str | None,
+    consumed_topic: str,
+) -> str | None:
+    """Pick the address a failing consume boundary answers at (OMN-17432).
+
+    OMN-16812 answered only where a contract declares exactly ONE failure
+    terminal distinct from its success terminal. Most contracts declare none —
+    ``node_gateway_attach_effect`` has no ``terminal_events`` block at all — and
+    for those the boundary stayed silent, which is the whole defect: a handler
+    raise produced a DLQ record, a log line, and nothing the caller could ever
+    receive. On a synchronous gateway route that is a 10 s correlation timeout
+    resolving to an opaque 503 for a request the runtime decided in milliseconds.
+
+    The precedence is a read of the contract, never a guess:
+
+    * exactly one declared FAILURE terminal -> that one (OMN-16812, unchanged);
+    * two or more -> ``None``. There is no basis to choose, and choosing would
+      be the guess ``apply_failure_terminal_guard`` refuses to make;
+    * none declared, and the CONSUMED topic is a COMMAND -> the contract's own
+      declared terminal/output topic, when it has one. This is emphatically not
+      an invented address: it is inside the contract's publish allowlist, and it
+      is where every SUCCESSFUL answer for this contract already goes — so it
+      is, by construction, where the caller is already listening.
+      ``ModelBoundaryFailureTerminal`` was designed for exactly this landing:
+      its ``status`` field is the vocabulary ``resolve_terminal_verdict`` reads,
+      so a reader of that topic derives ``failed`` "even on a contract whose
+      single declared terminal is nominally the success topic" (its own
+      docstring);
+    * none declared, and the consumed topic is an EVENT or an INTENT -> ``None``
+      (OMN-17895). See below — the clause above turns on the word CALLER, and an
+      event notification has none.
+
+    WHY THE LAST RESORT IS COMMAND-ONLY (OMN-17895). The justification for the
+    success-terminal fallback is that the caller "is already listening" there. A
+    caller in that sense exists only for a COMMAND: a request published with a
+    correlation held open, awaiting this contract's terminal. The publisher of
+    an ``onex.evt.*`` notification awaits nothing — it fired and moved on — so a
+    terminal published on the contract's success topic for a failed EVENT
+    consumption reaches nobody, and it puts a ``ModelBoundaryFailureTerminal``
+    on a topic whose declared payload model is something else. That is not
+    hypothetical: on the dev lane, ``node_swarm_fanout_orchestrator`` failing an
+    ``onex.evt.omnimarket.delegation-escalation-triggered.v1`` record answered on
+    its own success terminal ``onex.evt.omnimarket.swarm-fanout-completed.v1``,
+    whose two live consumers DO hold a dispatcher for that ``event_type`` and
+    ``model_validate`` against ``ModelSwarmFanoutResult``. Both rejected every
+    terminal and re-DLQ'd it, and the replay leg doubled it each round — 11,340
+    records, not one of them a genuine fan-out result.
+
+    This is the same reasoning ``_is_boundary_failure_terminal_record`` already
+    applies one step later ("a terminal is an answer, not a request: nobody is
+    holding a correlation open behind it"), applied to the consumed record's own
+    category rather than to its payload.
+
+    In every case an address equal to the CONSUMED topic is refused, so a
+    contract that both consumes and publishes one topic cannot have its own
+    failure fed back into its own subscription — the circular-route hazard
+    ``_is_dead_letter_source_topic`` guards on the DLQ leg, with the same answer.
+
+    Declaring a distinct failure terminal remains the better practice and still
+    wins here — and is the ONLY way an event-driven contract gets a boundary
+    terminal at all, precisely because the contract, not the runtime, is what
+    says a topic may carry failures.
+    """
+    if len(failure_terminal_topics) > 1:
+        return None
+    if failure_terminal_topics:
+        resolved: str | None = failure_terminal_topics[0]
+    else:
+        from omnibase_infra.enums import EnumMessageCategory
+
+        if (
+            _derive_message_category(consumed_topic)
+            != EnumMessageCategory.COMMAND.value
+        ):
+            return None
+        resolved = terminal_answer_topic
+    if not resolved or resolved == consumed_topic:
+        return None
+    return resolved
+
+
+def _declared_failure_terminal_topics(
+    contract: ModelDiscoveredContract,
+    *,
+    success_topic: str,
+) -> tuple[str, ...]:
+    """Return the contract's declared FAILURE terminal topics (OMN-15468 AC2).
+
+    A failure terminal is any contract-declared terminal topic that is (a) not
+    the success terminal the applier falls back to and (b) actually publishable
+    by this contract. Both conditions matter: publishing to an undeclared topic
+    would violate the contract's own publish allowlist, and re-routing to the
+    success terminal would be a no-op.
+
+    Read through :func:`load_terminal_event_topics` — the SAME reader the
+    Pattern B broker's subscription set is built from — so the applier's idea of
+    which topics are terminal cannot drift from the broker's. A second
+    hand-rolled reader here is exactly the seam mismatch that produced this
+    ticket.
+    """
+    if contract.event_bus is None or not contract.event_bus.publish_topics:
+        return ()
+    return declared_failure_terminal_topics(
+        contract.contract_path,
+        success_topic=success_topic,
+        publishable_topics=contract.event_bus.publish_topics,
+    )
+
+
+def _select_dispatch_result_output_topic(
+    contract: ModelDiscoveredContract,
+) -> str | None:
+    """Choose the fallback output topic for generic dispatch results.
+
+    Prefer the contract's declared terminal_event when it is also publishable.
+    Otherwise fall back to the first publish topic to preserve older contracts.
+    """
+    if contract.event_bus is None or not contract.event_bus.publish_topics:
+        return None
+    if (
+        contract.terminal_event
+        and contract.terminal_event in contract.event_bus.publish_topics
+    ):
+        return contract.terminal_event
+    return contract.event_bus.publish_topics[0]
+
+
+async def _wire_single_contract(
+    *,
+    contract: ModelDiscoveredContract,
+    dispatch_engine: ProtocolDispatchEngine,
+    event_bus: object | None,
+    environment: str,
+    container: object | None = None,
+    topology: ModelDeploymentTopology | None = None,
+    catalog_binding_policy: ProjectionCatalogBindingPolicy | None = None,
+    dynamic_materialization_authorized: bool = False,
+) -> ModelContractWiringResult:
+    """Wire a single discovered contract into the dispatch engine.
+
+    Thin wrapper around _prepare_contract_wiring + _commit_contract_wiring.
+    Kept for backwards compatibility. New code should use wire_from_manifest
+    which validates all contracts before committing any side effects.
+
+    Constructs a single-contract ownership query locally so the resolver's
+    ownership-skip step resolves affirmatively for the caller's contract.
+    """
+    resolver = ServiceHandlerResolver()
+    ownership_query: object = ServiceLocalHandlerOwnershipQuery(
+        local_node_names=frozenset({contract.name})
+    )
+    _assert_is_ownership_query(ownership_query)
+
+    prepared = _prepare_contract_wiring(
+        contract=contract,
+        dispatch_engine=dispatch_engine,
+        resolver=resolver,
+        ownership_query=ownership_query,
+        event_bus=event_bus,
+        environment=environment,
+        container=container,
+        topology=topology,
+        catalog_binding_policy=catalog_binding_policy,
+    )
+    _preflight_prepared_registration_ids(
+        (prepared,),
+        dispatch_engine,
+        dynamic_materialization_authorized=dynamic_materialization_authorized,
+    )
+    return await _commit_contract_wiring(
+        prepared,
+        dispatch_engine,
+        event_bus,
+        dynamic_materialization_authorized=dynamic_materialization_authorized,
+    )
+
+
+def _delegation_fault_pre_dispatch_guard(
+    *,
+    contract: ModelDiscoveredContract,
+    entry: ModelHandlerRoutingEntry,
+    event_bus: object | None,
+) -> Callable[[object], None] | None:
+    """Return the consumer-bound fault-pin guard for the one typed request leg."""
+
+    if (
+        contract.name != "node_delegation_orchestrator"
+        or entry.event_model is None
+        or entry.event_model.name != "ModelDelegationRequest"
+    ):
+        return None
+    from omnibase_infra.runtime.dogfood_delegation_fault_routes import (
+        validate_dogfood_delegation_fault_request,
+    )
+
+    def _guard(payload: object) -> None:
+        validate_dogfood_delegation_fault_request(
+            request=payload,
+            event_bus=event_bus,
+        )
+
+    return _guard
+
+
+def _prepare_handler_wiring(
+    *,
+    contract: ModelDiscoveredContract,
+    entry: ModelHandlerRoutingEntry,
+    dispatch_engine: object,
+    resolver: ServiceHandlerResolver,
+    ownership_query: object,
+    event_bus: object | None = None,
+    container: object | None = None,
+    materialized_explicit_dependencies: (dict[str, dict[str, object]] | None) = None,
+    pre_resolved_handlers: dict[str, object] | None = None,
+    topology: ModelDeploymentTopology | None = None,
+    catalog_binding_policy: ProjectionCatalogBindingPolicy | None = None,
+    secret_resolver: SecretResolver | None = None,
+) -> PreparedWiring:
+    """Prepare one handler entry — delegates construction to the resolver.
+
+    The full precedence chain (ownership skip → node registry → container →
+    event_bus → zero-arg → TypeError) lives in
+    ``omnibase_core.services.service_handler_resolver.ServiceHandlerResolver``
+    (OMN-9199). No engine mutation here; side effects happen in
+    :func:`_commit_handler_wiring` (OMN-8735 two-phase invariant).
+
+    OMN-8735 fail-fast is preserved: the resolver's Step 6 ``TypeError`` is
+    NOT caught here; it propagates unchanged to the caller. ``is_skip``
+    entries returned from this function MUST NOT be committed.
+
+    pre_resolved_handlers: Instances already resolved via get_service_async in
+    Phase 0 of wire_from_manifest (OMN-9410). When present for a handler, the
+    resolver's container Step 3 is bypassed — the pre-resolved instance is used
+    directly. This avoids asyncio.run() inside a running event loop.
+    """
+    from omnibase_core.enums.enum_handler_resolution_outcome import (
+        EnumHandlerResolutionOutcome,
+    )
+    from omnibase_core.models.dispatch.model_dispatch_route import ModelDispatchRoute
+    from omnibase_core.models.resolver.model_handler_resolution import (
+        ModelHandlerResolution,
+    )
+    from omnibase_infra.enums import EnumMessageCategory
+
+    handler_ref = entry.handler
+    handler_key = _derive_handler_entry_key(entry)
+
+    # Determine category/message types before importing or constructing the
+    # handler. Some domain-owned contracts use auto-wiring for subscriptions
+    # only; those entries must report accurate metadata while avoiding generic
+    # direct-handler dispatcher registration.
+    # OMN-16939: category + message-type derivation moved to module-level helpers so the
+    # subscriber-dispatcher-resolution ratchet observes the SAME derivation the runtime
+    # performs. A gate that re-implements this is free to drift; three prior gates passed
+    # on contracts this one must fail.
+    #
+    # OMN-9215 (preserved in derive_entry_message_types): index the dispatcher under the
+    # contract-declared event_type alias in addition to the Pydantic class name.
+    # Publishers set ModelEventEnvelope.event_type to the dot-path string; without this
+    # alias the dispatcher lookup falls back to type(payload).__name__, which resolves to
+    # "dict" on object-erased envelopes and never matches the class-name key.
+    _early_category = EnumMessageCategory(
+        derive_entry_message_category(contract, entry)
+    )
+    message_types: set[str] | None = derive_entry_message_types(contract, entry)
+
+    handler_cls = _import_handler_class(handler_ref.module, handler_ref.name)
+    handler_constructor_params = inspect.signature(handler_cls).parameters
+    if (
+        "event_publisher" in handler_constructor_params
+        and event_bus is None
+        and contract.event_bus is not None
+        and contract.event_bus.publish_topics
+    ):
+        raise ModelOnexError(
+            "handler_wiring: handler "
+            f"{handler_ref.name!r} declares event_publisher for publishing "
+            f"{tuple(contract.event_bus.publish_topics)!r}, but no runtime "
+            "event_bus was provided."
+        )
+
+    # Fast path: if Phase 0 pre-resolved this handler via get_service_async,
+    # skip the sync resolver's container Step 3 entirely (OMN-9410).
+    pre_resolved_instance = (
+        pre_resolved_handlers.get(handler_key) if pre_resolved_handlers else None
+    )
+    if pre_resolved_handlers is not None and _should_skip_sync_container_resolution(
+        handler_cls
+    ):
+        _effective_container = None
+    elif container is not None:
+        _effective_container = container
+    elif dispatch_engine is not None:
+        _effective_container = getattr(dispatch_engine, "_container", None)
+    else:
+        _effective_container = None
+    _effective_materialized_dependencies = _materialize_known_handler_dependencies(
+        handler_name=handler_ref.name,
+        handler_cls=handler_cls,
+        materialized_explicit_dependencies=materialized_explicit_dependencies,
+        event_bus=event_bus,
+        container=_effective_container,
+        ownership_query=ownership_query,
+        # OMN-15468: the publishing contract's own declared terminal topics,
+        # read through the same function route discovery uses, so the wiring's
+        # notion of "this publish is a terminal" cannot drift from the set the
+        # Pattern B broker subscribes to.
+        terminal_topics=load_terminal_event_topics(contract.contract_path),
+    )
+
+    def _quarantine_prepared(
+        *,
+        reason: EnumQuarantineReason,
+        detail: str,
+    ) -> PreparedWiring:
+        """Return a containment-only PreparedWiring for a known bad handler.
+
+        Known containment-worthy declaration/construction failures are
+        surfaced in the wiring report instead of partially registering a broken
+        dispatcher. Resolver Step-6 constructor exhaustion TypeError remains
+        boot-fatal outside these explicit reasons.
+        """
+        logger.warning(
+            "Auto-wiring: quarantining handler %s.%s "
+            "(contract=%s, package=%s, reason=%s): %s. Runtime-effects boot "
+            "will continue; follow-up migration required.",
+            handler_ref.module,
+            handler_ref.name,
+            contract.name,
+            contract.package_name,
+            reason.value,
+            detail,
+        )
+        return PreparedWiring(
+            dispatcher_id="",
+            dispatcher=_skip_dispatcher,
+            category=_early_category,
+            message_types=None,
+            handler_name=handler_ref.name,
+            handler_module=handler_ref.module,
+            resolution_outcome=EnumHandlerResolutionOutcome.UNRESOLVABLE,
+            skip_reason=f"quarantined:{reason.value}",
+            quarantine_reason=reason,
+            quarantine_detail=detail,
+        )
+
+    if pre_resolved_instance is not None:
+        resolution = ModelHandlerResolution(
+            outcome=EnumHandlerResolutionOutcome.RESOLVED_VIA_CONTAINER,
+            handler_instance=pre_resolved_instance,
+        )
+        logger.debug(
+            "Auto-wiring: using pre-resolved instance for %s.%s key=%s",
+            handler_ref.module,
+            handler_ref.name,
+            handler_key,
+        )
+    else:
+        # node_name=contract.name: established ONEX naming convention — see
+        # ModelNodeIdentity construction at _commit_contract_wiring below.
+        ctx = ModelHandlerResolverContext(
+            handler_cls=handler_cls,
+            handler_module=handler_ref.module,
+            handler_name=handler_ref.name,
+            contract_name=contract.name,
+            node_name=contract.name,
+            explicit_dependency_shape=None,
+            materialized_explicit_dependencies=_effective_materialized_dependencies,
+            event_bus=event_bus,
+            container=_effective_container,
+            ownership_query=ownership_query,
+        )
+        try:
+            resolution = resolver.resolve(ctx)
+        except TypeError as exc:
+            # OMN-12501: Protocol interfaces are non-instantiable by design.
+            # They are invalid as handler_routing targets, but should be
+            # reported as contract migration work rather than crashing
+            # runtime-effects boot under the generic resolver TypeError path.
+            if _is_protocol_handler_class(handler_cls):
+                return _quarantine_prepared(
+                    reason=EnumQuarantineReason.PROTOCOL_HANDLER_DECLARATION,
+                    detail=_sanitize_exc(exc),
+                )
+            # OMN-13203: a bare resolver TypeError that is NOT a Protocol target
+            # is exactly the unsatisfiable-ctor (ServiceHandlerResolver Step 6)
+            # or ctor-arg-mismatch (Step 2) per-handler wiring bug. These are
+            # the ONLY `raise TypeError` sites in the resolver (Steps 1a/2/6),
+            # are deterministic, never recoverable runtime state, and never an
+            # infra outage — broker/DB/secret failures surface as ModelOnexError
+            # / InfraConnectionError / ConnectionError / OSError, never a bare
+            # resolver TypeError. Before this change the bare re-raise here
+            # propagated through the OMN-8735 TypeError guards and crashed the
+            # whole runtime-effects boot (every healthy handler with it). Quarantine
+            # the single bad handler and continue so the runtime binds its health
+            # server and reports failed=N. Strict mode re-raises (preserves the
+            # boot-crash invariant) so the gate can still fail closed.
+            if _wiring_strict_mode_enabled():
+                raise
+            return _quarantine_prepared(
+                reason=EnumQuarantineReason.UNRESOLVABLE_HANDLER,
+                detail=_sanitize_exc(exc),
+            )
+        except ValueError as exc:
+            # OMN-13203: a per-handler ValueError from resolver/context construction
+            # (not-handle-shaped handler, blank-required field) is the same class
+            # of deterministic per-handler wiring bug as the unsatisfiable-ctor
+            # TypeError above — contain it identically. ValueError is NOT raised by
+            # broker/DB/secret transports (those raise ModelOnexError /
+            # InfraConnectionError / ConnectionError / OSError, caught by the
+            # `except Exception` arms upstream which still propagate), so this does
+            # not over-broaden the catch into infra outages. Strict mode re-raises.
+            if _wiring_strict_mode_enabled():
+                raise
+            return _quarantine_prepared(
+                reason=EnumQuarantineReason.UNRESOLVABLE_HANDLER,
+                detail=_sanitize_exc(exc),
+            )
+        except RuntimeError as exc:
+            # OMN-9457: deterministic containment for handlers whose
+            # construction path calls asyncio.run() inside runtime-managed
+            # async boot. Any other RuntimeError propagates unchanged.
+            if _is_async_incompat_runtime_error(exc):
+                return _quarantine_prepared(
+                    reason=EnumQuarantineReason.ASYNC_INCOMPATIBLE,
+                    detail=_sanitize_exc(exc),
+                )
+            raise
+
+    # _early_category was computed up-front so the quarantine sentinel could
+    # carry consistent reporting metadata; reuse it here for the live path.
+    category = _early_category
+
+    if (
+        resolution.outcome
+        is EnumHandlerResolutionOutcome.RESOLVED_VIA_LOCAL_OWNERSHIP_SKIP
+    ):
+        # Deliberate skip — caller records it in skipped_handlers; nothing
+        # is registered on the dispatch engine (OMN-9201).
+        return PreparedWiring(
+            dispatcher_id="",
+            dispatcher=_skip_dispatcher,
+            category=category,
+            message_types=message_types,
+            handler_name=handler_ref.name,
+            handler_module=handler_ref.module,
+            resolution_outcome=resolution.outcome,
+            skip_reason=resolution.skipped_reason,
+        )
+
+    # Narrow at the infra boundary: core types handler_instance as
+    # object | None per §Layering Invariants; non-skip outcomes guarantee
+    # a constructed handler.
+    handler_instance = cast("ProtocolHandleable", resolution.handler_instance)
+
+    # Use projection callback when contract declares db_io.db_tables, or the
+    # opt-in stateful callback when it declares state_io (OMN-14208). These
+    # two wiring arms are disjoint by construction: db_io projection handlers
+    # own their own persistence and terminal-event emission, while state_io
+    # wraps the standard dispatch callback with a load-before/CAS-persist-
+    # after boundary hook and returns a normal ModelDispatchResult through
+    # the standard result-applier path. A contract declaring both is a
+    # wiring-time contract defect, not a case to silently prioritize one arm.
+    db_tables = tuple(contract.db_io.db_tables) if contract.db_io is not None else ()
+    state_io = _read_state_io(contract.contract_path)
+    if db_tables and state_io:
+        raise ModelOnexError(
+            f"handler_wiring: contract {contract.name!r} declares BOTH "
+            "db_io and state_io — these are disjoint wiring arms "
+            "(OMN-14208); a contract must declare exactly one."
+        )
+    # OMN-16767: ``db_io.db_tables`` declares GOVERNED DB ACCESS (which tables a
+    # node touches, under which role) — it does NOT declare the handler's
+    # dispatch SHAPE. The projection arm's contract is
+    # ``handle(input_data: dict[str, object])`` carrying ``_db``/``_event_type``/
+    # ``_topic``; selecting it purely on ``db_tables`` handed a typed def-B
+    # handler the raw ``input_data`` dict, and the handler crashed on its first
+    # attribute access. Live on the .201 dev lane:
+    #
+    #   Projection handler error: handler=HandlerRoutingIntent
+    #   topic=onex.cmd.omnibase-infra.delegation-routing-request.v1
+    #   error_type=AttributeError error='dict' object has no attribute 'payload'
+    #
+    # -> quarantine sink, no ModelRoutingDecision, and every delegation on the
+    # lane timed out. The trigger was a CONTRACT change, not a runtime one:
+    # node_delegation_routing_reducer gained a db_io block (its tenant-overlay
+    # table, which the handler reads through its own resolver) and silently
+    # switched wiring arms.
+    #
+    # A handler that declares a concrete BaseModel input is a typed def-B handler
+    # and is never a projection handler — it cannot read ``input_data`` at all.
+    # The runtime owes it a validated model, so it takes the typed dispatch arm
+    # and its db_io stays what it is: a declaration, not a dispatch shape.
+    typed_input_model = _typed_def_b_input_model(handler_instance)
+    if db_tables and typed_input_model is not None:
+        logger.info(
+            "Contract %r declares db_io.db_tables but handler %s is a typed "
+            "def-B handler (handle(%s)) — wiring the TYPED dispatch arm, not "
+            "the projection arm (OMN-16767). db_io here declares governed DB "
+            "access the handler performs itself; the projection arm's "
+            "handle(input_data: dict) contract does not apply.",
+            contract.name,
+            handler_ref.name,
+            typed_input_model.__name__,
+        )
+        db_tables = ()
+        # OMN-17562. A typed def-B handler on a db_io contract IS dispatched
+        # here, so the contract has a live dispatcher even though this entry
+        # never reaches the projection arm that records one.
+        record_live_projection_dispatch(contract.name, handler_ref.name)
+    dispatch_is_noop = False
+    if db_tables:
+        if topology is None:
+            raise ModelOnexError(
+                f"handler_wiring: contract {contract.name!r} declares db_io but "
+                "wire_from_manifest received no checked-in ModelDeploymentTopology"
+            )
+        catalog_policy = catalog_binding_policy or ProjectionCatalogBindingPolicy()
+        target = _resolve_projection_database_target(
+            db_tables,
+            topology,
+            catalog_read_binding=catalog_policy.read_binding,
+            catalog_write_binding=catalog_policy.write_binding,
+        )
+        subscribe_topics = (
+            contract.event_bus.subscribe_topics if contract.event_bus else ()
+        )
+        projection_terminal_event = (
+            contract.terminal_event
+            if contract.terminal_event
+            and contract.event_bus is not None
+            and contract.terminal_event in contract.event_bus.publish_topics
+            else None
+        )
+        # OMN-13548 (D-03): resolve the malformed-event DLQ destination from the
+        # contract's typed event-bus declaration. Filesystem-discovered legacy
+        # contracts retain the raw-YAML fallback during the migration window.
+        typed_dlq_topics = (
+            getattr(contract.event_bus, "dlq_topics", ())
+            if contract.event_bus is not None
+            else ()
+        )
+        projection_dlq_topics = (
+            list(typed_dlq_topics)
+            if typed_dlq_topics
+            else _read_dlq_topics(contract.contract_path)
+        )
+        if _projection_dispatch_owned_elsewhere(contract, entry):
+            dispatch_is_noop = True
+            callback = _make_undispatched_projection_callback(
+                handler_ref.name,
+                target,
+                contract.name,
+                _topic_owning_handler_names(contract, entry),
+            )
+        else:
+            # OMN-17562. Read here, not inside the factory, because the
+            # subscribe decision is taken from the PREPARED wiring rather than
+            # from the process-global ledger the factory writes.
+            dispatch_is_noop = _is_standalone_projection_runner(handler_instance)
+            callback = _make_projection_dispatch_callback(
+                handler_instance,
+                target,
+                subscribe_topics,
+                sinks=ProjectionDispatchSinks(
+                    event_bus=event_bus,
+                    terminal_event=projection_terminal_event,
+                    dlq_topics=tuple(projection_dlq_topics),
+                    secret_resolver=secret_resolver,
+                    # OMN-19081. Resolved from this contract's own
+                    # declaration, on the same raw-YAML seam _read_dlq_topics
+                    # uses. None is UNKNOWN and is graded, never exempted.
+                    key_grain=resolve_key_grain(
+                        _read_declared_key_grains(contract.contract_path)
+                    ),
+                ),
+                contract_name=contract.name,
+            )
+            logger.info(
+                "Auto-wired projection handler with DB injection: handler=%s "
+                "db_tables=%s terminal_event=%s dlq_topics=%s",
+                handler_ref.name,
+                [table.name for table in target.tables],
+                projection_terminal_event,
+                projection_dlq_topics,
+            )
+        # Projection handlers route by topic/db_io, not event_model; leave
+        # them untyped so the projection dispatch path is unchanged.
+        payload_type_matcher: Callable[[object], bool] | None = None
+    elif state_io:
+        # OMN-14493 in-row outbox: give the stateful wrapper the bus + the
+        # contract's published_events (class -> topic) map so it can publish-from-
+        # row + CAS-finalize WITHIN the leg (production has-bus path) and re-publish
+        # a crash-recovered batch on boot. Without these the wrapper falls back to
+        # commit-then-return (external applier publishes) — which is the exact
+        # CAS-retry loss OMN-14493 fixes, so production MUST pass them.
+        from omnibase_infra.runtime.event_bus_subcontract_wiring import (
+            load_published_events_map,
+        )
+
+        _outbox_topic_map = (
+            load_published_events_map(contract.contract_path)
+            if contract.event_bus is not None
+            else None
+        )
+        callback = _make_stateful_dispatch_callback(
+            handler_instance,
+            entry.event_model,
+            state_io,
+            event_bus=event_bus,
+            output_topic_map=_outbox_topic_map,
+            completion_bound=_read_completion_bound(contract.contract_path),
+            pre_dispatch_guard=_delegation_fault_pre_dispatch_guard(
+                contract=contract,
+                entry=entry,
+                event_bus=event_bus,
+            ),
+        )
+        logger.info(
+            "Auto-wired stateful handler with state_io in-row outbox "
+            "(publish-from-row + CAS-finalize): handler=%s table=%s key=%s "
+            "outbox_topics=%d",
+            handler_ref.name,
+            state_io.get("table"),
+            state_io.get("key") or "correlation_id",
+            len(_outbox_topic_map or {}),
+        )
+        # state_io wraps the standard dispatch callback, so the same
+        # event_model type-scoping applies as the non-stateful path
+        # (OMN-12416) — a multi-leg orchestrator's sibling handler entries
+        # still route by their own declared event_model.
+        payload_type_matcher = (
+            _make_payload_type_matcher(entry.event_model)
+            if entry.event_model is not None
+            else None
+        )
+    else:
+        _handler_node_kind = _node_kind_from_node_type(contract.node_type)
+        # OMN-14794: a REDUCER that DECLARES a published event and returns that
+        # event model must emit it as an EVENT, not a projection. Thread the
+        # contract's published_events short-names so _normalize_handler_result
+        # routes a declared-event return to output_events instead of the
+        # OMN-14598 REDUCER->projection capture (live delegation-routing drop that
+        # stalled the FSM at RECEIVED). Only loaded for REDUCERs — the sole
+        # archetype whose projection classification the set can refine.
+        _published_event_names: frozenset[str] | None = None
+        if (
+            _handler_node_kind is EnumNodeKind.REDUCER
+            and contract.event_bus is not None
+        ):
+            from omnibase_infra.runtime.event_bus_subcontract_wiring import (
+                load_published_events_map,
+            )
+
+            _published_event_names = frozenset(
+                load_published_events_map(contract.contract_path)
+            )
+        callback = _make_dispatch_callback(
+            handler_instance,
+            entry.event_model,
+            handler_node_kind=_handler_node_kind,
+            published_event_names=_published_event_names,
+        )
+        # Type-scope the dispatcher on its declared event_model so a
+        # multi-handler contract routes each message to the single handler
+        # whose event_model matches the payload (OMN-12416). Untyped
+        # (operation-only) handlers stay un-scoped — legacy matching applies.
+        payload_type_matcher = (
+            _make_payload_type_matcher(entry.event_model)
+            if entry.event_model is not None
+            else None
+        )
+    dispatcher_id = _derive_dispatcher_id(contract.name, handler_key)
+
+    # Pre-compute routes (no engine calls yet)
+    route_ids: list[str] = []
+    routes: list[ModelDispatchRoute] = []
+    if contract.event_bus:
+        for topic in _topics_for_handler_entry(contract, entry):
+            route_id = _derive_route_id(contract.name, handler_key, topic)
+            topic_pattern = _derive_topic_pattern_from_topic(topic)
+
+            # OMN-18013: the route's category is THIS topic's own, derived from
+            # its name. Stamping the entry-level ``category`` here is what made
+            # every off-category sibling topic a permanent NO_DISPATCHER.
+            route = ModelDispatchRoute(
+                route_id=route_id,
+                topic_pattern=topic_pattern,
+                message_category=derive_route_message_category(contract, entry, topic),
+                handler_id=dispatcher_id,
+            )
+            route_ids.append(route_id)
+            routes.append(route)
+
+    return PreparedWiring(
+        dispatcher_id=dispatcher_id,
+        dispatcher=callback,
+        category=category,
+        message_types=message_types,
+        handler_name=handler_ref.name,
+        handler_module=handler_ref.module,
+        resolution_outcome=resolution.outcome,
+        route_ids=route_ids,
+        routes=routes,
+        payload_type_matcher=payload_type_matcher,
+        dispatch_is_noop=dispatch_is_noop,
+    )
+
+
+def _commit_handler_wiring(
+    prepared: PreparedWiring,
+    dispatch_engine: object,
+    *,
+    owner_contract_name: str | None = None,
+    dynamic_materialization_authorized: bool = False,
+) -> tuple[str, list[str]]:
+    """Register a prepared handler wiring with the dispatch engine (side effects only).
+
+    Must only be called after :func:`_prepare_handler_wiring` has succeeded for
+    ALL handlers in a contract, ensuring the engine is never mutated for a
+    partially-valid contract (OMN-8735).
+
+    Skip entries (``prepared.is_skip``) are no-ops — the resolver emitted
+    ``RESOLVED_VIA_LOCAL_OWNERSHIP_SKIP`` for this handler, so nothing is
+    registered on the dispatch engine (OMN-9201). Quarantined entries
+    (``prepared.is_quarantined``) are also no-ops — OMN-9457 containment
+    keeps async-incompatible handlers off the dispatch engine so they
+    cannot poison runtime-effects boot.
+
+    When ``dynamic_materialization_authorized=True`` and the engine is frozen,
+    the private dynamic registration methods are used instead of the standard
+    ones. This flag MUST only be set by ``materialize_cached_contract()`` after
+    full contract validation — never by general application code (OMN-11246).
+    ``owner_contract_name`` records the contract provenance used by the
+    pre-subscribe ownership validator. Auto-wiring callers always supply it;
+    direct/manual registrations remain deliberately unowned.
+
+    Returns:
+        Tuple of (dispatcher_id, list of route_ids registered). Returns
+        ``("", [])`` for skip / quarantined entries.
+    """
+    if prepared.is_skip or prepared.is_quarantined:
+        return "", []
+
+    from omnibase_core.enums.enum_core_error_code import EnumCoreErrorCode
+    from omnibase_core.models.errors import ModelOnexError
+    from omnibase_infra.runtime.message_dispatch_engine import (
+        MessageDispatchEngine,
+    )
+
+    engine = dispatch_engine
+    if isinstance(engine, MessageDispatchEngine):
+        if engine.is_frozen:
+            if not dynamic_materialization_authorized:
+                raise ModelOnexError(
+                    message="Post-freeze registration requires explicit dynamic "
+                    "materialization authorization.",
+                    error_code=EnumCoreErrorCode.INVALID_STATE,
+                )
+            engine._register_dispatcher_dynamic(
+                dispatcher_id=prepared.dispatcher_id,
+                dispatcher=prepared.dispatcher,
+                category=prepared.category,
+                message_types=prepared.message_types,
+                payload_type_matcher=prepared.payload_type_matcher,
+                owner_contract_name=owner_contract_name,
+            )
+            for route in prepared.routes:
+                engine._register_route_dynamic(route)
+        else:
+            engine.register_dispatcher(
+                dispatcher_id=prepared.dispatcher_id,
+                dispatcher=prepared.dispatcher,
+                category=prepared.category,
+                message_types=prepared.message_types,
+                payload_type_matcher=prepared.payload_type_matcher,
+                owner_contract_name=owner_contract_name,
+            )
+            for route in prepared.routes:
+                engine.register_route(route)
+
+    return prepared.dispatcher_id, prepared.route_ids
+
+
+def _wire_handler_entry(
+    *,
+    contract: ModelDiscoveredContract,
+    entry: ModelHandlerRoutingEntry,
+    dispatch_engine: object,
+    event_bus: object | None = None,
+    container: object | None = None,
+    topology: ModelDeploymentTopology | None = None,
+    catalog_binding_policy: ProjectionCatalogBindingPolicy | None = None,
+) -> tuple[str, list[str]]:
+    """Prepare and immediately commit one handler entry (single-contract shortcut).
+
+    Kept for backwards compatibility with call sites that don't need the
+    two-phase split.  New code should call _prepare_handler_wiring +
+    _commit_handler_wiring directly.
+    """
+    resolver = ServiceHandlerResolver()
+    ownership_query: object = ServiceLocalHandlerOwnershipQuery(
+        local_node_names=frozenset({contract.name})
+    )
+    _assert_is_ownership_query(ownership_query)
+
+    prepared = _prepare_handler_wiring(
+        contract=contract,
+        entry=entry,
+        dispatch_engine=dispatch_engine,
+        resolver=resolver,
+        ownership_query=ownership_query,
+        event_bus=event_bus,
+        container=container,
+        topology=topology,
+        catalog_binding_policy=catalog_binding_policy,
+    )
+    return _commit_handler_wiring(
+        prepared,
+        dispatch_engine,
+        owner_contract_name=contract.name,
+    )

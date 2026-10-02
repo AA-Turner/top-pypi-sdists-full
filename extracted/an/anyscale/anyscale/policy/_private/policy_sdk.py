@@ -15,7 +15,10 @@ class PrivatePolicySDK(BaseSDK):
     """Private SDK for resource policy operations."""
 
     def set(
-        self, resource_type: str, resource_id: str, config: PolicyConfig,
+        self,
+        resource_type: str,
+        resource_id: str,
+        config: PolicyConfig,
     ):
         """
         Set user group permission policy for a resource.
@@ -34,10 +37,16 @@ class PrivatePolicySDK(BaseSDK):
         api_policy = UpdatePolicyRequest(bindings=api_bindings)
 
         self.client.update_resource_policy(
-            resource_type=resource_type, resource_id=resource_id, policy=api_policy,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            policy=api_policy,
         )
 
-    def get(self, resource_type: str, resource_id: str,) -> Policy:
+    def get(
+        self,
+        resource_type: str,
+        resource_id: str,
+    ) -> Policy:
         """
         Get user group permission policy for a resource.
 
@@ -49,7 +58,8 @@ class PrivatePolicySDK(BaseSDK):
             Policy object with role bindings and sync status.
         """
         response = self.client.get_resource_policy(
-            resource_type=resource_type, resource_id=resource_id,
+            resource_type=resource_type,
+            resource_id=resource_id,
         )
 
         bindings = []
@@ -60,10 +70,14 @@ class PrivatePolicySDK(BaseSDK):
             bindings.append(PolicyBinding(role_name=role, principals=b.principals))
 
         return Policy(
-            bindings=bindings, sync_status=PolicySyncStatus(response.sync_status),
+            bindings=bindings,
+            sync_status=PolicySyncStatus(response.sync_status),
         )
 
-    def list(self, resource_type: str,) -> List[ResourcePolicy]:
+    def list(
+        self,
+        resource_type: str,
+    ) -> List[ResourcePolicy]:
         """
         List permission policies for all resources of a specific type.
 

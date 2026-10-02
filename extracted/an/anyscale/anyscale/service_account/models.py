@@ -20,8 +20,7 @@ class OrganizationPermissionLevel(ModelEnum):
 
 @dataclass(frozen=True)
 class ServiceAccount(ModelBase):
-    """Service account
-    """
+    """Service account"""
 
     __doc_py_example__ = """\
 import anyscale
@@ -45,9 +44,7 @@ service_accounts: List[ServiceAccount] = anyscale.service_account.list()
             raise TypeError("created_at must be a datetime.")
 
     permission_level: OrganizationPermissionLevel = field(
-        metadata={
-            "docstring": "The organization permission level of the service account."
-        }
+        metadata={"docstring": "The organization permission level of the service account."}
     )
 
     def _validate_permission_level(

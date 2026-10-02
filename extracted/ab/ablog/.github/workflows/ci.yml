@@ -1,0 +1,152 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - "main"
+      - "*.*"
+      - "!*backport*"
+    tags:
+      - "v*"
+      - "!*dev*"
+      - "!*pre*"
+      - "!*post*"
+  pull_request:
+  # Allow manual runs through the web UI
+  workflow_dispatch:
+  schedule:
+    #        ┌───────── minute (0 - 59)
+    #        │ ┌───────── hour (0 - 23)
+    #        │ │ ┌───────── day of the month (1 - 31)
+    #        │ │ │ ┌───────── month (1 - 12 or JAN-DEC)
+    #        │ │ │ │ ┌───────── day of the week (0 - 6 or SUN-SAT)
+    - cron: "0 7 * * *" # Every day at 07:00 UTC
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@main
+    with:
+      submodules: false
+      coverage: codecov
+      libraries: |
+        apt:
+        - pandoc
+        - graphviz
+      envs: |
+        - linux: py313-sphinx7
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  test:
+    needs: [core]
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@main
+    with:
+      submodules: false
+      libraries: |
+        brew:
+            - pandoc
+            - graphviz
+        choco:
+            - pandoc
+            - graphviz
+        apt:
+            - pandoc
+            - graphviz
+      envs: |
+        - macos: py311-sphinx8
+        - windows: py312-sphinx8
+        - linux: py313-sphinx9
+        - linux: py313-pydata-sphinx-theme
+        - linux: py314-devdeps
+
+  docs:
+    needs: [core]
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@main
+    with:
+      submodules: false
+      pytest: false
+      libraries: |
+        apt:
+            - pandoc
+            - graphviz
+      envs: |
+        - linux: py313-docs
+        - linux: py313-linkcheck
+
+  sdist_verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - run: python -m pip install -U --user build
+      - run: python -m build . --sdist
+      - run: python -m pip install -U --user twine
+      - run: python -m twine check dist/*
+
+  conda:
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          lfs: true
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          activate-environment: ablog-test
+          environment-file: ablog-conda-test-env.yml
+          python-version: "3.13"
+      - name: Install ablog
+        shell: bash -el {0}
+        run: |
+          pip install --no-deps --no-build-isolation .
+      - name: Run test
+        shell: bash -el {0}
+        run: |
+          conda list
+          cd /tmp
+          pytest -vvv -r a --pyargs ablog
+          make tests
+
+  build:
+    if: |
+      github.event_name != 'pull_request' ||
+      (
+        github.event_name == 'pull_request' &&
+        contains(github.event.pull_request.labels.*.name, 'Run publish')
+      )
+    needs: [test, docs, sdist_verify]
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/publish_pure_python.yml@main
+    with:
+      python-version: "3.13"
+      submodules: false
+      upload_to_pypi: false
+      save_artifacts: true
+
+  upload:
+    if: startsWith(github.ref, 'refs/tags/v')
+    name: Upload to PyPI
+    runs-on: ubuntu-latest
+    needs: [build]
+    permissions:
+      id-token: write
+    environment:
+      name: pypi
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v5
+        with:
+          merge-multiple: true
+          pattern: dist-*
+          path: dist
+
+      - name: Run upload
+        uses: pypa/gh-action-pypi-publish@release/v1

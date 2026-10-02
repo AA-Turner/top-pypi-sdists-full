@@ -1,0 +1,11 @@
+Metadata-Version: 1.0
+Name: business-rules-extra
+Version: 1.0.11
+Summary: Python DSL for setting up business intelligence rules that can be configured without code; based on Venmo/business-rules.
+Home-page: https://github.com/annawinkler/business-rules
+Author: Anna Winkler
+Author-email: me.anna.winkler@gmail.com
+License: MIT
+Description-Content-Type: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN

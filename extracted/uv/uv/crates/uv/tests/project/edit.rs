@@ -82,7 +82,7 @@ fn add_registry() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -221,7 +221,7 @@ fn add_git() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -346,7 +346,7 @@ fn add_git_private_source() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -434,7 +434,7 @@ fn add_git_private_raw() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -714,7 +714,7 @@ fn add_git_lfs() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.13"
 
         [options]
@@ -916,7 +916,7 @@ fn add_git_raw() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -1183,7 +1183,7 @@ fn add_unnamed() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -1273,7 +1273,7 @@ fn add_remove_dev() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -1382,7 +1382,7 @@ fn add_remove_dev() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -1466,7 +1466,7 @@ fn add_remove_optional() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -1575,7 +1575,7 @@ fn add_remove_optional() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -1792,7 +1792,7 @@ fn add_remove_workspace() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -1870,7 +1870,7 @@ fn add_remove_workspace() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -2418,7 +2418,7 @@ fn add_workspace_editable() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -2544,7 +2544,7 @@ fn add_workspace_path() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -2666,7 +2666,7 @@ fn add_path_implicit_workspace() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -2782,7 +2782,7 @@ fn add_path_no_workspace() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -2890,7 +2890,7 @@ fn add_path_adjacent_directory() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -3094,7 +3094,7 @@ fn add_relative_and_absolute_paths() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -3351,7 +3351,7 @@ fn update() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -4056,7 +4056,7 @@ fn add_inexact() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -4169,7 +4169,7 @@ fn remove_registry() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -4766,7 +4766,7 @@ fn add_lower_bound_existing() -> Result<()> {
     ");
 
     let lock = context.read("uv.lock").parse::<toml_edit::DocumentMut>()?;
-    assert_eq!(lock["revision"].as_integer(), Some(4));
+    assert_eq!(lock["revision"].as_integer(), Some(5));
 
     uv_snapshot!(context.filters(), context.add()
         .arg("--preview-features")
@@ -4944,7 +4944,7 @@ fn add_lower_bound_optional() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -5055,7 +5055,7 @@ fn add_lower_bound_local() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [[package]]
@@ -5148,7 +5148,7 @@ fn add_non_project() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -6103,7 +6103,7 @@ fn add_requirements_file_constraints() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -7024,7 +7024,7 @@ fn add_script_settings() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.11"
 
         [options]
@@ -7670,7 +7670,7 @@ fn add_remove_script_lock() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.11"
 
         [options]
@@ -7850,7 +7850,7 @@ fn add_remove_script_lock() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.11"
 
         [options]
@@ -8052,7 +8052,7 @@ fn add_remove_script_lock() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.11"
 
         [options]
@@ -9869,7 +9869,7 @@ fn add_warn_index_url() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -9967,7 +9967,7 @@ fn add_no_warn_index_url() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -10057,7 +10057,7 @@ fn add_index() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -10140,7 +10140,7 @@ fn add_index() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -10249,7 +10249,7 @@ fn add_index() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -10366,7 +10366,7 @@ fn add_index() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -10492,7 +10492,7 @@ fn add_index() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -10625,7 +10625,7 @@ fn add_default_index_url() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -10695,7 +10695,7 @@ fn add_default_index_url() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -10794,7 +10794,7 @@ async fn add_index_credentials() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -10891,7 +10891,7 @@ async fn existing_index_credentials() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -10981,7 +10981,7 @@ fn add_index_with_trailing_slash() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -11074,7 +11074,7 @@ fn add_index_without_trailing_slash() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -11602,7 +11602,7 @@ fn add_group_comment() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.11"
 
         [options]
@@ -11730,7 +11730,7 @@ fn add_index_comments() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -12080,7 +12080,7 @@ fn add_direct_url_subdirectory() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -12204,7 +12204,7 @@ fn add_direct_url_subdirectory_raw() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -12919,7 +12919,7 @@ fn multiple_index_cli() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -13024,7 +13024,7 @@ fn repeated_index_cli_environment_variable() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -13124,7 +13124,7 @@ fn repeated_index_cli_environment_variable_newline() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -13228,7 +13228,7 @@ fn repeated_index_cli() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -13332,7 +13332,7 @@ fn repeated_index_cli_reversed() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]
@@ -13807,7 +13807,7 @@ async fn add_unexpected_error_code() -> Result<()> {
     exit_code: 2 (failure)
     ----- stderr -----
     error: Request failed after 1 retry in [TIME]
-      cause: Failed to fetch: `http://[LOCALHOST]/anyio/`
+      cause: Failed to fetch: http://[LOCALHOST]/anyio/
       cause: HTTP status server error (503 Service Unavailable) for url (http://[LOCALHOST]/anyio/)
     "
     );
@@ -13847,7 +13847,7 @@ async fn add_invalid_ignore_error_code() -> Result<()> {
         |                      ^^^^^^^^^^^^^^^^
       1234 is not a valid HTTP status code
 
-    error: Failed to parse: `pyproject.toml`
+    error: Failed to parse: pyproject.toml
       cause: TOML parse error at line 9, column 22
                |
              9 | ignore-error-codes = [401, 403, 1234]
@@ -13878,7 +13878,7 @@ fn add_invalid_requires_python() -> Result<()> {
     uv_snapshot!(context.add().arg("anyio"), @r#"
     exit_code: 2 (failure)
     ----- stderr -----
-    error: Failed to parse: `pyproject.toml`
+    error: Failed to parse: pyproject.toml
       cause: TOML parse error at line 4, column 19
                |
              4 | requires-python = "3.12"
@@ -13958,16 +13958,16 @@ fn add_auth_policy_always_without_credentials() -> Result<()> {
     uv_snapshot!(context.add().arg("anyio"), @"
     exit_code: 2 (failure)
     ----- stderr -----
-    error: Failed to fetch: `https://pypi.org/simple/anyio/`
-      cause: Missing credentials for https://pypi.org/simple/anyio/
+    error: Failed to fetch: https://pypi.org/simple/anyio/
+      cause: Missing credentials for: https://pypi.org/simple/anyio/
     "
     );
 
     uv_snapshot!(context.pip_install().arg("black"), @"
     exit_code: 2 (failure)
     ----- stderr -----
-    error: Failed to fetch: `https://pypi.org/simple/black/`
-      cause: Missing credentials for https://pypi.org/simple/black/
+    error: Failed to fetch: https://pypi.org/simple/black/
+      cause: Missing credentials for: https://pypi.org/simple/black/
     "
     );
     Ok(())
@@ -13998,8 +13998,8 @@ fn add_auth_policy_always_with_username_no_password() -> Result<()> {
     uv_snapshot!(context.add().arg("anyio"), @"
     exit_code: 2 (failure)
     ----- stderr -----
-    error: Failed to fetch: `https://pypi.org/simple/anyio/`
-      cause: Incomplete credentials for https://pypi.org/simple/anyio/
+    error: Failed to fetch: https://pypi.org/simple/anyio/
+      cause: Incomplete credentials for `https://pypi.org/simple/anyio/`
     "
     );
     Ok(())
@@ -14033,7 +14033,7 @@ async fn add_auth_policy_never_with_url_credentials() -> Result<()> {
     uv_snapshot!(context.filters(), context.add().arg("anyio"), @"
     exit_code: 2 (failure)
     ----- stderr -----
-    error: Failed to fetch: `http://[LOCALHOST]/basic-auth/files/packages/14/fd/2f20c40b45e4fb4324834aea24bd4afdf1143390242c0b33774da0e2e34f/anyio-4.3.0-py3-none-any.whl`
+    error: Failed to fetch: http://[LOCALHOST]/basic-auth/files/packages/14/fd/2f20c40b45e4fb4324834aea24bd4afdf1143390242c0b33774da0e2e34f/anyio-4.3.0-py3-none-any.whl
       cause: HTTP status client error (401 Unauthorized) for url (http://[LOCALHOST]/basic-auth/files/packages/14/fd/2f20c40b45e4fb4324834aea24bd4afdf1143390242c0b33774da0e2e34f/anyio-4.3.0-py3-none-any.whl)
     "
     );
@@ -15406,7 +15406,7 @@ fn add_no_install_project() -> Result<()> {
         assert_snapshot!(
             lock, @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]

@@ -1,0 +1,40 @@
+schema_version: "1.1.0"
+workbook: lic_inputs.xlsx
+series:
+  - id: country_block_primary_balance
+    sheet: Inputs
+    data_range: Inputs!F3:J8
+    layout: matrix
+    input: {}
+    structure:
+      measure:
+        concept: OBS_VALUE
+        dtype: float
+        bind:
+          kind: data_cell
+          read: float
+      dimensions:
+        - concept: REF_AREA
+          role: key
+          scope: cell
+          bind:
+            kind: row_label
+            label_column: A
+        - concept: INDICATOR
+          role: key
+          scope: cell
+          bind:
+            kind: row_label
+            label_column: A
+        - concept: TIME_PERIOD
+          role: key
+          scope: cell
+          bind:
+            kind: column_header
+            header_row: 1
+            read: int
+    key:
+      - REF_AREA
+      - INDICATOR
+      - TIME_PERIOD
+    notes: Schema 1.1.0 example matrix binding with explicit row_label and column_header binds.

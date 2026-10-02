@@ -1,0 +1,1181 @@
+// Copyright (c) 2025 Contributors to the Eclipse Foundation
+//
+// See the NOTICE file(s) distributed with this work for additional
+// information regarding copyright ownership.
+//
+// This program and the accompanying materials are made available under the
+// terms of the Apache Software License 2.0 which is available at
+// https://www.apache.org/licenses/LICENSE-2.0, or the MIT license
+// which is available at https://opensource.org/licenses/MIT.
+//
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
+//! # Example
+//!
+//! ## Typed API
+//!
+//! ```
+//! use iceoryx2::prelude::*;
+//!
+//! # fn main() -> Result<(), Box<dyn core::error::Error>> {
+//! # let node = NodeBuilder::new().create::<ipc::Service>()?;
+//!
+//! let service = node
+//!    .service_builder(&"My/Funk/ServiceName".try_into()?)
+//!    .request_response::<u64, u64>()
+//!    .open_or_create()?;
+//!
+//! let client = service.client_builder()
+//!    // defines behavior when server queue is full in a non-overflowing service
+//!    .backpressure_strategy(BackpressureStrategy::DiscardData)
+//!    .create()?;
+//!
+//! let request = client.loan_uninit()?;
+//! let request = request.write_payload(1829);
+//!
+//! let pending_response = request.send()?;
+//!
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Slice API
+//!
+//! ```
+//! use iceoryx2::prelude::*;
+//!
+//! # fn main() -> Result<(), Box<dyn core::error::Error>> {
+//! # let node = NodeBuilder::new().create::<ipc::Service>()?;
+//!
+//! let service = node
+//!    .service_builder(&"My/Funk/ServiceName".try_into()?)
+//!    .request_response::<[usize], u64>()
+//!    .open_or_create()?;
+//!
+//! let client = service.client_builder()
+//!     // provides a hint for the max slice len, 128 means we want at
+//!     // list a slice of 128 `usize`
+//!     .initial_max_slice_len(128)
+//!     // The underlying sample size will be increased with a power of two strategy
+//!     // when [`Client::loan_slice()`] or [`Client::loan_slice_uninit()`] requires more
+//!     // memory than available.
+//!     .allocation_strategy(AllocationStrategy::PowerOfTwo)
+//!    .create()?;
+//!
+//! let number_of_elements = 10;
+//! let request = client.loan_slice_uninit(number_of_elements)?;
+//! let request = request.write_from_fn(|idx| idx * 2 + 1);
+//!
+//! let pending_response = request.send()?;
+//!
+//! # Ok(())
+//! # }
+//! ```
+
+use crate::active_request::RequestId;
+use crate::port::details::chunk::ChunkMut;
+use crate::port::details::data_segment_shared_state::DataSegmentSharedState;
+use crate::port::port_lifetime_tag::PortLifetimeTag;
+use crate::service::header::request_response::RequestHeader;
+use crate::service::marker::{CustomHeaderMarker, CustomPayloadMarker, Flatbuffer};
+use crate::service::resource::request_response::RequestResponseResources;
+use crate::service::static_config::message_type_details::MessageTypeDetails;
+use crate::{
+    identifiers::UniqueClientId,
+    pending_response::PendingResponse,
+    port::{
+        details::data_segment::DataSegment, port_name::PortName,
+        update_connections::UpdateConnections,
+    },
+    prelude::{BackpressureStrategy, PortFactory},
+    request_mut::RequestMut,
+    request_mut_uninit::RequestMutUninit,
+    service::{
+        self,
+        dynamic_config::request_response::{ClientDetails, ServerDetails},
+        naming_scheme::data_segment_name,
+        port_factory::client::{ClientCreateError, LocalClientConfig, PortFactoryClient},
+        static_config::message_type_details::TypeVariant,
+    },
+};
+use core::alloc::Layout;
+use core::ptr::NonNull;
+use core::{any::TypeId, fmt::Debug, marker::PhantomData, mem::MaybeUninit};
+use iceoryx2_bb_concurrency::atomic::Ordering;
+use iceoryx2_bb_concurrency::atomic::{AtomicU64, AtomicUsize};
+use iceoryx2_bb_concurrency::cell::UnsafeCell;
+use iceoryx2_bb_container::{queue::Queue, slotmap::SlotMap, vector::polymorphic_vec::*};
+use iceoryx2_bb_elementary::allocation_strategy::AllocationStrategy;
+use iceoryx2_bb_elementary::{CallbackProgression, cyclic_tagger::CyclicTagger};
+use iceoryx2_bb_elementary_traits::allocator::{AllocationGrowError, ContentPlacement, Grow};
+use iceoryx2_bb_elementary_traits::iceoryx_send::IceoryxSend;
+use iceoryx2_bb_elementary_traits::testing::abandonable::Abandonable;
+use iceoryx2_bb_elementary_traits::zero_copy_send::ZeroCopySend;
+use iceoryx2_bb_memory::heap_allocator::HeapAllocator;
+use iceoryx2_cal::bag::{Bag, BagFamily, BagStateFamily};
+use iceoryx2_cal::shared_memory::ShmPointer;
+use iceoryx2_cal::shm_allocator::PointerOffset;
+use iceoryx2_cal::zero_copy_connection::{CHANNEL_STATE_CLOSED, CHANNEL_STATE_OPEN};
+use iceoryx2_cal::{
+    arc_sync_policy::ArcSyncPolicy, dynamic_storage::DynamicStorage,
+    zero_copy_connection::ChannelId,
+};
+use iceoryx2_log::{fail, fatal_panic, warn};
+
+use super::{
+    LoanError, SendError,
+    details::{
+        data_segment::DataSegmentType,
+        receiver::{Receiver, SenderDetails},
+        segment_state::SegmentState,
+        sender::{ReceiverDetails, Sender},
+    },
+    update_connections::ConnectionFailure,
+};
+
+/// Failure that can be emitted when a [`RequestMut`] is sent.
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+pub enum RequestSendError {
+    /// Sending this [`RequestMut`] exceeds the maximum supported amount of active
+    /// requests. When a [`PendingResponse`] object is released another [`RequestMut`]
+    /// can be sent.
+    ExceedsMaxActiveRequests,
+
+    /// Underlying [`SendError`]s.
+    SendError(SendError),
+}
+
+impl From<SendError> for RequestSendError {
+    fn from(value: SendError) -> Self {
+        RequestSendError::SendError(value)
+    }
+}
+
+impl From<LoanError> for RequestSendError {
+    fn from(value: LoanError) -> Self {
+        RequestSendError::SendError(SendError::LoanError(value))
+    }
+}
+
+impl From<ConnectionFailure> for RequestSendError {
+    fn from(value: ConnectionFailure) -> Self {
+        RequestSendError::SendError(SendError::ConnectionError(value))
+    }
+}
+
+impl core::fmt::Display for RequestSendError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "RequestSendError::{self:?}")
+    }
+}
+
+impl core::error::Error for RequestSendError {}
+
+#[doc(hidden)]
+#[derive(Debug)]
+pub struct ClientSharedState<Service: service::Service> {
+    pub(crate) config: LocalClientConfig,
+    pub(crate) request_sender: Sender<Service, RequestResponseResources<Service>>,
+    pub(crate) response_receiver: Receiver<Service, RequestResponseResources<Service>>,
+    client_handle: UnsafeCell<Option<<Service::Bag as BagFamily>::BagHandle>>,
+    server_list_state: UnsafeCell<<Service::Bag as BagFamily>::BagState<ServerDetails>>,
+    pub(crate) available_channel_ids: UnsafeCell<Queue<ChannelId>>,
+    pub(crate) active_request_counter: AtomicUsize,
+    pub(crate) max_active_requests: usize,
+    pub(crate) loan_counter: AtomicUsize,
+    max_loans: usize,
+    // IMPORTANT!
+    // Fields of a rust struct are dropped in declaration order. Since this tag is our marker that the
+    // port exists and might require cleanup after a crash, the tag must be defined as last member of
+    // the struct.
+    // Otherwise the process might crash during cleanup, has already removed the tag but other resources
+    // are still existing. This would make a cleanup from another process impossible.
+    lifetime_tag: PortLifetimeTag<Service>,
+}
+
+impl<Service: service::Service> DataSegmentSharedState for ClientSharedState<Service> {
+    fn allocation_strategy(&self) -> AllocationStrategy {
+        self.request_sender.data_segment.allocation_strategy()
+    }
+
+    fn header_len(&self) -> usize {
+        self.request_sender.message_type_details.all_headers_len()
+    }
+
+    fn message_type_details(&self) -> MessageTypeDetails {
+        self.request_sender.message_type_details
+    }
+
+    fn payload_size(&self) -> usize {
+        self.request_sender.payload_size()
+    }
+
+    fn return_loan(&self, offset: PointerOffset) {
+        self.request_sender.return_loaned_chunk(offset);
+    }
+}
+
+impl<Service: service::Service> Grow<ShmPointer> for ClientSharedState<Service> {
+    unsafe fn grow(
+        &self,
+        ptr: ShmPointer,
+        old_layout: Layout,
+        new_layout: Layout,
+        content_placement: ContentPlacement,
+    ) -> Result<ShmPointer, AllocationGrowError> {
+        match unsafe {
+            self.request_sender
+                .grow(ptr, old_layout, new_layout, content_placement)
+        } {
+            Ok(ptr) => Ok(ptr),
+            Err(e) => {
+                fail!(from self, with e,
+                        "Failed to grow request from {old_layout:?} to {new_layout:?}. [{e:?}]");
+            }
+        }
+    }
+}
+
+impl<Service: service::Service> Abandonable for ClientSharedState<Service> {
+    unsafe fn abandon_in_place(mut this: NonNull<Self>) {
+        let this = unsafe { this.as_mut() };
+        unsafe { Sender::abandon_in_place(NonNull::from_mut(&mut this.request_sender)) };
+        unsafe { Receiver::abandon_in_place(NonNull::from_mut(&mut this.response_receiver)) };
+        unsafe {
+            Abandonable::abandon_in_place(NonNull::from_mut(&mut this.lifetime_tag));
+        }
+    }
+}
+
+impl<Service: service::Service> Drop for ClientSharedState<Service> {
+    fn drop(&mut self) {
+        if let Some(handle) = unsafe { *self.client_handle.get() } {
+            self.request_sender
+                .service_state
+                .dynamic_storage()
+                .get()
+                .request_response()
+                .release_client_handle(handle)
+        }
+    }
+}
+
+impl<Service: service::Service> ClientSharedState<Service> {
+    pub(crate) fn release_request(&self, was_sample_sent: bool, header: &RequestHeader) {
+        if !unsafe { &mut *self.available_channel_ids.get() }.push(header.channel_id) {
+            fatal_panic!(from self,
+                      "This should never happen! The channel id could not be returned.");
+        }
+        if !was_sample_sent {
+            self.loan_counter.fetch_sub(1, Ordering::Relaxed);
+        }
+    }
+
+    fn prepare_channel_to_receive_responses(&self, channel_id: ChannelId, request_id: RequestId) {
+        self.response_receiver
+            .set_channel_state(channel_id, request_id);
+    }
+
+    pub(crate) fn send_request(
+        &self,
+        chunk: &ChunkMut,
+        channel_id: ChannelId,
+        request_id: RequestId,
+    ) -> Result<usize, RequestSendError> {
+        let msg = "Unable to send request";
+
+        let active_request_counter = self.active_request_counter.load(Ordering::Relaxed);
+        let max_active_requests = match self.config.max_active_requests {
+            Some(requests) => requests,
+            None => {
+                self.request_sender
+                    .service_state
+                    .static_config()
+                    .request_response()
+                    .max_active_requests_per_client
+            }
+        };
+        if max_active_requests <= active_request_counter {
+            fail!(from self, with RequestSendError::ExceedsMaxActiveRequests,
+                    "{} since the number of active requests is limited to {} and sending this request would exceed the limit.", msg, active_request_counter);
+        }
+
+        fail!(from self, when self.update_connections(),
+            "{} since the connections could not be updated.", msg);
+
+        self.prepare_channel_to_receive_responses(channel_id, request_id);
+
+        let number_of_recipients = match self.request_sender.deliver_offset(
+            chunk,
+            // All requests are delivered on the same channel, therefore we can use
+            // ChannelId::new(0).
+            ChannelId::new(0),
+        ) {
+            Ok(number_of_recipients) => number_of_recipients,
+            Err(error) => {
+                // No PendingResponse will be created to close this channel, even if
+                // the request reached some of the servers before delivery failed.
+                self.response_receiver.close_channel(channel_id, request_id);
+                return Err(error.into());
+            }
+        };
+
+        self.active_request_counter.fetch_add(1, Ordering::Relaxed);
+        Ok(number_of_recipients)
+    }
+
+    pub(crate) fn update_connections(
+        &self,
+    ) -> Result<(), super::update_connections::ConnectionFailure> {
+        if unsafe {
+            self.request_sender
+                .service_state
+                .dynamic_storage()
+                .get()
+                .request_response()
+                .servers
+                .update_state(&mut *self.server_list_state.get())
+        } {
+            fail!(from self, when self.force_update_connections(),
+                "Connections were updated only partially since at least one connection to a Server port failed.");
+        }
+
+        Ok(())
+    }
+
+    fn force_update_connections(&self) -> Result<(), ConnectionFailure> {
+        let mut result = Ok(());
+        self.request_sender.start_update_connection_cycle();
+        self.response_receiver.start_update_connection_cycle();
+
+        unsafe {
+            (*self.server_list_state.get()).for_each(|index, port| {
+                // establish response connection
+                let inner_result = self.response_receiver.update_connection(
+                    index,
+                    SenderDetails {
+                        port_id: port.server_id.value(),
+                        max_number_of_segments: port.max_number_of_segments,
+                        data_segment_type: port.data_segment_type,
+                        number_of_chunks: port.number_of_responses,
+                    },
+                );
+                result = result.and(inner_result);
+
+                // establish request connection
+                let inner_result = self.request_sender.update_connection(
+                    index,
+                    ReceiverDetails {
+                        port_id: port.server_id.value(),
+                        buffer_size: port.request_buffer_size,
+                    },
+                    |_| {},
+                );
+                if let Some(err) = inner_result.err() {
+                    result = result.and(Err(err.into()));
+                }
+
+                CallbackProgression::Continue
+            })
+        };
+
+        self.response_receiver.finish_update_connection_cycle();
+        self.request_sender.finish_update_connection_cycle();
+
+        result
+    }
+}
+
+/// Sends [`RequestMut`]s to a [`Server`](crate::port::server::Server) in a
+/// request-response based communication.
+#[derive(Debug)]
+pub struct Client<
+    Service: service::Service,
+    RequestPayload: Debug + IceoryxSend + ?Sized,
+    RequestHeader: Debug + ZeroCopySend,
+    ResponsePayload: Debug + IceoryxSend + ?Sized,
+    ResponseHeader: Debug + ZeroCopySend,
+> {
+    client_shared_state: Service::ArcThreadSafetyPolicy<ClientSharedState<Service>>,
+    client_details: &'static ClientDetails,
+    request_id_counter: AtomicU64,
+    _request_payload: PhantomData<RequestPayload>,
+    _request_header: PhantomData<RequestHeader>,
+    _response_payload: PhantomData<ResponsePayload>,
+    _response_header: PhantomData<ResponseHeader>,
+}
+
+impl<
+    Service: service::Service,
+    RequestPayload: Debug + IceoryxSend + ?Sized,
+    RequestHeader: Debug + ZeroCopySend,
+    ResponsePayload: Debug + IceoryxSend + ?Sized,
+    ResponseHeader: Debug + ZeroCopySend,
+> Abandonable for Client<Service, RequestPayload, RequestHeader, ResponsePayload, ResponseHeader>
+{
+    unsafe fn abandon_in_place(mut this: NonNull<Self>) {
+        let this = unsafe { this.as_mut() };
+        unsafe {
+            Service::ArcThreadSafetyPolicy::abandon_in_place(NonNull::from_mut(
+                &mut this.client_shared_state,
+            ))
+        };
+    }
+}
+
+unsafe impl<
+    Service: service::Service,
+    RequestPayload: Debug + IceoryxSend + ?Sized,
+    RequestHeader: Debug + ZeroCopySend,
+    ResponsePayload: Debug + IceoryxSend + ?Sized,
+    ResponseHeader: Debug + ZeroCopySend,
+> Send for Client<Service, RequestPayload, RequestHeader, ResponsePayload, ResponseHeader>
+where
+    Service::ArcThreadSafetyPolicy<ClientSharedState<Service>>: Send + Sync,
+{
+}
+
+unsafe impl<
+    Service: service::Service,
+    RequestPayload: Debug + IceoryxSend + ?Sized,
+    RequestHeader: Debug + ZeroCopySend,
+    ResponsePayload: Debug + IceoryxSend + ?Sized,
+    ResponseHeader: Debug + ZeroCopySend,
+> Sync for Client<Service, RequestPayload, RequestHeader, ResponsePayload, ResponseHeader>
+where
+    Service::ArcThreadSafetyPolicy<ClientSharedState<Service>>: Send + Sync,
+{
+}
+
+impl<
+    Service: service::Service,
+    RequestPayload: Debug + IceoryxSend + ?Sized,
+    RequestHeader: Debug + ZeroCopySend,
+    ResponsePayload: Debug + IceoryxSend + ?Sized,
+    ResponseHeader: Debug + ZeroCopySend,
+> Client<Service, RequestPayload, RequestHeader, ResponsePayload, ResponseHeader>
+{
+    pub(crate) fn new(
+        client_factory: PortFactoryClient<
+            Service,
+            RequestPayload,
+            RequestHeader,
+            ResponsePayload,
+            ResponseHeader,
+        >,
+    ) -> Result<Self, ClientCreateError> {
+        let msg = "Unable to create Client port";
+        let origin = "Client::new()";
+        let service = &client_factory.factory.service;
+        let client_id = fail!(from origin,
+            when UniqueClientId::new::<Service>(client_factory.config.port_name, service.shared_node().config()),
+            with ClientCreateError::UnableToGenerateUniqueClientId, "{msg} since the UniqueClientId could not be generated.");
+
+        // !MUST! be the first thing that is created when a new port is instantiated otherwise the
+        // port resources might leak if this process is killed in between.
+        let lifetime_tag = PortLifetimeTag::new(
+            origin,
+            msg,
+            client_id.0.value(),
+            service.shared_node(),
+            ClientCreateError::UnableToCreatePortTag,
+        )?;
+
+        let static_config = client_factory.factory.static_config();
+        let number_of_requests_with_max_service_setting =
+            unsafe { service.static_config().messaging_pattern.request_response() }
+                .required_amount_of_chunks_per_client_data_segment(
+                    static_config.max_loaned_requests,
+                    static_config.max_active_requests_per_client,
+                );
+        let number_of_requests = match client_factory.config.max_active_requests {
+            Some(requests) => {
+                unsafe { service.static_config().messaging_pattern.request_response() }
+                    .required_amount_of_chunks_per_client_data_segment(
+                        static_config.max_loaned_requests,
+                        requests,
+                    )
+            }
+            None => number_of_requests_with_max_service_setting,
+        };
+        let number_of_requests = client_factory
+            .preallocate_number_of_requests_override
+            .call(number_of_requests);
+        let server_list = &service.dynamic_storage().get().request_response().servers;
+
+        let global_config = service.shared_node().config();
+        let segment_name = data_segment_name(client_id.value());
+        let data_segment_type = DataSegmentType::new_from_allocation_strategy(
+            client_factory.config.allocation_strategy,
+        );
+        let max_number_of_segments =
+            DataSegment::<Service>::max_number_of_segments(data_segment_type);
+
+        let sample_layout = static_config
+            .request_message_type_details
+            .chunk_layout(client_factory.config.initial_max_slice_len);
+
+        let data_segment = match data_segment_type {
+            DataSegmentType::Static => DataSegment::<Service>::create_static_segment(
+                &segment_name,
+                sample_layout,
+                global_config,
+                number_of_requests,
+            ),
+            DataSegmentType::Dynamic => DataSegment::<Service>::create_dynamic_segment(
+                &segment_name,
+                sample_layout,
+                global_config,
+                number_of_requests,
+                client_factory.config.allocation_strategy,
+            ),
+        };
+
+        let data_segment = fail!(from origin,
+            when data_segment,
+            with ClientCreateError::UnableToCreateDataSegment,
+            "{} since the client data segment could not be created.", msg);
+
+        let max_active_requests = match client_factory.config.max_active_requests {
+            Some(requests) => {
+                if static_config.max_active_requests_per_client < requests {
+                    fail!(from origin, with ClientCreateError::MaxActiveRequestsExceedsMaxSupportedActiveRequestsOfService,
+                        "{} since the requested max_active_requests {} exceeds the maximum supported active requests {} of the service.",
+                    msg, requests, static_config.max_active_requests_per_client);
+                }
+                requests
+            }
+            None => static_config.max_active_requests_per_client,
+        };
+
+        let client_details = ClientDetails {
+            client_id,
+            node_id: *service.shared_node().id(),
+            number_of_requests,
+            response_buffer_size: static_config.max_response_buffer_size,
+            max_slice_len: client_factory.config.initial_max_slice_len,
+            data_segment_type,
+            max_number_of_segments,
+            max_active_requests,
+            client_name: client_factory.config.port_name,
+        };
+
+        let sender_max_borrowed_chunks = static_config.required_max_borrowed_chunks_per_client();
+        let request_sender = Sender {
+            data_segment,
+            segment_states: {
+                let mut v =
+                    alloc::vec::Vec::<SegmentState>::with_capacity(max_number_of_segments as usize);
+                for _ in 0..max_number_of_segments {
+                    v.push(SegmentState::new(number_of_requests))
+                }
+                v
+            },
+            sender_port_id: client_id.value(),
+            shared_node: service.shared_node().clone(),
+            connections: (0..server_list.capacity())
+                .map(|_| UnsafeCell::new(None))
+                .collect(),
+            receiver_max_buffer_size: static_config.max_active_requests_per_client,
+            receiver_max_borrowed_chunks: static_config.max_active_requests_per_client,
+            enable_safe_overflow: static_config.enable_safe_overflow_for_requests,
+            degradation_handler: client_factory.request_degradation_handler,
+            backpressure_handler: client_factory.backpressure_handler,
+            number_of_chunks: number_of_requests,
+            max_number_of_segments,
+            service_state: service.clone(),
+            tagger: CyclicTagger::new(),
+            loan_counter: AtomicUsize::new(0),
+            sender_max_borrowed_chunks,
+            backpressure_strategy: client_factory.config.backpressure_strategy,
+            message_type_details: static_config.request_message_type_details,
+            // all requests are sent via one channel, only the responses require different
+            // channels to guarantee that one response does not fill the buffer of another
+            // response.
+            // but the requests have one shared buffer that the user can configure, therefore
+            // one channel suffices
+            number_of_channels: 1,
+            initial_channel_state: CHANNEL_STATE_OPEN,
+        };
+
+        let number_of_to_be_removed_connections = service
+            .shared_node()
+            .config()
+            .defaults
+            .request_response
+            .client_expired_connection_buffer;
+        let number_of_active_connections = server_list.capacity();
+        let number_of_connections =
+            number_of_to_be_removed_connections + number_of_active_connections;
+
+        let response_receiver = Receiver {
+            connections: PolymorphicVec::from_fn(
+                HeapAllocator::global(),
+                number_of_active_connections,
+                |_| UnsafeCell::new(None),
+            )
+            .expect("Heap allocator provides memory."),
+            receiver_port_id: client_id.value(),
+            service_state: service.clone(),
+            buffer_size: static_config.max_response_buffer_size,
+            tagger: CyclicTagger::new(),
+            to_be_removed_connections: UnsafeCell::new(
+                PolymorphicVec::new(HeapAllocator::global(), number_of_to_be_removed_connections)
+                    .expect("Heap allocator provides memory."),
+            ),
+            degradation_handler: client_factory.response_degradation_handler,
+            message_type_details: static_config.response_message_type_details,
+            receiver_max_borrowed_chunks: static_config.max_borrowed_responses_per_pending_response,
+            enable_safe_overflow: static_config.enable_safe_overflow_for_responses,
+            number_of_channels: number_of_requests_with_max_service_setting,
+            connection_storage: UnsafeCell::new(SlotMap::new(number_of_connections)),
+            initial_channel_state: CHANNEL_STATE_CLOSED,
+        };
+
+        let client_shared_state = Service::ArcThreadSafetyPolicy::new(ClientSharedState {
+            config: client_factory.config,
+            client_handle: UnsafeCell::new(None),
+            available_channel_ids: {
+                let mut queue = Queue::new(number_of_requests);
+                for n in 0..number_of_requests {
+                    queue.push(ChannelId::new(n));
+                }
+                UnsafeCell::new(queue)
+            },
+            request_sender,
+            response_receiver,
+            server_list_state: UnsafeCell::new(unsafe { server_list.get_state() }),
+            active_request_counter: AtomicUsize::new(0),
+            max_active_requests,
+            max_loans: static_config.max_loaned_requests,
+            loan_counter: AtomicUsize::new(0),
+            lifetime_tag,
+        });
+
+        let client_shared_state = match client_shared_state {
+            Ok(v) => v,
+            Err(e) => {
+                fail!(from origin, with ClientCreateError::FailedToDeployThreadsafetyPolicy,
+                            "{msg} since the threadsafety policy could not be instantiated ({e:?}).");
+            }
+        };
+
+        if let Err(e) = client_shared_state.lock().force_update_connections() {
+            warn!(from origin,
+                "The new Client port is unable to connect to every Server port, caused by {:?}.", e);
+        }
+
+        core::sync::atomic::compiler_fence(Ordering::SeqCst);
+
+        // !MUST! be the last task otherwise a client is added to the dynamic config without the
+        // creation of all required resources
+        let (details, handle) = match service
+            .dynamic_storage()
+            .get()
+            .request_response()
+            .register_client_id(client_details)
+        {
+            Some(v) => v,
+            None => {
+                fail!(from origin,
+                      with ClientCreateError::ExceedsMaxSupportedClients,
+                      "{} since it would exceed the maximum support amount of clients of {}.",
+                      msg, service.static_config().request_response().max_clients());
+            }
+        };
+
+        unsafe { *client_shared_state.lock().client_handle.get() = Some(handle) };
+
+        Ok(Self {
+            request_id_counter: AtomicU64::new(0),
+            client_shared_state,
+            client_details: unsafe { &*details },
+            _request_payload: PhantomData,
+            _request_header: PhantomData,
+            _response_payload: PhantomData,
+            _response_header: PhantomData,
+        })
+    }
+
+    /// Returns the [`UniqueClientId`] of the [`Client`]
+    pub fn id(&self) -> UniqueClientId {
+        self.client_details.client_id
+    }
+
+    /// Returns the [`PortName`] of the [`Client`]
+    pub fn name(&self) -> &PortName {
+        &self.client_details.client_name
+    }
+
+    fn next_request_id(&self) -> RequestId {
+        RequestId::new(
+            self.request_id_counter
+                .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |v| {
+                    Some((v + 1) % RequestId::max_value())
+                })
+                .expect("We return some, therefore the Result always contains a value."),
+        )
+        .expect("With modulo RequestId::max_value() when incrementing the request id we ensure that the value is always in bounds")
+    }
+
+    /// Returns the strategy the [`Client`] follows when a [`RequestMut`] cannot be delivered
+    /// if the [`Server`](crate::port::server::Server)s buffer is full.
+    pub fn backpressure_strategy(&self) -> BackpressureStrategy {
+        self.client_shared_state
+            .lock()
+            .request_sender
+            .backpressure_strategy
+    }
+
+    /// Returns the maximal active requests a [`Client`] can send.
+    pub fn max_active_requests(&self) -> usize {
+        self.client_shared_state.lock().max_active_requests
+    }
+
+    fn loan_chunk(&self, slice_len: usize) -> Result<(ChunkMut, ChannelId), LoanError>
+    where
+        RequestHeader: Default,
+    {
+        let client_shared_state = self.client_shared_state.lock();
+        if client_shared_state.max_loans == client_shared_state.loan_counter.load(Ordering::Relaxed)
+        {
+            fail!(from self, with LoanError::ExceedsMaxLoans,
+                "Unable to loan request since it would exceed the max number of loaned requests ({}).", client_shared_state.max_loans);
+        }
+        let chunk = client_shared_state
+            .request_sender
+            .allocate(client_shared_state.request_sender.chunk_layout(slice_len))?;
+
+        let channel_id =
+            match unsafe { &mut *client_shared_state.available_channel_ids.get() }.pop() {
+                Some(channel_id) => channel_id,
+                None => {
+                    fatal_panic!(from self,
+                    "This should never happen! There are no more available response channels.");
+                }
+            };
+
+        client_shared_state
+            .loan_counter
+            .fetch_add(1, Ordering::Relaxed);
+
+        let header_ptr: *mut service::header::request_response::RequestHeader = chunk.header.cast();
+        let user_header_ptr: *mut RequestHeader = chunk.user_header.cast();
+        unsafe {
+            header_ptr.write(service::header::request_response::RequestHeader {
+                node_id: *client_shared_state.request_sender.shared_node.id(),
+                client_id: self.id(),
+                channel_id,
+                request_id: self.next_request_id(),
+                number_of_elements: slice_len as _,
+                payload_offset: 0,
+            })
+        };
+        unsafe { user_header_ptr.write(RequestHeader::default()) };
+
+        Ok((chunk, channel_id))
+    }
+}
+
+impl<
+    Service: service::Service,
+    RequestPayload,
+    RequestHeader: Default + Debug + ZeroCopySend,
+    ResponsePayload: Debug + IceoryxSend + ?Sized,
+    ResponseHeader: Debug + ZeroCopySend,
+> Client<Service, Flatbuffer<RequestPayload>, RequestHeader, ResponsePayload, ResponseHeader>
+{
+    /// Acquires a [`RequestMutUninit`] with an integrated flatbuffer builder.
+    pub fn loan_flatbuffer(
+        &self,
+    ) -> Result<
+        RequestMutUninit<
+            Service,
+            Flatbuffer<RequestPayload>,
+            RequestHeader,
+            ResponsePayload,
+            ResponseHeader,
+        >,
+        LoanError,
+    > {
+        let (chunk, channel_id) = self.loan_chunk(1)?;
+
+        RequestMutUninit::new_flatbuffer(&self.client_shared_state, chunk, channel_id)
+    }
+}
+
+impl<
+    Service: service::Service,
+    RequestPayload: Debug + IceoryxSend + ?Sized,
+    RequestHeader: Debug + ZeroCopySend,
+    ResponsePayload: Debug + IceoryxSend + ?Sized,
+    ResponseHeader: Debug + ZeroCopySend,
+> UpdateConnections
+    for Client<Service, RequestPayload, RequestHeader, ResponsePayload, ResponseHeader>
+{
+    fn update_connections(&self) -> Result<(), ConnectionFailure> {
+        self.client_shared_state.lock().update_connections()
+    }
+}
+
+////////////////////////
+// BEGIN: typed API
+////////////////////////
+impl<
+    Service: service::Service,
+    RequestPayload: Debug + ZeroCopySend,
+    RequestHeader: Default + Debug + ZeroCopySend,
+    ResponsePayload: Debug + IceoryxSend + ?Sized,
+    ResponseHeader: Debug + ZeroCopySend,
+> Client<Service, RequestPayload, RequestHeader, ResponsePayload, ResponseHeader>
+{
+    /// Acquires an [`RequestMutUninit`] to store payload. This API shall be used
+    /// by default to avoid unnecessary copies.
+    ///
+    /// # Example
+    ///
+    /// ## True Zero Copy
+    ///
+    /// ```
+    /// use iceoryx2::prelude::*;
+    ///
+    /// # fn main() -> Result<(), Box<dyn core::error::Error>> {
+    /// # let node = NodeBuilder::new().create::<ipc::Service>()?;
+    /// #
+    /// # let service = node
+    /// #    .service_builder(&"My/Funk/ServiceName".try_into()?)
+    /// #    .request_response::<u64, u64>()
+    /// #    .open_or_create()?;
+    /// #
+    /// # let client = service.client_builder().create()?;
+    ///
+    /// let mut request = client.loan_uninit()?;
+    ///
+    /// // Use MaybeUninit API to populate the underlying payload
+    /// request.payload_mut().write(1234);
+    /// // Promise that we have initialized everything and initialize request
+    /// let request = unsafe { request.assume_init() };
+    /// // Send request
+    /// let pending_response = request.send()?;
+    ///
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// ## Copy Payload
+    ///
+    /// ```
+    /// use iceoryx2::prelude::*;
+    ///
+    /// # fn main() -> Result<(), Box<dyn core::error::Error>> {
+    /// # let node = NodeBuilder::new().create::<ipc::Service>()?;
+    /// #
+    /// # let service = node
+    /// #    .service_builder(&"My/Funk/ServiceName".try_into()?)
+    /// #    .request_response::<u64, u64>()
+    /// #    .open_or_create()?;
+    /// #
+    /// # let client = service.client_builder().create()?;
+    ///
+    /// let request = client.loan_uninit()?;
+    /// // we write the payload by copying the data into the request and retrieve
+    /// // an initialized RequestMut that can be sent
+    /// let request = request.write_payload(123);
+    /// // Send request
+    /// let pending_response = request.send()?;
+    ///
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn loan_uninit(
+        &self,
+    ) -> Result<
+        RequestMutUninit<
+            Service,
+            MaybeUninit<RequestPayload>,
+            RequestHeader,
+            ResponsePayload,
+            ResponseHeader,
+        >,
+        LoanError,
+    > {
+        let (chunk, channel_id) = self.loan_chunk(1)?;
+
+        RequestMutUninit::new(&self.client_shared_state, chunk, channel_id)
+    }
+
+    /// Copies the input value into a [`RequestMut`] and sends it. On success it
+    /// returns a [`PendingResponse`] that can be used to receive a stream of
+    /// [`Response`](crate::response::Response)s from the
+    /// [`Server`](crate::port::server::Server).
+    pub fn send_copy(
+        &self,
+        value: RequestPayload,
+    ) -> Result<
+        PendingResponse<Service, RequestPayload, RequestHeader, ResponsePayload, ResponseHeader>,
+        RequestSendError,
+    > {
+        let msg = "Unable to send copy of request";
+        let request = fail!(from self,
+                            when self.loan_uninit(),
+                            "{} since the loan of the request failed.", msg);
+
+        request.write_payload(value).send()
+    }
+}
+
+impl<
+    Service: service::Service,
+    RequestPayload: Debug + Default + ZeroCopySend,
+    RequestHeader: Default + Debug + ZeroCopySend,
+    ResponsePayload: Debug + IceoryxSend + ?Sized,
+    ResponseHeader: Debug + ZeroCopySend,
+> Client<Service, RequestPayload, RequestHeader, ResponsePayload, ResponseHeader>
+{
+    /// Acquires the payload for the request and initializes the underlying memory
+    /// with default. This can be very expensive when the payload is large, therefore
+    /// prefer [`Client::loan_uninit()`] when possible.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use iceoryx2::prelude::*;
+    ///
+    /// # fn main() -> Result<(), Box<dyn core::error::Error>> {
+    /// # let node = NodeBuilder::new().create::<ipc::Service>()?;
+    /// #
+    /// # let service = node
+    /// #    .service_builder(&"My/Funk/ServiceName".try_into()?)
+    /// #    .request_response::<u64, u64>()
+    /// #    .open_or_create()?;
+    /// #
+    /// # let client = service.client_builder().create()?;
+    ///
+    /// // Acquire request that is initialized with `Default::default()`.
+    /// let mut request = client.loan()?;
+    /// // Assign a value to the request
+    /// *request = 456;
+    ///
+    /// let pending_response = request.send()?;
+    ///
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn loan(
+        &self,
+    ) -> Result<
+        RequestMut<Service, RequestPayload, RequestHeader, ResponsePayload, ResponseHeader>,
+        LoanError,
+    > {
+        Ok(self.loan_uninit()?.write_payload(RequestPayload::default()))
+    }
+}
+
+////////////////////////
+// END: typed API
+////////////////////////
+
+////////////////////////
+// BEGIN: sliced API
+////////////////////////
+impl<
+    Service: service::Service,
+    RequestPayload: Default + Debug + ZeroCopySend + 'static,
+    RequestHeader: Default + Debug + ZeroCopySend,
+    ResponsePayload: Debug + IceoryxSend + ?Sized,
+    ResponseHeader: Debug + ZeroCopySend,
+> Client<Service, [RequestPayload], RequestHeader, ResponsePayload, ResponseHeader>
+{
+    /// Loans/allocates a [`RequestMut`] from the underlying data segment of the [`Client`]
+    /// and initializes all slice elements with the default value. This can be a performance hit
+    /// and [`Client::loan_slice_uninit()`] can be used to loan a slice of
+    /// [`core::mem::MaybeUninit<Payload>`].
+    ///
+    /// On failure it returns [`LoanError`] describing the failure.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use iceoryx2::prelude::*;
+    ///
+    /// # fn main() -> Result<(), Box<dyn core::error::Error>> {
+    /// # let node = NodeBuilder::new().create::<ipc::Service>()?;
+    /// #
+    /// let service = node
+    ///    .service_builder(&"My/Funk/ServiceName".try_into()?)
+    ///    .request_response::<[u64], u64>()
+    ///    .open_or_create()?;
+    ///
+    /// let client = service.client_builder()
+    ///                     .initial_max_slice_len(32)
+    ///                     .create()?;
+    ///
+    /// let slice_length = 13;
+    /// let mut request = client.loan_slice(slice_length)?;
+    /// for element in request.payload_mut() {
+    ///     *element = 1234;
+    /// }
+    ///
+    /// let pending_response = request.send()?;
+    ///
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn loan_slice(
+        &self,
+        slice_len: usize,
+    ) -> Result<
+        RequestMut<Service, [RequestPayload], RequestHeader, ResponsePayload, ResponseHeader>,
+        LoanError,
+    > {
+        let request = self.loan_slice_uninit(slice_len)?;
+        Ok(request.write_from_fn(|_| RequestPayload::default()))
+    }
+}
+
+impl<
+    Service: service::Service,
+    RequestPayload: Debug + ZeroCopySend + 'static,
+    RequestHeader: Debug + ZeroCopySend,
+    ResponsePayload: Debug + IceoryxSend + ?Sized,
+    ResponseHeader: Debug + ZeroCopySend,
+> Client<Service, [RequestPayload], RequestHeader, ResponsePayload, ResponseHeader>
+{
+    /// Returns the maximum initial slice length configured for this [`Client`].
+    pub fn initial_max_slice_len(&self) -> usize {
+        self.client_shared_state.lock().config.initial_max_slice_len
+    }
+}
+
+impl<
+    Service: service::Service,
+    RequestPayload: Debug + ZeroCopySend + 'static,
+    RequestHeader: Default + Debug + ZeroCopySend,
+    ResponsePayload: Debug + IceoryxSend + ?Sized,
+    ResponseHeader: Debug + ZeroCopySend,
+> Client<Service, [RequestPayload], RequestHeader, ResponsePayload, ResponseHeader>
+{
+    /// Loans/allocates a [`RequestMutUninit`] from the underlying data segment of the [`Client`].
+    /// The user has to initialize the payload before it can be sent.
+    ///
+    /// On failure it returns [`LoanError`] describing the failure.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use iceoryx2::prelude::*;
+    ///
+    /// # fn main() -> Result<(), Box<dyn core::error::Error>> {
+    /// # let node = NodeBuilder::new().create::<ipc::Service>()?;
+    /// #
+    /// let service = node
+    ///    .service_builder(&"My/Funk/ServiceName".try_into()?)
+    ///    .request_response::<[u64], u64>()
+    ///    .open_or_create()?;
+    ///
+    /// let client = service.client_builder()
+    ///                     .initial_max_slice_len(32)
+    ///                     .create()?;
+    ///
+    /// let slice_length = 13;
+    /// let mut request = client.loan_slice_uninit(slice_length)?;
+    /// for element in request.payload_mut() {
+    ///     element.write(1234);
+    /// }
+    /// // we have written the payload, initialize the request
+    /// let request = unsafe { request.assume_init() };
+    ///
+    /// let pending_response = request.send()?;
+    ///
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[allow(clippy::type_complexity)] // type alias would require 5 generic parameters which hardly reduces complexity
+    pub fn loan_slice_uninit(
+        &self,
+        slice_len: usize,
+    ) -> Result<
+        RequestMutUninit<
+            Service,
+            [MaybeUninit<RequestPayload>],
+            RequestHeader,
+            ResponsePayload,
+            ResponseHeader,
+        >,
+        LoanError,
+    > {
+        debug_assert!(TypeId::of::<RequestPayload>() != TypeId::of::<CustomPayloadMarker>());
+        unsafe { self.loan_slice_uninit_impl(slice_len) }
+    }
+
+    #[allow(clippy::type_complexity)] // type alias would require 5 generic parameters which hardly reduces complexity
+    unsafe fn loan_slice_uninit_impl(
+        &self,
+        slice_len: usize,
+    ) -> Result<
+        RequestMutUninit<
+            Service,
+            [MaybeUninit<RequestPayload>],
+            RequestHeader,
+            ResponsePayload,
+            ResponseHeader,
+        >,
+        LoanError,
+    > {
+        {
+            let client_shared_state = self.client_shared_state.lock();
+            let max_slice_len = client_shared_state.config.initial_max_slice_len;
+            if client_shared_state.config.allocation_strategy == AllocationStrategy::Static
+                && max_slice_len < slice_len
+            {
+                fail!(from self, with LoanError::ExceedsMaxLoanSize,
+                "Unable to loan slice with {} elements since it would exceed the max supported slice length of {}.",
+                slice_len, max_slice_len);
+            }
+        }
+
+        let (chunk, channel_id) = self.loan_chunk(slice_len)?;
+
+        RequestMutUninit::new(&self.client_shared_state, chunk, channel_id)
+    }
+}
+
+impl<Service: service::Service>
+    Client<
+        Service,
+        [CustomPayloadMarker],
+        CustomHeaderMarker,
+        [CustomPayloadMarker],
+        CustomHeaderMarker,
+    >
+{
+    #[doc(hidden)]
+    #[allow(clippy::type_complexity)] // type alias would require 5 generic parameters which hardly reduces complexity
+    pub unsafe fn loan_custom_payload(
+        &self,
+        slice_len: usize,
+    ) -> Result<
+        RequestMutUninit<
+            Service,
+            [MaybeUninit<CustomPayloadMarker>],
+            CustomHeaderMarker,
+            [CustomPayloadMarker],
+            CustomHeaderMarker,
+        >,
+        LoanError,
+    > {
+        let client_shared_state = self.client_shared_state.lock();
+
+        // TypeVariant::Dynamic == slice and only here it makes sense to loan more than one element
+        debug_assert!(
+            slice_len == 1
+                || client_shared_state.request_sender.payload_type_variant()
+                    == TypeVariant::Dynamic
+        );
+
+        unsafe { self.loan_slice_uninit_impl(slice_len) }
+    }
+}
+////////////////////////
+// END: sliced API
+////////////////////////

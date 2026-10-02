@@ -1,0 +1,72 @@
+Metadata-Version: 2.4
+Name: ablog
+Version: 0.11.13
+Summary: A Sphinx extension that converts any documentation or personal website project into a full-fledged blog.
+Home-page: https://ablog.readthedocs.io/
+Author: The SunPy Community
+Author-email: sunpy@googlegroups.com
+License: MIT
+Requires-Python: >=3.11
+Description-Content-Type: text/x-rst
+License-File: LICENSE.rst
+Requires-Dist: docutils>=0.18
+Requires-Dist: feedgen>=0.9.0
+Requires-Dist: invoke>=1.6.0
+Requires-Dist: packaging>=19.0
+Requires-Dist: python-dateutil>=2.8.2
+Requires-Dist: sphinx>=7.0.0
+Requires-Dist: watchdog>=2.1.0
+Provides-Extra: notebook
+Requires-Dist: ipython>=7.30.0; extra == "notebook"
+Requires-Dist: nbsphinx>=0.8.0; extra == "notebook"
+Provides-Extra: markdown
+Requires-Dist: myst-parser>=0.17.0; extra == "markdown"
+Provides-Extra: docs
+Requires-Dist: alabaster>=1.0.0; extra == "docs"
+Requires-Dist: sphinx-automodapi; extra == "docs"
+Provides-Extra: tests
+Requires-Dist: pytest; extra == "tests"
+Requires-Dist: pytest-cov; extra == "tests"
+Requires-Dist: defusedxml>=0.8.0rc2; extra == "tests"
+Provides-Extra: dev
+Requires-Dist: ipython>=7.30.0; extra == "dev"
+Requires-Dist: nbsphinx>=0.8.0; extra == "dev"
+Requires-Dist: myst-parser>=0.17.0; extra == "dev"
+Requires-Dist: alabaster>=1.0.0; extra == "dev"
+Requires-Dist: sphinx-automodapi; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: defusedxml>=0.8.0rc2; extra == "dev"
+Provides-Extra: all
+Requires-Dist: ipython>=7.30.0; extra == "all"
+Requires-Dist: nbsphinx>=0.8.0; extra == "all"
+Requires-Dist: myst-parser>=0.17.0; extra == "all"
+Dynamic: license-file
+Dynamic: provides-extra
+
+ABlog for Sphinx
+================
+
+|CI| |Upload Python Package|
+
+.. |CI| image:: https://github.com/sunpy/ablog/actions/workflows/ci.yml/badge.svg
+   :target: https://github.com/sunpy/ablog/actions/workflows/ci.yml
+.. |Upload Python Package| image:: https://github.com/sunpy/ablog/actions/workflows/pythonpublish.yml/badge.svg
+   :target: https://github.com/sunpy/ablog/actions/workflows/pythonpublish.yml
+
+ABlog is a Sphinx extension that converts any documentation or personal website project into a full-fledged blog.
+
+`Please check our documentation for information on how to get started. <https://ablog.readthedocs.io/>`__
+
+Note
+----
+
+This is the new home of `Ahmet Bakan's Ablog Sphinx extension <https://github.com/abakan-zz/ablog/>`__.
+The original project is no longer maintained and the `SunPy Project <https://www.sunpy.org>`__ has taken over maintenance.
+
+Warning
+-------
+
+**This version is maintained with the aim to keep it working for SunPy Project website and thus new features or bugfixes are highly unlikely unless they directly impact the SunPy Project**
+
+**We strongly encourage users and interested in parties in submitting patches to ablog**

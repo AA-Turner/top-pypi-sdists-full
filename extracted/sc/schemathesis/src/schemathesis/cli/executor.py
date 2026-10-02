@@ -14,10 +14,11 @@ from schemathesis.cli.commands.run.handlers.junitxml import JunitXMLHandler
 from schemathesis.cli.commands.run.handlers.ndjson import NdjsonHandler
 from schemathesis.cli.commands.run.handlers.output import OutputHandler
 from schemathesis.cli.commands.run.handlers.vcr import VcrHandler
-from schemathesis.cli.constants import EXTENSIONS_DOCUMENTATION_URL, ISSUE_TRACKER_URL
-from schemathesis.cli.ext.fs import open_file, prepare_directory
+from schemathesis.cli.constants import EXTENSIONS_DOCUMENTATION_URL, ISSUE_TRACKER_URL, ExitCode
+from schemathesis.cli.ext.fs import load_baseline, open_file, prepare_directory
 from schemathesis.cli.ext.handlers import CUSTOM_HANDLERS
 from schemathesis.cli.json_report import JsonReportHandler
+from schemathesis.cli.wfc_report import WfcReportHandler
 from schemathesis.config import ReportFormat
 from schemathesis.core.errors import format_exception
 
@@ -40,11 +41,12 @@ try:
         HarHandler,
         JunitXMLHandler,
         NdjsonHandler,
+        WfcReportHandler,
         OutputHandler,
         AllureHandler,
     )
 except ImportError:
-    _BUILT_IN_HANDLERS = (VcrHandler, HarHandler, JunitXMLHandler, NdjsonHandler, OutputHandler)
+    _BUILT_IN_HANDLERS = (VcrHandler, HarHandler, JunitXMLHandler, NdjsonHandler, WfcReportHandler, OutputHandler)
 
 
 def is_built_in_handler(handler: EventHandler) -> bool:
@@ -57,7 +59,7 @@ def initialize_report_handlers(
     args: list[str],
     params: dict[str, Any],
 ) -> list[EventHandler]:
-    """Initialize report handlers (JUnit, VCR, HAR, NDJSON, Allure) and custom handlers."""
+    """Initialize built-in report handlers and custom handlers."""
     handlers: list[EventHandler] = []
 
     if config.reports.junit.enabled:
@@ -80,6 +82,10 @@ def initialize_report_handlers(
         path = config.reports.get_path(ReportFormat.JSON)
         open_file(path)
         handlers.append(JsonReportHandler(path))
+    if config.reports.wfc.enabled:
+        path = config.reports.get_path(ReportFormat.WFC)
+        open_file(path)
+        handlers.append(WfcReportHandler(path))
     if config.reports.allure.enabled:
         try:
             from schemathesis.cli.commands.run.handlers.allure import AllureHandler
@@ -143,11 +149,16 @@ def execute_event_loop(
     # Warm Rich's lazy emoji-codes import on the main thread; it is not concurrency-safe.
     Text.from_markup("")
 
+    load_baseline(config)
     handlers = [*initialize_report_handlers(config=config, args=args, params=params), output_handler]
     ctx: ExecutionContext | None = None
+    # Set when the loop ends abnormally; the process and the reports use it instead of the run's verdict.
+    abnormal_exit_code: int | None = None
 
     def shutdown() -> None:
         if ctx is not None:
+            if abnormal_exit_code is not None:
+                ctx.exit_code = abnormal_exit_code
             for h in handlers:
                 # The exit code is the API's verdict; a reporter failing at shutdown must not mask it,
                 # unlike a mid-run handler error, which aborts.
@@ -172,9 +183,22 @@ def execute_event_loop(
                         raise click.Abort() from exc
                     raise
 
-    except (click.Abort, KeyboardInterrupt):
-        sys.exit(1)
+    except click.Abort:
+        # A fatal error means the run could not do its job, the same class as a usage error.
+        abnormal_exit_code = ExitCode.ERROR
+    except KeyboardInterrupt:
+        abnormal_exit_code = ExitCode.INTERRUPTED
+    except click.ClickException as exc:
+        abnormal_exit_code = exc.exit_code
+        raise
+    except Exception:
+        # The interpreter exits with 1 on an uncaught exception.
+        abnormal_exit_code = 1
+        raise
     finally:
         shutdown()
 
-    sys.exit(ctx.exit_code if ctx is not None else 1)
+    if abnormal_exit_code is not None:
+        sys.exit(abnormal_exit_code)
+    assert ctx is not None
+    sys.exit(ctx.exit_code)

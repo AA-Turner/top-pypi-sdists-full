@@ -38,6 +38,7 @@ from .core.config import (
     config_manager,
 )
 from .core.config_utils import create_config_from_template
+from .core.replay_guard import ReplayGuardHealth, note_refusal, replay_marker
 
 
 @functools.lru_cache(maxsize=1)
@@ -61,6 +62,7 @@ def _dispatch_classes() -> dict:
     from .usecases.license_plate_monitoring import LicensePlateMonitorUseCase
     from .usecases.lpr_access_control import LicensePlateAccessControlUseCase
     from .usecases.lpr_surveillance import LicensePlateSurveillanceUseCase
+    from .usecases.people_counting_extended import PeopleCountingExtendedUseCase
     from .usecases.people_tracking import PeopleTrackingUseCase
     from .usecases.vehicle_color_detection import VehicleColorDetectionUseCase
     from .usecases.vehicle_speed_estimation import VehicleSpeedEstimationUseCase
@@ -78,6 +80,10 @@ def _dispatch_classes() -> dict:
                 LicensePlateSurveillanceUseCase,
                 AgeGenderUseCase,
                 PeopleTrackingUseCase,
+                # Needs raw pixels to embed person crops for re-identification.
+                # Registered by concrete class because the dispatch check below
+                # is `type(use_case) in ...` (identity, not isinstance).
+                PeopleCountingExtendedUseCase,
                 FaceRecognitionEmbeddingUseCase,
                 VehicleColorDetectionUseCase,
                 # Recovers the camera geometry from road markings, so it needs
@@ -323,6 +329,10 @@ class PostProcessor:
         self._analytics_publisher: Any = None  # lazy AnalyticsRedisPublisher
         self._redis_config: Dict[str, Any] = redis_config or {}
         self._camera_metadata_cache: Dict[str, Dict[str, str]] = {}
+        #: Cache-replay frames this processor was asked to count (F26 S6 item 2). Per
+        #: PostProcessor rather than global: two processors in one node serve different
+        #: deployments, and a refusal belongs to the route that produced it.
+        self._replay_health = ReplayGuardHealth()
         # Reused PostProcessingConfigClient (owns a Session/RPC with a thread
         # pool). Built once and cached for the PostProcessor's lifetime to avoid
         # spawning a fresh Session/RPC (6 threads) on every frame.
@@ -1005,6 +1015,7 @@ class PostProcessor:
         # CACHE MISS - Log warning for tracking use cases as this resets tracker state
         tracking_usecases = {
             "people_counting",
+            "people_counting_extended",
             "people_tracking",
             "footfall",
             "crowdflow",
@@ -1678,6 +1689,104 @@ class PostProcessor:
             metrics=payload.get("metrics") or {},
         )
 
+    async def _route_non_legacy(
+        self,
+        data: Any,
+        config: Any,
+        input_bytes: bytes | None,
+        stream_key: str | None,
+        stream_info: Dict[str, Any] | None,
+        custom_post_processing_config: Any,
+        start_time: float,
+    ) -> tuple[ProcessingResult | None, Dict[str, Any] | None]:
+        """Everything that happens before the legacy use-case path, in one place.
+
+        Returns ``(result, stream_info)``: a result means this frame was answered here --
+        refused as a cache replay, or handled by the engine or new-flow route -- and the
+        caller returns it untouched. ``None`` means fall through to legacy, with the
+        ``stream_info`` this resolved.
+
+        Extracted from ``process`` because the routing decisions and the legacy body are two
+        different jobs sharing one function, and the org complexity cap is the thing that
+        says so out loud.
+        """
+        # Before any routing: recover the frame resolution from the payload itself when the
+        # caller did not send one. Both flows need it and neither could find it -- the legacy
+        # zone helpers (`geometry_utils.resolve_frame_dims`) and the engine's `StreamInfo` both
+        # read `stream_info["stream_resolution"]`, and the CUDA-SHM worker path reaches here
+        # without ever calling `build_stream_info(source_dims=...)`. py_inference has stamped
+        # the answer onto the data dict the whole time (`coordinate_frame.reference_size`).
+        # Doing it once, here, fixes every legacy use case at the same moment as the engine.
+        stream_info = _backfill_stream_resolution(data, stream_info)
+
+        # Before any routing, and for every route: a cache replay is the operator's display
+        # stream, not an inference result. It carries no boxes, so counting it does not add
+        # noise -- it dilutes occupancy by the replayed fraction (measured 1.34 against 5.20,
+        # a ~4x undercount). Placed here, above the engine / new-flow / legacy fork, because
+        # all three reach the counting path and a guard on one of them is not a guard.
+        replay = replay_marker(data, stream_info)
+        if replay is not None:
+            return self._refuse_cache_replay(replay, stream_info, start_time), stream_info
+
+        # Manifest apps run on the analytics engine. This is the same decision
+        # `PostProcRunner` makes -- both entry points share `select_engine_backend`,
+        # because py_inference's analytics node reaches this method directly
+        # (pipeline_message_processor -> process_simple -> here) and never touches
+        # the runner. An app with no manifest gets `None` and falls through to
+        # byte-identical code below; today that is every production app.
+        engine = self._resolve_engine_backend(config)
+        if engine is not None:
+            # The engine path was the one route that skipped this, which is why engine apps
+            # published a raw ObjectID as the camera name: py_inference deletes `camera_info`
+            # (pipeline_message_processor.py:780) on the stated assumption that "camera_name is
+            # owned by the PostProcessor's config-API enrichment" -- true for the legacy route
+            # below and for `_process_new_flow`, both of which call this, and false here.
+            # Cost is one API fetch per camera per process: the helper caches by camera_id and
+            # caches negatives too, so a camera that does not resolve is not retried per frame.
+            stream_info = self._enrich_stream_info_camera_metadata(stream_info)
+            return (
+                await self._process_on_engine(
+                    engine, data, stream_key, stream_info, input_bytes, start_time
+                ),
+                stream_info,
+            )
+        if getattr(self, "_engine_backend_error", None):
+            # A bundle was named and could not be loaded. Returning an ERROR result rather than
+            # running legacy keeps the failure visible: the caller does not raise, but nor does it
+            # get a frame of plausible zeros that reads as success.
+            return (
+                self._create_error_result(self._engine_backend_error, "AppBundleError"),
+                stream_info,
+            )
+
+        # New analytics flow: route eligible apps to the per-stream
+        # AnalyticsEngine session (tracking + incident_res/results-agg
+        # publishing all happen inside the SDK). Legacy apps fall through
+        # to the use-case path below, unchanged.
+        if self._new_flow_manifest:
+            self._ingest_new_flow_mapping(config, stream_info)
+            return (
+                self._process_new_flow(data, stream_key, stream_info, start_time),
+                stream_info,
+            )
+
+        self._ingest_legacy_index_to_category(config, stream_info)
+
+        # Avoid logging config objects or tainted-derived strings (CodeQL clear-text rules).
+        logger.debug(
+            "Config flags: has_inline=%s has_default_pp=%s has_custom_pp=%s",
+            bool(config),
+            self.post_processing_config is not None,
+            custom_post_processing_config is not None,
+        )
+        logger.debug(
+            "Stream flags: has_stream_key=%s has_stream_info=%s",
+            stream_key is not None,
+            stream_info is not None,
+        )
+
+        return None, stream_info
+
     async def process(
         self,
         data: Any,
@@ -1709,62 +1818,17 @@ class PostProcessor:
             config = {}
         start_time = time.monotonic()
 
-        # Before any routing: recover the frame resolution from the payload itself when the
-        # caller did not send one. Both flows need it and neither could find it -- the legacy
-        # zone helpers (`geometry_utils.resolve_frame_dims`) and the engine's `StreamInfo` both
-        # read `stream_info["stream_resolution"]`, and the CUDA-SHM worker path reaches here
-        # without ever calling `build_stream_info(source_dims=...)`. py_inference has stamped
-        # the answer onto the data dict the whole time (`coordinate_frame.reference_size`).
-        # Doing it once, here, fixes every legacy use case at the same moment as the engine.
-        stream_info = _backfill_stream_resolution(data, stream_info)
-
-        # Manifest apps run on the analytics engine. This is the same decision
-        # `PostProcRunner` makes -- both entry points share `select_engine_backend`,
-        # because py_inference's analytics node reaches this method directly
-        # (pipeline_message_processor -> process_simple -> here) and never touches
-        # the runner. An app with no manifest gets `None` and falls through to
-        # byte-identical code below; today that is every production app.
-        engine = self._resolve_engine_backend(config)
-        if engine is not None:
-            # The engine path was the one route that skipped this, which is why engine apps
-            # published a raw ObjectID as the camera name: py_inference deletes `camera_info`
-            # (pipeline_message_processor.py:780) on the stated assumption that "camera_name is
-            # owned by the PostProcessor's config-API enrichment" -- true for the legacy route
-            # below and for `_process_new_flow`, both of which call this, and false here.
-            # Cost is one API fetch per camera per process: the helper caches by camera_id and
-            # caches negatives too, so a camera that does not resolve is not retried per frame.
-            stream_info = self._enrich_stream_info_camera_metadata(stream_info)
-            return await self._process_on_engine(
-                engine, data, stream_key, stream_info, input_bytes, start_time
-            )
-        if getattr(self, "_engine_backend_error", None):
-            # A bundle was named and could not be loaded. Returning an ERROR result rather than
-            # running legacy keeps the failure visible: the caller does not raise, but nor does it
-            # get a frame of plausible zeros that reads as success.
-            return self._create_error_result(self._engine_backend_error, "AppBundleError")
-
-        # New analytics flow: route eligible apps to the per-stream
-        # AnalyticsEngine session (tracking + incident_res/results-agg
-        # publishing all happen inside the SDK). Legacy apps fall through
-        # to the use-case path below, unchanged.
-        if self._new_flow_manifest:
-            self._ingest_new_flow_mapping(config, stream_info)
-            return self._process_new_flow(data, stream_key, stream_info, start_time)
-
-        self._ingest_legacy_index_to_category(config, stream_info)
-
-        # Avoid logging config objects or tainted-derived strings (CodeQL clear-text rules).
-        logger.debug(
-            "Config flags: has_inline=%s has_default_pp=%s has_custom_pp=%s",
-            bool(config),
-            self.post_processing_config is not None,
-            custom_post_processing_config is not None,
+        routed, stream_info = await self._route_non_legacy(
+            data,
+            config,
+            input_bytes,
+            stream_key,
+            stream_info,
+            custom_post_processing_config,
+            start_time,
         )
-        logger.debug(
-            "Stream flags: has_stream_key=%s has_stream_info=%s",
-            stream_key is not None,
-            stream_info is not None,
-        )
+        if routed is not None:
+            return routed
 
         try:
             # Uploaded config from pipeline is passed as config; parse and use it (overrides default)
@@ -2200,6 +2264,42 @@ class PostProcessor:
             return config_manager.load_from_file(config)
         else:
             raise ValueError(f"Unsupported config type: {type(config)}")
+
+    def _refuse_cache_replay(
+        self,
+        marker: str,
+        stream_info: Dict[str, Any] | None,
+        start_time: float,
+    ) -> ProcessingResult:
+        """Return the result for a frame that was a cache replay, without counting it.
+
+        WARNING rather than ERROR, and empty rather than absent. The frame is not a failure --
+        upstream produced it deliberately for the display -- but it is also not a measurement,
+        and a caller that averages `ProcessingResult.data` must get nothing to average rather
+        than a plausible zero. That is the same distinction SG-25 drew for a broken tracker:
+        the wrong answer here is not an exception, it is a confident nought.
+        """
+        camera_id = ""
+        si = stream_info or {}
+        if isinstance(si, dict):
+            camera_id = str(si.get("camera_id") or si.get("stream_key") or "")
+        note_refusal(self._replay_health, marker, camera_id)
+        result = ProcessingResult(
+            data={
+                "cache_replay": True,
+                "replay_marker": marker,
+                "events": [],
+                "tracking_stats": [],
+            },
+            status=ProcessingStatus.WARNING,
+            summary=(
+                "Cache-replay frame not counted: the held overlay stream reached the "
+                f"counting path (marker={marker!r})."
+            ),
+            metrics={"replay_guard": self._replay_health.snapshot()},
+        )
+        result.processing_time = time.monotonic() - start_time
+        return result
 
     def _create_error_result(
         self,

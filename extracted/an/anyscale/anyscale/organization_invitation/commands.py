@@ -15,9 +15,7 @@ import anyscale
 anyscale.organization_invitation.create(emails=["test1@anyscale.com","test2@anyscale.com"])
 """
 
-_CREATE_ARG_DOCSTRINGS = {
-    "emails": "The emails to send the organization invitations to."
-}
+_CREATE_ARG_DOCSTRINGS = {"emails": "The emails to send the organization invitations to."}
 
 _LIST_EXAMPLE = """
 import anyscale
@@ -33,9 +31,7 @@ import anyscale
 anyscale.organization_invitation.delete(email="test@anyscale.com")
 """
 
-_DELETE_ARG_DOCSTRINGS = {
-    "email": "The email of the organization invitation to delete."
-}
+_DELETE_ARG_DOCSTRINGS = {"email": "The email of the organization invitation to delete."}
 
 
 @sdk_command(
@@ -45,9 +41,7 @@ _DELETE_ARG_DOCSTRINGS = {
     arg_docstrings=_CREATE_ARG_DOCSTRINGS,
 )
 def create(
-    emails: List[str],
-    *,
-    _private_sdk: Optional[PrivateOrganizationInvitationSDK] = None
+    emails: List[str], *, _private_sdk: Optional[PrivateOrganizationInvitationSDK] = None
 ) -> Tuple[List[str], List[str]]:
     """Creates organization invitations for the provided emails.
 
@@ -78,9 +72,7 @@ def list(  # noqa: A001
     doc_py_example=_DELETE_EXAMPLE,
     arg_docstrings=_DELETE_ARG_DOCSTRINGS,
 )
-def delete(
-    email: str, *, _private_sdk: Optional[PrivateOrganizationInvitationSDK] = None
-) -> str:
+def delete(email: str, *, _private_sdk: Optional[PrivateOrganizationInvitationSDK] = None) -> str:
     """Deletes an organization invitation.
 
     Returns the email of the deleted organization invitation.

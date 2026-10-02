@@ -1,0 +1,64 @@
+#include "doppler/lockdet/lockdet_core.h"
+#include <stdlib.h>
+
+void
+dp_lockdet_init (dp_lockdet_state_t *state, double up_thresh,
+                 double down_thresh, uint32_t n_up, uint32_t n_down)
+{
+  /* Clamp the verify counts: 0 would make the >= comparison in
+   * dp_lockdet_step unreachable-by-increment on the first look and is never a
+   * meaningful config; 1 means "no time hysteresis on that side". cnt and
+   * locked are left untouched so init doubles as a reconfigure. */
+  state->up_thresh   = up_thresh;
+  state->down_thresh = down_thresh;
+  state->n_up        = n_up ? n_up : 1;
+  state->n_down      = n_down ? n_down : 1;
+}
+
+dp_lockdet_state_t *
+dp_lockdet_create (double up_thresh, double down_thresh, uint32_t n_up,
+                   uint32_t n_down)
+{
+  dp_lockdet_state_t *obj = calloc (1, sizeof (*obj));
+  if (!obj)
+    return NULL;
+  /* cnt/locked already zeroed by calloc */
+  dp_lockdet_init (obj, up_thresh, down_thresh, n_up, n_down);
+  return obj;
+}
+
+void
+dp_lockdet_destroy (dp_lockdet_state_t *state)
+{
+  free (state);
+}
+
+void
+dp_lockdet_configure (dp_lockdet_state_t *state, double up_thresh,
+                      double down_thresh, uint32_t n_up, uint32_t n_down)
+{
+  dp_lockdet_init (state, up_thresh, down_thresh, n_up, n_down);
+  /* A live lock survives a re-tune, but the in-flight verify run was
+   * counted against the old thresholds — restart it under the new ones. */
+  state->cnt = 0;
+}
+
+void
+dp_lockdet_reset (dp_lockdet_state_t *state)
+{
+  state->cnt    = 0;
+  state->locked = 0;
+}
+
+/* Serializable state — pointer-free POD whole-struct snapshot
+ * (see DP_DEFINE_POD_STATE in dp_state.h). */
+DP_DEFINE_POD_STATE (dp_lockdet, dp_lockdet_state_t, LOCKDET_STATE_MAGIC,
+                     LOCKDET_STATE_VERSION)
+
+void
+dp_lockdet_steps (dp_lockdet_state_t *state, const double *x, int *out,
+                  size_t n)
+{
+  for (size_t i = 0; i < n; i++)
+    out[i] = dp_lockdet_step (state, x[i]);
+}

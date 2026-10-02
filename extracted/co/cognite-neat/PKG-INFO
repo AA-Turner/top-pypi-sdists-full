@@ -1,0 +1,125 @@
+Metadata-Version: 2.4
+Name: cognite-neat
+Version: 1.1.0
+Summary: Knowledge graph transformation
+Author: Nikola Vasiljevic, Anders Albert
+Author-email: Nikola Vasiljevic <nikola.vasiljevic@cognite.com>, Anders Albert <anders.albert@cognite.com>
+License-Expression: Apache-2.0
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: Customer Service
+Classifier: Topic :: Database
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Operating System :: OS Independent
+Requires-Dist: cognite-sdk>=8.2.0,<9.0.0
+Requires-Dist: httpx>=0.28.1
+Requires-Dist: pydantic>=2.0.0,<3.0.0
+Requires-Dist: pyyaml>=6.0.1,<7.0.0
+Requires-Dist: urllib3>=1.26.15,<3.0.0
+Requires-Dist: openpyxl>=3.0.10,<4.0.0
+Requires-Dist: networkx>=3.4.2,<4.0.0
+Requires-Dist: mixpanel>=4.10.1,<5.0.0
+Requires-Dist: exceptiongroup>=1.1.3,<2.0.0 ; python_full_version < '3.11'
+Requires-Dist: backports-strenum>=1.2,<2.0.0 ; python_full_version < '3.11'
+Requires-Dist: typing-extensions>=4.8.0,<5.0.0 ; python_full_version < '3.11'
+Requires-Dist: tomli>=2.0.1,<3.0.0 ; python_full_version < '3.11'
+Requires-Dist: platformdirs>=4.5.1
+Requires-Dist: mkdocs>=1.4.0,<2.0.0 ; extra == 'docs'
+Requires-Dist: mkdocs-jupyter>=0.25.1,<1.0.0 ; extra == 'docs'
+Requires-Dist: mkdocs-material-extensions>=1.3.1,<2.0.0 ; extra == 'docs'
+Requires-Dist: mkdocs-git-revision-date-localized-plugin ; extra == 'docs'
+Requires-Dist: mkdocs-git-authors-plugin>=0.9.4,<1.0.0 ; extra == 'docs'
+Requires-Dist: mkdocs-gitbook>=0.0.1,<1.0.0 ; extra == 'docs'
+Requires-Dist: mkdocs-glightbox>=0.4.0,<1.0.0 ; extra == 'docs'
+Requires-Dist: pymdown-extensions>=10.14.3,<11.0.0 ; extra == 'docs'
+Requires-Dist: mkdocstrings[python]>=0.25.2,<1.0.0 ; extra == 'docs'
+Requires-Dist: mistune==3.0.2 ; extra == 'docs'
+Requires-Dist: mkdocs-autorefs>=0.5.0,<1.0.0 ; extra == 'docs'
+Requires-Dist: gspread>=5.0.0,<6.0.0 ; extra == 'google'
+Requires-Dist: google-api-python-client>=2.70.0,<3.0.0 ; extra == 'google'
+Requires-Dist: google-auth-oauthlib>=1.0.0,<2.0.0 ; extra == 'google'
+Requires-Dist: rdflib>=7.0.0,<8.0.0 ; extra == 'legacy'
+Requires-Dist: pandas>=1.5.3,<3.0.0 ; extra == 'legacy'
+Requires-Dist: requests>=2.28.1,<3.0.0 ; extra == 'legacy'
+Requires-Dist: packaging>=22.0 ; extra == 'legacy'
+Requires-Dist: jsonpath-python>=1.0.6,<2.0.0 ; extra == 'legacy'
+Requires-Dist: elementpath>=4.0.0,<5.0.0 ; extra == 'legacy'
+Requires-Dist: pyvis>=0.3.2,<1.0.0 ; extra == 'legacy'
+Requires-Dist: rich[jupyter]>=13.7.1,<14.0.0 ; extra == 'legacy'
+Requires-Dist: lxml>=5.3.0,<6.0.0 ; extra == 'lxml'
+Requires-Dist: oxrdflib>=0.4.0,<0.5.0 ; extra == 'oxi'
+Requires-Dist: pyoxigraph>=0.4.3,<0.5.0 ; extra == 'oxi'
+Requires-Python: >=3.10
+Project-URL: Documentation, https://cognite-neat.readthedocs-hosted.com/
+Project-URL: Homepage, https://cognite-neat.readthedocs-hosted.com/
+Project-URL: GitHub, https://github.com/cognitedata/neat
+Project-URL: Changelog, https://github.com/cognitedata/neat/releases
+Provides-Extra: docs
+Provides-Extra: google
+Provides-Extra: legacy
+Provides-Extra: lxml
+Provides-Extra: oxi
+Description-Content-Type: text/markdown
+
+# kNowlEdge grAph Transformer (NEAT)
+
+[![release](https://img.shields.io/github/actions/workflow/status/cognitedata/neat/release.yaml?style=for-the-badge)](https://github.com/cognitedata/neat/actions/workflows/release.yaml)
+[![Documentation Status](https://readthedocs.com/projects/cognite-neat/badge/?version=latest&style=for-the-badge)](https://cognite-neat.readthedocs-hosted.com/en/latest/?badge=latest)
+[![Github](https://shields.io/badge/github-cognite/neat-green?logo=github&style=for-the-badge)](https://github.com/cognitedata/neat)
+[![PyPI](https://img.shields.io/pypi/v/cognite-neat?style=for-the-badge)](https://pypi.org/project/cognite-neat/)
+[![Downloads](https://img.shields.io/pypi/dm/cognite-neat?style=for-the-badge)](https://pypistats.org/packages/cognite-neat)
+[![GitHub](https://img.shields.io/github/license/cognitedata/neat?style=for-the-badge)](https://github.com/cognitedata/neat/blob/master/LICENSE)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg?style=for-the-badge)](https://github.com/ambv/black)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json&style=for-the-badge)](https://github.com/astral-sh/ruff)
+[![mypy](https://img.shields.io/badge/mypy-checked-000000.svg?style=for-the-badge&color=blue)](http://mypy-lang.org)
+
+
+
+There was no easy way to make knowledge graphs, especially data models, and onboard them to
+[Cognite Data Fusion](https://www.cognite.com/en/product/cognite_data_fusion_industrial_dataops_platform), so we have built NEAT.
+
+
+NEAT is great for data model development, validation and deployment. It comes with an evergrowing library of validators,
+which will assure that your data model adheres to the best practices and that is performant. Unlike other solutions,
+which require you to be a technical wizard or modeling expert, NEAT provides you a guiding data modeling experience.
+
+We offer various interfaces on how you can develop your data model, where majority of our users prefer
+a combination of Jupyter Notebooks, leveraging NEAT features through so called [NeatSession](https://cognite-neat.readthedocs-hosted.com/en/latest/reference/NeatSession/session.html),  with [a Spreadsheet data model template](https://cognite-neat.readthedocs-hosted.com/en/latest/excel_data_modeling/data_model.html).
+
+
+Only Data modeling? There was more before!?
+True, NEAT v0.x (legacy) offered a complete knowledge graph
+tooling. Do not worry though, all the legacy features are still available and will be gradually
+ported to NEAT v1.x according to the [roadmap](https://cognite-neat.readthedocs-hosted.com/en/latest/roadmap.html).
+
+
+## Usage
+The user interface for `NEAT` features is through `NeatSession`, which is typically instantiated in a notebook-based environment due to simplified interactivity with `NEAT`
+and navigation of the session content. Once you have set up your notebook environment, and installed neat via:
+
+```bash
+pip install cognite-neat
+```
+
+you start by creating a `CogniteClient` and instantiate a `NeatSession` object:
+
+```python
+from cognite.neat import NeatSession, get_cognite_client
+
+client = get_cognite_client(".env")
+
+neat = NeatSession(client)
+
+neat.physical_data_model.read.cdf("cdf_cdm", "CogniteCore", "v1")
+```
+
+## Documentation
+
+
+For more information, see the [documentation](https://cognite-neat.readthedocs-hosted.com/en/latest/)

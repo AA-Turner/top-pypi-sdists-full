@@ -1,0 +1,287 @@
+"""ONEX envelope unwrapping -- matches omnidash TypeScript parseMessage() exactly."""
+
+from __future__ import annotations
+
+import json
+import logging
+from collections.abc import Mapping
+from datetime import datetime
+from typing import Any, Final
+
+from pydantic import ValidationError
+
+from omnimarket.models.delegation.wire.model_delegate_skill_terminal_projection import (
+    ModelProjectionEnvelopeMetadata,
+)
+
+logger = logging.getLogger(__name__)
+
+
+def unwrap_envelope(raw_bytes: bytes) -> dict[str, Any] | None:
+    """Parse a Kafka message value and unwrap ONEX envelope.
+
+    Replicates the omnidash read-model-consumer.ts parseMessage() logic:
+    - { payload: { ... } } -> use payload, attach _envelope
+    - { data: { ... } } -> use data, attach _envelope, _event_type, _correlation_id
+    - Otherwise use raw parsed object
+    """
+    try:
+        raw = json.loads(raw_bytes)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return None
+
+    if not isinstance(raw, dict):
+        return None
+
+    # Unwrap payload envelope
+    if isinstance(raw.get("payload"), dict):
+        result = dict(raw["payload"])
+        result["_envelope"] = raw
+        return result
+
+    # Unwrap data envelope (if data is a dict, not a list)
+    data = raw.get("data")
+    if isinstance(data, dict):
+        result = dict(data)
+        result["_envelope"] = raw
+        result["_event_type"] = raw.get("event_type")
+        result["_correlation_id"] = raw.get("correlation_id")
+        return result
+
+    return raw
+
+
+# The keys ``unwrap_envelope`` above ADDS to the payload it returns, PLUS
+# ``_envelope_id`` -- a key the PRODUCER stamps directly onto the wire
+# ``payload``/``data`` object before publish (it is not added by
+# ``unwrap_envelope`` itself, but it survives that function's payload-copy
+# branch untouched, exactly as ``_envelope`` does). None of the four are
+# fields any producer intends a payload MODEL to see.
+#
+# OMN-16831. Every wire model in the delegation family is declared
+# ``extra="forbid"``, so handing one of them the dict this module returns is a
+# guaranteed ``ValidationError`` -- ``_envelope`` / ``Extra inputs are not
+# permitted``. That is not a hypothetical: it rejected 53 of the 82 records on
+# ``onex.dlq.omnimarket.projection-delegation-malformed.v1`` between
+# 2026-08-26T12:40:01.508Z and 2026-09-07T11:28:53.769Z, including both source
+# events of the two terminal delegations that produced zero
+# ``delegation_events`` rows on onex-dev. The offset was committed each time, so
+# the loss was silent.
+#
+# OMN-18214. ``_envelope_id`` is the same class of defect, found the same way:
+# a fresh ``quality-gate-result.v1`` event DLQ'd on onex-dev staging run
+# 34687273545 with ``ValidationError`` naming ``_envelope_id`` as the extra
+# field. This is NOT the OMN-16249 seam (``handler_shim.RUNTIME_INJECTED_KEYS``,
+# the omnibase_infra runtime auto-wiring's ``handle()`` dispatch, which already
+# names ``_envelope_id``) -- ``DelegationProjectionRunner`` is a standalone
+# Kafka consumer on the ``unwrap_envelope``/``strip_runner_injected_keys``
+# seam, and that allowlist had not been widened for this key.
+#
+# The keys are still injected/left in place rather than dropped at the source:
+# the delegate-skill terminal path reads ``_envelope`` for its
+# envelope-timestamp fallback (``model_delegate_skill_terminal_projection
+# ._payload_with_envelope_timestamp``), and the LLM-cost backfill reads
+# ``_event_type``/``_correlation_id``. Stripping them in ``unwrap_envelope``
+# would break those readers. Stripping them at each typed-model construction is
+# the seam that is correct for both kinds of consumer.
+#
+# OMN-18326. ``_envelope_timestamp`` is the runtime KERNEL seam's typed
+# event-time injection (omnibase_infra ``handler_wiring`` projection dispatch,
+# beside ``_envelope_id``). It is listed here as well as in
+# ``handler_shim.RUNTIME_INJECTED_KEYS`` because the delegation handler strips
+# through THIS function before constructing its ``extra="forbid"`` models: a key
+# present on the seam but absent from one allowlist trades a refusal for a
+# silent malformed-DLQ drop, which is strictly worse because that path commits
+# the offset. It is the same defect shape as OMN-16831 and OMN-18214, and the
+# reason both lists are asserted by one test.
+RUNNER_INJECTED_KEYS: Final[frozenset[str]] = frozenset(
+    {
+        "_envelope",
+        "_event_type",
+        "_correlation_id",
+        "_envelope_id",
+        "_envelope_timestamp",
+        # OMN-18565: the kernel seam's tenant key, listed for exactly the reason
+        # stated above -- a key present on the seam but absent from one
+        # allowlist trades a refusal for a silent malformed-DLQ drop, and that
+        # path commits the offset.
+        "_tenant_id",
+    }
+)
+
+
+def strip_runner_injected_keys(data: Mapping[str, Any]) -> dict[str, Any]:
+    """Return ``data`` without the keys :func:`unwrap_envelope` added.
+
+    Call this immediately before constructing an ``extra="forbid"`` wire model
+    from a runner-delivered payload. It removes exactly the keys this
+    module and the runtime kernel seam inject, and nothing else -- an unexpected field that a *producer*
+    actually put on the wire still fails validation, which is the behaviour
+    ``extra="forbid"`` exists for.
+    """
+    return {
+        key: value for key, value in data.items() if key not in RUNNER_INJECTED_KEYS
+    }
+
+
+def envelope_tenant_identity(data: Mapping[str, Any]) -> str | None:
+    """Return the tenant identity the PRODUCER recorded on this event's envelope.
+
+    OMN-17422. ``ModelEventEnvelope.tenant_id`` (omnibase_core) is the canonical
+    envelope-side tenant stamp -- the same field
+    ``omnibase_infra.shared.tenant_stamp`` and the runtime's
+    ``tenant_scoped_ingress`` wiring write, declared there as "the tenant
+    DIMENSION -- which tenant this event belongs to, recorded at write time".
+    :func:`unwrap_envelope` hands the whole raw wire message back under
+    ``_envelope``, so for a payload model that carries no tenant field of its
+    own (``ModelQualityGateResult`` is ``extra="forbid"`` and has none) this is
+    the ONLY producer-recorded attribution available to a projection writer.
+
+    It has to be read here rather than re-derived, because a writer under
+    ``FORCE ROW LEVEL SECURITY`` cannot discover a row's tenant by reading:
+    with ``app.tenant_id`` unset the policy predicate is NULL and an
+    RLS-covered ``SELECT`` returns zero rows, indistinguishable from an empty
+    table. Attribution is producer-recorded or it does not exist (OMN-16831 /
+    OMN-17627).
+
+    Returns ``None`` -- never a default, never an invented identity -- when the
+    envelope is absent, is not a mapping, or recorded no tenant. The caller
+    decides what an unattributed event means for its own table; this function
+    only reports what the producer wrote.
+
+    OMN-18565: TWO SEAMS, and until this ticket only one of them was read. The
+    ``_envelope`` key below is the RUNNER seam -- :func:`unwrap_envelope` hands
+    the whole raw wire message back under it. The handler that is actually
+    DEPLOYED as ``omnimarket-projection-delegation-writer`` runs on the omnibase_infra runtime
+    KERNEL seam instead, which builds the handler input itself and injects five
+    keys (``_db``, ``_event_type``, ``_topic``, ``_envelope_id``,
+    ``_envelope_timestamp``) -- no ``_envelope``. So this function returned
+    ``None`` for EVERY event on the deployed pod, whatever the producer stamped,
+    and every quality-gate verdict was written under the house tenant. That is
+    the same defect OMN-18326 found and fixed for the event TIME:
+    :func:`envelope_event_timestamp` grew a kernel-key branch and this function
+    did not.
+
+    The kernel key is preferred when present because the runtime already holds
+    the value typed; the wire branch stays for the runner seam. Both report only
+    what a producer recorded, and a blank or non-string value on either seam
+    reads as absent rather than becoming an identity downstream.
+    """
+    injected = data.get("_tenant_id")
+    if isinstance(injected, str) and injected.strip():
+        return injected.strip()
+    envelope = data.get("_envelope")
+    if not isinstance(envelope, Mapping):
+        return None
+    tenant_id = envelope.get("tenant_id")
+    if isinstance(tenant_id, str) and tenant_id.strip():
+        return tenant_id.strip()
+    return None
+
+
+#: OMN-19970: a projected row's provenance. ``real`` is every row a real
+#: delegation wrote; ``fixture`` is a row the dev and demo seed wrote through the
+#: same projection so dashboard pages have rows before the real chain is
+#: complete. Measured sums exclude ``fixture`` rows unless a reader opts in.
+DATA_SOURCE_REAL: Final[str] = "real"
+DATA_SOURCE_FIXTURE: Final[str] = "fixture"
+DATA_SOURCES: Final[frozenset[str]] = frozenset({DATA_SOURCE_REAL, DATA_SOURCE_FIXTURE})
+#: The ``ModelEnvelopeMetadata.tags`` key the seed stamps.
+DATA_SOURCE_TAG: Final[str] = "data_source"
+
+
+def envelope_data_source(data: Mapping[str, Any]) -> str:
+    """Return ``fixture`` only when the producer tagged this envelope as a fixture.
+
+    OMN-19970. The seed labels its events with
+    ``ModelEventEnvelope.metadata.tags["data_source"] = "fixture"``. Tags are
+    free-form strings on a model that ignores unknown fields, so no wire model
+    changes. On the RUNNER seam :func:`unwrap_envelope` hands the whole wire
+    message back under ``_envelope``, which is where this reads it.
+
+    Anything other than the exact ``fixture`` tag -- no envelope, no metadata,
+    no tag, another value -- reads as ``real``. That is the safe direction: a
+    malformed tag must never hide a real delegation from a measured sum.
+    The runtime KERNEL seam injects named keys only and carries no tags today,
+    so rows written there read ``real`` (spec amendment 1, out of scope).
+    """
+    envelope = data.get("_envelope")
+    if not isinstance(envelope, Mapping):
+        return DATA_SOURCE_REAL
+    metadata = envelope.get("metadata")
+    if not isinstance(metadata, Mapping):
+        return DATA_SOURCE_REAL
+    tags = metadata.get("tags")
+    if not isinstance(tags, Mapping):
+        return DATA_SOURCE_REAL
+    if tags.get(DATA_SOURCE_TAG) == DATA_SOURCE_FIXTURE:
+        return DATA_SOURCE_FIXTURE
+    return DATA_SOURCE_REAL
+
+
+def envelope_event_timestamp(data: Mapping[str, Any]) -> datetime | None:
+    """Return the event time the PRODUCER recorded on this event's envelope.
+
+    OMN-15583. ``ModelEventEnvelope.envelope_timestamp`` (omnibase_core) is the
+    canonical envelope-side event time -- "Envelope creation timestamp (UTC)",
+    stamped by the producer at publish. For a payload model that carries no
+    time field of its own it is the ONLY authoritative event time a projection
+    writer can see, exactly as :func:`envelope_tenant_identity` is the only
+    authoritative attribution.
+
+    ``ModelQualityGateResult`` is one such model: ``extra="forbid"`` with no
+    ``timestamp`` / ``evaluated_at`` / ``completed_at`` field, so a
+    quality-gate-result projection that wants the event time has to read it
+    here. The alternative the ``delegation_events`` write path was relying on
+    -- omit the column and let the deployed schema default it -- is wrong
+    twice: ``DEFAULT NOW()`` records the WRITE time, not the event time, and a
+    warm table whose ``timestamp`` column predates migration 0007 has no
+    default at all (``ADD COLUMN IF NOT EXISTS`` no-ops on an existing column,
+    the OMN-15376 drift class), so the write raises ``null value in column
+    "timestamp" ... violates not-null constraint`` (SQLSTATE 23502) instead.
+
+    Returns ``None`` -- never ``now()``, never an invented time -- when the
+    envelope is absent, is not a mapping, or recorded no timestamp. The caller
+    decides what an un-timed event means for its own table; this function only
+    reports what the producer wrote.
+
+    The parse goes through :class:`ModelProjectionEnvelopeMetadata`, the same
+    ``extra="ignore"`` typed reader ``model_delegate_skill_terminal_projection
+    ._payload_with_envelope_timestamp`` already uses for this exact field, so
+    the two envelope-time readers cannot drift on what a valid envelope time is.
+    """
+    # OMN-18326. TWO SEAMS DELIVER THIS EVENT, AND ONLY ONE OF THEM ATTACHES
+    # ``_envelope``.
+    #
+    # This function shipped against the STANDALONE runner seam, where
+    # :func:`unwrap_envelope` attaches the whole wire envelope. OMN-18159 moved
+    # ``projection_delegation`` onto a runtime-KERNEL pod, and that seam injects
+    # typed transport facts ONE KEY AT A TIME -- ``_db``, ``_event_type``,
+    # ``_topic``, ``_envelope_id`` -- never the envelope. So on that pod there
+    # was no ``_envelope`` to read, this returned ``None`` for every event, and
+    # every quality-gate verdict refused: 146 refusals in the last 3000 log
+    # lines of the onex-dev staging delegation writer on 2026-09-13, and a
+    # continuous refusal loop on the onex-lab lane, both with the offset
+    # correctly withheld so nothing was lost while it stood.
+    #
+    # The kernel key is preferred when present because the runtime already holds
+    # it typed; the wire branch below stays for the runner seam. Both parse
+    # through the same ``ModelProjectionEnvelopeMetadata``, so the two seams
+    # cannot drift on what a valid envelope time is, and a value that is not a
+    # time reads as absent here rather than becoming a wall clock downstream.
+    injected = data.get("_envelope_timestamp")
+    if injected is not None:
+        try:
+            return ModelProjectionEnvelopeMetadata.model_validate(
+                {"envelope_timestamp": injected}
+            ).envelope_timestamp
+        except ValidationError:
+            logger.warning(
+                "kernel-injected _envelope_timestamp is not a valid event time; "
+                "treating the event as un-timed (OMN-18326)"
+            )
+            return None
+    envelope = data.get("_envelope")
+    if not isinstance(envelope, Mapping):
+        return None
+    return ModelProjectionEnvelopeMetadata.model_validate(envelope).envelope_timestamp

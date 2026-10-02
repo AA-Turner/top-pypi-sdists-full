@@ -638,6 +638,29 @@ def test_canonical_set(frozen: bool) -> None:
 
 
 @pytest.mark.parametrize(
+    "value, expected",
+    [
+        pytest.param(
+            {"y": frozenset({5}), (1, 2): "x"},
+            "d81ca26179d90102d81c8105d81c8201026178",
+            id="map",
+        ),
+        pytest.param(
+            frozenset({(1, 2), (3, 4)}),
+            "d90102d81c82d81c820102d81c820304",
+            id="set",
+        ),
+    ],
+)
+def test_canonical_value_sharing_container_keys(value: object, expected: str) -> None:
+    # The throwaway encoding used to sort the keys must not register them as shared values, or
+    # the actual encoding emits references to shareables that were never written to the stream
+    encoded = dumps(value, canonical=True, value_sharing=True)
+    assert encoded == unhexlify(expected)
+    assert loads(encoded) == value
+
+
+@pytest.mark.parametrize(
     "value",
     [
         pytest.param("", id="empty string"),
@@ -717,6 +740,49 @@ def test_encode_stringrefs_repeated_bytearray() -> None:
     assert loads(encoded) == [b"abcd", b"abcd", b"abcd"]
 
 
+def test_encode_stringrefs_nested_namespace_matches_spec_example() -> None:
+    # The worked nested example published in the stringref spec
+    # (http://cbor.schmorp.de/stringref), with its documented decoding.
+    #
+    #   d90100 85   256([
+    #   63616161      "aaa",
+    #   d81900        25(0),          -> "aaa"
+    #   d90100 83     256([
+    #   63626262        "bbb",
+    #   63616161        "aaa",
+    #   d81901          25(1)         -> "aaa"
+    #                 ]),
+    #   d90100 82     256([
+    #   63636363        "ccc",
+    #   d81900          25(0)         -> "ccc"
+    #                 ]),
+    #   d81900        25(0)           -> "aaa"
+    #               ])
+    SPEC_NESTED_EXAMPLE = unhexlify(
+        "d901008563616161d81900d90100836362626263616161d81901d901008263636363d81900d81900"
+    )
+    SPEC_NESTED_DECODED = ["aaa", "aaa", ["bbb", "aaa", "aaa"], ["ccc", "ccc"], "aaa"]
+
+    # Inside the first inner namespace "aaa" is index 1, not index 0 as it is outside.
+    value = [
+        "aaa",
+        "aaa",
+        CBORTag(256, ["bbb", "aaa", "aaa"]),
+        CBORTag(256, ["ccc", "ccc"]),
+        "aaa",
+    ]
+    encoded = dumps(value, string_referencing=True)
+    assert encoded == SPEC_NESTED_EXAMPLE
+    assert loads(encoded) == SPEC_NESTED_DECODED
+
+
+def test_encode_stringrefs_nested_namespace_restores_outer() -> None:
+    # The nested namespace must not consume an outer index, so "aaaa" is still outer index 0.
+    value = [CBORTag(256, ["aaaa"]), "aaaa", "aaaa"]
+    encoded = dumps(value, string_referencing=True)
+    assert loads(encoded) == [["aaaa"], "aaaa", "aaaa"]
+
+
 @pytest.mark.parametrize(
     "tag",
     [
@@ -786,6 +852,20 @@ class TestEncoderReuse:
         # The second output must be decodable on its own
         result = loads(second_output)
         assert result == ["hello"]
+
+    def test_encoder_reuse_after_failed_encode(self) -> None:
+        """
+        A failed encode must not leave the encoder mid-operation: the next encode should
+        flush its output and start with clean shared container tracking.
+        """
+        fp = BytesIO()
+        encoder = CBOREncoder(fp, value_sharing=True)
+        shared_obj = ["hello"]
+        with pytest.raises(CBOREncodeError):
+            encoder.encode([shared_obj, object()])
+
+        encoder.encode(shared_obj)
+        assert fp.getvalue() == dumps(shared_obj, value_sharing=True)
 
     def test_encode_to_bytes_resets_shared_containers(self) -> None:
         """

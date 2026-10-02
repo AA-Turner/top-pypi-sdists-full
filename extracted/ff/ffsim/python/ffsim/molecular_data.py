@@ -1,0 +1,392 @@
+# (C) Copyright IBM 2023.
+#
+# This code is licensed under the Apache License, Version 2.0. You may
+# obtain a copy of this license in the LICENSE.txt file in the root directory
+# of this source tree or at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# Any modifications or derivative works of this code must retain this
+# copyright notice, and modified files need to carry a notice indicating
+# that they have been altered from the originals.
+
+"""The MolecularData class.
+
+The MolecularData class stores molecular integrals, geometry, energies, and other data.
+It can be saved to and loaded from JSON (lossless) and FCIDUMP (integrals only) formats.
+"""
+
+from __future__ import annotations
+
+import bz2
+import dataclasses
+import gzip
+import lzma
+import os
+import tempfile
+from collections.abc import Iterable
+from functools import cached_property
+from typing import Callable
+
+import numpy as np
+import orjson
+import pyscf
+import pyscf.cc
+import pyscf.ci
+import pyscf.fci
+import pyscf.mcscf
+import pyscf.mp
+import pyscf.tools
+
+from ffsim.hamiltonians import MolecularHamiltonian
+
+
+@dataclasses.dataclass(kw_only=True)
+class MolecularData:
+    """Class for storing molecular data."""
+
+    # Molecular integrals
+    core_energy: float
+    """The core energy."""
+    one_body_integrals: np.ndarray
+    """The one-body integrals."""
+    two_body_integrals: np.ndarray
+    """The two-body integrals in compressed format."""
+    # Number of orbitals and numbers of alpha and beta electrons
+    norb: int
+    """The number of spatial orbitals."""
+    nelec: tuple[int, int]
+    """The numbers of alpha and beta electrons."""
+    # Molecule information corresponding to attributes of pyscf.gto.Mole
+    atom: list[tuple[str, list[float]]] | None = None
+    """The coordinates of the atoms in the molecule."""
+    basis: str | None = None
+    """The basis set, e.g. ``"sto-6g"``."""
+    spin: int | None = None
+    """The spin of the molecule."""
+    symmetry: str | None = None
+    """The symmetry of the molecule."""
+    # active space information
+    mo_coeff: np.ndarray | None = None
+    """Molecular orbital coefficients in the AO basis."""
+    mo_occ: np.ndarray | None = None
+    """Molecular orbital occupancies."""
+    active_space: list[int] | None = None
+    """The molecular orbitals included in the active space."""
+    # Hartree-Fock data
+    hf_energy: float | None = None
+    """The Hartree-Fock energy."""
+    hf_mo_coeff: np.ndarray | None = None
+    """Hartree-Fock canonical orbital coefficients in the AO basis."""
+    hf_mo_occ: np.ndarray | None = None
+    """Hartree-Fock canonical orbital occupancies."""
+    # MP2 data
+    mp2_energy: float | None = None
+    """The MP2 energy."""
+    mp2_t2: np.ndarray | tuple[np.ndarray, np.ndarray, np.ndarray] | None = None
+    """The MP2 t2 amplitudes."""
+    # CCSD data
+    ccsd_energy: float | None = None
+    """The CCSD energy."""
+    ccsd_t1: np.ndarray | tuple[np.ndarray, np.ndarray] | None = None
+    """The CCSD t1 amplitudes."""
+    ccsd_t2: np.ndarray | tuple[np.ndarray, np.ndarray, np.ndarray] | None = None
+    """The CCSD t2 amplitudes."""
+    # CISD data
+    cisd_energy: float | None = None
+    """The CISD energy."""
+    cisd_vec: np.ndarray | None = None
+    """The CISD state vector."""
+    # SCI data
+    sci_energy: float | None = None
+    """The SCI energy."""
+    sci_vec: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None
+    """The SCI state vector coefficients, spin alpha strings, and spin beta strings."""
+    # FCI data
+    fci_energy: float | None = None
+    """The FCI energy."""
+    fci_vec: np.ndarray | None = None
+    """The FCI state vector."""
+    # DMRG data
+    dmrg_energy: float | None = None
+    """The DMRG energy."""
+    # other information
+    dipole_integrals: np.ndarray | None = None
+    """The dipole integrals."""
+    orbital_symmetries: list[str] | None = None
+    """The orbital symmetries."""
+
+    @cached_property
+    def hamiltonian(self) -> MolecularHamiltonian:
+        """The Hamiltonian defined by the molecular data."""
+        return MolecularHamiltonian(
+            one_body_tensor=self.one_body_integrals,
+            two_body_tensor=pyscf.ao2mo.restore(1, self.two_body_integrals, self.norb),
+            constant=self.core_energy,
+        )
+
+    @cached_property
+    def mole(self) -> pyscf.gto.Mole:
+        """The PySCF Mole class for this molecular data."""
+        mol = pyscf.gto.Mole()
+        return mol.build(
+            atom=self.atom,
+            basis=self.basis,
+            spin=self.spin,
+            symmetry=self.symmetry,
+        )
+
+    @cached_property
+    def scf(self) -> pyscf.scf.hf.SCF:
+        """A PySCF SCF class for this molecular data."""
+        # HACK Not sure if there's a better way to do this...
+        with tempfile.NamedTemporaryFile() as fp:
+            self.to_fcidump(fp.name)
+            scf = pyscf.tools.fcidump.to_scf(fp.name)
+        # Disable chkfile to silence PySCF serialization warning
+        scf.chkfile = None
+        return scf
+
+    @staticmethod
+    def from_scf(
+        hartree_fock: pyscf.scf.hf.SCF, active_space: Iterable[int] | None = None
+    ) -> "MolecularData":
+        """Initialize a MolecularData object from a Hartree-Fock calculation.
+
+        Args:
+            hartree_fock: The Hartree-Fock object.
+            active_space: An optional list of orbitals to use for the active space.
+        """
+        if not hartree_fock.e_tot:
+            hartree_fock = hartree_fock.run()
+        hf_energy = hartree_fock.e_tot
+
+        mol: pyscf.gto.Mole = hartree_fock.mol
+
+        # Get core energy and one- and two-body integrals.
+        if active_space is None:
+            norb = mol.nao
+            active_space = range(norb)
+        active_space = list(active_space)
+        norb = len(active_space)
+        n_electrons = int(sum(hartree_fock.mo_occ[active_space]))
+        n_alpha = (n_electrons + mol.spin) // 2
+        n_beta = (n_electrons - mol.spin) // 2
+        cas = pyscf.mcscf.CASCI(hartree_fock, norb, (n_alpha, n_beta))
+        mo = cas.sort_mo(active_space, base=0)
+        one_body_tensor, core_energy = cas.get_h1cas(mo)
+        two_body_integrals = cas.get_h2cas(mo)
+
+        return MolecularData(
+            core_energy=core_energy,
+            one_body_integrals=one_body_tensor,
+            two_body_integrals=two_body_integrals,
+            norb=norb,
+            nelec=(n_alpha, n_beta),
+            atom=mol._atom,
+            basis=mol.basis,
+            spin=mol.spin,
+            symmetry=mol.symmetry or None,
+            mo_coeff=hartree_fock.mo_coeff,
+            mo_occ=hartree_fock.mo_occ,
+            active_space=active_space,
+            hf_energy=hf_energy,
+        )
+
+    def run_cisd(self, *, store_cisd_vec: bool = False) -> None:
+        """Run CISD and store results."""
+        cisd = pyscf.ci.CISD(self.scf.run())
+        _, cisd_vec = cisd.kernel()
+        self.cisd_energy = cisd.e_tot
+        if store_cisd_vec:
+            self.cisd_vec = cisd_vec
+
+    def run_sci(self, *, store_sci_vec: bool = False) -> None:
+        """Run SCI and store results."""
+        sci = pyscf.fci.SCI(self.scf.run())
+        sci_energy, sci_vec = sci.kernel(
+            self.one_body_integrals,
+            self.two_body_integrals,
+            norb=self.norb,
+            nelec=self.nelec,
+        )
+        self.sci_energy = sci_energy + self.core_energy
+        if store_sci_vec:
+            self.sci_vec = (sci_vec, *sci_vec._strs)
+
+    def run_fci(self, *, store_fci_vec: bool = False) -> None:
+        """Run FCI and store results."""
+        cas = pyscf.mcscf.CASCI(self.scf.run(), ncas=self.norb, nelecas=self.nelec)
+        _, _, fci_vec, _, _ = cas.kernel()
+        self.fci_energy = cas.e_tot
+        if store_fci_vec:
+            self.fci_vec = fci_vec
+
+    def run_mp2(self, *, store_t2: bool = False):
+        """Run MP2 and store results."""
+        mp2 = pyscf.mp.MP2(self.scf.run())
+        _, mp2_t2 = mp2.kernel()
+        self.mp2_energy = mp2.e_tot
+        if store_t2:
+            self.mp2_t2 = mp2_t2
+
+    def run_ccsd(
+        self,
+        t1: np.ndarray | None = None,
+        t2: np.ndarray | None = None,
+        *,
+        store_t1: bool = False,
+        store_t2: bool = False,
+    ) -> None:
+        """Run CCSD and store results."""
+        ccsd = pyscf.cc.CCSD(self.scf.run())
+        _, ccsd_t1, ccsd_t2 = ccsd.kernel(t1=t1, t2=t2)
+        self.ccsd_energy = ccsd.e_tot
+        if store_t1:
+            self.ccsd_t1 = ccsd_t1
+        if store_t2:
+            self.ccsd_t2 = ccsd_t2
+
+    def to_json(
+        self, file: str | bytes | os.PathLike, compression: str | None = None
+    ) -> None:
+        """Serialize to JSON format, optionally compressed, and save to disk.
+
+        Args:
+            file: The file path to save to.
+            compression: The optional compression algorithm to use.
+                Options: ``"gzip"``, ``"bz2"``, ``"lzma"``.
+        """
+
+        def default(obj):
+            if isinstance(obj, np.ndarray):
+                return np.ascontiguousarray(obj)
+            raise TypeError
+
+        open_func: dict[str | None, Callable] = {
+            None: open,
+            "gzip": gzip.open,
+            "bz2": bz2.open,
+            "lzma": lzma.open,
+        }
+
+        for attribute in ["hamiltonian", "mole", "scf"]:
+            try:
+                delattr(self, attribute)
+            except AttributeError:
+                pass
+        with open_func[compression](file, "wb") as f:
+            f.write(
+                orjson.dumps(self, option=orjson.OPT_SERIALIZE_NUMPY, default=default)
+            )
+
+    @staticmethod
+    def from_json(
+        file: str | bytes | os.PathLike, compression: str | None = None
+    ) -> MolecularData:
+        """Load a MolecularData from a (possibly compressed) JSON file.
+
+        Args:
+            file: The file path to read from.
+            compression: The compression algorithm, if any, which was used to compress
+                the file.
+                Options: ``"gzip"``, ``"bz2"``, ``"lzma"``.
+
+        Returns: The MolecularData object.
+        """
+        open_func: dict[str | None, Callable] = {
+            None: open,
+            "gzip": gzip.open,
+            "bz2": bz2.open,
+            "lzma": lzma.open,
+        }
+        with open_func[compression](file, "rb") as f:
+            data = orjson.loads(f.read())
+
+        def as_array_or_none(val):
+            if val is None:
+                return None
+            return np.asarray(val)
+
+        def as_array_tuple_or_none(val):
+            if val is None:
+                return None
+            return tuple(np.asarray(arr) for arr in val)
+
+        nelec = tuple(data["nelec"])
+        n_alpha, n_beta = nelec
+        arrays_func = as_array_or_none if n_alpha == n_beta else as_array_tuple_or_none
+        atom = data.get("atom")
+        if atom is not None:
+            atom = [tuple(a) for a in atom]
+
+        return MolecularData(
+            core_energy=data["core_energy"],
+            one_body_integrals=np.asarray(data["one_body_integrals"]),
+            two_body_integrals=np.asarray(data["two_body_integrals"]),
+            norb=data["norb"],
+            nelec=nelec,
+            atom=atom,
+            basis=data.get("basis"),
+            spin=data.get("spin"),
+            symmetry=data.get("symmetry"),
+            mo_coeff=as_array_or_none(data.get("mo_coeff")),
+            mo_occ=as_array_or_none(data.get("mo_occ")),
+            active_space=data.get("active_space"),
+            hf_energy=data.get("hf_energy"),
+            hf_mo_coeff=as_array_or_none(data.get("hf_mo_coeff")),
+            hf_mo_occ=as_array_or_none(data.get("hf_mo_occ")),
+            mp2_energy=data.get("mp2_energy"),
+            mp2_t2=arrays_func(data.get("mp2_t2")),
+            ccsd_energy=data.get("ccsd_energy"),
+            ccsd_t1=arrays_func(data.get("ccsd_t1")),
+            ccsd_t2=arrays_func(data.get("ccsd_t2")),
+            cisd_energy=data.get("cisd_energy"),
+            cisd_vec=as_array_or_none(data.get("cisd_vec")),
+            sci_energy=data.get("sci_energy"),
+            sci_vec=as_array_tuple_or_none(data.get("sci_vec")),
+            fci_energy=data.get("fci_energy"),
+            fci_vec=as_array_or_none(data.get("fci_vec")),
+            dmrg_energy=data.get("dmrg_energy"),
+            dipole_integrals=as_array_or_none(data.get("dipole_integrals")),
+            orbital_symmetries=data.get("orbital_symmetries"),
+        )
+
+    def to_fcidump(self, file: str | bytes | os.PathLike) -> None:
+        """Save data to disk in FCIDUMP format.
+
+        .. note::
+            The FCIDUMP format does not retain all information stored in the
+            MolecularData object. To serialize a MolecularData object losslessly, use
+            the :func:`to_json` method to save to JSON format.
+
+        Args:
+            file: The file path to save to.
+        """
+        pyscf.tools.fcidump.from_integrals(
+            file,
+            h1e=self.one_body_integrals,
+            h2e=self.two_body_integrals,
+            nuc=self.core_energy,
+            nmo=self.norb,
+            nelec=self.nelec,
+        )
+
+    @staticmethod
+    def from_fcidump(file: str | bytes | os.PathLike) -> MolecularData:
+        """Initialize a MolecularData from an FCIDUMP file.
+
+        Args:
+            file: The FCIDUMP file path.
+        """
+        data = pyscf.tools.fcidump.read(file, verbose=False)
+        n_electrons = data["NELEC"]
+        spin = data["MS2"]
+        n_alpha = (n_electrons + spin) // 2
+        n_beta = (n_electrons - spin) // 2
+        return MolecularData(
+            core_energy=data["ECORE"],
+            one_body_integrals=data["H1"],
+            two_body_integrals=data["H2"],
+            norb=data["NORB"],
+            nelec=(n_alpha, n_beta),
+            spin=spin,
+        )

@@ -1,0 +1,105 @@
+[build-system]
+requires = ["setuptools>=61", "setuptools-rust>=1.7"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chalk-remote-call-python"
+requires-python = ">=3.10,<3.15"
+authors = [
+    { name = "Chalk AI, Inc." }
+]
+description = "Chalk remote call Python runtime interface client"
+readme = "README.md"
+classifiers = [
+    # Trove classifiers
+    # Full list: https://pypi.python.org/pypi?%3Aaction=list_classifiers
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python",
+    "Typing :: Typed",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dynamic = ["version"]
+
+dependencies = [
+    "pyarrow>=14.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "setuptools-rust>=1.7",
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "grpcio>=1.60.0",
+    "grpcio-health-checking>=1.60.0",
+    "grpcio-reflection>=1.60.0",
+    "protobuf>=4.25.0",
+    "grpcio-tools>=1.60.0",
+]
+tracing = [
+    "opentelemetry-api>=1.20.0",
+    "opentelemetry-sdk>=1.20.0",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.20.0",
+]
+
+[project.urls]
+Homepage = "https://chalk.ai"
+Documentation = "https://docs.chalk.ai"
+Changelog = "https://docs.chalk.ai/docs/changelog"
+
+[project.scripts]
+chalk-remote-call = "chalk_remote_call.cli:main"
+
+[tool.setuptools.dynamic]
+version = {attr = "chalk_remote_call._version.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["chalk_remote_call*"]
+namespaces = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.isort]
+profile = "black"
+known_first_party = ["chalk_remote_call"]
+
+[tool.black]
+line-length = 120
+target-version = ["py310"]
+
+[tool.autoflake]
+check = true
+in-place = true
+remove-all-unused-imports = true
+remove-duplicate-keys = true
+
+[tool.pyright]
+include = ["chalk_remote_call/**"]
+exclude = ["chalk_remote_call/_gen/**"]
+reportMissingImports = true
+reportMissingTypeStubs = false
+reportUnusedImport = "error"
+reportUnusedVariable = "error"
+reportDuplicateImport = "error"
+pythonVersion = "3.10"
+venv = ".venv"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+exclude = ["chalk_remote_call/_gen"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = ["E501"]

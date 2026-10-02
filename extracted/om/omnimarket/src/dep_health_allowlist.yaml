@@ -1,0 +1,43 @@
+# Dependency Health Sweep — omnimarket allowlist
+# OMN-11058: CRITICAL topic triage — runtime ownership verification (2026-05-15)
+#
+# Format: each entry must have a `topic` key (used as literal match by the sweep engine).
+# Optional keys: reason, owner_repo, planned_subscriber, expires_at. An entry past its expires_at (UTC date) is not honored.
+#
+# Topics on this list are SUPPRESSED from MISSING_TOPIC_EDGE findings when
+# scanning this repo root. Only use for:
+#   (a) Cross-repo topics already declared in externally_consumed_topics on the
+#       publishing contract (redundant protection), or
+#   (b) Genuinely unwired topics with a clear plan and owner — not permanent
+#       allowlisting of broken wiring.
+#
+# Review this list quarterly. Remove entries when the subscriber is wired.
+allowlist:
+  # --- diagnostic.daemon-health (cross-cutting diagnostic topic) ---
+  # Published by: node_emit_daemon (omnimarket) — synthetic health probe round-trip
+  # Intended consumer: observability / monitoring layer (external to omnimarket)
+  # Status: topic uses non-standard service name 'diagnostic' (not a repo name).
+  #   Topic naming lint rejects it; cannot be added to contract.yaml publish_topics
+  #   without breaking the lint. The topic is declared in topics.yaml registry and
+  #   used in model_daemon_health_event.py. Allowlisted here to suppress both
+  #   UNDECLARED_TOPIC and MISSING_TOPIC_EDGE findings (OMN-11061).
+  # Expires: 2026-11-15 — rename to onex.evt.omniclaude.daemon-health.v1 or similar
+  - topic: "onex.evt.diagnostic.daemon-health.v1"
+    reason: "Non-standard service name 'diagnostic'; topic naming lint rejects it — cannot be in contract.yaml without a lint violation. Rename planned."
+    owner_repo: omnimarket
+    planned_subscriber: observability_platform
+    expires_at: "2026-11-15"
+
+  # --- task-delegated (legacy compat topic, OMN-13629) ---
+  # After OMN-13629 (WS-F Phase 1), the canonical delegation terminals collapsed to
+  # delegation-{completed,failed}.v1. task-delegated.v1 is retained as a registry
+  # reference in topics.py and in the golden_chains.yaml delegation chain head_topic
+  # for legacy monitoring continuity. It is no longer published or subscribed by any
+  # live node — declaring it in a contract would create false wiring.
+  # Expires: 2026-10-15 — remove after the delegation golden chain head_topic is
+  #   updated to the canonical delegation-completed.v1 topic (OMN-13629 follow-up).
+  - topic: "onex.evt.omniclaude.task-delegated.v1"
+    reason: "Legacy compat topic (OMN-13629); retained in topics.py registry and golden_chains.yaml delegation chain head — no live producer/consumer after WS-F Phase 1."
+    owner_repo: omnimarket
+    planned_subscriber: none
+    expires_at: "2026-10-15"

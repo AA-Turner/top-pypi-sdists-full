@@ -1,0 +1,266 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""``onex node <name>`` — execute a packaged ONEX node on the local runtime.
+
+Resolves ``<name>`` via the ``onex.nodes`` entry-point group and loads the
+packaged ``contract.yaml`` by default. An optional ``--contract`` override
+points at an ad-hoc contract file instead. An optional ``--input`` flag
+passes a JSON payload into the contract's input model.
+
+This replaces the former ``onex run <contract_path>`` command (OMN-7068).
+See ``docs/plans/2026-04-16-prove-core-runtime-standalone.md`` § Task 3.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import sys
+from pathlib import Path
+
+import click
+
+from omnibase_core.enums.enum_workflow_result import EnumWorkflowResult
+from omnibase_core.models.errors.model_onex_error import ModelOnexError
+from omnibase_core.runtime.runtime_local import RuntimeLocal, parse_backend_overrides
+from omnibase_infra.cli.contract_registry import (
+    RegistryUnresolvedError,
+    node_contract_path,
+)
+from omnibase_infra.cli.omnimarket_drift_guard import (
+    DRIFT_OVERRIDE_ENV,
+    OmnimarketDriftError,
+    check_omnimarket_drift,
+)
+from omnibase_infra.cli.receipt_mode import (
+    default_emit_socket_path,
+    run_receipt_mode,
+)
+from omnibase_infra.cli.workspace_reconcile import make_workspace_reconciler
+from omnibase_infra.utils.util_error_sanitization import sanitize_error_message
+
+
+def _emit_skill_routing_error(
+    node_id: str,
+    result: EnumWorkflowResult,
+    last_error: str | None,
+) -> None:
+    """Emit the documented ``SkillRoutingError`` JSON envelope to stdout.
+
+    Skill shells (e.g. ``golden_chain_sweep``) dispatch via ``onex node`` and
+    document that a non-zero exit surfaces a ``SkillRoutingError`` JSON envelope
+    rather than a raw traceback (OMN-8724). The default (non-receipt) path
+    previously left only the runtime's stderr traceback, so callers had no
+    machine-readable envelope to surface. This emits the same envelope shape as
+    ``omnibase_core.cli.cli_run_node._emit_error`` so both dispatch surfaces are
+    consistent.
+    """
+    envelope: dict[str, str] = {
+        "error_type": "SkillRoutingError",
+        "message": last_error
+        or f"Node '{node_id}' run did not complete (result={result.value}).",
+        "node_id": node_id,
+        "result": result.value,
+    }
+    click.echo(json.dumps(envelope, indent=2))
+
+
+def _resolve_packaged_contract(node_name: str) -> Path:
+    """Resolve ``node_name`` via the ``onex.nodes`` entry-point group → packaged ``contract.yaml``.
+
+    The read itself is :func:`omnibase_infra.cli.contract_registry.node_contract_path`,
+    the CLI's one path to the installed registry (OMN-19407); this wrapper only
+    turns its refusal into a CLI error that names the node.
+
+    Raises:
+        click.ClickException: If the name is unknown, duplicated, the module cannot
+            be found, the module has no origin, or the packaged contract is missing.
+    """
+    try:
+        return node_contract_path(node_name)
+    except RegistryUnresolvedError as exc:
+        raise click.ClickException(f"Unknown node {node_name!r}: {exc}") from exc
+
+
+@click.command("node")
+@click.argument("node_name")
+@click.option(
+    "--contract",
+    "contract_path",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="Override the packaged contract with a path to a custom contract.yaml.",
+)
+@click.option(
+    "--input",
+    "input_path",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="JSON file containing the initial payload (validated against the contract's input model).",
+)
+@click.option(
+    "--state-root",
+    type=click.Path(path_type=Path),
+    default=".onex_state",
+    show_default=True,
+    help="Root directory for disk state.",
+)
+@click.option(
+    "--backend",
+    multiple=True,
+    help="Override backend: --backend event_bus=inmemory",
+)
+@click.option(
+    "--timeout",
+    type=int,
+    default=300,
+    show_default=True,
+    help="Max execution time in seconds.",
+)
+@click.option(
+    "--verbose",
+    "-v",
+    is_flag=True,
+    default=False,
+    help="Enable DEBUG-level logging (default is INFO).",
+)
+@click.option(
+    "--output",
+    "output_mode",
+    # cli-own-vocabulary: this command's own output modes; no contract declares them
+    type=click.Choice(["default", "receipt"]),
+    default="default",
+    show_default=True,
+    help=(
+        "Output mode. 'receipt' routes ALL runtime logging to a capture "
+        "file under the state root, content-addresses the capture log and "
+        "handler result in the artifact store, and prints exactly one typed "
+        "ModelSkillResult JSON to stdout (OMN-13094)."
+    ),
+)
+@click.option(
+    "--emit-socket",
+    "emit_socket",
+    type=click.Path(path_type=Path),
+    default=None,
+    help=(
+        "Unix socket of the emit daemon for receipt-mode capture events "
+        "(default: ~/.claude/emit.sock). Unreachable daemon => events are "
+        "dropped."
+    ),
+)
+@click.option(
+    "--omnibase-path",
+    "omnibase_path",
+    type=click.Path(path_type=Path),
+    envvar="OMNIBASE_PATH",
+    default=None,
+    help=(
+        "Workspace root for the local omnimarket drift check. Bound to "
+        "$OMNIBASE_PATH (OMN-16855/OMN-16852; the binding itself is "
+        "OMN-14560, mirroring OMN-14531's 'onex skill' fix; spelled for the "
+        "product by OMN-19197) -- without it the drift guard receives no "
+        "root and never fires. Optional; never required."
+    ),
+)
+@click.option(
+    "--allow-omnimarket-drift",
+    "allow_omnimarket_drift",
+    is_flag=True,
+    envvar=DRIFT_OVERRIDE_ENV,
+    default=False,
+    help=(
+        "Dispatch even when the omnimarket co-install has drifted from the "
+        "canonical clone (OMN-13930). Refusal is the DEFAULT; this is the "
+        "only supported way past it, and it is named in the refusal message. "
+        f"Bound to ${DRIFT_OVERRIDE_ENV}. Results produced under an override "
+        "come from an UNVERIFIED build and are not evidence."
+    ),
+)
+def run_node_by_name(
+    node_name: str,
+    contract_path: Path | None,
+    input_path: Path | None,
+    state_root: Path,
+    backend: tuple[str, ...],
+    timeout: int,
+    verbose: bool,
+    output_mode: str,
+    emit_socket: Path | None,
+    omnibase_path: Path | None,
+    allow_omnimarket_drift: bool,
+) -> None:
+    """Run a packaged ONEX node on the local runtime, resolved by NAME.
+
+    By default the packaged contract.yaml that ships with the node is used —
+    no flags required for the common case. Use --contract to override.
+
+    \b
+    Exit codes:
+        0  COMPLETED — terminal event received, evidence written
+        1  FAILED / TIMEOUT — terminal event with failure or timeout exceeded
+        2  PARTIAL — evidence written but no terminal event
+
+    \b
+    Examples:
+        onex node merge_sweep
+        onex node merge_sweep --input fixtures/real_prs.json
+        onex node merge_sweep --contract ./custom_contract.yaml --state-root ./state
+        onex node merge_sweep --output receipt   # one typed result JSON on stdout
+    """
+    try:
+        check_omnimarket_drift(
+            omni_home=str(omnibase_path) if omnibase_path else None,
+            allow_drift=allow_omnimarket_drift,
+            # OMN-17190: heal in-flight instead of handing a human a command to
+            # type. Bound here rather than defaulted inside the guard so the
+            # guard stays a pure function for every non-CLI caller.
+            reconcile=make_workspace_reconciler(
+                str(omnibase_path) if omnibase_path else None
+            ),
+        )
+    except OmnimarketDriftError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    resolved_contract = contract_path or _resolve_packaged_contract(node_name)
+
+    try:
+        backend_overrides = parse_backend_overrides(backend)
+    except ModelOnexError as exc:
+        click.echo(f"Error: {sanitize_error_message(exc)}", err=True)
+        sys.exit(1)
+
+    if output_mode == "receipt":
+        # Receipt mode (OMN-13094): runtime logging goes to a capture file,
+        # never the console; stdout carries exactly one ModelSkillResult JSON.
+        sys.exit(
+            run_receipt_mode(
+                node_name=node_name,
+                contract_path=resolved_contract,
+                input_path=input_path,
+                state_root=state_root,
+                backend_overrides=backend_overrides,
+                timeout=timeout,
+                verbose=verbose,
+                emit_socket=emit_socket or default_emit_socket_path(),
+            )
+        )
+
+    logging.basicConfig(
+        level=logging.DEBUG if verbose else logging.INFO,
+        format="%(asctime)s %(levelname)-8s %(name)s — %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
+    runtime = RuntimeLocal(
+        workflow_path=resolved_contract,
+        state_root=state_root,
+        backend_overrides=backend_overrides,
+        input_path=input_path,
+        timeout=timeout,
+    )
+    result = runtime.run()
+    if result is not EnumWorkflowResult.COMPLETED:
+        _emit_skill_routing_error(node_name, result, runtime.last_error)
+    sys.exit(runtime.exit_code)

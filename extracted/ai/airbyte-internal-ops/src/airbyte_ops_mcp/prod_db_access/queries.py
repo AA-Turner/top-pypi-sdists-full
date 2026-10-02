@@ -47,6 +47,7 @@ from airbyte_ops_mcp.prod_db_access.sql import (
     SELECT_DESTINATION_SYNC_RESULTS_FOR_VERSION,
     SELECT_DESTINATION_VERSION_ACTOR_HEALTH,
     SELECT_FAILED_SYNC_ATTEMPTS_FOR_CONNECTOR,
+    SELECT_FAILED_SYNC_ATTEMPTS_FOR_DESTINATION_CONNECTOR,
     SELECT_NEW_CONNECTOR_RELEASES,
     SELECT_ORG_ADMIN_CONTACTS,
     SELECT_ORG_CONNECTOR_PINS,
@@ -891,6 +892,7 @@ def query_failed_sync_attempts_for_connector(
     days: int = 7,
     limit: int = 100,
     *,
+    is_destination: bool = False,
     gsm_client: secretmanager.SecretManagerServiceClient | None = None,
 ) -> list[dict[str, Any]]:
     """Query failed sync attempts for ALL actors using a connector definition.
@@ -900,14 +902,13 @@ def query_failed_sync_attempts_for_connector(
 
     This is useful for investigating connector issues across all users.
 
-    Note: This query only supports SOURCE connectors (joins via connection.source_id).
-    For destination connectors, a separate query would be needed.
-
     Args:
         connector_definition_id: Connector definition UUID to filter by
         organization_id: Optional organization UUID to filter results by (post-query filter)
         days: Number of days to look back (default: 7)
         limit: Maximum number of results (default: 100)
+        is_destination: If `True`, match destination actors (via `connection.destination_id`)
+            instead of source actors (via `connection.source_id`)
         gsm_client: GCP Secret Manager client. If None, a new client will be instantiated.
 
     Returns:
@@ -915,14 +916,21 @@ def query_failed_sync_attempts_for_connector(
     """
     cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
 
+    if is_destination:
+        query = SELECT_FAILED_SYNC_ATTEMPTS_FOR_DESTINATION_CONNECTOR
+        query_name = "SELECT_FAILED_SYNC_ATTEMPTS_FOR_DESTINATION_CONNECTOR"
+    else:
+        query = SELECT_FAILED_SYNC_ATTEMPTS_FOR_CONNECTOR
+        query_name = "SELECT_FAILED_SYNC_ATTEMPTS_FOR_CONNECTOR"
+
     results = _run_sql_query(
-        SELECT_FAILED_SYNC_ATTEMPTS_FOR_CONNECTOR,
+        query,
         parameters={
             "connector_definition_id": connector_definition_id,
             "cutoff_date": cutoff_date,
             "limit": limit,
         },
-        query_name="SELECT_FAILED_SYNC_ATTEMPTS_FOR_CONNECTOR",
+        query_name=query_name,
         gsm_client=gsm_client,
     )
 

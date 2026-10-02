@@ -1,0 +1,149 @@
+/*
+ * Copyright 2026 The A11 Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#ifndef A11_FLOW_RUNTIME_H_
+#define A11_FLOW_RUNTIME_H_
+
+#include <cstddef>
+#include <memory>
+#include <string>
+#include <string_view>
+#include <vector>
+
+#include <absl/base/nullability.h>
+#include <absl/status/status.h>
+#include <absl/status/statusor.h>
+
+#include "a11/actions/action.h"
+#include "a11/actions/schema.h"
+#include "a11/flow/graph.h"
+#include "a11/flow/parser.h"
+#include "a11/flow/plan.h"
+#include "a11/flow/resolve.h"
+#include "a11/flow/values.h"
+
+namespace a11::net {
+class WireStream;
+}  // namespace a11::net
+
+namespace a11::flow {
+
+/// How many values a pipe may run ahead of its reader.
+///
+/// Small on purpose: A11's own stores are the buffer, and a flow should not
+/// become a second one.
+inline constexpr size_t kQueueDepth = 8;
+
+// One flow file, compiled: the plans, the graphs, and the tree they borrow. A
+// graph points into the parse tree it was resolved from, so the two have one
+// owner and one lifetime.
+/// One flow file, compiled: the plans, the graphs, and the tree they borrow.
+///
+/// A graph points into the parse tree it was resolved from, so the two have one
+/// owner and one lifetime. Held by `shared_ptr` because a registered flow's
+/// handler outlives whatever compiled it -- register the flows and drop the
+/// program, and the handlers still work.
+class CompiledProgram {
+ public:
+  /// Compile source, or fail with the first error the way `flow.loads` does.
+  ///
+  /// The strict door: the parser and the resolver both recover and report
+  /// everything, and this turns the first `Severity::kError` into a status with
+  /// the line and column on it. Everything less than an error is kept for a
+  /// caller that wants to see it.
+  static absl::StatusOr<std::shared_ptr<CompiledProgram>> Compile(
+      std::string source, std::string source_name = {});
+
+  [[nodiscard]] const Program& program() const { return resolved_.program; }
+
+  [[nodiscard]] const std::string& source() const { return source_; }
+
+  [[nodiscard]] const std::string& source_name() const { return source_name_; }
+
+  [[nodiscard]] const std::vector<Diagnostic>& diagnostics() const {
+    return resolved_.diagnostics;
+  }
+
+  /// The flows in the order they were declared.
+  [[nodiscard]] const std::vector<ResolvedFlow>& flows() const {
+    return resolved_.flows;
+  }
+
+  /// The flow of this name, or `nullptr`. Never the entry flow.
+  [[nodiscard]] const ResolvedFlow* absl_nullable Flow(
+      std::string_view name) const;
+
+  /// The file's entry point -- `flow { ... }` -- or `nullptr`.
+  [[nodiscard]] const ResolvedFlow* absl_nullable Entry() const;
+
+ private:
+  CompiledProgram() = default;
+
+  std::string source_;
+  std::string source_name_;
+  ParseResult parsed_;
+  ResolveResult resolved_;
+};
+
+/// The [actions::ActionSchema] a flow presents.
+///
+/// A flow is an action: it has ports, headers and a name, so anything that can
+/// dispatch an action can dispatch a composition without being told it is one.
+absl::StatusOr<actions::ActionSchema> FlowSchema(const FlowPlan& plan);
+
+/// What a run needs besides the program.
+struct RunOptions {
+  /// Who answers the questions only the host can: coercion into a registered
+  /// type, and reading and writing a chunk. The native registry's answers are
+  /// used when this is null.
+  std::shared_ptr<HostBridge> bridge;
+
+  // For a flow a **client** runs over a session it already holds: the `call`
+  // steps that belong to the peer are bound to this stream, and the flow's own
+  // action is not.
+  /// For a flow a **client** runs over a session it already holds: the `call`
+  /// steps that belong to the peer are bound to this stream, and the flow's own
+  /// action is not.
+  ///
+  /// Binding the flow itself would end the stream when the flow finished, and
+  /// the session could then dispatch nothing -- so a client that passed its
+  /// stream as the action's would find its second flow unable to reach the peer
+  /// at all.
+  std::shared_ptr<net::WireStream> dispatch_stream;
+};
+
+/// The action handler that runs one flow of `program`.
+///
+/// Registering this makes the composition an action like any other: a peer can
+/// dispatch it, another flow can call it, and a model can be offered it as a
+/// tool, without any of them knowing it is a composition.
+absl::StatusOr<actions::ActionHandler> MakeHandler(
+    std::shared_ptr<const CompiledProgram> program, std::string_view flow,
+    RunOptions options = {});
+
+/**
+ * @brief The action handler that runs the program's entry flow.
+ *
+ * A separate function rather than `MakeHandler(program, "")`, because the entry
+ * flow is reached by being the entry flow and not by having an empty name --
+ * the same reason Program::Entry() exists. What an interpreter calls.
+ */
+absl::StatusOr<actions::ActionHandler> MakeEntryHandler(
+    std::shared_ptr<const CompiledProgram> program, RunOptions options = {});
+
+}  // namespace a11::flow
+
+#endif  // A11_FLOW_RUNTIME_H_

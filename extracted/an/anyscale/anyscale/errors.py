@@ -3,6 +3,7 @@
 Click reads ``exit_code`` from ``ClickException``, so the class alone decides
 the exit code.
 """
+
 from contextvars import ContextVar
 from enum import Enum
 import json
@@ -153,8 +154,7 @@ class UserError(AnyscaleError):
 class ResourceNotFoundError(UserError):
     error_code = ErrorCode.RESOURCE_NOT_FOUND
     resolution = (
-        "Verify the resource ID or name. Use the list command to find "
-        "available resources."
+        "Verify the resource ID or name. Use the list command to find available resources."
     )
 
 
@@ -219,10 +219,7 @@ class AuthUnauthorizedError(AuthError):
 
 class AuthForbiddenError(AuthError):
     error_code = ErrorCode.AUTH_FORBIDDEN
-    resolution = (
-        "Your account lacks permission for this operation. Check service "
-        "account scopes."
-    )
+    resolution = "Your account lacks permission for this operation. Check service account scopes."
 
 
 class AuthTokenExpiredError(AuthError):
@@ -285,9 +282,7 @@ def from_unexpected_exception(exc: BaseException) -> AnyscaleError:
     )
 
     if isinstance(exc, (InternalApiException, ExternalApiException)):
-        return from_http_status(
-            exc.status, f"API Exception ({exc.status})\nReason: {exc.reason}"
-        )
+        return from_http_status(exc.status, f"API Exception ({exc.status})\nReason: {exc.reason}")
 
     # TimeoutError must come before OSError, because it is a subclass.
     if isinstance(exc, TimeoutError):
@@ -316,7 +311,9 @@ def from_unexpected_exception(exc: BaseException) -> AnyscaleError:
 
 
 def from_command_exception(
-    exc: BaseException, prefix: str, legacy_exit_code: Optional[int] = None,
+    exc: BaseException,
+    prefix: str,
+    legacy_exit_code: Optional[int] = None,
 ) -> AnyscaleError:
     """Return the typed error for an exception that a command caught.
 

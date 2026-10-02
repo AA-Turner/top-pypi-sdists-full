@@ -1,5 +1,0 @@
----
-fixes:
-  - |
-    Cinder: Fixed locking mechanism to allow multiple workers
-    to use the same image safely.

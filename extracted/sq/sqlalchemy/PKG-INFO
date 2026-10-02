@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: SQLAlchemy
-Version: 2.1.1
+Version: 2.1.2
 Summary: Database Abstraction Library
 Author-email: Mike Bayer <mike_mp@zzzcomputing.com>
 License-Expression: MIT
@@ -31,7 +31,7 @@ Requires-Dist: typing-extensions>=4.6.0
 Provides-Extra: asyncio
 Requires-Dist: greenlet>=1; extra == "asyncio"
 Provides-Extra: mypy
-Requires-Dist: mypy>=2.3; extra == "mypy"
+Requires-Dist: mypy>=2.4; extra == "mypy"
 Requires-Dist: types-greenlet>=2; extra == "mypy"
 Provides-Extra: mssql
 Requires-Dist: pyodbc; extra == "mssql"

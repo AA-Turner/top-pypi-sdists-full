@@ -1,0 +1,236 @@
+"""Telemetry spans emitted by ``Agent.run``: the run/turn/tool tree."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+import pytest
+
+import ai
+from ai.types import events as events_
+from ai.types import usage as usage_
+
+from ..conftest import (
+    MOCK_MODEL,
+    MOCK_PROVIDER,
+    Recorder,
+    emit_events_for_messages,
+    mock_llm,
+    text_msg,
+    tool_call_msg,
+)
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
+
+    from ai import models
+    from ai.types import messages as messages_
+
+
+def _by_name(
+    recorder: Recorder,
+) -> dict[str, list[ai.experimental_telemetry.Span]]:
+    spans: dict[str, list[ai.experimental_telemetry.Span]] = {}
+    for s in recorder.ended:
+        spans.setdefault(s.name, []).append(s)
+    return spans
+
+
+async def test_current_agent() -> None:
+    class MyAgent(ai.Agent):
+        pass
+
+    seen: list[MyAgent] = []
+
+    class OtherAgent(ai.Agent):
+        pass
+
+    @ai.tool
+    async def inspect_agent() -> str:
+        """Inspect the current agent."""
+        seen.append(ai.current_agent(type=MyAgent))
+        assert ai.current_agent() is seen[-1]
+        with pytest.raises(LookupError, match="current agent is MyAgent"):
+            ai.current_agent(type=OtherAgent)
+        return "done"
+
+    my_agent = MyAgent(tools=[inspect_agent])
+    mock_llm(
+        [
+            [tool_call_msg(name="inspect_agent")],
+            [text_msg("done", id="msg-2")],
+        ]
+    )
+
+    with pytest.raises(LookupError):
+        ai.current_agent(type=MyAgent)
+    async with my_agent.run(MOCK_MODEL, [ai.user_message("go")]) as stream:
+        async for _ in stream:
+            pass
+    assert seen == [my_agent]
+    with pytest.raises(LookupError):
+        ai.current_agent(type=MyAgent)
+
+
+async def test_agent_run_span_tree(recorder: Recorder) -> None:
+    @ai.tool
+    async def lookup(x: int) -> str:
+        """Tool that opens a user span."""
+        async with ai.experimental_telemetry.span("user_work") as sp:
+            sp.set_attrs(x=x)
+            return "ok"
+
+    mock_llm(
+        [
+            [tool_call_msg(name="lookup", args='{"x": 1}')],
+            [text_msg("done", id="msg-2")],
+        ]
+    )
+    my_agent = ai.Agent(tools=[lookup])
+    async with my_agent.run(MOCK_MODEL, [ai.user_message("go")]) as stream:
+        async for _ in stream:
+            pass
+
+    spans = _by_name(recorder)
+    (run,) = spans["run"]
+    steps = sorted(spans["loop_turn"], key=lambda s: s.started_at or 0)
+    calls = sorted(spans["ai_stream"], key=lambda s: s.started_at or 0)
+    (tool_span,) = spans["tool_execution"]
+    (user_span,) = spans["user_work"]
+
+    # Shape: run > turn[1,2]; turn 1 > ai_stream + tool_execution > user span.
+    assert len(steps) == 2
+    assert len(calls) == 2
+    assert {s.parent_id for s in steps} == {run.id}
+    assert calls[0].parent_id == steps[0].id
+    assert calls[1].parent_id == steps[1].id
+    assert tool_span.parent_id == steps[0].id
+    assert user_span.parent_id == tool_span.id
+    assert {s.trace_id for s in recorder.ended} == {run.trace_id}
+    assert not any(s.replay for s in recorder.ended)
+
+    assert isinstance(run.data, ai.experimental_telemetry.RunSpanData)
+    assert run.data.agent == "Agent"
+    assert run.data.model == "mock-model"
+    assert run.data.provider == "mock"
+    assert run.data.tool_names == ["lookup"]
+    assert run.data.output_type is None
+    assert not run.data.blocked
+    assert run.data.final_message is not None
+    assert run.data.final_message.text == "done"
+
+    assert isinstance(
+        tool_span.data, ai.experimental_telemetry.ToolExecutionSpanData
+    )
+    assert tool_span.data.tool_name == "lookup"
+    assert tool_span.data.tool_description == "Tool that opens a user span."
+    assert tool_span.data.args == {"x": 1}
+    assert tool_span.data.result == "ok"
+    assert not tool_span.data.is_error
+
+    assert isinstance(calls[0].data, ai.experimental_telemetry.AiStreamSpanData)
+    assert calls[0].data.provider == "mock"
+    assert calls[0].data.tool_names == ["lookup"]
+    assert isinstance(calls[1].data, ai.experimental_telemetry.AiStreamSpanData)
+    assert calls[1].data.message is not None
+    assert calls[1].data.message.text == "done"
+
+
+async def test_run_span_aggregates_usage(recorder: Recorder) -> None:
+    """The run span sums usage across the run's model calls."""
+    responses = [
+        (
+            [tool_call_msg(name="lookup", args='{"x": 1}')],
+            usage_.Usage(input_tokens=10, output_tokens=2),
+        ),
+        (
+            [text_msg("done")],
+            usage_.Usage(input_tokens=20, output_tokens=3),
+        ),
+    ]
+
+    async def _stream_impl(
+        model: models.Model,
+        messages: list[messages_.Message],
+        **kwargs: Any,
+    ) -> AsyncGenerator[events_.Event]:
+        seq, usage = responses.pop(0)
+        async for event in emit_events_for_messages(seq, usage=usage):
+            yield event
+
+    MOCK_PROVIDER._stream_impl = _stream_impl
+
+    @ai.tool
+    async def lookup(x: int) -> str:
+        """Look up a number."""
+        return "ok"
+
+    my_agent = ai.Agent(tools=[lookup])
+    async with my_agent.run(MOCK_MODEL, [ai.user_message("go")]) as stream:
+        async for _ in stream:
+            pass
+
+    (run,) = _by_name(recorder)["run"]
+    assert isinstance(run.data, ai.experimental_telemetry.RunSpanData)
+    assert run.data.usage is not None
+    assert run.data.usage.input_tokens == 30
+    assert run.data.usage.output_tokens == 5
+
+
+async def test_early_break_closes_span_tree(recorder: Recorder) -> None:
+    """Breaking out of the event loop must still close every span.
+
+    The spans are open in the ``run()`` generator stack; an early break
+    must close them in-task and in order (children before the run span)
+    rather than leaving them to GC finalization in another task.
+    """
+    mock_llm([[text_msg("hello")]])
+    my_agent = ai.Agent()
+    async with my_agent.run(MOCK_MODEL, [ai.user_message("go")]) as stream:
+        async for _ in stream:
+            break
+
+    assert ai.experimental_telemetry.current_span() is None
+    assert {s.id for s in recorder.ended} == {s.id for s in recorder.started}
+    names = [s.name for s in recorder.ended]
+    assert names[-1] == "run"
+    assert names.index("loop_turn") < names.index("run")
+
+
+async def test_consumer_error_closes_span_tree(recorder: Recorder) -> None:
+    """An exception in the consumer's loop body closes spans the same way."""
+    mock_llm([[text_msg("hello")]])
+    my_agent = ai.Agent()
+    with pytest.raises(ValueError, match="stop"):
+        async with my_agent.run(MOCK_MODEL, [ai.user_message("go")]) as stream:
+            async for _ in stream:
+                raise ValueError("stop")
+
+    assert ai.experimental_telemetry.current_span() is None
+    assert {s.id for s in recorder.ended} == {s.id for s in recorder.started}
+    assert [s.name for s in recorder.ended][-1] == "run"
+
+
+async def test_tool_error_marked_on_span(recorder: Recorder) -> None:
+    @ai.tool
+    async def boom() -> str:
+        """Tool that always fails."""
+        raise ValueError("nope")
+
+    mock_llm([[tool_call_msg(name="boom")], [text_msg("done")]])
+    my_agent = ai.Agent(tools=[boom])
+    async with my_agent.run(MOCK_MODEL, [ai.user_message("go")]) as stream:
+        async for _ in stream:
+            pass
+
+    (tool_span,) = _by_name(recorder)["tool_execution"]
+    assert isinstance(
+        tool_span.data, ai.experimental_telemetry.ToolExecutionSpanData
+    )
+    # The framework converts the exception into an error result (the
+    # run keeps going), but the failure is threaded onto the span as
+    # serializable data.
+    assert tool_span.error is not None
+    assert tool_span.error.type == "ValueError"
+    assert tool_span.error.message == "nope"
+    assert tool_span.data.is_error

@@ -1,0 +1,931 @@
+"""
+Evaluate pure JavaScript functions called with constant arguments and replace call sites with
+computed results.
+"""
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from refinery.lib.scripts.js.deobfuscation.interpreter import Value
+
+from refinery.lib.scripts import Node, Transformer, _remove_from_parent, _replace_in_parent
+from refinery.lib.scripts.js.analysis.cache import model_cache
+from refinery.lib.scripts.js.analysis.effects import EffectModel
+from refinery.lib.scripts.js.analysis.model import (
+    Scope,
+    SemanticModel,
+    is_invocation_target,
+    pattern_identifiers,
+)
+from refinery.lib.scripts.js.deobfuscation.helpers import (
+    ScriptLevelTransformer,
+    access_key,
+    binding_has_references,
+    extract_literal_value,
+    is_reference,
+    references_receiver_this,
+    remove_declarator,
+    substitute_params,
+    value_to_node,
+    walk_scope,
+)
+from refinery.lib.scripts.js.deobfuscation.interpreter import (
+    InterpreterError,
+    IrreducibleExpression,
+    JsInterpreter,
+    _contains_jsbuffer,
+    is_runtime_name,
+)
+from refinery.lib.scripts.js.model import (
+    JsArrowFunctionExpression,
+    JsAssignmentExpression,
+    JsBlockStatement,
+    JsCallExpression,
+    JsCatchClause,
+    JsForInStatement,
+    JsForOfStatement,
+    JsForStatement,
+    JsFunctionDeclaration,
+    JsFunctionExpression,
+    JsIdentifier,
+    JsMemberExpression,
+    JsNumericLiteral,
+    JsReturnStatement,
+    JsScript,
+    JsStringLiteral,
+    JsSwitchCase,
+    JsSwitchStatement,
+    JsUnaryExpression,
+    JsUpdateExpression,
+    JsVariableDeclaration,
+    JsVariableDeclarator,
+    JsVarKind,
+    strip_parens,
+)
+
+MAX_RESULT_ARRAY_LEN = 260
+
+_FuncNode = JsFunctionDeclaration | JsFunctionExpression | JsArrowFunctionExpression
+
+_MISSING = object()
+
+_MUTATING_ARRAY_METHODS = frozenset({
+    'push', 'pop', 'shift', 'unshift', 'splice', 'reverse', 'sort', 'fill', 'copyWithin',
+})
+
+
+def _is_inplace_mutation(node: JsIdentifier) -> bool:
+    """
+    Return whether the reference *node* mutates the value bound to its name in place: a member-target
+    write (`x[i] = v`, `x.p = v`, `x[i]++`, `delete x.p`) or a call to a known mutating array method
+    (`x.push(...)`, `x.reverse()`, ...). Such mutations are invisible to closure / const-argument
+    capture, which snapshots only the declared initializer value.
+    """
+    parent = node.parent
+    if not isinstance(parent, JsMemberExpression) or parent.object is not node:
+        return False
+    grand = parent.parent
+    if isinstance(grand, JsAssignmentExpression) and grand.left is parent:
+        return True
+    if isinstance(grand, JsUpdateExpression) and grand.argument is parent:
+        return True
+    if isinstance(grand, JsUnaryExpression) and grand.operator == 'delete' and grand.operand is parent:
+        return True
+    if isinstance(grand, (JsForOfStatement, JsForInStatement)) and grand.left is parent:
+        return True
+    if is_invocation_target(parent):
+        return access_key(parent) in _MUTATING_ARRAY_METHODS
+    return False
+
+
+def _is_value_closed(
+    func: JsFunctionDeclaration | JsFunctionExpression | JsArrowFunctionExpression,
+    known_pure: set[str],
+) -> bool:
+    """
+    Check whether a function's body is closed enough for the interpreter to evaluate a call to it: it
+    references only its own parameters, names declared within its body, functions in the known-pure
+    set, registry built-ins, and well-known globals. This is the *value* precondition — every name the
+    interpreter needs is resolvable — and is deliberately separate from the *effect* precondition that a
+    call writes no observable state, which `refinery.lib.scripts.js.analysis.effects.EffectModel`
+    decides. A body that is a single switch-return (globalConcealing shape) qualifies even when its
+    return expressions reference external names, because the irreducible fallback substitutes the
+    parameters into them.
+    """
+    for param in func.params:
+        if not isinstance(param, JsIdentifier):
+            return False
+    body = func.body
+    if body is None:
+        return True
+    local_names = {p.name for p in func.params if isinstance(p, JsIdentifier)}
+    _collect_declared_names(body, local_names)
+    if isinstance(func, JsFunctionDeclaration) and isinstance(func.id, JsIdentifier):
+        local_names.add(func.id.name)
+    elif isinstance(func, JsFunctionExpression) and isinstance(func.id, JsIdentifier):
+        local_names.add(func.id.name)
+    if references_receiver_this(body):
+        return False
+    if _is_switch_return_pattern(body, local_names):
+        return True
+    for node in walk_scope(body):
+        if isinstance(node, JsIdentifier) and is_reference(node) and node.name not in local_names:
+            name = node.name
+            if name in known_pure or name in ('undefined', 'NaN', 'Infinity') or is_runtime_name(name):
+                continue
+            return False
+    return True
+
+
+def _is_switch_return_pattern(body, local_names: set[str]) -> bool:
+    """
+    Check whether the function body is a switch statement where every case returns an expression.
+    This is the globalConcealing pattern where return expressions may reference external names
+    but the dispatch logic itself is pure (switch on a parameter).
+    """
+    if not isinstance(body, JsBlockStatement):
+        return False
+    stmts = body.body
+    if not stmts:
+        return False
+    switch = stmts[0]
+    if not isinstance(switch, JsSwitchStatement):
+        return False
+    for remaining in stmts[1:]:
+        if isinstance(remaining, JsReturnStatement) and remaining.argument is None:
+            continue
+        return False
+    if switch.discriminant is None:
+        return False
+    if isinstance(switch.discriminant, JsIdentifier):
+        if switch.discriminant.name not in local_names:
+            return False
+    elif not _all_refs_local(switch.discriminant, local_names):
+        return False
+    if not switch.cases:
+        return False
+    for case in switch.cases:
+        if not isinstance(case, JsSwitchCase):
+            return False
+        if case.test is not None and not isinstance(case.test, (JsStringLiteral, JsNumericLiteral)):
+            return False
+        case_body = case.body
+        if len(case_body) != 1:
+            return False
+        stmt = case_body[0]
+        if not isinstance(stmt, JsReturnStatement) or stmt.argument is None:
+            return False
+    return True
+
+
+def _all_refs_local(node: Node, local_names: set[str]) -> bool:
+    for child in node.walk():
+        if isinstance(child, JsIdentifier) and is_reference(child):
+            if child.name not in local_names:
+                return False
+    return True
+
+
+def _collect_declared_names(body, names: set[str]) -> None:
+    if not isinstance(body, JsBlockStatement):
+        return
+    for node in walk_scope(body):
+        if isinstance(node, JsVariableDeclaration):
+            for decl in node.declarations:
+                if isinstance(decl, JsVariableDeclarator) and isinstance(decl.id, JsIdentifier):
+                    names.add(decl.id.name)
+        if isinstance(node, JsFunctionDeclaration) and isinstance(node.id, JsIdentifier):
+            names.add(node.id.name)
+        if isinstance(node, JsCatchClause) and isinstance(node.param, JsIdentifier):
+            names.add(node.param.name)
+
+
+def _unresolved_names(
+    func: JsFunctionDeclaration | JsFunctionExpression | JsArrowFunctionExpression,
+    known_pure: set[str],
+) -> set[str]:
+    """
+    Return the set of external names referenced by *func* that are not locally declared, not in
+    *known_pure*, and not well-known globals or runtime names. Names that are plain-assigned (`=`)
+    within the function body AND also read within the same body are treated as implicit locals
+    (obfuscator temporaries like `rr = expr; ... use(rr)`) and excluded. Names that are only
+    plain-assigned but never read are also excluded (write-only temps). Compound-assigned names
+    (`+=`, `|=`, etc.) that were NOT also plain-initialized are always retained — they perform a
+    read-modify-write of the external binding and are never a local temp.
+    """
+    body = func.body
+    if body is None:
+        return set()
+    local_names = {p.name for p in func.params if isinstance(p, JsIdentifier)}
+    _collect_declared_names(body, local_names)
+    if isinstance(func, JsFunctionDeclaration) and isinstance(func.id, JsIdentifier):
+        local_names.add(func.id.name)
+    elif isinstance(func, JsFunctionExpression) and isinstance(func.id, JsIdentifier):
+        local_names.add(func.id.name)
+    plain_assigned: set[str] = set()
+    compound_assigned: set[str] = set()
+    read: set[str] = set()
+    for node in walk_scope(body, include_root_body=True):
+        if not isinstance(node, JsIdentifier) or not is_reference(node):
+            continue
+        name = node.name
+        if name in local_names:
+            continue
+        if isinstance(node.parent, JsAssignmentExpression) and node.parent.left is node:
+            if node.parent.operator == '=':
+                plain_assigned.add(name)
+            else:
+                compound_assigned.add(name)
+                read.add(name)
+        else:
+            read.add(name)
+    external_names: set[str] = set()
+    for name in read - plain_assigned:
+        if name in known_pure or name in ('undefined', 'NaN', 'Infinity') or is_runtime_name(name):
+            continue
+        external_names.add(name)
+    return external_names
+
+
+class JsFunctionEvaluator(ScriptLevelTransformer):
+    """
+    Evaluate pure JavaScript functions called with constant arguments, replacing call sites with
+    computed results. Handles named function calls and IIFEs.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._script: JsScript | None = None
+        self._effects: EffectModel | None = None
+        self._functions: list[_FuncNode] = []
+        self._pure_nodes: set[int] = set()
+        self._closure_env: dict[int, dict[str, Value]] = {}
+        self._call_counts: dict[int, int] = {}
+        self._resolved_counts: dict[int, int] = {}
+        self._failed_counts: dict[int, int] = {}
+
+    def _process_script(self, node: JsScript) -> None:
+        self._script = node
+        self._effects = None
+        self._functions = []
+        self._pure_nodes.clear()
+        self._closure_env.clear()
+        self._call_counts.clear()
+        self._resolved_counts.clear()
+        self._failed_counts.clear()
+        self._analyze_purity(node)
+        self._evaluate_calls(node)
+        self._remove_resolved_definitions(node)
+
+    def _collect_named_functions(self, script: JsScript) -> list[_FuncNode]:
+        """
+        Every function the model resolves a name to unambiguously: a function declaration, a
+        `var`/`let`/`const` declarator initializer, or a hoisted `var` assigned a function exactly once
+        (`var f; f = function(){}`, the form namespace flattening leaves). This is
+        `EffectModel.unambiguous_function`, the same filter the interpreter resolves nested callees
+        through, so every name a call site can reach is a candidate for purity analysis here. Anonymous
+        functions and names that held a value and were then reassigned are excluded, because the model
+        resolves no single function for them.
+        """
+        effects = self._effects
+        if effects is None:
+            return []
+        model = effects.model
+        functions: list[_FuncNode] = []
+        for node in script.walk():
+            if not isinstance(node, _FuncNode):
+                continue
+            if effects.unambiguous_function(model.invocation_binding(node)) is node:
+                functions.append(node)
+        return functions
+
+    def _visible_pure_names(self, scope: Scope | None) -> set[str]:
+        """
+        The names that resolve, from *scope* outward, to a function already proven pure. A nearer
+        binding wins: a name rebound below the scope that holds the pure function — a parameter or a
+        local — shadows it and is not treated as pure, matching how the name resolves inside the body
+        being analyzed.
+        """
+        effects = self._effects
+        if effects is None:
+            return set()
+        names: set[str] = set()
+        seen: set[str] = set()
+        current = scope
+        while current is not None:
+            for name, binding in current.bindings.items():
+                if name in seen:
+                    continue
+                seen.add(name)
+                func = effects.unambiguous_function(binding)
+                if func is not None and id(func) in self._pure_nodes:
+                    names.add(name)
+            current = current.parent
+        return names
+
+    def _value_safe_to_capture(self, name: str, value: Value, owner: Node | None) -> bool:
+        """
+        Return whether a `const`-bound *value* can be safely inlined for *name*. A `const` binding is
+        immutable, so primitive values are always safe. Arrays and objects, however, are mutated in
+        place even when const-bound, and capture snapshots only the declared initializer — so they
+        are unsafe if *name* is mutated in place anywhere except inside *owner*. The interpreter
+        models *owner*'s own mutations (per-call deep copy plus cross-call writeback); mutations by
+        any other code (a sibling statement, or a different capturing function) are not. When *owner*
+        is None (const-argument resolution), any in-place mutation makes the value unsafe.
+        """
+        if not isinstance(value, (list, dict)):
+            return True
+        script = self._script
+        if script is None:
+            return False
+        for node in script.walk():
+            if not isinstance(node, JsIdentifier) or node.name != name:
+                continue
+            if not is_reference(node) or not _is_inplace_mutation(node):
+                continue
+            if owner is not None and node.is_descendant_of(owner):
+                continue
+            return False
+        return True
+
+    def _collect_closure_constants(self, func: _FuncNode) -> dict[str, Value]:
+        child: Node | None
+        own_declarator: JsVariableDeclarator | None = None
+        scope_node: Node | None
+        if isinstance(func, (JsFunctionExpression, JsArrowFunctionExpression)):
+            declarator = func.parent
+            if isinstance(declarator, JsVariableDeclarator):
+                declaration = declarator.parent
+                if isinstance(declaration, JsVariableDeclaration):
+                    scope_node = declaration.parent
+                    child = declaration
+                    own_declarator = declarator
+                else:
+                    scope_node = func.parent
+                    child = func
+            else:
+                scope_node = func.parent
+                child = func
+        else:
+            scope_node = func.parent
+            child = func
+        result: dict[str, Value] = {}
+        shadowed: set[str] = set()
+        while scope_node is not None:
+            if isinstance(scope_node, (JsFunctionDeclaration, JsFunctionExpression, JsArrowFunctionExpression)):
+                for p in scope_node.params:
+                    if isinstance(p, JsIdentifier):
+                        shadowed.add(p.name)
+            if isinstance(scope_node, JsCatchClause) and isinstance(scope_node.param, JsIdentifier):
+                shadowed.add(scope_node.param.name)
+            if isinstance(scope_node, (JsScript, JsBlockStatement)):
+                self._collect_hoisted_vars(scope_node, shadowed)
+                found_child = False
+                for stmt in scope_node.body:
+                    if stmt is child:
+                        found_child = True
+                        if own_declarator is not None and isinstance(stmt, JsVariableDeclaration):
+                            if stmt.kind == JsVarKind.CONST:
+                                for decl in stmt.declarations:
+                                    if decl is own_declarator:
+                                        break
+                                    if (
+                                        not isinstance(decl, JsVariableDeclarator)
+                                        or not isinstance(decl.id, JsIdentifier)
+                                    ):
+                                        continue
+                                    name = decl.id.name
+                                    if name in result or name in shadowed:
+                                        continue
+                                    init = decl.init
+                                    if init is None:
+                                        shadowed.add(name)
+                                        continue
+                                    if isinstance(init, (JsFunctionExpression, JsArrowFunctionExpression)):
+                                        result[name] = init
+                                    else:
+                                        ok, val = extract_literal_value(init)
+                                        if ok and self._value_safe_to_capture(name, val, func):
+                                            result[name] = val
+                                        else:
+                                            shadowed.add(name)
+                            own_declarator = None
+                        continue
+                    if not found_child:
+                        if isinstance(stmt, JsVariableDeclaration):
+                            if stmt.kind == JsVarKind.CONST:
+                                for decl in stmt.declarations:
+                                    if (
+                                        not isinstance(decl, JsVariableDeclarator)
+                                        or not isinstance(decl.id, JsIdentifier)
+                                    ):
+                                        continue
+                                    name = decl.id.name
+                                    if name in result or name in shadowed:
+                                        continue
+                                    init = decl.init
+                                    if init is None:
+                                        shadowed.add(name)
+                                        continue
+                                    if isinstance(init, (JsFunctionExpression, JsArrowFunctionExpression)):
+                                        result[name] = init
+                                    else:
+                                        ok, val = extract_literal_value(init)
+                                        if ok and self._value_safe_to_capture(name, val, func):
+                                            result[name] = val
+                                        else:
+                                            shadowed.add(name)
+                            elif stmt.kind == JsVarKind.LET:
+                                for decl in stmt.declarations:
+                                    if isinstance(decl, JsVariableDeclarator) and isinstance(decl.id, JsIdentifier):
+                                        shadowed.add(decl.id.name)
+                        elif isinstance(stmt, JsFunctionDeclaration):
+                            if isinstance(stmt.id, JsIdentifier):
+                                shadowed.add(stmt.id.name)
+                    else:
+                        if isinstance(stmt, JsVariableDeclaration) and stmt.kind != JsVarKind.VAR:
+                            for decl in stmt.declarations:
+                                if isinstance(decl, JsVariableDeclarator) and isinstance(decl.id, JsIdentifier):
+                                    shadowed.add(decl.id.name)
+            child = scope_node
+            scope_node = scope_node.parent
+        return result
+
+    @staticmethod
+    def _collect_hoisted_vars(scope_node: Node, shadowed: set[str]) -> None:
+        """
+        Recursively scan a block for `var` declarations and add their names to *shadowed*.
+        In JavaScript, `var` is hoisted to the enclosing function scope regardless of textual
+        position or block nesting, so a `var x` anywhere (including inside if/for/while/try)
+        shadows an outer `const x`.
+        """
+        for node in walk_scope(scope_node):
+            if isinstance(node, JsVariableDeclaration) and node.kind == JsVarKind.VAR:
+                for decl in node.declarations:
+                    if isinstance(decl, JsVariableDeclarator) and isinstance(decl.id, JsIdentifier):
+                        shadowed.add(decl.id.name)
+
+    def _analyze_purity(self, script: JsScript) -> None:
+        self._effects = model_cache(self, script).effects
+        self._functions = self._collect_named_functions(script)
+        closure_cache: dict[int, dict[str, Value]] = {
+            id(func): self._collect_closure_constants(func)
+            for func in self._functions
+            if not isinstance(func, JsFunctionDeclaration)
+        }
+        changed = True
+        while changed:
+            changed = False
+            for func in self._functions:
+                if id(func) in self._pure_nodes:
+                    continue
+                if not self._effects.summary_of(func).is_value_replaceable:
+                    continue
+                visible_pure = self._visible_pure_names(self._effects.model.function_scope(func))
+                if _is_value_closed(func, visible_pure):
+                    self._pure_nodes.add(id(func))
+                    changed = True
+                    continue
+                if (
+                    not isinstance(func, JsFunctionDeclaration)
+                    and func.body is not None
+                    and not references_receiver_this(func.body)
+                ):
+                    unresolved = _unresolved_names(func, visible_pure)
+                    if not unresolved:
+                        self._pure_nodes.add(id(func))
+                        changed = True
+                        continue
+                    closure = closure_cache.get(id(func), {})
+                    if unresolved <= closure.keys():
+                        self._pure_nodes.add(id(func))
+                        self._closure_env[id(func)] = {n: closure[n] for n in unresolved}
+                        changed = True
+
+    def _evaluate_calls(self, script: JsScript) -> None:
+        for node in list(script.walk_in_order()):
+            if not isinstance(node, JsCallExpression):
+                continue
+            if node.callee is None:
+                continue
+            callee = strip_parens(node.callee)
+            if isinstance(callee, JsIdentifier):
+                self._try_named_call(node)
+            elif isinstance(callee, (JsFunctionExpression, JsArrowFunctionExpression)):
+                self._try_iife(node, callee)
+
+    def _established_before(self, func: _FuncNode, call: JsCallExpression) -> bool:
+        """
+        Whether *func*'s value is installed before *call* runs. A function declaration is hoisted, so it
+        is always established; a declarator initializer (`const`/`let`/`var f = function(){}`) is in place
+        only once its declarator has run, and a lone assignment (`f = function(){}`, the form namespace
+        flattening leaves) only once that assignment has run. A premature call to either reads a value
+        that is absent — a temporal dead zone `ReferenceError`, or the hoisted `undefined` a `var` call
+        throws a `TypeError` on — which the interpreted body must not silently replace with a result. The
+        model names the establishing nodes; dominance decides whether they all precede the call.
+        """
+        script = self._script
+        if script is None:
+            return False
+        return model_cache(self, script).dominance.established_before(func, call)
+
+    def _try_named_call(self, node: JsCallExpression) -> None:
+        if self._effects is None:
+            return
+        func = self._effects.static_callee(node)
+        if func is None or id(func) not in self._pure_nodes:
+            return
+        if node.is_descendant_of(func):
+            return
+        if not self._established_before(func, node):
+            return
+        func_id = id(func)
+        self._call_counts[func_id] = self._call_counts.get(func_id, 0) + 1
+        args = self._extract_constant_args(node.arguments, node)
+        if args is None:
+            return
+        success = self._evaluate_and_replace(node, func, args, gate_unresolved=True)
+        if success:
+            self._resolved_counts[func_id] = self._resolved_counts.get(func_id, 0) + 1
+        else:
+            self._failed_counts[func_id] = self._failed_counts.get(func_id, 0) + 1
+
+    def _try_iife(
+        self,
+        node: JsCallExpression,
+        func: JsFunctionExpression | JsArrowFunctionExpression,
+    ) -> None:
+        if self._effects is None or not self._effects.summary_of(func).is_value_replaceable:
+            return
+        pure_names = self._visible_pure_names(self._effects.model.scope_of(node))
+        if _is_value_closed(func, pure_names):
+            args = self._extract_constant_args(node.arguments, node)
+            if args is None:
+                return
+            self._evaluate_and_replace(node, func, args, gate_unresolved=False)
+            return
+        if (
+            func.body is not None
+            and not references_receiver_this(func.body)
+        ):
+            unresolved = _unresolved_names(func, pure_names)
+            closure = self._collect_closure_constants(func)
+            if unresolved <= closure.keys():
+                args = self._extract_constant_args(node.arguments, node)
+                if args is None:
+                    return
+                closure_env = {n: closure[n] for n in unresolved}
+                self._evaluate_and_replace(node, func, args, gate_unresolved=False, closure_override=closure_env)
+
+    def _evaluate_and_replace(
+        self,
+        node: JsCallExpression,
+        func: JsFunctionDeclaration | JsFunctionExpression | JsArrowFunctionExpression,
+        args: list,
+        gate_unresolved: bool,
+        closure_override: dict | None = None,
+    ) -> bool:
+        """
+        Run the interpreter on *func* with *args* and, on success, replace *node* with the result.
+        Returns True if the call site was resolved (either to a value or a substituted expression).
+        """
+        closure = closure_override if closure_override is not None else self._closure_env.get(id(func))
+        interpreter = JsInterpreter(
+            effects=self._effects,
+            closure=closure,
+            closure_env=self._closure_env,
+            established=lambda callee: self._established_before(callee, node),
+        )
+        try:
+            result = interpreter.execute(func, args)
+        except IrreducibleExpression as irr:
+            if gate_unresolved and self._is_unresolved_call(irr.node):
+                return False
+            if self._substitution_would_break(irr.node, func, node):
+                return False
+            replacement = self._substitute_params_in_clone(irr.node, func, args, self)
+            _replace_in_parent(node, replacement)
+            self.mark_changed()
+            return True
+        except InterpreterError:
+            return False
+        if _contains_jsbuffer(result):
+            return False
+        if isinstance(result, list) and len(result) > MAX_RESULT_ARRAY_LEN:
+            return False
+        replacement = value_to_node(result)
+        if replacement is None:
+            return False
+        if closure is not None and closure_override is None:
+            for name in closure:
+                if name in interpreter._env:
+                    closure[name] = interpreter._env[name]
+        _replace_in_parent(node, replacement)
+        self.mark_changed()
+        return True
+
+    def _function_is_removable(self, model: SemanticModel, func: _FuncNode) -> bool:
+        """
+        Whether *func*'s definition can be deleted: it has no surviving static reference and cannot be
+        reached by a runtime name lookup. A function named inside a `with` body or otherwise reflected
+        (`model.reflection_can_reach`) must be kept even once every direct call has folded away — the
+        `with`-body call still needs the binding. This mirrors the reflection gate the unused-code
+        remover applies, so both transforms keep the same functions.
+        """
+        binding = model.naming_binding(func)
+        if binding is None:
+            return False
+        exclude = self._function_exclude_node(func)
+        return (
+            not binding_has_references(model, binding, exclude=exclude)
+            and not model.reflection_can_reach(binding)
+        )
+
+    def _remove_resolved_definitions(self, script: JsScript) -> None:
+        removed: set[int] = set()
+        while True:
+            model = model_cache(self, script).model
+            before = len(removed)
+            for func in self._functions:
+                func_id = id(func)
+                if func_id in removed:
+                    continue
+                call_count = self._call_counts.get(func_id, 0)
+                if call_count == 0:
+                    continue
+                resolved = self._resolved_counts.get(func_id, 0)
+                failed = self._failed_counts.get(func_id, 0)
+                if (resolved + failed) < call_count:
+                    continue
+                name = self._function_name(func)
+                if name is None:
+                    continue
+                if self._function_is_removable(model, func):
+                    self._remove_function(func)
+                    removed.add(func_id)
+                    self.mark_changed()
+            for func in self._functions:
+                func_id = id(func)
+                if func_id in removed:
+                    continue
+                if func_id not in self._pure_nodes:
+                    continue
+                name = self._function_name(func)
+                if name is None:
+                    continue
+                call_count = self._call_counts.get(func_id, 0)
+                if call_count == 0:
+                    continue
+                if self._function_is_removable(model, func):
+                    self._remove_function(func)
+                    removed.add(func_id)
+                    self.mark_changed()
+            if len(removed) == before:
+                break
+        self._remove_orphaned_closure_constants(script, removed)
+
+    @staticmethod
+    def _function_name(func: _FuncNode) -> str | None:
+        if isinstance(func, JsFunctionDeclaration):
+            return func.id.name if isinstance(func.id, JsIdentifier) else None
+        declarator = func.parent
+        if isinstance(declarator, JsVariableDeclarator) and isinstance(declarator.id, JsIdentifier):
+            return declarator.id.name
+        return None
+
+    @staticmethod
+    def _function_exclude_node(func: _FuncNode) -> Node:
+        if isinstance(func, JsFunctionDeclaration):
+            return func
+        declarator = func.parent
+        if isinstance(declarator, JsVariableDeclarator):
+            return declarator
+        return func
+
+    def _remove_function(self, func: _FuncNode) -> None:
+        if isinstance(func, JsFunctionDeclaration):
+            _remove_from_parent(func)
+        else:
+            declarator = func.parent
+            if isinstance(declarator, JsVariableDeclarator):
+                remove_declarator(declarator)
+            else:
+                _remove_from_parent(func)
+
+    def _remove_orphaned_closure_constants(
+        self, script: JsScript, removed: set[int],
+    ) -> None:
+        closure_names: set[str] = set()
+        for func_id in removed:
+            env = self._closure_env.get(func_id)
+            if env:
+                closure_names.update(env.keys())
+        if not closure_names:
+            return
+        model = model_cache(self, script).model
+        for node in list(script.walk()):
+            if not isinstance(node, JsVariableDeclaration) or node.kind != JsVarKind.CONST:
+                continue
+            for decl in list(node.declarations):
+                if not isinstance(decl, JsVariableDeclarator) or not isinstance(decl.id, JsIdentifier):
+                    continue
+                if decl.id.name not in closure_names:
+                    continue
+                binding = model.binding_of(decl.id)
+                if not binding_has_references(model, binding, exclude=decl):
+                    remove_declarator(decl)
+                    self.mark_changed()
+
+    def _extract_constant_args(
+        self,
+        arguments: list,
+        call_node: JsCallExpression,
+    ) -> list[Value] | None:
+        args: list[Value] = []
+        for arg in arguments:
+            ok, value = extract_literal_value(arg)
+            if not ok:
+                if isinstance(arg, JsIdentifier):
+                    resolved = self._resolve_const_identifier(arg, call_node)
+                    if resolved is not _MISSING:
+                        args.append(resolved)  # type: ignore[arg-type]
+                        continue
+                return None
+            args.append(value)
+        return args
+
+    def _resolve_const_identifier(self, node: JsIdentifier, context: Node) -> object:
+        name = node.name
+        child: Node = context
+        current = context.parent
+        while current is not None:
+            if isinstance(current, (JsFunctionDeclaration, JsFunctionExpression, JsArrowFunctionExpression)):
+                if any(isinstance(p, JsIdentifier) and p.name == name for p in current.params):
+                    return _MISSING
+            if isinstance(current, JsCatchClause) and isinstance(current.param, JsIdentifier):
+                if current.param.name == name:
+                    return _MISSING
+            if isinstance(current, (JsForOfStatement, JsForInStatement)):
+                if self._decl_binds_name(current.left, name):
+                    return _MISSING
+            if isinstance(current, JsForStatement):
+                if self._decl_binds_name(current.init, name):
+                    return _MISSING
+            if isinstance(current, (JsScript, JsBlockStatement)):
+                body = current.body
+                if self._has_hoisted_var(current, name):
+                    return _MISSING
+                for stmt in body:
+                    if isinstance(stmt, JsVariableDeclaration):
+                        if stmt.kind == JsVarKind.CONST:
+                            for decl in stmt.declarations:
+                                if context.is_descendant_of(decl):
+                                    break
+                                if (
+                                    isinstance(decl, JsVariableDeclarator)
+                                    and isinstance(decl.id, JsIdentifier)
+                                    and decl.id.name == name
+                                    and decl.init is not None
+                                ):
+                                    ok, val = extract_literal_value(decl.init)
+                                    if ok and self._value_safe_to_capture(name, val, None):
+                                        return val
+                                    return _MISSING
+                        elif stmt.kind == JsVarKind.LET:
+                            for decl in stmt.declarations:
+                                if (
+                                    isinstance(decl, JsVariableDeclarator)
+                                    and isinstance(decl.id, JsIdentifier)
+                                    and decl.id.name == name
+                                ):
+                                    return _MISSING
+                    elif isinstance(stmt, JsFunctionDeclaration):
+                        if isinstance(stmt.id, JsIdentifier) and stmt.id.name == name:
+                            return _MISSING
+                    if stmt is child:
+                        break
+            child = current
+            current = current.parent
+        return _MISSING
+
+    @staticmethod
+    def _has_hoisted_var(scope_node: Node, name: str) -> bool:
+        """
+        Return whether *scope_node* contains any `var` declaration for *name* at any nesting depth.
+        """
+        for node in walk_scope(scope_node):
+            if isinstance(node, JsVariableDeclaration) and node.kind == JsVarKind.VAR:
+                for decl in node.declarations:
+                    if (
+                        isinstance(decl, JsVariableDeclarator)
+                        and isinstance(decl.id, JsIdentifier)
+                        and decl.id.name == name
+                    ):
+                        return True
+        return False
+
+    @staticmethod
+    def _decl_binds_name(node: Node | None, name: str) -> bool:
+        """
+        Return whether *node* is a `refinery.lib.scripts.js.model.JsVariableDeclaration` (e.g. a
+        `for`/`for-of`/`for-in` loop header) that declares *name*. A bare identifier loop target
+        assigns to an outer binding and does not shadow, so it is not treated as a binding here.
+        """
+        if not isinstance(node, JsVariableDeclaration):
+            return False
+        for decl in node.declarations:
+            if isinstance(decl, JsVariableDeclarator) and isinstance(decl.id, JsIdentifier):
+                if decl.id.name == name:
+                    return True
+        return False
+
+    def _is_unresolved_call(self, node: Node) -> bool:
+        """
+        Check whether the irreducible expression contains any function call. If so, the wrapper
+        inliner or string-array resolver should handle it — the evaluator should not substitute
+        parameters into a call that it couldn't fully evaluate.
+        """
+        for child in node.walk():
+            if isinstance(child, JsCallExpression):
+                return True
+        return False
+
+    def _substitution_would_break(self, node: Node, func: _FuncNode, call_site: Node) -> bool:
+        """
+        Whether splicing *node* — an irreducible sub-expression of *func*'s body — into *call_site* by
+        parameter substitution would change behavior. Substitution replaces each parameter with its
+        original argument value and discards the rest of the body, so it is unsafe when *node*:
+
+        - writes a parameter, which would place the argument value at a write target (`delete p`
+          becomes `delete <literal>`, `(p = 5)` becomes `(<literal> = 5)`);
+        - reads a parameter that *func* reassigns — statically, or through a `with` body or direct
+          `eval` — whose value at the irreducible point is no longer the original argument the
+          substitution would supply;
+        - references a name bound inside *func* but declared outside *node* — a body local (including a
+          destructured or `catch` binding), a nested declaration, `arguments`, or the function
+          expression's own name — which has no binding once the body is discarded, leaving a dangling
+          reference;
+        - references a name that resolves outside *func*, or to no binding at all, but which a
+          same-named local in scope at *call_site* would recapture, so the spliced reference would bind
+          to a different declaration there than it does in *func*.
+
+        A binding *node* itself introduces travels with it and stays intact. Every reference is resolved
+        through the model, so shadowing and destructuring are exact; a free name whose read crosses a
+        `with` in *func* is treated as unsafe, since its runtime target cannot be matched at *call_site*.
+        """
+        script = self._script
+        if script is None:
+            return True
+        model = model_cache(self, script).model
+        call_scope = model.scope_of(call_site)
+        if call_scope is None:
+            return True
+        param_bindings = {
+            binding
+            for param in func.params
+            for ident in pattern_identifiers(param)
+            if (binding := model.binding_of(ident)) is not None
+        }
+        for child in node.walk():
+            if not isinstance(child, JsIdentifier) or not model.is_reference(child):
+                continue
+            binding = model.resolve(child)
+            if binding is None:
+                if model.read_has_dynamic_effect(child):
+                    return True
+                if model.lookup(child.name, call_scope) is not None:
+                    return True
+                continue
+            owner = binding.scope.node
+            if owner is not func and not owner.is_descendant_of(func):
+                if model.lookup(child.name, call_scope) is not binding:
+                    return True
+                continue
+            if binding in param_bindings:
+                if not model.binding_never_reassigned(binding):
+                    return True
+                continue
+            if owner is node or owner.is_descendant_of(node):
+                continue
+            return True
+        return False
+
+    @staticmethod
+    def _substitute_params_in_clone(
+        node: Node,
+        func: JsFunctionDeclaration | JsFunctionExpression | JsArrowFunctionExpression,
+        args: list[Value],
+        transformer: Transformer,
+    ) -> Node:
+        params: list[Node] = []
+        arguments: list[Node] = []
+        for i, p in enumerate(func.params):
+            if not isinstance(p, JsIdentifier):
+                continue
+            arg_node = value_to_node(args[i] if i < len(args) else None)
+            if arg_node is None:
+                continue
+            params.append(p)
+            arguments.append(arg_node)
+        return substitute_params(node, params, arguments, transformer=transformer)

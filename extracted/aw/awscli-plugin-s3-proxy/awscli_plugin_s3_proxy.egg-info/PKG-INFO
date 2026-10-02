@@ -1,0 +1,81 @@
+Metadata-Version: 1.1
+Name: awscli-plugin-s3-proxy
+Version: 0.5
+Summary: S3 proxy plugin for AWS CLI
+Home-page: https://github.com/nowak-ninja/awscli-plugin-s3-proxy
+Author: Sebastian Nowak
+Author-email: sebastian@nowak.ninja
+License: UNKNOWN
+Download-URL: https://github.com/nowak-ninja/awscli-plugin-s3-proxy/archive/0.5.tar.gz
+Description: awscli-plugin-s3-proxy
+        =============
+        
+        This awscli plugin allows usage of proxy for S3 service stored in profile configuration.
+        
+        ------------
+        Installation
+        ------------
+        
+        The easiest way to install awscli-plugin-s3-proxy is to use `pip`:
+        
+            $ pip install awscli-plugin-s3-proxy
+        
+        You can also install the latest package from GitHub source which can contain changes not yet pushed to PyPI:
+        
+            $ pip install git+https://github.com/nowak-ninja/awscli-plugin-s3-proxy.git
+        
+        or, if you install `awscli` via Homebrew, which bundles its own python, install as following:
+        
+            $ /usr/local/opt/awscli/libexec/bin/pip install awscli-plugin-s3-proxy
+        
+        
+        ---------------
+        Getting Started
+        ---------------
+        
+        Before using awscli-plugin-s3-proxy plugin, you need to [configure awscli](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html) first.
+        
+        **MUST**: Once that's done, to enable `awscli-plugin-s3-proxy` plugin, you can run:
+        
+            $ aws configure set plugins.s3-proxy awscli_plugin_s3_proxy
+        
+        The above command adds below section to your aws config file. You can also directly edit your `~/.aws/config` with below configuration.
+        
+            [plugins]
+            s3-proxy = awscli_plugin_s3_proxy
+        
+        To add proxy configure to a profile (assuming you have a **test** profile), you can run:
+        
+            $ aws configure --profile test set s3.proxy http://proxy-host.com:8080
+        
+        The above command adds below section to your profile:
+        
+            [profile test]
+            s3 =
+                proxy = http://proxy-host.com:8080
+        
+        Now you can access S3 using proxy with profile:
+        
+            $ aws s3 ls --profile test
+        
+        If You want to use profile without passing it every time as parameter, use environment variable, ex:
+        
+            export AWS_PROFILE=test
+        
+        Alternative (classic) method
+        ------------------
+        You can follow the [guide by AWS](https://docs.aws.amazon.com/cli/latest/userguide/cli-http-proxy.html) which describes how to use proxy using system environment variables. Here is the example:
+        
+            export http_proxy=http://proxy-host.com:8080
+            export https_proxy=http://proxy-host.com:8080
+            export HTTP_PROXY=http://proxy-host.com:8080
+            export HTTPS_PROXY=http://proxy-host.com:8080
+        
+        Remember that after setting these variables, `ALL` awscli requests will be going through proxy!
+        
+        Additionally, if You are using awscli on EC2 host, add `NO_PROXY` variable to allow awscli communicate with metadata endpoint:
+        
+            NO_PROXY=169.254.169.254
+        
+Keywords: awscli,plugin,s3,proxy
+Platform: UNKNOWN

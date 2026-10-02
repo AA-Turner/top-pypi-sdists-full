@@ -4267,7 +4267,7 @@ class AsyncResponsesConnection:
         self._extra_headers = extra_headers
         self._intentionally_closed = False
         self._is_reconnecting = False
-        self._send_queue = send_queue or SendQueue()
+        self._send_queue = send_queue if send_queue is not None else SendQueue()
         self._event_handler_registry = EventHandlerRegistry(use_lock=False)
 
         self.response = AsyncResponsesResponseResource(self)
@@ -4342,11 +4342,7 @@ class AsyncResponsesConnection:
         if self._is_reconnecting:
             self._send_queue.enqueue(data)
             return
-        try:
-            await self._connection.send(data)
-        except Exception:
-            self._send_queue.enqueue(data)
-            raise
+        await self._connection.send(data)
 
     async def send_raw(self, data: bytes | str) -> None:
         if self._is_reconnecting:
@@ -4454,7 +4450,7 @@ class AsyncResponsesConnection:
             await self._connection.send(data)
 
         try:
-            await self._send_queue.flush_async(_send)
+            await self._send_queue.flush_async(_send, requeue_failed=False)
         except Exception:
             log.warning("Failed to flush send queue after reconnect")
 
@@ -4674,11 +4670,11 @@ class AsyncResponsesConnectionManager:
         except ImportError as exc:
             raise OpenAIError("You need to install `openai[realtime]` to use this method") from exc
 
-        url = self._prepare_url().copy_with(
-            params={
-                **self.__client.base_url.params,
-                **extra_query,
-            },
+        url = self._prepare_url()
+        url = url.copy_with(
+            params=httpx2.QueryParams(self.__client.qs.stringify(cast(Any, self.__client.default_query)))
+            .merge(url.params)
+            .merge(cast(Any, extra_query)),
         )
         url = url.copy_with(scheme={"http": "ws", "https": "wss"}.get(url.scheme, url.scheme))
         options = await self.__client._prepare_options(
@@ -4722,7 +4718,8 @@ class AsyncResponsesConnectionManager:
             ws_scheme = "ws" if scheme == "http" else "wss"
             base_url = self.__client._base_url.copy_with(scheme=ws_scheme)
 
-        merge_raw_path = base_url.raw_path.rstrip(b"/") + b"/responses"
+        path, separator, query = base_url.raw_path.partition(b"?")
+        merge_raw_path = path.rstrip(b"/") + b"/responses" + separator + query
         return base_url.copy_with(raw_path=merge_raw_path)
 
     async def __aexit__(
@@ -4763,7 +4760,7 @@ class ResponsesConnection:
         self._extra_headers = extra_headers
         self._intentionally_closed = False
         self._is_reconnecting = False
-        self._send_queue = send_queue or SendQueue()
+        self._send_queue = send_queue if send_queue is not None else SendQueue()
         self._event_handler_registry = EventHandlerRegistry(use_lock=True)
 
         self.response = ResponsesResponseResource(self)
@@ -4840,11 +4837,7 @@ class ResponsesConnection:
         if self._is_reconnecting:
             self._send_queue.enqueue(data)
             return
-        try:
-            self._connection.send(data)
-        except Exception:
-            self._send_queue.enqueue(data)
-            raise
+        self._connection.send(data)
 
     def send_raw(self, data: bytes | str) -> None:
         if self._is_reconnecting:
@@ -4946,7 +4939,7 @@ class ResponsesConnection:
     def _flush_send_queue(self) -> None:
         """Send all queued messages over the current connection."""
         try:
-            self._send_queue.flush_sync(lambda data: self._connection.send(data))
+            self._send_queue.flush_sync(lambda data: self._connection.send(data), requeue_failed=False)
         except Exception:
             log.warning("Failed to flush send queue after reconnect")
 
@@ -5160,11 +5153,11 @@ class ResponsesConnectionManager:
         except ImportError as exc:
             raise OpenAIError("You need to install `openai[realtime]` to use this method") from exc
 
-        url = self._prepare_url().copy_with(
-            params={
-                **self.__client.base_url.params,
-                **extra_query,
-            },
+        url = self._prepare_url()
+        url = url.copy_with(
+            params=httpx2.QueryParams(self.__client.qs.stringify(cast(Any, self.__client.default_query)))
+            .merge(url.params)
+            .merge(cast(Any, extra_query)),
         )
         url = url.copy_with(scheme={"http": "ws", "https": "wss"}.get(url.scheme, url.scheme))
         options = self.__client._prepare_options(
@@ -5208,7 +5201,8 @@ class ResponsesConnectionManager:
             ws_scheme = "ws" if scheme == "http" else "wss"
             base_url = self.__client._base_url.copy_with(scheme=ws_scheme)
 
-        merge_raw_path = base_url.raw_path.rstrip(b"/") + b"/responses"
+        path, separator, query = base_url.raw_path.partition(b"?")
+        merge_raw_path = path.rstrip(b"/") + b"/responses" + separator + query
         return base_url.copy_with(raw_path=merge_raw_path)
 
     def __exit__(

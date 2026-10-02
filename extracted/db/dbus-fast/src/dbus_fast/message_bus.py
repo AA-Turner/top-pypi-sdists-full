@@ -173,9 +173,9 @@ class BaseMessageBus:
 
     @property
     def connected(self) -> bool:
-        if self.unique_name is None or self._disconnected or self._user_disconnect:
-            return False
-        return True
+        return not (
+            self.unique_name is None or self._disconnected or self._user_disconnect
+        )
 
     def export(self, path: str, interface: ServiceInterface) -> None:
         """Export the service interface on this message bus to make it available
@@ -267,6 +267,10 @@ class BaseMessageBus:
 
         Calls the standard ``org.freedesktop.DBus.Introspectable.Introspect``
         on the bus for the path.
+
+        Interfaces on the returned node may be shared with other nodes parsed
+        from identical introspection data, so they must be treated as
+        read-only.
 
         :param bus_name: The name to introspect.
         :type bus_name: str
@@ -381,8 +385,8 @@ class BaseMessageBus:
         self,
         name: str,
         flags: NameFlag = NameFlag.NONE,
-        callback: None
-        | (Callable[[RequestNameReply | None, Exception | None], None]) = None,
+        callback: Callable[[RequestNameReply | None, Exception | None], None]
+        | None = None,
         check_callback_type: bool = True,
     ) -> None:
         """Request that this message bus owns the given name.
@@ -434,8 +438,8 @@ class BaseMessageBus:
     def release_name(
         self,
         name: str,
-        callback: None
-        | (Callable[[ReleaseNameReply | None, Exception | None], None]) = None,
+        callback: Callable[[ReleaseNameReply | None, Exception | None], None]
+        | None = None,
         check_callback_type: bool = True,
     ) -> None:
         """Request that this message bus release the given name.
@@ -1020,7 +1024,7 @@ class BaseMessageBus:
         def is_result_complete() -> bool:
             if not result:
                 return True
-            for n, interfaces in result.items():
+            for interfaces in result.values():
                 for value in interfaces.values():
                     if value is None:
                         return False

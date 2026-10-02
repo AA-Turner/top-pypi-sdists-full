@@ -28,6 +28,99 @@ def test_credentials_base_url_and_auth() -> None:
 
 
 @pytest.mark.unit
+def test_request_422_error_includes_only_safe_details(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Response:
+        status_code = 422
+
+        def json(self) -> dict[str, object]:
+            return {
+                "error": "RecordInvalid",
+                "description": "Record validation errors",
+                "details": {
+                    "requester": [
+                        {
+                            "error": "InvalidValue",
+                            "description": "Requester: jane@example.com is invalid",
+                        }
+                    ],
+                    "assignee": [{"error": "Blank"}],
+                },
+            }
+
+    monkeypatch.setattr(
+        zendesk_api.requests,
+        "request",
+        lambda *args, **kwargs: _Response(),
+    )
+    creds = ZendeskCredentials(subdomain="s", email="e@a.io", api_token="t")
+
+    with pytest.raises(ZendeskAPIError) as exc_info:
+        zendesk_api._request(creds, "POST", "/tickets.json")
+
+    message = str(exc_info.value)
+    assert "Error: RecordInvalid" in message
+    assert "requester (InvalidValue)" in message
+    assert "assignee (Blank)" in message
+    assert "jane@example.com" not in message
+    assert "is invalid" not in message
+
+
+@pytest.mark.unit
+def test_request_non_json_error_has_no_summary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Response:
+        status_code = 500
+
+        def json(self) -> dict[str, object]:
+            raise ValueError("not JSON")
+
+    monkeypatch.setattr(
+        zendesk_api.requests,
+        "request",
+        lambda *args, **kwargs: _Response(),
+    )
+    creds = ZendeskCredentials(subdomain="s", email="e@a.io", api_token="t")
+
+    with pytest.raises(ZendeskAPIError) as exc_info:
+        zendesk_api._request(creds, "POST", "/tickets.json")
+
+    assert str(exc_info.value) == "Zendesk POST /tickets.json failed with status 500."
+
+
+@pytest.mark.unit
+def test_request_error_drops_unsafe_detail_field_names(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Response:
+        status_code = 422
+
+        def json(self) -> dict[str, object]:
+            return {
+                "details": {
+                    "jane@example.com": [{"error": "InvalidValue"}],
+                    "requester": [{"error": "InvalidValue"}],
+                }
+            }
+
+    monkeypatch.setattr(
+        zendesk_api.requests,
+        "request",
+        lambda *args, **kwargs: _Response(),
+    )
+    creds = ZendeskCredentials(subdomain="s", email="e@a.io", api_token="t")
+
+    with pytest.raises(ZendeskAPIError) as exc_info:
+        zendesk_api._request(creds, "POST", "/tickets.json")
+
+    message = str(exc_info.value)
+    assert "jane@example.com" not in message
+    assert "Fields: requester (InvalidValue)." in message
+
+
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "env,expected_missing",
     [

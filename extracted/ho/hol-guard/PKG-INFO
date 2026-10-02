@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hol-guard
-Version: 3.15.1
+Version: 3.16.5
 Summary: Open-source antivirus and runtime protection for AI agents, tools, MCP servers, plugins, skills, and package installs.
 Project-URL: Homepage, https://hol.org/guard
 Project-URL: Security, https://hol.org/guard/security
@@ -33,12 +33,12 @@ Requires-Dist: jsonschema>=4.26.0
 Requires-Dist: keyring>=25.0
 Requires-Dist: mcp<2,>=1.28.1; python_version >= '3.10'
 Requires-Dist: packaging>=24.0
-Requires-Dist: publicsuffixlist==1.0.2.20260726
 Requires-Dist: pyyaml>=6.0.3
 Requires-Dist: regex<2027,>=2025.0.0
 Requires-Dist: requests<3,>=2.32
 Requires-Dist: rich<15,>=14.0
 Requires-Dist: tomli>=2.0; python_version < '3.11'
+Requires-Dist: typing-extensions>=4.15.0
 Provides-Extra: cisco
 Requires-Dist: cisco-ai-skill-scanner~=2.0.12; extra == 'cisco'
 Requires-Dist: litellm==1.93.2; (python_version < '3.15') and extra == 'cisco'

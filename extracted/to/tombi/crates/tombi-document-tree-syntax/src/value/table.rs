@@ -9,51 +9,51 @@ use crate::{
 use tombi_document_tree::TableKind;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Table {
+pub struct Table<'t> {
     kind: TableKind,
-    range: tombi_text::Range,
-    symbol_range: tombi_text::Range,
-    key_values: tombi_hashmap::IndexMap<Key, Value>,
+    span: tombi_text::Span,
+    symbol_span: tombi_text::Span,
+    key_values: tombi_hashmap::IndexMap<Key<'t>, Value<'t>>,
     pub(crate) header_comment_directives: Option<Vec<TombiValueCommentDirective>>,
     pub(crate) body_comment_directives: Option<Vec<TombiValueCommentDirective>>,
     pub(crate) group_boundary_comment_directives: Option<Vec<TombiValueCommentDirective>>,
 }
 
-impl Table {
+impl<'t> Table<'t> {
     pub(crate) fn new_empty() -> Self {
         Self {
             kind: TableKind::Table,
             key_values: Default::default(),
-            range: tombi_text::Range::default(),
-            symbol_range: tombi_text::Range::default(),
+            span: tombi_text::Span::default(),
+            symbol_span: tombi_text::Span::default(),
             header_comment_directives: None,
             body_comment_directives: None,
             group_boundary_comment_directives: None,
         }
     }
 
-    pub(crate) fn new_root(node: &tombi_ast_syntax::Root) -> Self {
+    pub(crate) fn new_root(node: &tombi_ast_syntax::Root<'t>) -> Self {
         Self {
             kind: TableKind::Root,
             key_values: Default::default(),
-            range: node.syntax().range(),
-            symbol_range: node.syntax().range(),
+            span: node.syntax().span(),
+            symbol_span: node.syntax().span(),
             header_comment_directives: None,
             body_comment_directives: None,
             group_boundary_comment_directives: None,
         }
     }
 
-    pub(crate) fn new_table(node: &tombi_ast_syntax::Table) -> Self {
+    pub(crate) fn new_table(node: &tombi_ast_syntax::Table<'t>) -> Self {
         Self {
             kind: TableKind::Table,
             key_values: Default::default(),
-            range: node.syntax().range(),
-            symbol_range: tombi_text::Range::new(
+            span: node.syntax().span(),
+            symbol_span: tombi_text::Span::new(
                 node.bracket_start()
-                    .map(|bracket| bracket.range().start)
-                    .unwrap_or_else(|| node.range().start),
-                node.range().end,
+                    .map(|bracket| bracket.span().start)
+                    .unwrap_or_else(|| node.span().start),
+                node.span().end,
             ),
             header_comment_directives: None,
             body_comment_directives: None,
@@ -61,16 +61,16 @@ impl Table {
         }
     }
 
-    pub(crate) fn new_array_of_table(node: &tombi_ast_syntax::ArrayOfTable) -> Self {
+    pub(crate) fn new_array_of_table(node: &tombi_ast_syntax::ArrayOfTable<'t>) -> Self {
         Self {
             kind: TableKind::Table,
             key_values: Default::default(),
-            range: node.syntax().range(),
-            symbol_range: tombi_text::Range::new(
+            span: node.syntax().span(),
+            symbol_span: tombi_text::Span::new(
                 node.double_bracket_start()
-                    .map(|bracket| bracket.range().start)
-                    .unwrap_or_else(|| node.range().start),
-                node.range().end,
+                    .map(|bracket| bracket.span().start)
+                    .unwrap_or_else(|| node.span().start),
+                node.span().end,
             ),
             header_comment_directives: None,
             body_comment_directives: None,
@@ -78,35 +78,35 @@ impl Table {
         }
     }
 
-    pub(crate) fn new_inline_table(node: &tombi_ast_syntax::InlineTable) -> Self {
+    pub(crate) fn new_inline_table(node: &tombi_ast_syntax::InlineTable<'t>) -> Self {
         let has_comment = node.brace_start_trailing_comment().is_some()
             || node.dangling_comment_groups().next().is_some()
             || node.has_inner_comments();
 
-        let symbol_range = tombi_text::Range::new(
+        let symbol_span = tombi_text::Span::new(
             node.brace_start()
-                .map_or_else(|| node.range().start, |brace| brace.range().start),
+                .map_or_else(|| node.span().start, |brace| brace.span().start),
             node.brace_end()
-                .map_or_else(|| node.range().end, |brace| brace.range().end),
+                .map_or_else(|| node.span().end, |brace| brace.span().end),
         );
 
         Self {
             kind: TableKind::InlineTable { has_comment },
             key_values: Default::default(),
-            range: node.syntax().range(),
-            symbol_range,
+            span: node.syntax().span(),
+            symbol_span,
             header_comment_directives: None,
             body_comment_directives: None,
             group_boundary_comment_directives: None,
         }
     }
 
-    pub(crate) fn new_key_value(node: &tombi_ast_syntax::KeyValue) -> Self {
+    pub(crate) fn new_key_value(node: &tombi_ast_syntax::KeyValue<'t>) -> Self {
         Self {
             kind: TableKind::KeyValue,
             key_values: Default::default(),
-            range: node.syntax().range(),
-            symbol_range: node.syntax().range(),
+            span: node.syntax().span(),
+            symbol_span: node.syntax().span(),
             header_comment_directives: None,
             body_comment_directives: None,
             group_boundary_comment_directives: None,
@@ -117,20 +117,20 @@ impl Table {
         Self {
             kind: TableKind::ParentTable,
             key_values: Default::default(),
-            range: self.range,
-            symbol_range: self.symbol_range,
+            span: self.span,
+            symbol_span: self.symbol_span,
             header_comment_directives: self.header_comment_directives.clone(),
             body_comment_directives: None,
             group_boundary_comment_directives: None,
         }
     }
 
-    pub(crate) fn new_parent_key(&self, parent_key: &Key) -> Self {
+    pub(crate) fn new_parent_key(&self, parent_key: &Key<'t>) -> Self {
         Self {
             kind: TableKind::ParentKey,
             key_values: Default::default(),
-            range: tombi_text::Range::new(parent_key.range().start, self.range.end),
-            symbol_range: tombi_text::Range::new(parent_key.range().start, self.symbol_range.end),
+            span: tombi_text::Span::new(parent_key.span().start, self.span.end),
+            symbol_span: tombi_text::Span::new(parent_key.span().start, self.symbol_span.end),
             header_comment_directives: parent_key.comment_directives.clone(),
             body_comment_directives: None,
             group_boundary_comment_directives: None,
@@ -180,17 +180,17 @@ impl Table {
     }
 
     #[inline]
-    pub fn keys(&self) -> impl Iterator<Item = &Key> {
+    pub fn keys(&self) -> impl Iterator<Item = &Key<'t>> {
         self.key_values.keys()
     }
 
     #[inline]
-    pub fn values(&self) -> impl Iterator<Item = &Value> {
+    pub fn values(&self) -> impl Iterator<Item = &Value<'t>> {
         self.key_values.values()
     }
 
     #[inline]
-    pub fn key_values(&self) -> &tombi_hashmap::IndexMap<Key, Value> {
+    pub fn key_values(&self) -> &tombi_hashmap::IndexMap<Key<'t>, Value<'t>> {
         &self.key_values
     }
 
@@ -202,8 +202,10 @@ impl Table {
         let mut is_conflict = false;
         match (self.kind, other.kind) {
             (KeyValue, KeyValue) => {
-                for (self_key, self_value) in self.key_values() {
-                    if let Some(other_value) = other.key_values.get(self_key)
+                // Iterate `other` and look up in `self`: `other` is typically small
+                // (a single key-value) while `self` can be the huge root table.
+                for (other_key, other_value) in other.key_values() {
+                    if let Some(self_value) = self.key_values.get(other_key)
                         && match (self_value, other_value) {
                             (Value::Table(table1), _) => {
                                 matches!(table1.kind(), TableKind::InlineTable { .. })
@@ -236,14 +238,14 @@ impl Table {
 
         if is_conflict {
             errors.push(crate::Error::ConflictTable {
-                range1: self.symbol_range,
-                range2: other.symbol_range,
+                range1: self.symbol_span,
+                range2: other.symbol_span,
             });
             return Err(errors);
         }
 
-        self.range += other.range;
-        self.symbol_range += other.symbol_range;
+        self.span += other.span;
+        self.symbol_span += other.symbol_span;
 
         // Merge the key_values of the two tables recursively
         for (key, value2) in other.key_values {
@@ -264,10 +266,10 @@ impl Table {
                             }
                         }
                         _ => {
-                            let range = key.range();
+                            let span = key.span();
                             errors.push(crate::Error::DuplicateKey {
                                 key: key.value.into_string(),
-                                range,
+                                span,
                             });
                         }
                     }
@@ -285,7 +287,11 @@ impl Table {
         }
     }
 
-    pub(crate) fn insert(mut self, key: Key, value: Value) -> Result<Self, Vec<crate::Error>> {
+    pub(crate) fn insert(
+        mut self,
+        key: Key<'t>,
+        value: Value<'t>,
+    ) -> Result<Self, Vec<crate::Error>> {
         let mut errors = Vec::new();
 
         match self.key_values.entry(key) {
@@ -307,7 +313,7 @@ impl Table {
                     _ => {
                         errors.push(crate::Error::DuplicateKey {
                             key: entry.key().value.to_string(),
-                            range: entry.key().range(),
+                            span: entry.key().span(),
                         });
                     }
                 }
@@ -324,66 +330,66 @@ impl Table {
         }
     }
 
-    pub fn entry(&mut self, key: Key) -> tombi_hashmap::map::Entry<'_, Key, Value> {
+    pub fn entry(&mut self, key: Key<'t>) -> tombi_hashmap::map::Entry<'_, Key<'t>, Value<'t>> {
         self.key_values.entry(key)
     }
 
-    pub fn get<K>(&self, key: &K) -> Option<&Value>
+    pub fn get<K>(&self, key: &K) -> Option<&Value<'t>>
     where
-        K: ?Sized + std::hash::Hash + tombi_hashmap::Equivalent<Key>,
+        K: ?Sized + std::hash::Hash + tombi_hashmap::Equivalent<Key<'t>>,
     {
         self.key_values.get(key)
     }
 
-    pub fn get_mut<K>(&mut self, key: &K) -> Option<&mut Value>
+    pub fn get_mut<K>(&mut self, key: &K) -> Option<&mut Value<'t>>
     where
-        K: ?Sized + std::hash::Hash + tombi_hashmap::Equivalent<Key>,
+        K: ?Sized + std::hash::Hash + tombi_hashmap::Equivalent<Key<'t>>,
     {
         self.key_values.get_mut(key)
     }
 
-    pub fn get_key_value<K>(&self, key: &K) -> Option<(&Key, &Value)>
+    pub fn get_key_value<K>(&self, key: &K) -> Option<(&Key<'t>, &Value<'t>)>
     where
-        K: ?Sized + std::hash::Hash + tombi_hashmap::Equivalent<Key>,
+        K: ?Sized + std::hash::Hash + tombi_hashmap::Equivalent<Key<'t>>,
     {
         self.key_values.get_key_value(key)
     }
 
-    pub fn get_key_value_mut<K>(&mut self, key: &K) -> Option<(&Key, &mut Value)>
+    pub fn get_key_value_mut<K>(&mut self, key: &K) -> Option<(&Key<'t>, &mut Value<'t>)>
     where
-        K: ?Sized + std::hash::Hash + tombi_hashmap::Equivalent<Key>,
+        K: ?Sized + std::hash::Hash + tombi_hashmap::Equivalent<Key<'t>>,
     {
         self.key_values
             .get_full_mut(key)
             .map(|(_, key, value)| (key, value))
     }
 
-    pub fn get_full<K>(&self, key: &K) -> Option<(usize, &Key, &Value)>
+    pub fn get_full<K>(&self, key: &K) -> Option<(usize, &Key<'t>, &Value<'t>)>
     where
-        K: ?Sized + std::hash::Hash + tombi_hashmap::Equivalent<Key>,
+        K: ?Sized + std::hash::Hash + tombi_hashmap::Equivalent<Key<'t>>,
     {
         self.key_values.get_full(key)
     }
 
-    pub fn get_full_mut<K>(&mut self, key: &K) -> Option<(usize, &Key, &mut Value)>
+    pub fn get_full_mut<K>(&mut self, key: &K) -> Option<(usize, &Key<'t>, &mut Value<'t>)>
     where
-        K: ?Sized + std::hash::Hash + tombi_hashmap::Equivalent<Key>,
+        K: ?Sized + std::hash::Hash + tombi_hashmap::Equivalent<Key<'t>>,
     {
         self.key_values.get_full_mut(key)
     }
 
     pub fn get_index_of<K>(&self, key: &K) -> Option<usize>
     where
-        K: ?Sized + std::hash::Hash + tombi_hashmap::Equivalent<Key>,
+        K: ?Sized + std::hash::Hash + tombi_hashmap::Equivalent<Key<'t>>,
     {
         self.key_values.get_index_of(key)
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&Key, &mut Value)> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&Key<'t>, &mut Value<'t>)> {
         self.key_values.iter_mut()
     }
 
-    pub fn iter_mut2(&mut self) -> impl Iterator<Item = (&mut Key, &mut Value)> {
+    pub fn iter_mut2(&mut self) -> impl Iterator<Item = (&mut Key<'t>, &mut Value<'t>)> {
         tombi_hashmap::map::MutableKeys::iter_mut2(&mut self.key_values)
     }
 
@@ -403,22 +409,22 @@ impl Table {
     }
 
     #[inline]
-    pub fn range(&self) -> tombi_text::Range {
-        self.range
+    pub fn span(&self) -> tombi_text::Span {
+        self.span
     }
 
     #[inline]
-    pub fn symbol_range(&self) -> tombi_text::Range {
-        self.symbol_range
+    pub fn symbol_span(&self) -> tombi_text::Span {
+        self.symbol_span
     }
 }
 
 #[inline]
-fn can_merge_arrays(array1: &Array, array2: &Array) -> bool {
+fn can_merge_arrays<'t>(array1: &Array<'t>, array2: &Array<'t>) -> bool {
     array1.kind() != ArrayKind::Array && array2.kind() != ArrayKind::Array
 }
 
-impl std::fmt::Display for Table {
+impl<'t> std::fmt::Display for Table<'t> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -435,27 +441,27 @@ impl std::fmt::Display for Table {
     }
 }
 
-impl From<Table> for tombi_hashmap::IndexMap<Key, Value> {
-    fn from(table: Table) -> tombi_hashmap::IndexMap<Key, Value> {
+impl<'t> From<Table<'t>> for tombi_hashmap::IndexMap<Key<'t>, Value<'t>> {
+    fn from(table: Table<'t>) -> tombi_hashmap::IndexMap<Key<'t>, Value<'t>> {
         table.key_values
     }
 }
 
-impl ValueImpl for Table {
+impl<'t> ValueImpl for Table<'t> {
     fn value_type(&self) -> ValueType {
         ValueType::Table
     }
 
-    fn range(&self) -> tombi_text::Range {
-        self.range()
+    fn span(&self) -> tombi_text::Span {
+        self.span()
     }
 }
 
-impl IntoDocumentTreeWithContext<crate::Table> for tombi_ast_syntax::Table {
+impl<'t> IntoDocumentTreeWithContext<'t, crate::Table<'t>> for tombi_ast_syntax::Table<'t> {
     fn into_document_tree_with_context(
         self,
-        context: &crate::DocumentTreeContext,
-    ) -> DocumentTreeAndErrors<crate::Table> {
+        context: &crate::DocumentTreeContext<'t>,
+    ) -> DocumentTreeAndErrors<crate::Table<'t>> {
         let mut table = Table::new_table(&self);
         let mut errors = vec![];
 
@@ -504,9 +510,7 @@ impl IntoDocumentTreeWithContext<crate::Table> for tombi_ast_syntax::Table {
         let empty_table = table.clone();
 
         let Some(header_keys) = self.header() else {
-            errors.push(crate::Error::IncompleteNode {
-                range: self.range(),
-            });
+            errors.push(crate::Error::IncompleteNode { span: self.span() });
             return DocumentTreeAndErrors {
                 tree: empty_table,
                 errors,
@@ -550,11 +554,7 @@ impl IntoDocumentTreeWithContext<crate::Table> for tombi_ast_syntax::Table {
             }
         }
 
-        let array_of_table_keys = get_array_of_tables_keys(
-            self.parent_array_of_tables_keys(context.toml_version),
-            context,
-            &mut errors,
-        );
+        let parent_array_of_tables_counts = self.parent_array_of_tables_prefix_counts();
 
         let mut is_array_of_table = false;
         while let Some(mut key) = header_keys.pop() {
@@ -569,7 +569,8 @@ impl IntoDocumentTreeWithContext<crate::Table> for tombi_ast_syntax::Table {
                 errors.extend(errs);
             };
 
-            is_array_of_table = array_of_table_keys.contains(&header_keys);
+            is_array_of_table =
+                is_parent_array_of_tables(&parent_array_of_tables_counts, header_keys.len());
         }
 
         DocumentTreeAndErrors {
@@ -579,11 +580,11 @@ impl IntoDocumentTreeWithContext<crate::Table> for tombi_ast_syntax::Table {
     }
 }
 
-impl IntoDocumentTreeWithContext<Table> for tombi_ast_syntax::ArrayOfTable {
+impl<'t> IntoDocumentTreeWithContext<'t, Table<'t>> for tombi_ast_syntax::ArrayOfTable<'t> {
     fn into_document_tree_with_context(
         self,
-        context: &crate::DocumentTreeContext,
-    ) -> DocumentTreeAndErrors<Table> {
+        context: &crate::DocumentTreeContext<'t>,
+    ) -> DocumentTreeAndErrors<Table<'t>> {
         let mut table = Table::new_array_of_table(&self);
         let mut errors = vec![];
 
@@ -631,9 +632,7 @@ impl IntoDocumentTreeWithContext<Table> for tombi_ast_syntax::ArrayOfTable {
         let empty_table = table.clone();
 
         let Some(header_keys) = self.header() else {
-            errors.push(crate::Error::IncompleteNode {
-                range: self.range(),
-            });
+            errors.push(crate::Error::IncompleteNode { span: self.span() });
 
             return DocumentTreeAndErrors {
                 tree: empty_table,
@@ -679,8 +678,7 @@ impl IntoDocumentTreeWithContext<Table> for tombi_ast_syntax::ArrayOfTable {
             }
         }
 
-        let array_of_table_keys =
-            get_array_of_tables_keys(self.parent_array_of_tables_keys(), context, &mut errors);
+        let parent_array_of_tables_counts = self.parent_array_of_tables_prefix_counts();
 
         if let Some(mut key) = header_keys.pop() {
             key.comment_directives = table.header_comment_directives.take();
@@ -689,7 +687,8 @@ impl IntoDocumentTreeWithContext<Table> for tombi_ast_syntax::ArrayOfTable {
             }
         }
 
-        let mut is_array_of_table = array_of_table_keys.contains(&header_keys);
+        let mut is_array_of_table =
+            is_parent_array_of_tables(&parent_array_of_tables_counts, header_keys.len());
         while let Some(key) = header_keys.pop() {
             if is_array_of_table {
                 if let Err(errs) =
@@ -701,7 +700,8 @@ impl IntoDocumentTreeWithContext<Table> for tombi_ast_syntax::ArrayOfTable {
                 errors.extend(errs);
             };
 
-            is_array_of_table = array_of_table_keys.contains(&header_keys);
+            is_array_of_table =
+                is_parent_array_of_tables(&parent_array_of_tables_counts, header_keys.len());
         }
 
         DocumentTreeAndErrors {
@@ -711,11 +711,11 @@ impl IntoDocumentTreeWithContext<Table> for tombi_ast_syntax::ArrayOfTable {
     }
 }
 
-impl IntoDocumentTreeWithContext<Table> for tombi_ast_syntax::TableOrArrayOfTable {
+impl<'t> IntoDocumentTreeWithContext<'t, Table<'t>> for tombi_ast_syntax::TableOrArrayOfTable<'t> {
     fn into_document_tree_with_context(
         self,
-        context: &crate::DocumentTreeContext,
-    ) -> DocumentTreeAndErrors<Table> {
+        context: &crate::DocumentTreeContext<'t>,
+    ) -> DocumentTreeAndErrors<Table<'t>> {
         match self {
             tombi_ast_syntax::TableOrArrayOfTable::Table(table) => {
                 table.into_document_tree_with_context(context)
@@ -727,11 +727,11 @@ impl IntoDocumentTreeWithContext<Table> for tombi_ast_syntax::TableOrArrayOfTabl
     }
 }
 
-impl IntoDocumentTreeWithContext<Table> for tombi_ast_syntax::KeyValue {
+impl<'t> IntoDocumentTreeWithContext<'t, Table<'t>> for tombi_ast_syntax::KeyValue<'t> {
     fn into_document_tree_with_context(
         self,
-        context: &crate::DocumentTreeContext,
-    ) -> DocumentTreeAndErrors<Table> {
+        context: &crate::DocumentTreeContext<'t>,
+    ) -> DocumentTreeAndErrors<Table<'t>> {
         let mut table = Table::new_key_value(&self);
         let mut errors = Vec::new();
 
@@ -752,9 +752,7 @@ impl IntoDocumentTreeWithContext<Table> for tombi_ast_syntax::KeyValue {
         let empty_table = table.clone();
 
         let Some(keys) = self.keys() else {
-            errors.push(crate::Error::IncompleteNode {
-                range: self.range(),
-            });
+            errors.push(crate::Error::IncompleteNode { span: self.span() });
             return DocumentTreeAndErrors {
                 tree: empty_table,
                 errors,
@@ -794,18 +792,16 @@ impl IntoDocumentTreeWithContext<Table> for tombi_ast_syntax::KeyValue {
                 value
             }
             None => {
-                errors.push(crate::Error::IncompleteNode {
-                    range: table.range(),
-                });
+                errors.push(crate::Error::IncompleteNode { span: table.span() });
                 Value::Incomplete {
-                    range: tombi_text::Range::at(self.range().end),
+                    span: tombi_text::Span::empty(self.span().end),
                 }
             }
         };
 
         let mut table = if let Some(mut key) = keys.pop() {
-            table.range = key.range() + value.range();
-            table.symbol_range = key.range() + value.symbol_range();
+            table.span = key.span() + value.span();
+            table.symbol_span = key.span() + value.symbol_span();
             if !combined_comment_directives.is_empty() {
                 key.comment_directives = Some(combined_comment_directives.clone());
             }
@@ -852,11 +848,11 @@ impl IntoDocumentTreeWithContext<Table> for tombi_ast_syntax::KeyValue {
     }
 }
 
-impl IntoDocumentTreeWithContext<crate::Value> for tombi_ast_syntax::InlineTable {
+impl<'t> IntoDocumentTreeWithContext<'t, crate::Value<'t>> for tombi_ast_syntax::InlineTable<'t> {
     fn into_document_tree_with_context(
         self,
-        context: &crate::DocumentTreeContext,
-    ) -> DocumentTreeAndErrors<crate::Value> {
+        context: &crate::DocumentTreeContext<'t>,
+    ) -> DocumentTreeAndErrors<crate::Value<'t>> {
         let mut table = Table::new_inline_table(&self);
         let table_kind = table.kind;
         let mut errors = vec![];
@@ -986,14 +982,14 @@ impl IntoDocumentTreeWithContext<crate::Value> for tombi_ast_syntax::InlineTable
     }
 }
 
-impl<T> IntoDocumentTreeWithContext<crate::Table> for Vec<T>
+impl<'t, T> IntoDocumentTreeWithContext<'t, crate::Table<'t>> for Vec<T>
 where
-    T: IntoDocumentTreeWithContext<crate::Table>,
+    T: IntoDocumentTreeWithContext<'t, crate::Table<'t>>,
 {
     fn into_document_tree_with_context(
         self,
-        context: &crate::DocumentTreeContext,
-    ) -> DocumentTreeAndErrors<crate::Table> {
+        context: &crate::DocumentTreeContext<'t>,
+    ) -> DocumentTreeAndErrors<crate::Table<'t>> {
         let mut errors = Vec::new();
         let tables = self
             .into_iter()
@@ -1020,59 +1016,38 @@ where
     }
 }
 
-impl<T> crate::IntoDocumentTreeAndErrors<crate::Table> for Vec<T>
+impl<'t, T> crate::IntoDocumentTreeAndErrors<'t, crate::Table<'t>> for Vec<T>
 where
-    T: tombi_ast_syntax::AstNode + IntoDocumentTreeWithContext<crate::Table>,
+    T: IntoDocumentTreeWithContext<'t, crate::Table<'t>>,
 {
     fn into_document_tree_and_errors(
         self,
         toml_version: tombi_toml_version::TomlVersion,
-    ) -> DocumentTreeAndErrors<crate::Table> {
-        let Some(first) = self.first() else {
-            return DocumentTreeAndErrors {
-                tree: Table::new_empty(),
-                errors: Vec::new(),
-            };
-        };
-        let context = crate::DocumentTreeContext::new(first.syntax(), toml_version);
+        decoded: &'t crate::DecodedTextResolver,
+    ) -> DocumentTreeAndErrors<crate::Table<'t>> {
+        let context = crate::DocumentTreeContext::new(toml_version, decoded);
         self.into_document_tree_with_context(&context)
     }
 }
 
-impl IntoIterator for Table {
-    type Item = (Key, Value);
-    type IntoIter = tombi_hashmap::map::IntoIter<Key, Value>;
+impl<'t> IntoIterator for Table<'t> {
+    type Item = (Key<'t>, Value<'t>);
+    type IntoIter = tombi_hashmap::map::IntoIter<Key<'t>, Value<'t>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.key_values.into_iter()
     }
 }
 
-fn get_array_of_tables_keys(
-    keys_iter: impl Iterator<Item = tombi_ast_syntax::Keys>,
-    context: &crate::DocumentTreeContext,
-    errors: &mut Vec<crate::Error>,
-) -> Vec<Vec<Key>> {
-    keys_iter
-        .filter_map(|keys| {
-            let mut new_keys = vec![];
-            for key in keys.keys() {
-                let (key, errs) = key.into_document_tree_with_context(context).into();
-                if !errs.is_empty() {
-                    errors.extend(errs);
-                    return None;
-                }
-                if let Some(key) = key {
-                    new_keys.push(key);
-                }
-            }
-            Some(new_keys)
-        })
-        .unique()
-        .collect_vec()
+/// Whether the header prefix of `prefix_len` keys is a parent `[[array_of_tables]]`.
+fn is_parent_array_of_tables(counts: &[usize], prefix_len: usize) -> bool {
+    prefix_len
+        .checked_sub(1)
+        .and_then(|i| counts.get(i))
+        .is_some_and(|count| *count > 0)
 }
 
-fn insert_table(table: &mut Table, key: Key) -> Result<(), Vec<crate::Error>> {
+fn insert_table<'t>(table: &mut Table<'t>, key: Key<'t>) -> Result<(), Vec<crate::Error>> {
     let new_table = table.new_parent_table();
     match table
         .new_parent_table()
@@ -1086,10 +1061,10 @@ fn insert_table(table: &mut Table, key: Key) -> Result<(), Vec<crate::Error>> {
     }
 }
 
-fn insert_array_of_tables(
-    table: &mut Table,
-    key: Key,
-    new_array_of_tables_fn: impl Fn(&Table) -> Array,
+fn insert_array_of_tables<'t>(
+    table: &mut Table<'t>,
+    key: Key<'t>,
+    new_array_of_tables_fn: impl Fn(&Table<'t>) -> Array<'t>,
 ) -> Result<(), Vec<crate::Error>> {
     let mut array = new_array_of_tables_fn(table);
     let new_table = table.new_parent_table();
@@ -1104,9 +1079,9 @@ fn insert_array_of_tables(
     }
 }
 
-fn append_header_comment_directives(
-    table: &mut Table,
-    mut keys: impl Iterator<Item = tombi_ast_syntax::Key>,
+fn append_header_comment_directives<'t>(
+    table: &mut Table<'t>,
+    mut keys: impl Iterator<Item = tombi_ast_syntax::Key<'t>>,
     header_comment_directives: &Vec<TombiValueCommentDirective>,
 ) {
     // Get the next key in the path

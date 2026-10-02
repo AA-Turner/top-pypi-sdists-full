@@ -30,6 +30,7 @@ from typing import (
     Tuple,
     Type,
     TYPE_CHECKING,
+    TypeGuard,
     TypeVar,
     Union,
     cast,
@@ -45,11 +46,6 @@ if TYPE_CHECKING:
         OpenBinaryModeWriting,
         OpenTextMode,
     )
-
-if sys.version_info >= (3, 10):
-    from typing import TypeGuard
-else:
-    from typing_extensions import TypeGuard
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -337,10 +333,14 @@ class CloudPath(metaclass=CloudPathMeta):
         if "_client" in state:
             del state["_client"]
 
+        # urllib.parse.ParseResult can be rebuilt from the cloud path string.
+        state.pop("_url", None)
+
         return state
 
     def __setstate__(self, state: Dict[str, Any]) -> None:
         self.__dict__.update(state)
+        self._url = urlparse(self._str)
 
     @property
     def _no_prefix(self) -> str:
@@ -444,7 +444,12 @@ class CloudPath(metaclass=CloudPathMeta):
 
     @abc.abstractmethod
     def mkdir(
-        self, parents: bool = False, exist_ok: bool = False, mode: Optional[Any] = None
+        self,
+        parents: bool = False,
+        exist_ok: bool = False,
+        mode: Optional[Any] = None,
+        *,
+        parent_mode: Optional[Any] = None,
     ) -> None:
         """Should be implemented using the client API without requiring a dir is downloaded"""
         pass
@@ -845,9 +850,11 @@ class CloudPath(metaclass=CloudPathMeta):
                     return
 
                 # original mtime should match what was in the cloud; because of system clocks or rounding
-                # by the cloud provider, the new version in our cache is "older" than the original version;
-                # explicitly set the new modified time to be after the original modified time.
-                if self._local.stat().st_mtime < original_mtime:
+                # by the cloud provider, the new version in our cache is not newer than the original
+                # version; explicitly set the new modified time to be after the original modified
+                # time. Equal mtimes need the same treatment as older ones: we know this file was
+                # written, and the upload requires the local file to be strictly newer.
+                if self._local.stat().st_mtime <= original_mtime:
                     new_mtime = original_mtime + 1
                     os.utime(self._local, times=(new_mtime, new_mtime))
 
@@ -1127,11 +1134,7 @@ class CloudPath(metaclass=CloudPathMeta):
         return self._dispatch_to_path("suffixes")
 
     def with_stem(self, stem: str) -> Self:
-        try:
-            return self._dispatch_to_path("with_stem", stem)
-        except AttributeError:
-            # with_stem was only added in python 3.9, so we fallback for compatibility
-            return self.with_name(stem + self.suffix)
+        return self._dispatch_to_path("with_stem", stem)
 
     def with_name(self, name: str) -> Self:
         return self._dispatch_to_path("with_name", name)

@@ -1,0 +1,84 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "html2pdf4doc/__init__.py"
+
+[tool.hatch.build]
+# Currently unused:
+# We want html2pdf4doc.min.js to be gitignored, but we want it to make into the dist/
+# folder, into both tar.gz and .whl when the Pip package is built.
+# This option prevents Hatch from using .gitignore to exclude files.
+# ignore-vcs = true
+
+include = [
+    "html2pdf4doc/*.py",
+    "html2pdf4doc/html2pdf4doc_js/html2pdf4doc.min.js",
+]
+
+exclude = [
+    "/submodules",
+    "/tests",
+]
+
+[project]
+name = "html2pdf4doc"
+dynamic = ["version"]
+description = "Python client for HTML2PDF4Doc JavaScript library."
+readme = "README.md"
+license = { text = "Apache-2.0" }
+license-files = [ "LICENSE" ]
+requires-python = ">=3.8"
+authors = [
+    { name = "Stanislav Pankevich", email = "s.pankevich@gmail.com" },
+    { name = "Maryna Balioura", email = "mettta@gmail.com" },
+]
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+
+dependencies = [
+    "selenium",
+
+    # Currently only used for detecting a local Chrome installation.
+    "webdriver-manager",
+
+    # requests is used for downloading the Chrome driver.
+    "requests",
+
+    # pypdf is used for validating the printed PDF.
+    "pypdf>=3.9.0",
+]
+
+[project.optional-dependencies]
+development = [
+    # Development tasks
+    "invoke>=1.4.1",
+    "tox>=4.4.8",
+]
+
+[project.scripts]
+html2pdf4doc = "html2pdf4doc.main:main"
+html2pdf4doc_fuzzer = "html2pdf4doc.main_fuzzer:main"
+
+[project.urls]
+Changelog = "https://github.com/mettta/html2pdf_python/releases/"
+Homepage = "https://github.com/mettta/html2pdf_python/"
+Source = "https://github.com/mettta/html2pdf_python/"
+
+[tool.pytest.ini_options]
+addopts = "--import-mode=importlib"
+pythonpath = [
+  "."
+]

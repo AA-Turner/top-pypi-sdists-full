@@ -1,0 +1,83 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Pydantic models for injection effectiveness events and query results.
+
+These models correspond to the event payloads emitted by OMN-1889
+(omniclaude hooks) and consumed by OMN-1890 (this consumer), plus
+query result models added by OMN-2078.
+
+Event Types:
+    - ModelContextUtilizationEvent: Context utilization detection results
+    - ModelAgentMatchEvent: Agent routing accuracy metrics
+    - ModelLatencyBreakdownEvent: Per-prompt latency breakdowns
+    - ModelManifestInjectionLifecycleEvent: Manifest injection lifecycle audit trail (OMN-2942)
+    - ModelContextEnrichmentEvent: Context enrichment per-channel metrics (OMN-6158)
+    - ModelInjectionRecordedEvent: Injection tracking events (OMN-6158)
+
+Query Models (OMN-2078):
+    - ModelInjectionEffectivenessRow: Single row from injection_effectiveness table
+    - ModelLatencyBreakdownRow: Single row from latency_breakdowns table
+    - ModelPatternHitRateRow: Single row from pattern_hit_rates table
+    - ModelInjectionEffectivenessQuery: Query filter parameters
+    - ModelInjectionEffectivenessQueryResult: Paginated query result
+"""
+
+from omnibase_infra.services.observability.injection_effectiveness.models.model_agent_match import (
+    ModelAgentMatchEvent,
+)
+from omnibase_infra.services.observability.injection_effectiveness.models.model_batch_compute_result import (
+    ModelBatchComputeResult,
+)
+from omnibase_infra.services.observability.injection_effectiveness.models.model_context_enrichment import (
+    ModelContextEnrichmentEvent,
+)
+from omnibase_infra.services.observability.injection_effectiveness.models.model_context_utilization import (
+    ModelContextUtilizationEvent,
+)
+from omnibase_infra.services.observability.injection_effectiveness.models.model_injection_effectiveness_query import (
+    ModelInjectionEffectivenessQuery,
+)
+from omnibase_infra.services.observability.injection_effectiveness.models.model_injection_effectiveness_query_result import (
+    ModelInjectionEffectivenessQueryResult,
+)
+from omnibase_infra.services.observability.injection_effectiveness.models.model_injection_effectiveness_row import (
+    ModelInjectionEffectivenessRow,
+)
+from omnibase_infra.services.observability.injection_effectiveness.models.model_injection_recorded import (
+    ModelInjectionRecordedEvent,
+)
+from omnibase_infra.services.observability.injection_effectiveness.models.model_invalidation_event import (
+    ModelEffectivenessInvalidationEvent,
+)
+from omnibase_infra.services.observability.injection_effectiveness.models.model_latency_breakdown import (
+    ModelLatencyBreakdownEvent,
+)
+from omnibase_infra.services.observability.injection_effectiveness.models.model_latency_breakdown_row import (
+    ModelLatencyBreakdownRow,
+)
+from omnibase_infra.services.observability.injection_effectiveness.models.model_manifest_injection_lifecycle import (
+    ModelManifestInjectionLifecycleEvent,
+)
+from omnibase_infra.services.observability.injection_effectiveness.models.model_pattern_hit_rate_row import (
+    ModelPatternHitRateRow,
+)
+from omnibase_infra.services.observability.injection_effectiveness.models.model_pattern_utilization import (
+    ModelPatternUtilization,
+)
+
+__all__ = [
+    "ModelAgentMatchEvent",
+    "ModelBatchComputeResult",
+    "ModelContextEnrichmentEvent",
+    "ModelContextUtilizationEvent",
+    "ModelEffectivenessInvalidationEvent",
+    "ModelInjectionEffectivenessQuery",
+    "ModelInjectionEffectivenessQueryResult",
+    "ModelInjectionEffectivenessRow",
+    "ModelInjectionRecordedEvent",
+    "ModelLatencyBreakdownEvent",
+    "ModelLatencyBreakdownRow",
+    "ModelManifestInjectionLifecycleEvent",
+    "ModelPatternHitRateRow",
+    "ModelPatternUtilization",
+]

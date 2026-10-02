@@ -1,0 +1,289 @@
+"""Tests for CLI error handler.
+
+Tests error formatting and exit code handling for CLI output.
+"""
+
+from confiture.core.error_handler import (
+    _detect_error_context,
+    format_error_for_cli,
+    handle_cli_error,
+)
+from confiture.exceptions import (
+    ConfigurationError,
+    ConfiturError,
+    MigrationError,
+    SchemaError,
+)
+from confiture.models.error import ErrorSeverity
+
+
+class TestApplyFailureClassification:
+    """#159: a schema/seed *apply* failure must never be reported as a missing
+    directory. The ``*_DIR_NOT_FOUND`` contexts now require a real "missing"
+    signal in the message, so an apply failure falls through to SQL_SYNTAX_ERROR.
+    """
+
+    def test_schema_apply_failure_not_dir_not_found(self) -> None:
+        err = SchemaError(
+            "Schema application failed in temporary database: "
+            'psql failed applying SQL: syntax error at or near "COPY"'
+        )
+        detected = _detect_error_context(err)
+        assert detected != "SCHEMA_DIR_NOT_FOUND"
+        assert detected == "SQL_SYNTAX_ERROR"
+
+    def test_seed_apply_failure_not_seeds_dir_not_found(self) -> None:
+        err = SchemaError(
+            "Failed to apply seed file 02_data.sql: psql failed: syntax error at or near"
+        )
+        detected = _detect_error_context(err)
+        assert detected != "SEEDS_DIR_NOT_FOUND"
+        assert detected == "SQL_SYNTAX_ERROR"
+
+    def test_missing_schema_dir_still_classified(self) -> None:
+        err = SchemaError("Schema directory not found at db/schema")
+        assert _detect_error_context(err) == "SCHEMA_DIR_NOT_FOUND"
+
+    def test_missing_seed_dir_via_could_not_find_still_classified(self) -> None:
+        err = FileNotFoundError("Could not find seed directory at db/seeds")
+        assert _detect_error_context(err) == "SEEDS_DIR_NOT_FOUND"
+
+    def test_raw_oserror_no_such_file_classified_as_schema(self) -> None:
+        err = SchemaError("schema build failed: [Errno 2] No such file or directory")
+        assert _detect_error_context(err) == "SCHEMA_DIR_NOT_FOUND"
+
+    def test_empty_selection_is_not_a_missing_directory(self) -> None:
+        """#256: a selection that came out empty is not a missing directory.
+
+        The include directory exists and is full of files the patterns do not
+        match; routing this here printed "The schema directory doesn't exist"
+        and told the reader to ``mkdir`` it.
+        """
+        err = SchemaError("No SQL files found in include directories: /repo/db/schema")
+        assert _detect_error_context(err) != "SCHEMA_DIR_NOT_FOUND"
+
+
+class TestDsnPrecedenceErrorContext:
+    """#152: precedence-routing config errors must not get the connection template.
+
+    Their messages mention ``CONFITURE_DATABASE_URL`` (substring "database"),
+    which would otherwise wrongly route them to DB_CONNECTION_FAILED's
+    "Cannot reach PostgreSQL… check connectivity" remediation.
+    """
+
+    def test_config_007_not_routed_to_connection_template(self) -> None:
+        err = ConfigurationError(
+            "Both an explicit --config/--env and CONFITURE_DATABASE_URL are set",
+            error_code="CONFIG_007",
+            resolution_hint="Pass exactly one explicit source.",
+        )
+        assert _detect_error_context(err) is None
+
+    def test_config_010_not_routed_to_connection_template(self) -> None:
+        err = ConfigurationError(
+            "--no-config was given but no DSN is set in the environment",
+            error_code="CONFIG_010",
+            resolution_hint="Set CONFITURE_DATABASE_URL or DATABASE_URL.",
+        )
+        assert _detect_error_context(err) is None
+
+    def test_config_007_rendering_omits_connection_advice(self) -> None:
+        err = ConfigurationError(
+            "Both an explicit --config/--env and CONFITURE_DATABASE_URL are set",
+            error_code="CONFIG_007",
+            resolution_hint="Pass exactly one explicit source.",
+        )
+        formatted = format_error_for_cli(err)
+        assert "Cannot reach PostgreSQL" not in formatted
+        assert "Pass exactly one explicit source." in formatted
+
+    def test_config_006_still_routes_to_connection_template(self) -> None:
+        """The genuine connection-failed code is intentionally NOT excluded."""
+        err = ConfigurationError("Database connection failed", error_code="CONFIG_006")
+        assert _detect_error_context(err) == "DB_CONNECTION_FAILED"
+
+
+class TestFormatErrorForCli:
+    """Test format_error_for_cli function."""
+
+    def test_format_error_with_code_and_hint(self) -> None:
+        """Test formatting error with code and resolution hint."""
+        error = ConfiturError(
+            "Missing database_url",
+            error_code="CONFIG_001",
+            resolution_hint="Add database_url to your config",
+        )
+
+        formatted = format_error_for_cli(error)
+
+        assert "CONFIG_001" in formatted
+        assert "Missing database_url" in formatted
+        assert "Add database_url to your config" in formatted
+
+    def test_format_error_with_context(self) -> None:
+        """Test formatting error with context data."""
+        error = ConfiturError(
+            "Configuration error",
+            error_code="CONFIG_001",
+            context={"file": "local.yaml", "field": "database_url"},
+        )
+
+        formatted = format_error_for_cli(error)
+
+        assert "CONFIG_001" in formatted
+        assert "local.yaml" in formatted or "database_url" in formatted
+
+    def test_format_error_without_code(self) -> None:
+        """Test formatting error without error code."""
+        error = ConfiturError("Generic error message")
+
+        formatted = format_error_for_cli(error)
+
+        assert "Generic error message" in formatted
+
+    def test_format_error_with_severity(self) -> None:
+        """Test that error severity affects formatting."""
+        error_critical = ConfiturError(
+            "Critical issue",
+            severity=ErrorSeverity.CRITICAL,
+            error_code="ROLLBACK_600",
+        )
+
+        formatted = format_error_for_cli(error_critical)
+
+        # Should indicate severity somehow
+        assert "ROLLBACK_600" in formatted
+        assert "Critical issue" in formatted
+
+    def test_format_migration_error(self) -> None:
+        """Test formatting MigrationError with version."""
+        error = MigrationError(
+            "Migration failed",
+            version="001",
+            error_code="MIGR_100",
+        )
+
+        formatted = format_error_for_cli(error)
+
+        assert "MIGR_100" in formatted
+        assert "Migration failed" in formatted
+
+    def test_format_configuration_error(self) -> None:
+        """Test formatting ConfigurationError."""
+        error = ConfigurationError(
+            "Invalid YAML syntax",
+            error_code="CONFIG_002",
+            resolution_hint="Fix YAML formatting",
+        )
+
+        formatted = format_error_for_cli(error)
+
+        assert "CONFIG_002" in formatted
+        assert "Invalid YAML syntax" in formatted
+
+
+class TestHandleCliError:
+    """Test handle_cli_error function."""
+
+    def test_handle_confiture_error_with_code(self) -> None:
+        """Test handling ConfiturError with error code."""
+        error = ConfigurationError(
+            "Missing config",
+            error_code="CONFIG_001",
+        )
+
+        exit_code = handle_cli_error(error)
+
+        # CONFIG_001 maps to exit code 5 (#146: CONFIG family → config-invalid)
+        assert exit_code == 5
+
+    def test_handle_confiture_error_without_code(self) -> None:
+        """Test handling ConfiturError without error code."""
+        error = ConfiturError("Generic error")
+
+        exit_code = handle_cli_error(error)
+
+        # Should default to 1
+        assert exit_code == 1
+
+    def test_handle_migration_error(self) -> None:
+        """Test handling MigrationError."""
+        error = MigrationError(
+            "Migration locked",
+            version="001",
+            error_code="MIGR_100",
+        )
+
+        exit_code = handle_cli_error(error)
+
+        # MIGR_100 should map to exit code 3
+        assert exit_code == 3
+
+    def test_handle_generic_exception(self) -> None:
+        """Test handling generic Python exceptions."""
+        error = ValueError("Some error")
+
+        exit_code = handle_cli_error(error)
+
+        # Generic exceptions should get default exit code
+        assert exit_code == 1
+
+    def test_exit_code_mapping(self) -> None:
+        """Test that different error codes map to correct exit codes."""
+        test_cases = [
+            ("CONFIG_001", 5),  # Configuration error (#146: config invalid → 5)
+            ("MIGR_100", 3),  # Migration error
+            ("SCHEMA_001", 4),  # Schema error
+        ]
+
+        for code, expected_exit in test_cases:
+            error = ConfiturError(
+                f"Error {code}",
+                error_code=code,
+            )
+            exit_code = handle_cli_error(error)
+            assert exit_code == expected_exit
+
+    def test_handle_error_returns_int(self) -> None:
+        """Test that handle_cli_error always returns an int."""
+        errors = [
+            ConfigurationError("config"),
+            MigrationError("migr"),
+            ValueError("generic"),
+        ]
+
+        for error in errors:
+            exit_code = handle_cli_error(error)
+            assert isinstance(exit_code, int)
+            assert 0 <= exit_code <= 10
+
+    def test_handle_error_is_callable(self) -> None:
+        """Test that handle_cli_error is callable."""
+        assert callable(handle_cli_error)
+
+    def test_format_error_is_callable(self) -> None:
+        """Test that format_error_for_cli is callable."""
+        assert callable(format_error_for_cli)
+
+
+def test_a_bracketed_message_is_printed_as_written() -> None:
+    """Rich read ``[type=value_error, …]`` in a message as markup and dropped it (#360)."""
+    from io import StringIO
+
+    from rich.console import Console
+
+    from confiture.core.error_handler import print_error_to_console
+    from confiture.exceptions import ConfigurationError
+
+    out = StringIO()
+    error = ConfigurationError(
+        "Invalid profile: [type=value_error, input_value='x']",
+        error_code="CONFIG_004",
+        context={"path": "[weird]/p.yaml"},
+        resolution_hint="Fix [this] field",
+    )
+    print_error_to_console(error, Console(file=out, width=200, highlight=False))
+    text = out.getvalue()
+    assert "[type=value_error, input_value='x']" in text
+    assert "[weird]/p.yaml" in text
+    assert "Fix [this] field" in text

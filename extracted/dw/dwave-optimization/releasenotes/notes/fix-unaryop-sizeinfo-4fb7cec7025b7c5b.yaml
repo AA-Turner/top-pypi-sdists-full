@@ -1,5 +1,0 @@
----
-fixes:
-  - |
-    Implement the C++ ``UnaryOpNode::sizeinfo()`` method to handle unary
-    operations on dynamic arrays.

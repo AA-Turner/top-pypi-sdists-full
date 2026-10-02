@@ -1,0 +1,427 @@
+/*------------------------------------------------------------------------------
+-- The MIT License (MIT)
+--
+-- Copyright © 2024, Laboratory of Plasma Physics- CNRS
+--
+-- Permission is hereby granted, free of charge, to any person obtaining a copy
+-- of this software and associated documentation files (the “Software”), to deal
+-- in the Software without restriction, including without limitation the rights
+-- to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+-- of the Software, and to permit persons to whom the Software is furnished to do
+-- so, subject to the following conditions:
+--
+-- The above copyright notice and this permission notice shall be included in all
+-- copies or substantial portions of the Software.
+--
+-- THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+-- INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+-- PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+-- HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+-- OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+-- SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-------------------------------------------------------------------------------*/
+/*-- Author : Alexis Jeandet
+-- Mail : alexis.jeandet@member.fsf.org
+----------------------------------------------------------------------------*/
+#pragma once
+
+#include "cdf-chrono-constants.hpp"
+#include "cdf-chrono-impl.hpp"
+#include "cdfpp/cdf-debug.hpp"
+#include "cdfpp/cdf-enums.hpp"
+#include <cpp_utils/containers/no_init_vector.hpp>
+using cpp_utils::containers::no_init_vector;
+#include <cdfpp/vectorized/cdf-chrono.hpp>
+
+#include <algorithm>
+#include <array>
+#include <cdfpp_config.h>
+#include <chrono>
+#include <cmath>
+#include <span>
+#include <thread>
+
+#include "cdfpp/cdf-parallel.hpp"
+
+#ifndef CDFPP_NO_SIMD
+#include "cdfpp/vectorized/cdf-chrono.hpp"
+#endif
+
+
+using namespace std::chrono;
+
+namespace cdf
+{
+
+using namespace cdf::chrono;
+
+namespace chrono::_impl
+{
+    using cdf::parallel::threads_supported;
+
+    static inline std::size_t ideal_threads_count()
+    {
+        static const auto threads_count = std::thread::hardware_concurrency() >= 32 ? 8U : 2U;
+        return threads_count;
+    }
+
+    /* the takeaway is that threading is worth it on platforms with many cores where we infer
+     * big memory bandwidht because of many memry channels.
+     * On a typical 4 core laptop with 8 threads, threading is not worth it because we already
+     * top reach ~70% of memory bandwidth with a single thread.
+     */
+    template <std::size_t min_chunk_size = 1 * 1024 * 1024>
+    static inline void _thread_if_needed(
+        const auto& input, auto* const output, const auto& function)
+    {
+        static const auto threads_count = ideal_threads_count();
+        const auto count = std::size(input);
+        if (threads_supported && count >= min_chunk_size * threads_count)
+        {
+            const auto chunk_size = [count]()
+            {
+                auto cs = (count / threads_count);
+                while ((cs * threads_count) < count)
+                {
+                    cs += min_chunk_size;
+                }
+                return cs;
+            }();
+            std::vector<std::thread> threads;
+            threads.reserve(threads_count);
+            std::size_t start = 0;
+            std::size_t sz = chunk_size;
+            for (std::size_t i = 0; i < threads_count; ++i)
+            {
+                threads.emplace_back([input, start, sz, output, &function]()
+                    { function(input.subspan(start, sz), output + start); });
+                start += sz;
+                sz = ((start + chunk_size) > count) ? count - start : chunk_size;
+            }
+            for (auto& t : threads)
+            {
+                t.join();
+            }
+        }
+        else
+        {
+            function(input, output);
+        }
+    }
+
+}
+
+static inline void to_ns_from_1970(const cdf_time_t_span_t auto& input, int64_t* output)
+{
+    chrono::_impl::_thread_if_needed<1 * 1024 * 1024>(input, output,
+        [](const cdf_time_t_span_t auto& input, int64_t* output)
+        {
+#ifndef CDFPP_NO_SIMD
+            if (input.size() >= 8)
+            {
+                vectorized_to_ns_from_1970(input, output);
+            }
+            else
+            {
+                _impl::scalar_to_ns_from_1970(input, output);
+            }
+#else
+            _impl::scalar_to_ns_from_1970(input, output);
+#endif
+        });
+}
+
+epoch to_epoch(const time_point_t auto& tp)
+{
+    using namespace std::chrono;
+    return epoch { duration_cast<milliseconds>(tp.time_since_epoch()).count()
+        + constants::epoch_offset_miliseconds };
+}
+
+no_init_vector<epoch> to_epoch(const auto& tps)
+{
+    no_init_vector<epoch> result(std::size(tps));
+    std::transform(std::cbegin(tps), std::cend(tps), std::begin(result),
+        static_cast<epoch (*)(const decltype(tps[0]))>(to_epoch));
+    return result;
+}
+
+epoch16 to_epoch16(const time_point_t auto& tp)
+{
+    auto total_ns = duration_cast<nanoseconds>(tp.time_since_epoch()).count();
+    auto se = duration_cast<seconds>(tp.time_since_epoch()).count();
+    auto s = static_cast<double>(se) + constants::epoch_offset_seconds;
+    auto ps = static_cast<double>(total_ns - se * 1'000'000'000LL) * 1000.;
+    return epoch16 { s, ps };
+}
+
+
+no_init_vector<epoch16> to_epoch16(const time_point_collection_t auto& tps)
+{
+    no_init_vector<epoch16> result(std::size(tps));
+    std::transform(std::cbegin(tps), std::cend(tps), std::begin(result),
+        static_cast<epoch16 (*)(const decltype(tps[0]))>(to_epoch16));
+    return result;
+}
+
+tt2000_t to_tt2000(const time_point_t auto& tp)
+{
+    using namespace std::chrono;
+    auto nsec = duration_cast<nanoseconds>(tp.time_since_epoch()).count();
+    return tt2000_t { nsec - constants::tt2000_offset + _impl::leap_second(nsec) };
+}
+
+no_init_vector<tt2000_t> to_tt2000(const time_point_collection_t auto& tps)
+{
+    using namespace std::chrono;
+    no_init_vector<tt2000_t> result(std::size(tps));
+    std::transform(std::cbegin(tps), std::cend(tps), std::begin(result),
+        static_cast<tt2000_t (*)(const decltype(tps[0]))>(to_tt2000));
+    return result;
+}
+
+template <typename T>
+T to_cdf_time(const time_point_t auto& tp)
+{
+    if constexpr (std::is_same_v<T, tt2000_t>)
+        return to_tt2000(tp);
+    else if constexpr (std::is_same_v<T, epoch>)
+        return to_epoch(tp);
+    else if constexpr (std::is_same_v<T, epoch16>)
+        return to_epoch16(tp);
+    else
+        throw std::runtime_error("Unsupported cdf time type");
+}
+
+template <typename T>
+T to_cdf_time(const cdf_time_t auto& in)
+{
+    using input_t = std::decay_t<decltype(in)>;
+    if constexpr (std::is_same_v<T, input_t>)
+        return in;
+    else
+        return to_cdf_time<T>(to_time_point(in));
+}
+
+static inline void from_ns_from_1970(const std::span<const int64_t>& input, cdf_time_t auto* output)
+{
+    std::transform(std::cbegin(input), std::cend(input), output,
+        [](const int64_t ns)
+        {
+            return to_cdf_time<std::decay_t<decltype(output[0])>>(
+                std::chrono::system_clock::time_point {} + std::chrono::nanoseconds(ns));
+        });
+}
+
+namespace chrono::_impl
+{
+    // A double cast to int64_t, or an int64_t later multiplied into a finer-grained
+    // chrono::duration (e.g. milliseconds -> nanoseconds is a *1'000'000), is
+    // undefined behavior once the magnitude would overflow the destination — and
+    // system_clock::time_point's own nanosecond-resolution duration only spans
+    // roughly 1677-09-21..2262-04-11 to begin with. A CDF epoch/epoch16/tt2000 value
+    // representing a date outside that (a mis-encoded fill/pad sentinel that missed
+    // cdf-repr.hpp's exact-literal check, or just corrupt data) must not crash by
+    // invoking that UB, so clamp before doing any of this arithmetic - caught in
+    // practice by UBSan: "signed integer overflow: -9223372036854775808 * 1000000
+    // cannot be represented in type 'long int'".
+    // simplify: saturates to the nearest representable boundary rather than
+    // reporting an error; fine since such values are already outside CDF's own
+    // meaningful calendar range. Upgrade path: have callers that need to distinguish
+    // "saturated" from "a real boundary date" check the input against these same
+    // bounds themselves before calling to_time_point().
+    inline double clamp_to_safe_ms(double ms) noexcept
+    {
+        // |ms| * 1'000'000 plus up to 999'999 ns of sub-millisecond remainder added
+        // on top afterwards must both stay within int64.
+        constexpr double max_ms = 9'223'372'000'000.0;
+        if (std::isnan(ms))
+            return 0.;
+        return std::clamp(ms, -max_ms, max_ms);
+    }
+
+    inline double clamp_to_safe_s(double s) noexcept
+    {
+        // |s| * 1'000'000'000 plus up to 999'999'999 ns of sub-second remainder
+        // added on top afterwards must both stay within int64.
+        constexpr double max_s = 9'223'372'000.0;
+        if (std::isnan(s))
+            return 0.;
+        return std::clamp(s, -max_s, max_s);
+    }
+
+    inline double clamp_to_safe_sub_second_ns(double ns) noexcept
+    {
+        if (std::isnan(ns))
+            return 0.;
+        return std::clamp(ns, -999'999'999., 999'999'999.);
+    }
+
+    // From the first real TT2000 date (1707-09-22, after the fill and pad values) to the last
+    // one whose ns since 1970 fit int64 (2262-04-11): adding the offset can only overflow above.
+    inline int64_t clamp_to_safe_tt2000_ns(int64_t nseconds) noexcept
+    {
+        return std::clamp(nseconds, chrono::_impl::tt2000_pad + 1,
+            chrono::_impl::last_representable_tt2000);
+    }
+}
+
+inline auto to_time_point(const epoch& ep)
+{
+    double ms = _impl::clamp_to_safe_ms(ep.mseconds - constants::epoch_offset_miliseconds), ns;
+    ns = std::modf(ms, &ms) * 1000000.;
+    return std::chrono::time_point<std::chrono::system_clock> {} + milliseconds(int64_t(ms))
+        + nanoseconds(int64_t(ns));
+}
+
+inline auto to_time_point(const epoch16& ep)
+{
+    // Unlike epoch (single double), epoch16 stores integer seconds separately from
+    // picoseconds, so this subtraction is between integer-valued doubles both well
+    // within 2^53 — no catastrophic cancellation.
+    double s = _impl::clamp_to_safe_s(ep.seconds - constants::epoch_offset_seconds), ns;
+    ns = _impl::clamp_to_safe_sub_second_ns(ep.picoseconds / 1000.);
+    return std::chrono::time_point<std::chrono::system_clock> {} + seconds(static_cast<int64_t>(s))
+        + nanoseconds(static_cast<int64_t>(ns));
+}
+
+inline auto to_time_point(const tt2000_t& ep)
+{
+    using namespace std::chrono;
+    const int64_t leap = _impl::leap_second(ep);
+    const int64_t safe_ns = _impl::clamp_to_safe_tt2000_ns(ep.nseconds);
+    return time_point<system_clock> {} + nanoseconds(safe_ns - leap + constants::tt2000_offset);
+}
+
+// What a CDF time value holds. NASA's library prints fill and illegal values as 9999-12-31 and
+// pad values as 0000-01-01; NaN and infinities are no date either.
+enum class time_kind
+{
+    date,
+    fill,
+    pad,
+    invalid
+};
+
+// A CDF time value as UTC seconds and nanoseconds since 1970: unlike int64 ns since 1970, this
+// covers every date the three time types hold (1677 to 2262 would cut EPOCH and TT2000 short).
+struct utc_time
+{
+    time_kind kind = time_kind::date;
+    int64_t seconds = 0;
+    int64_t nanoseconds = 0; // [0, 1e9)
+};
+
+namespace chrono::_impl
+{
+    inline constexpr int64_t floor_div(int64_t value, int64_t divisor)
+    {
+        return value / divisor - (value % divisor < 0 ? 1 : 0);
+    }
+
+    // Not value - floor_div(value, divisor) * divisor: near INT64_MIN that product overflows.
+    inline constexpr int64_t floor_mod(int64_t value, int64_t divisor)
+    {
+        const int64_t remainder = value % divisor;
+        return remainder < 0 ? remainder + divisor : remainder;
+    }
+
+    // Seconds plus any nanoseconds (negative or above a second) as a normalized utc_time.
+    inline constexpr utc_time utc_from_ns(int64_t seconds, int64_t nanoseconds)
+    {
+        return { time_kind::date, seconds + floor_div(nanoseconds, 1'000'000'000),
+            floor_mod(nanoseconds, 1'000'000'000) };
+    }
+}
+
+inline utc_time to_utc_time(const epoch& ep)
+{
+    if (ep.mseconds == -1e31)
+        return { time_kind::fill };
+    if (ep.mseconds == 0.0)
+        return { time_kind::pad };
+    // Also NaN and infinities; far beyond year 9999, and int64 conversions would overflow.
+    if (!(std::abs(ep.mseconds) < 0x1p62))
+        return { time_kind::invalid };
+    // floor((ms - offset) * 1e6), as _impl::epoch_to_ns_from_1970, in two exact parts. Floor by
+    // truncating then correcting: std::floor is a library call without SSE4.1.
+    auto whole_ms = static_cast<int64_t>(ep.mseconds);
+    if (static_cast<double>(whole_ms) > ep.mseconds)
+        --whole_ms;
+    const auto ms_since_1970
+        = whole_ms - static_cast<int64_t>(constants::epoch_offset_miliseconds);
+    // In [0, 1e6): truncation is floor.
+    const auto fraction_ns
+        = static_cast<int64_t>((ep.mseconds - static_cast<double>(whole_ms)) * 1e6);
+    return _impl::utc_from_ns(_impl::floor_div(ms_since_1970, 1000),
+        _impl::floor_mod(ms_since_1970, 1000) * 1'000'000 + fraction_ns);
+}
+
+inline utc_time to_utc_time(const epoch16& ep)
+{
+    if (ep.seconds == -1e31 && ep.picoseconds == -1e31)
+        return { time_kind::fill };
+    if (ep.seconds == 0.0 && ep.picoseconds == 0.0)
+        return { time_kind::pad };
+    if (!(std::abs(ep.seconds) < 0x1p53 && ep.picoseconds >= 0.0 && ep.picoseconds < 1e12))
+        return { time_kind::invalid };
+    return _impl::utc_from_ns(
+        static_cast<int64_t>(ep.seconds - constants::epoch_offset_seconds),
+        static_cast<int64_t>(ep.picoseconds / 1'000));
+}
+
+inline utc_time to_utc_time(const tt2000_t& ep)
+{
+    if (ep.nseconds == _impl::nat)
+        return { time_kind::fill };
+    if (ep.nseconds == _impl::tt2000_pad)
+        return { time_kind::pad };
+    if (ep.nseconds == _impl::tt2000_illegal)
+        return { time_kind::invalid };
+    using _impl::floor_div, _impl::floor_mod;
+    constexpr int64_t ns_in_s = 1'000'000'000;
+    const int64_t leap = _impl::leap_second(ep);
+    if (ep.nseconds <= _impl::last_representable_tt2000)
+        return _impl::utc_from_ns(0, ep.nseconds - leap + constants::tt2000_offset);
+    // ns - leap + offset overflows int64 after 2262: add seconds and nanoseconds apart.
+    return _impl::utc_from_ns(floor_div(ep.nseconds, ns_in_s)
+            + floor_div(constants::tt2000_offset, ns_in_s) - floor_div(leap, ns_in_s),
+        floor_mod(ep.nseconds, ns_in_s) + floor_mod(constants::tt2000_offset, ns_in_s)
+            - floor_mod(leap, ns_in_s));
+}
+
+// Proleptic Gregorian date of a day count since 1970-01-01, any sign (Howard Hinnant's
+// days_from_civil inverse: https://howardhinnant.github.io/date_algorithms.html#civil_from_days).
+struct civil_date
+{
+    int64_t year;
+    unsigned month;
+    unsigned day;
+};
+
+inline constexpr civil_date hinnant_civil_from_days(int64_t z) noexcept
+{
+    z += 719468;
+    const int64_t era = (z >= 0 ? z : z - 146096) / 146097;
+    const unsigned doe = static_cast<unsigned>(z - era * 146097); // [0, 146096]
+    const unsigned yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365; // [0, 399]
+    const unsigned doy = doe - (365 * yoe + yoe / 4 - yoe / 100); // [0, 365]
+    const unsigned mp = (5 * doy + 2) / 153; // [0, 11]
+    const unsigned d = doy - (153 * mp + 2) / 5 + 1; // [1, 31]
+    const unsigned m = mp < 10 ? mp + 3 : mp - 9; // [1, 12]
+    return { static_cast<int64_t>(yoe) + era * 400 + (m <= 2 ? 1 : 0), m, d };
+}
+
+// std::chrono is faster where it applies (libstdc++ uses Neri and Schneider's algorithm), but
+// year_month_day stops at year 32767; absurd CDF_EPOCH values go further.
+inline civil_date civil_from_days(int64_t z) noexcept
+{
+    using namespace std::chrono;
+    if (z < -11'000'000 || z > 11'000'000)
+        return hinnant_civil_from_days(z);
+    const year_month_day date { sys_days { days { z } } };
+    return { static_cast<int>(date.year()), static_cast<unsigned>(date.month()),
+        static_cast<unsigned>(date.day()) };
+}
+
+}

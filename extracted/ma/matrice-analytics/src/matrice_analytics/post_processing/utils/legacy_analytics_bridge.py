@@ -390,16 +390,55 @@ _LEGACY_PROFILES: Dict[str, LegacyAnalyticsProfile] = {
     "people_counting": LegacyAnalyticsProfile(
         application_key_name="people_counting",
         default_application_name="People Counting",
+        # Keys and agg_types track the app manifest (people-counting v1.8
+        # metrics.json), which is the base module widgets.json is derived
+        # from -- so a key published here that the manifest does not declare
+        # has no tile to land on.
+        #
         # VOLUME metrics resolved in _resolve_metric_value (app == "people_counting"):
-        #   occupancy_in_interval  – sum of current_new_counts["person"]
+        #   people_in_interval     – sum of current_new_counts["person"]
         #                            across the 60s window (agg_type "sum").
-        #   total_occupancy        – latest cumulative total_counts["person"]
-        #                            (agg_type "last").
-        #   occupancy_percentage   – last-frame occupancy vs capacity (50).
+        #                            RENAMED from occupancy_in_interval: the
+        #                            number is unchanged, the name is the
+        #                            manifest's. The old spelling is still
+        #                            answered by the resolver so a backend
+        #                            mid-migration is not left with a hole.
+        #   occupancy_percentage   – last-frame occupancy vs capacity (50),
+        #                            agg_type "mean" per the manifest: the
+        #                            window's average occupancy, not its last
+        #                            reading.
+        #
+        # total_occupancy is NOT published any more -- the manifest dropped it
+        # and no widget consumed it. The resolver still answers the key, so a
+        # backend rollup still reading it keeps working; it is simply no
+        # longer in the published set.
         volume_metrics=(
-            VolumeMetricSpec("occupancy_in_interval", "sum"),
-            VolumeMetricSpec("total_occupancy", "last"),
-            VolumeMetricSpec("occupancy_percentage", "last"),
+            VolumeMetricSpec("people_in_interval", "sum"),
+            VolumeMetricSpec("occupancy_percentage", "mean"),
+        ),
+        default_tracking_categories=("person",),
+        primary_category="person",
+        publish_incidents=False,
+        occupancy_mode="last_primary",
+    ),
+    "people_counting_extended": LegacyAnalyticsProfile(
+        application_key_name="people_counting_extended",
+        # The platform-facing label from APP_NAME_TO_USECASE (post_processing/
+        # config.py), not _humanize()'s "People Counting Extended" -- this is
+        # the name the backend and DB carry, and what the dashboard shows.
+        default_application_name="Unique People Counting",
+        # Deliberately identical to people_counting's published set: this app
+        # answers the same question with a longer memory, so a dashboard
+        # built for one must read the other with no change. The resolver
+        # branch is shared (see _resolve_metric_value) rather than copied, so
+        # the two cannot drift.
+        #
+        # The re-identification shows up in the VALUE, not in a new key:
+        # people_in_interval stops double-counting someone who left and came
+        # back, which is the whole point of the use case.
+        volume_metrics=(
+            VolumeMetricSpec("people_in_interval", "sum"),
+            VolumeMetricSpec("occupancy_percentage", "mean"),
         ),
         default_tracking_categories=("person",),
         primary_category="person",
@@ -3007,8 +3046,8 @@ class LegacyAnalyticsSession:
             if key == "critical_accidents":
                 return float(self.window_critical_accidents)
             return 0.0
-        if app == "people_counting":
-            if key == "occupancy_in_interval":
+        if app in ("people_counting", "people_counting_extended"):
+            if key in ("people_in_interval", "occupancy_in_interval"):
                 # Sum of current_new_counts["person"] across every frame in the 60s window.
                 return float(self.window_new_sum.get("person", 0))
             if key == "total_occupancy":

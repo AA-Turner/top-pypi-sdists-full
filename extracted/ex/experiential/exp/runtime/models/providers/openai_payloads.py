@@ -1,0 +1,420 @@
+"""Native streaming payload builders for the OpenAI-family dialects.
+
+Split from ``streaming_requests`` for the module line budget, mirroring the
+Messages-family split in ``messages_payloads``: the native Responses and
+OpenAI-compatible Chat builders live here; ``dialect_stream_payload`` in
+``dialect_dispatch`` remains the single dispatch seam.
+"""
+
+from __future__ import annotations
+
+from exp.common.core.artifacts import JsonObject, JsonValue
+from exp.common.models import ChatMaxTokensField
+from exp.runtime.gateway.contracts import GatewayRequest
+from exp.runtime.gateway.json_object import JSON_OBJECT_SYSTEM_INSTRUCTION
+from exp.runtime.models.providers.deepseek import is_deepseek_model_id
+from exp.runtime.models.providers.errors import (
+    ProviderResponseError,
+)
+from exp.runtime.models.providers.fireworks import prepare_gateway_reasoning_history
+from exp.runtime.models.providers.instruction_turns import (
+    fold_instruction_turns_after_the_first,
+    fold_trailing_instruction_turns,
+)
+from exp.runtime.models.providers.reasoning_compat import (
+    openai_reasoning_effort,
+    require_sampling_reasoning_compatibility,
+)
+from exp.runtime.models.providers.wire_messages import (
+    add_openai_tools,
+    fold_tool_result_images,
+    openai_chat_message,
+    responses_items,
+)
+
+_INPUT_MESSAGE_ROLES = frozenset({"user", "system", "developer"})
+# Item ids another gateway's Responses emulation mints; no OpenAI wire issues
+# them, and OpenAI refuses a replayed item carrying one ("Expected an ID that
+# begins with 'rs'" / 'msg'; 164 requests across six orgs in the 48h to
+# 2026-09-07). Only this observed shape is treated as foreign.
+_FOREIGN_ITEM_ID_PREFIX = "item_"
+
+
+def _without_probability_metadata(item: JsonObject) -> JsonObject:
+    """Drop only output-text probability fields from a replayed message."""
+    content_value = item.get("content")
+    if item.get("type") != "message" or not isinstance(content_value, list):
+        return item
+    content: list[JsonValue] = []
+    for part in content_value:
+        if isinstance(part, dict) and part.get("type") == "output_text":
+            content.append({key: value for key, value in part.items() if key != "logprobs"})
+        else:
+            content.append(part)
+    return {**item, "content": content}
+
+
+def _replayable_native_item(item: JsonObject) -> JsonObject | None:
+    """Shape one replayed Responses item for the OpenAI wire; ``None`` drops it.
+
+    Two client habits are repaired, everything else re-emits verbatim: an
+    input MESSAGE loses the output-only ``status`` OpenAI rejects on it, and
+    an item carrying a foreign ``id`` loses the id (a reasoning item with a
+    foreign id is dropped whole: without its encrypted content the provider
+    has nothing to resume from, and the id alone is refused).
+    """
+    shaped = _without_probability_metadata(item)
+    item_id = shaped.get("id")
+    if isinstance(item_id, str) and item_id.startswith(_FOREIGN_ITEM_ID_PREFIX):
+        if shaped.get("type") == "reasoning" and "encrypted_content" not in shaped:
+            return None
+        shaped = {key: value for key, value in shaped.items() if key != "id"}
+    if (
+        "status" in shaped
+        and shaped.get("type") in (None, "message")
+        and shaped.get("role") in _INPUT_MESSAGE_ROLES
+    ):
+        shaped = {key: value for key, value in shaped.items() if key != "status"}
+    return shaped
+
+
+def openai_responses_stream_payload(
+    model_id: str,
+    request: GatewayRequest,
+    *,
+    supports_temperature: bool,
+    supports_top_p: bool | None = None,
+    supports_top_k: bool = False,
+    supports_logprobs: bool = False,
+    supports_reasoning: bool = False,
+    reasoning_effort: str | None = None,
+    sampling_requires_reasoning_none: bool = False,
+    forwards_service_tier: bool = False,
+    forwards_prompt_cache_key: bool = False,
+    omits_output_token_limit: bool = False,
+) -> JsonObject:
+    """Translate one canonical request to native streaming Responses JSON.
+
+    Args:
+        model_id: Exact OpenAI model identifier.
+        request: Canonical gateway request.
+        supports_temperature: Whether this exact model accepts explicit temperature.
+        supports_reasoning: Whether this exact model accepts the reasoning parameter.
+        reasoning_effort: Optional catalog-pinned reasoning effort.
+        omits_output_token_limit: Whether the wire rejects ``max_output_tokens`` (the
+            ChatGPT plan backend), so the caller's ceiling is dropped structurally.
+
+    Returns:
+        Native Responses request with storage disabled and streaming enabled.
+
+    Raises:
+        ProviderResponseError: An instruction message has no text.
+    """
+    # The Responses API has no stop field. Caller stop sequences never reach
+    # this wire; the native data plane emulates them from the wire entry's
+    # ``stop_sequences`` (see ``deployment_wire_entry``), cutting the stream
+    # at the first match and reporting a stop-sequence terminal.
+    instructions: list[str] = []
+    instruction_roles: list[str] = []
+    items: list[JsonObject] = []
+    for message in request.messages:
+        if message.provider_native_item is not None:
+            # Codex-native input items (tool namespaces, freeform tool
+            # history, hosted tool echoes) re-emit byte-for-byte at their
+            # position; route admission already required every rung to speak
+            # this wire. The one exception is an input MESSAGE carrying the
+            # output-only ``status`` a client copied from a prior response:
+            # the input-message schema has no such field and OpenAI answers
+            # 400 "Unknown parameter: 'input[N].status'". Hosted tool items
+            # keep theirs (their schema defines it).
+            replayable = _replayable_native_item(message.provider_native_item)
+            if replayable is not None:
+                items.append(replayable)
+        elif message.role in {"system", "developer"}:
+            if message.content is None:
+                raise ProviderResponseError("instruction messages require text")
+            # Leading instructions ride the instructions field; one arriving
+            # after conversation began keeps its position as an input item.
+            if items:
+                items.append({"role": message.role, "content": message.content})
+            else:
+                instructions.append(message.content)
+                instruction_roles.append(message.role)
+        else:
+            items.extend(responses_items(message))
+    if not items and instructions:
+        # A request that is ONLY instructions (a system-prompt-only Chat call,
+        # a Responses body whose input is a lone system item) has nothing for
+        # the ``input`` field, and the provider refuses an empty one ("One of
+        # 'input' or 'previous_response_id' ... must be provided") while it
+        # serves the same instructions as input items (probed live
+        # 2026-09-15, api.openai.com). Emit them as items instead.
+        items = [
+            {"role": role, "content": content}
+            for role, content in zip(instruction_roles, instructions, strict=True)
+        ]
+        instructions = []
+    if request.json_object_output:
+        # JSON mode requires an instruction in input itself; the top-level
+        # instructions field alone does not satisfy the provider's check.
+        items.insert(0, {"role": "system", "content": JSON_OBJECT_SYSTEM_INSTRUCTION})
+    # Upstream storage stays disabled regardless of the caller's `store`
+    # selector: continuation state is gateway-owned, the gateway never
+    # references a provider-stored response, and disabled storage is what
+    # makes the provider return encrypted reasoning content.
+    payload: JsonObject = {
+        "model": model_id,
+        "input": items,
+        "store": False,
+        "stream": True,
+    }
+    response_store = request.response_store
+    include_paths: list[str] = []
+    if request.include_encrypted_reasoning or supports_reasoning and response_store is not False:
+        include_paths.append("reasoning.encrypted_content")
+    if request.include_output_text_logprobs:
+        if not supports_logprobs:
+            raise ProviderResponseError(
+                "This Responses route cannot preserve output text log probabilities."
+            )
+        include_paths.append("message.output_text.logprobs")
+    if include_paths:
+        payload["include"] = include_paths
+    if request.top_logprobs is not None:
+        if not supports_logprobs:
+            raise ProviderResponseError(
+                "This Responses route cannot preserve output text log probabilities."
+            )
+        payload["top_logprobs"] = request.top_logprobs
+    if instructions:
+        payload["instructions"] = "\n\n".join(instructions)
+    add_openai_tools(payload, request, responses=True)
+    if request.parallel_tool_calls is not None:
+        payload["parallel_tool_calls"] = request.parallel_tool_calls
+    if request.client_metadata is not None:
+        # Opaque client telemetry, forwarded verbatim (standard Responses
+        # surface: accepted live with a plain API key, 2026-08-29).
+        payload["client_metadata"] = request.client_metadata
+    text_payload: JsonObject = {}
+    if request.text_verbosity is not None:
+        text_payload["verbosity"] = request.text_verbosity
+    if request.structured_text is not None:
+        format_payload: JsonObject = {
+            "type": "json_schema",
+            "name": request.structured_text.name,
+            "schema": request.structured_text.json_schema,
+            "strict": request.structured_text.strict,
+        }
+        if request.structured_text.description is not None:
+            format_payload["description"] = request.structured_text.description
+        text_payload["format"] = format_payload
+    elif request.json_object_output:
+        text_payload["format"] = {"type": "json_object"}
+    if text_payload:
+        payload["text"] = text_payload
+    if request.maximum_output_tokens is not None and not omits_output_token_limit:
+        payload["max_output_tokens"] = request.maximum_output_tokens
+    effective_reasoning_effort = request.reasoning_effort or reasoning_effort
+    require_sampling_reasoning_compatibility(
+        reasoning_effort=effective_reasoning_effort,
+        sampling_requires_reasoning_none=sampling_requires_reasoning_none,
+        temperature_requested=request.temperature is not None,
+        top_p_requested=request.top_p is not None,
+    )
+    if request.temperature is not None and supports_temperature:
+        payload["temperature"] = request.temperature
+    top_p_supported = supports_temperature if supports_top_p is None else supports_top_p
+    if request.top_p is not None and top_p_supported:
+        payload["top_p"] = request.top_p
+    if request.service_tier is not None and forwards_service_tier:
+        # BYOK-only: the caller pays this provider directly, so their tier
+        # selection (and its pricing) is between them and the provider.
+        payload["service_tier"] = request.service_tier
+    if request.provider_prompt_cache_key is not None and forwards_prompt_cache_key:
+        # Tenant-namespaced cache-affinity key (derived at admission): it
+        # changes cache-hit cost, never semantics, so rungs that do not route
+        # by it omit it structurally with no decline and no disclosure.
+        payload["prompt_cache_key"] = request.provider_prompt_cache_key
+    # Native OpenAI Responses has no top-k request field. Never trust a
+    # mistaken route declaration to send this extension to the API.
+    del supports_top_k
+    reasoning: JsonObject = {}
+    if supports_reasoning and effective_reasoning_effort is not None:
+        reasoning["effort"] = openai_reasoning_effort(model_id, effective_reasoning_effort)
+    if supports_reasoning and request.reasoning_summary is not None:
+        reasoning["summary"] = request.reasoning_summary
+    if supports_reasoning and request.reasoning_context is not None:
+        # Forwarded verbatim: the value controls provider-side re-rendering
+        # of prior turns' reasoning and has no gateway semantics.
+        reasoning["context"] = request.reasoning_context
+    if reasoning:
+        payload["reasoning"] = reasoning
+    return payload
+
+
+def openai_compatible_stream_payload(
+    model_id: str,
+    request: GatewayRequest,
+    *,
+    token_limit_key: ChatMaxTokensField = "max_tokens",
+    supports_temperature: bool = True,
+    supports_top_p: bool | None = None,
+    supports_top_k: bool = False,
+    supports_frequency_penalty: bool = False,
+    supports_presence_penalty: bool = False,
+    supports_logprobs: bool = False,
+    supports_reasoning: bool = False,
+    reasoning_wire_format: str = "reasoning_effort",
+    reasoning_effort: str | None = None,
+    sampling_requires_reasoning_none: bool = False,
+    fireworks_reasoning_route_sha256: str | None = None,
+    hunyuan_reasoning_route_sha256: str | None = None,
+    reasoning_output_exposed: bool = False,
+    deepseek_reasoning_history: bool = False,
+    system_messages_leading_only: bool = False,
+    forwards_service_tier: bool = False,
+    forwards_prompt_cache_key: bool = False,
+    forwards_cache_control: bool = False,
+) -> JsonObject:
+    """Translate one canonical request to streaming Chat Completions JSON.
+
+    Args:
+        model_id: Exact provider model identifier.
+        request: Canonical gateway request.
+        token_limit_key: Wire field carrying the output-token ceiling. Azure OpenAI
+            reasoning deployments reject ``max_tokens`` and require
+            ``max_completion_tokens``.
+        supports_temperature: Whether this exact model accepts explicit sampling controls.
+        supports_reasoning: Whether this exact model accepts a reasoning control.
+        reasoning_wire_format: Provider field used for normalized reasoning effort.
+        reasoning_effort: Optional catalog-pinned reasoning effort.
+        reasoning_output_exposed: Whether this rung replays the caller's plaintext
+            ``reasoning_content`` history verbatim (exposure-gated Tencent/DeepSeek rung).
+        deepseek_reasoning_history: Whether this rung is DeepSeek's own origin,
+            which replays caller plaintext regardless of exposure and requires
+            ``reasoning_content`` on every assistant message of the current turn
+            (an absent one is backfilled empty on every assistant message); see
+            ``openai_chat_message``.
+        system_messages_leading_only: Whether this rung's chat template accepts a
+            system message only as the very first message (the official Qwen3.6+
+            template raises otherwise), so every other instruction turn is folded
+            into user text; see ``fold_instruction_turns_after_the_first``.
+
+    Returns:
+        Chat Completions request that always asks the provider for terminal usage.
+    """
+    # A rung is a preserved-thinking route under exactly one provider scheme;
+    # its block must name that route to forward. Fireworks additionally toggles
+    # the wire-native `reasoning_history` field, which Hunyuan does not use.
+    reasoning_route_sha256 = fireworks_reasoning_route_sha256 or hunyuan_reasoning_route_sha256
+    messages, active_reasoning = prepare_gateway_reasoning_history(
+        request.messages,
+        route_sha256=reasoning_route_sha256,
+    )
+    if deepseek_reasoning_history or is_deepseek_model_id(model_id):
+        # DeepSeek ends a tools+reasoning turn empty when the conversation
+        # ends on an instruction; see fold_trailing_instruction_turns.
+        messages = fold_trailing_instruction_turns(messages)
+    # Chat tool messages are text-only on every server behind this wire, so a
+    # tool screenshot rides a following user turn (see the fold's docstring).
+    messages = fold_tool_result_images(messages)
+    if system_messages_leading_only:
+        # The rung's template 400s on any system turn past the first; the
+        # text stays where the caller put it, as user text.
+        messages = fold_instruction_turns_after_the_first(messages)
+    wire_messages = [
+        openai_chat_message(
+            message,
+            reasoning_route_sha256=reasoning_route_sha256,
+            reasoning_output_exposed=reasoning_output_exposed,
+            deepseek_reasoning_history=deepseek_reasoning_history,
+            forwards_cache_control=forwards_cache_control,
+        )
+        for message in messages
+    ]
+    if request.json_object_output:
+        _instruct_json_object(wire_messages)
+    payload: JsonObject = {
+        "model": model_id,
+        "messages": wire_messages,
+        "stream": True,
+        "stream_options": {"include_usage": True},
+    }
+    if active_reasoning and fireworks_reasoning_route_sha256 is not None:
+        payload["reasoning_history"] = "interleaved"
+    add_openai_tools(
+        payload, request, responses=False, forwards_cache_control=forwards_cache_control
+    )
+    if forwards_cache_control and request.provider_cache_control is not None:
+        payload["cache_control"] = request.provider_cache_control
+    if request.parallel_tool_calls is not None:
+        payload["parallel_tool_calls"] = request.parallel_tool_calls
+    if request.structured_text is not None:
+        schema: JsonObject = {
+            "name": request.structured_text.name,
+            "schema": request.structured_text.json_schema,
+            "strict": request.structured_text.strict,
+        }
+        if request.structured_text.description is not None:
+            schema["description"] = request.structured_text.description
+        payload["response_format"] = {"type": "json_schema", "json_schema": schema}
+    elif request.json_object_output:
+        payload["response_format"] = {"type": "json_object"}
+    if request.maximum_output_tokens is not None:
+        payload[token_limit_key] = request.maximum_output_tokens
+    effective_reasoning_effort = request.reasoning_effort or reasoning_effort
+    require_sampling_reasoning_compatibility(
+        reasoning_effort=effective_reasoning_effort,
+        sampling_requires_reasoning_none=sampling_requires_reasoning_none,
+        temperature_requested=request.temperature is not None,
+        top_p_requested=request.top_p is not None,
+    )
+    if request.temperature is not None and supports_temperature:
+        payload["temperature"] = request.temperature
+    top_p_supported = supports_temperature if supports_top_p is None else supports_top_p
+    if request.top_p is not None and top_p_supported:
+        payload["top_p"] = request.top_p
+    if request.top_k is not None and supports_top_k:
+        payload["top_k"] = request.top_k
+    if request.frequency_penalty is not None and supports_frequency_penalty:
+        payload["frequency_penalty"] = request.frequency_penalty
+    if request.presence_penalty is not None and supports_presence_penalty:
+        payload["presence_penalty"] = request.presence_penalty
+    if request.logprobs is True:
+        if not supports_logprobs:
+            raise ProviderResponseError("logprobs was admitted without provider support")
+        payload["logprobs"] = True
+        if request.top_logprobs is not None:
+            payload["top_logprobs"] = request.top_logprobs
+    if request.stop:
+        payload["stop"] = list(request.stop)
+    if request.service_tier is not None and forwards_service_tier:
+        # BYOK-only, matching the native Responses lane.
+        payload["service_tier"] = request.service_tier
+    if request.provider_prompt_cache_key is not None and forwards_prompt_cache_key:
+        # Cache-affinity key, matching the native Responses lane.
+        payload["prompt_cache_key"] = request.provider_prompt_cache_key
+    if supports_reasoning and effective_reasoning_effort is not None:
+        if reasoning_wire_format == "reasoning":
+            payload["reasoning"] = {"effort": effective_reasoning_effort}
+        elif reasoning_wire_format == "reasoning_effort":
+            payload["reasoning_effort"] = openai_reasoning_effort(
+                model_id, effective_reasoning_effort
+            )
+    return payload
+
+
+def _instruct_json_object(messages: list[JsonObject]) -> None:
+    """Add the JSON-mode instruction without a second system turn on strict templates."""
+    if messages and messages[0].get("role") == "system":
+        content = messages[0].get("content")
+        if isinstance(content, str):
+            messages[0]["content"] = f"{content}\n\n{JSON_OBJECT_SYSTEM_INSTRUCTION}"
+            return
+        if isinstance(content, list):
+            messages[0]["content"] = [
+                *content,
+                {"type": "text", "text": JSON_OBJECT_SYSTEM_INSTRUCTION},
+            ]
+            return
+    messages.insert(0, {"role": "system", "content": JSON_OBJECT_SYSTEM_INSTRUCTION})

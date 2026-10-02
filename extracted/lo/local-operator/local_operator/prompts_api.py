@@ -1,0 +1,1388 @@
+"""Prompt rendering for the new harness.
+
+Why this exists
+---------------
+The legacy ``prompts.py`` kept every prompt as Python string constants (176 KB
+of source, 19 vertical instruction blobs), which made prompts undiffable,
+unhot-reloadable, and the main reason a classifier LLM call existed at all.
+The rewrite externalizes prompt text to markdown templates in
+``local_operator/prompts_md/`` and renders them with a deliberately tiny
+handlebars-ish engine — no dependency, no partials, no helpers: just
+``{{var}}``, ``{{#if var}}...{{/if}}``, and ``{{#each items}}...{{/each}}``.
+
+Block layout and caching
+------------------------
+:func:`build_system_blocks` returns four desired blocks: standing instructions,
+compact tool inventory, environment, and selected knowledge/session state.
+Production Session builders persist the initial four blocks. Later changes
+enter history as typed host-state records instead of rewriting that prefix.
+Provider cache hierarchy is tools -> system -> messages: moving a changing
+SYSTEM block later can preserve earlier system text, but still invalidates all
+conversation after it. Resume and transcript forks recover the original bytes.
+Consumers must preserve the block list so provider cache breakpoints remain
+well-defined.
+
+"""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Mapping, Sequence
+from importlib.resources import files
+from typing import Any, Literal, TypeAlias
+
+from local_operator.harness.types import AgentTool
+
+# ---------------------------------------------------------------------------
+# Template engine
+# ---------------------------------------------------------------------------
+
+#: One template tag: ``{{name}}``, ``{{#if name}}``, ``{{#each name}}``,
+#: ``{{/if}}``, ``{{/each}}``. Names may be dotted paths.
+_TAG_RE = re.compile(r"\{\{\s*(#if\s+[\w.]+|#each\s+[\w.]+|/if|/each|[\w.]+)\s*\}\}")
+
+#: A lexed template piece: literal text, or the body of one ``{{...}}`` tag.
+Token: TypeAlias = "tuple[Literal['text', 'tag'], str]"
+
+#: A parsed template node. ``text``/``var`` carry a payload string (the
+#: literal, or the dotted data path); ``if``/``each`` carry the path plus the
+#: body they guard or repeat. Kept as tuples rather than classes because the
+#: renderer walks them in the hot path of every prompt build.
+TextNode: TypeAlias = "tuple[Literal['text', 'var'], str]"
+BlockNode: TypeAlias = "tuple[Literal['if', 'each'], str, list[Node]]"
+Node: TypeAlias = "TextNode | BlockNode"
+
+#: Compiled template cache keyed by template file name. Templates ship in the
+#: package and never change at runtime, so one parse per name is enough.
+_TEMPLATE_CACHE: dict[str, list[Node]] = {}
+
+
+def _lookup(data: dict[str, Any], name: str) -> Any:
+    """Resolve a dotted path against the data dict; missing -> ``None``."""
+    current: Any = data
+    for part in name.split("."):
+        if isinstance(current, dict) and part in current:
+            current = current[part]
+        else:
+            return None
+    return current
+
+
+def _tokenize(text: str) -> list[Token]:
+    """Split template text into ('text', str) / ('tag', str) tokens."""
+    tokens: list[Token] = []
+    pos = 0
+    for match in _TAG_RE.finditer(text):
+        if match.start() > pos:
+            tokens.append(("text", text[pos : match.start()]))
+        tokens.append(("tag", match.group(1)))
+        pos = match.end()
+    if pos < len(text):
+        tokens.append(("text", text[pos:]))
+    return tokens
+
+
+def _parse(tokens: list[Token], index: int, terminators: tuple[str, ...]) -> tuple[list[Node], int]:
+    """Recursive-descent parse of tokens into a node list.
+
+    Nodes: ``("text", s)``, ``("var", name)``, ``("if", name, children)``,
+    ``("each", name, children)``. Unbalanced blocks raise ``ValueError`` —
+    templates are authored by us, so a malformed template is a build bug that
+    should fail loudly, not render half-way: a stray closing tag is as much a
+    bug as a missing one.
+    """
+    nodes: list[Node] = []
+    while index < len(tokens):
+        kind, value = tokens[index]
+        if kind == "text":
+            nodes.append(("text", value))
+            index += 1
+            continue
+        tag = value
+        if tag in terminators:
+            return nodes, index
+        index += 1
+        if tag in ("/if", "/each"):
+            raise ValueError(f"stray {{{{{tag}}}}} without a matching opener")
+        if tag.startswith("#if "):
+            name = tag[4:].strip()
+            children, index = _parse(tokens, index, ("/if",))
+            index += 1  # consume /if
+            nodes.append(("if", name, children))
+        elif tag.startswith("#each "):
+            name = tag[6:].strip()
+            children, index = _parse(tokens, index, ("/each",))
+            index += 1  # consume /each
+            nodes.append(("each", name, children))
+        else:
+            nodes.append(("var", tag))
+    if terminators:
+        raise ValueError(f"missing closing tag (expected {terminators[0]})")
+    return nodes, index
+
+
+def _render_nodes(nodes: list[Node], data: dict[str, Any], out: list[str]) -> None:
+    for node in nodes:
+        # Narrowing reads node[0] directly: assigning it to a local first
+        # would not discriminate the tuple union for a type checker.
+        if node[0] == "text":
+            out.append(node[1])
+        elif node[0] == "var":
+            value = _lookup(data, node[1])
+            if value is not None:
+                out.append(str(value))
+        elif node[0] == "if":
+            if _lookup(data, node[1]):
+                _render_nodes(node[2], data, out)
+        elif node[0] == "each":
+            items = _lookup(data, node[1])
+            if not isinstance(items, (list, tuple)):
+                continue
+            for item in items:
+                child = dict(data)
+                if isinstance(item, dict):
+                    child.update(item)
+                child["this"] = item
+                _render_nodes(node[2], child, out)
+
+
+def render_string(template: str, data: dict[str, Any]) -> str:
+    """Render template text against ``data`` (no file loading).
+
+    Missing variables render as empty strings; ``{{#if}}`` on a missing or
+    falsy value drops its body. Inside ``{{#each}}``, ``{{this}}`` is the
+    current item and dict items also expose their keys as variables.
+    """
+    nodes, _ = _parse(_tokenize(template), 0, ())
+    out: list[str] = []
+    _render_nodes(nodes, data, out)
+    return "".join(out)
+
+
+def _read_template_text(name: str) -> str:
+    """Read a template by name; resources first, filesystem fallback.
+
+    The fallback matters for editable/dev installs where package-data wiring
+    may not ship ``*.md`` through ``importlib.resources``.
+    """
+    try:
+        return files("local_operator.prompts_md").joinpath(name).read_text(encoding="utf-8")
+    except (FileNotFoundError, ModuleNotFoundError, OSError):
+        from pathlib import Path
+
+        return (Path(__file__).parent / "prompts_md" / name).read_text(encoding="utf-8")
+
+
+def _load_template(name: str) -> list[Node]:
+    nodes = _TEMPLATE_CACHE.get(name)
+    if nodes is None:
+        nodes, _ = _parse(_tokenize(_read_template_text(name)), 0, ())
+        _TEMPLATE_CACHE[name] = nodes
+    return nodes
+
+
+def _complete_flag_pair(
+    data: dict[str, Any], *, has_key: str, no_key: str, both_message: str
+) -> dict[str, Any]:
+    """Fill in the missing member of one ``has_*``/``no_*`` template pair.
+
+    The pair mechanism is shared by two capabilities now (browser and console)
+    because it is one problem: ``{{#if}}`` has no ``else`` and no negation, a
+    missing key renders as falsy and drops its body with no marker, and a
+    half-supplied pair therefore fails silently in both directions. The three
+    legitimate states — tool present, host has no backend, role restricted — are
+    the caller's to state; this only refuses the impossible one and derives an
+    absent member from the member the caller DID state, because deriving cannot
+    contradict them.
+    """
+    has = data.get(has_key)
+    missing = data.get(no_key)
+    if has and missing:
+        raise ValueError(both_message)
+    if has is None and missing is None:
+        # Neither stated: the backendless arm, which is what `main` shipped
+        # unconditionally and so is the safe thing for a probe or a test that
+        # never had an opinion.
+        return {has_key: False, no_key: True}
+    if missing is None:
+        # Only tool presence stated. A session that HAS the tool is on a host
+        # with a backend, so the playbook is wrong; one that lacks it has said
+        # nothing about the host, and the playbook is the conservative arm.
+        return {no_key: not has}
+    if has is None:
+        # Only host capability stated. Never infer that a tool is present from
+        # a working host — that is the M2 error in reverse, and it would put
+        # usage prose in front of a session with no tool to use.
+        return {has_key: False}
+    return {}
+
+
+def _resolve_system_md_flags(data: dict[str, Any]) -> dict[str, Any]:
+    """Complete ``system.md``'s capability flag pairs, or refuse an impossible one.
+
+    ``{{#if}}`` has no ``else`` and no negation, so each capability's sections are
+    gated by a PAIR of flags — and a pair is easy to half-supply. A missing key
+    renders as falsy and drops its body with no marker in the output, so the
+    mistake is silent in both directions:
+
+    - ``{}`` rendered a prompt with NEITHER browser section, ~1.5k characters
+      lighter than any real session's;
+    - supplying only ``has_browser=True`` and DEFAULTING the other flag shipped
+      BOTH — the usage prose plus the browserless setup playbook, 686
+      characters asserting the negation of what the same prompt just said.
+
+    The second is why this derives rather than merging defaults: a default is a
+    claim about the world, and the conservative claim for an absent pair is not
+    the conservative claim for a half-supplied one. Deriving the missing member
+    from the one the caller actually stated cannot contradict them.
+
+    THREE states are legitimate, so a pair is NOT a plain negation and must not
+    be collapsed into one flag (see ``build_system_blocks``):
+
+    ==================  ===========  ============  ===========================
+    state               has_browser  no_browser    meaning
+    ==================  ===========  ============  ===========================
+    tool present        True         False         usage prose
+    host has no backend False        True          setup playbook
+    role restricted     False        False         neither; host is fine
+    ==================  ===========  ============  ===========================
+
+    The console pair has the same three states and its own copy; it is completed
+    here so ONE call site cannot ship one pair and forget the other, which is
+    exactly the failure the browser pair's history records.
+
+    The ask pair is completed here for the same reason and is the one pair whose
+    state is NOT the caller's to state: whether ``ask`` queues is a PROCESS fact
+    (``asks.policy``, read once at import), and the blocking arm is what the
+    deployed default renders. It is therefore seeded from the mode — rather than
+    left to ``_complete_flag_pair``'s absent-pair default, which happens to agree
+    while the queue is dark — so a process with the flip on cannot render the
+    paragraph that says the tool parks on a human. A caller may still pass the
+    pair explicitly (a test rendering the other arm); passing both members is
+    still refused.
+    """
+    seed = dict(data)
+    if "ask_queued" not in seed and "ask_inline" not in seed:
+        seed["ask_queued"] = _ask_queue_queued()
+    resolved = {
+        **seed,
+        **_complete_flag_pair(
+            seed,
+            has_key="has_browser",
+            no_key="no_browser",
+            both_message=(
+                "system.md: has_browser and no_browser cannot both be true — that "
+                "ships the browser usage prose and the browserless setup playbook "
+                "together. Pass the pair from build_system_blocks, or pass just "
+                "one and let it derive."
+            ),
+        ),
+        **_complete_flag_pair(
+            seed,
+            has_key="has_console",
+            no_key="no_console",
+            both_message=(
+                "system.md: has_console and no_console cannot both be true — that "
+                "ships the console usage prose and the consoleless prohibition "
+                "together, so the prompt would describe a tool it has just said "
+                "does not exist. Pass the pair from build_system_blocks, or pass "
+                "just one and let it derive."
+            ),
+        ),
+        **_complete_flag_pair(
+            seed,
+            has_key="ask_queued",
+            no_key="ask_inline",
+            both_message=(
+                "system.md: ask_queued and ask_inline cannot both be true — that "
+                "ships the queued-ask paragraphs and the blocking-ask paragraph "
+                "together, so the prompt would describe the same call two "
+                "contradictory ways. Pass at most one; the other derives."
+            ),
+        ),
+    }
+    return resolved
+
+
+def render_template(name: str, data: dict[str, Any]) -> str:
+    """Render the named template file from ``local_operator/prompts_md/``.
+
+    Loading goes through ``importlib.resources`` so the templates work from
+    installed wheels too, not only source checkouts.
+
+    ``system.md``'s browser flags are completed by
+    :func:`_resolve_system_md_flags`, so a half-supplied pair can never render
+    two contradictory sections and an absent one renders a prompt a real
+    session could have.
+    """
+    if name == "system.md":
+        data = _resolve_system_md_flags(data)
+    out: list[str] = []
+    _render_nodes(_load_template(name), data, out)
+    return "".join(out)
+
+
+# ---------------------------------------------------------------------------
+# System prompt blocks
+# ---------------------------------------------------------------------------
+
+
+#: Spellings of the closing tag that a language model reads as a close, since
+#: the consumer is a model rather than a strict parser: mixed case, whitespace
+#: either side of the slash, a hyphen or space or repeat for the underscore, and
+#: a trailing self-closing slash. Neutralized before interpolation because an
+#: AGENT PROFILE prompt reaches this string and ``import_agent`` copies that
+#: verbatim out of a downloaded marketplace archive, so a third-party agent
+#: could otherwise close the tag early and have its remainder render as though
+#: it were packaged prompt.
+#:
+#: NOT exhaustive, and deliberately not claimed to be: a blocklist of spellings
+#: is a losing game against homoglyphs. Zero-width separators inside the name
+#: are covered below; a fullwidth or Cyrillic lookalike letter is not, and
+#: normalizing the operator's own prose to catch it costs more than it buys.
+#: The escape is defence-in-depth on prompt text, not an authorization
+#: boundary; nothing downstream trusts the delimiter for a security decision.
+_ZERO_WIDTH = r"\u200b-\u200f\u2060\ufeff"
+_CLOSING_TAG_RE = re.compile(
+    rf"<[\s{_ZERO_WIDTH}]*/[\s{_ZERO_WIDTH}]*user[\s{_ZERO_WIDTH}_-]*instructions"
+    rf"[\s{_ZERO_WIDTH}]*/?[\s{_ZERO_WIDTH}]*>",
+    re.IGNORECASE,
+)
+
+
+#: The heading that opens the tool-inventory block. Exported because the block
+#: is the one part of the prompt that must track SESSION state rather than the
+#: builder's arguments: ``Session`` re-renders it from its live inventory and
+#: identifies the block to replace by this prefix (see
+#: ``Session._reconcile_tool_inventory``). Changing the heading here without
+#: changing it there would silently stop that reconciliation.
+TOOL_INVENTORY_HEADING = "## Available tools"
+
+
+def render_tool_inventory_block(
+    tools: Sequence[AgentTool],
+    *,
+    host_has_browser: bool | None = None,
+    host_has_console: bool | None = None,
+) -> str:
+    """The complete "## Available tools" block for ``tools``.
+
+    Split out of :func:`build_system_blocks` so the session can re-render this
+    ONE block against the inventory it is actually about to advertise, without
+    rebuilding (or re-anchoring) the rest of the prompt. Two renderers would
+    drift, and the browser note is exactly the kind of thing that gets updated
+    in one place and forgotten in the other.
+
+    ``host_has_browser`` carries the caller's already-computed host probe so
+    the three-state diagnosis documented in :func:`build_system_blocks` is
+    decided identically here, and the session's own re-render DOES pass it —
+    from the provider's construction-time pair, which
+    ``Session._reconcile_tool_inventory`` reads off the system-blocks provider —
+    so the block-1 note and the block-0 prose cannot disagree about an answer
+    that moves with a heartbeat. Left as ``None`` (a host's own provider, a
+    benchmark's fixed blocks, a bare ``lambda``) it is probed once via
+    :func:`_host_browser_backend_available`; that probe is the only way to tell
+    state 2 (the HOST has no backend, so the setup playbook applies) from
+    state 3 (the host is fine and only this ROLE lacks the tool), and
+    conflating them tells a subagent to install a backend its host already has.
+
+    ``host_has_console`` is the same argument for the console, whose pair of
+    notes has the same two absence diagnoses. Both probes are MEMBERSHIP
+    questions about the tool list, never about visibility: a hidden tool is
+    still callable, and telling the model a capability does not exist while one
+    answers would be worse than saying nothing.
+    """
+    block = f"{TOOL_INVENTORY_HEADING}\n\n{_render_tool_inventory(tools)}"
+    # Membership, not visibility, for both capabilities; see the docstring.
+    if host_has_browser is None:
+        host_has_browser = _host_browser_backend_available()
+    # Same prohibition either way; only the DIAGNOSIS differs. See the
+    # three-state comment in build_system_blocks and _ROLE_HAS_NO_BROWSER_NOTE.
+    if not any(tool.name == "browser" for tool in tools):
+        block += _ROLE_HAS_NO_BROWSER_NOTE if host_has_browser else _NO_BROWSER_NOTE
+    if not any(tool.name == "console" for tool in tools):
+        if host_has_console is None:
+            host_has_console = _host_console_available()
+        block += _ROLE_HAS_NO_CONSOLE_NOTE if host_has_console else _NO_CONSOLE_NOTE
+    return block
+
+
+def _render_tool_inventory(tools: Sequence[AgentTool]) -> str:
+    """One line per visible tool: the NAME only, deliberately.
+
+    NAMES ONLY — do not "restore" the descriptions here. This block used to
+    emit ``- {name}: {tool.description}``, which shipped every description a
+    SECOND time: the provider tools array already carries ``tool.description``
+    verbatim for each tool, and it is the copy the model actually dispatches
+    against. Measured on the 24-tool default surface, all 24 descriptions were
+    byte-identical duplicates, costing 9,995 characters (~3,600 billed tokens
+    at this surface's measured 2.78 chars/token) on every single request for
+    text the model had already been given.
+
+    The names are kept rather than dropping the block outright. Deleting it
+    saves only a further 206 characters (the measured body over 24 tools) and
+    forfeits the one thing the tools array does not present as prose: a single
+    flat "these tools exist" anchor the model can scan when deciding whether a
+    capability is available at all.
+
+    Note the descriptions are NOT one-line and never were — ``browser`` and
+    ``ask`` run to several hundred tokens each — which is why duplicating them
+    was expensive rather than merely redundant.
+
+    Filtered on ``hidden`` ALONE. While a line was ``- {name}: {description}``
+    a description-less tool was rightly skipped, since its line would have
+    trailed a bare colon; now that the line is just the name there is nothing
+    wrong with it, and dropping it hides a real, callable tool from the only
+    list that says what exists. MCP servers may legitimately omit a
+    description, so this is reachable rather than theoretical.
+    """
+    return "\n".join(f"- {tool.name}" for tool in tools if not tool.hidden)
+
+
+#: Appended to the tool inventory when the session has no browser tool. The
+#: builder is createIf-gated (a browser needs cmux, and this package ships no
+#: browser engine), so on a host without cmux the model can only observe an
+#: ABSENCE — and an absence reads as "arrange your own". Measured: asked for
+#: before/after screenshots of a local dev server, a session wrote a playwright
+#: script and spent 23 s on ``playwright install chromium``. A downloaded
+#: browser cannot carry the user's logins and the user cannot reach into it, so
+#: it is not a smaller version of the real thing; it is a dead end that looks
+#: like progress. Naming the absence and the reason costs three lines and only
+#: ships when the tool is genuinely missing — the inventory is never told about
+#: a tool that cannot work.
+_NO_BROWSER_NOTE = (
+    "\n\nThis session has NO browser tool: browser automation here runs through "
+    "the cmux terminal, and no cmux CLI is reachable on this host. Do not "
+    "substitute one — never install or script a browser engine (playwright, "
+    "puppeteer, a downloaded Chromium) to load a page or capture a screenshot. "
+    "For page text use `bash` with curl; when a task genuinely needs a rendered "
+    "screenshot, say it is unavailable and why."
+)
+
+#: The same prohibition for a session whose ROLE was not given the browser
+#: tool on a host that HAS one — a ``reviewer``/``scout``/``manager``/
+#: ``architect`` subagent, whose seed allowlist omits it.
+#:
+#: A separate string because :data:`_NO_BROWSER_NOTE` asserts a fact about the
+#: HOST ("no cmux CLI is reachable on this host") that is simply false here,
+#: and the setup playbook it pairs with would invite a read-only child to walk
+#: the operator through an install it does not need and could not use. The
+#: no-install rule still applies — the playwright dead end is just as
+#: available to a restricted child — so the prohibition is kept and only the
+#: false diagnosis is dropped. Says who to ask instead, because unlike a
+#: browserless host this capability genuinely exists and is one delegation
+#: away.
+_ROLE_HAS_NO_BROWSER_NOTE = (
+    "\n\nThis session was not given the browser tool. A browser IS available on "
+    "this host — it is simply not part of this role's tool set — so never "
+    "install or script a browser engine (playwright, puppeteer, a downloaded "
+    "Chromium) to load a page or capture a screenshot. For page text use "
+    "`bash` with curl; when a task genuinely needs a rendered page or "
+    "screenshot, say so and let the delegating session take it."
+)
+
+#: Appended to the tool inventory when the session has no console tool and the
+#: APP cannot serve one either. A three-line prohibition rather than a setup
+#: playbook, and deliberately NOT a copy of the browser's shape: the browser is
+#: installable in a minute, while the console needs the desktop app — telling the
+#: model to go and arrange it would be an invitation to the dead end the
+#: playwright incident was (design ui-console-tab §14.5).
+_NO_CONSOLE_NOTE = (
+    "\n\nThis session has no `console` tool: the console runs inside the Local "
+    "Operator desktop app and is not something this host can start or install. "
+    "Do not try to arrange a terminal another way — never install or script a "
+    "terminal emulator to stand in for it, and never treat another window's "
+    "terminal (Terminal.app, iTerm, cmux, ssh) as though it were the Local "
+    "Operator console. Use `bash` for commands; if a task genuinely needs a "
+    "full-screen TUI or a process that outlives the call, say that is "
+    "unavailable and why."
+)
+
+#: The same prohibition for a session whose ROLE was not given the console tool
+#: on a host whose app DOES have one — the ``reviewer``/``scout``/``manager``/
+#: ``architect`` seeds, whose allowlists omit it exactly as they omit the
+#: browser. A separate string for the reason the browser's pair needed one:
+#: :data:`_NO_CONSOLE_NOTE` asserts a fact about the HOST that is false here, and
+#: a child told its app has no console would answer a user's question about a
+#: console surface with a wrong diagnosis — the defect ``prompts_api`` already
+#: records for the browser.
+_ROLE_HAS_NO_CONSOLE_NOTE = (
+    "\n\nThis session was not given the `console` tool. The Local Operator "
+    "desktop app's console IS available on this host — it is simply not part of "
+    "this role's tool set — so never install or script a terminal emulator to "
+    "stand in for it, and never treat another window's terminal as though it "
+    "were this one. Use `bash` for ordinary commands, and when a task genuinely "
+    "needs an interactive terminal, say so and let the delegating session take "
+    "it."
+)
+
+
+def _host_browser_backend_available() -> bool:
+    """Whether THIS HOST could drive a browser at all, ignoring tool lists.
+
+    Distinct from "the browser tool is in my list": a restricted-role subagent
+    on a fully browser-capable host has no ``browser`` tool but must not be
+    told the host lacks a backend. Reads the same probes the createIf builder
+    uses, ALL THREE of them: a predicate naming fewer hosts than the gate it
+    mirrors tells a restricted child "no browser host is connected" on a host
+    that withheld nothing but this tool — the false diagnosis this note exists
+    to prevent, and one that became reachable as soon as the surface gained the
+    app's browser host, which is the only host that answers on an app-only
+    machine.
+
+    Imported lazily and defensively: this is prompt rendering, which must never
+    fail because a capability probe raised. A probe failure degrades to "no
+    backend", which is the conservative answer — it ships the setup playbook,
+    the same text ``main`` shipped unconditionally.
+    """
+    try:
+        from local_operator.tools.builtin import (
+            bridge_browser_advertisable,
+            cmux_browser_available,
+            ui_browser_advertisable,
+        )
+
+        return bool(
+            cmux_browser_available() or bridge_browser_advertisable() or ui_browser_advertisable()
+        )
+    except Exception:  # noqa: BLE001 — prompt rendering must never break
+        return False
+
+
+def _host_console_available() -> bool:
+    """Whether THIS HOST's app could serve a console at all, ignoring tool lists.
+
+    The exact counterpart of :func:`_host_browser_backend_available`, and it
+    exists for the same defect: a restricted-role child (``reviewer``,
+    ``scout``, ``manager``, ``architect`` — whose seed allowlists omit
+    ``console`` just as they omit ``browser``) must be told that the capability
+    EXISTS but was not granted, not that the app has none. The two diagnoses
+    lead to opposite actions, and the wrong one is the one a user's question
+    about a console surface gets answered with.
+
+    ONE probe, because the console has exactly one host: the desktop app's
+    console capability bit in its discovery record. Same lazy, defensive import
+    as the browser's probe, and the same conservative degradation — a probe that
+    raises ships the absence note, which is the honest arm when nothing can be
+    confirmed.
+    """
+    try:
+        from local_operator.tools.builtin import ui_console_advertisable
+
+        return bool(ui_console_advertisable())
+    except Exception:  # noqa: BLE001 — prompt rendering must never break
+        return False
+
+
+def host_capability_probes() -> tuple[bool, bool]:
+    """This HOST's capability answer, read ONCE per session: (browser, console).
+
+    The host half of the three-state browser/console diagnosis — the answer that
+    separates "this host has no backend" from "this role's allowlist omits the
+    tool" (see :func:`_host_browser_backend_available`). Both probes read the
+    desktop app's discovery record, which accepts a STALE-but-ALIVE heartbeat, so
+    the answer moves on a timer nobody in this process controls.
+
+    THAT is why callers take it at construction and pass it back in. Block 0 is
+    the one block whose change makes the session start a NEW persisted prefix
+    epoch (:meth:`local_operator.session.session.Session._prepare_system_blocks`),
+    and because the probes used to be re-read on every render, a heartbeat-age
+    flip bought every live session on the machine a cold cache: two sessions
+    flipped at 11:34:22/11:34:25 and reverted at 11:37:00/11:37:33, measured as
+    cache_read 47,616 -> 3,968 and 66,816 -> 50,304. The epoch path is reserved
+    for AUTHORITY — edited instructions, repo guidance, a newer packaged prompt —
+    and a liveness probe is not authority.
+
+    The accepted cost is one stale sentence inside a live session, and it has a
+    DIRECTION, which is the part a future reader needs: taking the answer once
+    at construction can go stale only in the ARRIVE-LATE case — a session built
+    while the desktop app was down keeps shipping the "no backend, do that setup
+    with the user" arm after the app appears. A capability that DEPARTS
+    mid-session is the other direction and is unaffected in substance: the tool
+    MEMBERSHIP half (``has_browser``/``has_console``) is derived per render, and
+    every call path re-probes and refuses (the console refuses per action when
+    the host's console bit is off). So the sentence can only ever be wrong about
+    the HOST, and never about what this session may do — which is what makes it
+    a sentence rather than a capability. QA round 1 measured that residue
+    directly (its scenario E, Q-1).
+    """
+    return (_host_browser_backend_available(), _host_console_available())
+
+
+#: The CHANNEL half of the ``<interactivity>`` block: how THIS session can put a
+#: question in front of a person.
+#:
+#: Stated by the CALLER, because only the caller knows it: ``ask`` is createIf-gated
+#: on the host's ask hook (``build_ask_tool``), and ``hub`` is not a discriminator —
+#: a top-level session holds its own ``hub`` (it is how ITS children reach it), so
+#: "the inventory lists hub" cannot tell a delegated child from a parent. What a
+#: child's ``hub`` reaches is the operator, one hop out; what a top-level session's
+#: ``hub`` reaches is its own subagents.
+#:
+#: Both values are STABLE for a session's life, so the chosen body cannot churn a
+#: block inside the persisted prefix. A reader must never be told to use a tool it
+#: does not have: the round-1 reviews found the positive body advising a SUBAGENT to
+#: use ``ask`` (absent from its inventory, and from every child's) and an
+#: ``exec``/scheduler reader to use a tool it never had either.
+CHANNEL_ASK = "ask"
+CHANNEL_HUB = "hub"
+CHANNEL_NONE = "none"
+
+#: Attached, and this session owns an ``ask`` hook (the TUI, the desktop app):
+#: the original positive body, unchanged. A supervised ``exec --control`` run has
+#: the hook too, but it installs no runtime probe (§3.1), so it renders NO block —
+#: the hook and the measurement are different facts.
+_INTERACTIVITY_ATTACHED_ASK = """<interactivity>
+An interface is attached to this session, so a question you ask WILL be
+presented to the operator: `ask` puts it on that surface and waits for the
+answer, parked for hours if necessary.
+
+- Ask when the answer is genuinely the operator's to give, and not otherwise.
+- The question is presented even if nobody is looking at this exact moment. It
+  waits; it is not lost. A slow answer is not a refusal, and it is not a reason
+  to decide on the operator's behalf.
+- Write for a reader who may answer minutes later: say what you need and what
+  you will do with it.
+</interactivity>"""
+
+#: Attached, this session owns an ``ask`` hook, and ``ask`` QUEUES (design §6
+#: D6). Same two measured facts as the body above, and the ONLY difference is
+#: what the ask does to the turn — so the pair is kept side by side rather than
+#: derived, because the two must not drift into describing the same call.
+#:
+#: Three consequences a reader cannot infer from the blocking body, and each is
+#: one line, in the order it matters: the call is not the answer; a receipt is
+#: not consent (design risk 1 — this is the body read by the sessions most
+#: likely to be mid-task); and the turn must not be spent idling for it.
+_INTERACTIVITY_ATTACHED_ASK_QUEUED = """<interactivity>
+An interface is attached to this session, so a question you ask WILL be
+presented to the operator: `ask` queues it and returns at once, and the answer
+arrives later as a turn of its own.
+
+- Ask when the answer is genuinely the operator's to give, and not otherwise.
+- A receipt is not consent: until the answer arrives, do not run anything the
+  ask was meant to authorise.
+- Do not idle on it. Continue with work that does not depend on the answer; if
+  nothing else remains, end the turn saying what is queued.
+- The question is presented even if nobody is looking at this exact moment. It
+  waits; it is not lost. A slow answer is not a refusal, and it is not a reason
+  to decide on the operator's behalf.
+- Write for a reader who may answer minutes later: say what you need and what
+  you will do with it.
+</interactivity>"""
+
+#: Attached, no ``ask`` hook, but a parent channel (a SUBAGENT). The attachment is
+#: a fact about the PARENT's session — the surface the operator is attached to —
+#: and the child's route to it is ``hub``. Saying "attached to this session" here
+#: is a false statement of fact about the child, and it is the propagation mode the
+#: operator's report was made of (a child relaying the parent's claim into its own
+#: messages unchecked).
+_INTERACTIVITY_ATTACHED_HUB = """<interactivity>
+An interface is attached to the session this run was delegated from, so a
+question you cannot settle yourself belongs to the operator: `hub` to that
+session carries it there, and it waits for them — parked if necessary.
+
+- Raise it through `hub` when the answer is genuinely the operator's to give,
+  and not otherwise.
+- Your question reaches the operator even if nobody is looking at this exact
+  moment. It waits; it is not lost. A slow answer is not a refusal, and it is
+  not a reason to decide on the operator's behalf.
+- Write for a reader who may answer minutes later: say what you need and what
+  you will do with it.
+</interactivity>"""
+
+#: Attached, and NO channel from this process at all — neither ``ask`` nor ``hub``.
+#: The measured fact (something is attached) is still stated, because silence is
+#: read as "probably nobody there"; what changes is the consequence, which must not
+#: promise a presentation this process cannot perform. The wording matches the
+#: ``ask`` refusal's own diagnosis of a missing hook rather than asserting anything
+#: about the operator.
+_INTERACTIVITY_ATTACHED_NONE = """<interactivity>
+An interface is attached to the session this run belongs to, but this run has no
+way to put a question in front of the operator: no ask hook is wired into this
+session, and it holds no channel to one that is.
+
+- Say what you would have asked in your report — the question and the fact that
+  would change your answer — and proceed on the best reading you have.
+- Stating the question is not losing it: the operator reads this conversation
+  when they return.
+- Write for a reader who may answer minutes later: say what you need and what
+  you will do with it.
+</interactivity>"""
+
+#: Detached, with an ``ask`` hook: the original negative body, unchanged. It
+#: deliberately drops "nobody is watching a screen" — the exact false claim the
+#: incident turned on, on evidence that could not support it.
+_INTERACTIVITY_DETACHED_ASK = """<interactivity>
+No interface is attached to this session right now, so a question you ask cannot
+be presented to anyone until a surface attaches: it waits, unread, and the turn
+may block for hours.
+
+- Prefer to PROCEED with what you have, or finish the turn with a clear
+  statement of what you would have asked, over calling `ask`.
+- That statement is a decision you already took and the fact that would change
+  it, not a question left hanging.
+- Do not take an irreversible or destructive action to avoid asking; when the
+  choice genuinely needs a person, stop and say so — that is cheaper than a
+  wrong guess.
+- The operator will read this conversation when they return, so write for
+  someone catching up, not for someone watching live.
+</interactivity>"""
+
+#: Detached, with an ``ask`` hook, and ``ask`` QUEUES. The blocking body's
+#: "the turn may block for hours" is exactly the false claim this variant
+#: exists to remove: the queue is durable precisely so a session with nobody
+#: attached is not held, and the ask is shown when a surface attaches.
+#:
+#: The PROCEED-first bullet survives unchanged, and that is deliberate: an
+#: unattended session still should not spend an ask it cannot wait on, and the
+#: ask is still the right move for the one case below it (something genuinely
+#: the operator's to decide) — now because the ask will be waiting for them
+#: rather than because the turn parks.
+_INTERACTIVITY_DETACHED_ASK_QUEUED = """<interactivity>
+No interface is attached to this session right now, so a question you ask is
+queued: it is kept durably, it is shown when a surface attaches, and it never
+blocks this turn.
+
+- Prefer to PROCEED with what you have, or finish the turn with a clear
+  statement of what you would have asked, over calling `ask`.
+- That statement is a decision you already took and the fact that would change
+  it, not a question left hanging.
+- Do not take an irreversible or destructive action to avoid asking; when the
+  choice genuinely needs a person, `ask` — a queued ask is durable and waits for
+  them — or stop and say so.
+- A receipt is not consent: the answer arrives later, as a turn.
+- The operator will read this conversation when they return, so write for
+  someone catching up, not for someone watching live.
+</interactivity>"""
+
+#: Detached, no ``ask`` hook, but a parent channel (a SUBAGENT): the same fact about
+#: the PARENT's session, with the child's own route named. The bullets are shared
+#: with ``_INTERACTIVITY_DETACHED_NONE`` and name no tool, because the useful
+#: instruction for a reader with no ask hook is to state the question where the
+#: operator will read it — not to reach for one.
+_INTERACTIVITY_DETACHED_HUB = """<interactivity>
+No interface is attached to the session this run was delegated from right now,
+so a question raised through `hub` cannot be presented to the operator until a
+surface attaches: it waits, unread.
+
+- Prefer to PROCEED with what you have, or finish the turn with a clear
+  statement of what you would have asked, over stalling on a question.
+- That statement is a decision you already took and the fact that would change
+  it, not a question left hanging.
+- Do not take an irreversible or destructive action to avoid asking; when the
+  choice genuinely needs a person, stop and say so — that is cheaper than a
+  wrong guess.
+- The operator will read this conversation when they return, so write for
+  someone catching up, not for someone watching live.
+</interactivity>"""
+
+#: Detached, no ``ask`` hook and no parent channel: no surface to present on, and
+#: nothing here that could present one even if it attached.
+_INTERACTIVITY_DETACHED_NONE = """<interactivity>
+No interface is attached to the session this run belongs to right now, and this
+run has no way to put a question in front of the operator.
+
+- Prefer to PROCEED with what you have, or finish the turn with a clear
+  statement of what you would have asked, over stalling on a question.
+- That statement is a decision you already took and the fact that would change
+  it, not a question left hanging.
+- Do not take an irreversible or destructive action to avoid asking; when the
+  choice genuinely needs a person, stop and say so — that is cheaper than a
+  wrong guess.
+- The operator will read this conversation when they return, so write for
+  someone catching up, not for someone watching live.
+</interactivity>"""
+
+
+def _interactivity_channel(tools: Sequence[AgentTool], channel: str | None) -> str:
+    """How this session can put a question in front of a person.
+
+    ``channel is None`` means the caller stated nothing, and the fallback is tool
+    MEMBERSHIP — the same rule the inventory block below already follows: the ``ask``
+    tool exists exactly where the host wired the ask hook (``build_ask_tool``), so
+    "holds ``ask``" IS the answer. It can only ever answer "ask" or "nothing"; the
+    ``hub`` body is never inferred, for the reason on the constants above.
+    """
+    if channel is not None:
+        return channel
+    if any(tool.name == "ask" for tool in tools):
+        return CHANNEL_ASK
+    return CHANNEL_NONE
+
+
+def _interactivity_block(attached: bool, channel: str, *, queued_ask: bool) -> str:
+    """The ``<interactivity>`` body for one measured (attachment, channel) pair.
+
+    EIGHT constants, keyed on two stable facts plus one process-level mode, and
+    no interpolation of any kind: the same triple always renders the same bytes,
+    which is what lets the block ride a persisted prompt prefix without moving
+    it. ``queued_ask`` is a process constant (``asks.policy`` is read once at
+    import), so it cannot churn a block inside one session's prefix — the reason
+    it is a parameter here rather than a live lookup per render.
+
+    It selects only the ASK channel's bodies: ``hub`` describes where a
+    delegated child's question goes, which the queue does not change, and the
+    no-channel bodies name no tool at all.
+    """
+    if attached:
+        return {
+            CHANNEL_ASK: (
+                _INTERACTIVITY_ATTACHED_ASK_QUEUED if queued_ask else _INTERACTIVITY_ATTACHED_ASK
+            ),
+            CHANNEL_HUB: _INTERACTIVITY_ATTACHED_HUB,
+            CHANNEL_NONE: _INTERACTIVITY_ATTACHED_NONE,
+        }[channel]
+    return {
+        CHANNEL_ASK: (
+            _INTERACTIVITY_DETACHED_ASK_QUEUED if queued_ask else _INTERACTIVITY_DETACHED_ASK
+        ),
+        CHANNEL_HUB: _INTERACTIVITY_DETACHED_HUB,
+        CHANNEL_NONE: _INTERACTIVITY_DETACHED_NONE,
+    }[channel]
+
+
+def _ask_queue_queued() -> bool:
+    """Whether ``ask`` QUEUES in this process (design §6, D6).
+
+    ONE read, in one function, because two surfaces of the same prompt describe
+    the same mode — the paragraph in ``system.md`` and the ``<interactivity>``
+    body — and two reads are how they would start disagreeing. Lazy for the same
+    reason as the tool-side copy: ``prompts_api`` is on every session's build
+    path and the queued-ask policy is not worth a module-scope import.
+    """
+    from local_operator.asks import policy
+
+    return policy.enabled()
+
+
+def build_system_blocks(
+    tools: Sequence[AgentTool],
+    skills_block: str,
+    env_details: str,
+    date_str: str,
+    goal: str = "",
+    goal_status: str = "",
+    user_instructions: str = "",
+    repo_guidance: str = "",
+    credentials: Sequence[str] | None = None,
+    team_brief: str = "",
+    agent_brief: str = "",
+    run_brief: str = "",
+    model_label: str = "",
+    interactive: bool | None = None,
+    channel: str | None = None,
+    host_has_browser: bool | None = None,
+    host_has_console: bool | None = None,
+) -> list[str]:
+    """Build the system prompt blocks; see the module docstring.
+
+    These are the current desired blocks, not a promise of prefix cache
+    stability: every system block precedes conversation history on the wire.
+    Production sessions persist the first snapshot, then journal changes as
+    host-authored state messages at the history tail. Moving volatile content
+    to a later SYSTEM block alone cannot preserve the conversation cache.
+    A changed standing-instruction head starts a new persisted prefix: cached
+    bytes must never hide updated repository rules, custom instructions or a
+    newer packaged prompt, including when an old conversation is resumed.
+
+    ``host_has_browser``/``host_has_console`` are the caller's ALREADY-COMPUTED
+    host probes, from :func:`host_capability_probes` at construction time. Pass
+    them: left ``None`` they are re-read here on every render, and because block
+    0 is the block whose change starts a new persisted prefix epoch for the live
+    session, a probe that flips with a heartbeat's age then costs every session
+    its cache (the measured incident is in :func:`host_capability_probes`). The
+    tool-MEMBERSHIP half of the decision is not frozen and must not be — it is
+    derived from ``tools`` on every render, so a tool this session gained is
+    described correctly whatever the host said at construction.
+
+    ``user_instructions`` (the operator's standing customization, read once at
+    session start from ``system_prompt.md``) rides the HEAD block instead,
+    appended to the packaged persona. It belongs there because it is exactly
+    as stable as the persona — a file the operator edits between sessions,
+    never within one — so it costs nothing in cache churn, and because it must
+    outrank nothing: standing user preference is part of who the assistant is,
+    not a per-turn instruction competing with the live conversation. Keeping
+    it out of the tail also stops a long instructions file from being re-sent
+    ahead of every volatile change.
+
+    ``goal_status`` is the goal's lifecycle state (``"" | "active" | "done"``),
+    and it exists so that the ``<goal>`` block cannot outlive the goal's
+    objective. ``mark_done`` deliberately KEEPS ``text`` — that window is what
+    lets the chip strike through WHAT was done and the history name it — so a
+    block gated on the text alone kept telling the model, every turn, that a
+    finished objective was still the standing one to pursue: the model went on
+    working toward work the judge had just declared complete. ``"done"`` is
+    therefore the ONE state that withholds the block. Retaining the text is for
+    the SURFACES; the prompt is instructions, and "pursue this" must not be the
+    same sentence as "this was achieved" (UI review round 1).
+
+    ``interactive`` is TIER A — "an interface is attached that can PRESENT a
+    question" — and never "somebody is looking right now". The two are different
+    questions with different consumers, and this one is deliberately the weaker:
+    focus flaps with window z-order, and this value selects which
+    ``<interactivity>`` body rides the tail, so a focus-keyed answer would move a
+    block inside the persisted prefix every time a window was raised. The
+    runtime's attachment predicate is the source; see
+    ``RuntimeServer.attached_surfaces`` and
+    ``docs/design/attached-interface-signal.md``.
+
+    ``interactive is None`` — the DEFAULT, and the tri-state's third value —
+    means NOBODY MEASURED: no runtime probe was installed, so this host has no
+    attachment answer at all (a plain CLI, an ``exec`` run, a scheduled run, a
+    bare test). It renders NO ``<interactivity>`` block, which is the byte-shape
+    those hosts had before this block grew a positive arm, and it is what keeps
+    the block to statements that were measured. Reading ``None`` as attached (the
+    ``is_interactive()`` fail-open, which the PARK decision must keep) is wrong
+    HERE: a scheduled run shipping an ~597-char claim about an attached interface
+    it never probed is the same defect this block exists to remove.
+
+    ``channel`` states HOW this session can put a question in front of a person,
+    because the bodies name the channel and a reader must never be sent to a tool
+    it does not have. One of :data:`CHANNEL_ASK` (this session owns an ask hook),
+    :data:`CHANNEL_HUB` (a delegated child: its route to the operator is the
+    session that delegated it), or :data:`CHANNEL_NONE`. Left ``None`` it is
+    derived from tool MEMBERSHIP — exactly like the inventory block, and for the
+    same reason: ``build_ask_tool`` is gated on the hook, so the ``ask`` tool's
+    presence IS the answer for a caller that cannot read a live one. The session
+    facade, whose ``set_ask_handler`` installs the hook AFTER the provider closure
+    is built, passes the live answer instead: ``tools`` there is the
+    construction-time list and would have said "no ask hook" to every TUI and
+    desktop session.
+    """
+    # THREE states, not two, and conflating the last two ships a false claim.
+    # Membership, not visibility: a hidden tool is still callable, and telling
+    # the model a browser does not exist while one answers would be worse than
+    # saying nothing.
+    #
+    #   1. tool present                      -> usage prose, no note
+    #   2. tool absent because the HOST has   -> setup playbook + the note that
+    #      no backend                            names the playwright dead end
+    #   3. tool absent because this ROLE's    -> no playbook (the host is fine,
+    #      allowlist omits it                    an install would be pointless),
+    #                                            but still the no-install rule
+    #
+    # State 3 is the one an earlier revision got wrong: `reviewer`, `scout`,
+    # `manager` and `architect` seeds all omit `browser`, so every such child
+    # on a browser-capable host was told "the host has neither backend
+    # connected... do that setup with the user". False, and actionably false.
+    # The host probe is what separates 2 from 3.
+    has_browser = any(tool.name == "browser" for tool in tools)
+    if host_has_browser is None:
+        host_has_browser = _host_browser_backend_available()
+    # MEMBERSHIP stays live; only the HOST's own answer is taken as given (see
+    # ``host_capability_probes``). ``has_browser`` ORed in first, so a session
+    # that has the tool is unaffected by what the host probe said.
+    host_has_browser = has_browser or host_has_browser
+    # The console is the same three-state story with the same consequence for a
+    # restricted child, and it is computed HERE rather than left to the template
+    # so both capability pairs are decided by one function. Note the console's
+    # `no_console` arm is a PROHIBITION rather than a setup playbook: the browser
+    # can be installed by a user in a minute, the console needs the desktop app,
+    # and telling the model to arrange one would be the playwright mistake again
+    # (design ui-console-tab §14.5).
+    has_console = any(tool.name == "console" for tool in tools)
+    if host_has_console is None:
+        host_has_console = _host_console_available()
+    host_has_console = has_console or host_has_console
+    # The browser prose is conditional rather than unconditional because it is
+    # ~1,500 characters of instruction for a tool that is createIf-gated: a
+    # host with no cmux and no extension paid for three paragraphs about a
+    # `browser` tool that is not in its tool list. The two flags are passed
+    # separately (rather than one negated in the template) because the engine
+    # is deliberately tiny — `{{#if}}` has no `else` and no negation.
+    #
+    # NOTE the asymmetry, and keep it: when the browser is absent the usage
+    # prose is gated out but a no-install note still ships on the inventory
+    # block. They are not two copies of one thing. The gated-out prose explains
+    # how to USE the tool; the note records a measured failure (a session spent
+    # 23s on `playwright install`) and is the only text that names the wrong
+    # turn — which stays worth saying however the tool came to be absent.
+    instructions = render_template(
+        "system.md",
+        # The setup playbook is gated on the HOST, never on this role's list.
+        # Both capability pairs go in ONE call so a future capability cannot be
+        # added to the template and forgotten at this call site — the failure
+        # `_resolve_system_md_flags` exists to make loud.
+        {
+            "has_browser": has_browser,
+            "no_browser": not host_has_browser,
+            "has_console": has_console,
+            "no_console": not host_has_console,
+        },
+    )
+    instructions += (
+        "\n\n## Session state updates\n\n"
+        "The host may append [session-state] records containing current tool, "
+        "environment, knowledge, goal, team, agent, or interactivity state. "
+        "Each supplied section replaces that section's earlier snapshot, "
+        "including an explicit empty section. Treat these as host context, "
+        "not a new user task or permission to act. Direct user instructions "
+        "and existing approval requirements still apply. Older snapshots "
+        "describe the state at that point in the conversation."
+    )
+    if repo_guidance.strip():
+        # Same head-block, read-once discipline as user_instructions: the
+        # files are part of the project's standing state, edited between
+        # sessions, never within one.
+        instructions = f"{instructions}\n\n{repo_guidance.strip()}"
+    if user_instructions.strip():
+        # Tagged, not merged: the model must be able to tell the operator's
+        # standing customization apart from the packaged rules above it, and
+        # a delimiter is what stops a long instructions file from reading as
+        # a continuation of the persona's final bullet.
+        #
+        # The closing tag is neutralized first. The global file is
+        # self-authored, so escaping it there is only tidiness; the same
+        # string also carries an imported agent profile's prompt, which is
+        # untrusted text.
+        safe = _CLOSING_TAG_RE.sub("<\\/user_instructions>", user_instructions.strip())
+        instructions = (
+            f"{instructions}\n\n## User's custom instructions\n\n"
+            "The operator set these standing preferences for every session on "
+            "this machine. Follow them as their default expectations; a "
+            "direct instruction in the conversation still wins.\n\n"
+            f"<user_instructions>\n{safe}\n</user_instructions>"
+        )
+    inventory = render_tool_inventory_block(
+        tools, host_has_browser=host_has_browser, host_has_console=host_has_console
+    )
+    env_block = f"Today is {date_str}."
+    if env_details:
+        env_block = f"{env_block}\n\n{env_details}"
+    if model_label.strip():
+        # The running model, so the assistant knows which model it currently is
+        # rather than guessing (a subagent naming itself in a review byline, a
+        # model reasoning about its own context window or capabilities). This
+        # rides the byte-stable env HEAD block, not the volatile tail, because
+        # within one turn-loop the model does not change: a deliberate
+        # ``set_model`` or a failover fallback takes effect at the NEXT turn
+        # boundary, which re-renders this block from the session's live model,
+        # and the switch itself is separately announced as a
+        # ``session_model_switch`` message so the model notices the change
+        # rather than only seeing a different static line.
+        env_block = f"{env_block}\n\nModel: {model_label.strip()}"
+
+    tail = skills_block or "<skills/>"
+    if goal and goal_status != "done":
+        # Phrased as a standing objective so the model carries it as context
+        # for every turn instead of re-acknowledging a fresh instruction. A
+        # DONE goal is left out entirely (see the docstring): its text is kept
+        # for the surfaces, not for the model to keep working toward.
+        tail = (
+            f"{tail}\n\n<goal>\nThe user's standing objective for this "
+            f"session:\n{goal}\n</goal>"
+        )
+    if team_brief.strip():
+        # A /team launch stamps the group's collaboration and project briefs
+        # here rather than in the cached head: attaching a team mid-session
+        # must not invalidate the persona prefix, and a team is a grouping
+        # for THIS conversation, not a machine-wide preference.
+        tail = f"{tail}\n\n<team>\n{team_brief.strip()}\n</team>"
+    if agent_brief.strip():
+        # `/agent <name>` rides the tail for the same cache reason as the team
+        # brief. AFTER `<team>` deliberately: an agent attached mid-session is
+        # the more recent, more specific instruction, and later placement is
+        # how the model reads precedence when the two briefs disagree.
+        tail = f"{tail}\n\n<agent>\n{agent_brief.strip()}\n</agent>"
+    if run_brief.strip():
+        # A configuration run's server-owned remit, LAST in the tail: it is the
+        # narrowest statement here ("this session may edit these registries and
+        # nothing else") and the one the model must not read as superseded by a
+        # profile or a team brief layered above it. Its own element rather than
+        # folding into `<agent>` because the two have different authors — see
+        # ``session.goal.GoalState.run_brief`` — and a reader must be able to
+        # tell the operator's persona from the harness's boundary.
+        tail = f"{tail}\n\n<configuration-run>\n{run_brief.strip()}\n</configuration-run>"
+    if interactive is not None:
+        # WHO CAN ANSWER, stated in BOTH directions rather than only the negative
+        # one. A question asked now is answered when the operator LOOKS, not when
+        # they are looking — so an attached session has to be told its question
+        # WILL be presented. Rendering nothing there left silence to be read as
+        # "probably nobody is there", which is the default reading this block
+        # exists to displace.
+        #
+        # EVERY BODY IS A CONSTANT: no timestamp, no session id, no count, no
+        # surface kind, and no word about who is watching. That last omission is
+        # the fix, not a tidy-up: the block used to claim "nobody is watching a
+        # screen" on evidence that could not support it (a machine-wide record
+        # unable to NAME the conversation was read as evidence against the
+        # session), and it is the sentence models parroted into `hub` messages
+        # while the operator was reading the session. What the block may state is
+        # what was measured — whether a surface is attached — and its consequence.
+        #
+        # Focus is not an input either (see ``RuntimeServer.attached_surfaces``),
+        # which is what makes the bytes stable: fifty window focus changes produce
+        # the same block, so the persisted prefix does not move and no transcript
+        # row is written. This block is rebuilt at turn start, so N attach/detach
+        # cycles cost exactly what zero cost — a row per transition is the token
+        # accumulation this deliberately avoids.
+        #
+        # The CHANNEL half is the other measured fact, and it exists so no reader
+        # is sent to a tool it lacks: a subagent renders its PARENT's attachment
+        # answer, and telling that child "a question you ask WILL be presented:
+        # `ask` ..." names a tool absent from its inventory (``build_ask_tool``
+        # refuses without a hook) and a channel that does not exist — the failure
+        # this whole change removes, reintroduced for the population most
+        # sessions' turns are made of.
+        body = _interactivity_block(
+            interactive, _interactivity_channel(tools, channel), queued_ask=_ask_queue_queued()
+        )
+        tail = f"{tail}\n\n{body}"
+    names = [name for name in (credentials or ()) if name]
+    if names:
+        # Names only. The values live in process memory and are injected into
+        # bash; putting a value (or even a reversible placeholder) here would
+        # ship the secret to the provider on every later turn.
+        listed = "\n".join(f"- `{name}`" for name in names)
+        tail = (
+            f"{tail}\n\n<session-credentials>\n"
+            "The operator has handed this session credentials you can USE but "
+            "never READ. Each name below is an environment variable on every "
+            "`bash` command; the real value is never visible to you. When the "
+            "user says they added a key or credential, these names are what to "
+            "use — `list_variables` also lists them.\n\n"
+            "- NEVER print, echo, log, commit, or write one of these values. "
+            "If a command would display it, do not run that command.\n"
+            "- Prefer letting the child process inherit the variable over "
+            "inlining it in a command string, so the value never reaches a "
+            "shell history or a rendered command line.\n"
+            "- These live in memory for this session only. Asked to persist "
+            "one, put it in a real secrets manager or vault — never a "
+            "dotfile in the repo.\n\n"
+            f"{listed}\n"
+            "</session-credentials>"
+        )
+
+    return [instructions, inventory, env_block, tail]
+
+
+# ---------------------------------------------------------------------------
+# Section-granular state deltas
+# ---------------------------------------------------------------------------
+#
+# A ``[session-state]`` delta re-ships a changed block as only its changed
+# sections (``Session._system_state_delta``), so a change inside one section
+# does not pay for the whole block. The sections are exactly the pieces the two
+# builders above APPEND: the tail block is the pieces of
+# :func:`build_system_blocks` joined with ``"\n\n"``, and the inventory block
+# is :func:`render_tool_inventory_block` plus the capability notes it appends.
+# The split functions below are the inverse of those compositions, and the
+# assemble function is the one join both halves use.
+#
+# Every split MUST satisfy ``assemble(split(text)) == text`` byte for byte: the
+# resume fold (``Session.__init__``) replays these maps out of the transcript,
+# and a split that did not round-trip would silently rewrite the state the
+# next delta compares against — and the bytes a resumed session re-sends.
+# The join is therefore verified before a split is returned, and a text that
+# is not a composition produced here (a host's custom block, a truncated child
+# copy, marker-shaped content) falls back to ONE whole-block section: correct,
+# merely not granular.
+#
+# A consequence worth stating because it outlives this file: a record is
+# REPLAYED by re-splitting with the CURRENT code, so the markers and the cut
+# choices below are a versioned format, not a private implementation detail.
+# Changing one changes what historical records mean; extend the marker set only
+# alongside a translation for records that predate it.
+#
+# Section names travel in the record's ``details.blocks`` (machine side) and
+# pick a heading for the model via :data:`STATE_SECTION_HEADINGS`; both tables
+# and the order below are part of the contract with the builders above.
+
+#: Tail-block pieces, in the order they are joined with ``"\n\n"``: the
+#: pieces ``build_system_blocks`` appends, PLUS the two pieces the knowledge
+#: ARGUMENT itself is built from (``_select_knowledge_block`` joins the
+#: selected guides/skills listing, the MCP catalogue and the trailing
+#: recommendation blocks with the same separator). Those two are split out
+#: because the fleet replay (300 transcripts, 934 state records) measures the
+#: residual re-sends there: 11.55M chars were re-sent whole-block, 2.88M if
+#: these two stay fused with ``knowledge``, and 1.66M with them split out —
+#: most of the distance to a fully split listing, without depending on prose
+#: sentence markers inside it. The leading ``knowledge`` piece has no marker
+#: of its own — it is everything before the first recognised one.
+_TAIL_SECTION_MARKERS: tuple[tuple[str, str], ...] = (
+    ("mcps", "<mcps>"),
+    ("recs", "<resource_recommendations>"),
+    ("goal", "<goal>"),
+    ("team", "<team>"),
+    ("agent", "<agent>"),
+    ("run", "<configuration-run>"),
+    ("interactivity", "<interactivity>"),
+    ("credentials", "<session-credentials>"),
+)
+
+#: The order a block's sections are APPENDED in — the order ``assemble``
+#: restores and the order a delta lists changed sections in.
+_BLOCK_SECTION_ORDER: dict[int, tuple[str, ...]] = {
+    1: ("tools", "notes"),
+    3: ("knowledge", *(name for name, _ in _TAIL_SECTION_MARKERS)),
+}
+
+#: The section a block's text is filed under when the index's splitter does not
+#: recognise it (the whole text rides as this one section), and the heading it
+#: renders under.
+_BLOCK_DEFAULT_SECTION: dict[int, str] = {1: "tools", 2: "environment", 3: "knowledge"}
+
+#: Section name -> the heading a ``[session-state]`` record renders for it
+#: (``Session._system_state_message``). ``tools`` deliberately maps to the same
+#: words as ``TOOL_INVENTORY_HEADING`` so the renderer's already-heading guard
+#: round-trips it — the inventory text carries its own heading — instead of
+#: doubling it.
+STATE_SECTION_HEADINGS: dict[str, str] = {
+    "tools": TOOL_INVENTORY_HEADING.removeprefix("## "),
+    "notes": "Tool notes",
+    "environment": "Environment",
+    "knowledge": "Knowledge and session state",
+    "mcps": "MCP catalogue",
+    "recs": "Recommendations",
+    "goal": "Goal",
+    "team": "Team",
+    "agent": "Agent",
+    "run": "Configuration run",
+    "interactivity": "Interactivity",
+    "credentials": "Session credentials",
+    "session": "Session state",
+}
+
+#: The inventory notes, in REVERSE append order (the console note follows the
+#: browser one; see :func:`render_tool_inventory_block`), each note's variants
+#: grouped so the strip can try both spellings of the note it is looking for.
+#: They are package constants, so they are matched by identity — exact suffix —
+#: rather than by scanning for prose.
+_INVENTORY_NOTES_REVERSED: tuple[tuple[str, ...], ...] = (
+    (_NO_CONSOLE_NOTE, _ROLE_HAS_NO_CONSOLE_NOTE),
+    (_NO_BROWSER_NOTE, _ROLE_HAS_NO_BROWSER_NOTE),
+)
+
+
+def _join_sections(parts: Sequence[str]) -> str:
+    """The one join the section protocol uses, so split and assemble agree."""
+    return "\n\n".join(parts)
+
+
+def _piece_start(text: str, marker: str, search_from: int) -> int:
+    """First position of ``marker`` that BEGINS a join-separated piece.
+
+    A piece starts at the start of the text or right after a ``"\n\n"`` join
+    separator; anything else is the marker appearing INSIDE content, which
+    must not become a cut — it would still round-trip (see the splitter), but
+    it would cut a section in two for no gain, and the enclosing section is
+    the safer account of where the text belongs.
+    """
+    at = search_from
+    while True:
+        found = text.find(marker, at)
+        if found < 0:
+            return -1
+        if found == 0 or text[found - 2 : found] == "\n\n":
+            return found
+        at = found + 1
+
+
+def split_tail_sections(text: str) -> dict[str, str]:
+    """Recover a tail block's replaceable sections from its rendered text.
+
+    The inverse of the tail half of :func:`build_system_blocks` down to the
+    pieces its knowledge argument is built from: ``knowledge`` is everything
+    before the first recognised marker (the selected guides/skills listing,
+    or the ``<skills/>`` fallback), then ``mcps`` and ``recs`` — the MCP
+    catalogue and the trailing recommendation blocks — then the tail proper
+    (goal/team/agent/interactivity/credentials).
+
+    Markers are searched in composition order, each from just past the
+    previous cut, so an out-of-order occurrence (marker-shaped content inside
+    a brief, a text no builder here produced) is left inside its enclosing
+    section rather than cut out — a granularity loss at worst, never a
+    round-trip break, which the join check below enforces anyway.
+
+    ``{}`` for empty text; otherwise a map that reassembles to ``text``
+    exactly (falling back to one whole ``knowledge`` section when it would
+    not).
+    """
+    if not text:
+        return {}
+    names: list[str] = ["knowledge"]
+    parts: list[str] = []
+    start = 0
+    search_from = 0
+    for name, marker in _TAIL_SECTION_MARKERS:
+        found = _piece_start(text, marker, search_from)
+        if found < 0:
+            continue
+        parts.append(text[start : found - 2] if found >= 2 else text[start:found])
+        names.append(name)
+        start = found
+        search_from = found + len(marker)
+    parts.append(text[start:])
+    kept = [(name, part) for name, part in zip(names, parts) if part]
+    if not kept or _join_sections([part for _, part in kept]) != text:
+        return {"knowledge": text}
+    return dict(kept)
+
+
+def split_inventory_sections(text: str) -> dict[str, str]:
+    """Recover an inventory block's replaceable sections from its text.
+
+    The inverse of :func:`render_tool_inventory_block`: ``tools`` is the
+    heading and name list, ``notes`` is the capability notes the block
+    appended at its end. ``{}`` for empty text; otherwise a map that
+    reassembles to ``text`` exactly (falling back to one whole ``tools``
+    section when it would not).
+    """
+    if not text:
+        return {}
+    rest = text
+    notes: list[str] = []
+    for variants in _INVENTORY_NOTES_REVERSED:
+        for note in variants:
+            if note.startswith("\n\n") and rest.endswith(note):
+                rest = rest[: -len(note)]
+                notes.insert(0, note[2:])
+                break
+    sections: dict[str, str] = {}
+    if rest:
+        sections["tools"] = rest
+    if notes:
+        sections["notes"] = _join_sections(notes)
+    ordered = [sections[name] for name in ("tools", "notes") if name in sections]
+    if not sections or _join_sections(ordered) != text:
+        return {"tools": text}
+    return sections
+
+
+def split_system_block_sections(index: int, text: str) -> dict[str, str]:
+    """The section map for one block of the system array.
+
+    ``index`` selects the composition: 1 is the tool inventory, 3 the tail,
+    anything else a single-section block (2 is the environment). A text the
+    index's splitter does not recognise returns one whole-block section under
+    the index's default name, so every block index is section-addressable and
+    no caller special-cases "sections unavailable". An empty text is filed as
+    an EMPTY default section rather than ``{}`` — a delta must be able to say
+    a block is empty (``"(empty)"`` on the wire), and "" is that statement.
+    """
+    if index == 1:
+        sections = split_inventory_sections(text)
+    elif index == 3:
+        sections = split_tail_sections(text)
+    else:
+        sections = {}
+    if sections:
+        return sections
+    return {_BLOCK_DEFAULT_SECTION.get(index, "session"): text}
+
+
+def assemble_system_block_sections(index: int, sections: Mapping[str, str]) -> str:
+    """Rejoin a section map into its block text (the inverse of the split).
+
+    Sections are placed in the composition order for ``index``; a name the
+    order does not know (a record written by another version) keeps its
+    relative position at the end rather than being dropped. Empty values are
+    omitted: the record protocol uses ``""`` to say a section is gone.
+    """
+    order = _BLOCK_SECTION_ORDER.get(index)
+    if order is None:
+        order = tuple(sections)
+    ordered = [name for name in order if sections.get(name)]
+    extra = [name for name in sections if name not in order and sections.get(name)]
+    return _join_sections([str(sections[name]) for name in (*ordered, *extra)])

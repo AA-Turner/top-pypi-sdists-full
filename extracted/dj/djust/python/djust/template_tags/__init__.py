@@ -1,0 +1,586 @@
+"""
+Template Tag Handler Registry for djust.
+
+This module provides a Python API for registering custom template tag handlers
+that are called from the Rust template engine. This enables Django-specific tags
+like {% url %} and {% static %} to work seamlessly with djust's fast rendering.
+
+Usage
+-----
+```python
+from djust.template_tags import TagHandler, register
+
+@register("url")
+class UrlTagHandler(TagHandler):
+    def render(self, args: list, context: dict) -> str:
+        from django.urls import reverse
+        url_name = args[0].strip("'\"")
+        return reverse(url_name)
+```
+
+Architecture
+------------
+The registry uses a Rust-Python callback pattern:
+
+1. Parser encounters unknown tag (e.g., {% url 'name' %})
+2. Checks if Python handler is registered for "url"
+3. If yes, creates CustomTag node
+4. At render time, Rust calls Python handler with:
+   - args: List of arguments from the tag
+   - context: Dictionary of template context
+5. Handler returns string to insert in output
+
+Performance
+-----------
+- Built-in tags (if, for, block): Zero overhead (native Rust)
+- Custom tags (url, static): ~15-50µs per call (GIL + callback)
+
+This overhead is acceptable for typical templates and provides full
+compatibility with Django's URL resolution and static file handling.
+"""
+
+import logging
+import re
+from typing import Any, Callable, ClassVar, Dict, List, Optional, Set, Tuple, Type, Union
+
+logger = logging.getLogger(__name__)
+
+# A template-tag argument, as produced by the template tokenizer, is a
+# whitespace-delimited token: a bare dotted-identifier path (``block.text``),
+# a ``key=value`` kwarg (``tables=False``), a quoted literal, or an int. The
+# Rust custom-tag dispatch, however, *pre-resolves* bare-name variable args to
+# their VALUE before handing them to the Python handler (renderer.rs
+# ``Node::CustomTag``). A resolved value (e.g. Markdown source text) is NOT a
+# token, and re-running the kwarg-split / dotted-lookup heuristics on it
+# corrupts any value containing ``=`` (tuple-split → ``str((k, v))`` repr) or a
+# leading dotted segment that happens to match a context key (#2037). These
+# patterns gate the heuristics so a non-token value is returned verbatim.
+_KWARG_TOKEN_RE = re.compile(r"^[A-Za-z_]\w*=")  # ``key=`` — identifier then '='
+_VAR_TOKEN_RE = re.compile(r"^[A-Za-z_]\w*(\.\w+)*$")  # dotted-identifier path
+
+# Track registered handlers for debugging
+_registered_handlers: Dict[str, "TagHandler"] = {}
+
+
+class AsVarName(str):
+    """The NAME half of a trailing ``as <name>``, as the ENGINE decided it.
+
+    Django's ``url()`` asks ``bits[-2] == "as"`` ONCE, of the raw token stream,
+    at compile time. djust's engine asks the same question of the same raw
+    tokens in ``renderer.rs::resolve_custom_tag_args`` and then hands the NAME
+    over wearing this class, so a handler that declared
+    :attr:`TagHandler.ACCEPTS_AS_VAR` CONSUMES that answer::
+
+        if args and isinstance(args[-1], AsVarName):
+            as_variable, args = str(args[-1]), args[:-2]
+
+    A handler must NOT re-derive the answer with ``args[-2] == "as"``: by then
+    the other positions have been RESOLVED, so ``{% url named 'as' v %}`` and
+    ``{% url named sep v %}`` with ``sep = "as"`` both manufacture the string
+    the test looks for. Django treats both as ordinary arguments and raises
+    ``NoReverseMatch``; the second test made djust swallow it and render ``''``
+    — the fail-soft #2563 exists to remove (#2563 review, #1646).
+
+    A plain ``str`` subclass so every ``str`` operation, and every handler that
+    does not care, behaves exactly as before.
+    """
+
+    __slots__ = ()
+
+
+class TagHandler:
+    """
+    Base class for custom template tag handlers.
+
+    Subclass this and implement the `render` method to create a handler
+    for a custom template tag.
+
+    Example
+    -------
+    ```python
+    class MyTagHandler(TagHandler):
+        def render(self, args: list, context: dict) -> str:
+            return f"Hello, {args[0]}!"
+    ```
+
+    Operand-resolution contract (``RESOLVE_ARG_POSITIONS``)
+    ------------------------------------------------------
+    The Rust engine resolves every argument against the context BEFORE
+    ``render`` is called, so ``args`` normally holds values rather than the
+    tokens the template wrote. A handler that needs the token itself declares
+    :attr:`RESOLVE_ARG_POSITIONS` — a ``set[int]`` of the 0-based positions to
+    resolve; every other position arrives as a literal token, quotes and dots
+    intact. ``None`` (the default) means "resolve everything" and is what every
+    handler that does not opt in gets.
+
+    The same attribute has governed :class:`AssignTagHandler` since #2041,
+    where it keeps ``{% regroup … by … as … %}``'s keyword operands from being
+    shadowed by a context key. It reached this class in #2423, for the other
+    reason a handler wants the token: **resolution is lossy, and some
+    decisions need what was lost.**
+    ``{% render_slot slots.col.0.content %}`` — a slot body the parent already
+    rendered and escaped — and ``{% render_slot p %}`` over a hostile context
+    string are the SAME opaque string once resolved, so the handler could not
+    tell which to emit live. The un-resolved PATH separates them. See
+    :class:`~djust.components.function_component.RenderSlotTagHandler`, which
+    declares ``frozenset()`` — resolve nothing.
+    """
+
+    #: 0-based arg positions the Rust engine should resolve against the render
+    #: context before calling ``render``; the rest arrive as literal tokens.
+    #: ``None`` = resolve every arg (default). Read once at registration time
+    #: by ``register_tag_handler`` (#2423), through the same
+    #: ``read_resolve_positions`` the assign registry uses (#2041).
+    RESOLVE_ARG_POSITIONS: ClassVar[Optional[Set[int]]] = None
+
+    #: Opt in to the ``(output, bindings)`` return (#2547): ``render`` then
+    #: returns a 2-tuple whose dict binds names for the sibling nodes that
+    #: follow the tag (Django's ``as var``), and a Python exception the
+    #: handler raises crosses the Rust boundary WHOLE, with its type. The
+    #: default keeps the historical ``str`` contract.
+    RETURNS_BINDINGS: ClassVar[bool] = False
+
+    #: With ``RETURNS_BINDINGS``, take Django's trailing ``as <name>`` as two
+    #: literal TOKENS (``"as"``, ``"<name>"``) instead of two resolved
+    #: variables — Django's ``bits[-2] == "as"`` rule (#2563). The
+    #: registry refuses this without ``RETURNS_BINDINGS``.
+    #:
+    #: The engine applies that rule to the RAW tokens and marks the NAME as
+    #: :class:`AsVarName`; the handler must test for that class, never
+    #: ``args[-2] == "as"`` on its resolved arguments (#2563 review).
+    ACCEPTS_AS_VAR: ClassVar[bool] = False
+
+    #: With ``RETURNS_BINDINGS``, receive the surrounding ``{% autoescape %}``
+    #: policy as an ``autoescape=`` keyword: ``render(args, [content,]
+    #: context, autoescape=bool)`` (#2556). Declare it ONLY when the handler
+    #: applies the policy itself — the ``{% load %}`` bridge does, because it
+    #: renders through Django's own node on a Django ``Context`` and returns
+    #: ``mark_safe``'d output.
+    #:
+    #: The default is ``False`` and every other handler wants it: a handler
+    #: that returns a bare ``str`` has the policy applied to its return by the
+    #: registry's own ``escape_handler_return`` (Django's
+    #: ``if context.autoescape:``), so naming the parameter would only be a
+    #: second place for the two to disagree. It is opt-in rather than part of
+    #: ``RETURNS_BINDINGS`` because passing an unexpected keyword is a
+    #: ``TypeError`` on EVERY render, not a wrong answer under ``off``.
+    WANTS_AUTOESCAPE: ClassVar[bool] = False
+
+    def render(
+        self, args: List[str], context: Dict[str, Any]
+    ) -> Union[str, Tuple[str, Dict[str, Any]]]:
+        """
+        Render the template tag and return the output string.
+
+        A handler that declares ``RETURNS_BINDINGS = True`` returns
+        ``(output, bindings)`` instead (#2547); every other handler returns
+        the output ``str``.
+
+        Parameters
+        ----------
+        args : list
+            Arguments from the template tag, resolved by the Rust engine
+            before this is called. Since #2416 a quoted literal arrives
+            WITHOUT its quotes and as a ``SafeString``, which is what
+            Django's ``Variable.__init__`` produces — so
+            ``{% url 'post' post.slug %}`` gives ``["post", "my-slug"]``,
+            not ``["'post'", "my-slug"]``. A ``mark_safe``d context value
+            keeps its marker too, so a defensive ``conditional_escape`` in a
+            handler is the no-op it is in Django.
+
+            Every argument is still a ``str``: the safety BIT crosses the
+            boundary, the resolved OBJECT does not. An ``int`` arrives as
+            ``"5"`` and a list as JSON.
+
+        context : dict
+            The full template context as a dictionary. Can be used for additional
+            variable resolution if needed.
+
+        Returns
+        -------
+        str
+            The rendered output to insert in the template — or, under
+            ``RETURNS_BINDINGS``, ``(output, {name: value})``.
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} must implement render(args, context)")
+
+    def _resolve_arg(self, arg: str, context: Dict[str, Any]) -> Any:
+        """
+        Resolve an argument value from the context.
+
+        Handles:
+        - String literals ('value' or "value") -> returns stripped string
+        - Integer literals (123) -> returns int
+        - Context variables (post.slug) -> returns resolved value
+        - Named parameters (key=value) -> returns (key, resolved_value)
+
+        Parameters
+        ----------
+        arg : str
+            The argument string from the template tag
+
+        context : dict
+            The template context
+
+        Returns
+        -------
+        Any
+            The resolved value
+        """
+        # `SafeData` means the engine ALREADY resolved this operand (#2416).
+        # It is either a quoted LITERAL — which `Variable.__init__` unquotes
+        # and `mark_safe`s, so the text is the template author's own bytes —
+        # or a context value the view marked. In neither case is the text a
+        # context KEY, and looking it up is the #2037 double-resolution bug:
+        # before this guard, `{% url "home" %}` in a template whose context
+        # also has a variable named `home` resolved to that VARIABLE, because
+        # unquoting had made the literal indistinguishable from a bare name.
+        #
+        # Tested BEFORE `.strip()`, which returns a plain `str` and would
+        # discard the marker this reads.
+        if hasattr(arg, "__html__"):
+            return arg
+
+        arg = arg.strip()
+
+        # String literals. Still reached: the block and assign channels pass a
+        # quoted literal VERBATIM (their contract is "unresolved ⇒ keep the raw
+        # token", and the quotes are its type tag), and a direct Python caller
+        # passes whatever it likes.
+        if (arg.startswith("'") and arg.endswith("'")) or (
+            arg.startswith('"') and arg.endswith('"')
+        ):
+            return arg[1:-1]
+
+        # Integer literals
+        if arg.lstrip("-").isdigit():
+            return int(arg)
+
+        # Named parameters: key=value — only when the arg is syntactically a
+        # kwarg TOKEN (bare identifier immediately followed by '='). A value
+        # that merely CONTAINS '=' (e.g. Rust-resolved Markdown source text
+        # "x = y") must not be tuple-split (#2037 double-resolution).
+        if _KWARG_TOKEN_RE.match(arg):
+            key, value = arg.split("=", 1)
+            return (key.strip(), self._resolve_arg(value, context))
+
+        # Context variable (dot-separated like post.slug) — only when the arg
+        # is a bare dotted-identifier TOKEN. A non-token string (whitespace,
+        # markup, newlines) is a value the Rust dispatch already resolved; it
+        # is returned verbatim rather than re-resolved against the context
+        # (which would corrupt values whose first segment matches a key).
+        if not _VAR_TOKEN_RE.match(arg):
+            return arg
+
+        parts = arg.split(".")
+        result = context.get(parts[0])
+
+        for part in parts[1:]:
+            if result is None:
+                return arg  # Return original if lookup fails
+            if isinstance(result, dict):
+                result = result.get(part)
+            elif hasattr(result, part):
+                result = getattr(result, part)
+            else:
+                return arg  # Return original if lookup fails
+
+        return result if result is not None else arg
+
+
+class AssignTagHandler(TagHandler):
+    """
+    Base class for *assign* (context-mutating) template tag handlers.
+
+    Unlike :class:`TagHandler` (which emits an HTML string), an assign
+    tag handler mutates the template context: its ``render`` returns a
+    ``dict`` whose keys become context variables visible to the sibling
+    nodes that follow the tag. This mirrors Django tags like
+    ``{% regroup ... as var %}`` and ``{% with ... %}``.
+
+    Operand-resolution contract (``RESOLVE_ARG_POSITIONS``)
+    ------------------------------------------------------
+    Arg resolution happens **in the Rust engine before ``render`` is
+    called**: the assign-tag dispatch (``renderer.rs`` —
+    ``resolve_assign_tag_args``, the single entry point shared by all four
+    dispatch sites) resolves selected args, JSON-encoding structured
+    (list/object) values so a source list arrives as a JSON string.
+
+    Which positions get resolved is governed by the class attribute
+    :attr:`RESOLVE_ARG_POSITIONS`:
+
+    * ``None`` (the default) — resolve **every** arg against the context,
+      the historical behavior, kept for any handler that doesn't opt in.
+      These go through ``resolve_tag_arg``, whose scalars arrive as their
+      ``str()`` text.
+    * a ``set[int]`` of 0-based positions — resolve **only** those
+      positions; every other arg is passed through as a **literal token**.
+      A declared position is a **value channel** and goes through
+      ``resolve_tag_value_arg``: identical, except that a resolved
+      **string** arrives JSON-encoded (i.e. QUOTED), and a quoted literal
+      is normalized into the same JSON regardless of quote style.
+
+      That quoting is what makes the channel decodable (#2385). Because an
+      unresolved operand keeps its raw token, a resolved string and a
+      missing variable name were otherwise the same bytes — so
+      ``{% regroup s by k as g %}`` with ``s = "ab"`` and
+      ``{% regroup nope by k as g %}`` were indistinguishable, and the
+      ``regroup`` handler guessed by looking the text up as a context key.
+      ``Decimal`` / ``BigInt`` deliberately do NOT take the string arm:
+      their JSON form is also a string, and Python cannot iterate either.
+
+    Passing keyword/name operands unresolved matches Django, which never
+    resolves an assign tag's ``by`` / ``<attr>`` / ``as`` / ``<var>``
+    operands against the outer context — only the source expression. This
+    closes the operand-shadowing footgun (#2041): before it, a context key
+    named like the ``<attr>`` token (djust auto-exposes public view attrs)
+    shadowed the per-item lookup, silently corrupting the grouping. See
+    :class:`~djust.template_tags.regroup.RegroupTagHandler`, which declares
+    ``RESOLVE_ARG_POSITIONS = {0}`` (resolve only the source expression).
+    """
+
+    #: 0-based arg positions the Rust engine should resolve against the
+    #: render context before calling ``render``; the rest arrive as literal
+    #: tokens. ``None`` = resolve every arg (default). Read once at
+    #: registration time by ``register_assign_tag_handler`` (#2041).
+    RESOLVE_ARG_POSITIONS: ClassVar[Optional[Set[int]]] = None
+
+    def render(self, args: List[str], context: Dict[str, Any]) -> Dict[str, Any]:  # type: ignore[override]
+        """Return a mapping of context updates to merge for later siblings."""
+        raise NotImplementedError(
+            f"{self.__class__.__name__} must implement render(args, context) -> dict"
+        )
+
+
+def register_assign(name: str) -> Callable[[Type[AssignTagHandler]], Type[AssignTagHandler]]:
+    """
+    Decorator to register an *assign* (context-mutating) tag handler.
+
+    The handler is instantiated and registered with the Rust template
+    engine via ``register_assign_tag_handler`` when the decorated class
+    is defined. Its ``render(args, context)`` must return a
+    ``dict[str, Any]`` of context updates (or ``None`` for a no-op).
+
+    Parameters
+    ----------
+    name : str
+        The tag name (e.g., "regroup").
+    """
+
+    def decorator(handler_class: Type[AssignTagHandler]) -> Type[AssignTagHandler]:
+        try:
+            from djust._rust import register_assign_tag_handler
+
+            handler = handler_class()
+            register_assign_tag_handler(name, handler)
+            _registered_handlers[name] = handler
+            logger.debug("Registered assign tag handler: %s", name)
+        except ImportError as e:
+            logger.warning(
+                "Could not register assign tag handler '%s': Rust extension not available (%s)",
+                name,
+                e,
+            )
+        except Exception as e:
+            logger.error("Failed to register assign tag handler '%s': %s", name, e)
+
+        return handler_class
+
+    return decorator
+
+
+def register(name: str) -> Callable[[Type[TagHandler]], Type[TagHandler]]:
+    """
+    Decorator to register a tag handler class.
+
+    The handler is instantiated and registered with the Rust template engine
+    when the decorated class is defined.
+
+    Parameters
+    ----------
+    name : str
+        The tag name (e.g., "url", "static")
+
+    Example
+    -------
+    ```python
+    @register("url")
+    class UrlTagHandler(TagHandler):
+        def render(self, args, context):
+            return reverse(args[0])
+    ```
+    """
+
+    def decorator(handler_class: Type[TagHandler]) -> Type[TagHandler]:
+        try:
+            from djust._rust import register_tag_handler
+
+            handler = handler_class()
+            register_tag_handler(name, handler)
+            _registered_handlers[name] = handler
+            logger.debug("Registered template tag handler: %s", name)
+        except ImportError as e:
+            logger.warning(
+                "Could not register tag handler '%s': Rust extension not available (%s)", name, e
+            )
+        except Exception as e:
+            logger.error("Failed to register tag handler '%s': %s", name, e)
+
+        return handler_class
+
+    return decorator
+
+
+def get_registered_handlers() -> Dict[str, "TagHandler"]:
+    """
+    Get a dictionary of all registered handlers.
+
+    Returns
+    -------
+    dict
+        Mapping of tag names to handler instances
+    """
+    return _registered_handlers.copy()
+
+
+def is_registered(name: str) -> bool:
+    """
+    Check if a handler is registered for a tag name.
+
+    Parameters
+    ----------
+    name : str
+        The tag name to check
+
+    Returns
+    -------
+    bool
+        True if a handler is registered
+    """
+    try:
+        from djust._rust import has_tag_handler
+
+        return has_tag_handler(name)
+    except ImportError:
+        return name in _registered_handlers
+
+
+# Auto-register built-in handlers on import
+def _register_builtins() -> None:
+    """Register built-in tag handlers."""
+    # Import handlers to trigger their @register decorators
+    try:
+        from . import url  # noqa: F401
+        from . import static  # noqa: F401
+        from . import now  # noqa: F401
+        from . import pwa  # noqa: F401
+        from . import templatetag  # noqa: F401
+        from . import flash  # noqa: F401
+        from . import audio  # noqa: F401
+        from . import markdown  # noqa: F401
+        from . import client_config  # noqa: F401
+        from . import live_render  # noqa: F401  # #1145
+        from . import regroup  # noqa: F401  # Django {% regroup %} parity
+        from . import debug  # noqa: F401  # Django {% debug %} (#2556)
+        from . import lorem  # noqa: F401  # Django {% lorem %} (#2556)
+
+        # `{% querystring %}` exists on Django >= 5.1 only; below that the tag
+        # is unsupported on BOTH engines and the generated doc lists agree.
+        import django
+
+        if django.VERSION >= (5, 1):
+            from . import querystring  # noqa: F401  # Django {% querystring %} (#2556)
+    except ImportError as e:
+        logger.debug("Could not import built-in handlers: %s", e)
+    # The `{% load app_tags %}` library loader (#2547) — installed alongside
+    # the built-ins so a bare ``import djust.template_tags`` arms it.
+    _install_library_loader()
+    # The `_("…")` translator and the language/timezone scope hooks (#2558).
+    _install_i18n_hooks()
+
+
+def _install_library_loader() -> None:
+    """Install ``djust.template_libraries.load_libraries`` as the parser's
+    ``{% load %}`` hook (#2547). No-op without the Rust extension."""
+    try:
+        from ..template_libraries import install_loader
+    except ImportError as e:  # pragma: no cover — defensive
+        logger.debug("Could not import the library loader: %s", e)
+        return
+    install_loader()
+
+
+def _install_i18n_hooks() -> None:
+    """Install the #2558 i18n hooks (translator + scope hooks). No-op
+    without the Rust extension."""
+    try:
+        from ..render_env import install_scope_hooks
+        from ..template_libraries import install_translator
+    except ImportError as e:  # pragma: no cover — defensive
+        logger.debug("Could not import the #2558 i18n hooks: %s", e)
+        return
+    install_translator()
+    install_scope_hooks()
+
+
+def reregister_builtins() -> None:
+    """Re-assert the built-in ``djust.template_tags`` handlers with the Rust
+    registry (idempotent).
+
+    ``@register`` / ``@register_assign`` run once, on first import. The
+    Rust tag/assign registries are process-global and shared across an
+    xdist worker, so a test that calls ``clear_tag_handlers()`` /
+    ``clear_assign_tag_handlers()`` leaves the built-ins (``url``,
+    ``static``, ``regroup`` …) gone for the rest of the worker. This
+    re-registers every already-instantiated built-in handler from
+    ``_registered_handlers`` to its correct registry, mirroring the
+    theme/component ``register_with_rust_engine`` restore path (#1928).
+    No-op without the Rust extension.
+
+    Also strips each handler from the OTHER (wrong) registry (#2053). The
+    Rust parser decides a tag's node type at PARSE time by checking the
+    plain-tag registry BEFORE the assign-tag registry
+    (``parser.rs`` — ``handler_exists`` before ``assign_handler_exists``),
+    so a stray plain-registry entry for an assign-only built-in (e.g.
+    ``regroup``) always wins, even after this function re-asserts the
+    CORRECT assign registration — merely adding the right entry is not
+    enough to heal the pollution. This happens for real: some test
+    fixtures (``tests/unit/test_tag_registry.py``,
+    ``tests/benchmarks/test_tag_registry.py``) blindly re-register every
+    built-in via ``register_tag_handler`` without checking
+    ``isinstance(handler, AssignTagHandler)``, planting ``regroup`` in the
+    plain registry for the rest of the xdist worker — the #2053 class.
+    Actively unregistering from the wrong registry here makes this
+    function a complete cure regardless of which polluter (existing or
+    future) caused the cross-registry drift.
+    """
+    try:
+        from djust._rust import (
+            register_assign_tag_handler,
+            register_tag_handler,
+            unregister_assign_tag_handler,
+            unregister_tag_handler,
+        )
+    except ImportError:
+        return
+    for name, handler in list(_registered_handlers.items()):
+        try:
+            if isinstance(handler, AssignTagHandler):
+                register_assign_tag_handler(name, handler)
+                unregister_tag_handler(name)
+            else:
+                register_tag_handler(name, handler)
+                unregister_assign_tag_handler(name)
+        except Exception as e:  # noqa: BLE001 — restore must never break a test
+            logger.debug("Could not re-register built-in tag handler '%s': %s", name, e)
+    # A test that cleared the registries also cleared every bridged library
+    # tag; the loader re-bridges on the next `{% load %}` (#2547). Re-arm the
+    # hook itself in case ``clear_library_loader()`` ran too — and the #2558
+    # translator / scope hooks, which a ``clear_translator()`` or a stubbed
+    # hook pair would otherwise leave gone for every later test.
+    _install_library_loader()
+    _install_i18n_hooks()
+
+
+# Register on module load
+_register_builtins()

@@ -1,0 +1,34 @@
+[build-system]
+requires = ["maturin>=1.5,<2.0"]
+build-backend = "maturin"
+
+[project]
+# Distribution name on PyPI; the import package is `kcl_rs`.
+name = "kcl-rs"
+# Version is read from the Cargo workspace (kcl-python's `version.workspace =
+# true`); on release tags CI stamps it via scripts/set-version-from-git.sh.
+dynamic = ["version"]
+description = "Rust-powered Python bindings for the Amazon Kinesis Client Library"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+]
+
+[tool.maturin]
+module-name = "kcl_rs._native"
+# Enable the crate's `extension-module` feature (which turns on
+# `pyo3/extension-module`) so the shipped wheel does not link libpython.
+features = ["extension-module"]
+manifest-path = "kcl-python/Cargo.toml"
+python-source = "python"
+
+[dependency-groups]
+# Test-only deps for kcl-python/tests/ (pytest e2e suite against LocalStack,
+# see kcl-python/tests/ and README.md). PEP 735 group — install with
+# `uv pip install --group dev` (run from kcl-python/) or
+# `uv pip install --directory kcl-python --group dev` (from the repo root, as
+# CI does); does not affect the maturin build itself.
+dev = ["pytest>=8.0", "boto3>=1.34"]

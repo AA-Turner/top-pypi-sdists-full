@@ -1,0 +1,40 @@
+Metadata-Version: 2.1
+Name: wagon
+Version: 1.0.3
+Summary: Creates Python Wheel based archives with dependencies
+Home-page: https://github.com/cloudify-cosmo/wagon
+Author: Cloudify
+Author-email: cosmo-admin@cloudify.co
+License: Apache 2.0
+Platform: All
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Natural Language :: English
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: Microsoft
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.4.0
+Provides-Extra: dist
+Provides-Extra: venv
+License-File: LICENSE
+
+Wagon
+=====
+
+See `Official Github Repo <https://github.com/cloudify-cosmo/wagon>`_.

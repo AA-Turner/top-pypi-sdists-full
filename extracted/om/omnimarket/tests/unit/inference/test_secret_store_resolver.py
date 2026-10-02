@@ -1,0 +1,489 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Tests for the secret-store resolver at the inference effect boundary (OMN-12824).
+
+The resolver replaces direct ``os.environ`` reads with resolution through the
+canonical ``ProtocolSecretStore``. These tests pin the contract:
+
+* an ``api_key_ref`` resolves its VALUE through the store (env-backed default),
+* a ``None`` reference resolves to ``None`` (unauthenticated backend),
+* a declared-but-missing reference fails closed (raise, never default),
+* an Infisical-style injected store is honored without code change,
+* the resolved value is a ``SecretStr`` (never a bare printable string),
+* the sync wrapper rejects being called from a running event loop.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import textwrap
+
+import pytest
+from omnibase_spi.protocols.services import ProtocolSecretStore
+from pydantic import SecretStr
+
+from omnimarket.inference.local_byok_credential_adapter import (
+    LocalByokCredentialStore,
+)
+from omnimarket.inference.secret_store_resolver import (
+    LocalSecretNotRegisteredError,
+    SecretResolutionError,
+    api_key_ref_available,
+    clear_secret_store_resolver_cache,
+    resolve_api_key,
+    resolve_api_key_async,
+    resolve_api_key_loop_safe,
+)
+
+
+@pytest.fixture(autouse=True)
+def _clear_configured_secret_store_cache() -> None:
+    clear_secret_store_resolver_cache()
+
+
+class _FakeSecretStore:
+    """In-memory ``ProtocolSecretStore`` standing in for an Infisical backend."""
+
+    def __init__(self, secrets: dict[str, str]) -> None:
+        self._secrets = secrets
+
+    async def get_secret(self, key: str) -> str | None:
+        return self._secrets.get(key)
+
+    async def set_secret(self, key: str, value: str) -> bool:
+        raise RuntimeError("read-only fake")
+
+    async def delete_secret(self, key: str) -> bool:
+        raise RuntimeError("read-only fake")
+
+    async def list_keys(self, prefix: str | None = None) -> list[str]:
+        keys = list(self._secrets.keys())
+        if prefix is None:
+            return keys
+        return [k for k in keys if k.startswith(prefix)]
+
+    async def health_check(self) -> bool:
+        return True
+
+    async def close(self, timeout_seconds: float = 30.0) -> None:
+        return None
+
+
+class TestResolveApiKeyAsync:
+    async def test_none_ref_resolves_to_none(self) -> None:
+        assert await resolve_api_key_async(None) is None
+
+    async def test_env_backed_default_resolves_value(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("OMN12824_TEST_KEY", "sk-from-env")
+        resolved = await resolve_api_key_async("OMN12824_TEST_KEY")
+        assert isinstance(resolved, SecretStr)
+        assert resolved.get_secret_value() == "sk-from-env"
+
+    async def test_missing_ref_fails_closed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("OMN12824_ABSENT_KEY", raising=False)
+        with pytest.raises(SecretResolutionError, match="OMN12824_ABSENT_KEY"):
+            await resolve_api_key_async("OMN12824_ABSENT_KEY")
+
+    async def test_empty_value_fails_closed(self) -> None:
+        store = _FakeSecretStore({"GEMINI_API_KEY": ""})
+        with pytest.raises(SecretResolutionError, match="GEMINI_API_KEY"):
+            await resolve_api_key_async("GEMINI_API_KEY", store=store)
+
+    async def test_injected_store_is_honored(self) -> None:
+        store = _FakeSecretStore({"OPENROUTER_API_KEY": "sk-from-infisical"})
+        resolved = await resolve_api_key_async("OPENROUTER_API_KEY", store=store)
+        assert isinstance(resolved, SecretStr)
+        assert resolved.get_secret_value() == "sk-from-infisical"
+
+    async def test_logical_ref_resolves_through_configured_mapping(
+        self, tmp_path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+        monkeypatch.setenv("OPENROUTER_API_KEY", "sk-from-lane-overlay")
+        config_file = tmp_path / "secret_resolver.yaml"
+        config_file.write_text(
+            textwrap.dedent("""\
+                mappings:
+                  - logical_name: llm.openrouter.api_key
+                    source:
+                      source_type: env
+                      source_path: OPENROUTER_API_KEY
+            """)
+        )
+        monkeypatch.setenv("ONEX_SECRET_RESOLVER_CONFIG_PATH", str(config_file))
+        clear_secret_store_resolver_cache()
+
+        resolved = await resolve_api_key_async("llm.openrouter.api_key")
+
+        assert isinstance(resolved, SecretStr)
+        assert resolved.get_secret_value() == "sk-from-lane-overlay"
+
+    async def test_injected_store_satisfies_protocol(self) -> None:
+        store: ProtocolSecretStore = _FakeSecretStore({"K": "v"})
+        assert isinstance(store, ProtocolSecretStore)
+
+    async def test_env_var_fallback_resolves_when_primary_ref_misses(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """OMN-13943: a dotted secret_ref whose store lookup misses still
+        resolves through the declared literal env_var_fallback name — the
+        backend's own contract-declared ``api_key_env`` (e.g. the canonical
+        ``OPENROUTER_API_KEY`` / ``GEMINI_API_KEY`` already defined in
+        ``~/.omnibase/.env``, distinct from the dotted convention's
+        ``LLM_*_API_KEY`` mapping)."""
+        store = _FakeSecretStore({})  # dotted ref never resolves
+        monkeypatch.setenv("OMN13943_CANONICAL_KEY", "sk-canonical-fallback")
+
+        resolved = await resolve_api_key_async(
+            "llm.openrouter.api_key",
+            store=store,
+            env_var_fallback="OMN13943_CANONICAL_KEY",
+        )
+
+        assert isinstance(resolved, SecretStr)
+        assert resolved.get_secret_value() == "sk-canonical-fallback"
+
+    async def test_env_var_fallback_not_consulted_when_primary_ref_resolves(
+        self,
+    ) -> None:
+        """The fallback is a LAST RESORT — it never overrides a resolvable
+        primary ref, even when both are set."""
+        store = _FakeSecretStore({"llm.glm.api_key": "sk-primary"})
+
+        resolved = await resolve_api_key_async(
+            "llm.glm.api_key",
+            store=store,
+            env_var_fallback="OMN13943_SHOULD_NOT_BE_USED",
+        )
+
+        assert isinstance(resolved, SecretStr)
+        assert resolved.get_secret_value() == "sk-primary"
+
+    async def test_missing_ref_fails_closed_even_with_unset_fallback(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Fail-fast (Rule 8): a declared env_var_fallback that is ALSO unset
+        must still raise — no silent default, no partial fallback chain."""
+        store = _FakeSecretStore({})
+        monkeypatch.delenv("OMN13943_ALSO_ABSENT", raising=False)
+
+        with pytest.raises(SecretResolutionError, match=r"llm\.openrouter\.api_key"):
+            await resolve_api_key_async(
+                "llm.openrouter.api_key",
+                store=store,
+                env_var_fallback="OMN13943_ALSO_ABSENT",
+            )
+
+
+class TestGithubTokenAgainstDeployedLaneSecretResolverConfig:
+    """Pins the live OMN-14452 defect against the ACTUAL deployed shape.
+
+    The rendered lane config below is copied verbatim (mapping keys +
+    ``enable_convention_fallback: false``) from
+    ``/app/data/delegation/secret_resolver.yaml`` observed live on the
+    ``omninode-runtime-effects`` container (render_runtime_policy_env.py,
+    omnibase_infra, always renders with convention fallback disabled). It is
+    LLM/Slack-scoped and never declares ``GITHUB_TOKEN`` — which is not an
+    LLM secret and was never meant to route through this store. GITHUB_TOKEN
+    is nonetheless genuinely present as a literal container env var
+    (``runtime-effects.yaml`` ``required_env``). This is the EXISTS-but-WRONG
+    shape: the secret is present in the environment, but the specific
+    resolution path the deployed emitter used could not see it — not a
+    synthetic "the ref is simply absent" case.
+    """
+
+    _DEPLOYED_LANE_CONFIG = textwrap.dedent("""\
+        mappings:
+        - logical_name: llm.openrouter.api_key
+          source:
+            source_type: env
+            source_path: OPENROUTER_API_KEY
+        - logical_name: llm.glm.api_key
+          source:
+            source_type: env
+            source_path: LLM_GLM_API_KEY
+        - logical_name: llm.gemini.api_key
+          source:
+            source_type: env
+            source_path: GEMINI_API_KEY
+        - logical_name: slack.bot_token
+          source:
+            source_type: env
+            source_path: SLACK_BOT_TOKEN
+        enable_convention_fallback: false
+    """)
+
+    def _render_deployed_lane_config(
+        self, tmp_path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        config_file = tmp_path / "secret_resolver.yaml"
+        config_file.write_text(self._DEPLOYED_LANE_CONFIG)
+        monkeypatch.setenv("ONEX_SECRET_RESOLVER_CONFIG_PATH", str(config_file))
+        clear_secret_store_resolver_cache()
+
+    async def test_red_github_token_unresolvable_without_env_var_fallback(
+        self, tmp_path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """RED: reproduces the exact live ``SecretResolutionError`` (OMN-14452)."""
+        monkeypatch.setenv("GITHUB_TOKEN", "ghp_livevaluepresentinenv0000")
+        self._render_deployed_lane_config(tmp_path, monkeypatch)
+
+        with pytest.raises(SecretResolutionError, match="GITHUB_TOKEN"):
+            await resolve_api_key_async("GITHUB_TOKEN")
+
+    async def test_green_github_token_resolves_via_env_var_fallback(
+        self, tmp_path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """GREEN: the OMN-14452 fix — ``env_var_fallback`` resolves the same
+        literal container env var the deployed lane's mapped store could not
+        see, without weakening fail-closed semantics for a truly absent
+        secret (see ``test_missing_ref_fails_closed_even_with_unset_fallback``)."""
+        monkeypatch.setenv("GITHUB_TOKEN", "ghp_livevaluepresentinenv0000")
+        self._render_deployed_lane_config(tmp_path, monkeypatch)
+
+        resolved = await resolve_api_key_async(
+            "GITHUB_TOKEN", env_var_fallback="GITHUB_TOKEN"
+        )
+
+        assert isinstance(resolved, SecretStr)
+        assert resolved.get_secret_value() == "ghp_livevaluepresentinenv0000"
+
+    async def test_still_fails_closed_when_token_is_genuinely_absent(
+        self, tmp_path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The fix must not become a silent default (Rule 8): if GITHUB_TOKEN
+        is genuinely unset, resolution still raises even with the fallback
+        declared."""
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        self._render_deployed_lane_config(tmp_path, monkeypatch)
+
+        with pytest.raises(SecretResolutionError, match="GITHUB_TOKEN"):
+            await resolve_api_key_async("GITHUB_TOKEN", env_var_fallback="GITHUB_TOKEN")
+
+
+class TestResolveApiKeySync:
+    def test_none_ref_resolves_to_none(self) -> None:
+        assert resolve_api_key(None) is None
+
+    def test_env_backed_default_resolves_value(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("OMN12824_SYNC_KEY", "sk-sync")
+        resolved = resolve_api_key("OMN12824_SYNC_KEY")
+        assert isinstance(resolved, SecretStr)
+        assert resolved.get_secret_value() == "sk-sync"
+
+    def test_missing_ref_fails_closed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("OMN12824_SYNC_ABSENT", raising=False)
+        with pytest.raises(SecretResolutionError):
+            resolve_api_key("OMN12824_SYNC_ABSENT")
+
+    def test_rejects_running_event_loop(self) -> None:
+        async def _inner() -> None:
+            with pytest.raises(RuntimeError, match="sync-only"):
+                resolve_api_key("ANY_KEY")
+
+        asyncio.run(_inner())
+
+
+class TestResolveApiKeyLoopSafe:
+    """``resolve_api_key_loop_safe`` (OMN-13843): a sync resolver that returns the
+    secret VALUE and does not raise the sync-only guard when a loop is running."""
+
+    def test_none_ref_resolves_to_none(self) -> None:
+        assert resolve_api_key_loop_safe(None) is None
+
+    def test_env_backed_value_no_loop(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("OMN13843_LOOPSAFE_KEY", "sk-loopsafe")
+        resolved = resolve_api_key_loop_safe("OMN13843_LOOPSAFE_KEY")
+        assert isinstance(resolved, SecretStr)
+        assert resolved.get_secret_value() == "sk-loopsafe"
+
+    def test_resolves_from_within_running_loop(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The whole point: called from inside a running loop it must NOT raise
+        the sync-only error — it offloads to a worker thread and returns a value.
+        """
+        monkeypatch.setenv("OMN13843_LOOPSAFE_KEY", "sk-in-loop")
+
+        async def _inner() -> SecretStr | None:
+            return resolve_api_key_loop_safe("OMN13843_LOOPSAFE_KEY")
+
+        resolved = asyncio.run(_inner())
+        assert isinstance(resolved, SecretStr)
+        assert resolved.get_secret_value() == "sk-in-loop"
+
+    def test_missing_ref_fails_closed_within_loop(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("OMN13843_LOOPSAFE_ABSENT", raising=False)
+
+        async def _inner() -> None:
+            with pytest.raises(SecretResolutionError, match="OMN13843_LOOPSAFE_ABSENT"):
+                resolve_api_key_loop_safe("OMN13843_LOOPSAFE_ABSENT")
+
+        asyncio.run(_inner())
+
+    def test_not_required_within_loop_returns_none(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("OMN13843_LOOPSAFE_ABSENT", raising=False)
+
+        async def _inner() -> SecretStr | None:
+            return resolve_api_key_loop_safe("OMN13843_LOOPSAFE_ABSENT", required=False)
+
+        assert asyncio.run(_inner()) is None
+
+
+class TestApiKeyRefAvailable:
+    def test_none_ref_is_available(self) -> None:
+        assert api_key_ref_available(None) is True
+
+    def test_missing_ref_is_unavailable(self) -> None:
+        store = _FakeSecretStore({})
+        assert api_key_ref_available("OPENROUTER_API_KEY", store=store) is False
+
+    def test_empty_ref_is_unavailable(self) -> None:
+        store = _FakeSecretStore({"OPENROUTER_API_KEY": ""})
+        assert api_key_ref_available("OPENROUTER_API_KEY", store=store) is False
+
+    def test_present_ref_is_available(self) -> None:
+        store = _FakeSecretStore({"OPENROUTER_API_KEY": "sk"})
+        assert api_key_ref_available("OPENROUTER_API_KEY", store=store) is True
+
+    async def test_present_ref_is_available_from_async_context(self) -> None:
+        store = _FakeSecretStore({"OPENROUTER_API_KEY": "sk"})
+        assert api_key_ref_available("OPENROUTER_API_KEY", store=store) is True
+
+    async def test_missing_ref_is_unavailable_from_async_context(self) -> None:
+        store = _FakeSecretStore({})
+        assert api_key_ref_available("OPENROUTER_API_KEY", store=store) is False
+
+    def test_env_var_fallback_makes_a_ref_available(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """OMN-13943: routing-tier eligibility must agree with what the effect
+        boundary will actually resolve — a backend whose dotted secret_ref
+        convention misses but whose own literal env var IS set must be
+        reported available, or a reachable tier is wrongly excluded."""
+        store = _FakeSecretStore({})
+        monkeypatch.setenv("OMN13943_AVAILABLE_KEY", "sk-present")
+
+        assert (
+            api_key_ref_available(
+                "llm.openrouter.api_key",
+                store=store,
+                env_var_fallback="OMN13943_AVAILABLE_KEY",
+            )
+            is True
+        )
+
+    def test_env_var_fallback_unset_stays_unavailable(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        store = _FakeSecretStore({})
+        monkeypatch.delenv("OMN13943_UNAVAILABLE_KEY", raising=False)
+
+        assert (
+            api_key_ref_available(
+                "llm.openrouter.api_key",
+                store=store,
+                env_var_fallback="OMN13943_UNAVAILABLE_KEY",
+            )
+            is False
+        )
+
+
+class TestProviderCredentialsNeverResolveFromTheEnvironment:
+    """OMN-18695: a provider ``secret_ref`` is answered by the local store only.
+
+    This class REPLACES ``TestProviderNativeAliasStoreLevel``, which pinned the
+    opposite behaviour: that ``llm.openrouter.api_key`` resolved out of
+    ``OPENROUTER_API_KEY`` and ``llm.gemini.api_key`` out of ``GEMINI_API_KEY``
+    at the store level (OMN-13960, corrected by OMN-16891). Those were the two
+    refs the alias map named, and they are exactly the refs that now resolve
+    from this machine's own store, so the map became unreachable and was
+    deleted with it.
+
+    The old tests are not merely removed. Each is inverted here against the
+    same env var, so the change is proven rather than just no longer
+    contradicted -- and so a revert of the resolver without a revert of the
+    tests fails loudly.
+
+    ``_isolate_local_secret_store`` (tests/conftest.py) points the store at a
+    per-test file, so an empty store is the starting state.
+    """
+
+    def _no_lane_config(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("ONEX_SECRET_RESOLVER_CONFIG_PATH", raising=False)
+        clear_secret_store_resolver_cache()
+
+    async def test_openrouter_ref_refuses_although_the_provider_env_var_is_set(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._no_lane_config(monkeypatch)
+        monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-provider-native")
+
+        with pytest.raises(
+            LocalSecretNotRegisteredError, match=r"llm\.openrouter\.api_key"
+        ):
+            await resolve_api_key_async("llm.openrouter.api_key")
+
+    async def test_gemini_ref_refuses_although_the_provider_env_var_is_set(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._no_lane_config(monkeypatch)
+        monkeypatch.setenv("GEMINI_API_KEY", "sk-gemini-provider-native")
+
+        with pytest.raises(
+            LocalSecretNotRegisteredError, match=r"llm\.gemini\.api_key"
+        ):
+            await resolve_api_key_async("llm.gemini.api_key")
+
+    async def test_the_convention_name_no_longer_resolves_either(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """``LLM_OPENROUTER_API_KEY`` used to win over the alias. Now neither wins."""
+        self._no_lane_config(monkeypatch)
+        monkeypatch.setenv("LLM_OPENROUTER_API_KEY", "sk-convention")
+        monkeypatch.setenv("OPENROUTER_API_KEY", "sk-alias")
+
+        with pytest.raises(LocalSecretNotRegisteredError):
+            await resolve_api_key_async("llm.openrouter.api_key")
+
+    async def test_the_literal_dotted_env_var_no_longer_resolves(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The literal-name lookup was the oldest path of the three. Also gone."""
+        self._no_lane_config(monkeypatch)
+        monkeypatch.setenv("llm.glm.api_key", "sk-literal-dotted")
+
+        with pytest.raises(LocalSecretNotRegisteredError):
+            await resolve_api_key_async("llm.glm.api_key")
+
+    async def test_a_registered_value_resolves(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._no_lane_config(monkeypatch)
+        await LocalByokCredentialStore().set_secret(
+            "llm.openrouter.api_key", "sk-registered"
+        )
+
+        resolved = await resolve_api_key_async("llm.openrouter.api_key")
+
+        assert isinstance(resolved, SecretStr)
+        assert resolved.get_secret_value() == "sk-registered"
+
+    async def test_an_absent_value_still_fails_closed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Fail-fast (Rule 8) is unchanged; only the surface consulted moved."""
+        self._no_lane_config(monkeypatch)
+
+        with pytest.raises(SecretResolutionError, match=r"llm\.glm\.api_key"):
+            await resolve_api_key_async("llm.glm.api_key")

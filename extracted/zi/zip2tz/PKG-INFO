@@ -1,0 +1,106 @@
+Metadata-Version: 2.4
+Name: zip2tz
+Version: 0.1.7
+Summary: A simple timezone lookup by zip code
+Author-email: kylehogate <kyle.holgate@gmail.com>
+License-File: LICENSE
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+
+# zip2tz
+
+Fast, zero-dependency US zip code to timezone lookup for Python.
+
+- **38,000+ zip codes** mapped to IANA timezones
+- **Zero dependencies** — pure Python, works everywhere
+- **O(1) lookup** — instant hash table lookups, no database or file I/O
+- **Tiny footprint** — ~100KB installed, loads in milliseconds
+- **Type-annotated** — full type hints included
+
+## Installation
+
+```bash
+pip install zip2tz
+```
+
+Or with [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv add zip2tz
+```
+
+## Usage
+
+```python
+import zip2tz
+
+# Get timezone for a zip code
+tz = zip2tz.timezone("90210")
+print(tz)  # America/Los_Angeles
+
+tz = zip2tz.timezone("10001")
+print(tz)  # America/New_York
+
+# Works with integers too
+tz = zip2tz.timezone(60601)
+print(tz)  # America/Chicago
+
+# Returns None if zip code not found
+tz = zip2tz.timezone("00000")
+print(tz)  # None
+```
+
+## Why zip2tz?
+
+Most timezone lookup libraries require external databases, network calls, or heavy dependencies. `zip2tz` bakes the data directly into Python bytecode — just import and go.
+
+| Feature | zip2tz | Other libraries |
+|---------|--------|-----------------|
+| Dependencies | 0 | Often requires `pytz`, databases, or APIs |
+| Lookup speed | O(1) hash | Varies (file I/O, network, etc.) |
+| Install size | ~100KB | Often MB+ |
+| Offline | Yes | Sometimes requires network |
+
+## API
+
+### `timezone(zipcode: str | int) -> str | None`
+
+Returns the IANA timezone string (e.g., `"America/New_York"`) for the given US zip code, or `None` if not found.
+
+**Parameters:**
+- `zipcode` — A 5-digit US zip code as a string or integer
+
+**Returns:**
+- IANA timezone string, or `None` if the zip code is not in the database
+
+## Coverage
+
+Covers all 50 US states plus DC, including:
+- All continental US timezones
+- Alaska (9 timezones)
+- Hawaii
+- Indiana's complex county-level timezone boundaries
+- North Dakota's split counties
+
+## Data Accuracy
+
+This library provides timezone mappings on a **best-effort basis**. While we strive for accuracy, we make no guarantees that the data is complete or correct. Timezone boundaries can be complex (especially in states like Indiana and Arizona), and zip codes occasionally span multiple timezones.
+
+If you find an incorrect mapping or missing zip code, please [open an issue](https://github.com/3S-LoPro/zip2tz/issues) with:
+- The zip code in question
+- The expected timezone
+- A source for the correct mapping (if available)
+
+## Contributing
+
+Contributions are welcome! If you'd like to improve the data or code:
+
+1. Fork the repository
+2. Make your changes
+3. Open a pull request
+
+For data corrections, please include a reliable source for the timezone mapping.
+
+## License
+
+MIT License — see [LICENSE](LICENSE) for details.

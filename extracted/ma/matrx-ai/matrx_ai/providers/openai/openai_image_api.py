@@ -30,7 +30,7 @@ from matrx_ai.providers.base_media import (
     BaseMediaGeneration,
     GeneratedAsset,
 )
-from matrx_ai.providers.keys import keyed_provider_client
+from matrx_ai.providers.keys import NO_SDK_RETRIES, keyed_provider_client
 from matrx_ai.providers.outbound_capture import make_capture_http_client
 from matrx_ai.providers.sdk_drift import route_undeclared_params
 
@@ -49,6 +49,7 @@ class OpenAIImageGeneration(BaseMediaGeneration):
         "OPENAI_API_KEY",
         factory=lambda api_key: AsyncOpenAI(
             api_key=api_key,
+            max_retries=NO_SDK_RETRIES,
             http_client=make_capture_http_client(sdk=openai_sdk),
         ),
     )
@@ -392,6 +393,43 @@ class OpenAIImageGeneration(BaseMediaGeneration):
             self._execute_streaming(unified_config, profile, debug)
         )
 
+    @staticmethod
+    async def _emit_partial_image(emitter: Any, b64: str, partial_count: int) -> bool:
+        """Forward one provider partial as a bounded preview; return whether it went.
+
+        A full-resolution partial PNG (1-3 MB base64) is one ``data`` event —
+        larger than the operation-stream journal's per-frame floor, so it
+        degraded the journal and broke rejoin. The partial exists to show a
+        preview, so it is downscaled to fit ``MEDIA_FRAME_MAX_BYTES``
+        (``media_frames.fit_image_preview``); the full image arrives as the
+        final media block by URL. A partial that cannot be previewed is
+        skipped and logged there — never sent oversized.
+        """
+        import asyncio
+
+        from matrx_connect.context.data_types import MediaBlockData
+        from matrx_connect.context.media_block import streaming_partial_image_block
+
+        from matrx_ai.providers import media_frames
+
+        # A PIL decode + re-encode ladder of a 1-3 MB PNG: CPU work, run in a
+        # worker thread so a partial never freezes every other stream on the
+        # loop. Guard: tests/test_partial_image_preview_runs_off_the_event_loop.py.
+        fitted = await asyncio.to_thread(media_frames.fit_image_preview, b64, mime_type="image/png")
+        if fitted is None:
+            return False
+        preview_b64, preview_mime = fitted
+        await emitter.send_data(
+            MediaBlockData(
+                block=streaming_partial_image_block(
+                    base64=preview_b64,
+                    progress=min(0.99, partial_count / 4.0),
+                    mime_type=preview_mime,
+                )
+            )
+        )
+        return True
+
     async def _execute_streaming(
         self,
         unified_config: UnifiedConfig,
@@ -402,10 +440,7 @@ class OpenAIImageGeneration(BaseMediaGeneration):
         # result is still wrapped in a UnifiedResponse with ImageContent.
         from matrx_connect.context.data_types import MediaBlockData
         from matrx_connect.context.events import InfoPayload
-        from matrx_connect.context.media_block import (
-            cloud_file_to_media_block,
-            streaming_partial_image_block,
-        )
+        from matrx_connect.context.media_block import cloud_file_to_media_block
         from matrx_utils import vcprint
 
         from matrx_ai.context.app_context import get_app_context
@@ -457,15 +492,7 @@ class OpenAIImageGeneration(BaseMediaGeneration):
                     b64 = getattr(event, "b64_json", None)
                     if b64 and emitter:
                         partial_count += 1
-                        await emitter.send_data(
-                            MediaBlockData(
-                                block=streaming_partial_image_block(
-                                    base64=b64,
-                                    progress=min(0.99, partial_count / 4.0),
-                                    mime_type="image/png",
-                                )
-                            )
-                        )
+                        await self._emit_partial_image(emitter, b64, partial_count)
                 elif evt_type.endswith("completed"):
                     final_b64 = getattr(event, "b64_json", None) or final_b64
                     revised_prompt = getattr(event, "revised_prompt", None) or revised_prompt

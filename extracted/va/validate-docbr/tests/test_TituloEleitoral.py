@@ -54,3 +54,32 @@ class TestTituloEleitoral(unittest.TestCase):
 
             # Then
             self.assertEqual(doc_validated, is_valid)
+
+    def test_generate_reaches_all_state_identifiers(self):
+        # Given
+        expected_identifiers = {str(uf).zfill(2) for uf in range(1, 29)}
+
+        # When
+        generated_identifiers = {
+            self.titulo_eleitoral.generate()[8:10] for _ in range(3000)
+        }
+
+        # Then
+        self.assertEqual(generated_identifiers, expected_identifiers)
+
+    def test_validate_rejects_invalid_state_identifier(self):
+        # Given
+        cases = [
+            ('100000010000', False),
+            ('100000012909', False),
+            ('100000019903', False),
+            ('100000000124', True),
+            ('100000002828', True),
+        ]
+
+        # When
+        for titulo_eleitoral, is_valid in cases:
+            doc_validated = self.titulo_eleitoral.validate(titulo_eleitoral)
+
+            # Then
+            self.assertEqual(doc_validated, is_valid, titulo_eleitoral)

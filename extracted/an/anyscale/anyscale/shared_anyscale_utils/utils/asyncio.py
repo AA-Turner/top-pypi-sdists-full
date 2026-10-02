@@ -75,8 +75,8 @@ def chain_future(source, destination):
 
 def _get_loop(fut):
     """NOTE: THIS METHOD IS COPIED FROM STDLIB VERBATIM, WITH NO MODIFICATIONS, PLEASE KEEP IT THAT WAY.
-             THIS WAS COPIED BECAUSE ITS PRIVATE IN STANDARD LIBRARY MAKING IT IMPOSSIBLE TO USE IT
-             OUTSIDE OF IT.
+    THIS WAS COPIED BECAUSE ITS PRIVATE IN STANDARD LIBRARY MAKING IT IMPOSSIBLE TO USE IT
+    OUTSIDE OF IT.
     """
     # Tries to call Future.get_loop() if it's available.
     # Otherwise fallbacks to using the old '_loop' property.

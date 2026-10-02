@@ -1,0 +1,820 @@
+#![deny(warnings)]
+
+use {
+    anyhow::{Context, Result, anyhow, bail},
+    std::{
+        env,
+        fmt::Write as _,
+        fs::{self, File},
+        io::{self, Cursor, Write},
+        iter, mem,
+        path::{Path, PathBuf},
+        process::Command,
+    },
+    tar::Builder,
+    wasm_encoder::{ComponentSectionId, Encode as _, RawSection, Section as _},
+    wasmparser::{Parser, Payload},
+    zstd::Encoder,
+};
+
+const DEBUG_RUNTIME: bool = false;
+const STRIP_RUNTIME: bool = !DEBUG_RUNTIME;
+const ZSTD_COMPRESSION_LEVEL: i32 = if DEBUG_RUNTIME { 0 } else { 19 };
+const DEFAULT_SDK_VERSION: &str = "33";
+
+// SQLite version to build - 3.51.2 (latest as of Jan 2026)
+const SQLITE_VERSION: &str = "3510200";
+const SQLITE_YEAR: &str = "2026";
+
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+const PYTHON_EXECUTABLE: &str = "python.exe";
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+const PYTHON_EXECUTABLE: &str = "python";
+
+#[cfg(target_os = "windows")]
+const CLANG_EXECUTABLE: &str = "clang.exe";
+#[cfg(not(target_os = "windows"))]
+const CLANG_EXECUTABLE: &str = "clang";
+
+// TODO: switch to upstream release per
+// https://github.com/bytecodealliance/componentize-py/issues/215
+const CPYTHON_TARBALL_URL: &str = "https://github.com/dicej/cpython/tarball/v3.14.0-wasi-sdk-30";
+const CPYTHON_TARBALL_BASE_DIR: &str = "dicej-cpython-0e13686";
+
+fn main() -> Result<()> {
+    println!("cargo:rerun-if-changed=build.rs");
+
+    let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
+
+    if matches!(env::var("CARGO_CFG_FEATURE").as_deref(), Ok("cargo-clippy"))
+        || env::var("CLIPPY_ARGS").is_ok()
+        || env::var("CARGO_EXPAND_NO_RUN_NIGHTLY").is_ok()
+    {
+        stubs_for_clippy(&out_dir)
+    } else {
+        package_all_the_things(&out_dir)
+    }?;
+
+    // TODO: how can we detect `cargo test` and only run this in that case (or more specifically, run it so it
+    // generates an empty file)?
+    componentize_py_test_generator::generate()
+}
+
+fn stubs_for_clippy(out_dir: &Path) -> Result<()> {
+    println!(
+        "cargo:warning=using stubbed runtime, core library, and adapter for static analysis purposes..."
+    );
+
+    let files = [
+        "libcomponentize_py_runtime_sync.so.zst",
+        "libcomponentize_py_runtime_async.so.zst",
+        "libpython3.14.so.zst",
+        "libc.so.zst",
+        "libwasi-emulated-mman.so.zst",
+        "libwasi-emulated-process-clocks.so.zst",
+        "libwasi-emulated-getpid.so.zst",
+        "libwasi-emulated-signal.so.zst",
+        "libc++.so.zst",
+        "libc++abi.so.zst",
+        "wasi_snapshot_preview1.reactor.wasm.zst",
+    ];
+
+    for file in files {
+        let path = out_dir.join(file);
+
+        if !path.exists() {
+            Encoder::new(File::create(path)?, ZSTD_COMPRESSION_LEVEL)?.do_finish()?;
+        }
+    }
+
+    let path = out_dir.join("python-lib.tar.zst");
+
+    if !path.exists() {
+        Builder::new(Encoder::new(File::create(path)?, ZSTD_COMPRESSION_LEVEL)?)
+            .into_inner()?
+            .do_finish()?;
+    }
+
+    let path = out_dir.join("bundled.tar.zst");
+
+    if !path.exists() {
+        Builder::new(Encoder::new(File::create(path)?, ZSTD_COMPRESSION_LEVEL)?)
+            .into_inner()?
+            .do_finish()?;
+    }
+
+    Ok(())
+}
+
+fn find_wasi_sdk(out_dir: &Path) -> Result<PathBuf> {
+    let mut wasi_sdk =
+        PathBuf::from(env::var_os("WASI_SDK_PATH").unwrap_or_else(|| "/opt/wasi-sdk".into()));
+
+    // Don't think we have to worry about a time-of-check time-of-use issue here
+    // Previously we assumed that it existed and the build failed when attempting to use it
+    // We'd do the same here if it was deleted after the check...
+    if wasi_sdk.exists() || env::var("NO_DOWNLOAD_WASI_SDK").unwrap_or_default() == "1" {
+        return Ok(wasi_sdk);
+    }
+
+    // otherwise we want to download the sdk into the target directory
+    let url = env::var("WASI_SDK_URL").or_else(|_| -> Result<String> {
+        // Version should be just the major version number, matching
+        // how it's given in the github release build pipeline
+        let version = match env::var("WASI_SDK_VERSION").ok() {
+            Some(v) => v,
+            None => DEFAULT_SDK_VERSION.to_string(),
+        };
+        // same as the github release pipeline, allow overriding source repo
+        let source = env::var("WASI_SDK_SOURCE").unwrap_or("WebAssembly".to_string());
+        // Wasi-sdk currently releases for x86_64 and arm64 linux, macos, and windows
+        let (arch, os) = match (env::consts::ARCH, env::consts::OS) {
+            pair @ ("x86_64", "linux" | "windows" | "macos") => pair,
+            ("aarch64", os @ ("linux" | "windows" | "macos")) => ("arm64", os),
+            _ => bail!("Unsupported platform for automatic wasi-sdk download: {} {}", env::consts::ARCH, env::consts::OS),
+        };
+        Ok(format!("https://github.com/{source}/wasi-sdk/releases/download/wasi-sdk-{version}/wasi-sdk-{version}.0-{arch}-{os}.tar.gz"))
+    })?;
+
+    // get the filename from the url
+    let filename = url
+        .rsplit('/')
+        .next()
+        .ok_or_else(|| anyhow!("could not get filename from url: {}", url))?;
+    // strip the .tar.gz suffix to get the directory name
+    let dir_name = filename.strip_suffix(".tar.gz").unwrap_or(filename);
+
+    wasi_sdk = out_dir.join(dir_name);
+    if wasi_sdk.exists() {
+        // already downloaded from a previous build
+        return Ok(wasi_sdk);
+    }
+    println!(
+        "cargo:warning=wasi-sdk not found, downloading from {} into {}",
+        url,
+        wasi_sdk.display()
+    );
+    fetch_extract(&url, out_dir)?;
+
+    Ok(wasi_sdk)
+}
+
+fn package_all_the_things(out_dir: &Path) -> Result<()> {
+    let repo_dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap());
+
+    let wasi_sdk = find_wasi_sdk(out_dir)?;
+
+    maybe_make_cpython(&repo_dir, &wasi_sdk)?;
+
+    let cpython_wasi_dir = repo_dir.join("cpython/builddir/wasi");
+
+    make_pyo3_config(&repo_dir)?;
+
+    make_runtime(
+        &repo_dir,
+        out_dir,
+        &wasi_sdk,
+        &cpython_wasi_dir,
+        false,
+        "libcomponentize_py_runtime_sync.so",
+    )?;
+    make_runtime(
+        &repo_dir,
+        out_dir,
+        &wasi_sdk,
+        &cpython_wasi_dir,
+        true,
+        "libcomponentize_py_runtime_async.so",
+    )?;
+
+    let libraries = [
+        "libc.so",
+        "libwasi-emulated-mman.so",
+        "libwasi-emulated-process-clocks.so",
+        "libwasi-emulated-getpid.so",
+        "libwasi-emulated-signal.so",
+    ];
+
+    for library in libraries {
+        compress(
+            &wasi_sdk.join("share/wasi-sysroot/lib/wasm32-wasip2"),
+            library,
+            out_dir,
+            true,
+        )?;
+    }
+
+    let libraries = ["libc++.so", "libc++abi.so"];
+
+    for library in libraries {
+        compress(
+            &wasi_sdk.join("share/wasi-sysroot/lib/wasm32-wasip2/noeh"),
+            library,
+            out_dir,
+            true,
+        )?;
+    }
+
+    compress(&cpython_wasi_dir, "libpython3.14.so", out_dir, true)?;
+
+    let path = repo_dir.join("cpython/builddir/wasi/install/lib/python3.14");
+
+    if path.exists() {
+        let mut builder = Builder::new(Encoder::new(
+            File::create(out_dir.join("python-lib.tar.zst"))?,
+            ZSTD_COMPRESSION_LEVEL,
+        )?);
+
+        add(&mut builder, &path, &path)?;
+
+        builder.into_inner()?.do_finish()?;
+    } else {
+        bail!("no such directory: {}", path.display())
+    }
+
+    let path = repo_dir.join("bundled");
+
+    if path.exists() {
+        let mut builder = Builder::new(Encoder::new(
+            File::create(out_dir.join("bundled.tar.zst"))?,
+            ZSTD_COMPRESSION_LEVEL,
+        )?);
+
+        add(&mut builder, &path, &path)?;
+
+        builder.into_inner()?.do_finish()?;
+    } else {
+        bail!("no such directory: {}", path.display())
+    }
+
+    compress(
+        &repo_dir.join("adapters/ab5a4484"),
+        "wasi_snapshot_preview1.reactor.wasm",
+        out_dir,
+        false,
+    )?;
+
+    Ok(())
+}
+
+fn compress(src_dir: &Path, name: &str, dst_dir: &Path, rerun_if_changed: bool) -> Result<()> {
+    let path = src_dir.join(name);
+
+    if rerun_if_changed {
+        println!("cargo:rerun-if-changed={}", path.to_str().unwrap());
+    }
+
+    if path.exists() {
+        let mut encoder = Encoder::new(
+            File::create(dst_dir.join(format!("{name}.zst")))?,
+            ZSTD_COMPRESSION_LEVEL,
+        )?;
+        if STRIP_RUNTIME && name.ends_with(".so") {
+            io::copy(&mut Cursor::new(strip(&fs::read(path)?)?), &mut encoder)?;
+        } else {
+            io::copy(&mut File::open(path)?, &mut encoder)?;
+        }
+        encoder.do_finish()?;
+        Ok(())
+    } else {
+        Err(anyhow!("no such file: {}", path.display()))
+    }
+}
+
+fn include(path: &Path) -> bool {
+    !(matches!(
+        path.extension().and_then(|e| e.to_str()),
+        Some("a" | "pyc" | "whl")
+    ) || matches!(
+        path.file_name().and_then(|e| e.to_str()),
+        Some("Makefile" | "Changelog" | "NEWS.txt")
+    ))
+}
+
+fn add(builder: &mut Builder<impl Write>, root: &Path, path: &Path) -> Result<()> {
+    println!("cargo:rerun-if-changed={}", path.to_str().unwrap());
+
+    if path.is_dir() {
+        for entry in fs::read_dir(path)? {
+            add(builder, root, &entry?.path())?;
+        }
+    } else if include(path) {
+        builder.append_file(path.strip_prefix(root)?, &mut File::open(path)?)?;
+    }
+
+    Ok(())
+}
+
+fn maybe_make_cpython(repo_dir: &Path, wasi_sdk: &Path) -> Result<()> {
+    let cpython_dir = repo_dir.join("cpython");
+    if !cpython_dir.exists() {
+        let url = &env::var("CPYTHON_TARBALL_URL").unwrap_or_else(|_| CPYTHON_TARBALL_URL.into());
+        let base_dir = &env::var_os("CPYTHON_TARBALL_BASE_DIR")
+            .unwrap_or_else(|| CPYTHON_TARBALL_BASE_DIR.into());
+        println!("cargo:warning=downloading CPython source code from {url}");
+        fetch_extract(url, repo_dir)?;
+        fs::rename(repo_dir.join(base_dir), &cpython_dir)?;
+    }
+
+    let cpython_wasi_dir = cpython_dir.join("builddir/wasi");
+    if !cpython_wasi_dir.join("libpython3.14.so").exists() {
+        fs::create_dir_all(&cpython_wasi_dir)?;
+        if !cpython_wasi_dir.join("libpython3.14.a").exists() {
+            let cpython_native_dir = repo_dir.join("cpython/builddir/build");
+            if !cpython_native_dir.join(PYTHON_EXECUTABLE).exists() {
+                fs::create_dir_all(&cpython_native_dir)?;
+
+                run(Command::new("../../configure")
+                    .current_dir(&cpython_native_dir)
+                    .arg(format!(
+                        "--prefix={}/install",
+                        cpython_native_dir.to_str().ok_or_else(|| anyhow!(
+                            "non-UTF8 path: {}",
+                            cpython_native_dir.display()
+                        ))?
+                    )))?;
+
+                run(Command::new("make").current_dir(cpython_native_dir))?;
+            }
+
+            let lib_install_dir = cpython_wasi_dir.join("deps");
+            build_zlib(wasi_sdk, &lib_install_dir)?;
+
+            build_sqlite(wasi_sdk, &lib_install_dir)?;
+
+            let config_guess =
+                run(Command::new("../../config.guess").current_dir(&cpython_wasi_dir))?;
+
+            let dir = cpython_wasi_dir
+                .to_str()
+                .ok_or_else(|| anyhow!("non-UTF8 path: {}", cpython_wasi_dir.display()))?;
+
+            // Configure CPython with SQLite support
+            // The CFLAGS and LDFLAGS now include paths to both zlib AND sqlite
+            run(Command::new("../../Tools/wasm/wasi-env")
+                .env(
+                    "CONFIG_SITE",
+                    "../../Tools/wasm/wasi/config.site-wasm32-wasi",
+                )
+                .env(
+                    "CFLAGS",
+                    format!("--target=wasm32-wasip2 -fPIC -I{dir}/deps/include"),
+                )
+                .env("WASI_SDK_PATH", wasi_sdk)
+                .env(
+                    "LDFLAGS",
+                    format!("--target=wasm32-wasip2 -L{dir}/deps/lib"),
+                )
+                .current_dir(&cpython_wasi_dir)
+                .args([
+                    "../../configure",
+                    "-C",
+                    "--host=wasm32-unknown-wasip2",
+                    &format!("--build={}", String::from_utf8(config_guess)?),
+                    &format!("--with-build-python={dir}/../build/{PYTHON_EXECUTABLE}",),
+                    &format!("--prefix={dir}/install"),
+                    "--disable-test-modules",
+                    "--enable-ipv6",
+                ]))?;
+
+            // Write Modules/Setup.local to force-enable _sqlite3
+            // This ensures the module is built even if configure doesn't auto-detect it
+            write_setup_local(&cpython_wasi_dir)?;
+
+            run(Command::new("make")
+                .current_dir(&cpython_wasi_dir)
+                .args(["build_all", "install"]))?;
+        }
+
+        // Link libpython3.14.so - now includes libsqlite3.a
+        run(Command::new(wasi_sdk.join("bin/clang"))
+            .arg("--target=wasm32-wasip2")
+            .arg("-shared")
+            .arg("-o")
+            .arg(cpython_wasi_dir.join("libpython3.14.so"))
+            .arg("-Wl,--whole-archive")
+            .arg(cpython_wasi_dir.join("libpython3.14.a"))
+            .arg("-Wl,--no-whole-archive")
+            .arg(cpython_wasi_dir.join("Modules/_hacl/libHacl_HMAC.a"))
+            .arg(cpython_wasi_dir.join("Modules/_hacl/libHacl_Hash_BLAKE2.a"))
+            .arg(cpython_wasi_dir.join("Modules/_hacl/libHacl_Hash_MD5.a"))
+            .arg(cpython_wasi_dir.join("Modules/_hacl/libHacl_Hash_SHA1.a"))
+            .arg(cpython_wasi_dir.join("Modules/_hacl/libHacl_Hash_SHA2.a"))
+            .arg(cpython_wasi_dir.join("Modules/_hacl/libHacl_Hash_SHA3.a"))
+            .arg(cpython_wasi_dir.join("Modules/_decimal/libmpdec/libmpdec.a"))
+            .arg(cpython_wasi_dir.join("Modules/expat/libexpat.a"))
+            .arg(cpython_wasi_dir.join("deps/lib/libz.a"))
+            .arg(cpython_wasi_dir.join("deps/lib/libsqlite3.a"))
+            .arg("-lwasi-emulated-signal")
+            .arg("-lwasi-emulated-getpid")
+            .arg("-lwasi-emulated-process-clocks")
+            .arg("-ldl"))?;
+    }
+
+    Ok(())
+}
+
+/// Write Modules/Setup.local to enable _sqlite3 module
+///
+/// CPython's configure may not auto-detect sqlite3 for WASI cross-compilation,
+/// so we explicitly enable it here.
+fn write_setup_local(cpython_wasi_dir: &Path) -> Result<()> {
+    let setup_local_path = cpython_wasi_dir.join("Modules/Setup.local");
+    let deps_dir = cpython_wasi_dir.join("deps");
+
+    // The _sqlite3 module source files (relative to Modules/)
+    // These are the files that make up the _sqlite3 extension in CPython 3.14
+    // Note: blob.c is required - it defines pysqlite_close_all_blobs and pysqlite_blob_setup_types
+    let include_dir = deps_dir.join("include");
+    let lib_dir = deps_dir.join("lib");
+    let setup_local_content = format!(
+        r#"# Auto-generated by build.rs for SQLite support
+# Enable _sqlite3 module with statically linked SQLite
+
+_sqlite3 _sqlite/blob.c _sqlite/connection.c _sqlite/cursor.c _sqlite/microprotocols.c _sqlite/module.c _sqlite/prepare_protocol.c _sqlite/row.c _sqlite/statement.c _sqlite/util.c -I{include} -L{lib} -lsqlite3
+"#,
+        include = include_dir
+            .to_str()
+            .ok_or_else(|| anyhow!("non-UTF8 path: {}", include_dir.display()))?,
+        lib = lib_dir
+            .to_str()
+            .ok_or_else(|| anyhow!("non-UTF8 path: {}", lib_dir.display()))?,
+    );
+
+    // Create the Modules directory if it doesn't exist
+    fs::create_dir_all(cpython_wasi_dir.join("Modules"))?;
+    fs::write(&setup_local_path, setup_local_content)?;
+
+    println!(
+        "cargo:warning=Wrote Modules/Setup.local to enable _sqlite3: {}",
+        setup_local_path.display()
+    );
+
+    Ok(())
+}
+
+fn run(command: &mut Command) -> Result<Vec<u8>> {
+    let command_string = iter::once(command.get_program())
+        .chain(command.get_args())
+        .map(|arg| arg.to_string_lossy())
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    let output = command.output().with_context({
+        let command_string = command_string.clone();
+        move || command_string
+    })?;
+
+    if output.status.success() {
+        Ok(output.stdout)
+    } else {
+        bail!(
+            "command `{command_string}` failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}
+
+fn make_pyo3_config(repo_dir: &Path) -> Result<()> {
+    let out_dir = env::var("OUT_DIR")?;
+    let mut cpython_wasi_dir = repo_dir.join("cpython/builddir/wasi");
+    let mut cygpath = Command::new("cygpath");
+    cygpath.arg("-w").arg(&cpython_wasi_dir);
+    if let Ok(output) = cygpath.output() {
+        if output.status.success() {
+            cpython_wasi_dir = PathBuf::from(String::from_utf8(output.stdout)?.trim());
+        } else {
+            panic!(
+                "cygpath failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+    }
+
+    let mut pyo3_config = fs::read_to_string(repo_dir.join("pyo3-config.txt"))?;
+    writeln!(
+        pyo3_config,
+        "lib_dir={}",
+        cpython_wasi_dir.to_str().unwrap()
+    )?;
+    fs::write(Path::new(&out_dir).join("pyo3-config.txt"), pyo3_config)?;
+
+    println!("cargo:rerun-if-changed=pyo3-config.txt");
+
+    Ok(())
+}
+
+fn make_runtime(
+    repo_dir: &Path,
+    out_dir: &Path,
+    wasi_sdk: &Path,
+    cpython_wasi_dir: &Path,
+    async_: bool,
+    name: &str,
+) -> Result<()> {
+    let mut cmd = Command::new("cargo");
+    cmd.current_dir(repo_dir.join("runtime"))
+        .arg("build")
+        .arg("--target=wasm32-wasip2");
+
+    if !DEBUG_RUNTIME {
+        cmd.arg("--release");
+    }
+
+    if async_ {
+        cmd.arg("--features=async");
+    }
+
+    for (key, _) in env::vars_os() {
+        if key
+            .to_str()
+            .map(|key| key.starts_with("RUST") || key.starts_with("CARGO"))
+            .unwrap_or(false)
+        {
+            cmd.env_remove(&key);
+        }
+    }
+
+    let target = if async_ { "async" } else { "sync" };
+
+    let clang = wasi_sdk.join(format!("bin/{CLANG_EXECUTABLE}"));
+    cmd.env(
+        "RUSTFLAGS",
+        format!(
+            "--cfg pyo3_disable_reference_pool \
+             -Clink-args=-Wl,--skip-wit-component \
+             -Clink-args=-shared \
+             -Clink-args=-L{} \
+             -Clink-args=-lpython3.14 \
+             -Clink-self-contained=n",
+            cpython_wasi_dir.to_str().unwrap()
+        ),
+    )
+    .env("CARGO_TARGET_WASM32_WASIP2_LINKER", clang)
+    .env("CARGO_TARGET_DIR", out_dir.join(target))
+    .env("PYO3_CONFIG_FILE", out_dir.join("pyo3-config.txt"));
+
+    let status = cmd
+        .status()
+        .with_context(|| format!("failed to build runtime using {cmd:?}"))?;
+    assert!(status.success());
+    println!("cargo:rerun-if-changed=runtime");
+
+    let build = if DEBUG_RUNTIME { "debug" } else { "release" };
+    let path = out_dir.join(target).join(format!(
+        "wasm32-wasip2/{build}/componentize_py_runtime.wasm"
+    ));
+
+    if path.exists() {
+        fs::copy(&path, out_dir.join(name))?;
+        compress(out_dir, name, out_dir, false)?;
+    } else {
+        bail!("no such file: {}", path.display())
+    }
+
+    Ok(())
+}
+
+fn fetch_extract(url: &str, out_dir: &Path) -> Result<()> {
+    let response = reqwest::blocking::get(url)?;
+    let decoder = flate2::read::GzDecoder::new(response);
+    let mut archive = tar::Archive::new(decoder);
+    archive.unpack(out_dir)?;
+    Ok(())
+}
+
+fn add_compile_envs(wasi_sdk: &Path, command: &mut Command) {
+    let sysroot = wasi_sdk.join("share/wasi-sysroot");
+    let sysroot = sysroot.to_string_lossy();
+    command
+        .env("AR", wasi_sdk.join("bin/ar"))
+        .env("CC", wasi_sdk.join("bin/clang"))
+        .env("RANLIB", wasi_sdk.join("bin/ranlib"))
+        .env(
+            "CFLAGS",
+            format!("--target=wasm32-wasip2 --sysroot={sysroot} -I{sysroot}/include/wasm32-wasip2 -D_WASI_EMULATED_SIGNAL -fPIC"),
+        )
+        .env(
+            "LDFLAGS",
+            format!("--target=wasm32-wasip2 --sysroot={sysroot} -L{sysroot}/lib -lwasi-emulated-signal")
+        );
+}
+
+fn build_zlib(wasi_sdk: &Path, install_dir: &Path) -> Result<()> {
+    let out_dir = PathBuf::from(env::var("OUT_DIR")?);
+    fetch_extract(
+        "https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz",
+        &out_dir,
+    )?;
+    let src_dir = out_dir.join("zlib-1.3.1");
+
+    let prefix = install_dir
+        .to_str()
+        .ok_or_else(|| anyhow!("non-UTF8 path: {}", install_dir.display()))?;
+
+    let mut configure = Command::new("./configure");
+    add_compile_envs(wasi_sdk, &mut configure);
+    configure
+        .current_dir(&src_dir)
+        .arg("--static")
+        .arg(format!("--prefix={prefix}"));
+    run(&mut configure)?;
+
+    let ar_dir = wasi_sdk.join("bin/ar");
+    let ar_dir = ar_dir
+        .to_str()
+        .ok_or_else(|| anyhow!("non-UTF8 path: {}", ar_dir.display()))?;
+
+    let clang_dir = wasi_sdk.join("bin/clang");
+    let clang_dir = clang_dir
+        .to_str()
+        .ok_or_else(|| anyhow!("non-UTF8 path: {}", clang_dir.display()))?;
+
+    let mut make = Command::new("make");
+    add_compile_envs(wasi_sdk, &mut make);
+    make.current_dir(src_dir)
+        .arg(format!("AR={ar_dir}"))
+        .arg("ARFLAGS=rcs")
+        .arg(format!("CC={clang_dir}"))
+        .arg("static")
+        .arg("install");
+    run(&mut make)?;
+
+    Ok(())
+}
+
+/// Build SQLite for WASI
+///
+/// Downloads the SQLite amalgamation source and builds it as a static library
+/// for WASI. Key configuration:
+/// - SQLITE_OMIT_WAL: WAL requires mmap which isn't available in WASI preview1
+/// - SQLITE_OMIT_LOAD_EXTENSION: No dlopen in WASI
+/// - SQLITE_THREADSAFE=0: Single-threaded for WASM
+fn build_sqlite(wasi_sdk: &Path, install_dir: &Path) -> Result<()> {
+    let out_dir = PathBuf::from(env::var("OUT_DIR")?);
+
+    // Check if already built
+    if install_dir.join("lib/libsqlite3.a").exists() {
+        println!("cargo:warning=SQLite already built, skipping");
+        return Ok(());
+    }
+
+    println!("cargo:warning=Building SQLite {SQLITE_VERSION} for WASI...");
+
+    // Download SQLite amalgamation
+    let url = format!("https://sqlite.org/{SQLITE_YEAR}/sqlite-autoconf-{SQLITE_VERSION}.tar.gz");
+    fetch_extract(&url, &out_dir)?;
+
+    let src_dir = out_dir.join(format!("sqlite-autoconf-{SQLITE_VERSION}"));
+
+    // Ensure install directories exist
+    fs::create_dir_all(install_dir.join("lib"))?;
+    fs::create_dir_all(install_dir.join("include"))?;
+
+    let sysroot = wasi_sdk.join("share/wasi-sysroot");
+    let sysroot_str = sysroot
+        .to_str()
+        .ok_or_else(|| anyhow!("non-UTF8 path: {}", sysroot.display()))?;
+    let install_dir_str = install_dir
+        .to_str()
+        .ok_or_else(|| anyhow!("non-UTF8 path: {}", install_dir.display()))?;
+    let ar_path = wasi_sdk.join("bin/ar");
+    let ar_str = ar_path
+        .to_str()
+        .ok_or_else(|| anyhow!("non-UTF8 path: {}", ar_path.display()))?;
+
+    // SQLite-specific CFLAGS for WASI compatibility
+    // Note: Don't set SQLITE_THREADSAFE here - let --disable-threadsafe handle it
+    // to avoid macro redefinition warnings
+    let sqlite_cflags = format!(
+        "--target=wasm32-wasip2 \
+         --sysroot={sysroot_str} \
+         -I{sysroot_str}/include/wasm32-wasip2 \
+         -D_WASI_EMULATED_SIGNAL \
+         -D_WASI_EMULATED_PROCESS_CLOCKS \
+         -fPIC \
+         -O2 \
+         -DSQLITE_OMIT_WAL \
+         -DSQLITE_OMIT_LOAD_EXTENSION \
+         -DSQLITE_OMIT_LOCALTIME \
+         -DSQLITE_OMIT_RANDOMNESS \
+         -DSQLITE_OMIT_SHARED_CACHE",
+    );
+
+    // Configure SQLite
+    let mut configure = Command::new("./configure");
+    configure
+        .current_dir(&src_dir)
+        .env("AR", wasi_sdk.join("bin/ar"))
+        .env("CC", wasi_sdk.join("bin/clang"))
+        .env("RANLIB", wasi_sdk.join("bin/ranlib"))
+        .env("CFLAGS", &sqlite_cflags)
+        .env(
+            "LDFLAGS",
+            format!("--target=wasm32-wasip2 --sysroot={sysroot_str} -L{sysroot_str}/lib",),
+        )
+        .arg("--host=wasm32-wasip2")
+        .arg(format!("--prefix={install_dir_str}"))
+        .arg("--disable-shared")
+        .arg("--enable-static")
+        .arg("--disable-readline")
+        .arg("--disable-threadsafe")
+        .arg("--disable-load-extension");
+
+    run(&mut configure)?;
+
+    // Build only the static library (not the shell, which fails to link on WASI)
+    let mut make = Command::new("make");
+    make.current_dir(&src_dir)
+        .env("AR", wasi_sdk.join("bin/ar"))
+        .env("CC", wasi_sdk.join("bin/clang"))
+        .env("RANLIB", wasi_sdk.join("bin/ranlib"))
+        .env("CFLAGS", &sqlite_cflags)
+        .arg(format!("AR={ar_str}"))
+        .arg("ARFLAGS=rcs")
+        .arg("libsqlite3.a"); // Build only the static library
+    run(&mut make)?;
+
+    // Manual install since we didn't build everything
+    // Copy the library
+    fs::copy(
+        src_dir.join("libsqlite3.a"),
+        install_dir.join("lib/libsqlite3.a"),
+    )?;
+    // Copy the headers
+    fs::copy(
+        src_dir.join("sqlite3.h"),
+        install_dir.join("include/sqlite3.h"),
+    )?;
+    fs::copy(
+        src_dir.join("sqlite3ext.h"),
+        install_dir.join("include/sqlite3ext.h"),
+    )?;
+
+    println!(
+        "cargo:warning=SQLite built successfully: {}",
+        install_dir.join("lib/libsqlite3.a").display()
+    );
+
+    Ok(())
+}
+
+fn strip(input: &[u8]) -> anyhow::Result<Vec<u8>> {
+    // Adapted from https://github.com/bytecodealliance/wasm-tools/blob/main/src/bin/wasm-tools/strip.rs
+    //
+    // TODO: Move that code into e.g. `wasm_encoder` so we can reuse it here
+    // instead of duplicating it.
+
+    let mut output = Vec::new();
+    let mut stack = Vec::new();
+
+    for payload in Parser::new(0).parse_all(input) {
+        let payload = payload?;
+
+        // Track nesting depth, so that we don't mess with inner producer sections:
+        match payload {
+            Payload::Version { encoding, .. } => {
+                output.extend_from_slice(match encoding {
+                    wasmparser::Encoding::Component => &wasm_encoder::Component::HEADER,
+                    wasmparser::Encoding::Module => &wasm_encoder::Module::HEADER,
+                });
+            }
+            Payload::ModuleSection { .. } | Payload::ComponentSection { .. } => {
+                stack.push(mem::take(&mut output));
+                continue;
+            }
+            Payload::End { .. } => {
+                let mut parent = match stack.pop() {
+                    Some(c) => c,
+                    None => break,
+                };
+                if output.starts_with(&wasm_encoder::Component::HEADER) {
+                    parent.push(ComponentSectionId::Component as u8);
+                    output.encode(&mut parent);
+                } else {
+                    parent.push(ComponentSectionId::CoreModule as u8);
+                    output.encode(&mut parent);
+                }
+                output = parent;
+            }
+            _ => {}
+        }
+
+        if let Payload::CustomSection(ref c) = payload {
+            let name = c.name();
+            if name != "name" && !name.starts_with("component-type:") && name != "dylink.0" {
+                continue;
+            }
+        }
+
+        if let Some((id, range)) = payload.as_section() {
+            RawSection {
+                id,
+                data: &input[range],
+            }
+            .append_to(&mut output);
+        }
+    }
+
+    Ok(output)
+}

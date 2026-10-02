@@ -1,0 +1,275 @@
+project(
+  'sciqlop-cache',
+  'cpp','c',
+  meson_version: '>= 1.4.0',
+  version : run_command('scripts/version.py',
+                        capture:true,
+                        env:{'SRC_ROOT':meson.project_source_root()}
+                        ).stdout().strip() ,
+  default_options : ['warning_level=3', 'cpp_std=c++20', 'default_library=static', 'buildtype=release'],
+  license : 'MIT'
+)
+
+if get_option('buildtype').contains('debug')
+    add_project_arguments('-DCDFPP_ENABLE_ASSERT', language : ['cpp'])
+    add_project_arguments('-DCDFPP_HEDLEY', language : ['cpp'])
+endif
+
+add_global_arguments('-DSQLITE_THREADSAFE=2', language : ['c', 'cpp'])
+
+conf_data = configuration_data()
+conf_data.set_quoted('SCIQLOP_CACHE_VERSION', meson.project_version())
+
+configure_file(output : 'sciqlop_cache_config.h',
+               install : true,
+               install_dir : 'include/sciqlop_cache',
+               configuration : conf_data)
+
+cpp = meson.get_compiler('cpp')
+if('clang'==cpp.get_id())
+    add_global_arguments('-fsized-deallocation', language : 'cpp')
+endif
+
+nanobind_dep = dependency('nanobind')
+hedley_dep = dependency('hedley')
+fmt_dep = dependency('fmt')
+sqlite3_dep = subproject('sqlite3').get_variable('sqlite3_dep')
+cpp_utils = dependency('cpp_utils', required : true,  default_options : ['cpp_std=c++20', 'with_tests=false'])
+stduuid = dependency('stduuid', required : true)
+optional_deps = []
+
+if build_machine.system() == 'windows'
+    link_args = ['-static-libstdc++','-static-libgcc','-static']
+elif build_machine.system() == 'darwin' and cpp.get_id() != 'clang'
+    link_args = ['-static-libstdc++','-static-libgcc']
+else
+    link_args = []
+endif
+
+
+if get_option ( 'tracy_enable')
+    if get_option ( 'buildtype') != 'debugoptimized'
+        warning ( 'Profiling builds should set -- buildtype = debugoptimized')
+    endif
+    tracy = dependency ( 'tracy', static : true )
+    optional_deps += [ tracy ]
+endif
+
+
+
+sciqlop_cache_headers = files(
+    'include/sciqlop_cache/sciqlop_cache.hpp',
+    'include/sciqlop_cache/store.hpp',
+    'include/sciqlop_cache/fanout_store.hpp',
+    'include/sciqlop_cache/policies.hpp',
+    'include/sciqlop_cache/database.hpp'
+)
+
+pysciqlop_cache_headers = files(
+    'pysciqlop_cache/buffer_codecs.hpp',
+    'pysciqlop_cache/blosc2_runtime.hpp',
+)
+
+sciqlop_cache_extra_files = files(
+    'pyproject.toml',
+    'README.md',
+    '.bumpversion.cfg',
+    'version.txt',
+    'scripts/version.py',
+    '.github/workflows/CI.yml',
+    '.github/workflows/tests-with-coverage.yml'
+)
+
+sciqlop_cache_dep_inc = include_directories('include', '.')
+
+sciqlop_cache_dep = declare_dependency(include_directories: sciqlop_cache_dep_inc,
+                                dependencies: [hedley_dep,
+                                               fmt_dep,
+                                               sqlite3_dep,
+                                               cpp_utils,
+                                               stduuid]
+                                               + optional_deps
+                                )
+
+if get_option('disable_python_wrapper')
+    message('building without Python wrapper')
+else
+    subdir('pysciqlop_cache')
+endif
+
+if get_option('with_tests')
+
+    configure_file(output : 'tests_config.hpp',
+      configuration : {
+        'DATA_PATH' : '"' + meson.current_source_dir() / 'tests/resources' + '"'
+      }
+    )
+
+catch_dep = dependency('catch2-with-main', version:'>3.0.0', required : true)
+my_include = include_directories('include/sciqlop_cache')
+
+foreach test_name:['database', 'basic', 'basic_index', 'intermediate', 'multithreads', 'fanout', 'check', 'checkpoint']
+    exe = executable(
+        'test-'+test_name,'tests/'+test_name+'/main.cpp',
+        include_directories: my_include,
+        dependencies:[catch_dep, sciqlop_cache_dep, sqlite3_dep],
+        install: false
+    )
+    test(test_name, exe)
+endforeach
+
+# Forks worker processes; run serially with a timeout so a fork-deadlock
+# regression fails fast instead of hanging the suite.
+fork_safety_exe = executable(
+    'test-fork_safety', 'tests/fork_safety/main.cpp',
+    include_directories: my_include,
+    dependencies:[catch_dep, sciqlop_cache_dep, sqlite3_dep],
+    install: false
+)
+test('fork_safety', fork_safety_exe, is_parallel: false, timeout: 120)
+
+bench_bgscan_exe = executable(
+    'bench-bgscan', 'tests/bench_bgscan/main.cpp',
+    include_directories: my_include,
+    dependencies:[sciqlop_cache_dep, sqlite3_dep],
+    install: false
+)
+benchmark('bgscan', bench_bgscan_exe,
+    args: ['--n', '100000', '--path', meson.current_build_dir() / 'bench-bgscan-store'],
+    timeout: 600
+)
+
+gbench_dep = dependency('benchmark', required: false)
+if gbench_dep.found()
+    bench_perf_exe = executable(
+        'bench-perf', 'tests/bench_perf/main.cpp',
+        include_directories: my_include,
+        dependencies:[sciqlop_cache_dep, sqlite3_dep, gbench_dep],
+        install: false
+    )
+endif
+
+
+if get_option('with_torture_tests')
+    torture_exe = executable(
+        'test-torture', 'tests/torture/main.cpp',
+        include_directories: my_include,
+        dependencies: [catch_dep, sciqlop_cache_dep, sqlite3_dep],
+        install: false
+    )
+    test('torture', torture_exe,
+        is_parallel: false,
+        timeout: 300,
+        # Tagged 'slow' so the daily loop can skip it with
+        # `meson test --no-suite slow`; CI/pre-push runs everything.
+        suite: 'slow',
+    )
+
+    # Reproducers for known concurrency bugs (audit 2026-05-02). Expected to
+    # fail on TSan until the corresponding fixes land. Kept under torture flag
+    # so they don't break the default build.
+    concurrency_bugs_exe = executable(
+        'test-concurrency_bugs', 'tests/concurrency_bugs/main.cpp',
+        include_directories: my_include,
+        dependencies: [catch_dep, sciqlop_cache_dep, sqlite3_dep],
+        install: false
+    )
+    test('concurrency_bugs', concurrency_bugs_exe,
+        is_parallel: false,
+        timeout: 60,
+    )
+endif
+
+if not get_option('disable_python_wrapper')
+    foreach test_name:['test_python_interface', 'test_perf_vs_diskcache', 'test_serializers', 'test_diskcache_compat', 'test_pickle_oob', 'test_migrate', 'test_store_parity']
+        test(test_name, python3,
+            args:files('tests/python/@0@.py'.format(test_name)),
+            env : {'PYTHONPATH': meson.current_build_dir()}
+            )
+    endforeach
+    test('test_python_multiprocess', python3,
+        args:files('tests/python/test_python_multiprocess.py'),
+        env : {'PYTHONPATH': meson.current_build_dir()},
+        is_parallel : false,
+        timeout : 60,
+    )
+    test('test_concurrency_bugs', python3,
+        args:files('tests/python/test_concurrency_bugs.py'),
+        env : {'PYTHONPATH': meson.current_build_dir()},
+        is_parallel : false,
+        timeout : 120,
+    )
+    test('test_free_threading', python3,
+        args:files('tests/python/test_free_threading.py'),
+        env : {'PYTHONPATH': meson.current_build_dir()},
+        is_parallel : false,
+        timeout : 120,
+    )
+    test('test_mapped_file_sharing', python3,
+        args:files('tests/python/test_mapped_file_sharing.py'),
+        env : {'PYTHONPATH': meson.current_build_dir()},
+        is_parallel : false,
+        timeout : 60,
+    )
+    test('test_fork_safety', python3,
+        args:files('tests/python/test_fork_safety.py'),
+        env : {'PYTHONPATH': meson.current_build_dir()},
+        is_parallel : false,
+        timeout : 120,
+    )
+    test('test_pool_reuse_fork_safety', python3,
+        args:files('tests/python/test_pool_reuse_fork_safety.py'),
+        env : {'PYTHONPATH': meson.current_build_dir()},
+        is_parallel : false,
+        timeout : 120,
+    )
+    test('test_trash_deferred_delete', python3,
+        args:files('tests/python/test_trash_deferred_delete.py'),
+        env : {'PYTHONPATH': meson.current_build_dir()},
+        is_parallel : false,
+        timeout : 180,
+    )
+    test('test_mmap_fd_leak', python3,
+        args:files('tests/python/test_mmap_fd_leak.py'),
+        env : {'PYTHONPATH': meson.current_build_dir()},
+        is_parallel : false,
+        timeout : 60,
+    )
+    test('test_get_transient_open_failure', python3,
+        args:files('tests/python/test_get_transient_open_failure.py'),
+        env : {'PYTHONPATH': meson.current_build_dir()},
+        is_parallel : false,
+        timeout : 60,
+    )
+    test('test_set_write_failure', python3,
+        args:files('tests/python/test_set_write_failure.py'),
+        env : {'PYTHONPATH': meson.current_build_dir()},
+        is_parallel : false,
+        timeout : 60,
+    )
+    if get_option('with_torture_tests')
+        test('test_torture', python3,
+            args:files('tests/python/test_torture.py'),
+            env : {'PYTHONPATH': meson.current_build_dir()},
+            is_parallel : false,
+            # ~390-400s on the dev box (measured on main and on the trash
+            # branch alike) — 300 was simply too tight.
+            timeout : 600,
+            # Tagged 'slow' so the daily loop can skip it with
+            # `meson test --no-suite slow`; CI/pre-push runs everything.
+            suite : 'slow',
+        )
+        test('test_hypothesis', python3,
+            args:['-m', 'pytest', files('tests/python/test_hypothesis.py'), '-x', '-v'],
+            env : {'PYTHONPATH': meson.current_build_dir()},
+            timeout : 120,
+        )
+    endif
+endif
+
+
+endif
+
+summary({'C': meson.get_compiler('c').cmd_array(),
+        'C++': meson.get_compiler('cpp').cmd_array()
+        }, section: 'Compilers')

@@ -36,17 +36,19 @@ class CatalogEntry(object):
         'name': 'str',
         'type': 'str',
         'description': 'str',
-        'platforms': 'list[str]'
+        'platforms': 'list[str]',
+        'content_hash': 'str'
     }
 
     attribute_map = {
         'name': 'name',
         'type': 'type',
         'description': 'description',
-        'platforms': 'platforms'
+        'platforms': 'platforms',
+        'content_hash': 'content_hash'
     }
 
-    def __init__(self, name=None, type=None, description=None, platforms=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, type=None, description=None, platforms=None, content_hash=None, local_vars_configuration=None):  # noqa: E501
         """CatalogEntry - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -56,6 +58,7 @@ class CatalogEntry(object):
         self._type = None
         self._description = None
         self._platforms = None
+        self._content_hash = None
         self.discriminator = None
 
         self.name = name
@@ -63,6 +66,8 @@ class CatalogEntry(object):
         self.description = description
         if platforms is not None:
             self.platforms = platforms
+        if content_hash is not None:
+            self.content_hash = content_hash
 
     @property
     def name(self):
@@ -161,6 +166,29 @@ class CatalogEntry(object):
         """
 
         self._platforms = platforms
+
+    @property
+    def content_hash(self):
+        """Gets the content_hash of this CatalogEntry.  # noqa: E501
+
+        Publisher-computed digest of this entry's content. Stored and returned as-is; the backend never computes or validates it. None on versions published before this field existed.  # noqa: E501
+
+        :return: The content_hash of this CatalogEntry.  # noqa: E501
+        :rtype: str
+        """
+        return self._content_hash
+
+    @content_hash.setter
+    def content_hash(self, content_hash):
+        """Sets the content_hash of this CatalogEntry.
+
+        Publisher-computed digest of this entry's content. Stored and returned as-is; the backend never computes or validates it. None on versions published before this field existed.  # noqa: E501
+
+        :param content_hash: The content_hash of this CatalogEntry.  # noqa: E501
+        :type: str
+        """
+
+        self._content_hash = content_hash
 
     def to_dict(self):
         """Returns the model properties as a dict"""

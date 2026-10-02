@@ -1,0 +1,224 @@
+"""
+Tests for macOS ld64.lld linker flag translation.
+
+This module tests the translation of GNU ld flags to ld64.lld equivalents
+when using lld on macOS.
+"""
+
+import os
+import unittest
+from unittest.mock import patch
+
+from clang_tool_chain.linker.lld import (  # noqa: E402
+    _add_lld_linker_if_needed,
+    _translate_linker_flags_for_macos_lld,
+)
+
+
+class TestMacOSLLDFlagTranslation(unittest.TestCase):
+    """Test cases for macOS ld64.lld flag translation."""
+
+    def test_no_undefined_flag_in_wl(self):
+        """Test that --no-undefined is stripped from -Wl, flags on macOS."""
+        args = ["-Wl,--no-undefined"]
+        result = _translate_linker_flags_for_macos_lld(args)
+        self.assertEqual(result, [])
+
+    def test_no_undefined_flag_standalone(self):
+        """Test that standalone --no-undefined flag is stripped on macOS."""
+        args = ["--no-undefined"]
+        result = _translate_linker_flags_for_macos_lld(args)
+        self.assertEqual(result, [])
+
+    def test_multiple_flags_in_wl(self):
+        """Test stripping/translation with multiple flags in -Wl,."""
+        args = ["-Wl,--no-undefined,--fatal-warnings,-rpath,/usr/lib"]
+        result = _translate_linker_flags_for_macos_lld(args)
+        self.assertEqual(result, ["-Wl,-fatal_warnings,-rpath,/usr/lib"])
+
+    def test_fatal_warnings_flag(self):
+        """Test translation of --fatal-warnings flag."""
+        args = ["-Wl,--fatal-warnings"]
+        result = _translate_linker_flags_for_macos_lld(args)
+        self.assertEqual(result, ["-Wl,-fatal_warnings"])
+
+    def test_mixed_translated_and_non_translated_flags(self):
+        """Test mix of flags that need and don't need translation."""
+        args = ["-O2", "-Wl,--no-undefined", "-std=c++17", "-Wl,-rpath,/lib"]
+        result = _translate_linker_flags_for_macos_lld(args)
+        self.assertEqual(result, ["-O2", "-std=c++17", "-Wl,-rpath,/lib"])
+
+    def test_no_translation_needed(self):
+        """Test that args without GNU ld flags are unchanged."""
+        args = ["-O2", "-std=c++17", "-Wall", "-o", "output"]
+        result = _translate_linker_flags_for_macos_lld(args)
+        self.assertEqual(result, args)
+
+    def test_empty_args(self):
+        """Test with empty argument list."""
+        args = []
+        result = _translate_linker_flags_for_macos_lld(args)
+        self.assertEqual(result, [])
+
+    def test_multiple_wl_flags(self):
+        """Test with multiple -Wl, arguments."""
+        args = ["-Wl,--no-undefined", "-Wl,--fatal-warnings", "-Wl,-L/usr/lib"]
+        result = _translate_linker_flags_for_macos_lld(args)
+        self.assertEqual(result, ["-Wl,-fatal_warnings", "-Wl,-L/usr/lib"])
+
+    def test_allow_shlib_undefined_removed_in_wl(self):
+        """Test that --allow-shlib-undefined is removed from -Wl, flags (no macOS equivalent)."""
+        args = ["-Wl,--allow-shlib-undefined"]
+        result = _translate_linker_flags_for_macos_lld(args)
+        # The flag should be completely removed (ld64 allows undefined by default in dylibs)
+        self.assertEqual(result, [])
+
+    def test_allow_shlib_undefined_removed_standalone(self):
+        """Test that standalone --allow-shlib-undefined is removed (no macOS equivalent)."""
+        args = ["--allow-shlib-undefined"]
+        result = _translate_linker_flags_for_macos_lld(args)
+        # The flag should be completely removed
+        self.assertEqual(result, [])
+
+    def test_allow_shlib_undefined_removed_with_other_flags(self):
+        """Test that --allow-shlib-undefined and --no-undefined are both stripped."""
+        args = ["-Wl,--no-undefined,--allow-shlib-undefined,-rpath,/lib"]
+        result = _translate_linker_flags_for_macos_lld(args)
+        # Both --no-undefined and --allow-shlib-undefined should be removed
+        self.assertEqual(result, ["-Wl,-rpath,/lib"])
+
+    def test_allow_shlib_undefined_warning_suppressed(self):
+        """Test that warning for removed flags can be suppressed via env var."""
+        with patch.dict(os.environ, {"CLANG_TOOL_CHAIN_NO_LINKER_COMPAT_NOTE": "1"}):
+            args = ["-Wl,--allow-shlib-undefined"]
+            # This should not print a warning (we can't easily test stderr output here,
+            # but the env var should prevent the warning from being printed)
+            result = _translate_linker_flags_for_macos_lld(args)
+            self.assertEqual(result, [])
+
+    def test_complex_compilation_command(self):
+        """Test with a realistic compilation command."""
+        args = [
+            "-Iinclude",
+            "-std=c++11",
+            "-O0",
+            "-g",
+            "-Wall",
+            "-Wextra",
+            "-Wl,--no-undefined",
+            "-o",
+            "output.exe",
+            "main.cpp",
+        ]
+        expected = [
+            "-Iinclude",
+            "-std=c++11",
+            "-O0",
+            "-g",
+            "-Wall",
+            "-Wextra",
+            "-o",
+            "output.exe",
+            "main.cpp",
+        ]
+        result = _translate_linker_flags_for_macos_lld(args)
+        self.assertEqual(result, expected)
+
+
+class TestMacOSLLDIntegration(unittest.TestCase):
+    """Integration tests for macOS LLD linker behavior."""
+
+    def test_macos_auto_injects_lld(self):
+        """Test that macOS automatically injects -fuse-ld=lld (dispatches to ld64.lld).
+
+        Note: This test verifies that we use -fuse-ld=lld (not -fuse-ld=ld64.lld) because
+        the clang driver does NOT recognize -fuse-ld=ld64.lld as a valid option.
+        The driver only recognizes generic names like "lld" and automatically dispatches
+        to ld64.lld on Darwin targets.
+        """
+        args = ["main.cpp", "-o", "main"]
+        result = _add_lld_linker_if_needed("darwin", args)
+        # Should inject -fuse-ld=lld (NOT -fuse-ld=ld64.lld which is invalid)
+        self.assertEqual(result[0], "-fuse-ld=lld")
+
+    def test_macos_flag_translation_with_auto_inject(self):
+        """Test that flag translation happens when LLD is auto-injected on macOS.
+
+        Note: This test verifies that GNU ld flags are translated AND that we use
+        -fuse-ld=lld (not -fuse-ld=ld64.lld). The clang driver does not recognize
+        -fuse-ld=ld64.lld as a valid option, so we must use -fuse-ld=lld.
+        """
+        args = ["-Wl,--no-undefined", "-Wl,--fatal-warnings", "main.cpp", "-o", "main"]
+        result = _add_lld_linker_if_needed("darwin", args)
+        # Should have -fuse-ld=lld first (NOT -fuse-ld=ld64.lld which is invalid)
+        # The clang driver dispatches to ld64.lld automatically on Darwin
+        self.assertEqual(result[0], "-fuse-ld=lld")
+        # --no-undefined should be stripped, --fatal-warnings translated
+        self.assertNotIn("-Wl,--no-undefined", result)
+        self.assertNotIn("-Wl,-undefined,error", result)
+        self.assertIn("-Wl,-fatal_warnings", result)
+        self.assertNotIn("-Wl,--fatal-warnings", result)
+
+    def test_macos_user_lld_triggers_flag_translation(self):
+        """Test that user-specified -fuse-ld=lld triggers flag stripping/translation on macOS."""
+        args = ["-fuse-ld=lld", "-Wl,--no-undefined", "main.cpp", "-o", "main"]
+        result = _add_lld_linker_if_needed("darwin", args)
+        # User's -fuse-ld=lld should be preserved
+        self.assertEqual(result[0], "-fuse-ld=lld")
+        # --no-undefined should be stripped entirely
+        self.assertNotIn("-Wl,--no-undefined", result)
+        self.assertNotIn("-Wl,-undefined,error", result)
+        # No additional -fuse-ld flag should be added
+        self.assertEqual(result.count("-fuse-ld=lld"), 1)
+        self.assertNotIn("-fuse-ld=ld64.lld", result)
+
+    def test_macos_user_ld64_lld_auto_converts_and_translates(self):
+        """Test that user-specified -fuse-ld=ld64.lld is auto-converted to -fuse-ld=lld.
+
+        Note: This test verifies that when the user specifies -fuse-ld=ld64.lld,
+        it is automatically converted to -fuse-ld=lld (with a warning emitted to stderr)
+        because the clang driver does NOT recognize -fuse-ld=ld64.lld as a valid option.
+        Flag translation to ld64.lld equivalents still occurs.
+        """
+        args = ["-fuse-ld=ld64.lld", "-Wl,--fatal-warnings", "main.cpp", "-o", "main"]
+        result = _add_lld_linker_if_needed("darwin", args)
+        # -fuse-ld=ld64.lld should be auto-converted to -fuse-ld=lld
+        self.assertEqual(result[0], "-fuse-ld=lld")
+        # Flags should still be translated
+        self.assertEqual(result[1], "-Wl,-fatal_warnings")
+        # Should have exactly one -fuse-ld=lld and no -fuse-ld=ld64.lld
+        self.assertEqual(result.count("-fuse-ld=lld"), 1)
+        self.assertNotIn("-fuse-ld=ld64.lld", result)
+
+    def test_macos_system_linker_env_skips_injection_and_translation(self):
+        """Test that CLANG_TOOL_CHAIN_USE_SYSTEM_LD=1 skips LLD and flag translation."""
+        with patch.dict(os.environ, {"CLANG_TOOL_CHAIN_USE_SYSTEM_LD": "1"}):
+            args = ["-Wl,--no-undefined", "main.cpp", "-o", "main"]
+            result = _add_lld_linker_if_needed("darwin", args)
+            # Should not inject lld or translate flags
+            self.assertEqual(result, args)
+            self.assertNotIn("-fuse-ld=lld", result)
+            self.assertNotIn("-fuse-ld=ld64.lld", result)
+            # Original flag should remain untranslated
+            self.assertIn("-Wl,--no-undefined", result)
+
+    def test_linux_no_flag_translation(self):
+        """Test that Linux does not translate GNU flags (ld.lld understands them natively)."""
+        args = ["-Wl,--no-undefined", "-Wl,--fatal-warnings", "main.cpp", "-o", "main"]
+        result = _add_lld_linker_if_needed("linux", args)
+        # Should inject lld but not translate flags
+        self.assertEqual(result[0], "-fuse-ld=lld")
+        # Original GNU flags should remain unchanged
+        self.assertIn("-Wl,--no-undefined", result)
+        self.assertIn("-Wl,--fatal-warnings", result)
+
+    def test_windows_not_affected(self):
+        """Test that Windows behavior is not affected."""
+        args = ["main.cpp", "-o", "main.exe"]
+        result = _add_lld_linker_if_needed("win", args)
+        # Should not inject any lld flag (handled separately in GNU ABI setup)
+        self.assertEqual(result, args)
+
+
+if __name__ == "__main__":
+    unittest.main()

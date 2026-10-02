@@ -35,14 +35,15 @@ class UserSDK:
         arg_docstrings=_ADMIN_BATCH_CREATE_ARG_DOCSTRINGS,
     )
     def admin_batch_create(  # noqa: F811
-        self, admin_create_users: List[AdminCreateUser],
+        self,
+        admin_create_users: List[AdminCreateUser],
     ) -> List[AdminCreatedUser]:
-        """Batch create, as an admin, users without email verification.
-        """
+        """Batch create, as an admin, users without email verification."""
         return self._private_sdk.admin_batch_create(admin_create_users)
 
     @sdk_docs(
-        doc_py_example=_LIST_EXAMPLE, arg_docstrings=_LIST_ARG_DOCSTRINGS,
+        doc_py_example=_LIST_EXAMPLE,
+        arg_docstrings=_LIST_ARG_DOCSTRINGS,
     )
     def list(  # noqa: F811
         self,
@@ -65,7 +66,8 @@ class UserSDK:
         )
 
     @sdk_docs(
-        doc_py_example=_GET_EXAMPLE, arg_docstrings=_GET_ARG_DOCSTRINGS,
+        doc_py_example=_GET_EXAMPLE,
+        arg_docstrings=_GET_ARG_DOCSTRINGS,
     )
     def get(  # noqa: F811
         self,

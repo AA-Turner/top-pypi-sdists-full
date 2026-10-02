@@ -1,7 +1,8 @@
 #!/usr/bin/env python
-"""SingleStoreDB Cluster Management."""
+"""Version-neutral helpers shared by the SingleStoreDB management API."""
 import datetime
 import functools
+import glob
 import itertools
 import os
 import re
@@ -12,6 +13,7 @@ from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Optional
+from typing import Set
 from typing import SupportsIndex
 from typing import Tuple
 from typing import TypeVar
@@ -20,6 +22,7 @@ from urllib.parse import urlparse
 
 from .. import converters
 from ..config import get_option
+from ..exceptions import ManagementError
 from ..utils import events
 
 JSON = Union[str, List[str], Dict[str, 'JSON']]
@@ -35,36 +38,56 @@ else:
     PathLikeABC = os.PathLike[str]
 
 
-class TTLProperty(object):
-    """Property with time limit."""
+class TTLProperty(property):
+    """
+    Property with time limit.
+
+    The value is cached on the instance, not on the descriptor. A descriptor is
+    shared by every instance of the class it is defined on, and what these
+    properties return is not: a manager's project list belongs to one
+    organization, so a descriptor-wide cache would hand one manager's list to a
+    manager holding a different token.
+
+    Subclassing :class:`property` is what makes the decorated members read as
+    attributes rather than methods -- to :func:`isinstance` checks, and to
+    Sphinx, which documents anything else as a callable and so would tell
+    readers to write ``manager.projects()``.
+    """
 
     def __init__(self, fget: Callable[[Any], Any], ttl: datetime.timedelta):
-        self.fget = fget
+        super().__init__(fget)
+        # ``property.fget`` is Optional to mypy and read-only at runtime, so the
+        # getter is kept here as well rather than narrowed at each call.
+        self._fget = fget
         self.ttl = ttl
-        self._last_executed = datetime.datetime(2000, 1, 1)
-        self._last_result = None
         self.__doc__ = fget.__doc__
         self._name = ''
 
-    def reset(self) -> None:
-        self._last_executed = datetime.datetime(2000, 1, 1)
-        self._last_result = None
-
     def __set_name__(self, owner: Any, name: str) -> None:
         self._name = name
+
+    @property
+    def _cache_key(self) -> str:
+        return f'_ttl_cache_{self._name or id(self)}'
+
+    def reset(self, obj: Any) -> None:
+        """Discard the value cached for ``obj``, if any."""
+        obj.__dict__.pop(self._cache_key, None)
 
     def __get__(self, obj: Any, objtype: Any = None) -> Any:
         if obj is None:
             return self
 
-        if self._last_result is not None \
-                and (datetime.datetime.now() - self._last_executed) < self.ttl:
-            return self._last_result
+        cached = obj.__dict__.get(self._cache_key)
+        if cached is not None:
+            value, fetched_at = cached
+            if (datetime.datetime.now() - fetched_at) < self.ttl:
+                return value
 
-        self._last_result = self.fget(obj)
-        self._last_executed = datetime.datetime.now()
+        value = self._fget(obj)
+        obj.__dict__[self._cache_key] = (value, datetime.datetime.now())
 
-        return self._last_result
+        return value
 
 
 def ttl_property(ttl: datetime.timedelta) -> Callable[[Any], Any]:
@@ -224,13 +247,47 @@ def get_token() -> Optional[str]:
 
 
 def get_cluster_id() -> Optional[str]:
-    """Return the cluster id for the current token or environment."""
-    return os.environ.get('SINGLESTOREDB_CLUSTER') or None
+    """
+    Return the cluster id for the current token or environment.
+
+    The v2 spelling of :func:`get_workspace_id`, and the same value: there is
+    no ``SINGLESTOREDB_CLUSTER``, because the notebook environment publishes
+    the current deployment as ``SINGLESTOREDB_WORKSPACE`` whatever the API
+    version calls it.
+    """
+    return get_workspace_id()
 
 
 def get_workspace_id() -> Optional[str]:
-    """Return the workspace id for the current token or environment."""
+    """
+    Return the deployment id for the current token or environment.
+
+    ``SINGLESTOREDB_WORKSPACE`` is the notebook environment's name for the
+    current deployment at every API version: the workspace ID at v1, and the
+    cluster ID from v2 onward.
+    """
     return os.environ.get('SINGLESTOREDB_WORKSPACE') or None
+
+
+def get_project_id() -> Optional[str]:
+    """
+    Return the inference API project id for the current environment.
+
+    ``SINGLESTOREDB_PROJECT`` is *not* a project of the cluster management API,
+    despite the name. The notebook environment sets both, and they disagree: a
+    notebook attached to a cluster in one management project reports an
+    unrelated ID here, one that draws ``404 project not found`` from
+    ``GET /v2/projects/{id}``. It names a project of the inference API, which is
+    a separate service with its own namespace, and
+    :class:`singlestoredb.management.inference_api.InferenceAPIManager` is its
+    only legitimate consumer.
+
+    To pick the management project a new deployment belongs in, use
+    :meth:`singlestoredb.management.v2.cluster.ClusterManager.
+    _resolve_project_id`, which reads the project off the current deployment
+    instead.
+    """
+    return os.environ.get('SINGLESTOREDB_PROJECT') or None
 
 
 def get_virtual_workspace_id() -> Optional[str]:
@@ -241,6 +298,102 @@ def get_virtual_workspace_id() -> Optional[str]:
 def get_database_name() -> Optional[str]:
     """Return the default database name for the current token or environment."""
     return os.environ.get('SINGLESTOREDB_DEFAULT_DATABASE') or None
+
+
+def normalize_remote_path(path: PathLike, *, strip_leading: bool = False) -> str:
+    """Normalize a caller-supplied remote path to POSIX form.
+
+    Remote FileSpace / Stage paths always use ``/``. Callers may build a
+    path with :func:`os.path.join`, which uses the local separator, so
+    backslashes are converted to ``/`` before the path is used. Duplicate
+    separators are collapsed and the trailing separator is removed, so the
+    result can safely be concatenated with ``'/' + rel``.
+
+    Parameters
+    ----------
+    path : Path or str
+        Remote path to normalize
+    strip_leading : bool, optional
+        Also remove leading ``./`` and ``/`` segments, making the path
+        relative to the remote root
+
+    Returns
+    -------
+    str
+
+    """
+    out = str(path).replace('\\', '/')
+    if strip_leading:
+        out = re.sub(r'^(\./|/)+', r'', out)
+    out = re.sub(r'/{2,}', r'/', out)
+    return re.sub(r'/+$', r'', out)
+
+
+def ensure_within(local_root: PathLike, target: PathLike) -> str:
+    """Verify ``target`` resolves inside ``local_root``.
+
+    Returns the normalized (but unresolved) path on success. The
+    containment check uses :func:`os.path.realpath` so symlink trickery
+    can't escape ``local_root``. Raises :class:`ManagementError` if
+    ``target`` would escape ``local_root``, e.g. via ``..`` segments
+    coming from an untrusted remote listing.
+    """
+    target_str = os.fspath(target)
+    normalized = os.path.normpath(target_str)
+    base = os.path.realpath(os.fspath(local_root))
+    resolved = os.path.realpath(target_str)
+    if resolved != base and not resolved.startswith(base + os.sep):
+        raise ManagementError(
+            msg=f'Refusing to write outside destination: {target_str}',
+        )
+    return normalized
+
+
+def resolve_ignore_files(
+    local_root: PathLike,
+    ignore: Optional[Union[PathLike, List[PathLike]]],
+) -> Set[str]:
+    """Expand ``ignore`` glob patterns into a set of local file paths.
+
+    Relative patterns are resolved against ``local_root`` rather than the
+    process working directory, so patterns like ``**/*.pyc`` match the tree
+    actually being uploaded. Absolute patterns are used as given. Results are
+    normalized with :func:`os.path.normpath`, so callers must normalize the
+    paths they test for membership too — a raw ``os.walk`` result such as
+    ``./a.pyc`` will not compare equal to the normalized ``a.pyc``.
+
+    Parameters
+    ----------
+    local_root : Path or str
+        Local directory the patterns are relative to
+    ignore : Path or str or List[Path] or List[str], optional
+        Glob pattern(s) of files to ignore
+
+    Returns
+    -------
+    Set[str]
+
+    """
+    out: Set[str] = set()
+
+    if not ignore:
+        return out
+
+    root = os.path.normpath(os.fspath(local_root))
+    patterns = ignore if isinstance(ignore, list) else [ignore]
+
+    for item in patterns:
+        pattern = os.fspath(item)
+        if not os.path.isabs(pattern):
+            pattern = os.path.join(root, pattern)
+        # Always recursive so '**' works regardless of the caller's
+        # recursion setting.
+        out.update(
+            os.path.normpath(x)
+            for x in glob.glob(pattern, recursive=True)
+        )
+
+    return out
 
 
 def enable_http_tracing() -> None:
@@ -255,6 +408,113 @@ def enable_http_tracing() -> None:
     requests_log.propagate = True
 
 
+#: Both timestamp shapes the API returns: RFC 3339, and a Go ``time.Time``
+#: rendered by ``String()`` -- ``2026-09-17 14:42:41.445984 +0000 UTC``, which is
+#: how ``GET /v2/clusters/{id}`` reports ``expiresAt``. The trailing zone name is
+#: not ISO 8601, so that value used to fail to parse and read as unset. It and
+#: Go's monotonic reading are both optional.
+#:
+#: ``Z`` counts as an offset so RFC 3339 gets the same fraction padding:
+#: ``...20.43888Z`` otherwise reached the converter with five digits, which only
+#: 3.11 and later parse.
+_GO_DATETIME_RE = re.compile(
+    r'^(?P<stamp>\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?)'
+    r'(?:\s*(?P<offset>[Zz]|[+-]\d{2}:?\d{2}))?'
+    r'(?:\s+(?P<zone>[A-Za-z]\S*))?'
+    r'(?:\s+m=\S+)?$',
+)
+
+
+def _normalize_datetime(obj: str) -> str:
+    """
+    Return ``obj`` as something :func:`converters.datetime_fromisoformat` reads.
+
+    Reduces both shapes :data:`_GO_DATETIME_RE` matches to a bare ISO 8601
+    timestamp plus an optional numeric offset. Fractional seconds are padded to
+    microseconds: Go trims trailing zeros, and ``datetime.fromisoformat``
+    accepts only 3 or 6 digits before Python 3.11.
+
+    Parameters
+    ----------
+    obj : str
+        Timestamp as reported by the API
+
+    Returns
+    -------
+    str
+
+    """
+    match = _GO_DATETIME_RE.match(obj.strip())
+    if match is None:
+        # Not a shape this recognizes; hand it over untouched so the converter
+        # gets its usual chance to make sense of it.
+        return obj.replace('Z', '')
+
+    stamp = match.group('stamp')
+
+    # Fix datetimes with truncated zeros
+    if '.' in stamp:
+        stamp, micros = stamp.split('.', 1)
+        micros = micros[:6] + '0' * (6 - len(micros))
+        stamp = stamp + '.' + micros
+
+    # Go writes +0000; 3.9 and 3.10 want +00:00, so always emit the colon. Z is
+    # spelled out for the same reason -- nothing before 3.11 reads it.
+    offset = match.group('offset') or ''
+    if offset in ('Z', 'z'):
+        offset = '+00:00'
+    elif offset and ':' not in offset:
+        offset = offset[:3] + ':' + offset[3:]
+
+    return stamp + offset
+
+
+def _is_go_zero_time(obj: Union[datetime.date, datetime.datetime]) -> bool:
+    """
+    Return whether ``obj`` is Go's zero time, which means "unset".
+
+    An unassigned Go ``time.Time`` renders as January 1 of year 1, and the API
+    returns that for a field it has no value for -- most visibly an ``expiresAt``
+    on a resource that does not expire. Testing the parsed value rather than the
+    string covers both spellings (``0001-01-01T00:00:00Z`` and
+    ``0001-01-01 00:00:00 +0000 UTC``) and any trimmings they carry.
+
+    Parameters
+    ----------
+    obj : datetime.date or datetime.datetime
+        Parsed timestamp
+
+    Returns
+    -------
+    bool
+
+    """
+    return (obj.year, obj.month, obj.day) == (1, 1, 1)
+
+
+def _as_naive_utc(obj: datetime.datetime) -> datetime.datetime:
+    """
+    Return ``obj`` as a naive UTC datetime.
+
+    An aware value is shifted onto UTC and stripped; a naive one already means
+    UTC and is left alone. One convention either way, or two timestamps read off
+    the same object could not be compared.
+
+    Parameters
+    ----------
+    obj : datetime.datetime
+        Parsed timestamp, with or without a timezone
+
+    Returns
+    -------
+    datetime.datetime
+
+    """
+    if obj.tzinfo is None:
+        return obj
+    return obj.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+
+
 def to_datetime(
     obj: Optional[Union[str, datetime.datetime]],
 ) -> Optional[datetime.datetime]:
@@ -263,20 +523,18 @@ def to_datetime(
         return None
     if isinstance(obj, datetime.datetime):
         return obj
-    if obj == '0001-01-01T00:00:00Z':
-        return None
-    obj = obj.replace('Z', '')
-    # Fix datetimes with truncated zeros
-    if '.' in obj:
-        obj, micros = obj.split('.', 1)
-        micros = micros + '0' * (6 - len(micros))
-        obj = obj + '.' + micros
-    out = converters.datetime_fromisoformat(obj)
+    out = converters.datetime_fromisoformat(_normalize_datetime(obj))
     if isinstance(out, str):
+        return None
+    if out is None:
+        return None
+    # Before _as_naive_utc: shifting an aware year-1 value onto UTC can carry it
+    # below datetime.MINYEAR, which raises instead of returning None.
+    if _is_go_zero_time(out):
         return None
     if isinstance(out, datetime.date) and not isinstance(out, datetime.datetime):
         return datetime.datetime(out.year, out.month, out.day)
-    return out
+    return _as_naive_utc(out)
 
 
 def to_datetime_strict(
@@ -287,22 +545,18 @@ def to_datetime_strict(
         raise TypeError('not possible to convert None to datetime')
     if isinstance(obj, datetime.datetime):
         return obj
-    if obj == '0001-01-01T00:00:00Z':
-        raise ValueError('not possible to convert 0001-01-01T00:00:00Z to datetime')
-    obj = obj.replace('Z', '')
-    # Fix datetimes with truncated zeros
-    if '.' in obj:
-        obj, micros = obj.split('.', 1)
-        micros = micros + '0' * (6 - len(micros))
-        obj = obj + '.' + micros
-    out = converters.datetime_fromisoformat(obj)
+    out = converters.datetime_fromisoformat(_normalize_datetime(obj))
     if not out:
         raise TypeError('not possible to convert None to datetime')
     if isinstance(out, str):
         raise ValueError('value cannot be str')
+    # See to_datetime: checked here rather than after the UTC shift, which can
+    # raise on a year-1 value.
+    if _is_go_zero_time(out):
+        raise ValueError(f'not possible to convert {obj} to datetime')
     if isinstance(out, datetime.date) and not isinstance(out, datetime.datetime):
         return datetime.datetime(out.year, out.month, out.day)
-    return out
+    return _as_naive_utc(out)
 
 
 def from_datetime(
@@ -319,10 +573,27 @@ def from_datetime(
     return out
 
 
-def vars_to_str(obj: Any) -> str:
-    """Render a string representation of vars(obj)."""
+def vars_to_str(obj: Any, extra: Optional[Dict[str, Any]] = None) -> str:
+    """
+    Render a string representation of vars(obj).
+
+    Parameters
+    ----------
+    obj : Any
+        The object to render. Attributes whose name starts with ``_``, and
+        those with a falsy value, are left out.
+    extra : dict, optional
+        Attributes to report that ``vars(obj)`` does not hold. This is for a
+        lazily resolved property, whose value must not be fetched merely to
+        print the object: the owner passes what it already has, which is either
+        the resolved value or the ID it would resolve. Reported and sorted like
+        any other attribute, and left out on a falsy value the same way.
+
+    """
     attrs = []
-    obj_vars = vars(obj)
+    obj_vars = dict(vars(obj))
+    if extra:
+        obj_vars.update(extra)
     if 'name' in obj_vars:
         attrs.append('name={}'.format(repr(obj_vars['name'])))
     if 'id' in obj_vars:

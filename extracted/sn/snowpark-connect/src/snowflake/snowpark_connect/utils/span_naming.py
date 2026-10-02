@@ -254,6 +254,25 @@ def terminal_operation_name(request) -> str | None:
         return None
 
 
+def rpc_type_name(request: object) -> str | None:
+    """Spark Connect request type: ``ExecutePlan``, ``AnalyzePlan``, else ``None``.
+
+    Names the RPC under which a query ran: ``ExecutePlan`` (collect/aggregate/
+    commands) vs ``AnalyzePlan`` (schema/explain/isLocal). Recorded in
+    ``query_facts`` (``rpc_type``) to attribute each query to its enclosing RPC.
+    It is not a real-work-vs-metadata flag on its own: an ExecutePlan can emit the
+    action query plus nested describe/metadata queries, all named ``ExecutePlan``.
+    """
+    try:
+        if isinstance(request, proto_base.ExecutePlanRequest):
+            return "ExecutePlan"
+        if isinstance(request, proto_base.AnalyzePlanRequest):
+            return "AnalyzePlan"
+    except Exception:  # pragma: no cover - defensive
+        return None
+    return None
+
+
 def span_name(method_name, request) -> str:
     """Span name: terminal op -> raw plan verb -> gRPC method name."""
     return (

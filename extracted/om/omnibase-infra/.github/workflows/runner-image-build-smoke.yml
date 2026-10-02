@@ -1,0 +1,276 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# OMN-12584: Build-smoke gate for the versioned self-hosted runner image.
+#
+# Why this exists: the OMN-12567 runner image (docker/runners/Dockerfile) merged
+# green but had NEVER been built. Its prebuilt-env bake stage failed with an
+# EACCES because the runner user could not create its uv cache under the
+# root-owned /home/runner/.cache. No CI job built docker/runners/Dockerfile, so a
+# non-building image passed every check. This workflow closes that gap:
+# "enforcement, not detection" — when a PR touches the runner image inputs, we
+# actually build the image (through the prebuilt-env bake stage that broke) so a
+# non-building runner image can never merge green again.
+#
+# Bounded: build only, no push, no fleet recreate, no retag of :latest. The
+# throwaway tag is local-only and discarded.
+
+name: Runner Image Build Smoke
+
+on:
+  pull_request:
+    branches: [main, dev, develop]
+    paths:
+      - 'docker/runners/**'
+      - 'scripts/ci/build_runner_image.sh'
+      - 'scripts/ci/runner_image_identity.py'
+      - 'scripts/ci/ensure_ci_env.sh'
+      - 'scripts/ci/ci_env_digest.py'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/runner-image-build-smoke.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: runner-image-build-smoke-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  runner-image-build-smoke:
+    name: runner-image-build-smoke
+    # OMNI_RUNNER_SELECTOR_V1 — trusted Docker jobs default to self-hosted
+    # omnibase-ci; public forks default to ubuntu-latest.
+    # OMN-18205: this job executes docker, so its placement is governed by
+    # OMNI_DOCKER_CI_RUNS_ON_JSON before the general trusted seam -- the same
+    # precedence chain the seven docker-executing jobs in docker-build.yml,
+    # legacy-rds-fixture-proof.yml and application-acl-postgres16-proof.yml
+    # already use. Both variables read ["ubuntu-latest"] on this repository
+    # today, so this changes no placement; what it buys is the ability to move
+    # the hermetic bulk of CI to the lab fleet without moving a container-backed
+    # job in the same write, and to move one back on its own if it regresses.
+    runs-on: >-
+      ${{
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name != github.repository)
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON(vars.OMNI_DOCKER_CI_RUNS_ON_JSON || vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+      }}
+    # The prebuilt-env bake runs `uv sync --frozen --all-extras --all-groups`,
+    # which dominates the build. 30 min gives a comfortable buffer for a cold
+    # cache; a warm self-hosted cache completes in a few minutes.
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Verify Docker socket access
+        run: |
+          if ! docker info > /dev/null 2>&1; then
+            echo "::error::Docker daemon is not accessible. On self-hosted runners, ensure the runner user is in the docker group and /var/run/docker.sock is bind-mounted."
+            ls -la /var/run/docker.sock 2>/dev/null || echo "Socket not found"
+            echo "Current user: $(whoami) (uid=$(id -u), groups=$(id -Gn))"
+            exit 1
+          fi
+          echo "Docker daemon accessible"
+
+      - name: Setup Python and uv
+        uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: "3.12"
+          skip-install: "true"
+          cache-enabled: "false"
+          shared-env-enabled: "true"
+
+      # Build the versioned runner image to a throwaway local tag. This runs the
+      # exact production path: build_runner_image.sh first verifies the bound
+      # identity (runner_image_identity.py --mode verify, so lock drift fails
+      # here too), stages the prebuilt-env context, then `docker build`s through
+      # the prebuilt-env bake stage — the stage that broke in OMN-12567. No push,
+      # no fleet contact. The image is local-only and removed afterward.
+      - name: Build runner image (smoke, no push)
+        run: |
+          set -euo pipefail
+          SMOKE_TAG="omninode-runner:smoke-${{ github.run_id }}"
+          echo "Building ${SMOKE_TAG} from docker/runners/Dockerfile (build-only, no push)"
+          bash scripts/ci/build_runner_image.sh --tag "${SMOKE_TAG}"
+          echo "SMOKE_TAG=${SMOKE_TAG}" >> "${GITHUB_ENV}"
+
+      # Prove the prebuilt-env bake actually produced a ready shared CI env and
+      # the bound identity was baked (not "unbound"). A build that "succeeds" but
+      # skips the bake would not satisfy the OMN-12567 contract.
+      - name: Assert baked identity + prebuilt env present
+        run: |
+          set -euo pipefail
+          LOCK_IDENTITY="$(python3 -c 'import json;print(json.load(open("docker/runners/runner-image.lock.json"))["identity_digest"])')"
+          BAKED_LABEL="$(docker inspect --format '{{ index .Config.Labels "org.omninode.runner.image.identity" }}' "${SMOKE_TAG}")"
+          echo "lock identity_digest:  ${LOCK_IDENTITY}"
+          echo "baked image label:     ${BAKED_LABEL}"
+          if [[ "${BAKED_LABEL}" != "${LOCK_IDENTITY}" ]]; then
+            echo "::error::baked identity label '${BAKED_LABEL}' != lock identity_digest '${LOCK_IDENTITY}'"
+            exit 1
+          fi
+          if [[ -z "${BAKED_LABEL}" || "${BAKED_LABEL}" == "unbound" ]]; then
+            echo "::error::runner image identity is unbound"
+            exit 1
+          fi
+          # The prebuilt-env bake must have materialised a ready env (manifest.json
+          # + .venv/bin/python) — this is the EACCES-class regression guard.
+          docker run --rm --entrypoint bash "${SMOKE_TAG}" -lc '
+            set -euo pipefail
+            ready=0
+            for d in "${OMNI_CI_ENV_ROOT}"/omnibase_infra/*/; do
+              if [[ -f "${d}manifest.json" && -x "${d}.venv/bin/python" ]]; then
+                echo "ready prebuilt env: ${d}"
+                ready=1
+              fi
+            done
+            if [[ "${ready}" -ne 1 ]]; then
+              echo "::error::no ready prebuilt CI env baked under ${OMNI_CI_ENV_ROOT}/omnibase_infra"
+              exit 1
+            fi
+          '
+          echo "Runner image build smoke PASSED: identity bound + prebuilt env baked."
+
+      # OMN-12585: assert the baked runner can execute node24 actions
+      # (actions/checkout@v7, used across workflows). The OMN-12567 image
+      # pinned RUNNER_VERSION=2.323.0, which predates node24 execution support
+      # (landed in actions/runner 2.327.0); rolling it to the live fleet (2.334.0)
+      # downgraded the runner and broke "Set up job" with `'using: node24' is not
+      # supported`. A build-only smoke never caught this because PR CI runs on the
+      # OLD fleet, not the NEW image's runner version. Here we inspect the NEW
+      # image directly: the runner ships its bundled node24 under externals/node24
+      # only at >= 2.327, so its presence is a direct, version-agnostic
+      # node24-capability proof.
+      - name: Assert baked runner is node24-capable
+        run: |
+          set -euo pipefail
+          docker run --rm --entrypoint bash "${SMOKE_TAG}" -lc '
+            set -euo pipefail
+            node24="${RUNNER_HOME}/externals/node24/bin/node"
+            if [[ ! -x "${node24}" ]]; then
+              echo "::error::baked runner has no executable node24 at ${node24}; it cannot run node24 actions (actions/checkout@v7). RUNNER_VERSION is too old (< 2.327.0)."
+              echo "externals dir contents:"
+              ls -la "${RUNNER_HOME}/externals" 2>/dev/null || echo "no externals dir"
+              exit 1
+            fi
+            ver="$("${node24}" --version)"
+            echo "baked runner node24 present: ${node24} (${ver})"
+            case "${ver}" in
+              v24.*) : ;;
+              *) echo "::error::externals/node24 reports ${ver}, expected v24.x"; exit 1 ;;
+            esac
+          '
+          echo "node24 capability PASSED: the baked runner can execute node24 actions."
+
+      # OMN-19206: a job on this fleet cannot apt-install Chromium's libraries
+      # itself, so they must be in the image. Resolve each soname in the NEW
+      # image's linker cache rather than grepping the Dockerfile: a grep passes
+      # on an image whose layer did not produce the library. The package list is
+      # pinned in tests/ci/test_runner_image_playwright_chromium_libs_omn19206.py.
+      - name: Assert baked Playwright chromium libraries resolve
+        run: |
+          set -euo pipefail
+          docker run --rm --entrypoint bash "${SMOKE_TAG}" -lc '
+            set -euo pipefail
+            # Read the cache once: `ldconfig -p | grep -q` under pipefail can
+            # fail on SIGPIPE when grep exits early, reporting a present library
+            # as missing.
+            cache="$(ldconfig -p)"
+            missing=0
+            for soname in libasound.so.2 libatk-bridge-2.0.so.0 libatk-1.0.so.0 \
+                libatspi.so.0 libcairo.so.2 libcups.so.2 libdbus-1.so.3 libdrm.so.2 \
+                libgbm.so.1 libglib-2.0.so.0 libnspr4.so libnss3.so libpango-1.0.so.0 \
+                libwayland-client.so.0 libX11.so.6 libxcb.so.1 libXcomposite.so.1 \
+                libXdamage.so.1 libXext.so.6 libXfixes.so.3 libxkbcommon.so.0 \
+                libXrandr.so.2; do
+              if grep -qE "^[[:space:]]+${soname//./\\.} " <<<"${cache}"; then
+                echo "resolved: ${soname}"
+              else
+                echo "::error::baked runner image has no ${soname} in its linker cache; Playwright chromium cannot launch on the fleet (OMN-19206)"
+                missing=1
+              fi
+            done
+            exit "${missing}"
+          '
+          echo "Playwright chromium libraries PASSED: every soname resolves in the baked image."
+
+      # OMN-19659: a resolved soname is not a launch. Launch Chromium inside the
+      # NEW image as the unprivileged runner user, shape a downloaded web font,
+      # and (from image v10) require every Playwright font family by name and a
+      # headed launch on Xvfb. The script goes in on stdin: on a socket-mounted
+      # fleet runner a bind mount of the workspace names a path the docker
+      # host does not have.
+      - name: Launch Playwright Chromium inside the built image
+        run: |
+          set -euo pipefail
+          docker run --rm -i --user runner --entrypoint bash "${SMOKE_TAG}" -s < docker/runners/playwright-smoke.sh
+
+      - name: Cleanup throwaway image
+        if: always()
+        run: |
+          docker image rm "${SMOKE_TAG:-}" 2>/dev/null || true
+
+  # OMN-17477 — the lab fleet is no longer single-architecture. `.101` and `.105`
+  # are arm64 Macs, so an image whose binary downloads are pinned to amd64 cannot
+  # be built there at all. The job above builds ONE architecture: whichever the
+  # runner that picked it up happens to be. That is not a multi-arch proof, and a
+  # Dockerfile that claims to be multi-arch while only ever being built for one
+  # CPU is an untested claim -- the arm64 leg breaks on an upstream that ships no
+  # arm64 asset and nobody learns that until a host is mid-provisioning.
+  #
+  # SCOPE, stated rather than implied. This builds `--target toolchain`, the
+  # stage boundary the Dockerfile draws immediately after its last
+  # architecture-sensitive layer. It proves every download URL, apt source and
+  # SHA256 resolves on BOTH CPUs. It deliberately does NOT cross-build the
+  # dependency bake, which is arch-neutral in what it can break and is where the
+  # build's wall time lives -- QEMU-emulating a `uv sync --all-extras` would cost
+  # far more than it could ever prove. The bake, the bound identity and node24
+  # execution stay proven NATIVELY by the job above, on the architecture being
+  # provisioned.
+  runner-image-multiarch-smoke:
+    name: runner-image-multiarch-smoke
+    # Same placement chain as the job above: docker-executing, so the narrower
+    # docker variable governs it ahead of the trusted seam.
+    runs-on: >-
+      ${{
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name != github.repository)
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON(vars.OMNI_DOCKER_CI_RUNS_ON_JSON || vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+      }}
+    # The arm64 leg runs under QEMU on an amd64 runner: apt, the deadsnakes
+    # Python build and the runner tarball unpack all pay the emulation tax.
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      # binfmt handlers so the amd64 builder can execute arm64 layers. Skipped
+      # when the host is already arm64 (nothing to emulate).
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+        with:
+          platforms: arm64
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      # Both platforms in ONE invocation, so the result is a single manifest
+      # rather than two independent builds that happen to have run. No push and
+      # no --load: the output is discarded, which is what keeps this a gate and
+      # not a publish step.
+      - name: Cross-build the architecture-sensitive stage for amd64 + arm64
+        run: |
+          set -euo pipefail
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            --target toolchain \
+            --output type=cacheonly \
+            --progress plain \
+            docker/runners
+          echo "multi-arch smoke PASSED: linux/amd64 and linux/arm64 both built."

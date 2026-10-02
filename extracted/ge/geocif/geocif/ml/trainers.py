@@ -924,6 +924,31 @@ def loocv(
     return average_rmse
 
 
+def year_holdout_split(X, y, test_size=0.2, random_state=0, min_years=5):
+    """Train / validation split for early stopping, held out by YEAR.
+
+    A random row split puts the same season's regions on both sides, so the
+    validation score is optimistic and the chosen iteration count overfits
+    to within-year structure (2026-09-30 audit). When ``X`` carries a
+    ``Harvest Year`` column with at least ``min_years`` distinct values the
+    split is a ``GroupShuffleSplit`` on that column; otherwise it falls back
+    to the plain row split. Returns ``(X_train, X_val, y_train, y_val)``.
+    """
+    from sklearn.model_selection import GroupShuffleSplit, train_test_split
+
+    years = None
+    if hasattr(X, "columns") and "Harvest Year" in X.columns:
+        years = pd.to_numeric(X["Harvest Year"], errors="coerce")
+        if years.isna().any() or years.nunique() < min_years:
+            years = None
+    if years is None:
+        return train_test_split(X, y, test_size=test_size, random_state=random_state)
+    splitter = GroupShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
+    tr_idx, va_idx = next(splitter.split(X, y, groups=years.to_numpy()))
+    y_s = pd.Series(y) if not hasattr(y, "iloc") else y
+    return X.iloc[tr_idx], X.iloc[va_idx], y_s.iloc[tr_idx], y_s.iloc[va_idx]
+
+
 def optuna_objective(model, df, feature_names, target_col, cat_features=[]):
     """
 
@@ -938,13 +963,13 @@ def optuna_objective(model, df, feature_names, target_col, cat_features=[]):
 
     """
     from sklearn.metrics import root_mean_squared_error
-    from sklearn.model_selection import train_test_split
 
     X = df[feature_names + cat_features]
     y = df[target_col]
 
-    # Divide the data into training and validation sets
-    train_X, val_X, train_y, val_y = train_test_split(
+    # Divide the data into training and validation sets (by year when the
+    # frame carries Harvest Year — see year_holdout_split).
+    train_X, val_X, train_y, val_y = year_holdout_split(
         X, y, test_size=0.2, random_state=0
     )
 

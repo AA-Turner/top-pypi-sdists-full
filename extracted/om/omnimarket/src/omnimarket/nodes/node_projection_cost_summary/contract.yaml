@@ -1,0 +1,88 @@
+---
+name: node_projection_cost_summary
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: REDUCER_GENERIC
+node_version: {major: 1, minor: 0, patch: 0}
+input_model: ModelCostSummaryProjectionEvent
+description: >
+  Emits repeatable cost summary snapshots for downstream dashboard consumers.
+
+# OMN-17556: this projection writes a TENANT-domain table, so its handler
+# resolves the tenant_projection binding. That binding's credential is a
+# store-resolved secret_ref read through SecretResolver at the binding
+# boundary, and exactly one process holds it: the consolidated writer that
+# boots RUNTIME_PROFILE=tenant-projection and owns every TENANT-domain
+# projection contract. `tenant-projection` is a registered, consumer-attached
+# runtime profile, so this contract is drained by that writer and is
+# deliberately absent from `main` and `effects` -- neither of those processes
+# carries the credential, and per the 2026-09-03 operator ruling neither ever
+# will as a container env var. This is the permanent ownership boundary, not
+# a temporary orphaning.
+runtime_profiles: [tenant-projection]
+
+handler:
+  module: omnimarket.nodes.node_projection_cost_summary.handlers.handler_projection_cost_summary
+  class: HandlerProjectionCostSummary
+
+handler_routing:
+  routing_strategy: payload_type_match
+  routes:
+    - input_model: omniintelligence.models.events.ModelLLMCallCompletedEvent
+      output_model: omniintelligence.models.events.ModelCostSummarySnapshot
+    - input_model: omniintelligence.models.events.ModelSavingsEstimatedEvent
+      output_model: omniintelligence.models.events.ModelCostSummarySnapshot
+  handlers:
+    - handler:
+        name: HandlerProjectionCostSummary
+        module: omnimarket.nodes.node_projection_cost_summary.handlers.handler_projection_cost_summary
+      event_model: omnimarket.nodes.node_projection_cost_summary.models.model_cost_summary_event.ModelCostSummaryProjectionEvent
+
+idempotency:
+  enabled: true
+  strategy: snapshot_upsert
+  hash_fields:
+    - window
+    - snapshot_timestamp_minute
+
+db_io:
+  db_tables:
+    - name: llm_cost_aggregates
+      database_ref: application
+      # OMN-15655 / operator ruling 2026-08-02 (house tenant): workload-
+      # attributable rows live in the tenant domain; platform-own workloads
+      # are the house tenant's rows. ADR-0027 classification, not a rename.
+      schema: public
+      migration: "0001_create_llm_cost_aggregates.sql"
+      access: write
+      role: cost_summary
+
+event_bus:
+  subscribe_topics:
+    - onex.evt.omniintelligence.llm-call-completed.v1
+    - onex.evt.omnibase-infra.savings-estimated.v1
+  publish_topics:
+    - onex.evt.omnimarket.cost-summary-snapshot.v1
+
+projection_api:
+  expose: true
+  topic: "onex.snapshot.projection.cost.summary.v1" # onex-topic-allow: projection snapshot topics use onex.snapshot.* prefix by convention
+  key_grain: "mutable"
+  table: "llm_cost_aggregates"
+  columns:
+    - "aggregation_key"
+    - "window"
+    - "total_cost_usd"
+    - "total_tokens"
+    - "call_count"
+    - "updated_at"
+  order_by: "updated_at DESC"
+  freshness_column: "updated_at"
+  limit: 100
+
+metadata:
+  transport_type: kafka
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.cost-summary-snapshot.v1

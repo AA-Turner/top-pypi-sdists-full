@@ -881,6 +881,7 @@ def _build_feedback_body(
     severity: str | None,
     steps_to_reproduce: str | None,
     session_to_evaluate: str | None = None,
+    thread_url: str | None = None,
 ) -> str:
     """Build a Slack mrkdwn message body from structured feedback fields."""
     lines: list[str] = []
@@ -905,6 +906,8 @@ def _build_feedback_body(
                 "the team can inspect it.",
             ]
         )
+    if thread_url:
+        lines.append(f"*Originating thread:* <{thread_url}|Slack thread>")
 
     if feedback_type == "negative":
         if expected_behavior:
@@ -1026,6 +1029,17 @@ def _linear_issue_key(issue_url: str | None, issue_id: str | None) -> str | None
         if match:
             return match.group(1)
     return issue_id or None
+
+
+def _originating_thread_note(
+    permalink: str | None,
+    error: SlackAPIError | SlackURLParseError | requests.RequestException | None,
+) -> str:
+    if permalink:
+        return f"Thread reply posted at {permalink}."
+    if error:
+        return f"Posting to the originating thread failed: {error}."
+    return ""
 
 
 def _post_feedback_report(
@@ -1319,17 +1333,21 @@ def devin_session_feedback(
         Field(
             default=None,
             description=(
-                "Optional Slack thread URL for a report filed on someone else's "
-                "behalf. The report and triage findings are posted in this thread."
+                "Optional URL of the Slack thread where the feedback request "
+                "originated. When set, the report and triage findings are also "
+                "posted as replies in this thread, in addition to the top-level "
+                "#hydra-feedback post."
             ),
         ),
     ] = None,
 ) -> SessionFeedbackResponse:
     """Report structured feedback about a Devin session experience via Slack.
 
-    Posts a formatted feedback message to the #hydra-feedback Slack channel,
-    tagging the reporting user and the @oc-hydra and @oc-internal-ai groups
-    (unless `feedback_area` overrides the default groups).
+    Posts a formatted feedback message to the #hydra-feedback Slack channel
+    and, when `thread_url` is set, as a reply in the originating Slack thread.
+    For negative feedback, triage findings are posted in both destinations.
+    The report tags the reporting user and the @oc-hydra and @oc-internal-ai
+    groups (unless `feedback_area` overrides the default groups).
     The message includes a clickable
     button for the Devin session link. For negative feedback, a triage workflow
     is automatically dispatched to launch a Devin session with v3 analyze mode
@@ -1397,10 +1415,7 @@ def devin_session_feedback(
         )
 
     cc = _feedback_cc(feedback_area)
-    on_behalf = bool(thread_url) or not agent_session_url
-    session_under_investigation = session_to_evaluate or (
-        "" if on_behalf else (agent_session_url or "")
-    )
+    session_under_investigation = session_to_evaluate or agent_session_url or ""
     message_body = _build_feedback_body(
         feedback_type=feedback_type,
         category=category,
@@ -1413,7 +1428,37 @@ def devin_session_feedback(
         severity=severity,
         steps_to_reproduce=steps_to_reproduce,
         session_to_evaluate=session_under_investigation or None,
+        thread_url=thread_url or None,
     )
+
+    def post_to_originating_thread(
+        message: str,
+    ) -> tuple[
+        str | None,
+        SlackAPIError | SlackURLParseError | requests.RequestException | None,
+    ]:
+        if not thread_url:
+            return None, None
+        try:
+            return (
+                _post_feedback_report(
+                    message,
+                    thread_url,
+                    target_person=reporting_user,
+                    agent_session_url=session_under_investigation or "",
+                    cc_persons=cc,
+                    issue_url=linear_issue_url or None,
+                    header_emoji=_feedback_emoji(feedback_type),
+                    header_label=_feedback_label(feedback_type),
+                ),
+                None,
+            )
+        except (
+            SlackAPIError,
+            SlackURLParseError,
+            requests.RequestException,
+        ) as exc:
+            return None, exc
 
     issue_key = _linear_issue_key(linear_issue_url, linear_issue_id)
     tracking_response_note = ""
@@ -1445,7 +1490,6 @@ def devin_session_feedback(
             try:
                 permalink = _post_feedback_report(
                     report_message,
-                    thread_url,
                     target_person=reporting_user,
                     agent_session_url=session_under_investigation or "",
                     cc_persons=cc,
@@ -1453,41 +1497,36 @@ def devin_session_feedback(
                     header_emoji=_feedback_emoji(feedback_type),
                     header_label=_feedback_label(feedback_type),
                 )
-            except (SlackAPIError, SlackURLParseError) as exc:
+            except SlackAPIError as exc:
                 return SessionFeedbackResponse(
                     success=False,
                     message=f"{tracking_response_note}Feedback posting failed: {exc}",
                     linear_issue_url=linear_issue_url,
                     linear_issue_identifier=issue_key,
                 )
+            thread_permalink, thread_post_error = post_to_originating_thread(
+                report_message
+            )
+            thread_note = _originating_thread_note(
+                thread_permalink,
+                thread_post_error,
+            )
             return SessionFeedbackResponse(
                 success=True,
                 message=(
                     f"{tracking_response_note}"
                     "Feedback posted to Slack without dispatching triage: "
-                    f"{permalink}"
+                    f"{permalink}{' ' + thread_note if thread_note else ''}"
                 ),
                 linear_issue_url=linear_issue_url,
                 linear_issue_identifier=issue_key,
             )
 
-        posted_permalink: str | None = None
-        slack_post_error: SlackAPIError | SlackURLParseError | None = None
-        if thread_url:
-            try:
-                posted_permalink = _post_feedback_report(
-                    report_message,
-                    thread_url,
-                    target_person=reporting_user,
-                    agent_session_url=session_under_investigation or "",
-                    cc_persons=cc,
-                    issue_url=linear_issue_url or None,
-                    header_emoji=_feedback_emoji(feedback_type),
-                    header_label=_feedback_label(feedback_type),
-                )
-            except (SlackAPIError, SlackURLParseError) as exc:
-                slack_post_error = exc
-
+        thread_permalink, thread_post_error = post_to_originating_thread(report_message)
+        thread_note = _originating_thread_note(
+            thread_permalink,
+            thread_post_error,
+        )
         triage_result = _dispatch_triage_workflow(
             session_url=session_under_investigation,
             feedback_context=message_body,
@@ -1504,21 +1543,16 @@ def devin_session_feedback(
         if triage_result is not None:
             view_url = triage_result.run_url or triage_result.workflow_url
             notification_note = (
-                f"Slack report posted at {posted_permalink}. "
-                if posted_permalink
-                else (
-                    f"Slack posting failed: {slack_post_error}. "
-                    if slack_post_error
-                    else "A Slack notification will be posted to #hydra-feedback "
-                    "once the triage session starts. "
-                )
+                "A Slack notification will be posted to #hydra-feedback once the "
+                "triage session starts."
             )
             return SessionFeedbackResponse(
                 success=True,
                 message=(
                     "Feedback submitted. Auto-triage workflow launched. "
                     f"{tracking_response_note}"
-                    f"{notification_note}"
+                    f"{notification_note} "
+                    f"{thread_note + ' ' if thread_note else ''}"
                     f"View workflow progress at: {view_url}"
                 ),
                 workflow_url=triage_result.workflow_url,
@@ -1528,59 +1562,21 @@ def devin_session_feedback(
                 linear_issue_url=linear_issue_url,
                 linear_issue_identifier=issue_key,
             )
-        if posted_permalink:
-            return SessionFeedbackResponse(
-                success=True,
-                message=(
-                    tracking_response_note
-                    + "Feedback was posted to the originating Slack thread, but "
-                    "auto-triage dispatch failed. "
-                    f"View the report at: {posted_permalink}"
-                ),
-                linear_issue_url=linear_issue_url,
-                linear_issue_identifier=issue_key,
-            )
-
-        # Triage dispatch failed — fall back to direct HITL notification
-        # so negative feedback is still recorded in Slack.
-        if slack_post_error:
-            logger.warning(
-                "Thread posting failed (%s) and triage dispatch failed; "
-                "falling back to direct HITL dispatch.",
-                slack_post_error,
-            )
-        else:
-            logger.warning(
-                "Triage workflow dispatch failed; falling back to direct HITL dispatch."
-            )
-
-    if not is_negative_feedback and thread_url:
-        try:
-            permalink = _post_feedback_report(
-                message_body,
-                thread_url,
-                target_person=reporting_user,
-                agent_session_url=session_under_investigation or "",
-                cc_persons=cc,
-                issue_url=linear_issue_url or None,
-                header_emoji=_feedback_emoji(feedback_type),
-                header_label=_feedback_label(feedback_type),
-            )
-        except (SlackAPIError, SlackURLParseError) as exc:
-            return SessionFeedbackResponse(
-                success=False,
-                message=f"Feedback posting failed: {exc}",
-            )
-        return SessionFeedbackResponse(
-            success=True,
-            message=f"Feedback posted to the originating Slack thread: {permalink}",
+        logger.warning(
+            "Triage workflow dispatch failed; falling back to direct HITL dispatch."
+        )
+    else:
+        thread_permalink, thread_post_error = post_to_originating_thread(message_body)
+        thread_note = _originating_thread_note(
+            thread_permalink,
+            thread_post_error,
         )
 
     # Positive feedback (or negative feedback fallback): dispatch HITL directly
     result = dispatch_escalation(
         target_person=reporting_user,
         message=report_message if is_negative_feedback else message_body,
-        agent_session_url=agent_session_url or "",
+        agent_session_url=session_under_investigation,
         cc=cc,
         channel_override=_FEEDBACK_CHANNEL,
         header_emoji=_feedback_emoji(feedback_type),
@@ -1594,7 +1590,8 @@ def devin_session_feedback(
             f"{tracking_response_note}"
             f"Feedback submitted and posted to #hydra-feedback. "
             "The reporting user and the designated reviewers "
-            "have been tagged. "
+            "have been tagged."
+            f" {thread_note + ' ' if thread_note else ''}"
             f"View progress at: {view_url}"
         ),
         workflow_url=result.workflow_url,

@@ -1,0 +1,112 @@
+---
+name: data_flow_sweep
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: compute
+runtime_profiles: [main]
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  End-to-end data flow verification — for each topic, verify producer status,
+  consumer lag, DB table row counts, and field mapping correctness across the
+  entire Kafka-to-DB-to-dashboard pipeline.
+
+handler:
+  module: omnimarket.nodes.node_data_flow_sweep.handlers.handler_data_flow_sweep
+  class: NodeDataFlowSweep
+  input_model: omnimarket.nodes.node_data_flow_sweep.handlers.handler_data_flow_sweep.DataFlowSweepRequest
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: sweep
+      handler:
+        name: NodeDataFlowSweep
+        module: omnimarket.nodes.node_data_flow_sweep.handlers.handler_data_flow_sweep
+
+descriptor:
+  node_archetype: compute
+  purity: pure
+  idempotent: true
+  timeout_ms: 180000
+
+inputs:
+  flows:
+    type: list[FlowInput]
+    description: >
+      List of pre-collected data flows to verify. When empty (default), the
+      CLI entry point uses --collect to populate live producer status,
+      consumer lag, and DB row counts via rpk/psql probes before invoking
+      the pure handler. Passing flows directly skips live collection.
+    required: false
+    default: []
+  dry_run:
+    type: bool
+    description: "If true, report findings without creating tickets"
+    required: false
+    default: false
+  collect:
+    type: bool
+    description: >
+      When true (and flows is empty), the handler runs live rpk/psql probes to
+      populate flow metadata for the built-in critical-chain stubs before
+      classifying them. This is a real DataFlowSweepRequest field (not a
+      CLI-only flag), so the onex skill data_flow_sweep dispatch path resolves
+      and probes identically to the --collect CLI path (OMN-13534). Mutually
+      exclusive with a non-empty flows list. Default: false.
+    required: false
+    default: false
+  lane:
+    type: str
+    description: >
+      CLI-only target for --collect probes (OMN-13552). Selects which runtime
+      lane's real broker + DB the collector probes, resolving the lane to its
+      container names + runtime host (dev/stability-test/prod/judge run on .201
+      and are probed over SSH + docker exec; 'local' probes this host's in-stack
+      docker/psql). An unknown lane or an unreachable target lane fails LOUD with
+      status=error rather than a false PRODUCER_DOWN / false-clean verdict.
+      Default: dev.
+    required: false
+    default: dev
+  runtime_host:
+    type: str
+    description: >
+      CLI-only override (OMN-13552) for the SSH host of a remote lane; defaults
+      to the lane's canonical runtime host. Ignored for lane=local.
+    required: false
+    default: ""
+
+outputs:
+  flow_results:
+    type: list[FlowResult]
+    description: "Per-flow verification results with status at each stage"
+  summary:
+    type: object
+    description: "Aggregated flow health summary"
+
+terminal_event: onex.evt.omnimarket.data-flow-sweep-completed.v1
+
+event_bus:
+  # OMN-18013: the topic(s) removed here were declared subscriptions with NO handler
+  # branch anywhere in this node -- handler_data_flow_sweep.py names this topic in a FLOW DESCRIPTOR it probes
+  # (PATTERN_LEARNED_TOPIC, handler_data_flow_sweep.py:164), it never consumes it. A declared subscription with no
+  # dispatcher is consumed, DLQ'd and COMMITTED on every message while the consumer
+  # group reads Stable / LAG 0, so the declaration was worse than its absence.
+  subscribe_topics:
+    - onex.cmd.omnimarket.data-flow-sweep-start.v1
+    # Monitored topics — swept for producer/consumer/projection health
+  publish_topics:
+    - onex.evt.omnimarket.data-flow-sweep-result.v1
+    - onex.evt.omnimarket.data-flow-sweep-completed.v1
+
+metadata:
+  transport_type: kafka
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.data-flow-sweep-start.v1
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.data-flow-sweep-completed.v1
+  - onex.evt.omnimarket.data-flow-sweep-result.v1

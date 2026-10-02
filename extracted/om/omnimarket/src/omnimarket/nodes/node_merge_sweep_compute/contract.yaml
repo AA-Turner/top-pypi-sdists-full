@@ -1,0 +1,58 @@
+---
+name: merge_sweep_compute
+contract_version: {major: 2, minor: 0, patch: 0}
+node_type: compute
+runtime_profiles: [main]
+node_version: {major: 2, minor: 0, patch: 0}
+
+description: >
+  Org-wide PR sweep. Classifies open PRs into merge-ready (Track A),
+  thread-resolution (Track A-resolve), and needs-polish (Track B) queues.
+  Enables GitHub auto-merge on ready PRs, resolves review threads, and
+  dispatches polish work on fixable PRs. Tracks cross-run failure history
+  with escalation thresholds (STUCK, CHRONIC, RECIDIVIST).
+
+handler:
+  module: omnimarket.nodes.node_merge_sweep_compute.handlers.handler_merge_sweep
+  class: NodeMergeSweep
+  input_model: omnimarket.nodes.node_merge_sweep_compute.handlers.handler_merge_sweep.ModelMergeSweepRequest
+
+handler_routing:
+  default_handler: omnimarket.nodes.node_merge_sweep_compute.handlers.handler_merge_sweep:NodeMergeSweep
+
+descriptor:
+  node_archetype: compute
+  purity: pure
+  idempotent: true
+  timeout_ms: 5000
+
+secrets:
+  # OMN-12856: GitHub token is contract-declared so the handler reads the ref
+  # name from here — not a bare source literal. Value is resolved at the effect
+  # boundary via the canonical secret-store resolver.
+  GITHUB_TOKEN:
+    description: "GitHub PAT or Actions token for PR fetch (GraphQL + REST)."
+    required: true
+
+terminal_event: onex.evt.omnimarket.merge-sweep-completed.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.merge-sweep-start.v1
+  publish_topics:
+    - onex.evt.omnimarket.merge-sweep-completed.v1
+  dlq_topics:
+    - onex.dlq.omnimarket.merge-sweep.v1
+
+metadata:
+  transport_type: kafka
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.merge-sweep-start.v1
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  # consumed off-graph by omnimarket/src/omnimarket/nodes/node_merge_sweep_compute/consumer.py
+  - onex.evt.omnimarket.merge-sweep-completed.v1

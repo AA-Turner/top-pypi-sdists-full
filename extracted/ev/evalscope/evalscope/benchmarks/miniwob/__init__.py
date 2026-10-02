@@ -1,1 +1,0 @@
-"""BrowserGym MiniWoB benchmark."""

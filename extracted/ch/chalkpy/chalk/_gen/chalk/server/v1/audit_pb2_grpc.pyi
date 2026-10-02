@@ -12,6 +12,10 @@ from chalk._gen.chalk.server.v1.audit_pb2 import (
     GetAuditLogsResponse,
     GetAuditedEndpointsRequest,
     GetAuditedEndpointsResponse,
+    GetTeamAuditLogsRequest,
+    GetTeamAuditLogsResponse,
+    GetTeamAuditedEndpointsRequest,
+    GetTeamAuditedEndpointsResponse,
 )
 from grpc import (
     Channel,
@@ -26,9 +30,17 @@ class AuditServiceStub:
         GetAuditLogsRequest,
         GetAuditLogsResponse,
     ]
+    GetTeamAuditLogs: UnaryUnaryMultiCallable[
+        GetTeamAuditLogsRequest,
+        GetTeamAuditLogsResponse,
+    ]
     GetAuditedEndpoints: UnaryUnaryMultiCallable[
         GetAuditedEndpointsRequest,
         GetAuditedEndpointsResponse,
+    ]
+    GetTeamAuditedEndpoints: UnaryUnaryMultiCallable[
+        GetTeamAuditedEndpointsRequest,
+        GetTeamAuditedEndpointsResponse,
     ]
 
 class AuditServiceServicer(metaclass=ABCMeta):
@@ -39,10 +51,22 @@ class AuditServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetAuditLogsResponse: ...
     @abstractmethod
+    def GetTeamAuditLogs(
+        self,
+        request: GetTeamAuditLogsRequest,
+        context: ServicerContext,
+    ) -> GetTeamAuditLogsResponse: ...
+    @abstractmethod
     def GetAuditedEndpoints(
         self,
         request: GetAuditedEndpointsRequest,
         context: ServicerContext,
     ) -> GetAuditedEndpointsResponse: ...
+    @abstractmethod
+    def GetTeamAuditedEndpoints(
+        self,
+        request: GetTeamAuditedEndpointsRequest,
+        context: ServicerContext,
+    ) -> GetTeamAuditedEndpointsResponse: ...
 
 def add_AuditServiceServicer_to_server(servicer: AuditServiceServicer, server: Server) -> None: ...

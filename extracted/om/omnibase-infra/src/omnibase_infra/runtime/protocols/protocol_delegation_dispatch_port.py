@@ -1,0 +1,84 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Protocol interface for delegation dispatch ports.
+
+Defines the structural interface that RuntimeDelegationDispatchPort conforms to,
+enabling handler_wiring to inject the dispatch port without a concrete dependency.
+"""
+
+from __future__ import annotations
+
+from typing import Protocol
+from uuid import UUID
+
+from omnibase_core.models.delegation.wire import ModelDelegationProvenance
+
+#: The execution budget a caller that passes neither argument resolves to
+#: (OMN-18924). The port and this protocol are pinned to one value by
+#: tests/unit/runtime/test_dispatch_port_budget_defaults_omn18924.py.
+DEFAULT_EXECUTION_TIMEOUT_SECONDS = 240
+DEFAULT_TERMINAL_DELIVERY_MARGIN_SECONDS = 60
+
+
+class ProtocolDelegationDispatchPort(Protocol):
+    async def dispatch(
+        self,
+        *,
+        prompt: str,
+        task_type: str,
+        correlation_id: UUID,
+        max_tokens: int | None,
+        source_file_path: str | None,
+        source_session_id: str | None,
+        wait: bool,
+        # OMN-18924: defaulted, not required. See the implementation's note --
+        # these landed as required while the deployed caller passed neither,
+        # and every dev-lane delegation terminalized `provider_error` on the
+        # resulting TypeError. Exactly the shape the OMN-18321 comment below
+        # records, one incident later.
+        execution_timeout_seconds: int = DEFAULT_EXECUTION_TIMEOUT_SECONDS,
+        terminal_delivery_margin_seconds: int = DEFAULT_TERMINAL_DELIVERY_MARGIN_SECONDS,
+        quality_contract_mode: str,
+        acceptance_criteria: tuple[str, ...],
+        tenant_id: str | None = None,
+        # OMN-18321: declared here because the OmniMarket consumer protocol
+        # declares it and its handler passes it on EVERY delegation (OMN-18172,
+        # omnimarket#2494). It was added on that side alone, and the resulting
+        # TypeError on the deployed bus path was swallowed by the consumer's own
+        # `except Exception` into a delegate-skill-failed terminal -- so the
+        # dev-lane chain died silently for a day and wrote no FSM row at all.
+        # CORRECTED 2026-09-21 (OMN-18938). This comment used to say parity was
+        # "held mechanically" by
+        # tests/integration/runtime/test_delegation_dispatch_port_consumer_kwarg_parity.py.
+        # That sentence was read as proof and was broader than the file: the
+        # module covered the consumer's names in both directions and nothing
+        # that started from OURS, so a keyword added here as REQUIRED was
+        # invisible to it. omnibase_infra#3882 did exactly that, every
+        # delegation on the dev lane terminalised provider_error, and the
+        # module ran 3 passed 0 failed throughout. The missing direction landed
+        # under OMN-18938; the module's own docstring now names all three and
+        # is the place to read before trusting a claim like this one.
+        #
+        # A DEFAULT ON A KEYWORD HERE IS LOAD-BEARING, not a convenience. The
+        # two repos deploy independently, so the consumer is a release behind
+        # by construction and a required keyword is broken for exactly that
+        # window. Add keywords defaulted; make one required only alongside a
+        # landed consumer that passes it.
+        provenance: ModelDelegationProvenance | None = None,
+        backend_id: str | None = None,
+        # OMN-19817: the OmniMarket consumer protocol declares this since
+        # omnimarket#2841 (OMN-18931), and RuntimeDelegationDispatchPort has
+        # accepted and published it since omnibase_infra#4088. The protocol was
+        # the one half left behind, which the consumer-kwarg-parity hook caught
+        # on every omnibase_infra commit. Defaulted, per the note above: the
+        # consumer passes it only when true, through a TypedDict-typed helper
+        # splat, so a released port predating the keyword keeps working.
+        no_escalation: bool = False,
+        response_contract: dict[str, object] | None = None,
+        system_prompt: str | None = None,
+        temperature: float | None = None,
+        response_format: dict[str, object] | None = None,
+    ) -> dict[str, object]: ...
+
+
+__all__ = ["ProtocolDelegationDispatchPort"]

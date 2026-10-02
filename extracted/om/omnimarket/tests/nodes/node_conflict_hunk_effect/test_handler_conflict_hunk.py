@@ -1,0 +1,680 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""Unit tests for HandlerConflictHunk [OMN-8992].
+
+TDD cases:
+  1. Successful resolution — commits, emits success event
+  2. Validation failure — LLM returns residual conflict markers → fail event, no commit
+  3. LLM RuntimeError → re-raises (no swallow)
+  4. routing_policy resolution — resolve_routing_policy called; None routing_policy → ValueError
+  5. Blocked file rejection — file outside src/**,tests/** → fail event emitted
+  6. No conflict markers → fail event, no commit
+  7. is_noop=True when LLM returns identical file content
+  8. Patch size guard — net delta > 50 lines → fail event
+  9. pytest gate failure → fail event, no commit
+  10. Python syntax validation failure → fail event
+  11. Push success — resolution pushed to origin
+  12. Push failure → fail event, no success
+"""
+
+from __future__ import annotations
+
+import os
+import textwrap
+from pathlib import Path
+from typing import Any
+from uuid import uuid4
+
+import pytest
+
+from omnimarket.nodes.node_conflict_hunk_effect.handlers.handler_conflict_hunk import (
+    HandlerConflictHunk,
+    _extract_hunk_context,
+    _find_conflict_files,
+    _net_line_delta,
+)
+from omnimarket.nodes.node_conflict_hunk_effect.models.model_conflict_resolved_event import (
+    ModelConflictResolvedEvent,
+)
+from omnimarket.nodes.node_merge_sweep_triage_orchestrator.models.model_triage_request import (
+    ModelConflictHunkCommand,
+)
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+REPO = "OmniNode-ai/omnimarket"
+PR_NUM = 77
+ROUTING_POLICY: dict[str, Any] = {
+    "primary": "qwen3-coder-30b",
+    "fallback": "glm-4.5",
+    "fallback_allowed_roles": ["conflict_resolver"],
+    "max_tokens": 8192,
+}
+
+_CONFLICT_FILE_CONTENT = textwrap.dedent("""\
+    def foo():
+    <<<<<<< HEAD
+        return 1
+    =======
+        return 2
+    >>>>>>> feature-branch
+""")
+
+_RESOLVED_CONTENT = textwrap.dedent("""\
+    def foo():
+        return 1
+""")
+
+
+def _make_command(
+    head_ref: str = "feature/some-work",
+    conflict_files: list[str] | None = None,
+    routing_policy: dict[str, Any] | None = None,
+) -> ModelConflictHunkCommand:
+    return ModelConflictHunkCommand(
+        pr_number=PR_NUM,
+        repo=REPO,
+        head_ref_name=head_ref,
+        base_ref_name="main",
+        conflict_files=conflict_files or ["src/foo.py"],
+        correlation_id=uuid4(),
+        run_id="OMN-8992-test-run",
+        routing_policy=routing_policy or ROUTING_POLICY,
+    )
+
+
+def _make_subprocess_fn(
+    wt_root: Path,
+    conflict_content: str = _CONFLICT_FILE_CONTENT,
+    pytest_rc: int = 0,
+    commit_sha: str = "abc1234",
+    git_add_rc: int = 0,
+    git_commit_rc: int = 0,
+    scope_diff_files: list[str] | None = None,
+    push_rc: int = 0,
+    push_calls: list[list[str]] | None = None,
+    wt_file: str = "src/foo.py",
+) -> Any:
+    """Build a deterministic subprocess_run_fn that operates on a real temp dir."""
+
+    def _run(cmd: list[str], cwd: Path | None = None) -> tuple[int, str, str]:
+        # Worktree add: create the directory + write conflict file
+        if "worktree" in cmd and "add" in cmd and "--force" not in cmd:
+            wt_path = Path(cmd[-2])
+            wt_path.mkdir(parents=True, exist_ok=True)
+            (wt_path / ".git").mkdir(exist_ok=True)
+            file_target = wt_path / wt_file
+            file_target.parent.mkdir(parents=True, exist_ok=True)
+            file_target.write_text(conflict_content, encoding="utf-8")
+            return 0, "", ""
+
+        # Worktree remove: clean up
+        if "worktree" in cmd and "remove" in cmd:
+            import shutil
+
+            target = Path(cmd[-1])
+            if target.exists():
+                shutil.rmtree(target, ignore_errors=True)
+            return 0, "", ""
+
+        # git fetch
+        if "fetch" in cmd:
+            return 0, "", ""
+
+        # git checkout -B <branch>
+        if "checkout" in cmd and "-B" in cmd:
+            return 0, "", ""
+
+        # git checkout -- . (abort scope check)
+        if "checkout" in cmd and "--" in cmd and "." in cmd:
+            return 0, "", ""
+
+        # git diff --name-only HEAD (scope check)
+        if "diff" in cmd and "--name-only" in cmd and "HEAD" in cmd:
+            files = scope_diff_files if scope_diff_files is not None else ["src/foo.py"]
+            return 0, "\n".join(files) + "\n", ""
+
+        # pytest gate — match on cmd elements, not full cmd_str (path may contain "pytest")
+        if "uv" in cmd and "pytest" in cmd:
+            return (
+                pytest_rc,
+                "test output" if pytest_rc == 0 else "",
+                "FAILED" if pytest_rc != 0 else "",
+            )
+
+        # git add
+        if cmd[1:3] == ["-C", str(wt_root)] and "add" in cmd:
+            return git_add_rc, "", "" if git_add_rc == 0 else "add failed"
+
+        if "add" in cmd and "worktree" not in cmd:
+            return git_add_rc, "", "" if git_add_rc == 0 else "add failed"
+
+        # git commit
+        if "commit" in cmd:
+            return git_commit_rc, "", "" if git_commit_rc == 0 else "commit failed"
+
+        # git rev-parse HEAD
+        if "rev-parse" in cmd:
+            return 0, commit_sha, ""
+
+        # git push
+        if "push" in cmd:
+            if push_calls is not None:
+                push_calls.append(cmd[:])
+            if push_rc != 0:
+                return push_rc, "", "error: remote rejected (stale info)"
+            return 0, "", ""
+
+        # source clone .git check
+        if (
+            os.path.exists(os.path.join(cmd[2], ".git"))
+            if len(cmd) > 2 and "-C" in cmd
+            else False
+        ):
+            return 0, "", ""
+
+        return 0, "", ""
+
+    return _run
+
+
+def _setup_source_clone(tmp_path: Path) -> None:
+    """Create a minimal source clone directory with .git marker."""
+    repo_key = REPO.replace("/", "__")
+    source_clone = tmp_path / repo_key
+    source_clone.mkdir(exist_ok=True)
+    (source_clone / ".git").mkdir(exist_ok=True)
+
+
+# ---------------------------------------------------------------------------
+# TDD case 1: Successful resolution
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_successful_resolution(tmp_path: Path) -> None:
+    """Happy path: conflict file resolved, committed, success event emitted."""
+    _setup_source_clone(tmp_path)
+    wt_root_base = tmp_path / "worktrees"
+    wt_root_base.mkdir()
+
+    resolved_calls: list[str] = []
+
+    def llm_call(
+        file_path: str, hunk_context: str, routing_policy: dict[str, Any]
+    ) -> tuple[str, bool]:
+        resolved_calls.append(file_path)
+        return _RESOLVED_CONTENT, False
+
+    subprocess_fn = _make_subprocess_fn(wt_root_base, commit_sha="deadbeef1234")
+    os.environ["ONEX_CONFLICT_SOURCE_CLONE_ROOT"] = str(tmp_path)
+    os.environ["ONEX_CONFLICT_WORKTREE_ROOT"] = str(wt_root_base)
+
+    try:
+        handler = HandlerConflictHunk(
+            llm_call_fn=llm_call,
+            subprocess_run_fn=subprocess_fn,
+        )
+        event = await handler.handle(_make_command())
+    finally:
+        os.environ.pop("ONEX_CONFLICT_SOURCE_CLONE_ROOT", None)
+        os.environ.pop("ONEX_CONFLICT_WORKTREE_ROOT", None)
+
+    assert event is not None
+    assert isinstance(event, ModelConflictResolvedEvent)
+    assert event.success is True
+    assert event.resolution_committed is True
+    assert event.is_noop is False
+    assert event.commit_sha == "deadbeef1234"
+    assert "src/foo.py" in event.resolved_files
+    assert event.used_fallback is False
+    assert "src/foo.py" in resolved_calls
+
+
+# ---------------------------------------------------------------------------
+# TDD case 2: Validation failure — residual conflict markers
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_validation_failure_residual_markers(tmp_path: Path) -> None:
+    """LLM returns text still containing conflict markers → fail event."""
+    _setup_source_clone(tmp_path)
+    wt_root_base = tmp_path / "worktrees"
+    wt_root_base.mkdir()
+
+    def llm_call(fp: str, ctx: str, rp: dict[str, Any]) -> tuple[str, bool]:
+        return "<<<<<<< HEAD\nstill broken\n", False
+
+    subprocess_fn = _make_subprocess_fn(wt_root_base)
+    os.environ["ONEX_CONFLICT_SOURCE_CLONE_ROOT"] = str(tmp_path)
+    os.environ["ONEX_CONFLICT_WORKTREE_ROOT"] = str(wt_root_base)
+
+    try:
+        handler = HandlerConflictHunk(
+            llm_call_fn=llm_call, subprocess_run_fn=subprocess_fn
+        )
+        event = await handler.handle(_make_command())
+    finally:
+        os.environ.pop("ONEX_CONFLICT_SOURCE_CLONE_ROOT", None)
+        os.environ.pop("ONEX_CONFLICT_WORKTREE_ROOT", None)
+
+    assert isinstance(event, ModelConflictResolvedEvent)
+    assert event.success is False
+    assert event.resolution_committed is False
+    assert "conflict markers" in (event.error or "")
+
+
+# ---------------------------------------------------------------------------
+# TDD case 3: LLM RuntimeError re-raises
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_llm_error_reraises(tmp_path: Path) -> None:
+    """LLM raises RuntimeError → handler re-raises without swallowing."""
+    _setup_source_clone(tmp_path)
+    wt_root_base = tmp_path / "worktrees"
+    wt_root_base.mkdir()
+
+    def llm_call(fp: str, ctx: str, rp: dict[str, Any]) -> tuple[str, bool]:
+        raise RuntimeError("LLM endpoint unreachable")
+
+    subprocess_fn = _make_subprocess_fn(wt_root_base)
+    os.environ["ONEX_CONFLICT_SOURCE_CLONE_ROOT"] = str(tmp_path)
+    os.environ["ONEX_CONFLICT_WORKTREE_ROOT"] = str(wt_root_base)
+
+    try:
+        handler = HandlerConflictHunk(
+            llm_call_fn=llm_call, subprocess_run_fn=subprocess_fn
+        )
+        with pytest.raises(RuntimeError, match="LLM endpoint unreachable"):
+            await handler.handle(_make_command())
+    finally:
+        os.environ.pop("ONEX_CONFLICT_SOURCE_CLONE_ROOT", None)
+        os.environ.pop("ONEX_CONFLICT_WORKTREE_ROOT", None)
+
+
+# ---------------------------------------------------------------------------
+# TDD case 4: routing_policy resolution — None routing_policy → ValueError
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_none_routing_policy_raises(tmp_path: Path) -> None:
+    """Envelope with routing_policy=None → resolve_routing_policy raises ValueError."""
+    _setup_source_clone(tmp_path)
+
+    cmd = ModelConflictHunkCommand(
+        pr_number=PR_NUM,
+        repo=REPO,
+        head_ref_name="feature/work",
+        base_ref_name="main",
+        conflict_files=["src/foo.py"],
+        correlation_id=uuid4(),
+        run_id="OMN-8992-test",
+        routing_policy={},  # empty dict will fail schema validation
+    )
+
+    subprocess_fn = _make_subprocess_fn(tmp_path / "wt")
+    os.environ["ONEX_CONFLICT_SOURCE_CLONE_ROOT"] = str(tmp_path)
+    os.environ["ONEX_CONFLICT_WORKTREE_ROOT"] = str(tmp_path / "wt")
+
+    try:
+        handler = HandlerConflictHunk(subprocess_run_fn=subprocess_fn)
+        with pytest.raises(ValueError, match="routing_policy"):
+            await handler.handle(cmd)
+    finally:
+        os.environ.pop("ONEX_CONFLICT_SOURCE_CLONE_ROOT", None)
+        os.environ.pop("ONEX_CONFLICT_WORKTREE_ROOT", None)
+
+
+# ---------------------------------------------------------------------------
+# TDD case 5: Blocked file rejection — outside allowlist
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_file_outside_allowlist_emits_failure(tmp_path: Path) -> None:
+    """File outside src/**,tests/** → fail event emitted (not exception)."""
+    _setup_source_clone(tmp_path)
+    wt_root_base = tmp_path / "worktrees"
+    wt_root_base.mkdir()
+
+    subprocess_fn = _make_subprocess_fn(wt_root_base, wt_file="scripts/build.sh")
+    os.environ["ONEX_CONFLICT_SOURCE_CLONE_ROOT"] = str(tmp_path)
+    os.environ["ONEX_CONFLICT_WORKTREE_ROOT"] = str(wt_root_base)
+
+    try:
+        handler = HandlerConflictHunk(subprocess_run_fn=subprocess_fn)
+        event = await handler.handle(_make_command())
+    finally:
+        os.environ.pop("ONEX_CONFLICT_SOURCE_CLONE_ROOT", None)
+        os.environ.pop("ONEX_CONFLICT_WORKTREE_ROOT", None)
+
+    assert isinstance(event, ModelConflictResolvedEvent)
+    assert event.success is False
+    assert "allowlist" in (event.error or "")
+
+
+# ---------------------------------------------------------------------------
+# TDD case 6: No conflict markers → fail event
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_no_conflict_markers_fails(tmp_path: Path) -> None:
+    """No conflict markers in worktree → fail event (no exception)."""
+    _setup_source_clone(tmp_path)
+    wt_root_base = tmp_path / "worktrees"
+    wt_root_base.mkdir()
+
+    subprocess_fn = _make_subprocess_fn(
+        wt_root_base, conflict_content="def foo(): return 1\n", wt_file="src/clean.py"
+    )
+    os.environ["ONEX_CONFLICT_SOURCE_CLONE_ROOT"] = str(tmp_path)
+    os.environ["ONEX_CONFLICT_WORKTREE_ROOT"] = str(wt_root_base)
+
+    try:
+        handler = HandlerConflictHunk(subprocess_run_fn=subprocess_fn)
+        event = await handler.handle(_make_command())
+    finally:
+        os.environ.pop("ONEX_CONFLICT_SOURCE_CLONE_ROOT", None)
+        os.environ.pop("ONEX_CONFLICT_WORKTREE_ROOT", None)
+
+    assert isinstance(event, ModelConflictResolvedEvent)
+    assert event.success is False
+    assert "No conflict markers" in (event.error or "")
+
+
+# ---------------------------------------------------------------------------
+# TDD case 7: is_noop=True when LLM returns identical content
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_noop_when_llm_returns_same_content(tmp_path: Path) -> None:
+    """LLM returns same content as current file → is_noop=True, no commit."""
+    _setup_source_clone(tmp_path)
+    wt_root_base = tmp_path / "worktrees"
+    wt_root_base.mkdir()
+
+    def llm_call(fp: str, ctx: str, rp: dict[str, Any]) -> tuple[str, bool]:
+        return _CONFLICT_FILE_CONTENT, False
+
+    subprocess_fn = _make_subprocess_fn(wt_root_base)
+    os.environ["ONEX_CONFLICT_SOURCE_CLONE_ROOT"] = str(tmp_path)
+    os.environ["ONEX_CONFLICT_WORKTREE_ROOT"] = str(wt_root_base)
+
+    try:
+        handler = HandlerConflictHunk(
+            llm_call_fn=llm_call, subprocess_run_fn=subprocess_fn
+        )
+        event = await handler.handle(_make_command())
+    finally:
+        os.environ.pop("ONEX_CONFLICT_SOURCE_CLONE_ROOT", None)
+        os.environ.pop("ONEX_CONFLICT_WORKTREE_ROOT", None)
+
+    assert isinstance(event, ModelConflictResolvedEvent)
+    assert event.is_noop is True
+    assert event.resolution_committed is False
+    assert event.success is True
+
+
+# ---------------------------------------------------------------------------
+# TDD case 8: Patch size guard — net delta > 50 lines
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_patch_size_guard(tmp_path: Path) -> None:
+    """LLM resolution changes > 50 net lines → fail event."""
+    _setup_source_clone(tmp_path)
+    wt_root_base = tmp_path / "worktrees"
+    wt_root_base.mkdir()
+
+    big_resolved = _RESOLVED_CONTENT + "\n".join(f"# line {i}" for i in range(100))
+
+    def llm_call(fp: str, ctx: str, rp: dict[str, Any]) -> tuple[str, bool]:
+        return big_resolved, False
+
+    subprocess_fn = _make_subprocess_fn(wt_root_base)
+    os.environ["ONEX_CONFLICT_SOURCE_CLONE_ROOT"] = str(tmp_path)
+    os.environ["ONEX_CONFLICT_WORKTREE_ROOT"] = str(wt_root_base)
+
+    try:
+        handler = HandlerConflictHunk(
+            llm_call_fn=llm_call, subprocess_run_fn=subprocess_fn
+        )
+        event = await handler.handle(_make_command())
+    finally:
+        os.environ.pop("ONEX_CONFLICT_SOURCE_CLONE_ROOT", None)
+        os.environ.pop("ONEX_CONFLICT_WORKTREE_ROOT", None)
+
+    assert isinstance(event, ModelConflictResolvedEvent)
+    assert event.success is False
+    assert "net changed lines" in (event.error or "")
+
+
+# ---------------------------------------------------------------------------
+# TDD case 9: pytest gate failure → fail event
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_pytest_gate_failure(tmp_path: Path) -> None:
+    """pytest exits non-zero in worktree → fail event, no commit."""
+    _setup_source_clone(tmp_path)
+    wt_root_base = tmp_path / "worktrees"
+    wt_root_base.mkdir()
+
+    def llm_call(fp: str, ctx: str, rp: dict[str, Any]) -> tuple[str, bool]:
+        return _RESOLVED_CONTENT, False
+
+    subprocess_fn = _make_subprocess_fn(wt_root_base, pytest_rc=1)
+    os.environ["ONEX_CONFLICT_SOURCE_CLONE_ROOT"] = str(tmp_path)
+    os.environ["ONEX_CONFLICT_WORKTREE_ROOT"] = str(wt_root_base)
+
+    try:
+        handler = HandlerConflictHunk(
+            llm_call_fn=llm_call, subprocess_run_fn=subprocess_fn
+        )
+        event = await handler.handle(_make_command())
+    finally:
+        os.environ.pop("ONEX_CONFLICT_SOURCE_CLONE_ROOT", None)
+        os.environ.pop("ONEX_CONFLICT_WORKTREE_ROOT", None)
+
+    assert isinstance(event, ModelConflictResolvedEvent)
+    assert event.success is False
+    assert "pytest gate failed" in (event.error or "")
+    assert event.resolution_committed is False
+
+
+# ---------------------------------------------------------------------------
+# TDD case 10: Python syntax validation failure
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_python_syntax_validation_failure(tmp_path: Path) -> None:
+    """LLM returns invalid Python → fail event with syntax error message."""
+    _setup_source_clone(tmp_path)
+    wt_root_base = tmp_path / "worktrees"
+    wt_root_base.mkdir()
+
+    def llm_call(fp: str, ctx: str, rp: dict[str, Any]) -> tuple[str, bool]:
+        return "def foo(\n    broken syntax!!!\n", False
+
+    subprocess_fn = _make_subprocess_fn(wt_root_base)
+    os.environ["ONEX_CONFLICT_SOURCE_CLONE_ROOT"] = str(tmp_path)
+    os.environ["ONEX_CONFLICT_WORKTREE_ROOT"] = str(wt_root_base)
+
+    try:
+        handler = HandlerConflictHunk(
+            llm_call_fn=llm_call, subprocess_run_fn=subprocess_fn
+        )
+        event = await handler.handle(_make_command())
+    finally:
+        os.environ.pop("ONEX_CONFLICT_SOURCE_CLONE_ROOT", None)
+        os.environ.pop("ONEX_CONFLICT_WORKTREE_ROOT", None)
+
+    assert isinstance(event, ModelConflictResolvedEvent)
+    assert event.success is False
+    assert "invalid Python syntax" in (event.error or "")
+
+
+# ---------------------------------------------------------------------------
+# Branch guard: refuses protected heads
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_branch_guard_protected_head(tmp_path: Path) -> None:
+    """head_ref=main → fail event before worktree creation."""
+    _setup_source_clone(tmp_path)
+
+    subprocess_fn = _make_subprocess_fn(tmp_path / "wt")
+    os.environ["ONEX_CONFLICT_SOURCE_CLONE_ROOT"] = str(tmp_path)
+    os.environ["ONEX_CONFLICT_WORKTREE_ROOT"] = str(tmp_path / "wt")
+
+    try:
+        handler = HandlerConflictHunk(subprocess_run_fn=subprocess_fn)
+        event = await handler.handle(_make_command(head_ref="main"))
+    finally:
+        os.environ.pop("ONEX_CONFLICT_SOURCE_CLONE_ROOT", None)
+        os.environ.pop("ONEX_CONFLICT_WORKTREE_ROOT", None)
+
+    assert isinstance(event, ModelConflictResolvedEvent)
+    assert event.success is False
+    assert "protected_head_ref" in (event.error or "")
+
+
+# ---------------------------------------------------------------------------
+# Unit tests for helper functions
+# ---------------------------------------------------------------------------
+
+
+def test_find_conflict_files_detects_markers(tmp_path: Path) -> None:
+    """_find_conflict_files returns files containing <<<<<<< markers."""
+    (tmp_path / "conflict.py").write_text(_CONFLICT_FILE_CONTENT, encoding="utf-8")
+    (tmp_path / "clean.py").write_text("def foo(): return 1\n", encoding="utf-8")
+
+    result = _find_conflict_files(tmp_path)
+    assert len(result) == 1
+    assert result[0].name == "conflict.py"
+
+
+def test_net_line_delta_counts_change() -> None:
+    """_net_line_delta returns absolute difference in line count."""
+    orig = "a\nb\nc\n"
+    resolved = "a\nb\nc\nd\ne\n"
+    assert _net_line_delta(orig, resolved) == 2
+
+
+def test_extract_hunk_context_includes_surroundings() -> None:
+    """_extract_hunk_context includes lines before and after conflict blocks."""
+    text = "line1\nline2\n<<<<<<< HEAD\nours\n=======\ntheirs\n>>>>>>> branch\nline8\n"
+    ctx = _extract_hunk_context(text, context_lines=2)
+    assert "line1" in ctx
+    assert "<<<<<<< HEAD" in ctx
+    assert ">>>>>>> branch" in ctx
+    assert "line8" in ctx
+
+
+# ---------------------------------------------------------------------------
+# TDD case 11: Push success — resolution pushed to origin
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_push_succeeds_on_successful_resolution(tmp_path: Path) -> None:
+    """Happy path: after commit, push --force-with-lease is called and succeeds."""
+    _setup_source_clone(tmp_path)
+    wt_root_base = tmp_path / "worktrees"
+    wt_root_base.mkdir()
+
+    push_calls: list[list[str]] = []
+    subprocess_fn = _make_subprocess_fn(
+        wt_root_base,
+        commit_sha="pre-sha-abc",
+        push_calls=push_calls,
+    )
+
+    os.environ["ONEX_CONFLICT_SOURCE_CLONE_ROOT"] = str(tmp_path)
+    os.environ["ONEX_CONFLICT_WORKTREE_ROOT"] = str(wt_root_base)
+
+    try:
+        handler = HandlerConflictHunk(
+            llm_call_fn=lambda _fp, _ctx, _rp: (_RESOLVED_CONTENT, False),
+            subprocess_run_fn=subprocess_fn,
+        )
+        event = await handler.handle(_make_command())
+    finally:
+        os.environ.pop("ONEX_CONFLICT_SOURCE_CLONE_ROOT", None)
+        os.environ.pop("ONEX_CONFLICT_WORKTREE_ROOT", None)
+
+    assert isinstance(event, ModelConflictResolvedEvent)
+    assert event.success is True
+    assert event.resolution_committed is True
+
+    assert len(push_calls) == 1
+    push_cmd = push_calls[0]
+    assert "push" in push_cmd
+    assert any("force-with-lease" in arg for arg in push_cmd)
+    assert "origin" in push_cmd
+    assert "feature/some-work" in push_cmd
+
+
+# ---------------------------------------------------------------------------
+# TDD case 12: Push failure → fail event, no success
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_push_failure_emits_fail_event(tmp_path: Path) -> None:
+    """If git push --force-with-lease fails (e.g. concurrent push), emit fail event."""
+    _setup_source_clone(tmp_path)
+    wt_root_base = tmp_path / "worktrees"
+    wt_root_base.mkdir()
+
+    subprocess_fn = _make_subprocess_fn(
+        wt_root_base,
+        commit_sha="pre-sha-xyz",
+        push_rc=1,
+    )
+
+    os.environ["ONEX_CONFLICT_SOURCE_CLONE_ROOT"] = str(tmp_path)
+    os.environ["ONEX_CONFLICT_WORKTREE_ROOT"] = str(wt_root_base)
+
+    try:
+        handler = HandlerConflictHunk(
+            llm_call_fn=lambda _fp, _ctx, _rp: (_RESOLVED_CONTENT, False),
+            subprocess_run_fn=subprocess_fn,
+        )
+        event = await handler.handle(_make_command())
+    finally:
+        os.environ.pop("ONEX_CONFLICT_SOURCE_CLONE_ROOT", None)
+        os.environ.pop("ONEX_CONFLICT_WORKTREE_ROOT", None)
+
+    assert isinstance(event, ModelConflictResolvedEvent)
+    assert event.success is False
+    assert "force-with-lease" in (event.error or "")
+    assert event.resolution_committed is False
+
+
+def test_contract_declares_pr_conflict_resolved_topic() -> None:
+    """State-coverage: the node declares the pr-conflict-resolved output topic."""
+    import yaml
+
+    import omnimarket.nodes.node_conflict_hunk_effect as _conflict_node_pkg
+
+    contract = yaml.safe_load(
+        (Path(_conflict_node_pkg.__file__).parent / "contract.yaml").read_text()
+    )
+    assert (
+        "onex.evt.omnimarket.pr-conflict-resolved.v1"
+        in contract["event_bus"]["publish_topics"]
+    )

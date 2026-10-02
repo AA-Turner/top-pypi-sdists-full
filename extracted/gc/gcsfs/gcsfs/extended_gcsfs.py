@@ -29,7 +29,12 @@ from gcsfs import __version__ as version
 from gcsfs import zb_hns_utils
 from gcsfs._dircache import HnsDirCacheUpdater
 from gcsfs.concurrency import split_range
-from gcsfs.core import GCSFile, GCSFileSystem
+from gcsfs.core import (
+    GCSFile,
+    GCSFileSystem,
+    _get_prefetcher_and_cache_config,
+    _location,
+)
 from gcsfs.retry import DEFAULT_RETRY_CONFIG, get_storage_control_retry_config
 from gcsfs.zb_hns_utils import DirectMemmoveBuffer, MRDPool
 from gcsfs.zonal_file import ZonalFile
@@ -204,12 +209,18 @@ class ExtendedGcsFileSystem(HnsDirCacheUpdater, GCSFileSystem):
             self._grpc_client = asyn.sync(self.loop, self._get_grpc_client)
         return self._grpc_client
 
+    @property
+    def _grpc_location(self):
+        # The gRPC clients do not present a client certificate yet, so keep them
+        # off the mTLS endpoint that the HTTP path may use.
+        return self._endpoint or _location()
+
     async def _get_grpc_client(self):
         if self._grpc_client is None:
             client_options = ClientOptions(quota_project_id=self._user_project)
-            if self._location:
+            if self._grpc_location:
                 # client_options expects only the host:port, without any protocol or path components.
-                endpoint = self._location.split("://")[-1].split("/")[0]
+                endpoint = self._grpc_location.split("://")[-1].split("/")[0]
                 client_options.api_endpoint = endpoint
             self._grpc_client = AsyncGrpcClient(
                 credentials=self.credential,
@@ -233,9 +244,9 @@ class ExtendedGcsFileSystem(HnsDirCacheUpdater, GCSFileSystem):
                 "options": [("grpc.primary_user_agent", f"{USER_AGENT}/{version}")],
                 "quota_project_id": self._user_project,
             }
-            if self._location:
+            if self._grpc_location:
                 # Extract host:port safely (strips protocol and trailing URL paths if any).
-                endpoint = self._location.split("://")[-1].split("/")[0]
+                endpoint = self._grpc_location.split("://")[-1].split("/")[0]
                 channel_kwargs["host"] = endpoint
 
             channel = transport_cls.create_channel(**channel_kwargs)
@@ -411,6 +422,16 @@ class ExtendedGcsFileSystem(HnsDirCacheUpdater, GCSFileSystem):
         bucket_type = await self._lookup_bucket_type(bucket)
         return bucket_type == BucketType.ZONAL_HIERARCHICAL
 
+    @staticmethod
+    def _resolve_cache_config(kwargs):
+        """Resolves cache_type and cache_source from kwargs if not already provided."""
+        kwargs = kwargs or {}
+        cache_type = kwargs.get("cache_type")
+        cache_source = kwargs.get("cache_source")
+        if not cache_type or not cache_source:
+            cache_type, cache_source = _get_prefetcher_and_cache_config(cache_type)
+        return cache_type, cache_source
+
     async def _fetch_range_split(
         self,
         path,
@@ -441,11 +462,19 @@ class ExtendedGcsFileSystem(HnsDirCacheUpdater, GCSFileSystem):
         pool_created_here = False
         bucket, object_name, generation = self.split_path(path)
 
+        # Only resolve if the config wasn't already passed down (e.g., from ZonalFile)
+        cache_type, cache_source = self._resolve_cache_config(kwargs)
+
         if mrd is None:
             # If no mrd is provided, we create one with pool size equal to passed concurrency.
             pool_size = min(len(chunk_lengths), concurrency)
             mrd = await self._mrd_pool_cache.get(
-                bucket, object_name, generation, pool_size=pool_size
+                bucket,
+                object_name,
+                generation,
+                pool_size=pool_size,
+                cache_type=cache_type,
+                cache_source=cache_source,
             )
             pool_created_here = True
 
@@ -454,6 +483,8 @@ class ExtendedGcsFileSystem(HnsDirCacheUpdater, GCSFileSystem):
             current_offset = start_offset
 
             cat_kwargs = kwargs.copy()
+            cat_kwargs["cache_type"] = cache_type
+            cat_kwargs["cache_source"] = cache_source
 
             for length in chunk_lengths:
                 end_offset = current_offset + length
@@ -583,6 +614,9 @@ class ExtendedGcsFileSystem(HnsDirCacheUpdater, GCSFileSystem):
 
         # A new MRDPool is required when read is done directly by the
         # GCSFilesystem class without creating a GCSFile object first.
+        # Only resolve if the config wasn't already passed down (e.g., from ZonalFile)
+        cache_type, cache_source = self._resolve_cache_config(kwargs)
+
         if mrd is None:
             bucket, object_name, generation = self.split_path(path)
             if not await self._is_zonal_bucket(bucket):
@@ -593,7 +627,12 @@ class ExtendedGcsFileSystem(HnsDirCacheUpdater, GCSFileSystem):
 
             # Instantiate an MRDPool locally for this call
             mrd = await self._mrd_pool_cache.get(
-                bucket, object_name, generation, pool_size=concurrency
+                bucket,
+                object_name,
+                generation,
+                pool_size=concurrency,
+                cache_type=cache_type,
+                cache_source=cache_source,
             )
             pool_created_here = True
 
@@ -1692,7 +1731,16 @@ class ExtendedGcsFileSystem(HnsDirCacheUpdater, GCSFileSystem):
         generation = path_generation or kwargs.get("generation")
         callback = callback or NoOpCallback()
 
-        mrd_pool = await self._mrd_pool_cache.get(bucket, key, generation, pool_size=1)
+        cache_type, cache_source = self._resolve_cache_config(kwargs)
+
+        mrd_pool = await self._mrd_pool_cache.get(
+            bucket,
+            key,
+            generation,
+            pool_size=1,
+            cache_type=cache_type,
+            cache_source=cache_source,
+        )
         try:
             async with mrd_pool.get_mrd() as mrd:
                 size = mrd.persisted_size
@@ -1769,9 +1817,16 @@ class ExtendedGcsFileSystem(HnsDirCacheUpdater, GCSFileSystem):
 
         generation = path_generation or kwargs.get("generation")
 
+        cache_type, cache_source = self._resolve_cache_config(kwargs)
+
         # Initialize the MRDPool once for this concurrent operation
         mrd_pool = await self._mrd_pool_cache.get(
-            bucket, key, generation, pool_size=concurrency
+            bucket,
+            key,
+            generation,
+            pool_size=concurrency,
+            cache_type=cache_type,
+            cache_source=cache_source,
         )
 
         # Define a custom fetcher that passes the pool to _cat_file

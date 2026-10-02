@@ -1,0 +1,1216 @@
+[project]
+name = "btclib-secp256k1"
+version = "0.8.0.9"
+description = "Simple python bindings to libsecp256k1"
+readme = "README.md"
+# PEP 639: a SPDX expression and the files it refers to, replacing the
+# deprecated license table and the License :: classifier
+license = "MIT"
+# not COPYRIGHT: that file is the organization's notice, a repository
+# file and not a distributed one -- the holder a consumer needs is in
+# LICENSE already, and COPYRIGHT is the source of a source-file header
+# rather than a statement to a consumer (btclib-org/.github#135). The
+# sdist target below keeps it out of that archive for the same reason
+license-files = ["LICENSE", "AUTHORS.md"]
+requires-python = ">=3.11"
+# the organization and not a list of people, which is a sibling
+# repository's convention and the only one that stays true: a name in
+# metadata is baked into every wheel already published, so an author
+# list here is a snapshot of who had
+# contributed by the release that carried it. AUTHORS.md is where the
+# question is answered instead, and it answers it by pointing at the
+# revision history, which is the record that keeps itself; license-files
+# above ships that file beside LICENSE so the pointer travels with the
+# distribution
+authors = [{ name = "The btclib developers", email = "devs@btclib.org" }]
+# the GitHub repository topics, in the same order, and the order is by
+# relevance rather than alphabetical: PyPI shows keywords as the metadata
+# gives them, and GitHub sorts its own, so there the order decides only
+# which topic goes when the twenty it allows are full -- which this list
+# is well short of. Lowercase throughout, a GitHub topic being lowercase
+# or not a topic, so that one spelling serves both lists.
+#
+# One of them names what is reachable rather than what is wrapped, and the
+# difference is worth knowing before it is trusted. bip324 is the ellswift
+# module: the encoding and the x-only ECDH that BIP's handshake needs of
+# its keys, and not its transport, which is a cipher and a framing layer
+# this package has no part of. musig2 is wrapped, in `musig`, and needs no
+# such note.
+#
+# elliptic-curves stays out: this is one curve, and secp256k1 names it.
+keywords = [
+    "libsecp256k1",
+    "secp256k1",
+    "bitcoin",
+    "cryptography",
+    "python-bindings",
+    "cffi",
+    "ecdsa",
+    "schnorr",
+    "bip340",
+    "musig2",
+    "ecdh",
+    "ellswift",
+    "bip324",
+    "public-key-recovery",
+    "rfc-6979",
+]
+classifiers = [
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    # test.yml's build-cibuildwheel job builds and runs the suite against
+    # a cp315t wheel on every trigger, a pull request included, and
+    # tests/interpreters_test.py holds the biconditional between this
+    # classifier and the interpreters the jobs the merge gate waits on
+    # run. The extension leaves that interpreter's GIL disabled at import
+    # under cffi>=2.0, rather than turning it back on, which is what
+    # rules out "1 - Unstable" -- but a violation of the constraints
+    # README.md's "Thread safety" section documents is not reliably a
+    # segfault or reliably a Python exception, which is what "3 - Stable"
+    # and "4 - Resilient" each promise instead, so this claims the tier
+    # below both (#867)
+    "Programming Language :: Python :: Free Threading :: 2 - Beta",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Natural Language :: English",
+    # the three systems the wheels are built for, and not
+    # "OS Independent": this package is platform-specific compiled
+    # wheels, eleven kinds of them, and the classifier PyPI filters on
+    # should say so rather than the opposite
+    "Operating System :: POSIX",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Topic :: Security :: Cryptography",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    # btclib_secp256k1/py.typed is in the wheel, and the typed cffi
+    # boundary is the design point README.md leads with
+    "Typing :: Typed",
+]
+# the wrappers call ffi.unpack on every path, which cffi grew in 1.6, and
+# 1.6 is not a floor anything installs at: on ubuntu-latest, `uv pip
+# install --no-cache cffi==<release>` into a venv of 3.10, 3.11 or 3.12
+# fails for every release from 1.6.0 to 1.14.0 and builds 1.14.1 from
+# its sdist, so 1.14.1 is the floor below 3.13
+# (btclib-org/btclib-secp256k1#934). The two newest interpreters have to
+# be asked for by name, or the resolver may pick a cffi that cannot know
+# them: 1.17 is the first release supporting CPython 3.13, 2.0 the first
+# supporting 3.14 and the free-threaded build
+dependencies = [
+    'cffi>=1.14.1; python_version<"3.13"',
+    'cffi>=1.17; python_version=="3.13"',
+    'cffi>=2.0; python_version>="3.14"',
+]
+
+[project.urls]
+homepage = "https://btclib-secp256k1.readthedocs.io"
+# its own readthedocs project, matching a sibling repository's own: an
+# autodoc build of docs/source, the README included in its toctree
+# rather than left as the whole of the documentation
+documentation = "https://btclib-secp256k1.readthedocs.io"
+repository = "https://github.com/btclib-org/btclib-secp256k1"
+download = "https://github.com/btclib-org/btclib-secp256k1/releases"
+# RELEASE_NOTES.md and not CHANGELOG.md: this url is what an index puts
+# behind "Changelog", and what a user following it wants is the release
+# notes, not the record behind them. CHANGELOG.md is linked from the
+# first line of that file
+changelog = "https://github.com/btclib-org/btclib-secp256k1/blob/main/RELEASE_NOTES.md"
+issues = "https://github.com/btclib-org/btclib-secp256k1/issues"
+pull_requests = "https://github.com/btclib-org/btclib-secp256k1/pulls"
+
+[build-system]
+# cmake builds the vendored library: it is a build requirement, not a
+# system one, so that installing the sdist needs no package manager
+# step (a C toolchain is still required, and cannot be provisioned this
+# way); a system cmake >= 3.22 works just as well, with
+# --no-build-isolation
+requires = [
+    # 1.27 is where hatchling learned PEP 639: an older one rejects the
+    # license expression and license-files above outright, so the floor
+    # is what the metadata of this project already requires
+    #
+    # the ceiling is not the departure an upper bound on a runtime
+    # dependency would be: section 3 of btclib-org/.github's README.md
+    # draws that line, a build requirement's bound narrowing only what
+    # an isolated build resolves for itself, at the next major above
+    # the newest release measured to work. 1.32.3 gives
+    # BuildHookInterface a second type parameter, so the one-argument
+    # subscript in scripts/hatch_build.py raises TypeError at class
+    # definition; 1.32.4 takes that parameter back, and an isolated
+    # build resolving it produces the sdist and a wheel that imports.
+    # uv.lock cannot pin a build requirement: every PEP 517 isolated
+    # build resolves `requires` fresh, outside the lock. 1.32.3 is not
+    # yanked, so it is excluded by name rather than left to 1.32.4
+    # being the newest release a resolver finds
+    "hatchling>=1.27,<2,!=1.32.3",
+    # the same floors as the runtime dependency above, and for the same
+    # reason: the build runs the cdef through the very cffi it resolves.
+    #
+    # Each ceiling below is the next major above the newest release of its
+    # requirement that this tree was measured against; `uv build --wheel
+    # -v` prints what a build resolves. cffi, cmake and typing_extensions
+    # were measured by isolated builds that resolved them and imported
+    # the wheel: the static, the dynamic and the
+    # `BTCLIB_LIBSECP256K1_ZKP=true` ones under CPython 3.10 to 3.14 on
+    # macOS arm64, and PyPy 3.11 for the static and the dynamic. cffi
+    # 2.1.1 was the newest on every one of them
+    'cffi>=1.14.1,<3; python_version<"3.13"',
+    'cffi>=1.17,<3; python_version=="3.13"',
+    'cffi>=2.0,<3; python_version>="3.14"',
+    # cffi's `ffi.compile` imports it from Python 3.12, which has no
+    # distutils of its own, and scripts/cffi_build.py calls that in the
+    # MSVC build alone: the static Unix build succeeds in an environment
+    # without it. The floor is where its import starts to survive 3.12,
+    # 66.0.0 dying on `pkgutil.ImpImporter`, which 3.12 removed, and
+    # 66.1.0 not. `ffi.compile` of a one-function module works under
+    # 66.1.0 and under 84.0.0, the newest measured, on 3.12 to 3.14: the
+    # ceiling rests on that probe and not on an MSVC build
+    'setuptools>=66.1.0,<85; python_version>="3.12"',
+    # the vendored libraries' own `cmake_minimum_required` is 3.22, which
+    # is the floor and is not itself measured. 4.4.3 was the newest
+    # release measured, and it builds the static library, the dynamic one
+    # and the one BTCLIB_LIBSECP256K1_ZKP=true adds
+    "cmake>=3.22,<5",
+    # `typing.override` is 3.12: below it, scripts/ takes the decorator
+    # mypy's explicit-override asks for from here. 4.4.0, the floor,
+    # has it, and 4.3.0 fails the import with an ImportError on
+    # `override`. 4.16.0 was the newest release measured, on 3.10 and
+    # 3.11
+    'typing_extensions>=4.4.0,<5; python_version<"3.12"',
+]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel.hooks.custom]
+path = "scripts/hatch_build.py"
+# ffi_ext_zkp is always named, whatever BTCLIB_LIBSECP256K1_ZKP holds:
+# the flag is read inside scripts/cffi_build.py, which builds that
+# extension under BTCLIB_LIBSECP256K1_ZKP=true and resolves the name to
+# None at every other value, and scripts/hatch_build.py's own
+# initialize() skips a None entry rather than building it. A conditional
+# entry here would need this list itself to read the environment, which
+# a static pyproject.toml cannot do (btclib-org/btclib-secp256k1#605)
+cffi_modules = [
+    "scripts/cffi_build.py:ffi_ext",
+    "scripts/cffi_build.py:ffi_ext_zkp",
+]
+
+[tool.hatch.build.targets.sdist]
+# COPYRIGHT is a repository file, kept out of this archive for the
+# reason `license-files` above gives for keeping it out of the wheel;
+# anchored, so that the pattern names the root file alone. The rest
+# ships pristine vendored sources only: build artifacts from a local
+# build would be stale (or plain wrong) on the machine installing the
+# sdist. The CMake build writes nothing inside the vendored tree, so
+# most of what follows can only be left over in a tree that predates
+# it
+exclude = [
+    "/COPYRIGHT",
+    "/build",
+    "/dist",
+    "/wheelhouse",
+    # anchored, or it would also match stubs/_btclib_secp256k1.pyi:
+    # hatchling appends these patterns after the .gitignore lines in one
+    # GitIgnoreSpec, so an unanchored pattern here overrides the
+    # !stubs/_btclib_secp256k1.pyi negation there and drops the stub
+    # the strict mypy gate needs from the sdist
+    "/_btclib_secp256k1.*",
+    # the same risk, for the flagged extension `scripts/cffi_build.py`
+    # builds under BTCLIB_LIBSECP256K1_ZKP: running it directly leaves
+    # its own artifact at the repository root too
+    # (btclib-org/btclib-secp256k1#605). A separate entry rather than
+    # widening the pattern above: gitignore-style matching treats `.` as
+    # literal, so `/_btclib_secp256k1.*` does not also match
+    # `_btclib_secp256k1_zkp.so`, there being no dot between the two --
+    # measured with pathspec, the library hatchling's own matching uses
+    "/_btclib_secp256k1_zkp.*",
+    "**/.libs",
+    "**/.deps",
+    "**/*.o",
+    "**/*.lo",
+    "**/*.la",
+    "**/*~",
+    # OS and editor droppings a working tree can pick up between commits,
+    # .gitignore not covering all of them: it excludes "**/.DS_Store"
+    # but nothing here excluded "**/.DS_Store?", "**/._*", Windows'
+    # "**/Thumbs.db" and "**/ehthumbs.db", or a vim swap file, and
+    # `check-sdist --inject-junk` plants exactly these to prove an
+    # sdist built from an untidy tree never ships them
+    "**/.DS_Store*",
+    "**/._*",
+    "**/.Spotlight-V100",
+    "**/.Trashes",
+    "**/Thumbs.db",
+    "**/ehthumbs.db",
+    "**/*.swp",
+    "secp256k1/src/btclib_default_callbacks.c",
+    # a local `./autogen.sh && ./configure` run in either submodule
+    # leaves these behind, uncommitted and unbuilt by the CMake path this
+    # package actually uses -- measured by building the sdist with a
+    # stray secp256k1/.dirstamp (an automake artifact .gitignore already
+    # names) present, which shipped anyway: a submodule's own .gitignore
+    # is not what keeps its debris out, this list is. Both submodules'
+    # entries below, flat files and the nested aux directory alike, are
+    # the file list `./autogen.sh && ./configure` actually wrote at each
+    # pin (btclib-org/btclib-secp256k1#611), not a name reasoned about
+    # from upstream's own Makefile.am: none of these paths exists until
+    # those commands are run, so a stale entry matches nothing and fails
+    # nothing. An entry matching a file a submodule tracks would ship an
+    # sdist without that file with check-sdist itself blind to the loss,
+    # its hatchling plugin reading this very list ([tool.check-sdist]
+    # below) and subtracting what it matches from the tracked files it
+    # reports missing regardless of that table's own mode
+    # (btclib-org/btclib-secp256k1#655) -- .pre-commit-config.yaml's
+    # sdist-exclude-tracked hook is what actually fails on that entry,
+    # matching this list against every tracked file before check-sdist
+    # ever runs. /COPYRIGHT above is matched on purpose, and is named in
+    # that check's own _DELIBERATE so that it is the one drop the hook
+    # stays quiet about (btclib-org/btclib-secp256k1#770)
+    "secp256k1/autom4te.cache",
+    "secp256k1/aclocal.m4",
+    "secp256k1/configure",
+    "secp256k1/Makefile",
+    "secp256k1/Makefile.in",
+    "secp256k1/config.log",
+    "secp256k1/config.status",
+    "secp256k1/libtool",
+    "secp256k1/libsecp256k1.pc",
+    "secp256k1/autotools-aux/ar-lib",
+    "secp256k1/autotools-aux/compile",
+    "secp256k1/autotools-aux/config.guess",
+    "secp256k1/autotools-aux/config.sub",
+    "secp256k1/autotools-aux/depcomp",
+    "secp256k1/autotools-aux/install-sh",
+    "secp256k1/autotools-aux/ltmain.sh",
+    "secp256k1/autotools-aux/missing",
+    "secp256k1/autotools-aux/test-driver",
+    "secp256k1/autotools-aux/m4/libtool.m4",
+    "secp256k1/autotools-aux/m4/ltoptions.m4",
+    "secp256k1/autotools-aux/m4/ltsugar.m4",
+    "secp256k1/autotools-aux/m4/ltversion.m4",
+    "secp256k1/autotools-aux/m4/lt~obsolete.m4",
+    # secp256k1-zkp (btclib-org/btclib-secp256k1#604), the same risk and
+    # the same aux directory name at its own pin, confirmed the same way
+    "secp256k1-zkp/autom4te.cache",
+    "secp256k1-zkp/aclocal.m4",
+    "secp256k1-zkp/configure",
+    "secp256k1-zkp/Makefile",
+    "secp256k1-zkp/Makefile.in",
+    "secp256k1-zkp/config.log",
+    "secp256k1-zkp/config.status",
+    "secp256k1-zkp/libtool",
+    "secp256k1-zkp/libsecp256k1.pc",
+    "secp256k1-zkp/autotools-aux/ar-lib",
+    "secp256k1-zkp/autotools-aux/compile",
+    "secp256k1-zkp/autotools-aux/config.guess",
+    "secp256k1-zkp/autotools-aux/config.sub",
+    "secp256k1-zkp/autotools-aux/depcomp",
+    "secp256k1-zkp/autotools-aux/install-sh",
+    "secp256k1-zkp/autotools-aux/ltmain.sh",
+    "secp256k1-zkp/autotools-aux/missing",
+    "secp256k1-zkp/autotools-aux/test-driver",
+    "secp256k1-zkp/autotools-aux/m4/libtool.m4",
+    "secp256k1-zkp/autotools-aux/m4/ltoptions.m4",
+    "secp256k1-zkp/autotools-aux/m4/ltsugar.m4",
+    "secp256k1-zkp/autotools-aux/m4/ltversion.m4",
+    "secp256k1-zkp/autotools-aux/m4/lt~obsolete.m4",
+]
+
+[tool.check-wheel-contents]
+# a dynamic (cffi ABI mode) wheel ships the shared libsecp256k1 next to
+# the package, and __init__.py dlopen()s it from there: a non-module at
+# the top level (W003), and therefore a second top-level entry (W009),
+# are exactly what that wheel is supposed to contain
+ignore = ["W003", "W009"]
+
+[tool.check-sdist]
+# check-sdist reads [tool.hatch.build.targets.sdist]'s exclude list
+# above through its own hatchling.build plugin, so this table holds
+# only what that plugin does not reach: hatchling's sdist target also
+# drops whatever the tree's own VCS-ignore files match, independently
+# of the exclude list, and check-sdist's plugin does not read
+# .gitignore to explain the gap.
+#
+# git-only names a tracked file the archive leaves out, for check-sdist
+# to subtract from the tracked files it would otherwise report missing.
+# No tracked file is VCS-ignored here -- `git ls-files -i -c
+# --exclude-standard` answers empty -- so the table carries no entry
+# (btclib-org/btclib-secp256k1#743). .gitignore's own comment beside
+# .python-version is why: that file is tracked and paired with
+# requires-python on purpose, and restoring an ignore rule for it would
+# be undoing that decision, not accounting for an existing gap.
+
+# PEP 735 groups, resolved by uv (or by pip --group): they replace the
+# hatch environments, which duplicated what nox and pre-commit already
+# did. The authoritative versions of the linters remain the revisions
+# pinned in .pre-commit-config.yaml, which is the gate; the ones here
+# are for editor integration and ad hoc runs
+[dependency-groups]
+# Every entry below declares a lower bound, and `uv lock --resolution
+# lowest-direct` is what reads them: it takes each one down to its own
+# bound rather than to the oldest release the index still serves, which
+# is where an unbounded entry sends it instead (btclib-secp256k1#875).
+# deps-oldest.yml is the workflow that runs that resolution, and it
+# installs `--group test` alone, so the run behind `test`'s own floors is
+# deps-oldest.yml itself. For a group it does not install, the run behind
+# the number is that group's own consumer, and every one of them runs at
+# the interpreter `.python-version` pins: lint.yml's pre-commit step,
+# docs.yml's sphinx-build, mutation.yml's cosmic-ray session, and
+# test.yml's wheel-building and dist-checking jobs for `build` and
+# `check`.
+#
+# `sphinx` resolves to more than one version in uv.lock, split by
+# `python_full_version`, and no workflow above runs it at a version other
+# than the one uv.lock resolves for the interpreter `.python-version`
+# pins. Its bound sits instead at or under the oldest version uv.lock
+# resolves for `requires-python`'s own floor: a bound above that breaks
+# the ordinary, unbounded resolution for that interpreter rather than
+# only `uv lock --resolution lowest-direct`, uv's own lock being
+# universal across the whole `requires-python` range regardless of which
+# group a workflow installs.
+#
+# A floor here is meant to sit at or under the resolution, and nothing
+# re-widens one: dependabot's `uv-lock` hook does not upgrade it, and
+# deps-latest.yml's `uv lock --upgrade` moves uv.lock's own resolution
+# and never this file's text. A number that was the resolution when it
+# was written stays a number some run did exercise, which is the
+# property that does not decay -- btclib-org/btclib-node#761 settled the
+# same question there, and this comment carries its reasoning over.
+#
+# pytest-randomly needs no flag: installed, it shuffles the file order and
+# prints the seed, and `-p no:randomly` puts the order back to reproduce a
+# failure against it. What it guards is the one thing a green suite cannot
+# report about itself, whether a test passes because of what ran before it
+# -- which here is not hypothetical: the context is created once at import
+# and randomized, and tests/concurrency_test.py shares it across threads,
+# so an order that happens to work is an order this suite could not
+# distinguish from one that has to
+# pathspec is no test tool: tests/sdist_exclude_test.py imports
+# .github/scripts/check_sdist_exclude.py at module scope, and that
+# script matches the sdist exclude list with pathspec, the library
+# check-sdist's own hatchling plugin matches it with. Absent from this
+# group the file is a collection error rather than a skipped test, and
+# a collection error fails every cell of the matrix
+# (btclib-org/btclib-secp256k1#655)
+# cibuildwheel is no test tool either: tests/interpreters_test.py runs
+# `--print-build-identifiers` for the free-threaded identifiers
+# [tool.cibuildwheel] builds, which no file of this tree spells. The floor
+# is the oldest release whose `cibuildwheel --print-build-identifiers
+# --platform linux` lists one for that configuration. Where cibuildwheel
+# is absent or older the test reads a skip, not an error -- in the wheel
+# test and the sdist test, whose environments carry only what their own
+# lists name -- and it reads the floor out of this entry rather than
+# restating it
+test = [
+    "cibuildwheel>=3.1.0",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "pytest-randomly>=5.0.0",
+    "pathspec>=1.1.1",
+]
+# the mypy hook of .pre-commit-config.yaml declares what the checked
+# files import, because it runs in its own isolated environment; running
+# mypy from this environment has to find the same things, or it reports
+# errors the gate does not (and passes what the gate would reject)
+lint = [
+    "pre-commit>=4.6.2",
+    "ruff>=0.16.7",
+    "mypy>=2.3.1",
+    "types-cffi>=2.1.0.20260827",
+    "hatchling>=1.32.0",
+]
+# what the wheel jobs build with, for the same reason as the check group
+# below: these decide what the artifacts are. cibuildwheel picks the
+# interpreters, the manylinux images and the identifiers the skip in
+# [tool.cibuildwheel] names, so a release of it reshapes that matrix;
+# auditwheel and delocate decide the platform tag of the dynamic wheel,
+# which is the file name pip matches against. With the versions pinned by
+# uv.lock and moved by dependabot, a release of any of them is a pull
+# request that runs the matrix, instead of a matrix that breaks on a
+# morning nothing here changed
+build = [
+    "build>=1.6.1",
+    "cibuildwheel>=2.23.4",
+    "auditwheel>=6.8.2",
+    "delocate>=0.13.0",
+]
+# what the check-dist job validates the distribution files with. A group,
+# rather than uvx fetching each tool at run time, so that the versions are
+# the ones uv.lock pins and dependabot moves: pyroma is run with --min 10,
+# and a release of pyroma adding a test is otherwise enough to fail a
+# release that changed nothing. `uv run --only-group check` omits the
+# project itself, so asking for these compiles no extension.
+# The pyroma hook of .pre-commit-config.yaml runs from this group as well,
+# rating the source tree where check-dist rates the sdist
+check = [
+    "twine>=7.0.0",
+    "check-wheel-contents>=0.6.3",
+    # a specifier naming a pre-release is what lets uv resolve one, and
+    # 5.1b2 is one
+    "pyroma>=5.1b2",
+    # pyroma builds the project it is pointed at to read its metadata, and
+    # asks `build` to do it without isolation first, which imports the
+    # backend out of this environment. Absent from it, the build falls
+    # back to an isolated one that resolves [build-system]'s requires from
+    # an index. This is that requirement's hatchling, and
+    # tests/hook_pins_test.py fails when the two part: section 12 of the
+    # organization standard asks that a hook building the project use a
+    # backend [build-system] admits
+    "hatchling>=1.27,<2,!=1.32.3",
+]
+# mutation testing, which asks what coverage cannot: a line the suite
+# executes is not a line the suite checks. Its own group and not part of
+# test, because every cell of the matrix installs that one and none of them
+# runs this -- the scheduled mutation workflow is the only consumer, and it
+# asks for --group test as well, cosmic-ray shelling out to pytest
+mutation = ["cosmic-ray>=8.7.0"]
+# myst-parser reads the four root markdown files docs/source/*_link.md
+# includes, furo is the html theme docs/source/conf.py names -- section 2
+# of the organization standard, over sphinx_rtd_theme, the theme a Read
+# the Docs project starts with by default and not a reason to keep it --
+# and sphinx itself compiles this package to autodoc it: the reason the
+# environment section of CONTRIBUTING.md and the git submodule matter
+# here in a way they do not for a sibling repository's own pure Python
+# build
+docs = ["furo>=2025.12.19", "myst-parser>=4.0.1", "sphinx>=8.1.3"]
+dev = [
+    { include-group = "test" },
+    { include-group = "lint" },
+    { include-group = "build" },
+    { include-group = "check" },
+    { include-group = "docs" },
+    { include-group = "mutation" },
+]
+
+[tool.uv]
+# the oldest uv that may read uv.lock, at the ceiling rather than safely
+# below it -- section 1 has the argument and section 15 the command that
+# re-derives the ceiling
+required-version = ">=0.12.17"
+
+[tool.mypy]
+# the package ships py.typed: its annotations are what the library
+# downstream of these bindings type-checks against, so a wrong one
+# propagates
+strict = true
+show_column_numbers = true
+# the optional error codes strict does not turn on: section 6 of the
+# organization standard lists them, the same list in every repository
+# that runs mypy (btclib-org/.github#165). A code that finds nothing
+# here is a ratchet, and the line it would catch is the one written
+# after the survey
+enable_error_code = [
+    "deprecated",
+    "exhaustive-match",
+    "explicit-override",
+    "ignore-without-code",
+    "mutable-override",
+    "possibly-undefined",
+    "redundant-expr",
+    "redundant-self",
+    "truthy-bool",
+    "truthy-iterable",
+    "unimported-reveal",
+    "unused-awaitable",
+]
+# a flag of its own rather than an error code, so not in the array
+# above; section 6 asks for it beside the list
+warn_unreachable = true
+# stubs/_btclib_secp256k1.pyi describes the cffi boundary; without it
+# ffi and lib are Any and every wrapper checks out vacuously
+mypy_path = "stubs"
+# the floor requires-python declares, and not the interpreter that happens
+# to run the check. Without this key mypy targets the 3.15 of
+# .python-version, and a typing construct absent from the oldest supported
+# interpreter is then invisible to it: an annotation is deferred by
+# `from __future__ import annotations`, but a type *alias* is an ordinary
+# assignment, so `X | None` at module level is a TypeError before 3.10 that
+# no static check sees. Aimed at the floor, mypy reports it itself instead
+# of leaving it to whichever cell of the matrix dies at collection.
+# Keep the two in step: raising requires-python is what moves this
+python_version = "3.11"
+exclude = [
+    "^build/",
+    "^secp256k1/",
+    "^secp256k1-zkp/",
+]
+
+[[tool.mypy.overrides]]
+# not a dependency and not a comparand either, now that the benchmark
+# that compared against one lives in btclib-benchmarks: `secp256k1` here
+# is the vendored C tree, which without this entry is picked up as a
+# namespace package of the same name
+module = ["secp256k1"]
+follow_imports = "skip"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# atheris is pre-installed in ClusterFuzzLite's builder image, the one
+# place fuzz/fuzz_*.py runs, and is declared in no dependency group
+# here: resolved to Any, it leaves everything else a harness calls under
+# the strict check above
+module = ["atheris"]
+ignore_missing_imports = true
+
+# the two spell checkers of .pre-commit-config.yaml. codespell reads whole
+# words against a curated list and finds nothing here, the vendored tree
+# never reaching it because pre-commit passes only the files tracked in
+# this repository; the seeds below are the one thing it has to be told.
+# typos splits identifiers, so it has two things to be told, and both are
+# measured rather than assumed -- with the rule off, `uvx typos` reports
+# exactly these and nothing else in what this repository owns
+[tool.codespell]
+# fuzz/corpus/'s seeds are octets, not prose, and a seed whose octets
+# happen to pass pre-commit's own text filter reaches this hook as text:
+# it runs with --write-changes, so a "misspelling" it read there would be
+# rewritten into a different input
+skip = "fuzz/corpus/*"
+
+[tool.typos.files]
+# the vendored trees, as for mypy above and ruff below. Not needed for the
+# hook, which is handed tracked files only, but a bare `uvx typos` otherwise
+# answers with thousands of findings in C that is not ours to correct.
+# The seeds, for the reason `[tool.codespell]` gives: the hook's
+# --force-exclude is what makes this entry hold for a path pre-commit
+# names on the command line
+extend-exclude = ["secp256k1/", "secp256k1-zkp/", "fuzz/corpus/**"]
+
+[tool.typos.default.extend-words]
+# the macOS wheel-repair tool, named in __init__.py and in test.yml beside
+# auditwheel: a real name, and one no spelling of it can avoid
+delocate = "delocate"
+# ruff's flake8-copyright rule code, named above in `select` and in the
+# comment below it, and again in CHANGELOG.md's prose: a real rule code,
+# not a typo of "copy" or "cpu"
+cpy = "cpy"
+
+[tool.typos.default]
+# a quoted run of hexadecimal digits is a vector, not a word. The rule has
+# to be this rather than a minimum length, which is what would do for a
+# base58 or bech32 literal: the formatter wraps a long hex string across
+# adjacent literals, so `"ede781"` is six characters of a signature and
+# reads to a checker that splits identifiers as a misspelling of "edge".
+# Ignored by shape and not by file, the vectors sitting beside prose that
+# has to stay checked -- and this hook fixes in place, so with the rule off
+# it rewrites the vector it read
+extend-ignore-re = ['"[0-9a-fA-F]+"']
+
+[tool.typos.type.verbatim]
+# a backticked span in these files quotes its text rather than using it,
+# an abbreviated commit sha among them: the dictionary reads a run of its
+# hex digits as a misspelt word, and this hook runs with --write-changes,
+# so without this table it rewrites the citation into one naming no commit
+extend-glob = ["CHANGELOG.md", "RELEASE_NOTES.md", ".pre-commit-config.yaml"]
+extend-ignore-re = ['`[^`]*`']
+
+[tool.ruff]
+# the vendored upstream sources are not ours to lint or reformat
+extend-exclude = ["secp256k1", "secp256k1-zkp"]
+
+[tool.ruff.format]
+# markdown is the formatter's alone: `ruff check --show-files .` lists no
+# `.md` and `ruff check` answers "No Python files found" when handed one,
+# while `ruff format` reflows the python fences of every markdown file it
+# reaches. The gate reaches none of them, ruff-pre-commit's own hooks
+# carrying `types_or: [python, pyi, jupyter]`, so without this key a bare
+# `ruff format .` rewrites SECURITY.md's fenced examples -- whose trailing
+# comments are aligned to each other -- with nothing red to say so. This is
+# the reason `[tool.typos.files]` gives for its own entry: the bare
+# invocation answers what the hook answers. It sits under `format` rather
+# than in `[tool.ruff]` above because that is the scope the two commands
+# measure
+exclude = ["*.md"]
+
+# one preview style is worth the instability: a call whose sole argument
+# is a collection keeps that collection's bracket on the call's own line,
+# rather than indenting it a level further in and closing it twice. It
+# reads as the single expression it is. Measured before being taken --
+# `ruff format --preview --diff .` reformats one hunk, in
+# tests/properties_test.py -- and that is the whole of the cost today.
+# The cost later is the point to remember: an unstable style is one the
+# next rev of the hook can change underneath the tree, so bumping
+# ruff-pre-commit is a `--diff` before it is a version number
+preview = true
+
+[tool.ruff.lint]
+# these two go together, and neither means what it says alone. Naming a
+# rule instead of coding it -- see the comment above `ignore` -- is itself
+# a preview feature, so the first line is the price of the second, and on
+# its own it would also turn on every rule ruff is still designing. The
+# second takes those back off: with it a preview rule runs only where it
+# is named exactly, and every entry of `select` below is a family, which
+# no preview rule can be reached through. So the gate stays the stable
+# rule set it was, and what preview buys here is a config that reads
+preview = true
+explicit-preview-rules = true
+select = ["ALL"]
+# here and in per-file-ignores below, a rule is named rather than coded.
+# `select` above has no choice, a family having no name form, but an entry
+# that suppresses one rule can say which one: the reason then sits in the
+# comment and the rule in the entry, rather than the reason in the comment
+# and a lookup in the entry. RUF201 asks for exactly this and is preview,
+# so nothing here enforces it -- what does is that the next reader of this
+# file should not have to look each code up to find out what was allowed
+ignore = [
+    # ruff's own docs/formatter.md, under "Conflicting lint rules": the
+    # formatter's own rewriting undoes what this rule asks for, so
+    # selecting it is a lint failure the next `ruff format` produces
+    # again. The list is the vendor's and does not change with this
+    # tree; `ruff format --check .` prints the same warning directly.
+    # D203 needs no entry here -- the pep257 convention below already
+    # disables it in favour of D211, the other half of the pair ruff
+    # calls incompatible, without printing the warning ruff reserves
+    # for a pair nothing has settled -- and ISC002 needs none either:
+    # the vendor's own conditional is "if used without ISC001", and
+    # ISC001 stays selected here
+    "missing-trailing-comma",
+    # comparing against a key, signature or hash length (32, 33, 64, 65)
+    # is not a magic value: it is the domain
+    "magic-value-comparison",
+    # the message of an exception belongs where it is raised, not in a
+    # class defined to carry it: these wrappers raise ValueError and
+    # RuntimeError, which is what a caller catches
+    "raise-vanilla-args",
+    # flake8-errmsg asks the same message to be built in a named variable
+    # before a raise names it; the entry above already gives the reason
+    # this tree keeps the opposite -- every one of these wrappers raises
+    # ValueError or RuntimeError explaining what went wrong at the one
+    # place that knows it. dot-format-in-exception finds nothing today,
+    # this codebase having no `.format()` call left for it to catch, but
+    # the same argument declines it as it would the other two rather
+    # than leaving a hole a `.format()` call could reopen unnoticed
+    "raw-string-in-exception",
+    "f-string-in-exception",
+    "dot-format-in-exception",
+    # flake8-boolean-trap: a caller reading `foo(x, True)` cannot tell
+    # what the positional argument means without opening `foo`'s
+    # signature. This wrapping layer disagrees at scale on purpose --
+    # `compressed` and its like are ordinary positional/default
+    # parameters mirroring libsecp256k1's own C signature; a boolean
+    # this binding invents on top of it, `grind` in dsa.sign for
+    # instance, is named and explained at that same signature, next to
+    # the ones that do mirror it. Either way what a positional `True`
+    # means is the docstring already open, not a blind read of `foo`
+    "boolean-type-hint-positional-argument",
+    "boolean-default-value-positional-argument",
+    "boolean-positional-value-in-call",
+    # flake8-self: a caller outside the library reaching into a private
+    # attribute is what this rule is for, and it cannot tell that caller
+    # from the three shapes this tree actually has -- a test verifying an
+    # implementation detail on purpose (`_secnonce`, `_keypair`), a
+    # sibling module reaching into another module's private state the way
+    # `xonly._parsed` calls `keys._parsed` (ARCHITECTURE.md), or
+    # `scripts/hatch_build.py` reading cffi's own `FFI._assigned_source`,
+    # which cffi exposes no public accessor for
+    "private-member-access",
+    # flake8-annotations' any-type: measured against every site it finds,
+    # not assumed. Three shapes and no others -- the cffi boundary itself
+    # (`ffi`/`lib` in stubs/_btclib_secp256k1.pyi and in
+    # scripts/cffi_build.py, and `_load_lib`'s `module` in __init__.py,
+    # which ARCHITECTURE.md explains takes a stand-in module a real
+    # annotation cannot name), a signature this tree does
+    # not own -- `scripts/hatch_build.py` overriding hatchling's own
+    # build-hook method, docs/source/conf.py overriding
+    # `SphinxPostTransform.run` -- and a test sweeping every entry point
+    # of the boundary through one generic helper (tests/bytes_like_test.py)
+    # or standing in for an arbitrary one (tests/verified_signing_test.py)
+    # rather than spelling out the callable union each call site would
+    # otherwise need
+    "any-type",
+    # flake8-type-checking asks that an import used only in an
+    # annotation move behind `if TYPE_CHECKING:`, so that it costs
+    # nothing at runtime. Measured against this tree's own documentation
+    # build rather than assumed: applying ruff's own TC001-003 fix
+    # across src/ moves every import it flags there behind the guard,
+    # and `sphinx.ext.autodoc` can then no longer resolve the deferred
+    # annotations that named them -- `BytesLike` included -- so `-n`
+    # fails the build on cross-references it does not raise without the
+    # change. `git restore --source=HEAD --worktree -- src tests`
+    # before and after is the control that isolates it to the
+    # `TYPE_CHECKING` guards rather than to anything else in the diff.
+    # `TC004` and `TC005` -- the hygiene of a `TYPE_CHECKING` block
+    # already there -- find nothing: __init__.py's own such block holds
+    # a bare annotation (`__version__: str`), not an import, so neither
+    # rule has anything to check
+    "typing-only-first-party-import",
+    "typing-only-third-party-import",
+    "typing-only-standard-library-import",
+    "runtime-cast-value",
+    # Perflint's try-except-in-loop alone, matching this tree's own
+    # search loops -- `_load_lib`'s search over the candidate shared
+    # objects a dynamic build ships, `tests/vectors_test.py`'s sweep over
+    # a vector's own error cases -- where the exception is the loop's
+    # own control flow, not a mistake a second pass would remove
+    "try-except-in-loop",
+    # TD disciplines the format of a TODO/FIXME/XXX marker -- HACK draws
+    # no TD diagnostic at all -- that FIX above already refuses outright
+    # wherever one opens a comment, the four of them alike: this
+    # repository finishes what it starts, so nothing here can carry a
+    # marker for TD to discipline the format of in the first place
+    "invalid-todo-tag",
+    "missing-todo-author",
+    "missing-todo-link",
+    "missing-todo-colon",
+    "missing-todo-description",
+    "invalid-todo-capitalization",
+    "missing-space-after-todo-colon",
+    # zero-finding for a construct this codebase does not contain,
+    # measured with `ruff check . --select <code>` rather than assumed:
+    # DTZ without a naive datetime, G and LOG without logging, ASYNC
+    # without async code, NPY without NumPy, EXE without a shebang
+    # anywhere left to check against an executable bit
+    # (`check-shebang-scripts-are-executable` already does, in
+    # .pre-commit-config.yaml), AIR without Airflow, DJ without Django,
+    # FAST without FastAPI, ICN without an import this tree gives a
+    # non-conventional alias, INT without gettext, PD without pandas,
+    # YTT without a `sys.version` comparison (`sys.version_info >= (3,
+    # 12)` is the constant-tuple comparison the rule does not flag), and
+    # SLOT without a tuple or NamedTuple subclass
+    "DTZ",
+    "G",
+    "LOG",
+    "ASYNC",
+    "NPY",
+    "EXE",
+    "AIR",
+    "DJ",
+    "FAST",
+    "ICN",
+    "INT",
+    "PD",
+    "YTT",
+    "SLOT",
+]
+
+[tool.ruff.lint.flake8-pytest-style]
+# the names of a parametrize are a signature, and the comma-separated
+# string is how pytest itself writes one: with five of them the tuple form
+# wraps the decorator over three lines to say the same thing
+parametrize-names-type = "csv"
+
+# what keeps the docstrings of the boundary complete, ruff having no
+# rule for a missing argument: pydocstyle below asks that a docstring
+# exists, and this asks that it says what the function takes and gives
+# back. Run as a hook, over src/btclib_secp256k1 only; see the comment
+# there for the scope
+[tool.pydoclint]
+# napoleon renders it, which is what docs/source/conf.py enables, so the
+# sections here are the ones sphinx already understands
+style = "google"
+# the types are in the signature, and mypy is strict: repeating them in
+# the docstring is a second place to be wrong
+arg-type-hints-in-docstring = false
+check-return-types = false
+# false, and what decides it is the form a docstring's contract takes
+# here: an `Args` list naming each parameter and a `Returns` list
+# stating what comes back, the summary above them free to say only
+# what the call does. Left at the default, a docstring that already
+# carries those sections is held against the signature, and one with
+# neither -- `wipe`, taking and returning nothing -- is skipped along
+# with it; `false` asks the same question of both, and the two `wipe`
+# methods answer it by having nothing to state
+skip-checking-short-docstrings = false
+# and this one is off, deliberately. It compares the Raises section with
+# the `raise` statements of the body, and these wrappers raise mostly
+# through what they call -- _scalar.scalar, keys.parse, keys.serialize --
+# so what a caller catches is not what the body raises. Kept on, it would
+# force each docstring to document its own body instead of its contract,
+# which is the opposite of what these sections are for
+skip-checking-raises = true
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.pycodestyle]
+# the formatter owns the code width (88 columns); E501 only guards
+# against the runaway comments and URLs it cannot wrap
+max-line-length = 130
+# and this is the width a standalone comment and a docstring are held
+# to, which neither the formatter nor E501 sets. ruff-format reflows
+# code and never a comment or a docstring, and E501 above bounds every
+# line at 130, so 80 is the standard nothing else here holds the
+# reasoning to -- in a repository that is mostly prose. It is the width
+# markdownlint gives every markdown file here, and W505, already in the
+# selected "W" set, applies it: the rule is inert until this line names
+# a length, and with one named an overlong standalone comment or
+# docstring line is a ruff-check finding, with the same amnesty for an
+# unbreakable URL that markdownlint gives
+max-doc-length = 80
+
+[tool.ruff.lint.mccabe]
+# see https://en.wikipedia.org/wiki/Cyclomatic_complexity
+max-complexity = 10
+
+[tool.ruff.lint.per-file-ignores]
+# asserts are the point of a test suite. undocumented-public-function is
+# deliberately *not* here: a test function states what it verifies -- the
+# property, the published vector, the failure mode -- which its name
+# cannot, and which is what a reader deciding whether a red test matters
+# needs. The name says which call is under test; the docstring says what
+# about it is being claimed
+"tests/*" = ["assert"]
+# the build scripts drive CMake and load the cffi build description by
+# exec(): both are inherent to compiling a C dependency from a build
+# backend, and neither ever sees untrusted input.
+# suspicious-subprocess-import is deliberately *not* here: it is a preview
+# rule, and `explicit-preview-rules` above reaches one only where a line
+# names it exactly, which no line does. An exemption for a check nobody
+# runs claims a decision nobody took. Naming the rule in `select` is what
+# calls for the exemption, and for a wider one than this entry: `import
+# subprocess` is not confined to this file.
+# implicit-namespace-package joins it for the reason the glob entry below
+# gives: a standalone entry point, never imported as a package
+"scripts/cffi_build.py" = [
+    "subprocess-without-shell-equals-true",
+    "start-process-with-partial-path",
+    "implicit-namespace-package",
+]
+# T20 is selected for the library, which writes to no stream of its own;
+# the warning printed here is what a wheel builder reads in its own log,
+# which is the case that rule is not about. implicit-namespace-package is
+# the same exemption as scripts/cffi_build.py's, for the same reason
+"scripts/hatch_build.py" = [
+    "exec-builtin",
+    "print",
+    "implicit-namespace-package",
+]
+# docstring-in-stub asks that a stub carry none, on the assumption that
+# one lives in the .py file the stub mirrors -- true everywhere else, and
+# not here: the extension this stub describes is compiled, not
+# written, so this module docstring is the only place its own
+# reasoning (why ffi and lib need one, why lib stays Any) can live
+"stubs/_btclib_secp256k1.pyi" = ["docstring-in-stub"]
+# the same exemption, the same reason, for the flagged extension's own
+# stub (btclib-org/btclib-secp256k1#605)
+"stubs/_btclib_secp256k1_zkp.pyi" = ["docstring-in-stub"]
+# flake8-no-pep420: every file here is a standalone entry point a workflow
+# step or a hook invokes with "python .github/scripts/<name>.py", never an
+# import -- the directory holds no __init__.py because it is not a
+# package, and adding one to satisfy this rule would make it look like one
+".github/scripts/*.py" = ["implicit-namespace-package"]
+# BEHIND, SKIPPED and the all-clear line are what a monthly run's log
+# says happened, the issue it opens or closes being the same report a
+# second way; matching a sibling repository's own T201 exemption for
+# the same script
+".github/scripts/check_vendored_vectors.py" = ["print"]
+# and the submodule pin check, which is a hook before it is anything
+# else: what it prints is what pre-commit shows the developer whose
+# commit it just refused, and stderr is where all of that goes
+".github/scripts/check_submodule_pin.py" = ["print"]
+# and the submodules-checked-out check, a hook for the same reason and
+# with the same exemption (btclib-org/btclib-secp256k1#612)
+".github/scripts/check_submodules_checked_out.py" = ["print"]
+# and the sdist-exclude-tracked check, a hook for the same reason and
+# with the same exemption (btclib-org/btclib-secp256k1#655)
+".github/scripts/check_sdist_exclude.py" = ["print"]
+# the wheel-content check, whose complaints are `::error::` workflow
+# annotations on stderr and whose all-clear line on stdout is what a
+# green run of check-dist shows in its own log: same exemption, same
+# reason as the two scripts above
+".github/scripts/verify_wheel_contents.py" = ["print"]
+# the sdist normalizer, whose usage message and per-archive report are
+# what the workflow step that runs it shows in its own log: same
+# exemption, same reason as the three scripts above
+".github/scripts/normalize_sdist.py" = ["print"]
+# the wheel reproducibility check, whose usage message and per-member
+# `::error::` annotations are what the workflow step that runs it shows
+# in its own log: same exemption, same reason as the scripts above
+".github/scripts/check_wheel_reproducibility.py" = ["print"]
+# and the bill of materials generator, whose usage message and the path
+# it names on success are what the build-sdist step that runs it shows in
+# its own log: same exemption, same reason as the scripts above
+".github/scripts/generate_sbom.py" = ["print"]
+# reads one top-level function definition out of scripts/cffi_build.py
+# and execs it on its own, never the whole module: the same reason
+# tests/module_flags_test.py reads the syntax tree instead of importing
+# it, that module's own top level constructing an extension whose
+# __init__ deletes the CMake build directory. exec() here runs real code
+# rather than a hand-copied reimplementation of it, and reaches nothing
+# but shlex, which is supplied
+"tests/cffi_build_test.py" = ["exec-builtin"]
+# one keyword per sdist member field the script and its tests care
+# about; splitting it into a dataclass would move the same seven names
+# one level down rather than removing any of them
+"tests/normalize_sdist_test.py" = ["too-many-arguments"]
+# one keyword per pin field the submodule-pin check and its tests care
+# about, both submodules' -- the same reason as normalize_sdist_test.py
+# above
+"tests/submodule_pin_test.py" = ["too-many-arguments"]
+# each fake method's own argument count is libsecp256k1-zkp's C
+# signature, which the fake stands in for and cannot shorten without
+# ceasing to be a stand-in for that call
+"tests/zkp_rangeproof_test.py" = [
+    "too-many-arguments",
+    "too-many-positional-arguments",
+]
+# sphinx imports this one by its own convention, reading docs/source/ as
+# a configuration directory rather than a package; the same reason
+# excludes the standalone scripts above
+"docs/source/conf.py" = ["implicit-namespace-package"]
+# ClusterFuzzLite's build.sh hands each harness to PyInstaller, never to
+# an import: the same exemption as .github/scripts/*.py above, and no
+# __init__.py, so as not to present fuzz/ as a package
+"fuzz/*.py" = ["implicit-namespace-package"]
+
+[tool.ruff.lint.flake8-copyright]
+# notice-rgx is COPYRIGHT's text as one regex, anchored with ^ so a
+# match has to open the file rather than merely occur somewhere in its
+# first 4096 bytes -- unanchored, an import or a docstring placed above
+# the notice would still pass. `(#![^\n]*\n)?` ahead of the notice means
+# only a `#!` line may precede it, so the notice still either opens the
+# file or immediately follows that line, and nothing else may sit
+# between byte zero and it.
+# Which files carry the notice is ruff's own selection rather than a
+# `files:` pattern beside the hook: ruff lints .pyi by default, so
+# stubs/_btclib_secp256k1.pyi answers to this regex like every .py file,
+# with no second extension named beside it.
+notice-rgx = "^(#![^\\n]*\\n)?# Copyright \\(c\\) The btclib developers\\n# Distributed under the MIT software license, see the accompanying\\n# LICENSE file or https://opensource\\.org/license/mit for the full text\\."
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# belt and braces: testpaths is ignored when pytest is given explicit
+# paths, and both vendored trees carry python files of their own --
+# secp256k1-zkp's tools/ directory names two of them
+# (test_vectors_musig2_generate.py, tests_wycheproof_generate_ecdsa.py)
+# that match pytest's own collection glob
+norecursedirs = ["secp256k1", "secp256k1-zkp"]
+# --cov is here so that the ratchet in [tool.coverage.report] is what a
+# bare `uv run pytest` measures rather than something only the coverage
+# job of test.yml reaches, a gate CI alone runs being one a change meets
+# after it is pushed. What it costs is that fail_under applies to a
+# partial report too, and tests/conftest.py is where that is answered.
+#
+# Its position is load-bearing, and this is the line that says so: --cov
+# takes an *optional* value, so as the last token here it is handed
+# whatever the command line goes on to give, and
+# `pytest tests/keys_test.py` becomes `--cov=tests/keys_test.py` with no
+# path left to select on. Anywhere but last is safe, and --durations=8
+# after it is what keeps it that way -- section 7 of the organization
+# standard names both flags in the addopts it gives
+addopts = "-ra --strict-markers --strict-config --cov --durations=8"
+# --strict-markers is what this registers against: an unregistered
+# @pytest.mark.zkp would otherwise fail collection with no clue beyond
+# the name. Needs BTCLIB_LIBSECP256K1_ZKP=true, which is a build-time
+# question a marker alone cannot answer at collection time -- what tells
+# the flagged and unflagged runs apart is
+# `pytest.importorskip("_btclib_secp256k1_zkp")`, at the top of a marked
+# module (#607 onward) or before the call in a marked test: the coverage
+# job's static and dynamic steps, neither of which sets the flag, collect
+# the marked modules and tests and report them skipped rather than
+# erroring, and its own third step and the separate `zkp` job, both
+# flagged and both passing `-m zkp`, are where the import succeeds and
+# the marker actually selects them
+markers = [
+    "zkp: needs BTCLIB_LIBSECP256K1_ZKP=true (btclib-org/btclib-secp256k1#605)",
+]
+# an unknown warning is a deprecation the spread of interpreters will turn
+# into a breakage, so make it fail while it is still cheap
+filterwarnings = ["error"]
+xfail_strict = true
+
+[tool.coverage.run]
+# every tree is named, rather than left to --cov's default of "whatever
+# got imported": a module no test imports is then reported at 0% instead
+# of being absent from the table, which is the miss worth catching. tests
+# is measured for the same reason it is written -- a helper nothing calls
+# and a fixture branch nothing takes are dead code carrying the authority
+# of a test, and only a measured suite says so. .github/scripts is not an
+# importable package, and coverage measures it by path all the same
+source = ["btclib_secp256k1", "tests", ".github/scripts"]
+# the interesting misses are the guard clauses of a wrapper: statement
+# coverage alone would call a half-tested if fully covered
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+# matching a sibling repository's own choice: with fail_under = 100
+# below, coverage special-cases the comparison so nothing short of an
+# exact 100.00% passes, and this is what makes the per-file table say
+# the same thing the exit code does, rather than rounding a shortfall
+# into a "100%"
+# that reads as green
+precision = 2
+# a ValueError the bindings raise reports an argument out of the
+# domain, and every one of them is exercised. The first pattern below
+# excludes a RuntimeError raised with a literal message ending in
+# "failed", the shape of a libsecp256k1 failure the wrapper's docstring
+# documents as unreachable. Where an input reaches one -- an object the
+# caller holds that libsecp256k1 refuses, a blinding factor not below
+# the order, a fake library's refusal -- the message is bound to `msg`
+# before the raise, so the pattern does not match it and a test drives
+# it. tests/coverage_exclusion_test.py fails on a matched raise inside a
+# function taking a CData argument; that the others are unreachable is
+# their docstrings' claim, and no gate checks it
+# (btclib-org/btclib-secp256k1#1030)
+# `raise AssertionError` joins it now that tests are measured, and for a
+# stronger reason than reachability: it is how a stub substituted to
+# prove a path is never taken reports being called, so executing that
+# line is the run in which the suite is red. A green run cannot cover
+# it, and no amount of testing would. The package raises none, so the
+# entry reaches the two stubs in tests/ and nothing shipped
+exclude_also = [
+    'raise RuntimeError\("[^"]* failed"\)',
+    "raise AssertionError",
+]
+# with those excluded the suite reaches every line and every branch, so
+# the ratchet can be the only value that fails on a single new untested
+# one. What meets it is the union the coverage job of test.yml
+# combines, not a run of that job on its own: a build takes one branch
+# of _load_lib and not the other, and btclib_secp256k1.zkp.musig needs
+# the extension only a run setting BTCLIB_LIBSECP256K1_ZKP has. So
+# every run there passes --cov-fail-under=0, and it is the job's
+# Report the union, gated at 100% step that this number gates --
+# section 8 of the organization standard, at "where an optional native
+# dependency splits the code"
+fail_under = 100
+
+[tool.cibuildwheel]
+# pytest-cov beside pytest because addopts carries --cov, and an
+# interpreter without the plugin answers "unrecognized arguments: --cov"
+# and exits before it collects anything. What this run asks is whether
+# the wheel it just built passes, so it turns the measurement off with
+# the --no-cov below: section 8 of the organization standard names that
+# flag as one a job may pass beyond what pyproject.toml holds, and
+# coverage is measured once, on the gate's own cell.
+# pathspec for the reason the `test` group above gives, which is that
+# group's to state and not this one's to restate. What is this list's
+# own is that it is a second environment: cibuildwheel installs what is
+# named here and nothing of that group, so a dependency the suite needs
+# has to be declared twice to be there twice.
+#
+# Each is pinned to the version uv.lock resolves for it: unpinned, this
+# list installs whatever the index holds the day a wheel job runs, with
+# filterwarnings = error in force. tests/hook_pins_test.py fails where
+# an item carries no pin or a pin the lock does not resolve, so a lock
+# update moving one of these has to move this list with it
+# (btclib-org/btclib-secp256k1#1032)
+test-requires = ["pytest==9.1.1", "pytest-cov==7.1.0", "pathspec==1.1.1"]
+test-command = "pytest --no-cov {project}/tests/"
+build-frontend = "build"
+archs = "auto64"
+# PyPy wheels are opt-in since cibuildwheel 3.0
+enable = ["pypy"]
+# no static PyPy wheels on Windows, by design: PyPy is best served by
+# the ABI-mode dynamic wheel (py3-none-win_amd64), the cffi mode
+# recommended on PyPy, which pip falls back to; a static pp3 wheel
+# would take precedence over it and perform worse
+skip = "pp*-win*"
+
+# One C compilation per job instead of one per wheel, without giving up
+# the clean CMake tree every build gets.
+#
+# What that costs today is measured rather than assumed: in run
+# 31942556787 the wheel jobs were 59.5 of the workflow's 81.8
+# runner-minutes, and each of them compiles the whole vendored
+# libsecp256k1 once per wheel it builds -- a wheel per interpreter
+# `requires-python`, `enable` and `skip` leave standing for that job's
+# platform, and one such set per image on Linux, manylinux and
+# musllinux being built separately. `cibuildwheel
+# --print-build-identifiers --platform linux` names them for one
+# platform. scripts/cffi_build.py deletes the CMake directory before
+# every build, deliberately, a stale CMake cache being a configuration
+# nobody asked for; ccache does not have that failure mode, hashing the
+# preprocessed source and the compiler flags rather than trusting a
+# directory to describe itself. So the delete stays and ccache is what
+# stops the compiler repeating that work.
+#
+# CMake initializes CMAKE_C_COMPILER_LAUNCHER from the environment
+# variable of the same name, so no build script changes. The value is a
+# command substitution and not the literal `ccache` because cibuildwheel
+# evaluates these in a shell and CMake reads an empty launcher as none:
+# an image where the install below did not work then builds exactly as
+# it did before. That is the whole of the fallback, and it is why
+# before-all may end in `|| true` without hiding anything -- the
+# alternative is a merge gate that goes red when a package index is
+# having a bad morning.
+#
+# Where the cache goes is ccache's own default, and nothing here sets
+# it: on Linux every interpreter of one image builds inside one
+# container, on macOS inside one job, so the default location is already
+# shared by exactly the builds that repeat each other. Nothing persists
+# across runs and nothing is meant to -- the redundancy being removed is
+# inside a single job, and a cache key that has to know what invalidates
+# a C build is a second way to be wrong for a saving already had
+
+[tool.cibuildwheel.linux]
+# the environment a released static Linux wheel is compiled in, named
+# by the digest of the image's content. A digest is `docker pull`able by
+# anyone and outlives the runner image that hosted the build, so it
+# states that environment to somebody who was never on the machine,
+# which is what RELEASING.md's rebuild section leans on. cibuildwheel
+# resolves its own `manylinux_2_28` and `musllinux_1_2` aliases to
+# these same objects, through a table inside the version uv.lock pins;
+# what naming them here buys is that the image is a line in this file,
+# so a cibuildwheel release moving it is a diff.
+#
+# Nothing updates these. The ecosystems .github/dependabot.yml declares
+# are github-actions, uv and gitsubmodule, and none of them reads a
+# [tool.cibuildwheel] key, so the value moves by hand. What says the
+# time has come is a build failing on an interpreter the pinned image
+# does not carry.
+#
+# x86_64 and aarch64 are what archs = "auto64" above selects on the
+# Linux runners build-cibuildwheel names, and a PyPy identifier's
+# platform tag is `manylinux_x86_64` like a CPython one's, so it reads
+# the key below rather than the `pypy_x86_64` one cibuildwheel also
+# offers.
+manylinux-x86_64-image = "quay.io/pypa/manylinux_2_28_x86_64@sha256:012f4a50472412f18bb2b450c1cce7158434cfae4ae878591c2748a13a30c2be"
+manylinux-aarch64-image = "quay.io/pypa/manylinux_2_28_aarch64@sha256:52e4da6e9348db7cd0b529a827623b62b7c1fe867ba515ae752fa13d41f7f46e"
+musllinux-x86_64-image = "quay.io/pypa/musllinux_1_2_x86_64@sha256:f130bd3e3aebb39abcdec28a89f987f0d31b52d74bac5852318303698e9a5033"
+musllinux-aarch64-image = "quay.io/pypa/musllinux_1_2_aarch64@sha256:1fa8dcacab5e13769abb36028f98bd2c0a1af4dbde492505f774d7f0ce01e87f"
+
+# the musllinux images are Alpine and the manylinux ones RHEL-derived,
+# where ccache is in EPEL rather than in the base repository and the
+# image itself ships no ccache at all -- so the chain is longer than a
+# package name, and it ends in a passthrough for the reason above
+before-all = '''
+command -v ccache \
+  || apk add ccache \
+  || dnf install -y ccache \
+  || { dnf install -y epel-release && dnf install -y ccache; } \
+  || yum install -y ccache \
+  || { printf '#!/bin/sh\nexec "$@"\n' > /usr/local/bin/ccache \
+       && chmod +x /usr/local/bin/ccache \
+       && echo "no ccache here: the launcher is a passthrough"; }
+ccache --version || true
+'''
+environment = { CMAKE_C_COMPILER_LAUNCHER = "ccache" }
+# how SOURCE_DATE_EPOCH reaches the Linux build, and the only way it
+# can: the compile and the auditwheel repair after it both run inside a
+# container, which inherits none of the runner's environment. auditwheel
+# repacks the wheel from an extracted directory and reads the variable
+# for every member it writes, so without this each of them carries the
+# container's clock instead. The value is the workflow's -- the job
+# building the wheel exports it, and cibuildwheel passes a variable that
+# is unset as nothing rather than as empty, so a build with none set is
+# the build it would be without this line. macOS and Windows compile on
+# the host and read the exported variable directly; cibuildwheel applies
+# environment-pass on Linux alone
+environment-pass = ["SOURCE_DATE_EPOCH"]
+
+[tool.cibuildwheel.macos]
+# the runner image ships ccache; asking first is what keeps this from
+# costing a brew round trip there, and the install is what makes it true
+# of a laptop as well
+before-all = '''
+command -v ccache \
+  || brew install ccache \
+  || { printf '#!/bin/sh\nexec "$@"\n' > /usr/local/bin/ccache \
+       && chmod +x /usr/local/bin/ccache \
+       && echo "no ccache here: the launcher is a passthrough"; }
+ccache --version || true
+'''
+environment = { CMAKE_C_COMPILER_LAUNCHER = "ccache" }
+
+# Windows is deliberately not here, and it is 18.9 of those 59.5
+# runner-minutes: the compiler is MSVC, whose support in ccache is
+# recent and partial, and sccache is a second tool to install and pin
+# for a saving nothing has measured on that platform yet

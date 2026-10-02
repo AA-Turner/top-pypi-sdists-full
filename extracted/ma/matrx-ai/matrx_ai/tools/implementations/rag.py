@@ -610,6 +610,7 @@ def _citable_blocks_for_hits(
     import json
 
     from matrx_ai.config import SearchResultContent, TextContent
+    from matrx_ai.config.citations import passage_page_and_label, passage_source_name
 
     meta_hits = copy.deepcopy(hits)
     blocks: list[Any] = []
@@ -617,17 +618,9 @@ def _citable_blocks_for_hits(
         snippet = hit.pop("snippet", "")
         if not snippet:
             continue
-        metadata = hit.get("metadata") or {}
-        pages = hit.get("page_numbers") or []
-        page = int(pages[0]) if pages else None
-        name = (
-            metadata.get("title")
-            or metadata.get("file_name")
-            or metadata.get("name")
-            or metadata.get("source_label")
-            or (hit.get("source_kind") or "Knowledge source")
-        )
-        title = f"{name} — page {page}" if page is not None else str(name)
+        page, page_label = passage_page_and_label(hit.get("page_numbers"))
+        name = passage_source_name(hit) or "Knowledge source"
+        title = f"{name}{page_label}"
         file_id = (
             str(hit["source_id"])
             if hit.get("source_kind") == "cld_file" and hit.get("source_id")

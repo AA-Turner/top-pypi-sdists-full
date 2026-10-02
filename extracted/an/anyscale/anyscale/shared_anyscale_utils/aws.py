@@ -26,15 +26,11 @@ class AwsArn:
             raise ValueError(f"Service is of type {type(self.service)}, not str")
 
         if not isinstance(self.region, (str, type(None))):
-            raise ValueError(
-                f"Region is of type {type(self.region)}, not Optional[str]"
-            )
+            raise ValueError(f"Region is of type {type(self.region)}, not Optional[str]")
 
         if not isinstance(self.account_id, (str, type(None))):
             raise ValueError(
-                "Account ID is of type {}, not Optional[str]".format(
-                    type(self.account_id)
-                )
+                "Account ID is of type {}, not Optional[str]".format(type(self.account_id))
             )
 
         if not isinstance(self.resource_id, str):
@@ -112,9 +108,7 @@ class AwsRoleArn(AwsArn):
         self._validate_role()
 
     @classmethod
-    def from_role_name(
-        cls: Type[_AwsArnT], account_id: str, role_name: str
-    ) -> _AwsArnT:
+    def from_role_name(cls: Type[_AwsArnT], account_id: str, role_name: str) -> _AwsArnT:
         return cls(
             partition="aws",
             service="iam",
@@ -133,14 +127,16 @@ class AwsRoleArn(AwsArn):
 
 
 def get_dataplane_role_arn(
-    account_id: str, cloud_resource_record: Optional[Any],
+    account_id: str,
+    cloud_resource_record: Optional[Any],
 ) -> AwsRoleArn:
-    """ Helper method to get instance role from cloud_resource_record. """
+    """Helper method to get instance role from cloud_resource_record."""
     if cloud_resource_record and cloud_resource_record.aws_iam_role_arns:
         return AwsRoleArn.from_string(cloud_resource_record.aws_iam_role_arns[1])
 
     return AwsRoleArn.from_role_name(
-        account_id=account_id, role_name="ray-autoscaler-v1",
+        account_id=account_id,
+        role_name="ray-autoscaler-v1",
     )
 
 

@@ -1,0 +1,184 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+#
+# BSD 3-Clause License
+
+"""Sandbox factory tests."""
+
+import warnings
+
+import pytest
+
+from code_sandboxes.base import Sandbox, SandboxVariant
+from code_sandboxes.models import SandboxConfig
+from code_sandboxes.sandboxes.datalayer import DatalayerSandbox
+from code_sandboxes.sandboxes.docker import DockerSandbox
+from code_sandboxes.sandboxes.eval import EvalSandbox
+from code_sandboxes.sandboxes.google_colab import GoogleColabSandbox
+from code_sandboxes.sandboxes.jupyter_server import JupyterServerSandbox
+from code_sandboxes.sandboxes.kaggle import KaggleSandbox
+from code_sandboxes.sandboxes.modal import ModalSandbox
+from code_sandboxes.sandboxes.monty import MontySandbox
+
+
+class TestSandboxFactory:
+    """Tests for Sandbox.create factory method."""
+
+    def test_create_local_eval(self):
+        """Test creating eval sandbox."""
+        sandbox = Sandbox.create(variant="eval")
+
+        assert sandbox is not None
+        assert isinstance(sandbox, EvalSandbox)
+
+    def test_create_local_jupyter(self):
+        """Test creating jupyter sandbox."""
+        sandbox = Sandbox.create(variant=SandboxVariant.JUPYTER)
+
+        assert sandbox is not None
+        assert isinstance(sandbox, JupyterServerSandbox)
+
+    def test_create_with_config(self):
+        """Test creating sandbox with config."""
+        config = SandboxConfig(timeout=120.0)
+        sandbox = Sandbox.create(variant="eval", config=config)
+
+        assert sandbox.config.timeout == 120.0
+
+    def test_create_with_timeout(self):
+        """Test creating sandbox with timeout parameter."""
+        sandbox = Sandbox.create(variant="eval", timeout=90.0)
+
+        assert sandbox.config.timeout == 90.0
+
+    def test_create_with_env(self):
+        """Test creating sandbox with environment variables."""
+        config = SandboxConfig(env_vars={"MY_VAR": "my_value"})
+        sandbox = Sandbox.create(
+            variant="eval",
+            config=config,
+        )
+
+        assert sandbox.config.env_vars.get("MY_VAR") == "my_value"
+
+    def test_create_invalid_variant(self):
+        """Test error for invalid variant."""
+        with pytest.raises(ValueError):
+            Sandbox.create(variant="invalid-variant")
+
+    @pytest.mark.parametrize(
+        "variant,expected_type",
+        [
+            ("eval", EvalSandbox),
+            ("jupyter-server", JupyterServerSandbox),
+            ("docker", DockerSandbox),
+            ("datalayer", DatalayerSandbox),
+            ("google-colab", GoogleColabSandbox),
+            ("kaggle", KaggleSandbox),
+            ("monty", MontySandbox),
+            ("modal", ModalSandbox),
+        ],
+    )
+    def test_create_all_supported_variants(self, variant, expected_type):
+        """Test that all supported variants resolve to the expected sandbox class."""
+        sandbox = Sandbox.create(variant=variant)
+        assert isinstance(sandbox, expected_type)
+
+    @pytest.mark.parametrize(
+        "variant",
+        ["jupyter-server", "jupyter_server", "JUPYTER-SERVER", " Jupyter-Server "],
+    )
+    def test_a_variant_is_read_in_any_spelling(self, variant):
+        """The factory was the strictest door into the package, and alone.
+
+        `get_manager` and `get_provider` have always taken the case and the
+        whitespace a configuration file leaves around a name; `create` took
+        one spelling and raised on the rest.
+        """
+        assert isinstance(Sandbox.create(variant=variant), JupyterServerSandbox)
+        assert Sandbox.list_environments(variant=variant)
+
+    @pytest.mark.parametrize("variant", list(SandboxVariant))
+    def test_every_variant_of_the_enum_can_be_created(self, variant):
+        """The enum and what the factory branches on cannot drift apart.
+
+        They did: `google_colab` was renamed to `google-colab` in the enum and
+        in the branch, while the normalizer between them still folded dashes
+        to underscores — so the one variant that had just been renamed was the
+        one that could no longer be created.
+        """
+        for spelling in (
+            variant,
+            variant.value,
+            variant.value.replace("-", "_"),
+            variant.value.upper(),
+            f"  {variant.value}  ",
+        ):
+            assert Sandbox.create(variant=spelling) is not None
+            with warnings.catch_warnings():
+                # Reaching the variant is what is under test. Some of them
+                # import a platform client on the way, which has deprecation
+                # notices of its own that are nothing to do with this.
+                warnings.simplefilter("ignore")
+                assert Sandbox.list_environments(variant=spelling) is not None
+
+    def test_a_name_that_is_not_a_variant_still_raises(self):
+        """Reading loosely is not guessing: `jupyter` names nothing."""
+        with pytest.raises(ValueError, match="Unknown sandbox variant"):
+            Sandbox.create(variant="jupyter")
+
+    def test_the_refusal_names_what_there_is(self):
+        with pytest.raises(ValueError) as raised:
+            Sandbox.list_environments(variant="nonesuch")
+        message = str(raised.value)
+        assert "jupyter-server" in message
+        assert "daytona" in message
+
+    def test_create_default_variant_is_datalayer(self):
+        """Test that omitting variant uses the datalayer sandbox by default."""
+        sandbox = Sandbox.create()
+        assert isinstance(sandbox, DatalayerSandbox)
+
+    def test_create_colab_forwards_connection_kwargs(self):
+        """Test that Colab-specific connection kwargs are propagated."""
+        sandbox = Sandbox.create(
+            variant="google-colab",
+            server_url="https://colab-host.example",
+            kernel_id="kernel-id",
+            proxy_token="proxy-token",
+            channels_url=(
+                "wss://colab-host.example/api/kernels/kernel-id/channels"
+                "?colab-runtime-proxy-token=proxy-token"
+            ),
+            client_agent="agent-name",
+        )
+        assert isinstance(sandbox, GoogleColabSandbox)
+        assert sandbox._server_url == "https://colab-host.example"
+        assert sandbox._kernel_id == "kernel-id"
+        assert sandbox._proxy_token == "proxy-token"
+        assert sandbox._channels_url.startswith("wss://colab-host.example")
+
+    def test_create_kaggle_forwards_connection_kwargs(self):
+        """Test that Kaggle-specific connection kwargs are propagated."""
+        sandbox = Sandbox.create(
+            variant="kaggle",
+            server_url="https://kaggle-host.example/proxy",
+            kernel_id="kernel-id",
+            token="api-token",
+        )
+        assert isinstance(sandbox, KaggleSandbox)
+        assert sandbox._server_url == "https://kaggle-host.example/proxy"
+        assert sandbox._kernel_id == "kernel-id"
+        assert sandbox._token == "api-token"
+
+    def test_create_datalayer_forwards_runtime_kwargs(self):
+        """Test that datalayer-specific kwargs are propagated."""
+        sandbox = Sandbox.create(
+            variant="datalayer",
+            token="api-token",
+            run_url="https://run.example",
+            snapshot_name="snap-1",
+        )
+        assert isinstance(sandbox, DatalayerSandbox)
+        assert sandbox._token == "api-token"
+        assert sandbox._run_url == "https://run.example"
+        assert sandbox._snapshot_name == "snap-1"

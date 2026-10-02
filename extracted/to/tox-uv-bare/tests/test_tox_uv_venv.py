@@ -230,6 +230,20 @@ def test_uv_venv_system_site_packages(tox_project: ToxProjectCreator) -> None:
     result.assert_success()
 
 
+def test_uv_venv_system_site_packages_env_var(tox_project: ToxProjectCreator, monkeypatch: pytest.MonkeyPatch) -> None:
+    project = tox_project({"tox.ini": "[testenv]\npackage=skip"})
+    monkeypatch.setenv("VIRTUALENV_SYSTEM_SITE_PACKAGES", "1")
+
+    result = project.run("c", "-k", "system_site_packages")
+    result.assert_success()
+
+    parser = ConfigParser()
+    parser.read_string(result.out)
+    got = parser["testenv:py"]["system_site_packages"]
+
+    assert got == "True"
+
+
 @pytest.fixture
 def other_interpreter_exe() -> pathlib.Path:  # pragma: no cover
     """Returns an interpreter executable path that is not the exact same as `sys.executable`.
@@ -345,7 +359,9 @@ def test_uv_venv_platform_check(tox_project: ToxProjectCreator) -> None:
 
 
 def test_uv_env_bin_dir(tox_project: ToxProjectCreator) -> None:
-    project = tox_project({"tox.ini": "[testenv]\npackage=skip\ncommands=python -c 'print(\"{env_bin_dir}\")'"})
+    project = tox_project({
+        "tox.ini": "[testenv]\npackage=skip\ncommands=python -c 'import sys; print(sys.argv[1])' \"{env_bin_dir}\""
+    })
     result = project.run("-vv")
     result.assert_success()
 
@@ -366,7 +382,9 @@ def test_uv_env_has_access_to_plugin_uv(tox_project: ToxProjectCreator) -> None:
 
 
 def test_uv_env_python(tox_project: ToxProjectCreator) -> None:
-    project = tox_project({"tox.ini": "[testenv]\npackage=skip\ncommands=python -c 'print(\"{env_python}\")'"})
+    project = tox_project({
+        "tox.ini": "[testenv]\npackage=skip\ncommands=python -c 'import sys; print(sys.argv[1])' \"{env_python}\""
+    })
     result = project.run("-vv")
     result.assert_success()
 
@@ -389,7 +407,7 @@ def test_uv_env_python_preference(
             "[testenv]\n"
             "package=skip\n"
             f"uv_python_preference={preference}\n"
-            "commands=python -c 'print(\"{env_python}\")'"
+            "commands=python -c 'import sys; print(sys.argv[1])' \"{env_python}\""
         )
     })
     result = project.run("-vv")
@@ -418,7 +436,7 @@ def test_uv_env_python_preference_complex(
             "package=skip\n"
             "uv_python_preference=\n"
             "    onlymanaged: only-managed\n"
-            "commands=python -c 'print(\"{env_python}\")'"
+            "commands=python -c 'import sys; print(sys.argv[1])' \"{env_python}\""
         )
     })
     result = project.run("-vv", "-e", env)
@@ -430,7 +448,11 @@ def test_uv_env_python_preference_complex(
 
 
 def test_uv_env_site_package_dir_run(tox_project: ToxProjectCreator) -> None:
-    project = tox_project({"tox.ini": "[testenv]\npackage=skip\ncommands=python -c 'print(\"{envsitepackagesdir}\")'"})
+    project = tox_project({
+        "tox.ini": (
+            "[testenv]\npackage=skip\ncommands=python -c 'import sys; print(sys.argv[1])' \"{envsitepackagesdir}\""
+        )
+    })
     result = project.run("-vv")
     result.assert_success()
 
@@ -482,7 +504,9 @@ def test_uv_env_python_not_in_path(tox_project: ToxProjectCreator) -> None:
     assert tox_lines == [tox_spec.origin]
 
     # Now use that Python interpreter to run Tox
-    project = tox_project({"tox.ini": "[testenv]\npackage=skip\ncommands=python -c 'print(\"{env_python}\")'"})
+    project = tox_project({
+        "tox.ini": "[testenv]\npackage=skip\ncommands=python -c 'import sys; print(sys.argv[1])' \"{env_python}\""
+    })
     tox_ini = project.path / "tox.ini"
     assert tox_ini.is_file()
     subprocess.check_call([sys.executable, "-m", "tox", "-c", tox_ini], env=env)
@@ -579,11 +603,9 @@ def test_get_python_free_threaded(base_python: str, is_free_threaded: int | None
 
 @pytest.mark.parametrize("env_name", ["pypy", "cpython"])
 def test_get_python_abs_path_with_impl(env_name: str) -> None:
-    create_args = mock.Mock()
-    create_args.conf = mock.MagicMock()
-    create_args.conf.__getitem__.return_value = env_name
-    uv_venv = _TestUvVenv(create_args=create_args)
-    python_info = uv_venv.get_python_info(sys.executable)
+    uv_venv = _TestUvVenv(create_args=mock.Mock())
+    with mock.patch.object(type(uv_venv), "name", new_callable=mock.PropertyMock, return_value=env_name):
+        python_info = uv_venv.get_python_info(sys.executable)
     assert python_info is not None
     expected_impl = "CPython" if env_name == "cpython" else env_name
     assert python_info.implementation.lower() == expected_impl.lower()

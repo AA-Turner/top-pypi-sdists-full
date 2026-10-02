@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""Integration guard for OMN-6659 type-suppression contract touches."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import yaml
+
+_NODE_CONTRACTS = (
+    "node_artifact_change_detector_effect",
+    "node_impact_analyzer_compute",
+    "node_llm_inference_effect",
+    "node_runtime_error_triage_effect",
+    "node_session_state_effect",
+)
+
+_EXPECTED_UPDATED_DATES = {
+    "node_artifact_change_detector_effect": "2026-05-22",
+    "node_impact_analyzer_compute": "2026-07-20",
+    "node_llm_inference_effect": "2026-08-12",
+    "node_runtime_error_triage_effect": "2026-09-26",
+    "node_session_state_effect": "2026-05-22",
+}
+
+
+def test_omn_6659_handler_contracts_are_refreshed() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+
+    for node_name in _NODE_CONTRACTS:
+        contract_path = (
+            repo_root / "src" / "omnibase_infra" / "nodes" / node_name / "contract.yaml"
+        )
+        contract = yaml.safe_load(contract_path.read_text(encoding="utf-8"))
+
+        assert contract["metadata"]["updated"] == _EXPECTED_UPDATED_DATES[node_name]

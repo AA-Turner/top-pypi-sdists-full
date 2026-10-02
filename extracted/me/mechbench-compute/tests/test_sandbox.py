@@ -1,0 +1,246 @@
+from __future__ import annotations
+
+import os
+import pathlib
+
+import pytest
+
+from mechbench_compute import guests, sandbox, snapshots as fs
+
+REPO = pathlib.Path(__file__).resolve().parent.parent
+BUILT = pathlib.Path(os.environ.get(
+    "MECHBENCH_MBSHELL_WASM", REPO / "guests" / "mbshell" / "build" / "mbshell.wasm"))
+L = sandbox.Limits
+
+
+@pytest.fixture(scope="module")
+def guest(tmp_path_factory):
+    if not BUILT.is_file():
+        pytest.skip("mbshell.wasm not built on this machine — guests/mbshell/build.sh")
+    os.environ["MECHBENCH_GUEST_CACHE"] = str(tmp_path_factory.mktemp("guests"))
+    guests.install_local("mbshell", BUILT)
+    return "mbshell"
+
+
+shell = guest
+
+
+SEED = fs.seeded({"a.txt": "one two three\n", "sub/b.txt": "four\nfive\n",
+                  "c.md": "not a txt\n"})
+
+
+class TestTheLoopWorks:
+    def test_an_applet_reads_the_snapshot(self, guest):
+        r = sandbox.run(SEED, ["find", ".", "-name", "*.txt"], guest=guest)
+        assert r.ok and sorted(r.stdout.split()) == ["a.txt", "sub/b.txt"]
+
+    def test_a_write_shows_in_the_capture(self, guest):
+        r = sandbox.run(SEED, ["cp", "a.txt", "copied.txt"], guest=guest)
+        assert r.ok
+        assert r.changed.added == ("copied.txt",)
+        assert r.snapshot.get("copied.txt").blob_hash == SEED.get("a.txt").blob_hash
+
+    def test_the_input_snapshot_is_untouched(self, guest):
+        before = SEED.digest()
+        sandbox.run(SEED, ["rm", "a.txt"], guest=guest)
+        assert SEED.digest() == before, "a run mutated its input value"
+
+    def test_a_read_only_run_changes_nothing(self, guest):
+        r = sandbox.run(SEED, ["wc", "-l", "a.txt"], guest=guest)
+        assert r.ok and r.changed.empty and r.snapshot.digest() == SEED.digest()
+
+    def test_the_same_run_twice_is_the_same_result(self, guest):
+        a = sandbox.run(SEED, ["grep", "-r", "four", "."], guest=guest)
+        b = sandbox.run(SEED, ["grep", "-r", "four", "."], guest=guest)
+        assert (a.stdout, a.exit_code, a.snapshot.digest()) == (b.stdout, b.exit_code, b.snapshot.digest())
+
+    def test_a_path_works_too(self, guest):
+        r = sandbox.run(SEED, ["echo", "hi"], guest=BUILT)
+        assert r.ok and r.stdout == "hi\n"
+
+    def test_an_unregistered_name_says_so(self, guest):
+        with pytest.raises(sandbox.SandboxError, match="no guest named 'ruby'.*known:"):
+            sandbox.run(SEED, ["ruby"], guest="ruby")
+
+    def test_a_missing_applet_is_an_ordinary_failure(self, guest):
+        r = sandbox.run(SEED, ["python3", "-c", "1"], guest=guest)
+        assert r.exit_code != 0 and r.limit is None
+        assert "applet not found" in r.stderr
+
+
+class TestEveryLimitIsNamed:
+    def test_fuel(self, guest):
+        big = fs.seeded({"big.bin": os.urandom(4 << 20)})
+        r = sandbox.run(big, ["gzip", "-c", "big.bin"], guest=guest,
+                        limits=L(fuel=20_000_000, output_bytes=8 << 20))
+        assert r.limit == "fuel" and r.fuel_used == 20_000_000
+
+    def test_memory(self, guest):
+        lines = fs.seeded({"l.txt": "".join(f"{os.urandom(8).hex()}\n" for _ in range(300_000))})
+        r = sandbox.run(lines, ["sort", "l.txt"], guest=guest,
+                        limits=L(memory_mb=16, output_bytes=1 << 20))
+        assert r.limit == "memory_mb" and r.exit_code == 2, r.stderr[-300:]
+
+    def test_a_cap_below_the_guest_minimum_is_the_same_limit(self, guest):
+        r = sandbox.run(SEED, ["echo", "hi"], guest=guest, limits=L(memory_mb=4))
+        assert r.limit == "memory_mb" and "below the guest's minimum" in r.stderr
+
+    def test_output(self, guest):
+        r = sandbox.run(SEED, ["busybox"], guest=guest, limits=L(output_bytes=100))
+        assert "stdout" in r.truncated and sandbox.TRUNCATED.format(n=100) in r.stdout
+
+    def test_a_wait_completes_at_once(self, guest):
+        for strict in (False, True):
+            r = sandbox.run(SEED, ["sh", "-c", "sleep 30; echo woke"], guest=guest,
+                            limits=L(wall_seconds=1), strict=strict)
+            assert r.ok and r.stdout == "woke\n" and r.duration_ms < 1000
+
+    def test_the_clock_carries_the_wait(self, guest):
+        for strict in (False, True):
+            r = sandbox.run(SEED, ["sh", "-c", "time sleep 5"], guest=guest, strict=strict)
+            assert r.ok and "real\t0m5.00" in r.stdout, r.stdout
+
+    def test_a_spin_hits_the_wall_clock(self, guest):
+        r = sandbox.run(SEED, ["sh", "-c", "while true; do :; done"], guest=guest,
+                        limits=L(wall_seconds=1, fuel=10**12))
+        assert r.limit == "wall_seconds" and 900 < r.duration_ms < 3000
+
+    def test_strict_makes_the_run_a_function_of_its_inputs(self, guest):
+        plain = {sandbox.run(SEED, ["sh", "-c", "echo $SRANDOM"], guest=guest).stdout
+                 for _ in range(4)}
+        strict = {sandbox.run(SEED, ["sh", "-c", "echo $SRANDOM"], guest=guest, strict=True).stdout
+                  for _ in range(4)}
+        assert len(plain) > 1
+        assert len(strict) == 1
+
+    def test_strict_still_runs_ordinary_programs(self, guest):
+        r = sandbox.run(SEED, ["find", ".", "-name", "*.txt"], guest=guest, strict=True)
+        assert r.ok and sorted(r.stdout.split()) == ["a.txt", "sub/b.txt"]
+
+    def test_the_tree_cap_refuses_rather_than_truncating(self, guest):
+        r = sandbox.run(SEED, ["cp", "a.txt", "d.txt"], guest=guest,
+                        limits=L(max_files=3))
+        assert r.limit == "max_files" and r.snapshot.digest() == SEED.digest()
+
+
+class TestWhatTheSandboxCannotDo:
+    def test_no_network(self, guest):
+        r = sandbox.run(fs.EMPTY, ["wget", "-O", "x", "http://example.com/"],
+                        guest=guest, limits=L(wall_seconds=5))
+        assert r.exit_code != 0 and "x" not in r.snapshot.paths()
+
+    def test_awk_works(self, guest):
+        r = sandbox.run(SEED, ["awk", "{print NF}", "a.txt"], guest=guest)
+        assert r.ok and r.stdout == "3\n"
+
+    def test_a_directory_argument_is_an_ordinary_failure(self, guest):
+        for argv in (["wc", "-c", "."], ["sed", "p", "."], ["sh", "."]):
+            r = sandbox.run(SEED, argv, guest=guest)
+            assert r.exit_code > 0 and r.limit is None and "[trap]" not in r.stderr, argv
+
+
+class TestTheShell:
+    def sh(self, shell, script, **kw):
+        return sandbox.run(SEED, ["sh", "-c", script], guest=shell, **kw)
+
+    def test_a_pipeline(self, shell):
+        r = self.sh(shell, 'find . -name "*.txt" | wc -l')
+        assert r.ok and r.stdout == "2\n"
+
+    def test_a_redirect_lands_in_the_snapshot(self, shell):
+        r = self.sh(shell, "grep -r four . | sort > out.txt")
+        assert r.ok and r.changed.added == ("out.txt",)
+        assert r.snapshot.get("out.txt").data == b"sub/b.txt:four\n"
+
+    def test_cd_and_command_substitution(self, shell):
+        r = self.sh(shell, 'cd sub && pwd && echo $(wc -l < b.txt)')
+        assert r.ok and r.stdout == "/sub\n2\n"
+
+    def test_a_heredoc_through_a_pipe(self, shell):
+        r = self.sh(shell, "cat <<EOF | wc -c\nhello heredoc\nEOF")
+        assert r.ok and r.stdout == "14\n"
+
+    def test_dev_null_and_exit_codes(self, shell):
+        r = self.sh(shell, 'nosuch 2>/dev/null || echo "exit=$?"')
+        assert r.ok and r.stdout == "exit=127\n" and r.stderr == ""
+
+    def test_set_e_stops(self, shell):
+        r = self.sh(shell, "set -e; false; echo not-reached")
+        assert r.exit_code == 1 and r.stdout == ""
+
+    def test_strict_is_a_function_of_inputs(self, shell):
+        a = self.sh(shell, 'find . -name "*.txt" | sort | wc -l', strict=True)
+        b = self.sh(shell, 'find . -name "*.txt" | sort | wc -l', strict=True)
+        assert a.ok and (a.stdout, a.snapshot.digest()) == (b.stdout, b.snapshot.digest())
+
+    def test_xargs_runs_in_process(self, shell):
+        r = self.sh(shell, 'find . -name "*.txt" | sort | xargs wc -l')
+        assert r.ok and r.stdout == "1 a.txt\n2 sub/b.txt\n3 total\n"
+
+    def test_timeout_runs_the_command(self, shell):
+        r = self.sh(shell, "timeout 5 grep -c four sub/b.txt")
+        assert r.ok and r.stdout == "1\n"
+
+    def test_dollar_zero_and_params(self, shell):
+        r = sandbox.run(SEED, ["sh", "-c", 'echo $0 $1 "$#"', "foo", "bar"], guest=shell)
+        assert r.ok and r.stdout == "foo bar 1\n"
+
+    def test_exit_statuses_wasi_cannot_carry(self, shell):
+        assert self.sh(shell, "nosuch").exit_code == 127
+        assert self.sh(shell, "exit 200").exit_code == 200
+        assert self.sh(shell, "exit 3").exit_code == 3
+
+
+JSON = fs.seeded({"data.json": '{"a": {"b": [1, 2, 3]}, "name": "mbshell", "tags": ["x", "y"]}\n',
+                  "rows.json": '{"id": 2, "k": "two"}\n{"id": 1, "k": "one"}\n'})
+
+
+class TestJq:
+    def run(self, shell, argv, **kw):
+        return sandbox.run(JSON, argv, guest=shell, **kw)
+
+    def test_a_filter_on_a_file(self, shell):
+        r = self.run(shell, ["jq", ".a.b | add", "data.json"])
+        assert r.ok and r.stdout == "6\n", r.stderr
+
+    def test_a_pipeline(self, shell):
+        r = self.run(shell, ["sh", "-c", "cat data.json | jq '.tags | length'"])
+        assert r.ok and r.stdout == "2\n", r.stderr
+
+    def test_jq_feeds_the_next_applet(self, shell):
+        r = self.run(shell, ["sh", "-c", "jq -r .k rows.json | sort | head -n 1"])
+        assert r.ok and r.stdout == "one\n", r.stderr
+
+    def test_raw_output(self, shell):
+        r = self.run(shell, ["jq", "-r", ".name", "data.json"])
+        assert r.ok and r.stdout == "mbshell\n"
+
+    def test_compact_output(self, shell):
+        r = self.run(shell, ["jq", "-c", ".a", "data.json"])
+        assert r.ok and r.stdout == '{"b":[1,2,3]}\n'
+
+    def test_slurp_and_null_input(self, shell):
+        r = self.run(shell, ["jq", "-s", "-c", "sort_by(.id) | map(.k)", "rows.json"])
+        assert r.ok and r.stdout == '["one","two"]\n'
+        r = self.run(shell, ["jq", "-n", "--arg", "v", "hi", "{v: $v}", "-c"])
+        assert r.ok and r.stdout == '{"v":"hi"}\n'
+
+    def test_an_invalid_program_fails_with_a_message(self, shell):
+        r = self.run(shell, ["jq", ".a[", "data.json"])
+        assert r.exit_code != 0 and r.limit is None
+        assert "jq" in r.stderr and r.stdout == ""
+
+    def test_invalid_json_input_fails_with_a_message(self, shell):
+        r = self.run(shell, ["sh", "-c", "echo '{not json' | jq ."])
+        assert r.exit_code != 0 and "jq" in r.stderr
+
+    def test_a_missing_file_fails_with_a_message(self, shell):
+        r = self.run(shell, ["jq", ".", "nosuch.json"])
+        assert r.exit_code != 0 and "nosuch.json" in r.stderr
+
+    def test_strict_is_a_function_of_inputs(self, shell):
+        argv = ["sh", "-c", "jq -c '{keys: keys, t: now, e: ($ENV | length)}' data.json"]
+        a = self.run(shell, argv, strict=True)
+        b = self.run(shell, argv, strict=True)
+        assert a.ok, a.stderr
+        assert (a.stdout, a.snapshot.digest()) == (b.stdout, b.snapshot.digest())

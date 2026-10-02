@@ -1,0 +1,199 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+# NOT `probe-agent`: that name belongs to an unrelated project already on PyPI, so
+# `pip install probe-agent` fetches a stranger's package. This name matches the
+# plugin, the `probe-research-mcp` binaries, and mcp.research.prbe.ai. The import
+# name (`probe`) and the CLI binary (`probe`) are unchanged.
+name = "probe-research"
+version = "0.205.3"
+description = "CLI + SDK + read-only MCP client for Probe Research (experiment tracking)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Probe", email = "team@prbe.ai" }]
+keywords = ["mlops", "experiment-tracking", "reinforcement-learning", "mcp", "probe-research"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "httpx>=0.27",
+    # Direct import in mcp/server.py (_tool thread offload + CapacityLimiter
+    # load shedding). The floor is what the code SEMANTICALLY needs, not just
+    # an import guard: tenant isolation relies on to_thread.run_sync running
+    # the fn in the caller's contextvars copy, and admission shedding relies
+    # on the CapacityLimiter cancelled-acquire wakeup fix — both solid in the
+    # 4.5+ line (also mcp's own floor). Locked: 4.14.x.
+    "anyio>=4.5",
+    "mcp>=1.23,<2",
+    # Frozen MCP output accounting; vocabulary/configuration ship as package data
+    # so first use works offline. Imported only by the MCP budget module on demand.
+    # A RANGE, not a pin (plan 2.11): an exact pin refused to share an
+    # environment with anything else that pins tiktoken. The budget builds its
+    # Encoding from the packaged vocabulary through the public constructor, so
+    # the version only supplies the BPE; tests/test_mcp_budget.py passes on both
+    # ends (0.8.0 and 0.13.0, Python 3.10). Widen only after testing a new end.
+    "tiktoken>=0.8,<0.14",
+    # Upper-bounded: cli/main.py resolves ClickException from typer's vendored
+    # click via BadParameter.__mro__ (see the note there). A major typer that
+    # reshapes that internal would fall to the catch-nothing fallback, so a bump
+    # past 1.0 must be reviewed against test_usage_errors_exit_cleanly.
+    "typer>=0.12,<1.0",
+    "pydantic>=2.9",
+    # Checkbox menu for the setup wizard. Upper-bounded like typer: it is a thin
+    # layer over prompt_toolkit, whose internals a major bump can reshape.
+    # IMPORTED LAZILY inside the command body -- see cli/setup.py:run_menu.
+    "questionary>=2.0,<3",
+    # Hardware-rail floor (opt-in via run(hw=True)/PROBE_HW=1;
+    # docs/2026-08-05-hw-metrics-design.md).
+    # Both IMPORTED LAZILY inside probe/hw/resources/* behind availability
+    # probes -- an absent import is a disabled source, never an error.
+    # psutil: CPU/mem/disk/net sampling, universal wheels. nvidia-ml-py: the
+    # official NVIDIA NVML binding, one pure-python module, zero transitive
+    # deps; needed for per-process GPU attribution, which machine-scoped
+    # exporters cannot provide.
+    "psutil>=5.9",
+    "nvidia-ml-py>=12.535",
+    # Python 3.10 (plan 2.11): 3.11's `tomllib`, as the backport it came from.
+    # Imported only through probe._compat.
+    "tomli>=1.1; python_version < '3.11'",
+    # `.probeignore` (sdk/ignore.py): gitignore-syntax matching. Pure python, no
+    # dependencies of its own; IMPORTED LAZILY, only when a pattern exists.
+    "pathspec>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    # CI runs the suite across every core (`-n auto`). The suite is built for it:
+    # conftest declares no session- or module-scoped fixture, and its autouse
+    # fixtures redirect HOME/XDG_*/PROBE_OUTBOX_DIR per test, so workers share
+    # no state. The ONE exception is the pty screen harness in
+    # tests/test_setup_wizard.py -- see tests/test_pty_isolation.py.
+    "pytest-xdist>=3.2",
+    # Build the real wheel/sdist in offline tokenizer packaging regression tests.
+    "hatchling>=1.27",
+    # Regenerates src/probe/_generated/models.py from schema/openapi.json.
+    # See `make gen-models` / scripts/gen_models.py.
+    "datamodel-code-generator>=0.25",
+    # `Run.log` flattens an OmegaConf DictConfig like a dict (plan (d)), and run
+    # config coercion reads one (plan (c)). Test-only: the SDK never imports it.
+    "omegaconf>=2.3",
+    # Config coercion and metric unwrapping recognise numpy values by shape
+    # (plan (c)). Test-only, like omegaconf: `import probe` never loads it.
+    "numpy>=1.24",
+    # The read recorder wraps readers that open files from C (lineage plan 3,
+    # F4): tests/test_sdk_c_readers.py proves each one is seen, and a reader
+    # leaves the coverage's `unseen` list only on that proof -- so CI must run
+    # them. Test-only: `import probe` never loads them (the wrappers install
+    # when the library is imported). torch stays out (~700 MB): torch.save's
+    # wrapper is tested through a stub module.
+    "pyarrow>=14",
+    "h5py>=3.10",
+    "safetensors>=0.4",
+]
+# Extra needed only to RUN the hosted HTTP MCP service (not for stdio/CLI users).
+mcp-http = ["uvicorn>=0.30"]
+# Plan 2.11 (D29), release N of two. The `probe` CLI's and the stdio MCP
+# server's dependencies, as extras; `all` is both. Core still carries them in
+# THIS release, so nothing changes for anyone yet: every installer and `probe
+# update` now asks for `[all]`, and the NEXT release removes them from core, so
+# a training environment can `pip install probe-research` without typer or mcp
+# (mcp 2.x-pinned stacks such as vllm 0.30 refuse our `mcp<2` today).
+# tests/test_py310_compat.py keeps these specs identical to core's.
+cli = ["typer>=0.12,<1.0", "questionary>=2.0,<3"]
+mcp = ["mcp>=1.23,<2", "anyio>=4.5", "tiktoken>=0.8,<0.14"]
+all = ["probe-research[cli,mcp]"]
+# `probe.integrations.lightning.ProbeLogger` (plan (a)). Brings torch: never a
+# default, and `import probe` never loads it (tests/test_integrations_import_guard.py).
+lightning = ["lightning>=2.0"]
+# `probe.integrations.huggingface.ProbeCallback` (plan (b)): the Trainer and
+# the accelerate it needs (`[torch]`). Brings torch like `lightning`: never a
+# default, not in `all`, and `import probe` never loads it.
+huggingface = ["transformers[torch]>=4.46"]
+# The Probe daemon's AI process (daemon v2): Pydantic AI and its harness, pinned
+# exactly (R3.4). Installed by the wizard when the researcher turns daemon mode
+# on, into the CLI's own uv tool environment; without
+# it capture keeps running and daemon mode reports itself unavailable.
+daemon = [
+    "pydantic-ai-slim[openai,mcp]==2.51.0",
+    "pydantic-ai-harness[skills]==0.36.0",
+    "pydantic-ai-skills==2.0.0",
+]
+# Extra for the library-mode instrumented trial runner (connectors.harbor_runner).
+# Trial-DIRECTORY parsing/capture needs nothing — this is only for owning the
+# Trial object in-process. Harbor itself requires Python 3.12+, but Probe's
+# ordinary CLI/SDK remains supported on 3.11; the marker keeps the universal
+# project lock resolvable without raising Probe's global Python floor.
+# Upper bound = the line verify_harbor_contract() is pinned against. NB:
+# litellm>=1.93 (a harbor dep) ships an sdist needing rustc>=1.86 — add
+# litellm<1.93 if the install fails to build.
+harbor = ["harbor>=0.20,<0.22; python_version >= '3.12'"]
+
+[project.urls]
+Homepage = "https://github.com/prbe-ai/research-os-agent"
+Repository = "https://github.com/prbe-ai/research-os-agent"
+
+[project.scripts]
+# Through probe._entry, which turns a missing optional dependency into a message
+# naming the extra to install instead of an ImportError traceback (plan 2.11).
+probe = "probe._entry:main"
+probe-research-mcp = "probe._entry:mcp_main"
+probe-research-mcp-http = "probe._entry:mcp_http_main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/probe"]
+
+[tool.hatch.build.targets.wheel.shared-data]
+"skills" = "share/probe-research/skills"
+
+[tool.hatch.build.targets.sdist]
+include = ["src/probe", "skills", "tests", "README.md", "pyproject.toml"]
+
+# Pin the lint bar. There was no root config, so `ruff check` floated on whatever
+# rule set the invoking ruff version enables by default — and ruff 0.16's defaults
+# turned on opinionated sets this codebase's idioms deliberately reject (B008 flags
+# every typer.Option default, S110 the heartbeat loop's documented swallow). This is
+# the stable core ruff always enabled: real errors and dead code, which every file
+# here is expected to keep clean. The tap plugin keeps its own stricter config.
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+    # A test that renders a terminal frame and asserts on what came back. Two
+    # shapes qualify: a real pty (tests/test_setup_wizard.py forks one) and a
+    # prompt_toolkit app session captured through `renderer._last_screen`.
+    #
+    # They run SERIALLY, alone on their own runner, because both shapes measure
+    # a render that has to have finished. The pty harness ends a capture after
+    # `quiet` seconds of silence; the app-session tests index into a frame list
+    # that only holds what has actually been drawn. Sharing the box with other
+    # workers makes either read a half-drawn screen, and the failure surfaces as
+    # an assertion about UI text somewhere unrelated to the change under test.
+    #
+    # It was called `pty` when only the wizard qualified. The rename came the day
+    # test_tui_review.py failed in the parallel lane -- no pty in sight -- and
+    # passed on a re-run.
+    # tests/test_tui_isolation.py fails on an unmarked one.
+    "tui: renders a terminal frame; must run serially, alone on the box",
+]
+# Puts the repo root on sys.path so `from tests.conftest import ...` resolves under a
+# bare `pytest` (CI, editors, `make test`) and not only under `python -m pytest`, which
+# adds the cwd implicitly. Without this, collection fails before a single test runs.
+pythonpath = ["."]

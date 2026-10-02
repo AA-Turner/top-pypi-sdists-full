@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llmx" 
+authors = [
+  { name="Victor Dibia", email="victor.dibia@gmail.com" },
+]
+description = "LLMX: A library for LLM Text Generation"
+readme = "README.md"
+license = { file="LICENSE" }
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+
+dependencies = [
+    "pydantic",
+    "openai",
+    "tiktoken",
+    "diskcache",
+    "cohere", 
+    "google.auth",
+    "typer",
+    "pyyaml",
+]
+optional-dependencies = {web = ["fastapi", "uvicorn"], transformers = ["transformers[torch]>=4.26","accelerate"]}
+
+dynamic = ["version"]
+
+[tool.setuptools]
+include-package-data = true
+
+
+[tool.setuptools.dynamic]
+version = {attr = "llmx.version.VERSION"}
+readme = {file = ["README.md"]}
+
+[tool.setuptools.packages.find]  
+include = ["llmx*"]  
+exclude = ["*.tests*"]  
+namespaces = false  
+
+[tool.setuptools.package-data]
+"llmx" = ["*.*"]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore:Deprecated call to `pkg_resources\\.declare_namespace\\('.*'\\):DeprecationWarning",
+    "ignore::DeprecationWarning:google.rpc",
+]
+
+
+[project.urls]
+"Homepage" = "https://github.com/victordibia/llmx"
+"Bug Tracker" = "https://github.com/victordibia/llmx/issues"
+
+[project.scripts]
+llmx = "llmx.cli:run" 

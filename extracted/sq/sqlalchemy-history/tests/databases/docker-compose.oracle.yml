@@ -1,0 +1,17 @@
+services:
+    cor_oracle:
+        image: gvenzl/oracle-xe:21
+        container_name: oracle
+        environment:
+            ORACLE_PASSWORD: Oracle2022
+        ports:
+            - "1521:1521"
+        # If you want to persist data for DB for next run use this
+        # volumes:
+        #   - ${PWD}/data/oracle/:/opt/oracle/oradata
+        healthcheck:
+            test: healthcheck.sh
+            interval: 5s
+            retries: 5
+            start_period: 20s
+            timeout: 10s

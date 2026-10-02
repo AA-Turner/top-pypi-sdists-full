@@ -4,10 +4,10 @@
 
 [project]
 name = "types-boto3"
-version = "1.43.106"
+version = "1.43.107"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Type annotations for boto3 1.43.106 generated with mypy-boto3-builder 8.12.0"
+description = "Type annotations for boto3 1.43.107 generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -69,7 +69,7 @@ full = [
     "types-boto3-full>=1.43.0, <1.44.0",
 ]
 boto3 = [
-    "boto3==1.43.106",
+    "boto3==1.43.107",
 ]
 all = [
     "types-boto3-accessanalyzer>=1.43.0, <1.44.0",
@@ -224,6 +224,7 @@ all = [
     "types-boto3-emr>=1.43.0, <1.44.0",
     "types-boto3-emr-containers>=1.43.0, <1.44.0",
     "types-boto3-emr-serverless>=1.43.0, <1.44.0",
+    "types-boto3-endusermessaging>=1.43.0, <1.44.0",
     "types-boto3-entityresolution>=1.43.0, <1.44.0",
     "types-boto3-es>=1.43.0, <1.44.0",
     "types-boto3-eventbridgev2>=1.43.0, <1.44.0",
@@ -298,6 +299,7 @@ all = [
     "types-boto3-lambda>=1.43.0, <1.44.0",
     "types-boto3-lambda-core>=1.43.0, <1.44.0",
     "types-boto3-lambda-microvms>=1.43.0, <1.44.0",
+    "types-boto3-lambda-web>=1.43.0, <1.44.0",
     "types-boto3-launch-wizard>=1.43.0, <1.44.0",
     "types-boto3-lex-models>=1.43.0, <1.44.0",
     "types-boto3-lex-runtime>=1.43.0, <1.44.0",
@@ -971,6 +973,9 @@ emr-containers = [
 emr-serverless = [
     "types-boto3-emr-serverless>=1.43.0, <1.44.0",
 ]
+endusermessaging = [
+    "types-boto3-endusermessaging>=1.43.0, <1.44.0",
+]
 entityresolution = [
     "types-boto3-entityresolution>=1.43.0, <1.44.0",
 ]
@@ -1192,6 +1197,9 @@ lambda-core = [
 ]
 lambda-microvms = [
     "types-boto3-lambda-microvms>=1.43.0, <1.44.0",
+]
+lambda-web = [
+    "types-boto3-lambda-web>=1.43.0, <1.44.0",
 ]
 launch-wizard = [
     "types-boto3-launch-wizard>=1.43.0, <1.44.0",

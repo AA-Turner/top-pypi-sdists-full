@@ -1,0 +1,612 @@
+"""AsyncDsssReceiver: Acquisition -> hand-off -> CarrierAcquisition refine ->
+per-code-period Costas/Dll/RateConverter/MpskReceiver track, one object --
+the production C port of the validated Python prototype's own search ->
+refine -> track pipeline (validated in the coupled-despreader, freq-refine,
+and end-to-end acquisition prototypes). See
+`~/.claude/plans/crystalline-knitting-hopper.md` for the design.
+
+Uses SPEC's own Gold-1023/3.069Mcps/2700bps geometry and 500 Hz/s Doppler
+ramp throughout -- the genuinely-async (~1.111 periods/symbol) data-clock
+relationship this whole story's own architecture exists to handle. Like
+`DsssReceiver` (a frame/push object, not a simple block-`execute` shape),
+the state-serialization round trip is bespoke here rather than in the
+generic `test_state_serialization.py` matrix.
+"""
+
+import numpy as np
+import pytest
+
+from doppler.dsss import (
+    AsyncDsssReceiver,
+    CellAsyncDsssReceiver,
+    ReceiverStatus,
+)
+from doppler.wfm import Gold
+
+SF = 1023
+CHIP_RATE = 3.069e6
+SYM_RATE = 2700.0  # chip_rate/(sf*sym_rate) ~= 1.111 periods/symbol --
+# deliberately NOT an integer, SPEC's own genuinely-async clock.
+SPC = 2
+FS = CHIP_RATE * SPC
+TE = SF * SPC
+TSYM = FS / SYM_RATE
+RATE_HZ_PER_S = 500.0  # SPEC's corrected worst case
+PRE_SILENCE = TE * 5 + 3
+N_SYM = 2430
+
+CODE = np.asarray(Gold().generate(SF)).astype(np.uint8)
+_CSIGN = np.where(CODE & 1, -1.0, 1.0)
+
+
+def _make_ramp_signal(cn0_dbhz, seed, n_sym=N_SYM):
+    rng = np.random.default_rng(seed)
+    n = int(n_sym * TSYM) + 4 * TE
+    idx = np.arange(n)
+    data = (rng.integers(0, 2, n_sym + 4) * 2 - 1).astype(float)
+    si = np.clip(np.floor(idx / TSYM).astype(int), 0, len(data) - 1)
+    cph = (idx // SPC) % SF
+    t = idx / FS
+    ph = 2.0 * np.pi * (0.5 * RATE_HZ_PER_S * t * t)
+    sig = data[si] * _CSIGN[cph] * np.exp(1j * ph)
+    amp_snr = np.sqrt(10.0 ** (cn0_dbhz / 10.0) / FS)
+    sigma = 1.0 / amp_snr
+    total_n = PRE_SILENCE + n
+    noise = (sigma / np.sqrt(2.0)) * (
+        rng.standard_normal(total_n) + 1j * rng.standard_normal(total_n)
+    )
+    x = np.concatenate([np.zeros(PRE_SILENCE), sig]).astype(
+        np.complex64
+    ) + noise.astype(np.complex64)
+    return x, data
+
+
+def _best_ber(syms, data):
+    if len(syms) < 20:
+        return 1.0
+    bits = np.where(syms.real > 0, 1.0, -1.0)
+    lo, hi = len(bits) // 2, len(bits)
+    best = 1.0
+    # The refine consumes symbols before the first one is decided -- about
+    # 16 per block at this geometry, and the dwell is floored at seven
+    # blocks (#1265) -- so the alignment is searched over 300 lags. A
+    # wrong alignment on random data reads 0.5 +- 0.014 over 1200 bits and
+    # never reaches a decode threshold by chance.
+    for lag in range(-300, 301):
+        ti = lag + np.arange(lo, hi)
+        mask = (ti >= 0) & (ti < len(data))
+        if mask.sum() < (hi - lo) // 2:
+            continue
+        truth = data[ti[mask]]
+        best = min(
+            best,
+            float(np.mean(bits[lo:hi][mask] != truth)),
+            float(np.mean(bits[lo:hi][mask] != -truth)),
+        )
+    return best
+
+
+def _new_receiver(cn0_dbhz, **kwargs):
+    kwargs.setdefault("cn0_dbhz", cn0_dbhz)
+    kwargs.setdefault("doppler_uncertainty", 500.0)
+    kwargs.setdefault("segments", 4)
+    kwargs.setdefault("sps", 8)
+    return AsyncDsssReceiver(
+        CODE, chip_rate=CHIP_RATE, symbol_rate=SYM_RATE, spc=SPC, **kwargs
+    )
+
+
+def _feed(rx, x):
+    out = [rx.steps(x[pos : pos + TE]) for pos in range(0, len(x) - TE, TE)]
+    out = [s for s in out if len(s)]
+    return np.concatenate(out) if out else np.zeros(0, np.complex64)
+
+
+def _noise(n, cn0_dbhz, seed):
+    rng = np.random.default_rng(seed)
+    sigma = 1.0 / np.sqrt(10.0 ** (cn0_dbhz / 10.0) / FS)
+    return (
+        (sigma / np.sqrt(2.0))
+        * (rng.standard_normal(n) + 1j * rng.standard_normal(n))
+    ).astype(np.complex64)
+
+
+# ── Seeded from outside: the cell receiver (design section 11.1) ──────────
+
+
+@pytest.mark.parametrize("chip_phase", [-0.5, float(SF), float("nan")])
+def test_seed_refuses_a_phase_outside_the_code(chip_phase):
+    rx = _new_cell(70.0)
+    with pytest.raises(ValueError, match="seed refused"):
+        rx.seed(chip_phase, 0.0, 70.0)
+    assert rx.idle == 1
+    rx.seed(float(SF) - 0.5, 0.0, 70.0)  # the last chip is inside
+    assert rx.refining == 1
+
+
+def test_seed_on_the_searching_flavor_beats_its_own_search():
+    x, data = _make_ramp_signal(70.0, seed=21)
+    rx = _new_receiver(70.0)
+    rx.seed(0.0, 0.0, 70.0)
+    assert rx.refining == 1
+    syms = _feed(rx, x[PRE_SILENCE:])
+    assert rx.tracking == 1
+    assert _best_ber(syms, data) < 0.05
+    rx.reset()
+    assert rx.idle == 0  # this flavor goes back to searching
+
+
+# ── The release rule (design section 11.2) ────────────────────────────────
+
+
+def _feed_until_lost(rx, x, chunk):
+    """Feed in chunks; return (lost, both_down_run) where the run is the
+    receiver's own book -- consecutive samples with both flags down -- kept
+    from outside, at the moment lost first reads 1 (or at the end)."""
+    run = 0
+    for pos in range(0, len(x), chunk):
+        rx.steps(x[pos : pos + chunk])
+        take = min(chunk, len(x) - pos)
+        run = 0 if (rx.code_locked or rx.locked) else run + take
+        if rx.lost:
+            return True, run
+    return False, run
+
+
+def test_lost_after_switch_off_then_reset_to_idle():
+    x, _data = _make_ramp_signal(70.0, seed=21)
+    confirm_s = 0.02
+    off = _noise(int(0.2 * FS), 70.0, seed=99)
+
+    rx = _new_cell(70.0, lost_confirm_s=confirm_s)
+    rx.seed(0.0, 0.0, 70.0)
+    _feed(rx, x[PRE_SILENCE:])
+    assert (rx.tracking, rx.code_locked, rx.locked, rx.lost) == (1, 1, 1, 0)
+
+    lost, run = _feed_until_lost(rx, off, 4096)
+    assert lost
+    assert run > confirm_s * FS  # not a sample before the interval
+    assert rx.tracking == 0
+
+    # Lost is inert until reset(): samples discarded, seed refused, state in
+    # the blob, and reset() hands the object back idle.
+    chip_before = rx.chip_phase
+    assert len(rx.steps(x[PRE_SILENCE : PRE_SILENCE + 4 * TE])) == 0
+    assert rx.lost == 1
+    assert rx.chip_phase == chip_before
+    with pytest.raises(ValueError, match="seed refused"):
+        rx.seed(0.0, 0.0, 70.0)
+    rx2 = _new_cell(70.0, lost_confirm_s=confirm_s)
+    rx2.set_state(rx.get_state())
+    assert rx2.lost == 1
+    rx.reset()
+    assert (rx.lost, rx.idle) == (0, 1)
+    rx.seed(0.0, 0.0, 70.0)
+    assert rx.refining == 1
+
+
+def test_lost_confirm_zero_never_releases():
+    x, _data = _make_ramp_signal(70.0, seed=21)
+    off = _noise(int(0.2 * FS), 70.0, seed=99)
+    rx = _new_cell(70.0, lost_confirm_s=0.0)
+    rx.seed(0.0, 0.0, 70.0)
+    _feed(rx, x[PRE_SILENCE:])
+    assert rx.tracking == 1
+    lost, run = _feed_until_lost(rx, off, 4096)
+    assert not lost
+    assert run > 0.05 * FS  # the flags did drop; the rule was off
+    assert (rx.tracking, rx.lost) == (1, 0)
+
+
+# ── The cell mode (design section 12.22-12.24 as a mode, #1283) ──────────
+
+
+def _new_cell(cn0_dbhz, **kwargs):
+    kwargs.setdefault("cn0_dbhz", cn0_dbhz)
+    kwargs.setdefault("segments", 4)
+    kwargs.setdefault("sps", 8)
+    return CellAsyncDsssReceiver(
+        CODE, chip_rate=CHIP_RATE, symbol_rate=SYM_RATE, spc=SPC, **kwargs
+    )
+
+
+def test_cell_starts_idle_with_no_search_and_no_refine():
+    rx = _new_cell(70.0)
+    assert (rx.idle, rx.refining, rx.tracking, rx.lost) == (1, 0, 0, 0)
+    # Neither a search nor a refine: the constructor takes neither's knobs.
+    assert not hasattr(rx, "configure_search_raw")
+    assert not hasattr(rx, "set_refine_min_blocks")
+    assert not hasattr(rx, "refine_min_blocks")
+    with pytest.raises(TypeError):
+        _new_cell(70.0, refine_n_fft=64)
+    # The correction's own: an interval of at least one period, a gain in
+    # (0, 1], a non-negative fold threshold.
+    for bad in ({"correct_periods": 0}, {"gain": 0.0}, {"gain": 1.5}):
+        with pytest.raises((ValueError, MemoryError)):
+            _new_cell(70.0, **bad)
+
+
+def test_cell_seed_pulls_in_and_decodes():
+    x, data = _make_ramp_signal(70.0, seed=21)
+    rx = _new_cell(70.0, correct_periods=40, pullin_intervals=4)
+    assert len(rx.steps(x[: PRE_SILENCE + 3 * TE])) == 0
+    assert rx.idle == 1
+    # The seed is the truth: chip 0 on the first signal sample, 0 Hz.
+    rx.seed(0.0, 0.0, 70.0)
+    assert (rx.idle, rx.refining, rx.tracking) == (0, 1, 0)  # the pull-in
+    syms = _feed(rx, x[PRE_SILENCE:])
+    assert rx.tracking == 1
+    assert len(syms) > 200
+    assert _best_ber(syms, data) < 0.05
+    st = rx.status()
+    assert (st.code_locked, st.locked) == (1, 1)
+    # The whole carrier, ramped 500 Hz/s for the capture's length, within a
+    # few tens of hertz: the pre-despread loop follows it, as the hand-off's.
+    t_end = (len(x) - PRE_SILENCE) / FS
+    assert abs(st.doppler_hz - RATE_HZ_PER_S * t_end) < 60.0
+    with pytest.raises(ValueError, match="seed refused"):
+        rx.seed(0.0, 0.0, 70.0)
+    rx.reset()
+    assert (rx.idle, rx.tracking, rx.refining) == (1, 0, 0)
+    rx.seed(1.5, 0.0, 70.0)
+    assert rx.refining == 1
+
+
+def test_cell_state_roundtrip_is_mode_keyed():
+    x, _data = _make_ramp_signal(70.0, seed=21)
+    rx = _new_cell(70.0, correct_periods=40)
+    rx2 = _new_cell(70.0, correct_periods=40)
+    rx2.set_state(rx.get_state())
+    assert rx2.idle == 1
+    rx.seed(0.0, 0.0, 70.0)
+    split = PRE_SILENCE + 300 * TE + 7 * TE
+    _feed(rx, x[PRE_SILENCE:split])
+    assert rx.tracking == 1
+    blob = rx.get_state()
+    rx2.set_state(blob)
+    assert (rx2.tracking, rx2.idle) == (1, 0)
+    assert rx2.chip_phase == pytest.approx(rx.chip_phase)
+    a = _feed(rx, x[split:])
+    b = _feed(rx2, x[split:])
+    assert len(a) == len(b) > 20
+    assert np.array_equal(a, b)
+    # Across the modes the blob is refused both ways: the search engine
+    # and the refine children are in one and not the other.
+    searching = AsyncDsssReceiver(
+        CODE,
+        chip_rate=CHIP_RATE,
+        symbol_rate=SYM_RATE,
+        spc=SPC,
+        cn0_dbhz=70.0,
+        doppler_uncertainty=500.0,
+        segments=4,
+        sps=8,
+    )
+    with pytest.raises(ValueError):
+        searching.set_state(blob)
+    with pytest.raises(ValueError):
+        rx2.set_state(searching.get_state())
+    assert rx2.tracking == 1
+
+
+# ── The status record (design section 11.3) ──────────────────────────────
+
+
+def test_status_record_is_the_getters_other_face():
+    x, _data = _make_ramp_signal(70.0, seed=21)
+    rx = _new_cell(70.0, lost_confirm_s=0.02)
+    st = rx.status()
+    assert isinstance(st, ReceiverStatus)
+    assert (st.state, st.doppler_hz, st.code_locked, st.locked) == (
+        3,
+        0.0,
+        0,
+        0,
+    )
+    assert (st.state_samples, st.both_down_samples) == (0, 0)
+
+    rx.seed(12.5, -321.0, 48.0)
+    st = rx.status()
+    assert st.state == 1
+    assert st.doppler_hz == pytest.approx(-321.0)
+    assert st.cn0_dbhz_est == 48.0
+    rx.reset()
+
+    rx.seed(0.0, 0.0, 70.0)
+    _feed(rx, x[PRE_SILENCE:])
+    st = rx.status()
+    assert st.state == 2
+    assert (st.code_locked, st.locked) == (1, 1)
+    assert st.chip_phase == rx.chip_phase
+    assert st.code_rate == rx.code_rate
+    assert st.lock_metric == rx.lock_metric
+    assert st.lock_threshold == rx.lock_threshold
+    assert st.car_last_error == rx.car_last_error
+    assert st.mpsk_last_error == rx.mpsk_last_error
+    assert st.state_samples > 0
+    assert st.both_down_samples == 0
+    # The live estimate follows the ramp: 500 Hz/s for the signal's duration
+    # (2430 symbols at 2700 sym/s is ~0.9 s, so ~450 Hz). The seed-time
+    # property is the refined seed and stays near 0.
+    t_end = (len(x) - PRE_SILENCE) / FS
+    assert st.doppler_hz == pytest.approx(RATE_HZ_PER_S * t_end, abs=30.0)
+    assert abs(rx.doppler_hz) < 100.0
+
+    off = _noise(int(0.2 * FS), 70.0, seed=99)
+    lost, _run = _feed_until_lost(rx, off, 4096)
+    assert lost
+    st = rx.status()
+    assert st.state == 4
+    assert st.both_down_samples > 0.02 * FS
+    # The base flavor reports the same record, starting from searching.
+    assert _new_receiver(70.0).status().state == 0
+
+
+def test_create_defaults():
+    rx = _new_receiver(55.0)
+    assert rx.tracking == 0
+    assert rx.refining == 0
+    assert rx.segments == 4
+    assert rx.sps == 8
+    # `n` lands in MpskReceiver's `m_out` slot, and the cascade rebuild
+    # changed what that means: it is terminal outputs per symbol now, not
+    # the retired NDA arm's dumps per symbol, so it is derived as the
+    # coherent-bound default (8) rather than the old "largest divisor of
+    # sps in {4,2,1}" (which gave 4 here and did not decode at all).
+    assert rx.n == 8
+    assert rx.chip_phase == 0.0
+
+
+def test_only_signal_params_required():
+    """code/chip_rate/symbol_rate are the only required constructor args --
+    everything else defaults (the refine_* tuning defaults to freq_refine.
+    refine_seed_carrier_acq()'s own already-validated recipe)."""
+    rx = AsyncDsssReceiver(CODE, chip_rate=CHIP_RATE, symbol_rate=SYM_RATE)
+    assert rx.tracking == 0
+    assert rx.segments == 4
+    assert rx.sps == 8
+
+
+def test_context_manager():
+    with _new_receiver(55.0) as rx:
+        assert rx.tracking == 0
+
+
+def _stream(rx, x, chunk=TE):
+    syms = []
+    for pos in range(0, len(x) - chunk, chunk):
+        out = rx.steps(x[pos : pos + chunk])
+        if len(out):
+            syms.append(out)
+    return np.concatenate(syms) if syms else np.zeros(0, dtype=np.complex64)
+
+
+def test_acquires_refines_and_decodes():
+    """A moderately-stressed Es/N0 (NOT SPEC's own literal 5dB floor -- see
+    test_spec_floor_reaches_tracking_but_may_not_decode()'s own docstring
+    for why) proves this object's own new machinery -- the refine stage's
+    CarrierAcquisition-based frequency estimate and the per-code-period
+    (not per-partial) carrier cadence -- correctly closes the loop and
+    decodes under a genuine 500 Hz/s Doppler RAMP with async data."""
+    esn0_db = 20.0
+    cn0_dbhz = esn0_db + 10.0 * np.log10(SYM_RATE)
+    x, data = _make_ramp_signal(cn0_dbhz, seed=21)
+    rx = _new_receiver(cn0_dbhz)
+
+    syms = _stream(rx, x)
+
+    assert rx.tracking == 1
+    assert rx.refining == 0
+    assert len(syms) > N_SYM // 2
+    assert rx.cn0_dbhz_est > 0.0
+
+    ber = _best_ber(syms, data)
+    assert ber < 0.01, f"expected a clean decode, got ber={ber}"
+
+
+@pytest.mark.parametrize("db", [-30.0, -15.0, 15.0, 30.0])
+def test_absolute_level_invariance(db):
+    """Decisions are invariant to the absolute input level.
+
+    Every stage of the receiver keys off a ratio, not an absolute magnitude:
+    the acquisition detector is CFAR (test statistic normalised by its own
+    measured noise), the code loop's discriminator is
+    ``(|E|^2-|L|^2)/(|P|^2+eps)``, the pre-despread Costas is ``|P|``-
+    normalised, and the symbol-lock metric is ``(I^2-Q^2)/(I^2+Q^2)``. So
+    scaling the whole capture by a constant gain must not move a single
+    decoded bit.
+
+    This used to say "an AGC-free front end", and that is no longer true:
+    the embedded ``MpskReceiver`` now carries the one cascade AGC (its
+    ``agc`` argument is 1 here), because its TIMING detector normalises by a
+    slope computed for a unit-amplitude stream. The invariance claim is
+    unaffected -- it never rested on the absence of a level loop, only on
+    every DECISION being a ratio -- but the reason quoted above is no longer
+    the whole reason, and a level loop that is doing its job can only help.
+    Stronger still, the output is level-
+    *independent*, not merely decision-invariant: the despread symbol is
+    normalised, so the recovered constellation comes out at the SAME
+    magnitude regardless of input gain (scaling in does NOT scale out).
+    (Measured directly, the decode stays invariant from roughly -200 dB to
+    +200 dB, where the absolute ``DLL_EPS`` floor and float32 overflow
+    eventually bite; +/-30 dB is deep in that flat interior.)
+
+    **What this asserts is invariant DECISIONS and an invariant output
+    LEVEL, not a bit-identical constellation** -- it used to assert the
+    latter, and the cascade rebuild made that unachievable rather than
+    merely untrue. A hysteretic lock decision sits downstream of a float32
+    polyphase datapath, and a non-power-of-two gain perturbs that datapath
+    in its last bits. Wherever the lock metric passes close to
+    ``lock_thresh``, those last bits decide which symbol the decision fires
+    on, and the two runs then follow slightly different loop trajectories
+    for the rest of the stream. (This described the ``acq_to_track``
+    handover when it was written; that is gone, but the DSSS receiver's own
+    search-vs-track routing is the same shape and the argument stands.)
+
+    Measured at Es/N0 = 20 dB: the streams agree to ~1e-6 up to a
+    divergence symbol (~450 at -30 dB,
+    ~2025 at +15 dB, none within the stream at +30 dB -- the timing is
+    chaotic, not monotone in gain), and differ by up to ~0.25 of the
+    constellation radius after it, while **every** real-part sign still
+    matches and the mean magnitude moves by ~1e-3 relative. So the physical
+    property holds exactly and only exact reproducibility is gone. Do not
+    re-tighten this to ``allclose`` without first making the decision
+    itself level-exact."""
+    esn0_db = 20.0
+    cn0_dbhz = esn0_db + 10.0 * np.log10(SYM_RATE)
+    x, _data = _make_ramp_signal(cn0_dbhz, seed=21)
+    ref = _stream(_new_receiver(cn0_dbhz), x)
+    assert len(ref) > N_SYM // 2  # a real decode to compare against
+
+    g = np.complex64(10.0 ** (db / 20.0))
+    scaled = _stream(_new_receiver(cn0_dbhz), (x * g).astype(np.complex64))
+
+    assert len(scaled) == len(ref)  # identical acquisition/refine timing
+    # Identical DECODED BITS at any absolute level -- BPSK data rides the
+    # real axis, so this is the decision-invariance claim itself, and it
+    # holds with zero differences. (The quadrature sign is not asserted: for
+    # BPSK it is noise about zero, so its sign is decided by the last bits
+    # of a float32 datapath and carries no information.)
+    assert np.array_equal(np.sign(scaled.real), np.sign(ref.real))
+    # normalised output: the recovered symbols are level-INDEPENDENT (same
+    # magnitude in, out), not scaled by the input gain.
+    #
+    # rtol is 3e-3 because that is where the measurement sits, not because a
+    # tighter one failed: at Es/N0 = 20 dB the relative move is 1.454e-4 at
+    # -30, -15 and +15 dB (identical to eight digits -- those three converge
+    # to the same trajectory) and 1.002e-3 at +30 dB. Not monotone in gain,
+    # for the chaotic-divergence reason in the docstring. 3e-3 leaves 3x on
+    # the worst case; a real level leak would be ~10^(db/20), five orders up.
+    assert np.isclose(np.abs(scaled).mean(), np.abs(ref).mean(), rtol=3e-3), (
+        "output level moved with input level -- the despread normalisation"
+    )
+
+
+def test_extreme_high_snr_stays_stable():
+    """Noiseless input must not destabilise a receiver designed at 20 dB.
+
+    The fast twin of the `async_dsss_receiver` characterization, which
+    sweeps Es/N0 from 20 to 200 dB over several seeds at full length (`make
+    characterize`) -- that sweep is a stress test, not a per-push contract,
+    and at ~5.5 M samples a trial it was among the slowest tests under
+    coverage. This keeps the one point that IS the failure mode, a noise
+    estimate collapsing toward zero, on every push: 200 dB (effectively
+    noiseless), a third of the capture, still enough to lock and decode.
+    """
+    from doppler.dsss.tests.characterization.async_dsss_receiver.characterize import (  # noqa: E501
+        run_trial,
+        stable,
+    )
+
+    r = run_trial(200.0, seed=21, n_sym=N_SYM // 3)
+    assert r["finite"], "inf/NaN at 200 dB: a denominator collapsed"
+    assert stable(r), r
+
+
+def test_spec_floor_reaches_tracking_but_may_not_decode():
+    """SPEC's own literal Es/N0=5dB floor. Direct measurement while
+    building this object found that the ALREADY-SHIPPED, already-validated
+    `DsssReceiver` fails to decode (BER~0.43, lock~0.55) at this exact
+    Es/N0 even given a trivial STATIC ZERO Doppler offset -- no frequency
+    estimation error at all, coarse or refined. So this object cannot be
+    expected to decode at SPEC's literal floor either (task #99's own
+    "leading remaining candidate, not yet directly inspected: Acquisition's
+    own hit quality" -- not a Doppler-estimation problem this object's
+    refine stage could fix). This test checks only what THIS object's own
+    refine stage is actually responsible for: the state machine reaches
+    tracking (never stalls) and produces a finite Doppler estimate."""
+    esn0_db = 5.0
+    cn0_dbhz = esn0_db + 10.0 * np.log10(SYM_RATE)
+    x, _data = _make_ramp_signal(cn0_dbhz, seed=21)
+    rx = _new_receiver(cn0_dbhz)
+
+    _stream(rx, x)
+
+    assert rx.tracking == 1
+    assert np.isfinite(rx.doppler_hz)
+
+
+def test_give_up_cap_never_stalls():
+    """CarrierAcquisition cannot possibly reach a detection off a single
+    block (refine_max_n_blocks=1, refine_sequential=True so this is
+    genuinely the CFAR test's own give-up bound) regardless of signal
+    strength -- the refine stage must give up and start tracking with the
+    unrefined coarse estimate rather than stall forever."""
+    cn0_dbhz = 70.0
+    x, _data = _make_ramp_signal(cn0_dbhz, seed=9)
+    rx = _new_receiver(
+        cn0_dbhz,
+        refine_n_fft=16,
+        refine_zero_pad=4,
+        refine_sequential=True,
+        refine_max_n_blocks=1,
+    )
+
+    _stream(rx, x)
+
+    assert rx.refining == 0
+    assert rx.tracking == 1
+
+
+def test_reset_returns_to_searching():
+    x, _data = _make_ramp_signal(70.0, seed=21)
+    rx = _new_receiver(70.0)
+    for pos in range(0, len(x) - TE, TE):
+        rx.steps(x[pos : pos + TE])
+        if rx.tracking:
+            break
+    assert rx.tracking == 1
+
+    rx.reset()
+    assert rx.tracking == 0
+    assert rx.refining == 0
+    assert rx.chip_phase == 0.0
+
+
+def test_state_roundtrip_while_tracking():
+    x, _data = _make_ramp_signal(70.0, seed=21)
+    rx = _new_receiver(70.0)
+    for pos in range(0, len(x) - TE, TE):
+        rx.steps(x[pos : pos + TE])
+        if rx.tracking:
+            break
+    assert rx.tracking == 1
+
+    blob = rx.get_state()
+    rx2 = _new_receiver(70.0)
+    rx2.set_state(blob)
+    assert rx2.tracking == 1
+    assert rx2.chip_phase == pytest.approx(rx.chip_phase)
+    assert rx2.segments == rx.segments
+    assert rx2.sps == rx.sps
+
+    with pytest.raises(ValueError):
+        rx2.set_state(b"\x00" * len(blob))
+
+    with pytest.raises(TypeError):
+        rx2.set_state("not bytes")
+
+
+def test_state_roundtrip_while_refining():
+    x, _data = _make_ramp_signal(70.0, seed=21)
+    rx = _new_receiver(70.0)
+    for pos in range(0, len(x) - TE, TE):
+        rx.steps(x[pos : pos + TE])
+        if rx.refining:
+            break
+    assert rx.refining == 1
+
+    blob = rx.get_state()
+    rx2 = _new_receiver(70.0)
+    rx2.set_state(blob)
+    assert rx2.refining == 1
+    assert rx2.tracking == 0
+
+
+def test_state_roundtrip_while_searching():
+    rx = _new_receiver(70.0)
+    blob = rx.get_state()
+    rx2 = _new_receiver(70.0)
+    rx2.set_state(blob)
+    assert rx2.tracking == 0
+    assert rx2.refining == 0

@@ -1,0 +1,252 @@
+"""Edge case tests for Migrator to improve coverage."""
+
+from unittest.mock import MagicMock
+
+import psycopg
+import pytest
+
+from confiture.core.migrator import Migrator
+from confiture.exceptions import MigrationError
+from confiture.models.migration import Migration
+
+
+class TestMigratorInitializeEdgeCases:
+    """Test initialize method edge cases."""
+
+    def test_initialize_with_commit_error(self):
+        """Test initialize when commit fails."""
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+
+        # The bare-name ledger probe signals absence with no row at all (#188); a
+        # `(False,)` row used to be swallowed by a broad handler into the same error.
+        mock_cursor.fetchone.return_value = None
+
+        # Simulate commit failing
+        mock_conn.commit.side_effect = psycopg.Error("Commit failed")
+
+        migrator = Migrator(connection=mock_conn)
+
+        with pytest.raises(MigrationError, match="Failed to initialize"):
+            migrator.initialize()
+
+        # Should call rollback
+        mock_conn.rollback.assert_called_once()
+
+    def test_initialize_is_idempotent(self):
+        """Test that initialize can be called multiple times safely."""
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+
+        # Simulate table already exists with new structure. The default
+        # tracking table is bare, so the first row is the `to_regclass` probe's
+        # (schema, relname) shape rather than an EXISTS boolean (#188).
+        mock_cursor.fetchone.side_effect = [
+            ("public", "tb_confiture"),  # Table exists
+            (True,),  # Has new structure (pk_migration)
+        ]
+
+        migrator = Migrator(connection=mock_conn)
+        migrator.initialize()
+
+        # Should not raise error
+        mock_conn.commit.assert_called()
+
+
+class TestMigratorApplyEdgeCases:
+    """Test apply method edge cases."""
+
+    def test_apply_already_applied_migration(self):
+        """Test applying migration that was already applied."""
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+
+        # Simulate migration already applied
+        mock_cursor.fetchone.return_value = (1,)
+
+        migrator = Migrator(connection=mock_conn)
+
+        mock_migration = MagicMock(spec=Migration)
+        mock_migration.version = "001"
+        mock_migration.name = "test_migration"
+
+        with pytest.raises(MigrationError, match="has already been applied"):
+            migrator.apply(mock_migration)
+
+    def test_apply_with_up_failure(self):
+        """Test apply when up() method fails."""
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+
+        # Simulate migration not applied yet
+        mock_cursor.fetchone.return_value = (0,)
+
+        migrator = Migrator(connection=mock_conn)
+
+        mock_migration = MagicMock(spec=Migration)
+        mock_migration.version = "001"
+        mock_migration.name = "test_migration"
+        mock_migration.up.side_effect = Exception("SQL error")
+
+        with pytest.raises(MigrationError, match="Failed to apply migration"):
+            migrator.apply(mock_migration)
+
+        # Should commit the savepoint rollback
+        mock_conn.commit.assert_called()
+
+
+class TestMigratorRollbackEdgeCases:
+    """Test rollback method edge cases."""
+
+    def test_rollback_not_applied_migration(self):
+        """Test rolling back migration that was never applied."""
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+
+        # Simulate migration not applied
+        mock_cursor.fetchone.return_value = (0,)
+
+        migrator = Migrator(connection=mock_conn)
+
+        mock_migration = MagicMock(spec=Migration)
+        mock_migration.version = "001"
+        mock_migration.name = "test_migration"
+
+        with pytest.raises(MigrationError, match="has not been applied"):
+            migrator.rollback(mock_migration)
+
+    def test_rollback_with_down_failure(self):
+        """Test rollback when down() method fails."""
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+
+        # Simulate migration was applied
+        mock_cursor.fetchone.return_value = (1,)
+
+        migrator = Migrator(connection=mock_conn)
+
+        mock_migration = MagicMock(spec=Migration)
+        mock_migration.version = "001"
+        mock_migration.name = "test_migration"
+        mock_migration.down.side_effect = Exception("SQL error during down")
+
+        with pytest.raises(MigrationError, match="Failed to rollback migration"):
+            migrator.rollback(mock_migration)
+
+        # Should rollback transaction
+        mock_conn.rollback.assert_called()
+
+
+class TestMigratorIsApplied:
+    """Test _is_applied helper method."""
+
+    def test_is_applied_with_none_result(self):
+        """Test _is_applied when query returns None."""
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+
+        # Simulate fetchone returning None
+        mock_cursor.fetchone.return_value = None
+
+        migrator = Migrator(connection=mock_conn)
+        result = migrator._is_applied("001")
+
+        assert result is False
+
+
+class TestMigratorFindMigrationFiles:
+    """Test find_migration_files method."""
+
+    def test_find_migration_files_nonexistent_dir(self, tmp_path):
+        """Test finding migrations when directory doesn't exist."""
+        mock_conn = MagicMock()
+        migrator = Migrator(connection=mock_conn)
+
+        nonexistent_dir = tmp_path / "nonexistent" / "migrations"
+
+        files = migrator.find_migration_files(migrations_dir=nonexistent_dir)
+
+        assert files == []
+
+
+class TestExecuteSqlComposable:
+    """Test that _execute_sql properly handles Composable queries in error paths (issue #115)."""
+
+    def test_execute_sql_error_with_composable_query(self):
+        """Composable query should produce a readable SQLError, not AttributeError."""
+        from psycopg import sql as pgsql
+
+        from confiture.exceptions import SQLError
+
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+
+        # Simulate a database error during execution
+        mock_cursor.execute.side_effect = psycopg.Error("permission denied")
+
+        migrator = Migrator(connection=mock_conn)
+
+        composed_query = pgsql.SQL("CREATE TABLE {} (id INT)").format(pgsql.Identifier("my_table"))
+
+        with pytest.raises(SQLError, match="permission denied") as exc_info:
+            migrator._execute_sql(composed_query)
+
+        # The sql attribute should be a rendered string, not a Composed object
+        assert isinstance(exc_info.value.sql, str)
+        assert "CREATE TABLE" in exc_info.value.sql
+
+    def test_initialize_error_surfaces_original_message(self):
+        """initialize() should surface the real DB error, not 'Composed has no strip'."""
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+
+        # Table exists check succeeds, table doesn't exist. The bare-name probe
+        # signals absence by returning no row at all (#188) — an EXISTS-style
+        # `(False,)` is a *present* answer to the `to_regclass` query, which
+        # would send this test down the wrong branch.
+        mock_cursor.fetchone.return_value = None
+        # CREATE TABLE fails with a permissions error
+        call_count = 0
+
+        def execute_side_effect(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                # First call is the EXISTS check — succeeds
+                return
+            # Second call is CREATE TABLE — fails
+            raise psycopg.Error("permission denied for schema public")
+
+        mock_cursor.execute.side_effect = execute_side_effect
+
+        migrator = Migrator(connection=mock_conn)
+
+        with pytest.raises(MigrationError, match="permission denied for schema public"):
+            migrator.initialize()
+
+
+class TestMigratorVersionExtraction:
+    """Test _version_from_filename helper."""
+
+    def test_version_from_filename_various_formats(self):
+        """Test extracting version from different filename formats."""
+        mock_conn = MagicMock()
+        migrator = Migrator(connection=mock_conn)
+
+        # Standard format
+        assert migrator._version_from_filename("001_create_users.py") == "001"
+
+        # Multiple underscores
+        assert migrator._version_from_filename("042_add_user_email_column.py") == "042"
+
+        # Different length version
+        assert migrator._version_from_filename("00123_long_version.py") == "00123"

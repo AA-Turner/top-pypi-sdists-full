@@ -1,0 +1,1384 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""OMN-17530 — the lab-pass receipt contract and the fail-closed staging gate.
+
+``omni_home`` ``CLAUDE.md`` Operating Rule 24(b): delivery to staging fails
+closed unless a passing lab receipt exists for the delivered sha. These tests
+pin the four branches that decide whether that sentence is true —
+
+  present PASS -> continue; FAIL -> fail; missing -> fail; malformed -> fail
+
+— plus the receipt-model invariants that stop a receipt lying about itself.
+
+The gate's failure branches matter more than its success branch: a gate that
+fails open on an unreadable surface is indistinguishable from no gate, and
+"nothing was red" is exactly how the defects rule 24 exists for reached
+``onex-dev``.
+"""
+
+from __future__ import annotations
+
+import argparse
+import io
+import json
+import re
+import zipfile
+from datetime import UTC, datetime
+from typing import Any
+
+import pytest
+
+from scripts.ci.lab_pass_receipt import (
+    RECEIPT_VERSION,
+    EnumLabLane,
+    EnumLabPassResult,
+    ModelLabPassCheck,
+    ModelLabPassReceipt,
+    artifact_name,
+    build_receipt,
+    check_health_dimensions,
+    check_projections_ready,
+    evaluate_gate,
+    parse_check_argument,
+    parse_receipt,
+)
+
+pytestmark = pytest.mark.unit
+
+SHA = "98b9fb764dc19ce32dc4c4b382266b659f78cb9e"
+OTHER_SHA = "7f6c2b8dbd89708f9e1521a74e25682beb7eeb0f"
+REPO = "OmniNode-ai/omnibase_infra"
+
+STARTED = datetime(2026, 9, 8, 12, 0, 0, tzinfo=UTC)
+FINISHED = datetime(2026, 9, 8, 12, 20, 0, tzinfo=UTC)
+
+
+def _checks(*, ok: bool = True) -> list[ModelLabPassCheck]:
+    return [
+        ModelLabPassCheck(name="ready_main", ok=True, evidence="GET /ready -> 200"),
+        ModelLabPassCheck(
+            name="health_dimensions",
+            ok=ok,
+            evidence="GET /health -> 200, 7 dimensions, all healthy"
+            if ok
+            else "GET /health -> 200, 7 dimensions, unhealthy: ['consumer_coverage']",
+        ),
+    ]
+
+
+def _receipt(
+    *,
+    sha: str = SHA,
+    lane: EnumLabLane = EnumLabLane.COMPOSE_DEV,
+    ok: bool = True,
+) -> ModelLabPassReceipt:
+    return build_receipt(
+        sha=sha,
+        lane=lane,
+        started_at=STARTED,
+        finished_at=FINISHED,
+        checks=_checks(ok=ok),
+        agent_command_id="bdf92958-8ee6-4be4-9df0-04d3e15d9c59",
+    )
+
+
+# ---------------------------------------------------------------------------
+# The receipt contract
+# ---------------------------------------------------------------------------
+class TestReceiptModel:
+    def test_verdict_is_derived_from_the_checks_not_supplied(self) -> None:
+        assert _receipt(ok=True).result is EnumLabPassResult.PASS
+        assert _receipt(ok=False).result is EnumLabPassResult.FAIL
+
+    def test_pass_carrying_a_failed_check_is_refused(self) -> None:
+        """The 'green while doing nothing' shape, refused at the model."""
+        with pytest.raises(ValueError, match="must be supported by every check"):
+            ModelLabPassReceipt(
+                sha=SHA,
+                lane=EnumLabLane.COMPOSE_DEV,
+                started_at=STARTED,
+                finished_at=FINISHED,
+                result=EnumLabPassResult.PASS,
+                checks=tuple(_checks(ok=False)),
+                agent_command_id=None,
+            )
+
+    def test_fail_with_every_check_passing_is_refused(self) -> None:
+        """Refused in both directions: a FAIL cannot hide an unrecorded check."""
+        with pytest.raises(ValueError, match="contradicts"):
+            ModelLabPassReceipt(
+                sha=SHA,
+                lane=EnumLabLane.COMPOSE_DEV,
+                started_at=STARTED,
+                finished_at=FINISHED,
+                result=EnumLabPassResult.FAIL,
+                checks=tuple(_checks(ok=True)),
+                agent_command_id=None,
+            )
+
+    def test_empty_checks_is_refused(self) -> None:
+        with pytest.raises(ValueError, match="checks is empty"):
+            ModelLabPassReceipt(
+                sha=SHA,
+                lane=EnumLabLane.COMPOSE_DEV,
+                started_at=STARTED,
+                finished_at=FINISHED,
+                result=EnumLabPassResult.FAIL,
+                checks=(),
+                agent_command_id=None,
+            )
+
+    @pytest.mark.parametrize("bad", ["98b9fb7", SHA.upper(), "", "not-a-sha"])
+    def test_abbreviated_or_malformed_sha_is_refused(self, bad: str) -> None:
+        with pytest.raises(ValueError, match="40-character lowercase"):
+            build_receipt(
+                sha=bad,
+                lane=EnumLabLane.COMPOSE_DEV,
+                started_at=STARTED,
+                finished_at=FINISHED,
+                checks=_checks(),
+                agent_command_id=None,
+            )
+
+    def test_agent_command_id_has_no_default(self) -> None:
+        """Rule 8: an emitter states it or states null; it is never guessed."""
+        with pytest.raises((ValueError, TypeError)):
+            ModelLabPassReceipt(  # type: ignore[call-arg]
+                sha=SHA,
+                lane=EnumLabLane.COMPOSE_DEV,
+                started_at=STARTED,
+                finished_at=FINISHED,
+                result=EnumLabPassResult.PASS,
+                checks=tuple(_checks()),
+            )
+
+    def test_duplicate_check_names_are_refused(self) -> None:
+        with pytest.raises(ValueError, match="duplicate check names"):
+            build_receipt(
+                sha=SHA,
+                lane=EnumLabLane.COMPOSE_DEV,
+                started_at=STARTED,
+                finished_at=FINISHED,
+                checks=[
+                    ModelLabPassCheck(name="ready_main", ok=True, evidence="a"),
+                    ModelLabPassCheck(name="ready_main", ok=True, evidence="b"),
+                ],
+                agent_command_id=None,
+            )
+
+    def test_check_evidence_is_required_on_a_passing_check(self) -> None:
+        """An `ok: true` with no evidence is a check that was never run."""
+        with pytest.raises((ValueError, TypeError)):
+            ModelLabPassCheck(name="ready_main", ok=True, evidence="")
+
+    def test_finished_before_started_is_refused(self) -> None:
+        with pytest.raises(ValueError, match="precedes"):
+            build_receipt(
+                sha=SHA,
+                lane=EnumLabLane.COMPOSE_DEV,
+                started_at=FINISHED,
+                finished_at=STARTED,
+                checks=_checks(),
+                agent_command_id=None,
+            )
+
+    def test_artifact_name_carries_the_exact_sha_and_lane(self) -> None:
+        assert (
+            artifact_name(EnumLabLane.ONEX_LAB, SHA)
+            == f"lab-pass-receipt-onex-lab-{SHA}"
+        )
+        assert artifact_name(EnumLabLane.COMPOSE_DEV, SHA) != artifact_name(
+            EnumLabLane.COMPOSE_DEV, OTHER_SHA
+        )
+
+    def test_a_governed_lane_cannot_name_itself_in_a_receipt(self) -> None:
+        """prod / stability-test / judge are not lab lanes and never will be."""
+        for governed in ("prod", "stability-test", "judge", "lakshman"):
+            with pytest.raises(ValueError, match="is not a valid EnumLabLane"):
+                EnumLabLane(governed)
+
+    def test_the_module_imports_nothing_outside_the_stdlib(self) -> None:
+        """The regression that took a real delivery down, pinned.
+
+        Run 34235502322 (2026-09-08T14:14:36Z) died at import with
+        ``ModuleNotFoundError: No module named 'pydantic'`` AFTER all four of
+        its checks had passed, and took the whole dev-candidate delivery with
+        it. Both call sites run on a bare runner with no project environment,
+        and the boot gate checks this repository out into a subdirectory so it
+        cannot even reference the shared setup action. A third-party import here
+        is therefore not a style question -- it breaks the delivery path.
+        """
+        import ast
+        import sys
+        from pathlib import Path as _Path
+
+        module = _Path("scripts/ci/lab_pass_receipt.py")
+        tree = ast.parse(module.read_text(encoding="utf-8"))
+        roots: set[str] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                roots.update(alias.name.split(".")[0] for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                roots.add(node.module.split(".")[0])
+        non_stdlib = sorted(roots - set(sys.stdlib_module_names))
+        assert not non_stdlib, (
+            f"scripts/ci/lab_pass_receipt.py imports {non_stdlib}, which the "
+            "bare runners that emit and read receipts do not have"
+        )
+
+    def test_round_trips_through_json(self) -> None:
+        original = _receipt()
+        assert parse_receipt(original.to_json()) == original
+
+
+class TestSerialisation:
+    """Hand-written parsing has to refuse everything a model would have."""
+
+    def test_an_unknown_receipt_field_is_refused(self) -> None:
+        payload = json.loads(_receipt().to_json())
+        payload["parity_exclusions"] = ["msk"]
+        with pytest.raises(ValueError, match="unknown receipt field"):
+            ModelLabPassReceipt.from_json(json.dumps(payload))
+
+    def test_a_missing_receipt_field_is_refused(self) -> None:
+        payload = json.loads(_receipt().to_json())
+        del payload["agent_command_id"]
+        with pytest.raises(ValueError, match="missing required field"):
+            ModelLabPassReceipt.from_json(json.dumps(payload))
+
+    def test_an_unknown_lane_is_refused(self) -> None:
+        payload = json.loads(_receipt().to_json())
+        payload["lane"] = "prod"
+        with pytest.raises(ValueError, match="is not a valid EnumLabLane"):
+            ModelLabPassReceipt.from_json(json.dumps(payload))
+
+    def test_an_unknown_check_field_is_refused(self) -> None:
+        payload = json.loads(_receipt().to_json())
+        payload["checks"][0]["severity"] = "high"
+        with pytest.raises(ValueError, match="unknown check field"):
+            ModelLabPassReceipt.from_json(json.dumps(payload))
+
+
+class TestCheckArgumentParsing:
+    def test_evidence_may_contain_colons(self) -> None:
+        parsed = parse_check_argument("ready_main:ok:GET http://x:8085/ready -> 200")
+        assert parsed.name == "ready_main"
+        assert parsed.ok is True
+        assert parsed.evidence == "GET http://x:8085/ready -> 200"
+
+    @pytest.mark.parametrize("bad", ["ready_main:ok", "ready_main", ""])
+    def test_a_check_without_evidence_is_refused(self, bad: str) -> None:
+        with pytest.raises(
+            ValueError, match="not 'name:ok\\|fail\\|indeterminate:evidence'"
+        ):
+            parse_check_argument(bad)
+
+    def test_an_unknown_verdict_word_is_refused(self) -> None:
+        with pytest.raises(ValueError, match="verdict must be one of"):
+            parse_check_argument("ready_main:probably:whatever")
+
+
+class TestHealthDimensionProbe:
+    """An absent dimension set is not a healthy dimension set.
+
+    The healthy and unhealthy cases that used to live here asserted against a
+    top-level ``dimensions`` OBJECT that no producer in this repository has
+    ever emitted, so they proved the fixture rather than the surface. They are
+    replaced by
+    :class:`TestHealthDimensionProbeReadsTheShapeTheRuntimeServes`, which reads
+    a payload captured off the live ``.201`` dev lane. What remains here are
+    the two shape-agnostic fail-closed cases, which are true of any payload.
+    """
+
+    def test_missing_dimensions_object_fails(self, monkeypatch: Any) -> None:
+        monkeypatch.setattr(
+            "scripts.ci.lab_pass_receipt._http_get",
+            lambda url, timeout: (200, json.dumps({"status": "ok"})),
+        )
+        check = check_health_dimensions("http://lane/health", 1.0)
+        assert check.ok is False
+        assert "not a healthy dimension set" in check.evidence
+
+    def test_transport_failure_fails_closed(self, monkeypatch: Any) -> None:
+        monkeypatch.setattr(
+            "scripts.ci.lab_pass_receipt._http_get",
+            lambda url, timeout: (0, "URLError: connection refused"),
+        )
+        check = check_health_dimensions("http://lane/health", 1.0)
+        assert check.ok is False
+
+
+class TestProjectionReadinessProbe:
+    """OMN-18387 AC4 -- the omnimarket-projection-api container was outside
+    the automatic lab pass twice; this is the receipt-side half. A
+    ``compose-dev`` receipt must carry a check naming the projection API's
+    readiness, and that check must fail closed on everything but a genuinely
+    serving endpoint -- a five-day-stale container that happens to answer 200
+    on some OTHER path must not read as this check passing.
+    """
+
+    def test_the_check_is_a_declared_compose_dev_check(self) -> None:
+        from scripts.ci.lab_pass_receipt import COMPOSE_DEV_HTTP_CHECKS
+
+        assert "projection_ready" in COMPOSE_DEV_HTTP_CHECKS
+
+    def test_a_serving_projection_api_passes(self, monkeypatch: Any) -> None:
+        """Pins the declared response shape: the top-level key is 'topics',
+        not 'projections', and each entry carries omnimarket's projection
+        metadata fields."""
+        monkeypatch.setattr(
+            "scripts.ci.lab_pass_receipt._http_get",
+            lambda url, timeout: (
+                200,
+                json.dumps(
+                    {
+                        "topics": [
+                            {
+                                "topic": "onex.snapshot.projection.consumer-flow.v1",
+                                "table": "consumer_flow",
+                                "status": "serving",
+                                "columns": ["projection_cursor", "window_end"],
+                                "limit": 100,
+                                "source_contract": "projection/consumer-flow.yaml",
+                                "bus_backed": True,
+                                "backing": "bus",
+                                "cursor_column": "projection_cursor",
+                                "order_by": "window_end DESC, projection_cursor DESC",
+                            }
+                        ]
+                    }
+                ),
+            ),
+        )
+        check = check_projections_ready("http://lane:3002/projections", 1.0)
+        assert check.ok is True
+        assert check.name == "projection_ready"
+
+    def test_a_non_200_fails_closed(self, monkeypatch: Any) -> None:
+        monkeypatch.setattr(
+            "scripts.ci.lab_pass_receipt._http_get",
+            lambda url, timeout: (503, "snapshot_bootstrap_incomplete"),
+        )
+        check = check_projections_ready("http://lane:3002/projections", 1.0)
+        assert check.ok is False
+
+    def test_transport_failure_fails_closed(self, monkeypatch: Any) -> None:
+        monkeypatch.setattr(
+            "scripts.ci.lab_pass_receipt._http_get",
+            lambda url, timeout: (0, "URLError: connection refused"),
+        )
+        check = check_projections_ready("http://lane:3002/projections", 1.0)
+        assert check.ok is False
+
+    def test_a_body_with_no_topics_list_fails_closed(self, monkeypatch: Any) -> None:
+        """A 200 that carries no 'topics' list is not a serving projection
+        API -- e.g. an unrelated endpoint or a proxy error page that happens
+        to answer 200."""
+        monkeypatch.setattr(
+            "scripts.ci.lab_pass_receipt._http_get",
+            lambda url, timeout: (200, json.dumps({"status": "ok"})),
+        )
+        check = check_projections_ready("http://lane:3002/projections", 1.0)
+        assert check.ok is False
+        assert "topics" in check.evidence
+
+    @pytest.mark.parametrize(
+        "topics",
+        [
+            {"topic": "onex.snapshot.projection.consumer-flow.v1"},
+            "onex.snapshot.projection.consumer-flow.v1",
+        ],
+    )
+    def test_a_non_list_topics_value_fails_closed(
+        self, monkeypatch: Any, topics: object
+    ) -> None:
+        monkeypatch.setattr(
+            "scripts.ci.lab_pass_receipt._http_get",
+            lambda url, timeout: (200, json.dumps({"topics": topics})),
+        )
+        check = check_projections_ready("http://lane:3002/projections", 1.0)
+        assert check.ok is False
+        assert "no 'topics' list" in check.evidence
+
+    def test_an_empty_topics_list_fails_closed(self, monkeypatch: Any) -> None:
+        monkeypatch.setattr(
+            "scripts.ci.lab_pass_receipt._http_get",
+            lambda url, timeout: (200, json.dumps({"topics": []})),
+        )
+        check = check_projections_ready("http://lane:3002/projections", 1.0)
+        assert check.ok is False
+        assert "zero topics" in check.evidence
+
+    def test_a_malformed_topic_entry_fails_closed(self, monkeypatch: Any) -> None:
+        monkeypatch.setattr(
+            "scripts.ci.lab_pass_receipt._http_get",
+            lambda url, timeout: (
+                200,
+                json.dumps(
+                    {
+                        "topics": [
+                            {
+                                "topic": ("onex.snapshot.projection.consumer-flow.v1"),
+                                "table": "consumer_flow",
+                            }
+                        ]
+                    }
+                ),
+            ),
+        )
+        check = check_projections_ready("http://lane:3002/projections", 1.0)
+        assert check.ok is False
+        assert "missing required field" in check.evidence
+
+    def test_non_json_body_fails_closed(self, monkeypatch: Any) -> None:
+        monkeypatch.setattr(
+            "scripts.ci.lab_pass_receipt._http_get",
+            lambda url, timeout: (200, "not json"),
+        )
+        check = check_projections_ready("http://lane:3002/projections", 1.0)
+        assert check.ok is False
+
+
+# ---------------------------------------------------------------------------
+# The gate
+# ---------------------------------------------------------------------------
+def _zip_of(body: str, member: str = "receipt.json") -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr(member, body)
+    return buffer.getvalue()
+
+
+class _Surface:
+    """A fake GitHub artifact surface, keyed by artifact name exactly as the
+    real REST API is."""
+
+    def __init__(self, bodies: dict[str, str], *, list_raises: bool = False) -> None:
+        self.bodies = bodies
+        self.list_raises = list_raises
+        self.ids = {name: 1000 + i for i, name in enumerate(sorted(bodies))}
+
+    def __call__(self, path: str) -> bytes:
+        if self.list_raises:
+            msg = "`gh api` exited 1: HTTP 503"
+            raise RuntimeError(msg)
+        if "/actions/artifacts?name=" in path:
+            name = path.split("name=")[1].split("&")[0]
+            if name not in self.bodies:
+                return json.dumps({"artifacts": []}).encode()
+            return json.dumps(
+                {
+                    "artifacts": [
+                        {
+                            "id": self.ids[name],
+                            "name": name,
+                            "expired": False,
+                            "created_at": "2026-09-08T12:20:00Z",
+                        }
+                    ]
+                }
+            ).encode()
+        artifact_id = int(path.split("/artifacts/")[1].split("/")[0])
+        name = next(n for n, i in self.ids.items() if i == artifact_id)
+        return _zip_of(self.bodies[name])
+
+
+def _run_gate(surface: _Surface, monkeypatch: Any, sha: str = SHA) -> tuple[int, str]:
+    monkeypatch.setattr("scripts.ci.lab_pass_receipt._gh_api", surface)
+    out = io.StringIO()
+    code = evaluate_gate(REPO, sha, list(EnumLabLane), out)
+    return code, out.getvalue()
+
+
+class TestGate:
+    def test_present_pass_continues(self, monkeypatch: Any) -> None:
+        receipt = _receipt()
+        surface = _Surface({artifact_name(receipt.lane, SHA): receipt.to_json()})
+        code, output = _run_gate(surface, monkeypatch)
+        assert code == 0
+        # AC: the gate PRINTS sha, lane, result and checks.
+        assert SHA in output
+        assert "compose-dev" in output
+        assert "PASS" in output
+        assert "ready_main" in output
+        assert "health_dimensions" in output
+
+    def test_fail_receipt_fails_and_names_the_sha(self, monkeypatch: Any) -> None:
+        receipt = _receipt(ok=False)
+        surface = _Surface({artifact_name(receipt.lane, SHA): receipt.to_json()})
+        code, output = _run_gate(surface, monkeypatch)
+        assert code == 1
+        assert f"lab-pass gate FAILED for {SHA}" in output
+        # The failing check is still rendered: the gate says WHY, not just no.
+        assert "[FAIL] health_dimensions" in output
+
+    def test_missing_receipt_fails_and_is_not_a_skip(self, monkeypatch: Any) -> None:
+        code, output = _run_gate(_Surface({}), monkeypatch)
+        assert code == 1
+        assert f"lab-pass gate FAILED for {SHA}" in output
+        assert "no receipt artifact named" in output
+        assert "This is not a skip" in output
+
+    def test_malformed_receipt_fails(self, monkeypatch: Any) -> None:
+        surface = _Surface(
+            {artifact_name(EnumLabLane.COMPOSE_DEV, SHA): '{"sha": "nope"}'}
+        )
+        code, output = _run_gate(surface, monkeypatch)
+        assert code == 1
+        assert "malformed" in output
+        assert SHA in output
+
+    def test_unknown_receipt_version_is_refused(self, monkeypatch: Any) -> None:
+        payload = json.loads(_receipt().to_json())
+        payload["receipt_version"] = "lab_pass_receipt.v2"
+        surface = _Surface(
+            {artifact_name(EnumLabLane.COMPOSE_DEV, SHA): json.dumps(payload)}
+        )
+        code, _ = _run_gate(surface, monkeypatch)
+        assert code == 1
+
+    def test_a_receipt_for_a_different_sha_cannot_satisfy_the_gate(
+        self, monkeypatch: Any
+    ) -> None:
+        """The exactness requirement, driven rather than asserted.
+
+        A receipt filed under this sha's NAME whose PAYLOAD names another
+        commit is a name/payload disagreement, and the gate refuses it. There
+        is no descendant window: the plan of record grants none.
+        """
+        wrong = _receipt(sha=OTHER_SHA)
+        surface = _Surface(
+            {artifact_name(EnumLabLane.COMPOSE_DEV, SHA): wrong.to_json()}
+        )
+        code, output = _run_gate(surface, monkeypatch)
+        assert code == 1
+        assert "the name and the payload disagree" in output
+
+    def test_a_surface_read_error_fails_closed(self, monkeypatch: Any) -> None:
+        """Rule 16: an errored sweep must not read as a clean bill of health."""
+        code, output = _run_gate(_Surface({}, list_raises=True), monkeypatch)
+        assert code == 1
+        assert "unreadable" in output
+
+    def test_either_lab_lane_satisfies_the_gate(self, monkeypatch: Any) -> None:
+        """Rule 24(b) asks for 'a passing lab receipt', not a specific lane's."""
+        receipt = _receipt(lane=EnumLabLane.ONEX_LAB)
+        surface = _Surface(
+            {artifact_name(EnumLabLane.ONEX_LAB, SHA): receipt.to_json()}
+        )
+        code, output = _run_gate(surface, monkeypatch)
+        assert code == 0
+        assert "onex-lab" in output
+
+    def test_an_abbreviated_sha_is_refused_before_any_lookup(
+        self, monkeypatch: Any
+    ) -> None:
+        code, output = _run_gate(_Surface({}), monkeypatch, sha="98b9fb7")
+        assert code == 1
+        assert "Refusing to resolve an abbreviated ref" in output
+
+    def test_there_is_no_override_flag(self) -> None:
+        """AC: no --force, no skip input. Asserted against the parser itself, so
+        adding one is a test failure rather than a review catch."""
+        from scripts.ci.lab_pass_receipt import build_parser
+
+        # Read the parser's own option strings, not its rendered help: the help
+        # text quotes "--force" while explaining that there isn't one, and a
+        # test that greps prose would fail on its own documentation.
+        subparsers = next(
+            action
+            for action in build_parser()._actions
+            if isinstance(action, argparse._SubParsersAction)
+        )
+        options = {
+            option
+            for parser in subparsers.choices.values()
+            for action in parser._actions
+            for option in action.option_strings
+        }
+        for banned in ("--force", "--skip", "--allow-missing", "--warn-only"):
+            assert banned not in options, (
+                f"{banned} is an override the gate must not have"
+            )
+
+
+class TestGateWiring:
+    """The gate is only a gate if the delivery workflow actually runs it."""
+
+    def test_the_delivery_workflow_runs_the_gate_before_dispatch(self) -> None:
+        from pathlib import Path
+
+        workflow = Path(".github/workflows/deliver-dev-candidate-to-staging.yml")
+        text = workflow.read_text(encoding="utf-8")
+        assert "lab_pass_receipt.py gate" in text, (
+            "deliver-dev-candidate-to-staging.yml no longer runs the lab-pass "
+            "gate; rule 24(b) would be doctrine again."
+        )
+        assert "lab-pass-gate" in text
+
+    def test_the_dispatch_job_depends_on_the_gate(self) -> None:
+        from pathlib import Path
+
+        import yaml
+
+        workflow = yaml.safe_load(
+            Path(".github/workflows/deliver-dev-candidate-to-staging.yml").read_text(
+                encoding="utf-8"
+            )
+        )
+        needs = workflow["jobs"]["dispatch-to-staging"]["needs"]
+        assert "lab-pass-gate" in needs, (
+            "dispatch-to-staging must not be reachable without the lab-pass gate"
+        )
+        # No `if:` override — GitHub's default success() is what makes a skipped
+        # or cancelled gate leave the dispatch unfired.
+        assert "if" not in workflow["jobs"]["dispatch-to-staging"]
+
+    def test_both_lab_emitters_publish_a_receipt_artifact(self) -> None:
+        from pathlib import Path
+
+        deliver = Path(
+            ".github/workflows/deliver-dev-candidate-to-staging.yml"
+        ).read_text(encoding="utf-8")
+        rebuild = Path(".github/workflows/runtime-rebuild-trigger.yml").read_text(
+            encoding="utf-8"
+        )
+        # onex-lab, from the boot gate; compose-dev, from the .201 convergence job.
+        assert "lab_pass_receipt.py emit" in deliver
+        assert "--lane onex-lab" in deliver
+        assert "lab_pass_receipt.py emit" in rebuild
+        assert "--lane compose-dev" in rebuild
+
+
+class TestComposeDevProbeReachesTheLane:
+    """The compose-dev emitter must probe the lane at an address it can reach.
+
+    OMN-17530 shipped ``verify-lane-converged`` probing the dev lane at
+    ``http://localhost:8085`` / ``:8086``, on a comment asserting "this job
+    runs ON the lane's host". It does not. It runs on the ``omnibase-deploy``
+    self-hosted runner, which is a CONTAINER (``omninode-deploy-runner``,
+    ``NetworkMode=docker_default``) on the lane's host. The docker socket is
+    bind-mounted, which is why ``check_dev_lane_staleness.py``'s
+    ``docker inspect`` read works; the network namespace is the container's,
+    which is why an HTTP probe of ``localhost`` never reaches the lane.
+
+    Measured 2026-09-10, with a positive control on both halves:
+
+    * from the .201 host shell, ``curl http://localhost:8085/ready`` -> ``200``
+      and ``http://localhost:8086/ready`` -> ``200``;
+    * from inside ``omninode-deploy-runner``, the same two URLs ->
+      ``000`` (``Errno 111 Connection refused``), while
+      ``http://host.docker.internal:8085/ready`` and ``:8086/ready`` -> ``200``.
+
+    So all fourteen ``compose-dev`` receipts emitted between 2026-09-08T16:01Z
+    and 2026-09-10T09:36Z carried the identical three failures --
+    ``ready_main``, ``ready_effects`` and ``health_dimensions``, each with
+    evidence ``URLError: <urlopen error [Errno 111] Connection refused>`` --
+    and not one has ever been a ``PASS``. A receipt that cannot pass is the
+    fail-always shape this module's own docstring names, arriving a second time
+    on the other lane.
+
+    ``chain-canary.yml`` already records the correct fact in this repository's
+    own tree, and runs on the same runner label::
+
+        `omnibase-deploy` is the ONE runner carrying the host-gateway alias
+        (docker/docker-compose.runners.yml `extra_hosts`), which is what makes
+        `host.docker.internal` resolve to the lane's published ports. Inside
+        any runner container `localhost` is the container itself.
+
+    This test pins that so the wrong address cannot come back.
+    """
+
+    def _probe_env(self) -> dict[str, str]:
+        from pathlib import Path
+
+        import yaml
+
+        workflow = yaml.safe_load(
+            Path(".github/workflows/runtime-rebuild-trigger.yml").read_text(
+                encoding="utf-8"
+            )
+        )
+        step = next(
+            candidate
+            for candidate in workflow["jobs"]["verify-lane-converged"]["steps"]
+            if candidate.get("id") == "probe"
+        )
+        # OMN-19507 AC2: the step binds each address from the job environment,
+        # which the routed instance's verify: block fills; the committed table
+        # routes this workflow's merges to dev-201. So the address a probe
+        # actually uses is that block's, read here through the same resolver.
+        from scripts.ci.deploy_lane_verify_route import (
+            job_env,
+            load_table,
+            targets_for_receipt_lane,
+        )
+
+        routed = job_env(targets_for_receipt_lane(load_table(), "compose-dev"))
+        resolved: dict[str, str] = {}
+        for name, value in dict(step["env"]).items():
+            match = re.fullmatch(r"\$\{\{ env\.(\w+) \}\}", str(value))
+            resolved[name] = routed[match.group(1)] if match else value
+        return resolved
+
+    def test_no_instance_addresses_its_lane_as_localhost(self) -> None:
+        """Every routed instance's probe runs in a runner container too."""
+        from scripts.ci.deploy_lane_verify_route import load_table
+
+        for name, spec in load_table()["instances"].items():
+            for key, url in spec["verify"].items():
+                if isinstance(url, str) and "://" in url:
+                    assert "localhost" not in url, (name, key, url)
+                    assert "127.0.0.1" not in url, (name, key, url)
+
+    def test_the_probe_does_not_address_the_lane_as_localhost(self) -> None:
+        # Only the address-carrying entries; the step also carries numeric
+        # budget knobs, and a URL assertion over an int is a broken test rather
+        # than a finding.
+        addresses = {
+            name: value
+            for name, value in self._probe_env().items()
+            if isinstance(value, str) and "://" in value
+        }
+        assert addresses, "the probe step names no lane address at all"
+        for name, url in addresses.items():
+            assert "localhost" not in url, (
+                f"{name}={url!r}: the compose-dev probe runs inside the "
+                "omninode-deploy-runner container, where localhost is the "
+                "container itself. Measured Errno 111 on every one of the "
+                "fourteen receipts emitted 2026-09-08T16:01Z..2026-09-10T09:36Z."
+            )
+            assert "127.0.0.1" not in url, (
+                f"{name}={url!r}: a loopback literal has the same defect as "
+                "localhost, spelled differently."
+            )
+
+    def test_the_probe_uses_the_host_gateway_alias(self) -> None:
+        env = self._probe_env()
+        assert env["DEV_LANE_MAIN_URL"] == "http://host.docker.internal:8085"
+        assert env["DEV_LANE_EFFECTS_URL"] == "http://host.docker.internal:8086"
+
+    def test_the_workflow_no_longer_claims_the_job_runs_on_the_lane_host(
+        self,
+    ) -> None:
+        from pathlib import Path
+
+        text = Path(".github/workflows/runtime-rebuild-trigger.yml").read_text(
+            encoding="utf-8"
+        )
+        assert "this job runs ON the lane's host" not in text, (
+            "the comment that justified the localhost probe is the false "
+            "premise itself; leaving it in place invites the revert."
+        )
+
+
+class TestHealthDimensionProbeReadsTheShapeTheRuntimeServes:
+    """The dimensions live at ``details.runtime_health.dimensions``, as a LIST.
+
+    ``check_health_dimensions`` was written against a top-level ``dimensions``
+    *object* keyed by dimension name. No producer in this repository has ever
+    emitted that shape. The runtime builds the block in
+    ``omnibase_infra.runtime.health.runtime_health_block.build_runtime_health_block``
+    -- a list of ``{name, status, detail}`` -- and
+    ``omnibase_infra.services.health_checker`` mounts it under
+    ``details[RUNTIME_HEALTH_DETAIL_KEY]``, where ``RUNTIME_HEALTH_DETAIL_KEY``
+    is ``"runtime_health"``.
+
+    Nobody could see this, because the probe never reached the lane: the URL
+    defect fixed in the parent commit meant every call returned ``Errno 111``
+    and the parser was never entered. The three existing cases in
+    :class:`TestHealthDimensionProbe` passed because they asserted against the
+    invented shape rather than a capture, which is the failure mode this class
+    replaces: the fixture below is a real payload, not a hand-written one.
+
+    Captured read-only 2026-09-10 from inside ``omninode-deploy-runner`` --
+    the container this job runs in -- via
+    ``curl http://host.docker.internal:8085/health`` against the ``.201`` dev
+    lane (compose project ``omnibase-infra``, runtime ``0.38.22``). Six
+    dimensions, every one ``HEALTHY``. Stored at
+    ``tests/fixtures/omn17530/compose_dev_health.captured.json``.
+    """
+
+    @staticmethod
+    def _captured() -> str:
+        from pathlib import Path
+
+        return Path(
+            "tests/fixtures/omn17530/compose_dev_health.captured.json"
+        ).read_text(encoding="utf-8")
+
+    def test_the_live_lane_payload_passes(self, monkeypatch: Any) -> None:
+        body = self._captured()
+        monkeypatch.setattr(
+            "scripts.ci.lab_pass_receipt._http_get",
+            lambda url, timeout: (200, body),
+        )
+        check = check_health_dimensions("http://lane/health", 1.0)
+        assert check.ok is True, check.evidence
+        assert "6 dimensions" in check.evidence
+        assert "all healthy" in check.evidence
+
+    def test_the_fixture_is_the_shape_the_runtime_builds(self) -> None:
+        # Guards the capture itself: if it were hand-edited into the invented
+        # shape the test above would pass while proving nothing.
+        payload = json.loads(self._captured())
+        dimensions = payload["details"]["runtime_health"]["dimensions"]
+        assert isinstance(dimensions, list) and dimensions
+        assert all(set(entry) >= {"name", "status", "detail"} for entry in dimensions)
+        assert "dimensions" not in payload
+
+    def test_one_unhealthy_dimension_is_named_by_its_name_field(
+        self, monkeypatch: Any
+    ) -> None:
+        payload = json.loads(self._captured())
+        payload["details"]["runtime_health"]["dimensions"][3]["status"] = "DEGRADED"
+        body = json.dumps(payload)
+        monkeypatch.setattr(
+            "scripts.ci.lab_pass_receipt._http_get",
+            lambda url, timeout: (200, body),
+        )
+        check = check_health_dimensions("http://lane/health", 1.0)
+        assert check.ok is False
+        assert "projection_attachment" in check.evidence
+
+    @pytest.mark.parametrize(
+        "mutate",
+        [
+            pytest.param(lambda p: p.pop("details"), id="no-details"),
+            pytest.param(
+                lambda p: p["details"].pop("runtime_health"), id="no-runtime-health"
+            ),
+            pytest.param(
+                lambda p: p["details"]["runtime_health"].update({"dimensions": []}),
+                id="empty-dimension-list",
+            ),
+            pytest.param(
+                lambda p: p["details"]["runtime_health"].update({"dimensions": {}}),
+                id="dimensions-not-a-list",
+            ),
+            pytest.param(
+                lambda p: p["details"]["runtime_health"]["dimensions"].append(
+                    {"name": "no_status"}
+                ),
+                id="dimension-without-a-status",
+            ),
+        ],
+    )
+    def test_it_fails_closed_on_every_way_the_block_can_be_absent(
+        self, monkeypatch: Any, mutate: Any
+    ) -> None:
+        payload = json.loads(self._captured())
+        mutate(payload)
+        body = json.dumps(payload)
+        monkeypatch.setattr(
+            "scripts.ci.lab_pass_receipt._http_get",
+            lambda url, timeout: (200, body),
+        )
+        assert check_health_dimensions("http://lane/health", 1.0).ok is False
+
+
+def _install_fake_clock(monkeypatch: Any) -> None:
+    """A virtual clock so a settle-budget test costs no wall-clock time.
+
+    The production loop deliberately measures with ``time.monotonic``; patching
+    only ``time.sleep`` would leave the loop spinning against a real deadline,
+    which is how a unit test quietly becomes a 30-second one.
+    """
+    now = {"t": 0.0}
+    monkeypatch.setattr("time.monotonic", lambda: now["t"])
+    monkeypatch.setattr(
+        "time.sleep", lambda seconds: now.__setitem__("t", now["t"] + seconds)
+    )
+
+
+class TestTheProbeDoesNotRaceTheComposeRecreate:
+    """The probe fired 174 milliseconds after convergence, into a cold lane.
+
+    Measured on run 34478680748, from the job log, to the millisecond::
+
+        13:12:28.5442420Z  ok: dev lane converged onto c1874426216e after 0h22m
+        13:12:28.7181102Z  uv run python scripts/ci/lab_pass_receipt.py probe-lane
+        13:12:28.8260884Z  GET .../8085/ready -> 0 Errno 111 Connection refused
+
+    ``check_dev_lane_staleness.py`` returns as soon as the RUNNING container
+    carries the expected ``org.opencontainers.image.revision`` label. That label
+    is set when the container is created, not when the runtime has bound its
+    port. So convergence succeeding is precisely the moment the lane is LEAST
+    able to answer, and the three HTTP checks fired into a compose recreate that
+    had just happened.
+
+    That receipt is the proof of the perverse consequence: ``deployed_revision``
+    ok, all three HTTP checks refused. Compare the receipt one run earlier
+    (``ba15dd33``), where the lane had NOT converged and was therefore serving an
+    older revision quite happily: ``deployed_revision`` failed and both readiness
+    checks passed. The HTTP checks pass only when the revision check fails, and
+    fail exactly when it succeeds -- so a ``compose-dev`` receipt cannot be a
+    PASS by construction. That is the fail-always shape this module's docstring
+    names, one layer deeper than the two defects already fixed under this ticket.
+
+    Measured settle cost on this lane the same day, read-only: at 12:36:29Z
+    ``omninode-runtime-effects`` was still ``Created`` while ``omninode-runtime``
+    read ``Up 3 minutes (health: starting)``; by 12:37:29Z effects was ``Up 44
+    seconds``; all three endpoints answered 200 several minutes after that. The
+    compose ``x-healthcheck-defaults`` ``start_period`` is 10s and measures
+    something else entirely -- deriving a settle budget from it would repeat the
+    false-derivation defect corrected in the parent commit.
+
+    So the budget is not a constant at all: it is whatever remains before this
+    job's own ceiling, passed in by the caller. That keeps the single
+    omnibase-deploy runner slot bounded exactly as it is today, and the receipt
+    records what budget the probe had and how long it waited, so a probe that
+    had no budget left says so instead of racing silently.
+    """
+
+    def test_probe_compose_dev_accepts_a_settle_budget(self) -> None:
+        import inspect
+
+        from scripts.ci.lab_pass_receipt import probe_compose_dev
+
+        params = inspect.signature(probe_compose_dev).parameters
+        assert "settle_timeout_seconds" in params, (
+            "the probe must be able to wait for the lane to finish coming up"
+        )
+
+    def test_it_waits_for_readiness_then_passes(self, monkeypatch: Any) -> None:
+        """A lane that answers on the third poll must produce passing checks."""
+        from scripts.ci.lab_pass_receipt import probe_compose_dev
+
+        body = (
+            _CAPTURED_HEALTH := __import__("pathlib")
+            .Path("tests/fixtures/omn17530/compose_dev_health.captured.json")
+            .read_text(encoding="utf-8")
+        )
+        calls: dict[str, int] = {}
+
+        def fake_get(url: str, timeout: float) -> tuple[int, str]:
+            calls[url] = calls.get(url, 0) + 1
+            if "/ready" in url and calls[url] < 3:
+                return 0, "URLError: <urlopen error [Errno 111] Connection refused>"
+            if "/health" in url:
+                return 200, body
+            if "/projections" in url:
+                return 200, json.dumps(
+                    {
+                        "topics": [
+                            {
+                                "topic": "onex.snapshot.projection.consumer-flow.v1",
+                                "table": "consumer_flow",
+                                "status": "serving",
+                                "columns": ["projection_cursor"],
+                                "limit": 100,
+                                "source_contract": "projection/consumer-flow.yaml",
+                                "bus_backed": True,
+                                "backing": "bus",
+                            }
+                        ]
+                    }
+                )
+            return 200, '{"status":"healthy"}'
+
+        monkeypatch.setattr("scripts.ci.lab_pass_receipt._http_get", fake_get)
+        _install_fake_clock(monkeypatch)
+        checks = probe_compose_dev(
+            main_url="http://lane:8085",
+            effects_url="http://lane:8086",
+            timeout_seconds=1.0,
+            settle_timeout_seconds=60.0,
+            projection_url="http://lane:3002",
+        )
+        # OMN-18436 widened the set: a probe that was GRANTED a settle budget
+        # also records whether the lane came up inside it, as its own check,
+        # because a budget-exhausted boot and an unhealthy lane used to arrive
+        # identically as `ready_effects: fail`. The two claim-gated checks
+        # (`settle_budget_sufficient`, `probe_generation_bound`) are absent here
+        # because this ad hoc call makes neither claim.
+        assert [c.name for c in checks] == [
+            "ready_main",
+            "ready_effects",
+            "health_dimensions",
+            "projection_ready",
+            "timed_out_before_ready",
+        ]
+        assert all(c.ok for c in checks), [
+            (c.name, c.evidence) for c in checks if not c.ok
+        ]
+        assert _CAPTURED_HEALTH  # the fixture is the real payload, not a stub
+
+    def test_a_lane_that_never_comes_up_still_fails(self, monkeypatch: Any) -> None:
+        """The settle wait is a wait, never a pass. Fail-closed is preserved."""
+        from scripts.ci.lab_pass_receipt import probe_compose_dev
+
+        monkeypatch.setattr(
+            "scripts.ci.lab_pass_receipt._http_get",
+            lambda url, timeout: (
+                0,
+                "URLError: <urlopen error [Errno 111] Connection refused>",
+            ),
+        )
+        _install_fake_clock(monkeypatch)
+        checks = probe_compose_dev(
+            main_url="http://lane:8085",
+            effects_url="http://lane:8086",
+            timeout_seconds=1.0,
+            settle_timeout_seconds=30.0,
+            projection_url="http://lane:3002",
+        )
+        assert not any(c.ok for c in checks)
+
+    def test_zero_budget_is_recorded_not_hidden(self, monkeypatch: Any) -> None:
+        """A probe with no time left must say so in its own evidence."""
+        from scripts.ci.lab_pass_receipt import probe_compose_dev
+
+        monkeypatch.setattr(
+            "scripts.ci.lab_pass_receipt._http_get",
+            lambda url, timeout: (
+                0,
+                "URLError: <urlopen error [Errno 111] Connection refused>",
+            ),
+        )
+        checks = probe_compose_dev(
+            main_url="http://lane:8085",
+            effects_url="http://lane:8086",
+            timeout_seconds=1.0,
+            settle_timeout_seconds=0.0,
+            projection_url="http://lane:3002",
+        )
+        readiness = next(c for c in checks if c.name == "ready_main")
+        assert "settle" in readiness.evidence.lower(), (
+            "a probe that raced because it had no budget must be "
+            "distinguishable from one that waited and still failed"
+        )
+
+    def test_the_workflow_hands_the_probe_a_budget(self) -> None:
+        """OMN-18436 changed WHICH budget, not whether there is one.
+
+        It was ``--settle-timeout-seconds "$SETTLE"``, a job-ceiling remainder
+        computed in shell. It is now the lane's DECLARED budget, resolved by a
+        tested Python step; the remainder could be smaller than the lane's own
+        measured boot, which failed the receipt on timing alone.
+        """
+        from pathlib import Path
+
+        text = Path(".github/workflows/runtime-rebuild-trigger.yml").read_text(
+            encoding="utf-8"
+        )
+        assert "--settle-budget-json" in text, (
+            "the probe step must pass a budget, or it races the recreate again"
+        )
+
+
+# ---------------------------------------------------------------------------
+# OMN-19312: all-of required lanes, the bounded wait and the runtime-ancestor
+# subject (the workflow-verdict reader is OMN-18866's, tested beside it). The instrument the D11 and C15 bindings stand on
+# (operator ruling 2026-09-23T17:12:15Z: every check blocks, bound now).
+# ---------------------------------------------------------------------------
+from scripts.ci.lab_pass_receipt import (
+    ANY_OF_DEFAULT_LANES,
+    MAX_WAIT_SECONDS,
+    resolve_required_subject,
+)
+
+ANCESTOR = "1111111111111111111111111111111111111111"
+MIDDLE = "2222222222222222222222222222222222222222"
+CHAIN = EnumLabLane.COMPOSE_DEV_CHAIN
+
+
+def _bodies(*receipts: ModelLabPassReceipt) -> dict[str, str]:
+    return {artifact_name(r.lane, r.sha): r.to_json() for r in receipts}
+
+
+def _gate(
+    surface: Any,
+    monkeypatch: Any,
+    *,
+    lanes: tuple[EnumLabLane, ...] = ANY_OF_DEFAULT_LANES,
+    required: tuple[EnumLabLane, ...] = (),
+    required_sha: str | None = None,
+    wait_seconds: float = 0.0,
+) -> tuple[int, str]:
+    monkeypatch.setattr("scripts.ci.lab_pass_receipt._gh_api", surface)
+    out = io.StringIO()
+    code = evaluate_gate(
+        REPO,
+        SHA,
+        list(lanes),
+        out,
+        required=list(required),
+        required_sha=required_sha,
+        wait_seconds=wait_seconds,
+        poll_seconds=30.0,
+    )
+    return code, out.getvalue()
+
+
+class TestRequireLaneIsAllOf:
+    def test_require_lane_refuses_a_chain_fail_beside_an_onex_lab_pass(
+        self, monkeypatch: Any
+    ) -> None:
+        """The falsifier the design names: known-bad refused, sha named."""
+        surface = _Surface(
+            _bodies(
+                _receipt(lane=EnumLabLane.ONEX_LAB),
+                _receipt(lane=CHAIN, ok=False),
+            )
+        )
+        code, output = _gate(surface, monkeypatch, required=(CHAIN,))
+        assert code == 1
+        assert f"lab-pass gate FAILED for {SHA}" in output
+        assert "REQUIRED lane compose-dev-chain does not pass" in output
+        assert "its newest receipt is FAIL" in output
+
+    def test_require_lane_positive_control_any_of_alone_passes_the_same_inputs(
+        self, monkeypatch: Any
+    ) -> None:
+        """Today's any-of call passes on the exact inputs above. That is what
+        makes the refusal above a change, not a coincidence."""
+        surface = _Surface(
+            _bodies(
+                _receipt(lane=EnumLabLane.ONEX_LAB),
+                _receipt(lane=CHAIN, ok=False),
+            )
+        )
+        code, _ = _gate(surface, monkeypatch)
+        assert code == 0
+
+    def test_require_lane_known_good_passes(self, monkeypatch: Any) -> None:
+        surface = _Surface(
+            _bodies(_receipt(lane=EnumLabLane.ONEX_LAB), _receipt(lane=CHAIN))
+        )
+        code, output = _gate(surface, monkeypatch, required=(CHAIN,))
+        assert code == 0
+        assert "compose-dev-chain" in output
+
+    def test_require_lane_absent_is_refused_as_no_receipt(
+        self, monkeypatch: Any
+    ) -> None:
+        surface = _Surface(_bodies(_receipt(lane=EnumLabLane.ONEX_LAB)))
+        code, output = _gate(surface, monkeypatch, required=(CHAIN,))
+        assert code == 1
+        assert "compose-dev-chain does not pass" in output
+        assert "no receipt exists" in output
+
+    def test_require_lane_every_required_lane_must_pass(self, monkeypatch: Any) -> None:
+        corpus = EnumLabLane.COMPOSE_DEV_CORPUS
+        surface = _Surface(
+            _bodies(
+                _receipt(lane=EnumLabLane.ONEX_LAB),
+                _receipt(lane=CHAIN),
+                _receipt(lane=corpus, ok=False),
+            )
+        )
+        code, output = _gate(surface, monkeypatch, required=(CHAIN, corpus))
+        assert code == 1
+        assert "compose-dev-corpus does not pass" in output
+
+    def test_require_lane_still_needs_the_any_of_premise(
+        self, monkeypatch: Any
+    ) -> None:
+        surface = _Surface(_bodies(_receipt(lane=CHAIN)))
+        code, output = _gate(surface, monkeypatch, required=(CHAIN,))
+        assert code == 1
+        assert "no PASS lab-pass receipt exists for this exact sha" in output
+
+    def test_require_lane_verdict_lane_pass_does_not_satisfy_default_any_of(
+        self, monkeypatch: Any
+    ) -> None:
+        """A chain canary PASS is not evidence the candidate booted."""
+        assert CHAIN not in ANY_OF_DEFAULT_LANES
+        assert EnumLabLane.COMPOSE_DEV_CORPUS not in ANY_OF_DEFAULT_LANES
+        surface = _Surface(_bodies(_receipt(lane=CHAIN)))
+        code, _ = _gate(surface, monkeypatch)
+        assert code == 1
+
+    def test_require_lane_with_nothing_to_read_refuses(self, monkeypatch: Any) -> None:
+        code, output = _gate(_Surface({}), monkeypatch, lanes=())
+        assert code == 1
+        assert "gate that checked nothing" in output
+
+    def test_require_lane_cli_default_any_of_is_the_three_lab_surfaces(
+        self, monkeypatch: Any
+    ) -> None:
+        from scripts.ci import lab_pass_receipt as mod
+
+        seen: dict[str, Any] = {}
+
+        def fake_gate(repo: str, sha: str, lanes: Any, out: Any, **kw: Any) -> int:
+            seen.update(lanes=list(lanes), **kw)
+            return 0
+
+        monkeypatch.setattr(mod, "evaluate_gate", fake_gate)
+        assert (
+            mod.main(["gate", "--sha", SHA, "--require-lane", "compose-dev-chain"]) == 0
+        )
+        assert seen["lanes"] == list(ANY_OF_DEFAULT_LANES)
+        assert seen["required"] == [CHAIN]
+
+
+class _LandingSurface(_Surface):
+    """A surface on which one artifact appears after ``after`` listings of it."""
+
+    def __init__(
+        self, bodies: dict[str, str], late: dict[str, str], after: int
+    ) -> None:
+        super().__init__({**bodies, **late})
+        self.late = set(late)
+        self.after = after
+        self.listings = 0
+
+    def __call__(self, path: str) -> bytes:
+        if "/actions/artifacts?name=" in path:
+            name = path.split("name=")[1].split("&")[0]
+            if name in self.late:
+                self.listings += 1
+                if self.listings <= self.after:
+                    return json.dumps({"artifacts": []}).encode()
+        return super().__call__(path)
+
+
+class TestBoundedWait:
+    def test_wait_expiry_on_an_absent_required_receipt_refuses(
+        self, monkeypatch: Any
+    ) -> None:
+        _install_fake_clock(monkeypatch)
+        surface = _Surface(_bodies(_receipt(lane=EnumLabLane.ONEX_LAB)))
+        code, output = _gate(surface, monkeypatch, required=(CHAIN,), wait_seconds=120)
+        assert code == 1
+        assert "no receipt exists after waiting 120 s" in output
+        assert output.count("waiting for required lane(s) compose-dev-chain") == 4
+
+    def test_wait_reads_a_receipt_that_lands_inside_the_bound(
+        self, monkeypatch: Any
+    ) -> None:
+        _install_fake_clock(monkeypatch)
+        chain = _receipt(lane=CHAIN)
+        surface = _LandingSurface(
+            _bodies(_receipt(lane=EnumLabLane.ONEX_LAB)), _bodies(chain), after=2
+        )
+        code, output = _gate(surface, monkeypatch, required=(CHAIN,), wait_seconds=600)
+        assert code == 0
+        assert "3 read(s)" in output
+
+    def test_wait_does_not_wait_out_a_present_fail(self, monkeypatch: Any) -> None:
+        _install_fake_clock(monkeypatch)
+        surface = _Surface(
+            _bodies(_receipt(lane=EnumLabLane.ONEX_LAB), _receipt(lane=CHAIN, ok=False))
+        )
+        code, output = _gate(surface, monkeypatch, required=(CHAIN,), wait_seconds=600)
+        assert code == 1
+        assert "waiting for required" not in output
+
+    @pytest.mark.parametrize("bad", [-1.0, MAX_WAIT_SECONDS + 1.0])
+    def test_wait_out_of_bounds_refuses(self, monkeypatch: Any, bad: float) -> None:
+        code, output = _gate(
+            _Surface({}), monkeypatch, required=(CHAIN,), wait_seconds=bad
+        )
+        assert code == 1
+        assert "--wait-seconds" in output
+
+
+class TestRuntimeAncestorSubject:
+    def test_ancestor_runtime_affecting_head_resolves_to_itself(self) -> None:
+        subject, note = resolve_required_subject(
+            SHA,
+            branch_commits=lambda: [SHA, ANCESTOR],
+            runtime_affecting=lambda sha: True,
+        )
+        assert subject == SHA
+        assert "runtime-affecting" in note
+
+    def test_ancestor_inherits_only_across_non_runtime_commits(self) -> None:
+        subject, note = resolve_required_subject(
+            SHA,
+            branch_commits=lambda: [SHA, MIDDLE, ANCESTOR],
+            runtime_affecting=lambda sha: sha == ANCESTOR,
+        )
+        assert subject == ANCESTOR
+        assert "2 non-runtime-affecting" in note
+
+    def test_ancestor_a_runtime_commit_between_voids_the_older_receipt(
+        self, monkeypatch: Any
+    ) -> None:
+        """MIDDLE is runtime-affecting and has no receipt: ANCESTOR's PASS must
+        not be inherited across it, so the gate refuses."""
+        subject, _ = resolve_required_subject(
+            SHA,
+            branch_commits=lambda: [SHA, MIDDLE, ANCESTOR],
+            runtime_affecting=lambda sha: sha in {MIDDLE, ANCESTOR},
+        )
+        assert subject == MIDDLE
+        surface = _Surface(
+            _bodies(
+                _receipt(lane=EnumLabLane.ONEX_LAB),
+                _receipt(sha=ANCESTOR, lane=CHAIN),
+            )
+        )
+        code, output = _gate(
+            surface, monkeypatch, required=(CHAIN,), required_sha=subject
+        )
+        assert code == 1
+        assert f"compose-dev-chain does not pass for sha {MIDDLE}" in output
+
+    def test_ancestor_receipt_satisfies_the_required_lane(
+        self, monkeypatch: Any
+    ) -> None:
+        surface = _Surface(
+            _bodies(
+                _receipt(lane=EnumLabLane.ONEX_LAB),
+                _receipt(sha=ANCESTOR, lane=CHAIN),
+            )
+        )
+        code, _ = _gate(surface, monkeypatch, required=(CHAIN,), required_sha=ANCESTOR)
+        assert code == 0
+
+    def test_ancestor_walk_failure_falls_back_to_the_exact_commit(self) -> None:
+        def broken() -> list[str]:
+            raise RuntimeError("git rev-list exited 128")
+
+        subject, note = resolve_required_subject(
+            SHA, branch_commits=broken, runtime_affecting=lambda sha: True
+        )
+        assert subject == SHA
+        assert "rev-list" in note
+
+    def test_ancestor_flag_without_a_clone_refuses(self) -> None:
+        from scripts.ci.lab_pass_receipt import main
+
+        code = main(
+            [
+                "gate",
+                "--sha",
+                SHA,
+                "--require-lane",
+                "compose-dev-chain",
+                "--resolve-runtime-ancestor",
+            ]
+        )
+        assert code == 1
+
+
+class TestNoOverrideOnTheNewFlags:
+    def test_no_force_skip_or_override_on_the_new_flags(self) -> None:
+        from scripts.ci.lab_pass_receipt import build_parser
+
+        subparsers = next(
+            action
+            for action in build_parser()._actions
+            if isinstance(action, argparse._SubParsersAction)
+        )
+        gate_options = {
+            option
+            for action in subparsers.choices["gate"]._actions
+            for option in action.option_strings
+        }
+        assert {"--require-lane", "--wait-seconds", "--resolve-runtime-ancestor"} <= (
+            gate_options
+        )
+        every_option = {
+            option
+            for parser in subparsers.choices.values()
+            for action in parser._actions
+            for option in action.option_strings
+        }
+        for option in every_option:
+            for banned in ("force", "skip", "allow", "ignore", "warn", "bypass"):
+                assert banned not in option, f"{option} reads as an override"

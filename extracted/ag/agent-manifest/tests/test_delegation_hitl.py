@@ -1,0 +1,1068 @@
+"""Tests for A2A delegation chain and HITL approval signing - issues #12 and #13."""
+from datetime import datetime, timedelta, timezone
+from unittest import mock
+
+import pytest
+from agent_manifest._delegation import (
+    DelegationHopSigner,
+    DelegationUnverifiable,
+    HitlApprovalSigner,
+    _approval_pre_image,
+    _hop_pre_image,
+    verify_delegation_chain,
+    verify_hitl_approval,
+)
+from agent_manifest._signing import Ed25519Verifier, generate_ed25519
+from cryptography.exceptions import InvalidSignature
+
+NOW = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+MID = "018f4a3b-2c1d-7e5f-a8b9-0d1e2f3a4b5c"
+SCOPE = {"tools": ["com.example.read"], "data_classifications": ["internal"],
+         "max_delegation_depth": 3, "ttl_seconds": 3600, "constraints": []}
+
+
+# ---------------------------------------------------------------------------
+# Delegation chain signing
+# ---------------------------------------------------------------------------
+
+def test_hop_pre_image_includes_manifest_id():
+    pre = _hop_pre_image(0, "spiffe://x/agent", "agent", NOW, SCOPE, MID)
+    assert MID.encode() in pre
+
+def test_hop_pre_image_includes_scope():
+    pre = _hop_pre_image(0, "spiffe://x/agent", "agent", NOW, SCOPE, MID)
+    assert b"com.example.read" in pre
+
+def test_hop_pre_image_deterministic():
+    p1 = _hop_pre_image(0, "spiffe://x/a", "agent", NOW, SCOPE, MID)
+    p2 = _hop_pre_image(0, "spiffe://x/a", "agent", NOW, SCOPE, MID)
+    assert p1 == p2
+
+def test_hop_pre_image_different_hops():
+    p0 = _hop_pre_image(0, "spiffe://x/a", "agent", NOW, SCOPE, MID)
+    p1 = _hop_pre_image(1, "spiffe://x/a", "agent", NOW, SCOPE, MID)
+    assert p0 != p1
+
+def test_delegation_sign_verify_single_hop():
+    kp = generate_ed25519()
+    signer = DelegationHopSigner(keypair=kp)
+    sig = signer.sign_hop(
+        hop=0, principal_id="spiffe://x/orchestrator", principal_type="agent",
+        delegated_at=NOW, scope_grant=SCOPE, manifest_id=MID,
+    )
+    chain = [{
+        "hop": 0, "principal_id": "spiffe://x/orchestrator", "principal_type": "agent",
+        "delegated_at": NOW, "scope_grant": SCOPE, "delegation_signature": sig,
+    }]
+    verify_delegation_chain(chain, {"spiffe://x/orchestrator": kp.public_bytes}, MID)
+
+def test_delegation_wrong_key_fails():
+    kp1, kp2 = generate_ed25519(), generate_ed25519()
+    sig = DelegationHopSigner(kp1).sign_hop(
+        hop=0, principal_id="spiffe://x/o", principal_type="agent",
+        delegated_at=NOW, scope_grant=SCOPE, manifest_id=MID,
+    )
+    chain = [{"hop": 0, "principal_id": "spiffe://x/o", "principal_type": "agent",
+               "delegated_at": NOW, "scope_grant": SCOPE, "delegation_signature": sig}]
+    with pytest.raises(InvalidSignature):
+        verify_delegation_chain(chain, {"spiffe://x/o": kp2.public_bytes}, MID)
+
+def test_delegation_wrong_length_signature_raises_clear_error():
+    """SIGN-001: a wrong-length hop signature is rejected end to end. The
+    length check itself lives in and is tested at
+    Ed25519Verifier.verify_bytes() - see test_signing.py."""
+    kp = generate_ed25519()
+    sig = DelegationHopSigner(kp).sign_hop(
+        hop=0, principal_id="spiffe://x/o", principal_type="agent",
+        delegated_at=NOW, scope_grant=SCOPE, manifest_id=MID,
+    )
+    chain = [{"hop": 0, "principal_id": "spiffe://x/o", "principal_type": "agent",
+               "delegated_at": NOW, "scope_grant": SCOPE,
+               "delegation_signature": sig + ("AAAA" * 10)}]
+    with pytest.raises(InvalidSignature, match="must be 64 bytes"):
+        verify_delegation_chain(chain, {"spiffe://x/o": kp.public_bytes}, MID)
+
+def test_delegation_truncated_signature_raises_clear_error():
+    """Same as above, undershooting instead of overshooting the length."""
+    kp = generate_ed25519()
+    sig = DelegationHopSigner(kp).sign_hop(
+        hop=0, principal_id="spiffe://x/o", principal_type="agent",
+        delegated_at=NOW, scope_grant=SCOPE, manifest_id=MID,
+    )
+    chain = [{"hop": 0, "principal_id": "spiffe://x/o", "principal_type": "agent",
+               "delegated_at": NOW, "scope_grant": SCOPE,
+               "delegation_signature": sig[:-8]}]
+    with pytest.raises(InvalidSignature, match="must be 64 bytes"):
+        verify_delegation_chain(chain, {"spiffe://x/o": kp.public_bytes}, MID)
+
+
+def test_delegation_hop_verification_goes_through_verify_bytes():
+    """SIGN-001: guards against a regression back to the raw primitive,
+    which would silently drop the length check. Spies on
+    Ed25519Verifier.verify_bytes() and lets the real call through."""
+    kp = generate_ed25519()
+    sig = DelegationHopSigner(kp).sign_hop(
+        hop=0, principal_id="spiffe://x/o", principal_type="agent",
+        delegated_at=NOW, scope_grant=SCOPE, manifest_id=MID,
+    )
+    chain = [{"hop": 0, "principal_id": "spiffe://x/o", "principal_type": "agent",
+               "delegated_at": NOW, "scope_grant": SCOPE, "delegation_signature": sig}]
+    with mock.patch.object(
+        Ed25519Verifier, "verify_bytes", autospec=True, side_effect=Ed25519Verifier.verify_bytes,
+    ) as spy:
+        verify_delegation_chain(chain, {"spiffe://x/o": kp.public_bytes}, MID)
+    spy.assert_called_once()
+
+def test_delegation_wrong_manifest_id_fails():
+    kp = generate_ed25519()
+    sig = DelegationHopSigner(kp).sign_hop(
+        hop=0, principal_id="spiffe://x/o", principal_type="agent",
+        delegated_at=NOW, scope_grant=SCOPE, manifest_id=MID,
+    )
+    chain = [{"hop": 0, "principal_id": "spiffe://x/o", "principal_type": "agent",
+               "delegated_at": NOW, "scope_grant": SCOPE, "delegation_signature": sig}]
+    with pytest.raises(InvalidSignature):
+        verify_delegation_chain(chain, {"spiffe://x/o": kp.public_bytes}, "wrong-id")
+
+def test_scope_laundering_detected():
+    kp = generate_ed25519()
+    root_scope = {"tools": ["com.example.read"], "max_delegation_depth": 3, "ttl_seconds": 3600}
+    expanded_scope = {"tools": ["com.example.read", "com.example.delete"],
+                      "max_delegation_depth": 2, "ttl_seconds": 3600}
+
+    sig0 = DelegationHopSigner(kp).sign_hop(
+        hop=0, principal_id="spiffe://x/root", principal_type="human",
+        delegated_at=NOW, scope_grant=root_scope, manifest_id=MID,
+    )
+    kp2 = generate_ed25519()
+    sig1 = DelegationHopSigner(kp2).sign_hop(
+        hop=1, principal_id="spiffe://x/agent", principal_type="agent",
+        delegated_at=NOW, scope_grant=expanded_scope, manifest_id=MID,
+    )
+    chain = [
+        {"hop": 0, "principal_id": "spiffe://x/root", "principal_type": "human",
+         "delegated_at": NOW, "scope_grant": root_scope, "delegation_signature": sig0},
+        {"hop": 1, "principal_id": "spiffe://x/agent", "principal_type": "agent",
+         "delegated_at": NOW, "scope_grant": expanded_scope, "delegation_signature": sig1},
+    ]
+    with pytest.raises(ValueError, match="Scope laundering"):
+        verify_delegation_chain(
+            chain,
+            {"spiffe://x/root": kp.public_bytes, "spiffe://x/agent": kp2.public_bytes},
+            MID,
+        )
+
+def test_depth_exceeded_raises():
+    # max_delegation_depth=1 means root + at most 1 sub-delegate (chain length <= 2).
+    # A chain of 3 hops has depth 2, which exceeds max_delegation_depth=1.
+    narrow_scope = {**SCOPE, "max_delegation_depth": 1}
+    chain = [
+        {"hop": i, "principal_id": f"spiffe://x/{i}", "principal_type": "agent",
+         "delegated_at": NOW, "scope_grant": narrow_scope, "delegation_signature": "sig"}
+        for i in range(3)  # length 3, depth 2 > max_delegation_depth 1
+    ]
+    with pytest.raises(ValueError, match="max_delegation_depth"):
+        verify_delegation_chain(chain, {}, MID)
+
+def test_empty_chain_passes():
+    verify_delegation_chain([], {}, MID)
+
+def test_missing_public_key_raises():
+    kp = generate_ed25519()
+    sig = DelegationHopSigner(kp).sign_hop(
+        hop=0, principal_id="spiffe://x/o", principal_type="agent",
+        delegated_at=NOW, scope_grant=SCOPE, manifest_id=MID,
+    )
+    chain = [{"hop": 0, "principal_id": "spiffe://x/o", "principal_type": "agent",
+               "delegated_at": NOW, "scope_grant": SCOPE, "delegation_signature": sig}]
+    with pytest.raises(ValueError, match="No public key"):
+        verify_delegation_chain(chain, {}, MID)
+
+
+# ---------------------------------------------------------------------------
+# Fix #1: chain root must be bound to the manifest signing identity
+# ---------------------------------------------------------------------------
+
+def test_root_principal_must_match_manifest_issuer():
+    kp = generate_ed25519()
+    root_pid = "spiffe://x/root"
+    sig = DelegationHopSigner(kp).sign_hop(
+        hop=0, principal_id=root_pid, principal_type="agent",
+        delegated_at=NOW, scope_grant=SCOPE, manifest_id=MID,
+    )
+    chain = [{"hop": 0, "principal_id": root_pid, "principal_type": "agent",
+               "delegated_at": NOW, "scope_grant": SCOPE, "delegation_signature": sig}]
+    # Root principal does not match the supplied manifest issuer -> rejected.
+    with pytest.raises(ValueError, match="does not match the manifest"):
+        verify_delegation_chain(
+            chain, {root_pid: kp.public_bytes}, MID,
+            manifest_issuer="spiffe://x/some-other-issuer",
+        )
+
+
+def test_root_principal_matching_issuer_passes():
+    kp = generate_ed25519()
+    issuer = "spiffe://x/issuer"
+    sig = DelegationHopSigner(kp).sign_hop(
+        hop=0, principal_id=issuer, principal_type="agent",
+        delegated_at=NOW, scope_grant=SCOPE, manifest_id=MID,
+    )
+    chain = [{"hop": 0, "principal_id": issuer, "principal_type": "agent",
+               "delegated_at": NOW, "scope_grant": SCOPE, "delegation_signature": sig}]
+    verify_delegation_chain(
+        chain, {issuer: kp.public_bytes}, MID, manifest_issuer=issuer,
+    )  # must not raise
+
+
+def test_root_principal_matches_via_principal_manifest_id():
+    kp = generate_ed25519()
+    root_pid = "spiffe://x/root"
+    issuer = "018f4a3b-2c1d-7e5f-a8b9-0d1e2f3a4b5c"
+    sig = DelegationHopSigner(kp).sign_hop(
+        hop=0, principal_id=root_pid, principal_type="agent",
+        delegated_at=NOW, scope_grant=SCOPE, manifest_id=MID,
+    )
+    chain = [{"hop": 0, "principal_id": root_pid, "principal_type": "agent",
+               "delegated_at": NOW, "scope_grant": SCOPE,
+               "delegation_signature": sig, "principal_manifest_id": issuer}]
+    verify_delegation_chain(
+        chain, {root_pid: kp.public_bytes}, MID, manifest_issuer=issuer,
+    )  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# Fix #2: scope narrowing covers constraints, ttl_seconds, max_delegation_depth
+# ---------------------------------------------------------------------------
+
+def _two_hop_chain(root_scope, child_scope):
+    kp_root, kp_child = generate_ed25519(), generate_ed25519()
+    sig0 = DelegationHopSigner(kp_root).sign_hop(
+        hop=0, principal_id="spiffe://x/root", principal_type="human",
+        delegated_at=NOW, scope_grant=root_scope, manifest_id=MID,
+    )
+    sig1 = DelegationHopSigner(kp_child).sign_hop(
+        hop=1, principal_id="spiffe://x/child", principal_type="agent",
+        delegated_at=NOW, scope_grant=child_scope, manifest_id=MID,
+    )
+    chain = [
+        {"hop": 0, "principal_id": "spiffe://x/root", "principal_type": "human",
+         "delegated_at": NOW, "scope_grant": root_scope, "delegation_signature": sig0},
+        {"hop": 1, "principal_id": "spiffe://x/child", "principal_type": "agent",
+         "delegated_at": NOW, "scope_grant": child_scope, "delegation_signature": sig1},
+    ]
+    keys = {"spiffe://x/root": kp_root.public_bytes,
+            "spiffe://x/child": kp_child.public_bytes}
+    return chain, keys
+
+
+def test_child_dropping_parent_constraint_is_rejected():
+    root = {"tools": ["t"], "max_delegation_depth": 3, "ttl_seconds": 3600,
+            "constraints": ["region==eu", "amount<1000"]}
+    child = {"tools": ["t"], "max_delegation_depth": 3, "ttl_seconds": 3600,
+             "constraints": ["region==eu"]}  # dropped amount<1000
+    chain, keys = _two_hop_chain(root, child)
+    with pytest.raises(ValueError, match="drops parent constraints"):
+        verify_delegation_chain(chain, keys, MID)
+
+
+def test_child_adding_constraint_is_allowed():
+    # Structural narrowing (child keeps every parent constraint string, only
+    # adds more) is satisfied here - it must not raise ValueError. But the
+    # constraints are still non-empty Cedar statements this verifier cannot
+    # parse/evaluate, so the chain as a whole is DelegationUnverifiable, not
+    # silently valid (spec 3.4.1 / 5.2).
+    root = {"tools": ["t"], "max_delegation_depth": 3, "ttl_seconds": 3600,
+            "constraints": ["region==eu"]}
+    child = {"tools": ["t"], "max_delegation_depth": 3, "ttl_seconds": 3600,
+             "constraints": ["region==eu", "amount<100"]}  # added, superset
+    chain, keys = _two_hop_chain(root, child)
+    with pytest.raises(DelegationUnverifiable):
+        verify_delegation_chain(chain, keys, MID)
+
+
+# ---------------------------------------------------------------------------
+# Cedar constraints are UNVERIFIABLE, not VALID (this verifier has no Cedar
+# parser/evaluator - see DelegationUnverifiable's docstring and spec 3.4.1/5.2)
+# ---------------------------------------------------------------------------
+
+
+def test_matching_malformed_constraints_are_unverifiable_not_valid():
+    """The reported bug, reproduced directly against verify_delegation_chain:
+    parent and child both carry the identical, non-Cedar, unparseable
+    constraint string. Nothing is "dropped" so the structural narrowing
+    check is satisfied, and both signatures are valid - but the chain must
+    still not verify as VALID (i.e. return normally), because the
+    constraint itself was never evaluated.
+    """
+    malformed = ["this is not Cedar at all"]
+    root = {"tools": ["t"], "max_delegation_depth": 3, "ttl_seconds": 3600,
+            "constraints": malformed}
+    child = {"tools": ["t"], "max_delegation_depth": 3, "ttl_seconds": 3600,
+             "constraints": list(malformed)}  # identical, nothing dropped
+    chain, keys = _two_hop_chain(root, child)
+    with pytest.raises(DelegationUnverifiable):
+        verify_delegation_chain(chain, keys, MID)
+
+
+def test_single_hop_chain_with_constraints_is_unverifiable():
+    """A root-only chain (no narrowing to check at all) still must not
+    verify when its own constraints are non-empty and unevaluated."""
+    kp = generate_ed25519()
+    scope = {"tools": [], "constraints": ["permit(principal, action, resource)"]}
+    sig = DelegationHopSigner(kp).sign_hop(
+        hop=0, principal_id="spiffe://x/root", principal_type="human",
+        delegated_at=NOW, scope_grant=scope, manifest_id=MID,
+    )
+    chain = [{"hop": 0, "principal_id": "spiffe://x/root", "principal_type": "human",
+              "delegated_at": NOW, "scope_grant": scope, "delegation_signature": sig}]
+    with pytest.raises(DelegationUnverifiable):
+        verify_delegation_chain(chain, {"spiffe://x/root": kp.public_bytes}, MID)
+
+
+def test_scope_laundering_takes_priority_over_unverifiable_constraints():
+    """A chain that is both scope-laundered AND carries unresolved Cedar
+    constraints must raise the more specific ValueError (INVALID), not the
+    weaker DelegationUnverifiable - an affirmatively broken chain must never
+    be softened to merely "can't tell"."""
+    root = {"tools": ["t"], "max_delegation_depth": 3, "ttl_seconds": 3600,
+            "constraints": ["region==eu", "amount<1000"]}
+    child = {"tools": ["t"], "max_delegation_depth": 3, "ttl_seconds": 3600,
+             "constraints": ["region==eu"]}  # dropped amount<1000 (laundering)
+    chain, keys = _two_hop_chain(root, child)
+    with pytest.raises(ValueError, match="drops parent constraints"):
+        verify_delegation_chain(chain, keys, MID)
+
+
+def _two_hop_chain_distinct_signers(root_scope, child_scope, *, corrupt_child_key=False):
+    """Like ``_two_hop_chain``, but returns keys that let a caller register
+    the *wrong* public key for the child principal, to simulate a hop with
+    an invalid signature."""
+    kp_root, kp_child = generate_ed25519(), generate_ed25519()
+    sig0 = DelegationHopSigner(kp_root).sign_hop(
+        hop=0, principal_id="spiffe://x/root", principal_type="human",
+        delegated_at=NOW, scope_grant=root_scope, manifest_id=MID,
+    )
+    sig1 = DelegationHopSigner(kp_child).sign_hop(
+        hop=1, principal_id="spiffe://x/child", principal_type="agent",
+        delegated_at=NOW, scope_grant=child_scope, manifest_id=MID,
+    )
+    chain = [
+        {"hop": 0, "principal_id": "spiffe://x/root", "principal_type": "human",
+         "delegated_at": NOW, "scope_grant": root_scope, "delegation_signature": sig0},
+        {"hop": 1, "principal_id": "spiffe://x/child", "principal_type": "agent",
+         "delegated_at": NOW, "scope_grant": child_scope, "delegation_signature": sig1},
+    ]
+    child_key = generate_ed25519().public_bytes if corrupt_child_key else kp_child.public_bytes
+    keys = {"spiffe://x/root": kp_root.public_bytes, "spiffe://x/child": child_key}
+    return chain, keys
+
+
+def test_later_invalid_signature_is_not_masked_by_earlier_constrained_hop():
+    """Root hop 0 is fully valid and carries a non-empty (unresolved) Cedar
+    constraint. Hop 1's signature does not verify against the key registered
+    for its principal. The chain must fail with InvalidSignature - the
+    hop-0 constraint must never cause hop 1's own failure to be swallowed
+    into DelegationUnverifiable."""
+    root = {"tools": ["t"], "constraints": ["permit(principal, action, resource)"]}
+    child = {"tools": ["t"], "constraints": ["permit(principal, action, resource)"]}
+    chain, keys = _two_hop_chain_distinct_signers(root, child, corrupt_child_key=True)
+    with pytest.raises(InvalidSignature):
+        verify_delegation_chain(chain, keys, MID)
+
+
+def test_later_malformed_hop_is_not_masked_by_earlier_constrained_hop():
+    """Root hop 0 is fully valid and carries a non-empty (unresolved) Cedar
+    constraint. Hop 1 is structurally malformed (missing a required field).
+    The chain must fail with ValueError naming the missing field - not
+    DelegationUnverifiable."""
+    root = {"tools": ["t"], "constraints": ["permit(principal, action, resource)"]}
+    kp_root = generate_ed25519()
+    sig0 = DelegationHopSigner(kp_root).sign_hop(
+        hop=0, principal_id="spiffe://x/root", principal_type="human",
+        delegated_at=NOW, scope_grant=root, manifest_id=MID,
+    )
+    chain = [
+        {"hop": 0, "principal_id": "spiffe://x/root", "principal_type": "human",
+         "delegated_at": NOW, "scope_grant": root, "delegation_signature": sig0},
+        # Hop 1 is missing "delegation_signature" entirely.
+        {"hop": 1, "principal_id": "spiffe://x/child", "principal_type": "agent",
+         "delegated_at": NOW, "scope_grant": {"tools": ["t"]}},
+    ]
+    keys = {"spiffe://x/root": kp_root.public_bytes,
+            "spiffe://x/child": generate_ed25519().public_bytes}
+    with pytest.raises(ValueError, match="missing required fields"):
+        verify_delegation_chain(chain, keys, MID)
+
+
+def test_later_scope_laundering_is_not_masked_by_earlier_constrained_hop():
+    """Root hop 0 is fully valid and carries a non-empty (unresolved) Cedar
+    constraint. Hop 1 launders scope (claims a tool the parent didn't grant).
+    The chain must fail with ValueError naming the laundering - not
+    DelegationUnverifiable."""
+    root = {"tools": ["t"], "constraints": ["permit(principal, action, resource)"]}
+    child = {"tools": ["t", "extra-tool"], "constraints": ["permit(principal, action, resource)"]}
+    chain, keys = _two_hop_chain_distinct_signers(root, child)
+    with pytest.raises(ValueError, match="Scope laundering at hop 1"):
+        verify_delegation_chain(chain, keys, MID)
+
+
+def test_child_raising_ttl_is_rejected():
+    root = {"tools": ["t"], "max_delegation_depth": 3, "ttl_seconds": 3600}
+    child = {"tools": ["t"], "max_delegation_depth": 3, "ttl_seconds": 7200}
+    chain, keys = _two_hop_chain(root, child)
+    with pytest.raises(ValueError, match="ttl_seconds .* exceeds parent"):
+        verify_delegation_chain(chain, keys, MID)
+
+
+def test_child_unbounded_ttl_under_bounded_parent_is_rejected():
+    root = {"tools": ["t"], "max_delegation_depth": 3, "ttl_seconds": 3600}
+    child = {"tools": ["t"], "max_delegation_depth": 3}  # ttl absent = unbounded
+    chain, keys = _two_hop_chain(root, child)
+    with pytest.raises(ValueError, match="ttl_seconds .* exceeds parent"):
+        verify_delegation_chain(chain, keys, MID)
+
+
+def test_child_raising_max_delegation_depth_is_rejected():
+    root = {"tools": ["t"], "max_delegation_depth": 1, "ttl_seconds": 3600}
+    child = {"tools": ["t"], "max_delegation_depth": 5, "ttl_seconds": 3600}
+    chain, keys = _two_hop_chain(root, child)
+    with pytest.raises(ValueError, match="max_delegation_depth .* exceeds parent"):
+        verify_delegation_chain(chain, keys, MID)
+
+
+# ---------------------------------------------------------------------------
+# DELEG-005: ttl_seconds narrowing must hold in absolute (wall-clock) time,
+# not just as a raw duration comparison - ttl_seconds is measured from each
+# hop's own delegated_at, so two hops delegated at different times can carry
+# equal (or even shrinking) durations while the later hop's grant still
+# outlives the earlier one's in absolute terms.
+# ---------------------------------------------------------------------------
+
+def _two_hop_chain_at(root_scope, child_scope, root_at, child_at):
+    kp_root, kp_child = generate_ed25519(), generate_ed25519()
+    sig0 = DelegationHopSigner(kp_root).sign_hop(
+        hop=0, principal_id="spiffe://x/root", principal_type="human",
+        delegated_at=root_at, scope_grant=root_scope, manifest_id=MID,
+    )
+    sig1 = DelegationHopSigner(kp_child).sign_hop(
+        hop=1, principal_id="spiffe://x/child", principal_type="agent",
+        delegated_at=child_at, scope_grant=child_scope, manifest_id=MID,
+    )
+    chain = [
+        {"hop": 0, "principal_id": "spiffe://x/root", "principal_type": "human",
+         "delegated_at": root_at, "scope_grant": root_scope, "delegation_signature": sig0},
+        {"hop": 1, "principal_id": "spiffe://x/child", "principal_type": "agent",
+         "delegated_at": child_at, "scope_grant": child_scope, "delegation_signature": sig1},
+    ]
+    keys = {"spiffe://x/root": kp_root.public_bytes,
+            "spiffe://x/child": kp_child.public_bytes}
+    return chain, keys
+
+
+def test_child_delegated_late_with_equal_ttl_outlives_parent_is_rejected():
+    # Root is delegated at T0 with a 1-hour window (expires at T0+1h).
+    # Child is delegated 50 minutes into that window with the SAME duration
+    # (3600s), which passes the plain "child_ttl > parent_ttl" comparison,
+    # but the child's absolute expiry (T0+50m+1h) falls 50 minutes after the
+    # root's absolute expiry (T0+1h) — the grant outlives its parent.
+    root_at = datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    child_at = root_at + timedelta(minutes=50)
+    root = {"tools": ["t"], "max_delegation_depth": 3, "ttl_seconds": 3600}
+    child = {"tools": ["t"], "max_delegation_depth": 3, "ttl_seconds": 3600}
+    chain, keys = _two_hop_chain_at(
+        root, child, root_at.isoformat().replace("+00:00", "Z"),
+        child_at.isoformat().replace("+00:00", "Z"),
+    )
+    with pytest.raises(ValueError, match="Scope laundering.*absolute expiry"):
+        verify_delegation_chain(chain, keys, MID)
+
+
+def test_child_delegated_late_with_shorter_ttl_still_within_parent_window_passes():
+    # Child is delegated 5 minutes into the root's 1-hour window with a
+    # 30-minute duration; its absolute expiry (T0+5m+30m = T0+35m) is well
+    # inside the root's absolute expiry (T0+1h), so this must pass.
+    root_at = datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    child_at = root_at + timedelta(minutes=5)
+    root = {"tools": ["t"], "max_delegation_depth": 3, "ttl_seconds": 3600}
+    child = {"tools": ["t"], "max_delegation_depth": 3, "ttl_seconds": 1800}
+    chain, keys = _two_hop_chain_at(
+        root, child, root_at.isoformat().replace("+00:00", "Z"),
+        child_at.isoformat().replace("+00:00", "Z"),
+    )
+    verify_delegation_chain(chain, keys, MID)  # must not raise
+
+
+def test_mixed_z_and_naive_delegated_at_still_refuses_on_absolute_expiry():
+    # delegated_at is a required field with no format validation, so one hop
+    # in a chain can legitimately be written with a 'Z' offset and another
+    # without one. A naive datetime cannot be compared against an aware one
+    # (TypeError), which is not a refusal verify_delegation_chain documents
+    # raising (its docstring promises InvalidSignature or ValueError). The
+    # parser must treat an offset-less timestamp as UTC so the absolute-expiry
+    # comparison still runs -- and still refuses -- instead of crashing.
+    root_at = "2026-01-01T00:00:00Z"          # aware
+    child_at = "2026-01-01T00:50:00"          # naive, same chain, outlives root
+    root = {"tools": ["t"], "max_delegation_depth": 3, "ttl_seconds": 3600}
+    child = {"tools": ["t"], "max_delegation_depth": 3, "ttl_seconds": 3600}
+    chain, keys = _two_hop_chain_at(root, child, root_at, child_at)
+    with pytest.raises(ValueError, match="Scope laundering.*absolute expiry"):
+        verify_delegation_chain(chain, keys, MID)
+
+
+# ---------------------------------------------------------------------------
+# HITL approval signing
+# ---------------------------------------------------------------------------
+
+APPROVAL_SCOPE = {"artifacts": ["system_prompt", "policy_bundle"],
+                  "risk_tier": "high", "approval_duration_seconds": 3600}
+
+def test_approval_pre_image_includes_manifest_id():
+    pre = _approval_pre_image(MID, NOW, APPROVAL_SCOPE, "did:web:approver")
+    assert MID.encode() in pre
+
+def test_approval_pre_image_includes_scope():
+    pre = _approval_pre_image(MID, NOW, APPROVAL_SCOPE, "did:web:approver")
+    assert b"system_prompt" in pre
+
+def test_approval_sign_verify():
+    kp = generate_ed25519()
+    signer = HitlApprovalSigner(keypair=kp)
+    sig = signer.sign_approval(
+        manifest_id=MID, approved_at=NOW,
+        approved_scope=APPROVAL_SCOPE, approver_id="did:web:ciso",
+    )
+    approval = {
+        "manifest_id": MID, "approved_at": NOW,
+        "approved_scope": APPROVAL_SCOPE, "approver_id": "did:web:ciso",
+        "approval_signature": sig,
+    }
+    verify_hitl_approval(approval, MID, kp.public_bytes)
+
+def test_approval_wrong_key_fails():
+    kp1, kp2 = generate_ed25519(), generate_ed25519()
+    sig = HitlApprovalSigner(kp1).sign_approval(
+        manifest_id=MID, approved_at=NOW,
+        approved_scope=APPROVAL_SCOPE, approver_id="did:web:approver",
+    )
+    approval = {"manifest_id": MID, "approved_at": NOW,
+                "approved_scope": APPROVAL_SCOPE, "approver_id": "did:web:approver",
+                "approval_signature": sig}
+    with pytest.raises(InvalidSignature):
+        verify_hitl_approval(approval, MID, kp2.public_bytes)
+
+def test_approval_wrong_manifest_id_fails():
+    kp = generate_ed25519()
+    sig = HitlApprovalSigner(kp).sign_approval(
+        manifest_id=MID, approved_at=NOW,
+        approved_scope=APPROVAL_SCOPE, approver_id="did:web:approver",
+    )
+    approval = {"manifest_id": "wrong-id", "approved_at": NOW,
+                "approved_scope": APPROVAL_SCOPE, "approver_id": "did:web:approver",
+                "approval_signature": sig}
+    with pytest.raises(InvalidSignature):
+        verify_hitl_approval(approval, "wrong-id", kp.public_bytes)
+
+def test_approval_scope_change_fails():
+    kp = generate_ed25519()
+    sig = HitlApprovalSigner(kp).sign_approval(
+        manifest_id=MID, approved_at=NOW,
+        approved_scope=APPROVAL_SCOPE, approver_id="did:web:approver",
+    )
+    modified_scope = {**APPROVAL_SCOPE, "risk_tier": "critical"}
+    approval = {"manifest_id": MID, "approved_at": NOW,
+                "approved_scope": modified_scope, "approver_id": "did:web:approver",
+                "approval_signature": sig}
+    with pytest.raises(InvalidSignature):
+        verify_hitl_approval(approval, MID, kp.public_bytes)
+
+
+def test_approval_expired_raises():
+    """Approval past its duration must raise ValueError before signature check."""
+    kp = generate_ed25519()
+    past_time = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat().replace("+00:00", "Z")
+    short_scope = {**APPROVAL_SCOPE, "approval_duration_seconds": 3600}  # 1h ago = expired
+    sig = HitlApprovalSigner(kp).sign_approval(
+        manifest_id=MID, approved_at=past_time,
+        approved_scope=short_scope, approver_id="did:web:ciso",
+    )
+    approval = {
+        "manifest_id": MID, "approved_at": past_time,
+        "approved_scope": short_scope, "approver_id": "did:web:ciso",
+        "approval_signature": sig,
+    }
+    with pytest.raises(ValueError, match="expired"):
+        verify_hitl_approval(approval, MID, kp.public_bytes)
+
+
+@pytest.mark.parametrize("approved_at", ["2026-09-05T23:00:00", "2026-09-05"])
+def test_expiring_approval_requires_timezone(approved_at):
+    approval, public_key = _valid_approval()
+    approval["approved_at"] = approved_at
+    with pytest.raises(ValueError, match="approved_at must include a timezone"):
+        verify_hitl_approval(approval, MID, public_key)
+
+
+@pytest.mark.parametrize("offset_hours", [-7, 0, 5.5])
+def test_expiring_approval_accepts_valid_timezone_offsets(offset_hours):
+    kp = generate_ed25519()
+    approved_at = datetime.now(timezone(timedelta(hours=offset_hours))).isoformat()
+    approval = {
+        "approved_at": approved_at,
+        "approved_scope": APPROVAL_SCOPE,
+        "approver_id": "did:web:ciso",
+        "approval_signature": HitlApprovalSigner(kp).sign_approval(
+            manifest_id=MID, approved_at=approved_at,
+            approved_scope=APPROVAL_SCOPE, approver_id="did:web:ciso",
+        ),
+    }
+    verify_hitl_approval(approval, MID, kp.public_bytes)
+
+
+def test_approval_zero_duration_raises_value_error():
+    """approval_duration_seconds is required and must be positive (spec 3.5,
+    ADR-0006) - 0 must be rejected, not treated as no expiry."""
+    kp = generate_ed25519()
+    past_time = (datetime.now(timezone.utc) - timedelta(days=365)).isoformat().replace("+00:00", "Z")
+    zero_scope = {**APPROVAL_SCOPE, "approval_duration_seconds": 0}
+    sig = HitlApprovalSigner(kp).sign_approval(
+        manifest_id=MID, approved_at=past_time,
+        approved_scope=zero_scope, approver_id="did:web:ciso",
+    )
+    approval = {
+        "manifest_id": MID, "approved_at": past_time,
+        "approved_scope": zero_scope, "approver_id": "did:web:ciso",
+        "approval_signature": sig,
+    }
+    with pytest.raises(ValueError, match="must be a positive integer"):
+        verify_hitl_approval(approval, MID, kp.public_bytes)
+
+
+def test_approval_missing_duration_raises_value_error():
+    """Omitting approval_duration_seconds entirely defaults to 0, same as
+    setting it explicitly - both are rejected."""
+    kp = generate_ed25519()
+    past_time = (datetime.now(timezone.utc) - timedelta(days=365)).isoformat().replace("+00:00", "Z")
+    no_duration_scope = {"artifacts": ["system_prompt", "policy_bundle"], "risk_tier": "high"}
+    sig = HitlApprovalSigner(kp).sign_approval(
+        manifest_id=MID, approved_at=past_time,
+        approved_scope=no_duration_scope, approver_id="did:web:ciso",
+    )
+    approval = {
+        "manifest_id": MID, "approved_at": past_time,
+        "approved_scope": no_duration_scope, "approver_id": "did:web:ciso",
+        "approval_signature": sig,
+    }
+    with pytest.raises(ValueError, match="must be a positive integer"):
+        verify_hitl_approval(approval, MID, kp.public_bytes)
+
+
+def test_approval_negative_duration_raises_value_error():
+    kp = generate_ed25519()
+    sig = HitlApprovalSigner(kp).sign_approval(
+        manifest_id=MID, approved_at=NOW,
+        approved_scope={**APPROVAL_SCOPE, "approval_duration_seconds": -100},
+        approver_id="did:web:ciso",
+    )
+    approval = {
+        "manifest_id": MID, "approved_at": NOW,
+        "approved_scope": {**APPROVAL_SCOPE, "approval_duration_seconds": -100},
+        "approver_id": "did:web:ciso",
+        "approval_signature": sig,
+    }
+    with pytest.raises(ValueError, match="must be a positive integer"):
+        verify_hitl_approval(approval, MID, kp.public_bytes)
+
+
+def test_approval_fractional_duration_raises_value_error():
+    """approval_duration_seconds must be a positive integer (spec 3.5), not
+    just a positive number. models.ApprovedScope's pydantic `int` field
+    rejects a fractional float (e.g. 1.5) the same way - this matches it."""
+    kp = generate_ed25519()
+    sig = HitlApprovalSigner(kp).sign_approval(
+        manifest_id=MID, approved_at=NOW,
+        approved_scope={**APPROVAL_SCOPE, "approval_duration_seconds": 1.5},
+        approver_id="did:web:ciso",
+    )
+    approval = {
+        "manifest_id": MID, "approved_at": NOW,
+        "approved_scope": {**APPROVAL_SCOPE, "approval_duration_seconds": 1.5},
+        "approver_id": "did:web:ciso",
+        "approval_signature": sig,
+    }
+    with pytest.raises(ValueError, match="must be a positive integer"):
+        verify_hitl_approval(approval, MID, kp.public_bytes)
+
+
+def test_approval_whole_number_float_duration_is_accepted():
+    """A float with no fractional part (e.g. 3600.0) is accepted, matching
+    models.ApprovedScope's pydantic `int` field, which coerces an integral
+    float instead of rejecting it."""
+    kp = generate_ed25519()
+    sig = HitlApprovalSigner(kp).sign_approval(
+        manifest_id=MID, approved_at=NOW,
+        approved_scope={**APPROVAL_SCOPE, "approval_duration_seconds": 3600.0},
+        approver_id="did:web:ciso",
+    )
+    approval = {
+        "manifest_id": MID, "approved_at": NOW,
+        "approved_scope": {**APPROVAL_SCOPE, "approval_duration_seconds": 3600.0},
+        "approver_id": "did:web:ciso",
+        "approval_signature": sig,
+    }
+    verify_hitl_approval(approval, MID, kp.public_bytes)  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# ApprovedScope.approval_duration_seconds (pydantic model) must accept and
+# reject exactly what the shared _check_hitl_approval_duration() does -
+# both use that one function now, so this is a literal consistency check,
+# not just a matching-behavior one.
+# ---------------------------------------------------------------------------
+
+def _approved_scope(**overrides):
+    from agent_manifest.models import ApprovedScope
+    base = {**APPROVAL_SCOPE, "approval_duration_seconds": 3600}
+    base.update(overrides)
+    return ApprovedScope(**base)
+
+
+def test_approved_scope_rejects_numeric_string_duration():
+    """A JSON string like "3600" must be rejected by the model, not
+    silently coerced by pydantic's lax `int` mode - it's rejected by
+    verify_hitl_approval() too, and the two must not disagree."""
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError, match="must be numeric"):
+        _approved_scope(approval_duration_seconds="3600")
+
+
+def test_approved_scope_rejects_bool_duration():
+    """`True`/`False` are int subclasses in Python; pydantic's lax `int`
+    mode would coerce True -> 1, but verify_hitl_approval() explicitly
+    rejects any bool. The model must match, not accept a bool the shared
+    verifier would reject."""
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError, match="must be numeric"):
+        _approved_scope(approval_duration_seconds=True)
+    with pytest.raises(ValidationError, match="must be numeric"):
+        _approved_scope(approval_duration_seconds=False)
+
+
+def test_approved_scope_still_accepts_whole_number_float():
+    """3600.0 must still be accepted and coerced to the int 3600 - the
+    duration gate must not become stricter than the schema it shares with
+    verify_hitl_approval() (spec/ADR-0006), only stricter than pydantic's
+    unmodified lax `int` coercion was on strings/bool."""
+    scope = _approved_scope(approval_duration_seconds=3600.0)
+    assert scope.approval_duration_seconds == 3600
+    assert isinstance(scope.approval_duration_seconds, int)
+
+
+def test_approved_scope_still_rejects_fractional_and_nonpositive():
+    from pydantic import ValidationError
+    for bad in (1.5, 0, -100):
+        with pytest.raises(ValidationError):
+            _approved_scope(approval_duration_seconds=bad)
+
+
+# ---------------------------------------------------------------------------
+# Malformed approval structure must raise ValueError, never an incidental
+# AttributeError / KeyError / TypeError - issue #360
+# ---------------------------------------------------------------------------
+
+_DUMMY_KEY = generate_ed25519().public_bytes
+
+
+def _valid_approval():
+    kp = generate_ed25519()
+    sig = HitlApprovalSigner(kp).sign_approval(
+        manifest_id=MID, approved_at=NOW,
+        approved_scope=APPROVAL_SCOPE, approver_id="did:web:ciso",
+    )
+    approval = {
+        "manifest_id": MID, "approved_at": NOW,
+        "approved_scope": APPROVAL_SCOPE, "approver_id": "did:web:ciso",
+        "approval_signature": sig,
+    }
+    return approval, kp.public_bytes
+
+
+@pytest.mark.parametrize("bad_approval", ["not-an-object", ["a", "list"], 42, None])
+def test_non_object_approval_raises_value_error(bad_approval):
+    with pytest.raises(ValueError, match="must be an object"):
+        verify_hitl_approval(bad_approval, MID, _DUMMY_KEY)
+
+
+@pytest.mark.parametrize(
+    "field", ["approved_scope", "approved_at", "approver_id", "approval_signature"]
+)
+def test_missing_required_field_raises_value_error(field):
+    approval, key = _valid_approval()
+    del approval[field]
+    with pytest.raises(ValueError, match=f"missing required field '{field}'"):
+        verify_hitl_approval(approval, MID, key)
+
+
+@pytest.mark.parametrize("bad_scope", ["a-string", ["a", "list"], True])
+def test_non_object_approved_scope_raises_value_error(bad_scope):
+    approval, key = _valid_approval()
+    approval["approved_scope"] = bad_scope
+    with pytest.raises(ValueError, match="approved_scope must be an object"):
+        verify_hitl_approval(approval, MID, key)
+
+
+@pytest.mark.parametrize(
+    "bad_duration",
+    ["soon", "", ["not", "a", "number"], [], {"x": 1}, {}, True, False, None],
+)
+def test_non_numeric_approval_duration_raises_value_error(bad_duration):
+    """bool is an int subclass, but a JSON boolean is not a numeric duration."""
+    approval, key = _valid_approval()
+    approval["approved_scope"] = {**APPROVAL_SCOPE, "approval_duration_seconds": bad_duration}
+    with pytest.raises(ValueError, match="approval_duration_seconds must be numeric"):
+        verify_hitl_approval(approval, MID, key)
+
+
+def test_oversized_approval_duration_raises_value_error():
+    """A duration large enough to overflow timedelta must raise the documented
+    ValueError, not leak OverflowError. Caught in review (#378)."""
+    approval, key = _valid_approval()
+    approval["approved_scope"] = {**APPROVAL_SCOPE, "approval_duration_seconds": 10**20}
+    with pytest.raises(ValueError, match="approval_duration_seconds is out of range"):
+        verify_hitl_approval(approval, MID, key)
+
+
+@pytest.mark.parametrize("bad_sig", [12345, ["a", "list"], {"not": "a string"}])
+def test_non_string_approval_signature_raises_value_error(bad_sig):
+    approval, key = _valid_approval()
+    approval["approval_signature"] = bad_sig
+    with pytest.raises(ValueError, match="approval_signature must be a string"):
+        verify_hitl_approval(approval, MID, key)
+
+
+def test_malformed_base64_signature_raises_value_error():
+    approval, key = _valid_approval()
+    approval["approval_signature"] = "not valid base64url!!"
+    with pytest.raises(ValueError, match="not valid base64url"):
+        verify_hitl_approval(approval, MID, key)
+
+
+def test_illegal_char_prefixed_signature_raises_value_error_not_silently_accepted():
+    """base64.urlsafe_b64decode() silently discards out-of-alphabet characters,
+    so a garbage prefix around an otherwise-valid signature would decode to the
+    same bytes as the real one and pass verification. Caught in review (#378):
+    the previous fix only covered inputs whose stripped length happened to be
+    unpaddable; strict alphabet validation is required to catch this shape."""
+    approval, key = _valid_approval()
+    approval["approval_signature"] = "!!!!" + approval["approval_signature"]
+    with pytest.raises(ValueError, match="not valid base64url"):
+        verify_hitl_approval(approval, MID, key)
+
+
+def test_standard_alphabet_signature_raises_value_error_not_silently_accepted():
+    """base64.b64decode(altchars=b"-_", validate=True) translates '-'/'_' to
+    '+'/'/' before validating, so it also accepts '+'/'/' as-is: a signature
+    using the standard base64 alphabet decodes to the identical bytes as its
+    url-safe equivalent and would pass unless the alphabet is whitelisted
+    before translation. Caught in review (#378). Uses a fixed, non-random
+    string (rather than swapping chars in a real signature) so the test
+    doesn't depend on the randomly-generated fixture signature happening to
+    contain a '-' or '_' to swap; this raises before signature verification
+    is ever reached, so the signing key and manifest id are irrelevant here."""
+    approval, key = _valid_approval()
+    approval["approval_signature"] = "AAAA+AAA/AAA"
+    with pytest.raises(ValueError, match="not valid base64url"):
+        verify_hitl_approval(approval, MID, key)
+
+
+def test_wrong_length_signature_raises_clear_error():
+    """SIGN-001: a wrong-length approval signature is rejected end to end.
+    The length check itself lives in and is tested at
+    Ed25519Verifier.verify_bytes() - see test_signing.py."""
+    approval, key = _valid_approval()
+    real_sig = approval["approval_signature"]
+    approval["approval_signature"] = real_sig + ("AAAA" * 10)
+    with pytest.raises(InvalidSignature, match="must be 64 bytes"):
+        verify_hitl_approval(approval, MID, key)
+
+
+def test_truncated_signature_raises_clear_error():
+    """Same as above, undershooting instead of overshooting the length."""
+    approval, key = _valid_approval()
+    approval["approval_signature"] = approval["approval_signature"][:-8]
+    with pytest.raises(InvalidSignature, match="must be 64 bytes"):
+        verify_hitl_approval(approval, MID, key)
+
+
+def test_hitl_verification_goes_through_verify_bytes():
+    """SIGN-001: guards against a regression back to the raw primitive,
+    which would silently drop the length check. Spies on
+    Ed25519Verifier.verify_bytes() and lets the real call through."""
+    approval, key = _valid_approval()
+    with mock.patch.object(
+        Ed25519Verifier, "verify_bytes", autospec=True, side_effect=Ed25519Verifier.verify_bytes,
+    ) as spy:
+        verify_hitl_approval(approval, MID, key)
+    spy.assert_called_once()
+
+
+def test_invalid_approver_public_key_is_not_reported_as_a_base64_error():
+    """A bad approver_public_key (CRYPTO-005) must raise its own key error,
+    not get relabeled as a bad signature encoding by the base64
+    try/except."""
+    approval, _ = _valid_approval()
+    with pytest.raises(ValueError, match="Invalid Ed25519 public key") as exc_info:
+        verify_hitl_approval(approval, MID, b"\x00" * 31)
+    assert "base64" not in str(exc_info.value)
+
+
+def test_non_string_approved_at_raises_value_error():
+    approval, key = _valid_approval()
+    approval["approved_at"] = 12345
+    with pytest.raises(ValueError, match="approved_at must be a string"):
+        verify_hitl_approval(approval, MID, key)
+
+
+def test_non_string_approver_id_raises_value_error():
+    approval, key = _valid_approval()
+    approval["approver_id"] = ["not", "a", "string"]
+    with pytest.raises(ValueError, match="approver_id must be a string"):
+        verify_hitl_approval(approval, MID, key)
+
+
+# ---------------------------------------------------------------------------
+# HitlApproval model - approver_id MUST NOT be a SPIFFE URI (ADR-0009 scope note)
+# ---------------------------------------------------------------------------
+
+def _approval_kwargs(approver_id):
+    from agent_manifest.models import (
+        ApprovalMethod,
+        ApprovedScope,
+        ApproverIdentityType,
+        RiskTier,
+    )
+    identity_type = (
+        ApproverIdentityType.email
+        if approver_id.startswith("mailto:")
+        else ApproverIdentityType.did
+    )
+    return dict(
+        approval_id=MID,
+        approver_id=approver_id,
+        approver_identity_type=identity_type,
+        approver_role="ciso",
+        approved_at=datetime.now(timezone.utc),
+        approved_scope=ApprovedScope(
+            artifacts=["system_prompt"],
+            risk_tier=RiskTier.high,
+            approval_duration_seconds=3600,
+        ),
+        approval_signature="c2ln",
+        approval_method=ApprovalMethod.hardware_key,
+        evidence_uri="https://evidence.example/approvals/1",
+    )
+
+
+def test_hitl_approval_rejects_spiffe_approver_id():
+    from agent_manifest.models import HitlApproval
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError, match="MUST NOT be a SPIFFE URI"):
+        HitlApproval(**_approval_kwargs("spiffe://trust.acme.co/user/alice"))
+
+
+def test_hitl_approval_accepts_mailto_approver_id():
+    from agent_manifest.models import HitlApproval
+    a = HitlApproval(**_approval_kwargs("mailto:alice@acme.example"))
+    assert a.approver_id == "mailto:alice@acme.example"
+
+
+def test_hitl_approval_accepts_did_approver_id():
+    from agent_manifest.models import HitlApproval
+    a = HitlApproval(**_approval_kwargs("did:web:acme.example:alice"))
+    assert a.approver_id == "did:web:acme.example:alice"
+
+
+# ---------------------------------------------------------------------------
+# GHSA-q8mp-875w-2w53 / GHSA-wfv4-3xwh-9f2h: approval_method decides Level-2
+# sufficiency but sat outside the approval signature pre-image, so a
+# software-key approval could be relabelled hardware-key while keeping its
+# valid signature. An authenticated approval did not establish authenticated
+# approval strength.
+# ---------------------------------------------------------------------------
+
+def test_relabelling_approval_method_breaks_the_signature():
+    kp = generate_ed25519()
+    manifest_id = "018f4a3b-2c1d-7e5f-a8b9-0d1e2f3a4b5c"
+    approved_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    scope = {"artifacts": ["system_prompt"], "risk_tier": "high",
+             "approval_duration_seconds": 3600}
+
+    approval = {
+        "approver_id": "mailto:alice@example.com",
+        "approved_at": approved_at,
+        "approved_scope": scope,
+        "approval_method": "software-key",
+    }
+    approval["approval_signature"] = HitlApprovalSigner(kp).sign_approval(
+        manifest_id=manifest_id,
+        approved_at=approved_at,
+        approved_scope=scope,
+        approver_id=approval["approver_id"],
+        approval_method="software-key",
+    )
+
+    # The approval is genuine as signed.
+    verify_hitl_approval(approval, manifest_id, kp.public_bytes)
+
+    # Upgrading the strength claim without the approver is now detected.
+    approval["approval_method"] = "hardware-key"
+    with pytest.raises((InvalidSignature, ValueError)):
+        verify_hitl_approval(approval, manifest_id, kp.public_bytes)
+
+
+def test_adding_an_approval_method_to_a_signed_approval_breaks_the_signature():
+    """An approval signed without a method claim cannot gain one afterwards."""
+    kp = generate_ed25519()
+    manifest_id = "018f4a3b-2c1d-7e5f-a8b9-0d1e2f3a4b5c"
+    approved_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    scope = {"artifacts": ["system_prompt"], "risk_tier": "high",
+             "approval_duration_seconds": 3600}
+
+    approval = {
+        "approver_id": "mailto:alice@example.com",
+        "approved_at": approved_at,
+        "approved_scope": scope,
+    }
+    approval["approval_signature"] = HitlApprovalSigner(kp).sign_approval(
+        manifest_id=manifest_id,
+        approved_at=approved_at,
+        approved_scope=scope,
+        approver_id=approval["approver_id"],
+    )
+
+    verify_hitl_approval(approval, manifest_id, kp.public_bytes)
+
+    approval["approval_method"] = "hardware-key"
+    with pytest.raises((InvalidSignature, ValueError)):
+        verify_hitl_approval(approval, manifest_id, kp.public_bytes)
+
+
+def test_approvals_without_a_method_still_verify_unchanged():
+    """Compatibility: omitting the key leaves those pre-image bytes identical."""
+    kp = generate_ed25519()
+    manifest_id = "018f4a3b-2c1d-7e5f-a8b9-0d1e2f3a4b5c"
+    approved_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    scope = {"artifacts": ["system_prompt"], "approval_duration_seconds": 3600}
+
+    approval = {
+        "approver_id": "mailto:alice@example.com",
+        "approved_at": approved_at,
+        "approved_scope": scope,
+        "approval_signature": HitlApprovalSigner(kp).sign_approval(
+            manifest_id=manifest_id,
+            approved_at=approved_at,
+            approved_scope=scope,
+            approver_id="mailto:alice@example.com",
+        ),
+    }
+
+    verify_hitl_approval(approval, manifest_id, kp.public_bytes)

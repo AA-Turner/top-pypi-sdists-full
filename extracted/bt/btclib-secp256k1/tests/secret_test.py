@@ -1,0 +1,493 @@
+# Copyright (c) The btclib developers
+# Distributed under the MIT software license, see the accompanying
+# LICENSE file or https://opensource.org/license/mit for the full text.
+
+"""The buffers a secret passes through are overwritten before being dropped.
+
+What the wrappers do with these is invisible from their answers -- the
+buffer is a local, and it is gone by the time a caller could look -- so
+the two functions are driven here directly, on the two shapes they are
+given: the `char[32]` a tweaked private key comes back in, and the
+`secp256k1_keypair` a BIP340 signature is made with.
+"""
+
+from __future__ import annotations
+
+import array
+import ast
+import ctypes
+import importlib
+import inspect
+import mmap
+import pkgutil
+import textwrap
+from collections.abc import Iterator
+from types import FunctionType, ModuleType
+from typing import Any
+
+import pytest
+
+import btclib_secp256k1
+from btclib_secp256k1 import (
+    CData,
+    _secret,
+    dsa,
+    ecdh,
+    ellswift,
+    ffi,
+    keys,
+    lib,
+    ssa,
+    xonly,
+)
+from btclib_secp256k1.context import ctx
+
+SECRET = b"\x07" * 32
+
+
+def _calls(function: FunctionType) -> set[str]:
+    """Return the names a function calls, read off its syntax tree.
+
+    Off the tree and not out of the text, because a mention is not a
+    call: `keys.pubkey_tweak_add`'s docstring writes
+    `prvkey_tweak_add(k, t)` to say what the private-key side does with
+    the same tweak, and a source matched as text answers that a
+    public-key call produces a private key.
+
+    The source is dedented before it is parsed. A function defined
+    inside a module-level `else:` block -- `btclib_secp256k1.zkp`'s own
+    `__getattr__` is one -- comes back from `inspect.getsource` still
+    indented, and `ast.parse` answers that with `IndentationError`,
+    which is not the `OSError` the walk below catches (#626).
+
+    Args:
+        function: the function to read.
+
+    Returns:
+        The bare names, `keys.parse` and `parse` alike: what the walk
+        below asks is which function was called, not through which
+        module it was reached.
+    """
+    names: set[str] = set()
+    source = textwrap.dedent(inspect.getsource(function))
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Attribute):
+                names.add(node.func.attr)
+            elif isinstance(node.func, ast.Name):
+                names.add(node.func.id)
+    return names
+
+
+def _modules(package: ModuleType) -> Iterator[ModuleType]:
+    """Yield the modules a package holds, and those its subpackages hold.
+
+    `btclib_secp256k1.zkp` is one such subpackage, and what it holds
+    wraps secp256k1-zkp the way the flat modules wrap libsecp256k1, so
+    the question this file asks is the same question there (#626).
+
+    Importing one reaches for no extension without
+    `BTCLIB_LIBSECP256K1_ZKP`: the flagged one is loaded on the first
+    read of `ffi`, `lib` or `ctx`, and an import reads none of the
+    three -- `btclib_secp256k1/zkp/__init__.py`'s own docstring is
+    where that is decided.
+
+    Args:
+        package: the package to read.
+
+    Yields:
+        Each module under it, at any depth.
+    """
+    for info in pkgutil.iter_modules(package.__path__):
+        module = importlib.import_module(f"{package.__name__}.{info.name}")
+        yield module
+        if info.ispkg:
+            yield from _modules(module)
+
+
+def _take_through_a_table(buffer: Any) -> Any:
+    """Read a secret out through a subscript, which names no function.
+
+    Two things read this. `_calls` parses it below, to see that a call
+    reached as `table["take"](buffer)` contributes no name; the test
+    that follows also runs it, on a real secret, to check that the
+    secret still comes out through the subscript.
+
+    Args:
+        buffer: whatever `_secret.take` would have been handed.
+
+    Returns:
+        Whatever `_secret.take` would have answered.
+    """
+    table = {"take": _secret.take}
+    return table["take"](buffer)
+
+
+def test_take_reads_the_secret_out_and_zeroes_the_buffer() -> None:
+    """What the caller gets is the secret; what is left is zeros."""
+    buffer = ffi.new("char[32]", SECRET)
+
+    assert _secret.take(buffer) == SECRET
+    assert ffi.unpack(buffer, ffi.sizeof(buffer)) == bytes(ffi.sizeof(buffer))
+
+
+def test_wipe_asks_the_buffer_for_its_own_size() -> None:
+    """A keypair is wiped whole, and it is larger than the pointer to it.
+
+    This is the reason the length is taken from `ffi.buffer` rather than
+    from `ffi.sizeof`: on a `secp256k1_keypair *` the latter answers 8,
+    the size of the pointer, and wiping 8 octets would clear the first
+    quarter of the private key and leave the rest -- while every
+    assertion about the call still passed.
+    """
+    keypair = ffi.new("secp256k1_keypair *")
+    assert lib.secp256k1_keypair_create(ctx, keypair, SECRET)
+
+    memory = ffi.buffer(keypair)
+    # the private key is in there, and there is more of the struct than
+    # there is of a pointer to it
+    assert SECRET in bytes(memory)
+    assert len(memory) > ffi.sizeof(keypair)
+
+    _secret.wipe(keypair)
+    assert bytes(memory) == bytes(len(memory))
+
+
+def test_take_writes_into_the_caller_s_buffer_and_returns_nothing() -> None:
+    """With `into` the secret lands where the caller can overwrite it.
+
+    Which is the whole of what the argument is for: a `bytes` holds the
+    same secret and cannot be zeroed, so the copy this package has to
+    make is made somewhere the caller owns.
+    """
+    buffer = ffi.new("char[32]", SECRET)
+    into = bytearray(32)
+
+    assert _secret.take(buffer, into=into) is None
+    assert bytes(into) == SECRET
+    # this package's own buffer is wiped either way
+    assert ffi.unpack(buffer, ffi.sizeof(buffer)) == bytes(ffi.sizeof(buffer))
+    # and the caller can do what a bytes would not have let them
+    into[:] = bytes(32)
+    assert bytes(into) == bytes(32)
+
+
+def test_take_into_a_writable_memoryview() -> None:
+    """A memoryview of a bytearray is the other spelling, and writes through."""
+    buffer = ffi.new("char[32]", SECRET)
+    owner = bytearray(32)
+
+    assert _secret.take(buffer, into=memoryview(owner)) is None
+    assert bytes(owner) == SECRET
+
+
+def test_take_refuses_a_buffer_of_the_wrong_length() -> None:
+    """And wipes its own buffer anyway, the refusal being no reason not to.
+
+    A longer buffer is the one worth refusing rather than filling: the
+    secret would sit in its first octets with whatever was already there
+    behind it, which reads as a secret that is not this one.
+
+    What the second assertion holds is the finding this test was written
+    the wrong way round for: the value never reached the caller, so
+    keeping it costs them nothing and leaves a live private key in cffi
+    memory that is freed without being overwritten.
+    """
+    for wrong in (bytearray(31), bytearray(33)):
+        buffer = ffi.new("char[32]", SECRET)
+        with pytest.raises(ValueError, match="must be 32 bytes"):
+            _secret.take(buffer, into=wrong)
+        assert ffi.unpack(buffer, ffi.sizeof(buffer)) == bytes(ffi.sizeof(buffer))
+        assert bytes(wrong) == bytes(len(wrong))
+
+
+def test_take_refuses_a_buffer_it_cannot_write() -> None:
+    """A read-only view would defeat the facility silently, so it is refused.
+
+    `bytes` is the same mistake spelled shorter, and reaches the same
+    refusal through `readonly` rather than through a type check. An
+    `int` is not a buffer at all, and `memoryview` is what says so.
+    """
+    wrong: list[tuple[object, str]] = [
+        (memoryview(bytes(32)), "must be writable"),
+        (b"\x00" * 32, "must be writable"),
+        (7, "must be a writable buffer, not int"),
+    ]
+    for value, message in wrong:
+        buffer = ffi.new("char[32]", SECRET)
+        with pytest.raises(TypeError, match=message):
+            _secret.take(buffer, into=value)  # type: ignore[call-overload]
+        assert ffi.unpack(buffer, ffi.sizeof(buffer)) == bytes(ffi.sizeof(buffer))
+
+
+def test_take_accepts_any_writable_contiguous_buffer() -> None:
+    """An mmap and an array of octets are destinations too, and are taken.
+
+    The refusals are about what a buffer *is*, not about which class
+    produced it: an `mlock`ed `mmap` is a plausible place for the caller
+    this argument exists for to want a secret. `MutableBytesLike` names
+    the two a typed caller passes bare, `collections.abc.Buffer` being
+    3.12, above the floor here; anything else is wrapped in a
+    `memoryview`, which costs nothing and is what these two do.
+    """
+    with mmap.mmap(-1, 32) as anonymous:
+        buffer = ffi.new("char[32]", SECRET)
+        assert _secret.take(buffer, into=memoryview(anonymous)) is None
+        assert anonymous[:] == SECRET
+
+    octets = array.array("B", bytes(32))
+    buffer = ffi.new("char[32]", SECRET)
+    assert _secret.take(buffer, into=memoryview(octets)) is None
+    assert octets.tobytes() == SECRET
+
+
+def test_take_refuses_a_buffer_that_is_not_contiguous_octets() -> None:
+    """Three shapes that are not one-dimensional contiguous octets.
+
+    A two-dimensional view is writable, octet-wide and 32 octets long,
+    and the copy through it raises `NotImplementedError` -- neither of
+    the exceptions the caller was told to expect. A strided one works,
+    and is refused all the same: the secret would land scattered through
+    64 octets of an owner whose other 32 nothing says are involved. A
+    zero-dimensional one holds a single octet, so the length check would
+    refuse it too, as a `ValueError` where the caller was told a buffer
+    of the wrong shape is a `TypeError`.
+    """
+    for wrong in (
+        memoryview(bytearray(32)).cast("B", (4, 8)),
+        memoryview(bytearray(64))[::2],
+        memoryview(bytearray(1)).cast("B", ()),
+    ):
+        buffer = ffi.new("char[32]", SECRET)
+        with pytest.raises(TypeError, match="must be contiguous octets"):
+            _secret.take(buffer, into=wrong)
+        assert ffi.unpack(buffer, ffi.sizeof(buffer)) == bytes(ffi.sizeof(buffer))
+
+
+def test_take_refuses_a_view_of_wider_items() -> None:
+    """Eight uint32 are 32 octets of nobody's byte order.
+
+    `memoryview.cast("B")` is how a caller says the octets are what they
+    meant, which is the rule `_scalar.octets` states on the way in.
+    """
+    buffer = ffi.new("char[32]", SECRET)
+    wide = memoryview(bytearray(32)).cast("I")
+    with pytest.raises(TypeError, match="not of 4-byte items"):
+        _secret.take(buffer, into=wide)
+    assert ffi.unpack(buffer, ffi.sizeof(buffer)) == bytes(ffi.sizeof(buffer))
+
+
+def test_take_refuses_a_view_of_zero_width_items() -> None:
+    """A ctypes structure with no fields exports items of zero octets.
+
+    Zero is below one, so a refusal written as `itemsize > 1` lets it
+    through to the size check, which then answers about a buffer that was
+    never octets.
+    """
+    no_fields = type("NoFields", (ctypes.Structure,), {"_fields_": []})
+    empty = memoryview(no_fields())
+    assert empty.itemsize == 0
+
+    buffer = ffi.new("char[32]", SECRET)
+    with pytest.raises(TypeError, match="not of 0-byte items"):
+        _secret.take(buffer, into=empty)
+    assert ffi.unpack(buffer, ffi.sizeof(buffer)) == bytes(ffi.sizeof(buffer))
+
+
+def test_prvkey_tweak_add_and_mul_wipe_the_buffer_the_tweak_refuses(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A tweak `scalar` rejects never reaches the C call that would zero it.
+
+    `keys.prvkey_tweak_add` and `keys.prvkey_tweak_mul` each copy the
+    private key into this package's own buffer with `scalar_buffer`
+    before `scalar` validates the tweak, so a short tweak raises out of
+    that validation, before `secp256k1_ec_seckey_tweak_add`/`_mul` -- and
+    the zeroing on refusal it is relied on for elsewhere -- is ever
+    called (issue #1026).
+
+    The buffer under test is not observable through either wrapper's
+    return value, so it is read independently: `scalar_buffer` is
+    wrapped to record the exact `char[32]` cdata it hands back, and the
+    assertion reads that cdata's own memory rather than anything the
+    wrapper being tested reports.
+    """
+    recorded: list[CData] = []
+    real_scalar_buffer = _secret.scalar_buffer
+
+    def recording(prvkey: object, name: str) -> CData:
+        buffer = real_scalar_buffer(prvkey, name)
+        recorded.append(buffer)
+        return buffer
+
+    monkeypatch.setattr(keys, "scalar_buffer", recording)
+
+    for function in (keys.prvkey_tweak_add, keys.prvkey_tweak_mul):
+        recorded.clear()
+        with pytest.raises(ValueError, match="32 bytes"):
+            function(SECRET, b"short")
+        assert len(recorded) == 1, function.__name__
+        assert ffi.unpack(recorded[0], ffi.sizeof(recorded[0])) == bytes(32), (
+            function.__name__
+        )
+
+
+def test_calls_reads_nothing_from_a_call_that_names_no_function() -> None:
+    """A call reached through an expression contributes no name.
+
+    The population of the test below is the names `_calls` answers, so
+    what it cannot name it cannot include: a producer invoked as
+    `table[key]()` leaves that walk reporting no call site at all rather
+    than reporting a wrong one. The helper is run as well as read, which
+    is what makes the pair of assertions a finding and not a definition
+    -- it does take a secret out, and the walk says it calls nothing.
+    That is a blind spot of the same kind SECURITY.md records for a
+    secret that never passes through `take`, and it is measured here
+    rather than assumed, a walk having no other way to report which of
+    its two readings it took.
+    """
+    buffer = ffi.new("char[32]", SECRET)
+
+    assert _take_through_a_table(buffer) == SECRET
+    # the same narrowing the walk below reaches its population through:
+    # a bare `def` is a `Callable` to mypy, and `_calls` takes the
+    # `FunctionType` `inspect.isfunction` answers for
+    assert inspect.isfunction(_take_through_a_table)
+    assert _calls(_take_through_a_table) == set()
+
+
+def test_every_function_that_takes_a_secret_out_offers_into() -> None:
+    """Found by walking the package, so that a ninth producer is caught.
+
+    A hardcoded list of the eleven cannot notice a twelfth, which is
+    what this test is for; `_secret.take` is the one thing every
+    producer of a secret has in common, so its call sites are the
+    population. They are not the whole of it: a public half answers the
+    secret its private half read out, without calling `take` itself, so
+    whatever calls a producer is asked the same question --
+    `ecdh.shared_secret` is that shape, and being caught by its own name
+    is what keeps a twelfth written that way from being checked by hand.
+    Three names are exempt, and naming them here is what keeps
+    SECURITY.md's sentence honest.
+
+    The walk descends into `zkp` the same way it descends into the
+    primary package: the secret adaptor `zkp.musig.extract_adaptor`
+    recovers and the blinding factors `zkp.generator.pedersen_blind_sum`
+    and `zkp.generator.pedersen_blind_generator_blind_sum` answer are
+    each read out through `take`, so each is a producer this test
+    already reaches without a module-specific case; `zkp.rangeproof
+    .rewind` calls `take` too and is exempt for the same reason `label`
+    is, below (#640).
+
+    What the walk cannot see is a secret that never goes through `take`
+    at all. `silentpayments._found_output` reads the per-output tweak
+    out of the struct as a `bytes` of its own, so no population defined
+    this way can contain it, and SECURITY.md names the tweak it answers
+    for that reason.
+    """
+    # the tweak of a label, in both halves that answer it, and the
+    # blinding factor `rangeproof.rewind` recovers: each is one member
+    # of a returned tuple, where an argument could not say which it
+    # names; SECURITY.md says so too
+    exempt = {"_label_", "label", "rewind"}
+    functions: dict[tuple[str, str], FunctionType] = {}
+    called: dict[tuple[str, str], set[str]] = {}
+    for module in _modules(btclib_secp256k1):
+        # `zkp.musig` rather than `musig`: they are different modules
+        # of this package, and the failure below names one of them
+        where = module.__name__.removeprefix(f"{btclib_secp256k1.__name__}.")
+        for name, function in vars(module).items():
+            if (
+                not inspect.isfunction(function)
+                or function.__module__ != module.__name__
+            ):
+                continue
+            try:
+                called[where, name] = _calls(function)
+            except OSError:  # pragma: no cover -- a module with no source file
+                continue
+            functions[where, name] = function
+
+    producers = {key for key, names in called.items() if "take" in names}
+    assert producers, "no call site of _secret.take was found: the walk is broken"
+    forwarders = {
+        key for key, names in called.items() if names & {name for _, name in producers}
+    }
+    for key in sorted(producers | forwarders):
+        if key[1] in exempt:
+            continue
+        parameters = inspect.signature(functions[key]).parameters
+        assert "into" in parameters, f"{key[0]}.{key[1]} has no into"
+        # by keyword only: positionally it lands on whatever precedes it,
+        # `aux_rand32` for `dsa.nonce_rfc6979`, where an empty buffer
+        # would be taken as 32 octets of entropy
+        assert parameters["into"].kind is inspect.Parameter.KEYWORD_ONLY, (
+            f"{key[0]}.{key[1]} takes into positionally"
+        )
+    assert exempt <= {name for _, name in producers | forwarders}, (
+        "an exemption names a function that no longer answers a secret"
+    )
+    # `take` itself is what the producers call with it, so it is the one
+    # signature the walk above does not read
+    take_parameters = inspect.signature(_secret.take).parameters
+    assert take_parameters["into"].kind is inspect.Parameter.KEYWORD_ONLY
+
+
+def test_the_two_spellings_of_a_producer_agree() -> None:
+    """Each entry point answers through `into` what it answers as bytes.
+
+    `zkp.musig.extract_adaptor`, `zkp.generator.pedersen_blind_sum` and
+    `zkp.generator.pedersen_blind_generator_blind_sum` offer `into` too,
+    and are not in `calls` below: this build carries no
+    `BTCLIB_LIBSECP256K1_ZKP`, and their own test files check the same
+    round trip where the extension they need is present or faked.
+    """
+    ell = ellswift.create(2, bytes(32))
+    calls = (
+        (keys.prvkey_negate, (7,)),
+        (keys.prvkey_tweak_add, (7, 3)),
+        (keys.prvkey_tweak_mul, (7, 3)),
+        (xonly.prvkey_tweak_add, (7, 3)),
+        (ecdh.shared_secret, (keys.pubkey_from_prvkey(3), 7)),
+        (ellswift.xdh, (ell, ell, 2, 0)),
+        (dsa.nonce_rfc6979, (bytes(32), 7)),
+        (ssa.nonce_bip340, (bytes(32), 7, bytes(32))),
+    )
+    for call, args in calls:
+        into = bytearray(32)
+        assert call(*args, into=into) is None, call.__name__
+        assert bytes(into) == call(*args), call.__name__
+
+    # the one whose secret is a point, and so as long as its serialization
+    pubkey = keys.pubkey_from_prvkey(3)
+    for compressed, size in ((True, 33), (False, 65)):
+        into = bytearray(size)
+        assert ecdh.shared_point(pubkey, 7, compressed, into=into) is None
+        assert bytes(into) == ecdh.shared_point(pubkey, 7, compressed)
+    with pytest.raises(ValueError, match="65"):
+        ecdh.shared_point(pubkey, 7, False, into=bytearray(33))
+
+
+def test_a_key_held_in_a_buffer_never_becomes_a_bytes_of_the_secret() -> None:
+    """The copy `into` cannot help with, and the one `scalar` no longer makes.
+
+    `into` is for a secret coming *out* of this package. This is the
+    other direction: a caller signing again and again under one key can
+    hold it in memory it owns -- `ffi.new`, and `_secret.wipe` when done
+    -- and hand that to the boundary, where before it was converted to an
+    immutable `bytes` per call and nothing could overwrite those.
+
+    Both halves are asserted, because either alone would be misleading.
+    The signature and the derived key are the ones the same secret gives
+    as `bytes`, so nothing about the answers changed; and the buffer is
+    zero after the wipe, which is what the `bytes` could never be.
+    """
+    held = ffi.new("unsigned char[32]", SECRET)
+    msg = bytes(range(32))
+
+    assert dsa.sign(msg, held) == dsa.sign(msg, SECRET)
+    assert keys.pubkey_from_prvkey(held) == keys.pubkey_from_prvkey(SECRET)
+    assert ssa.sign(msg, held, bytes(32)) == ssa.sign(msg, SECRET, bytes(32))
+
+    _secret.wipe(held)
+    assert bytes(ffi.buffer(held)) == bytes(32)

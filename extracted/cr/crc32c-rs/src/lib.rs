@@ -1,0 +1,365 @@
+#![feature(hint_prefetch)]
+
+mod arch;
+mod exceptions;
+mod py_buffer;
+mod simd_dispatch;
+
+#[cfg(feature = "mimalloc")]
+#[global_allocator]
+static GLOBAL_ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
+#[pyo3::pymodule(name = "_crc32c_rs")]
+mod crc32c_rs {
+    use pyo3::prelude::*;
+
+    #[cfg(any(target_arch = "aarch64", target_arch = "arm64ec"))]
+    use crate::arch::{aes_crc_v12e_v1, aes_sha3_v9s3x2e_s3, aes_v3s4x2e_v2};
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    use crate::arch::{
+        avx512vl_pclmulqdq_v9s3x4e, avx512vl_vpclmulqdq_v3s1_s3, avx512vl_vpclmulqdq_v3s2x4,
+        avx512vl_vpclmulqdq_v4s5x3, sse42, sse42_pclmulqdq_v1s3x2, sse42_pclmulqdq_v1s3x3,
+        sse42_pclmulqdq_v1s4x2, sse42_pclmulqdq_v7s3x3, sse42_pclmulqdq_v8s3x3,
+    };
+    #[cfg(any(
+        target_arch = "x86",
+        target_arch = "x86_64",
+        target_arch = "aarch64",
+        target_arch = "arm64ec",
+    ))]
+    use crate::detect_features;
+    use crate::{arch::fallback, py_buffer::PyBuffer, simd_dispatch::SimdIsa};
+
+    // releasing / reacquiring the GIL has  overhead that outweighs the benefit
+    // for small buffers, so only detach the GIL for inputs at or above this size.
+    const GIL_MINSIZE: usize = 32 * 1024; // 32 KB
+
+    #[pymodule_export]
+    #[allow(non_upper_case_globals)]
+    const __version__: &str = env!("CARGO_PKG_VERSION");
+
+    #[pymodule_export]
+    use crate::exceptions::UnsupportedCPUFeatureError;
+
+    #[inline(always)]
+    fn crc32c_dispatch(
+        py: Python<'_>,
+        buffer: &PyBuffer,
+        value: u32,
+        impl_fn: unsafe fn(u32, *const u8, usize) -> u32,
+    ) -> u32 {
+        let len = buffer.len();
+        let ptr = buffer.as_ptr();
+
+        if len < GIL_MINSIZE {
+            // SAFETY: the caller selected the implementation after its runtime
+            // feature check & the `Py_buffer` remains alive for this call.
+            unsafe { impl_fn(value, ptr, len) }
+        } else {
+            let ptr = ptr as usize;
+            py.detach(|| {
+                // SAFETY: `ptr` and `len` came from a live `Py_buffer` & the
+                // selected CRC implementation was checked before this call.
+                unsafe { impl_fn(value, ptr as *const u8, len) }
+            })
+        }
+    }
+
+    #[inline(always)]
+    fn fallback(value: u32, ptr: *const u8, len: usize) -> u32 {
+        unsafe { fallback::crc32c(value, core::slice::from_raw_parts(ptr, len), len) }
+    }
+
+    #[pyfunction(name = "_crc32c", signature = (data, value = 0, /))]
+    fn crc32c(py: Python<'_>, data: &Bound<'_, PyAny>, value: u32) -> PyResult<u32> {
+        let buffer = PyBuffer::get(py, data)?;
+
+        let impl_fn = match SimdIsa::detected() {
+            #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+            SimdIsa::Avx512vlVpclmulqdq_v3s1_s3 => avx512vl_vpclmulqdq_v3s1_s3::crc32c,
+            #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+            SimdIsa::Avx512vlVpclmulqdq_v3s2x4 => avx512vl_vpclmulqdq_v3s2x4::crc32c,
+            #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+            SimdIsa::Avx512vlVpclmulqdq_v4s5x3 => avx512vl_vpclmulqdq_v4s5x3::crc32c,
+            #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+            SimdIsa::Avx512vlPclmulqdq_v9s3x4e => avx512vl_pclmulqdq_v9s3x4e::crc32c,
+            #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+            SimdIsa::Sse42Pclmulqdq_v7s3x3 => sse42_pclmulqdq_v7s3x3::crc32c,
+            #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+            SimdIsa::Sse42Pclmulqdq_v8s3x3 => sse42_pclmulqdq_v8s3x3::crc32c,
+            #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+            SimdIsa::Sse42Pclmulqdq_v1s3x2 => sse42_pclmulqdq_v1s3x2::crc32c,
+            #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+            SimdIsa::Sse42Pclmulqdq_v1s3x3 => sse42_pclmulqdq_v1s3x3::crc32c,
+            #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+            SimdIsa::Sse42Pclmulqdq_v1s4x2 => sse42_pclmulqdq_v1s4x2::crc32c,
+            #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+            SimdIsa::Sse42 => sse42::crc32c,
+            #[cfg(any(target_arch = "aarch64", target_arch = "arm64ec"))]
+            SimdIsa::AesSha3_v9s3x2e_s3 => aes_sha3_v9s3x2e_s3::crc32c,
+            #[cfg(any(target_arch = "aarch64", target_arch = "arm64ec"))]
+            SimdIsa::AesCrc_v3s4x2e_v2 => aes_v3s4x2e_v2::crc32c,
+            #[cfg(any(target_arch = "aarch64", target_arch = "arm64ec"))]
+            SimdIsa::AesCrc_v12e_v1 => aes_crc_v12e_v1::crc32c,
+            _ => fallback,
+        };
+
+        Ok(crc32c_dispatch(py, &buffer, value, impl_fn))
+    }
+
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    #[pyfunction(name = "_crc32c_avx512vl_vpclmulqdq_v3s2x4", signature = (data, value = 0, /))]
+    fn crc32c_avx512vl_vpclmulqdq_v3s2x4(
+        py: Python<'_>,
+        data: &Bound<'_, PyAny>,
+        value: u32,
+    ) -> PyResult<u32> {
+        if !detect_features!(x86, ["avx512vl", "vpclmulqdq"]) {
+            return Err(UnsupportedCPUFeatureError::new_err(
+                "AVX512VL and VPCLMULQDQ are not supported by this CPU",
+            ));
+        }
+        let buffer = PyBuffer::get(py, data)?;
+        Ok(crc32c_dispatch(
+            py,
+            &buffer,
+            value,
+            avx512vl_vpclmulqdq_v3s2x4::crc32c,
+        ))
+    }
+
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    #[pyfunction(name = "_crc32c_avx512vl_vpclmulqdq_v4s5x3", signature = (data, value = 0, /))]
+    fn crc32c_avx512vl_vpclmulqdq_v4s5x3(
+        py: Python<'_>,
+        data: &Bound<'_, PyAny>,
+        value: u32,
+    ) -> PyResult<u32> {
+        if !detect_features!(x86, ["avx512vl", "vpclmulqdq"]) {
+            return Err(UnsupportedCPUFeatureError::new_err(
+                "AVX512VL and VPCLMULQDQ are not supported by this CPU",
+            ));
+        }
+        let buffer = PyBuffer::get(py, data)?;
+        Ok(crc32c_dispatch(
+            py,
+            &buffer,
+            value,
+            avx512vl_vpclmulqdq_v4s5x3::crc32c,
+        ))
+    }
+
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    #[pyfunction(name = "_crc32c_sse42_pclmulqdq_v1s3x2", signature = (data, value = 0, /))]
+    fn crc32c_sse42_pclmulqdq_v1s3x2(
+        py: Python<'_>,
+        data: &Bound<'_, PyAny>,
+        value: u32,
+    ) -> PyResult<u32> {
+        if !detect_features!(x86, ["sse4.2", "pclmulqdq"]) {
+            return Err(UnsupportedCPUFeatureError::new_err(
+                "SSE4.2 and PCLMULQDQ are not supported by this CPU",
+            ));
+        }
+        let buffer = PyBuffer::get(py, data)?;
+        Ok(crc32c_dispatch(
+            py,
+            &buffer,
+            value,
+            sse42_pclmulqdq_v1s3x2::crc32c,
+        ))
+    }
+
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    #[pyfunction(name = "_crc32c_sse42_pclmulqdq_v1s3x3", signature = (data, value = 0, /))]
+    fn crc32c_sse42_pclmulqdq_v1s3x3(
+        py: Python<'_>,
+        data: &Bound<'_, PyAny>,
+        value: u32,
+    ) -> PyResult<u32> {
+        let buffer = PyBuffer::get(py, data)?;
+        if !detect_features!(x86, ["sse4.2", "pclmulqdq"]) {
+            return Err(UnsupportedCPUFeatureError::new_err(
+                "SSE4.2 and PCLMULQDQ are not supported by this CPU",
+            ));
+        }
+        Ok(crc32c_dispatch(
+            py,
+            &buffer,
+            value,
+            sse42_pclmulqdq_v1s3x3::crc32c,
+        ))
+    }
+
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    #[pyfunction(name = "_crc32c_sse42_pclmulqdq_v1s4x2", signature = (data, value = 0, /))]
+    fn crc32c_sse42_pclmulqdq_v1s4x2(
+        py: Python<'_>,
+        data: &Bound<'_, PyAny>,
+        value: u32,
+    ) -> PyResult<u32> {
+        let buffer = PyBuffer::get(py, data)?;
+        if !detect_features!(x86, ["sse4.2", "pclmulqdq"]) {
+            return Err(UnsupportedCPUFeatureError::new_err(
+                "SSE4.2 and PCLMULQDQ are not supported by this CPU",
+            ));
+        }
+        Ok(crc32c_dispatch(
+            py,
+            &buffer,
+            value,
+            sse42_pclmulqdq_v1s4x2::crc32c,
+        ))
+    }
+
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    #[pyfunction(name = "_crc32c_sse42_pclmulqdq_v8s3x3", signature = (data, value = 0, /))]
+    fn crc32c_sse42_pclmulqdq_v8s3x3(
+        py: Python<'_>,
+        data: &Bound<'_, PyAny>,
+        value: u32,
+    ) -> PyResult<u32> {
+        let buffer = PyBuffer::get(py, data)?;
+        if !detect_features!(x86, ["sse4.2", "pclmulqdq"]) {
+            return Err(UnsupportedCPUFeatureError::new_err(
+                "SSE4.2 and PCLMULQDQ are not supported by this CPU",
+            ));
+        }
+        Ok(crc32c_dispatch(
+            py,
+            &buffer,
+            value,
+            sse42_pclmulqdq_v8s3x3::crc32c,
+        ))
+    }
+
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    #[pyfunction(name = "_crc32c_sse42", signature = (data, value = 0, /))]
+    fn crc32c_sse42(py: Python<'_>, data: &Bound<'_, PyAny>, value: u32) -> PyResult<u32> {
+        if !detect_features!(x86, ["sse4.2"]) {
+            return Err(UnsupportedCPUFeatureError::new_err(
+                "SSE4.2 is not supported by this CPU",
+            ));
+        }
+        let buffer = PyBuffer::get(py, data)?;
+        Ok(crc32c_dispatch(py, &buffer, value, sse42::crc32c))
+    }
+
+    #[cfg(any(target_arch = "aarch64", target_arch = "arm64ec"))]
+    #[pyfunction(name = "_crc32c_aes_crc_v12e_v1", signature = (data, value = 0, /))]
+    fn crc32c_aes_crc_v12e_v1(
+        py: Python<'_>,
+        data: &Bound<'_, PyAny>,
+        value: u32,
+    ) -> PyResult<u32> {
+        if !detect_features!(aarch64, ["crc", "aes"]) {
+            return Err(UnsupportedCPUFeatureError::new_err(
+                "CRC and AES are not supported by this CPU",
+            ));
+        }
+        let buffer = PyBuffer::get(py, data)?;
+        Ok(crc32c_dispatch(py, &buffer, value, aes_crc_v12e_v1::crc32c))
+    }
+
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    #[pyfunction(name = "_crc32c_avx512vl_vpclmulqdq_v3s1_s3", signature = (data, value = 0, /))]
+    fn crc32c_avx512vl_vpclmulqdq_v3s1_s3(
+        py: Python<'_>,
+        data: &Bound<'_, PyAny>,
+        value: u32,
+    ) -> PyResult<u32> {
+        if !detect_features!(x86, ["avx512vl", "vpclmulqdq"]) {
+            return Err(UnsupportedCPUFeatureError::new_err(
+                "AVX512VL and VPCLMULQDQ are not supported by this CPU",
+            ));
+        }
+        let buffer = PyBuffer::get(py, data)?;
+        Ok(crc32c_dispatch(
+            py,
+            &buffer,
+            value,
+            avx512vl_vpclmulqdq_v3s1_s3::crc32c,
+        ))
+    }
+
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    #[pyfunction(name = "_crc32c_avx512vl_pclmulqdq_v9s3x4e", signature = (data, value = 0, /))]
+    fn crc32c_avx512vl_pclmulqdq_v9s3x4e(
+        py: Python<'_>,
+        data: &Bound<'_, PyAny>,
+        value: u32,
+    ) -> PyResult<u32> {
+        if !detect_features!(x86, ["avx512vl", "pclmulqdq"]) {
+            return Err(UnsupportedCPUFeatureError::new_err(
+                "AVX512VL and PCLMULQDQ are not supported by this CPU",
+            ));
+        }
+        let buffer = PyBuffer::get(py, data)?;
+        Ok(crc32c_dispatch(
+            py,
+            &buffer,
+            value,
+            avx512vl_pclmulqdq_v9s3x4e::crc32c,
+        ))
+    }
+
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+    #[pyfunction(name = "_crc32c_sse42_pclmulqdq_v7s3x3", signature = (data, value = 0, /))]
+    fn crc32c_sse42_pclmulqdq_v7s3x3(
+        py: Python<'_>,
+        data: &Bound<'_, PyAny>,
+        value: u32,
+    ) -> PyResult<u32> {
+        if !detect_features!(x86, ["sse4.2", "pclmulqdq"]) {
+            return Err(UnsupportedCPUFeatureError::new_err(
+                "SSE4.2 and PCLMULQDQ are not supported by this CPU",
+            ));
+        }
+        let buffer = PyBuffer::get(py, data)?;
+        Ok(crc32c_dispatch(
+            py,
+            &buffer,
+            value,
+            sse42_pclmulqdq_v7s3x3::crc32c,
+        ))
+    }
+
+    #[cfg(any(target_arch = "aarch64", target_arch = "arm64ec"))]
+    #[pyfunction(name = "_crc32c_aes_sha3_v9s3x2e_s3", signature = (data, value = 0, /))]
+    fn crc32c_aes_sha3_v9s3x2e_s3(
+        py: Python<'_>,
+        data: &Bound<'_, PyAny>,
+        value: u32,
+    ) -> PyResult<u32> {
+        if !detect_features!(aarch64, ["crc", "aes", "sha3"]) {
+            return Err(UnsupportedCPUFeatureError::new_err(
+                "CRC, AES, and SHA3 are not supported by this CPU",
+            ));
+        }
+        let buffer = PyBuffer::get(py, data)?;
+        Ok(crc32c_dispatch(
+            py,
+            &buffer,
+            value,
+            aes_sha3_v9s3x2e_s3::crc32c,
+        ))
+    }
+
+    #[cfg(any(target_arch = "aarch64", target_arch = "arm64ec"))]
+    #[pyfunction(name = "_crc32c_aes_v3s4x2e_v2", signature = (data, value = 0, /))]
+    fn crc32c_aes_v3s4x2e_v2(py: Python<'_>, data: &Bound<'_, PyAny>, value: u32) -> PyResult<u32> {
+        if !detect_features!(aarch64, ["crc", "aes"]) {
+            return Err(UnsupportedCPUFeatureError::new_err(
+                "CRC and AES are not supported by this CPU",
+            ));
+        }
+        let buffer = PyBuffer::get(py, data)?;
+        Ok(crc32c_dispatch(py, &buffer, value, aes_v3s4x2e_v2::crc32c))
+    }
+
+    #[pyfunction(name = "_crc32c_fallback", signature = (data, value = 0, /))]
+    fn crc32c_fallback(py: Python<'_>, data: &Bound<'_, PyAny>, value: u32) -> PyResult<u32> {
+        let buffer = PyBuffer::get(py, data)?;
+        Ok(crc32c_dispatch(py, &buffer, value, fallback))
+    }
+}

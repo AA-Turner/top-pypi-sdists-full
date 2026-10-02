@@ -1,0 +1,57 @@
+name: omnimarket-projection-llm-cost
+description: Kafka-to-DB projection consumer for LLM cost events (OMN-7610)
+# OMN-19972: built from docker/Dockerfile.runtime, which installs omnimarket, as
+# omnimarket-projection-delegation is (OMN-19496). The former
+# omnimarket-projection:latest image was built only in the omnimarket repo, so
+# no catalog render could start this service.
+image: runtime:latest
+layer: runtime
+container_name: omnimarket-projection-llm-cost
+required_env:
+  # OMN-15425: this service binds the `tenant_projection` topology binding,
+  # whose principal is tenant_projection_writer. That binding has its own DSN
+  # env because OMN-16911 attests current_user per binding and one DSN cannot
+  # read back as two principals. OMNIDASH_ANALYTICS_DB_URL is retained for the
+  # dashboard-facing settings fallback this change did not re-scope.
+  - OMNIDASH_ANALYTICS_DB_URL
+  - ONEX_TENANT_DB_URL
+hardcoded_env:
+  KAFKA_BROKERS: redpanda:9092
+  KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+  PYTHONUNBUFFERED: "1"
+  # The shared projection runner's /ready server (BaseProjectionRunner); 8097
+  # so it cannot collide with the delegation writer's 8099 or the consumer
+  # health projection's 8098.
+  PROJECTION_RUNNER_HEALTH_PORT: "8097"
+operational_defaults:
+  # A group of its own, as the delegation writer has, so this writer's offsets
+  # are not shared with another consumer of the same topics.
+  KAFKA_CONSUMER_GROUP: local.omnimarket-projections.llm-cost-writer.consume.v1
+  ONEX_LOG_LEVEL: INFO
+ports: null
+healthcheck:
+  test: curl -sf http://localhost:8097/ready
+  interval_s: 30
+  timeout_s: 10
+  retries: 3
+  start_period_s: 60
+volumes: []
+depends_on:
+  - service: redpanda
+    condition: service_healthy
+  - service: postgres
+    condition: service_healthy
+restart: unless-stopped
+resources:
+  cpus: "0.5"
+  memory: 256M
+  cpus_reservation: "0.1"
+  memory_reservation: 64M
+stop_grace_period: 30s
+command:
+  - python
+  - -m
+  - omnimarket.nodes.node_projection_llm_cost.handlers.handler_llm_cost
+labels:
+  com.omninode.service: omnimarket-projection-llm-cost
+  com.omninode.layer: runtime

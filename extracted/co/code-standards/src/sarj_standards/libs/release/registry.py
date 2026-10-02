@@ -1,0 +1,290 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import timedelta
+import json
+import math
+from pathlib import Path
+import re
+import sys
+import time
+import tomllib
+from typing import TYPE_CHECKING, Annotated, ClassVar, Literal, Protocol
+from urllib.error import HTTPError
+from urllib.parse import quote
+from urllib.request import Request, urlopen
+
+from packaging.utils import InvalidSdistFilename, InvalidWheelFilename, parse_sdist_filename, parse_wheel_filename
+from packaging.version import InvalidVersion, Version
+from pydantic import BaseModel, ConfigDict, Field
+import typer
+
+from sarj_standards.libs.json_boundary import parse_json
+from sarj_standards.libs.release._values import is_object_dict, is_object_list, string_object_dict
+from sarj_standards.libs.release.tags import RELEASE_TARGETS, read_manifest_version
+
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
+
+
+RegistryKind = Literal["npm", "pypi"]
+
+
+@dataclass(frozen=True, slots=True, order=True)
+class RegistryRequirement:
+    registry: RegistryKind
+    name: str
+    version: str
+
+
+class _PypiSimpleFile(BaseModel):
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="ignore", strict=True)
+
+    filename: str = Field(min_length=1)
+
+
+class _PypiSimpleResponse(BaseModel):
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="ignore", strict=True)
+
+    files: tuple[_PypiSimpleFile, ...]
+
+
+class PublicationChecker(Protocol):
+    def __call__(self, requirement: RegistryRequirement, /) -> bool: ...
+
+
+_EXACT_DEPENDENCY = re.compile(r"^(?P<name>[A-Za-z0-9_.-]+)==(?P<version>[^;\s]+)$")
+_HTTP_OK = 200
+_HTTP_NOT_FOUND = 404
+
+
+def target_requirement(root: Path, target_name: str) -> RegistryRequirement:
+    requirements = target_requirements(root, target_name)
+    if len(requirements) != 1:
+        msg = f"release target has multiple registry publications: {target_name}"
+        raise ValueError(msg)
+    return requirements[0]
+
+
+def target_requirements(root: Path, target_name: str) -> tuple[RegistryRequirement, ...]:
+    target = RELEASE_TARGETS.get(target_name)
+    if target is None or not target.publications:
+        msg = f"unsupported release target: {target_name}"
+        raise ValueError(msg)
+    resolved = root.resolve()
+    requirements: list[RegistryRequirement] = []
+    for publication in target.publications:
+        manifest = target.manifest if publication.manifest is None else publication.manifest
+        manifest_format = target.format if publication.format is None else publication.format
+        version = read_manifest_version(resolved / manifest, manifest_format)
+        requirements.append(RegistryRequirement(publication.registry, publication.name, version))
+    primary_version = requirements[0].version
+    if any(item.version != primary_version for item in requirements[1:]):
+        rendered = ", ".join(f"{item.name}=={item.version}" for item in requirements)
+        msg = f"atomic release target versions disagree: {target_name}: {rendered}"
+        raise ValueError(msg)
+    return tuple(requirements)
+
+
+def publication_exists(requirement: RegistryRequirement) -> bool:
+    if requirement.registry == "pypi":
+        # uv and pip resolve through the Simple API, so version JSON visibility alone does not make a wheel resolvable.
+        url = f"https://pypi.org/simple/{quote(requirement.name, safe='')}/"
+        accept = "application/vnd.pypi.simple.v1+json"
+    else:
+        url = f"https://registry.npmjs.org/{quote(requirement.name, safe='')}/{quote(requirement.version, safe='')}"
+        accept = "application/json"
+    request = Request(  # ruff: ignore[suspicious-url-open-usage] -- URL is constructed only from fixed HTTPS registry origins.
+        url, headers={"Accept": accept}
+    )
+    try:
+        return _request_publication(request, requirement)
+    except HTTPError as exc:
+        if exc.code == _HTTP_NOT_FOUND:
+            return False
+        raise
+
+
+def _request_publication(request: Request, requirement: RegistryRequirement) -> bool:
+    with urlopen(request, timeout=15) as response:  # ruff: ignore[suspicious-url-open-usage]  # pyright: ignore[reportAny] -- fixed registry origins
+        if response.status != _HTTP_OK:  # pyright: ignore[reportAny]
+            return False
+        if requirement.registry == "npm":
+            return True
+        payload: bytes = response.read()  # pyright: ignore[reportAny] -- urllib response is untyped.
+        document = _PypiSimpleResponse.model_validate_json(payload)
+    return any(_pypi_filename_has_version(item.filename, requirement.version) for item in document.files)
+
+
+def _pypi_filename_has_version(filename: str, version: str) -> bool:
+    try:
+        expected = Version(version)
+        if filename.endswith(".whl"):
+            _name, actual, _build, _tags = parse_wheel_filename(filename)
+        else:
+            _name, actual = parse_sdist_filename(filename)
+    except InvalidSdistFilename, InvalidVersion, InvalidWheelFilename:
+        return False
+    return actual == expected
+
+
+def require_publication(
+    requirement: RegistryRequirement,
+    *,
+    checker: PublicationChecker = publication_exists,
+) -> None:
+    if checker(requirement):
+        return
+    msg = f"{requirement.registry} publication is unavailable: {requirement.name}@{requirement.version}"
+    raise ValueError(msg)
+
+
+def lint_config_requirements(root: Path) -> tuple[RegistryRequirement, ...]:
+    resolved = root.resolve()
+    pyproject = resolved / "packages/standards/pyproject.toml"
+    try:
+        with pyproject.open("rb") as stream:
+            parsed: object = tomllib.load(stream)
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        msg = f"could not read compatibility-bundle manifest {pyproject}: {exc}"
+        raise ValueError(msg) from exc
+    project = string_object_dict(parsed, label="standards manifest")
+    project_table = project.get("project")
+    if not is_object_dict(project_table):
+        msg = f"{pyproject} has no project table"
+        raise ValueError(msg)
+    dependencies = string_object_dict(project_table, label="standards project").get("dependencies")
+    if not is_object_list(dependencies):
+        msg = f"{pyproject} has no dependency list"
+        raise ValueError(msg)
+    requirements: list[RegistryRequirement] = []
+    for dependency in dependencies:
+        if not isinstance(dependency, str) or not dependency.startswith("sarj-"):
+            continue
+        match = _EXACT_DEPENDENCY.fullmatch(dependency)
+        if match is None:
+            msg = f"compatibility-bundle sibling must use an exact pin: {dependency}"
+            raise ValueError(msg)
+        requirements.append(RegistryRequirement("pypi", match["name"], match["version"]))
+
+    peers_path = resolved / "packages/standards/src/sarj_standards/configs/eslint.peers.json"
+    try:
+        peers_value: object = parse_json(peers_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        msg = f"could not read compatibility-bundle peers {peers_path}: {exc}"
+        raise ValueError(msg) from exc
+    peers = string_object_dict(peers_value, label="ESLint peer manifest").get("peers")
+    if not is_object_dict(peers):
+        msg = f"{peers_path} has no peers object"
+        raise ValueError(msg)
+    plugin_version = string_object_dict(peers, label="ESLint peers").get("@sarj/eslint-plugin")
+    if not isinstance(plugin_version, str) or not plugin_version:
+        msg = f"{peers_path} has no exact @sarj/eslint-plugin version"
+        raise ValueError(msg)
+    requirements.append(RegistryRequirement("npm", "@sarj/eslint-plugin", plugin_version))
+    return tuple(sorted(requirements))
+
+
+def require_lint_config_dependencies(
+    root: Path,
+    *,
+    checker: PublicationChecker = publication_exists,
+) -> tuple[RegistryRequirement, ...]:
+    requirements = lint_config_requirements(root)
+    for requirement in requirements:
+        require_publication(requirement, checker=checker)
+    return requirements
+
+
+def wait_for_lint_config_dependencies(
+    root: Path,
+    *,
+    attempts: int = 6,
+    delay: timedelta = timedelta(seconds=10),
+    checker: PublicationChecker = publication_exists,
+    sleeper: Callable[[float], object] = time.sleep,
+) -> tuple[RegistryRequirement, ...]:
+    if attempts < 1:
+        message = "publication attempts must be at least one"
+        raise ValueError(message)
+    delay_seconds = delay.total_seconds()
+    if not math.isfinite(delay_seconds) or delay_seconds < 0:
+        message = "publication retry delay must be finite and non-negative"
+        raise ValueError(message)
+    requirements = lint_config_requirements(root)
+    missing = set(requirements)
+    last_errors: dict[RegistryRequirement, str] = {}
+    for attempt in range(attempts):
+        for requirement in tuple(sorted(missing)):
+            try:
+                available = checker(requirement)
+            except OSError as exc:
+                last_errors[requirement] = f"{type(exc).__name__}: {exc}"
+                continue
+            if available:
+                missing.remove(requirement)
+                last_errors.pop(requirement, None)
+        if not missing:
+            return requirements
+        if attempt + 1 < attempts:
+            sleeper(delay_seconds)
+    rendered = ", ".join(
+        f"{requirement.name}@{requirement.version}"
+        + (f" ({last_errors[requirement]})" if requirement in last_errors else "")
+        for requirement in sorted(missing)
+    )
+    message = f"publications unavailable after {attempts} attempt(s): {rendered}"
+    raise ValueError(message)
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    app = typer.Typer(
+        add_completion=False,
+        pretty_exceptions_enable=False,
+        context_settings={"help_option_names": ["-h", "--help"]},
+    )
+    exit_code = 0
+
+    @app.command()
+    def verify(
+        root: Annotated[Path, typer.Option("--root")],
+        attempts: Annotated[int, typer.Option("--attempts")] = 6,
+        delay_seconds: Annotated[float, typer.Option("--delay-seconds", callback=_validate_delay_seconds)] = 10,
+    ) -> None:
+        nonlocal exit_code
+        exit_code = _verify_publications(root, attempts=attempts, delay=timedelta(seconds=delay_seconds))
+
+    try:
+        app(args=None if argv is None else list(argv), prog_name="standards-registry")
+    except SystemExit as exc:
+        if exc.code != 0:
+            raise
+    return exit_code
+
+
+def _validate_delay_seconds(value: float) -> float:
+    try:
+        timedelta(seconds=value)
+    except (OverflowError, ValueError) as exc:
+        msg = "must be a finite, representable duration"
+        raise typer.BadParameter(msg) from exc
+    return value
+
+
+def _verify_publications(root: Path, *, attempts: int, delay: timedelta) -> int:
+    try:
+        requirements = wait_for_lint_config_dependencies(
+            root,
+            attempts=attempts,
+            delay=delay,
+        )
+    except (OSError, TypeError, ValueError) as exc:
+        sys.stderr.write(f"error: {exc}\n")
+        return 2
+    sys.stdout.write(f"verified {len(requirements)} exact compatibility-bundle publications\n")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

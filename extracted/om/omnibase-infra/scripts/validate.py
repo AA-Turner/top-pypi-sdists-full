@@ -1,0 +1,1556 @@
+#!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""
+ONEX Infrastructure Validation Script.
+
+Run all validators with infrastructure-specific defaults.
+Can be used standalone or as part of pre-commit hooks.
+
+Usage:
+    python scripts/validate.py [--verbose] [--quick]
+    python scripts/validate.py architecture
+    python scripts/validate.py architecture_layers
+    python scripts/validate.py migration_freeze
+    python scripts/validate.py migration_sequence
+    python scripts/validate.py clean_root
+    python scripts/validate.py contracts
+    python scripts/validate.py patterns
+    python scripts/validate.py unions
+    python scripts/validate.py unused_exemptions
+    python scripts/validate.py any_types
+    python scripts/validate.py localhandler
+    python scripts/validate.py declarative_nodes
+    python scripts/validate.py declarative_nodes file1/node.py file2/node.py  # validate specific files
+    python scripts/validate.py io_audit
+    python scripts/validate.py imports
+    python scripts/validate.py markdown_links
+    python scripts/validate.py markdown_links file1.md file2.md  # validate specific files
+    python scripts/validate.py db_quality_gate
+    python scripts/validate.py all
+"""
+
+import argparse
+import sys
+import tomllib
+from pathlib import Path
+
+from packaging.utils import InvalidName, canonicalize_name
+
+# Add src to path for local development
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+
+def run_unused_exemptions(verbose: bool = False) -> bool:
+    """Fail if any configured exemption matches no finding in an unfiltered scan."""
+    from omnibase_infra.validation.infra_validators import (
+        validate_infra_unused_exemptions,
+    )
+
+    result = validate_infra_unused_exemptions()
+    if verbose or not result.is_valid:
+        print(f"Unused exemptions: {'PASS' if result.is_valid else 'FAIL'}")
+        for error in result.errors:
+            print(f"  - {error}")
+    return bool(result.is_valid)
+
+
+def run_architecture(verbose: bool = False) -> bool:
+    """Run architecture validation with infrastructure-specific exemptions."""
+    try:
+        # Use the infrastructure validator which includes exemption filtering
+        # for domain-grouped protocols per CLAUDE.md convention
+        from omnibase_infra.validation.infra_validators import (
+            validate_infra_architecture,
+        )
+
+        result = validate_infra_architecture()
+        if verbose or not result.is_valid:
+            print(f"Architecture: {'PASS' if result.is_valid else 'FAIL'}")
+            for e in result.errors:
+                print(f"  - {e}")
+            if hasattr(result, "metadata") and result.metadata:
+                meta = result.metadata
+                print(
+                    f"  Files processed: {meta.files_processed}, "
+                    f"violations: {meta.violations_found}/{meta.max_violations}"
+                )
+        return bool(result.is_valid)
+    except ImportError as e:
+        print(f"Skipping architecture validation: {e}")
+        return True
+
+
+# =============================================================================
+# Known Issues Registry
+# =============================================================================
+# Track known architecture violations with Linear ticket references.
+# Format: dict mapping import_name to (ticket_id, description)
+#
+# These violations will still cause the check to fail, but the reporting
+# will include ticket links for visibility and tracking purposes.
+KNOWN_ISSUES: dict[str, tuple[str, str]] = {
+    "aiohttp": (
+        "OMN-1015",
+        "async HTTP client usage in core - needs migration to infra",
+    ),
+    "redis": ("OMN-1295", "Redis client usage in core - needs migration to infra"),
+}
+
+
+# OMN-17556: wall-clock budget for the architecture-layer subprocess. This was
+# a hardcoded 120s. The check is not slow -- run directly on an idle tree it
+# exits 0 in well under a minute -- but the budget is fixed while the host's
+# load is not, and this repo's launching host routinely sits at load 68-85 with
+# many concurrent lanes. Under that contention the subprocess overran 120s on
+# two consecutive pushes and printed "ERROR (timeout after 120s)", which is not
+# a verdict: the gate returned False having measured nothing, and the identical
+# tree exited 0 when re-run outside the budget. A gate that reports a red it
+# never measured is what trains people to reach for --no-verify, so the budget
+# is raised rather than the gate weakened. A real violation still fails, and a
+# timeout is still a hard failure; 600s only ever absorbs host contention.
+#
+# Deliberately a module constant and not an environment read: this repo gates
+# new os.environ/os.getenv reads (OMN-13566), and a knob here would be one more
+# lever that looks like a legitimate way to make a gate stop complaining.
+_ARCHITECTURE_LAYERS_TIMEOUT_SECONDS = 600
+
+
+def _repository_root(cwd: Path) -> Path | None:
+    """Resolve the script-owned worktree root when ``cwd`` is safely contained.
+
+    The ARCH-004 baseline belongs to this validator's checkout, not to an
+    arbitrary repository selected by caller configuration. Require the
+    script-owned root to have a canonical ``.git`` directory or a linked
+    worktree gitfile. Linked worktrees must reciprocally identify their root
+    through the administrative ``gitdir`` backlink. A nested Git marker or a
+    caller outside the script-owned root fails closed.
+    """
+    resolved_cwd = cwd.resolve()
+    expected_root = Path(__file__).resolve().parent.parent
+
+    try:
+        resolved_cwd.relative_to(expected_root)
+    except ValueError:
+        print("Imperative Orchestrators: ERROR (git-worktree-root-mismatch)")
+        return None
+
+    root_marker = expected_root / ".git"
+    try:
+        if root_marker.is_dir():
+            root_marker_is_valid = (root_marker / "HEAD").is_file()
+        elif root_marker.is_file():
+            marker_text = root_marker.read_text(encoding="utf-8").strip()
+            marker_prefix = "gitdir: "
+            if not marker_text.startswith(marker_prefix):
+                root_marker_is_valid = False
+            else:
+                admin_git_dir = Path(marker_text.removeprefix(marker_prefix))
+                if not admin_git_dir.is_absolute():
+                    admin_git_dir = expected_root / admin_git_dir
+                resolved_admin_git_dir = admin_git_dir.resolve(strict=True)
+                backlink = resolved_admin_git_dir / "gitdir"
+                backlink_target = Path(backlink.read_text(encoding="utf-8").strip())
+                if not backlink_target.is_absolute():
+                    backlink_target = resolved_admin_git_dir / backlink_target
+                root_marker_is_valid = (
+                    resolved_admin_git_dir / "HEAD"
+                ).is_file() and backlink_target.resolve(
+                    strict=True
+                ) == root_marker.resolve(strict=True)
+        else:
+            root_marker_is_valid = False
+    except (OSError, RuntimeError, UnicodeError):
+        root_marker_is_valid = False
+
+    if not root_marker_is_valid:
+        print("Imperative Orchestrators: ERROR (git-worktree-root-unresolved)")
+        return None
+
+    current = resolved_cwd
+    while current != expected_root:
+        nested_marker = current / ".git"
+        if nested_marker.is_file() or nested_marker.is_dir():
+            print("Imperative Orchestrators: ERROR (git-worktree-root-mismatch)")
+            return None
+        current = current.parent
+
+    return expected_root
+
+
+def _canonical_repository_name(repo_root: Path) -> str | None:
+    """Return the baseline repository key declared by this repository.
+
+    A worktree directory is intentionally caller-selected, so its basename is
+    not a stable architecture-ratchet identity. The committed project metadata
+    is the repository-owned value that the baseline keys use instead. The
+    PEP 503 distribution spelling is normalized to the baseline's underscore
+    key convention. Missing or malformed metadata is an error: the ratchet
+    must not guess a key.
+    """
+    metadata_path = repo_root / "pyproject.toml"
+    try:
+        metadata = tomllib.loads(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        print(
+            "Imperative Orchestrators: ERROR "
+            f"(cannot read repository metadata {metadata_path}: {exc})"
+        )
+        return None
+
+    project = metadata.get("project")
+    if not isinstance(project, dict):
+        print("Imperative Orchestrators: ERROR (missing [project] metadata)")
+        return None
+
+    name = project.get("name")
+    if not isinstance(name, str) or not name.strip():
+        print("Imperative Orchestrators: ERROR (missing project.name metadata)")
+        return None
+
+    try:
+        return canonicalize_name(name, validate=True).replace("-", "_")
+    except InvalidName as exc:
+        print(
+            "Imperative Orchestrators: ERROR "
+            f"(invalid project.name metadata {name!r}: {exc})"
+        )
+        return None
+
+
+def run_architecture_layers(verbose: bool = False) -> bool:
+    """Run architecture layer validation.
+
+    Verifies that omnibase_core does not contain infrastructure dependencies
+    (kafka, httpx, asyncpg, etc.) to maintain proper layer separation.
+
+    This wraps scripts/check_architecture.sh for consistent validation interface.
+
+    Known issues are tracked with Linear ticket IDs in KNOWN_ISSUES above.
+    The validator will report ticket links for any known violations found.
+
+    LIMITATIONS:
+        This validation uses grep-based pattern matching which cannot detect:
+        - Inline imports (imports inside functions/methods)
+        - Dynamic imports using __import__() or importlib
+        - Imports hidden behind conditional logic (if statements)
+        - String-based import references
+
+        For comprehensive AST-based analysis, use the Python tests:
+            pytest tests/ci/test_architecture_compliance.py
+    """
+    import subprocess
+
+    script_path = Path(__file__).parent / "check_architecture.sh"
+
+    if not script_path.exists():
+        print(f"Architecture Layers: ERROR (script not found: {script_path})")
+        return False
+
+    try:
+        # Build command with appropriate flags
+        cmd = ["bash", str(script_path), "--no-color"]
+        if verbose:
+            cmd.append("--verbose")
+
+        result = subprocess.run(
+            cmd,
+            check=False,
+            capture_output=True,
+            text=True,
+            # OMN-17556: this was a hardcoded 120s. The check itself is not
+            # slow -- run directly on an idle tree it exits 0 in well under a
+            # minute -- but the wall-clock budget is fixed while the host's
+            # load is not. On a launching host at load 68-85 (many concurrent
+            # lanes, the normal steady state here) the subprocess overran 120s
+            # on two consecutive pushes and reported
+            # "ERROR (timeout after 120s)", which is NOT a verdict: the gate
+            # returned False having proven nothing, and the same tree passed
+            # exit 0 when re-run outside the budget. A gate that reports a
+            # red it did not measure trains people to route around it, which
+            # is the one thing a gate must never do.
+            #
+            # The budget is now generous by default and overridable for the
+            # genuinely slow case. This does not weaken the check: a real
+            # violation still fails, and a timeout is still a hard failure --
+            # it just no longer fires on host contention alone.
+            timeout=_ARCHITECTURE_LAYERS_TIMEOUT_SECONDS,
+            shell=False,
+        )
+
+        # Print output
+        if result.stdout:
+            print(result.stdout)
+        if result.stderr:
+            print(result.stderr, file=sys.stderr)
+
+        passed = result.returncode == 0
+
+        if not passed and result.returncode == 2:
+            # A missing or invalid source target is a validation failure, not
+            # an environment skip. A green no-op would bypass enforcement.
+            print(
+                "Architecture Layers: ERROR (omnibase_core source target invalid or unavailable)"
+            )
+            return False
+
+        # Note: The bash script already reports known issues with ticket links
+        # when violations are found, so we don't duplicate the reporting here.
+        # The _report_known_issues function is available for programmatic use.
+
+        return passed
+
+    except subprocess.TimeoutExpired:
+        print(
+            "Architecture Layers: ERROR (timeout after "
+            f"{_ARCHITECTURE_LAYERS_TIMEOUT_SECONDS}s)"
+        )
+        print("  Fix: Check if omnibase_core path is accessible")
+        print("  Fix: Try running with --verbose to see progress")
+        print(
+            "  NOTE: this is a wall-clock budget, not a verdict -- a timeout "
+            "proves nothing about the tree. Re-run the check directly "
+            "(uv run python scripts/validate.py architecture_layers) before "
+            "concluding anything about layering."
+        )
+        return False
+    except FileNotFoundError:
+        print("Architecture Layers: ERROR (bash not available)")
+        return False
+    except PermissionError as e:
+        print(f"Architecture Layers: ERROR (Permission denied: {e})")
+        print("  Fix: Ensure execute permissions on check_architecture.sh")
+        return False
+    except OSError as e:
+        print(f"Architecture Layers: ERROR (OS error: {e})")
+        print("  Fix: Check file system access and disk space")
+        return False
+
+
+def _report_known_issues(output: str, verbose: bool) -> None:
+    """Report known issues with ticket links.
+
+    Parses the validator output to identify known violations and provides
+    helpful links to the corresponding Linear tickets.
+
+    Args:
+        output: The stdout from check_architecture.sh
+        verbose: If True, show additional context
+    """
+    found_known_issues = []
+
+    for import_name, (ticket_id, description) in KNOWN_ISSUES.items():
+        # Check if this import was flagged in the output
+        if f"'{import_name}'" in output or f'"{import_name}"' in output:
+            found_known_issues.append((import_name, ticket_id, description))
+
+    if found_known_issues:
+        print("\n" + "=" * 60)
+        print("KNOWN ISSUES (tracked in Linear)")
+        print("=" * 60)
+        for import_name, ticket_id, description in found_known_issues:
+            print(f"\n  {import_name}:")
+            print(f"    Ticket: {ticket_id}")
+            print(f"    Description: {description}")
+            print(f"    Link: https://linear.app/onex/issue/{ticket_id}")
+        print("\n" + "-" * 60)
+        print("These violations are known and tracked. Fix by resolving the")
+        print("corresponding Linear tickets listed above.")
+        print("=" * 60 + "\n")
+
+
+def run_contracts(verbose: bool = False) -> bool:
+    """Run contract validation with infrastructure-specific linting.
+
+    Uses two-phase validation:
+    1. Basic YAML validation from omnibase_core
+    2. Infrastructure contract linting for required fields and type consistency
+    """
+    nodes_dir = Path("src/omnibase_infra/nodes")
+    if not nodes_dir.exists():
+        if verbose:
+            print("Contracts: SKIP (no nodes directory)")
+        return True
+
+    all_passed = True
+
+    # Phase 1: Basic YAML validation from omnibase_core
+    try:
+        from omnibase_core.validation import validate_contracts
+
+        result = validate_contracts("src/omnibase_infra/nodes/")
+        if verbose or not result.is_valid:
+            print(f"Contracts (YAML): {'PASS' if result.is_valid else 'FAIL'}")
+            for e in result.errors:
+                print(f"  - {e}")
+        if not result.is_valid:
+            all_passed = False
+    except ImportError as e:
+        print(f"Skipping YAML validation: {e}")
+
+    # Phase 2: Infrastructure contract linting
+    try:
+        from omnibase_infra.validation.linter_contract import (
+            EnumContractViolationSeverity,
+            lint_contracts_in_directory,
+        )
+
+        lint_result = lint_contracts_in_directory(
+            "src/omnibase_infra/nodes/",
+            check_imports=True,
+            strict_mode=False,
+            # OMN-517: Dependency structure is validated but dependency module
+            # imports are not checked here because some contracts reference
+            # modules that may not be available in the current environment.
+            # Dependency import checking is available via check_imports=True
+            # and check_dependencies=True for targeted validation.
+            check_dependencies=False,
+        )
+
+        if verbose or not lint_result.is_valid:
+            print(f"Contracts (Lint): {'PASS' if lint_result.is_valid else 'FAIL'}")
+            print(
+                f"  Files: {lint_result.files_checked}, "
+                f"errors: {lint_result.error_count}, "
+                f"warnings: {lint_result.warning_count}"
+            )
+            # Show errors and warnings
+            for v in lint_result.violations:
+                if v.severity in (
+                    EnumContractViolationSeverity.ERROR,
+                    EnumContractViolationSeverity.WARNING,
+                ):
+                    print(f"  - {v}")
+        if not lint_result.is_valid:
+            all_passed = False
+
+    except ImportError as e:
+        print(f"Skipping contract linting: {e}")
+
+    if verbose or not all_passed:
+        print(f"Contracts: {'PASS' if all_passed else 'FAIL'}")
+
+    return all_passed
+
+
+def run_patterns(verbose: bool = False) -> bool:
+    """Run pattern validation with infrastructure-specific exemptions."""
+    try:
+        # Use the infrastructure validator which includes exemption filtering
+        from omnibase_infra.validation.infra_validators import validate_infra_patterns
+
+        result = validate_infra_patterns()
+
+        if verbose or not result.is_valid:
+            print(f"Patterns: {'PASS' if result.is_valid else 'FAIL'}")
+            for e in result.errors:
+                print(f"  - {e}")
+            if hasattr(result, "metadata") and result.metadata:
+                meta = result.metadata
+                print(
+                    f"  Files processed: {meta.files_processed}, "
+                    f"strict mode: {meta.strict_mode}, "
+                    f"violations: {meta.violations_found}"
+                )
+        return bool(result.is_valid)
+    except ImportError as e:
+        print(f"Skipping pattern validation: {e}")
+        return True
+
+
+def run_unions(verbose: bool = False) -> bool:
+    """Run union usage validation.
+
+    Counts total unions in the codebase.
+    Valid `X | None` patterns are counted but not flagged as violations.
+    """
+    try:
+        # Use infrastructure wrapper which includes exemption filtering
+        # for documented infrastructure patterns
+        from omnibase_infra.validation.infra_validators import (
+            INFRA_MAX_UNIONS,
+            INFRA_UNIONS_STRICT,
+            validate_infra_union_usage,
+        )
+
+        result = validate_infra_union_usage(
+            max_unions=INFRA_MAX_UNIONS,
+            strict=INFRA_UNIONS_STRICT,
+        )
+        if verbose or not result.is_valid:
+            print(f"Unions: {'PASS' if result.is_valid else 'FAIL'}")
+            for e in result.errors:
+                print(f"  - {e}")
+            if hasattr(result, "metadata") and result.metadata:
+                meta = result.metadata
+                # Show non-optional count (what threshold checks) not total
+                non_opt = getattr(meta, "non_optional_unions", None)
+                total = getattr(meta, "total_unions", None)
+                if non_opt is not None:
+                    print(
+                        f"  Non-optional unions: {non_opt}, max allowed: {INFRA_MAX_UNIONS}"
+                    )
+                    if total is not None:
+                        excluded = total - non_opt
+                        print(
+                            f"  (Total: {total}, X|None optionals excluded: {excluded})"
+                        )
+                elif total is not None:
+                    print(f"  Total unions: {total}, max allowed: {INFRA_MAX_UNIONS}")
+        return bool(result.is_valid)
+    except ImportError as e:
+        print(f"Skipping union validation: {e}")
+        return True
+
+
+def run_any_types(verbose: bool = False) -> bool:
+    """Run Any type usage validation.
+
+    Checks for forbidden Any type usage in function signatures and type annotations.
+    Valid usages (Pydantic Field() with NOTE comment) are allowed.
+    """
+    src_path = Path("src/omnibase_infra")
+    if not src_path.exists():
+        if verbose:
+            print("Any Types: SKIP (no src/omnibase_infra directory)")
+        return True
+
+    try:
+        from omnibase_infra.validation.validator_any_type import validate_any_types_ci
+
+        result = validate_any_types_ci(src_path)
+
+        if verbose or not result.passed:
+            print(f"Any Types: {'PASS' if result.passed else 'FAIL'}")
+            print(
+                f"  Files checked: {result.files_checked}, "
+                f"blocking violations: {result.blocking_count}, "
+                f"total violations: {result.total_violations}"
+            )
+            # Show violations
+            for v in result.violations:
+                print(f"  - {v.file_path}:{v.line_number}: {v.violation_type.value}")
+                if verbose:
+                    print(f"      {v.code_snippet}")
+                    print(f"      Suggestion: {v.suggestion}")
+
+        return result.passed
+
+    except ImportError as e:
+        print(f"Skipping Any type validation: {e}")
+        return True
+
+
+def run_localhandler(verbose: bool = False) -> bool:
+    """Run LocalHandler usage validation.
+
+    Ensures LocalHandler is only used in tests, never in production src/ code.
+    LocalHandler is a testing utility that should not appear in production code paths.
+    """
+    src_path = Path("src/omnibase_infra")
+    if not src_path.exists():
+        if verbose:
+            print("LocalHandler: SKIP (no src/omnibase_infra directory)")
+        return True
+
+    try:
+        from omnibase_infra.validation.validator_localhandler import (
+            validate_localhandler_ci,
+        )
+
+        result = validate_localhandler_ci(src_path)
+
+        if verbose or not result.passed:
+            print(f"LocalHandler: {'PASS' if result.passed else 'FAIL'}")
+            print(
+                f"  Files checked: {result.files_checked}, "
+                f"violations: {len(result.violations)}"
+            )
+            # Show violations
+            for v in result.violations:
+                print(f"  - {v.file_path}:{v.line_number}: {v.import_line}")
+                if verbose:
+                    print(f"      {v.import_line}")
+
+        return result.passed
+
+    except ImportError as e:
+        print(f"Skipping LocalHandler validation: {e}")
+        return True
+
+
+def run_declarative_nodes(
+    verbose: bool = False, files: list[str] | None = None
+) -> bool:
+    """Run declarative node validation.
+
+    Ensures all node.py files follow the ONEX declarative pattern:
+    - Node classes only extend base classes without custom logic
+    - Only __init__ with super().__init__(container) is allowed
+    - No custom methods, properties, or instance variables
+
+    All behavior should be defined in contract.yaml and implemented by handlers.
+
+    Args:
+        verbose: Enable verbose output.
+        files: Optional list of specific files to validate (for pre-commit).
+               If provided, only these files are validated.
+               If None, validates all node.py files in the nodes directory.
+    """
+    # If specific files provided (from pre-commit), validate only those
+    if files:
+        try:
+            from omnibase_infra.models.validation.model_declarative_node_validation_result import (
+                ModelDeclarativeNodeValidationResult,
+            )
+            from omnibase_infra.validation.validator_declarative_node import (
+                validate_declarative_node_in_file,
+            )
+
+            # Filter to only node.py files (exact match, not files like my_node.py)
+            node_files = [f for f in files if Path(f).name == "node.py"]
+            if not node_files:
+                if verbose:
+                    print("Declarative Nodes: SKIP (no node.py files in input)")
+                return True
+
+            violations = []
+            files_checked = 0
+            for file_str in node_files:
+                file_path = Path(file_str)
+                if file_path.exists():
+                    files_checked += 1
+                    file_violations = validate_declarative_node_in_file(file_path)
+                    violations.extend(file_violations)
+                elif verbose:
+                    print(f"  Warning: File not found: {file_str}")
+
+            result = ModelDeclarativeNodeValidationResult.from_violations(
+                violations, files_checked
+            )
+
+            if verbose or not result.passed:
+                print(f"Declarative Nodes: {'PASS' if result.passed else 'FAIL'}")
+                print(
+                    f"  Files checked: {result.files_checked}, "
+                    f"blocking violations: {result.blocking_count}, "
+                    f"total violations: {result.total_violations}"
+                )
+                if result.imperative_nodes:
+                    print(f"  Imperative nodes: {', '.join(result.imperative_nodes)}")
+                # Show violations
+                for v in result.violations:
+                    print(
+                        f"  - {v.file_path}:{v.line_number}: "
+                        f"{v.violation_type.value} in {v.node_class_name}"
+                    )
+                    if verbose and v.method_name:
+                        print(f"      Method: {v.method_name}")
+                        print(f"      Code: {v.code_snippet}")
+                        print(f"      Suggestion: {v.suggestion}")
+            else:
+                print(f"Declarative Nodes: PASS ({result.files_checked} files checked)")
+
+            return result.passed
+
+        except ImportError as e:
+            print(f"Skipping declarative node validation: {e}")
+            return True
+
+    # Original behavior: scan entire nodes directory
+    nodes_path = Path("src/omnibase_infra/nodes")
+    if not nodes_path.exists():
+        if verbose:
+            print("Declarative Nodes: SKIP (no src/omnibase_infra/nodes directory)")
+        return True
+
+    try:
+        from omnibase_infra.validation.validator_declarative_node import (
+            validate_declarative_nodes_ci,
+        )
+
+        result = validate_declarative_nodes_ci(nodes_path)
+
+        if verbose or not result.passed:
+            print(f"Declarative Nodes: {'PASS' if result.passed else 'FAIL'}")
+            print(
+                f"  Files checked: {result.files_checked}, "
+                f"blocking violations: {result.blocking_count}, "
+                f"total violations: {result.total_violations}"
+            )
+            if result.imperative_nodes:
+                print(f"  Imperative nodes: {', '.join(result.imperative_nodes)}")
+            # Show violations
+            for v in result.violations:
+                print(
+                    f"  - {v.file_path}:{v.line_number}: "
+                    f"{v.violation_type.value} in {v.node_class_name}"
+                )
+                if verbose and v.method_name:
+                    print(f"      Method: {v.method_name}")
+                    print(f"      Code: {v.code_snippet}")
+                    print(f"      Suggestion: {v.suggestion}")
+
+        return result.passed
+
+    except ImportError as e:
+        print(f"Skipping declarative node validation: {e}")
+        return True
+
+
+def run_imperative_orchestrators(
+    verbose: bool = False, files: list[str] | None = None
+) -> bool:
+    """Run the ARCH-004 imperative-orchestrator ratchet (OMN-13472).
+
+    Detects contract-declared-but-unbound orchestrator FSMs driven imperatively
+    by a handler (the delegation-shaped anti-pattern ARCH-003 misses). Wired
+    through OMN-12550 (validator gating) / OMN-13325 (ratchet enforcement).
+
+    Modes:
+        - With ``files`` (pre-commit): changed-node ratchet — only node
+          directories containing a changed file are scanned, and the gate fails
+          on a NEW / worsened / untracked finding (``--check-changed --ratchet``).
+        - Without ``files`` (CI/manual full report): full report over the repo
+          (``--check-all --report``), non-blocking on its own.
+
+    The baseline lives at
+    ``architecture-handshakes/imperative-orchestrator-baseline.yaml`` and can
+    only shrink.
+
+    Args:
+        verbose: Enable verbose output.
+        files: Optional list of changed files (from pre-commit). If provided,
+            only the node directories containing those files are ratcheted.
+    """
+    try:
+        from omnibase_infra.nodes.node_architecture_validator.validators.scanner_imperative_orchestrator_ratchet import (
+            load_baseline,
+            node_dirs_for_changed_files,
+            ratchet_violations,
+            scan_node_dirs,
+        )
+    except ImportError as e:
+        print(f"Skipping imperative-orchestrator ratchet: {e}")
+        return True
+
+    from pathlib import Path as _Path
+
+    repo_root = _repository_root(_Path.cwd())
+    if repo_root is None:
+        return False
+    repo_name = _canonical_repository_name(repo_root)
+    if repo_name is None:
+        return False
+    baseline = load_baseline(
+        repo_root / "architecture-handshakes" / "imperative-orchestrator-baseline.yaml"
+    )
+
+    if files:
+        node_dirs = node_dirs_for_changed_files(repo_root, files)
+        if not node_dirs:
+            if verbose:
+                print("Imperative Orchestrators: SKIP (no node dirs in changeset)")
+            return True
+        result = scan_node_dirs(repo_name, node_dirs, repo_root=repo_root)
+        failures = ratchet_violations(result.hard_fails, baseline)
+        passed = not failures
+        if verbose or not passed:
+            print(f"Imperative Orchestrators: {'PASS' if passed else 'FAIL'}")
+            print(
+                f"  Changed node dirs: {len(node_dirs)}, "
+                f"hard-fails: {len(result.hard_fails)}"
+            )
+            for f in failures:
+                print(f"  - {f}")
+        return passed
+
+    # Full report mode (non-blocking on its own).
+    from omnibase_infra.nodes.node_architecture_validator.validators.scanner_imperative_orchestrator_ratchet import (
+        discover_node_dirs,
+    )
+
+    node_dirs = discover_node_dirs(repo_root)
+    result = scan_node_dirs(repo_name, node_dirs, repo_root=repo_root)
+    print(
+        f"Imperative Orchestrators (full report): "
+        f"{len(result.hard_fails)} hard-fail node(s) across {len(node_dirs)} dirs."
+    )
+    if verbose:
+        for line in result.report_lines:
+            print(line)
+    return True
+
+
+def run_orchestration_monoliths(
+    verbose: bool = False, files: list[str] | None = None
+) -> bool:
+    """Run the ARCH-004 Signal B orchestration-monolith ratchet (OMN-13486).
+
+    Signal B is a DISTINCT rule from Signal A
+    (``run_imperative_orchestrators``). It detects the Class-B monolith — a
+    single oversized + complex orchestrator handler that is not executor-bound,
+    independent of FSM decorativeness (the build_loop / session /
+    memory_lifecycle / swarm_dispatch shape that carries 0 handler-owned
+    ``_transition`` calls). Wired through OMN-12550 (validator gating) /
+    OMN-13325 (ratchet enforcement) — the SAME path as Signal A, NOT a parallel
+    hook.
+
+    Modes:
+        - With ``files`` (pre-commit): changed-node ratchet — only node
+          directories containing a changed file are scanned, fail on a
+          NEW / worsened / untracked monolith (``--check-changed --ratchet``).
+        - Without ``files`` (CI/manual full report): full report over the repo
+          (``--check-all --report``), non-blocking on its own.
+
+    The baseline lives at
+    ``architecture-handshakes/orchestration-monolith-baseline.yaml`` (a DISTINCT
+    dimension from the Signal A baseline) and can only shrink.
+
+    Args:
+        verbose: Enable verbose output.
+        files: Optional list of changed files (from pre-commit). If provided,
+            only the node directories containing those files are ratcheted.
+    """
+    try:
+        from omnibase_infra.nodes.node_architecture_validator.validators.scanner_orchestration_monolith_ratchet import (
+            discover_node_dirs,
+            load_monolith_baseline,
+            monolith_ratchet_violations,
+            node_dirs_for_changed_files,
+            scan_node_dirs_for_monolith,
+        )
+    except ImportError as e:
+        print(f"Skipping orchestration-monolith ratchet: {e}")
+        return True
+
+    from pathlib import Path as _Path
+
+    repo_root = _Path.cwd()
+    # Derive the repo key from the working tree (worktrees nest the repo name in
+    # a ticket dir, so the immediate dir name is authoritative); baseline entries
+    # are keyed by repo::node.
+    repo_name = repo_root.name
+    baseline = load_monolith_baseline(
+        repo_root / "architecture-handshakes" / "orchestration-monolith-baseline.yaml"
+    )
+
+    if files:
+        node_dirs = node_dirs_for_changed_files(repo_root, files)
+        if not node_dirs:
+            if verbose:
+                print("Orchestration Monoliths: SKIP (no node dirs in changeset)")
+            return True
+        result = scan_node_dirs_for_monolith(repo_name, node_dirs, repo_root=repo_root)
+        failures = monolith_ratchet_violations(result.hard_fails, baseline)
+        passed = not failures
+        if verbose or not passed:
+            print(f"Orchestration Monoliths: {'PASS' if passed else 'FAIL'}")
+            print(
+                f"  Changed node dirs: {len(node_dirs)}, "
+                f"monolith hard-fails: {len(result.hard_fails)}"
+            )
+            for f in failures:
+                print(f"  - {f}")
+        return passed
+
+    # Full report mode (non-blocking on its own).
+    node_dirs = discover_node_dirs(repo_root)
+    result = scan_node_dirs_for_monolith(repo_name, node_dirs, repo_root=repo_root)
+    print(
+        f"Orchestration Monoliths (full report): "
+        f"{len(result.hard_fails)} monolith node(s) across {len(node_dirs)} dirs."
+    )
+    if verbose:
+        for line in result.report_lines:
+            print(line)
+    return True
+
+
+def run_orchestrator_reducer_state(
+    verbose: bool = False, files: list[str] | None = None
+) -> bool:
+    """Run the ARCH-005 orchestrator/reducer handler state-invariant gate (OMN-14222).
+
+    DISTINCT from ARCH-004 Signal A/B (imperative-orchestrator / orchestration-
+    monolith): this rule targets BOTH orchestrators AND reducers (Signal A/B
+    exempt reducers) and has ZERO ratchet baseline -- the live repo carries no
+    unexempted violations, so any finding fails the gate outright, whether run
+    in changed-node mode (pre-commit) or full-repo mode (CI).
+
+    Detects a ``ClassVar[<mutable container>]`` or module-level mutable
+    container (``dict``/``list``/``set``/``OrderedDict``/``defaultdict``/
+    ``Counter``) inside a ``handlers/*.py`` file belonging to a
+    ``node_type: ORCHESTRATOR*`` or ``*REDUCER*`` contract. Cleared per-finding
+    with an inline ``# orchestrator-reducer-state-ok: <reason>`` comment, never
+    a baseline entry -- "this container is safe" is a reviewed engineering
+    judgment call, not accepted debt.
+
+    Args:
+        verbose: Enable verbose output.
+        files: Optional list of changed files (from pre-commit). If provided,
+            only the node directories containing those files are scanned.
+            Without files, every ORCHESTRATOR*/REDUCER* node dir is scanned.
+    """
+    try:
+        from omnibase_infra.nodes.node_architecture_validator.validators.scanner_orchestrator_reducer_state_invariant import (
+            discover_node_dirs,
+            node_dirs_for_changed_files,
+            scan_node_dirs_for_state_violations,
+            target_node_dirs,
+        )
+    except ImportError as e:
+        print(f"Skipping orchestrator/reducer state-invariant gate: {e}")
+        return True
+
+    from pathlib import Path as _Path
+
+    repo_root = _Path.cwd()
+    repo_name = repo_root.name
+
+    if files:
+        node_dirs = node_dirs_for_changed_files(repo_root, files)
+    else:
+        node_dirs = discover_node_dirs(repo_root)
+
+    node_dirs = target_node_dirs(node_dirs)
+    result = scan_node_dirs_for_state_violations(
+        repo_name, node_dirs, repo_root=repo_root
+    )
+    passed = not result.findings
+
+    if verbose or not passed:
+        print(
+            f"Orchestrator/Reducer State Invariant (ARCH-005): {'PASS' if passed else 'FAIL'}"
+        )
+        print(
+            f"  Target node dirs scanned: {len(node_dirs)}, findings: {len(result.findings)}"
+        )
+        for finding in result.findings:
+            print(f"  - {finding.format()}")
+    return passed
+
+
+def run_io_audit(verbose: bool = False) -> bool:
+    """Run I/O purity audit for REDUCER and COMPUTE nodes.
+
+    Validates that pure nodes (REDUCER_GENERIC, COMPUTE_GENERIC) do not contain
+    direct I/O operations (forbidden imports, os.environ access, file I/O).
+    EFFECT_GENERIC nodes are exempt as I/O is their purpose.
+    """
+    nodes_dir = Path("src/omnibase_infra/nodes")
+    if not nodes_dir.exists():
+        if verbose:
+            print("I/O Audit: SKIP (no src/omnibase_infra/nodes directory)")
+        return True
+
+    try:
+        from tests.audit.test_io_violations import audit_all_nodes
+
+        violations = audit_all_nodes(nodes_dir)
+
+        if verbose or violations:
+            print(f"I/O Audit: {'PASS' if not violations else 'FAIL'}")
+            print(f"  Pure nodes scanned in: {nodes_dir}")
+            if violations:
+                print(f"  Violations found: {len(violations)}")
+                for v in violations:
+                    print(f"  - {v.file_path}:{v.line_number}: {v.detail}")
+
+        return len(violations) == 0
+
+    except ImportError as e:
+        print(f"I/O Audit: SKIP (test module not available: {e})")
+        return True
+
+
+def run_migration_freeze(verbose: bool = False) -> bool:
+    """Run migration freeze enforcement validation.
+
+    When .migration_freeze exists in the repo root, prevents new migration
+    files from being committed. Enforces schema freeze during DB-per-repo
+    refactor (OMN-2055).
+    """
+    import importlib.util
+
+    try:
+        validator_path = (
+            Path(__file__).parent / "validation" / "validate_migration_freeze.py"
+        )
+
+        if not validator_path.exists():
+            print(f"Migration Freeze: SKIP (validator not found: {validator_path})")
+            return True
+
+        spec = importlib.util.spec_from_file_location(
+            "validate_migration_freeze", validator_path
+        )
+        if spec is None or spec.loader is None:
+            print("Migration Freeze: SKIP (could not load validator module)")
+            return True
+
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["validate_migration_freeze"] = module
+        spec.loader.exec_module(module)
+
+        repo_path = Path(__file__).parent.parent
+        result = module.validate_migration_freeze(repo_path, verbose=verbose)
+
+        if verbose or not result.is_valid:
+            report = module.generate_report(result, repo_path)
+            print(report)
+
+        return result.is_valid
+
+    except Exception as e:  # noqa: BLE001 — boundary: prints error and degrades
+        print(f"Migration Freeze: ERROR ({type(e).__name__}: {e})")
+        if verbose:
+            import traceback
+
+            traceback.print_exc()
+        return False
+
+
+def run_migration_sequence(verbose: bool = False) -> bool:
+    """Run migration sequence duplicate detection validation.
+
+    Scans docker/ and src/ migration sets as a shared namespace and
+    blocks commits with duplicate sequence numbers (OMN-3570).
+    """
+    import importlib.util
+
+    try:
+        validator_path = (
+            Path(__file__).parent / "validation" / "validate_migration_sequence.py"
+        )
+
+        if not validator_path.exists():
+            print(f"Migration Sequence: SKIP (validator not found: {validator_path})")
+            return True
+
+        spec = importlib.util.spec_from_file_location(
+            "validate_migration_sequence", validator_path
+        )
+        if spec is None or spec.loader is None:
+            print("Migration Sequence: SKIP (could not load validator module)")
+            return True
+
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["validate_migration_sequence"] = module
+        spec.loader.exec_module(module)
+
+        repo_path = Path(__file__).parent.parent
+        result = module.validate_migration_sequence(repo_path)
+
+        report = module.generate_report(result)
+        if verbose or not result.is_valid or result.has_staged_migrations:
+            print(report)
+
+        return result.is_valid
+
+    except RuntimeError as e:
+        print(f"Migration Sequence: ERROR ({e})", file=sys.stderr)
+        return False
+    except Exception as e:  # noqa: BLE001 — boundary: prints error and degrades
+        print(f"Migration Sequence: ERROR ({type(e).__name__}: {e})")
+        if verbose:
+            import traceback
+
+            traceback.print_exc()
+        return False
+
+
+def run_clean_root(verbose: bool = False) -> bool:
+    """Run root directory cleanliness validation.
+
+    Ensures the project root contains only allowed files and directories.
+    Working documents, development notes, and other ephemeral files should
+    be moved to docs/ or deleted.
+
+    This is critical for public release readiness.
+    """
+    import importlib.util
+
+    try:
+        # Load the validator module directly to avoid import path issues
+        validator_path = Path(__file__).parent / "validation" / "validate_clean_root.py"
+
+        if not validator_path.exists():
+            print(f"Clean Root: SKIP (validator not found: {validator_path})")
+            return True
+
+        spec = importlib.util.spec_from_file_location(
+            "validate_clean_root", validator_path
+        )
+        if spec is None or spec.loader is None:
+            print("Clean Root: SKIP (could not load validator module)")
+            return True
+
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["validate_clean_root"] = module
+        spec.loader.exec_module(module)
+
+        repo_path = Path(__file__).parent.parent
+        result = module.validate_root_directory(repo_path, verbose=verbose)
+
+        if verbose or not result.is_valid:
+            report = module.generate_report(result, repo_path)
+            print(report)
+
+        return result.is_valid
+
+    except Exception as e:  # noqa: BLE001 — boundary: prints error and degrades
+        print(f"Clean Root: ERROR ({type(e).__name__}: {e})")
+        if verbose:
+            import traceback
+
+            traceback.print_exc()
+        return False
+
+
+def run_imports(verbose: bool = False) -> bool:
+    """Run circular import check."""
+    # Use src/ as the source path so module names are fully qualified
+    # (e.g., "omnibase_infra.clients" instead of just "clients").
+    # The CircularImportValidator creates module names relative to source_path,
+    # so using src/ ensures Python can import them correctly.
+    src_path = Path("src/")
+    if not src_path.exists():
+        if verbose:
+            print("Imports: SKIP (no src directory)")
+        return True
+
+    try:
+        from omnibase_core.models.errors.model_onex_error import ModelOnexError
+
+        # CircularImportValidator re-exported from omnibase_core.validation in 0.6.2+
+        # (moved from circular_import_validator to validator_circular_import submodule)
+        from omnibase_core.validation import CircularImportValidator
+
+        validator = CircularImportValidator(source_path=src_path)
+        result = validator.validate()
+        passed = not result.has_circular_imports
+
+        if verbose or not passed:
+            print(f"Imports: {'PASS' if passed else 'FAIL'}")
+
+            # Show circular imports if found
+            if result.has_circular_imports:
+                print("  Circular import cycles detected:")
+                for module in result.circular_imports[:10]:
+                    print(f"    - {module}")
+                if len(result.circular_imports) > 10:
+                    print(f"    ... and {len(result.circular_imports) - 10} more")
+                print("\n  Fix: Break circular dependencies by:")
+                print("    1. Moving shared code to a common module")
+                print("    2. Using TYPE_CHECKING imports for type hints")
+                print("    3. Restructuring module dependencies")
+
+            # Show import errors even if no circular imports (helps diagnose issues)
+            if result.has_errors and (verbose or result.failure_count > 0):
+                print(
+                    f"  Import validation: {result.success_count} succeeded, {result.failure_count} failed"
+                )
+                if result.import_errors:
+                    # Show more errors in verbose mode
+                    max_errors = len(result.import_errors) if verbose else 5
+                    print("  Module import errors (may indicate missing dependencies):")
+                    for err in result.import_errors[:max_errors]:
+                        print(f"    - {err.module_name}: {err.error_message}")
+                    if len(result.import_errors) > max_errors:
+                        print(
+                            f"    ... and {len(result.import_errors) - max_errors} more (use --verbose for all)"
+                        )
+                if result.unexpected_errors:
+                    max_unexpected = len(result.unexpected_errors) if verbose else 5
+                    print("  Unexpected errors during validation:")
+                    for err in result.unexpected_errors[:max_unexpected]:
+                        print(f"    - {err}")
+                    if len(result.unexpected_errors) > max_unexpected:
+                        print(
+                            f"    ... and {len(result.unexpected_errors) - max_unexpected} more (use --verbose for all)"
+                        )
+
+            # Show summary statistics
+            if hasattr(result, "total_files"):
+                print(
+                    f"  Summary: {result.total_files} files analyzed, "
+                    f"success rate: {result.success_rate:.1%}"
+                )
+
+        return passed
+
+    except ImportError as e:
+        # CircularImportValidator not available (omnibase_core not installed)
+        print(f"Imports: SKIP (CircularImportValidator not available: {e})")
+        print("  Fix: Install omnibase_core with: uv add omnibase-core")
+        return True
+    except ModelOnexError as e:
+        # Path validation or configuration errors from validator initialization
+        print(f"Imports: ERROR (Configuration error: {e})")
+        print(f"  Fix: Verify source path exists and is readable: {src_path}")
+        # Fail validation - configuration errors should be fixed
+        return False
+    except AttributeError as e:
+        # Validator result missing expected attributes (API incompatibility)
+        # This indicates integration bug between omnibase_infra and omnibase_core
+        print(f"Imports: ERROR (Validator API incompatible: {e})")
+        print("  Fix: Update omnibase_core to compatible version")
+        print("    uv add --upgrade omnibase-core")
+        print("    or check omnibase_core version requirements")
+        # Fail validation on API incompatibility - this is a real integration bug
+        return False
+    except PermissionError as e:
+        # File system permission issues
+        print(f"Imports: ERROR (Permission denied: {e})")
+        print(f"  Fix: Ensure read permissions for: {src_path}")
+        return False
+    except Exception as e:  # noqa: BLE001 — boundary: prints error and degrades
+        # Unexpected errors during validation (file system issues, bugs in validator, etc.)
+        # Log with full exception type to help debugging
+        exception_type = type(e).__name__
+        print(f"Imports: ERROR (Unexpected {exception_type}: {e})")
+        print("  This may indicate a bug in the validator or unexpected file structure")
+        print("  Fix: Report this error with full output if it persists")
+        # Fail validation on unexpected errors - these may hide real bugs
+        return False
+
+
+def run_markdown_links(verbose: bool = False, files: list[str] | None = None) -> bool:
+    """Run markdown link validation.
+
+    Validates that all internal links in markdown files point to existing
+    files and anchors. External links (http/https) are skipped by default.
+
+    Configuration is loaded from .markdown-link-check.json in the repository root.
+
+    Args:
+        verbose: Enable verbose output
+        files: Optional list of specific files to validate (for pre-commit).
+               If provided, only these files are validated.
+               If None, validates the entire repository.
+    """
+    import importlib.util
+
+    try:
+        # Load the validator module directly to avoid import path issues
+        validator_path = (
+            Path(__file__).parent / "validation" / "validate_markdown_links.py"
+        )
+
+        if not validator_path.exists():
+            print(f"Markdown Links: SKIP (validator not found: {validator_path})")
+            return True
+
+        spec = importlib.util.spec_from_file_location(
+            "validate_markdown_links", validator_path
+        )
+        if spec is None or spec.loader is None:
+            print("Markdown Links: SKIP (could not load validator module)")
+            return True
+
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["validate_markdown_links"] = module
+        spec.loader.exec_module(module)
+
+        repo_path = Path(__file__).parent.parent
+        config_path = repo_path / ".markdown-link-check.json"
+        config = module.MarkdownLinkConfig.from_file(config_path)
+
+        # If specific files are provided, validate only those
+        if files:
+            # Filter to only markdown files
+            md_files = [f for f in files if f.endswith(".md")]
+            if not md_files:
+                if verbose:
+                    print("Markdown Links: SKIP (no markdown files in input)")
+                return True
+
+            # Aggregate results from all files
+            total_broken_links: list[object] = []
+            total_files_checked = 0
+            total_links_checked = 0
+            total_links_skipped = 0
+
+            for file_path in md_files:
+                target_path = Path(file_path).resolve()
+                if not target_path.exists():
+                    if verbose:
+                        print(f"  Warning: File not found: {file_path}")
+                    continue
+
+                result = module.validate_markdown_links(
+                    repo_root=repo_path,
+                    config=config,
+                    verbose=verbose,
+                    target_path=target_path,
+                )
+
+                total_broken_links.extend(result.broken_links)
+                total_files_checked += result.files_checked
+                total_links_checked += result.links_checked
+                total_links_skipped += result.links_skipped
+
+            # Create aggregated result
+            aggregated_result = module.ValidationResult(
+                broken_links=total_broken_links,
+                files_checked=total_files_checked,
+                links_checked=total_links_checked,
+                links_skipped=total_links_skipped,
+            )
+
+            if verbose or not aggregated_result.is_valid:
+                report = module.generate_report(aggregated_result, repo_path)
+                print(report)
+            else:
+                print(
+                    f"Markdown Links: PASS "
+                    f"({aggregated_result.files_checked} files, "
+                    f"{aggregated_result.links_checked} links checked)"
+                )
+
+            return aggregated_result.is_valid
+
+        else:
+            # Validate entire repository (original behavior)
+            result = module.validate_markdown_links(
+                repo_root=repo_path,
+                config=config,
+                verbose=verbose,
+            )
+
+            if verbose or not result.is_valid:
+                report = module.generate_report(result, repo_path)
+                print(report)
+            else:
+                print(
+                    f"Markdown Links: PASS "
+                    f"({result.files_checked} files, "
+                    f"{result.links_checked} links checked)"
+                )
+
+            return result.is_valid
+
+    except Exception as e:  # noqa: BLE001 — boundary: prints error and degrades
+        print(f"Markdown Links: ERROR ({type(e).__name__}: {e})")
+        if verbose:
+            import traceback
+
+            traceback.print_exc()
+        return False
+
+
+def run_db_quality_gate(verbose: bool = False) -> bool:
+    """Run DB quality gate validation (OMN-1785).
+
+    Forbids domain-specific DB adapter classes, direct SQL, and direct DB
+    connection calls outside of omnibase_infra and tests.
+
+    Uses escape hatches ``# db-adapter-ok`` and ``# sql-ok`` for intentional
+    exemptions.
+    """
+    import importlib.util
+
+    try:
+        validator_path = (
+            Path(__file__).parent / "validation" / "validate_db_quality_gate.py"
+        )
+
+        if not validator_path.exists():
+            print(f"DB Quality Gate: SKIP (validator not found: {validator_path})")
+            return True
+
+        spec = importlib.util.spec_from_file_location(
+            "validate_db_quality_gate", validator_path
+        )
+        if spec is None or spec.loader is None:
+            print("DB Quality Gate: SKIP (could not load validator module)")
+            return True
+
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["validate_db_quality_gate"] = module
+        spec.loader.exec_module(module)
+
+        result = module.validate_db_quality_gate(verbose=verbose)
+        report = module.generate_report(result)
+
+        if verbose or not result.is_valid:
+            print(report)
+        else:
+            print(f"DB Quality Gate: PASS ({result.files_checked} files checked)")
+
+        return result.is_valid
+
+    except Exception as e:  # noqa: BLE001 — boundary: prints error and degrades
+        print(f"DB Quality Gate: ERROR ({type(e).__name__}: {e})")
+        if verbose:
+            import traceback
+
+            traceback.print_exc()
+        return False
+
+
+def run_all(verbose: bool = False, quick: bool = False) -> bool:
+    """Run all validations.
+
+    Runs all ONEX infrastructure validators in sequence. The architecture_layers
+    check is included to verify omnibase_core maintains proper layer separation.
+
+    Args:
+        verbose: If True, show detailed output for each validator
+        quick: If True, skip medium priority validators (unions, imports)
+
+    Returns:
+        True if all validations pass, False if any fail
+    """
+    print("Running ONEX Infrastructure Validations...")
+    print("=" * 50)
+
+    validators = [
+        ("Architecture", run_architecture),
+        ("Architecture Layers", run_architecture_layers),
+        ("Migration Freeze", run_migration_freeze),
+        ("Migration Sequence", run_migration_sequence),
+        ("Clean Root", run_clean_root),
+        ("Contracts", run_contracts),
+        ("Patterns", run_patterns),
+    ]
+
+    if not quick:
+        validators.extend(
+            [
+                ("Unions", run_unions),
+                ("Any Types", run_any_types),
+                ("LocalHandler", run_localhandler),
+                ("Declarative Nodes", run_declarative_nodes),
+                ("I/O Audit", run_io_audit),
+                ("Imports", run_imports),
+                ("Markdown Links", run_markdown_links),
+                ("DB Quality Gate", run_db_quality_gate),
+            ]
+        )
+
+    results = {}
+    for name, func in validators:
+        results[name] = func(verbose)
+
+    print("=" * 50)
+    passed = sum(1 for v in results.values() if v)
+    total = len(results)
+    print(f"Summary: {passed}/{total} passed")
+
+    if all(results.values()):
+        print("All validations PASSED")
+        return True
+    else:
+        failed = [name for name, passed in results.items() if not passed]
+        print(f"FAILED: {', '.join(failed)}")
+        return False
+
+
+def main() -> int:
+    """Main entry point."""
+    parser = argparse.ArgumentParser(
+        description="ONEX Infrastructure Validation Script"
+    )
+    parser.add_argument(
+        "validator",
+        nargs="?",
+        default="all",
+        choices=[
+            "unused_exemptions",
+            "all",
+            "architecture",
+            "architecture_layers",
+            "migration_freeze",
+            "migration_sequence",
+            "clean_root",
+            "contracts",
+            "patterns",
+            "unions",
+            "any_types",
+            "localhandler",
+            "declarative_nodes",
+            "imperative_orchestrators",
+            "orchestration_monoliths",
+            "orchestrator_reducer_state",
+            "io_audit",
+            "imports",
+            "markdown_links",
+            "db_quality_gate",
+        ],
+        help="Which validator to run (default: all)",
+    )
+    parser.add_argument(
+        "files",
+        nargs="*",
+        help=(
+            "Optional list of files to validate (for declarative_nodes, "
+            "imperative_orchestrators, orchestration_monoliths, "
+            "orchestrator_reducer_state, or markdown_links)"
+        ),
+    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
+    parser.add_argument(
+        "--quick", "-q", action="store_true", help="Quick mode (skip medium priority)"
+    )
+
+    args = parser.parse_args()
+
+    validator_map = {
+        "unused_exemptions": run_unused_exemptions,
+        "architecture": run_architecture,
+        "architecture_layers": run_architecture_layers,
+        "migration_freeze": run_migration_freeze,
+        "migration_sequence": run_migration_sequence,
+        "clean_root": run_clean_root,
+        "contracts": run_contracts,
+        "patterns": run_patterns,
+        "unions": run_unions,
+        "any_types": run_any_types,
+        "localhandler": run_localhandler,
+        "declarative_nodes": run_declarative_nodes,
+        "imperative_orchestrators": run_imperative_orchestrators,
+        "orchestration_monoliths": run_orchestration_monoliths,
+        "orchestrator_reducer_state": run_orchestrator_reducer_state,
+        "io_audit": run_io_audit,
+        "imports": run_imports,
+        "markdown_links": run_markdown_links,
+        "db_quality_gate": run_db_quality_gate,
+    }
+
+    if args.validator == "all":
+        success = run_all(args.verbose, args.quick)
+    elif args.validator == "markdown_links":
+        # Pass files to markdown_links validator if provided
+        files = args.files if args.files else None
+        success = run_markdown_links(args.verbose, files=files)
+    elif args.validator == "declarative_nodes":
+        # Pass files to declarative_nodes validator if provided
+        files = args.files if args.files else None
+        success = run_declarative_nodes(args.verbose, files=files)
+    elif args.validator == "imperative_orchestrators":
+        # Pass changed files for the changed-node ratchet (pre-commit); without
+        # files this runs the full non-blocking report.
+        files = args.files if args.files else None
+        success = run_imperative_orchestrators(args.verbose, files=files)
+    elif args.validator == "orchestration_monoliths":
+        # Pass changed files for the changed-node ratchet (pre-commit); without
+        # files this runs the full non-blocking report (ARCH-004 Signal B).
+        files = args.files if args.files else None
+        success = run_orchestration_monoliths(args.verbose, files=files)
+    elif args.validator == "orchestrator_reducer_state":
+        # Pass changed files for the changed-node scan (pre-commit); without
+        # files this runs the full-repo scan (ARCH-005, OMN-14222). Both modes
+        # are BLOCKING -- zero ratchet baseline.
+        files = args.files if args.files else None
+        success = run_orchestrator_reducer_state(args.verbose, files=files)
+    else:
+        success = validator_map[args.validator](args.verbose)
+
+    return 0 if success else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

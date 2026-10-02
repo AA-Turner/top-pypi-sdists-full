@@ -15,13 +15,19 @@ pub async fn handle_semantic_tokens_full(
     let SemanticTokensParams { text_document, .. } = params;
     let text_document_uri: tombi_uri::Uri = text_document.uri.into();
 
-    let document_sources = backend.document_sources.read().await;
-    let Some(document_source) = document_sources.get(&text_document_uri) else {
+    let Some(document_source) = backend
+        .document_sources
+        .read()
+        .await
+        .get(&text_document_uri)
+        .cloned()
+    else {
         return Ok(None);
     };
     let line_index = document_source.line_index();
+    let encoding = document_source.encoding_kind();
 
-    let mut tokens_builder = SemanticTokensBuilder::new(text_document_uri, line_index);
+    let mut tokens_builder = SemanticTokensBuilder::new(text_document_uri, line_index, encoding);
 
     document_source
         .ast()

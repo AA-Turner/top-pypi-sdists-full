@@ -290,6 +290,15 @@ class CompletedRequest:
     result_end_position: int | None = None
     """Last message position produced by this execution"""
 
+    terminal_exception: BaseException | None = field(default=None, repr=False, compare=False)
+    """IN-MEMORY ONLY: the exception that ended a ``failed`` run, traceback intact.
+
+    The executor contains a terminal provider failure (it returns this object
+    instead of re-raising), which used to leave every in-process caller —
+    ``run_agent`` → ``agent_call`` — holding only a sentence. Never serialized:
+    ``to_dict`` does not read it.
+    """
+
     # Convenience properties for easy access to key info
     @property
     def conversation_id(self) -> str:

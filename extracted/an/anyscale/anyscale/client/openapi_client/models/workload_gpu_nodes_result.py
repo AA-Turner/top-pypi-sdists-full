@@ -38,6 +38,7 @@ class WorkloadGpuNodesResult(object):
         'workload': 'GpuWorkloadRef',
         'results': 'list[WorkloadGpuNode]',
         'total': 'int',
+        'telemetry_health': 'GpuTelemetryHealth',
         'time': 'int'
     }
 
@@ -47,10 +48,11 @@ class WorkloadGpuNodesResult(object):
         'workload': 'workload',
         'results': 'results',
         'total': 'total',
+        'telemetry_health': 'telemetry_health',
         'time': 'time'
     }
 
-    def __init__(self, scope=None, cloud_id=None, workload=None, results=None, total=None, time=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, scope=None, cloud_id=None, workload=None, results=None, total=None, telemetry_health=None, time=None, local_vars_configuration=None):  # noqa: E501
         """WorkloadGpuNodesResult - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -61,6 +63,7 @@ class WorkloadGpuNodesResult(object):
         self._workload = None
         self._results = None
         self._total = None
+        self._telemetry_health = None
         self._time = None
         self.discriminator = None
 
@@ -70,6 +73,8 @@ class WorkloadGpuNodesResult(object):
             self.workload = workload
         self.results = results
         self.total = total
+        if telemetry_health is not None:
+            self.telemetry_health = telemetry_health
         self.time = time
 
     @property
@@ -194,6 +199,29 @@ class WorkloadGpuNodesResult(object):
             raise ValueError("Invalid value for `total`, must not be `None`")  # noqa: E501
 
         self._total = total
+
+    @property
+    def telemetry_health(self):
+        """Gets the telemetry_health of this WorkloadGpuNodesResult.  # noqa: E501
+
+        Whether the entity's GPU nodes are reporting DCGM telemetry -- distinguishes 'no GPUs' from 'GPUs present but not exporting'.  # noqa: E501
+
+        :return: The telemetry_health of this WorkloadGpuNodesResult.  # noqa: E501
+        :rtype: GpuTelemetryHealth
+        """
+        return self._telemetry_health
+
+    @telemetry_health.setter
+    def telemetry_health(self, telemetry_health):
+        """Sets the telemetry_health of this WorkloadGpuNodesResult.
+
+        Whether the entity's GPU nodes are reporting DCGM telemetry -- distinguishes 'no GPUs' from 'GPUs present but not exporting'.  # noqa: E501
+
+        :param telemetry_health: The telemetry_health of this WorkloadGpuNodesResult.  # noqa: E501
+        :type: GpuTelemetryHealth
+        """
+
+        self._telemetry_health = telemetry_health
 
     @property
     def time(self):

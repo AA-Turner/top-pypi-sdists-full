@@ -1,0 +1,14 @@
+Metadata-Version: 2.3
+Name: atomic_physics
+Version: 2.0.5
+Summary: Lightweight python library for calculations based on atomic structure
+Author: hartytp
+Author-email: thomas.peter.harty@gmail.com
+Requires-Python: >=3.10,<4.0
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: numpy (>=1.22.0,<3.0)
+Requires-Dist: scipy (>=1.7.3,<2.0.0)

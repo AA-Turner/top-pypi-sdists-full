@@ -1,0 +1,13 @@
+[package]
+name = "sql-impressao"
+version = "1.12.0"
+edition = "2024"
+
+[lib]
+name = "sql_impressao"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = ">= 0.24.0" }
+sql-fingerprint = { version = ">= 1.11.1" }
+sqlparser = { version = ">= 0.61.0" }

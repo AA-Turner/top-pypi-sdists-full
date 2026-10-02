@@ -178,27 +178,6 @@ class UnsupportedMarketOnOpenOrderTimeAnalysis(QuantConnect.Lean.Engine.Results.
         ...
 
 
-class UnsupportedUpdateQuantityOrderAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
-    """Detects brokerage model rejections where the order type does not allow its quantity to be updated."""
-
-    @property
-    def issue(self) -> str:
-        ...
-
-    @property
-    def weight(self) -> int:
-        ...
-
-    @property
-    def expected_message_text(self) -> typing.List[str]:
-        """This Property is protected."""
-        ...
-
-    def solutions(self, _: QuantConnect.Language) -> typing.List[str]:
-        """This Class is protected."""
-        ...
-
-
 class UnsupportedMarketOnOpenOrdersForFutureAndFutureOptionsAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
     """Detects brokerage model rejections where a MarketOnOpen order was placed for a Futures or Future Options contract."""
 

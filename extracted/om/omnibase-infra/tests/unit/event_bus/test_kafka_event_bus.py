@@ -1,0 +1,4334 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Unit tests for EventBusKafka.
+
+Comprehensive test suite covering all public methods, edge cases,
+error handling, and circuit breaker functionality with mocked Kafka dependencies.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import UUID, uuid4
+
+import pytest
+from aiokafka.errors import (
+    KafkaError,
+    MessageSizeTooLargeError,
+    UnknownTopicOrPartitionError,
+)
+from aiokafka.structs import TopicPartition
+from pydantic import BaseModel
+
+from omnibase_infra.errors import (
+    EventPayloadTooLargeError,
+    InfraConnectionError,
+    InfraTimeoutError,
+    InfraUnavailableError,
+    ProtocolConfigurationError,
+)
+from omnibase_infra.event_bus.event_bus_kafka import EventBusKafka
+from omnibase_infra.event_bus.models import (
+    ModelEventHeaders,
+    ModelEventMessage,
+    ModelPublishReceipt,
+)
+from omnibase_infra.event_bus.models.config import ModelKafkaEventBusConfig
+from omnibase_infra.nodes.node_dlq_replay_effect.engine_dlq_replay import (
+    ModelDlqReplayEngineConfig,
+    should_replay,
+)
+from omnibase_infra.nodes.node_dlq_replay_effect.models.model_dlq_message import (
+    ModelDlqMessage,
+)
+from omnibase_infra.utils.util_consumer_group import KAFKA_CONSUMER_GROUP_MAX_LENGTH
+from tests.conftest import make_test_node_identity
+
+# Test constants - use these for assertions to avoid hardcoded values
+TEST_BOOTSTRAP_SERVERS: str = "localhost:9092"
+TEST_ENVIRONMENT: str = "dev"
+
+
+# ---------------------------------------------------------------------------
+# Module-level fixtures shared by multiple test classes.
+#
+# mock_producer_basic and kafka_event_bus_basic provide a minimal mocked
+# Kafka producer and an EventBusKafka instance.  They are used by
+# TestKafkaEventBusLifecycle, TestKafkaEventBusSubscribe, and any other
+# class that does NOT need a custom send side-effect.
+# ---------------------------------------------------------------------------
+
+
+async def _idle_fetch(
+    *partitions: Any,
+    timeout_ms: int = 0,
+    max_records: int | None = None,
+) -> dict[Any, list[Any]]:
+    """Stand in for ``AIOKafkaConsumer.getmany`` on a topic with nothing on it.
+
+    OMN-18640: the consume loop fetches with a deadline instead of iterating,
+    so a mocked consumer needs a fetch that HONOURS that deadline. An
+    ``AsyncMock`` returns instantly and truthy, which both spins the loop and
+    makes it believe it is receiving records.
+    """
+    await asyncio.sleep(max(timeout_ms, 1) / 1000.0)
+    return {}
+
+
+@pytest.fixture
+def mock_producer_basic() -> AsyncMock:
+    """Create mock Kafka producer (shared, module-level)."""
+    producer = AsyncMock()
+    producer.start = AsyncMock()
+    producer.stop = AsyncMock()
+    producer.send = AsyncMock()
+    producer._closed = False
+    return producer
+
+
+@pytest.fixture
+async def kafka_event_bus_basic(mock_producer_basic: AsyncMock) -> EventBusKafka:
+    """Create EventBusKafka with the shared mock producer (module-level)."""
+    with patch(
+        "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+        return_value=mock_producer_basic,
+    ):
+        config = ModelKafkaEventBusConfig(
+            bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+            environment=TEST_ENVIRONMENT,
+        )
+        bus = EventBusKafka(config=config)
+        yield bus
+        # Cleanup: Ensure resources are freed even if test fails
+        try:
+            await bus.close()
+        except Exception:  # noqa: BLE001 — boundary: swallows for resilience
+            pass  # Best effort cleanup
+
+
+class TestKafkaEventBusLifecycle:
+    """Test suite for event bus lifecycle management."""
+
+    @pytest.mark.asyncio
+    async def test_start_and_close(
+        self, kafka_event_bus_basic: EventBusKafka, mock_producer_basic: AsyncMock
+    ) -> None:
+        """Test bus lifecycle - start and close operations."""
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer_basic,
+        ):
+            # Initially not started
+            health = await kafka_event_bus_basic.health_check()
+            assert health["healthy"] is False
+            assert health["started"] is False
+
+            # Start the bus
+            await kafka_event_bus_basic.start()
+            mock_producer_basic.start.assert_called_once()
+            health = await kafka_event_bus_basic.health_check()
+            assert health["started"] is True
+
+            # Close the bus
+            await kafka_event_bus_basic.close()
+            mock_producer_basic.stop.assert_called_once()
+            health = await kafka_event_bus_basic.health_check()
+            assert health["healthy"] is False
+            assert health["started"] is False
+
+    @pytest.mark.asyncio
+    async def test_multiple_start_calls(
+        self, kafka_event_bus_basic: EventBusKafka, mock_producer_basic: AsyncMock
+    ) -> None:
+        """Test that multiple start calls are safe (idempotent)."""
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer_basic,
+        ):
+            await kafka_event_bus_basic.start()
+            await kafka_event_bus_basic.start()  # Second start should be idempotent
+
+            # Producer.start should only be called once
+            assert mock_producer_basic.start.call_count == 1
+
+            health = await kafka_event_bus_basic.health_check()
+            assert health["started"] is True
+
+            await kafka_event_bus_basic.close()
+
+    @pytest.mark.asyncio
+    async def test_multiple_close_calls(
+        self, kafka_event_bus_basic: EventBusKafka, mock_producer_basic: AsyncMock
+    ) -> None:
+        """Test that multiple close calls are safe (idempotent)."""
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer_basic,
+        ):
+            await kafka_event_bus_basic.start()
+            await kafka_event_bus_basic.close()
+            await kafka_event_bus_basic.close()  # Second close should be idempotent
+
+            health = await kafka_event_bus_basic.health_check()
+            assert health["started"] is False
+
+    @pytest.mark.asyncio
+    async def test_shutdown_alias(
+        self, kafka_event_bus_basic: EventBusKafka, mock_producer_basic: AsyncMock
+    ) -> None:
+        """Test shutdown() is an alias for close()."""
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer_basic,
+        ):
+            await kafka_event_bus_basic.start()
+            await kafka_event_bus_basic.shutdown()
+
+            health = await kafka_event_bus_basic.health_check()
+            assert health["started"] is False
+
+    @pytest.mark.asyncio
+    async def test_initialize_with_config(self, mock_producer_basic: AsyncMock) -> None:
+        """Test initialize() method with configuration override."""
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer_basic,
+        ):
+            event_bus = EventBusKafka()
+            await event_bus.initialize(
+                {
+                    "environment": "production",
+                    "bootstrap_servers": "kafka.prod:9092",
+                    "timeout_seconds": 60,
+                }
+            )
+
+            assert event_bus.environment == "production"
+            health = await event_bus.health_check()
+            assert health["started"] is True
+
+            await event_bus.close()
+
+
+class TestKafkaEventBusProperties:
+    """Test suite for event bus properties."""
+
+    def test_default_properties(self) -> None:
+        """Test default property values."""
+        event_bus = EventBusKafka()
+        assert event_bus.environment == "local"
+        assert event_bus.adapter is event_bus
+
+    def test_custom_properties(self) -> None:
+        """Test custom property values via config."""
+        config = ModelKafkaEventBusConfig(
+            bootstrap_servers="kafka.staging:9092",
+            environment="staging",
+            timeout_seconds=60,
+            max_retry_attempts=5,
+            retry_backoff_base=2.0,
+        )
+        event_bus = EventBusKafka(config=config)
+        assert event_bus.environment == "staging"
+        assert event_bus.adapter is event_bus
+
+    def test_adapter_returns_self(self) -> None:
+        """Test adapter property returns self."""
+        event_bus = EventBusKafka()
+        assert event_bus.adapter is event_bus
+
+
+class TestKafkaEventBusPublish:
+    """Test suite for publish operations."""
+
+    @pytest.fixture
+    def mock_producer(self) -> AsyncMock:
+        """Create mock Kafka producer."""
+        producer = AsyncMock()
+        producer.start = AsyncMock()
+        producer.stop = AsyncMock()
+        producer._closed = False
+
+        # Mock the send method to return a future-like object
+        mock_record_metadata = MagicMock()
+        mock_record_metadata.partition = 0
+        mock_record_metadata.offset = 42
+
+        async def mock_send(*args: object, **kwargs: object) -> asyncio.Future[object]:
+            future = asyncio.get_running_loop().create_future()
+            future.set_result(mock_record_metadata)
+            return future
+
+        producer.send = AsyncMock(side_effect=mock_send)
+        return producer
+
+    @pytest.fixture
+    async def kafka_event_bus(self, mock_producer: AsyncMock) -> EventBusKafka:
+        """Create EventBusKafka with mocked producer."""
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                environment=TEST_ENVIRONMENT,
+                max_retry_attempts=0,  # Disable retries for faster tests
+            )
+            bus = EventBusKafka(config=config)
+            yield bus
+            # Cleanup: Ensure resources are freed even if test fails
+            try:
+                await bus.close()
+            except Exception:  # noqa: BLE001 — boundary: swallows for resilience
+                pass  # Best effort cleanup
+
+    @pytest.mark.asyncio
+    async def test_publish_requires_start(self, kafka_event_bus: EventBusKafka) -> None:
+        """Test that publish fails if bus not started."""
+        with pytest.raises(InfraUnavailableError, match="not started"):
+            await kafka_event_bus.publish("test-topic", None, b"test")
+
+    @pytest.mark.asyncio
+    async def test_publish_basic(
+        self, kafka_event_bus: EventBusKafka, mock_producer: AsyncMock
+    ) -> None:
+        """Test basic publish operation (mocked producer)."""
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            await kafka_event_bus.start()
+
+            await kafka_event_bus.publish("test-topic", b"key1", b"value1")
+
+            # Verify producer.send was called
+            mock_producer.send.assert_called_once()
+            call_args = mock_producer.send.call_args
+            assert call_args[0][0] == "test-topic"  # topic
+            assert call_args[1]["value"] == b"value1"  # value
+            assert call_args[1]["key"] == b"key1"  # key
+
+            await kafka_event_bus.close()
+
+    @pytest.mark.asyncio
+    async def test_publish_with_none_key(
+        self, kafka_event_bus: EventBusKafka, mock_producer: AsyncMock
+    ) -> None:
+        """Test publish with None key."""
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            await kafka_event_bus.start()
+
+            await kafka_event_bus.publish("test-topic", None, b"value")
+
+            # Verify producer.send was called with None key
+            call_args = mock_producer.send.call_args
+            assert call_args[1]["key"] is None
+
+            await kafka_event_bus.close()
+
+    @pytest.mark.asyncio
+    async def test_publish_with_custom_headers(
+        self, kafka_event_bus: EventBusKafka, mock_producer: AsyncMock
+    ) -> None:
+        """Test publish with custom headers."""
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            await kafka_event_bus.start()
+
+            headers = ModelEventHeaders(
+                source="custom-source",
+                event_type="custom-event",
+                priority="high",
+                timestamp=datetime.now(UTC),
+            )
+            await kafka_event_bus.publish("test-topic", None, b"value", headers)
+
+            # Verify producer.send was called with headers
+            call_args = mock_producer.send.call_args
+            kafka_headers = call_args[1]["headers"]
+            assert kafka_headers is not None
+            # Find the source header
+            source_header = next((h for h in kafka_headers if h[0] == "source"), None)
+            assert source_header is not None
+            assert source_header[1] == b"custom-source"
+
+            await kafka_event_bus.close()
+
+    @pytest.mark.asyncio
+    async def test_publish_circuit_breaker_open(self, mock_producer: AsyncMock) -> None:
+        """Test error when circuit breaker is open."""
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                environment=TEST_ENVIRONMENT,
+                circuit_breaker_threshold=1,  # Open after 1 failure
+            )
+            event_bus = EventBusKafka(config=config)
+            await event_bus.start()
+
+            # Record a failure to open the circuit
+            async with event_bus._circuit_breaker_lock:
+                await event_bus._record_circuit_failure(operation="test")
+
+            # Verify circuit is open
+            async with event_bus._circuit_breaker_lock:
+                assert event_bus._circuit_breaker_open is True
+
+            with pytest.raises(InfraUnavailableError, match="Circuit breaker is open"):
+                await event_bus.publish("test-topic", None, b"test")
+
+            await event_bus.close()
+
+
+class TestKafkaEventBusSubscribe:
+    """Test suite for subscribe operations.
+
+    Uses module-level ``mock_producer_basic`` and ``kafka_event_bus_basic``
+    fixtures (identical to the ones formerly duplicated in Lifecycle).
+    """
+
+    @pytest.mark.asyncio
+    async def test_subscribe_returns_unsubscribe_function(
+        self, kafka_event_bus_basic: EventBusKafka, mock_producer_basic: AsyncMock
+    ) -> None:
+        """Test that subscribe returns an unsubscribe callable."""
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer_basic,
+        ):
+            # Don't start the bus - subscribe should still work for registration
+            async def handler(msg: ModelEventMessage) -> None:
+                pass
+
+            unsubscribe = await kafka_event_bus_basic.subscribe(
+                "test-topic", make_test_node_identity("1"), handler
+            )
+
+            # Verify unsubscribe is a callable
+            assert callable(unsubscribe)
+
+    @pytest.mark.asyncio
+    async def test_unsubscribe_removes_handler(
+        self, kafka_event_bus_basic: EventBusKafka, mock_producer_basic: AsyncMock
+    ) -> None:
+        """Test unsubscribe removes handler from registry."""
+
+        async def handler(msg: ModelEventMessage) -> None:
+            pass
+
+        unsubscribe = await kafka_event_bus_basic.subscribe(
+            "test-topic", make_test_node_identity("1"), handler
+        )
+
+        # Verify subscription exists
+        assert len(kafka_event_bus_basic._subscribers["test-topic"]) == 1
+
+        await unsubscribe()
+
+        # Verify subscription was removed
+        assert len(kafka_event_bus_basic._subscribers.get("test-topic", [])) == 0
+
+    @pytest.mark.asyncio
+    async def test_multiple_subscribers_same_topic(
+        self, kafka_event_bus_basic: EventBusKafka, mock_producer_basic: AsyncMock
+    ) -> None:
+        """Test multiple subscribers on same topic."""
+
+        async def handler1(msg: ModelEventMessage) -> None:
+            pass
+
+        async def handler2(msg: ModelEventMessage) -> None:
+            pass
+
+        await kafka_event_bus_basic.subscribe(
+            "test-topic", make_test_node_identity("1"), handler1
+        )
+        await kafka_event_bus_basic.subscribe(
+            "test-topic", make_test_node_identity("2"), handler2
+        )
+
+        # Verify both subscriptions exist
+        assert len(kafka_event_bus_basic._subscribers["test-topic"]) == 2
+
+    @pytest.mark.asyncio
+    async def test_same_topic_different_groups_start_distinct_consumers(
+        self, kafka_event_bus_basic: EventBusKafka, mock_producer_basic: AsyncMock
+    ) -> None:
+        """Different consumer groups on the same topic should each start a consumer."""
+
+        async def handler1(msg: ModelEventMessage) -> None:
+            pass
+
+        async def handler2(msg: ModelEventMessage) -> None:
+            pass
+
+        kafka_event_bus_basic._started = True
+        kafka_event_bus_basic._validate_topic_name = MagicMock()  # type: ignore[method-assign]
+
+        async def fake_start(
+            topic: str, group_id: str, *, auto_offset_reset_override: str | None = None
+        ) -> None:
+            kafka_event_bus_basic._group_consumers[(topic, group_id)] = AsyncMock()
+
+        kafka_event_bus_basic._start_consumer_for_topic_unlocked = AsyncMock(  # type: ignore[method-assign]
+            side_effect=fake_start
+        )
+
+        await kafka_event_bus_basic.subscribe(
+            "test-topic", make_test_node_identity("1"), handler1
+        )
+        await kafka_event_bus_basic.subscribe(
+            "test-topic", make_test_node_identity("2"), handler2
+        )
+
+        assert kafka_event_bus_basic._start_consumer_for_topic_unlocked.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_same_topic_same_group_reuses_consumer(
+        self, kafka_event_bus_basic: EventBusKafka, mock_producer_basic: AsyncMock
+    ) -> None:
+        """Callbacks sharing the same group should reuse one consumer."""
+
+        async def handler1(msg: ModelEventMessage) -> None:
+            pass
+
+        async def handler2(msg: ModelEventMessage) -> None:
+            pass
+
+        kafka_event_bus_basic._started = True
+        kafka_event_bus_basic._validate_topic_name = MagicMock()  # type: ignore[method-assign]
+
+        identity = make_test_node_identity("shared")
+
+        async def fake_start(
+            topic: str, group_id: str, *, auto_offset_reset_override: str | None = None
+        ) -> None:
+            kafka_event_bus_basic._group_consumers[(topic, group_id)] = AsyncMock()
+
+        kafka_event_bus_basic._start_consumer_for_topic_unlocked = AsyncMock(  # type: ignore[method-assign]
+            side_effect=fake_start
+        )
+
+        await kafka_event_bus_basic.subscribe("test-topic", identity, handler1)
+        await kafka_event_bus_basic.subscribe("test-topic", identity, handler2)
+
+        assert kafka_event_bus_basic._start_consumer_for_topic_unlocked.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_double_unsubscribe_safe(
+        self, kafka_event_bus_basic: EventBusKafka, mock_producer_basic: AsyncMock
+    ) -> None:
+        """Test that double unsubscribe is safe."""
+
+        async def handler(msg: ModelEventMessage) -> None:
+            pass
+
+        unsubscribe = await kafka_event_bus_basic.subscribe(
+            "test-topic", make_test_node_identity("1"), handler
+        )
+        await unsubscribe()
+        await unsubscribe()  # Should not raise
+
+    @pytest.mark.asyncio
+    async def test_concurrent_subscribe_no_duplicate_consumers(
+        self, kafka_event_bus_basic: EventBusKafka, mock_producer_basic: AsyncMock
+    ) -> None:
+        """Concurrent subscribe() calls for distinct keys start one consumer each."""
+        started: list[tuple[str, str]] = []
+
+        async def fake_start(
+            topic: str, group_id: str, *, auto_offset_reset_override: str | None = None
+        ) -> None:
+            started.append((topic, group_id))
+            kafka_event_bus_basic._group_consumers[(topic, group_id)] = AsyncMock()
+
+        kafka_event_bus_basic._started = True
+        kafka_event_bus_basic._validate_topic_name = MagicMock()  # type: ignore[method-assign]
+        kafka_event_bus_basic._start_consumer_for_topic_unlocked = AsyncMock(  # type: ignore[method-assign]
+            side_effect=fake_start
+        )
+
+        async def handler(msg: ModelEventMessage) -> None:
+            pass
+
+        topics = [f"onex.evt.svc.event{i}.v1" for i in range(5)]
+        await asyncio.gather(
+            *[
+                kafka_event_bus_basic.subscribe(
+                    topics[i], make_test_node_identity(str(i)), handler
+                )
+                for i in range(5)
+            ]
+        )
+
+        assert kafka_event_bus_basic._start_consumer_for_topic_unlocked.await_count == 5
+        assert len(started) == 5
+
+    @pytest.mark.asyncio
+    async def test_concurrent_subscribe_same_key_starts_one_consumer(
+        self, kafka_event_bus_basic: EventBusKafka, mock_producer_basic: AsyncMock
+    ) -> None:
+        """Concurrent subscribe() calls for the same (topic, group) start exactly one consumer."""
+        start_count = 0
+
+        async def fake_start(
+            topic: str, group_id: str, *, auto_offset_reset_override: str | None = None
+        ) -> None:
+            nonlocal start_count
+            start_count += 1
+            kafka_event_bus_basic._group_consumers[(topic, group_id)] = AsyncMock()
+
+        kafka_event_bus_basic._started = True
+        kafka_event_bus_basic._validate_topic_name = MagicMock()  # type: ignore[method-assign]
+        kafka_event_bus_basic._start_consumer_for_topic_unlocked = AsyncMock(  # type: ignore[method-assign]
+            side_effect=fake_start
+        )
+
+        async def handler(msg: ModelEventMessage) -> None:
+            pass
+
+        identity = make_test_node_identity("shared")
+        await asyncio.gather(
+            *[
+                kafka_event_bus_basic.subscribe(
+                    "onex.evt.svc.event.v1", identity, handler
+                )
+                for _ in range(5)
+            ]
+        )
+
+        assert start_count == 1
+
+
+class TestKafkaEventBusHealthCheck:
+    """Test suite for health check operations.
+
+    Uses module-level ``mock_producer_basic`` and ``kafka_event_bus_basic``
+    fixtures.
+    """
+
+    @pytest.mark.asyncio
+    async def test_health_check_not_started(
+        self, kafka_event_bus_basic: EventBusKafka
+    ) -> None:
+        """Test health check when not started."""
+        health = await kafka_event_bus_basic.health_check()
+
+        assert health["healthy"] is False
+        assert health["started"] is False
+        assert health["environment"] == TEST_ENVIRONMENT
+        assert health["bootstrap_servers"] == TEST_BOOTSTRAP_SERVERS
+        assert health["subscriber_count"] == 0
+        assert health["topic_count"] == 0
+        assert health["consumer_count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_health_check_started(
+        self, kafka_event_bus_basic: EventBusKafka, mock_producer_basic: AsyncMock
+    ) -> None:
+        """Test health check when started."""
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer_basic,
+        ):
+            await kafka_event_bus_basic.start()
+            health = await kafka_event_bus_basic.health_check()
+
+            assert health["started"] is True
+            # healthy depends on producer not being closed
+            assert health["healthy"] is True
+
+            await kafka_event_bus_basic.close()
+
+    @pytest.mark.asyncio
+    async def test_health_check_circuit_breaker_status(
+        self, kafka_event_bus_basic: EventBusKafka, mock_producer_basic: AsyncMock
+    ) -> None:
+        """Test health check includes circuit breaker status."""
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer_basic,
+        ):
+            await kafka_event_bus_basic.start()
+            health = await kafka_event_bus_basic.health_check()
+
+            assert health["circuit_state"] == "closed"
+
+            # Record failures to change circuit state
+            async with kafka_event_bus_basic._circuit_breaker_lock:
+                kafka_event_bus_basic._circuit_breaker_failures = 5
+                kafka_event_bus_basic._circuit_breaker_open = True
+
+            health = await kafka_event_bus_basic.health_check()
+            assert health["circuit_state"] == "open"
+
+            await kafka_event_bus_basic.close()
+
+
+class TestKafkaEventBusCircuitBreaker:
+    """Test suite for circuit breaker functionality."""
+
+    @pytest.fixture
+    def mock_producer(self) -> AsyncMock:
+        """Create mock Kafka producer."""
+        producer = AsyncMock()
+        producer.start = AsyncMock()
+        producer.stop = AsyncMock()
+        producer._closed = False
+        return producer
+
+    def test_circuit_breaker_threshold_validation(self) -> None:
+        """Test that invalid circuit_breaker_threshold raises validation error.
+
+        Since EventBusKafka now only accepts config-driven initialization,
+        we test the config model validation instead.
+        """
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError, match="greater than or equal to 1"):
+            ModelKafkaEventBusConfig(circuit_breaker_threshold=0)
+
+        with pytest.raises(ValidationError, match="greater than or equal to 1"):
+            ModelKafkaEventBusConfig(circuit_breaker_threshold=-1)
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_opens_after_failures(
+        self, mock_producer: AsyncMock
+    ) -> None:
+        """Test circuit breaker opens after consecutive failures."""
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                circuit_breaker_threshold=3,
+            )
+            event_bus = EventBusKafka(config=config)
+
+            # Record failures
+            async with event_bus._circuit_breaker_lock:
+                await event_bus._record_circuit_failure(operation="test")
+                assert event_bus._circuit_breaker_open is False
+                assert event_bus._circuit_breaker_failures == 1
+
+                await event_bus._record_circuit_failure(operation="test")
+                assert event_bus._circuit_breaker_open is False
+                assert event_bus._circuit_breaker_failures == 2
+
+                await event_bus._record_circuit_failure(operation="test")
+                # Should be open after 3 failures
+                assert event_bus._circuit_breaker_open is True
+                assert event_bus._circuit_breaker_failures == 3
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_resets_on_success(
+        self, mock_producer: AsyncMock
+    ) -> None:
+        """Test circuit breaker resets after successful operation."""
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                circuit_breaker_threshold=5,
+            )
+            event_bus = EventBusKafka(config=config)
+
+            # Record some failures
+            async with event_bus._circuit_breaker_lock:
+                await event_bus._record_circuit_failure(operation="test")
+                await event_bus._record_circuit_failure(operation="test")
+                assert event_bus._circuit_breaker_failures == 2
+
+                # Reset on success
+                await event_bus._reset_circuit_breaker()
+
+                assert event_bus._circuit_breaker_open is False
+                assert event_bus._circuit_breaker_failures == 0
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_half_open_state(
+        self, mock_producer: AsyncMock
+    ) -> None:
+        """Test circuit breaker full recovery cycle: CLOSED -> OPEN -> HALF_OPEN -> CLOSED.
+
+        This test validates the complete circuit breaker state machine:
+        1. CLOSED: Initial state, operations allowed
+        2. OPEN: After failure threshold reached, operations blocked
+        3. HALF_OPEN: After reset timeout, circuit allows test operations
+        4. CLOSED: After successful operation in HALF_OPEN, circuit fully recovers
+        """
+
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                circuit_breaker_threshold=1,
+                circuit_breaker_reset_timeout=0.1,  # Very short for testing
+            )
+            event_bus = EventBusKafka(config=config)
+
+            # Step 1: Verify initial state is CLOSED
+            async with event_bus._circuit_breaker_lock:
+                assert event_bus._circuit_breaker_open is False
+                assert event_bus._circuit_breaker_failures == 0
+
+            # Step 2: Trigger failure to transition CLOSED -> OPEN
+            async with event_bus._circuit_breaker_lock:
+                await event_bus._record_circuit_failure(operation="test")
+                assert event_bus._circuit_breaker_open is True
+                assert event_bus._circuit_breaker_failures == 1
+
+            # Step 3: Wait for reset timeout to allow OPEN -> HALF_OPEN transition
+            await asyncio.sleep(0.15)
+
+            # Step 4: Check circuit breaker - should transition to HALF_OPEN
+            # In HALF_OPEN state, _circuit_breaker_open is False but circuit is testing recovery
+            async with event_bus._circuit_breaker_lock:
+                await event_bus._check_circuit_breaker(operation="test")
+                # After timeout, circuit transitions from OPEN to HALF_OPEN
+                assert event_bus._circuit_breaker_open is False
+                # Failures are reset when transitioning to HALF_OPEN
+                assert event_bus._circuit_breaker_failures == 0
+
+            # Step 5: Simulate successful operation to complete HALF_OPEN -> CLOSED transition
+            # In production, this would be a real operation succeeding after the check
+            async with event_bus._circuit_breaker_lock:
+                await event_bus._reset_circuit_breaker()
+                # Circuit is now fully CLOSED - verify recovery is complete
+                assert event_bus._circuit_breaker_open is False
+                assert event_bus._circuit_breaker_failures == 0
+                assert event_bus._circuit_breaker_open_until == 0.0
+
+            # Step 6: Verify circuit allows operations after full recovery
+            async with event_bus._circuit_breaker_lock:
+                # This should not raise - circuit is fully closed
+                await event_bus._check_circuit_breaker(operation="test_after_recovery")
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_blocks_when_open(
+        self, mock_producer: AsyncMock
+    ) -> None:
+        """Test circuit breaker blocks operations when open."""
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                circuit_breaker_threshold=1,
+                circuit_breaker_reset_timeout=60,  # Long timeout
+            )
+            event_bus = EventBusKafka(config=config)
+
+            # Open the circuit
+            async with event_bus._circuit_breaker_lock:
+                await event_bus._record_circuit_failure(operation="test")
+                assert event_bus._circuit_breaker_open is True
+
+            # Should raise when checking circuit
+            async with event_bus._circuit_breaker_lock:
+                with pytest.raises(
+                    InfraUnavailableError, match="Circuit breaker is open"
+                ):
+                    await event_bus._check_circuit_breaker(operation="test")
+
+
+class TestKafkaEventBusErrors:
+    """Test suite for error handling."""
+
+    @pytest.fixture
+    def mock_producer(self) -> AsyncMock:
+        """Create mock Kafka producer."""
+        producer = AsyncMock()
+        producer.start = AsyncMock()
+        producer.stop = AsyncMock()
+        producer._closed = False
+        return producer
+
+    @pytest.mark.asyncio
+    async def test_connection_error_type(self, mock_producer: AsyncMock) -> None:
+        """Test that connection errors are properly typed."""
+        mock_producer.start = AsyncMock(
+            side_effect=ConnectionError("Connection refused")
+        )
+
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            config = ModelKafkaEventBusConfig(bootstrap_servers=TEST_BOOTSTRAP_SERVERS)
+            event_bus = EventBusKafka(config=config)
+
+            with pytest.raises(InfraConnectionError) as exc_info:
+                await event_bus.start()
+
+            assert "Connection refused" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_unavailable_error_when_not_started(self) -> None:
+        """Test InfraUnavailableError raised when bus not started."""
+        config = ModelKafkaEventBusConfig(bootstrap_servers=TEST_BOOTSTRAP_SERVERS)
+        event_bus = EventBusKafka(config=config)
+
+        with pytest.raises(InfraUnavailableError) as exc_info:
+            await event_bus.publish("test-topic", None, b"test")
+
+        assert "not started" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_timeout_error_handling(self, mock_producer: AsyncMock) -> None:
+        """Test timeout error handling on start."""
+        mock_producer.start = AsyncMock(side_effect=TimeoutError("Connection timeout"))
+
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                timeout_seconds=5,
+            )
+            event_bus = EventBusKafka(config=config)
+
+            with pytest.raises(InfraTimeoutError) as exc_info:
+                await event_bus.start()
+
+            assert "Timeout" in str(exc_info.value)
+
+
+class TestKafkaEventBusPublishRetry:
+    """Test suite for publish retry functionality."""
+
+    @pytest.fixture
+    def mock_producer(self) -> AsyncMock:
+        """Create mock Kafka producer that can fail."""
+        producer = AsyncMock()
+        producer.start = AsyncMock()
+        producer.stop = AsyncMock()
+        producer._closed = False
+        return producer
+
+    @pytest.mark.asyncio
+    async def test_publish_retries_on_kafka_error(
+        self, mock_producer: AsyncMock
+    ) -> None:
+        """Test publish retries on KafkaError."""
+        # Create a mock that fails twice then succeeds
+        call_count = 0
+        mock_record_metadata = MagicMock()
+        mock_record_metadata.partition = 0
+        mock_record_metadata.offset = 42
+
+        async def mock_send(*args: object, **kwargs: object) -> asyncio.Future[object]:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 3:
+                raise KafkaError("Temporary error")
+            future = asyncio.get_running_loop().create_future()
+            future.set_result(mock_record_metadata)
+            return future
+
+        mock_producer.send = AsyncMock(side_effect=mock_send)
+
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                max_retry_attempts=3,
+                retry_backoff_base=0.01,  # Fast retries for testing
+            )
+            event_bus = EventBusKafka(config=config)
+            await event_bus.start()
+
+            # This should succeed after retries
+            await event_bus.publish("test-topic", None, b"test")
+
+            # Verify send was called 3 times (2 failures + 1 success)
+            assert call_count == 3
+
+            await event_bus.close()
+
+    @pytest.mark.asyncio
+    async def test_publish_fails_after_all_retries(
+        self, mock_producer: AsyncMock
+    ) -> None:
+        """Test publish fails after exhausting all retries."""
+
+        async def mock_send(*args: object, **kwargs: object) -> None:
+            raise KafkaError("Persistent error")
+
+        mock_producer.send = AsyncMock(side_effect=mock_send)
+
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                max_retry_attempts=2,
+                retry_backoff_base=0.01,  # Fast retries for testing
+            )
+            event_bus = EventBusKafka(config=config)
+            await event_bus.start()
+
+            with pytest.raises(InfraConnectionError) as exc_info:
+                await event_bus.publish("test-topic", None, b"test")
+
+            assert "after 3 attempts" in str(exc_info.value)  # initial + 2 retries
+
+            await event_bus.close()
+
+
+class TestKafkaEventBusPublishOversizedPayload:
+    """OMN-16267: oversized payloads must fail fast, not burn the retry budget.
+
+    Before this fix, ``MessageSizeTooLargeError`` (aiokafka's client-side,
+    pre-network-I/O rejection when a payload exceeds ``max_request_size``) was
+    caught by the generic ``except KafkaError`` branch in
+    ``_publish_with_retry`` and retried like any transient broker error --
+    burning the full ``max_retry_attempts + 1`` budget with exponential
+    backoff sleeps against a rejection that is deterministic on the payload's
+    size and can never succeed on retry. The empirical symptom (OMN-16267,
+    fault-inject-1, 2026-08-19): every payload between the broker's real
+    ~1MB limit and the producer's misconfigured 4MiB ceiling passed client
+    validation, then burned 4 send attempts before failing.
+    """
+
+    @pytest.fixture
+    def mock_producer(self) -> AsyncMock:
+        """Create mock Kafka producer that can fail."""
+        producer = AsyncMock()
+        producer.start = AsyncMock()
+        producer.stop = AsyncMock()
+        producer._closed = False
+        return producer
+
+    @pytest.mark.asyncio
+    async def test_oversized_payload_fails_on_first_attempt_no_retry_burn(
+        self, mock_producer: AsyncMock
+    ) -> None:
+        """send() is called exactly once -- no retry budget burned."""
+        call_count = 0
+
+        async def mock_send(*args: object, **kwargs: object) -> None:
+            nonlocal call_count
+            call_count += 1
+            raise MessageSizeTooLargeError(
+                "The message is 2097152 bytes when serialized which is larger "
+                "than the maximum request size you have configured with the "
+                "max_request_size configuration"
+            )
+
+        mock_producer.send = AsyncMock(side_effect=mock_send)
+
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                max_retry_attempts=3,  # would be 4 total send attempts if retried
+                retry_backoff_base=5.0,  # deliberately slow -- a retry would make this test slow
+            )
+            event_bus = EventBusKafka(config=config)
+            await event_bus.start()
+
+            with pytest.raises(EventPayloadTooLargeError):
+                await event_bus.publish("test-topic", None, b"x" * 2_097_152)
+
+            # The core assertion: exactly ONE send() call, not
+            # max_retry_attempts + 1 (4). A retry-burn regression would call
+            # send() 4 times and (with retry_backoff_base=5.0) this test
+            # would also take several seconds instead of being near-instant.
+            assert call_count == 1
+
+            await event_bus.close()
+
+    @pytest.mark.asyncio
+    async def test_oversized_payload_raises_event_payload_too_large_error(
+        self, mock_producer: AsyncMock
+    ) -> None:
+        """Raises the correctly-attributed error type, not a generic connection error."""
+
+        async def mock_send(*args: object, **kwargs: object) -> None:
+            raise MessageSizeTooLargeError("message too large")
+
+        mock_producer.send = AsyncMock(side_effect=mock_send)
+
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                max_retry_attempts=3,
+                retry_backoff_base=0.01,
+            )
+            event_bus = EventBusKafka(config=config)
+            await event_bus.start()
+
+            payload = b"x" * 1_500_000
+            with pytest.raises(EventPayloadTooLargeError) as exc_info:
+                await event_bus.publish("test-topic", None, payload)
+
+            assert exc_info.value.payload_size_bytes == len(payload)
+            assert exc_info.value.max_request_size_bytes == config.max_request_size
+            assert exc_info.value.topic == "test-topic"
+            assert str(len(payload)) in str(exc_info.value)
+            assert str(config.max_request_size) in str(exc_info.value)
+
+            await event_bus.close()
+
+    @pytest.mark.asyncio
+    async def test_oversized_payload_does_not_open_circuit_breaker(
+        self, mock_producer: AsyncMock
+    ) -> None:
+        """A size rejection is not broker-health evidence -- must not trip the breaker.
+
+        Same rationale already applied to UnknownTopicOrPartitionError: a
+        healthy-broker size rejection must not degrade a subsequent,
+        differently-sized publish to a topic the broker is perfectly able to
+        serve.
+        """
+        call_log: list[bytes] = []
+        mock_record_metadata = MagicMock()
+        mock_record_metadata.partition = 0
+        mock_record_metadata.offset = 1
+        mock_record_metadata.topic = "test-topic"
+
+        async def mock_send(
+            topic: str, value: bytes, **kwargs: object
+        ) -> asyncio.Future[object]:
+            call_log.append(value)
+            if len(value) > 1_048_588:
+                raise MessageSizeTooLargeError("message too large")
+            future = asyncio.get_running_loop().create_future()
+            future.set_result(mock_record_metadata)
+            return future
+
+        mock_producer.send = AsyncMock(side_effect=mock_send)
+
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                max_retry_attempts=3,
+                retry_backoff_base=0.01,
+                circuit_breaker_threshold=1,  # trips on the FIRST recorded failure
+            )
+            event_bus = EventBusKafka(config=config)
+            await event_bus.start()
+
+            with pytest.raises(EventPayloadTooLargeError):
+                await event_bus.publish("test-topic", None, b"x" * 2_000_000)
+
+            # A normal-sized publish right after must still succeed -- proves
+            # the size rejection above did not trip the circuit breaker.
+            receipt = await event_bus.publish("test-topic", None, b"small")
+            assert receipt.partition == 0
+            assert receipt.offset == 1
+
+            await event_bus.close()
+
+
+class TestKafkaEventBusPublishEnvelope:
+    """Test suite for publish_envelope operation."""
+
+    @pytest.fixture
+    def mock_producer(self) -> AsyncMock:
+        """Create mock Kafka producer."""
+        producer = AsyncMock()
+        producer.start = AsyncMock()
+        producer.stop = AsyncMock()
+        producer._closed = False
+
+        mock_record_metadata = MagicMock()
+        mock_record_metadata.partition = 0
+        mock_record_metadata.offset = 42
+
+        async def mock_send(*args: object, **kwargs: object) -> asyncio.Future[object]:
+            future = asyncio.get_running_loop().create_future()
+            future.set_result(mock_record_metadata)
+            return future
+
+        producer.send = AsyncMock(side_effect=mock_send)
+        return producer
+
+    @pytest.mark.asyncio
+    async def test_publish_envelope_with_pydantic_model(
+        self, mock_producer: AsyncMock
+    ) -> None:
+        """Test publish_envelope with a Pydantic model."""
+
+        class TestEnvelope(BaseModel):
+            message: str
+            count: int
+
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                max_retry_attempts=0,
+            )
+            event_bus = EventBusKafka(config=config)
+            await event_bus.start()
+
+            envelope = TestEnvelope(message="hello", count=42)
+            await event_bus.publish_envelope(envelope, "test-topic")
+
+            # Verify the payload was serialized
+            call_args = mock_producer.send.call_args
+            value = call_args[1]["value"]
+            payload = json.loads(value)
+            assert payload["message"] == "hello"
+            assert payload["count"] == 42
+
+            await event_bus.close()
+
+    @pytest.mark.asyncio
+    async def test_publish_envelope_with_dict(self, mock_producer: AsyncMock) -> None:
+        """Test publish_envelope with a plain dict."""
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                max_retry_attempts=0,
+            )
+            event_bus = EventBusKafka(config=config)
+            await event_bus.start()
+
+            envelope = {"message": "hello", "count": 42}
+            await event_bus.publish_envelope(envelope, "test-topic")
+
+            # Verify the payload was serialized
+            call_args = mock_producer.send.call_args
+            value = call_args[1]["value"]
+            payload = json.loads(value)
+            assert payload["message"] == "hello"
+            assert payload["count"] == 42
+
+            await event_bus.close()
+
+
+class TestKafkaEventBusBroadcast:
+    """Test suite for broadcast and group send operations."""
+
+    @pytest.fixture
+    def mock_producer(self) -> AsyncMock:
+        """Create mock Kafka producer."""
+        producer = AsyncMock()
+        producer.start = AsyncMock()
+        producer.stop = AsyncMock()
+        producer._closed = False
+
+        mock_record_metadata = MagicMock()
+        mock_record_metadata.partition = 0
+        mock_record_metadata.offset = 42
+
+        async def mock_send(*args: object, **kwargs: object) -> asyncio.Future[object]:
+            future = asyncio.get_running_loop().create_future()
+            future.set_result(mock_record_metadata)
+            return future
+
+        producer.send = AsyncMock(side_effect=mock_send)
+        return producer
+
+    @pytest.mark.asyncio
+    async def test_broadcast_to_environment(self, mock_producer: AsyncMock) -> None:
+        """Test broadcast_to_environment publishes to correct topic."""
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                environment=TEST_ENVIRONMENT,
+                max_retry_attempts=0,
+            )
+            event_bus = EventBusKafka(config=config)
+            await event_bus.start()
+
+            await event_bus.broadcast_to_environment("test_cmd", {"key": "value"})
+
+            # Verify the topic is correct
+            call_args = mock_producer.send.call_args
+            assert call_args[0][0] == f"{TEST_ENVIRONMENT}.broadcast"
+
+            # Verify payload
+            value = call_args[1]["value"]
+            payload = json.loads(value)
+            assert payload["command"] == "test_cmd"
+            assert payload["payload"] == {"key": "value"}
+
+            await event_bus.close()
+
+    @pytest.mark.asyncio
+    async def test_broadcast_to_specific_environment(
+        self, mock_producer: AsyncMock
+    ) -> None:
+        """Test broadcast to a specific target environment."""
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                environment=TEST_ENVIRONMENT,
+                max_retry_attempts=0,
+            )
+            event_bus = EventBusKafka(config=config)
+            await event_bus.start()
+
+            await event_bus.broadcast_to_environment(
+                "deploy_cmd", {"version": "1.0"}, target_environment="production"
+            )
+
+            # Verify the topic is correct
+            call_args = mock_producer.send.call_args
+            assert call_args[0][0] == "production.broadcast"
+
+            await event_bus.close()
+
+    @pytest.mark.asyncio
+    async def test_send_to_group(self, mock_producer: AsyncMock) -> None:
+        """Test send_to_group publishes to correct topic."""
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                environment=TEST_ENVIRONMENT,
+                max_retry_attempts=0,
+            )
+            event_bus = EventBusKafka(config=config)
+            await event_bus.start()
+
+            await event_bus.send_to_group("test_cmd", {"key": "value"}, "target-group")
+
+            # Verify the topic is correct
+            call_args = mock_producer.send.call_args
+            assert call_args[0][0] == f"{TEST_ENVIRONMENT}.target-group"
+
+            # Verify payload
+            value = call_args[1]["value"]
+            payload = json.loads(value)
+            assert payload["command"] == "test_cmd"
+            assert payload["payload"] == {"key": "value"}
+
+            await event_bus.close()
+
+
+class TestKafkaEventBusHeaderConversion:
+    """Test suite for header conversion methods."""
+
+    def test_model_headers_to_kafka(self) -> None:
+        """Test conversion of ModelEventHeaders to Kafka format."""
+        event_bus = EventBusKafka()
+
+        headers = ModelEventHeaders(
+            source="test-source",
+            event_type="test-event",
+            priority="high",
+            routing_key="test.route",
+            timestamp=datetime.now(UTC),
+        )
+
+        kafka_headers = event_bus._model_headers_to_kafka(headers)
+
+        # Verify it's a list of tuples
+        assert isinstance(kafka_headers, list)
+        assert all(isinstance(h, tuple) for h in kafka_headers)
+
+        # Verify required headers exist
+        header_dict = dict(kafka_headers)
+        assert header_dict["source"] == b"test-source"
+        assert header_dict["event_type"] == b"test-event"
+        assert header_dict["priority"] == b"high"
+        assert header_dict["routing_key"] == b"test.route"
+
+    def test_kafka_headers_to_model(self) -> None:
+        """Test conversion of Kafka headers to ModelEventHeaders."""
+        event_bus = EventBusKafka()
+
+        kafka_headers = [
+            ("content_type", b"application/json"),
+            ("source", b"test-source"),
+            ("event_type", b"test-event"),
+            ("schema_version", b"2.0.0"),
+            ("idempotency_key", b"content-addressed-event-id"),
+        ]
+
+        headers = event_bus._kafka_headers_to_model(kafka_headers)
+
+        assert headers.content_type == "application/json"
+        assert headers.source == "test-source"
+        assert headers.event_type == "test-event"
+        assert headers.schema_version == "2.0.0"
+        assert headers.idempotency_key == "content-addressed-event-id"
+
+    def test_kafka_headers_to_model_rejects_duplicate_idempotency_key(self) -> None:
+        """A raw duplicate must not become a last-wins content assertion."""
+        event_bus = EventBusKafka()
+
+        with pytest.raises(ValueError, match="duplicate idempotency_key"):
+            event_bus._kafka_headers_to_model(
+                [
+                    ("idempotency_key", b"first"),
+                    ("idempotency_key", b"second"),
+                ]
+            )
+
+    def test_kafka_headers_to_model_rejects_nullable_then_valid_idempotency_key(
+        self,
+    ) -> None:
+        """A null header still occupies the single raw content-key slot."""
+        event_bus = EventBusKafka()
+
+        with pytest.raises(ValueError, match="duplicate idempotency_key"):
+            event_bus._kafka_headers_to_model(
+                [
+                    ("idempotency_key", None),
+                    ("idempotency_key", b"valid"),
+                ]
+            )
+
+    def test_kafka_headers_to_model_rejects_nullable_idempotency_key(self) -> None:
+        """A supplied null content assertion is malformed, never legacy absence."""
+        event_bus = EventBusKafka()
+
+        with pytest.raises(ValueError, match="nullable idempotency_key"):
+            event_bus._kafka_headers_to_model([("idempotency_key", None)])
+
+    def test_kafka_headers_to_model_empty(self) -> None:
+        """Test conversion with empty headers."""
+        event_bus = EventBusKafka()
+
+        headers = event_bus._kafka_headers_to_model(None)
+
+        assert headers.source == "unknown"
+        assert headers.event_type == "unknown"
+
+    def test_kafka_headers_to_model_empty_list(self) -> None:
+        """Test conversion with empty list."""
+        event_bus = EventBusKafka()
+
+        headers = event_bus._kafka_headers_to_model([])
+
+        assert headers.source == "unknown"
+        assert headers.event_type == "unknown"
+
+    def test_kafka_headers_to_model_invalid_uuid(self) -> None:
+        """Test conversion with invalid UUID formats - should generate new UUIDs."""
+        event_bus = EventBusKafka()
+
+        kafka_headers = [
+            ("correlation_id", b"not-a-valid-uuid"),
+            ("message_id", b"also-invalid"),
+            ("source", b"test-source"),
+            ("event_type", b"test-event"),
+        ]
+
+        headers = event_bus._kafka_headers_to_model(kafka_headers)
+
+        # Should generate new UUIDs when invalid format detected
+        assert headers.correlation_id is not None
+        assert headers.message_id is not None
+        assert str(headers.correlation_id) != "not-a-valid-uuid"
+        assert str(headers.message_id) != "also-invalid"
+        # Other fields should parse correctly
+        assert headers.source == "test-source"
+        assert headers.event_type == "test-event"
+
+    def test_kafka_headers_to_model_propagates_x_replay_count(self) -> None:
+        """OMN-14551 defect 3: ``_kafka_headers_to_model`` must carry the
+        inbound ``x-replay-count`` header (stamped by
+        ``node_dlq_replay_effect.engine_dlq_replay.DLQProducer.replay_message``
+        onto a republished message) into ``ModelEventHeaders.retry_count``.
+
+        Every ``ModelEventMessage`` the consume loop builds via
+        ``_kafka_msg_to_model`` flows through this method. The typed
+        ``_publish_to_dlq`` path (``mixin_kafka_dlq.py``) reads
+        ``failed_message.headers.retry_count`` directly with no header
+        translation of its own -- if this conversion does not populate that
+        field from ``x-replay-count``, that path is structurally 0 on every
+        replayed message regardless of any fix in ``_publish_raw_to_dlq``.
+        """
+        event_bus = EventBusKafka()
+
+        kafka_headers = [
+            ("source", b"test-source"),
+            ("event_type", b"test-event"),
+            ("x-replay-count", b"4"),
+        ]
+
+        headers = event_bus._kafka_headers_to_model(kafka_headers)
+
+        assert headers.retry_count == 4, (
+            "x-replay-count must be propagated into ModelEventHeaders."
+            "retry_count, not left at the default of 0"
+        )
+
+    def test_kafka_headers_to_model_x_replay_count_wins_over_stale_retry_count(
+        self,
+    ) -> None:
+        """When both a stale ``retry_count`` header and the authoritative
+        ``x-replay-count`` header are present, the replay lineage counter
+        must win -- ``retry_count`` is never stamped by the replay engine,
+        so its presence here would only ever be stale/unrelated data.
+        """
+        event_bus = EventBusKafka()
+
+        kafka_headers = [
+            ("source", b"test-source"),
+            ("event_type", b"test-event"),
+            ("retry_count", b"0"),
+            ("x-replay-count", b"3"),
+        ]
+
+        headers = event_bus._kafka_headers_to_model(kafka_headers)
+
+        assert headers.retry_count == 3
+
+    def test_kafka_headers_to_model_fails_closed_on_malformed_x_replay_count(
+        self,
+    ) -> None:
+        """OMN-14551 defect 4: a corrupted/forged ``x-replay-count`` header
+        must not reset ``retry_count`` to 0 -- that would silently reopen
+        the unbounded-replay amplification the header exists to bound. It
+        must fail CLOSED: produce a value guaranteed to trip
+        ``should_replay``'s ``retry_count >= max_replay_count`` guard.
+        """
+        event_bus = EventBusKafka()
+
+        kafka_headers = [
+            ("source", b"test-source"),
+            ("event_type", b"test-event"),
+            ("x-replay-count", b"not-an-int"),
+        ]
+
+        headers = event_bus._kafka_headers_to_model(kafka_headers)
+
+        assert headers.retry_count >= 1000, (
+            "a malformed x-replay-count header must fail closed to a value "
+            "that trips any realistic max_replay_count guard, not silently "
+            "default to 0"
+        )
+
+    def test_kafka_headers_to_model_fails_closed_on_negative_x_replay_count(
+        self,
+    ) -> None:
+        """Same fail-closed requirement as the malformed case, for a
+        negative (impossible) replay count."""
+        event_bus = EventBusKafka()
+
+        kafka_headers = [
+            ("source", b"test-source"),
+            ("event_type", b"test-event"),
+            ("x-replay-count", b"-1"),
+        ]
+
+        headers = event_bus._kafka_headers_to_model(kafka_headers)
+
+        assert headers.retry_count >= 1000, (
+            "a negative x-replay-count header must fail closed, not "
+            "silently default to 0"
+        )
+
+
+class TestKafkaEventBusMessageConversion:
+    """Test suite for message conversion methods."""
+
+    def test_kafka_msg_to_model(self) -> None:
+        """Test conversion of Kafka message to ModelEventMessage."""
+        event_bus = EventBusKafka()
+
+        # Create a mock Kafka message
+        mock_msg = MagicMock()
+        mock_msg.key = b"test-key"
+        mock_msg.value = b"test-value"
+        mock_msg.offset = 42
+        mock_msg.partition = 0
+        mock_msg.headers = [
+            ("source", b"test-source"),
+            ("event_type", b"test-event"),
+        ]
+
+        event_message = event_bus._kafka_msg_to_model(mock_msg, "test-topic")
+
+        assert event_message.topic == "test-topic"
+        assert event_message.key == b"test-key"
+        assert event_message.value == b"test-value"
+        assert event_message.offset == "42"
+        assert event_message.partition == 0
+        assert event_message.headers.source == "test-source"
+        assert event_message.headers.event_type == "test-event"
+
+    def test_kafka_msg_to_model_string_key(self) -> None:
+        """Test conversion handles string key by encoding to bytes."""
+        event_bus = EventBusKafka()
+
+        mock_msg = MagicMock()
+        mock_msg.key = "string-key"  # String instead of bytes
+        mock_msg.value = b"test-value"
+        mock_msg.offset = 0
+        mock_msg.partition = 0
+        mock_msg.headers = None
+
+        event_message = event_bus._kafka_msg_to_model(mock_msg, "test-topic")
+
+        assert event_message.key == b"string-key"
+
+    def test_kafka_msg_to_model_string_value(self) -> None:
+        """Test conversion handles string value by encoding to bytes."""
+        event_bus = EventBusKafka()
+
+        mock_msg = MagicMock()
+        mock_msg.key = None
+        mock_msg.value = "string-value"  # String instead of bytes
+        mock_msg.offset = 0
+        mock_msg.partition = 0
+        mock_msg.headers = None
+
+        event_message = event_bus._kafka_msg_to_model(mock_msg, "test-topic")
+
+        assert event_message.value == b"string-value"
+
+    def test_kafka_msg_to_model_none_key(self) -> None:
+        """Test conversion handles None key."""
+        event_bus = EventBusKafka()
+
+        mock_msg = MagicMock()
+        mock_msg.key = None
+        mock_msg.value = b"test-value"
+        mock_msg.offset = 0
+        mock_msg.partition = 0
+        mock_msg.headers = None
+
+        event_message = event_bus._kafka_msg_to_model(mock_msg, "test-topic")
+
+        assert event_message.key is None
+
+
+class TestKafkaEventBusConsumerManagement:
+    """Test suite for consumer lifecycle management."""
+
+    @pytest.fixture
+    def mock_producer(self) -> AsyncMock:
+        """Create mock Kafka producer."""
+        producer = AsyncMock()
+        producer.start = AsyncMock()
+        producer.stop = AsyncMock()
+        producer._closed = False
+        return producer
+
+    @pytest.fixture
+    def mock_consumer(self) -> AsyncMock:
+        """Create mock Kafka consumer."""
+        consumer = AsyncMock()
+        consumer.start = AsyncMock()
+        consumer.stop = AsyncMock()
+        # OMN-18640: the consume loop fetches with ``getmany``; an
+        # unconfigured AsyncMock returns a truthy mock and spins the loop.
+        consumer.getmany = _idle_fetch
+        consumer.assignment = lambda: set()
+        return consumer
+
+    @pytest.mark.asyncio
+    async def test_consumer_started_for_subscription(
+        self, mock_producer: AsyncMock, mock_consumer: AsyncMock
+    ) -> None:
+        """Test consumer is started when subscribing to a topic."""
+        with (
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+                return_value=mock_producer,
+            ),
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaConsumer",
+                return_value=mock_consumer,
+            ),
+        ):
+            config = ModelKafkaEventBusConfig(bootstrap_servers=TEST_BOOTSTRAP_SERVERS)
+            event_bus = EventBusKafka(config=config)
+            await event_bus.start()
+
+            async def handler(msg: ModelEventMessage) -> None:
+                pass
+
+            await event_bus.subscribe(
+                "test-topic", make_test_node_identity("1"), handler
+            )
+
+            # Consumer should be started for the topic
+            mock_consumer.start.assert_called_once()
+
+            await event_bus.close()
+
+    @pytest.mark.asyncio
+    async def test_close_stops_all_consumers(
+        self, mock_producer: AsyncMock, mock_consumer: AsyncMock
+    ) -> None:
+        """Test close stops all active consumers."""
+        with (
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+                return_value=mock_producer,
+            ),
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaConsumer",
+                return_value=mock_consumer,
+            ),
+        ):
+            config = ModelKafkaEventBusConfig(bootstrap_servers=TEST_BOOTSTRAP_SERVERS)
+            event_bus = EventBusKafka(config=config)
+            await event_bus.start()
+
+            async def handler(msg: ModelEventMessage) -> None:
+                pass
+
+            await event_bus.subscribe(
+                "test-topic", make_test_node_identity("1"), handler
+            )
+            await event_bus.close()
+
+            # Consumer should be stopped
+            mock_consumer.stop.assert_called_once()
+
+
+class TestKafkaEventBusConsumerGroupId:
+    """Test suite for _start_consumer_for_topic group_id handling."""
+
+    @pytest.fixture
+    def mock_producer(self) -> AsyncMock:
+        """Create mock Kafka producer."""
+        producer = AsyncMock()
+        producer.start = AsyncMock()
+        producer.stop = AsyncMock()
+        producer._closed = False
+        return producer
+
+    @pytest.fixture
+    def mock_consumer(self) -> AsyncMock:
+        """Create mock Kafka consumer."""
+        consumer = AsyncMock()
+        consumer.start = AsyncMock()
+        consumer.stop = AsyncMock()
+        # OMN-18640: the consume loop fetches with ``getmany``; an
+        # unconfigured AsyncMock returns a truthy mock and spins the loop.
+        consumer.getmany = _idle_fetch
+        consumer.assignment = lambda: set()
+        return consumer
+
+    @pytest.mark.asyncio
+    async def test_whitespace_only_group_id_raises_error(
+        self, mock_producer: AsyncMock
+    ) -> None:
+        """Test whitespace-only group_id raises ProtocolConfigurationError."""
+
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            config = ModelKafkaEventBusConfig(bootstrap_servers=TEST_BOOTSTRAP_SERVERS)
+            event_bus = EventBusKafka(config=config)
+
+            with pytest.raises(
+                ProtocolConfigurationError,
+                match="Consumer group ID is required",
+            ):
+                await event_bus._start_consumer_for_topic("test-topic", "   ")
+            assert event_bus._pending_consumer_keys == set()
+
+    @pytest.mark.asyncio
+    async def test_empty_group_id_raises_error(self, mock_producer: AsyncMock) -> None:
+        """Test empty group_id raises ProtocolConfigurationError."""
+
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            config = ModelKafkaEventBusConfig(bootstrap_servers=TEST_BOOTSTRAP_SERVERS)
+            event_bus = EventBusKafka(config=config)
+
+            with pytest.raises(
+                ProtocolConfigurationError,
+                match="Consumer group ID is required",
+            ):
+                await event_bus._start_consumer_for_topic("test-topic", "")
+            assert event_bus._pending_consumer_keys == set()
+
+    @pytest.mark.asyncio
+    async def test_cancelled_consumer_start_stops_consumer(
+        self, mock_producer: AsyncMock, mock_consumer: AsyncMock
+    ) -> None:
+        """Cancelled consumer startup must not leave an AIOKafkaConsumer open."""
+        mock_consumer.start = AsyncMock(side_effect=asyncio.CancelledError())
+        consumer_cls = MagicMock(return_value=mock_consumer)
+
+        with (
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+                return_value=mock_producer,
+            ),
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaConsumer",
+                consumer_cls,
+            ),
+        ):
+            config = ModelKafkaEventBusConfig(bootstrap_servers=TEST_BOOTSTRAP_SERVERS)
+            event_bus = EventBusKafka(config=config)
+
+            with pytest.raises(asyncio.CancelledError):
+                await event_bus._start_consumer_for_topic("test-topic", "test-group")
+
+        mock_consumer.stop.assert_awaited_once()
+        assert event_bus._pending_consumer_keys == set()
+        assert event_bus._group_consumers == {}
+
+    @pytest.mark.asyncio
+    async def test_group_id_not_double_suffixed(
+        self, mock_producer: AsyncMock, mock_consumer: AsyncMock
+    ) -> None:
+        """Test group_id already ending with .__t.{topic} is not double-suffixed."""
+        consumer_cls = MagicMock(return_value=mock_consumer)
+        with (
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+                return_value=mock_producer,
+            ),
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaConsumer",
+                consumer_cls,
+            ),
+        ):
+            config = ModelKafkaEventBusConfig(bootstrap_servers=TEST_BOOTSTRAP_SERVERS)
+            event_bus = EventBusKafka(config=config)
+
+            # group_id already ends with ".__t.events" — should NOT become
+            # "my-group.__t.events.__t.events"
+            await event_bus._start_consumer_for_topic("events", "my-group.__t.events")
+
+            # Verify the consumer was created with the un-doubled group_id
+            consumer_cls.assert_called_once()
+            call_kwargs = consumer_cls.call_args
+            assert call_kwargs.kwargs["group_id"] == "my-group.__t.events"
+
+    @pytest.mark.asyncio
+    async def test_group_id_gets_topic_suffix_when_missing(
+        self, mock_producer: AsyncMock, mock_consumer: AsyncMock
+    ) -> None:
+        """Test normal group_id gets .__t.{topic} appended."""
+        consumer_cls = MagicMock(return_value=mock_consumer)
+        with (
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+                return_value=mock_producer,
+            ),
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaConsumer",
+                consumer_cls,
+            ),
+        ):
+            config = ModelKafkaEventBusConfig(bootstrap_servers=TEST_BOOTSTRAP_SERVERS)
+            event_bus = EventBusKafka(config=config)
+
+            await event_bus._start_consumer_for_topic("my-topic", "my-group")
+
+            consumer_cls.assert_called_once()
+            call_kwargs = consumer_cls.call_args
+            assert call_kwargs.kwargs["group_id"] == "my-group.__t.my-topic"
+
+    @pytest.mark.asyncio
+    async def test_group_id_partial_match_still_suffixed(
+        self, mock_producer: AsyncMock, mock_consumer: AsyncMock
+    ) -> None:
+        """Test group_id with partial topic match still gets suffix appended.
+
+        For example, group_id="my-group.event" with topic="events" should
+        become "my-group.event.__t.events" (not treated as already-suffixed).
+        """
+        consumer_cls = MagicMock(return_value=mock_consumer)
+        with (
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+                return_value=mock_producer,
+            ),
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaConsumer",
+                consumer_cls,
+            ),
+        ):
+            config = ModelKafkaEventBusConfig(bootstrap_servers=TEST_BOOTSTRAP_SERVERS)
+            event_bus = EventBusKafka(config=config)
+
+            await event_bus._start_consumer_for_topic("events", "my-group.event")
+
+            consumer_cls.assert_called_once()
+            call_kwargs = consumer_cls.call_args
+            assert call_kwargs.kwargs["group_id"] == "my-group.event.__t.events"
+
+    @pytest.mark.asyncio
+    async def test_group_id_coincidental_suffix_not_false_positive(
+        self, mock_producer: AsyncMock, mock_consumer: AsyncMock
+    ) -> None:
+        """Test that coincidental endswith match does not skip suffix.
+
+        This is the core false-positive scenario: group_id="foo.bar" with
+        topic="bar" would previously match ".bar" via endswith and incorrectly
+        skip suffixing.  With the .__t. delimiter, the suffix is always applied
+        because "foo.bar" does not end with ".__t.bar".
+        """
+        consumer_cls = MagicMock(return_value=mock_consumer)
+        with (
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+                return_value=mock_producer,
+            ),
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaConsumer",
+                consumer_cls,
+            ),
+        ):
+            config = ModelKafkaEventBusConfig(bootstrap_servers=TEST_BOOTSTRAP_SERVERS)
+            event_bus = EventBusKafka(config=config)
+
+            await event_bus._start_consumer_for_topic("bar", "foo.bar")
+
+            consumer_cls.assert_called_once()
+            call_kwargs = consumer_cls.call_args
+            # Previously this would incorrectly remain "foo.bar" due to
+            # endswith(".bar") matching.  Now it correctly gets the topic suffix.
+            assert call_kwargs.kwargs["group_id"] == "foo.bar.__t.bar"
+
+
+class TestKafkaEventBusInstanceDiscriminator:
+    """Test suite for instance-discriminated consumer group IDs (OMN-2251).
+
+    Verifies that:
+    - When instance_id is None, consumer group IDs are unchanged
+    - When instance_id is set, .__i.{instance_id} is inserted before .__t.{topic}
+    - Multi-container dev environments get unique consumer group IDs
+    """
+
+    @pytest.fixture
+    def mock_producer(self) -> AsyncMock:
+        """Create mock Kafka producer."""
+        producer = AsyncMock()
+        producer.start = AsyncMock()
+        producer.stop = AsyncMock()
+        producer._closed = False
+        return producer
+
+    @pytest.fixture
+    def mock_consumer(self) -> AsyncMock:
+        """Create mock Kafka consumer."""
+        consumer = AsyncMock()
+        consumer.start = AsyncMock()
+        consumer.stop = AsyncMock()
+        # OMN-18640: the consume loop fetches with ``getmany``; an
+        # unconfigured AsyncMock returns a truthy mock and spins the loop.
+        consumer.getmany = _idle_fetch
+        consumer.assignment = lambda: set()
+        return consumer
+
+    @pytest.mark.asyncio
+    async def test_no_instance_id_unchanged_behavior(
+        self, mock_producer: AsyncMock, mock_consumer: AsyncMock
+    ) -> None:
+        """Test that consumer group ID is unchanged when instance_id is None."""
+        consumer_cls = MagicMock(return_value=mock_consumer)
+        with (
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+                return_value=mock_producer,
+            ),
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaConsumer",
+                consumer_cls,
+            ),
+        ):
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                instance_id=None,
+            )
+            event_bus = EventBusKafka(config=config)
+
+            await event_bus._start_consumer_for_topic("events", "my-group")
+
+            consumer_cls.assert_called_once()
+            call_kwargs = consumer_cls.call_args
+            # No instance discriminator, just topic suffix
+            assert call_kwargs.kwargs["group_id"] == "my-group.__t.events"
+
+    @pytest.mark.asyncio
+    async def test_instance_id_appended_before_topic_suffix(
+        self, mock_producer: AsyncMock, mock_consumer: AsyncMock
+    ) -> None:
+        """Test that instance_id is inserted as .__i.{id} before .__t.{topic}."""
+        consumer_cls = MagicMock(return_value=mock_consumer)
+        with (
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+                return_value=mock_producer,
+            ),
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaConsumer",
+                consumer_cls,
+            ),
+        ):
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                instance_id="container-1",
+            )
+            event_bus = EventBusKafka(config=config)
+
+            await event_bus._start_consumer_for_topic("events", "my-group")
+
+            consumer_cls.assert_called_once()
+            call_kwargs = consumer_cls.call_args
+            assert (
+                call_kwargs.kwargs["group_id"] == "my-group.__i.container-1.__t.events"
+            )
+
+    @pytest.mark.asyncio
+    async def test_different_instance_ids_produce_different_groups(
+        self, mock_producer: AsyncMock, mock_consumer: AsyncMock
+    ) -> None:
+        """Test that different instance_ids produce different consumer group IDs."""
+        consumer_cls = MagicMock(return_value=mock_consumer)
+
+        group_ids: list[str] = []
+        for instance_id in ["container-1", "container-2"]:
+            consumer_cls.reset_mock()
+            mock_consumer.reset_mock()
+            with (
+                patch(
+                    "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+                    return_value=mock_producer,
+                ),
+                patch(
+                    "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaConsumer",
+                    consumer_cls,
+                ),
+            ):
+                config = ModelKafkaEventBusConfig(
+                    bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                    instance_id=instance_id,
+                )
+                event_bus = EventBusKafka(config=config)
+
+                await event_bus._start_consumer_for_topic("events", "my-group")
+
+                call_kwargs = consumer_cls.call_args
+                group_ids.append(call_kwargs.kwargs["group_id"])
+
+        # Different instance IDs must produce different group IDs
+        assert group_ids[0] != group_ids[1]
+        assert "container-1" in group_ids[0]
+        assert "container-2" in group_ids[1]
+
+    @pytest.mark.asyncio
+    async def test_instance_id_from_env_var(
+        self, mock_producer: AsyncMock, mock_consumer: AsyncMock
+    ) -> None:
+        """Test that KAFKA_INSTANCE_ID environment variable is picked up."""
+        consumer_cls = MagicMock(return_value=mock_consumer)
+        with (
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+                return_value=mock_producer,
+            ),
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaConsumer",
+                consumer_cls,
+            ),
+            patch.dict("os.environ", {"KAFKA_INSTANCE_ID": "pod-xyz"}),
+        ):
+            config = ModelKafkaEventBusConfig.default()
+            event_bus = EventBusKafka(config=config)
+
+            await event_bus._start_consumer_for_topic("events", "my-group")
+
+            consumer_cls.assert_called_once()
+            call_kwargs = consumer_cls.call_args
+            assert ".__i.pod-xyz" in call_kwargs.kwargs["group_id"]
+
+    @pytest.mark.asyncio
+    async def test_empty_instance_id_preserves_original_behavior(
+        self, mock_producer: AsyncMock, mock_consumer: AsyncMock
+    ) -> None:
+        """Test that empty string instance_id preserves single-container behavior."""
+        consumer_cls = MagicMock(return_value=mock_consumer)
+        with (
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+                return_value=mock_producer,
+            ),
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaConsumer",
+                consumer_cls,
+            ),
+        ):
+            # Empty string should behave same as None
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                instance_id="",
+            )
+            event_bus = EventBusKafka(config=config)
+
+            await event_bus._start_consumer_for_topic("events", "my-group")
+
+            consumer_cls.assert_called_once()
+            call_kwargs = consumer_cls.call_args
+            # No instance discriminator
+            assert call_kwargs.kwargs["group_id"] == "my-group.__t.events"
+
+    @pytest.mark.asyncio
+    async def test_pre_scoped_group_id_with_instance_id_no_double_topic_suffix(
+        self, mock_producer: AsyncMock, mock_consumer: AsyncMock
+    ) -> None:
+        """Test pre-scoped group_id with instance_id does not double topic suffix.
+
+        When a group_id already ends with .__t.{topic} (pre-scoped) and
+        instance_id is set, the instance discriminator must be inserted
+        between the base and the topic suffix, NOT after it.
+
+        Without the fix this would produce:
+            my-group.__t.events.__i.c1.__t.events  (WRONG)
+        Correct result:
+            my-group.__i.c1.__t.events
+        """
+        consumer_cls = MagicMock(return_value=mock_consumer)
+        with (
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+                return_value=mock_producer,
+            ),
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaConsumer",
+                consumer_cls,
+            ),
+        ):
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                instance_id="c1",
+            )
+            event_bus = EventBusKafka(config=config)
+
+            # group_id already ends with .__t.events (pre-scoped)
+            await event_bus._start_consumer_for_topic("events", "my-group.__t.events")
+
+            consumer_cls.assert_called_once()
+            call_kwargs = consumer_cls.call_args
+            # Instance discriminator inserted between base and topic suffix
+            assert call_kwargs.kwargs["group_id"] == "my-group.__i.c1.__t.events"
+
+    @pytest.mark.asyncio
+    async def test_whitespace_only_instance_id_treated_as_empty(
+        self, mock_producer: AsyncMock, mock_consumer: AsyncMock
+    ) -> None:
+        """Test that whitespace-only instance_id is treated as empty (no discrimination).
+
+        apply_instance_discriminator() treats whitespace-only the same as empty
+        string: silently returns the group_id unchanged. The consumer should
+        start normally with the base group_id + topic suffix (no instance
+        discriminator segment).
+        """
+        consumer_cls = MagicMock(return_value=mock_consumer)
+        with (
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+                return_value=mock_producer,
+            ),
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaConsumer",
+                consumer_cls,
+            ),
+        ):
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                instance_id="   ",
+            )
+            event_bus = EventBusKafka(config=config)
+
+            await event_bus._start_consumer_for_topic("events", "my-group")
+
+            # Whitespace-only instance_id means no .__i. segment; only topic suffix
+            call_kwargs = consumer_cls.call_args_list[-1]
+            assert call_kwargs.kwargs["group_id"] == "my-group.__t.events"
+
+    @pytest.mark.asyncio
+    async def test_effective_group_id_enforces_max_length(
+        self, mock_producer: AsyncMock, mock_consumer: AsyncMock
+    ) -> None:
+        """Test that effective_group_id does not exceed Kafka's 255-char limit.
+
+        When base_group_id + instance discriminator + topic suffix exceed
+        255 characters, the final ID must be truncated with a hash suffix.
+        """
+        consumer_cls = MagicMock(return_value=mock_consumer)
+        with (
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+                return_value=mock_producer,
+            ),
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaConsumer",
+                consumer_cls,
+            ),
+        ):
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                instance_id="b" * 20,
+            )
+            event_bus = EventBusKafka(config=config)
+
+            # Long group_id + instance_id + topic suffix should exceed 255
+            long_group_id = "a" * 230
+            await event_bus._start_consumer_for_topic("events", long_group_id)
+
+            consumer_cls.assert_called_once()
+            call_kwargs = consumer_cls.call_args
+            assert (
+                len(call_kwargs.kwargs["group_id"]) <= KAFKA_CONSUMER_GROUP_MAX_LENGTH
+            )
+
+    @pytest.mark.asyncio
+    async def test_truncation_with_very_long_topic_name(
+        self, mock_producer: AsyncMock, mock_consumer: AsyncMock
+    ) -> None:
+        """Test truncation when topic name approaches 255 chars.
+
+        When the topic suffix (.__t.{topic}) is so long that
+        available_for_prefix <= 0, the code falls back to plain prefix
+        truncation without suffix preservation.
+        """
+        consumer_cls = MagicMock(return_value=mock_consumer)
+        with (
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+                return_value=mock_producer,
+            ),
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaConsumer",
+                consumer_cls,
+            ),
+        ):
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                instance_id=None,
+            )
+            event_bus = EventBusKafka(config=config)
+
+            # Topic name of 240 chars: .__t. prefix (5 chars) + 240 = 245 suffix
+            # With a group_id of 20 chars: 20 + 245 = 265 > 255
+            # available_for_prefix = 255 - 245 - 9 = 1, still > 0 but very small
+            long_topic = "t" * 240
+            await event_bus._start_consumer_for_topic(long_topic, "a" * 20)
+
+            consumer_cls.assert_called_once()
+            call_kwargs = consumer_cls.call_args
+            effective_gid = call_kwargs.kwargs["group_id"]
+            assert len(effective_gid) <= KAFKA_CONSUMER_GROUP_MAX_LENGTH
+
+    @pytest.mark.asyncio
+    async def test_truncation_hash_fallback_path(
+        self, mock_producer: AsyncMock, mock_consumer: AsyncMock
+    ) -> None:
+        """Test the hash-only fallback when topic suffix + hash exceed max length.
+
+        When the topic suffix alone is so long that there is no room for the
+        prefix (available_for_prefix <= 0), the code falls back to plain
+        hash truncation without preserving the topic suffix.
+        """
+        consumer_cls = MagicMock(return_value=mock_consumer)
+        with (
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+                return_value=mock_producer,
+            ),
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaConsumer",
+                consumer_cls,
+            ),
+        ):
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                instance_id=None,
+            )
+            event_bus = EventBusKafka(config=config)
+
+            # Topic suffix = ".__t." + 250 chars = 255 chars
+            # available_for_prefix = 255 - 255 - 9 = -9, triggers fallback
+            very_long_topic = "x" * 250
+            await event_bus._start_consumer_for_topic(very_long_topic, "base-group")
+
+            consumer_cls.assert_called_once()
+            call_kwargs = consumer_cls.call_args
+            effective_gid = call_kwargs.kwargs["group_id"]
+            assert len(effective_gid) <= KAFKA_CONSUMER_GROUP_MAX_LENGTH
+
+    @pytest.mark.asyncio
+    async def test_truncation_preserves_topic_suffix_when_possible(
+        self, mock_producer: AsyncMock, mock_consumer: AsyncMock
+    ) -> None:
+        """Test that the topic suffix is preserved during truncation when space allows."""
+        consumer_cls = MagicMock(return_value=mock_consumer)
+        with (
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+                return_value=mock_producer,
+            ),
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaConsumer",
+                consumer_cls,
+            ),
+        ):
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                instance_id="inst-1",
+            )
+            event_bus = EventBusKafka(config=config)
+
+            # Use a group_id long enough to trigger truncation but with a
+            # short topic so the suffix can be preserved.
+            long_group_id = "g" * 240
+            topic = "events"
+            await event_bus._start_consumer_for_topic(topic, long_group_id)
+
+            consumer_cls.assert_called_once()
+            call_kwargs = consumer_cls.call_args
+            effective_gid = call_kwargs.kwargs["group_id"]
+            assert len(effective_gid) <= KAFKA_CONSUMER_GROUP_MAX_LENGTH
+            # Topic suffix should be preserved at the end
+            assert effective_gid.endswith(f".__t.{topic}")
+
+
+class TestKafkaEventBusStartConsuming:
+    """Test suite for start_consuming operation."""
+
+    @pytest.fixture
+    def mock_producer(self) -> AsyncMock:
+        """Create mock Kafka producer."""
+        producer = AsyncMock()
+        producer.start = AsyncMock()
+        producer.stop = AsyncMock()
+        producer._closed = False
+        return producer
+
+    @pytest.mark.asyncio
+    async def test_start_consuming_auto_starts(self, mock_producer: AsyncMock) -> None:
+        """Test that start_consuming auto-starts the bus."""
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            config = ModelKafkaEventBusConfig(bootstrap_servers=TEST_BOOTSTRAP_SERVERS)
+            event_bus = EventBusKafka(config=config)
+
+            # Create a task that starts consuming
+            async def consume_briefly() -> None:
+                task = asyncio.create_task(event_bus.start_consuming())
+                await asyncio.sleep(0.1)  # Let it start
+                await event_bus.shutdown()  # Stop it
+                await task
+
+            await consume_briefly()
+
+            # After shutdown, bus should be stopped
+            health = await event_bus.health_check()
+            assert health["started"] is False
+
+    @pytest.mark.asyncio
+    async def test_start_consuming_exits_on_shutdown(
+        self, mock_producer: AsyncMock
+    ) -> None:
+        """Test that start_consuming exits when shutdown is called."""
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            config = ModelKafkaEventBusConfig(bootstrap_servers=TEST_BOOTSTRAP_SERVERS)
+            event_bus = EventBusKafka(config=config)
+            await event_bus.start()
+
+            consuming_started = asyncio.Event()
+
+            async def consume_with_signal() -> None:
+                consuming_started.set()
+                await event_bus.start_consuming()
+
+            task = asyncio.create_task(consume_with_signal())
+
+            # Wait for consuming to start
+            await consuming_started.wait()
+            await asyncio.sleep(0.15)
+
+            # Shutdown should stop consuming
+            await event_bus.shutdown()
+
+            # Task should complete
+            await asyncio.wait_for(task, timeout=1.0)
+
+    @pytest.mark.asyncio
+    async def test_start_consuming_starts_consumers_concurrently(
+        self, mock_producer: AsyncMock
+    ) -> None:
+        """start_consuming() launches all consumers concurrently via asyncio.gather.
+
+        Verifies that _start_consumer_for_topic_unlocked is called once per
+        distinct (topic, group_id) pair, that pending keys are reserved inside
+        the lock before any concurrent call begins (no duplicates), and that
+        the wall-clock order of completion does not cause double-starts.
+        """
+        call_log: list[tuple[str, str]] = []
+
+        async def fake_start_unlocked(
+            topic: str, group_id: str, *, auto_offset_reset_override: str | None = None
+        ) -> None:
+            call_log.append((topic, group_id))
+            # Yield control to simulate concurrent group-join latency
+            await asyncio.sleep(0)
+
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            config = ModelKafkaEventBusConfig(bootstrap_servers=TEST_BOOTSTRAP_SERVERS)
+            event_bus = EventBusKafka(config=config)
+            await event_bus.start()
+
+            # Pre-register three distinct subscriptions without triggering
+            # consumer startup (bus is already started but we bypass it here by
+            # directly injecting into _subscribers so we can test start_consuming
+            # in isolation).
+            group_id_a = "svc-a"
+            group_id_b = "svc-b"
+
+            async with event_bus._lock:
+                event_bus._subscribers["topic-x"] = [
+                    (group_id_a, "sub-1", AsyncMock()),
+                    (group_id_b, "sub-2", AsyncMock()),
+                ]
+                event_bus._subscribers["topic-y"] = [
+                    (group_id_a, "sub-3", AsyncMock()),
+                ]
+
+            event_bus._start_consumer_for_topic_unlocked = fake_start_unlocked  # type: ignore[method-assign]
+
+            # Run start_consuming briefly then shut down
+            task = asyncio.create_task(event_bus.start_consuming())
+            await asyncio.sleep(0.1)
+            await event_bus.shutdown()
+            await asyncio.wait_for(task, timeout=2.0)
+
+        # Each distinct (topic, group_id) pair must be started exactly once
+        assert len(call_log) == 3
+        assert len(set(call_log)) == 3, "duplicate consumer starts detected"
+
+
+class TestKafkaEventBusConfig:
+    """Test suite for config-based EventBusKafka construction."""
+
+    def test_default_factory_creates_bus(self) -> None:
+        """Test default() factory method creates a valid bus."""
+        bus = EventBusKafka.default()
+        assert bus is not None
+        assert bus.config is not None
+        assert bus.environment == bus.config.environment
+
+    def test_from_config_creates_bus(self) -> None:
+        """Test from_config() factory method."""
+        config = ModelKafkaEventBusConfig(
+            bootstrap_servers="custom:9092",
+            environment="staging",
+        )
+        bus = EventBusKafka.from_config(config)
+
+        assert bus.config == config
+        assert bus.environment == "staging"
+
+    def test_config_property_returns_model(self) -> None:
+        """Test config property returns the config model."""
+        config = ModelKafkaEventBusConfig.default()
+        bus = EventBusKafka(config=config)
+
+        assert bus.config == config
+        assert isinstance(bus.config, ModelKafkaEventBusConfig)
+
+    def test_config_only_initialization(self) -> None:
+        """Test that EventBusKafka only accepts config-driven initialization."""
+        config = ModelKafkaEventBusConfig(
+            bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+            environment=TEST_ENVIRONMENT,
+        )
+        bus = EventBusKafka(config=config)
+
+        assert bus.environment == TEST_ENVIRONMENT
+        assert bus.config.bootstrap_servers == TEST_BOOTSTRAP_SERVERS
+
+    def test_from_yaml_creates_bus(self, tmp_path: Path) -> None:
+        """Test from_yaml() factory method with a temporary config file."""
+        config_content = """bootstrap_servers: "yaml-server:9092"
+environment: "dev"
+timeout_seconds: 45
+max_retry_attempts: 5
+retry_backoff_base: 2.0
+circuit_breaker_threshold: 10
+circuit_breaker_reset_timeout: 60.0
+consumer_sleep_interval: 0.2
+acks: "all"
+enable_idempotence: true
+auto_offset_reset: "earliest"
+enable_auto_commit: false
+"""
+        config_file = tmp_path / "test_config.yaml"
+        config_file.write_text(config_content)
+
+        bus = EventBusKafka.from_yaml(config_file)
+
+        # KAFKA_ENVIRONMENT env var may override the YAML value;
+        # the YAML specifies "dev" but env override takes precedence.
+        assert bus.environment in ("dev", "local", "staging", "prod")
+        assert bus.config.timeout_seconds == 45
+        assert bus.config.max_retry_attempts == 5
+        assert bus.config.retry_backoff_base == 2.0
+        assert bus.config.circuit_breaker_threshold == 10
+        assert bus.config.auto_offset_reset == "earliest"
+        assert bus.config.enable_auto_commit is False
+
+    def test_from_yaml_file_not_found(self, tmp_path: Path) -> None:
+        """Test from_yaml() raises ProtocolConfigurationError for missing file."""
+
+        missing_file = tmp_path / "nonexistent.yaml"
+
+        with pytest.raises(
+            ProtocolConfigurationError, match="Configuration file not found"
+        ):
+            EventBusKafka.from_yaml(missing_file)
+
+    def test_from_yaml_invalid_yaml_syntax(self, tmp_path: Path) -> None:
+        """Test from_yaml() raises ProtocolConfigurationError for invalid YAML."""
+
+        config_file = tmp_path / "invalid.yaml"
+        config_file.write_text("invalid: yaml: syntax: [")
+
+        with pytest.raises(ProtocolConfigurationError, match="Failed to parse YAML"):
+            EventBusKafka.from_yaml(config_file)
+
+    def test_from_yaml_non_dict_content(self, tmp_path: Path) -> None:
+        """Test from_yaml() raises ProtocolConfigurationError for non-dict YAML."""
+
+        config_file = tmp_path / "list.yaml"
+        config_file.write_text("- item1\n- item2\n")
+
+        with pytest.raises(ProtocolConfigurationError, match="must be a dictionary"):
+            EventBusKafka.from_yaml(config_file)
+
+    def test_config_defaults_match_property_defaults(self) -> None:
+        """Test that config defaults match the documented property defaults."""
+        bus = EventBusKafka()  # No config, uses internal default
+
+        assert bus.environment == "local"
+        assert bus.config.timeout_seconds == 30
+        assert bus.config.max_retry_attempts == 3
+        assert bus.config.circuit_breaker_threshold == 5
+
+    def test_config_with_all_parameters(self) -> None:
+        """Test config with all parameters explicitly set."""
+        config = ModelKafkaEventBusConfig(
+            bootstrap_servers="custom-broker:19092",
+            environment="prod",
+            timeout_seconds=60,
+            max_retry_attempts=5,
+            retry_backoff_base=2.0,
+            circuit_breaker_threshold=10,
+            circuit_breaker_reset_timeout=60.0,
+            consumer_sleep_interval=0.5,
+            acks="1",
+            enable_idempotence=False,
+            auto_offset_reset="earliest",
+            enable_auto_commit=False,
+        )
+        bus = EventBusKafka.from_config(config)
+
+        assert bus.config == config
+        assert bus.environment == "prod"
+        assert bus.config.acks == "1"
+        assert bus.config.enable_idempotence is False
+
+
+class TestKafkaEventBusDLQRouting:
+    """Test suite for Dead Letter Queue (DLQ) routing.
+
+    Verifies OMN-949 acceptance criteria: "No silent drops"
+    - Deserialization errors route to DLQ
+    - Handler failures with exhausted retries route to DLQ
+    - Handler failures with remaining retries do NOT route to DLQ
+    """
+
+    @pytest.fixture
+    def mock_producer(self) -> AsyncMock:
+        """Create mock Kafka producer with DLQ support."""
+        producer = AsyncMock()
+        producer.start = AsyncMock()
+        producer.stop = AsyncMock()
+        producer._closed = False
+
+        mock_record_metadata = MagicMock()
+        mock_record_metadata.partition = 0
+        mock_record_metadata.offset = 42
+
+        async def mock_send(*args, **kwargs):
+            future = asyncio.get_running_loop().create_future()
+            future.set_result(mock_record_metadata)
+            return future
+
+        async def mock_send_and_wait(*args: object, **kwargs: object) -> MagicMock:
+            return mock_record_metadata
+
+        producer.send = AsyncMock(side_effect=mock_send)
+        producer.send_and_wait = AsyncMock(side_effect=mock_send_and_wait)
+        return producer
+
+    @pytest.fixture
+    def dlq_config(self) -> ModelKafkaEventBusConfig:
+        """Create config with DLQ enabled."""
+        return ModelKafkaEventBusConfig(
+            bootstrap_servers="localhost:9092",
+            environment="dev",
+            dead_letter_topic="dlq-events",
+        )
+
+    @pytest.mark.asyncio
+    async def test_deserialization_error_routes_to_dlq(
+        self, mock_producer: AsyncMock, dlq_config: ModelKafkaEventBusConfig
+    ) -> None:
+        """Test that deserialization errors are routed to DLQ.
+
+        OMN-949: No silent drops - malformed messages must go to DLQ.
+        PR #90 feedback: Assert DLQ metrics are incremented.
+        """
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            event_bus = EventBusKafka(config=dlq_config)
+            await event_bus.start()
+
+            # Capture initial metrics
+            initial_metrics = event_bus.dlq_metrics
+            assert initial_metrics.total_publishes == 0
+            assert initial_metrics.successful_publishes == 0
+
+            # Simulate a raw Kafka message that will fail deserialization
+            mock_raw_msg = MagicMock()
+            mock_raw_msg.key = b"test-key"
+            mock_raw_msg.value = b"malformed-data"
+            mock_raw_msg.offset = 100
+            mock_raw_msg.partition = 0
+
+            # Call the raw DLQ publish method directly
+            from uuid import uuid4
+
+            correlation_id = uuid4()
+            error = ValueError("Invalid message format")
+
+            await event_bus._publish_raw_to_dlq(
+                original_topic="source-topic",
+                raw_msg=mock_raw_msg,
+                error=error,
+                correlation_id=correlation_id,
+                failure_type="deserialization_error",
+                consumer_group="test.test-service.dlq-test.consume.v1",
+            )
+
+            # Verify DLQ publish was called (using send_and_wait for cleaner timeout handling)
+            assert mock_producer.send_and_wait.called
+            # First send_and_wait call is the DLQ topic; second is the aggregation
+            # cross-publish (OMN-6136).  Use call_args_list[0] for the DLQ call.
+            call_args = mock_producer.send_and_wait.call_args_list[0]
+
+            # Verify the topic is the DLQ topic
+            assert call_args[0][0] == "dlq-events"
+
+            # Verify the value contains failure metadata
+            value = call_args[1]["value"]
+            payload = json.loads(value)
+            assert payload["original_topic"] == "source-topic"
+            assert payload["failure_type"] == "deserialization_error"
+            assert "Invalid message format" in payload["failure_reason"]
+            assert payload["error_type"] == "ValueError"
+
+            # Verify DLQ metrics were incremented (PR #90 feedback)
+            final_metrics = event_bus.dlq_metrics
+            assert final_metrics.total_publishes == 1, (
+                "DLQ total_publishes should be incremented on publish"
+            )
+            assert final_metrics.successful_publishes == 1, (
+                "DLQ successful_publishes should be incremented on success"
+            )
+            assert final_metrics.failed_publishes == 0
+            assert final_metrics.get_topic_count("source-topic") == 1
+            assert final_metrics.get_error_type_count("ValueError") == 1
+
+            await event_bus.close()
+
+    @pytest.mark.asyncio
+    async def test_handler_failure_with_exhausted_retries_routes_to_dlq(
+        self, mock_producer: AsyncMock, dlq_config: ModelKafkaEventBusConfig
+    ) -> None:
+        """Test that handler failures with exhausted retries are routed to DLQ.
+
+        OMN-949: When retry_count >= max_retries, message MUST go to DLQ.
+        PR #90 feedback: Assert DLQ metrics are incremented.
+        """
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            event_bus = EventBusKafka(config=dlq_config)
+            await event_bus.start()
+
+            # Capture initial metrics
+            initial_metrics = event_bus.dlq_metrics
+            assert initial_metrics.total_publishes == 0
+            assert initial_metrics.successful_publishes == 0
+
+            # Create a message with exhausted retries
+            from uuid import uuid4
+
+            correlation_id = uuid4()
+            headers = ModelEventHeaders(
+                source="test-source",
+                event_type="test-event",
+                correlation_id=correlation_id,
+                timestamp=datetime.now(UTC),
+                retry_count=3,  # Exhausted
+                max_retries=3,
+            )
+            failed_message = ModelEventMessage(
+                topic="source-topic",
+                key=b"test-key",
+                value=b"test-value",
+                headers=headers,
+            )
+            error = RuntimeError("Handler processing failed")
+
+            await event_bus._publish_to_dlq(
+                original_topic="source-topic",
+                failed_message=failed_message,
+                error=error,
+                correlation_id=correlation_id,
+                consumer_group="test.test-service.dlq-test.consume.v1",
+            )
+
+            # Verify DLQ publish was called (using send_and_wait for cleaner timeout handling)
+            assert mock_producer.send_and_wait.called
+            # First send_and_wait call is the DLQ topic; second is the aggregation
+            # cross-publish (OMN-6136).  Use call_args_list[0] for the DLQ call.
+            call_args = mock_producer.send_and_wait.call_args_list[0]
+
+            # Verify the topic is the DLQ topic
+            assert call_args[0][0] == "dlq-events"
+
+            # Verify the value contains failure metadata
+            value = call_args[1]["value"]
+            payload = json.loads(value)
+            assert payload["original_topic"] == "source-topic"
+            assert payload["retry_count"] == 3
+            assert "Handler processing failed" in payload["failure_reason"]
+
+            # Verify DLQ metrics were incremented (PR #90 feedback)
+            final_metrics = event_bus.dlq_metrics
+            assert final_metrics.total_publishes == 1, (
+                "DLQ total_publishes should be incremented on publish"
+            )
+            assert final_metrics.successful_publishes == 1, (
+                "DLQ successful_publishes should be incremented on success"
+            )
+            assert final_metrics.failed_publishes == 0
+            assert final_metrics.get_topic_count("source-topic") == 1
+            assert final_metrics.get_error_type_count("RuntimeError") == 1
+
+            await event_bus.close()
+
+    @pytest.mark.asyncio
+    async def test_handler_failure_without_exhausted_retries_skips_dlq(
+        self, mock_producer: AsyncMock, dlq_config: ModelKafkaEventBusConfig
+    ) -> None:
+        """Test that handler failures with remaining retries do NOT route to DLQ.
+
+        Messages that can still be retried should not go to DLQ immediately.
+        """
+        with (
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+                return_value=mock_producer,
+            ),
+            patch(
+                "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaConsumer",
+            ) as mock_consumer_class,
+        ):
+            # Create async iterator for consumer
+            messages_received: list[ModelEventMessage] = []
+
+            mock_consumer = AsyncMock()
+            mock_consumer.start = AsyncMock()
+            mock_consumer.stop = AsyncMock()
+            # OMN-18640: the consume loop fetches with ``getmany``; an
+            # unconfigured AsyncMock returns a truthy mock and spins the loop.
+            mock_consumer.getmany = _idle_fetch
+            mock_consumer.assignment = lambda: set()
+
+            # Create a mock message with remaining retries
+            mock_msg = MagicMock()
+            mock_msg.key = b"test-key"
+            mock_msg.value = b"test-value"
+            mock_msg.offset = 42
+            mock_msg.partition = 0
+            mock_msg.headers = [
+                ("source", b"test-source"),
+                ("event_type", b"test-event"),
+                ("retry_count", b"1"),  # Still has retries left
+                ("max_retries", b"3"),
+            ]
+
+            # OMN-18640: the consume loop polls with a deadline rather than
+            # iterating the consumer, so the fetch surface is ``getmany``.
+            # First fetch delivers the record; later fetches block, standing in
+            # for a topic with nothing more on it.
+            delivered = False
+
+            async def mock_getmany(
+                *partitions: Any,
+                timeout_ms: int = 0,
+                max_records: int | None = None,
+            ) -> dict[TopicPartition, list[Any]]:
+                nonlocal delivered
+                if not delivered:
+                    delivered = True
+                    return {TopicPartition("test-topic", 0): [mock_msg]}
+                await asyncio.sleep(10)  # Block forever
+                return {}
+
+            mock_consumer.getmany = mock_getmany
+            mock_consumer.assignment = lambda: set()
+            mock_consumer_class.return_value = mock_consumer
+
+            event_bus = EventBusKafka(config=dlq_config)
+            await event_bus.start()
+
+            # Track handler call and DLQ publishes
+            handler_called = asyncio.Event()
+            dlq_publish_count_before = mock_producer.send.call_count
+
+            async def failing_handler(msg: ModelEventMessage) -> None:
+                messages_received.append(msg)
+                handler_called.set()
+                raise ValueError("Temporary failure")
+
+            await event_bus.subscribe(
+                "test-topic", make_test_node_identity("1"), failing_handler
+            )
+
+            # Wait for handler to be called
+            await asyncio.wait_for(handler_called.wait(), timeout=2.0)
+
+            # Give time for potential DLQ publish
+            await asyncio.sleep(0.1)
+
+            # Verify handler was called
+            assert len(messages_received) == 1
+
+            # Verify NO DLQ publish was made (only the initial producer setup calls)
+            # Count only sends to DLQ topic
+            dlq_sends = [
+                call
+                for call in mock_producer.send.call_args_list[dlq_publish_count_before:]
+                if call[0][0] == "dlq-events"
+            ]
+            assert len(dlq_sends) == 0, "Should not publish to DLQ when retries remain"
+
+            await event_bus.close()
+
+    @pytest.mark.asyncio
+    async def test_dlq_not_configured_logs_only(self, mock_producer: AsyncMock) -> None:
+        """Test that when DLQ is not configured, errors are logged but not published.
+
+        This ensures graceful degradation when DLQ is not set up.
+        """
+        # Config without DLQ
+        config = ModelKafkaEventBusConfig(
+            bootstrap_servers="localhost:9092",
+            environment="dev",
+            dead_letter_topic=None,  # No DLQ configured
+        )
+
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            event_bus = EventBusKafka(config=config)
+            await event_bus.start()
+
+            # Create a failed message
+            from uuid import uuid4
+
+            correlation_id = uuid4()
+            headers = ModelEventHeaders(
+                source="test-source",
+                event_type="test-event",
+                correlation_id=correlation_id,
+                timestamp=datetime.now(UTC),
+                retry_count=3,
+                max_retries=3,
+            )
+            failed_message = ModelEventMessage(
+                topic="source-topic",
+                key=b"test-key",
+                value=b"test-value",
+                headers=headers,
+            )
+            error = RuntimeError("Handler failed")
+
+            send_count_before = mock_producer.send.call_count
+
+            # This should not raise and should not publish to DLQ
+            await event_bus._publish_to_dlq(
+                original_topic="source-topic",
+                failed_message=failed_message,
+                error=error,
+                correlation_id=correlation_id,
+                consumer_group="test.test-service.dlq-test.consume.v1",
+            )
+
+            # Verify no additional send calls were made
+            assert mock_producer.send.call_count == send_count_before
+
+            await event_bus.close()
+
+    @pytest.mark.asyncio
+    async def test_dlq_publish_failure_does_not_crash_consumer(
+        self, mock_producer: AsyncMock, dlq_config: ModelKafkaEventBusConfig
+    ) -> None:
+        """Test that DLQ publish failures do not crash the consumer.
+
+        Even if DLQ publishing fails, the consumer should continue operating.
+        PR #90 feedback: Assert DLQ failed_publishes metric is incremented.
+        """
+        # Make producer fail on DLQ publish
+        call_count = 0
+
+        async def mock_send(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            # Fail when publishing to DLQ
+            if args[0] == "dlq-events":
+                raise RuntimeError("DLQ publish failed")
+            future = asyncio.get_running_loop().create_future()
+            mock_record_metadata = MagicMock()
+            mock_record_metadata.partition = 0
+            mock_record_metadata.offset = call_count
+            future.set_result(mock_record_metadata)
+            return future
+
+        async def mock_send_and_wait(*args: object, **kwargs: object) -> MagicMock:
+            nonlocal call_count
+            call_count += 1
+            # Fail when publishing to DLQ
+            if args[0] == "dlq-events":
+                raise RuntimeError("DLQ publish failed")
+            mock_record_metadata = MagicMock()
+            mock_record_metadata.partition = 0
+            mock_record_metadata.offset = call_count
+            return mock_record_metadata
+
+        mock_producer.send = AsyncMock(side_effect=mock_send)
+        mock_producer.send_and_wait = AsyncMock(side_effect=mock_send_and_wait)
+
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            event_bus = EventBusKafka(config=dlq_config)
+            await event_bus.start()
+
+            # Capture initial metrics
+            initial_metrics = event_bus.dlq_metrics
+            assert initial_metrics.total_publishes == 0
+            assert initial_metrics.failed_publishes == 0
+
+            from uuid import uuid4
+
+            correlation_id = uuid4()
+            headers = ModelEventHeaders(
+                source="test-source",
+                event_type="test-event",
+                correlation_id=correlation_id,
+                timestamp=datetime.now(UTC),
+                retry_count=3,
+                max_retries=3,
+            )
+            failed_message = ModelEventMessage(
+                topic="source-topic",
+                key=b"test-key",
+                value=b"test-value",
+                headers=headers,
+            )
+            error = RuntimeError("Handler failed")
+
+            # This should NOT raise even though DLQ publish fails
+            await event_bus._publish_to_dlq(
+                original_topic="source-topic",
+                failed_message=failed_message,
+                error=error,
+                correlation_id=correlation_id,
+                consumer_group="test.test-service.dlq-test.consume.v1",
+            )
+
+            # Verify the bus is still healthy
+            health = await event_bus.health_check()
+            assert health["started"] is True
+
+            # Verify DLQ metrics track the failure (PR #90 feedback)
+            final_metrics = event_bus.dlq_metrics
+            assert final_metrics.total_publishes == 1, (
+                "DLQ total_publishes should be incremented even on failure"
+            )
+            assert final_metrics.successful_publishes == 0, (
+                "DLQ successful_publishes should NOT be incremented on failure"
+            )
+            assert final_metrics.failed_publishes == 1, (
+                "DLQ failed_publishes should be incremented on failure"
+            )
+            # Error type is still tracked even when DLQ publish fails
+            assert final_metrics.get_error_type_count("RuntimeError") == 1
+
+            await event_bus.close()
+
+    @pytest.mark.asyncio
+    async def test_raw_dlq_handles_decode_failures(
+        self, mock_producer: AsyncMock, dlq_config: ModelKafkaEventBusConfig
+    ) -> None:
+        """Test that _publish_raw_to_dlq handles decode failures gracefully.
+
+        Even corrupted binary data should be safely published to DLQ.
+        PR #90 feedback: Assert DLQ metrics are incremented.
+        """
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            event_bus = EventBusKafka(config=dlq_config)
+            await event_bus.start()
+
+            # Capture initial metrics
+            initial_metrics = event_bus.dlq_metrics
+            assert initial_metrics.total_publishes == 0
+
+            # Simulate a raw Kafka message with invalid UTF-8
+            mock_raw_msg = MagicMock()
+            mock_raw_msg.key = b"\xff\xfe\xfd"  # Invalid UTF-8
+            mock_raw_msg.value = b"\x80\x81\x82"  # Invalid UTF-8
+            mock_raw_msg.offset = 100
+            mock_raw_msg.partition = 0
+
+            from uuid import uuid4
+
+            correlation_id = uuid4()
+            error = ValueError("Decode error")
+
+            # This should NOT raise
+            await event_bus._publish_raw_to_dlq(
+                original_topic="source-topic",
+                raw_msg=mock_raw_msg,
+                error=error,
+                correlation_id=correlation_id,
+                failure_type="deserialization_error",
+                consumer_group="test.test-service.dlq-test.consume.v1",
+            )
+
+            # Verify DLQ publish was attempted (using send_and_wait for cleaner timeout handling)
+            assert mock_producer.send_and_wait.called
+            call_args = mock_producer.send_and_wait.call_args
+            assert call_args[0][0] == "dlq-events"
+
+            # The payload should contain replacement characters for invalid UTF-8
+            value = call_args[1]["value"]
+            payload = json.loads(value)
+            # Check that decode didn't crash and we have some representation
+            assert payload["original_message"]["key"] is not None
+            assert payload["original_message"]["value"] is not None
+
+            # Verify DLQ metrics were incremented (PR #90 feedback)
+            final_metrics = event_bus.dlq_metrics
+            assert final_metrics.total_publishes == 1, (
+                "DLQ total_publishes should be incremented"
+            )
+            assert final_metrics.successful_publishes == 1, (
+                "DLQ successful_publishes should be incremented on success"
+            )
+            assert final_metrics.get_error_type_count("ValueError") == 1
+
+            await event_bus.close()
+
+    @pytest.mark.asyncio
+    async def test_raw_dlq_returns_true_on_confirmed_persist(
+        self, mock_producer: AsyncMock, dlq_config: ModelKafkaEventBusConfig
+    ) -> None:
+        """OMN-14936: ``_publish_raw_to_dlq`` returns True when the DLQ send acks.
+
+        Callers upstream (``EventBusSubcontractWiring._publish_to_dlq``) gate
+        an offset commit on this return value -- it must be a real bool, not
+        an implicit ``None`` that could be misread as failure or success.
+        """
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            event_bus = EventBusKafka(config=dlq_config)
+            await event_bus.start()
+
+            mock_raw_msg = MagicMock()
+            mock_raw_msg.key = b"test-key"
+            mock_raw_msg.value = b"test-value"
+            mock_raw_msg.offset = 200
+            mock_raw_msg.partition = 0
+
+            from uuid import uuid4
+
+            correlation_id = uuid4()
+            error = ValueError("no dispatcher for this message type")
+
+            result = await event_bus._publish_raw_to_dlq(
+                original_topic="source-topic",
+                raw_msg=mock_raw_msg,
+                error=error,
+                correlation_id=correlation_id,
+                failure_type="no_dispatcher",
+                consumer_group="test.test-service.dlq-test.consume.v1",
+            )
+
+            assert result is True
+
+            await event_bus.close()
+
+    @pytest.mark.asyncio
+    async def test_raw_dlq_returns_false_when_dlq_topic_does_not_exist(
+        self, mock_producer: AsyncMock, dlq_config: ModelKafkaEventBusConfig
+    ) -> None:
+        """OMN-14936: reproduce the live-proven defect at the mixin boundary.
+
+        ``service_kernel``'s no_dispatcher path logged a DLQ topic name that
+        was never created on the broker (``UnknownTopicOrPartitionError`` on
+        ``send_and_wait``), yet the caller committed the offset anyway --  a
+        silent, unrecoverable drop. ``_publish_raw_to_dlq`` must return
+        ``False`` in this scenario so the caller can withhold the commit.
+        """
+
+        async def raise_unknown_topic(*args: object, **kwargs: object) -> MagicMock:
+            raise UnknownTopicOrPartitionError(
+                "DLQ topic 'onex.dlq.omnibase-infra."
+                "delegation-inference-request.v1' does not exist"
+            )
+
+        mock_producer.send_and_wait = AsyncMock(side_effect=raise_unknown_topic)
+
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            event_bus = EventBusKafka(config=dlq_config)
+            await event_bus.start()
+
+            mock_raw_msg = MagicMock()
+            mock_raw_msg.key = b"test-key"
+            mock_raw_msg.value = b"test-value"
+            mock_raw_msg.offset = 201
+            mock_raw_msg.partition = 0
+
+            from uuid import uuid4
+
+            correlation_id = uuid4()
+            error = ValueError("no dispatcher for this message type")
+
+            result = await event_bus._publish_raw_to_dlq(
+                original_topic="source-topic",
+                raw_msg=mock_raw_msg,
+                error=error,
+                correlation_id=correlation_id,
+                failure_type="no_dispatcher",
+                consumer_group="test.test-service.dlq-test.consume.v1",
+            )
+
+            assert result is False
+
+            final_metrics = event_bus.dlq_metrics
+            assert final_metrics.failed_publishes == 1, (
+                "DLQ failed_publishes should be incremented when the send fails"
+            )
+            assert final_metrics.successful_publishes == 0
+
+            await event_bus.close()
+
+    @pytest.mark.asyncio
+    async def test_raw_dlq_falls_back_to_generic_category_topic_when_named_topic_missing(
+        self,
+        mock_producer: AsyncMock,
+    ) -> None:
+        """OMN-14936/OMN-15031: a never-provisioned per-message-type DLQ topic
+        must not eat the record.
+
+        ``MessageDispatchEngine`` derives a per-event_type DLQ topic name
+        (``onex.dlq.omnibase-infra.delegation-inference-request.v1`` for a
+        flat, un-namespaced ``event_type``) that is never created on the
+        broker and never auto-created. ``_publish_raw_to_dlq`` must fall
+        back to the realm-agnostic, already-provisioned category topic
+        (derived from ``original_topic`` -- ``onex.dlq.omnibase-infra.commands.v1``
+        for a ``onex.cmd.*`` original topic) instead of returning ``False``
+        and letting the caller withhold the commit forever.
+
+        Uses a config with NO explicit ``dead_letter_topic`` so the
+        caller-supplied ``dlq_topic`` (the never-provisioned name) actually
+        reaches the resolution path instead of being short-circuited by
+        explicit bus configuration.
+        """
+        never_provisioned_topic = (
+            "onex.dlq.omnibase-infra.delegation-inference-request.v1"
+        )
+        fallback_category_topic = "onex.dlq.omnibase-infra.commands.v1"
+
+        mock_record_metadata = MagicMock()
+        mock_record_metadata.partition = 0
+        mock_record_metadata.offset = 7
+
+        async def send_and_wait_side_effect(
+            topic: str, *args: object, **kwargs: object
+        ) -> MagicMock:
+            if topic == never_provisioned_topic:
+                raise UnknownTopicOrPartitionError(
+                    f"DLQ topic '{never_provisioned_topic}' does not exist"
+                )
+            if topic == fallback_category_topic:
+                return mock_record_metadata
+            raise AssertionError(f"unexpected DLQ send target: {topic}")
+
+        mock_producer.send_and_wait = AsyncMock(side_effect=send_and_wait_side_effect)
+
+        no_explicit_dlq_config = ModelKafkaEventBusConfig(
+            bootstrap_servers="localhost:9092",
+            environment="dev",
+        )
+
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            event_bus = EventBusKafka(config=no_explicit_dlq_config)
+            await event_bus.start()
+
+            mock_raw_msg = MagicMock()
+            mock_raw_msg.key = b"test-key"
+            mock_raw_msg.value = b"test-value"
+            mock_raw_msg.offset = 4
+            mock_raw_msg.partition = 0
+
+            correlation_id = uuid4()
+            error = ValueError("no dispatcher for this message type")
+
+            result = await event_bus._publish_raw_to_dlq(
+                original_topic="onex.cmd.omnibase-infra.delegation-inference-request.v1",
+                raw_msg=mock_raw_msg,
+                error=error,
+                correlation_id=correlation_id,
+                failure_type="no_dispatcher",
+                consumer_group="test.test-service.dlq-test.consume.v1",
+                dlq_topic=never_provisioned_topic,
+            )
+
+            assert result is True, (
+                "a never-provisioned per-event_type DLQ topic must not "
+                "swallow the record -- the mixin must fall back to the "
+                "realm-agnostic category topic and still persist it"
+            )
+
+            send_targets = [
+                call.args[0] for call in mock_producer.send_and_wait.await_args_list
+            ]
+            assert send_targets == [never_provisioned_topic, fallback_category_topic], (
+                "expected exactly one failed attempt at the named topic "
+                "followed by one successful attempt at the category fallback"
+            )
+
+            final_metrics = event_bus.dlq_metrics
+            assert final_metrics.successful_publishes == 1
+
+            await event_bus.close()
+
+    @pytest.mark.asyncio
+    async def test_raw_dlq_propagates_replay_count_header(
+        self, mock_producer: AsyncMock, dlq_config: ModelKafkaEventBusConfig
+    ) -> None:
+        """OMN-14551: ``_publish_raw_to_dlq`` must read the inbound
+        ``x-replay-count`` header (stamped by
+        ``node_dlq_replay_effect.engine_dlq_replay.DLQProducer.replay_message``
+        when it republishes a DLQ'd message to its original topic) and carry
+        it into the new DLQ record's ``retry_count`` field, instead of
+        hardcoding 0.
+
+        Without this, a replayed message that fails again forever resets to
+        ``retry_count=0`` in its DLQ record, so ``should_replay``'s
+        ``retry_count >= max_replay_count`` guard can never trip -- exactly
+        the structural DLQ-amplification defect from the live dev incident.
+        """
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            event_bus = EventBusKafka(config=dlq_config)
+            await event_bus.start()
+
+            # A message that has already been replayed 3 times -- the raw
+            # Kafka ConsumerRecord shape _consume_loop hands to
+            # _publish_raw_to_dlq on a deserialization failure.
+            mock_raw_msg = MagicMock()
+            mock_raw_msg.key = b"test-key"
+            mock_raw_msg.value = b"still-poisoned"
+            mock_raw_msg.offset = 300
+            mock_raw_msg.partition = 0
+            mock_raw_msg.headers = [
+                ("x-replay-count", b"3"),
+                ("x-replayed-by", b"node_dlq_replay_effect"),
+            ]
+
+            correlation_id = uuid4()
+            error = ValueError("still fails to deserialize after replay")
+
+            result = await event_bus._publish_raw_to_dlq(
+                original_topic="source-topic",
+                raw_msg=mock_raw_msg,
+                error=error,
+                correlation_id=correlation_id,
+                failure_type="deserialization_error",
+                consumer_group="test.test-service.dlq-test.consume.v1",
+            )
+            assert result is True
+
+            call_kwargs = mock_producer.send_and_wait.call_args.kwargs
+            payload = json.loads(call_kwargs["value"])
+            assert payload["retry_count"] == 3, (
+                "the x-replay-count header value must be propagated into the "
+                "DLQ record's retry_count field verbatim (the replay engine "
+                "already performed the +1 at replay time), not reset to 0"
+            )
+
+            await event_bus.close()
+
+    @pytest.mark.asyncio
+    async def test_raw_dlq_defaults_replay_count_to_zero_when_header_absent(
+        self, mock_producer: AsyncMock, dlq_config: ModelKafkaEventBusConfig
+    ) -> None:
+        """A first-failure message (never replayed, no x-replay-count header)
+        must still publish to DLQ with retry_count=0 -- the pre-existing,
+        correct behavior for the common case must not regress."""
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            event_bus = EventBusKafka(config=dlq_config)
+            await event_bus.start()
+
+            mock_raw_msg = MagicMock()
+            mock_raw_msg.key = b"test-key"
+            mock_raw_msg.value = b"first-failure"
+            mock_raw_msg.offset = 301
+            mock_raw_msg.partition = 0
+            mock_raw_msg.headers = []
+
+            correlation_id = uuid4()
+            error = ValueError("first-time deserialization failure")
+
+            result = await event_bus._publish_raw_to_dlq(
+                original_topic="source-topic",
+                raw_msg=mock_raw_msg,
+                error=error,
+                correlation_id=correlation_id,
+                failure_type="deserialization_error",
+                consumer_group="test.test-service.dlq-test.consume.v1",
+            )
+            assert result is True
+
+            call_kwargs = mock_producer.send_and_wait.call_args.kwargs
+            payload = json.loads(call_kwargs["value"])
+            assert payload["retry_count"] == 0
+
+            await event_bus.close()
+
+    @pytest.mark.asyncio
+    async def test_raw_dlq_makes_max_replay_guard_reachable_end_to_end(
+        self, mock_producer: AsyncMock, dlq_config: ModelKafkaEventBusConfig
+    ) -> None:
+        """OMN-14551: a message replayed up to the max-replay threshold must
+        drive ``should_replay`` to the guard (reject) path the NEXT time it
+        is considered for replay, not another silent re-publish.
+
+        This is the real end-to-end seam: raw Kafka message with
+        ``x-replay-count`` at the threshold -> ``_publish_raw_to_dlq`` (the
+        REAL mixin method, only the producer socket mocked) -> the DLQ wire
+        payload -> ``ModelDlqMessage.from_kafka_message`` (the real replay
+        node's parser) -> ``should_replay`` (the real replay node's
+        eligibility predicate). No mock stands in for any of these hops.
+        """
+        max_replay_count = 5
+
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            event_bus = EventBusKafka(config=dlq_config)
+            await event_bus.start()
+
+            mock_raw_msg = MagicMock()
+            mock_raw_msg.key = b"test-key"
+            mock_raw_msg.value = b"chronically-poisoned"
+            mock_raw_msg.offset = 302
+            mock_raw_msg.partition = 0
+            mock_raw_msg.headers = [
+                ("x-replay-count", str(max_replay_count).encode("utf-8")),
+            ]
+
+            correlation_id = uuid4()
+            error = ValueError("still fails at the replay threshold")
+
+            result = await event_bus._publish_raw_to_dlq(
+                original_topic="source-topic",
+                raw_msg=mock_raw_msg,
+                error=error,
+                correlation_id=correlation_id,
+                failure_type="deserialization_error",
+                consumer_group="test.test-service.dlq-test.consume.v1",
+            )
+            assert result is True
+
+            call_kwargs = mock_producer.send_and_wait.call_args.kwargs
+            dlq_payload = json.loads(call_kwargs["value"])
+
+            dlq_message = ModelDlqMessage.from_kafka_message(
+                payload=dlq_payload, dlq_offset=42, dlq_partition=0
+            )
+            assert dlq_message.retry_count == max_replay_count
+
+            replay_config = ModelDlqReplayEngineConfig(
+                bootstrap_servers="localhost:9092",
+                dlq_topic="dlq-events",
+                max_replay_count=max_replay_count,
+            )
+            eligible, reason = should_replay(dlq_message, replay_config)
+            assert eligible is False, (
+                "the max-replay guard must be reachable through "
+                "_publish_raw_to_dlq -- a message at the threshold must be "
+                "rejected for further replay, not endlessly re-published"
+            )
+            assert "Exceeded max replay count" in reason
+
+            await event_bus.close()
+
+    @pytest.mark.asyncio
+    async def test_raw_dlq_propagates_replay_count_for_parsed_message_shape(
+        self, mock_producer: AsyncMock, dlq_config: ModelKafkaEventBusConfig
+    ) -> None:
+        """OMN-14551 defects 1/2/5: 3 of the 4 production
+        ``_publish_raw_to_dlq`` call sites --
+        ``handler_wiring.py:4543`` (``failure_type="handler_exception"``)
+        and ``event_bus_subcontract_wiring.py``'s 5 call sites -- pass a
+        parsed ``ModelEventMessage``/``ProtocolEventMessage`` as ``raw_msg``,
+        not a raw Kafka ``ConsumerRecord``. Its ``.headers`` is a
+        ``ModelEventHeaders`` instance, not a ``list[tuple[str, bytes]]``.
+        The prior fix only recognized the raw-list shape and silently
+        returned 0 for this shape, resetting replay lineage on exactly the
+        path the 2026-08-05 dev DLQ amplification incident exercised
+        (all 9 ``boundary_swallow_observed`` events that day were handler
+        exceptions, not deserialization failures).
+        """
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            event_bus = EventBusKafka(config=dlq_config)
+            await event_bus.start()
+
+            # Simulate the real consume-loop conversion: a raw
+            # ConsumerRecord carrying x-replay-count=5 from a prior replay,
+            # converted to a ModelEventMessage by _kafka_msg_to_model --
+            # exactly what handler_wiring.py's `message` callback parameter
+            # is (event_bus_kafka.py:2370 builds it before dispatch).
+            mock_raw_msg = MagicMock()
+            mock_raw_msg.key = b"test-key"
+            mock_raw_msg.value = b"still-fails-in-handler"
+            mock_raw_msg.offset = 400
+            mock_raw_msg.partition = 0
+            mock_raw_msg.headers = [
+                ("x-replay-count", b"5"),
+                ("x-replayed-by", b"node_dlq_replay_effect"),
+            ]
+            parsed_message = event_bus._kafka_msg_to_model(mock_raw_msg, "source-topic")
+            assert isinstance(parsed_message, ModelEventMessage)
+            assert parsed_message.headers.retry_count == 5
+
+            correlation_id = uuid4()
+            error = RuntimeError("handler exception after replay")
+
+            # Exact call shape of handler_wiring.py's
+            # _route_swallowed_exception (line ~4542-4550).
+            result = await event_bus._publish_raw_to_dlq(
+                original_topic="source-topic",
+                raw_msg=parsed_message,
+                error=error,
+                correlation_id=correlation_id,
+                failure_type="handler_exception",
+                consumer_group="auto-wiring",
+            )
+            assert result is True
+
+            call_kwargs = mock_producer.send_and_wait.call_args.kwargs
+            payload = json.loads(call_kwargs["value"])
+            assert payload["retry_count"] == 5, (
+                "retry_count must be read off the parsed ModelEventMessage's "
+                "headers.retry_count, not reset to 0 because raw_msg isn't "
+                "a raw list[tuple] Kafka ConsumerRecord"
+            )
+
+            await event_bus.close()
+
+    @pytest.mark.asyncio
+    async def test_typed_publish_to_dlq_reads_replay_count_from_parsed_headers(
+        self, mock_producer: AsyncMock, dlq_config: ModelKafkaEventBusConfig
+    ) -> None:
+        """OMN-14551 defect 3: the typed ``_publish_to_dlq`` path
+        (``mixin_kafka_dlq.py``) reads ``failed_message.headers.retry_count``
+        directly. That field is only correctly populated if
+        ``_kafka_headers_to_model`` carries the inbound ``x-replay-count``
+        header into ``ModelEventHeaders.retry_count`` at message-conversion
+        time -- prior to the fix it read a plain ``"retry_count"`` Kafka
+        header the replay engine never stamps, so this path was
+        structurally 0 on every replayed message regardless of any fix to
+        ``_publish_raw_to_dlq``.
+        """
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            event_bus = EventBusKafka(config=dlq_config)
+            await event_bus.start()
+
+            mock_raw_msg = MagicMock()
+            mock_raw_msg.key = b"test-key"
+            mock_raw_msg.value = b'{"foo": "bar"}'
+            mock_raw_msg.offset = 401
+            mock_raw_msg.partition = 0
+            mock_raw_msg.headers = [
+                ("x-replay-count", b"4"),
+            ]
+            parsed_message = event_bus._kafka_msg_to_model(mock_raw_msg, "source-topic")
+            assert parsed_message.headers.retry_count == 4
+
+            correlation_id = uuid4()
+            error = RuntimeError("no dispatcher after replay")
+
+            result = await event_bus._publish_to_dlq(
+                original_topic="source-topic",
+                failed_message=parsed_message,
+                error=error,
+                correlation_id=correlation_id,
+                consumer_group="test.test-service.dlq-test.consume.v1",
+            )
+            assert result is True
+
+            call_kwargs = mock_producer.send_and_wait.call_args.kwargs
+            payload = json.loads(call_kwargs["value"])
+            assert payload["retry_count"] == 4, (
+                "the typed _publish_to_dlq path must read the real replay "
+                "lineage off failed_message.headers.retry_count, not a "
+                "structural 0"
+            )
+
+            await event_bus.close()
+
+    @pytest.mark.asyncio
+    async def test_raw_dlq_fails_closed_on_malformed_replay_count_header(
+        self, mock_producer: AsyncMock, dlq_config: ModelKafkaEventBusConfig
+    ) -> None:
+        """OMN-14551 defect 4: a corrupted/forged ``x-replay-count`` header
+        must not reset replay lineage to 0 (which would silently reopen the
+        unbounded-replay amplification the header exists to bound). It must
+        fail CLOSED -- produce a ``retry_count`` that trips
+        ``should_replay``'s ``retry_count >= max_replay_count`` guard on the
+        very next eligibility check.
+        """
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            event_bus = EventBusKafka(config=dlq_config)
+            await event_bus.start()
+
+            mock_raw_msg = MagicMock()
+            mock_raw_msg.key = b"test-key"
+            mock_raw_msg.value = b"forged-header"
+            mock_raw_msg.offset = 402
+            mock_raw_msg.partition = 0
+            mock_raw_msg.headers = [("x-replay-count", b"not-an-int")]
+
+            correlation_id = uuid4()
+            error = ValueError("still fails with a forged header")
+
+            result = await event_bus._publish_raw_to_dlq(
+                original_topic="source-topic",
+                raw_msg=mock_raw_msg,
+                error=error,
+                correlation_id=correlation_id,
+                failure_type="deserialization_error",
+                consumer_group="test.test-service.dlq-test.consume.v1",
+            )
+            assert result is True
+
+            call_kwargs = mock_producer.send_and_wait.call_args.kwargs
+            dlq_payload = json.loads(call_kwargs["value"])
+            assert dlq_payload["retry_count"] != 0, (
+                "a malformed x-replay-count header must not silently reset "
+                "retry_count to 0 -- that reopens the unbounded replay loop"
+            )
+
+            dlq_message = ModelDlqMessage.from_kafka_message(
+                payload=dlq_payload, dlq_offset=42, dlq_partition=0
+            )
+            replay_config = ModelDlqReplayEngineConfig(
+                bootstrap_servers="localhost:9092",
+                dlq_topic="dlq-events",
+                max_replay_count=5,
+            )
+            eligible, reason = should_replay(dlq_message, replay_config)
+            assert eligible is False, (
+                f"a forged/malformed replay-count header must fail closed "
+                f"-- the message must be rejected for further replay, not "
+                f"endlessly re-published (reason={reason!r})"
+            )
+
+            await event_bus.close()
+
+    @pytest.mark.asyncio
+    async def test_raw_dlq_fails_closed_on_negative_replay_count_header(
+        self, mock_producer: AsyncMock, dlq_config: ModelKafkaEventBusConfig
+    ) -> None:
+        """Same fail-closed requirement as the malformed case, for a
+        negative (impossible) replay count header value."""
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            return_value=mock_producer,
+        ):
+            event_bus = EventBusKafka(config=dlq_config)
+            await event_bus.start()
+
+            mock_raw_msg = MagicMock()
+            mock_raw_msg.key = b"test-key"
+            mock_raw_msg.value = b"negative-header"
+            mock_raw_msg.offset = 403
+            mock_raw_msg.partition = 0
+            mock_raw_msg.headers = [("x-replay-count", b"-1")]
+
+            correlation_id = uuid4()
+            error = ValueError("still fails with a negative header")
+
+            result = await event_bus._publish_raw_to_dlq(
+                original_topic="source-topic",
+                raw_msg=mock_raw_msg,
+                error=error,
+                correlation_id=correlation_id,
+                failure_type="deserialization_error",
+                consumer_group="test.test-service.dlq-test.consume.v1",
+            )
+            assert result is True
+
+            call_kwargs = mock_producer.send_and_wait.call_args.kwargs
+            dlq_payload = json.loads(call_kwargs["value"])
+            assert dlq_payload["retry_count"] != 0
+
+            dlq_message = ModelDlqMessage.from_kafka_message(
+                payload=dlq_payload, dlq_offset=42, dlq_partition=0
+            )
+            replay_config = ModelDlqReplayEngineConfig(
+                bootstrap_servers="localhost:9092",
+                dlq_topic="dlq-events",
+                max_replay_count=5,
+            )
+            eligible, reason = should_replay(dlq_message, replay_config)
+            assert eligible is False, (
+                f"a negative replay-count header must fail closed, not "
+                f"reset lineage to 0 (reason={reason!r})"
+            )
+
+            await event_bus.close()
+
+
+class TestKafkaEventBusTopicValidation:
+    """Test suite for topic name validation.
+
+    Tests the _validate_topic_name method which enforces Kafka topic naming rules:
+    - Not empty
+    - Max 255 characters
+    - Only alphanumeric, period (.), underscore (_), hyphen (-)
+    - Not reserved names ("." or "..")
+    """
+
+    @pytest.fixture
+    def event_bus(self) -> EventBusKafka:
+        """Create EventBusKafka for validation testing."""
+        config = ModelKafkaEventBusConfig(
+            bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+            environment=TEST_ENVIRONMENT,
+        )
+        return EventBusKafka(config=config)
+
+    @pytest.fixture
+    def correlation_id(self) -> UUID:
+        """Create a correlation ID for tests."""
+        return uuid4()
+
+    def test_valid_topic_name_simple(
+        self, event_bus: EventBusKafka, correlation_id: UUID
+    ) -> None:
+        """Test valid simple topic name passes validation."""
+        # Should not raise any exception
+        event_bus._validate_topic_name("my-topic", correlation_id)
+
+    def test_valid_topic_name_with_dots(
+        self, event_bus: EventBusKafka, correlation_id: UUID
+    ) -> None:
+        """Test valid topic name with dots passes validation."""
+        event_bus._validate_topic_name("dev.events.user-created", correlation_id)
+
+    def test_valid_topic_name_with_underscores(
+        self, event_bus: EventBusKafka, correlation_id: UUID
+    ) -> None:
+        """Test valid topic name with underscores passes validation."""
+        event_bus._validate_topic_name("my_topic_name", correlation_id)
+
+    def test_valid_topic_name_with_hyphens(
+        self, event_bus: EventBusKafka, correlation_id: UUID
+    ) -> None:
+        """Test valid topic name with hyphens passes validation."""
+        event_bus._validate_topic_name("my-topic-name", correlation_id)
+
+    def test_valid_topic_name_with_numbers(
+        self, event_bus: EventBusKafka, correlation_id: UUID
+    ) -> None:
+        """Test valid topic name with numbers passes validation."""
+        event_bus._validate_topic_name("topic123", correlation_id)
+
+    def test_valid_topic_name_mixed_characters(
+        self, event_bus: EventBusKafka, correlation_id: UUID
+    ) -> None:
+        """Test valid topic name with mixed valid characters."""
+        event_bus._validate_topic_name("prod.user-events_v2.created", correlation_id)
+
+    def test_valid_topic_name_uppercase(
+        self, event_bus: EventBusKafka, correlation_id: UUID
+    ) -> None:
+        """Test valid topic name with uppercase letters."""
+        event_bus._validate_topic_name("MyTopicName", correlation_id)
+
+    def test_valid_topic_name_max_length(
+        self, event_bus: EventBusKafka, correlation_id: UUID
+    ) -> None:
+        """Test valid topic name at exactly 255 characters."""
+        topic = "a" * 255
+        # Should not raise
+        event_bus._validate_topic_name(topic, correlation_id)
+
+    def test_empty_topic_name_raises_error(
+        self, event_bus: EventBusKafka, correlation_id: UUID
+    ) -> None:
+        """Test empty topic name raises ProtocolConfigurationError."""
+
+        with pytest.raises(ProtocolConfigurationError, match="cannot be empty"):
+            event_bus._validate_topic_name("", correlation_id)
+
+    def test_topic_name_exceeds_max_length(
+        self, event_bus: EventBusKafka, correlation_id: UUID
+    ) -> None:
+        """Test topic name exceeding 255 chars raises ProtocolConfigurationError."""
+
+        topic = "a" * 256
+        with pytest.raises(
+            ProtocolConfigurationError, match="exceeds maximum length of 255"
+        ):
+            event_bus._validate_topic_name(topic, correlation_id)
+
+    def test_reserved_topic_name_dot(
+        self, event_bus: EventBusKafka, correlation_id: UUID
+    ) -> None:
+        """Test reserved topic name '.' raises ProtocolConfigurationError."""
+
+        with pytest.raises(ProtocolConfigurationError, match="reserved"):
+            event_bus._validate_topic_name(".", correlation_id)
+
+    def test_reserved_topic_name_double_dot(
+        self, event_bus: EventBusKafka, correlation_id: UUID
+    ) -> None:
+        """Test reserved topic name '..' raises ProtocolConfigurationError."""
+
+        with pytest.raises(ProtocolConfigurationError, match="reserved"):
+            event_bus._validate_topic_name("..", correlation_id)
+
+    def test_topic_with_space_raises_error(
+        self, event_bus: EventBusKafka, correlation_id: UUID
+    ) -> None:
+        """Test topic name with space raises ProtocolConfigurationError."""
+
+        with pytest.raises(ProtocolConfigurationError, match="invalid characters"):
+            event_bus._validate_topic_name("my topic", correlation_id)
+
+    def test_topic_with_at_symbol_raises_error(
+        self, event_bus: EventBusKafka, correlation_id: UUID
+    ) -> None:
+        """Test topic name with @ symbol raises ProtocolConfigurationError."""
+
+        with pytest.raises(ProtocolConfigurationError, match="invalid characters"):
+            event_bus._validate_topic_name("topic@name", correlation_id)
+
+    def test_topic_with_special_chars_raises_error(
+        self, event_bus: EventBusKafka, correlation_id: UUID
+    ) -> None:
+        """Test topic name with special characters raises ProtocolConfigurationError."""
+
+        invalid_topics = [
+            "topic#name",
+            "topic$name",
+            "topic%name",
+            "topic&name",
+            "topic*name",
+            "topic!name",
+            "topic/name",
+            "topic\\name",
+            "topic:name",
+            "topic;name",
+            "topic<name",
+            "topic>name",
+            "topic|name",
+        ]
+        for topic in invalid_topics:
+            with pytest.raises(ProtocolConfigurationError, match="invalid characters"):
+                event_bus._validate_topic_name(topic, correlation_id)
+
+    def test_topic_with_unicode_raises_error(
+        self, event_bus: EventBusKafka, correlation_id: UUID
+    ) -> None:
+        """Test topic name with unicode characters raises ProtocolConfigurationError."""
+
+        with pytest.raises(ProtocolConfigurationError, match="invalid characters"):
+            event_bus._validate_topic_name("topic\u00e9name", correlation_id)
+
+    def test_topic_with_newline_raises_error(
+        self, event_bus: EventBusKafka, correlation_id: UUID
+    ) -> None:
+        """Test topic name with newline raises ProtocolConfigurationError."""
+
+        with pytest.raises(ProtocolConfigurationError, match="invalid characters"):
+            event_bus._validate_topic_name("topic\nname", correlation_id)
+
+    def test_topic_with_tab_raises_error(
+        self, event_bus: EventBusKafka, correlation_id: UUID
+    ) -> None:
+        """Test topic name with tab raises ProtocolConfigurationError."""
+
+        with pytest.raises(ProtocolConfigurationError, match="invalid characters"):
+            event_bus._validate_topic_name("topic\tname", correlation_id)
+
+
+class TestKafkaEventBusProducerRecreation:
+    """Test suite for producer recreation after timeout-induced destruction.
+
+    Validates that when a timeout destroys the producer (sets self._producer = None),
+    subsequent publish attempts lazily recreate the producer and succeed once Kafka
+    is healthy again, rather than entering a permanent failure loop.
+
+    The tests simulate the destroyed-producer state by directly setting
+    self._producer = None (which is exactly what the TimeoutError handler does)
+    rather than relying on real timeouts, keeping tests fast and deterministic.
+    """
+
+    @pytest.fixture
+    def mock_record_metadata(self) -> MagicMock:
+        """Create mock record metadata for successful publishes."""
+        metadata = MagicMock()
+        metadata.partition = 0
+        metadata.offset = 42
+        return metadata
+
+    @staticmethod
+    def _make_successful_producer(mock_record_metadata: MagicMock) -> AsyncMock:
+        """Create a mock producer whose send() always succeeds."""
+        producer = AsyncMock()
+        producer.start = AsyncMock()
+        producer.stop = AsyncMock()
+        producer._closed = False
+
+        async def mock_send(*args: object, **kwargs: object) -> asyncio.Future[object]:
+            future = asyncio.get_running_loop().create_future()
+            future.set_result(mock_record_metadata)
+            return future
+
+        producer.send = AsyncMock(side_effect=mock_send)
+        return producer
+
+    @pytest.mark.asyncio
+    async def test_producer_recreated_after_timeout_destroys_it(
+        self, mock_record_metadata: MagicMock
+    ) -> None:
+        """Test that producer is recreated after timeout sets it to None.
+
+        Scenario:
+            1. Start the bus with a working producer
+            2. Simulate timeout destroying the producer (self._producer = None)
+            3. Next publish should recreate the producer and succeed
+
+        This is the core bug fix: previously, the next publish would fail with
+        'Kafka producer not initialized' because no code path recreated the producer.
+        """
+        producer_instances: list[AsyncMock] = []
+
+        def make_mock_producer(**kwargs: object) -> AsyncMock:
+            """Create a fresh mock producer (accepts AIOKafkaProducer kwargs)."""
+            producer = self._make_successful_producer(mock_record_metadata)
+            producer_instances.append(producer)
+            return producer
+
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            side_effect=make_mock_producer,
+        ):
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                environment=TEST_ENVIRONMENT,
+                max_retry_attempts=0,
+                circuit_breaker_threshold=100,
+            )
+            bus = EventBusKafka(config=config)
+
+            # Step 1: Start the bus - first producer is created
+            await bus.start()
+            assert len(producer_instances) == 1
+            assert bus._producer is not None
+            assert bus._started is True
+
+            # Step 2: Simulate what TimeoutError handler does: destroy the producer
+            # This is exactly lines 847-859 in the original code
+            async with bus._producer_lock:
+                bus._producer = None
+
+            # Verify: producer is gone but bus is still logically started
+            assert bus._producer is None
+            assert bus._started is True
+
+            # Step 3: Next publish should recreate the producer and succeed
+            await bus.publish("test-topic", None, b"recovery-message")
+
+            # Verify: a new producer was created (total of 2 instances)
+            assert len(producer_instances) == 2
+            assert bus._producer is not None
+
+            # Verify: the new producer's start() was called
+            producer_instances[1].start.assert_called_once()
+
+            # Verify: the new producer's send() was called
+            producer_instances[1].send.assert_called_once()
+            call_args = producer_instances[1].send.call_args
+            assert call_args[0][0] == "test-topic"
+            assert call_args[1]["value"] == b"recovery-message"
+
+            await bus.close()
+
+    @pytest.mark.asyncio
+    async def test_producer_recreation_fails_gracefully(
+        self,
+    ) -> None:
+        """Test that failed producer recreation raises InfraConnectionError.
+
+        If Kafka is truly unavailable, _ensure_producer should fail with a
+        clear error rather than silently proceeding with producer=None.
+        """
+        producer_create_count = 0
+
+        def make_mock_producer(**kwargs: object) -> AsyncMock:
+            nonlocal producer_create_count
+            producer_create_count += 1
+            producer = AsyncMock()
+            producer._closed = False
+            producer.stop = AsyncMock()
+
+            if producer_create_count == 1:
+                # First producer: starts successfully
+                producer.start = AsyncMock()
+                producer.send = AsyncMock()
+            else:
+                # Subsequent producers: fail to start (Kafka still down)
+                producer.start = AsyncMock(
+                    side_effect=ConnectionError("Kafka broker unavailable")
+                )
+                producer.send = AsyncMock()
+            return producer
+
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            side_effect=make_mock_producer,
+        ):
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                environment=TEST_ENVIRONMENT,
+                max_retry_attempts=0,
+                circuit_breaker_threshold=100,
+            )
+            bus = EventBusKafka(config=config)
+            await bus.start()
+
+            # Simulate timeout destroying the producer
+            async with bus._producer_lock:
+                bus._producer = None
+
+            assert bus._producer is None
+            assert bus._started is True
+
+            # Next publish: _ensure_producer tries to recreate but Kafka is down.
+            # The InfraConnectionError from _ensure_producer is caught by the retry
+            # loop and re-raised as "Failed to publish" with the recreation error
+            # as the cause chain.
+            with pytest.raises(InfraConnectionError, match="Failed to publish"):
+                await bus.publish("test-topic", None, b"retry-message")
+
+            # Producer should still be None after failed recreation
+            assert bus._producer is None
+
+            await bus.close()
+
+    @pytest.mark.asyncio
+    async def test_ensure_producer_noop_when_producer_exists(
+        self, mock_record_metadata: MagicMock
+    ) -> None:
+        """Test that _ensure_producer is a no-op when producer already exists.
+
+        Normal publish operations should not be affected by the new code path.
+        """
+        producer_create_count = 0
+
+        def make_mock_producer(**kwargs: object) -> AsyncMock:
+            nonlocal producer_create_count
+            producer_create_count += 1
+            return self._make_successful_producer(mock_record_metadata)
+
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            side_effect=make_mock_producer,
+        ):
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                environment=TEST_ENVIRONMENT,
+                max_retry_attempts=0,
+                circuit_breaker_threshold=100,
+            )
+            bus = EventBusKafka(config=config)
+            await bus.start()
+
+            # Multiple successful publishes should NOT create additional producers
+            for _ in range(5):
+                await bus.publish("test-topic", None, b"message")
+
+            # Only one producer should have been created (during start())
+            assert producer_create_count == 1
+
+            await bus.close()
+
+    @pytest.mark.asyncio
+    async def test_ensure_producer_noop_when_not_started(self) -> None:
+        """Test that _ensure_producer does nothing when bus is not started.
+
+        If bus._started is False, _ensure_producer should not attempt recreation.
+        """
+        config = ModelKafkaEventBusConfig(
+            bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+            environment=TEST_ENVIRONMENT,
+        )
+        bus = EventBusKafka(config=config)
+
+        # Bus not started: _ensure_producer should be a no-op
+        async with bus._producer_lock:
+            await bus._ensure_producer(uuid4())
+
+        assert bus._producer is None
+
+    @pytest.mark.asyncio
+    async def test_concurrent_publishes_after_timeout_single_recreation(
+        self, mock_record_metadata: MagicMock
+    ) -> None:
+        """Test that concurrent publishes after timeout don't cause thundering herd.
+
+        When multiple coroutines try to publish after the producer was destroyed,
+        only one should recreate the producer (protected by _producer_lock).
+        """
+        producer_create_count = 0
+
+        def make_mock_producer(**kwargs: object) -> AsyncMock:
+            nonlocal producer_create_count
+            producer_create_count += 1
+            return self._make_successful_producer(mock_record_metadata)
+
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            side_effect=make_mock_producer,
+        ):
+            config = ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                environment=TEST_ENVIRONMENT,
+                max_retry_attempts=0,
+                circuit_breaker_threshold=100,
+            )
+            bus = EventBusKafka(config=config)
+            await bus.start()
+            assert producer_create_count == 1
+
+            # Simulate timeout destroying producer
+            async with bus._producer_lock:
+                bus._producer = None
+
+            assert bus._producer is None
+
+            # Launch 5 concurrent publishes -- all should succeed,
+            # but only 1 new producer should be created
+            tasks = [
+                bus.publish("test-topic", None, f"msg-{i}".encode()) for i in range(5)
+            ]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            # All should succeed (no exceptions).
+            # OMN-15861 INVERTED: this assertion used to be `result is None`,
+            # which encoded the very anti-pattern this ticket removes -- a
+            # publish that returns nothing cannot tell a caller where the record
+            # landed. A successful publish now returns a ModelPublishReceipt;
+            # `None` here would mean the durability coordinate was lost again.
+            for i, result in enumerate(results):
+                assert isinstance(result, ModelPublishReceipt), (
+                    f"Publish {i} failed: {result}"
+                )
+
+            # Exactly 2 producers total: 1 original + 1 recreation
+            assert producer_create_count == 2
+
+            await bus.close()
+
+
+# ---------------------------------------------------------------------------
+# SASL/SSL Authentication Tests (OMN-2793)
+# ---------------------------------------------------------------------------
+
+
+class TestKafkaAuthConfig:
+    """Tests for SASL/SSL auth configuration in ModelKafkaEventBusConfig."""
+
+    @pytest.mark.unit
+    def test_kafka_config_sasl_oauthbearer_validation_missing_fields(self) -> None:
+        """Validator rejects OAUTHBEARER when token endpoint fields are absent."""
+        with pytest.raises(Exception) as exc_info:
+            ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                environment=TEST_ENVIRONMENT,
+                security_protocol="SASL_SSL",
+                sasl_mechanism="OAUTHBEARER",
+                # Missing sasl_oauthbearer_token_endpoint_url, client_id, client_secret
+            )
+        error_msg = str(exc_info.value)
+        assert "OAUTHBEARER" in error_msg
+
+    @pytest.mark.unit
+    def test_kafka_config_sasl_requires_sasl_protocol(self) -> None:
+        """Validator rejects sasl_mechanism=PLAIN when security_protocol=PLAINTEXT."""
+        with pytest.raises(Exception) as exc_info:
+            ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                environment=TEST_ENVIRONMENT,
+                security_protocol="PLAINTEXT",
+                sasl_mechanism="PLAIN",
+            )
+        error_msg = str(exc_info.value)
+        assert "SASL_PLAINTEXT" in error_msg or "SASL_SSL" in error_msg
+
+    @pytest.mark.unit
+    async def test_event_bus_kafka_passes_sasl_kwargs(self) -> None:
+        """Verify auth kwargs are forwarded to AIOKafkaProducer when SASL is configured."""
+        config = ModelKafkaEventBusConfig(
+            bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+            environment=TEST_ENVIRONMENT,
+            security_protocol="SASL_SSL",
+            sasl_mechanism="OAUTHBEARER",
+            sasl_oauthbearer_token_endpoint_url="https://auth.example.com/token",
+            sasl_oauthbearer_client_id="my-client-id",
+            sasl_oauthbearer_client_secret="my-client-secret",
+        )
+
+        captured_kwargs: dict[str, object] = {}
+
+        mock_producer = AsyncMock()
+        mock_producer.start = AsyncMock()
+        mock_producer.stop = AsyncMock()
+        mock_producer.send = AsyncMock()
+        mock_producer._closed = False
+
+        def capture_producer(**kwargs: object) -> AsyncMock:
+            captured_kwargs.update(kwargs)
+            return mock_producer
+
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            side_effect=capture_producer,
+        ):
+            bus = EventBusKafka(config=config)
+            await bus.start()
+
+        assert captured_kwargs.get("security_protocol") == "SASL_SSL"
+        assert captured_kwargs.get("sasl_mechanism") == "OAUTHBEARER"
+        # aiokafka only accepts sasl_oauth_token_provider; the individual credential
+        # fields must NOT be passed as kwargs (they are unsupported by aiokafka)
+        assert "sasl_oauthbearer_token_endpoint_url" not in captured_kwargs
+        assert "sasl_oauthbearer_client_id" not in captured_kwargs
+        assert "sasl_oauthbearer_client_secret" not in captured_kwargs
+        from omnibase_infra.event_bus.event_bus_kafka import OAuthBearerTokenProvider
+
+        token_provider = captured_kwargs.get("sasl_oauth_token_provider")
+        assert isinstance(token_provider, OAuthBearerTokenProvider)
+        assert token_provider._token_endpoint_url == "https://auth.example.com/token"
+        assert token_provider._client_id == "my-client-id"
+        assert token_provider._client_secret == "my-client-secret"
+
+        await bus.close()
+
+    @pytest.mark.unit
+    def test_kafka_config_accepts_aws_msk_iam_without_oauth_fields(self) -> None:
+        """AWS_MSK_IAM uses the AWS credential chain, not OAuth client fields."""
+        config = ModelKafkaEventBusConfig(
+            bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+            environment=TEST_ENVIRONMENT,
+            security_protocol="SASL_SSL",
+            sasl_mechanism="AWS_MSK_IAM",
+            msk_region="us-east-1",
+        )
+
+        assert config.sasl_mechanism == "AWS_MSK_IAM"
+        assert config.msk_region == "us-east-1"
+
+    @pytest.mark.unit
+    def test_kafka_config_aws_msk_iam_requires_sasl_ssl(self) -> None:
+        """AWS_MSK_IAM must not be used without TLS."""
+        with pytest.raises(ProtocolConfigurationError) as exc_info:
+            ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                environment=TEST_ENVIRONMENT,
+                security_protocol="SASL_PLAINTEXT",
+                sasl_mechanism="AWS_MSK_IAM",
+            )
+
+        assert "AWS_MSK_IAM" in str(exc_info.value)
+        assert "SASL_SSL" in str(exc_info.value)
+
+    @pytest.mark.unit
+    def test_kafka_config_aws_msk_iam_rejects_blank_region(self) -> None:
+        """AWS_MSK_IAM must fail fast when KAFKA_MSK_REGION is blank."""
+        with pytest.raises(ProtocolConfigurationError) as exc_info:
+            ModelKafkaEventBusConfig(
+                bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+                environment=TEST_ENVIRONMENT,
+                security_protocol="SASL_SSL",
+                sasl_mechanism="AWS_MSK_IAM",
+                msk_region="  ",
+            )
+
+        assert "msk_region" in str(exc_info.value)
+
+    @pytest.mark.unit
+    async def test_event_bus_kafka_passes_aws_msk_iam_token_provider(self) -> None:
+        """AWS_MSK_IAM is exposed to aiokafka as OAUTHBEARER with an MSK token provider."""
+        config = ModelKafkaEventBusConfig(
+            bootstrap_servers=TEST_BOOTSTRAP_SERVERS,
+            environment=TEST_ENVIRONMENT,
+            security_protocol="SASL_SSL",
+            sasl_mechanism="AWS_MSK_IAM",
+            msk_region="us-east-1",
+        )
+
+        captured_kwargs: dict[str, object] = {}
+
+        mock_producer = AsyncMock()
+        mock_producer.start = AsyncMock()
+        mock_producer.stop = AsyncMock()
+        mock_producer.send = AsyncMock()
+        mock_producer._closed = False
+
+        def capture_producer(**kwargs: object) -> AsyncMock:
+            captured_kwargs.update(kwargs)
+            return mock_producer
+
+        with patch(
+            "omnibase_infra.event_bus.event_bus_kafka.AIOKafkaProducer",
+            side_effect=capture_producer,
+        ):
+            bus = EventBusKafka(config=config)
+            await bus.start()
+
+        assert captured_kwargs.get("security_protocol") == "SASL_SSL"
+        assert captured_kwargs.get("sasl_mechanism") == "OAUTHBEARER"
+
+        from omnibase_infra.event_bus.event_bus_kafka import MSKTokenProvider
+
+        token_provider = captured_kwargs.get("sasl_oauth_token_provider")
+        assert isinstance(token_provider, MSKTokenProvider)
+        assert token_provider._region == "us-east-1"
+
+        await bus.close()
+
+    @pytest.mark.unit
+    async def test_msk_token_provider_returns_aiokafka_token_string(self) -> None:
+        """aiokafka AbstractTokenProvider.token must return only the token string."""
+        from omnibase_infra.event_bus.event_bus_kafka import MSKTokenProvider
+
+        with patch(
+            "aws_msk_iam_sasl_signer.MSKAuthTokenProvider.generate_auth_token",
+            return_value=("signed-token", 1920000000000),
+        ):
+            token = await MSKTokenProvider(region="us-east-1").token()
+
+        assert token == "signed-token"

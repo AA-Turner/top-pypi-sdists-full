@@ -466,3 +466,56 @@ class NthLastProcessor(BaseProcessor):
 
     def get_plot_expression(self):
         pass
+
+
+class SparklineProcessor(BaseProcessor):
+    def __init__(
+        self,
+        a: DataCoordinateOrProcessor,
+        *,
+        start: Optional[DateOrDatetimeOrRDate] = None,
+        end: Optional[DateOrDatetimeOrRDate] = None,
+        max_points: int = 252 * 5,
+        **kwargs,
+    ):
+        """SparklineProcessor returns the points of the series for a sparkline render type
+
+        :param a: DataCoordinate or BaseProcessor for the series
+        :param start: start date or time used in the underlying data query
+        :param end: end date or time used in the underlying data query
+        :param max_points: maximum number of points in the result. The last point is always kept.
+        """
+        super().__init__(**kwargs)
+        # coordinates
+        self.children['a'] = a
+
+        # datetime
+        self.start = start
+        self.end = end
+        self.max_points = max_points
+
+    def process(self):
+        """Calculate the result and store it as the processor value"""
+        a_data = self.children_data.get('a')
+        if isinstance(a_data, ProcessorResult) and a_data.success and isinstance(a_data.data, pd.Series):
+            series = pd.to_numeric(a_data.data, errors='coerce').dropna()
+            if series.empty:
+                self.value = ProcessorResult(False, "SparklineProcessor has an empty 'a' series")
+                return self.value
+            if self.max_points and 1 < self.max_points < len(series):
+                step = (len(series) - 1) / (self.max_points - 1)
+                series = series.iloc[[round(i * step) for i in range(self.max_points)]]
+            self.value = ProcessorResult(
+                True,
+                {
+                    'timestamps': [str(index) for index in series.index],
+                    'values': [float(value) for value in series.values],
+                    'last': float(series.iloc[-1]),
+                },
+            )
+        else:
+            self.value = ProcessorResult(False, "SparklineProcessor does not have 'a' series values yet")
+        return self.value
+
+    def get_plot_expression(self):
+        pass

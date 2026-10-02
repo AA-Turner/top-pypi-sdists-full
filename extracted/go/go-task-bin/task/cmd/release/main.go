@@ -32,6 +32,7 @@ var (
 	}
 
 	promotedFiles = []promotion{
+		{"website/src/next/agents.md", "website/src/latest/agents.md"},
 		{"website/.vitepress/sidebar/next.ts", "website/.vitepress/sidebar/latest.ts"},
 		{"website/src/public/next-schema.json", "website/src/public/schema.json"},
 		{"website/src/public/next-schema-taskrc.json", "website/src/public/schema-taskrc.json"},
@@ -43,18 +44,27 @@ var changelogReleaseRegex = regexp.MustCompile(`## Unreleased`)
 // Flags
 var (
 	versionFlag bool
+	notesFlag   bool
 )
 
 func init() {
 	pflag.BoolVarP(&versionFlag, "version", "v", false, "resolved version number")
+	pflag.BoolVar(&notesFlag, "notes", false, "changelog section of the current version, for the GitHub release body")
 	pflag.Parse()
 }
 
 func main() {
-	if err := release(); err != nil {
+	if err := run(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+}
+
+func run() error {
+	if notesFlag {
+		return notes(os.Stdout)
+	}
+	return release()
 }
 
 func release() error {
@@ -76,7 +86,15 @@ func release() error {
 		return nil
 	}
 
-	if err := changelog(version); err != nil {
+	return prepareRelease(version, time.Now().Format(time.DateOnly))
+}
+
+func prepareRelease(version *semver.Version, date string) error {
+	if err := dateNewBlogPosts("website/src/next/blog", "website/src/latest/blog", date); err != nil {
+		return err
+	}
+
+	if err := changelog(version, date); err != nil {
 		return err
 	}
 
@@ -138,7 +156,7 @@ func bumpVersion(version *semver.Version, verb string) error {
 	return nil
 }
 
-func changelog(version *semver.Version) error {
+func changelog(version *semver.Version, date string) error {
 	// Open changelog target file
 	b, err := os.ReadFile(changelogTarget)
 	if err != nil {
@@ -159,7 +177,6 @@ func changelog(version *semver.Version) error {
 		return err
 	}
 	changelog := string(b)
-	date := time.Now().Format("2006-01-02")
 
 	// Replace "Unreleased" with the new version and date
 	changelog = changelogReleaseRegex.ReplaceAllString(changelog, fmt.Sprintf("## v%s - %s", version, date))

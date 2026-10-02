@@ -1,0 +1,39 @@
+# Copyright 2022 Agnostiq Inc.
+
+# Note: This file is subject to a proprietary license agreement entered into between
+# you (or the person or organization that you represent) and Agnostiq Inc. Your rights to
+# access and use this file is subject to the terms and conditions of such agreement.
+# Please ensure you carefully review such agreements and, if you have any questions
+# please reach out to Agnostiq at: [support@agnostiq.com].
+
+
+# Copyright 2021-2022 Agnostiq Inc.
+# Note: This file is subject to a proprietary license agreement entered into between you
+# (or the person or organization that you represent) and Agnostiq Inc.
+# Your rights to access and use this file is subject to the terms and conditions of such agreement.
+# Please ensure you carefully review such agreements and, if you have any questions or concerns,
+# please reach out to Agnostiq at: [support@agnostiq.com].
+
+
+[tool.black]
+target_version = ['py38']
+line-length = 99
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.tox
+  | \.venv
+)/
+'''
+
+[tool.isort]
+py_version = 38
+line_length = 99
+multi_line_output = 3
+include_trailing_comma = true
+profile = 'black'
+skip_gitignore = true
+
+[tool.pycln]
+all = true

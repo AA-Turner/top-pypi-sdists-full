@@ -1,0 +1,97 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+# Copyright (c) 2026 OmniNode Team
+"""Release-identity request model — pre-collected inputs for the fitness gate.
+
+Input model for the pure ``node_release_identity_compute`` COMPUTE node. All I/O
+(reading ``pyproject.toml``, listing published git tags, diffing changed files) is
+performed by the thin CLI collector/shim BEFORE the handler runs, and the results
+are handed to the handler as this typed request. The handler is therefore pure and
+deterministic: identical requests always produce identical decisions with no
+subprocess or filesystem access.
+
+Ticket: OMN-14471 (refactor of legacy scripts/check_release_identity.py, OMN-13412)
+"""
+
+from __future__ import annotations
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class ModelReleaseIdentityRequest(BaseModel):
+    """Pre-collected inputs for the release-identity fitness decision.
+
+    Attributes:
+        pyproject_version_raw: Raw ``project.version`` string read from
+            ``pyproject.toml``. ``None`` when the key is absent (the collector
+            passes through whatever ``data["project"]["version"]`` yielded, or
+            ``None``). An empty or malformed value is a config error decided by
+            the handler, not the collector.
+        pyproject_path: Filesystem path to the ``pyproject.toml`` the version was
+            read from. Used verbatim in the "no project.version" config-error
+            message so the refactor preserves the legacy gate's output byte-for-byte.
+        published_tags: Raw tag lines exactly as emitted by ``git tag --list``
+            (order preserved, unparsed). Empty when the repository has no tags.
+        changed_files: The changed-file set relative to the diff base, or ``None``
+            when the source-change set could NOT be determined (no ``--base`` and
+            no explicit ``--changed-file`` list). ``None`` means "cannot prove the
+            diff is exempt" and the handler enforces the version-ahead invariant —
+            mirroring the legacy gate's fail-safe branch.
+        repo_is_shallow: ``git rev-parse --is-shallow-repository`` on the tree the
+            tags were listed from. A shallow checkout can be missing the very tag
+            refs this gate reads, so an EMPTY tag set on a shallow tree is not
+            evidence that nothing has been published (OMN-17240).
+        repo_origin_is_bundle: ``remote.origin.url`` names a ``.bundle`` file, i.e.
+            the tree was transplanted by ``git clone <bundle>`` rather than cloned
+            from a real remote. ``git bundle create <f> HEAD`` carries no
+            ``refs/tags/`` ref at all, so a bundle-landed tree reports zero tags no
+            matter what the source repository holds (OMN-17240).
+
+    Note:
+        Both provenance markers are read from the repository's OWN git state by the
+        collector (``git rev-parse`` / ``git config``). Neither is ever supplied by
+        a caller-written file, CLI flag or environment variable — a gate that lets
+        its subject assert its own trustworthiness is not a gate.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
+
+    pyproject_version_raw: str | None = Field(
+        default=None,
+        description="Raw project.version string, or None if the key is absent.",
+    )
+    pyproject_path: str = Field(
+        ...,
+        min_length=1,
+        description="Path to pyproject.toml (verbatim in config-error messages).",
+    )
+    published_tags: tuple[str, ...] = Field(
+        default_factory=tuple,
+        description="Raw `git tag --list` lines; empty when there are no tags.",
+    )
+    changed_files: tuple[str, ...] | None = Field(
+        default=None,
+        description=(
+            "Changed files vs the diff base, or None when undeterminable "
+            "(no base + no explicit list) -> enforce the invariant."
+        ),
+    )
+    repo_is_shallow: bool = Field(
+        default=False,
+        description=(
+            "True when the tree the tags were listed from is a shallow clone; an "
+            "empty tag set is then not credible (OMN-17240)."
+        ),
+    )
+    repo_origin_is_bundle: bool = Field(
+        default=False,
+        description=(
+            "True when remote.origin.url names a .bundle file, i.e. the tree was "
+            "transplanted by `git clone <bundle>` and carries no tag refs "
+            "(OMN-17240)."
+        ),
+    )
+
+
+__all__: list[str] = ["ModelReleaseIdentityRequest"]

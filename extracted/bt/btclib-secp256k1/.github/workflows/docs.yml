@@ -1,0 +1,94 @@
+---
+name: docs
+
+# the third gate, and a question of its own: does the documentation build.
+# Nothing else in CI builds it, only read the docs does, on a service whose
+# failure is not a check on a pull request -- so invalid reStructuredText in
+# a docstring, or a module sphinx cannot import because the extension did not
+# compile, would surface after the merge and somewhere else.
+#
+# The build itself, the checkout and the unresolved-link check are
+# btclib-org/.github's: reusable-docs.yml, called at @main so a fix there
+# reaches this tree in one landing (section 10 of its README.md). What
+# stays here is the trigger, the concurrency group and the submodule this
+# tree's own build needs that the standard asks of nobody else
+# (btclib-org/.github#35)
+
+on:
+  push:
+    # main only, for the reason lint.yml gives at the same key: a push to a
+    # branch with an open pull request would run this twice, in two
+    # concurrency groups that do not cancel each other for every
+    # pull_request action except closed on a merge -- see that trigger's
+    # own comment below -- and the pull_request run is the one worth
+    # keeping
+    branches: [main]
+  pull_request:
+    # ready_for_review, so a pull request marked ready gets the run the
+    # draft condition in reusable-docs.yml withheld while it was a draft:
+    # the default types do not include it, and without it a readied pull
+    # request would wait for its next push to be checked at all.
+    # closed joins them for a different reason: merging or closing a pull
+    # request is neither a push nor a synchronize, so a run still held in
+    # this pull request's own concurrency group survives it --
+    # cancel-in-progress only fires when a new run lands in that group,
+    # and nothing otherwise does. Landing the closed event there is what
+    # lets it supersede the stale run instead of leaving it to finish on
+    # a branch nobody is going to look at again; the job below declines
+    # the real work on it, the merge commit being main's own push
+    # trigger's question. "This pull request's own group" is the part
+    # github.ref alone got wrong: for a closed, merged pull request it
+    # resolves to the base branch's ref, the same one the push trigger's
+    # own run computes, so the closed run landed in *that* group instead
+    # and would cancel the run building the actual merge commit's
+    # documentation -- observed doing exactly that to bitcoin-core-rpc's
+    # own main, after btclib-org/bitcoin-core-rpc#136 merged there. The
+    # concurrency block below groups by the pull request's own number
+    # instead, immune to that collision under any action
+    types: [opened, reopened, synchronize, ready_for_review, closed]
+  # allows the release workflow to reuse this gate
+  workflow_call:
+    inputs:
+      concurrency-suffix:
+        description: >
+          Appended to the concurrency group, and the release workflow is
+          the only caller that passes one. See the group below.
+        type: string
+        default: ""
+  # the escape hatch: a run on demand for a branch whose pull request is
+  # not open yet
+  workflow_dispatch:
+
+# least privilege for the GITHUB_TOKEN: everything running in a job
+# (actions, dependencies, build scripts) can read the token, so it must not
+# be able to write to the repository. The called job needs no elevation of
+# its own, reusable-docs.yml's own header naming the same contents: read
+permissions:
+  contents: read
+
+# cancel superseded runs on the same branch/PR, named literally and
+# discriminated by an input rather than left to github.ref alone, for the three
+# reasons lint.yml gives at length: release.yml calls this workflow beside
+# lint.yml, os-ubuntu.yml, os-macos.yml, os-windows.yml, test.yml and
+# pypi-install.yml, and a group computed from github.workflow would have every
+# one of them cancel the others, that expression being the caller's name in each
+concurrency:
+  group: docs-${{ github.event.pull_request.number || github.ref }}${{ inputs.concurrency-suffix }}
+  cancel-in-progress: true
+
+jobs:
+  # the checkout, the uv setup, the build and the unresolved-link check
+  # are btclib-org/.github's; the draft and closed declines are the called
+  # workflow's own, reading github.event.pull_request.draft and
+  # github.event.action off this caller's trigger. Every automodule
+  # directive here imports this package, which compiles the vendored
+  # libsecp256k1 out of the checked-out submodule to do that, so
+  # `submodules` is passed rather than left at its default -- measured by
+  # running the build against an unregistered submodule directory, which
+  # fails CMake on the missing CMakeLists.txt before sphinx ever gets to
+  # autodoc. This tree has no script of its own to run against the built
+  # pages, so `post-build-script` is left at its default
+  docs:
+    uses: btclib-org/.github/.github/workflows/reusable-docs.yml@main
+    with:
+      submodules: true

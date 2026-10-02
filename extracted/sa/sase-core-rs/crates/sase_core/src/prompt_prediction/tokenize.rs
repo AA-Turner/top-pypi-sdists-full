@@ -96,7 +96,9 @@ pub fn tokenize_cursor_text(text: &str) -> CursorContext {
             reason: BLOCKED_UNCLOSED_JINJA,
         };
     }
-    if has_unclosed_alternation(text) {
+    // The alternation scanner is the costliest unclosed check; its syntax
+    // always contains `%`, so plain prose skips it entirely.
+    if text.as_bytes().contains(&b'%') && has_unclosed_alternation(text) {
         return CursorContext::Blocked {
             reason: BLOCKED_UNCLOSED_ALTERNATION,
         };
@@ -179,22 +181,40 @@ fn finish_cursor_context(
 /// at both compile and query time. The scanner already skips markers inside
 /// literal zones, so an alternation inside a code span stays inert.
 fn excluded_ranges(text: &str) -> Vec<(usize, usize)> {
+    // Fast path for plain prose: every marker scanner below can only match
+    // when its marker bytes are present, so one byte pass over the text
+    // decides which scanners can possibly fire. Pasted-block detection is
+    // length/ratio based and always runs.
+    let bytes = text.as_bytes();
+    let mut markers = false;
+    for byte in bytes {
+        if matches!(byte, b'`' | b'~' | b'%' | b'{') {
+            markers = true;
+            break;
+        }
+    }
     let mut ranges: Vec<(usize, usize)> = Vec::new();
-    if let Some(range) = frontmatter_range(text) {
-        ranges.push(range);
+    if text.starts_with("---") {
+        if let Some(range) = frontmatter_range(text) {
+            ranges.push(range);
+        }
     }
-    for (start, end) in fenced_block_ranges(text) {
-        ranges.push((start, end));
+    if markers {
+        for (start, end) in fenced_block_ranges(text) {
+            ranges.push((start, end));
+        }
+        let masks = ranges.clone();
+        for (start, end) in inline_code_ranges(text, &masks) {
+            ranges.push((start, end));
+        }
+        ranges.extend(jinja_ranges(text));
+        ranges.extend(alternation_body_ranges(text));
     }
-    let masks = ranges.clone();
-    for (start, end) in inline_code_ranges(text, &masks) {
-        ranges.push((start, end));
-    }
-    ranges.extend(jinja_ranges(text));
-    ranges.extend(alternation_body_ranges(text));
     ranges.extend(pasted_block_ranges(text));
     // Segment separators are line-based; mark the whole line excluded.
-    ranges.extend(segment_separator_ranges(text));
+    if text.contains("---") {
+        ranges.extend(segment_separator_ranges(text));
+    }
     ranges.sort();
     ranges
 }
@@ -720,6 +740,53 @@ fn is_word_char(ch: char) -> bool {
     ch.is_alphanumeric()
 }
 
+/// Split a trailing partial word off cursor text for current-word
+/// completion: `(text_before, prefix)` with `prefix` exactly as typed
+/// (leading affixes stripped).
+///
+/// Returns `None` when the text ends in whitespace or boundary
+/// punctuation (an ordinary boundary request), and when the trailing
+/// token cannot be a word (structural, hash-like, secret-like, over 32
+/// characters): those fall through to the ordinary path and block as
+/// today.
+pub fn split_partial_word(text: &str) -> Option<(&str, &str)> {
+    let token_start = text
+        .rfind([' ', '\t', '\n', '\r'])
+        .map(|index| index + 1)
+        .unwrap_or(0);
+    let token = text.get(token_start..).unwrap_or("");
+    if token.is_empty() {
+        return None;
+    }
+    // Leading affixes are not part of the typed prefix.
+    let mut prefix = token;
+    loop {
+        let next =
+            prefix.strip_prefix(['(', '"', '\'', '“', '‘', '*', '_', '`', '[']);
+        match next {
+            Some(rest) => prefix = rest,
+            None => break,
+        }
+    }
+    if prefix.is_empty() {
+        return None;
+    }
+    // The text must end in a word character under the tokenizer's word
+    // rules: an alphanumeric or a word-internal character (`classify_word`
+    // allows `'`, `’`, `-`, `_` inside words, so a trailing one can still
+    // continue the word). Anything else is a boundary request.
+    if !prefix.chars().last().is_some_and(|ch| {
+        ch.is_alphanumeric() || matches!(ch, '\'' | '’' | '-' | '_')
+    }) {
+        return None;
+    }
+    if is_structural_token(prefix) || classify_word(prefix).is_none() {
+        return None;
+    }
+    let prefix_offset = token.len() - prefix.len();
+    Some((&text[..token_start + prefix_offset], prefix))
+}
+
 /// Classify a raw token core as a word, returning (key, surface).
 pub fn classify_word(raw: &str) -> Option<(String, String)> {
     let cleaned = strip_affixes(raw);
@@ -750,14 +817,13 @@ fn is_hex_char(ch: char) -> bool {
 }
 
 fn is_hash_like(word: &str) -> bool {
-    let chars: Vec<char> = word.chars().collect();
-    if chars.len() < 7 {
+    // No allocation: two char passes over the borrowed word instead of a
+    // collected Vec. Same predicate as before.
+    if word.chars().count() < 7 {
         return false;
     }
-    chars
-        .iter()
-        .all(|c| is_hex_char(*c) || *c == '-' || *c == '_')
-        && chars.iter().any(|c| c.is_ascii_digit())
+    word.chars().all(|c| is_hex_char(c) || c == '-' || c == '_')
+        && word.chars().any(|c| c.is_ascii_digit())
 }
 
 const SECRET_PREFIXES: &[&str] =
@@ -1079,6 +1145,47 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn partial_word_split() {
+        assert_eq!(
+            split_partial_word("help me impl"),
+            Some(("help me ", "impl"))
+        );
+        assert_eq!(split_partial_word("hel"), Some(("", "hel")));
+        // Leading affixes stay in the text before the prefix.
+        assert_eq!(
+            split_partial_word("help me (impl"),
+            Some(("help me (", "impl"))
+        );
+        // A bare word ending is a partial word too: the flag decides,
+        // not the split.
+        assert_eq!(split_partial_word("help me"), Some(("help ", "me")));
+        // Word-internal trailing characters can still continue the word.
+        assert_eq!(
+            split_partial_word("help me don’"),
+            Some(("help me ", "don’"))
+        );
+        assert_eq!(
+            split_partial_word("help me well-"),
+            Some(("help me ", "well-"))
+        );
+        // Whitespace or boundary punctuation ends means a boundary
+        // request, not a partial word.
+        for text in ["help me ", "help me.", "help me impl."] {
+            assert_eq!(split_partial_word(text), None, "text={text:?}");
+        }
+        // Tokens that cannot be words never split: they block as today
+        // through the ordinary path.
+        assert_eq!(split_partial_word("help me src/foo"), None);
+        assert_eq!(split_partial_word("help me ghp_abc123"), None);
+        assert_eq!(split_partial_word("help me deadbeef123"), None);
+        assert_eq!(
+            split_partial_word("help me aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+            None
+        );
+        assert_eq!(split_partial_word("help ("), None);
     }
 
     #[test]

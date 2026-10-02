@@ -1,0 +1,1201 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+trusted_runner_variable:
+  name: OMNI_TRUSTED_CI_RUNS_ON_JSON
+  # OMN-16682: the trusted-CI seam was deliberately re-flipped to GitHub-hosted
+  # runners at org scope and at all five repo shadows on 2026-08-27T04:36:53-56Z.
+  # This value is the ASSERTED intended state, so it must track that flip --
+  # while it read '["self-hosted","omnibase-ci"]' the hourly audit reported six
+  # drift findings (org + each repo) on every run. That is not a benign red: the
+  # audit exits non-zero on the first finding set, so its OTHER surfaces --
+  # notably the local-workflow hosted-runner allowlist that carries the
+  # OMN-16683 fork-isolation entries -- were reported against a job that was
+  # already failing, and real new drift there would not have changed the signal.
+  #
+  # Jobs that must NOT follow this seam onto hosted runners do not read this
+  # variable at all: the OCC autobind/companion-effect publishers read the
+  # dedicated OMNI_OCC_AUTOBIND_RUNS_ON_JSON knob with a literal
+  # '["self-hosted","omnibase-ci"]' fallback (OMN-16691), because they publish to
+  # the tailnet-only dev-lane broker that only the self-hosted fleet can reach.
+  #
+  # OMN-17888 adds the second such carve-out: runtime-rebuild-trigger.yml reads
+  # OMNI_RUNTIME_REBUILD_RUNS_ON_JSON on the same terms. It publishes the
+  # post-merge redeploy-start command to that same tailnet-only dev-lane broker,
+  # and it had been reading the seam above -- so the 2026-08-26 flip relocated it
+  # onto GitHub-hosted compute, where librdkafka cannot resolve the bootstrap
+  # name. Every run since that had a runtime change to publish failed; dev-lane
+  # auto-redeploy delivered nothing for ten days. BOTH dedicated knobs are meant
+  # to stay UNSET so the self-hosted literal operates; neither is audited above,
+  # because an unset variable is the intended state and a set one is the defect.
+  expected_json: '["ubuntu-latest"]'
+  # OMN-18031: expected_json above is the ORG assertion and the default for every
+  # repo shadow. repository_overrides declares a shadow that is deliberately
+  # different, so the hourly audit can tell an authorized per-repo divergence
+  # from the silent drift it exists to catch. An override is not a hole: the
+  # audit holds the repo to the override value, still judges the org value on
+  # expected_json above, refuses an override with no revert_when, and reports a
+  # repo that declares an override but carries no shadow at all (it would
+  # silently inherit the org value -- the "the flip looked successful because the
+  # org readback was correct" trap in rule 14).
+  #
+  # It is EMPTY today, deliberately. On 2026-09-07T12:04:30-31Z the omnimarket
+  # and omnibase_infra shadows were flipped to '["self-hosted","omnibase-ci"]' as
+  # authorized interim load-balancing relief (78 hosted runs queued across the two
+  # repos while all 30 runners in the omnibase-ci group were online and zero were
+  # busy). It was REVERTED 53 minutes later at 12:57:48Z on measured harm: the
+  # required gate "Customer Path Boundary (OMN-18012)" cannot bootstrap its Kafka
+  # testcontainer on the fleet -- the runners are themselves containers on a
+  # shared Docker daemon, so a mapped container port is not reachable on the
+  # runner's own localhost. Clean A/B on omnibase_infra ci.yml, same job: 5 of 5
+  # pre-flip runs SUCCESS on ubuntu-latest, 5 of 5 post-flip runs FAILURE on
+  # self-hosted, the first of them 71 seconds after the flip; reproduced on
+  # omnimarket run 34122888401.
+  #
+  # SUPERSEDED, 2026-09-12 (OMN-18205). The sentence that stood here claimed
+  # this gate, and every other container-backed gate, required a runner class
+  # of its own that the fleet could not provide. That is no longer true and it
+  # is dropped rather than softened: the
+  # runner-topology defect was fixed the same afternoon and the gate has since
+  # been PROVEN green on a fleet runner. The A/B above is kept because it is an
+  # accurate record of what was measured on the morning of 2026-09-07 -- it is
+  # history, not a current constraint. Read it with the OMN-18205 entry below.
+  #
+  # OMN-18031 phase 5, 2026-09-11T21:12:33Z: two shadows below are now DECLARED
+  # divergences rather than drift. Authority is the operator ruling of
+  # 2026-09-11 ~21:07Z, "Yes we should move things back to the lab as
+  # necessary", and the phase-0 gate it answers is met. Measured immediately
+  # before the write: 279 jobs sat queued across six repositories, every one of
+  # them carrying `ubuntu-latest` with no runner assigned and the longest
+  # waiting 18 minutes, while 70 of the 88 runners in this group were online
+  # and idle. That is runner availability, not concurrency-group
+  # serialisation -- a job blocked on `needs:` is not reported queued with a
+  # started_at, and all 279 carried one.
+  #
+  # The exclusions are the substance of this entry. omnimarket and
+  # omnibase_infra are deliberately NOT flipped: the required gate named in the
+  # A/B above, "Customer Path Boundary (OMN-18012)", resolves its runs-on
+  # through this very seam in BOTH repositories (omnimarket ci.yml, and this
+  # repo's ci.yml) and docker-pulls redpandadata/redpanda with
+  # OMN18012_REQUIRE_HARNESS=1 set so a missing daemon is red rather than a
+  # green skip.
+  #
+  # CORRECTED, 2026-09-12 (OMN-18205). This paragraph previously ended with a
+  # sentence asserting that flipping either shadow would reproduce the
+  # 2026-09-07 harm exactly. That claim was false when it was written and is
+  # withdrawn at the request of its own author. The
+  # harm it names was fixed before this text was committed, and the gate has
+  # since run green on a fleet runner in both repositories. Neither repository is
+  # excluded for that reason any more; the standing reason not to flip them is
+  # CAPACITY, recorded in the OMN-18205 entry below. Both gates now resolve
+  # through docker_ci_runner_variable, so a flip of THIS seam would not move them
+  # in any case.
+  # The org variable is not flipped either: it is inherited by omninode_infra --
+  # private, carrying a live staging deploy path, and with only five
+  # seam-driven job definitions, so almost no yield for a large blast radius --
+  # and by omnimemory, omnidash, omnibase_spi and omnibase_compat, none of
+  # which were enumerated for container exposure.
+  #
+  # Two shadows were flipped at 21:12:33Z. ONE WAS REVERTED 35 MINUTES LATER on
+  # measured harm, and the reason is a finding worth more than the flip was.
+  #
+  # onex_change_control was flipped and reverted to '["ubuntu-latest"]' at
+  # 2026-09-11T21:47:18Z. It is NOT in the override map below, so the audit
+  # holds it to expected_json above, which is now correct again. The cause was
+  # NOT the container defect and NOT runner contamination: the step "Verify
+  # centralized runner routing standard", in that repo's
+  # .github/workflows/omni-standards-compliance.yml, builds its forbidden-label
+  # set FROM THE LIVE VALUES of OMNI_PUBLIC_PR_RUNS_ON_JSON and
+  # OMNI_TRUSTED_CI_RUNS_ON_JSON, then greps .github/workflows for each label,
+  # filtering out only lines that contain one of the two `fromJSON(vars...||`
+  # fallback expressions. Flipping the trusted seam to self-hosted therefore
+  # makes the gate hunt for the literal string "self-hosted" in its own
+  # workflow directory -- and it hits exactly one line, a PROSE COMMENT at
+  # release-staleness-gate.yml:52 reading "not contend for the same self-hosted
+  # runners". The gate fails on a comment.
+  #
+  # So that repository is structurally unflippable until the gate's filter is
+  # fixed, and the defect is invisible while the seam is hosted: the label set
+  # is then just {ubuntu-latest}, every occurrence of which IS on a fallback
+  # line. A gate that passes only because the value it guards has never been
+  # exercised has not been tested. Clean A/B, same shape as the 2026-09-07
+  # entry above: 59 of 59 conclusive pre-flip runs SUCCESS on hosted, 3 of 3
+  # conclusive post-flip runs FAILURE on the fleet, zero fleet successes.
+  #
+  # omnibase_core does NOT carry that gate -- grep for its step name returns
+  # nothing in that repo's workflow directory -- which is why it stays flipped
+  # and is the one override declared below. It carries no `testcontainers`
+  # dependency and no `docker` step in any workflow.
+  #
+  # RE-FLIPPED 2026-09-12T00:27:32Z and REVERTED AGAIN at 01:56:49Z, this time
+  # because the fleet could not carry the load. That second revert is the more
+  # important measurement in this whole entry, so it is recorded here rather
+  # than only in a ticket.
+  #
+  # The gate defect that forced the FIRST revert was genuinely fixed
+  # (onex_change_control#9140, squash dbec685b7b0f4d0737db87c5a42a6e749f36492b),
+  # verified on that repo's integration branch, and proven on the fleet by two
+  # conclusive gate successes plus an injected-pin control. None of that is
+  # retracted. What failed is capacity.
+  #
+  # MEASURED, job level, six repositories:
+  #
+  #   pre-flip  21:15Z  279 queued jobs, max wait 18m, all hosted,
+  #                     70 of 88 fleet runners idle
+  #   +11min    00:38Z  0 queued, 97 jobs on fleet runners, 47 busy / 37 idle
+  #   +86min    01:54Z  336 queued jobs, max wait 25m, 293 of them waiting on
+  #                     FLEET labels, fleet 87 of 88 BUSY, 1 idle
+  #
+  # So routing was WORSE than the hosted baseline it replaced, on both queue
+  # depth and tail latency, and 182 of those 336 queued jobs were the routed
+  # repository's own. The +11min reading was a quiet-moment snapshot and was
+  # wrongly reported as the outcome; the honest reading needs a sustained
+  # sample, which is what the plan's phase 0 asked for and what a single
+  # snapshot cannot give.
+  #
+  # The premise this refutes is specific and worth stating: the fleet being
+  # near-unused at rest (~0.03 percent of available runner-minutes) does not
+  # imply it can absorb one busy repository's CI. Eighty-eight runners against
+  # that repository's fan-out is not spare capacity, it is a smaller bottleneck
+  # than the hosted pool.
+  #
+  # Two further harms, either sufficient on its own. A concurrent fleet
+  # maintenance roll could not converge, because its roller refuses to recreate
+  # a BUSY runner and 87 of 88 were busy. And the routing starved the evidence
+  # companion of the very pull request recording it.
+  #
+  # omnibase_core stayed on the fleet at the time this paragraph was written: it
+  # was not the saturation source, and it had run clean since
+  # 2026-09-11T21:12:33Z. SUPERSEDED 2026-09-12T14:01:27Z -- see the OMN-18205
+  # cloud-migration entry at the end of this block. The sentence is kept in the
+  # past tense because it is accurate history of the 2026-09-11 flip; it is no
+  # longer the current state and must not be cited as one.
+  #
+  # THE COST, measured rather than estimated. Between 21:13:15Z and 21:49:29Z
+  # that gate failed 5 runs across 5 branches -- 3 OCC companion branches and 2
+  # product branches inside that repo -- and because it feeds the required
+  # summary check, no companion could merge, which blocks product PRs
+  # fleet-wide. Window from first failure start to first pass after the revert:
+  # 36m14s. One of the blocked companions was this very pull request's, so the
+  # flip blocked its own paperwork.
+  #
+  # omnibase_core was checked for the same gate rather than assumed safe, and
+  # from origin/dev rather than from a local clone: its
+  # omni-standards-compliance.yml contains ZERO occurrences of either the step
+  # name or the error string, against exactly one of each in the other repo as
+  # the positive control. It carries ~108 prose matches for the label, but
+  # nothing in that repo greps for them, so they are inert. That is why it
+  # stayed flipped through 2026-09-12T14:01:27Z, with its jobs executing and
+  # passing on named fleet runners. That finding is unretracted and is the
+  # reason the flip was safe; it is not a reason the repository must remain
+  # there, and the cloud-migration entry below is what moved it.
+  #
+  # What the flip proved before the revert, and it is worth recording: queue
+  # depth went from 279 queued jobs at 21:15Z to 0 at 21:42Z, with 76
+  # onex_change_control jobs executing on named fleet runners, and fleet busy
+  # count rising from 16 to 51 of 88. The mechanism works. One repository's
+  # self-referential gate is what stopped it, not the fleet.
+  #
+  # OPERATIONAL GUARD ADDED AFTER HOSTILE REVIEW, 2026-09-12. A future
+  # repository_override is no longer authorized by narrative alone:
+  # scripts/audit-runner-routing.py rejects every override without an
+  # activation_gate carrying sustained sampling, capacity budget,
+  # maintenance-roll convergence, evidence-companion fate isolation, and
+  # positive-control acceptance criteria. That is the policy guard that prevents
+  # a repeat of the +11min quiet-snapshot mistake: the checked shape must exist
+  # before the audit will accept any repo shadow divergence.
+  #
+  # OMN-18205 CLOUD MIGRATION, 2026-09-12T14:01:27Z. The last remaining override
+  # is REMOVED and this map is empty again, which the shape test above calls the
+  # correct steady state. omnibase_core's trusted-CI shadow was patched from the
+  # fleet pair back to '["ubuntu-latest"]' at that timestamp, so every audited
+  # scope in the organization now agrees with expected_json above and no
+  # divergence is declared anywhere.
+  #
+  # AUTHORITY. The override's authority was the operator ruling of
+  # 2026-09-11 ~21:07Z, which directed work back onto the lab as necessary. A
+  # later operator ruling reverses that direction and names this shadow: the
+  # OPERATOR-CONSENT row at docs/tracking/ROLLING_WORK_LEDGER.md:6999 in the
+  # omni_home registry (2026-09-12T13:56:45Z), whose approved scope is to move
+  # CI work off the lab hosts to cloud runners and lists the trusted-seam
+  # shadow on this repository explicitly. A later ruling supersedes an earlier
+  # one; that is the whole reason this entry is gone, and nothing in the
+  # technical findings above is retracted to make room for it.
+  #
+  # WHAT WAS MEASURED BEFORE THE WRITE, since narrative is not authorization.
+  # Read live across the seventeen hours the override was in force
+  # (2026-09-11T21:12:33Z to 2026-09-12T14:01Z), job level, from the Actions
+  # API: 299 omnibase_core jobs executed on the fleet for 2831 runner-minutes,
+  # spread across 87 of the 88 runners in the group -- roughly 2.8 runners held
+  # continuously, which made this repository the largest single lab CI consumer
+  # measured anywhere in the estate. For comparison the plan of record's
+  # previously-largest exception, the omninode_infra pull-request test job, is
+  # 276 minutes over SEVEN DAYS. The activation_gate's capacity budget was not
+  # breached at the moment of the write (46 of 88 busy, 42 idle), so this is a
+  # deliberate policy change and NOT a capacity revert; recording which of the
+  # two it is matters, because a future lane reading a bare removal would
+  # reasonably infer the gate had fired.
+  #
+  # WHY THE MOVE COSTS NOTHING. omnibase_core is a PUBLIC repository, and
+  # standard GitHub-hosted runner minutes are free in public repositories. The
+  # nine-day billing read in the plan of record shows this repository at 65,800
+  # minutes gross and $0.00 net billed. So the 2831 runner-minutes above leave
+  # the lab and arrive somewhere they are not invoiced. That asymmetry is the
+  # reason a public repository is the right first thing to move and a private
+  # one is not.
+  #
+  # THE ONE SCOPE STILL ON THE FLEET, stated rather than left absent: omniweb's
+  # trusted-CI shadow, set 2026-09-01T12:39:22Z, is the only remaining
+  # self-hosted routing value at any scope in the organization. It is a private
+  # repository, so its hosted minutes bill, and it is still not in the audited
+  # `repositories` list below -- the hourly audit therefore never looks at it.
+  # That is a known gap folded into the plan of record's phase 4; this entry
+  # does not close it and does not flip that shadow.
+  #
+  # OMN-18205 PHASE 2, 2026-09-12: A SHADOW WAS SET ON omninode_infra AND
+  # REVERTED 41 MINUTES LATER ON MEASURED HARM. The map stays EMPTY, which the
+  # shape test above calls the correct steady state. This entry exists because
+  # the attempt is the useful evidence, and a future lane that reads only
+  # "empty" would try the same thing again.
+  #
+  # WHAT WAS TRIED, AND THE REASONING THAT LOOKED SOUND. omninode_infra pins 44
+  # of its 101 job definitions to the fleet label directly in workflow files,
+  # where no routing surface can see them. omninode_infra#1390 moves the
+  # hermetic 40 of those onto the seam expression. Those rewired jobs read
+  # fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]'),
+  # and the literal fallback applies only when the variable is UNSET -- the org
+  # value is set at visibility: all and therefore reaches this repository. So
+  # merging that PR with no shadow would move 40 jobs of a PRIVATE repository
+  # onto billed hosted runners, roughly $500/month, as a silent side effect of a
+  # mechanical refactor. Setting the shadow to the fleet pair first was meant to
+  # make the rewiring placement-neutral: change WHERE placement is decided and
+  # nothing about where the jobs run.
+  #
+  # WHY IT WAS WRONG, and the half the reasoning missed. The shadow does not
+  # only govern the 40 jobs that PR rewires. omninode_infra already had 13
+  # seam-driven jobs on dev, rewired by earlier work from hardcoded
+  # `ubuntu-latest` and resolving to the ORG value ever since -- ci.yml's own
+  # comment beside one of them says so in as many words: "It carries no routing
+  # shadow, so this expression resolves to the organization value." Setting the
+  # shadow relocated all 13 from GitHub-hosted onto the fleet in one write,
+  # which was neither intended nor anticipated, and two of them do not run
+  # there: "Validate ONEX Manifest Hygiene" fails at its Install yq step, and
+  # "Repo Scripts Tests" fails with `renderer 'kustomize' not found`. Both tools
+  # are present on hosted images and absent from the fleet runner image.
+  #
+  # BLAST RADIUS, stated rather than softened: `CI Summary` is a required check
+  # on that repository's dev branch and aggregates both, so for 41 minutes every
+  # open pull request there was blocked, including PRs belonging to other lanes.
+  #
+  # THE EVIDENCE IS A CLEAN BEFORE/AFTER WITH A CONTROL, not an inference.
+  # k8s-validate.yml succeeded on every run through 15:40:24Z and failed on
+  # every run after the write at 15:55:54Z -- including run 34704455773 on an
+  # unrelated branch, which is the control proving the cause was the variable
+  # and not the PR under test. After the shadow was deleted at 16:36Z the same
+  # job re-ran green on `GitHub Actions 1003094636`, a hosted runner, while the
+  # fleet-literal job `Validate Manifest Hygiene` in the same run stayed on
+  # `omninode-runner-15` and also passed -- so the fleet itself was healthy and
+  # only the relocated jobs broke.
+  #
+  # WHAT THIS CHANGE STILL DOES. omninode_infra is added to the audited
+  # `repositories` list below and KEPT there. With no shadow present the audit
+  # records no finding, and if any shadow appears on that repository later it
+  # becomes a reported drift instead of the invisible edit it was until today.
+  # That is the durable half of this work and it is worth keeping on its own.
+  #
+  # WHAT A LATER LANE MUST DO FIRST. Re-setting this shadow is not blocked, it
+  # is SEQUENCED: pin those 13 previously-hosted jobs to a hosted literal, or
+  # install yq and kustomize in the fleet runner image, BEFORE the shadow goes
+  # back. Enumerate the seam-driven jobs from each job's parsed `runs-on` on the
+  # target repository's default branch -- never from whether a file mentions the
+  # variable -- because that enumeration is exactly the step this attempt
+  # skipped.
+  # OMN-18205 PHASE 4, 2026-09-14. THE MAP IS NO LONGER EMPTY, AND THE REASON IS
+  # NOT THAT THE ARGUMENT ABOVE WAS WRONG. Every measurement recorded above
+  # stands. What changed is that GitHub-hosted compute STOPPED BEING AN
+  # AVAILABLE PLACEMENT in the private repositories. Read live at
+  # 2026-09-14T11:29:39Z, every `ubuntu-latest` job in omninode_infra completes
+  # in about four seconds with no runner assigned and the annotation "The job
+  # was not started because recent account payments have failed or your spending
+  # limit needs to be increased". Public repositories are unaffected because
+  # their hosted minutes are free. So the sequencing note that closes the phase-2
+  # entry above -- "pin those 13 previously-hosted jobs to a hosted literal, OR
+  # install yq and kustomize in the fleet runner image, BEFORE the shadow goes
+  # back" -- now has only one live branch: a hosted pin is a pin to a placement
+  # that cannot run at all.
+  #
+  # WHAT THE FLIP MOVES, enumerated from each job's parsed `runs-on` on
+  # omninode_infra's default branch (`dev`), which is the step the phase-2
+  # attempt skipped. 109 job definitions: 42 already read
+  # OMNI_INFRA_FLEET_RUNS_ON_JSON (fleet default, unset everywhere, so already on
+  # the fleet), 5 are fleet literals, 8 are reusable calls, 41 are hosted
+  # literals, and THIRTEEN read this seam. Those 13 are exactly the population
+  # this override governs:
+  #   build-and-push-omniweb.yml::report-public-surface-drift
+  #   ci.yml::repo_scripts_tests
+  #   contract-validation.yml::contract-validation
+  #   deploy-gate.yml::deploy-gate
+  #   host-sysctls-gate.yml::host-sysctls
+  #   infra-consistency-check.yml::infra-consistency
+  #   k8s-validate.yml::validate-onex-manifest-hygiene
+  #   lab-store-mirror-parity.yml::lab-store-mirror-parity
+  #   main-target-guard.yml::main-target-guard
+  #   stale-todo-gate.yml::stale-todo-gate
+  #   test-composite-actions.yml::test-install-kubeconform
+  #   test-composite-actions.yml::test-install-kustomize
+  #   todo-audit-on-merge.yml::todo-audit
+  #
+  # CORRECTION, made against live placement rather than against the expression,
+  # because the two disagree and the difference matters to anyone reading this
+  # to predict what a flip does. Those 13 do NOT all move on a pull request.
+  # Nine of them use the fork-guard shape (`head.repo != repository` chooses the
+  # public class) or read the seam unconditionally, so on a same-repository pull
+  # request they resolve to the seam and land on the fleet. The other FOUR --
+  # contract-validation, deploy-gate, infra-consistency-check and
+  # stale-todo-gate -- use the `github.event_name != 'pull_request'` shape, which
+  # sends every pull-request event to the PUBLIC class by construction. Those
+  # four move only on push and schedule events and stay hosted on pull requests.
+  # Measured, not inferred: after the write, `main-target-guard` ran on
+  # omninode-runner-74 and `lab-store-mirror-parity` on omninode-runner-2, while
+  # re-runs of contract-validation, deploy-gate, infra-consistency and
+  # stale-todo-gate in the same window all reported `labels=ubuntu-latest` with
+  # no runner assigned.
+  # It moves NOTHING ELSE. The 41 hosted literals stay hosted (they are AWS/ECR/
+  # SSM/kubectl deploy paths and two service-container test jobs), and the seam
+  # cannot reach them because a literal answers to no variable.
+  #
+  # THE TWO KNOWN FLEET BREAKS ARE NAMED RATHER THAN REDISCOVERED, and they are
+  # the same two the phase-2 revert found. `validate-onex-manifest-hygiene`
+  # installs yq with `sudo wget`; the fleet runner image has NEITHER -- probed
+  # live in omninode-runner-9 and -56, /etc/sudoers.d grants `runner` exactly one
+  # command (`rm -rf` of the work directory) and `wget` is absent. `repo_scripts_tests`
+  # runs `pytest tests/ --ignore=tests/scripts`, whose tests/k8s modules shell out
+  # to `kubectl kustomize`, and kubectl is on the hosted image and not on the
+  # fleet image, which is where `renderer 'kustomize' not found` came from.
+  # omninode_infra PR (OMN-18205) fixes both at cause -- a checksum-verified,
+  # sudo-free, curl-based install-yq composite action modelled on the existing
+  # install-kustomize, plus a pinned azure/setup-kubectl step -- and that PR is
+  # open. It cannot merge until the billing block clears, which is why the
+  # shadow is not sequenced behind it: leaving those two jobs on hosted is a
+  # guaranteed failure, moving them is a failure that is no worse and that the
+  # open PR converts into a pass. The other ELEVEN are checked and clean: none of
+  # the ten remaining workflows contains `sudo`, `apt-get`, `wget` or any other
+  # image-dependent install, and the two test-composite-actions jobs install
+  # their tools through the fleet-proven composites.
+  #
+  # WHAT THIS FLIP DOES NOT FIX, stated rather than left for someone to discover.
+  # THREE of the six required contexts on omninode_infra's `dev` branch --
+  # `verify / verify`, `kb-doc-gate / kb-doc-gate` and
+  # `call-reject-skip-token / scan / reject-skip-gate-token` -- route every
+  # pull-request event to OMNI_PUBLIC_PR_RUNS_ON_JSON, the untrusted class, by
+  # deliberate design in their reusable definitions. This seam cannot move them
+  # and MUST NOT: flipping the public-PR variable would put untrusted pull-request
+  # code on the lab fleet, which is the exact fork-isolation inversion OMN-16683
+  # exists to prevent. So merges in that repository stay blocked until the
+  # account-level billing failure is cleared by an operator. Routing reduces the
+  # bill and unbreaks the thirteen; it is not a substitute for paying the bill.
+  #
+  # `vars` RESOLUTION IN REUSABLE WORKFLOWS IS PROVEN, NOT ASSUMED, because the
+  # paragraph above depends on it. omniweb run 34780281040: `pr-title / check-title`,
+  # whose definition lives in onex_change_control (whose own shadow is hosted),
+  # executed on `omninode-runner-20` because the CALLER's shadow is the fleet
+  # pair. The control is in the same repository minutes earlier: run 34780242070,
+  # `kb-doc-gate / kb-doc-gate`, hosted on `GitHub Actions 1000000036`, because
+  # that definition sends dev-targeting pull requests to the public class. Same
+  # caller, same variables, opposite placements, explained entirely by the two
+  # expressions.
+  #
+  # omniweb IS DECLARED HERE FOR THE FIRST TIME AND NOTHING ABOUT IT CHANGES.
+  # Its shadow was set to the fleet pair on 2026-09-01T12:39:22Z and has been
+  # live ever since; it was the "one scope still on the fleet" the cloud-migration
+  # entry above records as a known gap folded into phase 4. This entry closes
+  # that gap by DECLARING the value and adding the repository to the audited
+  # `repositories` list below, so a future edit to it becomes a reported drift
+  # instead of an invisible one. No variable is written for omniweb by this
+  # change.
+  repository_overrides:
+    omninode_infra:
+      expected_json: '["self-hosted","omnibase-ci"]'
+      revert_when: >-
+        Revert to '["ubuntu-latest"]' the moment GitHub-hosted compute is a working placement again AND any of the following is observed: the fleet busy fraction sustains above the saturation threshold in `route` below with omninode_infra jobs among the waiting set; a maintenance roll cannot converge because too few runners are idle to recreate; or any of the thirteen seam-driven jobs fails on a named fleet runner for a fleet-caused reason -- a missing tool on the runner image, a container it cannot reach from the test process, or a job that is QUEUED rather than running. A hosted pin is NOT a valid revert target while the billing annotation persists, because that placement does not execute.
+      activation_gate:
+        sustained_samples: >-
+          Four job-level samples of fleet busy/idle and org-wide queue depth, taken at least fifteen minutes apart across the first ninety minutes after the write. A single quiet-moment snapshot is explicitly NOT acceptance: that is the +11min mistake recorded in the entry above.
+        sustained_min_span_seconds: 5400
+        capacity_budget: >-
+          Thirteen job definitions, against the 88-runner omnibase-ci group. Baseline read immediately before the write on 2026-09-14: 88 online, 11 busy, 77 idle. This repository already places 47 job definitions on the fleet (42 via OMNI_INFRA_FLEET_RUNS_ON_JSON plus 5 fleet literals), so this is a roughly 28 percent increase in its own fleet footprint, not a new tenant. Budget: the group must keep at least the `min_idle_runners` of `route` below free at every sample; breaching it on two consecutive samples is a revert, not a discussion.
+        maintenance_roll_convergence: >-
+          The runner auto-bounce roller refuses to recreate a BUSY runner, so a fleet at 87/88 busy cannot converge -- the harm measured at 2026-09-12T01:54Z. Convergence is proven by one completed maintenance roll, or by the busy fraction returning below the budget above, within the sampling window.
+        evidence_companion_fate_isolation: >-
+          The 2026-09-12 flip starved the evidence companion of the pull request that recorded it. The OCC autobind and companion-effect publishers in this repository read the dedicated OMNI_OCC_AUTOBIND_RUNS_ON_JSON knob, which stays UNSET and is therefore untouched by this override; both publisher jobs were observed SUCCESS on omninode_infra run 34838472657 and 34838472516 while every hosted job in the same push failed, so the companion path is already isolated from this seam by construction.
+        positive_control_acceptance: >-
+          Acceptance is a named fleet runner on a previously-hosted job, not an absence of red. Accept when at least one of the eleven clean seam-driven jobs reports conclusion success with a populated `runner_name` matching `omninode-runner-*` and labels self-hosted,omnibase-ci. The positive control that the fleet itself is healthy is a fleet-literal job in the SAME run staying green -- the discriminator the phase-2 diagnosis used.
+    omni_home:
+      expected_json: '["self-hosted","omnibase-ci"]'
+      revert_when: >-
+        Revert to '["ubuntu-latest"]' only once omni_home is no longer a private repository. This shadow is what places the repository's ONE required check on main, `kb-doc-gate / kb-doc-gate`, on the fleet; reverting it re-wedges every pull request there, which is the state it was set to fix.
+      activation_gate:
+        sustained_samples: >-
+          Set 2026-09-14T13:28:02Z to unwedge a repository whose required check had been QUEUED with no runner for over half an hour. The sustained sample is the repository's own pull-request traffic from that timestamp forward; this is one seam-driven job definition, not a load change.
+        sustained_min_span_seconds: 5400
+        capacity_budget: >-
+          ONE seam-driven job definition, a markdown doc-placement check that completes in seconds. Every other workflow in this repository is already pinned to the fleet label directly -- 18 of its 19 job definitions -- so this shadow adds a single short job to a group whose floor is the `min_idle_runners` of `route` below.
+        maintenance_roll_convergence: >-
+          Unchanged by one short-lived job. Convergence is proven by the busy fraction staying inside the budget above, the same measure as the omninode_infra entry.
+        evidence_companion_fate_isolation: >-
+          This repository publishes no OCC companion and calls neither publisher reusable, so there is no companion whose fate this shadow could share. It is the only audited repository for which that is true, and it is stated rather than left absent.
+        positive_control_acceptance: >-
+          Acceptance is the next `kb-doc-gate / kb-doc-gate` run on a pull request here reporting a populated `runner_name` matching `omninode-runner-*`. The negative state this replaces is on the record: that job QUEUED with no runner assigned, while sibling jobs in the same repository pinned to [self-hosted, omnibase-ci] finished in seconds.
+    # OMN-18431, 2026-09-16. The omni_home entry above, one repository over.
+    # omnistream is PRIVATE and carries NO routing shadow at all, so its ONE
+    # required check on `main` -- `kb-doc-gate / kb-doc-gate`, implemented by
+    # the same cross-repo omniclaude reusable, whose selector takes the TRUSTED
+    # branch for a same-repo pull request -- inherits the organisation value and
+    # lands on a hosted label. It does not merely queue there: read live, the
+    # job reports the hosted label class, three seconds, no runner and no steps.
+    # It last passed on 2026-09-02 and has failed every run since.
+    #
+    # THIS ENTRY DECLARES A VALUE THIS LANE DID NOT WRITE. Routing variables are
+    # single-owner (rule 14) and the omnistream repository shadow is the
+    # operator's write. Merge order therefore matters and is not symmetric: with
+    # the override declared and no live shadow, `_audit_trusted_style_variable`
+    # reports "has no repo shadow but the policy declares an override"
+    # (scripts/audit-runner-routing.py:211-222). Merge this AFTER the write.
+    omnistream:
+      expected_json: '["self-hosted","omnibase-ci"]'
+      revert_when: >-
+        Revert to '["ubuntu-latest"]' only once omnistream is no longer a private repository. This shadow is what places the repository's ONE required check on `main`, `kb-doc-gate / kb-doc-gate`, on the fleet; reverting it returns that job to a hosted label it cannot start on, which is the state it was set to fix. A hosted pin is NOT a valid revert target while private-repository hosted minutes do not execute.
+      activation_gate:
+        sustained_samples: >-
+          The sustained sample is the historical record, not a prospective window: this repository's required check has failed on EVERY run since 2026-09-02, roughly two weeks, always at the same point -- labels hosted, three seconds, no runner assigned, no steps executed. There is no quiet-moment snapshot risk here because the failing state is continuous rather than load-dependent.
+        sustained_min_span_seconds: 1209600
+        capacity_budget: >-
+          ONE seam-driven job definition, a markdown doc-placement check that completes in seconds. Five of this repository's six other job definitions are already pinned to the fleet label directly; the sixth is `ci.yml::test-integration`, which this work moves onto the fleet in the same window and which is bounded by its own `timeout-minutes: 20`. Budget: the omnibase-ci group must keep at least the `min_idle_runners` of `route` below free at every sample, the same floor as the omni_home entry.
+        maintenance_roll_convergence: >-
+          Unchanged by one short-lived job. Convergence is proven by the busy fraction staying inside the budget above, the same measure as the omninode_infra and omni_home entries.
+        evidence_companion_fate_isolation: >-
+          This repository publishes no OCC companion and calls neither publisher reusable -- its only cross-repository delegation is the kb-doc-gate reusable itself -- so there is no companion whose fate this shadow could share. Stated rather than left absent, on the omni_home entry's terms.
+        positive_control_acceptance: >-
+          Acceptance is a named fleet runner, not an absence of red: the next `kb-doc-gate / kb-doc-gate` run on a pull request here reporting conclusion success with a populated `runner_name` matching `omninode-runner-*` and labels self-hosted,omnibase-ci. The positive control that the fleet itself is healthy is a fleet-literal job in the SAME run -- `Lint & Format` -- staying green, which is the discriminator that already distinguishes this repository's failing job from its passing ones today.
+    omniweb:
+      expected_json: '["self-hosted","omnibase-ci"]'
+      revert_when: >-
+        Revert to '["ubuntu-latest"]' only once omniweb is no longer a private repository, or if a job routed by this shadow fails on a named fleet runner for a fleet-caused reason. This entry DECLARES a value that has been live since 2026-09-01T12:39:22Z; it does not create one, so there is nothing to revert to a prior state.
+      activation_gate:
+        sustained_samples: >-
+          Not applicable prospectively: the value has been live for thirteen days. The sustained sample is the historical record -- omniweb's workflow runs over that window, 833 in the last seven days alone, with no fleet-attributed failure and no saturation event traced to this repository.
+        sustained_min_span_seconds: 1123200
+        capacity_budget: >-
+          Twelve seam-driven job definitions plus two fleet literals. Same 88-runner group and the same `min_idle_runners` floor as the omninode_infra entry above; this repository has never been a named contributor to a saturation reading.
+        maintenance_roll_convergence: >-
+          Unchanged by this entry. No roll has failed to converge for a reason attributed to omniweb in the thirteen days the value has been live.
+        evidence_companion_fate_isolation: >-
+          This repository's OCC autobind and companion-effect publishers read OMNI_OCC_AUTOBIND_RUNS_ON_JSON, which stays UNSET, so they are isolated from this seam by the same construction as omninode_infra above. Observed live: omniweb run 34780241951 companion path SUCCESS.
+        positive_control_acceptance: >-
+          Already satisfied and cited rather than promised: omniweb run 34780281040, `pr-title / check-title`, conclusion success on `omninode-runner-20` with labels self-hosted,omnibase-ci, against the control of run 34780242070 in the same repository landing hosted on `GitHub Actions 1000000036` because its definition routes dev-targeting pull requests to the public class.
+# OMN-18205, 2026-09-12: THE EXCLUSION ABOVE RESTS ON PRE-FIX EVIDENCE, and
+# this entry is the correction. The 5-of-5 self-hosted failures of "Customer
+# Path Boundary (OMN-18012)" recorded above all predate commit
+# 761a786432a87872029519e6629103161fd35397 (#3286), which merged at
+# 2026-09-07T15:03:14Z and taught the harness to resolve the Docker host
+# address, to use it for BOTH the advertised broker address and the bootstrap
+# string, and to prove readiness on the client path. This repository's shadow
+# had already been reverted to hosted at 12:57:48Z that day -- two hours and
+# six minutes earlier -- so the fixed harness has never once executed on a
+# fleet runner. "The gate fails on the fleet" was true of the harness as it
+# stood on the morning of 2026-09-07 and has been unverified since that
+# afternoon.
+#
+# The containerized-runner premise itself is confirmed and unchanged: read
+# live on 2026-09-12T00:5xZ, omninode-runner-1 is a Docker container with
+# /var/run/docker.sock bind-mounted and NetworkMode docker_default. So a
+# sibling broker container starts fine from a fleet runner; only the ADDRESS
+# the test process used to reach it was ever wrong. That is also why the
+# counter-case in the plan of record -- a broker-container test that ran to
+# completion on runner 84 on 2026-09-07 -- is not a contradiction.
+#
+# What this ticket changes here, and what it deliberately does not. It does
+# NOT flip a variable; it removes the reason a flip has to move a
+# container-backed gate in the same write. The six docker-EXECUTING jobs in
+# this repository that read the trusted seam were re-pointed at
+# docker_ci_runner_variable below (five of them) or pinned hosted and
+# allowlisted (the ECR push), so the trusted seam now governs a hermetic
+# population only. Live census, 2026-09-12, of jobs whose steps actually
+# invoke docker: 7 already on the docker seam, 6 on the trusted seam, 3
+# pinned hosted. The six were customer-path-boundary and integration-guard in
+# ci.yml, integration-tests in nightly-integration.yml, boot in
+# reusable-runtime-boot.yml, runner-image-build-smoke.yml, and the ECR push
+# in build-and-push-migrate-image.yml.
+#
+# PROOF OBLIGATION BEFORE THE DOCKER SEAM IS FLIPPED ON THIS REPOSITORY: a
+# fleet run of the boundary gate with the fixed harness, green, on a named
+# fleet runner. Until that exists the docker seam stays hosted, which is its
+# value today, and the exclusion above stands -- on the new evidence rather
+# than the stale evidence.
+
+# OMN-18205: a THIRD routing scope, undeclared until now. Both of the variables
+# below exist live and neither appeared in the rule-14 list, in the plan of
+# record's eight-scope enumeration, or in any audit surface -- so an edit to
+# either was invisible drift. Enumerated live 2026-09-12T01:0xZ across the org
+# and all eleven repositories: OMNI_DOCKER_CI_RUNS_ON_JSON is set on
+# omnibase_infra only; OMNI_SECURITY_SCAN_RUNS_ON_JSON is set on omnibase_infra
+# and omniclaude. Neither exists at org scope, so on every other repository the
+# expression falls through to the trusted seam, which is the intended state.
+#
+# The precedence is the point: a job reading `vars.OMNI_DOCKER_CI_RUNS_ON_JSON
+# || vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || <literal>` is governed by the narrower
+# variable when it is set and by the seam when it is not. That is what lets a
+# lane move the hermetic bulk of CI to the fleet in one write and leave every
+# container-backed job where it is, instead of the all-or-nothing flip that was
+# reverted twice.
+docker_ci_runner_variable:
+  name: OMNI_DOCKER_CI_RUNS_ON_JSON
+  expected_json: '["ubuntu-latest"]'
+  # Consumed by audit_scoped_variables. `repositories` is the closed set of repos
+  # that MUST carry this shadow at expected_json; every other audited repo MUST
+  # NOT carry it at all. That second half is the drift this pass exists to catch:
+  # a new shadow appearing where none is declared is exactly the invisible edit
+  # that had no surface before OMN-18205. `org_scope: absent` asserts there is no
+  # organization-level value, so one appearing is also a finding.
+  repositories:
+    - omnibase_infra
+  org_scope: absent
+  revert_when: >-
+    This value may go to '["self-hosted","omnibase-ci"]' only after a fleet run of "Customer Path Boundary (OMN-18012)" with the post-#3286 harness reports success on a named omninode-runner-*. Revert it if any docker-executing job reports a container it cannot reach from the test process, which is the 2026-09-07 signature, or if a registry push appears among the jobs it governs -- registry pushes are pinned hosted, not routed.
+cloud_canary_runner_variable:
+  name: OMNI_CLOUD_CANARY_RUNS_ON_JSON
+  # OMN-18291, 2026-09-13. THE FIRST ROUTING VARIABLE IN THIS ESTATE THAT POINTS
+  # AT THE AWS CLOUD FLEET, and the narrowest one: it governs exactly ONE job
+  # class, `rebuilt-postgres16-proof` in
+  # .github/workflows/application-acl-postgres16-proof.yml, and it is read
+  # AHEAD of the docker seam so that flipping it moves that job and nothing
+  # else.
+  #
+  # WHY NOT THE DOCKER SEAM, which is the surface a reader would reach for
+  # first. That variable governs FIFTEEN job definitions in this repository,
+  # measured from each job's parsed runs-on on dev rather than from a file
+  # grep. Several of them run on every pull request and one, "Customer Path
+  # Boundary (OMN-18012)", feeds the required CI Summary umbrella. The cloud
+  # fleet's maximum is FOUR ephemeral instances, each of which runs exactly one
+  # job and then terminates, and a boot costs minutes. Pointing fifteen job
+  # definitions at four single-job instances is not a canary; it is the
+  # saturation failure recorded in the trusted-seam entry above, repeated on a
+  # twentieth of the capacity. So the docker seam is left exactly where it is
+  # and the canary gets a variable of its own.
+  #
+  # WHY THIS JOB CLASS. It is a real job on a normal trigger, not a synthetic
+  # probe: it runs `docker compose up --build` against PostgreSQL 16 and proves
+  # an ACL matrix and its rollback. It is genuinely container-backed, which is
+  # the one capability this fleet has that the lab fleet does not -- a lab
+  # runner is itself a container reaching a shared daemon through a mounted
+  # socket, so a published port lands on the Docker host rather than the
+  # runner's own localhost. Its trigger is path-filtered rather than
+  # every-pull-request, it appears in no required-context list and in no
+  # EXPECTED_EXTERNAL_CONTEXTS tuple, and its fork guard already sends fork
+  # pull requests to hosted runners.
+  #
+  # THE HONEST COST, stated rather than left for someone to discover. This
+  # repository is PUBLIC, so its GitHub-hosted minutes are free and a cloud
+  # instance is not. This flip therefore costs money where the omnibase_core
+  # move recorded above saved it. That is accepted deliberately: the purpose is
+  # to prove the scale-up trigger and the routing path end to end on a real job
+  # with a small blast radius, not to save minutes on this particular job. The
+  # repositories where the fleet would pay for itself are the PRIVATE ones the
+  # runner group grants, and moving one of those is a separate claim with its
+  # own capacity measurement.
+  #
+  # WHAT THE FIRST REAL ROUTED RUN FOUND, recorded here rather than only in the
+  # ticket, because it is the second instance of a class that has now forced one
+  # routing revert and nearly forced a second. Run 34750171624, instance
+  # i-03f7450c38317c468: the job landed on the fleet correctly, proved its own
+  # placement from the instance metadata service, ran `docker info` green
+  # against a healthy LOCAL daemon -- and then exited 125 on `docker compose`,
+  # because Amazon Linux 2023's `docker` package ships buildx as its only CLI
+  # plugin and compose was simply not a command. Fifty milliseconds separate the
+  # healthy daemon from the missing plugin in that log, and the CLI answers a
+  # missing plugin by printing its usage text, so the failure reads as neither
+  # "not found" nor a daemon error.
+  #
+  # THE GENERAL RULE, which is the part worth carrying forward: a routing change
+  # is not finished when the variable is set and the job lands. It is finished
+  # when a real job OF THAT CLASS has run to completion there. Placement and
+  # capability are different claims, and a green placement proof next to a red
+  # job is exactly what the difference looks like. Fixed by installing the
+  # plugin in the fleet's own bootstrap, pinned by version and verified by
+  # digest (omninode_infra, OMN-18291), not by narrowing this job.
+  #
+  # AND THEN THE SAME CLASS AGAIN, one line further on. Run 34750597454,
+  # instance i-0b7b99b0fb129eb15: compose now existed and teardown passed, and
+  # the build stopped with "compose build requires buildx 0.17.0 or later". The
+  # distribution DOES ship a buildx plugin, so every presence check passes and
+  # `docker info` lists one -- it is 0.12.1. A tool that is present and too old
+  # is invisible to a check that asks whether the tool is there, which is why
+  # the only check that found either gap was running the real job. Both plugins
+  # are now installed from pinned, digest-verified release binaries and the boot
+  # asserts both before the instance registers.
+  #
+  # AND A THIRD, which is the one worth reading if you only read one. Run
+  # 34751054047, instance i-0298a739880307693: the image built, both containers
+  # started, PostgreSQL 16 initialised cleanly -- and the seed failed with
+  # "Permission denied" on a file the build had just copied in. Cause: the boot
+  # script sets a restrictive umask for credential hygiene, a umask is
+  # inherited, and it reached the runner process, so every checked-out file
+  # landed mode 0600. `COPY` preserves that faithfully, and any image that drops
+  # to a non-root user then cannot read what it was given. The official
+  # PostgreSQL image does exactly that.
+  #
+  # Blast radius: every container-backed job that copies a checked-out file into
+  # an image running as anything but root, which is most of them. Hosted runners
+  # use the ordinary mask, so a job that has only ever run hosted cannot have
+  # seen it. Fixed by running the job under the ordinary mask while the boot
+  # script's own credential handling keeps the restrictive one.
+  #
+  # Three capability gaps, none visible offline, all found by one real job of
+  # one real class. That is the argument for a canary of exactly this shape.
+  expected_json: '["self-hosted","omni-cloud-ci"]'
+  repositories:
+    - omnibase_infra
+  org_scope: absent
+  revert_when: >-
+    Revert to '["ubuntu-latest"]' if the routed job lands on the fleet and fails for a fleet-caused reason -- a container it cannot reach from the test process, a missing tool on the runner image, or a boot that never produces a runner -- or if the job is ever observed QUEUED rather than running, which means the capacity trigger did not fire. Revert also if this job class is ever added to a required-context list or to EXPECTED_EXTERNAL_CONTEXTS, because its blast radius is then no longer small. Widening this variable to a second job class is NOT a revert condition, it is a new claim: the group's maximum is four ephemeral single-job instances and a second class needs its own capacity measurement first.
+security_scan_runner_variable:
+  name: OMNI_SECURITY_SCAN_RUNS_ON_JSON
+  expected_json: '["ubuntu-latest"]'
+  repositories:
+    - omnibase_infra
+    - omniclaude
+  org_scope: absent
+  revert_when: >-
+    Declared for visibility, not for movement. Nothing in OMN-18205 flips it. A security scan that resolves through the fleet shares fate with the host it scans, so it stays hosted until a separate claim argues otherwise.
+omninode_infra_fleet_runner_variable:
+  name: OMNI_INFRA_FLEET_RUNS_ON_JSON
+  # OMN-18205 phase 3 (cloud-ci-phase3, 2026-09-12). omninode_infra#1390 moves
+  # 40 of that repository's hardcoded-fleet job definitions onto this
+  # DEDICATED variable rather than pointing them at OMNI_TRUSTED_CI_RUNS_ON_JSON
+  # above. Standing up a repo-scoped trusted-seam shadow for these 40 jobs
+  # would couple their placement to any future org- or repo-scope flip of that
+  # seam -- including the two lab-kubeconfig-bound jobs and the
+  # AWS-role-bearing jobs #1390 documents as never allowed to move
+  # automatically. This is not a hypothetical: earlier the same day, a
+  # repo-scoped OMNI_TRUSTED_CI_RUNS_ON_JSON shadow on omninode_infra
+  # relocated 13 already-seam-driven jobs onto the fleet mid-session, two of
+  # which cannot run there (yq/kustomize absent from the fleet image), and CI
+  # Summary -- a required check aggregating both -- blocked every open PR in
+  # that repository for 41 minutes before the shadow's own owner reverted it
+  # (docs/tracking/ROLLING_WORK_LEDGER.md :7056/:7057 in omni_home). A
+  # dedicated variable makes the 40-job fleet-migration decision independent
+  # of whatever the trusted seam is doing, so the same collision cannot recur
+  # through this path.
+  #
+  # SET, 2026-09-28 (OMN-19895 AC4; operator rulings 2026-09-28T01:58:06Z and
+  # 01:58:17Z). This entry used to say the variable was deliberately unset and
+  # that its 51 job definitions ran on a literal fallback,
+  # '["self-hosted","omnibase-ci"]', behind `||`. That literal was a silent
+  # default: a deleted or mistyped variable could never surface. omninode_infra
+  # removed every literal fallback, so an unset variable now fails the job
+  # (`fromJSON('')`). The variable was created at the omninode_infra
+  # repository scope with the same value, so no job moved. Rule 14 claim:
+  # omni_home ledger CLAIM 2026-09-28T04:59:31Z
+  # lane=checks-unpin-leftovers-83-fleetvar, closed by TERMINAL 04:59:46Z. Org
+  # scope stays absent. A set value is now the intended state and an unset one
+  # is the defect. It is still NOT a member of SCOPED_VARIABLE_KEYS, so no live
+  # audit reads it: the omninode_infra test
+  # tests/scripts/test_runs_on_no_literal_fallback_omn19895.py pins the
+  # no-fallback spelling, and omninode_infra's private-repo-runner-placement
+  # pre-commit hook refuses a runs-on that reads an unset variable.
+  #
+  # NOTE FOR THE NEXT COMPANION PR ON THIS TICKET: do not hand-write a
+  # companion-citation line into a PR body or commit message before the
+  # OCC autobind effect mints one and PATCHes it on. A manually written
+  # placeholder is indistinguishable, to the born-path consumer, from a
+  # real citation, and it suppressed this PR's own mint the first time
+  # (this PR's own history, corrected in a follow-up commit). Leave that
+  # field blank and let the automated PATCH populate it.
+  #
+  # Setting or changing it is its own single-owner claim under rule 14 (name
+  # every scope live before the first PATCH) and must never be bundled with a
+  # write to OMNI_TRUSTED_CI_RUNS_ON_JSON at any scope.
+  expected_json: '["self-hosted","omnibase-ci"]'
+  scope: repository
+  owner: cloud-ci lane (OMN-18205)
+  repositories:
+    - omninode_infra
+public_pr_runner_variable:
+  name: OMNI_PUBLIC_PR_RUNS_ON_JSON
+  expected_json: '["ubuntu-latest"]'
+repositories:
+  - omnibase_core
+  - omnibase_infra
+  - omniclaude
+  - omnimarket
+  - onex_change_control
+  # OMN-18205 phase 2, 2026-09-12: added so this repository is audited at all.
+  # The audit loop iterates this list; a repository absent from it is never
+  # queried, whatever the policy declares about it. This repository pins 44 of
+  # its 101 job definitions to the fleet label directly in workflow files and
+  # was the largest lab CI consumer in the estate, yet it was invisible to every
+  # routing surface -- so adding it closes an audit gap rather than widening
+  # one, and it stays whether or not a shadow is ever declared for it.
+  #
+  # It carries NO trusted-seam shadow today, and none is declared above. With
+  # both absent the audit records no finding; if a shadow appears here later it
+  # becomes a reported drift rather than the silent edit it would have been.
+  # That is the whole value of this line, and the reason it survived the revert
+  # described in the repository_overrides comment above.
+  #
+  # It declares no docker-CI or security-scan scope and carries neither shadow,
+  # so the scoped-variable pass now asserts their ABSENCE here too.
+  - omninode_infra
+  # OMN-18205 phase 4, 2026-09-14: added so omniweb is audited at all. Its
+  # trusted-seam shadow has read '["self-hosted","omnibase-ci"]' since
+  # 2026-09-01T12:39:22Z and was, until this line, the only self-hosted routing
+  # value at any scope in the organization that no audit surface ever looked at
+  # -- recorded as a known gap in the cloud-migration entry above. It is a
+  # PRIVATE repository, so its hosted minutes bill and the fleet is the cheaper
+  # placement; the value is not changed here, only declared and brought under
+  # audit. It declares no docker-CI or security-scan scope and carries neither
+  # shadow, so the scoped-variable pass now asserts their ABSENCE here too.
+  - omniweb
+  # OMN-18205 phase 4, 2026-09-14: added under the operator ruling that private
+  # repositories never run CI on GitHub-hosted runners. This repository is
+  # PRIVATE and carried NO routing shadow at all, so its ONE required check on
+  # `main` -- kb-doc-gate, implemented by a cross-repo reusable whose selector
+  # takes the TRUSTED branch for a same-repo pull request based on `main` --
+  # inherited the organisation value and sat QUEUED with no runner while every
+  # other job in the repository, all of them pinned to the fleet label
+  # directly, finished in seconds. The shadow declared above is what moved it.
+  # It declares no docker-CI or security-scan scope and carries neither shadow,
+  # so the scoped-variable pass now asserts their ABSENCE here too.
+  - omni_home
+  # OMN-18431, 2026-09-16: added so omnistream is audited at all. The audit loop
+  # iterates this list; a repository absent from it is never queried, whatever
+  # the policy declares about it -- which is why omnistream's required check has
+  # been failing on a hosted label for two weeks with no routing surface saying
+  # so. It is PRIVATE, so under the 2026-09-14 operator ruling its CI belongs on
+  # the fleet, and the override declared above is what places it there. It
+  # declares no docker-CI, security-scan or cloud-canary scope and carries none
+  # of those shadows, so the scoped-variable pass now asserts their ABSENCE here
+  # too.
+  - omnistream
+hosted_runner_allowlist:
+  - path: .github/workflows/application-acl-postgres16-proof.yml
+    reason: "OMN-18291: the `request-cloud-capacity` job is bare hosted BY NECESSITY -- it is the job that asks the scale-to-zero cloud fleet for the runner the routed job below it needs, so it cannot itself resolve through the routing variable it is serving. Pinning it by literal also means no future flip of any seam can relocate the requester onto the capacity it is trying to request. The workflow's other job, `rebuilt-postgres16-proof`, is NOT hosted -- it is the canary routed to the cloud fleet through cloud_canary_runner_variable."
+  - path: .github/workflows/ci.yml
+    reason: "OMN-14127: CI Summary is a lightweight hosted fail-closed aggregator so required status always posts during self-hosted saturation."
+  - path: .github/workflows/build-and-push-runtime.yml
+    reason: "OMN-13747: ECR push remains hosted until the self-hosted egress failure is retired."
+  - path: .github/workflows/build-workspace-candidate-runtime.yml
+    reason: "OMN-14974: candidate runtime ECR push uses the same hosted clean-egress lane after the self-hosted daemon repeatedly stalled during upload."
+  - path: .github/workflows/omnigate.yml
+    reason: "Fork-only untrusted PR verification must not execute on self-hosted runners."
+  - path: .github/workflows/runner-fleet-canary.yml
+    reason: "OMN-13915: scheduled fleet canary must not share fate with the self-hosted runner fleet it monitors."
+  - path: .github/workflows/model-review-capability-canary.yml
+    reason: "OMN-17876: capability contract evidence must stay on hosted compute until separately authorized live runner selection."
+  - path: .github/workflows/runner-broker-dispatch-wedge-rerun.yml
+    reason: "OMN-15776: scheduled broker-dispatch-wedge rerun must not share fate with the self-hosted runner fleet it remediates -- same isolation rationale as runner-fleet-canary.yml above."
+  - path: .github/workflows/pr-ci-zombie-detector.yml
+    reason: "OMN-16494: scheduled PR-CI concurrency-group zombie detector -- one of its two target mechanisms is a self-hosted-runner job surviving a cancel signal, so it must not share fate with the self-hosted fleet it partly exists to unstick. Same isolation rationale as runner-fleet-canary.yml and runner-broker-dispatch-wedge-rerun.yml above."
+  - path: .github/workflows/dev-candidate-delivery-liveness.yml
+    reason: "OMN-16906: the dev-candidate delivery guard is a pure GitHub-REST probe that touches no lane and no tailnet host, and it must not share fate with the self-hosted fleet -- a delivery outage caused by fleet saturation is exactly the case where a self-hosted watcher would be queued behind the thing it reports on. Same isolation rationale as runner-fleet-canary.yml above."
+  - path: .github/workflows/deliver-dev-candidate-to-staging.yml
+    reason: "OMN-17534: the candidate-boot-gate job creates and destroys a kind cluster and side-loads a multi-gigabyte runtime image. The self-hosted omnibase-ci fleet on .201 runs the lab lanes off the same Docker daemon, so a per-candidate ephemeral cluster there would contend with -- and could disturb -- the lanes the lab depends on. The other three jobs in this workflow are unaffected: two are `uses:` calls into already-allowlisted workflows and the announce job routes through OMNI_TRUSTED_CI_RUNS_ON_JSON as before."
+  - path: .github/workflows/runner-route-reusable.yml
+    reason: "OMN-18031: the per-run routing decision job. It must not share fate with the fleet it routes onto -- a router queued behind a saturated fleet would decide, minutes late, that the fleet is saturated. Same isolation rationale as runner-fleet-canary.yml above. It is also the surface that enforces fork isolation (OMN-16683/16684) before any capacity signal is read, so it must be reachable on an untrusted PR, where self-hosted is prohibited outright."
+  - path: .github/workflows/runner-route-probe.yml
+    reason: "OMN-18031 gate P1: the live proof that `needs.<job>.outputs` resolves inside `runs-on`, for both a normal job and a reusable-workflow job. A survey of all five routing repos on 2026-09-07 found zero prior uses of that wiring (196 files carrying the seam selector were the positive control), so the assumption the whole design rests on is proven here rather than assumed. Its two `route-*` jobs and the proof gate are hosted; its two `consume-*` jobs resolve their runs-on FROM the route output and are hosted today only because the seam ceiling is hosted."
+  - path: .github/workflows/dev-lane-liveness.yml
+    reason: "OMN-18031: the saturation-record job is a bare ubuntu-latest by design -- the monitor must survive the saturation it reports on, the same fate-isolation rationale as runner-fleet-canary.yml above. Its sibling lab-load-probe job is deliberately self-hosted on a literal [self-hosted, omnibase-ci] and the pre-existing dev-lane-liveness job on [self-hosted, omnibase-verify] (it was [self-hosted, omnibase-deploy] until OMN-18408 moved it off the single deploy runner); neither is a bare hosted runner, so this entry covers the ONE hosted job. These probes live here rather than in runner-fleet-canary.yml because tests/ci/test_dev_lane_liveness.py asserts the canary stays single-job and GitHub-hosted, and names this workflow as the home for lane/host-scoped probes."
+  - path: .github/workflows/build-and-push-migrate-image.yml
+    reason: "OMN-18205: the migration image build pushes to ECR, which is the workload OMN-13747 recorded as failing from the self-hosted fleet's egress path -- the same reason build-and-push-runtime.yml and build-workspace-candidate-runtime.yml above are pinned. It had been reading the trusted seam, so a routing flip would have moved a registry push onto the fleet as an unenumerated side effect. The workflow has no pull_request trigger, so its fork branch was decoration and was removed with the pin."
+  - path: .github/workflows/shared-env-runner-parity.yml
+    reason: "OMN-16555: the hosted half of the shared-env two-runner-class parity gate must be pinned to a literal ubuntu-latest -- routing it through OMNI_RUNNER_SELECTOR_V1 would let a var change move it back onto the fleet and void the ephemeral-runner proof. Its self-hosted half does use the standard selector."
+  - path: .github/workflows/runner-pool-spread.yml
+    reason: "OMN-19895: the hourly runner-pool single-host-of-fate probe must not share fate with the self-hosted fleet it watches -- the same isolation rationale as runner-fleet-canary.yml above. Routing it through OMNI_RUNNER_SELECTOR_V1 could place it on the very fleet it is checking for single-host concentration, silencing the probe exactly when the fleet is unhealthy."
+# OMN-18031 — per-run routing thresholds for the hosted `route` job.
+#
+# The route job (scripts/ci/runner_route_decision.py) decides, once per run,
+# between the lab fleet labels and GitHub-hosted, from live org-runner capacity
+# and lab host load. The `trusted_runner_variable` above is read as a CEILING:
+# routing may only ever DOWNGRADE from what the seam already allows, never
+# widen. Nothing here writes any Actions variable (CLAUDE.md rule 14,
+# single-owner).
+#
+# THE MECHANISM IS INERT AT THESE VALUES AND THAT IS DELIBERATE. With
+# expected_json '["ubuntu-latest"]' the decision returns `seam_ceiling_hosted`
+# on every run and placement is byte-identical to today. Flipping the seam is a
+# separate single-owner claim (OMN-16682), not this ticket.
+#
+# Every key below is REQUIRED: the loader raises on a missing one rather than
+# defaulting (CLAUDE.md rule 8), because a silently-defaulted threshold is how a
+# routing gate quietly stops gating.
+route:
+  # THE THRESHOLDS MOVED, they were not deleted. The labels, the idle and busy
+  # floors, the fleet-size floor, the lab freshness bound and load/memory
+  # floors, and the private-repository refusal are now declared in the routing
+  # node's own contract:
+  #
+  #   src/omnibase_infra/nodes/node_ci_runner_route_compute/contract.yaml
+  #
+  # under its `config:` block, parsed into ModelCIRunnerRoutePolicy whose fields
+  # are all required. They are not restated here: two copies of a threshold are
+  # two policies that agree until the day they do not, and the one this file
+  # kept would have been the one nobody was reading.
+  #
+  # What stays here is per-repository DATA rather than policy -- the workflows
+  # this repository exempts, and the thresholds of the saturation monitor,
+  # which is a different question from the placement decision and answers to a
+  # different consumer.
+  hosted_workflows:
+    - .github/workflows/runner-route-reusable.yml
+    - .github/workflows/runner-route-probe.yml
+    - .github/workflows/runner-fleet-canary.yml
+    - .github/workflows/runner-broker-dispatch-wedge-rerun.yml
+    - .github/workflows/pr-ci-zombie-detector.yml
+    - .github/workflows/dev-candidate-delivery-liveness.yml
+    - .github/workflows/model-review-capability-canary.yml
+    - .github/workflows/omnigate.yml
+    - .github/workflows/build-and-push-runtime.yml
+    - .github/workflows/build-workspace-candidate-runtime.yml
+    - .github/workflows/shared-env-runner-parity.yml
+  # OMN-18031 G7 — saturation monitor thresholds. Higher than the routing
+  # thresholds above on purpose: routing reacts to a single instantaneous read
+  # and biases toward the cheap error, while an ALERT must survive the
+  # volatility that read has. sustained_samples: 4 at the canary's */5 cadence
+  # is a 20-minute sustain.
+  saturation_alert:
+    busy_fraction_threshold: 0.85
+    lab_load_ratio_threshold: 1.5
+    min_lab_free_mem_mib: 4096
+    sustained_samples: 4
+    # CADENCE, STATED HONESTLY. The monitor rides dev-lane-liveness.yml
+    # ("7,22,37,52 * * * *" -- every 15 minutes), not a */5 of its own. The
+    # first build put it in runner-fleet-canary.yml and moved that cron */15 ->
+    # */5 to make "4 samples" mean 20 minutes; that broke the codified
+    # single-job/GitHub-hosted invariant on the canary
+    # (tests/ci/test_dev_lane_liveness.py), whose own message names
+    # dev-lane-liveness.yml as the home for lane/host-scoped probes. Riding the
+    # correct existing scheduler costs resolution: four samples there is roughly
+    # a 45-60 minute sustain, not 20. That is slower to notice a pile-up, and it
+    # is the price of not adding a third scheduler (out of scope) and not
+    # narrowing a fate-isolation guard. Re-derive the count against real
+    # placement once the seam permits self-hosted; tuning it now would be tuning
+    # against a mechanism with no consumers wired.
+    #
+    # THE SAMPLE COUNT ALONE DOES NOT MEAN A DURATION, and saying so would be
+    # a soft claim. Measured 2026-09-07T11:0xZ: four consecutive canary runs
+    # (queued 10:25, 10:34, 10:46, 11:02Z) were all still QUEUED behind the
+    # GitHub-hosted backlog, so samples arrive at whatever rate that queue
+    # drains, not at the */5 the cron requests. A count-only counter would
+    # therefore alert on four samples that might span four minutes or four
+    # hours. This floor makes the word "sustained" true: a breach must ALSO
+    # span this much wall-clock, read from the records' own sampled_at.
+    sustained_min_span_seconds: 900
+  # OMN-18254 - non-required check failure-rate alert.
+  #
+  # WHY A THRESHOLD AND NOT "ANY FAILURE". A single red run on an unenforced
+  # check is ordinary: a flake, a cancelled run, a fork PR without a secret.
+  # What is worth a page is a check failing REPEATEDLY while nothing blocks,
+  # which is what happened on the web repository's companion-effect job - 9 of
+  # 10 recent pull-request runs on missing broker credentials, reported red on
+  # three separate pull requests before anyone asked whether it meant companions
+  # were never publishing.
+  #
+  # 3 of the last 10 heads is deliberately low. The cost of a false positive is
+  # one person reading one annotation; the cost of a false negative is what this
+  # ticket exists for. One head contributes at most one failure per check name,
+  # so a storm of re-runs on a single pull request cannot reach the threshold
+  # on its own.
+  nonrequired_check_alert:
+    failure_threshold: 3
+    heads_observed: 10
+    # OMN-18322: the pull-request reads above answer "is a check that fails
+    # forever going unwatched". A scheduled workflow has no pull-request head at
+    # all, so it needed its own threshold rather than reusing the count above --
+    # a percentage over a trailing window, not a count over N heads, because a
+    # scheduled workflow's run cadence varies by workflow (10-minute cron vs.
+    # nightly) and a fixed head-count would either drown a fast cron in noise or
+    # never accumulate for a slow one.
+    #
+    # THE NUMBER: the friction trend report (2026-09-13, kb-internal#406/#407)
+    # measured scheduled workflow runs failing at 15.4% over 9,746 runs against
+    # 2.9% on pull requests, and nothing triaged them. 10% sits below that
+    # measured baseline (so the alert would have caught the condition the report
+    # found) and above the failure rate of every routinely-green scheduled
+    # workflow this alerter's own live read-only run observed (0-9.7% -- see
+    # tests/ci/test_scheduled_run_failure_rate_omn18322.py for the captured
+    # evidence), so a workflow that is merely occasionally flaky does not page.
+    scheduled_failure_threshold_pct: 10.0
+    # 7 days: long enough that a 10-minute cron (pr-ci-zombie-detector.yml
+    # itself: ~1000 scheduled runs/week) and a nightly job (~7 runs/week) both
+    # clear a sample size worth a percentage, short enough that the alert
+    # reflects current behavior rather than an outage that was fixed weeks ago.
+    scheduled_window_days: 7
+    # THE FLEET REPOSITORY LIST, DECLARED ONCE (OMN-18942).
+    #
+    # Until this key existed the list was three repository names written as
+    # literals into the run step of `.github/workflows/pr-ci-zombie-detector.yml`,
+    # and the 2026-09-20 silent-gates review measured what that cost: the
+    # registry repository's cross-repo drift detector had failed 12 of 12 daily
+    # runs since 2026-09-09 and was outside the fleet's only alerter BY
+    # CONSTRUCTION, so no amount of it being red could ever reach anybody.
+    #
+    # DERIVED, NOT HAND-LISTED. Every canonical-registry repository that
+    # declares at least one scheduled workflow. Re-derive rather than edit from
+    # memory, from a checkout of the registry:
+    #
+    #   for r in <registry repos>; do
+    #     grep -rlE '^\s*schedule:' "$r/.github/workflows" | wc -l
+    #   done
+    #
+    # Measured 2026-09-20: omnibase_infra 32, omninode_infra 14, omniclaude 7,
+    # omnimarket 5, omnibase_core 4, omniweb 4, omni_home 3,
+    # onex_change_control 3, omnibase_compat 2, omniintelligence 2,
+    # omnimemory 2, omnibase_spi 1, omnidash 1. `knowledge-base` declares none
+    # and is therefore absent -- absent because it has nothing to watch, not
+    # because anybody decided not to watch it.
+    #
+    # Being in this list is what makes a repository's scheduled surface
+    # governed, the same posture as the maintenance-sync MANIFEST and the
+    # required-context probe's own repo set.
+    fleet_repos:
+      - omnibase_core
+      - omnibase_compat
+      - omnibase_infra
+      - omnibase_spi
+      - omniclaude
+      - omnidash
+      - omniintelligence
+      - omnimarket
+      - omnimemory
+      - omni_home
+      - omninode_infra
+      - omniweb
+      - onex_change_control
+    # WHICH CALLER EVALUATES EACH FLEET REPOSITORY'S SCHEDULED RUNS (OMN-18942).
+    #
+    # The scheduled sweep has two callers, and every fleet repository belongs to
+    # exactly one of them, so no scheduled run is evaluated or posted twice:
+    #
+    #   * the repositories listed here: the `nonrequired-check-failure-rate`
+    #     job in `.github/workflows/pr-ci-zombie-detector.yml`, passed as
+    #     `--scheduled-repo`, under the onexbot App token (installation
+    #     repository_selection `all`);
+    #   * every other entry of `fleet_repos`: the `.201` system reporter, whose
+    #     `--repos-from-policy` selection is fleet_repos minus this list.
+    #
+    # WHY omni_home IS HERE. Measured 2026-09-23T17:45Z: the `.201` host token
+    # returns HTTP 404 on omni_home, so the reporter rendered it as
+    # `sched/omni_home/source-unreadable` and evaluated nothing, and the Actions
+    # job ran `--no-scheduled`. The registry repository, the one this ticket
+    # names, was watched by nobody. Under a token that reads it, two of its three
+    # scheduled workflows were red on 8 of 8 runs. Moving it here needs no new
+    # credential and no widened one: the App installation already reads it.
+    #
+    # A repository moves back to the host by deleting it here and removing its
+    # `--scheduled-repo` line; the tests refuse a mismatch between the two.
+    scheduled_actions_repos:
+      - omni_home
+    # ALERT DEDUP WINDOW (OMN-18942), in hours.
+    #
+    # Measured 2026-09-23: with the channel secrets set at 10:43Z, every
+    # scheduled run of pr-ci-zombie-detector.yml re-posted the same unchanged
+    # findings (runs 35850665037, 35851297482, 35852673260). A finding whose
+    # failure count is unchanged or lower than the count last POSTED is
+    # suppressed for this long after that post, and the suppression is written
+    # to the run's report artifact and job summary. A new finding, a higher
+    # count, or an expired window posts immediately.
+    #
+    # WHY 24: a standing, unchanged non-required-check failure is a triage
+    # item, not a page. Once per day keeps it in front of a reader without the
+    # ~144 posts a day a ten-minute cadence would otherwise produce, and any
+    # deterioration re-posts at once, so the window never hides a worsening.
+    # Shorter (the `.201` reporter re-surfaces its scheduled-workflow keys
+    # every 6h) would put four copies of an unchanged finding in the channel
+    # per day for a class that blocks nothing. The prior state lives in the
+    # report artifact, whose 30-day retention comfortably covers the window.
+    alert_dedup_window_hours: 24
+    # ABSENT FROM required_status_checks IS NOT THE SAME AS UNENFORCED.
+    # omnibase_infra requires exactly ONE context on dev - the CI Summary
+    # umbrella - whose poller fails on any job in its own run that concludes
+    # badly, so dozens of checks block a merge while appearing nowhere in branch
+    # protection (OMN-4497 / OMN-14127). Reporting those as unwatched would bury
+    # the real finding in noise, and an alerter nobody reads is the failure mode
+    # OMN-16030 already paid for once on the canary this rides.
+    #
+    # Each entry is a context the repo enforces through a mechanism branch
+    # protection cannot show. The honest limit: a context enforced by something
+    # nobody wrote down still reads as non-required, and the fix is to write it
+    # down here rather than to widen the threshold.
+    umbrella_enforced_contexts:
+      # DERIVED, NOT GUESSED. Every name below is one that the CI Summary poller
+      # requires: its own required context, the strict and skippable aggregate
+      # gates it resolves from this run, and the external contexts it resolves
+      # from the pull-request head. Each of these DOES block a merge while
+      # appearing nowhere in branch protection.
+      #
+      # A LIVE RUN IS WHY THIS LIST EXISTS RATHER THAN JUST THE UMBRELLA NAME.
+      # With only the umbrella declared, the first read-only run raised on
+      # verify / verify and occ-preflight / eligibility -- both enforced, one of
+      # them the Receipt Gate. Four findings, two of them noise, on the very
+      # first run. That is how an alerter gets muted before it ever catches
+      # anything, which is the OMN-16030 failure mode this phase keeps citing.
+      #
+      # This is a dated snapshot of another module's constants and it WILL
+      # drift. test_the_umbrella_list_matches_the_summary_gate reads those
+      # constants live and fails when the two disagree, so drift is a red test
+      # rather than a silent false positive.
+      omnibase_infra:
+        # OMN-18796: the no-new-advisory-job gate. Enforced by the CI Summary
+        # poller via EXPECTED_EXTERNAL_CONTEXTS and absent from branch
+        # protection, which is exactly the shape this list records.
+        - advisory-job-gate / advisory-job-gate
+        - Application Database Domain Enforcement (OMN-15361)
+        - Arch Invariants (OMN-3343)
+        # OMN-19928: the forwarder against a grant-enforcing broker, registered
+        # STRICT in ci.yml and enforced by the CI Summary poller.
+        - Bus ACL Boundary (OMN-19928)
+        - call-reject-skip-token / scan / reject-skip-gate-token
+        - Canonical Inference Gate
+        - CI Evidence Policy (OMN-18247)
+        - CI Summary
+        - CI Tests Gate
+        - ci-bus-overlay-binding
+        - CodeQL
+        - Contract Compliance
+        - Contract Compliance Check
+        - Contract Sync Gate (Wave C) [OMN-8915]
+        - contract-validation
+        - Customer Path Boundary (OMN-18012)
+        # OMN-19451: the delegation-health check, registered in
+        # EXPECTED_EXTERNAL_CONTEXTS when its shadow mode was removed (OMN-19998).
+        - delegation-health-check / Delegation Health Check
+        # OMN-20183: unconditional local FSM seam job, enforced by the CI Summary poller
+        - delegation-seam-gate
+        - Demo Loop Gate
+        - Dep Provenance Gate
+        - Dep Provenance Lineage Gate (OMN-15604)
+        - Deploy Agent Tests (OMN-15378) / deploy-agent-tests
+        - deploy-gate / deploy-gate
+        - dispatcher-route-coverage
+        # OMN-18938: the cross-repo dispatch keyword parity gate.
+        - consumer-kwarg-parity
+        - Duplication Sweep
+        - Effect-Assertion Gate (RT-5)
+        - Event Chain Gate
+        - Exposed Identifier Gate (OMN-17320)
+        - exposure-reader-coverage
+        - Fingerprint Check
+        - Governed helper primitive gate
+        - imperative-contract-guard / Imperative Contract Guard
+        - Infra Node Handler Ownership
+        - Integration Silent-Skip Guard (OMN-14172)
+        - Integration Test Removal Gate
+        - Kafka Schema Handshake (OMN-3411)
+        - kb-doc-gate / kb-doc-gate
+        # OMN-19412: the lab-release-sync probe-window drift check, registered
+        # STRICT in ci.yml's STRICT_GATE_JOBS and enforced by the CI Summary
+        # poller; absent from branch protection, which is exactly the shape
+        # this list records.
+        - Lab Probe Windows (OMN-19412)
+        - Lint
+        - Lockfile CVE Scan (OMN-16228)
+        - Lockfile Registry Allowlist (OMN-16516)
+        - main-target-guard
+        - merge-hold-gate / evaluate
+        - Migration Freeze Check
+        - Migration Integration Test
+        - no-noncanonical-lifecycle-classes
+        - Node Migration Declaration Check
+        # OMN-19677: the five shared shrink-only callers are strict CI Summary
+        # gates and therefore belong in this umbrella-enforced snapshot.
+        - Noncanonical Class Allowlist One-way (OMN-19677) / anti-growth-baseline
+        - non-dev-base-guard
+        - OCC Companion Merged Gate (OMN-15214)
+        - occ-preflight / eligibility
+        - Omni Standards Gate
+        - ONEX Validators
+        - Pin Reachability (OMN-15538)
+        - pr-title / check-title
+        # OMN-19655: the pre-merge PyPI pin-resolvability gate. Enforced by the
+        # CI Summary poller via EXPECTED_EXTERNAL_CONTEXTS and absent from
+        # branch protection, which is exactly the shape this list records.
+        - pypi-pin-resolvability
+        - receipt-honesty
+        - required-check-skip-guard / check-skip-vectors
+        - Runner Route (OMN-18031) / route
+        - Runtime Profiles Allowlist One-way (OMN-19677) / anti-growth-baseline
+        # OMN-18926: the from-empty migration proof, now called from ci.yml and
+        # registered STRICT. Enforced by the CI Summary poller and absent from
+        # branch protection, which is exactly the shape this list records.
+        - Sanitized Legacy RDS Fixture Proof / PostgreSQL 16 Fresh + Legacy Fixture
+        - Skip Count Baseline One-way (OMN-19677) / anti-growth-baseline
+        - Skip Count Ratchet (OMN-18776)
+        - Stale TODO Gate
+        - Subscribe Wiring Health
+        - Topic Drift Check
+        - Topic Enum Drift Check
+        - Topic Naming Baseline One-way (OMN-19677) / anti-growth-baseline
+        - Topic Naming Lint
+        - Trivyignore Expiry Check (OMN-16229)
+        - Type Safety Validation
+        - URL Authority Gate
+        - Validator Requirements Baseline One-way (OMN-19677) / anti-growth-baseline
+        - verify / verify
+        - wheel-content-parity
+        - Writer-Migration Coupling Check
+# OMN-19412 follow-up, 2026-09-28. THE COMMITTED PLACEMENT OF EVERY SCHEDULED
+# JOB THAT A VARIABLE PLACES, in the three repositories whose schedules the
+# required "Lab Probe Windows (OMN-19412)" check reads (omnibase_infra,
+# omninode_infra, omnimarket).
+#
+# Why it is committed. omnibase_infra#4241 made that check resolve
+# `runs-on: ${{ fromJSON(vars.NAME) }}` from the live Actions variables, and no
+# installed App can read variables, so the check read them with CROSS_REPO_PAT,
+# the operator's personal token, which is being retired (operator RULING
+# 2026-09-27T22:46:17Z item 3). The check now resolves each placement from this
+# map instead: a reviewed value, changed only by a pull request. The PAT step is
+# gone from ci.yml and nothing in the check reads live state.
+#
+# What keeps it true. `scripts/ci/check_probe_placement_drift.py` compares this
+# map with what `vars.NAME` actually resolves to in each repository, run by
+# `.github/workflows/probe-placement-drift.yml` in each of the three
+# repositories. It reads the variables through the workflow's own `vars`
+# context, which every run can read with no token at all, so no credential and
+# no App permission is involved. A difference is a red run naming the variable,
+# the committed value and the live one.
+#
+# The rule 14 discipline extends here: a write to any variable listed below is
+# accompanied, in the same action, by the pull request that changes its value
+# in this map, exactly as expected_json above.
+#
+# Shape. `<repo>: {<NAME>: <value>}`. The value is what `vars.NAME` resolves to
+# IN THAT REPOSITORY -- its own variable over the organisation's, the same order
+# the runner uses -- or null when neither scope sets it, in which case the
+# workflow expression's `|| '<literal>'` fallback applies. Every variable that
+# places a scheduled job in one of the three repositories must be declared for
+# that repository: the check refuses an undeclared one (naming the job) rather
+# than read it as unset, because an unread placement could hide a probe.
+#
+# Read live 2026-09-28T07:20Z (read-only) when this map was written; each
+# value below is that reading.
+probe_placement_variables:
+  omnibase_infra:
+    LAB_PROBE_RUNS_ON_JSON: '["self-hosted","omnibase-verify"]'
+    LANE_CENSUS_RUNS_ON_JSON: '["self-hosted","omnibase-verify","host-201"]'
+    OMNI_DOCKER_CI_RUNS_ON_JSON: '["ubuntu-latest"]'
+    OMNI_PUBLIC_PR_RUNS_ON_JSON: '["ubuntu-latest"]'
+    OMNI_REQUIRED_CI_RUNS_ON_JSON: null
+    OMNI_SECURITY_SCAN_RUNS_ON_JSON: '["ubuntu-latest"]'
+    OMNI_TRUSTED_CI_RUNS_ON_JSON: '["ubuntu-latest"]'
+  omninode_infra:
+    CUSTOMER_MACHINE_RUNS_ON_JSON: '["self-hosted","omnibase-verify"]'
+    # Live value, recorded as read. omninode_infra_fleet_runner_variable above
+    # says this variable is meant to be unset; it is set, to the same pair as
+    # its fallback, so placement is unchanged either way. Reconciling the two is
+    # that entry's owner's call; this map records what the runner resolves.
+    OMNI_INFRA_FLEET_RUNS_ON_JSON: '["self-hosted","omnibase-ci"]'
+    OMNI_TRUSTED_CI_RUNS_ON_JSON: '["self-hosted","omnibase-ci"]'
+  omnimarket:
+    OMNI_OCC_AUTOBIND_RUNS_ON_JSON: null
+    OMNI_PUBLIC_PR_RUNS_ON_JSON: '["ubuntu-latest"]'
+    OMNI_TRUSTED_CI_RUNS_ON_JSON: '["ubuntu-latest"]'

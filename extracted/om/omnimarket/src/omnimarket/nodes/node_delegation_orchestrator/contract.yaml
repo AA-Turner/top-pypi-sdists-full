@@ -1,0 +1,585 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodeDelegationOrchestrator
+#
+# Coordinates the delegation workflow: receive request -> invoke
+# routing reducer -> dispatch to effect lane -> react to terminal
+# lifecycle or legacy inference/gate path -> emit completion or failure.
+#
+# FSM States: RECEIVED -> ROUTED -> EXECUTING -> COMPLETED | FAILED
+#
+# Related Tickets:
+#   - OMN-7040: Node-based delegation pipeline
+name: "node_delegation_orchestrator"
+contract_name: "node_delegation_orchestrator"
+node_name: "node_delegation_orchestrator"
+contract_version:
+  major: 0
+  minor: 7
+  patch: 0
+node_version:
+  major: 0
+  minor: 5
+  patch: 0
+node_type: "ORCHESTRATOR_GENERIC"
+runtime_profiles: [main]
+terminal_events:
+  success: "onex.evt.omnibase-infra.delegation-completed.v1"
+  failure: "onex.evt.omnibase-infra.delegation-failed.v1"
+# OMN-14208: opt-in binding for durable per-request workflow FSM state. When
+# runtime wiring recognizes this key, the dispatch-seam boundary hook loads
+# the correlation_id-keyed row before handle() and CAS-persists it after, so
+# workflow state survives a cold-process replay instead of living only in the
+# in-process HandlerDelegationWorkflow._shared_workflows dict. Inert on infra
+# that does not yet recognize `state_io` (an unrecognized top-level contract
+# key is filtered out before Pydantic validation, never rejected) — activation
+# is gated on the corresponding omnibase_infra wiring landing.
+state_io:
+  database: "omnibase_infra"
+  table: "delegation_workflow_state"
+  key: "correlation_id"
+  codec:
+    module: "omnimarket.nodes.node_delegation_orchestrator.state_codec"
+    name: "StateIoCodec"
+# OMN-18296: how long a delegation may stay non-terminal, and what the runtime
+# owes the caller when the process that owned an in-flight leg goes away.
+#
+# Measured, not assumed. On 2026-09-13 the lab lane's runtime-effects pod was
+# recreated at 09:57:40Z while correlation a2fe0848-4b4b-462e-b633-c5f9559afee5
+# (submitted 09:55:04Z) had an inference command in flight. The command's
+# consumer offset was already committed, so it was never redelivered; no
+# inference response, success or failure, was ever published; the FSM row stayed
+# ROUTED with in_flight=TRUE; and because a gateway workflow can only leave
+# 'published' when a REAL terminal event is consumed off the bus, the customer's
+# delegation never terminalised at all. The runtime's give-up sweep existed but
+# was row-only and traffic-gated: it wrote FAILED to the row and told nobody, and
+# on an idle lane it never ran a second time.
+#
+# The bound is declared HERE, once, because two numbers used to govern that run
+# and neither was a contract: the runtime's TTL was an env-var default in
+# omnibase_infra and the CLI's patience was a hardcoded 300s that did not know
+# about it. The runtime enforces this field; `onex cloud delegate` reads the same
+# field for its own deadline, so the client stops asking at the moment the
+# platform stops trying rather than at an unrelated number of its own.
+#
+# 900s is the widest real delegation observed on the lab (escalation across
+# tiers with compliance repair attempts), rounded up — it bounds abandonment,
+# it is not a per-model latency budget.
+completion_bound:
+  max_wall_seconds: 900
+  on_runtime_restart: "terminalise_failed"
+  failure_class: "runtime_restart_during_delegation"
+  failure_code: "ONEX_MARKET_DELEGATION_RUNTIME_RESTART"
+# OMN-13629 (WS-F Phase 1): the legacy compat task-delegated.v1 co-writer was
+# removed. A delegation terminal now emits a single canonical event on
+# delegation-{completed,failed}.v1. The delegation + savings projections consume
+# the canonical pair directly (no compat hop).
+# OMN-15051: the secondary "BaselineIntent" command
+# (onex.cmd.omnibase-infra.baseline-comparison-request.v1) was removed. It
+# predated the OMN-13629 consolidation above, had zero Kafka subscribers
+# anywhere in the platform (contract-topic-graph ORPHANED_PRODUCER), and
+# carried no cost/token information the canonical terminal above doesn't
+# already carry -- node_projection_savings re-derives the same Claude-cost
+# counterfactual from the terminal's served tokens.
+description: >
+  Orchestrator node that coordinates delegation through a correlation_id-keyed FSM: receive delegation request, invoke routing reducer, dispatch typed invocation commands to the selected effect lane, react to remote agent lifecycle events or the legacy inference and quality-gate path, then emit delegation-completed or delegation-failed. As of 0.2.0 (OMN-10792), exposes HandlerComplianceLoop as an in-process helper. As of 0.3.0 (OMN-10794), HandlerDelegationWorkflow invokes the loop per inference attempt when ModelDelegationRequest sets ``output_schema_key`` + ``compliance_budget``: validation failure with budget CONTINUE emits a fresh repair-prompt ModelInferenceIntent and stays in ROUTED (self-loop); compliant or budget ABORT forwards to the quality gate. tokens_to_compliance + compliance_attempts are accumulated across attempts and forwarded onto the single canonical terminal ModelDelegationResult (the legacy ModelTaskDelegatedEvent co-writer was removed in OMN-13629). As of 0.4.0 (OMN-14208), declares an opt-in `state_io` binding for durable per-request FSM state (wall-clock latency epoch + TypeAdapter codec + ContextVar-backed state proxy); runtime activation is gated on the corresponding omnibase_infra wiring.
+
+config_dependencies:
+  - key: "INFERENCE_PROTOCOL_CONFIG_PATH"
+    required: false
+    description: "Optional override for typed provider request-shaping profiles (defaults to configs/inference_protocols.v1.yaml)."
+
+input_model:
+  name: "ModelDelegationRequest"
+  module: "omnimarket.nodes.node_delegation_orchestrator.models"
+  description: "Delegation command with prompt, task_type, and context."
+output_model:
+  name: "ModelDelegationResult"
+  module: "omnimarket.nodes.node_delegation_orchestrator.models"
+  description: "Delegation outcome with content, quality assessment, and metrics."
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  plugin_managed: true
+  subscribe_topics:
+    - "onex.cmd.omnibase-infra.delegation-request.v1"
+    - "onex.cmd.omnibase-infra.invocation.v1"
+    - "onex.evt.omnibase-infra.routing-decision.v1"
+    # OMN-17397: the routing reducer's FAILURE terminal. OMN-16812 gave the
+    # auto-wired consume boundary an address to answer at when
+    # HandlerRoutingIntent RAISES, and node_delegation_routing_reducer declared
+    # it -- but nothing consumed it, so the emission was a second silent drop.
+    # A config-class routing failure DLQ'd in milliseconds while this FSM stayed
+    # in RECEIVED forever: delegation-failed.v1 was never published, onex-api's
+    # workflow_terminal_consumer never fired, and gateway_workflows.status stayed
+    # 'published' with completed_at NULL (staging run 33443670050, correlation
+    # e317122c-13b2-4983-988b-1050065d2929). This subscription is the missing hop
+    # -- the half the reducer's own OMN-16812 comment named and deferred.
+    - "onex.evt.omnibase-infra.routing-decision-failed.v1"
+    - "onex.evt.omnibase-infra.inference-response.v1"
+    # OMN-17445: the inference effect's FAILURE terminal. OMN-17397 shut the
+    # routing door; this is the same stall reached through the inference leg --
+    # the effect's consume boundary fails the record for good, the FSM sits in
+    # ROUTED waiting on a response that will never come, and the caller waits
+    # out the whole ingress budget to be told nothing.
+    - "onex.evt.omnibase-infra.inference-response-failed.v1"
+    - "onex.evt.omnibase-infra.agent-task-lifecycle.v1"
+    - "onex.evt.omnibase-infra.quality-gate-result.v1"
+    # OMN-17445: the quality gate's FAILURE terminal. Same stall again, one leg
+    # later: the FSM sits in INFERENCE_COMPLETED waiting on a gate verdict whose
+    # producer already gave up on the record.
+    - "onex.evt.omnibase-infra.quality-gate-result-failed.v1"
+  publish_topics:
+    - "onex.evt.omnibase-infra.delegation-completed.v1"
+    - "onex.evt.omnibase-infra.delegation-failed.v1"
+    # OMN-17802: the v2 terminal family. THREE names, not two -- the v2 family
+    # is three concrete classes (omnibase_core #1653), and putting both failure
+    # classes on one delegation-failed.v2 topic is a non-injective class ->
+    # topic map that assert_published_events_injective refuses at boot. Names
+    # are the canonical registry rows (omnibase_core.topics, OMN-15622), never
+    # spelled ad hoc here.
+    - "onex.evt.omnibase-infra.delegation-completed.v2"
+    - "onex.evt.omnibase-infra.delegation-failed-routed.v2"
+    - "onex.evt.omnibase-infra.delegation-failed-unrouted.v2"
+    - "onex.cmd.omnibase-infra.delegation-routing-request.v1"
+    - "onex.cmd.omnibase-infra.remote-agent-invoke.v1"
+    - "onex.cmd.omnibase-infra.delegation-inference-request.v1"
+    - "onex.cmd.omnibase-infra.delegation-quality-gate-request.v1"
+    - "onex.evt.omnibase-infra.inference-response.v1"
+    # OMN-13140: terminal escalation proof emitted at the escalation decision
+    # point (quality-gate-recommends-fallback, or retryable-inference-error, with
+    # a routable next tier). Consumed by node_delegation_routing_feedback_reducer.
+    - "onex.evt.omnimarket.delegation-escalation-triggered.v1"
+    # OMN-20154: one observation per metered provider call on the live route,
+    # folded by node_projection_provider_quota into provider_quota_state.
+    - "onex.evt.omnimarket.provider-quota-observed.v1"
+published_events:
+  - event_type: "RoutingIntent"
+    topic: "onex.cmd.omnibase-infra.delegation-routing-request.v1"
+    description: "Intent emitted by orchestrator to invoke the routing reducer for a delegation request."
+  - event_type: "InvocationCommand"
+    topic: "onex.cmd.omnibase-infra.remote-agent-invoke.v1"
+    description: "Typed invocation command dispatched by the orchestrator to the selected effect topic."
+  - event_type: "InferenceIntent"
+    topic: "onex.cmd.omnibase-infra.delegation-inference-request.v1"
+    description: "Intent emitted by orchestrator to invoke LLM inference via the inference effect."
+  - event_type: "QualityGateIntent"
+    topic: "onex.cmd.omnibase-infra.delegation-quality-gate-request.v1"
+    description: "Intent emitted by orchestrator to invoke the quality gate reducer."
+  # OMN-14600 (canonical two-class split, executes OMN-14403 A1): the
+  # terminal was a single "DelegationEvent" class-name entry mapped to ONE
+  # topic (a bespoke {topic, payload} carrier chose completed vs failed at
+  # runtime, which _outbox_topic_for's class-name lookup could never
+  # disambiguate). ModelDelegationCompleted / ModelDelegationFailed are two
+  # distinct classes (thin, no-new-fields subclasses of ModelDelegationResult)
+  # so each resolves to its own topic by class name alone.
+  - event_type: "DelegationCompleted"
+    topic: "onex.evt.omnibase-infra.delegation-completed.v1"
+    description: "Delegation pipeline terminal event, COMPLETED outcome."
+  - event_type: "DelegationFailed"
+    topic: "onex.evt.omnibase-infra.delegation-failed.v1"
+    description: "Delegation pipeline terminal event, FAILED outcome."
+  # OMN-17802 (GD-2 Option 1): the concrete v2 terminal family, declared
+  # ALONGSIDE the v1 pair above rather than replacing it. Each class names its
+  # own routing disposition and outcome, so class-name -> topic routing
+  # disambiguates all three without any embedded-topic carrier -- the same
+  # property OMN-14600 established for the v1 pair. The v1 entries are
+  # untouched and no v1 terminal is upcast.
+  - event_type: "DelegationTerminalCompletedV2"
+    topic: "onex.evt.omnibase-infra.delegation-completed.v2"
+    description: "Routed delegation terminal, COMPLETED outcome, carrying the route-time backend_ref and pricing manifest version."
+  - event_type: "DelegationTerminalFailedRoutedV2"
+    topic: "onex.evt.omnibase-infra.delegation-failed-routed.v2"
+    description: "Delegation terminal that reached a selected backend and then failed, carrying the route-time backend_ref and pricing manifest version."
+  - event_type: "DelegationTerminalFailedUnroutedV2"
+    topic: "onex.evt.omnibase-infra.delegation-failed-unrouted.v2"
+    description: "Delegation terminal that never selected a backend, carrying a closed unrouted_reason and no routed identity."
+  # OMN-13140: maps the typed escalation event returned from the escalation
+  # branches of HandlerDelegationWorkflow to its declared topic, so the runtime
+  # DispatchResultApplier publishes it to the canonical escalation topic. The
+  # event_type is the Model-prefix-stripped short class name the applier looks up.
+  - event_type: "LlmDelegationEscalationTriggeredEvent"
+    topic: "onex.evt.omnimarket.delegation-escalation-triggered.v1"
+    description: "Terminal escalation event emitted when the orchestrator escalates a delegation to a higher routing tier (quality-gate fallback or retryable inference error)."
+  # OMN-20154: the provider quota observation returned beside the workflow's
+  # events from handle_inference_response.
+  - event_type: "ProviderQuotaObserved"
+    topic: "onex.evt.omnimarket.provider-quota-observed.v1"
+    description: "One metered provider call and its capacity outcome, projected into provider_quota_state."
+state_machine:
+  version: {major: 1, minor: 0, patch: 0}
+  state_machine_name: delegation_orchestrator
+  state_machine_version: {major: 1, minor: 0, patch: 0}
+  description: "Delegation orchestrator workflow machine. The handler loads this block with ModelFSMSubcontract.model_validate and advances only along these declared edges (OMN-13474, OMN-13477, OMN-19547)."
+  initial_state: RECEIVED
+  terminal_states: [COMPLETED, FAILED]
+  error_states: [FAILED]
+  states:
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: RECEIVED
+      state_type: operational
+      description: "Delegation request received; routing not yet decided."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: ROUTED
+      state_type: operational
+      description: "A routing decision selected a backend tier; inference or remote agent work is in flight."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: EXECUTING
+      state_type: operational
+      description: "A remote agent reported lifecycle progress."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: INFERENCE_COMPLETED
+      state_type: operational
+      description: "An inference response was accepted; the quality gate has not answered."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: GATE_EVALUATED
+      state_type: operational
+      description: "The quality gate returned a verdict."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: ESCALATING
+      state_type: operational
+      description: "Re-routing to a higher tier after a gate failure or a retryable inference error."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: COMPLETED
+      state_type: terminal
+      description: "Delegation finished with an accepted result."
+      is_terminal: true
+      is_recoverable: false
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: FAILED
+      state_type: terminal
+      description: "Delegation terminated without an accepted result."
+      is_terminal: true
+      is_recoverable: false
+  transitions:
+    # invocation command accepted
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: received_to_routed
+      from_state: RECEIVED
+      to_state: ROUTED
+      trigger: invocation_command_accepted
+    # schema-compliance loop emits repair re-prompt (OMN-10794)
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: routed_to_routed
+      from_state: ROUTED
+      to_state: ROUTED
+      trigger: schema_repair_reprompt_emitted
+    # agent lifecycle progress received
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: routed_to_executing
+      from_state: ROUTED
+      to_state: EXECUTING
+      trigger: lifecycle_progress_received
+    # inference response received (loop accepted or budget aborted)
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: routed_to_inference_completed
+      from_state: ROUTED
+      to_state: INFERENCE_COMPLETED
+      trigger: inference_response_received
+    # agent lifecycle completed
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: executing_to_completed
+      from_state: EXECUTING
+      to_state: COMPLETED
+      trigger: lifecycle_completed
+    # agent lifecycle failed
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: executing_to_failed
+      from_state: EXECUTING
+      to_state: FAILED
+      trigger: lifecycle_failed
+    # quality gate result received
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: inference_completed_to_gate_evaluated
+      from_state: INFERENCE_COMPLETED
+      to_state: GATE_EVALUATED
+      trigger: gate_result_received
+    # quality gate failed with fallback recommended and escalation budget remaining
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: gate_evaluated_to_escalating
+      from_state: GATE_EVALUATED
+      to_state: ESCALATING
+      trigger: gate_failed_escalation_available
+    # escalation tier selected, re-routing
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: escalating_to_routed
+      from_state: ESCALATING
+      to_state: ROUTED
+      trigger: escalation_tier_selected
+    # quality gate passed
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: gate_evaluated_to_completed
+      from_state: GATE_EVALUATED
+      to_state: COMPLETED
+      trigger: gate_passed
+    # quality gate failed
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: gate_evaluated_to_failed
+      from_state: GATE_EVALUATED
+      to_state: FAILED
+      trigger: gate_failed
+    # OMN-14234 (retry-local / best-of-N): sub-bar quality on a FREE (free_local)
+    # tier with per-tier max_retries budget remaining re-routes to the SAME tier
+    # for a fresh $0 draft, instead of escalating to a paid tier on the first weak
+    # local output (handle_gate_result._maybe_retry_local).
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: gate_evaluated_to_routed
+      from_state: GATE_EVALUATED
+      to_state: ROUTED
+      trigger: gate_failed_local_retry
+    # OMN-13473/OMN-13477: reconciled handler-driven transitions. The handler
+    # (handler_delegation_workflow.py _advance, resolving _DECLARED_TRANSITIONS)
+    # drives these three ROUTED-origin edges that were previously undeclared. The
+    # contract is the single source of truth, so they are added here rather than
+    # removed from the handler -- each is a real, reachable transition:
+    # retryable inference infra-error on current tier with a routable next tier
+    # (OMN-13140; handle_inference_response)
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: routed_to_escalating
+      from_state: ROUTED
+      to_state: ESCALATING
+      trigger: inference_error_escalation_available
+    # terminal inference failure with no escalation possible, or remote lifecycle
+    # FAILED received before EXECUTING (handle_inference_response /
+    # handle_agent_task_lifecycle)
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: routed_to_failed
+      from_state: ROUTED
+      to_state: FAILED
+      trigger: terminal_failure_no_escalation
+    # remote lifecycle COMPLETED received before any PROGRESS event reached
+    # EXECUTING (handle_agent_task_lifecycle)
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: routed_to_completed
+      from_state: ROUTED
+      to_state: COMPLETED
+      trigger: early_lifecycle_completed
+    # OMN-17397: the routing leg can die before any decision is returned, which
+    # leaves the workflow in its INITIAL state with nothing in flight. Every
+    # other declared FAILED edge originates at ROUTED or later, so before this
+    # edge existed the contract FSM could not express the outcome the staging
+    # incident actually had -- and _advance, which resolves every edge from this
+    # table, would have rejected the only honest transition available.
+    # (handle_boundary_failure_terminal)
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: received_to_failed
+      from_state: RECEIVED
+      to_state: FAILED
+      trigger: routing_boundary_terminalized
+    # OMN-17445: the quality-gate leg fails while the workflow sits in
+    # INFERENCE_COMPLETED, whose only declared exit was -> GATE_EVALUATED, i.e.
+    # the gate answering. A gate that never answers had nowhere to go, and
+    # _advance -- which resolves every edge from this table -- would have
+    # rejected the only honest transition available. The inference leg's own
+    # ROUTED -> FAILED edge already exists above. (handle_boundary_failure_terminal)
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: inference_completed_to_failed
+      from_state: INFERENCE_COMPLETED
+      to_state: FAILED
+      trigger: gate_boundary_terminalized
+handler_routing:
+  routing_strategy: "payload_type_match"
+  # OMN-14771 (S8 PR3, PR2<->PR3 seam): each entry now carries an explicit
+  # `topic:` binding its event_model to the exact subscribe topic string. This is
+  # the contract half of the RuntimeDispatch single-route-per-topic seam:
+  # omnibase_core ModelHandlerRoutingEntry gains `topic: str | None` (PR2) and
+  # routing_map_builder._resolve_owning_entry matches `entry.topic == <subscribe
+  # topic>` to bind one handler per topic. The field name/type match
+  # ModelHandlerRoutingEntry.topic (str) exactly. It is inert until PR2 lands --
+  # ModelHandlerRoutingEntry.model_config uses extra="ignore", so the key is
+  # dropped on the pre-PR2 kernel -- and it does NOT disturb the legacy
+  # payload_type_match path (handler_wiring.py typed-delivery branch), which keeps
+  # resolving per-topic via event_model. PR2/PR3 are order-independent for safety.
+  handlers:
+    - operation: "delegation.orchestrate"
+      message_category: "command"
+      handler:
+        name: "HandlerDelegationWorkflow"
+        module: "omnimarket.nodes.node_delegation_orchestrator.handlers.handler_delegation_workflow"
+      event_model:
+        name: "ModelDelegationRequest"
+        module: "omnibase_core.models.delegation.wire"
+      event_type: "omnibase-infra.delegation-request"
+      topic: "onex.cmd.omnibase-infra.delegation-request.v1"
+      description: "Receive a delegation request and emit the routing intent."
+    - operation: "delegation.orchestrate.invocation"
+      message_category: "command"
+      handler:
+        name: "HandlerDelegationWorkflow"
+        module: "omnimarket.nodes.node_delegation_orchestrator.handlers.handler_delegation_workflow"
+      event_model:
+        name: "ModelInvocationCommand"
+        module: "omnibase_core.models.delegation.model_invocation_command"
+      event_type: "omnibase-infra.invocation"
+      topic: "onex.cmd.omnibase-infra.invocation.v1"
+      description: "Accept typed invocation commands on the delegation workflow."
+    - operation: "delegation.orchestrate.routing"
+      message_category: "event"
+      handler:
+        name: "HandlerDelegationWorkflow"
+        module: "omnimarket.nodes.node_delegation_orchestrator.handlers.handler_delegation_workflow"
+      event_model:
+        name: "ModelRoutingDecision"
+        module: "omnimarket.nodes.node_delegation_routing_reducer.models.model_routing_decision"
+      event_type: "omnibase-infra.routing-decision"
+      topic: "onex.evt.omnibase-infra.routing-decision.v1"
+      description: "Advance the workflow after model-routing selection."
+    # OMN-17397: the routing leg's FAILURE answer. The event_model names the
+    # SAME class omnibase_infra's boundary publishes
+    # (runtime.boundary_failure_terminal.ModelBoundaryFailureTerminal) rather
+    # than a repo-local copy of its wire shape: a copy is exactly the drift that
+    # would let a field rename silently re-open this stall, and omnimarket
+    # already depends on omnibase-infra (>=0.38.15), which is where the emitter
+    # and the model both live. The long-term home for a wire DTO crossing two
+    # repos is omnibase_core; relocating it is a core+infra+market version
+    # cascade and is tracked separately, not smuggled in here.
+    - operation: "delegation.orchestrate.routing_failure"
+      message_category: "event"
+      handler:
+        name: "HandlerDelegationWorkflow"
+        module: "omnimarket.nodes.node_delegation_orchestrator.handlers.handler_delegation_workflow"
+      event_model:
+        name: "ModelBoundaryFailureTerminal"
+        module: "omnibase_infra.runtime.boundary_failure_terminal"
+      event_type: "omnibase-infra.routing-decision-failed"
+      topic: "onex.evt.omnibase-infra.routing-decision-failed.v1"
+      description: "Terminalize the workflow when the routing leg's consume boundary failed the record for good (OMN-17397)."
+    # OMN-17445: the inference and quality-gate legs answer with the SAME class
+    # on their own topics. One payload type means one entry in
+    # _PER_STEP_DISPATCH and therefore one handler method for all three legs --
+    # which is the point: a second copy of the idempotency refusals would be
+    # free to disagree with the first about what "already answered" means, and a
+    # double terminal for one correlation is made of exactly that disagreement.
+    # The legs are told apart inside the handler by
+    # ModelBoundaryFailureTerminal.origin_topic, which the boundary stamps from
+    # the topic it was consuming -- no caller can forge it.
+    - operation: "delegation.orchestrate.inference_failure"
+      message_category: "event"
+      handler:
+        name: "HandlerDelegationWorkflow"
+        module: "omnimarket.nodes.node_delegation_orchestrator.handlers.handler_delegation_workflow"
+      event_model:
+        name: "ModelBoundaryFailureTerminal"
+        module: "omnibase_infra.runtime.boundary_failure_terminal"
+      event_type: "omnibase-infra.inference-response-failed"
+      topic: "onex.evt.omnibase-infra.inference-response-failed.v1"
+      description: "Terminalize the workflow when the inference leg's consume boundary failed the record for good (OMN-17445)."
+    - operation: "delegation.orchestrate.quality_gate_failure"
+      message_category: "event"
+      handler:
+        name: "HandlerDelegationWorkflow"
+        module: "omnimarket.nodes.node_delegation_orchestrator.handlers.handler_delegation_workflow"
+      event_model:
+        name: "ModelBoundaryFailureTerminal"
+        module: "omnibase_infra.runtime.boundary_failure_terminal"
+      event_type: "omnibase-infra.quality-gate-result-failed"
+      topic: "onex.evt.omnibase-infra.quality-gate-result-failed.v1"
+      description: "Terminalize the workflow when the quality-gate leg's consume boundary failed the record for good (OMN-17445)."
+    - operation: "delegation.orchestrate.inference"
+      message_category: "event"
+      handler:
+        name: "HandlerDelegationWorkflow"
+        module: "omnimarket.nodes.node_delegation_orchestrator.handlers.handler_delegation_workflow"
+      event_model:
+        name: "ModelInferenceResponseData"
+        module: "omnibase_core.models.delegation.wire"
+      event_type: "omnibase-infra.inference-response"
+      topic: "onex.evt.omnibase-infra.inference-response.v1"
+      description: "Advance the workflow after an LLM inference response."
+    - operation: "delegation.orchestrate.lifecycle"
+      message_category: "event"
+      handler:
+        name: "HandlerDelegationWorkflow"
+        module: "omnimarket.nodes.node_delegation_orchestrator.handlers.handler_delegation_workflow"
+      event_model:
+        name: "ModelAgentTaskLifecycleEvent"
+        module: "omnibase_core.models.delegation.model_agent_task_lifecycle_event"
+      event_type: "omnibase-infra.agent-task-lifecycle"
+      topic: "onex.evt.omnibase-infra.agent-task-lifecycle.v1"
+      description: "Advance the workflow from remote-agent lifecycle events."
+    - operation: "delegation.orchestrate.quality"
+      message_category: "event"
+      handler:
+        name: "HandlerDelegationWorkflow"
+        module: "omnimarket.nodes.node_delegation_orchestrator.handlers.handler_delegation_workflow"
+      event_model:
+        name: "ModelQualityGateResult"
+        module: "omnimarket.nodes.node_delegation_quality_gate_reducer.models"
+      event_type: "omnibase-infra.quality-gate-result"
+      topic: "onex.evt.omnibase-infra.quality-gate-result.v1"
+      description: "Complete or fail the workflow after quality evaluation."
+# PluginDelegation owns the Kafka subscription/result-applier lifecycle
+# (event_bus.plugin_managed=true), while generic contract auto-wiring owns the
+# dispatch route into HandlerDelegationWorkflow.handle(). All six subscribed
+# topics route through that handler. OMN-13477 (W5): handle() routes each
+# payload to its thin per-step FSM handler off the declarative _PER_STEP_DISPATCH
+# table — one entry per handler_routing event_model below — instead of a
+# hand-maintained isinstance ladder. There is no catch-all entry: every
+# handler_routing handler declares an event_model, so an undeclared payload type
+# fails closed rather than falling through to a generic bus route. The legacy
+# per-payload dispatcher classes are retained only for backward-compatible tests
+# and are no longer the live wiring authority (OMN-12688, OMN-12724).
+# HandlerComplianceLoop is intentionally omitted from handler_routing because it
+# is invoked in-process by HandlerDelegationWorkflow per inference attempt.
+# Cross-repo topic ownership declarations.
+# Topics published by this node that are consumed by nodes in other repos.
+# The dependency-health sweep runs per-repo-root; these declarations suppress
+# false-positive MISSING_TOPIC_EDGE findings for legitimate cross-repo wiring.
+externally_consumed_topics:
+  - "onex.cmd.omnibase-infra.remote-agent-invoke.v1"
+  # Owner: omnibase_infra/node_remote_agent_invoke_effect
+  # Runtime profile: runtime (A2A delegation bridge effect node)
+  # OMN-11058: verified subscriber exists; classified intentionally_external
+
+escalation:
+  max_attempts: 10
+  # OMN-13215: the shelled ``cli_agents`` tier was removed. Every tier — including
+  # the ceiling (claude) — runs over the canonical HTTP inference path, so no tier
+  # is excluded from escalation.
+  excluded_tiers: []
+
+error_handling:
+  retry_policy:
+    max_retries: 1
+    initial_delay_ms: 1000
+    max_delay_ms: 5000
+    exponential_base: 2
+    retry_on:
+      - "InferenceTimeoutError"
+  error_types:
+    - name: "OrchestrationError"
+      description: "Unexpected error during delegation orchestration"
+      recoverable: false
+    - name: "InferenceTimeoutError"
+      description: "LLM inference did not respond within timeout"
+      recoverable: true
+    - name: "InvalidStateTransitionError"
+      description: "Attempted invalid FSM state transition"
+      recoverable: false
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+  checks:
+    - name: "orchestrator_handler_loaded"
+      type: "handler"
+      critical: true
+metadata:
+  description: "Coordinates the full delegation workflow: routing, LLM inference, quality gate, and completion."
+  demo_path: true  # OMN-12777: demo-path topic coherence gate scope marker
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-03-30"
+  tags:
+    - orchestrator
+    - delegation
+    - fsm
+    - workflow
+    - llm
+  related_tickets:
+    - "OMN-7040"

@@ -91,9 +91,7 @@ tags:
     env: prod
 """
 
-    name: Optional[str] = field(
-        default=None, metadata={"docstring": "The name of the workspace"}
-    )
+    name: Optional[str] = field(default=None, metadata={"docstring": "The name of the workspace"})
 
     def _validate_name(self, name: Optional[str]):
         if name is not None and not isinstance(name, str):
@@ -106,9 +104,7 @@ tags:
 
     image_uri: Optional[str] = field(
         default=None,
-        metadata={
-            "docstring": "URI of an existing image. Exclusive with `containerfile`."
-        },
+        metadata={"docstring": "URI of an existing image. Exclusive with `containerfile`."},
     )
 
     def _validate_image_uri(self, image_uri: Optional[str]):
@@ -130,7 +126,8 @@ tags:
             raise TypeError("'containerfile' must be a string.")
 
     tags: Optional[Dict[str, str]] = field(
-        default=None, metadata={"docstring": "Tags to associate with the workspace."},
+        default=None,
+        metadata={"docstring": "Tags to associate with the workspace."},
     )
 
     def _validate_tags(self, tags: Optional[Dict[str, str]]):
@@ -183,12 +180,8 @@ tags:
         },
     )
 
-    def _validate_idle_termination_minutes(
-        self, idle_termination_minutes: Optional[int]
-    ):
-        if idle_termination_minutes is not None and not isinstance(
-            idle_termination_minutes, int
-        ):
+    def _validate_idle_termination_minutes(self, idle_termination_minutes: Optional[int]):
+        if idle_termination_minutes is not None and not isinstance(idle_termination_minutes, int):
             raise ValueError("'idle_termination_minutes' must be an int")
 
     requirements: Optional[Union[str, List[str]]] = field(
@@ -203,12 +196,8 @@ tags:
         if requirements is None or isinstance(requirements, str):
             return
 
-        if not isinstance(requirements, list) or not all(
-            isinstance(r, str) for r in requirements
-        ):
-            raise TypeError(
-                "'requirements' must be a string (file path) or list of strings."
-            )
+        if not isinstance(requirements, list) or not all(isinstance(r, str) for r in requirements):
+            raise TypeError("'requirements' must be a string (file path) or list of strings.")
 
     env_vars: Optional[Dict[str, str]] = field(
         default=None,
@@ -221,9 +210,7 @@ tags:
     def _validate_env_vars(self, env_vars: Optional[Dict[str, str]]):
         if env_vars is not None and (
             not isinstance(env_vars, dict)
-            or not all(
-                isinstance(k, str) and isinstance(v, str) for k, v in env_vars.items()
-            )
+            or not all(isinstance(k, str) and isinstance(v, str) for k, v in env_vars.items())
         ):
             raise TypeError("'env_vars' must be a Dict[str, str].")
 
@@ -237,9 +224,7 @@ tags:
     )
 
     def _validate_registry_login_secret(self, registry_login_secret: Optional[str]):
-        if registry_login_secret is not None and not isinstance(
-            registry_login_secret, str
-        ):
+        if registry_login_secret is not None and not isinstance(registry_login_secret, str):
             raise TypeError("'registry_login_secret' must be a string.")
 
     ray_version: Optional[str] = field(
@@ -333,9 +318,7 @@ first_workspace: Workspace = next(anyscale.workspace.list(max_items=1), None)
         if not isinstance(name, str):
             raise ValueError("The workspace name must be a string.")
 
-    state: WorkspaceState = field(
-        metadata={"docstring": "The current state of the workspace."}
-    )
+    state: WorkspaceState = field(metadata={"docstring": "The current state of the workspace."})
 
     def _validate_state(self, state: WorkspaceState):
         WorkspaceState.validate(state)
@@ -392,12 +375,11 @@ first_workspace: Workspace = next(anyscale.workspace.list(max_items=1), None)
 
     def _validate_last_started_at(self, last_started_at: Optional[datetime]):
         if last_started_at is not None and not isinstance(last_started_at, datetime):
-            raise ValueError(
-                "The last_started_at field must be a datetime if provided."
-            )
+            raise ValueError("The last_started_at field must be a datetime if provided.")
 
     cluster_id: Optional[str] = field(
-        default=None, metadata={"docstring": "Cluster identifier for the workspace."},
+        default=None,
+        metadata={"docstring": "Cluster identifier for the workspace."},
     )
 
     def _validate_cluster_id(self, cluster_id: Optional[str]):

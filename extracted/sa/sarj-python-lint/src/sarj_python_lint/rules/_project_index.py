@@ -1,0 +1,849 @@
+from __future__ import annotations
+
+import ast
+from collections.abc import Mapping
+from contextlib import suppress
+from dataclasses import dataclass
+from functools import cached_property
+import os
+from pathlib import Path
+import re
+from types import MappingProxyType
+from typing import TYPE_CHECKING, final
+
+from sarj_python_lint.rules._ast_index import walk as walk_ast
+from sarj_python_lint.rules._first_party import FirstPartyFacts, project_root
+from sarj_python_lint.rules._paths import is_generated
+
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator, Sequence
+    from typing import Self
+
+
+_SKIP_DIRS = frozenset(
+    {
+        ".git",
+        ".mypy_cache",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".tox",
+        ".venv",
+        "__pycache__",
+        "build",
+        "dist",
+        "node_modules",
+        "site-packages",
+        "vendor",
+        "vendored",
+        "venv",
+    }
+)
+_MAX_ROOTS = 8
+_MAX_DIRS_PER_ROOT = 3_000
+_MAX_FILES_PER_ROOT = 10_000
+_MAX_FILE_BYTES = 500_000
+_MAX_SOURCE_CHARS_PER_ROOT = 50_000_000
+_NEW_TYPE_MIN_ARGS = 2
+_MATCH_CLASS_RE: re.Pattern[str] = re.compile(r"\bcase\s+([A-Z][A-Za-z0-9_]*)\s*\(")
+
+
+@dataclass(frozen=True, slots=True)
+class SymbolRef:
+    module: str
+    name: str
+
+
+@dataclass(frozen=True, slots=True)
+class ClassSummary:
+    symbol: SymbolRef
+    fields: Mapping[str, ast.expr]
+    bases: tuple[SymbolRef, ...]
+    is_enum: bool
+
+
+@dataclass(frozen=True, slots=True)
+class SourceUnit:
+    path: Path
+    module: str | None
+    source: str
+    tree: ast.Module | None
+    imports: Mapping[str, SymbolRef]
+
+
+@dataclass(frozen=True, slots=True)
+class LoadedSource:
+    path: Path
+    source: str
+
+
+@final
+class ProjectIndexSet:
+    def __init__(self, units: Mapping[Path, SourceUnit], roots: Sequence[Path] = ()) -> None:
+        self._units = MappingProxyType(dict(units))
+        self._roots = tuple(roots)
+        by_module = {unit.module: unit for unit in units.values() if unit.module is not None}
+        self._by_module = MappingProxyType(by_module)
+        classes: dict[SymbolRef, ClassSummary] = {}
+        nominals: dict[str, set[SymbolRef]] = {}
+        _collect_unit_symbols(units, classes, nominals)
+        self._classes = MappingProxyType(classes)
+        self._nominals = MappingProxyType({key: frozenset(value) for key, value in nominals.items()})
+
+    @classmethod
+    def build(
+        cls,
+        paths: Sequence[Path],
+        loaded: Mapping[Path, str],
+        *,
+        facts: FirstPartyFacts | None = None,
+    ) -> Self:
+        roots = _project_roots(paths, facts=facts)
+        sources: dict[Path, str] = {}
+        for path, source in loaded.items():
+            try:
+                sources[path.resolve()] = source
+            except OSError:
+                continue
+        for root in roots:
+            _load_root_sources(root, sources)
+        return cls(_units(sources, roots), roots)
+
+    @classmethod
+    def single(cls, path: Path, source: str) -> Self:
+        return cls(_units({path: source}))
+
+    def unit(self, path: Path) -> SourceUnit | None:
+        direct = self._units.get(path)
+        if direct is not None:
+            return direct
+        try:
+            return self._units.get(path.resolve())
+        except OSError:
+            return None
+
+    def unit_or_source(self, path: Path, source: str, tree: ast.Module) -> SourceUnit | None:
+        indexed = self.unit(path)
+        if indexed is not None:
+            return indexed
+        module = _module_name(path, self._roots)
+        if module is None:
+            return None
+        return SourceUnit(
+            path=path,
+            module=module,
+            source=source,
+            tree=tree,
+            imports=MappingProxyType(_imports(module, tree, is_package=path.name == "__init__.py")),
+        )
+
+    def nominal_for_field(self, name: str) -> SymbolRef | None:
+        matches = self._nominals.get(name)
+        return next(iter(matches)) if matches is not None and len(matches) == 1 else None
+
+    @staticmethod
+    def resolve(unit: SourceUnit, expression: ast.expr) -> SymbolRef | None:
+        if unit.module is None:
+            return None
+        if isinstance(expression, ast.Name):
+            return unit.imports.get(expression.id) or SymbolRef(unit.module, expression.id)
+        if isinstance(expression, ast.Attribute) and isinstance(expression.value, ast.Name):
+            root = unit.imports.get(expression.value.id)
+            if root is not None:
+                return SymbolRef(root.module, expression.attr) if not root.name else None
+        return None
+
+    def class_for(self, unit: SourceUnit, expression: ast.expr) -> ClassSummary | None:
+        symbol = self.resolve(unit, expression)
+        return self._classes.get(symbol) if symbol is not None else None
+
+    def annotation_contains_enum(self, unit: SourceUnit, annotation: ast.expr) -> bool:
+        for member in walk_ast(annotation):
+            if not isinstance(member, (ast.Name, ast.Attribute)):
+                continue
+            symbol = self.resolve(unit, member)
+            summary = self._classes.get(symbol) if symbol is not None else None
+            if summary is not None and summary.is_enum:
+                return True
+        return False
+
+    def source_unit(self, module: str) -> SourceUnit | None:
+        return self._by_module.get(module)
+
+    def constructor_consumers(self, unit: SourceUnit, name: str) -> frozenset[tuple[Path, str]]:
+        if unit.module is None:
+            return frozenset()
+        target = SymbolRef(unit.module, name)
+        consumers: set[tuple[Path, str]] = set()
+        for candidate in self._units.values():
+            if candidate.tree is None:
+                continue
+            consumers.update(_unit_constructor_consumers(candidate, candidate.tree, target))
+        return frozenset(consumers)
+
+    def constructor_operations(self, unit: SourceUnit, name: str) -> frozenset[tuple[Path, str]]:
+        if unit.module is None:
+            return frozenset()
+        return self._constructor_operations.get(SymbolRef(unit.module, name), frozenset())
+
+    @cached_property
+    def _constructor_operations(self) -> Mapping[SymbolRef, frozenset[tuple[Path, str]]]:
+        module_counts: dict[str, int] = {}
+        for unit in self._units.values():
+            if unit.module is not None:
+                module_counts[unit.module] = module_counts.get(unit.module, 0) + 1
+        owned_modules = frozenset(module for module, count in module_counts.items() if count == 1)
+        operations: dict[SymbolRef, set[tuple[Path, str]]] = {}
+        for unit in self._units.values():
+            if unit.tree is None or unit.module not in owned_modules or is_generated(unit.path, unit.source):
+                continue
+            for symbol, operation in _unit_constructor_operations(unit, unit.tree, owned_modules):
+                if symbol.module in owned_modules and symbol in self._classes:
+                    operations.setdefault(symbol, set()).add((unit.path, operation))
+        return MappingProxyType({symbol: frozenset(calls) for symbol, calls in operations.items()})
+
+    def direct_subclasses(self, unit: SourceUnit, name: str) -> frozenset[tuple[Path, str]]:
+        if unit.module is None:
+            return frozenset()
+        target = SymbolRef(unit.module, name)
+        return frozenset(
+            (candidate.path, node.name)
+            for candidate in self._units.values()
+            if candidate.tree is not None and name in candidate.source
+            for node in candidate.tree.body
+            if isinstance(node, ast.ClassDef)
+            and any(_direct_base_symbol(candidate, base) == target for base in node.bases)
+        )
+
+    def typed_class_consumers(self, unit: SourceUnit, name: str) -> frozenset[tuple[Path, str]]:
+        if unit.module is None:
+            return frozenset()
+        target = SymbolRef(unit.module, name)
+        return frozenset(
+            (candidate.path, owner.name)
+            for candidate in self._units.values()
+            if candidate.tree is not None and name in candidate.source
+            for owner in candidate.tree.body
+            if isinstance(owner, ast.ClassDef) and _class_has_typed_dependency(candidate, owner, target)
+        )
+
+    def test_mock_specs(self, unit: SourceUnit, name: str) -> frozenset[Path]:
+        if unit.module is None:
+            return frozenset()
+        target = SymbolRef(unit.module, name)
+        return frozenset(
+            candidate.path
+            for candidate in self._units.values()
+            if candidate.tree is not None
+            and name in candidate.source
+            and any(
+                _is_mock_spec_for(candidate, call, target)
+                for call in walk_ast(candidate.tree)
+                if isinstance(call, ast.Call)
+            )
+        )
+
+    def class_inherits_from(self, unit: SourceUnit, name: str, qualified_bases: frozenset[str]) -> bool:
+        if unit.module is None:
+            return False
+        pending = [SymbolRef(unit.module, name)]
+        seen: set[SymbolRef] = set()
+        while pending:
+            symbol = pending.pop()
+            if symbol in seen:
+                continue
+            seen.add(symbol)
+            summary = self._classes.get(symbol)
+            if summary is None:
+                continue
+            for base in summary.bases:
+                if f"{base.module}.{base.name}" in qualified_bases:
+                    return True
+                pending.append(base)
+        return False
+
+
+def _units(sources: Mapping[Path, str], roots: Sequence[Path] = ()) -> dict[Path, SourceUnit]:
+    matched_classes = {
+        match.group(1)
+        for source in sources.values()
+        if "match " in source and "str(" in source
+        for match in _MATCH_CLASS_RE.finditer(source)
+    }
+    parsed: dict[Path, tuple[str | None, str, ast.Module | None]] = {}
+    for path, source in sources.items():
+        if not _is_index_candidate(source, matched_classes):
+            continue
+        tree: ast.Module | None = None
+        with suppress(SyntaxError):
+            tree = ast.parse(source, filename=str(path))
+        parsed[path] = (_module_name(path, roots), source, tree)
+    return {
+        path: SourceUnit(
+            path=path,
+            module=module,
+            source=source,
+            tree=tree,
+            imports=MappingProxyType(_imports(module, tree, is_package=path.name == "__init__.py")),
+        )
+        for path, (module, source, tree) in parsed.items()
+    }
+
+
+def _is_index_candidate(source: str, matched_classes: set[str]) -> bool:
+    return (
+        "NewType(" in source
+        or "class " in source
+        or "spec=" in source
+        or "spec_set=" in source
+        or "create_autospec(" in source
+        or ("match " in source and "str(" in source)
+        or any(f"class {name}" in source for name in matched_classes)
+    )
+
+
+def _module_name(path: Path, roots: Sequence[Path]) -> str | None:
+    resolved = path.resolve()
+    root = next((candidate for candidate in roots if resolved == candidate or candidate in resolved.parents), None)
+    if root is not None:
+        try:
+            project_module = _project_module_name(resolved, root)
+            if project_module is not None:
+                return project_module
+            package_dir = _outer_package_directory(resolved, root)
+        except OSError:
+            return None
+        if package_dir is not None:
+            relative = resolved.relative_to(package_dir)
+            suffix = relative.parts[:-1] if relative.name == "__init__.py" else (*relative.parts[:-1], relative.stem)
+            return ".".join((package_dir.name, *suffix))
+    return _package_module_name(path)
+
+
+def _project_module_name(resolved: Path, root: Path) -> str | None:
+    # PEP 420 namespace directories do not have __init__.py. The closest
+    # Python project boundary preserves their complete importable path.
+    project = next(
+        (ancestor for ancestor in resolved.parents if (ancestor / "pyproject.toml").is_file()),
+        None,
+    )
+    if project is None or not (project == root or root in project.parents):
+        return None
+    relative = resolved.relative_to(project)
+    parts = relative.parts[1:] if relative.parts[0] == "src" else relative.parts
+    if not parts:
+        return None
+    suffix = parts[:-1] if parts[-1] == "__init__.py" else (*parts[:-1], Path(parts[-1]).stem)
+    return ".".join(suffix) or None
+
+
+def _package_module_name(path: Path) -> str | None:
+    parts: list[str] = []
+    parent = path.parent
+    try:
+        while (parent / "__init__.py").is_file():
+            parts.append(parent.name)
+            parent = parent.parent
+    except OSError:
+        return None
+    if not parts:
+        if path.is_absolute():
+            return None
+        relative = [part for part in path.parts if part not in {".", ".."}]
+        if not relative:
+            return None
+        if path.name == "__init__.py":
+            return ".".join(relative[:-1]) or None
+        return ".".join([*relative[:-1], path.stem])
+    parts.reverse()
+    if path.name != "__init__.py":
+        parts.append(path.stem)
+    return ".".join(parts)
+
+
+def _project_roots(paths: Sequence[Path], *, facts: FirstPartyFacts | None = None) -> tuple[Path, ...]:
+    candidates: set[Path] = set()
+    for path in paths:
+        try:
+            root = project_root(path.resolve(), facts=facts)
+        except OSError:
+            continue
+        if root is not None:
+            candidates.add(root)
+    roots: list[Path] = []
+    for candidate in sorted(candidates):
+        if any(candidate == root or root in candidate.parents for root in roots):
+            continue
+        roots.append(candidate)
+        if len(roots) >= _MAX_ROOTS:
+            break
+    return tuple(roots)
+
+
+def _imports(module: str | None, tree: ast.Module | None, *, is_package: bool) -> dict[str, SymbolRef]:
+    if module is None or tree is None:
+        return {}
+    result: dict[str, SymbolRef] = {}
+    package = module if is_package else module.rpartition(".")[0]
+    for node in _module_import_statements(tree):
+        _record_import(node, package, result)
+    return result
+
+
+def _module_import_statements(tree: ast.Module) -> tuple[ast.stmt, ...]:
+    statements: list[ast.stmt] = list(tree.body)
+    for statement in tree.body:
+        if not isinstance(statement, ast.If) or not _is_type_checking_guard(statement.test):
+            continue
+        statements.extend(child for child in statement.body if isinstance(child, (ast.Import, ast.ImportFrom)))
+    return tuple(statements)
+
+
+def _is_type_checking_guard(node: ast.expr) -> bool:
+    return (isinstance(node, ast.Name) and node.id == "TYPE_CHECKING") or (
+        isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Name)
+        and node.value.id in {"typing", "typing_extensions"}
+        and node.attr == "TYPE_CHECKING"
+    )
+
+
+def _tail(node: ast.expr) -> str:
+    match node:
+        case ast.Name(id=name) | ast.Attribute(attr=name):
+            return name
+        case _:
+            return ""
+
+
+def _resolve(unit: SourceUnit, expression: ast.expr) -> SymbolRef | None:
+    if unit.module is None:
+        return None
+    if isinstance(expression, ast.Name):
+        return unit.imports.get(expression.id) or SymbolRef(unit.module, expression.id)
+    if isinstance(expression, ast.Attribute) and isinstance(expression.value, ast.Name):
+        root = unit.imports.get(expression.value.id)
+        if root is not None and not root.name:
+            return SymbolRef(root.module, expression.attr)
+    return None
+
+
+def _direct_base_symbol(unit: SourceUnit, expression: ast.expr) -> SymbolRef | None:
+    resolved = _resolve(unit, expression)
+    if resolved is not None or not isinstance(expression, ast.Name) or unit.tree is None:
+        return resolved
+    # Test support modules need not be packages. Absolute imports still prove
+    # the base identity even when the file itself has no importable module name.
+    for statement in _module_import_statements(unit.tree):
+        if not isinstance(statement, ast.ImportFrom) or statement.level or statement.module is None:
+            continue
+        for alias in statement.names:
+            if (alias.asname or alias.name) == expression.id:
+                return SymbolRef(statement.module, alias.name)
+    return None
+
+
+def _collect_unit_symbols(
+    units: Mapping[Path, SourceUnit], classes: dict[SymbolRef, ClassSummary], nominals: dict[str, set[SymbolRef]]
+) -> None:
+    for unit in units.values():
+        if unit.module is None or unit.tree is None:
+            continue
+        for statement in unit.tree.body:
+            if isinstance(statement, ast.ClassDef):
+                symbol = SymbolRef(unit.module, statement.name)
+                classes[symbol] = _class_summary(unit, statement, symbol)
+            nominal = _new_type(statement, unit.module)
+            if nominal is not None:
+                nominals.setdefault(_field_key(nominal.name), set()).add(nominal)
+
+
+def _field_key(type_name: str) -> str:
+    first = re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", type_name)
+    return re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", first).lower()
+
+
+def _new_type(statement: ast.stmt, module: str) -> SymbolRef | None:
+    target: ast.Name | None = None
+    value: ast.expr | None = None
+    if isinstance(statement, ast.Assign) and len(statement.targets) == 1 and isinstance(statement.targets[0], ast.Name):
+        target, value = statement.targets[0], statement.value
+    elif isinstance(statement, ast.AnnAssign) and isinstance(statement.target, ast.Name):
+        target, value = statement.target, statement.value
+    if (
+        target is None
+        or not isinstance(value, ast.Call)
+        or _tail(value.func) != "NewType"
+        or len(value.args) < _NEW_TYPE_MIN_ARGS
+    ):
+        return None
+    declared = value.args[0]
+    carrier = value.args[1]
+    if not (
+        isinstance(declared, ast.Constant) and declared.value == target.id and _tail(carrier) in {"UUID", "int", "str"}
+    ):
+        return None
+    return SymbolRef(module, target.id)
+
+
+def _class_summary(unit: SourceUnit, statement: ast.ClassDef, symbol: SymbolRef) -> ClassSummary:
+    fields = {
+        item.target.id: item.annotation
+        for item in statement.body
+        if isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name)
+    }
+    return ClassSummary(
+        symbol=symbol,
+        fields=MappingProxyType(fields),
+        bases=tuple(
+            resolved
+            for base in statement.bases
+            if (resolved := _resolve(unit, base.value if isinstance(base, ast.Subscript) else base)) is not None
+        ),
+        is_enum=any(_tail(base) in {"Enum", "IntEnum", "StrEnum"} for base in statement.bases),
+    )
+
+
+def _load_root_sources(root: Path, sources: dict[Path, str]) -> None:
+    count = 0
+    source_chars = 0
+    for path in _python_files(root):
+        if count >= _MAX_FILES_PER_ROOT or source_chars >= _MAX_SOURCE_CHARS_PER_ROOT:
+            break
+        try:
+            if path.resolve() in sources:
+                count += 1
+                continue
+        except OSError:
+            continue
+        loaded_source = _read_bounded_source(root, path)
+        if loaded_source is None:
+            continue
+        if source_chars + len(loaded_source.source) > _MAX_SOURCE_CHARS_PER_ROOT:
+            break
+        sources.setdefault(loaded_source.path, loaded_source.source)
+        source_chars += len(loaded_source.source)
+        count += 1
+
+
+def _read_bounded_source(root: Path, path: Path) -> LoadedSource | None:
+    try:
+        if path.is_symlink() or not path.is_file() or path.stat().st_size > _MAX_FILE_BYTES:
+            return None
+        resolved = path.resolve()
+        resolved.relative_to(root.resolve())
+        return LoadedSource(resolved, resolved.read_text(encoding="utf-8", errors="replace"))
+    except OSError, ValueError:
+        return None
+
+
+def _python_files(root: Path) -> Iterator[Path]:
+    for scanned, (directory, dir_names, file_names) in enumerate(os.walk(root), start=1):
+        if scanned > _MAX_DIRS_PER_ROOT:
+            return
+        parent = Path(directory)
+        dir_names[:] = [
+            name
+            for name in sorted(dir_names)
+            if not name.startswith(".") and name not in _SKIP_DIRS and not (parent / name / ".git").exists()
+        ]
+        for name in sorted(file_names):
+            if name.endswith(".py"):
+                yield parent / name
+
+
+def _unit_constructor_consumers(
+    candidate: SourceUnit, tree: ast.Module, target: SymbolRef
+) -> Iterator[tuple[Path, str]]:
+    for owner in tree.body:
+        if not isinstance(owner, ast.ClassDef):
+            continue
+        initializer = next(
+            (
+                statement
+                for statement in owner.body
+                if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)) and statement.name == "__init__"
+            ),
+            None,
+        )
+        if initializer is None:
+            continue
+        parameters = (*initializer.args.posonlyargs, *initializer.args.args, *initializer.args.kwonlyargs)
+        if any(
+            _annotation_contains_symbol(candidate, parameter.annotation, target)
+            for parameter in parameters
+            if parameter.arg != "self"
+        ):
+            yield (candidate.path, owner.name)
+
+
+def _unit_constructor_operations(
+    unit: SourceUnit, tree: ast.Module, owned_modules: frozenset[str]
+) -> Iterator[tuple[SymbolRef, str]]:
+    if any(
+        isinstance(item, ast.ImportFrom) and any(alias.name == "*" for alias in item.names) for item in walk_ast(tree)
+    ):
+        return
+    rebound = _module_constructor_rebindings(tree)
+    for owner in tree.body:
+        self_symbol = SymbolRef(unit.module or "", owner.name) if isinstance(owner, ast.ClassDef) else None
+        for method in _direct_functions(owner):
+            for symbol, operation in _function_constructor_operations(unit, method, rebound, owned_modules):
+                if symbol != self_symbol:
+                    yield symbol, operation
+
+
+def _module_constructor_rebindings(tree: ast.Module) -> frozenset[str]:
+    names: set[str] = set()
+    declarations: dict[str, int] = {}
+    for statement in tree.body:
+        for name in _module_constructor_declarations(statement):
+            declarations[name] = declarations.get(name, 0) + 1
+        if isinstance(statement, ast.FunctionDef | ast.AsyncFunctionDef):
+            names.add(statement.name)
+        elif not isinstance(statement, ast.ClassDef | ast.Import | ast.ImportFrom):
+            names.update(_bound_constructor_names(statement))
+    names.update(name for name, count in declarations.items() if count > 1)
+    return frozenset(names)
+
+
+def _module_constructor_declarations(statement: ast.stmt) -> frozenset[str]:
+    if isinstance(statement, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
+        return frozenset({statement.name})
+    return _bound_constructor_names(statement)
+
+
+def _direct_functions(owner: ast.stmt) -> tuple[ast.FunctionDef | ast.AsyncFunctionDef, ...]:
+    if isinstance(owner, ast.FunctionDef | ast.AsyncFunctionDef):
+        return (owner,)
+    if isinstance(owner, ast.ClassDef):
+        return tuple(item for item in owner.body if isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef))
+    return ()
+
+
+def _function_constructor_operations(
+    unit: SourceUnit,
+    method: ast.FunctionDef | ast.AsyncFunctionDef,
+    rebound: frozenset[str],
+    owned_modules: frozenset[str],
+) -> Iterator[tuple[SymbolRef, str]]:
+    shadowed = _bound_constructor_names(method) | rebound
+    for statement in method.body:
+        if isinstance(statement, ast.Expr | ast.Assign | ast.AnnAssign | ast.Return):
+            operation = _direct_constructor_operation(unit, statement.value, shadowed, owned_modules)
+            if operation is not None:
+                yield operation
+        if isinstance(
+            statement,
+            ast.Return
+            | ast.Raise
+            | ast.If
+            | ast.For
+            | ast.AsyncFor
+            | ast.While
+            | ast.Try
+            | ast.TryStar
+            | ast.With
+            | ast.AsyncWith
+            | ast.Match,
+        ):
+            break
+
+
+def _direct_constructor_operation(
+    unit: SourceUnit, value: ast.expr | None, shadowed: frozenset[str], owned_modules: frozenset[str]
+) -> tuple[SymbolRef, str] | None:
+    if isinstance(value, ast.Await):
+        value = value.value
+    if not isinstance(value, ast.Call) or not isinstance(value.func, ast.Attribute):
+        return None
+    if not isinstance(value.func.value, ast.Call):
+        return None
+    constructor = value.func.value.func
+    root = constructor
+    while isinstance(root, ast.Attribute):
+        root = root.value
+    if not isinstance(root, ast.Name) or root.id in shadowed:
+        return None
+    symbol = _owned_constructor_symbol(unit, constructor, owned_modules)
+    return (symbol, value.func.attr) if symbol is not None else None
+
+
+def _owned_constructor_symbol(
+    unit: SourceUnit, expression: ast.expr, owned_modules: frozenset[str]
+) -> SymbolRef | None:
+    if isinstance(expression, ast.Name):
+        return _resolve(unit, expression)
+    parts: list[str] = []
+    current = expression
+    while isinstance(current, ast.Attribute):
+        parts.append(current.attr)
+        current = current.value
+    if not isinstance(current, ast.Name) or not parts:
+        return None
+    imported = unit.imports.get(current.id)
+    if imported is None or imported.name:
+        return None
+    ordered = list(reversed(parts))
+    module = ".".join((imported.module, *ordered[:-1]))
+    if len(ordered) > 1 and not _explicit_constructor_module(unit, module):
+        return None
+    return SymbolRef(module, ordered[-1]) if module in owned_modules else None
+
+
+def _explicit_constructor_module(unit: SourceUnit, module: str) -> bool:
+    if unit.tree is None:
+        return False
+    return any(
+        alias.name == module and alias.asname is None
+        for statement in _module_import_statements(unit.tree)
+        if isinstance(statement, ast.Import)
+        for alias in statement.names
+    )
+
+
+def _bound_constructor_names(node: ast.AST) -> frozenset[str]:
+    names: set[str] = set()
+    for item in walk_ast(node):
+        match item:
+            case (
+                ast.Name(id=name, ctx=(ast.Store() | ast.Del()))
+                | ast.arg(arg=name)
+                | ast.ClassDef(name=name)
+                | ast.FunctionDef(name=name)
+                | ast.AsyncFunctionDef(name=name)
+                | ast.ExceptHandler(name=str(name))
+                | ast.MatchAs(name=str(name))
+                | ast.MatchStar(name=str(name))
+                | ast.MatchMapping(rest=str(name))
+            ):
+                names.add(name)
+            case ast.Import(names=aliases) | ast.ImportFrom(names=aliases):
+                names.update(alias.asname or alias.name.split(".", 1)[0] for alias in aliases)
+            case ast.Attribute(ctx=(ast.Store() | ast.Del())):
+                root = item.value
+                while isinstance(root, ast.Attribute):
+                    root = root.value
+                if isinstance(root, ast.Name):
+                    names.add(root.id)
+            case _:
+                pass
+    return frozenset(names)
+
+
+def _class_has_typed_dependency(unit: SourceUnit, owner: ast.ClassDef, target: SymbolRef) -> bool:
+    for statement in owner.body:
+        if isinstance(statement, ast.AnnAssign) and _annotation_contains_symbol(unit, statement.annotation, target):
+            return True
+        if not isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        parameters = (*statement.args.posonlyargs, *statement.args.args, *statement.args.kwonlyargs)
+        if any(
+            parameter.arg not in {"self", "cls"} and _annotation_contains_symbol(unit, parameter.annotation, target)
+            for parameter in parameters
+        ):
+            return True
+    return False
+
+
+def _is_mock_spec_for(unit: SourceUnit, call: ast.Call, target: SymbolRef) -> bool:
+    mock_name = _mock_function_name(unit, call.func)
+    if mock_name is None:
+        return False
+    return any(
+        keyword.arg in {"spec", "spec_set"} and _direct_base_symbol(unit, keyword.value) == target
+        for keyword in call.keywords
+    ) or (mock_name == "create_autospec" and bool(call.args) and _direct_base_symbol(unit, call.args[0]) == target)
+
+
+def _mock_function_name(unit: SourceUnit, function: ast.expr) -> str | None:
+    if isinstance(function, ast.Name):
+        return _imported_mock_name(unit, function.id)
+    if not isinstance(function, ast.Attribute) or not isinstance(function.value, ast.Name):
+        return None
+    return _module_mock_name(unit, function.value.id, function.attr)
+
+
+def _imported_mock_name(unit: SourceUnit, name: str) -> str | None:
+    imported = _direct_import_symbol(unit, name)
+    if imported is None or imported.module != "unittest.mock":
+        return None
+    return imported.name if imported.name in {"Mock", "MagicMock", "AsyncMock", "create_autospec"} else None
+
+
+def _module_mock_name(unit: SourceUnit, module_name: str, method_name: str) -> str | None:
+    imported = _direct_import_symbol(unit, module_name)
+    if imported not in {SymbolRef("unittest", "mock"), SymbolRef("unittest.mock", "")}:
+        return None
+    return method_name if method_name in {"Mock", "MagicMock", "AsyncMock", "create_autospec"} else None
+
+
+def _direct_import_symbol(unit: SourceUnit, name: str) -> SymbolRef | None:
+    imported = unit.imports.get(name)
+    if imported is not None or unit.tree is None:
+        return imported
+    for statement in _module_import_statements(unit.tree):
+        if (matched := _absolute_import_symbol(statement, name)) is not None:
+            return matched
+    return None
+
+
+def _absolute_import_symbol(statement: ast.stmt, name: str) -> SymbolRef | None:
+    if isinstance(statement, ast.ImportFrom) and statement.level == 0 and statement.module is not None:
+        for alias in statement.names:
+            if (alias.asname or alias.name) == name:
+                return SymbolRef(statement.module, alias.name)
+    if isinstance(statement, ast.Import):
+        for alias in statement.names:
+            if (alias.asname or alias.name.partition(".")[0]) == name:
+                return SymbolRef(alias.name if alias.asname else alias.name.partition(".")[0], "")
+    return None
+
+
+def _annotation_contains_symbol(unit: SourceUnit, annotation: ast.expr | None, target: SymbolRef) -> bool:
+    if annotation is None:
+        return False
+    if isinstance(annotation, ast.Constant) and isinstance(annotation.value, str):
+        with suppress(SyntaxError):
+            annotation = ast.parse(annotation.value, mode="eval").body
+    return any(
+        _resolve(unit, candidate) == target
+        for candidate in walk_ast(annotation)
+        if isinstance(candidate, (ast.Name, ast.Attribute))
+    )
+
+
+def _record_import(node: ast.stmt, package: str, result: dict[str, SymbolRef]) -> None:
+    if isinstance(node, ast.ImportFrom) and not any(alias.name == "*" for alias in node.names):
+        target = _relative_module(package, node.level, node.module)
+        if target is None:
+            return
+        for alias in node.names:
+            result[alias.asname or alias.name] = SymbolRef(target, alias.name)
+    elif isinstance(node, ast.Import):
+        for alias in node.names:
+            local_name = alias.asname or alias.name.partition(".")[0]
+            module = alias.name if alias.asname else local_name
+            result[local_name] = SymbolRef(module, "")
+
+
+def _relative_module(package: str, level: int, module: str | None) -> str | None:
+    if level == 0:
+        return module
+    parts = package.split(".") if package else []
+    if level > len(parts) + 1:
+        return None
+    base = parts[: len(parts) - level + 1]
+    if module:
+        base.extend(module.split("."))
+    return ".".join(base) if base else None
+
+
+def _outer_package_directory(resolved: Path, root: Path) -> Path | None:
+    package_dir: Path | None = None
+    for ancestor in resolved.parents:
+        if ancestor == root:
+            break
+        if (ancestor / "__init__.py").is_file():
+            package_dir = ancestor
+    return package_dir

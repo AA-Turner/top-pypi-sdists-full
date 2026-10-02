@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Support reshaping dynamically sized symbols when the size of each "row" in
-    the new shape evenly divides the size of each "row" in the original shape.

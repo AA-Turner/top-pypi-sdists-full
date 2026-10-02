@@ -1,0 +1,1249 @@
+"""Command result models for structured output.
+
+Provides dataclasses for capturing and serializing command execution
+results in JSON/CSV formats. These models ensure consistent output
+across all commands that support structured output.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Literal
+
+from confiture.models.schema import WireChange, WireDiff
+from confiture.models.warnings import BuildWarning
+from confiture.url_redaction import redact_url
+
+
+class MigrationStatus:
+    """Constants for migration status values.
+
+    Use these instead of raw strings for reliable comparisons::
+
+        if info.status == MigrationStatus.APPLIED:
+            ...
+    """
+
+    APPLIED = "applied"
+    PENDING = "pending"
+    UNKNOWN = "unknown"
+
+
+@dataclass
+class MigrationInfo:
+    """Status of a single migration file.
+
+    Used in StatusResult to represent each migration and whether it
+    has been applied, is pending, or has unknown status (no DB connection).
+    """
+
+    version: str
+    name: str
+    status: str  # "applied" | "pending" | "unknown"
+    applied_at: datetime | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "version": self.version,
+            "name": self.name,
+            "status": self.status,
+            "applied_at": self.applied_at.isoformat() if self.applied_at is not None else None,
+        }
+
+
+@dataclass
+class StatusResult:
+    """Result of migrate status operation.
+
+    Attributes:
+        migrations: List of MigrationInfo (version, name, status, applied_at)
+        applied/pending: Shortcut properties for version lists
+        has_pending: True if any migrations need applying
+        summary: {"applied": N, "pending": N, "total": N}
+        tracking_table_exists: Whether tracking table is present
+    """
+
+    migrations: list[MigrationInfo]
+    tracking_table_exists: bool
+    tracking_table: str
+    summary: dict[str, int]  # {"applied": N, "pending": N, "total": N}
+    rebuild_recommended: bool = False
+    rebuild_reasons: list[str] = field(default_factory=list)
+
+    @property
+    def pending(self) -> list[str]:
+        """Versions of pending migrations."""
+        return [m.version for m in self.migrations if m.status == "pending"]
+
+    @property
+    def applied(self) -> list[str]:
+        """Versions of applied migrations."""
+        return [m.version for m in self.migrations if m.status == "applied"]
+
+    @property
+    def has_pending(self) -> bool:
+        """True if any migrations are pending."""
+        return any(m.status == "pending" for m in self.migrations)
+
+    def get_migration(self, version: str) -> MigrationInfo | None:
+        """Get migration info by version, or None if not found."""
+        for m in self.migrations:
+            if m.version == version:
+                return m
+        return None
+
+    def get_status(self, version: str) -> str | None:
+        """Get status of a migration ("applied", "pending", "unknown"), or None."""
+        m = self.get_migration(version)
+        return m.status if m else None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "tracking_table": self.tracking_table,
+            "tracking_table_exists": self.tracking_table_exists,
+            "migrations": [m.to_dict() for m in self.migrations],
+            "summary": self.summary,
+            "rebuild_recommended": self.rebuild_recommended,
+            "rebuild_reasons": self.rebuild_reasons,
+        }
+
+
+@dataclass(frozen=True)
+class CurrentRevision:
+    """The latest applied migration revision (issue #141).
+
+    Returned by ``MigratorSession.current_revision()`` and rendered by
+    ``confiture migrate current``. ``None`` from that method means the tracking
+    table exists but is empty (no migrations applied yet) — distinct from an
+    absent table, which raises ``PreconditionError`` (PRECON_1001).
+    """
+
+    version: str
+    name: str
+    applied_at: str | None
+    checksum: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to the `migrate current --format json` payload."""
+        return {
+            "revision": self.version,
+            "name": self.name,
+            "applied_at": self.applied_at,
+            "checksum": self.checksum,
+        }
+
+
+@dataclass
+class BuildResult:
+    """Result of schema build operation.
+
+    Tracks success/failure, files processed, size, timing, and any
+    warnings or errors that occurred during build.
+    """
+
+    success: bool
+    files_processed: int
+    schema_size_bytes: int
+    output_path: str
+    hash: str | None = None
+    execution_time_ms: int = 0
+    seed_files_applied: int = 0
+    artifact_path: str | None = None
+    artifact_hash: str | None = None
+    seed_profile: str | None = None
+    warnings: list[BuildWarning] = field(default_factory=list)
+    error: str | None = None
+    duplicates: list[dict[str, Any]] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for JSON serialization.
+
+        Returns:
+            Dictionary with all fields suitable for JSON output.
+        """
+        return {
+            "success": self.success,
+            "files_processed": self.files_processed,
+            "schema_size_bytes": self.schema_size_bytes,
+            "output_path": self.output_path,
+            "hash": self.hash,
+            "execution_time_ms": self.execution_time_ms,
+            "seed_files_applied": self.seed_files_applied,
+            "artifact_path": self.artifact_path,
+            "artifact_hash": self.artifact_hash,
+            "seed_profile": self.seed_profile,
+            "warnings": [warning.to_dict() for warning in self.warnings],
+            "error": self.error,
+            "duplicates": self.duplicates,
+        }
+
+
+@dataclass
+class SplitBuildResult:
+    """Result of a split schema build operation.
+
+    Separates SQL into three phases for deployment:
+    1. superuser_pre — roles, extensions, schemas (before app objects)
+    2. app — tables, views, functions, seed data
+    3. superuser_post — grants on specific objects, role settings (after app objects)
+    """
+
+    success: bool
+    superuser_pre_path: str
+    app_path: str
+    superuser_post_path: str
+    superuser_pre_files: int
+    app_files: int
+    superuser_post_files: int
+    superuser_pre_size_bytes: int
+    app_size_bytes: int
+    superuser_post_size_bytes: int
+    hash: str | None = None
+    execution_time_ms: int = 0
+    warnings: list[str] = field(default_factory=list)
+    error: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "success": self.success,
+            "superuser_pre_path": self.superuser_pre_path,
+            "app_path": self.app_path,
+            "superuser_post_path": self.superuser_post_path,
+            "superuser_pre_files": self.superuser_pre_files,
+            "app_files": self.app_files,
+            "superuser_post_files": self.superuser_post_files,
+            "superuser_pre_size_bytes": self.superuser_pre_size_bytes,
+            "app_size_bytes": self.app_size_bytes,
+            "superuser_post_size_bytes": self.superuser_post_size_bytes,
+            "hash": self.hash,
+            "execution_time_ms": self.execution_time_ms,
+            "warnings": self.warnings,
+            "error": self.error,
+        }
+
+
+@dataclass
+class MigrationApplied:
+    """Single migration that was applied.
+
+    Tracks version, name, execution time, and rows affected.
+    """
+
+    version: str
+    name: str
+    duration_ms: int
+    rows_affected: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for JSON serialization.
+
+        Returns:
+            Dictionary with all fields suitable for JSON output.
+        """
+        return {
+            "version": self.version,
+            "name": self.name,
+            "duration_ms": self.duration_ms,
+            "rows_affected": self.rows_affected,
+        }
+
+
+@dataclass(frozen=True)
+class SkippedMigration:
+    """One migration skipped during `migrate up` (issue #137).
+
+    Currently emitted when a migration declares `requires_superuser = True`.
+    The session halts at the first such record, populates `pending` with
+    every later migration, and exits 1 with a recovery hint pointing to
+    `confiture migrate apply-as`.
+    """
+
+    version: str
+    name: str
+    reason: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "version": self.version,
+            "name": self.name,
+            "reason": self.reason,
+        }
+
+
+@dataclass
+class MigrateUpResult:
+    """Result of migrate up operation.
+
+    Attributes:
+        success: True if all migrations applied successfully, False if any failed.
+
+        migrations_applied: List of migrations that were successfully applied.
+                           Each includes version, name, duration_ms, rows_affected.
+                           (Serialized as "applied" in to_dict() output.)
+
+        total_duration_ms: Total time in milliseconds.
+                                (Serialized as "total_duration_ms" in to_dict() output.)
+
+        checksums_verified: True if all applied migrations passed checksum verification.
+
+        dry_run: True if this was a dry-run analysis (no SQL executed).
+
+        dry_run_execute: True if SAVEPOINT-based verification was used.
+            When True, all SQL was executed then rolled back — nothing persisted.
+
+        warnings: List of non-fatal warning messages. Empty if no warnings.
+
+        skipped: List of migration versions that were already applied.
+                Empty if no previously-applied migrations were encountered.
+
+        errors: Why the run stopped short. Never empty when success=False — a
+               migration that failed, or the ``requires_superuser`` migration a
+               run halted at (named with its ``apply-as`` remedy and the count
+               left in ``pending``). Empty list if success=True.
+    """
+
+    success: bool
+    migrations_applied: list[MigrationApplied]
+    total_duration_ms: int
+    checksums_verified: bool = True
+    dry_run: bool = False
+    dry_run_execute: bool = False
+    warnings: list[str] = field(default_factory=list)
+    skipped: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+    # Issue #137 — migrations halted on `requires_superuser=True` are
+    # recorded here.  When non-empty, the session halts at the first
+    # entry and reports remaining migrations in `pending`.
+    skipped_superuser: list[SkippedMigration] = field(default_factory=list)
+    pending: list[str] = field(default_factory=list)
+    # The exception behind ``errors[0]`` when a migration failed — for callers
+    # that want the type and its attributes, not just the message. Not serialized.
+    failure: BaseException | None = field(default=None, repr=False, compare=False)
+
+    @property
+    def has_errors(self) -> bool:
+        """True if the run did not succeed; ``errors`` says why."""
+        return not self.success
+
+    @property
+    def halted(self) -> bool:
+        """True if the chain stopped at a ``requires_superuser`` migration.
+
+        The other way a run ends short beside a failed migration: the halted
+        migration is ``skipped_superuser[0]``, the versions after it are in
+        ``pending``, and ``errors`` names the ``apply-as`` that resumes it.
+        """
+        return bool(self.skipped_superuser)
+
+    @property
+    def error_summary(self) -> str | None:
+        """First error message, or None if no errors. Convenience for logging."""
+        return self.errors[0] if self.errors else None
+
+    def by_version(self, version: str) -> MigrationApplied | None:
+        """Get applied migration by version, or None if not in this operation."""
+        for m in self.migrations_applied:
+            if m.version == version:
+                return m
+        return None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for JSON serialization.
+
+        Returns:
+            Dictionary with all fields suitable for JSON output.
+        """
+        return {
+            "success": self.success,
+            "applied": [m.to_dict() for m in self.migrations_applied],
+            "skipped": self.skipped,
+            "skipped_superuser": [s.to_dict() for s in self.skipped_superuser],
+            "pending": self.pending,
+            "errors": self.errors,
+            "total_duration_ms": self.total_duration_ms,
+            "checksums_verified": self.checksums_verified,
+            "dry_run": self.dry_run,
+            "dry_run_execute": self.dry_run_execute,
+            "warnings": self.warnings,
+        }
+
+
+@dataclass
+class MigrateReinitResult:
+    """Result of migrate reinit operation.
+
+    Tracks how many tracking entries were deleted, which migrations
+    were re-marked as applied, and any warnings or errors.
+
+    Attributes:
+        success: True if reinit succeeded
+        deleted_count: Number of tracking entries removed
+        migrations_marked: List of MigrationApplied (serialized as "marked")
+        total_duration_ms: Total time (serialized as "total_duration_ms")
+    """
+
+    success: bool
+    deleted_count: int
+    migrations_marked: list[MigrationApplied]
+    total_duration_ms: int
+    dry_run: bool = False
+    warnings: list[str] = field(default_factory=list)
+    error: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for JSON serialization.
+
+        Returns:
+            Dictionary with all fields suitable for JSON output.
+        """
+        return {
+            "success": self.success,
+            "deleted_count": self.deleted_count,
+            "marked": [m.to_dict() for m in self.migrations_marked],
+            "total_duration_ms": self.total_duration_ms,
+            "dry_run": self.dry_run,
+            "warnings": self.warnings,
+            "error": self.error,
+        }
+
+
+@dataclass
+class MigrateDownResult:
+    """Result of migrate down operation.
+
+    Tracks which migrations were rolled back, total execution time,
+    and any warnings or errors that occurred.
+
+    Attributes:
+        success: True if all rollbacks succeeded
+        migrations_rolled_back: List of MigrationApplied (serialized as "rolled_back")
+        total_duration_ms: Total time (serialized as "total_duration_ms")
+        error: Error message if success=False
+    """
+
+    success: bool
+    migrations_rolled_back: list[MigrationApplied]
+    total_duration_ms: int
+    checksums_verified: bool = True
+    warnings: list[str] = field(default_factory=list)
+    error: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for JSON serialization.
+
+        Returns:
+            Dictionary with all fields suitable for JSON output.
+        """
+        return {
+            "success": self.success,
+            "rolled_back": [m.to_dict() for m in self.migrations_rolled_back],
+            "total_duration_ms": self.total_duration_ms,
+            "checksums_verified": self.checksums_verified,
+            "warnings": self.warnings,
+            "error": self.error,
+        }
+
+
+@dataclass
+class DownToResult:
+    """Result of `migrate down-to <revision>` (issue #142).
+
+    Serializes to the issue's plan+result shape ``{from, to, rolled_back,
+    skipped, errors}``. ``rolled_back`` is newest → oldest. ``skipped`` holds
+    versions in the computed set that were unexpectedly not applied; ``errors``
+    holds runtime SQL failures during execution (distinct from the up-front
+    missing-`.down.sql` refusal, which aborts before any execution).
+    """
+
+    from_: str | None
+    to: str
+    rolled_back: list[str] = field(default_factory=list)
+    skipped: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+    noop: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to the issue's `{from, to, rolled_back, skipped, errors}` shape."""
+        return {
+            "from": self.from_,
+            "to": self.to,
+            "rolled_back": self.rolled_back,
+            "skipped": self.skipped,
+            "errors": self.errors,
+        }
+
+
+@dataclass
+class MigrateRebuildResult:
+    """Result of migrate rebuild operation.
+
+    Tracks schema cleanup, DDL application, tracking bootstrap,
+    optional seed application, and post-rebuild verification.
+
+    Attributes:
+        success: True if rebuild completed
+        schemas_dropped: List of dropped schema names
+        ddl_statements_executed: Number of DDL statements applied
+        migrations_marked: Migrations marked as applied
+        verified: True/False/None — post-rebuild verification result
+        seeds_applied: Number of seed files applied (None if not requested)
+    """
+
+    success: bool
+    schemas_dropped: list[str]
+    ddl_statements_executed: int
+    migrations_marked: list[MigrationApplied]
+    total_duration_ms: int
+    dry_run: bool = False
+    warnings: list[str] = field(default_factory=list)
+    error: str | None = None
+    seeds_applied: int | None = None
+    verified: bool | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "success": self.success,
+            "schemas_dropped": self.schemas_dropped,
+            "ddl_statements_executed": self.ddl_statements_executed,
+            "marked": [m.to_dict() for m in self.migrations_marked],
+            "total_duration_ms": self.total_duration_ms,
+            "dry_run": self.dry_run,
+            "warnings": self.warnings,
+            "error": self.error,
+            "seeds_applied": self.seeds_applied,
+            "verified": self.verified,
+        }
+
+
+@dataclass
+class MigrateDiffChange:
+    """A single schema change detected in diff.
+
+    Tracks the type of change and details about what changed.
+    """
+
+    change_type: str
+    details: str
+    irreversible_reason: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "type": self.change_type,
+            "details": self.details,
+            "irreversible_reason": self.irreversible_reason,
+        }
+
+
+@dataclass
+class MigrateDiffResult:
+    """Result of schema diff operation.
+
+    Tracks differences between two schemas and whether a migration
+    was generated from the diff.
+    """
+
+    success: bool
+    has_changes: bool
+    changes: list[MigrateDiffChange] = field(default_factory=list)
+    migration_generated: bool = False
+    migration_file: str | None = None
+    error: str | None = None
+    source: dict[str, str] | None = None
+    destructive_gate: str | None = None
+    #: What the comparison has to say that is not a change — an object defined
+    #: twice in one tree, which is not a difference between the two sides but is
+    #: a reason the diff may be reading a tree `confiture build` does not
+    #: produce (#313). Present and empty when there is nothing to report.
+    warnings: list[BuildWarning] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for JSON serialization.
+
+        Returns:
+            Dictionary with all fields suitable for JSON output.
+        """
+        return {
+            "success": self.success,
+            "has_changes": self.has_changes,
+            "changes": [c.to_dict() for c in self.changes],
+            "change_count": len(self.changes),
+            "migration_generated": self.migration_generated,
+            "migration_file": self.migration_file,
+            "error": self.error,
+            "source": self.source,
+            "destructive_gate": self.destructive_gate,
+            "warnings": [warning.to_dict() for warning in self.warnings],
+        }
+
+
+@dataclass
+class MigrateValidateResult:
+    """Result of migration validation operation.
+
+    Tracks validation checks performed and any issues found.
+    """
+
+    success: bool
+    orphaned_files: list[str] = field(default_factory=list)
+    duplicate_versions: dict[str, list[str]] = field(default_factory=dict)
+    fixed_files: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    error: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for JSON serialization.
+
+        Returns:
+            Dictionary with all fields suitable for JSON output.
+        """
+        return {
+            "success": self.success,
+            "orphaned_files": self.orphaned_files,
+            "orphaned_files_count": len(self.orphaned_files),
+            "duplicate_versions": self.duplicate_versions,
+            "duplicate_versions_count": len(self.duplicate_versions),
+            "fixed_files": self.fixed_files,
+            "fixed_files_count": len(self.fixed_files),
+            "warnings": self.warnings,
+            "error": self.error,
+        }
+
+
+@dataclass
+class ConversionResult:
+    """Result of converting a single INSERT statement to COPY format.
+
+    Tracks whether conversion was successful, the converted output,
+    number of rows converted, or failure reason if conversion failed.
+    """
+
+    file_path: str
+    success: bool
+    copy_format: str | None = None
+    rows_converted: int | None = None
+    reason: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for JSON serialization.
+
+        Returns:
+            Dictionary with all fields suitable for JSON output.
+        """
+        return {
+            "file_path": self.file_path,
+            "success": self.success,
+            "copy_format": self.copy_format,
+            "rows_converted": self.rows_converted,
+            "reason": self.reason,
+        }
+
+
+@dataclass
+class ConversionReport:
+    """Report of batch INSERT to COPY conversion.
+
+    Aggregates results from converting multiple seed files,
+    tracking success/failure counts and providing overall metrics.
+    """
+
+    total_files: int
+    successful: int
+    failed: int
+    results: list[ConversionResult] = field(default_factory=list)
+
+    @property
+    def success_rate(self) -> float:
+        """Calculate success rate as percentage.
+
+        Returns:
+            Percentage of successful conversions (0-100).
+        """
+        if self.total_files == 0:
+            return 0.0
+        return (self.successful / self.total_files) * 100
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for JSON serialization.
+
+        Returns:
+            Dictionary with all fields suitable for JSON output.
+        """
+        return {
+            "total_files": self.total_files,
+            "successful": self.successful,
+            "failed": self.failed,
+            "success_rate": self.success_rate,
+            "results": [r.to_dict() for r in self.results],
+        }
+
+
+@dataclass
+class VerifyResult:
+    """Result of verifying a single migration.
+
+    Attributes:
+        version: Migration version string (e.g., "001" or "20260228120530")
+        name: Human-readable migration name
+        verify_file: Path to the .verify.sql file, or None if not found
+        status: "verified", "failed", "skipped" (a sidecar with no statement in
+            it), or "no_file" (no sidecar at all)
+        actual_value: The first column of the first row returned, or None
+        error: Error message if status is "failed", or None
+    """
+
+    version: str
+    name: str
+    verify_file: Path | None
+    status: Literal["verified", "failed", "skipped", "no_file"]
+    actual_value: Any | None = None
+    error: str | None = None
+
+
+@dataclass
+class VerifyAllResult:
+    """Result of verifying all applied migrations.
+
+    Attributes:
+        results: Individual VerifyResult for each migration
+        verified_count: Number of migrations that passed verification
+        failed_count: Number of migrations that failed verification
+        skipped_count: Number of applied migrations with no verify file
+        total_applied: Total number of applied migrations checked
+        ledger_present: Whether the migration ledger table exists.  False means
+            the database has no recorded migrations at all (built from schema
+            files rather than migrated) — distinct from a present-but-empty
+            ledger, which reports True with ``total_applied == 0``.
+    """
+
+    results: list[VerifyResult]
+    verified_count: int
+    failed_count: int
+    skipped_count: int
+    total_applied: int
+    ledger_present: bool = True
+
+    @property
+    def was_skipped(self) -> bool:
+        """Whether this run verified nothing because there was no ledger.
+
+        Only reachable under ``--allow-uninitialized``; without it the same
+        state raises ``PRECON_1001``.
+        """
+        return not self.ledger_present
+
+    @property
+    def ok(self) -> bool:
+        """Whether verification happened and nothing failed.
+
+        Both conjuncts, because either alone is a lie somewhere (#311). A
+        ledger-less run has ``failed_count == 0`` for the trivial reason that
+        nothing ran, so reading *ok ⇔ ``failed_count == 0``* would report
+        success from a run that verified nothing. ``failed_count`` itself stays
+        honest at 0; the inference drawn from it is what ``ok`` answers for.
+
+        This mirrors ``verify-checksums``' ``ok`` exactly. Two neighbouring
+        commands answering "I could not verify anything" differently is a trap
+        in its own right.
+        """
+        return self.ledger_present and self.failed_count == 0
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "ok": self.ok,
+            "was_skipped": self.was_skipped,
+            "verified_count": self.verified_count,
+            "failed_count": self.failed_count,
+            "skipped_count": self.skipped_count,
+            "total_applied": self.total_applied,
+            "ledger_present": self.ledger_present,
+            "results": [
+                {
+                    "version": r.version,
+                    "name": r.name,
+                    "status": r.status,
+                    "actual_value": r.actual_value,
+                    "verify_file": str(r.verify_file) if r.verify_file else None,
+                    "error": r.error,
+                }
+                for r in self.results
+            ],
+        }
+
+
+@dataclass
+class DiffResult:
+    """Result of a schema diff operation."""
+
+    has_changes: bool
+    changes: list[WireChange]
+    #: How many changes of each counted kind, as the diff adds itself up.
+    summary: dict[str, int] = field(default_factory=dict)
+
+    @classmethod
+    def from_schema_diff(cls, diff: WireDiff) -> DiffResult:
+        """Construct from a ``SchemaDiff``: its changes as the wire carries them, and its summary."""
+        return cls(has_changes=diff.has_changes(), changes=diff.wire(), summary=diff.summary())
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to dict for JSON output."""
+        return {
+            "has_changes": self.has_changes,
+            "summary": self.summary,
+            "changes": [
+                {
+                    "type": c.type,
+                    "table": c.table,
+                    "column": c.column,
+                    "old_value": c.old_value,
+                    "new_value": c.new_value,
+                    "details": c.details,
+                }
+                for c in self.changes
+            ],
+        }
+
+
+@dataclass
+class MigrationPreflightInfo:
+    """Pre-flight analysis of a single migration file."""
+
+    version: str
+    name: str
+    has_down: bool
+    non_transactional_statements: list[str] = field(default_factory=list)
+    checksum: str | None = None
+    filename: str | None = None  # source filename, for issue attribution (#148)
+    parse_error: str | None = None  # pglast rejected the file (PFLIGHT_UNPARSEABLE)
+    parse_error_line: int | None = None
+    # -- confiture:destructive gate (PFLIGHT_DESTRUCTIVE_GATED) and its -- confiture:irreversible reasons
+    destructive: bool = False
+    irreversible_reasons: list[str] = field(default_factory=list)
+    online_available: bool = (
+        False  # every statement has an expand/contract plan (migrate up --online)
+    )
+    online_stages: list[dict[str, Any]] = field(default_factory=list)
+
+    @property
+    def reversible(self) -> bool:
+        """True if this migration has a rollback file."""
+        return self.has_down
+
+    @property
+    def fully_transactional(self) -> bool:
+        """True if all statements can run inside a transaction."""
+        return len(self.non_transactional_statements) == 0
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "version": self.version,
+            "name": self.name,
+            "has_down": self.has_down,
+            "reversible": self.reversible,
+            "fully_transactional": self.fully_transactional,
+            "non_transactional_statements": self.non_transactional_statements,
+            "checksum": self.checksum,
+            "online_available": self.online_available,
+            "online_stages": self.online_stages,
+        }
+
+
+@dataclass
+class PreflightResult:
+    """Result of migrate preflight check."""
+
+    migrations: list[MigrationPreflightInfo]
+    duplicate_versions: dict[str, list[str]] = field(default_factory=dict)
+    checksum_mismatches: list[str] = field(default_factory=list)
+    checksum_verified: bool = False
+    #: Why checksum verification did not run, when it did not. ``None`` when it
+    #: ran, or when there was no connection to run it against.
+    checksum_skipped_reason: str | None = None
+
+    @property
+    def all_reversible(self) -> bool:
+        """True if every migration has a rollback file."""
+        return all(m.reversible for m in self.migrations)
+
+    @property
+    def all_transactional(self) -> bool:
+        """True if every migration is fully transactional."""
+        return all(m.fully_transactional for m in self.migrations)
+
+    @property
+    def has_duplicates(self) -> bool:
+        """True if any version prefix appears more than once."""
+        return len(self.duplicate_versions) > 0
+
+    @property
+    def has_checksum_mismatches(self) -> bool:
+        """True if any applied migration file was tampered with."""
+        return len(self.checksum_mismatches) > 0
+
+    @property
+    def irreversible(self) -> list[MigrationPreflightInfo]:
+        """Migrations missing a rollback file."""
+        return [m for m in self.migrations if not m.reversible]
+
+    @property
+    def non_transactional(self) -> list[MigrationPreflightInfo]:
+        """Migrations containing non-transactional statements."""
+        return [m for m in self.migrations if not m.fully_transactional]
+
+    @property
+    def safe_to_deploy(self) -> bool:
+        """True if all checks pass."""
+        return (
+            self.all_reversible
+            and self.all_transactional
+            and not self.has_duplicates
+            and not self.has_checksum_mismatches
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "safe_to_deploy": self.safe_to_deploy,
+            "all_reversible": self.all_reversible,
+            "all_transactional": self.all_transactional,
+            "has_duplicates": self.has_duplicates,
+            "has_checksum_mismatches": self.has_checksum_mismatches,
+            "checksum_verified": self.checksum_verified,
+            "migrations": [m.to_dict() for m in self.migrations],
+            "duplicate_versions": self.duplicate_versions,
+            "checksum_mismatches": self.checksum_mismatches,
+        }
+
+    @property
+    def issues(self) -> list[PreflightIssue]:
+        """Per-check, per-migration issues in the unified shape (#148).
+
+        Fans the existing reversibility / transactionality / duplicate-version /
+        checksum checks into ``PreflightIssue``s. One issue per (check, migration).
+        """
+        out: list[PreflightIssue] = []
+        for m in self.migrations:
+            if m.parse_error is None:
+                continue
+            out.append(
+                PreflightIssue.of(
+                    "PFLIGHT_UNPARSEABLE",
+                    f"Migration {m.version} ({m.name}) could not be parsed: {m.parse_error}",
+                    migration=m.version,
+                    file=m.filename,
+                    line=m.parse_error_line,
+                )
+            )
+        out.extend(
+            PreflightIssue.of(
+                "PFLIGHT_MISSING_DOWN",
+                f"Migration {m.version} ({m.name}) is not reversible: no matching .down.sql.",
+                migration=m.version,
+                file=m.filename,
+            )
+            for m in self.irreversible
+        )
+        out.extend(
+            PreflightIssue.of(
+                "PFLIGHT_NON_TRANSACTIONAL",
+                f"Migration {m.version} ({m.name}) has non-transactional "
+                f"statement(s): {', '.join(m.non_transactional_statements)}.",
+                migration=m.version,
+                file=m.filename,
+                details={"statements": list(m.non_transactional_statements)},
+            )
+            for m in self.non_transactional
+        )
+        out.extend(
+            PreflightIssue.of(
+                "PFLIGHT_DESTRUCTIVE_GATED",
+                f"Migration {m.version} ({m.name}) is gated as destructive: "
+                f"data is lost when it applies.",
+                migration=m.version,
+                file=m.filename,
+                details={"irreversible": list(m.irreversible_reasons)},
+            )
+            for m in self.migrations
+            if m.destructive
+        )
+        for version, files in self.duplicate_versions.items():
+            out.append(
+                PreflightIssue.of(
+                    "PFLIGHT_DUPLICATE_VERSION",
+                    f"Duplicate migration version {version}: {', '.join(files)}.",
+                    migration=version,
+                    details={"files": list(files)},
+                )
+            )
+        out.extend(
+            PreflightIssue.of(
+                "PFLIGHT_CHECKSUM_MISMATCH",
+                f"Checksum mismatch for applied migration {version} "
+                f"(file changed after it was applied).",
+                migration=version,
+            )
+            for version in self.checksum_mismatches
+        )
+        return out
+
+    @property
+    def summary(self) -> dict[str, int]:
+        """Issue counts by severity + the number of migrations analyzed (#148)."""
+        issues = self.issues
+        return {
+            "errors": sum(1 for i in issues if i.severity == "error"),
+            "warnings": sum(1 for i in issues if i.severity == "warning"),
+            "info": sum(1 for i in issues if i.severity == "info"),
+            "migrations_checked": len(self.migrations),
+        }
+
+    def to_report_dict(self, *, strict: bool = False) -> dict[str, Any]:
+        """The structured preflight report: ``{ok, summary, issues[]}`` (#148).
+
+        ``ok`` is False if there are error-severity issues, or — under
+        ``strict`` — any warnings.
+        """
+        summary = self.summary
+        ok = summary["errors"] == 0 and not (strict and summary["warnings"] > 0)
+        return {
+            "ok": ok,
+            "summary": summary,
+            "issues": [i.to_dict() for i in self.issues],
+        }
+
+
+# Default severity + actionable text per PFLIGHT_* code (issue #148). Single
+# source the codebook doc reads. These are preflight-report issue codes (carried
+# in the report's issues[]), distinct from the ConfiturError registry codes — the
+# command's exit code is computed from the summary (preflight_exit_code), not
+# per issue code.
+PFLIGHT_CODES: dict[str, tuple[str, str]] = {
+    "PFLIGHT_UNPARSEABLE": (
+        "error",
+        "Fix the SQL syntax: confiture cannot analyse a migration PostgreSQL's parser rejects, "
+        "and cannot certify it window-safe.",
+    ),
+    "PFLIGHT_MISSING_DOWN": (
+        "error",
+        "Add a matching .down.sql sibling, or mark the migration explicitly non-reversible.",
+    ),
+    "PFLIGHT_DESTRUCTIVE_GATED": (
+        "warning",
+        "Review the migration, then run migrate up --allow-destructive to apply it.",
+    ),
+    "PFLIGHT_NON_TRANSACTIONAL": (
+        "warning",
+        "Run with --allow-non-transactional to apply it in autocommit, or split "
+        "the statement out of the transactional migration.",
+    ),
+    "PFLIGHT_DUPLICATE_VERSION": (
+        "error",
+        "Rename files to use unique version prefixes.",
+    ),
+    "PFLIGHT_CHECKSUM_MISMATCH": (
+        "error",
+        "Restore the original migration file, or re-apply with --force if the "
+        "change is intentional.",
+    ),
+    "PFLIGHT_REPLAY_FAILED": (
+        "error",
+        "Fix the failing migration SQL; see details for the database error.",
+    ),
+    "PFLIGHT_TVIEW_BASE_COLUMN": (
+        "error",
+        "Drop the TVIEW first (DROP TABLE tv_x), change the base table, then create it again.",
+    ),
+    "PFLIGHT_LIVE_DEPENDENTS": (
+        "warning",
+        "Review the live dependents before replacing the target object.",
+    ),
+}
+
+
+@dataclass(frozen=True)
+class PreflightIssue:
+    """A single preflight finding — the unified inner issue object (#148).
+
+    Same shape as #145's ``error`` and #144's ``issues[]``: severity/code/message
+    always present; the rest present-but-nullable.
+    """
+
+    severity: str
+    code: str
+    message: str
+    migration: str | None = None
+    file: str | None = None
+    line: int | None = None
+    actionable: str | None = None
+    details: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def of(
+        cls,
+        code: str,
+        message: str,
+        *,
+        migration: str | None = None,
+        file: str | None = None,
+        line: int | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> PreflightIssue:
+        """Build an issue, pulling default severity + actionable from PFLIGHT_CODES."""
+        severity, actionable = PFLIGHT_CODES.get(code, ("error", None))
+        return cls(
+            severity=severity,
+            code=code,
+            message=message,
+            migration=migration,
+            file=file,
+            line=line,
+            actionable=actionable,
+            details=details or {},
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to the unified inner issue object."""
+        return {
+            "severity": self.severity,
+            "code": self.code,
+            "message": self.message,
+            "migration": self.migration,
+            "file": self.file,
+            "line": self.line,
+            "actionable": self.actionable,
+            "details": self.details,
+        }
+
+
+@dataclass
+class PreflightAgainstMigration:
+    """Execution result for a single migration in a run_against() call."""
+
+    version: str
+    name: str
+    success: bool
+    error: str | None = None
+    skipped: bool = False
+    skipped_reason: str | None = None
+    execution_time_ms: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "version": self.version,
+            "name": self.name,
+            "success": self.success,
+            "error": self.error,
+            "skipped": self.skipped,
+            "skipped_reason": self.skipped_reason,
+            "execution_time_ms": self.execution_time_ms,
+        }
+
+
+@dataclass
+class PreflightAgainstResult:
+    """Aggregated result of a run_against() call."""
+
+    migrations: list[PreflightAgainstMigration]
+    against_url: str
+    db_consumed: bool = False
+    """True when non-transactional migrations ran outside the SAVEPOINT (allow_non_transactional=True).
+    The preflight DB is no longer in its original state; reprovision before the next run."""
+
+    @property
+    def all_passed(self) -> bool:
+        """True if all non-skipped migrations succeeded."""
+        return all(m.success for m in self.migrations if not m.skipped)
+
+    @property
+    def has_skipped(self) -> bool:
+        """True if any non-transactional migration was skipped."""
+        return any(m.skipped for m in self.migrations)
+
+    @property
+    def failures(self) -> list[PreflightAgainstMigration]:
+        """Migrations that failed (not skipped)."""
+        return [m for m in self.migrations if not m.skipped and not m.success]
+
+    @property
+    def skipped_migrations(self) -> list[PreflightAgainstMigration]:
+        """Migrations skipped because they are non-transactional."""
+        return [m for m in self.migrations if m.skipped]
+
+    @property
+    def replay_issues(self) -> list[PreflightIssue]:
+        """Failed replays as unified ``PreflightIssue``s (issue #151).
+
+        One ``PFLIGHT_REPLAY_FAILED`` issue per failed (non-skipped) migration,
+        carrying the version as ``migration`` and the database error under
+        ``details["error"]``. Skipped and passing migrations produce nothing —
+        the static pass already surfaces non-transactional skips via
+        ``PFLIGHT_NON_TRANSACTIONAL``.
+        """
+        return [
+            PreflightIssue.of(
+                "PFLIGHT_REPLAY_FAILED",
+                f"Migration {m.version} ({m.name}) failed to replay against the preflight DB.",
+                migration=m.version,
+                details={"error": m.error} if m.error else {},
+            )
+            for m in self.failures
+        ]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "against_url": redact_url(self.against_url),
+            "all_passed": self.all_passed,
+            "total": len(self.migrations),
+            "passed": sum(1 for m in self.migrations if m.success),
+            "failed": len(self.failures),
+            "skipped": len(self.skipped_migrations),
+            "db_consumed": self.db_consumed,
+            "migrations": [m.to_dict() for m in self.migrations],
+        }
+
+
+@dataclass
+class SyncResult:
+    """``confiture sync --format json``: rows copied per table."""
+
+    anonymized: bool
+    tables: dict[str, int] = field(default_factory=dict)
+    warnings: list[str] = field(default_factory=list)
+
+    @property
+    def total_rows(self) -> int:
+        return sum(self.tables.values())
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ok": True,
+            "command": "sync",
+            "anonymized": self.anonymized,
+            "tables": dict(self.tables),
+            "total_rows": self.total_rows,
+            "warnings": list(self.warnings),
+        }
+
+
+@dataclass
+class MigrateStepsResult:
+    """Result of ``migrate steps``: the online runner's checkpoints.
+
+    Attributes:
+        steps: One entry per (migration, plan, stage) checkpoint row, oldest first.
+        resumed: The version ``--resume`` continued, or None when only listing.
+    """
+
+    steps: list[dict[str, Any]] = field(default_factory=list)
+    resumed: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"steps": self.steps, "resumed": self.resumed}

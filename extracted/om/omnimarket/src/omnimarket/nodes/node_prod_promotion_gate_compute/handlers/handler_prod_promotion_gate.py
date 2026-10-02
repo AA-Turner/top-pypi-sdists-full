@@ -1,0 +1,182 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Pure prod-promotion-gate COMPUTE handler (OMN-13211 / B3; def-B flip OMN-14838).
+
+Re-expresses the ``node_redeploy`` ``_evaluate_prod_gate`` logic as a canonical
+COMPUTE node. Pure: no I/O, no bus, no DB, no subprocess. It decides whether a
+prod redeploy may proceed BEFORE any deploy effect — the first-class regression
+guard against prod-vs-stability digest drift.
+
+Rules (delegated to the shared gate functions):
+  * non-prod lanes: always allowed (the gate is a no-op);
+  * prod with a reducer-owned readiness projection: the full promotion gate
+    (``evaluate_prod_promotion_gate``) — readiness READY for matching digest and
+    batch, OCC evidence merged or Receipt-Gate-PASS, known rollback target;
+  * prod without a readiness projection (legacy/un-gated request): fails closed
+    via the same-digest gate with no stability readiness.
+
+Dispatch (canonical definition B, OMN-14355):
+  The handler core is ``handle(request: ModelProdPromotionGateCommand) ->
+  ModelProdPromotionGateDecision`` — a single typed-payload positional returning
+  the decision directly. The event-envelope boundary (dict/envelope coercion,
+  the handler-output wrapping, correlation-id propagation, the runtime-
+  synthesized terminal event) is owned by the shared runtime adapter
+  (``omnibase_core.runtime.runtime_local_adapter``), NOT this per-node core. The
+  core imports no envelope type and no handler-output wrapper (C-core).
+"""
+
+from __future__ import annotations
+
+from omnimarket.events.runtime_deployment import (
+    EnumProdGateOutcome,
+    EnumProdGrantReason,
+    EnumPromotionClass,
+    EnumRuntimeLane,
+    ModelProdPromotionGateDecision,
+    ModelProdPromotionInputs,
+    evaluate_prod_digest_gate,
+    evaluate_prod_promotion_gate,
+)
+from omnimarket.nodes.node_prod_promotion_gate_compute.models.model_prod_promotion_gate_command import (
+    ModelProdPromotionGateCommand,
+)
+
+HANDLER_ID = "prod-promotion-gate-compute"
+
+
+def _decide_gate(
+    command: ModelProdPromotionGateCommand,
+) -> ModelProdPromotionGateDecision:
+    """Decide whether a redeploy may proceed for the command's lane.
+
+    Pure. Non-prod lanes are allowed unconditionally; prod runs the full /
+    same-digest promotion gate. Callers use ``evaluate_gate``, which wraps this.
+    """
+    rollback_target = command.rollback_target or command.previous_image
+
+    if command.runtime_lane is not EnumRuntimeLane.PROD:
+        return ModelProdPromotionGateDecision(
+            allowed=True,
+            image_digest=command.requested_image_digest,
+            rollback_target=rollback_target,
+            reason=f"{command.runtime_lane.value} lane is not gated; deploy may proceed",
+            outcome=EnumProdGateOutcome.ALLOWED_LANE_NOT_GATED,
+        )
+
+    # OMN-13656: a stability-candidate / non-main-lineage image is refused for
+    # prod BEFORE the no-projection same-digest fallback, so a workspace-built
+    # candidate can never slip through the legacy un-gated path either. Authorized
+    # only when an explicit candidate-authorizing grant is present.
+    is_candidate = (
+        command.promotion_class is EnumPromotionClass.STABILITY_CANDIDATE
+        or command.non_main_lineage
+    )
+    candidate_authorized = (
+        command.promotion_grant is not None
+        and command.promotion_grant.authorizes_candidate
+    )
+    if is_candidate and not candidate_authorized:
+        return ModelProdPromotionGateDecision(
+            allowed=False,
+            image_digest=None,
+            rollback_target=rollback_target,
+            reason=(
+                f"{EnumProdGrantReason.CANDIDATE_NOT_AUTHORIZED.value}: image is a "
+                "stability-candidate / non-main-lineage build "
+                f"(promotion_class={command.promotion_class.value!r}, "
+                f"non_main_lineage={command.non_main_lineage}); it is pinnable to "
+                "dev/stability only and is refused for prod absent a grant that "
+                "explicitly authorizes the candidate class"
+            ),
+            outcome=EnumProdGateOutcome.CANDIDATE_NOT_AUTHORIZED,
+        )
+
+    if command.readiness_projection is None:
+        digest_gate = evaluate_prod_digest_gate(
+            requested_digest=command.requested_image_digest,
+            stability_readiness=None,
+        )
+        return ModelProdPromotionGateDecision(
+            allowed=digest_gate.allowed,
+            image_digest=digest_gate.image_digest,
+            rollback_target=rollback_target,
+            reason=digest_gate.reason,
+            outcome=digest_gate.outcome,
+        )
+
+    if command.evaluated_at is None:
+        raise ValueError(
+            "prod promotion gate requires a deterministic evaluated_at stamped by "
+            "the orchestrator/runtime; the compute never calls datetime.now()"
+        )
+
+    return evaluate_prod_promotion_gate(
+        ModelProdPromotionInputs(
+            requested_image_digest=command.requested_image_digest,
+            promotion_batch_id=command.promotion_batch_id,
+            readiness_projection=command.readiness_projection,
+            occ_gate_state=command.occ_gate_state,
+            rollback_target=rollback_target,
+            requested_by=command.requested_by,
+            promotion_grant=command.promotion_grant,
+            promotion_class=command.promotion_class,
+            non_main_lineage=command.non_main_lineage,
+            evaluated_at=command.evaluated_at,
+        )
+    )
+
+
+def evaluate_gate(
+    command: ModelProdPromotionGateCommand,
+) -> ModelProdPromotionGateDecision:
+    """Decide, then echo the command's deploy context onto the decision.
+
+    The public, directly-testable surface. The gate reads NOTHING from
+    ``deploy_context`` — echoing it (OMN-16939) is what lets the stateless
+    orchestrator issue the deploy against the request that started it, now that the
+    four-field decision is the only thing that rides back over the bus. Split from
+    ``_decide_gate`` so the echo happens on EVERY branch: the gate has seven return
+    points, and an echo added per-branch is one refactor away from silently dropping
+    the context on the branch nobody edited.
+
+    OMN-18999 adds three more echoes on exactly the same footing, and for the
+    same reason the split exists. A refused promotion resolves no digest and
+    terminalizes as BLOCKED, so ``image_digest`` is ``None`` and the originating
+    request is gone by the time anything durable could record it: without these
+    three, a projected refusal row could not say WHICH digest was refused, under
+    WHICH grant, or WHEN the gate evaluated. All three are echoes of the command
+    -- the gate reads none of them and computes nothing from them.
+    """
+    return _decide_gate(command).model_copy(
+        update={
+            "deploy_context": command.deploy_context,
+            "grant_id": (
+                None
+                if command.promotion_grant is None
+                else command.promotion_grant.grant_id
+            ),
+            "requested_image_digest": command.requested_image_digest,
+            "evaluated_at": command.evaluated_at,
+            "correlation_id": command.correlation_id,
+        }
+    )
+
+
+class HandlerProdPromotionGate:
+    """Canonical COMPUTE handler: prod promotion facts -> gate decision."""
+
+    async def handle(
+        self, request: ModelProdPromotionGateCommand
+    ) -> ModelProdPromotionGateDecision:
+        """def-B compute: evaluate the prod gate for the typed request payload.
+
+        Pure and stateless. The shared runtime adapter resolves the contract
+        ``input_model`` from the envelope/dict payload and passes the concrete
+        ``ModelProdPromotionGateCommand`` positionally; this core returns the
+        ``ModelProdPromotionGateDecision`` directly (no envelope wrapper, no
+        handler-output wrapper).
+        """
+        return evaluate_gate(request)
+
+
+__all__: list[str] = ["HANDLER_ID", "HandlerProdPromotionGate", "evaluate_gate"]

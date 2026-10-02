@@ -1,0 +1,17 @@
+services:
+  redis:
+    image: redis:7.4.8-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+  tempo:
+    image: ${TEMPO_LOCALNET_IMAGE:-ghcr.io/tempoxyz/tempo-localnet@sha256:86f199f161be85d3610d990e5bc2653ece29de3ee9c91e8c8e768cf2b8c05c3b}
+    command: ["--block-time", "1ms"]
+    ports:
+      - "127.0.0.1:8545:8545"
+    stop_grace_period: 10s

@@ -1,0 +1,160 @@
+---
+name: os-windows
+
+# the Windows third of the platform sweep, and os-ubuntu.yml's header is the
+# argument for all three: what the merge gate keeps, what a sentinel then
+# owes, and why a cell here builds from the tree rather than installing a
+# wheel.
+#
+# The constraint is a ceiling rather than a wall clock, which is what makes
+# it worth re-deciding a split that was already made once: the plan caps how
+# many jobs the organization may run at once, shared across every repository
+# in it -- REPOSITORY.md's Plan-gated settings has the figure and the command
+# that re-derives it -- and this workflow set asked for seventy-three of them
+# on every commit while a sibling repository asked for thirty-nine and
+# bitcoin-core-rpc for forty-four. On one pull request run the twenty-one
+# Windows suite cells were 27.3 of the 112.9 runner-minutes and the largest
+# single family of jobs in it, ahead of every wheel build; the run's
+# critical path was 1713 seconds, of which the median cell spent 694
+# queueing. The command that re-derives it:
+#
+#     id=$(gh run list --workflow=test.yml --limit 1 \
+#         --json databaseId --jq '.[0].databaseId')
+#     gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id/jobs?per_page=100"
+#
+# **The Windows wheel builds stay in test.yml**, and that is the same line
+# os-macos.yml's header draws: the release publishes the artifacts of that run,
+# so a win_amd64 or win_arm64 wheel not built there is a wheel not on PyPI.
+# Those two jobs are not what stretched the run either -- what did was
+# twenty-one cells contending for slots behind them.
+#
+# What is given up is therefore narrower than twenty-one jobs suggests, and
+# cibuildwheel is why: `test-command` in pyproject.toml runs the whole suite
+# against every wheel it builds, on the runner that built it, so the Windows
+# wheels this package ships are still tested before a merge by the job that
+# produces them.
+#
+# This builds from the tree, twice per cell -- the static extension a
+# CPython wheel carries, then the dynamic one, which is the choice
+# `BTCLIB_LIBSECP256K1_DYNAMIC` gives a developer and covers both branches
+# of `_load_lib`. Two steps of one job rather than two jobs, because the
+# queue is the cost being managed and a second job pays it again.
+#
+# It gates no commit and no merge -- a Windows regression sits on main for
+# at most a week -- but release.yml calls it, so one cannot be published
+
+on:
+  schedule:
+    # Friday, the hour after os-ubuntu.yml: see os-macos.yml for why the
+    # platforms run apart.
+    # The time is the organization grid -- section 10 of
+    # btclib-org/.github's README.md -- and not this file's to restate.
+    # Only the default branch schedules workflows, so on any other branch
+    # this is reachable through the dispatch below, and through the
+    # workflow_call trigger above it.
+    - cron: "8 5 * * 5"
+  # lets release.yml gate a publication on this platform too, which is what
+  # keeps a weekly sentinel from being the only thing that ever asks
+  workflow_call:
+    inputs:
+      concurrency-suffix:
+        description: >
+          Appended to the concurrency group, and the release workflow is
+          the only caller that passes one. See the group below.
+        type: string
+        default: ""
+  # the escape hatch: the platform on demand, for a branch that touches the
+  # build, the loader or anything a toolchain decides
+  workflow_dispatch:
+
+# least privilege for the GITHUB_TOKEN: everything running in a job
+# (actions, dependencies, build scripts) can read the token, so it must not
+# be able to write to the repository
+permissions:
+  contents: read
+
+# cancel superseded runs: the subject here is the commit, which a newer one
+# supersedes. Named literally rather than through github.workflow, which in
+# a called workflow is the caller's name -- release.yml calls this one
+# alongside test.yml, and with that expression the two would share a group
+# and cancel each other. The suffix is the second half of the same problem,
+# github.ref inside a called workflow being the caller's ref: see lint.yml
+concurrency:
+  group: os-windows-${{ github.ref }}${{ inputs.concurrency-suffix }}
+  cancel-in-progress: true
+
+jobs:
+  suite-windows:
+    name: Run the suite on ${{ matrix.python-version }}, ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      # every cell to the end: which interpreter fails on which image is the
+      # whole answer, and stopping at the first one hides the rest
+      fail-fast: false
+      matrix:
+        # both images, because what differs between them is the
+        # architecture the interpreter and the compiled extension target
+        os:
+          - windows-latest
+          - windows-11-arm
+        # every interpreter this package claims, as os-ubuntu.yml and
+        # os-macos.yml carry it: nothing here installs a published wheel, so
+        # no exclusion is a wheel that is missing
+        python-version:
+          - "3.11"
+          - "3.12"
+          - "3.13"
+          - "3.14"
+          - "3.14t"
+          - "3.15"
+          - "3.15t"
+          - "pypy3.11"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # the vendored library is what gets compiled here
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          # the wheels of the test group, not the extension, which is built
+          # from the tree twice below whatever the cache holds
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+
+      # the command CONTRIBUTING.md gives a developer, and the one the
+      # coverage job of test.yml runs on ubuntu: a static build, where
+      # `_load_lib` returns the extension's own `lib`. --no-cov against
+      # the --cov addopts carries, os-ubuntu.yml's header having the
+      # reason a sentinel measures nothing.
+      #
+      # both steps below run on windows-latest or windows-11-arm, where
+      # the default shell is PowerShell rather than bash -- see
+      # pypi-install.yml's own fix, issue btclib-org/btclib#1141, for the
+      # failure mode a POSIX-only step hits there unnoticed. Each is one
+      # plain command and runs identically under either shell today,
+      # which is exactly the hazard: a future edit adding POSIX-only
+      # syntax would go green on this cell having run nothing (issue
+      # btclib-org/btclib#1148)
+      - name: Run pytest against a static build
+        shell: bash
+        run: uv run --locked --no-default-groups --group test pytest --no-cov
+
+      # the other branch of `_load_lib`: cffi in ABI mode, dlopening the
+      # shared object beside the module.
+      # --reinstall-package with --no-cache because the extension already
+      # installed by the step above is the other linkage, and neither the
+      # environment nor the build cache is keyed on the variable that
+      # chooses between them
+      - name: Run pytest against a dynamic build
+        env:
+          BTCLIB_LIBSECP256K1_DYNAMIC: "true"
+        shell: bash
+        run: >
+          uv run --locked --no-default-groups --group test
+          --reinstall-package btclib-secp256k1 --no-cache pytest --no-cov

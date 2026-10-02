@@ -76,39 +76,61 @@ def get_profiling_params() -> Dict[str, str]:
     }
 
 
-def _prepare_mtls_cert_data(cert: Optional[str], key: Optional[str]) -> Optional[bytes]:
+def _prepare_mtls_cert_data(
+    cert: Optional[str],
+    key: Optional[str],
+    cert_content: Optional[str] = None,
+    key_content: Optional[str] = None,
+) -> Optional[bytes]:
     """
     Prepare mTLS certificate data for httpr.
 
-    Reads certificate and key files and combines them into a single bytes object
-    for use with httpr's client_pem_data parameter.
+    Combines certificate and key into a single bytes object for use with httpr's
+    client_pem_data parameter, either from files or from in-memory PEM content.
 
     Args:
         cert: Path to certificate file (may also contain key)
         key: Path to key file (optional if cert contains both)
+        cert_content: PEM certificate content (may also contain key)
+        key_content: PEM key content (optional if cert_content contains both)
 
     Returns:
         Combined certificate and key data as bytes, or None if no cert provided
     """
-    if not cert:
+    if cert_content:
+        cert_data = cert_content.encode("ascii")
+        key_data = key_content.encode("ascii") if key_content else None
+    elif cert:
+        with open(cert, "rb") as f:
+            cert_data = f.read()
+        key_data = None
+        if key and key != cert:
+            with open(key, "rb") as f:
+                key_data = f.read()
+    else:
         return None
 
-    # Read cert file
-    with open(cert, "rb") as f:
-        cert_content = f.read()
+    if key_data is None:
+        # Single source with both cert and key
+        return cert_data
+    if not cert_data.endswith(b"\n"):
+        return cert_data + b"\n" + key_data
+    return cert_data + key_data
 
-    if not key or key == cert:
-        # Single file with both cert and key
-        return cert_content
 
-    # Read key file and combine
-    with open(key, "rb") as f:
-        key_content = f.read()
+# The async client runs one thread per request in flight. Above this many, more
+# threads rarely add throughput and mostly cost memory and GIL contention.
+MAX_THREADS_WITHOUT_WARNING = 1024
 
-    # Combine cert and key
-    if not cert_content.endswith(b"\n"):
-        return cert_content + b"\n" + key_content
-    return cert_content + key_content
+
+def _warn_if_many_threads(name: str, value: int) -> None:
+    if value > MAX_THREADS_WITHOUT_WARNING:
+        warnings.warn(
+            f"{name}={value} starts that many HTTP client threads; values above "
+            f"{MAX_THREADS_WITHOUT_WARNING} rarely add throughput. Consider more "
+            "processes instead.",
+            stacklevel=3,
+        )
 
 
 def _prepare_request_body(
@@ -200,11 +222,14 @@ def raise_for_status(
             try:
                 error_json = response.json()
                 http_error = HTTPError(
-                    f"HTTP {response.status_code}: {json.dumps(error_json)}"
+                    f"HTTP {response.status_code}: {json.dumps(error_json)}",
+                    response=response,
                 )
             except Exception:
                 # Fall back to text if JSON parsing fails
-                http_error = HTTPError(f"HTTP {response.status_code}: {response.text}")
+                http_error = HTTPError(
+                    f"HTTP {response.status_code}: {response.text}", response=response
+                )
     else:
         # requests/httpx Response - use built-in method
         try:
@@ -236,6 +261,18 @@ def raise_for_status(
         raise http_error
 
 
+def _error_status(e: BaseException) -> Optional[int]:
+    """Status code behind an error from raise_for_status, or None if there was no response.
+
+    The response sits on the HTTPError, which may itself be the cause of a VespaError.
+    """
+    for error in (e, e.__cause__):
+        response = getattr(error, "response", None)
+        if response is not None:
+            return response.status_code
+    return None
+
+
 def _response_json(response: Response) -> Dict:
     """Return the parsed JSON body, falling back to the raw text on a non-JSON body."""
     try:
@@ -256,6 +293,8 @@ class Vespa(object):
         output_file: IO = sys.stdout,
         application_package: Optional[ApplicationPackage] = None,
         additional_headers: Optional[Dict[str, str]] = None,
+        cert_content: Optional[str] = None,
+        key_content: Optional[str] = None,
     ) -> None:
         """
         Establish a connection with an existing Vespa application.
@@ -270,6 +309,8 @@ class Vespa(object):
             output_file (str): Output file to write output messages.
             application_package (str): Application package definition used to deploy the application.
             additional_headers (dict): Additional headers to be sent to the Vespa application.
+            cert_content (str): PEM content of the data plane certificate, and of the key in case 'key_content' is None. Mutually exclusive with 'cert' and 'key'. Useful when the certificate is read from e.g. an environment variable.
+            key_content (str): PEM content of the data plane key. Requires 'cert_content'. Mutually exclusive with 'cert' and 'key'.
 
         Example usage:
             ```python
@@ -283,14 +324,25 @@ class Vespa(object):
             Vespa(url="https://mtls-endpoint..z.vespa-app.cloud", cert="/path/to/cert.pem", key="/path/to/key.pem")  # doctest: +SKIP
 
             Vespa(url="https://mtls-endpoint..z.vespa-app.cloud", cert="/path/to/cert.pem", key="/path/to/key.pem", additional_headers={"X-Custom-Header": "test"})  # doctest: +SKIP
+
+            Vespa(url="https://mtls-endpoint..z.vespa-app.cloud", cert_content=os.environ["VESPA_CERT"], key_content=os.environ["VESPA_KEY"])  # doctest: +SKIP
             ```
         """
+        if (cert or key) and (cert_content or key_content):
+            raise ValueError(
+                "Provide either 'cert'/'key' (file paths) or "
+                "'cert_content'/'key_content' (PEM content), not both."
+            )
+        if key_content and not cert_content:
+            raise ValueError("'key_content' requires 'cert_content'.")
         self.output_file = output_file
         self.url = url
         self.port = port
         self.deployment_message = deployment_message
         self.cert = cert
         self.key = key
+        self.cert_content = cert_content
+        self.key_content = key_content
         self.vespa_cloud_secret_token = vespa_cloud_secret_token
         self._application_package = application_package
         self.pyvespa_version = vespa.__version__
@@ -396,6 +448,7 @@ class Vespa(object):
         connections: Optional[int] = 8,
         compress: Union[str, bool] = "auto",
         session: Optional[Session] = None,
+        num_retries_429: int = 10,
     ) -> "VespaSync":
         """
         Access Vespa synchronous connection layer.
@@ -417,6 +470,7 @@ class Vespa(object):
                 which will compress if the body is larger than 1024 bytes.
             session (requests.Session, optional): Reusable requests session to utilise for all requests made
                 within the context manager. When provided, the caller is responsible for closing the session.
+            num_retries_429 (int, optional): Retries per request on a 429 response or connection error. Defaults to 10; 0 returns every response unchanged.
 
         Returns:
             VespaAsyncLayer: Instance of Vespa asynchronous layer.
@@ -427,6 +481,7 @@ class Vespa(object):
             pool_maxsize=connections,
             compress=compress,
             session=session,
+            num_retries_429=num_retries_429,
         )
 
     def get_sync_session(
@@ -704,6 +759,7 @@ class Vespa(object):
         max_workers: int = 8,
         max_connections: int = 16,
         compress: Union[str, bool] = "auto",
+        num_retries_429: int = 10,
         **kwargs,
     ):
         """
@@ -735,6 +791,7 @@ class Vespa(object):
             max_workers (int, optional): The maximum number of workers in the threadpool executor.
             max_connections (int, optional): The maximum number of persisted connections to the Vespa endpoint.
             compress (Union[str, bool], optional): Whether to compress the request body. Defaults to "auto", which will compress if the body is larger than 1024 bytes.
+            num_retries_429 (int, optional): Retries per request on a 429 response or connection error. Defaults to 10; 0 passes every response to the callback unchanged.
             **kwargs (dict, optional): Additional parameters passed to the respective operation type specific function (`_data_point`).
 
         Returns:
@@ -857,16 +914,29 @@ class Vespa(object):
         ):
             id, response = future.result()
             if isinstance(response, Exception):
-                response = VespaResponse(
-                    status_code=599,
-                    json={
-                        "Exception": str(response),
-                        "id": id,
-                        "message": "Exception during feed_data_point",
-                    },
-                    url="n/a",
-                    operation_type=operation_type,
-                )
+                # The HTTPError from raise_for_status may be the VespaError's cause.
+                http_response = getattr(response, "response", None)
+                if http_response is None:
+                    http_response = getattr(response.__cause__, "response", None)
+                if isinstance(getattr(http_response, "status_code", None), int):
+                    # A non-2xx response: pass it on as it came from Vespa.
+                    response = VespaResponse(
+                        json=_response_json(http_response),
+                        status_code=http_response.status_code,
+                        url=str(http_response.url),
+                        operation_type=operation_type,
+                    )
+                else:
+                    response = VespaResponse(
+                        status_code=599,
+                        json={
+                            "Exception": str(response),
+                            "id": id,
+                            "message": "Exception during feed_data_point",
+                        },
+                        url="n/a",
+                        operation_type=operation_type,
+                    )
             if callback is not None:
                 try:
                     callback(response, id)
@@ -881,6 +951,7 @@ class Vespa(object):
             pool_maxsize=max_connections,
             pool_connections=max_connections,
             compress=compress,
+            num_retries_429=num_retries_429,
         ) as session:
             queue = Queue(maxsize=max_queue_size)
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -904,6 +975,7 @@ class Vespa(object):
         max_queue_size: int = 1000,
         max_workers: int = 64,
         max_connections: int = 1,
+        docv1_retry_policy: Optional[AsyncRetrying] = None,
         **kwargs,
     ):
         """
@@ -931,8 +1003,9 @@ class Vespa(object):
             callback (function): A callback function to be called on each result. Signature `callback(response: VespaResponse, id: str)`.
             operation_type (str, optional): The operation to perform. Defaults to `feed`. Valid values are `feed`, `update`, or `delete`.
             max_queue_size (int, optional): The maximum number of tasks waiting to be processed. Useful to limit memory usage. Default is 1000.
-            max_workers (int, optional): Maximum number of concurrent requests to have in-flight, bound by an asyncio.Semaphore, that needs to be acquired by a submit task. Increase if the server is scaled to handle more requests.
+            max_workers (int, optional): Maximum number of requests in flight at once. Also sizes the HTTP client's thread pool, so up to max_workers threads exist while feeding. Increase if the server is scaled to handle more requests, or if it is far away.
             max_connections (int, optional): The maximum number of connections passed to httpx.AsyncClient to the Vespa endpoint. As HTTP/2 is used, only one connection is needed.
+            docv1_retry_policy (AsyncRetrying, optional): Replaces the default two-layer document/v1 retry (unbounded 429 retry inside 3 attempts on 503/exception). Pass ``vespa.retries.NO_RETRY`` to deliver every response, including 429, to the callback unchanged.
             **kwargs (dict, optional): Additional parameters passed to the respective operation type-specific function (`_data_point`).
 
         Returns:
@@ -978,9 +1051,16 @@ class Vespa(object):
                         type(e), e, e.__traceback__, file=sys.stderr
                     )
 
+        _warn_if_many_threads("max_workers", max_workers)
+
         # Wrapping in async function to be able to use asyncio.run, and avoid that the feed_async_iterable have to be async
         async def run():
-            async with self.asyncio(connections=max_connections) as async_session:
+            async with self.asyncio(
+                connections=max_connections,
+                docv1_retry_policy=docv1_retry_policy,
+                # httpr runs each request on a thread; its pool must match the semaphore.
+                max_concurrency=max_workers,
+            ) as async_session:
                 semaphore = asyncio.Semaphore(max_workers)
                 tasks = []
                 for doc in iter:
@@ -1073,9 +1153,9 @@ class Vespa(object):
         Args:
             queries (Iterable[dict]): Iterable of query bodies (dictionaries) to be sent.
             num_connections (int, optional): Number of connections to be used in the asynchronous client (uses HTTP/2). Defaults to 1.
-            max_concurrent (int, optional): Maximum concurrent requests to be sent. Defaults to 100. Be careful with increasing too much.
+            max_concurrent (int, optional): Maximum concurrent requests to be sent. Defaults to 100. Also sizes the HTTP client's thread pool, so up to max_concurrent threads exist while querying.
             adaptive (bool, optional): Use adaptive throttling. Defaults to True. When True, starts with lower concurrency and adjusts based on error rates.
-            client_kwargs (dict, optional): Additional arguments to be passed to the httpx.AsyncClient.
+            client_kwargs (dict, optional): Additional arguments to be passed to the HTTP client; `max_concurrency` here overrides `max_concurrent`.
             **query_kwargs (dict, optional): Additional arguments to be passed to the query method.
 
         Returns:
@@ -1083,8 +1163,12 @@ class Vespa(object):
         """
 
         results = []
-        # Use the asynchronous client from VespaAsync (created via self.asyncio).
-        async with self.asyncio(connections=num_connections, **client_kwargs) as client:
+        _warn_if_many_threads("max_concurrent", max_concurrent)
+        # The client runs each request on a thread; its pool must allow max_concurrent.
+        async with self.asyncio(
+            connections=num_connections,
+            **{"max_concurrency": max_concurrent, **client_kwargs},
+        ) as client:
             if adaptive:
                 throttler = AdaptiveThrottler(
                     initial_concurrent=min(10, max_concurrent),
@@ -1128,9 +1212,9 @@ class Vespa(object):
         Args:
             queries (Iterable[dict]): Iterable of query bodies (dictionaries) to be sent.
             num_connections (int, optional): Number of connections to be used in the asynchronous client (uses HTTP/2). Defaults to 1.
-            max_concurrent (int, optional): Maximum concurrent requests to be sent. Defaults to 100. Be careful with increasing too much.
+            max_concurrent (int, optional): Maximum concurrent requests to be sent. Defaults to 100. Also sizes the HTTP client's thread pool, so up to max_concurrent threads exist while querying.
             adaptive (bool, optional): Use adaptive throttling. Defaults to True. When True, starts with lower concurrency and adjusts based on error rates.
-            client_kwargs (dict, optional): Additional arguments to be passed to the httpx.AsyncClient.
+            client_kwargs (dict, optional): Additional arguments to be passed to the HTTP client; `max_concurrency` here overrides `max_concurrent`.
             **query_kwargs (dict, optional): Additional arguments to be passed to the query method.
 
         Returns:
@@ -1492,6 +1576,7 @@ class VespaSync(object):
         pool_connections: int = 10,
         compress: Union[str, bool] = "auto",
         session: Optional[Union[Session, httpr.Client]] = None,
+        num_retries_429: int = 10,
     ) -> None:
         """
         Class to handle synchronous requests to Vespa.
@@ -1551,7 +1636,7 @@ class VespaSync(object):
             )
         self.compress = compress
         self.compress_larger_than = 1024
-        self.num_retries_429 = 10
+        self.num_retries_429 = num_retries_429
         self.http_client = (
             session  # For backward compatibility, parameter is still called "session"
         )
@@ -1562,7 +1647,9 @@ class VespaSync(object):
 
     def _prepare_mtls_cert(self) -> Optional[bytes]:
         """Prepare mTLS certificate data for httpr."""
-        return _prepare_mtls_cert_data(self.cert, self.key)
+        return _prepare_mtls_cert_data(
+            self.cert, self.key, self.app.cert_content, self.app.key_content
+        )
 
     def _request_with_retry(self, method: str, url: str, json_data=None, **kwargs):
         """
@@ -1617,10 +1704,9 @@ class VespaSync(object):
             }
 
             # Handle mTLS if cert/key are provided
-            if self.cert:
-                client_pem_data = self._prepare_mtls_cert()
-                if client_pem_data:
-                    client_config["client_pem_data"] = client_pem_data
+            client_pem_data = self._prepare_mtls_cert()
+            if client_pem_data:
+                client_config["client_pem_data"] = client_pem_data
 
             # Handle token authentication (already in headers)
             # httpr will use headers automatically
@@ -1872,7 +1958,7 @@ class VespaSync(object):
             Response: The response of the HTTP DELETE request.
 
         Raises:
-            HTTPError: If one occurred.
+            VespaError: If a slice gets a permanent error (4xx other than 429) or fails five times in a row.
         """
 
         if not namespace:
@@ -1888,32 +1974,39 @@ class VespaSync(object):
                 slice_id,
             )
             request_endpoint = end_point
-            count = 0
-            errors = 0
+            failures = 0
             while True:
                 try:
-                    count += 1
                     response = self._request_with_retry(
                         "DELETE", request_endpoint, params=kwargs
                     )
+                    # An error response has no continuation; retry the chunk instead of ending the slice.
+                    raise_for_status(response)
                     result = response.json()
-                    if "continuation" in result:
-                        request_endpoint = "{}&continuation={}".format(
-                            end_point, result["continuation"]
-                        )
-                    else:
-                        break
                 except Exception as e:
-                    errors += 1
-                    error_rate = errors / count
-                    if error_rate > 0.1:
-                        raise Exception(
-                            "Too many errors for slice delete requests"
+                    failures += 1
+                    status = _error_status(e)
+                    # A 4xx other than 429 (for example a wrong cluster name) will not change on retry.
+                    permanent = (
+                        status is not None and 400 <= status < 500 and status != 429
+                    )
+                    if permanent or failures >= 5:
+                        raise VespaError(
+                            f"delete_all_docs slice {slice_id} failed: {e}"
                         ) from e
-                    sleep(1)
+                    sleep(min(2**failures, 30))
+                    continue
+                failures = 0
+                if "continuation" in result:
+                    request_endpoint = "{}&continuation={}".format(
+                        end_point, result["continuation"]
+                    )
+                else:
+                    break
 
+        # list() consumes the lazy map so an exception in a slice propagates.
         with ThreadPoolExecutor(max_workers=slices) as executor:
-            executor.map(delete_slice, range(slices))
+            list(executor.map(delete_slice, range(slices)))
 
     def visit(
         self,
@@ -2110,6 +2203,7 @@ class VespaAsync(object):
         timeout: Union[httpx.Timeout, int, float] = 30.0,
         compress: Union[str, bool] = "auto",
         client: Optional[Union[httpx.AsyncClient, httpr.AsyncClient]] = None,
+        docv1_retry_policy: Optional[AsyncRetrying] = None,
         **kwargs,
     ) -> None:
         """
@@ -2185,6 +2279,8 @@ class VespaAsync(object):
             - httpr manages connection pooling and HTTP/2 automatically
         """
         self.app = app
+        # None keeps the two-layer document/v1 retry; a policy replaces both layers.
+        self.docv1_retry_policy = docv1_retry_policy
         self.httpr_client = client  # Renamed from httpx_client
         # Automatically determine ownership based on whether client was provided
         self._owns_client = client is None
@@ -2236,7 +2332,9 @@ class VespaAsync(object):
 
     def _prepare_mtls_cert(self) -> Optional[bytes]:
         """Prepare mTLS certificate data for httpr."""
-        return _prepare_mtls_cert_data(self.app.cert, self.app.key)
+        return _prepare_mtls_cert_data(
+            self.app.cert, self.app.key, self.app.cert_content, self.app.key_content
+        )
 
     async def __aenter__(self):
         self._open_httpr_client()
@@ -2259,10 +2357,9 @@ class VespaAsync(object):
         }
 
         # Handle mTLS if cert/key are provided
-        if self.app.cert:
-            client_pem_data = self._prepare_mtls_cert()
-            if client_pem_data:
-                client_config["client_pem_data"] = client_pem_data
+        client_pem_data = self._prepare_mtls_cert()
+        if client_pem_data:
+            client_config["client_pem_data"] = client_pem_data
 
         # Handle token authentication (already in headers)
         # httpr will use headers automatically
@@ -2397,7 +2494,8 @@ class VespaAsync(object):
         Inner layer ``THROTTLE_RETRY`` retries 429 responses (unbounded, see
         ``vespa.retries``). Outer layer ``DOCV1_RETRY`` retries any exception or
         a 503 response up to 3 attempts, then re-raises the last exception or
-        returns the last response.
+        returns the last response. When the client was created with
+        ``docv1_retry_policy``, that single policy is used instead of both.
         """
         path = self.app.get_document_v1_path(
             id=data_id, schema=schema, namespace=namespace, group=groupname
@@ -2419,6 +2517,9 @@ class VespaAsync(object):
                 url=str(response.url),
                 operation_type=operation_type,
             )
+
+        if self.docv1_retry_policy is not None:
+            return await self.docv1_retry_policy.copy()(_send)
 
         async def _send_with_throttle_retry() -> VespaResponse:
             return await THROTTLE_RETRY.copy()(_send)

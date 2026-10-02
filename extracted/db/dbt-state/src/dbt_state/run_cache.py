@@ -1366,6 +1366,9 @@ class RunCache:
             clone_chain_depth_limit=self.clone_chain_depth_limit,
             dbt_node_state=dbt_node_state,
             table_namespace=self.table_namespace,
+            allow_clones=self.run_cache_config.allow_clones,
+            is_defer_to_profile=self._profiles.is_defer_to_profile,
+            defer_enabled=self._defer_enabled,
         )
 
     def _emit_enriched_sql_prepared_telemetry(
@@ -1511,6 +1514,9 @@ class RunCache:
                 ignore_external_modifications=self._run_cache_config.resolve_ignore_external_modifications(
                     node_config
                 ),
+                allow_clones=self.run_cache_config.allow_clones,
+                is_defer_to_profile=self._profiles.is_defer_to_profile,
+                defer_enabled=self._defer_enabled,
             ), last_modified_duration_ms
 
         # The caller owns the view traversal so the speculative decision can be made after it
@@ -1623,6 +1629,9 @@ class RunCache:
             ignore_external_modifications=self._run_cache_config.resolve_ignore_external_modifications(
                 node_config
             ),
+            allow_clones=self.run_cache_config.allow_clones,
+            is_defer_to_profile=self._profiles.is_defer_to_profile,
+            defer_enabled=self._defer_enabled,
         ), last_modified_duration_ms
 
     def _build_clone_request(

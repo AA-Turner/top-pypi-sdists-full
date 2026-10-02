@@ -1,0 +1,120 @@
+---
+name: node_design_to_plan
+contract_version: {major: 1, minor: 1, patch: 0}
+node_type: ORCHESTRATOR_GENERIC
+node_version: {major: 1, minor: 1, patch: 0}
+
+description: >
+  End-to-end design workflow — brainstorm ideas into structured implementation plans
+  with optional launch. Phases: brainstorm (Phase 1), plan (Phase 2), launch (Phase 3).
+  Phase 3 (launch) builds typed Onex-native dispatch commands for downstream nodes.
+
+handler:
+  module: omnimarket.nodes.node_design_to_plan.handlers.handler_design_to_plan
+  class: HandlerDesignToPlan
+  input_model: omnimarket.nodes.node_design_to_plan.models.model_design_to_plan_command.ModelDesignToPlanCommand
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: design_to_plan
+      handler:
+        name: HandlerDesignToPlan
+        module: omnimarket.nodes.node_design_to_plan.handlers.handler_design_to_plan
+    - operation: design_to_plan_phase3_launch
+      handler:
+        name: HandlerDesignToPlanPhase3Launch
+        module: omnimarket.nodes.node_design_to_plan.handlers.handler_design_to_plan_phase3_launch
+        operation: phase3_launch
+        description: >
+          Phase 3 launch handler. Builds a typed ModelPlanToTicketsStartCommand
+          route to node_plan_to_tickets using contract-declared topic/model truth.
+
+descriptor:
+  node_archetype: orchestrator
+  purity: effectful
+  runtime_profiles:
+    - effects
+  idempotent: false
+  timeout_ms: 600000
+
+inputs:
+  phase:
+    type: str
+    description: "Start at phase: brainstorm, plan, or launch. Default: brainstorm"
+    required: false
+    default: "brainstorm"
+  topic:
+    type: str
+    description: "Topic or problem to brainstorm (Phase 1)"
+    required: false
+  plan_path:
+    type: str
+    description: "Path to existing plan file (skip to Phase 2 or 3)"
+    required: false
+  no_launch:
+    type: bool
+    description: "Stop after plan save — do not prompt for launch"
+    required: false
+    default: false
+  dry_run:
+    type: bool
+    description: "Build non-mutating downstream commands for validation only"
+    required: false
+    default: false
+  plan_only:
+    type: bool
+    description: "Build the native Phase 3 dispatch plan without publishing it"
+    required: false
+    default: false
+
+outputs:
+  plan_path:
+    type: str
+    description: "Path to the saved plan document"
+  phase_reached:
+    type: str
+    description: "Final phase reached (brainstorm, plan, launch)"
+
+terminal_event: onex.evt.omnimarket.design-to-plan-completed.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.design-to-plan-start.v1
+  publish_topics:
+    - onex.evt.omnimarket.design-to-plan-completed.v1
+    - onex.cmd.omnimarket.plan-to-tickets-start.v1
+
+env_dependencies:
+  KAFKA_BOOTSTRAP_SERVERS:
+    required: true
+    description: >
+      Kafka broker addresses (host:port). Required for onex run-node dispatch.
+      Must resolve to the remote Redpanda instance — never localhost (OMN-11757).
+      Set via ~/.omnibase/.env; read by cli_run_node with os.environ key access
+      (KeyError on missing, no silent fallback).
+
+metadata:
+  transport_type: kafka
+  implementation_wave: 6
+  related_tickets: ["OMN-12228", "OMN-12359"]
+  phase3_handler_status: implemented
+  phase3_launch:
+    mode: contract_declared_native_dispatch
+    routes:
+      - route_id: plan_to_tickets
+        target_node: node_plan_to_tickets
+        command_topic: onex.cmd.omnimarket.plan-to-tickets-start.v1
+        command_model: omnimarket.events.design_to_plan.ModelPlanToTicketsStartCommand
+
+# OMN-18013 -- explicit external PRODUCER declaration (contract topic graph closure).
+# Replaces the deleted contract_topic_graph_baseline.yaml external_producers map:
+# the declaration now lives beside the subscription it explains.
+externally_produced_topics:
+  - topic: onex.cmd.omnimarket.design-to-plan-start.v1
+    producer: "the onex skill/CLI dispatcher (`onex run-node` / `uv run onex skill ...`), which publishes this command directly -- not a node contract"
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.design-to-plan-completed.v1

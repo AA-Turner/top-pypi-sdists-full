@@ -1,0 +1,409 @@
+"""Protocol interfaces for pr_lifecycle sub-handlers.
+
+Defines the contracts that each sub-handler node must satisfy when injected
+into the orchestrator. Protocol-based DI allows the orchestrator to be tested
+in isolation and composed with real or mock implementations.
+
+Protocol signatures match the real sub-handler handle() signatures — the
+handlers are the source of truth. The orchestrator constructs the proper
+input models before calling each sub-handler.
+
+Related:
+    - OMN-8087: Create pr_lifecycle_orchestrator Node
+    - OMN-8082: inventory_compute
+    - OMN-8083: triage_compute
+    - OMN-8084: merge_effect
+    - OMN-8085: fix_effect
+    - OMN-8086: state_reducer
+    - OMN-9234: Fix protocol-signature drift
+"""
+
+from __future__ import annotations
+
+from enum import StrEnum
+from typing import Any, Protocol, runtime_checkable
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from omnimarket.events.repo_health import EnumFailureOrigin
+
+# Re-export for callers that import from this module
+__all__ = [
+    "EnumFailureOrigin",
+    "EnumPrCategory",
+    "EnumReducerIntent",
+    "FixResult",
+    "InventoryResult",
+    "MergeResult",
+    "OccDependencyEdge",
+    "PrRecord",
+    "PrTriageResult",
+    "ProtocolArmGateHandler",
+    "ProtocolFixHandler",
+    "ProtocolInventoryHandler",
+    "ProtocolMergeHandler",
+    "ProtocolPruneHandler",
+    "ProtocolStateReducerHandler",
+    "ProtocolTriageHandler",
+    "PruneResult",
+    "ReducerIntent",
+    "ReducerResult",
+    "TriageRecord",
+]
+
+# ---------------------------------------------------------------------------
+# Shared data models (orchestrator-internal, used between phases)
+# ---------------------------------------------------------------------------
+
+
+class PrRecord(BaseModel):
+    """Raw PR data collected by the inventory handler."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    pr_number: int = Field(..., description="GitHub PR number.")
+    repo: str = Field(..., description="Repo slug, e.g. 'OmniNode-ai/omnimarket'.")
+    title: str = Field(default="")
+    branch: str = Field(default="")
+    base_ref: str = Field(
+        default="",
+        description=(
+            "Base branch the PR targets (e.g. 'dev'). Used by the POST_MERGE_TAIL "
+            "worktree closeout to prove a dirty worktree's content already landed "
+            "(OMN-15251). Empty means unknown, which fails closed: the closeout "
+            "preserves the worktree rather than guessing a merge target."
+        ),
+    )
+    head_sha: str | None = Field(
+        default=None,
+        description="Branch (head) commit SHA at inventory time, for ledger provenance.",
+    )
+    ticket_ids: tuple[str, ...] = Field(
+        default_factory=tuple,
+        description="Canonical OMN ticket identifiers bound to this PR.",
+    )
+    checks_status: str = Field(
+        default="unknown",
+        description="CI checks status: success | failure | pending | unknown",
+    )
+    review_status: str = Field(
+        default="unknown",
+        description="Review status: approved | changes_requested | pending | unknown",
+    )
+    has_conflicts: bool = Field(default=False)
+    failed_check_names: tuple[str, ...] = Field(
+        default_factory=tuple,
+        description="Names of failed required or reported checks.",
+    )
+    failed_check_flaky_evidence: tuple[str, ...] = Field(
+        default_factory=tuple,
+        description="Machine evidence that failed checks are rerunnable infra flakes.",
+    )
+    failed_check_reason_codes: tuple[str, ...] = Field(
+        default_factory=tuple,
+        description=(
+            "Typed merge-check reason codes (OMN-14765) for the failed checks, "
+            "jobs-API attempt-keyed: stale_context | github_api_outage | "
+            "runner_infra | cancelled | product_failed. Empty means none were "
+            "classified. The routing (_block_reason_for_fix) keys on these so "
+            "cancelled/stale/infra checks are never treated as product failures."
+        ),
+    )
+    coderabbit_unresolved: int | None = Field(
+        default=None,
+        description=(
+            "Count of unresolved CodeRabbit threads. None means the count was "
+            "never collected (OMN-14151) — the arm-gate treats that as "
+            "unknown, never as 0."
+        ),
+    )
+    merge_state_status: str | None = Field(
+        default=None,
+        description="GitHub merge state: CLEAN | DIRTY | BLOCKED | BEHIND | UNKNOWN",
+    )
+    is_draft: bool | None = Field(
+        default=None,
+        description=(
+            "GitHub isDraft (OMN-14151). None means never collected — the "
+            "arm-gate treats that as unknown, never as False."
+        ),
+    )
+
+
+class EnumPrCategory(StrEnum):
+    """Triage classification for a PR."""
+
+    GREEN = "green"
+    RED = "red"
+    CONFLICTED = "conflicted"
+    OCC_DEPENDENCY = "occ_dependency"
+    NEEDS_REVIEW = "needs_review"
+    UNKNOWN = "unknown"
+
+
+class TriageRecord(BaseModel):
+    """A classified PR from the triage handler."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    pr_number: int = Field(..., description="GitHub PR number.")
+    repo: str = Field(...)
+    category: EnumPrCategory = Field(default=EnumPrCategory.UNKNOWN)
+    ticket_ids: tuple[str, ...] = Field(
+        default_factory=tuple,
+        description="Canonical OMN ticket identifiers carried from inventory.",
+    )
+    failed_check_names: tuple[str, ...] = Field(
+        default_factory=tuple,
+        description="Failed checks that informed this triage decision.",
+    )
+    failed_check_flaky_evidence: tuple[str, ...] = Field(
+        default_factory=tuple,
+        description="Machine evidence that failed checks are rerunnable infra flakes.",
+    )
+    failed_check_reason_codes: tuple[str, ...] = Field(
+        default_factory=tuple,
+        description=(
+            "Typed merge-check reason codes (OMN-14765) carried from inventory: "
+            "stale_context | github_api_outage | runner_infra | cancelled | "
+            "product_failed. Consumed by _block_reason_for_fix as the routing "
+            "decision source."
+        ),
+    )
+    block_reason: str = Field(
+        default="",
+        description="Why this PR is blocked (populated for non-green PRs).",
+    )
+    validation_failure_origin: EnumFailureOrigin | None = Field(
+        default=None,
+        description=(
+            "When a fix/polish phase reports a validation failure, the upstream "
+            "classifier sets this to the failure-origin bucket "
+            "(pr_scoped / repo_baseline / external_dependency / unknown). "
+            "None means no validation failure was observed for this PR. "
+            "Used by the orchestrator for RH-4 fan-out: "
+            "  repo_baseline → publish repo-health-classify.v1 + repo-health-repair-start.v1; "
+            "  pr_scoped / unknown → publish repo-health-classify.v1 only; "
+            "  None → no repo-health commands emitted. "
+            "Related: OMN-13586 RH-4."
+        ),
+    )
+
+
+class EnumReducerIntent(StrEnum):
+    """Intent emitted by the state reducer to direct the orchestrator."""
+
+    MERGE = "merge"
+    FIX = "fix"
+    SKIP = "skip"
+
+
+class ReducerIntent(BaseModel):
+    """A single intent from the reducer for a specific PR."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    pr_number: int = Field(...)
+    repo: str = Field(...)
+    intent: EnumReducerIntent = Field(...)
+    ticket_ids: tuple[str, ...] = Field(
+        default_factory=tuple,
+        description="Canonical OMN ticket identifiers for dependency joins.",
+    )
+    reason: str = Field(default="")
+
+
+class OccDependencyEdge(BaseModel):
+    """Durable dependency edge from a downstream PR to OCC evidence."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    ticket_id: str = Field(..., description="Primary dependency identity.")
+    downstream_repo: str = Field(..., description="Repo owning the blocked PR.")
+    downstream_pr_number: int = Field(..., description="Blocked PR number.")
+    downstream_failed_check_names: tuple[str, ...] = Field(default_factory=tuple)
+    reason: str = Field(default="")
+    occ_pr_number: int | None = Field(
+        default=None,
+        description="Secondary reference when a known OCC evidence PR exists.",
+    )
+    rerun_guard_key: str = Field(
+        ...,
+        description=(
+            "Idempotency key: rerun at most once for this ticket/downstream PR "
+            "and a specific OCC merge SHA."
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Handler result models (orchestrator-internal aggregates)
+# ---------------------------------------------------------------------------
+
+
+class InventoryResult(BaseModel):
+    """Result from the inventory handler (orchestrator aggregate)."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    prs: tuple[PrRecord, ...] = Field(default_factory=tuple)
+    total_collected: int = Field(default=0, ge=0)
+    stuck_queue_prs: tuple[Any, ...] = Field(default_factory=tuple)
+
+
+class PrTriageResult(BaseModel):
+    """Result from the triage handler (orchestrator aggregate)."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    classified: tuple[TriageRecord, ...] = Field(default_factory=tuple)
+    green_count: int = Field(default=0, ge=0)
+    non_green_count: int = Field(default=0, ge=0)
+
+
+class ReducerResult(BaseModel):
+    """Result from the state reducer."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    intents: tuple[ReducerIntent, ...] = Field(default_factory=tuple)
+    merge_count: int = Field(default=0, ge=0)
+    fix_count: int = Field(default=0, ge=0)
+    skip_count: int = Field(default=0, ge=0)
+
+
+class MergeResult(BaseModel):
+    """Result from the merge effect handler (orchestrator aggregate)."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    prs_merged: int = Field(default=0, ge=0)
+    prs_failed: int = Field(default=0, ge=0)
+
+
+class FixResult(BaseModel):
+    """Result from the fix effect handler (orchestrator aggregate)."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    prs_dispatched: int = Field(default=0, ge=0)
+    prs_skipped: int = Field(default=0, ge=0)
+    # WS-D/D2 (OMN-13940): delegation harness counters. attempted counts every
+    # call that actually invoked the delegated-fix path (accepted +
+    # gate_failed + escalated); not_attempted PRs are outside this count.
+    prs_delegated_fix_attempted: int = Field(default=0, ge=0)
+    prs_delegated_fix_accepted: int = Field(default=0, ge=0)
+    prs_delegated_fix_gate_failed: int = Field(default=0, ge=0)
+    prs_delegated_fix_escalated: int = Field(default=0, ge=0)
+    delegation_cost_savings_usd: float = Field(default=0.0, ge=0.0)
+
+
+class PruneResult(BaseModel):
+    """Aggregate of the worktree-prune effect across merged PRs (OMN-13859).
+
+    Records how many just-merged worktrees were removed vs. flagged dirty vs.
+    otherwise skipped, so the orchestrator can log/observe the prune tail
+    without owning the per-worktree decision logic.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    worktrees_pruned: int = Field(default=0, ge=0)
+    worktrees_flagged_dirty: int = Field(default=0, ge=0)
+    worktrees_skipped: int = Field(default=0, ge=0)
+
+
+# ---------------------------------------------------------------------------
+# Protocols — signatures match real sub-handler handle() methods exactly.
+#
+# HandlerPrLifecycleInventory.handle(input_model: ModelPrInventoryInput)
+#   → ModelPrInventoryOutput
+#
+# HandlerPrLifecycleTriage.handle(request: ModelPrTriageInput)
+#   → ModelPrTriageOutput
+#
+# HandlerPrLifecycleStateReducer.handle(*args, correlation_id, classified, ...)
+#   → Any (ReducerResult-compatible)
+#
+# HandlerPrLifecycleMerge.handle(command: ModelPrMergeCommand)
+#   → ModelPrMergeResult
+#
+# HandlerPrLifecycleFix.handle(command: ModelPrLifecycleFixCommand)
+#   → ModelPrLifecycleFixResult
+# ---------------------------------------------------------------------------
+
+
+@runtime_checkable
+class ProtocolInventoryHandler(Protocol):
+    """Collect raw PR state from GitHub.
+
+    Signature matches HandlerPrLifecycleInventory.handle().
+    """
+
+    def handle(self, input_model: Any) -> Any: ...
+
+
+@runtime_checkable
+class ProtocolTriageHandler(Protocol):
+    """Classify collected PRs into categories.
+
+    Signature matches HandlerPrLifecycleTriage.handle().
+    """
+
+    async def handle(self, request: Any) -> Any: ...
+
+
+@runtime_checkable
+class ProtocolStateReducerHandler(Protocol):
+    """Pure FSM reducer: (state, triage_result, flags) -> intents[].
+
+    Signature matches HandlerPrLifecycleStateReducer.handle() which accepts
+    *args and **kwargs for dual-path dispatch (orchestrator + RuntimeLocal shim).
+    """
+
+    async def handle(
+        self,
+        *args: Any,
+        **kwargs: Any,
+    ) -> Any: ...
+
+
+@runtime_checkable
+class ProtocolMergeHandler(Protocol):
+    """Execute merges for PRs with MERGE intent.
+
+    Signature matches HandlerPrLifecycleMerge.handle().
+    """
+
+    async def handle(self, command: Any) -> Any: ...
+
+
+@runtime_checkable
+class ProtocolFixHandler(Protocol):
+    """Dispatch remediation for PRs with FIX intent.
+
+    Signature matches HandlerPrLifecycleFix.handle().
+    """
+
+    async def handle(self, command: Any) -> Any: ...
+
+
+@runtime_checkable
+class ProtocolPruneHandler(Protocol):
+    """Prune the git worktree for a PR that just reached merged/closed.
+
+    Signature matches HandlerWorktreePrune.handle() — one command per
+    (ticket, repo), returning a typed prune result (OMN-13859).
+    """
+
+    async def handle(self, command: Any) -> Any: ...
+
+
+@runtime_checkable
+class ProtocolArmGateHandler(Protocol):
+    """Fail-closed ARM/WITHHOLD decider for the merge-queue governor (OMN-14151).
+
+    Signature matches HandlerPrArmGate.handle().
+    """
+
+    async def handle(self, request: Any) -> Any: ...

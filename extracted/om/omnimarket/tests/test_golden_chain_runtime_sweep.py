@@ -1,0 +1,599 @@
+"""Golden chain test for node_runtime_sweep.
+
+Verifies the handler can check node descriptions, handler wiring,
+topic symmetry, and emit completion events via EventBusInmemory.
+"""
+
+from __future__ import annotations
+
+import json
+
+import pytest
+from omnibase_core.event_bus.event_bus_inmemory import EventBusInmemory
+
+from omnimarket.nodes.node_runtime_sweep.handlers.handler_runtime_sweep import (
+    EnumFindingType,
+    EnumSweepCheck,
+    ModelContractInput,
+    ModelEntryPointProbe,
+    NodeRuntimeSweep,
+    RuntimeSweepRequest,
+)
+
+CMD_TOPIC = "onex.cmd.omnimarket.runtime-sweep-start.v1"
+EVT_TOPIC = "onex.evt.omnimarket.runtime-sweep-completed.v1"
+
+
+@pytest.mark.unit
+class TestRuntimeSweepGoldenChain:
+    """Golden chain: command -> handler -> completion event."""
+
+    async def test_clean_contracts(self, event_bus: EventBusInmemory) -> None:
+        """Contracts with real descriptions and wired handlers should be clean."""
+        handler = NodeRuntimeSweep()
+        request = RuntimeSweepRequest(
+            contracts=[
+                ModelContractInput(
+                    node_name="node_test",
+                    description="A proper node description for testing purposes",
+                    handler_module="omnimarket.handlers.test",
+                    handler_exists=True,
+                    publish_topics=["onex.evt.test.done.v1"],
+                    subscribe_topics=["onex.cmd.test.start.v1"],
+                )
+            ],
+            topic_producers=["onex.cmd.test.start.v1"],
+            topic_consumers=["onex.evt.test.done.v1"],
+        )
+        result = handler.handle(request)
+
+        assert result.status == "clean"
+        assert result.total_findings == 0
+
+    async def test_placeholder_description(self, event_bus: EventBusInmemory) -> None:
+        """Placeholder descriptions should be flagged."""
+        handler = NodeRuntimeSweep()
+        request = RuntimeSweepRequest(
+            contracts=[
+                ModelContractInput(
+                    node_name="node_bad",
+                    description="compute+abc123",
+                )
+            ]
+        )
+        result = handler.handle(request)
+
+        assert result.status == "findings"
+        assert result.by_type.get("PLACEHOLDER_DESCRIPTION", 0) >= 1
+
+    async def test_missing_description(self, event_bus: EventBusInmemory) -> None:
+        """Empty descriptions should be flagged."""
+        handler = NodeRuntimeSweep()
+        request = RuntimeSweepRequest(
+            contracts=[
+                ModelContractInput(
+                    node_name="node_empty",
+                    description="",
+                )
+            ]
+        )
+        result = handler.handle(request)
+
+        assert result.by_type.get("MISSING_DESCRIPTION", 0) >= 1
+
+    async def test_unwired_handler(self, event_bus: EventBusInmemory) -> None:
+        """Handler declared but not found should be flagged as CRITICAL."""
+        handler = NodeRuntimeSweep()
+        request = RuntimeSweepRequest(
+            contracts=[
+                ModelContractInput(
+                    node_name="node_ghost",
+                    description="A real description for the ghost node handler",
+                    handler_module="omnimarket.handlers.ghost",
+                    handler_exists=False,
+                )
+            ]
+        )
+        result = handler.handle(request)
+
+        assert result.by_type.get("UNWIRED_HANDLER", 0) >= 1
+        unwired = [
+            f
+            for f in result.findings
+            if f.finding_type == EnumFindingType.UNWIRED_HANDLER
+        ]
+        assert unwired[0].severity == "CRITICAL"
+
+    async def test_producer_only_topic(self, event_bus: EventBusInmemory) -> None:
+        """Topics with producer but no consumer should be flagged."""
+        handler = NodeRuntimeSweep()
+        request = RuntimeSweepRequest(
+            contracts=[
+                ModelContractInput(
+                    node_name="node_pub",
+                    description="A publishing node with real description text",
+                    publish_topics=["onex.evt.orphan.topic.v1"],
+                )
+            ],
+            topic_consumers=[],
+        )
+        result = handler.handle(request)
+
+        assert result.by_type.get("PRODUCER_ONLY", 0) >= 1
+
+    async def test_consumer_only_topic(self, event_bus: EventBusInmemory) -> None:
+        """Topics with consumer but no producer should be flagged."""
+        handler = NodeRuntimeSweep()
+        request = RuntimeSweepRequest(
+            contracts=[
+                ModelContractInput(
+                    node_name="node_sub",
+                    description="A subscribing node with real description text",
+                    subscribe_topics=["onex.cmd.orphan.topic.v1"],
+                )
+            ],
+            topic_producers=[],
+        )
+        result = handler.handle(request)
+
+        assert result.by_type.get("CONSUMER_ONLY", 0) >= 1
+
+    async def test_symmetric_topics(self, event_bus: EventBusInmemory) -> None:
+        """Topics with both producer and consumer should not be flagged."""
+        handler = NodeRuntimeSweep()
+        request = RuntimeSweepRequest(
+            contracts=[
+                ModelContractInput(
+                    node_name="node_sym",
+                    description="A symmetric node with real description for test",
+                    publish_topics=["onex.evt.sym.done.v1"],
+                    subscribe_topics=["onex.cmd.sym.start.v1"],
+                )
+            ],
+            topic_producers=["onex.cmd.sym.start.v1"],
+            topic_consumers=["onex.evt.sym.done.v1"],
+        )
+        result = handler.handle(request)
+
+        symmetry_findings = [
+            f
+            for f in result.findings
+            if f.finding_type
+            in (EnumFindingType.PRODUCER_ONLY, EnumFindingType.CONSUMER_ONLY)
+        ]
+        assert len(symmetry_findings) == 0
+
+    async def test_event_bus_wiring(self, event_bus: EventBusInmemory) -> None:
+        """Handler can be wired to event bus and process command events."""
+        handler = NodeRuntimeSweep()
+        results_captured: list[dict[str, object]] = []
+
+        async def on_command(message: object) -> None:
+            payload = json.loads(message.value)  # type: ignore[union-attr]
+            contracts = [ModelContractInput(**c) for c in payload.get("contracts", [])]
+            request = RuntimeSweepRequest(contracts=contracts)
+            result = handler.handle(request)
+            result_payload = {
+                "status": result.status,
+                "total_findings": result.total_findings,
+            }
+            results_captured.append(result_payload)
+            await event_bus.publish(
+                EVT_TOPIC,
+                key=None,
+                value=json.dumps(result_payload).encode(),
+            )
+
+        await event_bus.start()
+        await event_bus.subscribe(
+            CMD_TOPIC, on_message=on_command, group_id="test-runtime"
+        )
+
+        cmd_payload = json.dumps(
+            {
+                "contracts": [
+                    {
+                        "node_name": "node_ok",
+                        "description": "A properly described test node for runtime sweep",
+                    }
+                ]
+            }
+        ).encode()
+        await event_bus.publish(CMD_TOPIC, key=None, value=cmd_payload)
+
+        assert len(results_captured) == 1
+
+        history = await event_bus.get_event_history(topic=EVT_TOPIC)
+        assert len(history) == 1
+
+        await event_bus.close()
+
+    async def test_census_durability_check_skipped_when_no_manifest(
+        self, event_bus: EventBusInmemory
+    ) -> None:
+        """Durability check is skipped when durable_node_names is None."""
+        handler = NodeRuntimeSweep()
+        request = RuntimeSweepRequest(
+            contracts=[
+                ModelContractInput(
+                    node_name="node_dynamic_only",
+                    description="A node registered only via the dynamic listener",
+                )
+            ],
+            durable_node_names=None,
+        )
+        result = handler.handle(request)
+
+        assert result.by_type.get("NON_DURABLE_CONTRACT", 0) == 0
+
+    async def test_non_durable_contract_flagged_critical(
+        self, event_bus: EventBusInmemory
+    ) -> None:
+        """A live contract absent from the durable manifest is CRITICAL."""
+        handler = NodeRuntimeSweep()
+        request = RuntimeSweepRequest(
+            contracts=[
+                ModelContractInput(
+                    node_name="node_bundled",
+                    description="A node present in the image filesystem manifest",
+                ),
+                ModelContractInput(
+                    node_name="node_dynamic_only",
+                    description="A node registered only via the dynamic listener",
+                ),
+            ],
+            durable_node_names=["node_bundled"],
+        )
+        result = handler.handle(request)
+
+        non_durable = [
+            f
+            for f in result.findings
+            if f.finding_type == EnumFindingType.NON_DURABLE_CONTRACT
+        ]
+        assert len(non_durable) == 1
+        assert non_durable[0].subject == "node_dynamic_only"
+        assert non_durable[0].severity == "CRITICAL"
+
+    async def test_full_durable_census_is_clean(
+        self, event_bus: EventBusInmemory
+    ) -> None:
+        """When every live contract is in the durable manifest, no finding."""
+        handler = NodeRuntimeSweep()
+        request = RuntimeSweepRequest(
+            contracts=[
+                ModelContractInput(
+                    node_name="node_a",
+                    description="A durable node bundled in the runtime image",
+                ),
+                ModelContractInput(
+                    node_name="node_b",
+                    description="Another durable node bundled in the image",
+                ),
+            ],
+            durable_node_names=["node_a", "node_b", "node_extra_in_manifest"],
+        )
+        result = handler.handle(request)
+
+        assert result.by_type.get("NON_DURABLE_CONTRACT", 0) == 0
+
+    async def test_dry_run_flag(self, event_bus: EventBusInmemory) -> None:
+        """dry_run flag should propagate from request to result.
+
+        Carries one contract so the request does not trigger the OMN-13919
+        default $OMNI_HOME collection path (empty input now self-collects).
+        """
+        handler = NodeRuntimeSweep()
+        request = RuntimeSweepRequest(
+            contracts=[
+                ModelContractInput(
+                    node_name="node_dry_run_probe",
+                    description="A real description for the dry-run probe node.",
+                )
+            ],
+            dry_run=True,
+        )
+        result = handler.handle(request)
+
+        assert result.dry_run is True
+
+    async def test_short_description_flagged(self, event_bus: EventBusInmemory) -> None:
+        """Descriptions shorter than 10 chars should be flagged as placeholder."""
+        handler = NodeRuntimeSweep()
+        request = RuntimeSweepRequest(
+            contracts=[
+                ModelContractInput(
+                    node_name="node_short",
+                    description="TBD",
+                )
+            ]
+        )
+        result = handler.handle(request)
+
+        assert result.by_type.get("PLACEHOLDER_DESCRIPTION", 0) >= 1
+
+
+@pytest.mark.unit
+class TestRuntimeSweepConsumerLiveness:
+    """OMN-14528 per-contract live-consumer-group check.
+
+    Replaces the OMN-12957 per-profile ``PROFILE_CONSUMER`` vouching check. The
+    census is now the set of LIVE consumer GROUP IDS on the broker, and each
+    subscribing contract's OWN node-name identity must appear in one — a
+    sibling's live group in the same runtime_profile no longer vouches for it.
+    """
+
+    # A live consumer group id for a node has the canonical shape
+    # ``{env}.{service}.{node_name}.consume.{version}[.__t.{topic}]``.
+    @staticmethod
+    def _live_group(node_name: str) -> str:
+        return f"dev.omnimarket.{node_name}.consume.v1.__t.onex.cmd.demo.do.v1"
+
+    async def test_dead_corpse_flagged_despite_live_sibling(
+        self, event_bus: EventBusInmemory
+    ) -> None:
+        """A subscribing node with NO live group of its own is a silent orphan.
+
+        The class-fix proof: the census contains a LIVE group for a sibling
+        contract in the SAME runtime_profile, yet the corpse — which ships and
+        declares subscribe_topics but has zero consumer group — must still be
+        flagged. Under the old per-profile check the live sibling vouched for
+        the corpse (the exact 13-dead-contract false negative OMN-14528 closes).
+        """
+        handler = NodeRuntimeSweep()
+        request = RuntimeSweepRequest(
+            contracts=[
+                ModelContractInput(
+                    node_name="node_orphan_effect",
+                    description="An effect node with a real description here",
+                    handler_module="omnimarket.handlers.orphan",
+                    handler_exists=True,
+                    subscribe_topics=["onex.cmd.demo.do.v1"],
+                    runtime_profiles=["effects"],
+                )
+            ],
+            # A live sibling in the SAME profile — must NOT vouch for the corpse.
+            live_consumer_groups=[self._live_group("node_live_sibling")],
+            require_live_consumer_census=True,
+            enabled_checks=[EnumSweepCheck.CONSUMER_LIVENESS],
+        )
+        result = handler.handle(request)
+
+        assert result.by_type.get("CONTRACT_NO_LIVE_CONSUMER", 0) == 1
+        finding = next(
+            f
+            for f in result.findings
+            if f.finding_type == EnumFindingType.CONTRACT_NO_LIVE_CONSUMER
+        )
+        assert finding.subject == "node_orphan_effect"
+        assert finding.severity == "CRITICAL"
+        assert result.consumers_checked == 1
+        assert result.live_consumer_groups_scanned == 1
+
+    async def test_node_with_own_live_group_passes(
+        self, event_bus: EventBusInmemory
+    ) -> None:
+        """A node whose OWN node-name identity is in a live group is not orphaned."""
+        handler = NodeRuntimeSweep()
+        request = RuntimeSweepRequest(
+            contracts=[
+                ModelContractInput(
+                    node_name="node_live_effect",
+                    description="An effect node with a real description here",
+                    subscribe_topics=["onex.cmd.demo.do.v1"],
+                    runtime_profiles=["effects"],
+                )
+            ],
+            live_consumer_groups=[
+                self._live_group("node_live_effect"),
+                self._live_group("node_other"),
+            ],
+            require_live_consumer_census=True,
+            enabled_checks=[EnumSweepCheck.CONSUMER_LIVENESS],
+        )
+        result = handler.handle(request)
+
+        assert result.by_type.get("CONTRACT_NO_LIVE_CONSUMER", 0) == 0
+
+    async def test_census_required_but_none_raises(
+        self, event_bus: EventBusInmemory
+    ) -> None:
+        """A required census that is None is a HARD FAILURE, never a silent skip.
+
+        This is the exact anti-pattern OMN-14528 closes: the pre-fix check
+        skipped silently when the census was not collected (an operator-typed
+        flag nothing ever supplied), so it always passed with zero findings.
+        """
+        handler = NodeRuntimeSweep()
+        request = RuntimeSweepRequest(
+            contracts=[
+                ModelContractInput(
+                    node_name="node_effect",
+                    description="An effect node with a real description here",
+                    subscribe_topics=["onex.cmd.demo.do.v1"],
+                    runtime_profiles=["effects"],
+                )
+            ],
+            live_consumer_groups=None,
+            require_live_consumer_census=True,
+            enabled_checks=[EnumSweepCheck.CONSUMER_LIVENESS],
+        )
+        with pytest.raises(ValueError, match="census is None"):
+            handler.handle(request)
+
+    async def test_required_but_empty_census_raises(
+        self, event_bus: EventBusInmemory
+    ) -> None:
+        """A required census of zero live groups fails closed (scanned_count > 0)."""
+        handler = NodeRuntimeSweep()
+        request = RuntimeSweepRequest(
+            contracts=[
+                ModelContractInput(
+                    node_name="node_effect",
+                    description="An effect node with a real description here",
+                    subscribe_topics=["onex.cmd.demo.do.v1"],
+                    runtime_profiles=["effects"],
+                )
+            ],
+            live_consumer_groups=[],
+            require_live_consumer_census=True,
+            enabled_checks=[EnumSweepCheck.CONSUMER_LIVENESS],
+        )
+        with pytest.raises(ValueError, match="ZERO live consumer groups"):
+            handler.handle(request)
+
+    async def test_non_subscribing_node_exempt(
+        self, event_bus: EventBusInmemory
+    ) -> None:
+        """A publish-only node cannot be consumer-orphaned; it is not in scope."""
+        handler = NodeRuntimeSweep()
+        request = RuntimeSweepRequest(
+            contracts=[
+                ModelContractInput(
+                    node_name="node_publisher",
+                    description="A publisher node with a real description here",
+                    publish_topics=["onex.evt.demo.done.v1"],
+                    runtime_profiles=["effects"],
+                ),
+                # A second, subscribing node keeps the check scanning a non-zero
+                # count so the required-census scanned assertion is satisfied.
+                ModelContractInput(
+                    node_name="node_live_effect",
+                    description="An effect node with a real description here",
+                    subscribe_topics=["onex.cmd.demo.do.v1"],
+                    runtime_profiles=["effects"],
+                ),
+            ],
+            live_consumer_groups=[self._live_group("node_live_effect")],
+            require_live_consumer_census=True,
+            enabled_checks=[EnumSweepCheck.CONSUMER_LIVENESS],
+        )
+        result = handler.handle(request)
+
+        assert result.by_type.get("CONTRACT_NO_LIVE_CONSUMER", 0) == 0
+        # Only the subscribing node was in scope; the publisher was not scanned.
+        assert result.consumers_checked == 1
+
+
+@pytest.mark.unit
+class TestRuntimeSweepRegistrationPhase:
+    """OMN-13589: single-repo entry-point registration phase (BROKEN_ENTRY_POINT)."""
+
+    async def test_broken_entry_point_probe_flagged(
+        self, event_bus: EventBusInmemory
+    ) -> None:
+        """A failed entry-point probe becomes a CRITICAL BROKEN_ENTRY_POINT."""
+        handler = NodeRuntimeSweep()
+        request = RuntimeSweepRequest(
+            entry_point_probes=[
+                ModelEntryPointProbe(
+                    node_name="node_broken",
+                    module_path="pkg.nodes.node_broken",
+                    ok=False,
+                    reason="handler import failed: No module named 'pkg'",
+                )
+            ],
+            enabled_checks=[EnumSweepCheck.REGISTRATION],
+        )
+        result = handler.handle(request)
+
+        assert result.status == "findings"
+        assert result.entry_points_checked == 1
+        broken = [
+            f
+            for f in result.findings
+            if f.finding_type == EnumFindingType.BROKEN_ENTRY_POINT
+        ]
+        assert len(broken) == 1
+        assert broken[0].subject == "node_broken"
+        assert broken[0].severity == "CRITICAL"
+        assert (
+            broken[0].message
+            == "pkg.nodes.node_broken: handler import failed: No module named 'pkg'"
+        )
+
+    async def test_clean_entry_point_probes_no_findings(
+        self, event_bus: EventBusInmemory
+    ) -> None:
+        """All-ok probes under REGISTRATION produce a clean result."""
+        handler = NodeRuntimeSweep()
+        request = RuntimeSweepRequest(
+            entry_point_probes=[
+                ModelEntryPointProbe(
+                    node_name="node_ok", module_path="pkg.nodes.node_ok", ok=True
+                )
+            ],
+            enabled_checks=[EnumSweepCheck.REGISTRATION],
+        )
+        result = handler.handle(request)
+
+        assert result.status == "clean"
+        assert result.total_findings == 0
+        assert result.entry_points_checked == 1
+
+    async def test_registration_scope_suppresses_symmetry_and_description(
+        self, event_bus: EventBusInmemory
+    ) -> None:
+        """enabled_checks=[REGISTRATION] must NOT emit symmetry/description findings.
+
+        Single-repo scoping is the whole point of OMN-13589: a request that
+        also carries contracts with asymmetric topics and a missing description
+        must surface ONLY the entry-point finding under REGISTRATION scope.
+        """
+        handler = NodeRuntimeSweep()
+        request = RuntimeSweepRequest(
+            contracts=[
+                ModelContractInput(
+                    node_name="node_asym",
+                    description="",  # MISSING_DESCRIPTION if DESCRIPTION phase ran
+                    publish_topics=["onex.evt.orphan.topic.v1"],  # PRODUCER_ONLY
+                    subscribe_topics=["onex.cmd.lonely.topic.v1"],  # CONSUMER_ONLY
+                )
+            ],
+            entry_point_probes=[
+                ModelEntryPointProbe(
+                    node_name="node_broken",
+                    module_path="pkg.nodes.node_broken",
+                    ok=False,
+                    reason="contract.yaml missing",
+                )
+            ],
+            enabled_checks=[EnumSweepCheck.REGISTRATION],
+        )
+        result = handler.handle(request)
+
+        types = {f.finding_type for f in result.findings}
+        assert types == {EnumFindingType.BROKEN_ENTRY_POINT}
+        assert EnumFindingType.PRODUCER_ONLY not in types
+        assert EnumFindingType.CONSUMER_ONLY not in types
+        assert EnumFindingType.MISSING_DESCRIPTION not in types
+
+    async def test_default_enabled_checks_runs_all_phases(
+        self, event_bus: EventBusInmemory
+    ) -> None:
+        """enabled_checks=None preserves the original full-sweep behavior.
+
+        The same asymmetric, description-less contract that REGISTRATION scope
+        suppresses must, under the default (None), still surface the symmetry
+        and description findings — and REGISTRATION emits nothing absent probes.
+        """
+        handler = NodeRuntimeSweep()
+        request = RuntimeSweepRequest(
+            contracts=[
+                ModelContractInput(
+                    node_name="node_asym",
+                    description="",
+                    publish_topics=["onex.evt.orphan.topic.v1"],
+                    subscribe_topics=["onex.cmd.lonely.topic.v1"],
+                )
+            ],
+            # enabled_checks omitted ⇒ None ⇒ all phases run.
+        )
+        result = handler.handle(request)
+
+        types = {f.finding_type for f in result.findings}
+        assert EnumFindingType.MISSING_DESCRIPTION in types
+        assert EnumFindingType.PRODUCER_ONLY in types
+        assert EnumFindingType.CONSUMER_ONLY in types
+        # No probes supplied ⇒ REGISTRATION emits nothing under the default.
+        assert EnumFindingType.BROKEN_ENTRY_POINT not in types

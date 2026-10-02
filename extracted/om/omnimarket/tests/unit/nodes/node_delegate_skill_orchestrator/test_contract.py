@@ -1,0 +1,228 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Contract tests for node_delegate_skill_orchestrator."""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any, get_args
+
+import pytest
+import yaml
+
+from omnimarket.nodes.node_delegate_skill_orchestrator.models.model_delegate_skill_request import (
+    ModelDelegateSkillRequest,
+)
+from omnimarket.nodes.node_delegate_skill_orchestrator.ports import (
+    load_runtime_delegation_dispatch_config,
+)
+
+_NODE_DIR = (
+    Path(__file__).resolve().parents[4]
+    / "src"
+    / "omnimarket"
+    / "nodes"
+    / "node_delegate_skill_orchestrator"
+)
+_CONTRACT_PATH = _NODE_DIR / "contract.yaml"
+_METADATA_PATH = _NODE_DIR / "metadata.yaml"
+
+
+def _load_contract() -> dict[str, Any]:
+    return yaml.safe_load(_CONTRACT_PATH.read_text())
+
+
+def _top_level_contract_keys() -> list[str]:
+    document = yaml.compose(_CONTRACT_PATH.read_text())
+    assert isinstance(document, yaml.MappingNode)
+    return [key.value for key, _ in document.value]
+
+
+@pytest.mark.unit
+def test_contract_has_one_complete_inputs_mapping() -> None:
+    """DR-14: duplicate mappings cannot hide request-model fields."""
+
+    top_level_keys = _top_level_contract_keys()
+    assert top_level_keys.count("inputs") == 1
+    assert len(top_level_keys) == len(set(top_level_keys))
+
+    contract_inputs = _load_contract()["inputs"]
+    assert set(contract_inputs) == set(ModelDelegateSkillRequest.model_fields)
+    assert contract_inputs["correlation_id"] == {
+        "type": "uuid",
+        "required": False,
+        "description": "Correlation identifier generated when the caller omits it.",
+    }
+
+
+@pytest.mark.unit
+def test_contract_declares_named_topic_fields() -> None:
+    contract = _load_contract()
+    rd = contract["runtime_dispatch"]
+    assert rd["command_topic"] == "onex.cmd.omnimarket.delegate-skill.v1"
+    assert (
+        rd["terminal_events"]["success"]
+        == "onex.evt.omnimarket.delegate-skill-completed.v1"
+    )
+    assert (
+        rd["terminal_events"]["failure"]
+        == "onex.evt.omnimarket.delegate-skill-failed.v1"
+    )
+    assert rd["default_timeout_ms"] == 300000
+    assert rd["max_timeout_ms"] == 900000
+
+
+@pytest.mark.unit
+def test_contract_declares_delegation_runtime_dispatch_config() -> None:
+    config = load_runtime_delegation_dispatch_config(_CONTRACT_PATH)
+
+    assert config.topics.command == "onex.cmd.omnibase-infra.delegation-request.v1"
+    assert config.topics.completed == "onex.evt.omnibase-infra.delegation-completed.v1"
+    assert config.topics.failed == "onex.evt.omnibase-infra.delegation-failed.v1"
+    assert config.request_message_type == "omnibase-infra.delegation-request"
+    assert config.source_tool == "delegate-skill-runtime-port"
+    assert config.consumer_group_prefix == "delegate-skill-runtime-port"
+    assert config.wait_timeout_seconds == 300
+
+
+@pytest.mark.unit
+def test_contract_declares_runtime_profile() -> None:
+    # Fix for OMN-13104: top-level runtime_profiles: [main] was a stray authoring
+    # error that caused profile_ownership.py to wire this node into the main kernel
+    # without a dispatcher.  The correct profile is descriptor.runtime_profiles:
+    # [effects].  There must be NO top-level runtime_profiles key.
+    contract = _load_contract()
+    assert "runtime_profiles" not in contract, (
+        "node_delegate_skill_orchestrator must NOT declare top-level runtime_profiles; "
+        "the effective profile is declared in descriptor.runtime_profiles: [effects]"
+    )
+    descriptor = contract.get("descriptor", {})
+    assert descriptor.get("runtime_profiles") == ["effects"], (
+        "node_delegate_skill_orchestrator must declare descriptor.runtime_profiles: [effects]"
+    )
+
+
+@pytest.mark.unit
+def test_contract_declares_allowed_task_types() -> None:
+    contract = _load_contract()
+    assert set(contract["allowed_task_types"]) == {
+        "test",
+        "document",
+        "research",
+        "code_generation",
+        "code_review",
+        "refactor",
+        "reasoning",
+        "complex_reasoning",
+        "planning",
+        "review",
+        "summarization",
+        "agent_delegation",
+        "escalation",
+        "documentation",
+        "validator_generation",
+    }
+
+
+@pytest.mark.unit
+def test_contract_model_task_types_match() -> None:
+    contract = _load_contract()
+    model_task_types = set(
+        get_args(ModelDelegateSkillRequest.model_fields["task_type"].annotation)
+    )
+    assert set(contract["allowed_task_types"]) == model_task_types
+
+
+@pytest.mark.unit
+def test_contract_declares_max_tokens_optional_without_hardcap() -> None:
+    """OMN-13161: max_tokens is optional, no 8192 default, no 8192 hardcap.
+
+    The effective value is resolved from the selected backend's per-backend
+    ceiling in the routing contract; the schema only carries the absolute bound.
+    """
+    max_tokens = _load_contract()["inputs"]["max_tokens"]
+
+    assert max_tokens["required"] is False
+    assert "default" not in max_tokens
+    assert max_tokens["minimum"] == 1
+    assert max_tokens["maximum"] == 200000
+
+
+@pytest.mark.unit
+def test_contract_declares_timeout_behavior() -> None:
+    contract = _load_contract()
+    tb = contract["timeout_behavior"]
+    assert tb["default_ms"] == 300000
+    assert tb["max_ms"] == 900000
+    assert tb["terminal_response"]["status"] == "timeout"
+
+
+@pytest.mark.unit
+def test_contract_declares_cross_repo_dependencies() -> None:
+    contract = _load_contract()
+    deps = contract["cross_repo_dependencies"]
+    assert len(deps) == 1
+    dep = deps[0]
+    assert dep["repo"] == "omnimarket"
+    assert dep["node"] == "node_delegation_orchestrator"
+    assert dep["contract_name"] == "node_delegation_orchestrator"
+    assert "onex.cmd.omnibase-infra.delegation-request.v1" in dep["required_topics"]
+    assert "onex.evt.omnibase-infra.delegation-completed.v1" in dep["terminal_events"]
+    assert "onex.evt.omnibase-infra.delegation-failed.v1" in dep["terminal_events"]
+    model_names = {m["name"] for m in dep["required_models"]}
+    assert "ModelDelegationRequest" in model_names
+
+
+@pytest.mark.unit
+def test_contract_handler_module_resolves() -> None:
+    contract = _load_contract()
+    handler = contract["handler"]
+    parts = handler["module"].split(".")
+    module_file = (
+        Path(__file__).resolve().parents[4] / "src" / Path(*parts)
+    ).with_suffix(".py")
+    assert module_file.exists(), module_file
+
+
+@pytest.mark.unit
+def test_contract_event_bus_topics_match_runtime_dispatch() -> None:
+    contract = _load_contract()
+    rd = contract["runtime_dispatch"]
+    eb = contract["event_bus"]
+    assert eb["plugin_managed"] is False
+    assert rd["command_topic"] in eb["subscribe_topics"]
+    assert rd["terminal_events"]["success"] in eb["publish_topics"]
+    assert rd["terminal_events"]["failure"] in eb["publish_topics"]
+
+
+@pytest.mark.unit
+def test_handler_routing_has_message_category_command() -> None:
+    """Regression for DEL-06 / OMN-13123.
+
+    Without message_category: command in handler_routing the runtime dispatcher
+    cannot match the command category, causing direct publishes to
+    onex.cmd.omnimarket.delegate-skill.v1 to dead-letter.
+    """
+    contract = _load_contract()
+    routing = contract["handler_routing"]
+    assert routing["routing_strategy"] == "operation_match"
+    handlers = routing["handlers"]
+    assert len(handlers) >= 1, "handler_routing must declare at least one handler"
+    entry = handlers[0]
+    assert entry.get("message_category") == "command", (
+        "handler_routing entry must set message_category: command so the runtime "
+        "dispatcher can match the command category on onex.cmd.omnimarket.delegate-skill.v1"
+    )
+
+
+@pytest.mark.unit
+def test_metadata_registers_entry_points() -> None:
+    metadata = yaml.safe_load(_METADATA_PATH.read_text())
+    assert (
+        metadata["entry_points"]["onex.nodes"]["node_delegate_skill_orchestrator"]
+        == "omnimarket.nodes.node_delegate_skill_orchestrator"
+    )
+    assert (
+        metadata["entry_points"]["project.scripts"]["onex-delegate"]
+        == "omnimarket.adapters.claude_code.delegate:main"
+    )

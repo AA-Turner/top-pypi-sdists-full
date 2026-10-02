@@ -203,9 +203,7 @@ def verify_file_storage_exists(
         return _get_aws_efs_mount_target_ip(boto3_session, file_storage_id) is not None
 
     elif provider_value == CloudProviders.GCP:
-        filestore_info = get_gcp_filestore_info(
-            file_storage_id, cloud_deployment, logger
-        )
+        filestore_info = get_gcp_filestore_info(file_storage_id, cloud_deployment, logger)
         return filestore_info.exists
 
     else:

@@ -1,0 +1,89 @@
+"""1x1 range operands of binary ops must resolve to scalars (issue #421).
+
+Excel collapses a single-cell reference (including INDEX returning one cell)
+to its value in scalar context. Materializing 1x1 ranges as arrays makes
+`IF(INDEX(...)="Yes", ...)` return `#VALUE!`, and `IFERROR` then silently
+substitutes the fallback.
+"""
+
+from __future__ import annotations
+
+import xlsxwriter
+
+from excel_grapher import DependencyGraph, Node, create_dependency_graph
+from excel_grapher.core.address_keys import parse_address
+from tests.integration.utils.parity_harness import evaluate_targets
+
+
+def _make_node(address: str, formula: str | None, value: object) -> Node:
+    sheet, coord = parse_address(address)
+    col = "".join(c for c in coord if c.isalpha())
+    row = int("".join(c for c in coord if c.isdigit()))
+    return Node(
+        sheet=sheet,
+        column=col,
+        row=row,
+        formula=formula,
+        normalized_formula=formula,
+        value=value,
+        is_leaf=formula is None,
+    )
+
+
+def _make_graph(*nodes: Node) -> DependencyGraph:
+    graph = DependencyGraph()
+    for node in nodes:
+        graph.add_node(node)
+    return graph
+
+
+def test_literal_1x1_range_unary_and_broadcast_parity() -> None:
+    """Evaluator and export agree on literal 1x1 range operator formulas."""
+    graph = _make_graph(
+        _make_node("S!A1", None, "Yes"),
+        _make_node("S!A2", None, "x"),
+        _make_node("S!A3", None, "y"),
+        _make_node("S!A4", None, 5),
+        _make_node("S!B1", None, 10),
+        _make_node("S!B2", None, 20),
+        _make_node("S!B3", None, 30),
+        _make_node("S!C1", '=IF(S!A1:S!A1="Yes",1,2)', None),
+        _make_node("S!C2", '=SUM((S!A1:S!A1="x")*S!B1:S!B3)', None),
+        _make_node("S!C3", "=-(S!A4:S!A4)", None),
+        _make_node("S!C4", '=SUM((S!A1:S!A1="Yes")*S!B1:S!B3)', None),
+    )
+    results = evaluate_targets(graph, ["S!C1", "S!C2", "S!C3", "S!C4"])
+    assert results == {
+        "S!C1": 1,
+        "S!C2": 0.0,
+        "S!C3": -5.0,
+        "S!C4": 60.0,
+    }
+
+
+def test_index_binary_ops_eval_codegen_parity(tmp_path) -> None:
+    """Evaluator and export agree on INDEX 1x1 binary-op formulas from issue #421."""
+    workbook = tmp_path / "mcve_1x1_ranges.xlsx"
+    writer = xlsxwriter.Workbook(workbook)
+    worksheet = writer.add_worksheet("S")
+    worksheet.write_string(0, 0, "Yes")
+    worksheet.write_string(1, 0, "No")
+    worksheet.write_formula(0, 1, '=IF(INDEX(A1:A2,1,1)="Yes",1,2)', None, 1)
+    worksheet.write_formula(
+        1,
+        1,
+        '=IFERROR(IF(INDEX(A1:A2,1,1)="Yes","Yes",""),"")',
+        None,
+        "Yes",
+    )
+    worksheet.write_formula(2, 1, "=INDEX(A1:A2,2,1)&INDEX(A1:A2,1,1)", None, "NoYes")
+    writer.close()
+
+    cells = ["S!B1", "S!B2", "S!B3"]
+    graph = create_dependency_graph(workbook, cells, load_values=True)
+    results = evaluate_targets(graph, cells)
+    assert results == {
+        "S!B1": 1,
+        "S!B2": "Yes",
+        "S!B3": "NoYes",
+    }

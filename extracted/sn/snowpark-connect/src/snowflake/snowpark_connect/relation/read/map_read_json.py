@@ -886,6 +886,7 @@ def map_read_json(
             )
 
         from snowflake.snowpark_connect.nss.nss_scan_options import (
+            needs_locations,
             normalize_stage_paths,
         )
 
@@ -943,7 +944,11 @@ def map_read_json(
             )
             if not nss_columns:
                 ensure_nss_empty_schema_has_visible_files(
-                    session, nss_stage_path, "JSON", stage_paths=nss_stage_paths
+                    session,
+                    nss_stage_path,
+                    "JSON",
+                    stage_paths=nss_stage_paths,
+                    glob_patterns=glob_patterns,
                 )
                 # A JSON object such as {} has no fields but still contributes a
                 # row. Read a missing nullable field and hide it below so the TVF
@@ -1057,9 +1062,7 @@ def map_read_json(
                 df, rel.common.plan_id
             )
         except SnowparkSQLException as exc:
-            if len(nss_stage_paths) > 1 or any(
-                p in (glob_patterns or {}) for p in nss_stage_paths
-            ):
+            if needs_locations(nss_stage_paths, glob_patterns):
                 raise_if_locations_unsupported(exc, len(nss_stage_paths))
             raise
         # Memoizable in df_cache_map, but not materialized (SNOW-3717231).

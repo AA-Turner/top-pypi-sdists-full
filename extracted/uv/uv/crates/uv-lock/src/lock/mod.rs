@@ -26,7 +26,7 @@ use uv_configuration::{
     ExtrasSpecificationWithDefaults, ForkStrategy, InstallTarget, NormalizedConstraints,
     NormalizedExcludes, NormalizedOverrideEntries, NormalizedRequirements, Override, Overrides,
     PackageOverride, Prerelease, PrereleaseMode, PrereleasePackage, ResolutionMode,
-    ScopedOverrideSourceError,
+    ScopedOverrideSourceError, Upgrade,
 };
 use uv_distribution::{
     DistributionDatabase, FlatRequiresDist, Metadata as DistributionMetadata, RequiresDist,
@@ -47,7 +47,7 @@ use uv_distribution_types::{
 use uv_fs::{PortablePath, PortablePathBuf, Simplified, normalize_path, try_relative_to_if};
 use uv_git::{RepositoryReference, ResolvedRepositoryReference};
 use uv_git_types::{GitLfs, GitOid, GitReference, GitUrl, GitUrlParseError};
-use uv_normalize::{ExtraName, GroupName, PackageName};
+use uv_normalize::{DEV_DEPENDENCIES, DefaultGroups, ExtraName, GroupName, PackageName};
 use uv_pep440::{Version, VersionSpecifiers};
 use uv_pep508::{
     MarkerEnvironment, MarkerTree, Scheme, VerbatimUrl, VerbatimUrlError, split_scheme,
@@ -68,6 +68,7 @@ use uv_resolver_types::{
 use uv_small_str::SmallString;
 use uv_types::{BuildContext, HashStrategy};
 use uv_warnings::warn_user_once;
+use uv_workspace::dependency_groups::{DependencyGroupError, FlatDependencyGroups};
 use uv_workspace::{Editability, WorkspaceMember};
 
 pub use crate::lock::deserialize::Error as CanonicalLockError;
@@ -118,10 +119,21 @@ pub enum LockParseError {
 }
 
 /// The current revision of the lockfile format.
-const REVISION: u32 = 3;
+///
+/// Version 1 revisions:
+/// - 0: The original format; a missing `revision` is read as 0.
+/// - 1: Record `provides-extras` and empty dependency group metadata.
+/// - 2: Record distribution upload times.
+/// - 3: Record package-specific `exclude-newer` values.
+/// - 4: Support omitting package declaration metadata and record empty extras and groups.
+/// - 5: Record default groups and dependency group metadata for workspace members and roots.
+const REVISION: u32 = 5;
 
-/// The first lockfile revision that supports omitting package declaration metadata.
-const METADATA_FREE_REVISION: u32 = 4;
+/// The first lockfile revision that records default groups for workspace members and roots.
+const DEFAULT_GROUPS_REVISION: u32 = 5;
+
+/// The first lockfile revision that records workspace member dependency group metadata.
+const MEMBER_GROUP_METADATA_REVISION: u32 = 5;
 
 static LINUX_MARKERS: LazyLock<UniversalMarker> = LazyLock::new(|| {
     let pep508 = MarkerTree::from_str("os_name == 'posix' and sys_platform == 'linux'").unwrap();
@@ -338,6 +350,8 @@ pub struct Lock {
     /// that exists in this map. That is, there are no dependencies that don't
     /// have a corresponding locked package entry in the same lockfile.
     by_id: FxHashMap<PackageId, PackageIndex>,
+    /// Workspace members indexed by name, including the implicit single-project root.
+    workspace_members: BTreeMap<PackageName, PackageIndex>,
     /// The input requirements to the resolution.
     manifest: ResolverManifest,
 }
@@ -2703,15 +2717,24 @@ impl Lock {
         }
         packages.sort_by(|dist1, dist2| dist1.id.cmp(&dist2.id));
 
-        // Check for duplicate package IDs and also build up the map for
-        // packages keyed by their ID.
+        // Check for duplicate package IDs and index packages by ID and workspace member name.
         let mut by_id = FxHashMap::default();
+        let mut workspace_members = BTreeMap::new();
         for (index, dist) in packages.iter().enumerate() {
             if by_id.insert(dist.id.clone(), PackageIndex(index)).is_some() {
                 return Err(LockErrorKind::DuplicatePackage {
                     id: dist.id.clone(),
                 }
                 .into());
+            }
+
+            // A single-project lockfile can omit its root from the manifest's member list.
+            let is_member = manifest.members.contains(&dist.id.name)
+                || (manifest.members.is_empty()
+                    && workspace_members.is_empty()
+                    && dist.id.source.is_implicit_root());
+            if is_member {
+                workspace_members.insert(dist.id.name.clone(), PackageIndex(index));
             }
         }
 
@@ -2788,6 +2811,7 @@ impl Lock {
             options,
             packages,
             by_id,
+            workspace_members,
             manifest,
         };
         Ok(lock)
@@ -2810,13 +2834,60 @@ impl Lock {
         self
     }
 
+    /// Record the default groups for workspace members in a revision 5 or newer lockfile.
+    ///
+    /// The implicit `["dev"]` default is omitted.
+    #[must_use]
+    pub fn with_member_default_groups(
+        mut self,
+        groups: BTreeMap<PackageName, DefaultGroups>,
+    ) -> Self {
+        let mut groups = nonstandard_member_default_groups(groups);
+        for (name, index) in &self.workspace_members {
+            self.packages[index.0].default_groups = groups.remove(name);
+        }
+        self
+    }
+
+    /// Record the default groups for a workspace root without a `[project]` table.
+    #[must_use]
+    pub fn with_workspace_default_groups(mut self, groups: Option<DefaultGroups>) -> Self {
+        self.manifest.default_groups = groups.filter(|groups| match groups {
+            DefaultGroups::All => true,
+            DefaultGroups::List(groups) => groups.as_slice() != [DEV_DEPENDENCIES.clone()],
+        });
+        self
+    }
+
+    /// Record member group metadata, including Python requirements inherited from included groups.
+    pub fn with_member_group_metadata(
+        mut self,
+        packages: &BTreeMap<PackageName, WorkspaceMember>,
+    ) -> Result<Self, LockError> {
+        let mut metadata = collect_member_group_metadata(packages)?;
+        for (name, index) in &self.workspace_members {
+            self.packages[index.0].group_requires_python =
+                metadata.remove(name).unwrap_or_default();
+        }
+        Ok(self)
+    }
+
+    /// Record dependency group metadata for a workspace root without a `[project]` table.
+    #[must_use]
+    pub fn with_workspace_group_metadata(
+        mut self,
+        groups: BTreeMap<GroupName, GroupMetadata>,
+    ) -> Self {
+        self.manifest.group_requires_python = groups;
+        self
+    }
+
     /// Omit package metadata except for remote URL and Git dependencies.
     ///
     /// Local declarations can be reread from disk. Remote URL and Git declarations remain in the
     /// lockfile so freshness checks can determine offline whether a source is requested or stale.
     #[must_use]
     fn without_package_metadata(mut self) -> Self {
-        self.revision = METADATA_FREE_REVISION;
         let workspace_root = self.root().map(|package| package.id.clone());
         for package in &mut self.packages {
             if matches!(package.id.source, Source::Direct(..) | Source::Git(..)) {
@@ -2867,11 +2938,6 @@ impl Lock {
         (self.version(), self.revision()) >= (1, 1)
     }
 
-    /// Returns `true` if this [`Lock`] can validate packages without declaration metadata.
-    pub fn supports_missing_package_metadata(&self) -> bool {
-        (self.version(), self.revision()) >= (VERSION, METADATA_FREE_REVISION)
-    }
-
     /// Returns `true` if this [`Lock`] includes entries for empty `dependency-group` metadata.
     fn includes_empty_groups(&self) -> bool {
         // Empty dependency groups are included as of https://github.com/astral-sh/uv/pull/8598,
@@ -2904,14 +2970,63 @@ impl Lock {
         &self.packages
     }
 
+    /// Resolve package and dependency-group upgrade selections against this lockfile.
+    pub fn upgrade_packages(&self, upgrade: &Upgrade) -> FxHashSet<PackageName> {
+        if upgrade.is_all() {
+            return self
+                .packages
+                .iter()
+                .map(|package| package.name().clone())
+                .collect();
+        }
+
+        // Resolve the full set of packages to upgrade, combining `--upgrade-package` and
+        // `--upgrade-group`.
+        let mut upgrade_packages = upgrade.packages().cloned().unwrap_or_default();
+        if upgrade.packages().is_some()
+            && let Some(groups) = upgrade.groups()
+        {
+            // Check package-level dependency groups (the standard case for projects with
+            // a `[project]` table).
+            for package in self.packages() {
+                for (group_name, dependencies) in package.resolved_dependency_groups() {
+                    if groups.contains(group_name) {
+                        for dependency in dependencies {
+                            upgrade_packages.insert(dependency.package_name().clone());
+                        }
+                    }
+                }
+            }
+
+            // Check manifest-level dependency groups, which cover projects without a
+            // `[project]` table (e.g., virtual workspace roots or PEP 723 scripts).
+            for (group_name, requirements) in self.dependency_groups() {
+                if groups.contains(group_name) {
+                    for requirement in requirements {
+                        upgrade_packages.insert(requirement.name.clone());
+                    }
+                }
+            }
+        }
+
+        upgrade_packages
+    }
+
     /// Return a [`HashStrategy`] that verifies artifacts recorded in this lockfile.
     ///
-    /// Artifacts absent from the lockfile do not require hashes. This strategy does not generate
-    /// hashes for those artifacts.
-    pub fn hash_strategy(&self, root: &Path) -> Result<HashStrategy, LockError> {
+    /// Registry hashes apply to package names and versions; direct archive hashes apply to URLs
+    /// or paths. Packages in `excluded_packages` are skipped. This strategy does not generate hashes.
+    pub fn hash_strategy(
+        &self,
+        root: &Path,
+        excluded_packages: &FxHashSet<PackageName>,
+    ) -> Result<HashStrategy, LockError> {
         let mut hashes: FxHashMap<VersionId, Vec<HashDigest>> = FxHashMap::default();
 
         for package in &self.packages {
+            if excluded_packages.contains(package.name()) {
+                continue;
+            }
             let (id, package_hashes) = match &package.id.source {
                 Source::Registry(_) => {
                     let Some(version) = &package.id.version else {
@@ -3043,10 +3158,85 @@ impl Lock {
         &self.manifest.members
     }
 
+    /// Return the recorded default groups for workspace members, if supported by the lockfile.
+    ///
+    /// uv-generated lockfiles omit entries for the standard `dev` default.
+    pub fn configured_member_default_groups(
+        &self,
+    ) -> Option<impl Iterator<Item = (&PackageName, &DefaultGroups)>> {
+        ((self.version(), self.revision()) >= (VERSION, DEFAULT_GROUPS_REVISION)).then(|| {
+            self.workspace_packages().filter_map(|package| {
+                package
+                    .default_groups
+                    .as_ref()
+                    .map(|groups| (&package.id.name, groups))
+            })
+        })
+    }
+
+    /// Return a non-project workspace root's default groups, assuming `dev` when not recorded.
+    ///
+    /// Returns `None` if the lockfile predates this metadata.
+    pub fn workspace_default_groups(&self) -> Option<DefaultGroups> {
+        ((self.version(), self.revision()) >= (VERSION, DEFAULT_GROUPS_REVISION)).then(|| {
+            self.manifest
+                .default_groups
+                .clone()
+                .unwrap_or_else(|| DefaultGroups::from_groups(vec![DEV_DEPENDENCIES.clone()]))
+        })
+    }
+
+    /// Return the dependency group metadata recorded for workspace members.
+    ///
+    /// `None` means the lockfile predates this metadata; an absent group in a returned map has no
+    /// group-specific metadata.
+    pub fn member_group_metadata(
+        &self,
+    ) -> Option<impl Iterator<Item = (&PackageName, &BTreeMap<GroupName, GroupMetadata>)>> {
+        ((self.version(), self.revision()) >= (VERSION, MEMBER_GROUP_METADATA_REVISION)).then(
+            || {
+                self.workspace_packages()
+                    .filter(|package| !package.group_requires_python.is_empty())
+                    .map(|package| (&package.id.name, &package.group_requires_python))
+            },
+        )
+    }
+
+    /// Return dependency group metadata for a workspace root without a `[project]` table.
+    pub fn workspace_group_metadata(&self) -> &BTreeMap<GroupName, GroupMetadata> {
+        &self.manifest.group_requires_python
+    }
+
+    /// Return a workspace member's default groups, assuming `dev` when not recorded.
+    ///
+    /// Returns `None` if the lockfile predates this metadata or the name is not a workspace member.
+    /// A single-project lockfile's root counts as a member even when the workspace member list is
+    /// omitted.
+    pub fn member_default_groups(&self, name: &PackageName) -> Option<DefaultGroups> {
+        if (self.version(), self.revision()) < (VERSION, DEFAULT_GROUPS_REVISION) {
+            return None;
+        }
+        let index = *self.workspace_members.get(name)?;
+        Some(
+            self.package(index)
+                .default_groups
+                .clone()
+                .unwrap_or_else(|| DefaultGroups::from_groups(vec![DEV_DEPENDENCIES.clone()])),
+        )
+    }
+
     /// Returns `true` if the package is a workspace member.
     fn is_workspace_member(&self, package: &Package) -> bool {
-        self.members().contains(&package.id.name)
-            || self.members().is_empty() && self.root().is_some_and(|root| root.id == package.id)
+        self.workspace_members
+            .get(&package.id.name)
+            .is_some_and(|&index| self.package(index).id == package.id)
+    }
+
+    /// Return the workspace packages, including the implicit single-project root.
+    fn workspace_packages(&self) -> impl Iterator<Item = &Package> {
+        self.workspace_members
+            .values()
+            .map(|&index| self.package(index))
     }
 
     /// Returns the root requirements that were used to generate this lock.
@@ -3076,7 +3266,7 @@ impl Lock {
     }
 
     /// Returns the dependency groups that were used to generate this lock.
-    pub fn dependency_groups(&self) -> &BTreeMap<GroupName, BTreeSet<Requirement>> {
+    fn dependency_groups(&self) -> &BTreeMap<GroupName, BTreeSet<Requirement>> {
         &self.manifest.dependency_groups
     }
 
@@ -3350,34 +3540,14 @@ impl Lock {
             }
         }
 
-        // Identify workspace members (the implicit root counts for single-member workspaces).
-        let workspace_members: FxHashSet<PackageIndex> = if self.members().is_empty() {
-            self.root()
-                .into_iter()
-                .map(|package| self.by_id[&package.id])
-                .collect()
-        } else {
-            self.packages
-                .iter()
-                .enumerate()
-                .filter(|(_, package)| self.members().contains(&package.id.name))
-                .map(|(index, _)| PackageIndex(index))
-                .collect()
-        };
-
         // Lockfile traversal state: (package, optional extra to activate on that package).
         let mut queue: VecDeque<(PackageIndex, Option<&ExtraName>)> = VecDeque::new();
         let mut seen: FxHashSet<(PackageIndex, Option<&ExtraName>)> = FxHashSet::default();
 
         // Seed from workspace members. Always queue with `None` so that we can traverse
         // their dependency groups; only queue extras when prod mode is active.
-        for (index, package) in self
-            .packages
-            .iter()
-            .enumerate()
-            .filter(|(index, _)| workspace_members.contains(&PackageIndex(*index)))
-        {
-            let index = PackageIndex(index);
+        for &index in self.workspace_members.values() {
+            let package = self.package(index);
             if seen.insert((index, None)) {
                 queue.push_back((index, None));
             }
@@ -3438,7 +3608,7 @@ impl Lock {
 
         while let Some((index, extra)) = queue.pop_front() {
             let package = self.package(index);
-            let is_member = workspace_members.contains(&index);
+            let is_member = self.is_workspace_member(package);
 
             // Collect non-workspace packages that have version information
             // and pass the caller's filter.
@@ -3485,12 +3655,9 @@ impl Lock {
 
     /// Return the workspace root used to generate this lock.
     pub fn root(&self) -> Option<&Package> {
-        self.packages.iter().find(|package| {
-            let (Source::Editable(path) | Source::Virtual(path)) = &package.id.source else {
-                return false;
-            };
-            path.as_ref() == Path::new("")
-        })
+        self.packages
+            .iter()
+            .find(|package| package.id.source.is_implicit_root())
     }
 
     /// Returns the supported environments that were used to generate this
@@ -3644,11 +3811,7 @@ impl Lock {
 
     /// Return whether a source tree belongs to the workspace or represents its root.
     fn is_workspace_package(&self, package: &Package) -> bool {
-        self.members().contains(&package.id.name)
-            || matches!(
-                &package.id.source,
-                Source::Editable(path) | Source::Virtual(path) if path.as_ref() == Path::new("")
-            )
+        self.members().contains(&package.id.name) || package.id.source.is_implicit_root()
     }
 
     /// Returns the package with the given name. If there are multiple
@@ -4026,6 +4189,8 @@ impl Lock {
         excludes: &[ExcludeDependency],
         build_constraints: &Constraints,
         dependency_groups: &BTreeMap<GroupName, Vec<Requirement>>,
+        workspace_group_metadata: &BTreeMap<GroupName, GroupMetadata>,
+        workspace_default_groups: Option<&DefaultGroups>,
         dependency_metadata: &DependencyMetadata,
         indexes: Option<&IndexLocations>,
         tags: &Tags,
@@ -4036,8 +4201,6 @@ impl Lock {
         database: &DistributionDatabase<'_, Context>,
         allow_missing_package_metadata: bool,
     ) -> Result<SatisfiesResult<'_>, LockError> {
-        let allow_missing_package_metadata =
-            allow_missing_package_metadata && self.supports_missing_package_metadata();
         let mut queue: VecDeque<PackageIndex> = VecDeque::new();
         let mut seen = FxHashSet::default();
         let mut activated_extras: FxHashMap<PackageId, BTreeMap<ExtraName, UniversalMarker>> =
@@ -4052,6 +4215,65 @@ impl Lock {
             if expected != *actual {
                 return Ok(SatisfiesResult::MismatchedMembers(expected, actual));
             }
+        }
+
+        // Older lockfiles did not record defaults, so they remain valid without this check.
+        if let Some(actual) = self.configured_member_default_groups() {
+            let expected = nonstandard_member_default_groups(
+                packages
+                    .iter()
+                    .filter_map(|(name, member)| {
+                        member
+                            .pyproject_toml()
+                            .configured_default_groups()
+                            .cloned()
+                            .map(|groups| (name.clone(), groups))
+                    })
+                    .collect(),
+            );
+            let actual = nonstandard_member_default_groups(
+                actual
+                    .map(|(name, groups)| (name.clone(), groups.clone()))
+                    .collect(),
+            );
+            if expected != actual {
+                return Ok(SatisfiesResult::MismatchedMemberDefaultGroups(
+                    expected, actual,
+                ));
+            }
+        }
+
+        // Older lockfiles did not record root defaults, so they remain valid without this check.
+        if let Some(expected) = workspace_default_groups
+            && let Some(actual) = self.workspace_default_groups()
+            && *expected != actual
+        {
+            return Ok(SatisfiesResult::MismatchedWorkspaceDefaultGroups(
+                expected.clone(),
+                actual,
+            ));
+        }
+
+        if let Some(actual) = self.member_group_metadata() {
+            let expected = collect_member_group_metadata(packages)?;
+            let actual = actual
+                .map(|(name, groups)| (name.clone(), groups.clone()))
+                .collect();
+            if expected != actual {
+                return Ok(SatisfiesResult::MismatchedMemberGroupMetadata(
+                    expected, actual,
+                ));
+            }
+        }
+
+        // Missing metadata is equivalent to having no group-specific Python requirements.
+        // A lockfile must be updated when the workspace declares an unrecorded requirement.
+        let actual = self.workspace_group_metadata();
+        if workspace_group_metadata != actual {
+            return Ok(SatisfiesResult::MismatchedWorkspaceGroupMetadata(
+                workspace_group_metadata.clone(),
+                actual,
+            ));
         }
 
         // Validate that the member sources have not changed (e.g., that they've switched from
@@ -5867,6 +6089,23 @@ pub enum SatisfiesResult<'lock> {
     Satisfied,
     /// The lockfile uses a different set of workspace members.
     MismatchedMembers(BTreeSet<PackageName>, &'lock BTreeSet<PackageName>),
+    /// The lockfile records different default groups for workspace members.
+    MismatchedMemberDefaultGroups(
+        BTreeMap<PackageName, DefaultGroups>,
+        BTreeMap<PackageName, DefaultGroups>,
+    ),
+    /// The lockfile records different dependency group metadata for the workspace root.
+    MismatchedWorkspaceGroupMetadata(
+        BTreeMap<GroupName, GroupMetadata>,
+        &'lock BTreeMap<GroupName, GroupMetadata>,
+    ),
+    /// The lockfile records different default groups for a non-project workspace root.
+    MismatchedWorkspaceDefaultGroups(DefaultGroups, DefaultGroups),
+    /// The lockfile records different dependency group metadata.
+    MismatchedMemberGroupMetadata(
+        BTreeMap<PackageName, BTreeMap<GroupName, GroupMetadata>>,
+        BTreeMap<PackageName, BTreeMap<GroupName, GroupMetadata>>,
+    ),
     /// A workspace member switched from virtual to non-virtual or vice versa.
     MismatchedVirtual(PackageName, bool),
     /// A workspace member switched from editable to non-editable or vice versa.
@@ -6039,6 +6278,12 @@ pub struct ResolverManifest {
     /// The workspace members included in the lockfile.
     #[serde(default)]
     members: BTreeSet<PackageName>,
+    /// Default dependency groups for a workspace root without a `[project]` table.
+    #[serde(default)]
+    default_groups: Option<DefaultGroups>,
+    /// The effective Python requirements of the root's dependency groups.
+    #[serde(default)]
+    group_requires_python: BTreeMap<GroupName, GroupMetadata>,
     /// The requirements provided to the resolver, exclusive of the workspace members.
     ///
     /// These are requirements that are attached to the project, but not to any of its
@@ -6069,6 +6314,55 @@ pub struct ResolverManifest {
     dependency_metadata: BTreeSet<StaticMetadata>,
 }
 
+/// Omit entries equivalent to the implicit `dev` default.
+fn nonstandard_member_default_groups(
+    mut groups: BTreeMap<PackageName, DefaultGroups>,
+) -> BTreeMap<PackageName, DefaultGroups> {
+    groups.retain(|_, groups| {
+        if let DefaultGroups::List(groups) = groups {
+            groups.as_slice() != [DEV_DEPENDENCIES.clone()]
+        } else {
+            true
+        }
+    });
+    groups
+}
+
+/// Metadata for a dependency group.
+#[derive(Clone, Debug, Default, serde::Deserialize, PartialEq, Eq)]
+#[serde(transparent)]
+pub struct GroupMetadata {
+    /// The effective Python requirement, including requirements from included groups.
+    pub requires_python: Option<VersionSpecifiers>,
+}
+
+/// Collect metadata for each member's dependency groups.
+fn collect_member_group_metadata(
+    packages: &BTreeMap<PackageName, WorkspaceMember>,
+) -> Result<BTreeMap<PackageName, BTreeMap<GroupName, GroupMetadata>>, DependencyGroupError> {
+    let mut members = BTreeMap::new();
+    for (name, member) in packages {
+        let groups =
+            FlatDependencyGroups::from_pyproject_toml(member.root(), member.pyproject_toml())?
+                .into_iter()
+                .filter_map(|(group, flat)| {
+                    flat.requires_python.map(|requires_python| {
+                        (
+                            group,
+                            GroupMetadata {
+                                requires_python: Some(requires_python),
+                            },
+                        )
+                    })
+                })
+                .collect::<BTreeMap<_, _>>();
+        if !groups.is_empty() {
+            members.insert(name.clone(), groups);
+        }
+    }
+    Ok(members)
+}
+
 impl ResolverManifest {
     /// Initialize a [`ResolverManifest`] with the given members, requirements, constraints, and
     /// overrides.
@@ -6085,6 +6379,8 @@ impl ResolverManifest {
         let normalize = uv_preview::is_enabled(PreviewFeature::LockfileNormalization);
         Self {
             members: members.into_iter().collect(),
+            default_groups: None,
+            group_requires_python: BTreeMap::new(),
             requirements: normalize_collection::<_, NormalizedRequirements>(
                 requirements,
                 normalize,
@@ -6114,6 +6410,8 @@ impl ResolverManifest {
     pub fn relative_to(self, root: &Path) -> Result<Self, io::Error> {
         Ok(Self {
             members: self.members,
+            default_groups: self.default_groups,
+            group_requires_python: self.group_requires_python,
             requirements: self
                 .requirements
                 .into_iter()
@@ -6310,6 +6608,10 @@ pub struct Package {
     optional_dependencies: BTreeMap<ExtraName, Vec<Dependency>>,
     /// The resolved PEP 735 dependency groups of the package.
     dependency_groups: BTreeMap<GroupName, Vec<Dependency>>,
+    /// Nonstandard default dependency groups configured by the package.
+    default_groups: Option<DefaultGroups>,
+    /// Effective Python requirements for the package's dependency groups.
+    group_requires_python: BTreeMap<GroupName, GroupMetadata>,
     /// The exact requirements from the package metadata.
     metadata: PackageMetadata,
 }
@@ -6347,6 +6649,8 @@ impl Package {
             dependencies: vec![],
             optional_dependencies: BTreeMap::default(),
             dependency_groups: BTreeMap::default(),
+            default_groups: None,
+            group_requires_python: BTreeMap::new(),
             metadata,
         })
     }
@@ -7104,8 +7408,12 @@ struct PackageWire {
     dependencies: Vec<DependencyWire>,
     #[serde(default)]
     optional_dependencies: BTreeMap<ExtraName, Vec<DependencyWire>>,
+    #[serde(default)]
+    default_groups: Option<DefaultGroups>,
     #[serde(default, rename = "dev-dependencies", alias = "dependency-groups")]
     dependency_groups: BTreeMap<GroupName, Vec<DependencyWire>>,
+    #[serde(default)]
+    group_requires_python: BTreeMap<GroupName, GroupMetadata>,
 }
 
 #[derive(Clone, Default, Debug, Eq, PartialEq, serde::Deserialize)]
@@ -7220,6 +7528,8 @@ impl PackageWire {
         Ok(Package {
             id: self.id,
             metadata: self.metadata,
+            default_groups: self.default_groups,
+            group_requires_python: self.group_requires_python,
             sdist: self.sdist,
             wheels: self.wheels,
             fork_markers: self
@@ -7752,6 +8062,20 @@ impl Display for Source {
 }
 
 impl Source {
+    /// Return whether this source identifies an implicit single-project root.
+    ///
+    /// Directory sources require explicit workspace membership.
+    fn is_implicit_root(&self) -> bool {
+        match self {
+            Self::Editable(path) | Self::Virtual(path) => path.as_ref() == Path::new(""),
+            Self::Registry(_)
+            | Self::Git(..)
+            | Self::Direct(..)
+            | Self::Path(_)
+            | Self::Directory(_) => false,
+        }
+    }
+
     fn name(&self) -> &str {
         match self {
             Self::Registry(..) => "registry",
@@ -9470,6 +9794,9 @@ impl std::fmt::Display for WheelTagHint {
 /// is with the caller somewhere in such cases.
 #[derive(Debug, thiserror::Error)]
 enum LockErrorKind {
+    /// An error that occurs when collecting dependency-group settings.
+    #[error(transparent)]
+    DependencyGroups(#[from] DependencyGroupError),
     /// An error that occurs when the overrides for validating a
     /// metadata-free lockfile cannot be scoped to their packages.
     #[error(transparent)]
@@ -10319,7 +10646,9 @@ wheels = [{ filename = "local-1.0.0-py3-none-any.whl", hash = "sha256:53a42340ae
         )
         .expect("valid lock");
         let root = std::env::current_dir().expect("current directory");
-        let hasher = lock.hash_strategy(&root).expect("valid source paths");
+        let hasher = lock
+            .hash_strategy(&root, &FxHashSet::default())
+            .expect("valid source paths");
         let digest = HashDigest::from_str(
             "sha256:53a42340ae36747fb1471f9b4b7958be1f6e2e5fc234f931aafa3e454fd31dfb",
         )

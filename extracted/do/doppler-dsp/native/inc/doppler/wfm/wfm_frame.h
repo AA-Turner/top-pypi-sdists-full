@@ -1,0 +1,943 @@
+/**
+ * @file wfm_frame.h
+ * @brief A frame's BIT layout, described once and read from both ends.
+ *
+ * One struct saying what a frame contains, used by the generator that builds
+ * it and by the measurer that scores it. The DSSS assembler already stated the
+ * reason it must be shared — it is "assembled in one place so TX and RX can
+ * never drift" — and this generalises that from one waveform to all of them:
+ * `dp_wfm_dsss_desc_chips()` assembles a description and spreads it, rather
+ * than carrying a second copy of the layout.
+ *
+ * ## It describes BITS
+ *
+ * Not chips, not samples, not levels. Spreading, pulse shaping, oversampling,
+ * carrier and SNR layer above and stay `wfm_synth`'s job. That boundary is
+ * what lets one descriptor serve an unspread BPSK stream and a two-code DSSS
+ * burst alike.
+ *
+ * ## Every field is a sequence, and the generators already exist
+ *
+ * The preamble, the sync word and the payload are all `wfm_seq_t`, so "a Gold
+ * sync" is a configuration rather than a feature, and `dp_pn_create()` /
+ * `dp_gold_create()` stay the only implementations of those sequences.
+ *
+ * **The generated kinds are the ones that matter.** A literal array is what a
+ * caller with real data has; a PN or Gold descriptor is a handful of numbers a
+ * receiver can REGENERATE, which is what makes a long-record BER practical —
+ * truth for a million-symbol run without a million-symbol array, and a capture
+ * reproducible from its metadata alone.
+ *
+ * ## The CRC is the one we already have
+ *
+ * `dp_crc16_ccitt()`, over the payload only, MSB-first — the
+ * `WFM_STAGE_CRC16` stage, and the `crc` flag of `dp_wfm_frame_fixed()`. A
+ * second CRC would be a wire-format decision and nothing is asking for one.
+ *
+ * @see docs/design/rx-test.md section 7
+ */
+#ifndef WFM_FRAME_H
+#define WFM_FRAME_H
+
+#include <stddef.h>
+#include <stdint.h>
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+  /** @brief Bits of CRC-16-CCITT, when a frame carries one. */
+#define WFM_FRAME_CRC_BITS 16u
+
+  /** @brief Where a run of bits comes from. */
+  typedef enum
+  {
+    WFM_SEQ_LITERAL = 0, /**< a 0/1 array the caller owns                  */
+    WFM_SEQ_PN      = 1, /**< dp_pn_create()   — m-sequence, one LFSR         */
+    WFM_SEQ_GOLD    = 2, /**< dp_gold_create() — two LFSRs, a Gold family     */
+    WFM_SEQ_DOTTED  = 3  /**< alternating 1010…; a line at Rs/2 to settle on */
+  } wfm_seq_kind_t;
+
+  /**
+   * @brief A run of bits, however it is produced.
+   *
+   * @p len is always the OUTPUT length in bits. For the generated kinds it is
+   * independent of the register width — `dp_pn_create()`'s `length` argument is
+   * the register width (period `2^n - 1`), while `dp_pn_generate(state, n, …)`
+   * decides how many bits come out. Conflating the two is easy and costly, so
+   * they are named apart here: @p reg_bits against @p len.
+   */
+  typedef struct
+  {
+    wfm_seq_kind_t kind;
+    size_t         len; /**< output bits; 0 means the field is absent      */
+
+    const uint8_t *bits; /**< LITERAL only; NULL otherwise                 */
+
+    /* PN: dp_pn_create (poly, seed, reg_bits, lfsr) */
+    uint64_t poly; /**< 0 selects `pn_mls_poly(reg_bits)` — the same
+                        "default" `wfm_synth`'s `--pn-poly` means. A literal
+                        0 reaching dp_pn_create() is a register with no
+                        feedback: it emits the seed and then zeros, which is
+                        a CONSTANT field that still looks like a field.    */
+    uint64_t seed;     /**< 0 selects 1; an all-zero register is a fixed point */
+    uint32_t reg_bits; /**< register width 1..64; period 2^reg_bits - 1    */
+    int      lfsr;     /**< PN_GALOIS (0) or PN_FIBONACCI (1)              */
+
+    /* GOLD: dp_gold_create (taps_a, seed_a, taps_b, seed_b, reg_bits) */
+    uint64_t taps_a, seed_a, taps_b, seed_b;
+  } wfm_seq_t;
+
+  /** @brief Bytes a field's name may use, NUL included. */
+#define WFM_FRAME_NAME_MAX 16
+  /**
+   * @brief Fields one description may carry.
+   *
+   * Raised from 8 against a measurement rather than a feeling: the deepest
+   * description doppler builds today is SIX fields (ASM, preamble, sync,
+   * payload, CRC, R-S parity) and FIVE stages, so 8 left room for two more
+   * fields — and a user frame that adds a header and a tail to that shape
+   * reaches the old ceiling exactly. The descriptor is a POD carried by
+   * value, so the cost is bytes on a stack frame: 1136 -> 2152, which is
+   * still a comfortable local.
+   */
+#define WFM_FRAME_MAX_FIELDS 16
+  /** @brief Stages one description may carry. */
+#define WFM_FRAME_MAX_STAGES 8
+
+  /**
+   * @brief Bits one Field may hold, `LEN * REPS`; the grammar refuses more.
+   *
+   * Derived, not picked. The longest frame a shipped stage accepts is the
+   * CCSDS Reed-Solomon codeblock at its deepest interleaving, 255 symbols x
+   * 8 bits x depth 8 = 16320 bits. The margin is 16, the smallest power of
+   * two that still admits a Field one whole period of the default CCSDS
+   * randomiser long (131071 bits; 8 x 16320 falls 511 short). A Field is a
+   * finite run of a frame, so a longer one is a STREAM, which is a data
+   * source's job, not a Field's. The bound is checked at parse, before any
+   * allocation sized by the caller's number. `ccsds_tm/desc.c` re-derives
+   * it from the R-S constants at compile time, so it cannot drift.
+   */
+#define WFM_FIELD_MAX_BITS 261120
+
+  /**
+   * @brief A run of bits inside the assembled frame, `[first, first + n)`.
+   *
+   * A stage that did not run reports `n == 0`, and its @p first is then zero
+   * as well; @p first is meaningful only for a stage that ran.
+   */
+  typedef struct
+  {
+    size_t first; /**< first frame-bit index the stage covers */
+    size_t n;     /**< bits covered, or 0 if the stage did not run */
+  } wfm_frame_span_t;
+
+  /**
+   * @brief One field of a frame — a run of bits that appears on the wire.
+   *
+   * Either the caller supplies the bits (@p seq, any @ref wfm_seq_kind_t) or
+   * a stage produces them (@p derived_by non-zero: a CRC trailer, a block of
+   * Reed-Solomon check symbols). Both are fields, because both are on the
+   * wire, and making the second one a field is what removes the need for a
+   * stage to expand the field it covers.
+   */
+  typedef struct
+  {
+    /** What this field is called, `""` when the caller did not say.
+     *
+     * OPTIONAL, and everything keeps working without it: a field is still
+     * addressed by index, and a zero-initialised description is still a
+     * valid one. What a name buys is the other direction — a receiver
+     * slicing a capture asks for `"payload"` rather than for field 2, and a
+     * stage's cover reads as a pair of names rather than a pair of offsets
+     * into a list the reader has to hold in their head.
+     *
+     * That is not a cosmetic difference. `derived_by`, `first_field` and
+     * `n_fields` are all INDICES into this array, which is precisely why a
+     * frame's every parameter has to be passed positionally, and why
+     * `dp_frame_create()` takes 38 arguments.
+     *
+     * A fixed array rather than a pointer, so the description stays a POD
+     * that can be copied, compared and stack-allocated — the property the
+     * whole representation depends on. */
+    char name[WFM_FRAME_NAME_MAX];
+
+    wfm_seq_t seq;  /**< the bits, when the caller supplies them        */
+    size_t    reps; /**< repetitions of @p seq, verbatim; 0 means one   */
+    size_t    bits; /**< derived only: length in bits, sized by its stage */
+    /** 0 when the caller supplies this field; otherwise the index of the
+        producing stage, plus one. The `+1` is so a zero-initialised field is
+        a caller-supplied one rather than silently the output of stage 0. */
+    unsigned derived_by;
+  } wfm_field_t;
+
+  /**
+   * @brief Stage kinds doppler itself names.
+   *
+   * **A stage's kind is an open `uint32_t`, not this enumeration.** These are
+   * the values doppler has allocated; a caller allocates its own from
+   * @ref WFM_STAGE_USER upward and supplies the kernel through
+   * @ref wfm_frame_ops_t. That is the difference between a description a
+   * caller can extend and a fixed menu — and a closed enum here would make
+   * "a mission that is not CCSDS" a pull request against this header rather
+   * than a configuration, which is the opposite of the point.
+   *
+   * The value is only ever a lookup key. Nothing in this component switches
+   * on it exhaustively, so an unrecognised kind is not undefined behaviour:
+   * it finds no kernel and the assembly is REFUSED, which is the honest
+   * answer and is the same one a declared-but-unsupplied stage already gets.
+   */
+  typedef enum
+  {
+    WFM_STAGE_CRC16     = 0, /**< dp_crc16_ccitt over the covered input  */
+    WFM_STAGE_RS        = 1, /**< a Reed-Solomon code, interleaved       */
+    WFM_STAGE_RANDOMISE = 2, /**< XOR a pseudo-random sequence, in place */
+    WFM_STAGE_CONV      = 3, /**< a convolutional code                   */
+    /** A block interleaver: permute in place, length unchanged. Applied
+        AFTER the outer code, so a burst spreads ACROSS codewords rather
+        than inside one. @c depth is the row count and @c unit_bits the
+        unit; the column count is derived from the span it covers, because
+        a stage's cover is what says how much there is to permute. */
+    WFM_STAGE_INTERLEAVE = 4,
+
+    /**
+     * @brief First kind reserved for callers; doppler never allocates here.
+     *
+     * A caller's own stage takes `WFM_STAGE_USER + n`. The guarantee is
+     * one-directional and that is what makes it useful: doppler promises not
+     * to allocate at or above this value, so a kind chosen today cannot
+     * collide with a built-in added later. Below it is doppler's to grow.
+     */
+    WFM_STAGE_USER = 0x1000u
+  } wfm_stage_kind_t;
+
+  /**
+   * @brief One transform, and — the whole point — the fields it covers.
+   *
+   * **@p n_fields is load-bearing, not a refinement.** `ccsds_tm_frame.h`
+   * states the failure this prevents: *"any chain of optional transforms
+   * applied to 'the frame' is right at three stage boundaries and wrong at
+   * the fourth, and wrong in the direction that still encodes, still decodes
+   * against itself, and syncs to nothing."* A stage that inherited "whatever
+   * ran before me" would be that chain. CCSDS is the case that proves it —
+   * the marker is covered by the inner code and by neither the outer code nor
+   * the randomiser — and any frame with a sync word has the same shape.
+   *
+   * The cover is what the stage OCCUPIES on the wire, so for a code it is the
+   * information *and* the check symbols it derives. What the stage reads is
+   * the cover minus the fields it derives, which is why both are one
+   * declaration rather than two that can disagree.
+   */
+  typedef struct
+  {
+    /** The stage's kind: a @ref wfm_stage_kind_t value, or a caller's own
+        from @ref WFM_STAGE_USER up. Open on purpose — see the enum. */
+    uint32_t kind;
+    unsigned first_field; /**< first field covered                */
+    unsigned         n_fields;    /**< fields covered; 0 = does not run   */
+    unsigned         depth;       /**< RS / INTERLEAVE: interleaving depth */
+
+    /** INTERLEAVE: bits per interleaved unit; 0 reads as 1. Not folded into
+        @c depth, because the two are independent — depth 8 over octets and
+        depth 8 over bits are different permutations of the same span, and
+        only one of them protects an octet-oriented outer code. */
+    unsigned unit_bits;
+
+    /** A stage that consumes the assembled frame and emits a DIFFERENT
+        stream sets these: the output is `n * emit_num / emit_den` bits.
+        `emit_num == 0` means the stage stays inside the frame. Only the
+        inner code does the former today, and it is exactly why
+        @ref wfm_frame_desc_layout_t reports @p frame_bits and @p out_bits as
+        two numbers rather than one.
+
+        An emitting stage **covers the WHOLE frame, and a description may
+        hold at most one**. Both are properties of @ref dp_wfm_frame_assemble
+        rather than rules invented for their own sake: it hands @p emit the
+        whole assembled frame and requires exactly `out_bits` back, so a
+        cover narrower than the frame describes something no kernel is ever
+        asked to do, and a second emitting stage would have to consume the
+        first one's output, which nothing passes it.
+        @ref dp_wfm_frame_desc_layout refuses both — see there for why that is
+        the right place to say so. A stage that rewrites part of the frame
+        in place is what a partial cover is FOR; that stage sets
+        `emit_num = 0` and an @c in_unit kernel. */
+    unsigned emit_num, emit_den;
+  } wfm_stage_t;
+
+  /**
+   * @brief A frame as a description: what is on the wire, and what covers it.
+   *
+   * Two lists, ordered independently, because order and coverage are
+   * independent axes: @p field is ordered by POSITION on the wire and
+   * @p stage by APPLICATION. In a CCSDS CADU the marker is inserted third and
+   * covered by the stage applied fourth, which a single ordered list cannot
+   * say.
+   *
+   * A standard's framing is a CONFIGURATION of this, in the same way
+   * `dp_CCSDS_TM_CONV` configures `conv_code_t` and `dp_CCSDS_TM_RS` configures
+   * `rs_code_t`. The common frame is the first such configuration and is
+   * built by @ref dp_wfm_frame_fixed.
+   *
+   * @see docs/design/frame-description.md
+   */
+  typedef struct
+  {
+    wfm_field_t field[WFM_FRAME_MAX_FIELDS];
+    unsigned    n_fields;
+    wfm_stage_t stage[WFM_FRAME_MAX_STAGES];
+    unsigned    n_stages;
+  } wfm_frame_desc_t;
+
+  /** @brief Where every field and every stage landed. */
+  typedef struct
+  {
+    size_t   field_off[WFM_FRAME_MAX_FIELDS];  /**< bit offset per field  */
+    size_t   field_bits[WFM_FRAME_MAX_FIELDS]; /**< bits per field        */
+    unsigned n_fields;
+
+    wfm_frame_span_t stage[WFM_FRAME_MAX_STAGES]; /**< what each stage covers   */
+    unsigned   n_stages;
+
+    size_t frame_bits; /**< the assembled frame, every field end to end   */
+    size_t out_bits;   /**< what leaves the last stage that emits a new
+                            stream; equals @p frame_bits when none does   */
+  } wfm_frame_desc_layout_t;
+
+  /**
+   * @brief What undoing one stage found.
+   *
+   * One shape for every checking stage, because a caller doing frame
+   * accounting wants to compare them rather than learn a struct per code. A
+   * CRC reports one unit that is either good or not; an interleaved outer
+   * code reports one unit per codeword, with the repair work it did.
+   *
+   * @p corrected and @p symbols are the honest measure of how hard the link
+   * is running: `ok == units` with a rising @p symbols is a margin being
+   * spent, and it is spent before it is lost.
+   */
+  typedef struct
+  {
+    unsigned units;     /**< things checked: codewords, or 1 for a CRC     */
+    unsigned ok;        /**< how many are good AFTERWARDS — clean or fixed */
+    unsigned corrected; /**< how many needed and received repair           */
+    unsigned symbols;   /**< symbol errors repaired across the span        */
+    int      checked;   /**< 0 when the receiver does not reverse this
+                             stage here; its counts are then meaningless  */
+  } wfm_frame_stage_rx_t;
+
+  /**
+   * @brief What @ref dp_wfm_frame_check found, stage by stage.
+   *
+   * Indexed the same as the description's stages, so a caller reads the
+   * result beside the declaration that produced it.
+   */
+  typedef struct
+  {
+    wfm_frame_stage_rx_t stage[WFM_FRAME_MAX_STAGES];
+    unsigned             n_stages;
+    unsigned             checked; /**< stages actually reversed here       */
+  } wfm_frame_rx_t;
+
+  /**
+   * @brief How one kind of stage actually transforms bits.
+   *
+   * The description is pure data and names a stage by @ref wfm_stage_kind_t;
+   * this is where the arithmetic for that kind comes from. The split is a
+   * LAYERING requirement, not a taste: `ccsds_tm` must depend on this file to
+   * describe a CADU, so this file must not call `ccsds_tm`'s kernels, or the
+   * two components form a cycle. The kernels arrive as a table instead, from
+   * whichever component owns them.
+   *
+   * It is also what makes the description open. A caller with a stage doppler
+   * has never heard of supplies its own entry rather than waiting for an enum
+   * to grow.
+   *
+   * Exactly one of the two is set. @p in_unit rewrites the stage's span where
+   * it lies; @p emit consumes the assembled frame and produces a different
+   * stream.
+   *
+   * **A stage's derived field is the LAST field of its cover**, which is what
+   * lets one in-place signature serve a CRC, an outer code and a randomiser
+   * alike: the op receives the whole span, reads the information at its head
+   * and writes the check symbols into its tail. @ref dp_wfm_frame_desc_layout
+   * refuses a description that breaks it.
+   */
+  typedef struct
+  {
+    /** The kind this entry implements; matched against @ref wfm_stage_t's. */
+    uint32_t kind;
+
+    /** Rewrite @p n bits at @p bits, in place. Returns 0 on success. */
+    int (*in_unit) (const wfm_stage_t *st, uint8_t *bits, size_t n,
+                    void *user);
+
+    /** Consume @p n bits at @p in and write the new stream to @p out.
+        Returns the bits written, or 0 on refusal. @p out may overlap @p in:
+        the frame is assembled in the TAIL of the caller's buffer and the
+        stream is written from its head, so an implementation must read each
+        input bit before writing the output bits that displace it — which is
+        the order any expanding code writes in anyway. */
+    size_t (*emit) (const wfm_stage_t *st, const uint8_t *in, size_t n,
+                    uint8_t *out, size_t max_out, void *user);
+
+    /** Undo the stage over its span on the RECEIVE side, correcting @p bits
+        in place and reporting what was found. Returns 0 on success, -1 if
+        the span is the wrong shape for this stage.
+
+        A stage with no @p undo is not an error — it is a stage the receiver
+        does not reverse HERE. The inner code is the case: it is streaming
+        and emits its decisions `depth` bits late, so it is undone before
+        frame synchronisation and a frame checker never sees channel symbols.
+        @ref dp_wfm_frame_check reports such a stage as not-checked rather than
+        as passed, which are different answers. */
+    int (*undo) (const wfm_stage_t *st, uint8_t *bits, size_t n,
+                 wfm_frame_stage_rx_t *rx, void *user);
+  } wfm_stage_op_t;
+
+  /**
+   * @brief The kernels an assembly runs, and whatever state they carry.
+   *
+   * Looked up by kind, and EXTENDS the built-ins rather than replacing them —
+   * so a table supplying an outer code does not have to restate the CRC. A
+   * stage whose kind is in neither table is a **refusal**, never a silent
+   * skip: a stage that quietly did not run produces a frame that still
+   * assembles, still decodes against itself, and syncs to nothing.
+   */
+  typedef struct
+  {
+    const wfm_stage_op_t *op;   /**< table, looked up by kind         */
+    unsigned              n_op; /**< entries in @p op                 */
+    void                 *user; /**< handed to every op it calls      */
+  } wfm_frame_ops_t;
+
+  /**
+   * @brief Index of the field called @p name, or -1.
+   *
+   * The lookup the whole naming idea rests on, and it is deliberately the
+   * ONLY one: names resolve to indices here and nowhere else, so every
+   * existing index-taking entry point keeps working unchanged and there is
+   * one place a rename can be wrong.
+   *
+   * An empty or NULL @p name finds nothing rather than matching the first
+   * unnamed field — an unnamed field is anonymous, not named `""`, and
+   * matching it would make an unnamed description answer questions about
+   * fields it does not have.
+   *
+   * @param d     the description.
+   * @param name  the field name, NUL-terminated.
+   * @return the field's index, or -1 if @p d or @p name is NULL, @p name is
+   *         empty, or no field carries it.
+   */
+  int dp_wfm_frame_field_index (const wfm_frame_desc_t *d, const char *name);
+
+  /**
+   * @brief Append a named field. Returns its index, or -1.
+   *
+   * The building half of the description, and the reason a name is worth
+   * carrying: a caller says what a field IS rather than counting positions,
+   * and the stage that covers it says so by name too.
+   *
+   * @param d     the description; appended in wire order.
+   * @param name  the field's name, or NULL/"" to leave it anonymous.
+   * @param seq   where the bits come from; copied by value, so the LITERAL
+   *              kind still borrows the caller's array and the caller still
+   *              owns it for as long as @p d is used.
+   * @param reps  repetitions of @p seq, verbatim; 0 means one.
+   * @return the new field's index, or -1 if @p d or @p seq is NULL, the
+   *         description is full, or @p name is already taken.
+   */
+  int dp_wfm_frame_add_field (wfm_frame_desc_t *d, const char *name,
+                           const wfm_seq_t *seq, size_t reps);
+
+  /**
+   * @brief Append a named DERIVED field — one a stage will fill. Returns its
+   * index, or -1.
+   *
+   * A field with a declared length and no source: a CRC trailer, a block of
+   * R-S check symbols. Its producer is wired by @ref dp_wfm_frame_add_stage,
+   * not named here, because a stage does not exist yet when the field it
+   * derives is appended — fields are ordered by POSITION and stages by
+   * APPLICATION, and this is where those two orders meet.
+   *
+   * @param d     the description.
+   * @param name  the field's name, or NULL/"" for anonymous.
+   * @param bits  its length, which its stage decides and the caller states.
+   * @return the new field's index, or -1 on NULL, a full description, a
+   *         zero @p bits, or a name already taken.
+   */
+  int dp_wfm_frame_add_derived (wfm_frame_desc_t *d, const char *name,
+                             size_t bits);
+
+  /**
+   * @brief Append a stage covering `[first .. last]` BY NAME. Returns its
+   * index, or -1.
+   *
+   * The cover is the whole point of the representation and this is the form
+   * that reads: `add_stage(d, WFM_STAGE_CRC16, "payload", "crc")` says what
+   * three integers used to.
+   *
+   * **It wires a derived field's producer for you**, and that is applying an
+   * invariant rather than adding one: @ref dp_wfm_frame_desc_layout already
+   * refuses a description whose derived field is not the LAST of its
+   * producing stage's cover, so a field with a declared length and no source
+   * sitting at the end of this cover has exactly one possible producer. It
+   * is wired here so a caller cannot state it a second, different way.
+   *
+   * @param d      the description.
+   * @param kind   a @ref wfm_stage_kind_t value, or a caller's own from
+   *               @ref WFM_STAGE_USER up.
+   * @param first  name of the first field covered.
+   * @param last   name of the last field covered; may equal @p first.
+   * @return the new stage's index, or -1 on NULL, a full description, a name
+   *         neither field carries, or @p last before @p first.
+   */
+  int dp_wfm_frame_add_stage (wfm_frame_desc_t *d, uint32_t kind,
+                           const char *first, const char *last);
+
+  /**
+   * @brief Append a stage covering `n_fields` fields from index `first`.
+   * Returns its index, or -1.
+   *
+   * The index form of @ref dp_wfm_frame_add_stage, which resolves its two
+   * names and calls this. Both wire a derived field's producer the same way,
+   * by the one rule stated there, so a caller counting fields and a caller
+   * naming them build the same description.
+   *
+   * @param d         the description.
+   * @param kind      a @ref wfm_stage_kind_t value, or a caller's own.
+   * @param first     index of the first field covered.
+   * @param n_fields  fields covered; 0 means the stage does not run.
+   * @return the new stage's index, or -1 on NULL or a full description. A
+   *         cover past the fields is not refused here: the layout judges it.
+   */
+  int dp_wfm_frame_add_stage_at (wfm_frame_desc_t *d, uint32_t kind,
+                                 unsigned first, unsigned n_fields);
+
+  /**
+   * @brief Write @p s's bits, whatever produces them. Returns the count.
+   *
+   * The one place a `wfm_seq_t` becomes bits. A descriptor materialises its
+   * own fields through this, and a consumer that takes a RAW ARRAY rather
+   * than a description -- the DSSS chip builder is the one in this tree --
+   * calls it to expand a generated sequence into a buffer first. Without
+   * that, `bits` is NULL for every generated kind and the array consumer
+   * reads through it.
+   *
+   * @param s        the sequence; a LITERAL copies, the generated kinds run
+   *                 their generator.
+   * @param out      receives @p s->len bits, one per byte.
+   * @param max_out  capacity; 0 is returned if @p s->len exceeds it.
+   * @return bits written, or 0 if the sequence is unbuildable (a LITERAL
+   *         with no array, a length past @p max_out, a generator that
+   *         refused its own parameters).
+   */
+  size_t dp_wfm_seq_bits (const wfm_seq_t *s, uint8_t *out, size_t max_out);
+
+  /**
+   * @brief Write a field's bits: its sequence once, then repeated. Returns
+   * the count.
+   *
+   * The one place a field's REPETITION is expanded, used by
+   * @ref dp_wfm_frame_assemble for every caller-supplied field and by
+   * @ref dp_wfm_field_bits for a field given as text. A repetition is the
+   * same bits again, never fresh ones: a generated field that drew new bits
+   * per repetition would not be a periodic acquisition target, and coherent
+   * integration across the repetitions would be void.
+   *
+   * @param f        the field; `reps == 0` means one. A DERIVED field has no
+   *                 source of its own and is refused.
+   * @param out      receives `f->seq.len * reps` bits, one per byte.
+   * @param max_out  capacity of @p out in bits.
+   * @return bits written, or 0 if the field is derived, empty, larger than
+   *         @p max_out, or its sequence cannot be built. On 0, @p out may
+   *         have been partly written.
+   *
+   * @code
+   * wfm_field_t f;
+   * uint8_t    *owned;
+   * uint8_t     b[124];
+   * dp_wfm_field_parse ("pn:31:5*4", &f, &owned, NULL);
+   * dp_wfm_field_render (&f, b, sizeof b);   // 124: one period, then 3 copies
+   * free (owned);   // NULL for a generated field; a literal's bits otherwise
+   * @endcode
+   */
+  size_t dp_wfm_field_render (const wfm_field_t *f, uint8_t *out,
+                              size_t max_out);
+
+  /**
+   * @brief Read one Field from its text form.
+   *
+   * The ONLY reader of the grammar every text face shares — the CLI, a JSON
+   * scene and `field_bits()` in Python all call this, and none restates it
+   * (docs/design/frame-description.md §F.1):
+   *
+   * @code{.unparsed}
+   * field  := seq [ "*" REPS ]                       REPS >= 1
+   * seq    := bin | hex | pn | gold | dotted
+   * bin    := [01]+
+   * hex    := "0x" [0-9A-Fa-f]+                       4 bits a digit, MSB first
+   * pn     := "pn:" LEN ":" REG [":" SEED [":" POLY]] [":" LFSR]
+   * gold   := "gold:" LEN ":" REG ":" TA ":" SA ":" TB ":" SB
+   * dotted := "dotted:" LEN
+   * LFSR   := "galois" | "fibonacci"                  default galois
+   * @endcode
+   *
+   * A number is decimal, or hex after `0x`, and must be consumed WHOLE:
+   * `12abc`, `-1`, ` 5` and an empty field (`pn::10`) are refused, not read
+   * as far as they go. A leading `0` is decimal, never octal. `LEN` is the
+   * output length and must be > 0; `REG` is the register width, 1..64. A
+   * `pn` with no `POLY` means the maximal-length polynomial for its
+   * register, so a register that has none (width 1) is refused unless a
+   * `POLY` is given.
+   * `LEN * REPS` is at most @ref WFM_FIELD_MAX_BITS, and the refusal names
+   * that number: a longer run is a stream, not a Field.
+   * A `0`/`1` string with any other character in it is refused rather than
+   * filtered, because a typo that quietly shortens a sync word syncs to
+   * nothing and fails nowhere.
+   *
+   * `data:LEN` is part of the grammar but not yet of this parser: it names a
+   * payload drawn from a data source, which a `wfm_seq_t` cannot carry
+   * until that source exists. It is refused, by name.
+   *
+   * @param spec   NUL-terminated text.
+   * @param field  receives the field: `name` empty, `derived_by` 0, `reps`
+   *               as written (1 when absent). Untouched on refusal.
+   * @param owned  receives the allocated bit array of a LITERAL field, which
+   *               `field->seq.bits` points into and the caller must `free()`;
+   *               NULL for a generated kind. Untouched on refusal.
+   * @param why    optional; receives a STATIC sentence naming the cause of a
+   *               refusal, NULL on success. Never freed.
+   * @return @ref DP_OK, or @ref DP_ERR_INVALID for text outside the
+   *         grammar. A literal's storage is at most four times the spec's
+   *         length, so it is allocated with the abort-on-OOM helper.
+   *
+   * @code
+   * wfm_field_t f;
+   * uint8_t    *owned;
+   * const char *why;
+   * if (dp_wfm_field_parse ("pn:31:5*4", &f, &owned, &why) != DP_OK)
+   *   fprintf (stderr, "error: %s\n", why);
+   * // f.seq.kind == WFM_SEQ_PN, f.seq.len == 31, f.seq.reg_bits == 5,
+   * // f.reps == 4, owned == NULL
+   * @endcode
+   */
+  int dp_wfm_field_parse (const char *spec, wfm_field_t *field,
+                          uint8_t **owned, const char **why);
+
+  /**
+   * @brief Read an unsigned integer the way a Field's numbers are read.
+   *
+   * THE number reader of the Field grammar, public so that a caller reading
+   * integers from text -- wfmgen's numeric flags -- applies the same rule
+   * rather than a second one (doppler#1611): decimal, or hex after `0x`
+   * (`0X`), consumed WHOLE. A sign, a space, a trailing character, an empty
+   * token, a bare `0x` and a value past `UINT64_MAX` are refused, and a
+   * leading `0` is decimal, never octal.
+   *
+   * @param p  the text; need not be NUL-terminated.
+   * @param n  its length in bytes.
+   * @param v  receives the value; untouched on refusal.
+   * @return 0, or -1 for text outside the rule.
+   *
+   * @code
+   * uint64_t v;
+   * int ok  = dp_wfm_parse_u64 ("0x10", 4, &v); // 0, v == 16
+   * int dec = dp_wfm_parse_u64 ("010", 3, &v);  // 0, v == 10, not octal
+   * int bad = dp_wfm_parse_u64 ("4x", 2, &v);   // -1, v unchanged
+   * @endcode
+   */
+  int dp_wfm_parse_u64 (const char *p, size_t n, uint64_t *v);
+
+  /**
+   * @brief Write a field's canonical text form. Returns its length.
+   *
+   * The ONLY writer of the grammar, and the inverse of
+   * @ref dp_wfm_field_parse. Parsing what this writes gives back the same
+   * field, for every field it accepts. The form is canonical, so two equal
+   * fields print identically:
+   *
+   * - a literal prints as `0x…` hex when its length is a multiple of 4, and
+   *   as `0`/`1` digits otherwise;
+   * - a generator prints only what differs from its defaults — a zero seed
+   *   or poly is omitted unless a later number needs its position, and
+   *   `galois` is never written;
+   * - `*REPS` appears only when `reps > 1`.
+   *
+   * @param field  the field. A derived field has no text form and is
+   *               refused.
+   * @param buf    receives the text and a NUL; may be NULL to size it.
+   * @param cap    capacity of @p buf in bytes, NUL included.
+   * @return the length WITHOUT the NUL, whether or not it fit — so a
+   *         `buf == NULL` call sizes the buffer — or 0 for a field with no
+   *         text form. Nothing is written unless all of it fits.
+   *
+   * @code
+   * char s[64];
+   * dp_wfm_field_format (&f, s, sizeof s);   // "pn:31:5*4"
+   * @endcode
+   */
+  size_t dp_wfm_field_format (const wfm_field_t *field, char *buf,
+                              size_t cap);
+
+  /**
+   * @brief A Field's bits, straight from its text form. Returns the count.
+   *
+   * @ref dp_wfm_field_parse, then @ref dp_wfm_field_render, with the
+   * literal's storage released before returning — the one door from the text
+   * a person writes to the bits every object takes. With @p out NULL it only
+   * SIZES: it returns how many bits the field is, which is what a caller
+   * allocates before the second call.
+   *
+   * @param spec     NUL-terminated text, as @ref dp_wfm_field_parse reads it.
+   * @param out      receives the bits, one per byte; NULL to size.
+   * @param max_out  capacity of @p out in bits; ignored when @p out is NULL.
+   * @param why      optional; as @ref dp_wfm_field_parse, plus "the output
+   *                 is smaller than the field".
+   * @return the field's length in bits (repetitions included), or 0 on a
+   *         refusal. A Field is never empty, so 0 is unambiguous. **Every
+   *         text the grammar accepts renders**: the parser refuses what a
+   *         generator could not build (a 1-bit register with no POLY, a
+   *         number wider than REG), so the sizing call's answer is what the
+   *         rendering call writes, given room.
+   *
+   * @code
+   * uint8_t b[124];
+   * size_t  n = dp_wfm_field_bits ("pn:31:5*4", NULL, 0, NULL);   // 124
+   * dp_wfm_field_bits ("pn:31:5*4", b, n, NULL);
+   * @endcode
+   */
+  size_t dp_wfm_field_bits (const char *spec, uint8_t *out, size_t max_out,
+                            const char **why);
+
+  /**
+   * @brief Materialise a description: run every field, then every stage.
+   *
+   * Fields are written in wire order, then each stage is applied over the span
+   * @ref dp_wfm_frame_desc_layout gave it — over that span and no other, which
+   * is the whole content of the coverage table a standard's framing turns
+   * out to be.
+   *
+   * @param d        the description.
+   * @param ops      kernels for the stage kinds beyond the built-in CRC;
+   *                 may be `NULL` when there are none.
+   * @param out      receives the unpacked output, one bit per byte.
+   * @param max_out  capacity of @p out in bits; must be at least the
+   *                 layout's `out_bits`.
+   * @return The bits written, or 0 if the description is refused, a stage
+   *         has no kernel, a field cannot be built, or @p max_out is too
+   *         small — in which case @p out is untouched.
+   */
+  size_t dp_wfm_frame_assemble (const wfm_frame_desc_t *d,
+                             const wfm_frame_ops_t *ops, uint8_t *out,
+                             size_t max_out);
+
+  /**
+   * @brief Derive every field offset, every stage span and both lengths.
+   *
+   * The one operation both shipped framers already have, widened: this is
+   * the common frame's arithmetic and `dp_ccsds_tm_frame_layout()`'s, with
+   * the field and stage lists supplied rather than fixed.
+   *
+   * A derived field whose producing stage covers no caller-supplied bits is
+   * dropped to zero length — which is the general form of the rule
+   * the common frame has always applied, that a CRC over an empty
+   * payload protects nothing and is not emitted.
+   *
+   * An EMITTING stage (@c emit_num set) is refused unless it covers the
+   * whole frame, and a second one is refused outright. Refusing here is the
+   * point: such a description used to lay out perfectly and then be
+   * unassemblable for ever, because `out_bits` was computed from the cover
+   * while @ref dp_wfm_frame_assemble hands the kernel the whole frame. The
+   * caller got a 0 from `assemble` and no way to learn that the geometry,
+   * not the data, was wrong. Geometry is decided here, so it is refused
+   * here.
+   *
+   * A field that declares @c bits but supplies no sequence is DERIVED, and
+   * one that names no producing stage (@c derived_by zero) is refused for
+   * the same reason. It used to lay out at zero length: the frame came out
+   * short, the stage that should have filled the field ran over a cover
+   * whose tail no longer existed, and the caller got a record rather than an
+   * error. Every reader funnels through here, so refusing at this one point
+   * covers the scene JSON and the CLI as well as the builder — which cannot
+   * reach the state at all, since @ref dp_wfm_frame_add_stage wires the
+   * producer from the cover it is given.
+   *
+   * @param d    the description.
+   * @param out  receives the layout.
+   * @return 0, or -1 if @p d or @p out is NULL, a count or a cover runs
+   *         past its array, a derived field names no producing stage, or an
+   *         emitting stage covers less than the whole frame or is not the
+   *         only one.
+   */
+  int dp_wfm_frame_desc_layout (const wfm_frame_desc_t  *d,
+                             wfm_frame_desc_layout_t *out);
+
+  /**
+   * @brief Describe the common frame: `[preamble x reps | sync | payload | crc]`.
+   *
+   * The one fixed layout every face reaches without writing a description
+   * of its own — `wfmgen`'s `--acq-code`, `--sync` and `--crc`, a scene's
+   * keys of the same names, the `Frame` object and the receiver harnesses.
+   * It is built through the general by-name builder, so what comes back is
+   * an ordinary description with fields called `"preamble"`, `"sync"`,
+   * `"payload"` and `"crc"`, and there is no second layout behind it.
+   *
+   * A field is present when its sequence has a LENGTH, never merely a
+   * pointer, and the preamble additionally needs @p reps: a length with no
+   * bits reaches @ref dp_wfm_frame_assemble and is refused there, rather
+   * than being dropped here and assembling a frame quietly missing it. The
+   * payload is always a field, even an empty one, so that a CRC always has
+   * something to cover — and a CRC over an empty payload lays out as a
+   * stage that did not run, because a trailer over nothing protects
+   * nothing.
+   *
+   * The sequences are BORROWED, as everywhere in a description: they must
+   * outlive @p d.
+   *
+   * @param d         receives the description; overwritten.
+   * @param preamble  preamble sequence; NULL or zero-length for none.
+   * @param reps      preamble repetitions; 0 means no preamble.
+   * @param sync      sync-word sequence; NULL or zero-length for none.
+   * @param payload   payload sequence; NULL for an empty payload.
+   * @param crc       non-zero: a CRC-16-CCITT trailer over the payload.
+   * @return 0, or -1 if @p d is NULL.
+   *
+   * @code
+   * // Barker-13 sync over a 16-bit payload, with a CRC-16 trailer.
+   * static const uint8_t b13[13] = {1,1,1,1,1,0,0,1,1,0,1,0,1};
+   * static const uint8_t pay[16] = {0,1,1,0,1,0,0,1,1,1,0,0,0,1,0,1};
+   * wfm_seq_t sync = { .kind = WFM_SEQ_LITERAL, .bits = b13, .len = 13 };
+   * wfm_seq_t data = { .kind = WFM_SEQ_LITERAL, .bits = pay, .len = 16 };
+   * wfm_frame_desc_t d;
+   * wfm_frame_desc_layout_t l;
+   * dp_wfm_frame_fixed (&d, NULL, 0, &sync, &data, 1);
+   * dp_wfm_frame_desc_layout (&d, &l);   // l.frame_bits == 13 + 16 + 16
+   * @endcode
+   */
+  int dp_wfm_frame_fixed (wfm_frame_desc_t *d, const wfm_seq_t *preamble,
+                          size_t reps, const wfm_seq_t *sync,
+                          const wfm_seq_t *payload, int crc);
+
+  /**
+   * @brief Chip count of a DSSS burst built from a description.
+   *
+   * `acq_len * acq_reps + out_bits * data_len`, where `out_bits` is what
+   * leaves the description's last emitting stage — so an inner code that
+   * doubles the frame doubles the burst, and nothing here restates the
+   * arithmetic the layout already did.
+   *
+   * @param d         the description of everything that gets SPREAD.
+   * @param acq_len   preamble code length in chips (0 = no preamble).
+   * @param acq_reps  preamble repetitions.
+   * @param data_len  spreading-code length, i.e. chips per frame bit.
+   * @return burst chips, or 0 if the description is refused, or it has bits
+   *         and @p data_len is 0, or there is nothing to transmit.
+   */
+  size_t dp_wfm_dsss_desc_nchips (const wfm_frame_desc_t *d, size_t acq_len,
+                               size_t acq_reps, size_t data_len);
+
+  /**
+   * @brief Build a two-code DSSS burst from a description: assemble, spread.
+   *
+   *     [ acq_code x acq_reps | dp_wfm_frame_assemble(d) (+) data_code ]
+   *
+   * The only spreader: a common DSSS burst is this with a description from
+   * @ref dp_wfm_frame_fixed, and a coded one is this with a coded one.
+   *
+   * **The preamble is not a field of @p d, by design.** It is unmodulated,
+   * unspread and uncoded, because it is the coherent pull-in target a
+   * receiver correlates raw chips against; a stage covering "the whole
+   * frame" therefore covers everything that is spread and not the preamble.
+   * That is the one place a DSSS burst's description differs from any other
+   * source's, and it is why this function takes the preamble separately.
+   *
+   * A stage whose kernel @p ops does not supply makes the assembly fail and
+   * the burst is REFUSED — never transmitted with the stage quietly missing,
+   * which would produce a waveform that decodes against itself and syncs to
+   * nothing.
+   *
+   * @param d         description of the spread frame.
+   * @param ops       kernels beyond the built-in CRC; may be NULL.
+   * @param acq_code  preamble chips (0/1); NULL when there is no preamble.
+   * @param acq_len   preamble length in chips.
+   * @param acq_reps  preamble repetitions.
+   * @param data_code spreading code (0/1), length @p data_len.
+   * @param data_len  chips per frame bit.
+   * @param out       receives the burst, one chip per byte.
+   * @param max_out   capacity of @p out; must be at least
+   *                  @ref dp_wfm_dsss_desc_nchips.
+   * @return chips written, or 0 if the geometry is refused, a stage has no
+   *         kernel, or @p max_out is too small.
+   */
+  size_t dp_wfm_dsss_desc_chips (const wfm_frame_desc_t *d,
+                              const wfm_frame_ops_t *ops,
+                              const uint8_t *acq_code, size_t acq_len,
+                              size_t acq_reps, const uint8_t *data_code,
+                              size_t data_len, uint8_t *out, size_t max_out);
+
+  /**
+   * @brief Undo a description's stages over a received frame, and report.
+   *
+   * The receive mirror of @ref dp_wfm_frame_assemble, reading the same
+   * description — so the two cannot disagree about which stage covered what,
+   * which is the failure the whole representation exists to prevent. Stages
+   * are reversed in the OPPOSITE order to the one they were applied in, each
+   * over the span the layout gives it.
+   *
+   * **This is what makes a truth-free frame error rate possible on a coded
+   * link, and it is a strictly better detector than a CRC.** A CRC says one
+   * bit: right or wrong. An outer code says *how much repair it took* —
+   * `ok == units` with a rising @c symbols is margin being spent, visible
+   * before it is lost. A caller wanting only good frames compares @c ok with
+   * @c units; one doing accounting reads the rest.
+   *
+   * It begins AFTER the inner code and after frame synchronisation, for the
+   * reason `ccsds_tm_frame.h` gives at length: a Viterbi is streaming and
+   * emits its decisions `depth` bits late, so the bits of one frame are not a
+   * function of that frame's symbols alone, and the marker that says where a
+   * frame starts is only readable once the inner code is undone. A stage with
+   * no @c undo kernel is reported as **not checked**, never as passed.
+   *
+   * @param d        the description the bits are laid out by.
+   * @param ops      kernels for the stage kinds beyond the built-in CRC;
+   *                 may be `NULL`.
+   * @param bits     the layout's `frame_bits` received bits, one per byte,
+   *                 CORRECTED IN PLACE by any stage that repairs.
+   * @param rx       receives the per-stage outcome; may be `NULL`.
+   * @return 1 when every stage that was checked came out good, 0 when one did
+   *         not, or -1 if the description is refused. **A description with no
+   *         checking stage at all returns -1**, not 1: "carries no check" and
+   *         "the check passed" are different answers, and an FER that
+   *         conflated them would score every unprotected frame as perfect.
+   */
+  int dp_wfm_frame_check (const wfm_frame_desc_t *d, const wfm_frame_ops_t *ops,
+                       uint8_t *bits, wfm_frame_rx_t *rx);
+
+  /**
+   * @brief Check a received frame's CRC against any description that has one.
+   *
+   * **This is what makes a truth-free frame error rate possible.** It needs
+   * the description and the received bits and no payload truth at all — so
+   * it works on a real capture, and unlike a self-referenced EVM or a blind
+   * M2M4 it still catches a false lock, because a rotated constellation
+   * fails the check rather than looking clean. What the CRC protects is everything its stage covers except the
+   * trailer that stage derived — read back from the same rule the assembler
+   * writes by, so the two cannot disagree about where the trailer is.
+   *
+   * @param d        the description the bits are laid out by.
+   * @param rx_bits  received bits, the layout's `frame_bits` of them.
+   * @return 1 pass, 0 fail, -1 if the description carries no CRC stage (or on
+   *         NULL). The three are distinct on purpose: an FER that read
+   *         "carries no check" as "the check failed" would count every
+   *         unprotected frame as an error.
+   */
+  int dp_wfm_frame_desc_crc_ok (const wfm_frame_desc_t *d,
+                             const uint8_t          *rx_bits);
+
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* WFM_FRAME_H */

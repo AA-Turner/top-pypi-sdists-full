@@ -46,6 +46,18 @@ def multiple_failures() -> dict[str, Any]:
     }
 
 
+def identical_query_parameters() -> dict[str, Any]:
+    return {
+        path: {
+            "get": {
+                "parameters": [{"name": "q", "in": "query", "required": True, "schema": {"type": "integer"}}],
+                "responses": {"200": {"description": "OK"}},
+            }
+        }
+        for path in ("/api/twin_a", "/api/twin_b")
+    }
+
+
 PAYLOAD_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
@@ -872,6 +884,56 @@ def additional_properties_bug() -> dict[str, Any]:
                     },
                 },
                 "responses": {"200": {"description": "OK"}, "400": {"description": "Bad Request"}},
+            }
+        }
+    }
+
+
+def languages_with_codes() -> dict[str, Any]:
+    return {
+        "/languages/": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "results": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {"code": {"type": "string"}},
+                                                "required": ["code"],
+                                            },
+                                        }
+                                    },
+                                    "required": ["results"],
+                                }
+                            }
+                        },
+                    }
+                }
+            }
+        },
+        "/languages/{code}": {
+            "delete": {
+                "parameters": [{"in": "path", "name": "code", "required": True, "schema": {"type": "string"}}],
+                "responses": {"204": {"description": "Deleted"}},
+            }
+        },
+    }
+
+
+def basic_with_query() -> dict[str, Any]:
+    return {
+        "/api/basic_query": {
+            "get": {
+                "security": [{"basicAuth": []}],
+                "parameters": [{"in": "query", "name": "q", "required": True, "schema": {"type": "integer"}}],
+                "responses": {"200": {"description": "OK"}, "401": {"description": "Unauthorized"}},
             }
         }
     }

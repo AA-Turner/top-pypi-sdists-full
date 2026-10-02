@@ -1,0 +1,787 @@
+name: runtime_policy
+version: 1
+active_runtime_packages:
+  - omnibase_infra
+  - omnimarket
+llm_cloud_endpoint_host_allowlist:
+  - generativelanguage.googleapis.com
+  - api.z.ai
+  # OMN-12971: Vertex AI OpenAI-compatible endpoint host. The region prefix is
+  # part of the host (e.g. us-central1-aiplatform.googleapis.com); the suffix
+  # below allows region-prefixed Vertex hosts for the ADC ($500-credit) path.
+  - aiplatform.googleapis.com
+bifrost_vertex_gemini_endpoint_url: https://us-central1-aiplatform.googleapis.com/v1beta1/projects/gen-lang-client-0084338881/locations/us-central1/endpoints/openapi/chat/completions
+google_cloud_project: gen-lang-client-0084338881
+google_cloud_location: us-central1
+omnimemory_memgraph_port: 7687
+# OMN-14297: bolt URI for node_architecture_graph_{populate,query}_effect.
+# Currently only reachable from the dev lane (omnibase-infra-network) —
+# the omnimemory-memgraph container is not attached to the stability-test/
+# judge/prod lane networks. This is the in-network alias; the Tailscale
+# host address (bolt://100.109.203.94:7687) is the cross-lane fallback.
+arch_graph_bolt_uri: "bolt://omnibase-infra-memgraph:7687"
+auxiliary_services_omnimemory_enabled: false
+profiles:
+  dev:
+    compose_project: omnibase-infra
+    main_port: 8085
+    effects_port: 8086
+    topic_provisioner_max_partitions: 0
+    # OMN-14551: boundary DLQ routing (auto-wired consume boundary,
+    # ONEX_BOUNDARY_DLQ_ENABLED) flipped ON 2026-08-05 after a dedicated
+    # dev-lane live proof (the lane is warm, not cold, as of this flip --
+    # supersedes the prior "currently cold" framing). Ruling basis:
+    # never-silent-drop doctrine + the measured live swallow escalation on
+    # this lane (OMN-15447, 9 boundary_swallow_observed occurrences
+    # 2026-08-05, dlq_enabled=False on every one). Best-effort DLQ delivery
+    # only (no nack/redelivery) per the forbid-verify ruling on
+    # OMN-14507/OMN-14548 -- see stability-test's identical stance above.
+    boundary_dlq_enabled: true
+    secret_resolver_config_path: /app/data/delegation/secret_resolver.yaml
+    secret_resolver_mappings:
+      - logical_name: llm.openrouter.api_key
+        source:
+          source_type: env
+          source_path: OPENROUTER_API_KEY
+      - logical_name: llm.glm.api_key
+        source:
+          source_type: env
+          source_path: LLM_GLM_API_KEY
+      - logical_name: llm.gemini.api_key
+        source:
+          source_type: env
+          source_path: GEMINI_API_KEY
+      # OMN-12971: Vertex bearer-token ref. ADDITIVE to the Gemini API-key path.
+      # The logical ref MUST match the cloud-vertex-gemini backend's secret_ref in
+      # omnimarket bifrost_delegation.yaml (llm.vertex.access_token). The effect
+      # boundary posts Authorization: Bearer <value>, so the resolved VALUE is a
+      # short-lived OAuth access token (NOT the raw ADC JSON). source_type=file →
+      # the ref resolves to the mounted token FILE; the operator/bootstrap mints
+      # the token from ADC (`gcloud auth application-default print-access-token`)
+      # and refreshes the file (tokens expire ~1h). The token VALUE is never
+      # committed — only the ref name and the in-container path live here.
+      - logical_name: llm.vertex.access_token
+        source:
+          source_type: file
+          source_path: /run/secrets/vertex_access_token
+      # OMN-13726: Slack bot token for outbound Slack integrations (alerter,
+      # morning report, etc.). Resolves from env locally; Infisical in prod
+      # (/shared/env/SLACK_BOT_TOKEN). Swappable per lane via this mapping.
+      - logical_name: slack.bot_token
+        source:
+          source_type: env
+          source_path: SLACK_BOT_TOKEN
+      # OMN-16921: node_slack_publish_effect._resolve_transport() resolves via
+      # contract_secret_ref(_CONTRACT_PATH, "SLACK_BOT_TOKEN"), which returns
+      # the LITERAL string "SLACK_BOT_TOKEN" -- the node's own contract.yaml
+      # secrets-block dict key, not the dotted "slack.bot_token" convention
+      # name above. That literal string was never a mapped logical_name, so
+      # under this lane's enable_convention_fallback: false posture the
+      # lookup missed and logged a "no_mapping" warning on every delivery
+      # (rescued only because the call site also threads
+      # env_var_fallback=ref, per omnimarket#2197). Additive: the dotted
+      # mapping above is unchanged and may still be in use elsewhere.
+      - logical_name: SLACK_BOT_TOKEN
+        source:
+          source_type: env
+          source_path: SLACK_BOT_TOKEN
+      # OMN-18073: the OCC companion machine path's App credentials. Same
+      # defect class as the OMN-16921 SLACK_BOT_TOKEN entry directly above,
+      # and the same fix. github_app_auth.resolve_app_installation_token_from_contract
+      # resolves these through contract_secret_ref(_CONTRACT_PATH, name),
+      # which returns the LITERAL dict key from the node's own contract.yaml
+      # secrets: block -- "ONEXBOT_OCC_APP_ID" / "ONEXBOT_OCC_PRIVATE_KEY" --
+      # not a dotted convention name. Neither literal was a mapped
+      # logical_name, so under this lane's enable_convention_fallback: false
+      # posture every lookup missed and logged "Secret resolution failed
+      # (configuration issue)" with reason no_mapping, on every companion mint.
+      #
+      # That warning was the only signal, and it was survivable-looking: the
+      # call site passes env_var_fallback=ref, so the miss silently fell
+      # through to os.environ and kept working for as long as the container's
+      # env happened to hold a good value. When the OMN-18073 transport defect
+      # put a mangled PEM in that env instead, the undeclared mapping is what
+      # turned a transport bug into an invisible one -- the resolver never
+      # claimed ownership of the key, so nothing on the store path reported a
+      # failure a human would act on.
+      #
+      # Declared source_type is env, matching the ten mappings around it and
+      # the compose allowlist that carries these two names
+      # (docker-compose.infra.yml, ONEXBOT_OCC_APP_ID/ONEXBOT_OCC_PRIVATE_KEY).
+      # This lane has no store-sourced mapping at all and no store identity to
+      # resolve one with -- see OMN-18073 for the measured evidence and what
+      # provisioning a store-sourced entry would require.
+      - logical_name: ONEXBOT_OCC_APP_ID
+        source:
+          source_type: env
+          source_path: ONEXBOT_OCC_APP_ID
+      - logical_name: ONEXBOT_OCC_PRIVATE_KEY
+        source:
+          source_type: env
+          source_path: ONEXBOT_OCC_PRIVATE_KEY
+      # OMN-15918: gateway_attach dependency wiring (node_gateway_attach_effect /
+      # ModelGatewayAttachConfig, omnibase_infra#2731's ONEX_CORE_041 fail-closed
+      # check in service_kernel.py). This is completion of #2731's landed
+      # feature for the docker-compose dev lane, porting the ONLY existing
+      # wired exemplar -- the K8s onex-dev overlay
+      # (omninode_infra k8s/onex-dev/runtime/configmap.yaml:120-124,
+      # ONEX_SECRET_RESOLVER_CONFIG_JSON) -- with source_path names adapted to
+      # this contract's own dev-lane conventions rather than copied verbatim:
+      # keycloak.issuer and the admin_client_credentials pair reuse the
+      # Keycloak/Auth env vars docker-compose.infra.yml already declares for
+      # the onex-admin service-account client (KEYCLOAK_ISSUER,
+      # KEYCLOAK_ADMIN_CLIENT_ID, KEYCLOAK_ADMIN_CLIENT_SECRET -- see
+      # docker/keycloak/desired-clients.json's "onex-admin" client, which is
+      # already the realm's confidential admin/service-account client); only
+      # introspection and jwks are genuinely new (no dev-lane equivalent
+      # existed), named GATEWAY_ATTACH_KEYCLOAK_{INTROSPECTION,JWKS}_URL to
+      # match the K8s exemplar's own naming for those two.
+      # OMN-16110 duplicated this same dev-profile addition before OMN-15918
+      # (#2845) merged; deduped here on rebase -- the mapping entries below are
+      # shared by both tickets. OMN-16110's actual scope is extending the same
+      # 5 mappings to the stability-test and judge profiles, below.
+      - logical_name: gateway.attach.keycloak.issuer
+        source:
+          source_type: env
+          source_path: KEYCLOAK_ISSUER
+      - logical_name: gateway.attach.keycloak.introspection
+        source:
+          source_type: env
+          source_path: GATEWAY_ATTACH_KEYCLOAK_INTROSPECTION_URL
+      - logical_name: gateway.attach.keycloak.jwks
+        source:
+          source_type: env
+          source_path: GATEWAY_ATTACH_KEYCLOAK_JWKS_URL
+      - logical_name: gateway.attach.keycloak.admin_client_credentials.client_id
+        source:
+          source_type: env
+          source_path: KEYCLOAK_ADMIN_CLIENT_ID
+      - logical_name: gateway.attach.keycloak.admin_client_credentials.client_secret
+        source:
+          source_type: env
+          source_path: KEYCLOAK_ADMIN_CLIENT_SECRET
+      # OMN-19492: the GitHub App webhook HMAC secret, for
+      # node_github_webhook_ingress_effect on this lane (the lab end of the
+      # webhook feed, OMN-14375). service_kernel builds that handler's
+      # SecretResolver only when this logical name is mapped; every other
+      # profile leaves it unmapped and the handler refuses each delivery.
+      # Source of truth: secret store key dev:/shared/env/GITHUB_WEBHOOK_SECRET,
+      # delivered to the container env through docker-compose.infra.yml.
+      - logical_name: github.webhook.secret
+        source:
+          source_type: env
+          source_path: GITHUB_WEBHOOK_SECRET
+    services:
+      main:
+        runtime_id: dev-main
+        runtime_address: runtime://omninode-pc/dev/main
+        capabilities:
+          - market.skill-proof
+          - workflow.orchestration
+          - runtime.main
+        bifrost_verify_endpoints: true
+        omnimemory_enabled: false
+        omnimemory_memgraph_host: ""
+        publish_introspection: true
+      effects:
+        runtime_id: dev-effects
+        runtime_address: runtime://omninode-pc/dev/effects
+        capabilities:
+          - effects.consumer
+          - market.skill-proof
+          - runtime.effects
+        bifrost_verify_endpoints: true
+        omnimemory_enabled: false
+        omnimemory_memgraph_host: ""
+        publish_introspection: false
+      # OMN-18114: the TENANT-domain projection CARRIER. Optional per lane and
+      # declared only by the two lab lanes that deploy it.
+      #
+      # Eight omnimarket contracts declare `runtime_profiles: [tenant-projection]`
+      # (OMN-17641, ratified permanent by OMN-17556) because they resolve the
+      # `tenant_projection` topology binding and one process owns that binding.
+      # `filter_manifest_for_runtime_profile` therefore drops all eight from
+      # `main` and `effects`, and until this process existed on the lab lanes
+      # NOTHING carried them: on the .201 dev lane all eight consumer groups read
+      # Empty, and node_projection_delegation_inference_response sat at lag 196
+      # and climbing with its last commit on 2026-09-04T09:46Z.
+      #
+      # `publish_introspection` is false and the capabilities are its own, not
+      # main's: this is a second kernel process on the same lane, and reusing
+      # main's role identity would put a second claimant on main-owned topics and
+      # start duplicate heartbeat loops for the same deterministic node IDs --
+      # the reason the base compose gates introspection to one container.
+      tenant-projection:
+        runtime_id: dev-tenant-projection
+        runtime_address: runtime://omninode-pc/dev/tenant-projection
+        capabilities:
+          - projection.writer
+          - tenant.projection
+          - runtime.tenant-projection
+        bifrost_verify_endpoints: true
+        omnimemory_enabled: false
+        omnimemory_memgraph_host: ""
+        publish_introspection: false
+      worker:
+        runtime_id: dev-worker
+        runtime_address: runtime://omninode-pc/dev/worker
+        # OMN-12990: explicit worker replica pin in the ledgered config surface.
+        replicas: 1
+        capabilities:
+          - workflow.dispatch
+          - contract.update
+          - runtime.worker
+        bifrost_verify_endpoints: true
+        omnimemory_enabled: false
+        omnimemory_memgraph_host: ""
+        publish_introspection: false
+  stability-test:
+    compose_project: omnibase-infra-stability-test
+    main_port: 18085
+    effects_port: 18086
+    topic_provisioner_max_partitions: 1
+    # OMN-14551 G6: flip ON for the live DLQ readback proof on this lane only.
+    # See _boundary_dlq_enabled() in
+    # src/omnibase_infra/runtime/auto_wiring/handler_wiring.py for behavior.
+    # Best-effort DLQ delivery (no nack/redelivery) per the forbid-verify
+    # ruling on OMN-14507/OMN-14548 -- G1 stays deferred, this is scoped
+    # strictly to the stability-test lane's live-proof requirement.
+    boundary_dlq_enabled: true
+    secret_resolver_config_path: /app/data/delegation/secret_resolver.yaml
+    secret_resolver_mappings:
+      - logical_name: llm.openrouter.api_key
+        source:
+          source_type: env
+          source_path: OPENROUTER_API_KEY
+      - logical_name: llm.glm.api_key
+        source:
+          source_type: env
+          source_path: LLM_GLM_API_KEY
+      - logical_name: llm.gemini.api_key
+        source:
+          source_type: env
+          source_path: GEMINI_API_KEY
+      # OMN-12971: Vertex bearer-token ref. ADDITIVE to the Gemini API-key path.
+      # The logical ref MUST match the cloud-vertex-gemini backend's secret_ref in
+      # omnimarket bifrost_delegation.yaml (llm.vertex.access_token). The effect
+      # boundary posts Authorization: Bearer <value>, so the resolved VALUE is a
+      # short-lived OAuth access token (NOT the raw ADC JSON). source_type=file →
+      # the ref resolves to the mounted token FILE; the operator/bootstrap mints
+      # the token from ADC (`gcloud auth application-default print-access-token`)
+      # and refreshes the file (tokens expire ~1h). The token VALUE is never
+      # committed — only the ref name and the in-container path live here.
+      - logical_name: llm.vertex.access_token
+        source:
+          source_type: file
+          source_path: /run/secrets/vertex_access_token
+      # OMN-13726: Slack bot token for outbound Slack integrations.
+      - logical_name: slack.bot_token
+        source:
+          source_type: env
+          source_path: SLACK_BOT_TOKEN
+      # OMN-16921: node_slack_publish_effect._resolve_transport() resolves via
+      # contract_secret_ref(_CONTRACT_PATH, "SLACK_BOT_TOKEN"), which returns
+      # the LITERAL string "SLACK_BOT_TOKEN" -- the node's own contract.yaml
+      # secrets-block dict key, not the dotted "slack.bot_token" convention
+      # name above. That literal string was never a mapped logical_name, so
+      # under this lane's enable_convention_fallback: false posture the
+      # lookup missed and logged a "no_mapping" warning on every delivery
+      # (rescued only because the call site also threads
+      # env_var_fallback=ref, per omnimarket#2197). Additive: the dotted
+      # mapping above is unchanged and may still be in use elsewhere.
+      - logical_name: SLACK_BOT_TOKEN
+        source:
+          source_type: env
+          source_path: SLACK_BOT_TOKEN
+      # OMN-16110: see the dev profile's identical block above for the full
+      # rationale on these 5 gateway.attach.keycloak.* mappings.
+      - logical_name: gateway.attach.keycloak.issuer
+        source:
+          source_type: env
+          source_path: KEYCLOAK_ISSUER
+      - logical_name: gateway.attach.keycloak.introspection
+        source:
+          source_type: env
+          source_path: GATEWAY_ATTACH_KEYCLOAK_INTROSPECTION_URL
+      - logical_name: gateway.attach.keycloak.jwks
+        source:
+          source_type: env
+          source_path: GATEWAY_ATTACH_KEYCLOAK_JWKS_URL
+      - logical_name: gateway.attach.keycloak.admin_client_credentials.client_id
+        source:
+          source_type: env
+          source_path: KEYCLOAK_ADMIN_CLIENT_ID
+      - logical_name: gateway.attach.keycloak.admin_client_credentials.client_secret
+        source:
+          source_type: env
+          source_path: KEYCLOAK_ADMIN_CLIENT_SECRET
+    services:
+      main:
+        runtime_id: stability-test-main
+        runtime_address: runtime://omninode-pc/stability-test/main
+        capabilities:
+          - market.skill-proof
+          - workflow.orchestration
+          - runtime.main
+        bifrost_verify_endpoints: false
+        omnimemory_enabled: false
+        omnimemory_memgraph_host: ""
+        publish_introspection: true
+      effects:
+        runtime_id: stability-test-effects
+        runtime_address: runtime://omninode-pc/stability-test/effects
+        capabilities:
+          - effects.consumer
+          - market.skill-proof
+          - runtime.effects
+        bifrost_verify_endpoints: false
+        omnimemory_enabled: false
+        omnimemory_memgraph_host: ""
+        publish_introspection: false
+      # OMN-18114: the TENANT-domain projection CARRIER. Optional per lane and
+      # declared only by the two lab lanes that deploy it.
+      #
+      # Eight omnimarket contracts declare `runtime_profiles: [tenant-projection]`
+      # (OMN-17641, ratified permanent by OMN-17556) because they resolve the
+      # `tenant_projection` topology binding and one process owns that binding.
+      # `filter_manifest_for_runtime_profile` therefore drops all eight from
+      # `main` and `effects`, and until this process existed on the lab lanes
+      # NOTHING carried them: on the .201 dev lane all eight consumer groups read
+      # Empty, and node_projection_delegation_inference_response sat at lag 196
+      # and climbing with its last commit on 2026-09-04T09:46Z.
+      #
+      # `publish_introspection` is false and the capabilities are its own, not
+      # main's: this is a second kernel process on the same lane, and reusing
+      # main's role identity would put a second claimant on main-owned topics and
+      # start duplicate heartbeat loops for the same deterministic node IDs --
+      # the reason the base compose gates introspection to one container.
+      tenant-projection:
+        runtime_id: stability-test-tenant-projection
+        runtime_address: runtime://omninode-pc/stability-test/tenant-projection
+        capabilities:
+          - projection.writer
+          - tenant.projection
+          - runtime.tenant-projection
+        bifrost_verify_endpoints: false
+        omnimemory_enabled: false
+        omnimemory_memgraph_host: ""
+        publish_introspection: false
+      worker:
+        runtime_id: stability-test-worker
+        runtime_address: runtime://omninode-pc/stability-test/worker
+        # OMN-12990: explicit worker replica pin in the ledgered config surface.
+        replicas: 1
+        capabilities:
+          - workflow.dispatch
+          - contract.update
+          - runtime.worker
+        bifrost_verify_endpoints: false
+        omnimemory_enabled: false
+        omnimemory_memgraph_host: ""
+        publish_introspection: false
+  judge:
+    compose_project: omnibase-infra-judge
+    main_port: 48085
+    effects_port: 48086
+    topic_provisioner_max_partitions: 1
+    # OMN-14551: judge lane is read-only by lane boundary; not in scope for
+    # this flip. OFF until an explicit judge-lane authorization.
+    boundary_dlq_enabled: false
+    secret_resolver_config_path: /app/data/delegation/secret_resolver.yaml
+    secret_resolver_mappings:
+      - logical_name: llm.openrouter.api_key
+        source:
+          source_type: env
+          source_path: OPENROUTER_API_KEY
+      - logical_name: llm.glm.api_key
+        source:
+          source_type: env
+          source_path: LLM_GLM_API_KEY
+      - logical_name: llm.gemini.api_key
+        source:
+          source_type: env
+          source_path: GEMINI_API_KEY
+      # OMN-12971: Vertex bearer-token ref. ADDITIVE to the Gemini API-key path.
+      # The logical ref MUST match the cloud-vertex-gemini backend's secret_ref in
+      # omnimarket bifrost_delegation.yaml (llm.vertex.access_token). The effect
+      # boundary posts Authorization: Bearer <value>, so the resolved VALUE is a
+      # short-lived OAuth access token (NOT the raw ADC JSON). source_type=file →
+      # the ref resolves to the mounted token FILE; the operator/bootstrap mints
+      # the token from ADC (`gcloud auth application-default print-access-token`)
+      # and refreshes the file (tokens expire ~1h). The token VALUE is never
+      # committed — only the ref name and the in-container path live here.
+      - logical_name: llm.vertex.access_token
+        source:
+          source_type: file
+          source_path: /run/secrets/vertex_access_token
+      # OMN-13726: Slack bot token for outbound Slack integrations.
+      - logical_name: slack.bot_token
+        source:
+          source_type: env
+          source_path: SLACK_BOT_TOKEN
+      # OMN-16921: node_slack_publish_effect._resolve_transport() resolves via
+      # contract_secret_ref(_CONTRACT_PATH, "SLACK_BOT_TOKEN"), which returns
+      # the LITERAL string "SLACK_BOT_TOKEN" -- the node's own contract.yaml
+      # secrets-block dict key, not the dotted "slack.bot_token" convention
+      # name above. That literal string was never a mapped logical_name, so
+      # under this lane's enable_convention_fallback: false posture the
+      # lookup missed and logged a "no_mapping" warning on every delivery
+      # (rescued only because the call site also threads
+      # env_var_fallback=ref, per omnimarket#2197). Additive: the dotted
+      # mapping above is unchanged and may still be in use elsewhere.
+      - logical_name: SLACK_BOT_TOKEN
+        source:
+          source_type: env
+          source_path: SLACK_BOT_TOKEN
+      # OMN-16110: see the dev profile's identical block above for the full
+      # rationale on these 5 gateway.attach.keycloak.* mappings.
+      - logical_name: gateway.attach.keycloak.issuer
+        source:
+          source_type: env
+          source_path: KEYCLOAK_ISSUER
+      - logical_name: gateway.attach.keycloak.introspection
+        source:
+          source_type: env
+          source_path: GATEWAY_ATTACH_KEYCLOAK_INTROSPECTION_URL
+      - logical_name: gateway.attach.keycloak.jwks
+        source:
+          source_type: env
+          source_path: GATEWAY_ATTACH_KEYCLOAK_JWKS_URL
+      - logical_name: gateway.attach.keycloak.admin_client_credentials.client_id
+        source:
+          source_type: env
+          source_path: KEYCLOAK_ADMIN_CLIENT_ID
+      - logical_name: gateway.attach.keycloak.admin_client_credentials.client_secret
+        source:
+          source_type: env
+          source_path: KEYCLOAK_ADMIN_CLIENT_SECRET
+    services:
+      main:
+        runtime_id: judge-main
+        runtime_address: runtime://judge-local/judge/main
+        capabilities:
+          - market.skill-proof
+          - workflow.orchestration
+          - runtime.main
+        bifrost_verify_endpoints: false
+        omnimemory_enabled: false
+        omnimemory_memgraph_host: ""
+        publish_introspection: true
+      effects:
+        runtime_id: judge-effects
+        runtime_address: runtime://judge-local/judge/effects
+        capabilities:
+          - effects.consumer
+          - market.skill-proof
+          - runtime.effects
+        bifrost_verify_endpoints: false
+        omnimemory_enabled: false
+        omnimemory_memgraph_host: ""
+        publish_introspection: false
+      worker:
+        runtime_id: judge-worker
+        runtime_address: runtime://judge-local/judge/worker
+        # OMN-12990: explicit worker replica pin in the ledgered config surface.
+        replicas: 1
+        capabilities:
+          - workflow.dispatch
+          - contract.update
+          - runtime.worker
+        bifrost_verify_endpoints: false
+        omnimemory_enabled: false
+        omnimemory_memgraph_host: ""
+        publish_introspection: false
+  prod:
+    compose_project: omnibase-infra-prod
+    main_port: 28085
+    effects_port: 28086
+    topic_provisioner_max_partitions: 0
+    # OMN-14551: prod flip requires the alertable message_lost counter (still
+    # open per the ticket -- see _route_swallowed_exception's "metric surface"
+    # note in handler_wiring.py) AND a fresh prod-promotion grant (rule 2a/12).
+    # Neither exists yet. OFF.
+    boundary_dlq_enabled: false
+    services:
+      main:
+        runtime_id: prod-main
+        runtime_address: runtime://omninode-pc/prod/main
+        capabilities:
+          - market.skill-proof
+          - workflow.orchestration
+          - runtime.main
+        bifrost_verify_endpoints: false
+        omnimemory_enabled: false
+        omnimemory_memgraph_host: ""
+        publish_introspection: true
+      effects:
+        runtime_id: prod-effects
+        runtime_address: runtime://omninode-pc/prod/effects
+        capabilities:
+          - effects.consumer
+          - market.skill-proof
+          - runtime.effects
+        bifrost_verify_endpoints: false
+        omnimemory_enabled: false
+        omnimemory_memgraph_host: ""
+        publish_introspection: false
+      worker:
+        runtime_id: prod-worker
+        runtime_address: runtime://omninode-pc/prod/worker
+        # OMN-12990: explicit worker replica pin in the ledgered config surface.
+        replicas: 1
+        capabilities:
+          - workflow.dispatch
+          - contract.update
+          - runtime.worker
+        bifrost_verify_endpoints: false
+        omnimemory_enabled: false
+        omnimemory_memgraph_host: ""
+        publish_introspection: false
+  # OMN-17150 / OMN-17143: COLLABORATOR lane, owned by and mutable by one
+  # external collaborator (Lakshman Patel). Dev-class boundary — CLAUDE.md calls
+  # the dev lane a "fully mutable test platform" and this lane carries the same
+  # semantics — and explicitly NOT stability-class:
+  #
+  #   * absent from scripts/preflight_lane_deploy_attribution.py GOVERNED_LANES
+  #     (same reason `dev` is absent: gating a fully-mutable platform pushes its
+  #     owner off the sanctioned path for no governance gain),
+  #   * absent from that script's GRANT_INTERLOCK_LANES, so a rebuild here can
+  #     never invalidate the `stability-proven` premise of a live prod grant,
+  #   * absent from omni_home's no-raw-prod-bypass matcher, whose governed set
+  #     is {omnibase-infra-prod, omnibase-infra-stability-test,
+  #     omnibase-infra-judge} — `omnibase-infra-lakshman` matches none of them.
+  #
+  # It is NEVER a proof lane: no synthetic integration evidence, no golden-chain
+  # receipt, no `stability-proven` digest, and never a premise for a promotion
+  # grant. tests/ci/test_lakshman_lane_governance_boundary.py pins every one of
+  # those statements, in both directions.
+  #
+  # Ports are the OMN-17143 reserved block (58085/58086), verified free on .201
+  # by read-only `ss -ltn` on 2026-08-30. The effects port follows the +1
+  # convention every other lane uses.
+  lakshman:
+    compose_project: omnibase-infra-lakshman
+    main_port: 58085
+    effects_port: 58086
+    # Single-broker sandbox; same cap as the other single-broker lanes.
+    topic_provisioner_max_partitions: 1
+    # OMN-14551: OFF, and stated rather than inherited (the field has no
+    # default). The dev and stability-test lanes are ON only because each was
+    # flipped after a measured live DLQ proof ON THAT LANE. This lane has never
+    # run, so there is no such proof and claiming the flip would be asserting
+    # something unmeasured. Its owner can request the flip once the lane is up
+    # and a readback exists.
+    boundary_dlq_enabled: false
+    secret_resolver_config_path: /app/data/delegation/secret_resolver.yaml
+    secret_resolver_mappings:
+      - logical_name: llm.openrouter.api_key
+        source:
+          source_type: env
+          source_path: OPENROUTER_API_KEY
+      - logical_name: llm.glm.api_key
+        source:
+          source_type: env
+          source_path: LLM_GLM_API_KEY
+      - logical_name: llm.gemini.api_key
+        source:
+          source_type: env
+          source_path: GEMINI_API_KEY
+      # OMN-12971: Vertex bearer-token ref. The logical ref MUST match the
+      # cloud-vertex-gemini backend's secret_ref in omnimarket
+      # bifrost_delegation.yaml. source_type=file → the ref resolves to the
+      # mounted token FILE; only the ref name and the in-container path live
+      # here, never a value.
+      - logical_name: llm.vertex.access_token
+        source:
+          source_type: file
+          source_path: /run/secrets/vertex_access_token
+      # OMN-13726: Slack bot token for outbound Slack integrations.
+      - logical_name: slack.bot_token
+        source:
+          source_type: env
+          source_path: SLACK_BOT_TOKEN
+      # OMN-16921: node_slack_publish_effect resolves the LITERAL string
+      # "SLACK_BOT_TOKEN" (its own contract's secrets-block key), not the dotted
+      # convention name above. Under this lane's enable_convention_fallback:
+      # false posture the dotted mapping alone would miss. Additive.
+      - logical_name: SLACK_BOT_TOKEN
+        source:
+          source_type: env
+          source_path: SLACK_BOT_TOKEN
+      # OMN-15918 / OMN-16110: service_kernel's gateway-attach boot check hard
+      # -requires all five of these whenever secret_resolver_config_path is set
+      # (ProtocolConfigurationError otherwise). See the dev profile's block for
+      # the full rationale; tests/ci/test_runtime_policy_contract.py drives the
+      # real boot function against this profile.
+      - logical_name: gateway.attach.keycloak.issuer
+        source:
+          source_type: env
+          source_path: KEYCLOAK_ISSUER
+      - logical_name: gateway.attach.keycloak.introspection
+        source:
+          source_type: env
+          source_path: GATEWAY_ATTACH_KEYCLOAK_INTROSPECTION_URL
+      - logical_name: gateway.attach.keycloak.jwks
+        source:
+          source_type: env
+          source_path: GATEWAY_ATTACH_KEYCLOAK_JWKS_URL
+      - logical_name: gateway.attach.keycloak.admin_client_credentials.client_id
+        source:
+          source_type: env
+          source_path: KEYCLOAK_ADMIN_CLIENT_ID
+      - logical_name: gateway.attach.keycloak.admin_client_credentials.client_secret
+        source:
+          source_type: env
+          source_path: KEYCLOAK_ADMIN_CLIENT_SECRET
+    services:
+      main:
+        runtime_id: lakshman-main
+        runtime_address: runtime://omninode-pc/lakshman/main
+        capabilities:
+          - market.skill-proof
+          - workflow.orchestration
+          - runtime.main
+        bifrost_verify_endpoints: false
+        omnimemory_enabled: false
+        omnimemory_memgraph_host: ""
+        publish_introspection: true
+      effects:
+        runtime_id: lakshman-effects
+        runtime_address: runtime://omninode-pc/lakshman/effects
+        capabilities:
+          - effects.consumer
+          - market.skill-proof
+          - runtime.effects
+        bifrost_verify_endpoints: false
+        omnimemory_enabled: false
+        omnimemory_memgraph_host: ""
+        publish_introspection: false
+      worker:
+        runtime_id: lakshman-worker
+        runtime_address: runtime://omninode-pc/lakshman/worker
+        # OMN-12990: explicit worker replica pin in the ledgered config surface.
+        # Declared for contract completeness (the profile model requires all
+        # three processes). Like the judge lane, this lane's compose file runs
+        # no worker container today, so the manifest declares none either.
+        replicas: 1
+        capabilities:
+          - workflow.dispatch
+          - contract.update
+          - runtime.worker
+        bifrost_verify_endpoints: false
+        omnimemory_enabled: false
+        omnimemory_memgraph_host: ""
+        publish_introspection: false
+  dogfood:
+    compose_project: omnibase-infra-dogfood
+    main_port: 49085
+    effects_port: 49086
+    # Single-broker sandbox; same cap as the other single-broker lanes.
+    topic_provisioner_max_partitions: 1
+    # OMN-14551: OFF, and stated rather than inherited (the field has no
+    # default). The dev and stability-test lanes are ON only because each was
+    # flipped after a measured live DLQ proof ON THAT LANE. This lane has never
+    # run, so there is no such proof and claiming the flip would be asserting
+    # something unmeasured. Its owner can request the flip once the lane is up
+    # and a readback exists.
+    boundary_dlq_enabled: false
+    secret_resolver_config_path: /app/data/delegation/secret_resolver.yaml
+    secret_resolver_mappings:
+      - logical_name: llm.openrouter.api_key
+        source:
+          source_type: env
+          source_path: OPENROUTER_API_KEY
+      - logical_name: llm.glm.api_key
+        source:
+          source_type: env
+          source_path: LLM_GLM_API_KEY
+      - logical_name: llm.gemini.api_key
+        source:
+          source_type: env
+          source_path: GEMINI_API_KEY
+      # OMN-12971: Vertex bearer-token ref. The logical ref MUST match the
+      # cloud-vertex-gemini backend's secret_ref in omnimarket
+      # bifrost_delegation.yaml. source_type=file → the ref resolves to the
+      # mounted token FILE; only the ref name and the in-container path live
+      # here, never a value.
+      - logical_name: llm.vertex.access_token
+        source:
+          source_type: file
+          source_path: /run/secrets/vertex_access_token
+      # OMN-13726: Slack bot token for outbound Slack integrations.
+      - logical_name: slack.bot_token
+        source:
+          source_type: env
+          source_path: SLACK_BOT_TOKEN
+      # OMN-16921: node_slack_publish_effect resolves the LITERAL string
+      # "SLACK_BOT_TOKEN" (its own contract's secrets-block key), not the dotted
+      # convention name above. Under this lane's enable_convention_fallback:
+      # false posture the dotted mapping alone would miss. Additive.
+      - logical_name: SLACK_BOT_TOKEN
+        source:
+          source_type: env
+          source_path: SLACK_BOT_TOKEN
+      # OMN-15918 / OMN-16110: service_kernel's gateway-attach boot check hard
+      # -requires all five of these whenever secret_resolver_config_path is set
+      # (ProtocolConfigurationError otherwise). See the dev profile's block for
+      # the full rationale; tests/ci/test_runtime_policy_contract.py drives the
+      # real boot function against this profile.
+      - logical_name: gateway.attach.keycloak.issuer
+        source:
+          source_type: env
+          source_path: KEYCLOAK_ISSUER
+      - logical_name: gateway.attach.keycloak.introspection
+        source:
+          source_type: env
+          source_path: GATEWAY_ATTACH_KEYCLOAK_INTROSPECTION_URL
+      - logical_name: gateway.attach.keycloak.jwks
+        source:
+          source_type: env
+          source_path: GATEWAY_ATTACH_KEYCLOAK_JWKS_URL
+      - logical_name: gateway.attach.keycloak.admin_client_credentials.client_id
+        source:
+          source_type: env
+          source_path: KEYCLOAK_ADMIN_CLIENT_ID
+      - logical_name: gateway.attach.keycloak.admin_client_credentials.client_secret
+        source:
+          source_type: env
+          source_path: KEYCLOAK_ADMIN_CLIENT_SECRET
+    services:
+      main:
+        runtime_id: dogfood-main
+        runtime_address: runtime://omninode-pc/dogfood/main
+        capabilities:
+          - market.skill-proof
+          - workflow.orchestration
+          - runtime.main
+        bifrost_verify_endpoints: false
+        omnimemory_enabled: false
+        omnimemory_memgraph_host: ""
+        publish_introspection: true
+      effects:
+        runtime_id: dogfood-effects
+        runtime_address: runtime://omninode-pc/dogfood/effects
+        capabilities:
+          - effects.consumer
+          - market.skill-proof
+          - runtime.effects
+        bifrost_verify_endpoints: false
+        omnimemory_enabled: false
+        omnimemory_memgraph_host: ""
+        publish_introspection: false
+      worker:
+        runtime_id: dogfood-worker
+        runtime_address: runtime://omninode-pc/dogfood/worker
+        # OMN-12990: explicit worker replica pin in the ledgered config surface.
+        # Declared for contract completeness (the profile model requires all
+        # three processes). Like the judge lane, this lane's compose file runs
+        # no worker container today, so the manifest declares none either.
+        replicas: 1
+        capabilities:
+          - workflow.dispatch
+          - contract.update
+          - runtime.worker
+        bifrost_verify_endpoints: false
+        omnimemory_enabled: false
+        omnimemory_memgraph_host: ""
+        publish_introspection: false

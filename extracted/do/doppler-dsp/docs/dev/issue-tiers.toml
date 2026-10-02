@@ -1,0 +1,771 @@
+# The backlog's tier assignments — the judgement half of
+# docs/dev/issues.md, committed so it can be reviewed and argued
+# with. `make issues` renders the page from this file and fails if
+# an open issue is missing here or a closed one is still listed.
+#
+# tier 0 breaks for a user          3 measured cost
+# tier 1 a gate that does not gate  4 cannot be reached
+# tier 2 a claim nothing measures   5 convergence and hygiene
+
+[meta]
+generated = "2026-09-16"
+
+[issue.502]
+tier = 3
+title = "Performance: prepare() scales O(n) with users instead of sharing RRC filters"
+status = "open"
+
+[issue.535]
+tier = 5
+title = "DsssReceiver: derive segments, adopt async's squaring carrier combine"
+status = "open"
+
+[issue.545]
+tier = 4
+title = "Reading a capture is undiscoverable and undocumented \u2014 enriched view over wfm_reader + a guide"
+status = "open"
+
+[issue.568]
+tier = 5
+title = "RFC: Doxygen \u2192 docstring derivation \u2014 the jm-side plan, and where the F-series fits"
+status = "open"
+
+[issue.578]
+tier = 4
+title = "Container UX: pulled image ships no examples \u2014 split into a runtime (compose + Python demos) and a build (C/jm consuming projects) image"
+status = "open"
+
+[issue.615]
+tier = 5
+title = "CI: every action is on the node20 generation \u2014 bump to the node24 majors"
+status = "open"
+
+[issue.630]
+tier = 5
+title = "GitHub Actions: every pin is stale (up to 5 majors), and the Node 20 forcing we rely on is temporary"
+status = "open"
+
+[issue.635]
+tier = 4
+title = "Resampler's bank= is a working, undocumented constructor parameter"
+status = "open"
+
+[issue.639]
+tier = 5
+title = "CI is make-SSOT for every gate \u2014 the drift is all in the plumbing layer"
+status = "open"
+
+[issue.645]
+tier = 2
+title = "MpskReceiver timing loop: two measured default changes not taken \u2014 DTTL for BPSK/QPSK, and bn_timing's knee"
+status = "open"
+
+[issue.646]
+tier = 2
+title = "The resamp double-emit fix is pinned at RateSync level only \u2014 MpskReceiver, where it was observed, has no regression test"
+status = "open"
+
+[issue.648]
+tier = 5
+title = "dp_resamp_execute_ctrl_push is ULP-sensitive: gcc 13 and gcc 15 disagree on the converged lock metric by 0.031"
+status = "open"
+
+[issue.651]
+tier = 5
+title = "Makefile diverges from the shared convention: no PYTEST command variable, and `make test` runs only ctest"
+status = "open"
+
+[issue.652]
+tier = 2
+title = "Matched pulse bank is laid out against the pre-fix resamp accumulator"
+status = "open"
+
+[issue.655]
+tier = 5
+title = "UBSan alignment ratchet: 821 misaligned member accesses"
+status = "open"
+
+[issue.658]
+tier = 4
+title = "AGC: a seed that cannot fire on silence \u2014 buy back the acquisition spread"
+status = "open"
+
+[issue.661]
+tier = 4
+title = "RateSync reports over-drive but is silent about under-drive"
+status = "open"
+
+[issue.668]
+tier = 4
+title = "RateSync.clipped conflates transmitter over-drive with noise-crest clipping"
+status = "open"
+
+[issue.676]
+tier = 5
+title = "Telemetry: an over-long prefix silently aliases two probes onto one id, and the attach reports DP_OK"
+status = "open"
+
+[issue.677]
+tier = 5
+title = "C tests: 88 hand-rolled CHECK macros, 9 of which abort at the first failure"
+status = "open"
+
+[issue.678]
+tier = 5
+title = "util: no C test harness, and square_clip.c duplicates its own body"
+status = "open"
+
+[issue.682]
+tier = 1
+title = "test: \u00a712's blob-determinism check compares in float at 1e-9, so it asserts float-equality not bit-identity"
+status = "open"
+
+[issue.684]
+tier = 2
+title = "test(symsync): the embedded timing NCO never states its rate, and the gate that would catch it never landed"
+status = "open"
+
+[issue.685]
+tier = 5
+title = "feat(telemetry): attaching a pipeline takes one call per object; the one-call form was written then lost to a redesign"
+status = "open"
+
+[issue.689]
+tier = 2
+title = "DSSS test captures inject 3.01 dB less noise than their cn0_dbhz label, and correcting it exposes non-monotonic acquisition"
+status = "open"
+
+[issue.692]
+tier = 1
+title = "characterization: the category has no envelope gate and no figure-freshness gate"
+status = "open"
+
+[issue.694]
+tier = 5
+title = "make gallery: GALLERY_CHARACTERIZATIONS is plural but the recipe only works at n=1"
+status = "open"
+
+[issue.696]
+tier = 1
+title = "docs-check and docs-drift-check keep two copies of the generator --check list, and CI only runs one"
+status = "open"
+
+[issue.701]
+tier = 1
+title = "make bench skips function-only modules: bench_util_core builds and is never run"
+status = "open"
+
+[issue.711]
+tier = 2
+title = "agc: the header promises level-independent settling, and \u00a76 measured otherwise"
+status = "open"
+
+[issue.712]
+tier = 5
+title = "make docs-check gives a wall of false broken links when site/ is absent"
+status = "open"
+
+[issue.715]
+tier = 2
+title = "The DTTL-vs-Gardner tradeoff is measured only where DTTL wins: no SNR axis exists anywhere"
+status = "open"
+
+[issue.716]
+tier = 1
+title = "Validation figures and CSVs are gated by nothing \u2014 validate-check only compares rendered markdown"
+status = "open"
+
+[issue.720]
+tier = 5
+title = "clang-tidy: 172 findings block gating at zero \u2014 triage, judgement, and config, in that order"
+status = "open"
+
+[issue.721]
+tier = 5
+title = "Three helpers are byte-identical across modules; zeropad_1d is the one that will drift"
+status = "open"
+
+[issue.730]
+tier = 5
+title = "jm_test.h is deliberately not vendored: a jm 0.58.0+ test scaffold needs converting to dp_test.h"
+status = "open"
+
+[issue.732]
+tier = 2
+title = "carrier_nda: the acquisition contract needs the seeding number (|df| <= bn/M), and the arm's absolute wall it does not name"
+status = "open"
+
+[issue.733]
+tier = 2
+title = "carrier_nda: the half-symbol arm's `1/2 + 1/(M+1)` coherent gain does not reproduce"
+status = "open"
+
+[issue.734]
+tier = 2
+title = "carrier_nda: the lock statistic's H0 spread is M-independent per look, and is not through the arm"
+status = "open"
+
+[issue.735]
+tier = 4
+title = "dp_carrier_nda_get_nco_freq is unreachable from Python and telemetry \u2014 both published frequency views are the same view"
+status = "open"
+
+[issue.736]
+tier = 1
+title = "check_doc_face_parity compares Examples/Raises only, so the divergence that shipped was invisible \u2014 and lock-detection.md is stale on CarrierNda"
+status = "open"
+
+[issue.744]
+tier = 1
+title = "check_lifecycle: verify the phase-9 example too, by having each report cite it"
+status = "open"
+
+[issue.750]
+tier = 4
+title = "AGC has no signal-presence notion: on a noise floor it applies 59.9 dB and the next burst arrives hot"
+status = "open"
+
+[issue.751]
+tier = 2
+title = "The DTTL's \"degrades faster at low SNR\" claim is unmeasured \u2014 the RateSync validator adds no noise"
+status = "open"
+
+[issue.754]
+tier = 2
+title = "MpskReceiver: false lock (negative lock, correct frequency and timing) at any m_out mpsk.md \u00a78 would not derive \u2014 the cost of #644"
+status = "open"
+
+[issue.756]
+tier = 5
+title = "Retire wfm_synth_mls_poly() in favour of pn_mls_poly()"
+status = "open"
+
+[issue.757]
+tier = 5
+title = "The docstring-coverage ratchet is slack in 24 of 26 modules"
+status = "open"
+
+[issue.780]
+tier = 1
+title = "The gallery has no gate: 21 committed assets are stale, one script is in no target, and `make gallery` is red"
+status = "open"
+
+[issue.781]
+tier = 5
+title = "mpsk_receiver_performance_demo: a BPSK trial declares lock with a clean constellation and SER 0.27, and .examples-skip's reason names a different failure"
+status = "open"
+
+[issue.802]
+tier = 5
+title = "Cleanup plan for the test/measurement layer: a convergence plan, not a deletion plan (measured)"
+status = "open"
+
+[issue.813]
+tier = 4
+title = "fec: virtual fill (4.4.2 shortened codeblock) is not implemented, so a frame off the 223*I grid has no path through the outer code"
+status = "open"
+
+[issue.814]
+tier = 2
+title = "MpskReceiver: six header claims are covered by nothing in either language (F9)"
+status = "open"
+
+[issue.830]
+tier = 2
+title = "The MpskReceiver validation report characterises the complex face only \u2014 the real face has no Python evidence"
+status = "open"
+
+[issue.831]
+tier = 2
+title = "MpskReceiver: state the link and the requirement, derive the loops (mpsk-refactor 4.3)"
+status = "open"
+
+[issue.844]
+tier = 4
+title = "stream: ten public send entry points have ZERO execution \u2014 the CI8/CI16/CF32 slice of PUSH/REQ/REP, including the durable JetStream tier"
+status = "open"
+
+[issue.845]
+tier = 3
+title = "make coverage's -O0 tree costs 6 minutes, and -O2 takes two bit-exactness tests red under CI's clang 18"
+status = "open"
+
+[issue.847]
+tier = 1
+title = "Phase 4's sabotage rule is stated on three pages and executed by none"
+status = "open"
+
+[issue.853]
+tier = 5
+title = "A frame is a field list and a stage list: fold both framers into one description"
+status = "open"
+
+[issue.855]
+tier = 2
+title = "The timing rate residual doubles with a carrier offset present, and nothing characterises the coupling"
+status = "open"
+
+[issue.856]
+tier = 5
+title = "design/bpsk-receiver is superseded by the collapse and the view \u2014 triage its design doc, then close it out"
+status = "open"
+
+[issue.865]
+tier = 4
+title = "doppler reads 131.0-B-3; B-6 is current \u2014 and it changed the randomiser default"
+status = "open"
+
+[issue.871]
+tier = 1
+title = "check_stimulus_sources: a hand-computed Es/N0 sigma is an invented level convention, and no marker catches it"
+status = "open"
+
+[issue.890]
+tier = 3
+title = "snr: both *_db_series forms are O(n*window) \u2014 they re-scan the window at every sample"
+status = "open"
+
+[issue.893]
+tier = 5
+title = "bench: six benchmarks are declared at a level jm was never told about (three below an object, three inside c_deps)"
+status = "open"
+
+[issue.894]
+tier = 5
+title = "Certify `viterbi` as its own object, rather than inside `conv`"
+status = "open"
+
+[issue.896]
+tier = 3
+title = "Multi-config C benchmarks charge the clock ramp to whichever config runs first"
+status = "open"
+
+[issue.898]
+tier = 3
+title = "make coverage: ddc_fn_scaling.py times out, and the more cores you have the worse it gets"
+status = "open"
+
+[issue.900]
+tier = 5
+title = "Audit: what is left to declare, and the capabilities with no Python path"
+status = "open"
+
+[issue.905]
+tier = 3
+title = "arith: the Q8 shift kernels are slower than their Q15 twins, not faster"
+status = "open"
+
+[issue.906]
+tier = 5
+title = "The function-only modules are benchmarked in C but not in Python"
+status = "open"
+
+[issue.919]
+tier = 1
+title = "libdoppler.a's declared link line is only checked where pthread is a separate library"
+status = "open"
+
+[issue.922]
+tier = 5
+title = "Two hand-written out= parameters are invisible to the stub they should be published in"
+status = "open"
+
+[issue.932]
+tier = 2
+title = "symsync_lock's published false-alarm rate moves 1.5x with -ffast-math, and its header states a conclusion neither value supports"
+status = "open"
+
+[issue.933]
+tier = 5
+title = "Migrate the four inline LCG streams off scripts/.private-rng-ratchet"
+status = "open"
+
+[issue.936]
+tier = 1
+title = "check_stimulus_sources: the pulse marker's C branch cannot fire \u2014 it is matched per line against a signature clang-format always splits"
+status = "open"
+
+[issue.937]
+tier = 5
+title = "Four validation harnesses hand-roll AWGN instead of calling the library's awgn, and nothing says they shouldn't"
+status = "open"
+
+[issue.940]
+tier = 4
+title = "DopplerChannel per-sample Doppler profile \u2014 deferred; the carrier needs the warping step, not a chord"
+status = "open"
+
+[issue.959]
+tier = 4
+title = "Streaming API shape: role typing, ack ergonomics, control-plane parity, and an undocumented size ceiling"
+status = "open"
+
+[issue.962]
+tier = 2
+title = "Streaming: CI8/CI16 have no round-trip test, and the format names are unprefixed in a public header"
+status = "open"
+
+[issue.966]
+tier = 4
+title = "Pull workers have no subscription drain, so leaving a queue group drops in-flight work"
+status = "open"
+
+[issue.967]
+tier = 1
+title = "check_doc_paths does not check build/ paths, so documented invocations can rot silently"
+status = "open"
+
+[issue.972]
+tier = 2
+title = "End-of-stream on the disk transport: the header's sample count cannot be the marker"
+status = "open"
+
+[issue.974]
+tier = 5
+title = "The `dp_stream_*` interrupt aliases were meant to be removed, and nothing tracks it \u2014 our own binding still uses all of them"
+status = "open"
+
+[issue.975]
+tier = 2
+title = "The 100 ms interrupt bound is published as a guarantee and measured only at idle (io-termination \u00a75)"
+status = "open"
+
+[issue.979]
+tier = 0
+title = "One unparseable message wedges a JetStream work queue forever \u2014 recv neither acks nor terms it, and no API can skip it"
+status = "open"
+
+[issue.981]
+tier = 4
+title = "Composer cannot SET seed_advance from Python \u2014 the object face and the JSON face disagree"
+status = "open"
+
+[issue.982]
+tier = 0
+title = "Carrier lock, not acquisition, fails on ~1/3 of draws \u2014 and the coarse residual that kills it is asymmetric about zero"
+status = "open"
+
+[issue.997]
+tier = 2
+title = "acq: the non-coherent Pd model is NOT unreliable past a few hundred looks \u2014 measured monotone to 1024, <1 sigma to 512"
+status = "open"
+
+[issue.998]
+tier = 4
+title = "acq: no property reports the SEARCHED Doppler reach, and doppler_span_hz reads like it does"
+status = "open"
+
+[issue.999]
+tier = 4
+title = "acq: a push shorter than one dwell returns nothing, and nothing says how long a dwell is"
+status = "open"
+
+[issue.1000]
+tier = 1
+title = "46 header @code examples reach no stub, so no gate executes them \u2014 and one of them was wrong"
+status = "open"
+
+[issue.1006]
+tier = 3
+title = "DsssBurstReceiver: non-overlapping frames cost a band of burst offsets NEAR the knee (77% for a good code)"
+status = "open"
+
+[issue.1009]
+tier = 5
+title = "Certification reports open with caveats, not orientation \u2014 a caller arriving cold has no entry point"
+status = "open"
+
+[issue.1010]
+tier = 1
+title = "19 Python benchmarks take the `benchmark` fixture and never call it"
+status = "open"
+
+[issue.1013]
+tier = 1
+title = "Nothing enforces the phase-9 rule that an object owes BOTH example faces"
+status = "open"
+
+[issue.1027]
+tier = 0
+title = "Data race on the process-wide interrupt flag (TSan)"
+status = "open"
+
+[issue.1028]
+tier = 1
+title = "Nothing enforces the UBSan alignment ratchet \u2014 it grew 821 \u2192 853 unnoticed"
+status = "open"
+
+[issue.1035]
+tier = 4
+title = "The stream carries complex only; a real sample type is refused at the sink"
+status = "open"
+
+[issue.1057]
+tier = 4
+title = "Three public classes are reachable only from the generated API reference \u2014 and two are the odd ones out in a 13-member family"
+status = "open"
+
+[issue.1060]
+tier = 0
+title = "settle_floor()'s 5/Bn budget does not cover slewing out a clock offset \u2014 measured 12.7x too short, and it makes a working receiver read as chance"
+status = "open"
+
+[issue.1063]
+tier = 2
+title = "burst_acquisition characterization predicts false alarms from a dwell count, which cannot describe the interpolated surface (detector is sound)"
+status = "open"
+
+[issue.1064]
+tier = 2
+title = "acq: realized Pfa is ~1.65x the requested target \u2014 the threshold's N omits the Doppler interpolation the gate's maximum runs over"
+status = "open"
+
+[issue.1073]
+tier = 4
+title = "A Bits type with methods, rather than six free conversions threading out-parameters"
+status = "open"
+
+[issue.1082]
+tier = 1
+title = "Nothing compiles a header's @code example \u2014 a 16-argument call to a 15-parameter function shipped"
+status = "open"
+
+[issue.1109]
+tier = 4
+title = "Plan cannot cache a Doppler source: refused, because a cached on-time has no channel history"
+status = "open"
+
+[issue.1114]
+tier = 5
+title = "noise_steps matches steps()'s AWGN chunking to defend against a path that no longer exists, and nothing would catch its return"
+status = "open"
+
+[issue.1118]
+tier = 1
+title = "StreamSink cannot be certified through its Python face: validate-check runs after nats-down, and a report must render identically either way"
+status = "open"
+
+[issue.1123]
+tier = 5
+title = "dp_wfm_reader_header_tag neither bounds-checks nor documents that it must not be \u2014 the only one of four enumerators that does neither"
+status = "open"
+
+[issue.1128]
+tier = 2
+title = "wfm.Plan: a ranged-gap scene draws a different length per seed, and render()'s documented Returns says it does not"
+status = "open"
+
+[issue.1129]
+tier = 1
+title = "wfm_plan: nothing can observe whether a restore took the cached fast path, so a silent fallback to full rebuild would pass every test"
+status = "open"
+
+[issue.1133]
+tier = 2
+title = "gold: the CCSDS constants are certified against the published vector, not against the document"
+status = "open"
+
+[issue.1153]
+tier = 0
+title = "wfmgen: --from-file <scene> --realtime never terminates on a finite scene"
+status = "open"
+
+[issue.1164]
+tier = 5
+title = "libdoppler exports 106 symbols that are not its API, including all of vendored cJSON and PFFFT"
+status = "open"
+
+[issue.1165]
+tier = 5
+title = "Four exported symbols carry no prefix: awgn, crc16, saturate, ciccompmf"
+status = "open"
+
+[issue.1173]
+tier = 3
+title = "BurstCapture: the per-burst window copy is measured only at a 20 kB window, and it scales with burst_len"
+status = "open"
+
+[issue.1177]
+tier = 3
+title = "refine discards coherent gain at deep searches: M <= coherent_bins/2 periods are integrable, and it integrates 1"
+status = "open"
+
+[issue.1186]
+tier = 5
+title = "changelog.d fragments using reference-style links break mdformat once assembled next to another entry"
+status = "open"
+
+[issue.1188]
+tier = 5
+title = "native/validation: move every validator's --check onto dp_test.h"
+status = "open"
+
+[issue.1191]
+tier = 2
+title = "acq peak list: a strong emitter's same-code-phase sidelobes pass the two-epoch rule under long non-coherent integration"
+status = "open"
+
+[issue.1195]
+tier = 1
+title = "specan-check asks whether frames.json moved, and the recorder is unseeded -- so a behaviour-neutral specan edit can only pass by committing noise"
+status = "open"
+
+[issue.1201]
+tier = 1
+title = "Parallel make targets re-sync one shared venv against each other: a plain `uv run` removes the docs group under a running `docs-check`, and a `make pyext` sync broke a commit hook's mkdocs build"
+status = "open"
+
+[issue.1202]
+tier = 4
+title = "EventLog: the standalone finalize has no Python face \u2014 a crashed run's sidecar can only be rendered from C"
+status = "open"
+
+[issue.1206]
+tier = 4
+title = "wfm compose: sources in a segment cannot be shifted independently \u2014 add a per-source start offset"
+status = "open"
+
+[issue.1209]
+tier = 3
+title = "bench: lockdet steps_64k is 47% slower on the Python face between v0.46.0 and 0.47.0 \u2014 the C bench is flat and lockdet did not change"
+status = "open"
+
+[issue.1226]
+tier = 4
+title = "wfmgen/Plan: the DSSS window has no plan or CLI face \u2014 only the C and Python Synth API"
+status = "open"
+
+[issue.1228]
+tier = 5
+title = "docs(gallery): a page for acq_surface_demo \u2014 the searcher's surface and probes"
+status = "open"
+
+[issue.1229]
+tier = 4
+title = "AsyncDsssReceiver: one telemetry attach should forward to the embedded Acquisition"
+status = "open"
+
+[issue.1242]
+tier = 5
+title = "just-makeit.toml carries a stale \"NOT adopting c_style\" block eleven lines below `c_style = \"clang-format\"`"
+status = "open"
+
+[issue.1247]
+tier = 3
+title = "acq: bound the block depth D to a smooth slow-time length -- 308 = 4\u00b77\u00b711 at the operating point, and the transforms are now the searcher's cost"
+status = "open"
+
+[issue.1257]
+tier = 5
+title = "dsss.handoff.dll_init_chip_from_acq restates dp_acq_build_handoff()'s fold and will not carry the dwell advance"
+status = "open"
+
+[issue.1269]
+tier = 3
+title = "AsyncDsssReceiver builds its refine and track chains on every seed and hand-over \u2014 the pool's \"sized once at create\" holds for the pool, not its receivers"
+status = "open"
+
+[issue.1273]
+tier = 0
+title = "async_dsss_receiver: at 40 dB-Hz a data-block seed 650\u2013800 Hz off reports tracking at the seed's own frequency and never pulls in \u2014 two of 187 stints, each a 5\u20137 s double"
+status = "open"
+
+[issue.1275]
+tier = 2
+title = "async_dsss_pool: a neighbour within a kilohertz crossing a departed receiver's code phase at a chip or two a second is, to that receiver, a return \u2014 the pool's zone is where it can be told apart"
+status = "open"
+
+[issue.1284]
+tier = 0
+title = "dll: the full-epoch and partial-correlation loops apply the loop filter with different gains behind the one steer"
+status = "open"
+
+[issue.1289]
+tier = 0
+title = "async_dsss_receiver: the carrier slips cycles at 40 dB-Hz in both flavours, and decodes at 1% between them"
+status = "open"
+
+[issue.1294]
+tier = 4
+title = "wfm: the compose Synth and the Plan's DSSS source have no per-frame code-only window; only _SynthEngine.set_dsss_window has it"
+status = "open"
+
+[issue.1297]
+tier = 5
+title = "A coverage.py database is tracked at the repo root: .coverage, committed in #537, and .gitignore has no rule for it"
+status = "open"
+
+[issue.1299]
+tier = 5
+title = "The \"slot by both coordinates\" phrasing repeats in six more places, including a generated results.md"
+status = "open"
+
+[issue.1302]
+tier = 5
+title = "Burn down docs/.design-page-baseline: 24 design-page record sections across 15 pages"
+status = "open"
+
+[issue.1305]
+tier = 0
+title = "form_partials: the last partial runs long when est_segments does not divide acq_sf"
+status = "open"
+
+[issue.1306]
+tier = 1
+title = "make gallery keeps two hand-maintained lists that must agree, and a script in only one orphans its PNG"
+status = "open"
+
+[issue.1307]
+tier = 2
+title = "The burst-demod test codes have 0.78 autocorrelation sidelobes, so the tests tolerate timing error no real waveform would"
+status = "open"
+
+[issue.1309]
+tier = 3
+title = "acq interpolates Doppler but not code phase: nx_out is 0, so the burst start is quantised to one sample"
+status = "open"
+
+[issue.1311]
+tier = 2
+title = "burst_capture k_lo is 3*reps+2 by assertion, not derivation, and it inflates the merge radius and min_gap by 1.7x"
+status = "open"
+
+[issue.1313]
+tier = 3
+title = "The two long sweeps over BOUND objects sit in native/validation/, not characterization/ \u2014 60% of every PR's C suite"
+status = "open"
+
+[issue.1320]
+tier = 3
+title = "wfm_writer raw cf32 write is ~7% slower than v0.47.0 with byte-identical source"
+status = "open"
+
+[issue.1322]
+tier = 1
+title = "Nothing gates that a published benchmark snapshot names a commit reachable from main"
+status = "open"
+
+[issue.1328]
+tier = 1
+title = "A spot check's budget is wall-clock; gate its WORK COUNT instead"
+status = "open"
+
+[issue.1330]
+tier = 5
+title = "jm's composer template emits a -Wcomment warning; fixed upstream, adopt on the next pin bump"
+status = "open"
+
+[issue.1342]
+tier = 3
+title = "wfm_writer integer writes are ~3x slower since #1117: every component goes through the single-sample converter step"
+status = "open"
+
+[issue.1346]
+tier = 5
+title = "I16Buffer.wait() returns 2-D (n,2) while its docstring promises a structured array and its siblings return 1-D"
+status = "open"
+
+[issue.1350]
+tier = 1
+title = "tests/install/rust-test.sh has no execution home \u2014 nothing runs it, which is why its broken make goal survived"
+status = "open"

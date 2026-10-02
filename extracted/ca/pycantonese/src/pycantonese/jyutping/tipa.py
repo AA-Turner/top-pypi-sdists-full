@@ -1,0 +1,133 @@
+from __future__ import annotations
+
+from pycantonese.jyutping.parse_jyutping import parse_jyutping
+
+ONSETS_TIPA = {
+    "b": "p",
+    "d": "t",
+    "g": "k",
+    "gw": "k\\super w ",
+    "z": "ts",
+    "p": "p\\super h ",
+    "t": "t\\super h ",
+    "k": "k\\super h ",
+    "kw": "k\\super w\\super h ",
+    "c": "ts\\super h ",
+    "m": "m",
+    "n": "n",
+    "ng": "N",
+    "f": "f",
+    "h": "h",
+    "s": "s",
+    "l": "l",
+    "w": "w",
+    "j": "j",
+    "v": "v",
+    "": "",
+}
+
+FINALS_TIPA = {
+    "i": "i",
+    "ip": "ip\\textcorner ",
+    "it": "it\\textcorner ",
+    "ik": "Ik\\textcorner ",
+    "im": "im",
+    "in": "in",
+    "ing": "IN",
+    "iu": "iu",
+    "yu": "y",
+    "yut": "yt\\textcorner ",
+    "yun": "yn",
+    "u": "u",
+    "ut": "ut\\textcorner ",
+    "uk": "Uk\\textcorner ",
+    "un": "un",
+    "ung": "UN",
+    "ui": "uY",
+    "e": "E",
+    "ek": "Ek\\textcorner ",
+    "eng": "EN",
+    "ei": "eI",
+    "eot": "8t\\textcorner ",
+    "eon": "8n",
+    "eoi": "8Y",
+    "oe": "\\oe ",
+    "oek": "\\oe k\\textcorner ",
+    "oeng": "\\oe N",
+    "o": "O",
+    "ot": "Ot\\textcorner ",
+    "ok": "Ok\\textcorner ",
+    "on": "On",
+    "ong": "ON",
+    "oi": "OY",
+    "ou": "ou",
+    "ap": "5p\\textcorner ",
+    "at": "5t\\textcorner ",
+    "ak": "5k\\textcorner ",
+    "am": "5m",
+    "an": "5n",
+    "ang": "5N",
+    "ai": "5I",
+    "au": "5u",
+    "aa": "a",
+    "aap": "ap\\textcorner ",
+    "aat": "at\\textcorner ",
+    "aak": "ak\\textcorner ",
+    "aam": "am",
+    "aan": "an",
+    "aang": "aN",
+    "aai": "aI",
+    "aau": "au",
+    "m": "\\s{m}",
+    "ng": "\\s{N}",
+}
+
+TONES_TIPA = {
+    "1": "55",
+    "2": "25",
+    "3": "33",
+    "4": "21",
+    "5": "23",
+    "6": "22",
+}
+
+
+def jyutping_to_tipa(jp: str | list[str]) -> list[str]:
+    """Convert Jyutping romanization into LaTeX TIPA.
+
+    Args:
+        jp (str or list[str]): A Jyutping romanization string for a single
+            word (any number of syllables, optionally separated by spaces),
+            or a list of such strings carrying explicit word segmentation
+            (one word per element).
+
+    Returns:
+        list[str]: A list with one element per input word. Each element is
+        the TIPA representation of that word, with syllables separated by a
+        single space.
+
+    Raises:
+        ValueError: If the Jyutping romanization is illegal (e.g., with
+            unrecognized elements).
+
+    Examples:
+        >>> jyutping_to_tipa("gwong2dung1waa2")  # 廣東話, Cantonese  # doctest: +SKIP
+        ['k\\super w ON25 tUN55 wa25']
+    """  # noqa: E501
+    if not jp:
+        return []
+    words = [jp] if isinstance(jp, str) else jp
+    return [" ".join(_word_to_tipa_syllables(word)) for word in words]
+
+
+def _word_to_tipa_syllables(word: str) -> list[str]:
+    jp_parsed_list = parse_jyutping(word)
+    tipa_list = []
+
+    for jp_parsed in jp_parsed_list:
+        # TODO: Separate "final" as "nucleus" and "coda" instead?
+        tipa = ONSETS_TIPA[jp_parsed.onset] + FINALS_TIPA[jp_parsed.final]
+        tipa = tipa.strip() + TONES_TIPA[jp_parsed.tone]
+        tipa_list.append(tipa)
+
+    return tipa_list

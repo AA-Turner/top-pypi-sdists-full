@@ -1,5 +1,3 @@
-use itertools::Itertools;
-
 use tombi_comment_directive::value::{IntegerCommonFormatRules, IntegerCommonLintRules};
 use tombi_future::Boxable;
 use tombi_schema_store::SchemaView;
@@ -10,19 +8,20 @@ use crate::{
         GetTypeDefinition, TypeDefinition, adjacent_type_definition,
         all_of::get_all_of_type_definition, any_of::get_any_of_type_definition,
         comment::get_tombi_value_comment_directive_type_definition,
-        one_of::get_one_of_type_definition, prefer_type_definitions,
+        one_of::get_one_of_type_definition, prefer_type_definitions, schema_view_type_definition,
     },
 };
 
 impl GetTypeDefinition for tombi_document_tree_syntax::Integer {
     fn get_type_definition<'a: 'b, 'b>(
         &'a self,
-        position: tombi_text::Position,
-        keys: &'a [tombi_document_tree_syntax::Key],
+        cursor: crate::CursorPosition<'a>,
+        keys: &'a [tombi_document_tree_syntax::Key<'_>],
         accessors: &'a [tombi_schema_store::Accessor],
         current_schema: Option<&'a tombi_schema_store::CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext,
     ) -> tombi_future::BoxFuture<'b, Vec<TypeDefinition>> {
+        let offset = cursor.offset();
         log::trace!("self = {:?}", self);
         log::trace!("keys = {:?}", keys);
         log::trace!("accessors = {:?}", accessors);
@@ -33,7 +32,7 @@ impl GetTypeDefinition for tombi_document_tree_syntax::Integer {
                 get_key_table_value_comment_directive_content_and_schema_uri::<
                     IntegerCommonFormatRules,
                     IntegerCommonLintRules,
-                >(self.comment_directives(), position, accessors)
+                >(self.comment_directives(), offset, accessors)
                 && let hover_content = get_tombi_value_comment_directive_type_definition(
                     comment_directive_context,
                     schema_uri,
@@ -55,7 +54,7 @@ impl GetTypeDefinition for tombi_document_tree_syntax::Integer {
 
                         let base_type_definition = integer_schema
                             .get_type_definition(
-                                position,
+                                cursor,
                                 keys,
                                 accessors,
                                 Some(current_schema),
@@ -66,7 +65,7 @@ impl GetTypeDefinition for tombi_document_tree_syntax::Integer {
                         prefer_type_definitions(
                             adjacent_type_definition(
                                 self,
-                                position,
+                                cursor,
                                 keys,
                                 accessors,
                                 Some(current_schema),
@@ -82,7 +81,7 @@ impl GetTypeDefinition for tombi_document_tree_syntax::Integer {
                     SchemaView::OneOf(one_of_schema) => {
                         get_one_of_type_definition(
                             self,
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             one_of_schema,
@@ -94,7 +93,7 @@ impl GetTypeDefinition for tombi_document_tree_syntax::Integer {
                     SchemaView::AnyOf(any_of_schema) => {
                         get_any_of_type_definition(
                             self,
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             any_of_schema,
@@ -106,7 +105,7 @@ impl GetTypeDefinition for tombi_document_tree_syntax::Integer {
                     SchemaView::AllOf(all_of_schema) => {
                         get_all_of_type_definition(
                             self,
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             all_of_schema,
@@ -128,22 +127,15 @@ impl GetTypeDefinition for tombi_document_tree_syntax::Integer {
 impl GetTypeDefinition for tombi_schema_store::IntegerSchema {
     fn get_type_definition<'a: 'b, 'b>(
         &'a self,
-        _position: tombi_text::Position,
-        _keys: &'a [tombi_document_tree_syntax::Key],
+        _cursor: crate::CursorPosition<'a>,
+        _keys: &'a [tombi_document_tree_syntax::Key<'_>],
         accessors: &'a [tombi_schema_store::Accessor],
         current_schema: Option<&'a tombi_schema_store::CurrentSchema<'a>>,
         _schema_context: &'a tombi_schema_store::SchemaContext,
     ) -> tombi_future::BoxFuture<'b, Vec<TypeDefinition>> {
         async move {
             current_schema.map_or_else(Vec::new, |schema| {
-                let mut schema_base_uri = schema.schema_base_uri.as_ref().clone();
-                schema_base_uri.set_fragment(Some(&format!("L{}", self.range.start.line + 1)));
-
-                vec![TypeDefinition {
-                    schema_base_uri,
-                    schema_accessors: accessors.iter().map(Into::into).collect_vec(),
-                    range: schema.schema_view.range(),
-                }]
+                vec![schema_view_type_definition(schema, accessors, self.span)]
             })
         }
         .boxed()

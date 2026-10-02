@@ -27,6 +27,8 @@ below.
 
 from __future__ import annotations
 
+from urllib.parse import urlsplit
+
 import pulumi
 import pulumi_gcp as gcp
 
@@ -43,7 +45,7 @@ DOMAIN = config.get("domain") or "chat.internal.airbyte.ai"
 # primary entrypoint on the ops-webapp host.
 REDIRECT_HOST = config.get("redirect-host") or "ops.internal.airbyte.ai"
 REDIRECT_PATH = config.get("redirect-path") or "/chat/"
-MIN_INSTANCES = int(config.get("min-instances") or "0")
+MIN_INSTANCES = int(config.get("min-instances") or "1")
 MAX_INSTANCES = int(config.get("max-instances") or "5")
 DNS_ZONE_PROJECT = config.get("dns-zone-project") or "airbyte-intranet"
 DNS_ZONE_NAME = config.get("dns-zone-name") or "internal-airbyte-ai"
@@ -65,15 +67,51 @@ PLAYGROUND_IMAGE = f"ghcr.io/airbytehq/airbyte-agui-playground:{PLAYGROUND_IMAGE
 
 MCP_URL = config.get("mcp-url") or "https://mcp.internal.airbyte.ai/ops-mcp"
 AGENT_MODEL = config.get("agent-model") or ""
+ANTHROPIC_SECRET_ID = config.get("anthropic-secret-id") or ""
+ANTHROPIC_BASE_URL = config.get("anthropic-base-url") or ""
+PREVIEW_AGENT_MODEL = config.get("preview-agent-model") or AGENT_MODEL
+PREVIEW_ANTHROPIC_BASE_URL = (
+    config.get("preview-anthropic-base-url") or ANTHROPIC_BASE_URL
+)
+PREVIEW_ANTHROPIC_SECRET_ID = (
+    config.get("preview-anthropic-secret-id") or ANTHROPIC_SECRET_ID
+)
 CHAT_ENABLED = config.get("chat-enabled") or "true"
 MCP_UI = config.get("mcp-ui") or "true"
 PATH_PREFIX = (config.get("path-prefix") or "").strip("/")
 MCP_AUTH_MODE = config.get("mcp-auth-mode") or "bearer"
 
+for _config_name, _base_url in (
+    ("anthropic-base-url", ANTHROPIC_BASE_URL),
+    ("preview-anthropic-base-url", PREVIEW_ANTHROPIC_BASE_URL),
+):
+    if _base_url:
+        _parsed_base_url = urlsplit(_base_url)
+        if (
+            _parsed_base_url.scheme != "https"
+            or not _parsed_base_url.hostname
+            or _parsed_base_url.username is not None
+            or _parsed_base_url.password is not None
+            or _parsed_base_url.query
+            or _parsed_base_url.fragment
+        ):
+            raise ValueError(
+                f"{_config_name} must be an https URL with a hostname and no "
+                f"credentials, query, or fragment, got {_base_url!r}"
+            )
+
+if PREVIEW_ANTHROPIC_BASE_URL != ANTHROPIC_BASE_URL and not config.get(
+    "preview-anthropic-secret-id"
+):
+    raise ValueError(
+        "preview-anthropic-secret-id is required when preview-anthropic-base-url "
+        "differs from anthropic-base-url, so the prod key is never sent to the "
+        "preview endpoint"
+    )
+
 # Map of `AIRBYTE_AGUI_SERVER_*` env var -> Secret Manager container ID.
 # Empty IDs omit both the env var and the secret-access grant.
 SECRET_ENVS = {
-    "AIRBYTE_AGUI_SERVER_ANTHROPIC_API_KEY": config.get("anthropic-secret-id") or "",
     "AIRBYTE_AGUI_SERVER_MCP_CLIENT_ID": config.get("mcp-client-id-secret-id") or "",
     "AIRBYTE_AGUI_SERVER_MCP_CLIENT_SECRET": (config.get("mcp-client-secret-id") or ""),
     "AIRBYTE_AGUI_SERVER_OAUTH_CLIENT_SECRET": config.get("oauth-secret-id") or "",
@@ -358,19 +396,29 @@ def define_dns(lb_ip: gcp.compute.GlobalAddress) -> gcp.dns.RecordSet:
 
 def _server_envs(
     iap_audience: str,
+    *,
+    agent_model: str,
+    anthropic_secret_id: str,
+    anthropic_base_url: str,
 ) -> list[gcp.cloudrunv2.ServiceTemplateContainerEnvArgs]:
     """Build the agui-server env list shared by the prod and preview services."""
     envs = [
         _env("AIRBYTE_AGUI_SERVER_ENABLED", CHAT_ENABLED),
-        _env("AIRBYTE_AGUI_SERVER_AGENT_MODEL", AGENT_MODEL),
+        _env("AIRBYTE_AGUI_SERVER_AGENT_MODEL", agent_model),
         _env("AIRBYTE_AGUI_SERVER_MCP_URL", MCP_URL),
         _env("AIRBYTE_AGUI_SERVER_MCP_AUTH_MODE", MCP_AUTH_MODE),
         _env("AIRBYTE_AGUI_SERVER_MCP_UI", MCP_UI),
     ]
+    if anthropic_base_url:
+        envs.append(_env("AIRBYTE_AGUI_SERVER_ANTHROPIC_BASE_URL", anthropic_base_url))
     if PATH_PREFIX:
         envs.append(_env("AIRBYTE_AGUI_SERVER_PATH_PREFIX", PATH_PREFIX))
     if iap_audience:
         envs.append(_env("AIRBYTE_AGUI_SERVER_IAP_AUDIENCE", iap_audience))
+    if anthropic_secret_id:
+        envs.append(
+            _secret_env("AIRBYTE_AGUI_SERVER_ANTHROPIC_API_KEY", anthropic_secret_id)
+        )
     for env_name, secret_id in SECRET_ENVS.items():
         if secret_id:
             envs.append(_secret_env(env_name, secret_id))
@@ -396,7 +444,12 @@ def main() -> None:
         SERVER_SERVICE_NAME,
         SERVER_IMAGE,
         "1Gi",
-        _server_envs(SERVER_IAP_AUDIENCE),
+        _server_envs(
+            SERVER_IAP_AUDIENCE,
+            agent_model=AGENT_MODEL,
+            anthropic_secret_id=ANTHROPIC_SECRET_ID,
+            anthropic_base_url=ANTHROPIC_BASE_URL,
+        ),
         api_services,
         service_account=service_account,
         iap_identity=iap_identity,
@@ -417,7 +470,12 @@ def main() -> None:
         SERVER_PREVIEW_SERVICE_NAME,
         SERVER_IMAGE,
         "1Gi",
-        _server_envs(PREVIEW_SERVER_IAP_AUDIENCE),
+        _server_envs(
+            PREVIEW_SERVER_IAP_AUDIENCE,
+            agent_model=PREVIEW_AGENT_MODEL,
+            anthropic_secret_id=PREVIEW_ANTHROPIC_SECRET_ID,
+            anthropic_base_url=PREVIEW_ANTHROPIC_BASE_URL,
+        ),
         api_services,
         service_account=service_account,
         iap_identity=iap_identity,

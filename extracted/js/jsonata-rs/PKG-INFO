@@ -1,0 +1,82 @@
+Metadata-Version: 2.4
+Name: jsonata-rs
+Version: 0.1.4
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Summary: JSONata for Python — Rust port of the jsonata-java reference implementation
+License: Apache-2.0
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+
+# jsonata-rs
+
+Python bindings for the Rust port of [jsonata-java](https://github.com/dashjoin/jsonata-java).
+
+* PyPI distribution name: **`jsonata-rs`** — `pip install jsonata-rs`
+* Import name: **`jsonata`** — `import jsonata`
+* Requires **Python ≥ 3.11**; published as a single `abi3` wheel per platform
+  (Linux amd64 + arm64, macOS arm64).
+
+```python
+import jsonata
+
+expr = jsonata.Jsonata("Account.Order.Product.(Price * Quantity) ~> $sum()")
+expr.evaluate(data)            # evaluate against a dict / list / scalar
+
+# variable bindings
+jsonata.Jsonata("$x + 1").evaluate(None, {"x": 41})   # -> 42
+
+# one-shot convenience
+jsonata.evaluate("a + b", {"a": 2, "b": 3})           # -> 5
+
+# custom functions written in Python
+e = jsonata.Jsonata("$greet(name)")
+e.register_function("greet", lambda n: f"Hello, {n}!")
+e.evaluate({"name": "World"})                          # -> "Hello, World!"
+```
+
+Errors raise `jsonata.JsonataError` with `.code` (e.g. `"S0201"`) and `.position`.
+An internal engine bug (a caught Rust panic) raises `jsonata.JsonataInternalError`
+— a subclass of `JsonataError`, so existing handlers still catch it — with
+`.code == "PANIC"` and a `.panic_location`.
+
+```python
+try:
+    result = jsonata.Jsonata(expr).evaluate(data)
+except jsonata.JsonataError as e:
+    print(e.code, e.position)   # e.g. "S0201" 4
+```
+
+## Type checking
+
+The package ships PEP 561 type information (a `jsonata.pyi` stub plus a
+`py.typed` marker), so mypy and pyright type the full public API out of the box —
+including `JsonataError.code: str`, `.position: int`, and
+`JsonataInternalError.panic_location: str | None`. No stub package to install.
+
+## Value mapping
+
+| JSONata        | Python            |
+|----------------|-------------------|
+| number         | `int` (whole) / `float` |
+| string         | `str`             |
+| boolean        | `bool`            |
+| null           | `None`            |
+| undefined      | `None`            |
+| array          | `list`            |
+| object         | `dict`            |
+
+## Building
+
+```sh
+pip install maturin
+maturin build --release -m crates/jsonata-py/Cargo.toml   # wheel in target/wheels/
+# or for local dev:
+maturin develop --release -m crates/jsonata-py/Cargo.toml
+```
+
+CI (`.github/workflows/CI.yml`) cross-builds wheels for amd64 + arm64 across
+Linux (manylinux + musllinux) and macOS with `PyO3/maturin-action`, and
+publishes to PyPI with `pypa/gh-action-pypi-publish` (Trusted Publishing) on tag
+pushes.
+

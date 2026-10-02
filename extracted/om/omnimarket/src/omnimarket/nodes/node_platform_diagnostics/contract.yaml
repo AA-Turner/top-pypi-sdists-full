@@ -1,0 +1,60 @@
+---
+name: platform_diagnostics
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: orchestrator
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  Composable 7-dimension platform health check node. Runs async dimension checks
+  (contract_health, golden_chain, runtime_nodes, hook_health, database_projections,
+  ci_status, coverage) and aggregates into a tri-state PASS/WARN/FAIL result.
+
+handler:
+  module: omnimarket.nodes.node_platform_diagnostics.handlers.handler_platform_diagnostics
+  class: HandlerPlatformDiagnostics
+  input_model: omnimarket.nodes.node_platform_diagnostics.handlers.handler_platform_diagnostics.ModelDiagnosticsRequest
+
+handler_routing:
+  handlers:
+    - operation: platform_diagnostics
+      handler:
+        name: HandlerPlatformDiagnostics
+        module: omnimarket.nodes.node_platform_diagnostics.handlers.handler_platform_diagnostics
+
+descriptor:
+  node_archetype: orchestrator
+  purity: impure
+  idempotent: true
+  timeout_ms: 120000
+  runtime_profiles:
+    - effects
+
+terminal_event: onex.evt.omnimarket.platform-diagnostics-completed.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.platform-diagnostics-start.v1
+  publish_topics:
+    - onex.evt.omnimarket.platform-diagnostics-completed.v1
+
+sub_handler_dependencies:
+  - check_contract_health
+  - check_golden_chain
+  - check_runtime_nodes
+  - check_hook_health
+  - check_database_projections
+  - check_ci_status
+  - check_coverage
+
+metadata:
+  transport_type: kafka
+
+config:
+  ONEX_DASHBOARD_API:
+    description: "Dashboard API endpoint URL."
+    required: false
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.platform-diagnostics-completed.v1

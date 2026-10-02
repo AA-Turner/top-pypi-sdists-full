@@ -171,8 +171,7 @@ def _get_subnets_from_subnet_ids(
     subnet_ids: List[str], region: str, logger: CloudSetupLogger
 ) -> List[Any]:
     return [
-        _get_subnet(subnet_arn=subnet_id, region=region, logger=logger)
-        for subnet_id in subnet_ids
+        _get_subnet(subnet_arn=subnet_id, region=region, logger=logger) for subnet_id in subnet_ids
     ]
 
 
@@ -211,9 +210,7 @@ def verify_aws_subnets(  # noqa: PLR0911, PLR0912
         )
         return False
 
-    subnets = _get_subnets_from_subnet_ids(
-        subnet_ids=aws_subnet_ids, region=region, logger=logger
-    )
+    subnets = _get_subnets_from_subnet_ids(subnet_ids=aws_subnet_ids, region=region, logger=logger)
     subnet_azs = set()
 
     for subnet, subnet_id in zip(subnets, aws_subnet_ids):
@@ -263,7 +260,8 @@ def verify_aws_subnets(  # noqa: PLR0911, PLR0912
 
     if len(subnet_azs) < 2:
         logger.log_resource_error(
-            CloudAnalyticsEventCloudResource.AWS_SUBNET, CloudSetupError.ONLY_ONE_AZ,
+            CloudAnalyticsEventCloudResource.AWS_SUBNET,
+            CloudSetupError.ONLY_ONE_AZ,
         )
         logger.error(
             "Subnets should be in at least 2 Availability Zones. This is required for Anyscale services to function properly."
@@ -277,17 +275,15 @@ def verify_aws_subnets(  # noqa: PLR0911, PLR0912
 def associate_aws_subnets_with_azs(
     aws_subnet_ids: List[str], region: str, logger: CloudSetupLogger
 ) -> List[SubnetIdWithAvailabilityZoneAWS]:
-    """This function combines the subnets with its availability zone.
-    """
+    """This function combines the subnets with its availability zone."""
 
-    subnets = _get_subnets_from_subnet_ids(
-        subnet_ids=aws_subnet_ids, region=region, logger=logger
-    )
+    subnets = _get_subnets_from_subnet_ids(subnet_ids=aws_subnet_ids, region=region, logger=logger)
 
     # combine subnet and its availability zone
     subnet_ids_with_availability_zones = [
         SubnetIdWithAvailabilityZoneAWS(
-            subnet_id=subnet.id, availability_zone=subnet.availability_zone,
+            subnet_id=subnet.id,
+            availability_zone=subnet.availability_zone,
         )
         for subnet in subnets
     ]
@@ -296,7 +292,9 @@ def associate_aws_subnets_with_azs(
 
 
 def _get_role_from_arn(
-    role_arn: str, boto3_session: boto3.Session, logger: CloudSetupLogger,
+    role_arn: str,
+    boto3_session: boto3.Session,
+    logger: CloudSetupLogger,
 ) -> Any:
     iam = boto3_session.resource("iam")
 
@@ -342,8 +340,7 @@ def verify_aws_iam_roles(  # noqa: PLR0911, PLR0912, PLR0913
         logger.error("Missing Cluster Node IAM role.")
         return False
     accounts = {
-        AwsRoleArn.from_string(role).account_id
-        for role in [control_plane_role, data_plane_role]
+        AwsRoleArn.from_string(role).account_id for role in [control_plane_role, data_plane_role]
     }
     if len(accounts) != 1:
         logger.log_resource_error(
@@ -371,9 +368,7 @@ def verify_aws_iam_roles(  # noqa: PLR0911, PLR0912, PLR0913
             anyscale_aws_account=anyscale_aws_account
         )
         logger.warning(
-            compare_dicts_diff(
-                assume_role_policy_document, expected_assume_role_policy_document
-            )
+            compare_dicts_diff(assume_role_policy_document, expected_assume_role_policy_document)
         )
         if strict:
             return False
@@ -382,16 +377,10 @@ def verify_aws_iam_roles(  # noqa: PLR0911, PLR0912, PLR0913
     # If permissions are missing, log warning message
     anyscale_iam_permissions_ec2 = ANYSCALE_IAM_PERMISSIONS_EC2_STEADY_STATE
     if _use_strict_iam_permissions:
-        anyscale_iam_permissions_ec2 = get_anyscale_iam_permissions_ec2_restricted(
-            cloud_id
-        )
+        anyscale_iam_permissions_ec2 = get_anyscale_iam_permissions_ec2_restricted(cloud_id)
 
-    allow_actions_expected = filter_actions_from_policy_document(
-        anyscale_iam_permissions_ec2
-    )
-    allow_actions_on_role = filter_actions_associated_with_role(
-        boto3_session, anyscale_iam_role
-    )
+    allow_actions_expected = filter_actions_from_policy_document(anyscale_iam_permissions_ec2)
+    allow_actions_on_role = filter_actions_associated_with_role(boto3_session, anyscale_iam_role)
     allow_actions_missing = allow_actions_expected - allow_actions_on_role
 
     if allow_actions_missing:
@@ -428,9 +417,7 @@ def verify_aws_iam_roles(  # noqa: PLR0911, PLR0912, PLR0913
         )
         return False
 
-    policy_names = [
-        policy.policy_name for policy in cluster_node_role.attached_policies.all()
-    ]
+    policy_names = [policy.policy_name for policy in cluster_node_role.attached_policies.all()]
     if AMAZON_ECR_READONLY_ACCESS_POLICY_NAME not in policy_names:
         logger.warning(
             f"Dataplane role {cluster_node_role.arn} does not contain policy {AMAZON_ECR_READONLY_ACCESS_POLICY_NAME}. This is safe to ignore if you are not pulling custom Docker Images from an ECR repository."
@@ -458,9 +445,7 @@ def verify_aws_iam_roles(  # noqa: PLR0911, PLR0912, PLR0913
                 f"Attach the instance profile to the role and retry."
             )
             return False
-    elif not any(
-        profile.name == cluster_node_role.name for profile in attached_profiles
-    ):
+    elif not any(profile.name == cluster_node_role.name for profile in attached_profiles):
         logger.log_resource_error(
             CloudAnalyticsEventCloudResource.AWS_IAM_ROLE,
             CloudSetupError.INSTANCE_PROFILE_NOT_FOUND,
@@ -476,9 +461,7 @@ def verify_aws_iam_roles(  # noqa: PLR0911, PLR0912, PLR0913
         )
         return False
 
-    logger.info(
-        f"IAM roles {control_plane_role}, {data_plane_role} verification succeeded."
-    )
+    logger.info(f"IAM roles {control_plane_role}, {data_plane_role} verification succeeded.")
     return True
 
 
@@ -493,10 +476,7 @@ def is_internal_communication_allowed(
     for sg_rule in ip_permissions:
         if sg_rule.get("IpProtocol") == "-1":
             sg_rule_with_self.extend(sg_rule.get("UserIdGroupPairs"))  # type: ignore
-    return any(
-        sg_rule.get("GroupId") in aws_security_group_ids
-        for sg_rule in sg_rule_with_self
-    )
+    return any(sg_rule.get("GroupId") in aws_security_group_ids for sg_rule in sg_rule_with_self)
 
 
 def verify_aws_security_groups(  # noqa: PLR0912, PLR0911
@@ -523,9 +503,7 @@ def verify_aws_security_groups(  # noqa: PLR0912, PLR0911
             anyscale_security_group.load()
         except ClientError as e:
             if e.response["Error"]["Code"] == "InvalidGroup.NotFound":
-                log_resource_not_found_error(
-                    "Security group", anyscale_security_group_id, logger
-                )
+                log_resource_not_found_error("Security group", anyscale_security_group_id, logger)
                 return False
             else:
                 logger.log_resource_exception(
@@ -573,9 +551,7 @@ def verify_aws_security_groups(  # noqa: PLR0912, PLR0911
             return False
 
     # Check internal communication is allowed
-    if not is_internal_communication_allowed(
-        inbound_ip_permissions, aws_security_group_ids
-    ):
+    if not is_internal_communication_allowed(inbound_ip_permissions, aws_security_group_ids):
         logger.log_resource_error(
             CloudAnalyticsEventCloudResource.AWS_SECURITY_GROUP,
             CloudSetupError.INTERNAL_COMMUNICATION_NOT_ALLOWED,
@@ -586,9 +562,7 @@ def verify_aws_security_groups(  # noqa: PLR0912, PLR0911
         return False
 
     # Check outbound permissions
-    if not is_internal_communication_allowed(
-        outbound_ip_permissions, aws_security_group_ids
-    ):
+    if not is_internal_communication_allowed(outbound_ip_permissions, aws_security_group_ids):
         logger.warning(
             f"Security groups {aws_security_group_ids} do not contain outbound permission for all protocols for traffic from the same security group. "
             f"This is required for certain network device such as EFA."
@@ -687,9 +661,9 @@ def verify_aws_s3(  # noqa: PLR0911, PLR0912
         if strict:
             return False
 
-    returned_bucket_location = boto3_session.client("s3").get_bucket_location(
-        Bucket=bucket_name
-    )["LocationConstraint"]
+    returned_bucket_location = boto3_session.client("s3").get_bucket_location(Bucket=bucket_name)[
+        "LocationConstraint"
+    ]
 
     # LocationConstraint is `None` if the bucket is located in us-east-1
     bucket_region = returned_bucket_location or "us-east-1"
@@ -834,9 +808,7 @@ def verify_aws_efs(  # noqa: PLR0911, PLR0912, C901
         contains_registered_security_group = False
         for network_interface in network_interfaces:
             network_interface_security_group_ids = [
-                group["GroupId"]
-                for group in network_interface.groups
-                if group.get("GroupId")
+                group["GroupId"] for group in network_interface.groups if group.get("GroupId")
             ]
             if network_interface.subnet_id == subnet_id:
                 contains_subnet_id = True
@@ -860,9 +832,7 @@ def verify_aws_efs(  # noqa: PLR0911, PLR0912, C901
                 return False
     try:
         backup_policy_response = client.describe_backup_policy(FileSystemId=aws_efs_id)
-        backup_policy_status = backup_policy_response.get("BackupPolicy", {}).get(
-            "Status", ""
-        )
+        backup_policy_status = backup_policy_response.get("BackupPolicy", {}).get("Status", "")
         if backup_policy_status != "ENABLED":
             logger.warning(f"EFS {aws_efs_id} backup policy is not enabled.")
             if strict:
@@ -945,18 +915,16 @@ def verify_aws_cloudformation_stack(
     except ClientError as e:
         if e.response["Error"]["Code"] == "ValidationError":
             log_resource_not_found_error(
-                "CloudFormation stack", aws_cloudformation_stack_id, logger,
+                "CloudFormation stack",
+                aws_cloudformation_stack_id,
+                logger,
             )
             return False
         else:
-            logger.log_resource_exception(
-                CloudAnalyticsEventCloudResource.AWS_CLOUDFORMATION, e
-            )
+            logger.log_resource_exception(CloudAnalyticsEventCloudResource.AWS_CLOUDFORMATION, e)
         raise e
 
-    logger.info(
-        f"CloudFormation stack {aws_cloudformation_stack_id} verification succeeded."
-    )
+    logger.info(f"CloudFormation stack {aws_cloudformation_stack_id} verification succeeded.")
     return True
 
 
@@ -986,9 +954,7 @@ def verify_aws_memorydb_cluster(  # noqa: PLR0911, PLR0912
             ShowShardDetails=True,
         )
         if not response.get("Clusters"):
-            log_resource_not_found_error(
-                "MemoryDB cluster", memorydb_cluster_config.id, logger
-            )
+            log_resource_not_found_error("MemoryDB cluster", memorydb_cluster_config.id, logger)
             return False
 
         # verify that the subnet group has the same security group as the cloud

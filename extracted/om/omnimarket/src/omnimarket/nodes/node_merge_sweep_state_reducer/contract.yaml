@@ -1,0 +1,195 @@
+---
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# ONEX Node Contract - Merge Sweep State Reducer (OMN-8964)
+name: node_merge_sweep_state_reducer
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: reducer
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  REDUCER node. Consumes ModelSweepOutcomeClassified events, delta-applies to
+  aggregate sweep state. Dedup is first-class: pr_outcomes_by_key is first-writer-wins.
+  Emits exactly-once terminal merge-sweep-completed.v1 event when all PRs accounted for.
+  RuntimeLocal (OMN-8946) persists state via ProtocolStateStore.
+
+handler:
+  module: omnimarket.nodes.node_merge_sweep_state_reducer.handlers.handler_sweep_state
+  class: HandlerMergeSweepStateReducer
+  input_model: omnimarket.nodes.node_sweep_outcome_classify.models.model_sweep_outcome.ModelSweepOutcomeClassified
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: merge_sweep_state
+      handler:
+        name: HandlerMergeSweepStateReducer
+        module: omnimarket.nodes.node_merge_sweep_state_reducer.handlers.handler_sweep_state
+
+descriptor:
+  node_archetype: reducer
+  purity: pure
+  idempotent: true
+  timeout_ms: 5000
+
+event_bus:
+  subscribe_topics:
+    - onex.evt.omnimarket.pr-polish-outcome.v1
+  publish_topics:
+    - onex.evt.omnimarket.merge-sweep-state-reduced.v1
+    - onex.evt.omnimarket.merge-sweep-completed.v1
+
+metadata:
+  transport_type: kafka
+
+# OMN-13734: machine-readable FSM (transcribed from authoritative handler/model logic).
+state_machine:
+  version: {major: 1, minor: 0, patch: 0}
+  state_machine_name: merge_sweep_state_fsm
+  state_machine_version: {major: 1, minor: 0, patch: 0}
+  description: "merge_sweep_state_fsm"
+  initial_state: pending
+  terminal_states: [merged, failed, stuck]
+  error_states: []
+  persistence_enabled: false
+  states:
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: pending
+      state_type: operational
+      description: "PR seen; awaiting first classified sweep outcome."
+      required_data: []
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: armed
+      state_type: operational
+      description: "PR auto-merge armed (transitional)."
+      required_data: []
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: rebased
+      state_type: operational
+      description: "PR rebased (transitional)."
+      required_data: []
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: ci_rerun_triggered
+      state_type: operational
+      description: "PR CI rerun triggered (transitional)."
+      required_data: []
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: merged
+      state_type: terminal
+      description: "PR merged (terminal)."
+      is_terminal: true
+      is_recoverable: false
+      required_data: []
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: failed
+      state_type: terminal
+      description: "PR sweep failed (terminal)."
+      is_terminal: true
+      is_recoverable: false
+      required_data: []
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: stuck
+      state_type: terminal
+      description: "PR stuck (terminal)."
+      is_terminal: true
+      is_recoverable: false
+      required_data: []
+  transitions:
+    # Classified ARMED.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: pending_to_armed_on_outcome_armed
+      from_state: pending
+      to_state: armed
+      trigger: outcome_armed
+    # Classified REBASED.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: pending_to_rebased_on_outcome_rebased
+      from_state: pending
+      to_state: rebased
+      trigger: outcome_rebased
+    # Classified CI_RERUN_TRIGGERED.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: pending_to_ci_rerun_triggered_on_outcome_ci_rerun
+      from_state: pending
+      to_state: ci_rerun_triggered
+      trigger: outcome_ci_rerun
+    # Classified MERGED.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: pending_to_merged_on_outcome_merged
+      from_state: pending
+      to_state: merged
+      trigger: outcome_merged
+    # Classified FAILED.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: pending_to_failed_on_outcome_failed
+      from_state: pending
+      to_state: failed
+      trigger: outcome_failed
+    # Classified STUCK.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: pending_to_stuck_on_outcome_stuck
+      from_state: pending
+      to_state: stuck
+      trigger: outcome_stuck
+    # Armed PR merged.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: armed_to_merged_on_outcome_merged
+      from_state: armed
+      to_state: merged
+      trigger: outcome_merged
+    # Armed PR failed.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: armed_to_failed_on_outcome_failed
+      from_state: armed
+      to_state: failed
+      trigger: outcome_failed
+    # Armed PR stuck.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: armed_to_stuck_on_outcome_stuck
+      from_state: armed
+      to_state: stuck
+      trigger: outcome_stuck
+    # Rebased PR merged.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: rebased_to_merged_on_outcome_merged
+      from_state: rebased
+      to_state: merged
+      trigger: outcome_merged
+    # Rebased PR failed.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: rebased_to_failed_on_outcome_failed
+      from_state: rebased
+      to_state: failed
+      trigger: outcome_failed
+    # Rebased PR stuck.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: rebased_to_stuck_on_outcome_stuck
+      from_state: rebased
+      to_state: stuck
+      trigger: outcome_stuck
+    # Rerun PR merged.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: ci_rerun_triggered_to_merged_on_outcome_merged
+      from_state: ci_rerun_triggered
+      to_state: merged
+      trigger: outcome_merged
+    # Rerun PR failed.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: ci_rerun_triggered_to_failed_on_outcome_failed
+      from_state: ci_rerun_triggered
+      to_state: failed
+      trigger: outcome_failed
+    # Rerun PR stuck.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: ci_rerun_triggered_to_stuck_on_outcome_stuck
+      from_state: ci_rerun_triggered
+      to_state: stuck
+      trigger: outcome_stuck
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  # consumed off-graph by omnimarket/src/omnimarket/nodes/node_merge_sweep_compute/consumer.py
+  - onex.evt.omnimarket.merge-sweep-completed.v1
+  # referenced outside the node graph at omnimarket/src/omnimarket/nodes/node_merge_sweep_state_reducer/handlers/handler_sweep_state.py
+  - onex.evt.omnimarket.merge-sweep-state-reduced.v1

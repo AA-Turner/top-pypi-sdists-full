@@ -1,0 +1,334 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+name: Omni* Ecosystem Standards Compliance
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, dev, develop]
+  merge_group:
+  workflow_dispatch:
+
+concurrency:
+  # OMN-13949: cancel superseded PR runs to free saturated runners. merge_group
+  # entries carry a unique github.ref, so queue entries never cross-cancel.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  UV_VERSION: "0.8.3"
+  REPO_NAME: "omnibase_infra"
+  UV_HTTP_TIMEOUT: "600"
+  # OMN-12564 canary: trusted self-hosted CI uses the same immutable
+  # host-local dependency environment contract as the main CI workflow.
+  OMNI_CI_SHARED_ENV_ENABLED: >-
+    ${{
+      (github.event_name == 'pull_request' &&
+       (github.event.pull_request.head.repo.full_name != github.repository ||
+        (github.event.pull_request.head.repo.full_name == github.repository &&
+         github.event.pull_request.base.ref == 'dev')))
+      && 'false'
+       || 'true'
+    }}
+  OMNI_CI_ENV_ROOT: "/home/runner/.cache/omni/ci-envs"
+
+jobs:
+  type-safety:
+    timeout-minutes: 30
+    name: Type Safety Validation
+    # OMNI_RUNNER_SELECTOR_V1 — trusted CI defaults to self-hosted omnibase-ci; public forks default to ubuntu-latest
+    runs-on: >-
+      ${{
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name != github.repository)
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+      }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      # OMN-16373: CROSS_REPO_PAT retirement — mint a short-lived
+      # onexbot-occ-writer App installation token for the sibling-repo
+      # reads this job's uv/pip install performs.
+      # OMN-16414: continue-on-error is REQUIRED here, not optional polish.
+      # Fork-triggered pull_request runs receive no org secrets (app-id/
+      # private-key resolve empty), and create-github-app-token hard-fails
+      # the step ("Input required and not supplied: app-id") when that
+      # happens. Without this guard the job dies right here even though
+      # every downstream step already falls back to `github.token`
+      # (`steps.app-token.outputs.token || github.token`) -- the fallback
+      # was unreachable dead code until this line let the step fail soft.
+      - name: Mint onexbot-occ-writer app token
+        id: app-token
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.ONEXBOT_OCC_APP_ID }}
+          private-key: ${{ secrets.ONEXBOT_OCC_PRIVATE_KEY }}
+          owner: OmniNode-ai
+          permission-contents: write
+
+      - name: Setup Python and uv
+        uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          uv-version: ${{ env.UV_VERSION }}
+          cache-enabled: "false"
+          cache-key-prefix: uv-type-safety
+          install-args: --all-extras
+          github-token: ${{ steps.app-token.outputs.token || github.token }}
+          sync-attempts: "3"
+          sync-retry-delay-seconds: "10"
+
+      - name: Run MyPy type checking
+        run: |
+          if [ -f mypy.ini ]; then
+            uv run mypy src/ --config-file=mypy.ini
+          else
+            uv run mypy src/ --strict
+          fi
+
+  type-union-check:
+    timeout-minutes: 30
+    name: PEP 604 Type Union Check (UP007)
+    # OMNI_RUNNER_SELECTOR_V1 — trusted CI defaults to self-hosted omnibase-ci; public forks default to ubuntu-latest
+    runs-on: >-
+      ${{
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name != github.repository)
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+      }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      # OMN-16373: CROSS_REPO_PAT retirement — mint a short-lived
+      # onexbot-occ-writer App installation token for the sibling-repo
+      # reads this job's uv/pip install performs.
+      # OMN-16414: continue-on-error is REQUIRED here, not optional polish.
+      # Fork-triggered pull_request runs receive no org secrets (app-id/
+      # private-key resolve empty), and create-github-app-token hard-fails
+      # the step ("Input required and not supplied: app-id") when that
+      # happens. Without this guard the job dies right here even though
+      # every downstream step already falls back to `github.token`
+      # (`steps.app-token.outputs.token || github.token`) -- the fallback
+      # was unreachable dead code until this line let the step fail soft.
+      - name: Mint onexbot-occ-writer app token
+        id: app-token
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.ONEXBOT_OCC_APP_ID }}
+          private-key: ${{ secrets.ONEXBOT_OCC_PRIVATE_KEY }}
+          owner: OmniNode-ai
+          permission-contents: write
+
+      - name: Setup Python and uv
+        uses: ./.github/actions/setup-python-uv
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          uv-version: ${{ env.UV_VERSION }}
+          cache-enabled: "false"
+          cache-key-prefix: uv-type-union
+          install-args: --all-extras
+          github-token: ${{ steps.app-token.outputs.token || github.token }}
+          sync-attempts: "3"
+          sync-retry-delay-seconds: "10"
+
+      - name: Check for Optional/Union usage (PEP 604)
+        run: uv run ruff check src/ --select UP007,UP006
+
+  handler-contract-compliance:
+    timeout-minutes: 30
+    name: Handler Contract Compliance
+    runs-on: >-
+      ${{
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name != github.repository)
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+      }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      # OMN-16373: CROSS_REPO_PAT retirement — mint a short-lived
+      # onexbot-occ-writer App installation token for the sibling-repo
+      # reads this job's uv/pip install performs.
+      # OMN-16414: continue-on-error is REQUIRED here, not optional polish.
+      # Fork-triggered pull_request runs receive no org secrets (app-id/
+      # private-key resolve empty), and create-github-app-token hard-fails
+      # the step ("Input required and not supplied: app-id") when that
+      # happens. Without this guard the job dies right here even though
+      # every downstream step already falls back to `github.token`
+      # (`steps.app-token.outputs.token || github.token`) -- the fallback
+      # was unreachable dead code until this line let the step fail soft.
+      - name: Mint onexbot-occ-writer app token
+        id: app-token
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.ONEXBOT_OCC_APP_ID }}
+          private-key: ${{ secrets.ONEXBOT_OCC_PRIVATE_KEY }}
+          owner: OmniNode-ai
+          permission-contents: write
+
+      - name: Install onex_change_control (pinned)
+        env:
+          GIT_FETCH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
+        run: |
+          set -euo pipefail
+          # Authenticate the git+https fetch so it isn't anonymous-rate-limited
+          # on the self-hosted runner ("Empty reply from server"). Process-scoped
+          # insteadOf rewrite; never writes the token to disk. (OMN-12432)
+          if [ -n "${GIT_FETCH_TOKEN}" ]; then
+            export GIT_CONFIG_COUNT=1
+            export GIT_CONFIG_KEY_0="url.https://x-access-token:${GIT_FETCH_TOKEN}@github.com/.insteadOf"
+            export GIT_CONFIG_VALUE_0="https://github.com/"
+          fi
+          uv venv .venv --python "${pythonLocation}/bin/python"
+          . .venv/bin/activate
+          git config --global http.version HTTP/1.1
+          git config --global http.lowSpeedLimit 0
+          git config --global http.lowSpeedTime 999999
+          export UV_HTTP_TIMEOUT="${UV_HTTP_TIMEOUT:-600}"
+          python - <<'PY' > /tmp/onex-change-control-overrides.txt
+          import tomllib
+          from pathlib import Path
+
+          pyproject = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+          source = (
+              pyproject.get("tool", {})
+              .get("uv", {})
+              .get("sources", {})
+              .get("omnibase-core")
+          )
+          if isinstance(source, dict) and source.get("git"):
+              ref = source.get("rev") or source.get("tag") or source.get("branch")
+              if ref:
+                  print(f"omnibase-core @ git+{source['git']}@{ref}")
+          PY
+          install_args=(
+            "onex_change_control @ git+https://github.com/OmniNode-ai/onex_change_control.git@08a5194c6e587e8b2256c1f1edde236ad34cd397"
+          )
+          if [ -s /tmp/onex-change-control-overrides.txt ]; then
+            install_args=(--overrides /tmp/onex-change-control-overrides.txt "${install_args[@]}")
+          fi
+          attempt=1
+          max_attempts=3
+          delay=10
+          until uv pip install "pydantic>=2.11.7" "pyyaml>=6.0.2"; do
+            status=$?
+            if [[ "$attempt" -ge "$max_attempts" ]]; then
+              echo "::error::uv pip install pydantic/pyyaml failed after ${attempt} attempt(s)"
+              exit "$status"
+            fi
+            echo "::warning::uv pip install pydantic/pyyaml attempt ${attempt}/${max_attempts} failed with exit ${status}; retrying in ${delay}s"
+            sleep "$delay"
+            attempt=$((attempt + 1))
+          done
+          attempt=1
+          until uv pip install --no-deps "${install_args[@]}"; do
+            status=$?
+            if [[ "$attempt" -ge "$max_attempts" ]]; then
+              echo "::error::uv pip install onex_change_control failed after ${attempt} attempt(s)"
+              exit "$status"
+            fi
+            echo "::warning::uv pip install onex_change_control attempt ${attempt}/${max_attempts} failed with exit ${status}; retrying in ${delay}s"
+            sleep "$delay"
+            attempt=$((attempt + 1))
+          done
+
+      - name: Run handler contract compliance check
+        run: |
+          . .venv/bin/activate
+          python -m onex_change_control.validators.arch_handler_contract_compliance \
+            --repo-root . \
+            --allowlist-path arch-handler-contract-compliance-allowlist.yaml
+
+  omni-standards-gate:
+    timeout-minutes: 30
+    name: Omni Standards Gate
+    # OMNI_RUNNER_SELECTOR_V1 — trusted CI defaults to self-hosted omnibase-ci; public forks default to ubuntu-latest
+    runs-on: >-
+      ${{
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name != github.repository)
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+      }}
+    needs:
+      - type-safety
+      - type-union-check
+      - handler-contract-compliance
+    if: always()
+    steps:
+      - name: Check standards results
+        run: |
+          FAILED=false
+          for check in \
+            "type-safety=${{ needs.type-safety.result }}" \
+            "type-union-check=${{ needs.type-union-check.result }}" \
+            "handler-contract-compliance=${{ needs.handler-contract-compliance.result }}"; do
+            NAME="${check%%=*}"
+            RESULT="${check##*=}"
+            if [ "$RESULT" != "success" ] && [ "$RESULT" != "skipped" ]; then
+              echo "::error::$NAME failed (result: $RESULT)"
+              FAILED=true
+            else
+              echo "$NAME: $RESULT"
+            fi
+          done
+          if [ "$FAILED" = "true" ]; then
+            echo "Omni Standards Gate FAILED"
+            exit 1
+          fi
+          echo "Omni Standards Gate PASSED"
+
+  ci-naming-convention:
+    timeout-minutes: 30
+    name: CI Naming Convention
+    runs-on: >-
+      ${{
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name != github.repository)
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+      }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Verify CI workflow naming convention
+        run: |
+          if [ ! -f .github/workflows/ci.yml ]; then
+            echo "::error::Missing .github/workflows/ci.yml"
+            exit 1
+          fi
+          CI_NAME=$(grep -m1 "^name:" .github/workflows/ci.yml | sed "s/name: *//")
+          if [ "$CI_NAME" != "CI" ]; then
+            echo "::error::ci.yml has name '$CI_NAME' — must be 'CI'"
+            exit 1
+          fi
+          for legacy in test.yml ci.yaml; do
+            if [ -f ".github/workflows/$legacy" ]; then
+              echo "::error::Legacy workflow .github/workflows/$legacy exists"
+              exit 1
+            fi
+          done
+          echo "CI naming convention: PASS"

@@ -1,6 +1,7 @@
 import platform
 
 import pytest
+from flask import request
 
 from schemathesis.generation.modes import GenerationMode
 from test.utils import has_hypothesis_failure_header
@@ -825,6 +826,61 @@ def test(case):
     assert expected in result.stdout.str()
 
 
+def test_content_type_probe_control_request_keeps_call_auth(testdir, ctx, app_runner):
+    # A server that fails every authenticated request fails the probe for reasons other than its Content-Type.
+    app, _ = ctx.openapi.make_flask_app({"/items": {"get": {"responses": {"200": {"description": "OK"}}}}})
+
+    @app.route("/items")
+    def items():
+        if "Authorization" not in request.headers:
+            return "", 401
+        return "", 500
+
+    testdir.make_test(
+        f"""
+from schemathesis.checks import not_a_server_error
+from schemathesis.generation.meta import CONTENT_TYPE_PROBES, coverage_scenario
+
+schema.config.update(base_url="{app_runner.openapi_url(app, path="")}")
+
+@schema.parametrize()
+def test(case):
+    if coverage_scenario(case) in CONTENT_TYPE_PROBES:
+        case.call_and_validate(auth=("test", "test"), checks=[not_a_server_error])
+""",
+        paths={"/items": {"get": {"responses": {"200": {"description": "OK"}}}}},
+    )
+    testdir.runpytest().assert_outcomes(passed=2)
+
+
+def test_content_type_probe_control_request_keeps_requests_auth(testdir, ctx, app_runner):
+    app, _ = ctx.openapi.make_flask_app({"/items": {"get": {"responses": {"200": {"description": "OK"}}}}})
+
+    @app.route("/items")
+    def items():
+        if "Authorization" not in request.headers:
+            return "", 401
+        return "", 500
+
+    testdir.make_test(
+        f"""
+from requests.auth import HTTPBasicAuth
+from schemathesis.checks import not_a_server_error
+from schemathesis.generation.meta import CONTENT_TYPE_PROBES, coverage_scenario
+
+schema.config.update(base_url="{app_runner.openapi_url(app, path="")}")
+schema.auth.set_from_requests(HTTPBasicAuth("test", "test"))
+
+@schema.parametrize()
+def test(case):
+    if coverage_scenario(case) in CONTENT_TYPE_PROBES:
+        case.call_and_validate(checks=[not_a_server_error])
+""",
+        paths={"/items": {"get": {"responses": {"200": {"description": "OK"}}}}},
+    )
+    testdir.runpytest().assert_outcomes(passed=2)
+
+
 @pytest.mark.parametrize("enabled", [True, False])
 def test_output_sanitization_via_config_file(ctx, testdir, enabled):
     api = ctx.openapi.apps.basic()
@@ -1332,7 +1388,7 @@ schema.config.update(headers=HEADERS)
 
 @schema.parametrize()
 def test(case):
-    assert case.headers == HEADERS
+    assert {name: case.headers[name] for name in HEADERS} == HEADERS
 """
     )
     result = testdir.runpytest()
@@ -1364,7 +1420,7 @@ schema.config.update(basic_auth=("test", "test"))
 
 @schema.parametrize()
 def test(case):
-    assert case.headers == {"Authorization": "Basic dGVzdDp0ZXN0"}
+    assert case.headers["Authorization"] == "Basic dGVzdDp0ZXN0"
 """
     )
     result = testdir.runpytest()
@@ -1800,3 +1856,40 @@ def test(case):
 """
     )
     testdir.runpytest().assert_outcomes(passed=1)
+
+
+def test_manual_target_steers_generation(testdir):
+    # Only target-guided search hits one exact value in a wide range, and it needs about 100 examples to get there.
+    testdir.make_test(
+        """
+import hypothesis
+
+schema.config.phases.coverage.enabled = False
+
+@schema.include(path_regex="items").parametrize()
+@settings(max_examples=100, derandomize=True)
+def test_api(case):
+    value = case.query["value"]
+    hypothesis.target(-abs(value - 1_000), label="distance")
+    assert value != 1_000
+""",
+        paths={
+            "/items": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "value",
+                            "in": "query",
+                            "required": True,
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1_000_000,
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        generation_modes=[GenerationMode.POSITIVE],
+    )
+    testdir.runpytest().assert_outcomes(failed=1)

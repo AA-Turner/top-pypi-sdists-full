@@ -288,6 +288,12 @@ class StructuredWave(AcousticField):
         The header stores the EFFECTIVE sampling of self.field
         (self.last_decimation), falling back to the parameter schema
         (general.dx/dz and 1/general.ft).
+
+        Safe for save-after-load cycles: if self.field is a read-only
+        memmap of the SAME .img path, opening that path in 'wb' mode would
+        truncate the file underneath the mapping ("N requested and 0
+        written"). The data is therefore snapshotted to RAM BEFORE any file
+        is opened, and the .img is written atomically (tmp + os.replace).
         """
         try:
             t_ex = 1 / self.params.acoustic['f_US']
@@ -310,8 +316,19 @@ class StructuredWave(AcousticField):
             img_path = os.path.join(pathFolder, file_name + ".img")
             hdr_path = os.path.join(pathFolder, file_name + ".hdr")
 
-            with open(img_path, "wb") as f_img:
-                np.asarray(self.field, dtype='float32').tofile(f_img)
+            # ------------------------------------------------------------------
+            # Snapshot BEFORE opening any file: detaches the data from a
+            # possible read-only memmap of the destination .img (load_field).
+            # ------------------------------------------------------------------
+            field_arr = np.array(self.field, dtype=np.float32, copy=True, order='C')
+
+            # Atomic write: write to a temp file, then swap. If the write
+            # fails, the previous .img is untouched.
+            tmp_path = img_path + ".tmp"
+            with open(tmp_path, "wb") as f_img:
+                field_arr.tofile(f_img)
+            del field_arr
+            os.replace(tmp_path, img_path)
 
             headerFieldGlob = (
                 f"!INTERFILE :=\n"
@@ -370,6 +387,7 @@ class StructuredWave(AcousticField):
 
         except Exception as e:
             print(f"[AOT-biomaps] Error saving HDR/IMG files: {e}")
+            raise
 
     def _generate_acoustic_field_SIMPLE_SIM(self, show_log=False):
         """

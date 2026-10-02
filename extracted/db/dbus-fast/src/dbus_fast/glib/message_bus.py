@@ -229,8 +229,9 @@ class MessageBus(BaseMessageBus):
 
     def connect(
         self,
-        connect_notify: None
-        | (Callable[["MessageBus", Exception | None], None]) = None,
+        connect_notify: (
+            Callable[["MessageBus", Exception | None], None] | None
+        ) = None,
     ):
         """Connect this message bus to the DBus daemon.
 
@@ -317,8 +318,9 @@ class MessageBus(BaseMessageBus):
     def call(
         self,
         msg: Message,
-        reply_notify: None
-        | (Callable[[Message | None, Exception | None], None]) = None,
+        reply_notify: (
+            Callable[[Message | None, Exception | None], None] | None
+        ) = None,
     ):
         """Send a method call and asynchronously wait for a reply from the DBus
         daemon.
@@ -387,6 +389,10 @@ class MessageBus(BaseMessageBus):
 
         Calls the standard ``org.freedesktop.DBus.Introspectable.Introspect``
         on the bus for the path.
+
+        Interfaces on the returned node may be shared with other nodes parsed
+        from identical introspection data, so they must be treated as
+        read-only.
 
         :param bus_name: The name to introspect.
         :type bus_name: str

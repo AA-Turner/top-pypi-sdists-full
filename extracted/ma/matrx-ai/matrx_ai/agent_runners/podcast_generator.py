@@ -515,6 +515,13 @@ _EXTRACTION_DEFAULT_UNIT = (
 # alarm; there is nothing to fall back to, by design.
 # ---------------------------------------------------------------------------
 
+# The live media a muted audio stage still delivers to the caller's stream —
+# the platform's ONE list (matrx_connect LIVE_MEDIA_DATA_TYPES). The studio
+# plays ``audio_stream_chunk`` as it arrives and swaps to the saved file on
+# ``audio_stream_end``; muting them (2026-09-09) left the episode silent until
+# the whole run — images and videos included — ended.
+from matrx_connect.context.data_types import LIVE_MEDIA_DATA_TYPES  # noqa: E402
+
 # Mandates live in matrx_ai.mandates (one seam for the whole package). These
 # aliases keep this module's ~23 call sites and aidream's installer unchanged.
 from matrx_ai.mandates import (  # noqa: E402
@@ -2621,6 +2628,9 @@ async def _create_audio(request: PodcastRequest, script: str) -> StageResult:
             # output via the shared turn-text accumulator). Result still returns via
             # AgentRunResult.
             suppress_stream=True,
+            # …except the audio itself: the live chunks ARE the episode the person
+            # starts listening to while images and videos are still rendering.
+            stream_data_types=LIVE_MEDIA_DATA_TYPES,
         )
         return _audio_stage_result(result)
 
@@ -2681,6 +2691,9 @@ async def _create_audio(request: PodcastRequest, script: str) -> StageResult:
         # output via the shared turn-text accumulator). Result still returns via
         # AgentRunResult.
         suppress_stream=True,
+        # …except the audio itself: the live chunks ARE the episode the person
+        # starts listening to while images and videos are still rendering.
+        stream_data_types=LIVE_MEDIA_DATA_TYPES,
     )
     return _audio_stage_result(result)
 

@@ -6,59 +6,25 @@ use tombi_test_lib::{
 
 mod completion_edit {
     use super::*;
-    use unicode_segmentation::UnicodeSegmentation;
-
-    fn line_column_to_byte_offset(line: &str, column: usize) -> usize {
-        line.graphemes(true).take(column).map(str::len).sum()
-    }
 
     fn apply_text_edit(text: &str, text_edit: &tombi_extension::TextEdit) -> String {
-        let mut new_text = String::new();
-        let mut cursor = text.split('\n').enumerate();
-        let start_line = text_edit.range.start.line as usize;
-        let end_line = text_edit.range.end.line as usize;
-
-        while let Some((index, line)) = cursor.next() {
-            if index != 0 {
-                new_text.push('\n');
-            }
-
-            if start_line == index {
-                let start_column =
-                    line_column_to_byte_offset(line, text_edit.range.start.column as usize);
-                new_text.push_str(&line[..start_column]);
-                new_text.push_str(&text_edit.new_text);
-                if index == end_line {
-                    let end_column =
-                        line_column_to_byte_offset(line, text_edit.range.end.column as usize);
-                    new_text.push_str(&line[end_column..]);
-                    continue;
-                }
-                for (index, line) in cursor.by_ref() {
-                    if index == end_line {
-                        let end_column =
-                            line_column_to_byte_offset(line, text_edit.range.end.column as usize);
-                        new_text.push_str(&line[end_column..]);
-                        break;
-                    }
-                }
-            } else {
-                new_text.push_str(line);
-            }
-        }
-
+        let mut new_text = text.to_string();
+        new_text.replace_range(
+            std::ops::Range::<usize>::from(text_edit.span),
+            &text_edit.new_text,
+        );
         new_text
     }
 
     #[test]
-    fn apply_text_edit_uses_grapheme_columns_for_unicode() {
+    fn apply_text_edit_replaces_span_after_unicode() {
         let text = r#"lsp = { "日本語" = "値", comp }"#;
         let start = text.find("comp").unwrap();
         let end = start + "comp".len();
         let text_edit = tombi_extension::TextEdit {
-            range: tombi_text::Range::new(
-                tombi_text::Position::default() + tombi_text::RelativePosition::of(&text[..start]),
-                tombi_text::Position::default() + tombi_text::RelativePosition::of(&text[..end]),
+            span: tombi_text::Span::new(
+                tombi_text::Offset::of(&text[..start]),
+                tombi_text::Offset::of(&text[..end]),
             ),
             new_text: "completion".to_string(),
         };
@@ -1408,7 +1374,7 @@ mod completion_edit {
                     );
                 }
                 let line_index =
-                tombi_text::LineIndex::new(&toml_text, tombi_text::EncodingKind::Utf16);
+                tombi_text::LineIndex::new(toml_text.as_str());
 
                 let source_path = args.source_file_path.as_deref().unwrap_or(temp_file.path());
                 let toml_file_url = Url::from_file_path(source_path)
@@ -1455,8 +1421,7 @@ mod completion_edit {
                 )
                 .await;
 
-                let cursor_position = tombi_text::Position::default()
-                    + tombi_text::RelativePosition::of(&toml_text[..index]);
+                let cursor_offset = tombi_text::Offset::of(&toml_text[..index]);
 
                 let Ok(Some(completion_contents)) = tombi_lsp::handler::handle_completion(
                     &backend,
@@ -1465,7 +1430,8 @@ mod completion_edit {
                             text_document: TextDocumentIdentifier {
                                 uri: toml_file_url,
                             },
-                            position: cursor_position.into_lsp(&line_index),
+                            position: cursor_offset
+                                .into_lsp(&line_index, tombi_text::EncodingKind::Utf16),
                         },
                         work_done_progress_params: WorkDoneProgressParams::default(),
                         partial_result_params: PartialResultParams {
@@ -1512,37 +1478,8 @@ mod completion_edit {
 
                 let mut new_text = match completion_edit.text_edit {
                     CompletionTextEdit::Edit(text_edit) => {
-                        let pre_cursor_text = {
-                            let start_line = text_edit.range.start.line as usize;
-                            let start_col = text_edit.range.start.column as usize;
-                            let cursor_line = cursor_position.line as usize;
-                            let cursor_col = cursor_position.column as usize;
-                            if (start_line, start_col) >= (cursor_line, cursor_col) {
-                                None
-                            } else {
-                                // `column` is a grapheme count (see
-                                // `tombi_text::RelativePosition::of`), so convert it to a
-                                // byte offset via the same grapheme iteration instead of
-                                // treating it as a byte index.
-                                let before_cursor = &toml_text[..index];
-                                let line_start = std::iter::once(0)
-                                    .chain(
-                                        before_cursor
-                                            .char_indices()
-                                            .filter_map(|(i, c)| (c == '\n').then_some(i + 1)),
-                                    )
-                                    .nth(start_line)
-                                    .unwrap_or(before_cursor.len());
-                                let byte_offset_in_line: usize = before_cursor[line_start..]
-                                    .graphemes(true)
-                                    .take(start_col)
-                                    .map(str::len)
-                                    .sum();
-                                let byte_start =
-                                    (line_start + byte_offset_in_line).min(before_cursor.len());
-                                Some(&before_cursor[byte_start..])
-                            }
-                        };
+                        let pre_cursor_text = (text_edit.span.start < cursor_offset)
+                            .then(|| &toml_text[text_edit.span.start.into()..index]);
                         if let Some(pre_cursor_text) = pre_cursor_text {
                             let filter_text = completion_content
                                 .filter_text
@@ -1550,7 +1487,7 @@ mod completion_edit {
                                 .unwrap_or(completion_content.label.as_str());
                             assert!(
                                 filter_text.starts_with(pre_cursor_text),
-                                "text_edit.range covers text {:?} before the cursor that is not a \
+                                "text_edit.span covers text {:?} before the cursor that is not a \
                                  prefix of the completion's filter_text/label ({:?}).\n\
                                  \n\
                                  VSCode hides completion candidates whose `text_edit` range spans \
@@ -1560,8 +1497,8 @@ mod completion_edit {
                                  working in the editor — even though tests that apply edits directly \
                                  (like this one) still produce the expected output.\n\
                                  \n\
-                                 Keep `text_edit.range` scoped to either the cursor position \
-                                 (`Range::at(position)`) or the exact range of the word prefix being \
+                                 Keep `text_edit.span` scoped to either the cursor position \
+                                 (`Span::empty(offset)`) or the exact span of the word prefix being \
                                  completed (so the pre-cursor slice is a prefix of the filter_text). \
                                  Any pre-cursor cleanup — deleting trigger characters like `.` / `=`, \
                                  trailing whitespace, partial keys that are NOT the filter prefix, \

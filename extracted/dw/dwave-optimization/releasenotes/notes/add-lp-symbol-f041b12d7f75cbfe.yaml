@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Add ``LinearProgram`` (linear program) symbol and related derivative symbols.

@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: lazycloud-shared
+Version: 0.1.73
+Summary: Boundary-safe shared primitives and HTTP payloads for the compute platform.
+Requires-Python: >=3.10
+Requires-Dist: anyio<5,>=4
+Requires-Dist: certifi>=2025.1.31
+Requires-Dist: croniter>=6.2.4
+Requires-Dist: httpx<1,>=0.28
+Requires-Dist: packaging<27,>=24
+Requires-Dist: pydantic<3,>=2.12

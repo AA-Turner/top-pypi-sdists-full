@@ -1,0 +1,129 @@
+---
+name: overnight
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: orchestrator
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  Overnight session orchestrator. Sequences the autonomous overnight
+  pipeline: nightly_loop_controller -> build_loop_orchestrator ->
+  merge_sweep -> ci_watch -> platform_readiness. nightly_loop_controller
+  runs first to dispatch mechanical tickets; the build loop processes them.
+  Emits a session-completed event with per-phase summary. No LLM in the
+  orchestration layer — each node handles its own logic deterministically.
+  (OMN-8025: nightly_loop trigger wired into overnight pipeline)
+
+handler:
+  module: omnimarket.nodes.node_overnight.handlers.handler_overnight
+  class: HandlerOvernight
+  input_model: omnimarket.nodes.node_overnight.handlers.handler_overnight.ModelOvernightCommand
+
+descriptor:
+  node_archetype: orchestrator
+  purity: pure
+  runtime_profiles:
+    - effects
+  idempotent: true
+  timeout_ms: 28800000
+
+inputs:
+  correlation_id:
+    type: uuid
+    description: "Unique session ID"
+    required: true
+  max_cycles:
+    type: int
+    description: "Maximum build loop cycles (0 = unlimited)"
+    required: false
+    default: 0
+  skip_nightly_loop:
+    type: bool
+    description: "Skip nightly_loop_controller phase"
+    required: false
+    default: false
+  skip_build_loop:
+    type: bool
+    description: "Skip build loop phase"
+    required: false
+    default: false
+  skip_merge_sweep:
+    type: bool
+    description: "Skip merge sweep phase"
+    required: false
+    default: false
+  dry_run:
+    type: bool
+    description: "Run all phases in dry-run mode"
+    required: false
+    default: false
+  # OMN-8407: self-perpetuating loop trigger fields
+  enable_self_loop:
+    type: bool
+    description: "Re-emit start command after completion to create autonomous loop"
+    required: false
+    default: true
+  loop_delay_seconds:
+    type: int
+    description: "Seconds between loop iterations (delay on the requeued start command)"
+    required: false
+    default: 300
+
+outputs:
+  session_status:
+    type: str
+    description: "completed | partial | failed"
+  phases_run:
+    type: list
+    description: "Names of phases that executed"
+  phases_failed:
+    type: list
+    description: "Names of phases that failed"
+
+terminal_event: onex.evt.omnimarket.overnight-session-completed.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.overnight-start.v1
+  publish_topics:
+    # OMN-8405: per-phase start envelope published before each phase dispatches.
+    - onex.evt.omnimarket.overnight-phase-start.v1
+    # OMN-8405: per-phase end envelope published after each phase settles
+    # (success, failure, or skipped). Treated as phase-end in the overseer spec.
+    - onex.evt.omnimarket.overnight-phase-completed.v1
+    # OMN-8405: session-wide terminal envelope published once at end of run.
+    - onex.evt.omnimarket.overnight-session-completed.v1
+    # nightly_loop_controller trigger (OMN-8025)
+    - onex.cmd.omnimarket.nightly-loop-start.v1
+    # OMN-8375: overseer tick re-injection — snapshot emitted every phase tick
+    # so the controlling session can surface contract_path / current_phase /
+    # phase_progress / next_required_outcome / approaching_halt_conditions.
+    - onex.evt.omnimarket.overseer-tick.v1
+    # OMN-8407: self-perpetuating loop trigger — handler re-emits this command
+    # after each run (with delay_seconds set) so the overseer loop runs on .201
+    # without external cron jobs. Fires only when enable_self_loop=True and an
+    # event_bus is wired.
+    - onex.cmd.omnimarket.overnight-start.v1
+    # Session failure event emitted by consumer on unhandled exception
+    - onex.evt.omnimarket.overnight-session-failed.v1
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: overnight
+      handler:
+        name: HandlerBuildLoopExecutor
+        module: omnimarket.nodes.node_overnight.handlers.handler_overnight
+      event_model:
+        name: ModelOvernightCommand
+        module: omnimarket.nodes.node_overnight.handlers.handler_overnight
+
+metadata:
+  transport_type: kafka
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  # consumed off-graph by omnimarket/src/omnimarket/nodes/node_overnight/consumer.py
+  - onex.evt.omnimarket.overnight-session-failed.v1
+  # referenced outside the node graph at omnimarket/src/omnimarket/nodes/node_overnight/handlers/overseer_tick.py
+  - onex.evt.omnimarket.overseer-tick.v1

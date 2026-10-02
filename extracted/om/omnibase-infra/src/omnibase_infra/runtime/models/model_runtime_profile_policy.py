@@ -1,0 +1,82 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Runtime profile policy model."""
+
+from __future__ import annotations
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from omnibase_infra.runtime.models.model_runtime_process_policy import (
+    REQUIRED_RUNTIME_PROCESSES,
+    ModelRuntimeProcessPolicy,
+    RuntimeProcessName,
+)
+from omnibase_infra.runtime.models.model_secret_mapping import ModelSecretMapping
+from omnibase_infra.runtime.models.model_secret_namespace_rule import (
+    ModelSecretNamespaceRule,
+)
+
+
+class ModelRuntimeProfilePolicy(BaseModel):
+    """Policy for a single runtime lane."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, from_attributes=True)
+
+    compose_project: str = Field(min_length=1)
+    main_port: int = Field(ge=1, le=65535)
+    effects_port: int = Field(ge=1, le=65535)
+    topic_provisioner_max_partitions: int = Field(ge=0)
+    # OMN-14551: lane-scoped stance for the auto-wired consume boundary's DLQ
+    # routing (ONEX_BOUNDARY_DLQ_ENABLED, see handler_wiring.py). Required
+    # (no default) so every lane declares an explicit position rather than
+    # silently inheriting an implicit off -- no-invisible-env-config doctrine.
+    boundary_dlq_enabled: bool
+    secret_resolver_config_path: str = ""
+    secret_resolver_mappings: tuple[ModelSecretMapping, ...] = ()
+    # OMN-16944: rule-based sources for runtime-MINTED refs (BYOK credential
+    # refs carry a uuid4, so no per-credential `mappings` entry can exist).
+    # Declared once per lane; serves every credential registered afterwards
+    # with no manifest edit and no redeploy.
+    secret_resolver_namespaces: tuple[ModelSecretNamespaceRule, ...] = ()
+    processes: dict[RuntimeProcessName, ModelRuntimeProcessPolicy] = Field(
+        alias="services"
+    )
+
+    @model_validator(mode="after")
+    def _requires_the_runtime_family_and_allows_optional_carriers(
+        self,
+    ) -> ModelRuntimeProfilePolicy:
+        # OMN-18114: the three shared kernels stay MANDATORY on every lane; a
+        # carrier process such as `tenant-projection` is optional and declared
+        # only by the lanes that deploy it. The check is therefore a subset
+        # relation in one direction and a superset in the other, not equality:
+        # equality would force every lane -- prod included -- to declare a
+        # lab-lane carrier the moment one lane needs it, which is a deploy this
+        # repo has no authority to make.
+        observed = set(self.processes)
+        missing = REQUIRED_RUNTIME_PROCESSES - observed
+        if missing:
+            msg = (
+                "runtime profile is missing required process(es) "
+                f"{sorted(missing)}; declared {sorted(observed)}"
+            )
+            raise ValueError(msg)
+        logical_names = [
+            mapping.logical_name for mapping in self.secret_resolver_mappings
+        ]
+        if len(logical_names) != len(set(logical_names)):
+            msg = "runtime profile secret resolver logical names must be unique"
+            raise ValueError(msg)
+        if (
+            self.secret_resolver_mappings or self.secret_resolver_namespaces
+        ) and not self.secret_resolver_config_path.strip():
+            msg = (
+                "runtime profile secret resolver mappings/namespaces require a "
+                "config path"
+            )
+            raise ValueError(msg)
+        namespace_names = [rule.namespace for rule in self.secret_resolver_namespaces]
+        if len(namespace_names) != len(set(namespace_names)):
+            msg = "runtime profile secret resolver namespace names must be unique"
+            raise ValueError(msg)
+        return self

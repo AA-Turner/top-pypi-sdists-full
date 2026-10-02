@@ -1,0 +1,683 @@
+"""Async provider transport, absolute deadlines, and bounded same-endpoint retries."""
+
+from __future__ import annotations
+
+import asyncio
+import math
+import random
+import ssl
+import time
+import weakref
+from collections.abc import Awaitable, Callable, Mapping, Sequence
+from dataclasses import dataclass
+from typing import Protocol, runtime_checkable
+from uuid import uuid4
+
+import httpx
+
+from exp.common.core.artifacts import JsonObject
+from exp.runtime.models.providers.transport import (
+    JsonHttpResponse,
+    JsonHttpTransport,
+    ProviderTransportError,
+    RecordedRequest,
+    RetryClassification,
+    RetryPolicy,
+    certified_admission_refusal,
+    classify_retry,
+    is_unbilled_attempt,
+    parse_retry_after,
+    provider_ssl_context,
+    retain_request_attempt_evidence,
+    retry_delay_seconds,
+    transport_error_message,
+    validated_admission_origin,
+)
+
+
+class ProviderDeadlineExceeded(TimeoutError):
+    """One provider operation exhausted its immutable request-wide deadline."""
+
+
+_POOLED_MAX_CONNECTIONS = 256
+_POOLED_MAX_KEEPALIVE_CONNECTIONS = 64
+
+_shared_ssl_context: ssl.SSLContext | None = None
+_pooled_clients: weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, httpx.AsyncClient] = (
+    weakref.WeakKeyDictionary()
+)
+
+
+def _default_ssl_context() -> ssl.SSLContext:
+    """Return one process-wide verified TLS context shared by pooled clients.
+
+    Building an ``ssl.SSLContext`` loads the system trust store and takes tens of
+    milliseconds of blocking CPU, so every pooled client reuses one context instead
+    of paying that cost on the event loop per request.
+    """
+    global _shared_ssl_context  # noqa: PLW0603 - one lazily built process-wide context.
+    if _shared_ssl_context is None:
+        _shared_ssl_context = provider_ssl_context()
+    return _shared_ssl_context
+
+
+class _CookieFreeTransport(httpx.AsyncBaseTransport):
+    """Transport wrapper that removes ``Set-Cookie`` headers from responses.
+
+    The pooled client is shared by every default transport on one event loop, so a
+    provider-set cookie must not be stored and replayed on a later request made
+    under a different credential context. Provider APIs authenticate per request
+    through explicit headers and need no cookie state.
+    """
+
+    def __init__(self, inner: httpx.AsyncBaseTransport) -> None:
+        """Wrap one connection-pooling transport.
+
+        Args:
+            inner: Transport that owns the actual connection pool.
+        """
+        self._inner = inner
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        """Forward one request and strip cookie-setting headers from its response.
+
+        Args:
+            request: Outbound provider request.
+
+        Returns:
+            The provider response without ``Set-Cookie`` headers.
+        """
+        response = await self._inner.handle_async_request(request)
+        if "set-cookie" in response.headers:
+            del response.headers["set-cookie"]
+        return response
+
+    async def aclose(self) -> None:
+        """Close the wrapped connection pool."""
+        await self._inner.aclose()
+
+
+def _pooled_client() -> httpx.AsyncClient:
+    """Return the shared keep-alive client bound to the running event loop.
+
+    Connections outlive individual requests so repeated provider calls reuse
+    established TCP and TLS sessions. Each event loop owns one client because
+    pooled sockets are loop-bound; the weak mapping lets a finished loop and its
+    client be reclaimed together.
+    """
+    loop = asyncio.get_running_loop()
+    client = _pooled_clients.get(loop)
+    if client is None or client.is_closed:
+        client = httpx.AsyncClient(
+            transport=_CookieFreeTransport(
+                httpx.AsyncHTTPTransport(
+                    verify=_default_ssl_context(),
+                    limits=httpx.Limits(
+                        max_connections=_POOLED_MAX_CONNECTIONS,
+                        max_keepalive_connections=_POOLED_MAX_KEEPALIVE_CONNECTIONS,
+                    ),
+                )
+            ),
+        )
+        _pooled_clients[loop] = client
+    return client
+
+
+async def aclose_pooled_client() -> None:
+    """Close and forget the pooled client owned by the running event loop.
+
+    Long-lived server loops keep their pooled client for connection reuse.
+    Sync compatibility entry points run each call on a temporary ``asyncio.run``
+    loop, so they invoke this before the loop ends to release pooled sockets
+    deterministically instead of leaving them to garbage collection.
+    """
+    loop = asyncio.get_running_loop()
+    client = _pooled_clients.pop(loop, None)
+    if client is not None and not client.is_closed:
+        await client.aclose()
+
+
+async def run_then_close_pooled_client[ResultT](operation: Awaitable[ResultT]) -> ResultT:
+    """Await one operation, then release the temporary loop's pooled client.
+
+    Args:
+        operation: Provider operation executed on a short-lived event loop.
+
+    Returns:
+        The completed operation result.
+    """
+    try:
+        return await operation
+    finally:
+        await aclose_pooled_client()
+
+
+@dataclass(frozen=True)
+class RequestDeadline:
+    """One absolute monotonic deadline shared by queueing, attempts, and backoff."""
+
+    expires_at_monotonic: float
+
+    def __post_init__(self) -> None:
+        """Reject a nonpositive absolute deadline that cannot bound execution."""
+        if not math.isfinite(self.expires_at_monotonic) or self.expires_at_monotonic <= 0:
+            raise ValueError("expires_at_monotonic must be finite and positive")
+
+    @classmethod
+    def after(
+        cls,
+        timeout_seconds: float,
+        *,
+        now_monotonic: float | None = None,
+    ) -> RequestDeadline:
+        """Create one absolute deadline from a positive remaining budget.
+
+        Args:
+            timeout_seconds: Total request-wide budget in seconds.
+            now_monotonic: Optional injected monotonic reading for deterministic tests.
+
+        Returns:
+            An immutable deadline at the end of the supplied budget.
+
+        Raises:
+            ValueError: The budget is not positive.
+        """
+        if not math.isfinite(timeout_seconds) or timeout_seconds <= 0:
+            raise ValueError("timeout_seconds must be finite and positive")
+        now = time.monotonic() if now_monotonic is None else now_monotonic
+        return cls(expires_at_monotonic=now + timeout_seconds)
+
+    def remaining_seconds(self, *, now_monotonic: float | None = None) -> float:
+        """Return nonnegative time remaining on the absolute deadline.
+
+        Args:
+            now_monotonic: Optional injected monotonic reading for deterministic tests.
+
+        Returns:
+            Remaining seconds, clamped to zero after expiry.
+        """
+        now = time.monotonic() if now_monotonic is None else now_monotonic
+        return max(0.0, self.expires_at_monotonic - now)
+
+    def attempt_timeout(
+        self,
+        maximum_seconds: float | None = None,
+        *,
+        now_monotonic: float | None = None,
+    ) -> float:
+        """Return the smaller of the attempt bound and remaining request time.
+
+        Args:
+            maximum_seconds: Optional provider-derived bound for this one attempt.
+            now_monotonic: Optional injected monotonic reading for deterministic tests.
+
+        Returns:
+            A positive timeout for the next attempt.
+
+        Raises:
+            ValueError: The optional attempt bound is not positive.
+            ProviderDeadlineExceeded: No request-wide time remains.
+        """
+        if maximum_seconds is not None and maximum_seconds <= 0:
+            raise ValueError("maximum_seconds must be positive")
+        remaining = self.remaining_seconds(now_monotonic=now_monotonic)
+        if remaining <= 0:
+            raise ProviderDeadlineExceeded("provider request deadline exceeded")
+        return remaining if maximum_seconds is None else min(remaining, maximum_seconds)
+
+
+@runtime_checkable
+class AsyncJsonHttpTransport(Protocol):
+    """Cancellable async JSON transport used by gateway-capable provider clients."""
+
+    async def get(
+        self,
+        url: str,
+        *,
+        headers: Mapping[str, str],
+        timeout_seconds: float,
+    ) -> JsonHttpResponse:
+        """Read one bounded JSON object response."""
+        ...
+
+    async def post(
+        self,
+        url: str,
+        *,
+        headers: Mapping[str, str],
+        payload: JsonObject,
+        timeout_seconds: float,
+    ) -> JsonHttpResponse:
+        """Send one bounded JSON request and decode an object response."""
+        ...
+
+
+class HttpxAsyncJsonTransport:
+    """Production async transport backed by ``httpx.AsyncClient``."""
+
+    def __init__(
+        self,
+        client: httpx.AsyncClient | None = None,
+        *,
+        trusted_admission_origin: str | None = None,
+    ) -> None:
+        """Use a caller-owned client or the shared per-event-loop pooled client.
+
+        Args:
+            client: Optional async client whose lifecycle remains with the caller.
+                When omitted, requests run on one process-wide keep-alive client
+                per event loop so connections and the TLS context are reused.
+            trusted_admission_origin: Explicit HTTPS origin whose authenticated pre-dispatch
+                refusal receipts may release billing reservations. Defaults to no trust.
+        """
+        self._client = client
+        self._trusted_admission_origin = validated_admission_origin(trusted_admission_origin)
+
+    async def get(
+        self,
+        url: str,
+        *,
+        headers: Mapping[str, str],
+        timeout_seconds: float,
+    ) -> JsonHttpResponse:
+        """Read one provider endpoint with cancellable async I/O.
+
+        Args:
+            url: Absolute provider endpoint URL.
+            headers: Provider headers, including resolved authentication.
+            timeout_seconds: Remaining bound for this attempt.
+
+        Returns:
+            The status and decoded JSON object.
+
+        Raises:
+            ProviderTransportError: The request or response body fails safely.
+        """
+        try:
+            client = self._client if self._client is not None else _pooled_client()
+            response = await client.get(
+                url,
+                headers=dict(headers),
+                timeout=timeout_seconds,
+            )
+        except httpx.TimeoutException as exc:
+            raise ProviderTransportError(transport_error_message(exc)) from exc
+        except httpx.TransportError as exc:
+            raise ProviderTransportError(transport_error_message(exc)) from exc
+        return _decoded_response(response, trusted_origin=self._trusted_admission_origin)
+
+    async def post(
+        self,
+        url: str,
+        *,
+        headers: Mapping[str, str],
+        payload: JsonObject,
+        timeout_seconds: float,
+    ) -> JsonHttpResponse:
+        """Send one provider request with cancellable async I/O.
+
+        Args:
+            url: Absolute provider endpoint URL.
+            headers: Provider headers, including resolved authentication.
+            payload: Complete JSON request body.
+            timeout_seconds: Remaining bound for this attempt.
+
+        Returns:
+            The status and decoded JSON object.
+
+        Raises:
+            ProviderTransportError: The request or response body fails safely.
+        """
+        try:
+            client = self._client if self._client is not None else _pooled_client()
+            response = await client.post(
+                url,
+                headers=dict(headers),
+                json=payload,
+                timeout=timeout_seconds,
+            )
+        except httpx.TimeoutException as exc:
+            raise ProviderTransportError(transport_error_message(exc)) from exc
+        except httpx.TransportError as exc:
+            raise ProviderTransportError(transport_error_message(exc)) from exc
+        return _decoded_response(response, trusted_origin=self._trusted_admission_origin)
+
+
+class SyncJsonTransportAdapter:
+    """Bound the wait around a legacy sync transport used by existing injected callers.
+
+    Gateway request handlers use ``HttpxAsyncJsonTransport`` directly. This adapter exists for
+    deterministic tests and external sync transport injections while those callers migrate.
+    """
+
+    def __init__(self, transport: JsonHttpTransport) -> None:
+        """Bind one legacy transport without executing it on the event loop.
+
+        Args:
+            transport: Existing sync JSON transport to run in the default worker pool.
+        """
+        self._transport = transport
+
+    async def get(
+        self,
+        url: str,
+        *,
+        headers: Mapping[str, str],
+        timeout_seconds: float,
+    ) -> JsonHttpResponse:
+        """Run one sync GET off-loop and bound the caller's wait.
+
+        Args:
+            url: Absolute provider endpoint URL.
+            headers: Provider request headers.
+            timeout_seconds: Maximum time the async caller waits.
+
+        Returns:
+            The legacy transport response.
+        """
+        deadline = RequestDeadline.after(timeout_seconds)
+
+        def dispatch() -> JsonHttpResponse:
+            """Recheck the original deadline after the worker leaves its queue."""
+            return self._transport.get(
+                url, headers=headers, timeout_seconds=deadline.attempt_timeout()
+            )
+
+        operation = asyncio.to_thread(dispatch)
+        return await asyncio.wait_for(operation, timeout=timeout_seconds)
+
+    async def post(
+        self,
+        url: str,
+        *,
+        headers: Mapping[str, str],
+        payload: JsonObject,
+        timeout_seconds: float,
+    ) -> JsonHttpResponse:
+        """Run one sync POST off-loop and bound the caller's wait.
+
+        Args:
+            url: Absolute provider endpoint URL.
+            headers: Provider request headers.
+            payload: Complete JSON request body.
+            timeout_seconds: Maximum time the async caller waits.
+
+        Returns:
+            The legacy transport response.
+        """
+        deadline = RequestDeadline.after(timeout_seconds)
+
+        def dispatch() -> JsonHttpResponse:
+            """Do not start paid work whose deadline expired while queued."""
+            return self._transport.post(
+                url,
+                headers=headers,
+                payload=payload,
+                timeout_seconds=deadline.attempt_timeout(),
+            )
+
+        operation = asyncio.to_thread(dispatch)
+        return await asyncio.wait_for(operation, timeout=timeout_seconds)
+
+
+class ScriptedAsyncJsonTransport:
+    """Deterministic async transport that records requests and replays scripted answers."""
+
+    def __init__(self, responses: Sequence[JsonHttpResponse | Exception] = ()) -> None:
+        """Store one answer for every expected async request.
+
+        Args:
+            responses: Ordered response objects or exceptions.
+        """
+        self._responses = list(responses)
+        self.requests: list[RecordedRequest] = []
+        self.timeouts: list[float] = []
+
+    async def get(
+        self,
+        url: str,
+        *,
+        headers: Mapping[str, str],
+        timeout_seconds: float,
+    ) -> JsonHttpResponse:
+        """Record one GET and return the next scripted answer.
+
+        Args:
+            url: Absolute provider endpoint URL.
+            headers: Provider request headers.
+            timeout_seconds: Remaining attempt timeout.
+
+        Returns:
+            The next scripted response.
+        """
+        self.requests.append(RecordedRequest(url, dict(headers), {}))
+        self.timeouts.append(timeout_seconds)
+        return self._answer()
+
+    async def post(
+        self,
+        url: str,
+        *,
+        headers: Mapping[str, str],
+        payload: JsonObject,
+        timeout_seconds: float,
+    ) -> JsonHttpResponse:
+        """Record one POST and return the next scripted answer.
+
+        Args:
+            url: Absolute provider endpoint URL.
+            headers: Provider request headers.
+            payload: Complete JSON request body.
+            timeout_seconds: Remaining attempt timeout.
+
+        Returns:
+            The next scripted response.
+        """
+        self.requests.append(RecordedRequest(url, dict(headers), payload))
+        self.timeouts.append(timeout_seconds)
+        return self._answer()
+
+    def _answer(self) -> JsonHttpResponse:
+        """Consume the next answer, failing closed when the script is exhausted."""
+        if not self._responses:
+            raise AssertionError("test made an unexpected provider request")
+        answer = self._responses.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+
+async def run_with_retry_async[ResultT](
+    operation: Callable[[float], Awaitable[ResultT]],
+    *,
+    policy: RetryPolicy,
+    deadline: RequestDeadline,
+    attempt_timeout_seconds: float | None = None,
+    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+    classify: Callable[[Exception], RetryClassification] = classify_retry,
+    random_sample: Callable[[], float] = random.random,
+    now_monotonic: Callable[[], float] = time.monotonic,
+) -> ResultT:
+    """Run one async attempt loop under a single absolute deadline.
+
+    Args:
+        operation: One same-endpoint attempt receiving its current timeout.
+        policy: Total attempt and backoff bounds for the whole operation.
+        deadline: Absolute request-wide deadline shared by every attempt.
+        attempt_timeout_seconds: Optional smaller provider-derived per-attempt bound.
+        sleep: Async delay function, injectable for deterministic tests.
+        classify: Retry classifier applied to each attempt error.
+        random_sample: Jitter source in [0, 1], injectable for deterministic tests.
+        now_monotonic: Clock for the fixed request deadline.
+
+    Returns:
+        The first successful result.
+
+    Raises:
+        ProviderDeadlineExceeded: Queueing, an attempt, or backoff exhausts the deadline.
+        Exception: The first non-retryable error or last retryable error.
+    """
+    delay = policy.initial_delay_seconds
+    attempts = 0
+    unbilled_attempts = 0
+    try:
+        while True:
+            timeout_seconds = deadline.attempt_timeout(
+                attempt_timeout_seconds, now_monotonic=now_monotonic()
+            )
+            attempts += 1
+            try:
+                async with asyncio.timeout(timeout_seconds):
+                    return await operation(timeout_seconds)
+            except TimeoutError as exc:
+                error: Exception
+                if deadline.remaining_seconds(now_monotonic=now_monotonic()) <= 0:
+                    error = ProviderDeadlineExceeded("provider request deadline exceeded")
+                else:
+                    error = ProviderTransportError("provider request timed out")
+                error.__cause__ = exc
+            except Exception as exc:  # noqa: BLE001 - the injected classifier owns retry policy.
+                error = exc
+            unbilled = is_unbilled_attempt(error)
+            unbilled_attempts += int(unbilled)
+            classification = classify(error)
+            if (
+                not classification.retryable
+                or attempts - unbilled_attempts >= policy.maximum_attempts
+            ):
+                raise error
+            remaining = deadline.remaining_seconds(now_monotonic=now_monotonic())
+            wait = retry_delay_seconds(
+                error,
+                delay=delay,
+                policy=policy,
+                random_sample=random_sample,
+                server_wait_ceiling_seconds=remaining,
+            )
+            # Admission retries require positive pacing even when the caller selects immediate
+            # ordinary retries. A zero-delay policy cannot create a deadline-long busy loop.
+            if wait is None or (unbilled and wait <= 0):
+                raise error
+            if remaining <= wait:
+                raise ProviderDeadlineExceeded("provider request deadline exceeded") from error
+            if wait > 0:
+                try:
+                    async with asyncio.timeout(remaining):
+                        await sleep(wait)
+                except TimeoutError as exc:
+                    raise ProviderDeadlineExceeded("provider request deadline exceeded") from exc
+            delay = min(delay * 2, policy.maximum_delay_seconds)
+    except BaseException as failure:
+        retain_request_attempt_evidence(
+            failure, attempts=attempts, unbilled_attempts=unbilled_attempts
+        )
+        raise
+
+
+async def post_json_async(
+    transport: AsyncJsonHttpTransport,
+    url: str,
+    *,
+    headers: Mapping[str, str],
+    payload: JsonObject,
+    deadline: RequestDeadline,
+    retry_policy: RetryPolicy,
+    idempotency_key: str | None = None,
+    attempt_timeout_seconds: float | None = None,
+) -> JsonObject:
+    """Send one JSON request with stable identity across safe endpoint retries.
+
+    Args:
+        transport: Async transport used for every same-endpoint attempt.
+        url: Absolute provider endpoint URL.
+        headers: Provider request headers.
+        payload: Complete JSON request body.
+        deadline: Absolute request-wide deadline.
+        retry_policy: Total same-endpoint attempt and delay bounds.
+        idempotency_key: Optional stable caller or gateway attempt identity.
+        attempt_timeout_seconds: Optional smaller per-attempt bound.
+
+    Returns:
+        The first successful response body.
+    """
+    request_headers = {
+        name: value for name, value in headers.items() if name.lower() != "idempotency-key"
+    }
+    request_headers["Idempotency-Key"] = idempotency_key or f"exp-{uuid4().hex}"
+
+    async def send(timeout_seconds: float) -> JsonObject:
+        """Send one POST attempt with the immutable request headers."""
+        response = await transport.post(
+            url,
+            headers=request_headers,
+            payload=payload,
+            timeout_seconds=timeout_seconds,
+        )
+        return _successful_body(response)
+
+    return await run_with_retry_async(
+        send,
+        policy=retry_policy,
+        deadline=deadline,
+        attempt_timeout_seconds=attempt_timeout_seconds,
+    )
+
+
+def as_async_transport(
+    transport: AsyncJsonHttpTransport | JsonHttpTransport | None,
+) -> AsyncJsonHttpTransport:
+    """Normalize caller-injected or default transports onto the async protocol.
+
+    Args:
+        transport: Async transport, legacy sync transport, or ``None`` for production HTTPX.
+
+    Returns:
+        A transport implementing cancellable async request methods.
+    """
+    if transport is None:
+        return HttpxAsyncJsonTransport()
+    if isinstance(transport, JsonHttpTransport):
+        return SyncJsonTransportAdapter(transport)
+    return transport
+
+
+def _decoded_response(
+    response: httpx.Response, *, trusted_origin: httpx.URL | None = None
+) -> JsonHttpResponse:
+    """Decode one HTTPX response without retaining provider content in errors."""
+    retry_after = parse_retry_after(response.headers.get("Retry-After"))
+    known_unbilled = certified_admission_refusal(response, trusted_origin)
+    try:
+        body = response.json()
+    except ValueError as exc:
+        raise ProviderTransportError(
+            f"provider returned non-JSON HTTP {response.status_code}",
+            status_code=response.status_code,
+            retry_after_seconds=retry_after,
+            known_unbilled=known_unbilled,
+        ) from exc
+    if not isinstance(body, dict):
+        raise ProviderTransportError(
+            f"provider returned non-object JSON HTTP {response.status_code}",
+            status_code=response.status_code,
+            retry_after_seconds=retry_after,
+            known_unbilled=known_unbilled,
+        )
+    return JsonHttpResponse(
+        status_code=response.status_code,
+        body=body,
+        retry_after_seconds=retry_after,
+        known_unbilled=known_unbilled,
+    )
+
+
+def _successful_body(response: JsonHttpResponse) -> JsonObject:
+    """Return a successful body or raise a sanitized status-bearing error."""
+    if 200 <= response.status_code < 300:
+        return response.body
+    raise ProviderTransportError(
+        f"provider returned HTTP {response.status_code}",
+        status_code=response.status_code,
+        retry_after_seconds=response.retry_after_seconds,
+        known_unbilled=response.known_unbilled,
+    )

@@ -621,7 +621,7 @@ async def debug_traces_by_call(
             "conversation_id": (
                 str(r.conversation_id) if r.conversation_id else None
             ),
-            "user_id": str(r.created_by) if r.created_by else None,
+            "user_id": str(r.created_by) if r.created_by else None,  # component-created-by-ok: the trace's user is the conversation's OWNER (whose conversation this call ran in), not who answered it
         }
         if output_note:
             tool_call["output_note"] = output_note

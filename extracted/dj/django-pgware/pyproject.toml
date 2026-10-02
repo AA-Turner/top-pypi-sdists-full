@@ -1,0 +1,84 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "django-pgware"
+version = "1.0.0"
+description = "PostgreSQL utilities for Django: advisory locks, GUC management, and logging suppression"
+readme = "README.md"
+license = "PostgreSQL"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+authors = [
+    { name = "Christophe Pettus", email = "xof@thebuild.com" },
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: Django",
+    "Framework :: Django :: 4.2",
+    "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.0",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Database",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "django>=4.2",
+]
+
+[project.optional-dependencies]
+psycopg2 = ["psycopg2"]
+psycopg3 = ["psycopg[binary]"]
+
+[project.urls]
+Homepage = "https://github.com/Xof/django-pgware"
+Repository = "https://github.com/Xof/django-pgware"
+Issues = "https://github.com/Xof/django-pgware/issues"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-django>=4.8",
+    "pytest-asyncio>=0.23",
+    "psycopg2-binary>=2.9",
+    "mypy>=1.10",
+    "ruff>=0.5",
+    "django-stubs>=5.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/django_pg_utils"]
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+    "/.claude/",
+    "/.github/",
+    "/docker-compose.yml",
+    "/tests/",
+    "/uv.lock",
+    "/docs/",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.django_settings"
+pythonpath = ["src", "."]
+asyncio_mode = "auto"
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+packages = ["django_pg_utils"]
+mypy_path = "src"
+
+[tool.ruff]
+src = ["src"]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

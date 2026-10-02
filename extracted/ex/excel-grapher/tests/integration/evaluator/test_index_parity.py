@@ -1,0 +1,205 @@
+"""INDEX edge cases: evaluator and generated export runtime stay aligned (integration).
+
+Uses `evaluate_targets` for INDEX variants that commonly diverge
+between hand-rolled evaluators and transpiled code.
+"""
+
+from excel_grapher import DependencyGraph, Node
+from excel_grapher.core.address_keys import parse_address
+from excel_grapher.evaluator.types import XlError
+from tests.integration.utils.parity_harness import evaluate_targets
+
+
+def _make_node(address: str, formula: str | None, value: object) -> Node:
+    """Helper to create a Node from a sheet-qualified address."""
+    sheet, coord = parse_address(address)
+    col = "".join(c for c in coord if c.isalpha())
+    row = int("".join(c for c in coord if c.isdigit()))
+    return Node(
+        sheet=sheet,
+        column=col,
+        row=row,
+        formula=formula,
+        normalized_formula=formula,
+        value=value,
+        is_leaf=formula is None,
+    )
+
+
+def _make_graph(*nodes: Node) -> DependencyGraph:
+    """Helper to create a DependencyGraph from nodes."""
+    graph = DependencyGraph()
+    for node in nodes:
+        graph.add_node(node)
+    return graph
+
+
+def test_index_parity_with_non_array_input() -> None:
+    graph = _make_graph(
+        _make_node("S!A1", "=INDEX(TRUE,1)", None),
+        _make_node("S!A2", "=INDEX(1,1)", None),
+        _make_node("S!A3", '=INDEX("text",1)', None),
+    )
+
+    results = evaluate_targets(graph, ["S!A1", "S!A2", "S!A3"])
+    assert results["S!A1"] == XlError.VALUE
+    assert results["S!A2"] == XlError.VALUE
+    assert results["S!A3"] == XlError.VALUE
+
+
+def test_index_omit_row_returns_column_for_match() -> None:
+    """INDEX(range,,k) returns column k; used by LIC-DSF classification table."""
+    graph = _make_graph(
+        _make_node("S!A1", "1", None),
+        _make_node("S!A2", "4", None),
+        _make_node("S!A3", "7", None),
+        _make_node("S!B1", "2", None),
+        _make_node("S!B2", "5", None),
+        _make_node("S!B3", "8", None),
+        _make_node("S!C1", "3", None),
+        _make_node("S!C2", "6", None),
+        _make_node("S!C3", "9", None),
+        _make_node("S!D1", "5", None),
+        _make_node("S!E1", "=MATCH(S!D1, INDEX(S!A1:S!C3,,2), 0)", None),
+    )
+    results = evaluate_targets(graph, ["S!E1"])
+    assert results["S!E1"] == 2
+
+
+def test_index_one_row_empty_column_matches_explicit_zero() -> None:
+    """INDEX(header,1,) is the row; INDEX(header,1) is the first cell.
+
+    Desktop Excel 16.0 keeps the trailing comma. Exact MATCH of a later header
+    is the column index for the empty-column form and #N/A for the two-arg form.
+    """
+    graph = _make_graph(
+        _make_node("S!A1", None, "h1"),
+        _make_node("S!B1", None, "h2"),
+        _make_node("S!C1", None, "DSA"),
+        _make_node("S!D1", '=MATCH("DSA",INDEX(S!A1:S!C1,1,),0)', None),
+        _make_node("S!D2", '=MATCH("DSA",INDEX(S!A1:S!C1,1),0)', None),
+        _make_node("S!D3", '=MATCH("h1",INDEX(S!A1:S!C1,1),0)', None),
+        _make_node("S!D4", '=MATCH("DSA",INDEX(S!A1:S!C1,1,0),0)', None),
+    )
+    results = evaluate_targets(graph, ["S!D1", "S!D2", "S!D3", "S!D4"])
+    assert results["S!D1"] == 3
+    assert results["S!D2"] == XlError.NA
+    assert results["S!D3"] == 1
+    assert results["S!D4"] == 3
+
+
+def test_index_two_arg_on_block_is_ref() -> None:
+    """Two-arg INDEX on a 2-D block is #REF!; the empty-column form is that row."""
+    graph = _make_graph(
+        _make_node("S!A1", None, 1),
+        _make_node("S!B1", None, 2),
+        _make_node("S!C1", None, 3),
+        _make_node("S!A2", None, 4),
+        _make_node("S!B2", None, 5),
+        _make_node("S!C2", None, 6),
+        _make_node("S!E1", "=INDEX(S!A1:S!C2,1)", None),
+        _make_node("S!E2", "=SUM(INDEX(S!A1:S!C2,1))", None),
+        _make_node("S!E3", "=SUM(INDEX(S!A1:S!C2,1,))", None),
+        _make_node("S!E4", "=SUM(INDEX(S!A1:S!C2,1,0))", None),
+    )
+    results = evaluate_targets(graph, ["S!E1", "S!E2", "S!E3", "S!E4"])
+    assert results["S!E1"] == XlError.REF
+    assert results["S!E2"] == XlError.REF
+    assert results["S!E3"] == 6
+    assert results["S!E4"] == 6
+
+
+def test_index_omit_col_returns_row_for_match() -> None:
+    """INDEX(range,k,) returns row k for 2-D arrays."""
+    graph = _make_graph(
+        _make_node("S!A1", "1", None),
+        _make_node("S!A2", "4", None),
+        _make_node("S!A3", "7", None),
+        _make_node("S!B1", "2", None),
+        _make_node("S!B2", "5", None),
+        _make_node("S!B3", "8", None),
+        _make_node("S!C1", "3", None),
+        _make_node("S!C2", "6", None),
+        _make_node("S!C3", "9", None),
+        _make_node("S!D1", "5", None),
+        _make_node("S!E1", "=MATCH(S!D1, INDEX(S!A1:S!C3,2,), 0)", None),
+    )
+    results = evaluate_targets(graph, ["S!E1"])
+    assert results["S!E1"] == 2
+
+
+def test_index_scalar_out_of_bounds_returns_ref_error() -> None:
+    """Out-of-bounds scalar INDEX should return #REF! instead of raising."""
+    graph = _make_graph(
+        _make_node("S!A1", "1", None),
+        _make_node("S!B1", "2", None),
+        _make_node("S!A2", "3", None),
+        _make_node("S!B2", "4", None),
+        _make_node("S!C1", "=INDEX(S!A1:S!B2,3,1)", None),
+    )
+    results = evaluate_targets(graph, ["S!C1"])
+    assert results["S!C1"] == XlError.REF
+
+
+def test_index_row_zero_whole_column_match_and_sum() -> None:
+    """INDEX(range, 0) returns the whole column (issue #502)."""
+    graph = _make_graph(
+        _make_node("S!A1", None, 5),
+        _make_node("S!A2", None, 0),
+        _make_node("S!A3", None, 7),
+        _make_node("S!B1", "=MATCH(7, INDEX(S!A1:S!A3, 0), 0)", None),
+        _make_node("S!B2", "=SUM(INDEX(S!A1:S!A3, 0))", None),
+    )
+    results = evaluate_targets(graph, ["S!B1", "S!B2"])
+    assert results["S!B1"] == 3
+    assert results["S!B2"] == 12
+
+
+def test_index_computed_array_row_zero_match_parity() -> None:
+    """INDEX((rng<>0), 0) must agree across evaluator and export (issue #503)."""
+    graph = _make_graph(
+        _make_node("S!A1", None, 5),
+        _make_node("S!A2", None, 0),
+        _make_node("S!A3", None, 7),
+        _make_node("S!B1", "=MATCH(TRUE, (S!A1:S!A3<>0), 0)", None),
+        _make_node("S!B2", "=MATCH(TRUE, INDEX((S!A1:S!A3<>0), 0), 0)", None),
+        _make_node("S!B3", "=SUM(INDEX((S!A1:S!A3<>0)*1, 0))", None),
+    )
+    results = evaluate_targets(graph, ["S!B1", "S!B2", "S!B3"])
+    assert results["S!B1"] == 1
+    assert results["S!B2"] == 1
+    assert results["S!B3"] == 2
+
+
+def test_index_zero_axis_selectors_on_2d_array() -> None:
+    """INDEX(rng, 0, k) / INDEX(rng, k, 0) return whole column/row (#502)."""
+    graph = _make_graph(
+        _make_node("S!A1", None, 1),
+        _make_node("S!A2", None, 4),
+        _make_node("S!A3", None, 7),
+        _make_node("S!B1", None, 2),
+        _make_node("S!B2", None, 5),
+        _make_node("S!B3", None, 8),
+        _make_node("S!C1", None, 3),
+        _make_node("S!C2", None, 6),
+        _make_node("S!C3", None, 9),
+        _make_node("S!E1", "=SUM(INDEX(S!A1:S!C3,0,2))", None),
+        _make_node("S!E2", "=SUM(INDEX(S!A1:S!C3,2,0))", None),
+        _make_node("S!E3", "=SUM(INDEX(S!A1:S!C3,0,0))", None),
+    )
+    results = evaluate_targets(graph, ["S!E1", "S!E2", "S!E3"])
+    assert results["S!E1"] == 15
+    assert results["S!E2"] == 15
+    assert results["S!E3"] == 45
+
+
+def test_index_zero_over_computed_array_finds_later_nonzero() -> None:
+    """MATCH(TRUE, INDEX((rng<>0),0), 0) finds the first non-zero past leading zeros."""
+    graph = _make_graph(
+        _make_node("S!A1", None, 0),
+        _make_node("S!A2", None, 0),
+        _make_node("S!A3", None, 7),
+        _make_node("S!B1", "=MATCH(TRUE,INDEX((S!A1:S!A3<>0),0),0)", None),
+    )
+    results = evaluate_targets(graph, ["S!B1"])
+    assert results["S!B1"] == 3

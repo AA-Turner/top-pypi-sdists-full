@@ -1,0 +1,679 @@
+"""Unit tests for series binding JSON Schema validation."""
+
+from __future__ import annotations
+
+from typing import Any
+
+import pytest
+
+from excel_grapher.series_bindings import load_series_bindings
+from excel_grapher.series_bindings.schema import (
+    SeriesBindingsSchemaError,
+    format_schema_errors,
+    validate_bindings_document,
+)
+from tests.paths import SERIES_BINDINGS_FIXTURES as FIXTURES
+
+
+def _scalar_series_doc(**series_overrides: Any) -> dict[str, Any]:
+    """Minimal scalar binding document for schema edge-case tests."""
+    schema_version = "1.0.0"
+    if "schema_version" in series_overrides:
+        schema_version = str(series_overrides.pop("schema_version"))
+    series: dict[str, Any] = {
+        "id": "bool_flag",
+        "sheet": "Flags",
+        "data_range": "Flags!B2",
+        "layout": "scalar",
+        "input": {},
+        "structure": {
+            "measure": {
+                "concept": "OBS_VALUE",
+                "dtype": "float",
+                "bind": {"kind": "data_cell", "read": "float"},
+            },
+            "dimensions": [
+                {
+                    "concept": "IS_ACTIVE",
+                    "role": "key",
+                    "scope": "series",
+                    "bind": {"kind": "constant", "value": True},
+                }
+            ],
+        },
+        "key": ["IS_ACTIVE"],
+    }
+    series.update(series_overrides)
+    return {"schema_version": schema_version, "series": [series]}
+
+
+def test_example_fixture_passes_schema() -> None:
+    bindings = load_series_bindings(FIXTURES / "borvelia_primary_balance.yaml")
+    assert bindings["series"][0]["key"] == ["TIME_PERIOD"]
+
+
+def test_schema_infers_sheet_from_sheet_qualified_data_range() -> None:
+    doc = {
+        "schema_version": "1.3.0",
+        "series": [
+            {
+                "id": "borvelia_primary_balance",
+                "data_range": "Sheet1!F5:J5",
+                "layout": "series",
+                "input": {},
+                "structure": {
+                    "measure": {"concept": "OBS_VALUE", "bind": {"kind": "data_cell"}},
+                    "dimensions": [
+                        {
+                            "concept": "TIME_PERIOD",
+                            "role": "key",
+                            "scope": "cell",
+                            "bind": {"kind": "column_header", "header_row": 1},
+                        }
+                    ],
+                },
+                "key": ["TIME_PERIOD"],
+            }
+        ],
+    }
+    bindings = validate_bindings_document(doc)
+    assert bindings["series"][0]["sheet"] == "Sheet1"
+
+
+def test_schema_rejects_missing_series() -> None:
+    with pytest.raises(SeriesBindingsSchemaError, match="series"):
+        validate_bindings_document({"schema_version": "1.0.0"})
+
+
+def test_schema_error_for_missing_key_names_series_id() -> None:
+    doc = _scalar_series_doc()
+    doc["series"][0].pop("key")
+    doc["series"][0]["id"] = "puka_week_1_fantasy_score"
+
+    with pytest.raises(
+        SeriesBindingsSchemaError,
+        match=r"puka_week_1_fantasy_score",
+    ) as exc_info:
+        validate_bindings_document(doc)
+    assert "key" in str(exc_info.value)
+
+    errors = format_schema_errors(doc)
+    assert "puka_week_1_fantasy_score" in errors[0]
+    assert "key" in errors[0]
+
+
+def test_schema_accepts_bare_defined_name_data_range() -> None:
+    doc = {
+        "schema_version": "1.0.0",
+        "series": [
+            {
+                "id": "defined_name_target",
+                "sheet": "Inputs",
+                "data_range": "growth_baseline",
+                "layout": "scalar",
+                "input": {},
+                "structure": {
+                    "measure": {"concept": "OBS_VALUE", "bind": {"kind": "data_cell"}},
+                    "dimensions": [],
+                },
+                "key": [],
+            }
+        ],
+    }
+
+    bindings = validate_bindings_document(doc)
+    assert bindings["series"][0]["data_range"] == "growth_baseline"
+
+
+def test_schema_accepts_1_1_0_matrix_fixture() -> None:
+    bindings = load_series_bindings(FIXTURES / "matrix_country_block_1_1_0.yaml")
+    assert bindings["schema_version"] == "1.1.0"
+    assert bindings["series"][0]["layout"] == "matrix"
+    assert bindings["series"][0]["structure"]["dimensions"][0]["bind"]["kind"] == "row_label"
+
+
+def test_schema_accepts_series_without_layout() -> None:
+    from tests.fixtures.series_bindings.matrix_helpers import macro_matrix_bindings_document
+
+    doc = macro_matrix_bindings_document()
+    del doc["series"][0]["layout"]
+    bindings = validate_bindings_document(doc)
+    assert "layout" not in bindings["series"][0]
+
+
+def test_schema_rejects_matrix_with_single_dimension() -> None:
+    from tests.fixtures.series_bindings.matrix_helpers import (
+        macro_matrix_bindings_document,
+        macro_matrix_structure,
+    )
+
+    doc = macro_matrix_bindings_document()
+    structure = macro_matrix_structure()
+    structure["dimensions"] = structure["dimensions"][:1]
+    doc["series"][0]["structure"] = structure
+    with pytest.raises(SeriesBindingsSchemaError):
+        validate_bindings_document(doc)
+
+
+def test_schema_accepts_legacy_row_series_layout() -> None:
+    doc = {
+        "schema_version": "1.0.0",
+        "series": [
+            {
+                "id": "legacy_row",
+                "sheet": "S",
+                "data_range": "S!B2:C2",
+                "layout": "row_series",
+                "input": {},
+                "structure": {
+                    "measure": {"concept": "OBS_VALUE", "bind": {"kind": "data_cell"}},
+                    "dimensions": [
+                        {
+                            "concept": "TIME_PERIOD",
+                            "role": "key",
+                            "scope": "cell",
+                            "bind": {"kind": "column_header", "header_row": 1},
+                        }
+                    ],
+                },
+                "key": ["TIME_PERIOD"],
+            }
+        ],
+    }
+    bindings = validate_bindings_document(doc)
+    assert bindings["series"][0]["layout"] == "series"
+
+
+def test_series_rejects_empty_key() -> None:
+    doc = {
+        "schema_version": "1.3.0",
+        "series": [
+            {
+                "id": "empty_key_row",
+                "sheet": "S",
+                "data_range": "S!B2:C2",
+                "layout": "series",
+                "input": {},
+                "structure": {
+                    "measure": {"concept": "OBS_VALUE", "bind": {"kind": "data_cell"}},
+                    "dimensions": [
+                        {
+                            "concept": "TIME_PERIOD",
+                            "role": "key",
+                            "scope": "cell",
+                            "bind": {"kind": "column_header", "header_row": 1},
+                        }
+                    ],
+                },
+                "key": [],
+            }
+        ],
+    }
+    with pytest.raises(SeriesBindingsSchemaError):
+        validate_bindings_document(doc)
+
+
+def test_series_requires_cell_scoped_dimension() -> None:
+    doc = {
+        "schema_version": "1.3.0",
+        "series": [
+            {
+                "id": "only_series_scope",
+                "sheet": "S",
+                "data_range": "S!B2:C2",
+                "layout": "series",
+                "input": {},
+                "structure": {
+                    "measure": {"concept": "OBS_VALUE", "bind": {"kind": "data_cell"}},
+                    "dimensions": [
+                        {
+                            "concept": "COUNTRY",
+                            "role": "key",
+                            "scope": "series",
+                            "bind": {"kind": "constant", "value": "X"},
+                        }
+                    ],
+                },
+                "key": ["COUNTRY"],
+            }
+        ],
+    }
+    with pytest.raises(SeriesBindingsSchemaError):
+        validate_bindings_document(doc)
+
+
+def test_schema_accepts_read_bool_on_data_cell_bind() -> None:
+    doc = _scalar_series_doc(
+        structure={
+            "measure": {
+                "concept": "OBS_VALUE",
+                "dtype": "bool",
+                "bind": {"kind": "data_cell", "read": "bool"},
+            },
+            "dimensions": [],
+        },
+        key=[],
+    )
+
+    bindings = validate_bindings_document(doc)
+    measure = bindings["series"][0]["structure"]["measure"]
+    assert measure["dtype"] == "bool"
+    assert measure["bind"]["read"] == "bool"
+
+
+def test_schema_accepts_read_bool_on_column_header_bind() -> None:
+    doc = {
+        "schema_version": "1.0.0",
+        "series": [
+            {
+                "id": "bool_columns",
+                "sheet": "Flags",
+                "data_range": "Flags!B2:C2",
+                "layout": "series",
+                "input": {},
+                "structure": {
+                    "measure": {
+                        "concept": "OBS_VALUE",
+                        "dtype": "float",
+                        "bind": {"kind": "data_cell", "read": "float"},
+                    },
+                    "dimensions": [
+                        {
+                            "concept": "IS_ENABLED",
+                            "role": "key",
+                            "scope": "cell",
+                            "bind": {
+                                "kind": "column_header",
+                                "header_row": 1,
+                                "read": "bool",
+                            },
+                        }
+                    ],
+                },
+                "key": ["IS_ENABLED"],
+            }
+        ],
+    }
+
+    bindings = validate_bindings_document(doc)
+    bind = bindings["series"][0]["structure"]["dimensions"][0]["bind"]
+    assert bind["read"] == "bool"
+
+
+def test_schema_accepts_boolean_constant_bind_value() -> None:
+    doc = _scalar_series_doc(
+        structure={
+            "measure": {
+                "concept": "OBS_VALUE",
+                "dtype": "float",
+                "bind": {"kind": "data_cell", "read": "float"},
+            },
+            "dimensions": [
+                {
+                    "concept": "IS_ACTIVE",
+                    "role": "key",
+                    "scope": "series",
+                    "bind": {"kind": "constant", "value": False},
+                }
+            ],
+        },
+        key=["IS_ACTIVE"],
+    )
+
+    bindings = validate_bindings_document(doc)
+    bind = bindings["series"][0]["structure"]["dimensions"][0]["bind"]
+    assert bind["value"] is False
+
+
+def test_schema_accepts_boolean_series_context_value() -> None:
+    doc = _scalar_series_doc(series_context={"IS_ACTIVE": True})
+
+    bindings = validate_bindings_document(doc)
+    assert bindings["series"][0]["series_context"]["IS_ACTIVE"] is True
+
+
+def test_schema_accepts_boolean_attribute_value() -> None:
+    doc = _scalar_series_doc(
+        structure={
+            "measure": {
+                "concept": "OBS_VALUE",
+                "dtype": "float",
+                "bind": {"kind": "data_cell", "read": "float"},
+            },
+            "dimensions": [],
+            "attributes": [
+                {
+                    "concept": "IS_ESTIMATE",
+                    "role": "attribute",
+                    "value": True,
+                    "include_in_record": True,
+                }
+            ],
+        },
+        key=[],
+    )
+
+    bindings = validate_bindings_document(doc)
+    attribute = bindings["series"][0]["structure"]["attributes"][0]
+    assert attribute["value"] is True
+
+
+def test_schema_accepts_concept_scheme_bool_dtype() -> None:
+    doc = _scalar_series_doc()
+    doc["concept_scheme"] = {
+        "id": "flags",
+        "concepts": [
+            {
+                "id": "IS_ACTIVE",
+                "dtype": "bool",
+                "description": "Whether the series row is active.",
+            }
+        ],
+    }
+
+    bindings = validate_bindings_document(doc)
+    concept = bindings["concept_scheme"]["concepts"][0]
+    assert concept["dtype"] == "bool"
+
+
+@pytest.mark.parametrize(
+    ("dtype", "read", "field_path", "invalid_value"),
+    [
+        ("bool", "bool", "measure.bind.read", "boolean"),
+        ("bool", "bool", "measure.dtype", "boolean"),
+        ("bool", "bool", "dimensions.0.bind.read", "boolean"),
+        ("datetime", "datetime", "measure.bind.read", "date"),
+        ("datetime", "datetime", "measure.dtype", "date"),
+        ("datetime", "datetime", "dimensions.0.bind.read", "DateTime"),
+    ],
+)
+def test_schema_rejects_non_enum_read_and_dtype_tokens(
+    dtype: str,
+    read: str,
+    field_path: str,
+    invalid_value: str,
+) -> None:
+    concept = "IS_ACTIVE" if dtype == "bool" else "TIME_PERIOD"
+    doc = _scalar_series_doc(
+        structure={
+            "measure": {
+                "concept": "OBS_VALUE",
+                "dtype": dtype,
+                "bind": {"kind": "data_cell", "read": read},
+            },
+            "dimensions": [
+                {
+                    "concept": concept,
+                    "role": "key",
+                    "scope": "cell",
+                    "bind": {
+                        "kind": "column_header",
+                        "header_row": 1,
+                        "read": read,
+                    },
+                }
+            ],
+        },
+        key=[concept],
+    )
+    series = doc["series"][0]
+    structure = series["structure"]
+    if field_path == "measure.bind.read":
+        structure["measure"]["bind"]["read"] = invalid_value
+    elif field_path == "measure.dtype":
+        structure["measure"]["dtype"] = invalid_value
+    elif field_path == "dimensions.0.bind.read":
+        structure["dimensions"][0]["bind"]["read"] = invalid_value
+
+    errors = format_schema_errors(doc)
+    assert errors
+    with pytest.raises(SeriesBindingsSchemaError):
+        validate_bindings_document(doc)
+
+
+def test_schema_accepts_read_datetime_on_data_cell_bind() -> None:
+    doc = _scalar_series_doc(
+        schema_version="1.4.0",
+        structure={
+            "measure": {
+                "concept": "OBS_VALUE",
+                "dtype": "datetime",
+                "bind": {"kind": "data_cell", "read": "datetime"},
+            },
+            "dimensions": [],
+        },
+        key=[],
+    )
+
+    bindings = validate_bindings_document(doc)
+    measure = bindings["series"][0]["structure"]["measure"]
+    assert measure["dtype"] == "datetime"
+    assert measure["bind"]["read"] == "datetime"
+
+
+def test_schema_accepts_read_datetime_on_schema_1_0_0() -> None:
+    """Additive ReadAs enum: datetime is valid on pre-1.4.0 schema_version labels."""
+    doc = _scalar_series_doc(
+        schema_version="1.0.0",
+        structure={
+            "measure": {
+                "concept": "OBS_VALUE",
+                "dtype": "datetime",
+                "bind": {"kind": "data_cell", "read": "datetime"},
+            },
+            "dimensions": [],
+        },
+        key=[],
+    )
+
+    bindings = validate_bindings_document(doc)
+    assert bindings["schema_version"] == "1.0.0"
+    assert bindings["series"][0]["structure"]["measure"]["bind"]["read"] == "datetime"
+
+
+def test_schema_accepts_read_datetime_on_column_header_bind() -> None:
+    doc = {
+        "schema_version": "1.4.0",
+        "series": [
+            {
+                "id": "calendar_periods",
+                "sheet": "Inputs",
+                "data_range": "Inputs!B2:C2",
+                "layout": "series",
+                "input": {},
+                "structure": {
+                    "measure": {
+                        "concept": "OBS_VALUE",
+                        "dtype": "float",
+                        "bind": {"kind": "data_cell", "read": "float"},
+                    },
+                    "dimensions": [
+                        {
+                            "concept": "TIME_PERIOD",
+                            "role": "key",
+                            "scope": "cell",
+                            "bind": {
+                                "kind": "column_header",
+                                "header_row": 1,
+                                "read": "datetime",
+                            },
+                        }
+                    ],
+                },
+                "key": ["TIME_PERIOD"],
+            }
+        ],
+    }
+
+    bindings = validate_bindings_document(doc)
+    assert bindings["schema_version"] == "1.4.0"
+    bind = bindings["series"][0]["structure"]["dimensions"][0]["bind"]
+    assert bind["read"] == "datetime"
+
+
+def test_schema_accepts_iso_datetime_constant_bind_value() -> None:
+    doc = _scalar_series_doc(
+        schema_version="1.4.0",
+        structure={
+            "measure": {
+                "concept": "OBS_VALUE",
+                "dtype": "float",
+                "bind": {"kind": "data_cell", "read": "float"},
+            },
+            "dimensions": [
+                {
+                    "concept": "TIME_PERIOD",
+                    "role": "key",
+                    "scope": "series",
+                    "bind": {"kind": "constant", "value": "2024-01-15"},
+                }
+            ],
+        },
+        key=["TIME_PERIOD"],
+    )
+
+    bindings = validate_bindings_document(doc)
+    bind = bindings["series"][0]["structure"]["dimensions"][0]["bind"]
+    assert bind["value"] == "2024-01-15"
+
+
+def test_schema_accepts_iso_datetime_series_context_value() -> None:
+    doc = _scalar_series_doc(
+        schema_version="1.4.0",
+        series_context={"TIME_PERIOD": "2024-01-15T00:00:00"},
+    )
+
+    bindings = validate_bindings_document(doc)
+    assert bindings["series"][0]["series_context"]["TIME_PERIOD"] == "2024-01-15T00:00:00"
+
+
+def test_schema_accepts_iso_datetime_attribute_value() -> None:
+    doc = _scalar_series_doc(
+        schema_version="1.4.0",
+        structure={
+            "measure": {
+                "concept": "OBS_VALUE",
+                "dtype": "float",
+                "bind": {"kind": "data_cell", "read": "float"},
+            },
+            "dimensions": [],
+            "attributes": [
+                {
+                    "concept": "REFERENCE_DATE",
+                    "role": "attribute",
+                    "value": "2024-06-30",
+                    "include_in_record": True,
+                }
+            ],
+        },
+        key=[],
+    )
+
+    bindings = validate_bindings_document(doc)
+    attribute = bindings["series"][0]["structure"]["attributes"][0]
+    assert attribute["value"] == "2024-06-30"
+
+
+def test_schema_accepts_concept_scheme_datetime_dtype() -> None:
+    doc = _scalar_series_doc(schema_version="1.4.0")
+    doc["concept_scheme"] = {
+        "id": "calendar",
+        "concepts": [
+            {
+                "id": "TIME_PERIOD",
+                "dtype": "datetime",
+                "description": "Observation reference period.",
+            }
+        ],
+    }
+
+    bindings = validate_bindings_document(doc)
+    concept = bindings["concept_scheme"]["concepts"][0]
+    assert concept["dtype"] == "datetime"
+
+
+def test_schema_accepts_input_mode_override() -> None:
+    doc = {
+        "schema_version": "1.6.0",
+        "series": [
+            {
+                "id": "formula_override",
+                "sheet": "Engine",
+                "data_range": "Engine!B1",
+                "layout": "scalar",
+                "input": {
+                    "mode": "override",
+                },
+                "structure": {
+                    "measure": {"concept": "OBS_VALUE", "bind": {"kind": "data_cell"}},
+                    "dimensions": [],
+                },
+                "key": [],
+            }
+        ],
+    }
+    bindings = validate_bindings_document(doc)
+    assert bindings["series"][0]["input"]["mode"] == "override"
+
+
+def test_schema_accepts_output_compute_helper() -> None:
+    doc = {
+        "schema_version": "1.10.0",
+        "series": [
+            {
+                "id": "scaled_output",
+                "sheet": "Sheet1",
+                "data_range": "Sheet1!C2",
+                "layout": "scalar",
+                "output": {
+                    "compute": {
+                        "name": "compute_scaled_output",
+                        "helper": {"name": "scaled_output_hot", "dims": ["LABEL"]},
+                    }
+                },
+                "structure": {
+                    "measure": {"concept": "OBS_VALUE", "bind": {"kind": "data_cell"}},
+                    "dimensions": [
+                        {
+                            "concept": "LABEL",
+                            "role": "key",
+                            "scope": "series",
+                            "bind": {"kind": "constant", "value": "scaled"},
+                        }
+                    ],
+                },
+                "key": ["LABEL"],
+            }
+        ],
+    }
+    bindings = validate_bindings_document(doc)
+    helper = bindings["series"][0]["output"]["compute"]["helper"]
+    assert helper["name"] == "scaled_output_hot"
+    assert helper["dims"] == ["LABEL"]
+
+
+def test_schema_rejects_bad_compute_helper_name() -> None:
+    doc = {
+        "schema_version": "1.10.0",
+        "series": [
+            {
+                "id": "scaled_output",
+                "sheet": "Sheet1",
+                "data_range": "Sheet1!C2",
+                "layout": "scalar",
+                "output": {
+                    "compute": {
+                        "name": "compute_scaled_output",
+                        "helper": {"name": "ScaledOutputHot"},
+                    }
+                },
+                "structure": {
+                    "measure": {"concept": "OBS_VALUE", "bind": {"kind": "data_cell"}},
+                    "dimensions": [],
+                },
+                "key": [],
+            }
+        ],
+    }
+    with pytest.raises(SeriesBindingsSchemaError):
+        validate_bindings_document(doc)

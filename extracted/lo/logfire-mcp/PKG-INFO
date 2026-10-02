@@ -1,0 +1,31 @@
+Metadata-Version: 2.4
+Name: logfire-mcp
+Version: 0.9.0
+Summary: The Pydantic Logfire MCP server! 🔍
+Project-URL: Homepage, https://github.com/pydantic/logfire-mcp
+Project-URL: Repository, https://github.com/pydantic/logfire-mcp
+Project-URL: Issues, https://github.com/pydantic/logfire-mcp/issues
+Author-email: Marcelo Trylesinski <marcelotryle@gmail.com>, Samuel Colvin <samuel@pydantic.dev>
+License-Expression: MIT
+License-File: LICENSE
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.11
+Requires-Dist: logfire>=3.7.1
+Requires-Dist: mcp[cli]>=1.10.0
+Requires-Dist: python-dotenv>=1.1.1
+Description-Content-Type: text/markdown
+
+# Pydantic Logfire MCP Server
+
+> [!IMPORTANT]
+> **This repository is archived.** The STDIO MCP server in this package is no longer being updated.
+> We now have a remote MCP server, which allows us to iterate faster on tools and provide a better experience.
+
+Read more in our [documentation](https://logfire.pydantic.dev/docs/how-to-guides/mcp-server/).
+
+If you have any questions, reach out to us on [Slack](https://logfire.pydantic.dev/docs/join-slack/) or email us at [engineering@pydantic.dev](mailto:engineering@pydantic.dev).

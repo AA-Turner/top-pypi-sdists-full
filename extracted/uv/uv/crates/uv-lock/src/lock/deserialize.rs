@@ -342,9 +342,11 @@ enum MapKind {
     Manifest,
     ManifestDependencyGroups,
     ManifestDependencyMetadata,
+    ManifestGroupRequiresPython,
     Package,
     PackageOptionalDependencies,
     PackageDevDependencies,
+    PackageGroupRequiresPython,
     PackageMetadata,
     PackageMetadataRequiresDev,
 }
@@ -468,7 +470,9 @@ impl<'de> DocumentMapAccess<'_, 'de> {
             }
             (
                 MapKind::Root,
-                "[manifest.dependency-groups]" | "[[manifest.dependency-metadata]]",
+                "[manifest.dependency-groups]"
+                | "[[manifest.dependency-metadata]]"
+                | "[manifest.group-requires-python]",
             ) => {
                 // The manifest map consumes the first subtable when its parent is implicit.
                 self.track_key("manifest")?;
@@ -492,6 +496,11 @@ impl<'de> DocumentMapAccess<'_, 'de> {
                 Pending::Map(MapKind::ManifestDependencyGroups),
                 "[manifest.dependency-groups]",
             )),
+            (MapKind::Manifest, "[manifest.group-requires-python]") => Some((
+                "group-requires-python",
+                Pending::Map(MapKind::ManifestGroupRequiresPython),
+                "[manifest.group-requires-python]",
+            )),
             (MapKind::Manifest, "[[manifest.dependency-metadata]]") => Some((
                 "dependency-metadata",
                 Pending::Sequence(SequenceKind::ManifestDependencyMetadata),
@@ -501,6 +510,11 @@ impl<'de> DocumentMapAccess<'_, 'de> {
                 "optional-dependencies",
                 Pending::Map(MapKind::PackageOptionalDependencies),
                 "[package.optional-dependencies]",
+            )),
+            (MapKind::Package, "[package.group-requires-python]") => Some((
+                "group-requires-python",
+                Pending::Map(MapKind::PackageGroupRequiresPython),
+                "[package.group-requires-python]",
             )),
             (MapKind::Package, "[package.dev-dependencies]") => Some((
                 "dev-dependencies",

@@ -1,0 +1,1267 @@
+import asyncio
+import atexit
+import signal
+import traceback
+from functools import wraps
+from queue import Empty, Queue
+from threading import Lock, Thread
+from typing import Any, Callable, Literal
+
+import pandas as pd
+
+from qubx import logger
+from qubx.control.executor import ActionExecutor, CommandEvent
+from qubx.control.types import ActionResult
+from qubx.core.account_manager import AccountManager
+from qubx.core.basics import (
+    Balance,
+    CtrlChannel,
+    DataType,
+    Instrument,
+    ITimeProvider,
+    MarketType,
+    Order,
+    OrderOrigin,
+    OrderRequest,
+    Position,
+    RestoredState,
+    Signal,
+    TargetPosition,
+    TransactionCostsCalculator,
+    Transfer,
+    WalletMove,
+    dt_64,
+    td_64,
+)
+from qubx.core.connector import IConnector
+from qubx.core.detectors import DelistingDetector
+from qubx.core.errors import BaseErrorEvent, ErrorLevel
+from qubx.core.events import ChannelMessage
+from qubx.core.exceptions import QueueTimeout, ReadOnlyConnector, StrategyExceededMaxNumberOfRuntimeFailuresError
+from qubx.core.fit_executor import FitCycleState, FitExecutorMode
+from qubx.core.helpers import (
+    BasicScheduler,
+    set_parameters_to_object,
+)
+from qubx.core.initializer import BasicStrategyInitializer
+from qubx.core.instrument_service import IInstrumentService, create_instrument_service
+from qubx.core.interfaces import (
+    IDataProvider,
+    IHealthMonitor,
+    IInstrumentServiceManager,
+    IMarketDataCache,
+    IMarketManager,
+    IMetricEmitter,
+    IPositionGathering,
+    IProcessingManager,
+    IReader,
+    IStatePersistence,
+    IStrategy,
+    IStrategyContext,
+    IStrategyNotifier,
+    ISubscriptionManager,
+    ITradeDataExport,
+    ITradingManager,
+    ITransferManager,
+    IUniverseManager,
+    PositionsTracker,
+    RemovalPolicy,
+    StrategyState,
+)
+from qubx.core.loggers import StrategyLogging
+from qubx.core.mixins.instrument_service import InstrumentServiceManager
+from qubx.core.status import ContextStatus, QubxStatusInfo
+from qubx.data.storage import IStorage
+from qubx.gathering.simplest import SimplePositionGatherer
+from qubx.health import DummyHealthMonitor
+from qubx.state import DummyStatePersistence
+from qubx.trackers.sizers import FixedSizer
+from qubx.utils.throttler import InstrumentThrottler
+
+from .mixins import (
+    MarketManager,
+    ProcessingManager,
+    SubscriptionManager,
+    TradingManager,
+    UniverseManager,
+)
+
+DEFAULT_POSITION_TRACKER: Callable[[], PositionsTracker] = lambda: PositionsTracker(
+    FixedSizer(1.0, amount_in_quote=False)
+)
+
+
+def check_transfer_manager(func: Callable) -> Callable:
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        if self._transfer_manager is None:
+            raise RuntimeError(
+                "Transfer manager not configured. "
+                "For live mode, set via ctx.initializer.set_transfer_manager() in on_init(). "
+                "For simulation mode, transfer manager is auto-assigned on start()."
+            )
+
+        return func(self, *args, **kwargs)
+
+    return wrapper
+
+
+def _producer_name(producer: Any) -> str:
+    """Label a data provider / connector for the channel-invariant error message."""
+    _exchange = getattr(producer, "exchange", None)
+    if callable(_exchange):
+        return str(_exchange())
+    return str(getattr(producer, "exchange_name", None) or type(producer).__name__)
+
+
+class StrategyContext(IStrategyContext):
+    _market_data_provider: IMarketManager
+    _universe_manager: IUniverseManager
+    _subscription_manager: ISubscriptionManager
+    _trading_manager: ITradingManager
+    _processing_manager: IProcessingManager
+
+    _connectors: dict[str, IConnector]  # exchange adapters: order management + account events
+    _account_manager: AccountManager  # central account state machine (also the IAccountViewer)
+    _data_providers: list[IDataProvider]  # market data provider
+    _logging: StrategyLogging  # recording all activities for the strat: execs, positions, portfolio
+    _scheduler: BasicScheduler
+    _channel: CtrlChannel  # the one data bus: connectors publish, the ProcessorThread drains
+    _initial_instruments: list[Instrument]
+    _strategy_name: str
+    _delisting_detector: DelistingDetector
+    _instrument_service: IInstrumentService
+    _instrument_service_manager: IInstrumentServiceManager
+    _notifier: IStrategyNotifier
+
+    _thread_data_loop: Thread | None = None  # market data loop
+    _is_initialized: bool = False
+    _exporter: ITradeDataExport | None = None  # Add exporter attribute
+    _transfer_manager: ITransferManager | None = None  # Transfer manager for fund transfers
+
+    _warmup_positions: dict[Instrument, Position] | None = None
+    _warmup_orders: dict[Instrument, list[Order]] | None = None
+    _warmup_active_targets: dict[Instrument, list[TargetPosition]] | None = None
+
+    # Command queue for control server actions (drained in data loop)
+    _command_queue: Queue | None = None
+    _control_executor: ActionExecutor | None = None
+
+    # - context status (normal / degraded)
+    _status: ContextStatus
+
+    # Shutdown handling
+    _is_stopping: bool = False
+    _stop_lock: Lock
+    _original_sigint_handler: Any = None
+    _original_sigterm_handler: Any = None
+    _atexit_registered: bool = False
+
+    def __init__(
+        self,
+        strategy: IStrategy,
+        connectors: dict[str, IConnector],
+        data_providers: list[IDataProvider],
+        account_manager: AccountManager,
+        scheduler: BasicScheduler,
+        channel: CtrlChannel,
+        time_provider: ITimeProvider,
+        instruments: list[Instrument],
+        logging: StrategyLogging,
+        aux_data_storage: IStorage,
+        config: dict[str, Any] | None = None,
+        position_gathering: IPositionGathering | None = None,  # TODO: make position gathering part of the strategy
+        exporter: ITradeDataExport | None = None,
+        emitter: IMetricEmitter | None = None,
+        notifier: IStrategyNotifier | None = None,
+        initializer: BasicStrategyInitializer | None = None,
+        strategy_name: str | None = None,
+        strategy_state: StrategyState | None = None,
+        health_monitor: IHealthMonitor | None = None,
+        restored_state: RestoredState | None = None,
+        data_throttler: InstrumentThrottler | None = None,
+        state_persistence: IStatePersistence | None = None,
+        state_snapshot_interval: str | None = None,
+        rate_limiting_config: Any | None = None,
+        market_cache_config: Any | None = None,
+        event_loop: asyncio.AbstractEventLoop | None = None,
+        read_only: bool = False,
+        fit_executor: FitExecutorMode = FitExecutorMode.THREAD,
+        fit_soft_deadline_s: float = 120.0,
+    ) -> None:
+        self._read_only = read_only
+        self._account_manager = account_manager
+        # self.account is the read-only IAccountViewer surface (AccountManager implements
+        # it; the strategy and mixins read positions/balances/capital through it).
+        # self._account_manager is the same object kept under its concrete type for the
+        # state-machine operations (apply/add_order/set_processing_manager) not on the viewer.
+        self.account = account_manager
+        self.strategy = self.__instantiate_strategy(strategy, config)
+        self.emitter = emitter if emitter is not None else IMetricEmitter()
+        self.initializer = (
+            initializer
+            if initializer is not None
+            else BasicStrategyInitializer(simulation=data_providers[0].is_simulation)
+        )
+
+        # - additional sanity check that it's defined if we are in simulation or live mode
+        if self.initializer.is_simulation is None:
+            raise ValueError("Live or simulation mode must be defined in strategy initializer !")
+
+        self._time_provider = time_provider
+        self._connectors = connectors
+        self._data_providers = data_providers
+        self._logging = logging
+        self._scheduler = scheduler
+        self._channel = channel
+        # - one bus per context: a producer on a different channel would publish into a
+        #   queue nobody drains, so its events would simply never arrive. `channel` reaches
+        #   connectors through ChannelEmitter rather than the IConnector protocol, so one
+        #   without the attribute is simply not checked.
+        for _label, _producers in (("data provider", tuple(data_providers)), ("connector", tuple(connectors.values()))):
+            for _producer in _producers:
+                _producer_channel = getattr(_producer, "channel", None)
+                if _producer_channel is not None and _producer_channel is not channel:
+                    raise ValueError(
+                        f"{_label} {_producer_name(_producer)} is bound to a different channel "
+                        "than the one passed to StrategyContext"
+                    )
+        self._initial_instruments = instruments
+
+        self._exporter = exporter
+        self._notifier = notifier if notifier is not None else IStrategyNotifier()
+        self._strategy_state = strategy_state if strategy_state is not None else StrategyState()
+        self._status = ContextStatus()
+        self._strategy_name = strategy_name if strategy_name is not None else strategy.__class__.__name__
+        self._restored_state = restored_state
+
+        self._health_monitor = health_monitor or DummyHealthMonitor()
+        self.health = self._health_monitor
+        # - the monitor writes degradations into the context's status (queue backlog today)
+        self._health_monitor.set_status(self._status)
+        self._state_persistence = state_persistence or DummyStatePersistence()
+        # - the monitor observes write health; inert for backends that don't track it
+        #   (last_success_age() -> None) and for monitors that ignore the wiring
+        self._health_monitor.set_state_persistence(self._state_persistence)
+        self._state_snapshot_interval = state_snapshot_interval
+        self._rate_limiting_config = rate_limiting_config
+        self.event_loop = event_loop
+
+        # Initialize shutdown handling
+        self._stop_lock = Lock()
+        self._is_stopping = False
+        self._atexit_registered = False
+
+        __position_tracker = self.strategy.tracker(self)
+        if __position_tracker is None:
+            __position_tracker = DEFAULT_POSITION_TRACKER()
+
+        __position_gathering = self.strategy.gatherer(self)
+        if __position_gathering is None:
+            __position_gathering = position_gathering if position_gathering is not None else SimplePositionGatherer()
+
+        # Threaded fit: the shared token armed by the fit executor while a threaded
+        # fit is in flight. The context uses it ONLY for the stashed-ctx tripwires below
+        # (_assert_not_fit_thread) — the fit-thread policy itself lives in FitContext.
+        # Inert (a single None check) in simulation and inline mode.
+        self._fit_state = FitCycleState()
+
+        self._subscription_manager = SubscriptionManager(
+            time_provider=self._time_provider,
+            data_providers=self._data_providers,
+            channel=self._channel,
+            health_monitor=self._health_monitor,
+            strategy_state=self._strategy_state,
+            status=self._status,
+            default_base_subscription=DataType.ORDERBOOK[0, 1]
+            if not self._data_providers[0].is_simulation
+            else DataType.NONE,
+        )
+
+        # - market_cache_config is untyped (Any) to avoid a core -> utils.runner.configs
+        #   import cycle; None (sim/backtester/warmup callers) preserves today's defaults.
+        _mc_default_length = market_cache_config.default_length if market_cache_config is not None else 10_000
+        _mc_per_type = market_cache_config.per_type if market_cache_config is not None else None
+        self._market_data_provider = MarketManager(
+            time_provider=self._time_provider,
+            data_providers=self._data_providers,
+            universe_manager=self,
+            aux_data_storage=aux_data_storage,
+            max_buffer_size=_mc_default_length,
+            per_type_lengths=_mc_per_type,
+        )
+
+        # Create delisting detector to be shared between universe and processing managers
+        self._delisting_detector = DelistingDetector(
+            time_provider=self,
+            delisting_check_days=self.initializer.get_delisting_check_days(),
+        )
+
+        _svc_exchanges = sorted({i.exchange for i in instruments})
+        self._instrument_service = create_instrument_service(_svc_exchanges)
+        self._instrument_service_manager = InstrumentServiceManager(self, self._instrument_service)
+
+        self._universe_manager = UniverseManager(
+            context=self,
+            strategy=self.strategy,
+            market_data_manager=self._market_data_provider,
+            logging=self._logging,
+            subscription_manager=self,
+            trading_manager=self,
+            time_provider=self,
+            account=self.account,
+            position_gathering=__position_gathering,
+            delisting_detector=self._delisting_detector,
+            instrument_service=self._instrument_service,
+        )
+        self._trading_manager = TradingManager(
+            context=self,
+            connectors=self._connectors,
+            account_manager=self._account_manager,
+            health_monitor=self._health_monitor,
+            strategy_name=self._strategy_name,
+            read_only=self._read_only,
+        )
+        self._processing_manager = ProcessingManager(
+            context=self,
+            strategy=self.strategy,
+            logging=self._logging,
+            market_data=self,
+            subscription_manager=self,
+            time_provider=self,
+            account_manager=self._account_manager,
+            connectors=self._connectors,
+            position_tracker=__position_tracker,
+            position_gathering=__position_gathering,
+            universe_manager=self._universe_manager,
+            scheduler=self._scheduler,
+            is_simulation=self._data_providers[0].is_simulation,
+            exporter=self._exporter,
+            health_monitor=self._health_monitor,
+            delisting_detector=self._delisting_detector,
+            data_throttler=data_throttler,
+            fit_executor=fit_executor,
+            fit_soft_deadline_s=fit_soft_deadline_s,
+            fit_state=self._fit_state,
+        )
+
+        # Late-wire the processing manager into the account manager (the AM is built
+        # before the PM exists) so its periodic ticks can register.
+        self._account_manager.set_processing_manager(self._processing_manager)
+
+        self.__post_init__()
+
+    def __post_init__(self) -> None:
+        if not self._strategy_state.is_on_init_called:
+            self.strategy.on_init(self.initializer)
+            self._strategy_state.is_on_init_called = True
+
+        self._delisting_detector.delisting_check_days = self.initializer.get_delisting_check_days()
+
+        if subscription_warmup := self.initializer.get_subscription_warmup():
+            self.set_warmup(subscription_warmup)
+
+        if base_sub := self.initializer.get_base_subscription():
+            self.set_base_subscription(base_sub)
+
+        if auto_sub := self.initializer.get_auto_subscribe():
+            self.auto_subscribe = auto_sub
+
+        if fit_schedule := self.initializer.get_fit_schedule():
+            self.set_fit_schedule(fit_schedule)
+
+        if event_schedule := self.initializer.get_event_schedule():
+            self.set_event_schedule(event_schedule)
+
+        if pending_global_subscriptions := self.initializer.get_pending_global_subscriptions():
+            for sub_type in pending_global_subscriptions:
+                self.subscribe(sub_type)
+
+        if pending_instrument_subscriptions := self.initializer.get_pending_instrument_subscriptions():
+            for sub_type, instruments in pending_instrument_subscriptions.items():
+                self.subscribe(sub_type, list(instruments))
+
+        if custom_schedules := self.initializer.get_custom_schedules():
+            for schedule_id, (cron_schedule, method) in custom_schedules.items():
+                self._processing_manager.schedule(cron_schedule, method)
+
+        self._instrument_service_manager.set_callbacks(self.initializer.get_instrument_service_callbacks())
+        self._instrument_service_manager.start()
+
+        self._trading_manager.set_deny_trading_when_degraded(self.initializer.get_deny_trading_when_degraded())
+
+        # - only when on_init actually set one: the account manager already holds
+        #   live.default_instrument_leverage, passed by the runner at construction
+        if (leverage := self.initializer.get_default_instrument_leverage()) is not None:
+            self._account_manager.set_default_instrument_leverage(leverage)
+
+        # Configure stale data detection based on strategy settings
+        stale_data_config = self.initializer.get_stale_data_detection_config()
+        self._processing_manager.configure_stale_data_detection(*stale_data_config)
+
+        # Configure periodic state snapshot persistence
+        self._processing_manager.configure_state_snapshot(self._state_snapshot_interval)
+
+        # Configure periodic rate limit metric emission
+        _rl_metrics_interval = self._rate_limiting_config.metrics_interval if self._rate_limiting_config else None
+        self._processing_manager.configure_rate_limit_metrics(_rl_metrics_interval)
+
+        # Transfer manager (if any) is supplied by the strategy via the initializer.
+        self._transfer_manager = self.initializer.get_transfer_manager()
+        if self._transfer_manager is not None:
+            logger.info(f"[StrategyContext] :: Using transfer manager: {type(self._transfer_manager).__name__}")
+
+        # - notify mkt data provider on base subscription update (used for cache default timeframe)
+        self._market_data_provider.update_base_subscription(self.get_base_subscription())
+
+    def _signal_handler(self, signum: int, frame: Any) -> None:
+        """Handle termination signals (SIGINT, SIGTERM) for graceful shutdown."""
+        sig_name = signal.Signals(signum).name
+        logger.info(f"[StrategyContext] :: Received {sig_name} signal - initiating graceful shutdown")
+        self.stop()
+
+    @property
+    def strategy_name(self) -> str:
+        return self._strategy_name or self.strategy.__class__.__name__
+
+    def start(self, blocking: bool = False):
+        if self._is_initialized:
+            raise ValueError("Strategy is already started !")
+
+        # Register signal handlers for graceful shutdown
+        try:
+            self._original_sigint_handler = signal.signal(signal.SIGINT, self._signal_handler)
+            self._original_sigterm_handler = signal.signal(signal.SIGTERM, self._signal_handler)
+        except (ValueError, OSError) as e:
+            # Signal registration can fail in threads or non-main contexts
+            logger.warning(f"[StrategyContext] :: Could not register signal handlers: {e}")
+
+        # Register atexit handler as backup for abnormal termination
+        if not self._atexit_registered:
+            atexit.register(self.stop)
+            self._atexit_registered = True
+
+        # - run cron scheduler
+        self._scheduler.run()
+
+        # - create incoming market data processing
+        databus = self._channel
+        databus.register(self)
+
+        # - bring up exchange connectors (no-op in simulation)
+        for connector in self._connectors.values():
+            connector.connect()
+
+        # - start health metrics monitor
+        self._health_monitor.start()
+
+        # Update initial instruments if strategy set them after warmup
+        if self.get_warmup_positions():
+            self._initial_instruments = list(set(self.get_warmup_positions().keys()) | set(self._initial_instruments))
+
+        # Add open positions to initial instruments
+        open_positions = {k: p for k, p in self.get_positions().items() if p.is_open()}
+        self._initial_instruments = list(set(open_positions.keys()) | set(self._initial_instruments))
+
+        # Notify strategy start
+        if self._notifier and not self.is_simulation:
+            try:
+                self._notifier.notify_start(
+                    {
+                        "Exchanges": "|".join(self.exchanges),
+                        "Total Capital": f"${self.get_total_capital():,.0f}",
+                        "Open Positions": len(open_positions),
+                        "Instruments": len(self._initial_instruments),
+                        "Mode": "Paper" if self.is_paper_trading else "Live",
+                    },
+                )
+            except Exception as e:
+                logger.error(f"[StrategyContext] :: Failed to notify strategy start: {e}")
+
+        # - ensure data providers are initialized (e.g. markets loaded) before set_universe
+        for data_provider in self._data_providers:
+            data_provider.start()
+
+        # - update universe with initial instruments after the strategy is initialized
+        self.set_universe(self._initial_instruments, skip_callback=True)
+
+        # - for live we run loop
+        if not self.is_simulation:
+            self._thread_data_loop = Thread(
+                target=self.__process_incoming_data_loop, args=(databus,), daemon=True, name="ProcessorThread"
+            )
+            self._thread_data_loop.start()
+            logger.info("[StrategyContext] :: strategy is started in thread")
+            if blocking:
+                self._thread_data_loop.join()
+
+        self._is_initialized = True
+
+    def stop(self):
+        """
+        Stop the strategy context with robust shutdown handling.
+
+        Features:
+        - Double-stop prevention with lock
+        - Priority-based cleanup (critical paths first)
+        - Fault-tolerant (exceptions don't block other cleanup)
+        - Thread cleanup with timeout
+        - Signal handler and atexit cleanup
+        """
+        # Prevent concurrent or repeated stops
+        with self._stop_lock:
+            if self._is_stopping:
+                logger.debug("[StrategyContext] :: Stop already in progress, skipping duplicate call")
+                return
+            self._is_stopping = True
+
+        # PRIORITY 1: Critical path - always execute notifier and on_stop
+        # These are the most important callbacks that must always run
+
+        # Notify strategy stop
+        if self._notifier and not self.is_simulation:
+            try:
+                self._notifier.notify_stop(
+                    {
+                        "Total Capital": f"{self.get_total_capital():,.0f}",
+                        "Net Leverage": f"{self.get_net_leverage():.2%}",
+                        "Positions": len([p for i, p in self.get_positions().items() if abs(p.quantity) > i.min_size]),
+                        "Mode": "Paper" if self.is_paper_trading else "Live",
+                    },
+                )
+            except Exception as e:
+                logger.error(f"[StrategyContext] :: Failed to notify strategy stop: {e}")
+                logger.opt(colors=False).error(traceback.format_exc())
+
+        # Invoke strategy's stop code
+        try:
+            if not self.is_warmup_in_progress:
+                self.strategy.on_stop(self)
+                logger.debug("[StrategyContext] :: Strategy on_stop() completed")
+        except Exception as strat_error:
+            logger.error(
+                f"[<y>StrategyContext</y>] :: Strategy {self._strategy_name} raised an exception in on_stop: {strat_error}"
+            )
+            logger.opt(colors=False).error(traceback.format_exc())
+
+            # Notify strategy error
+            if self._notifier:
+                try:
+                    self._notifier.notify_error(strat_error)
+                except Exception as e:
+                    logger.error(f"[StrategyContext] :: Failed to notify strategy error: {e}")
+
+        # PRIORITY 2: Stop data providers and thread
+
+        # Close data providers
+        if self._thread_data_loop:
+            try:
+                for data_provider in self._data_providers:
+                    try:
+                        data_provider.close()
+                        logger.debug(f"[StrategyContext] :: Closed data provider: {type(data_provider).__name__}")
+                    except Exception as e:
+                        logger.error(
+                            f"[StrategyContext] :: Failed to close data provider {type(data_provider).__name__}: {e}"
+                        )
+            except Exception as e:
+                logger.error(f"[StrategyContext] :: Error iterating data providers: {e}")
+
+            # Stop the channel
+            try:
+                self._channel.stop()
+            except Exception as e:
+                logger.error(f"[StrategyContext] :: Failed to stop data channel: {e}")
+
+            # Join thread with timeout
+            try:
+                thread_timeout = 30.0  # 30 seconds timeout
+                self._thread_data_loop.join(timeout=thread_timeout)
+                if self._thread_data_loop.is_alive():
+                    logger.warning(
+                        f"[StrategyContext] :: Data loop thread did not stop within {thread_timeout}s timeout - may still be running"
+                    )
+                else:
+                    logger.debug("[StrategyContext] :: Data loop thread stopped gracefully")
+                self._thread_data_loop = None
+            except Exception as e:
+                logger.error(f"[StrategyContext] :: Error joining data loop thread: {e}")
+
+        # Close aux data storage
+        try:
+            self.get_aux_data_storage().close()
+        except Exception as e:
+            logger.error(f"[StrategyContext] :: Failed to close aux data storage: {e}")
+
+        # PRIORITY 3: Tear down exchange connectors (no-op in simulation)
+        for connector in self._connectors.values():
+            try:
+                connector.disconnect()
+            except Exception as e:
+                logger.error(f"[StrategyContext] :: Failed to disconnect connector {connector.exchange_name}: {e}")
+                logger.opt(colors=False).error(traceback.format_exc())
+
+        # PRIORITY 4: Stop health metrics monitor
+        try:
+            self._health_monitor.stop()
+        except Exception as e:
+            logger.error(f"[StrategyContext] :: Failed to stop health monitor: {e}")
+            logger.opt(colors=False).error(traceback.format_exc())
+
+        # - stop the subscription watchdog thread (None in simulation): a context recreated
+        #   in-process must not leave a ticking thread bound to this (now-abandoned) status
+        try:
+            self._subscription_manager.stop()
+        except Exception as e:
+            logger.error(f"[StrategyContext] :: Failed to stop subscription watchdog: {e}")
+            logger.opt(colors=False).error(traceback.format_exc())
+
+        # PRIORITY 5: Stop metric emitter and data exporter
+        # Skip during simulation/warmup — the emitter may be borrowed from the live context
+        if not self.is_simulation:
+            try:
+                self.emitter.stop()
+            except Exception as e:
+                logger.error(f"[StrategyContext] :: Failed to stop metric emitter: {e}")
+                logger.opt(colors=False).error(traceback.format_exc())
+
+            if self._exporter is not None:
+                try:
+                    self._exporter.stop()
+                except Exception as e:
+                    logger.error(f"[StrategyContext] :: Failed to stop data exporter: {e}")
+                    logger.opt(colors=False).error(traceback.format_exc())
+
+        # PRIORITY 6: Close logging
+        try:
+            self._logging.close()
+        except Exception as e:
+            logger.error(f"[StrategyContext] :: Failed to close logging: {e}")
+            logger.opt(colors=False).error(traceback.format_exc())
+
+        # PRIORITY 7: Flush pending state persistence (bounded; the interface default
+        # is a no-op for backends without a background writer)
+        try:
+            self._state_persistence.stop()
+        except Exception as e:
+            logger.error(f"[StrategyContext] :: Failed to stop state persistence: {e}")
+            logger.opt(colors=False).error(traceback.format_exc())
+
+        # CLEANUP: Restore signal handlers and deregister atexit
+        try:
+            if self._original_sigint_handler is not None:
+                signal.signal(signal.SIGINT, self._original_sigint_handler)
+                self._original_sigint_handler = None
+            if self._original_sigterm_handler is not None:
+                signal.signal(signal.SIGTERM, self._original_sigterm_handler)
+                self._original_sigterm_handler = None
+        except Exception as e:
+            logger.warning(f"[StrategyContext] :: Failed to restore signal handlers: {e}")
+
+        try:
+            if self._atexit_registered:
+                atexit.unregister(self.stop)
+                self._atexit_registered = False
+        except Exception as e:
+            logger.warning(f"[StrategyContext] :: Failed to unregister atexit handler: {e}")
+
+        logger.info("[StrategyContext] :: Strategy context stopped")
+
+    def is_running(self):
+        return self._thread_data_loop is not None and self._thread_data_loop.is_alive()
+
+    @property
+    def status(self) -> QubxStatusInfo:
+        return self._status.info
+
+    @property
+    def channel(self) -> CtrlChannel:
+        # - framework-internal: not on IStrategyContext, strategies wake handlers via post_event()
+        return self._channel
+
+    @property
+    def is_simulation(self) -> bool:
+        return self._data_providers[0].is_simulation
+
+    @property
+    def is_paper_trading(self) -> bool:
+        return next(iter(self._connectors.values())).is_simulated_trading
+
+    @property
+    def notifier(self) -> IStrategyNotifier:
+        return self._notifier
+
+    @property
+    def persistence(self) -> IStatePersistence:
+        return self._state_persistence
+
+    @property
+    def rate_limiters(self) -> dict:
+        """Registry of ExchangeRateLimiter instances by exchange name.
+
+        Connectors register their rate limiters here at startup.
+        Used by the processing mixin for periodic metric emission.
+        """
+        if not hasattr(self, "_rate_limiters"):
+            self._rate_limiters: dict = {}
+        return self._rate_limiters
+
+    # IAccountViewer delegation
+
+    # capital information
+    def get_total_capital(self, exchange: str | None = None) -> float:
+        return self.account.get_total_capital(exchange)
+
+    def get_base_currency(self, exchange: str | None = None) -> str:
+        return self.account.get_base_currency(exchange)
+
+    # balance and position information
+    def get_balances(self, exchange: str | None = None) -> list[Balance]:
+        return self.account.get_balances(exchange)
+
+    def get_balance(self, currency: str, exchange: str | None = None) -> Balance:
+        return self.account.get_balance(currency, exchange)
+
+    def get_positions(self, exchange: str | None = None) -> dict[Instrument, Position]:
+        return self.account.get_positions(exchange)
+
+    def get_position(self, instrument: Instrument) -> Position:
+        return self.account.get_position(instrument)
+
+    @property
+    def positions(self):
+        return self.account.get_positions()
+
+    def get_orders(
+        self,
+        instrument: Instrument | None = None,
+        exchange: str | None = None,
+        origin: OrderOrigin | None = None,
+    ) -> dict[str, Order]:
+        return self.account.get_orders(instrument, exchange, origin)
+
+    def find_order_by_id(self, order_id: str) -> Order | None:
+        return self.account.find_order_by_id(order_id)
+
+    def find_order_by_client_id(self, client_id: str) -> Order | None:
+        return self.account.find_order_by_client_id(client_id)
+
+    def position_report(self, exchange: str | None = None) -> dict:
+        return self.account.position_report(exchange)
+
+    # leverage information
+    def get_leverage(self, instrument: Instrument) -> float:
+        return self.account.get_leverage(instrument)
+
+    def get_leverages(self, exchange: str | None = None) -> dict[Instrument, float]:
+        return self.account.get_leverages(exchange)
+
+    def get_net_leverage(self, exchange: str | None = None) -> float:
+        return self.account.get_net_leverage(exchange)
+
+    def get_gross_leverage(self, exchange: str | None = None) -> float:
+        return self.account.get_gross_leverage(exchange)
+
+    def get_fees_calculator(self, exchange: str | None = None) -> TransactionCostsCalculator:
+        return self.account.get_fees_calculator(exchange)
+
+    def get_instrument_leverage(self, instrument: Instrument) -> float | None:
+        return self.account.get_instrument_leverage(instrument)
+
+    def get_max_instrument_leverage(self, instrument: Instrument) -> float | None:
+        return self.account.get_max_instrument_leverage(instrument)
+
+    def get_max_instrument_notional(self, instrument: Instrument) -> float:
+        return self.account.get_max_instrument_notional(instrument)
+
+    def get_margin_mode(self, instrument: Instrument) -> Literal["cross", "isolated"] | None:
+        return self.account.get_margin_mode(instrument)
+
+    def get_adl_level(self, instrument: Instrument) -> int | None:
+        return self.account.get_adl_level(instrument)
+
+    # per-instrument venue-setting writes (IAccountConfigurator): the configured leverage and
+    # margin mode reach the venue and honour read-only.
+    def set_instrument_leverage(self, instrument: Instrument, leverage: float) -> None:
+        self._assert_not_fit_thread("set_instrument_leverage")
+        if self._read_only:
+            raise ReadOnlyConnector("account configuration is read-only — write rejected")
+        self._account_manager.set_instrument_leverage(instrument, leverage)
+
+    def set_default_instrument_leverage(self, leverage: float | None) -> None:
+        """
+        Change the leverage applied to instruments added to the universe, and apply it now to
+        the ones already there. None leaves every venue's own leverage alone from here on.
+        """
+        self._assert_not_fit_thread("set_default_instrument_leverage")
+        if self._read_only:
+            raise ReadOnlyConnector("account configuration is read-only — write rejected")
+        # - refuse rather than clamp: a sub-1 leverage is a typo or a percentage, and silently
+        #   turning it into 1 would trade a size nobody asked for
+        if leverage is not None and leverage < 1:
+            logger.error(
+                f"[StrategyContext] default instrument leverage must be >= 1, got {leverage} — "
+                f"keeping {self._account_manager.get_default_instrument_leverage()}"
+            )
+            return
+        self._account_manager.set_default_instrument_leverage(leverage)
+
+    def set_margin_mode(self, instrument: Instrument, mode: str) -> bool:
+        self._assert_not_fit_thread("set_margin_mode")
+        if self._read_only:
+            raise ReadOnlyConnector("account configuration is read-only — write rejected")
+        return self._account_manager.set_margin_mode(instrument, mode)
+
+    # margin information
+    def get_available_margin(self, exchange: str | None = None) -> float:
+        return self.account.get_available_margin(exchange)
+
+    def get_total_initial_margin(self, exchange: str | None = None) -> float:
+        return self.account.get_total_initial_margin(exchange)
+
+    def get_total_maint_margin(self, exchange: str | None = None) -> float:
+        return self.account.get_total_maint_margin(exchange)
+
+    def get_withdrawable_balance(self, exchange: str | None = None) -> float:
+        return self.account.get_withdrawable_balance(exchange)
+
+    def get_collateral_equity(self, exchange: str | None = None) -> float:
+        return self.account.get_collateral_equity(exchange)
+
+    def get_margin_ratio(self, exchange: str | None = None) -> float:
+        return self.account.get_margin_ratio(exchange)
+
+    # :: IMarketDataProvider delegation ::
+    def time(self) -> dt_64:
+        return self._market_data_provider.time()
+
+    def ohlc(self, instrument: Instrument, timeframe: str | td_64 | None = None, length: int | None = None):
+        return self._market_data_provider.ohlc(instrument, timeframe, length)
+
+    def ohlc_pd(
+        self,
+        instrument: Instrument,
+        timeframe: str | td_64 | None = None,
+        length: int | None = None,
+        consolidated: bool = True,
+    ) -> pd.DataFrame:
+        return self._market_data_provider.ohlc_pd(instrument, timeframe, length, consolidated)
+
+    def quote(self, instrument: Instrument):
+        return self._market_data_provider.quote(instrument)
+
+    def get_cached_market_data(self, instrument: Instrument, sub_type: str):
+        return self._market_data_provider.get_cached_market_data(instrument, sub_type)
+
+    def get_aux_reader(self, exchange: str, mtype: str) -> IReader:
+        return self._market_data_provider.get_aux_reader(exchange, mtype)
+
+    def get_instruments(self):
+        return self._market_data_provider.get_instruments()
+
+    def query_instrument(self, symbol: str, exchange: str | None = None) -> Instrument | None:
+        return self._market_data_provider.query_instrument(symbol, exchange)
+
+    def get_market_data_cache(self) -> IMarketDataCache:
+        return self._market_data_provider.get_market_data_cache()
+
+    def is_instrument_listed(self, instrument: Instrument) -> bool:
+        return self._market_data_provider.is_instrument_listed(instrument)
+
+    def get_aux_data_storage(self) -> IStorage:
+        return self._market_data_provider.get_aux_data_storage()
+
+    # :: ITradingManager delegation ::
+    def trade(self, instrument: Instrument, amount: float, price: float | None = None, time_in_force="gtc", **options):
+        self._assert_not_fit_thread("trade")
+        # TODO: we need to generate target position and apply it in the processing manager
+        # - one of the options is to have multiple entry levels in TargetPosition class
+        return self._trading_manager.trade(instrument, amount, price, time_in_force, **options)
+
+    def convert_currency(
+        self,
+        exchange: str,
+        from_currency: str,
+        to_currency: str,
+        amount: float,
+        *,
+        limit_price: float | None = None,
+        max_slippage_bps: float = 10.0,
+    ) -> str:
+        self._assert_not_fit_thread("convert_currency")
+        return self._trading_manager.convert_currency(
+            exchange, from_currency, to_currency, amount, limit_price=limit_price, max_slippage_bps=max_slippage_bps
+        )
+
+    def wallet_moves(self, exchange: str) -> list[WalletMove]:
+        return self._trading_manager.wallet_moves(exchange)
+
+    def move_funds(self, exchange: str, currency: str | None, src: str, dst: str, amount: float | None = None) -> str:
+        self._assert_not_fit_thread("move_funds")
+        return self._trading_manager.move_funds(exchange, currency, src, dst, amount)
+
+    def debt_repayments(self, exchange: str) -> list[str]:
+        return self._trading_manager.debt_repayments(exchange)
+
+    def repay_debt(self, exchange: str, currency: str, amount: float | None = None) -> str:
+        self._assert_not_fit_thread("repay_debt")
+        return self._trading_manager.repay_debt(exchange, currency, amount)
+
+    def submit_orders(self, order_requests: list[OrderRequest]) -> list[Order]:
+        self._assert_not_fit_thread("submit_orders")
+        return self._trading_manager.submit_orders(order_requests)
+
+    def set_target_position(
+        self, instrument: Instrument, target: float, price: float | None = None, **options
+    ) -> Order:
+        self._assert_not_fit_thread("set_target_position")
+        return self._trading_manager.set_target_position(instrument, target, price, **options)
+
+    def set_target_leverage(
+        self, instrument: Instrument, leverage: float, price: float | None = None, **options
+    ) -> None:
+        self._assert_not_fit_thread("set_target_leverage")
+        return self._trading_manager.set_target_leverage(instrument, leverage, price, **options)
+
+    def close_position(self, instrument: Instrument, without_signals: bool = False) -> None:
+        self._assert_not_fit_thread("close_position")
+        return self._trading_manager.close_position(instrument, without_signals)
+
+    def close_positions(self, market_type: MarketType | None = None, without_signals: bool = False) -> None:
+        self._assert_not_fit_thread("close_positions")
+        return self._trading_manager.close_positions(market_type, without_signals)
+
+    def cancel_order(
+        self, order_id: str | None = None, client_order_id: str | None = None, exchange: str | None = None
+    ) -> bool:
+        """Cancel a specific order synchronously."""
+        self._assert_not_fit_thread("cancel_order")
+        return self._trading_manager.cancel_order(order_id=order_id, client_order_id=client_order_id, exchange=exchange)
+
+    def cancel_orders(self, instrument: Instrument | None = None) -> None:
+        """Cancel all orders for an instrument."""
+        self._assert_not_fit_thread("cancel_orders")
+        return self._trading_manager.cancel_orders(instrument)
+
+    def update_order(
+        self,
+        price: float | None = None,
+        quantity: float | None = None,
+        order_id: str | None = None,
+        client_order_id: str | None = None,
+        exchange: str | None = None,
+    ) -> None:
+        """
+        Update a live limit order's price and/or total quantity (total includes filled).
+        """
+        self._assert_not_fit_thread("update_order")
+        self._trading_manager.update_order(
+            order_id=order_id, client_order_id=client_order_id, price=price, quantity=quantity, exchange=exchange
+        )
+
+    def get_min_size(self, instrument: Instrument, amount: float | None = None) -> float:
+        return self._trading_manager.get_min_size(instrument, amount)
+
+    def _assert_not_fit_thread(self, name: str) -> None:
+        """Tripwire: a stashed real-ctx reference used inside a threaded on_fit must
+        fail loudly instead of mutating ProcessorThread-owned state from the fit thread.
+        Free everywhere else — ``is_fit_thread`` is a single None check unless a threaded
+        fit is in flight, and the FitCommit replay runs on the ProcessorThread so it
+        passes."""
+        if self._fit_state.is_fit_thread():
+            raise RuntimeError(
+                f"ctx.{name}: ctx mutation from the fit thread outside FitContext — use the ctx passed to on_fit"
+            )
+
+    # :: IUniverseManager delegation ::
+    def set_universe(
+        self, instruments: list[Instrument], skip_callback: bool = False, if_has_position_then: RemovalPolicy = "close"
+    ):
+        self._assert_not_fit_thread("set_universe")
+        result = self._universe_manager.set_universe(instruments, skip_callback, if_has_position_then)
+        self._apply_default_leverage(instruments)
+        return result
+
+    def add_instruments(self, instruments: list[Instrument]):
+        self._assert_not_fit_thread("add_instruments")
+        result = self._universe_manager.add_instruments(instruments)
+        self._apply_default_leverage(instruments)
+        return result
+
+    def _apply_default_leverage(self, instruments: list[Instrument]) -> None:
+        # - the initial universe arrives here too (start() calls set_universe with
+        #   skip_callback=True), so this is the only place that sees every instrument the bot
+        #   trades before it trades them. set_universe passes the whole new universe because the
+        #   added ones are only known inside UniverseManager; add_instruments passes just those.
+        if self.is_live and not self._read_only:
+            self._account_manager.apply_default_instrument_leverage(instruments)
+
+    def remove_instruments(self, instruments: list[Instrument], if_has_position_then: RemovalPolicy = "close"):
+        self._assert_not_fit_thread("remove_instruments")
+        return self._universe_manager.remove_instruments(instruments, if_has_position_then)
+
+    def settle_position(self, instrument: Instrument) -> None:
+        self._assert_not_fit_thread("settle_position")
+        return self._universe_manager.settle_position(instrument)
+
+    @property
+    def instruments(self):
+        return self._universe_manager.instruments
+
+    # :: IInstrumentServiceManager delegation ::
+    def is_blacklisted(self, instrument: Instrument) -> bool:
+        return self._instrument_service_manager.is_blacklisted(instrument)
+
+    def filter_blacklisted(self, instruments: list[Instrument]) -> list[Instrument]:
+        return self._instrument_service_manager.filter_blacklisted(instruments)
+
+    def get_blacklisted_instruments(self) -> list[Instrument]:
+        return self._instrument_service_manager.get_blacklisted_instruments()
+
+    def _run_instrument_service_cycle(self, _ctx: "IStrategyContext | None" = None) -> dict:
+        return self._instrument_service_manager.run_cycle(_ctx)
+
+    @property
+    def exchanges(self) -> list[str]:
+        return self._trading_manager.exchanges()
+
+    # :: ISubscriptionManager delegation ::
+    def subscribe(self, subscription_type: str, instruments: list[Instrument] | Instrument | None = None):
+        self._assert_not_fit_thread("subscribe")
+        return self._subscription_manager.subscribe(subscription_type, instruments)
+
+    def unsubscribe(self, subscription_type: str, instruments: list[Instrument] | Instrument | None = None):
+        self._assert_not_fit_thread("unsubscribe")
+        return self._subscription_manager.unsubscribe(subscription_type, instruments)
+
+    def has_subscription(self, instrument: Instrument, subscription_type: str):
+        return self._subscription_manager.has_subscription(instrument, subscription_type)
+
+    def get_subscriptions(self, instrument: Instrument | None = None) -> list[str]:
+        return self._subscription_manager.get_subscriptions(instrument)
+
+    def get_base_subscription(self) -> str:
+        return self._subscription_manager.get_base_subscription()
+
+    def set_base_subscription(self, subscription_type: str):
+        self._assert_not_fit_thread("set_base_subscription")
+        return self._subscription_manager.set_base_subscription(subscription_type)
+
+    def get_subscribed_instruments(self, subscription_type: str | None = None) -> list[Instrument]:
+        return self._subscription_manager.get_subscribed_instruments(subscription_type)
+
+    def get_warmup(self, subscription_type: str) -> str | None:
+        return self._subscription_manager.get_warmup(subscription_type)
+
+    def set_warmup(self, configs: dict[Any, str]):
+        self._assert_not_fit_thread("set_warmup")
+        return self._subscription_manager.set_warmup(configs)
+
+    def set_stale_data_detection(
+        self, enabled: bool, detection_period: str | None = None, check_interval: str | None = None
+    ) -> None:
+        return self.initializer.set_stale_data_detection(enabled, detection_period, check_interval)
+
+    def get_stale_data_detection_config(self) -> tuple[bool, str | None, str | None]:
+        return self.initializer.get_stale_data_detection_config()
+
+    def commit(self):
+        self._assert_not_fit_thread("commit")
+        return self._subscription_manager.commit()
+
+    @property
+    def is_warming_up(self) -> bool:
+        return self._subscription_manager.is_warming_up
+
+    @property
+    def auto_subscribe(self) -> bool:
+        return self._subscription_manager.auto_subscribe
+
+    @auto_subscribe.setter
+    def auto_subscribe(self, value: bool):
+        self._subscription_manager.auto_subscribe = value
+
+    # :: IProcessingManager delegation ::
+    def process_data(self, instrument: Instrument, d_type: str, data: Any, is_historical: bool):
+        return self._processing_manager.process_data(instrument, d_type, data, is_historical)
+
+    def process_event(self, event: ChannelMessage) -> None:
+        return self._processing_manager.process_event(event)
+
+    def set_fit_schedule(self, schedule: str):
+        self._assert_not_fit_thread("set_fit_schedule")
+        return self._processing_manager.set_fit_schedule(schedule)
+
+    def set_event_schedule(self, schedule: str):
+        self._assert_not_fit_thread("set_event_schedule")
+        return self._processing_manager.set_event_schedule(schedule)
+
+    def get_event_schedule(self, event_id: str) -> str | None:
+        return self._processing_manager.get_event_schedule(event_id)
+
+    def is_fitted(self) -> bool:
+        return self._processing_manager.is_fitted()
+
+    @property
+    def is_fitting(self) -> bool:
+        return self._processing_manager.is_fitting
+
+    def trigger_fit(self) -> None:
+        return self._processing_manager.trigger_fit()
+
+    def get_active_targets(self) -> dict[Instrument, TargetPosition]:
+        return self._processing_manager.get_active_targets()
+
+    def emit_signal(self, signal: Signal | list[Signal]) -> None:
+        self._assert_not_fit_thread("emit_signal")
+        return self._processing_manager.emit_signal(signal)
+
+    def schedule(self, cron_schedule: str, method: Callable[["IStrategyContext"], None]) -> str:
+        self._assert_not_fit_thread("schedule")
+        return self._processing_manager.schedule(cron_schedule, method)
+
+    def register_handler(self, name: str, method: Callable[["IStrategyContext", Any], None]) -> None:
+        self._assert_not_fit_thread("register_handler")
+        self._processing_manager.register_handler(name, method)
+
+    def has_handler(self, name: str) -> bool:
+        # - a dict membership read: no fit-thread tripwire, safe from any thread
+        return self._processing_manager.has_handler(name)
+
+    def post_event(self, name: str, payload: Any = None) -> None:
+        # - live, the channel send is a Queue.put_nowait, so this is callable from any thread
+        #   and the handler runs on the ProcessorThread; SimulatedCtrlChannel instead dispatches
+        #   synchronously on the caller, so in simulation post only from the strategy thread.
+        #   The payload is handed over, not copied — see IStrategyContext.post_event.
+        # - the guard: an unknown name would decay into a bogus MarketEvent(instrument=None)
+        #   delivered to on_market_data (ProcessingManager._process_custom_event)
+        if not self._processing_manager.has_handler(name):
+            raise ValueError(f"post_event: '{name}' has no registered handler (call register_handler first)")
+        self._channel.send((None, name, payload, False))
+
+    def unschedule(self, event_id: str) -> bool:
+        self._assert_not_fit_thread("unschedule")
+        return self._processing_manager.unschedule(event_id)
+
+    def delay(self, duration: str, method: Callable[["IStrategyContext"], None]) -> str:
+        self._assert_not_fit_thread("delay")
+        return self._processing_manager.delay(duration, method)
+
+    # :: IWarmupStateSaver delegation ::
+    def set_warmup_positions(self, positions: dict[Instrument, Position]) -> None:
+        self._assert_not_fit_thread("set_warmup_positions")
+        self._warmup_positions = positions
+
+    def set_warmup_active_targets(self, active_targets: dict[Instrument, list[TargetPosition]]) -> None:
+        self._assert_not_fit_thread("set_warmup_active_targets")
+        self._warmup_active_targets = active_targets
+
+    def set_warmup_orders(self, orders: dict[Instrument, list[Order]]) -> None:
+        self._assert_not_fit_thread("set_warmup_orders")
+        self._warmup_orders = orders
+
+    def get_warmup_positions(self) -> dict[Instrument, Position]:
+        return self._warmup_positions if self._warmup_positions is not None else {}
+
+    def get_warmup_active_targets(self) -> dict[Instrument, list[TargetPosition]]:
+        return self._warmup_active_targets if self._warmup_active_targets is not None else {}
+
+    def get_warmup_orders(self) -> dict[Instrument, list[Order]]:
+        return self._warmup_orders if self._warmup_orders is not None else {}
+
+    def get_restored_state(self) -> RestoredState | None:
+        return self._restored_state
+
+    # :: ITransferManager delegation methods ::
+    @check_transfer_manager
+    def transfer_funds(self, from_exchange: str, to_exchange: str, currency: str, amount: float) -> str:
+        self._assert_not_fit_thread("transfer_funds")
+        assert self._transfer_manager is not None
+        return self._transfer_manager.transfer_funds(from_exchange, to_exchange, currency, amount)
+
+    @check_transfer_manager
+    def get_transfer_status(self, transaction_id: str) -> Transfer:
+        assert self._transfer_manager is not None
+        return self._transfer_manager.get_transfer_status(transaction_id)
+
+    @check_transfer_manager
+    def get_transfers(self) -> dict[str, Transfer]:
+        assert self._transfer_manager is not None
+        return self._transfer_manager.get_transfers()
+
+    # :: private methods ::
+    def __process_incoming_data_loop(self, channel: CtrlChannel):
+        logger.info("[StrategyContext] :: Start processing market data")
+        while channel.control.is_set():
+            # Drain pending control commands (non-blocking)
+            self._drain_command_queue()
+
+            try:
+                # - waiting for incoming data (with timeout so commands are checked regularly).
+                #   The channel carries two payload shapes: typed ChannelMessages (order/account
+                #   events from connectors) and market-data tuples (instrument, d_type, data, hist).
+                #   The event-vs-data dispatch rule below is mirrored (bare, without monitor/
+                #   notifier/stop handling) by SimulatedCtrlChannel.send for backtests.
+                msg = channel.receive(timeout=1)
+
+                if isinstance(msg, ChannelMessage):
+                    with self._health_monitor(type(msg).__name__):
+                        self._processing_manager.process_event(msg)
+                    continue
+
+                instrument, d_type, data, hist = msg
+
+                # - notify error if error level is medium or higher
+                if self._notifier and isinstance(data, BaseErrorEvent) and data.level.value >= ErrorLevel.MEDIUM.value:
+                    self._notifier.notify_error(data.error or Exception("Unknown error"), {"message": str(data)})
+
+                with self._health_monitor(d_type):
+                    if self.process_data(instrument, d_type, data, hist):
+                        channel.stop()
+                        break
+
+            except StrategyExceededMaxNumberOfRuntimeFailuresError:
+                channel.stop()
+                break
+            except QueueTimeout:
+                # Expected when using receive(timeout=) — loop back to check commands
+                continue
+            except Exception as e:
+                logger.error(f"Error processing market data: {e}")
+                logger.opt(colors=False).error(traceback.format_exc())
+                if self._notifier:
+                    self._notifier.notify_error(e)
+                # Don't stop the channel here, let it continue processing
+
+        logger.info("[StrategyContext] :: Market data processing stopped")
+
+    def _drain_command_queue(self):
+        """Process all pending commands from the control server."""
+        if self._command_queue is None:
+            return
+        while True:
+            try:
+                cmd = self._command_queue.get_nowait()
+            except Empty:
+                break
+            try:
+                if isinstance(cmd, CommandEvent) and self._control_executor is not None:
+                    logger.info(f"[StrategyContext] :: Executing control command: {cmd.name} {cmd.params}")
+                    result = self._control_executor.execute_command(cmd)
+                    if result.status == "error":
+                        logger.warning(f"[StrategyContext] :: Control command '{cmd.name}' failed: {result.error}")
+                    cmd.future.set_result(result)
+                else:
+                    cmd.future.set_result(ActionResult(status="error", error="Executor not available"))
+            except Exception as e:
+                logger.error(f"[StrategyContext] :: Error executing control command '{cmd.name}': {e}")
+                try:
+                    cmd.future.set_result(ActionResult(status="error", error=str(e)))
+                except Exception:
+                    pass
+
+    def __instantiate_strategy(self, strategy: IStrategy, config: dict[str, Any] | None) -> IStrategy:
+        __strategy = strategy() if isinstance(strategy, type) else strategy
+        __strategy.ctx = self
+        set_parameters_to_object(__strategy, **config if config else {})
+        return __strategy

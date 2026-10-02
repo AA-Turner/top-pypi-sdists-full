@@ -1,0 +1,667 @@
+Metadata-Version: 2.5
+Name: gandalf-the-grader
+Version: 1.0.2
+Summary: Agent-as-judge grading framework for evaluating AI agent outputs against rubric criteria
+Project-URL: homepage, https://github.com/Handshake-AI-Research/gandalf-the-grader
+Project-URL: repository, https://github.com/Handshake-AI-Research/gandalf-the-grader
+Project-URL: issues, https://github.com/Handshake-AI-Research/gandalf-the-grader/issues
+Author: Handshake
+License-Expression: Apache-2.0
+License-File: LICENSE.txt
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.12
+Requires-Dist: jinja2<4,>=3.1
+Requires-Dist: litellm<2,>=1.83.0
+Requires-Dist: openhands-sdk<1.16.1,>=1.14.0
+Requires-Dist: openhands-tools<1.16.1,>=1.11.2
+Requires-Dist: pydantic<3,>=2.12.5
+Provides-Extra: pinned
+Requires-Dist: agent-client-protocol==0.9.0; extra == 'pinned'
+Requires-Dist: aiofile==3.9.0; extra == 'pinned'
+Requires-Dist: aiofiles==25.1.0; extra == 'pinned'
+Requires-Dist: aiohappyeyeballs==2.6.1; extra == 'pinned'
+Requires-Dist: aiohttp==3.13.5; extra == 'pinned'
+Requires-Dist: aiosignal==1.4.0; extra == 'pinned'
+Requires-Dist: annotated-doc==0.0.4; extra == 'pinned'
+Requires-Dist: annotated-types==0.7.0; extra == 'pinned'
+Requires-Dist: anthropic==0.94.0; extra == 'pinned'
+Requires-Dist: anyio==4.13.0; extra == 'pinned'
+Requires-Dist: attrs==26.1.0; extra == 'pinned'
+Requires-Dist: authlib==1.6.9; extra == 'pinned'
+Requires-Dist: backoff==2.2.1; extra == 'pinned'
+Requires-Dist: bashlex==0.18; extra == 'pinned'
+Requires-Dist: beartype==0.22.9; extra == 'pinned'
+Requires-Dist: beautifulsoup4==4.14.3; extra == 'pinned'
+Requires-Dist: binaryornot==0.6.0; extra == 'pinned'
+Requires-Dist: browser-use-sdk==3.4.3; extra == 'pinned'
+Requires-Dist: browser-use==0.11.13; extra == 'pinned'
+Requires-Dist: bubus==1.5.6; extra == 'pinned'
+Requires-Dist: cachetools==7.0.5; extra == 'pinned'
+Requires-Dist: caio==0.9.25; extra == 'pinned'
+Requires-Dist: cdp-use==1.4.5; extra == 'pinned'
+Requires-Dist: certifi==2026.2.25; extra == 'pinned'
+Requires-Dist: cffi==2.0.0; (platform_python_implementation != 'PyPy') and extra == 'pinned'
+Requires-Dist: cffi==2.0.0; (sys_platform == 'linux' and platform_python_implementation != 'PyPy') and extra == 'pinned'
+Requires-Dist: charset-normalizer==3.4.7; extra == 'pinned'
+Requires-Dist: click==8.3.2; extra == 'pinned'
+Requires-Dist: click==8.3.2; (sys_platform != 'emscripten') and extra == 'pinned'
+Requires-Dist: cloudpickle==3.1.2; extra == 'pinned'
+Requires-Dist: colorama==0.4.6; (sys_platform != 'emscripten' and sys_platform == 'win32') and extra == 'pinned'
+Requires-Dist: colorama==0.4.6; (sys_platform == 'win32') and extra == 'pinned'
+Requires-Dist: cryptography==46.0.7; extra == 'pinned'
+Requires-Dist: cryptography==46.0.7; (sys_platform == 'linux') and extra == 'pinned'
+Requires-Dist: cyclopts==4.10.2; extra == 'pinned'
+Requires-Dist: cython==3.2.4; (platform_system != 'darwin' and sys_platform == 'darwin') and extra == 'pinned'
+Requires-Dist: deprecation==2.1.0; extra == 'pinned'
+Requires-Dist: distro==1.9.0; extra == 'pinned'
+Requires-Dist: dnspython==2.8.0; extra == 'pinned'
+Requires-Dist: docstring-parser==0.17.0; extra == 'pinned'
+Requires-Dist: docutils==0.22.4; extra == 'pinned'
+Requires-Dist: email-validator==2.3.0; extra == 'pinned'
+Requires-Dist: exceptiongroup==1.3.1; extra == 'pinned'
+Requires-Dist: fakeredis==2.35.1; extra == 'pinned'
+Requires-Dist: fastmcp==3.2.3; extra == 'pinned'
+Requires-Dist: fastuuid==0.14.0; extra == 'pinned'
+Requires-Dist: filelock==3.25.2; extra == 'pinned'
+Requires-Dist: frozenlist==1.8.0; extra == 'pinned'
+Requires-Dist: fsspec==2026.3.0; extra == 'pinned'
+Requires-Dist: func-timeout==4.3.5; extra == 'pinned'
+Requires-Dist: google-api-core==2.30.3; extra == 'pinned'
+Requires-Dist: google-api-python-client==2.194.0; extra == 'pinned'
+Requires-Dist: google-auth-httplib2==0.3.1; extra == 'pinned'
+Requires-Dist: google-auth-oauthlib==1.3.1; extra == 'pinned'
+Requires-Dist: google-auth==2.49.2; extra == 'pinned'
+Requires-Dist: google-genai==1.72.0; extra == 'pinned'
+Requires-Dist: googleapis-common-protos==1.74.0; extra == 'pinned'
+Requires-Dist: groq==1.1.2; extra == 'pinned'
+Requires-Dist: grpcio==1.80.0; extra == 'pinned'
+Requires-Dist: h11==0.16.0; extra == 'pinned'
+Requires-Dist: h11==0.16.0; (sys_platform != 'emscripten') and extra == 'pinned'
+Requires-Dist: hf-xet==1.4.3; (platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64') and extra == 'pinned'
+Requires-Dist: httpcore==1.0.9; extra == 'pinned'
+Requires-Dist: httplib2==0.31.2; extra == 'pinned'
+Requires-Dist: httpx-sse==0.4.3; extra == 'pinned'
+Requires-Dist: httpx==0.28.1; extra == 'pinned'
+Requires-Dist: huggingface-hub==1.10.1; extra == 'pinned'
+Requires-Dist: idna==3.11; extra == 'pinned'
+Requires-Dist: importlib-metadata==8.7.1; extra == 'pinned'
+Requires-Dist: inquirerpy==0.3.4; extra == 'pinned'
+Requires-Dist: jaraco-classes==3.4.0; extra == 'pinned'
+Requires-Dist: jaraco-context==6.1.2; extra == 'pinned'
+Requires-Dist: jaraco-functools==4.4.0; extra == 'pinned'
+Requires-Dist: jeepney==0.9.0; (sys_platform == 'linux') and extra == 'pinned'
+Requires-Dist: jinja2==3.1.6; extra == 'pinned'
+Requires-Dist: jiter==0.14.0; extra == 'pinned'
+Requires-Dist: json-repair==0.59.2; extra == 'pinned'
+Requires-Dist: jsonref==1.1.0; extra == 'pinned'
+Requires-Dist: jsonschema-path==0.4.5; extra == 'pinned'
+Requires-Dist: jsonschema-specifications==2025.9.1; extra == 'pinned'
+Requires-Dist: jsonschema==4.26.0; extra == 'pinned'
+Requires-Dist: keyring==25.7.0; extra == 'pinned'
+Requires-Dist: libtmux==0.55.0; extra == 'pinned'
+Requires-Dist: litellm==1.83.0; extra == 'pinned'
+Requires-Dist: lmnr==0.7.42; extra == 'pinned'
+Requires-Dist: lupa==2.7; extra == 'pinned'
+Requires-Dist: lxml==6.0.4; extra == 'pinned'
+Requires-Dist: markdown-it-py==4.0.0; extra == 'pinned'
+Requires-Dist: markdownify==1.2.2; extra == 'pinned'
+Requires-Dist: markupsafe==3.0.3; extra == 'pinned'
+Requires-Dist: mcp==1.27.0; extra == 'pinned'
+Requires-Dist: mdurl==0.1.2; extra == 'pinned'
+Requires-Dist: more-itertools==11.0.2; extra == 'pinned'
+Requires-Dist: multidict==6.7.1; extra == 'pinned'
+Requires-Dist: oauthlib==3.3.1; extra == 'pinned'
+Requires-Dist: ollama==0.6.1; extra == 'pinned'
+Requires-Dist: openai==2.31.0; extra == 'pinned'
+Requires-Dist: openapi-pydantic==0.5.1; extra == 'pinned'
+Requires-Dist: openhands-sdk==1.14.0; extra == 'pinned'
+Requires-Dist: openhands-tools==1.16.0; extra == 'pinned'
+Requires-Dist: opentelemetry-api==1.41.0; extra == 'pinned'
+Requires-Dist: opentelemetry-exporter-otlp-proto-common==1.41.0; extra == 'pinned'
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc==1.41.0; extra == 'pinned'
+Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.41.0; extra == 'pinned'
+Requires-Dist: opentelemetry-instrumentation-threading==0.62b0; extra == 'pinned'
+Requires-Dist: opentelemetry-instrumentation==0.62b0; extra == 'pinned'
+Requires-Dist: opentelemetry-proto==1.41.0; extra == 'pinned'
+Requires-Dist: opentelemetry-sdk==1.41.0; extra == 'pinned'
+Requires-Dist: opentelemetry-semantic-conventions-ai==0.4.13; extra == 'pinned'
+Requires-Dist: opentelemetry-semantic-conventions==0.62b0; extra == 'pinned'
+Requires-Dist: orjson==3.11.8; extra == 'pinned'
+Requires-Dist: packaging==26.0; extra == 'pinned'
+Requires-Dist: pathable==0.5.0; extra == 'pinned'
+Requires-Dist: pfzy==0.3.4; extra == 'pinned'
+Requires-Dist: pillow==12.2.0; extra == 'pinned'
+Requires-Dist: platformdirs==4.9.6; extra == 'pinned'
+Requires-Dist: portalocker==2.10.1; extra == 'pinned'
+Requires-Dist: posthog==7.11.0; extra == 'pinned'
+Requires-Dist: prompt-toolkit==3.0.52; extra == 'pinned'
+Requires-Dist: propcache==0.4.1; extra == 'pinned'
+Requires-Dist: proto-plus==1.27.2; extra == 'pinned'
+Requires-Dist: protobuf==6.33.6; extra == 'pinned'
+Requires-Dist: psutil==7.2.2; extra == 'pinned'
+Requires-Dist: py-key-value-aio==0.4.4; extra == 'pinned'
+Requires-Dist: pyasn1-modules==0.4.2; extra == 'pinned'
+Requires-Dist: pyasn1==0.6.3; extra == 'pinned'
+Requires-Dist: pycparser==3.0; (platform_python_implementation != 'PyPy' and implementation_name != 'PyPy') and extra == 'pinned'
+Requires-Dist: pycparser==3.0; (sys_platform == 'linux' and platform_python_implementation != 'PyPy' and implementation_name != 'PyPy') and extra == 'pinned'
+Requires-Dist: pydantic-core==2.41.5; extra == 'pinned'
+Requires-Dist: pydantic-settings==2.13.1; extra == 'pinned'
+Requires-Dist: pydantic==2.12.5; extra == 'pinned'
+Requires-Dist: pygments==2.20.0; extra == 'pinned'
+Requires-Dist: pyjwt==2.12.1; extra == 'pinned'
+Requires-Dist: pyobjc-core==12.1; (platform_system != 'darwin' and sys_platform == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-core==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-core==12.1; (platform_system == 'darwin' and platform_release >= '10.0') and extra == 'pinned'
+Requires-Dist: pyobjc-core==12.1; (platform_system == 'darwin' and platform_release >= '11.0') and extra == 'pinned'
+Requires-Dist: pyobjc-core==12.1; (platform_system == 'darwin' and platform_release >= '12.0') and extra == 'pinned'
+Requires-Dist: pyobjc-core==12.1; (platform_system == 'darwin' and platform_release >= '13.0') and extra == 'pinned'
+Requires-Dist: pyobjc-core==12.1; (platform_system == 'darwin' and platform_release >= '14.0') and extra == 'pinned'
+Requires-Dist: pyobjc-core==12.1; (platform_system == 'darwin' and platform_release >= '15.0') and extra == 'pinned'
+Requires-Dist: pyobjc-core==12.1; (platform_system == 'darwin' and platform_release >= '16.0') and extra == 'pinned'
+Requires-Dist: pyobjc-core==12.1; (platform_system == 'darwin' and platform_release >= '17.0') and extra == 'pinned'
+Requires-Dist: pyobjc-core==12.1; (platform_system == 'darwin' and platform_release >= '18.0') and extra == 'pinned'
+Requires-Dist: pyobjc-core==12.1; (platform_system == 'darwin' and platform_release >= '19.0') and extra == 'pinned'
+Requires-Dist: pyobjc-core==12.1; (platform_system == 'darwin' and platform_release >= '20.0') and extra == 'pinned'
+Requires-Dist: pyobjc-core==12.1; (platform_system == 'darwin' and platform_release >= '21.0') and extra == 'pinned'
+Requires-Dist: pyobjc-core==12.1; (platform_system == 'darwin' and platform_release >= '21.4') and extra == 'pinned'
+Requires-Dist: pyobjc-core==12.1; (platform_system == 'darwin' and platform_release >= '22.0') and extra == 'pinned'
+Requires-Dist: pyobjc-core==12.1; (platform_system == 'darwin' and platform_release >= '23.0') and extra == 'pinned'
+Requires-Dist: pyobjc-core==12.1; (platform_system == 'darwin' and platform_release >= '23.4') and extra == 'pinned'
+Requires-Dist: pyobjc-core==12.1; (platform_system == 'darwin' and platform_release >= '24.0') and extra == 'pinned'
+Requires-Dist: pyobjc-core==12.1; (platform_system == 'darwin' and platform_release >= '24.4') and extra == 'pinned'
+Requires-Dist: pyobjc-core==12.1; (platform_system == 'darwin' and platform_release >= '25.0') and extra == 'pinned'
+Requires-Dist: pyobjc-core==12.1; (platform_system == 'darwin' and platform_release >= '9.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-accessibility==12.1; (platform_system == 'darwin' and platform_release >= '20.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-accounts==12.1; (platform_system == 'darwin' and platform_release >= '12.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-accounts==12.1; (platform_system == 'darwin' and platform_release >= '14.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-addressbook==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-adservices==12.1; (platform_system == 'darwin' and platform_release >= '20.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-adsupport==12.1; (platform_system == 'darwin' and platform_release >= '18.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-applescriptkit==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-applescriptobjc==12.1; (platform_system == 'darwin' and platform_release >= '10.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-applicationservices==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-apptrackingtransparency==12.1; (platform_system == 'darwin' and platform_release >= '20.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-arkit==12.1; (platform_system == 'darwin' and platform_release >= '25.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-audiovideobridging==12.1; (platform_system == 'darwin' and platform_release >= '12.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-authenticationservices==12.1; (platform_system == 'darwin' and platform_release >= '19.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-automaticassessmentconfiguration==12.1; (platform_system == 'darwin' and platform_release >= '19.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-automator==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-avfoundation==12.1; (platform_system == 'darwin' and platform_release >= '11.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-avfoundation==12.1; (platform_system == 'darwin' and platform_release >= '16.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-avfoundation==12.1; (platform_system == 'darwin' and platform_release >= '21.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-avfoundation==12.1; (platform_system == 'darwin' and platform_release >= '23.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-avfoundation==12.1; (platform_system == 'darwin' and platform_release >= '24.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-avkit==12.1; (platform_system == 'darwin' and platform_release >= '13.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-avrouting==12.1; (platform_system == 'darwin' and platform_release >= '22.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-backgroundassets==12.1; (platform_system == 'darwin' and platform_release >= '22.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-browserenginekit==12.1; (platform_system == 'darwin' and platform_release >= '23.4') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-businesschat==12.1; (platform_system == 'darwin' and platform_release >= '18.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-calendarstore==12.1; (platform_system == 'darwin' and platform_release >= '9.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-callkit==12.1; (platform_system == 'darwin' and platform_release >= '20.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-carbon==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-cfnetwork==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-cinematic==12.1; (platform_system == 'darwin' and platform_release >= '23.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-classkit==12.1; (platform_system == 'darwin' and platform_release >= '20.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-cloudkit==12.1; (platform_system == 'darwin' and platform_release >= '14.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-cocoa==12.1; (platform_system != 'darwin' and sys_platform == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-cocoa==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-cocoa==12.1; (platform_system == 'darwin' and platform_release >= '10.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-cocoa==12.1; (platform_system == 'darwin' and platform_release >= '11.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-cocoa==12.1; (platform_system == 'darwin' and platform_release >= '12.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-cocoa==12.1; (platform_system == 'darwin' and platform_release >= '13.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-cocoa==12.1; (platform_system == 'darwin' and platform_release >= '14.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-cocoa==12.1; (platform_system == 'darwin' and platform_release >= '15.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-cocoa==12.1; (platform_system == 'darwin' and platform_release >= '16.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-cocoa==12.1; (platform_system == 'darwin' and platform_release >= '17.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-cocoa==12.1; (platform_system == 'darwin' and platform_release >= '18.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-cocoa==12.1; (platform_system == 'darwin' and platform_release >= '19.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-cocoa==12.1; (platform_system == 'darwin' and platform_release >= '20.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-cocoa==12.1; (platform_system == 'darwin' and platform_release >= '21.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-cocoa==12.1; (platform_system == 'darwin' and platform_release >= '21.4') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-cocoa==12.1; (platform_system == 'darwin' and platform_release >= '22.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-cocoa==12.1; (platform_system == 'darwin' and platform_release >= '23.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-cocoa==12.1; (platform_system == 'darwin' and platform_release >= '23.4') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-cocoa==12.1; (platform_system == 'darwin' and platform_release >= '24.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-cocoa==12.1; (platform_system == 'darwin' and platform_release >= '24.4') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-cocoa==12.1; (platform_system == 'darwin' and platform_release >= '25.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-cocoa==12.1; (platform_system == 'darwin' and platform_release >= '9.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-collaboration==12.1; (platform_system == 'darwin' and platform_release >= '9.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-colorsync==12.1; (platform_system == 'darwin' and platform_release >= '17.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-compositorservices==12.1; (platform_system == 'darwin' and platform_release >= '25.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-contacts==12.1; (platform_system == 'darwin' and platform_release >= '15.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-contactsui==12.1; (platform_system == 'darwin' and platform_release >= '15.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-coreaudio==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-coreaudio==12.1; (platform_system == 'darwin' and platform_release >= '11.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-coreaudio==12.1; (platform_system == 'darwin' and platform_release >= '16.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-coreaudio==12.1; (platform_system == 'darwin' and platform_release >= '21.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-coreaudio==12.1; (platform_system == 'darwin' and platform_release >= '23.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-coreaudio==12.1; (platform_system == 'darwin' and platform_release >= '23.4') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-coreaudio==12.1; (platform_system == 'darwin' and platform_release >= '24.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-coreaudiokit==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-corebluetooth==12.1; (platform_system == 'darwin' and platform_release >= '14.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-coredata==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-coredata==12.1; (platform_system == 'darwin' and platform_release >= '14.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-corehaptics==12.1; (platform_system == 'darwin' and platform_release >= '19.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-corelocation==12.1; (platform_system == 'darwin' and platform_release >= '10.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-corelocation==12.1; (platform_system == 'darwin' and platform_release >= '13.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-corelocation==12.1; (platform_system == 'darwin' and platform_release >= '14.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-coremedia==12.1; (platform_system == 'darwin' and platform_release >= '11.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-coremedia==12.1; (platform_system == 'darwin' and platform_release >= '12.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-coremedia==12.1; (platform_system == 'darwin' and platform_release >= '16.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-coremedia==12.1; (platform_system == 'darwin' and platform_release >= '19.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-coremedia==12.1; (platform_system == 'darwin' and platform_release >= '21.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-coremedia==12.1; (platform_system == 'darwin' and platform_release >= '21.4') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-coremedia==12.1; (platform_system == 'darwin' and platform_release >= '23.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-coremedia==12.1; (platform_system == 'darwin' and platform_release >= '23.4') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-coremedia==12.1; (platform_system == 'darwin' and platform_release >= '24.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-coremediaio==12.1; (platform_system == 'darwin' and platform_release >= '11.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-coremidi==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-coreml==12.1; (platform_system == 'darwin' and platform_release >= '17.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-coremotion==12.1; (platform_system == 'darwin' and platform_release >= '19.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-coreservices==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-coreservices==12.1; (platform_system == 'darwin' and platform_release >= '9.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-corespotlight==12.1; (platform_system == 'darwin' and platform_release >= '17.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-coretext==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-corewlan==12.1; (platform_system == 'darwin' and platform_release >= '10.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-cryptotokenkit==12.1; (platform_system == 'darwin' and platform_release >= '14.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-datadetection==12.1; (platform_system == 'darwin' and platform_release >= '21.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-devicecheck==12.1; (platform_system == 'darwin' and platform_release >= '19.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-devicediscoveryextension==12.1; (platform_system == 'darwin' and platform_release >= '24.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-dictionaryservices==12.1; (platform_system == 'darwin' and platform_release >= '9.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-discrecording==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-discrecordingui==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-diskarbitration==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-dvdplayback==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-eventkit==12.1; (platform_system == 'darwin' and platform_release >= '12.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-exceptionhandling==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-executionpolicy==12.1; (platform_system == 'darwin' and platform_release >= '19.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-extensionkit==12.1; (platform_system == 'darwin' and platform_release >= '22.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-externalaccessory==12.1; (platform_system == 'darwin' and platform_release >= '17.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-fileprovider==12.1; (platform_system == 'darwin' and platform_release >= '19.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-fileproviderui==12.1; (platform_system == 'darwin' and platform_release >= '19.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-findersync==12.1; (platform_system == 'darwin' and platform_release >= '14.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-fsevents==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-fsevents==12.1; (platform_system == 'darwin' and platform_release >= '9.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-fskit==12.1; (platform_system == 'darwin' and platform_release >= '24.4') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-gamecenter==12.1; (platform_system == 'darwin' and platform_release >= '12.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-gamecontroller==12.1; (platform_system == 'darwin' and platform_release >= '13.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-gamekit==12.1; (platform_system == 'darwin' and platform_release >= '12.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-gameplaykit==12.1; (platform_system == 'darwin' and platform_release >= '15.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-gamesave==12.1; (platform_system == 'darwin' and platform_release >= '25.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-healthkit==12.1; (platform_system == 'darwin' and platform_release >= '22.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-imagecapturecore==12.1; (platform_system == 'darwin' and platform_release >= '10.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-inputmethodkit==12.1; (platform_system == 'darwin' and platform_release >= '9.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-installerplugins==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-instantmessage==12.1; (platform_system == 'darwin' and platform_release >= '9.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-intents==12.1; (platform_system == 'darwin' and platform_release >= '16.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-intents==12.1; (platform_system == 'darwin' and platform_release >= '21.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-intentsui==12.1; (platform_system == 'darwin' and platform_release >= '21.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-iobluetooth==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-iobluetoothui==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-iosurface==12.1; (platform_system == 'darwin' and platform_release >= '10.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-ituneslibrary==12.1; (platform_system == 'darwin' and platform_release >= '10.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-kernelmanagement==12.1; (platform_system == 'darwin' and platform_release >= '20.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-latentsemanticmapping==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-launchservices==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-libdispatch==12.1; (platform_system == 'darwin' and platform_release >= '12.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-libxpc==12.1; (platform_system == 'darwin' and platform_release >= '12.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-linkpresentation==12.1; (platform_system == 'darwin' and platform_release >= '19.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-localauthentication==12.1; (platform_system == 'darwin' and platform_release >= '14.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-localauthentication==12.1; (platform_system == 'darwin' and platform_release >= '21.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-localauthenticationembeddedui==12.1; (platform_system == 'darwin' and platform_release >= '21.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-mailkit==12.1; (platform_system == 'darwin' and platform_release >= '21.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-mapkit==12.1; (platform_system == 'darwin' and platform_release >= '13.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-mediaaccessibility==12.1; (platform_system == 'darwin' and platform_release >= '13.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-mediaextension==12.1; (platform_system == 'darwin' and platform_release >= '24.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-medialibrary==12.1; (platform_system == 'darwin' and platform_release >= '13.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-mediaplayer==12.1; (platform_system == 'darwin' and platform_release >= '16.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-mediatoolbox==12.1; (platform_system == 'darwin' and platform_release >= '13.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-metal==12.1; (platform_system == 'darwin' and platform_release >= '15.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-metal==12.1; (platform_system == 'darwin' and platform_release >= '17.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-metal==12.1; (platform_system == 'darwin' and platform_release >= '20.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-metal==12.1; (platform_system == 'darwin' and platform_release >= '22.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-metal==12.1; (platform_system == 'darwin' and platform_release >= '23.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-metal==12.1; (platform_system == 'darwin' and platform_release >= '25.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-metalfx==12.1; (platform_system == 'darwin' and platform_release >= '22.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-metalkit==12.1; (platform_system == 'darwin' and platform_release >= '15.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-metalperformanceshaders==12.1; (platform_system == 'darwin' and platform_release >= '17.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-metalperformanceshaders==12.1; (platform_system == 'darwin' and platform_release >= '20.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-metalperformanceshadersgraph==12.1; (platform_system == 'darwin' and platform_release >= '20.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-metrickit==12.1; (platform_system == 'darwin' and platform_release >= '21.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-mlcompute==12.1; (platform_system == 'darwin' and platform_release >= '20.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-modelio==12.1; (platform_system == 'darwin' and platform_release >= '15.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-multipeerconnectivity==12.1; (platform_system == 'darwin' and platform_release >= '14.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-naturallanguage==12.1; (platform_system == 'darwin' and platform_release >= '18.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-netfs==12.1; (platform_system == 'darwin' and platform_release >= '10.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-network==12.1; (platform_system == 'darwin' and platform_release >= '18.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-networkextension==12.1; (platform_system == 'darwin' and platform_release >= '15.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-notificationcenter==12.1; (platform_system == 'darwin' and platform_release >= '14.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-opendirectory==12.1; (platform_system == 'darwin' and platform_release >= '10.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-osakit==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-oslog==12.1; (platform_system == 'darwin' and platform_release >= '19.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-passkit==12.1; (platform_system == 'darwin' and platform_release >= '20.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-pencilkit==12.1; (platform_system == 'darwin' and platform_release >= '19.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-phase==12.1; (platform_system == 'darwin' and platform_release >= '21.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-photos==12.1; (platform_system == 'darwin' and platform_release >= '15.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-photosui==12.1; (platform_system == 'darwin' and platform_release >= '15.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-preferencepanes==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-pushkit==12.1; (platform_system == 'darwin' and platform_release >= '19.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-quartz==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-quartz==12.1; (platform_system == 'darwin' and platform_release >= '11.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-quartz==12.1; (platform_system == 'darwin' and platform_release >= '12.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-quartz==12.1; (platform_system == 'darwin' and platform_release >= '13.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-quartz==12.1; (platform_system == 'darwin' and platform_release >= '15.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-quartz==12.1; (platform_system == 'darwin' and platform_release >= '16.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-quartz==12.1; (platform_system == 'darwin' and platform_release >= '17.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-quartz==12.1; (platform_system == 'darwin' and platform_release >= '19.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-quartz==12.1; (platform_system == 'darwin' and platform_release >= '20.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-quartz==12.1; (platform_system == 'darwin' and platform_release >= '21.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-quartz==12.1; (platform_system == 'darwin' and platform_release >= '22.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-quartz==12.1; (platform_system == 'darwin' and platform_release >= '23.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-quartz==12.1; (platform_system == 'darwin' and platform_release >= '23.4') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-quartz==12.1; (platform_system == 'darwin' and platform_release >= '24.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-quartz==12.1; (platform_system == 'darwin' and platform_release >= '9.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-quicklookthumbnailing==12.1; (platform_system == 'darwin' and platform_release >= '19.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-replaykit==12.1; (platform_system == 'darwin' and platform_release >= '20.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-safariservices==12.1; (platform_system == 'darwin' and platform_release >= '16.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-safetykit==12.1; (platform_system == 'darwin' and platform_release >= '22.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-scenekit==12.1; (platform_system == 'darwin' and platform_release >= '11.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-screencapturekit==12.1; (platform_system == 'darwin' and platform_release >= '21.4') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-screensaver==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-screentime==12.1; (platform_system == 'darwin' and platform_release >= '20.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-scriptingbridge==12.1; (platform_system == 'darwin' and platform_release >= '9.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-searchkit==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-security==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-security==12.1; (platform_system == 'darwin' and platform_release >= '14.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-security==12.1; (platform_system == 'darwin' and platform_release >= '21.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-security==12.1; (platform_system == 'darwin' and platform_release >= '24.4') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-securityfoundation==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-securityinterface==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-securityui==12.1; (platform_system == 'darwin' and platform_release >= '24.4') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-sensitivecontentanalysis==12.1; (platform_system == 'darwin' and platform_release >= '23.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-servicemanagement==12.1; (platform_system == 'darwin' and platform_release >= '10.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-sharedwithyou==12.1; (platform_system == 'darwin' and platform_release >= '22.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-sharedwithyoucore==12.1; (platform_system == 'darwin' and platform_release >= '22.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-shazamkit==12.1; (platform_system == 'darwin' and platform_release >= '21.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-social==12.1; (platform_system == 'darwin' and platform_release >= '12.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-soundanalysis==12.1; (platform_system == 'darwin' and platform_release >= '19.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-speech==12.1; (platform_system == 'darwin' and platform_release >= '19.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-spritekit==12.1; (platform_system == 'darwin' and platform_release >= '13.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-spritekit==12.1; (platform_system == 'darwin' and platform_release >= '15.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-storekit==12.1; (platform_system == 'darwin' and platform_release >= '11.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-symbols==12.1; (platform_system == 'darwin' and platform_release >= '23.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-syncservices==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-systemconfiguration==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-systemextensions==12.1; (platform_system == 'darwin' and platform_release >= '19.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-threadnetwork==12.1; (platform_system == 'darwin' and platform_release >= '22.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-uniformtypeidentifiers==12.1; (platform_system == 'darwin' and platform_release >= '20.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-usernotifications==12.1; (platform_system == 'darwin' and platform_release >= '18.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-usernotifications==12.1; (platform_system == 'darwin' and platform_release >= '20.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-usernotificationsui==12.1; (platform_system == 'darwin' and platform_release >= '20.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-videosubscriberaccount==12.1; (platform_system == 'darwin' and platform_release >= '18.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-videotoolbox==12.1; (platform_system == 'darwin' and platform_release >= '12.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-virtualization==12.1; (platform_system == 'darwin' and platform_release >= '20.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-vision==12.1; (platform_system == 'darwin' and platform_release >= '17.0') and extra == 'pinned'
+Requires-Dist: pyobjc-framework-webkit==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyobjc==12.1; (platform_system == 'darwin') and extra == 'pinned'
+Requires-Dist: pyotp==2.9.0; extra == 'pinned'
+Requires-Dist: pyparsing==3.3.2; extra == 'pinned'
+Requires-Dist: pypdf==6.10.0; extra == 'pinned'
+Requires-Dist: pyperclip==1.11.0; extra == 'pinned'
+Requires-Dist: python-dateutil==2.9.0.post0; extra == 'pinned'
+Requires-Dist: python-docx==1.2.0; extra == 'pinned'
+Requires-Dist: python-dotenv==1.2.2; extra == 'pinned'
+Requires-Dist: python-frontmatter==1.1.0; extra == 'pinned'
+Requires-Dist: python-json-logger==4.1.0; extra == 'pinned'
+Requires-Dist: python-multipart==0.0.26; extra == 'pinned'
+Requires-Dist: pywin32-ctypes==0.2.3; (sys_platform == 'win32') and extra == 'pinned'
+Requires-Dist: pywin32==311; (sys_platform == 'win32') and extra == 'pinned'
+Requires-Dist: pyyaml==6.0.3; extra == 'pinned'
+Requires-Dist: redis==7.4.0; extra == 'pinned'
+Requires-Dist: referencing==0.37.0; extra == 'pinned'
+Requires-Dist: regex==2026.4.4; extra == 'pinned'
+Requires-Dist: reportlab==4.4.10; extra == 'pinned'
+Requires-Dist: requests-oauthlib==2.0.0; extra == 'pinned'
+Requires-Dist: requests==2.33.1; extra == 'pinned'
+Requires-Dist: rich-rst==1.3.2; extra == 'pinned'
+Requires-Dist: rich==15.0.0; extra == 'pinned'
+Requires-Dist: rpds-py==0.30.0; extra == 'pinned'
+Requires-Dist: screeninfo==0.8.1; (platform_system != 'darwin') and extra == 'pinned'
+Requires-Dist: secretstorage==3.5.0; (sys_platform == 'linux') and extra == 'pinned'
+Requires-Dist: shellingham==1.5.4; extra == 'pinned'
+Requires-Dist: six==1.17.0; extra == 'pinned'
+Requires-Dist: sniffio==1.3.1; extra == 'pinned'
+Requires-Dist: sortedcontainers==2.4.0; extra == 'pinned'
+Requires-Dist: soupsieve==2.8.3; extra == 'pinned'
+Requires-Dist: sse-starlette==3.3.4; extra == 'pinned'
+Requires-Dist: starlette==1.0.0; extra == 'pinned'
+Requires-Dist: tenacity==9.1.4; extra == 'pinned'
+Requires-Dist: tiktoken==0.12.0; extra == 'pinned'
+Requires-Dist: tokenizers==0.22.2; extra == 'pinned'
+Requires-Dist: tom-swe==1.0.3; extra == 'pinned'
+Requires-Dist: tqdm==4.67.3; extra == 'pinned'
+Requires-Dist: typer==0.24.1; extra == 'pinned'
+Requires-Dist: typing-extensions==4.15.0; extra == 'pinned'
+Requires-Dist: typing-inspection==0.4.2; extra == 'pinned'
+Requires-Dist: uncalled-for==0.3.1; extra == 'pinned'
+Requires-Dist: uritemplate==4.2.0; extra == 'pinned'
+Requires-Dist: urllib3==2.6.3; extra == 'pinned'
+Requires-Dist: uuid7==0.1.0; extra == 'pinned'
+Requires-Dist: uvicorn==0.44.0; extra == 'pinned'
+Requires-Dist: uvicorn==0.44.0; (sys_platform != 'emscripten') and extra == 'pinned'
+Requires-Dist: watchfiles==1.1.1; extra == 'pinned'
+Requires-Dist: wcwidth==0.6.0; extra == 'pinned'
+Requires-Dist: websockets==16.0; extra == 'pinned'
+Requires-Dist: wrapt==2.1.2; extra == 'pinned'
+Requires-Dist: yarl==1.23.0; extra == 'pinned'
+Requires-Dist: zipp==3.23.0; extra == 'pinned'
+Description-Content-Type: text/markdown
+
+# Gandalf the Grader [![Build Status](https://github.com/Handshake-AI-Research/gandalf-the-grader/actions/workflows/ci.yml/badge.svg)](https://github.com/Handshake-AI-Research/gandalf-the-grader/actions/workflows/ci.yml) [![Coverage](https://codecov.io/gh/Handshake-AI-Research/gandalf-the-grader/branch/main/graph/badge.svg)](https://app.codecov.io/gh/Handshake-AI-Research/gandalf-the-grader) [![PyPI](https://img.shields.io/pypi/v/gandalf-the-grader.svg)](https://pypi.org/pypi/gandalf-the-grader/) [![PyPI - Python version](https://img.shields.io/pypi/pyversions/gandalf-the-grader.svg)](https://pypi.org/pypi/gandalf-the-grader/)
+
+### Your verifier is probably the bottleneck. We built one that isn't.
+
+![Gandalf vs. baseline verifiers on BankerVerifierBench (cost vs. F1)](https://raw.githubusercontent.com/Handshake-AI-Research/assets/main/gandalf-the-grader/pareto_frontier.png)
+
+Read the [launch blog post](https://joinhandshake.com/research/ai/gandalf-the-grader/) for the motivation, benchmark results, and design rationale behind Gandalf.
+
+Gandalf is a reactive agent-as-judge for rubric-graded agent environments. Given a rubric of binary criteria, it runs inside the rollout environment, uses the same tools as the rollout agent, and decides at inference time which files to open and which tool state to query.
+
+That lets Gandalf grade criteria that depend on artifacts or state — formulas in a workbook, charts in a deck, files on disk, MCP tool state, or whether an email was actually sent — rather than just the final text response.
+
+Gandalf is built around three design choices:
+
+- **Environment alignment:** Gandalf runs in the same filesystem, Python interpreter, installed packages, and tool environment as the rollout agent, using the [OpenHands](https://github.com/All-Hands-AI/OpenHands) SDK as the agent harness.
+
+- **Reactive verification:** Gandalf chooses what evidence to inspect while grading, instead of relying on a precomputed transcript or serialized snapshot.
+
+- **Swappable domain guidance:** Domain knowledge enters as natural-language guidance at runtime, making the same verifier portable across domains.
+
+In our evaluation, this design beat text-only, snapshot-based, and workflow-based agentic verifiers at a fraction of the cost — see the [blog post](https://joinhandshake.com/research/ai/gandalf-the-grader/) for the full meta-eval.
+
+**Examples and integrations:** [BankerToolBench](https://github.com/Handshake-AI-Research/bankertoolbench) is a public agentic RL benchmark environment that uses Gandalf as the verifier. [rle-pkg](https://github.com/Handshake-AI-Research/rle-pkg) is a reference runtime that integrates Gandalf. Both run under the [Harbor](https://github.com/harbor-framework/harbor) framework, but Gandalf's design and implementation are framework-agnostic.
+
+## Installation
+
+Gandalf is published [on PyPI](https://pypi.org/project/gandalf-the-grader/).
+
+```bash
+uv tool install gandalf-the-grader
+```
+
+For production use, we recommend that you pin a specific version of Gandalf, and furthermore use the `[pinned]` version to [pin all transitive dependencies](https://github.com/edgarrmondragon/hatch-pinned-extra).
+
+```bash
+uv tool install 'gandalf-the-grader[pinned]==1.0.0'
+```
+
+## Runtime dependencies
+
+**Important**: Gandalf is built on top of OpenHands, which [works best](https://github.com/OpenHands/software-agent-sdk/pull/120) when `tmux` is installed. The judge refuses to run when `tmux` is not on `PATH` rather than silently falling back to a less stable subprocess-based terminal.
+
+## Quick start
+
+The repo ships a runnable example under [`examples/quickstart/`](examples/quickstart) that grades a pre-staged workspace + ATIF trajectory against a 3-criterion rubric. Two criteria are designed to be met and one is designed to fail, so you can see Gandalf's partial-credit grading and per-criterion reasoning in one run. From a fresh clone:
+
+```bash
+# 1. Install
+uv tool install gandalf-the-grader
+
+# 2. Provide a Gemini API key (any litellm-compatible model works; see Configuration)
+export LLM_API_KEY="<your-gemini-api-key>"
+
+# 3. Run from the repo root
+gandalf-the-grader --config examples/quickstart/grader.toml
+
+# 4. Inspect the result
+cat examples/quickstart/output/reward.json   # -> {"reward": 0.75}
+cat examples/quickstart/output/info.json     # per-criterion verdicts + reasoning
+```
+
+Expected verdicts: the `welcome.txt` file exists (met), the message mentions Gandalf (met), and the message is *not* longer than 50 words (unmet, by design). Raw score 3.0 of a possible 4.0, for a reward of 0.75.
+
+The example uses [`gemini/gemini-2.5-flash`](examples/quickstart/grader.toml) and runs the inner judge as the current user (no `sandbox_user`, no sudo). To adapt it to your own setup, edit [`examples/quickstart/grader.toml`](examples/quickstart/grader.toml). See the [Configuration](#configuration) section below for the full field reference.
+
+## Configuration
+
+### `grader.toml`
+
+| Field | Required | Default | Description |
+|---|---|---|---|
+| `instructions` | Yes\* | | Inline task instructions given to the original agent (mutually exclusive with `instructions_path`) |
+| `instructions_path` | Yes\* | | Path to a file with task instructions (mutually exclusive with `instructions`) |
+| `rubric` | Yes\* | | Inline rubric as a TOML array of tables (mutually exclusive with `rubric_path`) |
+| `rubric_path` | Yes\* | | Path to rubric JSON file (mutually exclusive with `rubric`) |
+| `judge_guidance` | No | | Inline judge guidance text (mutually exclusive with `judge_guidance_path`) |
+| `judge_guidance_path` | No | | Path to a file with extra judge instructions (mutually exclusive with `judge_guidance`) |
+| `workdir` | Yes | | Agent workspace directory |
+| `trajectory_path` | Yes | | Path to ATIF trajectory JSON |
+| `output_dir` | Yes | | Directory for grader output files |
+| `model` | No | `gemini/gemini-2.5-flash` | LLM model for the judge agent |
+| `mode` | No | `batch` | Evaluation mode: `batch` or `individual` |
+| `judge_timeout` | No | `300` | Max seconds per judge invocation |
+| `batch_timeout` | No | | Max total seconds for batch mode (caps `judge_timeout * N`) |
+| `judge_retries` | No | `1` | Number of retry attempts for criteria that error due to infrastructure failures |
+| `batch_splits` | No | | Split criteria into N chunks in batch mode (>= 2). Each chunk is evaluated as a separate batch session. Only valid with `mode = "batch"`. |
+| `max_concurrency` | No | | Max parallel judge sessions (>= 1). Defaults to 1 for individual mode, `batch_splits` for batch mode. |
+| `sandbox_user` | No | | Username for running the inner judge (via sudo). When omitted the judge runs as the current user. |
+| `judge_prompt` | No | | Inline Jinja2 template that completely overrides the built-in judge task prompt (mutually exclusive with `judge_prompt_path`) |
+| `judge_prompt_path` | No | | Path to a Jinja2 template file that completely overrides the built-in judge task prompt (mutually exclusive with `judge_prompt`) |
+
+MCP servers can be configured as TOML array of tables:
+
+```toml
+[[mcp_servers]]
+name = "magic-server"
+transport = "stdio"
+command = "/usr/bin/mcp-server"
+args = ["--verbose"]
+```
+
+### Custom Judge Prompt
+
+By default, the grader uses a built-in prompt template to kick off each judge session. `judge_prompt` / `judge_prompt_path` let you replace it entirely with a custom [Jinja2](https://jinja.palletsprojects.com/) template.
+
+> **Note:** This prompt is sent as the opening **user message** to the judge agent, not the LLM system prompt. The underlying agent framework (OpenHands) has its own immutable system message with coding and tool-use instructions that we never modify. Our prompt sits on top of that as the first user turn, setting up the grading task.
+
+For most use cases, `judge_guidance` / `judge_guidance_path` is all you need: it injects extra instructions into the built-in prompt without replacing it. Fully overriding the judge prompt is an uncommon escape hatch for situations where the built-in prompt structure itself is unsuitable.
+
+The template receives these variables:
+
+| Variable | Type | Mode | Description |
+|---|---|---|---|
+| `instructions` | `str` | both | Task instructions given to the original agent |
+| `final_output` | `str` | both | Agent's final message from the trajectory |
+| `criterion` | `str` | individual | The single criterion string to evaluate |
+| `criteria` | `list[str]` | batch | List of all criterion strings to evaluate |
+| `verdict_path` | `str` | both | File path the judge must write its verdict to |
+| `judge_guidance` | `str` | both | Additional guidance text (may be empty) |
+
+Individual and batch modes use separate built-in templates. In a custom template, use `{% if criterion is defined %}` vs `{% if criteria is defined %}` if you need to distinguish modes. In batch mode, use `loop.index0` for the criterion index (e.g., `{% for c in criteria %}[{{ loop.index0 }}] {{ c }}{% endfor %}`).
+
+### Rubric JSON
+
+A JSON array of objects with `criterion` (string) and `weight` (float). Weights can be negative to penalise undesired outcomes:
+
+```json
+[
+  {"criterion": "The output file exists", "weight": 2.0},
+  {"criterion": "The output contains correct totals", "weight": 3.0},
+  {"criterion": "The agent used hardcoded values instead of computing", "weight": -1.0}
+]
+```
+
+- **Positive weight**: adds to the raw score when the criterion's condition is met
+- **Negative weight**: deducts from the raw score when the criterion's condition is met (the bad thing happened)
+- The judge evaluates each criterion on its own merits; it never sees weights
+
+## Trajectory Format (ATIF)
+
+The grader reads agent trajectories in [Agent Trajectory Interchange Format (ATIF)](https://www.harborframework.com/docs/agents/trajectory-format). An ATIF file is a JSON object with a `steps` array:
+
+```json
+{
+  "steps": [
+    {"source": "user", "message": "Build a hello world web app"},
+    {"source": "agent", "message": "I'll create the file now", "tool_calls": [...]},
+    {"source": "agent", "message": "Done! I created index.html with a Hello World page."}
+  ]
+}
+```
+
+The grader extracts the final agent message (last `"source": "agent"` step with a non-empty message and no `tool_calls`) and passes it to the judge as context.
+
+## Environment Variables
+
+| Variable | Description |
+|---|---|
+| `LLM_API_KEY` | API key for the LLM provider |
+| `LLM_BASE_URL` | Base URL for the LLM API (optional) |
+| `GRADER_INSTRUCTIONS_PATH` | Fallback path to task instructions file (if not set in TOML) |
+| `GRADER_JUDGE_GUIDANCE_PATH` | Fallback path to judge guidance file (if not set in TOML) |
+| `GRADER_JUDGE_PROMPT_PATH` | Fallback path to custom judge prompt template (if not set in TOML) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP endpoint URL for trace export (optional) |
+| `OTEL_EXPORTER_OTLP_HEADERS` | OTLP auth headers, URL-encoded (optional) |
+| `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL` | OTLP transport protocol, e.g. `http/protobuf` (optional) |
+
+### Tracing / Observability
+
+Gandalf builds on top of OpenHands, which has built-in OpenTelemetry tracing that automatically instruments LLM calls, tool executions, and agent steps. Set the `OTEL_EXPORTER_OTLP_*` variables above to export traces to any OTEL-compatible backend with no code changes required.
+
+**Example: Langfuse**
+
+```bash
+# Encode your Langfuse keys
+echo -n "pk-lf-...:sk-lf-..." | base64
+
+# Export the variables
+export OTEL_EXPORTER_OTLP_ENDPOINT=https://cloud.langfuse.com/api/public/otel/v1/traces
+export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic%20<base64-encoded-keys>"
+export OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http/protobuf
+```
+
+## Output
+
+The grader writes to `output_dir`:
+
+- `reward.json`: Reward file (e.g., `{"reward": 0.75}`) (always in [0, 1]). **Only written when all criteria are successfully evaluated.** If any criteria still have errors after retries, the grader writes `info.json` but skips `reward.json` and exits with code 1.
+- `info.json`: Always written. Per-criterion results with `met`/not-met, reasoning, evidence, LLM usage, plus `reward`, `raw_score`, `minimum_score`, `maximum_score`, `errored_criterion_count`, and `evaluated_criteria_pct`.
+- `judge_trace_*.txt`: stdout/stderr capture for each judge invocation. Naming varies by mode: `judge_trace_{i}.txt` (individual), `judge_trace_batch.txt` (batch), `judge_trace_batch_split{i}.txt` (batch with splits). Retries append a `_retry{N}` suffix.
+
+The `reward` in `reward.json` is `clip(0, 1, raw_score / sum_of_positive_weights)`, always in [0, 1]. `info.json` additionally includes `raw_score` (the raw sum of weights for met criteria, which can be negative) and `minimum_score`/`maximum_score` bounds for reference.
+
+## Next steps
+
+- **Try the benchmark environment.** [BankerToolBench on Hugging Face](https://huggingface.co/datasets/handshake-ai-research/bankertoolbench) is the public RL environment that Gandalf was originally evaluated against. Clone it, run rollouts, and grade them with Gandalf.
+- **Adapt Gandalf to a new rollout environment.** Edit [`examples/quickstart/grader.toml`](examples/quickstart/grader.toml) to point at your workspace, trajectory, and rubric. See the [Configuration](#configuration) and [Custom Judge Prompt](#custom-judge-prompt) sections for the full reference, including domain-specific judge guidance.
+
+## License
+
+Copyright (c) Handshake. Released under the Apache-2.0 license. See [LICENSE.txt](LICENSE.txt) for details.

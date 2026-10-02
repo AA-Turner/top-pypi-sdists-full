@@ -160,9 +160,7 @@ def deprecated_sdk_command(  # noqa: PLR0913
         alternative: Suggested alternative command
     """
 
-    def _inject_typed_sdk_singleton_with_deprecation(
-        f: Callable[P, T]
-    ) -> Callable[P, T]:
+    def _inject_typed_sdk_singleton_with_deprecation(f: Callable[P, T]) -> Callable[P, T]:
         if not doc_py_example:
             raise ValueError(
                 f"SDK command '{f.__name__}' must provide a non-empty 'doc_py_example'."
@@ -210,7 +208,9 @@ def deprecated_sdk_command(  # noqa: PLR0913
             # Add alternative suggestion
             alternative_msg = None
             if alternative:
-                alternative_msg = f"\n\n➡️  {colorama.Style.BRIGHT}Please {alternative}{colorama.Style.RESET_ALL}"
+                alternative_msg = (
+                    f"\n\n➡️  {colorama.Style.BRIGHT}Please {alternative}{colorama.Style.RESET_ALL}"
+                )
 
             msg_parts = {
                 "deprecation_message": base_msg,
@@ -220,9 +220,7 @@ def deprecated_sdk_command(  # noqa: PLR0913
 
             # Join the main line with a space, then append the alternative on its own line
             main_line_parts = [
-                part
-                for part in [msg_parts["deprecation_message"], msg_parts["date_msg"]]
-                if part
+                part for part in [msg_parts["deprecation_message"], msg_parts["date_msg"]] if part
             ]
             deprecation_msg = " ".join(main_line_parts)
             if msg_parts["alternative_msg"]:

@@ -24,7 +24,5 @@ class PrivateAggregatedInstanceUsageSDK(BaseSDK):
             cloud_id=cloud_id,
             project_id=project_id,
             directory=filters.directory,
-            hide_progress_bar=filters.hide_progress_bar
-            if filters.hide_progress_bar
-            else False,
+            hide_progress_bar=filters.hide_progress_bar if filters.hide_progress_bar else False,
         )

@@ -1,0 +1,266 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""HandlerPrLifecycleTriage — pure-compute PR triage classifier.
+
+Takes PR inventory data and classifies each PR into a triage category:
+  - GREEN: CI passing, approved, no conflicts — ready to merge
+  - RED: CI failing or errored — needs fix
+  - CONFLICTED: Has merge conflicts — needs rebase
+  - NEEDS_REVIEW: CI ok but lacks required approval
+
+Classification priority (first match wins):
+  1. CONFLICTED — has_conflicts is True
+  2. RED — ci_status is 'failing' or 'error'
+  3. GREEN — ci_status is 'passing' AND approved is True
+  4. NEEDS_REVIEW — all other cases (pending CI, no approval, etc.)
+
+Zero network calls. Pure transformation on inventory data.
+
+Related:
+    - OMN-8083: Create pr_lifecycle_triage_compute Node
+    - OMN-8082: pr_lifecycle_inventory_compute (upstream producer)
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Literal
+
+from omnimarket.nodes.node_pr_lifecycle_triage_compute.models.enum_pr_triage_category import (
+    EnumPrTriageCategory,
+)
+from omnimarket.nodes.node_pr_lifecycle_triage_compute.models.model_pr_inventory_item import (
+    ModelPrInventoryItem,
+)
+from omnimarket.nodes.node_pr_lifecycle_triage_compute.models.model_pr_triage_input import (
+    ModelPrTriageInput,
+)
+from omnimarket.nodes.node_pr_lifecycle_triage_compute.models.model_pr_triage_output import (
+    ModelPrTriageOutput,
+)
+from omnimarket.nodes.node_pr_lifecycle_triage_compute.models.model_pr_triage_result import (
+    ModelPrTriageResult,
+)
+
+logger = logging.getLogger(__name__)
+
+_CI_FAILING_STATUSES: frozenset[str] = frozenset({"failing", "error", "failed"})
+_CI_PASSING_STATUSES: frozenset[str] = frozenset({"passing", "success"})
+_RECEIPT_GATE_CHECK_NAME = "verify / verify"
+# OMN-13990 follow-up: occ-preflight (omnibase_core occ-preflight.yml, job
+# "eligibility") is a separate required check from the receipt gate and fails
+# on the same "green-except-OCC-companion" signature. A PR whose only red
+# check is occ-preflight was previously falling through to the generic RED
+# category instead of OCC_DEPENDENCY, so the downstream fix router never saw
+# it as an OCC-evidence-only failure.
+_OCC_PREFLIGHT_CHECK_NAME = "occ-preflight / eligibility"
+_OCC_EVIDENCE_CHECK_NAMES = frozenset(
+    {_RECEIPT_GATE_CHECK_NAME, _OCC_PREFLIGHT_CHECK_NAME}
+)
+# OMN-13990 follow-up (round 2): a live sweep of the still-blocked PRs found
+# the widened match above STILL never fires, because a second, cosmetic check
+# rides along in the failed set — e.g. omninode_infra#579's
+# failed_check_names is {"verify / verify", "Enable Auto-Merge"}.
+# "Enable Auto-Merge" fails BY DESIGN on every PR today (org-wide auto-merge
+# is off) and is verified NOT a required status check on any repo's `dev`
+# branch protection (checked live 2026-07-08: omnimarket, omnibase_infra,
+# omniclaude, omninode_infra all omit it). Excluding it here is deliberately
+# narrow — it does NOT include checks like `call-reject-skip-token`
+# (omninode_infra#578's second failing check), which IS a required context;
+# a required-but-flaky check needs a CI rerun, not a classifier exclusion.
+_COSMETIC_NON_REQUIRED_CHECK_NAMES = frozenset({"Enable Auto-Merge"})
+
+
+def _is_receipt_only_failure(pr: ModelPrInventoryItem) -> bool:
+    failed = {name.strip() for name in pr.failed_check_names if name.strip()}
+    evidence_signature_checks = failed - _COSMETIC_NON_REQUIRED_CHECK_NAMES
+    return bool(evidence_signature_checks) and (
+        evidence_signature_checks <= _OCC_EVIDENCE_CHECK_NAMES
+    )
+
+
+def _result(
+    pr: ModelPrInventoryItem,
+    *,
+    category: EnumPrTriageCategory,
+    reason: str,
+) -> ModelPrTriageResult:
+    return ModelPrTriageResult(
+        pr_number=pr.pr_number,
+        repo=pr.repo,
+        category=category,
+        ticket_ids=pr.ticket_ids,
+        failed_check_names=pr.failed_check_names,
+        failed_check_flaky_evidence=pr.failed_check_flaky_evidence,
+        failed_check_reason_codes=pr.failed_check_reason_codes,
+        reason=reason,
+    )
+
+
+def _classify_pr(pr: ModelPrInventoryItem) -> ModelPrTriageResult:
+    """Classify a single PR into a triage category.
+
+    Priority (first match wins):
+    1. CONFLICTED — has merge conflicts
+    2. RED — CI is failing or errored
+    3. GREEN — CI passing AND approved (and no open blocking threads)
+    4. NEEDS_REVIEW — everything else
+
+    Args:
+        pr: Inventory data for the PR.
+
+    Returns:
+        Triage result with category and reason.
+    """
+    # 1. Conflicts take top priority — can't merge regardless of CI or approval
+    if pr.has_conflicts:
+        return _result(
+            pr,
+            category=EnumPrTriageCategory.CONFLICTED,
+            reason="PR has merge conflicts and requires a rebase.",
+        )
+
+    # 2. Failing CI — needs a fix before anything else
+    ci_lower = pr.ci_status.lower()
+    if ci_lower in _CI_FAILING_STATUSES:
+        if _is_receipt_only_failure(pr) and pr.ticket_ids:
+            return _result(
+                pr,
+                category=EnumPrTriageCategory.OCC_DEPENDENCY,
+                reason=(
+                    "Receipt Gate and/or occ-preflight is the only failing "
+                    "check — classify as OCC dependency and do not dispatch "
+                    "product-code fixes."
+                ),
+            )
+        if _is_receipt_only_failure(pr):
+            return _result(
+                pr,
+                category=EnumPrTriageCategory.RED,
+                reason=(
+                    "Receipt Gate/occ-preflight-only failure detected, but no "
+                    "ticket ID was found; fallback to RED to avoid an "
+                    "untracked OCC dependency."
+                ),
+            )
+        return _result(
+            pr,
+            category=EnumPrTriageCategory.RED,
+            reason=f"CI status is '{pr.ci_status}' — fix required before merge.",
+        )
+
+    # 3. Green — CI passing, approved, no unresolved threads
+    if ci_lower in _CI_PASSING_STATUSES and pr.approved and pr.open_threads == 0:
+        return _result(
+            pr,
+            category=EnumPrTriageCategory.GREEN,
+            reason="CI passing, approved, and no unresolved threads — ready to merge.",
+        )
+
+    # 4. Needs review — CI ok (passing or pending/unknown) but not yet approved
+    if not pr.approved:
+        reason = "Awaiting approval."
+        if ci_lower not in _CI_PASSING_STATUSES:
+            reason = f"CI status is '{pr.ci_status}' and awaiting approval."
+        elif pr.open_threads > 0:
+            reason = f"Approved but has {pr.open_threads} unresolved review thread(s)."
+        return _result(
+            pr,
+            category=EnumPrTriageCategory.NEEDS_REVIEW,
+            reason=reason,
+        )
+
+    # Approved but has open threads or non-passing CI
+    if pr.open_threads > 0:
+        return _result(
+            pr,
+            category=EnumPrTriageCategory.NEEDS_REVIEW,
+            reason=f"Approved but has {pr.open_threads} unresolved review thread(s).",
+        )
+
+    # Approved, no conflicts, no failing CI, no open threads — but CI not confirmed passing
+    return _result(
+        pr,
+        category=EnumPrTriageCategory.NEEDS_REVIEW,
+        reason=f"CI status is '{pr.ci_status}' — waiting for CI to pass before merge.",
+    )
+
+
+class HandlerPrLifecycleTriage:
+    """Classifies PRs from inventory data into triage categories.
+
+    Pure compute handler — no I/O, no network calls.
+    """
+
+    @property
+    def handler_type(self) -> Literal["NODE_HANDLER"]:
+        return "NODE_HANDLER"
+
+    @property
+    def handler_category(self) -> Literal["COMPUTE"]:
+        return "COMPUTE"
+
+    async def handle(
+        self,
+        request: ModelPrTriageInput,
+    ) -> ModelPrTriageOutput:
+        """Classify PRs into triage categories.
+
+        Canonical definition-B entrypoint: the shared runtime adapter
+        (``omnibase_core.runtime.runtime_local_adapter``) validates the wire
+        payload into ``ModelPrTriageInput`` and invokes this as the sole request
+        object. Pure compute (no I/O, no envelope).
+
+        Args:
+            request: Validated triage input (correlation id + PR inventory items).
+
+        Returns:
+            ModelPrTriageOutput with per-PR results and category counts.
+        """
+        correlation_id = request.correlation_id
+        prs = request.prs
+        logger.info(
+            "Triaging %d PRs (correlation_id=%s)",
+            len(prs),
+            correlation_id,
+        )
+
+        results: list[ModelPrTriageResult] = []
+        total_green = 0
+        total_red = 0
+        total_conflicted = 0
+        total_occ_dependency = 0
+        total_needs_review = 0
+
+        for pr in prs:
+            result = _classify_pr(pr)
+            results.append(result)
+            if result.category == EnumPrTriageCategory.GREEN:
+                total_green += 1
+            elif result.category == EnumPrTriageCategory.RED:
+                total_red += 1
+            elif result.category == EnumPrTriageCategory.CONFLICTED:
+                total_conflicted += 1
+            elif result.category == EnumPrTriageCategory.OCC_DEPENDENCY:
+                total_occ_dependency += 1
+            else:
+                total_needs_review += 1
+
+        logger.info(
+            "Triage complete: green=%d red=%d conflicted=%d occ_dependency=%d needs_review=%d",
+            total_green,
+            total_red,
+            total_conflicted,
+            total_occ_dependency,
+            total_needs_review,
+        )
+
+        return ModelPrTriageOutput(
+            correlation_id=correlation_id,
+            results=tuple(results),
+            total_green=total_green,
+            total_red=total_red,
+            total_conflicted=total_conflicted,
+            total_occ_dependency=total_occ_dependency,
+            total_needs_review=total_needs_review,
+        )

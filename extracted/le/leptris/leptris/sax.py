@@ -1,0 +1,437 @@
+"""SAX parsing over the libleptris event recorder (Ruby-parity surface).
+
+Events are buffered C-side and drained in bulk (records + a packed
+arena, one transfer per chunk — libleptris 1.9.4+): no per-event
+libffi callbacks, which measured ~2.5 µs each. Use SAX for huge
+documents where you must not hold the tree.
+
+Error model: parse failures surface as a recorded ERROR event; the
+default SAXHandler.error stores it and leptris.sax raises ParseError
+after the drain completes.
+"""
+
+from __future__ import annotations
+
+import threading
+from typing import Optional, Tuple
+
+from . import _ffi
+from .error import ParseError
+from .error import ParseError
+
+
+class SAXHandler:
+    """Subclass and override the events you care about."""
+
+    last_error: Optional[Tuple[str, int, int]] = None
+
+    def start_document(self) -> None:
+        pass
+
+    def end_document(self) -> None:
+        pass
+
+    def start_element(self, name: str, attributes: dict) -> None:
+        pass
+
+    def end_element(self, name: str) -> None:
+        pass
+
+    def characters(self, text: str) -> None:
+        pass
+
+    def comment(self, text: str) -> None:
+        pass
+
+    def cdata(self, text: str) -> None:
+        pass
+
+    def processing_instruction(self, target: str, data: str) -> None:
+        pass
+
+    def start_prefix_mapping(self, prefix: str, uri: str) -> None:
+        pass
+
+    def end_prefix_mapping(self, prefix: str) -> None:
+        pass
+
+    def error(self, message: str, line: int, column: int) -> None:
+        self.last_error = (message, line, column)
+
+
+def _decode(value) -> Optional[str]:
+    if value == _ffi.ffi.NULL:
+        return None
+    return _ffi.ffi.string(value).decode("utf-8", "replace")
+
+
+_KIND_START_DOCUMENT = 0
+_KIND_END_DOCUMENT = 1
+_KIND_START_ELEMENT = 2
+_KIND_END_ELEMENT = 3
+_KIND_CHARACTERS = 4
+_KIND_COMMENT = 5
+_KIND_CDATA = 6
+_KIND_PI = 7
+_KIND_START_PREFIX = 8
+_KIND_END_PREFIX = 9
+_KIND_ERROR = 10
+
+
+def _drain(handler: SAXHandler, recorder, chunk_label: str) -> None:
+    """Read one chunk's buffered records and dispatch them.
+
+    The accelerator drains in C (TODO.native/22: the Python loop was
+    91% of the SAX row); the loop below is the reference + fallback."""
+    from .element import _accel
+
+    if _accel is not None:
+        _accel.sax_drain(
+            int(_ffi.ffi.cast("uintptr_t", recorder)), handler
+        )
+        return
+    lib, ffi = _ffi.lib, _ffi.ffi
+    count = ffi.new("size_t*")
+    records = lib.leptris_sax_recorder_records(recorder, count)
+    if records == ffi.NULL or count[0] == 0:
+        return
+    arena_len = ffi.new("size_t*")
+    arena = bytes(
+        ffi.buffer(lib.leptris_sax_recorder_arena(recorder, arena_len), arena_len[0])
+    )
+
+    def slice_(offset: int, length: int) -> str:
+        return arena[offset : offset + length].decode("utf-8", "replace") if length else ""
+
+    for index in range(count[0]):
+        record = records[index]
+        kind = record.kind
+        name = slice_(record.name_off, record.name_len)
+        text = slice_(record.text_off, record.text_len)
+        if kind == _KIND_START_DOCUMENT:
+            handler.start_document()
+        elif kind == _KIND_END_DOCUMENT:
+            handler.end_document()
+        elif kind == _KIND_START_ELEMENT:
+            attributes = {}
+            offset = record.attrs_off
+            for _ in range(record.attr_count):
+                end = arena.index(b"\x00", offset)
+                attr_name = arena[offset:end].decode("utf-8", "replace")
+                value_start = end + 1
+                value_end = arena.index(b"\x00", value_start)
+                attributes[attr_name] = arena[value_start:value_end].decode(
+                    "utf-8", "replace"
+                )
+                offset = value_end + 1
+            handler.start_element(name, attributes)
+        elif kind == _KIND_END_ELEMENT:
+            handler.end_element(name)
+        elif kind == _KIND_CHARACTERS:
+            handler.characters(text)
+        elif kind == _KIND_COMMENT:
+            handler.comment(text)
+        elif kind == _KIND_CDATA:
+            handler.cdata(text)
+        elif kind == _KIND_PI:
+            handler.processing_instruction(name, text)
+        elif kind == _KIND_START_PREFIX:
+            handler.start_prefix_mapping(name, text)
+        elif kind == _KIND_END_PREFIX:
+            handler.end_prefix_mapping(name)
+        elif kind == _KIND_ERROR:
+            handler.error(text, record.line, record.column)
+
+
+def _raise_if_failed(handler: SAXHandler) -> None:
+    if handler.last_error is not None:
+        message, line, column = handler.last_error
+        raise ParseError(f"{message} (line {line}, column {column})")
+
+
+_shared_recorder = None
+_shared_recorder_lock = threading.Lock()
+
+
+def _skip_flags(skip_dup_detection, skip_source_positions) -> int:
+    """Door A opt-out bits (libleptris 1.9.284+): the same values
+    LeptrisParseFlags uses on the DOM path."""
+    return ((8 if skip_dup_detection else 0)
+            | (16 if skip_source_positions else 0))
+
+
+def parse(xml, handler: SAXHandler, *, skip_dup_detection: bool = False,
+          skip_source_positions: bool = False) -> None:
+    """One-shot SAX parse of a complete document.
+
+    Runs on a module-level recorder reused across calls (reset —
+    libleptris 1.9.10): retaining the arena saves ~21% per document
+    versus new+free per parse. The lock serializes recorder access —
+    cffi RELEASES the GIL around each C call, so even on a GIL build
+    concurrent parses interleave feed/reset/drain on the shared
+    recorder and corrupt it (found by the TODO.native/13 thread
+    specs); free-threaded builds need it regardless. Uncontended
+    acquisition is nanoseconds; arena reuse is kept.
+    """
+    global _shared_recorder
+    if isinstance(xml, str):
+        xml = xml.encode("utf-8")
+    handler.last_error = None
+    lib, ffi = _ffi.lib, _ffi.ffi
+    flags = _skip_flags(skip_dup_detection, skip_source_positions)
+    with _shared_recorder_lock:
+        if flags:
+            # reset() restores creation-time flags to defaults
+            # (leptris/leptris#1472), so flagged calls cannot share
+            # the reused recorder — fresh per call; the arena-reuse
+            # saving is traded for the skip saving
+            recorder = lib.leptris_sax_recorder_new_flags(flags)
+            if recorder == ffi.NULL:
+                raise ParseError("could not create SAX recorder")
+            rc = lib.leptris_sax_recorder_feed(recorder, xml, len(xml), 1)
+            _drain(handler, recorder, "document")
+            _raise_if_failed(handler)
+            lib.leptris_sax_recorder_free(recorder)
+            if rc != 0 and handler.last_error is None:
+                raise ParseError("SAX parse failed")
+            return
+        recorder = _shared_recorder
+        if recorder is None:
+            recorder = lib.leptris_sax_recorder_new()
+            if recorder == ffi.NULL:
+                raise ParseError("could not create SAX recorder")
+            _shared_recorder = recorder
+        lib.leptris_sax_recorder_reset(recorder)
+        rc = lib.leptris_sax_recorder_feed(recorder, xml, len(xml), 1)
+        _drain(handler, recorder, "document")
+        _raise_if_failed(handler)
+    if rc != 0 and handler.last_error is None:
+        raise ParseError("SAX parse failed")
+
+
+class StreamingParser:
+    """Push parser: feed() chunks, mark the last one final=True.
+
+    Events for each chunk are buffered C-side and drained in bulk on
+    return (libleptris 1.9.4+ recorder); memory stays bounded by the
+    largest chunk's event backlog, not the document size.
+
+    The `streaming` keyword is accepted for backward compatibility
+    and ignored: the recorder always streams (the legacy buffering
+    mode it used to select no longer exists); passing False emits a
+    DeprecationWarning.
+    """
+
+    def __init__(self, handler: SAXHandler, *, streaming: bool = True,
+                 skip_dup_detection: bool = False,
+                 skip_source_positions: bool = False):
+        if not streaming:
+            import warnings
+
+            warnings.warn(
+                "streaming=False is deprecated: the event recorder "
+                "always streams (legacy buffering mode is gone)",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        self._handler = handler
+        handler.last_error = None  # same reuse contract as sax.parse
+        flags = _skip_flags(skip_dup_detection, skip_source_positions)
+        new_recorder = (_ffi.lib.leptris_sax_recorder_new_flags(flags)
+                        if flags
+                        else _ffi.lib.leptris_sax_recorder_new())
+        self._recorder = new_recorder
+        if self._recorder == _ffi.ffi.NULL:
+            raise ParseError("could not create SAX recorder")
+
+    def feed(self, chunk, *, final: bool = False) -> None:
+        if self._recorder is None:
+            raise ParseError("parser is closed")
+        if isinstance(chunk, str):
+            chunk = chunk.encode("utf-8")
+        rc = _ffi.lib.leptris_sax_recorder_feed(
+            self._recorder, chunk, len(chunk), 1 if final else 0
+        )
+        _drain(self._handler, self._recorder, "chunk")
+        _raise_if_failed(self._handler)
+        if rc != 0 and self._handler.last_error is None:
+            raise ParseError("SAX parse failed")
+
+    def close(self) -> None:
+        if self._recorder is not None:
+            _ffi.lib.leptris_sax_recorder_free(self._recorder)
+            self._recorder = None
+
+    def __enter__(self) -> "StreamingParser":
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.close()
+
+    def __del__(self):
+        try:
+            self.close()
+        except Exception:
+            pass
+
+
+def records(source) -> "SaxRecords":
+    """Parse a whole document into a flat record tape in ONE
+    crossing (libleptris 1.9.226+, ``leptris_sax_records_parse``):
+    no per-event callback dispatch — iterate the records afterward.
+
+    .. versionadded:: 1.9.237.1
+    """
+    return SaxRecords(source)
+
+
+class SaxRecord:
+    """One record of the flat SAX tape: an element (name, attrs,
+    tree links, offsets) or a text run. Views decode from the
+    tape's buffer lazily; everything dies with the tape."""
+
+    __slots__ = ("_tape", "_index")
+
+    def __init__(self, tape, index):
+        self._tape = tape
+        self._index = index
+
+    @property
+    def kind(self) -> str:
+        return "element" if self._tape.kind_of(self._index) == 0 else "text"
+
+    @property
+    def parent(self):
+        raw = self._tape.parent_of(self._index)
+        return None if raw == 0xFFFFFFFF else raw
+
+    @property
+    def next_sibling(self):
+        raw = self._tape.next_sib_of(self._index)
+        return None if raw == 0xFFFFFFFF else raw
+
+    @property
+    def name(self):
+        return self._tape.view(self._index)
+
+    @property
+    def text(self):
+        if self.kind != "text":
+            return None
+        return self._tape.view(self._index)
+
+    @property
+    def line(self) -> int:
+        return self._tape.line_of(self._index)
+
+    @property
+    def self_closing(self) -> bool:
+        return self._tape.self_closing_of(self._index)
+
+    @property
+    def attrs(self) -> list:
+        return self._tape.attrs_of(self._index)
+
+    def __repr__(self) -> str:
+        if self.kind == "element":
+            return f"<SaxRecord element {self.name!r} at {self._index}>"
+        return f"<SaxRecord text at {self._index}>"
+
+
+class SaxRecords:
+    """The whole-document flat SAX tape (libleptris 1.9.226+,
+    leptris_sax_records_parse): ONE crossing drains the document
+    into a record table — no per-event callback dispatch. Iterate
+    records in document order; attribute and name views decode
+    lazily from the tape buffer.
+
+    .. versionadded:: 1.9.237.1
+    """
+
+    __slots__ = ("_handle", "_count", "_data", "_attrs", "_nattrs",
+                 "_buffer")
+
+    def __init__(self, source):
+        from . import _ffi as _binding
+
+        ffi = _binding.ffi
+        lib = _binding.lib
+        if isinstance(source, str):
+            source = source.encode("utf-8")
+        elif isinstance(source, (bytearray, memoryview)):
+            source = bytes(source)
+        if not isinstance(source, bytes):
+            raise TypeError("expected str or bytes")
+        out = ffi.new("LeptrisSaxRecords**")
+        rc = lib.leptris_sax_records_parse(source, len(source), 0, out)
+        if rc != 0 or out[0] == ffi.NULL:
+            raise ParseError(
+                f"SAX records parse failed (status {rc})"
+            )
+        self._handle = out[0]
+        self._count = lib.leptris_sax_records_count(self._handle)
+        self._data = lib.leptris_sax_records_data(self._handle)
+        nattrs = ffi.new("size_t*")
+        self._attrs = lib.leptris_sax_records_attrs(self._handle, nattrs)
+        self._nattrs = nattrs[0]
+        self._buffer = lib.leptris_sax_records_buffer(self._handle)
+
+    def __len__(self) -> int:
+        return self._count
+
+    def free(self) -> None:
+        if getattr(self, "_handle", None) is not None:
+            _ffi.lib.leptris_sax_records_free(self._handle)
+            self._handle = None
+
+    def __enter__(self) -> "SaxRecords":
+        return self
+
+    def __exit__(self, *exc) -> None:
+        self.free()
+
+    def __del__(self):
+        try:
+            self.free()
+        except Exception:
+            pass
+
+    # -- internals used by the SaxRecord views -----------------------
+
+    def kind_of(self, index):
+        return self._data[index].kind
+
+    def parent_of(self, index):
+        return self._data[index].parent
+
+    def next_sib_of(self, index):
+        return self._data[index].next_sib
+
+    def line_of(self, index):
+        return self._data[index].line
+
+    def self_closing_of(self, index):
+        return bool(self._data[index].self_closing)
+
+    def view(self, index):
+        rec = self._data[index]
+        raw = _ffi.ffi.string(self._buffer + rec.off)
+        return raw[: rec.len].decode("utf-8", "replace")
+
+    def attrs_of(self, index):
+        rec = self._data[index]
+        out = []
+        for i in range(rec.attr_count):
+            attr = self._attrs[rec.attr_first + i]
+            name = _ffi.ffi.string(self._buffer + attr.name_off)[
+                : attr.name_len
+            ].decode("utf-8", "replace")
+            value = _ffi.ffi.string(self._buffer + attr.value_off)[
+                : attr.value_len
+            ].decode("utf-8", "replace")
+            out.append((name, value))
+        return out
+
+    def __iter__(self):
+        for index in range(self._count):
+            yield SaxRecord(self, index)

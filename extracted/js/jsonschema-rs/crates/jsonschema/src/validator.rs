@@ -1,7 +1,7 @@
 //! Building a JSON Schema validator.
 //! The main idea is to create a tree from the input JSON Schema. This tree will contain
 //! everything needed to perform such validation in runtime.
-use std::collections::hash_map::Entry;
+use std::{collections::hash_map::Entry, sync::Arc};
 
 use crate::{
     error::ErrorIterator,
@@ -13,6 +13,7 @@ use crate::{
     Draft, Json, NodeIdentity, SerdeJson, ValidationError, ValidationOptions,
 };
 use ahash::AHashMap;
+use referencing::Uri;
 use serde_json::Value;
 
 // Re-export LazyEvaluationPath from paths module
@@ -307,10 +308,30 @@ pub(crate) trait Validate<F: Json = SerdeJson>: Send + Sync {
     /// canonical location, so this returns `None` by default.
     ///
     /// `RefValidator` and similar by-reference validators override this to return
-    /// the target schema's canonical location (e.g., `/$defs/item` instead of
-    /// `/properties/foo/$ref`).
-    fn canonical_location(&self) -> Option<&Location> {
+    /// the target schema's location within its resource (e.g., `/$defs/item` instead of
+    /// `/properties/foo/$ref`), together with its absolute URI when the resource has one.
+    fn canonical_location(&self) -> Option<(&Location, Option<&Arc<Uri<String>>>)> {
         None
+    }
+}
+
+/// `evaluate` for a keyword that asserts on the instance alone and annotates nothing: a valid
+/// instance skips building errors.
+pub(crate) fn evaluate_assertion<F: Json, V: Validate<F>>(
+    validator: &V,
+    instance: &F::Node<'_>,
+    location: &LazyLocation,
+    tracker: Option<&RefTracker>,
+    ctx: &mut ValidationContext,
+) -> EvaluationResult {
+    if validator.is_valid(instance, ctx) {
+        return EvaluationResult::valid_empty();
+    }
+    match validator.validate(instance, location, tracker, ctx) {
+        Ok(()) => EvaluationResult::valid_empty(),
+        Err(error) => {
+            EvaluationResult::invalid_empty(vec![ErrorDescription::from_validation_error(&error)])
+        }
     }
 }
 
@@ -423,6 +444,9 @@ impl EvaluationResult {
 /// of the schema tree and the configuration options used during compilation.
 pub struct Validator<F: Json = SerdeJson> {
     pub(crate) root: SchemaNode<F>,
+    /// `$ref` targets compiled off the call stack. Owning them here drops a long `$ref` chain
+    /// one target at a time; `root` drops first, so each target is released from this list.
+    pub(crate) targets: Vec<SchemaNode<F>>,
     pub(crate) draft: Draft,
 }
 
@@ -430,6 +454,7 @@ impl<F: Json> Clone for Validator<F> {
     fn clone(&self) -> Self {
         Self {
             root: self.root.clone(),
+            targets: self.targets.clone(),
             draft: self.draft,
         }
     }
@@ -440,7 +465,7 @@ impl<F: Json> std::fmt::Debug for Validator<F> {
         f.debug_struct("Validator")
             .field("root", &self.root)
             .field("draft", &self.draft)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -556,7 +581,8 @@ impl<F: Json> Validator<F> {
         let root = ctx.arena.push(root);
         Evaluation::new(std::mem::take(&mut ctx.arena), root)
     }
-    /// The [`Draft`] which was used to build this validator.
+    /// The [`Draft`] this validator applies: the one set via `with_draft`, else the one `$schema`
+    /// declares, else the default.
     #[must_use]
     pub fn draft(&self) -> Draft {
         self.draft
@@ -629,7 +655,8 @@ impl<F: Json> std::ops::Index<&str> for ValidatorMap<F> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        error::ValidationError, keywords::custom::Keyword, paths::Location, Validator, ValidatorMap,
+        error::ValidationError, keywords::custom::Keyword, paths::Location, Draft, Validator,
+        ValidatorMap,
     };
     use fancy_regex::Regex;
     use num_cmp::NumCmp;
@@ -686,6 +713,136 @@ mod tests {
             assert_eq!(unit["instanceLocation"], format!("/{idx}/value"));
             assert_eq!(unit["schemaLocation"], "/$defs/leaf/type");
         }
+    }
+
+    #[test]
+    fn debug_shows_root_and_draft() {
+        let validator = crate::validator_for(&json!(true)).expect("Valid schema");
+        assert_eq!(
+            format!("{validator:?}"),
+            r#"Validator { root: SchemaNode { inner: SchemaNodeInner { validators: Boolean, .. }, location: Location(""), .. }, draft: Draft202012, .. }"#
+        );
+    }
+
+    fn schema_declaring(uri: Option<&str>) -> Value {
+        match uri {
+            Some(uri) => json!({"$schema": uri, "type": "string"}),
+            None => json!({"type": "string"}),
+        }
+    }
+
+    #[test_case(None, None, Draft::Draft202012; "no schema default")]
+    #[test_case(Some("http://json-schema.org/draft-04/schema#"), None, Draft::Draft4; "draft 4")]
+    #[test_case(Some("http://json-schema.org/draft-06/schema#"), None, Draft::Draft6; "draft 6")]
+    #[test_case(Some("http://json-schema.org/draft-07/schema#"), None, Draft::Draft7; "draft 7")]
+    #[test_case(Some("https://json-schema.org/draft/2019-09/schema"), None, Draft::Draft201909; "draft 2019-09")]
+    #[test_case(Some("https://json-schema.org/draft/2020-12/schema"), None, Draft::Draft202012; "draft 2020-12")]
+    #[test_case(Some("https://json-schema.org/schema"), None, Draft::Draft202012; "version-less")]
+    #[test_case(None, Some(Draft::Draft4), Draft::Draft4; "no schema explicit draft 4")]
+    #[test_case(Some("http://json-schema.org/draft-04/schema#"), Some(Draft::Draft4), Draft::Draft4; "explicit draft 4 matching")]
+    #[test_case(Some("http://json-schema.org/draft-07/schema#"), Some(Draft::Draft4), Draft::Draft4; "explicit draft 4 over draft 7")]
+    #[test_case(Some("http://json-schema.org/draft-04/schema#"), Some(Draft::Draft202012), Draft::Draft202012; "explicit draft 2020-12 over draft 4")]
+    #[test_case(Some("https://json-schema.org/draft/2020-12/schema"), Some(Draft::Draft6), Draft::Draft6; "explicit draft 6 over draft 2020-12")]
+    fn reports_draft_used_to_validate(uri: Option<&str>, explicit: Option<Draft>, expected: Draft) {
+        let schema = schema_declaring(uri);
+        let mut options = crate::options();
+        if let Some(draft) = explicit {
+            options = options.with_draft(draft);
+        }
+        let validator = options.build(&schema).expect("Valid schema");
+        let map = options.build_map(&schema).expect("Valid schema");
+        let root = map.get("#").expect("Root is present");
+        assert_eq!([validator.draft(), root.draft()], [expected; 2]);
+    }
+
+    #[test]
+    fn validator_for_reports_declared_draft() {
+        let schema = schema_declaring(Some("http://json-schema.org/draft-04/schema#"));
+        let validator = crate::validator_for(&schema).expect("Valid schema");
+        assert_eq!(validator.draft(), Draft::Draft4);
+    }
+
+    #[test]
+    fn draft_constructors_report_their_draft() {
+        let schema = schema_declaring(Some("https://json-schema.org/draft/2020-12/schema"));
+        let drafts = [
+            crate::draft4::new(&schema).expect("Valid schema").draft(),
+            crate::draft6::new(&schema).expect("Valid schema").draft(),
+            crate::draft7::new(&schema).expect("Valid schema").draft(),
+            crate::draft201909::new(&schema)
+                .expect("Valid schema")
+                .draft(),
+            crate::draft202012::new(&schema)
+                .expect("Valid schema")
+                .draft(),
+        ];
+        assert_eq!(
+            drafts,
+            [
+                Draft::Draft4,
+                Draft::Draft6,
+                Draft::Draft7,
+                Draft::Draft201909,
+                Draft::Draft202012
+            ]
+        );
+    }
+
+    #[test]
+    fn meta_validators_report_their_draft() {
+        let drafts = [
+            crate::draft4::meta::validator().draft(),
+            crate::draft6::meta::validator().draft(),
+            crate::draft7::meta::validator().draft(),
+            crate::draft201909::meta::validator().draft(),
+            crate::draft202012::meta::validator().draft(),
+        ];
+        assert_eq!(
+            drafts,
+            [
+                Draft::Draft4,
+                Draft::Draft6,
+                Draft::Draft7,
+                Draft::Draft201909,
+                Draft::Draft202012
+            ]
+        );
+    }
+
+    #[test]
+    fn custom_meta_schema_reports_the_draft_it_builds_on() {
+        let meta_schema = crate::Resource::from_contents(json!({
+            "$id": "https://example.com/meta",
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "type": "object"
+        }));
+        let registry = crate::Registry::new()
+            .add("https://example.com/meta", meta_schema)
+            .expect("Valid resource")
+            .prepare()
+            .expect("Valid registry");
+        let schema = schema_declaring(Some("https://example.com/meta"));
+        let validator = crate::options()
+            .with_registry(&registry)
+            .build(&schema)
+            .expect("Valid schema");
+        assert_eq!(validator.draft(), Draft::Draft7);
+    }
+
+    #[test]
+    fn unknown_meta_schema_is_rejected() {
+        let schema = schema_declaring(Some("https://example.com/unknown"));
+        assert!(crate::options().offline().build(&schema).is_err());
+    }
+
+    #[cfg(all(feature = "resolve-async", not(target_family = "wasm")))]
+    #[tokio::test]
+    async fn async_build_reports_declared_draft() {
+        let schema = schema_declaring(Some("http://json-schema.org/draft-04/schema#"));
+        let validator = crate::async_validator_for(&schema)
+            .await
+            .expect("Valid schema");
+        assert_eq!(validator.draft(), Draft::Draft4);
     }
 
     #[test]
@@ -1101,6 +1258,52 @@ mod tests {
         assert_eq!(error.to_string(), "invalid schema value");
         assert_eq!(error.schema_path().as_str(), "/properties/field/myKeyword");
     }
+
+    #[test]
+    fn custom_keyword_forwards_nested_error_kind() {
+        struct Delegate(Validator);
+
+        impl<'i> Keyword<'i> for Delegate {
+            fn validate(&self, instance: &'i Value) -> Result<(), ValidationError<'i>> {
+                self.0.validate(instance)
+            }
+            fn is_valid(&self, instance: &'i Value) -> bool {
+                self.0.is_valid(instance)
+            }
+        }
+
+        fn delegate<'a>(
+            _: &'a Map<String, Value>,
+            value: &'a Value,
+            _: Location,
+        ) -> Result<Box<dyn for<'i> Keyword<'i>>, ValidationError<'a>> {
+            let validator = crate::validator_for(value).map_err(ValidationError::to_owned)?;
+            Ok(Box::new(Delegate(validator)))
+        }
+
+        let validator = crate::options()
+            .with_keyword("inner", delegate)
+            .build(&json!({"properties": {"a": {"inner": {"minimum": 3}}}}))
+            .expect("Valid schema");
+        let instance = json!({"a": 1});
+        let error = validator.validate(&instance).expect_err("Should fail");
+        assert_eq!(
+            (
+                error.to_string(),
+                error.kind().keyword(),
+                error.instance_path().as_str(),
+                error.schema_path().as_str(),
+                error.evaluation_path().as_str(),
+            ),
+            (
+                "1 is less than the minimum of 3".to_string(),
+                "minimum",
+                "/a",
+                "/properties/a/inner",
+                "/properties/a/inner",
+            )
+        );
+    }
     struct AcceptAny;
 
     impl<'i> Keyword<'i> for AcceptAny {
@@ -1488,5 +1691,45 @@ mod tests {
         assert!(!map["#/$defs/User"].is_valid(&json!({})));
         assert!(map["#/$defs/Role"].is_valid(&json!("admin")));
         assert!(!map["#/$defs/Role"].is_valid(&json!("superuser")));
+    }
+
+    #[test_case(&json!({"minItems": 2}), &json!([1, 2]), &json!({"valid": true, "details": [
+        {"valid": true, "evaluationPath": "", "schemaLocation": "", "instanceLocation": ""},
+        {"valid": true, "evaluationPath": "/minItems", "schemaLocation": "/minItems", "instanceLocation": ""}
+    ]}); "minItems valid")]
+    #[test_case(&json!({"minItems": 2}), &json!([1]), &json!({"valid": false, "details": [
+        {"valid": false, "evaluationPath": "", "schemaLocation": "", "instanceLocation": ""},
+        {"valid": false, "evaluationPath": "/minItems", "schemaLocation": "/minItems", "instanceLocation": "",
+         "errors": {"minItems": "[1] has less than 2 items"}}
+    ]}); "minItems invalid")]
+    #[test_case(&json!({"maxItems": 1}), &json!([1, 2]), &json!({"valid": false, "details": [
+        {"valid": false, "evaluationPath": "", "schemaLocation": "", "instanceLocation": ""},
+        {"valid": false, "evaluationPath": "/maxItems", "schemaLocation": "/maxItems", "instanceLocation": "",
+         "errors": {"maxItems": "[1,2] has more than 1 item"}}
+    ]}); "maxItems invalid")]
+    #[test_case(&json!({"minLength": 2}), &json!("a"), &json!({"valid": false, "details": [
+        {"valid": false, "evaluationPath": "", "schemaLocation": "", "instanceLocation": ""},
+        {"valid": false, "evaluationPath": "/minLength", "schemaLocation": "/minLength", "instanceLocation": "",
+         "errors": {"minLength": "\"a\" is shorter than 2 characters"}}
+    ]}); "minLength invalid")]
+    #[test_case(&json!({"maxLength": 1}), &json!("ab"), &json!({"valid": false, "details": [
+        {"valid": false, "evaluationPath": "", "schemaLocation": "", "instanceLocation": ""},
+        {"valid": false, "evaluationPath": "/maxLength", "schemaLocation": "/maxLength", "instanceLocation": "",
+         "errors": {"maxLength": "\"ab\" is longer than 1 character"}}
+    ]}); "maxLength invalid")]
+    #[test_case(&json!({"minProperties": 1}), &json!({}), &json!({"valid": false, "details": [
+        {"valid": false, "evaluationPath": "", "schemaLocation": "", "instanceLocation": ""},
+        {"valid": false, "evaluationPath": "/minProperties", "schemaLocation": "/minProperties", "instanceLocation": "",
+         "errors": {"minProperties": "{} has less than 1 property"}}
+    ]}); "minProperties invalid")]
+    #[test_case(&json!({"maxProperties": 0}), &json!({"a": 1}), &json!({"valid": false, "details": [
+        {"valid": false, "evaluationPath": "", "schemaLocation": "", "instanceLocation": ""},
+        {"valid": false, "evaluationPath": "/maxProperties", "schemaLocation": "/maxProperties", "instanceLocation": "",
+         "errors": {"maxProperties": "{\"a\":1} has more than 0 properties"}}
+    ]}); "maxProperties invalid")]
+    fn size_keyword_output(schema: &Value, instance: &Value, expected: &Value) {
+        let validator = crate::validator_for(schema).expect("Valid schema");
+        let list = serde_json::to_value(validator.evaluate(instance).list()).expect("List output");
+        assert_eq!(&list, expected);
     }
 }

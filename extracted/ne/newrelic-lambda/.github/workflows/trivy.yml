@@ -1,0 +1,70 @@
+# Copyright 2020 New Relic, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+name: Trivy
+
+on:
+  pull_request:
+  schedule:
+    - cron: "0 15 * * *"
+
+concurrency:
+  group: ${{ github.ref || github.run_id }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Upload Trivy data
+  trivy:
+    if: success() || failure() # Does not run on cancelled workflows
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      # Git Checkout
+      - name: Checkout Code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # 7.0.1
+        with:
+          token: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Run Trivy vulnerability scanner in repo mode
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: "fs"
+          ignore-unfixed: true
+          format: table
+          exit-code: 1
+          severity: "CRITICAL,HIGH,MEDIUM,LOW"
+
+      - name: Run Trivy vulnerability scanner in repo mode
+        if: ${{ github.event_name == 'schedule' }}
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: "fs"
+          ignore-unfixed: true
+          format: "sarif"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH,MEDIUM,LOW"
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        if: ${{ github.event_name == 'schedule' }}
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # 4.38.2
+        with:
+          sarif_file: "trivy-results.sarif"

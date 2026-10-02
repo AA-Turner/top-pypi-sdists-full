@@ -1,0 +1,1977 @@
+#!/usr/bin/env bash
+# runner-monitor.sh — Self-hosted runner health monitor with Slack alerts
+# Deployed to: 192.168.86.201:~/.omnibase/runners/runner-monitor.sh
+# Cron: */3 * * * * (every 3 minutes)
+# Ticket: OMN-13109 (silent-wedge + crash-loop detection)
+#
+# Checks configured omninode-runner-* containers and their GitHub Actions
+# registrations. Fires a Slack alert on state transitions. Resolves silently
+# when all recover. Uses a state file to prevent alert spam.
+#
+# Detection layers (each catches a failure mode the previous layer misses):
+#
+#   1. CONTAINER + REGISTRATION (legacy): container is `Up (healthy)` AND the
+#      runner is `online` in the GitHub org pool. The OMN-12433 healthcheck
+#      additionally proves github.com egress.
+#
+#   2. SILENT-WEDGE (OMN-13109): a runner can be `Up (healthy)` and `online`
+#      while NOT pulling jobs — the Runner.Listener is alive and the long-poll
+#      registration looks connected, but the runner is not picking up queued
+#      work (last job days old). Container-only and registration-only checks
+#      both PASS this state. We detect it by cross-referencing the GitHub
+#      `busy` field against jobs that are QUEUED for our runner labels: if work
+#      has been queued longer than WEDGE_QUEUE_AGE_SECONDS while the fleet sits
+#      idle (online + not busy), the fleet is wedged.
+#
+#   3. OFFLINE-IDLE-REGISTRATION (OMN-13912): GitHub can report a runner
+#      offline while Docker reports `Up (healthy)` and the local listener logs
+#      prove it is still connected/listening or actively running jobs. The host
+#      and listener are the primary truth for this class; GitHub offline is
+#      recorded as degraded/corroborating evidence, not counted unhealthy, until
+#      local evidence also fails.
+#
+#   4. CRASH-LOOP-ON-RESTART (OMN-13109): a blanket `docker restart` crash-loops
+#      these runners — the entrypoint re-runs config.sh, which reports "already
+#      configured", exits, and compose `restart: unless-stopped` immediately
+#      restarts it. This shows up as a climbing container RestartCount and/or
+#      repeated re-registration markers in `docker logs`. We detect both and
+#      alert with the explicit SAFE remediation (NOT `docker restart`).
+#
+# SAFE remediation recipe (documented; NOT auto-executed unless explicitly
+# enabled — see MONITOR_AUTO_BOUNCE below):
+#
+#   Bounce ONLY the specific crash-looping/missing/stuck service via:
+#     docker compose -f <compose> up -d --force-recreate <service>
+#   with a FRESHLY minted registration token, run DETACHED.
+#   NEVER `docker restart`           → crash-loops (cached creds + baked token expired)
+#   NEVER an empty service filter    → would recreate all 48 at once
+#   NEVER block on the bounce        → run in background, mutex-guarded, timeout
+#                                       scales with batch size (OMN-13947)
+#
+# AUTO-BOUNCE SAFETY INVARIANTS (OMN-16947 — the 2026-08-29 fleet outage, where
+# a single false-positive wedge finding force-recreated all 88 healthy runners
+# in one compose call and needed two dockerd restarts to recover):
+#
+#   A. A runner that is present, registered, and listening is NEVER a bounce
+#      target. Only hard per-runner failure evidence earns a recreate.
+#   B. A SILENT-WEDGE is ALERT-ONLY. It contributes exactly one actionable
+#      finding and ZERO recreate targets; the operator gets the rendered
+#      fleet-wide recipe and makes that call themselves.
+#   C. A queued job older than WEDGE_QUEUE_AGE_MAX_SECONDS is a zombie
+#      (abandoned run GitHub never reaped), not wedge evidence.
+#   D. At most AUTO_BOUNCE_MAX_TARGETS_PER_TICK containers may be recreated per
+#      tick, enforced inside auto_bounce() below every collection path.
+#   E. The bounce is SEQUENTIAL and VERIFIED: one compose call per target, each
+#      confirmed `running` before the next is touched; a target that does not
+#      recover HALTS the batch instead of cascading.
+#   F. `docker compose config` must interpolate before any bounce is dispatched
+#      — or claimed. A broken monitor env is a loud alert, never a silent no-op.
+
+set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Config
+# ---------------------------------------------------------------------------
+STATE_FILE="${RUNNER_MONITOR_STATE_FILE:-/tmp/runner-monitor-state.json}"
+# OMN-19169: how many CONSECUTIVE observations a changed actionable count must
+# survive before it is announced to Slack. The transition arms below used to be
+# pure edge triggers, so an input that oscillates on this monitor's own cadence
+# paged twice per oscillation: 46 of 165 notification-channel messages over 15h
+# on 2026-09-22 were this script alternating ALERT/RECOVERED on a transient
+# wedge, against a fleet its own log read as 60/60 healthy. The dwell counter
+# lives in STATE_FILE rather than in this process, which is also what makes the
+# TWO cron entries that run this script (a 3-minute monitor pass and a 10-minute
+# auto-bounce pass) cooperate on one announced state instead of racing it.
+# Detection, remediation and the state file are NOT delayed by this -- only the
+# Slack announcement is.
+ALERT_DWELL_CYCLES="${RUNNER_MONITOR_ALERT_DWELL_CYCLES:-3}"
+if ! [[ "${ALERT_DWELL_CYCLES}" =~ ^[0-9]+$ ]] || [[ "${ALERT_DWELL_CYCLES}" -lt 1 ]]; then
+    ALERT_DWELL_CYCLES=3
+fi
+# OMN-19958: per-container cgroup OOM-kill counters. See the "Runner OOM-kill
+# counters" block below for why State.OOMKilled alone never saw the 2026-09-28
+# .202 kills. The last counter value per container id lives beside STATE_FILE,
+# in its own file, so the dwell state above never has to carry it.
+RUNNER_MONITOR_OOM_KILL_SCAN="${RUNNER_MONITOR_OOM_KILL_SCAN:-true}"
+RUNNER_MONITOR_CGROUP_ROOT="${RUNNER_MONITOR_CGROUP_ROOT:-/sys/fs/cgroup}"
+OOM_KILL_STATE_FILE="${RUNNER_MONITOR_OOM_KILL_STATE_FILE:-$(dirname "${STATE_FILE}")/runner-monitor-oom-kill-state.json}"
+COMPOSE_DIR="$HOME/.omnibase/runners/docker"
+COMPOSE_FILE="${COMPOSE_DIR}/docker-compose.runners.yml"
+RUNNER_FLEET_CONFIG_PATH="${RUNNER_FLEET_CONFIG_PATH:-$HOME/.omnibase/runners/config/runner_fleet.yaml}"
+
+# ---------------------------------------------------------------------------
+# Compose override layering (OMN-14027 C1)
+# ---------------------------------------------------------------------------
+# Auto-repair recreates containers from COMPOSE_FILE. Before this block it used
+# COMPOSE_FILE and nothing else, which made it a SILENT REVERTER: any runner
+# deliberately wired by an override file (e.g. the PyPI pull-through cache
+# canary, docker/docker-compose.pypi-canary.yml) lost that wiring the moment the
+# */10 auto-bounce cron recreated it — with no log line, no alert, and no diff.
+# The canary kept reporting itself as a canary while running on direct egress,
+# so its soak measurements were vacuous. That is exactly how the 2026-08-08
+# canary attempt was lost by 2026-08-10.
+#
+# COMPOSE_OVERRIDES_LIST is a newline-delimited list of override compose files
+# (relative to COMPOSE_DIR, or absolute). '#' starts a comment. Optional legacy
+# entries WARN rather than fail, but the model-review candidate overlay is a
+# required entry: a missing required overlay blocks all repair before compose
+# can recreate a runner.
+#
+COMPOSE_OVERRIDES_LIST="${COMPOSE_OVERRIDES_LIST:-${COMPOSE_DIR}/compose-overrides.list}"
+COMPOSE_FILE_ARGS=(-f "${COMPOSE_FILE}")
+COMPOSE_FILE_ARGS_STR="-f ${COMPOSE_FILE}"
+REQUIRED_MODEL_REVIEW_OVERLAY="${COMPOSE_DIR}/docker-compose.model-review-canary.yml"
+REQUIRED_OVERRIDE_MISSING=false
+if [[ -f "${COMPOSE_OVERRIDES_LIST}" ]]; then
+    while IFS= read -r _ovr_line || [[ -n "${_ovr_line}" ]]; do
+        _ovr="${_ovr_line%%#*}"
+        _ovr="${_ovr#"${_ovr%%[![:space:]]*}"}"
+        _ovr="${_ovr%"${_ovr##*[![:space:]]}"}"
+        [[ -z "${_ovr}" ]] && continue
+        [[ "${_ovr}" == /* ]] || _ovr="${COMPOSE_DIR}/${_ovr}"
+        if [[ -f "${_ovr}" ]]; then
+            COMPOSE_FILE_ARGS+=(-f "${_ovr}")
+            COMPOSE_FILE_ARGS_STR="${COMPOSE_FILE_ARGS_STR} -f ${_ovr}"
+        else
+            if [[ "${_ovr}" == "${REQUIRED_MODEL_REVIEW_OVERLAY}" ]]; then
+                REQUIRED_OVERRIDE_MISSING=true
+                echo "[runner-monitor] $(date '+%H:%M:%S') ERROR: required model-review compose overlay listed but missing: ${_ovr}" >&2
+            else
+                echo "[runner-monitor] $(date '+%H:%M:%S') WARNING: optional compose override listed in ${COMPOSE_OVERRIDES_LIST} but not found on disk: ${_ovr} (skipped)" >&2
+            fi
+        fi
+    done < "${COMPOSE_OVERRIDES_LIST}"
+else
+    REQUIRED_OVERRIDE_MISSING=true
+    echo "[runner-monitor] $(date '+%H:%M:%S') ERROR: required compose overrides list is missing: ${COMPOSE_OVERRIDES_LIST}" >&2
+fi
+
+# Silent-wedge thresholds (OMN-13109). A fleet that is online + idle while jobs
+# have been queued for longer than WEDGE_QUEUE_AGE_SECONDS is wedged. Default
+# 10 minutes — long enough to ignore normal scheduling latency, short enough to
+# catch the all-night wedge that starved the merge queue.
+WEDGE_QUEUE_AGE_SECONDS="${WEDGE_QUEUE_AGE_SECONDS:-600}"
+# OMN-16947: an UPPER bound on what counts as wedge evidence. GitHub never
+# reaps abandoned queued workflow runs, so `oldest_queued_job_age_seconds()`
+# without a ceiling latches on to one forever. Live proof: OmniNode-ai/
+# omnibase_infra run 32215978710 has sat `queued` since 2026-08-19 and
+# omniclaude run 29019863632 since 2026-07-09 — the unbounded check therefore
+# reported queued-job-age=895303s (10.4 days) on EVERY tick, so the SILENT-WEDGE
+# predicate was permanently true against a demonstrably healthy 88/88 fleet.
+# A job queued longer than this is a zombie, not a fleet fault: it is reported
+# in its own finding class instead of pinning the wedge signal on.
+WEDGE_QUEUE_AGE_MAX_SECONDS="${WEDGE_QUEUE_AGE_MAX_SECONDS:-86400}"
+# Repos whose Actions queues are serviced by this self-hosted fleet. Queued-job
+# age is sampled across these. Override via WEDGE_WATCH_REPOS (space-separated
+# "owner/name" entries).
+WEDGE_WATCH_REPOS="${WEDGE_WATCH_REPOS:-OmniNode-ai/omnibase_infra OmniNode-ai/omnibase_core OmniNode-ai/omniclaude OmniNode-ai/omnimarket}"
+
+# Crash-loop thresholds (OMN-13109). A container whose RestartCount exceeds
+# CRASHLOOP_RESTART_THRESHOLD, or whose recent logs show repeated re-registration
+# markers, is crash-looping and must NOT be `docker restart`-ed.
+CRASHLOOP_RESTART_THRESHOLD="${CRASHLOOP_RESTART_THRESHOLD:-5}"
+CRASHLOOP_LOG_TAIL_LINES="${CRASHLOOP_LOG_TAIL_LINES:-200}"
+CRASHLOOP_REREGISTER_MARKER_THRESHOLD="${CRASHLOOP_REREGISTER_MARKER_THRESHOLD:-3}"
+
+# GitHub can report a runner offline while Docker still has a healthy listener.
+# Recreating immediately can cancel an assigned job, so only auto-remediate this
+# class after it persists for a grace period and local logs do not show an
+# in-flight job.
+OFFLINE_IDLE_RECREATE_AGE_SECONDS="${OFFLINE_IDLE_RECREATE_AGE_SECONDS:-900}"
+OFFLINE_IDLE_LOG_TAIL_LINES="${OFFLINE_IDLE_LOG_TAIL_LINES:-240}"
+
+# Auto-bounce is OFF by default: this monitor DETECTS and ALERTS. It does NOT
+# mutate the live fleet unless an operator deliberately sets MONITOR_AUTO_BOUNCE=1
+# in the monitor env. Even then it force-recreates only the named services with
+# a fresh token, detached — never `docker restart`, never an empty filter.
+# Steady state is observe-and-alert.
+MONITOR_AUTO_BOUNCE="${MONITOR_AUTO_BOUNCE:-0}"
+
+# OMN-13947: a single fixed timeout SIGTERMed `docker compose up --force-recreate`
+# mid-batch under host load, leaving containers half-recreated (Status=created
+# but never started, or the stale old container never actually replaced) —
+# 36% of recreate attempts never completed during the 2026-07-04 incident. The
+# timeout now scales with the number of containers in the batch: floor for a
+# single-container bounce, a per-container budget for larger batches (a
+# fleet-wide silent-wedge bounce targets all EXPECTED_RUNNERS at once), capped
+# at a generous ceiling so a genuinely hung daemon still gets killed eventually.
+AUTO_BOUNCE_HARD_LIMIT_SECONDS="${AUTO_BOUNCE_HARD_LIMIT_SECONDS:-120}"          # floor
+AUTO_BOUNCE_PER_CONTAINER_BUDGET_SECONDS="${AUTO_BOUNCE_PER_CONTAINER_BUDGET_SECONDS:-30}"
+AUTO_BOUNCE_TIMEOUT_CEILING_SECONDS="${AUTO_BOUNCE_TIMEOUT_CEILING_SECONDS:-1800}"
+# Bounded retries after the compose call returns, verifying every target is
+# actually Status=running (not left at Status=created) before giving up.
+AUTO_BOUNCE_VERIFY_RETRY_COUNT="${AUTO_BOUNCE_VERIFY_RETRY_COUNT:-3}"
+AUTO_BOUNCE_VERIFY_RETRY_SLEEP_SECONDS="${AUTO_BOUNCE_VERIFY_RETRY_SLEEP_SECONDS:-3}"
+# flock mutex so the */10 cron cannot dispatch a second bounce while a prior one
+# is still in flight — the race produced literal daemon errors ("removal of
+# container ... is already in progress") during the incident.
+AUTO_BOUNCE_LOCKFILE="${AUTO_BOUNCE_LOCKFILE:-/tmp/runner-monitor-bounce.lock}"
+AUTO_BOUNCE_BOUNCE_LOG="${AUTO_BOUNCE_BOUNCE_LOG:-/tmp/runner-monitor-bounce.log}"
+
+# OMN-16947: HARD ceiling on how many containers a single tick may recreate.
+# On 2026-08-29 a single false-positive wedge finding expanded to all 88
+# runners (see collect_remediation_targets) and one compose call force-recreated
+# the entire fleet, requiring two `systemctl restart docker` cycles to recover.
+# This cap is enforced INSIDE auto_bounce(), below every collection path, so no
+# future logic error in target selection can mass-recreate the fleet again. A
+# genuine multi-runner outage still converges — it just takes several ticks.
+AUTO_BOUNCE_MAX_TARGETS_PER_TICK="${AUTO_BOUNCE_MAX_TARGETS_PER_TICK:-4}"
+
+config_field() {
+    local field="${1}"
+    [[ -f "${RUNNER_FLEET_CONFIG_PATH}" ]] || {
+        echo "[runner-monitor] ERROR: runner fleet config not found: ${RUNNER_FLEET_CONFIG_PATH}" >&2
+        exit 1
+    }
+    local value
+    value=$(awk -F':[[:space:]]*' -v key="${field}" '
+        $1 == key {
+            gsub(/^[[:space:]"]+|[[:space:]"]+$/, "", $2)
+            print $2
+            found=1
+        }
+        END { if (!found) exit 1 }
+    ' "${RUNNER_FLEET_CONFIG_PATH}") || {
+        echo "[runner-monitor] ERROR: missing ${field} in ${RUNNER_FLEET_CONFIG_PATH}" >&2
+        exit 1
+    }
+    echo "${value}"
+}
+
+# config_host_prefixes — every declared `runner_name_prefix` under the
+# `hosts:` inventory (OMN-17477), deduped, comma-joined. OMN-19842: the fleet
+# emit's default name-prefix used to be a single hardcoded literal
+# ("omninode-") that happened to cover four of the five declared hosts and
+# silently dropped the fifth (.202's `omnipc2-verify-runner`) the moment it
+# was added to this config without a matching edit here — exactly the
+# duplication the config file's own header warns against ("Do not duplicate
+# these values in scripts."). Reading the set from the config instead of
+# guessing a common substring means a sixth host with an unrelated prefix
+# needs no edit to this script, only to the config it already must edit to
+# add the host at all.
+#
+# Prints nothing (not an error) when the config predates OMN-17477 and carries
+# no `hosts:` block at all, so the caller can fall back to the pre-existing
+# scalar-derived default unchanged.
+config_host_prefixes() {
+    [[ -f "${RUNNER_FLEET_CONFIG_PATH}" ]] || return 0
+    awk '
+        /^hosts:/ { in_hosts=1; next }
+        in_hosts && /^[A-Za-z_][A-Za-z0-9_]*:/ { in_hosts=0 }
+        in_hosts && /runner_name_prefix:[[:space:]]*/ {
+            line=$0
+            sub(/^.*runner_name_prefix:[[:space:]]*/, "", line)
+            gsub(/[[:space:]"]+$/, "", line)
+            if (line != "") print line
+        }
+    ' "${RUNNER_FLEET_CONFIG_PATH}" | sort -u | paste -sd, -
+}
+
+RUNNER_ORG="$(config_field github_org)"
+RUNNER_GROUP="$(config_field runner_group)"
+RUNNER_NAME_PREFIX="$(config_field runner_name_prefix)"
+EXPECTED_RUNNERS="$(config_field expected_count)"
+BURST_RUNNERS="$(config_field burst_count 2>/dev/null || echo "${EXPECTED_RUNNERS}")"
+RUNNER_HOST="$(config_field runner_host)"
+
+# Slack config — passed via environment (cron sources ~/.omnibase/.env)
+: "${SLACK_BOT_TOKEN:?SLACK_BOT_TOKEN must be set}"
+: "${SLACK_CHANNEL_ID:?SLACK_CHANNEL_ID must be set}"
+: "${RUNNER_GITHUB_TOKEN:?RUNNER_GITHUB_TOKEN must be set}"
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+log() { echo "[runner-monitor] $(date '+%H:%M:%S') $*"; }
+
+slack_post() {
+    local text="$1"
+    local color="${2:-danger}"  # danger=red, warning=yellow, good=green
+    curl -s -X POST https://slack.com/api/chat.postMessage \
+        -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
+        -H "Content-Type: application/json" \
+        -d "$(jq -n \
+            --arg channel "$SLACK_CHANNEL_ID" \
+            --arg fallback "$text" \
+            --arg color "$color" \
+            --arg text "$text" \
+            --arg footer "runner-monitor | ${RUNNER_HOST}" \
+            '{
+                channel: $channel,
+                attachments: [{
+                    color: $color,
+                    text: $text,
+                    footer: $footer,
+                    ts: (now | floor)
+                }]
+            }'
+        )" > /dev/null 2>&1
+}
+
+# OMN-19852 — repository reads on the read-only App token.
+#
+# Every tick reads the org runner list, one queued-runs page per watched repo
+# and one jobs page per queued run: about 12 calls a tick at 2026-09-27's queue
+# depth, 26 ticks an hour (*/3 plus */10), all on the operator's own gh login
+# and so on the one per-user 5,000/hour bucket merges and arming need (operator
+# ruling 2026-09-25T14:18:52Z: reads move to the read-only App
+# onexbot-pr-reader, writes stay on the operator). When RUNNER_GH_READ_TOKEN_FILE
+# names a fresh installation-token file (refreshed by the host's token cron), the
+# /repos/ reads use it. The org runner list and the registration token stay on gh:
+# the App has no organization permission, and a registration token is a write.
+# A configured file that is missing, empty or older than the bound is not used;
+# the reads fall back to gh and the tick logs why, once.
+RUNNER_GH_READ_TOKEN_FILE="${RUNNER_GH_READ_TOKEN_FILE:-}"
+# An installation token lives 60 minutes; a file no older than 40 leaves 20.
+RUNNER_GH_READ_TOKEN_MAX_AGE_SECONDS="${RUNNER_GH_READ_TOKEN_MAX_AGE_SECONDS:-2400}"
+GH_READ_TOKEN=""
+
+# resolve_gh_read_token — set GH_READ_TOKEN, or leave it empty and say why.
+resolve_gh_read_token() {
+    [[ -n "${RUNNER_GH_READ_TOKEN_FILE}" ]] || return 0
+    if [[ ! -r "${RUNNER_GH_READ_TOKEN_FILE}" || ! -s "${RUNNER_GH_READ_TOKEN_FILE}" ]]; then
+        log "GitHub reads on gh: reader token file ${RUNNER_GH_READ_TOKEN_FILE} is missing or empty"
+        return 0
+    fi
+    local age
+    age=$(( $(date +%s) - $(date -r "${RUNNER_GH_READ_TOKEN_FILE}" +%s) ))
+    if (( age > RUNNER_GH_READ_TOKEN_MAX_AGE_SECONDS )); then
+        log "GitHub reads on gh: reader token file is ${age}s old (bound ${RUNNER_GH_READ_TOKEN_MAX_AGE_SECONDS}s)"
+        return 0
+    fi
+    GH_READ_TOKEN="$(head -n 1 "${RUNNER_GH_READ_TOKEN_FILE}")"
+}
+# Resolved here, at top level and once per tick, never inside github_api_get:
+# that runs in a command substitution, where a log line would land in the JSON.
+resolve_gh_read_token
+
+# github_api_get — fetch a GitHub API path as JSON. Empty string on failure.
+# Prefer `gh api` because the deployed host already has working gh auth; fall
+# back to RUNNER_GITHUB_TOKEN for environments without gh. Retry transient
+# misses so a single GitHub/gh blip does not become a false runner outage.
+github_api_get() {
+    local path="$1"
+    local attempt output
+    for attempt in 1 2 3; do
+        output=""
+        if [[ -n "${GH_READ_TOKEN}" && "${path}" == /repos/* ]] && command -v gh >/dev/null 2>&1; then
+            output=$(GH_TOKEN="${GH_READ_TOKEN}" gh api "${path}" 2>/dev/null || true)
+        elif command -v gh >/dev/null 2>&1; then
+            output=$(gh api "${path}" 2>/dev/null || true)
+        else
+            output=$(curl -fsS \
+                -H "Authorization: Bearer ${RUNNER_GITHUB_TOKEN}" \
+                -H "Accept: application/vnd.github+json" \
+                "https://api.github.com${path}" 2>/dev/null || true)
+        fi
+        if [[ -n "${output}" ]] && jq -e 'type == "object"' <<< "${output}" >/dev/null 2>&1; then
+            printf '%s\n' "${output}"
+            return 0
+        fi
+        sleep "${attempt}"
+    done
+    return 0
+}
+
+# gh_api_runners — fetch the org self-hosted runner list as JSON. Empty string
+# on failure (caller treats empty as github_api_failed).
+gh_api_runners() {
+    github_api_get "/orgs/${RUNNER_ORG}/actions/runners?per_page=100"
+}
+
+# oldest_queued_job_age_seconds — across WEDGE_WATCH_REPOS, find the OLDEST
+# job whose status is "queued" and that targets a self-hosted label, then return
+# its age in seconds. Returns 0 when nothing is queued (no wedge possible).
+#
+# This is the discriminator the legacy monitor lacked: a runner being "online"
+# tells you the listener long-poll is connected, NOT that work is flowing.
+# Queued work that ages out while the fleet is idle is the wedge signal.
+# OMN-16947: results are returned via these globals rather than stdout, because
+# a queued job now sorts into one of two classes and the caller needs both.
+QUEUED_OLDEST_AGE=0
+QUEUED_ZOMBIE_COUNT=0
+QUEUED_ZOMBIE_OLDEST_AGE=0
+
+oldest_queued_job_age_seconds() {
+    local now_epoch oldest_epoch="" repo runs_json run_ids jobs_json job_created
+    local zombie_count=0 zombie_oldest_age=0
+    now_epoch=$(date -u +%s)
+
+    for repo in ${WEDGE_WATCH_REPOS}; do
+        runs_json=$(github_api_get "/repos/${repo}/actions/runs?status=queued&per_page=20")
+        [[ -z "${runs_json}" ]] && continue
+
+        run_ids=$(jq -r '.workflow_runs[]?.id // empty' <<< "${runs_json}" 2>/dev/null || true)
+        [[ -z "${run_ids}" ]] && continue
+
+        while IFS= read -r run_id; do
+            [[ -z "${run_id}" ]] && continue
+            jobs_json=$(github_api_get "/repos/${repo}/actions/runs/${run_id}/jobs?per_page=50")
+            [[ -z "${jobs_json}" ]] && continue
+
+            # Only count queued jobs that target a self-hosted label. Hosted
+            # jobs (ubuntu-latest) are not serviced by this fleet and must not
+            # trigger a wedge alert.
+            while IFS= read -r job_created; do
+                [[ -z "${job_created}" ]] && continue
+                local job_epoch
+                # GNU date (Linux .201 host) parses the ISO-8601 created_at.
+                job_epoch=$(date -u -d "${job_created}" +%s 2>/dev/null || echo "")
+                [[ -z "${job_epoch}" ]] && continue
+                local job_age
+                job_age=$(( now_epoch - job_epoch ))
+                # OMN-16947: a job queued past the ceiling is an abandoned run
+                # GitHub never reaped, NOT evidence that the fleet stopped
+                # pulling work. Counting it as wedge evidence latched the wedge
+                # signal on permanently and, via the old fleet-wide expansion in
+                # collect_remediation_targets(), force-recreated all 88 runners.
+                if [[ "${job_age}" -gt "${WEDGE_QUEUE_AGE_MAX_SECONDS}" ]]; then
+                    zombie_count=$(( zombie_count + 1 ))
+                    [[ "${job_age}" -gt "${zombie_oldest_age}" ]] && zombie_oldest_age="${job_age}"
+                    continue
+                fi
+                if [[ -z "${oldest_epoch}" ]] || [[ "${job_epoch}" -lt "${oldest_epoch}" ]]; then
+                    oldest_epoch="${job_epoch}"
+                fi
+            done < <(jq -r --arg group "${RUNNER_GROUP}" '
+                .jobs[]?
+                | select(.status == "queued")
+                | select(any(.labels[]?; . == "self-hosted" or . == $group))
+                | .created_at
+            ' <<< "${jobs_json}" 2>/dev/null || true)
+        done <<< "${run_ids}"
+    done
+
+    QUEUED_ZOMBIE_COUNT="${zombie_count}"
+    QUEUED_ZOMBIE_OLDEST_AGE="${zombie_oldest_age}"
+    if [[ -z "${oldest_epoch}" ]]; then
+        QUEUED_OLDEST_AGE=0
+        return 0
+    fi
+    QUEUED_OLDEST_AGE=$(( now_epoch - oldest_epoch ))
+    return 0
+}
+
+# container_is_crashlooping — given a container name, return 0 (true) when it is
+# crash-looping: RestartCount exceeds threshold OR recent logs show repeated
+# re-registration markers (config.sh re-run loop). Echoes a human reason on the
+# first matched signal.
+container_is_crashlooping() {
+    local name="${1}"
+    local restart_count marker_count
+
+    restart_count=$(docker inspect --format '{{.RestartCount}}' "${name}" 2>/dev/null || echo 0)
+    if [[ "${restart_count}" =~ ^[0-9]+$ ]] && [[ "${restart_count}" -gt "${CRASHLOOP_RESTART_THRESHOLD}" ]]; then
+        echo "RestartCount=${restart_count} > ${CRASHLOOP_RESTART_THRESHOLD}"
+        return 0
+    fi
+
+    # Re-registration markers in the recent log tail. The entrypoint emits these
+    # exact strings when it is stuck re-running config.sh / hitting max retries.
+    marker_count=$(docker logs --tail "${CRASHLOOP_LOG_TAIL_LINES}" "${name}" 2>&1 \
+        | grep -ciE 'already configured|Re-registering|Max retries .* reached|Registration error detected|Runner removed' \
+        || true)
+    if [[ "${marker_count}" =~ ^[0-9]+$ ]] && [[ "${marker_count}" -ge "${CRASHLOOP_REREGISTER_MARKER_THRESHOLD}" ]]; then
+        echo "re-registration markers=${marker_count} >= ${CRASHLOOP_REREGISTER_MARKER_THRESHOLD} in last ${CRASHLOOP_LOG_TAIL_LINES} log lines"
+        return 0
+    fi
+
+    return 1
+}
+
+runner_has_active_job() {
+    local name="${1}"
+    local logs last_running last_completed
+
+    logs=$(docker logs --tail "${OFFLINE_IDLE_LOG_TAIL_LINES}" "${name}" 2>&1 || true)
+    last_running=$(grep -n 'Running job:' <<< "${logs}" | tail -n 1 | cut -d: -f1 || true)
+    [[ -z "${last_running}" ]] && return 1
+
+    last_completed=$(grep -nE 'Job .+ completed with result:' <<< "${logs}" | tail -n 1 | cut -d: -f1 || true)
+    if [[ -z "${last_completed}" ]] || [[ "${last_running}" -gt "${last_completed}" ]]; then
+        return 0
+    fi
+    return 1
+}
+
+runner_has_local_listener_evidence() {
+    local name="${1}"
+    local logs
+
+    logs=$(docker logs --tail "${OFFLINE_IDLE_LOG_TAIL_LINES}" "${name}" 2>&1 || true)
+    if grep -qE 'Listening for Jobs|Runner reconnected|√ Connected to GitHub' <<< "${logs}"; then
+        return 0
+    fi
+    if runner_has_active_job "${name}"; then
+        return 0
+    fi
+    return 1
+}
+
+# ---------------------------------------------------------------------------
+# Collect current state
+# ---------------------------------------------------------------------------
+declare -A current_status
+declare -A docker_oom_killed
+# ---------------------------------------------------------------------------
+# Drift preflight (OMN-16947)
+# ---------------------------------------------------------------------------
+# Two silent-failure classes preceded the 2026-08-29 outage. Neither was
+# detectable from this monitor's own output, so both ran for days:
+#
+#   (a) COMPOSE INTERPOLATION. The "layer2" change added an
+#       `omninode-deploy-runner` service with a fail-fast
+#       `${DEPLOY_RUNNER_OMNI_HOME:?...}` reference. `docker compose`
+#       interpolates the WHOLE file before acting on any named subset, so every
+#       cron-driven `up -d --force-recreate <targets>` aborted instantly once
+#       `.monitor-env` lacked that variable — while this script kept logging
+#       "AUTO-BOUNCE dispatched" every 10 minutes. 864 error lines, ZERO
+#       successful recreates, ZERO alerts, for six days.
+#
+#   (b) FLEET COUNT DRIFT. The host `runner_fleet.yaml` said
+#       `expected_count: 72` after the fleet scaled to 88. Detection iterates
+#       `seq 1 $EXPECTED_RUNNERS`, so runners 73-88 were outside monitor,
+#       alert, and auto-bounce scope entirely — 6 of the 22 dead runners were
+#       invisible rather than merely unrecovered.
+#
+# Both are now loud, actionable findings evaluated every tick.
+COMPOSE_INTERPOLATION_OK=true
+COMPOSE_INTERPOLATION_ERROR=""
+COMPOSE_RUNNER_SERVICE_COUNT=-1
+FLEET_COUNT_DRIFT=false
+
+compose_preflight() {
+    local config_stderr
+    if [[ "${REQUIRED_OVERRIDE_MISSING}" == true ]]; then
+        COMPOSE_INTERPOLATION_OK=false
+        COMPOSE_INTERPOLATION_ERROR="required model-review compose overlay is missing"
+        log "PREFLIGHT FAILED: ${COMPOSE_INTERPOLATION_ERROR} — auto-repair is BLOCKED before compose recreate"
+        return 0
+    fi
+    if config_stderr=$(docker compose "${COMPOSE_FILE_ARGS[@]}" config -q 2>&1); then
+        COMPOSE_INTERPOLATION_OK=true
+    else
+        COMPOSE_INTERPOLATION_OK=false
+        # Keep the operator-actionable part: the missing-variable name is the
+        # whole diagnosis, and it is what six days of silence withheld.
+        COMPOSE_INTERPOLATION_ERROR="$(tr '\n' ' ' <<< "${config_stderr}" | head -c 500)"
+        log "PREFLIGHT FAILED: compose INTERPOLATION error — auto-bounce cannot succeed and is BLOCKED this tick: ${COMPOSE_INTERPOLATION_ERROR}"
+        return 0
+    fi
+
+    local svc_count
+    svc_count=$(docker compose "${COMPOSE_FILE_ARGS[@]}" config --services 2>/dev/null \
+        | grep -cE "^${RUNNER_NAME_PREFIX}-[0-9]+$" || true)
+    [[ "${svc_count}" =~ ^[0-9]+$ ]] || svc_count=-1
+    COMPOSE_RUNNER_SERVICE_COUNT="${svc_count}"
+
+    if [[ "${svc_count}" -ge 0 ]] && [[ "${svc_count}" -ne "${EXPECTED_RUNNERS}" ]]; then
+        FLEET_COUNT_DRIFT=true
+        log "FLEET COUNT DRIFT: compose declares ${svc_count} ${RUNNER_NAME_PREFIX}-* service(s) but ${RUNNER_FLEET_CONFIG_PATH} says expected_count=${EXPECTED_RUNNERS}. Runners outside 1..${EXPECTED_RUNNERS} are invisible to detection, alerting, and auto-bounce."
+    fi
+}
+
+compose_preflight
+
+declare -A github_status
+declare -A github_busy
+declare -A healthy_names
+
+# OMN-18396 / OMN-18408: TWO fixed runner families sit outside the
+# RUNNER_NAME_PREFIX/EXPECTED_RUNNERS loop below -- the credential-free
+# customer-plane pair (OMN-18392) and the read-only verify runner (OMN-18408).
+# Neither name can match `^${RUNNER_NAME_PREFIX}-[0-9]+$`, so the main loop
+# never sees either. See the ALERT-ONLY block after the main loop for why they
+# are checked there rather than folded into that loop.
+declare -A alert_only_docker_status
+declare -A alert_only_github_status
+
+total_found=0
+healthy=0
+online_count=0
+busy_count=0
+unhealthy_list=()
+wedge_list=()
+crashloop_list=()
+offline_idle_bounce_list=()
+offline_idle_recreate_list=()
+github_degraded_list=()
+# OMN-13947: containers left at Docker Status=created (docker create succeeded,
+# docker start never ran — the signature of a bounce killed mid-batch) matched
+# NONE of crashloop/wedge, so collect_remediation_targets() never re-selected
+# them: a straggler that survived one bounce attempt was orphaned forever.
+stuck_created_list=()
+missing_container_list=()
+github_api_failed=false
+now_epoch=$(date -u +%s)
+offline_first_seen_lines=""
+prev_offline_first_seen_json="{}"
+if [[ -f "${STATE_FILE}" ]]; then
+    prev_offline_first_seen_json=$(jq -c '.offline_first_seen // {}' "${STATE_FILE}" 2>/dev/null || true)
+    if [[ -z "${prev_offline_first_seen_json}" ]] || ! jq -e 'type == "object"' <<< "${prev_offline_first_seen_json}" >/dev/null 2>&1; then
+        prev_offline_first_seen_json="{}"
+    fi
+fi
+
+while IFS=$'\t' read -r name status; do
+    [[ -z "${name}" ]] && continue
+    current_status["$name"]="$status"
+done < <(docker ps -a --filter "name=${RUNNER_NAME_PREFIX}" --format "{{.Names}}\t{{.Status}}" 2>/dev/null || true)
+
+for name in "${!current_status[@]}"; do
+    oom_killed="$(docker inspect --format '{{.State.OOMKilled}}' "$name" 2>/dev/null || echo "unknown")"
+    docker_oom_killed["$name"]="$oom_killed"
+done
+
+github_json=$(gh_api_runners)
+
+if [[ -z "${github_json}" ]]; then
+    github_api_failed=true
+    unhealthy_list+=("GITHUB_API: failed to fetch org runner status")
+else
+    # Capture both status (online/offline) AND busy (executing a job). The busy
+    # field is the silent-wedge discriminator the legacy monitor ignored.
+    while IFS=$'\t' read -r name status busy; do
+        [[ -z "${name}" ]] && continue
+        github_status["$name"]="$status"
+        github_busy["$name"]="$busy"
+    done < <(jq -r --arg prefix "${RUNNER_NAME_PREFIX}" --arg group "${RUNNER_GROUP}" '
+        .runners[]
+        | select(.name | startswith($prefix))
+        | select(any(.labels[]; .name == $group))
+        | [.name, .status, (.busy | tostring)]
+        | @tsv
+    ' <<< "${github_json}")
+fi
+
+# Check configured runners against Docker first. GitHub registration status is
+# useful corroborating evidence, but it is not authoritative during API/status
+# propagation incidents. A Docker-healthy runner with local listener evidence is
+# treated as healthy even if the GitHub org API reports it offline.
+for i in $(seq 1 "$EXPECTED_RUNNERS"); do
+    name="${RUNNER_NAME_PREFIX}-${i}"
+    total_found=$((total_found + 1))
+    docker_state="${current_status[$name]:-MISSING (no container)}"
+
+    if [[ "${docker_state}" == "MISSING (no container)" ]]; then
+        missing_container_list+=("${name}: MISSING (no container)")
+        unhealthy_list+=("${name}: MISSING (no container)")
+        continue
+    fi
+
+    if [[ "${docker_oom_killed[$name]:-false}" == "true" ]]; then
+        unhealthy_list+=("${name}: Docker OOMKilled=true while ${docker_state}")
+        continue
+    fi
+
+    # OMN-13947: a container stuck at "Created" (never started) is the direct
+    # fingerprint of a force-recreate batch that got SIGTERM'd mid-flight.
+    # Flag it as a remediation target in its own right — it will never match
+    # crashloop (no RestartCount, no logs) or wedge (fleet-wide only).
+    if [[ "${docker_state}" == Created* ]]; then
+        stuck_created_list+=("${name}: Docker Created but never started — orphaned mid-recreate")
+    fi
+
+    if [[ "${docker_state}" == Up* ]] && [[ "${docker_state}" != *"(healthy)"* ]] && runner_has_local_listener_evidence "${name}"; then
+        github_degraded_list+=("${name}: Docker health ${docker_state} ignored; local listener evidence present")
+        healthy=$((healthy + 1))
+        healthy_names["${name}"]=1
+        continue
+    fi
+
+    if [[ "${docker_state}" != *"(healthy)"* ]] || [[ "${docker_state}" != Up* ]]; then
+        unhealthy_list+=("${name}: Docker ${docker_state}")
+        continue
+    fi
+
+    # Crash-loop check runs even on "healthy" containers: a container can be
+    # "Up (healthy)" in the brief window between restart and the next config.sh
+    # exit. RestartCount and the log markers expose the loop the status string
+    # hides. Do NOT `docker restart` these.
+    if crashloop_reason=$(container_is_crashlooping "${name}"); then
+        crashloop_list+=("${name}: CRASH-LOOP (${crashloop_reason})")
+        unhealthy_list+=("${name}: CRASH-LOOP (${crashloop_reason})")
+        continue
+    fi
+
+    if [[ "${github_api_failed}" == true ]]; then
+        healthy=$((healthy + 1))
+        healthy_names["${name}"]=1
+        continue
+    fi
+
+    gh_state="${github_status[$name]:-missing}"
+    if [[ "${gh_state}" != "online" ]]; then
+        if runner_has_local_listener_evidence "${name}"; then
+            github_degraded_list+=("${name}: GitHub ${gh_state} ignored; Docker ${docker_state} and local listener evidence present")
+            healthy=$((healthy + 1))
+            healthy_names["${name}"]=1
+            continue
+        fi
+        if [[ "${github_busy[$name]:-false}" != "true" ]]; then
+            first_seen=$(jq -r --arg name "${name}" '.[$name] // empty' <<< "${prev_offline_first_seen_json}" 2>/dev/null || true)
+            if [[ ! "${first_seen}" =~ ^[0-9]+$ ]]; then
+                first_seen="${now_epoch}"
+            fi
+            offline_first_seen_lines+="${name}"$'\t'"${first_seen}"$'\n'
+            offline_age=$(( now_epoch - first_seen ))
+            offline_idle_bounce_list+=("${name}: OFFLINE-IDLE (${gh_state}, age=${offline_age}s, Docker ${docker_state})")
+            if [[ "${offline_age}" -ge "${OFFLINE_IDLE_RECREATE_AGE_SECONDS}" ]]; then
+                if runner_has_active_job "${name}"; then
+                    offline_idle_bounce_list+=("${name}: OFFLINE-IDLE not auto-recreated; local logs show active job")
+                else
+                    offline_idle_recreate_list+=("${name}: OFFLINE-IDLE-RECREATE age=${offline_age}s >= ${OFFLINE_IDLE_RECREATE_AGE_SECONDS}s")
+                fi
+            fi
+        fi
+        unhealthy_list+=("${name}: GitHub ${gh_state} while Docker ${docker_state}")
+        continue
+    fi
+
+    online_count=$((online_count + 1))
+    if [[ "${github_busy[$name]:-false}" == "true" ]]; then
+        busy_count=$((busy_count + 1))
+    fi
+    healthy=$((healthy + 1))
+    healthy_names["${name}"]=1
+done
+
+# ---------------------------------------------------------------------------
+# Alert-only runner families (OMN-18392 residual, OMN-18396; OMN-18408)
+# ---------------------------------------------------------------------------
+# Two fixed runner families are NOT part of the
+# RUNNER_NAME_PREFIX/EXPECTED_RUNNERS loop above, so the main loop never sees
+# them: its docker ps filter and its GitHub-registration jq filter both key on
+# RUNNER_NAME_PREFIX (`omninode-runner`), and neither family matches it.
+#
+#   * omninode-customer-plane-runner-1/2 -- the credential-free pair (OMN-18392)
+#   * omninode-verify-runner-1/2/3 -- the read-only verify class (OMN-18408,
+#     grown to three by OMN-18602)
+#
+# The verify class matters more per container than the pair does. TEN
+# scheduled/per-merge probes route to it, so an unnoticed outage of the whole
+# class does not lose a canary -- it queues all ten indefinitely with no runner
+# to take them, which is the starvation OMN-18408 removed from
+# `omnibase-deploy`, relocated rather than fixed.
+#
+# OMN-18602 changed the shape of a PARTIAL outage here, and the change is worth
+# stating because it cuts the other way. With one member, losing it stopped
+# every probe, loudly. With three, losing one degrades throughput instead: the
+# remaining two absorb the work and the queue grows, which is quieter and is
+# exactly why each member is enumerated by name below rather than discovered by
+# prefix. The class was sized at three against a measured offered load of 0.83
+# erlangs (OMN-18602); running it at two puts it back in the regime where a
+# quarter of arrivals wait.
+#
+# Each family carries its OWN `*_alert_present` flag and its own finding. A
+# single shared flag would be cheaper and wrong: the Slack message would name
+# one family while the other was down, sending the operator to the wrong
+# container.
+#
+# ALERT-ONLY, BY DESIGN. This block reports an outage into `unhealthy_list` (so
+# it reaches the existing Slack alert path below) but never adds either name to
+# `missing_container_list`, `crashloop_list`, `offline_idle_recreate_list`, or
+# `stuck_created_list` -- the only lists `collect_remediation_targets()` reads.
+# Two independent reasons that is the right scope, not merely the cautious one:
+#
+#   1. `collect_remediation_targets()` hard-filters every candidate service
+#      name against `^${RUNNER_NAME_PREFIX}-[0-9]+$` (see that function,
+#      below). A customer-plane name could never survive that filter and
+#      become a bounce target even if it were added to one of the four lists
+#      above -- so this block does not rely on that filter as its only guard,
+#      but the filter is real defence-in-depth.
+#   2. A hypothetical bounce (`docker compose up -d --force-recreate --no-deps
+#      <service>`) keys strictly on the named compose SERVICE, and
+#      omninode-customer-plane-runner-1/2 have their own no-mount service
+#      blocks in this same compose file (OMN-18392) -- it would not recreate
+#      from the general-pool definition even if dispatched.
+#
+# Building genuine auto-bounce support for this second fleet family (its own
+# expected-count bound, its own offline-age state keying, its own crash-loop
+# and stuck-Created detection) is a separate, larger change than "widen
+# alerting" and is explicitly out of scope for OMN-18396.
+# Name-prefix per family, used for BOTH the docker ps filter and the GitHub
+# registration jq filter. Enumerated names are what is actually expected to
+# exist -- a name absent from `docker ps` is the "MISSING (no container)" path,
+# which prefix discovery alone could never report.
+ALERT_ONLY_RUNNER_PREFIXES=(omninode-customer-plane-runner- omninode-verify-runner-)
+ALERT_ONLY_RUNNER_NAMES=(
+    omninode-customer-plane-runner-1
+    omninode-customer-plane-runner-2
+    omninode-verify-runner-1
+    omninode-verify-runner-2
+    omninode-verify-runner-3
+)
+declare -A ALERT_ONLY_RUNNER_FAMILY=(
+    [omninode-customer-plane-runner-1]=customer-plane
+    [omninode-customer-plane-runner-2]=customer-plane
+    [omninode-verify-runner-1]=verify
+    # OMN-18602. The prefix above would DISCOVER these two, but discovery only
+    # reports a container that exists -- the enumerated list is what turns an
+    # absent container into "MISSING (no container)". Adding a class member to
+    # the compose file without adding it here buys capacity that can vanish
+    # silently, which is the shape of outage this block exists to remove.
+    [omninode-verify-runner-2]=verify
+    [omninode-verify-runner-3]=verify
+)
+customer_plane_alert_present=false
+verify_runner_alert_present=false
+
+# Raise the flag for one family. A name with no family mapping is a wiring
+# error, not a silent no-op: it would produce a finding nothing counts, which
+# is exactly the invisible-outage shape this block exists to remove.
+mark_alert_only_family() {
+    case "${1}" in
+        customer-plane) customer_plane_alert_present=true ;;
+        verify)         verify_runner_alert_present=true ;;
+        *)
+            log "ALERT-ONLY WIRING ERROR: no family flag for '${1}' -- finding would not be counted."
+            ;;
+    esac
+}
+
+for _ao_prefix in "${ALERT_ONLY_RUNNER_PREFIXES[@]}"; do
+    while IFS=$'\t' read -r name status; do
+        [[ -z "${name}" ]] && continue
+        alert_only_docker_status["$name"]="$status"
+    done < <(docker ps -a --filter "name=${_ao_prefix}" --format "{{.Names}}\t{{.Status}}" 2>/dev/null || true)
+done
+
+if [[ "${github_api_failed}" != true ]]; then
+    for _ao_prefix in "${ALERT_ONLY_RUNNER_PREFIXES[@]}"; do
+        while IFS=$'\t' read -r name status; do
+            [[ -z "${name}" ]] && continue
+            alert_only_github_status["$name"]="$status"
+        done < <(jq -r --arg prefix "${_ao_prefix}" '
+            .runners[]
+            | select(.name | startswith($prefix))
+            | [.name, .status]
+            | @tsv
+        ' <<< "${github_json}")
+    done
+fi
+
+for name in "${ALERT_ONLY_RUNNER_NAMES[@]}"; do
+    _ao_family="${ALERT_ONLY_RUNNER_FAMILY[$name]:-unmapped}"
+    docker_state="${alert_only_docker_status[$name]:-MISSING (no container)}"
+    if [[ "${docker_state}" != *"(healthy)"* ]] || [[ "${docker_state}" != Up* ]]; then
+        unhealthy_list+=("${name}: Docker ${docker_state} [${_ao_family}, alert-only]")
+        mark_alert_only_family "${_ao_family}"
+        continue
+    fi
+    if [[ "${github_api_failed}" != true ]]; then
+        gh_state="${alert_only_github_status[$name]:-missing}"
+        if [[ "${gh_state}" != "online" ]]; then
+            unhealthy_list+=("${name}: GitHub ${gh_state} while Docker ${docker_state} [${_ao_family}, alert-only]")
+            mark_alert_only_family "${_ao_family}"
+        fi
+    fi
+done
+
+# ---------------------------------------------------------------------------
+# Silent-wedge detection (OMN-13109)
+# ---------------------------------------------------------------------------
+# A wedged fleet PASSES every check above: containers Up (healthy), runners
+# online. The tell is jobs queued for our labels aging out while NO runner is
+# busy. Only evaluate when the GitHub API succeeded (we need the busy field) and
+# at least one runner is online (otherwise the offline path already alerted).
+queued_age=0
+zombie_queued_count=0
+if [[ "${github_api_failed}" != true ]] && [[ "${online_count}" -gt 0 ]]; then
+    oldest_queued_job_age_seconds
+    queued_age="${QUEUED_OLDEST_AGE}"
+    zombie_queued_count="${QUEUED_ZOMBIE_COUNT}"
+    if [[ "${zombie_queued_count}" -gt 0 ]]; then
+        # Loud but NOT actionable-for-the-fleet: an abandoned queued run is a
+        # GitHub-side artifact. Reporting it separately is what stops it from
+        # masquerading as a wedge forever (OMN-16947).
+        log "ZOMBIE QUEUED JOBS: ${zombie_queued_count} self-hosted job(s) queued longer than WEDGE_QUEUE_AGE_MAX_SECONDS=${WEDGE_QUEUE_AGE_MAX_SECONDS}s (oldest ${QUEUED_ZOMBIE_OLDEST_AGE}s). Excluded from wedge evidence — these are abandoned runs GitHub never reaped, not proof the fleet stopped pulling work."
+    fi
+    if [[ "${queued_age}" -ge "${WEDGE_QUEUE_AGE_SECONDS}" ]] && [[ "${busy_count}" -eq 0 ]]; then
+        wedge_list+=("SILENT-WEDGE: ${online_count} runners online + ${busy_count} busy, but a self-hosted job has been queued ${queued_age}s (>= ${WEDGE_QUEUE_AGE_SECONDS}s). Fleet is registered but not pulling jobs.")
+        unhealthy_list+=("SILENT-WEDGE: online=${online_count} busy=0, queued-job-age=${queued_age}s")
+    fi
+fi
+
+# Also check Docker socket accessibility from a healthy runner
+docker_ok=true
+if [[ $healthy -gt 0 ]]; then
+    # Pick the first healthy runner to test Docker access
+    for name in "${!current_status[@]}"; do
+        status="${current_status[$name]}"
+        if [[ "$status" == *"(healthy)"* ]]; then
+            if ! docker exec "$name" docker info --format "{{.ServerVersion}}" > /dev/null 2>&1; then
+                docker_ok=false
+                unhealthy_list+=("DOCKER_SOCKET: permission denied from ${name}")
+            fi
+            break
+        fi
+    done
+fi
+
+for name in "${!current_status[@]}"; do
+    if [[ ! "${name}" =~ ^${RUNNER_NAME_PREFIX}-[0-9]+$ ]]; then
+        continue
+    fi
+    index="${name##*-}"
+    if [[ "${index}" -gt "${BURST_RUNNERS}" ]]; then
+        unhealthy_list+=("${name}: EXTRA Docker container beyond configured burst count ${BURST_RUNNERS}")
+    fi
+done
+
+if [[ "${github_api_failed}" != true ]]; then
+    for name in "${!github_status[@]}"; do
+        if [[ ! "${name}" =~ ^${RUNNER_NAME_PREFIX}-[0-9]+$ ]]; then
+            continue
+        fi
+        index="${name##*-}"
+        if [[ "${index}" -gt "${BURST_RUNNERS}" ]]; then
+            unhealthy_list+=("${name}: EXTRA GitHub registration beyond configured burst count ${BURST_RUNNERS}")
+        fi
+    done
+fi
+
+# ---------------------------------------------------------------------------
+# Fleet prefix set (OMN-18768, OMN-19842)
+# ---------------------------------------------------------------------------
+# The fleet observation is scoped BROADER than the detection loop, deliberately.
+# RUNNER_NAME_PREFIX is `omninode-runner`, which scopes the crash-loop/wedge
+# checks to the interchangeable general pool. The FLEET question is "what
+# runners are running", and measured live on 2026-09-18 the org pool held 69
+# runners of which exactly one was offline: `omninode-air-runner-1`, on .105 —
+# a name the detection prefix does not match. Emitting on the narrow prefix
+# would have dropped the only runner that was down, which is precisely the
+# false-green AC4 exists to refuse.
+#
+# OMN-19842: the default is now every `runner_name_prefix` declared under
+# `hosts:` in the fleet config, comma-joined, rather than the single literal
+# "omninode-" this used to hardcode. That literal covered four of the five
+# declared hosts by coincidence of a shared substring and silently excluded
+# the fifth (.202's `omnipc2-verify-runner`, added by OMN-19507 with no
+# matching edit here) forever. A config with no `hosts:` block (pre-OMN-17477)
+# makes config_host_prefixes print nothing, so the fallback below preserves
+# today's behavior unchanged.
+#
+# The declared set is ADDED to "omninode-", never substituted for it. The
+# role runners on .201 (omninode-verify-runner-N, omninode-deploy-runner,
+# omninode-prod-deploy-runner-N, omninode-customer-plane-runner-N) are not
+# declared under `hosts:`, so the declared set alone dropped seven observed
+# runners (measured on .201 against the live org runner list, 2026-09-27:
+# 69 -> 63). The union keeps every runner "omninode-" already covered and
+# adds each declared host whose prefix it does not reach (.202's
+# omnipc2-verify-runner), and still excludes a runner outside both, such as
+# the rootless-podman omnipc2-customer-N.
+RUNNER_FLEET_NAME_PREFIX_FROM_CONFIG="$(config_host_prefixes)"
+RUNNER_FLEET_NAME_PREFIX="${RUNNER_FLEET_NAME_PREFIX:-omninode-${RUNNER_FLEET_NAME_PREFIX_FROM_CONFIG:+,${RUNNER_FLEET_NAME_PREFIX_FROM_CONFIG}}}"
+
+# ---------------------------------------------------------------------------
+# Runner OOM-kill counters (OMN-19958)
+# ---------------------------------------------------------------------------
+# State.OOMKilled (read above) is sticky and narrow: it stays true until the
+# container restarts, and it is set only when the container's INIT process is
+# killed. On 2026-09-28 .202 took 12 memcg kills inside two CI runners, every
+# one a CI job's child process (a pre-commit fan-out), with the runners left
+# running and their State.OOMKilled saying nothing about how many kills or
+# when. scripts/infra-signature-rerun.sh reruns a job that died with exit 137,
+# so the job's own red can turn green and nothing records the kill at all.
+#
+# The kernel counts every kill in the container's cgroup v2 memory.events
+# (`oom_kill N`). This block reads that counter for every runner container in
+# the fleet prefix set, keeps the last value per container id in
+# OOM_KILL_STATE_FILE, and:
+#
+#   * a RISE since the previous pass is an `OOM_KILL runner=<name> delta=<d>
+#     total=<t>` line and a Slack post IN THIS PASS. It bypasses the OMN-19169
+#     announcement dwell on purpose: a kill is an event that already happened,
+#     not a state that can flap, and it does not enter current_alert_count, so
+#     it cannot perturb the dwell either;
+#   * a FLAT counter is quiet. The dedup key is (host, container id, total):
+#     the same total is never announced twice;
+#   * a container id seen for the first time is a BASELINE, read and not
+#     alerted, so a recreated runner never replays its predecessor's history;
+#   * an UNREADABLE counter is an error finding, never a zero (FAIL-not-WARN).
+#     It adds ONE distinct finding to current_alert_count, like docker_ok, and
+#     the container's last good total is carried forward so the kills it
+#     missed are counted once the counter reads again.
+#
+# The per-runner totals and deltas ride on the fleet observation
+# (RUNNER_OOM_KILL_MAP_JSON -> scripts/runner_fleet_event.py). The sticky
+# State.OOMKilled check above is unchanged; this block is additive.
+declare -A oom_kill_total_by_runner=()
+declare -A oom_kill_delta_by_runner=()
+declare -A oom_error_names=()
+oom_kill_event_list=()
+oom_counter_error_list=()
+oom_scan_error_present=false
+RUNNER_OOM_KILL_MAP_JSON=""
+
+# oom_expand_systemd_slice <parent> -- systemd nests a dashed slice under each
+# of its prefixes ("a-b.slice" lives at "a.slice/a-b.slice"). A parent that is
+# not a slice (the cgroupfs driver's "/docker") is returned without its
+# leading slash.
+oom_expand_systemd_slice() {
+    local slice="${1}" stem part acc="" out=""
+    local -a parts=()
+    if [[ "${slice}" != *.slice ]]; then
+        printf '%s\n' "${slice#/}"
+        return 0
+    fi
+    stem="${slice%.slice}"
+    IFS='-' read -ra parts <<< "${stem}"
+    for part in "${parts[@]}"; do
+        acc="${acc:+${acc}-}${part}"
+        out="${out:+${out}/}${acc}.slice"
+    done
+    printf '%s\n' "${out}"
+}
+
+# oom_memory_events_path <container id> <cgroup parent> -- the container's
+# cgroup v2 memory.events, or return 1. The candidates cover the systemd
+# driver with an explicit CgroupParent (the .202 pool: omnirunners.slice),
+# the systemd driver's default system.slice, and the cgroupfs driver.
+oom_memory_events_path() {
+    local cid="${1}" parent="${2}" root="${RUNNER_MONITOR_CGROUP_ROOT%/}" expanded candidate
+    local -a candidates=()
+    if [[ -n "${parent}" ]]; then
+        expanded="$(oom_expand_systemd_slice "${parent}")"
+        candidates+=(
+            "${root}/${expanded}/docker-${cid}.scope/memory.events"
+            "${root}/${expanded}/${cid}/memory.events"
+        )
+    else
+        candidates+=(
+            "${root}/system.slice/docker-${cid}.scope/memory.events"
+            "${root}/docker/${cid}/memory.events"
+        )
+    fi
+    for candidate in "${candidates[@]}"; do
+        if [[ -r "${candidate}" ]]; then
+            printf '%s\n' "${candidate}"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# oom_read_kill_total <memory.events path> -- the `oom_kill` counter, or
+# return 1. A missing line or a non-integer is unreadable, never zero.
+oom_read_kill_total() {
+    local value
+    value="$(awk '$1 == "oom_kill" { print $2; found = 1 } END { exit !found }' "${1}" 2>/dev/null)" || return 1
+    [[ "${value}" =~ ^[0-9]+$ ]] || return 1
+    printf '%s\n' "${value}"
+}
+
+# oom_record_error <runner name or ""> <message> -- one error finding.
+oom_record_error() {
+    local name="${1}" message="${2}"
+    oom_counter_error_list+=("${message}")
+    if [[ -n "${name}" ]]; then
+        oom_error_names["${name}"]=1
+    fi
+}
+
+if [[ "${RUNNER_MONITOR_OOM_KILL_SCAN}" != true ]]; then
+    log "OOM-kill counter scan DISABLED (RUNNER_MONITOR_OOM_KILL_SCAN=${RUNNER_MONITOR_OOM_KILL_SCAN}); runner OOM kills on ${RUNNER_HOST} are NOT watched this pass."
+else
+    # Two cron entries run this script against one state directory: the */3
+    # monitor pass and the */10 repair pass. The read-compare-write below holds
+    # an exclusive lock so the two can never both read the same previous total
+    # and announce one kill twice. A lock that cannot be taken is an error
+    # finding; the counters are left for the next pass, never skipped quietly.
+    oom_lock_ok=false
+    oom_lock_fd=""
+    if exec {oom_lock_fd}>>"${OOM_KILL_STATE_FILE}.lock"; then
+        if flock -w "${RUNNER_MONITOR_OOM_KILL_LOCK_WAIT_SECONDS:-30}" "${oom_lock_fd}"; then
+            oom_lock_ok=true
+        else
+            oom_record_error "" "OOM_STATE_LOCK_TIMEOUT file=${OOM_KILL_STATE_FILE}.lock host=${RUNNER_HOST}: another pass held the counter lock; counters are read on the next pass"
+        fi
+    else
+        oom_lock_fd=""
+        oom_record_error "" "OOM_STATE_LOCK_FAILED file=${OOM_KILL_STATE_FILE}.lock host=${RUNNER_HOST}: could not open the counter lock file; counters are not read this pass"
+    fi
+    if [[ "${oom_lock_ok}" == true ]]; then
+        # Previous totals, keyed by container id. A state file that exists and
+        # cannot be read is an error: every runner re-baselines, so a kill since
+        # the last good pass would otherwise vanish without a word.
+        oom_prev_json="{}"
+        if [[ -f "${OOM_KILL_STATE_FILE}" ]]; then
+            if ! oom_prev_json="$(jq -c '.containers // {} | if type == "object" then . else error("containers is not an object") end' "${OOM_KILL_STATE_FILE}" 2>&1)"; then
+                oom_record_error "" "OOM_STATE_UNREADABLE file=${OOM_KILL_STATE_FILE} host=${RUNNER_HOST}: $(tr '\n' ' ' <<< "${oom_prev_json}" | head -c 300) -- every runner re-baselines this pass, so a kill since the last good pass is not counted."
+                oom_prev_json="{}"
+            fi
+        fi
+
+        # The runner containers: every running container whose name starts with
+        # the detection prefix or any member of the fleet prefix set.
+        declare -A oom_seen=()
+        oom_names=()
+        IFS=',' read -ra oom_prefixes <<< "${RUNNER_NAME_PREFIX},${RUNNER_FLEET_NAME_PREFIX}"
+        for oom_prefix in "${oom_prefixes[@]}"; do
+            oom_prefix="${oom_prefix//[[:space:]]/}"
+            [[ -z "${oom_prefix}" ]] && continue
+            if ! oom_ps_out="$(docker ps --filter "name=${oom_prefix}" --format '{{.Names}}' 2>&1)"; then
+                oom_record_error "" "OOM_SCAN_FAILED prefix=${oom_prefix} host=${RUNNER_HOST}: docker ps failed: $(tr '\n' ' ' <<< "${oom_ps_out}" | head -c 300)"
+                continue
+            fi
+            while IFS= read -r oom_name; do
+                [[ -z "${oom_name}" || "${oom_name}" != "${oom_prefix}"* ]] && continue
+                [[ -n "${oom_seen[$oom_name]:-}" ]] && continue
+                oom_seen["$oom_name"]=1
+                oom_names+=("${oom_name}")
+            done <<< "${oom_ps_out}"
+        done
+
+        oom_state_lines=""
+        for oom_name in "${oom_names[@]}"; do
+            if ! oom_inspect="$(docker inspect --format '{{.Id}}|{{.HostConfig.CgroupParent}}' "${oom_name}" 2>&1)"; then
+                oom_record_error "${oom_name}" "OOM_COUNTER_UNREADABLE runner=${oom_name} host=${RUNNER_HOST}: docker inspect failed: $(tr '\n' ' ' <<< "${oom_inspect}" | head -c 300)"
+                continue
+            fi
+            oom_cid="${oom_inspect%%|*}"
+            oom_parent="${oom_inspect#*|}"
+            oom_parent="${oom_parent%%[[:space:]]}"
+            if [[ ! "${oom_cid}" =~ ^[0-9a-f]{64}$ ]]; then
+                oom_record_error "${oom_name}" "OOM_COUNTER_UNREADABLE runner=${oom_name} host=${RUNNER_HOST}: docker inspect returned no container id ('$(head -c 100 <<< "${oom_inspect}")')"
+                continue
+            fi
+            oom_cid_short="${oom_cid:0:12}"
+            if ! oom_events_path="$(oom_memory_events_path "${oom_cid}" "${oom_parent}")"; then
+                oom_record_error "${oom_name}" "OOM_COUNTER_UNREADABLE runner=${oom_name} container=${oom_cid_short} host=${RUNNER_HOST}: no readable memory.events for cgroup parent '${oom_parent:-<default>}' under ${RUNNER_MONITOR_CGROUP_ROOT}"
+                continue
+            fi
+            if ! oom_total="$(oom_read_kill_total "${oom_events_path}")"; then
+                oom_record_error "${oom_name}" "OOM_COUNTER_UNREADABLE runner=${oom_name} container=${oom_cid_short} host=${RUNNER_HOST}: no integer oom_kill line in ${oom_events_path}"
+                continue
+            fi
+            oom_prev="$(jq -r --arg id "${oom_cid}" '.[$id].total // empty' <<< "${oom_prev_json}" 2>/dev/null || true)"
+            oom_delta=0
+            if [[ ! "${oom_prev}" =~ ^[0-9]+$ ]]; then
+                log "OOM_BASELINE runner=${oom_name} total=${oom_total} container=${oom_cid_short} (first pass for this container id: read, not alerted)"
+            elif (( oom_total < oom_prev )); then
+                log "OOM_BASELINE runner=${oom_name} total=${oom_total} container=${oom_cid_short} (counter fell from ${oom_prev}: the cgroup was recreated under the same id, so this is a new baseline)"
+            else
+                oom_delta=$(( oom_total - oom_prev ))
+            fi
+            oom_kill_total_by_runner["$oom_name"]="${oom_total}"
+            oom_kill_delta_by_runner["$oom_name"]="${oom_delta}"
+            if (( oom_delta > 0 )); then
+                oom_kill_event_list+=("OOM_KILL runner=${oom_name} delta=${oom_delta} total=${oom_total} container=${oom_cid_short} host=${RUNNER_HOST}")
+            fi
+            oom_state_lines+="${oom_cid}"$'\t'"${oom_name}"$'\t'"${oom_total}"$'\n'
+        done
+
+        # Next pass's baseline: every counter read this pass, plus the last good
+        # total of any runner whose counter could not be read, so the kills it
+        # missed are counted (once) when it reads again.
+        oom_error_names_json="$(printf '%s\n' "${!oom_error_names[@]}" | jq -Rsc 'split("\n") | map(select(length > 0))')"
+        oom_state_json=""
+        if ! oom_state_json="$(printf '%s' "${oom_state_lines}" | jq -Rnc \
+            --argjson prev "${oom_prev_json}" \
+            --argjson errs "${oom_error_names_json}" '
+                ($prev | with_entries(select(.value.runner as $r | ($errs | index($r)) != null))) as $carried
+                | reduce (inputs | select(length > 0) | split("\t")) as $p
+                    ($carried; . + {($p[0]): {runner: $p[1], total: ($p[2] | tonumber)}})
+                | {containers: .}
+            ' 2>&1)"; then
+            oom_record_error "" "OOM_STATE_WRITE_FAILED file=${OOM_KILL_STATE_FILE} host=${RUNNER_HOST}: could not serialize: $(tr '\n' ' ' <<< "${oom_state_json}" | head -c 300)"
+            oom_state_json=""
+        fi
+        if [[ -n "${oom_state_json}" ]]; then
+            oom_state_tmp="${OOM_KILL_STATE_FILE}.tmp.$$"
+            if ! { printf '%s\n' "${oom_state_json}" > "${oom_state_tmp}" && mv -f "${oom_state_tmp}" "${OOM_KILL_STATE_FILE}"; }; then
+                rm -f "${oom_state_tmp}" || true
+                oom_record_error "" "OOM_STATE_WRITE_FAILED file=${OOM_KILL_STATE_FILE} host=${RUNNER_HOST}: the next pass re-announces this pass's kills rather than losing them"
+            fi
+        fi
+    fi
+    if [[ -n "${oom_lock_fd}" ]]; then
+        exec {oom_lock_fd}>&-
+    fi
+
+    # The per-runner map the fleet observation carries. A runner absent from
+    # it (unreadable, or another host's) is published as NULL, never zero.
+    oom_map_lines=""
+    for oom_name in "${!oom_kill_total_by_runner[@]}"; do
+        oom_map_lines+="${oom_name}"$'\t'"${oom_kill_total_by_runner[$oom_name]}"$'\t'"${oom_kill_delta_by_runner[$oom_name]}"$'\n'
+    done
+    if ! RUNNER_OOM_KILL_MAP_JSON="$(printf '%s' "${oom_map_lines}" | jq -Rnc '
+            reduce (inputs | select(length > 0) | split("\t")) as $p
+                ({}; . + {($p[0]): {total: ($p[1] | tonumber), delta: ($p[2] | tonumber)}})
+        ')"; then
+        log "ERROR: OOM-kill counter map for the fleet observation failed to build; its counters publish as NULL this pass"
+        RUNNER_OOM_KILL_MAP_JSON=""
+    fi
+
+    for oom_line in "${oom_kill_event_list[@]}"; do
+        log "${oom_line}"
+        unhealthy_list+=("${oom_line}")
+    done
+    for oom_line in "${oom_counter_error_list[@]}"; do
+        log "ERROR: ${oom_line}"
+        unhealthy_list+=("${oom_line}")
+    done
+    if [[ "${#oom_counter_error_list[@]}" -gt 0 ]]; then
+        oom_scan_error_present=true
+    fi
+    log "OOM-kill counters: ${#oom_kill_total_by_runner[@]} runner(s) read, ${#oom_kill_event_list[@]} with new kills, ${#oom_counter_error_list[@]} error(s) (state ${OOM_KILL_STATE_FILE})."
+
+    if [[ "${#oom_kill_event_list[@]}" -gt 0 ]]; then
+        oom_msg="*[RUNNER OOM-KILL]* ${#oom_kill_event_list[@]} runner container(s) had a process OOM-killed since the previous pass. The kernel's cgroup counter rose, so the kill happened whatever the job's own result says (a 137 auto-rerun can turn it green). Posted in the pass that saw it; no dwell.
+
+\`\`\`
+$(printf '%s\n' "${oom_kill_event_list[@]}")
+\`\`\`
+
+Host: ${RUNNER_HOST}"
+        if slack_post "${oom_msg}" "danger"; then
+            log "OOM-KILL alert posted to Slack for ${#oom_kill_event_list[@]} runner(s)."
+        else
+            log "ERROR: OOM-KILL Slack post FAILED for ${#oom_kill_event_list[@]} runner(s); the OOM_KILL lines above are the record."
+        fi
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# SAFE remediation recipe (OMN-13109)
+# ---------------------------------------------------------------------------
+# Render the exact, copy-pasteable safe-bounce command for the affected
+# services. By default this is ONLY rendered into the Slack alert (operator runs
+# it). When MONITOR_AUTO_BOUNCE=1 it is executed — force-recreate of the named
+# services only, fresh token, detached, 2-minute hard limit.
+#
+# remediation_targets: space-separated service names extracted from the
+# wedge/crash-loop findings. Empty when the issue is something else (offline,
+# OOM, socket) where automatic bounce is unsafe.
+#
+# OMN-16947 — TWO RULES GOVERN THIS FUNCTION:
+#
+#   1. A runner that is present, registered, and listening is NEVER a
+#      remediation target. Only hard per-runner failure evidence (no container,
+#      stuck at Created, crash-looping, offline past the grace period) earns a
+#      recreate. `healthy_names` is consulted as defence-in-depth so that even a
+#      mis-collecting category cannot nominate a runner this tick counted
+#      healthy.
+#
+#   2. A SILENT-WEDGE contributes ZERO recreate targets. It used to expand to
+#      `seq 1 $EXPECTED_RUNNERS` — every runner in the fleet — on the theory
+#      that a wedge is fleet-wide. But every runner in a wedge is by definition
+#      Up, online, and listening, so rule 1 forbids recreating them
+#      automatically. On 2026-08-29 one false-positive wedge (a 10-day-old
+#      zombie queued job) therefore rendered as "88 actionable" and
+#      force-recreated all 88 healthy runners in a single compose call, taking
+#      the fleet down and needing two dockerd restarts to recover. A wedge is
+#      now an ALERT: the operator gets the rendered safe-bounce recipe and makes
+#      the fleet-wide call themselves.
+collect_remediation_targets() {
+    local targets=()
+    local entry svc
+    local -a evidence_lists=()
+    if [[ "${#missing_container_list[@]}" -gt 0 ]]; then
+        evidence_lists+=("${missing_container_list[@]}")
+    fi
+    if [[ "${#offline_idle_recreate_list[@]}" -gt 0 ]]; then
+        evidence_lists+=("${offline_idle_recreate_list[@]}")
+    fi
+    if [[ "${#crashloop_list[@]}" -gt 0 ]]; then
+        evidence_lists+=("${crashloop_list[@]}")
+    fi
+    # OMN-13947: re-target stragglers left at Status=created by a prior bounce
+    # that never completed. Without this, a container that survives one
+    # auto_bounce verify-retry cycle is permanently invisible to remediation.
+    if [[ "${#stuck_created_list[@]}" -gt 0 ]]; then
+        evidence_lists+=("${stuck_created_list[@]}")
+    fi
+
+    if [[ "${#evidence_lists[@]}" -gt 0 ]]; then
+        for entry in "${evidence_lists[@]}"; do
+            svc="${entry%%:*}"
+            [[ "${svc}" =~ ^${RUNNER_NAME_PREFIX}-[0-9]+$ ]] || continue
+            # Rule 1, enforced here rather than trusted upstream.
+            [[ -n "${healthy_names[${svc}]:-}" ]] && continue
+            targets+=("${svc}")
+        done
+    fi
+
+    # De-dupe while preserving order. Guard against empty array under set -u.
+    if [[ "${#targets[@]}" -gt 0 ]]; then
+        printf '%s\n' "${targets[@]}" | awk '!seen[$0]++' | tr '\n' ' '
+    fi
+}
+
+# bounce_timeout_seconds — timeout for a force-recreate batch, scaled by the
+# number of targets (OMN-13947). A fixed cap SIGTERMs `docker compose up`
+# mid-batch under host load; scaling with batch size and keeping a generous
+# ceiling means a multi-container recreate is never killed before it can
+# finish, while a genuinely hung daemon still gets bounded eventually.
+bounce_timeout_seconds() {
+    local target_list="$1"
+    local target_count timeout_seconds
+    target_count=$(wc -w <<< "${target_list}")
+    timeout_seconds=$(( target_count * AUTO_BOUNCE_PER_CONTAINER_BUDGET_SECONDS ))
+    [[ "${timeout_seconds}" -lt "${AUTO_BOUNCE_HARD_LIMIT_SECONDS}" ]] && timeout_seconds="${AUTO_BOUNCE_HARD_LIMIT_SECONDS}"
+    [[ "${timeout_seconds}" -gt "${AUTO_BOUNCE_TIMEOUT_CEILING_SECONDS}" ]] && timeout_seconds="${AUTO_BOUNCE_TIMEOUT_CEILING_SECONDS}"
+    echo "${timeout_seconds}"
+}
+
+render_safe_bounce_cmd() {
+    local target_list="$1"
+    [[ -z "${target_list// /}" ]] && { echo ""; return 0; }
+    local timeout_seconds
+    timeout_seconds=$(bounce_timeout_seconds "${target_list}")
+    cat <<RECIPE
+# SAFE BOUNCE — force-recreate ONLY these services with a FRESH token, detached.
+# NEVER 'docker restart' (crash-loops: cached creds + expired baked token).
+# NEVER an empty service filter (would recreate all 48 at once).
+# NEVER run this manually while an auto_bounce is in flight — check for a lock
+# on ${AUTO_BOUNCE_LOCKFILE} first (concurrent recreates race the daemon).
+TOKEN=\$(gh api --method POST /orgs/${RUNNER_ORG}/actions/runners/registration-token --jq .token)
+RUNNER_TOKEN="\$TOKEN" timeout ${timeout_seconds} \\
+  docker compose ${COMPOSE_FILE_ARGS_STR} up -d --force-recreate --no-deps ${target_list}
+RECIPE
+}
+
+# auto_bounce — execute the safe recipe IFF MONITOR_AUTO_BOUNCE=1. Detached,
+# fresh token, named services only. This is the documented remediation; it is
+# gated OFF by default so this script stays observe-and-alert.
+#
+# OMN-13947 hardening over the original implementation:
+#   1. flock mutex — the */10 cron fired unconditionally even while a prior
+#      bounce was still running in the background, producing literal daemon
+#      races ("removal of container ... is already in progress"). A
+#      non-blocking flock probe skips this cycle instead of racing.
+#   2. Batch-scaled timeout — see bounce_timeout_seconds().
+#   3. Verify-start + bounded retry — `docker compose up` can return having
+#      `docker create`d some targets without starting them (killed mid-batch).
+#      Assert Status=running for every target after the call returns; explicit
+#      `docker start` + retry for any straggler instead of leaving it orphaned.
+#
+# OMN-16947 hardening (the 2026-08-29 self-inflicted fleet outage):
+#   4. Compose interpolation preflight gate — refuse to dispatch (and refuse to
+#      CLAIM a dispatch) when `docker compose config` cannot interpolate. This
+#      is the six-day silent no-op: every recreate aborted on a missing
+#      DEPLOY_RUNNER_OMNI_HOME while the log said "AUTO-BOUNCE dispatched".
+#   5. Hard per-tick cap, applied HERE — below every collection path — so a
+#      target-selection bug can never again mass-recreate the fleet.
+#   6. Sequential, verified bounce — one compose call per target, each verified
+#      `running` before the next is touched. A canary that does not come back
+#      halts the batch instead of cascading the failure across the fleet.
+auto_bounce() {
+    local target_list="$1"
+    [[ "${MONITOR_AUTO_BOUNCE}" != "1" ]] && return 0
+    [[ -z "${target_list// /}" ]] && return 0
+
+    if [[ "${COMPOSE_INTERPOLATION_OK}" != true ]]; then
+        log "AUTO-BOUNCE BLOCKED: compose interpolation preflight failed, so every recreate would abort before touching a container. Fix the monitor env, then the next tick converges. Targets left pending: ${target_list}"
+        slack_post "*[RUNNER AUTO-BOUNCE BLOCKED]* compose interpolation preflight failed — auto-repair is INERT until the monitor env is fixed.
+Error: ${COMPOSE_INTERPOLATION_ERROR}
+Pending targets: ${target_list}" "danger"
+        return 0
+    fi
+
+    # OMN-16947 rule 5: truncate to the per-tick ceiling. Log loudly — a capped
+    # tick means the fleet is converging over several ticks, and silence here
+    # would look identical to "nothing was wrong".
+    local requested_count
+    requested_count=$(wc -w <<< "${target_list}")
+    if [[ "${requested_count}" -gt "${AUTO_BOUNCE_MAX_TARGETS_PER_TICK}" ]]; then
+        log "AUTO-BOUNCE CAP: ${requested_count} target(s) requested, capping this tick at AUTO_BOUNCE_MAX_TARGETS_PER_TICK=${AUTO_BOUNCE_MAX_TARGETS_PER_TICK}. Remaining targets are re-detected and bounced on subsequent ticks. Full requested set: ${target_list}"
+        slack_post "*[RUNNER AUTO-BOUNCE CAPPED]* ${requested_count} runner(s) need recreation; bouncing ${AUTO_BOUNCE_MAX_TARGETS_PER_TICK} this tick and the rest on following ticks." "warning"
+        target_list="$(tr ' ' '\n' <<< "${target_list}" | grep -v '^$' | head -n "${AUTO_BOUNCE_MAX_TARGETS_PER_TICK}" | tr '\n' ' ')"
+    fi
+
+    # Non-blocking lock probe. If a prior bounce still holds the lock, skip
+    # this cycle rather than dispatching a second concurrent recreate. The
+    # deployed Linux host has flock; the mkdir fallback keeps local macOS tests
+    # exercising the same single-flight behavior.
+    local lock_kind="flock"
+    if command -v flock >/dev/null 2>&1; then
+        exec 9>"${AUTO_BOUNCE_LOCKFILE}"
+        if ! flock -n 9; then
+            log "AUTO-BOUNCE skipped: a prior bounce is still in flight (lock held on ${AUTO_BOUNCE_LOCKFILE})."
+            exec 9>&-
+            return 0
+        fi
+    else
+        lock_kind="mkdir"
+        if ! mkdir "${AUTO_BOUNCE_LOCKFILE}.d" 2>/dev/null; then
+            log "AUTO-BOUNCE skipped: a prior bounce is still in flight (lock held on ${AUTO_BOUNCE_LOCKFILE}.d)."
+            return 0
+        fi
+    fi
+
+    log "AUTO-BOUNCE enabled (MONITOR_AUTO_BOUNCE=1). Force-recreating: ${target_list}"
+    local token
+    token=$(gh api --method POST "/orgs/${RUNNER_ORG}/actions/runners/registration-token" --jq .token 2>/dev/null || true)
+    if [[ -z "${token}" ]]; then
+        log "AUTO-BOUNCE aborted: could not mint a fresh registration token."
+        slack_post "*[RUNNER AUTO-BOUNCE ABORTED]* could not mint registration token. Manual bounce required for: ${target_list}" "danger"
+        if [[ "${lock_kind}" == "flock" ]]; then
+            exec 9>&-
+        else
+            rmdir "${AUTO_BOUNCE_LOCKFILE}.d" 2>/dev/null || true
+        fi
+        return 0
+    fi
+
+    # OMN-16947: the bounce is now one compose call per target, so the timeout
+    # is per-target rather than batch-scaled. bounce_timeout_seconds() still
+    # sizes the operator-facing recipe, which remains a single batched command.
+    local timeout_seconds per_target_timeout
+    timeout_seconds=$(bounce_timeout_seconds "${target_list}")
+    per_target_timeout=$(bounce_timeout_seconds "one-target")
+
+    # The subshell inherits fd 9 (and therefore the flock) from this process.
+    # We close our own copy right after forking so the lock is held for
+    # exactly as long as the background subshell (compose + verify/retry) is
+    # running, then released automatically when it exits.
+    # shellcheck disable=SC2086
+    (
+        if [[ "${lock_kind}" == "mkdir" ]]; then
+            trap 'rmdir "${AUTO_BOUNCE_LOCKFILE}.d" 2>/dev/null || true' EXIT
+        fi
+
+        # OMN-16947 rule 6: ONE service per compose call, each verified before
+        # the next is touched. The previous implementation recreated the whole
+        # batch in a single call and only verified afterwards, so a bad target
+        # list took every container down simultaneously and a mid-batch failure
+        # left the rest orphaned. Sequential means the blast radius of any
+        # single tick is one container at a time.
+        svc=""
+        bounced=0
+        for svc in ${target_list}; do
+            echo "[runner-monitor] $(date '+%H:%M:%S') AUTO-BOUNCE canary ${svc} (${bounced} of $(wc -w <<< "${target_list}") complete) — force-recreate." \
+                >> "${AUTO_BOUNCE_BOUNCE_LOG}"
+            RUNNER_TOKEN="${token}" timeout "${per_target_timeout}" \
+                docker compose "${COMPOSE_FILE_ARGS[@]}" up -d --force-recreate --no-deps "${svc}" \
+                >> "${AUTO_BOUNCE_BOUNCE_LOG}" 2>&1 || true
+
+            attempt=1
+            status="$(docker inspect --format '{{.State.Status}}' "${svc}" 2>/dev/null || echo missing)"
+            while [[ "${status}" != "running" ]] && [[ "${attempt}" -le "${AUTO_BOUNCE_VERIFY_RETRY_COUNT}" ]]; do
+                echo "[runner-monitor] $(date '+%H:%M:%S') AUTO-BOUNCE straggler: ${svc} Status=${status} (attempt ${attempt}/${AUTO_BOUNCE_VERIFY_RETRY_COUNT}) — explicit docker start." \
+                    >> "${AUTO_BOUNCE_BOUNCE_LOG}"
+                docker start "${svc}" >> "${AUTO_BOUNCE_BOUNCE_LOG}" 2>&1 || true
+                sleep "${AUTO_BOUNCE_VERIFY_RETRY_SLEEP_SECONDS}"
+                status="$(docker inspect --format '{{.State.Status}}' "${svc}" 2>/dev/null || echo missing)"
+                attempt=$(( attempt + 1 ))
+            done
+
+            if [[ "${status}" != "running" ]]; then
+                # HALT rather than continue. If one recreate cannot succeed the
+                # cause is very likely systemic (daemon lock, bad image, broken
+                # compose), and marching through the remaining targets is how a
+                # single fault becomes a fleet outage.
+                echo "[runner-monitor] $(date '+%H:%M:%S') AUTO-BOUNCE HALT: ${svc} did not reach running (final Status=${status}) after ${AUTO_BOUNCE_VERIFY_RETRY_COUNT} retries. Aborting the rest of this tick's batch rather than cascading; remaining targets are re-detected next cycle." \
+                    >> "${AUTO_BOUNCE_BOUNCE_LOG}"
+                break
+            fi
+            bounced=$(( bounced + 1 ))
+            echo "[runner-monitor] $(date '+%H:%M:%S') AUTO-BOUNCE verified ${svc} running." \
+                >> "${AUTO_BOUNCE_BOUNCE_LOG}"
+        done
+    ) &
+    if [[ "${lock_kind}" == "flock" ]]; then
+        exec 9>&-
+    fi
+    log "AUTO-BOUNCE dispatched in background (timeout ${timeout_seconds}s for $(wc -w <<< "${target_list}") target(s), verify+retry up to ${AUTO_BOUNCE_VERIFY_RETRY_COUNT}x)."
+}
+
+# ---------------------------------------------------------------------------
+# Compare with previous state and alert on transitions
+# ---------------------------------------------------------------------------
+prev_unhealthy_count=0
+prev_alert_count=0
+# OMN-19169: what Slack has already been TOLD, and how many consecutive
+# observations the current disagreement has survived. `announced_alert_count`
+# falls back to `alert_count` so the first run after this change ships does not
+# re-announce a state the channel already carries.
+announced_alert_count=0
+pending_alert_count=0
+pending_alert_streak=0
+if [[ -f "$STATE_FILE" ]]; then
+    prev_unhealthy_count=$(jq -r '.unhealthy_count // 0' "$STATE_FILE" 2>/dev/null || true)
+    prev_alert_count=$(jq -r '.alert_count // 0' "$STATE_FILE" 2>/dev/null || true)
+    announced_alert_count=$(jq -r '.announced_alert_count // .alert_count // 0' "$STATE_FILE" 2>/dev/null || true)
+    pending_alert_count=$(jq -r '.pending_alert_count // 0' "$STATE_FILE" 2>/dev/null || true)
+    pending_alert_streak=$(jq -r '.pending_alert_streak // 0' "$STATE_FILE" 2>/dev/null || true)
+fi
+for state_count_var in \
+    prev_unhealthy_count \
+    prev_alert_count \
+    announced_alert_count \
+    pending_alert_count \
+    pending_alert_streak; do
+    if [[ ! "${!state_count_var}" =~ ^[0-9]+$ ]]; then
+        printf -v "${state_count_var}" '%s' 0
+    fi
+done
+
+current_unhealthy_count=${#unhealthy_list[@]}
+wedge_count=${#wedge_list[@]}
+crashloop_count=${#crashloop_list[@]}
+stuck_created_count=${#stuck_created_list[@]}
+offline_idle_recreate_count=${#offline_idle_recreate_list[@]}
+missing_container_count=${#missing_container_list[@]}
+offline_first_seen_json="{}"
+if [[ -n "${offline_first_seen_lines}" ]]; then
+    offline_first_seen_json=$(printf '%s' "${offline_first_seen_lines}" | jq -Rn '
+        reduce inputs as $line ({};
+            if ($line | length) == 0 then
+                .
+            else
+                ($line | split("\t")) as $parts
+                | . + {($parts[0]): ($parts[1] | tonumber)}
+            end
+        )
+    ')
+fi
+
+remediation_targets="$(collect_remediation_targets)"
+remediation_target_count=0
+if [[ -n "${remediation_targets// /}" ]]; then
+    remediation_target_count=$(wc -w <<< "${remediation_targets}")
+fi
+# OMN-16947: the actionable count is a sum of DISTINCT FINDINGS, not a proxy
+# for the recreate-target list. Conflating the two is what turned one wedge
+# finding into "88 actionable" against a fleet that was 88/88 healthy. A wedge
+# is one finding; so is a broken monitor env; so is fleet-count drift.
+current_alert_count="${remediation_target_count}"
+if [[ "${wedge_count}" -gt 0 ]]; then
+    current_alert_count=$((current_alert_count + wedge_count))
+fi
+if [[ "${COMPOSE_INTERPOLATION_OK}" != true ]]; then
+    current_alert_count=$((current_alert_count + 1))
+fi
+if [[ "${FLEET_COUNT_DRIFT}" == true ]]; then
+    current_alert_count=$((current_alert_count + 1))
+fi
+if [[ "${github_api_failed}" == true ]]; then
+    current_alert_count=$((current_alert_count + 1))
+fi
+if [[ "${docker_ok}" != true ]]; then
+    current_alert_count=$((current_alert_count + 1))
+fi
+# OMN-18396: the customer-plane pair contributes ONE finding to the actionable
+# count (same "one distinct finding" shape as wedge/drift/docker_ok above),
+# never a remediation target -- it is never counted through
+# remediation_target_count because collect_remediation_targets() never reads
+# it. This is what makes an outage of this pair actually page Slack (the
+# transition logic below fires only on current_alert_count changing).
+if [[ "${customer_plane_alert_present}" == true ]]; then
+    current_alert_count=$((current_alert_count + 1))
+fi
+# OMN-18408: the verify runner contributes its own distinct finding, on the
+# same terms. Folding it into the count above would make an outage of the
+# single runner serving five scheduled probes indistinguishable from a
+# customer-plane blip in both the count and the transition logic.
+if [[ "${verify_runner_alert_present}" == true ]]; then
+    current_alert_count=$((current_alert_count + 1))
+fi
+# OMN-19958: an unreadable OOM-kill counter (or an unreadable or unwritable
+# counter state file) is ONE distinct finding, never a zero. A counter RISE is
+# not counted here: it is an event, announced by its own Slack post in the pass
+# that saw it, and counting it would make the actionable count flap for one
+# pass and trip the dwell for nothing.
+if [[ "${oom_scan_error_present}" == true ]]; then
+    current_alert_count=$((current_alert_count + 1))
+fi
+
+# ---------------------------------------------------------------------------
+# Announcement dwell (OMN-19169)
+# ---------------------------------------------------------------------------
+# The transition arms further down compare against `prev_alert_count`. They are
+# repointed at `announced_alert_count` -- what the channel already says -- and
+# their slack_post calls are gated on `announce_transition`. A disagreement
+# must repeat unchanged for ALERT_DWELL_CYCLES consecutive observations before
+# it is announced; anything shorter is a flap and is logged, never posted.
+announce_transition=false
+# What the channel currently says, captured BEFORE an announcement moves it --
+# the transition arms below must see the state they are transitioning FROM.
+previously_announced_alert_count="${announced_alert_count}"
+if [[ "${current_alert_count}" -eq "${announced_alert_count}" ]]; then
+    # Agreement with the channel: nothing is pending.
+    pending_alert_count="${current_alert_count}"
+    pending_alert_streak=0
+else
+    if [[ "${current_alert_count}" -eq "${pending_alert_count}" ]]; then
+        pending_alert_streak=$((pending_alert_streak + 1))
+    else
+        pending_alert_count="${current_alert_count}"
+        pending_alert_streak=1
+    fi
+    if [[ "${pending_alert_streak}" -ge "${ALERT_DWELL_CYCLES}" ]]; then
+        announce_transition=true
+    fi
+fi
+
+if [[ "${announce_transition}" == true ]]; then
+    log "DWELL: announcing ${announced_alert_count} -> ${current_alert_count} after ${pending_alert_streak}/${ALERT_DWELL_CYCLES} consecutive observation(s)."
+    announced_alert_count="${current_alert_count}"
+    pending_alert_streak=0
+elif [[ "${current_alert_count}" -ne "${announced_alert_count}" ]]; then
+    log "DWELL: holding ${announced_alert_count} -> ${current_alert_count} at ${pending_alert_streak}/${ALERT_DWELL_CYCLES} consecutive observation(s); no Slack post. Detection and auto-bounce are unaffected."
+fi
+
+# The transition arms read this; it is deliberately the ANNOUNCED state rather
+# than the previous observation, so an un-announced flap leaves no residue for
+# the next cycle -- and the second cron invocation reads the same value.
+prev_alert_count="${previously_announced_alert_count}"
+
+# Write current state atomically. A failed serialization must preserve the last
+# good observation and must never prevent the fleet emit below from running.
+state_tmp="${STATE_FILE}.tmp.$$"
+if jq -n \
+    --argjson healthy "$healthy" \
+    --argjson unhealthy_count "$current_unhealthy_count" \
+    --argjson alert_count "$current_alert_count" \
+    --argjson announced_alert_count "$announced_alert_count" \
+    --argjson pending_alert_count "$pending_alert_count" \
+    --argjson pending_alert_streak "$pending_alert_streak" \
+    --argjson alert_dwell_cycles "$ALERT_DWELL_CYCLES" \
+    --argjson remediation_target_count "$remediation_target_count" \
+    --argjson wedge_count "$wedge_count" \
+    --argjson crashloop_count "$crashloop_count" \
+    --argjson stuck_created_count "$stuck_created_count" \
+    --argjson offline_idle_recreate_count "$offline_idle_recreate_count" \
+    --argjson missing_container_count "$missing_container_count" \
+    --argjson online "$online_count" \
+    --argjson busy "$busy_count" \
+    --argjson queued_age "$queued_age" \
+    --argjson zombie_queued_count "$zombie_queued_count" \
+    --argjson compose_interpolation_ok "$COMPOSE_INTERPOLATION_OK" \
+    --argjson fleet_count_drift "$FLEET_COUNT_DRIFT" \
+    --argjson compose_runner_service_count "$COMPOSE_RUNNER_SERVICE_COUNT" \
+    --argjson expected_runner_count "$EXPECTED_RUNNERS" \
+    --arg compose_interpolation_error "$COMPOSE_INTERPOLATION_ERROR" \
+    --argjson total "$total_found" \
+    --argjson docker_ok "$docker_ok" \
+    --argjson customer_plane_alert_present "$customer_plane_alert_present" \
+    --argjson verify_runner_alert_present "$verify_runner_alert_present" \
+    --arg timestamp "$(date -Iseconds)" \
+    --arg unhealthy_names "$(printf '%s\n' "${unhealthy_list[@]}" 2>/dev/null || echo '')" \
+    --arg github_degraded_names "$(printf '%s\n' "${github_degraded_list[@]}" 2>/dev/null || echo '')" \
+    --arg offline_idle_bounce_names "$(printf '%s\n' "${offline_idle_bounce_list[@]}" 2>/dev/null || echo '')" \
+    --arg offline_idle_recreate_names "$(printf '%s\n' "${offline_idle_recreate_list[@]}" 2>/dev/null || echo '')" \
+    --argjson offline_first_seen "${offline_first_seen_json}" \
+    '{
+        healthy: $healthy,
+        unhealthy_count: $unhealthy_count,
+        alert_count: $alert_count,
+        announced_alert_count: $announced_alert_count,
+        pending_alert_count: $pending_alert_count,
+        pending_alert_streak: $pending_alert_streak,
+        alert_dwell_cycles: $alert_dwell_cycles,
+        remediation_target_count: $remediation_target_count,
+        wedge_count: $wedge_count,
+        crashloop_count: $crashloop_count,
+        stuck_created_count: $stuck_created_count,
+        offline_idle_recreate_count: $offline_idle_recreate_count,
+        missing_container_count: $missing_container_count,
+        online: $online,
+        busy: $busy,
+        oldest_queued_job_age_seconds: $queued_age,
+        zombie_queued_count: $zombie_queued_count,
+        compose_interpolation_ok: $compose_interpolation_ok,
+        compose_interpolation_error: $compose_interpolation_error,
+        fleet_count_drift: $fleet_count_drift,
+        compose_runner_service_count: $compose_runner_service_count,
+        expected_runner_count: $expected_runner_count,
+        total: $total,
+        docker_ok: $docker_ok,
+        customer_plane_alert_present: $customer_plane_alert_present,
+        verify_runner_alert_present: $verify_runner_alert_present,
+        timestamp: $timestamp,
+        unhealthy_names: $unhealthy_names,
+        github_degraded_names: $github_degraded_names,
+        offline_idle_bounce_names: $offline_idle_bounce_names,
+        offline_idle_recreate_names: $offline_idle_recreate_names,
+        offline_first_seen: $offline_first_seen
+    }' > "${state_tmp}"; then
+    if ! mv -f "${state_tmp}" "${STATE_FILE}"; then
+        log "state write FAILED to replace ${STATE_FILE} — previous state preserved; continuing"
+        rm -f "${state_tmp}" || true
+    fi
+else
+    log "state write FAILED to serialize ${STATE_FILE} — previous state preserved; continuing"
+    rm -f "${state_tmp}" || true
+fi
+
+# ---------------------------------------------------------------------------
+# Fleet-observation bus emit (OMN-18768, closing OMN-16943)
+# ---------------------------------------------------------------------------
+# Until this block, this monitor knew the state of every runner in the fleet on
+# a 3-minute cadence and told a CHAT CHANNEL, and nothing else. It emitted no
+# bus event, so nothing downstream could read the fleet: not alert triage, not a
+# projection, not the dashboard. A sweep of every onex.snapshot.projection.*
+# topic across the runtime sources returns 60+ topics and not one runner, lane,
+# fleet or host topic. "What runners are running" had no producer at all.
+#
+# This emits ONE typed event per observation cycle — a ~69-runner fleet is one
+# message, not 69 — on onex.evt.omnibase-infra.runner-fleet.v1, carrying per-runner name,
+# label class, host, online/offline/busy status, job id when resolvable, and
+# observed_at. The schema is built in Python (runner_fleet_event.py, beside this
+# script and rsynced with it) so it is deterministic and unit-testable; this
+# shell measures and publishes, exactly as scripts/disk-watermark-check.sh does.
+#
+# THIS EMIT NEVER CHANGES WHAT THE MONITOR DOES. It runs AFTER the state file is
+# written and BEFORE the alert logic, it is wrapped so a publish failure cannot
+# abort the run under `set -e`, and it dispatches no remediation. A broken bus
+# must never suppress a runner alert or a bounce.
+RUNNER_FLEET_TOPIC="${RUNNER_FLEET_TOPIC:-onex.evt.omnibase-infra.runner-fleet.v1}"
+# RUNNER_FLEET_NAME_PREFIX, the fleet prefix set, is defined above the
+# "Runner OOM-kill counters" block, which scans the same set (OMN-19958).
+RUNNER_FLEET_EMIT="${RUNNER_FLEET_EMIT:-true}"
+# The dev lane's broker container on this host, and the names of the env
+# vars INSIDE it that carry its SASL pair. Names, never values: the monitor
+# never reads, logs or passes the credential itself -- it hands the container
+# the variable names and the container expands them in its own shell. Set
+# RUNNER_FLEET_BROKER_CONTAINER to the empty string to skip this rung.
+RUNNER_FLEET_BROKER_CONTAINER="${RUNNER_FLEET_BROKER_CONTAINER-omnibase-infra-redpanda}"
+RUNNER_FLEET_BROKER_SASL_USER_VAR="${RUNNER_FLEET_BROKER_SASL_USER_VAR:-DEV_KAFKA_SASL_USERNAME}"
+RUNNER_FLEET_BROKER_SASL_PASS_VAR="${RUNNER_FLEET_BROKER_SASL_PASS_VAR:-DEV_KAFKA_SASL_PASSWORD}"
+RUNNER_FLEET_BROKER_SASL_MECHANISM="${RUNNER_FLEET_BROKER_SASL_MECHANISM:-SCRAM-SHA-256}"
+# The builder lives in scripts/, not beside this file. That is not a layout
+# preference: docker/runners/ is the runner IMAGE build context, and the
+# repo's check-env-reads gate approves env reads under scripts/ and tests/
+# only -- a builder here would have been blocked, correctly. Both the
+# deployed layout (${RUNNER_HOST_DIR}/docker/runners/ + ${RUNNER_HOST_DIR}/scripts/)
+# and the repo layout put it two levels up, resolved from this file's own
+# location so no absolute path is ever hardcoded (Operating Rule 6).
+_MONITOR_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+RUNNER_FLEET_EVENT_BUILDER="${RUNNER_FLEET_EVENT_BUILDER:-${_MONITOR_DIR}/../../scripts/runner_fleet_event.py}"
+
+emit_fleet_observation() {
+    if [[ "${RUNNER_FLEET_EMIT}" != true ]]; then
+        log "fleet emit disabled (RUNNER_FLEET_EMIT=${RUNNER_FLEET_EMIT}) — skipping"
+        return 0
+    fi
+    if [[ "${github_api_failed}" == true ]] || [[ -z "${github_json}" ]]; then
+        # An unreadable GitHub API is a MISSING observation, never an empty
+        # fleet. Publishing zero runners here would render a GitHub blip
+        # downstream as a total fleet outage.
+        log "fleet emit skipped — org runner API unreadable this cycle (no observation to publish)"
+        return 0
+    fi
+    if [[ ! -f "${RUNNER_FLEET_EVENT_BUILDER}" ]]; then
+        log "fleet emit skipped — event builder not found at ${RUNNER_FLEET_EVENT_BUILDER} (deploy-runners.sh rsyncs it beside this script)"
+        return 0
+    fi
+
+    local event_json
+    event_json="$(
+        RUNNER_FLEET_HOST="${RUNNER_HOST}" \
+        RUNNER_NAME_PREFIX="${RUNNER_FLEET_NAME_PREFIX}" \
+        RUNNER_GROUP="${RUNNER_GROUP}" \
+        TOPIC="${RUNNER_FLEET_TOPIC}" \
+        RUNNER_JOB_MAP_JSON="${RUNNER_JOB_MAP_JSON:-}" \
+        RUNNER_OOM_KILL_MAP_JSON="${RUNNER_OOM_KILL_MAP_JSON}" \
+        python3 "${RUNNER_FLEET_EVENT_BUILDER}" <<< "${github_json}" 2>/dev/null
+    )" || {
+        log "fleet emit FAILED to build event — continuing (alerting is unaffected)"
+        return 0
+    }
+    if [[ -z "${event_json}" ]]; then
+        log "fleet emit produced no event — continuing"
+        return 0
+    fi
+
+    # Publish. Fail-soft at every rung, never a hardcoded broker address
+    # (Operating Rule 8 / OMN-10741). Method 1 is the BROKER CONTAINER on this
+    # host, method 2 an rpk on PATH, method 3 the HTTP thin-publish endpoint,
+    # method 4 log-only so the event stays replayable.
+    #
+    # Method 1 exists because methods 2 and 3 are both INERT on the real runner
+    # host and this was measured, not assumed: on 2026-09-19 `command -v rpk`
+    # on 192.168.86.201 returns nothing, and the monitor's own env file
+    # declares neither KAFKA_BOOTSTRAP_SERVERS nor ONEX_BUS_PUBLISH_URL. A
+    # ladder whose every rung is absent publishes nothing forever while logging
+    # that it is fine -- the false-green this ticket exists to remove. What the
+    # host DOES have is docker and the dev lane's own broker container, so that
+    # is the rung that carries the emit.
+    #
+    # The SASL pair is expanded INSIDE the container by `sh -c`, so it never
+    # reaches this host's argv and never appears in `ps`
+    # (reference_secrets_on_argv_are_visible_in_ps). rpk reads RPK_USER /
+    # RPK_PASS / RPK_SASL_MECHANISM from the environment, so no -X flag carries
+    # a credential either.
+    # `printf '%s\n'`, not `printf '%s'`: rpk produce reads NEWLINE-DELIMITED
+    # records off stdin, and an unterminated final record is discarded with
+    # `record read error: unexpected EOF` while the pipeline still looks like it
+    # ran. Measured against the dev lane broker on 2026-09-19 -- the first
+    # readback attempt published nothing for exactly this reason.
+    local _fleet_published=false
+    if [[ -n "${RUNNER_FLEET_BROKER_CONTAINER}" ]] && command -v docker >/dev/null 2>&1; then
+        if printf '%s\n' "${event_json}" | docker exec -i "${RUNNER_FLEET_BROKER_CONTAINER}" sh -c \
+            'RPK_USER="${'"${RUNNER_FLEET_BROKER_SASL_USER_VAR}"'}" \
+             RPK_PASS="${'"${RUNNER_FLEET_BROKER_SASL_PASS_VAR}"'}" \
+             RPK_SASL_MECHANISM="'"${RUNNER_FLEET_BROKER_SASL_MECHANISM}"'" \
+             rpk topic produce "'"${RUNNER_FLEET_TOPIC}"'"' >/dev/null 2>&1; then
+            _fleet_published=true
+            log "fleet observation published to ${RUNNER_FLEET_TOPIC} via broker container ${RUNNER_FLEET_BROKER_CONTAINER}"
+        else
+            log "fleet emit via broker container ${RUNNER_FLEET_BROKER_CONTAINER} FAILED — falling through to rpk on PATH"
+        fi
+    fi
+    if [[ "${_fleet_published}" == false ]] && command -v rpk >/dev/null 2>&1 && [[ -n "${KAFKA_BOOTSTRAP_SERVERS:-}" ]]; then
+        if printf '%s\n' "${event_json}" | rpk topic produce "${RUNNER_FLEET_TOPIC}" \
+            --brokers "${KAFKA_BOOTSTRAP_SERVERS}" >/dev/null 2>&1; then
+            _fleet_published=true
+            log "fleet observation published to ${RUNNER_FLEET_TOPIC} via rpk (broker=${KAFKA_BOOTSTRAP_SERVERS})"
+        else
+            log "fleet emit via rpk FAILED (broker=${KAFKA_BOOTSTRAP_SERVERS}) — falling through to HTTP publish"
+        fi
+    fi
+    if [[ "${_fleet_published}" == false ]] && [[ -n "${ONEX_BUS_PUBLISH_URL:-}" ]]; then
+        local _status
+        _status="$(curl -sS -o /dev/null -w '%{http_code}' \
+            -X POST "${ONEX_BUS_PUBLISH_URL}" \
+            -H "Content-Type: application/json" \
+            -d "${event_json}" 2>/dev/null || echo "000")"
+        if [[ "${_status}" =~ ^2 ]]; then
+            _fleet_published=true
+            log "fleet observation published to ${RUNNER_FLEET_TOPIC} via HTTP (status=${_status})"
+        else
+            log "fleet emit via HTTP FAILED (status=${_status}) — event logged below for replay"
+        fi
+    fi
+    if [[ "${_fleet_published}" == false ]]; then
+        log "fleet observation NOT published (no broker or publish URL configured); event: ${event_json}"
+    fi
+    return 0
+}
+
+emit_fleet_observation || true
+
+# ---------------------------------------------------------------------------
+# Alert logic — only on state transitions
+# ---------------------------------------------------------------------------
+
+safe_bounce_block=""
+if [[ -n "${remediation_targets// /}" ]]; then
+    safe_bounce_block="$(render_safe_bounce_cmd "${remediation_targets}")"
+elif [[ "${wedge_count}" -gt 0 ]]; then
+    # OMN-16947: a wedge produces no auto-bounce targets, but the operator still
+    # needs the fleet-wide recipe to act on deliberately. Rendering it here (and
+    # ONLY here, into the alert) is the whole difference between "the operator
+    # may choose to recreate the fleet" and "the cron recreated the fleet".
+    wedge_recipe_targets=""
+    for _j in $(seq 1 "${EXPECTED_RUNNERS}"); do
+        wedge_recipe_targets+="${RUNNER_NAME_PREFIX}-${_j} "
+    done
+    safe_bounce_block="$(render_safe_bounce_cmd "${wedge_recipe_targets}")"
+fi
+
+# Build the special-finding banner (wedge / crash-loop) appended to alerts.
+special_findings=""
+if [[ "${COMPOSE_INTERPOLATION_OK}" != true ]]; then
+    special_findings+="COMPOSE-INTERPOLATION-FAILED: auto-repair is INERT — every recreate aborts before touching a container. ${COMPOSE_INTERPOLATION_ERROR}"$'\n'
+fi
+if [[ "${FLEET_COUNT_DRIFT}" == true ]]; then
+    special_findings+="FLEET-COUNT-DRIFT: compose declares ${COMPOSE_RUNNER_SERVICE_COUNT} runner service(s), config expected_count=${EXPECTED_RUNNERS}. Runners outside 1..${EXPECTED_RUNNERS} are invisible to this monitor."$'\n'
+fi
+if [[ "${zombie_queued_count}" -gt 0 ]]; then
+    special_findings+="ZOMBIE-QUEUED-JOBS: ${zombie_queued_count} abandoned queued job(s) older than ${WEDGE_QUEUE_AGE_MAX_SECONDS}s excluded from wedge evidence (oldest ${QUEUED_ZOMBIE_OLDEST_AGE}s)."$'\n'
+fi
+if [[ "${wedge_count}" -gt 0 ]]; then
+    special_findings+="$(printf '%s\n' "${wedge_list[@]}")"$'\n'
+    # OMN-16947: a wedge is alert-only. The operator decides whether a
+    # fleet-wide bounce is warranted; the monitor never dispatches one.
+    special_findings+="WEDGE IS ALERT-ONLY: no runner is auto-recreated for a wedge finding (every runner in a wedge is Up + online + listening). Operator recipe below."$'\n'
+fi
+if [[ "${#offline_idle_bounce_list[@]}" -gt 0 ]]; then
+    special_findings+="$(printf '%s\n' "${offline_idle_bounce_list[@]}")"$'\n'
+fi
+if [[ "${#offline_idle_recreate_list[@]}" -gt 0 ]]; then
+    special_findings+="$(printf '%s\n' "${offline_idle_recreate_list[@]}")"$'\n'
+fi
+if [[ "${crashloop_count}" -gt 0 ]]; then
+    special_findings+="$(printf '%s\n' "${crashloop_list[@]}")"$'\n'
+fi
+if [[ "${stuck_created_count}" -gt 0 ]]; then
+    special_findings+="$(printf '%s\n' "${stuck_created_list[@]}")"$'\n'
+fi
+
+if [[ $current_alert_count -gt 0 ]] && [[ $prev_alert_count -eq 0 ]]; then
+    # Transition: no actionable alert -> actionable repair/monitor failure.
+    detail=$(printf '%s\n' "${unhealthy_list[@]}")
+    msg="*[RUNNER ALERT]* ${current_alert_count} actionable runner-fleet issue(s); ${current_unhealthy_count}/${EXPECTED_RUNNERS} raw unhealthy
+
+\`\`\`
+${detail}
+\`\`\`
+
+Healthy: ${healthy}/${EXPECTED_RUNNERS} | Online: ${online_count} | Busy: ${busy_count}
+Docker socket: $([ "$docker_ok" = true ] && echo 'OK' || echo 'FAILED')
+Host: ${RUNNER_HOST}"
+    if [[ -n "${special_findings}" ]]; then
+        msg+="
+
+*Detected failure modes (OMN-13109):*
+\`\`\`
+${special_findings}\`\`\`"
+    fi
+    if [[ -n "${safe_bounce_block}" ]]; then
+        msg+="
+
+*Safe remediation (force-recreate named services only — NEVER docker restart):*
+\`\`\`
+${safe_bounce_block}
+\`\`\`"
+    fi
+    if [[ "${announce_transition}" == true ]]; then
+        slack_post "${msg}" "danger"
+    fi
+    log "ALERT: ${current_alert_count} actionable issue(s), ${current_unhealthy_count} raw unhealthy (previous actionable 0). wedge=${wedge_count} crashloop=${crashloop_count} stuck_created=${stuck_created_count} offline_idle_recreate=${offline_idle_recreate_count}. Slack posted=${announce_transition}."
+    auto_bounce "${remediation_targets}"
+
+elif [[ $current_alert_count -gt 0 ]] && [[ $prev_alert_count -gt 0 ]] && [[ $current_alert_count -ne $prev_alert_count ]]; then
+    # Transition: actionable issue count changed. Raw GitHub/Docker drift count
+    # can churn under saturation; do not page on that noise.
+    detail=$(printf '%s\n' "${unhealthy_list[@]}")
+    msg="*[RUNNER UPDATE]* ${current_alert_count} actionable runner-fleet issue(s) (was ${prev_alert_count}); ${current_unhealthy_count}/${EXPECTED_RUNNERS} raw unhealthy
+
+\`\`\`
+${detail}
+\`\`\`
+
+Healthy: ${healthy}/${EXPECTED_RUNNERS} | Online: ${online_count} | Busy: ${busy_count}"
+    if [[ -n "${special_findings}" ]]; then
+        msg+="
+
+*Detected failure modes (OMN-13109):*
+\`\`\`
+${special_findings}\`\`\`"
+    fi
+    if [[ -n "${safe_bounce_block}" ]]; then
+        msg+="
+
+*Safe remediation (force-recreate named services only — NEVER docker restart):*
+\`\`\`
+${safe_bounce_block}
+\`\`\`"
+    fi
+    if [[ "${announce_transition}" == true ]]; then
+        slack_post "${msg}" "warning"
+    fi
+    log "UPDATE: ${current_alert_count} actionable issue(s) (was ${prev_alert_count}), ${current_unhealthy_count} raw unhealthy. wedge=${wedge_count} crashloop=${crashloop_count} stuck_created=${stuck_created_count} offline_idle_recreate=${offline_idle_recreate_count}. Slack posted=${announce_transition}."
+    auto_bounce "${remediation_targets}"
+
+elif [[ $current_alert_count -eq 0 ]] && [[ $prev_alert_count -gt 0 ]]; then
+    # Transition: actionable alert cleared. Raw drift may remain and is logged.
+    if [[ "${announce_transition}" == true ]]; then
+        slack_post "*[RUNNER RECOVERED]* No actionable runner-fleet issues remain
+
+Healthy: ${healthy}/${EXPECTED_RUNNERS} | Raw unhealthy: ${current_unhealthy_count}
+Online: ${online_count} | Busy: ${busy_count}
+Docker socket: $([ "$docker_ok" = true ] && echo 'OK' || echo 'FAILED')
+Host: ${RUNNER_HOST}" "good"
+    fi
+    log "RECOVERED: actionable alert count cleared; ${current_unhealthy_count} raw unhealthy remain. Slack posted=${announce_transition}."
+
+else
+    # No state change — silent
+    log "OK: ${healthy}/${EXPECTED_RUNNERS} healthy, ${current_unhealthy_count} raw unhealthy, ${current_alert_count} actionable (wedge=${wedge_count} crashloop=${crashloop_count} stuck_created=${stuck_created_count} offline_idle_recreate=${offline_idle_recreate_count}, no Slack change)."
+    auto_bounce "${remediation_targets}"
+fi

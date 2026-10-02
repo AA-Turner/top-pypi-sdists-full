@@ -1,0 +1,79 @@
+[workspace]
+resolver = "2"
+members = ["crates/running-process", "crates/running-process-protocol", "crates/running-process-platform-internal", "crates/running-process-probe", "crates/running-process-py", "crates/test-watchdog"]
+# Built separately with RUSTFLAGS="--cfg tokio_unstable" (#788). Cargo has no
+# per-crate RUSTFLAGS, so a fixture needing that cfg cannot live in this
+# workspace without applying it to the published crate too.
+exclude = ["testbins-tokio"]
+
+[workspace.package]
+version = "4.10.15"
+edition = "2021"
+rust-version = "1.95"
+license = "BSD-3-Clause"
+repository = "https://github.com/zackees/running-process"
+homepage = "https://github.com/zackees/running-process"
+
+[workspace.dependencies]
+pyo3 = { version = "0.29", features = ["abi3-py310"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+thiserror = "2"
+
+# Phase 0 of #228: workspace-wide lints. `disallowed_methods` is wired
+# through `clippy.toml` at the workspace root so every member crate
+# refuses bincode serialization (broker wire stays prost-only).
+[workspace.lints.clippy]
+disallowed_methods = "deny"
+
+[workspace.lints.rust]
+# Coverage builds select these repository-owned branches in binaries and
+# integration tests. Register the cfg once so all-targets Clippy validates
+# the same intentional surface rather than rejecting it as a typo.
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
+
+[profile.release]
+# Line tables for OUR crates, so a release-mode stack can be resolved to
+# file:line all the way into the Rust frames (#803). Full `debug = true` is
+# not needed for that and costs build time and disk.
+debug = "line-tables-only"
+strip = "none"
+
+# ...and nothing for dependencies. `package."*"` matches every non-workspace
+# package, so this is the "do not turn on debugging for external packages"
+# half of #803. Before this, `debug = true` applied to the entire graph —
+# every third-party crate carried full DWARF/PDB nobody reads.
+[profile.release.package."*"]
+debug = false
+
+[profile.dev]
+debug = true
+strip = "none"
+
+# Build scripts and proc macros run on the host at build time. They are never
+# shipped, never stepped through, and never appear in a backtrace from a test
+# -- so their debug info is paid for and never read.
+#
+# Measured by building `-p running-process --features daemon --all-targets`
+# twice from clean, changing only this:
+#
+#            target/debug     of which PDB   of which build-script PDB
+#   before      0.980 GB         0.574 GB              0.370 GB
+#   after       0.410 GB         0.180 GB              0.140 GB
+#
+# 58% off the target directory for the same build. CI caches `target/`, so that
+# is upload and download on every job as well as rustc and linker time -- the
+# Windows lanes routinely spend longer saving this cache than running the tests
+# in it.
+#
+# `build-override` covers build scripts, proc macros, and their dependencies.
+# Nothing a developer or a failing test can see loses information: this is not
+# `package."*"`, so dependency libraries keep the debug info that makes a real
+# backtrace readable.
+[profile.dev.build-override]
+debug = false
+
+# The same reasoning for release. #803 already stopped emitting debug info for
+# release dependencies; build scripts were not covered by that, and inherited
+# the profile's `line-tables-only` instead.
+[profile.release.build-override]
+debug = false

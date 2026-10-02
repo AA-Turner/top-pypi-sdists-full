@@ -1,0 +1,34 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# OMN-6912
+
+name: PR Title Check
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+  merge_group:
+    types: [checks_requested]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  pr-title:
+    if: github.event_name == 'pull_request'
+    uses: OmniNode-ai/onex_change_control/.github/workflows/pr-title-check-reusable.yml@725d2967b031d7065efd41d0751f903638202cc1 # main
+    permissions:
+      pull-requests: read
+
+  pr-title-merge-group:
+    if: github.event_name == 'merge_group'
+    name: pr-title / check-title
+    runs-on: >-
+      ${{
+        fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+      }}
+    steps:
+      - name: Accept merge-group title check
+        run: |
+          echo "PR title validation is enforced on pull_request opened/edited before enqueue."

@@ -1,0 +1,488 @@
+/**
+ * REST client for the mobile daemon. Same-origin; the vite dev server
+ * proxies /api to 127.0.0.1:4097.
+ *
+ * The 401 rule: the auth cookie has died and every further call will fail
+ * the same way, so reload the page and let the server 303 to /login. There
+ * is no client-side login form — login is server-rendered.
+ */
+import { clearPrivateSessionStorage } from "./private-storage";
+import type {
+	Capabilities,
+	CommandOp,
+	CompletionAttention,
+	Directories,
+	ModelEntry,
+	PastSession,
+	PendingAsk,
+	ProjectLinkedSession,
+	ProjectSummary,
+	ProjectView,
+	SessionSummary,
+	SlashCommand,
+	SubagentDetail,
+	TranscriptEntry,
+} from "./types";
+
+export class HttpError extends Error {
+	/** The refusal's CATEGORY, when the far side sent one.
+
+	    A refusal crosses as a typed code plus the copy, and callers that have to
+	    DECIDE something (re-sign? offer pairing? name the install step?) key on the
+	    code rather than on prose this repo has rewritten twice already. Absent for
+	    every ordinary failure and for a runtime built before the field existed, so
+	    a caller that needs it must have a copy-based fallback. */
+	constructor(
+		readonly status: number,
+		message: string,
+		readonly code = "",
+	) {
+		super(message);
+		this.name = "HttpError";
+	}
+}
+
+/** The two authority refusals, as the enumerated codes the wire carries.
+
+    ONE definition, imported by everything that has to distinguish them from an
+    ordinary failure — the card's re-sign decision, the gate sheet's copy, a test.
+    Two lists would be two rules, and the whole reason the code exists is that the
+    copy it rides beside has already been rewritten twice (UX round 6, U6). */
+export const AUTHORITY_REFUSAL_CODES = [
+	"operator_authority_required",
+	"operator_authority_unconfigured",
+] as const;
+
+/** Whether a typed code names an authority refusal. */
+export function isAuthorityRefusalCode(code: string): boolean {
+	return (AUTHORITY_REFUSAL_CODES as readonly string[]).includes(code);
+}
+
+/** The 401 rule, shared by every transport in this module: the auth cookie is
+    dead and every further call fails the same way, so the page reloads and the
+    server 303s to /login. The multipart upload below is NOT the JSON helper but
+    must not invent a second answer to this. */
+function handleUnauthorized(): void {
+
+	/* A replaced/login-expired browser session must not expose drafts or
+	   retry envelopes to whoever authenticates next on this device. */
+	clearPrivateSessionStorage();
+	location.reload();
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+	const res = await fetch(path, {
+		credentials: "same-origin",
+		...init,
+	});
+	if (res.status === 401) {
+		handleUnauthorized();
+		/* Never reached in practice; satisfies the type when reload is slow. */
+		throw new Error("unauthorized");
+	}
+	if (!res.ok) {
+		let detail = `${res.status}`;
+		let code = "";
+		try {
+			const body = (await res.json()) as { error?: string; code?: string };
+			if (body.error) detail = body.error;
+			if (typeof body.code === "string") code = body.code;
+		} catch {
+			/* A non-JSON error body carries no more than the status did. */
+		}
+		throw new HttpError(res.status, detail, code);
+	}
+	return (await res.json()) as T;
+}
+
+export function getSessions(): Promise<{
+	sessions: SessionSummary[];
+	capabilities?: Capabilities;
+}> {
+	return request("/api/sessions");
+}
+
+export function getCommands(): Promise<{ commands: SlashCommand[] }> {
+	return request("/api/commands");
+}
+
+/** Every queued ask worth showing, across conversations (design §4/§5.3).
+
+    Index-backed on the daemon side and read on demand rather than fed: each row
+    is the frozen `PendingAsk` shape plus `session_id` and `cwd`, because a row
+    drawn under another conversation's name must be answerable against THAT
+    conversation's route. An ask outlives the runtime that queued it, so this
+    answer never needs one — but answering one sent to a session with no live
+    runtime is a refusal naming the reason, not a silent failure. */
+export function getAsks(signal?: AbortSignal): Promise<{ asks: PendingAsk[] }> {
+	return request("/api/asks", { signal });
+}
+
+export function getModels(): Promise<{ models: ModelEntry[] }> {
+	return request("/api/models");
+}
+
+export function getDirectories(): Promise<Directories> {
+	return request("/api/directories");
+}
+
+export function getPastSessions(): Promise<{ sessions: PastSession[] }> {
+	return request("/api/sessions/past");
+}
+
+/** Search past sessions by name, id, or conversation body (the /resume
+    picker's mechanism). Empty query returns the recent list. */
+export function searchSessions(
+	q: string,
+	limit = 40,
+): Promise<{ sessions: PastSession[]; query: string }> {
+	const params = new URLSearchParams({ q, limit: String(limit) });
+	return request(`/api/sessions/search?${params}`);
+}
+
+/** Reopen a past session as a new live session the phone attaches to. */
+export function resumeSession(
+	sessionId: string,
+): Promise<{ ok: boolean; pid: number; session_id: string }> {
+	return request("/api/sessions/resume", {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify({ session_id: sessionId }),
+	});
+}
+
+export function startSession(input: {
+	cwd: string;
+	provider?: string;
+	model_id?: string;
+}): Promise<{ ok: boolean; pid: number; session_id: string }> {
+	return request("/api/sessions/start", {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify(input),
+	});
+}
+
+/**
+ * A receipt names what was rendered, not whichever completion exists on arrival.
+ *
+ * The `attention` the daemon answers with is the whole verdict of the handshake,
+ * so it is typed here rather than left for the caller to read out of an untyped
+ * body: 2xx means the conversation is READ (`unseen: false`) and nothing else
+ * does. An older daemon answered a superseded token with a 200 whose body still
+ * said `unseen: true`, and a caller that took the resolved call for a read
+ * latched on a completion that never cleared (see docs/ATTENTION.md).
+ */
+export function markSessionSeen(
+	sessionId: string,
+	completionToken: string,
+): Promise<{ ok: boolean; attention?: CompletionAttention }> {
+	return request(`/api/sessions/${encodeURIComponent(sessionId)}/seen`, {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify({ completion_token: completionToken }),
+	});
+}
+
+/** Pin or unpin a conversation in the SHARED durable store.
+
+    Sends the DESIRED STATE rather than a toggle, matching the desktop route: a
+    dropped response must not flip the pin back when the caller retries, so the
+    body names the state wanted and a retry lands on the same one. The daemon
+    stores it in `sidebar-pins.json`, the same file the terminal's F10 and the
+    desktop app write, so a pin made here appears there and vice versa. */
+export function setSessionPin(
+	sessionId: string,
+	pinned: boolean,
+): Promise<{ ok: boolean; pinned: boolean }> {
+	return request(`/api/sessions/${encodeURIComponent(sessionId)}/pin`, {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify({ pinned }),
+	});
+}
+
+/** What a control command answers with.
+
+    ``tone`` and ``refused`` are ADDITIVE fields the daemon sends for a routed
+    slash outcome (design round 1, D1; UX round 1, U3): the runtime gives a
+    completed write and a plain report the same ``style``, so the container and
+    the draft-keeping rule are decided where the outcome is read. Both are absent
+    for every other op, and a caller that ignores them reads ``detail`` exactly as
+    it always did. */
+export type CommandReceipt = {
+	ok: boolean;
+	detail: string;
+	tone?: "success" | "neutral";
+	refused?: boolean;
+};
+
+export function sendCommand(sessionId: string, op: CommandOp): Promise<CommandReceipt> {
+	return request(`/api/sessions/${encodeURIComponent(sessionId)}/command`, {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify(op),
+	});
+}
+
+/** The recorder's media types → a suffix for the uploaded part's filename.
+    The server allowlist is the authority on what is accepted; this only keeps
+    the multipart part named like what it contains (a nameless part makes the
+    upstream's own decoder guesses worse). */
+const RECORDING_FILENAME_SUFFIX: Record<string, string> = {
+	"audio/mp4": "m4a",
+	"audio/x-m4a": "m4a",
+	"audio/webm": "webm",
+	"audio/ogg": "ogg",
+	"audio/mpeg": "mp3",
+	"audio/wav": "wav",
+	"audio/aac": "aac",
+};
+
+function recordingFilename(blob: Blob): string {
+	const bare = blob.type.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+	return `dictation.${RECORDING_FILENAME_SUFFIX[bare] ?? "bin"}`;
+}
+
+/** POST one recorded clip to the daemon; the transcript is the answer.
+
+    Multipart, so this does NOT ride the JSON `request()` helper — but it keeps
+    the same 401 rule (`handleUnauthorized`) and the same error contract: the
+    body's `error` becomes the `HttpError` message (413/422/402/503 carry the
+    daemon's own actionable copy) and `code` its typed category. `path` is the
+    token that ACTUALLY ran — the caller stores it as the send envelope's
+    `input_path` and must not re-derive it from a cached capability.
+
+    `signal` is for U5's cancel: the composer's status row aborts an in-flight
+    transcription rather than only hiding the wait; a fetch aborted through it
+    rejects with an AbortError, which the caller already treats as a discard. */
+export function transcribeAudio(
+	blob: Blob,
+	signal?: AbortSignal,
+): Promise<{
+	text: string;
+	provider: string;
+	model: string | null;
+	path: string;
+}> {
+	const form = new FormData();
+	form.append("audio", blob, recordingFilename(blob));
+	return fetch("/api/transcribe", { method: "POST", body: form, signal }).then(async (res) => {
+		if (res.status === 401) {
+			handleUnauthorized();
+			throw new Error("unauthorized");
+		}
+		if (!res.ok) {
+			let detail = `${res.status}`;
+			let code = "";
+			try {
+				const body = (await res.json()) as { error?: string; code?: string };
+				if (body.error) detail = body.error;
+				if (typeof body.code === "string") code = body.code;
+			} catch {
+				/* A non-JSON error body carries no more than the status did. */
+			}
+			throw new HttpError(res.status, detail, code);
+		}
+		return (await res.json()) as {
+			text: string;
+			provider: string;
+			model: string | null;
+			path: string;
+		};
+	});
+}
+
+/** A command frame, plus the proof fields a paired phone adds to it.
+
+    `operator_sig`/`operator_key_id`/`operator_cert` are SIGNATURE material the
+    runtime checks against its pinned operator key, not the machine-held
+    `operator_cap` (which the relay drops from any HTTP body, always). The two are
+    different classes: a capability is proof material this machine can mint and a
+    body carrying one can only be a forgery, while a signature is unforgeable and
+    its challenge is single-use, so the relay carries it. */
+export type SignedCommand = CommandOp & {
+	operator_sig?: string;
+	operator_key_id?: string;
+	operator_cert?: string;
+};
+
+export function sendCommandWithProof(
+	sessionId: string,
+	op: SignedCommand,
+): Promise<CommandReceipt> {
+	return request(`/api/sessions/${encodeURIComponent(sessionId)}/command`, {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify(op),
+	});
+}
+
+/** Ask the runtime to mint a per-action challenge for THIS session's connection.
+
+    The relay forwards one ordinary frame and hands back the challenge; the phone
+    signs it. A challenge is worth exactly one signature, so holding one lets
+    nobody sign — and the signature is the only thing that ever carries authority
+    here. `action` chooses what the signature will be accepted FOR, and the runtime
+    derives the same field from the frame it is deciding, so a signature minted for
+    one action cannot be presented as the other. */
+export function requestOperatorChallenge(
+	sessionId: string,
+	input: { action: "loosen" | "approve"; request_id?: string },
+): Promise<{
+	challenge: string;
+	expires_s: number;
+	session_id: string;
+	action: string;
+	request_id: string;
+}> {
+	return request(`/api/sessions/${encodeURIComponent(sessionId)}/operator/challenge`, {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify({ request_id: "", ...input }),
+	});
+}
+
+/** Claim a pairing code with this device's PUBLIC key. The private half never
+    leaves the phone, so there is no field here for it. */
+export function claimPairingCode(input: {
+	code: string;
+	spki: string;
+	name: string;
+}): Promise<{ ok: boolean; device_id: string }> {
+	return request("/api/pair", {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify(input),
+	});
+}
+
+/** Whether the operator has approved a claimed code yet, and the certificate they
+    signed. The certificate is minted on the MACHINE by the operator's gesture, so
+    this is the only way the phone ever learns the string it must present. */
+export function pairingStatus(deviceId: string): Promise<{
+	paired: boolean;
+	device_id: string;
+	certificate?: string;
+	operator_key_id?: string;
+	scope?: string[];
+	exp?: number;
+	name?: string;
+	/** Whether the MACHINE can verify this device's signatures yet — see
+	    `GateSheet`/`PairScreen`: false between `lop operator init` and
+	    `lop operator install`, which is the state the old success box lied about. */
+	authority_ready?: boolean;
+}> {
+	return request(`/api/pair/${encodeURIComponent(deviceId)}`);
+}
+
+/** URL for one image attachment on a user turn. The bytes are served lazily
+    from the transcript (never carried in the projection), keyed by the entry
+    id plus the image-only index the ref emitted. Same-origin, cacheable and
+    immutable — a message's attachments never change — so an <img src> can use
+    it directly. */
+export function imageUrl(sessionId: string, entryId: string, index: number): string {
+	const q = new URLSearchParams({ entry: entryId, i: String(index) });
+	return `/api/sessions/${encodeURIComponent(sessionId)}/image?${q}`;
+}
+
+/** Older transcript entries for lazy loading. ``before`` is the id of the
+    oldest entry the client already has; the daemon returns the page
+    immediately older than it (chronological within the page) plus whether
+    more history exists beyond. */
+export function getHistory(
+	sessionId: string,
+	before: string | null,
+	limit = 80,
+): Promise<{ entries: TranscriptEntry[]; has_more: boolean }> {
+	const q = new URLSearchParams({ limit: String(limit) });
+	if (before) q.set("before", before);
+	return request(`/api/sessions/${encodeURIComponent(sessionId)}/history?${q}`);
+}
+
+export function getSubagentDetail(
+	sessionId: string,
+	jobId: string,
+	signal?: AbortSignal,
+): Promise<SubagentDetail> {
+	return request(
+		`/api/sessions/${encodeURIComponent(sessionId)}/agents/${encodeURIComponent(jobId)}`,
+		{ signal },
+	);
+}
+
+/** Child history has its own lineage-checked endpoint. Reusing the root route
+    here was the paging bug: once a child scrolled above its live tail, root
+    user/tool rows appeared inside the child's conversation. */
+export function getSubagentHistory(
+	sessionId: string,
+	jobId: string,
+	before: string | null,
+	limit = 80,
+	signal?: AbortSignal,
+): Promise<{ entries: TranscriptEntry[]; has_more: boolean }> {
+	const q = new URLSearchParams({ limit: String(limit) });
+	if (before) q.set("before", before);
+	return request(
+		`/api/sessions/${encodeURIComponent(sessionId)}/agents/${encodeURIComponent(jobId)}/history?${q}`,
+		{ signal },
+	);
+}
+
+/* ---- projects ----------------------------------------------------------- */
+
+/** The listing — every project as a summary, in the daemon's board order
+    (status rank, then freshest). The Projects sheet's list and its
+grouped board render this one array; neither re-sorts it. */
+export function getProjects(): Promise<{ projects: ProjectSummary[] }> {
+	return request("/api/projects");
+}
+
+/** One project plus its linked sessions — the detail sheet's read. */
+export function getProject(
+	key: string,
+	signal?: AbortSignal,
+): Promise<{ project: ProjectView; links: ProjectLinkedSession[] }> {
+	return request(`/api/projects/${encodeURIComponent(key)}`, { signal });
+}
+
+/** Create one project. It starts UNLINKED by design (the desktop create body
+    carries no sessions either): linking a session is a deliberate act, never
+    a side effect of creating a row. */
+export function createProject(input: {
+	name: string;
+	description?: string;
+}): Promise<{ ok: boolean; project: ProjectSummary }> {
+	return request("/api/projects", {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify(input),
+	});
+}
+
+/** Delete one project. The confirmation the daemon requires is the NAME it
+    showed the reader — this call takes it from the same row the sheet rendered
+    rather than reconstructing it, so a renamed project can never be deleted by
+    a stale button. */
+export function deleteProject(key: string, confirm: string): Promise<{ ok: boolean; deleted: boolean }> {
+	return request(`/api/projects/${encodeURIComponent(key)}`, {
+		method: "DELETE",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify({ confirm }),
+	});
+}
+
+/** Add-or-update one milestone by name. ``completed`` is the detail sheet's
+    toggle (true stamps today, false clears it); ``target_date: ""`` clears a
+    date. Answered with the whole project view, so the sheet re-renders from
+    the store's own answer rather than a local guess at what changed. */
+export function setProjectMilestone(
+	key: string,
+	input: { name: string; target_date?: string; completed?: boolean },
+): Promise<{ ok: boolean; project: ProjectView }> {
+	return request(`/api/projects/${encodeURIComponent(key)}/milestones`, {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify(input),
+	});
+}

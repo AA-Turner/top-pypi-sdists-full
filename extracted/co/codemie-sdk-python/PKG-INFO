@@ -1,0 +1,1404 @@
+Metadata-Version: 2.1
+Name: codemie-sdk-python
+Version: 0.1.656
+Summary: CodeMie SDK for Python
+Author: Vadym Vlasenko
+Author-email: vadym_vlasenko@epam.com
+Requires-Python: >=3.12,<4.0
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Requires-Dist: pydantic (>=2.12.2,<3.0.0)
+Requires-Dist: requests (>=2.31.0,<3.0.0)
+Description-Content-Type: text/markdown
+
+# CodeMie Python SDK
+
+Python SDK for CodeMie services. This SDK provides a comprehensive interface to interact with CodeMie services, including LLM (Large Language Models), assistants, workflows, and tools.
+
+## Table of Contents
+
+- [Installation](#installation)
+- [Usage](#usage)
+  - [Basic Usage](#basic-usage)
+- [Service Details](#service-details)
+  - [LLM Service](#llm-service)
+  - [Assistant Service](#assistant-service)
+    - [Core Methods](#core-methods)
+    - [Advanced Features](#advanced-features)
+    - [Prompt Variables Support](#prompt-variables-support)
+    - [Assistant Versioning](#assistant-versioning)
+  - [Datasource Service](#datasource-service)
+    - [Supported Datasource Types](#supported-datasource-types)
+    - [Core Methods](#core-methods-1)
+    - [Datasource Status](#datasource-status)
+    - [Best Practices for Datasources](#best-practices-for-datasources)
+  - [Integration Service](#integration-service)
+    - [Integration Types](#integration-types)
+    - [Core Methods](#core-methods-2)
+    - [Best Practices for Integrations](#best-practices-for-integrations)
+  - [Workflow Service](#workflow-service)
+    - [Core Methods](#core-methods-3)
+    - [Workflow Execution](#workflow-execution)
+    - [Workflow Configuration](#workflow-configuration)
+    - [Best Practices](#best-practices)
+    - [Error Handling](#error-handling)
+    - [Workflow Status Monitoring](#workflow-status-monitoring)
+  - [Conversation Service](#conversation-service)
+    - [Core Methods](#core-methods-4)
+  - [File Service](#file-service)
+    - [Core Methods](#core-methods-5)
+  - [User Service](#user-service)
+    - [Core Methods](#core-methods-6)
+  - [Task Service](#task-service)
+    - [Core Methods](#core-methods-7)
+  - [Webhook Service](#webhook-service)
+    - [Core Methods](#core-methods-8)
+  - [Vendor Services](#vendor-services)
+    - [Vendor Assistant Service](#vendor-assistant-service)
+    - [Vendor Workflow Service](#vendor-workflow-service)
+    - [Vendor Knowledge Base Service](#vendor-knowledge-base-service)
+    - [Vendor Guardrail Service](#vendor-guardrail-service)
+- [Error Handling](#error-handling-1)
+- [Authentication](#authentication)
+  - [Required Parameters](#required-parameters)
+  - [Usage Examples](#usage-examples)
+- [Best Practices](#best-practices-1)
+- [Support](#support)
+- [Development](#development)
+  - [Setup](#setup)
+  - [Code Quality](#code-quality)
+  - [Building Package](#building-package)
+
+## Installation
+
+```sh
+pip install codemie-sdk-python
+```
+
+## Usage
+
+### Basic usage
+
+```python
+from codemie_sdk import CodeMieClient
+
+# Initialize client with authentication parameters
+client = CodeMieClient(
+    auth_server_url="https://keycloak.eks-core.aws.main.edp.projects.epam.com/auth",
+    auth_client_id="your-client-id",
+    auth_client_secret="your-client-secret",
+    auth_realm_name="your-realm",
+    codemie_api_domain="https://codemie.lab.epam.com/code-assistant-api"
+)
+```
+
+## Service Details
+
+### LLM Service
+
+The LLM service provides access to language models and embedding models.
+
+**Available Methods:**
+
+1. **list()** - Retrieves a list of available LLM models
+2. **list_embeddings()** - Retrieves a list of available embedding models
+
+Each LLM model contains:
+- Model identifier
+- Model capabilities
+- Configuration parameters
+
+**Example:**
+```python
+# List available LLM models
+llm_models = client.llms.list()
+
+# List available embedding models
+embedding_models = client.llms.list_embeddings()
+```
+
+### Assistant Service
+
+The Assistant service allows you to manage and interact with CodeMie assistants:
+
+#### Core Methods
+
+1. **List Assistants**
+```python
+assistants = client.assistants.list(
+    minimal_response=True,  # Return minimal assistant info
+    scope="visible_to_user",  # or "created_by_user"
+    page=0,
+    per_page=12,
+    filters={"key": "value"}  # Optional filters
+)
+```
+
+2. **Get Assistant Details**
+```python
+# By ID
+assistant = client.assistants.get("assistant-id")
+
+# By Slug
+assistant = client.assistants.get_by_slug("assistant-slug")
+```
+
+3. **Create Assistant**
+```python
+from codemie_sdk.models.assistant import AssistantCreateRequest
+
+request = AssistantCreateRequest(
+    name="My Assistant",
+    description="Assistant description",
+    instructions="Assistant instructions",
+    tools=["tool1", "tool2"],
+    # Additional parameters as needed
+)
+new_assistant = client.assistants.create(request)
+```
+
+4. **Update Assistant**
+```python
+from codemie_sdk.models.assistant import AssistantUpdateRequest
+
+request = AssistantUpdateRequest(
+    name="Updated Name",
+    description="Updated description",
+    # Other fields to update
+)
+updated_assistant = client.assistants.update("assistant-id", request)
+```
+
+5. **Delete Assistant**
+```python
+result = client.assistants.delete("assistant-id")
+```
+
+#### Advanced Features
+
+6. **Chat with Assistant (with MCP header propagation)**
+```python
+from codemie_sdk.models.assistant import AssistantChatRequest
+
+chat_request = AssistantChatRequest(
+    text="Your message here",
+    stream=False,  # Set to True for streaming response
+    propagate_headers=True,  # Enable propagation of X-* headers to MCP servers
+)
+# Pass X-* headers to forward to MCP servers
+response = client.assistants.chat(
+    "assistant-id",
+    chat_request,
+    headers={
+        "X-Tenant-ID": "tenant-abc-123",
+        "X-User-ID": "user-456",
+        "X-Request-ID": "req-123",
+    },
+)
+```
+
+7. **Chat with Assistant by slug (with MCP header propagation)**
+```python
+chat_request = AssistantChatRequest(
+    text="Your message here",
+    propagate_headers=True,
+)
+response = client.assistants.chat_by_slug(
+    "assistant-slug",
+    chat_request,
+    headers={
+        "X-Environment": "production",
+        "X-Feature-Flag-Beta": "true",
+    },
+)
+```
+
+8. **Utilize structured outputs with Assistant**
+```python
+from pydantic import BaseModel
+
+class OutputSchema(BaseModel):
+    requirements: list[str]
+
+chat_request = AssistantChatRequest(
+    text="Your message here",
+    stream=False,
+    output_schema=OutputSchema,
+    # Additional parameters
+)
+
+response = client.assistants.chat("id", chat_request)
+# response.generated is a Pydantic object
+```
+Or using JSON schema in dict format
+```python
+output_schema = {
+    "properties": {
+        "requirements": {
+            "items": {"type": "string"},
+            "title": "Requirements",
+            "type": "array",
+        }
+    },
+    "required": ["requirements"],
+    "title": "OutputSchema",
+    "type": "object",
+}
+
+chat_request = AssistantChatRequest(
+    text="Your message here",
+    stream=False,
+    output_schema=output_schema,
+    # Additional parameters
+)
+
+response = client.assistants.chat("id", chat_request)
+# response.generated is a dict corresponding to the JSON schema
+```
+
+9. **Work with Prebuilt Assistants**
+```python
+# List prebuilt assistants
+prebuilt = client.assistants.get_prebuilt()
+
+# Get specific prebuilt assistant
+prebuilt_assistant = client.assistants.get_prebuilt_by_slug("assistant-slug")
+```
+
+10. **Get Available Tools**
+```python
+tools = client.assistants.get_tools()
+```
+
+#### Prompt Variables Support
+
+The SDK supports assistant-level prompt variables that the backend already exposes via the `prompt_variables` field.
+
+Create and update an assistant with prompt variables:
+```python
+from codemie_sdk.models.assistant import AssistantCreateRequest, AssistantUpdateRequest, PromptVariable
+
+# Create
+create_req = AssistantCreateRequest(
+    name="My Assistant",
+    description="Assistant description",
+    system_prompt="Instructions. Use {{project_name}} in responses.",
+    toolkits=[],
+    project="my_project",
+    llm_model_type="gpt-4o",
+    context=[],
+    conversation_starters=[],
+    mcp_servers=[],
+    assistant_ids=[],
+    prompt_variables=[
+        PromptVariable(key="project_name", default_value="Delta", description="Current project"),
+        PromptVariable(key="region", default_value="eu"),
+    ],
+)
+client.assistants.create(create_req)
+
+# Update
+update_req = AssistantUpdateRequest(
+    **create_req.model_dump(),
+    prompt_variables=[
+        PromptVariable(key="project_name", default_value="Delta-Updated"),
+        PromptVariable(key="region", default_value="us"),
+    ],
+)
+client.assistants.update("assistant-id", update_req)
+```
+
+#### Assistant Versioning
+
+The SDK provides full assistant versioning capabilities.
+
+1. **List Versions**
+```python
+# Get all versions of an assistant
+versions = client.assistants.list_versions("assistant-id", page=0, per_page=20)
+for version in versions:
+    print(f"Version {version.version_number}")
+```
+
+2. **Get Specific Version**
+```python
+# Get details of a specific version
+version = client.assistants.get_version("assistant-id", version_number=2)
+print(version.system_prompt)
+```
+
+3. **Compare Versions**
+```python
+from codemie_sdk.models.assistant import AssistantVersionDiff
+
+# Compare two versions to see what changed
+diff = client.assistants.compare_versions("assistant-id", version1=1, version2=3)
+print(diff.summary)
+```
+
+4. **Rollback to Version**
+```python
+# Rollback assistant to a previous version
+response = client.assistants.rollback_to_version("assistant-id", version_number=2)
+print(f"Rolled back to version {response.version_number}")
+```
+
+5. **Chat with Specific Version**
+```python
+from codemie_sdk.models.assistant import AssistantChatRequest
+
+# Chat with a specific version of the assistant
+request = AssistantChatRequest(text="Hi", stream=False)
+response = client.assistants.chat_with_version("assistant-id", version_number=2, request)
+print(response.generated)
+```
+
+### Datasource Service
+
+The Datasource service enables managing various types of data sources in CodeMie, including code repositories, Confluence spaces, Jira projects, files, and Google documents.
+
+#### Supported Datasource Types
+
+- `CODE`: Code repository datasources
+- `CONFLUENCE`: Confluence knowledge base
+- `JIRA`: Jira knowledge base
+- `FILE`: File-based knowledge base
+- `GOOGLE`: Google documents
+- `AZURE_DEVOPS_WIKI`: Azure DevOps Wiki knowledge base (requires Azure DevOps integration)
+
+#### Core Methods
+
+1. **Create Datasource**
+```python
+from codemie_sdk.models.datasource import (
+    CodeDataSourceRequest,
+    ConfluenceDataSourceRequest,
+    JiraDataSourceRequest,
+    GoogleDataSourceRequest,
+    AzureDevOpsWikiDataSourceRequest
+)
+
+# Create Code Datasource
+code_request = CodeDataSourceRequest(
+    name="my_repo",  # lowercase letters and underscores only
+    project_name="my_project",
+    description="My code repository",
+    link="https://github.com/user/repo",
+    branch="main",
+    index_type="code",  # or "summary" or "chunk-summary"
+    files_filter="*.py",  # optional
+    embeddings_model="model_name",
+    summarization_model="gpt-4",  # optional
+    docs_generation=False  # optional
+)
+result = client.datasources.create(code_request)
+
+# Create Confluence Datasource
+confluence_request = ConfluenceDataSourceRequest(
+    name="confluence_kb",
+    project_name="my_project",
+    description="Confluence space",
+    cql="space = 'MYSPACE'",
+    include_restricted_content=False,
+    include_archived_content=False,
+    include_attachments=True,
+    include_comments=True
+)
+result = client.datasources.create(confluence_request)
+
+# Create Jira Datasource
+jira_request = JiraDataSourceRequest(
+    name="jira_kb",
+    project_name="my_project",
+    description="Jira project",
+    jql="project = 'MYPROJECT'"
+)
+result = client.datasources.create(jira_request)
+
+# Create Google Doc Datasource
+google_request = GoogleDataSourceRequest(
+    name="google_doc",
+    project_name="my_project",
+    description="Google document",
+    google_doc="document_url"
+)
+result = client.datasources.create(google_request)
+
+# Create Azure DevOps Wiki Datasource
+# Note: Requires Azure DevOps integration to be configured
+ado_wiki_request = AzureDevOpsWikiDataSourceRequest(
+    name="ado_wiki",
+    project_name="my_project",
+    description="Azure DevOps Wiki",
+    setting_id="azure-devops-integration-id",  # Integration ID with ADO credentials
+    wiki_query="*",  # Path filter (see wiki_query format below)
+    wiki_name="MyProject.wiki"  # Optional: specific wiki name (leave empty for all wikis)
+)
+result = client.datasources.create(ado_wiki_request)
+
+# Important: wiki_query Path Format
+# The page path should NOT include "/Overview/Wiki" and must start from the page level.
+#
+# Example: If your Azure DevOps breadcrumbs show:
+#   "ProjectName/WikiName/Overview/Wiki/Page1/Page2"
+#
+# Then use: "/Page1/*" as the path
+#
+# Build the path using breadcrumb values, NOT the page URL.
+#
+# Common patterns:
+#   - "*" - Index all pages in the wiki
+#   - "/Engineering/*" - Index all pages under /Engineering folder
+#   - "/Engineering/Architecture" - Index only the Architecture page
+```
+
+2. **Update Datasource**
+```python
+from codemie_sdk.models.datasource import UpdateCodeDataSourceRequest, UpdateAzureDevOpsWikiDataSourceRequest
+
+# Update Code Datasource
+update_request = UpdateCodeDataSourceRequest(
+    name="my_repo",
+    project_name="my_project",
+    description="Updated description",
+    branch="develop",
+    full_reindex=True,  # optional reindex parameters
+    skip_reindex=False,
+    resume_indexing=False
+)
+result = client.datasources.update("datasource_id", update_request)
+
+# Update Azure DevOps Wiki Datasource
+ado_update_request = UpdateAzureDevOpsWikiDataSourceRequest(
+    name="ado_wiki",
+    project_name="my_project",
+    description="Updated description",
+    wiki_query="/Engineering/*",  # Update path filter (see wiki_query format above)
+    wiki_name="MyProject.wiki",
+    full_reindex=True  # Trigger full reindex
+)
+result = client.datasources.update("datasource_id", ado_update_request)
+```
+
+**Reindex Options for Azure DevOps Wiki:**
+Azure DevOps Wiki datasources support the following reindex options:
+- `full_reindex=True` - Completely reindex all pages (clears existing data and reindexes)
+- `skip_reindex=True` - Update metadata without reindexing content
+
+Note: Azure DevOps Wiki does not support `incremental_reindex` or `resume_indexing` options.
+
+3. **List Datasources**
+```python
+# List all datasources with filtering and pagination
+datasources = client.datasources.list(
+    page=0,
+    per_page=10,
+    sort_key="update_date",  # or "date"
+    sort_order="desc",  # or "asc"
+    datasource_types=["CODE", "CONFLUENCE", "AZURE_DEVOPS_WIKI"],  # optional filter by type
+    projects=["project1", "project2"],  # optional filter by projects
+    owner="John Doe",  # optional filter by owner
+    status="COMPLETED"  # optional filter by status
+)
+```
+
+4. **Get Datasource Details**
+```python
+# Get single datasource by ID
+datasource = client.datasources.get("datasource_id")
+
+# Access Azure DevOps Wiki specific fields
+if datasource.type == "knowledge_base_azure_devops_wiki":
+    wiki_info = datasource.azure_devops_wiki
+    if wiki_info:
+        print(f"Wiki Query: {wiki_info.wiki_query}")
+        print(f"Wiki Name: {wiki_info.wiki_name}")
+```
+
+5. **Delete Datasource**
+```python
+# Delete datasource by ID
+result = client.datasources.delete("datasource_id")
+```
+
+#### Datasource Status
+
+Datasources can have the following statuses:
+- `COMPLETED`: Indexing completed successfully
+- `FAILED`: Indexing failed
+- `FETCHING`: Fetching data from source
+- `IN_PROGRESS`: Processing/indexing in progress
+
+#### Best Practices for Datasources
+
+1. **Naming Convention**:
+   - Use lowercase letters and underscores for datasource names
+   - Keep names descriptive but concise
+
+2. **Performance Optimization**:
+   - Use appropriate filters when listing datasources
+   - Consider pagination for large result sets
+   - Choose appropriate reindex options based on your needs
+
+3. **Error Handling**:
+   - Always check datasource status after creation/update
+   - Handle potential failures gracefully
+   - Monitor processing information for issues
+
+4. **Security**:
+   - Be careful with sensitive data in filters and queries
+   - Use proper access controls when sharing datasources
+   - Regularly review and clean up unused datasources
+
+### Integration Service
+
+The Integration service manages both user and project-level integrations in CodeMie, allowing you to configure and manage various integration settings.
+
+#### Integration Types
+
+- `USER`: User-level integrations
+- `PROJECT`: Project-level integrations
+
+#### Core Methods
+
+1. **List Integrations**
+```python
+from codemie_sdk.models.integration import IntegrationType
+
+# List user integrations with pagination
+user_integrations = client.integrations.list(
+    setting_type=IntegrationType.USER,
+    page=0,
+    per_page=10,
+    filters={"some_filter": "value"}  # optional
+)
+
+# List project integrations
+project_integrations = client.integrations.list(
+    setting_type=IntegrationType.PROJECT,
+    per_page=100
+)
+```
+
+2. **Get Integration**
+```python
+# Get integration by ID
+integration = client.integrations.get(
+    integration_id="integration_id",
+    setting_type=IntegrationType.USER
+)
+
+# Get integration by alias
+integration = client.integrations.get_by_alias(
+    alias="integration_alias",
+    setting_type=IntegrationType.PROJECT
+)
+```
+
+3. **Create Integration**
+```python
+from codemie_sdk.models.integration import Integration
+
+# Create new integration
+new_integration = Integration(
+    setting_type=IntegrationType.USER,
+    alias="my_integration",
+    # Add other required fields based on integration type
+)
+result = client.integrations.create(new_integration)
+```
+
+4. **Update Integration**
+```python
+# Update existing integration
+updated_integration = Integration(
+    setting_type=IntegrationType.USER,
+    alias="updated_alias",
+    # Add other fields to update
+)
+result = client.integrations.update("integration_id", updated_integration)
+```
+
+5. **Delete Integration**
+```python
+# Delete integration
+result = client.integrations.delete(
+    setting_id="integration_id",
+    setting_type=IntegrationType.USER
+)
+```
+
+#### Best Practices for Integrations
+
+1. **Error Handling**:
+   - Handle `NotFoundError` when getting integrations by ID or alias
+   - Validate integration settings before creation/update
+   - Use appropriate setting type (USER/PROJECT) based on context
+
+2. **Performance**:
+   - Use pagination for listing integrations
+   - Cache frequently accessed integrations when appropriate
+   - Use filters to reduce result set size
+
+3. **Security**:
+   - Keep integration credentials secure
+   - Regularly review and update integration settings
+   - Use project-level integrations for team-wide settings
+   - Use user-level integrations for personal settings
+
+### Workflow Service
+
+The Workflow service enables you to create, manage, and execute workflows in CodeMie. Workflows allow you to automate complex processes and integrate various CodeMie services.
+
+#### Core Methods
+
+1. **Create Workflow**
+```python
+from codemie_sdk.models.workflow import WorkflowCreateRequest
+
+# Create new workflow
+workflow_request = WorkflowCreateRequest(
+    name="My Workflow",
+    description="Workflow description",
+    project="project-id",
+    yaml_config="your-yaml-configuration",
+    mode="SEQUENTIAL",  # Optional, defaults to SEQUENTIAL
+    shared=False,       # Optional, defaults to False
+    icon_url="https://example.com/icon.png"  # Optional
+)
+result = client.workflows.create_workflow(workflow_request)
+```
+
+2. **Update Workflow**
+```python
+from codemie_sdk.models.workflow import WorkflowUpdateRequest
+
+# Update existing workflow
+update_request = WorkflowUpdateRequest(
+    name="Updated Workflow",
+    description="Updated description",
+    yaml_config="updated-yaml-config",
+    mode="PARALLEL",
+    shared=True
+)
+result = client.workflows.update("workflow-id", update_request)
+```
+
+3. **List Workflows**
+```python
+# List workflows with pagination and filtering
+workflows = client.workflows.list(
+    page=0,
+    per_page=10,
+    projects=["project1", "project2"]  # Optional project filter
+)
+```
+
+4. **Get Workflow Details**
+```python
+# Get workflow by ID
+workflow = client.workflows.get("workflow-id")
+
+# Get prebuilt workflows
+prebuilt_workflows = client.workflows.get_prebuilt()
+```
+
+5. **Delete Workflow**
+```python
+result = client.workflows.delete("workflow-id")
+```
+
+#### Workflow Execution
+
+The SDK provides comprehensive workflow execution management through the WorkflowExecutionService:
+
+1. **Run Workflow (with MCP header propagation)**
+```python
+# Enable propagation in payload and pass X-* headers to forward to MCP servers
+execution = client.workflows.run(
+    "workflow-id",
+    user_input="optional input",
+    propagate_headers=True,
+    headers={
+        "X-Request-ID": "req-abc-123",
+        "X-Source-App": "analytics-ui",
+    },
+)
+
+# Get execution service for advanced operations
+execution_service = client.workflows.executions("workflow-id")
+```
+
+2. **Manage Executions**
+```python
+# List workflow executions
+executions = execution_service.list(
+    page=0,
+    per_page=10
+)
+
+# Get execution details
+execution = execution_service.get("execution-id")
+
+# Abort running execution
+result = execution_service.abort("execution-id")
+
+# Resume interrupted execution with header propagation (query param + headers)
+result = execution_service.resume(
+    "execution-id",
+    propagate_headers=True,
+    headers={
+        "X-Correlation-ID": "corr-456",
+    },
+)
+
+# Delete all executions
+result = execution_service.delete_all()
+```
+
+3. **Work with Execution States**
+```python
+# Get execution states
+states = execution_service.states(execution_id).list()
+
+# Get state output
+state_output = execution_service.states(execution_id).get_output(state_id)
+
+# Example of monitoring workflow with state verification
+def verify_workflow_execution(execution_service, execution_id):
+    execution = execution_service.get(execution_id)
+    
+    if execution.status == ExecutionStatus.SUCCEEDED:
+        # Get and verify states
+        states = execution_service.states(execution_id).list()
+        
+        # States are ordered by completion date
+        if len(states) >= 2:
+            first_state = states[0]
+            second_state = states[1]
+            assert first_state.completed_at < second_state.completed_at
+            
+            # Get state outputs
+            for state in states:
+                output = execution_service.states(execution_id).get_output(state.id)
+                print(f"State {state.id} output: {output.output}")
+    
+    elif execution.status == ExecutionStatus.FAILED:
+        print(f"Workflow failed: {execution.error_message}")
+```
+
+#### Workflow Configuration
+
+Workflows support various configuration options:
+
+1. **Modes**:
+- `SEQUENTIAL`: Tasks execute in sequence
+- `PARALLEL`: Tasks can execute simultaneously
+
+2. **YAML Configuration**:
+```yaml
+name: Example Workflow
+description: Workflow description
+tasks:
+  - name: task1
+    type: llm
+    config:
+      prompt: "Your prompt here"
+      model: "gpt-4"
+  
+  - name: task2
+    type: tool
+    config:
+      tool_name: "your-tool"
+      parameters:
+        param1: "value1"
+```
+
+#### Best Practices
+
+1. **Workflow Design**:
+- Keep workflows modular and focused
+- Use clear, descriptive names for workflows and tasks
+- Document workflow purpose and requirements
+- Test workflows thoroughly before deployment
+
+2. **Execution Management**:
+- Monitor long-running workflows
+- Implement proper error handling
+- Use pagination for listing executions
+- Clean up completed executions regularly
+
+3. **Performance Optimization**:
+- Choose appropriate workflow mode (SEQUENTIAL/PARALLEL)
+- Manage resource usage in parallel workflows
+- Consider task dependencies and ordering
+- Use efficient task configurations
+
+4. **Security**:
+- Control workflow sharing carefully
+- Validate user inputs
+- Manage sensitive data appropriately
+- Regular audit of workflow access
+
+5. **Maintenance**:
+- Regular review of workflow configurations
+- Update workflows when dependencies change
+- Monitor workflow performance
+- Archive or remove unused workflows
+
+#### Error Handling
+
+Implement proper error handling for workflow operations:
+
+```python
+try:
+    workflow = client.workflows.get("workflow-id")
+except ApiError as e:
+    if e.status_code == 404:
+        print("Workflow not found")
+    else:
+        print(f"API error: {e}")
+except Exception as e:
+    print(f"Unexpected error: {e}")
+```
+
+#### Workflow Status Monitoring
+
+Monitor workflow execution status:
+
+```python
+def monitor_execution(execution_service, execution_id):
+    while True:
+        execution = execution_service.get(execution_id)
+        status = execution.status
+        
+        if status == "COMPLETED":
+            print("Workflow completed successfully")
+            break
+        elif status == "FAILED":
+            print(f"Workflow failed: {execution.error}")
+            break
+        elif status == "ABORTED":
+            print("Workflow was aborted")
+            break
+            
+        time.sleep(5)  # Poll every 5 seconds
+```
+
+### Conversation Service
+
+The Conversation service provides access to manage user conversations within CodeMie Assistants.
+
+#### Core Methods
+
+1. **Get All Conversations**
+```python
+# List all conversations for current user
+conversations = client.conversations.list()
+```
+
+2. **Get Specific Conversation**
+```python
+# Get Conversation by it's ID
+client.conversations.get_conversation("conversation-id")
+```
+
+3. **Get Conversation by Assistant ID**
+```python
+# Get Conversation where Assistant ID is present
+client.conversations.list_by_assistant_id("assistant-id")
+```
+
+4. **Delete Conversation**
+```python
+# Delete specific conversation
+client.conversations.delete("conversation-id")
+```
+
+
+### File Service
+
+The File service enables file upload and download operations in CodeMie.
+
+#### Core Methods
+
+1. **Bulk Upload Files**
+```python
+from pathlib import Path
+
+# Upload multiple files
+files = [
+    Path("/path/to/file1.pdf"),
+    Path("/path/to/file2.txt"),
+    Path("/path/to/file3.docx")
+]
+
+response = client.files.bulk_upload(files)
+
+# Access uploaded file information
+for file_info in response.files:
+    print(f"Uploaded: {file_info.name}, ID: {file_info.id}")
+```
+
+2. **Get File**
+```python
+# Download file by ID
+file_content = client.files.get_file("file-id")
+
+# Save to disk
+with open("downloaded_file.pdf", "wb") as f:
+    f.write(file_content)
+```
+
+### User Service
+
+The User service provides access to user profile and preferences.
+
+#### Core Methods
+
+1. **Get Current User Profile**
+```python
+# Get current user information
+user = client.users.about_me()
+print(f"User: {user.name}, Email: {user.email}")
+```
+
+2. **Get User Data and Preferences**
+```python
+# Get user data and preferences
+user_data = client.users.get_data()
+```
+
+### Task Service
+
+The Task service enables monitoring of background tasks.
+
+#### Core Methods
+
+1. **Get Background Task**
+```python
+# Get background task status by ID
+task = client.tasks.get("task-id")
+print(f"Task Status: {task.status}")
+print(f"Progress: {task.progress}")
+```
+
+### Webhook Service
+
+The Webhook service provides access to trigger available webhooks in CodeMie.
+
+#### Core Methods
+
+1. **Trigger Webhook**
+```python
+# Trigger assistant/workflow/datasource by its ID
+# Data - body of the post method
+response = client.webhook.trigger("resource_id", {"key": "value"})
+```
+
+### Vendor Services
+
+The Vendor Services enable integration with cloud providers to access and manage their native AI assistants, workflows, knowledge bases, and guardrails. Currently, only AWS is supported.
+
+#### Vendor Assistant Service
+
+Manage cloud vendor assistants (AWS Bedrock Agents).
+
+**Core Methods:**
+
+1. **Get Assistant Settings**
+```python
+from codemie_sdk.models.vendor_assistant import VendorType
+
+# Get AWS assistant settings with pagination
+settings = client.vendor_assistants.get_assistant_settings(
+    vendor=VendorType.AWS,
+    page=0,
+    per_page=10
+)
+
+# Or use string
+settings = client.vendor_assistants.get_assistant_settings("aws", page=0, per_page=10)
+```
+
+2. **Get Assistants**
+```python
+# Get assistants for a specific vendor setting
+assistants = client.vendor_assistants.get_assistants(
+    vendor=VendorType.AWS,
+    setting_id="cac90788-39b7-4ffe-8b57-e8b047fa1f6c",
+    per_page=8,
+    next_token=None  # For pagination
+)
+
+# Access assistant data
+for assistant in assistants.data:
+    print(f"Assistant: {assistant.name}, ID: {assistant.id}")
+```
+
+3. **Get Assistant Details**
+```python
+# Get specific assistant
+assistant = client.vendor_assistants.get_assistant(
+    vendor=VendorType.AWS,
+    setting_id="setting-id",
+    assistant_id="assistant-id"
+)
+
+# Get assistant versions
+versions = client.vendor_assistants.get_assistant_versions(
+    vendor=VendorType.AWS,
+    setting_id="setting-id",
+    assistant_id="assistant-id"
+)
+```
+
+4. **Get Assistant Aliases**
+```python
+# Get aliases for an assistant
+aliases = client.vendor_assistants.get_assistant_aliases(
+    vendor=VendorType.AWS,
+    setting_id="setting-id",
+    assistant_id="assistant-id"
+)
+```
+
+5. **Install/Uninstall Assistants**
+```python
+from codemie_sdk.models.vendor_assistant import VendorAssistantInstallRequest
+
+# Install assistant
+install_request = VendorAssistantInstallRequest(
+    assistant_id="assistant-id",
+    version="1.0",
+    project="project-name"
+)
+
+response = client.vendor_assistants.install_assistant(
+    vendor=VendorType.AWS,
+    setting_id="setting-id",
+    request=install_request
+)
+
+# Uninstall assistant
+response = client.vendor_assistants.uninstall_assistant(
+    vendor=VendorType.AWS,
+    setting_id="setting-id",
+    assistant_id="assistant-id"
+)
+```
+
+#### Vendor Workflow Service
+
+Manage cloud vendor workflows (AWS Step Functions).
+
+**Core Methods:**
+
+1. **Get Workflow Settings**
+```python
+# Get workflow settings for a vendor
+settings = client.vendor_workflows.get_workflow_settings(
+    vendor=VendorType.AWS,
+    page=0,
+    per_page=10
+)
+```
+
+2. **Get Workflows**
+```python
+# Get workflows for a specific setting
+workflows = client.vendor_workflows.get_workflows(
+    vendor=VendorType.AWS,
+    setting_id="setting-id",
+    per_page=10,
+    next_token=None
+)
+```
+
+3. **Get Workflow Details**
+```python
+# Get specific workflow
+workflow = client.vendor_workflows.get_workflow(
+    vendor=VendorType.AWS,
+    setting_id="setting-id",
+    workflow_id="workflow-id"
+)
+```
+
+4. **Install/Uninstall Workflows**
+```python
+from codemie_sdk.models.vendor_workflow import VendorWorkflowInstallRequest
+
+# Install workflow
+install_request = VendorWorkflowInstallRequest(
+    workflow_id="workflow-id",
+    project="project-name"
+)
+
+response = client.vendor_workflows.install_workflow(
+    vendor=VendorType.AWS,
+    setting_id="setting-id",
+    request=install_request
+)
+
+# Uninstall workflow
+response = client.vendor_workflows.uninstall_workflow(
+    vendor=VendorType.AWS,
+    setting_id="setting-id",
+    workflow_id="workflow-id"
+)
+```
+
+#### Vendor Knowledge Base Service
+
+Manage cloud vendor knowledge bases (AWS Bedrock Knowledge Bases).
+
+**Core Methods:**
+
+1. **Get Knowledge Base Settings**
+```python
+# Get knowledge base settings for a vendor
+settings = client.vendor_knowledgebases.get_knowledgebase_settings(
+    vendor=VendorType.AWS,
+    page=0,
+    per_page=10
+)
+```
+
+2. **Get Knowledge Bases**
+```python
+# Get knowledge bases for a specific setting
+kbs = client.vendor_knowledgebases.get_knowledgebases(
+    vendor=VendorType.AWS,
+    setting_id="setting-id",
+    per_page=10,
+    next_token=None
+)
+```
+
+3. **Get Knowledge Base Details**
+```python
+# Get specific knowledge base with details
+kb_detail = client.vendor_knowledgebases.get_knowledgebase_detail(
+    vendor=VendorType.AWS,
+    setting_id="setting-id",
+    kb_id="kb-id"
+)
+```
+
+4. **Install/Uninstall Knowledge Bases**
+```python
+from codemie_sdk.models.vendor_knowledgebase import VendorKnowledgeBaseInstallRequest
+
+# Install knowledge base
+install_request = VendorKnowledgeBaseInstallRequest(
+    kb_id="kb-id",
+    project="project-name"
+)
+
+response = client.vendor_knowledgebases.install_knowledgebase(
+    vendor=VendorType.AWS,
+    setting_id="setting-id",
+    request=install_request
+)
+
+# Uninstall knowledge base
+response = client.vendor_knowledgebases.uninstall_knowledgebase(
+    vendor=VendorType.AWS,
+    setting_id="setting-id",
+    kb_id="kb-id"
+)
+```
+
+#### Vendor Guardrail Service
+
+Manage cloud vendor guardrails (AWS Bedrock Guardrails).
+
+**Core Methods:**
+
+1. **Get Guardrail Settings**
+```python
+# Get guardrail settings for a vendor
+settings = client.vendor_guardrails.get_guardrail_settings(
+    vendor=VendorType.AWS,
+    page=0,
+    per_page=10
+)
+
+# Check for invalid settings
+for setting in settings.data:
+    if setting.invalid:
+        print(f"Error: {setting.error}")
+```
+
+2. **Get Guardrails**
+```python
+# Get guardrails for a specific setting
+guardrails = client.vendor_guardrails.get_guardrails(
+    vendor=VendorType.AWS,
+    setting_id="setting-id",
+    per_page=10,
+    next_token=None
+)
+```
+
+3. **Get Guardrail Details and Versions**
+```python
+# Get specific guardrail
+guardrail = client.vendor_guardrails.get_guardrail(
+    vendor=VendorType.AWS,
+    setting_id="setting-id",
+    guardrail_id="guardrail-id"
+)
+
+# Get guardrail versions
+versions = client.vendor_guardrails.get_guardrail_versions(
+    vendor=VendorType.AWS,
+    setting_id="setting-id",
+    guardrail_id="guardrail-id"
+)
+```
+
+4. **Install/Uninstall Guardrails**
+```python
+from codemie_sdk.models.vendor_guardrail import VendorGuardrailInstallRequest
+
+# Install guardrail
+install_request = VendorGuardrailInstallRequest(
+    guardrail_id="guardrail-id",
+    version="1.0",
+    project="project-name"
+)
+
+response = client.vendor_guardrails.install_guardrail(
+    vendor=VendorType.AWS,
+    setting_id="setting-id",
+    request=install_request
+)
+
+# Uninstall guardrail
+response = client.vendor_guardrails.uninstall_guardrail(
+    vendor=VendorType.AWS,
+    setting_id="setting-id",
+    guardrail_id="guardrail-id"
+)
+```
+
+## Error Handling
+
+The SDK implements comprehensive error handling. All API calls may raise exceptions for:
+- Authentication failures
+- Network errors
+- Invalid parameters
+- Server-side errors
+
+It's recommended to implement try-catch blocks around SDK operations to handle potential exceptions gracefully.
+
+## Authentication
+
+The SDK supports two authentication methods through Keycloak:
+
+1. Username/Password Authentication
+2. Client Credentials Authentication
+
+### Required Parameters
+
+You must provide either:
+
+- Username/Password credentials:
+  ```python
+  {
+      "username": "your-username", 
+      "password": "your-password",
+      "auth_client_id": "client-id",        # Optional, defaults to "codemie-sdk"
+      "auth_realm_name": "realm-name",
+      "auth_server_url": "keycloak-url",
+      "verify_ssl": True                    # Optional, defaults to True
+  }
+  ```
+
+OR
+
+- Client Credentials:
+  ```python
+  {
+      "auth_client_id": "your-client-id",
+      "auth_client_secret": "your-client-secret",
+      "auth_realm_name": "realm-name", 
+      "auth_server_url": "keycloak-url",
+      "verify_ssl": True                    # Optional, defaults to True
+  }
+  ```
+
+### Usage Examples
+
+1. Username/Password Authentication:
+```python
+from codemie_sdk import CodeMieClient
+
+client = CodeMieClient(
+    codemie_api_domain="https://api.domain.com",
+    username="<your-username>",
+    password="<your-password>",
+    auth_client_id="<your-client-id>",        # Optional
+    auth_realm_name="<your-realm>",
+    auth_server_url="https://keycloak.domain.com/auth",
+    verify_ssl=True                         # Optional
+)
+```
+
+2. Client Credentials Authentication:
+```python
+from codemie_sdk.auth import KeycloakCredentials
+
+credentials = KeycloakCredentials(
+    server_url="https://keycloak.domain.com/auth",
+    realm_name="<your-realm>",
+    client_id="<your-client-id>",
+    client_secret="<your-client-secret>",
+    verify_ssl=True                         # Optional
+)
+
+client = CodeMieClient(
+    codemie_api_domain="https://api.domain.com",
+    credentials=credentials
+)
+```
+
+## Support
+
+For providing credentials please contact AI/Run CodeMie Team: Vadym_Vlasenko@epam.com or Nikita_Levyankov@epam.com
+
+## Development
+
+### Setup
+
+```bash
+# Install dependencies
+poetry install
+
+# Or using make
+make install
+```
+
+### Code Quality
+
+```bash
+# Run linter (check and fix)
+make ruff
+
+# Or manually
+poetry run ruff check --fix
+poetry run ruff format
+```
+
+### Building Package
+
+```bash
+# Build package
+poetry build
+# Or make build
+
+# Publish to PyPI
+make publish
+```

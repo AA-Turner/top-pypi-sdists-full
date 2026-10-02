@@ -1,0 +1,21 @@
+Metadata-Version: 2.4
+Name: lazycloud-client
+Version: 0.1.73
+Summary: LazyCloud Python SDK and client CLI.
+Requires-Python: >=3.10
+Requires-Dist: cloudpickle<4,>=3
+Requires-Dist: httpx<1,>=0.28
+Requires-Dist: lazycloud-shared==0.1.73
+Requires-Dist: pathspec<1,>=0.12
+Requires-Dist: pillow<13,>=11.3
+Requires-Dist: poetry-core<3,>=2.2
+Requires-Dist: pydantic<3,>=2.12
+Requires-Dist: pydantic-settings<3,>=2.4
+Requires-Dist: pyyaml<7,>=6
+Requires-Dist: rich<16,>=15
+Requires-Dist: typer>=0.26.7
+Requires-Dist: tomli<3,>=2
+Requires-Dist: typing-extensions<5,>=4.12
+Requires-Dist: typing-inspection<1,>=0.4.2
+Requires-Dist: watchdog<7,>=6
+Requires-Dist: websockets<18,>=15

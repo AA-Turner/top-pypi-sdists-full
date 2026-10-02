@@ -202,7 +202,8 @@ def decide_overload_action(
       1. retry_same       — while the failed-call count is within
                             1 + retry_max_attempts on the CURRENT offering.
       2. reroute_offering — the SAME model's next available sibling offering
-                            (priority order, ``sibling_offering_ids``). The
+                            in the SAME class/endpoint (priority order,
+                            ``sibling_offering_ids``). The
                             exact same canonical config re-resolves through the
                             sibling's api rules. A PINNED offering deviates this
                             way too — predetermined endpoint-specific error
@@ -363,8 +364,9 @@ async def load_offering_ladder(
     name/uuid on the first attempt, the offering's provider_model_id after a
     dispatch rewrote it). ``routing_offering_id`` is the active pin (user pin or
     runtime sibling pin) — when unset the failing offering is the PREFERRED one
-    (priority head). Siblings are the model's remaining available offerings in
-    priority order, minus the current one and any already tried this iteration.
+    (priority head). Siblings are the model's remaining available offerings ON
+    THE SAME ENDPOINT (class) in priority order, minus the current one and any
+    already tried this iteration — never another class.
 
     Degrades to ``None`` (→ classic model-level behavior only) when the model or
     catalog cannot be read — the lookup must never break the retry loop.
@@ -390,10 +392,21 @@ async def load_offering_ladder(
             return None
 
         current = routing_offering_id or offerings[0].id
+        # Siblings stay inside the current offering's CLASS (its endpoint —
+        # "Matrx Fast", "Matrx Lightning", ...). Two classes of one model are
+        # separate products the person chose between; failing over across them
+        # would silently swap their choice. Only equivalent offerings within
+        # the same class collapse.
+        current_row = manager.offering(current)
+        class_endpoint_id = (
+            str(current_row.endpoint_id) if current_row is not None else offerings[0].endpoint_id
+        )
         siblings = [
             o.id
             for o in offerings
-            if o.id != current and o.id not in offerings_tried
+            if o.id != current
+            and o.id not in offerings_tried
+            and str(o.endpoint_id) == str(class_endpoint_id)
         ]
         return OfferingLadder(
             canonical_model_id=model_id,

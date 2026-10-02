@@ -1,0 +1,130 @@
+Metadata-Version: 2.4
+Name: ffsim
+Version: 0.0.84
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Rust
+Classifier: Topic :: Scientific/Engineering :: Chemistry
+Classifier: Topic :: Scientific/Engineering :: Physics
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Dist: jax
+Requires-Dist: numpy
+Requires-Dist: opt-einsum
+Requires-Dist: orjson
+Requires-Dist: pyscf>=2.12
+Requires-Dist: qiskit>=2.0
+Requires-Dist: scipy
+Requires-Dist: typing-extensions
+License-File: LICENSE
+Summary: Faster simulation of fermionic quantum circuits.
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Documentation, https://qiskit-community.github.io/ffsim/
+Project-URL: Homepage, https://github.com/qiskit-community/ffsim
+
+# ffsim
+
+<!-- start introduction -->
+
+ffsim is a software library for simulating fermionic quantum circuits that conserve particle number and the *z* component of spin. This category includes many quantum circuits used for quantum chemistry simulations. By exploiting the symmetries and using specialized algorithms, ffsim can simulate these circuits much faster than a generic quantum circuit simulator.
+
+<!-- end introduction -->
+
+## Documentation
+
+Documentation is located at the [project website](https://qiskit-community.github.io/ffsim/). You might also be interested in the [paper about ffsim](https://arxiv.org/abs/2605.03123).
+
+## Installation
+
+<!-- start installation -->
+
+On Linux and macOS, you can install ffsim using pip:
+
+```bash
+pip install ffsim
+```
+
+See the [installation instructions](https://qiskit-community.github.io/ffsim/install.html) for information about using ffsim on Windows, as well as instructions for installing from source and running ffsim in a container.
+
+<!-- end installation -->
+
+## Get started
+
+<!-- start get-started -->
+
+Visit [*State vectors and gates*](https://qiskit-community.github.io/ffsim/explanations/state-vectors-and-gates.html) to start learning ffsim's core concepts, or jump straight into a [tutorial](https://qiskit-community.github.io/ffsim/tutorials/double-factorized-trotter.html). Check out the [guides](https://qiskit-community.github.io/ffsim/how-to-guides/index.html) for help with specific tasks, or visit the [API reference](https://qiskit-community.github.io/ffsim/api/index.html) for detailed documentation of all function and classes available in the library.
+
+<!-- end get-started -->
+
+## Multithreading
+
+<!-- start multithreading -->
+
+Some ffsim functions implemented in Rust use multithreading. The number of threads can be controlled using the environment variable `RAYON_NUM_THREADS`. For example, to disable multithreading, set this variable as `RAYON_NUM_THREADS=1`.
+
+<!-- end multithreading -->
+
+## Code example
+
+<!-- start code-example -->
+
+```python
+import numpy as np
+import pyscf
+
+import ffsim
+
+# Generate the Hamiltonian for an N2 molecule using PySCF and ffsim's wrapper for it
+mol = pyscf.gto.Mole()
+mol.build(atom=[["N", (0, 0, 0)], ["N", (1.0, 0, 0)]], basis="6-31g", symmetry="Dooh")
+scf = pyscf.scf.RHF(mol).run()
+mol_data = ffsim.MolecularData.from_scf(scf, active_space=range(4, mol.nao_nr()))
+norb, nelec = mol_data.norb, mol_data.nelec
+hamiltonian = mol_data.hamiltonian
+
+# Convert the Hamiltonian to a SciPy LinearOperator
+linop = ffsim.linear_operator(hamiltonian, norb=norb, nelec=nelec)
+
+# Generate a random orbital rotation
+orbital_rotation = ffsim.random.random_unitary(norb, seed=1234)
+
+# Create the Hartree-Fock state and apply the orbital rotation to it
+vec = ffsim.hartree_fock_state(norb, nelec)
+vec = ffsim.apply_orbital_rotation(vec, orbital_rotation, norb=norb, nelec=nelec)
+
+# Compute the energy of the state
+energy = np.vdot(vec, linop @ vec).real
+print(energy)  # prints -104.17181289596
+```
+
+<!-- end code-example -->
+
+## Citing ffsim
+
+<!-- start citing -->
+
+You can cite ffsim using the following BibTeX:
+
+```bibtex
+@misc{sung2026ffsim,
+      title={ffsim: Faster simulation of fermionic quantum circuits},
+      author={Kevin J. Sung and Inho Choi and Mirko Amico and Bartholomew Andrews and Esra Ayantuna and Yukio Kawashima and Wan-Hsuan Lin and David Omanovic and Samuele Piccinelli and Javier Robledo Moreno and Abdullah Ash Saki and James Shee and Soyoung Shin and Minh C. Tran and Kento Ueda and Haimeng Zhang and Mario Motta},
+      year={2026},
+      eprint={2605.03123},
+      archivePrefix={arXiv},
+      primaryClass={quant-ph},
+      url={https://arxiv.org/abs/2605.03123},
+}
+```
+
+<!-- end citing -->
+
+## Developer guide
+
+See the [developer guide](https://github.com/qiskit-community/ffsim/blob/main/CONTRIBUTING.md) for instructions on contributing code to ffsim.
+

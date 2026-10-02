@@ -1,0 +1,15 @@
+[project]
+name = "py-ai-fastapi-chat"
+version = "0.1.0"
+description = "Chat demo using Python Vercel AI SDK with FastAPI"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi[standard]>=0.128.1",
+    "ai[vercel]",
+]
+
+[dependency-groups]
+dev = []
+
+[tool.uv]
+exclude-newer = "2 days"

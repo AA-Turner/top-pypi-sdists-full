@@ -237,6 +237,21 @@ class ServerError(Failure):
         return str(self.status_code)
 
 
+class ContentTypeServerError(ServerError):
+    """Server failed on a request whose `Content-Type` is malformed or not accepted by the operation."""
+
+    __slots__ = ()
+
+    def __init__(self, *, operation: str, status_code: int, message: str, case_id: str | None = None) -> None:
+        super().__init__(
+            operation=operation,
+            status_code=status_code,
+            title="Server error on unexpected Content-Type",
+            message=message,
+            case_id=case_id,
+        )
+
+
 class MalformedJson(Failure):
     """Failed to deserialize JSON."""
 
@@ -335,6 +350,19 @@ class FailureGroup(BaseExceptionGroup):
         if message is None:
             message = failure_report_title(failures)
         return super().__new__(cls, message, list(failures))
+
+
+class _ReportedFailureGroup(FailureGroup, AssertionError):
+    """FailureGroup as reported to pytest so reporters classify it as a failed test."""
+
+
+_ReportedFailureGroup.__name__ = _ReportedFailureGroup.__qualname__ = "FailureGroup"
+
+
+def as_reported_failure(exc: FailureGroup) -> FailureGroup:
+    reported = _ReportedFailureGroup(list(exc.exceptions), exc.message)
+    reported.__notes__ = list(getattr(exc, "__notes__", []))
+    return reported.with_traceback(exc.__traceback__)
 
 
 class MessageBlock(str, Enum):

@@ -1,5 +1,8 @@
+from jobspy.indeed.constant import job_type_keys, remote_keys
 from jobspy.model import CompensationInterval, JobType, Compensation
 from jobspy.util import get_enum_from_job_type
+
+job_types_by_key = {key: job_type for job_type, key in job_type_keys.items()}
 
 
 def get_job_type(attributes: list) -> list[JobType]:
@@ -11,7 +14,9 @@ def get_job_type(attributes: list) -> list[JobType]:
     job_types: list[JobType] = []
     for attribute in attributes:
         job_type_str = attribute["label"].replace("-", "").replace(" ", "").lower()
-        job_type = get_enum_from_job_type(job_type_str)
+        job_type = job_types_by_key.get(attribute["key"]) or get_enum_from_job_type(
+            job_type_str
+        )
         if job_type:
             job_types.append(job_type)
     return job_types
@@ -39,33 +44,31 @@ def get_compensation(compensation: dict) -> Compensation | None:
     max_range = comp["range"].get("max")
     return Compensation(
         interval=interval,
-        min_amount=int(min_range) if min_range is not None else None,
-        max_amount=int(max_range) if max_range is not None else None,
+        min_amount=round(min_range, 2) if min_range is not None else None,
+        max_amount=round(max_range, 2) if max_range is not None else None,
         currency=(
-            compensation["estimated"]["currencyCode"]
-            if compensation["estimated"]
-            else compensation["currencyCode"]
+            compensation["currencyCode"]
+            if compensation["baseSalary"]
+            else compensation["estimated"]["currencyCode"]
         ),
     )
 
 
-def is_job_remote(job: dict, description: str) -> bool:
+def is_job_remote(job: dict) -> bool:
     """
-    Searches the description, location, and attributes to check if job is remote
+    Searches the location and attributes to check if job is remote
     """
     remote_keywords = ["remote", "work from home", "wfh"]
     is_remote_in_attributes = any(
-        any(keyword in attr["label"].lower() for keyword in remote_keywords)
+        attr["key"] in remote_keys
+        or any(keyword in attr["label"].lower() for keyword in remote_keywords)
         for attr in job["attributes"]
-    )
-    is_remote_in_description = any(
-        keyword in description.lower() for keyword in remote_keywords
     )
     is_remote_in_location = any(
         keyword in job["location"]["formatted"]["long"].lower()
         for keyword in remote_keywords
     )
-    return is_remote_in_attributes or is_remote_in_description or is_remote_in_location
+    return is_remote_in_attributes or is_remote_in_location
 
 
 def get_compensation_interval(interval: str) -> CompensationInterval:

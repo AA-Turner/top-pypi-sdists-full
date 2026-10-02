@@ -1,0 +1,983 @@
+//! Public Anthropic Messages encoding, the Rust mirror of
+//! `exp.runtime.anthropic_protocol.encoding` (`MessagesSseEncoder` and
+//! `completed_messages_body`) and of the Anthropic error envelope in
+//! `exp.runtime.anthropic_protocol.errors`.
+
+use std::collections::{HashMap, HashSet};
+
+use serde_json::{json, Value};
+
+use crate::dialects::MAXIMUM_RETAINED_OUTPUT_BYTES;
+use crate::encode::{
+    compact_json, stable_public_id, ReasoningCarrierCandidate, ReasoningCarrierState,
+};
+use crate::errors::{Failure, PublicError};
+use crate::events::{Event, Usage};
+use crate::tool_search::MessagesToolSearch;
+use crate::web_search::MessagesWebSearch;
+
+/// The provider block index under which an exposure-gated rung's plaintext
+/// reasoning (`ReasoningContentDelta`, an OpenAI-wire event with no block
+/// index of its own) is scheduled as one Messages thinking block. Anthropic
+/// dialects index their thinking blocks from zero and never share a stream
+/// with an OpenAI-wire rung, so the reserved value cannot collide.
+const EXPOSED_REASONING_BLOCK_INDEX: u32 = u32::MAX;
+
+fn invalid_provider_stream(message: &str) -> PublicError {
+    PublicError::new(502, "invalid_provider_stream", message, "api_error")
+}
+
+/// Map the terminal outcome to the Anthropic stop reason. Server tool use is
+/// provider-executed and deliberately never yields `tool_use`; a paused
+/// server-tool turn must keep `pause_turn` so the caller resumes it.
+pub(super) fn stop_reason(terminal: &Event, saw_tool_use: bool) -> &'static str {
+    match terminal {
+        Event::Incomplete => "max_tokens",
+        Event::PausedTurn => "pause_turn",
+        // A gateway-emulated stop cut the visible text: the caller's sequence
+        // ended the turn, exactly as Anthropic reports a native match.
+        Event::StoppedAtSequence(_) => "stop_sequence",
+        _ if saw_tool_use => "tool_use",
+        _ => "end_turn",
+    }
+}
+
+/// The matched stop sequence for the `stop_sequence` field, or null.
+pub(super) fn stop_sequence_value(terminal: &Event) -> Value {
+    match terminal {
+        Event::StoppedAtSequence(sequence) => Value::String(sequence.clone()),
+        _ => Value::Null,
+    }
+}
+
+/// Frame one named, compact, UTF-8-preserving Anthropic SSE event.
+fn event_frame(name: &str, payload: &Value) -> String {
+    format!("event: {name}\ndata: {}\n\n", compact_json(payload))
+}
+
+/// Frame one terminal Anthropic `error` SSE event for a sanitized failure.
+fn error_frame(failure: &Failure) -> String {
+    event_frame("error", &anthropic_error_body(&failure.public_error()))
+}
+
+/// The block families one Messages stream schedules, with their provider
+/// grouping index where content arrives incrementally.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum BlockKind {
+    Text,
+    Tool(u32),
+    Thinking(u32),
+    Redacted,
+    /// Provider-executed server tool use, streamed like a tool block but
+    /// re-emitted as `server_tool_use` and excluded from the tool_use stop.
+    ServerTool(u32),
+    /// One whole verbatim server-tool result block (arrives complete).
+    ServerResult,
+}
+
+/// One scheduled content block, buffered until it can stream in order.
+///
+/// Anthropic SSE streams content blocks strictly sequentially and a closed
+/// index cannot reopen, while the canonical stream may legally interleave
+/// parallel tool calls and trailing text. Blocks are therefore scheduled in
+/// start order: the earliest block streams live, later blocks accumulate
+/// their content in `pending` until every earlier block has closed.
+struct PendingBlock {
+    kind: BlockKind,
+    pending: String,
+    /// Thinking only: the opaque signature flushes as one `signature_delta`
+    /// immediately before the block closes.
+    pending_signature: String,
+    /// Redacted only: the whole opaque payload travels in the start frame.
+    redacted_data: Option<String>,
+    /// Server result only: the whole verbatim block (validated compact JSON
+    /// text) travels in the start frame.
+    server_result_block: Option<String>,
+    /// Text only: verbatim citation objects (validated compact JSON text),
+    /// each flushed as one `citations_delta` while the block is open.
+    pending_citations: Vec<String>,
+    anthropic_index: Option<u32>,
+}
+
+impl PendingBlock {
+    fn new(kind: BlockKind) -> Self {
+        Self {
+            kind,
+            pending: String::new(),
+            pending_signature: String::new(),
+            redacted_data: None,
+            server_result_block: None,
+            pending_citations: Vec::new(),
+            anthropic_index: None,
+        }
+    }
+}
+
+/// Stateful Anthropic Messages SSE encoder with one open block and one
+/// terminal.
+///
+/// Blocks are scheduled in start order (see [`PendingBlock`]): the earliest
+/// block streams live while content for later blocks buffers within the
+/// gateway's bounded retained-output budget, so interleaved parallel tool
+/// calls and deferred completions encode as a valid strictly sequential
+/// Anthropic lifecycle with the same block order as the non-streaming
+/// aggregation.
+pub struct MessagesSseEncoder {
+    message_id: String,
+    model: String,
+    started: bool,
+    terminal: bool,
+    draining: bool,
+    next_block_index: u32,
+    blocks: Vec<PendingBlock>,
+    open_position: Option<usize>,
+    next_unopened: usize,
+    buffered_bytes: usize,
+    tool_identities: HashMap<u32, (String, String)>,
+    tool_arguments: HashMap<u32, String>,
+    tool_completed: HashSet<u32>,
+    server_identities: HashMap<u32, (String, String)>,
+    server_arguments: HashMap<u32, String>,
+    server_completed: HashSet<u32>,
+    saw_tool_use: bool,
+    refusal_seen: bool,
+    usage: Option<Usage>,
+    /// Pre-dispatch prompt estimate shown on `message_start` when no upstream
+    /// start usage is known. Kept apart from `usage` so it can never reach
+    /// `message_delta`, whose meters are the provider's own report.
+    pre_dispatch_input_estimate: Option<u64>,
+    ignored_parameters: Vec<String>,
+    reasoning: ReasoningCarrierState,
+    reasoning_content_carrier: Option<String>,
+    reasoning_output_exposed: bool,
+    /// The gateway-executed web search, rendered as the leading blocks at
+    /// `start` and metered on every usage object; `None` changes nothing.
+    web_search: Option<MessagesWebSearch>,
+    /// The gateway-run tool-search rounds, rendered as leading blocks after
+    /// the web search and metered on every usage object; `None` changes
+    /// nothing.
+    tool_search: Option<MessagesToolSearch>,
+    /// How many leading blocks are the gateway's own, so the empty-completion
+    /// check still sees a provider that rendered nothing.
+    synthetic_blocks: usize,
+}
+
+impl MessagesSseEncoder {
+    #[cfg(test)]
+    pub fn new(request_id: &str, model: &str) -> Self {
+        Self::new_with_ignored(request_id, model, Vec::new())
+    }
+
+    /// Build an encoder that discloses controls omitted by route shaping,
+    /// mirroring `ChatSseEncoder::new_with_ignored`.
+    pub fn new_with_ignored(
+        request_id: &str,
+        model: &str,
+        ignored_parameters: Vec<String>,
+    ) -> Self {
+        Self {
+            message_id: stable_public_id("msg", request_id),
+            model: model.to_string(),
+            ignored_parameters,
+            started: false,
+            terminal: false,
+            draining: false,
+            next_block_index: 0,
+            blocks: Vec::new(),
+            open_position: None,
+            next_unopened: 0,
+            buffered_bytes: 0,
+            tool_identities: HashMap::new(),
+            tool_arguments: HashMap::new(),
+            tool_completed: HashSet::new(),
+            server_identities: HashMap::new(),
+            server_arguments: HashMap::new(),
+            server_completed: HashSet::new(),
+            saw_tool_use: false,
+            refusal_seen: false,
+            usage: None,
+            pre_dispatch_input_estimate: None,
+            reasoning: ReasoningCarrierState::default(),
+            reasoning_content_carrier: None,
+            reasoning_output_exposed: false,
+            web_search: None,
+            tool_search: None,
+            synthetic_blocks: 0,
+        }
+    }
+
+    /// Render the gateway-run tool-search rounds ahead of every provider
+    /// block (see `tool_search::messages_tool_search`); set before `start`.
+    pub fn set_tool_search(&mut self, tool_search: Option<MessagesToolSearch>) {
+        self.tool_search = tool_search;
+    }
+
+    /// Render the gateway-executed web search ahead of every provider block
+    /// (see `web_search::messages_web_search`); set before `start`.
+    pub fn set_web_search(&mut self, web_search: Option<MessagesWebSearch>) {
+        self.web_search = web_search;
+    }
+
+    /// Seed the meters `message_start` reports from what the upstream already
+    /// said (an Anthropic upstream's own start frame). `None` keeps the zero
+    /// placeholder an OpenAI-wire upstream forces, whose final meters ride
+    /// `message_delta` (the official SDK accumulators copy them from there).
+    pub fn set_initial_usage(&mut self, usage: Option<Usage>) {
+        if let Some(usage) = usage {
+            if usage.has_token_counts() {
+                self.usage = Some(usage);
+            }
+        }
+    }
+
+    /// Seed `message_start` with the control plane's pre-dispatch prompt
+    /// count for an upstream that reports nothing before its final chunk.
+    ///
+    /// Anthropic's documented start frame carries the prompt's input count
+    /// with `output_tokens: 1`, and clients that read input from
+    /// `message_start` alone (Claude Code) otherwise display the zero
+    /// placeholder. The estimate is display-only: an upstream's own start
+    /// usage (`set_initial_usage`) outranks it whichever is set first, and
+    /// `message_delta` keeps the provider's report.
+    pub fn set_pre_dispatch_input_estimate(&mut self, estimate: Option<u64>) {
+        self.pre_dispatch_input_estimate = estimate;
+    }
+
+    /// Attach the authenticated carrier before the terminal is encoded.
+    ///
+    /// Mirrors `ChatSseEncoder::set_reasoning_content_carrier`: a tool turn's
+    /// hidden reasoning leaves only as the sealed carrier, here as one trailing
+    /// `redacted_thinking` block (Anthropic's opaque replay-verbatim shape).
+    pub fn set_reasoning_content_carrier(&mut self, carrier: String) {
+        self.reasoning_content_carrier = Some(carrier);
+    }
+
+    /// Show the model's plaintext reasoning to the caller as a thinking block.
+    ///
+    /// Off by default so hidden-reasoning providers never leak; on only for
+    /// rungs the catalog marks `reasoning_output_exposed` (Tencent/DeepSeek),
+    /// whose plaintext the Chat wire already returns as `reasoning_content`.
+    /// The block carries an EMPTY signature: Anthropic signs every thinking
+    /// block it issues, so an unsigned block is recognizably the gateway's own
+    /// plaintext when the caller replays it.
+    pub fn set_reasoning_output_exposed(&mut self, exposed: bool) {
+        self.reasoning_output_exposed = exposed;
+    }
+
+    /// Return the validated carrier candidate accumulated by a live stream.
+    pub fn reasoning_carrier_candidate(
+        &self,
+    ) -> Result<Option<ReasoningCarrierCandidate>, PublicError> {
+        self.reasoning.candidate()
+    }
+
+    /// Emit the `message_start` and `ping` lifecycle events once.
+    pub fn start(&mut self) -> Result<Vec<String>, PublicError> {
+        if self.started {
+            return Err(invalid_provider_stream(
+                "Messages stream was started more than once.",
+            ));
+        }
+        self.started = true;
+        let mut message = json!({
+            "id": self.message_id,
+            "type": "message",
+            "role": "assistant",
+            "model": self.model,
+            "content": [],
+            "stop_reason": Value::Null,
+            "stop_sequence": Value::Null,
+            "usage": self.start_usage(),
+        });
+        // Same body-level disclosure as the Chat and Responses encoders: the
+        // Anthropic envelope has no field for it, and the official SDK
+        // tolerates extra keys, so a dropped control (an empty-ladder
+        // `output_config.effort`, a dropped beta token) is never silent.
+        disclose_ignored_parameters(&mut message, &self.ignored_parameters);
+        let mut frames = vec![
+            event_frame(
+                "message_start",
+                &json!({"type": "message_start", "message": message}),
+            ),
+            event_frame("ping", &json!({"type": "ping"})),
+        ];
+        // The gateway's own search blocks lead the content, exactly where a
+        // native rung would stream its server tool use: the pre-dispatch web
+        // search first, then the tool-search rounds in order.
+        let synthetic: Vec<Event> = self
+            .web_search
+            .iter()
+            .flat_map(|search| search.events.clone())
+            .chain(
+                self.tool_search
+                    .iter()
+                    .flat_map(|search| search.events.clone()),
+            )
+            .collect();
+        if !synthetic.is_empty() {
+            for event in &synthetic {
+                frames.extend(self.feed(event)?);
+            }
+            self.synthetic_blocks = self.blocks.len();
+        }
+        Ok(frames)
+    }
+
+    pub fn saw_terminal(&self) -> bool {
+        self.terminal
+    }
+
+    /// Whether any content block has been scheduled so far: the route reads
+    /// this at a `Completed` terminal, because a committed stream whose only
+    /// events the surface cannot render (hidden reasoning on an unexposed
+    /// rung) would otherwise encode as `content: []` with `end_turn`.
+    pub fn has_content_blocks(&self) -> bool {
+        self.blocks.len() > self.synthetic_blocks
+    }
+
+    /// Encode one ordered normalized provider event into zero or more frames.
+    pub fn feed(&mut self, event: &Event) -> Result<Vec<String>, PublicError> {
+        if !self.started {
+            return Err(invalid_provider_stream(
+                "Messages stream must be started before provider events.",
+            ));
+        }
+        if self.terminal {
+            return Err(invalid_provider_stream(
+                "Messages stream received an event after its terminal.",
+            ));
+        }
+        self.reasoning.observe(event)?;
+        match event {
+            Event::ProviderResponsesLogprobs { .. } => Err(invalid_provider_stream(
+                "Responses probability events cannot be projected on this surface.",
+            )),
+            Event::ChoiceLogprobsDelta(_) => Err(invalid_provider_stream(
+                "Chat token probabilities cannot be projected on this surface.",
+            )),
+            Event::Image(_) => Err(invalid_provider_stream(
+                "Generated image output requires Chat Completions or the Images API.",
+            )),
+            Event::TextDelta(text) => self.text_delta(text),
+            Event::ProviderTextDelta { delta, .. } => self.text_delta(delta),
+            Event::RefusalDelta(_) => {
+                // There is no Anthropic refusal block; the refusal is
+                // reported as one sanitized terminal error instead.
+                self.refusal_seen = true;
+                Ok(Vec::new())
+            }
+            Event::ReasoningContentDelta { delta, .. } => {
+                // An exposure-gated rung's plaintext reasoning streams as one
+                // unsigned thinking block, the Messages twin of the Chat
+                // wire's `reasoning_content` deltas; elsewhere it stays
+                // dropped. The sealed tool-turn carrier rides independently.
+                if self.reasoning_output_exposed && !delta.is_empty() {
+                    self.thinking_delta(EXPOSED_REASONING_BLOCK_INDEX, delta)
+                } else {
+                    Ok(Vec::new())
+                }
+            }
+            Event::ProviderRefusalDelta { .. } => {
+                self.refusal_seen = true;
+                Ok(Vec::new())
+            }
+            // OpenAI-only reasoning shapes have no Messages representation.
+            Event::ProviderOutputItemStarted { .. }
+            | Event::ProviderOutputItemCompleted { .. }
+            | Event::ReasoningSummaryDelta { .. }
+            | Event::GeminiThoughtPart(_)
+            | Event::EncryptedReasoning { .. } => Ok(Vec::new()),
+            Event::ThinkingDelta { index, delta } => self.thinking_delta(*index, delta),
+            Event::ThinkingSignature { index, signature } => {
+                self.thinking_signature(*index, signature)
+            }
+            Event::RedactedThinking { data, .. } => self.redacted_thinking(data),
+            Event::ToolCallStarted {
+                index,
+                call_id,
+                name,
+                ..
+            } => self.tool_started(*index, call_id, name),
+            Event::ToolArgumentsDelta { index, delta } => self.tool_arguments_delta(*index, delta),
+            Event::ToolCallCompleted { index, call } => {
+                if call.custom {
+                    // Custom tools only enter through a Responses request,
+                    // which never encodes on the Messages surface.
+                    return Err(invalid_provider_stream(
+                        "Messages cannot represent a custom tool call.",
+                    ));
+                }
+                // Some upstream dialects (OpenAI-compatible streams) emit
+                // every tool completion only at their terminal sentinel, and
+                // parallel tool calls may interleave, so completion verifies
+                // against the accumulated state and the scheduler closes the
+                // block once it is the open one.
+                let identity = self.tool_identities.get(index);
+                if identity.is_none() || self.tool_completed.contains(index) {
+                    return Err(invalid_provider_stream(
+                        "Messages tool completion omitted its started tool call.",
+                    ));
+                }
+                let streamed = self.tool_arguments.get(index).cloned().unwrap_or_default();
+                if identity != Some(&(call.call_id.clone(), call.name.clone()))
+                    || streamed != call.raw_arguments
+                {
+                    return Err(invalid_provider_stream(
+                        "Messages tool completion changed streamed identity or bytes.",
+                    ));
+                }
+                self.tool_completed.insert(*index);
+                Ok(self.advance())
+            }
+            Event::TextBlockStarted { .. } => {
+                // A provider text-block boundary starts a fresh caller block
+                // so citations attach to the block they belong to.
+                self.blocks.push(PendingBlock::new(BlockKind::Text));
+                Ok(self.advance())
+            }
+            Event::CitationDelta { citation, .. } => self.citation_delta(citation),
+            Event::ServerToolUseStarted {
+                index,
+                call_id,
+                name,
+            } => self.server_tool_started(*index, call_id, name),
+            Event::ServerToolArgumentsDelta { index, delta } => {
+                self.server_tool_arguments_delta(*index, delta)
+            }
+            Event::ServerToolUseCompleted { index, call } => {
+                let identity = self.server_identities.get(index);
+                if identity.is_none() || self.server_completed.contains(index) {
+                    return Err(invalid_provider_stream(
+                        "Messages server tool completion omitted its started tool use.",
+                    ));
+                }
+                let streamed = self
+                    .server_arguments
+                    .get(index)
+                    .cloned()
+                    .unwrap_or_default();
+                if identity != Some(&(call.call_id.clone(), call.name.clone()))
+                    || streamed != call.raw_arguments
+                {
+                    return Err(invalid_provider_stream(
+                        "Messages server tool completion changed streamed identity or bytes.",
+                    ));
+                }
+                self.server_completed.insert(*index);
+                Ok(self.advance())
+            }
+            Event::ServerToolResult { block, .. } => self.server_tool_result(block),
+            // Hosted tool items enter only through Responses-native tool
+            // declarations, which never admit on the Messages surface.
+            Event::HostedToolItemStarted { .. }
+            | Event::HostedToolItemProgress { .. }
+            | Event::HostedToolItemCompleted { .. } => Err(invalid_provider_stream(
+                "Messages cannot represent a provider-hosted Responses tool item.",
+            )),
+            // OpenAI text annotations have no Messages representation; the
+            // text itself streams through its delta events.
+            Event::ProviderTextAnnotation { .. } => Ok(Vec::new()),
+            Event::Usage(usage) => {
+                if usage.has_token_counts() {
+                    self.usage = Some(usage.clone());
+                }
+                Ok(Vec::new())
+            }
+            Event::Completed
+            | Event::Incomplete
+            | Event::StoppedAtSequence(_)
+            | Event::PausedTurn => {
+                self.terminal = true;
+                if self.refusal_seen {
+                    return Ok(vec![error_frame(&refusal_failure())]);
+                }
+                let mut frames = Vec::new();
+                if matches!(event, Event::Completed | Event::StoppedAtSequence(_))
+                    && self.reasoning.candidate()?.is_some()
+                {
+                    // The carrier is known only once every tool call has
+                    // completed, after the sequential thinking block closed,
+                    // so it travels as one trailing opaque block.
+                    let carrier = self.reasoning_content_carrier.clone().ok_or_else(|| {
+                        invalid_provider_stream(
+                            "Messages reasoning content was not sealed by the gateway authority.",
+                        )
+                    })?;
+                    frames.extend(self.redacted_thinking(&carrier)?);
+                }
+                self.draining = true;
+                frames.extend(self.advance());
+                frames.push(event_frame(
+                    "message_delta",
+                    &json!({
+                        "type": "message_delta",
+                        "delta": {
+                            "stop_reason": stop_reason(event, self.saw_tool_use),
+                            "stop_sequence": stop_sequence_value(event),
+                        },
+                        "usage": self.metered(messages_usage(self.usage.as_ref())),
+                    }),
+                ));
+                frames.push(event_frame(
+                    "message_stop",
+                    &json!({"type": "message_stop"}),
+                ));
+                Ok(frames)
+            }
+            Event::Failed(failure) => {
+                self.terminal = true;
+                Ok(vec![error_frame(failure)])
+            }
+        }
+    }
+
+    /// Schedule one text delta on the last text block, buffering as needed.
+    fn text_delta(&mut self, delta: &str) -> Result<Vec<String>, PublicError> {
+        let needs_new_block = match self.blocks.last() {
+            Some(block) => block.kind != BlockKind::Text,
+            None => true,
+        };
+        if needs_new_block {
+            self.blocks.push(PendingBlock::new(BlockKind::Text));
+        }
+        let position = self.blocks.len() - 1;
+        self.buffer(position, delta)?;
+        let mut frames = self.advance();
+        self.flush_open(&mut frames);
+        Ok(frames)
+    }
+
+    /// Schedule one thinking text delta on its provider-indexed block.
+    fn thinking_delta(&mut self, index: u32, delta: &str) -> Result<Vec<String>, PublicError> {
+        let position = self.thinking_position(index);
+        self.buffer(position, delta)?;
+        let mut frames = self.advance();
+        self.flush_open(&mut frames);
+        Ok(frames)
+    }
+
+    /// Retain one opaque signature fragment; it flushes at block close.
+    fn thinking_signature(
+        &mut self,
+        index: u32,
+        signature: &str,
+    ) -> Result<Vec<String>, PublicError> {
+        let position = self.thinking_position(index);
+        self.buffered_bytes = self.buffered_bytes.saturating_add(signature.len());
+        if self.buffered_bytes > MAXIMUM_RETAINED_OUTPUT_BYTES {
+            return Err(invalid_provider_stream(
+                "Messages stream buffered blocks exceeded the gateway response limit.",
+            ));
+        }
+        self.blocks[position].pending_signature.push_str(signature);
+        Ok(self.advance())
+    }
+
+    /// Schedule one complete redacted-thinking block at its arrival position.
+    fn redacted_thinking(&mut self, data: &str) -> Result<Vec<String>, PublicError> {
+        self.buffered_bytes = self.buffered_bytes.saturating_add(data.len());
+        if self.buffered_bytes > MAXIMUM_RETAINED_OUTPUT_BYTES {
+            return Err(invalid_provider_stream(
+                "Messages stream buffered blocks exceeded the gateway response limit.",
+            ));
+        }
+        let mut block = PendingBlock::new(BlockKind::Redacted);
+        block.redacted_data = Some(data.to_string());
+        self.blocks.push(block);
+        Ok(self.advance())
+    }
+
+    /// Find or schedule the thinking block for one provider index.
+    fn thinking_position(&mut self, index: u32) -> usize {
+        if let Some(position) = self
+            .blocks
+            .iter()
+            .position(|block| block.kind == BlockKind::Thinking(index))
+        {
+            return position;
+        }
+        self.blocks
+            .push(PendingBlock::new(BlockKind::Thinking(index)));
+        self.blocks.len() - 1
+    }
+
+    /// Attach one verbatim citation to the newest text block, creating one
+    /// when the citation leads its block's content.
+    fn citation_delta(&mut self, citation: &str) -> Result<Vec<String>, PublicError> {
+        self.buffered_bytes = self.buffered_bytes.saturating_add(citation.len());
+        if self.buffered_bytes > MAXIMUM_RETAINED_OUTPUT_BYTES {
+            return Err(invalid_provider_stream(
+                "Messages stream buffered blocks exceeded the gateway response limit.",
+            ));
+        }
+        if serde_json::from_str::<Value>(citation).is_err() {
+            return Err(invalid_provider_stream(
+                "Messages citation was not valid JSON.",
+            ));
+        }
+        let position = match self
+            .blocks
+            .iter()
+            .rposition(|block| block.kind == BlockKind::Text)
+        {
+            Some(position) => position,
+            None => {
+                self.blocks.push(PendingBlock::new(BlockKind::Text));
+                self.blocks.len() - 1
+            }
+        };
+        self.blocks[position]
+            .pending_citations
+            .push(citation.to_string());
+        let mut frames = self.advance();
+        self.flush_open(&mut frames);
+        Ok(frames)
+    }
+
+    /// Schedule one server_tool_use block at its start position.
+    fn server_tool_started(
+        &mut self,
+        tool_index: u32,
+        call_id: &str,
+        name: &str,
+    ) -> Result<Vec<String>, PublicError> {
+        if self.server_identities.contains_key(&tool_index) {
+            return Err(invalid_provider_stream(
+                "A Messages server tool index was started twice.",
+            ));
+        }
+        self.server_identities
+            .insert(tool_index, (call_id.to_string(), name.to_string()));
+        self.server_arguments.insert(tool_index, String::new());
+        self.blocks
+            .push(PendingBlock::new(BlockKind::ServerTool(tool_index)));
+        Ok(self.advance())
+    }
+
+    /// Schedule one raw server-tool input fragment behind earlier blocks.
+    fn server_tool_arguments_delta(
+        &mut self,
+        tool_index: u32,
+        delta: &str,
+    ) -> Result<Vec<String>, PublicError> {
+        if !self.server_identities.contains_key(&tool_index) {
+            return Err(invalid_provider_stream(
+                "Messages server tool arguments arrived before its start.",
+            ));
+        }
+        if self.server_completed.contains(&tool_index) {
+            return Err(invalid_provider_stream(
+                "Messages server tool arguments arrived after completion.",
+            ));
+        }
+        self.server_arguments
+            .get_mut(&tool_index)
+            .expect("started server tool has accumulated arguments")
+            .push_str(delta);
+        let position = self
+            .blocks
+            .iter()
+            .position(|block| block.kind == BlockKind::ServerTool(tool_index))
+            .expect("started server tool has a scheduled block");
+        self.buffer(position, delta)?;
+        let mut frames = self.advance();
+        self.flush_open(&mut frames);
+        Ok(frames)
+    }
+
+    /// Schedule one whole verbatim server-tool result block at its position.
+    fn server_tool_result(&mut self, block: &str) -> Result<Vec<String>, PublicError> {
+        self.buffered_bytes = self.buffered_bytes.saturating_add(block.len());
+        if self.buffered_bytes > MAXIMUM_RETAINED_OUTPUT_BYTES {
+            return Err(invalid_provider_stream(
+                "Messages stream buffered blocks exceeded the gateway response limit.",
+            ));
+        }
+        if serde_json::from_str::<Value>(block).is_err() {
+            return Err(invalid_provider_stream(
+                "Messages server tool result was not valid JSON.",
+            ));
+        }
+        let mut pending = PendingBlock::new(BlockKind::ServerResult);
+        pending.server_result_block = Some(block.to_string());
+        self.blocks.push(pending);
+        Ok(self.advance())
+    }
+
+    /// Schedule one tool_use block at its start position.
+    fn tool_started(
+        &mut self,
+        tool_index: u32,
+        call_id: &str,
+        name: &str,
+    ) -> Result<Vec<String>, PublicError> {
+        if self.tool_identities.contains_key(&tool_index) {
+            return Err(invalid_provider_stream(
+                "A Messages tool-call index was started twice.",
+            ));
+        }
+        self.tool_identities
+            .insert(tool_index, (call_id.to_string(), name.to_string()));
+        self.tool_arguments.insert(tool_index, String::new());
+        self.saw_tool_use = true;
+        self.blocks
+            .push(PendingBlock::new(BlockKind::Tool(tool_index)));
+        Ok(self.advance())
+    }
+
+    /// Schedule one raw argument fragment, buffering behind earlier blocks.
+    fn tool_arguments_delta(
+        &mut self,
+        tool_index: u32,
+        delta: &str,
+    ) -> Result<Vec<String>, PublicError> {
+        if !self.tool_identities.contains_key(&tool_index) {
+            return Err(invalid_provider_stream(
+                "Messages tool arguments arrived before tool-call start.",
+            ));
+        }
+        if self.tool_completed.contains(&tool_index) {
+            return Err(invalid_provider_stream(
+                "Messages tool arguments arrived after completion.",
+            ));
+        }
+        self.tool_arguments
+            .get_mut(&tool_index)
+            .expect("started tool has accumulated arguments")
+            .push_str(delta);
+        let position = self
+            .blocks
+            .iter()
+            .position(|block| block.kind == BlockKind::Tool(tool_index))
+            .expect("started tool has a scheduled block");
+        self.buffer(position, delta)?;
+        let mut frames = self.advance();
+        self.flush_open(&mut frames);
+        Ok(frames)
+    }
+
+    /// Retain one content fragment for its block within the bounded budget.
+    fn buffer(&mut self, position: usize, delta: &str) -> Result<(), PublicError> {
+        self.buffered_bytes = self.buffered_bytes.saturating_add(delta.len());
+        if self.buffered_bytes > MAXIMUM_RETAINED_OUTPUT_BYTES {
+            return Err(invalid_provider_stream(
+                "Messages stream buffered blocks exceeded the gateway response limit.",
+            ));
+        }
+        self.blocks[position].pending.push_str(delta);
+        Ok(())
+    }
+
+    /// Close and open blocks in start order as far as the stream allows.
+    ///
+    /// A text block closes once a later block exists (or at drain); a tool
+    /// block closes only after its verified completion. Opening a block
+    /// assigns the next sequential Anthropic index and flushes its buffered
+    /// content as one delta.
+    fn advance(&mut self) -> Vec<String> {
+        let mut frames = Vec::new();
+        loop {
+            if let Some(position) = self.open_position {
+                let block = &self.blocks[position];
+                let last = position == self.blocks.len() - 1;
+                let closable = self.draining
+                    || match block.kind {
+                        BlockKind::Text
+                        | BlockKind::Thinking(_)
+                        | BlockKind::Redacted
+                        | BlockKind::ServerResult => !last,
+                        BlockKind::Tool(tool_index) => self.tool_completed.contains(&tool_index),
+                        BlockKind::ServerTool(tool_index) => {
+                            self.server_completed.contains(&tool_index)
+                        }
+                    };
+                if !closable {
+                    return frames;
+                }
+                self.flush_citations(position, &mut frames);
+                self.flush_signature(position, &mut frames);
+                let block = &self.blocks[position];
+                frames.push(event_frame(
+                    "content_block_stop",
+                    &json!({"type": "content_block_stop", "index": block.anthropic_index}),
+                ));
+                self.open_position = None;
+                continue;
+            }
+            if self.next_unopened >= self.blocks.len() {
+                return frames;
+            }
+            let position = self.next_unopened;
+            self.open_position = Some(position);
+            self.next_unopened += 1;
+            let anthropic_index = self.next_block_index;
+            self.next_block_index += 1;
+            let block = &mut self.blocks[position];
+            block.anthropic_index = Some(anthropic_index);
+            let content_block = match block.kind {
+                BlockKind::Text => json!({"type": "text", "text": ""}),
+                // The SDK thinking block type requires both fields, so the
+                // start frame carries their empty forms like the provider.
+                BlockKind::Thinking(_) => {
+                    json!({"type": "thinking", "thinking": "", "signature": ""})
+                }
+                BlockKind::Redacted => {
+                    let data = block.redacted_data.take().unwrap_or_default();
+                    self.buffered_bytes = self.buffered_bytes.saturating_sub(data.len());
+                    json!({"type": "redacted_thinking", "data": data})
+                }
+                BlockKind::Tool(tool_index) => {
+                    let identity = self
+                        .tool_identities
+                        .get(&tool_index)
+                        .expect("scheduled tool has an identity");
+                    json!({
+                        "type": "tool_use",
+                        "id": identity.0,
+                        "name": identity.1,
+                        "input": {},
+                    })
+                }
+                BlockKind::ServerTool(tool_index) => {
+                    let identity = self
+                        .server_identities
+                        .get(&tool_index)
+                        .expect("scheduled server tool has an identity");
+                    json!({
+                        "type": "server_tool_use",
+                        "id": identity.0,
+                        "name": identity.1,
+                        "input": {},
+                    })
+                }
+                BlockKind::ServerResult => {
+                    let raw = block.server_result_block.take().unwrap_or_default();
+                    self.buffered_bytes = self.buffered_bytes.saturating_sub(raw.len());
+                    serde_json::from_str(&raw)
+                        .expect("scheduled server result was validated as JSON")
+                }
+            };
+            frames.push(event_frame(
+                "content_block_start",
+                &json!({
+                    "type": "content_block_start",
+                    "index": anthropic_index,
+                    "content_block": content_block,
+                }),
+            ));
+            self.flush_open(&mut frames);
+        }
+    }
+
+    /// Emit each retained verbatim citation as one `citations_delta` frame.
+    fn flush_citations(&mut self, position: usize, frames: &mut Vec<String>) {
+        let block = &mut self.blocks[position];
+        if block.kind != BlockKind::Text || block.pending_citations.is_empty() {
+            return;
+        }
+        let anthropic_index = block.anthropic_index;
+        for citation in block.pending_citations.drain(..) {
+            self.buffered_bytes = self.buffered_bytes.saturating_sub(citation.len());
+            let parsed: Value =
+                serde_json::from_str(&citation).expect("retained citation was validated as JSON");
+            frames.push(event_frame(
+                "content_block_delta",
+                &json!({
+                    "type": "content_block_delta",
+                    "index": anthropic_index,
+                    "delta": {"type": "citations_delta", "citation": parsed},
+                }),
+            ));
+        }
+    }
+
+    /// Emit one closing `signature_delta` for a thinking block, if retained.
+    fn flush_signature(&mut self, position: usize, frames: &mut Vec<String>) {
+        let block = &mut self.blocks[position];
+        if !matches!(block.kind, BlockKind::Thinking(_)) || block.pending_signature.is_empty() {
+            return;
+        }
+        frames.push(event_frame(
+            "content_block_delta",
+            &json!({
+                "type": "content_block_delta",
+                "index": block.anthropic_index,
+                "delta": {"type": "signature_delta", "signature": block.pending_signature},
+            }),
+        ));
+        self.buffered_bytes = self
+            .buffered_bytes
+            .saturating_sub(block.pending_signature.len());
+        block.pending_signature.clear();
+    }
+
+    /// Emit the open block's buffered content as one delta, if any.
+    /// Citations flush first: on the provider wire a block's citations can
+    /// precede the text they cover, and the accumulated block is identical
+    /// either way.
+    fn flush_open(&mut self, frames: &mut Vec<String>) {
+        let Some(position) = self.open_position else {
+            return;
+        };
+        self.flush_citations(position, frames);
+        let block = &mut self.blocks[position];
+        if block.pending.is_empty() {
+            return;
+        }
+        let delta = match block.kind {
+            BlockKind::Text => json!({"type": "text_delta", "text": block.pending}),
+            BlockKind::Thinking(_) => json!({"type": "thinking_delta", "thinking": block.pending}),
+            // Redacted and server-result blocks carry their whole payload in
+            // the start frame and never buffer deltas.
+            BlockKind::Redacted | BlockKind::ServerResult => return,
+            BlockKind::Tool(_) | BlockKind::ServerTool(_) => {
+                json!({"type": "input_json_delta", "partial_json": block.pending})
+            }
+        };
+        frames.push(event_frame(
+            "content_block_delta",
+            &json!({
+                "type": "content_block_delta",
+                "index": block.anthropic_index,
+                "delta": delta,
+            }),
+        ));
+        self.buffered_bytes = self.buffered_bytes.saturating_sub(block.pending.len());
+        block.pending.clear();
+    }
+}
+
+mod aggregate;
+mod errors;
+mod usage;
+
+pub use errors::{anthropic_error_body, refusal_failure};
+
+#[cfg(test)]
+pub use aggregate::completed_messages_body;
+pub use aggregate::{completed_messages_body_with_reasoning, AggregatedMessage};
+pub(crate) use usage::messages_usage;
+
+/// Attach the `x-experiential-ignored-parameters` disclosure to one message
+/// object when any control was dropped; an empty list adds nothing.
+pub(super) fn disclose_ignored_parameters(message: &mut Value, ignored_parameters: &[String]) {
+    if ignored_parameters.is_empty() {
+        return;
+    }
+    message
+        .as_object_mut()
+        .expect("Anthropic message is an object")
+        .insert(
+            "x-experiential-ignored-parameters".to_string(),
+            json!(ignored_parameters),
+        );
+}
+
+#[cfg(test)]
+mod tests;
+#[cfg(test)]
+mod tests_claude_code;
+#[cfg(test)]
+mod tests_usage;
+#[cfg(test)]
+mod tests_wire;

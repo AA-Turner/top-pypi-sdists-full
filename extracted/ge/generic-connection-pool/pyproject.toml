@@ -1,0 +1,67 @@
+[project]
+name = "generic-connection-pool"
+version = "0.8.1"
+description = "generic connection pool"
+authors = [
+    {name = "Dmitry Pershin",email = "dapper1291@gmail.com"}
+]
+license = "Unlicense"
+readme = "README.rst"
+homepage = "https://github.com/dapper91/generic-connection-pool"
+repository = "https://github.com/dapper91/generic-connection-pool"
+documentation = "https://generic-connection-pool.readthedocs.io"
+keywords = ['pool', 'connection-pool', 'asyncio', 'socket', 'tcp']
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "License :: Public Domain",
+    "Operating System :: OS Independent",
+    "Topic :: Database",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: System :: Networking",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Typing :: Typed",
+]
+requires-python = ">=3.10"
+
+dependencies = [
+]
+
+
+[project.optional-dependencies]
+psycopg2 = ["psycopg2 (>=2.9.5)"]
+asyncpg = ["asyncpg (>=0.29.0)"]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "mypy (>=2.1.0,<3.0.0)",
+    "pytest (>=9.0.3,<10.0.0)",
+    "pytest-asyncio (>=1.4.0,<2.0.0)",
+    "pytest-mock (>=3.15.1,<4.0.0)",
+    "pytest-cov (>=7.1.0,<8.0.0)",
+    "pytest-timeout (>=2.4.0,<3.0.0)",
+    "types-psycopg2 (>=2.9.21,<3.0.0)",
+    "asyncpg-stubs (>=0.31.2,<0.32.0) ; python_version >= \"3.9\" and python_version < \"4.0\""
+]
+docs = [
+    "toml (>=0.10.2,<0.11.0)",
+    "sphinx-design (>=0.6.0,<0.7.0)",
+    "myst-parser (>=4.0.0,<5.0.0)",
+    "sphinx (>=8.0.0,<9.0.0)",
+    "sphinx-copybutton (>=0.5.2,<0.6.0)",
+    "furo (>=2025.12.19,<2026.0.0)",
+]
+pre-commit = [
+    "pre-commit (>=4.6.0,<5.0.0)"
+]

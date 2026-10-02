@@ -19,7 +19,10 @@ env_logger.workspace = true
 itertools.workspace = true
 log.workspace = true
 nu-ansi-term.workspace = true
+percent-encoding.workspace = true
+serde_json.workspace = true
 serde_tombi.workspace = true
+sha2.workspace = true
 similar = { workspace = true, features = ["inline"] }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["io-std", "macros", "rt", "sync"] }
@@ -28,14 +31,19 @@ tombi-cli-options.workspace = true
 tombi-config.workspace = true
 tombi-diagnostic.workspace = true
 tombi-formatter.workspace = true
+tombi-fs.workspace = true
 tombi-glob.workspace = true
 tombi-linter.workspace = true
 tombi-lsp.workspace = true
+tombi-parser.workspace = true
 tombi-schema-store = { workspace = true, features = ["native"] }
+tombi-text = { workspace = true, features = ["lsp"] }
 tower.workspace = true
 tower-lsp = { workspace = true, features = ["runtime-tokio"] }
 
 [dev-dependencies]
+pretty_assertions.workspace = true
+tempfile.workspace = true
 tokio = { workspace = true, features = ["io-util", "time"] }
 
 [build-dependencies]

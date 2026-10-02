@@ -1,0 +1,19 @@
+[project]
+name = "tapio-examples"
+version = "0.0.0"
+description = "Runnable, asserted examples for tapio: dev-only, never shipped in the wheel."
+requires-python = ">=3.11"
+# fastapi and httpx are here rather than in the root dev group because only
+# one example needs them, and the example package is where that fact belongs.
+# Neither reaches the wheel: this package is never shipped.
+dependencies = ["tapio-py", "fastapi>=0.110", "httpx>=0.27"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["tapio_examples"]
+
+[tool.uv.sources]
+tapio-py = { workspace = true }

@@ -1,4 +1,0 @@
-[[rule]]
-impl = "python"
-name = "test_import"
-scope = "repo"

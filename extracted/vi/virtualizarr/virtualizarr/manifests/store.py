@@ -1,0 +1,457 @@
+from __future__ import annotations
+
+import warnings
+from collections.abc import AsyncGenerator, Iterable
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Literal, TypeAlias
+from urllib.parse import urlparse
+
+from obspec_utils.registry import ObjectStoreRegistry
+from zarr.abc.store import (
+    ByteRequest,
+    OffsetByteRequest,
+    RangeByteRequest,
+    Store,
+    SuffixByteRequest,
+)
+from zarr.core.buffer import Buffer, BufferPrototype, default_buffer_prototype
+from zarr.core.common import BytesLike
+
+from virtualizarr.manifests.array import ManifestArray
+from virtualizarr.manifests.group import ManifestGroup
+from virtualizarr.manifests.utils import manifest_chunk_shape, parse_manifest_index
+
+if TYPE_CHECKING:
+    from obstore.store import (
+        ObjectStore,
+    )
+
+    StoreDict: TypeAlias = dict[str, ObjectStore]
+
+    import xarray as xr
+
+
+__all__ = ["ManifestStore"]
+
+
+@dataclass
+class StoreRequest:
+    """Dataclass for matching a key to the store instance"""
+
+    store: ObjectStore
+    """The ObjectStore instance to use for making the request."""
+    key: str
+    """The key within the store to request."""
+
+
+def get_store_prefix(url: str) -> str:
+    """
+    Get a logical prefix to use for a url in an ObjectStoreRegistry
+    """
+    scheme, netloc, *_ = urlparse(url)
+    return "" if scheme in {"", "file"} else f"{scheme}://{netloc}"
+
+
+def _get_deepest_group_or_array(
+    node: ManifestGroup, key: str
+) -> tuple[ManifestGroup | ManifestArray, str]:
+    """
+    Traverse the manifest hierarchy as deeply as possible following the given key path.
+
+    Traversal stops when:
+    - A key part doesn't match any array or group in the current node
+    - A ManifestArray is reached (arrays cannot be traversed further)
+    - All key parts have been successfully matched
+
+    Args:
+        node: The starting ManifestGroup to begin traversal from
+        key: The key to use to traverse through groups and arrays
+
+    Returns:
+        A tuple containing:
+        - The deepest node reached (ManifestGroup or ManifestArray)
+        - String with remaining unmatched key portion
+    """
+    var, suffix = key.split("/", 1) if "/" in key else (key, "")
+    if var in node.arrays:
+        return node.arrays[var], suffix
+    if var in node.groups:
+        return _get_deepest_group_or_array(node.groups[var], suffix)
+    # Can't traverse deeper - return last node and remainder
+    return node, suffix or var
+
+
+class ManifestStore(Store):
+    """
+    A read-only Zarr store that uses obstore to read data from inside arbitrary files on AWS, GCP, Azure, or a local filesystem.
+
+    The requests from the Zarr API are redirected using the [ManifestGroup][virtualizarr.manifests.ManifestGroup] containing
+    multiple [ManifestArray][virtualizarr.manifests.ManifestArray], allowing for virtually interfacing with underlying data in other file formats.
+
+    Parameters
+    ----------
+    group
+        Root group of the store.
+        Contains group metadata, [ManifestArrays][virtualizarr.manifests.ManifestArray], and any subgroups.
+    registry : ObjectStoreRegistry
+        [ObjectStoreRegistry][obspec_utils.registry.ObjectStoreRegistry] that maps the URL scheme and netloc to  [ObjectStore][obstore.store.ObjectStore] instances,
+        allowing ManifestStores to read from different ObjectStore instances.
+
+    Warnings
+    --------
+    ManifestStore is experimental and subject to API changes without notice. Please
+    raise an issue with any comments/concerns about the store.
+    """
+
+    #  Modified from https://github.com/zarr-developers/zarr-python/pull/1661
+
+    _group: ManifestGroup
+    _registry: ObjectStoreRegistry
+
+    def __eq__(self, value: object):
+        NotImplementedError
+
+    def __init__(
+        self, group: ManifestGroup, *, registry: ObjectStoreRegistry | None = None
+    ) -> None:
+        """Instantiate a new ManifestStore.
+
+        Parameters
+        ----------
+        group
+            [ManifestGroup][virtualizarr.manifests.ManifestGroup] containing Group metadata and mapping variable names to ManifestArrays
+        registry
+            A registry mapping the URL scheme and netloc to  [ObjectStore][obstore.store.ObjectStore] instances,
+            allowing [ManifestStores][virtualizarr.manifests.ManifestStore] to read from different  [ObjectStore][obstore.store.ObjectStore] instances.
+        """
+
+        if not isinstance(group, ManifestGroup):
+            raise TypeError
+
+        super().__init__(read_only=True)
+        self._registry = ObjectStoreRegistry() if registry is None else registry
+        self._group = group
+
+    def __str__(self) -> str:
+        return f"ManifestStore(group={self._group}, registry={self._registry})"
+
+    @property
+    def nbytes_virtual(self) -> int:
+        """Size required to hold these references in memory in bytes. See [ManifestGroup.nbytes_virtual][virtualizarr.manifests.ManifestGroup.nbytes_virtual]."""
+        return self._group.nbytes_virtual
+
+    async def get(
+        self,
+        key: str,
+        prototype: BufferPrototype,
+        byte_range: ByteRequest | None = None,
+    ) -> Buffer | None:
+        # docstring inherited
+        node, suffix = _get_deepest_group_or_array(self._group, key)
+        if suffix.endswith("zarr.json"):
+            # Return metadata
+            return node.metadata.to_buffer_dict(prototype=default_buffer_prototype())[
+                "zarr.json"
+            ]
+        elif suffix.endswith((".zattrs", ".zgroup", ".zarray", ".zmetadata")):
+            # Zarr-Python expects store classes to return None when metadata JSONs are not found.
+            # Zarr-Python uses this behavior to distinguish between V2/V3 and consolidated/unconsolidated stores.
+            # This upstream behavior will hopefully change in the future to be more Zarr-hierarchy aware, in
+            # which case this may need refactoring.
+            return None
+        if isinstance(node, ManifestGroup):
+            raise ValueError(
+                "Key requested is a group but the key does not end in `zarr.json`"
+            )
+        manifest = node.manifest
+
+        separator: Literal[".", "/"] = getattr(
+            node.metadata.chunk_key_encoding, "separator", "."
+        )
+        chunk_indexes = parse_manifest_index(key, separator, expand_pattern=True)
+
+        # Check for inlined (in-memory) chunks first
+        if chunk_indexes in manifest._inlined:
+            inlined_data = manifest._inlined[chunk_indexes]
+            if byte_range is not None:
+                inlined_byte_range = _transform_byte_range(
+                    byte_range,
+                    chunk_start=0,
+                    chunk_end_exclusive=len(inlined_data),
+                )
+                inlined_data = inlined_data[
+                    inlined_byte_range.start : inlined_byte_range.end
+                ]
+            return prototype.buffer.from_bytes(inlined_data)
+
+        entry = manifest.get_entry(chunk_indexes)
+        if entry is None:
+            return None
+        path = entry["path"]
+        offset = entry["offset"]
+        length = entry["length"]
+        # Get the configured object store instance that matches the path
+        store, path_after_prefix = self._registry.resolve(path)
+        if not store:
+            raise ValueError(
+                f"Could not find a store to use for {path} in the store registry"
+            )
+
+        path_in_store = urlparse(path).path
+        if hasattr(store, "prefix") and store.prefix:
+            prefix = str(store.prefix).lstrip("/")
+        elif hasattr(store, "url"):
+            prefix = urlparse(store.url).path.lstrip("/")
+        else:
+            prefix = ""
+        path_in_store = path_in_store.lstrip("/").removeprefix(prefix).lstrip("/")
+        # Transform the input byte range to account for the chunk location in the file
+        chunk_end_exclusive = offset + length
+        byte_range = _transform_byte_range(
+            byte_range, chunk_start=offset, chunk_end_exclusive=chunk_end_exclusive
+        )
+
+        # Actually get the bytes
+        bytes = await store.get_range_async(
+            path_in_store,
+            start=byte_range.start,
+            end=byte_range.end,
+        )
+        return prototype.buffer.from_bytes(bytes)  # type: ignore[arg-type]
+
+    async def get_partial_values(
+        self,
+        prototype: BufferPrototype,
+        key_ranges: Iterable[tuple[str, ByteRequest | None]],
+    ) -> list[Buffer | None]:
+        # docstring inherited
+        # TODO: Implement using private functions from the upstream Zarr obstore integration
+        raise NotImplementedError
+
+    async def exists(self, key: str) -> bool:
+        # docstring inherited
+        raise NotImplementedError
+
+    @property
+    def supports_writes(self) -> bool:
+        # docstring inherited
+        return False
+
+    async def set(self, key: str, value: Buffer) -> None:
+        # docstring inherited
+        raise NotImplementedError
+
+    async def set_if_not_exists(self, key: str, value: Buffer) -> None:
+        # docstring inherited
+        raise NotImplementedError
+
+    @property
+    def supports_deletes(self) -> bool:
+        # docstring inherited
+        return False
+
+    @property
+    def supports_partial_writes(self) -> Literal[False]:
+        # docstring inherited
+        return False
+
+    async def delete(self, key: str) -> None:
+        raise NotImplementedError
+
+    async def set_partial_values(
+        self, key_start_values: Iterable[tuple[str, int, BytesLike]]
+    ) -> None:
+        # docstring inherited
+        raise NotImplementedError
+
+    @property
+    def supports_listing(self) -> bool:
+        # docstring inherited
+        return True
+
+    def list(self) -> AsyncGenerator[str, None]:
+        # docstring inherited
+        raise NotImplementedError
+
+    def list_prefix(self, prefix: str) -> AsyncGenerator[str, None]:
+        # docstring inherited
+        raise NotImplementedError
+
+    async def list_dir(self, prefix: str) -> AsyncGenerator[str, None]:
+        # docstring inherited
+        # Navigate to the target node
+        node, suffix = _get_deepest_group_or_array(self._group, prefix)
+        # Zarr-Python lists using a per-path basis, so we don't have anything to list
+        # as long as there is a suffix remaining and we require a '.' chunk separator in the ManifestArrays
+        if suffix:
+            return
+        # List contents based on node type
+        if isinstance(node, ManifestGroup):
+            # Groups contain a metadata document and the name of sub-groups/arrays
+            yield "zarr.json"
+            for member_name in node._members.keys():
+                yield member_name
+        # TODO: Support listing when using other chunk_key_encodings
+        elif (
+            separator := getattr(node.metadata.chunk_key_encoding, "separator", None)
+            != "."
+        ):
+            raise NotImplementedError(
+                f"Array listing only supports '.' as chunk key separator, "
+                f"got {separator!r}"
+            )
+        else:
+            # Arrays contain a metadata document and chunks
+            yield "zarr.json"
+            if node.shape == ():
+                # Scalar arrays have a single chunk named 'c'
+                yield "c"
+            else:
+                # Multi-dimensional arrays have chunks named 'c.{key}'
+                for chunk_key in node.manifest.keys():
+                    yield f"c.{chunk_key}"
+
+    @property
+    def supports_consolidated_metadata(self) -> bool:
+        # docstring inherited
+        return False
+
+    def to_virtual_dataset(
+        self,
+        group="",
+        loadable_variables: Iterable[str] | None = None,
+        decode_times: bool | None = None,
+    ) -> "xr.Dataset":
+        """
+        Create a "virtual" [xarray.Dataset][] containing the contents of one zarr group.
+
+        Will ignore the contents of any other groups in the store.
+
+        Requires xarray.
+
+        Parameters
+        ----------
+        group : str
+        loadable_variables : Iterable[str], optional
+
+        Returns
+        -------
+        vds : xarray.Dataset
+        """
+
+        from virtualizarr.xarray import construct_virtual_dataset
+
+        if loadable_variables and self._registry.map is None:
+            raise ValueError(
+                f"ManifestStore contains an empty store registry, but {loadable_variables} were provided as loadable variables. Must provide an ObjectStore instance in order to load variables."
+            )
+
+        vds = construct_virtual_dataset(
+            manifest_store=self,
+            group=group,
+            loadable_variables=loadable_variables,
+            decode_times=decode_times,
+        )
+        _warn_about_oversized_virtual_chunks(vds)
+        return vds
+
+    def to_virtual_datatree(
+        self,
+        group="",
+        *,
+        loadable_variables: Iterable[str] | None = None,
+        decode_times: bool | None = None,
+    ) -> "xr.DataTree":
+        """
+        Create a "virtual" [xarray.DataTree][] containing the contents of a zarr group. Default is the root group and all sub-groups.
+
+        Will ignore the contents of any other groups in the store.
+
+        Requires xarray.
+
+        Parameters
+        ----------
+        group : Group to convert to a virtual DataTree
+        loadable_variables
+            Variables in the data source to load as Dask/NumPy arrays instead of as virtual arrays.
+        decode_times
+            Bool that is passed into [xarray.open_dataset][]. Allows time to be decoded into a datetime object.
+
+        Returns
+        -------
+        vdt : xarray.DataTree
+        """
+
+        from virtualizarr.xarray import construct_virtual_datatree
+
+        return construct_virtual_datatree(
+            manifest_store=self,
+            group=group,
+            loadable_variables=loadable_variables,
+            decode_times=decode_times,
+        )
+
+
+def _warn_about_oversized_virtual_chunks(vds: "xr.Dataset") -> None:
+    """
+    Warn if any still-virtual variable has a chunk larger than its array shape.
+
+    Such chunks arise for variables along an unlimited dimension whose oversized
+    chunk could not be trimmed (e.g. because it is compressed). They read and
+    write as virtual references fine, but cannot be concatenated with other
+    virtual datasets - the oversized final chunk prevents forming a regular
+    chunk grid - so point the user at loading them instead. Variables that were
+    loaded (no longer backed by a ManifestArray) are unaffected and not warned
+    about.
+    """
+    oversized = [
+        name
+        for name, var in vds.variables.items()
+        if isinstance(var.data, ManifestArray)
+        and any(
+            c > s
+            for c, s in zip(manifest_chunk_shape(var.data.metadata), var.data.shape)
+        )
+    ]
+    if oversized:
+        warnings.warn(
+            f"Variable(s) {oversized} have a chunk shape larger than their array "
+            "shape, which typically happens for variables along an unlimited "
+            "dimension. They read and write as virtual references correctly, but "
+            "cannot be concatenated with other virtual datasets because the "
+            "oversized chunk prevents forming a regular chunk grid. Pass them to "
+            "loadable_variables to load them as in-memory arrays if you need to "
+            "concatenate them.",
+            UserWarning,
+            stacklevel=3,
+        )
+
+
+def _transform_byte_range(
+    byte_range: ByteRequest | None, *, chunk_start: int, chunk_end_exclusive: int
+) -> RangeByteRequest:
+    """
+    Convert an incoming byte_range which assumes one chunk per file to a
+    virtual byte range that accounts for the location of a chunk within a file.
+    """
+    if byte_range is None:
+        byte_range = RangeByteRequest(chunk_start, chunk_end_exclusive)
+    elif isinstance(byte_range, RangeByteRequest):
+        if byte_range.end > chunk_end_exclusive:
+            raise ValueError(
+                f"Chunk ends before byte {chunk_end_exclusive} but request end was {byte_range.end}"
+            )
+        byte_range = RangeByteRequest(
+            chunk_start + byte_range.start, chunk_start + byte_range.end
+        )
+    elif isinstance(byte_range, OffsetByteRequest):
+        byte_range = RangeByteRequest(
+            chunk_start + byte_range.offset, chunk_end_exclusive
+        )  # type: ignore[arg-type]
+    elif isinstance(byte_range, SuffixByteRequest):
+        byte_range = RangeByteRequest(
+            chunk_end_exclusive - byte_range.suffix, chunk_end_exclusive
+        )  # type: ignore[arg-type]
+    else:
+        raise ValueError(f"Unexpected byte_range, got {byte_range}")
+    return byte_range

@@ -1,0 +1,75 @@
+Metadata-Version: 2.4
+Name: singleton_package
+Version: 0.8.2
+Summary: A simple Python package to create singleton objects
+Author-email: Mahdi Kiani <mahdikiany@gmail.com>
+Maintainer-email: Mahdi Kiani <mahdikiany@gmail.com>
+License: Copyright (c) 2024 Mahdi Kiani
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+Project-URL: Homepage, https://github.com/mahdikiani/singleton_package
+Project-URL: Bug Reports, https://github.com/mahdikiani/singleton_package/issues
+Project-URL: Say Thanks!, https://saythanks.io/to/mahdikiani
+Project-URL: Source, https://github.com/mahdikiani/singleton_package
+Keywords: singleton,design pattern
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Typing :: Typed
+Requires-Python: >=3
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+Provides-Extra: dev
+Requires-Dist: check-manifest; extra == "dev"
+Provides-Extra: test
+Requires-Dist: coverage; extra == "test"
+Dynamic: license-file
+
+# Singleton Package
+
+The `singleton_package` is a simple Python package that provides a `Singleton` metaclass. This metaclass can be used to create singleton objects, ensuring that only one instance of a class exists throughout the application.
+
+## Installation
+
+You can install the `singleton_package` using pip:
+
+```bash
+pip install singleton_package
+```
+
+## Usage
+To use the Singleton metaclass in your classes, simply specify Singleton as the metaclass:
+
+```python
+from singleton import Singleton
+
+class MyClass(metaclass=Singleton):
+    def __init__(self):
+        # Your initialization code here
+        pass
+
+# Usage
+instance1 = MyClass()
+instance2 = MyClass()
+
+# instance1 and instance2 will be the same object
+assert instance1 is instance2
+```
+
+## Contributing
+Contributions are welcome! Please feel free to submit pull requests or report any issues you encounter.
+
+## License
+This project is licensed under the MIT License - see the [LICENSE](https://opensource.org/license/mit) file for details.

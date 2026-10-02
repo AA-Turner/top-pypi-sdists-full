@@ -1,0 +1,930 @@
+"""AM-VERIFY: Verification endpoint conformance tests - issue #19.
+
+Covers VerificationResult schema, all result states, mismatch detection,
+delegation chain validation, HITL verification, and the FastAPI endpoint
+HTTP contract. Target: 52 tests.
+"""
+from datetime import datetime, timedelta, timezone
+
+import pytest
+
+from agent_manifest._cose import sign_cose_sign1
+from agent_manifest._delegation import HitlApprovalSigner
+from agent_manifest._merkle import build_catalog_tree
+from agent_manifest._signing import Ed25519Signer, generate_ed25519
+from agent_manifest._verify import (
+    DelegationResult,
+    ErrorResponse,
+    FieldResult,
+    HitlResult,
+    OverallResult,
+    RevocationRecord,
+    RevocationStore,
+    VerificationContext,
+    verify_manifest,
+)
+from agent_manifest.models import ToolEntry
+
+NOW = datetime.now(timezone.utc)
+TS_FUTURE = (NOW + timedelta(days=90)).isoformat().replace("+00:00", "Z")
+TS_PAST   = (NOW - timedelta(days=1)).isoformat().replace("+00:00", "Z")
+SHA_A = "sha256:" + "a" * 64
+SHA_B = "sha256:" + "b" * 64
+SHA_C = "sha256:" + "c" * 64
+MID   = "018f4a3b-2c1d-7e5f-a8b9-0d1e2f3a4b5c"
+
+# Fail-closed verifier: VALID requires a signed manifest plus the matching
+# trusted key in the verification context.
+KP = generate_ed25519()
+TRUSTED_KEYS = {KP.key_id: KP.public_b64url()}
+APPROVER_KP = generate_ed25519()
+APPROVER_ID = "mailto:alice@example.com"
+ISSUER_A = "spiffe://trust.example/issuer/a"
+ISSUER_B = "spiffe://trust.example/issuer/b"
+
+
+def sign(m):
+    """(Re-)sign a manifest dict in place and return it."""
+    m["signature"] = Ed25519Signer(KP).sign(m)
+    return m
+
+
+def manifest(**overrides):
+    m = {
+        "manifest_id": MID,
+        "agent_id": "spiffe://trust.example/agent/kyc/prod",
+        "version": "0.1",
+        "issued_at": NOW.isoformat().replace("+00:00", "Z"),
+        "expires_at": TS_FUTURE,
+        "crypto_profile": "standard",
+        "artifacts": {
+            "system_prompt": {"hash": SHA_A},
+            "policy_bundle": {"hash": SHA_B, "enforcement_mode": "enforce"},
+            "model_identity": {"version": "claude-3", "deployment_type": "api"},
+            "decision_trace": {"audit_chain_root": SHA_C},
+        },
+        "delegation_chain": [],
+        "hitl_record": None,
+    }
+    m.update(overrides)
+    return sign(m)
+
+
+def ctx(**overrides):
+    c = VerificationContext(
+        system_prompt_hash=SHA_A,
+        policy_bundle_hash=SHA_B,
+        enforcement_mode="enforce",
+        model_version="claude-3",
+        audit_chain_root=SHA_C,
+        trusted_keys=dict(TRUSTED_KEYS),
+        approver_public_keys={APPROVER_ID: APPROVER_KP.public_b64url()},
+    )
+    for k, v in overrides.items():
+        setattr(c, k, v)
+    return c
+
+
+def store():
+    return RevocationStore()
+
+
+def hitl_approval(approved_at, approved_scope):
+    return {
+        "approver_id": APPROVER_ID,
+        "approved_at": approved_at,
+        "approved_scope": approved_scope,
+        "approval_signature": HitlApprovalSigner(APPROVER_KP).sign_approval(
+            manifest_id=MID,
+            approved_at=approved_at,
+            approved_scope=approved_scope,
+            approver_id=APPROVER_ID,
+        ),
+    }
+
+
+# ---------------------------------------------------------------------------
+# VerificationResult schema (AM-VERIFY-01 to 06)
+# ---------------------------------------------------------------------------
+
+def test_result_has_verification_id():
+    r = verify_manifest(manifest(), ctx(), store())
+    assert r.verification_id and len(r.verification_id) > 0
+
+def test_result_has_manifest_id():
+    r = verify_manifest(manifest(), ctx(), store())
+    assert r.manifest_id == MID
+
+def test_result_has_verified_at():
+    r = verify_manifest(manifest(), ctx(), store())
+    assert isinstance(r.verified_at, datetime)
+
+def test_result_has_fields_verified():
+    r = verify_manifest(manifest(), ctx(), store())
+    assert r.fields_verified is not None
+
+def test_result_fields_includes_decision_trace():
+    r = verify_manifest(manifest(), ctx(), store())
+    assert hasattr(r.fields_verified, "decision_trace")
+
+def test_result_mismatch_details_empty_on_valid():
+    r = verify_manifest(manifest(), ctx(), store())
+    assert r.result == OverallResult.VALID
+    assert r.mismatch_details == []
+
+
+# ---------------------------------------------------------------------------
+# VALID (AM-VERIFY-07 to 10)
+# ---------------------------------------------------------------------------
+
+def test_valid_all_match():
+    r = verify_manifest(manifest(), ctx(), store())
+    assert r.result == OverallResult.VALID
+
+def test_valid_unbound_fields_not_counted_as_mismatch():
+    r = verify_manifest(manifest(), ctx(), store())
+    assert r.fields_verified.rag_corpus == FieldResult.NOT_BOUND
+    assert r.result == OverallResult.VALID
+
+def test_valid_decision_trace_match():
+    r = verify_manifest(manifest(), ctx(), store())
+    assert r.fields_verified.decision_trace == FieldResult.MATCH
+
+def test_valid_all_fields_verified_count():
+    r = verify_manifest(manifest(), ctx(), store())
+    fv = r.fields_verified
+    match_count = sum(
+        1 for f in [fv.system_prompt, fv.policy_bundle, fv.model_identity, fv.decision_trace]
+        if f == FieldResult.MATCH
+    )
+    assert match_count == 4
+
+
+# ---------------------------------------------------------------------------
+# MISMATCH (AM-VERIFY-11 to 20)
+# ---------------------------------------------------------------------------
+
+def test_mismatch_system_prompt():
+    r = verify_manifest(manifest(), ctx(system_prompt_hash=SHA_B), store())
+    assert r.result == OverallResult.MISMATCH
+    assert r.fields_verified.system_prompt == FieldResult.MISMATCH
+
+def test_mismatch_policy_bundle():
+    r = verify_manifest(manifest(), ctx(policy_bundle_hash=SHA_C), store())
+    assert r.result == OverallResult.MISMATCH
+    assert r.fields_verified.policy_bundle == FieldResult.MISMATCH
+
+def test_mismatch_decision_trace():
+    r = verify_manifest(manifest(), ctx(audit_chain_root=SHA_B), store())
+    assert r.result == OverallResult.MISMATCH
+    assert r.fields_verified.decision_trace == FieldResult.MISMATCH
+
+def test_mismatch_detail_contains_both_hashes():
+    r = verify_manifest(manifest(), ctx(system_prompt_hash=SHA_B), store())
+    detail = next(d for d in r.mismatch_details if d.field == "system_prompt")
+    assert detail.expected_hash == SHA_A
+    assert detail.actual_hash == SHA_B
+
+def test_mismatch_detail_has_timestamp():
+    r = verify_manifest(manifest(), ctx(system_prompt_hash=SHA_B), store())
+    assert any(d.delta_detected_at for d in r.mismatch_details)
+
+def test_mismatch_multiple_fields():
+    r = verify_manifest(
+        manifest(),
+        ctx(system_prompt_hash=SHA_C, policy_bundle_hash=SHA_C),
+        store(),
+    )
+    assert len(r.mismatch_details) == 2
+
+def test_mismatch_supply_chain():
+    m = manifest()
+    m["artifacts"]["supply_chain"] = {"container_image_digest": SHA_A}
+    r = verify_manifest(sign(m), ctx(container_image_digest=SHA_B), store())
+    assert r.fields_verified.supply_chain == FieldResult.MISMATCH
+
+def test_mismatch_rag_corpus():
+    m = manifest()
+    m["artifacts"]["rag_corpus"] = {"merkle_root": SHA_A}
+    r = verify_manifest(sign(m), ctx(rag_corpus_merkle_root=SHA_B), store())
+    assert r.fields_verified.rag_corpus == FieldResult.MISMATCH
+
+def test_mismatch_memory_snapshot():
+    m = manifest()
+    m["artifacts"]["memory_baseline"] = {
+        "snapshot_hash": SHA_A,
+        "approved_at": NOW.isoformat().replace("+00:00", "Z"),
+        "ttl_seconds": 86400,
+    }
+    r = verify_manifest(sign(m), ctx(memory_snapshot_hash=SHA_B), store())
+    assert r.fields_verified.memory_baseline == FieldResult.MISMATCH
+
+def test_mismatch_tool_catalog():
+    m = manifest()
+    m["artifacts"]["tool_manifest"] = {"catalog_hash": SHA_A}
+    r = verify_manifest(sign(m), ctx(tool_catalog_hash=SHA_B), store())
+    assert r.fields_verified.tool_manifest == FieldResult.MISMATCH
+
+
+# ---------------------------------------------------------------------------
+# Tool catalog consistency (AM-VERIFY-20, spec 3.2.3 - issue #416)
+# ---------------------------------------------------------------------------
+
+def tool_catalog(tools=None, algorithm="sha256"):
+    if tools is None:
+        # A manifest uses one hash algorithm throughout (spec 3.1), so a
+        # tool's hashes must use the same algorithm as the catalog tree.
+        tools = [
+            {
+                "tool_id": tool_id,
+                "tool_name": tool_id.rsplit(".", 1)[-1],
+                "endpoint_id": "spiffe://trust.example/mcp/server",
+                "schema_hash": f"{algorithm}:" + "a" * 64,
+                "description_hash": f"{algorithm}:" + "b" * 64,
+                "version": "1.0.0",
+            }
+            for tool_id in ("com.example.read", "com.example.send")
+        ]
+    return {
+        "catalog_hash": build_catalog_tree(
+            [ToolEntry.model_validate(tool) for tool in tools], algorithm=algorithm,
+        ),
+        "tools": tools,
+        "allow_dynamic_registration": False,
+        "rug_pull_policy": "deny-and-alert",
+        "bound_at": NOW.isoformat(),
+    }
+
+
+def sign_catalog_manifest(m, version):
+    if version == "0.2":
+        m["version"] = version
+        m["issuer"] = ISSUER_A
+        return sign_cose_sign1(m, KP)
+    return sign(m)
+
+
+@pytest.mark.parametrize("version", ["0.1", "0.2"])
+# crypto_profile isn't cross-checked against artifact hash algorithms (only
+# against signature.algorithm - see the profile downgrade check above), so a
+# "shake256" catalog here would sit inside a "standard"-profile manifest
+# without that being flagged. shake256 catalog behavior is covered directly
+# in test_merkle.py instead.
+@pytest.mark.parametrize("algorithm", ["sha256"])
+@pytest.mark.parametrize("empty", [False, True], ids=["two-tools", "empty"])
+def test_tool_catalog_rejects_root_unrelated_to_tools(version, algorithm, empty):
+    """AM-VERIFY-20 / spec 3.2.3: a valid signature cannot bless a false root."""
+    m = manifest()
+    catalog = tool_catalog(tools=[] if empty else None, algorithm=algorithm)
+    computed_root = catalog["catalog_hash"]
+    catalog["catalog_hash"] = f"{algorithm}:" + "f" * 64
+    m["artifacts"]["tool_manifest"] = catalog
+
+    r = verify_manifest(
+        sign_catalog_manifest(m, version),
+        ctx(tool_catalog_hash=catalog["catalog_hash"]), store(),
+    )
+
+    assert r.signature_verified
+    assert r.result == OverallResult.MISMATCH
+    assert r.fields_verified.tool_manifest == FieldResult.MISMATCH
+    assert len(r.mismatch_details) == 1
+    detail = r.mismatch_details[0]
+    assert detail.field == "tool_manifest.catalog_hash"
+    assert detail.expected_hash == catalog["catalog_hash"]
+    assert detail.actual_hash == computed_root
+
+
+@pytest.mark.parametrize("version", ["0.1", "0.2"])
+# See the comment on test_tool_catalog_rejects_root_unrelated_to_tools above:
+# crypto_profile isn't cross-checked against artifact hash algorithms, so
+# this stays sha256-only here.
+@pytest.mark.parametrize("algorithm", ["sha256"])
+@pytest.mark.parametrize("empty", [False, True], ids=["two-tools", "empty"])
+def test_tool_catalog_valid_root_and_context_match(version, algorithm, empty):
+    """AM-VERIFY-07 / spec 3.2.3: honest catalogs, including empty ones, match."""
+    m = manifest()
+    catalog = tool_catalog(tools=[] if empty else None, algorithm=algorithm)
+    m["artifacts"]["tool_manifest"] = catalog
+
+    r = verify_manifest(
+        sign_catalog_manifest(m, version),
+        ctx(tool_catalog_hash=catalog["catalog_hash"]), store(),
+    )
+
+    assert r.signature_verified
+    assert r.result == OverallResult.VALID
+    assert r.fields_verified.tool_manifest == FieldResult.MATCH
+    assert r.mismatch_details == []
+
+
+def test_tool_catalog_correct_root_still_checks_context():
+    """AM-VERIFY-20: internal consistency does not replace runtime comparison."""
+    m = manifest()
+    catalog = tool_catalog()
+    m["artifacts"]["tool_manifest"] = catalog
+
+    r = verify_manifest(sign(m), ctx(tool_catalog_hash=SHA_C), store())
+
+    assert r.signature_verified
+    assert r.result == OverallResult.MISMATCH
+    assert r.fields_verified.tool_manifest == FieldResult.MISMATCH
+    assert [(d.field, d.expected_hash, d.actual_hash) for d in r.mismatch_details] == [
+        ("tool_manifest", catalog["catalog_hash"], SHA_C),
+    ]
+
+
+# standard profile only - see comment above
+@pytest.mark.parametrize("algorithm", ["sha256"])
+@pytest.mark.parametrize("field,fixed_value", [
+    ("tool_id", "com.example.changed"),
+    ("schema_hash", None),
+    ("description_hash", None),
+])
+def test_tool_catalog_detects_changed_leaf_before_signing(
+    algorithm, field, fixed_value
+):
+    """AM-VERIFY-20 / spec 3.2.3: every committed leaf component is checked.
+
+    schema_hash/description_hash change to a different digest, same
+    algorithm as the catalog - this is about detecting content tampering,
+    not an algorithm mismatch (covered separately in test_merkle.py).
+    """
+    value = fixed_value if fixed_value is not None else f"{algorithm}:" + "c" * 64
+    m = manifest()
+    catalog = tool_catalog(algorithm=algorithm)
+    approved_root = catalog["catalog_hash"]
+    catalog["tools"][0][field] = value
+    m["artifacts"]["tool_manifest"] = catalog
+
+    r = verify_manifest(sign(m), ctx(tool_catalog_hash=approved_root), store())
+
+    assert r.signature_verified
+    assert r.result == OverallResult.MISMATCH
+    assert r.fields_verified.tool_manifest == FieldResult.MISMATCH
+    assert [d.field for d in r.mismatch_details] == ["tool_manifest.catalog_hash"]
+    assert r.mismatch_details[0].expected_hash == approved_root
+    assert r.mismatch_details[0].actual_hash == tool_catalog(
+        catalog["tools"], algorithm=algorithm,
+    )["catalog_hash"]
+
+
+@pytest.mark.parametrize("field", ["schema_hash", "description_hash"])
+def test_tool_catalog_mismatched_hash_algorithm_is_detected_end_to_end(field):
+    """A tool's schema_hash/description_hash relabeled to a different
+    algorithm, same raw digest bytes - the exact scenario build_catalog_tree's
+    algorithm check exists for - must surface as a MISMATCH through the full
+    verify_manifest path, not just when calling build_catalog_tree directly."""
+    m = manifest()
+    catalog = tool_catalog()
+    approved_root = catalog["catalog_hash"]
+    raw_hex = catalog["tools"][0][field].split(":", 1)[1]
+    # same digest, wrong label
+    catalog["tools"][0][field] = f"shake256:{raw_hex}"
+    m["artifacts"]["tool_manifest"] = catalog
+
+    r = verify_manifest(sign(m), ctx(tool_catalog_hash=approved_root), store())
+
+    assert r.signature_verified
+    assert r.result == OverallResult.MISMATCH
+    assert r.fields_verified.tool_manifest == FieldResult.MISMATCH
+    assert [d.field for d in r.mismatch_details] == ["tool_manifest.catalog_hash"]
+    assert r.mismatch_details[0].expected_hash == approved_root
+    assert r.mismatch_details[0].actual_hash == "<unverifiable tools>"
+
+
+def test_tool_catalog_reordered_tools_match():
+    """AM-VERIFY-07 / spec 3.2.3: tools are sorted by ID, not input order."""
+    m = manifest()
+    catalog = tool_catalog()
+    catalog["tools"].reverse()
+    m["artifacts"]["tool_manifest"] = catalog
+
+    r = verify_manifest(sign(m), ctx(tool_catalog_hash=catalog["catalog_hash"]), store())
+
+    assert r.result == OverallResult.VALID
+    assert r.fields_verified.tool_manifest == FieldResult.MATCH
+    assert r.mismatch_details == []
+
+
+@pytest.mark.parametrize("wrong_root", [False, True])
+@pytest.mark.parametrize("strict", [False, True])
+def test_tool_catalog_without_runtime_hash(wrong_root, strict):
+    """AM-VERIFY-08 / AM-VERIFY-20: absent runtime evidence cannot hide drift."""
+    m = manifest()
+    catalog = tool_catalog()
+    if wrong_root:
+        catalog["catalog_hash"] = SHA_C
+    m["artifacts"]["tool_manifest"] = catalog
+
+    r = verify_manifest(sign(m), ctx(strict_artifact_verification=strict), store())
+
+    assert r.signature_verified
+    if wrong_root:
+        assert r.result == OverallResult.MISMATCH
+        assert r.fields_verified.tool_manifest == FieldResult.MISMATCH
+        assert [d.field for d in r.mismatch_details] == ["tool_manifest.catalog_hash"]
+    else:
+        assert r.result == (OverallResult.INCOMPLETE if strict else OverallResult.VALID)
+        assert r.fields_verified.tool_manifest == FieldResult.NOT_BOUND
+        assert r.mismatch_details == []
+
+
+def test_tool_catalog_legacy_hash_without_tools_remains_compatible():
+    """AM-VERIFY-07: legacy nested omissions retain hash comparison behavior."""
+    m = manifest()
+    m["artifacts"]["tool_manifest"] = {"catalog_hash": SHA_A}
+
+    r = verify_manifest(sign(m), ctx(tool_catalog_hash=SHA_A), store())
+
+    assert r.result == OverallResult.VALID
+    assert r.fields_verified.tool_manifest == FieldResult.MATCH
+    assert r.mismatch_details == []
+
+
+def test_tool_catalog_without_declared_root_is_not_bound():
+    """AM-VERIFY-08: a legacy binding without its root remains NOT_BOUND."""
+    m = manifest()
+    catalog = tool_catalog()
+    runtime_root = catalog.pop("catalog_hash")
+    m["artifacts"]["tool_manifest"] = catalog
+
+    r = verify_manifest(sign(m), ctx(tool_catalog_hash=runtime_root), store())
+
+    assert r.result == OverallResult.VALID
+    assert r.fields_verified.tool_manifest == FieldResult.NOT_BOUND
+    assert r.mismatch_details == []
+
+
+@pytest.mark.parametrize("field", ["tool_name", "endpoint_id", "version"])
+def test_tool_catalog_legacy_missing_nonhashed_metadata(field):
+    """AM-VERIFY-07 / spec 3.2.3: only the three committed fields enter a leaf."""
+    m = manifest()
+    catalog = tool_catalog()
+    del catalog["tools"][0][field]
+    m["artifacts"]["tool_manifest"] = catalog
+
+    r = verify_manifest(sign(m), ctx(tool_catalog_hash=catalog["catalog_hash"]), store())
+
+    assert r.signature_verified
+    assert r.result == OverallResult.VALID
+    assert r.fields_verified.tool_manifest == FieldResult.MATCH
+    assert r.mismatch_details == []
+
+
+@pytest.mark.parametrize("field", ["tool_id", "schema_hash", "description_hash"])
+def test_tool_catalog_missing_committed_input_fails_closed(field):
+    """AM-VERIFY-20 / spec 3.2.3: an incomplete leaf cannot prove the root."""
+    m = manifest()
+    catalog = tool_catalog()
+    del catalog["tools"][0][field]
+    m["artifacts"]["tool_manifest"] = catalog
+
+    r = verify_manifest(sign(m), ctx(tool_catalog_hash=catalog["catalog_hash"]), store())
+
+    assert r.signature_verified
+    assert r.result == OverallResult.MISMATCH
+    assert r.fields_verified.tool_manifest == FieldResult.MISMATCH
+    assert [d.field for d in r.mismatch_details] == ["tool_manifest.catalog_hash"]
+    assert r.mismatch_details[0].expected_hash == catalog["catalog_hash"]
+    assert r.mismatch_details[0].actual_hash == "<unverifiable tools>"
+
+
+@pytest.mark.parametrize("tool_id", [b"com.example.read", bytearray(b"com.example.read")])
+@pytest.mark.parametrize("single_tool", [False, True], ids=["two-tools", "single-tool"])
+def test_tool_catalog_raw_python_ids_fail_closed(tool_id, single_tool):
+    """AM-VERIFY-20: schema coercion must not leave unusable raw catalog inputs."""
+    m = manifest()
+    catalog = tool_catalog()
+    if single_tool:
+        catalog = tool_catalog(catalog["tools"][:1])
+    catalog["tools"][0]["tool_id"] = tool_id
+    m["artifacts"]["tool_manifest"] = catalog
+
+    # These Python-only values cannot be signed as JSON. With no trusted key,
+    # signature verification is skipped, but catalog validation must not crash.
+    r = verify_manifest(m, ctx(tool_catalog_hash=catalog["catalog_hash"], trusted_keys={}), store())
+
+    assert not r.signature_verified
+    assert r.result == OverallResult.MISMATCH
+    assert r.fields_verified.tool_manifest == FieldResult.MISMATCH
+    assert [d.field for d in r.mismatch_details] == ["tool_manifest.catalog_hash"]
+    assert r.mismatch_details[0].actual_hash == "<unverifiable tools>"
+
+
+def test_tool_catalog_reports_internal_and_runtime_mismatches():
+    """AM-VERIFY-20: preserve both findings when the two comparisons fail."""
+    m = manifest()
+    catalog = tool_catalog()
+    computed_root = catalog["catalog_hash"]
+    catalog["catalog_hash"] = SHA_A
+    m["artifacts"]["tool_manifest"] = catalog
+
+    r = verify_manifest(sign(m), ctx(tool_catalog_hash=SHA_C), store())
+
+    assert r.signature_verified
+    assert r.result == OverallResult.MISMATCH
+    assert r.fields_verified.tool_manifest == FieldResult.MISMATCH
+    assert [(d.field, d.expected_hash, d.actual_hash) for d in r.mismatch_details] == [
+        ("tool_manifest", SHA_A, SHA_C),
+        ("tool_manifest.catalog_hash", SHA_A, computed_root),
+    ]
+
+
+# ---------------------------------------------------------------------------
+# EXPIRED (AM-VERIFY-21 to 23)
+# ---------------------------------------------------------------------------
+
+def test_expired_result():
+    r = verify_manifest(manifest(expires_at=TS_PAST), ctx(), store())
+    assert r.result == OverallResult.EXPIRED
+
+def test_expired_returns_early_no_field_checks():
+    r = verify_manifest(manifest(expires_at=TS_PAST), ctx(system_prompt_hash=SHA_B), store())
+    assert r.result == OverallResult.EXPIRED
+    assert r.mismatch_details == []
+
+def test_future_issued_manifest_is_not_valid():
+    issued_at = (datetime.now(timezone.utc) + timedelta(days=1))
+    expires_at = issued_at + timedelta(days=1)
+
+    r = verify_manifest(
+        manifest(
+            issued_at=issued_at.isoformat().replace("+00:00", "Z"),
+            expires_at=expires_at.isoformat().replace("+00:00", "Z"),
+        ),
+        ctx(),
+        store(),
+    )
+
+    assert r.result == OverallResult.MISMATCH
+    assert [detail.field for detail in r.mismatch_details] == ["validity.issued_at"]
+
+def test_memory_baseline_expired():
+    m = manifest()
+    m["artifacts"]["memory_baseline"] = {
+        "snapshot_hash": SHA_A,
+        "approved_at": TS_PAST,  # 1 day ago, so a 1h TTL is well past expiry
+        "ttl_seconds": 3600,  # schema minimum (1 hour)
+    }
+    r = verify_manifest(sign(m), ctx(memory_snapshot_hash=SHA_A), store())
+    assert r.fields_verified.memory_baseline == FieldResult.EXPIRED
+
+
+# ---------------------------------------------------------------------------
+# REVOKED (AM-VERIFY-24 to 26)
+# ---------------------------------------------------------------------------
+
+def test_revoked_result():
+    s = store()
+    s.revoke(RevocationRecord(manifest_id=MID, revoked_at=NOW, reason="test", revoked_by="admin"))
+    r = verify_manifest(manifest(), ctx(), s)
+    assert r.result == OverallResult.REVOKED
+
+def test_revoked_before_expiry_check():
+    s = store()
+    s.revoke(RevocationRecord(manifest_id=MID, revoked_at=NOW, reason="test", revoked_by="admin"))
+    r = verify_manifest(manifest(expires_at=TS_PAST), ctx(), s)
+    assert r.result == OverallResult.REVOKED
+
+def test_different_manifest_not_revoked():
+    s = store()
+    s.revoke(RevocationRecord(manifest_id="018aaaaa-2c1d-7e5f-a8b9-0d1e2f3a4b5c",
+                               revoked_at=NOW, reason="t", revoked_by="a"))
+    r = verify_manifest(manifest(), ctx(), s)
+    assert r.result == OverallResult.VALID
+
+
+# ---------------------------------------------------------------------------
+# Delegation chain (AM-VERIFY-27 to 29)
+# ---------------------------------------------------------------------------
+
+def test_delegation_chain_present_without_keys_is_unverifiable():
+    # Fail-closed: a chain the verifier cannot check is UNVERIFIABLE, not VALID.
+    m = manifest(delegation_chain=[{
+        "hop": 0, "principal_type": "human",
+        "principal_id": "did:web:example", "delegated_at": NOW.isoformat(),
+        "scope_grant": {"max_delegation_depth": 3, "ttl_seconds": 3600},
+        "delegation_signature": "sig",
+    }])
+    r = verify_manifest(m, ctx(), store())
+    assert r.fields_verified.delegation_chain == DelegationResult.UNVERIFIABLE
+    assert r.result == OverallResult.UNVERIFIABLE
+
+def test_delegation_chain_absent():
+    r = verify_manifest(manifest(), ctx(), store())
+    assert r.fields_verified.delegation_chain == DelegationResult.NOT_PRESENT
+
+
+# ---------------------------------------------------------------------------
+# HITL (AM-VERIFY-30 to 36)
+# ---------------------------------------------------------------------------
+
+def test_hitl_not_required():
+    m = manifest(hitl_record={"required": False, "approvals": []})
+    r = verify_manifest(m, ctx(), store())
+    assert r.fields_verified.hitl_record == HitlResult.NOT_REQUIRED
+
+def test_hitl_approved():
+    ago = (NOW - timedelta(minutes=30)).isoformat().replace("+00:00", "Z")
+    m = manifest(hitl_record={"required": True, "approvals": [
+        hitl_approval(ago, {"approval_duration_seconds": 3600})
+    ]})
+    r = verify_manifest(m, ctx(), store())
+    assert r.fields_verified.hitl_record == HitlResult.APPROVED
+
+def test_hitl_missing():
+    m = manifest(hitl_record={"required": True, "approvals": []})
+    r = verify_manifest(m, ctx(), store())
+    assert r.fields_verified.hitl_record == HitlResult.MISSING
+
+def test_hitl_expired():
+    ago = (NOW - timedelta(hours=3)).isoformat().replace("+00:00", "Z")
+    m = manifest(hitl_record={"required": True, "approvals": [
+        {"approved_at": ago, "approved_scope": {"approval_duration_seconds": 3600}}
+    ]})
+    r = verify_manifest(m, ctx(), store())
+    assert r.fields_verified.hitl_record == HitlResult.EXPIRED
+
+
+# ---------------------------------------------------------------------------
+# Error response schema (AM-VERIFY-37 to 40)
+# ---------------------------------------------------------------------------
+
+def test_error_response_has_error_code():
+    e = ErrorResponse(error_code="INVALID_MANIFEST_ID", error_message="bad id")
+    assert e.error_code == "INVALID_MANIFEST_ID"
+
+def test_error_response_has_request_id():
+    e = ErrorResponse(error_code="X", error_message="y")
+    assert e.request_id and len(e.request_id) > 0
+
+def test_error_response_retry_after_optional():
+    e = ErrorResponse(error_code="X", error_message="y")
+    assert e.retry_after_seconds is None
+
+def test_error_response_retry_after_set():
+    e = ErrorResponse(error_code="RATE_LIMITED", error_message="slow down", retry_after_seconds=60)
+    assert e.retry_after_seconds == 60
+
+
+# ---------------------------------------------------------------------------
+# FastAPI endpoint HTTP contract (AM-VERIFY-41 to 52, skipped without fastapi)
+# ---------------------------------------------------------------------------
+
+try:
+    from fastapi.testclient import TestClient
+    from fastapi import FastAPI
+    from agent_manifest._verify import create_router
+    FASTAPI_AVAILABLE = True
+except ImportError:
+    FASTAPI_AVAILABLE = False
+
+require_fastapi = pytest.mark.skipif(not FASTAPI_AVAILABLE, reason="fastapi not installed")
+
+
+def _client(manifests=None):
+    app = FastAPI()
+    s = RevocationStore()
+    store_dict = {MID: manifest()} if manifests is None else manifests
+    app.include_router(create_router(store_dict, s))
+    return TestClient(app), s
+
+
+@require_fastapi
+def test_http_get_verify_without_keys_is_unverifiable():
+    # GET /verify cannot carry trusted keys - fail-closed means a signed
+    # manifest is UNVERIFIABLE, never VALID.
+    client, _ = _client()
+    r = client.get(f"/verify?manifest_id={MID}")
+    assert r.status_code == 200
+    assert r.json()["result"] == "UNVERIFIABLE"
+    assert r.json()["signature_verified"] is False
+
+
+@require_fastapi
+def test_http_post_verify_with_trusted_keys_is_incomplete_without_runtime_evidence():
+    client, _ = _client()
+    r = client.post("/verify", json={
+        "manifest_id": MID,
+        "trusted_keys": TRUSTED_KEYS,
+    })
+    assert r.status_code == 200
+    assert r.json()["result"] == "INCOMPLETE"
+    assert r.json()["signature_verified"] is True
+
+
+@require_fastapi
+def test_http_post_verify_enforces_trusted_key_issuers():
+    other = generate_ed25519()
+    trusted_keys = dict(TRUSTED_KEYS)
+    trusted_keys[other.key_id] = other.public_b64url()
+    client, _ = _client({MID: manifest(issuer=ISSUER_B)})
+
+    r = client.post("/verify", json={
+        "manifest_id": MID,
+        "trusted_keys": trusted_keys,
+        "trusted_key_issuers": {
+            KP.key_id: [ISSUER_A],
+            other.key_id: [ISSUER_B],
+        },
+    })
+
+    assert r.status_code == 200
+    assert r.json()["result"] == "MISMATCH"
+    assert r.json()["signature_verified"] is False
+    assert any(
+        detail["field"] == "signature.issuer"
+        for detail in r.json()["mismatch_details"]
+    )
+
+
+@require_fastapi
+def test_http_post_verify_unsigned_manifest_is_signature_missing():
+    m = manifest()
+    del m["signature"]
+    client, _ = _client({MID: m})
+    r = client.post("/verify", json={"manifest_id": MID, "trusted_keys": TRUSTED_KEYS})
+    assert r.status_code == 200
+    assert r.json()["result"] == "SIGNATURE_MISSING"
+
+
+@require_fastapi
+def test_http_post_verify_not_found():
+    client, _ = _client({})
+    r = client.post("/verify", json={"manifest_id": MID})
+    assert r.status_code == 404
+
+
+@require_fastapi
+def test_http_verify_not_found():
+    client, _ = _client({})
+    r = client.get(f"/verify?manifest_id={MID}")
+    assert r.status_code == 404
+
+
+@require_fastapi
+def test_http_verify_invalid_manifest_id():
+    client, _ = _client()
+    r = client.get("/verify?manifest_id=not-a-uuid")
+    assert r.status_code == 400
+
+
+@require_fastapi
+def test_http_revocation_status_not_revoked():
+    client, _ = _client()
+    r = client.get(f"/revocation-status?manifest_id={MID}")
+    assert r.status_code == 404
+
+
+@require_fastapi
+def test_http_revocation_status_revoked():
+    client, s = _client()
+    s.revoke(RevocationRecord(manifest_id=MID, revoked_at=NOW, reason="test", revoked_by="admin"))
+    r = client.get(f"/revocation-status?manifest_id={MID}")
+    assert r.status_code == 200
+    assert r.json()["manifest_id"] == MID
+
+
+@require_fastapi
+def test_http_verify_missing_manifest_id():
+    client, _ = _client()
+    r = client.get("/verify")
+    assert r.status_code == 422  # FastAPI unprocessable entity
+
+
+@require_fastapi
+def test_http_result_schema_has_all_fields():
+    client, _ = _client()
+    r = client.get(f"/verify?manifest_id={MID}")
+    body = r.json()
+    for field in ("verification_id", "manifest_id", "result", "fields_verified",
+                  "mismatch_details", "verified_at"):
+        assert field in body, f"Missing field: {field}"
+
+
+# ---------------------------------------------------------------------------
+# Memory checkpoint/delta (Phase 3, v0.2 §3.2.6.2)
+# ---------------------------------------------------------------------------
+
+def _artifacts_with_memory(snap):
+    return {
+        "system_prompt": {"hash": SHA_A},
+        "policy_bundle": {"hash": SHA_B, "enforcement_mode": "enforce"},
+        "model_identity": {"version": "claude-3", "deployment_type": "api"},
+        "decision_trace": {"audit_chain_root": SHA_C},
+        "memory_baseline": {
+            "snapshot_hash": snap, "ttl_seconds": 86400,
+            "approved_at": NOW.isoformat().replace("+00:00", "Z"),
+        },
+    }
+
+
+def test_fold_reproduces_v01_snapshot_hash():
+    # v0.1 snapshot_hash = SHA-256 of RFC 8785 canonical of the KV map (spec:469).
+    from agent_manifest._memory_delta import fold_kv
+    from agent_manifest._canonicalize import canonical_hash
+    ops = [{"op": "PUT", "key": "a", "value": 1},
+           {"op": "PUT", "key": "b", "value": 2},
+           {"op": "PUT", "key": "a", "value": 3},
+           {"op": "DEL", "key": "b"}]
+    materialized = fold_kv(ops)
+    assert materialized == {"a": 3}
+    # Pin to the literal v0.1 snapshot derivation (SHA-256 of RFC 8785 canonical
+    # of the KV map, spec:469) — non-circular: a fold/canonicalization regression
+    # changes this value.
+    assert canonical_hash(materialized) == (
+        "sha256:70778ce01ad8d1a82c80a3500bee476f34651238edeb936c4a7b0161b1395169"
+    )
+
+
+def test_verification_still_flags_unproven_memory_change():
+    # Regression guard: the v0.1 drift comparand (_verify.py:364-367) still flags
+    # a memory snapshot that differs from the bound value (no delta downgrade).
+    m = manifest(artifacts=_artifacts_with_memory("sha256:" + "e" * 64))
+    c = ctx(memory_snapshot_hash="sha256:" + "f" * 64)
+    r = verify_manifest(m, c, store())
+    assert r.fields_verified.memory_baseline == FieldResult.MISMATCH
+
+
+def test_verification_accepts_bound_delta():
+    # Bind the new checkpoint's root in a manifest-shaped binding, then check the
+    # advance with verify_delta (model = bind, verify_delta = check).
+    from agent_manifest.models import MemoryCheckpointBinding
+    from agent_manifest._memory_delta import (
+        MemoryCheckpoint, memory_merkletree, verify_delta,
+    )
+    now = datetime(2026, 6, 15, 12, 0, tzinfo=timezone.utc)
+    prev_ops = [{"op": "PUT", "key": f"k{i}", "value": i} for i in range(4)]
+    new_ops = prev_ops + [{"op": "PUT", "key": "k4", "value": 1}]
+    prev = MemoryCheckpoint.from_ops(prev_ops, "kv", seq=1, approved_at=now, ttl_seconds=86400)
+    new = MemoryCheckpoint.from_ops(new_ops, "kv", seq=2, approved_at=now, ttl_seconds=86400)
+    binding = MemoryCheckpointBinding(
+        memory_root=new.memory_root, seq=new.seq, approved_at=now, ttl_seconds=86400,
+    )
+    proof = memory_merkletree(new_ops, "kv").consistency_proof(len(prev_ops))
+    v = verify_delta(prev, new, new_ops[len(prev_ops):], proof, representation="kv", now=now)
+    assert v.accepted is True
+    # the manifest binding round-trips and preserves the checkpoint anchor
+    parsed = MemoryCheckpointBinding.model_validate(binding.model_dump())
+    assert parsed.memory_root == new.memory_root and parsed.seq == new.seq
+
+
+# ---------------------------------------------------------------------------
+# GHSA-7v9r-xprj-65j7: an expired manifest must not reach VALID because the
+# verifier could not read its timestamps.
+#
+# issued_at/expires_at are typed datetime on the model, so Pydantic accepts
+# representations that datetime.fromisoformat() rejects. The schema gate passed
+# them, the verifier's re-parse raised ValueError, and the whole validity-window
+# check was skipped. The raw strings are inside the signing pre-image, so no
+# signature forgery or post-signing rewrite is involved.
+# ---------------------------------------------------------------------------
+
+_EXPIRED_EPOCH = str(int((NOW - timedelta(days=1)).timestamp()))
+_ISSUED_EPOCH = str(int((NOW - timedelta(days=30)).timestamp()))
+
+
+@pytest.mark.parametrize(
+    "issued_at,expires_at",
+    [
+        # decimal epoch seconds
+        (_ISSUED_EPOCH, _EXPIRED_EPOCH),
+        # lowercase zone designator
+        (
+            (NOW - timedelta(days=30)).isoformat().replace("+00:00", "z"),
+            (NOW - timedelta(days=1)).isoformat().replace("+00:00", "z"),
+        ),
+    ],
+)
+def test_expired_manifest_is_not_valid_under_alternate_timestamp_forms(issued_at, expires_at):
+    r = verify_manifest(manifest(issued_at=issued_at, expires_at=expires_at), ctx(), store())
+
+    assert r.result == OverallResult.EXPIRED
+
+
+def test_alternate_timestamp_forms_still_verify_when_in_window():
+    """Failing closed must not mean rejecting every representation but one."""
+    issued_at = str(int((NOW - timedelta(days=1)).timestamp()))
+    expires_at = str(int((NOW + timedelta(days=90)).timestamp()))
+
+    r = verify_manifest(manifest(issued_at=issued_at, expires_at=expires_at), ctx(), store())
+
+    assert r.result == OverallResult.VALID
+
+
+def test_unparseable_timestamps_fail_closed():
+    """A validity window that cannot be evaluated is not a window that passed.
+
+    Free-form garbage is caught earlier, by the schema gate, and reported against
+    the individual fields. Either way the verdict is MISMATCH; what must never
+    happen is the manifest continuing to VALID with the window unchecked.
+    """
+    r = verify_manifest(
+        manifest(issued_at="not-a-timestamp", expires_at="also-not-a-timestamp"),
+        ctx(),
+        store(),
+    )
+
+    assert r.result == OverallResult.MISMATCH
+    assert r.mismatch_details

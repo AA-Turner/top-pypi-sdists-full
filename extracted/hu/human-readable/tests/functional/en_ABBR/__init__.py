@@ -1,1 +1,0 @@
-"""Abbreviated English functional tests."""

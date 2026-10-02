@@ -1,0 +1,2705 @@
+"""
+Agent management endpoints for the Local Operator API.
+
+This module contains the FastAPI route handlers for agent-related endpoints.
+"""
+
+import asyncio
+import json
+import logging
+import shutil
+import tempfile
+import zipfile
+from datetime import datetime, timezone
+from pathlib import Path as FilePath
+from typing import Any, Dict, Optional
+
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Body,
+    Depends,
+    File,
+    HTTPException,
+    Path,
+    Query,
+    UploadFile,
+)
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import FileResponse, JSONResponse
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
+
+from local_operator.agents import (
+    AgentData,
+    AgentEditFields,
+    AgentRegistry,
+    instruction_set_fields,
+)
+from local_operator.clients._http import APIError, scrub_details
+from local_operator.clients.radient import (
+    InstructionSetError,
+    RadientClient,
+    build_instruction_set_document,
+    validate_document_overrides,
+)
+from local_operator.config import ConfigManager
+from local_operator.env import EnvConfig, get_env_config
+from local_operator.providers.auth_store import AuthStore
+from local_operator.server.dependencies import (
+    get_agent_registry,
+    get_config_manager,
+    get_provider_auth_store,
+)
+from local_operator.server.models.schemas import (
+    Agent,
+    AgentCreate,
+    AgentExecutionHistoryResult,
+    AgentGetConversationResult,
+    AgentListResult,
+    AgentUpdate,
+    CRUDResponse,
+    ExecutionVariable,
+    ExecutionVariablesResponse,
+    ImportedAgent,
+)
+from local_operator.server.routes.desktop_radient import public_data
+from local_operator.types import AgentState
+
+router = APIRouter(tags=["Agents"])
+logger = logging.getLogger("local_operator.server.routes.agents")
+
+
+@router.get(
+    "/v1/agents",
+    response_model=CRUDResponse[AgentListResult],
+    summary="List agents",
+    description="Retrieve a paginated list of agents with their details. Optionally filter "
+    "by agent name and sort by various fields.",
+    openapi_extra={
+        "responses": {
+            "200": {
+                "description": "Agents list retrieved successfully",
+                "content": {
+                    "application/json": {
+                        "example": {
+                            "status": 200,
+                            "message": "Agents retrieved successfully",
+                            "result": {
+                                "total": 20,
+                                "page": 1,
+                                "per_page": 10,
+                                "agents": [
+                                    {
+                                        "id": "agent123",
+                                        "name": "Example Agent",
+                                        "created_date": "2024-01-01T00:00:00",
+                                        "version": "0.2.16",
+                                        "security_prompt": "Example security prompt",
+                                        "hosting": "openrouter",
+                                        "model": "openai/gpt-4o-mini",
+                                        "description": "An example agent",
+                                        "last_message": "Hello, how can I help?",
+                                        "last_message_datetime": "2024-01-01T12:00:00",
+                                        "temperature": 0.7,
+                                        "top_p": 1.0,
+                                        "top_k": 20,
+                                        "max_tokens": 2048,
+                                        "stop": None,
+                                        "frequency_penalty": 0.0,
+                                        "presence_penalty": 0.0,
+                                        "seed": None,
+                                    }
+                                ],
+                            },
+                        }
+                    }
+                },
+            }
+        },
+    },
+)
+async def list_agents(
+    agent_registry: AgentRegistry = Depends(get_agent_registry),
+    page: int = Query(1, ge=1, description="Page number"),
+    per_page: int = Query(10, ge=1, description="Number of agents per page"),
+    name: str = Query(None, description="Filter agents by name (case-insensitive)"),
+    sort: str = Query(
+        "last_message_datetime",
+        description="Sort field (name, created_date, last_message_datetime)",
+    ),
+    direction: str = Query("desc", description="Sort direction (asc, desc)"),
+):
+    """
+    Retrieve a paginated list of agents.
+
+    Optionally filter the list by agent name using the 'name' query parameter.
+    The filter is case-insensitive and matches agents whose names contain the provided string.
+
+    Supports sorting by name, created_date, or last_message_datetime in ascending or
+    descending order.
+    Default sort is by last_message_datetime in descending order.
+    """
+    try:
+        agents_list = agent_registry.list_agents()
+
+        # Filter by name if provided
+        if name:
+            agents_list = [agent for agent in agents_list if name.lower() in agent.name.lower()]
+
+        # Validate sort field
+        valid_sort_fields = ["name", "created_date", "last_message_datetime"]
+        if sort not in valid_sort_fields:
+            sort = "last_message_datetime"
+
+        # Validate direction
+        is_ascending = direction.lower() == "asc"
+
+        # Sort the agents list
+        if sort == "name":
+            agents_list.sort(key=lambda agent: agent.name.lower(), reverse=not is_ascending)
+        elif sort == "created_date":
+            # Sort directly using the datetime object, fallback to min datetime
+            agents_list.sort(
+                key=lambda agent: (
+                    agent.created_date
+                    if isinstance(agent.created_date, datetime)
+                    else datetime.min.replace(tzinfo=timezone.utc)
+                ),
+                reverse=not is_ascending,
+            )
+        else:  # last_message_datetime (default)
+            # Sort directly using the datetime object, fallback to created_date, then min datetime
+            def get_sort_key(agent: AgentData) -> datetime:
+                # Prefer last_message_datetime if it's a valid datetime
+                last_msg_dt = agent.last_message_datetime
+                if isinstance(last_msg_dt, datetime):
+                    # Ensure timezone awareness for comparison
+                    return (
+                        last_msg_dt
+                        if last_msg_dt.tzinfo
+                        else last_msg_dt.replace(tzinfo=timezone.utc)
+                    )
+
+                # Fallback to created_date if it's a valid datetime
+                created_dt = agent.created_date
+                if isinstance(created_dt, datetime):
+                    # Ensure timezone awareness for comparison
+                    return (
+                        created_dt if created_dt.tzinfo else created_dt.replace(tzinfo=timezone.utc)
+                    )
+
+                # Absolute fallback if neither date is valid
+                return datetime.min.replace(tzinfo=timezone.utc)
+
+            agents_list.sort(key=get_sort_key, reverse=not is_ascending)
+
+    except Exception as e:
+        logger.exception("Error retrieving agents")
+        raise HTTPException(status_code=500, detail=f"Error retrieving agents: {e}")
+
+    total = len(agents_list)
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    paginated_agents = agents_list[start_idx:end_idx]
+
+    # Explicitly construct Agent objects from AgentData fields for the response
+    agents_for_response = [Agent.model_validate(agent.model_dump()) for agent in paginated_agents]
+
+    result = AgentListResult(
+        total=total,
+        page=page,
+        per_page=per_page,
+        agents=agents_for_response,  # Pass the list of Agent objects
+    )
+
+    return CRUDResponse(
+        status=200,
+        message="Agents retrieved successfully",
+        result=result.model_dump(),
+    )
+
+
+@router.post(
+    "/v1/agents",
+    response_model=CRUDResponse[Agent],
+    summary="Create a new agent",
+    description="Create a new agent with the provided details.",
+    openapi_extra={
+        "requestBody": {
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "example": {
+                            "summary": "Create Agent Example",
+                            "value": {
+                                "name": "New Agent",
+                                "security_prompt": "Example security prompt",
+                                "hosting": "openrouter",
+                                "model": "openai/gpt-4o-mini",
+                                "description": "A helpful assistant",
+                            },
+                        }
+                    }
+                }
+            }
+        },
+        "responses": {
+            "201": {
+                "description": "Agent created successfully",
+                "content": {
+                    "application/json": {
+                        "example": {
+                            "status": 201,
+                            "message": "Agent created successfully",
+                            "result": {
+                                "id": "agent123",
+                                "name": "New Agent",
+                                "created_date": "2024-01-01T00:00:00",
+                                "version": "0.2.16",
+                                "security_prompt": "Example security prompt",
+                                "hosting": "openrouter",
+                                "model": "openai/gpt-4o-mini",
+                                "description": "A helpful assistant",
+                                "last_message": "",
+                                "last_message_datetime": "2024-01-01T00:00:00",
+                            },
+                        }
+                    }
+                },
+            }
+        },
+    },
+)
+async def create_agent(
+    agent: AgentCreate,
+    agent_registry: AgentRegistry = Depends(get_agent_registry),
+) -> JSONResponse:
+    """
+    Create a new agent.
+    """
+    try:
+        agent_edit_metadata = AgentEditFields.model_validate(agent.model_dump(exclude_unset=True))
+        new_agent = agent_registry.create_agent(agent_edit_metadata)
+    except ValidationError as e:
+        logger.exception("Validation error creating agent")
+        raise HTTPException(status_code=422, detail=f"Validation error: {e}")
+    except Exception as e:
+        logger.error(f"Error type: {type(e).__name__}")
+        logger.exception("Error creating agent")
+        raise HTTPException(status_code=400, detail=f"Failed to create agent: {e}")
+
+    new_agent_serialized = new_agent.model_dump()
+
+    response = CRUDResponse(
+        status=201,
+        message="Agent created successfully",
+        result=new_agent_serialized,
+    )
+    return JSONResponse(status_code=201, content=jsonable_encoder(response))
+
+
+@router.get(
+    "/v1/agents/{agent_id}",
+    response_model=CRUDResponse[Agent],
+    summary="Retrieve an agent",
+    description="Retrieve details for an agent by its ID.",
+    openapi_extra={
+        "responses": {
+            "200": {
+                "description": "Agent retrieved successfully",
+                "content": {
+                    "application/json": {
+                        "example": {
+                            "status": 200,
+                            "message": "Agent retrieved successfully",
+                            "result": {
+                                "id": "agent123",
+                                "name": "Example Agent",
+                                "created_date": "2024-01-01T00:00:00",
+                                "version": "0.2.16",
+                                "security_prompt": "Example security prompt",
+                                "hosting": "openrouter",
+                                "model": "openai/gpt-4o-mini",
+                                "description": "An example agent",
+                                "last_message": "Hello, how can I help?",
+                                "last_message_datetime": "2024-01-01T12:00:00",
+                            },
+                        }
+                    }
+                },
+            }
+        },
+    },
+)
+async def get_agent(
+    agent_registry: AgentRegistry = Depends(get_agent_registry),
+    agent_id: str = Path(..., description="ID of the agent to retrieve", examples=["agent123"]),
+):
+    """
+    Retrieve an agent by ID.
+    """
+    try:
+        agent_obj = agent_registry.get_agent(agent_id)
+    except KeyError as e:
+        logger.exception("Agent not found")
+        raise HTTPException(status_code=404, detail=f"Agent not found: {e}")
+    except Exception as e:
+        logger.exception("Error retrieving agent")
+        raise HTTPException(status_code=500, detail=f"Error retrieving agent: {e}")
+
+    if not agent_obj:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    agent_serialized = agent_obj.model_dump()
+
+    return CRUDResponse(
+        status=200,
+        message="Agent retrieved successfully",
+        result=agent_serialized,
+    )
+
+
+@router.patch(
+    "/v1/agents/{agent_id}",
+    response_model=CRUDResponse[Agent],
+    summary="Update an agent",
+    description="Update an existing agent with new details. Only provided fields will be updated.",
+    openapi_extra={
+        "requestBody": {
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "example": {
+                            "summary": "Update Agent Example",
+                            "value": {
+                                "name": "Updated Agent Name",
+                                "security_prompt": "Updated security prompt",
+                                "hosting": "openrouter",
+                                "model": "openai/gpt-4o-mini",
+                                "description": "Updated description",
+                            },
+                        }
+                    }
+                }
+            }
+        },
+        "responses": {
+            "200": {
+                "description": "Agent updated successfully",
+                "content": {
+                    "application/json": {
+                        "example": {
+                            "status": 200,
+                            "message": "Agent updated successfully",
+                            "result": {
+                                "id": "agent123",
+                                "name": "Updated Agent Name",
+                                "created_date": "2024-01-01T00:00:00",
+                                "version": "0.2.16",
+                                "security_prompt": "Updated security prompt",
+                                "hosting": "openrouter",
+                                "model": "openai/gpt-4o-mini",
+                                "description": "Updated description",
+                                "last_message": "Hello, how can I help?",
+                                "last_message_datetime": "2024-01-01T12:00:00",
+                            },
+                        }
+                    }
+                },
+            }
+        },
+    },
+)
+async def update_agent(
+    agent_data: AgentUpdate,
+    agent_registry: AgentRegistry = Depends(get_agent_registry),
+    agent_id: str = Path(..., description="ID of the agent to update", examples=["agent123"]),
+):
+    """
+    Update an existing agent.
+    """
+    try:
+        agent_edit_data = AgentEditFields.model_validate(agent_data.model_dump(exclude_unset=True))
+        updated_agent = agent_registry.update_agent(agent_id, agent_edit_data)
+    except KeyError as e:
+        logger.exception("Agent not found")
+        raise HTTPException(status_code=404, detail=f"Agent not found: {e}")
+    except Exception as e:
+        logger.exception("Error updating agent")
+        raise HTTPException(status_code=400, detail=f"Failed to update agent: {e}")
+
+    if not updated_agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    updated_agent_serialized = updated_agent.model_dump()
+
+    return CRUDResponse(
+        status=200,
+        message="Agent updated successfully",
+        result=updated_agent_serialized,
+    )
+
+
+@router.post(
+    "/v1/agents/{agent_id}/upload",
+    response_model=CRUDResponse,
+    summary="Upload (push) an agent to Radient Agent Hub",
+    description=(
+        "Upload (push) the agent with the given ID to the Radient agents marketplace. "
+        "Requires RADIENT_API_KEY."
+    ),
+    openapi_extra={
+        "responses": {
+            "200": {
+                "description": "Agent uploaded to Radient successfully",
+                "content": {
+                    "application/json": {
+                        "example": {
+                            "status": 200,
+                            "message": "Agent uploaded to Radient successfully",
+                            "result": {"agent_id": "radient-agent-id"},
+                        }
+                    }
+                },
+            },
+            "400": {
+                "description": "Bad request",
+                "content": {
+                    "application/json": {"example": {"detail": "Error uploading agent to Radient"}}
+                },
+            },
+            "401": {
+                "description": "Unauthorized",
+                "content": {
+                    "application/json": {"example": {"detail": "RADIENT_API_KEY is required"}}
+                },
+            },
+        },
+    },
+)
+async def upload_agent_to_radient(
+    agent_id: str = Path(..., description="ID of the agent to upload", examples=["agent123"]),
+    agent_registry: AgentRegistry = Depends(get_agent_registry),
+    env_config: EnvConfig = Depends(get_env_config),
+    config_manager: ConfigManager = Depends(get_config_manager),
+    provider_auth_store: AuthStore = Depends(get_provider_auth_store),
+):
+    """
+    Upload (push) the agent with the given ID to the Radient agents marketplace.
+    Requires RADIENT_API_KEY.
+    """
+    try:
+        # Get config and credentials
+        from local_operator.providers.radient_credentials import (
+            resolve_radient_credential,
+        )
+
+        api_key = await resolve_radient_credential(
+            config_manager.config_dir, env_config.radient_api_base_url, store=provider_auth_store
+        )
+        if not api_key:
+            raise HTTPException(status_code=401, detail="RADIENT_API_KEY is required")
+        base_url = env_config.radient_api_base_url
+        radient_client = RadientClient(api_key=api_key, base_url=base_url)
+
+        # Get agent and export as zip
+        try:
+            agent = agent_registry.get_agent(agent_id)
+        except KeyError:
+            raise HTTPException(status_code=404, detail=f"Agent with ID {agent_id} not found")
+        # The archive is consumed entirely within this handler, so the context
+        # manager owns its temp directory. Using the bare export_agent() here
+        # leaked a directory holding a full agent zip on every upload.
+        with agent_registry.exported_agent_archive(agent.id) as (zip_path, _):
+            # Upload to Radient
+            try:
+                agent_registry.upload_agent_to_radient(radient_client, agent_id, zip_path)
+            except Exception as e:
+                logger.exception("Error uploading agent to Radient")
+                raise HTTPException(
+                    status_code=400, detail=f"Error uploading agent to Radient: {e}"
+                )
+
+        return CRUDResponse(
+            status=200,
+            message="Agent uploaded to Radient successfully",
+            result={"agent_id": agent_id},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error uploading agent to Radient")
+        # If the error is about missing API key, return a clear message
+        if "RADIENT_API_KEY" in str(e) or "credential" in str(e):
+            raise HTTPException(status_code=401, detail="RADIENT_API_KEY is required")
+        raise HTTPException(status_code=400, detail=f"Error uploading agent to Radient: {e}")
+
+
+@router.get(
+    "/v1/agents/{agent_id}/download",
+    # ``ImportedAgent``, not ``Agent``: FastAPI coerces the response into the
+    # declared model and DROPS unknown keys, so declaring the narrower model
+    # here silently discards ``renamed_from`` — the field that tells a caller a
+    # pull landed under a suffixed name (contract §3.6).
+    response_model=CRUDResponse[ImportedAgent],
+    summary="Download (pull) an agent from Radient Agent Hub",
+    description="Download (pull) an agent from the Radient agents marketplace by agent ID.",
+    openapi_extra={
+        "responses": {
+            "200": {
+                "description": "Agent downloaded from Radient successfully",
+                "content": {
+                    "application/json": {
+                        "example": {
+                            "status": 200,
+                            "message": "Agent downloaded from Radient successfully",
+                            "result": {
+                                "id": "imported-agent-123",
+                                "name": "Imported Agent",
+                                "renamed_from": None,
+                                "created_date": "2024-01-01T00:00:00",
+                                "version": "0.2.16",
+                                "security_prompt": "Example security prompt",
+                                "hosting": "openrouter",
+                                "model": "openai/gpt-4o-mini",
+                                "description": "An imported agent",
+                                "last_message": "",
+                                "last_message_datetime": "2024-01-01T00:00:00",
+                            },
+                        }
+                    }
+                },
+            },
+            "400": {
+                "description": "Bad request",
+                "content": {
+                    "application/json": {
+                        "example": {"detail": "Error downloading agent from Radient"}
+                    }
+                },
+            },
+        },
+    },
+)
+async def download_agent_from_radient(
+    agent_id: str = Path(
+        ..., description="ID of the agent to download from Radient", examples=["radient-agent-id"]
+    ),
+    agent_registry: AgentRegistry = Depends(get_agent_registry),
+    env_config: EnvConfig = Depends(get_env_config),
+    provider_auth_store: AuthStore = Depends(get_provider_auth_store),
+):
+    """
+    Download (pull) an agent from the Radient agents marketplace by agent ID.
+    """
+    try:
+        base_url = env_config.radient_api_base_url
+        # API key not required for download
+        radient_client = RadientClient(api_key=None, base_url=base_url)
+
+        # Download from Radient
+        try:
+            outcome = agent_registry.download_agent_from_radient(
+                radient_client, agent_id, auth_store=provider_auth_store
+            )
+        except Exception as e:
+            logger.exception("Error downloading agent from Radient")
+            raise HTTPException(
+                status_code=400, detail=f"Error downloading agent from Radient: {e}"
+            )
+
+        agent_serialized = outcome.agent.model_dump()
+        # A pull whose name is already held locally lands under a suffixed name;
+        # the note is what lets the caller explain that instead of leaving the
+        # user looking for an agent under the name they asked for (contract §3.6).
+        agent_serialized["renamed_from"] = outcome.renamed_from
+        # Same rule for the model suggestion (§4.3, ``null`` when nothing was
+        # suggested or it applied): the import already succeeded -- this only
+        # says which suggestion was skipped and why.
+        agent_serialized["model_notice"] = (
+            outcome.model_notice.as_payload() if outcome.model_notice is not None else None
+        )
+        return CRUDResponse(
+            status=200,
+            message="Agent downloaded from Radient successfully",
+            result=agent_serialized,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error downloading agent from Radient")
+        raise HTTPException(status_code=400, detail=f"Error downloading agent from Radient: {e}")
+
+
+# --- Instruction-set publication ---------------------------------------------
+#
+# These routes carry the DOCUMENT, not the id, and they are the reason the zip
+# upload path above can stay untouched: a published agent is an instruction set
+# (contract §1), and an archive is how an agent published under the old standard
+# is still updated and pulled. Every failure here answers with a STRUCTURE --
+# ``{code, message, details}`` -- because a duplicate name, a reserved built-in
+# name, a moderation refusal and an oversized document are indistinguishable
+# behind one prose sentence, and each needs a different next step from the user.
+
+#: The hub's refusal codes mapped onto the HTTP status the desktop app's error
+#: surface switches on (contract §2.4, §6.2). The hub's own status travels through
+#: unchanged; these are the fallback when a code arrives without one, and they are
+#: the mapping the tests pin per code.
+#:
+#: ``name_claim_in_flight`` is the ninth code (agent-server #31): no
+#: row holds the name, but a concurrent write holds it transiently. It is a 409
+#: like ``name_taken`` and it needs a different next step — the caller RETRIES,
+#: where a taken name is answered by choosing another — which is why the hub gives
+#: it a code of its own and carries ``details.retryable``. It is listed here so the
+#: status is right even if a hub ever sends it without one; the payload itself is
+#: passed through untouched, which is what tells the renderer what to do.
+PUBLICATION_STATUS_BY_CODE: Dict[str, int] = {
+    "invalid_instruction_set": 422,
+    # The team family's invalid-document code (§4.5): the same 422 class as
+    # ``invalid_instruction_set`` -- the schema or the review refused the
+    # document, and `details.field`/`details.rule` say which either way.
+    "invalid_team_document": 422,
+    "moderation_rejected": 422,
+    "payload_too_large": 413,
+    "name_taken": 409,
+    "name_claim_in_flight": 409,
+    "name_reserved_builtin": 409,
+    "not_owner": 403,
+    "agent_not_found": 404,
+    "team_not_found": 404,
+    "moderation_unavailable": 503,
+    # The frozen membership refusals of organization sharing (§2.2/§4.4/§4.5):
+    # a 403 here is NOT a credential refusal, and without its code the auth arm
+    # below would answer "re-authenticate" for refusals a login cannot fix --
+    # "ask an admin" (insufficient_role, whose `required` detail names the
+    # rank), "get invited" (not_a_member) and "activate the plan"
+    # (team_plan_required) are three different next steps a renderer must be
+    # able to switch on.
+    "not_a_member": 403,
+    "insufficient_role": 403,
+    "team_plan_required": 403,
+}
+
+#: The three codes this proxy adds to the hub's vocabulary. They exist because the
+#: proxy can fail in ways the hub never sees and never describes: it can fail to
+#: REACH the hub (``hub_unavailable``), it can fail on this machine before the
+#: hub is asked anything (``local_failure``), and the hub can REFUSE THIS
+#: MACHINE'S CREDENTIAL (``hub_unauthorized``) -- which the hub answers with a
+#: status rather than with a code of its own, so the vocabulary has to name it.
+#: Reporting any of them as a hub code would misdescribe which side failed.
+HUB_UNAVAILABLE_CODE = "hub_unavailable"
+LOCAL_FAILURE_CODE = "local_failure"
+#: A refusal of this machine's Radient credential, on a route that authenticates
+#: with it. Deliberately NOT a member of :data:`PUBLICATION_STATUS_BY_CODE`: that
+#: table is the HUB's vocabulary, and this code is the proxy's own. The status is
+#: always the hub's here (a code we do not know still arrives on a real response),
+#: so nothing needs a fallback for it.
+#:
+#: WHY IT IS NOT ``hub_unavailable``: the two need opposite next steps. This one
+#: means "the hub answered, your key was refused" -- re-authenticate, and retrying
+#: cannot help. ``hub_unavailable`` means "we could not reach it, or it did not
+#: answer in its own vocabulary" -- retry. A renderer told the first when the
+#: second is true (or the reverse, which is what shipped) sends the user to do the
+#: one thing that cannot work. The hub's prose travels in ``message`` unchanged
+#: either way, so a client that ignores ``code`` loses nothing by the change.
+HUB_UNAUTHORIZED_CODE = "hub_unauthorized"
+
+
+class AgentPublicationRequest(BaseModel):
+    """The request body of a publish or republish (contract §6.4).
+
+    ``document`` is deliberately open rather than a pydantic model: the closed
+    field set of a version-1 document is enforced by
+    :func:`validate_document_overrides`, so an undefined key is refused with
+    ``invalid_instruction_set`` naming the field -- exactly as the hub refuses it.
+    A pydantic model would instead drop the key, which is how a publisher comes to
+    believe it published something it did not.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    #: The fields the caller is overriding. Anything omitted is read from the
+    #: local agent row, which is where the instruction body actually lives.
+    document: Dict[str, Any] = Field(default_factory=dict)
+    #: The hub listing to update. Required to republish: the local registry keeps
+    #: no link to the listing an agent was published as, so a republish that did
+    #: not name one would have to guess which row to overwrite.
+    hub_agent_id: Optional[str] = Field(default=None, max_length=128)
+
+
+def _publication_detail(
+    code: str, message: str, details: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """The structured ``detail`` of a publication failure.
+
+    ``code`` is the key the renderer switches on and the only stable part;
+    ``message`` is the sentence a human reads (the hub composes its own, so it is
+    used unchanged); ``details`` carries the machine-readable rest -- which field
+    was wrong, which built-in reserved the name, which moderation categories were
+    cited -- and holds no prose, so a client that renders only ``message`` still
+    reads correctly.
+
+    THIS IS THE BOUNDARY, so the masker runs HERE rather than at each arm that
+    builds a detail. What a caller receives is this body and nothing else, and
+    ``message``/``details`` both carry upstream text -- a hub is free to reflect
+    the request it refused into either, and ``details.rule``/``details.field`` are
+    values this app RENDERS. Masking here rather than at the call sites means the
+    property holds for the arm that forwards the hub's ``details``, for the arm
+    that substitutes a code, and for the LOCAL validation arm, and it does not rest
+    on how the :class:`APIError` was built: the client masks the value it raises
+    (``_http.api_error_from_response``, which is what knows the machine's own key
+    and can remove it exactly), while this masks the body it answers with, for the
+    case where the exception came from somewhere else.
+    """
+
+    return {
+        "code": code,
+        "message": scrub_details(message),
+        "details": scrub_details(dict(details or {})),
+    }
+
+
+def _publication_http_error(exc: APIError) -> HTTPException:
+    """Map a hub refusal onto the local response.
+
+    A code the vocabulary defines keeps its meaning and its status; a REFUSAL OF
+    THIS MACHINE'S CREDENTIAL (401, or a 403 no known code accounts for) is
+    reported as :data:`HUB_UNAUTHORIZED_CODE` so the caller re-authenticates;
+    anything else is the hub failing to describe a failure, which is reported as
+    :data:`HUB_UNAVAILABLE_CODE` with a 502 rather than as a rejection of the
+    document the user sent. The upstream BODY never travels: a response shape we do
+    not recognise is the case where the body may be a proxy's HTML page, and that
+    belongs in neither the response nor the log.
+    """
+
+    if exc.code in PUBLICATION_STATUS_BY_CODE:
+        return HTTPException(
+            status_code=exc.status_code or PUBLICATION_STATUS_BY_CODE[exc.code],
+            detail=_publication_detail(exc.code, str(exc), exc.details),
+        )
+    # The auth arm, and the order matters: a KNOWN code wins above, so the hub's
+    # ``not_owner`` keeps its own meaning on the 403 it arrives with. What is left
+    # is a status that says the hub answered and refused the CALLER -- 401 always,
+    # and a 403 nothing in the vocabulary explains. The hub's own status travels
+    # through, so an expired key reads as 401 rather than as a 502 about reach.
+    #
+    # The hub's ``details`` are NOT passed through here, unlike the known-code arm:
+    # an unrecognised refusal's details are the one part of that body we have no
+    # shape for, and an auth refusal has never needed more than its code and
+    # sentence. The hub's own CODE is a different thing and IS carried, under
+    # ``hub_code``: ``hub_unauthorized`` says which side refused and what to do
+    # about it, and it is also the one thing that loses the distinction the hub did
+    # make -- a 401 for an EXPIRED key and a 401 for a REVOKED one both answer with
+    # this code, so a renderer that switches on ``code`` alone cannot tell the two
+    # apart. Publishing the hub's code as the OUTWARD ``code`` is the change that
+    # was rightly rejected (a closed set in the renderer, and an invented member it
+    # has no treatment for -- the same objection that keeps the 429 on the retry
+    # arm). Inside ``details`` it is ADDITIVE: the outward code, and every renderer
+    # that keys on it, is untouched. local-operator-ui#285 reads ``details`` by
+    # NAME (``field``, ``rule``, ``existing_agent_id``, ``categories``, ...) and
+    # never enumerates it, so an unfamiliar key is carried and unread; and its
+    # ``publicationErrorFromBody`` does not yet list ``hub_unauthorized`` in
+    # ``PUBLICATION_ERROR_CODES``, so it takes its prose fallback for this whole
+    # arm today -- i.e. this addition cannot change what an existing renderer
+    # paints, in either direction. It is also absent when the hub sent no code, so
+    # the live hub's prose-only 401 answers exactly as it did before.
+    if exc.status_code in (401, 403):
+        logger.warning(
+            "Radient Agent Hub refused this machine's credential: HTTP %s", exc.status_code
+        )
+        return HTTPException(
+            status_code=exc.status_code,
+            detail=_publication_detail(
+                HUB_UNAUTHORIZED_CODE,
+                str(exc),
+                {"hub_code": exc.code} if exc.code else None,
+            ),
+        )
+    logger.warning(
+        "Radient Agent Hub returned an unrecognised publication failure: HTTP %s",
+        exc.status_code,
+    )
+    return HTTPException(
+        status_code=502,
+        detail=_publication_detail(HUB_UNAVAILABLE_CODE, str(exc)),
+    )
+
+
+def _invalid_document_error(exc: InstructionSetError) -> HTTPException:
+    """Refuse a document this machine can already see is invalid.
+
+    The rule text is the hub's own, so the user reads the same sentence whichever
+    side refused it and the renderer needs one branch for both.
+    """
+
+    return HTTPException(
+        status_code=422,
+        detail=_publication_detail("invalid_instruction_set", str(exc), exc.details),
+    )
+
+
+# --- Organization operations (design §4.7/§8.3) -------------------------------
+#
+# Organization calls authenticate with the stored Radient OAuth access token --
+# the signed-in PERSON -- never the tenant API key, because an API key proves an
+# application tenant, not a person's membership (§2.2). Resolution and the
+# destination guard live in ``providers/radient_credentials.py``, shared with
+# the CLI's org commands; this module only renders the two refusals the resolver
+# cannot tell apart on its own, because their remedies differ.
+
+#: The two remedy sentences are DEFINED in ``providers/radient_credentials.py``
+#: and imported where used -- ONE copy that the CLI prints behind its ``Error:``
+#: prefix and these routes answer with verbatim, so the surfaces cannot drift
+#: (agent review round 1, MINOR-2). The canonical host inside the destination
+#: sentence is quoted from ``env.py`` at render time, keeping the
+#: single-reader invariant ``test_radient_hub_base_resolution.py`` pins.
+
+
+async def _org_radient_credentials(
+    config_manager: ConfigManager, provider_auth_store: AuthStore
+) -> tuple[SecretStr, str]:
+    """The credential and destination an org call spends, or the refusal to show.
+
+    One place resolves an org call's credential, for the same reason the CLI has
+    one (``cli.py::_resolve_org_client``): the publish, republish, membership and
+    team routes must not each decide which token an organization call spends.
+    The base URL resolves through the config-aware reader the CLI uses
+    (``configured_radient_base_url``) rather than the public paths'
+    environment-derived one, so the destination the guard judges and the
+    destination the request addresses cannot disagree -- a guard checking one
+    host while the call travels to another is the failure the single-reader rule
+    exists to prevent.
+
+    The pair rather than a constructed client: every route here builds the hub
+    client only once its request is otherwise valid (after document validation
+    for the publication routes, after the local team resolves for its publish),
+    so a refusal that never touches the hub never constructs one -- the exact
+    ordering the public paths pin in their tests.
+
+    Raises:
+        HTTPException: 401 with the re-login remedy when no OAuth row resolves
+            (no login, a pasted API key, or a dead grant -- all one fix), or 400
+            naming the configuration remedy when the configured hub is one the
+            account's bearer must not be sent to.
+    """
+
+    from local_operator.env import DEFAULT_RADIENT_API_BASE_URL
+    from local_operator.providers.radient_credentials import (
+        ORG_LOGIN_REMEDY,
+        configured_radient_base_url,
+        org_destination_refused_sentence,
+        org_oauth_destination_allowed,
+        resolve_radient_oauth_access,
+    )
+
+    base_url = configured_radient_base_url(config_manager)
+    access = await resolve_radient_oauth_access(
+        config_manager.config_dir, base_url, store=provider_auth_store
+    )
+    if access is None:
+        if not org_oauth_destination_allowed(base_url):
+            raise HTTPException(
+                status_code=400,
+                detail=org_destination_refused_sentence(base_url, DEFAULT_RADIENT_API_BASE_URL),
+            )
+        raise HTTPException(status_code=401, detail=ORG_LOGIN_REMEDY)
+    return SecretStr(access.access_token), base_url
+
+
+async def _radient_route_credentials(
+    target: Dict[str, str],
+    config_manager: ConfigManager,
+    env_config: EnvConfig,
+    provider_auth_store: AuthStore,
+) -> tuple[SecretStr, str]:
+    """The ``(api_key, base_url)`` pair a publish/republish call spends.
+
+    ONE reader for the org-vs-public choice, so the two handlers cannot drift
+    (agent review round 1, minor 6): an org target resolves the stored OAuth row
+    through :func:`_org_radient_credentials` -- the signed-in PERSON, never the
+    tenant API key (§2.2) -- and everything else is the public path's API key,
+    refused here when absent. The pair comes back together because the two
+    branches legitimately address different hubs.
+    """
+
+    if target:
+        return await _org_radient_credentials(config_manager, provider_auth_store)
+
+    from local_operator.providers.radient_credentials import resolve_radient_credential
+
+    api_key = await resolve_radient_credential(
+        config_manager.config_dir, env_config.radient_api_base_url, store=provider_auth_store
+    )
+    if not api_key:
+        raise HTTPException(status_code=401, detail="RADIENT_API_KEY is required")
+    return api_key, env_config.radient_api_base_url
+
+
+@router.post(
+    "/v1/agents/{agent_id}/publish",
+    response_model=CRUDResponse,
+    summary="Publish an agent's instruction set to the Radient Agent Hub",
+    description=(
+        "Publish the agent with the given ID to the Radient Agent Hub as a version-1 "
+        "instruction-set document. Requires RADIENT_API_KEY for the public hub, or "
+        "a signed-in account when `visibility=org&tenant_id=...` targets an "
+        "organization workspace. Failures answer with a structured detail carrying "
+        "the hub's own error code."
+    ),
+    openapi_extra={
+        "responses": {
+            "200": {
+                "description": "Agent published to Radient",
+                "content": {
+                    "application/json": {
+                        "example": {
+                            "status": 200,
+                            "message": "Agent published to Radient successfully",
+                            "result": {
+                                "agent_id": "8f1c...",
+                                "name": "adverse-media-screener",
+                                "version": "1.0.0",
+                                "document_version": 1,
+                                "moderation": {"verdict": "allow"},
+                            },
+                        }
+                    }
+                },
+            },
+            "409": {
+                "description": "The name is already published, or is reserved by a built-in",
+                "content": {
+                    "application/json": {
+                        "example": {
+                            "detail": {
+                                "code": "name_taken",
+                                "message": 'The name "Coder" is already published on the hub.',
+                                "details": {
+                                    "existing_agent_id": "8f1c...",
+                                    "owned_by_caller": False,
+                                },
+                            }
+                        }
+                    }
+                },
+            },
+            "422": {
+                "description": "The document is invalid, or the review refused it",
+                "content": {
+                    "application/json": {
+                        "example": {
+                            "detail": {
+                                "code": "invalid_instruction_set",
+                                "message": "The agent document is not valid: kind must be "
+                                '"role" or "specialist".',
+                                "details": {
+                                    "field": "kind",
+                                    "rule": 'must be "role" or "specialist"',
+                                },
+                            }
+                        }
+                    }
+                },
+            },
+            "503": {
+                "description": "Publication review is temporarily unavailable",
+                "content": {
+                    "application/json": {
+                        "example": {
+                            "detail": {
+                                "code": "moderation_unavailable",
+                                "message": "Publication review is temporarily unavailable. "
+                                "Try again shortly.",
+                                "details": {"attempts": 2},
+                            }
+                        }
+                    }
+                },
+            },
+        }
+    },
+)
+async def publish_agent_to_radient(
+    agent_id: str = Path(
+        ..., description="ID of the local agent to publish", examples=["agent123"]
+    ),
+    publication: AgentPublicationRequest = Body(default_factory=AgentPublicationRequest),
+    visibility: Optional[str] = Query(
+        None,
+        description=(
+            "Publication target: `org` publishes into the organization named by "
+            "`tenant_id`; omit for the public hub."
+        ),
+        examples=["org"],
+    ),
+    tenant_id: Optional[str] = Query(
+        None,
+        description="The organization to publish into; required with `visibility=org`.",
+        examples=["org-tab-1"],
+    ),
+    agent_registry: AgentRegistry = Depends(get_agent_registry),
+    env_config: EnvConfig = Depends(get_env_config),
+    config_manager: ConfigManager = Depends(get_config_manager),
+    provider_auth_store: AuthStore = Depends(get_provider_auth_store),
+):
+    """
+    Publish the agent with the given ID to the Radient Agent Hub.
+
+    The document is built from the local row (see
+    ``agents.instruction_set_fields``)
+    with any caller-supplied overrides applied, then posted to the hub's publish
+    endpoint. Nothing else about the row travels: no conversation, no execution
+    history, no learnings, no schedules, no plan, no pickled context, no working
+    directory, no model, no hosting, no security prompt.
+
+    With ``visibility=org`` and a ``tenant_id`` the publication lands in that
+    organization's private workspace instead of the public hub, and the call
+    authenticates as the signed-in account (§2.2: an API key proves a tenant,
+    not a person's membership). The target rides on query params; the document
+    shape is unchanged (§4.4).
+    """
+    target: Dict[str, str] = {}
+    try:
+        # The target rule has ONE reader -- the client's -- so a request the wire
+        # would refuse cannot be credentialed differently from one it accepts:
+        # the same call decides whether this is an org call below (§4.4).
+        from local_operator.clients.radient import org_target_params
+
+        try:
+            target = org_target_params(visibility, tenant_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
+        api_key, base_url = await _radient_route_credentials(
+            target, config_manager, env_config, provider_auth_store
+        )
+        # Everything this call's credential touches gets scrubbed on the way
+        # back out: an upstream is free to reflect the request it received,
+        # bearer included, into a response body, and these payloads are relayed
+        # verbatim otherwise (security review round 1, S-1).
+        secrets = [api_key.get_secret_value()]
+
+        try:
+            agent = agent_registry.get_agent(agent_id)
+        except KeyError:
+            raise HTTPException(status_code=404, detail=f"Agent with ID {agent_id} not found")
+
+        try:
+            overrides = validate_document_overrides(publication.document)
+            document = build_instruction_set_document(
+                **instruction_set_fields(agent_registry, agent, overrides)
+            )
+        except InstructionSetError as exc:
+            raise _invalid_document_error(exc)
+
+        # Built only once the request is otherwise valid, exactly as the public
+        # path always did: a refusal that never touches the hub must not
+        # construct one.
+        radient_client = RadientClient(api_key=api_key, base_url=base_url)
+        try:
+            # On a worker thread: a publication is reviewed by a model on the hub,
+            # which takes seconds to tens of seconds, and the legacy zip upload's
+            # precedent of calling the client inline would park this server's
+            # event loop -- and therefore every other session -- for that whole
+            # time.
+            result = await asyncio.to_thread(
+                radient_client.publish_agent_instruction_set, document, **target
+            )
+        except APIError as exc:
+            logger.info(
+                "Radient Agent Hub refused a publication (code=%s, HTTP %s)",
+                exc.code,
+                exc.status_code,
+            )
+            raise _publication_http_error(exc)
+
+        result = public_data(result, secrets)
+        return CRUDResponse(
+            status=200,
+            message="Agent published to Radient successfully",
+            result=result,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error publishing agent to Radient")
+        # The no-key heuristic belongs to the PUBLIC path only: an org call's
+        # credential is the OAuth row, and its own remedies were raised above --
+        # mapping an org failure onto "RADIENT_API_KEY is required" would name a
+        # key the org path never reads.
+        if not target and ("RADIENT_API_KEY" in str(e) or "credential" in str(e)):
+            raise HTTPException(status_code=401, detail="RADIENT_API_KEY is required")
+        raise HTTPException(
+            status_code=500,
+            detail=_publication_detail(
+                LOCAL_FAILURE_CODE, "This agent could not be published from this machine."
+            ),
+        )
+
+
+@router.put(
+    "/v1/agents/{agent_id}/publish",
+    response_model=CRUDResponse,
+    summary="Republish an agent's instruction set to the Radient Agent Hub",
+    description=(
+        "Update a hub listing with the agent's current instruction set. Requires "
+        "RADIENT_API_KEY and the id of the listing to update; only the account that "
+        "published it may. With `visibility=org&tenant_id=...` it updates an "
+        "organization workspace listing as the signed-in account."
+    ),
+)
+async def republish_agent_to_radient(
+    agent_id: str = Path(
+        ..., description="ID of the local agent to republish", examples=["agent123"]
+    ),
+    publication: AgentPublicationRequest = Body(default_factory=AgentPublicationRequest),
+    visibility: Optional[str] = Query(
+        None,
+        description=(
+            "Publication target: `org` updates a listing in the organization named "
+            "by `tenant_id`; omit for the public hub."
+        ),
+        examples=["org"],
+    ),
+    tenant_id: Optional[str] = Query(
+        None,
+        description="The organization whose listing to update; required with `visibility=org`.",
+        examples=["org-tab-1"],
+    ),
+    agent_registry: AgentRegistry = Depends(get_agent_registry),
+    env_config: EnvConfig = Depends(get_env_config),
+    config_manager: ConfigManager = Depends(get_config_manager),
+    provider_auth_store: AuthStore = Depends(get_provider_auth_store),
+):
+    """
+    Update a hub listing with the local agent's current instruction set.
+
+    The listing is named by ``hub_agent_id``: the local registry holds no link to
+    the listing an agent was published as, so the caller -- which is looking at
+    the listing -- is the only side that knows it.
+
+    With ``visibility=org`` and a ``tenant_id`` the update targets an
+    organization-workspace listing as the signed-in account, exactly as the
+    publish route does (§4.4).
+    """
+    target: Dict[str, str] = {}
+    try:
+        # The target rule has ONE reader -- the client's -- so a request the wire
+        # would refuse cannot be credentialed differently from one it accepts:
+        # the same call decides whether this is an org call below (§4.4).
+        from local_operator.clients.radient import org_target_params
+
+        try:
+            target = org_target_params(visibility, tenant_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
+        api_key, base_url = await _radient_route_credentials(
+            target, config_manager, env_config, provider_auth_store
+        )
+        # Same scrub as the publish route: the credential this call spends must
+        # not travel back in a relayed payload (security review round 1, S-1).
+        secrets = [api_key.get_secret_value()]
+
+        if not publication.hub_agent_id:
+            raise HTTPException(
+                status_code=422,
+                detail=_publication_detail(
+                    "invalid_instruction_set",
+                    "An update needs the id of the listing to update: "
+                    "the agent document is not valid: hub_agent_id must not be empty.",
+                    {"field": "hub_agent_id", "rule": "must not be empty"},
+                ),
+            )
+
+        try:
+            agent = agent_registry.get_agent(agent_id)
+        except KeyError:
+            raise HTTPException(status_code=404, detail=f"Agent with ID {agent_id} not found")
+
+        try:
+            overrides = validate_document_overrides(publication.document)
+            document = build_instruction_set_document(
+                **instruction_set_fields(agent_registry, agent, overrides)
+            )
+        except InstructionSetError as exc:
+            raise _invalid_document_error(exc)
+
+        radient_client = RadientClient(api_key=api_key, base_url=base_url)
+        try:
+            result = await asyncio.to_thread(
+                radient_client.republish_agent_instruction_set,
+                publication.hub_agent_id,
+                document,
+                **target,
+            )
+        except APIError as exc:
+            logger.info(
+                "Radient Agent Hub refused a republish (code=%s, HTTP %s)",
+                exc.code,
+                exc.status_code,
+            )
+            raise _publication_http_error(exc)
+
+        result = public_data(result, secrets)
+        return CRUDResponse(
+            status=200,
+            message="Agent republished to Radient successfully",
+            result=result,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error republishing agent to Radient")
+        # The no-key heuristic belongs to the PUBLIC path only: an org call's
+        # credential is the OAuth row, and its own remedies were raised above
+        # (see the publish route's arm for the same reasoning).
+        if not target and ("RADIENT_API_KEY" in str(e) or "credential" in str(e)):
+            raise HTTPException(status_code=401, detail="RADIENT_API_KEY is required")
+        raise HTTPException(
+            status_code=500,
+            detail=_publication_detail(
+                LOCAL_FAILURE_CODE, "This agent could not be republished from this machine."
+            ),
+        )
+
+
+@router.get(
+    "/v1/agent-name-availability",
+    response_model=CRUDResponse,
+    summary="Check whether an agent name is publishable",
+    description=(
+        "Ask the Radient Agent Hub whether a name can be published. Public, and "
+        "advisory: a name reported available can still be taken by a concurrent "
+        "publication."
+    ),
+    openapi_extra={
+        "responses": {
+            "200": {
+                "description": "Name availability checked",
+                "content": {
+                    "application/json": {
+                        "example": {
+                            "status": 200,
+                            "message": "Name availability checked",
+                            "result": {
+                                "name": "adverse-media-screener",
+                                "name_key": "adverse media screener",
+                                "available": False,
+                                "code": "name_reserved_builtin",
+                                "details": {"builtin_name": "reviewer"},
+                            },
+                        }
+                    }
+                },
+            },
+            "422": {
+                "description": "The name is not a valid agent name",
+                "content": {
+                    "application/json": {
+                        "example": {
+                            "detail": {
+                                "code": "invalid_instruction_set",
+                                "message": "The agent document is not valid: name must not "
+                                "contain whitespace.",
+                                "details": {
+                                    "field": "name",
+                                    "rule": "must not contain whitespace",
+                                },
+                            }
+                        }
+                    }
+                },
+            },
+        }
+    },
+)
+async def check_agent_name_availability(
+    name: str = Query(
+        ..., description="The agent name to check", examples=["adverse-media-screener"]
+    ),
+    env_config: EnvConfig = Depends(get_env_config),
+):
+    """
+    Ask the hub whether a name is publishable.
+
+    Public on the hub, so no credential is resolved: a courtesy check that needed
+    a signed-in account would be unavailable in exactly the state where a user is
+    deciding whether to sign in.
+    """
+    try:
+        # API key not required for this endpoint
+        radient_client = RadientClient(api_key=None, base_url=env_config.radient_api_base_url)
+        try:
+            result = await asyncio.to_thread(radient_client.check_agent_name_availability, name)
+        except APIError as exc:
+            logger.info(
+                "Radient Agent Hub refused a name availability check (code=%s, HTTP %s)",
+                exc.code,
+                exc.status_code,
+            )
+            raise _publication_http_error(exc)
+
+        return CRUDResponse(
+            status=200,
+            message="Name availability checked",
+            result=result,
+        )
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Error checking agent name availability on Radient")
+        raise HTTPException(
+            status_code=500,
+            detail=_publication_detail(
+                LOCAL_FAILURE_CODE, "The agent name could not be checked from this machine."
+            ),
+        )
+
+
+# --- Organization share surfaces (design §4.7/§8.3) ---------------------------
+#
+# The reads and writes a client needs to work inside an organization: the org
+# picker's own rows, and team publish/pull. All three resolve the credential
+# through `_org_radient_credentials`, so the signed-in account's bearer -- never
+# the tenant API key -- is the one on the wire (§2.2).
+
+
+@router.get(
+    "/v1/memberships",
+    response_model=CRUDResponse,
+    summary="List your Radient organization memberships",
+    description=(
+        "The signed-in account's organization memberships, each with the caller's "
+        "role and the tenant plan summary (design §4.1/§4.2), for org pickers and "
+        "upgrade decisions. Authenticates as the signed-in account, never with the "
+        "tenant API key."
+    ),
+)
+async def list_radient_memberships(
+    config_manager: ConfigManager = Depends(get_config_manager),
+    provider_auth_store: AuthStore = Depends(get_provider_auth_store),
+):
+    """
+    List the signed-in account's organization memberships.
+
+    A membership list is person-scoped, so no tenant names it: the hub answers
+    for whoever the stored OAuth access token signs in as. Each row carries the
+    plan summary, which is what lets a caller render "org available / upgrade
+    needed" without a second call.
+    """
+    try:
+        api_key, base_url = await _org_radient_credentials(config_manager, provider_auth_store)
+        # The rows are relayed after the same scrub the desktop transport gives
+        # its relays: an upstream may reflect the request's bearer into any
+        # field of its answer (security review round 1, S-1).
+        secrets = [api_key.get_secret_value()]
+        radient_client = RadientClient(api_key=api_key, base_url=base_url)
+        try:
+            memberships = await asyncio.to_thread(radient_client.list_memberships)
+        except APIError as exc:
+            logger.info(
+                "Radient Agent Hub refused a membership list (code=%s, HTTP %s)",
+                exc.code,
+                exc.status_code,
+            )
+            raise _publication_http_error(exc)
+
+        return CRUDResponse(
+            status=200,
+            message="Memberships retrieved successfully",
+            result={"memberships": public_data(memberships, secrets)},
+        )
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Error listing Radient organization memberships")
+        raise HTTPException(
+            status_code=500,
+            detail=_publication_detail(
+                LOCAL_FAILURE_CODE,
+                "Your organization memberships could not be read from this machine.",
+            ),
+        )
+
+
+@router.post(
+    "/v1/teams/{team_id}/publish",
+    response_model=CRUDResponse,
+    summary="Publish a local team into an organization on the Radient Agent Hub",
+    description=(
+        "Publish the local team named by `team_id` into the organization named by "
+        "`tenant_id` (design §4.5). The team document is built from the local row "
+        "(`teams.hub_team_document`) and reviewed by the hub's pipeline."
+    ),
+)
+async def publish_team_to_radient(
+    team_id: str = Path(..., description="ID of the local team to publish", examples=["team123"]),
+    tenant_id: str = Query(
+        ..., description="The organization to publish into.", examples=["org-tab-1"]
+    ),
+    config_manager: ConfigManager = Depends(get_config_manager),
+    provider_auth_store: AuthStore = Depends(get_provider_auth_store),
+    agent_registry: AgentRegistry = Depends(get_agent_registry),
+):
+    """
+    Publish the local team with the given ID into an organization.
+
+    Teams are org-only in v1, so ``tenant_id`` is required, exactly as the hub's
+    ``POST /v1/teams/publish`` requires it. The document is built by
+    ``teams.hub_team_document`` -- the same one-way mapping the CLI's ``teams
+    push`` sends -- so one team cannot publish two different documents depending
+    on which surface ran.
+    """
+    try:
+        from local_operator.teams import (
+            TeamDocumentError,
+            TeamRegistry,
+            hub_team_document,
+        )
+
+        api_key, base_url = await _org_radient_credentials(config_manager, provider_auth_store)
+        # Same scrub as the other org relays (security review round 1, S-1).
+        secrets = [api_key.get_secret_value()]
+
+        try:
+            # A malformed id and a missing row are one answer: neither names a
+            # local team this machine can publish. The registry read runs off
+            # the event loop with the rest of this handler's file work.
+            team = await asyncio.to_thread(
+                TeamRegistry(config_manager.config_dir).get_team, team_id
+            )
+        except (KeyError, ValueError):
+            raise HTTPException(status_code=404, detail=f"Team with ID {team_id} not found")
+
+        try:
+            # The agent registry powers the derive-from-manager fallback when
+            # the team has no STORED suggestion (§3.2). It is the app's own
+            # singleton -- the one every /v1/agents handler above already
+            # depends on -- so this request creates no store the process has
+            # not already built.
+            document = hub_team_document(team, agent_registry=agent_registry)
+        except TeamDocumentError as exc:
+            # A document this machine can already see the hub would refuse
+            # (the local-refusal arm of the agent publication routes, team
+            # twin): 422 in the hub's own vocabulary, and no hub client is
+            # built for it -- the route's ordering rule.
+            raise HTTPException(
+                status_code=422,
+                detail=_publication_detail("invalid_team_document", str(exc), exc.details),
+            )
+        # Built once the local row is known to be publishable: an unknown team
+        # never constructs a hub client, matching the agent routes' ordering.
+        radient_client = RadientClient(api_key=api_key, base_url=base_url)
+        try:
+            result = await asyncio.to_thread(
+                radient_client.publish_team_document, document, tenant_id
+            )
+        except APIError as exc:
+            logger.info(
+                "Radient Agent Hub refused a team publication (code=%s, HTTP %s)",
+                exc.code,
+                exc.status_code,
+            )
+            raise _publication_http_error(exc)
+
+        result = public_data(result, secrets)
+        return CRUDResponse(
+            status=200,
+            message="Team published to Radient successfully",
+            result=result,
+        )
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Error publishing team to Radient")
+        raise HTTPException(
+            status_code=500,
+            detail=_publication_detail(
+                LOCAL_FAILURE_CODE, "This team could not be published from this machine."
+            ),
+        )
+
+
+@router.get(
+    "/v1/teams/pull/{team_id}",
+    response_model=CRUDResponse,
+    summary="Pull a published team into the local registry",
+    description=(
+        "Download the organization team document named by `team_id` and reconstruct "
+        "it locally (design §8.3). `tenant_id`, when given, is the caller's "
+        "statement of which organization owns it."
+    ),
+)
+async def pull_team_from_radient(
+    team_id: str = Path(..., description="ID of the published team to pull", examples=["team-1"]),
+    tenant_id: Optional[str] = Query(
+        None,
+        description=(
+            "The owning organization: a document owned by another tenant is refused "
+            "rather than stored under the wrong expectation."
+        ),
+        examples=["org-tab-1"],
+    ),
+    config_manager: ConfigManager = Depends(get_config_manager),
+    provider_auth_store: AuthStore = Depends(get_provider_auth_store),
+):
+    """
+    Pull the published team ``team_id`` and reconstruct it locally.
+
+    ``GET /v1/teams/:teamid`` is org-agnostic by id (§4.5), so ``tenant_id`` --
+    when given -- is the caller's statement of which organization it means; a
+    document owned by a different tenant is refused (409) rather than stored
+    under the wrong expectation. The reconstruction is
+    ``TeamRegistry.import_hub_team``: a fresh local id, the published name
+    wherever the local rules can hold it, and the rename report the caller can
+    render -- the pull reports what it actually stored.
+    """
+    try:
+        from local_operator.teams import TeamRegistry, validate_team_id
+
+        api_key, base_url = await _org_radient_credentials(config_manager, provider_auth_store)
+        # The id is validated BEFORE the bearer-carrying URL exists (review
+        # round 1, MAJOR): `get_team` interpolates it into the path, so a
+        # decoded `?` or `#` would otherwise become caller-chosen query
+        # structure on a request this machine makes as the signed-in person.
+        # One id reader -- the registry's own -- and a malformed id and a
+        # missing row are one answer, exactly as on the publish route.
+        try:
+            validate_team_id(team_id)
+        except ValueError:
+            raise HTTPException(status_code=404, detail=f"Team with ID {team_id} not found")
+        secrets = [api_key.get_secret_value()]
+        radient_client = RadientClient(api_key=api_key, base_url=base_url)
+        try:
+            document = await asyncio.to_thread(radient_client.get_team, team_id)
+        except APIError as exc:
+            logger.info(
+                "Radient Agent Hub refused a team pull (code=%s, HTTP %s)",
+                exc.code,
+                exc.status_code,
+            )
+            raise _publication_http_error(exc)
+
+        # Scrub before the tenant checks and the local write: a credential an
+        # upstream reflected back must not be STORED any more than it may be
+        # relayed (security review round 1, S-1).
+        document = public_data(document, secrets)
+
+        owner = str(document.get("tenant_id") or "")
+        if tenant_id and not owner:
+            # A declared tenant the document cannot be verified against is a
+            # refusal, not a silent import under the caller's expectation
+            # (review round 1, minor 4).
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "That team does not name an owning organization, so it cannot be "
+                    f"verified against {tenant_id}. Check the tenant."
+                ),
+            )
+        if tenant_id and owner != tenant_id:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"That team belongs to organization {owner}, not {tenant_id}. "
+                    "Check the tenant."
+                ),
+            )
+
+        team_registry = TeamRegistry(config_manager.config_dir)
+        try:
+            outcome = await asyncio.to_thread(
+                team_registry.import_hub_team,
+                document,
+                auth_store=provider_auth_store,
+            )
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Cannot reconstruct this team locally: {exc}",
+            )
+
+        # Link the row to its hub document and record what was pulled, so the update
+        # runner and `teams sync` can three-way merge it later. Best-effort inside
+        # ``record_team_pull``: the pull already succeeded and must stay successful.
+        from local_operator.hub_sync.provenance import record_team_pull
+
+        linked = await asyncio.to_thread(
+            lambda: record_team_pull(
+                team_registry.config_dir,
+                team_registry.get_team(outcome.team.id),
+                document,
+                tenant_id=owner or tenant_id or "",
+            )
+        )
+
+        result = outcome.team.model_dump()
+        result["renamed_from"] = outcome.renamed_from
+        result["invalid_name"] = outcome.invalid_name
+        result["hub_id"] = linked.hub_id if linked else None
+        result["linked"] = linked is not None
+        # The non-blocking model-suggestion report (§4.3): null when nothing was
+        # suggested or the suggestion was stored on the row; present with the
+        # reason when this machine could not honour it.
+        result["model_notice"] = (
+            outcome.model_notice.as_payload() if outcome.model_notice is not None else None
+        )
+        return CRUDResponse(
+            status=200,
+            message="Team pulled from Radient successfully",
+            result=result,
+        )
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Error pulling team from Radient")
+        raise HTTPException(
+            status_code=500,
+            detail=_publication_detail(
+                LOCAL_FAILURE_CODE, "This team could not be pulled from this machine."
+            ),
+        )
+
+
+@router.delete(
+    "/v1/agents/{agent_id}",
+    response_model=CRUDResponse,
+    summary="Delete an agent",
+    description="Delete an existing agent by its ID.",
+    openapi_extra={
+        "responses": {
+            "200": {
+                "description": "Agent deleted successfully",
+                "content": {
+                    "application/json": {
+                        "example": {
+                            "status": 200,
+                            "message": "Agent deleted successfully",
+                            "result": {},
+                        }
+                    }
+                },
+            }
+        },
+    },
+)
+async def delete_agent(
+    agent_registry: AgentRegistry = Depends(get_agent_registry),
+    agent_id: str = Path(..., description="ID of the agent to delete", examples=["agent123"]),
+):
+    """
+    Delete an existing agent.
+    """
+    try:
+        agent_registry.delete_agent(agent_id)
+    except KeyError as e:
+        logger.exception("Agent not found")
+        raise HTTPException(status_code=404, detail=f"Agent not found: {e}")
+    except Exception as e:
+        logger.exception("Error deleting agent")
+        raise HTTPException(status_code=500, detail=f"Error deleting agent: {e}")
+
+    return CRUDResponse(
+        status=200,
+        message="Agent deleted successfully",
+        result={},
+    )
+
+
+@router.get(
+    "/v1/agents/{agent_id}/conversation",
+    response_model=CRUDResponse[AgentGetConversationResult],
+    summary="Get agent conversation history",
+    description="Retrieve the conversation history for a specific agent.",
+    openapi_extra={
+        "responses": {
+            "200": {
+                "description": "Agent conversation retrieved successfully",
+                "content": {
+                    "application/json": {
+                        "example": {
+                            "status": 200,
+                            "message": "Agent conversation retrieved successfully",
+                            "result": {
+                                "agent_id": "agent123",
+                                "last_message_datetime": "2023-01-01T12:00:00",
+                                "first_message_datetime": "2023-01-01T11:00:00",
+                                "messages": [
+                                    {
+                                        "role": "system",
+                                        "content": "You are a helpful assistant",
+                                        "should_summarize": False,
+                                        "summarized": False,
+                                        "timestamp": "2023-01-01T11:00:00",
+                                    },
+                                    {
+                                        "role": "user",
+                                        "content": "Hello, how are you?",
+                                        "should_summarize": True,
+                                        "summarized": False,
+                                        "timestamp": "2023-01-01T11:00:00",
+                                    },
+                                ],
+                                "page": 1,
+                                "per_page": 10,
+                                "total": 2,
+                                "count": 2,
+                            },
+                        }
+                    }
+                },
+            }
+        }
+    },
+)
+async def get_agent_conversation(
+    agent_registry: AgentRegistry = Depends(get_agent_registry),
+    agent_id: str = Path(
+        ..., description="ID of the agent to get conversation for", examples=["agent123"]
+    ),
+    page: int = Query(1, ge=1, description="Page number to retrieve"),
+    per_page: int = Query(10, ge=1, le=100, description="Number of messages per page"),
+):
+    """
+    Retrieve the conversation history for a specific agent.
+
+    Args:
+        agent_registry: The agent registry dependency
+        agent_id: The unique identifier of the agent
+        page: The page number to retrieve (starts at 1)
+        per_page: The number of messages per page (between 1 and 100)
+
+    Returns:
+        AgentGetConversationResult: The conversation history for the agent
+
+    Raises:
+        HTTPException: If the agent registry is not initialized or the agent is not found
+    """
+    try:
+        conversation_history = agent_registry.get_agent_conversation_history(agent_id)
+        total_messages = len(conversation_history)
+
+        # Set default datetime values in case the conversation is empty
+        first_message_datetime = datetime.now()
+        last_message_datetime = datetime.now()
+
+        if conversation_history:
+            # Find the first and last message timestamps. ``timestamp`` is
+            # optional on ConversationRecord, so records predating it are
+            # skipped and an all-untimestamped history keeps the defaults set
+            # above (min/max raise ValueError on an empty sequence).
+            try:
+                first_message_datetime = min(
+                    msg.timestamp for msg in conversation_history if msg.timestamp is not None
+                )
+
+                last_message_datetime = max(
+                    msg.timestamp for msg in conversation_history if msg.timestamp is not None
+                )
+            except (AttributeError, ValueError):
+                # If timestamps aren't available, use current time
+                pass
+
+        # Apply pagination
+        start_idx = (page - 1) * per_page
+        end_idx = min(start_idx + per_page, total_messages)
+
+        # Check if page is out of bounds
+        if start_idx >= total_messages and total_messages > 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Page {page} is out of bounds. "
+                f"Total pages: {(total_messages + per_page - 1) // per_page}",
+            )
+
+        # Pages move backward in history, so we start from the end of the array and
+        # move backward while maintaining the same order of messages
+        paginated_messages = (
+            conversation_history[-end_idx : -start_idx or None] if conversation_history else []
+        )
+
+        result = AgentGetConversationResult(
+            agent_id=agent_id,
+            first_message_datetime=first_message_datetime,
+            last_message_datetime=last_message_datetime,
+            messages=paginated_messages,
+            page=page,
+            per_page=per_page,
+            total=total_messages,
+            count=len(paginated_messages),
+        )
+
+        return CRUDResponse(
+            status=200,
+            message="Agent conversation retrieved successfully",
+            result=result.model_dump(),
+        )
+    except KeyError:
+        logger.exception(f"Agent with ID {agent_id} not found")
+        raise HTTPException(status_code=404, detail=f"Agent with ID {agent_id} not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error retrieving agent conversation")
+        raise HTTPException(
+            status_code=500, detail=f"Error retrieving agent conversation: {str(e)}"
+        )
+
+
+@router.delete(
+    "/v1/agents/{agent_id}/conversation",
+    response_model=CRUDResponse,
+    summary="Clear agent conversation",
+    description="Clear the conversation history for a specific agent.",
+    openapi_extra={
+        "responses": {
+            "200": {
+                "description": "Agent conversation cleared successfully",
+                "content": {
+                    "application/json": {
+                        "example": {
+                            "status": 200,
+                            "message": "Agent conversation cleared successfully",
+                            "result": {},
+                        }
+                    }
+                },
+            },
+            "404": {
+                "description": "Agent not found",
+                "content": {
+                    "application/json": {"example": {"detail": "Agent with ID agent123 not found"}}
+                },
+            },
+            "500": {
+                "description": "Internal server error",
+                "content": {
+                    "application/json": {"example": {"detail": "Error clearing agent conversation"}}
+                },
+            },
+        },
+    },
+)
+async def clear_agent_conversation(
+    agent_registry: AgentRegistry = Depends(get_agent_registry),
+    agent_id: str = Path(
+        ..., description="ID of the agent to clear conversation for", examples=["agent123"]
+    ),
+):
+    """
+    Clear the conversation history for a specific agent.
+
+    Args:
+        agent_registry: The agent registry dependency
+        agent_id: The unique identifier of the agent
+
+    Returns:
+        CRUDResponse: A response indicating success or failure
+
+    Raises:
+        HTTPException: If the agent registry is not initialized or the agent is not found
+    """
+    try:
+        # Get the agent to verify it exists
+        agent = agent_registry.get_agent(agent_id)
+
+        # Get the current agent state
+        agent_state = agent_registry.load_agent_state(agent_id)
+
+        # Clear the conversation by saving an empty list
+        agent_registry.save_agent_state(
+            agent_id=agent_id,
+            agent_state=AgentState(
+                version=agent.version,
+                conversation=[],
+                execution_history=[],
+                learnings=agent_state.learnings,
+                schedules=agent_state.schedules,
+                current_plan="",
+                instruction_details=agent_state.instruction_details,
+                agent_system_prompt=agent_state.agent_system_prompt,
+            ),
+        )
+        agent_registry.save_agent_context(agent_id=agent_id, context={})
+
+        return CRUDResponse(
+            status=200,
+            message="Agent conversation cleared successfully",
+            result={},
+        )
+    except KeyError:
+        logger.exception(f"Agent with ID {agent_id} not found")
+        raise HTTPException(status_code=404, detail=f"Agent with ID {agent_id} not found")
+    except Exception as e:
+        logger.exception("Error clearing agent conversation")
+        raise HTTPException(status_code=500, detail=f"Error clearing agent conversation: {str(e)}")
+
+
+@router.post(
+    "/v1/agents/import",
+    # ``ImportedAgent``: same reason as the download route above. This handler
+    # returns a JSONResponse directly (it needs 201), which FastAPI passes
+    # through unvalidated — so the declaration is documentation here, and it has
+    # to describe what the handler actually sends.
+    response_model=CRUDResponse[ImportedAgent],
+    summary="Import an agent",
+    description=(
+        "Import an agent from a ZIP file containing agent state files with an agent.yml file."
+    ),
+    responses={
+        201: {
+            "description": "Agent imported successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": 201,
+                        "message": "Agent imported successfully",
+                        "result": {
+                            "id": "imported-agent-123",
+                            "name": "Imported Agent",
+                            "renamed_from": None,
+                            "created_date": "2024-01-01T00:00:00",
+                            "version": "0.2.16",
+                            "security_prompt": "Example security prompt",
+                            "hosting": "openrouter",
+                            "model": "openai/gpt-4o-mini",
+                            "description": "An imported agent",
+                            "last_message": "",
+                            "last_message_datetime": "2024-01-01T00:00:00",
+                        },
+                    }
+                }
+            },
+        },
+        400: {
+            "description": "Bad request",
+            "content": {
+                "application/json": {"example": {"detail": "Invalid ZIP file or missing agent.yml"}}
+            },
+        },
+        500: {
+            "description": "Internal server error",
+            "content": {"application/json": {"example": {"detail": "Error importing agent"}}},
+        },
+    },
+)
+async def import_agent(
+    agent_registry: AgentRegistry = Depends(get_agent_registry),
+    file: UploadFile = File(..., description="ZIP file containing agent state files"),
+    provider_auth_store: AuthStore = Depends(get_provider_auth_store),
+) -> JSONResponse:
+    """
+    Import an agent from a ZIP file.
+
+    The ZIP file should contain agent state files with an agent.yml file.
+    A new ID will be assigned to the imported agent, and the current working directory
+    will be reset to local-operator-home.
+
+    Args:
+        agent_registry: The agent registry dependency
+        file: The uploaded ZIP file containing agent state files
+
+    Returns:
+        CRUDResponse: A response containing the imported agent details
+
+    Raises:
+        HTTPException: If there is an error importing the agent
+    """
+    # Create a temporary directory to save the uploaded file
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_dir_path = FilePath(temp_dir)
+        zip_path = temp_dir_path / "agent.zip"
+
+        # Save the uploaded file to the temporary directory
+        with open(zip_path, "wb") as f:
+            f.write(await file.read())
+
+        # Use the AgentRegistry's import_agent method
+        try:
+            outcome = agent_registry.import_agent(zip_path, auth_store=provider_auth_store)
+            agent_serialized = outcome.agent.model_dump()
+            # Named on the response so the caller can say "imported as X — you
+            # already have an agent called Y" rather than silently handing back
+            # a name under which nothing the user asked for can be found. The
+            # key is always present (null when nothing was renamed) so a client
+            # never has to guess whether the backend was just too old to send it.
+            agent_serialized["renamed_from"] = outcome.renamed_from
+            # The non-blocking model-suggestion report, same always-present rule
+            # (null when nothing was suggested or the suggestion applied).
+            agent_serialized["model_notice"] = (
+                outcome.model_notice.as_payload() if outcome.model_notice is not None else None
+            )
+
+            response = CRUDResponse(
+                status=201,
+                message="Agent imported successfully",
+                result=agent_serialized,
+            )
+            return JSONResponse(status_code=201, content=jsonable_encoder(response))
+        except ValueError as e:
+            # Handle ValueError directly as 400 Bad Request
+            error_msg = str(e)
+            logger.exception(f"Invalid agent import data: {error_msg}")
+            raise HTTPException(status_code=400, detail=error_msg)
+        except zipfile.BadZipFile:
+            # Handle BadZipFile directly as 400 Bad Request
+            logger.exception("Invalid ZIP file")
+            raise HTTPException(status_code=400, detail="Invalid ZIP file")
+        except Exception as e:
+            # For other exceptions, check if they contain known error messages
+            error_msg = str(e)
+            logger.exception(f"Error importing agent: {error_msg}")
+
+            # Check for specific error messages that should be 400 errors
+            if "Missing agent.yml" in error_msg or "Invalid ZIP file" in error_msg:
+                raise HTTPException(status_code=400, detail=error_msg)
+
+            # Otherwise, return 500 Internal Server Error
+            raise HTTPException(status_code=500, detail=f"Error importing agent: {error_msg}")
+
+
+@router.get(
+    "/v1/agents/{agent_id}/export",
+    summary="Export an agent",
+    description="Export an agent's state files as a ZIP file.",
+    responses={
+        200: {
+            "description": "Agent exported successfully",
+            "content": {"application/octet-stream": {}},
+        },
+        404: {
+            "description": "Agent not found",
+            "content": {
+                "application/json": {"example": {"detail": "Agent with ID agent123 not found"}}
+            },
+        },
+        500: {
+            "description": "Internal server error",
+            "content": {"application/json": {"example": {"detail": "Error exporting agent"}}},
+        },
+    },
+)
+async def export_agent(
+    background_tasks: BackgroundTasks,
+    agent_registry: AgentRegistry = Depends(get_agent_registry),
+    agent_id: str = Path(..., description="ID of the agent to export", examples=["agent123"]),
+) -> FileResponse:
+    """
+    Export an agent's state files as a ZIP file.
+
+    Args:
+        background_tasks: FastAPI background tasks for cleanup
+        agent_registry: The agent registry dependency
+        agent_id: The unique identifier of the agent to export
+
+    Returns:
+        StreamingResponse: A streaming response containing the ZIP file
+
+    Raises:
+        HTTPException: If the agent is not found or there is an error exporting the agent
+    """
+    try:
+        # export_agent_archive rather than export_agent: this route cannot use
+        # the exported_agent_archive context manager (FileResponse streams the
+        # file after the handler returns), so it must reclaim the directory
+        # itself — and it needs the directory the export actually created.
+        temp_dir, zip_path, filename = agent_registry.export_agent_archive(agent_id)
+
+        # Ensure the file exists before returning it
+        if not zip_path.exists():
+            raise FileNotFoundError(f"Failed to create ZIP file at {zip_path}")
+
+        # Clean up after the response is sent. Removing the captured temp dir
+        # rather than zip_path.parent keeps this correct regardless of the
+        # filename: the agent name is attacker-controllable via import_agent,
+        # and a traversal-shaped name once made .parent an unrelated directory
+        # that this task then deleted.
+        background_tasks.add_task(shutil.rmtree, temp_dir, ignore_errors=True)
+
+        # Return the ZIP file as a streaming response
+        return FileResponse(
+            path=zip_path,
+            filename=filename,
+            media_type="application/octet-stream",
+        )
+
+    except KeyError:
+        logger.exception(f"Agent with ID {agent_id} not found")
+        raise HTTPException(status_code=404, detail=f"Agent with ID {agent_id} not found")
+    except Exception as e:
+        logger.exception("Error exporting agent")
+        raise HTTPException(status_code=500, detail=f"Error exporting agent: {str(e)}")
+
+
+@router.get(
+    "/v1/agents/{agent_id}/history",
+    response_model=CRUDResponse[AgentExecutionHistoryResult],
+    summary="Get agent execution history",
+    description="Retrieve the execution history for a specific agent.",
+    responses={
+        200: {
+            "description": "Agent execution history retrieved successfully",
+            "model": CRUDResponse[AgentExecutionHistoryResult],
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": 200,
+                        "message": "Agent execution history retrieved successfully",
+                        "result": {
+                            "agent_id": "agent123",
+                            "history": [
+                                {
+                                    "code": "print('Hello, world!')",
+                                    "stdout": "Hello, world!",
+                                    "stderr": "",
+                                    "logging": "",
+                                    "message": "Code executed successfully",
+                                    "formatted_print": "Hello, world!",
+                                    "role": "system",
+                                    "status": "success",
+                                    "timestamp": "2024-01-01T12:00:00Z",
+                                    "execution_type": "action",
+                                    "action": "CODE",
+                                    "task_classification": "data_science",
+                                }
+                            ],
+                            "first_execution_datetime": "2024-01-01T12:00:00Z",
+                            "last_execution_datetime": "2024-01-01T12:00:00Z",
+                            "page": 1,
+                            "per_page": 10,
+                            "total": 1,
+                            "count": 1,
+                        },
+                    }
+                }
+            },
+        },
+        400: {
+            "description": "Bad request",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Page 2 is out of bounds. Total pages: 1"}
+                }
+            },
+        },
+        404: {
+            "description": "Agent not found",
+            "content": {
+                "application/json": {"example": {"detail": "Agent with ID agent123 not found"}}
+            },
+        },
+        500: {
+            "description": "Internal server error",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Error retrieving agent execution history"}
+                }
+            },
+        },
+    },
+)
+async def get_agent_execution_history(
+    agent_registry: AgentRegistry = Depends(get_agent_registry),
+    agent_id: str = Path(
+        ..., description="ID of the agent to get execution history for", examples=["agent123"]
+    ),
+    page: int = Query(1, ge=1, description="Page number to retrieve"),
+    per_page: int = Query(10, ge=1, le=100, description="Number of executions per page"),
+):
+    """
+    Get the execution history for a specific agent.
+    """
+    try:
+        execution_history = agent_registry.get_agent_execution_history(agent_id)
+        total_executions = len(execution_history)
+
+        # Default timestamps if no executions
+        first_execution_datetime = datetime.now(timezone.utc)
+        last_execution_datetime = datetime.now(timezone.utc)
+
+        # Get actual timestamps if executions exist
+        if execution_history:
+            try:
+                timestamps = [
+                    execution.timestamp
+                    for execution in execution_history
+                    if execution.timestamp is not None
+                ]
+                if timestamps:
+                    try:
+                        first_execution_datetime = min(timestamps)
+                        last_execution_datetime = max(timestamps)
+                    except TypeError:
+                        # Handle offset-naive and offset-aware datetime comparison
+                        def to_aware(dt: datetime) -> datetime:
+                            if dt.tzinfo is None:
+                                return dt.replace(tzinfo=timezone.utc)
+                            return dt
+
+                        try:
+                            aware_timestamps = [to_aware(dt) for dt in timestamps]
+                            first_execution_datetime = min(aware_timestamps)
+                            last_execution_datetime = max(aware_timestamps)
+                        except Exception:
+                            logger.exception(
+                                "Failed to normalize datetimes in agent execution history"
+                            )
+                            # Fallback to current time if normalization fails
+                            first_execution_datetime = datetime.now(timezone.utc)
+                            last_execution_datetime = datetime.now(timezone.utc)
+                else:
+                    # No valid timestamps, use current time
+                    first_execution_datetime = datetime.now(timezone.utc)
+                    last_execution_datetime = datetime.now(timezone.utc)
+            except (AttributeError, ValueError, TypeError):
+                logger.exception("Error processing execution timestamps")
+                # If timestamps aren't available or error occurs, use current time
+                first_execution_datetime = datetime.now(timezone.utc)
+                last_execution_datetime = datetime.now(timezone.utc)
+
+        # Apply pagination
+        start_idx = (page - 1) * per_page
+        end_idx = min(start_idx + per_page, total_executions)
+
+        # Check if page is out of bounds
+        if start_idx >= total_executions and total_executions > 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Page {page} is out of bounds. "
+                f"Total pages: {(total_executions + per_page - 1) // per_page}",
+            )
+
+        # Pages move backward in history, so we start from the end of the array and
+        # move backward while maintaining the same order of executions
+        paginated_history = (
+            execution_history[-end_idx : -start_idx or None] if execution_history else []
+        )
+
+        result = AgentExecutionHistoryResult(
+            agent_id=agent_id,
+            first_execution_datetime=first_execution_datetime,
+            last_execution_datetime=last_execution_datetime,
+            history=paginated_history,
+            page=page,
+            per_page=per_page,
+            total=total_executions,
+            count=len(paginated_history),
+        )
+
+        return CRUDResponse(
+            status=200,
+            message="Agent execution history retrieved successfully",
+            result=result.model_dump(),
+        )
+    except KeyError:
+        logger.exception(f"Agent with ID {agent_id} not found")
+        raise HTTPException(status_code=404, detail=f"Agent with ID {agent_id} not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error retrieving agent execution history")
+        raise HTTPException(
+            status_code=500, detail=f"Error retrieving agent execution history: {str(e)}"
+        )
+
+
+@router.get(
+    "/v1/agents/{agent_id}/system-prompt",
+    response_model=CRUDResponse,
+    summary="Get agent system prompt",
+    description="Retrieve the system prompt for a specific agent.",
+    responses={
+        200: {
+            "description": "Agent system prompt retrieved successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": 200,
+                        "message": "Agent system prompt retrieved successfully",
+                        "result": {"system_prompt": "You are a helpful assistant..."},
+                    }
+                }
+            },
+        },
+        404: {
+            "description": "Agent not found",
+            "content": {
+                "application/json": {"example": {"detail": "Agent with ID agent123 not found"}}
+            },
+        },
+        500: {
+            "description": "Internal server error",
+            "content": {
+                "application/json": {"example": {"detail": "Error retrieving agent system prompt"}}
+            },
+        },
+    },
+)
+async def get_agent_system_prompt(
+    agent_registry: AgentRegistry = Depends(get_agent_registry),
+    agent_id: str = Path(..., description="ID of the agent", examples=["agent123"]),
+):
+    """
+    Retrieve the system prompt for a specific agent.
+
+    Args:
+        agent_registry: The agent registry dependency
+        agent_id: The unique identifier of the agent
+
+    Returns:
+        CRUDResponse: A response containing the agent's system prompt
+
+    Raises:
+        HTTPException: If the agent is not found or there is an error retrieving the system prompt
+    """
+    try:
+        system_prompt = agent_registry.get_agent_system_prompt(agent_id)
+        return CRUDResponse(
+            status=200,
+            message="Agent system prompt retrieved successfully",
+            result={"system_prompt": system_prompt},
+        )
+    except KeyError:
+        logger.exception(f"Agent with ID {agent_id} not found")
+        raise HTTPException(status_code=404, detail=f"Agent with ID {agent_id} not found")
+    except FileNotFoundError as e:
+        logger.exception(f"System prompt file not found for agent {agent_id}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except IOError as e:
+        logger.exception(f"Error reading system prompt for agent {agent_id}")
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        logger.exception("Error retrieving agent system prompt")
+        raise HTTPException(
+            status_code=500, detail=f"Error retrieving agent system prompt: {str(e)}"
+        )
+
+
+@router.put(
+    "/v1/agents/{agent_id}/system-prompt",
+    response_model=CRUDResponse,
+    summary="Update agent system prompt",
+    description="Update the system prompt for a specific agent.",
+    responses={
+        200: {
+            "description": "Agent system prompt updated successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": 200,
+                        "message": "Agent system prompt updated successfully",
+                        "result": {},
+                    }
+                }
+            },
+        },
+        404: {
+            "description": "Agent not found",
+            "content": {
+                "application/json": {"example": {"detail": "Agent with ID agent123 not found"}}
+            },
+        },
+        500: {
+            "description": "Internal server error",
+            "content": {
+                "application/json": {"example": {"detail": "Error updating agent system prompt"}}
+            },
+        },
+    },
+)
+async def update_agent_system_prompt(
+    system_prompt: Dict[str, str],
+    agent_registry: AgentRegistry = Depends(get_agent_registry),
+    agent_id: str = Path(..., description="ID of the agent", examples=["agent123"]),
+):
+    """
+    Update the system prompt for a specific agent.
+
+    Args:
+        system_prompt: A dictionary containing the system prompt text
+        agent_registry: The agent registry dependency
+        agent_id: The unique identifier of the agent
+
+    Returns:
+        CRUDResponse: A response indicating success or failure
+
+    Raises:
+        HTTPException: If the agent is not found or there is an error updating the system prompt
+    """
+    try:
+        if "system_prompt" not in system_prompt:
+            raise HTTPException(
+                status_code=422, detail="Request body must contain 'system_prompt' field"
+            )
+
+        agent_registry.set_agent_system_prompt(agent_id, system_prompt["system_prompt"])
+        return CRUDResponse(
+            status=200,
+            message="Agent system prompt updated successfully",
+            result={},
+        )
+    except KeyError:
+        logger.exception(f"Agent with ID {agent_id} not found")
+        raise HTTPException(status_code=404, detail=f"Agent with ID {agent_id} not found")
+    except IOError as e:
+        logger.exception(f"Error writing system prompt for agent {agent_id}")
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise
+
+        logger.exception("Error updating agent system prompt")
+        raise HTTPException(status_code=500, detail=f"Error updating agent system prompt: {str(e)}")
+
+
+# Agent Execution Variables CRUD Endpoints
+@router.get(
+    "/v1/agents/{agent_id}/execution-variables",
+    response_model=CRUDResponse[ExecutionVariablesResponse],
+    summary="List agent execution variables",
+    description="Retrieve all execution variables for a specific agent.",
+)
+async def list_agent_execution_variables(
+    agent_id: str = Path(..., description="ID of the agent"),
+    agent_registry: AgentRegistry = Depends(get_agent_registry),
+) -> CRUDResponse[ExecutionVariablesResponse]:
+    try:
+        variables = agent_registry.load_agent_context(agent_id)
+
+        if variables is None:
+            return CRUDResponse(
+                status=200,
+                message="No execution variables found",
+                result=ExecutionVariablesResponse(execution_variables=[]),
+            )
+
+        string_variables = [
+            ExecutionVariable(key=k, value=str(v), type=type(v).__name__)
+            for k, v in variables.items()
+        ]
+
+        return CRUDResponse(
+            status=200,
+            message="Execution variables retrieved successfully",
+            result=ExecutionVariablesResponse(execution_variables=string_variables),
+        )
+    except KeyError:
+        logger.warning(f"Agent not found when listing execution variables: {agent_id}")
+        raise HTTPException(status_code=404, detail=f"Agent with ID {agent_id} not found")
+    except Exception as e:
+        logger.exception(f"Error listing execution variables for agent {agent_id}")
+        raise HTTPException(
+            status_code=500, detail=f"Error retrieving execution variables: {str(e)}"
+        )
+
+
+@router.post(
+    "/v1/agents/{agent_id}/execution-variables",
+    response_model=CRUDResponse[ExecutionVariable],
+    summary="Create an agent execution variable",
+    description="Create a new execution variable for a specific agent.",
+)
+async def create_agent_execution_variable(
+    variable_data: ExecutionVariable,
+    agent_id: str = Path(..., description="ID of the agent"),
+    agent_registry: AgentRegistry = Depends(get_agent_registry),
+) -> JSONResponse:
+    try:
+        # Coerce the value to the correct type based on the type field
+        coerced_value = variable_data.value
+        if variable_data.type == "int":
+            coerced_value = int(variable_data.value)
+        elif variable_data.type == "float":
+            coerced_value = float(variable_data.value)
+        elif variable_data.type == "bool":
+            coerced_value = variable_data.value.lower() in ("true", "1", "yes", "on")
+        elif variable_data.type == "list":
+            # Try to parse as JSON list, fallback to string split
+            coerced_value = json.loads(variable_data.value)
+            if not isinstance(coerced_value, list):
+                raise ValueError("Value is not a valid list")
+        elif variable_data.type == "dict":
+            # Try to parse as JSON dict
+            coerced_value = json.loads(variable_data.value)
+            if not isinstance(coerced_value, dict):
+                raise ValueError("Value is not a valid dict")
+        # For 'str' type or any other type, keep as string
+
+        agent_registry.create_context_variable(agent_id, variable_data.key, coerced_value)
+        response_content = CRUDResponse(
+            status=201,
+            message="Execution variable created successfully",
+            result=ExecutionVariable(
+                key=variable_data.key,
+                value=str(coerced_value),  # Ensure value is string for response
+                type=type(coerced_value).__name__,
+            ),
+        )
+        return JSONResponse(status_code=201, content=jsonable_encoder(response_content))
+    except KeyError:
+        logger.warning(f"Agent not found when creating execution variable: {agent_id}")
+        raise HTTPException(status_code=404, detail=f"Agent with ID {agent_id} not found")
+    except (
+        ValueError
+    ) as e:  # Handles case where variable key already exists or type conversion errors
+        logger.warning(
+            f"Attempt to create existing execution variable '{variable_data.key}' "
+            f"for agent {agent_id} or type conversion error: {str(e)}"
+        )
+        raise HTTPException(status_code=409, detail=str(e))
+    except Exception as e:
+        logger.exception(
+            f"Error creating execution variable '{variable_data.key}' for agent {agent_id}"
+        )
+        raise HTTPException(status_code=500, detail=f"Error creating execution variable: {str(e)}")
+
+
+@router.get(
+    "/v1/agents/{agent_id}/execution-variables/{variable_key}",
+    response_model=CRUDResponse[ExecutionVariable],
+    summary="Get an agent execution variable",
+    description="Retrieve a specific execution variable for an agent by its key.",
+)
+async def get_agent_execution_variable(
+    agent_id: str = Path(..., description="ID of the agent"),
+    variable_key: str = Path(..., description="Key of the execution variable"),
+    agent_registry: AgentRegistry = Depends(get_agent_registry),
+) -> CRUDResponse[ExecutionVariable]:
+    try:
+        value = agent_registry.get_context_variable(agent_id, variable_key)
+        return CRUDResponse(
+            status=200,
+            message="Execution variable retrieved successfully",
+            result=ExecutionVariable(key=variable_key, value=value, type=type(value).__name__),
+        )
+    except KeyError as e:
+        logger.warning(
+            f"Agent '{agent_id}' or variable '{variable_key}' not found "
+            "when getting execution variable"
+        )
+        # Distinguish between agent not found and variable not found for clarity
+        if f"Agent with id {agent_id} not found" in str(e):
+            raise HTTPException(status_code=404, detail=f"Agent with ID {agent_id} not found")
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Execution variable '{variable_key}' not found for agent {agent_id}",
+            )
+    except Exception as e:
+        logger.exception(
+            f"Error retrieving execution variable '{variable_key}' for agent {agent_id}"
+        )
+        raise HTTPException(
+            status_code=500, detail=f"Error retrieving execution variable: {str(e)}"
+        )
+
+
+@router.patch(
+    "/v1/agents/{agent_id}/execution-variables/{variable_key}",
+    response_model=CRUDResponse[ExecutionVariable],
+    summary="Update an agent execution variable",
+    description="Update an existing execution variable for a specific agent.",
+)
+async def update_agent_execution_variable(
+    variable_data: ExecutionVariable,
+    agent_id: str = Path(..., description="ID of the agent"),
+    variable_key: str = Path(..., description="Key of the execution variable to update"),
+    agent_registry: AgentRegistry = Depends(get_agent_registry),
+) -> CRUDResponse[ExecutionVariable]:
+    try:
+        # Coerce the value to the correct type if type is provided
+        coerced_value = variable_data.value
+        if variable_data.type:
+            try:
+                if variable_data.type == "int":
+                    coerced_value = int(variable_data.value)
+                elif variable_data.type == "float":
+                    coerced_value = float(variable_data.value)
+                elif variable_data.type == "bool":
+                    coerced_value = variable_data.value.lower() in ("true", "1", "yes", "on")
+                elif variable_data.type == "str":
+                    coerced_value = str(variable_data.value)
+                elif variable_data.type == "list":
+                    coerced_value = json.loads(variable_data.value)
+                    if not isinstance(coerced_value, list):
+                        raise ValueError("Value is not a valid list")
+                elif variable_data.type == "dict":
+                    coerced_value = json.loads(variable_data.value)
+                    if not isinstance(coerced_value, dict):
+                        raise ValueError("Value is not a valid dict")
+                # Add more type coercions as needed
+            except (ValueError, AttributeError) as type_error:
+                raise ValueError(
+                    f"Cannot convert '{variable_data.value}' to type "
+                    f"'{variable_data.type}': {str(type_error)}"
+                )
+
+        updated_context = agent_registry.update_context_variable(
+            agent_id, variable_key, coerced_value
+        )
+        updated_value = updated_context.get(variable_key)
+
+        return CRUDResponse(
+            status=200,
+            message="Execution variable updated successfully",
+            result=ExecutionVariable(
+                key=variable_key,
+                value=str(updated_value),  # Ensure value is string for the response model
+                type=type(updated_value).__name__,
+            ),
+        )
+    except KeyError as e:
+        logger.warning(
+            f"Agent '{agent_id}' or variable '{variable_key}' not found "
+            "when updating execution variable"
+        )
+        if f"Agent with id {agent_id} not found" in str(e):
+            raise HTTPException(status_code=404, detail=f"Agent with ID {agent_id} not found")
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Execution variable '{variable_key}' not found for agent {agent_id}",
+            )
+    except ValueError as e:
+        logger.warning(
+            f"Type conversion error when updating execution variable '{variable_key}' "
+            f"for agent {agent_id}: {str(e)}"
+        )
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception(f"Error updating execution variable '{variable_key}' for agent {agent_id}")
+        raise HTTPException(status_code=500, detail=f"Error updating execution variable: {str(e)}")
+
+
+@router.delete(
+    "/v1/agents/{agent_id}/execution-variables/{variable_key}",
+    summary="Delete an agent execution variable",
+    description="Delete an execution variable for a specific agent by its key.",
+)
+async def delete_agent_execution_variable(
+    agent_id: str = Path(..., description="ID of the agent"),
+    variable_key: str = Path(..., description="Key of the execution variable to delete"),
+    agent_registry: AgentRegistry = Depends(get_agent_registry),
+):
+    try:
+        agent_registry.delete_context_variable(agent_id, variable_key)
+        return CRUDResponse(
+            status=200,
+            message="Execution variable deleted successfully",
+        )
+    except KeyError as e:
+        logger.warning(
+            f"Agent '{agent_id}' or variable '{variable_key}' not found "
+            "when deleting execution variable"
+        )
+        if f"Agent with id {agent_id} not found" in str(e):
+            raise HTTPException(status_code=404, detail=f"Agent with ID {agent_id} not found")
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Execution variable '{variable_key}' not found for agent {agent_id}",
+            )
+    except Exception as e:
+        logger.exception(f"Error deleting execution variable '{variable_key}' for agent {agent_id}")
+        raise HTTPException(status_code=500, detail=f"Error deleting execution variable: {str(e)}")

@@ -1,0 +1,84 @@
+name: Tests Linux with sanitizers
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    name: build and test with ASan+UBSan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Install system dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y g++ catch2
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+      - name: Install Python dependencies
+        run: python3.14 -m pip install meson ninja numpy meson-python>=0.14.0 build wheel ddt requests cyclopts rich
+      - name: Configure with meson
+        run: meson setup -Db_sanitize=address,undefined -Dwith_tests=true -Dwith_experimental_zstd=true build
+      - name: Build
+        run: ninja -C build
+      # Split in two groups rather than one meson-test invocation: the C++ Catch2 and
+      # wacdfpp (Node) tests never touch CPython and need no special handling. The
+      # python_* tests and python_wrapper_cpp embed/dlopen the ASan-instrumented
+      # extension into an unmodified system python3, which needs its own environment
+      # (see below) that would be actively harmful to the Node-based wacdfpp tests if
+      # applied globally (an unrelated runtime forcibly getting the ASan preload).
+      - name: Run C++ core + wacdfpp tests under ASan+UBSan
+        run: >
+          meson test -C build --print-errorlogs
+          endianness simple_open majority chrono nomap records_loading records_saving
+          rle_compression libdeflate_compression zlib_compression simple_save
+          zstd_compression structural_introspection record_stream record_repr nasa_compat_repr
+          pathological_time_repr
+          wacdfpp_astralint wacdfpp_diff wacdfpp_format wacdfpp_model wacdfpp_plot wacdfpp_yaml
+      - name: Run Python-embedding tests under ASan+UBSan
+        run: |
+          # System python3 is a plain C executable with no libstdc++ dependency of its
+          # own, so at the point LD_PRELOAD libraries are loaded (before main()),
+          # libstdc++ isn't in the process yet -- it only loads later, lazily, when
+          # `import pycdfpp` dlopen()s the C++ extension. ASan's __cxa_throw
+          # interceptor resolves the real (libstdc++) implementation once, at its own
+          # init time; if libstdc++ isn't loaded yet, that resolution permanently
+          # fails (real___cxa_throw stays NULL), and the first C++ exception actually
+          # thrown anywhere in the process crashes with "CHECK failed: ...
+          # real___cxa_throw ... != 0". Preloading libstdc++ ahead of libasan forces
+          # it to already be present when ASan initializes. Resolve both paths (not
+          # the linker-script stub `gcc -print-file-name=...` returns) from an
+          # already-built binary rather than hardcoding a distro-specific path.
+          export LD_PRELOAD="$(ldd build/tests/test-endianness | awk '/libstdc\+\+/{print $3}'):$(ldd build/tests/test-endianness | awk '/libasan/{print $3}')"
+          # detect_leaks=0 disables only LeakSanitizer's exit-time "still allocated"
+          # scan. CPython's own interpreter/type-system caches (interned strings, type
+          # dicts, frozen-module bytecode) are allocated once and intentionally kept
+          # alive for the process's lifetime — LSan's exit-time scan always flags them
+          # as "leaked" regardless of how narrowly they're suppressed by name, and
+          # different stdlib surface touched by different tests keeps surfacing new,
+          # never-before-seen CPython-internal call sites (an unbounded set in
+          # practice, confirmed empirically while building this workflow). This does
+          # NOT weaken the signal that actually matters for Python/C++ lifetime bugs:
+          # ASan's use-after-free / heap-buffer-overflow / double-free detectors and
+          # every UBSan check stay fully active and are unaffected by detect_leaks — a
+          # dangling pointer read through a Python wrapper (e.g. the documented nomap
+          # reference-invalidation footgun) is still caught immediately.
+          #
+          # verify_asan_link_order=0 is needed because the ASan runtime reaches this
+          # process via LD_PRELOAD into an unmodified system python3, not by being
+          # linked into the main executable -- ASan's own startup link-order check
+          # doesn't expect that, and its false positive here silently breaks its
+          # __cxa_throw interception (surfacing as "CHECK failed: ...
+          # real___cxa_throw ... != 0" the moment any test actually throws a C++
+          # exception). This disables only that startup heuristic, not detection.
+          export ASAN_OPTIONS=detect_leaks=0:verify_asan_link_order=0
+          export UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
+          meson test -C build --print-errorlogs \
+            python_loading python_saving python_skeletons python_variable_set_values \
+            python_chrono python_windows_crash python_structural_introspection \
+            python_debug python_cli_irsdump python_wrapper_cpp

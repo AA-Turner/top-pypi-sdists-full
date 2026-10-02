@@ -80,6 +80,7 @@ from snowflake.snowpark_connect.server_common import (  # noqa: F401 - re-export
     _reset_server_run_state,
     _setup_spark_environment,
     _stop_server,
+    clear_rpc_type,
     clear_terminal_op,
     configure_server_url,
     get_client_url,
@@ -92,6 +93,7 @@ from snowflake.snowpark_connect.server_common import (  # noqa: F401 - re-export
     set_server_error,
     setup_signal_handlers,
     start_stdin_monitor,
+    store_rpc_type,
     store_terminal_op,
     validate_startup_parameters,
 )
@@ -166,6 +168,7 @@ from snowflake.snowpark_connect.utils.snowpark_connect_logging import (
 from snowflake.snowpark_connect.utils.span_naming import (
     add_call_site_attributes,
     add_terminal_op_attribute,
+    rpc_type_name,
     span_name,
     terminal_operation_name,
 )
@@ -250,6 +253,7 @@ def _process_and_store_client_stack_trace(request, add_to_span: bool = False):
     # when OpenTelemetry is unavailable -- so other consumers such as query tags
     # can reuse the same user-facing operation name without recomputing it.
     store_terminal_op(terminal_operation_name(request))
+    store_rpc_type(rpc_type_name(request))
 
     # Set span attribute with formatted stack trace (if requested and available)
     if add_to_span and client_stack:
@@ -500,6 +504,7 @@ class SnowflakeConnectServicer(proto_base_grpc.SparkConnectServiceServicer):
             # Clear client stack trace and cached terminal op when request is done
             _clear_client_stack_trace()
             clear_terminal_op()
+            clear_rpc_type()
             otel_flush_telemetry()
             self._cleanup_external_tables()
             telemetry.send_request_summary_telemetry()
@@ -693,6 +698,7 @@ class SnowflakeConnectServicer(proto_base_grpc.SparkConnectServiceServicer):
             # Clear client stack trace and cached terminal op when request is done
             _clear_client_stack_trace()
             clear_terminal_op()
+            clear_rpc_type()
             otel_flush_telemetry()
             self._cleanup_external_tables()
             telemetry.send_request_summary_telemetry()

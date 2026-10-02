@@ -1,0 +1,225 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "ffsim"
+requires-python = ">=3.11"
+version = "0.0.84"
+description = "Faster simulation of fermionic quantum circuits."
+readme = "README.md"
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Rust",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "jax",
+    "numpy",
+    "opt_einsum",
+    "orjson",
+    "pyscf >= 2.12",
+    "qiskit >= 2.0",
+    "scipy",
+    "typing-extensions",
+]
+
+[project.urls]
+Homepage = "https://github.com/qiskit-community/ffsim"
+Documentation = "https://qiskit-community.github.io/ffsim/"
+
+[dependency-groups]
+dev = [
+    "coverage",
+    "maturin",
+    "mypy",
+    "pre-commit",
+    "pytest",
+    "ruff",
+    "typos",
+]
+docs = [
+    "myst-parser",
+    "nbmake",
+    "nbsphinx",
+    "qiskit[visualization]",
+    "qiskit-sphinx-theme",
+    "sphinx",
+    "sphinx-autodoc-typehints",
+]
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+python-source = "python"
+module-name = "ffsim._lib"
+
+[tool.cibuildwheel]
+build = "cp311-macosx* cp311-manylinux_x86_64 cp311-manylinux_aarch64"
+test-requires = "pytest"
+test-command = "pytest {project}/tests"
+
+[tool.cibuildwheel.linux]
+before-all = "dnf install -y openssl-devel"
+
+[[tool.cibuildwheel.overrides]]
+select = "*-manylinux_x86_64"
+environment = { RUSTFLAGS = "-C target-cpu=x86-64" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+check_untyped_defs = true
+ignore_missing_imports = true
+files = ["python/**/*.py", "python/**/*.pyi", "tests/**/*.py", "docs/**/*.py"]
+
+[tool.ruff]
+src = ["python"]
+include = [
+    "pyproject.toml",
+    "python/**/*.py",
+    "python/**/*.pyi",
+    "tests/**/*.py",
+    "tests/**/*.pyi",
+    "docs/**/*.py",
+    "docs/**/*.pyi",
+    "docs/**/*.ipynb",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "NPY", "NPY201", "RUF"]
+
+[tool.typos.default]
+# Jupyter notebook cell IDs
+extend-ignore-re = ["[0-9a-f]{8,}"]
+
+[tool.typos.default.extend-words]
+datas = "datas"
+ket = "ket"
+
+[tool.tox]
+requires = ["tox>=4.50"]
+env_list = [
+    "test-3.11",
+    "test-3.12",
+    "test-3.13",
+    "test-3.14",
+    "coverage",
+    "type",
+    "lint",
+    "format",
+    "spell",
+    "docs",
+]
+
+[tool.tox.env_run_base]
+pass_env = [
+    "OMP_NUM_THREADS",
+    "RAYON_NUM_THREADS",
+    "MKL_NUM_THREADS",
+    "OPENBLAS_NUM_THREADS",
+    "VECLIB_MAXIMUM_THREADS",
+]
+
+[tool.tox.env_base.test]
+description = "run tests"
+factors = [["3.11", "3.12", "3.13", "3.14"]]
+deps = ["pytest"]
+commands = [["pytest"]]
+
+[tool.tox.env.coverage]
+description = "check test coverage"
+deps = ["coverage", "pytest"]
+commands = [
+    [
+        "coverage",
+        "run",
+        "--source",
+        "ffsim",
+        "-m",
+        "pytest",
+    ],
+    [
+        "coverage",
+        "report",
+        "--fail-under=80",
+    ],
+]
+
+[tool.tox.env.format]
+description = "check formatting"
+skip_install = true
+deps = ["ruff"]
+allowlist_externals = ["cargo"]
+commands = [
+    [
+        "ruff",
+        "format",
+        "--check",
+    ],
+    [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check",
+    ],
+]
+
+[tool.tox.env.lint]
+description = "check for lint"
+skip_install = true
+deps = ["ruff"]
+allowlist_externals = ["cargo"]
+commands = [
+    [
+        "ruff",
+        "check",
+    ],
+    [
+        "cargo",
+        "clippy",
+        "--all",
+        "--",
+        "-D",
+        "warnings",
+    ],
+]
+
+[tool.tox.env.spell]
+description = "check spelling"
+skip_install = true
+deps = ["typos"]
+commands = [["typos"]]
+
+[tool.tox.env.type]
+description = "run type check"
+deps = ["mypy"]
+commands = [["mypy"]]
+
+[tool.tox.env.docs]
+description = "build docs"
+dependency_groups = ["docs"]
+commands = [
+    [
+        "python",
+        "docs/generate_api_docs.py",
+    ],
+    [
+        "sphinx-build",
+        "-b",
+        "html",
+        "-W",
+        "docs/",
+        "docs/_build/html",
+    ],
+]

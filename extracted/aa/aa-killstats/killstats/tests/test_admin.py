@@ -6,7 +6,7 @@ from django.contrib.admin.sites import AdminSite
 from django.contrib.messages import get_messages
 from django.contrib.messages.middleware import MessageMiddleware
 from django.contrib.sessions.middleware import SessionMiddleware
-from django.test import RequestFactory, TestCase
+from django.test import RequestFactory
 
 # Alliance Auth
 from allianceauth.eveonline.evelinks import eveimageserver
@@ -19,10 +19,10 @@ from killstats.admin import (
     clear_cache_zkb,
 )
 from killstats.models.killstatsaudit import AlliancesAudit, CorporationsAudit
-from killstats.tests.testdata.load_allianceauth import load_allianceauth
-from killstats.tests.testdata.utils import (
-    create_owner_from_evecharacter,
-    create_user_from_evecharacter,
+from killstats.tests import AuthTestCase
+from killstats.tests.testdata.killstats import (
+    AlliancesAuditFactory,
+    CorporationsAuditFactory,
 )
 
 MODULE_PATH = "killstats.admin"
@@ -32,23 +32,15 @@ class MockRequest:
     pass
 
 
-class TestKillstatsAuditAdmin(TestCase):
+class TestKillstatsAuditAdmin(AuthTestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        load_allianceauth()
 
         cls.factory = RequestFactory()
         cls.site = AdminSite()
         cls.killstats_audit_admin = CorporationsAuditAdmin(CorporationsAudit, cls.site)
-        cls.killstats_audit = create_owner_from_evecharacter(1001)
-        # User with Superuser Access - Corporation 2003
-        cls.superuser, cls.superuser_character = create_user_from_evecharacter(
-            character_id=1003,
-            permissions=[],
-        )
-        cls.superuser.is_superuser = True
-        cls.superuser.save()
+        cls.killstats_audit = CorporationsAuditFactory()
 
     def test_entity_pic(self):
         self.client.force_login(self.superuser)
@@ -72,7 +64,7 @@ class TestKillstatsAuditAdmin(TestCase):
             self.killstats_audit_admin._corporation__corporation_id(
                 self.killstats_audit
             ),
-            2001,
+            self.killstats_audit.corporation.corporation_id,
         )
 
     def test_last_update(self):
@@ -82,6 +74,12 @@ class TestKillstatsAuditAdmin(TestCase):
         self.assertEqual(
             self.killstats_audit_admin._last_update(self.killstats_audit),
             self.killstats_audit.last_update,
+        )
+
+    def test_last_missing_check(self):
+        self.assertEqual(
+            self.killstats_audit_admin._last_missing_check(self.killstats_audit),
+            self.killstats_audit.last_missing_check,
         )
 
     def test_has_add_permission(self):
@@ -166,25 +164,15 @@ class TestKillstatsAuditAdmin(TestCase):
         )
 
 
-class TestAlliancesAuditAdmin(TestCase):
+class TestAlliancesAuditAdmin(AuthTestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        load_allianceauth()
 
         cls.factory = RequestFactory()
         cls.site = AdminSite()
         cls.killstats_audit_admin = AlliancesAuditAdmin(AlliancesAudit, cls.site)
-        cls.killstats_audit = create_owner_from_evecharacter(
-            character_id=1001, owner_type="alliance"
-        )
-        # User with Superuser Access - Corporation 2003
-        cls.superuser, cls.superuser_character = create_user_from_evecharacter(
-            character_id=1003,
-            permissions=[],
-        )
-        cls.superuser.is_superuser = True
-        cls.superuser.save()
+        cls.killstats_audit = AlliancesAuditFactory()
 
     def test_entity_pic(self):
         self.client.force_login(self.superuser)
@@ -206,7 +194,7 @@ class TestAlliancesAuditAdmin(TestCase):
         request.user = self.superuser
         self.assertEqual(
             self.killstats_audit_admin._alliance__alliance_id(self.killstats_audit),
-            3001,
+            self.killstats_audit.alliance.alliance_id,
         )
 
     def test_last_update(self):
@@ -216,6 +204,12 @@ class TestAlliancesAuditAdmin(TestCase):
         self.assertEqual(
             self.killstats_audit_admin._last_update(self.killstats_audit),
             self.killstats_audit.last_update,
+        )
+
+    def test_last_missing_check(self):
+        self.assertEqual(
+            self.killstats_audit_admin._last_missing_check(self.killstats_audit),
+            self.killstats_audit.last_missing_check,
         )
 
     def test_has_add_permission(self):

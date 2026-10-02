@@ -1,0 +1,110 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# ONEX Node Contract - Routing Orchestrator
+#
+# Intelligent Model Router — coordinates probe -> score -> route -> dispatch.
+#
+# Ticket: OMN-7269
+#
+name: "node_routing_orchestrator"
+node_type: "ORCHESTRATOR_GENERIC"
+runtime_profiles: [main]
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version: "1.0.0"
+description: >
+  Orchestrates the model routing workflow: receive command, dispatch health probe, dispatch scoring, emit routing decision.
+
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  subscribe_topics:
+    - "onex.cmd.router.route-request.v1"
+    # OMN-17427: `onex.evt.router.health-snapshot.v1` DELETED from subscribe_topics. No contract and no
+    # runtime path anywhere in the fleet publishes it (grep of every omni_home
+    # clone, 2026-10-01), so the subscription only minted a permanently empty
+    # consumer group (OMN-16795). Re-add it with its publisher and its handler
+    # entry, in one diff (OMN-7897).
+    # OMN-17427: `onex.evt.router.scoring-decision.v1` DELETED from subscribe_topics. No contract and no
+    # runtime path anywhere in the fleet publishes it (grep of every omni_home
+    # clone, 2026-10-01), so the subscription only minted a permanently empty
+    # consumer group (OMN-16795). Re-add it with its publisher and its handler
+    # entry, in one diff (OMN-7897).
+    # OMN-18013: `onex.evt.router.routing-outcome.v1` DELETED from subscribe_topics. No handler_routing entry owned it
+    # (_topics_for_handler_entry returned no match, so ZERO dispatch routes existed) AND
+    # no contract anywhere in the corpus publishes it, so nothing could ever arrive on it
+    # either. Re-add it with its publisher and its handler entry, in one diff.
+  publish_topics:
+    - "onex.evt.router.routing-complete.v1"
+    - "onex.evt.router.routing-failed.v1"
+  # OMN-13852: DLQ destination for unroutable inbound messages; matches the
+  # engine-derived NO_DISPATCHER topic for the "router" event_type domain so
+  # the dead-letter escape hatch targets a provisioned topic.
+  dlq_topics:
+    - "onex.dlq.omnibase-infra.router.v1"
+input_model:
+  name: "ModelRoutingCommand"
+  module: "omnibase_infra.nodes.node_routing_orchestrator.models.model_routing_command"
+  description: "Command to initiate routing workflow."
+output_model:
+  name: "ModelRoutingResult"
+  module: "omnibase_infra.nodes.node_routing_orchestrator.models.model_routing_result"
+  description: "Final routing result with selected model."
+handler_routing:
+  routing_strategy: "payload_type_match"
+  handlers:
+    - event_model:
+        name: "ModelRoutingCommand"
+        module: "omnibase_infra.nodes.node_routing_orchestrator.models.model_routing_command"
+      # OMN-13852: per-handler event_type disambiguates the owned subscribe topic
+      # so routes register (previously the multi-handler ambiguity guard registered
+      # zero routes and every inbound message fell through to NO_DISPATCHER).
+      event_type: "router.route-request"
+      message_category: "COMMAND"
+      handler:
+        name: "HandlerRoutingInitiate"
+        module: "omnibase_infra.nodes.node_routing_orchestrator.handlers.handler_routing_initiate"
+      output_events:
+        - "ModelHealthRequest"
+workflow_coordination:
+  workflow_definition:
+    workflow_metadata:
+      workflow_name: "model_routing_workflow"
+      workflow_version:
+        major: 1
+        minor: 0
+        patch: 0
+      description: "Intelligent model routing: probe -> score -> route"
+    execution_graph:
+      nodes:
+        - node_id: "probe_health"
+          node_type: EFFECT_GENERIC
+          description: "Probe model endpoints for health/latency"
+        - node_id: "score_models"
+          node_type: COMPUTE_GENERIC
+          description: "Score candidate models by quality, cost, speed"
+          depends_on: ["probe_health"]
+        - node_id: "emit_decision"
+          node_type: ORCHESTRATOR_GENERIC
+          description: "Emit final routing decision"
+          depends_on: ["score_models"]
+    coordination_rules:
+      execution_mode: sequential
+      parallel_execution_allowed: false
+      max_parallel_branches: 1
+      failure_recovery_strategy: fail_fast
+      max_retries: 0
+      timeout_ms: 30000
+metadata:
+  description: "Routing orchestrator for intelligent model router"
+  author: "OmniNode Team"
+  created: "2026-04-02"
+  tags:
+    - "orchestrator"
+    - "model-router"
+    - "llm"
+    - "routing"

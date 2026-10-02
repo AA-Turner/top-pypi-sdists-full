@@ -43,7 +43,8 @@ class CreateClusterComputeConfigModel(BaseModel):
     """
 
     cloud_id: Optional[str] = Field(
-        None, description="The ID of the Anyscale cloud to use for launching Clusters.",
+        None,
+        description="The ID of the Anyscale cloud to use for launching Clusters.",
     )
     cloud: Optional[str] = Field(
         None,
@@ -59,7 +60,8 @@ class CreateClusterComputeConfigModel(BaseModel):
     )
 
     head_node_type: Any = Field(
-        ..., description="Node configuration to use for the head node. ",
+        ...,
+        description="Node configuration to use for the head node. ",
     )
 
     worker_node_types: List[Any] = Field(
@@ -79,7 +81,8 @@ class CreateClusterComputeConfigModel(BaseModel):
     )
 
     azure: Optional[Any] = Field(
-        None, description="Fields specific to Azure node types.",
+        None,
+        description="Fields specific to Azure node types.",
     )
 
     maximum_uptime_minutes: Optional[int] = Field(
@@ -127,9 +130,7 @@ class CreateClusterComputeConfigModel(BaseModel):
                 "Only one of `cloud_id` or `cloud` can be provided in the cluster compute config file. "
             )
         if cloud:
-            cloud_id, _ = get_cloud_id_and_name(
-                api_client=None, cloud_id=None, cloud_name=cloud
-            )
+            cloud_id, _ = get_cloud_id_and_name(api_client=None, cloud_id=None, cloud_name=cloud)
             values["cloud_id"] = cloud_id
         elif not cloud_id:
             raise click.ClickException(
@@ -150,9 +151,7 @@ class ComputeConfigController(BaseController):
     cluster compute configuration.
     """
 
-    def __init__(
-        self, log: Optional[BlockLogger] = None, initialize_auth_api_client: bool = True
-    ):
+    def __init__(self, log: Optional[BlockLogger] = None, initialize_auth_api_client: bool = True):
         if log is None:
             log = BlockLogger()
 
@@ -167,15 +166,11 @@ class ComputeConfigController(BaseController):
         Information in output: Link to cluster compute in UI, cluster compute id
         """
         try:
-            cluster_compute: Dict[str, Any] = yaml.load(
-                cluster_compute_file, Loader=SafeLoader
-            )
+            cluster_compute: Dict[str, Any] = yaml.load(cluster_compute_file, Loader=SafeLoader)
         except Exception as e:  # noqa: BLE001
             raise ClickException(f"Could not load compute config file: {e}")
 
-        cluster_compute_config_model = CreateClusterComputeConfigModel(
-            **cluster_compute
-        )
+        cluster_compute_config_model = CreateClusterComputeConfigModel(**cluster_compute)
         if cluster_compute_config_model.max_workers is not None:
             log.warning(
                 "Warning: global `max_workers` is deprecated for Anyscale Ray 2.7+. Please use global resource max instead: https://docs.anyscale.com/configuration/compute/advanced#resource-limits"
@@ -199,7 +194,9 @@ class ComputeConfigController(BaseController):
 
         cluster_compute_response = self.anyscale_api_client.create_cluster_compute(
             CreateClusterCompute(
-                name=name, config=cluster_compute_config, new_version=True,
+                name=name,
+                config=cluster_compute_config,
+                new_version=True,
             )
         )
         created_cluster_compute = cluster_compute_response.result
@@ -217,9 +214,7 @@ class ComputeConfigController(BaseController):
         log.info(f"Compute config name: {cluster_compute_name}.")
         log.info(f"Compute config version: {cluster_compute_version}.")
 
-    def archive(
-        self, compute_config_entity: Union[IdBasedEntity, NameBasedEntity]
-    ) -> None:
+    def archive(self, compute_config_entity: Union[IdBasedEntity, NameBasedEntity]) -> None:
         """
         Archives the cluster compute with the given name or id.
         Exactly one of cluster_compute_name or id must be provided.
@@ -232,7 +227,8 @@ class ComputeConfigController(BaseController):
             compute_config_name = compute_config.name
         else:
             compute_config = get_cluster_compute_from_name(
-                compute_config_entity.name, self.api_client,
+                compute_config_entity.name,
+                self.api_client,
             )
             compute_config_id = compute_config.id
             compute_config_name = compute_config.name
@@ -293,9 +289,7 @@ class ComputeConfigController(BaseController):
 
             # Add creator_id filter if not including shared configs
             if not include_shared and not cluster_compute_name:
-                creator_id = (
-                    self.api_client.get_user_info_api_v2_userinfo_get().result.id
-                )
+                creator_id = self.api_client.get_user_info_api_v2_userinfo_get().result.id
                 query["creator_id"] = creator_id
 
             # Add cloud filter if specified
@@ -334,9 +328,7 @@ class ComputeConfigController(BaseController):
                         "name": cc.name,
                         "cloud_id": cc.config.cloud_id if cc.config else None,
                         "version": cc.version,
-                        "created_at": cc.created_at.isoformat()
-                        if cc.created_at
-                        else None,
+                        "created_at": cc.created_at.isoformat() if cc.created_at else None,
                         "last_modified_at": cc.last_modified_at.isoformat()
                         if cc.last_modified_at
                         else None,
@@ -357,9 +349,7 @@ class ComputeConfigController(BaseController):
             [
                 cluster_compute.id,
                 cluster_compute.name,
-                self.anyscale_api_client.get_cloud(
-                    cluster_compute.config.cloud_id
-                ).result.name
+                self.anyscale_api_client.get_cloud(cluster_compute.config.cloud_id).result.name
                 if cluster_compute.config.cloud_id
                 else None,
                 cluster_compute.last_modified_at.strftime("%m/%d/%Y, %H:%M:%S"),
@@ -398,10 +388,7 @@ class ComputeConfigController(BaseController):
             cloud_id: Filter by cloud ID when resolving by name
             cloud_name: Filter by cloud name when resolving by name
         """
-        if (
-            int(cluster_compute_name is not None) + int(cluster_compute_id is not None)
-            != 1
-        ):
+        if int(cluster_compute_name is not None) + int(cluster_compute_id is not None) != 1:
             raise click.ClickException(
                 "Please only provide one of `compute-config-name` or `--id`."
             )

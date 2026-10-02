@@ -16,7 +16,7 @@ from allianceauth.services.hooks import get_extension_logger
 
 # AA Killstats
 from killstats import __title__
-from killstats.helpers.killmail import KillmailBody
+from killstats.helpers.killmailbody import KillmailBody
 from killstats.managers.killboardaudit_manager import (
     AllianceManager,
     CorporationManager,
@@ -34,6 +34,12 @@ class CorporationsAudit(models.Model):
     )
 
     last_update = models.DateTimeField(auto_now=True)
+    last_missing_check = models.DateTimeField(
+        _("last missing check"),
+        null=True,
+        blank=True,
+        default=None,
+    )
 
     owner = models.ForeignKey(EveCharacter, on_delete=models.CASCADE)
 
@@ -42,10 +48,10 @@ class CorporationsAudit(models.Model):
     def __str__(self):
         return f"{self.corporation.corporation_name}'s Killstats Data"
 
-    def process_killmail(self, killmail: KillmailBody):
+    def is_corporation(self, killmail: KillmailBody):
         """Process the killmail for this corporation"""
         if (
-            killmail.victim.corporation_id == self.corporation.corporation_id
+            killmail.esi.victim.corporation_id == self.corporation.corporation_id
             or self.corporation.corporation_id
             in killmail.attackers_distinct_corporation_ids()
         ):
@@ -64,6 +70,12 @@ class AlliancesAudit(models.Model):
     )
 
     last_update = models.DateTimeField(auto_now=True)
+    last_missing_check = models.DateTimeField(
+        _("last missing check"),
+        null=True,
+        blank=True,
+        default=None,
+    )
 
     owner = models.ForeignKey(EveCharacter, on_delete=models.CASCADE)
 
@@ -72,10 +84,10 @@ class AlliancesAudit(models.Model):
     def __str__(self):
         return f"{self.alliance.alliance_name}'s Killstats Data"
 
-    def process_killmail(self, killmail: KillmailBody):
-        """Process the killmail for this corporation"""
+    def is_alliance(self, killmail: KillmailBody):
+        """Process the killmail for this alliance"""
         if (
-            killmail.victim.alliance_id == self.alliance.alliance_id
+            killmail.esi.victim.alliance_id == self.alliance.alliance_id
             or self.alliance.alliance_id in killmail.attackers_distinct_alliance_ids()
         ):
             return True

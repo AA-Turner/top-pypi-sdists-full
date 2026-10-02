@@ -1,0 +1,291 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Auto-wiring report models for OMN-7654.
+
+Captures per-contract wiring outcomes: success, skip, or failure with reason.
+
+Per-handler resolver outcomes and skip entries (added for OMN-9201) are
+modeled on :class:`ModelContractWiringResult` so the wiring report can cite
+which handler the resolver skipped and why, without expanding the error
+surface. See
+``docs/plans/2026-04-18-handler-resolver-architecture.md`` Task 5 §Report
+schema ownership.
+"""
+
+from __future__ import annotations
+
+from enum import Enum
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from omnibase_core.enums.enum_handler_resolution_outcome import (
+    EnumHandlerResolutionOutcome,
+)
+from omnibase_infra.runtime.auto_wiring.enum_quarantine_reason import (
+    EnumQuarantineReason,
+)
+
+
+class EnumWiringOutcome(str, Enum):
+    """Outcome of wiring a single discovered contract."""
+
+    WIRED = "wired"
+    SKIPPED = "skipped"
+    FAILED = "failed"
+
+
+# OMN-13203: quarantine reasons that represent a genuine per-handler WIRING
+# FAILURE (a deterministic, never-recoverable contract/handler bug) rather than
+# a deferred migration. These count toward ``total_failed`` so they are reported
+# as failures, never silently dropped. PROTOCOL_HANDLER_DECLARATION and
+# ASYNC_INCOMPATIBLE remain migration-quarantine-only (``total_quarantined``).
+_RESOLUTION_FAILURE_REASONS: frozenset[EnumQuarantineReason] = frozenset(
+    {EnumQuarantineReason.UNRESOLVABLE_HANDLER}
+)
+
+
+class ModelWiringOutcome(BaseModel):
+    """Per-handler resolver outcome row within a contract-level wiring result.
+
+    Populated from :class:`omnibase_core.models.resolver.ModelHandlerResolution`
+    returned by ``ServiceHandlerResolver.resolve(...)`` at wiring time.
+
+    See ``docs/plans/2026-04-18-handler-resolver-architecture.md`` §Known Types
+    Inventory for why this is not reused from :class:`ModelContractWiringResult`
+    (different granularity) or :class:`ModelHandlerResolution` (that is the
+    core-layer resolver return; this is the infra-layer report projection
+    used for observability / determinism asserts).
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
+
+    handler_name: str = Field(
+        ..., description="Handler class name (from contract.handler_routing)"
+    )
+    resolution_outcome: EnumHandlerResolutionOutcome = Field(
+        ..., description="Which resolver precedence path produced this handler"
+    )
+    skipped_reason: str = Field(
+        default="",
+        description="Skip reason (empty string on successful resolution)",
+    )
+
+
+class ModelSkippedEntry(BaseModel):
+    """Skip-only record surfaced at the contract level.
+
+    See ``docs/plans/2026-04-18-handler-resolver-architecture.md`` §Known Types
+    Inventory: this is narrower than :class:`ModelWiringOutcome`
+    because the outcomes list records every resolved handler, while this list
+    is the filtered skip subset surfaced at the contract level.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
+
+    handler_name: str = Field(..., description="Handler class name skipped")
+    reason: str = Field(..., description="Skip reason (human-readable)")
+
+
+class ModelQuarantinedWiring(BaseModel):
+    """Deterministically quarantined handler surfaced at the contract level.
+
+    Produced by the auto-wiring engine when handler construction raises a
+    known containment-worthy error (e.g. ``asyncio.run()`` called from a
+    running event loop — see :class:`EnumQuarantineReason` for the closed
+    set of categories).
+
+    Quarantined handlers are reported visibly (not silently skipped) so
+    follow-up migration tickets are obvious (OMN-9457). They do NOT poison
+    runtime boot: the containing contract still reports ``WIRED`` if its
+    remaining handlers resolve, and ``SKIPPED`` only if every handler is
+    quarantined.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
+
+    contract_name: str = Field(..., description="Contract name owning the handler")
+    package_name: str = Field(..., description="Package name owning the handler")
+    handler_module: str = Field(..., description="Fully-qualified handler module path")
+    handler_name: str = Field(..., description="Handler class name")
+    reason: EnumQuarantineReason = Field(
+        ..., description="Structured quarantine reason (closed set)"
+    )
+    detail: str = Field(
+        default="",
+        description=(
+            "Sanitized one-line error detail. Safe for logging and reporting — "
+            "URLs / DSNs are redacted. Empty when no additional detail is "
+            "available."
+        ),
+    )
+
+
+class ModelContractWiringResult(BaseModel):
+    """Wiring result for a single discovered contract."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
+
+    contract_name: str = Field(..., description="Node name from contract")
+    package_name: str = Field(..., description="Package that owns this contract")
+    outcome: EnumWiringOutcome = Field(..., description="Wiring outcome")
+    reason: str = Field(default="", description="Reason for skip or failure")
+    dispatchers_registered: tuple[str, ...] = Field(
+        default_factory=tuple, description="Dispatcher IDs registered"
+    )
+    routes_registered: tuple[str, ...] = Field(
+        default_factory=tuple, description="Route IDs registered"
+    )
+    topics_subscribed: tuple[str, ...] = Field(
+        default_factory=tuple, description="Kafka topics subscribed"
+    )
+    wirings: tuple[ModelWiringOutcome, ...] = Field(
+        default_factory=tuple,
+        description=(
+            "Per-handler resolver outcomes recorded by "
+            "ServiceHandlerResolver (OMN-9201). Order mirrors the contract's "
+            "handler_routing entries."
+        ),
+    )
+    skipped_handlers: tuple[ModelSkippedEntry, ...] = Field(
+        default_factory=tuple,
+        description=(
+            "Handlers skipped by the resolver's "
+            "RESOLVED_VIA_LOCAL_OWNERSHIP_SKIP outcome (OMN-9201). "
+            "Not errors."
+        ),
+    )
+    quarantined_handlers: tuple[ModelQuarantinedWiring, ...] = Field(
+        default_factory=tuple,
+        description=(
+            "Handlers deterministically contained during construction "
+            "(OMN-9457). Most common cause: async-incompatible handlers that "
+            "call asyncio.run() inside runtime-managed async boot. Quarantined "
+            "handlers do not poison startup but require follow-up migration. "
+            "A contract whose remaining handlers resolve cleanly still "
+            "reports WIRED; a contract whose every handler is quarantined "
+            "reports SKIPPED with reason='all handlers quarantined'."
+        ),
+    )
+    nonwriting_handlers: tuple[str, ...] = Field(
+        default_factory=tuple,
+        description=(
+            "OMN-17562. Handler class names on this contract whose dispatcher "
+            "is a no-op by construction -- the standalone-runner branch "
+            "(OMN-15905) or the zero-route branch (OMN-17519). One name per "
+            "prepared handler entry, so the count is comparable to ``wirings``. "
+            "Carried here because the deferred subscribe seam "
+            "(``subscribe_wired_contract_topics``) re-derives eligibility from "
+            "this report rather than from the prepared wiring, and must not "
+            "read the process-global dispatch ledger to do it: the ledger "
+            "describes every wiring pass in the process, while this decision is "
+            "about one contract in one pass."
+        ),
+    )
+
+    @property
+    def has_no_live_dispatcher(self) -> bool:
+        """True when EVERY wired handler entry dispatches nothing in this process.
+
+        The contract is then not consumable here: subscribing would take every
+        message, commit every offset and destroy the events. One live sibling
+        entry is enough to keep consuming -- ``projection_pattern_learning`` and
+        ``projection_routing_decision`` each pair a standalone runner with an
+        in-process handler that writes rows on every message.
+
+        ``wirings`` carries one row per prepared handler entry and
+        ``nonwriting_handlers`` one name per no-op entry, both appended in the
+        same loop, so the comparison is exact rather than a name-set overlap.
+        """
+        return bool(self.wirings) and len(self.nonwriting_handlers) == len(self.wirings)
+
+
+class ModelDuplicateTopicOwnership(BaseModel):
+    """A duplicate topic subscription detected during wiring."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
+
+    topic: str = Field(..., description="The topic with duplicate ownership")
+    owners: tuple[str, ...] = Field(
+        ..., description="Contract names that subscribe to this topic"
+    )
+    level: str = Field(
+        ...,
+        description="Duplicate level: package, handler, or intra-package",
+    )
+
+
+class ModelAutoWiringReport(BaseModel):
+    """Complete report produced by the auto-wiring engine.
+
+    Contains per-contract outcomes, duplicate topic warnings, and aggregate
+    statistics.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
+
+    results: tuple[ModelContractWiringResult, ...] = Field(
+        default_factory=tuple, description="Per-contract wiring results"
+    )
+    duplicates: tuple[ModelDuplicateTopicOwnership, ...] = Field(
+        default_factory=tuple, description="Duplicate topic ownership warnings"
+    )
+    quarantined_handlers: tuple[ModelQuarantinedWiring, ...] = Field(
+        default_factory=tuple,
+        description=(
+            "Flat list of every quarantined handler across all contracts "
+            "(OMN-9457). Mirrors the per-contract "
+            "ModelContractWiringResult.quarantined_handlers collections so "
+            "follow-up migration tickets can enumerate the full set without "
+            "walking every result."
+        ),
+    )
+
+    @property
+    def total_wired(self) -> int:
+        return sum(1 for r in self.results if r.outcome == EnumWiringOutcome.WIRED)
+
+    @property
+    def total_skipped(self) -> int:
+        return sum(1 for r in self.results if r.outcome == EnumWiringOutcome.SKIPPED)
+
+    @property
+    def total_failed(self) -> int:
+        """Count of wiring failures.
+
+        Includes both contract-level FAILED rows and per-handler
+        resolution-failure quarantines (OMN-13203 — unsatisfiable-ctor /
+        ctor-arg-mismatch / not-handle-shaped handlers). The latter previously
+        crashed runtime boot; they are now contained but MUST still surface as
+        failures so the gate and ``ONEX_WIRING_STRICT_MODE`` assertion react to
+        them. Migration-quarantines (Protocol/async) are NOT counted here —
+        they are reported via ``total_quarantined``.
+        """
+        failed_rows = sum(
+            1 for r in self.results if r.outcome == EnumWiringOutcome.FAILED
+        )
+        resolution_failures = sum(
+            1
+            for q in self.quarantined_handlers
+            if q.reason in _RESOLUTION_FAILURE_REASONS
+        )
+        return failed_rows + resolution_failures
+
+    @property
+    def total_quarantined(self) -> int:
+        """Count of handlers quarantined during wiring (OMN-9457).
+
+        Counts every quarantined handler, including OMN-13203
+        resolution-failure quarantines, so the ``quarantined=N`` summary field
+        stays a faithful count of contained handlers. The resolution-failure
+        subset is *additionally* surfaced in ``total_failed``.
+        """
+        return len(self.quarantined_handlers)
+
+    def __bool__(self) -> bool:
+        """True when all contracts wired or skipped (no failures).
+
+        Warning:
+            **Non-standard __bool__ behavior**: Returns ``True`` only when
+            there are zero failures. Differs from typical Pydantic behavior.
+        """
+        return self.total_failed == 0

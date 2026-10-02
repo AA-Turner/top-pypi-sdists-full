@@ -39,6 +39,7 @@ class OrganizationUserGroupsCollaborator(object):
         'created_at': 'datetime',
         'updated_at': 'datetime',
         'permission_levels': 'list[OrganizationPermissionLevel]',
+        'additional_roles': 'list[OrganizationAdditionalRole]',
         'members': 'list[MiniUser]',
         'member_count': 'int',
         'created_by': 'str',
@@ -52,13 +53,14 @@ class OrganizationUserGroupsCollaborator(object):
         'created_at': 'created_at',
         'updated_at': 'updated_at',
         'permission_levels': 'permission_levels',
+        'additional_roles': 'additional_roles',
         'members': 'members',
         'member_count': 'member_count',
         'created_by': 'created_by',
         'created_by_type': 'created_by_type'
     }
 
-    def __init__(self, id=None, name=None, org_id=None, created_at=None, updated_at=None, permission_levels=None, members=None, member_count=None, created_by=None, created_by_type=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, org_id=None, created_at=None, updated_at=None, permission_levels=None, additional_roles=None, members=None, member_count=None, created_by=None, created_by_type=None, local_vars_configuration=None):  # noqa: E501
         """OrganizationUserGroupsCollaborator - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -70,6 +72,7 @@ class OrganizationUserGroupsCollaborator(object):
         self._created_at = None
         self._updated_at = None
         self._permission_levels = None
+        self._additional_roles = None
         self._members = None
         self._member_count = None
         self._created_by = None
@@ -83,6 +86,8 @@ class OrganizationUserGroupsCollaborator(object):
         self.updated_at = updated_at
         if permission_levels is not None:
             self.permission_levels = permission_levels
+        if additional_roles is not None:
+            self.additional_roles = additional_roles
         if members is not None:
             self.members = members
         self.member_count = member_count
@@ -232,6 +237,29 @@ class OrganizationUserGroupsCollaborator(object):
         """
 
         self._permission_levels = permission_levels
+
+    @property
+    def additional_roles(self):
+        """Gets the additional_roles of this OrganizationUserGroupsCollaborator.  # noqa: E501
+
+        Organization roles this group holds on top of its base role, such as the roles restricting which images its members may use.  # noqa: E501
+
+        :return: The additional_roles of this OrganizationUserGroupsCollaborator.  # noqa: E501
+        :rtype: list[OrganizationAdditionalRole]
+        """
+        return self._additional_roles
+
+    @additional_roles.setter
+    def additional_roles(self, additional_roles):
+        """Sets the additional_roles of this OrganizationUserGroupsCollaborator.
+
+        Organization roles this group holds on top of its base role, such as the roles restricting which images its members may use.  # noqa: E501
+
+        :param additional_roles: The additional_roles of this OrganizationUserGroupsCollaborator.  # noqa: E501
+        :type: list[OrganizationAdditionalRole]
+        """
+
+        self._additional_roles = additional_roles
 
     @property
     def members(self):

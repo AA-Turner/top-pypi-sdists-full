@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+"""Verify the archived-notes seal (D5): the freeze now has a detector.
+
+The seal's promise — "the manifest pins each file's content hash so any
+later edit is detectable" — was a promise without a reader (F7): the
+manifest had only a writer, tampering with an archived note was caught by
+no tool, and re-running ``gov archive-notes`` re-sealed the tampered
+content, laundering the violation permanently.
+
+This gate checks both directions: every archived file matches its pinned
+sha256, and every seal entry still has its file. ``gov archive-notes``
+refuses to re-seal over a drift on its own (``--rebaseline`` is explicit,
+loudly-printed consent).
+
+Exit codes: 0 = sealed and intact (or nothing archived); 1 = violations;
+2 = unreadable seal.
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import sys
+from pathlib import Path
+
+try:  # package context (`gov ...`)
+    from .root import anchor_to_git_root
+except ImportError:  # direct script execution (self-test runs files by path)
+    from root import anchor_to_git_root
+
+ARCHIVED = Path(".agents/notes/archived")
+MANIFEST = ARCHIVED / "manifest.json"
+
+
+def _sha256(path: Path) -> str:
+    # EOL-insensitive: a Windows checkout smudges LF to CRLF
+    # (core.autocrlf), and the seal must judge CONTENT — an eol
+    # translation the checkout chose is not a semantic edit.
+    data = path.read_bytes().replace(b"\r\n", b"\n")
+    return hashlib.sha256(data).hexdigest()
+
+
+def main(argv: list[str] | None = None) -> int:
+    # #8: an unexpected OSError/decode/JSON failure is a broken
+    # prerequisite (exit 2, named), never the "violations found" exit 1 a
+    # bare traceback's exit code would be confused with.
+    try:
+        return _run(argv)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as e:
+        print(f"verify_archive: unexpected failure reading the archive: "
+              f"{e}", file=sys.stderr)
+        return 2
+
+
+def _run(argv: list[str] | None = None) -> int:
+    anchor_to_git_root("verify_archive")
+    parser = argparse.ArgumentParser(
+        prog="gov verify-archive",
+        description="Verify the archived-notes seal (pinned sha256 per file).",
+    )
+    parser.parse_args(argv)
+
+    if not ARCHIVED.is_dir():
+        print("verify_archive: nothing archived — nothing to seal")
+        return 0
+    # as_posix: seal keys are posix on every OS (#168)
+    files = {p.relative_to(ARCHIVED).as_posix(): p for p in sorted(ARCHIVED.rglob("*.md"))}
+    if not MANIFEST.is_file():
+        if not files:
+            print("verify_archive: nothing archived — nothing to seal")
+            return 0
+        print(f"verify_archive: {len(files)} archived file(s) with no seal — run gov archive-notes")
+        for rel in sorted(files):
+            print(f"  {rel}")
+        return 1
+
+    try:
+        sealed_doc = json.loads(MANIFEST.read_text(encoding="utf-8-sig"))
+    except (json.JSONDecodeError, OSError, UnicodeDecodeError) as e:
+        print(f"verify_archive: cannot read the seal {MANIFEST}: {e}", file=sys.stderr)
+        return 2
+    if not isinstance(sealed_doc, dict) or not isinstance(
+            sealed_doc.get("files", {}), dict):
+        # A hand-edited seal whose top level is `[]` or `42` (or whose
+        # "files" is an array) is unreadable — a named prerequisite
+        # failure (exit 2), never an AttributeError traceback (rule 5).
+        print(f"verify_archive: cannot read the seal {MANIFEST}: the seal "
+              "and its 'files' must be JSON objects", file=sys.stderr)
+        return 2
+    sealed = sealed_doc.get("files", {})
+
+    violations: list[str] = []
+    for rel, p in files.items():
+        entry = sealed.get(rel)
+        if entry is None:
+            violations.append(f"{rel}: not in the seal — run gov archive-notes")
+        elif not isinstance(entry, dict):
+            # A hand-edited seal is exactly the threat model: a mangled
+            # entry must be a named violation, not an AttributeError that
+            # turns the "elegant red" into a traceback (which exits 2 —
+            # indistinguishable from "cannot run at all").
+            violations.append(f"{rel}: seal entry is malformed (expected an "
+                              "object with a sha256) — re-seal or restore the seal")
+        else:
+            try:
+                digest = _sha256(p)
+            except OSError as e:
+                # A dangling symlink or unreadable file violates the seal
+                # (the content is gone) — a named violation, not a crash.
+                violations.append(f"{rel}: unreadable — {e}")
+            else:
+                if digest != entry.get("sha256"):
+                    violations.append(
+                        f"{rel}: differs from its seal — restore it (git checkout) or "
+                        "re-baseline explicitly (gov archive-notes --rebaseline)"
+                    )
+    for rel in sealed:
+        if rel not in files:
+            violations.append(f"{rel}: sealed but the file is gone")
+
+    if violations:
+        for v in violations:
+            print(v)
+        print(f"verify_archive: {len(violations)} violation(s)")
+        return 1
+    print(f"verify_archive: {len(files)} archived file(s) sealed and intact")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

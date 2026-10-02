@@ -105,6 +105,10 @@ def test_airbyte_human_author_is_targeted_and_hydra_cc(monkeypatch) -> None:
     assert (
         "Escalation: routed to PR author (Airbyte release contact)" in sent["message"]
     )
+    assert (
+        autopilot._release_context("source-test", "1.2.3").pr_url
+        == "https://github.com/airbytehq/airbyte/pull/42"
+    )
 
 
 def test_community_author_falls_through_to_human_merger(monkeypatch) -> None:

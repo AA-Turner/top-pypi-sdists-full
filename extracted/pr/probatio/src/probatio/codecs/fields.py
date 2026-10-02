@@ -1,0 +1,520 @@
+"""Field-list codec: ``to_field_list`` (the voluptuous-serialize shape).
+
+``to_field_list`` renders a mapping as the field-list shape voluptuous-serialize
+produces (what config-flow frontends and LLM tool exporters consume), so those
+consumers work on probatio schemas. It takes the same ``custom_serializer`` hook,
+which returns a dict to override a node or ``UNSUPPORTED`` to defer.
+
+The format is output-only: the field list drops detail a schema cannot be rebuilt
+from, so there is no ``from_field_list`` inverse (voluptuous-serialize has none
+either).
+
+Where the oracle refuses a schema this shape can still describe, Probatio describes
+it instead: a text ``Match`` renders as a string field, and ``Any(X, None)`` reads
+as nullable in either member order.
+"""
+
+from __future__ import annotations
+
+import enum
+from collections.abc import Hashable, Iterator, Mapping
+from typing import Any, cast
+
+from probatio.codecs._shared import UNSUPPORTED
+from probatio.codecs.jsonschema import _JsonPattern
+from probatio.dataclass_schema import constructed_mapping
+from probatio.markers import (
+    Forbidden,
+    Optional,
+    Required,
+    Undefined,
+    resolve_key,
+)
+from probatio.schema import Schema
+from probatio.validators import (
+    ASCII,
+    E164,
+    IBAN,
+    ULID,
+    UUID,
+    All,
+    Alpha,
+    Alphanumeric,
+    AsDate,
+    AsDatetime,
+    AsTime,
+    AsTimedelta,
+    AsTimezone,
+    Base64,
+    ByteLength,
+    Capitalize,
+    Clamp,
+    Coerce,
+    CreditCard,
+    DataURI,
+    Datetime,
+    Duration,
+    Email,
+    EndsWith,
+    EnsureList,
+    Fqdn,
+    FqdnUrl,
+    FromEpoch,
+    FromPercentage,
+    Hex,
+    HexColor,
+    HexInt,
+    Hostname,
+    In,
+    IPAddress,
+    IPNetwork,
+    IPv4Address,
+    IPv6Address,
+    IsRegex,
+    Length,
+    Lower,
+    MacAddress,
+    Match,
+    Maybe,
+    MultipleOf,
+    NonEmpty,
+    NormalizeMacAddress,
+    NoWhitespace,
+    Percentage,
+    Port,
+    PrintableASCII,
+    Range,
+    Slug,
+    Sorted,
+    StartsWith,
+    Strip,
+    TimeZone,
+    TimeZoneInfo,
+    Title,
+    Upper,
+    Url,
+)
+from probatio.validators import Any as AnyValidator
+
+# probatio-only validators that render as a plain string field for a frontend.
+_SERIALIZE_STRING_TYPES = (
+    IPv4Address,
+    IPv6Address,
+    IPAddress,
+    IPNetwork,
+    MacAddress,
+    NormalizeMacAddress,
+    UUID,
+    Hostname,
+    Fqdn,
+    Slug,
+    TimeZone,
+    TimeZoneInfo,
+    AsTimezone,
+    Alpha,
+    Alphanumeric,
+    ASCII,
+    PrintableASCII,
+    NoWhitespace,
+    StartsWith,
+    EndsWith,
+    ByteLength,
+    HexColor,
+    IsRegex,
+    Base64,
+    Hex,
+    ULID,
+    CreditCard,
+    IBAN,
+    DataURI,
+    E164,
+)
+_SERIALIZE_PORT_MIN = 1
+_SERIALIZE_PORT_MAX = 65535
+_SERIALIZE_PERCENT_MIN = 0
+_SERIALIZE_PERCENT_MAX = 100
+_SERIALIZE_NON_EMPTY_MIN = 1
+
+# The field keys that are bounds, and how two of them intersect.
+_SERIALIZE_BOUNDS: dict[str, Any] = {
+    "valueMin": max,
+    "lengthMin": max,
+    "valueMax": min,
+    "lengthMax": min,
+}
+
+# The type names voluptuous-serialize emits (note: float -> "float", not
+# "number" as in JSON Schema).
+_SERIALIZE_TYPES: dict[type, str] = {
+    bool: "boolean",
+    int: "integer",
+    float: "float",
+    str: "string",
+}
+
+# The format validators, rendered as a ``format`` field by voluptuous-serialize.
+# These are the bare functions a voluptuous schema uses (``vol.Email``), so they
+# arrive uncalled under the shim.
+_SERIALIZE_FORMATS: dict[Any, str] = {Email: "email", Url: "url", FqdnUrl: "fqdnurl"}
+
+# The string transforms, rendered as a boolean flag (``{"lower": True}``).
+_SERIALIZE_TRANSFORMS: dict[Any, str] = {
+    Lower: "lower",
+    Upper: "upper",
+    Capitalize: "capitalize",
+    Title: "title",
+    Strip: "strip",
+}
+
+
+def _enum_select(enum_cls: type[enum.Enum]) -> dict[str, Any]:
+    """Render an Enum class as a select of its member values, like the oracle."""
+    return {
+        "type": "select",
+        "options": [(member.value, member.value) for member in enum_cls],
+    }
+
+
+def _serialize_callable(node: Any) -> dict[str, Any] | None:
+    """Render a bare format validator or string transform, or None if neither."""
+    if not isinstance(node, Hashable):
+        # The format/transform tables are keyed by identity, so an unhashable
+        # callable cannot be one. Bail before the dict lookup hashes it, leaving
+        # it to fall through to the ValueError like the oracle does.
+        return None
+
+    fmt = _SERIALIZE_FORMATS.get(node)
+    if fmt is not None:
+        return {"format": fmt}
+
+    flag = _SERIALIZE_TRANSFORMS.get(node)
+    if flag is not None:
+        return {flag: True}
+
+    return None
+
+
+def _allow_none(field: dict[str, Any]) -> dict[str, Any]:
+    """Mark a serialized value field as nullable, matching ``Maybe``'s oracle output."""
+    return {**field, "allow_none": True}
+
+
+# A serialized schema is a single value field, or the field list of a mapping.
+_Serialized = dict[str, Any] | list[dict[str, Any]]
+
+
+def to_field_list(schema: Any, *, custom_serializer: Any = None) -> _Serialized:
+    """Render a schema as the field-list shape voluptuous-serialize produces.
+
+    A mapping becomes a list of field dicts (``name``, ``type``, ``required``,
+    and so on); any other schema becomes a single value dict. ``custom_serializer``
+    is called first for each node and may return a dict to override the default,
+    or ``UNSUPPORTED`` to defer.
+    """
+    if isinstance(schema, Schema):
+        # A dataclass schema wraps its mapping in the construction step; the fields
+        # being described live in the mapping.
+        schema = (constructed_mapping(schema) or schema).schema
+    return _serialize_node(schema, custom_serializer)
+
+
+def _serialize_node(node: Any, custom: Any) -> _Serialized:
+    """Render a mapping as a field list, or any other node as a value dict."""
+    if isinstance(node, dict):
+        # A Forbidden key is a prohibition, not an input field, so it is left out
+        # of the field list a frontend would render.
+        return [
+            _serialize_field(key, value, custom)
+            for key, value in node.items()
+            if not isinstance(key, Forbidden)
+        ]
+    return _serialize_value(node, custom)
+
+
+def _serialize_field(key: Any, value: Any, custom: Any) -> dict[str, Any]:
+    """Render one mapping key/value as a field dict."""
+    facets = resolve_key(key)
+    marker = facets.marker
+
+    field = dict(_serialize_value(value, custom))
+    field["name"] = facets.key
+    if facets.description is not None:
+        field["description"] = facets.description
+    field["required"] = isinstance(marker, Required)
+    if isinstance(marker, Optional):
+        field["optional"] = True
+    if isinstance(marker, Optional | Required) and not isinstance(
+        marker.default,
+        Undefined,
+    ):
+        field["default"] = marker.default()
+    if facets.secret:
+        field["secret"] = True
+
+    return field
+
+
+def _serialize_value(node: Any, custom: Any) -> dict[str, Any]:
+    """Render a single value schema as a value dict."""
+    if custom is not None:
+        result = custom(node)
+        if result is not UNSUPPORTED:
+            return cast("dict[str, Any]", result)
+
+    if isinstance(node, type):
+        name = _SERIALIZE_TYPES.get(node)
+        if name is not None:
+            return {"type": name}
+        if issubclass(node, enum.Enum):
+            return _enum_select(node)
+
+    if callable(node):
+        # The format validators and string transforms are bare functions, so they
+        # are matched by identity before the validator dispatch below.
+        func_field = _serialize_callable(node)
+        if func_field is not None:
+            return func_field
+
+    converted = _serialize_validator(node, custom)
+    if converted is not None:
+        return converted
+
+    if isinstance(node, str | int | float):
+        # A literal mapping value (``{"mode": 5}``) is a constant the value must
+        # equal. voluptuous-serialize renders it as a ``constant`` field; ``bool``
+        # is an ``int`` subclass, so it is covered. ``None`` is not a constant
+        # there, so it falls through to the error, matching the oracle.
+        return {"type": "constant", "value": node}
+    message = f"unable to serialize schema: {node!r}"
+    raise ValueError(message)
+
+
+def _serialize_validator(node: Any, custom: Any) -> dict[str, Any] | None:  # noqa: PLR0911
+    """Render a known validator, or None if it is not recognized."""
+    if isinstance(node, In):
+        # A mapping container carries a label per value, so its items become the
+        # (value, label) options; a list/tuple uses each item as its own label.
+        container = node.container
+        options = (
+            list(container.items())
+            if isinstance(container, Mapping)
+            else [(item, item) for item in container]
+        )
+        return {"type": "select", "options": options}
+
+    if isinstance(node, Maybe):
+        return _allow_none(_serialize_value(node.validator, custom))
+
+    if isinstance(node, AnyValidator):
+        # ``Maybe(X)`` compiles to ``Any(None, X)``: a two-member Any with one None
+        # branch is the nullable form, so strip the None and mark the remaining
+        # member allow_none. voluptuous-serialize only recognized None first;
+        # ``Any(X, None)`` is the same nullable shape, so handle either position.
+        non_none = [member for member in node.validators if member is not None]
+        if len(node.validators) == 2 and len(non_none) == 1:
+            return _allow_none(_serialize_value(non_none[0], custom))
+        for validator in node.validators:
+            converted = _serialize_value(validator, custom)
+            if converted:
+                return converted
+        return {}
+
+    if isinstance(node, All):
+        merged: dict[str, Any] = {}
+        for member, rendered in _all_members(node, custom):
+            _merge_field(
+                merged,
+                rendered if rendered is not None else _serialize_value(member, custom),
+                # Clamp bends a value into range instead of rejecting it, so the
+                # bounds it emits describe what comes out, not what may be sent.
+                replace=isinstance(member, Clamp),
+            )
+        return merged
+
+    if isinstance(node, Coerce):
+        name = _SERIALIZE_TYPES.get(node.type)
+        if name is not None:
+            return {"type": name}
+        if isinstance(node.type, type) and issubclass(node.type, enum.Enum):
+            return _enum_select(node.type)
+        # An unmapped coerce target (a function, a custom type) carries no field
+        # hint, so it serializes to an open dict rather than raising.
+        return {}
+
+    typed = _serialize_typed(node)
+    if typed is not None:
+        return typed
+
+    return _serialize_constraint(node)
+
+
+def _all_members(
+    node: All[Any], custom: Any
+) -> Iterator[tuple[Any, dict[str, Any] | None]]:
+    """Yield an All()'s members in the order they run, flattening nested All()s.
+
+    A nested All() is the same chain with brackets around part of it, so its
+    members have to merge one at a time like the outer ones. Treating the group
+    as a single member would let one member's behavior stand in for all of it.
+    A nested All() the custom hook claims stays whole, because the hook renders
+    that node itself.
+
+    Deciding that takes asking the hook, so a claimed group is yielded with what
+    the hook returned rather than being rendered again later: a hook sees each
+    node once, as it does outside an All().
+    """
+    for member in node.validators:
+        if not isinstance(member, All):
+            yield member, None
+            continue
+
+        rendered = _custom_field(member, custom)
+        if rendered is None:
+            yield from _all_members(member, custom)
+            continue
+
+        yield member, rendered
+
+
+def _custom_field(node: Any, custom: Any) -> dict[str, Any] | None:
+    """Return what the custom hook renders for this node, or None if it defers."""
+    if custom is None:
+        return None
+
+    result = custom(node)
+    if result is UNSUPPORTED:
+        return None
+
+    return cast("dict[str, Any]", result)
+
+
+def _merge_field(
+    merged: dict[str, Any], field: dict[str, Any], *, replace: bool
+) -> None:
+    """Fold one All() member's field hints into the hints collected so far.
+
+    Every member of an All() has to accept the value, so bounds narrow: the
+    tightest lower bound and the tightest upper bound win, whatever order the
+    members are written in. Plain overwriting would let
+    ``All(Length(min=5), NonEmpty())`` advertise a minimum of 1 and offer the
+    user a value the schema then rejects. A member that bends the value rather
+    than rejecting it passes ``replace=True`` for its own keys.
+    """
+    for key, value in field.items():
+        current = merged.get(key)
+        if replace or current is None or key not in _SERIALIZE_BOUNDS:
+            merged[key] = value
+            continue
+
+        merged[key] = _narrow(key, current, value)
+
+
+def _narrow(key: str, current: Any, value: Any) -> Any:
+    """Return the tighter of two bounds, or the later one when they do not compare.
+
+    An All() may change domains between two bounds, as in
+    ``All(Range(min=5), Coerce(str), Range(min="7"))``. Comparing those raises,
+    and the value reaching the later bound is the converted one, so that bound
+    is the one describing what may be submitted. Any comparison may raise, not
+    only a mismatched type: ``Decimal("NaN")`` raises ``InvalidOperation``. A
+    field list must not die on one, so every failure answers the same way.
+    """
+    try:
+        return _SERIALIZE_BOUNDS[key](current, value)
+    except Exception:  # noqa: BLE001
+        return value
+
+
+def _serialize_typed(node: Any) -> dict[str, Any] | None:
+    """Render the probatio-only validators for a frontend, or None if not one.
+
+    Returns ``{}`` (no field hints, but not an error) for the validators that have
+    no voluptuous-serialize equivalent, so a schema using them still serializes
+    instead of raising.
+    """
+    if isinstance(node, _SERIALIZE_STRING_TYPES):
+        return {"type": "string"}
+
+    if isinstance(node, Port):
+        return {
+            "type": "integer",
+            "valueMin": _SERIALIZE_PORT_MIN,
+            "valueMax": _SERIALIZE_PORT_MAX,
+        }
+
+    if isinstance(node, FromPercentage):
+        return {
+            "type": "float",
+            "valueMin": _SERIALIZE_PERCENT_MIN,
+            "valueMax": _SERIALIZE_PERCENT_MAX,
+        }
+
+    # Percentage returns the value unchanged, so it carries bounds but no type:
+    # an All() that pairs it with a Coerce must keep the Coerce's type.
+    if isinstance(node, Percentage):
+        return {
+            "valueMin": _SERIALIZE_PERCENT_MIN,
+            "valueMax": _SERIALIZE_PERCENT_MAX,
+        }
+
+    if isinstance(
+        node,
+        MultipleOf | Duration | AsTimedelta | EnsureList | Sorted | HexInt,
+    ):
+        return {}
+
+    return None
+
+
+def _serialize_constraint(node: Any) -> dict[str, Any] | None:  # noqa: PLR0911
+    """Render Range/Clamp/NonEmpty/Length/Datetime/Match, or None if not recognized."""
+    if isinstance(node, Range | Clamp):
+        bounds: dict[str, Any] = {}
+        if node.min is not None:
+            bounds["valueMin"] = node.min
+        if node.max is not None:
+            bounds["valueMax"] = node.max
+        return bounds
+
+    if isinstance(node, NonEmpty):
+        return {"lengthMin": _SERIALIZE_NON_EMPTY_MIN}
+
+    if isinstance(node, Length):
+        bounds = {}
+        if node.min is not None:
+            bounds["lengthMin"] = node.min
+        if node.max is not None:
+            bounds["lengthMax"] = node.max
+        return bounds
+
+    if isinstance(node, Datetime):
+        return {"type": "datetime", "format": node.format}
+
+    if isinstance(node, AsDatetime | AsDate | AsTime):
+        # Same field shape as Datetime; the ISO default carries no strptime
+        # format, so only attach one when the parser was given an explicit format.
+        field: dict[str, Any] = {"type": "datetime"}
+        if node.format is not None:
+            field["format"] = node.format
+        return field
+
+    if isinstance(node, Match | _JsonPattern) and isinstance(
+        node.pattern.pattern,
+        str,
+    ):
+        # A text regex only ever accepts a string, and "string" is field vocabulary
+        # a frontend can render. voluptuous-serialize raises here, which takes down
+        # the whole form over a validator the rest of the field already described (a
+        # PIN behind a text selector, a serial number). The pattern itself is
+        # dropped: the field list has no key to carry one. A bytes pattern rejects
+        # every string a form could submit, so it falls through and still raises
+        # rather than advertising a field nothing typed into it can satisfy.
+        return {"type": "string"}
+
+    if isinstance(node, FromEpoch):
+        # A Unix timestamp arrives as a number (``FromEpoch`` takes an int or a
+        # fractional-second float); the datetime is internal. The field vocabulary
+        # has no "number", so "float" is the type that accepts both.
+        return {"type": "float"}
+
+    return None

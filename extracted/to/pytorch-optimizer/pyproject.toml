@@ -1,6 +1,6 @@
 [project]
 name = "pytorch_optimizer"
-version = "3.10.1"
+version = "3.11.0"
 description = "optimizer & lr scheduler & objective function collections in PyTorch"
 license = { text = "Apache-2.0" }
 readme = "README.md"
@@ -16,7 +16,7 @@ keywords = [
     "AdamP", "AdamS", "Adan", "AggMo", "Aida", "AliG", "Amos", "Apollo", "APOLLO", "AvaGrad", "bSAM", "BCOS", "CAME",
     "Conda", "DAdaptAdaGrad", "DAdaptAdam", "DAdaptAdan", "DAdaptSGD", "DAdaptLion", "DeMo", "DiffGrad", "EmoFact",
     "EmoLynx", "EmoNavi", "EmoNeco", "EmoZeal", "EXAdam", "FAdam", "Fira", "FOCUS", "FriendlySAM", "Fromage", "FTRL",
-    "GaLore", "Grams", "Gravity", "GrokFast", "GSAM", "Kate", "Lamb", "LaProp", "LARS", "Lion", "LoRARite", "LOMO", "Lookahead",
+    "GaLore", "Grams", "Gravity", "GrokFast", "GSAM", "Kate", "Lamb", "LaProp", "LARS", "Lion", "LoRARite", "LOMO", "Lookahead", "Magma",
     "EmoLynx", "EmoNavi", "EmoNeco", "EmoZeal", "EXAdam", "FAdam", "Fira", "FlashAdamW", "FOCUS", "FriendlySAM",
     "Conda", "DAdaptAdaGrad", "DAdaptAdam", "DAdaptAdan", "DAdaptSGD", "DAdaptLion", "DeMo", "DiffGrad", "DualAdam",
     "EmoFact", "EmoLynx", "EmoNavi", "EmoNeco", "EmoZeal", "EXAdam", "FAdam", "Fira", "FOCUS", "FriendlySAM", "Fromage", 
@@ -42,6 +42,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Operating System :: OS Independent",
     "Topic :: Scientific/Engineering",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
@@ -54,25 +55,20 @@ requires-python = ">=3.8"
 dependencies = [
     'numpy>1.24.4; python_version >= "3.9"',
     'numpy<=1.24.4; python_version < "3.9"',
-    'torch>=1.10,<2.5; python_version < "3.9"',
+    "torch>=1.10,<2.5; python_full_version < '3.9'",
     'torch>=1.10,<2.9; python_version >= "3.9" and python_version < "3.10"',
     'torch>=1.10; python_version >= "3.10"',
 ]
 
 [dependency-groups]
 dev = [
-    'black<25; python_version < "3.9"',
-    'black<26; python_version >= "3.9"',
-    'ruff>=0.15,<0.16',
-    'pyright==1.1.408',
+    'ruff>=0.16.9,<0.17',
+    'pyright==1.1.414',
     'pytest<9; python_version < "3.10"',
-    'pytest>=9,<10; python_version >= "3.10"',
+    'pytest>=9.1.1,<10; python_version >= "3.10"',
     'pytest-cov<6; python_version < "3.9"',
-    'pytest-cov>=6,<7; python_version >= "3.9"',
+    'pytest-cov>=7.1.0,<8; python_version >= "3.9"',
 ]
-
-[tool.uv]
-exclude-newer = "7 days ago"
 
 [tool.uv.sources]
 torch = [
@@ -136,6 +132,7 @@ known-first-party = ["pytorch_optimizer"]
 [tool.ruff.lint.pylint]
 max-statements = 60
 max-branches = 17
+max-positional-args = 23
 
 [tool.ruff.format]
 quote-style = "single"

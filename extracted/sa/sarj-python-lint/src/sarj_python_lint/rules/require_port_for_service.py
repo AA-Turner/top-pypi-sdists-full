@@ -1,0 +1,1370 @@
+from __future__ import annotations
+
+import ast
+from dataclasses import dataclass
+from itertools import pairwise
+from pathlib import Path, PurePosixPath
+import re
+from typing import TYPE_CHECKING, ClassVar, NamedTuple, override
+
+from sarj_python_lint.rule_base import (
+    AutofixPolicy,
+    Diagnostic,
+    ExampleFile,
+    ExampleOutcome,
+    ProjectRule,
+    RuleCategory,
+    RuleDocumentation,
+    RuleExample,
+    Severity,
+    is_suppressed,
+)
+from sarj_python_lint.rules._ast_index import walk as walk_ast
+from sarj_python_lint.rules._imports import ABC_SOURCES, TYPING_SOURCES
+from sarj_python_lint.rules._paths import is_test_path, is_test_support_path
+
+
+if TYPE_CHECKING:
+    from sarj_python_lint._file_context import PythonFileContext
+    from sarj_python_lint.rules._imports import ImportIndex
+    from sarj_python_lint.rules._project_index import ProjectIndexSet
+
+
+# Name tails that mark a class as a service in this codebase's own vocabulary.
+_SERVICE_NAME_RE = re.compile(r"(?:Service|Store|DAO|Dao|Gateway|Provider)$")
+_SERVICE_CLASS_RE = re.compile(r"\bclass\s+\w+(?:Service|Store|DAO|Dao|Gateway|Provider)\b")
+
+
+class _ParameterDefault(NamedTuple):
+    parameter: ast.arg
+    default: ast.expr | None
+
+
+@dataclass(frozen=True, slots=True)
+class _StoredParameters:
+    fields_by_parameter: dict[str, frozenset[str]]
+    fallback_stored: frozenset[str]
+
+
+@dataclass(frozen=True, slots=True)
+class _FactoryClassFacts:
+    owned_names: frozenset[str]
+    excluded_owners: frozenset[str]
+    excluded_collaborators: frozenset[str]
+
+
+# Classes named as the base of a family are the port being asked for, not a missing one.
+_BASE_NAME_RE = re.compile(r"^(?:Base|Abstract)[A-Z_]")
+
+# Annotations that name a value rather than a collaborator.
+_PRIMITIVE_ANNOTATIONS = frozenset(
+    {
+        "str",
+        "int",
+        "bool",
+        "float",
+        "complex",
+        "bytes",
+        "bytearray",
+        "object",
+        "None",
+        "Any",
+        "list",
+        "dict",
+        "set",
+        "frozenset",
+        "tuple",
+        "type",
+        # The capitalised `typing` aliases are the same builtins.
+        "List",
+        "Dict",
+        "Set",
+        "FrozenSet",
+        "Tuple",
+        "Type",
+        "Text",
+        "Sequence",
+        "Mapping",
+        "MutableMapping",
+        "Iterable",
+        "Iterator",
+        "Collection",
+        "Callable",
+        "Path",
+        "PurePath",
+        "UUID",
+        "datetime",
+        "date",
+        "time",
+        "timedelta",
+        "Decimal",
+        "Fraction",
+        "Pattern",
+        "TextIO",
+        "BinaryIO",
+        "Literal",
+    }
+)
+
+# Injected types that are configuration, measurements, or ambient runtime, not a
+# substitutable collaborator: nobody swaps `ServerSettings` or `ViewportSize` in a test.
+_WEAK_COLLABORATOR_RE = re.compile(r"(?:Settings|Config|Configuration|Options|Logger|Log|Clock|Context|Size)$")
+
+# Runtime driver handles are implementation details of an adapter, not a port
+# that consumers substitute through.
+_DRIVER_HANDLE_ANNOTATIONS = frozenset(
+    {
+        "AsyncClient",
+        "AsyncConnection",
+        "AsyncConnectionPool",
+        "AsyncEngine",
+        "AsyncRedis",
+        "AsyncSession",
+        "Client",
+        "Connection",
+        "ConnectionPool",
+        "Engine",
+        "Pool",
+        "Redis",
+        "Session",
+    }
+)
+
+# Annotation wrappers that are transparent — the collaborator is inside them.
+_TRANSPARENT_GENERICS = frozenset({"Optional", "Union", "Annotated", "Awaitable", "Coroutine", "Final", "ClassVar"})
+
+# Bases that make a same-module class a data type, so a parameter annotated with it is
+# a value being passed, not a port being injected.
+_DATA_BASES = frozenset(
+    {
+        "BaseModel",
+        "RootModel",
+        "TypedDict",
+        "NamedTuple",
+        "Enum",
+        "StrEnum",
+        "IntEnum",
+        "IntFlag",
+        "Flag",
+        "Struct",
+        "Exception",
+        "BaseException",
+    }
+)
+
+# Decorators that turn a class into a record.
+_DATA_DECORATORS = frozenset({"dataclass", "dataclasses", "define", "frozen", "mutable", "attrs", "attr", "s"})
+
+# Method decorators that mean the callable is not an instance method a consumer calls
+# through the port: descriptors, factories and namespaced helpers.
+_NON_METHOD_DECORATORS = frozenset({"property", "cached_property", "staticmethod", "classmethod"})
+
+# Method decorators that declare the class is already an interface without an ABC base.
+_INTERFACE_DECORATORS = frozenset({"abstractmethod", "abstractproperty"})
+
+# Class decorators that bind the class to a declared interface.
+_IMPLEMENTS_DECORATORS = frozenset({"implementer", "implementer_only", "provider", "runtime_checkable", "register"})
+
+# Parameter types that only appear on an HTTP route handler.
+_HTTP_PARAM_TYPES = frozenset({"Request", "Response", "BackgroundTasks", "WebSocket", "UploadFile"})
+
+# Callables used as FastAPI/Starlette parameter markers, either inside an `Annotated[...]`
+_HTTP_PARAM_MARKERS = frozenset({"Header", "Query", "Depends", "Body", "Path", "Form", "File", "Cookie", "Security"})
+
+# Directory segments that hold programs rather than importable library code.
+_TOP_LEVEL_SCRIPT_DIR_NAMES = frozenset({"scripts", "bin", "tools"})
+_MIGRATION_DIR_NAMES = frozenset({"migrations", "alembic"})
+
+# A one-method service needs concrete substitution evidence before suggesting a port.
+_MIN_PUBLIC_METHODS = 2
+
+# A store/repository-backed application service is ordinary layering, not
+# evidence that consumers also need a second abstraction over the service.
+_PERSISTENCE_DEPENDENCY_RE = re.compile(r"(?:Store|Repository|Repo)$")
+
+# A collaborator must drive more than one operation before a service-level
+# substitution boundary is worth suggesting.
+_MIN_COLLABORATOR_METHODS = 2
+_MIN_PROJECT_CONSUMERS = 2
+
+_FUNC_NODES = (ast.FunctionDef, ast.AsyncFunctionDef)
+_UNSUPPORTED_COMPOUND_STATEMENTS = (
+    ast.For,
+    ast.AsyncFor,
+    ast.With,
+    ast.AsyncWith,
+    ast.Try,
+    ast.TryStar,
+    ast.Match,
+)
+_FRAMEWORK_METHOD_DECORATORS = frozenset(
+    {"get", "post", "put", "patch", "delete", "head", "options", "websocket", "command", "group"}
+)
+_CAST_SOURCES = frozenset({"typing", "typing_extensions"})
+
+
+class RequirePortForService(ProjectRule):
+    id: str = "require-port-for-service"
+    code: str = "SARJ071"
+    documentation: ClassVar[RuleDocumentation | None] = RuleDocumentation(
+        default_level=Severity.WARNING,
+        summary="Consider a consumer-owned port when visible service structure suggests a substitution boundary.",
+        rationale="A small port can decouple consumers when they genuinely need to substitute a concrete service boundary.",
+        remediation=(
+            "When a real consumer needs substitution, define a focused consumer-owned `Protocol` and type that "
+            "consumer against it; otherwise suppress the advisory instead of adding an unused abstraction."
+        ),
+        category=RuleCategory.ARCHITECTURE,
+        autofix=AutofixPolicy.NONE,
+        limitations=(
+            "This advisory uses service-family names, constructor annotations, collaborator calls, and public-method counts as heuristics.",
+            "Only direct module classes are checked; tests, generated code, scripts, framework callbacks, Store/Repository persistence dependencies, and external or interface-like bases are excluded.",
+            "A suffixless class can also qualify when it retains a locally typed factory-created collaborator driving multiple public operations and production code constructs it directly to call at least two distinct operations. Constructor aliases and explicit module imports are resolved within the bounded project index; package-export indirection, wildcard imports, duplicate module identities, variable-held instances, factory indirection, and ambiguous control flow are not inferred. Top-level functions are analyzed in indexed modules; ordinary function-only modules may be excluded by the shared type index's lexical admission.",
+            "Otherwise, a one-method, suffixless, or store-backed class requires a concrete production type dependency and a test subclass or typed mock, or at least two production consumers for a multi-method class. A port owned in another module may require an exact suppression on the implementation.",
+        ),
+        examples=(
+            RuleExample(
+                example_id="factory-created-boundary",
+                scenario="factory-created-boundary",
+                title="A native collaborator is hidden behind a directly constructed concrete boundary",
+                outcome=ExampleOutcome.MATCH,
+                files=(
+                    ExampleFile(
+                        path=PurePosixPath("pyproject.toml"),
+                        source='[project]\nname = "boundary-example"\nversion = "0.1.0"\n',
+                    ),
+                    ExampleFile.python(
+                        "app/native.py",
+                        "from typing import Protocol\n\n"
+                        "class Backend(Protocol):\n"
+                        "    def read(self) -> str: ...\n"
+                        "    def write(self, value: str) -> None: ...\n\n"
+                        "class Coordinator:\n"
+                        "    def __init__(self) -> None:\n"
+                        "        self.backend: Backend = native_backend()\n"
+                        "    def read(self) -> str:\n"
+                        "        return self.backend.read()\n"
+                        "    def write(self, value: str) -> None:\n"
+                        "        self.backend.write(value)\n\n"
+                        "class Consumer:\n"
+                        "    def receive(self) -> str:\n"
+                        "        return Coordinator().read()\n"
+                        "    def send(self, value: str) -> None:\n"
+                        "        Coordinator().write(value)\n",
+                    ),
+                ),
+                focus_path=PurePosixPath("app/native.py"),
+                expected_count=1,
+                public=True,
+            ),
+            RuleExample(
+                example_id="factory-created-public-port",
+                scenario="factory-created-boundary",
+                title="A typed factory exposes the consumer's public Protocol",
+                outcome=ExampleOutcome.NO_MATCH,
+                files=(
+                    ExampleFile(
+                        path=PurePosixPath("pyproject.toml"),
+                        source='[project]\nname = "boundary-example"\nversion = "0.1.0"\n',
+                    ),
+                    ExampleFile.python(
+                        "app/native.py",
+                        "from typing import Protocol, final\n\n"
+                        "class Backend(Protocol):\n"
+                        "    def read(self) -> str: ...\n"
+                        "    def write(self, value: str) -> None: ...\n\n"
+                        "class Operations(Protocol):\n"
+                        "    def read(self) -> str: ...\n"
+                        "    def write(self, value: str) -> None: ...\n\n"
+                        "@final\n"
+                        "class Coordinator:\n"
+                        "    def __init__(self) -> None:\n"
+                        "        self.backend: Backend = native_backend()\n"
+                        "    def read(self) -> str:\n"
+                        "        return self.backend.read()\n"
+                        "    def write(self, value: str) -> None:\n"
+                        "        self.backend.write(value)\n\n"
+                        "def coordinator() -> Operations:\n"
+                        "    return Coordinator()\n\n"
+                        "class Consumer:\n"
+                        "    def receive(self) -> str:\n"
+                        "        return coordinator().read()\n"
+                        "    def send(self, value: str) -> None:\n"
+                        "        coordinator().write(value)\n",
+                    ),
+                ),
+                focus_path=PurePosixPath("app/native.py"),
+                expected_count=0,
+                public=True,
+            ),
+            RuleExample(
+                example_id="concrete-service-boundary",
+                title="Concrete service directly exposes an injected collaborator",
+                outcome=ExampleOutcome.MATCH,
+                files=(
+                    ExampleFile.python(
+                        "app/services/thing_service.py",
+                        "class ThingService:\n"
+                        "    def __init__(self, client: ThingClient) -> None:\n"
+                        "        self.client = client\n\n"
+                        "    def read(self, key: str) -> str:\n"
+                        "        return self.client.get(key)\n\n"
+                        "    def write(self, key: str, value: str) -> None:\n"
+                        "        self.client.put(key, value)\n\n"
+                        "def sync(service: ThingService) -> None:\n"
+                        "    service.write('inbox', service.read('outbox'))\n",
+                    ),
+                ),
+                focus_path=PurePosixPath("app/services/thing_service.py"),
+                expected_count=1,
+                public=True,
+            ),
+            RuleExample(
+                example_id="declared-service-port",
+                title="A visible structural port already describes the service boundary",
+                outcome=ExampleOutcome.NO_MATCH,
+                files=(
+                    ExampleFile.python(
+                        "app/services/thing_service.py",
+                        "from typing import Protocol\n\n"
+                        "class ThingServicePort(Protocol):\n"
+                        "    def read(self, key: str) -> str: ...\n"
+                        "    def write(self, key: str, value: str) -> None: ...\n\n"
+                        "class ThingService:\n"
+                        "    def __init__(self, client: ThingClient) -> None:\n"
+                        "        self.client = client\n\n"
+                        "    def read(self, key: str) -> str:\n"
+                        "        return self.client.get(key)\n\n"
+                        "    def write(self, key: str, value: str) -> None:\n"
+                        "        self.client.put(key, value)\n\n"
+                        "def sync(service: ThingServicePort) -> None:\n"
+                        "    service.write('inbox', service.read('outbox'))\n",
+                    ),
+                ),
+                focus_path=PurePosixPath("app/services/thing_service.py"),
+                expected_count=0,
+                public=True,
+            ),
+        ),
+    )
+    description: str = documentation.summary
+
+    @override
+    def check_context(self, context: PythonFileContext) -> list[Diagnostic]:
+        path = context.path
+        source = context.source
+        if not _is_library_source(path) or context.generated or "class " not in source:
+            return []
+        tree = context.tree
+        if tree is None:
+            return []
+        if _has_main_guard(tree):
+            return []
+
+        classes = [node for node in tree.body if isinstance(node, ast.ClassDef)]
+        bound_names = _module_bound_names(tree)
+        imports = context.imports
+        source_lines = context.source_lines
+        data_names = {node.name for node in classes if is_data_type(node)}
+        local_class_names = {node.name for node in classes}
+        local_port_names = _local_port_names(classes)
+        factory_facts = _factory_class_facts(tree, classes, context.module_imports)
+
+        diags: list[Diagnostic] = []
+        for node in classes:
+            diagnostic = self._class_diagnostic(
+                path,
+                node,
+                indexes=context.session.project,
+                source_lines=source_lines,
+                data_names=data_names,
+                bound_names=bound_names,
+                local_class_names=local_class_names,
+                local_port_names=local_port_names,
+                imports=imports,
+                factory_facts=factory_facts,
+            )
+            if diagnostic is not None:
+                diags.append(diagnostic)
+        diags.sort(key=lambda d: (d.line, d.col))
+        return diags
+
+    def _class_diagnostic(
+        self,
+        path: Path,
+        node: ast.ClassDef,
+        *,
+        indexes: ProjectIndexSet | None,
+        source_lines: list[str],
+        data_names: set[str],
+        bound_names: set[str],
+        local_class_names: set[str],
+        local_port_names: set[str],
+        imports: ImportIndex,
+        factory_facts: _FactoryClassFacts,
+    ) -> Diagnostic | None:
+        if _class_is_suppressed(node, source_lines, self.code):
+            return None
+        collaborator = _unsubstitutable_service(
+            node, data_names, bound_names, local_class_names, local_port_names, imports=imports
+        )
+        consumer_count = self._concrete_consumer_count(path, node, local_class_names, local_port_names, indexes=indexes)
+        typed_consumer_count = self._typed_consumer_count(
+            path, node, local_class_names, local_port_names, indexes=indexes
+        )
+        test_subclass_count = self._test_subclass_count(path, node, indexes=indexes) if typed_consumer_count else 0
+        test_mock_count = self._test_mock_count(path, node, indexes=indexes) if typed_consumer_count else 0
+        substituted_boundary = typed_consumer_count >= 1 and (test_subclass_count + test_mock_count) >= 1
+        factory_boundary = (
+            self._factory_boundary(path, node, local_class_names, local_port_names, factory_facts, indexes=indexes)
+            if collaborator is None
+            else None
+        )
+        if (
+            collaborator is None
+            and (consumer_count < _MIN_PROJECT_CONSUMERS or _public_method_count(node) < _MIN_PUBLIC_METHODS)
+            and not substituted_boundary
+            and factory_boundary is None
+        ):
+            return None
+        if collaborator is not None:
+            evidence = f"injects `{collaborator}` and exposes {_public_method_count(node)} public methods"
+        elif factory_boundary is not None:
+            evidence = f"retains factory-created `{factory_boundary}` and is constructed directly to invoke multiple public operations"
+        elif substituted_boundary:
+            evidence = (
+                f"is typed directly by {typed_consumer_count} production classes and has "
+                f"{test_subclass_count} test subclasses and {test_mock_count} test mock specs"
+            )
+        else:
+            evidence = f"is injected directly into {consumer_count} production classes"
+        return Diagnostic(
+            path=path,
+            line=node.lineno,
+            col=node.col_offset + 1,
+            code=self.code,
+            severity=Severity.WARNING,
+            message=(
+                f"`{node.name}` {evidence} with no recognizable in-file or inherited port. If a real "
+                "consumer needs substitution, define a small consumer-owned `Protocol` and type that "
+                "consumer against it; otherwise suppress this advisory instead of adding an unused abstraction."
+            ),
+        )
+
+    def _factory_boundary(
+        self,
+        path: Path,
+        node: ast.ClassDef,
+        local_class_names: set[str],
+        local_port_names: set[str],
+        factory_facts: _FactoryClassFacts,
+        *,
+        indexes: ProjectIndexSet | None,
+    ) -> str | None:
+        if (
+            indexes is None
+            or node.name not in factory_facts.owned_names
+            or node.name in factory_facts.excluded_owners
+            or not _project_boundary_candidate(node, local_class_names, local_port_names)
+        ):
+            return None
+        collaborator = _factory_collaborator(node, factory_facts)
+        if collaborator is None:
+            return None
+        unit = indexes.unit(path)
+        if unit is None:
+            return None
+        public_methods = {
+            method.name
+            for method in class_methods(node)
+            if not method.name.startswith("_")
+            and not any(_dotted_tail(decorator) in _NON_METHOD_DECORATORS for decorator in method.decorator_list)
+        }
+        operations = {
+            operation
+            for consumer_path, operation in indexes.constructor_operations(unit, node.name)
+            if operation in public_methods and self._factory_library_consumer(consumer_path, indexes)
+        }
+        return collaborator if len(operations) >= _MIN_COLLABORATOR_METHODS else None
+
+    @staticmethod
+    def _factory_library_consumer(path: Path, indexes: ProjectIndexSet) -> bool:
+        unit = indexes.unit(path)
+        return (
+            _is_library_source(path) and unit is not None and unit.tree is not None and not _has_main_guard(unit.tree)
+        )
+
+    def _concrete_consumer_count(
+        self,
+        path: Path,
+        node: ast.ClassDef,
+        local_class_names: frozenset[str] | set[str],
+        local_port_names: frozenset[str] | set[str],
+        *,
+        indexes: ProjectIndexSet | None,
+    ) -> int:
+        if indexes is None or not _project_boundary_candidate(node, local_class_names, local_port_names):
+            return 0
+        unit = indexes.unit(path)
+        if unit is None:
+            return 0
+        return len(
+            {
+                (consumer_path, consumer_name)
+                for consumer_path, consumer_name in indexes.constructor_consumers(unit, node.name)
+                if not is_test_path(consumer_path) and not is_test_support_path(consumer_path)
+            }
+        )
+
+    def _typed_consumer_count(
+        self,
+        path: Path,
+        node: ast.ClassDef,
+        local_class_names: frozenset[str] | set[str],
+        local_port_names: frozenset[str] | set[str],
+        *,
+        indexes: ProjectIndexSet | None,
+    ) -> int:
+        if indexes is None or not _project_boundary_candidate(node, local_class_names, local_port_names):
+            return 0
+        unit = indexes.unit(path)
+        if unit is None:
+            return 0
+        return len(
+            {
+                (consumer_path, consumer_name)
+                for consumer_path, consumer_name in indexes.typed_class_consumers(unit, node.name)
+                if not is_test_path(consumer_path) and not is_test_support_path(consumer_path)
+            }
+        )
+
+    def _test_subclass_count(self, path: Path, node: ast.ClassDef, *, indexes: ProjectIndexSet | None) -> int:
+        if indexes is None:
+            return 0
+        unit = indexes.unit(path)
+        if unit is None:
+            return 0
+        return sum(
+            is_test_path(subclass_path) or is_test_support_path(subclass_path)
+            for subclass_path, _ in indexes.direct_subclasses(unit, node.name)
+        )
+
+    def _test_mock_count(self, path: Path, node: ast.ClassDef, *, indexes: ProjectIndexSet | None) -> int:
+        if indexes is None:
+            return 0
+        unit = indexes.unit(path)
+        if unit is None:
+            return 0
+        return sum(
+            is_test_path(test_path) or is_test_support_path(test_path)
+            for test_path in indexes.test_mock_specs(unit, node.name)
+        )
+
+
+def _is_library_source(path: Path) -> bool:
+    if is_test_path(path) or is_test_support_path(path):
+        return False
+    parts = _repository_relative_parts(path)
+    if parts and parts[0] in _TOP_LEVEL_SCRIPT_DIR_NAMES:
+        return False
+    if any(part in _MIGRATION_DIR_NAMES for part in parts):
+        return False
+    return not any(left == "management" and right == "commands" for left, right in pairwise(parts))
+
+
+def _repository_relative_parts(path: Path) -> tuple[str, ...]:
+    if not path.is_absolute():
+        return path.parts
+    for parent in path.parents:
+        if (parent / ".git").exists():
+            return path.relative_to(parent).parts
+    return path.parts
+
+
+def _has_main_guard(tree: ast.Module) -> bool:
+    for stmt in tree.body:
+        if not isinstance(stmt, ast.If):
+            continue
+        match stmt.test:
+            case (
+                ast.Compare(
+                    left=ast.Name(id="__name__"),
+                    ops=[ast.Eq()],
+                    comparators=[ast.Constant(value="__main__")],
+                )
+                | ast.Compare(
+                    left=ast.Constant(value="__main__"),
+                    ops=[ast.Eq()],
+                    comparators=[ast.Name(id="__name__")],
+                )
+            ):
+                return True
+            case _:
+                continue
+    return False
+
+
+def _unsubstitutable_service(
+    node: ast.ClassDef,
+    data_names: frozenset[str] | set[str],
+    bound_names: frozenset[str] | set[str],
+    local_class_names: frozenset[str] | set[str],
+    local_port_names: frozenset[str] | set[str],
+    *,
+    imports: ImportIndex,
+) -> str | None:
+    if node.name.startswith("_") or not _SERVICE_NAME_RE.search(node.name):
+        return None
+    if (
+        _BASE_NAME_RE.match(node.name)
+        or _names_a_port_in_scope(node.name, bound_names)
+        or f"{node.name}Port" in local_port_names
+    ):
+        return None
+    if _has_base(node, local_class_names, local_port_names) or is_data_type(node) or _declares_interface(node):
+        return None
+    if (
+        _public_method_count(node) < _MIN_PUBLIC_METHODS
+        or _handles_http_requests(node)
+        or _has_framework_callback_method(node)
+    ):
+        return None
+    return _injected_collaborator(node, data_names, imports)
+
+
+def _project_boundary_candidate(
+    node: ast.ClassDef,
+    local_class_names: frozenset[str] | set[str],
+    local_port_names: frozenset[str] | set[str],
+) -> bool:
+    return not (
+        node.name.startswith("_")
+        or _BASE_NAME_RE.match(node.name)
+        or _has_base(node, local_class_names, local_port_names)
+        or is_data_type(node)
+        or _declares_interface(node)
+        or _public_method_count(node) < 1
+        or _handles_http_requests(node)
+        or _has_framework_callback_method(node)
+    )
+
+
+def _has_framework_callback_method(node: ast.ClassDef) -> bool:
+    return any(
+        isinstance(target := decorator.func if isinstance(decorator, ast.Call) else decorator, ast.Attribute)
+        and target.attr in _FRAMEWORK_METHOD_DECORATORS
+        for method in class_methods(node)
+        if not method.name.startswith("_")
+        for decorator in method.decorator_list
+    )
+
+
+def _handles_http_requests(node: ast.ClassDef) -> bool:
+    return any(
+        _is_http_parameter(param, default)
+        for method in class_methods(node)
+        if not method.name.startswith("_")
+        for param, default in _params_with_defaults(method)
+    )
+
+
+def _params_with_defaults(
+    method: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> list[_ParameterDefault]:
+    args = method.args
+    positional = [*args.posonlyargs, *args.args]
+    padding: list[ast.expr | None] = [None] * (len(positional) - len(args.defaults))
+    return [
+        *map(_ParameterDefault, positional, [*padding, *args.defaults], strict=True),
+        *map(_ParameterDefault, args.kwonlyargs, args.kw_defaults, strict=True),
+    ]
+
+
+def _is_http_parameter(param: ast.arg, default: ast.expr | None) -> bool:
+    if param.annotation is not None:
+        for inner in walk_ast(param.annotation):
+            if isinstance(inner, ast.Name | ast.Attribute) and _dotted_tail(inner) in _HTTP_PARAM_TYPES:
+                return True
+            if isinstance(inner, ast.Call) and _dotted_tail(inner.func) in _HTTP_PARAM_MARKERS:
+                return True
+    return isinstance(default, ast.Call) and _dotted_tail(default.func) in _HTTP_PARAM_MARKERS
+
+
+def _names_a_port_in_scope(name: str, bound_names: frozenset[str] | set[str]) -> bool:
+    return any(
+        name[index].isupper()
+        and (suffix := name[index:]) in bound_names
+        and _SERVICE_NAME_RE.fullmatch(suffix) is None
+        and bool(_SERVICE_NAME_RE.search(suffix))
+        for index in range(1, len(name))
+    )
+
+
+def _has_base(
+    node: ast.ClassDef,
+    local_class_names: frozenset[str] | set[str],
+    local_port_names: frozenset[str] | set[str],
+) -> bool:
+    if any(keyword.arg == "metaclass" and _dotted_tail(keyword.value) == "ABCMeta" for keyword in node.keywords):
+        return True
+    for base in node.bases:
+        name = _dotted_tail(base)
+        if name in {None, "object"}:
+            continue
+        if name == "Generic":
+            continue
+        # `class TTS(tts.TTS)` is an adapter extending an external framework
+        # class whose tail happens to equal the local implementation name.
+        if name == node.name:
+            return True
+        if name in local_class_names:
+            if name in local_port_names:
+                return True
+            continue
+        return True
+    return False
+
+
+def is_data_type(node: ast.ClassDef) -> bool:
+    if any(_dotted_tail(dec) in _DATA_DECORATORS for dec in node.decorator_list):
+        return True
+    return any(_dotted_tail(base) in _DATA_BASES for base in node.bases)
+
+
+def _declares_interface(node: ast.ClassDef) -> bool:
+    if any(_dotted_tail(dec) in _IMPLEMENTS_DECORATORS for dec in node.decorator_list):
+        return True
+    return any(
+        _dotted_tail(dec) in _INTERFACE_DECORATORS for method in class_methods(node) for dec in method.decorator_list
+    )
+
+
+def class_methods(node: ast.ClassDef) -> list[ast.FunctionDef | ast.AsyncFunctionDef]:
+    return [stmt for stmt in node.body if isinstance(stmt, _FUNC_NODES)]
+
+
+def _public_method_count(node: ast.ClassDef) -> int:
+    return sum(
+        1
+        for method in class_methods(node)
+        if not method.name.startswith("_")
+        and not any(_dotted_tail(dec) in _NON_METHOD_DECORATORS for dec in method.decorator_list)
+    )
+
+
+def _injected_collaborator(
+    node: ast.ClassDef,
+    data_names: frozenset[str] | set[str],
+    imports: ImportIndex,
+) -> str | None:
+    init = next((method for method in class_methods(node) if method.name == "__init__"), None)
+    if init is None:
+        return None
+    stored_parameters = self_stored_parameters(init, imports)
+    candidates: list[tuple[str, frozenset[str]]] = []
+    for param, default in _params_with_defaults(init):
+        if param.arg == "self":
+            continue
+        annotation = annotation_tail(param.annotation)
+        if (
+            annotation is None
+            or annotation in _PRIMITIVE_ANNOTATIONS
+            or annotation in _DRIVER_HANDLE_ANNOTATIONS
+            or annotation in data_names
+        ):
+            continue
+        if _WEAK_COLLABORATOR_RE.search(annotation):
+            continue
+        fields = stored_parameters.fields_by_parameter.get(param.arg)
+        if fields is None or default is not None or _annotation_allows_none(param.annotation):
+            continue
+        if param.arg in stored_parameters.fallback_stored:
+            continue
+        if _PERSISTENCE_DEPENDENCY_RE.search(annotation):
+            return None
+        candidates.append((annotation, fields))
+    return _behavioral_collaborator(node, candidates)
+
+
+def _factory_class_facts(tree: ast.Module, classes: list[ast.ClassDef], imports: ImportIndex) -> _FactoryClassFacts:
+    local_names = {node.name for node in classes}
+    declarations: dict[str, int] = {}
+    for statement in tree.body:
+        for name in _factory_statement_bindings(statement):
+            declarations[name] = declarations.get(name, 0) + 1
+    owned_names: frozenset[str] = frozenset(name for name in local_names if declarations.get(name) == 1)
+    if any(
+        isinstance(item, ast.ImportFrom) and any(alias.name == "*" for alias in item.names) for item in walk_ast(tree)
+    ):
+        owned_names = frozenset()
+    interfaces = {node.name for node in classes if _factory_interface(node, imports)}
+    values = {node.name for node in classes if _factory_value_class(node, imports, local_names)}
+    _inherit_factory_exclusions(classes, interfaces)
+    _inherit_factory_exclusions(classes, values)
+    return _FactoryClassFacts(owned_names, frozenset(interfaces | values), frozenset(values))
+
+
+def _factory_interface(node: ast.ClassDef, imports: ImportIndex) -> bool:
+    return any(
+        imports.resolves(base, sources=TYPING_SOURCES, symbol="Protocol")
+        or imports.resolves(base, sources=ABC_SOURCES, symbol="ABC")
+        for base in node.bases
+    ) or any(
+        imports.resolved_symbol(decorator, sources=ABC_SOURCES) in _INTERFACE_DECORATORS
+        for method in class_methods(node)
+        for decorator in method.decorator_list
+    )
+
+
+def _factory_value_class(node: ast.ClassDef, imports: ImportIndex, local_names: set[str]) -> bool:
+    if is_data_type(node):
+        return True
+    if any(
+        imports.resolved_symbol(
+            decorator.func if isinstance(decorator, ast.Call) else decorator,
+            sources=frozenset({"dataclasses", "attrs", "attr"}),
+        )
+        in _DATA_DECORATORS
+        for decorator in node.decorator_list
+    ):
+        return True
+    return any(_factory_value_base(base, imports, local_names) for base in node.bases)
+
+
+def _factory_value_base(base: ast.expr, imports: ImportIndex, local_names: set[str]) -> bool:
+    if (
+        imports.resolved_symbol(
+            base, sources=frozenset({"pydantic", "typing", "typing_extensions", "enum", "msgspec", "builtins"})
+        )
+        in _DATA_BASES
+    ):
+        return True
+    if any(imports.resolves(base, sources=TYPING_SOURCES, symbol=name) for name in ("Protocol", "Generic")):
+        return False
+    if imports.resolves(base, sources=ABC_SOURCES, symbol="ABC"):
+        return False
+    return _dotted_tail(base) not in local_names | {"object", "Generic", "Protocol", "ABC", None}
+
+
+def _inherit_factory_exclusions(classes: list[ast.ClassDef], excluded: set[str]) -> None:
+    while grown := {
+        node.name
+        for node in classes
+        if node.name not in excluded and any(_dotted_tail(base) in excluded for base in node.bases)
+    }:
+        excluded.update(grown)
+
+
+def _factory_statement_bindings(statement: ast.stmt) -> frozenset[str]:
+    names: set[str] = set()
+    stack: list[ast.AST] = [statement]
+    while stack:
+        node = stack.pop()
+        match node:
+            case ast.FunctionDef(name=name) | ast.AsyncFunctionDef(name=name) | ast.ClassDef(name=name):
+                names.add(name)
+                continue
+            case ast.AnnAssign(value=None):
+                continue
+            case (
+                ast.Name(id=name, ctx=(ast.Store() | ast.Del()))
+                | ast.ExceptHandler(name=str(name))
+                | ast.MatchAs(name=str(name))
+                | ast.MatchStar(name=str(name))
+                | ast.MatchMapping(rest=str(name))
+            ):
+                names.add(name)
+            case ast.Import(names=aliases) | ast.ImportFrom(names=aliases):
+                names.update(alias.asname or alias.name.partition(".")[0] for alias in aliases)
+            case _:
+                pass
+        stack.extend(ast.iter_child_nodes(node))
+    return frozenset(names)
+
+
+def _factory_collaborator(node: ast.ClassDef, facts: _FactoryClassFacts) -> str | None:
+    init = next((method for method in class_methods(node) if method.name == "__init__"), None)
+    if init is None:
+        return None
+    origins: dict[str, ast.expr | None] = {}
+    candidates: list[tuple[str, frozenset[str]]] = []
+    writes = _constructor_field_writes(init)
+    available_names = set(facts.owned_names)
+    available_names.difference_update(
+        parameter.arg for parameter in (*init.args.posonlyargs, *init.args.args, *init.args.kwonlyargs)
+    )
+    for statement in init.body:
+        if isinstance(statement, ast.Raise):
+            return None
+        if isinstance(statement, ast.Return):
+            break
+        if not _factory_falls_through(statement):
+            return None
+        available_names.difference_update(_factory_statement_bindings(statement))
+        if not _update_factory_origins(statement, origins):
+            return None
+        candidate = _factory_field_candidate(statement, origins, writes, facts.excluded_collaborators, available_names)
+        if candidate is not None:
+            candidates.append(candidate)
+    return _behavioral_collaborator(node, candidates)
+
+
+def _factory_falls_through(statement: ast.stmt) -> bool:
+    if isinstance(statement, (ast.Return, ast.Raise, ast.While, *_UNSUPPORTED_COMPOUND_STATEMENTS)):
+        return False
+    if not isinstance(statement, ast.If):
+        return True
+    truth = _static_truth(statement.test)
+    if truth is not None:
+        return _factory_statements_fall_through(statement.body if truth else statement.orelse)
+    return _factory_statements_fall_through(statement.body) or _factory_statements_fall_through(statement.orelse)
+
+
+def _factory_statements_fall_through(statements: list[ast.stmt]) -> bool:
+    return all(_factory_falls_through(statement) for statement in statements)
+
+
+def _constructor_field_writes(init: ast.FunctionDef | ast.AsyncFunctionDef) -> dict[str, int]:
+    writes: dict[str, int] = {}
+    for statement in walk_ast(init):
+        if (
+            isinstance(statement, ast.Attribute)
+            and isinstance(statement.ctx, ast.Store | ast.Del)
+            and isinstance(statement.value, ast.Name)
+            and statement.value.id == "self"
+        ):
+            writes[statement.attr] = writes.get(statement.attr, 0) + 1
+    return writes
+
+
+def _update_factory_origins(statement: ast.stmt, origins: dict[str, ast.expr | None]) -> bool:
+    value = statement.value if isinstance(statement, ast.Assign | ast.AnnAssign) else None
+    snapshot = origins.get(value.id) if isinstance(value, ast.Name) else value
+    for name in _factory_statement_bindings(statement):
+        origins.pop(name, None)
+    if isinstance(statement, ast.Assign | ast.AnnAssign):
+        if statement.value is None:
+            return True
+        targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target]
+        for target in targets:
+            if not isinstance(target, ast.Name):
+                continue
+            origins[target.id] = snapshot
+    elif isinstance(statement, (ast.If, ast.While, *_UNSUPPORTED_COMPOUND_STATEMENTS)):
+        for item in walk_ast(statement):
+            if isinstance(item, ast.Return):
+                return False
+    return True
+
+
+def _factory_field_candidate(
+    statement: ast.stmt,
+    origins: dict[str, ast.expr | None],
+    writes: dict[str, int],
+    data_names: frozenset[str],
+    local_class_names: set[str],
+) -> tuple[str, frozenset[str]] | None:
+    if not isinstance(statement, ast.AnnAssign):
+        return None
+    assignment = _self_field_assignment(statement)
+    annotation = annotation_tail(statement.annotation)
+    if assignment is None or annotation is None or annotation not in local_class_names:
+        return None
+    if any(isinstance(item, ast.Attribute) and item.attr == annotation for item in walk_ast(statement.annotation)):
+        return None
+    if (
+        annotation in data_names
+        or annotation in _DRIVER_HANDLE_ANNOTATIONS
+        or _PERSISTENCE_DEPENDENCY_RE.search(annotation)
+        or _WEAK_COLLABORATOR_RE.search(annotation)
+        or _annotation_allows_none(statement.annotation)
+    ):
+        return None
+    fields, value = assignment
+    origin = value if isinstance(value, ast.Call) else origins.get(value.id) if isinstance(value, ast.Name) else None
+    if not isinstance(origin, ast.Call) or any(writes[field] != 1 for field in fields):
+        return None
+    return annotation, frozenset(fields)
+
+
+def self_stored_parameters(
+    init: ast.FunctionDef | ast.AsyncFunctionDef,
+    imports: ImportIndex,
+) -> _StoredParameters:
+    fields_by_parameter: dict[str, set[str]] = {}
+    fallback_stored: set[str] = set()
+    overwritten_fields: set[str] = set()
+    field_write_counts: dict[str, int] = {}
+    stack: list[ast.stmt] = list(reversed(init.body))
+    while stack:
+        node = stack.pop()
+        if isinstance(node, ast.Return | ast.Raise):
+            break
+        if isinstance(node, ast.If) and isinstance(node.test, ast.Constant):
+            branch = node.body if bool(node.test.value) else node.orelse
+            stack.extend(reversed(branch))
+            continue
+        if isinstance(node, ast.While) and isinstance(node.test, ast.Constant) and not bool(node.test.value):
+            stack.extend(reversed(node.orelse))
+            continue
+        if isinstance(node, (ast.If, ast.While, *_UNSUPPORTED_COMPOUND_STATEMENTS)):
+            return _StoredParameters({}, frozenset())
+        assignment = _self_field_assignment(node)
+        if assignment is None:
+            continue
+        fields, value = assignment
+        _count_field_writes(fields, field_write_counts)
+        parameters = _stored_parameter_names(value, imports)
+        if not parameters:
+            overwritten_fields.update(fields)
+        for parameter in parameters:
+            fields_by_parameter.setdefault(parameter, set()).update(fields)
+        fallback_stored.update(_fallback_parameter_names(value, imports))
+    return _stored_parameters_result(fields_by_parameter, overwritten_fields, field_write_counts, fallback_stored)
+
+
+def _stored_parameter_names(value: ast.expr, imports: ImportIndex) -> set[str]:
+    if isinstance(value, ast.Name):
+        return {value.id}
+    if isinstance(value, ast.BoolOp) and isinstance(value.op, ast.Or):
+        return {name for item in value.values for name in _stored_parameter_names(item, imports)}
+    if isinstance(value, ast.Call) and imports.resolves(value.func, sources=_CAST_SOURCES, symbol="cast"):
+        cast_values = value.args[1:]
+        if cast_values:
+            return _stored_parameter_names(cast_values[-1], imports)
+    return set()
+
+
+def _fallback_parameter_names(value: ast.expr, imports: ImportIndex) -> set[str]:
+    if isinstance(value, ast.BoolOp) and isinstance(value.op, ast.Or):
+        return _stored_parameter_names(value, imports)
+    if isinstance(value, ast.Call) and imports.resolves(value.func, sources=_CAST_SOURCES, symbol="cast"):
+        cast_values = value.args[1:]
+        if cast_values:
+            return _fallback_parameter_names(cast_values[-1], imports)
+    return set()
+
+
+def _annotation_allows_none(annotation: ast.expr | None) -> bool:
+    if annotation is None:
+        return False
+    if isinstance(annotation, ast.Constant):
+        return _constant_annotation_allows_none(annotation)
+    if isinstance(annotation, ast.BinOp) and isinstance(annotation.op, ast.BitOr):
+        return _annotation_allows_none(annotation.left) or _annotation_allows_none(annotation.right)
+    return isinstance(annotation, ast.Subscript) and _subscript_allows_none(annotation)
+
+
+@dataclass(frozen=True, slots=True)
+class _InvocationFlow:
+    found: bool
+    falls_through: bool
+
+
+def _statements_invoke_field(statements: list[ast.stmt], fields: frozenset[str]) -> _InvocationFlow:
+    for statement in statements:
+        if isinstance(statement, ast.If):
+            flow = _conditional_invokes_field(statement, fields)
+            if flow.found or not flow.falls_through:
+                return flow
+            continue
+        if (
+            isinstance(statement, ast.While)
+            and isinstance(statement.test, ast.Constant)
+            and not bool(statement.test.value)
+        ):
+            flow = _statements_invoke_field(statement.orelse, fields)
+            if flow.found or not flow.falls_through:
+                return flow
+            continue
+        if isinstance(statement, (ast.While, *_UNSUPPORTED_COMPOUND_STATEMENTS)):
+            continue
+        if _node_invokes_field(statement, fields):
+            return _InvocationFlow(found=True, falls_through=True)
+        if isinstance(statement, ast.Return | ast.Raise):
+            return _InvocationFlow(found=False, falls_through=False)
+    return _InvocationFlow(found=False, falls_through=True)
+
+
+def _node_invokes_field(node: ast.AST, fields: frozenset[str]) -> bool:
+    if isinstance(
+        node,
+        (
+            ast.FunctionDef,
+            ast.AsyncFunctionDef,
+            ast.ClassDef,
+            ast.Lambda,
+            ast.ListComp,
+            ast.SetComp,
+            ast.DictComp,
+            ast.GeneratorExp,
+        ),
+    ):
+        return False
+    if isinstance(node, ast.Call) and called_self_field(node.func) in fields:
+        return True
+    if isinstance(node, ast.Compare) and len(node.ops) > 1:
+        return False
+    if isinstance(node, ast.BoolOp):
+        return _boolean_invokes_field(node, fields)
+    if isinstance(node, ast.IfExp) and (truth := _static_truth(node.test)) is not None:
+        branch = node.body if truth else node.orelse
+        return _node_invokes_field(branch, fields)
+    return any(
+        _node_invokes_field(child, fields)
+        for child in ast.iter_child_nodes(node)
+        if not isinstance(child, ast.stmt | ast.ExceptHandler)
+    )
+
+
+def _static_truth(node: ast.AST) -> bool | None:
+    match node:
+        case ast.Constant(value=value):
+            return bool(value)
+        case ast.Tuple(elts=items) | ast.List(elts=items) | ast.Set(elts=items):
+            return bool(items)
+        case ast.Dict(keys=keys):
+            return bool(keys)
+        case ast.UnaryOp(op=ast.Not(), operand=operand):
+            truth = _static_truth(operand)
+            return None if truth is None else not truth
+        case ast.BoolOp(op=operator, values=values):
+            return _boolean_static_truth(operator, values)
+        case _:
+            return None
+
+
+def called_self_field(func: ast.expr) -> str | None:
+    current = func
+    while isinstance(current, ast.Attribute):
+        if isinstance(current.value, ast.Name) and current.value.id == "self":
+            return current.attr
+        current = current.value
+    return None
+
+
+def _class_is_suppressed(node: ast.ClassDef, source_lines: list[str], code: str) -> bool:
+    start = min((decorator.lineno for decorator in node.decorator_list), default=node.lineno)
+    return any(is_suppressed(source_lines, line, code) for line in range(start, node.lineno + 1))
+
+
+def annotation_tail(annotation: ast.expr | None) -> str | None:
+    match annotation:
+        case None:
+            return None
+        case ast.Constant(value=str() as value):
+            try:
+                parsed = ast.parse(value, mode="eval")
+            except SyntaxError, ValueError:
+                return None
+            return annotation_tail(parsed.body)
+        case ast.Constant():
+            return None
+        case ast.BinOp(left=left, op=ast.BitOr(), right=right):
+            for side in (left, right):
+                tail = annotation_tail(side)
+                if tail is not None and tail != "None":
+                    return tail
+            return None
+        case ast.Subscript(value=value, slice=inner):
+            outer = _dotted_tail(value)
+            if outer not in _TRANSPARENT_GENERICS:
+                return outer
+            if isinstance(inner, ast.Tuple):
+                inner = inner.elts[0] if inner.elts else inner
+            return annotation_tail(inner)
+        case _:
+            return _dotted_tail(annotation)
+
+
+def _dotted_tail(node: ast.expr) -> str | None:
+    match node:
+        case ast.Name(id=name):
+            return name
+        case ast.Attribute(attr=attr):
+            return attr
+        case ast.Subscript(value=value):
+            return _dotted_tail(value)
+        case ast.Call(func=func):
+            return _dotted_tail(func)
+        case ast.Constant(value=None):
+            return "None"
+        case _:
+            return None
+
+
+def _local_port_names(classes: list[ast.ClassDef]) -> set[str]:
+    local_port_names = {
+        node.name
+        for node in classes
+        if _BASE_NAME_RE.match(node.name)
+        or _declares_interface(node)
+        or any(_dotted_tail(base) in {"ABC", "Protocol"} for base in node.bases)
+        or any(keyword.arg == "metaclass" and _dotted_tail(keyword.value) == "ABCMeta" for keyword in node.keywords)
+    }
+    _inherit_local_ports(classes, local_port_names)
+    return local_port_names
+
+
+def _module_bound_names(tree: ast.Module) -> set[str]:
+    bound_names: set[str] = set()
+    for node in tree.body:
+        if isinstance(node, ast.ClassDef):
+            bound_names.add(node.name)
+        elif isinstance(node, ast.ImportFrom | ast.Import):
+            bound_names.update(alias.asname or alias.name.rpartition(".")[2] for alias in node.names)
+    return bound_names
+
+
+def _behavioral_collaborator(node: ast.ClassDef, candidates: list[tuple[str, frozenset[str]]]) -> str | None:
+    for annotation, fields in candidates:
+        if _behavioral_public_method_count(node, fields) >= _MIN_COLLABORATOR_METHODS:
+            return annotation
+    return None
+
+
+def _behavioral_public_method_count(node: ast.ClassDef, fields: frozenset[str]) -> int:
+    return sum(
+        _method_invokes_field(method, fields)
+        for method in class_methods(node)
+        if method.name != "__init__"
+        and not method.name.startswith("_")
+        and not any(_dotted_tail(dec) in _NON_METHOD_DECORATORS for dec in method.decorator_list)
+    )
+
+
+def _method_invokes_field(
+    method: ast.FunctionDef | ast.AsyncFunctionDef,
+    fields: frozenset[str],
+) -> bool:
+    if _has_unsupported_control_flow(method.body):
+        return False
+    return _statements_invoke_field(method.body, fields).found
+
+
+def _has_unsupported_control_flow(statements: list[ast.stmt]) -> bool:
+    stack = list(statements)
+    while stack:
+        statement = stack.pop()
+        if isinstance(statement, (ast.While, *_UNSUPPORTED_COMPOUND_STATEMENTS)):
+            return True
+        if isinstance(statement, ast.If):
+            stack.extend(statement.body)
+            stack.extend(statement.orelse)
+    return False
+
+
+def _self_field_assignment(node: ast.stmt) -> tuple[set[str], ast.expr] | None:
+    if isinstance(node, ast.Assign):
+        targets: list[ast.expr] = list(node.targets)
+        value = node.value
+    elif isinstance(node, ast.AnnAssign):
+        targets = [node.target]
+        value = node.value
+    else:
+        return None
+    if value is None:
+        return None
+    fields = {
+        target.attr
+        for target in targets
+        if isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name) and target.value.id == "self"
+    }
+    if not fields:
+        return None
+    return fields, value
+
+
+def _stored_parameters_result(
+    fields_by_parameter: dict[str, set[str]],
+    overwritten_fields: set[str],
+    field_write_counts: dict[str, int],
+    fallback_stored: set[str],
+) -> _StoredParameters:
+    return _StoredParameters(
+        {
+            parameter: frozenset(field for field in fields - overwritten_fields if field_write_counts[field] == 1)
+            for parameter, fields in fields_by_parameter.items()
+            if any(field not in overwritten_fields and field_write_counts[field] == 1 for field in fields)
+        },
+        frozenset(fallback_stored),
+    )
+
+
+def _constant_annotation_allows_none(annotation: ast.Constant) -> bool:
+    if annotation.value is None:
+        return True
+    if isinstance(annotation.value, str):
+        try:
+            return _annotation_allows_none(ast.parse(annotation.value, mode="eval").body)
+        except SyntaxError, ValueError:
+            return False
+    return False
+
+
+def _conditional_invokes_field(statement: ast.If, fields: frozenset[str]) -> _InvocationFlow:
+    if _node_invokes_field(statement.test, fields):
+        return _InvocationFlow(found=True, falls_through=True)
+    if isinstance(statement.test, ast.Constant):
+        branch = statement.body if bool(statement.test.value) else statement.orelse
+        return _statements_invoke_field(branch, fields)
+    body = _statements_invoke_field(statement.body, fields)
+    otherwise = _statements_invoke_field(statement.orelse, fields)
+    return _InvocationFlow(
+        found=body.found or otherwise.found,
+        falls_through=body.falls_through or otherwise.falls_through,
+    )
+
+
+def _boolean_invokes_field(node: ast.BoolOp, fields: frozenset[str]) -> bool:
+    for value in node.values:
+        if _node_invokes_field(value, fields):
+            return True
+        truth = _static_truth(value)
+        if isinstance(node.op, ast.And) and truth is False:
+            break
+        if isinstance(node.op, ast.Or) and truth is True:
+            break
+    return False
+
+
+def _boolean_static_truth(operator: ast.boolop, values: list[ast.expr]) -> bool | None:
+    truths = [_static_truth(value) for value in values]
+    if isinstance(operator, ast.And):
+        if False in truths:
+            return False
+        return True if all(truth is True for truth in truths) else None
+    if True in truths:
+        return True
+    return False if all(truth is False for truth in truths) else None
+
+
+def _subscript_allows_none(annotation: ast.Subscript) -> bool:
+    match _dotted_tail(annotation.value):
+        case "Optional":
+            return True
+        case "Annotated":
+            inner = annotation.slice.elts[0] if isinstance(annotation.slice, ast.Tuple) else annotation.slice
+            return _annotation_allows_none(inner)
+        case "Union":
+            members = annotation.slice.elts if isinstance(annotation.slice, ast.Tuple) else [annotation.slice]
+            return any(_annotation_allows_none(member) for member in members)
+        case _:
+            return False
+
+
+def _inherit_local_ports(classes: list[ast.ClassDef], local_port_names: set[str]) -> None:
+    for _round in range(len(classes)):
+        grown = {
+            node.name
+            for node in classes
+            if node.name not in local_port_names and any(_dotted_tail(base) in local_port_names for base in node.bases)
+        }
+        if not grown:
+            break
+        local_port_names |= grown
+
+
+def _count_field_writes(fields: set[str], field_write_counts: dict[str, int]) -> None:
+    for field in fields:
+        field_write_counts[field] = field_write_counts.get(field, 0) + 1

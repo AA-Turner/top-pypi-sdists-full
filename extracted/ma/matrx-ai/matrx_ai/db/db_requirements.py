@@ -70,12 +70,8 @@ DB_REQUIREMENTS = {
         {"key": "UserFeedback", "table": "users.user_feedback"},
         # write-failure recovery engine (persistence/replay.py).
         {"key": "SystemWriteFailure", "table": "ops.system_write_failure"},
-        # workbench (UDT + notes).
-        {"key": "UdtDatasets", "table": "workbench.udt_datasets"},
-        {"key": "UdtDatasetFields", "table": "workbench.udt_dataset_fields"},
-        {"key": "UdtDatasetRows", "table": "workbench.udt_dataset_rows"},
-        {"key": "UdtStructuredLists", "table": "workbench.udt_structured_lists"},
-        {"key": "UdtStructuredListItems", "table": "workbench.udt_structured_list_items"},
+        # workbench (notes). The older data tables and pick lists moved to the graveyard at step two of the
+        # final switch (2026-10-01); their keys left with them and their callers read the record store.
         {"key": "Notes", "table": "workbench.notes"},
         # DataRef context injection (data_ref.py) — projects + organizations.
         {"key": "Projects", "table": "workspace.projects"},

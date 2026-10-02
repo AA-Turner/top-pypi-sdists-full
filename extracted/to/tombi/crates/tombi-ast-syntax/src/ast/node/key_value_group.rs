@@ -5,51 +5,51 @@ use crate::support::iter::WithCommaIter;
 use tombi_ast_syntax::SyntaxKind::KEY_VALUE_GROUP;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct KeyValueGroup {
-    pub(crate) syntax: SyntaxNode,
+pub struct KeyValueGroup<'t> {
+    pub(crate) syntax: SyntaxNode<'t>,
 }
 
-impl KeyValueGroup {
+impl<'t> KeyValueGroup<'t> {
     #[inline]
-    pub fn key_values(&self) -> impl Iterator<Item = crate::KeyValue> {
+    pub fn key_values(&self) -> impl Iterator<Item = crate::KeyValue<'t>> {
         self.syntax()
             .child_nodes()
             .filter_map(crate::KeyValue::cast)
     }
 
     #[inline]
-    pub fn into_key_values(self) -> impl Iterator<Item = crate::KeyValue> {
+    pub fn into_key_values(self) -> impl Iterator<Item = crate::KeyValue<'t>> {
         self.syntax.child_nodes().filter_map(crate::KeyValue::cast)
     }
 
     #[inline]
     pub fn key_values_with_comma(
         &self,
-    ) -> impl Iterator<Item = (crate::KeyValue, Option<crate::Comma>)> {
+    ) -> impl Iterator<Item = (crate::KeyValue<'t>, Option<crate::Comma<'t>>)> {
         WithCommaIter::new(self.syntax().child_nodes())
     }
 
     #[inline]
     pub fn into_key_values_with_comma(
         self,
-    ) -> impl Iterator<Item = (crate::KeyValue, Option<crate::Comma>)> {
+    ) -> impl Iterator<Item = (crate::KeyValue<'t>, Option<crate::Comma<'t>>)> {
         WithCommaIter::new(self.syntax.child_nodes())
     }
 
     #[inline]
-    pub fn range(&self) -> tombi_text::Range {
-        self.syntax.range()
+    pub fn span(&self) -> tombi_text::Span {
+        self.syntax.span()
     }
 }
 
-impl AstNode for KeyValueGroup {
+impl<'t> AstNode<'t> for KeyValueGroup<'t> {
     #[inline]
     fn can_cast(kind: tombi_ast_syntax::SyntaxKind) -> bool {
         kind == KEY_VALUE_GROUP
     }
 
     #[inline]
-    fn cast(syntax: SyntaxNode) -> Option<Self> {
+    fn cast(syntax: SyntaxNode<'t>) -> Option<Self> {
         if Self::can_cast(syntax.kind()) {
             Some(Self { syntax })
         } else {
@@ -58,7 +58,7 @@ impl AstNode for KeyValueGroup {
     }
 
     #[inline]
-    fn syntax(&self) -> &SyntaxNode {
+    fn syntax(&self) -> &SyntaxNode<'t> {
         &self.syntax
     }
 }

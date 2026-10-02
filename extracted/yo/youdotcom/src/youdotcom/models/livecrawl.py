@@ -1,0 +1,12 @@
+
+
+from __future__ import annotations
+from enum import Enum
+
+
+class LiveCrawl(str, Enum):
+    r"""Indicates which section(s) of search results to livecrawl and return full page content."""
+
+    WEB = "web"
+    NEWS = "news"
+    ALL = "all"

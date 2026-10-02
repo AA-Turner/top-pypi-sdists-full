@@ -1,6 +1,8 @@
 import fnmatch
 import json
+import os
 import typing as t
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import click
@@ -28,7 +30,7 @@ from dbt_state.decision_logger import (
 )
 from dbt_state.grpc.client import QueryCacheGrpcClient
 
-_EXPLAINER_MAX_BATCH_SIZE = 1000
+_EXPLAINER_MAX_BATCH_SIZE = 50
 
 
 class Explainer:
@@ -52,7 +54,6 @@ class Explainer:
         execution_decision_ids: t.List[str] = []
         node_log_entries: t.List[NodeLogEntry] = []
         no_decision_entries: t.List[NodeLogEntry] = []
-        explanations: t.Dict[str, ExplainMessageEntry] = {}
         run_start_entry: t.Optional[RunStartEntry] = None
 
         matched = False
@@ -80,12 +81,7 @@ class Explainer:
         if self._node_selector and not matched:
             self._println(f"No nodes found matching '{self._node_selector}'")
 
-        for i in range(0, len(execution_decision_ids), _EXPLAINER_MAX_BATCH_SIZE):
-            batch = execution_decision_ids[i : i + _EXPLAINER_MAX_BATCH_SIZE]
-            request = explain_service_models.GetExplainMessagesRequest(execution_decision_ids=batch)
-
-            response = self._query_cache_client.get_explain_messages(request)
-            explanations.update(response.by_id)
+        explanations = self._fetch_explanations(execution_decision_ids)
 
         if run_start_entry is None:
             raise click.ClickException(
@@ -111,6 +107,34 @@ class Explainer:
         with self._console.capture() as capture:
             self.explain()
         return capture.get()
+
+    def _fetch_explanations(
+        self, execution_decision_ids: t.List[str]
+    ) -> t.Dict[str, ExplainMessageEntry]:
+        if not execution_decision_ids:
+            return {}
+
+        explanations: t.Dict[str, ExplainMessageEntry] = {}
+
+        batches = [
+            execution_decision_ids[i : i + _EXPLAINER_MAX_BATCH_SIZE]
+            for i in range(0, len(execution_decision_ids), _EXPLAINER_MAX_BATCH_SIZE)
+        ]
+
+        def fetch_batch(batch: t.List[str]) -> t.Dict[str, ExplainMessageEntry]:
+            request = explain_service_models.GetExplainMessagesRequest(execution_decision_ids=batch)
+            response = self._query_cache_client.get_explain_messages(request)
+            return response.by_id
+
+        available_cpus = max(1, (os.cpu_count() or 4) - 1)
+        max_workers = min(available_cpus, 4)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(fetch_batch, batch): batch for batch in batches}
+            for future in as_completed(futures):
+                result = future.result()
+                explanations.update(result)
+
+        return explanations
 
     def _explain_run_start(self, run_start_entry: RunStartEntry) -> None:
         self._print("Last run: ")

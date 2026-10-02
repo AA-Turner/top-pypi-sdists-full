@@ -97,9 +97,7 @@ def _parse_sort_option(
         return None, WorkspaceSortOrder.ASC
 
     # Build case-insensitive map of allowed fields
-    allowed = {
-        f.value.lower(): f.value for f in WorkspaceSortField.__members__.values()
-    }
+    allowed = {f.value.lower(): f.value for f in WorkspaceSortField.__members__.values()}
 
     # Detect leading '-' for descending
     if sort.startswith("-"):
@@ -112,9 +110,7 @@ def _parse_sort_option(
     key = raw.lower()
     if key not in allowed:
         allowed_names = ", ".join(sorted(allowed.values()))
-        raise click.BadParameter(
-            f"Invalid sort field '{raw}'. Allowed: {allowed_names}"
-        )
+        raise click.BadParameter(f"Invalid sort field '{raw}'. Allowed: {allowed_names}")
 
     return allowed[key], order
 
@@ -127,12 +123,8 @@ def _create_workspace_list_table(show_header: bool) -> Table:
     table.add_column("STATE", no_wrap=False, overflow="fold", ratio=2, min_width=12)
     table.add_column("PROJECT", no_wrap=False, overflow="fold", ratio=2, min_width=15)
     table.add_column("CLOUD", no_wrap=False, overflow="fold", ratio=2, min_width=12)
-    table.add_column(
-        "CREATED BY", no_wrap=False, overflow="fold", ratio=3, min_width=24
-    )
-    table.add_column(
-        "CREATED AT", no_wrap=False, overflow="fold", ratio=2, min_width=20
-    )
+    table.add_column("CREATED BY", no_wrap=False, overflow="fold", ratio=3, min_width=24)
+    table.add_column("CREATED AT", no_wrap=False, overflow="fold", ratio=2, min_width=20)
     return table
 
 
@@ -151,9 +143,7 @@ def _create_workspace_list_table_verbose(show_header: bool) -> Table:
 
 
 def _format_workspace_output(workspace: Workspace) -> Dict[str, str]:
-    created_at = (
-        workspace.created_at.strftime("%Y-%m-%d %H:%M") if workspace.created_at else ""
-    )
+    created_at = workspace.created_at.strftime("%Y-%m-%d %H:%M") if workspace.created_at else ""
 
     return {
         "name": workspace.name,
@@ -167,13 +157,9 @@ def _format_workspace_output(workspace: Workspace) -> Dict[str, str]:
 
 
 def _format_workspace_output_verbose(workspace: Workspace) -> Dict[str, str]:
-    created_at = (
-        workspace.created_at.strftime("%Y-%m-%d %H:%M") if workspace.created_at else ""
-    )
+    created_at = workspace.created_at.strftime("%Y-%m-%d %H:%M") if workspace.created_at else ""
     last_started = (
-        workspace.last_started_at.strftime("%Y-%m-%d %H:%M")
-        if workspace.last_started_at
-        else ""
+        workspace.last_started_at.strftime("%Y-%m-%d %H:%M") if workspace.last_started_at else ""
     )
 
     return {
@@ -190,7 +176,8 @@ def _format_workspace_output_verbose(workspace: Workspace) -> Dict[str, str]:
 
 
 def _validate_workspace_name_and_id(
-    name: Optional[str], id: Optional[str]  # noqa: A002
+    name: Optional[str],
+    id: Optional[str],  # noqa: A002
 ):
     validate_exactly_one_name_or_id(name, id)
 
@@ -300,9 +287,7 @@ def _setup_https_connection(
     cluster = workspace_private_sdk.client.get_workspace_cluster(workspace_obj.id)
 
     if not cluster:
-        raise click.ClickException(
-            "Could not retrieve cluster details for the workspace."
-        )
+        raise click.ClickException("Could not retrieve cluster details for the workspace.")
 
     # Get hostname with multiple fallback methods
     public_hostname = _get_public_hostname(cluster)
@@ -387,9 +372,7 @@ def _create_proxy_command(public_hostname: str, cluster_access_token: str) -> st
     wss_url = f"wss://{public_hostname}{WSS_PATH}"
 
     try:
-        with importlib.resources.path(
-            "anyscale.utils", "ssh_websocket_proxy.py"
-        ) as proxy_path:
+        with importlib.resources.path("anyscale.utils", "ssh_websocket_proxy.py") as proxy_path:
             proxy_script_path = str(proxy_path)
     except (ModuleNotFoundError, ImportError) as e:
         raise click.ClickException(f"Could not locate SSH proxy script: {e}") from e
@@ -406,7 +389,9 @@ def _create_proxy_command(public_hostname: str, cluster_access_token: str) -> st
 
 
 def _build_ssh_command(
-    ssh_config: SSHConfig, user_args: List[str], shell_command: str,
+    ssh_config: SSHConfig,
+    user_args: List[str],
+    shell_command: str,
 ) -> List[str]:
     """Build the final SSH command with all options."""
     # Build SSH command with basic options
@@ -460,7 +445,10 @@ def _parse_user_args(user_args: List[str]) -> Tuple[List[str], List[str]]:
 
 
 def _test_https_connectivity(
-    workspace_obj: Workspace, workspace_private_sdk, host_name: str, config_file: str,
+    workspace_obj: Workspace,
+    workspace_private_sdk,
+    host_name: str,
+    config_file: str,
 ) -> bool:
     """Test HTTPS SSH connectivity with a quick command. Returns True if available."""
     try:
@@ -526,7 +514,10 @@ def _execute_https_ssh(
 
 
 def _execute_legacy_ssh(
-    ssh_target_host: str, config_file: str, ctx_args: List[str], shell_command: str,
+    ssh_target_host: str,
+    config_file: str,
+    ctx_args: List[str],
+    shell_command: str,
 ) -> None:
     """Execute legacy SSH connection."""
     legacy_ssh_config = SSHConfig(
@@ -577,7 +568,10 @@ def workspace_cli() -> None:
     help="Path to a YAML config file to deploy. When deploying from a file, import path and arguments cannot be provided. Command-line flags will overwrite values read from the file.",
 )
 @click.option(
-    "-n", "--name", required=False, help="Name of the workspace to create.",
+    "-n",
+    "--name",
+    required=False,
+    help="Name of the workspace to create.",
 )
 @click.option(
     "--image-uri",
@@ -743,7 +737,7 @@ def create(  # noqa: PLR0913, PLR0912, C901
             raise click.ClickException(f"Requirements file '{requirements}' not found.")
         config = config.options(requirements=requirements)
     if env:
-        env_dict = convert_kv_strings_to_dict(env)
+        env_dict = convert_kv_strings_to_dict(env, allow_empty_values=True)
         if env_dict:
             config = config.options(env_vars=env_dict)
 
@@ -753,7 +747,9 @@ def create(  # noqa: PLR0913, PLR0912, C901
             config = config.options(tags=tag_map)
 
     try:
-        anyscale.workspace.create(config,)
+        anyscale.workspace.create(
+            config,
+        )
     except ValueError as e:
         raise click.ClickException(str(e)) from None
 
@@ -771,11 +767,11 @@ def create(  # noqa: PLR0913, PLR0912, C901
     ],
 )
 @workspace_cli.command(
-    name="start", short_help="Start a workspace.", cls=AnyscaleCommand,
+    name="start",
+    short_help="Start a workspace.",
+    cls=AnyscaleCommand,
 )
-@click.option(
-    "--workspace-id", "--id", "id", required=False, help="Unique ID of the workspace."
-)
+@click.option("--workspace-id", "--id", "id", required=False, help="Unique ID of the workspace.")
 @click.option("--name", "-n", required=False, help="Name of the workspace.")
 @click.option(
     "--cloud",
@@ -799,8 +795,8 @@ def start(
 ) -> None:
     """Start a workspace.
 
-    To specify the workspace by name, use the --name flag. To specify the workspace by id, use the --id flag. Either name or
-id should be used, specifying both will result in an error.
+        To specify the workspace by name, use the --name flag. To specify the workspace by id, use the --id flag. Either name or
+    id should be used, specifying both will result in an error.
     """
     _validate_workspace_name_and_id(name=name, id=id)
     try:
@@ -822,11 +818,11 @@ id should be used, specifying both will result in an error.
     ],
 )
 @workspace_cli.command(
-    name="terminate", short_help="Terminate a workspace.", cls=AnyscaleCommand,
+    name="terminate",
+    short_help="Terminate a workspace.",
+    cls=AnyscaleCommand,
 )
-@click.option(
-    "--workspace-id", "--id", "id", required=False, help="Unique ID of the workspace."
-)
+@click.option("--workspace-id", "--id", "id", required=False, help="Unique ID of the workspace.")
 @click.option("--name", "-n", required=False, help="Name of the workspace.")
 @click.option(
     "--cloud",
@@ -850,8 +846,8 @@ def terminate(
 ) -> None:
     """Terminate a workspace.
 
-    To specify the workspace by name, use the --name flag. To specify the workspace by id, use the --id flag. Either name or
-id should be used, specifying both will result in an error.
+        To specify the workspace by name, use the --name flag. To specify the workspace by id, use the --id flag. Either name or
+    id should be used, specifying both will result in an error.
     """
     _validate_workspace_name_and_id(name=name, id=id)
     anyscale.workspace.terminate(name=name, id=id, cloud=cloud, project=project)
@@ -870,11 +866,11 @@ id should be used, specifying both will result in an error.
     ],
 )
 @workspace_cli.command(
-    name="status", short_help="Get the status of a workspace.", cls=AnyscaleCommand,
+    name="status",
+    short_help="Get the status of a workspace.",
+    cls=AnyscaleCommand,
 )
-@click.option(
-    "--workspace-id", "--id", "id", required=False, help="Unique ID of the workspace."
-)
+@click.option("--workspace-id", "--id", "id", required=False, help="Unique ID of the workspace.")
 @click.option("--name", "-n", required=False, help="Name of the workspace.")
 @click.option(
     "--cloud",
@@ -898,8 +894,8 @@ def status(
 ) -> None:
     """Get the status of a workspace.
 
-    To specify the workspace by name, use the --name flag. To specify the workspace by id, use the --id flag. Either name or
-id should be used, specifying both will result in an error.
+        To specify the workspace by name, use the --name flag. To specify the workspace by id, use the --id flag. Either name or
+    id should be used, specifying both will result in an error.
     """
     _validate_workspace_name_and_id(name=name, id=id)
     status = anyscale.workspace.status(name=name, id=id, cloud=cloud, project=project)
@@ -923,9 +919,7 @@ id should be used, specifying both will result in an error.
     short_help="Wait for a workspace to reach a certain status.",
     cls=AnyscaleCommand,
 )
-@click.option(
-    "--workspace-id", "--id", "id", required=False, help="Unique ID of the workspace."
-)
+@click.option("--workspace-id", "--id", "id", required=False, help="Unique ID of the workspace.")
 @click.option("--name", "-n", required=False, help="Name of the workspace.")
 @click.option(
     "--cloud",
@@ -965,8 +959,8 @@ def wait(
 ) -> None:
     """Wait for a workspace to reach a terminal state.
 
-    To specify the workspace by name, use the --name flag. To specify the workspace by id, use the --id flag. Either name or
-id should be used, specifying both will result in an error.
+        To specify the workspace by name, use the --name flag. To specify the workspace by id, use the --id flag. Either name or
+    id should be used, specifying both will result in an error.
     """
     _validate_workspace_name_and_id(name=name, id=id)
     try:
@@ -1239,9 +1233,7 @@ def list_tags(
     context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
     cls=AnyscaleCommand,
 )
-@click.option(
-    "--workspace-id", "--id", "id", required=False, help="Unique ID of the workspace."
-)
+@click.option("--workspace-id", "--id", "id", required=False, help="Unique ID of the workspace.")
 @click.option("--name", "-n", required=False, help="Name of the workspace.")
 @click.option(
     "--cloud",
@@ -1274,13 +1266,13 @@ def ssh(  # noqa: PLR0912
 ) -> None:
     """SSH into a workspace.
 
-    To specify the workspace by name, use the --name flag. To specify the workspace by id, use the --id flag. Either name or
-id should be used, specifying both will result in an error.
+        To specify the workspace by name, use the --name flag. To specify the workspace by id, use the --id flag. Either name or
+    id should be used, specifying both will result in an error.
 
-    You may pass extra args for the ssh command, for example to setup port forwarding:
-    anyscale workspace_v2 ssh -n workspace-name -- -L 9000:localhost:9000
+        You may pass extra args for the ssh command, for example to setup port forwarding:
+        anyscale workspace_v2 ssh -n workspace-name -- -L 9000:localhost:9000
 
-    Use the --legacy flag to bypass HTTPS SSH and use the legacy connection method directly.
+        Use the --legacy flag to bypass HTTPS SSH and use the legacy connection method directly.
     """
     try:
         _validate_workspace_name_and_id(name=name, id=id)
@@ -1345,12 +1337,8 @@ id should be used, specifying both will result in an error.
                     workspace_obj = anyscale.workspace.get(
                         name=name, id=id, cloud=cloud, project=project
                     )
-                    workspace_private_sdk = _LAZY_SDK_SINGLETONS[
-                        _WORKSPACE_SDK_SINGLETON_KEY
-                    ]
-                    cluster = workspace_private_sdk.client.get_workspace_cluster(
-                        workspace_obj.id
-                    )
+                    workspace_private_sdk = _LAZY_SDK_SINGLETONS[_WORKSPACE_SDK_SINGLETON_KEY]
+                    cluster = workspace_private_sdk.client.get_workspace_cluster(workspace_obj.id)
 
                     if cluster:
                         https_connection_successful = _test_https_connectivity(
@@ -1379,9 +1367,7 @@ id should be used, specifying both will result in an error.
                 # HTTPS test failed or --legacy was specified, use legacy SSH
                 if not legacy:  # Only show message if we tried HTTPS first
                     print("Connecting via standard SSH...")
-                _execute_legacy_ssh(
-                    ssh_target_host, config_file, ctx.args, shell_command
-                )
+                _execute_legacy_ssh(ssh_target_host, config_file, ctx.args, shell_command)
 
     except click.ClickException:
         # Re-raise click exceptions as they already have user-friendly messages
@@ -1418,11 +1404,11 @@ id should be used, specifying both will result in an error.
     ],
 )
 @workspace_cli.command(
-    name="run_command", short_help="Run a command in a workspace.", cls=AnyscaleCommand,
+    name="run_command",
+    short_help="Run a command in a workspace.",
+    cls=AnyscaleCommand,
 )
-@click.option(
-    "--workspace-id", "--id", "id", required=False, help="Unique ID of the workspace."
-)
+@click.option("--workspace-id", "--id", "id", required=False, help="Unique ID of the workspace.")
 @click.option("--name", "-n", required=False, help="Name of the workspace.")
 @click.option(
     "--cloud",
@@ -1448,13 +1434,11 @@ def run_command(
 ) -> None:
     """Run a command in a workspace.
 
-    To specify the workspace by name, use the --name flag. To specify the workspace by id, use the --id flag. Either name or
-id should be used, specifying both will result in an error.
+        To specify the workspace by name, use the --name flag. To specify the workspace by id, use the --id flag. Either name or
+    id should be used, specifying both will result in an error.
     """
     _validate_workspace_name_and_id(name=name, id=id)
-    anyscale.workspace.run_command(
-        name=name, id=id, cloud=cloud, project=project, command=command
-    )
+    anyscale.workspace.run_command(name=name, id=id, cloud=cloud, project=project, command=command)
 
 
 @command_metadata(
@@ -1475,9 +1459,7 @@ id should be used, specifying both will result in an error.
     context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
     cls=AnyscaleCommand,
 )
-@click.option(
-    "--workspace-id", "--id", "id", required=False, help="Unique ID of the workspace."
-)
+@click.option("--workspace-id", "--id", "id", required=False, help="Unique ID of the workspace.")
 @click.option("--name", "-n", required=False, help="Name of the workspace.")
 @click.option(
     "--cloud",
@@ -1534,16 +1516,16 @@ def pull(  # noqa: PLR0913
 ) -> None:
     """Pull the working directory of a workspace. New files will be created, existing files will be overwritten.
 
-    To specify the workspace by name, use the --name flag. To specify the workspace by id, use the --id flag. Either name or
-id should be used, specifying both will result in an error.
+        To specify the workspace by name, use the --name flag. To specify the workspace by id, use the --id flag. Either name or
+    id should be used, specifying both will result in an error.
 
-    This command depends on rsync, please make sure it is installed on your system.
+        This command depends on rsync, please make sure it is installed on your system.
 
-    The --delete flag removes files in the local directory that don't exist in the workspace.
-    Excluded files (like .git unless --pull-git-state is used) are preserved and not deleted.
+        The --delete flag removes files in the local directory that don't exist in the workspace.
+        Excluded files (like .git unless --pull-git-state is used) are preserved and not deleted.
 
-    You may pass extra args for the rsync command, for example to exclude files:
-    anyscale workspace_v2 pull -n workspace-name -- --exclude='log.txt'
+        You may pass extra args for the rsync command, for example to exclude files:
+        anyscale workspace_v2 pull -n workspace-name -- --exclude='log.txt'
     """
     _validate_workspace_name_and_id(name=name, id=id)
     anyscale.workspace.pull(
@@ -1577,9 +1559,7 @@ id should be used, specifying both will result in an error.
     context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
     cls=AnyscaleCommand,
 )
-@click.option(
-    "--workspace-id", "--id", "id", required=False, help="Unique ID of the workspace."
-)
+@click.option("--workspace-id", "--id", "id", required=False, help="Unique ID of the workspace.")
 @click.option("--name", "-n", required=False, help="Name of the workspace.")
 @click.option(
     "--cloud",
@@ -1636,16 +1616,16 @@ def push(  # noqa: PLR0913
 ) -> None:
     """Push a local directory to a workspace. New files will be created, existing files will be overwritten.
 
-    To specify the workspace by name, use the --name flag. To specify the workspace by id, use the --id flag. Either name or
-id should be used, specifying both will result in an error.
+        To specify the workspace by name, use the --name flag. To specify the workspace by id, use the --id flag. Either name or
+    id should be used, specifying both will result in an error.
 
-    This command depends on rsync, please make sure it is installed on your system.
+        This command depends on rsync, please make sure it is installed on your system.
 
-    The --delete flag removes files in the workspace that don't exist locally.
-    Excluded files (like .git unless --push-git-state is used) are preserved and not deleted.
+        The --delete flag removes files in the workspace that don't exist locally.
+        Excluded files (like .git unless --push-git-state is used) are preserved and not deleted.
 
-    You may pass extra args for the rsync command, for example to exclude files:
-    anyscale workspace_v2 push -n workspace-name -- --exclude='log.txt'
+        You may pass extra args for the rsync command, for example to exclude files:
+        anyscale workspace_v2 push -n workspace-name -- --exclude='log.txt'
     """
     _validate_workspace_name_and_id(name=name, id=id)
     anyscale.workspace.push(
@@ -1694,7 +1674,10 @@ id should be used, specifying both will result in an error.
     help="Path to a YAML config file to update. Command-line flags will overwrite values read from the file. Unspecified fields will retain their current values, while specified fields will be updated.",
 )
 @click.option(
-    "-n", "--name", required=False, help="New name of the workspace.",
+    "-n",
+    "--name",
+    required=False,
+    help="New name of the workspace.",
 )
 @click.option(
     "--image-uri",
@@ -1820,7 +1803,7 @@ def update(  # noqa: PLR0913, PLR0912, C901
         config = config.options(requirements=requirements)
 
     if env:
-        env_dict = convert_kv_strings_to_dict(env)
+        env_dict = convert_kv_strings_to_dict(env, allow_empty_values=True)
         if env_dict:
             config = config.options(env_vars=env_dict)
 
@@ -1860,11 +1843,11 @@ def update(  # noqa: PLR0913, PLR0912, C901
     output_schema=Workspace,
 )
 @workspace_cli.command(
-    name="get", short_help="Get a workspace.", cls=AnyscaleCommand,
+    name="get",
+    short_help="Get a workspace.",
+    cls=AnyscaleCommand,
 )
-@click.option(
-    "--workspace-id", "--id", "id", required=False, help="Unique ID of the workspace."
-)
+@click.option("--workspace-id", "--id", "id", required=False, help="Unique ID of the workspace.")
 @click.option("--name", "-n", required=False, help="Name of the workspace.")
 @click.option(
     "--cloud",
@@ -1889,18 +1872,24 @@ def update(  # noqa: PLR0913, PLR0912, C901
     help="Output the workspace in a structured JSON format.",
 )
 @click.option(
-    "--yaml", "yaml_output", is_flag=True, default=False, help="Output as YAML.",
+    "--yaml",
+    "yaml_output",
+    is_flag=True,
+    default=False,
+    help="Output as YAML.",
 )
 @click.option(
-    "-v", "--verbose", is_flag=True, default=False, help="Include verbose details.",
+    "-v",
+    "--verbose",
+    is_flag=True,
+    default=False,
+    help="Include verbose details.",
 )
 @click.option(
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice(
-        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
-    ),
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
     help="Output format for the result.",
@@ -1928,9 +1917,7 @@ def get(
     try:
         # For structured output, include full config; for table output, skip
         # the expensive config fetch.
-        include_config = (
-            json_output or yaml_output or output_format != OutputFormat.TEXT.value
-        )
+        include_config = json_output or yaml_output or output_format != OutputFormat.TEXT.value
 
         workspace: Workspace = anyscale.workspace.get(
             name=name,
@@ -2016,9 +2003,7 @@ def get(
     help="List workspaces with optional filters.",
     cls=AnyscaleCommand,
 )
-@click.option(
-    "--workspace-id", "--id", "workspace_id", help="ID of the workspace to display."
-)
+@click.option("--workspace-id", "--id", "workspace_id", help="ID of the workspace to display.")
 @click.option("--name", "-n", help="Substring to match against the workspace name.")
 @click.option("--project", help="Filter workspaces by project name.")
 @click.option("--cloud", help="Filter workspaces by cloud name.")

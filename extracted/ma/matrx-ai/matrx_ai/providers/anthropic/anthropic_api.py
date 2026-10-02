@@ -13,9 +13,9 @@ from matrx_ai.config import (
     UnifiedConfig,
     UnifiedResponse,
 )
-from matrx_ai.config.citations import normalize_anthropic_citation
+from matrx_ai.config.citations import grounded_citations, normalize_anthropic_citation
 from matrx_ai.context.emitter_protocol import Emitter
-from matrx_ai.providers.keys import keyed_provider_client
+from matrx_ai.providers.keys import NO_SDK_RETRIES, keyed_provider_client
 from matrx_ai.providers.outbound_capture import (
     make_capture_http_client,
     stamp_call_meta,
@@ -61,6 +61,7 @@ class AnthropicChat:
         "ANTHROPIC_API_KEY",
         factory=lambda api_key: AsyncAnthropic(
             api_key=api_key,
+            max_retries=NO_SDK_RETRIES,
             http_client=make_capture_http_client(sdk=anthropic_sdk),
         ),
     )
@@ -634,6 +635,26 @@ class AnthropicChat:
 
             report_billed_usage_capture_failure("anthropic", err)
 
+    async def _send_grounded_block_citations(
+        self, state: Any, block_index: Any, emitter: Emitter
+    ) -> None:
+        """Send a stopped text block's held citations that its text supports."""
+        citations = state.block_citations.pop(block_index, None)
+        text = "".join(state.block_text.pop(block_index, None) or [])
+        if not citations:
+            return
+        for citation in grounded_citations(text, citations):
+            try:
+                await emitter.send_citation(
+                    CitationPayload(block_index=block_index, citation=citation)
+                )
+            except Exception as citation_exc:
+                vcprint(
+                    f"[ANTHROPIC CITATIONS] Failed to emit a citation — skipping "
+                    f"this citation only (answer stream unaffected): {citation_exc}",
+                    color="red",
+                )
+
     async def _handle_event(self, event: Any, emitter: Emitter):
         """
         Handle individual streaming event.
@@ -663,6 +684,10 @@ class AnthropicChat:
                 if delta_type == "text_delta":
                     text = getattr(delta, "text", "")
                     if text:
+                        block_index = getattr(event, "index", None)
+                        state = reasoning_state_for(emitter)
+                        if block_index in state.block_citations:
+                            state.block_text.setdefault(block_index, []).append(text)
                         await emitter.send_chunk(text)
                         await asyncio.sleep(0)
 
@@ -695,12 +720,14 @@ class AnthropicChat:
 
                 elif delta_type == "citations_delta":
                     # Citation attaching to the current text block (documents /
-                    # search results with citations enabled). Streamed LIVE as a
-                    # typed `citation` event (normalized to the canonical
-                    # cross-provider shape); the SDK ALSO accumulates each
-                    # citation onto the block in the final message snapshot,
-                    # which from_anthropic() folds into
-                    # TextContent.metadata["citations"] for persistence.
+                    # search results with citations enabled). Anthropic sends a
+                    # block's citations BEFORE its text, so each is held until
+                    # the block stops and sent only if its cited text holds the
+                    # block's claim (config/citations.py § Grounding) — the live
+                    # Sources list must not show what persistence later drops.
+                    # The SDK ALSO accumulates each citation onto the block in
+                    # the final message snapshot, which from_anthropic() folds
+                    # into TextContent.metadata["citations"] for persistence.
                     # NOTE for the FE: a cited response arrives as MANY text
                     # blocks (one per cited span, mid-sentence); consecutive
                     # text blocks concatenate directly, never with separators.
@@ -717,15 +744,12 @@ class AnthropicChat:
                                 else dict(citation)
                             )
                             normalized = normalize_anthropic_citation(raw_citation)
-                            await emitter.send_citation(
-                                CitationPayload(
-                                    block_index=getattr(event, "index", None),
-                                    citation=normalized.model_dump(exclude_none=True),
-                                )
-                            )
+                            reasoning_state_for(emitter).block_citations.setdefault(
+                                getattr(event, "index", None), []
+                            ).append(normalized.model_dump(exclude_none=True))
                         except Exception as citation_exc:
                             vcprint(
-                                f"[ANTHROPIC CITATIONS] Failed to normalize/emit a "
+                                f"[ANTHROPIC CITATIONS] Failed to normalize a "
                                 f"citations_delta — skipping this citation only "
                                 f"(answer stream unaffected): {citation_exc}",
                                 color="red",
@@ -772,6 +796,9 @@ class AnthropicChat:
             # the block type, which the stop event may not carry) so the close
             # always pairs with a real open and we never emit a stray close.
             reasoning_state = reasoning_state_for(emitter)
+            await self._send_grounded_block_citations(
+                reasoning_state, getattr(event, "index", None), emitter
+            )
             if reasoning_state.open:
                 await emitter.send_chunk("\n</reasoning>\n")
                 reasoning_state.open = False

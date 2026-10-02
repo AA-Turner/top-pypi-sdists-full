@@ -1,0 +1,303 @@
+"""Minimal async AI Gateway client used by the provider implementation."""
+
+from __future__ import annotations
+
+import json
+import re
+from contextlib import asynccontextmanager
+from typing import TYPE_CHECKING, Any, Literal
+from urllib.parse import urlparse
+
+import httpx2 as httpx
+
+from . import errors
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator, AsyncIterator, Mapping
+
+    from ....models.core import model as model_
+
+_PROTOCOL_VERSION = "0.0.1"
+
+# Version segment of the default gateway base URLs, e.g. ``.../v4/ai``.
+_VERSIONED_BASE_RE = re.compile(r"/v\d+/ai$")
+
+AuthMethod = Literal["api-key", "oidc"]
+ModelType = Literal[
+    "language",
+    "image",
+    "video",
+    "speech",
+    "embedding",
+    "transcription",
+    "reranking",
+    "evaluation",
+]
+
+
+class GatewayClient:
+    """Small async HTTP client for Gateway provider endpoints.
+
+    This intentionally implements only the calls used by the current provider:
+    config/credits reads, language streaming, image/video/speech
+    generation, embeddings, transcription, reranking, and evaluation.
+    """
+
+    def __init__(
+        self,
+        *,
+        base_url: str,
+        auth_token: str | None = None,
+        auth_method: AuthMethod | None = None,
+        headers: Mapping[str, str] | None = None,
+        client: httpx.AsyncClient | None = None,
+    ) -> None:
+        self.base_url = base_url
+        self.auth_token = auth_token
+        self.auth_method = auth_method
+        self.headers = dict(headers or {})
+        self._http = client or httpx.AsyncClient(
+            timeout=httpx.Timeout(timeout=300.0, connect=10.0),
+        )
+        self._owns_http = client is None
+
+    async def aclose(self) -> None:
+        if self._owns_http and not self._http.is_closed:
+            await self._http.aclose()
+
+    def url(self, path: str, *, spec_version: str | None = None) -> str:
+        """Join *path* onto the base URL.
+
+        When ``spec_version`` is given and the base URL ends in a
+        ``/v<n>/ai`` segment, that segment is rewritten to match — so one
+        client serves both the v3 and v4 protocols.  Custom base URLs
+        without a version segment are used as-is.
+        """
+        base = self.base_url.rstrip("/")
+        if spec_version is not None:
+            base = _VERSIONED_BASE_RE.sub(f"/v{spec_version}/ai", base)
+        return f"{base}/{path.lstrip('/')}"
+
+    def origin_url(self, path: str) -> str:
+        parsed = urlparse(self.base_url.rstrip("/"))
+        return f"{parsed.scheme}://{parsed.netloc}/{path.lstrip('/')}"
+
+    def protocol_headers(self) -> dict[str, str]:
+        headers = dict(self.headers)
+        headers["ai-gateway-protocol-version"] = _PROTOCOL_VERSION
+        if self.auth_token and self.auth_method:
+            headers["Authorization"] = f"Bearer {self.auth_token}"
+            headers["ai-gateway-auth-method"] = self.auth_method
+        return headers
+
+    def model_headers(
+        self,
+        model: model_.Model,
+        *,
+        model_type: ModelType = "language",
+        streaming: bool = False,
+        accept: str | None = None,
+        spec_version: str = "3",
+    ) -> dict[str, str]:
+        headers = self.protocol_headers()
+        headers["Content-Type"] = "application/json"
+
+        if model_type == "language":
+            headers["ai-language-model-specification-version"] = spec_version
+            headers["ai-language-model-id"] = model.id
+            headers["ai-language-model-streaming"] = str(streaming).lower()
+        elif model_type == "image":
+            headers["ai-image-model-specification-version"] = spec_version
+            headers["ai-model-id"] = model.id
+        elif model_type == "video":
+            headers["ai-video-model-specification-version"] = spec_version
+            headers["ai-model-id"] = model.id
+        elif model_type == "embedding":
+            headers["ai-embedding-model-specification-version"] = spec_version
+            headers["ai-model-id"] = model.id
+        elif model_type == "transcription":
+            headers["ai-transcription-model-specification-version"] = (
+                spec_version
+            )
+            headers["ai-model-id"] = model.id
+        elif model_type == "reranking":
+            headers["ai-reranking-model-specification-version"] = spec_version
+            headers["ai-model-id"] = model.id
+        elif model_type == "evaluation":
+            headers["ai-evaluation-model-specification-version"] = spec_version
+            headers["ai-model-id"] = model.id
+        else:
+            headers["ai-speech-model-specification-version"] = spec_version
+            headers["ai-model-id"] = model.id
+
+        if accept is not None:
+            headers["accept"] = accept
+
+        return headers
+
+    async def get(
+        self,
+        path: str,
+        *,
+        origin: bool = False,
+        headers: dict[str, str] | None = None,
+    ) -> httpx.Response:
+        url = self.origin_url(path) if origin else self.url(path)
+        request_headers = self.protocol_headers()
+        if headers:
+            request_headers.update(headers)
+        try:
+            return await self._http.get(
+                url,
+                headers=request_headers,
+            )
+        except httpx.TimeoutException as exc:
+            raise errors.GatewayTimeoutError() from exc
+        except httpx.HTTPError as exc:
+            raise errors.GatewayResponseError(
+                message=f"Gateway request failed: {exc}",
+            ) from exc
+
+    async def post(
+        self,
+        path: str,
+        body: dict[str, Any],
+        *,
+        model: model_.Model,
+        model_type: ModelType,
+        spec_version: str = "3",
+    ) -> httpx.Response:
+        headers = self.model_headers(
+            model, model_type=model_type, spec_version=spec_version
+        )
+        try:
+            response = await self._http.post(
+                self.url(path, spec_version=spec_version),
+                json=body,
+                headers=headers,
+            )
+        except httpx.TimeoutException as exc:
+            raise errors.GatewayTimeoutError() from exc
+        except httpx.HTTPError as exc:
+            raise errors.GatewayResponseError(
+                message=f"Gateway request failed: {exc}",
+            ) from exc
+        await self.raise_for_error(response)
+        return response
+
+    async def list_model_ids(self) -> list[str]:
+        """List available model IDs from the Gateway config endpoint."""
+        response = await self.get("config")
+        await self.raise_for_error(response)
+        try:
+            data: dict[str, Any] = response.json()
+        except ValueError as exc:
+            raise errors.GatewayResponseError(
+                "Invalid Gateway config response",
+                status_code=response.status_code,
+                response_body=response.text,
+            ) from exc
+        return sorted(str(m["id"]) for m in data.get("models", []))
+
+    async def probe_model(self, model_id: str) -> None:
+        """Raise unless auth succeeds and ``model_id`` is available."""
+        auth_resp = await self.get("v1/credits", origin=True)
+        if auth_resp.status_code in {401, 403}:
+            raise errors.GatewayAuthenticationError.create_contextual(
+                auth_method=self.auth_method if self.auth_token else None,
+                status_code=auth_resp.status_code,
+            )
+        if auth_resp.status_code != 200:
+            await self.raise_for_error(auth_resp)
+
+        remote_ids = set(await self.list_model_ids())
+        if model_id not in remote_ids:
+            raise errors.GatewayModelNotFoundError(
+                f"Model {model_id!r} not found",
+                model_id=model_id,
+            )
+
+    @asynccontextmanager
+    async def stream(
+        self,
+        path: str,
+        body: dict[str, Any],
+        *,
+        model: model_.Model,
+        model_type: ModelType = "language",
+        streaming: bool = False,
+        accept: str | None = None,
+        headers: dict[str, str] | None = None,
+        query: Mapping[str, Any] | None = None,
+        timeout: httpx.Timeout | float | None = None,
+        spec_version: str = "3",
+    ) -> AsyncIterator[httpx.Response]:
+        request_headers = self.model_headers(
+            model,
+            model_type=model_type,
+            streaming=streaming,
+            accept=accept,
+            spec_version=spec_version,
+        )
+        if headers:
+            request_headers.update(headers)
+
+        url = self.url(path, spec_version=spec_version)
+        stream = (
+            self._http.stream(
+                "POST",
+                url,
+                json=body,
+                headers=request_headers,
+                params=query,
+            )
+            if timeout is None
+            else self._http.stream(
+                "POST",
+                url,
+                json=body,
+                headers=request_headers,
+                params=query,
+                timeout=timeout,
+            )
+        )
+
+        try:
+            async with stream as response:
+                await self.raise_for_error(response)
+                yield response
+        except httpx.TimeoutException as exc:
+            raise errors.GatewayTimeoutError() from exc
+        except httpx.HTTPError as exc:
+            raise errors.GatewayResponseError(
+                message=f"Gateway request failed: {exc}",
+            ) from exc
+
+    async def raise_for_error(self, response: httpx.Response) -> None:
+        if response.status_code < 400:
+            return
+
+        await response.aread()
+        raise errors.create_gateway_error(
+            response_body=response.text,
+            status_code=response.status_code,
+            auth_method=self.auth_method if self.auth_token else None,
+        )
+
+    async def iter_sse(
+        self,
+        response: httpx.Response,
+    ) -> AsyncGenerator[dict[str, Any]]:
+        async for line in response.aiter_lines():
+            line = line.strip()
+            if not line.startswith("data: "):
+                continue
+            payload = line[len("data: ") :]
+            if payload == "[DONE]":
+                break
+            try:
+                value = json.loads(payload)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(value, dict):
+                yield value

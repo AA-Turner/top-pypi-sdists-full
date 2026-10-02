@@ -1,0 +1,251 @@
+# Copyright 2026 The A11 Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+[build-system]
+requires = [
+    "scikit-build-core>=0.11.6",
+]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "a11-kit"
+dynamic = ["version"]
+description = "A streaming action runtime for AI agents, model serving, and multimodal APIs"
+readme = "README.md"
+license = "Apache-2.0"
+authors = [
+    { name = "Curiosity Stack", email = "hello@curiositystack.dev" },
+]
+keywords = [
+    "agents",
+    "generative-ai",
+    "llm",
+    "model-serving",
+    "streaming",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "Programming Language :: C++",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Libraries",
+]
+requires-python = ">=3.11"
+dependencies = [
+    "absl-py>=2.5.0",
+    "fastapi>=0.139.0",
+    "httpx>=0.28.1",
+    "msgpack>=1.2.1",
+    "ormsgpack>=1.12.2",
+    "prompt-toolkit>=3.0.0",
+    "pydantic>=2.13.4",
+    "rich>=13.0.0",
+    "uvicorn>=0.52.1",
+]
+
+[project.scripts]
+a11 = "a11.cli.__main__:_entry"
+
+[project.urls]
+Homepage = "https://docs.a11.to/"
+Documentation = "https://docs.a11.to/"
+Repository = "https://github.com/hpnkv/a11"
+Issues = "https://github.com/hpnkv/a11/issues"
+Discussions = "https://github.com/hpnkv/a11/discussions"
+
+[project.optional-dependencies]
+claude = ["anthropic>=0.120.0"]
+claude-code = ["claude-agent-sdk>=0.2.140"]
+gemini = ["google-genai>=1.55.0"]
+openai = ["openai>=2.0.0"]
+s2 = ["s2-sdk>=0.10.0,<1"]
+codex = []
+ollama = ["ollama>=0.6.0"]
+vllm = ["openai>=2.0.0"]
+# What `a11.demos.text_to_image` needs: a diffusion pipeline and the text
+# encoder it loads through transformers. `dtype=` on `from_pretrained`
+# wants diffusers 0.35 or later.
+diffusion = [
+    "accelerate>=0.30.0",
+    "diffusers>=0.35.0",
+    "torch>=2.2.0",
+    "transformers>=4.40.0",
+]
+mcp = ["mcp>=2.1.1"]
+llm = [
+    "anthropic>=0.120.0",
+    "claude-agent-sdk>=0.2.140",
+    "google-genai>=1.55.0",
+    "ollama>=0.6.0",
+    "openai>=2.0.0",
+]
+
+[tool.scikit-build]
+cmake.source-dir = "cpp"
+cmake.version = ">=3.28"
+build-dir = "build/{state}/{wheel_tag}"
+wheel.packages = ["a11", "pybind11_abseil", "editors", "testdata"]
+wheel.exclude = [
+    "**/__pycache__/**",
+    "**/*.pyc",
+    "**/*.pyo",
+    "a11/**/tests/**",
+    "a11/conftest.py",
+]
+install.components = ["python"]
+sdist.include = [
+    "VERSION",
+    "pyproject.toml",
+    "uv.lock",
+    ".clang-format",
+    ".clang-tidy",
+    "AGENTS.md",
+    "README.md",
+    "CMakeLists.txt",
+    "cpp/**",
+    "a11/**",
+    "editors/**",
+    "pybind11_abseil/__init__.py",
+    "scripts/**",
+    "testdata/**",
+]
+sdist.inclusion-mode = "explicit"
+sdist.exclude = [
+    "**/__pycache__/**",
+    "**/*.pyc",
+    "**/*.pyo",
+    "a11/_allocator/**",
+    "a11/libexec/**",
+    "a11/_native*.so",
+    "a11/_native*.dylib",
+    "a11/_native*.pyd",
+    "pybind11_abseil/*.so",
+    "pybind11_abseil/*.dylib",
+    "pybind11_abseil/*.pyd",
+]
+
+[[tool.dynamic-metadata]]
+provider = "scikit_build_core.metadata.regex"
+field = "version"
+input = "VERSION"
+regex = "^(?P<value>[0-9]+\\.[0-9]+\\.[0-9]+(?:[a-zA-Z0-9.+-]*)?)$"
+
+[tool.scikit-build.cmake.define]
+A11_BUILD_PYTHON = "ON"
+BUILD_TESTING = "OFF"
+# Ship the native OTLP/HTTP span exporter; the deps prefix supplies a static
+# libcurl (see scripts/bootstrap_wheel_deps.sh).
+A11_WITH_OTLP_HTTP = "ON"
+
+[tool.cibuildwheel]
+build = "cp311-* cp312-* cp313-* cp314-*"
+skip = "*-musllinux* *-win32"
+before-all = "bash {project}/scripts/bootstrap_wheel_deps.sh"
+test-command = "python {project}/scripts/audit_wheel.py {wheel}"
+environment = { MACOSX_DEPLOYMENT_TARGET = "14.4", CMAKE_BUILD_PARALLEL_LEVEL = "4", CMAKE_PREFIX_PATH = "$A11_DEPS_PREFIX", OPENSSL_ROOT_DIR = "$A11_DEPS_PREFIX", PKG_CONFIG_PATH = "$A11_DEPS_PREFIX/lib/pkgconfig", CMAKE_ARGS = "-DA11_REQUIRE_STATIC_DEPS=ON -DA11_FETCH_MISSING_DEPS=ON -DCMAKE_PREFIX_PATH=$A11_DEPS_PREFIX -DOPENSSL_ROOT_DIR=$A11_DEPS_PREFIX" }
+environment-pass = [
+    "A11_DEPS_PREFIX",
+    "A11_WHEEL_ARCH",
+]
+
+[tool.cibuildwheel.linux]
+archs = ["x86_64", "aarch64"]
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
+container-engine = { name = "docker", create-args = ["--memory", "16g", "--memory-swap", "16g", "--shm-size", "2g"] }
+
+[tool.cibuildwheel.macos]
+archs = ["x86_64", "arm64"]
+
+[tool.black]
+line-length = 80
+target-version = ["py311"]
+preview = true
+enable-unstable-feature = ["string_processing"]
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+testpaths = ["a11", "intellij-plugin/backend"]
+
+[tool.ruff]
+line-length = 80
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# Generated pybind11 stub: its docstrings come verbatim from the C++ and
+# Python source, and the stub formatter (black in .pyi mode) does not reflow
+# docstring prose, so line length is not enforced on the generated output.
+"a11/_native/*.pyi" = ["E501"]
+
+[tool.ruff.format]
+preview = true
+docstring-code-line-length = 80
+
+[dependency-groups]
+dev = [
+    "anthropic>=0.120.0",
+    "black>=26.5.1",
+    "cibuildwheel>=4.1.1",
+    "claude-agent-sdk>=0.2.140",
+    "google-genai>=1.55.0",
+    "mcp>=2.1.1",
+    "ollama>=0.6.0",
+    "openai>=2.0.0",
+    "pybind11-stubgen>=2.5.5",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    # a11.sdk.skill parses SKILL.md frontmatter; only the tests and the tools
+    # that generate a skill need it, so it is not a runtime dependency.
+    "pyyaml>=6.0",
+    "ruff>=0.12.0",
+]
+anthropic = [
+    "anthropic>=0.120.0",
+]
+claude = [
+    "anthropic>=0.120.0",
+]
+claude-code = [
+    "claude-agent-sdk>=0.2.140",
+]
+gemini = [
+    "google-genai>=1.55.0",
+]
+openai = [
+    "openai>=2.0.0",
+]
+s2 = [
+    "s2-sdk>=0.10.0,<1",
+]
+codex = []
+ollama = [
+    "ollama>=0.6.0",
+]
+vllm = [
+    "openai>=2.0.0",
+]
+mcp = [
+    "mcp>=2.1.1",
+]
+docs = [
+    "mkdocs-material>=9.5.0",
+    "mkdocstrings[python]>=0.26.0",
+    "mkdocs-gen-files>=0.5.0",
+    "griffe>=1.5.0",
+]

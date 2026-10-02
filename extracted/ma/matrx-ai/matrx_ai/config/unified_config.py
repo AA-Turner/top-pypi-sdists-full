@@ -1150,6 +1150,19 @@ class UnifiedConfig:
         and downstream translators expect (dict response_format, ``CustomTool``
         instances, ``DictionaryConfig``, etc.).
         """
+        # A class pin (offering_id) belongs to exactly ONE model. An override that
+        # moves to another model without naming a class leaves the old model's pin
+        # behind — the run would then raise on a pin of a different model. The
+        # moved-to model runs its preferred class instead. An EXPLICIT null
+        # offering_id clears the pin (non-None skipping below cannot express it).
+        fields_set = overrides.model_fields_set
+        new_model = overrides.model
+        moved_model = new_model is not None and str(new_model) != str(getattr(self, "model", None))
+        if hasattr(self, "offering_id") and (
+            ("offering_id" in fields_set and overrides.offering_id is None)
+            or (moved_model and overrides.offering_id is None)
+        ):
+            self.offering_id = None
         for key in LLMParams.model_fields:
             value = getattr(overrides, key)
             if value is None:

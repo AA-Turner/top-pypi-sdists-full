@@ -1,0 +1,10 @@
+---
+features:
+  - |
+    A copy of the Gerrit upstream project's commit-msg hook is now included
+    directly and written to disk by default rather than pulling a remote copy.
+    This approach is safer and more robust, but may break workflows for sites
+    which rely on users retrieving a customized commit-msg hook. For this
+    reason, a command-line override is provided so that users can, for example,
+    execute ``git review -s --remote-hook`` to get the old behavior when
+    setting up a new clone.

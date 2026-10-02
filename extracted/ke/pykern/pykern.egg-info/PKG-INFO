@@ -1,0 +1,57 @@
+Metadata-Version: 2.4
+Name: pykern
+Version: 20260915.70934
+Summary: Python application support library
+Author-email: RadiaSoft LLC <pip@pykern.org>
+Project-URL: Homepage, http://pykern.org
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python
+Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
+Classifier: Topic :: Utilities
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: argh>=0.26
+Requires-Dist: beautifulsoup4>=4.14
+Requires-Dist: black~=24.2
+Requires-Dist: future>=0.14
+Requires-Dist: github3.py>=1.1
+Requires-Dist: importlib-metadata>=0.12
+Requires-Dist: jinja2>=2.7
+Requires-Dist: msgpack>=1.0
+Requires-Dist: openpyxl>=3.0.9
+Requires-Dist: packaging>=21.0
+Requires-Dist: pandas>=1.3.2
+Requires-Dist: path.py>=7.7.1
+Requires-Dist: pluggy>=0.12.0
+Requires-Dist: psutil>=5.0
+Requires-Dist: py-cpuinfo>=0.2
+Requires-Dist: py>=1.4
+Requires-Dist: pytest>=2.7
+Requires-Dist: pytest-asyncio>=0.23.6
+Requires-Dist: python-dateutil>=2.4.2
+Requires-Dist: pytz>=2015.4
+Requires-Dist: requests>=2.18
+Requires-Dist: ruamel.yaml>=0.16.0
+Requires-Dist: setuptools>=66
+Requires-Dist: six>=1.9
+Requires-Dist: Sphinx>=1.3.5
+Requires-Dist: SQLAlchemy
+Requires-Dist: toml>=0.10
+Requires-Dist: tornado
+Requires-Dist: urllib3
+Requires-Dist: XlsxWriter>=3.2.3
+Dynamic: license-file
+
+### Pykern
+
+Pykern is an application support framework to simplify and to speed
+development of Python programs and servers.
+
+Pykern defines policies, which make it easy to eliminate boiler-plate.
+
+For more info, [read the API Docs](http://pykern.readthedocs.org).

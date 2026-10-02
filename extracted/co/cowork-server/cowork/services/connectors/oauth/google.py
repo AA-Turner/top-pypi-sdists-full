@@ -1,0 +1,865 @@
+from __future__ import annotations
+
+import base64
+import html as html_lib
+import json
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from textwrap import dedent
+from typing import Any, Callable
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+
+from anton.core.datasources.data_vault import LocalDataVault
+from fastapi import HTTPException
+
+from cowork.common.settings.app_settings import ConnectorSettings, OAuthSettings
+from cowork.schemas.connectors import OAuthConfig, OAuthStartResponse
+from cowork.services.connectors.oauth import pkce as pkce_utils
+from cowork.services.connectors.oauth.config import OAUTH_SERVICES
+from cowork.services.connectors.identity import oauth_default_label
+from cowork.services.connectors.oauth.state import OAuthStateStore
+from cowork.services.connectors.persist import persist_connection
+from cowork.services.connectors.specs._registry import registry as spec_registry
+
+import logging as _logging
+
+_log = _logging.getLogger("cowork.oauth")
+
+_SERVICE_CREDENTIAL_ATTRS: dict[str, tuple[str, str | None]] = {
+    "google-drive":     ("google_drive_client_id",     "google_drive_client_secret"),
+    "google-calendar":  ("google_calendar_client_id",  "google_calendar_client_secret"),
+    "gmail":            ("gmail_client_id",             "gmail_client_secret"),
+    "google-ads":       ("google_ads_client_id",        "google_ads_client_secret"),
+    "google-analytics": ("google_analytics_client_id",  "google_analytics_client_secret"),
+    "linear":           ("linear_client_id",            "linear_client_secret"),
+    "github":           ("github_client_id",            "github_client_secret"),
+    "supabase":         ("supabase_client_id",          "supabase_client_secret"),
+    "posthog":          ("posthog_client_id",           None),
+}
+
+# engine name (e.g. "google_drive") → service id (e.g. "google-drive")
+_ENGINE_TO_SERVICE: dict[str, str] = {cfg.engine: svc for svc, cfg in OAUTH_SERVICES.items()}
+
+
+def _credentials_complete(client_id: str, client_secret: str, secret_attr: str | None) -> bool:
+    """True once `client_id` is set and, for providers that actually have a
+    client_secret (`secret_attr` is not `None`), `client_secret` is set too.
+    Public, PKCE-only providers (`secret_attr is None`, e.g. PostHog) need
+    only `client_id` — a present-but-empty `client_secret` there is correct,
+    not "not configured yet". One helper for every place that needs this
+    check (`_resolve_credentials`, `start`'s BYOK bypass, `callback`'s
+    cached-credentials branch, `get_catalogue`, and the `/credentials`
+    endpoint) so the rule can't drift between call sites."""
+    return bool(client_id and (client_secret or not secret_attr))
+
+
+def _fetch_userinfo_google(access_token: str) -> dict[str, Any]:
+    return _json_request(
+        "https://openidconnect.googleapis.com/v1/userinfo",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+
+def _fetch_linear_workspace(access_token: str) -> tuple[str, str]:
+    """Best-effort (workspace_id, workspace_name) for the token's Linear
+    workspace, or ("", "") on any failure.
+
+    Deliberately a separate request from `_fetch_userinfo_linear`'s viewer
+    query, not one combined query: `_json_request` only raises on a bad HTTP
+    status, but a GraphQL response can be HTTP 200 with an `errors` array
+    instead (e.g. an unknown field) — checked explicitly here, since bundling
+    this into the viewer query would make a broken/unverified organization
+    query capable of failing the whole Linear connection (auth's version of
+    this function raises on any `errors` array), not just miss the workspace
+    split."""
+    try:
+        result = _json_request(
+            "https://api.linear.app/graphql",
+            method="POST",
+            json_body={"query": "query { organization { id name } }"},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        if result.get("errors"):
+            raise ValueError(f"Linear organization query returned errors: {result['errors']!r}")
+        organization = (result.get("data") or {}).get("organization") or {}
+        return str(organization.get("id") or "").strip(), str(organization.get("name") or "").strip()
+    except Exception:
+        _log.warning("Could not fetch Linear workspace identity — falling back to bare email", exc_info=True)
+        return "", ""
+
+
+def _fetch_userinfo_linear(access_token: str) -> dict[str, Any]:
+    """Linear has no REST userinfo endpoint — identity comes from a GraphQL
+    query against the authenticated user (`viewer`).
+
+    Unlike Google, a Linear account isn't one-account-one-email: the same
+    email can belong to several workspaces. Folding the workspace id (from
+    `_fetch_linear_workspace`, best-effort) into the returned identity — the
+    same trick `_fetch_userinfo_supabase` above uses for its own
+    per-organization identity, rather than a new persisted field — means
+    connecting a second workspace gets its own connection tile instead of
+    silently overwriting the first (both derive_connection_name's slug and
+    is_same_account's dedup key come from this function's return value)."""
+    result = _json_request(
+        "https://api.linear.app/graphql",
+        method="POST",
+        json_body={"query": "query { viewer { email name } }"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    viewer = (result.get("data") or {}).get("viewer") or {}
+    email = str(viewer.get("email") or "").strip()
+    name = str(viewer.get("name") or "").strip()
+    workspace_id, workspace_name = _fetch_linear_workspace(access_token)
+    return {
+        "email": f"{email}:{workspace_id}" if workspace_id else email,
+        # Workspace name first, matching _fetch_userinfo_supabase's
+        # per-organization identity convention above — the tile shows the
+        # workspace/org, not the connecting individual, the same way a
+        # Supabase tile shows the org rather than the person who authorized it.
+        "name": workspace_name or name,
+    }
+
+
+def _fetch_posthog_organization(access_token: str, *, api_host: str) -> tuple[str, str]:
+    """Best-effort (organization_id, organization_name) for the token's
+    PostHog organization(s), or ("", "") on any failure.
+
+    Deliberately a separate request from `_fetch_userinfo_posthog`'s user
+    query, not one combined call: the organization lookup is best-effort, so
+    an unexpected response shape degrades to "no organization split" instead
+    of failing the whole PostHog connection — same reasoning as
+    `_fetch_linear_workspace` above. Queries the SAME regional host the user
+    lookup already succeeded against, for the reason `_fetch_userinfo_posthog`
+    documents: a token issued for one region isn't guaranteed to be accepted
+    by the other's host.
+
+    PostHog's consent screen lets a user select multiple organizations in a
+    single authorization — unlike Linear, where one grant is exactly one
+    workspace — so `organization_name` joins every organization the token
+    can see (e.g. "Acme, Other Org"), not just the first, so the tile
+    accurately shows everything the connection actually covers.
+    `organization_id` still keys off the first organization only: it's used
+    solely for dedup, and a full multi-organization-aware dedup key is a
+    separate, not-yet-scoped improvement."""
+    try:
+        result = _json_request(
+            f"{api_host}/api/organizations/",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        organizations = result if isinstance(result, list) else (result.get("results") or [])
+        if not organizations:
+            return "", ""
+        organization_id = str(organizations[0].get("id") or "").strip()
+        names = [str(org.get("name") or "").strip() for org in organizations]
+        organization_name = ", ".join(name for name in names if name)
+        return organization_id, organization_name
+    except Exception:
+        _log.warning("Could not fetch PostHog organization identity — falling back to bare email", exc_info=True)
+        return "", ""
+
+
+def _fetch_userinfo_posthog(access_token: str) -> dict[str, Any]:
+    """PostHog's own user object — email plus optional first/last name.
+    PostHog's OAuth authorize/token endpoints are region-agnostic
+    (`oauth.posthog.com`), but the resource API is split by region
+    (us.posthog.com / eu.posthog.com) and a token issued for one region is
+    not guaranteed to be accepted by the other's host. Try US Cloud first
+    (the default/most common case) and fall back to EU Cloud on failure,
+    rather than requiring the caller to know the account's region upfront.
+
+    Unlike Google, a PostHog account isn't one-account-one-email: the same
+    email can belong to several organizations. Folding the organization id
+    (from `_fetch_posthog_organization`, best-effort) into the returned
+    identity — the same trick `_fetch_userinfo_supabase`/`_fetch_userinfo_linear`
+    above use for their own per-organization identity — means connecting a
+    second organization gets its own connection tile instead of silently
+    overwriting the first."""
+    api_host = "https://us.posthog.com"
+    try:
+        result = _json_request(
+            f"{api_host}/api/users/@me/",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+    except HTTPException:
+        api_host = "https://eu.posthog.com"
+        result = _json_request(
+            f"{api_host}/api/users/@me/",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+    email = str(result.get("email") or "").strip()
+    first_name = str(result.get("first_name") or "").strip()
+    last_name = str(result.get("last_name") or "").strip()
+    name = " ".join(part for part in (first_name, last_name) if part)
+    org_id, org_name = _fetch_posthog_organization(access_token, api_host=api_host)
+    return {
+        "email": f"{email}:{org_id}" if org_id else email,
+        # Organization name first, matching _fetch_userinfo_supabase's/
+        # _fetch_userinfo_linear's per-organization identity convention
+        # above — the tile shows the org, not the connecting individual.
+        "name": org_name or name or email,
+    }
+
+
+def _fetch_userinfo_github(access_token: str) -> dict[str, Any]:
+    """GitHub's `email` is frequently null — the app only requests `read:user`,
+    not `user:email`, and even with that scope a user can keep their email
+    private. `login` (the username) is always present and always unique, so it's
+    the fallback identity — same intent as email elsewhere, just not a real
+    email address."""
+    result = _json_request(
+        "https://api.github.com/user",
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/vnd.github+json",
+        },
+    )
+    login = str(result.get("login") or "").strip()
+    email = str(result.get("email") or "").strip()
+    name = str(result.get("name") or "").strip()
+    return {"email": email or login, "name": name or login}
+
+
+def _fetch_userinfo_supabase(access_token: str) -> dict[str, Any]:
+    """Resolve a Supabase OAuth grant to a stable organization identity."""
+    headers = {"Authorization": f"Bearer {access_token}"}
+    organizations: list[dict[str, Any]] = []
+    try:
+        result = _json_request("https://api.supabase.com/v1/organizations", headers=headers)
+        organizations = result if isinstance(result, list) else result.get("organizations", [])
+    except HTTPException:
+        pass
+    if not organizations:
+        result = _json_request("https://api.supabase.com/v1/projects", headers=headers)
+        projects = result if isinstance(result, list) else result.get("projects", [])
+        organizations = [
+            {"slug": project.get("organization_slug"), "name": project.get("organization_name")}
+            for project in projects if project.get("organization_slug")
+        ]
+    first = organizations[0] if organizations else {}
+    slug = str(first.get("slug") or "").strip()
+    name = str(first.get("name") or slug).strip()
+    return {"email": f"org:{slug}" if slug else "", "name": name}
+
+
+# engine → identity-fetch function. The one piece of connector onboarding
+# that can't be pure spec-JSON data — response shape (REST vs GraphQL) is
+# genuinely provider-specific code, not configuration. New OAuth-builtin
+# connectors add one entry here.
+_USERINFO_FETCHERS: dict[str, Callable[[str], dict[str, Any]]] = {
+    "google_drive": _fetch_userinfo_google,
+    "google_calendar": _fetch_userinfo_google,
+    "gmail": _fetch_userinfo_google,
+    "google_ads": _fetch_userinfo_google,
+    "google_analytics_4": _fetch_userinfo_google,
+    "linear": _fetch_userinfo_linear,
+    "github": _fetch_userinfo_github,
+    "supabase": _fetch_userinfo_supabase,
+    "posthog": _fetch_userinfo_posthog,
+}
+
+
+def _revoke_github(token: str, client_id: str, client_secret: str) -> None:
+    """GitHub classic OAuth Apps don't support the generic RFC-7009 POST
+    revoke_url pattern the other connectors use. Revoking the whole grant
+    (the thing that actually removes the app from the user's Authorized
+    OAuth Apps list, not just invalidating one token) is
+    `DELETE /applications/{client_id}/grant`, authenticated with HTTP Basic
+    auth using the app's client_id:client_secret, and a JSON body naming the
+    token — shaped nothing like the other providers' revoke calls."""
+    credentials = base64.b64encode(f"{client_id}:{client_secret}".encode("utf-8")).decode("ascii")
+    request = Request(
+        f"https://api.github.com/applications/{client_id}/grant",
+        data=json.dumps({"access_token": token}).encode("utf-8"),
+        headers={
+            "Authorization": f"Basic {credentials}",
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json",
+        },
+        method="DELETE",
+    )
+    with urlopen(request, timeout=10):
+        pass
+
+
+def _revoke_supabase(token: str, client_id: str, client_secret: str) -> None:
+    """Supabase's OAuth revoke endpoint doesn't fit the generic RFC-7009
+    form-body pattern the other connectors use: it requires a JSON body
+    naming `client_id`, `client_secret`, and the `refresh_token` specifically
+    (revoking only an access_token isn't supported and wouldn't remove
+    mindshub from the user's Supabase-side Authorized Apps list, since that
+    list reflects the underlying grant, not any one short-lived token)."""
+    request = Request(
+        "https://api.supabase.com/v1/oauth/revoke",
+        data=json.dumps({
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "refresh_token": token,
+        }).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urlopen(request, timeout=10):
+        pass
+
+
+def _revoke_posthog(token: str, client_id: str, client_secret: str) -> None:
+    """PostHog is a public client — there's no client_secret to authenticate
+    the revoke call with (unlike GitHub's Basic-auth grant-revoke above), so
+    per RFC 7009 a public client just identifies itself with `client_id` in
+    the form body alongside the token. `client_secret` is accepted for a
+    uniform call signature with the other `_REVOKE_HANDLERS` entries but
+    unused."""
+    request = Request(
+        "https://oauth.posthog.com/oauth/revoke/",
+        data=urlencode({"token": token, "client_id": client_id}).encode("utf-8"),
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
+    with urlopen(request, timeout=10):
+        pass
+
+
+# engine → custom revoke function, for providers whose revoke call doesn't
+# fit the generic revoke_url/POST/form-body shape (see OAuthConfig.revoke_url).
+# Checked before the generic path in revoke() below.
+_REVOKE_HANDLERS: dict[str, Callable[[str, str, str], None]] = {
+    "github": _revoke_github,
+    "posthog": _revoke_posthog,
+    "supabase": _revoke_supabase,
+}
+
+
+def _vault_for(connector_settings: ConnectorSettings, scope):
+    """The org's persisted connector vault.
+
+    Keyed per organization in org mode, the same as every other filesystem
+    store. Without the scope this resolved to the shared namespace root, so
+    one organization's OAuth tokens were read from, and revoked out of, a
+    directory holding every organization's.
+    """
+    from cowork.db.scoped import scoped_storage_root
+
+    return LocalDataVault(scoped_storage_root(Path(connector_settings.vault_dir), scope, store="data-vault"))
+
+
+class OAuthService:
+    def _resolve_credentials(self, service: str, settings: OAuthSettings) -> tuple[str, str]:
+        id_attr, secret_attr = _SERVICE_CREDENTIAL_ATTRS[service]
+        client_id = getattr(settings, id_attr)
+        # `secret_attr` is `None` for public, PKCE-only providers (PostHog) —
+        # no client_secret exists to look up, and none is required.
+        client_secret = getattr(settings, secret_attr) if secret_attr else ""
+        if not _credentials_complete(client_id, client_secret, secret_attr):
+            raise HTTPException(status_code=400, detail=f"OAuth credentials not configured for {service}.")
+        return client_id, client_secret
+
+    def get_outcome(self, state: str, settings: OAuthSettings) -> dict | None:
+        return self._store(settings).get_outcome(state)
+
+    def clear_outcome(self, state: str, settings: OAuthSettings) -> None:
+        self._store(settings).clear_outcome(state)
+
+    def _store(self, settings: OAuthSettings) -> OAuthStateStore:
+        return OAuthStateStore(settings.state_path)
+
+    def _redirect_uri(self, service: str, settings: OAuthSettings) -> str:
+        return f"{settings.server_origin.rstrip('/')}/api/v1/connectors/oauth/{service}/callback"
+
+    def _oauth_config_for(self, engine: str) -> OAuthConfig | None:
+        """The connector's whole OAuth shape (auth_url/token_url/revoke_url/
+        scopes/capability flags/...) — sourced from its own spec JSON's
+        `browser_oauth_builtin` method, the single canonical description of
+        a connector's OAuth behavior. Not a second Python-side copy that can
+        silently drift out of sync with it."""
+        spec = spec_registry.get_connector(engine)
+        if spec is None:
+            return None
+        for method in spec.form.methods or []:
+            if method.id == "browser_oauth_builtin" and method.oauth:
+                return method.oauth
+        return None
+
+    def start(self, service: str, settings: OAuthSettings, *, client_id: str = "", client_secret: str = "", extra_fields: dict[str, str] | None = None) -> OAuthStartResponse:
+        _, secret_attr = _SERVICE_CREDENTIAL_ATTRS[service]
+        if _credentials_complete(client_id, client_secret, secret_attr):
+            cid, csecret = client_id, client_secret
+        else:
+            cid, csecret = self._resolve_credentials(service, settings)
+        client_id = cid
+
+        cfg = OAUTH_SERVICES[service]
+        oauth_cfg = self._oauth_config_for(cfg.engine)
+        if oauth_cfg is None:
+            raise HTTPException(status_code=500, detail=f"No OAuth configuration found in the spec for {service!r}.")
+
+        verifier = pkce_utils.generate_verifier()
+        challenge = pkce_utils.generate_challenge(verifier)
+        state = pkce_utils.generate_state()
+        redirect_uri = self._redirect_uri(service, settings)
+        started_at = datetime.now(timezone.utc).isoformat()
+
+        self._store(settings).set_pending(
+            service,
+            state=state,
+            verifier=verifier,
+            redirect_uri=redirect_uri,
+            started_at=started_at,
+            client_id=cid,
+            client_secret=csecret,
+            extra_fields=extra_fields,
+        )
+        self._store(settings).set_outcome(state, {"status": "pending"})
+
+        query_params = {
+            "client_id": client_id,
+            "redirect_uri": redirect_uri,
+            "response_type": "code",
+            "scope": " ".join(oauth_cfg.scopes),
+            "state": state,
+            "code_challenge": challenge,
+            "code_challenge_method": "S256",
+            **oauth_cfg.extra_auth_params,
+        }
+        auth_url = oauth_cfg.auth_url + "?" + urlencode(query_params)
+
+        return OAuthStartResponse(auth_url=auth_url, redirect_uri=redirect_uri, started_at=started_at, state=state)
+
+    def callback(self, service: str, code: str, state: str, error: str, settings: OAuthSettings) -> str:
+        cfg = OAUTH_SERVICES[service]
+        store = self._store(settings)
+        service_label = service.replace("-", " ").title()
+
+        if error:
+            err_msg = f"{service_label} sign-in returned: {error}"
+            store.clear_pending(service, error=err_msg)
+            if state:
+                store.set_outcome(state, {"status": "error", "error": err_msg})
+            return _callback_page(
+                f"{service_label} connection was cancelled",
+                "You can return to CoWork and try the connection again whenever you are ready.",
+                success=False,
+            )
+
+        pending = store.get_pending(service)
+        if not pending:
+            return _callback_page(
+                f"{service_label} sign-in expired",
+                f"CoWork could not find a pending {service_label} sign-in request. Start the connection again.",
+                success=False,
+            )
+
+        if not state or state != str(pending.get("state", "")).strip():
+            store.clear_pending(service, error=f"{service_label} sign-in state did not match the pending request.")
+            return _callback_page(
+                f"{service_label} connection could not be verified",
+                f"CoWork rejected the callback because the {service_label} sign-in state did not match.",
+                success=False,
+            )
+
+        if not code:
+            store.clear_pending(service, error=f"{service_label} sign-in did not return an authorization code.")
+            return _callback_page(
+                f"{service_label} connection could not be completed",
+                f"{service_label} did not return an authorization code.",
+                success=False,
+            )
+
+        pending_client_id = str(pending.get("clientId", "")).strip()
+        pending_client_secret = str(pending.get("clientSecret", "")).strip()
+        _, secret_attr = _SERVICE_CREDENTIAL_ATTRS[service]
+        if _credentials_complete(pending_client_id, pending_client_secret, secret_attr):
+            client_id, client_secret = pending_client_id, pending_client_secret
+        else:
+            try:
+                client_id, client_secret = self._resolve_credentials(service, settings)
+            except HTTPException:
+                err_msg = f"OAuth credentials not configured for {service}."
+                store.clear_pending(service, error=err_msg)
+                store.set_outcome(state, {"status": "error", "error": err_msg})
+                return _callback_page(
+                    f"{service_label} connection is not configured",
+                    f"{service_label} OAuth credentials are not configured on this server.",
+                    success=False,
+                )
+
+        started_at = str(pending.get("startedAt", "")).strip()
+        if started_at:
+            try:
+                started_dt = datetime.fromisoformat(started_at)
+                if datetime.now(timezone.utc) - started_dt > timedelta(minutes=20):
+                    store.clear_pending(service, error=f"{service_label} sign-in timed out before it completed.")
+                    return _callback_page(
+                        f"{service_label} sign-in expired",
+                        f"That {service_label} sign-in request took too long. Start the connection again.",
+                        success=False,
+                    )
+            except ValueError:
+                pass
+
+        oauth_cfg = self._oauth_config_for(cfg.engine)
+        if oauth_cfg is None:
+            err_msg = f"No OAuth configuration found in the spec for {service!r}."
+            store.clear_pending(service, error=err_msg)
+            store.set_outcome(state, {"status": "error", "error": err_msg})
+            return _callback_page(f"{service_label} connection failed", err_msg, success=False)
+
+        try:
+            token_data = self._exchange_code(
+                token_url=oauth_cfg.token_url,
+                code=code,
+                client_id=client_id,
+                client_secret=client_secret,
+                redirect_uri=str(pending.get("redirectUri") or self._redirect_uri(service, settings)),
+                verifier=str(pending.get("verifier", "")),
+                token_auth_style=oauth_cfg.token_auth_style,
+            )
+            access_token = str(token_data.get("access_token", "")).strip()
+            if not access_token:
+                raise HTTPException(status_code=502, detail="Token exchange did not return an access token.")
+
+            fetch_userinfo = _USERINFO_FETCHERS.get(cfg.engine, _fetch_userinfo_google)
+            userinfo = fetch_userinfo(access_token)
+            account_email = str(userinfo.get("email", "")).strip()
+            account_name = str(userinfo.get("name", "")).strip()
+
+            expires_in = int(token_data.get("expires_in", 0) or 0)
+            expires_at = (
+                (datetime.now(timezone.utc) + timedelta(seconds=expires_in)).isoformat()
+                if expires_in else ""
+            )
+
+            extra = {k: v for k, v in (pending.get("extraFields") or {}).items() if v}
+            new_fields = {
+                "auth_type": "oauth",
+                "access_token": access_token,
+                "refresh_token": str(token_data.get("refresh_token", "")).strip(),
+                "token_type": str(token_data.get("token_type", "Bearer")).strip(),
+                "scope": str(token_data.get("scope", "")).strip(),
+                "expires_at": expires_at,
+                "account_email": account_email,
+                "account_name": account_name,
+                **extra,
+            }
+            # Routed through the shared persist_connection()/identity.py convention
+            # (same one save_connection_direct uses for the Electron PKCE flow) so
+            # reconnecting the same account resolves to the same slug — an
+            # identity-derived match (is_same_account) updates the existing record
+            # in place, carrying forward Google Picker grants and any label,
+            # instead of leaving a stale duplicate connection behind.
+            #
+            # default_label=account_name gives a brand-new connection's tile a
+            # meaningful title (the account/org/workspace name the provider
+            # returned) instead of the generic engine-id default — but only
+            # for a genuinely new connection; it can never clobber a label the
+            # user already set on a reconnect (see persist_connection's
+            # default_label docs).
+            #
+            # oauth_default_label falls back to account_email when
+            # account_name is empty, which matters most for Google: none of
+            # the granted scopes (Drive/Calendar/Ads/Analytics/Gmail) include
+            # profile/openid, so Google's userinfo response never carries a
+            # name claim, and account_name is always empty. Without that
+            # fallback, persist_connection instead defaults to the bare
+            # engine id (e.g. "gmail"), de-duplicated with a trailing counter
+            # on a second account ("gmail 2") — a label that survives
+            # connectionIdentity()'s "title, again" filter and leaks into the
+            # tile subtitle next to the email. Defaulting to the email keeps
+            # the label identical to the subtitle's own identity value, so
+            # the frontend's dedup collapses them back to just the email.
+            connection_name = persist_connection(
+                cfg.engine, "browser_oauth_builtin", "", new_fields,
+                default_label=oauth_default_label(new_fields, cfg.engine),
+            )
+        except HTTPException as exc:
+            err_msg = str(exc.detail)
+            store.clear_pending(service, error=err_msg)
+            store.set_outcome(state, {"status": "error", "error": err_msg})
+            return _callback_page(
+                f"{service_label} connection failed",
+                "An error occurred during the sign-in flow. Return to CoWork and try again.",
+                success=False,
+            )
+        except Exception as exc:
+            err_msg = str(exc)
+            _log.exception("OAuth callback failed for %s", service)
+            store.clear_pending(service, error=err_msg)
+            store.set_outcome(state, {"status": "error", "error": err_msg})
+            # The detail goes to the log and the outcome store (both internal);
+            # the browser page stays generic so a raw exception message can't
+            # leak internals to the end user.
+            return _callback_page(
+                f"{service_label} connection failed",
+                f"Cowork could not finish the {service_label} sign-in flow. Return to Cowork and try again.",
+                success=False,
+            )
+
+        store.clear_pending(service)
+        store.set_outcome(state, {"status": "success", "name": connection_name})
+        return _callback_page(
+            f"{service_label} connected",
+            f"{account_name or account_email or f'Your {service_label} account'} is now connected. You can close this tab and return to CoWork.",
+            success=True,
+        )
+
+    def revoke(self, engine: str, name: str, connector_settings: ConnectorSettings,
+               oauth_settings: OAuthSettings | None = None, *, scope=None) -> None:
+        if engine not in _ENGINE_TO_SERVICE:
+            return
+        custom_revoke = _REVOKE_HANDLERS.get(engine)
+        oauth_cfg = self._oauth_config_for(engine)
+        if custom_revoke is None and (oauth_cfg is None or not oauth_cfg.supports_revoke or not oauth_cfg.revoke_url):
+            _log.debug("Revoke not supported for %s/%s — skipping, local cleanup only", engine, name)
+            return
+        try:
+            fields = _vault_for(connector_settings, scope).load(engine, name) or {}
+        except Exception:
+            return
+        if fields.get("auth_type") != "oauth":
+            return
+        token = fields.get("refresh_token", "").strip() or fields.get("access_token", "").strip()
+        if not token:
+            return
+        if engine == "supabase" and not fields.get("refresh_token", "").strip():
+            # Supabase's revoke endpoint only accepts a refresh_token (see
+            # _revoke_supabase) — falling back to the access_token here and
+            # sending it under the "refresh_token" label just gets rejected
+            # by Supabase, and that failure is logged as a warning below, so
+            # disconnect would look like it worked while the grant stays live.
+            _log.warning("Cannot revoke %s/%s remotely — no refresh_token stored", engine, name)
+            return
+        _log.info("Revoking OAuth token for %s/%s", engine, name)
+        if custom_revoke is not None:
+            if oauth_settings is None:
+                _log.warning("Cannot revoke %s/%s — no OAuthSettings provided for credential lookup", engine, name)
+                return
+            try:
+                client_id, client_secret = self._resolve_credentials(_ENGINE_TO_SERVICE[engine], oauth_settings)
+                custom_revoke(token, client_id, client_secret)
+                _log.info("Revoked OAuth grant for %s/%s", engine, name)
+            except HTTPError as exc:
+                _log.warning("Could not revoke OAuth grant for %s/%s: %s %s", engine, name, exc.code, exc.reason)
+            except Exception as exc:
+                _log.warning("Could not revoke OAuth grant for %s/%s: %s", engine, name, exc)
+            return
+        try:
+            request = Request(
+                oauth_cfg.revoke_url,
+                data=urlencode({"token": token}).encode("utf-8"),
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                method="POST",
+            )
+            with urlopen(request, timeout=10):
+                pass
+            _log.info("Revoked OAuth token for %s/%s", engine, name)
+        except HTTPError as exc:
+            _log.warning("Could not revoke OAuth token for %s/%s: %s %s", engine, name, exc.code, exc.reason)
+        except Exception as exc:
+            _log.warning("Could not revoke OAuth token for %s/%s: %s", engine, name, exc)
+
+    def get_catalogue(self, connector_settings: ConnectorSettings, oauth_settings: OAuthSettings,
+                      *, scope=None) -> list[dict]:
+        try:
+            vault = _vault_for(connector_settings, scope)
+            all_connections = vault.list_connections() or []
+        except Exception as exc:
+            _log.warning("Could not load vault for catalogue: %s", exc)
+            all_connections = []
+            vault = None
+
+        state_data = self._store(oauth_settings)._load()
+        items = []
+
+        for service_id, cfg in OAUTH_SERVICES.items():
+            engine = cfg.engine
+            id_attr, secret_attr = _SERVICE_CREDENTIAL_ATTRS[service_id]
+            cid = getattr(oauth_settings, id_attr, "")
+            csecret = getattr(oauth_settings, secret_attr, "") if secret_attr else ""
+            ready = _credentials_complete(cid, csecret, secret_attr)
+            config_error = "" if ready else f"OAuth credentials not configured for {service_id}."
+
+            connections = []
+            for c in all_connections:
+                if c.get("engine") != engine:
+                    continue
+                name = c.get("name", "")
+                fields = (vault.load(engine, name) if vault else None) or {}
+                user_label = str(fields.get("_user_label", "")).strip() or str(fields.get("_label", "")).strip() or None
+                connections.append({"engine": engine, "name": name, "user_label": user_label})
+
+            entry = state_data.get(service_id) or {}
+            service_label = " ".join(w.capitalize() for w in service_id.replace("-", " ").split())
+
+            items.append({
+                "id": engine,
+                "title": service_label,
+                "engine": engine,
+                "status": "connected" if connections else ("available" if ready else "needs_config"),
+                "connections": connections,
+                "connectionCount": len(connections),
+                "oauth": {
+                    "ready": ready,
+                    "configError": config_error,
+                    "pending": bool((entry.get("pending") or {}).get("state")),
+                    "lastSuccessAt": entry.get("lastSuccessAt", ""),
+                    "lastError": entry.get("lastError", ""),
+                    "lastErrorAt": entry.get("lastErrorAt", ""),
+                    "launchLabel": f"Connect {service_label}",
+                    "redirectUri": self._redirect_uri(service_id, oauth_settings),
+                    # The web-fallback route slug (e.g. "google-drive") — has
+                    # already diverged from the engine name for some
+                    # connectors, so callers use this instead of guessing.
+                    "serviceId": service_id,
+                },
+            })
+
+        return items
+
+    def _exchange_code(
+        self,
+        *,
+        token_url: str,
+        code: str,
+        client_id: str,
+        client_secret: str,
+        redirect_uri: str,
+        verifier: str,
+        token_auth_style: str = "body",
+    ) -> dict[str, Any]:
+        data = {
+            "code": code,
+            "redirect_uri": redirect_uri,
+            "grant_type": "authorization_code",
+            "code_verifier": verifier,
+        }
+        headers = None
+
+        if token_auth_style == "basic":
+            credentials = base64.b64encode(
+                f"{client_id}:{client_secret}".encode("utf-8")
+            ).decode("ascii")
+            headers = {"Authorization": f"Basic {credentials}"}
+        else:
+            data["client_id"] = client_id
+            # Public PKCE-only providers such as PostHog must not receive an
+            # empty client_secret.
+            if client_secret:
+                data["client_secret"] = client_secret
+
+        return _json_request(
+            token_url,
+            method="POST",
+            data=data,
+            headers=headers,
+        )
+
+def _json_request(
+    url: str,
+    *,
+    method: str = "GET",
+    data: dict[str, str] | None = None,
+    json_body: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    request_headers = {"Accept": "application/json", **(headers or {})}
+    body = None
+    if json_body is not None:
+        request_headers.setdefault("Content-Type", "application/json")
+        body = json.dumps(json_body).encode("utf-8")
+    elif data is not None:
+        request_headers.setdefault("Content-Type", "application/x-www-form-urlencoded")
+        body = urlencode(data).encode("utf-8")
+    request = Request(url, data=body, headers=request_headers, method=method)
+    try:
+        with urlopen(request, timeout=20) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        raw = exc.read().decode("utf-8", "replace")
+        detail = raw
+        try:
+            payload = json.loads(raw)
+            detail = (
+                payload.get("error_description")
+                or payload.get("error", {}).get("message")
+                or payload.get("error")
+                or raw
+            )
+        except json.JSONDecodeError:
+            pass
+        raise HTTPException(status_code=502, detail=f"OAuth request failed: {detail}") from exc
+    except URLError as exc:
+        raise HTTPException(status_code=502, detail="Could not reach OAuth provider") from exc
+
+
+def _callback_page(title: str, message: str, *, success: bool) -> str:
+    accent = "#0f766e" if success else "#b42318"
+    safe_title = html_lib.escape(title)
+    safe_message = html_lib.escape(message)
+    safe_state = "Connected" if success else "Connection failed"
+    return dedent(
+        f"""
+        <!doctype html>
+        <html lang="en">
+        <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <title>{safe_title}</title>
+          <style>
+            body {{
+              margin: 0;
+              min-height: 100vh;
+              display: grid;
+              place-items: center;
+              background: #f6f5f1;
+              color: #161616;
+              font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            }}
+            main {{
+              width: min(92vw, 520px);
+              background: #fff;
+              border: 1px solid #e7e3da;
+              border-radius: 18px;
+              padding: 28px 28px 24px;
+              box-shadow: 0 20px 60px rgba(20, 17, 12, 0.08);
+            }}
+            h1 {{
+              margin: 0 0 10px;
+              font-size: 24px;
+              line-height: 1.15;
+            }}
+            p {{
+              margin: 0;
+              font-size: 15px;
+              line-height: 1.55;
+              color: #55514a;
+            }}
+            .pill {{
+              display: inline-flex;
+              align-items: center;
+              gap: 8px;
+              margin-bottom: 14px;
+              padding: 6px 10px;
+              border-radius: 999px;
+              background: #f7f2ee;
+              color: {accent};
+              font-size: 12px;
+              font-weight: 600;
+              letter-spacing: 0.02em;
+              text-transform: uppercase;
+            }}
+          </style>
+        </head>
+        <body>
+          <main>
+            <span class="pill">{safe_state}</span>
+            <h1>{safe_title}</h1>
+            <p>{safe_message}</p>
+          </main>
+        </body>
+        </html>
+        """
+    ).strip()
+
+
+oauth_service = OAuthService()

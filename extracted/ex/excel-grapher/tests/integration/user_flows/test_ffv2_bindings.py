@@ -1,0 +1,55 @@
+"""Integration tests for ffv2 game-log series bindings (datetime TIME_PERIOD keys)."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from excel_grapher.series_bindings import validate_bindings_workbook
+from excel_grapher.series_bindings.workflow import input_ids
+from tests.integration.user_flows.utils import write_ffv2_workbook
+from tests.paths import SERIES_BINDINGS_FIXTURES as FIXTURES
+
+
+@pytest.fixture
+def workbook(tmp_path: Path) -> Path:
+    path = tmp_path / "ffv2.xlsx"
+    write_ffv2_workbook(path)
+    return path
+
+
+@pytest.fixture
+def bindings_path() -> Path:
+    return FIXTURES / "ffv2.yaml"
+
+
+def test_ffv2_bindings_validate(workbook: Path, bindings_path: Path) -> None:
+    from excel_grapher.series_bindings import load_series_bindings
+
+    bindings = load_series_bindings(bindings_path)
+    result = validate_bindings_workbook(workbook, bindings_path)
+    assert result["report"]["ok"] is True
+    assert not any(issue["level"] == "error" for issue in result["report"]["issues"])
+    assert len(result["input_series"]) == len(input_ids(bindings))
+
+
+def test_ffv2_declared_inputs_and_computes(
+    workbook: Path,
+    bindings_path: Path,
+) -> None:
+    result = validate_bindings_workbook(workbook, bindings_path)
+    assert result["inputs"] == [
+        "puka_longest_reception",
+        "puka_receptions",
+        "puka_targets",
+        "puka_touchdowns",
+        "puka_week_1_stats",
+        "puka_yards",
+    ]
+    assert result["computes"] == [
+        "compute_puka_avg_yards_per_reception",
+        "compute_puka_fantasy_score",
+        "compute_puka_week_1_fantasy_score",
+        "compute_touchdowns",
+    ]

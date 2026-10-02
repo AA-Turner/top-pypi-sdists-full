@@ -1,0 +1,1172 @@
+"""Tests for the association: messages over a real link."""
+
+import asyncio
+import contextlib
+import threading
+from datetime import timedelta
+from typing import Any
+
+import pytest
+
+from tapio.actor import (
+    ActorContext,
+    ActorSystem,
+    Behavior,
+    Behaviors,
+    DeadLetter,
+    Signal,
+    Terminated,
+)
+from tapio.actor.dead_letters import DeadLetterReason
+from tapio.actor.events import EventStream
+from tapio.actor.path import ActorPath
+from tapio.dispatch.dispatcher import Dispatcher
+from tapio.errors import MessageEncodingError
+from tapio.message import Message
+from tapio.remote.address import Address
+from tapio.remote.association import Association, Outbound
+from tapio.remote.codec import LENGTH_PREFIX, encode
+from tapio.remote.handle import LinkHandle
+from tapio.remote.transport import framed, is_link_frame, link_body
+from tapio.testkit import (
+    IsolatedRemoteSettings,
+    assert_no_leaked_tasks,
+)
+from tests.failures import eventually
+from tests.remote.peers import (
+    GHOST,
+    Ping,
+    Pong,
+    RecordingLink,
+    Tick,
+    Unregistered,
+    collecting,
+    counting,
+    dial,
+    echoing,
+    failing_writes,
+    relaying,
+    remoting,
+    silent_peer,
+    stalled_writes,
+    uri,
+)
+
+
+async def test_a_message_crosses_an_association(alpha: ActorSystem, beta: ActorSystem):
+    seen: list[int] = []
+    ticker = beta.spawn(counting(seen), "ticker")
+
+    remote = await alpha.resolve(uri(beta, ticker), expect=Tick)
+    remote.tell(Tick(n=1))
+
+    await eventually(lambda: seen == [1])
+
+
+async def test_a_reply_arrives_at_a_reply_to_that_crossed_the_wire(
+    alpha: ActorSystem, beta: ActorSystem
+):
+    answers: list[Pong] = []
+    echo = beta.spawn(echoing(), "echo")
+    cart = alpha.spawn(collecting(answers), "cart")
+
+    remote = await alpha.resolve(uri(beta, echo), expect=Ping)
+    remote.tell(Ping(n=7, reply_to=cart))
+
+    await eventually(lambda: [answer.n for answer in answers] == [7])
+
+
+async def test_the_reply_travels_back_over_the_same_association(
+    alpha: ActorSystem, beta: ActorSystem
+):
+    # One connection per peer pair: beta never resolved anything, so its reply
+    # has to reuse the link alpha opened.
+    answers: list[Pong] = []
+    echo = beta.spawn(echoing(), "echo")
+    cart = alpha.spawn(collecting(answers), "cart")
+
+    remote = await alpha.resolve(uri(beta, echo), expect=Ping)
+    remote.tell(Ping(n=1, reply_to=cart))
+    await eventually(lambda: len(answers) == 1)
+
+    assert alpha.remote is not None
+    assert beta.remote is not None
+    assert alpha.remote.associations == (beta.address,)
+    assert beta.remote.associations == (alpha.address,)
+
+
+async def test_a_message_off_the_wire_equals_what_was_sent_without_being_it(
+    alpha: ActorSystem, beta: ActorSystem
+):
+    # A message rebuilt from JSON is equal to what was sent, never the same
+    # object. `Message` is frozen, so equality is enough.
+    answers: list[Pong] = []
+    received: list[Ping] = []
+    echo = beta.spawn(echoing(received), "echo")
+    cart = alpha.spawn(collecting(answers), "cart")
+    sent = Ping(n=3, reply_to=cart)
+
+    remote = await alpha.resolve(uri(beta, echo), expect=Ping)
+    remote.tell(sent)
+    await eventually(lambda: len(answers) == 1)
+
+    assert answers[0] == Pong(n=3)
+    # The ping is the message that crossed the link, so it is the one the
+    # guarantee is about. Comparing the answer to the request instead put a
+    # Pong beside a Ping, which are never the same object whatever remoting
+    # does.
+    assert received[0] == sent
+    assert received[0] is not sent
+
+
+async def test_fifo_holds_for_ten_thousand_messages(
+    alpha: ActorSystem, beta: ActorSystem
+):
+    # 10,000 messages fills the socket buffer, so the writer waits in `drain`,
+    # which is where ordering would break.
+    seen: list[int] = []
+    ticker = beta.spawn(counting(seen), "ticker")
+    remote = await alpha.resolve(uri(beta, ticker), expect=Tick)
+
+    for n in range(10_000):
+        await remote.offer(Tick(n=n))
+
+    await eventually(lambda: len(seen) == 10_000, within=30.0)
+    assert seen == list(range(10_000))
+
+
+async def test_an_unregistered_message_raises_at_the_send_site(
+    alpha: ActorSystem, beta: ActorSystem
+):
+    # Errors about the message belong to the sender, and nothing is sent.
+    ticker = beta.spawn(counting([]), "ticker")
+    remote = await alpha.resolve(uri(beta, ticker), expect=Unregistered)
+
+    with pytest.raises(MessageEncodingError, match="no wire key"):
+        remote.tell(Unregistered(n=1))
+
+
+async def test_a_full_outbound_buffer_dead_letters_instead_of_raising():
+    # Errors about the recipient are dead letters, never an exception.
+    async with ActorSystem("alpha", remoting(outbound_capacity=2)) as one:
+        letters: list[DeadLetter] = []
+        one.dead_letters.subscribe(letters.append)
+        remote = await one.resolve(f"{GHOST}/user/ticker#1", expect=Tick)
+
+        # No await in the loop, so the association cannot drain and the
+        # overflow is certain rather than a race.
+        for n in range(64):
+            remote.tell(Tick(n=n))
+
+        full = [
+            letter
+            for letter in letters
+            if letter.reason == DeadLetterReason.OUTBOUND_BUFFER_FULL
+        ]
+        assert full
+        assert full[0].peer == str(GHOST)
+        assert isinstance(full[0].message, Tick)
+
+
+async def test_a_full_outbound_lane_off_loop_still_names_the_peer():
+    # The off-loop sibling of the test above, and of the FAIL mailbox: a
+    # RemoteRef is safe from any thread, so the overflow can arrive from one.
+    # A stalled write parks the association with its bounded mailbox full, and
+    # a tell from a non-loop thread finds no slot. It must dead-letter with the
+    # peer named and OUTBOUND_BUFFER_FULL, the way an on-loop tell does, not as
+    # a bare mailbox-full at the association actor's own path with no peer.
+    with assert_no_leaked_tasks():
+        one = ActorSystem(
+            "alpha",
+            remoting(
+                outbound_capacity=2,
+                # The stalled write holds the actor parked for this long, which
+                # is the window the mailbox stays full in. A second is far more
+                # than the overflow needs and short enough that the write then
+                # times out, freeing the actor for a clean shutdown.
+                unreachable_after=timedelta(seconds=1),
+                heartbeat_interval=timedelta(seconds=60),
+            ),
+        )
+        two = ActorSystem("beta", remoting())
+        try:
+            assert one.remote is not None
+            one.remote.set_link_filter(stalled_writes(after=1))
+            seen: list[int] = []
+            ticker = two.spawn(counting(seen), "ticker")
+            letters: list[DeadLetter] = []
+            one.dead_letters.subscribe(letters.append)
+
+            remote = await one.resolve(uri(two, ticker), expect=Tick)
+            remote.tell(Tick(n=1))
+            await eventually(lambda: seen == [1])
+
+            # Park the association inside a stalled write, then fill the bounded
+            # mailbox behind it, so the next send has no slot.
+            remote.tell(Tick(n=2))
+            await asyncio.sleep(0.05)
+            remote.tell(Tick(n=3))
+            remote.tell(Tick(n=4))
+
+            # The overflow now arrives from another thread, which has nobody to
+            # raise into.
+            thread = threading.Thread(target=lambda: remote.tell(Tick(n=5)))
+            thread.start()
+            thread.join()
+
+            await eventually(
+                lambda: any(
+                    letter.reason == DeadLetterReason.OUTBOUND_BUFFER_FULL
+                    for letter in letters
+                ),
+                within=5.0,
+            )
+            full = [
+                letter
+                for letter in letters
+                if letter.reason == DeadLetterReason.OUTBOUND_BUFFER_FULL
+            ]
+            assert full[0].peer == str(two.address)
+            assert isinstance(full[0].message, Tick)
+
+            # The stalled write times out on its own, which frees the parked
+            # actor and closes the association, so neither system pays the
+            # shutdown deadline on the way out.
+            await eventually(
+                lambda: one.remote.associations == (),  # type: ignore[union-attr]
+                within=5.0,
+            )
+        finally:
+            await one.terminate()
+            await two.terminate()
+
+
+async def test_a_tell_to_a_peer_that_was_never_reachable_dead_letters(
+    alpha: ActorSystem,
+):
+    # The dial fails behind the send, so the message is dead-lettered rather
+    # than left hanging.
+    letters: list[DeadLetter] = []
+    alpha.dead_letters.subscribe(letters.append)
+
+    remote = await alpha.resolve(f"{GHOST}/user/ticker#1", expect=Tick)
+    remote.tell(Tick(n=1))
+
+    await eventually(lambda: bool(letters))
+    assert letters[0].peer == str(GHOST)
+    assert letters[0].message == Tick(n=1)
+
+
+async def test_a_failed_association_is_forgotten_so_the_next_send_dials_again(
+    alpha: ActorSystem,
+):
+    letters: list[DeadLetter] = []
+    alpha.dead_letters.subscribe(letters.append)
+    remote = await alpha.resolve(f"{GHOST}/user/ticker#1", expect=Tick)
+    remote.tell(Tick(n=1))
+
+    await eventually(lambda: bool(letters))
+    assert alpha.remote is not None
+    await eventually(lambda: alpha.remote.associations == ())  # type: ignore[union-attr]
+
+
+async def test_a_type_key_the_peer_does_not_know_dead_letters_over_there(
+    beta: ActorSystem,
+):
+    # The dead letter names the key and the sender. Nothing is imported to
+    # find out what the key meant.
+    letters: list[DeadLetter] = []
+    beta.dead_letters.subscribe(letters.append)
+    ticker = beta.spawn(counting([]), "ticker")
+    link = await dial(beta)
+
+    body = encode(Tick(n=1), to=ticker.path)[LENGTH_PREFIX:].replace(
+        b'"t":"tests.remote.peers.Tick"', b'"t":"orders.protocol.Unknown"'
+    )
+    await link.write_frame(framed(body))
+
+    await eventually(lambda: bool(letters))
+    assert letters[0].reason == DeadLetterReason.UNKNOWN_MESSAGE_TYPE
+    assert letters[0].peer == str(GHOST)
+    await link.close()
+
+
+async def test_an_oversized_frame_is_refused_and_the_link_closed(beta: ActorSystem):
+    # The length is checked before the body is read, so a peer announcing a
+    # gigabyte costs a header and a refusal.
+    letters: list[DeadLetter] = []
+    beta.dead_letters.subscribe(letters.append)
+    settings = beta.settings.remote
+    assert settings is not None
+    link = await dial(beta)
+
+    await link.write_frame((settings.max_frame_bytes + 1).to_bytes(4, "big") + b"{")
+
+    await eventually(
+        lambda: any(
+            letter.reason == DeadLetterReason.FRAME_TOO_LARGE for letter in letters
+        )
+    )
+    with pytest.raises((asyncio.IncompleteReadError, ConnectionError)):
+        await link.read_frame()
+    await link.close()
+
+
+async def test_a_frame_arriving_before_the_handshake_is_refused(beta: ActorSystem):
+    ticker = beta.spawn(counting([]), "ticker")
+    port = beta.address.port
+    assert port is not None
+    reader, writer = await asyncio.open_connection("127.0.0.1", port)
+
+    writer.write(encode(Tick(n=1), to=ticker.path))
+    await writer.drain()
+
+    # The peer never said who it was, so nothing it wrote is read.
+    with pytest.raises(asyncio.IncompleteReadError):
+        await reader.readexactly(1024)
+    writer.close()
+    # Awaited, not just asked for: a transport still closing when the loop
+    # goes away is collected unclosed, and this suite turns that warning into
+    # an error at whichever test happens to run next.
+    await writer.wait_closed()
+
+
+async def test_an_idle_association_heartbeats(beta: ActorSystem):
+    # Heartbeats are what tells a dead peer from a quiet one.
+    link = await dial(beta)
+    try:
+        frame = await asyncio.wait_for(link.read_frame(), 2.0)
+        assert is_link_frame(frame)
+        assert link_body(frame)["link"] == "heartbeat"
+    finally:
+        await link.close()
+
+
+async def test_a_link_frame_this_version_does_not_know_is_ignored(beta: ActorSystem):
+    # A peer running something newer must not break a working link.
+    seen: list[int] = []
+    ticker = beta.spawn(counting(seen), "ticker")
+    link = await dial(beta)
+    try:
+        await link.write_frame(framed(b'{"link":"from-the-future"}'))
+        await link.write_frame(encode(Tick(n=1), to=ticker.path))
+
+        await eventually(lambda: seen == [1])
+    finally:
+        await link.close()
+
+
+async def test_both_ends_dialling_at_once_end_up_with_one_association(
+    alpha: ActorSystem, beta: ActorSystem
+):
+    # Without a rule for this the pair keeps two connections, and FIFO per
+    # association stops meaning anything.
+    here: list[int] = []
+    there: list[int] = []
+    mine = alpha.spawn(counting(here), "ticker")
+    theirs = beta.spawn(counting(there), "ticker")
+
+    to_beta = await alpha.resolve(uri(beta, theirs), expect=Tick)
+    to_alpha = await beta.resolve(uri(alpha, mine), expect=Tick)
+    to_beta.tell(Tick(n=1))
+    to_alpha.tell(Tick(n=2))
+
+    await eventually(lambda: there == [1] and here == [2])
+    assert alpha.remote is not None
+    assert beta.remote is not None
+    assert alpha.remote.associations == (beta.address,)
+    assert beta.remote.associations == (alpha.address,)
+
+
+async def test_traffic_survives_the_link_that_lost_the_dial(
+    alpha: ActorSystem, beta: ActorSystem
+):
+    # Closing the losing link must not drop what was already queued on it.
+    there: list[int] = []
+    theirs = beta.spawn(counting(there), "ticker")
+    mine = alpha.spawn(counting([]), "ticker")
+
+    to_beta = await alpha.resolve(uri(beta, theirs), expect=Tick)
+    await beta.resolve(uri(alpha, mine), expect=Tick)
+    for n in range(20):
+        to_beta.tell(Tick(n=n))
+
+    await eventually(lambda: there == list(range(20)))
+
+
+async def test_two_systems_sharing_a_secret_talk():
+    async with (
+        ActorSystem("alpha", remoting(secret="shh")) as one,
+        ActorSystem("beta", remoting(secret="shh")) as two,
+    ):
+        seen: list[int] = []
+        ticker = two.spawn(counting(seen), "ticker")
+
+        remote = await one.resolve(uri(two, ticker), expect=Tick)
+        remote.tell(Tick(n=1))
+
+        await eventually(lambda: seen == [1])
+
+
+async def test_a_peer_with_the_wrong_secret_gets_nothing_through():
+    async with (
+        ActorSystem("alpha", remoting(secret="right")) as one,
+        ActorSystem("beta", remoting(secret="wrong")) as two,
+    ):
+        letters: list[DeadLetter] = []
+        one.dead_letters.subscribe(letters.append)
+        seen: list[int] = []
+        ticker = two.spawn(counting(seen), "ticker")
+
+        remote = await one.resolve(uri(two, ticker), expect=Tick)
+        remote.tell(Tick(n=1))
+
+        # The handshake fails, so the queued message is dead-lettered. Nothing
+        # is delivered and nothing raises at the sender.
+        await eventually(lambda: bool(letters))
+        assert seen == []
+        assert letters[0].reason == DeadLetterReason.LINK_FAILED
+
+
+async def test_an_adapter_ref_handed_to_a_peer_is_answerable(
+    alpha: ActorSystem, beta: ActorSystem
+):
+    # An adapter is addressable like the actor behind it, so it has to write
+    # itself down with the system's canonical address. Without that a peer
+    # reads it as a ref naming a system and nowhere to dial, and the answer
+    # dead-letters instead of arriving.
+    seen: list[int] = []
+    echo = beta.spawn(echoing(), "echo")
+    remote = await alpha.resolve(uri(beta, echo), expect=Ping)
+    relay = alpha.spawn(relaying(remote, seen), "relay")
+
+    relay.tell(Tick(n=5))
+
+    await eventually(lambda: seen == [5])
+
+
+async def test_a_write_that_fails_dead_letters_the_message_and_ends_the_link():
+    # The flush that brings the link up succeeds, so the association is
+    # properly connected, and the send after it meets a broken socket. That is
+    # the ordinary case: a link that worked and then did not.
+    with assert_no_leaked_tasks():
+        one = ActorSystem("alpha", remoting(heartbeat_interval=timedelta(seconds=60)))
+        two = ActorSystem("beta", remoting())
+        try:
+            assert one.remote is not None
+            one.remote.set_link_filter(failing_writes(after=1))
+            letters: list[DeadLetter] = []
+            one.dead_letters.subscribe(letters.append)
+            seen: list[int] = []
+            ticker = two.spawn(counting(seen), "ticker")
+
+            remote = await one.resolve(uri(two, ticker), expect=Tick)
+            remote.tell(Tick(n=1))
+            await eventually(lambda: seen == [1])
+
+            remote.tell(Tick(n=2))
+
+            await eventually(lambda: bool(letters))
+            assert letters[0].reason == DeadLetterReason.LINK_FAILED
+            assert letters[0].peer == str(two.address)
+            # The message is reported as what its sender sent, not as the
+            # Outbound wrapper it was travelling in.
+            assert isinstance(letters[0].message, Tick)
+            # And the link is given up rather than kept in a state where every
+            # further write would fail the same way.
+            await eventually(lambda: one.remote.associations == ())  # type: ignore[union-attr]
+        finally:
+            await one.terminate()
+            await two.terminate()
+
+
+async def test_a_frame_that_never_flushed_is_put_back_and_accounted_for():
+    # `_open` fails on the very first write, so the frame it had taken off the
+    # queue goes back rather than being lost between the two. The association
+    # then stops and reports it, which is what makes at-most-once auditable.
+    with assert_no_leaked_tasks():
+        one = ActorSystem("alpha", remoting())
+        two = ActorSystem("beta", remoting())
+        try:
+            assert one.remote is not None
+            one.remote.set_link_filter(failing_writes(after=0))
+            letters: list[DeadLetter] = []
+            one.dead_letters.subscribe(letters.append)
+            seen: list[int] = []
+            ticker = two.spawn(counting(seen), "ticker")
+
+            remote = await one.resolve(uri(two, ticker), expect=Tick)
+            remote.tell(Tick(n=1))
+
+            await eventually(lambda: bool(letters))
+            assert seen == []
+            assert letters[0].reason == DeadLetterReason.LINK_FAILED
+            assert isinstance(letters[0].message, Tick)
+        finally:
+            await one.terminate()
+            await two.terminate()
+
+
+async def test_frames_held_for_a_link_that_never_comes_up_are_shed():
+    # A dial that hangs is the one state in which frames pile up in the hold
+    # buffer rather than in the mailbox. Past `outbound_capacity` they are shed
+    # with the peer named, instead of growing without a bound.
+    with assert_no_leaked_tasks():
+        async with silent_peer() as address:
+            system = ActorSystem("alpha", remoting(outbound_capacity=4))
+            try:
+                letters: list[DeadLetter] = []
+                system.dead_letters.subscribe(letters.append)
+                remote = await system.resolve(f"{address}/user/ticker#1", expect=Tick)
+
+                # A turn between sends, so each one reaches the hold buffer
+                # rather than queueing in the mailbox: this is about `_hold`,
+                # not about the mailbox's own overflow.
+                for n in range(9):
+                    remote.tell(Tick(n=n))
+                    await asyncio.sleep(0)
+
+                await eventually(lambda: bool(letters))
+                shed = [
+                    letter
+                    for letter in letters
+                    if "waiting for a link" in (letter.detail or "")
+                ]
+                assert shed, [letter.detail for letter in letters]
+                assert shed[0].reason == DeadLetterReason.OUTBOUND_BUFFER_FULL
+                assert shed[0].peer == str(address)
+            finally:
+                await system.terminate()
+
+
+async def test_a_peer_that_accepts_no_bytes_is_declared_unreachable():
+    # The case the failure detector could not see. A peer that holds the
+    # connection open while reading nothing parks the association inside
+    # `drain`, so its mailbox fills, the heartbeat tick is never handled, and
+    # nothing ever asks whether the peer is still there. The write deadline is
+    # what gives the actor its loop back.
+    with assert_no_leaked_tasks():
+        one = ActorSystem(
+            "alpha",
+            remoting(
+                unreachable_after=timedelta(milliseconds=200),
+                heartbeat_interval=timedelta(seconds=60),
+            ),
+        )
+        two = ActorSystem("beta", remoting())
+        try:
+            assert one.remote is not None
+            one.remote.set_link_filter(stalled_writes(after=1))
+            letters: list[DeadLetter] = []
+            one.dead_letters.subscribe(letters.append)
+            seen: list[int] = []
+            ticker = two.spawn(counting(seen), "ticker")
+
+            remote = await one.resolve(uri(two, ticker), expect=Tick)
+            remote.tell(Tick(n=1))
+            await eventually(lambda: seen == [1])
+
+            remote.tell(Tick(n=2))
+
+            # The stalled write is given up on, the message is accounted for,
+            # and the peer is quarantined rather than left half-connected.
+            await eventually(lambda: bool(letters), within=5.0)
+            assert letters[0].reason == DeadLetterReason.LINK_FAILED
+            assert "accepted no bytes" in (letters[0].detail or "")
+            await eventually(
+                lambda: one.remote.is_quarantined(two.address),  # type: ignore[union-attr]
+                within=5.0,
+            )
+        finally:
+            await one.terminate()
+            await two.terminate()
+
+
+async def test_a_close_from_the_reader_survives_a_full_outbound_lane():
+    # The interleaving TAP-09 describes. The link is up, the peer stops
+    # reading, the bounded outbound lane fills, and then the peer closes the
+    # socket. The reader raises on the closed link and asks the association to
+    # close, and that Close travels the same full lane. It must not be refused:
+    # if it is, the reader task dies with a MailboxFullError, `_release` never
+    # runs, and the socket and task leak while `_closing` blocks every retry.
+    with assert_no_leaked_tasks():
+        one = ActorSystem(
+            "alpha",
+            remoting(
+                outbound_capacity=2,
+                unreachable_after=timedelta(milliseconds=300),
+                heartbeat_interval=timedelta(seconds=60),
+            ),
+        )
+        two = ActorSystem("beta", remoting())
+        try:
+            assert one.remote is not None
+            one.remote.set_link_filter(stalled_writes(after=1))
+            seen: list[int] = []
+            ticker = two.spawn(counting(seen), "ticker")
+
+            remote = await one.resolve(uri(two, ticker), expect=Tick)
+            remote.tell(Tick(n=1))
+            await eventually(lambda: seen == [1])
+
+            # This one parks the association inside a stalled write, so the
+            # writes that follow queue in the mailbox behind it.
+            remote.tell(Tick(n=2))
+            await asyncio.sleep(0.05)
+            # Fill the bounded lane, so a Close has no slot to land in.
+            remote.tell(Tick(n=3))
+            remote.tell(Tick(n=4))
+
+            # The peer closing is what makes the reader give up on the link and
+            # call close() while the lane is full.
+            await two.terminate()
+
+            # With the guard, the actor stops on its next turn and the
+            # association is released. Without it, this never happens.
+            await eventually(
+                lambda: one.remote.associations == (),  # type: ignore[union-attr]
+                within=5.0,
+            )
+        finally:
+            await one.terminate()
+            await two.terminate()
+
+
+async def test_a_watch_that_cannot_be_sent_is_answered_at_once():
+    # A watch travels through the same mailbox as user traffic, so a full
+    # outbound buffer can drop it. The peer then never registers it and no
+    # Terminated is ever coming, so this end must not go on believing it holds
+    # a watch: it is answered here instead of waiting forever.
+    with assert_no_leaked_tasks():
+        async with silent_peer() as address:
+            system = ActorSystem("alpha", remoting(outbound_capacity=1))
+            try:
+                seen: list[str] = []
+                remote = await system.resolve(f"{address}/user/ticker#1", expect=Tick)
+
+                def build(ctx: ActorContext[Tick]) -> Behavior[Tick]:
+                    # One turn, no awaits: the association actor cannot drain
+                    # any of this, so the watch frame behind it has nowhere to
+                    # go and the drop is certain rather than a race.
+                    for n in range(8):
+                        remote.tell(Tick(n=n))
+                    ctx.watch(remote)
+
+                    async def on_message(message: Tick) -> Behavior[Tick]:
+                        return Behaviors.same()
+
+                    async def on_signal(
+                        ctx: ActorContext[Tick], signal: Signal
+                    ) -> Behavior[Tick]:
+                        if isinstance(signal, Terminated):
+                            seen.append(str(signal.ref.path))
+                        return Behaviors.same()
+
+                    return Behaviors.receive_message(
+                        on_message, msg_type=Tick, on_signal=on_signal
+                    )
+
+                system.spawn(Behaviors.setup(build), "watcher")
+
+                await eventually(lambda: bool(seen))
+                assert seen[0].endswith("/user/ticker#1")
+                # And the entry is gone, so nothing reports it a second time
+                # when the association ends.
+                assert system.remote is not None
+                association = system.remote.association_for(address)
+                assert association is not None
+                assert association.watching == ()
+            finally:
+                await system.terminate()
+
+
+class _LoneHost:
+    """The little of an endpoint an isolated association needs to shut down.
+
+    Reports the system as closing, so ending the association raises no watch,
+    and forgets nothing, since it holds no table.
+    """
+
+    def __init__(self) -> None:
+        """Bind to the running loop, with default remoting settings."""
+        self.settings = IsolatedRemoteSettings(bind_port=0)
+        self.dispatcher = Dispatcher.from_running_loop()
+        self.is_closing = True
+        self.events = EventStream()
+
+    def forget(self, association: object) -> None:
+        """Do nothing: there is no table to remove the association from."""
+
+
+def _lone_association() -> Association:
+    """An association with no reader and no link, ready to be shut down."""
+    peer = Address.parse("tapio://peer@127.0.0.1:2551")
+    return Association(host=_LoneHost(), peer=peer, initiator=peer)  # type: ignore[arg-type]
+
+
+def _held(link: Any, reader: "asyncio.Task[None] | None" = None) -> LinkHandle:
+    """A handle on a link, with the reader that was reading it."""
+    handle = LinkHandle(link, loop=asyncio.get_running_loop())
+    if reader is not None:
+        handle.reads_with(reader)
+    return handle
+
+
+async def test_release_closes_the_link_a_dial_race_retired():
+    # A simultaneous dial retires the losing link into `_retiring`, closed by
+    # the `_resume` task. A shutdown can cancel that task before it runs a line,
+    # so `_release` must close the retired link itself or its socket is left for
+    # the garbage collector. Without that, this link is never closed.
+    with assert_no_leaked_tasks():
+        association = _lone_association()
+        current, retired = RecordingLink(), RecordingLink()
+        association._handle = _held(current)
+        association._retiring = _held(retired)
+
+        await association._release()
+
+        assert retired.closed
+        # And the one it was on, so the assertion above is about the retired
+        # link rather than about a release that closes whatever it finds.
+        assert current.closed
+
+
+async def test_detach_closes_the_link_a_dial_race_retired():
+    # The same retired link, on the endpoint's late-adopt path: an association
+    # adopted after the stop sweep gets `detach` rather than a `PostStop`, and
+    # it too must close a link a dial race left behind.
+    with assert_no_leaked_tasks():
+        association = _lone_association()
+        current, retired = RecordingLink(), RecordingLink()
+        association._handle = _held(current)
+        association._retiring = _held(retired)
+
+        await association.detach()
+
+        assert retired.closed
+        assert current.closed
+
+
+class _WritingLink:
+    """A link that records the frames written to it, in the order they went.
+
+    Nothing suspends, so a test drives a whole swap without the scheduler
+    getting a turn, and what it asserts about order is the order itself
+    rather than a race that happened to come out right.
+    """
+
+    def __init__(self) -> None:
+        """Start open, with nothing written."""
+        self.written: list[bytes] = []
+        self.closed = False
+
+    @property
+    def peer(self) -> str:
+        """A fixed peer address, since nothing here dials."""
+        return "tapio://peer@127.0.0.1:2551"
+
+    async def read_frame(self) -> bytes:
+        """Never called: this link is written, never read."""
+        raise AssertionError("this link is written, never read")
+
+    async def write_frame(self, data: bytes) -> None:
+        """Record a frame."""
+        self.written.append(data)
+
+    async def write_link(self, message: object) -> None:
+        """Never called: these tests queue user frames only."""
+        raise AssertionError("this link carries no transport frames")
+
+    async def close(self) -> None:
+        """Record that whoever owned this link closed it."""
+        self.closed = True
+
+
+class _SwapProbe(Association):
+    """An association whose `_run` ends at once, so a swap is driven by hand.
+
+    `adopt` spawns the reader that retires the losing link. A real one would
+    go on to read the winner, and there is nothing to read here.
+    """
+
+    async def _run(self) -> None:
+        return
+
+
+def _queued(n: int) -> Outbound:
+    """One outbound frame, identifiable by the number it carries."""
+    return Outbound(
+        payload=Tick(n=n),
+        frame=framed(str(n).encode()),
+        recipient=ActorPath.root("peer").child("user").child("ticker", uid=1),
+    )
+
+
+async def test_a_swap_holds_the_writer_until_the_new_link_has_caught_up():
+    # The ordering the whole dial race is for. `adopt` clears the writable
+    # link on purpose, so a frame written between the swap and the new link
+    # coming up queues behind the ones already waiting instead of overtaking
+    # them on a socket that happened to be ready sooner. Without it an
+    # association surviving a dial race would deliver out of order, which is
+    # worse than being replaced.
+    with assert_no_leaked_tasks():
+        peer = Address.parse("tapio://peer@127.0.0.1:2551")
+        association = _SwapProbe(host=_LoneHost(), peer=peer, initiator=peer)  # type: ignore[arg-type]
+        loser, winner = _WritingLink(), _WritingLink()
+
+        association._handle = _held(loser)
+        await association._open(loser)
+        await association._write(_queued(1))
+        assert loser.written == [_queued(1).frame]
+
+        # The peer's dial wins. The writer stops writing at once, even though
+        # the winning socket is already open.
+        association.adopt(winner, uid=7)
+        # Drained here rather than at the end, so a later assertion failing is
+        # reported as itself instead of as the leaked task it leaves behind.
+        assert association._handle is not None
+        resuming = association._handle.reader
+        assert resuming is not None
+        await resuming
+        assert loser.closed
+
+        # Read into a local before asserting: asserting on the property
+        # narrows it to False for the rest of the function, and the assertion
+        # further down that `_open` reconnected then reads as unreachable.
+        retired = association.is_connected
+        assert not retired
+
+        await association._write(_queued(2))
+        await association._write(_queued(3))
+        assert winner.written == []
+
+        # The winner becomes writable only once it has carried what was
+        # queued, in the order it was queued.
+        await association._open(winner)
+
+        assert association.is_connected
+        assert winner.written == [_queued(2).frame, _queued(3).frame]
+
+        await association._write(_queued(4))
+        assert winner.written == [_queued(n).frame for n in (2, 3, 4)]
+
+
+class _ResumeProbe(Association):
+    """An association whose `_run` records that reads resumed, rather than dial.
+
+    A subclass so the test can tell whether `_resume` fell through to resume
+    reads after being told to stop, without a real dial happening.
+    """
+
+    resumed = False
+
+    async def _run(self) -> None:
+        self.resumed = True
+
+
+async def _pending() -> None:
+    """A task that never finishes on its own, for the reader slot."""
+    await asyncio.Event().wait()
+
+
+async def test_resume_does_not_resume_reads_after_its_own_cancellation():
+    # `_resume` runs as the reader task. It cancels the link that lost a dial
+    # and awaits it, then reads the link that won. When a shutdown cancels the
+    # reader while it sits at that await, the cancellation is the reader's own,
+    # so it must stop, not go on to `_run` and resume reads on a socket it was
+    # told to abandon. The cancel is requested before `_resume` runs, so it is
+    # delivered exactly at the `await reader` the bug needs, with no race.
+    with assert_no_leaked_tasks():
+        peer = Address.parse("tapio://peer@127.0.0.1:2551")
+        association = _ResumeProbe(host=_LoneHost(), peer=peer, initiator=peer)  # type: ignore[arg-type]
+
+        reader: asyncio.Task[None] = asyncio.ensure_future(_pending())
+        retiring = _held(RecordingLink(), reader)
+        resume: asyncio.Task[None] = asyncio.ensure_future(
+            association._resume(retiring)
+        )
+        # One turn: closing the retired handle cancels its reader and parks at
+        # the wait for it, which is the window the bug needs.
+        await asyncio.sleep(0)
+
+        resume.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await resume
+
+        assert association.resumed is False
+
+        # `_resume` already cancelled the reader; drain it for a clean exit.
+        with contextlib.suppress(asyncio.CancelledError):
+            await reader
+
+
+async def _finished_raising(exc: Exception) -> "asyncio.Task[None]":
+    """A task that has already ended with an exception, for the reader slot."""
+
+    async def boom() -> None:
+        raise exc
+
+    reader: asyncio.Task[None] = asyncio.ensure_future(boom())
+    try:
+        await reader
+    except type(exc):
+        pass
+    return reader
+
+
+async def test_release_finishes_even_when_the_reader_raised():
+    # The reader task can end with an exception that is not CancelledError, and
+    # `_release` runs from PostStop, where a failure is only logged. Suppressing
+    # only CancelledError around `await reader` let any other reader exception
+    # skip the socket close, the dead letters and forget(), silently
+    # downgrading a full release to a partial one. However the reader ended is
+    # `_run`'s to log, not the release's to abort on.
+    with assert_no_leaked_tasks():
+        association = _lone_association()
+        retired = RecordingLink()
+        reader = await _finished_raising(RuntimeError("reader failed"))
+        association._retiring = _held(retired, reader)
+
+        await association._release()
+
+        # Everything after the reader still ran.
+        assert retired.closed
+
+
+async def test_detach_finishes_even_when_the_reader_raised():
+    with assert_no_leaked_tasks():
+        association = _lone_association()
+        retired = RecordingLink()
+        reader = await _finished_raising(RuntimeError("reader failed"))
+        association._retiring = _held(retired, reader)
+
+        await association.detach()
+
+        assert retired.closed
+
+
+class _RecordingHost(_LoneHost):
+    """A lone host that also keeps the dead letters its association writes.
+
+    `_LoneHost` is enough to shut an association down. This one is enough to
+    watch one account for a frame it will never send.
+    """
+
+    def __init__(self) -> None:
+        """Start with an empty book."""
+        super().__init__()
+        self.letters: list[tuple[str, Address | None]] = []
+        self.dead_letters = self
+
+    def publish(
+        self,
+        message: Message,
+        recipient: ActorPath,
+        reason: str,
+        *,
+        peer: Address | None = None,
+        detail: str | None = None,
+    ) -> None:
+        """Record one, standing in for the system's office."""
+        self.letters.append((reason, peer))
+
+    def peer_ref(self, peer: Address, path: ActorPath) -> ActorPath:
+        """Name the actor over there, which is all a watcher needs here."""
+        return path
+
+
+def _closed_association(*, quarantined: bool) -> tuple[Association, _RecordingHost]:
+    """A bound association that has been asked to stop, and its host."""
+    host = _RecordingHost()
+    peer = Address.parse("tapio://peer@127.0.0.1:2551")
+    association = Association(host=host, peer=peer, initiator=peer)  # type: ignore[arg-type]
+    association.bind(object())  # type: ignore[arg-type]
+    association._closing = True
+    association._quarantined = quarantined
+    return association, host
+
+
+async def test_a_send_through_a_closing_association_says_which_kind_of_nothing():
+    # The two reasons mean different things to whoever subscribed, and
+    # `dead_letters.py` documents the difference as one a subscriber acts on:
+    # NO_ASSOCIATION is "no link right now" and the next send dials again,
+    # QUARANTINED is a decision that only `remote.reconnect` clears. Nothing
+    # checked which one an association actually writes.
+    #
+    # Reached directly rather than through a ref, because `PeerOutbox` asks
+    # the endpoint for a live association and gets a fresh one. This branch is
+    # for a close that lands after that lookup, and for `offer`, which hands
+    # here when the association it was given has since closed.
+    recipient = ActorPath.root("peer").child("user").child("ticker", uid=1)
+    message = Tick(n=1)
+
+    association, host = _closed_association(quarantined=False)
+    association.send(message, encode(message, to=recipient), recipient)
+
+    assert host.letters == [(DeadLetterReason.NO_ASSOCIATION, association.peer)]
+
+    # The same closed association, now quarantined: the reason changes,
+    # because the answer to "should I dial again" changes with it.
+    quarantined, host = _closed_association(quarantined=True)
+    quarantined.send(message, encode(message, to=recipient), recipient)
+
+    assert host.letters == [(DeadLetterReason.QUARANTINED, quarantined.peer)]
+
+
+class _RecordingWatcher:
+    """A watcher that records what it was told, and nothing else.
+
+    Enough of the watcher surface for an association to answer it, with none
+    of a cell, so a test can see the answer arrive.
+    """
+
+    def __init__(self) -> None:
+        """Start having been told nothing."""
+        self.unreachable: list[str] = []
+
+    @property
+    def address(self) -> Address:
+        """A fixed address, since nothing here is registered anywhere."""
+        return Address(system="watcher")
+
+    @property
+    def path(self) -> ActorPath:
+        """A fixed path, since nothing here is registered anywhere."""
+        return ActorPath.root("watcher").child("user").child("looker", uid=1)
+
+    def notify_terminated(self, ref: object) -> None:
+        """Never called: this association never sends a `terminated` frame."""
+        raise AssertionError("a closing association reports unreachable")
+
+    def notify_unreachable(self, ref: object, detail: str) -> None:
+        """Record that the watch was answered rather than left waiting."""
+        self.unreachable.append(detail)
+
+
+async def test_watching_through_a_closing_association_is_answered_at_once():
+    # The failure death watch exists to prevent: a watcher left waiting for a
+    # signal that nothing is left to send. The association is going away, so
+    # the frame that would ask the peer to report will never be written, and
+    # the watcher has to be told now instead.
+    host = _RecordingHost()
+    peer = Address.parse("tapio://peer@127.0.0.1:2551")
+    association = Association(host=host, peer=peer, initiator=peer)  # type: ignore[arg-type]
+    association.bind(object())  # type: ignore[arg-type]
+    association._closing = True
+
+    watcher = _RecordingWatcher()
+    watchee = ActorPath.root("peer").child("user").child("worker", uid=1)
+
+    association.watch(watchee, watcher)
+
+    assert len(watcher.unreachable) == 1
+    assert str(peer) in watcher.unreachable[0]
+    # Not registered either, since nothing will ever answer it.
+    assert association.watching == ()
+
+
+async def test_a_link_adopted_by_a_closing_association_is_still_closed():
+    # A simultaneous dial resolves by handing the winning link to `adopt`. An
+    # association already on its way out will not adopt anything, but the
+    # socket still has to be released, and the association is about to stop
+    # and cannot do it. It goes to the endpoint, which outlives every
+    # association and drains these in its own close. Nothing held this to
+    # account, and an unreleased link here is a socket the garbage collector
+    # closes whenever it next runs.
+    with assert_no_leaked_tasks():
+        system = ActorSystem("adopting", remoting())
+        try:
+            assert system.remote is not None
+            peer = Address.parse("tapio://peer@127.0.0.1:2551")
+            association = Association(
+                host=system.remote,
+                peer=peer,
+                initiator=peer,
+            )
+            association.bind(object())  # type: ignore[arg-type]
+            association._closing = True
+            link = RecordingLink()
+
+            association.adopt(link, uid=7)
+
+            # The endpoint took it, and its close drains what it took.
+            await system.terminate()
+            assert link.closed
+        finally:
+            await system.terminate()
+
+
+class _ResetOnCloseLink(_WritingLink):
+    """A link whose writes park until it is closed, then fail with a reset.
+
+    A write parks in `drain` when the peer's receive window is full. When the
+    losing link of a dial race is closed on both ends with unread data, the
+    peer's kernel sends a reset, and that is what wakes the parked write.
+    """
+
+    def __init__(self) -> None:
+        """Start open, with the reset not yet sent."""
+        super().__init__()
+        self._reset = asyncio.Event()
+
+    async def write_frame(self, data: bytes) -> None:
+        """Park until the link is closed, then fail as a reset connection does."""
+        await self._reset.wait()
+        raise ConnectionResetError(104, "Connection reset by peer")
+
+    async def write_link(self, message: object) -> None:
+        """Park and fail like any other write, heartbeats included."""
+        await self.write_frame(b"")
+
+    async def close(self) -> None:
+        """Close, which sends the reset the parked write is waiting for."""
+        self.closed = True
+        self._reset.set()
+
+
+async def test_a_write_parked_on_a_link_a_dial_race_retired_keeps_the_association():
+    with assert_no_leaked_tasks():
+        host = _RecordingHost()
+        peer = Address.parse("tapio://peer@127.0.0.1:2551")
+        association = _SwapProbe(host=host, peer=peer, initiator=peer)  # type: ignore[arg-type]
+        loser, winner = _ResetOnCloseLink(), _WritingLink()
+        association._handle = _held(loser)
+        await association._open(loser)
+        writing = asyncio.create_task(association._write(_queued(1)))
+        await asyncio.sleep(0)
+
+        # The peer's dial wins while a frame is parked on the old link.
+        association.adopt(winner, uid=7)
+        assert association._handle is not None
+        resuming = association._handle.reader
+        assert resuming is not None
+        await resuming
+        await writing
+
+        # The frame was on the old link, so it is lost with it: at most once,
+        # never sent again on the new one. The association itself survives.
+        assert not association._closing
+        assert host.letters == [(DeadLetterReason.LINK_FAILED, peer)]
+        await association._open(winner)
+        await association._write(_queued(2))
+        assert winner.written == [_queued(2).frame]
+
+
+async def test_a_heartbeat_parked_on_a_link_a_dial_race_retired_keeps_the_association():
+    with assert_no_leaked_tasks():
+        peer = Address.parse("tapio://peer@127.0.0.1:2551")
+        association = _SwapProbe(host=_LoneHost(), peer=peer, initiator=peer)  # type: ignore[arg-type]
+        loser, winner = _ResetOnCloseLink(), _WritingLink()
+        association._handle = _held(loser)
+        await association._open(loser)
+        beating = asyncio.create_task(association._beat())
+        await asyncio.sleep(0)
+
+        association.adopt(winner, uid=7)
+        assert association._handle is not None
+        resuming = association._handle.reader
+        assert resuming is not None
+        await resuming
+        await beating
+
+        assert not association._closing

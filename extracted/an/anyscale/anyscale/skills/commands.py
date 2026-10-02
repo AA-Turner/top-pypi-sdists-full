@@ -26,7 +26,9 @@ _LIST_ARG_DOCSTRINGS = {
     arg_docstrings=_LIST_ARG_DOCSTRINGS,
 )
 def list(  # noqa: A001
-    version: Optional[str] = None, *, _private_sdk: Optional[PrivateSkillsSDK] = None,
+    version: Optional[str] = None,
+    *,
+    _private_sdk: Optional[PrivateSkillsSDK] = None,
 ) -> SkillsListResult:
     """List installed skills and available updates."""
     return _private_sdk.list(version=version)  # type: ignore
@@ -126,7 +128,9 @@ _GET_TERMS_ARG_DOCSTRINGS = {
     arg_docstrings=_GET_TERMS_ARG_DOCSTRINGS,
 )
 def get_terms(
-    version: Optional[str] = None, *, _private_sdk: Optional[PrivateSkillsSDK] = None,
+    version: Optional[str] = None,
+    *,
+    _private_sdk: Optional[PrivateSkillsSDK] = None,
 ) -> TermsStatus:
     """Fetch the current user's terms acceptance status."""
     return _private_sdk.get_terms(version=version)  # type: ignore
@@ -152,7 +156,9 @@ _ACCEPT_TERMS_ARG_DOCSTRINGS = {
     arg_docstrings=_ACCEPT_TERMS_ARG_DOCSTRINGS,
 )
 def accept_terms(
-    terms: TermsStatus, *, _private_sdk: Optional[PrivateSkillsSDK] = None,
+    terms: TermsStatus,
+    *,
+    _private_sdk: Optional[PrivateSkillsSDK] = None,
 ) -> None:
     """Record acceptance of the given terms version. No-op if already accepted."""
     _private_sdk.accept_terms(terms)  # type: ignore

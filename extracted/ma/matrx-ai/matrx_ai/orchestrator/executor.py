@@ -67,6 +67,7 @@ from matrx_ai.orchestrator.requests import AIMatrixRequest, CompletedRequest
 from matrx_ai.orchestrator.reroute_alarm import record_provider_reroute
 from matrx_ai.orchestrator.tracking import TimingUsage, ToolCallUsage
 from matrx_ai.providers.errors import RetryableError, classify_provider_error
+from matrx_ai.providers.failure_report import PROVIDER_OUT_OF_CREDIT_KIND  # noqa: F401 — re-export
 from matrx_ai.providers.snapshot_redactors import (
     DEFAULT_SNAPSHOT_REDACTORS,
     apply_redactors,
@@ -189,7 +190,13 @@ async def _emit_provider_retry(
                 provider=_provider_name_for_event(error_info, provider),
                 error_type=error_info.error_type,
                 message=error_info.message,
-                user_message=error_info.user_message,
+                # Retry phrasing only while a retry is really scheduled/running;
+                # cancelled / suspended / recovered states carry the condition.
+                user_message=(
+                    error_info.retrying_message
+                    if state in ("scheduled", "retrying_now")
+                    else error_info.user_message
+                ),
                 status_code=error_info.status_code,
                 model=current_request.config.model,
                 request_id=request_id,
@@ -2170,7 +2177,9 @@ def _tool_call_details_from_content(
     return details
 
 
-def _partial_response_from_emitter(exec_ctx: Any) -> UnifiedResponse:
+def _partial_response_from_emitter(
+    exec_ctx: Any, *, seen_only: bool = False
+) -> UnifiedResponse:
     """Build an assistant turn from the text streamed during THIS model call.
 
     Used by the terminal error paths: when a provider raises MID-STREAM (e.g. a
@@ -2182,7 +2191,14 @@ def _partial_response_from_emitter(exec_ctx: Any) -> UnifiedResponse:
     """
     text = ""
     try:
-        getter = getattr(getattr(exec_ctx, "emitter", None), "get_turn_text", None)
+        emitter = getattr(exec_ctx, "emitter", None)
+        getter = None
+        if seen_only:
+            # A Stop keeps only what reached a reader (StreamEmitter); emitters
+            # with no wire (silent/console) have no unseen tail to cut.
+            getter = getattr(emitter, "get_seen_turn_text", None)
+        if getter is None:
+            getter = getattr(emitter, "get_turn_text", None)
         if getter is not None:
             text = getter() or ""
     except Exception:
@@ -2192,6 +2208,34 @@ def _partial_response_from_emitter(exec_ctx: Any) -> UnifiedResponse:
             messages=[UnifiedMessage(role="assistant", content=[TextContent(text=text)])]
         )
     return UnifiedResponse(messages=[])
+
+
+def _stopped_call_response(exec_ctx: Any, request_id: str | None) -> UnifiedResponse:
+    """What a provider call stopped MID-GENERATION leaves in the conversation.
+
+    The person watched this text stream before pressing Stop; dropping it made
+    the saved conversation shorter than the screen (PB-05 W-47, 2026-10-01:
+    Stops 21–29 were on screen at Stop, the database kept Stops 1–20, and the
+    re-read erased what had been seen). A plain Stop keeps the partial as an
+    ordinary assistant turn — "everything streamed persists"
+    (TURN_BOUNDARY_INBOX.md). An INTERRUPT (stop-and-fork) persists it too,
+    for cost and audit, but hidden from the person and the model like every
+    other abandoned tail.
+
+    Only what REACHED the person persists: the browser aborts its read the
+    instant Stop is pressed, but the cancel POST lands later and the detached
+    run keeps generating meanwhile. Persisting that unseen tail made the
+    answer grow after Stop and on reload (bench 2026-10-01, 360f1626…).
+    """
+    partial = _partial_response_from_emitter(exec_ctx, seen_only=True)
+    # The saved answer SAYS it was stopped (PB-05 run 2, ac170b56…): without
+    # this a reloaded stopped answer just ends mid-sentence, indistinguishable
+    # from a finished one. The client renders its "Stopped here" marker from it.
+    for msg in partial.messages:
+        msg.metadata = {**(getattr(msg, "metadata", None) or {}), "stopped": True}
+    if partial.messages and _is_request_interrupted(request_id):
+        _hide_interrupted_tail(partial.messages, 0)
+    return partial
 
 
 def _announce_truncation(
@@ -3435,6 +3479,11 @@ async def _capture_terminal_provider_failure(
     """Put a terminal provider exception in the structured repair queue."""
     from matrx_connect.streaming.error_capture import capture_error
 
+    if error_info.error_type == "billing_error":
+        # Already filed under PROVIDER_OUT_OF_CREDIT_KIND the moment it was
+        # classified (_capture_provider_out_of_credit) — one row, one class.
+        return
+
     # A sanitation refusal happens before the SDK call. Give it its own repair
     # class instead of laundering it into a provider outage.
     kind = (
@@ -3458,6 +3507,38 @@ async def _capture_terminal_provider_failure(
             "iteration": iteration,
             "retry_attempt": retry_attempt,
         },
+    )
+
+
+async def _capture_provider_out_of_credit(
+    exc: BaseException,
+    *,
+    exec_ctx: Any,
+    current_request: AIMatrixRequest,
+    error_info: RetryableError,
+    provider: str,
+    iteration: int,
+    retry_attempt: int,
+) -> None:
+    """Second layer of the out-of-credit alarm, with the turn's own identity.
+
+    The shared dispatch seam already reported the failure through the same door
+    (one row per exception); this layer covers a failure that reached the turn
+    by another route, and adds the iteration/attempt the seam cannot see.
+    """
+    from matrx_ai.providers.failure_report import report_provider_failure
+
+    await report_provider_failure(
+        exc,
+        provider=_provider_name_for_event(error_info, provider),
+        model=current_request.config.model,
+        route="orchestrator/provider_request",
+        error_info=error_info,
+        payload={"iteration": iteration, "retry_attempt": retry_attempt},
+        request_id=current_request.request_id or getattr(exec_ctx, "request_id", None),
+        user_id=getattr(exec_ctx, "user_id", None),
+        conversation_id=current_request.conversation_id
+        or getattr(exec_ctx, "conversation_id", None),
     )
 
 
@@ -3757,10 +3838,15 @@ async def _catalog_vendor_for(config: Any) -> str:
     model = getattr(config, "matrx_model_name", None) or getattr(config, "model", None)
     if not model:
         return "unknown"
-    return await _catalog_vendor_for_model(model)
+    # The PINNED class (offering) decides the vendor — Qwen3.8 27B on Matrx
+    # Lightning is cerebras, not the preferred class's groq. Resolving without
+    # the pin mislabeled telemetry AND fed the wrong vendor's error classifier.
+    return await _catalog_vendor_for_model(
+        model, offering_id=getattr(config, "routing_offering_id", None)
+    )
 
 
-async def _catalog_vendor_for_model(model: str) -> str:
+async def _catalog_vendor_for_model(model: str, offering_id: str | None = None) -> str:
     """The model-id twin of ``_catalog_vendor_for`` — same catalog, same
     contract, for callers that hold the id rather than the config (the
     snapshot writer). Never raises; "unknown" when the ref won't resolve."""
@@ -3769,7 +3855,7 @@ async def _catalog_vendor_for_model(model: str) -> str:
     try:
         from matrx_ai.catalog.resolve import resolve_call_profile
 
-        profile = await resolve_call_profile(model)
+        profile = await resolve_call_profile(model, offering_id=offering_id)
         return profile.vendor
     except Exception:
         return "unknown"
@@ -4685,10 +4771,29 @@ async def _execute_until_complete_inner(
                             metadata={"iteration": iteration, "retry_attempt": retry_attempt},
                         )
                     )
+                    # What streamed before Stop persists (W-47): the partial
+                    # joins the request so the persistence window holds it.
+                    _stopped_resp = _stopped_call_response(exec_ctx, request_control_id)
+                    if _stopped_resp.messages:
+                        try:
+                            current_request = AIMatrixRequest.add_response(
+                                original_request=current_request,
+                                response=_stopped_resp,
+                                tool_results=None,
+                            )
+                            if state is not None:
+                                state.current_request = current_request
+                        except Exception as _add_err:  # noqa: BLE001 — announced
+                            vcprint(
+                                "[execute_until_complete] stopped-call partial "
+                                f"add_response failed: {_add_err}",
+                                color="red",
+                            )
+                            _stopped_resp = UnifiedResponse(messages=[])
                     return await _finalize_and_persist(
                         current_request=current_request,
                         iteration=iteration,
-                        final_response=UnifiedResponse(messages=[]),
+                        final_response=_stopped_resp,
                         metadata={
                             "status": "cancelled",
                             "error": _stopped.reason,
@@ -5340,6 +5445,17 @@ async def _execute_until_complete_inner(
                         color="yellow",
                     )
 
+                if error_info.error_type == "billing_error":
+                    await _capture_provider_out_of_credit(
+                        e,
+                        exec_ctx=exec_ctx,
+                        current_request=current_request,
+                        error_info=error_info,
+                        provider=provider,
+                        iteration=iteration,
+                        retry_attempt=retry_attempt,
+                    )
+
                 # Derive the issue key for ops telemetry
                 _issue_provider = (
                     error_info.details.get("provider") or provider
@@ -5651,8 +5767,8 @@ async def _execute_until_complete_inner(
                     await exec_ctx.emitter.send_info(
                         InfoPayload(
                             code="provider_retry",
-                            system_message=error_info.user_message,
-                            user_message=error_info.user_message,
+                            system_message=error_info.retrying_message,
+                            user_message=error_info.retrying_message,
                             metadata={
                                 "error_type": error_info.error_type,
                                 "retry_attempt": failed_attempt,
@@ -5859,7 +5975,7 @@ async def _execute_until_complete_inner(
                         message=error_info.user_message,
                         user_message=error_info.user_message
                         if not error_info.is_retryable
-                        else f"Failed after {retry_attempt + 1} retry attempts. {error_info.user_message}",
+                        else f"Failed after {retry_attempt + 1} attempts. {error_info.user_message}",
                     )
 
                     # Containment: finalize this request as failed and return
@@ -5889,7 +6005,7 @@ async def _execute_until_complete_inner(
                     current_request = _append_partial_response(
                         current_request, _partial_resp, state
                     )
-                    return await _finalize_and_persist(
+                    _failed = await _finalize_and_persist(
                         current_request=current_request,
                         iteration=iteration,
                         final_response=_partial_resp,
@@ -5910,6 +6026,8 @@ async def _execute_until_complete_inner(
                         debug=debug,
                         state=state,
                     )
+                    _failed.terminal_exception = e
+                    return _failed
 
         # After retry loop - check if we have a valid response
         if response is None:
@@ -5945,7 +6063,7 @@ async def _execute_until_complete_inner(
             # so it is persisted rather than lost.
             _partial_resp = _partial_response_from_emitter(exec_ctx)
             current_request = _append_partial_response(current_request, _partial_resp, state)
-            return await _finalize_and_persist(
+            _failed = await _finalize_and_persist(
                 current_request=current_request,
                 iteration=iteration,
                 final_response=_partial_resp,
@@ -5961,6 +6079,8 @@ async def _execute_until_complete_inner(
                 debug=debug,
                 state=state,
             )
+            _failed.terminal_exception = last_error
+            return _failed
 
         # IF no errors, and response isn't None, we go here...
 

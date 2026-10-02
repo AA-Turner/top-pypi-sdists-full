@@ -4,7 +4,7 @@
 
 cmake_minimum_required (VERSION 3.18.2...4.0)
 
-set (OpenImageIO_VERSION "3.1.17.0")
+set (OpenImageIO_VERSION "3.1.18.0")
 set (OpenImageIO_VERSION_OVERRIDE "" CACHE STRING
      "Version override (use with caution)!")
 mark_as_advanced (OpenImageIO_VERSION_OVERRIDE)
@@ -221,6 +221,12 @@ if (IGNORE_HOMEBREWED_DEPS)
               "${_prefix}/include"
              )
     endforeach ()
+
+    # Also ignore the whole prefixes, which (unlike CMAKE_IGNORE_PATH) is
+    # honored by config-package searches, and is forwarded to local
+    # dependency child builds so they can't quietly resolve a Homebrew
+    # package (e.g. a mismatched Imath) that we ourselves are ignoring.
+    list (APPEND CMAKE_IGNORE_PREFIX_PATH ${HOMEBREW_PREFIXES})
 
     message (STATUS "CMAKE_IGNORE_PATH: ${CMAKE_IGNORE_PATH}")
 endif ()

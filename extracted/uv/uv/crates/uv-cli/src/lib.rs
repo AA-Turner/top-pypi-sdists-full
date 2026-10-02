@@ -1280,9 +1280,11 @@ pub enum ProjectCommand {
     /// Dependencies are audited for known vulnerabilities, as well as 'adverse' statuses such as
     /// deprecation and quarantine.
     ///
-    /// By default, all extras and groups within the project are audited. To exclude extras
-    /// and/or groups from the audit, use the `--no-extra`, `--no-group`, and related
-    /// options.
+    /// By default, all extras and dependency groups within the project are audited, regardless of
+    /// `tool.uv.default-groups`. To omit all dependency groups, use `--no-default-groups`. To exclude
+    /// individual extras or groups, use `--no-extra` or `--no-group`.
+    ///
+    /// Auditing requires network access and cannot be performed in offline mode.
     #[command(
         after_help = "Use `uv help audit` for more details.",
         after_long_help = ""
@@ -5278,6 +5280,10 @@ pub struct CheckArgs {
 #[derive(Args)]
 #[group(skip)]
 pub struct AuditCommonArgs {
+    // Hide the unsupported global offline option.
+    #[arg(long, hide = true, overrides_with("no_offline"))]
+    pub offline: bool,
+
     /// Select the output format.
     #[arg(long, value_enum, default_value_t = AuditOutputFormat::default())]
     pub output_format: AuditOutputFormat,
@@ -5331,7 +5337,7 @@ pub struct AuditArgs {
     /// Don't audit the development dependency group [env: UV_NO_DEV=]
     ///
     /// This option is an alias of `--no-group dev`.
-    /// See `--no-default-groups` to exclude all default groups instead.
+    /// See `--no-default-groups` to exclude all dependency groups instead.
     ///
     /// This option is only available when running in a project.
     #[arg(long, value_parser = clap::builder::BoolishValueParser::new())]
@@ -5343,7 +5349,10 @@ pub struct AuditArgs {
     #[arg(long, value_delimiter = ' ', value_hint = ValueHint::Other)]
     pub no_group: Vec<GroupName>,
 
-    /// Don't audit the default dependency groups.
+    /// Don't audit dependency groups unless explicitly requested.
+    ///
+    /// By default, `uv audit` includes all dependency groups, regardless of `tool.uv.default-groups`.
+    /// Groups can still be selected with `--only-group` or `--only-dev`.
     #[arg(long, env = EnvVars::UV_NO_DEFAULT_GROUPS, value_parser = clap::builder::BoolishValueParser::new())]
     pub no_default_groups: bool,
 
@@ -5523,6 +5532,8 @@ pub enum ToolCommand {
     #[command(alias = "ls")]
     List(ToolListArgs),
     /// Audit installed tools and their dependencies.
+    ///
+    /// Auditing requires network access and cannot be performed in offline mode.
     Audit(ToolAuditArgs),
     /// Uninstall a tool.
     Uninstall(ToolUninstallArgs),
@@ -7696,6 +7707,10 @@ pub struct DisplayTreeArgs {
 
 #[derive(Args, Debug)]
 pub struct PublishArgs {
+    // Hide the unsupported global offline option.
+    #[arg(long, hide = true, overrides_with("no_offline"))]
+    pub offline: bool,
+
     /// Paths to the files to upload. Accepts glob expressions.
     ///
     /// Defaults to the `dist` directory. Selects only wheels and source distributions

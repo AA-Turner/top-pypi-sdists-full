@@ -105,6 +105,7 @@ class ReleaseContext:
 
     text: str = ""
     target: str | None = None
+    pr_url: str | None = None
 
     @property
     def escalation_target(self) -> str:
@@ -214,7 +215,11 @@ def _release_context(
                 "routed to oc-hydra"
             )
 
-    return ReleaseContext(text="\n".join(lines), target=target)
+    return ReleaseContext(
+        text="\n".join(lines),
+        target=target,
+        pr_url=attribution.pr_url if attribution is not None else None,
+    )
 
 
 @dataclass(frozen=True)
@@ -2077,18 +2082,22 @@ def _send_failure_threshold_hitl(
     gate: HealthGateResult,
     investigation_url: str | None = None,
     investigation_lookup_failed: bool = False,
+    release_context: ReleaseContext | None = None,
 ) -> SlackPostResult | None:
     """Send HITL notification for a rollout that hit the failure threshold.
 
     Uses direct Slack API call via `send_hitl_notification()` with roster-based
     person resolution. Requires `SLACK_BOT_TOKEN_HITL` env var. When
     `investigation_url` is given (a repeated pause re-using an existing Devin
-    session) the alert carries a "View investigation" button.
+    session) the alert carries a "View investigation" button. `release_context`
+    is looked up when not given.
 
     Returns the posted message (channel + `ts`) or `None` on failure. Failures
     are logged but not raised.
     """
-    release_context = _release_context(rollout.connector_name, rc_version)
+    release_context = release_context or _release_context(
+        rollout.connector_name, rc_version
+    )
     release_section = f"\n\n{release_context.text}" if release_context.text else ""
     if not devin_api.is_configured():
         report_section = ""
@@ -2272,13 +2281,22 @@ def _backfill_paused_investigation(
         .strip()
     )
     existing = lookup.session
+    release_context = _release_context(rollout.connector_name, rc_version)
     thread = _send_failure_threshold_hitl(
         rollout,
         rc_version,
         gate,
         investigation_url=existing.url if existing else None,
+        release_context=release_context,
     )
-    session = start_investigation_session(rollout, rc_version, gate, thread, lookup)
+    session = start_investigation_session(
+        rollout,
+        rc_version,
+        gate,
+        thread,
+        lookup,
+        release_pr_url=release_context.pr_url,
+    )
     if thread is not None and session is not None:
         _record_pause_thread(
             rollout, rc_version, recorded_reason, thread, auth, user_id
@@ -2476,12 +2494,14 @@ def run_auto_triage_failed(
             continue
 
         lookup = lookup_investigation_session(rollout.rollout_id)
+        release_context = _release_context(rollout.connector_name, rc_version)
         thread = _send_failure_threshold_hitl(
             rollout,
             rc_version,
             gate,
             investigation_url=lookup.session.url if lookup.session else None,
             investigation_lookup_failed=lookup.failed,
+            release_context=release_context,
         )
         sent = thread is not None
         if thread is not None:
@@ -2489,7 +2509,14 @@ def run_auto_triage_failed(
                 rollout, rc_version, gate.reason, thread, auth, user_id
             )
         # The alert goes first so the session knows which thread to reply in.
-        session = start_investigation_session(rollout, rc_version, gate, thread, lookup)
+        session = start_investigation_session(
+            rollout,
+            rc_version,
+            gate,
+            thread,
+            lookup,
+            release_pr_url=release_context.pr_url,
+        )
         if session is not None and thread is not None and lookup.session is None:
             _post_investigation_link(thread, session.url)
         report_note = f"; investigation at {session.url}" if session else ""

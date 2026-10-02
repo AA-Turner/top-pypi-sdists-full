@@ -1,0 +1,259 @@
+name: OpenAPI Generator SDK Validation
+
+run-name: Validate OpenAPI Generator SDK generation
+
+on:
+  pull_request:
+    paths:
+      # OpenAPI Generator files
+      - 'client-sdks/openapi/Makefile'
+      - 'client-sdks/openapi/merge_stainless_config.py'
+      - 'client-sdks/openapi/build_hierarchy.py'
+      - 'client-sdks/openapi/patch_hierarchy.py'
+      - 'client-sdks/openapi/patches.yml'
+      - 'client-sdks/openapi/openapi-config.json'
+      - 'client-sdks/openapi/openapitools.json'
+      - 'client-sdks/openapi/README.md'
+      # Stainless source files (our inputs)
+      - 'client-sdks/stainless/openapi.yml'
+      - 'client-sdks/stainless/config.yml'
+      # This workflow itself
+      - '.github/workflows/openapi-generator-validation.yml'
+  merge_group:
+    branches:
+      - main
+      - 'release-[0-9]+.[0-9]+.x'
+  push:
+    branches:
+      - main
+      - 'release-[0-9]+.[0-9]+.x'
+    paths:
+      - 'client-sdks/openapi/**'
+      - 'client-sdks/stainless/openapi.yml'
+      - 'client-sdks/stainless/config.yml'
+      - '.github/workflows/openapi-generator-validation.yml'
+  workflow_dispatch:
+    inputs:
+      test_macos:
+        description: 'Force macOS testing (expensive)'
+        type: boolean
+        default: true
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  determine-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Check which files changed
+        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        id: filter
+        with:
+          filters: |
+            critical:
+              - 'client-sdks/openapi/Makefile'
+              - 'client-sdks/openapi/merge_stainless_config.py'
+              - 'client-sdks/openapi/build_hierarchy.py'
+              - 'client-sdks/openapi/patch_hierarchy.py'
+              - 'client-sdks/openapi/patches.yml'
+              - 'client-sdks/openapi/openapitools.json'
+              - 'client-sdks/stainless/openapi.yml'
+              - 'client-sdks/stainless/config.yml'
+
+      - name: Determine test matrix
+        id: set-matrix
+        run: |
+          # Always test on Linux
+          MATRIX='{"os":["ubuntu-latest"]}'
+
+          # Include macOS if:
+          # 1. Manual workflow_dispatch with test_macos=true
+          # 2. Push to main/release branches
+          # 3. Critical files changed in PR
+
+          INCLUDE_MACOS="false"
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            INCLUDE_MACOS="${{ inputs.test_macos }}"
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            # Always test macOS on main/release branches
+            INCLUDE_MACOS="true"
+          elif [ "${{ steps.filter.outputs.critical }}" = "true" ]; then
+            # Critical files changed in PR
+            INCLUDE_MACOS="true"
+          fi
+
+          if [ "$INCLUDE_MACOS" = "true" ]; then
+            MATRIX='{"os":["ubuntu-latest","macos-latest"]}'
+          fi
+
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+          echo "Testing on platforms: $MATRIX"
+
+  validate-sdk-generation:
+    needs: determine-matrix
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.determine-matrix.outputs.matrix) }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Python environment
+        uses: ./.github/actions/setup-runner
+        with:
+          python-version: '3.12'
+
+      - name: Set up Java
+        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+
+      - name: Set up Node.js (Linux only)
+        if: runner.os == 'Linux'
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+
+      - name: Install openapi-generator-cli (Linux)
+        if: runner.os == 'Linux'
+        run: npm install -g @openapitools/openapi-generator-cli
+
+      - name: Install openapi-generator-cli (macOS)
+        if: runner.os == 'macOS'
+        run: brew install openapi-generator
+
+      - name: Verify installations
+        working-directory: client-sdks/openapi
+        run: |
+          set -e
+          GENERATOR_CMD=$([ "${{ runner.os }}" = "macOS" ] && echo "openapi-generator" || echo "openapi-generator-cli")
+
+          echo "=== Java version ==="
+          java -version
+
+          echo "=== OpenAPI Generator version ==="
+          $GENERATOR_CMD version
+
+          echo "=== SDK version from pyproject.toml ==="
+          VERSION_OUTPUT=$(make version)
+          echo "$VERSION_OUTPUT"
+
+          # Extract version string
+          VERSION="${VERSION_OUTPUT#SDK version: }"
+
+          # Check version is at least 5 characters (e.g., "0.5.0")
+          if [ ${#VERSION} -lt 5 ]; then
+            echo "Error: Version string too short: '$VERSION'"
+            exit 1
+          fi
+
+          echo "Version validation passed: $VERSION"
+
+      - name: Run dependency check
+        working-directory: client-sdks/openapi
+        run: make check-generator
+
+      - name: Generate OpenAPI spec
+        working-directory: client-sdks/openapi
+        run: make openapi
+
+      - name: Validate generated OpenAPI spec
+        working-directory: client-sdks/openapi
+        run: |
+          set -e
+
+          # Check that openapi.yml was generated
+          if [ ! -f openapi.yml ]; then
+            echo "Error: openapi.yml was not generated"
+            exit 1
+          fi
+
+          echo "OpenAPI spec generated successfully"
+          ls -lh openapi.yml
+
+      - name: Generate Python SDK
+        working-directory: client-sdks/openapi
+        run: make sdk OPEN=0
+
+      - name: Validate generated SDK
+        working-directory: client-sdks/openapi
+        run: |
+          set -e
+
+          # Check SDK directory was generated
+          if [ ! -d sdks/python ]; then
+            echo "Error: SDK directory was not generated"
+            exit 1
+          fi
+
+          # Check we generated a substantial number of Python files (> 10)
+          PY_FILE_COUNT=$(find sdks/python -name "*.py" | wc -l)
+          echo "Generated Python files: $PY_FILE_COUNT"
+
+          if [ "$PY_FILE_COUNT" -le 10 ]; then
+            echo "Error: Too few Python files generated (expected > 10, got $PY_FILE_COUNT)"
+            exit 1
+          fi
+
+          echo "SDK validation passed: $PY_FILE_COUNT Python files generated"
+
+          # Show directory structure for debugging
+          echo "=== Generated SDK structure ==="
+          find sdks/python -type f -name "*.py" | head -20
+
+      - name: Install generated SDK
+        run: |
+          echo "Reinstalling OpenAPI-generated SDK (ogx_client)..."
+          uv pip uninstall ogx-client || true
+
+          # Install SDK using uv pip
+          uv pip install -e client-sdks/openapi/sdks/python
+
+          echo "Verifying installation..."
+          uv run python -c "import ogx_client; print(f'Installed: {ogx_client.__name__}')"
+
+      - name: Setup Ollama (for integration tests)
+        if: runner.os == 'Linux'
+        uses: ./.github/actions/setup-ollama
+
+      - name: Run integration tests with OpenAPI SDK
+        if: runner.os == 'Linux'
+        run: |
+          echo "Running integration tests with OpenAPI-generated SDK..."
+
+          # Run a smoke test suite - basic functionality tests
+          uv run pytest tests/integration/inspect/test_inspect.py \
+            --stack-config="inference=ollama" \
+            -v \
+            || echo "::warning::Some integration tests failed - this may indicate SDK compatibility issues"
+
+          # Show which SDK is actually being used
+          uv run python -c "import ogx_client; import inspect; print(f'SDK location: {inspect.getfile(ogx_client)}')"
+
+      - name: Summary
+        if: runner.os == 'Linux'
+        run: |
+          {
+            echo "## OpenAPI SDK Validation Summary"
+            echo ""
+            echo "✅ SDK generation completed successfully"
+            echo "✅ SDK installed and importable"
+            echo "✅ Integration tests executed (check logs for results)"
+            echo ""
+            echo "**Platform**: ${{ matrix.os }}"
+            echo "**Package**: ogx_client (OpenAPI-generated)"
+          } >> "$GITHUB_STEP_SUMMARY"

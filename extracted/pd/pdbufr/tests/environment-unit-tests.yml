@@ -1,0 +1,27 @@
+name: pdbufr
+channels:
+- conda-forge
+- nodefaults
+dependencies:
+- attrs
+- pip
+- numpy
+- pandas
+- make
+- mypy
+- myst-parser
+- pre-commit
+- pydata-sphinx-theme
+- pytest
+- pytest-cov
+- requests
+- sphinx
+- sphinx_rtd_theme
+- sphinx-issues
+- sphinx-copybutton
+- sphinxcontrib-apidoc
+- nbformat
+- nbconvert
+- nbsphinx
+- ipykernel
+- deprecation

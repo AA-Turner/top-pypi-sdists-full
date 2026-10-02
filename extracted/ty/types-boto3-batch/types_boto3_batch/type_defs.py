@@ -1,0 +1,2454 @@
+"""
+Type annotations for batch service type definitions.
+
+[Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_batch/type_defs/)
+
+Copyright 2026 Vlad Emelianov
+
+Usage::
+
+    ```python
+    from types_boto3_batch.type_defs import ArrayPropertiesDetailTypeDef
+
+    data: ArrayPropertiesDetailTypeDef = ...
+    ```
+"""
+
+from __future__ import annotations
+
+import sys
+from collections.abc import Mapping, Sequence
+from typing import Union
+
+from .literals import (
+    ArrayJobDependencyType,
+    AssignPublicIpType,
+    CEStateType,
+    CEStatusType,
+    CETypeType,
+    ContainerInsightsType,
+    CRAllocationStrategyType,
+    CRTypeType,
+    CRUpdateAllocationStrategyType,
+    DeviceCgroupPermissionType,
+    EFSAuthorizationConfigIAMType,
+    EFSTransitEncryptionType,
+    EksAccessEntryDesiredStateType,
+    EksAccessEntryStatusType,
+    FirelensConfigurationTypeType,
+    JobDefinitionTypeType,
+    JobQueueTypeType,
+    JobStateTimeLimitActionsActionType,
+    JobStatusType,
+    JQStateType,
+    JQStatusType,
+    LogDriverType,
+    OrchestrationTypeType,
+    PlatformCapabilityType,
+    QuotaShareInSharePreemptionStateType,
+    QuotaShareResourceSharingStrategyType,
+    QuotaShareStateType,
+    QuotaShareStatusType,
+    ResourceTypeType,
+    RetryActionType,
+    ServiceEnvironmentStateType,
+    ServiceEnvironmentStatusType,
+    ServiceJobRetryActionType,
+    ServiceJobStatusType,
+    UserdataTypeType,
+)
+
+if sys.version_info >= (3, 12):
+    from typing import Literal, NotRequired, TypedDict
+else:
+    from typing_extensions import Literal, NotRequired, TypedDict
+
+
+__all__ = (
+    "ArrayPropertiesDetailTypeDef",
+    "ArrayPropertiesSummaryTypeDef",
+    "ArrayPropertiesTypeDef",
+    "AttemptContainerDetailTypeDef",
+    "AttemptDetailTypeDef",
+    "AttemptEcsTaskDetailsTypeDef",
+    "AttemptTaskContainerDetailsTypeDef",
+    "CancelJobRequestTypeDef",
+    "CancelJobsErrorDetailTypeDef",
+    "CancelJobsRequestTypeDef",
+    "CancelJobsResponseTypeDef",
+    "CapacityLimitTypeDef",
+    "CapacityReservationRequestTypeDef",
+    "ComputeEnvironmentDetailTypeDef",
+    "ComputeEnvironmentOrderTypeDef",
+    "ComputeResourceOutputTypeDef",
+    "ComputeResourceTypeDef",
+    "ComputeResourceUnionTypeDef",
+    "ComputeResourceUpdateTypeDef",
+    "ComputeScalingPolicyTypeDef",
+    "ConsumableResourcePropertiesOutputTypeDef",
+    "ConsumableResourcePropertiesTypeDef",
+    "ConsumableResourcePropertiesUnionTypeDef",
+    "ConsumableResourceRequirementTypeDef",
+    "ConsumableResourceSummaryTypeDef",
+    "ContainerDetailTypeDef",
+    "ContainerOverridesTypeDef",
+    "ContainerPropertiesOutputTypeDef",
+    "ContainerPropertiesTypeDef",
+    "ContainerPropertiesUnionTypeDef",
+    "ContainerSummaryTypeDef",
+    "CreateComputeEnvironmentRequestTypeDef",
+    "CreateComputeEnvironmentResponseTypeDef",
+    "CreateConsumableResourceRequestTypeDef",
+    "CreateConsumableResourceResponseTypeDef",
+    "CreateJobQueueRequestTypeDef",
+    "CreateJobQueueResponseTypeDef",
+    "CreateQuotaShareRequestTypeDef",
+    "CreateQuotaShareResponseTypeDef",
+    "CreateSchedulingPolicyRequestTypeDef",
+    "CreateSchedulingPolicyResponseTypeDef",
+    "CreateServiceEnvironmentRequestTypeDef",
+    "CreateServiceEnvironmentResponseTypeDef",
+    "DeleteComputeEnvironmentRequestTypeDef",
+    "DeleteConsumableResourceRequestTypeDef",
+    "DeleteJobQueueRequestTypeDef",
+    "DeleteQuotaShareRequestTypeDef",
+    "DeleteSchedulingPolicyRequestTypeDef",
+    "DeleteServiceEnvironmentRequestTypeDef",
+    "DeregisterJobDefinitionRequestTypeDef",
+    "DescribeComputeEnvironmentsRequestPaginateTypeDef",
+    "DescribeComputeEnvironmentsRequestTypeDef",
+    "DescribeComputeEnvironmentsResponseTypeDef",
+    "DescribeConsumableResourceRequestTypeDef",
+    "DescribeConsumableResourceResponseTypeDef",
+    "DescribeJobDefinitionsRequestPaginateTypeDef",
+    "DescribeJobDefinitionsRequestTypeDef",
+    "DescribeJobDefinitionsResponseTypeDef",
+    "DescribeJobQueuesRequestPaginateTypeDef",
+    "DescribeJobQueuesRequestTypeDef",
+    "DescribeJobQueuesResponseTypeDef",
+    "DescribeJobsRequestTypeDef",
+    "DescribeJobsResponseTypeDef",
+    "DescribeQuotaShareRequestTypeDef",
+    "DescribeQuotaShareResponseTypeDef",
+    "DescribeSchedulingPoliciesRequestTypeDef",
+    "DescribeSchedulingPoliciesResponseTypeDef",
+    "DescribeServiceEnvironmentsRequestPaginateTypeDef",
+    "DescribeServiceEnvironmentsRequestTypeDef",
+    "DescribeServiceEnvironmentsResponseTypeDef",
+    "DescribeServiceJobRequestTypeDef",
+    "DescribeServiceJobResponseTypeDef",
+    "DeviceOutputTypeDef",
+    "DeviceTypeDef",
+    "EFSAuthorizationConfigTypeDef",
+    "EFSVolumeConfigurationTypeDef",
+    "Ec2ConfigurationTypeDef",
+    "EcsPropertiesDetailTypeDef",
+    "EcsPropertiesOutputTypeDef",
+    "EcsPropertiesOverrideTypeDef",
+    "EcsPropertiesTypeDef",
+    "EcsPropertiesUnionTypeDef",
+    "EcsSettingsTypeDef",
+    "EcsTaskDetailsTypeDef",
+    "EcsTaskPropertiesOutputTypeDef",
+    "EcsTaskPropertiesTypeDef",
+    "EksAccessEntryTypeDef",
+    "EksAttemptContainerDetailTypeDef",
+    "EksAttemptDetailTypeDef",
+    "EksConfigurationTypeDef",
+    "EksConfigurationUpdateTypeDef",
+    "EksContainerDetailTypeDef",
+    "EksContainerEnvironmentVariableTypeDef",
+    "EksContainerOutputTypeDef",
+    "EksContainerOverrideTypeDef",
+    "EksContainerResourceRequirementsOutputTypeDef",
+    "EksContainerResourceRequirementsTypeDef",
+    "EksContainerResourceRequirementsUnionTypeDef",
+    "EksContainerSecurityContextTypeDef",
+    "EksContainerTypeDef",
+    "EksContainerVolumeMountTypeDef",
+    "EksEmptyDirTypeDef",
+    "EksHostPathTypeDef",
+    "EksMetadataOutputTypeDef",
+    "EksMetadataTypeDef",
+    "EksMetadataUnionTypeDef",
+    "EksPersistentVolumeClaimTypeDef",
+    "EksPodPropertiesDetailTypeDef",
+    "EksPodPropertiesOutputTypeDef",
+    "EksPodPropertiesOverrideTypeDef",
+    "EksPodPropertiesTypeDef",
+    "EksPropertiesDetailTypeDef",
+    "EksPropertiesOutputTypeDef",
+    "EksPropertiesOverrideTypeDef",
+    "EksPropertiesTypeDef",
+    "EksPropertiesUnionTypeDef",
+    "EksSecretTypeDef",
+    "EksVolumeTypeDef",
+    "EphemeralStorageTypeDef",
+    "EvaluateOnExitTypeDef",
+    "FairshareCapacityUsageTypeDef",
+    "FairshareCapacityUtilizationTypeDef",
+    "FairsharePolicyOutputTypeDef",
+    "FairsharePolicyTypeDef",
+    "FairsharePolicyUnionTypeDef",
+    "FairshareUtilizationDetailTypeDef",
+    "FargatePlatformConfigurationTypeDef",
+    "FirelensConfigurationOutputTypeDef",
+    "FirelensConfigurationTypeDef",
+    "FrontOfQueueDetailTypeDef",
+    "FrontOfQueueJobSummaryTypeDef",
+    "FrontOfQuotaShareJobSummaryTypeDef",
+    "FrontOfQuotaSharesDetailTypeDef",
+    "GetJobQueueSnapshotRequestTypeDef",
+    "GetJobQueueSnapshotResponseTypeDef",
+    "HostTypeDef",
+    "ImagePullSecretTypeDef",
+    "InfrastructureOptimizationTypeDef",
+    "InstanceLaunchTemplateOutputTypeDef",
+    "InstanceLaunchTemplateTypeDef",
+    "InstanceLaunchTemplateUpdateTypeDef",
+    "InstanceRequirementsRequestOutputTypeDef",
+    "InstanceRequirementsRequestTypeDef",
+    "InstanceRequirementsRequestUnionTypeDef",
+    "JobCapacityUsageSummaryTypeDef",
+    "JobDefinitionTypeDef",
+    "JobDependencyTypeDef",
+    "JobDetailTypeDef",
+    "JobQueueDetailTypeDef",
+    "JobStateTimeLimitActionTypeDef",
+    "JobSummaryTypeDef",
+    "JobTimeoutTypeDef",
+    "KeyValuePairTypeDef",
+    "KeyValuesPairTypeDef",
+    "LatestServiceJobAttemptTypeDef",
+    "LaunchTemplateSpecificationOutputTypeDef",
+    "LaunchTemplateSpecificationOverrideOutputTypeDef",
+    "LaunchTemplateSpecificationOverrideTypeDef",
+    "LaunchTemplateSpecificationOverrideUnionTypeDef",
+    "LaunchTemplateSpecificationTypeDef",
+    "LaunchTemplateSpecificationUnionTypeDef",
+    "LinuxParametersOutputTypeDef",
+    "LinuxParametersTypeDef",
+    "ListConsumableResourcesRequestPaginateTypeDef",
+    "ListConsumableResourcesRequestTypeDef",
+    "ListConsumableResourcesResponseTypeDef",
+    "ListJobsByConsumableResourceRequestPaginateTypeDef",
+    "ListJobsByConsumableResourceRequestTypeDef",
+    "ListJobsByConsumableResourceResponseTypeDef",
+    "ListJobsByConsumableResourceSummaryTypeDef",
+    "ListJobsRequestPaginateTypeDef",
+    "ListJobsRequestTypeDef",
+    "ListJobsResponseTypeDef",
+    "ListQuotaSharesRequestPaginateTypeDef",
+    "ListQuotaSharesRequestTypeDef",
+    "ListQuotaSharesResponseTypeDef",
+    "ListSchedulingPoliciesRequestPaginateTypeDef",
+    "ListSchedulingPoliciesRequestTypeDef",
+    "ListSchedulingPoliciesResponseTypeDef",
+    "ListServiceJobsRequestPaginateTypeDef",
+    "ListServiceJobsRequestTypeDef",
+    "ListServiceJobsResponseTypeDef",
+    "ListTagsForResourceRequestTypeDef",
+    "ListTagsForResourceResponseTypeDef",
+    "LogConfigurationOutputTypeDef",
+    "LogConfigurationTypeDef",
+    "ManagedInstancesLocalStorageConfigurationTypeDef",
+    "ManagedInstancesNetworkConfigurationOutputTypeDef",
+    "ManagedInstancesNetworkConfigurationTypeDef",
+    "ManagedInstancesNetworkConfigurationUnionTypeDef",
+    "ManagedInstancesProviderOutputTypeDef",
+    "ManagedInstancesProviderTypeDef",
+    "ManagedInstancesStorageConfigurationTypeDef",
+    "MountPointTypeDef",
+    "NetworkConfigurationTypeDef",
+    "NetworkInterfaceTypeDef",
+    "NodeDetailsTypeDef",
+    "NodeOverridesTypeDef",
+    "NodePropertiesOutputTypeDef",
+    "NodePropertiesSummaryTypeDef",
+    "NodePropertiesTypeDef",
+    "NodePropertiesUnionTypeDef",
+    "NodePropertyOverrideTypeDef",
+    "NodeRangePropertyOutputTypeDef",
+    "NodeRangePropertyTypeDef",
+    "PaginatorConfigTypeDef",
+    "QueueSnapshotCapacityUsageTypeDef",
+    "QueueSnapshotUtilizationDetailTypeDef",
+    "QuotaShareCapacityLimitTypeDef",
+    "QuotaShareCapacityUsageTypeDef",
+    "QuotaShareCapacityUtilizationTypeDef",
+    "QuotaShareDetailTypeDef",
+    "QuotaSharePolicyTypeDef",
+    "QuotaSharePreemptionConfigurationTypeDef",
+    "QuotaShareResourceSharingConfigurationTypeDef",
+    "QuotaShareUtilizationDetailTypeDef",
+    "RegisterJobDefinitionRequestTypeDef",
+    "RegisterJobDefinitionResponseTypeDef",
+    "RepositoryCredentialsTypeDef",
+    "ResourceRequirementTypeDef",
+    "ResponseMetadataTypeDef",
+    "RetryStrategyOutputTypeDef",
+    "RetryStrategyTypeDef",
+    "RetryStrategyUnionTypeDef",
+    "RuntimePlatformTypeDef",
+    "S3FilesVolumeConfigurationTypeDef",
+    "SchedulingPolicyDetailTypeDef",
+    "SchedulingPolicyListingDetailTypeDef",
+    "SecretTypeDef",
+    "ServiceEnvironmentDetailTypeDef",
+    "ServiceEnvironmentOrderTypeDef",
+    "ServiceJobAttemptDetailTypeDef",
+    "ServiceJobCapacityUsageDetailTypeDef",
+    "ServiceJobCapacityUsageSummaryTypeDef",
+    "ServiceJobEvaluateOnExitTypeDef",
+    "ServiceJobPreemptedAttemptTypeDef",
+    "ServiceJobPreemptionConfigurationTypeDef",
+    "ServiceJobPreemptionSummaryTypeDef",
+    "ServiceJobRetryStrategyOutputTypeDef",
+    "ServiceJobRetryStrategyTypeDef",
+    "ServiceJobRetryStrategyUnionTypeDef",
+    "ServiceJobSummaryTypeDef",
+    "ServiceJobTimeoutTypeDef",
+    "ServiceResourceIdTypeDef",
+    "ShareAttributesTypeDef",
+    "SubmitJobRequestTypeDef",
+    "SubmitJobResponseTypeDef",
+    "SubmitServiceJobRequestTypeDef",
+    "SubmitServiceJobResponseTypeDef",
+    "TagResourceRequestTypeDef",
+    "TaskContainerDependencyTypeDef",
+    "TaskContainerDetailsTypeDef",
+    "TaskContainerOverridesTypeDef",
+    "TaskContainerPropertiesOutputTypeDef",
+    "TaskContainerPropertiesTypeDef",
+    "TaskPropertiesOverrideTypeDef",
+    "TerminateJobRequestTypeDef",
+    "TerminateJobsErrorDetailTypeDef",
+    "TerminateJobsRequestTypeDef",
+    "TerminateJobsResponseTypeDef",
+    "TerminateServiceJobRequestTypeDef",
+    "TerminateServiceJobsErrorDetailTypeDef",
+    "TerminateServiceJobsRequestTypeDef",
+    "TerminateServiceJobsResponseTypeDef",
+    "TmpfsOutputTypeDef",
+    "TmpfsTypeDef",
+    "UlimitTypeDef",
+    "UntagResourceRequestTypeDef",
+    "UpdateComputeEnvironmentRequestTypeDef",
+    "UpdateComputeEnvironmentResponseTypeDef",
+    "UpdateConsumableResourceRequestTypeDef",
+    "UpdateConsumableResourceResponseTypeDef",
+    "UpdateJobQueueRequestTypeDef",
+    "UpdateJobQueueResponseTypeDef",
+    "UpdateManagedInstancesProviderConfigurationTypeDef",
+    "UpdatePolicyTypeDef",
+    "UpdateQuotaShareRequestTypeDef",
+    "UpdateQuotaShareResponseTypeDef",
+    "UpdateSchedulingPolicyRequestTypeDef",
+    "UpdateServiceEnvironmentRequestTypeDef",
+    "UpdateServiceEnvironmentResponseTypeDef",
+    "UpdateServiceJobRequestTypeDef",
+    "UpdateServiceJobResponseTypeDef",
+    "VolumeTypeDef",
+)
+
+
+class ArrayPropertiesDetailTypeDef(TypedDict):
+    statusSummary: NotRequired[dict[str, int]]
+    statusSummaryLastUpdatedAt: NotRequired[int]
+    size: NotRequired[int]
+    index: NotRequired[int]
+
+
+class ArrayPropertiesSummaryTypeDef(TypedDict):
+    size: NotRequired[int]
+    index: NotRequired[int]
+    statusSummary: NotRequired[dict[str, int]]
+    statusSummaryLastUpdatedAt: NotRequired[int]
+
+
+class ArrayPropertiesTypeDef(TypedDict):
+    size: NotRequired[int]
+
+
+class NetworkInterfaceTypeDef(TypedDict):
+    attachmentId: NotRequired[str]
+    ipv6Address: NotRequired[str]
+    privateIpv4Address: NotRequired[str]
+
+
+class CancelJobRequestTypeDef(TypedDict):
+    jobId: str
+    reason: str
+
+
+class CancelJobsErrorDetailTypeDef(TypedDict):
+    job: str
+    code: str
+    message: str
+
+
+class CancelJobsRequestTypeDef(TypedDict):
+    jobs: Sequence[str]
+    reason: str
+
+
+class ResponseMetadataTypeDef(TypedDict):
+    RequestId: str
+    HTTPStatusCode: int
+    HTTPHeaders: dict[str, str]
+    RetryAttempts: int
+    HostId: NotRequired[str]
+
+
+class CapacityLimitTypeDef(TypedDict):
+    maxCapacity: NotRequired[int]
+    capacityUnit: NotRequired[str]
+
+
+class CapacityReservationRequestTypeDef(TypedDict):
+    reservationGroupArn: NotRequired[str]
+    reservationPreference: NotRequired[str]
+
+
+class EcsSettingsTypeDef(TypedDict):
+    containerInsights: NotRequired[ContainerInsightsType]
+
+
+class UpdatePolicyTypeDef(TypedDict):
+    terminateJobsOnUpdate: NotRequired[bool]
+    jobExecutionTimeoutMinutes: NotRequired[int]
+
+
+class ComputeEnvironmentOrderTypeDef(TypedDict):
+    order: int
+    computeEnvironment: str
+
+
+class ComputeScalingPolicyTypeDef(TypedDict):
+    minScaleDownDelayMinutes: NotRequired[int]
+
+
+class Ec2ConfigurationTypeDef(TypedDict):
+    imageType: str
+    imageIdOverride: NotRequired[str]
+    batchImageStatus: NotRequired[str]
+    imageKubernetesVersion: NotRequired[str]
+
+
+class ConsumableResourceRequirementTypeDef(TypedDict):
+    consumableResource: NotRequired[str]
+    quantity: NotRequired[int]
+
+
+class ConsumableResourceSummaryTypeDef(TypedDict):
+    consumableResourceArn: str
+    consumableResourceName: str
+    totalQuantity: NotRequired[int]
+    inUseQuantity: NotRequired[int]
+    resourceType: NotRequired[str]
+
+
+class EphemeralStorageTypeDef(TypedDict):
+    sizeInGiB: int
+
+
+class FargatePlatformConfigurationTypeDef(TypedDict):
+    platformVersion: NotRequired[str]
+
+
+class KeyValuePairTypeDef(TypedDict):
+    name: NotRequired[str]
+    value: NotRequired[str]
+
+
+class MountPointTypeDef(TypedDict):
+    containerPath: NotRequired[str]
+    readOnly: NotRequired[bool]
+    sourceVolume: NotRequired[str]
+
+
+class NetworkConfigurationTypeDef(TypedDict):
+    assignPublicIp: NotRequired[AssignPublicIpType]
+
+
+class RepositoryCredentialsTypeDef(TypedDict):
+    credentialsParameter: str
+
+
+ResourceRequirementTypeDef = TypedDict(
+    "ResourceRequirementTypeDef",
+    {
+        "value": str,
+        "type": ResourceTypeType,
+    },
+)
+
+
+class RuntimePlatformTypeDef(TypedDict):
+    operatingSystemFamily: NotRequired[str]
+    cpuArchitecture: NotRequired[str]
+
+
+class SecretTypeDef(TypedDict):
+    name: str
+    valueFrom: str
+
+
+class UlimitTypeDef(TypedDict):
+    hardLimit: int
+    name: str
+    softLimit: int
+
+
+class ContainerSummaryTypeDef(TypedDict):
+    exitCode: NotRequired[int]
+    reason: NotRequired[str]
+
+
+class CreateConsumableResourceRequestTypeDef(TypedDict):
+    consumableResourceName: str
+    totalQuantity: NotRequired[int]
+    resourceType: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+
+
+class JobStateTimeLimitActionTypeDef(TypedDict):
+    reason: str
+    state: Literal["RUNNABLE"]
+    maxTimeSeconds: int
+    action: JobStateTimeLimitActionsActionType
+
+
+class ServiceEnvironmentOrderTypeDef(TypedDict):
+    order: int
+    serviceEnvironment: str
+
+
+class QuotaShareCapacityLimitTypeDef(TypedDict):
+    maxCapacity: int
+    capacityUnit: str
+
+
+class QuotaSharePreemptionConfigurationTypeDef(TypedDict):
+    inSharePreemption: QuotaShareInSharePreemptionStateType
+
+
+class QuotaShareResourceSharingConfigurationTypeDef(TypedDict):
+    strategy: QuotaShareResourceSharingStrategyType
+    borrowLimit: NotRequired[int]
+
+
+class QuotaSharePolicyTypeDef(TypedDict):
+    idleResourceAssignmentStrategy: Literal["FIFO"]
+
+
+class DeleteComputeEnvironmentRequestTypeDef(TypedDict):
+    computeEnvironment: str
+
+
+class DeleteConsumableResourceRequestTypeDef(TypedDict):
+    consumableResource: str
+
+
+class DeleteJobQueueRequestTypeDef(TypedDict):
+    jobQueue: str
+
+
+class DeleteQuotaShareRequestTypeDef(TypedDict):
+    quotaShareArn: str
+
+
+class DeleteSchedulingPolicyRequestTypeDef(TypedDict):
+    arn: str
+
+
+class DeleteServiceEnvironmentRequestTypeDef(TypedDict):
+    serviceEnvironment: str
+
+
+class DeregisterJobDefinitionRequestTypeDef(TypedDict):
+    jobDefinition: str
+
+
+class PaginatorConfigTypeDef(TypedDict):
+    MaxItems: NotRequired[int]
+    PageSize: NotRequired[int]
+    StartingToken: NotRequired[str]
+
+
+class DescribeComputeEnvironmentsRequestTypeDef(TypedDict):
+    computeEnvironments: NotRequired[Sequence[str]]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class DescribeConsumableResourceRequestTypeDef(TypedDict):
+    consumableResource: str
+
+
+class DescribeJobDefinitionsRequestTypeDef(TypedDict):
+    jobDefinitions: NotRequired[Sequence[str]]
+    maxResults: NotRequired[int]
+    jobDefinitionName: NotRequired[str]
+    status: NotRequired[str]
+    nextToken: NotRequired[str]
+
+
+class DescribeJobQueuesRequestTypeDef(TypedDict):
+    jobQueues: NotRequired[Sequence[str]]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class DescribeJobsRequestTypeDef(TypedDict):
+    jobs: Sequence[str]
+
+
+class DescribeQuotaShareRequestTypeDef(TypedDict):
+    quotaShareArn: str
+
+
+class DescribeSchedulingPoliciesRequestTypeDef(TypedDict):
+    arns: Sequence[str]
+
+
+class DescribeServiceEnvironmentsRequestTypeDef(TypedDict):
+    serviceEnvironments: NotRequired[Sequence[str]]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class DescribeServiceJobRequestTypeDef(TypedDict):
+    jobId: str
+
+
+class ServiceJobCapacityUsageDetailTypeDef(TypedDict):
+    capacityUnit: NotRequired[str]
+    quantity: NotRequired[float]
+
+
+class ServiceJobPreemptionConfigurationTypeDef(TypedDict):
+    preemptionRetriesBeforeTermination: NotRequired[int]
+
+
+class ServiceJobTimeoutTypeDef(TypedDict):
+    attemptDurationSeconds: NotRequired[int]
+
+
+class DeviceOutputTypeDef(TypedDict):
+    hostPath: str
+    containerPath: NotRequired[str]
+    permissions: NotRequired[list[DeviceCgroupPermissionType]]
+
+
+class DeviceTypeDef(TypedDict):
+    hostPath: str
+    containerPath: NotRequired[str]
+    permissions: NotRequired[Sequence[DeviceCgroupPermissionType]]
+
+
+class EFSAuthorizationConfigTypeDef(TypedDict):
+    accessPointId: NotRequired[str]
+    iam: NotRequired[EFSAuthorizationConfigIAMType]
+
+
+class EksAccessEntryTypeDef(TypedDict):
+    desiredState: EksAccessEntryDesiredStateType
+    status: NotRequired[EksAccessEntryStatusType]
+
+
+class EksAttemptContainerDetailTypeDef(TypedDict):
+    name: NotRequired[str]
+    containerID: NotRequired[str]
+    exitCode: NotRequired[int]
+    reason: NotRequired[str]
+
+
+class EksContainerEnvironmentVariableTypeDef(TypedDict):
+    name: str
+    value: NotRequired[str]
+
+
+class EksContainerResourceRequirementsOutputTypeDef(TypedDict):
+    limits: NotRequired[dict[str, str]]
+    requests: NotRequired[dict[str, str]]
+
+
+class EksContainerSecurityContextTypeDef(TypedDict):
+    runAsUser: NotRequired[int]
+    runAsGroup: NotRequired[int]
+    privileged: NotRequired[bool]
+    allowPrivilegeEscalation: NotRequired[bool]
+    readOnlyRootFilesystem: NotRequired[bool]
+    runAsNonRoot: NotRequired[bool]
+
+
+class EksContainerVolumeMountTypeDef(TypedDict):
+    name: NotRequired[str]
+    mountPath: NotRequired[str]
+    subPath: NotRequired[str]
+    readOnly: NotRequired[bool]
+
+
+class EksContainerResourceRequirementsTypeDef(TypedDict):
+    limits: NotRequired[Mapping[str, str]]
+    requests: NotRequired[Mapping[str, str]]
+
+
+class EksEmptyDirTypeDef(TypedDict):
+    medium: NotRequired[str]
+    sizeLimit: NotRequired[str]
+
+
+class EksHostPathTypeDef(TypedDict):
+    path: NotRequired[str]
+
+
+class EksMetadataOutputTypeDef(TypedDict):
+    labels: NotRequired[dict[str, str]]
+    annotations: NotRequired[dict[str, str]]
+    namespace: NotRequired[str]
+
+
+class EksMetadataTypeDef(TypedDict):
+    labels: NotRequired[Mapping[str, str]]
+    annotations: NotRequired[Mapping[str, str]]
+    namespace: NotRequired[str]
+
+
+class EksPersistentVolumeClaimTypeDef(TypedDict):
+    claimName: str
+    readOnly: NotRequired[bool]
+
+
+class ImagePullSecretTypeDef(TypedDict):
+    name: str
+
+
+class EksSecretTypeDef(TypedDict):
+    secretName: str
+    optional: NotRequired[bool]
+
+
+class EvaluateOnExitTypeDef(TypedDict):
+    action: RetryActionType
+    onStatusReason: NotRequired[str]
+    onReason: NotRequired[str]
+    onExitCode: NotRequired[str]
+
+
+class FairshareCapacityUsageTypeDef(TypedDict):
+    capacityUnit: NotRequired[str]
+    quantity: NotRequired[float]
+
+
+class ShareAttributesTypeDef(TypedDict):
+    shareIdentifier: str
+    weightFactor: NotRequired[float]
+
+
+FirelensConfigurationOutputTypeDef = TypedDict(
+    "FirelensConfigurationOutputTypeDef",
+    {
+        "type": FirelensConfigurationTypeType,
+        "options": NotRequired[dict[str, str]],
+    },
+)
+FirelensConfigurationTypeDef = TypedDict(
+    "FirelensConfigurationTypeDef",
+    {
+        "type": FirelensConfigurationTypeType,
+        "options": NotRequired[Mapping[str, str]],
+    },
+)
+
+
+class FrontOfQueueJobSummaryTypeDef(TypedDict):
+    jobArn: NotRequired[str]
+    earliestTimeAtPosition: NotRequired[int]
+
+
+class FrontOfQuotaShareJobSummaryTypeDef(TypedDict):
+    jobArn: NotRequired[str]
+    earliestTimeAtPosition: NotRequired[int]
+
+
+class GetJobQueueSnapshotRequestTypeDef(TypedDict):
+    jobQueue: str
+
+
+class HostTypeDef(TypedDict):
+    sourcePath: NotRequired[str]
+
+
+class InfrastructureOptimizationTypeDef(TypedDict):
+    scaleInAfter: NotRequired[int]
+
+
+class InstanceRequirementsRequestOutputTypeDef(TypedDict):
+    allowedInstanceTypes: NotRequired[list[str]]
+
+
+class ManagedInstancesLocalStorageConfigurationTypeDef(TypedDict):
+    useLocalStorage: NotRequired[bool]
+
+
+class ManagedInstancesNetworkConfigurationOutputTypeDef(TypedDict):
+    subnets: list[str]
+    securityGroups: list[str]
+
+
+class ManagedInstancesStorageConfigurationTypeDef(TypedDict):
+    storageSizeGiB: NotRequired[int]
+
+
+class InstanceRequirementsRequestTypeDef(TypedDict):
+    allowedInstanceTypes: NotRequired[Sequence[str]]
+
+
+class ManagedInstancesNetworkConfigurationTypeDef(TypedDict):
+    subnets: Sequence[str]
+    securityGroups: Sequence[str]
+
+
+class JobCapacityUsageSummaryTypeDef(TypedDict):
+    capacityUnit: NotRequired[str]
+    quantity: NotRequired[float]
+
+
+class JobTimeoutTypeDef(TypedDict):
+    attemptDurationSeconds: NotRequired[int]
+
+
+JobDependencyTypeDef = TypedDict(
+    "JobDependencyTypeDef",
+    {
+        "jobId": NotRequired[str],
+        "type": NotRequired[ArrayJobDependencyType],
+    },
+)
+
+
+class NodeDetailsTypeDef(TypedDict):
+    nodeIndex: NotRequired[int]
+    isMainNode: NotRequired[bool]
+
+
+class NodePropertiesSummaryTypeDef(TypedDict):
+    isMainNode: NotRequired[bool]
+    numNodes: NotRequired[int]
+    nodeIndex: NotRequired[int]
+
+
+class KeyValuesPairTypeDef(TypedDict):
+    name: NotRequired[str]
+    values: NotRequired[Sequence[str]]
+
+
+class ServiceResourceIdTypeDef(TypedDict):
+    name: Literal["TrainingJobArn"]
+    value: str
+
+
+class LaunchTemplateSpecificationOverrideOutputTypeDef(TypedDict):
+    launchTemplateId: NotRequired[str]
+    launchTemplateName: NotRequired[str]
+    version: NotRequired[str]
+    targetInstanceTypes: NotRequired[list[str]]
+    userdataType: NotRequired[UserdataTypeType]
+
+
+class LaunchTemplateSpecificationOverrideTypeDef(TypedDict):
+    launchTemplateId: NotRequired[str]
+    launchTemplateName: NotRequired[str]
+    version: NotRequired[str]
+    targetInstanceTypes: NotRequired[Sequence[str]]
+    userdataType: NotRequired[UserdataTypeType]
+
+
+class TmpfsOutputTypeDef(TypedDict):
+    containerPath: str
+    size: int
+    mountOptions: NotRequired[list[str]]
+
+
+class TmpfsTypeDef(TypedDict):
+    containerPath: str
+    size: int
+    mountOptions: NotRequired[Sequence[str]]
+
+
+class ListQuotaSharesRequestTypeDef(TypedDict):
+    jobQueue: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListSchedulingPoliciesRequestTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class SchedulingPolicyListingDetailTypeDef(TypedDict):
+    arn: str
+
+
+class ListTagsForResourceRequestTypeDef(TypedDict):
+    resourceArn: str
+
+
+class QueueSnapshotCapacityUsageTypeDef(TypedDict):
+    capacityUnit: NotRequired[str]
+    quantity: NotRequired[float]
+
+
+class QuotaShareCapacityUsageTypeDef(TypedDict):
+    capacityUnit: NotRequired[str]
+    quantity: NotRequired[float]
+
+
+class S3FilesVolumeConfigurationTypeDef(TypedDict):
+    fileSystemArn: str
+    rootDirectory: NotRequired[str]
+    transitEncryptionPort: NotRequired[int]
+    accessPointArn: NotRequired[str]
+
+
+class ServiceJobCapacityUsageSummaryTypeDef(TypedDict):
+    capacityUnit: NotRequired[str]
+    quantity: NotRequired[float]
+
+
+class ServiceJobEvaluateOnExitTypeDef(TypedDict):
+    action: NotRequired[ServiceJobRetryActionType]
+    onStatusReason: NotRequired[str]
+
+
+class TagResourceRequestTypeDef(TypedDict):
+    resourceArn: str
+    tags: Mapping[str, str]
+
+
+class TaskContainerDependencyTypeDef(TypedDict):
+    containerName: NotRequired[str]
+    condition: NotRequired[str]
+
+
+class TerminateJobRequestTypeDef(TypedDict):
+    jobId: str
+    reason: str
+
+
+class TerminateJobsErrorDetailTypeDef(TypedDict):
+    job: str
+    code: str
+    message: str
+
+
+class TerminateJobsRequestTypeDef(TypedDict):
+    jobs: Sequence[str]
+    reason: str
+
+
+class TerminateServiceJobRequestTypeDef(TypedDict):
+    jobId: str
+    reason: str
+
+
+class TerminateServiceJobsErrorDetailTypeDef(TypedDict):
+    job: str
+    code: str
+    message: str
+
+
+class TerminateServiceJobsRequestTypeDef(TypedDict):
+    jobs: Sequence[str]
+    reason: str
+
+
+class UntagResourceRequestTypeDef(TypedDict):
+    resourceArn: str
+    tagKeys: Sequence[str]
+
+
+class UpdateConsumableResourceRequestTypeDef(TypedDict):
+    consumableResource: str
+    operation: NotRequired[str]
+    quantity: NotRequired[int]
+    clientToken: NotRequired[str]
+
+
+class UpdateServiceJobRequestTypeDef(TypedDict):
+    jobId: str
+    schedulingPriority: int
+
+
+class AttemptContainerDetailTypeDef(TypedDict):
+    containerInstanceArn: NotRequired[str]
+    taskArn: NotRequired[str]
+    exitCode: NotRequired[int]
+    reason: NotRequired[str]
+    logStreamName: NotRequired[str]
+    networkInterfaces: NotRequired[list[NetworkInterfaceTypeDef]]
+
+
+class AttemptTaskContainerDetailsTypeDef(TypedDict):
+    exitCode: NotRequired[int]
+    name: NotRequired[str]
+    reason: NotRequired[str]
+    logStreamName: NotRequired[str]
+    networkInterfaces: NotRequired[list[NetworkInterfaceTypeDef]]
+
+
+class CancelJobsResponseTypeDef(TypedDict):
+    successful: list[str]
+    errors: list[CancelJobsErrorDetailTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateComputeEnvironmentResponseTypeDef(TypedDict):
+    computeEnvironmentName: str
+    computeEnvironmentArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateConsumableResourceResponseTypeDef(TypedDict):
+    consumableResourceName: str
+    consumableResourceArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateJobQueueResponseTypeDef(TypedDict):
+    jobQueueName: str
+    jobQueueArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateQuotaShareResponseTypeDef(TypedDict):
+    quotaShareName: str
+    quotaShareArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateSchedulingPolicyResponseTypeDef(TypedDict):
+    name: str
+    arn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateServiceEnvironmentResponseTypeDef(TypedDict):
+    serviceEnvironmentName: str
+    serviceEnvironmentArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeConsumableResourceResponseTypeDef(TypedDict):
+    consumableResourceName: str
+    consumableResourceArn: str
+    totalQuantity: int
+    inUseQuantity: int
+    availableQuantity: int
+    resourceType: str
+    createdAt: int
+    tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListTagsForResourceResponseTypeDef(TypedDict):
+    tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class RegisterJobDefinitionResponseTypeDef(TypedDict):
+    jobDefinitionName: str
+    jobDefinitionArn: str
+    revision: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class SubmitJobResponseTypeDef(TypedDict):
+    jobArn: str
+    jobName: str
+    jobId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class SubmitServiceJobResponseTypeDef(TypedDict):
+    jobArn: str
+    jobName: str
+    jobId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateComputeEnvironmentResponseTypeDef(TypedDict):
+    computeEnvironmentName: str
+    computeEnvironmentArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateConsumableResourceResponseTypeDef(TypedDict):
+    consumableResourceName: str
+    consumableResourceArn: str
+    totalQuantity: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateJobQueueResponseTypeDef(TypedDict):
+    jobQueueName: str
+    jobQueueArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateQuotaShareResponseTypeDef(TypedDict):
+    quotaShareName: str
+    quotaShareArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateServiceEnvironmentResponseTypeDef(TypedDict):
+    serviceEnvironmentName: str
+    serviceEnvironmentArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateServiceJobResponseTypeDef(TypedDict):
+    jobArn: str
+    jobName: str
+    jobId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateServiceEnvironmentRequestTypeDef(TypedDict):
+    serviceEnvironmentName: str
+    serviceEnvironmentType: Literal["SAGEMAKER_TRAINING"]
+    capacityLimits: Sequence[CapacityLimitTypeDef]
+    state: NotRequired[ServiceEnvironmentStateType]
+    tags: NotRequired[Mapping[str, str]]
+
+
+class ServiceEnvironmentDetailTypeDef(TypedDict):
+    serviceEnvironmentName: str
+    serviceEnvironmentArn: str
+    serviceEnvironmentType: Literal["SAGEMAKER_TRAINING"]
+    capacityLimits: list[CapacityLimitTypeDef]
+    state: NotRequired[ServiceEnvironmentStateType]
+    status: NotRequired[ServiceEnvironmentStatusType]
+    tags: NotRequired[dict[str, str]]
+
+
+class UpdateServiceEnvironmentRequestTypeDef(TypedDict):
+    serviceEnvironment: str
+    state: NotRequired[ServiceEnvironmentStateType]
+    capacityLimits: NotRequired[Sequence[CapacityLimitTypeDef]]
+
+
+class ConsumableResourcePropertiesOutputTypeDef(TypedDict):
+    consumableResourceList: NotRequired[list[ConsumableResourceRequirementTypeDef]]
+
+
+class ConsumableResourcePropertiesTypeDef(TypedDict):
+    consumableResourceList: NotRequired[Sequence[ConsumableResourceRequirementTypeDef]]
+
+
+class ListConsumableResourcesResponseTypeDef(TypedDict):
+    consumableResources: list[ConsumableResourceSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ContainerOverridesTypeDef(TypedDict):
+    vcpus: NotRequired[int]
+    memory: NotRequired[int]
+    command: NotRequired[Sequence[str]]
+    instanceType: NotRequired[str]
+    environment: NotRequired[Sequence[KeyValuePairTypeDef]]
+    resourceRequirements: NotRequired[Sequence[ResourceRequirementTypeDef]]
+
+
+class TaskContainerOverridesTypeDef(TypedDict):
+    command: NotRequired[Sequence[str]]
+    environment: NotRequired[Sequence[KeyValuePairTypeDef]]
+    name: NotRequired[str]
+    resourceRequirements: NotRequired[Sequence[ResourceRequirementTypeDef]]
+
+
+class LogConfigurationOutputTypeDef(TypedDict):
+    logDriver: LogDriverType
+    options: NotRequired[dict[str, str]]
+    secretOptions: NotRequired[list[SecretTypeDef]]
+
+
+class LogConfigurationTypeDef(TypedDict):
+    logDriver: LogDriverType
+    options: NotRequired[Mapping[str, str]]
+    secretOptions: NotRequired[Sequence[SecretTypeDef]]
+
+
+class CreateJobQueueRequestTypeDef(TypedDict):
+    jobQueueName: str
+    priority: int
+    state: NotRequired[JQStateType]
+    schedulingPolicyArn: NotRequired[str]
+    computeEnvironmentOrder: NotRequired[Sequence[ComputeEnvironmentOrderTypeDef]]
+    serviceEnvironmentOrder: NotRequired[Sequence[ServiceEnvironmentOrderTypeDef]]
+    jobQueueType: NotRequired[JobQueueTypeType]
+    tags: NotRequired[Mapping[str, str]]
+    jobStateTimeLimitActions: NotRequired[Sequence[JobStateTimeLimitActionTypeDef]]
+
+
+class JobQueueDetailTypeDef(TypedDict):
+    jobQueueName: str
+    jobQueueArn: str
+    state: JQStateType
+    priority: int
+    computeEnvironmentOrder: list[ComputeEnvironmentOrderTypeDef]
+    schedulingPolicyArn: NotRequired[str]
+    status: NotRequired[JQStatusType]
+    statusReason: NotRequired[str]
+    serviceEnvironmentOrder: NotRequired[list[ServiceEnvironmentOrderTypeDef]]
+    jobQueueType: NotRequired[JobQueueTypeType]
+    tags: NotRequired[dict[str, str]]
+    jobStateTimeLimitActions: NotRequired[list[JobStateTimeLimitActionTypeDef]]
+
+
+class UpdateJobQueueRequestTypeDef(TypedDict):
+    jobQueue: str
+    state: NotRequired[JQStateType]
+    schedulingPolicyArn: NotRequired[str]
+    priority: NotRequired[int]
+    computeEnvironmentOrder: NotRequired[Sequence[ComputeEnvironmentOrderTypeDef]]
+    serviceEnvironmentOrder: NotRequired[Sequence[ServiceEnvironmentOrderTypeDef]]
+    jobStateTimeLimitActions: NotRequired[Sequence[JobStateTimeLimitActionTypeDef]]
+
+
+class CreateQuotaShareRequestTypeDef(TypedDict):
+    quotaShareName: str
+    jobQueue: str
+    capacityLimits: Sequence[QuotaShareCapacityLimitTypeDef]
+    resourceSharingConfiguration: QuotaShareResourceSharingConfigurationTypeDef
+    preemptionConfiguration: QuotaSharePreemptionConfigurationTypeDef
+    state: NotRequired[QuotaShareStateType]
+    tags: NotRequired[Mapping[str, str]]
+
+
+class DescribeQuotaShareResponseTypeDef(TypedDict):
+    quotaShareName: str
+    quotaShareArn: str
+    jobQueueArn: str
+    capacityLimits: list[QuotaShareCapacityLimitTypeDef]
+    resourceSharingConfiguration: QuotaShareResourceSharingConfigurationTypeDef
+    preemptionConfiguration: QuotaSharePreemptionConfigurationTypeDef
+    state: QuotaShareStateType
+    status: QuotaShareStatusType
+    tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class QuotaShareDetailTypeDef(TypedDict):
+    quotaShareName: NotRequired[str]
+    quotaShareArn: NotRequired[str]
+    jobQueueArn: NotRequired[str]
+    capacityLimits: NotRequired[list[QuotaShareCapacityLimitTypeDef]]
+    resourceSharingConfiguration: NotRequired[QuotaShareResourceSharingConfigurationTypeDef]
+    preemptionConfiguration: NotRequired[QuotaSharePreemptionConfigurationTypeDef]
+    state: NotRequired[QuotaShareStateType]
+    status: NotRequired[QuotaShareStatusType]
+
+
+class UpdateQuotaShareRequestTypeDef(TypedDict):
+    quotaShareArn: str
+    capacityLimits: NotRequired[Sequence[QuotaShareCapacityLimitTypeDef]]
+    resourceSharingConfiguration: NotRequired[QuotaShareResourceSharingConfigurationTypeDef]
+    preemptionConfiguration: NotRequired[QuotaSharePreemptionConfigurationTypeDef]
+    state: NotRequired[QuotaShareStateType]
+
+
+class DescribeComputeEnvironmentsRequestPaginateTypeDef(TypedDict):
+    computeEnvironments: NotRequired[Sequence[str]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class DescribeJobDefinitionsRequestPaginateTypeDef(TypedDict):
+    jobDefinitions: NotRequired[Sequence[str]]
+    jobDefinitionName: NotRequired[str]
+    status: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class DescribeJobQueuesRequestPaginateTypeDef(TypedDict):
+    jobQueues: NotRequired[Sequence[str]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class DescribeServiceEnvironmentsRequestPaginateTypeDef(TypedDict):
+    serviceEnvironments: NotRequired[Sequence[str]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListQuotaSharesRequestPaginateTypeDef(TypedDict):
+    jobQueue: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListSchedulingPoliciesRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class EFSVolumeConfigurationTypeDef(TypedDict):
+    fileSystemId: str
+    rootDirectory: NotRequired[str]
+    transitEncryption: NotRequired[EFSTransitEncryptionType]
+    transitEncryptionPort: NotRequired[int]
+    authorizationConfig: NotRequired[EFSAuthorizationConfigTypeDef]
+
+
+class EksConfigurationTypeDef(TypedDict):
+    eksClusterArn: str
+    kubernetesNamespace: str
+    accessEntry: NotRequired[EksAccessEntryTypeDef]
+
+
+class EksConfigurationUpdateTypeDef(TypedDict):
+    accessEntry: NotRequired[EksAccessEntryTypeDef]
+
+
+class EksAttemptDetailTypeDef(TypedDict):
+    containers: NotRequired[list[EksAttemptContainerDetailTypeDef]]
+    initContainers: NotRequired[list[EksAttemptContainerDetailTypeDef]]
+    eksClusterArn: NotRequired[str]
+    podName: NotRequired[str]
+    podNamespace: NotRequired[str]
+    nodeName: NotRequired[str]
+    startedAt: NotRequired[int]
+    stoppedAt: NotRequired[int]
+    statusReason: NotRequired[str]
+
+
+class EksContainerDetailTypeDef(TypedDict):
+    name: NotRequired[str]
+    image: NotRequired[str]
+    imagePullPolicy: NotRequired[str]
+    command: NotRequired[list[str]]
+    args: NotRequired[list[str]]
+    env: NotRequired[list[EksContainerEnvironmentVariableTypeDef]]
+    resources: NotRequired[EksContainerResourceRequirementsOutputTypeDef]
+    exitCode: NotRequired[int]
+    reason: NotRequired[str]
+    volumeMounts: NotRequired[list[EksContainerVolumeMountTypeDef]]
+    securityContext: NotRequired[EksContainerSecurityContextTypeDef]
+
+
+class EksContainerOutputTypeDef(TypedDict):
+    image: str
+    name: NotRequired[str]
+    imagePullPolicy: NotRequired[str]
+    command: NotRequired[list[str]]
+    args: NotRequired[list[str]]
+    env: NotRequired[list[EksContainerEnvironmentVariableTypeDef]]
+    resources: NotRequired[EksContainerResourceRequirementsOutputTypeDef]
+    volumeMounts: NotRequired[list[EksContainerVolumeMountTypeDef]]
+    securityContext: NotRequired[EksContainerSecurityContextTypeDef]
+
+
+EksContainerResourceRequirementsUnionTypeDef = Union[
+    EksContainerResourceRequirementsTypeDef, EksContainerResourceRequirementsOutputTypeDef
+]
+
+
+class EksContainerTypeDef(TypedDict):
+    image: str
+    name: NotRequired[str]
+    imagePullPolicy: NotRequired[str]
+    command: NotRequired[Sequence[str]]
+    args: NotRequired[Sequence[str]]
+    env: NotRequired[Sequence[EksContainerEnvironmentVariableTypeDef]]
+    resources: NotRequired[EksContainerResourceRequirementsTypeDef]
+    volumeMounts: NotRequired[Sequence[EksContainerVolumeMountTypeDef]]
+    securityContext: NotRequired[EksContainerSecurityContextTypeDef]
+
+
+EksMetadataUnionTypeDef = Union[EksMetadataTypeDef, EksMetadataOutputTypeDef]
+
+
+class EksVolumeTypeDef(TypedDict):
+    name: str
+    hostPath: NotRequired[EksHostPathTypeDef]
+    emptyDir: NotRequired[EksEmptyDirTypeDef]
+    secret: NotRequired[EksSecretTypeDef]
+    persistentVolumeClaim: NotRequired[EksPersistentVolumeClaimTypeDef]
+
+
+class RetryStrategyOutputTypeDef(TypedDict):
+    attempts: NotRequired[int]
+    evaluateOnExit: NotRequired[list[EvaluateOnExitTypeDef]]
+
+
+class RetryStrategyTypeDef(TypedDict):
+    attempts: NotRequired[int]
+    evaluateOnExit: NotRequired[Sequence[EvaluateOnExitTypeDef]]
+
+
+class FairshareCapacityUtilizationTypeDef(TypedDict):
+    shareIdentifier: NotRequired[str]
+    capacityUsage: NotRequired[list[FairshareCapacityUsageTypeDef]]
+
+
+class FairsharePolicyOutputTypeDef(TypedDict):
+    shareDecaySeconds: NotRequired[int]
+    computeReservation: NotRequired[int]
+    shareDistribution: NotRequired[list[ShareAttributesTypeDef]]
+
+
+class FairsharePolicyTypeDef(TypedDict):
+    shareDecaySeconds: NotRequired[int]
+    computeReservation: NotRequired[int]
+    shareDistribution: NotRequired[Sequence[ShareAttributesTypeDef]]
+
+
+class FrontOfQueueDetailTypeDef(TypedDict):
+    jobs: NotRequired[list[FrontOfQueueJobSummaryTypeDef]]
+    lastUpdatedAt: NotRequired[int]
+
+
+class FrontOfQuotaSharesDetailTypeDef(TypedDict):
+    quotaShares: NotRequired[dict[str, list[FrontOfQuotaShareJobSummaryTypeDef]]]
+    lastUpdatedAt: NotRequired[int]
+
+
+class InstanceLaunchTemplateOutputTypeDef(TypedDict):
+    ec2InstanceProfileArn: str
+    networkConfiguration: ManagedInstancesNetworkConfigurationOutputTypeDef
+    instanceRequirements: NotRequired[InstanceRequirementsRequestOutputTypeDef]
+    capacityOptionType: NotRequired[str]
+    storageConfiguration: NotRequired[ManagedInstancesStorageConfigurationTypeDef]
+    monitoring: NotRequired[str]
+    fipsEnabled: NotRequired[bool]
+    capacityReservations: NotRequired[CapacityReservationRequestTypeDef]
+    instanceMetadataTagsPropagation: NotRequired[bool]
+    localStorageConfiguration: NotRequired[ManagedInstancesLocalStorageConfigurationTypeDef]
+
+
+InstanceRequirementsRequestUnionTypeDef = Union[
+    InstanceRequirementsRequestTypeDef, InstanceRequirementsRequestOutputTypeDef
+]
+
+
+class InstanceLaunchTemplateTypeDef(TypedDict):
+    ec2InstanceProfileArn: str
+    networkConfiguration: ManagedInstancesNetworkConfigurationTypeDef
+    instanceRequirements: NotRequired[InstanceRequirementsRequestTypeDef]
+    capacityOptionType: NotRequired[str]
+    storageConfiguration: NotRequired[ManagedInstancesStorageConfigurationTypeDef]
+    monitoring: NotRequired[str]
+    fipsEnabled: NotRequired[bool]
+    capacityReservations: NotRequired[CapacityReservationRequestTypeDef]
+    instanceMetadataTagsPropagation: NotRequired[bool]
+    localStorageConfiguration: NotRequired[ManagedInstancesLocalStorageConfigurationTypeDef]
+
+
+ManagedInstancesNetworkConfigurationUnionTypeDef = Union[
+    ManagedInstancesNetworkConfigurationTypeDef, ManagedInstancesNetworkConfigurationOutputTypeDef
+]
+
+
+class JobSummaryTypeDef(TypedDict):
+    jobId: str
+    jobName: str
+    jobArn: NotRequired[str]
+    capacityUsage: NotRequired[list[JobCapacityUsageSummaryTypeDef]]
+    createdAt: NotRequired[int]
+    scheduledAt: NotRequired[int]
+    shareIdentifier: NotRequired[str]
+    status: NotRequired[JobStatusType]
+    statusReason: NotRequired[str]
+    startedAt: NotRequired[int]
+    stoppedAt: NotRequired[int]
+    container: NotRequired[ContainerSummaryTypeDef]
+    arrayProperties: NotRequired[ArrayPropertiesSummaryTypeDef]
+    nodeProperties: NotRequired[NodePropertiesSummaryTypeDef]
+    jobDefinition: NotRequired[str]
+    isCancelled: NotRequired[bool]
+    isTerminated: NotRequired[bool]
+
+
+class ListConsumableResourcesRequestPaginateTypeDef(TypedDict):
+    filters: NotRequired[Sequence[KeyValuesPairTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListConsumableResourcesRequestTypeDef(TypedDict):
+    filters: NotRequired[Sequence[KeyValuesPairTypeDef]]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListJobsByConsumableResourceRequestPaginateTypeDef(TypedDict):
+    consumableResource: str
+    filters: NotRequired[Sequence[KeyValuesPairTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListJobsByConsumableResourceRequestTypeDef(TypedDict):
+    consumableResource: str
+    filters: NotRequired[Sequence[KeyValuesPairTypeDef]]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListJobsRequestPaginateTypeDef(TypedDict):
+    jobQueue: NotRequired[str]
+    arrayJobId: NotRequired[str]
+    multiNodeJobId: NotRequired[str]
+    jobStatus: NotRequired[JobStatusType]
+    filters: NotRequired[Sequence[KeyValuesPairTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListJobsRequestTypeDef(TypedDict):
+    jobQueue: NotRequired[str]
+    arrayJobId: NotRequired[str]
+    multiNodeJobId: NotRequired[str]
+    jobStatus: NotRequired[JobStatusType]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+    filters: NotRequired[Sequence[KeyValuesPairTypeDef]]
+
+
+class ListServiceJobsRequestPaginateTypeDef(TypedDict):
+    jobQueue: NotRequired[str]
+    jobStatus: NotRequired[ServiceJobStatusType]
+    filters: NotRequired[Sequence[KeyValuesPairTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListServiceJobsRequestTypeDef(TypedDict):
+    jobQueue: NotRequired[str]
+    jobStatus: NotRequired[ServiceJobStatusType]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+    filters: NotRequired[Sequence[KeyValuesPairTypeDef]]
+
+
+class LatestServiceJobAttemptTypeDef(TypedDict):
+    serviceResourceId: NotRequired[ServiceResourceIdTypeDef]
+
+
+class ServiceJobAttemptDetailTypeDef(TypedDict):
+    serviceResourceId: NotRequired[ServiceResourceIdTypeDef]
+    startedAt: NotRequired[int]
+    stoppedAt: NotRequired[int]
+    statusReason: NotRequired[str]
+
+
+class ServiceJobPreemptedAttemptTypeDef(TypedDict):
+    serviceResourceId: NotRequired[ServiceResourceIdTypeDef]
+    startedAt: NotRequired[int]
+    stoppedAt: NotRequired[int]
+    statusReason: NotRequired[str]
+
+
+class LaunchTemplateSpecificationOutputTypeDef(TypedDict):
+    launchTemplateId: NotRequired[str]
+    launchTemplateName: NotRequired[str]
+    version: NotRequired[str]
+    overrides: NotRequired[list[LaunchTemplateSpecificationOverrideOutputTypeDef]]
+    userdataType: NotRequired[UserdataTypeType]
+
+
+LaunchTemplateSpecificationOverrideUnionTypeDef = Union[
+    LaunchTemplateSpecificationOverrideTypeDef, LaunchTemplateSpecificationOverrideOutputTypeDef
+]
+
+
+class LinuxParametersOutputTypeDef(TypedDict):
+    devices: NotRequired[list[DeviceOutputTypeDef]]
+    initProcessEnabled: NotRequired[bool]
+    sharedMemorySize: NotRequired[int]
+    tmpfs: NotRequired[list[TmpfsOutputTypeDef]]
+    maxSwap: NotRequired[int]
+    swappiness: NotRequired[int]
+
+
+class LinuxParametersTypeDef(TypedDict):
+    devices: NotRequired[Sequence[DeviceTypeDef]]
+    initProcessEnabled: NotRequired[bool]
+    sharedMemorySize: NotRequired[int]
+    tmpfs: NotRequired[Sequence[TmpfsTypeDef]]
+    maxSwap: NotRequired[int]
+    swappiness: NotRequired[int]
+
+
+class ListSchedulingPoliciesResponseTypeDef(TypedDict):
+    schedulingPolicies: list[SchedulingPolicyListingDetailTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class QuotaShareCapacityUtilizationTypeDef(TypedDict):
+    quotaShareName: NotRequired[str]
+    capacityUsage: NotRequired[list[QuotaShareCapacityUsageTypeDef]]
+
+
+class ServiceJobRetryStrategyOutputTypeDef(TypedDict):
+    attempts: int
+    evaluateOnExit: NotRequired[list[ServiceJobEvaluateOnExitTypeDef]]
+
+
+class ServiceJobRetryStrategyTypeDef(TypedDict):
+    attempts: int
+    evaluateOnExit: NotRequired[Sequence[ServiceJobEvaluateOnExitTypeDef]]
+
+
+class TerminateJobsResponseTypeDef(TypedDict):
+    successful: list[str]
+    errors: list[TerminateJobsErrorDetailTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class TerminateServiceJobsResponseTypeDef(TypedDict):
+    successful: list[str]
+    errors: list[TerminateServiceJobsErrorDetailTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class AttemptEcsTaskDetailsTypeDef(TypedDict):
+    containerInstanceArn: NotRequired[str]
+    taskArn: NotRequired[str]
+    containers: NotRequired[list[AttemptTaskContainerDetailsTypeDef]]
+
+
+class DescribeServiceEnvironmentsResponseTypeDef(TypedDict):
+    serviceEnvironments: list[ServiceEnvironmentDetailTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListJobsByConsumableResourceSummaryTypeDef(TypedDict):
+    jobArn: str
+    jobQueueArn: str
+    jobName: str
+    jobStatus: str
+    quantity: int
+    createdAt: int
+    consumableResourceProperties: ConsumableResourcePropertiesOutputTypeDef
+    jobDefinitionArn: NotRequired[str]
+    shareIdentifier: NotRequired[str]
+    statusReason: NotRequired[str]
+    startedAt: NotRequired[int]
+
+
+ConsumableResourcePropertiesUnionTypeDef = Union[
+    ConsumableResourcePropertiesTypeDef, ConsumableResourcePropertiesOutputTypeDef
+]
+
+
+class TaskPropertiesOverrideTypeDef(TypedDict):
+    containers: NotRequired[Sequence[TaskContainerOverridesTypeDef]]
+
+
+class DescribeJobQueuesResponseTypeDef(TypedDict):
+    jobQueues: list[JobQueueDetailTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListQuotaSharesResponseTypeDef(TypedDict):
+    quotaShares: list[QuotaShareDetailTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class VolumeTypeDef(TypedDict):
+    host: NotRequired[HostTypeDef]
+    name: NotRequired[str]
+    efsVolumeConfiguration: NotRequired[EFSVolumeConfigurationTypeDef]
+    s3filesVolumeConfiguration: NotRequired[S3FilesVolumeConfigurationTypeDef]
+
+
+class EksContainerOverrideTypeDef(TypedDict):
+    name: NotRequired[str]
+    image: NotRequired[str]
+    command: NotRequired[Sequence[str]]
+    args: NotRequired[Sequence[str]]
+    env: NotRequired[Sequence[EksContainerEnvironmentVariableTypeDef]]
+    resources: NotRequired[EksContainerResourceRequirementsUnionTypeDef]
+
+
+class EksPodPropertiesDetailTypeDef(TypedDict):
+    serviceAccountName: NotRequired[str]
+    hostNetwork: NotRequired[bool]
+    dnsPolicy: NotRequired[str]
+    imagePullSecrets: NotRequired[list[ImagePullSecretTypeDef]]
+    containers: NotRequired[list[EksContainerDetailTypeDef]]
+    initContainers: NotRequired[list[EksContainerDetailTypeDef]]
+    volumes: NotRequired[list[EksVolumeTypeDef]]
+    podName: NotRequired[str]
+    nodeName: NotRequired[str]
+    metadata: NotRequired[EksMetadataOutputTypeDef]
+    shareProcessNamespace: NotRequired[bool]
+
+
+class EksPodPropertiesOutputTypeDef(TypedDict):
+    serviceAccountName: NotRequired[str]
+    hostNetwork: NotRequired[bool]
+    dnsPolicy: NotRequired[str]
+    imagePullSecrets: NotRequired[list[ImagePullSecretTypeDef]]
+    containers: NotRequired[list[EksContainerOutputTypeDef]]
+    initContainers: NotRequired[list[EksContainerOutputTypeDef]]
+    volumes: NotRequired[list[EksVolumeTypeDef]]
+    metadata: NotRequired[EksMetadataOutputTypeDef]
+    shareProcessNamespace: NotRequired[bool]
+
+
+class EksPodPropertiesTypeDef(TypedDict):
+    serviceAccountName: NotRequired[str]
+    hostNetwork: NotRequired[bool]
+    dnsPolicy: NotRequired[str]
+    imagePullSecrets: NotRequired[Sequence[ImagePullSecretTypeDef]]
+    containers: NotRequired[Sequence[EksContainerTypeDef]]
+    initContainers: NotRequired[Sequence[EksContainerTypeDef]]
+    volumes: NotRequired[Sequence[EksVolumeTypeDef]]
+    metadata: NotRequired[EksMetadataTypeDef]
+    shareProcessNamespace: NotRequired[bool]
+
+
+RetryStrategyUnionTypeDef = Union[RetryStrategyTypeDef, RetryStrategyOutputTypeDef]
+
+
+class FairshareUtilizationDetailTypeDef(TypedDict):
+    activeShareCount: NotRequired[int]
+    topCapacityUtilization: NotRequired[list[FairshareCapacityUtilizationTypeDef]]
+
+
+class SchedulingPolicyDetailTypeDef(TypedDict):
+    name: str
+    arn: str
+    quotaSharePolicy: NotRequired[QuotaSharePolicyTypeDef]
+    fairsharePolicy: NotRequired[FairsharePolicyOutputTypeDef]
+    tags: NotRequired[dict[str, str]]
+
+
+FairsharePolicyUnionTypeDef = Union[FairsharePolicyTypeDef, FairsharePolicyOutputTypeDef]
+
+
+class ManagedInstancesProviderOutputTypeDef(TypedDict):
+    infrastructureRoleArn: str
+    instanceLaunchTemplate: InstanceLaunchTemplateOutputTypeDef
+    propagateTags: NotRequired[str]
+    infrastructureOptimization: NotRequired[InfrastructureOptimizationTypeDef]
+
+
+class ManagedInstancesProviderTypeDef(TypedDict):
+    infrastructureRoleArn: str
+    instanceLaunchTemplate: InstanceLaunchTemplateTypeDef
+    propagateTags: NotRequired[str]
+    infrastructureOptimization: NotRequired[InfrastructureOptimizationTypeDef]
+
+
+class InstanceLaunchTemplateUpdateTypeDef(TypedDict):
+    ec2InstanceProfileArn: NotRequired[str]
+    networkConfiguration: NotRequired[ManagedInstancesNetworkConfigurationUnionTypeDef]
+    instanceRequirements: NotRequired[InstanceRequirementsRequestUnionTypeDef]
+    storageConfiguration: NotRequired[ManagedInstancesStorageConfigurationTypeDef]
+    monitoring: NotRequired[str]
+    capacityReservations: NotRequired[CapacityReservationRequestTypeDef]
+    instanceMetadataTagsPropagation: NotRequired[bool]
+    localStorageConfiguration: NotRequired[ManagedInstancesLocalStorageConfigurationTypeDef]
+
+
+class ListJobsResponseTypeDef(TypedDict):
+    jobSummaryList: list[JobSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ServiceJobSummaryTypeDef(TypedDict):
+    jobId: str
+    jobName: str
+    serviceJobType: Literal["SAGEMAKER_TRAINING"]
+    latestAttempt: NotRequired[LatestServiceJobAttemptTypeDef]
+    capacityUsage: NotRequired[list[ServiceJobCapacityUsageSummaryTypeDef]]
+    createdAt: NotRequired[int]
+    jobArn: NotRequired[str]
+    scheduledAt: NotRequired[int]
+    shareIdentifier: NotRequired[str]
+    quotaShareName: NotRequired[str]
+    status: NotRequired[ServiceJobStatusType]
+    statusReason: NotRequired[str]
+    startedAt: NotRequired[int]
+    stoppedAt: NotRequired[int]
+    isTerminated: NotRequired[bool]
+
+
+class ServiceJobPreemptionSummaryTypeDef(TypedDict):
+    preemptedAttemptCount: NotRequired[int]
+    recentPreemptedAttempts: NotRequired[list[ServiceJobPreemptedAttemptTypeDef]]
+
+
+class LaunchTemplateSpecificationTypeDef(TypedDict):
+    launchTemplateId: NotRequired[str]
+    launchTemplateName: NotRequired[str]
+    version: NotRequired[str]
+    overrides: NotRequired[Sequence[LaunchTemplateSpecificationOverrideUnionTypeDef]]
+    userdataType: NotRequired[UserdataTypeType]
+
+
+class TaskContainerDetailsTypeDef(TypedDict):
+    command: NotRequired[list[str]]
+    dependsOn: NotRequired[list[TaskContainerDependencyTypeDef]]
+    environment: NotRequired[list[KeyValuePairTypeDef]]
+    essential: NotRequired[bool]
+    firelensConfiguration: NotRequired[FirelensConfigurationOutputTypeDef]
+    image: NotRequired[str]
+    linuxParameters: NotRequired[LinuxParametersOutputTypeDef]
+    logConfiguration: NotRequired[LogConfigurationOutputTypeDef]
+    mountPoints: NotRequired[list[MountPointTypeDef]]
+    name: NotRequired[str]
+    privileged: NotRequired[bool]
+    readonlyRootFilesystem: NotRequired[bool]
+    repositoryCredentials: NotRequired[RepositoryCredentialsTypeDef]
+    resourceRequirements: NotRequired[list[ResourceRequirementTypeDef]]
+    secrets: NotRequired[list[SecretTypeDef]]
+    ulimits: NotRequired[list[UlimitTypeDef]]
+    user: NotRequired[str]
+    startTimeout: NotRequired[int]
+    stopTimeout: NotRequired[int]
+    exitCode: NotRequired[int]
+    reason: NotRequired[str]
+    logStreamName: NotRequired[str]
+    networkInterfaces: NotRequired[list[NetworkInterfaceTypeDef]]
+
+
+class TaskContainerPropertiesOutputTypeDef(TypedDict):
+    image: str
+    command: NotRequired[list[str]]
+    dependsOn: NotRequired[list[TaskContainerDependencyTypeDef]]
+    environment: NotRequired[list[KeyValuePairTypeDef]]
+    essential: NotRequired[bool]
+    firelensConfiguration: NotRequired[FirelensConfigurationOutputTypeDef]
+    linuxParameters: NotRequired[LinuxParametersOutputTypeDef]
+    logConfiguration: NotRequired[LogConfigurationOutputTypeDef]
+    mountPoints: NotRequired[list[MountPointTypeDef]]
+    name: NotRequired[str]
+    privileged: NotRequired[bool]
+    readonlyRootFilesystem: NotRequired[bool]
+    repositoryCredentials: NotRequired[RepositoryCredentialsTypeDef]
+    resourceRequirements: NotRequired[list[ResourceRequirementTypeDef]]
+    secrets: NotRequired[list[SecretTypeDef]]
+    ulimits: NotRequired[list[UlimitTypeDef]]
+    user: NotRequired[str]
+    startTimeout: NotRequired[int]
+    stopTimeout: NotRequired[int]
+
+
+class TaskContainerPropertiesTypeDef(TypedDict):
+    image: str
+    command: NotRequired[Sequence[str]]
+    dependsOn: NotRequired[Sequence[TaskContainerDependencyTypeDef]]
+    environment: NotRequired[Sequence[KeyValuePairTypeDef]]
+    essential: NotRequired[bool]
+    firelensConfiguration: NotRequired[FirelensConfigurationTypeDef]
+    linuxParameters: NotRequired[LinuxParametersTypeDef]
+    logConfiguration: NotRequired[LogConfigurationTypeDef]
+    mountPoints: NotRequired[Sequence[MountPointTypeDef]]
+    name: NotRequired[str]
+    privileged: NotRequired[bool]
+    readonlyRootFilesystem: NotRequired[bool]
+    repositoryCredentials: NotRequired[RepositoryCredentialsTypeDef]
+    resourceRequirements: NotRequired[Sequence[ResourceRequirementTypeDef]]
+    secrets: NotRequired[Sequence[SecretTypeDef]]
+    ulimits: NotRequired[Sequence[UlimitTypeDef]]
+    user: NotRequired[str]
+    startTimeout: NotRequired[int]
+    stopTimeout: NotRequired[int]
+
+
+class QuotaShareUtilizationDetailTypeDef(TypedDict):
+    topCapacityUtilization: NotRequired[list[QuotaShareCapacityUtilizationTypeDef]]
+
+
+ServiceJobRetryStrategyUnionTypeDef = Union[
+    ServiceJobRetryStrategyTypeDef, ServiceJobRetryStrategyOutputTypeDef
+]
+
+
+class AttemptDetailTypeDef(TypedDict):
+    container: NotRequired[AttemptContainerDetailTypeDef]
+    startedAt: NotRequired[int]
+    stoppedAt: NotRequired[int]
+    statusReason: NotRequired[str]
+    taskProperties: NotRequired[list[AttemptEcsTaskDetailsTypeDef]]
+
+
+class ListJobsByConsumableResourceResponseTypeDef(TypedDict):
+    jobs: list[ListJobsByConsumableResourceSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class EcsPropertiesOverrideTypeDef(TypedDict):
+    taskProperties: NotRequired[Sequence[TaskPropertiesOverrideTypeDef]]
+
+
+class ContainerDetailTypeDef(TypedDict):
+    image: NotRequired[str]
+    vcpus: NotRequired[int]
+    memory: NotRequired[int]
+    command: NotRequired[list[str]]
+    jobRoleArn: NotRequired[str]
+    executionRoleArn: NotRequired[str]
+    volumes: NotRequired[list[VolumeTypeDef]]
+    environment: NotRequired[list[KeyValuePairTypeDef]]
+    mountPoints: NotRequired[list[MountPointTypeDef]]
+    readonlyRootFilesystem: NotRequired[bool]
+    ulimits: NotRequired[list[UlimitTypeDef]]
+    privileged: NotRequired[bool]
+    user: NotRequired[str]
+    exitCode: NotRequired[int]
+    reason: NotRequired[str]
+    containerInstanceArn: NotRequired[str]
+    taskArn: NotRequired[str]
+    logStreamName: NotRequired[str]
+    instanceType: NotRequired[str]
+    networkInterfaces: NotRequired[list[NetworkInterfaceTypeDef]]
+    resourceRequirements: NotRequired[list[ResourceRequirementTypeDef]]
+    linuxParameters: NotRequired[LinuxParametersOutputTypeDef]
+    logConfiguration: NotRequired[LogConfigurationOutputTypeDef]
+    secrets: NotRequired[list[SecretTypeDef]]
+    networkConfiguration: NotRequired[NetworkConfigurationTypeDef]
+    fargatePlatformConfiguration: NotRequired[FargatePlatformConfigurationTypeDef]
+    ephemeralStorage: NotRequired[EphemeralStorageTypeDef]
+    runtimePlatform: NotRequired[RuntimePlatformTypeDef]
+    repositoryCredentials: NotRequired[RepositoryCredentialsTypeDef]
+    enableExecuteCommand: NotRequired[bool]
+
+
+class ContainerPropertiesOutputTypeDef(TypedDict):
+    image: NotRequired[str]
+    vcpus: NotRequired[int]
+    memory: NotRequired[int]
+    command: NotRequired[list[str]]
+    jobRoleArn: NotRequired[str]
+    executionRoleArn: NotRequired[str]
+    volumes: NotRequired[list[VolumeTypeDef]]
+    environment: NotRequired[list[KeyValuePairTypeDef]]
+    mountPoints: NotRequired[list[MountPointTypeDef]]
+    readonlyRootFilesystem: NotRequired[bool]
+    privileged: NotRequired[bool]
+    ulimits: NotRequired[list[UlimitTypeDef]]
+    user: NotRequired[str]
+    instanceType: NotRequired[str]
+    resourceRequirements: NotRequired[list[ResourceRequirementTypeDef]]
+    linuxParameters: NotRequired[LinuxParametersOutputTypeDef]
+    logConfiguration: NotRequired[LogConfigurationOutputTypeDef]
+    secrets: NotRequired[list[SecretTypeDef]]
+    networkConfiguration: NotRequired[NetworkConfigurationTypeDef]
+    fargatePlatformConfiguration: NotRequired[FargatePlatformConfigurationTypeDef]
+    enableExecuteCommand: NotRequired[bool]
+    ephemeralStorage: NotRequired[EphemeralStorageTypeDef]
+    runtimePlatform: NotRequired[RuntimePlatformTypeDef]
+    repositoryCredentials: NotRequired[RepositoryCredentialsTypeDef]
+
+
+class ContainerPropertiesTypeDef(TypedDict):
+    image: NotRequired[str]
+    vcpus: NotRequired[int]
+    memory: NotRequired[int]
+    command: NotRequired[Sequence[str]]
+    jobRoleArn: NotRequired[str]
+    executionRoleArn: NotRequired[str]
+    volumes: NotRequired[Sequence[VolumeTypeDef]]
+    environment: NotRequired[Sequence[KeyValuePairTypeDef]]
+    mountPoints: NotRequired[Sequence[MountPointTypeDef]]
+    readonlyRootFilesystem: NotRequired[bool]
+    privileged: NotRequired[bool]
+    ulimits: NotRequired[Sequence[UlimitTypeDef]]
+    user: NotRequired[str]
+    instanceType: NotRequired[str]
+    resourceRequirements: NotRequired[Sequence[ResourceRequirementTypeDef]]
+    linuxParameters: NotRequired[LinuxParametersTypeDef]
+    logConfiguration: NotRequired[LogConfigurationTypeDef]
+    secrets: NotRequired[Sequence[SecretTypeDef]]
+    networkConfiguration: NotRequired[NetworkConfigurationTypeDef]
+    fargatePlatformConfiguration: NotRequired[FargatePlatformConfigurationTypeDef]
+    enableExecuteCommand: NotRequired[bool]
+    ephemeralStorage: NotRequired[EphemeralStorageTypeDef]
+    runtimePlatform: NotRequired[RuntimePlatformTypeDef]
+    repositoryCredentials: NotRequired[RepositoryCredentialsTypeDef]
+
+
+class EksPodPropertiesOverrideTypeDef(TypedDict):
+    containers: NotRequired[Sequence[EksContainerOverrideTypeDef]]
+    initContainers: NotRequired[Sequence[EksContainerOverrideTypeDef]]
+    metadata: NotRequired[EksMetadataUnionTypeDef]
+
+
+class EksPropertiesDetailTypeDef(TypedDict):
+    podProperties: NotRequired[EksPodPropertiesDetailTypeDef]
+
+
+class EksPropertiesOutputTypeDef(TypedDict):
+    podProperties: NotRequired[EksPodPropertiesOutputTypeDef]
+
+
+class EksPropertiesTypeDef(TypedDict):
+    podProperties: NotRequired[EksPodPropertiesTypeDef]
+
+
+class DescribeSchedulingPoliciesResponseTypeDef(TypedDict):
+    schedulingPolicies: list[SchedulingPolicyDetailTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateSchedulingPolicyRequestTypeDef(TypedDict):
+    name: str
+    quotaSharePolicy: NotRequired[QuotaSharePolicyTypeDef]
+    fairsharePolicy: NotRequired[FairsharePolicyUnionTypeDef]
+    tags: NotRequired[Mapping[str, str]]
+
+
+class UpdateSchedulingPolicyRequestTypeDef(TypedDict):
+    arn: str
+    quotaSharePolicy: NotRequired[QuotaSharePolicyTypeDef]
+    fairsharePolicy: NotRequired[FairsharePolicyUnionTypeDef]
+
+
+ComputeResourceOutputTypeDef = TypedDict(
+    "ComputeResourceOutputTypeDef",
+    {
+        "type": CRTypeType,
+        "maxvCpus": int,
+        "allocationStrategy": NotRequired[CRAllocationStrategyType],
+        "minvCpus": NotRequired[int],
+        "desiredvCpus": NotRequired[int],
+        "instanceTypes": NotRequired[list[str]],
+        "imageId": NotRequired[str],
+        "subnets": NotRequired[list[str]],
+        "securityGroupIds": NotRequired[list[str]],
+        "ec2KeyPair": NotRequired[str],
+        "instanceRole": NotRequired[str],
+        "tags": NotRequired[dict[str, str]],
+        "placementGroup": NotRequired[str],
+        "bidPercentage": NotRequired[int],
+        "spotIamFleetRole": NotRequired[str],
+        "launchTemplate": NotRequired[LaunchTemplateSpecificationOutputTypeDef],
+        "ec2Configuration": NotRequired[list[Ec2ConfigurationTypeDef]],
+        "scalingPolicy": NotRequired[ComputeScalingPolicyTypeDef],
+        "managedInstancesProvider": NotRequired[ManagedInstancesProviderOutputTypeDef],
+        "capacityTags": NotRequired[dict[str, str]],
+    },
+)
+
+
+class UpdateManagedInstancesProviderConfigurationTypeDef(TypedDict):
+    propagateTags: NotRequired[str]
+    infrastructureRoleArn: NotRequired[str]
+    instanceLaunchTemplate: NotRequired[InstanceLaunchTemplateUpdateTypeDef]
+    infrastructureOptimization: NotRequired[InfrastructureOptimizationTypeDef]
+
+
+class ListServiceJobsResponseTypeDef(TypedDict):
+    jobSummaryList: list[ServiceJobSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class DescribeServiceJobResponseTypeDef(TypedDict):
+    attempts: list[ServiceJobAttemptDetailTypeDef]
+    capacityUsage: list[ServiceJobCapacityUsageDetailTypeDef]
+    createdAt: int
+    isTerminated: bool
+    jobArn: str
+    jobId: str
+    jobName: str
+    jobQueue: str
+    latestAttempt: LatestServiceJobAttemptTypeDef
+    retryStrategy: ServiceJobRetryStrategyOutputTypeDef
+    scheduledAt: int
+    schedulingPriority: int
+    serviceRequestPayload: str
+    serviceJobType: Literal["SAGEMAKER_TRAINING"]
+    shareIdentifier: str
+    quotaShareName: str
+    preemptionConfiguration: ServiceJobPreemptionConfigurationTypeDef
+    preemptionSummary: ServiceJobPreemptionSummaryTypeDef
+    startedAt: int
+    status: ServiceJobStatusType
+    statusReason: str
+    stoppedAt: int
+    tags: dict[str, str]
+    timeoutConfig: ServiceJobTimeoutTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+ComputeResourceTypeDef = TypedDict(
+    "ComputeResourceTypeDef",
+    {
+        "type": CRTypeType,
+        "maxvCpus": int,
+        "allocationStrategy": NotRequired[CRAllocationStrategyType],
+        "minvCpus": NotRequired[int],
+        "desiredvCpus": NotRequired[int],
+        "instanceTypes": NotRequired[Sequence[str]],
+        "imageId": NotRequired[str],
+        "subnets": NotRequired[Sequence[str]],
+        "securityGroupIds": NotRequired[Sequence[str]],
+        "ec2KeyPair": NotRequired[str],
+        "instanceRole": NotRequired[str],
+        "tags": NotRequired[Mapping[str, str]],
+        "placementGroup": NotRequired[str],
+        "bidPercentage": NotRequired[int],
+        "spotIamFleetRole": NotRequired[str],
+        "launchTemplate": NotRequired[LaunchTemplateSpecificationTypeDef],
+        "ec2Configuration": NotRequired[Sequence[Ec2ConfigurationTypeDef]],
+        "scalingPolicy": NotRequired[ComputeScalingPolicyTypeDef],
+        "managedInstancesProvider": NotRequired[ManagedInstancesProviderTypeDef],
+        "capacityTags": NotRequired[Mapping[str, str]],
+    },
+)
+LaunchTemplateSpecificationUnionTypeDef = Union[
+    LaunchTemplateSpecificationTypeDef, LaunchTemplateSpecificationOutputTypeDef
+]
+
+
+class EcsTaskDetailsTypeDef(TypedDict):
+    containers: NotRequired[list[TaskContainerDetailsTypeDef]]
+    containerInstanceArn: NotRequired[str]
+    taskArn: NotRequired[str]
+    ephemeralStorage: NotRequired[EphemeralStorageTypeDef]
+    executionRoleArn: NotRequired[str]
+    platformVersion: NotRequired[str]
+    ipcMode: NotRequired[str]
+    taskRoleArn: NotRequired[str]
+    pidMode: NotRequired[str]
+    networkConfiguration: NotRequired[NetworkConfigurationTypeDef]
+    runtimePlatform: NotRequired[RuntimePlatformTypeDef]
+    volumes: NotRequired[list[VolumeTypeDef]]
+    enableExecuteCommand: NotRequired[bool]
+    networkMode: NotRequired[str]
+
+
+class EcsTaskPropertiesOutputTypeDef(TypedDict):
+    containers: list[TaskContainerPropertiesOutputTypeDef]
+    ephemeralStorage: NotRequired[EphemeralStorageTypeDef]
+    executionRoleArn: NotRequired[str]
+    platformVersion: NotRequired[str]
+    ipcMode: NotRequired[str]
+    taskRoleArn: NotRequired[str]
+    pidMode: NotRequired[str]
+    networkConfiguration: NotRequired[NetworkConfigurationTypeDef]
+    runtimePlatform: NotRequired[RuntimePlatformTypeDef]
+    volumes: NotRequired[list[VolumeTypeDef]]
+    enableExecuteCommand: NotRequired[bool]
+    networkMode: NotRequired[str]
+
+
+class EcsTaskPropertiesTypeDef(TypedDict):
+    containers: Sequence[TaskContainerPropertiesTypeDef]
+    ephemeralStorage: NotRequired[EphemeralStorageTypeDef]
+    executionRoleArn: NotRequired[str]
+    platformVersion: NotRequired[str]
+    ipcMode: NotRequired[str]
+    taskRoleArn: NotRequired[str]
+    pidMode: NotRequired[str]
+    networkConfiguration: NotRequired[NetworkConfigurationTypeDef]
+    runtimePlatform: NotRequired[RuntimePlatformTypeDef]
+    volumes: NotRequired[Sequence[VolumeTypeDef]]
+    enableExecuteCommand: NotRequired[bool]
+    networkMode: NotRequired[str]
+
+
+class QueueSnapshotUtilizationDetailTypeDef(TypedDict):
+    totalCapacityUsage: NotRequired[list[QueueSnapshotCapacityUsageTypeDef]]
+    fairshareUtilization: NotRequired[FairshareUtilizationDetailTypeDef]
+    quotaShareUtilization: NotRequired[QuotaShareUtilizationDetailTypeDef]
+    lastUpdatedAt: NotRequired[int]
+
+
+class SubmitServiceJobRequestTypeDef(TypedDict):
+    jobName: str
+    jobQueue: str
+    serviceRequestPayload: str
+    serviceJobType: Literal["SAGEMAKER_TRAINING"]
+    retryStrategy: NotRequired[ServiceJobRetryStrategyUnionTypeDef]
+    schedulingPriority: NotRequired[int]
+    shareIdentifier: NotRequired[str]
+    quotaShareName: NotRequired[str]
+    preemptionConfiguration: NotRequired[ServiceJobPreemptionConfigurationTypeDef]
+    timeoutConfig: NotRequired[ServiceJobTimeoutTypeDef]
+    tags: NotRequired[Mapping[str, str]]
+    clientToken: NotRequired[str]
+
+
+ContainerPropertiesUnionTypeDef = Union[
+    ContainerPropertiesTypeDef, ContainerPropertiesOutputTypeDef
+]
+
+
+class EksPropertiesOverrideTypeDef(TypedDict):
+    podProperties: NotRequired[EksPodPropertiesOverrideTypeDef]
+
+
+EksPropertiesUnionTypeDef = Union[EksPropertiesTypeDef, EksPropertiesOutputTypeDef]
+ComputeEnvironmentDetailTypeDef = TypedDict(
+    "ComputeEnvironmentDetailTypeDef",
+    {
+        "computeEnvironmentName": str,
+        "computeEnvironmentArn": str,
+        "unmanagedvCpus": NotRequired[int],
+        "ecsClusterArn": NotRequired[str],
+        "tags": NotRequired[dict[str, str]],
+        "type": NotRequired[CETypeType],
+        "state": NotRequired[CEStateType],
+        "status": NotRequired[CEStatusType],
+        "statusReason": NotRequired[str],
+        "computeResources": NotRequired[ComputeResourceOutputTypeDef],
+        "serviceRole": NotRequired[str],
+        "updatePolicy": NotRequired[UpdatePolicyTypeDef],
+        "eksConfiguration": NotRequired[EksConfigurationTypeDef],
+        "containerOrchestrationType": NotRequired[OrchestrationTypeType],
+        "uuid": NotRequired[str],
+        "context": NotRequired[str],
+        "ecsSettings": NotRequired[EcsSettingsTypeDef],
+    },
+)
+ComputeResourceUnionTypeDef = Union[ComputeResourceTypeDef, ComputeResourceOutputTypeDef]
+ComputeResourceUpdateTypeDef = TypedDict(
+    "ComputeResourceUpdateTypeDef",
+    {
+        "minvCpus": NotRequired[int],
+        "maxvCpus": NotRequired[int],
+        "desiredvCpus": NotRequired[int],
+        "subnets": NotRequired[Sequence[str]],
+        "securityGroupIds": NotRequired[Sequence[str]],
+        "allocationStrategy": NotRequired[CRUpdateAllocationStrategyType],
+        "instanceTypes": NotRequired[Sequence[str]],
+        "ec2KeyPair": NotRequired[str],
+        "instanceRole": NotRequired[str],
+        "tags": NotRequired[Mapping[str, str]],
+        "placementGroup": NotRequired[str],
+        "bidPercentage": NotRequired[int],
+        "launchTemplate": NotRequired[LaunchTemplateSpecificationUnionTypeDef],
+        "ec2Configuration": NotRequired[Sequence[Ec2ConfigurationTypeDef]],
+        "updateToLatestImageVersion": NotRequired[bool],
+        "type": NotRequired[CRTypeType],
+        "imageId": NotRequired[str],
+        "scalingPolicy": NotRequired[ComputeScalingPolicyTypeDef],
+        "managedInstancesProvider": NotRequired[UpdateManagedInstancesProviderConfigurationTypeDef],
+        "capacityTags": NotRequired[Mapping[str, str]],
+    },
+)
+
+
+class EcsPropertiesDetailTypeDef(TypedDict):
+    taskProperties: NotRequired[list[EcsTaskDetailsTypeDef]]
+
+
+class EcsPropertiesOutputTypeDef(TypedDict):
+    taskProperties: list[EcsTaskPropertiesOutputTypeDef]
+
+
+class EcsPropertiesTypeDef(TypedDict):
+    taskProperties: Sequence[EcsTaskPropertiesTypeDef]
+
+
+class GetJobQueueSnapshotResponseTypeDef(TypedDict):
+    frontOfQueue: FrontOfQueueDetailTypeDef
+    frontOfQuotaShares: FrontOfQuotaSharesDetailTypeDef
+    queueUtilization: QueueSnapshotUtilizationDetailTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class NodePropertyOverrideTypeDef(TypedDict):
+    targetNodes: str
+    containerOverrides: NotRequired[ContainerOverridesTypeDef]
+    ecsPropertiesOverride: NotRequired[EcsPropertiesOverrideTypeDef]
+    instanceTypes: NotRequired[Sequence[str]]
+    eksPropertiesOverride: NotRequired[EksPropertiesOverrideTypeDef]
+    consumableResourcePropertiesOverride: NotRequired[ConsumableResourcePropertiesUnionTypeDef]
+
+
+class DescribeComputeEnvironmentsResponseTypeDef(TypedDict):
+    computeEnvironments: list[ComputeEnvironmentDetailTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+CreateComputeEnvironmentRequestTypeDef = TypedDict(
+    "CreateComputeEnvironmentRequestTypeDef",
+    {
+        "computeEnvironmentName": str,
+        "type": CETypeType,
+        "state": NotRequired[CEStateType],
+        "unmanagedvCpus": NotRequired[int],
+        "computeResources": NotRequired[ComputeResourceUnionTypeDef],
+        "serviceRole": NotRequired[str],
+        "tags": NotRequired[Mapping[str, str]],
+        "eksConfiguration": NotRequired[EksConfigurationTypeDef],
+        "context": NotRequired[str],
+        "ecsSettings": NotRequired[EcsSettingsTypeDef],
+    },
+)
+
+
+class UpdateComputeEnvironmentRequestTypeDef(TypedDict):
+    computeEnvironment: str
+    state: NotRequired[CEStateType]
+    unmanagedvCpus: NotRequired[int]
+    computeResources: NotRequired[ComputeResourceUpdateTypeDef]
+    serviceRole: NotRequired[str]
+    updatePolicy: NotRequired[UpdatePolicyTypeDef]
+    context: NotRequired[str]
+    ecsSettings: NotRequired[EcsSettingsTypeDef]
+    eksConfiguration: NotRequired[EksConfigurationUpdateTypeDef]
+
+
+class NodeRangePropertyOutputTypeDef(TypedDict):
+    targetNodes: str
+    container: NotRequired[ContainerPropertiesOutputTypeDef]
+    instanceTypes: NotRequired[list[str]]
+    ecsProperties: NotRequired[EcsPropertiesOutputTypeDef]
+    eksProperties: NotRequired[EksPropertiesOutputTypeDef]
+    consumableResourceProperties: NotRequired[ConsumableResourcePropertiesOutputTypeDef]
+
+
+EcsPropertiesUnionTypeDef = Union[EcsPropertiesTypeDef, EcsPropertiesOutputTypeDef]
+
+
+class NodeRangePropertyTypeDef(TypedDict):
+    targetNodes: str
+    container: NotRequired[ContainerPropertiesTypeDef]
+    instanceTypes: NotRequired[Sequence[str]]
+    ecsProperties: NotRequired[EcsPropertiesTypeDef]
+    eksProperties: NotRequired[EksPropertiesTypeDef]
+    consumableResourceProperties: NotRequired[ConsumableResourcePropertiesTypeDef]
+
+
+class NodeOverridesTypeDef(TypedDict):
+    numNodes: NotRequired[int]
+    nodePropertyOverrides: NotRequired[Sequence[NodePropertyOverrideTypeDef]]
+
+
+class NodePropertiesOutputTypeDef(TypedDict):
+    numNodes: int
+    mainNode: int
+    nodeRangeProperties: list[NodeRangePropertyOutputTypeDef]
+
+
+class NodePropertiesTypeDef(TypedDict):
+    numNodes: int
+    mainNode: int
+    nodeRangeProperties: Sequence[NodeRangePropertyTypeDef]
+
+
+class SubmitJobRequestTypeDef(TypedDict):
+    jobName: str
+    jobQueue: str
+    jobDefinition: str
+    shareIdentifier: NotRequired[str]
+    schedulingPriorityOverride: NotRequired[int]
+    arrayProperties: NotRequired[ArrayPropertiesTypeDef]
+    dependsOn: NotRequired[Sequence[JobDependencyTypeDef]]
+    parameters: NotRequired[Mapping[str, str]]
+    containerOverrides: NotRequired[ContainerOverridesTypeDef]
+    nodeOverrides: NotRequired[NodeOverridesTypeDef]
+    retryStrategy: NotRequired[RetryStrategyUnionTypeDef]
+    propagateTags: NotRequired[bool]
+    timeout: NotRequired[JobTimeoutTypeDef]
+    tags: NotRequired[Mapping[str, str]]
+    eksPropertiesOverride: NotRequired[EksPropertiesOverrideTypeDef]
+    ecsPropertiesOverride: NotRequired[EcsPropertiesOverrideTypeDef]
+    consumableResourcePropertiesOverride: NotRequired[ConsumableResourcePropertiesUnionTypeDef]
+
+
+JobDefinitionTypeDef = TypedDict(
+    "JobDefinitionTypeDef",
+    {
+        "jobDefinitionName": str,
+        "jobDefinitionArn": str,
+        "revision": int,
+        "type": str,
+        "status": NotRequired[str],
+        "schedulingPriority": NotRequired[int],
+        "parameters": NotRequired[dict[str, str]],
+        "retryStrategy": NotRequired[RetryStrategyOutputTypeDef],
+        "containerProperties": NotRequired[ContainerPropertiesOutputTypeDef],
+        "timeout": NotRequired[JobTimeoutTypeDef],
+        "nodeProperties": NotRequired[NodePropertiesOutputTypeDef],
+        "tags": NotRequired[dict[str, str]],
+        "propagateTags": NotRequired[bool],
+        "platformCapabilities": NotRequired[list[PlatformCapabilityType]],
+        "ecsProperties": NotRequired[EcsPropertiesOutputTypeDef],
+        "eksProperties": NotRequired[EksPropertiesOutputTypeDef],
+        "containerOrchestrationType": NotRequired[OrchestrationTypeType],
+        "consumableResourceProperties": NotRequired[ConsumableResourcePropertiesOutputTypeDef],
+    },
+)
+
+
+class JobDetailTypeDef(TypedDict):
+    jobName: str
+    jobId: str
+    jobQueue: str
+    status: JobStatusType
+    startedAt: int
+    jobDefinition: str
+    jobArn: NotRequired[str]
+    shareIdentifier: NotRequired[str]
+    schedulingPriority: NotRequired[int]
+    attempts: NotRequired[list[AttemptDetailTypeDef]]
+    statusReason: NotRequired[str]
+    createdAt: NotRequired[int]
+    retryStrategy: NotRequired[RetryStrategyOutputTypeDef]
+    stoppedAt: NotRequired[int]
+    dependsOn: NotRequired[list[JobDependencyTypeDef]]
+    parameters: NotRequired[dict[str, str]]
+    container: NotRequired[ContainerDetailTypeDef]
+    nodeDetails: NotRequired[NodeDetailsTypeDef]
+    nodeProperties: NotRequired[NodePropertiesOutputTypeDef]
+    arrayProperties: NotRequired[ArrayPropertiesDetailTypeDef]
+    timeout: NotRequired[JobTimeoutTypeDef]
+    tags: NotRequired[dict[str, str]]
+    propagateTags: NotRequired[bool]
+    platformCapabilities: NotRequired[list[PlatformCapabilityType]]
+    eksProperties: NotRequired[EksPropertiesDetailTypeDef]
+    eksAttempts: NotRequired[list[EksAttemptDetailTypeDef]]
+    ecsProperties: NotRequired[EcsPropertiesDetailTypeDef]
+    isCancelled: NotRequired[bool]
+    isTerminated: NotRequired[bool]
+    consumableResourceProperties: NotRequired[ConsumableResourcePropertiesOutputTypeDef]
+
+
+NodePropertiesUnionTypeDef = Union[NodePropertiesTypeDef, NodePropertiesOutputTypeDef]
+
+
+class DescribeJobDefinitionsResponseTypeDef(TypedDict):
+    jobDefinitions: list[JobDefinitionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class DescribeJobsResponseTypeDef(TypedDict):
+    jobs: list[JobDetailTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+RegisterJobDefinitionRequestTypeDef = TypedDict(
+    "RegisterJobDefinitionRequestTypeDef",
+    {
+        "jobDefinitionName": str,
+        "type": JobDefinitionTypeType,
+        "parameters": NotRequired[Mapping[str, str]],
+        "schedulingPriority": NotRequired[int],
+        "containerProperties": NotRequired[ContainerPropertiesUnionTypeDef],
+        "nodeProperties": NotRequired[NodePropertiesUnionTypeDef],
+        "retryStrategy": NotRequired[RetryStrategyUnionTypeDef],
+        "propagateTags": NotRequired[bool],
+        "timeout": NotRequired[JobTimeoutTypeDef],
+        "tags": NotRequired[Mapping[str, str]],
+        "platformCapabilities": NotRequired[Sequence[PlatformCapabilityType]],
+        "eksProperties": NotRequired[EksPropertiesUnionTypeDef],
+        "ecsProperties": NotRequired[EcsPropertiesUnionTypeDef],
+        "consumableResourceProperties": NotRequired[ConsumableResourcePropertiesUnionTypeDef],
+    },
+)

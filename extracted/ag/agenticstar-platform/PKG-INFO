@@ -1,0 +1,1181 @@
+Metadata-Version: 2.5
+Name: agenticstar-platform
+Version: 3.0.8
+Summary: AGENTICSTAR Platform SDK - Enterprise AI Agent Infrastructure
+Project-URL: Homepage, https://developers.fd.agenticstar.tm.softbank.jp/
+Project-URL: Documentation, https://developers.fd.agenticstar.tm.softbank.jp/
+Project-URL: Repository, https://github.com/softbank/agenticstar-platform
+Project-URL: Developer Portal, https://developers.fd.agenticstar.tm.softbank.jp/
+Author-email: "SoftBank Corp." <agenticai@softbank.co.jp>
+License-Expression: MIT
+License-File: LICENSE
+Keywords: agent,ai,enterprise,llm,rag,vector-database
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.11
+Requires-Dist: httpx>=0.26.0
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: pyyaml>=6.0
+Provides-Extra: all
+Requires-Dist: aiohttp>=3.9.0; extra == 'all'
+Requires-Dist: asyncpg>=0.29.0; extra == 'all'
+Requires-Dist: azure-identity>=1.15.0; extra == 'all'
+Requires-Dist: azure-storage-blob>=12.19.0; extra == 'all'
+Requires-Dist: boto3>=1.34.0; extra == 'all'
+Requires-Dist: google-cloud-aiplatform>=1.60.0; extra == 'all'
+Requires-Dist: google-cloud-dlp>=3.12.0; extra == 'all'
+Requires-Dist: google-cloud-storage>=2.14.0; extra == 'all'
+Requires-Dist: mem0ai<3.0.0,>=2.0.0; extra == 'all'
+Requires-Dist: openai>=1.0.0; extra == 'all'
+Requires-Dist: qdrant-client>=1.13.0; extra == 'all'
+Provides-Extra: db
+Requires-Dist: asyncpg>=0.29.0; extra == 'db'
+Requires-Dist: azure-identity>=1.15.0; extra == 'db'
+Provides-Extra: dev
+Requires-Dist: mypy>=1.7.0; extra == 'dev'
+Requires-Dist: pytest-asyncio>=0.21.0; extra == 'dev'
+Requires-Dist: pytest-cov>=4.1.0; extra == 'dev'
+Requires-Dist: pytest>=7.4.0; extra == 'dev'
+Requires-Dist: ruff>=0.1.0; extra == 'dev'
+Provides-Extra: lab
+Requires-Dist: asyncpg>=0.29.0; extra == 'lab'
+Requires-Dist: azure-identity>=1.15.0; extra == 'lab'
+Requires-Dist: boto3>=1.34.0; extra == 'lab'
+Requires-Dist: openai>=1.0.0; extra == 'lab'
+Requires-Dist: qdrant-client>=1.13.0; extra == 'lab'
+Provides-Extra: memory
+Requires-Dist: mem0ai<3.0.0,>=2.0.0; extra == 'memory'
+Provides-Extra: rag
+Requires-Dist: openai>=1.0.0; extra == 'rag'
+Requires-Dist: qdrant-client>=1.13.0; extra == 'rag'
+Provides-Extra: runner
+Requires-Dist: aiohttp>=3.9.0; extra == 'runner'
+Requires-Dist: asyncpg>=0.29.0; extra == 'runner'
+Requires-Dist: azure-identity>=1.15.0; extra == 'runner'
+Provides-Extra: security
+Requires-Dist: google-cloud-aiplatform>=1.60.0; extra == 'security'
+Requires-Dist: google-cloud-dlp>=3.12.0; extra == 'security'
+Requires-Dist: httpx>=0.26.0; extra == 'security'
+Provides-Extra: security-aws
+Requires-Dist: boto3>=1.34.0; extra == 'security-aws'
+Provides-Extra: storage
+Requires-Dist: azure-storage-blob>=12.19.0; extra == 'storage'
+Requires-Dist: boto3>=1.34.0; extra == 'storage'
+Requires-Dist: google-cloud-storage>=2.14.0; extra == 'storage'
+Provides-Extra: storage-aws
+Requires-Dist: boto3>=1.34.0; extra == 'storage-aws'
+Provides-Extra: storage-azure
+Requires-Dist: azure-storage-blob>=12.19.0; extra == 'storage-azure'
+Provides-Extra: storage-gcp
+Requires-Dist: google-cloud-storage>=2.14.0; extra == 'storage-gcp'
+Provides-Extra: webhook
+Requires-Dist: aiohttp>=3.9.0; extra == 'webhook'
+Description-Content-Type: text/markdown
+
+# AGENTICSTAR Platform SDK
+
+Enterprise AI Agent Infrastructure SDK for building autonomous agent systems.
+
+## Installation
+
+Requires Python 3.11+.
+
+```bash
+# Core (minimal) — Events / Storage paths / Metering / Auth / Security / Audit / Policy / Workflow
+pip install agenticstar-platform
+
+# With specific modules
+pip install agenticstar-platform[db]           # PostgreSQL
+pip install agenticstar-platform[rag]          # Qdrant + Embedding
+pip install agenticstar-platform[storage]      # Azure Blob, S3, GCS
+pip install agenticstar-platform[storage-azure] # Azure Blob only (AzureBlobStorageClient)
+pip install agenticstar-platform[storage-aws]   # AWS S3 only (S3StorageClient)
+pip install agenticstar-platform[storage-gcp]   # GCS only (GCSStorageClient)
+pip install agenticstar-platform[memory]       # Semantic memory (Mem0)
+pip install agenticstar-platform[security]     # PII detection
+pip install agenticstar-platform[security-aws] # AWS content safety (AWSSecurityClient)
+pip install agenticstar-platform[webhook]      # aiohttp (WebhookEventHandler)
+pip install agenticstar-platform[runner]       # Marketplace runner (run_marketplace_agent)
+pip install agenticstar-platform[lab]          # Local Integration Lab
+pip install agenticstar-platform[all]          # All modules
+```
+
+Accessing a component through the top-level package (`from agenticstar_platform import ...`) when its
+extra is not installed raises an `ImportError` that names the extra you need, instead of a raw
+`ModuleNotFoundError`. (Importing a submodule such as `agenticstar_platform.db` directly without its
+extra raises the underlying `ModuleNotFoundError`.)
+
+```
+ImportError: 'PostgreSQLManager' requires the 'db' extra of agenticstar-platform.
+Install it with:  pip install 'agenticstar-platform[db]'  (missing dependency: No module named 'asyncpg')
+```
+
+Storage provider clients follow the same contract. Core types such as `StorageConfig` /
+`StoragePaths` import without any extra, while `AzureBlobStorageClient` (`storage-azure`) /
+`S3StorageClient` (`storage-aws`) / `GCSStorageClient` (`storage-gcp`) point to the matching
+extra **as soon as the symbol is accessed** (not deferred to the constructor). The
+success / failure boundary is the same whether you use
+`from agenticstar_platform import S3StorageClient` or
+`from agenticstar_platform.storage import S3StorageClient`.
+
+## Quick Start
+
+### 1. A minimal agent (no external services, copy and run)
+
+Your agent's logic, LLM and framework are **entirely your choice** — the SDK does not provide them.
+The SDK takes care of the infrastructure, such as delivering progress and results to the frontend.
+First, let's run a single path from **progress event → terminal event** with no external services.
+
+`hello_agent.py`:
+
+```python
+import asyncio
+
+from agenticstar_platform import EventEmitter, EventType, create_json_handler
+
+
+async def my_agent(emitter: EventEmitter, request: str) -> None:
+    """Your agent. The logic is up to you (LangChain / OpenAI Agents SDK / your own)."""
+    await emitter.emit_event(EventType.PHASE_START, f"received: {request}")
+    try:
+        answer = request.upper()  # replace this with your actual logic
+        await emitter.emit_event(EventType.COMPLETION_SUCCESS, answer)
+    except Exception as e:
+        # Always send exactly one terminal event (otherwise the frontend never shows completion)
+        await emitter.emit_event(EventType.COMPLETION_FAILURE, str(e))
+
+
+async def main() -> None:
+    emitter = EventEmitter(execution_id="demo-001", handler=create_json_handler())
+    asyncio.create_task(my_agent(emitter, "hello agenticstar"))
+
+    # Stops automatically once COMPLETION_SUCCESS / COMPLETION_FAILURE is received
+    async for chunk in emitter.consume_events():
+        print(chunk)  # create_json_handler output has no newline, so print one line per chunk
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+```bash
+pip install agenticstar-platform
+python hello_agent.py
+```
+
+Output (`create_json_handler()` returns JSON lines, `create_sse_handler()` returns SSE format):
+
+```json
+{"event_type": "phase_start", "execution_id": "demo-001", "message": "received: hello agenticstar", "timestamp": 1785162261.27}
+{"event_type": "completion_success", "execution_id": "demo-001", "message": "HELLO AGENTICSTAR", "timestamp": 1785162261.27}
+```
+
+Change the `answer = ...` line to `raise RuntimeError("upstream timeout")` and
+`completion_failure` is emitted as the terminal event instead.
+
+Note that `emit_event()` only enqueues. In setups that do not run `consume_events()` as above
+(i.e. without SSE), handlers do not fire until you call `EventEmitter.drain()`.
+
+### 2. Run the same function Marketplace-compatible (runner)
+
+An agent function that works locally can be passed to `run_marketplace_agent` as-is to run it
+with the Marketplace-compatible terminal lifecycle. Receiving and validating the identity
+(`EXECUTION_ID` etc.), fetching the input message, persisting the result to the DB, webhook
+notification, the terminal event (**exactly once, whatever happens**) and cleanup are all
+handled by the runner — none of it is written in your agent.
+
+`marketplace_agent.py`:
+
+```python
+from agenticstar_platform import run_marketplace_agent
+
+
+async def my_agent(emitter, message: str) -> str:
+    """Your agent. The logic is up to you (LangChain / OpenAI Agents SDK / your own)."""
+    return message.upper()  # replace this with your actual logic
+
+
+if __name__ == "__main__":
+    run_marketplace_agent(my_agent)
+```
+
+```bash
+pip install 'agenticstar-platform[runner]'
+python marketplace_agent.py
+```
+
+Environment variable contract:
+
+| Variable | Set by | Required |
+|---|---|---|
+| `EXECUTION_ID` / `CONVERSATION_ID` / `USER_ID` / `MESSAGE_ID` | Injected by the Marketplace executor when the pod starts | ✅ |
+| `REQUEST_SOURCE` / `AGENT_ID` | Same as above (optional) | — |
+| `DB_HOST` / `DB_PORT` / `DB_DATABASE` / `DB_USER` / `DB_PASSWORD` | Env var settings at agent registration (`PostgreSQLConfig.from_env()` contract) | ✅ |
+| `WEBHOOK_URL` | Env var settings at agent registration | ✅ |
+
+Terminal event rules:
+
+- The agent function's return value is saved and delivered as the body of `completion_success`
+- If the agent function raises, the run converges to `completion_failure` (the traceback goes to logs only, never to the event body)
+- Agents that emit their own terminal event, like the local sample above, do not cause a duplicate (the same function works in both setups)
+- If a required env var is missing, the runner stops with `MarketplaceRunnerConfigError` without calling the agent
+
+If you need the low-level API (to compose handlers yourself), pass
+`create_marketplace_handler(data_access, webhook_url, user_id, conversation_id, message_id)`
+(a composite handler for DB persistence + webhook notification; requires the `[db]` + `[webhook]`
+extras) directly to `EventEmitter`, as before.
+
+### 2.5 Local Integration Lab (DB / RAG / storage without credentials)
+
+As the next step after Hello World, the package bundles a lab that starts PostgreSQL, Qdrant,
+S3-compatible storage and a deterministic offline embedding with a version-pinned Docker Compose
+file, and runs a synthetic document through
+`ingest → retrieve → artifact/result persist → terminal outcome` in a single command. No cloud
+account, production credentials or `.env` editing is needed (just Docker and Python 3.11+).
+
+The lab ships inside the package, so installing from PyPI is all you need:
+
+```bash
+pip install 'agenticstar-platform[lab]'
+python -m agenticstar_platform.lab     # diagnostics: same command + doctor; teardown: --reset
+```
+
+Local copies of artifacts are placed in `agenticstar-lab-artifacts/` under the current working
+directory. For details, see `agenticstar_platform/lab/README.md` in the installed package.
+
+### 3. Initializing the infrastructure components
+
+Below are initialization examples for each component (**excerpt**; running them requires
+connection details and credentials for the corresponding external services, and the matching
+extras).
+
+```python
+from agenticstar_platform import (
+    # Database
+    PostgreSQLManager, ApiPostgreSQLManager, PostgreSQLConfig, DataAccess,
+    # RAG (Vector DB + Embedding)
+    QdrantManager, QdrantConfig, EmbeddingGenerator, EmbeddingConfig,
+    # Storage
+    AzureBlobStorageClient, AzureBlobConfig,
+    # Events
+    EventEmitter, EventType,
+    # Auth
+    AgenticStarAuthClient, AgenticStarAuthConfig,
+    # Memory
+    SemanticMemoryClient, SemanticMemoryConfig,
+)
+
+# Example: Initialize SDK components
+async def main():
+    # Database (direct connection)
+    db_config = PostgreSQLConfig.from_toml("config.toml", section="database")
+    manager = PostgreSQLManager(db_config)
+    da = DataAccess(manager)
+    await da.initialize()
+    users = await da.fetch_all("SELECT * FROM users WHERE active = $1", (True,))
+
+    # Database (HTTP API)
+    db_config = PostgreSQLConfig(api_url="https://your-api.example.com/db")
+    manager = ApiPostgreSQLManager(db_config, token_provider=lambda: "your-token")
+    da = DataAccess(manager)
+    users = await da.fetch_all("SELECT * FROM users WHERE active = $1", (True,))
+
+    # RAG System
+    embedding_config = EmbeddingConfig.from_toml("config.toml", section="rag.embedding")
+    embedding_gen = EmbeddingGenerator(embedding_config)
+
+    qdrant_config = QdrantConfig.from_toml("config.toml", section="rag.qdrant")
+    async with QdrantManager(qdrant_config, embedding_gen) as qdrant:
+        results = await qdrant.search("How to use the SDK?", limit=5)
+
+    # Storage (uses from_dict, not from_toml)
+    storage_config = AzureBlobConfig.from_dict({
+        "bucket_name": "your-container",
+        "connection_string": "your-connection-string",
+    })
+    storage = AzureBlobStorageClient(storage_config)
+```
+
+## Modules
+
+| Module | Extra | Description |
+|--------|-------|-------------|
+| **db** | `[db]` | PostgreSQL data access layer with Azure AD support |
+| **rag** | `[rag]` | Qdrant vector database and Azure OpenAI / OpenAI-compatible embedding integration |
+| **storage** | `[storage]` / `[storage-azure]` / `[storage-aws]` / `[storage-gcp]` | Multi-cloud storage (Azure Blob, S3, GCS) |
+| **auth** | *(core)* | AgenticStar Auth API client (authentication, user management, MCP tokens) |
+| **memory** | `[memory]` | Semantic memory (Mem0 + Qdrant) |
+| **security** | `[security]` | PII detection (Azure Presidio, AWS Bedrock Guardrails / Comprehend, GCP DLP) |
+| **events** | *(core)* | Event type definitions for streaming |
+| **common** | *(core)* | Shared utilities (secret masking, validation) |
+| **metering** | *(core)* | LLM usage & cost ledger (`UsageMeter`) |
+| **runner** | `[runner]` | Marketplace-compatible run lifecycle (`run_marketplace_agent`) |
+| **audit** | *(core)* | Append-only action-audit ledgers and guardrail alert writers |
+| **policy** | *(core)* | Tool-call governance policy (pure computation) |
+| **workflow** | *(core)* | Runner for agents in project workflow steps (`mp-workflow/1`; Marketplace edition 3.1+) |
+
+### Auth Module
+
+```python
+from agenticstar_platform.auth import AgenticStarAuthClient, AgenticStarAuthConfig
+
+# From config.toml [auth.agenticstar] section
+config = AgenticStarAuthConfig.from_config("config.toml")
+client = AgenticStarAuthClient(config)
+
+# Get user info
+user = await client.get_user(user_id="user-001")
+
+# Get MCP tokens
+tokens = await client.get_mcp_tokens(user_id="user-001")
+```
+
+### Memory Module
+
+Semantic memory powered by Mem0 + Qdrant (requires `pip install agenticstar-platform[memory]`):
+
+```python
+from agenticstar_platform.memory import SemanticMemoryClient, SemanticMemoryConfig
+
+config = SemanticMemoryConfig.from_toml("config.toml")
+memory = SemanticMemoryClient(config)
+
+# Add memory (methods are synchronous; only cleanup() is async)
+memory.add(
+    [{"role": "user", "content": "User prefers dark mode"}],
+    user_id="user-001",
+)
+
+# Search memory
+results = memory.search("user preferences", user_id="user-001")
+```
+
+### Storage Module
+
+Note: `AzureBlobConfig` uses `from_dict()` (not `from_toml()`):
+
+```python
+from agenticstar_platform.storage import AzureBlobStorageClient, AzureBlobConfig
+
+config = AzureBlobConfig.from_dict({
+    "bucket_name": "your-container",
+    "connection_string": "DefaultEndpointsProtocol=https;...",
+    "prefix": "uploads/",
+})
+client = AzureBlobStorageClient(config)
+result = await client.upload_file("local/file.pdf", prefix="docs/")
+```
+
+### Telemetry / LLM Usage Tracking (Marketplace)
+
+`TelemetryAccess` (under `db` module) writes records to the `ai_telemetry` table. **Unknown fields are stored in the `metadata` jsonb column automatically** — no schema migration is required to add new tracking dimensions.
+
+For Marketplace agents that wrap LLM calls, the SDK defines **recommended field names** for token and model usage. Following this convention enables cross-agent cost / utilization analytics in shared dashboards.
+
+```python
+from agenticstar_platform.db import TelemetryAccess
+
+telemetry = TelemetryAccess(data_access)
+
+# After an LLM call from your custom agent:
+response = await openai_client.chat.completions.create(...)
+
+await telemetry.save_telemetry({
+    "conversation_id": conversation_id,
+    "agent_type": "my_marketplace_agent",
+    "service": "my-agent-service",
+    "operation": "generate_response",
+    "duration_ms": elapsed_ms,
+    "success": True,
+
+    # Recommended convention fields (stored automatically in metadata jsonb)
+    "prompt_tokens": response.usage.prompt_tokens,
+    "completion_tokens": response.usage.completion_tokens,
+    "total_tokens": response.usage.total_tokens,
+    "model": "azure/gpt-4.1",  # LiteLLM-style identifier
+})
+```
+
+#### Recommended convention fields
+
+| Field | Type | Source | Notes |
+|---|---|---|---|
+| `prompt_tokens` | int | `usage.prompt_tokens` (OpenAI / LiteLLM compatible) | Input tokens |
+| `completion_tokens` | int | `usage.completion_tokens` | Output tokens |
+| `total_tokens` | int | `usage.total_tokens` | Sum |
+| `model` | str | LiteLLM-style: `azure/gpt-4.1`, `bedrock/anthropic.claude-3-5-sonnet`, `openai/gpt-4o`, etc. | Provider/model identifier |
+
+These fields are **not** known columns — they land in `metadata` jsonb automatically. No SDK code change, no DB schema migration. Use the recommended names so that your data joins with platform-level analytics.
+
+#### Known columns (reserved field names)
+
+The following keys are written to their own `ai_telemetry` columns instead of `metadata`. Any other key lands in `metadata` jsonb.
+
+`timestamp`, `service`, `operation`, `duration_ms`, `conversation_id`, `intent_type`, `confidence_score`, `tools_used`, `success`, `agent_type`, `agent_level`, `task_complexity`, `current_message`, `context_summary`, `suggested_approach`, `conversation_goal`, `final_content`, `metadata`
+
+`tools_used` is an `integer` column holding a **count**:
+
+- `int` is stored as-is; a `list` / `tuple` is normalized to its length.
+- Not measured is `NULL`; measured-and-zero is `0` — the two are kept distinct.
+- Values the column cannot hold (a breakdown list, a wrong type, or a value outside the PostgreSQL `integer` range) are additionally kept under `metadata.tools_used`, so nothing is lost. The column value itself never fails a telemetry write; a raw value kept in `metadata` follows the same JSON-serializability rule as any other metadata field.
+
+> `tools_used` became a known column in **0.5.38** (use **0.5.39** or later). Before that it fell through to `metadata`; if you read `metadata->>'tools_used'` for plain integer counts, read the column instead.
+
+#### Cross-agent analytics example
+
+```sql
+-- Per-model token usage in the last 30 days
+SELECT
+  metadata->>'model' AS model,
+  agent_type,
+  SUM((metadata->>'prompt_tokens')::int)     AS total_prompt_tokens,
+  SUM((metadata->>'completion_tokens')::int) AS total_completion_tokens,
+  COUNT(*)                                    AS invocations,
+  AVG(duration_ms)::int                       AS avg_duration_ms
+FROM ai_telemetry
+WHERE timestamp > NOW() - INTERVAL '30 days'
+  AND metadata ? 'prompt_tokens'
+GROUP BY model, agent_type
+ORDER BY total_prompt_tokens DESC;
+```
+
+> **Updated in SDK ≥ 0.5.15:** Cost conversion is **no longer out of scope**. The new **Metering module (`UsageMeter`)** below computes cost via a *pluggable* engine (litellm by default — its community-maintained price map solves the "changes too frequently" problem; graceful `NULL` when litellm is absent). `TelemetryAccess` remains the place for agent **operational** telemetry (intent / tools / duration → `ai_telemetry`); `UsageMeter` is the dedicated **per-LLM-call cost ledger**. Use whichever fits; they are complementary.
+
+### Metering Module — `UsageMeter` (SDK ≥ 0.5.15)
+
+Dedicated LLM **usage & cost** infrastructure: computes cost from an LLM response/usage and records **one row per call** to `llm_usage_ledger`, with a daily rollup (`llm_usage_daily`) and cost-visualization queries. Pure infra — agent-logic agnostic, identical for self-hosted and **Marketplace BYO** (in-process; no proxy/header coupling).
+
+- **Pluggable cost**: default uses **litellm** (`completion_cost` / `cost_per_token`) — reflects long-context, prompt-cache and tier pricing. If litellm is absent, tokens are still recorded (`cost_usd = NULL`). Pass `cost_fn=...` to override.
+- **DB**: any handle exposing `execute_query(query, params) -> {success, data, error}` (the SDK's `DataAccess` / `PostgreSQLManager`).
+- **Usage status** (SDK ≥ 0.5.21): each row records `usage_status` (`present`/`missing`); when usage is absent, pass `missing_reason=` (e.g. `provider_omitted` / `stream_interrupted`). It is stored **on the row** (not just logs) so offline exports can tell `cost_usd IS NULL` (unpriced) vs `usage_status='missing'` vs true-zero apart. Present rows always store `NULL` (no contradiction).
+- **Prompt-cache breakdown** (SDK ≥ 3.0.0): cache reads and cache writes are recorded separately in `cache_read_tokens` / `cache_creation_tokens` (both nullable; `cached_tokens` is kept as before). See the 3.0.0 changelog entry before upgrading writers on an existing ledger.
+
+```python
+from agenticstar_platform.metering import UsageMeter
+
+meter = UsageMeter(db=data_access)
+await meter.ensure_schema()                        # create ledger/daily/rollup if absent (idempotent)
+
+# Record one LLM call (cost computed automatically; fire-and-forget safe)
+await meter.record(
+    model="gpt-5.5", response=resp, endpoint="chat/completions",
+    labels={"execution_id": eid, "message_id": mid, "conversation_id": cid, "user_id": uid},
+)
+
+# ...or wrap the call so it records on completion
+resp = await meter.track(model="gpt-5.5", labels=ids)(litellm.acompletion)(**params)
+
+# Cost only (no record)
+usd = UsageMeter.cost_usd("gpt-5.5", response=resp)
+
+# Daily rollup + cost visualization (for dashboards / billing)
+await meter.rollup_recent()
+rows = await meter.daily_cost(by="model", since_days=30)   # by = "model" | "user" | "agent" | "day"
+```
+
+**Schema** (`ensure_schema`): `llm_usage_ledger` — one row per call (execution / message / conversation / user, model, in/out/total/cached tokens, cache read / creation tokens, `usage_status` + `missing_reason`, `cost_usd`, currency) — plus `llm_usage_daily` (rollup) and `rollup_llm_usage_daily(day)`. The default DDL is portable (any PostgreSQL); at scale, partition `llm_usage_ledger` monthly (e.g. pg_partman).
+
+### Audit Module — `ActionAudit` / `GatewayActionAudit` (SDK ≥ 0.5.31)
+
+Dedicated **action-audit ledger** infrastructure: records agent-side action events (approvals, tool authorizations, policy violations, kill-switch, external-agent egress) into append-only ledgers (`agent_action_audit` / `llm_gateway_action_audit`). Distinct from metering by its **write guarantees** — this is an audit trail, not telemetry. Pure infra, no extra dependencies (stdlib only, available in the core install).
+
+- **Callers pass no raw content (usage contract)**: never hand prompts / tool arguments to the ledger — one-way them with `canonical_digest()` (SHA-256) into `payload_digest`. **The SDK performs no automatic secret detection or redaction.** Field caps (`reason` truncated to 300 chars, `payload_digest` must be 64 lowercase-hex chars or it is dropped, `metadata` over 2KB of key-sorted JSON replaced by `{truncated, size_bytes, digest}`, always deep-copied) bound the blast radius of accidental leakage — they are not leak prevention by themselves. Numbers in `metadata` other than integers with an absolute value below 2^53 (floats, larger integers, NaN / Inf) are stored as strings so the row hash is identical across languages.
+- **Three write modes**: `record()` = at-least-once while the process lives (bounded retry, then the sanitized row is spilled as JSON to a log line tagged `action_audit_spill` for manual reconcile) / `record_sync()` = **audit-before-act** (raises `ActionAuditWriteError` on DB write failure — an approval that cannot be audited must not take effect) / `record_nowait()` = fire-and-forget for hot paths (strong task refs, backlog capped at 512 — overflow spills instead of blocking; pre-start cancellation also spills; **best-effort — lost if the process dies abruptly**).
+- **Decision events require `actor_ref`**: `approval.*`, `gate.resolved`, `content.deleted`, `forensic.*`, `policy.changed`, `item.quarantine_released` and `workitem.*` raise `ValueError` synchronously without it (SDK ≥ 1.0.0a1; before that only `approval.*`).
+
+### Guardrail Alerts — `GuardrailAlertWriter` / `GuardrailAlertAggregates` (SDK ≥ 0.5.32)
+
+Producer writers for the Admin-facing **guardrail alert triage view** (`guardrail_alerts`) and the
+**unlinked daily aggregates** (`guardrail_alert_daily_aggregates`). Non-authoritative operational
+view — the authority remains the action-audit ledger. Same delivery contract as the audit writers
+(bounded FAF + retry → spill → drain).
+
+- **No end-user identity**: the row schema has no user-id column by design; the aggregates writer
+  takes no correlation-id arguments at all (structural unlinking).
+- **SelfHarm never appears on rows**: normalized detection (case / space / `_` / `-` variants,
+  str-Enum `.value`) raises `ValueError` synchronously; SelfHarm-only detections are recorded as
+  aggregates only. Row `policy_outcome` is always `blocked`.
+- **Idempotent rows**: `event_key` (`v2:{surface}:{correlation_kind}:{correlation}:{decision_point}:{outcome}`)
+  + `ON CONFLICT (event_key) DO NOTHING` — replays never clobber Admin lifecycle state.
+- **Grants differ per table**: rows = producer INSERT-only; aggregates = INSERT + UPDATE(count) +
+  SELECT(count) (the UPSERT references the existing counter). Severities are **measured** Azure
+  category severities (2/4/6) — do not substitute thresholds; aggregate counts are approximate
+  (at-least-once may double-count).
+- **DB**: any handle exposing `execute_query(query, params) -> {success, data, error}` (the SDK's `DataAccess` / `PostgreSQLManager`).
+
+```python
+from agenticstar_platform.audit import ActionAudit, GatewayActionAudit, canonical_digest
+
+audit = ActionAudit(db=data_access, source="my-agent", system_version=image_tag)  # source = name of the writing component
+await audit.ensure_schema()                       # provisioning (owner role): create ledger + indexes, add newer columns to older tables
+
+# Hot path (tool authorization etc.): fire-and-forget
+audit.record_nowait(
+    event_type="tool.access", actor_type="agent", decision="deny",
+    resource="bash", action="execute", reason="blocked_command",
+    conversation_id=cid, execution_id=eid,
+    payload_digest=canonical_digest({"command": cmd}),
+)
+
+# Approval (audit-before-act): abort the action if this raises
+await audit.record_sync(
+    event_type="approval.granted", actor_type="human", actor_ref=approver_id,
+    decision="granted", resource=tool_name, conversation_id=cid,
+)
+
+await audit.aclose()                              # shutdown: drain pending writes (timeout → cancel + spill)
+
+gw = GatewayActionAudit(db=gateway_da)            # LLM Gateway policy decisions (virtual-key identity)
+await gw.record(event_type="policy.mcp_stripped", decision="stripped",
+                virtual_key_id=vk, request_id=rid)
+```
+
+**Schema** (`ensure_schema`): `agent_action_audit` (source, event_type, actor, decision, reason, policy, correlation ids, `payload_digest`, metadata jsonb, `row_hash`) and `llm_gateway_action_audit` (virtual key, request ids, event/decision, `detail_digest`, `row_hash`). `ensure_schema` applies `REVOKE UPDATE/DELETE` best-effort; for production append-only enforcement use a dedicated insert-only role.
+
+**Event vocabulary**: `event_type` is a free string; the names the platform's views aggregate are listed in `KNOWN_EVENT_TYPES` (with one-line meanings) — e.g. `tool.access` / `tool.invoked` / `tool.effect` (tool governance), `context.manifest` / `plan.revised` / `data.access` (provenance), `hitl.requested` / `approval.*` / `gate.resolved` (human touchpoints), `delivery.*`, `runtime.*`. `actor_kind` is a closed vocabulary (`ACTOR_KINDS`); `reference_keys(**refs)` builds the correlation keys for `metadata` (`project_id / run_id / step_id / item_id / tool_call_id / root_execution_id`). The columns added in 1.0.0a1 (`actor_kind`, `project_id`, `root_execution_id`, `source_event_id`) are optional on `record*()`; on a database that lacks them the writer falls back to the legacy insert once and keeps going (while it does, the new column values are not stored and the row hash is computed over the stored columns; it switches back after `ensure_schema()` adds them, or after a restart once they exist). `ensure_schema()` needs the table owner role: run it once when provisioning; the runtime writer only needs INSERT. Pre-existing duplicate `source_event_id` values block the UNIQUE index (deduplicate first); once it exists, a duplicate write makes `record()` return `False` (spilled) and `record_sync()` raise.
+
+### Workflow Runner — `agenticstar_platform.workflow` (SDK ≥ 1.0.1, `mp-workflow/1`)
+
+A runner for Marketplace **workflow runs** (a single run of an agent for one step of a workflow).
+It requires a platform that provides the workflow runtime API (`mp-workflow/1`; the Marketplace edition from 3.1);
+agents for regular Marketplace chat use `run_marketplace_agent` instead. It runs only on
+`ASTER_RUNTIME_PROTOCOL` / `ASTER_RUNTIME_BASE_URL` / `ASTER_RUNTIME_TOKEN` / `EXECUTION_ID`, which the
+platform executor injects per execution (no fallback to DB settings; `import agenticstar_platform.workflow`
+needs no database driver).
+
+```python
+# my_agent/main.py
+async def run(context):
+    inv = await context.audit.tool_invoked("read_instructions", effect_kind="read", target="instructions.md")
+    instructions = (context.work_dir / "instructions.md").read_text(encoding="utf-8")
+    await context.audit.tool_effect(inv, status="ok", count=1)
+    (context.output_dir / "reply.md").write_text(await create_reply(context.parameters["product_code"], instructions))
+```
+
+```bash
+# the image's start command
+python -c "from agenticstar_platform.workflow import run; run('my_agent.main:run')"
+```
+
+What the runner (parent process) does: validates the env → fetches the context and input artifacts
+from the platform runtime API (verifying digest / size) → stages them read-only in `/workspace/input` →
+copies them to `/workspace/work` → generates settings files from `from_parameters` → waits for the
+`context.manifest` audit acknowledgement → runs your agent entrypoint in a child process → collects
+declared outputs and edited files (rejecting symlinks, path traversal and oversized files) → saves the
+artifacts → saves the `completion_envelope` (version 2) under a stable `completion_id` (a 409 for an
+already-terminal run is not retried). Exit codes: 0 = terminal saved, 2 = could not be saved,
+3 = invalid configuration. Other failures may end with a non-zero exit and the exception (the SDK
+does not guarantee exit codes; the platform closes a non-zero exit without a saved terminal as
+`failed/agent_exit_nonzero` with the effect unknown, and holds the run for human review).
+
+What `context` provides: correlation (`execution_id` / `run_id` / `operation_key` / `entry_ref` /
+`attempt`), `parameters`, `input_dir` / `work_dir` / `output_dir`, `audit.tool_invoked` /
+`tool_effect` / `tool_denied` (**`tool_invoked` returns only after the event is acknowledged as saved** —
+do not start an external write without that acknowledgement), `is_cancel_requested()` /
+`ensure_can_act()` / `deadline_remaining()`, `skip(reason)` (a step with nothing to do: `no_target` /
+`not_applicable` / `nothing_to_do` → `skipped`), `policy_unavailable()` (the policy could not be
+checked before any external action → `skipped/policy_unavailable`), `log(message)`, and
+`connection_token(slot, min_ttl=300)` (the access
+token of a connection slot bound at startup; refreshed through the platform once less than `min_ttl`
+seconds remain, or every 600 seconds when the expiry is unknown; raises `WorkflowError` after
+cancellation or the deadline). Gate decisions and arbitrary DB connections are not provided.
+
+The outcome describes how the run ended, with 7 values (`completed` / `incomplete` / `failed` /
+`timeout` / `stopped` / `denied` / `skipped`). **Success means the agent ran to completion**: the agent
+function returns normally → `completed/completed`, unless an audit persistence failure, a denied tool
+call, an invalid declared output, a skip or a missing required output decides otherwise (failed writes,
+unobserved effects or zero observations do not lower the outcome); an exception → `failed/agent_error`; cancellation →
+`stopped/cancelled`; deadline → `timeout/execution_timeout`; pod stop signal → `failed/runner_stopped`;
+a call reported with `audit.tool_denied` → `denied`.
+What was written is kept in `counts` / `tools` and `had_mutating_success` (true = success observed /
+false = confirmed no effect / **null = unknown**); unsuccessful runs with null are not retried
+automatically and go to a human (effects that already happened are never undone). Samples are in the
+source distribution: `docs/examples/workflow_reply_agent.py` (drafting a reply) /
+`workflow_mock_send_agent.py` (a mock send).
+
+### Policy Module — `agenticstar_platform.policy` (SDK ≥ 1.0.0a1)
+
+Pure computation (no I/O, no agent framework): decide **allow / forbid** for a tool call from a two-layer policy.
+
+- **Layers**: a tenant policy (`L1Policy`: default profile, an unremovable `floor` of forbidden patterns, whether rationale bodies may be retained, version) and a project policy (`ProjectPolicy`: profile, `deny` / `allow` patterns, gate settings). `tighten_merge(l1, project)` combines them with two guarantees: the tenant `floor` can never be removed, and the project profile can never be looser than the tenant default. A `strict` project's `allow` list permits the listed write / destructive tools **only within what the tenant L1 profile permits** (since 1.0.0a3 `l1_profile`: it never re-enables an operation class the L1 profile forbids, e.g. destructive under a `guarded` tenant) — put anything that must stay forbidden regardless of profile into the tenant `floor`.
+- **Profiles**: `open` (everything allowed) < `guarded` (destructive forbidden) < `strict` (allowlist: reads allowed, writes / destructive only when explicitly allowed **and only within what the tenant L1 profile itself permits** — a project `strict` allowlist never re-enables an operation class the L1 profile forbids, e.g. destructive under L1 `guarded`; 1.0.0a3 `l1_profile`).
+- **`evaluate(policy, tool, op_class, ...)`** returns a `Decision(mode, reason, policy_version, unregistered, matched)`. The caller classifies the tool (`op_class` = `read` / `write` / `destructive`, or `None` for unknown); for built-in tools, `dry_run=True` forbids everything but reads; `mcp_server="x"` matches both `mcp:x:<tool>` and `<tool>`.
+- **MCP and A2A calls** (SDK ≥ 3.0.3 / 3.0.4): pass `mcp=True` with the connection's `connection_id`, or `connection_kind="a2a"` with the A2A connection's `connection_id`. These calls are not classified by operation class and are allowed (reason `mcp_unrestricted` / `a2a_unrestricted`) unless the `floor` or an explicit forbid rule matches — an `external` rule for that connection ID, or an unscoped tool-name glob such as `mcp:<server>:<tool>`. An MCP call without `connection_id` while external MCP rules exist, or an A2A call without `connection_id` while A2A rules exist, cannot be identified and is forbidden.
+- **Snapshots**: `EffectivePolicy.to_dict()` / `from_dict()` round-trip and `digest` (SHA-256) let you record which policy a run was evaluated under and verify it later.
+
+```python
+from agenticstar_platform.policy import L1Policy, ProjectPolicy, tighten_merge, evaluate
+
+l1 = L1Policy.from_row({"version": 3, "default_profile": "guarded", "floor": {"forbid": ["mcp:*:delete_*"]}})
+# allow patterns match built-in tool names, not operation classes (MCP tools are not subject to the allowlist)
+project = ProjectPolicy.from_json({"profile": "strict", "allow": ["write_file"]})
+policy = tighten_merge(l1, project, project_id="p1")
+
+decision = evaluate(policy, "delete_repo", None, mcp=True, mcp_server="gitlab", connection_id="12")
+assert decision.mode == "forbid" and decision.reason == "floor"   # the tenant floor wins, nobody can loosen it
+decision = evaluate(policy, "create_issue", None, mcp=True, mcp_server="gitlab", connection_id="12")
+assert decision.reason == "mcp_unrestricted"                        # MCP: allowed unless a forbid rule matches
+decision = evaluate(policy, "write_file", "write")
+assert decision.mode == "allow"                                     # built-in tool explicitly allowed under strict
+decision = evaluate(policy, "delete_file", "destructive")
+assert decision.mode == "forbid"                                    # not allowed under strict
+print(policy.digest)                        # store next to the run for later verification
+```
+
+## Platform Class Example
+
+Below is an example of a Platform class that wraps SDK components for your agent system:
+
+```python
+"""
+Platform class example - Using AGENTICSTAR Platform SDK
+"""
+import asyncio
+from dataclasses import dataclass
+from typing import Optional
+
+from agenticstar_platform import (
+    PostgreSQLManager, PostgreSQLConfig, DataAccess,
+    QdrantManager, QdrantConfig,
+    EmbeddingGenerator, EmbeddingConfig,
+    EventEmitter, EventType,
+    SemanticMemoryClient, SemanticMemoryConfig,
+    AzureBlobStorageClient, AzureBlobConfig,
+    AgenticStarAuthClient, AgenticStarAuthConfig,
+)
+
+
+@dataclass
+class PlatformConfig:
+    """Platform configuration"""
+    db_config: PostgreSQLConfig
+    qdrant_config: QdrantConfig
+    embedding_config: EmbeddingConfig
+    storage_config: Optional[AzureBlobConfig] = None
+    memory_config: Optional[SemanticMemoryConfig] = None
+    auth_config: Optional[AgenticStarAuthConfig] = None
+
+    @classmethod
+    def from_toml(cls, path: str) -> "PlatformConfig":
+        """Load all configurations from TOML file"""
+        return cls(
+            db_config=PostgreSQLConfig.from_toml(path, section="database"),
+            qdrant_config=QdrantConfig.from_toml(path, section="rag.qdrant"),
+            embedding_config=EmbeddingConfig.from_toml(path, section="rag.embedding"),
+            storage_config=AzureBlobConfig.from_dict({
+                # Load from environment or config
+                "bucket_name": "your-container",
+                "connection_string": "your-connection-string",
+            }),
+            auth_config=AgenticStarAuthConfig.from_config(path),
+        )
+
+
+class AgentPlatform:
+    """
+    Platform class wrapping SDK components.
+
+    Example:
+        >>> config = PlatformConfig.from_toml("config.toml")
+        >>> platform = AgentPlatform(config)
+        >>> await platform.initialize()
+        >>>
+        >>> # Use database
+        >>> users = await platform.db.fetch_all("SELECT * FROM users")
+        >>>
+        >>> # Use RAG
+        >>> results = await platform.search_knowledge("How to deploy?")
+        >>>
+        >>> # Clean up
+        >>> await platform.cleanup()
+    """
+
+    def __init__(self, config: PlatformConfig):
+        self.config = config
+        self._db: Optional[DataAccess] = None
+        self._qdrant: Optional[QdrantManager] = None
+        self._embedding: Optional[EmbeddingGenerator] = None
+        self._storage: Optional[AzureBlobStorageClient] = None
+        self._memory: Optional[SemanticMemoryClient] = None
+        self._auth: Optional[AgenticStarAuthClient] = None
+
+    async def initialize(self) -> None:
+        """Initialize all SDK components"""
+        # Database
+        db_manager = PostgreSQLManager(self.config.db_config)
+        self._db = DataAccess(db_manager)
+        await self._db.initialize()
+
+        # Embedding generator
+        self._embedding = EmbeddingGenerator(self.config.embedding_config)
+
+        # Vector DB (RAG)
+        self._qdrant = QdrantManager(self.config.qdrant_config, self._embedding)
+        await self._qdrant.initialize()
+
+        # Storage (optional)
+        if self.config.storage_config:
+            self._storage = AzureBlobStorageClient(self.config.storage_config)
+
+        # Memory (optional)
+        if self.config.memory_config:
+            self._memory = SemanticMemoryClient(self.config.memory_config)
+
+        # Auth (optional)
+        if self.config.auth_config:
+            self._auth = AgenticStarAuthClient(self.config.auth_config)
+
+    @property
+    def db(self) -> DataAccess:
+        if not self._db:
+            raise RuntimeError("Platform not initialized. Call initialize() first.")
+        return self._db
+
+    @property
+    def qdrant(self) -> QdrantManager:
+        if not self._qdrant:
+            raise RuntimeError("Platform not initialized. Call initialize() first.")
+        return self._qdrant
+
+    @property
+    def storage(self) -> Optional[AzureBlobStorageClient]:
+        return self._storage
+
+    @property
+    def memory(self) -> Optional[SemanticMemoryClient]:
+        return self._memory
+
+    @property
+    def auth(self) -> Optional[AgenticStarAuthClient]:
+        return self._auth
+
+    async def search_knowledge(self, query: str, limit: int = 10):
+        return await self.qdrant.search(query, limit=limit)
+
+    async def cleanup(self) -> None:
+        """Clean up all resources"""
+        if self._qdrant:
+            await self._qdrant.close()
+        if self._db:
+            await self._db.close()
+        if self._storage:
+            await self._storage.close()
+        if self._memory:
+            await self._memory.cleanup()
+```
+
+## Configuration (config.toml example)
+
+```toml
+[database]
+host = "your-postgresql.postgres.database.azure.com"
+port = 5432
+database = "your-database"
+username = "admin"
+password = "your-password"
+use_azure_ad = false
+pool_min_size = 2
+pool_max_size = 10
+# api_url = "https://your-api.example.com/db"  # Set for HTTP API mode
+
+[database.azure_ad]
+tenant_id = "your-tenant-id"
+client_id = "your-client-id"
+client_secret = "your-client-secret"
+
+[auth.agenticstar]
+base_url = "https://auth.example.com"
+api_key = ""
+timeout = 30.0
+max_retries = 3
+
+[rag.embedding]
+# provider = "azure" (default): Azure OpenAI deployments path
+base_url = "https://your-openai.openai.azure.com/"
+api_key = "your-api-key"
+model = "text-embedding-3-small"
+dimensions = 1536
+
+# OpenAI-compatible endpoints (e.g. embed-v-4-0 on Azure AI inference) — SDK >= 0.5.24:
+# [rag.embedding]
+# provider = "openai"
+# base_url = "https://your-resource.services.ai.azure.com/models"  # include /models
+# api_key = "your-api-key"
+# model = "embed-v-4-0"   # "openai/embed-v-4-0" also accepted (prefix is stripped)
+# dimensions = 1536       # api_version is not used with provider = "openai"
+
+[rag.qdrant]
+url = "http://localhost:6333"
+collection_name = "knowledge_base"
+vector_size = 1536
+
+[storage.azure]
+bucket_name = "your-container"
+connection_string = "DefaultEndpointsProtocol=https;..."
+prefix = "uploads/"
+
+[memory.llm]
+model = "azure/gpt-4"
+api_key = "your-api-key"
+base_url = "https://your-openai.openai.azure.com/"
+api_version = "2024-02-15-preview"
+
+[memory.embedder]
+model = "azure/text-embedding-ada-002"
+api_key = "your-api-key"
+base_url = "https://your-openai.openai.azure.com/"
+api_version = "2024-02-15-preview"
+
+# OpenAI-compatible embedder (e.g. embed-v-4-0 on Azure AI inference) — SDK >= 0.5.24:
+# [memory.embedder]
+# model = "openai/embed-v-4-0"
+# api_key = "your-api-key"
+# base_url = "https://your-resource.services.ai.azure.com/models"  # include /models;
+#                       # without base_url the client would connect to api.openai.com
+```
+
+## API Reference
+
+See the [developer portal](https://developers.fd.agenticstar.tm.softbank.jp/) for the SDK guides and API reference.
+
+## Changelog
+
+### 3.0.8 (2026-10-01) — security: Prompt Shield inspects documents to the end
+
+- **`AzureSecurityClient.check_prompt_shield(documents=...)` now inspects every document to the end.** Documents are split into overlapping windows in the same way as `user_prompt`, packed into calls of at most 9,500 bytes and 5 documents each, and the results are combined (an attack in any window is reported). Up to 3.0.7, all documents together were cut to their first 9,500 bytes and sent only with the first call, without a warning, so an indirect prompt injection placed later in external content (after roughly 3,100 characters of Japanese text) was not inspected.
+- When documents are longer than `user_prompt`, the remaining calls carry the first window of `user_prompt` (the API requires it). A short prompt with short documents is still checked in one call.
+- The inspection budget per document is the same as for `user_prompt` (`AGENTICSTAR_AZURE_CS_MAX_WINDOWS`, 8 windows by default); a document longer than that logs a warning, as `user_prompt` already does.
+
+### 3.0.7 (2026-10-01) — documentation: this README is now entirely in English
+
+- This README and the documents bundled in the package (the Local Integration Lab README `agenticstar_platform/lab/README.md`, the comments in the lab's `docker-compose.yml`, and the audit `ROW_HASH_SPEC.md`) are now written entirely in English, and the changelog has been rewritten for external readers.
+- The Policy Module example now reflects the MCP behavior introduced in 3.0.3 (MCP calls are allowed unless the floor or a forbid rule matches; the strict allowlist applies to built-in tools), and the Modules table lists `metering` / `runner` / `audit` / `policy` / `workflow`.
+- The sample agents under `docs/examples/` (source distribution) are now in English, and two `ValueError` messages raised by `GuardrailAlertWriter` no longer contain internal references.
+- **No behavior changes from 3.0.6.** Upgrading is optional.
+
+### 3.0.6 (2026-09-30) — workflow: the runner reports a known stop in every reply / a closed control channel raises `WorkflowError`
+
+- **The runner now attaches any stop it already knows about (cancellation, deadline, terminal state or a pod stop signal) as `stop_reason` to its reply to every child request** (audit, log, skip, check, `connection_token`, …). The child latches the stop as soon as it reads it in its IPC receive loop — even from a reply to a request whose caller was cancelled. From then on `is_cancel_requested()` returns `True` without IPC, and `ensure_can_act()` / `connection_token()` raise `WorkflowError`. Up to 3.0.5, replies to audit and other requests did not carry the stop, so the child only learned about it at the next cancellation check (every 5 seconds by default).
+- **A failed IPC write in the child (`BrokenPipeError` / `OSError` / `ValueError` on a closed pipe) now raises `WorkflowError` (`runner closed the control channel`).** An agent that catches `WorkflowError` no longer misses audit or cancellation calls made after the runner has closed the control channel.
+- Only stops the runner has already determined are attached (building a reply never newly determines a stop signal or deadline). Replies when no stop is known, and how the agent's outcome is decided (including the boundary right after `done`), are unchanged from 3.0.5.
+
+### 3.0.5 (2026-09-30) — workflow: refresh connection access tokens during a run (`context.connection_token`) / cancellation during input staging no longer crashes / auth: `get_user` path-encodes `user_id`
+
+- **New `WorkflowContext.connection_token(slot, *, min_ttl=300.0)`.** Returns `{access_token, token_type, expires_at}` as a read-only mapping (it contains a token — never put it in logs or exception messages). OAuth access tokens for connections passed through the environment at startup can expire after about an hour; use this before calling external APIs in long runs.
+  - The cached value is returned until less than `min_ttl` seconds remain before expiry; after that it is refreshed through the runner from the platform runtime API (`GET /api/mp/runtime/v1/executions/{id}/connections/{slot}/token`). Tokens with an unknown expiry (`expires_at` is null) are refreshed every `UNKNOWN_EXPIRY_REFRESH_SECONDS` (600 seconds).
+  - Raises `WorkflowError` for: a slot not bound at startup; a connection the platform reports as revoked or awaiting re-authorization (the old cached value is not returned either); any call after a cancellation, deadline or terminal state known to the runner (cached values are no longer returned); and a refreshed token that is already expired (the old cached value is not returned either).
+  - Right before handing out a token (after the last wait), the child re-checks stops it knows about, the agent deadline, whether a concurrent refresh was refused in the meantime, and the token's own expiry. Concurrent calls are processed one at a time, and if a caller is cancelled the result of its refresh (discarding the cached value / latching a stop) is still applied. Calls cancelled while waiting their turn do not refresh (including a cancellation right after the lock is released). If another call refreshed successfully in the meantime the new value is returned; if that refresh was refused, `WorkflowError` is raised. A cached value that dropped below `min_ttl` while waiting is refreshed.
+  - On the cached-value path, cancellation can be noticed up to about 10 seconds late (the child's and the runner's check intervals, 5 seconds each by default). The runner checks with an interval before the first fetch, and after it always asks the platform for cancellation / terminal state (if the platform cannot be reached, it decides from locally known stops and deadlines only). For `connection_token` and cancellation checks (`check`) it re-checks stop signals and deadlines even after waiting. The platform's refresh API itself rejects requests with 409 after cancellation, run termination or the deadline.
+  - Added `RuntimeClient.get_connection_token(slot)` and the runner IPC op `connection_token`. Fetching a token and the cancellation check after it are each attempted at most twice (the runner's IPC is serial, so the agent's audit / cancellation calls wait meanwhile). Slots that do not match the platform's format (a letter followed by letters, digits, `_` or `-`, up to 64 characters) are rejected without sending a request (`.` / `..` would reach a different API path after URL normalization). Token values are never logged.
+  - **Platform requirement**: the refresh API must be available on the platform. Against a platform without it, the call raises `WorkflowError` (`connection token unavailable`). The tokens passed through the environment at startup and the existing APIs are unchanged (for agents that never call `connection_token`, only the two changes below apply).
+- `WorkflowContext.is_cancel_requested()` / `ensure_can_act()`: a stop that arrives while the caller is cancelled mid-check is still recorded (subsequent calls return `True`). The runner's cancellation check (IPC op `check`) now also returns stop signals / deadlines that arrived while it was waiting (up to 3.0.4 they were noticed only at the next check).
+- **runner: if the platform returns 409 `cancelled` / `run_closed` / `deadline_exceeded` while input artifacts are being staged, the runner maps it to a stop reason and sends a completion instead of crashing** (`stopped/cancelled`; a deadline becomes `timeout/execution_timeout`). The agent is not started (`had_mutating_success` is false). After a cancellation or deadline the platform refuses to save, so the runner exits with code 2 and the platform decides the terminal state. The platform rejects input fetches after cancellation, run termination or the deadline. Up to 3.0.4 the runner exited with an exception on this 409 (for a cancellation the platform still closed the run as `stopped/cancelled`). Other API errors (unreachable, 5xx after retries, unexpected 4xx) still raise as before.
+- `AgenticStarAuthClient.get_user(user_id)`: `user_id` is URL-encoded as a single path segment (values containing `/` or `?` can no longer reach a different API path). `.` and `..` are rejected with `INVALID_PARAMETER`.
+
+### 3.0.4 (2026-09-23) — policy: forbid external A2A agents by connection ID (schema 4, `connection_kind`)
+
+- **External forbid rules gain a connection kind, `connection_kind` (`mcp` | `a2a`).** Omitted = `mcp` (the same stored form and digest as 3.0.3; `to_dict()` does not emit `connection_kind` for mcp). An `a2a` rule is `{scope: "external", connection_kind: "a2a", connection_id: <A2A connection ID>}` and has **no tool / method** (an A2A agent receives messages and a skill cannot be targeted, so no rule is created at a granularity that cannot be enforced).
+- **New `evaluate(..., connection_kind="a2a", connection_id=...)`.** Like MCP, sending to an A2A agent is outside the execution rules (profile / dry_run / delegation / operation class): unless it matches the floor or an explicit forbid rule (the A2A connection ID, or an unscoped tool-name glob) it is `allow` (reason `a2a_unrestricted`). If a2a rules exist but the connection cannot be identified (`connection_id` is None), the call is unevaluable (forbid). MCP rules never apply to A2A and vice versa (the integer IDs come from different registries, so kind and ID are matched as a pair). Unknown kinds are forbidden.
+- **A policy containing a2a rules is `schema_version` 4** (`SCHEMA_VERSION_TYPED_CONNECTION`); with mcp rules only it stays 3, with unscoped rules only it stays 2. Older readers (≤ 3.0.3) reject 4, so the policy cannot be loaded and everything is forbidden (an A2A forbid is never silently dropped).
+- `verify_connections(policy, connections)` accepts a per-kind map `{"mcp": {...}, "a2a": {...}}`. A flat map / set is read as `mcp` (3.0.3 callers are unchanged). It raises `ValueError` if a2a rules exist but there is no `a2a` map, or a rule references a connection that does not exist.
+- Callers must pass `connection_kind="a2a"` and the A2A connection ID when evaluating calls to A2A agents. Callers that do not are evaluated as before (the A2A call is treated as an unregistered built-in tool).
+
+### 3.0.3 (2026-09-22) — policy: MCP tools are not classified by operation class (outside the execution rules)
+
+- **`evaluate(..., mcp=True)` returns `allow` (reason `mcp_unrestricted`) unless the call matches the floor or an explicit forbid rule** (an external `connection_id` + method glob, or an unscoped `mcp:<name>:<tool>` glob). The profile operation-class table (open / guarded / strict), `dry_run`, `delegated` and the unclassified (`unknown_tool`) stage do not apply to MCP. An `op_class` passed by the caller is ignored (floor entries conditioned on op_class do not apply to MCP). `unregistered` is not set (having no classification is normal).
+- Unchanged: no policy = forbid; the order of floor / forbid-rule matching; an MCP call without `connection_id` while external rules exist = unevaluable (forbid); evaluation of built-in tools (`mcp=False`) is the same as 3.0.2.
+- Rationale: MCP tool names and meanings are defined freely by each server, and no naming convention, server self-declaration or manual administration can keep a read / write / destructive classification correct over time. Using such a classification as a control input blocks tools nobody forbade (for example, every unclassified tool under strict). MCP is now "allowed by default; forbid specific tools with explicit forbid rules".
+- Impact: in strict / guarded / dry_run projects, MCP calls that used to stop at `unknown_tool` / `profile` / `strict_allowlist` / `dry_run_read_only` now pass. Put MCP methods you want to block into an external forbid rule (connection ID + glob) or the floor. Audit reason codes gain `mcp_unrestricted`.
+
+### 3.0.2 (2026-09-22) — policy: external forbid rules are matched by connection ID, not name / db: `id` in MCP configurations
+
+- **New `evaluate(..., connection_id=)`**: the identifier of the MCP connection (the string form of its configuration ID). External rules compare it with the rule's `connection_id`. `mcp_server` remains the connection's **display name** (used for the `mcp:<name>:<tool>` candidates in allow / unscoped forbid globs, never for identification). For an MCP call (`mcp_server` set) with `connection_id` None, the connection cannot be identified, so if any external rule exists the call is unevaluable (forbid with `unevaluable_args`; the name is never used as a substitute). In-process MCP servers that are not registered connections pass `LOCAL_CONNECTION` (`"local"`) and are not subject to external rules. **`mcp: bool | None`** (added at the same time): the caller states explicitly whether the call is MCP. Enforcing callers must always set it (with `mcp=True`, a call with an empty or blank name and no ID is also an unidentifiable MCP call = forbid; only legacy callers that omit `mcp` keep the old inference from a name or ID).
+- **Breaking: `bind_connections()` removed.** Its replacement, `verify_connections(policy, connections)`, only checks that the connections referenced by rules **exist** (map / set; int or str keys) and raises `ValueError` otherwise. The policy is not modified.
+- `ForbidPattern.server` (the bound name label) removed. The stored form of an external rule is now `{scope, connection_id, tool}` only, and **snapshots up to 3.0.1 that contain `server` are read with it discarded, yielding the same stored form and digest** (digests of policies containing external rules change; upgrade the components that resolve and evaluate policies in the same release). `server` on an `internal` rule still raises `ValueError`.
+- Rationale: connection names are free-form display strings set by administrators, and differences such as surrounding whitespace or `__` made rules match or miss the wrong connection. Instead of restricting the characters allowed in names, identification moved from the name to the ID.
+- `ConfigAccess.get_mcp_configurations()` now includes `"id"` (the MCP server configuration ID) in each returned item.
+
+### 3.0.1 (2026-09-21) — workflow: outcome vocabulary rebuilt around how the run ended (envelope version 2) / audit: verification-only vocabulary removed
+
+- **Outcome vocabulary**: `acted` / `noop` / `degraded` replaced by `completed` / `incomplete` / `failed` / `timeout` / `stopped` / `denied` / `skipped`. Success means the agent ran to completion; the success of writes, unobserved effects and zero observations do not decide the outcome. If the agent function returns normally the outcome is `completed` (reason code `completed`). The old `degraded/effects_unobserved` / `effects_partial_failure` / `no_observation` / `failed/effect_failed` no longer exist.
+- **Whether a retry is safe is decided by whether the effect is unknown, not by the outcome**: the third return value of `decide_outcome()` and the envelope's `had_mutating_success` are now `Optional[bool]`. Audit persistence failures, writes with no effect or with an unknown status, a runner restart / stop / incomplete cleanup, and termination elsewhere yield `None` (unknown) unless a success was observed. The platform does not automatically retry unsuccessful runs with `None`, or the reason codes the runner could not fully observe (`runner_restarted` / `runner_stopped` / `cleanup_uncertain` / `audit_persist_failed` / `terminal_elsewhere`).
+- New values for the old `degraded/...` terminals: `cancelled` → `stopped/cancelled`, `terminal_elsewhere` → `stopped/terminal_elsewhere`, `runner_stopped` / `runner_restarted` / `cleanup_uncertain` / `audit_persist_failed` → `failed/<same reason code>`.
+- `build_envelope()`: `version` / `envelope_version` are 2. The `gate_requested` (always null) and `verification` fields are removed; how the runner itself ended (stop reason / restart / incomplete cleanup) is carried in `runner` (the argument is renamed from `verification` to `runner`).
+- `decide_outcome()` gains `effects_uncertain` (the runner could not fully observe the agent's result).
+- **New reason code `failed/skip_after_effect`**: a skip before external actions (`policy_unavailable`) is not accepted once any mutating tool has been invoked (even if that write succeeded; checked before missing required outputs), because `skipped/policy_unavailable` makes the platform re-check the policy and run again. The platform routes this reason code to a human as effect-unknown.
+- **Breaking: `counts` keys renamed**: `tools_invoked` → `tool_calls`, `reads` → `read_calls` (the same keys the platform's execution records and exports read). `mutating_success` / `mutating_failed` are unchanged, and so are the SDK-only observations (`mutating_invoked` / `mutating_unresolved` / `orphan_effects` / `effect_conflicts` / `denied` / `audit_persist_failures`). Consumers that read `counts.tools_invoked` / `counts.reads` from stored envelopes must be updated.
+- `workflow` exports `ENVELOPE_VERSION` (= 2).
+- `verification.completed` removed from `audit.KNOWN_EVENT_TYPES` (the vocabulary is descriptive; writers do not enforce it).
+- No backward-compatibility shim is provided. The platform's completion API accepts only `version: 2`, so upgrade together with the platform.
+
+### 3.0.0 (2026-09-21) — version number aligned with the product version / metering: prompt-cache reads and writes recorded separately
+
+- **Version number**: from this release the SDK version follows the AGENTIC STAR product version as `3.0.x` (3.0.1, 3.0.2, … from here on). It is the next public release after `1.0.3`. The number was chosen to align with the product, not as a semver major bump. **It does, however, contain changes incompatible with `1.0.3`**: the three removals from the unreleased `1.0.4` (see 1.0.4 below: `items_advanced` / `no_items` / `claim.stale`) are included. Check that entry when upgrading from `1.0.x`.
+- `llm_usage_ledger` gains `cache_read_tokens` / `cache_creation_tokens` (`cached_tokens` is kept with the same meaning). Cache reads (0.1×) and cache writes (1.25×) differ in unit price by 12.5×, and a combined number cannot detect a cache that is written but never read. The daily rollup table `llm_usage_daily` and its function are unchanged (aggregate the breakdown from the ledger by date).
+- `extract_usage()` returns the breakdown as `cache_read_tokens` / `cache_creation_tokens`. Explicit values (including 0) take precedence; otherwise the previously resolved `cached_tokens` (by convention: reads; including provider details / `cache_read_input_tokens`) and `cache_creation_input_tokens` are used as-is. If they cannot be obtained the keys are omitted (not filled with 0). Values that cannot be read as numbers are treated as unknown without raising (`extract_usage()` returns the raw value, the ledger stores NULL, and the usage-based fallback in `default_cost_fn()` returns None).
+- Callers that put reads + writes combined into `cached_tokens` should pass the breakdown explicitly. The `default_cost_fn()` fallback bills with the explicit values when present (billing a combined number as reads would count the writes at 0.1× and undercount the cost). For existing usage without explicit values, extraction and cost are unchanged.
+- Existing tables: the `record()` INSERT assumes both columns. `ensure_schema()` adds them through `LEDGER_MIGRATIONS` (idempotent). Environments where a migration already added the columns do not need `ensure_schema()`. If you use neither, apply the same `ALTER TABLE … ADD COLUMN IF NOT EXISTS` before upgrading to 3.0.0 (as when `missing_reason` was added). If your DB manager reports failures as a return value (`success=False`), neither `ensure_schema()` nor `record()` turns that into an exception (as before; with the default `fail_safe=True`, `record()` also suppresses exceptions), so **confirm that both columns exist** before upgrading writers to 3.0.0, and **confirm that rows are being written to the ledger** afterwards. The breakdown is NULL for past rows and for rows written by SDKs older than 3.0.0 (it cannot be recovered from the combined value).
+
+### 1.0.4 (2026-09-17, unreleased; included in 3.0.0) — workflow / audit: work-item mechanism removed
+
+- `items_advanced` removed from the output of `workflow.build_envelope()` (other envelope keys are unchanged).
+- `no_items` removed from `workflow.envelope.SKIP_REASONS` (`context.skip("no_items")` raises `ValueError`; for a step with nothing to process use `no_target` / `not_applicable` / `nothing_to_do`).
+- `claim.stale` removed from the audit vocabulary. `KNOWN_EVENT_TYPES` is descriptive and writers do not enforce it, so only code that references or enumerates the dict directly breaks.
+- No backward-compatibility shim is provided; consumers of 1.0.3 that reference any of these three must be updated when moving to 3.0.0.
+
+### 1.0.3 (2026-09-14) — policy: internal tool names removed from public operation-kind descriptions
+
+- The public DTO returned by `internal_operation_kinds()` (for admin / help screens) now writes `description_ja` / `description_en` in terms of operations and no longer names internal tools. Kind IDs, labels, `mapping_version`, the full internal mapping (`internal_operation_mapping()` / `kind_tools()`) and `command_exec` covering shell execution only are unchanged.
+- No change to runtime evaluation (`evaluate` / digest / stored form schema 3). 1.0.2 consumers keep working (updating the pin is optional).
+
+### 1.0.2 (2026-09-14) — policy: forbidden operations split into internal operation kinds (`internal`) and connection methods (`external`)
+
+- `ForbidPattern.scope`. `internal` = a kind ID (`kind`) + `mapping_version`, matching an **exact set** of built-in tool names (never an MCP tool with the same name). `external` = `connection_id` + a method glob. (In 1.0.2 a resolver bound server labels with `bind_connections(policy, {id: name})`; **removed in 3.0.2** — rules are now matched by ID through `evaluate(connection_id=)`.) When matching an external rule, an unbound connection or an MCP method name containing `:` is unevaluable and forbidden (fail-closed).
+- `schema_version`: only policies containing scoped rules are **3** (`SCHEMA_VERSION_SCOPED`; otherwise 2). `requires_schema()` / `SUPPORTED_SCHEMA_VERSIONS` are public. `EffectivePolicy.from_dict()` in 1.0.1 and earlier rejects schema 3 with `ValueError` (callers treat it as "policy unavailable" and forbid everything), so issuers of scoped rules must confirm that consumers are ≥ 1.0.2 first. A scoped stored form that claims schema 2 is rejected.
+- New module `agenticstar_platform.policy.internal_operations` (kind table v1: `text_write` / `file_read` / `file_transfer` / `command_exec` (shell execution only) / `browser` / `desktop`): `internal_operation_kinds()` (public DTO: ID / label / description / version only), `internal_operation_mapping()` (the full internal mapping), `kind_tools()`, and `agenticstar_platform.policy.INTERNAL_OPERATIONS_MAPPING_VERSION` (`MAPPING_VERSION` inside the module).
+- `evaluate`: surrounding whitespace is stripped from `mcp_server` and an empty string is normalized to None. Apart from that normalization, matching of legacy bare / glob rules is unchanged; legacy digests and `retain_rationale_body` are unchanged.
+
+### 1.0.1 (2026-09-13) — Marketplace workflow runner (`mp-workflow/1`)
+
+- New module `agenticstar_platform.workflow`: `run(entrypoint)` / `arun` / `WorkflowContext` / `EffectTally` / the completion envelope. Runs only on the environment the platform executor injects (no fallback to DB settings); HTTP transport for the platform runtime API (context / artifacts / audit / completion); runs the agent in a child process with stdio IPC (audit acknowledgement gate, cancellation / deadline checks); safe staging and collection under `/workspace`; resends under the same `completion_id`.
+- Safe collection: the root directory is pinned by file descriptor before the agent starts, and only bytes verified through a validated descriptor (O_NOFOLLOW, regular file, link count, size limit) are saved. JSON / YAML are parsed strictly (aliases, anchors, custom tags and duplicate keys are rejected; no implicit yes/no or timestamp conversion; YAML 1.2 core numbers) and validated against the contract `schema`.
+- Restart safety: `started` is written to a state file before the agent starts, so a runner that dies before saving the completion never runs the agent again (it resends the saved payload or reports a runner restart). Ownership of an execution is decided on the server side through a fixed manifest event; a runner that cannot prove ownership starts nothing and sends no completion. Acknowledged observations are journaled durably, so a restart never resets counts. Leftover agent process groups are stopped only when ownership can be proven; otherwise the runner reports incomplete cleanup and the run is held for review.
+- Deadlines: if the platform has not set a deadline yet, a provisional one is applied locally (the contract maximum for the execution); a confirmed deadline from the platform replaces a provisional value (earlier or later), and confirmed deadlines can afterwards only get shorter. The agent stops at the earlier of the execution deadline and the collection deadline minus the margin for stopping, collecting and saving, so the contract's execution window is preserved when the collection grace period is long enough. Save requests are bounded by the remaining budget, with 10 seconds reserved for the completion. The child's deadline stop is a watchdog independent of HTTP.
+- **Exit codes and failures**: the SDK does not guarantee a zero exit code. Failures that prevent sending a completion (unexpected exceptions, cancellation, a broken workspace, input fetch failures, a start fence that could not be made durable) end with the exception and no completion; the platform records a non-zero exit without a saved terminal as effect-unknown and holds it for human review (an exit 0 without a saved terminal is also held after the collection grace period). Only SIGTERM (pod stop) is converted into a cooperative stop (stop the child processes → collect → report the runner as stopped); only `run()`, the entry point that owns the process, installs the signal handler (`arun` / `WorkflowRunner` alone do not). A 2xx runtime API response whose body is not JSON is normalized to `RuntimeApiError` (for the completion only, it is treated as saved).
+- Only 2xx counts as success for runtime API calls (a 302 + HTML from an ingress or SSO is never mistaken for a save).
+- Adds `pyyaml>=6.0` to the core dependencies.
+- The existing `run_marketplace_agent` (Marketplace chat) API and event delivery are unchanged.
+- The outcome vocabulary of this release (`acted` / `noop` / `degraded`) was replaced in 3.0.1.
+
+### 1.0.0 (2026-09-13) — 3.0 GA (1.0.0a3 + 0.5.41)
+
+- Final release combining 1.0.0a3 (policy `l1_profile` / schema 2, the new audit columns, and `ensure_schema` support for them) with the 0.5.41 fix to result-set detection in `PostgreSQLManager.execute_query()` (rows from `WITH … SELECT` / `VALUES` / `TABLE` were lost). No API changes from 1.0.0a3 (policy stored form = schema 2, digest compatible).
+
+### 1.0.0a3 (2026-09-09) — policy: a project allowlist never widens what the tenant permits
+
+- `EffectivePolicy` gains `l1_profile` (the tenant L1 default profile) and `schema_version` is raised to **2**. `to_dict()` includes `l1_profile`; `from_dict()` requires it and rejects stored forms whose `profile` is looser than `l1_profile` (the 1.0.0a2 stored form, schema 1, can no longer be read — fail-closed). Digests are computed over the new stored form, so keep both sides (the one that resolves policies and the one that evaluates them) on the same version.
+- `evaluate()`: a strict allowlist applies only to **operation classes the L1 profile itself does not forbid**. Under an L1 `guarded` tenant (destructive forbidden), a `strict` project with an allow entry still gets `forbid` (reason `profile`) for destructive. The permitted set with a project applied is a subset of L1's own permitted set (an L1 `strict` allowlist is L1's own mechanism, so it applies to both write and destructive).
+- Exports `profile_permits(profile, op_class)` (whether a profile alone can permit an operation class).
+- **Upgrade procedure (incompatible)**: while the resolving side and the evaluating side run different versions, neither can read the other's stored form and both fail closed (every new run is forbidden). Switch over by pausing new runs → letting in-flight runs finish → switching all components at once → resuming; never upgrade one side ahead of the other.
+
+### 1.0.0a2 (2026-09-07) — public surface cleanup
+
+- `ActionAudit(source=...)`: `source` is "the name of the component writing the ledger" (any string); assumptions about specific deployment names were removed from error messages and docstrings.
+- Tables created by `ensure_schema()` include the four columns added in 1.0.0a1 (`actor_kind` / `project_id` / `root_execution_id` / `source_event_id`) and their indexes (a partial UNIQUE index on `source_event_id`, `project_id`, `(root_execution_id, occurred_at, id)`). Tables created by older SDKs get the columns through `ACTION_AUDIT_UPGRADE_DDL` (`ADD COLUMN IF NOT EXISTS`), and writers that had fallen back to the legacy INSERT switch back to the new one. Call it once with the owner role when provisioning (runtime writers need only INSERT). In migration-managed environments, migrations remain authoritative.
+- Adds `KNOWN_EVENT_TYPES` (known `event_type` names and their meanings; descriptive, not enforced). Exports `ACTION_AUDIT_DDL` / `ACTION_AUDIT_INDEXES` / `ACTION_AUDIT_UPGRADE_DDL`.
+- The `agenticstar_platform.policy` documentation was rewritten in product terms, and the guarantees of `tighten_merge` are stated precisely (the floor cannot be removed and the profile cannot be loosened; a strict allowlist permits the tools it lists). Added the Policy Module section to this README.
+
+### 1.0.0a1 (2026-09-07) — 3.0 alpha
+
+- **audit**
+  - Writers fill the new `agent_action_audit` columns: `actor_kind` (closed vocabulary `agent / human / system / human_external / unknown`; mapped from `actor_type` when omitted), `project_id` (UUID), `root_execution_id` (text) and `source_event_id` (deduplication key, `^[A-Za-z0-9_.:@+-]{1,160}$`). Existing calls that pass only `actor_type` keep working.
+  - Agent rows (`actor_kind='agent'`) without `actor_ref` get the value of `ActionAudit(agent_ref=...)` (default `agent:<source>`). Human / system decision events (`approval.*` plus `gate.resolved` / `content.deleted` / `forensic.*` / `policy.changed` / `item.quarantine_released` / `workitem.*`) require `actor_ref` (`ValueError` otherwise).
+  - **Older schemas**: on a database without the new columns, the writer detects `UndefinedColumn` once and falls back to the legacy 19-column INSERT (shipping the new SDK first never loses audit rows; after the DDL is applied, a restart returns to the new columns).
+  - `reference_keys(**refs)`: builds correlation keys for `metadata` (`project_id / run_id / step_id / item_id / tool_call_id / root_execution_id`).
+  - Numbers in `metadata` other than integers with an absolute value below 2^53 (floats, larger integers, NaN / Inf) are stored as strings, so implementations in other languages compute the same row hash. Circular references in `metadata` no longer fail the write (the metadata is replaced with `{"unserializable": true}` and the row is kept).
+  - The `row_hash` canonicalization is specified in `ROW_HASH_SPEC.md`, with a fixture (`row_hash_fixture.json`) for implementations in other languages. The hash rule itself is unchanged (new columns are excluded when None, so existing rows hash the same).
+- **New `agenticstar_platform.policy`**: `tighten_merge(L1, project)` (two layers; the floor cannot be removed; the stricter profile wins), `EffectivePolicy` (`to_dict` / `from_dict` / `digest`) and `evaluate()` (precedence: policy unavailable → forbid / floor or explicit forbid / unevaluable / unknown tool (open and guarded allow with `unregistered`; strict, delegated and dry-run forbid) / classified → open allows everything, guarded forbids destructive, strict uses the allowlist).
+- **Pre-release versioning (ended with 1.0.0 GA)**: the 3.0 SDK was first published as pre-releases (`1.0.0aN`). pip / uv do not select pre-releases for range specifiers such as `>=0.5` while a final release exists, so existing installs did not pick up an alpha automatically; installing one required an exact pin (`==1.0.0a1`, no `--pre` needed). 1.0.0 (2026-09-13) is a final release, so range specifiers select it; exact pins (`==1.0.0`) are recommended.
+
+### 0.5.41 (2026-09-09)
+
+- **Fix: `PostgreSQLManager.execute_query()` silently dropped the rows of `WITH ... SELECT` / `VALUES` / `TABLE`** — whether a statement returns a result set was decided from the query text (starts with `SELECT` / contains `RETURNING`), so row-returning statements that did not start with `SELECT` went through `conn.execute()` and lost their rows without an error (e.g. `{"success": True, "data": {"result": "SELECT 1"}}`). Detection now uses PostgreSQL's Describe result (`PreparedStatement.get_attributes()`, or whether rows came back): statements with a result set return `List[Dict]` regardless of their first keyword. A zero-column result set (`SELECT FROM t`) with rows is kept as `[{}, ...]` (a zero-column, zero-row result cannot be told apart from no result set and returns `{"result": "SELECT 0"}` — a known edge case; return at least one column to get a normal `[]`).
+  - **Backward compatibility**: statements without a result set (INSERT/UPDATE/DELETE/DDL) still return `{"result": "<status>"}`. For `;`-separated multiple statements, only the path that previously went through the simple protocol (no parameters, not starting with `SELECT`, no `RETURNING`) still executes and returns a status dict; other multi-statement queries (`SELECT 1; SELECT 2`, or with parameters) still fail with `DB_QUERY_ERROR` as before. **Multiple statements never return rows** (a warning is logged when one looks row-returning); call one statement at a time if you need rows.
+  - The implementation uses an unnamed prepared statement (`prepare(query, name="")`), the same path as the previous `conn.fetch()` on asyncpg 0.29/0.30 (no named statements are left behind, even with PgBouncer transaction pooling). `command_timeout` is shared between prepare and fetch, so the budget is still one query.
+  - Behavior difference: a data-modifying CTE without RETURNING (`WITH ... INSERT ...`) used to return `[]` depending on whether the text contained `RETURNING`; it now returns a status dict because it has no result set. Misdetection caused by column names or comments containing `RETURNING` is gone.
+  - `DataAccess.execute_query()` delegates to this method, as does the platform's HTTP DB API that `ApiPostgreSQLManager` calls, so both are fixed as well.
+
+### 0.5.40 (2026-09-01)
+
+- **Guardrail alerts: finer classification**
+  - `SOURCE_SURFACES` gains `agent_worker` (for producers on the agent runtime surface), accepted by both the row writer and the aggregates writer.
+  - `guardrail_alerts` gains a **`policy_category` column (closed vocabulary)** — the attack-method classification of the regex / LLM semantic layers (`prompt_injection` / `system_prompt_extraction` / `implementation_access` / `credential_request` / `file_system_access` / `security_bypass` / `custom_policy` / `unclassified`). `GuardrailAlertWriter` rejects values outside the vocabulary synchronously with `ValueError` (so free text and rule names cannot flow in). Adding the column and replacing the CHECK constraint on existing deployments is the job of your database migrations (the `ensure_schema` DDL applies only when the table is created).
+  - The recursive SelfHarm guard now also scans `prompt_shield_origin` / `policy_category`.
+- **Security: `PromptShieldResult` gains `user_prompt_attack` / `documents_attack`** — the breakdown by attack path, direct (userPrompt) / indirect (documents). Previously these were OR-ed across windows, leaving no way to fill `guardrail_alerts.prompt_shield_origin`. Both are optional (`None` = not available, distinct from `False` = evaluated and not detected). `attack_detected` is unchanged (backward compatible).
+
+### 0.5.39 (2026-08-27)
+
+- **Fix: the metadata fallback check for `tools_used` compared raw values (follow-up to 0.5.38)** — the check used `!=`, which invoked the raw value's `__eq__`; for types with ambiguous truthiness, such as numpy arrays, this raised and could fail the whole telemetry write. The check is now type-based (a plain int that fit into the column) and never compares raw values.
+- **Fix: the metadata fallback used `setdefault`, so an existing `metadata['tools_used']` caused the top-level raw value to be lost** — aligned with the behavior up to 0.5.37, where an unknown field overwrites the metadata key of the same name.
+- **Docs**: removed the overstatement "invalid values never fail the write" from the known-columns section. What is guaranteed is that the column value never makes the INSERT fail; a raw value kept in metadata follows the same JSON-serializability rules as any other metadata field.
+
+> 0.5.38 contains the two issues above, so **0.5.39 or later is recommended** (storing into the `tools_used` column itself works in 0.5.38).
+
+### 0.5.38 (2026-08-27)
+
+- **Fix: `ai_telemetry.tools_used` fell through to metadata instead of its named column** — `TelemetryAccess.save_telemetry()` did not list `tools_used` in `known_fields` / the INSERT, so the tool count went to jsonb and the column was always NULL (anything reading the column always showed it empty). It is now stored directly in the (`integer`) column and included in the SELECT of `list_telemetry()`.
+  - Type contract: accepts `int` / `list` / `tuple`; a list or tuple is normalized to its length (the column is an `int` whether callers pass a count or a list).
+  - **Not measured is `NULL`; measured and zero is `0`.** `bool`, negative values, values outside the PostgreSQL `integer` range and uninterpretable types leave the column `NULL` (an out-of-range value never makes the INSERT fail and lose the row).
+  - **Backward compatibility**: when the column cannot fully represent the raw value (a list breakdown, a wrong type, out of range), the raw value is kept in `metadata.tools_used`, so the information that used to go to metadata is not lost. A plain int is fully represented by the column and is not duplicated into metadata.
+  - Past rows are not backfilled.
+  - ⚠️ **For readers of this column**: the value is the **number of tools used (integer)**, not a comma-separated list of tool names, and runs that used no tools return `0`, not `null` (`null` means not measured).
+  - Added the list of known columns (reserved field names) to the Telemetry section of this README.
+
+### 0.5.37 (2026-08-27)
+
+- **Fix: the OpenAI-compatible LLM conversion keeps an explicit `base_url` as Mem0's `openai_base_url`** — the openai branch of `convert_llm_to_mem0()` dropped `base_url`, so even with a private gateway configured, Mem0's fallback could send memory adds to the official api.openai.com (broken memory, and credentials sent to the wrong endpoint). It now follows the same contract as the embedder conversion (fixed in 0.5.24). Without `base_url`, the official OpenAI fallback and the other provider branches are unchanged.
+
+### 0.5.36 (2026-08-26)
+
+- **Fix: the duplicated LLM / embedder conversion logic in `memory` was unified into module functions** — `SemanticMemoryClient`'s `_normalize_provider` / `_parse_model_string` / `_get_api_key` / `_convert_llm_to_mem0` / `_convert_embedder_to_mem0` now delegate to the module functions of the same name. This fixes two bugs caused by drift between the copies:
+  - For OpenAI-compatible embedders used through `SemanticMemoryClient`, `base_url` was not passed as `openai_base_url`, so the client connected to the official api.openai.com (the 0.5.24 fix existed only in the public `convert_embedder_to_mem0`, not on the path the client actually used).
+  - The public `convert_llm_to_mem0` lacked the gpt-5.x classification fix for Azure (normalizing the `model` key with `mem0_classification_model()`), so on Azure gpt-5.x deployments mem0 sent `max_tokens` and got HTTP 400 (the fix existed only in the instance method).
+- **Fix: removed the `async with` example from the `SemanticMemoryClient.cleanup()` docstring** — the async context manager is not implemented, so following the example raised `TypeError`.
+- **Fix: `_ensure_qdrant_collection` now closes the `QdrantClient` it creates** (fixes a connection leak on every client initialization).
+
+### 0.5.35 (2026-08-25)
+
+- **Feat: the Local Integration Lab is bundled in the package** — with just `pip install 'agenticstar-platform[lab]'` and `python -m agenticstar_platform.lab`, PostgreSQL / Qdrant / S3-compatible storage (MinIO) start from a version-pinned Docker Compose file and a synthetic `ingest → retrieve → artifact/result persist → terminal outcome` journey completes without any credentials (`doctor` for read-only diagnostics, `--reset` to tear down). No cloud account, production credentials or `.env` editing. See Quick Start §2.5 and `agenticstar_platform/lab/README.md`.
+- **Fix: `QdrantConfig.check_compatibility` was ignored on the non-auth path of `QdrantManager`** — without an auth_token_provider the setting was not passed to `QdrantClient`, so the client/server version check (and its warning on a mismatch) always ran, even with `check_compatibility=False`.
+- **Change: the qdrant-client floor in `[rag]` / `[all]` is raised to `>=1.13.0`** — qdrant-client 1.12 and earlier do not accept the `check_compatibility` argument (this also fixes an existing inconsistency where the auth path raised `TypeError` on 1.12 and earlier).
+
+### 0.5.34 (2026-08-24)
+
+- **Feat: MCP tokens with `expires_at=null` (no expiry) are accepted** — personal access tokens (PAT) are long-lived or non-expiring, so the token supply API returns `expires_at: null` for them. Previously `get_mcp_tokens()` treated a missing expires_at as `INVALID_TOKEN_DATA` and discarded that provider's token, so PATs could not be used at all. `MCPTokenInfo.expires_at` is now `Optional[datetime] = None` (None = no expiry), and the client accepts null or a missing key as valid. Any other invalid value is now **unified** into a per-provider `INVALID_EXPIRES_AT` (an intentional error-code change: falsy values such as an empty string or `0` used to be `INVALID_TOKEN_DATA`, and truthy non-strings leaked into a broad except that turned the whole fetch into `UNKNOWN_ERROR`). If several of your components validate the same tokens in sequence, all of them need 0.5.34 or later before PATs pass.
+
+### 0.5.33 (2026-08-21)
+
+- **Fix: `llm_usage_daily_pkey` conflicts when `rollup_llm_usage_daily()` runs concurrently on several replicas** — when replicas ran the hourly rollup in parallel, a later DELETE under READ COMMITTED could not see rows from an earlier run that had not committed yet, deleted 0 rows, and its INSERT then hit the primary key. The SQL function now starts with a `pg_try_advisory_xact_lock(hashtext('rollup_llm_usage_daily'), p_day - date '2000-01-01')` guard, and the side that cannot take the lock skips (the winner writes the same aggregate from the same ledger). The function is distributed through `CREATE OR REPLACE` in `ensure_schema()`, so **the fix reaches the database only when a component that runs `ensure_schema()` starts on 0.5.33** (restarting an older component reverts to the old definition; after a mixed-version period, check with `pg_get_functiondef`).
+
+### 0.5.32 (2026-08-12)
+
+- **Added the guardrail alert writers** (`GuardrailAlertWriter` / `GuardrailAlertAggregates`) — public producer writers for the admin triage view `guardrail_alerts` (a non-authoritative operational view; the action-audit ledger remains authoritative) and the unlinked daily aggregates `guardrail_alert_daily_aggregates`. Structurally enforced: rows have no end-user ID column, and SelfHarm is rejected at row construction with a synchronous `ValueError` (normalizing spelling variants and str-Enum `.value`) and recorded in the aggregates only. Rows are idempotent through `event_key` v2 (replays never roll back admin lifecycle state). Severities are **measured** per category (do not substitute thresholds). Grants: rows = INSERT only; aggregates = INSERT + UPDATE(count) + SELECT(count). Delivery follows the same bounded FAF + spill contract as the action audit.
+
+### 0.5.31 (2026-08-10)
+
+- **Added the action-audit module `agenticstar_platform.audit`** (`ActionAudit` / `GatewayActionAudit` / `ActionAuditWriteError` / `canonical_digest`) — pure infrastructure that records **action events** (approvals, tool authorizations, policy violations, kill switch, external-agent calls) into append-only ledgers (`agent_action_audit` / `llm_gateway_action_audit`). Three write modes: `record()` = at-least-once while the process lives (bounded retry, then the sanitized row is spilled as JSON to a log line tagged `action_audit_spill`) / `record_sync()` = audit-before-act (raises `ActionAuditWriteError` when the DB write fails — an approval that cannot be audited must not take effect) / `record_nowait()` = fire-and-forget for hot paths (backlog capped at 512, pre-start cancellation also spills; best-effort, lost if the process dies abruptly). Usage contract: pass bodies as digests (`canonical_digest`); field caps (reason truncated to 300 chars / payload_digest must be 64 lowercase hex chars / metadata over 2KB replaced by a digest, always deep-copied) limit the blast radius of accidental leakage (there is no automatic secret detection or redaction). `approval.*` requires `actor_ref` (synchronous `ValueError`). No extra dependencies (stdlib only, part of core).
+
+### 0.5.30 (2026-08-07)
+
+- **Fix: `run_marketplace_agent` / `arun_marketplace_agent` always failed with `AttributeError` when `data_access` was omitted** — the `db_config` / `PostgreSQLConfig.from_env()` fallback passed a raw `PostgreSQLConfig` to `DataAccess` and crashed with `'PostgreSQLConfig' object has no attribute 'initialize'` before the agent ran (so the minimal `run_marketplace_agent(my_agent)` documented in 0.5.29 always failed). The config is now turned into a manager with `create_postgresql_manager(config)` before connecting. When api_url (`DB_API_PROXY_URL`) is set, the runner cannot supply a token_provider and raises `MarketplaceRunnerConfigError` explicitly. Regression tests were added for the fallback path.
+
+### 0.5.29 (2026-08-01)
+
+- **Added the Marketplace runner** (`run_marketplace_agent` / `arun_marketplace_agent`) — an agent function that works locally can be handed straight to the Marketplace-compatible terminal lifecycle (identity validation → input fetch → run → result persist / webhook → exactly one terminal event → cleanup). Previously this main boilerplate was written by hand, and missing or duplicate terminal events depended on each developer. If an identity env var (`EXECUTION_ID` etc.) is missing, the runner stops with `MarketplaceRunnerConfigError` without calling the agent. `pip install 'agenticstar-platform[runner]'` (new extra, equivalent to db + webhook). The contract is pinned by contract tests (success / agent exception / input fetch failure / persist failure / webhook failure × exactly one terminal event).
+
+### 0.5.26 (2026-07-27)
+
+- **`boto3` moved from `[security]` to `[security-aws]`** — 0.5.25 added boto3 to `[security]` for `AWSSecurityClient`, which pulled boto3 back into lightweight installs that pin `[storage-azure,security]` and deliberately leave it out. To use the AWS content-safety backends, install `pip install 'agenticstar-platform[security-aws]'` (still included in `[all]`).
+
+### 0.5.25 (2026-07-27)
+
+Packaging: lightweight installs now actually work (previously only `[all]` did).
+
+- **`import agenticstar_platform` succeeds on a core install** — `__init__.py` imported every module unconditionally, so `pip install agenticstar-platform` (core) failed with `ModuleNotFoundError: asyncpg` and `[db]` failed with `ModuleNotFoundError: openai` **at import time**. It now uses PEP 562 lazy imports and works as the extras split in pyproject intends. Public names and import style are unchanged.
+- **A missing extra produces an actionable error** — instead of a raw `ModuleNotFoundError`, the error says which extra to install. Only cases where a dependency owned by that extra is actually missing are converted, so import bugs inside the SDK or circular imports are never misdiagnosed as a missing extra.
+- **`WebhookEventHandler` / `create_marketplace_handler` detect a missing aiohttp when the symbol is accessed** — previously the object could be created without aiohttp and silently skipped webhooks at runtime, leaving only a log line.
+- **`pydantic>=2.0.0` added to the core dependencies** — the `auth` module uses it, but it was undeclared and `[all]` only worked by accident through transitive dependencies.
+- **`boto3` added to `[security]`** — required by `AWSSecurityClient` (Comprehend / Bedrock Guardrails) but undeclared.
+- **`[all]` includes the `[security]` dependencies (`google-cloud-dlp` / `google-cloud-aiplatform`)** — previously `GCPSecurityClient` could not be used even with `[all]`.
+- **The README Quick Start is runnable** — previously it only defined `async def main()` without calling it, so copying it did nothing. It was replaced with a minimal example that runs from progress to terminal outcome without external services, plus a drift test that extracts and runs the code from the README.
+
+### 0.5.24 (2026-07-21)
+
+RAG/Memory: OpenAI-compatible embedding endpoints (embed-v-4-0 class) support.
+
+- **RAG: `EmbeddingConfig` gains a `provider` field (`"azure"` default / `"openai"`)** — `provider = "openai"` targets OpenAI-compatible endpoints such as embed-v-4-0 on Azure AI inference (`base_url` must include `/models`; `api_version` is not used). Model strings with a LiteLLM-style prefix (`azure/...` / `openai/...`) derive the provider automatically and the prefix is stripped from the deployment/model name.
+- **Memory: `convert_embedder_to_mem0()` passes `openai_base_url` for the openai provider** — when `[memory.embedder]` uses an `openai/...` model with `base_url` set, the Mem0 embedder now connects to that endpoint. ⚠️ Without this release, the base_url was silently dropped and the client connected to `api.openai.com`, causing 401s with non-OpenAI keys.
+- **RAG: embedding inputs are truncated with a model-aware token budget** — 8,000 tokens for 8k-class models, a 100k sanity cap for long-context `embed-v*` models; `disallowed_special=()` so special-token literals (e.g. `<|endoftext|>`) in documents cannot crash encoding; character-based fallback when tiktoken is unavailable.
+
+### 0.5.23 (2026-07-09)
+
+Security: Azure PII detection batching and quota-aware 429 retry.
+
+- **Security: `detect_pii_batch()` — Azure PII calls are batched at 5 documents/request** — all sliding windows across the input texts are packed into a single `documents` array (Azure sync PII allows 5 docs/request), cutting Azure call volume by up to 5×. Long conversation histories previously issued one Azure call per text element, so a single long request could exhaust the S0 limit of 300 requests/min. `SecurityClientBase` gains a sequential default implementation, so AWS / GCP clients inherit the API unchanged. `detect_pii()` is now a single-text wrapper over the batch path — external behavior (fail-closed empty string, error codes, signature) is unchanged.
+- **Security: Azure PII 429s are retried honoring `Retry-After`, then abort with `RATE_LIMITED`** — throttled requests are retried (default 2 retries, `AGENTICSTAR_AZURE_LANG_429_RETRIES`, delay capped at 5s). If throttling persists, the remaining batch chunks are aborted (no further quota pressure) and unresolved texts fail with `error_code="RATE_LIMITED"`, letting callers surface `429 + Retry-After` to their clients instead of a retry-inducing 502. Previously any non-200 (including 429) failed closed immediately with no retry.
+- **Security: fail-closed hardening for partial batch responses** — a 200 response missing a submitted document (absent from both `documents` and `errors`) now fails that text closed instead of silently passing it through unscanned.
+
+### 0.5.22 (2026-07-08)
+
+Security (GCP Content Safety), RAG error hierarchy, and DB identifier validation.
+
+- **Security: GCP Content Safety gains a Vertex AI Safety Filters path (+ Gemini judge)** — `GCPSecurityClient` can now moderate content via Vertex AI safety filters across all Marketplace regions, with a Gemini-based semantic judge as an additional layer. Adds `google-cloud-aiplatform>=1.60.0` to the `[security]` extra.
+- **Security: guardrail input-inspection window count is now env-configurable** — the number of sliding windows scanned on large inputs is tunable, relaxing the earlier "large-input tail not inspected" gap.
+- **RAG: `QdrantConfigError` folded into the `VectorStoreError` hierarchy; `initialize()` is idempotent** — init-failure wrapping now passes already-typed exceptions through (config errors are no longer mislabeled), and calling `initialize()` on an existing collection re-ensures the payload indexes instead of raising.
+- **DB: identifier validation consolidated into `common.validation`; errors returned as a uniform dict** — `select_one` returning `None` on error is now documented, and identifier-validation failures return a consistent shape.
+
+### 0.5.21 (2026-06-25)
+
+Metering: persist `missing_reason` on the ledger.
+
+- **`UsageMeter.record(..., missing_reason=...)` + new `missing_reason` column** on `llm_usage_ledger` — the usage-missing reason (`provider_omitted` / `stream_interrupted` / …) is now stored **on the row** (previously logs only), so offline exports can distinguish `cost_usd IS NULL` (unpriced) vs `usage_status='missing'` vs true-zero. Present rows store `NULL` (no contradiction). `ensure_schema()` adds the column idempotently (`ADD COLUMN IF NOT EXISTS`) — backward-compatible, propagates to existing monthly partitions; no change to existing columns.
+
+### 0.5.20 (2026-06-24)
+
+Metering: billing-clean cost storage + cache-read fallback.
+
+- **`round_cost_usd` helper + `UsageMeter.record` stores cost as a rounded `Decimal`** — avoids float-repr drift (`0.00089999…`) in the `cost_usd` numeric column; 8-dp rounding does not change billing sums, and `NaN`/`Inf` are stored as `NULL`. Exported from both `agenticstar_platform` and `agenticstar_platform.metering`.
+- **`extract_usage` reads top-level `cache_read_input_tokens`** as an additional `cached_tokens` fallback (complements the 0.5.19 details-based extraction), improving cache-aware cost on the token-only path. No public API change.
+
+### 0.5.19 (2026-06-20)
+
+Metering cost-accuracy fixes (cache-aware). Supersedes 0.5.18.
+
+- **`default_cost_fn` fallback applies prompt-cache pricing** — passes `cache_read_input_tokens` / `cache_creation_input_tokens` to `litellm.cost_per_token` when `completion_cost(response)` is unavailable, so cache-heavy calls are no longer priced at the full input rate.
+- **`extract_usage` covers Responses API + cache-creation** — reads `cached_tokens` from `input_tokens_details` (Responses) as well as `prompt_tokens_details` (Chat), and propagates `cache_creation_input_tokens` (Anthropic). Previously cached tokens on Responses calls were missed on the token-only/fallback path. No public API change.
+
+### 0.5.17 (2026-06-19)
+
+- **Security: AWS PII detection now defaults to Bedrock Guardrails (multilingual)** — `AWSSecurityConfig` gains a `pii_service` field (`"bedrock_guardrails"` default / `"comprehend"` legacy). AWS `detect_pii()` routes through Bedrock Guardrails `sensitiveInformationPolicy` by default, fixing multilingual (including Japanese) PII masking — Amazon Comprehend `DetectPiiEntities` only supports `en` / `es` (previously `ja` etc. slipped through and raised a `ValidationException`). ⚠️ **Behavior change**: with the new default, AWS PII requires `guardrail_id` to be set (otherwise it returns `NOT_CONFIGURED`); set `pii_service="comprehend"` to keep the legacy en/es path. Configs that already set `pii_service` explicitly are unaffected.
+
+### 0.5.16 (2026-06-14)
+
+Marketplace SDK reliability fixes (surfaced while building agents from the guides alone):
+
+- **Config: `from_toml()` resolves `${ENV}` placeholders** and uses the stdlib `tomllib` (no external `toml` dependency). `host = "${POSTGRESQL_HOST}"`-style values in `config.toml` are expanded from the environment; unresolved placeholders are left intact. Supports `${VAR}` and `${VAR:-default}`.
+- **Memory: mem0 2.x compatibility** — `SemanticMemoryClient.search()` / `get_all()` now use mem0 2.x `filters` / `top_k` internally (the public `user_id` / `limit` arguments are unchanged). Azure gpt-5.x / o-series memory models no longer fail with `max_tokens is not supported` (the unsupported parameter is suppressed; the real Azure deployment is still targeted). `mem0ai` is pinned to `>=2.0.0,<3.0.0`.
+- **Events: `EventEmitter.drain()`** — drives registered handlers (e.g. the marketplace webhook handler) for non-SSE flows. `emit_event(...)` only enqueues; without an SSE `consume_events()` loop, call `drain()` so handlers actually fire (previously `emit` + `cleanup` silently dropped events). The `[webhook]` extra now includes `aiohttp` (required by `WebhookEventHandler`); `[all]` includes it too.
+- **Storage: `StoragePaths.input_uploads_prefix(user_id, conversation_id, message_id)`** — builds the owner-scoped prefix (`users/{user_id}/uploads/{conv}/{msg}`) for input attachments uploaded from the chat UI. Use with `download_objects_by_prefix`.
+- **Runtime: `wait_for_egress()`** — waits for the egress sidecar to accept connections before the first outbound call, avoiding a startup race that could skip first-turn input moderation / PII.
+- **PodRuntime: injectable self scale-down** — `PodRuntime(..., scale_down_callback=...)`; when omitted and no bundled scaler is present, scale-down is skipped cleanly instead of raising `ModuleNotFoundError`.
+
+### 0.5.15 (2026-06-13)
+
+- **New: Metering module (`UsageMeter`)** — dedicated LLM usage & cost ledger. `meter.record(...)` computes cost from a response/usage and writes one row per call to `llm_usage_ledger`; `rollup_recent()` / `daily_cost(...)` provide daily aggregation and cost-visualization queries; `ensure_schema()` creates the (portable) tables/rollup function idempotently. Cost is **pluggable** — default `default_cost_fn` uses litellm if installed (long-context / cache / tier aware), gracefully records tokens-only (`cost_usd = NULL`) when litellm is absent, and `cost_fn=` overrides. Agent-logic agnostic; identical for self-hosted and Marketplace BYO. Exports: `UsageMeter`, `default_cost_fn`, `extract_usage`.
+
+### 0.5.7 (2026-05-10)
+
+- **Security: PII confidence threshold per-call** — `detect_pii()` now accepts an optional `confidence_threshold` parameter on Azure / AWS / GCP clients (and the `SecurityClientProtocol` / `SecurityClientBase`). Passing `None` falls back to the value in `*SecurityConfig.pii_confidence_threshold`. This lets a single long-lived `SecurityClient` instance serve callers that need different thresholds, instead of constructing a new client per request. Backward compatible — existing callers that omit the new argument get the previous behavior.
+- **Security: GCP threshold now respects config** — `GCPSecurityClient.detect_pii()` previously hardcoded a `LIKELY` (likelihood ≥ 4) cutoff and ignored `GCPSecurityConfig.pii_confidence_threshold`. It now compares `likelihood / 5.0` against the configured threshold, matching Azure / AWS behavior. With the default `pii_confidence_threshold = 0.7` the effective cutoff stays at likelihood ≥ 4, so most callers see no change. Callers that had set `pii_confidence_threshold` below 0.7 will start seeing additional `POSSIBLE` (likelihood 3) findings.
+- **Reuse the client to avoid leaks** — `AzureSecurityClient` (and AWS/GCP equivalents) hold an `httpx.AsyncClient` (TLS context + connection pool) internally. Construct one client per process and call `await client.close()` on shutdown (or use `async with`); creating a new client per request without closing leaks resources.
+
+### 0.5.2 (2026-03-28)
+
+- **Memory: Removed episodic memory (Graphiti/FalkorDB)** — `episodic.py` was unused dead code. SDK now provides semantic memory (Mem0) only.
+- **Extras: `[semantic]` / `[episodic]` replaced with `[memory]`** — unified extra for Mem0-based semantic memory.
+- **Extras: `[all]` no longer includes `graphiti-core[falkordb]`**.
+- **README updated** to reflect episodic memory removal.
+
+### 0.5.0 (2026-03-25)
+
+**Breaking Changes:**
+- **DB: `DataAccess` now takes a manager instance** instead of `(config, use_proxy, token_provider)`. Callers create `PostgreSQLManager` or `ApiPostgreSQLManager` and pass it directly.
+- **DB: `use_proxy` parameter removed** from `DataAccess`, `create_postgresql_manager()`.
+- **DB: `api_proxy_url` renamed to `api_url`** in `PostgreSQLConfig`.
+- **DB: `ApiPostgreSQLManager` exported** as public API for HTTP API access.
+
+**Improvements:**
+- **DB: `is_initialized()` method** added to both `PostgreSQLManager` and `ApiPostgreSQLManager`.
+- **Qdrant: `prefer_grpc` / `check_compatibility`** are now explicit `QdrantConfig` fields (no longer hardcoded based on `auth_token_provider`).
+- Error messages no longer reference deployment-specific terms.
+
+### 0.4.0 (2026-03-21)
+
+- **Security: Prompt Shield documents trimming** - `check_prompt_shield()` now trims each document to 10,000 characters to comply with Azure API limits. Previously, WebFetch results exceeding 10,000 characters were blocked even without violations.
+- **Security: PII detection language support** - `detect_pii()` now accepts a `language` parameter (default: `"ja"`) for accurate multi-language PII detection. Previously hardcoded to Japanese.
+- **Security: Protocol/ABC updated** - `SecurityClientProtocol` and `SecurityClientBase` updated with `language` parameter in `detect_pii()`.
+
+### 0.3.2
+
+- Storage module: Multi-cloud support (Azure Blob, S3, GCS)
+- Auth module: AgenticStar Auth API client
+- Memory module: Semantic memory (Mem0)
+
+## Version
+
+3.0.7

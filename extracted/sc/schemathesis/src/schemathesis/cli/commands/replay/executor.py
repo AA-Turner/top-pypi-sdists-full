@@ -5,11 +5,14 @@ from collections import Counter
 from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import TYPE_CHECKING
+from urllib.parse import parse_qs, urlsplit
 
+from schemathesis.core import NOT_SET
+from schemathesis.core.curl import get_excluded_headers
 from schemathesis.core.media_types import is_json
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.timing import Instant
-from schemathesis.core.transforms import UNRESOLVABLE
+from schemathesis.core.transforms import UNRESOLVABLE, iter_decoded_pointer_segments
 from schemathesis.reporting.crashes import CrashCheck, CrashFile, CrashLink, CrashStep
 
 if TYPE_CHECKING:
@@ -34,12 +37,40 @@ class ReplayStatus(Enum):
 
 # A single passing replay does not prove a fix; an intermittent failure needs more attempts to show itself.
 MAX_REPLAY_ATTEMPTS = 3
+# Statuses an API answers when it does not accept the credentials a request carries.
+AUTH_REJECTION_STATUSES = frozenset({401, 403})
+
+
+@dataclass(slots=True)
+class LinkedValue:
+    """A value a step's link re-extracted from its parent's live response."""
+
+    location: str
+    name: str
+    # `NOT_SET` when the recorded request had no value there.
+    recorded: object
+    # `UNRESOLVABLE` when the live response lacks it, so the recorded value was sent instead.
+    fresh: object
+    # JSON Pointers into the parent's response body the link extracts the value from.
+    pointers: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)
 class StepOutcome:
     status_code: int
     body: str
+    # The command reproducing the request this replay sent for the step.
+    curl: str = ""
+    links: list[LinkedValue] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class RejectedStep:
+    """A replayed step the API rejected for authentication though the recorded request was accepted."""
+
+    number: int
+    status_code: int
+    recorded_status_code: int
 
 
 @dataclass(slots=True)
@@ -58,6 +89,10 @@ class ReplayOutcome:
     check_outcomes: list[CheckOutcome] = field(default_factory=list)
     failures: list[Failure] = field(default_factory=list)
     transport_response: Response | None = None
+    # Commands reproducing the requests this replay sent; empty when it stopped before the terminal step.
+    code_sample: str = ""
+    unsupplied_masked: list[tuple[ParameterLocation, str]] = field(default_factory=list)
+    rejected: RejectedStep | None = None
 
 
 def replay_crash_file(
@@ -90,15 +125,21 @@ def _replay_with_retries(
     failure_counts: Counter[str] = Counter()
     first_failing: ReplayOutcome | None = None
     outcome: ReplayOutcome | None = None
+    rejected_attempt: ReplayOutcome | None = None
     attempts = 0
 
     for _ in range(MAX_REPLAY_ATTEMPTS):
-        outcome = _replay_sequence(
+        attempt = _replay_sequence(
             crash.sequence, base_url=base_url, session=session, schema=schema, operation=operation
         )
-        if not outcome.check_outcomes:
+        if not attempt.check_outcomes:
             # The replay aborted before it could evaluate anything; further attempts would abort the same way.
-            return outcome
+            return attempt
+        if attempt.rejected is not None:
+            # An unauthenticated attempt says nothing about the fix, so it never counts towards the verdict.
+            rejected_attempt = attempt
+            continue
+        outcome = attempt
         attempts += 1
         failed = [check.name for check in outcome.check_outcomes if check.status is ReplayStatus.FAILED]
         failure_counts.update(failed)
@@ -109,13 +150,42 @@ def _replay_with_retries(
         ):
             break
 
-    assert outcome is not None
-    # Report the attempt that failed, so its response and failures are the ones shown.
-    reported = first_failing or outcome
+    if outcome is None:
+        assert rejected_attempt is not None
+        # Every attempt was rejected: checks that still failed stand, passing ones cannot count as fixed.
+        reported = rejected_attempt
+        check_outcomes = rejected_attempt.check_outcomes
+    else:
+        # Report the attempt that failed, so its response and failures are the ones shown.
+        reported = first_failing or outcome
+        check_outcomes = [
+            _final_check_outcome(check, failure_counts[check.name], attempts) for check in reported.check_outcomes
+        ]
+    rejected = rejected_attempt.rejected if rejected_attempt is not None else None
+    return _unverified_without_credentials(
+        replace(reported, status=_case_status(check_outcomes), check_outcomes=check_outcomes, rejected=rejected)
+    )
+
+
+def _unverified_without_credentials(outcome: ReplayOutcome) -> ReplayOutcome:
+    """A pass without the credentials the recorded request carried proves nothing, so it never counts as fixed."""
+    if outcome.unsupplied_masked:
+        message = _missing_credentials_message(outcome.unsupplied_masked)
+        note = f"{_masked_names(outcome.unsupplied_masked)} masked in the crash file"
+    elif outcome.rejected is not None:
+        message = _rejected_credentials_message(outcome.rejected, steps=len(outcome.step_outcomes))
+        note = f"replay was not authenticated ({outcome.rejected.status_code})"
+    else:
+        return outcome
+    if outcome.status is ReplayStatus.FIXED:
+        return _errored_outcome(message, elapsed=outcome.duration_ms, step_outcomes=outcome.step_outcomes)
     check_outcomes = [
-        _final_check_outcome(check, failure_counts[check.name], attempts) for check in reported.check_outcomes
+        CheckOutcome(name=check.name, status=ReplayStatus.ERRORED, note=note)
+        if check.status is ReplayStatus.FIXED
+        else check
+        for check in outcome.check_outcomes
     ]
-    return replace(reported, status=_case_status(check_outcomes), check_outcomes=check_outcomes)
+    return replace(outcome, status=_case_status(check_outcomes), check_outcomes=check_outcomes)
 
 
 def _final_check_outcome(check: CheckOutcome, failure_count: int, attempts: int) -> CheckOutcome:
@@ -158,6 +228,7 @@ def _replay_sequence(
     schema: BaseSchema,
     operation: APIOperation | None,
 ) -> ReplayOutcome:
+    from schemathesis.auths import AuthContext, set_on_case
     from schemathesis.engine.recorder import ScenarioRecorder
     from schemathesis.generation.stateful.state_machine import StepOutput
 
@@ -171,6 +242,11 @@ def _replay_sequence(
     terminal_case: Case | None = None
     terminal_response: Response | None = None
     last_index = len(sequence) - 1
+    replacement = schema.config.output.sanitization.replacement
+    # Masked values no credential source replaced, so the replay sent the placeholder instead.
+    unsupplied: list[tuple[ParameterLocation, str]] = []
+    # The first step the API rejected for authentication where the recorded request was accepted.
+    rejected: RejectedStep | None = None
 
     for index, step in enumerate(sequence):
         step_operation = operation if index == last_index else _step_operation(schema, step)
@@ -191,6 +267,9 @@ def _replay_sequence(
                 step_outcomes=step_outcomes,
             )
 
+        # Credentials come from the current config, CLI options and auth providers, as in a run.
+        set_on_case(case, AuthContext(operation=case.operation, app=case.operation.app), None)
+
         # A link extracts from its recorded parent step, not always the previous one (older crashes lack it).
         parent_output: StepOutput | None = None
         if step.parent_index is not None:
@@ -199,13 +278,14 @@ def _replay_sequence(
         elif step_outputs:
             parent_output = step_outputs[-1]
 
+        links: list[LinkedValue] = []
         if (
             parent_output is not None
             and step.link is not None
             and (step.link.parameters or step.link.request_body is not None)
         ):
             try:
-                _apply_link_parameters(case, step.link, parent_output)
+                links = _apply_link_parameters(case, step.link, parent_output)
             except (KeyError, ValueError) as exc:
                 return _errored_outcome(
                     f"extraction failed at step {index + 1} - {exc}",
@@ -218,11 +298,28 @@ def _replay_sequence(
         except Exception as exc:
             return _errored_outcome(str(exc), elapsed=instant.elapsed_ms, step_outcomes=step_outcomes)
 
+        if (
+            rejected is None
+            and response.status_code in AUTH_REJECTION_STATUSES
+            and step.response_status not in AUTH_REJECTION_STATUSES
+        ):
+            rejected = RejectedStep(
+                number=index + 1, status_code=response.status_code, recorded_status_code=step.response_status
+            )
+
+        for parameter in _masked_parameters(step, replacement):
+            if parameter not in unsupplied and _sent_value(response.request, *parameter) in (None, replacement):
+                unsupplied.append(parameter)
+
         parent_id = parent_output.case.id if parent_output is not None else None
         recorder.record_case(parent_id=parent_id, case=case, transition=None, is_transition_applied=False)
         recorder.record_response(case_id=case.id, response=response)
 
-        step_outcomes.append(StepOutcome(status_code=response.status_code, body=response.text_lossy()))
+        # Built from the headers this step actually sent, the same way a run reports its failures.
+        curl = case.as_curl_command(headers=recorder.find_request_headers(case_id=case.id), verify=response.verify)
+        step_outcomes.append(
+            StepOutcome(status_code=response.status_code, body=response.text_lossy(), curl=curl, links=links)
+        )
         step_outputs.append(StepOutput(response=response, case=case))
         if index == last_index:
             terminal_case = case
@@ -251,30 +348,88 @@ def _replay_sequence(
         check_outcomes=check_outcomes,
         failures=check_failures,
         transport_response=terminal_response,
+        code_sample="\n".join(outcome.curl for outcome in step_outcomes),
+        unsupplied_masked=unsupplied,
+        rejected=rejected,
     )
 
 
-def _apply_link_parameters(case: Case, link: CrashLink, previous_step_output: StepOutput) -> None:
+def _apply_link_parameters(case: Case, link: CrashLink, previous_step_output: StepOutput) -> list[LinkedValue]:
     from schemathesis.specs.openapi.expressions import evaluate
 
+    linked: list[LinkedValue] = []
     # Re-extract each link parameter from the previous response into its container.
     for key, expression in link.parameters.items():
         location, _, name = key.partition(".")
+        container = getattr(case, ParameterLocation(location).container_name)
         value = evaluate(expression, previous_step_output)
+        linked.append(
+            LinkedValue(
+                location=location,
+                name=name,
+                recorded=container.get(name, NOT_SET),
+                fresh=value,
+                pointers=link_body_pointers(expression),
+            )
+        )
         if value is UNRESOLVABLE:
             # Re-extraction failed; reuse the value captured at the original failure.
             continue
-        container = getattr(case, ParameterLocation(location).container_name)
         container[name] = value
 
     if link.request_body is not None:
         # Re-extract the body from the previous response, merging into the recorded one.
         body = evaluate(link.request_body, previous_step_output, evaluate_nested=True)
-        if body is not UNRESOLVABLE:
-            if isinstance(body, dict) and isinstance(case.body, dict):
-                case.body = {**case.body, **body}
-            else:
+        if isinstance(body, dict) and isinstance(case.body, dict) and isinstance(link.request_body, dict):
+            recorded_body = case.body
+            linked.extend(
+                LinkedValue(
+                    location="body",
+                    name=name,
+                    recorded=recorded_body.get(name, NOT_SET),
+                    fresh=value,
+                    pointers=link_body_pointers(link.request_body.get(name)),
+                )
+                for name, value in body.items()
+            )
+            case.body = {**recorded_body, **body}
+        else:
+            linked.append(
+                LinkedValue(
+                    location="body",
+                    name="body",
+                    recorded=case.body,
+                    fresh=body,
+                    pointers=link_body_pointers(link.request_body),
+                )
+            )
+            if body is not UNRESOLVABLE:
                 case.body = body
+    return linked
+
+
+def link_body_pointers(expressions: object) -> list[str]:
+    """JSON Pointers into the parent's response body that link expressions, possibly nested, extract from."""
+    from schemathesis.specs.openapi.expressions import nodes, parser
+    from schemathesis.specs.openapi.expressions.errors import RuntimeExpressionError
+
+    pointers: list[str] = []
+    pending = [expressions]
+    while pending:
+        item = pending.pop()
+        if isinstance(item, dict):
+            pending.extend(item.values())
+        elif isinstance(item, list):
+            pending.extend(item)
+        elif isinstance(item, str):
+            try:
+                parsed = parser.parse(item)
+            except RuntimeExpressionError:
+                continue
+            pointers.extend(
+                node.pointer[1:] for node in parsed if isinstance(node, nodes.BodyResponse) and node.pointer
+            )
+    return pointers
 
 
 def _evaluate_checks(
@@ -356,8 +511,15 @@ _STALE_HEADERS = frozenset({"content-length", "host", "transfer-encoding", "conn
 def _build_case(operation: APIOperation, step: CrashStep) -> Case:
     from schemathesis.generation.meta import CaseMetadata
 
-    source_headers = step.case_headers or step.request_headers
-    headers = {key: value for key, value in source_headers.items() if key.lower() not in _STALE_HEADERS}
+    # Wire headers carry user-supplied ones such as `-H`; the transport regenerates the rest.
+    excluded = get_excluded_headers()
+    case_header_names = {key.lower() for key in step.case_headers}
+    headers = {
+        key: value
+        for key, value in step.request_headers.items()
+        if key.lower() not in _STALE_HEADERS and key not in excluded and key.lower() not in case_header_names
+    }
+    headers.update(step.case_headers)
     case = operation.Case(
         method=step.method,
         path_parameters=step.path_parameters,
@@ -373,6 +535,73 @@ def _build_case(operation: APIOperation, step: CrashStep) -> Case:
     return case
 
 
+def _is_masked(value: object, replacement: str) -> bool:
+    return value == replacement or value == [replacement]
+
+
+def _masked_parameters(step: CrashStep, replacement: str) -> list[tuple[ParameterLocation, str]]:
+    """Sent parameters whose whole value was masked; the current credentials may replace them."""
+    return [
+        *(
+            (ParameterLocation.HEADER, name)
+            for name, value in step.request_headers.items()
+            if _is_masked(value, replacement)
+        ),
+        *((ParameterLocation.QUERY, name) for name, value in step.query.items() if _is_masked(value, replacement)),
+        *((ParameterLocation.COOKIE, name) for name, value in step.cookies.items() if _is_masked(value, replacement)),
+    ]
+
+
+def _sent_value(request: requests.PreparedRequest, location: ParameterLocation, name: str) -> str | None:
+    if location is ParameterLocation.HEADER:
+        return request.headers.get(name)
+    if location is ParameterLocation.QUERY:
+        values = parse_qs(urlsplit(request.url or "").query, keep_blank_values=True).get(name)
+        return values[0] if values else None
+    pairs = (pair.split("=", 1) for pair in request.headers.get("Cookie", "").split(";"))
+    return next((pair[1].strip() for pair in pairs if len(pair) == 2 and pair[0].strip() == name), None)
+
+
+_LOCATION_LABELS = {
+    ParameterLocation.HEADER: "header",
+    ParameterLocation.QUERY: "query parameter",
+    ParameterLocation.COOKIE: "cookie",
+}
+
+
+def _masked_names(masked: list[tuple[ParameterLocation, str]]) -> str:
+    return ", ".join(f"`{name}` {_LOCATION_LABELS[location]}" for location, name in masked)
+
+
+def _missing_credentials_message(missing: list[tuple[ParameterLocation, str]]) -> str:
+    names = _masked_names(missing)
+    if len(missing) == 1:
+        return f"{names} was masked in the crash file; provide it via config, -H, --auth or an auth hook"
+    return f"{names} were masked in the crash file; provide them via config, -H, --auth or an auth hook"
+
+
+def _rejected_credentials_message(rejected: RejectedStep, *, steps: int) -> str:
+    location = f" at step {rejected.number}" if steps > 1 else ""
+    return (
+        f"replay was not authenticated: the API answered {rejected.status_code}{location} "
+        f"where the recorded request got {rejected.recorded_status_code}; "
+        "check the credentials passed via config, -H, --auth or an auth hook"
+    )
+
+
+def has_unrestorable_masked_values(crash: CrashFile, replacement: str) -> bool:
+    """Whether a stored request has masked values no credential source can replace, so a replay is not faithful."""
+    for step in crash.sequence:
+        for container in (step.request_headers, step.case_headers, step.query, step.cookies):
+            if any(replacement in str(value) and not _is_masked(value, replacement) for value in container.values()):
+                return True
+        if any(replacement in str(value) for value in step.path_parameters.values()):
+            return True
+        if replacement in str(step.case_body):
+            return True
+    return False
+
+
 def _case_status(check_outcomes: list[CheckOutcome]) -> ReplayStatus:
     if any(c.status is ReplayStatus.FAILED for c in check_outcomes):
         return ReplayStatus.FAILED
@@ -383,12 +612,79 @@ def _case_status(check_outcomes: list[CheckOutcome]) -> ReplayStatus:
     return ReplayStatus.FIXED
 
 
-def bodies_equal(left: str, right: str, *, content_type: str) -> bool:
-    if left == right:
+def bodies_equal(
+    recorded: str,
+    actual: str,
+    *,
+    content_type: str,
+    masked_pointers: list[str] | None = None,
+    linked: list[LinkedValue] | None = None,
+) -> bool:
+    """Whether a replayed body matches the recorded one, ignoring values links re-extracted.
+
+    `masked_pointers` locate values later steps extract from; `linked` values are ignored where their links extract them.
+    """
+    if recorded == actual:
         return True
     if content_type and is_json(content_type):
         try:
-            return json.loads(left) == json.loads(right)
+            recorded_document, actual_document = json.loads(recorded), json.loads(actual)
         except (ValueError, TypeError):
-            pass
+            return False
+        for pointer in masked_pointers or ():
+            recorded_document, actual_document = _mask(
+                recorded_document, actual_document, list(iter_decoded_pointer_segments(pointer))
+            )
+        for value in linked or ():
+            if value.fresh is UNRESOLVABLE:
+                continue
+            for pointer in value.pointers:
+                recorded_document, actual_document = _mask(
+                    recorded_document,
+                    actual_document,
+                    list(iter_decoded_pointer_segments(pointer)),
+                    expected=(value.recorded, value.fresh),
+                )
+        return recorded_document == actual_document
     return False
+
+
+class _Masked:
+    """Placeholder for a value both bodies hold but that is expected to differ between them."""
+
+
+_MASKED = _Masked()
+
+
+def _mask(
+    recorded: object, actual: object, segments: list[str], expected: tuple[object, object] | None = None
+) -> tuple[object, object]:
+    """Replace the scalars at `segments` in both documents with a placeholder.
+
+    Without `expected`, both must be of the same type; with it, they must be exactly the expected pair.
+    """
+    if not segments:
+        if expected is None:
+            matches = _is_scalar(recorded) and type(recorded) is type(actual)
+        else:
+            matches = _is_exactly(recorded, expected[0]) and _is_exactly(actual, expected[1])
+        return (_MASKED, _MASKED) if matches else (recorded, actual)
+    head, rest = segments[0], segments[1:]
+    if isinstance(recorded, dict) and isinstance(actual, dict) and head in recorded and head in actual:
+        left, right = _mask(recorded[head], actual[head], rest, expected)
+        return {**recorded, head: left}, {**actual, head: right}
+    if isinstance(recorded, list) and isinstance(actual, list) and head.isdigit():
+        index = int(head)
+        if index < len(recorded) and index < len(actual):
+            left, right = _mask(recorded[index], actual[index], rest, expected)
+            return [*recorded[:index], left, *recorded[index + 1 :]], [*actual[:index], right, *actual[index + 1 :]]
+    return recorded, actual
+
+
+def _is_scalar(value: object) -> bool:
+    return isinstance(value, (str, int, float, bool))
+
+
+def _is_exactly(value: object, expected: object) -> bool:
+    # Types must match so `1` never stands in for `True`.
+    return _is_scalar(value) and type(value) is type(expected) and value == expected

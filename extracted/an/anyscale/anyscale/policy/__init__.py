@@ -30,7 +30,8 @@ class PolicySDK:
         self._private_sdk = PrivatePolicySDK(client=client, logger=logger, timer=timer)
 
     @sdk_docs(
-        doc_py_example=_SET_EXAMPLE, arg_docstrings=_SET_ARG_DOCSTRINGS,
+        doc_py_example=_SET_EXAMPLE,
+        arg_docstrings=_SET_ARG_DOCSTRINGS,
     )
     def set(  # noqa: F811
         self,
@@ -67,19 +68,22 @@ class PolicySDK:
             # Use "_" as placeholder since the URL path requires a resource_id parameter
             resource_id = "_"
         elif resource_id is None:
-            raise ValueError(
-                f"resource_id is required for resource type '{resource_type}'."
-            )
+            raise ValueError(f"resource_id is required for resource type '{resource_type}'.")
 
         return self._private_sdk.set(
-            resource_type=resource_type, resource_id=resource_id, config=config,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            config=config,
         )
 
     @sdk_docs(
-        doc_py_example=_GET_EXAMPLE, arg_docstrings=_GET_ARG_DOCSTRINGS,
+        doc_py_example=_GET_EXAMPLE,
+        arg_docstrings=_GET_ARG_DOCSTRINGS,
     )
     def get(  # noqa: F811
-        self, resource_type: str, resource_id: Optional[str] = None,
+        self,
+        resource_type: str,
+        resource_id: Optional[str] = None,
     ) -> Policy:
         """Get user group permission policy for a resource.
 
@@ -98,18 +102,21 @@ class PolicySDK:
             # Use "_" as placeholder since the URL path requires a resource_id parameter
             resource_id = "_"
         elif resource_id is None:
-            raise ValueError(
-                f"resource_id is required for resource type '{resource_type}'."
-            )
+            raise ValueError(f"resource_id is required for resource type '{resource_type}'.")
 
         return self._private_sdk.get(
-            resource_type=resource_type, resource_id=resource_id,
+            resource_type=resource_type,
+            resource_id=resource_id,
         )
 
     @sdk_docs(
-        doc_py_example=_LIST_EXAMPLE, arg_docstrings=_LIST_ARG_DOCSTRINGS,
+        doc_py_example=_LIST_EXAMPLE,
+        arg_docstrings=_LIST_ARG_DOCSTRINGS,
     )
-    def list(self, resource_type: str,) -> List[ResourcePolicy]:  # noqa: F811
+    def list(
+        self,
+        resource_type: str,
+    ) -> List[ResourcePolicy]:  # noqa: F811
         """List permission policies for all resources of a specific type.
 
         Returns a list of ResourcePolicy objects.

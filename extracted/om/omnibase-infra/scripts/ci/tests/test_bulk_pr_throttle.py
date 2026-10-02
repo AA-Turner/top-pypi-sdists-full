@@ -1,0 +1,2289 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Unit tests for bulk_pr_throttle.py (OMN-16284).
+
+Covers the four explicit test categories from the ticket: wave partitioning,
+threshold blocking (mocked gh calls), dry-run plan output, and refusal
+paths — plus the gh CLI integration seam and the CLI entrypoint.
+"""
+
+from __future__ import annotations
+
+import importlib
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+SCRIPTS_CI = Path(__file__).parent.parent
+sys.path.insert(0, str(SCRIPTS_CI))
+
+
+def idle_fleet() -> dict[str, object]:
+    """A healthy sample with matching online capacity."""
+    return {"ok": True, "online": 88, "busy": 58, "total": 88}
+
+
+def starved_fleet() -> dict[str, object]:
+    """A healthy sample whose matching runners are all busy."""
+    return {"ok": True, "online": 88, "busy": 88, "total": 88}
+
+
+# ---------------------------------------------------------------------------
+# Wave partitioning
+# ---------------------------------------------------------------------------
+
+
+class TestPartitionIntoWaves:
+    def test_default_size_evenly_divides(self):
+        from bulk_pr_throttle import partition_into_waves
+
+        waves = partition_into_waves(list(range(1, 21)), 10)
+        assert waves == [tuple(range(1, 11)), tuple(range(11, 21))]
+
+    def test_custom_size(self):
+        from bulk_pr_throttle import partition_into_waves
+
+        waves = partition_into_waves([1, 2, 3, 4, 5], 2)
+        assert waves == [(1, 2), (3, 4), (5,)]
+
+    def test_uneven_last_wave(self):
+        from bulk_pr_throttle import partition_into_waves
+
+        waves = partition_into_waves(list(range(1, 12)), 5)
+        assert waves == [(1, 2, 3, 4, 5), (6, 7, 8, 9, 10), (11,)]
+
+    def test_single_wave_when_fewer_than_wave_size(self):
+        from bulk_pr_throttle import partition_into_waves
+
+        waves = partition_into_waves([1, 2, 3], 10)
+        assert waves == [(1, 2, 3)]
+
+    def test_zero_wave_size_raises(self):
+        from bulk_pr_throttle import partition_into_waves
+
+        with pytest.raises(ValueError, match="wave_size must be >= 1"):
+            partition_into_waves([1, 2, 3], 0)
+
+    def test_negative_wave_size_raises(self):
+        from bulk_pr_throttle import partition_into_waves
+
+        with pytest.raises(ValueError, match="wave_size must be >= 1"):
+            partition_into_waves([1, 2, 3], -5)
+
+    def test_exceeds_hard_ceiling_raises(self):
+        from bulk_pr_throttle import MAX_WAVE_SIZE, partition_into_waves
+
+        with pytest.raises(ValueError, match="hard ceiling"):
+            partition_into_waves(list(range(1, 100)), MAX_WAVE_SIZE + 1)
+
+    def test_exactly_at_ceiling_is_allowed(self):
+        from bulk_pr_throttle import MAX_WAVE_SIZE, partition_into_waves
+
+        waves = partition_into_waves(list(range(1, MAX_WAVE_SIZE + 1)), MAX_WAVE_SIZE)
+        assert len(waves) == 1
+        assert len(waves[0]) == MAX_WAVE_SIZE
+
+
+# ---------------------------------------------------------------------------
+# Refusal paths: total PR cap, unknown operation, empty inputs, missing owner/repo
+# ---------------------------------------------------------------------------
+
+
+class TestRefusalPaths:
+    def test_within_default_cap_does_not_raise(self):
+        from bulk_pr_throttle import DEFAULT_MAX_TOTAL_PRS, validate_total_prs
+
+        validate_total_prs(
+            list(range(1, DEFAULT_MAX_TOTAL_PRS + 1)),
+            max_total_prs=DEFAULT_MAX_TOTAL_PRS,
+            explicit_max_total_prs=False,
+        )  # no raise
+
+    def test_exceeds_default_cap_without_explicit_flag_raises(self):
+        from bulk_pr_throttle import (
+            DEFAULT_MAX_TOTAL_PRS,
+            TotalPrLimitExceededError,
+            validate_total_prs,
+        )
+
+        with pytest.raises(TotalPrLimitExceededError, match="explicit"):
+            validate_total_prs(
+                list(range(1, DEFAULT_MAX_TOTAL_PRS + 2)),
+                max_total_prs=DEFAULT_MAX_TOTAL_PRS,
+                explicit_max_total_prs=False,
+            )
+
+    def test_exceeds_cap_with_explicit_flag_does_not_raise(self):
+        from bulk_pr_throttle import validate_total_prs
+
+        validate_total_prs(
+            list(range(1, 200)),
+            max_total_prs=250,
+            explicit_max_total_prs=True,
+        )  # no raise
+
+    def test_exceeds_explicit_cap_with_explicit_flag_raises(self):
+        from bulk_pr_throttle import TotalPrLimitExceededError, validate_total_prs
+
+        with pytest.raises(TotalPrLimitExceededError, match="explicit cap"):
+            validate_total_prs(
+                list(range(1, 201)),
+                max_total_prs=100,
+                explicit_max_total_prs=True,
+            )
+
+    def test_run_bulk_operation_rejects_empty_owner(self):
+        from bulk_pr_throttle import BulkPrThrottleError, run_bulk_operation
+
+        with pytest.raises(BulkPrThrottleError, match="owner"):
+            run_bulk_operation(
+                owner="",
+                repo="omnibase_infra",
+                pr_numbers=[1, 2],
+                operation="noop-dry-run",
+                dry_run=True,
+            )
+
+    def test_run_bulk_operation_rejects_empty_repo(self):
+        from bulk_pr_throttle import BulkPrThrottleError, run_bulk_operation
+
+        with pytest.raises(BulkPrThrottleError, match="repo"):
+            run_bulk_operation(
+                owner="OmniNode-ai",
+                repo="",
+                pr_numbers=[1, 2],
+                operation="noop-dry-run",
+                dry_run=True,
+            )
+
+    def test_run_bulk_operation_rejects_unknown_operation(self):
+        from bulk_pr_throttle import BulkPrThrottleError, run_bulk_operation
+
+        with pytest.raises(BulkPrThrottleError, match="unknown operation"):
+            run_bulk_operation(
+                owner="OmniNode-ai",
+                repo="omnibase_infra",
+                pr_numbers=[1],
+                operation="delete-everything",
+                dry_run=True,
+            )
+
+    def test_run_bulk_operation_rejects_empty_pr_list(self):
+        from bulk_pr_throttle import BulkPrThrottleError, run_bulk_operation
+
+        with pytest.raises(BulkPrThrottleError, match="non-empty"):
+            run_bulk_operation(
+                owner="OmniNode-ai",
+                repo="omnibase_infra",
+                pr_numbers=[],
+                operation="noop-dry-run",
+                dry_run=True,
+            )
+
+    def test_run_bulk_operation_requires_callables_outside_dry_run(self):
+        from bulk_pr_throttle import BulkPrThrottleError, run_bulk_operation
+
+        with pytest.raises(BulkPrThrottleError, match="required"):
+            run_bulk_operation(
+                owner="OmniNode-ai",
+                repo="omnibase_infra",
+                pr_numbers=[1, 2],
+                operation="update-branch",
+                dry_run=False,
+                get_queue_depth=None,
+                apply_pr_operation=None,
+            )
+
+    def test_run_bulk_operation_exceeding_total_cap_raises_before_any_gh_call(self):
+        from bulk_pr_throttle import (
+            DEFAULT_MAX_TOTAL_PRS,
+            TotalPrLimitExceededError,
+            run_bulk_operation,
+        )
+
+        calls = {"queue_depth": 0, "apply": 0}
+
+        def get_queue_depth() -> int:
+            calls["queue_depth"] += 1
+            return 0
+
+        def apply_pr_operation(owner: str, repo: str, pr: int, operation: str):
+            calls["apply"] += 1
+            raise AssertionError("should never be called")
+
+        with pytest.raises(TotalPrLimitExceededError):
+            run_bulk_operation(
+                owner="OmniNode-ai",
+                repo="onex_change_control",
+                pr_numbers=list(range(1, DEFAULT_MAX_TOTAL_PRS + 5)),
+                operation="update-branch",
+                dry_run=False,
+                get_queue_depth=get_queue_depth,
+                apply_pr_operation=apply_pr_operation,
+            )
+        assert calls == {"queue_depth": 0, "apply": 0}
+
+
+# ---------------------------------------------------------------------------
+# Threshold blocking (mocked queue-depth callable — the "gh call" seam)
+# ---------------------------------------------------------------------------
+
+
+class TestWaitForQueueDepth:
+    def test_immediate_pass_when_already_below_threshold(self):
+        from bulk_pr_throttle import wait_for_queue_depth
+
+        sleeps: list[float] = []
+        depth = wait_for_queue_depth(
+            get_queue_depth=lambda: 42,
+            threshold=150,
+            poll_seconds=5.0,
+            max_wait_seconds=60.0,
+            sleep_fn=sleeps.append,
+        )
+        assert depth == 42
+        assert sleeps == []
+
+    def test_blocks_and_polls_until_below_threshold(self):
+        from bulk_pr_throttle import wait_for_queue_depth
+
+        depths = iter([200, 180, 160, 100])
+        sleeps: list[float] = []
+        depth = wait_for_queue_depth(
+            get_queue_depth=lambda: next(depths),
+            threshold=150,
+            poll_seconds=10.0,
+            max_wait_seconds=1000.0,
+            sleep_fn=sleeps.append,
+        )
+        assert depth == 100
+        assert sleeps == [10.0, 10.0, 10.0]
+
+    def test_boundary_depth_equal_to_threshold_does_not_block(self):
+        from bulk_pr_throttle import wait_for_queue_depth
+
+        sleeps: list[float] = []
+        depth = wait_for_queue_depth(
+            get_queue_depth=lambda: 150,
+            threshold=150,
+            poll_seconds=5.0,
+            max_wait_seconds=60.0,
+            sleep_fn=sleeps.append,
+        )
+        assert depth == 150
+        assert sleeps == []
+
+    def test_persistently_high_depth_times_out(self):
+        from bulk_pr_throttle import QueueDepthTimeoutError, wait_for_queue_depth
+
+        sleeps: list[float] = []
+        with pytest.raises(QueueDepthTimeoutError, match="still above threshold"):
+            wait_for_queue_depth(
+                get_queue_depth=lambda: 999,
+                threshold=150,
+                poll_seconds=10.0,
+                max_wait_seconds=25.0,
+                sleep_fn=sleeps.append,
+            )
+        # polls until waited >= max_wait_seconds, never silently proceeds
+        assert sum(sleeps) >= 25.0
+
+    def test_rejects_non_positive_poll_seconds(self):
+        from bulk_pr_throttle import wait_for_queue_depth
+
+        with pytest.raises(ValueError, match="poll_seconds"):
+            wait_for_queue_depth(
+                get_queue_depth=lambda: 999,
+                threshold=150,
+                poll_seconds=0.0,
+                max_wait_seconds=25.0,
+            )
+
+    def test_no_bypass_flag_exists_for_the_gate(self):
+        """The gate has no force/skip parameter — this is the mechanical guard."""
+        import inspect
+
+        from bulk_pr_throttle import wait_for_queue_depth
+
+        params = set(inspect.signature(wait_for_queue_depth).parameters)
+        assert not params & {"force", "skip", "bypass", "ignore_threshold"}
+
+
+class TestRunnerFleetCapacity:
+    def test_package_import_preserves_the_shared_probe(self):
+        module = importlib.import_module("scripts.ci.bulk_pr_throttle")
+
+        assert module.probe_fleet.__name__ == "probe_fleet"
+
+    @pytest.mark.parametrize("queued", [183, 186])
+    def test_idle_matching_capacity_is_not_starvation_at_deep_queue(self, queued):
+        from bulk_pr_throttle import PrOutcome, run_bulk_operation
+
+        applied: list[int] = []
+        report = run_bulk_operation(
+            owner="OmniNode-ai",
+            repo="onex_change_control",
+            pr_numbers=[1],
+            operation="rerun-failed",
+            get_queue_depth=lambda: queued,
+            get_runner_fleet=idle_fleet,
+            apply_pr_operation=lambda owner, repo, pr, operation: (
+                applied.append(pr)
+                or PrOutcome(pr_number=pr, success=True, detail="reran")
+            ),
+            max_wait_seconds=0.0,
+        )
+
+        assert applied == [1]
+        assert report.waves[0].queue_depth_before == queued
+        assert report.waves[0].queue_depth_after == queued
+
+    def test_zero_matching_idle_capacity_refuses(self):
+        from bulk_pr_throttle import (
+            PrOutcome,
+            RunnerFleetStarvationTimeoutError,
+            run_bulk_operation,
+        )
+
+        applied: list[int] = []
+        with pytest.raises(
+            RunnerFleetStarvationTimeoutError,
+            match=r"online=88, busy=88, total=88",
+        ):
+            run_bulk_operation(
+                owner="OmniNode-ai",
+                repo="onex_change_control",
+                pr_numbers=[1],
+                operation="update-branch",
+                get_queue_depth=lambda: 0,
+                get_runner_fleet=starved_fleet,
+                apply_pr_operation=lambda owner, repo, pr, operation: (
+                    applied.append(pr)
+                    or PrOutcome(pr_number=pr, success=True, detail="unexpected")
+                ),
+                max_wait_seconds=0.0,
+            )
+
+        assert applied == []
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            "missing_token",
+            "bad_api_scheme",
+            "http_403",
+            "timeout",
+            "malformed_json",
+            "empty_fleet",
+        ],
+    )
+    def test_every_probe_error_refuses_and_names_the_error(self, error):
+        from bulk_pr_throttle import (
+            PrOutcome,
+            RunnerFleetProbeError,
+            run_bulk_operation,
+        )
+
+        applied: list[int] = []
+        with pytest.raises(RunnerFleetProbeError, match=error):
+            run_bulk_operation(
+                owner="OmniNode-ai",
+                repo="onex_change_control",
+                pr_numbers=[1],
+                operation="rerun-failed",
+                get_queue_depth=lambda: 186,
+                get_runner_fleet=lambda: {"ok": False, "error": error},
+                apply_pr_operation=lambda owner, repo, pr, operation: (
+                    applied.append(pr)
+                    or PrOutcome(pr_number=pr, success=True, detail="unexpected")
+                ),
+                max_wait_seconds=0.0,
+            )
+
+        assert applied == []
+
+    @pytest.mark.parametrize(
+        "fleet",
+        [
+            {"ok": True, "online": "88", "busy": 58, "total": 88},
+            {"ok": True, "online": 88, "busy": -1, "total": 88},
+            {"ok": True, "online": 89, "busy": 58, "total": 88},
+        ],
+    )
+    def test_malformed_success_payload_refuses(self, fleet):
+        from bulk_pr_throttle import RunnerFleetProbeError, runner_fleet_is_starved
+
+        with pytest.raises(RunnerFleetProbeError, match="malformed_fleet"):
+            runner_fleet_is_starved(fleet)
+
+    def test_busy_fleet_is_polled_until_idle_capacity_appears(self):
+        from bulk_pr_throttle import wait_for_runner_capacity
+
+        fleets = iter([starved_fleet(), starved_fleet(), idle_fleet()])
+        sleeps: list[float] = []
+        result = wait_for_runner_capacity(
+            get_runner_fleet=lambda: next(fleets),
+            poll_seconds=2.0,
+            max_wait_seconds=10.0,
+            sleep_fn=sleeps.append,
+        )
+
+        assert result == idle_fleet()
+        assert sleeps == [2.0, 2.0]
+
+    def test_capacity_gate_has_no_bypass_parameter(self):
+        import inspect
+
+        from bulk_pr_throttle import wait_for_runner_capacity
+
+        params = set(inspect.signature(wait_for_runner_capacity).parameters)
+        assert not params & {"force", "skip", "bypass", "ignore_capacity"}
+
+
+# ---------------------------------------------------------------------------
+# Full run_bulk_operation flow (waves + logging + receipts)
+# ---------------------------------------------------------------------------
+
+
+class TestRunBulkOperationFlow:
+    def test_dry_run_never_touches_gh_and_prints_plan(self, capsys):
+        from bulk_pr_throttle import run_bulk_operation
+
+        report = run_bulk_operation(
+            owner="OmniNode-ai",
+            repo="onex_change_control",
+            pr_numbers=[1, 2, 3, 4, 5],
+            operation="rerun-failed",
+            wave_size=2,
+            dry_run=True,
+            get_queue_depth=None,
+            apply_pr_operation=None,
+        )
+        assert report.dry_run is True
+        assert len(report.waves) == 3
+        assert report.waves[0].pr_numbers == (1, 2)
+        assert report.waves[1].pr_numbers == (3, 4)
+        assert report.waves[2].pr_numbers == (5,)
+        for wave in report.waves:
+            assert wave.outcomes == ()
+
+        out = capsys.readouterr().out
+        assert "DRY-RUN plan" in out
+        assert "wave 1:" in out
+        assert "wave 3:" in out
+
+    def test_multi_wave_flow_calls_apply_per_pr_and_polls_depth_per_wave(self):
+        from bulk_pr_throttle import PrOutcome, run_bulk_operation
+
+        depth_calls = 0
+
+        def get_queue_depth() -> int:
+            nonlocal depth_calls
+            depth_calls += 1
+            return 10  # always under threshold
+
+        applied: list[tuple[str, str, int, str]] = []
+
+        def apply_pr_operation(
+            owner: str, repo: str, pr: int, operation: str
+        ) -> PrOutcome:
+            applied.append((owner, repo, pr, operation))
+            return PrOutcome(pr_number=pr, success=True, detail="ok")
+
+        report = run_bulk_operation(
+            owner="OmniNode-ai",
+            repo="omnibase_infra",
+            pr_numbers=[101, 102, 103, 104, 105],
+            operation="update-branch",
+            wave_size=2,
+            queue_depth_threshold=150,
+            dry_run=False,
+            get_queue_depth=get_queue_depth,
+            get_runner_fleet=idle_fleet,
+            apply_pr_operation=apply_pr_operation,
+        )
+
+        assert len(report.waves) == 3
+        assert [pr for _, _, pr, _ in applied] == [101, 102, 103, 104, 105]
+        assert all(op == "update-branch" for _, _, _, op in applied)
+        # one queue-depth poll before each wave, plus one after each wave
+        assert depth_calls == 6
+        for wave in report.waves:
+            assert wave.queue_depth_before == 10
+            assert wave.queue_depth_after == 10
+            assert all(o.success for o in wave.outcomes)
+
+    def test_noop_dry_run_operation_records_high_depth_without_waiting(self, tmp_path):
+        """The noop operation records depth without waiting on it."""
+        from bulk_pr_throttle import PrOutcome, run_bulk_operation, write_receipt
+
+        operation = "noop-dry-run"
+        depth_calls = 0
+        sleeps: list[float] = []
+        applied: list[int] = []
+
+        def get_queue_depth() -> int:
+            nonlocal depth_calls
+            depth_calls += 1
+            return 200
+
+        def apply_pr_operation(
+            owner: str, repo: str, pr: int, operation: str
+        ) -> PrOutcome:
+            applied.append(pr)
+            return PrOutcome(pr_number=pr, success=True, detail="armed")
+
+        report = run_bulk_operation(
+            owner="OmniNode-ai",
+            repo="onex_change_control",
+            pr_numbers=[1, 2, 3, 4, 5],
+            operation=operation,
+            wave_size=5,
+            queue_depth_threshold=150,
+            dry_run=False,
+            get_queue_depth=get_queue_depth,
+            apply_pr_operation=apply_pr_operation,
+            poll_seconds=1.0,
+            max_wait_seconds=0.0,
+            sleep_fn=sleeps.append,
+        )
+
+        assert applied == [1, 2, 3, 4, 5]
+        assert sleeps == []
+        assert depth_calls == 2
+        assert report.queue_depth_gate_applied is False
+        assert report.waves[0].queue_depth_before == 200
+        assert report.waves[0].queue_depth_after == 200
+
+        receipt_path = tmp_path / f"{operation}.json"
+        write_receipt(report, receipt_path)
+        receipt = json.loads(receipt_path.read_text())
+        assert receipt["queue_depth_gate_applied"] is False
+        assert receipt["waves"][0]["queue_depth_gate_applied"] is False
+
+    def test_noop_dry_run_policy_is_explicit_and_immutable(self):
+        from bulk_pr_throttle import OPERATION_QUEUE_DEPTH_POLICY
+
+        operation = "noop-dry-run"
+        assert OPERATION_QUEUE_DEPTH_POLICY[operation] is False
+        with pytest.raises(TypeError):
+            OPERATION_QUEUE_DEPTH_POLICY[operation] = True  # type: ignore[index]
+
+    def test_arm_automerge_completes_at_high_depth_with_wave_receipt(self, tmp_path):
+        from bulk_pr_throttle import (
+            OPERATION_QUEUE_DEPTH_POLICY,
+            PrOutcome,
+            run_bulk_operation,
+            write_receipt,
+        )
+
+        operation = "arm-automerge"
+        applied: list[int] = []
+
+        report = run_bulk_operation(
+            owner="OmniNode-ai",
+            repo="onex_change_control",
+            pr_numbers=[1, 2, 3, 4, 5],
+            operation=operation,
+            wave_size=5,
+            queue_depth_threshold=150,
+            dry_run=False,
+            get_queue_depth=lambda: 200,
+            apply_pr_operation=lambda owner, repo, pr, selected_operation: (
+                applied.append(pr)
+                or PrOutcome(pr_number=pr, success=True, detail="armed")
+            ),
+            max_wait_seconds=0.0,
+        )
+
+        assert OPERATION_QUEUE_DEPTH_POLICY[operation] is False
+        assert applied == [1, 2, 3, 4, 5]
+        assert report.queue_depth_gate_applied is False
+        assert report.waves[0].queue_depth_before == 200
+        assert report.waves[0].queue_depth_after == 200
+
+        receipt_path = tmp_path / f"{operation}.json"
+        write_receipt(report, receipt_path)
+        receipt = json.loads(receipt_path.read_text())
+        assert receipt["queue_depth_gate_applied"] is False
+        assert receipt["waves"][0]["outcomes"] == [
+            {"detail": "armed", "pr_number": pr, "success": True}
+            for pr in [1, 2, 3, 4, 5]
+        ]
+
+    @pytest.mark.parametrize("failed_call", [1, 2])
+    def test_noop_dry_run_queue_observation_failure_does_not_refuse(self, failed_call):
+        from bulk_pr_throttle import (
+            BulkPrThrottleError,
+            PrOutcome,
+            run_bulk_operation,
+        )
+
+        depth_calls = 0
+        applied: list[int] = []
+        logs: list[str] = []
+
+        def get_queue_depth() -> int:
+            nonlocal depth_calls
+            depth_calls += 1
+            if depth_calls == failed_call:
+                raise BulkPrThrottleError("temporary gh failure")
+            return 200
+
+        report = run_bulk_operation(
+            owner="OmniNode-ai",
+            repo="onex_change_control",
+            pr_numbers=[1, 2, 3, 4, 5],
+            operation="noop-dry-run",
+            wave_size=5,
+            queue_depth_threshold=150,
+            dry_run=False,
+            get_queue_depth=get_queue_depth,
+            apply_pr_operation=lambda owner, repo, pr, operation: (
+                applied.append(pr)
+                or PrOutcome(pr_number=pr, success=True, detail="armed")
+            ),
+            log=logs.append,
+        )
+
+        assert applied == [1, 2, 3, 4, 5]
+        assert report.queue_depth_gate_applied is False
+        assert report.waves[0].queue_depth_before == (None if failed_call == 1 else 200)
+        assert report.waves[0].queue_depth_after == (None if failed_call == 2 else 200)
+        assert any("observation unavailable" in message for message in logs)
+        assert any("continuing" in message for message in logs)
+        if failed_call == 1:
+            assert any(
+                "queue depth unavailable is observation-only" in message
+                for message in logs
+            )
+
+    @pytest.mark.parametrize("failed_call", [1, 2])
+    def test_noop_dry_run_unexpected_observation_error_propagates(self, failed_call):
+        from bulk_pr_throttle import PrOutcome, run_bulk_operation
+
+        depth_calls = 0
+        applied: list[int] = []
+
+        def get_queue_depth() -> int:
+            nonlocal depth_calls
+            depth_calls += 1
+            if depth_calls == failed_call:
+                raise AssertionError("programming error")
+            return 200
+
+        with pytest.raises(AssertionError, match="programming error"):
+            run_bulk_operation(
+                owner="OmniNode-ai",
+                repo="onex_change_control",
+                pr_numbers=[1],
+                operation="noop-dry-run",
+                get_queue_depth=get_queue_depth,
+                apply_pr_operation=lambda owner, repo, pr, operation: (
+                    applied.append(pr)
+                    or PrOutcome(pr_number=pr, success=True, detail="armed")
+                ),
+            )
+
+        assert applied == ([] if failed_call == 1 else [1])
+
+    def test_noop_dry_run_later_wave_observation_failure_does_not_refuse(self):
+        from bulk_pr_throttle import (
+            BulkPrThrottleError,
+            PrOutcome,
+            run_bulk_operation,
+        )
+
+        depth_calls = 0
+        applied: list[int] = []
+
+        def get_queue_depth() -> int:
+            nonlocal depth_calls
+            depth_calls += 1
+            if depth_calls == 3:
+                raise BulkPrThrottleError("temporary later-wave failure")
+            return 200 + depth_calls
+
+        report = run_bulk_operation(
+            owner="OmniNode-ai",
+            repo="onex_change_control",
+            pr_numbers=[1, 2, 3, 4, 5, 6],
+            operation="noop-dry-run",
+            wave_size=3,
+            get_queue_depth=get_queue_depth,
+            apply_pr_operation=lambda owner, repo, pr, operation: (
+                applied.append(pr)
+                or PrOutcome(pr_number=pr, success=True, detail="armed")
+            ),
+        )
+
+        assert applied == [1, 2, 3, 4, 5, 6]
+        assert depth_calls == 4
+        assert len(report.waves) == 2
+        assert report.waves[0].queue_depth_before == 201
+        assert report.waves[0].queue_depth_after == 202
+        assert report.waves[1].queue_depth_before is None
+        assert report.waves[1].queue_depth_after == 204
+
+    @pytest.mark.parametrize("operation", ["update-branch", "rerun-failed"])
+    def test_load_creating_operations_use_capacity_not_queue_depth(self, operation):
+        from bulk_pr_throttle import PrOutcome, run_bulk_operation
+
+        applied: list[int] = []
+
+        def apply_pr_operation(
+            owner: str, repo: str, pr: int, selected_operation: str
+        ) -> PrOutcome:
+            applied.append(pr)
+            return PrOutcome(pr_number=pr, success=True, detail="unexpected")
+
+        report = run_bulk_operation(
+            owner="OmniNode-ai",
+            repo="onex_change_control",
+            pr_numbers=[1, 2, 3, 4, 5],
+            operation=operation,
+            wave_size=5,
+            queue_depth_threshold=150,
+            dry_run=False,
+            get_queue_depth=lambda: 200,
+            get_runner_fleet=idle_fleet,
+            apply_pr_operation=apply_pr_operation,
+            poll_seconds=1.0,
+            max_wait_seconds=0.0,
+            sleep_fn=lambda seconds: None,
+        )
+
+        assert applied == [1, 2, 3, 4, 5]
+        assert report.waves[0].queue_depth_before == 200
+
+    def test_flow_blocks_mid_batch_when_later_wave_has_no_runner_capacity(self):
+        """Runner-capacity blocking applies per wave, not just once."""
+        from bulk_pr_throttle import PrOutcome, run_bulk_operation
+
+        # Queue depth is only observed. Fleet capacity blocks wave 2 twice.
+        depth_sequence = iter([20, 20, 300, 50])
+        fleet_sequence = iter(
+            [idle_fleet(), starved_fleet(), starved_fleet(), idle_fleet()]
+        )
+        sleeps: list[float] = []
+
+        def get_queue_depth() -> int:
+            return next(depth_sequence)
+
+        def apply_pr_operation(
+            owner: str, repo: str, pr: int, operation: str
+        ) -> PrOutcome:
+            return PrOutcome(pr_number=pr, success=True, detail="ok")
+
+        report = run_bulk_operation(
+            owner="OmniNode-ai",
+            repo="onex_change_control",
+            pr_numbers=[1, 2, 3, 4],
+            operation="rerun-failed",
+            wave_size=2,
+            queue_depth_threshold=150,
+            dry_run=False,
+            get_queue_depth=get_queue_depth,
+            get_runner_fleet=lambda: next(fleet_sequence),
+            apply_pr_operation=apply_pr_operation,
+            poll_seconds=1.0,
+            max_wait_seconds=100.0,
+            sleep_fn=sleeps.append,
+        )
+        assert len(report.waves) == 2
+        assert report.waves[1].queue_depth_before == 300
+        assert report.waves[1].queue_depth_after == 50
+        assert sleeps == [1.0, 1.0]
+
+    def test_logs_timestamp_count_and_depth_before_after_to_stdout(self, capsys):
+        from bulk_pr_throttle import PrOutcome, run_bulk_operation
+
+        run_bulk_operation(
+            owner="OmniNode-ai",
+            repo="onex_change_control",
+            pr_numbers=[6751, 6752, 6753],
+            operation="rerun-failed",
+            wave_size=10,
+            dry_run=False,
+            get_queue_depth=lambda: 5,
+            get_runner_fleet=idle_fleet,
+            apply_pr_operation=lambda o, r, pr, op: PrOutcome(
+                pr_number=pr, success=True, detail="ok"
+            ),
+        )
+        out = capsys.readouterr().out
+        assert "wave 1/1" in out
+        assert "depth_before=5" in out
+        assert "depth_after=5" in out
+        assert "6751" in out and "6752" in out and "6753" in out
+
+    def test_later_wave_timeout_preserves_completed_wave_receipt(self):
+        from bulk_pr_throttle import PartialBulkRunError, PrOutcome, run_bulk_operation
+
+        depth_sequence = iter([10, 10])
+        fleet_sequence = iter([idle_fleet(), starved_fleet(), starved_fleet()])
+
+        with pytest.raises(PartialBulkRunError) as exc_info:
+            run_bulk_operation(
+                owner="OmniNode-ai",
+                repo="onex_change_control",
+                pr_numbers=[1, 2, 3, 4],
+                operation="rerun-failed",
+                wave_size=2,
+                queue_depth_threshold=150,
+                dry_run=False,
+                get_queue_depth=lambda: next(depth_sequence),
+                get_runner_fleet=lambda: next(fleet_sequence),
+                apply_pr_operation=lambda o, r, pr, op: PrOutcome(
+                    pr_number=pr, success=True, detail="ok"
+                ),
+                poll_seconds=1.0,
+                max_wait_seconds=1.0,
+                sleep_fn=lambda seconds: None,
+            )
+
+        report = exc_info.value.report
+        assert len(report.waves) == 1
+        assert report.waves[0].pr_numbers == (1, 2)
+        assert report.waves[0].queue_depth_after == 10
+
+
+# ---------------------------------------------------------------------------
+# Receipt file
+# ---------------------------------------------------------------------------
+
+
+class TestWriteReceipt:
+    def test_receipt_json_shape(self, tmp_path):
+        from bulk_pr_throttle import PrOutcome, run_bulk_operation, write_receipt
+
+        report = run_bulk_operation(
+            owner="OmniNode-ai",
+            repo="onex_change_control",
+            pr_numbers=[1, 2],
+            operation="rerun-failed",
+            wave_size=10,
+            dry_run=False,
+            get_queue_depth=lambda: 3,
+            get_runner_fleet=idle_fleet,
+            apply_pr_operation=lambda o, r, pr, op: PrOutcome(
+                pr_number=pr, success=True, detail="ok"
+            ),
+        )
+        receipt_path = tmp_path / "receipt.json"
+        write_receipt(report, receipt_path)
+
+        data = json.loads(receipt_path.read_text())
+        assert data["owner"] == "OmniNode-ai"
+        assert data["repo"] == "onex_change_control"
+        assert data["operation"] == "rerun-failed"
+        assert data["queue_depth_gate_applied"] is True
+        assert len(data["waves"]) == 1
+        wave = data["waves"][0]
+        assert wave["queue_depth_gate_applied"] is True
+        assert wave["queue_depth_before"] == 3
+        assert wave["queue_depth_after"] == 3
+        assert wave["pr_numbers"] == [1, 2]
+        assert len(wave["outcomes"]) == 2
+        assert wave["outcomes"][0]["pr_number"] == 1
+        assert "started_at" in wave
+        assert "completed_at" in wave
+
+    def test_wave_gate_flag_is_derived_from_the_wave_operation(self, tmp_path):
+        from bulk_pr_throttle import BulkRunReport, WaveReceipt, write_receipt
+
+        wave = WaveReceipt(
+            wave_index=1,
+            pr_numbers=(1,),
+            operation="noop-dry-run",
+            dry_run=False,
+            queue_depth_before=200,
+            queue_depth_after=201,
+            started_at="2026-09-11T00:00:00+00:00",
+            completed_at="2026-09-11T00:00:01+00:00",
+            outcomes=(),
+        )
+        report = BulkRunReport(
+            owner="OmniNode-ai",
+            repo="onex_change_control",
+            operation="update-branch",
+            wave_size=1,
+            queue_depth_threshold=150,
+            dry_run=False,
+            waves=(wave,),
+        )
+
+        receipt_path = tmp_path / "mixed-source-receipt.json"
+        write_receipt(report, receipt_path)
+        data = json.loads(receipt_path.read_text())
+
+        assert data["queue_depth_gate_applied"] is True
+        assert data["waves"][0]["queue_depth_gate_applied"] is False
+
+    def test_receipt_creates_parent_dirs(self, tmp_path):
+        from bulk_pr_throttle import run_bulk_operation, write_receipt
+
+        report = run_bulk_operation(
+            owner="OmniNode-ai",
+            repo="onex_change_control",
+            pr_numbers=[1],
+            operation="noop-dry-run",
+            dry_run=True,
+        )
+        nested = tmp_path / "a" / "b" / "c" / "receipt.json"
+        write_receipt(report, nested)
+        assert nested.exists()
+        data = json.loads(nested.read_text())
+        assert data["queue_depth_gate_applied"] is False
+        assert data["waves"][0]["queue_depth_gate_applied"] is False
+
+    def test_report_preserves_legacy_positional_constructor_order(self):
+        from bulk_pr_throttle import BulkRunReport
+
+        report = BulkRunReport(
+            "OmniNode-ai",
+            "onex_change_control",
+            "update-branch",
+            10,
+            150,
+            False,
+            (),
+        )
+
+        assert report.wave_size == 10
+        assert report.queue_depth_gate_applied is True
+
+        with pytest.raises(TypeError):
+            BulkRunReport(
+                "OmniNode-ai",
+                "onex_change_control",
+                "update-branch",
+                10,
+                150,
+                False,
+                (),
+                False,
+            )
+
+    def test_report_observation_flag_is_derived_from_arm_automerge(self):
+        from bulk_pr_throttle import BulkRunReport
+
+        report = BulkRunReport(
+            "OmniNode-ai",
+            "onex_change_control",
+            "arm-automerge",
+            10,
+            150,
+            False,
+            (),
+        )
+
+        assert report.queue_depth_gate_applied is False
+
+    def test_receipt_rejects_unknown_wave_operation_with_clear_error(self, tmp_path):
+        from bulk_pr_throttle import BulkRunReport, WaveReceipt, write_receipt
+
+        report = BulkRunReport(
+            owner="OmniNode-ai",
+            repo="onex_change_control",
+            operation="update-branch",
+            wave_size=1,
+            queue_depth_threshold=150,
+            dry_run=False,
+            waves=(
+                WaveReceipt(
+                    wave_index=1,
+                    pr_numbers=(1,),
+                    operation="future-operation",
+                    dry_run=False,
+                    queue_depth_before=10,
+                    queue_depth_after=10,
+                    started_at="2026-09-11T00:00:00+00:00",
+                    completed_at="2026-09-11T00:00:01+00:00",
+                    outcomes=(),
+                ),
+            ),
+        )
+
+        with pytest.raises(ValueError, match="unknown operation 'future-operation'"):
+            write_receipt(report, tmp_path / "receipt.json")
+
+
+# ---------------------------------------------------------------------------
+# gh CLI integration seam (mock _run_gh — never call the real GitHub API)
+# ---------------------------------------------------------------------------
+
+
+class TestGhIntegration:
+    def test_run_gh_times_out_as_failed_completed_process(self, monkeypatch):
+        import bulk_pr_throttle
+
+        def fake_subprocess_run(*args, **kwargs):
+            raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs["timeout"])
+
+        monkeypatch.setattr(subprocess, "run", fake_subprocess_run)
+        result = bulk_pr_throttle._run_gh(["api", "repos/owner/repo/actions/runs"])
+        assert result.returncode == 124
+        assert "timed out" in result.stderr
+
+    def test_gh_queue_depth_parses_jq_output(self, monkeypatch):
+        import bulk_pr_throttle
+
+        def fake_run_gh(args):
+            assert args[0] == "api"
+            assert "actions/runs?status=queued" in args[1]
+            assert args[-2:] == ["--jq", ".total_count"]
+            return subprocess.CompletedProcess(
+                args=args, returncode=0, stdout="42\n", stderr=""
+            )
+
+        monkeypatch.setattr(bulk_pr_throttle, "_run_gh", fake_run_gh)
+        assert (
+            bulk_pr_throttle.gh_queue_depth("OmniNode-ai", "onex_change_control") == 42
+        )
+
+    def test_gh_queue_depth_raises_on_nonzero_exit(self, monkeypatch):
+        import bulk_pr_throttle
+
+        def fake_run_gh(args):
+            return subprocess.CompletedProcess(
+                args=args, returncode=1, stdout="", stderr="HTTP 502"
+            )
+
+        monkeypatch.setattr(bulk_pr_throttle, "_run_gh", fake_run_gh)
+        with pytest.raises(bulk_pr_throttle.BulkPrThrottleError, match="HTTP 502"):
+            bulk_pr_throttle.gh_queue_depth("OmniNode-ai", "onex_change_control")
+
+    def test_gh_queue_depth_wraps_invalid_output(self, monkeypatch):
+        import bulk_pr_throttle
+
+        monkeypatch.setattr(
+            bulk_pr_throttle,
+            "_run_gh",
+            lambda args: subprocess.CompletedProcess(args, 0, "not-a-count\n", ""),
+        )
+
+        with pytest.raises(
+            bulk_pr_throttle.BulkPrThrottleError, match="invalid output"
+        ):
+            bulk_pr_throttle.gh_queue_depth("OmniNode-ai", "onex_change_control")
+
+    def test_gh_runner_fleet_reuses_sanctioned_probe_and_primary_token(
+        self, monkeypatch
+    ):
+        import bulk_pr_throttle
+
+        seen: list[tuple[str | None, str, str]] = []
+        monkeypatch.setenv("RUNNER_FLEET_STATUS_TOKEN", "fleet-token")
+        monkeypatch.setenv("CROSS_REPO_PAT", "fallback-token")
+        monkeypatch.setenv("GITHUB_API_URL", "https://github.example/api/v3")
+        monkeypatch.setattr(
+            bulk_pr_throttle,
+            "probe_fleet",
+            lambda token, runner_group, api_url: (
+                seen.append((token, runner_group, api_url)) or idle_fleet()
+            ),
+        )
+
+        assert bulk_pr_throttle.gh_runner_fleet() == idle_fleet()
+        assert seen == [("fleet-token", "omnibase-ci", "https://github.example/api/v3")]
+
+    def test_gh_runner_fleet_falls_back_to_existing_cross_repo_pat(self, monkeypatch):
+        import bulk_pr_throttle
+
+        seen: list[str | None] = []
+        monkeypatch.delenv("RUNNER_FLEET_STATUS_TOKEN", raising=False)
+        monkeypatch.setenv("CROSS_REPO_PAT", "fallback-token")
+        monkeypatch.setattr(
+            bulk_pr_throttle,
+            "probe_fleet",
+            lambda token, runner_group, api_url: (
+                seen.append(token) or {"ok": False, "error": "http_403"}
+            ),
+        )
+
+        assert bulk_pr_throttle.gh_runner_fleet() == {
+            "ok": False,
+            "error": "http_403",
+        }
+        assert seen == ["fallback-token"]
+
+    def test_gh_apply_pr_operation_update_branch(self, monkeypatch):
+        import bulk_pr_throttle
+
+        seen = {}
+
+        def fake_run_gh(args):
+            seen["args"] = args
+            return subprocess.CompletedProcess(
+                args=args, returncode=0, stdout="ok", stderr=""
+            )
+
+        monkeypatch.setattr(bulk_pr_throttle, "_run_gh", fake_run_gh)
+        outcome = bulk_pr_throttle.gh_apply_pr_operation(
+            "OmniNode-ai", "omnibase_infra", 2805, "update-branch"
+        )
+        assert outcome.success is True
+        assert outcome.pr_number == 2805
+        assert seen["args"] == [
+            "api",
+            "-X",
+            "PUT",
+            "repos/OmniNode-ai/omnibase_infra/pulls/2805/update-branch",
+        ]
+
+    def test_gh_apply_pr_operation_arm_automerge(self, monkeypatch):
+        import bulk_pr_throttle
+
+        seen = []
+
+        def fake_run_gh(args):
+            seen.append(args)
+            if args[:2] == ["api", "repos/OmniNode-ai/omnibase_infra"]:
+                return subprocess.CompletedProcess(
+                    args=args, returncode=0, stdout="true\n", stderr=""
+                )
+            return subprocess.CompletedProcess(
+                args=args, returncode=0, stdout="", stderr=""
+            )
+
+        monkeypatch.setattr(bulk_pr_throttle, "_run_gh", fake_run_gh)
+        outcome = bulk_pr_throttle.gh_apply_pr_operation(
+            "OmniNode-ai", "omnibase_infra", 2805, "arm-automerge"
+        )
+        assert outcome.success is True
+        assert seen[0] == [
+            "api",
+            "repos/OmniNode-ai/omnibase_infra",
+            "--jq",
+            ".allow_auto_merge",
+        ]
+        assert seen[1][:3] == ["pr", "merge", "2805"]
+
+    def test_gh_apply_pr_operation_arm_automerge_refuses_when_auto_merge_disabled(
+        self, monkeypatch
+    ):
+        """OMN-17427: arm-automerge must never fall back to a direct merge.
+
+        This is the regression test for the 2026-09-25 incident: a repo with
+        ``allow_auto_merge: false`` must be refused with a clear per-PR
+        outcome, and ``gh pr merge`` must never be invoked at all.
+        """
+        import bulk_pr_throttle
+
+        seen = []
+
+        def fake_run_gh(args):
+            seen.append(args)
+            if args[:2] == ["api", "repos/OmniNode-ai/knowledge-base"]:
+                return subprocess.CompletedProcess(
+                    args=args, returncode=0, stdout="false\n", stderr=""
+                )
+            raise AssertionError(
+                f"gh pr merge must never be invoked when allow_auto_merge is "
+                f"false, but got: {args}"
+            )
+
+        monkeypatch.setattr(bulk_pr_throttle, "_run_gh", fake_run_gh)
+        outcome = bulk_pr_throttle.gh_apply_pr_operation(
+            "OmniNode-ai", "knowledge-base", 88, "arm-automerge"
+        )
+        assert outcome.success is False
+        assert bulk_pr_throttle.REFUSED_AUTOMERGE_DISABLED in outcome.detail
+        assert outcome.pr_number == 88
+        # exactly one gh call: the settings probe. No merge attempt.
+        assert len(seen) == 1
+        assert seen[0] == [
+            "api",
+            "repos/OmniNode-ai/knowledge-base",
+            "--jq",
+            ".allow_auto_merge",
+        ]
+
+    def test_gh_apply_pr_operation_arm_automerge_probe_failure_refuses(
+        self, monkeypatch
+    ):
+        """A probe that cannot confirm the setting fails closed, never merges."""
+        import bulk_pr_throttle
+
+        def fake_run_gh(args):
+            if args[:2] == ["api", "repos/OmniNode-ai/knowledge-base"]:
+                return subprocess.CompletedProcess(
+                    args=args, returncode=1, stdout="", stderr="HTTP 503"
+                )
+            raise AssertionError(f"gh pr merge must never be invoked: {args}")
+
+        monkeypatch.setattr(bulk_pr_throttle, "_run_gh", fake_run_gh)
+        outcome = bulk_pr_throttle.gh_apply_pr_operation(
+            "OmniNode-ai", "knowledge-base", 88, "arm-automerge"
+        )
+        assert outcome.success is False
+        assert "could not verify allow_auto_merge" in outcome.detail
+
+    def test_run_bulk_operation_arm_automerge_refuses_one_pr_others_unaffected(self):
+        """The wave-level flow: a refused PR yields success=False without an
+        exception, so the run completes and the CLI exit code (checked at
+        the ``main`` layer) reflects the refusal via ``outcome.success``.
+        """
+        from bulk_pr_throttle import PrOutcome, run_bulk_operation
+
+        def apply_pr_operation(owner, repo, pr, operation):
+            if pr == 2:
+                return PrOutcome(
+                    pr_number=pr,
+                    success=False,
+                    detail="REFUSED_AUTOMERGE_DISABLED: repo does not allow auto-merge",
+                )
+            return PrOutcome(pr_number=pr, success=True, detail="armed")
+
+        report = run_bulk_operation(
+            owner="OmniNode-ai",
+            repo="knowledge-base",
+            pr_numbers=[1, 2, 3],
+            operation="arm-automerge",
+            wave_size=5,
+            dry_run=False,
+            get_queue_depth=lambda: 0,
+            apply_pr_operation=apply_pr_operation,
+            max_wait_seconds=0.0,
+        )
+        outcomes = report.waves[0].outcomes
+        assert [o.success for o in outcomes] == [True, False, True]
+        failures = [o for wave in report.waves for o in wave.outcomes if not o.success]
+        assert len(failures) == 1
+
+    def test_gh_repo_allows_auto_merge_true(self, monkeypatch):
+        import bulk_pr_throttle
+
+        monkeypatch.setattr(
+            bulk_pr_throttle,
+            "_run_gh",
+            lambda args: subprocess.CompletedProcess(args, 0, "true\n", ""),
+        )
+        assert (
+            bulk_pr_throttle.gh_repo_allows_auto_merge("OmniNode-ai", "omnibase_infra")
+            is True
+        )
+
+    def test_gh_repo_allows_auto_merge_false(self, monkeypatch):
+        import bulk_pr_throttle
+
+        monkeypatch.setattr(
+            bulk_pr_throttle,
+            "_run_gh",
+            lambda args: subprocess.CompletedProcess(args, 0, "false\n", ""),
+        )
+        assert (
+            bulk_pr_throttle.gh_repo_allows_auto_merge("OmniNode-ai", "knowledge-base")
+            is False
+        )
+
+    def test_gh_repo_allows_auto_merge_nonzero_exit_raises(self, monkeypatch):
+        import bulk_pr_throttle
+
+        monkeypatch.setattr(
+            bulk_pr_throttle,
+            "_run_gh",
+            lambda args: subprocess.CompletedProcess(args, 1, "", "HTTP 404"),
+        )
+        with pytest.raises(
+            bulk_pr_throttle.BulkPrThrottleError, match="repo settings probe failed"
+        ):
+            bulk_pr_throttle.gh_repo_allows_auto_merge("OmniNode-ai", "ghost-repo")
+
+    def test_gh_repo_allows_auto_merge_malformed_output_raises(self, monkeypatch):
+        import bulk_pr_throttle
+
+        monkeypatch.setattr(
+            bulk_pr_throttle,
+            "_run_gh",
+            lambda args: subprocess.CompletedProcess(args, 0, "null\n", ""),
+        )
+        with pytest.raises(bulk_pr_throttle.BulkPrThrottleError, match="invalid"):
+            bulk_pr_throttle.gh_repo_allows_auto_merge("OmniNode-ai", "omnibase_infra")
+
+    def test_gh_rerun_failed_no_failed_runs(self, monkeypatch):
+        import bulk_pr_throttle
+
+        def fake_run_gh(args):
+            if args[:2] == ["pr", "view"]:
+                return subprocess.CompletedProcess(
+                    args=args,
+                    returncode=0,
+                    stdout=json.dumps({"headRefOid": "abc123"}),
+                    stderr="",
+                )
+            if args[0] == "api" and "actions/runs?head_sha=" in args[1]:
+                return subprocess.CompletedProcess(
+                    args=args,
+                    returncode=0,
+                    stdout=json.dumps({"total_count": 0, "workflow_runs": []}),
+                    stderr="",
+                )
+            raise AssertionError(f"unexpected gh call: {args}")
+
+        monkeypatch.setattr(bulk_pr_throttle, "_run_gh", fake_run_gh)
+        outcome = bulk_pr_throttle.gh_apply_pr_operation(
+            "OmniNode-ai", "onex_change_control", 6751, "rerun-failed"
+        )
+        assert outcome.success is True
+        assert "no completed failed or cancelled runs" in outcome.detail
+
+    def test_gh_rerun_failed_reruns_matching_runs(self, monkeypatch):
+        import bulk_pr_throttle
+
+        rerun_calls = []
+
+        def fake_run_gh(args):
+            if args[:2] == ["pr", "view"]:
+                return subprocess.CompletedProcess(
+                    args=args,
+                    returncode=0,
+                    stdout=json.dumps({"headRefOid": "deadbeef"}),
+                    stderr="",
+                )
+            if args[0] == "api" and "actions/runs?head_sha=" in args[1]:
+                return subprocess.CompletedProcess(
+                    args=args,
+                    returncode=0,
+                    stdout=json.dumps(
+                        {
+                            "total_count": 4,
+                            "workflow_runs": [
+                                {
+                                    "id": 111,
+                                    "status": "completed",
+                                    "conclusion": "failure",
+                                },
+                                {
+                                    "id": 222,
+                                    "status": "completed",
+                                    "conclusion": "success",
+                                },
+                                {
+                                    "id": 333,
+                                    "status": "completed",
+                                    "conclusion": "failure",
+                                },
+                                {
+                                    "id": 444,
+                                    "status": "in_progress",
+                                    "conclusion": "failure",
+                                },
+                            ],
+                        }
+                    ),
+                    stderr="",
+                )
+            if args[:2] == ["api", "-X"] and "rerun-failed-jobs" in args[-1]:
+                rerun_calls.append(args[-1])
+                return subprocess.CompletedProcess(
+                    args=args, returncode=0, stdout="", stderr=""
+                )
+            raise AssertionError(f"unexpected gh call: {args}")
+
+        monkeypatch.setattr(bulk_pr_throttle, "_run_gh", fake_run_gh)
+        outcome = bulk_pr_throttle.gh_apply_pr_operation(
+            "OmniNode-ai", "onex_change_control", 6751, "rerun-failed"
+        )
+        assert outcome.success is True
+        assert len(rerun_calls) == 2
+        assert any("111" in c for c in rerun_calls)
+        assert any("333" in c for c in rerun_calls)
+        assert not any("222" in c for c in rerun_calls)
+        assert not any("444" in c for c in rerun_calls)
+
+    def test_gh_rerun_failed_reruns_terminal_cancelled_runs(self, monkeypatch):
+        import bulk_pr_throttle
+
+        rerun_calls = []
+
+        def fake_run_gh(args):
+            if args[:2] == ["pr", "view"]:
+                return subprocess.CompletedProcess(
+                    args=args,
+                    returncode=0,
+                    stdout=json.dumps({"headRefOid": "deadbeef"}),
+                    stderr="",
+                )
+            if args[0] == "api" and "actions/runs?head_sha=" in args[1]:
+                return subprocess.CompletedProcess(
+                    args=args,
+                    returncode=0,
+                    stdout=json.dumps(
+                        {
+                            "total_count": 4,
+                            "workflow_runs": [
+                                {
+                                    "id": 111,
+                                    "status": "completed",
+                                    "conclusion": "cancelled",
+                                },
+                                {
+                                    "id": 222,
+                                    "status": "completed",
+                                    "conclusion": "success",
+                                },
+                                {
+                                    "id": 333,
+                                    "status": "completed",
+                                    "conclusion": None,
+                                },
+                                {
+                                    "id": 444,
+                                    "status": "in_progress",
+                                    "conclusion": "cancelled",
+                                },
+                            ],
+                        }
+                    ),
+                    stderr="",
+                )
+            if args[:2] == ["api", "-X"] and "rerun-failed-jobs" in args[-1]:
+                rerun_calls.append(args[-1])
+                return subprocess.CompletedProcess(
+                    args=args, returncode=0, stdout="", stderr=""
+                )
+            raise AssertionError(f"unexpected gh call: {args}")
+
+        monkeypatch.setattr(bulk_pr_throttle, "_run_gh", fake_run_gh)
+        outcome = bulk_pr_throttle.gh_apply_pr_operation(
+            "OmniNode-ai", "onex_change_control", 6751, "rerun-failed"
+        )
+        assert outcome.success is True
+        assert len(rerun_calls) == 1
+        assert any("111" in c for c in rerun_calls)
+        assert not any("222" in c for c in rerun_calls)
+        assert not any("333" in c for c in rerun_calls)
+        assert not any("444" in c for c in rerun_calls)
+
+    def test_gh_rerun_failed_paginates_workflow_runs(self, monkeypatch):
+        import bulk_pr_throttle
+
+        rerun_calls = []
+
+        def fake_run_gh(args):
+            if args[:2] == ["pr", "view"]:
+                return subprocess.CompletedProcess(
+                    args=args,
+                    returncode=0,
+                    stdout=json.dumps({"headRefOid": "deadbeef"}),
+                    stderr="",
+                )
+            if args[0] == "api" and "actions/runs?head_sha=" in args[1]:
+                if "&page=1" in args[1]:
+                    payload = {
+                        "total_count": 2,
+                        "workflow_runs": [
+                            {
+                                "id": 111,
+                                "status": "completed",
+                                "conclusion": "failure",
+                            }
+                        ],
+                    }
+                elif "&page=2" in args[1]:
+                    payload = {
+                        "total_count": 2,
+                        "workflow_runs": [
+                            {
+                                "id": 222,
+                                "status": "completed",
+                                "conclusion": "cancelled",
+                            }
+                        ],
+                    }
+                else:
+                    raise AssertionError(f"unexpected page: {args}")
+                return subprocess.CompletedProcess(
+                    args=args,
+                    returncode=0,
+                    stdout=json.dumps(payload),
+                    stderr="",
+                )
+            if args[:2] == ["api", "-X"] and "rerun-failed-jobs" in args[-1]:
+                rerun_calls.append(args[-1])
+                return subprocess.CompletedProcess(
+                    args=args, returncode=0, stdout="", stderr=""
+                )
+            raise AssertionError(f"unexpected gh call: {args}")
+
+        monkeypatch.setattr(bulk_pr_throttle, "_run_gh", fake_run_gh)
+        outcome = bulk_pr_throttle.gh_apply_pr_operation(
+            "OmniNode-ai", "onex_change_control", 6751, "rerun-failed"
+        )
+        assert outcome.success is True
+        assert len(rerun_calls) == 2
+        assert any("111" in c for c in rerun_calls)
+        assert any("222" in c for c in rerun_calls)
+
+
+# ---------------------------------------------------------------------------
+# PR-number parsing
+# ---------------------------------------------------------------------------
+
+
+class TestParsePrNumbers:
+    def test_parses_comma_separated(self):
+        from bulk_pr_throttle import _parse_pr_numbers
+
+        assert _parse_pr_numbers("1,2,3") == [1, 2, 3]
+
+    def test_strips_whitespace(self):
+        from bulk_pr_throttle import _parse_pr_numbers
+
+        assert _parse_pr_numbers(" 1, 2 ,3 ") == [1, 2, 3]
+
+    def test_ignores_empty_chunks(self):
+        from bulk_pr_throttle import _parse_pr_numbers
+
+        assert _parse_pr_numbers("1,,2,") == [1, 2]
+
+    def test_invalid_number_raises(self):
+        from bulk_pr_throttle import BulkPrThrottleError, _parse_pr_numbers
+
+        with pytest.raises(BulkPrThrottleError, match="invalid PR number"):
+            _parse_pr_numbers("1,abc,3")
+
+    def test_all_empty_raises(self):
+        from bulk_pr_throttle import BulkPrThrottleError, _parse_pr_numbers
+
+        with pytest.raises(BulkPrThrottleError, match="zero PR numbers"):
+            _parse_pr_numbers(" , , ")
+
+
+# ---------------------------------------------------------------------------
+# CLI entrypoint (main)
+# ---------------------------------------------------------------------------
+
+
+class TestMainCli:
+    def test_dry_run_end_to_end(self, capsys, tmp_path):
+        from bulk_pr_throttle import main
+
+        receipt = tmp_path / "receipt.json"
+        result = main(
+            [
+                "--owner",
+                "OmniNode-ai",
+                "--repo",
+                "onex_change_control",
+                "--prs",
+                "6751,6752,6753",
+                "--operation",
+                "rerun-failed",
+                "--wave-size",
+                "2",
+                "--dry-run",
+                "--receipt",
+                str(receipt),
+            ]
+        )
+        assert result == 0
+        out = capsys.readouterr().out
+        assert "DRY-RUN plan" in out
+        assert receipt.exists()
+        data = json.loads(receipt.read_text())
+        assert data["dry_run"] is True
+
+    def test_arm_automerge_dry_run_never_touches_gh_and_reports_no_outcomes(
+        self, monkeypatch, capsys, tmp_path
+    ):
+        """OMN-17427: dry-run must report the same 'nothing was merged' fact
+        as the live refusal path — a repo with allow_auto_merge=false armed
+        via --dry-run must not merge either. Dry-run never calls
+        ``apply_pr_operation`` at all, so it structurally cannot invoke
+        ``gh pr merge``; this locks that invariant down for arm-automerge
+        specifically, with ``_run_gh`` patched to explode if ever called.
+        """
+        import bulk_pr_throttle
+        from bulk_pr_throttle import main
+
+        def fake_run_gh(args):
+            raise AssertionError(f"dry-run must never call gh, got: {args}")
+
+        monkeypatch.setattr(bulk_pr_throttle, "_run_gh", fake_run_gh)
+
+        receipt = tmp_path / "receipt.json"
+        result = main(
+            [
+                "--owner",
+                "OmniNode-ai",
+                "--repo",
+                "knowledge-base",
+                "--prs",
+                "88",
+                "--operation",
+                "arm-automerge",
+                "--dry-run",
+                "--receipt",
+                str(receipt),
+            ]
+        )
+        assert result == 0
+        out = capsys.readouterr().out
+        assert "DRY-RUN plan" in out
+        data = json.loads(receipt.read_text())
+        assert data["dry_run"] is True
+        assert data["waves"][0]["outcomes"] == []
+
+    def test_missing_owner_is_a_hard_argparse_error(self):
+        from bulk_pr_throttle import main
+
+        with pytest.raises(SystemExit):
+            main(
+                [
+                    "--repo",
+                    "onex_change_control",
+                    "--prs",
+                    "1",
+                    "--operation",
+                    "noop-dry-run",
+                    "--dry-run",
+                ]
+            )
+
+    def test_missing_repo_is_a_hard_argparse_error(self):
+        from bulk_pr_throttle import main
+
+        with pytest.raises(SystemExit):
+            main(
+                [
+                    "--owner",
+                    "OmniNode-ai",
+                    "--prs",
+                    "1",
+                    "--operation",
+                    "noop-dry-run",
+                    "--dry-run",
+                ]
+            )
+
+    def test_refuses_batch_larger_than_default_cap_without_flag(self, capsys):
+        from bulk_pr_throttle import DEFAULT_MAX_TOTAL_PRS, main
+
+        prs = ",".join(str(n) for n in range(1, DEFAULT_MAX_TOTAL_PRS + 5))
+        result = main(
+            [
+                "--owner",
+                "OmniNode-ai",
+                "--repo",
+                "onex_change_control",
+                "--prs",
+                prs,
+                "--operation",
+                "noop-dry-run",
+                "--dry-run",
+            ]
+        )
+        assert result == 1
+        err = capsys.readouterr().err
+        assert "REFUSED" in err
+
+    def test_partial_run_error_writes_completed_wave_receipt(
+        self, monkeypatch, tmp_path
+    ):
+        import bulk_pr_throttle
+        from bulk_pr_throttle import (
+            BulkRunReport,
+            PartialBulkRunError,
+            PrOutcome,
+            WaveReceipt,
+            main,
+        )
+
+        partial = BulkRunReport(
+            owner="OmniNode-ai",
+            repo="onex_change_control",
+            operation="rerun-failed",
+            wave_size=10,
+            queue_depth_threshold=150,
+            dry_run=False,
+            waves=(
+                WaveReceipt(
+                    wave_index=1,
+                    pr_numbers=(1, 2),
+                    operation="rerun-failed",
+                    dry_run=False,
+                    queue_depth_before=5,
+                    queue_depth_after=None,
+                    started_at="2026-08-22T00:00:00+00:00",
+                    completed_at="2026-08-22T00:00:01+00:00",
+                    outcomes=(
+                        PrOutcome(pr_number=1, success=True, detail="ok"),
+                        PrOutcome(pr_number=2, success=True, detail="ok"),
+                    ),
+                ),
+            ),
+        )
+
+        def fake_run_bulk_operation(**kwargs):
+            raise PartialBulkRunError("queue depth probe failed", partial)
+
+        monkeypatch.setattr(
+            bulk_pr_throttle, "run_bulk_operation", fake_run_bulk_operation
+        )
+        receipt = tmp_path / "partial.json"
+        result = main(
+            [
+                "--owner",
+                "OmniNode-ai",
+                "--repo",
+                "onex_change_control",
+                "--prs",
+                "1,2,3",
+                "--operation",
+                "rerun-failed",
+                "--receipt",
+                str(receipt),
+            ]
+        )
+        assert result == 1
+        data = json.loads(receipt.read_text())
+        assert data["waves"][0]["pr_numbers"] == [1, 2]
+        assert data["waves"][0]["queue_depth_after"] is None
+
+    def test_explicit_max_total_prs_flag_allows_large_batch(self, capsys):
+        from bulk_pr_throttle import DEFAULT_MAX_TOTAL_PRS, main
+
+        prs = ",".join(str(n) for n in range(1, DEFAULT_MAX_TOTAL_PRS + 5))
+        result = main(
+            [
+                "--owner",
+                "OmniNode-ai",
+                "--repo",
+                "onex_change_control",
+                "--prs",
+                prs,
+                "--operation",
+                "noop-dry-run",
+                "--dry-run",
+                "--max-total-prs",
+                str(DEFAULT_MAX_TOTAL_PRS + 10),
+            ]
+        )
+        assert result == 0
+
+    def test_invalid_operation_is_a_hard_argparse_error(self):
+        from bulk_pr_throttle import main
+
+        with pytest.raises(SystemExit):
+            main(
+                [
+                    "--owner",
+                    "OmniNode-ai",
+                    "--repo",
+                    "onex_change_control",
+                    "--prs",
+                    "1",
+                    "--operation",
+                    "delete-everything",
+                    "--dry-run",
+                ]
+            )
+
+    def test_wave_size_over_hard_ceiling_refuses(self, capsys):
+        from bulk_pr_throttle import MAX_WAVE_SIZE, main
+
+        result = main(
+            [
+                "--owner",
+                "OmniNode-ai",
+                "--repo",
+                "onex_change_control",
+                "--prs",
+                "1,2,3",
+                "--operation",
+                "noop-dry-run",
+                "--dry-run",
+                "--wave-size",
+                str(MAX_WAVE_SIZE + 1),
+            ]
+        )
+        assert result == 1
+        err = capsys.readouterr().err
+        assert "REFUSED" in err
+
+    def test_non_dry_run_uses_real_gh_seam(self, monkeypatch, tmp_path):
+        """Non-dry-run wires queue, capacity, and apply to the gh functions."""
+        import bulk_pr_throttle
+        from bulk_pr_throttle import PrOutcome, main
+
+        monkeypatch.setattr(bulk_pr_throttle, "gh_queue_depth", lambda owner, repo: 5)
+        monkeypatch.setattr(bulk_pr_throttle, "gh_runner_fleet", idle_fleet)
+        monkeypatch.setattr(
+            bulk_pr_throttle,
+            "gh_apply_pr_operation",
+            lambda owner, repo, pr, op: PrOutcome(
+                pr_number=pr, success=True, detail="ok"
+            ),
+        )
+        receipt = tmp_path / "receipt.json"
+        result = main(
+            [
+                "--owner",
+                "OmniNode-ai",
+                "--repo",
+                "onex_change_control",
+                "--prs",
+                "1,2",
+                "--operation",
+                "rerun-failed",
+                "--receipt",
+                str(receipt),
+            ]
+        )
+        assert result == 0
+        data = json.loads(receipt.read_text())
+        assert data["dry_run"] is False
+        assert data["waves"][0]["queue_depth_before"] == 5
+
+    def test_non_dry_run_reports_failure_exit_code_on_pr_failure(
+        self, monkeypatch, tmp_path
+    ):
+        import bulk_pr_throttle
+        from bulk_pr_throttle import PrOutcome, main
+
+        monkeypatch.setattr(bulk_pr_throttle, "gh_queue_depth", lambda owner, repo: 5)
+        monkeypatch.setattr(bulk_pr_throttle, "gh_runner_fleet", idle_fleet)
+        monkeypatch.setattr(
+            bulk_pr_throttle,
+            "gh_apply_pr_operation",
+            lambda owner, repo, pr, op: PrOutcome(
+                pr_number=pr, success=False, detail="boom"
+            ),
+        )
+        receipt = tmp_path / "receipt.json"
+        result = main(
+            [
+                "--owner",
+                "OmniNode-ai",
+                "--repo",
+                "onex_change_control",
+                "--prs",
+                "1",
+                "--operation",
+                "rerun-failed",
+                "--receipt",
+                str(receipt),
+            ]
+        )
+        assert result == 1
+
+
+# ---------------------------------------------------------------------------
+# Fleet-status token resolution (OMN-18655)
+# ---------------------------------------------------------------------------
+
+
+class TestFleetStatusTokenResolution:
+    """Pin where the fleet probe is allowed to get its token from.
+
+    The defect: the probe read the token ONLY from two ambient environment
+    variables, so every lane session refused ``missing_token`` and reruns got
+    paced by hand -- which the bulk-PR runbook forbids. ``rerun-failed`` does
+    place check-suite load on the fleet (``OPERATION_QUEUE_DEPTH_POLICY`` marks
+    it ``True`` and ``_gh_rerun_failed`` calls ``rerun-failed-jobs``), so the
+    capacity gate must keep applying to it; the fix is the token source, never
+    skipping the probe.
+    """
+
+    def test_resolves_the_stored_gh_credential_when_no_env_var_is_set(self):
+        from bulk_pr_throttle import resolve_fleet_status_token
+
+        assert (
+            resolve_fleet_status_token(
+                env={}, gh_auth_token=lambda: "stored-lane-identity"
+            )
+            == "stored-lane-identity"
+        )
+
+    def test_env_vars_keep_precedence_over_the_stored_credential(self):
+        from bulk_pr_throttle import (
+            FLEET_STATUS_TOKEN_ENV_VARS,
+            resolve_fleet_status_token,
+        )
+
+        # CI behaviour must be byte-for-byte unchanged: each env var, in its
+        # declared order, still wins over the gh CLI credential.
+        assert FLEET_STATUS_TOKEN_ENV_VARS == (
+            "RUNNER_FLEET_STATUS_TOKEN",
+            "CROSS_REPO_PAT",
+        )
+        first, second = FLEET_STATUS_TOKEN_ENV_VARS
+        assert (
+            resolve_fleet_status_token(
+                env={first: "from-first", second: "from-second"},
+                gh_auth_token=lambda: "stored",
+            )
+            == "from-first"
+        )
+        assert (
+            resolve_fleet_status_token(
+                env={second: "from-second"}, gh_auth_token=lambda: "stored"
+            )
+            == "from-second"
+        )
+
+    def test_blank_env_var_falls_through_rather_than_resolving_empty(self):
+        from bulk_pr_throttle import resolve_fleet_status_token
+
+        assert (
+            resolve_fleet_status_token(
+                env={"RUNNER_FLEET_STATUS_TOKEN": "   "},
+                gh_auth_token=lambda: "stored",
+            )
+            == "stored"
+        )
+
+    def test_unauthenticated_gh_still_resolves_nothing_and_fails_closed(self):
+        from bulk_pr_throttle import resolve_fleet_status_token
+
+        # No credential anywhere is still a refusal. The fix widens where a
+        # token may come from; it never invents one and never fails open.
+        assert resolve_fleet_status_token(env={}, gh_auth_token=lambda: None) is None
+        assert resolve_fleet_status_token(env={}, gh_auth_token=lambda: "") is None
+
+    def test_missing_token_refusal_names_every_source_it_tried(self):
+        from bulk_pr_throttle import (
+            FLEET_STATUS_TOKEN_SOURCES,
+            RunnerFleetProbeError,
+            runner_fleet_is_starved,
+        )
+
+        # The recurring friction was that the refusal named the failure class
+        # but not the thing to fix, so callers had to read this module's source.
+        with pytest.raises(RunnerFleetProbeError) as excinfo:
+            runner_fleet_is_starved({"ok": False, "error": "missing_token"})
+        message = str(excinfo.value)
+        assert "missing_token" in message
+        for source in FLEET_STATUS_TOKEN_SOURCES:
+            assert source in message
+
+    def test_gh_runner_fleet_passes_the_resolved_token_to_the_probe(self, monkeypatch):
+        import bulk_pr_throttle
+
+        monkeypatch.delenv("RUNNER_FLEET_STATUS_TOKEN", raising=False)
+        monkeypatch.delenv("CROSS_REPO_PAT", raising=False)
+        monkeypatch.setattr(
+            bulk_pr_throttle, "_gh_auth_token", lambda: "stored-lane-identity"
+        )
+        seen: list[object] = []
+
+        def fake_probe(token, runner_group, api_url):
+            seen.append((token, runner_group, api_url))
+            return {"ok": True, "online": 88, "busy": 2, "total": 88}
+
+        monkeypatch.setattr(bulk_pr_throttle, "probe_fleet", fake_probe)
+        fleet = bulk_pr_throttle.gh_runner_fleet()
+
+        assert fleet["ok"] is True
+        assert seen[0][0] == "stored-lane-identity"
+        assert seen[0][1] == bulk_pr_throttle.RUNNER_GROUP
+
+    def test_rerun_failed_remains_capacity_gated(self):
+        from bulk_pr_throttle import queue_depth_gate_for_operation
+
+        # Guards the branch this fix deliberately did NOT take: rerun-failed
+        # dispatches jobs onto the fleet, so skipping its probe would reinstate
+        # the saturation the throttle exists to prevent (OMN-16284).
+        assert queue_depth_gate_for_operation("rerun-failed") is True
+
+
+# ---------------------------------------------------------------------------
+# OMN-18855 — the create operation
+#
+# The ticket's point is that a convention the next lane does not know about is
+# not an answer, so these assert the pacing is a property of the TOOL. The
+# AC3 tests below pass no pacing arguments at all: if pacing ever becomes
+# opt-in, they go red.
+# ---------------------------------------------------------------------------
+
+
+def make_specs(count: int):
+    from bulk_pr_throttle import CreateSpec
+
+    return [
+        CreateSpec(head=f"lane/branch-{i}", base="dev", title=f"chore: item {i}")
+        for i in range(1, count + 1)
+    ]
+
+
+class TestCreateOperationIsLoadCreating:
+    def test_create_is_in_the_operation_policy(self):
+        from bulk_pr_throttle import VALID_OPERATIONS
+
+        assert "create" in VALID_OPERATIONS
+
+    def test_create_takes_the_capacity_gate(self):
+        """AC1. Keyed to the operation, which is what makes AC3 possible."""
+        from bulk_pr_throttle import queue_depth_gate_for_operation
+
+        assert queue_depth_gate_for_operation("create") is True
+
+
+class TestCreatePacesAgainstTheLiveSignal:
+    def test_ac1_probes_the_fleet_once_per_wave(self):
+        """AC1: bounded batches with the signal read BETWEEN them."""
+        from bulk_pr_throttle import PrOutcome, run_bulk_operation
+
+        probes: list[int] = []
+
+        def fleet():
+            probes.append(1)
+            return idle_fleet()
+
+        created: list[str] = []
+
+        def apply(owner, repo, item, operation):
+            created.append(item.head)
+            return PrOutcome(pr_number=100 + len(created), success=True, detail="ok")
+
+        report = run_bulk_operation(
+            owner="OmniNode-ai",
+            repo="omnibase_infra",
+            create_specs=make_specs(12),
+            operation="create",
+            wave_size=5,
+            get_runner_fleet=fleet,
+            get_queue_depth=lambda: 3,
+            apply_pr_operation=apply,
+        )
+        assert len(report.waves) == 3  # 5 + 5 + 2, bounded
+        assert len(probes) == 3  # signal read before each wave
+        assert len(created) == 12
+
+    def test_ac1_receipt_records_heads_and_resulting_numbers(self):
+        from bulk_pr_throttle import PrOutcome, run_bulk_operation
+
+        def apply(owner, repo, item, operation):
+            return PrOutcome(pr_number=4242, success=True, detail="ok")
+
+        report = run_bulk_operation(
+            owner="o",
+            repo="r",
+            create_specs=make_specs(1),
+            operation="create",
+            get_runner_fleet=idle_fleet,
+            get_queue_depth=lambda: 1,
+            apply_pr_operation=apply,
+        )
+        wave = report.waves[0]
+        # No PR numbers existed at wave start; the heads identify the items.
+        assert wave.pr_numbers == ()
+        assert wave.wave_heads == ("lane/branch-1",)
+        assert wave.outcomes[0].pr_number == 4242
+
+
+class TestCreateFailsClosed:
+    def test_ac2_refuses_when_the_probe_cannot_be_read(self):
+        """AC2: unreadable signal refuses; it does not warn and proceed."""
+        from bulk_pr_throttle import RunnerFleetProbeError, run_bulk_operation
+
+        created: list[str] = []
+
+        def boom():
+            raise RuntimeError("fleet endpoint unreachable")
+
+        with pytest.raises(RunnerFleetProbeError):
+            run_bulk_operation(
+                owner="o",
+                repo="r",
+                create_specs=make_specs(4),
+                operation="create",
+                get_runner_fleet=boom,
+                get_queue_depth=lambda: 1,
+                apply_pr_operation=lambda *a: created.append(a) or None,
+            )
+        assert created == []  # zero PRs opened, which is the point
+
+    def test_ac2_refuses_when_the_fleet_is_starved(self):
+        """AC2: over-threshold signal refuses after the bounded wait."""
+        from bulk_pr_throttle import (
+            RunnerFleetStarvationTimeoutError,
+            run_bulk_operation,
+        )
+
+        created: list[str] = []
+
+        with pytest.raises(RunnerFleetStarvationTimeoutError):
+            run_bulk_operation(
+                owner="o",
+                repo="r",
+                create_specs=make_specs(4),
+                operation="create",
+                get_runner_fleet=starved_fleet,
+                get_queue_depth=lambda: 1,
+                apply_pr_operation=lambda *a: created.append(a) or None,
+                poll_seconds=1.0,
+                max_wait_seconds=0.0,
+                sleep_fn=lambda _s: None,
+            )
+        assert created == []
+
+    def test_ac2_positive_control_healthy_fleet_does_proceed(self):
+        """The control: these refusals are conditional, not unconditional."""
+        from bulk_pr_throttle import PrOutcome, run_bulk_operation
+
+        created: list[str] = []
+
+        def apply(owner, repo, item, operation):
+            created.append(item.head)
+            return PrOutcome(pr_number=1, success=True, detail="ok")
+
+        run_bulk_operation(
+            owner="o",
+            repo="r",
+            create_specs=make_specs(4),
+            operation="create",
+            get_runner_fleet=idle_fleet,
+            get_queue_depth=lambda: 1,
+            apply_pr_operation=apply,
+        )
+        assert len(created) == 4
+
+
+class TestCreateIsPacedWithoutOptIn:
+    def test_ac3_no_pacing_arguments_still_paces(self):
+        """AC3: the caller passes NO wave size and NO threshold."""
+        from bulk_pr_throttle import DEFAULT_WAVE_SIZE, PrOutcome, run_bulk_operation
+
+        probes: list[int] = []
+
+        def fleet():
+            probes.append(1)
+            return idle_fleet()
+
+        report = run_bulk_operation(
+            owner="o",
+            repo="r",
+            create_specs=make_specs(DEFAULT_WAVE_SIZE * 2),
+            operation="create",
+            get_runner_fleet=fleet,
+            get_queue_depth=lambda: 1,
+            apply_pr_operation=lambda o, r, i, op: PrOutcome(
+                pr_number=1, success=True, detail="ok"
+            ),
+        )
+        assert len(report.waves) == 2
+        assert all(len(w.wave_heads) <= DEFAULT_WAVE_SIZE for w in report.waves)
+        assert len(probes) == 2
+        assert report.queue_depth_gate_applied is True
+
+    def test_ac3_the_cap_applies_to_creates_too(self):
+        from bulk_pr_throttle import (
+            DEFAULT_MAX_TOTAL_PRS,
+            TotalPrLimitExceededError,
+            run_bulk_operation,
+        )
+
+        with pytest.raises(TotalPrLimitExceededError):
+            run_bulk_operation(
+                owner="o",
+                repo="r",
+                create_specs=make_specs(DEFAULT_MAX_TOTAL_PRS + 1),
+                operation="create",
+                get_runner_fleet=idle_fleet,
+                get_queue_depth=lambda: 1,
+                apply_pr_operation=lambda *a: None,
+            )
+
+
+class TestCreateInputRefusals:
+    def test_create_rejects_pr_numbers(self):
+        from bulk_pr_throttle import BulkPrThrottleError, run_bulk_operation
+
+        with pytest.raises(BulkPrThrottleError, match="not PR numbers"):
+            run_bulk_operation(
+                owner="o", repo="r", pr_numbers=[1, 2], operation="create"
+            )
+
+    def test_non_create_rejects_specs(self):
+        from bulk_pr_throttle import BulkPrThrottleError, run_bulk_operation
+
+        with pytest.raises(BulkPrThrottleError, match="only valid for operation"):
+            run_bulk_operation(
+                owner="o",
+                repo="r",
+                create_specs=make_specs(1),
+                operation="update-branch",
+            )
+
+    def test_create_requires_specs(self):
+        from bulk_pr_throttle import BulkPrThrottleError, run_bulk_operation
+
+        with pytest.raises(BulkPrThrottleError, match="create_specs must be non-empty"):
+            run_bulk_operation(owner="o", repo="r", operation="create")
+
+    def test_spec_with_blank_field_is_refused(self):
+        from bulk_pr_throttle import BulkPrThrottleError, CreateSpec
+
+        with pytest.raises(BulkPrThrottleError, match="missing 'head'"):
+            CreateSpec(head="  ", base="dev", title="t")
+
+    def test_parse_specs_rejects_unknown_fields(self):
+        from bulk_pr_throttle import BulkPrThrottleError, parse_create_specs
+
+        payload = json.dumps(
+            [{"head": "h", "base": "dev", "title": "t", "reviewers": ["x"]}]
+        )
+        with pytest.raises(BulkPrThrottleError, match="unknown field"):
+            parse_create_specs(payload)
+
+    def test_parse_specs_round_trips_a_valid_payload(self):
+        from bulk_pr_throttle import parse_create_specs
+
+        payload = json.dumps([{"head": "h", "base": "dev", "title": "t", "body": "b"}])
+        specs = parse_create_specs(payload)
+        assert len(specs) == 1
+        assert (specs[0].head, specs[0].base, specs[0].title, specs[0].body) == (
+            "h",
+            "dev",
+            "t",
+            "b",
+        )
+
+
+class TestCreateCliRefusals:
+    def test_cli_create_without_specs_exits_non_zero(self):
+        from bulk_pr_throttle import main
+
+        rc = main(["--owner", "o", "--repo", "r", "--operation", "create"])
+        assert rc == 1
+
+    def test_cli_create_with_prs_exits_non_zero(self):
+        from bulk_pr_throttle import main
+
+        rc = main(
+            [
+                "--owner",
+                "o",
+                "--repo",
+                "r",
+                "--operation",
+                "create",
+                "--prs",
+                "1,2",
+            ]
+        )
+        assert rc == 1
+
+    def test_cli_non_create_with_specs_exits_non_zero(self):
+        from bulk_pr_throttle import main
+
+        rc = main(
+            [
+                "--owner",
+                "o",
+                "--repo",
+                "r",
+                "--operation",
+                "update-branch",
+                "--create-specs",
+                "[]",
+            ]
+        )
+        assert rc == 1

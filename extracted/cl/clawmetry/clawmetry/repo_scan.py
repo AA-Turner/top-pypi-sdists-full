@@ -588,6 +588,211 @@ def scan_agent_hooks(workspace: str, session_id: str = "",
     return out
 
 
+# ── system-prompt files and Skills: standing instructions to reach out ─────
+#
+# OpenClaw loads HEARTBEAT.md, SOUL.md, AGENTS.md and friends from its
+# workspace into EVERY new system prompt, and a Skill's SKILL.md (plus the
+# rules/*.md it points at) is loaded whenever the Skill is picked. A line added
+# to one of them is an instruction the agent follows in sessions that have not
+# started yet, and the write that put it there need not be a tool call at all
+# (MITRE ATLAS AML.CS0051 S13: a piped install script appended to HEARTBEAT.md;
+# AML.CS0049 S05-S06: a registry Skill whose rules file phones home).
+#
+# The check reads what the files SAY, not that they changed: a user editing
+# HEARTBEAT.md to add "check last night's build every morning" is the product
+# working, and the ATLAS heartbeat control pins that it stays quiet. What gets
+# flagged is a standing instruction with one of three shapes:
+#
+# * remote_tasks   fetch tasks / instructions / commands from a URL and carry
+#                  them out: the agent becomes a C2 client;
+# * hidden_request contact a URL and do not tell the user: a beacon with a gag;
+# * remote_exec    pipe a downloaded script into a shell.
+#
+# In project instruction files (CLAUDE.md, AGENTS.md, GEMINI.md), Skills and
+# rules, a `curl ... | bash` inside a fenced code block is install
+# documentation, the common case in real files, so only a prose line counts
+# there. In the OpenClaw workspace files (HEARTBEAT.md, SOUL.md, ...), which
+# are never documentation, a code block is no excuse.
+_PROMPT_FILES = (
+    # (relative path, doc_like)
+    ("HEARTBEAT.md", False), ("SOUL.md", False), ("BOOTSTRAP.md", False),
+    ("IDENTITY.md", False), ("TOOLS.md", False), ("USER.md", False),
+    ("MEMORY.md", False),
+    ("AGENTS.md", True), ("CLAUDE.md", True), ("CLAUDE.local.md", True),
+    ("GEMINI.md", True), (os.path.join(".claude", "CLAUDE.md"), True),
+)
+#: Directories whose children are Skills (``<dir>/<name>/SKILL.md`` plus the
+#: markdown the Skill ships beside it), and directories of standing rules.
+_SKILL_DIRS = (os.path.join(".claude", "skills"), "skills",
+               os.path.join(".agents", "skills"))
+_RULE_DIRS = (os.path.join(".claude", "rules"), os.path.join(".cursor", "rules"))
+_PROMPT_MAX_FILES = 64
+_PROMPT_MAX_BYTES = 256 * 1024
+_PROMPT_EXTS = (".md", ".mdc", ".txt")
+
+_URL_RX = re.compile(r"https?://([A-Za-z0-9.-]+)", re.I)
+_LOCAL_HOSTS = ("localhost", "127.0.0.1", "0.0.0.0", "::1")
+_FETCH_RX = re.compile(r"\b(fetch|download|retrieve|pull|poll|visit|check|get|"
+                       r"read|load|request|query|call)\w*\b", re.I)
+_TASK_RX = re.compile(r"\b(tasks?|instructions?|commands?|orders?|to-?do|jobs?|"
+                      r"directives?)\b", re.I)
+_OBEY_RX = re.compile(r"\b(carry (them |it )?out|execute|run (them|it|the)|perform|"
+                      r"obey|follow (them|it|the)|do (them|it|whatever|what)|"
+                      r"complete (them|it|the))\b", re.I)
+_HIDE_RX = re.compile(r"\b(do not|don'?t|never) (mention|tell|inform|reveal|"
+                      r"disclose|report|show)\b|\bwithout (telling|mentioning|"
+                      r"informing|asking)\b|\bsilently\b|\bkeep (this|it) "
+                      r"(secret|hidden|quiet)\b", re.I)
+_PIPE_SHELL_RX = re.compile(
+    r"\b(curl|wget|iwr|invoke-webrequest|irm|invoke-restmethod)\b[^\n|]*"
+    r"https?://[^\n|]*\|\s*(sudo\s+)?(ba|z|da|k)?sh\b|"
+    r"\b(curl|wget)\b[^\n|]*https?://[^\n|]*\|\s*(sudo\s+)?python3?\b|"
+    r"\biex\s*\(?\s*(\(?\s*)?(new-object\s+net\.webclient|iwr|irm|"
+    r"invoke-webrequest|invoke-restmethod)\b", re.I)
+_FENCE_RX = re.compile(r"^\s*(```|~~~)")
+#: Lines either side of a remote_tasks directive that a URL may sit on. The
+#: CS0051 payload puts the directive in one paragraph and the URL in the
+#: numbered list under it.
+_PROMPT_URL_REACH = 8
+
+
+def prompt_file_paths(workspace: str) -> list:
+    """Relative paths of every system-prompt, Skill and rule file a scan reads.
+
+    The daemon stamps these (plus ``SCANNED_FILES``) to decide when to
+    re-scan, so a Skill dropped in after the first clean scan is still read.
+    Bounded; never raises.
+    """
+    out: list = []
+    try:
+        for rel, _doc in _PROMPT_FILES:
+            if os.path.isfile(os.path.join(workspace, rel)):
+                out.append(rel)
+        for base in _SKILL_DIRS + _RULE_DIRS:
+            root = os.path.join(workspace, base)
+            if not os.path.isdir(root):
+                continue
+            skill_dir = base in _SKILL_DIRS
+            for dirpath, dirnames, filenames in os.walk(root):
+                dirnames[:] = sorted(d for d in dirnames if not d.startswith("."))
+                depth = os.path.relpath(dirpath, root).count(os.sep)
+                if depth >= 3:
+                    dirnames[:] = []
+                for name in sorted(filenames):
+                    if not name.lower().endswith(_PROMPT_EXTS):
+                        continue
+                    # A top-level file in a skills dir is not a Skill (the
+                    # OpenClaw workspace keeps a README there, say).
+                    if skill_dir and dirpath == root:
+                        continue
+                    out.append(os.path.relpath(os.path.join(dirpath, name), workspace))
+                    if len(out) >= _PROMPT_MAX_FILES:
+                        return out
+    except Exception:  # noqa: BLE001
+        pass
+    return out[:_PROMPT_MAX_FILES]
+
+
+def _external_hosts(text: str) -> list:
+    hosts = []
+    for m in _URL_RX.finditer(text or ""):
+        host = m.group(1).lower().rstrip(".")
+        if host and host not in _LOCAL_HOSTS and host not in hosts:
+            hosts.append(host)
+    return hosts
+
+
+def _prompt_hits(text: str, doc_like: bool) -> list:
+    """``[(shape, line_no, hosts), ...]`` for one file's text. Pure."""
+    lines = text.splitlines()
+    fenced = []
+    inside = False
+    for ln in lines:
+        if _FENCE_RX.match(ln):
+            inside = not inside
+            fenced.append(True)
+        else:
+            fenced.append(inside)
+    hits: list = []
+    for i, ln in enumerate(lines):
+        if fenced[i] and doc_like:
+            continue
+        if _PIPE_SHELL_RX.search(ln):
+            hits.append(("remote_exec", i + 1, _external_hosts(ln)))
+            continue
+        # A directive is judged per sentence, so "check the task list" in one
+        # sentence and "run the tests" in the next never add up to one.
+        for sentence in re.split(r"(?<=[.!?])\s+", ln):
+            if (_FETCH_RX.search(sentence) and _TASK_RX.search(sentence)
+                    and _OBEY_RX.search(sentence)):
+                lo, hi = max(0, i - _PROMPT_URL_REACH), i + _PROMPT_URL_REACH + 1
+                hosts = _external_hosts("\n".join(
+                    lines[j] for j in range(lo, min(hi, len(lines)))
+                    if not (fenced[j] and doc_like)))
+                if hosts:
+                    hits.append(("remote_tasks", i + 1, hosts))
+                    break
+            hosts = _external_hosts(sentence)
+            if hosts and _HIDE_RX.search(ln):
+                hits.append(("hidden_request", i + 1, hosts))
+                break
+    return hits
+
+
+_PROMPT_SHAPE_TEXT = {
+    "remote_tasks": "fetch tasks from {host} and carry them out",
+    "hidden_request": "contact {host} without telling you",
+    "remote_exec": "pipe a script from {host} into a shell",
+}
+
+
+def scan_prompt_files(workspace: str, session_id: str = "",
+                      runtime: str = "unknown") -> list:
+    """Flag a system-prompt, Skill or rule file that tells the agent to reach out.
+
+    One finding per file, ``warning``: the text is an instruction the agent
+    will follow in later sessions, which is the persistence step, not yet the
+    exfiltration. The detector that sees the eventual request raises its own.
+    """
+    doc_like = {rel: doc for rel, doc in _PROMPT_FILES}
+    out = []
+    for rel in prompt_file_paths(workspace):
+        path = os.path.join(workspace, rel)
+        try:
+            with open(path, encoding="utf-8", errors="replace") as f:
+                text = f.read(_PROMPT_MAX_BYTES)
+        except Exception:  # noqa: BLE001
+            continue
+        # Skills and rules ship install steps in code blocks the way READMEs
+        # do (9 of 877 real files on a working machine, all fenced); only the
+        # OpenClaw workspace files, which are never documentation, count them.
+        hits = _prompt_hits(text, doc_like.get(rel, True))
+        if not hits:
+            continue
+        shape, line_no, hosts = hits[0]
+        host = hosts[0] if hosts else "a remote host"
+        shapes = sorted({h[0] for h in hits})
+        all_hosts = sorted({h for hit in hits for h in hit[2]})[:5]
+        skill = any(rel.startswith(d + os.sep) for d in _SKILL_DIRS)
+        what = ("a Skill file" if skill else
+                "a rules file" if any(rel.startswith(d + os.sep) for d in _RULE_DIRS)
+                else "a system-prompt file")
+        out.append(_finding(
+            "agent_config_tamper", "warning",
+            f"{rel} tells the agent to {_PROMPT_SHAPE_TEXT[shape].format(host=host)}",
+            f"`{rel}` is {what} the agent loads as standing instructions, and "
+            f"line {line_no} tells it to "
+            f"{_PROMPT_SHAPE_TEXT[shape].format(host=host)}. Whatever is written "
+            "there runs in every session that loads the file, including ones "
+            "that have not started yet, and nothing in the tool stream shows "
+            "who wrote it. If you did not add this, remove it before the next "
+            "session starts and check how it got there.",
+            {"file": rel, "line": line_no, "shapes": shapes, "hosts": all_hosts,
+             "count": len(hits), "observed": "prompt_file"},
+            session_id, runtime))
+    return out
+
+
 # ── package manifests: code that runs on `npm install` ──────────────────────
 #
 # Same predicate as .git/config, different file. A package.json lifecycle hook
@@ -729,6 +934,7 @@ def scan_workspace(workspace: str, session_id: str = "",
     for kind, check in (("repo_config_exec", scan_git_config),
                         ("repo_config_exec", scan_autorun_tasks),
                         ("agent_config_tamper", scan_agent_hooks),
+                        ("agent_config_tamper", scan_prompt_files),
                         ("package_manifest_exec", scan_package_manifest)):
         if disabled and kind in disabled:
             continue

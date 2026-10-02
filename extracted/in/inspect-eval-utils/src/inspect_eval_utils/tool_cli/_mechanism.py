@@ -1,0 +1,887 @@
+"""Reusable tool-to-CLI component.
+
+Converts a list of ToolDef objects into a CLI script installed in a sandbox,
+with an RPC bridge back to the host for actual tool execution.
+"""
+
+import json
+import logging
+import re
+import shlex
+import time
+from textwrap import dedent
+from typing import Any, Callable, Sequence
+from uuid import uuid4
+
+import anyio
+from inspect_ai.model import ChatMessage, ChatMessageAssistant, ChatMessageTool, execute_tools
+from inspect_ai.tool import Tool, ToolCall, ToolDef, ToolSource
+from inspect_ai.tool._tool_def import tool_defs
+from inspect_ai.util import (
+    SandboxEnvironment,
+    background,
+    sandbox_service,
+)
+from inspect_ai.util import (
+    sandbox as _get_sandbox,
+)
+from inspect_ai.util._sandbox.service import SandboxServiceMethod
+from pydantic import JsonValue
+
+logger = logging.getLogger(__name__)
+
+
+class _ToolCliResolver:
+    def __init__(
+        self,
+        tools: Sequence[Tool | ToolDef | ToolSource],
+        *,
+        cache_ttl: float = 1.0,
+    ) -> None:
+        self._tools = tools
+        self._cache_ttl = cache_ttl
+        self._lock = anyio.Lock()
+        self._cached_defs: list[ToolDef] | None = None
+        self._cached_at = 0.0
+
+    async def resolve(self, *, use_cache: bool) -> list[ToolDef]:
+        now = time.monotonic()
+        if use_cache and self._cached_defs is not None and now - self._cached_at <= self._cache_ttl:
+            return self._cached_defs
+
+        async with self._lock:
+            now = time.monotonic()
+            if (
+                use_cache
+                and self._cached_defs is not None
+                and now - self._cached_at <= self._cache_ttl
+            ):
+                return self._cached_defs
+
+            resolved = await tool_defs(self._tools)
+            self._cached_defs = resolved
+            self._cached_at = time.monotonic()
+            return resolved
+
+
+async def install_tool_cli(
+    tools: Sequence[Tool | ToolDef | ToolSource],
+    sandbox: SandboxEnvironment,
+    *,
+    command_name: str = "tools",
+    service_name: str = "tool_cli",
+    install_dir: str = "/opt/tool_cli",
+    user: str | None = None,
+    on_path: bool = True,
+    bin_dir: str = "/usr/local/bin",
+) -> dict[str, SandboxServiceMethod]:
+    """Generate a CLI script, install it into a sandbox, and return service methods.
+
+    The returned methods dict should be passed to ``sandbox_service()`` by the
+    caller, who controls the service lifecycle.
+
+    Args:
+        tools: Tools to expose as CLI commands.
+        sandbox: Sandbox environment to install into.
+        command_name: Shell alias for the CLI command.
+        service_name: Name for the sandbox service (used for RPC).
+        install_dir: Directory in the sandbox to install the CLI script.
+        user: Sandbox user to install as.
+        on_path: Install a wrapper for the command in ``bin_dir`` so it resolves on
+            PATH for non-interactive shells (e.g. the agent's bash() tool).
+        bin_dir: Directory on PATH to install the wrapper into.
+
+    Returns:
+        A dict of service methods to pass to ``sandbox_service()``.
+    """
+    script = generate_tool_cli_script(service_name=service_name)
+    methods = tool_cli_service_methods(tools)
+
+    # install into sandbox
+    await _install_script(
+        sandbox,
+        script,
+        command_name=command_name,
+        install_dir=install_dir,
+        user=user,
+        on_path=on_path,
+        bin_dir=bin_dir,
+    )
+
+    return methods
+
+
+async def run_tool_cli_service(
+    tools: Sequence[Tool | ToolDef | ToolSource],
+    sandbox: SandboxEnvironment,
+    *,
+    until: Callable[[], bool],
+    command_name: str = "tools",
+    service_name: str = "tool_cli",
+    install_dir: str = "/opt/tool_cli",
+    user: str | None = None,
+    on_path: bool = True,
+    bin_dir: str = "/usr/local/bin",
+    polling_interval: float | None = None,
+    started: anyio.Event | None = None,
+) -> None:
+    """Install the tool CLI and run the sandbox service until stopped.
+
+    Convenience that combines ``install_tool_cli()`` + ``sandbox_service()``.
+
+    Args:
+        tools: Tools to expose as CLI commands.
+        sandbox: Sandbox environment to install into.
+        until: Function that returns True when the service should stop.
+        command_name: Shell alias for the CLI command.
+        service_name: Name for the sandbox service (used for RPC).
+        install_dir: Directory in the sandbox to install the CLI script.
+        user: Sandbox user to install as.
+        on_path: Install a wrapper for the command in ``bin_dir`` so it resolves on
+            PATH for non-interactive shells (e.g. the agent's bash() tool).
+        bin_dir: Directory on PATH to install the wrapper into.
+        polling_interval: Polling interval for RPC request checking.
+        started: Event set once the sandbox service is ready.
+    """
+    methods = await install_tool_cli(
+        tools,
+        sandbox,
+        command_name=command_name,
+        service_name=service_name,
+        install_dir=install_dir,
+        user=user,
+        on_path=on_path,
+        bin_dir=bin_dir,
+    )
+    await sandbox_service(
+        service_name,
+        methods,
+        until,
+        sandbox,
+        user=user,
+        polling_interval=polling_interval,
+        started=started,
+    )
+
+
+async def start_tool_cli(
+    tools: Sequence[Tool | ToolDef | ToolSource],
+    sandbox: SandboxEnvironment | None = None,
+    *,
+    command_name: str = "tools",
+    service_name: str = "tool_cli",
+    install_dir: str = "/opt/tool_cli",
+    user: str | None = None,
+    on_path: bool = True,
+    bin_dir: str = "/usr/local/bin",
+    polling_interval: float | None = None,
+) -> None:
+    """Install the tool CLI and run its sandbox service in the background.
+
+    Fire-and-forget helper for task **setup solvers**: it installs the CLI in the
+    foreground (so install errors propagate to you), starts the RPC service in the
+    background, and returns once the service is ready. The service then runs until
+    the sample ends. By default the command is exposed on PATH (see ``on_path``) so
+    the model agent's non-interactive ``bash()`` tool can run it.
+
+    Unlike a bare ``background(run_tool_cli_service(...))`` + ``started.wait()``,
+    this surfaces startup failures as an exception instead of hanging.
+
+    Args:
+        tools: Tools to expose as CLI commands.
+        sandbox: Sandbox to install into. Defaults to ``sandbox("default")``.
+        command_name: Name of the CLI command (and the PATH wrapper).
+        service_name: Sandbox-service name used for RPC.
+        install_dir: Directory in the sandbox to install the CLI script.
+        user: Sandbox user the service runs as (e.g. the agent's user).
+        on_path: Expose ``command_name`` on PATH (default True).
+        bin_dir: Directory on PATH for the wrapper.
+        polling_interval: RPC request polling interval.
+
+    Example:
+        ```python
+        @solver
+        def setup() -> Solver:
+            async def solve(state: TaskState, generate: Generate) -> TaskState:
+                await start_tool_cli(MY_TOOLS, sandbox("default"), user="agent")
+                return state
+            return solve
+        ```
+    """
+    sbx = sandbox if sandbox is not None else _get_sandbox("default")
+
+    # Foreground: install errors propagate to the caller (no deadlock).
+    methods = await install_tool_cli(
+        tools,
+        sbx,
+        command_name=command_name,
+        service_name=service_name,
+        install_dir=install_dir,
+        user=user,
+        on_path=on_path,
+        bin_dir=bin_dir,
+    )
+
+    started = anyio.Event()
+    startup_error: dict[str, BaseException] = {}
+
+    async def _serve() -> None:
+        try:
+            await sandbox_service(
+                service_name,
+                methods,
+                lambda: False,  # run for the lifetime of the sample
+                sbx,
+                user=user,
+                polling_interval=polling_interval,
+                started=started,
+            )
+        except anyio.get_cancelled_exc_class():
+            raise
+        except BaseException as exc:  # noqa: BLE001 - re-raised on the caller's task
+            if not started.is_set():
+                # Startup failure: record it and unblock the waiter so the caller
+                # raises a clean error instead of hanging on started.wait().
+                startup_error["error"] = exc
+                started.set()
+            else:
+                # Failure after startup: let background() log/propagate it.
+                raise
+
+    background(_serve)
+    await started.wait()
+    if "error" in startup_error:
+        raise RuntimeError(f"tool_cli service {service_name!r} failed to start") from startup_error[
+            "error"
+        ]
+
+
+def generate_tool_cli_script(service_name: str = "tool_cli") -> str:
+    """Generate a Python CLI script that calls tools via sandbox service RPC.
+
+    Args:
+        service_name: Name of the sandbox service for RPC calls.
+
+    Returns:
+        Python source code for the CLI script.
+    """
+    return dedent(f"""\
+#!/usr/bin/env python3
+import argparse
+import json
+import sys
+
+sys.path.append("/var/tmp/sandbox-services/{service_name}")
+from {service_name} import call_{service_name}
+
+RESERVED_COMMANDS = {{"list", "describe", "call", "help", "__complete"}}
+RESERVED_TOOL_FLAGS = {{"--json", "--json-args", "--help", "-h"}}
+RESERVED_TOOL_DESTS = {{"json", "json_args"}}
+
+
+def _parse_json(value):
+    try:
+        return json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return value
+
+
+def _parse_bool(value):
+    if isinstance(value, bool):
+        return value
+    normalized = value.lower()
+    if normalized in ("true", "1", "yes", "y", "on"):
+        return True
+    if normalized in ("false", "0", "no", "n", "off"):
+        return False
+    raise argparse.ArgumentTypeError("expected a boolean")
+
+
+def _type_str(param):
+    param_type = param.get("type")
+    if isinstance(param_type, list):
+        for value in param_type:
+            if value != "null":
+                return value
+        return None
+    return param_type
+
+
+def _flag_name(name):
+    return "--" + name.replace("_", "-")
+
+
+def _safe_dest(name):
+    return name.replace("-", "_").replace(".", "_")
+
+
+def _add_dynamic_arg(parser, name, param, required):
+    type_str = _type_str(param)
+    description = param.get("description", "")
+    dest = _safe_dest(name)
+    if type_str == "boolean":
+        flag = _flag_name(name)
+        if required:
+            parser.add_argument(flag, dest=dest, action="store_true", default=False, help=description)
+        else:
+            parser.add_argument(flag, dest=dest, nargs="?", const=True, default=None, type=_parse_bool, help=description)
+        return
+    if type_str in ("array", "object"):
+        parser.add_argument(_flag_name(name), dest=dest, type=str, required=required, default=None, help=description)
+        return
+    type_map = {{"string": str, "integer": int, "number": float}}
+    py_type = type_map.get(type_str or "string", str)
+    choices = param.get("enum")
+    if required:
+        if name == dest:
+            parser.add_argument(name, type=py_type, choices=choices, help=description)
+        else:
+            parser.add_argument(dest, metavar=name, type=py_type, choices=choices, help=description)
+    else:
+        parser.add_argument(_flag_name(name), dest=dest, type=py_type, default=None, choices=choices, help=description)
+
+
+def _build_tool_parser(tool, prog, json_args=False):
+    parser = argparse.ArgumentParser(prog=prog, description=tool.get("description", ""))
+    parser.add_argument("--json-args", default=None, help="JSON object of tool arguments")
+    parser.add_argument("--json", action="store_true", help="Print result as JSON")
+    parameters = tool.get("parameters", {{}})
+    properties = parameters.get("properties", {{}})
+    required = set(parameters.get("required", []))
+    dest_to_name = {{}}
+    used_flags = set(RESERVED_TOOL_FLAGS)
+    used_dests = set(RESERVED_TOOL_DESTS)
+    for name, param in properties.items():
+        flag = _flag_name(name)
+        dest = _safe_dest(name)
+        if flag in used_flags or dest in used_dests:
+            continue
+        used_flags.add(flag)
+        used_dests.add(dest)
+        dest_to_name[dest] = name
+        _add_dynamic_arg(parser, name, param, name in required and not json_args)
+    return parser, dest_to_name, properties
+
+
+def _parsed_args_to_kwargs(args, dest_to_name, properties):
+    if args.json_args is not None:
+        value = json.loads(args.json_args)
+        if not isinstance(value, dict):
+            raise ValueError("--json-args must be a JSON object")
+        return value
+    kwargs = {{}}
+    for dest, name in dest_to_name.items():
+        value = getattr(args, dest)
+        param = properties[name]
+        type_str = _type_str(param)
+        if type_str in ("array", "object"):
+            if value is not None:
+                kwargs[name] = _parse_json(value)
+        elif type_str == "boolean":
+            if value is not None:
+                kwargs[name] = value
+        elif value is not None:
+            kwargs[name] = value
+    return kwargs
+
+
+def _required_bool_names(tool):
+    parameters = tool.get("parameters", {{}})
+    properties = parameters.get("properties", {{}})
+    required = set(parameters.get("required", []))
+    return {{name for name in required if _type_str(properties[name]) == "boolean"}}
+
+
+def _call_rpc(method, *args, **kwargs):
+    # The RPC client is keyword-only after `method`; pass args by parameter name.
+    try:
+        if method == "list_tools":
+            return call_{service_name}('list_tools')
+        if method == "describe_tool":
+            return call_{service_name}('describe_tool', tool_name=args[0])
+        if method == "describe_tool_for_call":
+            return call_{service_name}('describe_tool_for_call', tool_name=args[0])
+        if method == "call_tool":
+            if len(args) > 2:
+                return call_{service_name}(
+                    'call_tool', tool_name=args[0], arguments=args[1], snapshot_token=args[2]
+                )
+            return call_{service_name}('call_tool', tool_name=args[0], arguments=args[1])
+        return call_{service_name}(method, *args, **kwargs)
+    except Exception as exc:
+        print(str(exc), file=sys.stderr)
+        raise SystemExit(1)
+
+
+def _print_result(result, as_json=False):
+    if as_json:
+        print(json.dumps(result))
+    elif result is not None:
+        print(result)
+
+
+def _cmd_list(argv):
+    parser = argparse.ArgumentParser(prog="tools list", description="List available tools")
+    parser.add_argument("--json", action="store_true", help="Print tool list as JSON")
+    args = parser.parse_args(argv)
+    tools = _call_rpc("list_tools")
+    if args.json:
+        print(json.dumps(tools))
+    else:
+        for tool in tools:
+            description = tool.get("description", "")
+            print(f"{{tool['name']}}\t{{description}}")
+
+
+def _cmd_describe(argv):
+    parser = argparse.ArgumentParser(prog="tools describe", description="Describe a tool")
+    parser.add_argument("name")
+    parser.add_argument("--json", action="store_true", help="Print schema as JSON")
+    args = parser.parse_args(argv)
+    tool = _call_rpc("describe_tool", args.name)
+    if args.json:
+        print(json.dumps(tool))
+    else:
+        tool_parser, _, _ = _build_tool_parser(tool, prog=f"tools call {{args.name}}")
+        tool_parser.print_help()
+
+
+def _cmd_call(argv, shorthand=False):
+    if not argv:
+        print("Missing tool name", file=sys.stderr)
+        raise SystemExit(2)
+    name = argv[0]
+    rest = argv[1:]
+    tool = _call_rpc("describe_tool_for_call", name)
+    call_snapshot = tool.pop("_call_snapshot", None)
+    prog = f"tools {{name}}" if shorthand else f"tools call {{name}}"
+    json_args = "--json-args" in rest or any(arg.startswith("--json-args=") for arg in rest)
+    parser, dest_to_name, properties = _build_tool_parser(tool, prog=prog, json_args=json_args)
+    args = parser.parse_args(rest)
+    try:
+        kwargs = _parsed_args_to_kwargs(args, dest_to_name, properties)
+    except (json.JSONDecodeError, ValueError) as exc:
+        print(str(exc), file=sys.stderr)
+        raise SystemExit(2)
+    for bool_name in _required_bool_names(tool):
+        kwargs.setdefault(bool_name, False)
+    if call_snapshot is None:
+        result = _call_rpc("call_tool", name, kwargs)
+    else:
+        result = _call_rpc("call_tool", name, kwargs, call_snapshot)
+    _print_result(result, as_json=args.json)
+
+
+def _cmd_complete(argv):
+    if len(argv) < 2:
+        return
+    try:
+        cword = int(argv[0])
+    except ValueError:
+        return
+    words = argv[1:]
+    if cword == 1:
+        for command in ("list", "describe", "call"):
+            print(command)
+        for tool in _call_rpc("list_tools"):
+            print(tool["name"])
+        return
+    if cword >= 2 and len(words) > 1:
+        command = words[1]
+        if command in ("call", "describe") and cword == 2:
+            for tool in _call_rpc("list_tools"):
+                print(tool["name"])
+            return
+        tool_name = words[2] if command in ("call", "describe") and len(words) > 2 else command
+        if not tool_name:
+            return
+        if tool_name in RESERVED_COMMANDS and command != "call":
+            return
+        try:
+            tool = _call_rpc("describe_tool", tool_name)
+        except SystemExit:
+            return
+        parameters = tool.get("parameters", {{}})
+        for name in parameters.get("properties", {{}}):
+            print(_flag_name(name))
+        print("--json")
+        print("--json-args")
+
+
+def _top_help():
+    print("usage: tools {{list,describe,call,<tool-name>}} ...")
+    print()
+    print("commands:")
+    print("  list                 list current tools")
+    print("  describe <name>      show current tool help")
+    print("  call <name> ...      call a tool")
+    print("  <name> ...           shorthand for call <name>")
+
+
+def main():
+    argv = sys.argv[1:]
+    if not argv or argv[0] in ("-h", "--help", "help"):
+        _top_help()
+        return
+    command = argv[0]
+    rest = argv[1:]
+    if command == "list":
+        _cmd_list(rest)
+    elif command == "describe":
+        _cmd_describe(rest)
+    elif command == "call":
+        _cmd_call(rest)
+    elif command == "__complete":
+        _cmd_complete(rest)
+    else:
+        _cmd_call(argv, shorthand=True)
+
+
+if __name__ == "__main__":
+    main()
+""")
+
+
+def _tool_summary(td: ToolDef) -> dict[str, JsonValue]:
+    return {
+        "name": td.name,
+        "description": td.description,
+    }
+
+
+def _tool_description(td: ToolDef) -> dict[str, JsonValue]:
+    return {
+        "name": td.name,
+        "description": td.description,
+        "parameters": _tool_params_schema(td),
+    }
+
+
+def _tool_params_schema(td: ToolDef) -> dict[str, JsonValue]:
+    properties: dict[str, JsonValue] = {}
+    for name, param in td.parameters.properties.items():
+        type_value: JsonValue = list(param.type) if isinstance(param.type, list) else param.type
+        schema: dict[str, JsonValue] = {
+            "type": type_value,
+            "description": param.description or "",
+        }
+        if param.enum:
+            schema["enum"] = list(param.enum)
+        properties[name] = schema
+
+    return {
+        "type": "object",
+        "properties": properties,
+        "required": list(td.parameters.required),
+    }
+
+
+def _tools_by_name(tool_defs_list: Sequence[ToolDef]) -> dict[str, ToolDef]:
+    _check_duplicate_tool_names(tool_defs_list)
+    return {td.name: td for td in tool_defs_list}
+
+
+def _check_duplicate_tool_names(tool_defs_list: Sequence[ToolDef]) -> None:
+    seen: set[str] = set()
+    duplicates: set[str] = set()
+    for td in tool_defs_list:
+        if td.name in seen:
+            duplicates.add(td.name)
+        seen.add(td.name)
+    if duplicates:
+        names = ", ".join(sorted(duplicates))
+        raise ValueError(f"Duplicate tool names: {names}")
+
+
+class _SnapshotStore:
+    """Bounded token->snapshot store; evicts oldest entries past ``max_size``.
+
+    Guards against unbounded growth when a CLI ``call`` is abandoned between
+    ``describe_tool_for_call`` (which stores a snapshot) and ``call_tool``
+    (which pops it).
+    """
+
+    def __init__(self, max_size: int = 128) -> None:
+        self._max = max_size
+        self._data: dict[str, list[ToolDef]] = {}
+
+    def put(self, token: str, value: list[ToolDef]) -> None:
+        self._data[token] = value
+        while len(self._data) > self._max:
+            del self._data[next(iter(self._data))]  # dicts preserve insertion order
+
+    def pop(self, token: str) -> list[ToolDef] | None:
+        return self._data.pop(token, None)
+
+    def __len__(self) -> int:
+        return len(self._data)
+
+
+def tool_cli_service_methods(
+    tools: Sequence[Tool | ToolDef | ToolSource],
+    *,
+    cache_ttl: float = 1.0,
+) -> dict[str, SandboxServiceMethod]:
+    """Create host-side RPC handler methods without installing anything.
+
+    Args:
+        tools: Tools, tool definitions, or tool sources to create handlers for.
+        cache_ttl: Seconds to cache metadata-oriented tool resolution.
+
+    Returns:
+        A dict mapping method names to async handler functions.
+    """
+    resolver = _ToolCliResolver(tools, cache_ttl=cache_ttl)
+    call_snapshots = _SnapshotStore()
+
+    async def list_tools() -> JsonValue:
+        resolved = await resolver.resolve(use_cache=True)
+        _check_duplicate_tool_names(resolved)
+        return [_tool_summary(td) for td in resolved]
+
+    async def describe_tool(tool_name: str) -> JsonValue:
+        resolved = await resolver.resolve(use_cache=True)
+        tools_by_name = _tools_by_name(resolved)
+        td = tools_by_name.get(tool_name)
+        if td is None:
+            raise ValueError(f"Unknown tool: {tool_name}")
+        return _tool_description(td)
+
+    async def describe_tool_for_call(tool_name: str) -> JsonValue:
+        resolved = await resolver.resolve(use_cache=False)
+        tools_by_name = _tools_by_name(resolved)
+        td = tools_by_name.get(tool_name)
+        if td is None:
+            raise ValueError(f"Unknown tool: {tool_name}")
+        snapshot_token = uuid4().hex
+        call_snapshots.put(snapshot_token, resolved)
+        description = _tool_description(td)
+        description["_call_snapshot"] = snapshot_token
+        return description
+
+    async def call_tool(
+        tool_name: str,
+        arguments: dict[str, Any],
+        snapshot_token: str | None = None,
+    ) -> JsonValue:
+        if snapshot_token is None:
+            resolved = await resolver.resolve(use_cache=False)
+        else:
+            resolved = call_snapshots.pop(snapshot_token)
+            if resolved is None:
+                resolved = await resolver.resolve(use_cache=False)
+        tools_by_name = _tools_by_name(resolved)
+        td = tools_by_name.get(tool_name)
+        if td is None:
+            raise ValueError(f"Unknown tool: {tool_name}")
+        return await _call_tool_def(td, resolved, arguments)
+
+    return {
+        "list_tools": list_tools,
+        "describe_tool": describe_tool,
+        "describe_tool_for_call": describe_tool_for_call,
+        "call_tool": call_tool,
+    }
+
+
+async def _call_tool_def(
+    td: ToolDef,
+    tool_defs_list: Sequence[ToolDef],
+    arguments: dict[str, Any],
+) -> JsonValue:
+    tool_id = uuid4().hex
+    messages: list[ChatMessage] = [
+        ChatMessageAssistant(
+            content="",
+            tool_calls=[
+                ToolCall(
+                    id=tool_id,
+                    function=td.name,
+                    arguments=_sanitize_arguments(arguments),
+                )
+            ],
+        )
+    ]
+
+    result = await execute_tools(messages, tool_defs_list)
+    if len(result.messages) != 1:
+        raise RuntimeError(f"Expected one tool result message, got {len(result.messages)}")
+
+    tool_message = result.messages[0]
+    if not isinstance(tool_message, ChatMessageTool):
+        raise RuntimeError(f"Expected a tool result message, got {type(tool_message).__name__}")
+    if tool_message.error is not None:
+        raise RuntimeError(tool_message.error.message)
+    return _serialize_result(tool_message.content)
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+
+def _sanitize_arguments(arguments: dict[str, Any]) -> dict[str, JsonValue]:
+    """Ensure arguments dict is JSON-serializable for ToolEvent."""
+    sanitized: dict[str, JsonValue] = {}
+    for k, v in arguments.items():
+        if isinstance(v, (str, int, float, bool)) or v is None:
+            sanitized[k] = v
+        elif isinstance(v, (list, dict)):
+            try:
+                json.dumps(v)
+                sanitized[k] = v
+            except (TypeError, ValueError):
+                sanitized[k] = str(v)
+        else:
+            sanitized[k] = str(v)
+    return sanitized
+
+
+def _serialize_result(result: Any) -> JsonValue:
+    """Convert a ToolResult to a JSON-compatible value for RPC response."""
+    from inspect_ai._util.content import ContentText
+
+    if isinstance(result, (str, int, float, bool)):
+        return result
+    if isinstance(result, ContentText):
+        return result.text
+    if isinstance(result, list):
+        text_parts: list[str] = []
+        for item in result:
+            if isinstance(item, ContentText):
+                text_parts.append(item.text)
+            elif isinstance(item, str):
+                text_parts.append(item)
+            else:
+                text_parts.append(str(item))
+        return "\n".join(text_parts)
+    return str(result)
+
+
+def _safe_name(name: str) -> str:
+    """Convert a tool name to a valid Python identifier."""
+    return name.replace("-", "_").replace(".", "_")
+
+
+def _validate_command_name(command_name: str) -> None:
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_-]*", command_name):
+        raise ValueError(
+            "command_name must start with a letter or underscore and contain only "
+            "letters, digits, underscores, and hyphens"
+        )
+
+
+async def _install_script(
+    sandbox: SandboxEnvironment,
+    script: str,
+    *,
+    command_name: str,
+    install_dir: str,
+    user: str | None,
+    on_path: bool = True,
+    bin_dir: str = "/usr/local/bin",
+) -> None:
+    """Install the CLI script into the sandbox."""
+    _validate_command_name(command_name)
+
+    # Validate python3 before any writes so a missing interpreter fails cleanly
+    # (the CLI script and PATH wrapper both invoke python3).
+    python_check = await sandbox.exec(["sh", "-c", "command -v python3"], user=user)
+    if not python_check.success:
+        raise RuntimeError("tool_cli requires python3 in the sandbox but none was found on PATH.")
+
+    # create install dir
+    await _checked_exec(sandbox, ["mkdir", "-p", install_dir], user="root")
+    if user and user != "root":
+        await _checked_exec(sandbox, ["chown", user, install_dir], user="root")
+
+    # Named distinctly from the service module (e.g. "tool_cli.py") to avoid
+    # a circular import when the script's directory is on sys.path.
+    script_path = f"{install_dir}/tool_cli_entry.py"
+    await _checked_exec(sandbox, ["tee", "--", script_path], input=script, user=user)
+    await _checked_exec(sandbox, ["chmod", "+x", script_path], user=user)
+
+    # Expose the command on PATH so non-interactive shells (the model agent's
+    # bash() tool) can find it; the .bashrc alias only helps interactive shells.
+    # Written as root because /usr/local/bin is not writable by the agent user.
+    if on_path:
+        wrapper_path = f"{bin_dir}/{command_name}"
+        wrapper = f'#!/bin/sh\nexec python3 {shlex.quote(script_path)} "$@"\n'
+        await _checked_exec(sandbox, ["mkdir", "-p", bin_dir], user="root")
+        await _checked_exec(sandbox, ["tee", "--", wrapper_path], input=wrapper, user="root")
+        await _checked_exec(sandbox, ["chmod", "+x", wrapper_path], user="root")
+
+    # Interactive shell alias + tab completion (best-effort: only benefits the
+    # interactive human_cli shell; the PATH wrapper is what model agents use).
+    try:
+        # determine user's home directory for .bashrc
+        if user:
+            result = await sandbox.exec(["getent", "passwd", user], user=user)
+            if result.success and result.stdout.strip():
+                fields = result.stdout.strip().split(":")
+                home_dir = fields[5] if len(fields) > 5 and fields[5] else f"/home/{user}"
+            else:
+                home_dir = f"/home/{user}"
+        else:
+            result = await sandbox.exec(["bash", "-c", "echo $HOME"], user=user)
+            home_dir = (
+                result.stdout.strip() if result.success and result.stdout.strip() else "/root"
+            )
+
+        # build bash alias and tab completion
+        shell_setup_path = f"{home_dir}/.tool_cli_bashrc"
+        shell_setup_source = (
+            f"[ -f {shlex.quote(shell_setup_path)} ] && . {shlex.quote(shell_setup_path)}"
+        )
+        bashrc_addition = dedent(f"""
+            # Tool CLI alias and completion
+            alias {command_name}={shlex.quote(f"python3 {script_path}")}
+
+            _{command_name}_completion() {{
+                local cur candidate
+                cur="${{COMP_WORDS[COMP_CWORD]}}"
+                COMPREPLY=()
+                while IFS= read -r candidate; do
+                    [[ $candidate == "$cur"* ]] && COMPREPLY+=("$candidate")
+                done < <(python3 {shlex.quote(script_path)} __complete "$COMP_CWORD" "${{COMP_WORDS[@]}}" 2>/dev/null)
+            }}
+            complete -F _{command_name}_completion {command_name}
+        """)
+
+        await _checked_exec(
+            sandbox,
+            ["tee", "--", shell_setup_path],
+            input=bashrc_addition,
+            user=user,
+        )
+
+        bashrc_path = f"{home_dir}/.bashrc"
+        result = await sandbox.exec(["grep", "-qxF", shell_setup_source, bashrc_path], user=user)
+        if not result.success:
+            await _checked_exec(
+                sandbox,
+                ["tee", "-a", bashrc_path],
+                input=f"\n{shell_setup_source}\n",
+                user=user,
+            )
+    except Exception as exc:  # noqa: BLE001 - alias is best-effort
+        logger.warning(
+            "tool_cli: could not install the interactive shell alias (%s); "
+            "the %r command is still available on PATH.",
+            exc,
+            command_name,
+            exc_info=True,
+        )
+
+
+async def _checked_exec(
+    sandbox: SandboxEnvironment,
+    cmd: list[str],
+    input: str | None = None,
+    user: str | None = None,
+) -> str:
+    """Execute a command in the sandbox, raising on failure."""
+    result = await sandbox.exec(cmd, input=input, user=user)
+    if not result.success:
+        raise RuntimeError(f"Error executing command {' '.join(cmd)}: {result.stderr}")
+    return result.stdout

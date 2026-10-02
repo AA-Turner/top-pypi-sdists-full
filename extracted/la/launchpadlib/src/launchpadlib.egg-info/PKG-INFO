@@ -1,8 +1,8 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: launchpadlib
-Version: 2.1.0
+Version: 2.2.0
 Summary: Script Launchpad through its web services interfaces.  Officially supported.
-Home-page: https://help.launchpad.net/API/launchpadlib
+Home-page: https://launchpad.net/launchpadlib
 Download-URL: https://launchpad.net/launchpadlib/+download
 Author: The Launchpad developers
 Author-email: launchpadlib@lists.launchpad.net
@@ -24,11 +24,14 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.8
 License-File: COPYING.txt
 Requires-Dist: httplib2
 Requires-Dist: lazr.restfulclient>=0.14.2
 Requires-Dist: lazr.uri
+Requires-Dist: pysocks
+Requires-Dist: importlib_resources; python_version < "3.9"
 Provides-Extra: keyring
 Requires-Dist: keyring; extra == "keyring"
 Provides-Extra: docs
@@ -46,6 +49,7 @@ Dynamic: description
 Dynamic: download-url
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: maintainer
 Dynamic: maintainer-email
 Dynamic: project-url
@@ -78,6 +82,18 @@ See https://help.launchpad.net/API/launchpadlib .
 =====================
 NEWS for launchpadlib
 =====================
+
+2.2.0 (2026-10-01)
+==================
+- Hardened security posture.
+- Updated link to homepage.
+- Added pysocks dependency for proxy support in httplib2.
+- Added support for Python 3.14.
+- Replaced deprecated ``pkg_resources`` usage with ``importlib.resources``.
+- Fixed ``login_with()`` so that ``consumer_name`` performs a
+  single-application integration instead of being discarded in favour of a
+  desktop-wide one, and forwarded ``allow_access_levels`` so applications can
+  request narrower permissions than ``DESKTOP_INTEGRATION``.
 
 2.1.0 (2025-01-15)
 ==================

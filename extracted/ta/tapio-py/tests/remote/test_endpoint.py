@@ -1,0 +1,721 @@
+"""Tests for the endpoint: resolving, addressing and shutdown."""
+
+import asyncio
+import contextlib
+import gc
+import logging
+import socket
+import sys
+import threading
+
+import pytest
+
+from tapio.actor import ActorContext, ActorSystem, Behavior, Behaviors
+from tapio.actor.path import ActorPath
+from tapio.dispatch.dispatcher import Dispatcher
+from tapio.errors import InsecureRemoteConfig, MessageTypeError, RefResolutionError
+from tapio.remote.address import Address
+from tapio.remote.codec import encode
+from tapio.remote.endpoint import PeerOutbox
+from tapio.remote.handle import LinkHandle
+from tapio.remote.transport import FrameLink, LinkFrame, connect
+from tapio.testkit import (
+    IsolatedRemoteSettings,
+    IsolatedTapioSettings,
+    assert_no_leaked_tasks,
+    drop_links,
+)
+from tests.failures import eventually
+from tests.messages import NotAMessage
+from tests.remote.peers import RecordingLink, Tick, counting, remoting, uri
+
+
+async def test_resolving_this_system_gives_the_live_local_ref(alpha: ActorSystem):
+    # Resolving your own address must not put a socket in the middle of a
+    # local send.
+    ticker = alpha.spawn(counting([]), "ticker")
+
+    assert await alpha.resolve(uri(alpha, ticker), expect=Tick) is ticker
+
+
+async def test_resolving_a_peer_gives_a_ref_addressed_to_it(
+    alpha: ActorSystem, beta: ActorSystem
+):
+    ticker = beta.spawn(counting([]), "ticker")
+
+    remote = await alpha.resolve(uri(beta, ticker), expect=Tick)
+
+    assert remote.address == beta.address
+    assert remote.path == ticker.path
+    assert "beta" in repr(remote)
+
+
+async def test_every_ref_for_a_peer_shares_one_association(
+    alpha: ActorSystem, beta: ActorSystem
+):
+    # One connection per peer pair, however many refs point at it. That is
+    # what makes FIFO per association mean anything.
+    here: list[int] = []
+    there: list[int] = []
+    ticker = beta.spawn(counting(here), "ticker")
+    other = beta.spawn(counting(there), "other")
+
+    first = await alpha.resolve(uri(beta, ticker), expect=Tick)
+    second = await alpha.resolve(uri(beta, other), expect=Tick)
+    first.tell(Tick(n=1))
+    second.tell(Tick(n=2))
+
+    await eventually(lambda: here == [1] and there == [2])
+    assert alpha.remote is not None
+    assert alpha.remote.associations == (beta.address,)
+
+
+async def test_a_ref_outlives_the_link_it_was_resolved_on(
+    alpha: ActorSystem, beta: ActorSystem
+):
+    # A ref points at an actor on a node, not at the socket that was open when
+    # it was resolved, so the next send dials again.
+    seen: list[int] = []
+    ticker = beta.spawn(counting(seen), "ticker")
+    remote = await alpha.resolve(uri(beta, ticker), expect=Tick)
+    remote.tell(Tick(n=1))
+    await eventually(lambda: seen == [1])
+
+    assert alpha.remote is not None
+    association = alpha.remote.associations
+    assert association == (beta.address,)
+    drop_links(alpha, "the link went away")
+    await eventually(lambda: alpha.remote.associations == ())  # type: ignore[union-attr]
+
+    remote.tell(Tick(n=2))
+
+    await eventually(lambda: seen == [1, 2])
+
+
+async def test_a_send_while_the_old_link_is_still_draining_dials_a_new_one(
+    alpha: ActorSystem, beta: ActorSystem
+):
+    # An association that has been asked to stop stays in the table until its
+    # actor finishes stopping. Sending into that window used to hand the
+    # message to the association that is draining, where it dead-lettered,
+    # which is how `reconnect` could report success and then deliver nothing.
+    seen: list[int] = []
+    ticker = beta.spawn(counting(seen), "ticker")
+    remote = await alpha.resolve(uri(beta, ticker), expect=Tick)
+    remote.tell(Tick(n=1))
+    await eventually(lambda: seen == [1])
+
+    assert alpha.remote is not None
+    drop_links(alpha, "the link went away")
+    # No wait for the table to clear: sending now is the case under test.
+    assert alpha.remote.associations == (beta.address,)
+    remote.tell(Tick(n=2))
+
+    await eventually(lambda: seen == [1, 2])
+
+
+async def test_resolving_something_that_is_not_a_ref_says_so(alpha: ActorSystem):
+    with pytest.raises(RefResolutionError, match="not an actor ref"):
+        await alpha.resolve("not a ref at all", expect=Tick)
+
+
+async def test_resolving_an_address_with_nowhere_to_dial_says_so(alpha: ActorSystem):
+    # This is how a system with remoting off writes its refs: a name, and no
+    # host to send to.
+    with pytest.raises(RefResolutionError, match="no host to dial"):
+        await alpha.resolve("tapio://other/user/x#1", expect=Tick)
+
+
+async def test_resolving_a_peer_without_remoting_configured_says_so():
+    async with ActorSystem("solo", IsolatedTapioSettings()) as solo:
+        with pytest.raises(RefResolutionError, match="remoting switched off"):
+            await solo.resolve("tapio://other@127.0.0.1:9/user/x#1", expect=Tick)
+
+
+async def test_expecting_something_that_is_not_a_message_is_refused(
+    alpha: ActorSystem, beta: ActorSystem
+):
+    ticker = beta.spawn(counting([]), "ticker")
+
+    with pytest.raises(MessageTypeError, match=r"tapio\.Message"):
+        await alpha.resolve(uri(beta, ticker), expect=NotAMessage)  # type: ignore[type-var]
+
+
+async def test_an_actor_resolves_through_its_own_context(
+    alpha: ActorSystem, beta: ActorSystem
+):
+    seen: list[int] = []
+    ticker = beta.spawn(counting(seen), "ticker")
+    address = uri(beta, ticker)
+
+    def sender() -> Behavior[Tick]:
+        async def on_message(ctx: ActorContext[Tick], message: Tick) -> Behavior[Tick]:
+            remote = await ctx.resolve(address, expect=Tick)
+            remote.tell(message)
+            return Behaviors.same()
+
+        return Behaviors.receive(on_message, msg_type=Tick)
+
+    alpha.spawn(sender(), "sender").tell(Tick(n=3))
+
+    await eventually(lambda: seen == [3])
+
+
+async def test_the_advertised_port_is_the_one_the_os_handed_out(alpha: ActorSystem):
+    # The port is bound during construction, so the first ref handed out
+    # already names a port a peer can dial.
+    assert alpha.address.port is not None
+    assert alpha.address.port > 0
+    assert alpha.address.host == "127.0.0.1"
+
+
+async def test_a_canonical_address_overrides_what_the_socket_says():
+    # Under NAT or port mapping, what peers dial is not what the socket is
+    # bound to. A ref always writes down the former.
+    settings = IsolatedTapioSettings(
+        remote=IsolatedRemoteSettings(
+            bind_port=0,
+            canonical_host="orders.svc",
+            canonical_port=25520,
+        ),
+    )
+    async with ActorSystem("orders", settings) as system:
+        assert system.address == Address(system="orders", host="orders.svc", port=25520)
+
+
+async def test_each_incarnation_has_its_own_uid():
+    # A system restarted on the same host and port is a different peer, and
+    # the uid is what says so.
+    async with (
+        ActorSystem("alpha", remoting()) as one,
+        ActorSystem("alpha", remoting()) as two,
+    ):
+        assert one.uid != two.uid
+
+
+async def test_remoting_is_off_unless_it_is_configured():
+    async with ActorSystem("solo", IsolatedTapioSettings()) as solo:
+        assert solo.remote is None
+        assert not solo.address.is_addressable
+
+
+async def test_binding_beyond_loopback_without_a_secret_refuses_to_start():
+    # It raises during construction, so a misconfigured deployment fails to
+    # start rather than serving strangers.
+    with pytest.raises(InsecureRemoteConfig, match="secret"):
+        ActorSystem(
+            "exposed",
+            IsolatedTapioSettings(
+                remote=IsolatedRemoteSettings(bind_host="0.0.0.0", bind_port=0),
+            ),
+        )
+
+
+async def test_both_systems_terminate_with_the_sockets_closed():
+    with assert_no_leaked_tasks():
+        one = ActorSystem("alpha", remoting())
+        two = ActorSystem("beta", remoting())
+        seen: list[int] = []
+        ticker = two.spawn(counting(seen), "ticker")
+        remote = await one.resolve(uri(two, ticker), expect=Tick)
+        remote.tell(Tick(n=1))
+        await eventually(lambda: seen == [1])
+
+        port = two.address.port
+        assert port is not None
+        await one.terminate()
+        await two.terminate()
+
+    assert one.refs.paths() == ()
+    assert two.refs.paths() == ()
+    assert one.remote is not None
+    assert one.remote.associations == ()
+    await refused(port)
+
+
+async def test_a_system_that_never_associated_still_closes_its_port():
+    with assert_no_leaked_tasks():
+        system = ActorSystem("alpha", remoting())
+        port = system.address.port
+        assert port is not None
+        await system.terminate()
+
+    await refused(port)
+
+
+async def test_closing_the_endpoint_stops_its_listener():
+    # close() and the accept task are the only two owners of the socket, so
+    # close() has to stop the task before it closes the socket under it. This
+    # exercises the interleaving where close() wins: nothing has awaited since
+    # the system was constructed, so the accept task has had no turn yet.
+    loop = asyncio.get_running_loop()
+    reported: list[str] = []
+    previous = loop.get_exception_handler()
+    loop.set_exception_handler(
+        lambda _loop, context: reported.append(str(context.get("exception")))
+    )
+    try:
+        with assert_no_leaked_tasks():
+            system = ActorSystem("alpha", remoting())
+            endpoint = system.remote
+            assert endpoint is not None
+            port = system.address.port
+            assert port is not None
+
+            await endpoint.close()
+            # A turn for anything the close left pending to misbehave in.
+            await asyncio.sleep(0)
+            await system.terminate()
+
+        gc.collect()
+        await asyncio.sleep(0)
+    finally:
+        loop.set_exception_handler(previous)
+
+    # A listener left running would have woken up to a closed socket and
+    # raised where nobody was waiting, which asyncio reports here.
+    assert reported == []
+    await refused(port)
+
+
+async def test_a_terminated_system_holds_no_associations():
+    system = ActorSystem("alpha", remoting())
+    await system.terminate()
+
+    assert system.remote is not None
+    assert system.remote.associations == ()
+
+
+async def refused(port: int) -> None:
+    """Assert that nothing answers on a port."""
+    with pytest.raises(ConnectionRefusedError):
+        await asyncio.open_connection("127.0.0.1", port)
+
+
+async def test_a_refused_link_is_closed_by_a_task_the_endpoint_holds():
+    # The event loop keeps only a weak reference to a task, so a close running
+    # with nobody holding it can be collected before the socket is released.
+    closed: list[str] = []
+
+    with assert_no_leaked_tasks():
+        system = ActorSystem("alpha", remoting())
+        endpoint = system.remote
+        assert endpoint is not None
+
+        endpoint.close_link_later(_SlowClosingLink(0.05, closed), _elsewhere())
+        await asyncio.sleep(0)
+        # Nothing outside the endpoint refers to the task at this point.
+        gc.collect()
+
+        await system.terminate()
+
+    assert closed == ["closed"]
+
+
+async def test_closing_the_endpoint_waits_for_a_link_it_is_still_releasing():
+    # The tree stops the associations, but a refused link belongs to nobody,
+    # so the endpoint's own close is the last chance to finish releasing it.
+    # The close here takes long enough that the turns close() would take
+    # anyway are not enough: it has to actually wait.
+    closed: list[str] = []
+
+    with assert_no_leaked_tasks():
+        system = ActorSystem("alpha", remoting())
+        endpoint = system.remote
+        assert endpoint is not None
+
+        endpoint.close_link_later(_SlowClosingLink(0.2, closed), _elsewhere())
+        await endpoint.close()
+
+        assert closed == ["closed"]
+        await system.terminate()
+
+
+async def test_a_handshake_cancelled_before_it_starts_has_its_link_closed():
+    # A task cancelled before its first line never runs, so a handshake that
+    # recorded its own link from the inside would leave the socket open. The
+    # link is recorded when the connection is made, so close() closes it even
+    # though the handshake never ran a line.
+    closed: list[str] = []
+
+    with assert_no_leaked_tasks():
+        system = ActorSystem("alpha", remoting())
+        endpoint = system.remote
+        assert endpoint is not None
+
+        async def never() -> None:
+            raise AssertionError("a handshake cancelled before it runs never runs")
+
+        handle = LinkHandle(
+            _SlowClosingLink(0.0, closed), loop=endpoint.dispatcher.loop
+        )
+        endpoint._held.add(handle)
+        task = endpoint.dispatcher.spawn_task(never(), name="tapio-remote-handshake")
+        handle.reads_with(task)
+        task.cancel()
+
+        await endpoint.close()
+
+        assert closed == ["closed"]
+        await system.terminate()
+
+
+async def test_a_connection_accepted_after_close_is_closed_at_once():
+    # The listener can still be readable at the moment it shuts, so the loop
+    # delivers a connection after close() has drained. Nobody is left to hand
+    # it to and nobody is left to run a handshake, so the endpoint closes the
+    # transport on the spot rather than leaving it for the garbage collector.
+    with assert_no_leaked_tasks():
+        system = ActorSystem("alpha", remoting())
+        endpoint = system.remote
+        assert endpoint is not None
+        await endpoint.close()
+
+        here, there = socket.socketpair()
+        reader, writer = await asyncio.open_connection(sock=here)
+        try:
+            endpoint._accept(reader, writer)
+            assert writer.is_closing()
+        finally:
+            writer.close()
+            with contextlib.suppress(OSError):
+                await writer.wait_closed()
+            there.close()
+
+        await system.terminate()
+
+
+@pytest.mark.parametrize("turns", range(4))
+async def test_a_connection_accepted_as_the_listener_shuts_is_closed(turns: int):
+    # The loop accepts a connection one turn before it builds its transport.
+    # Closing the server in that gap dropped the socket before `_accept` ever
+    # saw it, and the garbage collector later reported it as an unclosed
+    # transport against whichever test was running. Closing after each of
+    # these turn counts puts at least one close in that gap.
+    loop = asyncio.get_running_loop()
+    with assert_no_leaked_tasks():
+        system = ActorSystem("alpha", remoting())
+        endpoint = system.remote
+        assert endpoint is not None
+        await eventually(lambda: endpoint._server is not None)
+        port = system.address.port
+        assert port is not None
+
+        client = socket.create_connection(("127.0.0.1", port))
+        client.setblocking(False)
+        try:
+            for _ in range(turns):
+                await asyncio.sleep(0)
+            await endpoint.close()
+
+            # An accepted connection is closed by the endpoint. One the
+            # listener never accepted is reset along with it.
+            try:
+                async with asyncio.timeout(2.0):
+                    assert await loop.sock_recv(client, 1) == b""
+            except ConnectionResetError:
+                pass
+        finally:
+            client.close()
+
+        await system.terminate()
+
+
+async def test_a_refused_link_is_closed_even_if_its_close_never_ran():
+    # A link this endpoint will not use, the loser of a simultaneous dial or a
+    # refusal, is handed to a task that closes it. A task cancelled before its
+    # first line closes nothing, and the drain in close() only awaited the
+    # task, so the socket was left for the garbage collector and reported as an
+    # unclosed transport against whichever test was running when it was
+    # collected. The handshakes map holds its links for this reason; the
+    # refused ones now do too.
+    with assert_no_leaked_tasks():
+        system = ActorSystem("gamma", remoting())
+        endpoint = system.remote
+        assert endpoint is not None
+
+        here, there = socket.socketpair()
+        reader, writer = await asyncio.open_connection(sock=here)
+        try:
+            endpoint.close_link_later(
+                FrameLink(reader, writer, max_frame_bytes=1024), system.address
+            )
+            # Cancelled before it has run a line, which is what a shutdown that
+            # never gives the task a turn amounts to.
+            for held in list(endpoint._held):
+                closing = held.reader
+                if closing is not None:
+                    closing.cancel()
+
+            await system.terminate()
+
+            assert writer.is_closing()
+        finally:
+            writer.close()
+            with contextlib.suppress(OSError):
+                await writer.wait_closed()
+            there.close()
+
+
+async def test_a_connection_accepted_while_closing_is_closed_by_the_drain():
+    # A connection can arrive after close() has set _closed but before it has
+    # drained: a pending accept callback fires as the listener shuts. A bare
+    # writer.close() only schedules the socket close, so if the loop is torn
+    # down before that callback runs the transport is collected unclosed. Such
+    # a connection has to be closed by close()'s own drain instead, which it can
+    # only do if the reject is a tracked close rather than a scheduled one.
+    with assert_no_leaked_tasks():
+        system = ActorSystem("beta", remoting())
+        endpoint = system.remote
+        assert endpoint is not None
+        port = system.address.port
+        assert port is not None
+
+        # Record every reject that is routed into a tracked close, so the test
+        # can tell the fixed path (a close the drain awaits) from the old one
+        # (a bare scheduled close), whatever the timing of the close itself.
+        rejected: list[object] = []
+        real_close_later = endpoint.close_link_later
+
+        def recording_close_later(link: object, peer: Address) -> None:
+            rejected.append(link)
+            real_close_later(link, peer)  # type: ignore[arg-type]
+
+        endpoint.close_link_later = recording_close_later  # type: ignore[method-assign]
+
+        # Hold close() open in the window: _closed is set, the listener still
+        # accepts. Gating _stop_listening is what pins the window, since it runs
+        # first in close() and before the server is shut.
+        paused = asyncio.Event()
+        resume = asyncio.Event()
+        real_stop = endpoint._stop_listening
+
+        async def paused_stop() -> None:
+            paused.set()
+            await resume.wait()
+            await real_stop()
+
+        endpoint._stop_listening = paused_stop  # type: ignore[method-assign]
+
+        terminating = asyncio.create_task(system.terminate())
+        await asyncio.wait_for(paused.wait(), 5.0)
+        assert endpoint._closed
+
+        # A peer connects now, in the window. The listener accepts it.
+        reader, writer = await asyncio.open_connection("127.0.0.1", port)
+
+        # Did the reject go into a tracked close? Recorded synchronously in
+        # _accept, so this does not race the close itself.
+        routed_to_drain = False
+        with contextlib.suppress(AssertionError):
+            await eventually(lambda: bool(rejected), within=2.0)
+            routed_to_drain = True
+
+        # Always release and finish terminating first, so the assertion below
+        # reads as the reject it is, not as tasks left running by a stuck stop.
+        resume.set()
+        await asyncio.wait_for(terminating, 5.0)
+        eof = await asyncio.wait_for(reader.read(), 5.0)
+        writer.close()
+        with contextlib.suppress(OSError):
+            await writer.wait_closed()
+
+    assert routed_to_drain, "a connection accepted while closing was not drained"
+    assert eof == b""
+
+
+def _elsewhere() -> Address:
+    """An address to name in a close, which nothing dials."""
+    return Address(system="beta", host="127.0.0.1", port=1)
+
+
+class _SlowClosingLink:
+    """A link whose close takes long enough to outlast an incidental turn."""
+
+    def __init__(self, takes: float, closed: list[str]) -> None:
+        self._takes = takes
+        self._closed = closed
+
+    @property
+    def peer(self) -> str:
+        return "127.0.0.1:1"
+
+    async def read_frame(self) -> bytes:
+        raise AssertionError("a refused link is never read")
+
+    async def write_frame(self, data: bytes) -> None:
+        raise AssertionError("a refused link is never written")
+
+    async def write_link(self, message: LinkFrame) -> None:
+        raise AssertionError("a refused link is never written")
+
+    async def close(self) -> None:
+        await asyncio.sleep(self._takes)
+        self._closed.append("closed")
+
+
+def test_a_construction_that_fails_after_the_bind_releases_the_port():
+    # The socket is bound inside __init__, before the guardians exist, so
+    # nothing else holds a reference that could close it afterwards. This
+    # takes the raise path that is already there: Dispatcher.from_running_loop
+    # runs just after the bind and needs a running loop.
+    port = _free_port()
+    settings = IsolatedTapioSettings(remote=IsolatedRemoteSettings(bind_port=port))
+
+    held = None
+    try:
+        ActorSystem("off-loop", settings)
+    except RuntimeError:
+        # Kept, so the partly built system stays reachable. Without it the
+        # socket is closed by refcounting and the leak hides itself.
+        held = sys.exc_info()[2]
+    assert held is not None
+
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", port))
+
+
+def _free_port() -> int:
+    """A port nothing is listening on, for a bind that is meant to fail later."""
+    with socket.socket() as finder:
+        finder.bind(("127.0.0.1", 0))
+        chosen: int = finder.getsockname()[1]
+    return chosen
+
+
+async def test_a_connection_still_mid_handshake_at_shutdown_is_closed():
+    # The endpoint's drain owns this socket: it was accepted, so the listener
+    # is done with it, and no association exists yet, so the stopping tree
+    # does not reach it. The drain cancels the handshake task and closes the
+    # link of one that never ran a line. Without that the close is still owed
+    # when the task doing it dies with the dispatcher, and the socket is left
+    # for the garbage collector.
+    with assert_no_leaked_tasks():
+        system = ActorSystem("draining", remoting())
+        port = system.address.port
+        assert port is not None
+        link = await connect(
+            "127.0.0.1", port, max_frame_bytes=1024 * 1024, ssl_context=None
+        )
+        try:
+            # The server's hello arrives, and it now waits for a client-hello
+            # this test never sends. That is the window the drain is for.
+            await link.read_link(2.0)
+
+            await system.terminate()
+
+            # The peer closed it, so the next read sees the end of the stream
+            # rather than waiting for a frame nobody will write.
+            with pytest.raises((asyncio.IncompleteReadError, ConnectionError)):
+                await link.read_frame()
+        finally:
+            await link.close()
+            await system.terminate()
+
+
+async def test_a_handshake_cancelled_before_its_first_line_still_closes_its_link():
+    # The drain holds the link beside its task for exactly this case. A task
+    # the drain cancels before it has run a line never runs its own cleanup,
+    # so the link is still open and still recorded, and the drain has to close
+    # it. A task that did run took its link out of the map itself, which is
+    # the other side of the same `if`.
+    #
+    # Planted rather than raced, because the window is one loop iteration
+    # wide: this is the same shape as the retired-link tests in
+    # `test_association.py`, which set the link they are about to assert on.
+    with assert_no_leaked_tasks():
+        system = ActorSystem("unstarted", remoting())
+        try:
+            assert system.remote is not None
+            link = RecordingLink()
+            handle = LinkHandle(link, loop=system.remote.dispatcher.loop)
+            never_ran: asyncio.Task[None] = asyncio.ensure_future(_never_runs())
+            handle.reads_with(never_ran)
+            system.remote._held.add(handle)
+
+            await system.terminate()
+
+            assert link.closed
+        finally:
+            await system.terminate()
+
+
+async def _never_runs() -> None:
+    """A handshake that is cancelled before its first line, for the drain."""
+    await asyncio.Event().wait()
+
+
+async def test_a_remote_tell_from_a_thread_dials_on_the_loop(
+    alpha: ActorSystem, beta: ActorSystem
+):
+    seen: list[int] = []
+    ticker = beta.spawn(counting(seen), "ticker")
+    ref = await alpha.resolve(uri(beta, ticker), expect=Tick)
+    assert alpha.remote is not None
+    assert alpha.remote.associations == ()
+
+    # Debug mode makes the loop refuse a task created from another thread,
+    # which is otherwise a race that usually goes unnoticed.
+    loop = asyncio.get_running_loop()
+    loop.set_debug(True)
+    errors: list[BaseException] = []
+
+    def send() -> None:
+        try:
+            ref.tell(Tick(n=1))
+        except BaseException as error:
+            errors.append(error)
+
+    try:
+        thread = threading.Thread(target=send)
+        thread.start()
+        await asyncio.to_thread(thread.join)
+    finally:
+        loop.set_debug(False)
+
+    assert errors == []
+    await eventually(lambda: seen == [1])
+
+
+async def test_a_remote_offer_from_another_loop_is_refused_before_dialling(
+    alpha: ActorSystem, beta: ActorSystem
+):
+    seen: list[int] = []
+    ticker = beta.spawn(counting(seen), "ticker")
+    ref = await alpha.resolve(uri(beta, ticker), expect=Tick)
+    assert alpha.remote is not None
+
+    with pytest.raises(RuntimeError, match="must run on the system's loop"):
+        await asyncio.to_thread(asyncio.run, ref.offer(Tick(n=1)))
+
+    assert alpha.remote.associations == ()
+
+
+async def test_a_send_from_a_thread_after_the_loop_closed_does_not_raise(
+    caplog: pytest.LogCaptureFixture,
+):
+    # A background thread holding a RemoteRef while the service shuts down is
+    # the window: the hop onto the system's loop finds it closed and
+    # `call_soon_threadsafe` raises. Every local sender catches that and logs a
+    # dead letter, and this must too. The thread has no supervisor and no ask
+    # to fail, so an exception there is unhandled in a thread nobody watches.
+    gone = asyncio.new_event_loop()
+    gone.close()
+    peer = Address.parse("tapio://peer@127.0.0.1:2551")
+    outbox = PeerOutbox(_OnALoop(Dispatcher(gone)), peer)  # type: ignore[arg-type]
+    recipient = ActorPath.root("peer").child("user").child("ticker", uid=1)
+    frame = encode(Tick(n=1), to=recipient)
+
+    with caplog.at_level(logging.WARNING, logger="tapio.remote"):
+        await asyncio.to_thread(outbox.send, Tick(n=1), frame, recipient)
+
+    assert "dead letter" in caplog.text
+    assert "after the loop closed" in caplog.text
+    assert str(peer) in caplog.text
+
+
+class _OnALoop:
+    """The one part of an endpoint an outbox reads before it hops: the loop."""
+
+    def __init__(self, dispatcher: Dispatcher) -> None:
+        self.dispatcher = dispatcher

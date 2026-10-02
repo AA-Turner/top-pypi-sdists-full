@@ -1,0 +1,38 @@
+Metadata-Version: 2.3
+Name: taskbroker-client
+Version: 26.5.0
+Summary: Taskbroker python client and worker runtime
+Requires-Dist: sentry-arroyo>=2.38.7
+Requires-Dist: sentry-sdk[http2]>=2.43.0
+Requires-Dist: sentry-protos>=0.8.13
+Requires-Dist: confluent-kafka>=2.3.0
+Requires-Dist: cronsim>=2.6
+Requires-Dist: grpcio>=1.67.0
+Requires-Dist: msgpack>=1.0.0
+Requires-Dist: orjson>=3.10.10
+Requires-Dist: protobuf>=5.28.3
+Requires-Dist: redis>=3.4.1
+Requires-Dist: redis-py-cluster>=2.1.0
+Requires-Dist: zstandard>=0.18.0
+Requires-Dist: click>=8.3 ; extra == 'examples'
+Requires-Dist: setuptools>=80.0 ; extra == 'examples'
+Provides-Extra: examples
+Description-Content-Type: text/markdown
+
+# Taskbroker python client
+
+This package provides python client libraries for taskbroker. The client libraries help with:
+
+- Defining tasks
+- Spawning tasks
+- Running periodic schedulers
+- Running workers
+
+## Example application
+
+You can find an example application in the `src/examples` directory.
+
+## Client documentation
+
+- [User-guide for taskbroker-client](https://develop.sentry.dev/backend/application-domains/tasks/)
+- [Protobuf docs](https://getsentry.github.io/sentry-protos/sentry_protos.taskbroker.v1.html)

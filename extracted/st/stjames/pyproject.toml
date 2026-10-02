@@ -1,0 +1,119 @@
+[project]
+name = "stjames"
+version = "0.0.279"
+description = "structured JSON atom/molecule encoding scheme"
+readme = "README.md"
+keywords = []
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.4",
+    "numpy",
+    "requests",
+    "more-itertools",
+]
+
+[dependency-groups]
+dev = [
+    "prek>=0.3.13",
+    "pytest>=8.4",
+    "pytest-cov>=7.0",
+    "ruff>=0.15",
+    "rumdl>=0.1.91",
+    "ty>=0.0.56",
+    "rdkit-stubs",
+]
+
+[project.optional-dependencies]
+rdkit = [
+    "rdkit",
+]
+
+[build-system]
+# maybe will want to move away from setuptools eventually
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project.urls]
+"Homepage" = "https://github.com/rowansci/stjames"
+"Bug Tracker" = "https://github.com/rowansci/stjames/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]  # list of folders that contain the packages (["."] by default)
+include = ["stjames", "stjames.*"]  # package names should match these glob patterns (["*"] by default)
+exclude = []  # exclude packages matching these glob patterns (empty by default)
+namespaces = false  # to disable scanning PEP 420 namespaces (true by default)
+
+[tool.setuptools.package-data]
+"*" = ["*.json"]
+
+[tool.ruff]
+line-length = 160
+
+[tool.ruff.lint]
+select = [
+    "B",  # bugbear
+#    "D",  # pydocstyle
+    "E",  # pycodestyle errors
+    "F",  # pyflakes
+    "I",  # isort
+    "N",  # pep8-naming conventions
+    "W",  # pycodestyle warnings
+    "C4", # comprehensions
+    "PL", # pylint
+    "PT", # flake8-pytest-style
+    "PIE", # misc lints
+    "PYI", # flake8-pyi
+    "TID", # tidy imports
+    "TCH", # type-checking imports
+    "RUF", # Ruff-specific rules
+    "RSE", # flake8-raise
+    "ICN001", # unconventional-import-alias
+]
+ignore = [
+    "N806", # Non-lowercase variable in function
+    "PLR0911", # Too many returns
+    "PLR0912", # Too many branches
+    "PLR0913", # Too many arguments to function call
+    "PLR0914", # Too many locals
+    "PLR0915", # Too many statements
+    "PLR1702", # Too many nested-blocks
+    "E741",    # Ambiguous vairable name
+    "PLR2004", # Magic value used in comparison
+    "N801",    # CapWords convention
+    "N802",    # Arguments should be lowercase
+    "N815",    # Mixed case attribute in class
+    "RUF001",  # String contains ambiguous character (α/β spin labels)
+    "RUF002",  # Docstring contains ambiguous dash
+    "RUF003",  # Ambiguous dash
+    "RUF012",  # Mutable class defaults
+    "RUF028",  # invalid supression comment
+    "N803",    # Invalid argument name
+    "PT006",   # Pytest parameterize names wrong type
+    "PT011",   # Pytest raises too broad
+    "PT013",   # Incorrect import of pytest
+    "TID252",  # Prefer absolute imports from parent
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "F403"]
+
+[tool.ruff.lint.pep8-naming]
+classmethod-decorators = [
+    "classmethod",
+    "field_validator",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.pytest.ini_options]
+testpaths = ["stjames", "tests"]
+addopts = "--doctest-modules --durations=5 -m 'not regression'"
+doctest_optionflags = "NORMALIZE_WHITESPACE"
+markers = [
+  "smoke: sanity tests to reveal simple failures",
+  "regression: tests to make sure bugs stay closed",
+]
+
+[tool.ty.environment]
+python-version = "3.11"

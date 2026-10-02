@@ -33,11 +33,7 @@ class LogGroupFile:
 
         # If the logs came from a specific node, add node information.
         if sample_chunk.node_ip and sample_chunk.instance_id:
-            path = (
-                path
-                + "/"
-                + f"{node_type}-{sample_chunk.node_ip}-{sample_chunk.instance_id}"
-            )
+            path = path + "/" + f"{node_type}-{sample_chunk.node_ip}-{sample_chunk.instance_id}"
 
         # Add the rest of the destination filename (this might be something like "dashboard.log" or "serve/health.log").
         path = path + "/" + sample_chunk.file_name

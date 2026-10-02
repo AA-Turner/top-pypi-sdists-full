@@ -1,0 +1,77 @@
+---
+name: sdist-rebuild
+
+# What the row asks: the latest release's tag, rebuilt the way
+# RELEASING.md's *Rebuild a release from its tag* rebuilds it. The
+# rebuild and the verification against the release's own attestation are
+# btclib-org/.github's reusable-sdist-rebuild.yml, called at @main so a
+# fix there reaches this tree in one landing (issue btclib-org/.github#35).
+#
+# The sdist alone: section 10 of btclib-org/.github's README.md makes
+# the row the sdist's, the compiled wheels being outside the property
+# section 12 states, and wheel-reproducibility.yml is what asks about
+# them. A red run is an issue against this tree. It gates nothing, and
+# REPOSITORY.md says why no branch rule names it
+
+on:
+  schedule:
+    # Sunday, hour 03, between wheel-reproducibility and codeql. The
+    # time is the organization grid -- section 10 of
+    # btclib-org/.github's README.md -- which gives a workflow its day
+    # and its hour and this repository its minute, and is not this
+    # file's to restate. Only the default branch schedules workflows, so
+    # on any other branch this is reachable through the dispatch below,
+    # and through the pull_request trigger further down.
+    - cron: "8 3 * * 0"
+  # the escape hatch, and the way to ask without waiting for the day
+  workflow_dispatch:
+  # so a change to this file is checked by the thing it configures. What
+  # the job runs besides this file is the tag's own, so nothing else a
+  # pull request touches changes the answer. The types are links.yml's,
+  # for the reasons its own trigger gives
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review, closed]
+    paths:
+      - .github/workflows/sdist-rebuild.yml
+
+# least privilege for the GITHUB_TOKEN, elevated per job below
+permissions:
+  contents: read
+
+# grouped by the pull request's number where there is one, and a merged
+# pull request's closed run not cancelling the run in flight, for the
+# reasons links.yml gives beside its own group
+concurrency:
+  group: sdist-rebuild-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ !(github.event.action == 'closed' && github.event.pull_request.merged) }}
+
+jobs:
+  # the release lookup, the tag's checkout, the two ways to build an
+  # sdist, the normalizer and gh attestation verify are
+  # btclib-org/.github's reusable-sdist-rebuild.yml's own. What stays
+  # here is the trigger, the concurrency group, the workflow-level
+  # permissions and this job's own if:.
+  #
+  # build-module: this tree's sdist comes from the compiled extension,
+  # built by `uv run --locked --only-group build python -m build -s`
+  # rather than `uv build --sdist`. submodules: recursive, since the
+  # sdist a compiled backend writes here carries the vendored
+  # secp256k1 and secp256k1-zkp trees, which the checkout below has to
+  # hold before the build reads them. setup-python: true has
+  # actions/setup-python install the interpreter the rebuilt tag's own
+  # .python-version names, ahead of the callee's own Setup uv step, so
+  # the rebuild runs on that tag's pin rather than on this branch's.
+  # The signer the callee verifies against is
+  # btclib-org/.github's reusable-attest.yml, which release.yml's attest
+  # job calls, and the callee's header says why the called workflow is
+  # the signer (issue #996).
+  rebuild:
+    if: ${{ !github.event.pull_request.draft && github.event.action != 'closed' }}
+    permissions:
+      contents: read
+      attestations: read # what gh attestation verify reads
+    uses: btclib-org/.github/.github/workflows/reusable-sdist-rebuild.yml@main
+    with:
+      sdist-builder: build-module
+      submodules: recursive
+      setup-python: true

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: boxsdk
-Version: 10.16.0
+Version: 10.17.0
 Summary: Official Box Python SDK
 Home-page: https://github.com/box/box-python-sdk.git
 Author: Box
@@ -26,7 +26,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests
-Requires-Dist: requests-toolbelt
+Requires-Dist: urllib3
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-timeout; extra == "test"

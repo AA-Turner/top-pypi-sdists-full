@@ -46,7 +46,7 @@ missing = object()
 
 
 def assert_keyring_not_imported():
-    assert (
+    assert (  # noqa: S101
         getattr(launchpadlib.credentials, "keyring", missing) is missing
     ), "During tests the real keyring module should never be imported."
 
@@ -59,7 +59,7 @@ class NoNetworkAuthorizationEngine(RequestTokenAuthorizationEngine):
     service, since it only pretends to authorize its OAuth request tokens.
     """
 
-    ACCESS_TOKEN_KEY = "access_key:84"
+    ACCESS_TOKEN_KEY = "access_key:84"  # noqa: S105
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -116,8 +116,8 @@ class NoNetworkLaunchpad(Launchpad):
         )
 
     @classmethod
-    def authorization_engine_factory(cls, *args):
-        return NoNetworkAuthorizationEngine(*args)
+    def authorization_engine_factory(cls, **kwargs):
+        return NoNetworkAuthorizationEngine(**kwargs)
 
 
 class TestableLaunchpad(Launchpad):

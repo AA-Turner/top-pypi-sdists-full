@@ -1,0 +1,91 @@
+// Copyright (c) 2025 Contributors to the Eclipse Foundation
+//
+// See the NOTICE file(s) distributed with this work for additional
+// information regarding copyright ownership.
+//
+// This program and the accompanying materials are made available under the
+// terms of the Apache Software License 2.0 which is available at
+// https://www.apache.org/licenses/LICENSE-2.0, or the MIT license
+// which is available at https://opensource.org/licenses/MIT.
+//
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
+//! # Example
+//!
+//! ```
+//! use iceoryx2::prelude::*;
+//!
+//! # fn main() -> Result<(), Box<dyn core::error::Error>> {
+//! let node = NodeBuilder::new().create::<ipc::Service>()?;
+//! type KeyType = u64;
+//! let blackboard = node.service_builder(&"My/Funk/ServiceName".try_into()?)
+//!     .blackboard_creator::<KeyType>()
+//!     .add::<i32>(0,0)
+//!     .create()?;
+//!
+//! let reader = blackboard.reader_builder().create()?;
+//!
+//! # Ok(())
+//! # }
+//! ```
+
+use core::fmt::Debug;
+use core::hash::Hash;
+
+use alloc::format;
+
+use iceoryx2_bb_elementary_traits::zero_copy_send::ZeroCopySend;
+use iceoryx2_log::fail;
+
+use super::blackboard::PortFactory;
+use crate::port::port_name::PortName;
+use crate::port::reader::{Reader, ReaderCreateError};
+use crate::service;
+
+#[derive(Debug, Clone)]
+pub(crate) struct ReaderConfig {
+    pub(crate) port_name: PortName,
+}
+
+/// Factory to create a new [`Reader`] port/endpoint for
+/// [`MessagingPattern::Blackboard`](crate::service::messaging_pattern::MessagingPattern::Blackboard)
+/// based communication.
+#[derive(Debug, Clone)]
+pub struct PortFactoryReader<
+    'factory,
+    Service: service::Service,
+    KeyType: Send + Sync + Eq + Clone + Copy + Debug + 'static + Hash + ZeroCopySend,
+> {
+    pub(crate) factory: &'factory PortFactory<Service, KeyType>,
+    config: ReaderConfig,
+}
+
+impl<
+    'factory,
+    Service: service::Service,
+    KeyType: Send + Sync + Eq + Clone + Copy + Debug + 'static + Hash + ZeroCopySend,
+> PortFactoryReader<'factory, Service, KeyType>
+{
+    pub(crate) fn new(factory: &'factory PortFactory<Service, KeyType>) -> Self {
+        Self {
+            factory,
+            config: ReaderConfig {
+                port_name: PortName::new_empty(),
+            },
+        }
+    }
+
+    /// Sets the [`PortName`] of the  [`Reader`].
+    pub fn name(mut self, name: &PortName) -> Self {
+        self.config.port_name = *name;
+        self
+    }
+
+    /// Creates a new [`Reader`] or returns a [`ReaderCreateError`] on failure.
+    pub fn create(self) -> Result<Reader<Service, KeyType>, ReaderCreateError> {
+        let origin = format!("{self:?}");
+        Ok(
+            fail!(from origin, when Reader::new(self.factory.service.clone(), self.config.clone()),"Failed to create new Reader port."),
+        )
+    }
+}

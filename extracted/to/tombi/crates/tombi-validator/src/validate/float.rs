@@ -140,7 +140,7 @@ async fn validate_float(
     let mut match_evidence = Box::<crate::MatchEvidence>::default();
 
     let value = float_value.value();
-    let range = float_value.range();
+    let span = float_value.span();
 
     if let Some(const_value) = &float_schema.const_value {
         let matched = value == *const_value;
@@ -162,7 +162,7 @@ async fn validate_float(
                     expected: const_value.to_string(),
                     actual: value.to_string(),
                 }),
-                range,
+                span,
             }
             .push_diagnostic_with_level(level, &mut diagnostics);
         }
@@ -194,7 +194,7 @@ async fn validate_float(
                     expected: r#enum.iter().map(ToString::to_string).collect(),
                     actual: value.to_string(),
                 }),
-                range,
+                span,
             }
             .push_diagnostic_with_level(level, &mut diagnostics);
         }
@@ -230,7 +230,7 @@ async fn validate_float(
                 maximum: *maximum,
                 actual: value,
             }),
-            range,
+            span,
         }
         .push_diagnostic_with_level(level, &mut diagnostics);
     } else if lint_rules
@@ -265,7 +265,7 @@ async fn validate_float(
                 minimum: *minimum,
                 actual: value,
             }),
-            range,
+            span,
         }
         .push_diagnostic_with_level(level, &mut diagnostics);
     } else if lint_rules
@@ -300,7 +300,7 @@ async fn validate_float(
                 exclusive_maximum: *exclusive_maximum,
                 actual: value,
             }),
-            range,
+            span,
         }
         .push_diagnostic_with_level(level, &mut diagnostics);
     } else if lint_rules
@@ -335,7 +335,7 @@ async fn validate_float(
                 exclusive_minimum: *exclusive_minimum,
                 actual: value,
             }),
-            range,
+            span,
         }
         .push_diagnostic_with_level(level, &mut diagnostics);
     } else if lint_rules
@@ -370,7 +370,7 @@ async fn validate_float(
                 multiple_of: *multiple_of,
                 actual: value,
             }),
-            range,
+            span,
         }
         .push_diagnostic_with_level(level, &mut diagnostics);
     } else if lint_rules

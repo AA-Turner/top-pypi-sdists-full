@@ -1,0 +1,116 @@
+"""Behavior tests for content-free gateway management operations."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from exp.common.models import GATEWAY_EXCLUDED_PROVIDERS, ConnectionConfig
+from exp.runtime.gateway.management import GatewayManagement
+from exp.runtime.gateway.sqlite.store import GatewayStoreError
+from exp.runtime.models import SUPPORTED_PROVIDERS
+
+
+def test_upsert_provider_connection_rejects_an_unsupported_provider(tmp_path: Path) -> None:
+    """An unknown provider identifier fails closed before it can reach SQLite authority."""
+    manager = GatewayManagement(tmp_path)
+    manager.initialize()
+
+    with pytest.raises(GatewayStoreError, match="unsupported provider 'openai_compatible'"):
+        manager.upsert_provider_connection(
+            connection_id="mistyped",
+            config=ConnectionConfig(
+                provider="openai_compatible",
+                base_url="http://127.0.0.1:9/v1",
+                api_key_env="TEST_PROVIDER_KEY",
+            ),
+        )
+
+    assert manager.provider_connections() == ()
+
+
+def test_upsert_provider_connection_error_lists_every_servable_provider(tmp_path: Path) -> None:
+    """The rejection names every gateway-servable provider and no excluded one."""
+    manager = GatewayManagement(tmp_path)
+    manager.initialize()
+
+    with pytest.raises(GatewayStoreError) as excinfo:
+        manager.upsert_provider_connection(
+            connection_id="mistyped",
+            config=ConnectionConfig(provider="not-a-provider"),
+        )
+
+    message = str(excinfo.value)
+    for provider in SUPPORTED_PROVIDERS - GATEWAY_EXCLUDED_PROVIDERS:
+        assert provider in message
+    for provider in GATEWAY_EXCLUDED_PROVIDERS:
+        assert provider not in message
+
+
+def test_upsert_provider_connection_rejects_gateway_excluded_providers(tmp_path: Path) -> None:
+    """Runtime-only providers whose records never serve are rejected at configuration."""
+    manager = GatewayManagement(tmp_path)
+    manager.initialize()
+
+    with pytest.raises(GatewayStoreError, match="unsupported provider 'tinker'"):
+        manager.upsert_provider_connection(
+            connection_id="training",
+            config=ConnectionConfig(provider="tinker"),
+        )
+
+    assert manager.provider_connections() == ()
+    assert "tinker" in SUPPORTED_PROVIDERS
+    assert "tinker" in GATEWAY_EXCLUDED_PROVIDERS
+
+
+def test_upsert_provider_connection_accepts_registry_supported_providers(
+    tmp_path: Path,
+) -> None:
+    """Registry-supported identifiers remain configurable for native and custom endpoints."""
+    manager = GatewayManagement(tmp_path)
+    manager.initialize()
+
+    custom_changed, custom_authority = manager.upsert_provider_connection(
+        connection_id="custom",
+        config=ConnectionConfig(
+            provider="openai-compatible",
+            base_url="http://127.0.0.1:9/v1",
+            api_key_env="TEST_PROVIDER_KEY",
+        ),
+    )
+    native_changed, native_authority = manager.upsert_provider_connection(
+        connection_id="native",
+        config=ConnectionConfig(provider="anthropic", api_key_env="TEST_PROVIDER_KEY"),
+    )
+
+    assert custom_changed
+    assert custom_authority.config.provider == "openai-compatible"
+    assert native_changed
+    assert native_authority.config.provider == "anthropic"
+    assert "anthropic" in SUPPORTED_PROVIDERS
+    assert "openai-compatible" in SUPPORTED_PROVIDERS
+
+
+def test_azure_model_inference_surface_survives_management_restart(tmp_path: Path) -> None:
+    """SQLite replay retains the Foundry surface that participates in connection identity."""
+    manager = GatewayManagement(tmp_path)
+    manager.initialize()
+    config = ConnectionConfig(
+        provider="azure",
+        base_url="https://resource.services.ai.azure.com",
+        api_key_env="AZURE_FOUNDRY_API_KEY",
+        api_version="2024-05-01-preview",
+        azure_api_surface="model_inference",
+    )
+
+    changed, authority = manager.upsert_provider_connection(
+        connection_id="foundry",
+        config=config,
+    )
+    (reloaded,) = GatewayManagement(tmp_path).provider_connections()
+
+    assert changed
+    assert authority.config == config
+    assert reloaded.config == config
+    assert reloaded.connection_sha256 == config.identity_sha256()

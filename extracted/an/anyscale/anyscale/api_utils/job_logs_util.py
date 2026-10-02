@@ -55,8 +55,10 @@ async def _get_job_logs_from_storage_bucket_streaming(
         job_id=job_run_id, async_req=True
     )
 
-    log_download_result_thread = api.get_job_logs_download_v2_api_v2_logs_job_logs_download_v2_job_id_get(
-        job_id=job_run_id, next_page_token=next_page_token, async_req=True
+    log_download_result_thread = (
+        api.get_job_logs_download_v2_api_v2_logs_job_logs_download_v2_job_id_get(
+            job_id=job_run_id, next_page_token=next_page_token, async_req=True
+        )
     )
 
     # Once job info is fetched, fetch the cluster journal events
@@ -64,11 +66,13 @@ async def _get_job_logs_from_storage_bucket_streaming(
     cluster_id = job_run.cluster.id
 
     if not no_cluster_journal_events:
-        cluster_journal_events_thread = api.get_startup_logs_api_v2_sessions_session_id_startup_logs_get(
-            cluster_id,
-            start_line=cluster_journal_events_start_line,
-            end_line=10000000,
-            async_req=True,
+        cluster_journal_events_thread = (
+            api.get_startup_logs_api_v2_sessions_session_id_startup_logs_get(
+                cluster_id,
+                start_line=cluster_journal_events_start_line,
+                end_line=10000000,
+                async_req=True,
+            )
         )
 
     # Wait for the log chunks API and start downloading the chunks in parallel

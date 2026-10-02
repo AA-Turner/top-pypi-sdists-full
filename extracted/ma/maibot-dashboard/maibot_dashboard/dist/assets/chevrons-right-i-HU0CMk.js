@@ -1,1 +1,0 @@
-import{t as e}from"./index-CxeuZISp.js";const t=[["path",{d:"m11 17-5-5 5-5",key:"13zhaf"}],["path",{d:"m18 17-5-5 5-5",key:"h8a8et"}]],n=e("chevrons-left",t);const o=[["path",{d:"m6 17 5-5-5-5",key:"xnjwq"}],["path",{d:"m13 17 5-5-5-5",key:"17xmmf"}]],a=e("chevrons-right",o);export{n as C,a};

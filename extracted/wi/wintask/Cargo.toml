@@ -1,0 +1,27 @@
+[package]
+name = "wintask"
+version = "1.0.0"
+edition = "2024"
+rust-version = "1.85"
+license = "Apache-2.0"
+description = "Python API for Windows Task Scheduler with a native COM bridge"
+repository = "https://github.com/ezer-mackenzie/wintask"
+documentation = "https://wintask.readthedocs.io/"
+readme = "README.md"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "_wintask_backend"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.29", features = ["extension-module"] }
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.52", features = [
+	"Win32_Foundation",
+	"Win32_System_Com",
+	"Win32_System_Ole",
+	"Win32_System_TaskScheduler",
+	"Win32_System_Variant",
+] }

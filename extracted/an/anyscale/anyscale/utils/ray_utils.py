@@ -2,6 +2,7 @@
 """
 This file contains internal APIs extracted from opensource ray.
 """
+
 import logging
 import os
 from pathlib import Path
@@ -21,13 +22,11 @@ The following functions are extracted from: ray._private.runtime_env.packaging
 # If an individual file is beyond this size, print a warning.
 FILE_SIZE_WARNING = 100 * 1024 * 1024  # 100 MiB
 
-DISABLE_GITIGNORE_EXCLUSION = (
-    os.environ.get("ANYSCALE_DISABLE_GITIGNORE_EXCLUSION", "0") == "1"
-)
+DISABLE_GITIGNORE_EXCLUSION = os.environ.get("ANYSCALE_DISABLE_GITIGNORE_EXCLUSION", "0") == "1"
 
 
 def _mib_string(num_bytes: float) -> str:
-    size_mib = float(num_bytes / 1024 ** 2)
+    size_mib = float(num_bytes / 1024**2)
     return f"{size_mib:.2f}MiB"
 
 

@@ -1,0 +1,43 @@
+[tool.poetry]
+name = "datadog-serverless-compat"
+version = "0.18.0"
+description = "Datadog Serverless Compatibility Layer for Python"
+authors = ["Datadog, Inc. <package@datadoghq.com>"]
+license = "Apache-2.0"
+readme = "README.md"
+homepage = "https://www.datadoghq.com"
+repository = "https://github.com/DataDog/datadog-serverless-compat-py"
+keywords = [
+    "datadog",
+    "azure",
+    "google",
+    "functions"
+]
+include = [
+    { path = "datadog_serverless_compat/bin/**/*", format = ["sdist", "wheel"] }
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.15.11"
+pytest = "^9.0.2"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

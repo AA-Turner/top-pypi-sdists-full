@@ -102,9 +102,7 @@ def update_aws_cors(
     )
 
 
-def check_gcp_cors_needs_update(
-    bucket_name: str, project_id: Optional[str]
-) -> Tuple[bool, str]:
+def check_gcp_cors_needs_update(bucket_name: str, project_id: Optional[str]) -> Tuple[bool, str]:
     """
     Check if GCP GCS bucket CORS needs update.
 

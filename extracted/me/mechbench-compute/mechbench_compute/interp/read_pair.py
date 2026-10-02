@@ -1,0 +1,13 @@
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import Any
+
+
+def read_pair(record: Mapping[str, Any]) -> tuple[str, str]:
+    a = record.get("a", record.get("clean"))
+    b = record.get("b", record.get("corrupt"))
+    if not (isinstance(a, str) and isinstance(b, str) and a and b):
+        raise ValueError(
+            f"pair {record.get('id')!r} needs prompt fields `a` and `b`")
+    return a, b

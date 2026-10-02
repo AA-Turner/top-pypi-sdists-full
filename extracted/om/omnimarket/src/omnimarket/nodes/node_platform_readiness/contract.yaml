@@ -1,0 +1,83 @@
+---
+name: platform_readiness
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: compute
+runtime_profiles: [main]
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  Unified platform readiness gate. Aggregates verification dimensions into a
+  tri-state (PASS/WARN/FAIL) report with freshness-aware semantics and
+  valid-zero vs broken-zero distinction.
+
+handler:
+  module: omnimarket.nodes.node_platform_readiness.handlers.handler_platform_readiness
+  class: NodePlatformReadiness
+  input_model: omnimarket.nodes.node_platform_readiness.handlers.handler_platform_readiness.ModelPlatformReadinessRequest
+
+handler_routing:
+  handlers:
+    - operation: platform_readiness
+      handler:
+        name: NodePlatformReadiness
+        module: omnimarket.nodes.node_platform_readiness.handlers.handler_platform_readiness
+    # OMN-13551: run_all_dimensions is an internal async helper (takes a
+    # CheckContext), not a runtime-dispatched handler. It quarantined at boot
+    # (requires `ctx`). Removed from handler_routing; still called internally.
+
+descriptor:
+  node_archetype: compute
+  purity: pure
+  idempotent: true
+  timeout_ms: 60000
+
+env_dependencies:
+  ONEX_INFRA_SSH_TARGET:
+    required: false
+    description: "SSH target (user@host) for infrastructure probes. Required for auto-collected SSH dimensions; the handler fails fast with InfraSshTargetNotConfiguredError when unset — no empty-string default (OMN-13921). Not required when explicit dimensions are supplied in the request."
+
+terminal_event: onex.evt.omnimarket.platform-readiness-completed.v1
+
+event_bus:
+  # OMN-18013: the topic(s) removed here were declared subscriptions with NO handler
+  # branch anywhere in this node -- NodePlatformReadiness.handle() takes a ModelPlatformReadinessRequest; the four
+  # topics are entries in SOW_PHASE2_REQUIRED_TOPICS, a list the readiness dimension PROBES
+  # (handler_platform_readiness.py:24-29), never a consume path. A declared subscription with no
+  # dispatcher is consumed, DLQ'd and COMMITTED on every message while the consumer
+  # group reads Stable / LAG 0, so the declaration was worse than its absence.
+  subscribe_topics:
+    - onex.cmd.omnimarket.platform-readiness-start.v1
+    # SOW Phase 2 monitored topics — checked for producer/consumer health
+  publish_topics:
+    - onex.evt.omnimarket.platform-readiness-completed.v1
+
+metadata:
+  transport_type: kafka
+
+secrets:
+  # OMN-12856: GitHub token is contract-declared so dimension_checks reads the
+  # ref name from here — not a bare source literal. Value is resolved at the
+  # effect boundary via the canonical secret-store resolver.
+  GITHUB_TOKEN:
+    description: "GitHub PAT or Actions token for GitHub API calls in dimension checks."
+    required: false
+
+config:
+  ONEX_RUNTIME_API:
+    description: "ONEX runtime API endpoint URL."
+    required: false
+  ONEX_DASHBOARD_API:
+    description: "Dashboard API endpoint URL."
+    required: false
+  ONEX_INFRA_SSH_TARGET:
+    description: "SSH target for infrastructure commands (user@host). Fail-fast typed error when unset and SSH probes are requested (OMN-13921)."
+    required: false
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.platform-readiness-start.v1
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.platform-readiness-completed.v1

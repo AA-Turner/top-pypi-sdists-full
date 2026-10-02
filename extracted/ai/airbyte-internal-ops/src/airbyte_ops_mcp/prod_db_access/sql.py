@@ -1715,13 +1715,13 @@ SELECT_RECENT_FAILED_SYNCS_FOR_DESTINATION_CONNECTOR = sqlalchemy.text(
 # Finds all actors with the given actor_definition_id and returns their failed sync attempts,
 # regardless of whether they have explicit version pins.
 # Query starts from attempts table to leverage indexed columns (ended_at, status).
-# Note: This query only supports SOURCE connectors (joins via connection.source_id).
+# `connection_column` selects the actor side: `source_id` for sources, `destination_id`
+# for destinations.
 # Three LEFT JOINs on scoped_configuration resolve the effective pin across all scope
 # levels (actor > workspace > organization precedence via CASE WHEN).
 # Filters tombstoned actors / tombstoned workspaces / deprecated connections to match
 # the convention used by sibling SELECT_RECENT_*_SYNCS_FOR_*_CONNECTOR queries.
-SELECT_FAILED_SYNC_ATTEMPTS_FOR_CONNECTOR = sqlalchemy.text(
-    """
+_FAILED_SYNC_ATTEMPTS_FOR_CONNECTOR_SQL = """
     SELECT
          jobs.id AS job_id,
          jobs.scope AS connection_id,
@@ -1777,7 +1777,7 @@ SELECT_FAILED_SYNC_ATTEMPTS_FOR_CONNECTOR = sqlalchemy.text(
       ON jobs.scope = connection.id::text
      AND connection.status != 'deprecated'
     JOIN actor
-      ON connection.source_id = actor.id
+      ON connection.{connection_column} = actor.id
      AND actor.actor_definition_id = :connector_definition_id
      AND actor.tombstone = false
     JOIN workspace
@@ -1807,6 +1807,13 @@ SELECT_FAILED_SYNC_ATTEMPTS_FOR_CONNECTOR = sqlalchemy.text(
          attempts.ended_at DESC
     LIMIT :limit
     """
+
+SELECT_FAILED_SYNC_ATTEMPTS_FOR_CONNECTOR = sqlalchemy.text(
+    _FAILED_SYNC_ATTEMPTS_FOR_CONNECTOR_SQL.format(connection_column="source_id")
+)
+
+SELECT_FAILED_SYNC_ATTEMPTS_FOR_DESTINATION_CONNECTOR = sqlalchemy.text(
+    _FAILED_SYNC_ATTEMPTS_FOR_CONNECTOR_SQL.format(connection_column="destination_id")
 )
 
 # =============================================================================

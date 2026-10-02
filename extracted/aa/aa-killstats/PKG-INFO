@@ -1,8 +1,9 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: aa-killstats
-Version: 3.0.1
+Version: 4.0.0
 Summary: Killboard Stats shows Hall of Shame/Fame, Kills, Top Kills,Loss,etc.
 Project-URL: Changelog, https://github.com/Geuthur/aa-killstats/blob/master/CHANGELOG.md
+Project-URL: Discord, https://discord.gg/WrHzA4rnxA
 Project-URL: Documentation, https://github.com/Geuthur/aa-killstats/blob/master/README.md
 Project-URL: Donations, https://ko-fi.com/Geuthur
 Project-URL: Homepage, https://github.com/Geuthur/aa-killstats
@@ -642,8 +643,8 @@ License:                     GNU GENERAL PUBLIC LICENSE
         state the exclusion of warranty; and each file should have at least
         the "copyright" line and a pointer to where the full notice is found.
         
-            AA Killstats Killboard Statistics Module for Alliance Auth
-            Copyright (C) 2025  Geuthur
+            <one line to give the program's name and a brief idea of what it does.>
+            Copyright (C) <year>  <name of author>
         
             This program is free software: you can redistribute it and/or modify
             it under the terms of the GNU General Public License as published by
@@ -663,7 +664,7 @@ License:                     GNU GENERAL PUBLIC LICENSE
           If the program does terminal interaction, make it output a short
         notice like this when it starts in an interactive mode:
         
-            AA Killstats  Copyright (C) 2025  Geuthur
+            <program>  Copyright (C) <year>  <name of author>
             This program comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
             This is free software, and you are welcome to redistribute it
             under certain conditions; type `show c' for details.
@@ -686,7 +687,7 @@ License:                     GNU GENERAL PUBLIC LICENSE
 License-File: LICENSE
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
 Classifier: Operating System :: OS Independent
@@ -696,17 +697,19 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
-Requires-Python: <3.14,>=3.10
+Requires-Python: <3.15,>=3.10
 Requires-Dist: allianceauth>=5
 Requires-Dist: dacite
-Requires-Dist: django-esi>=9
 Requires-Dist: django-eveonline-sde
 Requires-Dist: django-ninja<2,>=1.5
 Provides-Extra: tests-allianceauth-latest
+Requires-Dist: aa-evesde-factory; extra == 'tests-allianceauth-latest'
 Requires-Dist: coverage; extra == 'tests-allianceauth-latest'
 Requires-Dist: factory-boy; extra == 'tests-allianceauth-latest'
+Requires-Dist: pook; extra == 'tests-allianceauth-latest'
 Description-Content-Type: text/markdown
 
 # Killstats module for AllianceAuth.<a name="aa-killstats"></a>
@@ -744,7 +747,6 @@ Killstats for Corporations & Alliances, Hall of Fame, Hall of Shame, etc.
 - Graphical Overview
 - Corporation & Alliance Overview
 - Kills/Losses
-- Main Character and Alts combined ([explanation](/killstats/docs/explanation.md))
 - Hall of Fame, Hall of Shame
 - Killstats like Top Kill, Top Killer, Top Loss, Alltime Killer, etc.
 - Top 10 list for each Month
@@ -753,6 +755,11 @@ Killstats for Corporations & Alliances, Hall of Fame, Hall of Shame, etc.
 
 - Filtering Settings for each Corporation / Alliance
 - Administration Access for specific Corps or Alliances
+
+## Highlights<a name="highlights"></a>
+
+![Killboard](https://raw.githubusercontent.com/Geuthur/aa-killstats/master/docs/img/killstats.png)
+![Overview](https://raw.githubusercontent.com/Geuthur/aa-killstats/master/docs/img/overview.png)
 
 ## Installation<a name="installation"></a>
 
@@ -791,8 +798,12 @@ To set up the Scheduled Tasks add following code to your `local.py`
 ```python
 if "killstats" in INSTALLED_APPS:
     CELERYBEAT_SCHEDULE["Killstats :: Check for Killmails"] = {
-        "task": "killstats.tasks.run_zkb_r2z2",
+        "task": "killstats.tasks.run_tracker_zkb",
         "schedule": crontab(minute="*/1"),
+    }
+    CELERYBEAT_SCHEDULE["Killstats :: Check for Missing Killmail Data"] = {
+        "task": "killstats.tasks.run_tracker_missing_data",
+        "schedule": crontab(minute="*/15"),
     }
 ```
 
@@ -856,12 +867,6 @@ The Following Settings can be setting up in the `local.py`
 ### Step 6 - (Optional) Settings<a name="step6"></a>
 
 - KILLSTATS_BULK_BATCH_SIZE: `500` - Maximum database batch size per operation. Reduce (e.g., 250) if encountering 'max_allowed_packet' errors, increase for better performance if MySQL is configured with higher limits
-
-## Highlights<a name="highlights"></a>
-
-![Stats](/killstats/docs/img/killstats1.png)
-![Hall](/killstats/docs/img/killstats2.png)
-![Kills](/killstats/docs/img/killstats3.png)
 
 ## Translations<a name="translations"></a>
 

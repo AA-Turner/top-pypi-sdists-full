@@ -1,0 +1,70 @@
+/* bench_symsync_core.c — the Gardner symbol-timing synchronizer.
+ *
+ *   steps — end-to-end throughput (MSa/s) of the per-sample integer-NCO
+ *           strobe + Farrow interpolate + per-symbol Gardner/PI update over a
+ *           64k oversampled block.
+ */
+#include "doppler/dp_complex.h"
+#include "doppler/symsync/symsync_core.h"
+#include "jm_bench.h"
+#include <math.h>
+#include <stdlib.h>
+#include <time.h>
+
+#define BENCH_N 65536
+#define ITERATIONS 200
+#define SPS 4
+
+int
+main (void)
+{
+  float _Complex *x   = malloc (BENCH_N * sizeof (*x));
+  float _Complex *out = malloc (BENCH_N * sizeof (*out));
+  if (!x || !out)
+    return 1;
+  /* simple oversampled BPSK-ish stream (content does not affect timing cost)
+   */
+  uint32_t st = 1u;
+  for (int k = 0; k < BENCH_N; k++)
+    {
+      if ((k % SPS) == 0)
+        {
+          st ^= st << 13;
+          st ^= st >> 17;
+          st ^= st << 5;
+        }
+      x[k] = (st & 1u) ? -1.0f : 1.0f;
+    }
+
+  uint64_t   t0, t1;
+  jm_bench_t _bench = { 0 };
+
+  printf ("=== symsync benchmark ===\n");
+  printf ("block = %d samples,  %d iterations\n\n", BENCH_N, ITERATIONS);
+
+  dp_symsync_state_t *s = dp_symsync_create (SPS, 0.01, 0.707, FARROW_CUBIC,
+                                             SYMSYNC_TED_GARDNER);
+  dp_symsync_steps (s, x, SPS * 64, out, BENCH_N); /* warmup */
+
+  double times[ITERATIONS];
+  for (int r = 0; r < ITERATIONS; r++)
+    {
+      dp_symsync_reset (s);
+      t0 = jm_bench_now_ns ();
+      dp_symsync_steps (s, x, BENCH_N, out, BENCH_N);
+      t1       = jm_bench_now_ns ();
+      times[r] = jm_bench_elapsed_sec (t0, t1);
+    }
+  jm_bench_add (&_bench, "steps", times, ITERATIONS, BENCH_N);
+  double sum = 0.0;
+  for (int r = 0; r < ITERATIONS; r++)
+    sum += times[r];
+  printf ("  steps    %8.1f MSa/s\n",
+          (double)BENCH_N / (sum / ITERATIONS) / 1e6);
+
+  jm_bench_write_json (&_bench, "symsync");
+  dp_symsync_destroy (s);
+  free (x);
+  free (out);
+  return 0;
+}

@@ -1,0 +1,291 @@
+import argparse
+import sys
+from typing import Optional, List
+
+from .raster import (
+    run_landtrendr_image, run_ccdc_image,
+    run_bfast_monitor_image, run_bfast_lite_image, run_bfast_image, run_mann_kendall_image,
+)
+from .spatial import apply_mmu_filter
+
+def run_landtrendr(args: argparse.Namespace) -> None:
+    try:
+        run_landtrendr_image(
+            input_path=args.input,
+            output_dir=args.output_dir,
+            start_year=args.start_year,
+            max_segments=args.max_segments,
+            chunk_size=args.chunk_size,
+            n_jobs=args.jobs,
+            save_vertices=args.save_vertices,
+            event_type=args.event_type,
+            sort_by=args.sort_by,
+            min_mag=args.min_mag,
+            min_dur=args.min_dur,
+            pre_val_thresh=args.pre_val_thresh,
+            prefix=args.prefix,
+            output_scale_factor=args.output_scale,
+            recovery_threshold=args.recovery_threshold,
+            prevent_fast_recovery=not args.allow_fast_recovery,
+            spike_threshold=args.spike_threshold,
+            best_model_proportion=args.best_model_proportion,
+            vertex_count_overshoot=args.vertex_count_overshoot,
+            min_observations_needed=args.min_observations_needed,
+            no_data_value=args.no_data_value,
+        )
+    except Exception as e:
+        print(f"Error running LandTrendr: {e}")
+        sys.exit(1)
+
+def run_ccdc_cli(args: argparse.Namespace) -> None:
+    try:
+        # User needs to provide a list of dates. We'll read it from a text/csv file.
+        # Alternatively, if not provided, we can simulate dates for testing (but throw warning)
+        import os
+        import numpy as np
+        
+        dates: List[int] = []
+        if args.dates_file and os.path.exists(args.dates_file):
+            with open(args.dates_file, 'r') as f:
+                dates = [int(line.strip()) for line in f if line.strip().isdigit()]
+        else:
+            print("WARNING: No --dates-file provided. Assuming 1 observation every 16 days (Landsat).")
+            # We don't know the number of dates until we open the file, so we'll 
+            # let process_file_ccdc handle it or we can hack it.
+            # Actually, we should force it or read the TIF first.
+            import rasterio
+            with rasterio.open(args.input) as src:
+                num_dates = src.count // args.num_bands
+            dates = list(np.arange(1, 1 + num_dates * 16, 16))
+            
+        run_ccdc_image(
+            input_path=args.input,
+            output_dir=args.output_dir,
+            dates=dates,
+            num_bands=args.num_bands,
+            qa_band_idx=args.qa_band,
+            max_segments=args.max_segments,
+            chunk_size=args.chunk_size,
+            n_jobs=args.jobs,
+            prefix=args.prefix,
+            conseq_anom=6 if args.cold else args.conse
+        )
+    except Exception as e:
+        print(f"Error running CCDC: {e}")
+        sys.exit(1)
+
+def run_bfast_monitor_cli(args: argparse.Namespace) -> None:
+    try:
+        run_bfast_monitor_image(
+            input_path=args.input,
+            output_dir=args.output_dir,
+            start_time=args.start_time,
+            monitor_start_time=args.monitor_start_time,
+            frequency=args.frequency,
+            order=args.order,
+            h=args.h,
+            period=args.period,
+            alpha=args.alpha,
+            min_valid=args.min_valid,
+            chunk_size=args.chunk_size,
+            n_jobs=args.jobs,
+            prefix=args.prefix,
+        )
+    except Exception as e:
+        print(f"Error running bfastmonitor: {e}")
+        sys.exit(1)
+
+def run_bfast_lite_cli(args: argparse.Namespace) -> None:
+    try:
+        run_bfast_lite_image(
+            input_path=args.input,
+            output_dir=args.output_dir,
+            start_time=args.start_time,
+            frequency=args.frequency,
+            order=args.order,
+            h=args.h,
+            max_breaks_output=args.max_breaks_output,
+            min_valid=args.min_valid,
+            chunk_size=args.chunk_size,
+            n_jobs=args.jobs,
+            prefix=args.prefix,
+        )
+    except Exception as e:
+        print(f"Error running bfastlite: {e}")
+        sys.exit(1)
+
+def run_bfast_cli(args: argparse.Namespace) -> None:
+    try:
+        run_bfast_image(
+            input_path=args.input,
+            output_dir=args.output_dir,
+            start_time=args.start_time,
+            frequency=args.frequency,
+            order=args.order,
+            h=args.h,
+            max_breaks_trend=args.max_breaks_trend,
+            max_breaks_season=args.max_breaks_season,
+            max_iter=args.max_iter,
+            level=args.level,
+            min_valid=args.min_valid,
+            chunk_size=args.chunk_size,
+            n_jobs=args.jobs,
+            prefix=args.prefix,
+        )
+    except Exception as e:
+        print(f"Error running bfast: {e}")
+        sys.exit(1)
+
+def run_mann_kendall_cli(args: argparse.Namespace) -> None:
+    try:
+        run_mann_kendall_image(
+            input_path=args.input,
+            output_dir=args.output_dir,
+            method=args.method,
+            alpha=args.alpha,
+            lag=args.lag,
+            period=args.period,
+            min_valid=args.min_valid,
+            chunk_size=args.chunk_size,
+            n_jobs=args.jobs,
+            prefix=args.prefix,
+        )
+    except Exception as e:
+        print(f"Error running Mann-Kendall: {e}")
+        sys.exit(1)
+
+def run_mmu_filter_cli(args: argparse.Namespace) -> None:
+    try:
+        apply_mmu_filter(args.input, args.output, mmu_pixels=args.mmu_pixels)
+    except Exception as e:
+        print(f"Error running MMU filter: {e}")
+        sys.exit(1)
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="cdts: Change Detection Python Library")
+    subparsers = parser.add_subparsers(dest="command", help="Available algorithms")
+    
+    # LandTrendr Subparser
+    lt_parser = subparsers.add_parser("landtrendr", help="Run LandTrendr algorithm")
+    lt_parser.add_argument("input", help="Path to input multi-band GeoTIFF")
+    lt_parser.add_argument("output_dir", help="Directory to save the outputs")
+    lt_parser.add_argument("--start-year", type=int, default=2000, help="Year of the first band (default: 2000)")
+    lt_parser.add_argument("--max-segments", type=int, default=6, help="Maximum number of segments (default: 6)")
+    lt_parser.add_argument("--jobs", type=int, default=-1, help="Number of CPU cores to use (-1 for all, default: -1)")
+    lt_parser.add_argument("--save-vertices", action="store_true", help="Save the raw vertices stack")
+    lt_parser.add_argument("--chunk-size", type=int, default=512, help="Size of the image chunks to process at once (default: 512)")
+    
+    # Event Extraction options
+    lt_parser.add_argument("--event-type", choices=["loss", "gain"], default="loss", help="Event type to map (default: loss)")
+    lt_parser.add_argument("--sort-by", choices=["greatest", "newest", "fastest", "longest", "dsnr"], default="greatest", help="How to select the event: dsnr is magnitude standardized by the fit's RMSE, LT-GEE's disturbance signal-to-noise ratio (default: greatest)")
+    lt_parser.add_argument("--min-mag", type=float, default=0.0, help="Minimum magnitude filter")
+    lt_parser.add_argument("--min-dur", type=int, default=1, help="Minimum duration filter")
+    lt_parser.add_argument("--pre-val-thresh", type=float, default=0.0, help="Pre-value threshold filter")
+    lt_parser.add_argument("--prefix", default="lt_event", help="Prefix for output metric files")
+    lt_parser.add_argument("--output-scale", type=float, default=1.0, help="Scale factor to multiply output values (e.g. 0.0001 to convert back to float NDVI)")
+    lt_parser.add_argument("--recovery-threshold", type=float, default=0.25, help="Max allowed recovery rate per year, LT-GEE's recoveryThreshold (default: 0.25)")
+    lt_parser.add_argument("--allow-fast-recovery", action="store_true", help="Disable the fast-recovery rejection (LT-GEE's preventOneYearRecovery=false; default here is to reject, i.e. true)")
+    lt_parser.add_argument("--spike-threshold", type=float, default=0.9, help="Desawtooth dampening factor, LT-GEE's spikeThreshold (1.0 = no dampening, default: 0.9)")
+    lt_parser.add_argument("--best-model-proportion", type=float, default=1.25, help="LT-GEE's bestModelProportion: prefer the most-vertex candidate model within this proportion of the lowest p-value found (default: 1.25)")
+    lt_parser.add_argument("--vertex-count-overshoot", type=int, default=3, help="LT-GEE's vertexCountOvershoot: extra vertices allowed in the initial candidate pool beyond max_segments + 1, pruned back down before model selection (default: 3)")
+    lt_parser.add_argument("--min-observations-needed", type=int, default=6, help="LT-GEE's minObservationsNeeded: below this many observations, skip fitting entirely and pass the raw trajectory through unsegmented (default: 6)")
+    lt_parser.add_argument("--no-data-value", type=float, default=0.0, help="Sentinel value marking a missing observation in the input stack (default: 0.0)")
+    
+    # CCDC Subparser
+    ccdc_parser = subparsers.add_parser("ccdc", help="Run CCDC algorithm")
+    ccdc_parser.add_argument("input", help="Path to input stacked multi-band GeoTIFF")
+    ccdc_parser.add_argument("output_dir", help="Directory to save the outputs")
+    ccdc_parser.add_argument("--num-bands", type=int, default=6, help="Number of bands per date in the stack (default: 6)")
+    ccdc_parser.add_argument("--qa-band", type=int, default=-1, help="Index of QA band for cloud masking within the block (0-based, default: -1 for none)")
+    ccdc_parser.add_argument("--dates-file", help="Path to text file containing Julian dates (one per line)")
+    ccdc_parser.add_argument("--max-segments", type=int, default=6, help="Maximum number of segments (default: 6)")
+    ccdc_parser.add_argument("--chunk-size", type=int, default=512, help="Size of the image chunks to process at once (default: 512)")
+    ccdc_parser.add_argument("--jobs", type=int, default=-1, help="Number of CPU cores to use (-1 for all, default: -1)")
+    ccdc_parser.add_argument("--conse", type=int, default=6, help="Consecutive anomalous observations to flag a change (default: 6, as in the original CCDC)")
+    ccdc_parser.add_argument("--cold", action="store_true", help="Deprecated: same as --conse 6 (now the default)")
+    ccdc_parser.add_argument("--prefix", default="ccdc", help="Prefix for output files (default: ccdc)")
+
+    # Shared time-series arguments for the bfast family (bfastmonitor/bfastlite/bfast) and
+    # Mann-Kendall: every band in the input is one equally-spaced observation
+    # (`start_time + i/frequency`, matching R's `ts`/`time()` semantics), not a real per-band date.
+    def _add_timeseries_args(p):
+        p.add_argument("input", help="Path to input multi-band GeoTIFF (one band per equally-spaced time step)")
+        p.add_argument("output_dir", help="Directory to save the output")
+        p.add_argument("--chunk-size", type=int, default=512, help="Size of the image chunks to process at once (default: 512)")
+        p.add_argument("--jobs", type=int, default=-1, help="Number of CPU cores to use (-1 for all, default: -1)")
+
+    # bfastmonitor Subparser
+    bfm_parser = subparsers.add_parser("bfast-monitor", help="Run bfastmonitor (near-real-time disturbance monitoring)")
+    _add_timeseries_args(bfm_parser)
+    bfm_parser.add_argument("--start-time", type=float, required=True, help="Series start time (e.g. 2015.0)")
+    bfm_parser.add_argument("--monitor-start-time", type=float, required=True, help="Time monitoring begins (e.g. 2019.0)")
+    bfm_parser.add_argument("--frequency", type=int, required=True, help="Observations per year (e.g. 23 for 16-day composites)")
+    bfm_parser.add_argument("--order", type=int, default=3, help="Harmonic order (default: 3)")
+    bfm_parser.add_argument("--h", type=float, default=0.25, choices=[0.25, 0.5, 1.0], help="MOSUM window size, as a fraction of history length (default: 0.25)")
+    bfm_parser.add_argument("--period", type=int, default=10, choices=[2, 4, 6, 8, 10], help="Monitoring period parameter (default: 10)")
+    bfm_parser.add_argument("--alpha", type=float, default=0.05, help="Significance level (default: 0.05)")
+    bfm_parser.add_argument("--min-valid", type=int, default=10, help="Minimum valid history observations per pixel (default: 10)")
+    bfm_parser.add_argument("--prefix", default="bfast_monitor", help="Prefix for the output file (default: bfast_monitor)")
+
+    # bfastlite Subparser
+    bfl_parser = subparsers.add_parser("bfast-lite", help="Run bfastlite (single-pass multiple-breakpoint detection)")
+    _add_timeseries_args(bfl_parser)
+    bfl_parser.add_argument("--start-time", type=float, required=True, help="Series start time (e.g. 2010.0)")
+    bfl_parser.add_argument("--frequency", type=int, required=True, help="Observations per year (e.g. 23 for 16-day composites)")
+    bfl_parser.add_argument("--order", type=int, default=3, help="Harmonic order (default: 3)")
+    bfl_parser.add_argument("--h", type=float, default=0.15, help="Minimum segment size, as a fraction of the series length (default: 0.15)")
+    bfl_parser.add_argument("--max-breaks-output", type=int, default=5, help="Maximum number of breakpoints to report per pixel (default: 5)")
+    bfl_parser.add_argument("--min-valid", type=int, default=20, help="Minimum valid observations per pixel (default: 20)")
+    bfl_parser.add_argument("--prefix", default="bfast_lite", help="Prefix for the output file (default: bfast_lite)")
+
+    # bfast (classic) Subparser
+    bf_parser = subparsers.add_parser("bfast", help="Run the classic iterative bfast() (trend + season break detection)")
+    _add_timeseries_args(bf_parser)
+    bf_parser.add_argument("--start-time", type=float, required=True, help="Series start time (e.g. 2000.0)")
+    bf_parser.add_argument("--frequency", type=int, required=True, help="Observations per year (e.g. 23 for 16-day composites)")
+    bf_parser.add_argument("--order", type=int, default=3, help="Harmonic order (default: 3)")
+    bf_parser.add_argument("--h", type=float, default=0.15, help="Minimum segment size, as a fraction of valid observations (default: 0.15)")
+    bf_parser.add_argument("--max-breaks-trend", type=int, default=5, help="Maximum number of trend breakpoints to report per pixel (default: 5)")
+    bf_parser.add_argument("--max-breaks-season", type=int, default=5, help="Maximum number of season breakpoints to report per pixel (default: 5)")
+    bf_parser.add_argument("--max-iter", type=int, default=10, help="Maximum trend/season re-estimation iterations (default: 10)")
+    bf_parser.add_argument("--level", type=float, default=0.05, help="Significance threshold for the preliminary structural-stability pre-check (default: 0.05)")
+    bf_parser.add_argument("--min-valid", type=int, default=20, help="Minimum valid observations per pixel (default: 20)")
+    bf_parser.add_argument("--prefix", default="bfast", help="Prefix for the output file (default: bfast)")
+
+    # Mann-Kendall Subparser
+    mk_parser = subparsers.add_parser("mann-kendall", help="Run the Mann-Kendall trend test + Theil-Sen slope estimator")
+    _add_timeseries_args(mk_parser)
+    mk_parser.add_argument("--method", choices=["original", "hamed_rao", "yue_wang", "seasonal"], default="hamed_rao", help="Trend test variant (default: hamed_rao)")
+    mk_parser.add_argument("--alpha", type=float, default=0.05, help="Significance level (default: 0.05)")
+    mk_parser.add_argument("--lag", type=int, default=None, help="First significant lags for the autocorrelation correction (hamed_rao/yue_wang only; default: full series)")
+    mk_parser.add_argument("--period", type=int, default=1, help="Season slots for method=seasonal (e.g. 23 for MODIS 16-day cycles; default: 1)")
+    mk_parser.add_argument("--min-valid", type=int, default=4, help="Minimum valid observations per pixel (default: 4)")
+    mk_parser.add_argument("--prefix", default="mann_kendall", help="Prefix for the output file (default: mann_kendall)")
+
+    # MMU (Minimum Mapping Unit) Filter Subparser
+    mmu_parser = subparsers.add_parser("mmu-filter", help="Apply a Minimum Mapping Unit spatial filter to a single-band raster")
+    mmu_parser.add_argument("input", help="Path to input single-band GeoTIFF (e.g. a LandTrendr year-of-detection map)")
+    mmu_parser.add_argument("output", help="Path to save the filtered GeoTIFF")
+    mmu_parser.add_argument("--mmu-pixels", type=int, default=11, help="Minimum patch size in pixels; smaller patches are removed (default: 11)")
+
+    args = parser.parse_args()
+
+    if args.command == "landtrendr":
+        run_landtrendr(args)
+    elif args.command == "ccdc":
+        run_ccdc_cli(args)
+    elif args.command == "bfast-monitor":
+        run_bfast_monitor_cli(args)
+    elif args.command == "bfast-lite":
+        run_bfast_lite_cli(args)
+    elif args.command == "bfast":
+        run_bfast_cli(args)
+    elif args.command == "mann-kendall":
+        run_mann_kendall_cli(args)
+    elif args.command == "mmu-filter":
+        run_mmu_filter_cli(args)
+    else:
+        parser.print_help()
+
+if __name__ == "__main__":
+    main()

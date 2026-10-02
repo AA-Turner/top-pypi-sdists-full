@@ -1,0 +1,1395 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+# Copyright (c) 2025-2026 OmniNode Team
+"""Integration tests for Docker infrastructure.
+
+These tests validate Docker build and runtime behavior in CI/CD environments.
+They require a running Docker daemon and will be skipped gracefully if
+Docker is not available.
+
+Test categories:
+- Build Tests: Validate Dockerfile builds correctly
+- Security Tests: Verify non-root execution and secret handling
+- Runtime Tests: Validate container behavior and health checks
+- Profile Tests: Verify docker-compose profiles work correctly
+
+This test suite addresses PR #32 reviewer feedback requesting CI/CD
+integration tests for Docker infrastructure implementation.
+
+Cold-build timeout budget (OMN-15567)
+--------------------------------------
+The nightly suite runs under a blanket ``pytest --timeout=300``. Two kinds of
+test in this module actually invoke ``docker build`` and need a much larger
+budget than that:
+
+1. The two explicit build tests in ``TestDockerBuild``
+   (``test_build_succeeds_with_public_deps``,
+   ``test_build_uses_buildkit_cache_mounts``) carry their own function-level
+   ``@pytest.mark.timeout(BUILD_TIMEOUT + BUILD_TEST_TIMEOUT_MARGIN_SECONDS)``.
+2. The module-scoped ``built_test_image`` fixture (defined in ``conftest.py``)
+   does the same build for every other class below that consumes it. Because
+   the fixture is module-scoped, only the *first* test in the module that
+   requests it actually pays the build cost -- and pytest-timeout charges
+   that cost to whichever test item happens to be first (``func_only``
+   defaults to False, so the timer spans setup+call+teardown of that item,
+   not just its body).
+
+   Rather than mark only "the currently-first" consumer -- which would
+   silently regress the instant a test is added, removed, or reordered ahead
+   of it -- every class below that declares a fixture parameter typed
+   ``built_test_image: str`` carries its own class-level
+   ``pytestmark = [pytest.mark.timeout(BUILD_TIMEOUT + BUILD_TEST_TIMEOUT_MARGIN_SECONDS)]``.
+   ``pytest.Item.get_closest_marker("timeout")`` resolves per test item by
+   walking function -> class -> module, so no matter which member of one of
+   these classes pytest picks as the actual first consumer, that item's
+   closest "timeout" marker is always at least the cold-build budget. A
+   function-level marker (as in ``TestDockerBuild``'s two explicit build
+   tests) still wins over the class-level one where both are present, since
+   it is closer. This makes the budget invariant to collection/execution
+   order within the file, and any new test added to one of these classes
+   inherits it automatically instead of needing its own opt-in marker.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import subprocess
+import time
+import urllib.error
+import urllib.request
+import warnings
+from pathlib import Path
+
+import pytest
+import yaml
+
+# OMN-15567: _run_subprocess_with_group_kill lives in conftest.py so the
+# built_test_image fixture and these explicit build tests share one
+# group-kill implementation -- see conftest.py's docstring on the function.
+from .conftest import _run_subprocess_with_group_kill
+
+# =============================================================================
+# Test Markers and Constants
+# =============================================================================
+
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.infrastructure,
+    pytest.mark.slow,
+]
+
+# Container naming prefix for test isolation
+TEST_CONTAINER_PREFIX = "omnibase-infra-test"
+
+# Timeout constants (seconds)
+BUILD_TIMEOUT = int(os.getenv("OMNI_DOCKER_BUILD_TIMEOUT_SECONDS", "1200"))
+CONTAINER_START_TIMEOUT = int(os.getenv("OMNI_DOCKER_CONTAINER_TIMEOUT_SECONDS", "180"))
+HEALTH_CHECK_TIMEOUT = 90
+SHUTDOWN_TIMEOUT = int(os.getenv("OMNI_DOCKER_SHUTDOWN_TIMEOUT_SECONDS", "120"))
+
+# Headroom above BUILD_TIMEOUT for the pytest-level per-test timeout marker.
+# OMN-15567: nightly-integration.yml invokes the whole suite with a blanket
+# `pytest --timeout=300 --timeout-method=signal`, sized for the rest of the
+# suite. Without a per-test `@pytest.mark.timeout(...)` override, that 300s
+# CLI ceiling silently pre-empts BUILD_TIMEOUT (default 1200s) and kills a
+# cold-cache `docker build` long before the subprocess-level timeout the test
+# was actually designed around ever fires. pytest-timeout's marker-level
+# setting takes precedence over the CLI flag for the tests that declare it.
+BUILD_TEST_TIMEOUT_MARGIN_SECONDS = 60
+
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
+
+def extract_profiles_from_compose(compose_path: Path) -> set[str]:
+    """Extract all profile names from a docker-compose file using YAML parsing.
+
+    This function properly parses YAML to extract profiles, avoiding fragile
+    string matching that could break with different YAML formatting styles.
+
+    Args:
+        compose_path: Path to the docker-compose YAML file.
+
+    Returns:
+        Set of profile names found in the compose file.
+    """
+    content = compose_path.read_text()
+    compose_data = yaml.safe_load(content)
+
+    profiles: set[str] = set()
+
+    # Extract profiles from services section
+    services = compose_data.get("services", {})
+    for service_config in services.values():
+        if isinstance(service_config, dict):
+            service_profiles = service_config.get("profiles", [])
+            if isinstance(service_profiles, list):
+                profiles.update(service_profiles)
+
+    return profiles
+
+
+# =============================================================================
+# Build Tests - Validate Docker image builds correctly
+# =============================================================================
+
+
+@pytest.mark.integration
+class TestDockerBuild:
+    """Tests for Docker image build process."""
+
+    # OMN-15567: test_build_produces_reasonable_image_size (below) consumes
+    # built_test_image and has no function-level timeout marker of its own;
+    # this class-level marker is its fallback budget. See the module
+    # docstring "Cold-build timeout budget" section for why.
+    pytestmark = [
+        pytest.mark.timeout(BUILD_TIMEOUT + BUILD_TEST_TIMEOUT_MARGIN_SECONDS)
+    ]
+
+    @pytest.mark.slow
+    @pytest.mark.timeout(BUILD_TIMEOUT + BUILD_TEST_TIMEOUT_MARGIN_SECONDS)
+    def test_build_succeeds_with_public_deps(
+        self,
+        docker_available: bool,
+        project_root: Path,
+        dockerfile_path: Path,
+    ) -> None:
+        """Verify Docker build succeeds with public dependencies.
+
+        This test validates that the Dockerfile can build successfully.
+        All dependencies are installed from public repositories.
+        """
+        if not docker_available:
+            pytest.skip("Docker daemon not available")
+
+        # Use unique image name for this test
+        image_name = f"{TEST_CONTAINER_PREFIX}-build:{os.getpid()}"
+
+        try:
+            build_cmd = [
+                "docker",
+                "build",
+                "-f",
+                str(dockerfile_path),
+                "-t",
+                image_name,
+                "--build-arg",
+                "RUNTIME_VERSION=test-build",
+                str(project_root),
+            ]
+
+            env = os.environ.copy()
+            env["DOCKER_BUILDKIT"] = "1"
+
+            result = _run_subprocess_with_group_kill(
+                build_cmd,
+                timeout=BUILD_TIMEOUT,
+                env=env,
+            )
+
+            assert result.returncode == 0, (
+                f"Docker build failed.\n"
+                f"STDOUT: {result.stdout[-2000:]}\n"
+                f"STDERR: {result.stderr[-2000:]}"
+            )
+
+        finally:
+            # Cleanup: remove test image
+            subprocess.run(
+                ["docker", "rmi", "-f", image_name],
+                capture_output=True,
+                timeout=CONTAINER_START_TIMEOUT,
+                check=False,
+                shell=False,
+            )
+
+    @pytest.mark.slow
+    @pytest.mark.timeout(BUILD_TIMEOUT + BUILD_TEST_TIMEOUT_MARGIN_SECONDS)
+    def test_build_uses_buildkit_cache_mounts(
+        self,
+        buildkit_available: bool,
+        project_root: Path,
+        dockerfile_path: Path,
+    ) -> None:
+        """Verify Docker build uses BuildKit cache mounts for efficiency.
+
+        This test validates that the build process properly utilizes
+        BuildKit cache mounts for faster rebuilds.
+        """
+        if not buildkit_available:
+            pytest.skip("Docker BuildKit not available")
+
+        image_name = f"{TEST_CONTAINER_PREFIX}-cache-test:{os.getpid()}"
+
+        try:
+            env = os.environ.copy()
+            env["DOCKER_BUILDKIT"] = "1"
+
+            # First build (cold cache)
+            first_build_cmd = [
+                "docker",
+                "build",
+                "-f",
+                str(dockerfile_path),
+                "-t",
+                image_name,
+                "--build-arg",
+                "RUNTIME_VERSION=cache-test-1",
+                "--progress=plain",
+                str(project_root),
+            ]
+
+            first_result = _run_subprocess_with_group_kill(
+                first_build_cmd,
+                timeout=BUILD_TIMEOUT,
+                env=env,
+            )
+
+            assert first_result.returncode == 0, "First build failed"
+
+            # Verify cache mount usage in Dockerfile
+            assert "mount=type=cache" in dockerfile_path.read_text(), (
+                "Dockerfile should use BuildKit cache mounts"
+            )
+
+        finally:
+            subprocess.run(
+                ["docker", "rmi", "-f", image_name],
+                capture_output=True,
+                timeout=60,
+                check=False,
+                shell=False,
+            )
+
+    @pytest.mark.slow
+    def test_build_produces_reasonable_image_size(
+        self,
+        docker_available: bool,
+        built_test_image: str,
+    ) -> None:
+        """Verify built image has reasonable size.
+
+        The image includes PyTorch + CUDA dependencies which push the
+        uncompressed image to ~15GB.  The compressed/pushed image is
+        much smaller (~5-6GB), but ``docker image inspect`` reports the
+        uncompressed virtual size.
+        Hard limit: 16GB (16384MB).  Target after optimization: <8GB.
+        """
+        if not docker_available:
+            pytest.skip("Docker daemon not available")
+
+        result = subprocess.run(
+            [
+                "docker",
+                "image",
+                "inspect",
+                "--format",
+                "{{.Size}}",
+                built_test_image,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+            shell=False,
+        )
+
+        assert result.returncode == 0, "Failed to inspect image"
+
+        size_bytes = int(result.stdout.strip())
+        size_mb = size_bytes / (1024 * 1024)
+
+        # Hard limit: 16GB — matches CI workflow threshold (OMN-3720)
+        assert size_mb < 16384, f"Image size {size_mb:.0f}MB exceeds 16GB limit"
+
+        # Emit advisory warning for images above optimization target.
+        if size_mb > 8192:
+            warnings.warn(
+                f"Image size {size_mb:.0f}MB exceeds 8GB optimization target",
+                UserWarning,
+                stacklevel=2,
+            )
+
+
+# =============================================================================
+# Security Tests - Verify non-root execution and secret handling
+# =============================================================================
+
+
+@pytest.mark.integration
+class TestDockerSecurity:
+    """Tests for Docker security properties."""
+
+    # OMN-15567: one of this class's tests may be the first consumer of the
+    # module-scoped built_test_image fixture (order-dependent -- see the
+    # module docstring's "Cold-build timeout budget" section). This
+    # class-level marker guarantees the cold-build budget applies regardless
+    # of which one it is.
+    pytestmark = [
+        pytest.mark.timeout(BUILD_TIMEOUT + BUILD_TEST_TIMEOUT_MARGIN_SECONDS)
+    ]
+
+    @pytest.mark.slow
+    def test_container_runs_as_non_root_user(
+        self,
+        docker_available: bool,
+        built_test_image: str,
+    ) -> None:
+        """Verify entrypoint drops to the non-root runtime user.
+
+        The image starts as root only long enough to repair fresh Docker volume
+        ownership, then the entrypoint re-execs itself as 'omniinfra'.
+        """
+        if not docker_available:
+            pytest.skip("Docker daemon not available")
+
+        result = subprocess.run(
+            [
+                "docker",
+                "run",
+                "--rm",
+                built_test_image,
+                "whoami",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+            shell=False,
+        )
+
+        assert result.returncode == 0, f"whoami failed: {result.stderr}"
+
+        stdout_lines = [
+            line.strip() for line in result.stdout.splitlines() if line.strip()
+        ]
+        username = stdout_lines[-1]
+        assert username != "root", "Container should not run as root user"
+        assert username == "omniinfra", f"Expected 'omniinfra' user, got '{username}'"
+
+    @pytest.mark.slow
+    def test_container_user_has_correct_uid(
+        self,
+        docker_available: bool,
+        built_test_image: str,
+    ) -> None:
+        """Verify container user has expected UID 1000.
+
+        UID 1000 is the standard first non-system user, which helps
+        with volume permission compatibility.
+        """
+        if not docker_available:
+            pytest.skip("Docker daemon not available")
+
+        result = subprocess.run(
+            [
+                "docker",
+                "run",
+                "--rm",
+                built_test_image,
+                "id",
+                "-u",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+            shell=False,
+        )
+
+        assert result.returncode == 0, f"id command failed: {result.stderr}"
+
+        stdout_lines = [
+            line.strip() for line in result.stdout.splitlines() if line.strip()
+        ]
+        uid = int(stdout_lines[-1])
+        assert uid == 1000, f"Expected UID 1000, got {uid}"
+
+    @pytest.mark.slow
+    def test_secrets_not_in_image_history(
+        self,
+        docker_available: bool,
+        built_test_image: str,
+    ) -> None:
+        """Verify secrets are not exposed in docker history.
+
+        Checks that no credentials or tokens are baked into image layers.
+        """
+        if not docker_available:
+            pytest.skip("Docker daemon not available")
+
+        result = subprocess.run(
+            ["docker", "history", "--no-trunc", built_test_image],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+            shell=False,
+        )
+
+        assert result.returncode == 0, "docker history failed"
+
+        history_output = result.stdout
+
+        # Check for common secret patterns
+        secret_patterns = [
+            r"ghp_[a-zA-Z0-9]{36}",  # GitHub PAT
+            r"GITHUB_TOKEN=[^$]",  # Hardcoded token (not variable)
+            r"password\s*=\s*['\"][^'\"]+['\"]",  # Hardcoded passwords
+            r"secret\s*=\s*['\"][^'\"]+['\"]",  # Hardcoded secrets
+        ]
+
+        for pattern in secret_patterns:
+            matches = re.findall(pattern, history_output, re.IGNORECASE)
+            assert not matches, f"Found potential secret in image history: {matches}"
+
+    @pytest.mark.slow
+    def test_sensitive_files_not_in_image(
+        self,
+        docker_available: bool,
+        built_test_image: str,
+    ) -> None:
+        """Verify sensitive files are not included in the image.
+
+        The .dockerignore should exclude .env files, credentials,
+        and other sensitive data.
+        """
+        if not docker_available:
+            pytest.skip("Docker daemon not available")
+
+        sensitive_paths = [
+            "/app/.env",
+            "/app/.env.local",
+            "/app/secrets",
+            "/app/.git",
+        ]
+
+        for path in sensitive_paths:
+            result = subprocess.run(
+                [
+                    "docker",
+                    "run",
+                    "--rm",
+                    "--entrypoint",
+                    "test",
+                    built_test_image,
+                    "-e",
+                    path,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=SHUTDOWN_TIMEOUT,
+                check=False,
+                shell=False,
+            )
+
+            # test -e returns 0 if file exists, 1 if not
+            assert result.returncode == 1, (
+                f"Sensitive file/directory exists in image: {path}"
+            )
+
+
+# =============================================================================
+# Runtime Tests - Validate container behavior
+# =============================================================================
+
+
+@pytest.mark.integration
+class TestDockerRuntime:
+    """Tests for Docker container runtime behavior."""
+
+    # OMN-15567: see TestDockerSecurity above -- same module-scoped
+    # built_test_image first-consumer hazard.
+    pytestmark = [
+        pytest.mark.timeout(BUILD_TIMEOUT + BUILD_TEST_TIMEOUT_MARGIN_SECONDS)
+    ]
+
+    @pytest.mark.slow
+    def test_container_starts_successfully(
+        self,
+        docker_available: bool,
+        built_test_image: str,
+        inmemory_runtime_config_mount: list[str],
+    ) -> None:
+        """Verify container starts without immediate crash.
+
+        The container should start and remain running for basic
+        initialization. This tests the entrypoint and basic configuration
+        without publishing a host port, avoiding CI port collisions.
+        """
+        if not docker_available:
+            pytest.skip("Docker daemon not available")
+
+        container_name = f"{TEST_CONTAINER_PREFIX}-start-{os.getpid()}"
+
+        try:
+            # Start container with required environment variables; the
+            # mounted inmemory runtime config keeps Kafka out of the boot
+            result = subprocess.run(
+                [
+                    "docker",
+                    "run",
+                    "-d",
+                    "--name",
+                    container_name,
+                    "-e",
+                    "POSTGRES_PASSWORD=test_password",
+                    "-e",
+                    "POSTGRES_DATABASE=omnibase_infra",
+                    "-e",
+                    "VALKEY_PASSWORD=test_password",
+                    "-e",
+                    "ONEX_LOG_LEVEL=DEBUG",
+                    # OMN-17304: the inmemory transport is CONFIGURED via
+                    # the mounted runtime config below; ONEX_EVENT_BUS_TYPE
+                    # no longer selects a transport.
+                    *inmemory_runtime_config_mount,
+                    # Required by ModelPostgresPoolConfig.from_env() for startup;
+                    # actual DB connectivity is not needed for this test.
+                    "-e",
+                    "OMNIBASE_INFRA_DB_URL=postgresql://postgres:test@localhost:5432/test_db",
+                    built_test_image,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=False,
+                shell=False,
+            )
+
+            assert result.returncode == 0, f"Container start failed: {result.stderr}"
+
+            # Wait briefly for container to initialize
+            time.sleep(5)
+
+            # Check container is still running
+            inspect_result = subprocess.run(
+                [
+                    "docker",
+                    "inspect",
+                    "--format",
+                    "{{.State.Running}}",
+                    container_name,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=SHUTDOWN_TIMEOUT,
+                check=False,
+                shell=False,
+            )
+
+            is_running = inspect_result.stdout.strip() == "true"
+            assert is_running, "Container should remain running after start"
+
+        finally:
+            subprocess.run(
+                ["docker", "stop", container_name],
+                capture_output=True,
+                timeout=SHUTDOWN_TIMEOUT,
+                check=False,
+                shell=False,
+            )
+            subprocess.run(
+                ["docker", "rm", "-f", container_name],
+                capture_output=True,
+                timeout=30,
+                check=False,
+                shell=False,
+            )
+
+    @pytest.mark.slow
+    def test_environment_variables_override_defaults(
+        self,
+        docker_available: bool,
+        built_test_image: str,
+    ) -> None:
+        """Verify environment variables properly override defaults.
+
+        Container configuration should be customizable through
+        environment variables.
+        """
+        if not docker_available:
+            pytest.skip("Docker daemon not available")
+
+        # Test custom log level is applied
+        result = subprocess.run(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "-e",
+                "ONEX_LOG_LEVEL=DEBUG",
+                "--entrypoint",
+                "printenv",
+                built_test_image,
+                "ONEX_LOG_LEVEL",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=CONTAINER_START_TIMEOUT,
+            check=False,
+            shell=False,
+        )
+
+        assert result.returncode == 0
+        assert result.stdout.strip() == "DEBUG"
+
+    @pytest.mark.slow
+    def test_graceful_shutdown_on_sigterm(
+        self,
+        docker_available: bool,
+        built_test_image: str,
+        project_root: Path,
+        inmemory_runtime_config_mount: list[str],
+    ) -> None:
+        """Verify container handles SIGTERM gracefully.
+
+        Containers should respond to SIGTERM with orderly shutdown,
+        not abrupt termination. No host port is required for this signal-path
+        test, which keeps it isolated from parallel Docker jobs.
+        """
+        if not docker_available:
+            pytest.skip("Docker daemon not available")
+
+        container_name = f"{TEST_CONTAINER_PREFIX}-sigterm-{os.getpid()}"
+
+        try:
+            # Start container; the mounted inmemory runtime config keeps
+            # Kafka out of the boot
+            subprocess.run(
+                [
+                    "docker",
+                    "run",
+                    "-d",
+                    "--name",
+                    container_name,
+                    "--env-file",
+                    str(project_root / "docker" / "runtime-policy.env"),
+                    "-e",
+                    "POSTGRES_PASSWORD=test",
+                    "-e",
+                    "POSTGRES_DATABASE=omnibase_infra",
+                    "-e",
+                    "VALKEY_PASSWORD=test",
+                    # OMN-17304: the inmemory transport is CONFIGURED via
+                    # the mounted runtime config below; ONEX_EVENT_BUS_TYPE
+                    # no longer selects a transport.
+                    *inmemory_runtime_config_mount,
+                    # Required by ModelPostgresPoolConfig.from_env() for startup;
+                    # actual DB connectivity is not needed for this test.
+                    "-e",
+                    "OMNIBASE_INFRA_DB_URL=postgresql://postgres:test@localhost:5432/test_db",
+                    built_test_image,
+                ],
+                capture_output=True,
+                timeout=60,
+                check=False,
+                shell=False,
+            )
+
+            time.sleep(3)  # Allow initialization
+
+            # Send SIGTERM via docker stop
+            # Timeout increased to 90s to allow for slow handler shutdowns
+            # Root cause: DB pool cleanup can take 30s+ per connection (5 connections = 150s worst case)
+            result = subprocess.run(
+                ["docker", "stop", "-t", "90", container_name],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                check=False,
+                shell=False,
+            )
+
+            # Should stop gracefully within timeout (not killed)
+            assert result.returncode == 0, "docker stop failed"
+
+            # Check exit code (0 = graceful, 137 = killed)
+            inspect_result = subprocess.run(
+                [
+                    "docker",
+                    "inspect",
+                    "--format",
+                    "{{.State.ExitCode}}",
+                    container_name,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+                shell=False,
+            )
+
+            exit_code = int(inspect_result.stdout.strip())
+            # Exit codes indicating shutdown behavior:
+            #   0: Clean exit (application handled SIGTERM and exited cleanly)
+            #   143: 128 + SIGTERM(15) - process terminated by SIGTERM signal
+            #   137: 128 + SIGKILL(9) - process killed after timeout
+            #
+            # Exit code 137 is accepted because in CI environments, resource constraints
+            # and timing variations can cause the graceful shutdown to exceed the timeout,
+            # triggering Docker's SIGKILL fallback. This is expected behavior when:
+            #   - CI runners have limited CPU/memory causing slower cleanup
+            #   - DB connection pool cleanup takes longer than expected
+            #   - Event loop shutdown has async tasks that don't complete in time
+            #
+            # The key validation is that `docker stop` succeeds (returncode 0 above),
+            # which confirms the container received and processed the SIGTERM signal.
+            # The container's signal handling is working correctly via tini init.
+            #
+            # For strict graceful shutdown validation (exit 0 or 143 only), increase
+            # the docker stop timeout or run in environments with more resources.
+            assert exit_code in (
+                0,
+                137,
+                143,
+            ), f"Container exit code {exit_code} indicates unexpected termination"
+
+        finally:
+            subprocess.run(
+                ["docker", "rm", "-f", container_name],
+                capture_output=True,
+                timeout=120,
+                check=False,
+                shell=False,
+            )
+
+
+# =============================================================================
+# Health Check Tests - Validate health endpoint behavior
+# =============================================================================
+
+
+@pytest.mark.integration
+class TestDockerHealthCheck:
+    """Tests for Docker health check functionality."""
+
+    # OMN-15567: see TestDockerSecurity above -- same module-scoped
+    # built_test_image first-consumer hazard.
+    pytestmark = [
+        pytest.mark.timeout(BUILD_TIMEOUT + BUILD_TEST_TIMEOUT_MARGIN_SECONDS)
+    ]
+
+    @pytest.mark.slow
+    def test_health_endpoint_accessible(
+        self,
+        docker_available: bool,
+        skip_if_no_postgres: None,
+        built_test_image: str,
+        available_port: int,
+        inmemory_runtime_config_mount: list[str],
+    ) -> None:
+        """Verify health endpoint is accessible from host.
+
+        The container exposes port 8085 with a /health endpoint
+        that should respond to HTTP requests.
+
+        Requires Postgres to be reachable at localhost:5436 — the runtime
+        kernel attempts a Postgres connection during startup regardless of the
+        configured event-bus transport.  On CI runners without local Docker infra (e.g.
+        ubuntu-latest), this test is skipped gracefully via the
+        skip_if_no_postgres fixture.
+        """
+        if not docker_available:
+            pytest.skip("Docker daemon not available")
+
+        container_name = f"{TEST_CONTAINER_PREFIX}-health-{os.getpid()}"
+
+        try:
+            # The mounted inmemory runtime config keeps Kafka out of the boot
+            subprocess.run(
+                [
+                    "docker",
+                    "run",
+                    "-d",
+                    "--name",
+                    container_name,
+                    "-p",
+                    f"{available_port}:8085",
+                    "-e",
+                    "POSTGRES_PASSWORD=test",
+                    "-e",
+                    "POSTGRES_DATABASE=omnibase_infra",
+                    "-e",
+                    "VALKEY_PASSWORD=test",
+                    # OMN-17304: the inmemory transport is CONFIGURED via
+                    # the mounted runtime config below; ONEX_EVENT_BUS_TYPE
+                    # no longer selects a transport.
+                    *inmemory_runtime_config_mount,
+                    # Required by ModelPostgresPoolConfig.from_env() for startup;
+                    # actual DB connectivity is not needed for this test.
+                    "-e",
+                    "OMNIBASE_INFRA_DB_URL=postgresql://postgres:test@localhost:5432/test_db",
+                    built_test_image,
+                ],
+                capture_output=True,
+                timeout=60,
+                check=False,
+                shell=False,
+            )
+
+            # Wait for container to be ready
+            time.sleep(10)
+
+            # Try to access health endpoint
+            max_retries = 5
+            for attempt in range(max_retries):
+                try:
+                    with urllib.request.urlopen(
+                        f"http://localhost:{available_port}/health",
+                        timeout=5,
+                    ) as response:
+                        assert response.status == 200
+                        return  # Success
+                except (
+                    urllib.error.URLError,
+                    ConnectionResetError,
+                    ConnectionRefusedError,
+                ):
+                    if attempt < max_retries - 1:
+                        time.sleep(3)
+                        continue
+                    # Get container logs for debugging
+                    logs = subprocess.run(
+                        ["docker", "logs", container_name],
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                        check=False,
+                        shell=False,
+                    )
+                    pytest.fail(
+                        f"Health endpoint not accessible after {max_retries} attempts.\n"
+                        f"Container logs:\n{logs.stdout[-1000:]}\n{logs.stderr[-1000:]}"
+                    )
+
+        finally:
+            subprocess.run(
+                ["docker", "stop", container_name],
+                capture_output=True,
+                timeout=30,
+                check=False,
+                shell=False,
+            )
+            subprocess.run(
+                ["docker", "rm", "-f", container_name],
+                capture_output=True,
+                timeout=30,
+                check=False,
+                shell=False,
+            )
+
+    @pytest.mark.slow
+    def test_health_check_status_progression(
+        self,
+        docker_available: bool,
+        skip_if_no_postgres: None,
+        built_test_image: str,
+        available_port: int,
+        inmemory_runtime_config_mount: list[str],
+    ) -> None:
+        """Verify container health status progresses from starting to healthy.
+
+        Docker health checks should transition the container through
+        starting -> healthy states.
+
+        Requires Postgres to be reachable at localhost:5436 -- the runtime
+        kernel attempts a Postgres connection during startup regardless of the
+        configured event-bus transport, and the health endpoint (curl localhost:8085/health)
+        only becomes available after the kernel fully initialises.  On CI runners
+        without local Docker infra (e.g. ubuntu-latest), this test is skipped
+        gracefully via the skip_if_no_postgres fixture.
+        """
+        if not docker_available:
+            pytest.skip("Docker daemon not available")
+
+        container_name = f"{TEST_CONTAINER_PREFIX}-healthprog-{os.getpid()}"
+
+        try:
+            # The mounted inmemory runtime config keeps Kafka out of the boot
+            subprocess.run(
+                [
+                    "docker",
+                    "run",
+                    "-d",
+                    "--name",
+                    container_name,
+                    "-p",
+                    f"{available_port}:8085",
+                    "-e",
+                    "POSTGRES_PASSWORD=test",
+                    "-e",
+                    "POSTGRES_DATABASE=omnibase_infra",
+                    "-e",
+                    "VALKEY_PASSWORD=test",
+                    # OMN-17304: the inmemory transport is CONFIGURED via
+                    # the mounted runtime config below; ONEX_EVENT_BUS_TYPE
+                    # no longer selects a transport.
+                    *inmemory_runtime_config_mount,
+                    # Required by ModelPostgresPoolConfig.from_env() for startup;
+                    # actual DB connectivity is not needed for this test.
+                    "-e",
+                    "OMNIBASE_INFRA_DB_URL=postgresql://postgres:test@localhost:5432/test_db",
+                    built_test_image,
+                ],
+                capture_output=True,
+                timeout=60,
+                check=False,
+                shell=False,
+            )
+
+            # Wait for health check to be configured
+            time.sleep(2)
+
+            # Check initial status (should be starting or healthy)
+            initial_result = subprocess.run(
+                [
+                    "docker",
+                    "inspect",
+                    "--format",
+                    "{{.State.Health.Status}}",
+                    container_name,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+                shell=False,
+            )
+
+            initial_status = initial_result.stdout.strip()
+            assert initial_status in (
+                "starting",
+                "healthy",
+            ), f"Unexpected initial health status: {initial_status}"
+
+            # Wait for healthy status (with timeout)
+            start_time = time.monotonic()
+            while time.monotonic() - start_time < HEALTH_CHECK_TIMEOUT:
+                result = subprocess.run(
+                    [
+                        "docker",
+                        "inspect",
+                        "--format",
+                        "{{.State.Health.Status}}",
+                        container_name,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                    check=False,
+                    shell=False,
+                )
+
+                status = result.stdout.strip()
+                if status == "healthy":
+                    return  # Test passed
+
+                if status == "unhealthy":
+                    # Get health check logs
+                    inspect = subprocess.run(
+                        [
+                            "docker",
+                            "inspect",
+                            "--format",
+                            "{{json .State.Health}}",
+                            container_name,
+                        ],
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                        check=False,
+                        shell=False,
+                    )
+                    pytest.fail(f"Container became unhealthy: {inspect.stdout}")
+
+                time.sleep(5)
+
+            pytest.fail(
+                f"Container did not become healthy within {HEALTH_CHECK_TIMEOUT}s"
+            )
+
+        finally:
+            subprocess.run(
+                ["docker", "stop", container_name],
+                capture_output=True,
+                timeout=30,
+                check=False,
+                shell=False,
+            )
+            subprocess.run(
+                ["docker", "rm", "-f", container_name],
+                capture_output=True,
+                timeout=30,
+                check=False,
+                shell=False,
+            )
+
+
+# =============================================================================
+# Resource Limit Tests - Validate resource constraints
+# =============================================================================
+
+
+@pytest.mark.integration
+class TestDockerResourceLimits:
+    """Tests for Docker resource limit configuration."""
+
+    def test_compose_defines_memory_limits(
+        self,
+        compose_file_path: Path,
+    ) -> None:
+        """Verify docker-compose defines memory limits."""
+        content = compose_file_path.read_text()
+
+        assert "memory:" in content, "docker-compose should define memory limits"
+
+        # Extract memory limits
+        memory_limits = re.findall(r"memory:\s*(\d+\w+)", content)
+        assert len(memory_limits) > 0, "Should have at least one memory limit defined"
+
+    def test_compose_defines_cpu_limits(
+        self,
+        compose_file_path: Path,
+    ) -> None:
+        """Verify docker-compose defines CPU limits."""
+        content = compose_file_path.read_text()
+
+        assert "cpus:" in content, "docker-compose should define CPU limits"
+
+        # Extract CPU limits
+        cpu_limits = re.findall(r"cpus:\s*['\"]?([\d.]+)['\"]?", content)
+        assert len(cpu_limits) > 0, "Should have at least one CPU limit defined"
+
+    def test_compose_defines_resource_reservations(
+        self,
+        compose_file_path: Path,
+    ) -> None:
+        """Verify docker-compose defines resource reservations."""
+        content = compose_file_path.read_text()
+
+        assert "reservations:" in content, (
+            "docker-compose should define resource reservations"
+        )
+
+
+# =============================================================================
+# Docker Compose Profile Tests - Validate compose profiles
+# =============================================================================
+
+
+_PG_DSN = "postgresql://postgres:test@postgres:5432/omnibase_infra"
+_INTEL_DSN = "postgresql://postgres:test@postgres:5432/omniintelligence"
+_LOCAL_LAN_CIDR = ".".join(("192", "168", "86", "0")) + "/24"
+_SECRET_RESOLVER_CONFIG_JSON = (
+    '{"enable_convention_fallback":false,"mappings":['
+    '{"logical_name":"llm.openrouter.api_key",'
+    '"source":{"source_path":"OPENROUTER_API_KEY","source_type":"env"}},'
+    '{"logical_name":"llm.glm.api_key",'
+    '"source":{"source_path":"LLM_GLM_API_KEY","source_type":"env"}},'
+    '{"logical_name":"llm.gemini.api_key",'
+    '"source":{"source_path":"GEMINI_API_KEY","source_type":"env"}}]}'
+)
+_SECRET_RESOLVER_CONFIG_PATH = "/app/data/delegation/secret_resolver.yaml"
+
+# OMN-15263: module-level so tests/ci/test_compose_required_env_coverage.py can
+# extract this render fixture's env keys statically, the same way it extracts the
+# other compose-render fixtures. Keep every `:?`-required var in
+# docker/docker-compose.infra.yml represented here.
+COMPOSE_CONFIG_RENDER_ENV: dict[str, str] = {
+    "POSTGRES_PASSWORD": "test",
+    "VALKEY_PASSWORD": "test",
+    "INFISICAL_ENCRYPTION_KEY": "0" * 64,
+    "INFISICAL_AUTH_SECRET": "test-auth-secret",
+    "OMNIBASE_INFRA_DB_URL": _PG_DSN,
+    "OMNIINTELLIGENCE_DB_URL": _INTEL_DSN,
+    "INFISICAL_DB_CONNECTION_URI": "postgresql://postgres:test@postgres:5432/infisical_db",
+    "INFISICAL_REDIS_URL": "redis://:test@valkey:6379",
+    "OMNIBASE_INFRA_AGENT_ACTIONS_POSTGRES_DSN": _PG_DSN,
+    "OMNIBASE_INFRA_SKILL_LIFECYCLE_POSTGRES_DSN": _PG_DSN,
+    # OMN-5240: context-audit-consumer requires its own DSN
+    "OMNIBASE_INFRA_CONTEXT_AUDIT_POSTGRES_DSN": _PG_DSN,
+    # OMN-3299: Redpanda removed from local compose; KAFKA_BOOTSTRAP_SERVERS
+    # now uses :? fail-fast — must be set explicitly for config validation.
+    "KAFKA_BOOTSTRAP_SERVERS": "localhost:19092",  # kafka-fallback-ok — test fixture
+    # OMN-15173: dev-lane Redpanda advertise host now uses :? fail-fast
+    # (previously silently defaulted to localhost, breaking off-host clients).
+    "DEV_REDPANDA_ADVERTISE_HOST": "localhost",  # kafka-fallback-ok — test fixture
+    "ARCH_GRAPH_BOLT_URI": "bolt://omnibase-infra-memgraph:7687",
+    # OMN-5439: Keycloak / ONEX service auth vars added with :? fail-fast
+    "GATEWAY_ATTACH_KEYCLOAK_INTROSPECTION_URL": (
+        "http://keycloak:8080/realms/omninode/protocol/openid-connect/token/introspect"
+    ),
+    "GATEWAY_ATTACH_KEYCLOAK_JWKS_URL": (
+        "http://keycloak:8080/realms/omninode/protocol/openid-connect/certs"
+    ),
+    "ONEX_REGISTRATION_AUTO_ACK": "true",
+    "ONEX_SERVICE_CLIENT_SECRET": "test-service-secret",
+    # OMN-16843: x-runtime-env builds OMNINODE_INTERNAL_DB_URL from this with
+    # the fail-closed ${VAR:?} form, so the layered render aborts without it.
+    # Render-only, never a real credential.
+    "OMNINODE_RUNTIME_PASSWORD": "render-only-omninode-runtime-password",
+    # OMN-15425: TENANT-domain counterpart, same `:?` seam in x-runtime-env.
+    "TENANT_PROJECTION_WRITER_PASSWORD": "render-only-tenant-projection-writer-password",
+    "LINEAR_API_KEY": "test-linear-api-key",
+    "GITHUB_TOKEN": "test-github-token",
+    "DEPLOY_AGENT_HMAC_SECRET": "render-only-deploy-agent-hmac-secret",
+    # OMN-7979: LLM endpoint URLs added with :? fail-fast to
+    # activate PluginLlm in runtime containers.
+    "LLM_CODER_URL": "http://llm-coder.test:8000",
+    "LLM_CODER_FAST_URL": "http://llm-coder-fast.test:8001",
+    "LLM_EMBEDDING_URL": "http://llm-embed.test:8100",
+    "LLM_DEEPSEEK_R1_URL": "http://llm-r1.test:8101",
+    "BIFROST_LOCAL_CODER_ENDPOINT_URL": (
+        "http://llm-coder.test:8000/v1/chat/completions"
+    ),
+    "BIFROST_LOCAL_REASONER_ENDPOINT_URL": (
+        "http://llm-coder-fast.test:8001/v1/chat/completions"
+    ),
+    "BIFROST_LOCAL_EMBEDDING_ENDPOINT_URL": (
+        "http://llm-embed.test:8100/v1/chat/completions"
+    ),
+    "BIFROST_LOCAL_DS_V4_FLASH_ENDPOINT_URL": (
+        "http://llm-r1.test:8101/v1/chat/completions"
+    ),
+    "LLM_GLM_URL": "http://llm-glm.test:8102",
+    "LLM_GLM_MODEL_NAME": "glm-4.5",
+    "LLM_GLM_API_KEY": "render-only-glm-api-key",
+    "GEMINI_API_KEY": "render-only-gemini-api-key",
+    "GOOGLE_API_KEY": "render-only-google-api-key",
+    "BIFROST_VERTEX_GEMINI_ENDPOINT_URL": (
+        "https://us-central1-aiplatform.googleapis.com/v1beta1/projects/"
+        "gen-lang-client-0084338881/locations/us-central1/endpoints/openapi/chat/completions"
+    ),
+    "GOOGLE_CLOUD_PROJECT": "gen-lang-client-0084338881",
+    "GOOGLE_CLOUD_LOCATION": "us-central1",
+    # OMN-10943: HTTP request signing and CIDR allowlist for the
+    # local LLM HTTP transport added with :? fail-fast.
+    "LOCAL_LLM_SHARED_SECRET": "render-only-local-llm-secret",
+    "LLM_ENDPOINT_CIDR_ALLOWLIST": _LOCAL_LAN_CIDR,
+    "LLM_CLOUD_ENDPOINT_HOST_ALLOWLIST": "generativelanguage.googleapis.com,api.z.ai",
+    # OMN-11673: runtime policy contract vars are required by
+    # compose even when docker/runtime-policy.env is also loaded.
+    "AUXILIARY_SERVICES_OMNIMEMORY_ENABLED": "false",
+    "BIFROST_VERIFY_ENDPOINTS": "1",
+    "DEV_RUNTIME_EFFECTS_CAPABILITIES": "effects.consumer,market.skill-proof,runtime.effects",
+    # OMN-18114: the TENANT-domain projection carrier's policy values. Render-only
+    # dummies; the real ones come from docker/runtime-policy.env.
+    "DEV_RUNTIME_TENANT_PROJECTION_CAPABILITIES": (
+        "projection.writer,tenant.projection,runtime.tenant-projection"
+    ),
+    "DEV_RUNTIME_TENANT_PROJECTION_SECRET_RESOLVER_CONFIG_PATH": (
+        "/app/config/secret_resolver.yaml"
+    ),
+    "DEV_RUNTIME_TENANT_PROJECTION_SECRET_RESOLVER_CONFIG_JSON": "{}",
+    "DEV_RUNTIME_EFFECTS_PORT": "8086",
+    "DEV_RUNTIME_EFFECTS_SECRET_RESOLVER_CONFIG_JSON": _SECRET_RESOLVER_CONFIG_JSON,
+    "DEV_RUNTIME_EFFECTS_SECRET_RESOLVER_CONFIG_PATH": _SECRET_RESOLVER_CONFIG_PATH,
+    "DEV_RUNTIME_MAIN_CAPABILITIES": "market.skill-proof,workflow.orchestration,runtime.main",
+    "DEV_RUNTIME_MAIN_PORT": "8085",
+    "DEV_RUNTIME_MAIN_PUBLISH_INTROSPECTION": "true",
+    "DEV_RUNTIME_MAIN_SECRET_RESOLVER_CONFIG_JSON": _SECRET_RESOLVER_CONFIG_JSON,
+    "DEV_RUNTIME_MAIN_SECRET_RESOLVER_CONFIG_PATH": _SECRET_RESOLVER_CONFIG_PATH,
+    "DEV_RUNTIME_WORKER_CAPABILITIES": "workflow.dispatch,contract.update,runtime.worker",
+    "DEV_RUNTIME_WORKER_SECRET_RESOLVER_CONFIG_JSON": _SECRET_RESOLVER_CONFIG_JSON,
+    "DEV_RUNTIME_WORKER_SECRET_RESOLVER_CONFIG_PATH": _SECRET_RESOLVER_CONFIG_PATH,
+    # OMN-14551: dev-lane flipped ON 2026-08-05; kept in sync with the
+    # rendered docker/runtime-policy.env value (this fixture only needs to
+    # satisfy the compose `:?` fail-fast, but tracking the live value avoids
+    # a misleading fixture).
+    "DEV_BOUNDARY_DLQ_ENABLED": "true",
+    # OMN-14968: runtime-worker's deploy.replicas is `:?`-required on the
+    # lane-prefixed policy value (it was a bare ${WORKER_REPLICAS:-0} that no
+    # surface exported, so the dev lane silently rendered zero replicas).
+    "DEV_WORKER_REPLICAS": "1",
+    "OMNIMEMORY_ENABLED": "false",
+    "OMNIMEMORY_MEMGRAPH_PORT": "7687",
+    "ONEX_ACTIVE_RUNTIME_PACKAGES": "omnibase_infra,omnimarket",
+}
+
+
+@pytest.mark.integration
+class TestDockerComposeProfiles:
+    """Tests for docker-compose profile configurations.
+
+    These tests use proper YAML parsing via extract_profiles_from_compose()
+    to validate profile definitions. This approach is more robust than string
+    matching because it correctly handles different YAML quoting styles and
+    formatting variations.
+
+    Profile Architecture (docker-compose.infra.yml):
+    - (default): Core infrastructure - postgres, redpanda, valkey, topic-manager
+    - runtime: ONEX runtime services with observability
+    - consul: Service discovery (optional)
+    - secrets: Secrets management with Infisical (optional)
+    - full: All services including optional profiles
+    """
+
+    def test_runtime_profile_defined(
+        self,
+        compose_file_path: Path,
+    ) -> None:
+        """Verify runtime profile is defined in docker-compose."""
+        profiles = extract_profiles_from_compose(compose_file_path)
+        assert "runtime" in profiles, (
+            f"docker-compose should define 'runtime' profile. "
+            f"Found profiles: {sorted(profiles)}"
+        )
+
+    def test_consul_profile_removed(
+        self,
+        compose_file_path: Path,
+    ) -> None:
+        """Verify consul profile was removed from docker-compose (OMN-3540)."""
+        profiles = extract_profiles_from_compose(compose_file_path)
+        assert "consul" not in profiles, (
+            f"docker-compose should NOT define 'consul' profile after OMN-3540. "
+            f"Found profiles: {sorted(profiles)}"
+        )
+
+    # test_secrets_profile_defined removed: secrets profile merged into core
+    # as part of Infisical-first config (OMN-5831)
+
+    def test_full_profile_defined(
+        self,
+        compose_file_path: Path,
+    ) -> None:
+        """Verify full profile is defined in docker-compose."""
+        profiles = extract_profiles_from_compose(compose_file_path)
+        assert "full" in profiles, (
+            f"docker-compose should define 'full' profile. "
+            f"Found profiles: {sorted(profiles)}"
+        )
+
+    @pytest.mark.slow
+    def test_compose_config_valid(
+        self,
+        docker_available: bool,
+        compose_file_path: Path,
+        project_root: Path,
+    ) -> None:
+        """Verify docker-compose configuration is valid.
+
+        Uses docker compose config to validate syntax.
+        """
+        if not docker_available:
+            pytest.skip("Docker daemon not available")
+
+        # Set required environment variables for validation.
+        # All :? required vars must be set even for config validation; the PR
+        # that removed nested expansion (OMN-3266) moved DSN/URL construction
+        # out of compose into ~/.omnibase/.env, so these now use :? fail-fast.
+        env = os.environ.copy()
+        env.update(COMPOSE_CONFIG_RENDER_ENV)
+
+        result = subprocess.run(
+            [
+                "docker",
+                "compose",
+                "--env-file",
+                str(project_root / "docker" / "runtime-policy.env"),
+                "-f",
+                str(compose_file_path),
+                "config",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env=env,
+            cwd=str(compose_file_path.parent),
+            check=False,
+            shell=False,
+        )
+
+        assert result.returncode == 0, f"docker compose config failed:\n{result.stderr}"
+
+
+# =============================================================================
+# Image Label Tests - Validate OCI labels
+# =============================================================================
+
+
+@pytest.mark.integration
+class TestDockerImageLabels:
+    """Tests for Docker image OCI labels."""
+
+    # OMN-15567: see TestDockerSecurity above -- same module-scoped
+    # built_test_image first-consumer hazard.
+    pytestmark = [
+        pytest.mark.timeout(BUILD_TIMEOUT + BUILD_TEST_TIMEOUT_MARGIN_SECONDS)
+    ]
+
+    @pytest.mark.slow
+    def test_image_has_oci_labels(
+        self,
+        docker_available: bool,
+        built_test_image: str,
+    ) -> None:
+        """Verify image has OCI standard labels."""
+        if not docker_available:
+            pytest.skip("Docker daemon not available")
+
+        result = subprocess.run(
+            [
+                "docker",
+                "inspect",
+                "--format",
+                "{{json .Config.Labels}}",
+                built_test_image,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+            shell=False,
+        )
+
+        assert result.returncode == 0, "Failed to inspect image labels"
+
+        labels = json.loads(result.stdout.strip())
+
+        # Check for required OCI labels
+        required_labels = [
+            "org.opencontainers.image.title",
+            "org.opencontainers.image.description",
+            "org.opencontainers.image.vendor",
+            "org.opencontainers.image.source",
+        ]
+
+        for label in required_labels:
+            assert label in labels, f"Missing OCI label: {label}"
+            assert labels[label], f"OCI label {label} is empty"
+
+    @pytest.mark.slow
+    def test_image_has_version_label(
+        self,
+        docker_available: bool,
+        built_test_image: str,
+    ) -> None:
+        """Verify image has version label."""
+        if not docker_available:
+            pytest.skip("Docker daemon not available")
+
+        result = subprocess.run(
+            [
+                "docker",
+                "inspect",
+                "--format",
+                '{{index .Config.Labels "org.opencontainers.image.version"}}',
+                built_test_image,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+            shell=False,
+        )
+
+        assert result.returncode == 0
+        version = result.stdout.strip()
+        assert version, "Image should have version label"

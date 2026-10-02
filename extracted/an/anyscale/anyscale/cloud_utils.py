@@ -20,9 +20,7 @@ log = BlockLogger()
 
 def get_cloud_json_from_id(cloud_id: str, api_client: DefaultApi) -> Dict["str", Any]:
     try:
-        cloud = api_client.get_cloud_api_v2_clouds_cloud_id_get(
-            cloud_id=cloud_id
-        ).result
+        cloud = api_client.get_cloud_api_v2_clouds_cloud_id_get(cloud_id=cloud_id).result
     except ApiException:
         return {
             "error": {
@@ -60,9 +58,7 @@ def get_cloud_id_and_name(
         )
         cloud = resp_get_cloud.result
     elif cloud_id:
-        resp_get_cloud = api_client.get_cloud_api_v2_clouds_cloud_id_get(
-            cloud_id=cloud_id
-        )
+        resp_get_cloud = api_client.get_cloud_api_v2_clouds_cloud_id_get(cloud_id=cloud_id)
 
         cloud = resp_get_cloud.result
     else:
@@ -96,13 +92,16 @@ def get_cloud_id_and_name(
 
 
 def get_cloud_resource_id_by_name(
-    cloud_id: str, cloud_resource_name: str, api_client: Optional[DefaultApi] = None,
+    cloud_id: str,
+    cloud_resource_name: str,
+    api_client: Optional[DefaultApi] = None,
 ) -> str:
     if api_client is None:
         api_client = get_auth_api_client().api_client
 
     cloud_resource = api_client.find_cloud_resource_by_name_api_v2_clouds_cloud_id_find_cloud_resource_by_name_post(
-        cloud_id=cloud_id, cloud_resource_name=cloud_resource_name,
+        cloud_id=cloud_id,
+        cloud_resource_name=cloud_resource_name,
     ).result
     return cloud_resource.cloud_resource_id
 
@@ -170,8 +169,7 @@ def get_last_used_cloud(
 
     cloud_name = cloud.name
     log.debug(
-        f"Using last active cloud '{cloud_name}'. "
-        "Specify `cloud` in the command to overwrite."
+        f"Using last active cloud '{cloud_name}'. Specify `cloud` in the command to overwrite."
     )
     return cast(str, cloud_name)
 
@@ -228,6 +226,4 @@ def get_organization_id(api_client: DefaultApi) -> str:
     if user.organizations:
         organization = user.organizations[0]  # Each user only has one org
         return organization.id
-    raise click.ClickException(
-        "No organization found. Please contact Anyscale support for help."
-    )
+    raise click.ClickException("No organization found. Please contact Anyscale support for help.")

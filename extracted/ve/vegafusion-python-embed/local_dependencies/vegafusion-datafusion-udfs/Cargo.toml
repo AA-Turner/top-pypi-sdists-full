@@ -1,0 +1,21 @@
+[package]
+name = "vegafusion-datafusion-udfs"
+license = "BSD-3-Clause"
+version = "1.6.9"
+edition = "2021"
+description = "Custom DataFusion UDFs used by VegaFusion"
+resolver = "2"
+
+[dependencies]
+ordered-float = "3.6.0"
+lazy_static = "^1.4.0"
+chrono-tz = "0.8.1"
+regex = "^1.5.5"
+chrono = { version = "0.4.31", default_features = false }
+
+[dependencies.vegafusion-common]
+path = "../vegafusion-common"
+version = "1.6.9"
+
+[dependencies.datafusion-physical-expr]
+version = "36.0.0"

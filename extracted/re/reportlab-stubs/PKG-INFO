@@ -1,0 +1,33 @@
+Metadata-Version: 2.1
+Name: reportlab_stubs
+Version: 3.6.9.post0
+Summary: Typing stubs for ReportLab
+Home-page: https://github.com/eggplants/reportlab-stubs
+Author: eggplants
+Author-email: w10776e8w@yahoo.co.jp
+License: BSD License
+Platform: UNKNOWN
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python
+Description-Content-Type: text/markdown
+Provides-Extra: dev
+
+# reportlab-stubs
+
+[![Release Package](
+  https://github.com/eggplants/reportlab-stubs/actions/workflows/release.yml/badge.svg
+  )](
+  https://github.com/eggplants/reportlab-stubs/actions/workflows/release.yml
+) [![PyPI](
+  https://img.shields.io/pypi/v/reportlab-stubs?color=blue
+  )](
+  https://pypi.org/project/reportlab-stubs/
+) [![pre-commit.ci status](
+  https://results.pre-commit.ci/badge/github/eggplants/reportlab-stubs/master.svg
+  )](
+  https://results.pre-commit.ci/latest/github/eggplants/reportlab-stubs/master
+)
+
+Typing stubs for [ReportLab](https://www.reportlab.com)
+
+

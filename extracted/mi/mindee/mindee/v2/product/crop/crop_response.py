@@ -1,0 +1,18 @@
+from typing import ClassVar
+
+from mindee.parsing.common.string_dict import StringDict
+from mindee.v2.parsing.inference.base_inference_response import BaseInferenceResponse
+from mindee.v2.product.crop.crop_inference import CropInference
+
+
+class CropResponse(BaseInferenceResponse):
+    """Represent a crop inference response from Mindee V2 API."""
+
+    inference: CropInference
+    """Inference object for crop inference."""
+
+    _slug: ClassVar[str] = "crop"
+
+    def __init__(self, raw_response: StringDict) -> None:
+        super().__init__(raw_response)
+        self.inference = CropInference(raw_response["inference"])

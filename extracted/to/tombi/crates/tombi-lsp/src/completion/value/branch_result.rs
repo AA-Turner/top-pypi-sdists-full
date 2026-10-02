@@ -46,8 +46,8 @@ impl BranchCompletionResult {
 pub(super) async fn collect_branch_completions<'a, T>(
     applicator: tombi_validator::Applicator,
     value: &'a T,
-    position: tombi_text::Position,
-    keys: &'a [tombi_document_tree_syntax::Key],
+    cursor: crate::CursorPosition<'a>,
+    keys: &'a [tombi_document_tree_syntax::Key<'_>],
     accessors: &'a [Accessor],
     resolved_schemas: &'a [CurrentSchema<'a>],
     schema_context: &'a tombi_schema_store::SchemaContext<'a>,
@@ -56,6 +56,7 @@ pub(super) async fn collect_branch_completions<'a, T>(
 where
     T: FindCompletionContents + tombi_validator::Validate + Sync + Send + std::fmt::Debug,
 {
+    let offset = cursor.offset();
     let first_key = (keys.len() == 1 && !keys[0].value().is_empty())
         .then(|| SchemaAccessor::Key(keys[0].value().to_owned()));
     let evaluation = tombi_validator::evaluate_applicator(
@@ -81,7 +82,7 @@ where
             false
         };
         let branch_is_valid = branch_applicability.is_applicable();
-        let branch_is_recoverable = branch_applicability.is_recoverable_at(position);
+        let branch_is_recoverable = branch_applicability.is_recoverable_at(offset);
 
         branch_results.push(BranchCompletionResult {
             has_key: branch_has_key,
@@ -98,7 +99,7 @@ where
         if branch.should_include(valid_branches, narrow_branches) {
             let schema_completions = value
                 .find_completion_contents(
-                    position,
+                    cursor,
                     keys,
                     accessors,
                     Some(resolved_schema),
@@ -123,7 +124,7 @@ where
             {
                 let schema_completions = value
                     .find_completion_contents(
-                        position,
+                        cursor,
                         keys,
                         accessors,
                         Some(resolved_schema),

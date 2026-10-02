@@ -1,0 +1,272 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+# sync-node-migrations.sh — Auto-discover omnimarket node-owned migrations and
+# vendor them into omnibase_infra's namespaced forward-migration location.
+#
+# Ticket: OMN-12559
+#
+# WHY THIS EXISTS
+#   omnimarket projection nodes ship SQL under
+#     src/omnimarket/nodes/<node>/migrations/*.sql
+#   The omnibase_infra forward-migration runner only reads
+#     docker/migrations/forward/. Previously, landing a node-owned view in infra
+#   required a manual host copy AND a manual renumber (e.g. savings 076 -> 084)
+#   to dodge a numeric collision with the flat infra sequence. That renumber is
+#   an operational footgun: the view in the source repo and the file in infra
+#   drift, and every new node migration repeats the dance.
+#
+# WHAT IT DOES
+#   Discovers every src/omnimarket/nodes/<node>/migrations/*.sql in the resolved
+#   omnimarket source tree and mirrors it 1:1 into
+#     docker/migrations/forward/nodes/<node>/<file>.sql
+#   The forward-migration runner (run-forward-migrations.sh) applies these under
+#   a NAMESPACED migration_id  node:<node>:<file>  which lives in a separate
+#   identity space from the flat infra sequence — so NO renumber is ever needed.
+#
+#   The vendored files are committed to omnibase_infra so a clean clone
+#   reproduces the views without any manual copy. Re-run this script (and commit
+#   the diff) whenever omnimarket adds or changes a node migration.
+#
+# RESOLUTION ORDER for the omnimarket source tree:
+#   1. $OMNIMARKET_SRC                     (explicit override; repo root)
+#   2. $OMNI_HOME/omnimarket               (canonical clone registry)
+#   3. installed package: python -c 'import omnimarket; print(parent)'
+#
+# NODE SELECTION
+#   Every marketplace node migration discovered under
+#     src/omnimarket/nodes/<node>/migrations/*.sql
+#   is vendored. There is intentionally no allowlist: if a marketplace node
+#   declares a projection surface, its schema migration must be eligible for the
+#   same deploy-time materialization path as every other marketplace node.
+#
+# RECURRING DRIFT (OMN-14975, 6th occurrence — see OMN-14556, OMN-14555,
+# OMN-13805, OMN-13746, OMN-13020, OMN-13401): this script and its --check
+# mode only run on the omnibase_infra side, so drift is always DISCOVERED
+# here (by whichever unrelated omnibase_infra commit happens next) but was
+# never PREVENTED at its source. The structural fix is
+# omnimarket's `.github/workflows/node-migration-vendor-parity-gate.yml`,
+# which fails an omnimarket PR touching migrations/*.sql unless the vendored
+# copy already exists here at dev tip — so a new drift-causing merge can no
+# longer land in omnimarket in the first place.
+#
+# LEGACY-DECLARED EXEMPTION (OMN-15717): a vendored file that no longer has
+# a source in omnimarket (the owning node was deleted/rebuilt upstream) is
+# NOT "stale" if it carries a checked-in row in
+# docker/migrations/forward/_ledger/application-migrations.tsv. Operator
+# ruling 2026-08-04 (OMN-15695) requires applied migration history to be
+# preserved permanently, never deleted or rewritten — a live database can
+# still carry a legacy-applied ledger row for a since-deleted node migration,
+# and bootstrap.sql's adoption path needs that file's checked-in bytes to
+# verify the historical checksum. Removing the vendored file the moment
+# omnimarket deletes its source would re-open exactly the gap OMN-15717
+# fixed: an applied-but-undeclared migration bootstrap.sql cannot resolve.
+# A file counts as "legacy-declared" only if application-migrations.tsv
+# carries a row for it; an UNDECLARED file with no current omnimarket source
+# is still flagged stale (that combination is 6th-occurrence-class drift,
+# not preserved history).
+#
+# ORDERING TRAP, recorded where a lane meets it (OMN-18768). Because the test
+# above is "does application-migrations.tsv carry a row", it fires for EVERY
+# declared node migration, not only historical ones. Consequences for a NEW
+# migration:
+#
+#   * Vendor FIRST, declare SECOND. Declaring a file and then editing the
+#     omnimarket source leaves the vendored copy stale, and this script will
+#     not fix it: it reports "kept legacy-declared" and exits 0.
+#   * In --check mode that same branch prints "legacy-declared, not rewritten"
+#     and does NOT set DRIFT, so this gate reports IN SYNC while omnimarket's
+#     own node-migration-vendor-parity-gate -- which compares bytes with no
+#     legacy exemption -- reports OUT OF SYNC and tells you to land the vendor
+#     first. Two gates disagreeing, with no error on either side.
+#   * The recovery is: delete the ledger row, re-run this script, re-add the
+#     row with the new checksum.
+#
+# Widening the exemption to "declared AND checksum-bound by an APPLIED ledger
+# row" would remove the trap, and is deliberately not done here -- it would
+# re-open bytes this repo currently treats as frozen, which is its own change
+# with its own blast radius.
+#
+# USAGE
+#   scripts/sync-node-migrations.sh            # vendor (writes files)
+#   scripts/sync-node-migrations.sh --check    # CI mode: fail if drift exists
+#
+# EXIT CODES
+#   0 — in sync (or vendored successfully)
+#   1 — --check mode and vendored tree differs from source (drift)
+#   2 — could not resolve omnimarket source tree
+
+set -euo pipefail
+
+CHECK_MODE=0
+if [ "${1:-}" = "--check" ]; then
+  CHECK_MODE=1
+fi
+
+# Repo root = parent of this script's directory.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+DEST_ROOT="${SYNC_NODE_MIGRATIONS_DEST_ROOT:-${REPO_ROOT}/docker/migrations/forward/nodes}"
+APPLICATION_MIGRATION_MANIFEST="${APPLICATION_MIGRATION_MANIFEST:-${REPO_ROOT}/docker/migrations/forward/_ledger/application-migrations.tsv}"
+
+# OMN-15717 / OMN-16705: a vendored file with a checked-in
+# application-migrations.tsv row is preserved applied history, not drift — see
+# the LEGACY-DECLARED EXEMPTION note above. This applies both when the upstream
+# source disappeared and when a still-present upstream source later diverged:
+# the declared vendored bytes are frozen, and upstream deltas must land as a new
+# ordinal successor. Match on the manifest's artifact_path column (relative to
+# the forward-migration root, i.e. "nodes/<node>/<file>.sql").
+is_legacy_declared() {
+  node_and_filename="$1" # "<node>/<file>.sql"
+  [ -f "${APPLICATION_MIGRATION_MANIFEST}" ] || return 1
+  awk -F '\t' -v path="nodes/${node_and_filename}" '$1 == path { found=1 } END { exit !found }' \
+    "${APPLICATION_MIGRATION_MANIFEST}"
+}
+
+resolve_omnimarket_src() {
+  if [ -n "${OMNIMARKET_SRC:-}" ] && [ -d "${OMNIMARKET_SRC}/src/omnimarket/nodes" ]; then
+    echo "${OMNIMARKET_SRC}"
+    return 0
+  fi
+  if [ -n "${OMNI_HOME:-}" ] && [ -d "${OMNI_HOME}/omnimarket/src/omnimarket/nodes" ]; then
+    echo "${OMNI_HOME}/omnimarket"
+    return 0
+  fi
+  # Installed package: locate the directory that contains the 'nodes' package.
+  pkg_nodes="$(python3 - <<'PY' 2>/dev/null || true
+import importlib.util
+import pathlib
+
+spec = importlib.util.find_spec("omnimarket")
+if spec and spec.submodule_search_locations:
+    base = pathlib.Path(list(spec.submodule_search_locations)[0])
+    nodes = base / "nodes"
+    if nodes.is_dir():
+        # Echo the repo-root-equivalent: parent of src/omnimarket -> stop at base.
+        print(base)
+PY
+)"
+  if [ -n "${pkg_nodes}" ] && [ -d "${pkg_nodes}/nodes" ]; then
+    # For an installed package, point NODES_DIR directly (no src/ prefix).
+    echo "PKG:${pkg_nodes}"
+    return 0
+  fi
+  return 1
+}
+
+OMK_RESOLVED="$(resolve_omnimarket_src || true)"
+if [ -z "${OMK_RESOLVED}" ]; then
+  echo "[sync-node-migrations] ERROR: could not resolve omnimarket source tree." >&2
+  echo "  Set OMNIMARKET_SRC=<omnimarket repo root>, or OMNI_HOME=<omni_home>, or pip install omnimarket." >&2
+  if [ "${CHECK_MODE}" -eq 1 ]; then
+    # OMN-13062 (retro A-10): --check with unresolvable source is a vacuous gate.
+    # Silently passing when the source is absent means drift is never detected.
+    # Exit 2 (source-unresolvable) so the CI gate fires and the operator is
+    # required to either supply OMNIMARKET_SRC / OMNI_HOME or explicitly skip
+    # this check via SYNC_NODE_MIGRATIONS_SKIP_UNRESOLVABLE=1.
+    if [ "${SYNC_NODE_MIGRATIONS_SKIP_UNRESOLVABLE:-0}" = "1" ]; then
+      echo "[sync-node-migrations] SYNC_NODE_MIGRATIONS_SKIP_UNRESOLVABLE=1 — skipping unresolvable-source error." >&2
+      exit 0 # fail-loud-ok: OMN-13062 reviewed operator escape hatch; the default path is exit 2 (fail-closed), this exit 0 only fires on an explicit SYNC_NODE_MIGRATIONS_SKIP_UNRESOLVABLE=1 opt-in that logs to stderr — not a silent bypass.
+    fi
+    exit 2
+  fi
+  exit 2
+fi
+
+case "${OMK_RESOLVED}" in
+  PKG:*)
+    NODES_DIR="${OMK_RESOLVED#PKG:}/nodes"
+    ;;
+  *)
+    NODES_DIR="${OMK_RESOLVED}/src/omnimarket/nodes"
+    ;;
+esac
+
+echo "[sync-node-migrations] omnimarket nodes: ${NODES_DIR}"
+echo "[sync-node-migrations] vendoring into:   ${DEST_ROOT}"
+echo "[sync-node-migrations] selection:        all marketplace node migrations"
+
+DRIFT=0
+COPIED=0
+EXPECTED_LIST="$(mktemp)"
+ACTUAL_LIST="$(mktemp)"
+trap 'rm -f "${EXPECTED_LIST}" "${ACTUAL_LIST}"' EXIT
+
+# Discover every node migration file and mirror it.
+while IFS= read -r src_file; do
+  # src_file = ${NODES_DIR}/<node>/migrations/<file>.sql
+  node_name="$(basename "$(dirname "$(dirname "${src_file}")")")"
+  filename="$(basename "${src_file}")"
+  dest_dir="${DEST_ROOT}/${node_name}"
+  dest_file="${dest_dir}/${filename}"
+  printf '%s/%s\n' "${node_name}" "${filename}" >> "${EXPECTED_LIST}"
+
+  if [ "${CHECK_MODE}" -eq 1 ]; then
+    if [ ! -f "${dest_file}" ] || ! cmp -s "${src_file}" "${dest_file}"; then
+      if [ -f "${dest_file}" ] && is_legacy_declared "${node_name}/${filename}"; then
+        echo "[sync-node-migrations] legacy-declared (OMN-16705), not rewritten: ${node_name}/${filename}"
+      else
+        echo "[sync-node-migrations] DRIFT: ${node_name}/${filename}" >&2
+        DRIFT=1
+      fi
+    fi
+  else
+    mkdir -p "${dest_dir}"
+    if [ ! -f "${dest_file}" ] || ! cmp -s "${src_file}" "${dest_file}"; then
+      if [ -f "${dest_file}" ] && is_legacy_declared "${node_name}/${filename}"; then
+        echo "[sync-node-migrations]   kept legacy-declared (OMN-16705) ${node_name}/${filename}"
+      else
+        cp "${src_file}" "${dest_file}"
+        echo "[sync-node-migrations]   vendored ${node_name}/${filename}"
+        COPIED=$((COPIED + 1))
+      fi
+    fi
+  fi
+done < <(find "${NODES_DIR}" -type f -path "*/migrations/*.sql" | sort)
+
+if [ -d "${DEST_ROOT}" ]; then
+  find "${DEST_ROOT}" -type f -name "*.sql" \
+    | sed "s#^${DEST_ROOT}/##" \
+    | sort > "${ACTUAL_LIST}"
+else
+  : > "${ACTUAL_LIST}"
+fi
+sort -o "${EXPECTED_LIST}" "${EXPECTED_LIST}"
+
+if [ "${CHECK_MODE}" -eq 1 ]; then
+  while IFS= read -r extra_file; do
+    if [ -n "${extra_file}" ] && ! grep -Fxq "${extra_file}" "${EXPECTED_LIST}"; then
+      if is_legacy_declared "${extra_file}"; then
+        echo "[sync-node-migrations] legacy-declared (OMN-15717), not stale: ${extra_file}"
+      else
+        echo "[sync-node-migrations] DRIFT: stale vendored migration ${extra_file}" >&2
+        DRIFT=1
+      fi
+    fi
+  done < "${ACTUAL_LIST}"
+else
+  while IFS= read -r extra_file; do
+    if [ -n "${extra_file}" ] && ! grep -Fxq "${extra_file}" "${EXPECTED_LIST}"; then
+      if is_legacy_declared "${extra_file}"; then
+        echo "[sync-node-migrations]   kept legacy-declared (OMN-15717) ${extra_file}"
+      else
+        rm -f "${DEST_ROOT}/${extra_file}"
+        echo "[sync-node-migrations]   removed stale ${extra_file}"
+        COPIED=$((COPIED + 1))
+      fi
+    fi
+  done < "${ACTUAL_LIST}"
+fi
+
+if [ "${CHECK_MODE}" -eq 1 ]; then
+  if [ "${DRIFT}" -eq 1 ]; then
+    echo "[sync-node-migrations] node migration vendor tree is OUT OF SYNC with omnimarket." >&2
+    echo "  Run: scripts/sync-node-migrations.sh  then commit the diff." >&2
+    exit 1
+  fi
+  echo "[sync-node-migrations] check: in sync."
+  exit 0
+fi
+
+echo "[sync-node-migrations] done: ${COPIED} file(s) updated."

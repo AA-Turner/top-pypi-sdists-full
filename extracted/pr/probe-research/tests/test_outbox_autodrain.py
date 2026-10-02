@@ -1,0 +1,240 @@
+"""Parity F1/F7 (docs/2026-08-04-outbox-miles-parity.md): async SDK writes
+kick the detached outbox worker, and an async client that could never deliver
+fails at construction instead of hours later in a drainer log.
+
+The worker loop itself is covered by test_outbox.py; these tests pin WHO kicks
+it and when, via a monkeypatched ``maybe_spawn`` spy.
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from probe.sdk import errors
+from probe.sdk.client import Client
+from probe.sdk.config import Settings
+from probe.sdk.journal import Journal
+from probe.sdk.session_marker import WIZARD_HINT
+
+from tests.conftest import make_client
+
+
+@pytest.fixture(autouse=True)
+def _isolated_config(monkeypatch, tmp_path):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.setenv("PROBE_CONFIG_PATH", str(tmp_path / "config" / "probe.json"))
+    monkeypatch.delenv("PROBE_TOKEN", raising=False)
+    monkeypatch.delenv("PROBE_ASYNC", raising=False)
+
+
+@pytest.fixture
+def kicks(monkeypatch):
+    calls: list[str] = []
+
+    def spy(directory=None):
+        calls.append(str(directory))
+        return True
+
+    monkeypatch.setattr("probe.sdk.outbox_worker.maybe_spawn", spy)
+    return calls
+
+
+def _settings(**overrides) -> Settings:
+    fields = {
+        "base_url": "http://test",
+        "token": "ros_pat_deadbeef",
+        "ingest_token": None,
+        "hmac_secret": None,
+    }
+    fields.update(overrides)
+    return Settings(**fields)
+
+
+def _async_client(tmp_path, **kw) -> Client:
+    kw.setdefault("settings", _settings())
+    kw.setdefault(
+        "journal",
+        Journal(tmp_path / "outbox", context={"name": None, "base_url": "http://test"}),
+    )
+    return Client(async_writes=True, **kw)
+
+
+def test_async_write_kicks_the_worker_but_throttled(tmp_path, kicks):
+    with _async_client(tmp_path) as client:
+        journal_dir = str(client.journal.dir)
+        client.write("POST", "/v1/runs/r1/metrics", {"points": []})
+        client.write("POST", "/v1/runs/r1/metrics", {"points": []})
+    # Two back-to-back writes, ONE kick: maybe_spawn is O(1) but this path
+    # runs per logged point in a training loop.
+    assert kicks == [journal_dir]
+    assert len(Journal(tmp_path / "outbox").pending()) == 2
+
+
+def test_declined_probe_does_not_arm_the_throttle(tmp_path, monkeypatch):
+    """Prod smoke 2026-08-06: the worker exited, the next write's kick was
+    throttle-swallowed, the writer died -- one op stranded until a manual
+    drain. A probe that did NOT spawn must not suppress the next probe."""
+    calls: list = []
+    monkeypatch.setattr(
+        "probe.sdk.outbox_worker.maybe_spawn",
+        lambda directory=None: calls.append(directory) or False,  # worker alive
+    )
+    with _async_client(tmp_path) as client:
+        client.write("POST", "/v1/runs/r1/metrics", {"points": []})
+        client.write("POST", "/v1/runs/r1/metrics", {"points": []})
+    assert len(calls) == 2, "every write must re-probe while nothing was spawned"
+
+
+def test_worker_grace_pass_catches_a_dying_writers_last_op(tmp_path, monkeypatch):
+    """The other half of the same fix: an op landing AFTER the worker's final
+    status re-read must be seen by the exit-grace linger, not stranded."""
+    from probe.sdk import outbox_worker
+    from probe.sdk.journal import DrainReport
+
+    journal = Journal(tmp_path / "outbox")
+    journal.append_http("POST", "/v1/runs/r-1/metrics", {"n": 1})
+    delivered: list[int] = []
+
+    def fake_drain(j, **kw):
+        count = len(j.pending())
+        for path, _ in j.pending():
+            path.unlink()
+        j.write_status()
+        delivered.append(count)
+        return DrainReport(delivered=count, remaining=0)
+
+    monkeypatch.setattr("probe.sdk.journal.drain", fake_drain)
+
+    def dying_writer_sleep(seconds):
+        if not dying_writer_sleep.done:  # the last op lands during the linger
+            dying_writer_sleep.done = True
+            journal.append_http("POST", "/v1/runs/r-1/metrics", {"n": 2})
+
+    dying_writer_sleep.done = False
+    monkeypatch.setattr(outbox_worker.time, "sleep", dying_writer_sleep)
+
+    assert outbox_worker.run(str(tmp_path / "outbox")) == 0
+    assert sum(delivered) == 2 and not journal.pending()
+
+
+def test_worker_exit_guard_sees_a_multipart_upload_queued_during_its_linger(tmp_path, monkeypatch):
+    """A > 64 MiB `log_artifact` queues in `multipart/ops/`, which status.json does
+    not count. Queued while the worker is in its exit stretch, the producer's kick
+    sees the lease held and skips; the worker then re-read only status.json and
+    exited `drained`, stranding the upload until some later probe command. In a
+    Slurm job that is the job's last act (`log_artifact` then `finish`), so nothing
+    ever came: found by agent/tests/environments/slurm (op `attempts: 0`)."""
+    from probe.sdk import multipart, outbox_worker
+    from probe.sdk.journal import DrainReport, _multipart_pending_count
+
+    journal = Journal(tmp_path / "outbox")
+    journal.append_http("POST", "/v1/runs/r-1/metrics", {"n": 1})
+    passes: list[tuple[int, int]] = []
+
+    def fake_drain(j, **kw):
+        ops = len(j.pending())
+        for path, _ in j.pending():
+            path.unlink()
+        uploads = multipart.pending(j)
+        for path, _ in uploads:
+            path.unlink()
+        j.write_status()
+        passes.append((ops, len(uploads)))
+        return DrainReport(delivered=ops + len(uploads), remaining=0)
+
+    monkeypatch.setattr("probe.sdk.journal.drain", fake_drain)
+
+    def producer_queues_an_upload(seconds):
+        if not producer_queues_an_upload.done:  # the upload lands during the linger
+            producer_queues_an_upload.done = True
+            multipart.enqueue(journal, {"op_id": "big-1", "kind": multipart.KIND, "run_ref": "r-1"})
+
+    producer_queues_an_upload.done = False
+    monkeypatch.setattr(outbox_worker.time, "sleep", producer_queues_an_upload)
+
+    assert outbox_worker.run(str(tmp_path / "outbox")) == 0
+    assert _multipart_pending_count(journal) == 0, "the worker exited with an upload queued"
+    assert sum(u for _, u in passes) == 1, passes
+
+
+def test_kick_repeats_once_the_throttle_window_passes(tmp_path, kicks):
+    with _async_client(tmp_path) as client:
+        client._drainer_kick_interval = 0.0
+        client.write("POST", "/v1/runs/r1/metrics", {"points": []})
+        client.write("POST", "/v1/runs/r1/metrics", {"points": []})
+    assert len(kicks) == 2
+
+
+def test_custom_transport_never_spawns(app, tmp_path, kicks):
+    # A detached worker resolves its own transport from config -- it could
+    # never replay through this injected fake, so auto-drain must stay off.
+    client = make_client(app, tmp_spool=tmp_path / "outbox", async_writes=True)
+    client.write("POST", "/v1/runs/r1/metrics", {"points": []})
+    assert kicks == []
+    assert len(client.journal.pending()) == 1
+
+
+def test_auto_drain_false_never_spawns(tmp_path, kicks):
+    with _async_client(tmp_path, auto_drain=False) as client:
+        client.write("POST", "/v1/runs/r1/metrics", {"points": []})
+    assert kicks == []
+
+
+def test_sync_mode_never_spawns_even_when_fail_open_journals(tmp_path, kicks, monkeypatch):
+    # async_writes=False is now the OPT-OUT, not the default (ProSeCo,
+    # 2026-08-19). The subject of this test is sync mode, so it has to ask for
+    # it; a bare Client() would exercise the async path and legitimately kick.
+    client = Client(
+        settings=_settings(),
+        journal=Journal(tmp_path / "outbox"),
+        async_writes=False,
+    )
+
+    def boom(*a, **kw):
+        raise errors.TransportError("network down")
+
+    monkeypatch.setattr(client.transport, "request", boom)
+    with client:
+        assert client.write("POST", "/v1/runs/r1/metrics", {"points": []}) is None
+    assert len(Journal(tmp_path / "outbox").pending()) == 1
+    assert kicks == []
+
+
+def test_async_without_credentials_refuses_at_construction(tmp_path):
+    with pytest.raises(errors.ValidationError) as excinfo:
+        Client(
+            async_writes=True,
+            settings=_settings(token=None),
+            journal=Journal(tmp_path / "outbox"),
+        )
+    assert WIZARD_HINT in str(excinfo.value)
+    assert "auto_drain=False" in str(excinfo.value)
+
+
+def test_auto_drain_false_skips_the_credential_gate(tmp_path, kicks):
+    with _async_client(tmp_path, settings=_settings(token=None), auto_drain=False) as client:
+        client.write("POST", "/v1/runs/r1/metrics", {"points": []})
+    assert len(Journal(tmp_path / "outbox").pending()) == 1
+    assert kicks == []
+
+
+def test_custom_transport_skips_the_credential_gate(app, tmp_path):
+    # make_client injects a transport; even with credentials stripped the gate
+    # must not fire -- whoever owns the transport owns delivery.
+    client = make_client(app, tmp_spool=tmp_path / "outbox", async_writes=True)
+    client.settings.token = None
+    client.settings.ingest_token = None
+    assert Client(
+        async_writes=True,
+        settings=_settings(token=None),
+        transport=client.transport,
+        journal=Journal(tmp_path / "outbox2"),
+    )
+
+
+def test_cli_shim_is_the_sdk_worker():
+    from probe.cli import outbox_worker as cli_worker
+    from probe.sdk import outbox_worker as sdk_worker
+
+    assert cli_worker.maybe_spawn is sdk_worker.maybe_spawn
+    assert cli_worker.run is sdk_worker.run

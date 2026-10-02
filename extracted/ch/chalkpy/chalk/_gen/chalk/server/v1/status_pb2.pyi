@@ -89,6 +89,8 @@ class HealthCheckName(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     HEALTH_CHECK_NAME_DATAPLANE_API_SERVER: _ClassVar[HealthCheckName]
     HEALTH_CHECK_NAME_INFRASTRUCTURE_NODEPOOL: _ClassVar[HealthCheckName]
     HEALTH_CHECK_NAME_ONLINE_NODEPOOL: _ClassVar[HealthCheckName]
+    HEALTH_CHECK_NAME_CLICKHOUSE_PVC_UTILIZATION: _ClassVar[HealthCheckName]
+    HEALTH_CHECK_NAME_VICTORIA_METRICS_PVC_UTILIZATION: _ClassVar[HealthCheckName]
 
 HEALTH_CHECK_STATUS_UNSPECIFIED: HealthCheckStatus
 HEALTH_CHECK_STATUS_OK: HealthCheckStatus
@@ -158,6 +160,8 @@ HEALTH_CHECK_NAME_CLICKHOUSE_USAGE: HealthCheckName
 HEALTH_CHECK_NAME_DATAPLANE_API_SERVER: HealthCheckName
 HEALTH_CHECK_NAME_INFRASTRUCTURE_NODEPOOL: HealthCheckName
 HEALTH_CHECK_NAME_ONLINE_NODEPOOL: HealthCheckName
+HEALTH_CHECK_NAME_CLICKHOUSE_PVC_UTILIZATION: HealthCheckName
+HEALTH_CHECK_NAME_VICTORIA_METRICS_PVC_UTILIZATION: HealthCheckName
 
 class HealthCheck(_message.Message):
     __slots__ = ("name", "status", "message", "latency", "kube_data", "metadata")

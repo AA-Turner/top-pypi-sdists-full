@@ -32,7 +32,8 @@ from anyscale.machine_pool.models import MachinePool
 
 
 @click.group(
-    "machine-pool", help="Commands to interact with machine pools in Anyscale.",
+    "machine-pool",
+    help="Commands to interact with machine pools in Anyscale.",
 )
 def machine_pool_cli() -> None:
     pass
@@ -66,7 +67,9 @@ def machine_pool_cli() -> None:
 )
 def create_machine_pool(name: str) -> None:
     machine_pool_controller = MachinePoolController()
-    output = machine_pool_controller.create_machine_pool(machine_pool_name=name,)
+    output = machine_pool_controller.create_machine_pool(
+        machine_pool_name=name,
+    )
     print(
         f"Machine pool {output.machine_pool.machine_pool_name} has been created successfully (ID {output.machine_pool.machine_pool_id})."
     )
@@ -91,9 +94,7 @@ def create_machine_pool(name: str) -> None:
     cls=AnyscaleCommand,
     is_beta=True,
 )
-@click.option(
-    "--name", "-n", type=str, required=True, help="Provide a machine pool name."
-)
+@click.option("--name", "-n", type=str, required=True, help="Provide a machine pool name.")
 @click.option(
     "--spec-file",
     type=str,
@@ -102,9 +103,7 @@ def create_machine_pool(name: str) -> None:
 )
 def update_machine_pool(name: str, spec_file: str) -> None:
     machine_pool_controller = MachinePoolController()
-    machine_pool_controller.update_machine_pool(
-        machine_pool_name=name, spec_file=spec_file
-    )
+    machine_pool_controller.update_machine_pool(machine_pool_name=name, spec_file=spec_file)
     print(f"Updated machine pool '{name}'.")
 
 
@@ -142,9 +141,7 @@ def update_machine_pool(name: str, spec_file: str) -> None:
     cls=AnyscaleCommand,
     is_beta=True,
 )
-@click.option(
-    "--name", "-n", type=str, required=True, help="Provide a machine pool name."
-)
+@click.option("--name", "-n", type=str, required=True, help="Provide a machine pool name.")
 @click.option(
     "--format",
     "format_",
@@ -157,9 +154,7 @@ def update_machine_pool(name: str, spec_file: str) -> None:
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice(
-        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
-    ),
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
     help="Output format for the result. Takes precedence over --format.",
@@ -209,9 +204,7 @@ def describe(name: str, format_: str, output_format: str) -> None:
                     format_time(row.workload_info.workload_start_time)
                     if row.workload_info.workload_name
                     else "",
-                    row.workload_info.workload_creator
-                    if row.workload_info.workload_name
-                    else "",
+                    row.workload_info.workload_creator if row.workload_info.workload_name else "",
                     row.workload_score,
                     row.cloud_instance_id,
                 ]
@@ -222,9 +215,7 @@ def describe(name: str, format_: str, output_format: str) -> None:
 
         print("Machines:")
         print(
-            tabulate.tabulate(
-                machines_table, tablefmt="outline", headers=columns, stralign="left"
-            )
+            tabulate.tabulate(machines_table, tablefmt="outline", headers=columns, stralign="left")
         )
 
         requests_table = []
@@ -251,9 +242,7 @@ def describe(name: str, format_: str, output_format: str) -> None:
         # Sort by (machine type, workload start time, size)
         print("Requests:")
         print(
-            tabulate.tabulate(
-                requests_table, tablefmt="outline", headers=columns, stralign="left"
-            )
+            tabulate.tabulate(requests_table, tablefmt="outline", headers=columns, stralign="left")
         )
 
         if (
@@ -285,9 +274,7 @@ def describe(name: str, format_: str, output_format: str) -> None:
     cls=AnyscaleCommand,
     is_beta=True,
 )
-@click.option(
-    "--name", "-n", type=str, required=True, help="Provide a machine pool name."
-)
+@click.option("--name", "-n", type=str, required=True, help="Provide a machine pool name.")
 def delete_machine_pool(name: str) -> None:
     machine_pool_controller = MachinePoolController()
     machine_pool_controller.delete_machine_pool(machine_pool_name=name)
@@ -340,9 +327,7 @@ def delete_machine_pool(name: str) -> None:
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice(
-        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
-    ),
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
     help="Output format for the result. Takes precedence over --format.",
@@ -388,11 +373,7 @@ def list_machine_pools(format_: str, output_format: str) -> None:
                     "\n".join(formatted_cloud_resources),
                 ]
             )
-        print(
-            tabulate.tabulate(
-                table, tablefmt="simple_grid", headers=columns, stralign="left"
-            )
-        )
+        print(tabulate.tabulate(table, tablefmt="simple_grid", headers=columns, stralign="left"))
     elif format_ == "yaml":
         rows = []
         for mp in result.machine_pools:
@@ -428,9 +409,7 @@ def list_machine_pools(format_: str, output_format: str) -> None:
     cls=AnyscaleCommand,
     is_beta=True,
 )
-@click.option(
-    "--name", "-n", type=str, required=True, help="Provide a machine pool name."
-)
+@click.option("--name", "-n", type=str, required=True, help="Provide a machine pool name.")
 @click.option("--cloud", type=str, required=True, help="Provide a cloud name.")
 @click.option(
     "--resource",
@@ -439,17 +418,13 @@ def list_machine_pools(format_: str, output_format: str) -> None:
     default=None,
     help="For multi-resource clouds, the name of the cloud resource to attach to. If not provided, attaches to the primary cloud resource in the cloud.",
 )
-def attach_machine_pool_to_cloud(
-    name: str, cloud: str, resource: Optional[str] = None
-) -> None:
+def attach_machine_pool_to_cloud(name: str, cloud: str, resource: Optional[str] = None) -> None:
     machine_pool_controller = MachinePoolController()
     machine_pool_controller.attach_machine_pool_to_cloud(
         machine_pool_name=name, cloud_name=cloud, cloud_resource_name=resource
     )
     if resource:
-        print(
-            f"Attached machine pool '{name}' to resource '{resource}' in cloud '{cloud}'."
-        )
+        print(f"Attached machine pool '{name}' to resource '{resource}' in cloud '{cloud}'.")
     else:
         print(f"Attached machine pool '{name}' to cloud '{cloud}'.")
 
@@ -473,9 +448,7 @@ def attach_machine_pool_to_cloud(
     cls=AnyscaleCommand,
     is_beta=True,
 )
-@click.option(
-    "--name", "-n", type=str, required=True, help="Provide a machine pool name."
-)
+@click.option("--name", "-n", type=str, required=True, help="Provide a machine pool name.")
 @click.option("--cloud", type=str, required=True, help="Provide a cloud name.")
 @click.option(
     "--resource",
@@ -484,16 +457,12 @@ def attach_machine_pool_to_cloud(
     default=None,
     help="For multi-resource clouds, the name of the cloud resource to detach from. If not provided, detaches from the primary cloud resource in the cloud.",
 )
-def detach_machine_pool_from_cloud(
-    name: str, cloud: str, resource: Optional[str] = None
-) -> None:
+def detach_machine_pool_from_cloud(name: str, cloud: str, resource: Optional[str] = None) -> None:
     machine_pool_controller = MachinePoolController()
     machine_pool_controller.detach_machine_pool_from_cloud(
         machine_pool_name=name, cloud_name=cloud, cloud_resource_name=resource
     )
     if resource:
-        print(
-            f"Detached machine pool '{name}' from resource '{resource}' in cloud '{cloud}'."
-        )
+        print(f"Detached machine pool '{name}' from resource '{resource}' in cloud '{cloud}'.")
     else:
         print(f"Detached machine pool '{name}' from cloud '{cloud}'.")

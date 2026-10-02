@@ -1,0 +1,242 @@
+import ast
+from collections.abc import Callable, Iterable, Sequence
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, override
+
+import hugr.build.function as hf
+import hugr.tys as ht
+from hugr import Node, Wire
+from hugr.build.dfg import DefinitionBuilder, OpVar
+from hugr.metadata import HugrDebugInfo
+
+from guppylang_internals.ast_util import AstNode, with_loc
+from guppylang_internals.checker.core import Context, Globals
+from guppylang_internals.checker.expr_checker import (
+    check_call,
+    make_global_call,
+    synthesize_call,
+)
+from guppylang_internals.checker.func_checker import check_signature
+from guppylang_internals.compiler.core import CompilerContext, DFContainer
+from guppylang_internals.debug_mode import debug_mode_enabled
+from guppylang_internals.definition.common import (
+    CheckableGenericDef,
+    CompilableDef,
+    ParsableDef,
+)
+from guppylang_internals.definition.function import (
+    make_subprogram_record,
+    parse_py_func,
+)
+from guppylang_internals.definition.value import (
+    CallableDef,
+    CallReturnWires,
+    CompiledCallableDef,
+    CompiledHugrNodeDef,
+)
+from guppylang_internals.metadata.common import FunctionMetadata, add_metadata
+from guppylang_internals.span import SourceMap
+from guppylang_internals.tracing.compile import replay_trace
+from guppylang_internals.tys import Effect
+from guppylang_internals.tys.param import Parameter
+from guppylang_internals.tys.subst import Inst, Subst
+from guppylang_internals.tys.ty import Type, UnitaryFlags, type_to_row
+
+PyFunc = Callable[..., Any]
+
+if TYPE_CHECKING:
+    from guppylang_internals.tracing.recorder import Trace
+
+
+@dataclass(frozen=True)
+class RawTracedFunctionDef(ParsableDef):
+    python_func: PyFunc
+
+    description: str = field(default="function", init=False)
+
+    unitary_flags: UnitaryFlags = field(default=UnitaryFlags.NoFlags, kw_only=True)
+
+    metadata: FunctionMetadata | None = field(default=None, kw_only=True)
+
+    def parse(self, globals: Globals, sources: SourceMap) -> "TracedFunctionDef":
+        """Parses and checks the user-provided signature of the function."""
+        if isinstance(self.python_func, staticmethod):
+            is_static = True
+            py_func = self.python_func.__func__
+        else:
+            is_static = False
+            py_func = self.python_func
+
+        func_ast, _docstring = parse_py_func(py_func, sources)
+        ty = check_signature(
+            func_ast,
+            globals,
+            self.id,
+            unitary_flags=self.unitary_flags,
+            is_static=is_static,
+        )
+        return TracedFunctionDef(
+            self.id,
+            self.name,
+            func_ast,
+            ty,
+            py_func,
+            unitary_flags=self.unitary_flags,
+            is_static=is_static,
+            metadata=self.metadata,
+        )
+
+
+@dataclass(frozen=True)
+class TracedFunctionDef(RawTracedFunctionDef, CallableDef, CheckableGenericDef):
+    defined_at: ast.FunctionDef
+
+    @property
+    def params(self) -> Sequence[Parameter]:
+        """Generic parameters of this function."""
+        return self.ty.params
+
+    def check(self, type_args: Inst, globals: Globals) -> "TracedMonoFunctionDef":
+        """Monomorphizes the function for the given type arg instantiation.
+
+        Executes the Python body while recording a replayable HUGR trace.
+        """
+        mono_ty = self.ty.instantiate_partial(type_args)
+        generic_args = {
+            param.name: arg
+            for param, arg in zip(self.ty.params, type_args, strict=True)
+        }
+        from guppylang_internals.tracing.function import trace_function
+
+        trace = trace_function(
+            self.python_func,
+            mono_ty,
+            type_args,
+            generic_args,
+            self.defined_at,
+            self,
+        )
+        return TracedMonoFunctionDef(
+            self.id,
+            self.name,
+            self.defined_at,
+            mono_ty,
+            self.python_func,
+            type_args,
+            trace,
+            unitary_flags=self.unitary_flags,
+            is_static=self.is_static,
+            metadata=self.metadata,
+        )
+
+    @override
+    def check_call(
+        self, args: list[ast.expr], ty: Type, node: ast.Call, ctx: Context
+    ) -> tuple[ast.expr, Subst]:
+        """Checks the return type of a function call against a given type."""
+        # Use default implementation from the expression checker
+        args, subst, inst = check_call(self.ty, args, ty, node, ctx, self)
+        node = with_loc(node, make_global_call(self, args, inst))
+        return node, subst
+
+    @override
+    def synthesize_call(
+        self, args: list[ast.expr], node: AstNode, ctx: Context
+    ) -> tuple[ast.expr, Type]:
+        """Synthesizes the return type of a function call."""
+        # Use default implementation from the expression checker
+        args, ty, inst = synthesize_call(self.ty, args, node, ctx, self)
+        node = with_loc(node, make_global_call(self, args, inst))
+        return node, ty
+
+
+@dataclass(frozen=True)
+class TracedMonoFunctionDef(TracedFunctionDef, CompilableDef):
+    inst: Inst
+    trace: "Trace"
+
+    @override
+    def compile_outer(
+        self, module: DefinitionBuilder[OpVar], ctx: CompilerContext
+    ) -> "CompiledTracedFunctionDef":
+        """Adds a Hugr `FuncDefn` node for this function to the Hugr.
+
+        Note that we don't compile the function body at this point since we don't have
+        access to the other compiled functions yet. The body is compiled later in
+        `CompiledFunctionDef.compile_inner()`.
+        """
+        func_type = self.ty.to_hugr_poly(ctx)
+        func_def = module.module_root_builder().define_function(
+            self.name, func_type.body.input, func_type.body.output, func_type.params
+        )
+        add_metadata(
+            module.hugr[func_def].metadata,
+            self.metadata,
+        )
+        if debug_mode_enabled():
+            module.hugr[func_def].metadata[HugrDebugInfo] = make_subprogram_record(
+                self.defined_at, ctx
+            )
+        return CompiledTracedFunctionDef(
+            self.id,
+            self.name,
+            self.defined_at,
+            self.ty,
+            self.python_func,
+            self.inst,
+            self.trace,
+            func_def,
+            ctx.effects[(self.id, self.inst)],
+            unitary_flags=self.unitary_flags,
+            is_static=self.is_static,
+            metadata=self.metadata,
+        )
+
+
+@dataclass(frozen=True)
+class CompiledTracedFunctionDef(
+    TracedMonoFunctionDef, CompiledCallableDef, CompiledHugrNodeDef
+):
+    func_def: hf.Function
+    effects: Iterable[Effect]
+
+    @override
+    @property
+    def call_effects(self) -> Iterable[Effect]:
+        """The maximum set of effects that may occur when calling the function."""
+        return self.effects
+
+    @property
+    def hugr_node(self) -> Node:
+        """The Hugr node this definition was compiled into."""
+        return self.func_def.parent_node
+
+    @override
+    def load(self, dfg: DFContainer, ctx: CompilerContext, node: AstNode) -> Wire:
+        """Loads the function as a value into a local Hugr dataflow graph."""
+        type_args: Inst = ()  # Comptime functions are not generic
+        func_ty: ht.FunctionType = self.ty.instantiate(type_args).to_hugr(ctx)
+        hugr_type_args: list[ht.TypeArg] = [arg.to_hugr(ctx) for arg in type_args]
+        return dfg.builder.load_function(self.func_def, func_ty, hugr_type_args)
+
+    @override
+    def compile_call(
+        self,
+        args: list[Wire],
+        dfg: DFContainer,
+        ctx: CompilerContext,
+        node: AstNode,
+    ) -> CallReturnWires:
+        """Compiles a call to the function."""
+        num_returns = len(type_to_row(self.ty.output))
+        with dfg.builder.set_ast_context(node):
+            call = dfg.builder.call(self.func_def, *args, effects=self.call_effects)
+        return CallReturnWires(
+            regular_returns=list(call[:num_returns]),
+            inout_returns=list(call[num_returns:]),
+        )
+
+    @override
+    def compile_inner(self, ctx: CompilerContext) -> None:
+        """Replays the trace recorded while the function was checked."""
+        replay_trace(self.func_def, self.trace, ctx)

@@ -1,0 +1,494 @@
+[project]
+name = "nab"
+version = "0.0.18"
+description = "PubGrub-based dependency resolver for Python packages"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Damian Shaw", email = "damian.peter.shaw@gmail.com" },
+]
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Typing :: Typed",
+]
+dependencies = [
+    "nab-resolver==0.0.18",
+    "nab-markersets==0.0.18",
+    "nab-provider==0.0.18",
+    "nab-project==0.0.18",
+    "nab-index==0.0.18",
+    "tomli>=2.2",
+    "typing_extensions>=4.6",
+]
+
+[project.optional-dependencies]
+httpx = ["nab-index[httpx]==0.0.18"]
+httpx2 = ["nab-index[httpx2]==0.0.18"]
+
+[project.urls]
+Homepage = "https://github.com/notatallshaw/nab"
+Documentation = "https://nab.readthedocs.io/en/stable/"
+Issues = "https://github.com/notatallshaw/nab/issues"
+Source = "https://github.com/notatallshaw/nab"
+Changelog = "https://github.com/notatallshaw/nab/releases"
+
+[project.scripts]
+nab = "nab._entry:console_entry"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# The umbrella sdist ships only the CLI package and its own tests. Without this
+# it would pull in the whole monorepo: the sibling workspaces, docs/, .github/,
+# and the release tooling under tasks/.
+[tool.hatch.build.targets.sdist]
+only-include = ["src/nab", "tests", "conftest.py"]
+
+# These read files the sdist does not carry (docs/, tasks/, the noxfile, the
+# workflows, the sibling workspaces), so they stay out of it;
+# tests/test_sdist_manifest.py keeps this list and the suite in step.
+# (hatchling always ships pyproject.toml, hatch.toml, and .gitignore itself.)
+exclude = [
+    "tests/test_build_dists.py",
+    "tests/test_check_boundaries.py",
+    "tests/test_cli_bijection.py",
+    "tests/test_classifiers.py",
+    "tests/test_cli_docs.py",
+    "tests/test_cli_generated.py",
+    "tests/test_config.py",
+    "tests/test_contributing_docs.py",
+    "tests/test_embedding_docs.py",
+    "tests/test_env_layer.py",
+    "tests/test_markerset_docs.py",
+    "tests/test_package_descriptions.py",
+    "tests/test_readme_docs.py",
+    "tests/test_release.py",
+    "tests/test_type_check_scope.py",
+    "tests/test_workspace_shape.py",
+]
+
+# Dependency groups feed `nab lock` for CI lockfiles; regenerate via
+# tasks/refresh-locks.sh. Local dev uses hatch envs from hatch.toml.
+[dependency-groups]
+tests = [
+    "pytest>=9",
+    "pytest-cov>=7",
+    "pytest-timeout>=2.3",
+    "pytest-xdist>=3.8",
+    "coverage>=7",
+    "hypothesis>=6.100",
+    "respx>=0.22",
+    "httpx[http2]>=0.28",
+    "httpx2[http2]>=2.0",
+    "tomlkit>=0.13",
+]
+crosshair = [
+    {include-group = "tests"},
+    "crosshair-tool>=0.0.104",
+    "hypothesis-crosshair>=0.0.28",
+]
+types = [
+    {include-group = "tests"},
+    "mypy>=1.19",
+    "pyright>=1.1.400",
+    # Earlier versions report the `ty: ignore` in nab-resolver as unused, and
+    # 0.0.66 gives a dict narrowed by isinstance the key type Never.
+    "ty>=0.0.70",
+    "pyrefly>=0.50",
+    "typing_extensions>=4.10",
+    "zuban>=0.6",
+]
+pre-commit = [
+    "pre-commit>=4",
+]
+# Nox drives the workspace tests and the type-check matrix; see
+# noxfile.py. Each session installs its own lock (pylock.tests.toml or
+# pylock.types.toml), so this only bootstraps the runner.
+nox = [
+    "nox>=2025.5.1",
+]
+# Locked as a single resolution for one interpreter, not against the project's
+# universal matrix; see tasks/refresh-locks.sh.  myst-parser 5.1 is the floor
+# that carries the `alert` extension conf.py enables to render the GitHub alert
+# syntax the guides use; it needs Python 3.11 or newer.
+docs = [
+    "sphinx>=8",
+    "furo>=2024.8",
+    "myst-parser>=5.1",
+    "linkify-it-py>=2",
+    "sphinx-design>=0.6",
+    "sphinx-copybutton>=0.5",
+]
+release = [
+    "packaging>=24.0",
+    "tomlkit>=0.13",
+    "build>=1.2",
+    "twine>=6.1",
+    "pypi-attestations>=0.0.21",
+]
+# The dists nox session builds every distribution and installs it. It needs the
+# build frontend; the backend comes from pylock.build.toml, locked from
+# [build-system].requires, since the build runs without isolation.
+dists = [
+    "build>=1.2",
+]
+
+# `nab lock` config: universal mode resolves the full matrix in one
+# pass, P7D matches the 7-day Dependabot cooldown.
+[tool.nab.workspace]
+members = [
+    "nab-resolver",
+    "nab-markersets",
+    "nab-provider",
+    "nab-project",
+    "nab-index",
+]
+
+[tool.nab]
+mode = "universal"
+uploaded-prior-to = "P7D"
+
+[tool.nab.matrix]
+python = ">=3.10,<3.15"
+# Platform IDs from nab_provider.target.PLATFORM_MARKERS.
+platforms = [
+    "linux_x86_64",
+    "linux_aarch64",
+    "macos_arm64",
+    "macos_x86_64",
+    "windows_amd64",
+]
+
+# Workspace packages skip the cooldown; bumps land immediately.
+[[tool.nab.package-rules]]
+match = [
+    "nab",
+    "nab-resolver",
+    "nab-markersets",
+    "nab-provider",
+    "nab-project",
+    "nab-index",
+]
+uploaded-prior-to = false
+
+# https://docs.pytest.org/en/stable/reference/reference.html#confval-addopts
+[tool.pytest.ini_options]
+minversion = "9.0"
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--import-mode=importlib",
+    "--showlocals",
+    "-m",
+    "not property and not crosshair and not network and not benchmark",
+    "--durations=15",
+]
+# A hung test fails here with a traceback instead of at the job's limit.
+timeout = 300
+testpaths = [
+    "nab-resolver/tests",
+    "nab-markersets/tests",
+    "nab-provider/tests",
+    "nab-project/tests",
+    "nab-index/tests",
+    "tests",
+]
+xfail_strict = true
+filterwarnings = ["error"]
+markers = [
+    "slow: scenarios that take more than a second",
+    "network: hits a real network endpoint (skipped by default in CI)",
+    "property: Hypothesis property tests (opt-in; run with -m property)",
+    "crosshair: CrossHair-backed property tests (opt-in; very slow; -m crosshair)",
+    "benchmark: covers the benchmark harness, not the resolver (opt-in; -m benchmark)",
+]
+
+# https://coverage.readthedocs.io/en/latest/config.html#run
+[tool.coverage.run]
+branch = true
+relative_files = true
+parallel = true
+concurrency = ["thread", "multiprocessing"]
+sigterm = true
+# Per-workspace runs import only one workspace, so coverage would warn about
+# the source packages the run doesn't touch. This applies everywhere, but the
+# full local suite imports every source package, where it has nothing to flag.
+disable_warnings = ["module-not-imported"]
+source_pkgs = [
+    "nab_resolver",
+    "nab_markersets",
+    "nab_provider",
+    "nab_project",
+    "nab_index",
+    "nab",
+]
+source = []
+omit = [
+    "*/tests/property/*",
+    "*/tests/property_python/*",
+    "*/test_crosshair_*.py",
+    "*/_vendor/*",
+    "*/nab_project/_testing/*",
+    "*/nab_provider/testing.py",
+]
+
+# https://coverage.readthedocs.io/en/latest/config.html#report
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+skip_covered = true
+skip_empty = true
+exclude_also = [
+    "def __repr__",
+    "raise NotImplementedError",
+    "raise RuntimeError.*unreachable",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+    "^\\s+pass$",
+    "if TYPE_CHECKING:",
+]
+
+# https://coverage.readthedocs.io/en/latest/config.html#paths
+[tool.coverage.paths]
+nab_resolver = [
+    "nab-resolver/src/nab_resolver",
+    "*/nab_resolver",
+]
+nab_markersets = [
+    "nab-markersets/src/nab_markersets",
+    "*/nab_markersets",
+]
+nab_provider = [
+    "nab-provider/src/nab_provider",
+    "*/nab_provider",
+]
+nab_project = [
+    "nab-project/src/nab_project",
+    "*/nab_project",
+]
+nab_index = [
+    "nab-index/src/nab_index",
+    "*/nab_index",
+]
+nab = [
+    "src/nab",
+    "*/nab",
+]
+
+# https://docs.astral.sh/ruff/settings/
+[tool.ruff]
+target-version = "py310"
+extend-exclude = ["**/_vendor/**"]
+
+# https://docs.astral.sh/ruff/settings/#lintflake8-tidy-importsbanned-api
+# stdout carries the artefact a command was asked for and stderr carries the
+# run, both decided by nab.output.Printer, so a write straight to a process
+# stream is outside the policy: it cannot be quieted, it is never coloured,
+# and it can land on top of the progress line.  T201 bans print for the same
+# reason.
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"sys.stdout".msg = "write through nab.output.Printer"
+"sys.stderr".msg = "write through nab.output.Printer"
+"sys.__stdout__".msg = "write through nab.output.Printer"
+"sys.__stderr__".msg = "write through nab.output.Printer"
+
+# https://docs.astral.sh/ruff/settings/#lint_per-file-ignores
+[tool.ruff.lint.per-file-ignores]
+
+# The entry point owns the run's one write per stream and the printer owns
+# every other; nothing else names a stream.  Tests read the streams back,
+# and the scripts outside the packages have no printer to write through.
+"src/nab/cli.py" = ["TID251"]
+"src/nab/output.py" = ["TID251"]
+"**/tests/**" = ["TID251"]
+
+# Benchmarks intentionally print, lack docstrings, run subprocesses, and
+# carry many scenario knobs.
+"**/benchmarks/**" = [
+    "T201",     # Print statements (benchmark output)
+    "D103",     # Missing docstring in public function
+    "INP001",   # Implicit namespace package (scripts live outside packages)
+    "S607",     # subprocess with partial executable path
+    "BLE001",   # Blind exception catch (surface every failure mode)
+    "C901",     # mccabe complexity (scenario knobs add branches)
+    "PLR0912",  # Too many branches (same reason as C901)
+    "PLR0915",  # Too many statements (long main()s)
+    "PLR2004",  # Magic value in comparison (benchmark thresholds)
+    "SLF001",   # Private member access (sibling scripts share helpers)
+    "N818",     # Exception name not Error-suffixed (private signal types)
+    "TID251",   # scripts write their own output
+]
+
+# Release tooling prints, shells out to git, and lives outside any package.
+"tasks/**" = [
+    "T201",     # print (CLI output)
+    "S603",     # subprocess call
+    "S607",     # subprocess with partial executable path (git)
+    "INP001",   # implicit namespace package (scripts live outside packages)
+    "PLC2801",  # direct __replace__ call (copy.replace is 3.13+, we support 3.10)
+    "TID251",   # scripts write their own output
+]
+
+# Tests use their own per-directory ruff.toml that extends this config.
+# See tests/ruff.toml and the per-package tests/ruff.toml files.
+
+# docs/conf.py sits outside any Python package by Sphinx convention.
+"docs/conf.py" = ["INP001"]
+
+# packaging names its marker exceptions for the bad condition and drops the
+# Error suffix (InvalidMarker, UndefinedComparison); these follow it, because
+# this package is written to drop into packaging.
+"nab-markersets/src/nab_markersets/errors.py" = ["N818"]
+
+# Atom.__new__ returns an interned instance, so PYI034 wants Self, which needs
+# typing_extensions on the 3.10 floor; this distribution declares no required
+# dependency.
+"nab-markersets/src/nab_markersets/_markersets.py" = ["PYI034"]
+
+# Subpackages defer imports to break cycles with their parent modules.
+"nab-provider/src/nab_provider/_provider/*.py" = ["PLC0415"]
+"nab-project/src/nab_project/_build/*.py" = ["PLC0415"]
+"nab-project/src/nab_project/_lockfile/*.py" = ["PLC0415"]
+
+# The two host-side build paths reach build_backend, which reaches back through
+# _build.env into resolve and fetch, so the import has to be deferred.
+"nab-project/src/nab_project/_sources.py" = ["PLC0415"]
+"nab-project/src/nab_project/_build_remote.py" = ["PLC0415"]
+
+# https://docs.astral.sh/ruff/settings/#lint
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    # Frameworks we don't use.
+    "AIR",     # Airflow
+    "DJ",      # Django
+    "FAST",    # FastAPI
+    "NPY",     # NumPy
+    "PD",      # Pandas
+
+    # Conflicts with the formatter.
+    "COM812",  # Trailing comma
+    "COM819",  # Prohibited trailing comma
+    "ISC001",  # Implicit string concatenation (single line)
+    "ISC002",  # Implicit string concatenation (multi-line)
+
+    # Mutually-exclusive pairs; pick one of each.
+    "D203",    # one-blank-line-before-class (we use D211)
+    "D212",    # multi-line-summary-first-line (we use D213)
+
+    # Individual rules.
+    "ANN401",  # Disallows Any (needed for generic library)
+    "CPY001",  # Copyright notice per file; the licence sits at the repo root.
+    "S101",    # Assert usage (needed for type narrowing and tests)
+    "SIM110",  # Allow explicit loops in place of any/all.
+    "TID252",  # Bans relative imports; the project prefers them.
+]
+
+# https://docs.astral.sh/ruff/settings/#lintpylint
+[tool.ruff.lint.pylint]
+max-args = 8
+
+# https://docs.astral.sh/ruff/settings/#lintpydocstyle
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+# https://docs.astral.sh/ruff/settings/#lintisort
+[tool.ruff.lint.isort]
+known-first-party = [
+    "nab",
+    "nab_index",
+    "nab_markersets",
+    "nab_provider",
+    "nab_project",
+    "nab_resolver",
+]
+
+# https://microsoft.github.io/pyright/#/configuration?id=main-pyright-settings
+[tool.pyright]
+pythonVersion = "3.10"
+typeCheckingMode = "standard"
+# Pyright checks generated tests/cli_bijection.py; no command runs it.
+include = [
+    "nab-resolver/src",
+    "nab-resolver/tests",
+    "nab-markersets/src",
+    "nab-provider/src",
+    "nab-project/src",
+    "nab-index/src",
+    "src",
+    "tests/cli_bijection.py",
+]
+# The vendored packaging tree is rebuilt from upstream, so no checker holds it.
+exclude = ["**/_vendor"]
+# Editable installs hide the workspace packages from pyright's auto-detection;
+# point it at the source trees directly so cross-package imports resolve.
+extraPaths = [
+    "nab-resolver/src",
+    "nab-markersets/src",
+    "nab-provider/src",
+    "nab-project/src",
+    "nab-index/src",
+    "src",
+]
+
+# https://pyrefly.org/en/docs/configuration/
+[tool.pyrefly]
+project-includes = [
+    "nab-resolver/src",
+    "nab-markersets/src",
+    "nab-provider/src",
+    "nab-project/src",
+    "nab-index/src",
+    "src",
+]
+project-excludes = ["**/_vendor/**"]
+
+# https://docs.astral.sh/ty/reference/configuration/
+[tool.ty.src]
+exclude = ["**/_vendor"]
+
+# https://mypy.readthedocs.io/en/stable/config_file.html#using-a-pyproject-toml-file
+[tool.mypy]
+python_version = "3.10"
+strict = true
+namespace_packages = true
+explicit_package_bases = true
+# Each checked tree is a package base. Without "src" the umbrella resolves
+# under two module names ("nab._version" and "src.nab._version") and mypy
+# stops before checking anything.
+mypy_path = [
+    "nab-resolver/src",
+    "nab-markersets/src",
+    "nab-provider/src",
+    "nab-project/src",
+    "nab-index/src",
+    "src",
+]
+enable_error_code = [
+    "redundant-expr",
+    "truthy-bool",
+    "possibly-undefined",
+    "explicit-override",
+    "mutable-override",
+]
+
+[[tool.mypy.overrides]]
+module = "nab_provider._vendor.*"
+ignore_errors = true
+
+# zuban reads [tool.mypy] and turns this on where mypy leaves it off. The
+# guards it calls dead sit after exhaustive isinstance chains and are reached
+# by tests with objects outside the declared type.
+[tool.zuban]
+warn_unreachable = false

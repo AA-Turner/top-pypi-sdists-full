@@ -1,0 +1,24 @@
+name: node_process_watchdog
+version: "1.0.0"
+description: "Infrastructure process watchdog — periodic health checks with structured alerting"
+omnibase_core_compat: ">=0.39.0,<1.0.0"
+entry_points:
+  onex.nodes:
+    node_process_watchdog: "omnimarket.nodes.node_process_watchdog"
+capabilities:
+  standalone: true
+  full_runtime: true
+  requires_network: true
+  requires_repo: false
+  requires_secrets: false
+  requires_docker: true
+  side_effect_class: read_only
+dependencies:
+  - "omnibase_core>=0.39.0"
+  - "docker>=7.0.0"
+authors: ["OmniNode Platform Team"]
+license: "MIT"
+tags: ["watchdog", "monitoring", "health", "infrastructure", "alerting"]
+pack: "diagnostics"
+display_name: "Process Watchdog"
+node_role: "probe"

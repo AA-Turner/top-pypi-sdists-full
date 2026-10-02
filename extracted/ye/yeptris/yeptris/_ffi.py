@@ -1,0 +1,350 @@
+"""ctypes bindings to libyeptris — one signature, declared once.
+
+No C extension, no compile step: the shared library is dlopen'd the
+way the FFI gem does it for yeptris-ruby. Search order:
+  1. $YEPTRIS_LIB_PATH
+  2. a vendored yeptris/_platform/<tag>/libyeptris.* next to the package
+  3. a sibling C checkout's build directory (development)
+
+The event record layout (36 bytes) is ABI-pinned in the C header and
+mirrored here; `_RECORD` unpacks one record in a single call.
+"""
+
+from __future__ import annotations
+
+import array
+import ctypes
+import os
+import struct
+import sys
+from pathlib import Path
+
+# YeptrisStatus (error.h)
+OK = 0
+ERROR_PARSE = 1
+ERROR_MEMORY = 2
+ERROR_DEPTH = 3
+ERROR_ENCODING = 4
+ERROR_IO = 5
+ERROR_ARG = 6
+ERROR_UNSUPPORTED = 7
+ERROR_INTERNAL = 8
+
+# YeptrisSchema (resolve.h)
+SCHEMA_12_CORE = 0
+SCHEMA_11_COMPAT = 1
+
+# YeptrisEventType (events.h)
+STREAM_START = 1
+STREAM_END = 2
+DOCUMENT_START = 3
+DOCUMENT_END = 4
+SEQUENCE_START = 5
+SEQUENCE_END = 6
+MAPPING_START = 7
+MAPPING_END = 8
+SCALAR = 9
+ALIAS = 10
+
+# YeptrisTagId (resolve.h)
+TAG_STR = 0
+TAG_INT = 1
+TAG_FLOAT = 2
+TAG_BOOL = 3
+TAG_NULL = 4
+TAG_TIMESTAMP = 5
+TAG_SEQ = 6
+TAG_MAP = 7
+TAG_BINARY = 8
+TAG_MERGE = 9
+TAG_VALUE = 10
+
+# YeptrisScalarStyle (dom.h)
+STYLE_PLAIN = 1
+STYLE_SINGLE_QUOTED = 2
+STYLE_DOUBLE_QUOTED = 3
+STYLE_LITERAL = 4
+BUILD_TAG = 5  # apply an explicit tag to the last-placed entry (#300)
+STYLE_FOLDED = 5
+
+# YeptrisEventRecord: type, style, flags, tag_id (uint8 x4) then
+# line, col, end_line, end_col, value_off, value_len, anchor_off,
+# anchor_len, tag_off, tag_len (uint32 x10). sizeof == 44 — the
+# #179 end marks added in the C 0.6.19 window (ABI-pinned).
+_RECORD = struct.Struct("<4B10I")
+RECORD_SIZE = _RECORD.size
+assert RECORD_SIZE == 44
+
+# Flag bits (events.h)
+EF_FLOW = 1 << 0
+EF_EXPLICIT = 1 << 1
+EF_IMPLICIT = 1 << 2
+
+
+class YeptrisError(Exception):
+    """Base: something went wrong inside or around the library."""
+
+
+class ParseError(YeptrisError):
+    """Malformed YAML. Carries the 1-based line and column."""
+
+    def __init__(self, message: str, line: int = 0, column: int = 0):
+        super().__init__(f"{message} at line {line}, column {column}"
+                         if line else message)
+        self.line = line
+        self.column = column
+
+
+def _candidate_paths():
+    env = os.environ.get("YEPTRIS_LIB_PATH")
+    if env:
+        yield Path(env)
+    here = Path(__file__).resolve().parent
+    for p in sorted(here.glob("_platform/*/libyeptris.*")):
+        yield p
+    names = ["libyeptris.dylib", "libyeptris.so", "libyeptris.dll"]
+    for build in ("build", "build-validate"):
+        for name in names:
+            yield here.parent.parent / "yeptris" / build / "src" / name
+
+
+def _load_lib() -> ctypes.CDLL:
+    tried = []
+    for path in _candidate_paths():
+        try:
+            if path.exists():
+                lib = ctypes.CDLL(str(path))
+                # Windows vendors the DLL under BOTH names (the ctypes
+                # glob prefers libyeptris.dll); load the sibling too so
+                # the loader registers the module under whichever name
+                # _native.pyd's import table references
+                sibling = path.with_name(
+                    "yeptris.dll" if path.name == "libyeptris.dll" else "libyeptris.dll"
+                )
+                if sibling != path and sibling.exists():
+                    try:
+                        ctypes.CDLL(str(sibling))
+                    except OSError:
+                        pass
+                return lib
+            tried.append(str(path))
+        except OSError:
+            tried.append(str(path))
+    raise YeptrisError(
+        "could not load the libyeptris library. Set YEPTRIS_LIB_PATH to a "
+        "libyeptris.{so,dylib,dll}, install a platform wheel, or build the "
+        "sibling C checkout. Tried: " + ", ".join(tried)
+    )
+
+
+_lib = _load_lib()
+
+_u8p = ctypes.POINTER(ctypes.c_char)
+_p = ctypes.c_void_p
+_sz = ctypes.c_size_t
+
+_lib.yeptris_recorder_new_ex.argtypes = [ctypes.c_int]
+_lib.yeptris_recorder_new_ex.restype = _p
+_lib.yeptris_recorder_feed.argtypes = [_p, ctypes.c_char_p, _sz, ctypes.c_int]
+_lib.yeptris_recorder_feed.restype = ctypes.c_int
+_lib.yeptris_recorder_records.argtypes = [_p, ctypes.POINTER(_sz)]
+_lib.yeptris_recorder_records.restype = _u8p
+_lib.yeptris_recorder_arena.argtypes = [_p, ctypes.POINTER(_sz)]
+_lib.yeptris_recorder_arena.restype = ctypes.c_char_p
+_lib.yeptris_recorder_free.argtypes = [_p]
+
+_lib.yeptris_last_error.argtypes = [ctypes.POINTER(ctypes.c_uint32),
+                                    ctypes.POINTER(ctypes.c_uint32)]
+_lib.yeptris_last_error.restype = ctypes.c_char_p
+
+_lib.yeptris_document_new.argtypes = []
+_lib.yeptris_document_new.restype = _p
+_lib.yeptris_document_free.argtypes = [_p]
+_lib.yeptris_parse_json.argtypes = [ctypes.c_char_p, _sz, ctypes.POINTER(ctypes.c_int)]
+_lib.yeptris_parse_json.restype = _p
+
+_lib.yeptris_document_set_root.argtypes = [_p, _p]
+_lib.yeptris_document_set_root.restype = ctypes.c_int
+_lib.yeptris_node_new_scalar.argtypes = [_p, ctypes.c_char_p, _sz, ctypes.c_int]
+_lib.yeptris_node_new_scalar.restype = _p
+_lib.yeptris_node_new_sequence.argtypes = [_p]
+_lib.yeptris_node_new_sequence.restype = _p
+_lib.yeptris_node_new_mapping.argtypes = [_p]
+_lib.yeptris_node_new_mapping.restype = _p
+_lib.yeptris_node_seq_add.argtypes = [_p, _p]
+_lib.yeptris_node_seq_add.restype = ctypes.c_int
+_lib.yeptris_node_map_add.argtypes = [_p, ctypes.c_char_p, _sz, _p]
+_lib.yeptris_node_map_add.restype = ctypes.c_int
+_lib.yeptris_node_map_add_node.argtypes = [_p, _p, _p]
+_lib.yeptris_node_map_add_node.restype = ctypes.c_int
+_lib.yeptris_document_build.argtypes = [_p, ctypes.c_void_p, _sz,
+                                        ctypes.c_char_p, _sz]
+_lib.yeptris_document_build.restype = ctypes.c_int
+
+# YeptrisBuildEntry: op, style, reserved, off, len — 12 bytes, pinned
+BUILD_ENTRY = struct.Struct("<BBHII")
+BUILD_SCALAR, BUILD_SEQ, BUILD_MAP, BUILD_END = 1, 2, 3, 4
+
+# restype c_void_p: the malloc'd buffer's pointer must stay a pointer
+# so it can be freed (c_char_p would auto-convert and leak it)
+_lib.yeptris_serialize.argtypes = [_p, ctypes.POINTER(_sz)]
+_lib.yeptris_serialize.restype = ctypes.c_void_p
+
+# CBOR (RFC 8949; TODO.cbor): absent on older vendored libraries —
+# the yeptris.cbor module feature-detects
+try:
+    _lib.yeptris_cbor_decode.argtypes = [_p, _sz, ctypes.c_uint32, ctypes.POINTER(ctypes.c_int)]
+    _lib.yeptris_cbor_decode.restype = ctypes.c_void_p
+    _CBOR_ITEM_CB = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t)
+    _lib.yeptris_cbor_decode_sequence.argtypes = [
+        _p, _sz, ctypes.c_uint32, _CBOR_ITEM_CB, ctypes.c_void_p, ctypes.POINTER(ctypes.c_int)]
+    _lib.yeptris_cbor_decode_sequence.restype = ctypes.c_size_t
+    _lib.yeptris_cbor_encode.argtypes = [_p, ctypes.c_uint32, ctypes.POINTER(_sz)]
+    _lib.yeptris_cbor_encode.restype = ctypes.c_void_p
+    _lib.yeptris_cbor_encode_sequence.argtypes = [
+        ctypes.POINTER(_p), ctypes.c_size_t, ctypes.c_uint32, ctypes.POINTER(_sz)]
+    _lib.yeptris_cbor_encode_sequence.restype = ctypes.c_void_p
+    CBOR_AVAILABLE = True
+except AttributeError:
+    CBOR_AVAILABLE = False
+
+# serialize() returns a malloc'd buffer (caller frees, emit.h) — the
+# library allocates with the system allocator, so libc free is exact.
+# POSIX: CDLL(None) searches the process symbol table (falls through
+# to libc). Windows has no process fallback — free lives in
+# ucrtbase.dll, the same CRT the MSVC-built DLL allocates from.
+# Prefer the DLL's own allocator-matching free (yeptris_free,
+# libyeptris >= 0.6.6): Windows has no process-symbol fallback for
+# ctypes, and CDLL(None).free resolves only on POSIX. Older sources
+# fall back to the libc/ucrtbase chain.
+try:
+    libc_free = _lib.yeptris_free
+except AttributeError:
+    try:
+        libc_free = ctypes.CDLL(None).free
+    except (OSError, AttributeError):
+        libc_free = ctypes.CDLL("ucrtbase.dll").free
+libc_free.argtypes = [ctypes.c_void_p]
+
+
+def last_error():
+    line = ctypes.c_uint32(0)
+    col = ctypes.c_uint32(0)
+    msg = _lib.yeptris_last_error(ctypes.byref(line), ctypes.byref(col))
+    return (msg.decode("utf-8", "replace") if msg else "parse error",
+            line.value, col.value)
+
+def parse_json_strict(b: bytes) -> None:
+    """The RFC 8259 validator gate: raises ParseError on anything
+    strict JSON rejects (TODO.restructure/41 — the ctypes JSON
+    engine's gate; the native engine validates in its own walk)."""
+    st = ctypes.c_int(0)
+    doc = _lib.yeptris_parse_json(b, len(b), ctypes.byref(st))
+    if st.value != OK or not doc:
+        msg, line, col = last_error()
+        raise ParseError(msg or "invalid JSON", line, col)
+    _lib.yeptris_document_free(doc)
+
+
+def free_buffer(buf) -> None:
+    if buf:
+        libc_free(ctypes.cast(buf, ctypes.c_void_p))
+
+
+def read_owned(ptr, length) -> bytes:
+    """The serialize* contract: caller copies then frees."""
+    if not ptr:
+        return b""
+    try:
+        return ctypes.string_at(ptr, length)
+    finally:
+        free_buffer(ptr)
+
+
+class _ValueColumns(ctypes.Structure):
+    """YeptrisValueColumns (values.h): one carved block + the arena."""
+    _fields_ = [("count", ctypes.c_size_t), ("arena_len", ctypes.c_size_t),
+                ("payloads", ctypes.c_void_p), ("offs", ctypes.c_void_p),
+                ("lens", ctypes.c_void_p), ("kinds", ctypes.c_void_p),
+                ("tags", ctypes.c_void_p), ("is_keys", ctypes.c_void_p),
+                ("bools", ctypes.c_void_p), ("arena", ctypes.c_void_p)]
+
+
+# Columnar value drain (libyeptris > 0.1.1): feature-detected; the
+# record drain below is the fallback on older libraries.
+COLUMNS = hasattr(_lib, "yeptris_value_drain_columns")
+if COLUMNS:
+    _lib.yeptris_value_drain_columns.argtypes = [
+        ctypes.c_char_p, ctypes.c_size_t, ctypes.c_int,
+        ctypes.POINTER(_ValueColumns)]
+    _lib.yeptris_value_drain_columns.restype = ctypes.c_int
+    _lib.yeptris_value_free_columns.argtypes = [ctypes.POINTER(_ValueColumns)]
+    _lib.yeptris_value_free_columns.restype = None
+
+
+def drain(yaml: bytes, schema: int):
+    """One parse + one bulk read: the flat record array and the arena.
+
+    Returns (records_bytes, arena_bytes) — the FFI tax is O(1) per
+    parse, never per event (the same seam yeptris-ruby rides).
+    """
+    rec = _lib.yeptris_recorder_new_ex(schema)
+    if not rec:
+        raise YeptrisError("recorder allocation failed")
+    try:
+        st = _lib.yeptris_recorder_feed(rec, yaml, len(yaml), 1)
+        if st != OK:
+            msg, line, col = last_error()
+            raise ParseError(msg, line, col)
+        n = ctypes.c_size_t(0)
+        raw = _lib.yeptris_recorder_records(rec, ctypes.byref(n))
+        records = ctypes.string_at(raw, n.value * RECORD_SIZE) if n.value else b""
+        alen = ctypes.c_size_t(0)
+        arena_p = _lib.yeptris_recorder_arena(rec, ctypes.byref(alen))
+        arena = arena_p[:alen.value] if alen.value else b""
+        return records, arena
+    finally:
+        _lib.yeptris_recorder_free(rec)
+
+
+def drain_columns(yaml: bytes, schema: int):
+    """The value stream as parallel typed columns, one read each.
+
+    Returns (kinds, tags, is_keys, bools, offs, lens, payloads, arena,
+    closer) — bytes for the byte columns, array.array for the wider
+    ones, and a callable that frees the C-side block (call it when the
+    walk has copied out everything it needs; every Python value is
+    arena-slice-copied, so freeing after the walk is always safe).
+    """
+    if not COLUMNS:
+        raise YeptrisError("columnar drain unavailable in this libyeptris")
+    c = _ValueColumns()
+    st = _lib.yeptris_value_drain_columns(yaml, len(yaml), schema, ctypes.byref(c))
+    if st != OK:
+        msg, line, col = last_error()
+        raise ParseError(msg, line, col)
+
+    def _close():
+        _lib.yeptris_value_free_columns(ctypes.byref(c))
+
+    try:
+        n = c.count
+        if n:
+            kinds = ctypes.string_at(c.kinds, n)
+            tags = ctypes.string_at(c.tags, n)
+            is_keys = ctypes.string_at(c.is_keys, n)
+            bools = ctypes.string_at(c.bools, n)
+            offs = array.array("I", ctypes.string_at(c.offs, 4 * n))
+            lens = array.array("I", ctypes.string_at(c.lens, 4 * n))
+            pays = array.array("q", ctypes.string_at(c.payloads, 8 * n))
+        else:
+            kinds = tags = is_keys = bools = b""
+            offs = lens = array.array("I")
+            pays = array.array("q")
+        arena = ctypes.string_at(c.arena, c.arena_len) if c.arena_len else b""
+        cols = (kinds, tags, is_keys, bools, offs, lens, pays, arena, _close)
+        _close = None  # ownership passed to the caller
+        return cols
+    finally:
+        if _close is not None:
+            _close()

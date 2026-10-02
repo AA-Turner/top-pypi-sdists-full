@@ -1,0 +1,182 @@
+Metadata-Version: 2.4
+Name: scrapy-stealth
+Version: 1.0.1
+Summary: Stealthy Crawling. Maximum Results. A pluggable anti-bot and stealth framework for Scrapy.
+Author-email: Fawad Ali <fawadstar6@gmail.com>
+License: MIT License
+        
+        Copyright (c) 2026 Fawad Ali
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+Project-URL: Homepage, https://scrapy-stealth.readthedocs.io/en/latest/
+Project-URL: Documentation, https://scrapy-stealth.readthedocs.io/en/latest/
+Project-URL: Repository, https://github.com/fawadss1/scrapy-stealth
+Project-URL: Issues, https://github.com/fawadss1/scrapy-stealth/issues
+Project-URL: Changelog, https://scrapy-stealth.readthedocs.io/en/latest/reference/changelog/
+Keywords: scrapy,scrapy middleware,web scraping,stealth,stealth crawler,anti-bot,anti-detection,crawler,spider,browser fingerprint,proxy rotation,fingerprint,cloudflare bypass,http2,tls fingerprint,headless browser,bot detection bypass,rate limit bypass,scraping framework
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Framework :: Scrapy
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Internet :: WWW/HTTP :: Indexing/Search
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Security
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Typing :: Typed
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: AUTHORS
+Requires-Dist: scrapy<3.0,>=2.12.0
+Requires-Dist: wreq>=0.12.1
+Requires-Dist: curl_cffi>=0.16.1
+Requires-Dist: nodriver>=0.50.3
+Requires-Dist: colorama>=0.4.6
+Provides-Extra: dev
+Requires-Dist: ruff>=0.15.13; extra == "dev"
+Requires-Dist: mypy>=2.1.0; extra == "dev"
+Requires-Dist: pytest>=9.0.3; extra == "dev"
+Requires-Dist: pytest-asyncio>=1.3.0; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: mkdocs>=1.6.0; extra == "docs"
+Requires-Dist: mkdocs-material>=9.5.0; extra == "docs"
+Dynamic: license-file
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/fawadss1/scrapy-stealth/master/docs/static/logo.png" alt="scrapy-stealth logo" width="720" style="border-radius: 1.25rem;"/>
+</p>
+
+<h1 align="center">scrapy-stealth</h1>
+
+<p align="center"><strong>Stealthy Crawling. Maximum Results.</strong></p>
+
+<p align="center">
+  <img src="https://readme-typing-svg.demolab.com?font=DM+Sans&weight=600&size=22&duration=3500&pause=1200&color=22D3EE&center=true&vCenter=true&width=640&height=36&lines=Pluggable+anti-bot+middleware+for+Scrapy;TLS+%C2%B7+smart+proxies+%C2%B7+external+CDP+%C2%B7+Chrome" alt="Pluggable anti-bot middleware for Scrapy — TLS, smart proxies, external CDP, Chrome"/>
+</p>
+
+<p align="center">Per-request drivers and automatic HTTP → browser fallback.</p>
+
+[![Documentation](https://readthedocs.org/projects/scrapy-stealth/badge/?version=latest)](https://scrapy-stealth.readthedocs.io/en/latest/)
+[![PyPI version](https://img.shields.io/pypi/v/scrapy-stealth?color=blue)](https://pypi.org/project/scrapy-stealth/)
+[![Downloads](https://static.pepy.tech/badge/scrapy-stealth)](https://pepy.tech/project/scrapy-stealth)
+[![Python versions](https://img.shields.io/pypi/pyversions/scrapy-stealth)](https://pypi.org/project/scrapy-stealth/)
+[![GitHub release](https://img.shields.io/github/v/release/fawadss1/scrapy-stealth)](https://github.com/fawadss1/scrapy-stealth/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://github.com/fawadss1/scrapy-stealth/blob/master/LICENSE)
+[![Changelog](https://img.shields.io/badge/changelog-docs-informational)](https://scrapy-stealth.readthedocs.io/en/latest/reference/changelog/)
+
+`scrapy-stealth` adds TLS impersonation, behavioral fingerprinting, adaptive rate limiting, smart proxies, and real Chrome to Scrapy —
+with per-request driver selection and automatic HTTP → browser fallback.
+
+**Documentation:** [scrapy-stealth.readthedocs.io/en/latest/](https://scrapy-stealth.readthedocs.io/en/latest/)
+
+---
+
+<details>
+<summary><h3>💜 Sponsors</h3></summary>
+
+<table>
+  <tr>
+    <td colspan="2" align="center">
+      <a href="https://go.nodemaven.com/Fawadss1readmesept">
+        <img src="https://raw.githubusercontent.com/fawadss1/scrapy-stealth/master/docs/static/sponsors/nodemaven-banner.png" alt="NodeMaven — Best proxy for web scrapping and automation with the highest quality IP" width="720"/>
+      </a>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2">
+      <strong><a href="https://go.nodemaven.com/Fawadss1readmesept">NodeMaven</a></strong> — the most efficient proxy provider for web scrapping and automation with the highest-quality IP on the market.
+      <br/><br/>
+      <strong>Why <a href="https://go.nodemaven.com/Fawadss1readmesept">NodeMaven</a>?</strong>
+      <ul>
+        <li>99.9% uptime</li>
+        <li>ZIP Targeting</li>
+        <li>IP filtering: all proxies have fraud score &lt;97%</li>
+        <li>No KYC required</li>
+        <li>Unique free tools: <a href="https://go.nodemaven.com/Fawadss1toolssept">Proxy Bandwidth Checker</a>, Meta Tag Checker, IP Lookup, and others</li>
+      </ul>
+      Special codes for scrapy-stealth users:
+      <code>SCRAPYSTEALTH35</code> — 35% off Mobile and Residential Proxies;
+      <code>SCRAPYSTEALTH40</code> — 40% off ISP (Static) Proxies.
+    </td>
+  </tr>
+</table>
+
+</details>
+
+---
+
+## Install
+
+```bash
+pip install scrapy-stealth
+```
+
+Requires **Python 3.11+** and **Scrapy 2.12–2.x**. See
+the [installation guide](https://scrapy-stealth.readthedocs.io/en/latest/getting-started/installation/).
+
+---
+
+## Quick setup
+
+```python
+DOWNLOADER_MIDDLEWARES = {
+    "scrapy_stealth.middlewares.StealthDownloaderMiddleware": 950,
+}
+STEALTH_ENABLED = True  # injects driver="auto" on every request
+```
+
+```python
+yield scrapy.Request("https://example.com")
+```
+
+That runs **`turbo`** first, then retries once with visible Chrome on JS challenges or session bans.
+See [Quick start](https://scrapy-stealth.readthedocs.io/en/latest/getting-started/quickstart/) for per-request mode, proxies, and
+`custom_settings`.
+
+---
+
+## Documentation
+
+| Topic           | Link                                                                                                                                                                                                                                                                                                                                                     |
+|-----------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Getting started | [Installation](https://scrapy-stealth.readthedocs.io/en/latest/getting-started/installation/) · [Quick start](https://scrapy-stealth.readthedocs.io/en/latest/getting-started/quickstart/) · [Example spider](https://scrapy-stealth.readthedocs.io/en/latest/getting-started/example-spider/)                                                           |
+| Configuration   | [Global settings](https://scrapy-stealth.readthedocs.io/en/latest/configuration/settings/) · [Per-request meta](https://scrapy-stealth.readthedocs.io/en/latest/configuration/meta/)                                                                                                                                                                     |
+| Drivers         | [Overview](https://scrapy-stealth.readthedocs.io/en/latest/drivers/overview/) · [Auto](https://scrapy-stealth.readthedocs.io/en/latest/drivers/auto/) · [Browser](https://scrapy-stealth.readthedocs.io/en/latest/drivers/browser/)                                                                                                                      |
+| Guides          | [Cookies & requests](https://scrapy-stealth.readthedocs.io/en/latest/guides/cookies-and-requests/) · [Proxies](https://scrapy-stealth.readthedocs.io/en/latest/guides/proxy-management/) · [DNS](https://scrapy-stealth.readthedocs.io/en/latest/guides/dns-overrides/) · [Snapshots](https://scrapy-stealth.readthedocs.io/en/latest/guides/snapshots/) |
+| Reference       | [Features](https://scrapy-stealth.readthedocs.io/en/latest/reference/features/) · [Comparison](https://scrapy-stealth.readthedocs.io/en/latest/reference/comparison/) · [Stats](https://scrapy-stealth.readthedocs.io/en/latest/reference/stats/) · [Changelog](https://scrapy-stealth.readthedocs.io/en/latest/reference/changelog/)                    |
+
+---
+
+## Contributing
+
+See [CONTRIBUTING.md](https://github.com/fawadss1/scrapy-stealth/blob/master/CONTRIBUTING.md).
+
+## License
+
+MIT — see [LICENSE](https://github.com/fawadss1/scrapy-stealth/blob/master/LICENSE).

@@ -1,0 +1,165 @@
+---
+name: pattern_b_broker
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: orchestrator
+node_version: {major: 1, minor: 0, patch: 0}
+input_model: ModelPatternBBrokerDispatchRequest
+
+description: >
+  Contract boundary for the Pattern B cross-CLI broker. The broker accepts
+  contract-validated delegation requests, publishes them to the destination CLI
+  bridge, and consumes terminal delegation events for synchronous waiters.
+
+# OMN-18013 / OMN-16939: one entry per topic, each declaring its own message_category.
+# The publish adapter owns the delegate-task COMMAND; the terminal consumer owns the
+# dispatch-completed EVENT. A single entry spanning both registers both under
+# subscribe_topics[0]'s category and one of them can never match.
+handler_routing:
+  routing_strategy: topic_match
+  handlers:
+    - operation: pattern_b_broker_publish
+      topic: onex.cmd.omniclaude.delegate-task.v1
+      message_category: command
+      handler:
+        name: AdapterPatternBBrokerPublish
+        module: omnimarket.nodes.node_pattern_b_broker.handlers.adapter_broker_publish
+      input_model: ModelPatternBBrokerDispatchRequest
+      event_model:
+        name: ModelPatternBBrokerDispatchRequest
+        module: omnimarket.nodes.node_pattern_b_broker.models.model_broker_envelope
+    - operation: pattern_b_broker_terminal_consumer
+      topic: onex.evt.omnimarket.pattern-b-dispatch-completed.v1
+      message_category: event
+      handler:
+        name: AdapterPatternBBrokerTerminalConsumer
+        module: omnimarket.nodes.node_pattern_b_broker.handlers.adapter_broker_terminal_consumer
+      event_model:
+        name: ModelPatternBBrokerDispatchRequest
+        module: omnimarket.nodes.node_pattern_b_broker.models.model_broker_envelope
+
+descriptor:
+  node_archetype: orchestrator
+  purity: impure
+  runtime_profiles:
+    - effects
+  idempotent: false
+  timeout_ms: 300000
+
+inputs:
+  correlation_id:
+    type: uuid
+    required: true
+  request_id:
+    type: uuid
+    required: false
+  event_type:
+    type: enum
+    required: true
+    enum:
+      - dispatch_requested
+  state:
+    type: enum
+    required: false
+    default: accepted
+    enum:
+      - accepted
+      - denied
+  originator:
+    type: enum
+    required: true
+    enum:
+      - omnimarket
+      - omnicodex
+      - omniclaude
+      - opencode
+  recipient:
+    type: enum
+    required: true
+    enum:
+      - omnicodex
+      - omniclaude
+      - opencode
+  skill_name:
+    type: str
+    required: true
+  payload:
+    type: object
+    required: false
+    default: {}
+  wait_policy:
+    type: object
+    required: false
+
+outputs:
+  request_id:
+    type: uuid
+  event_type:
+    type: enum
+    enum:
+      - dispatch_published
+      - terminal_completed
+      - terminal_failed
+      - terminal_timed_out
+  state:
+    type: enum
+    enum:
+      - published
+      - completed
+      - failed
+      - timed_out
+      - denied
+  status:
+    type: enum
+    enum:
+      - completed
+      - failed
+      - timed_out
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omniclaude.delegate-task.v1
+    - onex.evt.omnimarket.pattern-b-dispatch-completed.v1
+  publish_topics:
+    - onex.evt.omniclaude.delegation-completed.v1
+    - onex.evt.omniclaude.delegation-failed.v1
+    - onex.cmd.omnimarket.pattern-b-dispatch.v1
+
+terminal_event: onex.evt.omniclaude.delegation-completed.v1
+
+broker:
+  consumer_group: omnimarket-pattern-b-broker
+  wait_for_terminal_event: true
+  default_timeout_seconds: 300
+  allowed_originators:
+    - omnimarket
+    - omnicodex
+    - omniclaude
+    - opencode
+  allowed_recipients:
+    - omnicodex
+    - omniclaude
+    - opencode
+
+dod_evidence:
+  unit:
+    description: Typed Pattern B broker contract/model tests pass locally.
+    command: uv run pytest tests/unit/nodes/node_pattern_b_broker -q
+    pass_criteria: Models require enum-backed event/state values and load topics from the node contract.
+
+metadata:
+  transport_type: kafka
+
+# OMN-18013 -- explicit external PRODUCER declaration (contract topic graph closure).
+# Replaces the deleted contract_topic_graph_baseline.yaml external_producers map:
+# the declaration now lives beside the subscription it explains.
+externally_produced_topics:
+  - topic: onex.evt.omnimarket.pattern-b-dispatch-completed.v1
+    producer: "the Pattern B broker terminal path in omnimarket.adapters.codex, not a contract publish_topics entry"
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  # referenced outside the node graph at omnimarket/src/omnimarket/adapters/codex/topics.py
+  - onex.cmd.omnimarket.pattern-b-dispatch.v1
+  - onex.evt.omniclaude.delegation-completed.v1
+  - onex.evt.omniclaude.delegation-failed.v1

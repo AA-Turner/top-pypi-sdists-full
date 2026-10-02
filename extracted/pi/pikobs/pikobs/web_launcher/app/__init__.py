@@ -1,0 +1,1 @@
+"""Pikobs Web application package."""

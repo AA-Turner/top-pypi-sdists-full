@@ -1,60 +1,63 @@
 use tombi_ast_syntax::AstToken;
-use tombi_text::FromLsp;
 use tower_lsp::lsp_types::SemanticToken;
-use unicode_segmentation::UnicodeSegmentation;
 
 use super::token_type::TokenType;
 
 pub struct SemanticTokensBuilder<'a> {
     tokens: Vec<SemanticToken>,
-    last_range: tombi_text::Range,
-    line_index: &'a tombi_text::LineIndex,
+    last_start: tombi_text::Position,
+    line_index: &'a tombi_text::LineIndex<'a>,
+    /// Tokens are added in document order, so their positions are converted by a cursor.
+    cursor: tombi_text::LineIndexCursor<'a, 'a>,
+    encoding: tombi_text::EncodingKind,
     pub text_document_uri: tombi_uri::Uri,
 }
 
 impl<'a> SemanticTokensBuilder<'a> {
-    pub fn new(text_document_uri: tombi_uri::Uri, line_index: &'a tombi_text::LineIndex) -> Self {
+    pub fn new(
+        text_document_uri: tombi_uri::Uri,
+        line_index: &'a tombi_text::LineIndex<'a>,
+        encoding: tombi_text::EncodingKind,
+    ) -> Self {
         Self {
             tokens: Vec::new(),
-            last_range: tombi_text::Range::default(),
+            last_start: tombi_text::Position::default(),
             line_index,
+            cursor: line_index.cursor(encoding),
+            encoding,
             text_document_uri,
         }
     }
 
-    pub fn add_token(&mut self, token_type: TokenType, range: tombi_text::Range) {
-        let (delta_line, delta_start) =
-            delta_line_and_start(self.last_range.start, range.start, self.line_index);
+    pub fn add_token(&mut self, token_type: TokenType, span: tombi_text::Span) {
+        let range = self.cursor.range(span);
+        let (delta_line, delta_start) = delta_line_and_start(self.last_start, range.start);
 
-        #[allow(clippy::cast_possible_truncation)]
         self.tokens.push(SemanticToken {
             delta_line,
             delta_start,
-            length: token_length(range, self.line_index),
+            length: self.token_length(span, range),
             token_type: token_type as u32,
             token_modifiers_bitset: 0,
         });
 
-        self.last_range = range;
+        self.last_start = range.start;
     }
 
-    pub fn add_comment_directive(
+    pub fn add_comment_directive<'c>(
         &mut self,
-        comment: impl AsRef<tombi_ast_syntax::Comment>,
-        directive_range: tombi_text::Range,
+        comment: impl AsRef<tombi_ast_syntax::Comment<'c>>,
+        directive_span: tombi_text::Span,
     ) {
-        let comment_range = comment.as_ref().syntax().range();
-        let directive_range =
-            tower_lsp::lsp_types::Range::from_lsp(directive_range, self.line_index);
-        let (delta_line, delta_start) =
-            delta_line_and_start(self.last_range.start, comment_range.start, self.line_index);
+        let comment_span = self.cursor.range(comment.as_ref().syntax().span());
+        let directive_span = self.cursor.range(directive_span);
+        let (delta_line, delta_start) = delta_line_and_start(self.last_start, comment_span.start);
 
-        self.last_range = comment_range;
+        self.last_start = comment_span.start;
 
-        let comment_range = tower_lsp::lsp_types::Range::from_lsp(comment_range, self.line_index);
-        let prefix_len = directive_range.start.character - comment_range.start.character;
-        let directive_len = directive_range.end.character - directive_range.start.character;
-        let content_len = comment_range.end.character - directive_range.end.character;
+        let prefix_len = directive_span.start.column - comment_span.start.column;
+        let directive_len = directive_span.end.column - directive_span.start.column;
+        let content_len = comment_span.end.column - directive_span.end.column;
 
         self.tokens.push(SemanticToken {
             delta_line,
@@ -84,63 +87,25 @@ impl<'a> SemanticTokensBuilder<'a> {
     pub fn build(self) -> Vec<SemanticToken> {
         self.tokens
     }
+
+    /// The length of a token, without the line breaks of a multi-line token.
+    fn token_length(&self, span: tombi_text::Span, range: tombi_text::Range) -> u32 {
+        if range.start.line == range.end.line {
+            return range.end.column - range.start.column;
+        }
+        (range.start.line..=range.end.line)
+            .filter_map(|line| self.line_index.line_span(line)?.intersect(span))
+            .map(|part| self.encoding.measure(&self.line_index.text()[part]))
+            .sum()
+    }
 }
 
-fn delta_line_and_start(
-    start: tombi_text::Position,
-    end: tombi_text::Position,
-    line_index: &tombi_text::LineIndex,
-) -> (u32, u32) {
-    let delta_start = tower_lsp::lsp_types::Position::from_lsp(start, line_index);
-    let delta_end = tower_lsp::lsp_types::Position::from_lsp(end, line_index);
-    let line = delta_end.line - delta_start.line;
+fn delta_line_and_start(start: tombi_text::Position, end: tombi_text::Position) -> (u32, u32) {
+    let line = end.line - start.line;
     let start = if line == 0 {
-        delta_end.character - delta_start.character
+        end.column - start.column
     } else {
-        delta_end.character
+        end.column
     };
     (line, start)
-}
-
-fn token_length(range: tombi_text::Range, line_index: &tombi_text::LineIndex) -> u32 {
-    let encoding_kind = line_index.encoding_kind;
-
-    if range.start.line == range.end.line {
-        let Some(line_text) = line_index.line_text(range.start.line) else {
-            log::error!("line_text is None. line: {}", range.start.line);
-            return 0;
-        };
-        let line_text_graphemes = line_text.graphemes(true);
-        line_text_graphemes
-            .skip(range.start.column as usize)
-            .take((range.end.column - range.start.column) as usize)
-            .fold(0, |acc, char| acc + encoding_kind.measure(char))
-    } else {
-        (range.start.line..=range.end.line).fold(0, |acc, line| {
-            acc + line_index
-                .line_text(line)
-                .map(|line_text| {
-                    let line_text_graphemes = line_text.graphemes(true);
-                    let skip_count = if line == range.start.line {
-                        range.start.column as usize
-                    } else {
-                        0
-                    };
-                    let take_count = if line == range.end.line {
-                        if range.end.line == range.start.line {
-                            (range.end.column - range.start.column) as usize
-                        } else {
-                            range.end.column as usize
-                        }
-                    } else {
-                        line_text_graphemes.size_hint().1.unwrap()
-                    };
-                    line_text_graphemes
-                        .skip(skip_count)
-                        .take(take_count)
-                        .fold(0, |acc, char| acc + encoding_kind.measure(char))
-                })
-                .unwrap_or_default()
-        })
-    }
 }

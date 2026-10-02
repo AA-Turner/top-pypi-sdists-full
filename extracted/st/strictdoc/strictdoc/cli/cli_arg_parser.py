@@ -1,0 +1,134 @@
+import argparse
+import sys
+from typing import Any, Dict, NoReturn
+
+from strictdoc import __version__
+from strictdoc.helpers.cast import assert_cast
+from strictdoc.helpers.parallelizer import Parallelizer
+
+
+def formatter(prog: str) -> argparse.RawTextHelpFormatter:
+    return argparse.RawTextHelpFormatter(
+        prog, indent_increment=2, max_help_position=4, width=80
+    )
+
+
+class SDocArgumentParser(argparse.ArgumentParser):
+    def error(self, message: str) -> NoReturn:
+        self.print_usage(sys.stderr)
+        print(f"{self.prog}: error: {message}", file=sys.stderr)  # noqa: T201
+        print("")  # noqa: T201
+        print("Further help:")  # noqa: T201
+        print(  # noqa: T201
+            "'strictdoc -h/--help' provides a general overview of available commands."
+        )
+        print(  # noqa: T201
+            "'strictdoc <command> -h/--help' provides command-specific help."
+        )
+        sys.exit(2)
+
+
+class SDocArgsParser:
+    @classmethod
+    def create_sdoc_args_parser(
+        cls, registry: Dict[str, Any]
+    ) -> "SDocArgsParser":
+        parser = cls.build_argparse(registry)
+        args = parser.parse_args()
+        return cls(args, registry)
+
+    def __init__(self, args: argparse.Namespace, registry: Dict[str, Any]):
+        self.args: argparse.Namespace = args
+        self.registry: Dict[str, Any] = registry
+
+    def is_debug_mode(self) -> bool:
+        return assert_cast(self.args.debug, bool)
+
+    def is_development_mode(self) -> bool:
+        return assert_cast(self.args.development, bool)
+
+    def run(self, parallelizer: Parallelizer) -> bool:
+        if self.args.command not in self.registry:
+            return False
+
+        cmd = self.registry[self.args.command]
+        if isinstance(cmd, dict):
+            assert self.args.subcommand in cmd
+            command_instance = cmd[self.args.subcommand](self.args)
+        else:
+            command_instance = cmd(self.args)
+        command_instance.run(parallelizer)
+
+        return True
+
+    @classmethod
+    def build_argparse(cls, registry: Dict[str, Any]) -> SDocArgumentParser:
+        # https://stackoverflow.com/a/19476216/598057
+        main_parser = SDocArgumentParser(
+            prog="strictdoc",
+            add_help=True,
+            epilog=(
+                """
+                Further help: https://strictdoc.readthedocs.io/en/stable/
+                """
+            ),
+        )
+
+        # The -v/--version has a special behavior that it still works when all
+        # commands are required == True.
+        # https://stackoverflow.com/a/12123598/598057
+        main_parser.add_argument(
+            "-v", "--version", action="version", version=__version__
+        )
+
+        main_parser.add_argument(
+            "--debug",
+            action="store_true",
+            default=False,
+            help="Enable more verbose printing of errors when they are encountered.",
+        )
+
+        # Marks a StrictDoc-team-internal development instance (e.g. our own
+        # `invoke server`), independent of --debug: --debug is about verbose
+        # error output and is meaningful for end users too, while this flag
+        # only identifies "this is StrictDoc's own dev server" (see
+        # developer/tasks/20260708_favicon_vars/task.md for the favicon use
+        # case). Hidden from --help on purpose, not for end users.
+        main_parser.add_argument(
+            "--development",
+            action="store_true",
+            default=False,
+            help=argparse.SUPPRESS,
+        )
+
+        command_subparsers = main_parser.add_subparsers(
+            title="command", dest="command"
+        )
+        command_subparsers.required = True
+
+        # Dynamically add subcommands
+        for name, cmd in registry.items():
+            if isinstance(cmd, dict):  # command family
+                family_parser = command_subparsers.add_parser(name)
+                family_subparsers = family_parser.add_subparsers(
+                    dest="subcommand"
+                )
+                family_subparsers.required = True
+                for subname, subcmd in cmd.items():
+                    sub_parser = family_subparsers.add_parser(
+                        subname,
+                        help=subcmd.HELP,
+                        description=subcmd.DETAILED_HELP,
+                        formatter_class=formatter,
+                    )
+                    subcmd.add_arguments(sub_parser)
+            else:
+                cmd_parser = command_subparsers.add_parser(
+                    name,
+                    help=cmd.HELP,
+                    description=cmd.DETAILED_HELP,
+                    formatter_class=formatter,
+                )
+                cmd.add_arguments(cmd_parser)
+
+        return main_parser

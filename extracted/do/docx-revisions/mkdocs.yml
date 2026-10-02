@@ -1,0 +1,42 @@
+site_name: Python Track Changes Library for Word - docx-revisions
+site_description: Python library to read and write track changes in Word documents (.docx). Accept revisions, list insertions and deletions with author and date, and create tracked replacements. Built on python-docx and OOXML.
+site_url: https://balalofernandez.github.io/docx-revisions
+repo_url: https://github.com/balalofernandez/docx-revisions
+
+markdown_extensions:
+  - pymdownx.highlight:
+      pygments_lang_class: true
+      linenums: false
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+
+extra_css:
+  - stylesheets/extra.css
+
+theme:
+  name: material
+  features:
+    - content.code.copy
+    - navigation.indexes
+  palette:
+    scheme: default
+    primary: white
+    accent: teal
+  font: false
+
+plugins:
+  - search
+  - tags
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_source: true
+            show_root_heading: true
+            members_order: source
+
+nav:
+  - Home: index.md
+  - Examples:
+    - examples/index.md
+    - AI Chat: examples/ai-chat.md

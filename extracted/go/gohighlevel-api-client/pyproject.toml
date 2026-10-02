@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gohighlevel-api-client"
+version = "3.0.0"
+description = "GoHighLevel Python SDK - Official API client for GoHighLevel platform"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "HighLevel", email = "marketplace@gohighlevel.com"}
+]
+keywords = [
+    "gohighlevel",
+    "api",
+    "sdk",
+    "client",
+    "crm",
+    "marketing",
+    "automation"
+]
+requires-python = ">=3.8"
+dependencies = [
+    "httpx>=0.24.0",
+    "pydantic>=2.0.0",
+    "pymongo>=4.0.0",
+    "cryptography>=3.0.0",
+]
+[project.urls]
+Homepage = "https://github.com/GoHighLevel/highlevel-api-python"
+Documentation = "https://marketplace.gohighlevel.com/docs/"
+Repository = "https://github.com/GoHighLevel/highlevel-api-python"
+"Bug Tracker" = "https://github.com/GoHighLevel/highlevel-api-python/issues"
+Changelog = "https://github.com/GoHighLevel/highlevel-api-python/blob/main/CHANGELOG.md"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.package-data]
+highlevel = ["py.typed"]

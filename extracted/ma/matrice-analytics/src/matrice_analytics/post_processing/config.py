@@ -1,5 +1,16 @@
 APP_NAME_TO_USECASE = {
     "people_counting": "people_counting",
+    "people_counting_extended": "people_counting_extended",
+    # "Unique People Counting" is the name the backend and DB actually carry
+    # for this app. "People Counting Extended" stays accepted as an alias --
+    # it shipped first, and dropping a key here turns a working deployment
+    # into "No valid configuration found" on every frame.
+    "Unique People Counting": "people_counting_extended",
+    # The normalized spelling too: get_usecase_from_app_name falls back to
+    # lower/underscore form, so this is what "unique people counting" or
+    # "Unique-People-Counting" resolve through.
+    "unique_people_counting": "people_counting_extended",
+    "People Counting Extended": "people_counting_extended",
     # fast_people_counting is registered in the use-case registry but was missing
     # here, so PostProcessor(app_name="fast_people_counting") raised
     # "No valid configuration found" on EVERY frame (silent per-frame error path).
@@ -197,6 +208,10 @@ APP_NAME_TO_USECASE = {
 
 APP_NAME_TO_CATEGORY = {
     "people_counting": "general",
+    "people_counting_extended": "general",
+    "Unique People Counting": "general",
+    "unique_people_counting": "general",
+    "People Counting Extended": "general",
     "fast_people_counting": "general",
     "Fast People Counting": "general",
     "Claude People Counting Usecase": "general",

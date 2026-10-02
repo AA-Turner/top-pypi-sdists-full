@@ -201,6 +201,7 @@ __all__ = [
     # Configuration classes
     "BaseConfig",
     "PeopleCountingConfig",
+    "PeopleCountingExtendedConfig",
     "ClaudePeopleCountingUsecaseConfig",
     "DeepOCSortConfig",
     "ProximityConfig",
@@ -330,6 +331,7 @@ __all__ = [
     "HistopathologicalCancerDetectionConfig",
     # Use case classes
     "PeopleCountingUseCase",
+    "PeopleCountingExtendedUseCase",
     "ClaudePeopleCountingUsecaseUseCase",
     "DeepOCSortUseCase",
     "CustomerServiceUseCase",

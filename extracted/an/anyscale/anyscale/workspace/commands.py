@@ -37,9 +37,7 @@ _WAIT_TIMEOUT_SECONDS = 1800.0
     doc_py_example=_CREATE_EXAMPLE,
     arg_docstrings=_CREATE_ARG_DOCSTRINGS,
 )
-def create(
-    config: WorkspaceConfig, *, _private_sdk: Optional[PrivateWorkspaceSDK] = None
-) -> str:
+def create(config: WorkspaceConfig, *, _private_sdk: Optional[PrivateWorkspaceSDK] = None) -> str:
     """Create a workspace.
 
     Returns the id of the created workspace.
@@ -247,7 +245,11 @@ def generate_ssh_config_file(
     Returns the hostname and path to the generated config file.
     """
     return _private_sdk.generate_ssh_config_file(  # type: ignore
-        name=name, id=id, cloud=cloud, project=project, ssh_config_path=ssh_config_path,
+        name=name,
+        id=id,
+        cloud=cloud,
+        project=project,
+        ssh_config_path=ssh_config_path,
     )
 
 
@@ -294,7 +296,12 @@ def run_command(
     Returns a subprocess.CompletedProcess object.
     """
     return _private_sdk.run_command(  # type: ignore
-        name=name, id=id, cloud=cloud, project=project, command=command, **kwargs,
+        name=name,
+        id=id,
+        cloud=cloud,
+        project=project,
+        command=command,
+        **kwargs,
     )
 
 
@@ -449,7 +456,8 @@ def update(
 ) -> None:
     """Update a workspace."""
     _private_sdk.update(  # type: ignore
-        id=id, config=config,
+        id=id,
+        config=config,
     )
 
 
@@ -491,7 +499,9 @@ def get(
     Args:
         include_config: If True (default), fetch full workspace config. Set to False for efficiency.
     """
-    return _private_sdk.get(name=name, id=id, cloud=cloud, project=project, include_config=include_config)  # type: ignore
+    return _private_sdk.get(  # type: ignore
+        name=name, id=id, cloud=cloud, project=project, include_config=include_config
+    )
 
 
 _LIST_EXAMPLE = """

@@ -30,6 +30,17 @@ class EnsureResourceAvailability:
 
 
 @dataclass(slots=True)
+class ServedFromCache:
+    priority: int = 0
+
+    def apply(self, app: Flask, store: UserStore) -> None:
+        @app.after_request
+        def mark_as_cached(response):
+            response.headers["Age"] = "120"
+            return response
+
+
+@dataclass(slots=True)
 class NoMergeBody:
     priority: int = 0
 
@@ -352,9 +363,8 @@ class WrongLinkTypeMismatch:
     def apply(self, app: Flask, store: UserStore) -> None:
         store.config.wrong_link_type_mismatch = True
         spec = app.config["schema"]
-        # Empty `name` would yield `/users/` which Flask routes to NotFound before any handler runs,
-        # turning every link execution into a 404 the calibrator early-returns on.
-        spec["components"]["schemas"]["NewUser"]["properties"]["name"]["minLength"] = 1
+        # Empty or digit-only names route to NotFound or a real user, never to the mismatch the calibrator counts.
+        spec["components"]["schemas"]["NewUser"]["properties"]["name"]["pattern"] = "^[A-Za-z]+$"
         spec["paths"]["/users"]["post"]["responses"]["201"]["links"]["DeleteUser"]["parameters"]["userId"] = (
             "$response.body#/name"
         )
@@ -368,9 +378,8 @@ class WrongLinkParserAttributed:
     def apply(self, app: Flask, store: UserStore) -> None:
         store.config.wrong_link_parser_attributed = True
         spec = app.config["schema"]
-        # Empty `name` would yield `/users/` which Flask routes to NotFound before any handler runs,
-        # turning every link execution into a 404 the calibrator early-returns on.
-        spec["components"]["schemas"]["NewUser"]["properties"]["name"]["minLength"] = 1
+        # Empty or digit-only names route to NotFound or a real user, never to the mismatch the calibrator counts.
+        spec["components"]["schemas"]["NewUser"]["properties"]["name"]["pattern"] = "^[A-Za-z]+$"
         spec["paths"]["/users"]["post"]["responses"]["201"]["links"]["DeleteUser"]["parameters"]["userId"] = (
             "$response.body#/name"
         )

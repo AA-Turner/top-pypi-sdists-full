@@ -1,0 +1,109 @@
+"""Public-API exposure + no-limbo consistency guard.
+
+The built-in hooks and the anonymization framework are reachable via ``import
+confiture``; ``blue_green``, ``pg_version`` and ``rollback_generator``, promoted here
+once, left in 1.16 having never gained a caller. The consistency check is what
+matters: every name in ``__all__`` resolves, and every ``_LAZY_IMPORTS`` key is
+advertised in ``__all__`` — so a future orphan can't be half-exposed (in one but
+not the other) and slip back into "tested-but-unreachable" limbo.
+"""
+
+from __future__ import annotations
+
+import confiture
+from confiture import _LAZY_IMPORTS
+
+# Names promoted to the public library surface.
+# Built-in migration lifecycle hooks (opt-in via Migrator.register_hook).
+_BUILTIN_HOOKS = (
+    "AuditHook",
+    "AuditConfig",
+    "BackupHook",
+    "BackupConfig",
+    "HookPhase",
+)
+# PII anonymization framework (powers `confiture sync --anonymize`; Medium 3).
+_ANONYMIZATION = (
+    "AnonymizationStrategy",
+    "StrategyConfig",
+    "StrategyRegistry",
+    "register_strategy",
+    "AnonymizationProfile",
+)
+_NEWLY_EXPOSED = _BUILTIN_HOOKS + _ANONYMIZATION
+
+
+def test_newly_exposed_symbols_resolve() -> None:
+    """Each library symbol imports from the top-level package."""
+    for name in _NEWLY_EXPOSED:
+        assert name in confiture.__all__, f"{name} missing from __all__"
+        assert getattr(confiture, name) is not None
+
+
+def test_builtin_hooks_are_real() -> None:
+    from confiture import AuditHook, BackupHook, HookPhase
+
+    assert AuditHook.__name__ == "AuditHook"
+    assert BackupHook.__name__ == "BackupHook"
+    # The phase enum a user needs to register them.
+    assert HookPhase.BEFORE_EXECUTE.value == "before_execute"
+
+
+def test_anonymization_framework_is_real() -> None:
+    from confiture import (
+        AnonymizationProfile,
+        AnonymizationStrategy,
+        StrategyRegistry,
+        register_strategy,
+    )
+
+    # The base class users subclass + the registry are real, and accessing the
+    # library API has pre-registered the built-in strategies (incl. the four
+    # profile-whitelisted types).
+    assert AnonymizationStrategy.__name__ == "AnonymizationStrategy"
+    assert callable(register_strategy)
+    assert AnonymizationProfile.__name__ == "AnonymizationProfile"
+    for whitelisted in ("email", "phone", "hash", "redact"):
+        assert StrategyRegistry.is_registered(whitelisted), whitelisted
+
+
+# ---------------------------------------------------------------------------
+# No-limbo consistency: __all__ ⇄ _LAZY_IMPORTS
+# ---------------------------------------------------------------------------
+
+_METADATA = {"__version__", "__author__", "__email__"}
+
+
+def test_every_all_entry_resolves() -> None:
+    """Every non-metadata name in ``__all__`` is importable via __getattr__."""
+    unresolved: list[str] = []
+    for name in confiture.__all__:
+        if name in _METADATA:
+            continue
+        try:
+            getattr(confiture, name)
+        except AttributeError:
+            unresolved.append(name)
+    assert not unresolved, f"__all__ names that do not resolve: {unresolved}"
+
+
+def test_every_lazy_import_is_advertised() -> None:
+    """Every ``_LAZY_IMPORTS`` key appears in ``__all__`` (no hidden exports)."""
+    missing = [name for name in _LAZY_IMPORTS if name not in confiture.__all__]
+    assert not missing, f"_LAZY_IMPORTS keys missing from __all__: {missing}"
+
+
+def test_every_lazy_import_resolves() -> None:
+    """Every ``_LAZY_IMPORTS`` symbol actually imports from its target module.
+
+    Direct reachability check: each lazy entry's ``(module, attr)`` pair must
+    load — a stale module path or renamed symbol fails here, not at a user's
+    first ``from confiture import X``.
+    """
+    broken: list[str] = []
+    for name in _LAZY_IMPORTS:
+        try:
+            assert getattr(confiture, name) is not None
+        except (AttributeError, ImportError):
+            broken.append(name)
+    assert not broken, f"_LAZY_IMPORTS symbols that fail to resolve: {broken}"

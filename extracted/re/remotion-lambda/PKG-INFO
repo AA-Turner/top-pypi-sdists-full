@@ -1,0 +1,12 @@
+Metadata-Version: 2.1
+Name: remotion_lambda
+Version: 4.0.532
+Summary: Remotion Lambda client
+Home-page: https://github.com/remotion-dev/remotion/tree/main/packages/lambda-python
+Author: Jonny Burger
+Author-email: jonny@remotion.dev
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+Remotion is a framework for creating videos programmatically using React.

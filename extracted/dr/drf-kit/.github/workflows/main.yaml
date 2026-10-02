@@ -1,0 +1,109 @@
+name: Github CI
+
+on:
+  pull_request:
+    branches:
+      - '**'
+    paths-ignore:
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - '*.md'
+      - 'site/**'
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - '*.md'
+      - 'site/**'
+
+jobs:
+  linter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+      - name: Set up Python
+        run: uv python install
+      - name: Install Python dependencies
+        run: make dependencies
+      - name: Lint with pylint
+        run: |
+          make lint
+
+  setup:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [ '3.11', '3.12', '3.13' ]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+      - name: Install Python dependencies
+        run: make dependencies
+      - name: Install as a package
+        run: uv build
+
+  security:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [ '3.11', '3.12', '3.13' ]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+      - name: Install Python dependencies
+        run: make dependencies
+      - name: Verify security vulnerabilities
+        run: make check
+
+
+  unit:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [ '3.11', '3.12', '3.13' ]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: sample_app
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+      - name: Install Python dependencies
+        run: make dependencies
+      - name: Unit test
+        run: make unit
+        env:
+          DB_USER: postgres
+          DB_PASS: postgres
+          DB_NAME: sample_app
+          LOG_LEVEL: ERROR
+
+      - name: Report Coverage
+        run: uv run coverage lcov
+      - uses: qltysh/qlty-action/coverage@v1
+        with:
+          token: ${{ secrets.QLTY_COVERAGE_TOKEN }}
+          files: coverage.lcov

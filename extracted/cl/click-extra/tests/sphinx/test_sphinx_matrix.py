@@ -44,6 +44,7 @@ from click_extra.sphinx.matrix import (
     UNDECLARED_CELL,
     DependencyMatrixGroup,
     PythonMatrixGroup,
+    ReleasesUnreadable,
     _column_candidates,
     _dependency_columns,
     _extract_requirement,
@@ -99,7 +100,7 @@ def offline_pypi(monkeypatch: pytest.MonkeyPatch) -> None:
     that name on PyPI would move their columns. The tests of the PyPI anchor
     stub the lookup again with the releases they need.
     """
-    monkeypatch.setattr(f"{MATRIX_MODULE}._pypi_releases", lambda dep_name: ())
+    stub_releases(monkeypatch)
 
 
 def git_repo(path: Path) -> Callable[..., None]:
@@ -363,6 +364,12 @@ def test_python_matrix_groups_keeps_declared_spec(synthetic_repo: Path) -> None:
         (
             [("v6.0.2", "v6.4.0", "2025-10-08"), ("v5.0.0", "v6.0.1", "2025-05-13")],
             ["`6.0.2` (2025-10-08) → `6.x`", "`5.0.x` (2025-05-13) → `6.0.1`"],
+        ),
+        # A bare major reads as that major's start, like the `9` a `>=9` floor
+        # yields for a dependency column when the release list is empty.
+        (
+            [("9", "9.3.5", ""), ("8.8.1", "8.9.5", "")],
+            ["`9.x`", "`8.8.x` → `8.9.x`"],
         ),
     ],
 )
@@ -681,6 +688,36 @@ def test_update_matrix_blocks_leaves_bad_path_untouched(tmp_path) -> None:
     doc.write_text(original, encoding="utf-8")
     assert update_matrix_blocks([doc]) == []
     assert doc.read_text(encoding="utf-8") == original
+
+
+def test_update_matrix_blocks_leaves_an_unreadable_pypi_untouched(
+    synthetic_dep_repo, tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An unreachable PyPI is a generation failure, not a stale block."""
+
+    # Overrides the autouse `offline_pypi`, which stands for a read that
+    # succeeded. This one fails, so it answers `required` the way the real
+    # lookup does.
+    def unreachable(dep_name, *, required=False):
+        if required:
+            raise ReleasesUnreadable(dep_name)
+        return ()
+
+    monkeypatch.setattr(f"{MATRIX_MODULE}._pypi_releases", unreachable)
+    doc = tmp_path / "page.md"
+    original = dedent(f"""
+        ```{{matrix}} widget
+        :package: proj
+        :path: {synthetic_dep_repo}
+        ```
+    """)
+    doc.write_text(original, encoding="utf-8")
+
+    assert update_matrix_blocks([doc], check=True) == []
+    assert update_matrix_blocks([doc]) == []
+    assert doc.read_text(encoding="utf-8") == original
+    # The live directive keeps the fallback the docstrings promise.
+    assert dependency_matrix_table(synthetic_dep_repo, "proj", "widget")
 
 
 def test_update_matrix_blocks_skips_examples_nested_in_code_block(
@@ -1019,7 +1056,9 @@ def stub_releases(monkeypatch: pytest.MonkeyPatch, *versions: str) -> None:
     """Make PyPI list ``versions`` as the stable releases of every dependency."""
     monkeypatch.setattr(
         f"{MATRIX_MODULE}._pypi_releases",
-        lambda dep_name: tuple(map(Version, versions)),
+        # Takes `required` like the real one: a stub answering every read has
+        # nothing to refuse, but a mismatched signature would fail the call.
+        lambda dep_name, *, required=False: tuple(map(Version, versions)),
     )
 
 
@@ -1367,9 +1406,14 @@ def test_pypi_releases_discards(pypi, tag: str, files: list) -> None:
     ],
 )
 def test_pypi_releases_unreadable(pypi, body: str, status: int) -> None:
-    """An error or a malformed answer costs the columns, not the table."""
+    """An error or a malformed answer costs the columns, not the table.
+
+    A caller that cannot use the fallback columns hears about the failure.
+    """
     pypi.expect_request("/pypi/widget/json").respond_with_data(body, status=status)
     assert _pypi_releases("widget") == ()
+    with pytest.raises(ReleasesUnreadable, match="widget"):
+        _pypi_releases("widget", required=True)
 
 
 # Every example from Poetry's dependency-specification reference, mapping the

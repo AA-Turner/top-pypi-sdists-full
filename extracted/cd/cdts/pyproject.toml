@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=77", "wheel", "pybind11>=2.10.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cdts"
+version = "0.23.0"
+description = "Change Detection and Time Series for Python (CDTS) - LandTrendr and CCDC tools for Python"
+license = "GPL-2.0-or-later"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
+dependencies = [
+    "numpy",
+    "numba>=0.53.0",
+    "rasterio",
+    "scikit-learn",
+    "scipy",
+    "dask[array]",
+    "xarray",
+    "pystac-client",
+    "stackstac",
+    "geopandas",
+    "torch",
+    "einops",
+    "transformers",
+    "planetary-computer",
+    "earthengine-api",
+    "requests",
+    "zarr",
+    "rioxarray"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "pymannkendall",
+    "minisom==2.3.6"
+]
+
+[project.scripts]
+cdts = "cdts.cli:main"

@@ -1,0 +1,43 @@
+Metadata-Version: 2.5
+Name: docent-python
+Version: 0.1.87
+Summary: Renamed to 'docent'. This package is a redirect that depends on 'docent'.
+Project-URL: Homepage, https://github.com/TransluceAI/docent
+Project-URL: Issues, https://github.com/TransluceAI/docent/issues
+Project-URL: Docs, https://transluce.mintlify.app
+Author-email: Transluce <info@transluce.org>
+License-Expression: Apache-2.0
+License-File: LICENSE.md
+Requires-Python: >=3.11
+Requires-Dist: docent==0.1.87
+Description-Content-Type: text/markdown
+
+# docent-python
+
+This package has been renamed to [`docent`](https://pypi.org/project/docent/).
+
+`docent-python` is now a thin redirect that depends on `docent`. Installing it
+will install `docent` automatically, and `import docent` continues to work
+without any code changes.
+
+## Migrating
+
+Replace `docent-python` with `docent` in your project's dependencies:
+
+```diff
+- docent-python
++ docent
+```
+
+The import path is unchanged:
+
+```python
+import docent
+```
+
+## Source
+
+Source code, issues, and documentation live in the canonical project:
+
+- Repository: <https://github.com/TransluceAI/docent>
+- Docs: <https://transluce.mintlify.app>

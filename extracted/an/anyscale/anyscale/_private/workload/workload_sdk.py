@@ -27,9 +27,7 @@ from anyscale.utils.runtime_env import is_dir_remote_uri, parse_requirements_fil
 
 # Keep in sync with Ray's default excludes in python/ray/_private/ray_constants.py
 _RAY_RUNTIME_ENV_DEFAULT_EXCLUDES = ".git,.venv,venv,__pycache__"
-_RAY_OVERRIDE_RUNTIME_ENV_DEFAULT_EXCLUDES_ENV_VAR = (
-    "RAY_OVERRIDE_RUNTIME_ENV_DEFAULT_EXCLUDES"
-)
+_RAY_OVERRIDE_RUNTIME_ENV_DEFAULT_EXCLUDES_ENV_VAR = "RAY_OVERRIDE_RUNTIME_ENV_DEFAULT_EXCLUDES"
 _WARNED_DEFAULT_EXCLUDES: Set[str] = set()
 
 
@@ -81,7 +79,8 @@ class WorkloadSDK(BaseSDK):
     ):
         super().__init__(logger=logger, client=client, timer=timer)
         self._compute_config_sdk = PrivateComputeConfigSDK(
-            logger=self.logger, client=self.client,
+            logger=self.logger,
+            client=self.client,
         )
         self._image_sdk = PrivateImageSDK(logger=self.logger, client=self.client)
 
@@ -124,9 +123,7 @@ class WorkloadSDK(BaseSDK):
 
         local_path_to_parsed_requirements: Dict[str, List[str]] = {}
 
-        def _load_requirements_file_memoized(
-            target: Union[str, List[str]]
-        ) -> List[str]:
+        def _load_requirements_file_memoized(target: Union[str, List[str]]) -> List[str]:
             if isinstance(target, list):
                 return target
             elif target in local_path_to_parsed_requirements:
@@ -134,9 +131,7 @@ class WorkloadSDK(BaseSDK):
             elif isinstance(target, str):
                 parsed_requirements = parse_requirements_file(target)
                 if parsed_requirements is None:
-                    raise FileNotFoundError(
-                        f"Requirements file {target} does not exist."
-                    )
+                    raise FileNotFoundError(f"Requirements file {target} does not exist.")
                 local_path_to_parsed_requirements[target] = parsed_requirements
                 return parsed_requirements
             else:
@@ -156,9 +151,7 @@ class WorkloadSDK(BaseSDK):
 
             if runtime_env.get("pip", None) is not None:
                 # Load requirements from the file if necessary.
-                runtime_env["pip"] = _load_requirements_file_memoized(
-                    runtime_env["pip"]
-                )
+                runtime_env["pip"] = _load_requirements_file_memoized(runtime_env["pip"])
 
         return new_runtime_envs
 
@@ -335,9 +328,7 @@ class WorkloadSDK(BaseSDK):
                 runtime_env["user_provided_py_modules"] = list(final_py_modules)
 
                 py_modules = [
-                    py_module
-                    for py_module in final_py_modules
-                    if is_dir_remote_uri(py_module)
+                    py_module for py_module in final_py_modules if is_dir_remote_uri(py_module)
                 ]
                 if len(py_modules) > 0:
                     runtime_env["py_modules"] = py_modules
@@ -373,25 +364,18 @@ class WorkloadSDK(BaseSDK):
         """
         if isinstance(compute_config, str):
             compute_config_id = self._client.get_compute_config_id(
-                compute_config_name=compute_config, cloud=cloud,
+                compute_config_name=compute_config,
+                cloud=cloud,
             )
             if compute_config_id is None:
-                raise ValueError(
-                    f"The compute config '{compute_config}' does not exist."
-                )
+                raise ValueError(f"The compute config '{compute_config}' does not exist.")
         elif compute_config is None:
             cloud_id = self.client.get_cloud_id(cloud_name=cloud)  # type: ignore
-            compute_config_id = self._client.get_default_compute_config(
-                cloud_id=cloud_id
-            ).id
+            compute_config_id = self._client.get_default_compute_config(cloud_id=cloud_id).id
             if compute_config_id is None:
-                raise ValueError(
-                    f"The default compute config for cloud '{cloud}' does not exist."
-                )
+                raise ValueError(f"The default compute config for cloud '{cloud}' does not exist.")
         else:
-            _, compute_config_id = self._compute_config_sdk.create_compute_config(
-                compute_config
-            )
+            _, compute_config_id = self._compute_config_sdk.create_compute_config(compute_config)
 
         return compute_config_id
 
@@ -418,9 +402,7 @@ class WorkloadSDK(BaseSDK):
             )
         elif compute_config is None:
             cloud_id = self.client.get_cloud_id(cloud_name=cloud)  # type: ignore
-            compute_config_id = self._client.get_default_compute_config(
-                cloud_id=cloud_id
-            ).id
+            compute_config_id = self._client.get_default_compute_config(cloud_id=cloud_id).id
             return (compute_config_id, cloud_id)  # type: ignore
         elif cloud is None:
             compute_config_id = self._resolve_compute_config_id(
@@ -442,9 +424,7 @@ class WorkloadSDK(BaseSDK):
                 compute_config=compute_config,  # type: ignore
                 cloud=cloud,
             )
-            cloud_id_from_cc = self.client.get_cloud_id(
-                compute_config_id=compute_config_id
-            )
+            cloud_id_from_cc = self.client.get_cloud_id(compute_config_id=compute_config_id)
             cloud_id_from_cloud = self.client.get_cloud_id(cloud_name=cloud)  # type: ignore
             if cloud_id_from_cc != cloud_id_from_cloud:
                 raise ValueError(
@@ -482,9 +462,7 @@ class WorkloadSDK(BaseSDK):
         """Get the full content of the containerfile as a string."""
         containerfile_path = pathlib.Path(path)
         if not containerfile_path.exists():
-            raise FileNotFoundError(
-                f"Containerfile '{containerfile_path}' does not exist."
-            )
+            raise FileNotFoundError(f"Containerfile '{containerfile_path}' does not exist.")
         if not containerfile_path.is_file():
             raise ValueError(f"Containerfile '{containerfile_path}' must be a file.")
 
@@ -505,7 +483,8 @@ class WorkloadSDK(BaseSDK):
         return result
 
     def get_user_facing_compute_config(
-        self, compute_config_id: str,
+        self,
+        compute_config_id: str,
     ) -> Union[str, ComputeConfigType]:
         """Get the compute config in a format to be displayed in a user-facing status.
 
@@ -515,9 +494,7 @@ class WorkloadSDK(BaseSDK):
         """
         compute_config = self._client.get_compute_config(compute_config_id)
         if compute_config is None:
-            raise RuntimeError(
-                f"Failed to get compute config for ID {compute_config_id}."
-            )
+            raise RuntimeError(f"Failed to get compute config for ID {compute_config_id}.")
 
         compute_config_name = compute_config.name
         if compute_config.version is not None:
@@ -539,14 +516,15 @@ class WorkloadSDK(BaseSDK):
             raise ValueError(f"Unsupported connection type: {internal_type}")
         return connection_type
 
-    def get_connection_config_from_connection(
-        self, connection: Any
-    ) -> ConnectionConfig:
+    def get_connection_config_from_connection(self, connection: Any) -> ConnectionConfig:
         """Get the connection config from the connection."""
         connection_type = self.get_connection_type_from_connection_method_type(
             connection.connection_type
         )
-        return ConnectionConfig(type=connection_type, name=connection.name,)
+        return ConnectionConfig(
+            type=connection_type,
+            name=connection.name,
+        )
 
     def resolve_connection_ids(
         self, connections: Optional[List[ConnectionConfig]]
@@ -577,9 +555,7 @@ class WorkloadSDK(BaseSDK):
         # Get connection IDs for each connection
         connection_ids = []
         for conn_config in connections:
-            fetched_connections = self.client.list_databricks_connections(
-                name=conn_config.name
-            )
+            fetched_connections = self.client.list_databricks_connections(name=conn_config.name)
             if len(fetched_connections) == 0:
                 raise ValueError(
                     f"Connection '{conn_config.name}' not found. Please check that the "

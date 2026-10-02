@@ -1,0 +1,56 @@
+Metadata-Version: 2.4
+Name: git-review
+Version: 2.5.0
+Summary: Tool to submit code to Gerrit
+Home-page: http://docs.opendev.org/opendev/git-review
+Author: OpenDev Contributors
+Author-email: service-discuss@lists.opendev.org
+License: Apache License, Version 2.0
+Project-URL: Browse Source, https://opendev.org/opendev/git-review
+Project-URL: Bug Reporting, https://storyboard.openstack.org/#!/project/opendev/git-review
+Project-URL: Documentation, https://docs.opendev.org/opendev/git-review
+Project-URL: Git Clone URL, https://opendev.org/opendev/git-review
+Project-URL: License Texts, https://opendev.org/opendev/git-review/src/branch/master/LICENSE
+Project-URL: Release Notes, https://docs.opendev.org/opendev/git-review/latest/releasenotes.html
+Keywords: git gerrit review commandline
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python
+Classifier: Topic :: Utilities
+Requires-Python: >= 3.6
+Description-Content-Type: text/x-rst; charset=UTF-8
+License-File: LICENSE
+Requires-Dist: requests>=1.1
+Dynamic: author
+Dynamic: author-email
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+git-review
+==========
+
+A git command for submitting branches to Gerrit
+
+git-review is a tool that helps submitting Git branches to Gerrit for
+review.
+
+* Free software: Apache license
+* Documentation: http://docs.opendev.org/opendev/git-review
+* Source: https://opendev.org/opendev/git-review
+* Bugs: https://storyboard.openstack.org/#!/project/opendev/git-review

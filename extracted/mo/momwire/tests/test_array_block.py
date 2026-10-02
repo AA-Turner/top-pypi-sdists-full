@@ -1,0 +1,1474 @@
+"""Tests for the element-aware array-block solver (P0: grouping + shapes).
+
+Self-contained: synthetic arrays are built from translated dipoles so the
+expected element/shape structure is known without antenna_designer designs.
+The real array designs are exercised by scripts/array_block_verify.py.
+"""
+
+import numpy as np
+import pytest
+
+from momwire.bspline import BSplineSolver
+from momwire.hmatrix import HMatrixSolver
+from momwire.array_block import (
+    ArrayBlockSolver,
+    cache_stats,
+    element_groups,
+    reset_array_caches,
+    wire_to_element,
+)
+
+
+def _dense_Z(sim):
+    """The exact dense bspline Z the block decomposition must reproduce."""
+    geom = sim._build_geometry()
+    supp_seg, polys, _kcl_A, _wk, _wbg = sim._build_basis_polynomials(geom)
+    J = sim._build_J_blocks(geom, sim.k)
+    return sim._assemble_Z(J, supp_seg, polys, geom)
+
+
+def _dipole_wire(half, y=0.0, z=0.0):
+    return np.array([[0.0, y, z - half], [0.0, y, z + half]])
+
+
+def _array_sim(offsets, halves, nsegs=12, degree=2):
+    """One straight dipole per (offset, half-length): identical when the
+    half-lengths match, a distinct shape when they differ. `offsets` are
+    (y, z) element centres far enough apart to be electrically separate."""
+    wires = [_dipole_wire(h, y=y, z=z) for (y, z), h in zip(offsets, halves)]
+    return ArrayBlockSolver(
+        wires=wires,
+        degree=degree,
+        n_per_edge_per_wire=[[nsegs]] * len(wires),
+        nsegs=nsegs,
+        wavelength=22.0,
+        feeds=[(i, None, 1.0 + 0.0j) for i in range(len(wires))],
+    )
+
+
+def _array_solver(offsets, halves, voltages, solver, nsegs=14, degree=2):
+    """Build `solver` (ArrayBlockSolver or BSplineSolver) for a dipole array with
+    explicit per-feed voltages (so a 'phase sweep' is just changing voltages on
+    a fixed geometry)."""
+    wires = [_dipole_wire(h, y=y, z=z) for (y, z), h in zip(offsets, halves)]
+    return solver(
+        wires=wires,
+        degree=degree,
+        n_per_edge_per_wire=[[nsegs]] * len(wires),
+        wavelength=22.0,
+        feeds=[(i, None, v) for i, v in enumerate(voltages)],
+    )
+
+
+def test_grouping_separates_elements():
+    """Three well-separated identical dipoles → three elements, all bases
+    accounted for exactly once, equal sizes."""
+    half = 0.962 * 22 / 4
+    offsets = [(-6.0, 0.0), (0.0, 0.0), (6.0, 0.0)]
+    sim = _array_sim(offsets, [half] * 3)
+    part = element_groups(sim)
+    assert part.n_elem == 3
+    assert len(set(part.sizes.tolist())) == 1  # equal sizes
+    # exact partition of [0, n_basis): disjoint union, every basis once
+    allb = np.concatenate(part.groups)
+    assert np.array_equal(np.sort(allb), np.arange(part.n_basis))
+    # every basis maps back to its group
+    for e, g in enumerate(part.groups):
+        assert np.all(part.elem_of_basis[g] == e)
+
+
+def test_identical_elements_one_shape():
+    half = 0.962 * 22 / 4
+    sim = _array_sim([(-6.0, 0.0), (0.0, 0.0), (6.0, 0.0)], [half] * 3)
+    part = element_groups(sim)
+    assert part.n_shapes == 1
+    assert part.shape_of_elem.tolist() == [0, 0, 0]
+
+
+# --- the BASES are part of the shape, not just the segments (momwire#609) ---
+#
+# `shape_blocks[sid]` is applied as the self-block of every element of shape
+# `sid` — in `_apply`, in `dense`, and in the block-Jacobi preconditioner — so
+# a shape class is a claim that those blocks are IDENTICAL. Segment geometry
+# does not establish that: a junction or a node gap changes an element's basis
+# set while leaving every segment midpoint and radius where it was.
+
+
+def _cut_vertical(x, cut, nseg=9, half=2.0):
+    """One vertical, meshed uniformly in `nseg`, cut into two polylines at
+    segment `cut`. The segment midpoints do not depend on `cut`; the bases
+    do."""
+    z = np.linspace(-half, half, nseg + 1)
+    return (
+        [
+            np.array([[x, 0.0, z[0]], [x, 0.0, z[cut]]]),
+            np.array([[x, 0.0, z[cut]], [x, 0.0, z[nseg]]]),
+        ],
+        [[cut], [nseg - cut]],
+    )
+
+
+def _uncut_vertical(x, nseg=9, half=2.0):
+    return [np.array([[x, 0.0, -half], [x, 0.0, half]])], [[nseg]]
+
+
+def _verticals(specs):
+    wires, nspe = [], []
+    for w, n in specs:
+        wires += w
+        nspe += n
+    return BSplineSolver(
+        wires=wires,
+        degree=2,
+        n_per_edge_per_wire=nspe,
+        wavelength=22.0,
+        wire_radius=0.001,
+        feeds=[(0, None, 1.0)],
+    )
+
+
+def test_a_cut_element_is_not_the_same_shape_as_an_uncut_translate():
+    """momwire#609's condition, minimised off the dialect.
+
+    An `LD` card mid-wire cuts a vertical into two polylines, which adds a
+    junction and changes the basis count — 9 against the uncut sibling's 7 in
+    the deck that found this. Every segment midpoint and radius is identical,
+    so the segment-only signature called all four verticals one shape and the
+    9x9 block was handed to a 7-basis element.
+    """
+    part = element_groups(_verticals([_cut_vertical(-6.0, 3), _uncut_vertical(6.0)]))
+    assert part.n_elem == 2
+    assert len(set(part.sizes.tolist())) == 2, "the premise: the counts differ"
+    assert part.n_shapes == 2, "a cut element shares no shape with an uncut one"
+
+
+def test_the_junction_position_splits_a_shape_even_at_equal_basis_count():
+    """The half that nothing downstream would have caught.
+
+    Two verticals cut at segment 3 and at segment 6 have the same segment
+    midpoints, the same radii, and — by symmetry — the same NUMBER of bases.
+    A merge here is therefore dimensionally consistent: `np.stack(groups)`
+    gets its rectangle, the preconditioner's broadcast fits, and the wrong
+    self-block is applied in silence. Only the basis LAYOUT distinguishes
+    them, which is why it is in the signature.
+    """
+    part = element_groups(_verticals([_cut_vertical(-6.0, 3), _cut_vertical(6.0, 6)]))
+    assert part.n_elem == 2
+    assert len(set(part.sizes.tolist())) == 1, "the premise: the counts agree"
+    assert part.n_shapes == 2, "same count, different bases — two shapes"
+
+
+def test_genuine_translates_still_share_one_shape():
+    """The control. The signature gained terms; it must not have gained a
+    reason to split elements that really are translates, or the accelerator
+    quietly degrades to one dense block per element."""
+    part = element_groups(_verticals([_cut_vertical(-6.0, 3), _cut_vertical(6.0, 3)]))
+    assert part.n_elem == 2 and part.n_shapes == 1
+    assert part.shape_of_elem.tolist() == [0, 0]
+
+
+def test_distinct_lengths_distinct_shapes():
+    """Two long + two short dipoles, interleaved → two shape classes that
+    track length, not position."""
+    long_h = 0.962 * 22 / 4
+    short_h = 0.7 * long_h
+    offsets = [(-9.0, 0.0), (-3.0, 0.0), (3.0, 0.0), (9.0, 0.0)]
+    sim = _array_sim(offsets, [long_h, short_h, long_h, short_h])
+    part = element_groups(sim)
+    assert part.n_elem == 4
+    assert part.n_shapes == 2
+    # elements 0,2 share a shape; 1,3 share the other
+    s = part.shape_of_elem
+    assert s[0] == s[2] and s[1] == s[3] and s[0] != s[1]
+    assert part.shape_representatives() == [0, 1]
+
+
+def test_self_blocks_identical_within_shape_class():
+    """The load-bearing P0 fact: free-space self-blocks of same-shape
+    elements match to ~1e-12 in consistent ordering."""
+    half = 0.962 * 22 / 4
+    sim = _array_sim([(-6.0, 0.0), (0.0, 0.0), (6.0, 0.0)], [half] * 3)
+    part = element_groups(sim)
+    blocks = [sim.zblock(g, g) for g in part.groups]
+    ref = blocks[0]
+    rnorm = np.linalg.norm(ref)
+    for b in blocks[1:]:
+        assert np.linalg.norm(b - ref) / rnorm < 1e-10
+
+
+def test_coupling_is_weak_and_low_rank():
+    """Off-diagonal element blocks are a small fraction of the self-block and
+    numerically low rank — the two facts the block solver exploits."""
+    half = 0.962 * 22 / 4
+    sim = _array_sim([(-6.0, 0.0), (0.0, 0.0), (6.0, 0.0)], [half] * 3)
+    part = element_groups(sim)
+    S00 = sim.zblock(part.groups[0], part.groups[0])
+    C01 = sim.zblock(part.groups[0], part.groups[1])
+    assert np.linalg.norm(C01) / np.linalg.norm(S00) < 0.1
+    s = np.linalg.svd(C01, compute_uv=False)
+    rank = int(np.count_nonzero(s > 0.01 * s[0]))
+    assert rank <= 8
+
+
+def test_single_structure_is_one_element():
+    """A lone dipole is a degenerate 1-element array (no structure to
+    exploit, but well-defined)."""
+    half = 0.962 * 22 / 4
+    sim = HMatrixSolver(
+        wires=[_dipole_wire(half)],
+        degree=2,
+        n_per_edge_per_wire=[[16]],
+        wavelength=22.0,
+    )
+    part = element_groups(sim)
+    assert part.n_elem == 1
+    assert part.n_shapes == 1
+    assert part.sizes.tolist() == [part.n_basis]
+
+
+# ---- the public grouping rule (#932) ----------------------------------------
+
+
+def test_wire_to_element_is_public():
+    """Promoted from `_wire_to_element` (#932): a consumer choosing a solver
+    asks the same question the partition does, and must not have to reach
+    into a private to ask it."""
+    import momwire
+
+    assert "wire_to_element" in momwire.__all__
+    assert momwire.wire_to_element is wire_to_element
+
+
+def test_wire_to_element_groups_bare_polylines():
+    """The public promise is that it answers from geometry alone — no solver,
+    no builder metadata. Two two-wire vees, far apart, are two elements."""
+    vee_a = [
+        np.array([[0.0, 0.0, 0.0], [0.0, 1.0, 2.0]]),
+        np.array([[0.0, 0.0, 0.0], [0.0, -1.0, 2.0]]),
+    ]
+    vee_b = [pl + np.array([0.0, 40.0, 0.0]) for pl in vee_a]
+    wire_elem, n_elem = wire_to_element(vee_a + vee_b)
+    assert n_elem == 2
+    assert wire_elem.tolist() == [0, 0, 1, 1]
+
+
+def test_wire_to_element_private_alias_still_resolves():
+    """antennaknobs pins momwire exactly and still imports the old name; its
+    call site swallows ImportError, so a premature deletion would degrade the
+    solver recommendation in silence rather than failing. Delete this test
+    with the alias when AK#932 closes."""
+    from momwire.array_block import _wire_to_element
+
+    assert _wire_to_element is wire_to_element
+
+
+# ---- P1: block decomposition + matvec ---------------------------------------
+
+
+@pytest.mark.parametrize("degree", [1, 2])
+def test_array_block_matvec_matches_dense(degree):
+    """The ArrayBlock matvec must reproduce the dense Z @ x: the P x P element
+    grid tiles Z exactly, self-blocks are exact dense, coupling is ACA to tol."""
+    half = 0.962 * 22 / 4
+    offsets = [(-9.0, 0.0), (-3.0, 0.0), (3.0, 0.0), (9.0, 0.0)]
+    sim = _array_sim(offsets, [half] * 4, nsegs=14, degree=degree)
+    Z = _dense_Z(sim)
+    n = Z.shape[0]
+    AB = sim.build_array_blocks(tol=1e-7)
+    rng = np.random.default_rng(0)
+    x = rng.standard_normal(n) + 1j * rng.standard_normal(n)
+    rel = np.linalg.norm(AB.matvec(x) - Z @ x) / np.linalg.norm(Z @ x)
+    assert rel < 1e-4
+
+
+def test_array_block_matmat_equals_columnwise_matvec():
+    """The batched matmat must equal applying matvec to each column — the
+    correctness contract the block-GMRES solve relies on."""
+    half = 0.962 * 22 / 4
+    offsets = [(-9.0, 0.0), (-3.0, 0.0), (3.0, 0.0), (9.0, 0.0)]
+    sim = _array_sim(offsets, [half] * 4, nsegs=14)
+    AB = sim.build_array_blocks(tol=1e-7)
+    rng = np.random.default_rng(1)
+    X = rng.standard_normal((AB.n, 5)) + 1j * rng.standard_normal((AB.n, 5))
+    Y = AB.matmat(X)
+    Ycol = np.column_stack([AB.matvec(X[:, j]) for j in range(X.shape[1])])
+    # GEMM (matmat) vs GEMV (matvec) round differently at ~1e-15 relative.
+    assert np.linalg.norm(Y - Ycol) / np.linalg.norm(Ycol) < 1e-12
+
+
+def test_array_block_to_dense_reconstruction():
+    half = 0.962 * 22 / 4
+    offsets = [(-9.0, 0.0), (-3.0, 0.0), (3.0, 0.0), (9.0, 0.0)]
+    sim = _array_sim(offsets, [half] * 4, nsegs=14)
+    Z = _dense_Z(sim)
+    AB = sim.build_array_blocks(tol=1e-7)
+    rel = np.abs(AB.to_dense() - Z).max() / np.abs(Z).max()
+    assert rel < 1e-3
+
+
+def test_array_block_reuses_one_self_block_per_shape():
+    """Identical elements ⇒ a single dense self-block shared by all of them."""
+    half = 0.962 * 22 / 4
+    offsets = [(-9.0, 0.0), (-3.0, 0.0), (3.0, 0.0), (9.0, 0.0)]
+    sim = _array_sim(offsets, [half] * 4, nsegs=14)
+    AB = sim.build_array_blocks()
+    assert len(AB.shape_blocks) == 1  # one shape ⇒ one stored self-block
+    assert AB.stats()["n_shapes"] == 1
+
+
+def test_array_block_symmetry_uses_transposed_factors():
+    """Z is complex-symmetric, so block (b,a) is stored as the transpose of
+    (a,b)'s factors — both directions present, reconstructing Z[b,a]=Z[a,b]^T."""
+    half = 0.962 * 22 / 4
+    offsets = [(-9.0, 0.0), (-3.0, 0.0), (3.0, 0.0)]
+    sim = _array_sim(offsets, [half] * 3, nsegs=14)
+    AB = sim.build_array_blocks(tol=1e-8)
+    pairs = {(a, b) for a, b, _, _ in AB.coupling}
+    P = len(AB.groups)
+    assert pairs == {(a, b) for a in range(P) for b in range(P) if a != b}
+    # spot-check Z[b,a] == Z[a,b]^T from the stored factors
+    blk = {(a, b): U @ V for a, b, U, V in AB.coupling}
+    for a in range(P):
+        for b in range(P):
+            if a != b:
+                assert np.allclose(blk[(b, a)], blk[(a, b)].T, atol=1e-10)
+
+
+# ---- P2: block-Jacobi GMRES solve -------------------------------------------
+
+
+def _bent_element(h, y=0.0):
+    """Two wires meeting at a right-angle junction (an L), offset in y. Gives
+    each element an internal junction → exercises the KCL saddle path."""
+    w0 = np.array([[0.0, y, 0.0], [0.0, y, h]])
+    w1 = np.array([[0.0, y, h], [0.0, y + h, h]])
+    return [w0, w1]
+
+
+def _bent_array(n_elem, h, dy=20.0, nsegs=12, degree=2):
+    wires = []
+    junctions = []
+    feeds = []
+    for e in range(n_elem):
+        w0, w1 = _bent_element(h, y=e * dy)
+        base = len(wires)
+        wires += [w0, w1]
+        junctions.append([(base, "end"), (base + 1, "start")])
+        feeds.append((base, None, 1.0 + 0.0j))
+    common = dict(
+        wires=wires,
+        degree=degree,
+        n_per_edge_per_wire=[[nsegs]] * len(wires),
+        wavelength=22.0,
+        junctions=junctions,
+        feeds=feeds,
+    )
+    return common
+
+
+def test_compute_y_matrix_matches_dense_no_junction():
+    """Multi-dipole array (no junctions) — plain block-Jacobi GMRES on Z."""
+    half = 0.962 * 22 / 4
+    offsets = [(-9.0, 0.0), (-3.0, 0.0), (3.0, 0.0), (9.0, 0.0)]
+    dense = _array_sim(offsets, [half] * 4, nsegs=16)
+    arr = _array_sim(offsets, [half] * 4, nsegs=16)
+    # the dense reference is the base solver on the same mesh
+    yd = BSplineSolver(
+        wires=[w for w in dense.wires_polylines],
+        degree=2,
+        n_per_edge_per_wire=[[16]] * 4,
+        wavelength=22.0,
+        feeds=[(i, None, 1.0 + 0.0j) for i in range(4)],
+    ).compute_y_matrix()
+    ya = arr.compute_y_matrix()
+    assert np.abs(ya - yd).max() / np.abs(yd).max() < 1e-4
+    assert max(arr._last_solve_iters) < 30
+
+
+@pytest.mark.parametrize("degree", [1, 2])
+def test_compute_y_matrix_matches_dense_with_junctions(degree):
+    """Array of L-shaped elements with internal junctions — exercises the
+    block-Jacobi preconditioner augmented with the KCL saddle rows."""
+    h = 0.962 * 22 / 4
+    common = _bent_array(3, h, nsegs=14, degree=degree)
+    yd = BSplineSolver(**common).compute_y_matrix()
+    ya = ArrayBlockSolver(**common).compute_y_matrix()
+    assert np.abs(ya - yd).max() / np.abs(yd).max() < 1e-4
+
+
+@pytest.mark.parametrize("with_junctions", [False, True])
+def test_block_jacobi_precond_matches_sparse(with_junctions):
+    """The per-element block-Jacobi preconditioner inverts the *same* augmented
+    matrix as the generic sparse-LU preconditioner — it just exploits the
+    element block-diagonal structure — so applying either to the same vector
+    must agree (and hence GMRES convergence is identical)."""
+    from momwire.array_block import _BlockJacobiAugPrecond
+    from momwire.hmatrix import _SparseAugPrecond
+
+    half = 0.962 * 22 / 4
+    if with_junctions:
+        sim = ArrayBlockSolver(**_bent_array(3, half, nsegs=14))
+    else:
+        sim = _array_sim([(-9.0, 0.0), (-3.0, 0.0), (3.0, 0.0)], [half] * 3, nsegs=14)
+    H = sim.build_array_blocks()
+    kcl = sim._context()["kcl_A"]
+    nc = kcl.shape[0]
+    N = H.n + nc
+    rng = np.random.default_rng(0)
+    R = rng.standard_normal((N, 3)) + 1j * rng.standard_normal((N, 3))
+    sparse = _SparseAugPrecond(sim._near_sparse(H, H.n), kcl)
+    bjac = _BlockJacobiAugPrecond(H, kcl)
+    ref = sparse.solve(R)
+    assert np.linalg.norm(bjac.solve(R) - ref) / np.linalg.norm(ref) < 1e-10
+
+
+def test_solve_converges_in_few_iterations():
+    """Weak inter-element coupling ⇒ the block-Jacobi preconditioner gives a
+    small, RHS-flat GMRES iteration count."""
+    half = 0.962 * 22 / 4
+    offsets = [(-9.0, 0.0), (-3.0, 0.0), (3.0, 0.0), (9.0, 0.0)]
+    arr = _array_sim(offsets, [half] * 4, nsegs=20)
+    arr.compute_y_matrix()
+    iters = arr._last_solve_iters
+    assert max(iters) < 25
+    assert max(iters) - min(iters) <= 2  # ~flat across RHS
+
+
+def test_compute_impedance_swept_matches_dense():
+    """The array-block frequency sweep must run (overriding the dense base
+    sweep, whose `same_edge_prep` arg the accelerated compute_impedance doesn't
+    accept) and match the dense bspline swept impedance per port."""
+    half = 0.962 * 22 / 4
+    offsets = [(-9.0, 0.0), (-3.0, 0.0), (3.0, 0.0), (9.0, 0.0)]
+    arr = _array_sim(offsets, [half] * 4, nsegs=16)
+    dense = BSplineSolver(
+        wires=list(arr.wires_polylines),
+        degree=2,
+        n_per_edge_per_wire=[[16]] * 4,
+        wavelength=22.0,
+        feeds=[(i, None, 1.0 + 0.0j) for i in range(4)],
+    )
+    k0 = 2 * np.pi / 22.0
+    k_array = np.linspace(0.9 * k0, 1.1 * k0, 4)
+    za = arr.compute_impedance_swept(k_array)
+    zd = dense.compute_impedance_swept(k_array)
+    assert za.shape == zd.shape == (4, 4)
+    assert np.max(np.abs(za - zd) / np.abs(zd)) < 1e-3
+
+
+# ---- P3: identical-element + block-Toeplitz coupling reuse -------------------
+
+
+def test_toeplitz_coupling_reuse_uniform_grid():
+    """A uniform line array of identical elements has only as many distinct
+    coupling blocks as there are distinct displacements: for 4 equally spaced
+    elements the displacements are {1,2,3}·spacing, so ACA runs 3 times (not
+    12), the rest reused by displacement + complex-symmetry transpose."""
+    half = 0.962 * 22 / 4
+    offsets = [(-9.0, 0.0), (-3.0, 0.0), (3.0, 0.0), (9.0, 0.0)]
+    sim = _array_sim(offsets, [half] * 4, nsegs=16)
+    sim.build_array_blocks()
+    assert sim._last_n_coupling_aca == 3
+
+
+def test_coupling_reuse_preserves_answer():
+    """Reused coupling blocks must give the same dense reconstruction as a
+    fresh per-pair computation would (displacement equivalence is exact)."""
+    half = 0.962 * 22 / 4
+    offsets = [(-9.0, 0.0), (-3.0, 0.0), (3.0, 0.0), (9.0, 0.0)]
+    sim = _array_sim(offsets, [half] * 4, nsegs=16)
+    Z = _dense_Z(sim)
+    AB = sim.build_array_blocks(tol=1e-7)
+    # fewer ACA solves than ordered pairs, yet still reconstructs Z
+    assert sim._last_n_coupling_aca < 4 * 3
+    assert np.abs(AB.to_dense() - Z).max() / np.abs(Z).max() < 1e-3
+
+
+def test_one_self_block_per_shape_reused_across_elements():
+    """Two shape classes in a 4-element line ⇒ exactly two stored self-blocks,
+    each shared by its same-shape elements."""
+    long_h = 0.962 * 22 / 4
+    short_h = 0.7 * long_h
+    offsets = [(-9.0, 0.0), (-3.0, 0.0), (3.0, 0.0), (9.0, 0.0)]
+    sim = _array_sim(offsets, [long_h, short_h, long_h, short_h], nsegs=14)
+    AB = sim.build_array_blocks()
+    assert len(AB.shape_blocks) == 2
+    # element 0 and 2 (same shape) reference the same stored block object
+    s0 = AB.shape_blocks[int(AB.shape_of_elem[0])]
+    s2 = AB.shape_blocks[int(AB.shape_of_elem[2])]
+    assert s0 is s2
+
+
+# ---- P4: animation factor-cache --------------------------------------------
+
+
+def test_phase_sweep_reuses_operator_and_factorization():
+    """A phase/excitation sweep holds geometry fixed and only changes the feed
+    voltages, so the assembled operator and its factorization are reused across
+    frames (only the RHS back-substitution re-runs)."""
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    offsets = [(-6.0, 0.0), (6.0, 0.0)]
+    s0 = float(cache_stats()["operator_build"])
+    z_frames = []
+    for ph_deg in (0.0, 45.0, 90.0):
+        v1 = np.exp(1j * np.deg2rad(ph_deg))
+        sim = _array_solver(offsets, [half, half], [1.0 + 0j, v1], ArrayBlockSolver)
+        z_frames.append(np.atleast_1d(sim.compute_impedance()[0]))
+    st = cache_stats()
+    assert st["operator_build"] - s0 == 1  # built once
+    assert st["operator_hit"] >= 2  # reused on the later frames
+    # the factorization is cached on the operator (reused, not refactored)
+    op = ArrayBlockSolver(
+        wires=[_dipole_wire(half, *o) for o in [(-6, 0), (6, 0)]],
+        degree=2,
+        n_per_edge_per_wire=[[14], [14]],
+        wavelength=22.0,
+        feeds=[(0, None, 1.0 + 0j), (1, None, 1.0 + 0j)],
+    )._build_operator()
+    assert hasattr(op, "_factored")
+
+
+def test_phase_sweep_cached_result_matches_dense():
+    """Reuse must not change the answer: each cached phase frame matches a
+    from-scratch dense bspline solve at the same excitation."""
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    offsets = [(-6.0, 0.0), (6.0, 0.0)]
+    for ph_deg in (0.0, 60.0, 120.0):
+        v = [1.0 + 0j, np.exp(1j * np.deg2rad(ph_deg))]
+        za = _array_solver(
+            offsets, [half, half], v, ArrayBlockSolver
+        ).compute_impedance()[0]
+        zd = _array_solver(offsets, [half, half], v, BSplineSolver).compute_impedance()[
+            0
+        ]
+        za, zd = np.atleast_1d(za), np.atleast_1d(zd)
+        assert np.max(np.abs(za - zd) / np.abs(zd)) < 1e-3
+
+
+def test_spacing_sweep_reuses_self_blocks():
+    """A spacing sweep moves identical elements, so the dense self-block
+    assembly is reused across frames (the operator rebuilds for the new
+    coupling, but the self-blocks are cache hits) and stays correct vs dense."""
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    for spacing in (6.0, 8.0, 10.0):
+        offs = [(-spacing, 0.0), (spacing, 0.0)]
+        v = [1.0 + 0j, 1.0 + 0j]
+        ya = _array_solver(offs, [half, half], v, ArrayBlockSolver).compute_y_matrix()
+        yd = _array_solver(offs, [half, half], v, BSplineSolver).compute_y_matrix()
+        assert np.abs(ya - yd).max() / np.abs(yd).max() < 1e-3
+    st = cache_stats()
+    # one shape, built once, then reused on the two later spacings
+    assert st["self_block_build"] == 1
+    assert st["self_block_hit"] >= 2
+    assert st["operator_build"] == 3  # new geometry each frame
+
+
+def test_array_op_cache_key_includes_junctions():
+    """#240: two ArrayBlockSolvers with identical wires/segmentation but
+    different `junctions` have different basis counts (a junction end keeps
+    a directional boundary basis a free end drops), so the operator cache
+    key must include junctions — before the fix the second solve reused the
+    first solver's wrong-shaped operator and died with
+    `ValueError: could not broadcast ...`."""
+    reset_array_caches()
+    h = 0.962 * 22 / 4
+    junctioned = ArrayBlockSolver(**_bent_array(2, h, nsegs=14, degree=2))
+    no_junction = _bent_array(2, h, nsegs=14, degree=2)
+    no_junction["junctions"] = []
+    freeended = ArrayBlockSolver(**no_junction)
+    assert junctioned._context()["n_basis"] != freeended._context()["n_basis"]
+
+    z1 = junctioned.compute_impedance()[0]
+    z2 = freeended.compute_impedance()[0]  # raised ValueError before the fix
+
+    zd1 = BSplineSolver(**_bent_array(2, h, nsegs=14, degree=2)).compute_impedance()[0]
+    dense_free = _bent_array(2, h, nsegs=14, degree=2)
+    dense_free["junctions"] = []
+    zd2 = BSplineSolver(**dense_free).compute_impedance()[0]
+    assert np.max(np.abs(z1 - zd1) / np.abs(zd1)) < 1e-3
+    assert np.max(np.abs(z2 - zd2) / np.abs(zd2)) < 1e-3
+    assert not np.allclose(z1, z2)  # junctions materially change the solve
+
+
+def test_array_op_cache_no_false_hit_across_junction_sets():
+    """Cache-behavior half of #240: differing junctions must each get a
+    fresh operator_build (no false hit), while a genuinely identical second
+    solver still gets an operator_hit (reuse must keep working)."""
+    reset_array_caches()
+    h = 0.962 * 22 / 4
+    common = _bent_array(2, h, nsegs=14, degree=2)
+    no_junction = dict(common)
+    no_junction["junctions"] = []
+
+    ArrayBlockSolver(**common).compute_impedance()
+    ArrayBlockSolver(**no_junction).compute_impedance()
+    st = cache_stats()
+    assert st["operator_build"] == 2
+    assert st["operator_hit"] == 0
+
+    ArrayBlockSolver(**common).compute_impedance()  # same geometry + junctions
+    st = cache_stats()
+    assert st["operator_build"] == 2  # no new build — reused
+    assert st["operator_hit"] == 1
+
+
+def test_self_block_key_distinguishes_junction_composition():
+    """#240 audit: `_SELF_BLOCK_CACHE` keys on segment geometry alone, which
+    has no trace of a junction/free swap in a wire's kept boundary basis —
+    same segments, different basis composition, same key before the fix.
+    These two single-element builds share identical segment geometry (only
+    `junctions` differs), so the key must still separate them."""
+    h = 0.962 * 22 / 4
+    junctioned = ArrayBlockSolver(**_bent_array(1, h, nsegs=14, degree=2))
+    no_junction = _bent_array(1, h, nsegs=14, degree=2)
+    no_junction["junctions"] = []
+    freeended = ArrayBlockSolver(**no_junction)
+
+    ctx_j, ctx_f = junctioned._context(), freeended._context()
+    part_j, part_f = junctioned.array_partition(), freeended.array_partition()
+    key_j = junctioned._self_block_key(
+        ctx_j, part_j.seg_groups[0], part_j.groups[0], junctioned.k
+    )
+    key_f = freeended._self_block_key(
+        ctx_f, part_f.seg_groups[0], part_f.groups[0], freeended.k
+    )
+    assert key_j != key_f
+
+
+def test_reset_array_caches_clears_state():
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    _array_solver(
+        [(-6.0, 0.0), (6.0, 0.0)], [half, half], [1, 1], ArrayBlockSolver
+    ).compute_y_matrix()
+    assert sum(cache_stats().values()) > 0
+    reset_array_caches()
+    assert all(v == 0 for v in cache_stats().values())
+
+
+# ---- PEC ground: per-block image term --------------------------------------
+
+
+def _ground_array(offsets, halves, solver, ground_z=0.0, nsegs=14, degree=2, **extra):
+    """`solver` for a dipole array above a ground plane at `ground_z`.
+    `offsets` are (y, z) element centres; raising z above the plane gives a
+    near-field self-image. Mirrors `_array_solver` but with `ground_z` set;
+    `extra` forwards finite-ground kwargs (ground_eps, ground_model)."""
+    wires = [_dipole_wire(h, y=y, z=z) for (y, z), h in zip(offsets, halves)]
+    return solver(
+        wires=wires,
+        degree=degree,
+        n_per_edge_per_wire=[[nsegs]] * len(wires),
+        wavelength=22.0,
+        feeds=[(i, None, 1.0 + 0.0j) for i in range(len(wires))],
+        ground_z=ground_z,
+        **extra,
+    )
+
+
+def _dense_Z_ground(sim):
+    """The exact dense bspline Z under PEC ground (free-space minus the image
+    assembly) the array-block decomposition must reproduce."""
+    geom = sim._build_geometry()
+    supp_seg, polys, _a, _wk, _wbg = sim._build_basis_polynomials(geom)
+    Z = sim._assemble_Z(sim._build_J_blocks(geom, sim.k), supp_seg, polys, geom)
+    J_img = sim._build_J_image_blocks(geom, sim.k)
+    td_img = sim._image_tangent_dot(geom["tangents"])
+    return Z - sim._assemble_Z(J_img, supp_seg, polys, geom, td_all=td_img)
+
+
+def test_ground_array_block_matvec_matches_dense():
+    """The grounded array-block operator (self-image folded into the self-blocks,
+    real+image folded into each coupling block) reproduces the dense PEC Z @ x."""
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    offsets = [(-9.0, 6.0), (-3.0, 6.0), (3.0, 6.0), (9.0, 6.0)]
+    sim = _ground_array(offsets, [half] * 4, ArrayBlockSolver, nsegs=16)
+    Z = _dense_Z_ground(sim)
+    AB = sim.build_array_blocks(tol=1e-7)
+    rng = np.random.default_rng(0)
+    x = rng.standard_normal(Z.shape[0]) + 1j * rng.standard_normal(Z.shape[0])
+    assert np.linalg.norm(AB.matvec(x) - Z @ x) / np.linalg.norm(Z @ x) < 1e-4
+    assert np.abs(AB.to_dense() - Z).max() / np.abs(Z).max() < 1e-4
+
+
+def test_ground_compute_y_matrix_matches_dense():
+    """ArrayBlock + PEC ground matches the dense bspline + PEC ground Y."""
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    offsets = [(-9.0, 6.0), (-3.0, 6.0), (3.0, 6.0), (9.0, 6.0)]
+    ya = _ground_array(
+        offsets, [half] * 4, ArrayBlockSolver, nsegs=16
+    ).compute_y_matrix()
+    yd = _ground_array(offsets, [half] * 4, BSplineSolver, nsegs=16).compute_y_matrix()
+    assert np.abs(ya - yd).max() / np.abs(yd).max() < 1e-4
+
+
+def test_ground_compute_impedance_matches_dense():
+    """ArrayBlock + PEC ground matches the dense bspline + PEC ground impedance."""
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    offsets = [(-6.0, 6.0), (6.0, 6.0)]
+    za = np.atleast_1d(
+        _ground_array(offsets, [half] * 2, ArrayBlockSolver).compute_impedance()[0]
+    )
+    zd = np.atleast_1d(
+        _ground_array(offsets, [half] * 2, BSplineSolver).compute_impedance()[0]
+    )
+    assert np.max(np.abs(za - zd) / np.abs(zd)) < 1e-3
+
+
+def test_ground_iteration_count_near_free_space():
+    """The per-block image term doesn't degrade the block-Jacobi conditioning:
+    GMRES under PEC ground converges in about the same number of iterations as
+    free space (the self-image stays inside the per-shape self-block, so the
+    preconditioner remains near-exact)."""
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    offsets = [(-9.0, 6.0), (-3.0, 6.0), (3.0, 6.0), (9.0, 6.0)]
+    free = _array_sim([(y, 0.0) for y, _z in offsets], [half] * 4, nsegs=16)
+    free.compute_y_matrix()
+    grnd = _ground_array(offsets, [half] * 4, ArrayBlockSolver, nsegs=16)
+    grnd.compute_y_matrix()
+    assert abs(max(grnd._last_solve_iters) - max(free._last_solve_iters)) <= 2
+
+
+def test_ground_single_height_grid_reuses_one_block_per_shape():
+    """A single-height grid of identical elements keeps the grid reuse intact
+    under ground: one self-block for the shape and the displacement-keyed
+    coupling reuse still collapses the pairs (the height insight)."""
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    offsets = [(-9.0, 6.0), (-3.0, 6.0), (3.0, 6.0), (9.0, 6.0)]
+    sim = _ground_array(offsets, [half] * 4, ArrayBlockSolver, nsegs=16)
+    AB = sim.build_array_blocks()
+    assert len(AB.shape_blocks) == 1  # one shape, one height
+    assert sim._last_n_coupling_aca == 3  # displacements {1,2,3}·spacing
+
+
+_SOMM = {"ground_eps": (10.0, 0.002), "ground_model": "sommerfeld"}
+
+
+def test_sommerfeld_array_matches_dense():
+    """ArrayBlock + Sommerfeld ground runs on the FAST path (C2-scaled
+    image blocks + one global low-rank remainder in `extra_lowrank`) and
+    matches the dense bspline sommerfeld Y at ACA/GMRES tolerance.
+
+    PINNED AT `aca_tol=1e-4`, the tolerance the rank bound below was
+    calibrated for, rather than following the default. The remainder's rank
+    tracks the tolerance directly — measured on this deck: 18 at 1e-4, 56 at
+    1e-6, 64 at 1e-8 — and this deck has only ~72 bases, so at the #971
+    default the "low rank" the bound is checking for is 78 % of full and the
+    assertion stops meaning anything. Pinning keeps the guard at the strength
+    it was written with; what it guards (the fast path does not degenerate to
+    a dense remainder) is a property of the path, not of the default.
+
+    A real low-rank claim at the new default wants a deck big enough for the
+    rank to be a small fraction of the basis count; this one is not it.
+    """
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    # z-centre 6.0: the vertical dipoles (half ~5.29) must sit strictly
+    # above the plane for sommerfeld (min z ~0.71).
+    offsets = [(-9.0, 6.0), (-3.0, 6.0), (3.0, 6.0), (9.0, 6.0)]
+    sim = _ground_array(
+        offsets, [half] * 4, ArrayBlockSolver, nsegs=16, aca_tol=1e-4, **_SOMM
+    )
+    ya = sim.compute_y_matrix()
+    yd = _ground_array(
+        offsets, [half] * 4, BSplineSolver, nsegs=16, **_SOMM
+    ).compute_y_matrix()
+    assert np.abs(ya - yd).max() / np.abs(yd).max() < 1e-3
+    assert sim._last_somm_rank < 50
+
+
+def test_sommerfeld_block_reuse_intact():
+    """The global remainder term lives OUTSIDE the block cache: on a
+    single-height grid the sommerfeld solve keeps one self-block per
+    shape and the displacement-keyed coupling dedup, exactly like PEC."""
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    # z-centre 6.0: the vertical dipoles (half ~5.29) must sit strictly
+    # above the plane for sommerfeld (min z ~0.71).
+    offsets = [(-9.0, 6.0), (-3.0, 6.0), (3.0, 6.0), (9.0, 6.0)]
+    sim = _ground_array(offsets, [half] * 4, ArrayBlockSolver, nsegs=16, **_SOMM)
+    AB = sim.build_array_blocks()
+    assert len(AB.shape_blocks) == 1  # one shape, one height
+    assert sim._last_n_coupling_aca == 3  # displacements {1,2,3}·spacing
+    assert len(AB.extra_lowrank) == 1  # the one global remainder term
+
+
+def test_sommerfeld_self_block_never_aliases_refl():
+    """A sommerfeld self-block (C2-scaled image) and a refl-coef one for
+    the same ground constants must key differently in the module cache —
+    the impedances differ by the remainder + weighting physics."""
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    offsets = [(-6.0, 6.0), (6.0, 6.0)]
+    z_somm = np.atleast_1d(
+        _ground_array(
+            offsets, [half] * 2, ArrayBlockSolver, **_SOMM
+        ).compute_impedance()[0]
+    )
+    z_refl = np.atleast_1d(
+        _ground_array(
+            offsets, [half] * 2, ArrayBlockSolver, ground_eps=(10.0, 0.002)
+        ).compute_impedance()[0]
+    )
+    assert np.max(np.abs(z_somm - z_refl)) > 0.1  # distinct physics came out
+
+
+def test_ground_mixed_height_refines_blocks_and_stays_correct():
+    """Elements of one geometric shape at two heights need two distinct
+    self-blocks under ground (the self-image depends on height), and the result
+    still matches the dense PEC solve."""
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    offsets = [(-6.0, 6.0), (6.0, 6.0), (-6.0, 9.0), (6.0, 9.0)]
+    sim = _ground_array(offsets, [half] * 4, ArrayBlockSolver, nsegs=14)
+    AB = sim.build_array_blocks()
+    # one geometric shape, but two heights ⇒ two block-shape classes
+    assert len(AB.shape_blocks) == 2
+    ya = _ground_array(
+        offsets, [half] * 4, ArrayBlockSolver, nsegs=14
+    ).compute_y_matrix()
+    yd = _ground_array(offsets, [half] * 4, BSplineSolver, nsegs=14).compute_y_matrix()
+    assert np.abs(ya - yd).max() / np.abs(yd).max() < 1e-4
+
+
+def test_ground_and_free_self_blocks_do_not_alias():
+    """The self-block cache key folds in ground height, so a free-space build and
+    a grounded build of the same geometry never reuse each other's self-block."""
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    offsets = [(-6.0, 6.0), (6.0, 6.0)]
+    free = _array_sim([(y, z) for y, z in offsets], [half] * 2, nsegs=14)
+    free.build_array_blocks()
+    grnd = _ground_array(offsets, [half] * 2, ArrayBlockSolver, nsegs=14)
+    grnd.build_array_blocks()
+    # the grounded build must assemble its own self-block, not reuse the
+    # free-space one cached under the same translation-invariant signature
+    assert cache_stats()["self_block_build"] == 2
+
+
+# ---- ground_eps: Fresnel-weighted image blocks (Phase 5) --------------------
+
+
+_GEPS = (10.0, 0.002)
+
+
+def _ground_eps_array(offsets, halves, solver, nsegs=14, degree=2):
+    """`_ground_array` with the reflection-coefficient finite ground."""
+    wires = [_dipole_wire(h, y=y, z=z) for (y, z), h in zip(offsets, halves)]
+    return solver(
+        wires=wires,
+        degree=degree,
+        n_per_edge_per_wire=[[nsegs]] * len(wires),
+        wavelength=22.0,
+        feeds=[(i, None, 1.0 + 0.0j) for i in range(len(wires))],
+        ground_z=0.0,
+        ground_eps=_GEPS,
+    )
+
+
+def _dense_Z_ground_eps(sim):
+    geom = sim._build_geometry()
+    supp_seg, polys, _a, _wk, _wbg = sim._build_basis_polynomials(geom)
+    Z = sim._assemble_Z(sim._build_J_blocks(geom, sim.k), supp_seg, polys, geom)
+    J_img = sim._build_J_image_blocks(geom, sim.k)
+    return Z - sim._image_Z_refl(J_img, supp_seg, polys, geom)
+
+
+def test_ground_eps_array_block_matvec_matches_dense():
+    """The ground_eps array-block operator (weighted self-image in the
+    self-blocks, weighted real+image in each coupling block) reproduces the
+    dense refl-coef Z @ x."""
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    offsets = [(-9.0, 6.0), (-3.0, 6.0), (3.0, 6.0), (9.0, 6.0)]
+    sim = _ground_eps_array(offsets, [half] * 4, ArrayBlockSolver, nsegs=16)
+    Z = _dense_Z_ground_eps(sim)
+    AB = sim.build_array_blocks(tol=1e-7)
+    rng = np.random.default_rng(0)
+    x = rng.standard_normal(Z.shape[0]) + 1j * rng.standard_normal(Z.shape[0])
+    assert np.linalg.norm(AB.matvec(x) - Z @ x) / np.linalg.norm(Z @ x) < 1e-4
+    assert np.abs(AB.to_dense() - Z).max() / np.abs(Z).max() < 1e-4
+
+
+def test_ground_eps_compute_impedance_matches_dense():
+    """ArrayBlock + ground_eps matches the dense bspline + ground_eps Z."""
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    offsets = [(-6.0, 6.0), (6.0, 6.0)]
+    za = np.atleast_1d(
+        _ground_eps_array(offsets, [half] * 2, ArrayBlockSolver).compute_impedance()[0]
+    )
+    zd = np.atleast_1d(
+        _ground_eps_array(offsets, [half] * 2, BSplineSolver).compute_impedance()[0]
+    )
+    assert np.max(np.abs(za - zd) / np.abs(zd)) < 1e-3
+
+
+def test_ground_eps_single_height_grid_keeps_block_reuse():
+    """The Fresnel weights depend only on displacement + heights, so the
+    single-height grid reuse must be exactly as under PEC: one self-block,
+    coupling ACA once per unique displacement."""
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    offsets = [(-9.0, 6.0), (-3.0, 6.0), (3.0, 6.0), (9.0, 6.0)]
+    sim = _ground_eps_array(offsets, [half] * 4, ArrayBlockSolver, nsegs=16)
+    AB = sim.build_array_blocks()
+    assert len(AB.shape_blocks) == 1  # one shape, one height
+    assert sim._last_n_coupling_aca == 3  # displacements {1,2,3}·spacing
+
+
+def test_ground_eps_and_pec_blocks_never_alias_in_module_caches():
+    """A PEC solve and a ground_eps solve of the identical geometry must not
+    share cached self-blocks / operators (the cache keys carry the ground
+    constants + phi mode)."""
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    offsets = [(-6.0, 6.0), (6.0, 6.0)]
+    z_pec = np.atleast_1d(
+        _ground_array(offsets, [half] * 2, ArrayBlockSolver).compute_impedance()[0]
+    )
+    z_eps = np.atleast_1d(
+        _ground_eps_array(offsets, [half] * 2, ArrayBlockSolver).compute_impedance()[0]
+    )
+    # Physically different grounds: if the caches aliased, these would match.
+    assert np.max(np.abs(z_eps - z_pec)) > 0.5
+
+
+# ---- Degenerate-partition fallback (issue #143) ------------------------------
+
+
+def test_single_structure_falls_back_to_hmatrix():
+    """One connected structure = one element holding every basis: nothing to
+    exploit, so the operator must be the parent's H-matrix, not a whole-matrix
+    dense self-block (issue #143's 21.6 GiB gather at whip scale)."""
+    from momwire._aca import HMatrix
+    from momwire.array_block import ArrayBlock
+
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    sim = ArrayBlockSolver(
+        wires=[_dipole_wire(half)],
+        degree=2,
+        n_per_edge_per_wire=[[16]],
+        wavelength=22.0,
+        feeds=[(0, None, 1.0 + 0.0j)],
+    )
+    assert sim._degenerate_partition()
+    op = sim._build_operator()
+    assert isinstance(op, HMatrix) and not isinstance(op, ArrayBlock)
+    assert cache_stats()["hmatrix_fallback"] == 1
+    assert cache_stats()["operator_build"] == 0  # array path never entered
+
+
+def test_fallback_impedance_matches_dense():
+    """The degraded solve is still a correct solve."""
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    common = dict(
+        wires=[_dipole_wire(half)],
+        degree=2,
+        n_per_edge_per_wire=[[16]],
+        wavelength=22.0,
+        feeds=[(0, None, 1.0 + 0.0j)],
+    )
+    za = np.atleast_1d(ArrayBlockSolver(**common).compute_impedance()[0])
+    zd = np.atleast_1d(BSplineSolver(**common).compute_impedance()[0])
+    assert np.max(np.abs(za - zd) / np.abs(zd)) < 1e-3
+    assert cache_stats()["hmatrix_fallback"] >= 1
+
+
+def test_fallback_with_junctions_uses_sparse_precond():
+    """A single bent element (internal KCL junction) exercises the
+    preconditioner delegation: the fallback H-matrix has no element blocks,
+    so `_make_preconditioner` must hand off to the generic sparse-LU path
+    instead of `_BlockJacobiAugPrecond`."""
+    reset_array_caches()
+    h = 0.962 * 22 / 4
+    common = _bent_array(1, h, nsegs=14)
+    ya = ArrayBlockSolver(**common).compute_y_matrix()
+    yd = BSplineSolver(**common).compute_y_matrix()
+    assert cache_stats()["hmatrix_fallback"] >= 1
+    assert np.abs(ya - yd).max() / np.abs(yd).max() < 1e-4
+
+
+def test_all_distinct_shapes_fall_back():
+    """Multiple elements but every shape unique: neither the self-block reuse
+    nor the coupling-displacement dedup can ever fire, so the partition is
+    degenerate too."""
+    reset_array_caches()
+    long_h = 0.962 * 22 / 4
+    offsets = [(-9.0, 0.0), (0.0, 0.0), (9.0, 0.0)]
+    sim = _array_sim(offsets, [long_h, 0.8 * long_h, 0.6 * long_h])
+    assert sim._degenerate_partition()
+    za = np.diag(sim.compute_y_matrix())
+    yd = BSplineSolver(
+        wires=list(sim.wires_polylines),
+        degree=2,
+        n_per_edge_per_wire=[[12]] * 3,
+        wavelength=22.0,
+        feeds=[(i, None, 1.0 + 0.0j) for i in range(3)],
+    ).compute_y_matrix()
+    assert cache_stats()["hmatrix_fallback"] >= 1
+    assert np.abs(za - np.diag(yd)).max() / np.abs(np.diag(yd)).max() < 1e-4
+
+
+def test_oversize_element_falls_back_repetition_stays():
+    """The size cap: a uniform grid keeps the block path under the default
+    cap, but the same mesh with a tiny `array_max_elem_bases` degrades to the
+    H-matrix even though repetition exists (two copies of a huge element
+    would still gather a multi-GiB intermediate per representative)."""
+    from momwire.array_block import ArrayBlock
+
+    half = 0.962 * 22 / 4
+    offsets = [(-6.0, 0.0), (0.0, 0.0), (6.0, 0.0)]
+
+    reset_array_caches()
+    sim = _array_sim(offsets, [half] * 3)
+    assert not sim._degenerate_partition()
+    assert isinstance(sim._build_operator(), ArrayBlock)
+    assert cache_stats()["hmatrix_fallback"] == 0
+
+    reset_array_caches()
+    capped = _array_sim(offsets, [half] * 3)
+    capped.array_max_elem_bases = 4
+    assert capped._degenerate_partition()
+    capped._build_operator()
+    assert cache_stats()["hmatrix_fallback"] == 1
+
+
+# ---- Lattice-FFT coupling (docs/lattice-fft-plan.md) -------------------------
+
+
+def _lattice_sim(
+    px,
+    py,
+    half,
+    sx=15.4,
+    sy=15.4,
+    nsegs=10,
+    degree=2,
+    solver=ArrayBlockSolver,
+    jitter=None,
+    drop=(),
+    **extra,
+):
+    """px × py grid of identical vertical dipoles in the x-y plane. `jitter`
+    displaces one element off-lattice; `drop` removes grid sites (holes)."""
+    wires = [
+        np.array([[i * sx, j * sy, -half], [i * sx, j * sy, half]])
+        for i in range(px)
+        for j in range(py)
+        if (i, j) not in drop
+    ]
+    if jitter is not None:
+        wires[jitter[0]] = wires[jitter[0]] + np.asarray(jitter[1])
+    return solver(
+        wires=wires,
+        degree=degree,
+        n_per_edge_per_wire=[[nsegs]] * len(wires),
+        wavelength=22.0,
+        feeds=[(0, None, 1.0 + 0.0j)],
+        **extra,
+    )
+
+
+def test_lattice_fft_operator_selection():
+    """auto: per-pair below 16 elements, FFT at/above; True forces, False
+    disables; jittered (non-lattice) geometry always falls back."""
+    from momwire.array_block import ArrayBlock, LatticeArrayBlock
+
+    half = 0.962 * 22 / 4
+    op = _lattice_sim(4, 3, half).build_array_blocks()  # auto, P=12
+    assert type(op) is ArrayBlock
+    op = _lattice_sim(4, 4, half).build_array_blocks()  # auto, P=16
+    assert isinstance(op, LatticeArrayBlock)
+    op = _lattice_sim(4, 3, half, lattice_fft=True).build_array_blocks()
+    assert isinstance(op, LatticeArrayBlock)
+    op = _lattice_sim(4, 4, half, lattice_fft=False).build_array_blocks()
+    assert type(op) is ArrayBlock
+    jit = _lattice_sim(4, 4, half, lattice_fft=True, jitter=(5, [0.9, 0.4, 0.0]))
+    assert type(jit.build_array_blocks()) is ArrayBlock
+
+
+@pytest.mark.parametrize("degree", [1, 2])
+def test_lattice_fft_to_dense_matches_dense(degree):
+    """The FFT kernel stores displacement blocks exactly (no ACA truncation),
+    so the reconstruction matches the dense Z to roundoff."""
+    half = 0.962 * 22 / 4
+    sim = _lattice_sim(4, 3, half, degree=degree, lattice_fft=True)
+    Z = _dense_Z(sim)
+    rel = np.abs(sim.build_array_blocks().to_dense() - Z).max() / np.abs(Z).max()
+    assert rel < 1e-10
+
+
+def test_lattice_fft_matvec_matches_dense():
+    half = 0.962 * 22 / 4
+    sim = _lattice_sim(4, 3, half, lattice_fft=True)
+    Z = _dense_Z(sim)
+    H = sim.build_array_blocks()
+    rng = np.random.default_rng(0)
+    x = rng.standard_normal(H.n) + 1j * rng.standard_normal(H.n)
+    assert np.linalg.norm(H.matvec(x) - Z @ x) / np.linalg.norm(Z @ x) < 1e-10
+    X = np.column_stack([x, 2 * x - 1])
+    Ycol = np.column_stack([H.matvec(X[:, j]) for j in range(2)])
+    assert np.linalg.norm(H.matmat(X) - Ycol) / np.linalg.norm(Ycol) < 1e-12
+
+
+def test_lattice_fft_impedance_matches_dense():
+    half = 0.962 * 22 / 4
+    sim = _lattice_sim(4, 4, half, lattice_fft=True)
+    zd = _lattice_sim(4, 4, half, solver=BSplineSolver).compute_impedance()[0]
+    za = sim.compute_impedance()[0]
+    assert abs(za - zd) / abs(zd) < 1e-4
+    from momwire.array_block import LatticeArrayBlock
+
+    assert isinstance(sim._hmatrix, LatticeArrayBlock)
+
+
+def test_lattice_fft_line_array():
+    """A 1-D lattice (line array) exercises the dim-1 FFT path."""
+    from momwire.array_block import LatticeArrayBlock
+
+    half = 0.962 * 22 / 4
+    sim = _lattice_sim(6, 1, half, lattice_fft=True)
+    H = sim.build_array_blocks()
+    assert isinstance(H, LatticeArrayBlock)
+    Z = _dense_Z(sim)
+    rng = np.random.default_rng(2)
+    x = rng.standard_normal(H.n) + 1j * rng.standard_normal(H.n)
+    assert np.linalg.norm(H.matvec(x) - Z @ x) / np.linalg.norm(Z @ x) < 1e-10
+
+
+def test_lattice_fft_sparse_grid_hole():
+    """A lattice with an unoccupied site still runs the FFT path: absent
+    displacements stay zero and only cropped rows ever read them."""
+    from momwire.array_block import LatticeArrayBlock
+
+    half = 0.962 * 22 / 4
+    sim = _lattice_sim(4, 4, half, lattice_fft=True, drop={(1, 2)})
+    H = sim.build_array_blocks()
+    assert isinstance(H, LatticeArrayBlock)
+    Z = _dense_Z(sim)
+    rel = np.abs(H.to_dense() - Z).max() / np.abs(Z).max()
+    assert rel < 1e-10
+
+
+def test_lattice_fft_with_junctions_matches_dense():
+    """L-shaped elements on a lattice: the Floquet preconditioner augments
+    each Floquet bin with the (identical) per-element KCL saddle."""
+    h = 0.962 * 22 / 4
+    wires, junctions, feeds = [], [], []
+    for i in range(3):
+        for j in range(2):
+            dx, dy = i * 15.4, j * 15.4
+            base = len(wires)
+            wires.append(np.array([[dx, dy, 0.0], [dx, dy, h]]))
+            wires.append(np.array([[dx, dy, h], [dx, dy + h, h]]))
+            junctions.append([(base, "end"), (base + 1, "start")])
+            feeds.append((base, None, 1.0 + 0.0j))
+    common = dict(
+        wires=wires,
+        degree=2,
+        n_per_edge_per_wire=[[10]] * len(wires),
+        wavelength=22.0,
+        junctions=junctions,
+        feeds=feeds,
+    )
+    yd = BSplineSolver(**common).compute_y_matrix()
+    sim = ArrayBlockSolver(lattice_fft=True, **common)
+    ya = sim.compute_y_matrix()
+    assert np.abs(ya - yd).max() / np.abs(yd).max() < 1e-4
+    from momwire.array_block import LatticeArrayBlock, _LatticeFloquetAugPrecond
+
+    assert isinstance(sim._hmatrix, LatticeArrayBlock)
+    assert isinstance(sim._hmatrix._factored.precond, _LatticeFloquetAugPrecond)
+
+
+def test_lattice_fft_ground_matches_dense():
+    """Single-height grid above PEC ground: the image term rides the same
+    displacement kernel (folded into the dense evaluators)."""
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    kw = dict(lattice_fft=True, ground_z=-8.0)
+    za = _lattice_sim(3, 5, half, **kw).compute_impedance()[0]
+    zd = _lattice_sim(
+        3, 5, half, solver=BSplineSolver, ground_z=-8.0
+    ).compute_impedance()[0]
+    assert abs(za - zd) / abs(zd) < 1e-3
+
+
+def test_lattice_fft_solve_iterations_bounded():
+    """The Floquet preconditioner keeps iteration growth to edge effects —
+    far below the block-Jacobi count on the same grid."""
+    half = 0.962 * 22 / 4
+    fft = _lattice_sim(8, 8, half, nsegs=8, degree=1, lattice_fft=True)
+    fft.compute_impedance()
+    pair = _lattice_sim(8, 8, half, nsegs=8, degree=1, lattice_fft=False)
+    pair.compute_impedance()
+    assert max(fft._last_solve_iters) < max(pair._last_solve_iters)
+
+
+# ---- solver_diag() (antennaknobs#613) ---------------------------------------
+
+
+def test_solver_diag_none_before_solve():
+    """No `_hmatrix` yet ⇒ nothing to report, not a stale/wrong guess."""
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    sim = _lattice_sim(4, 4, half)
+    assert sim.solver_diag() is None
+
+
+def test_solver_diag_fft_engaged():
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    sim = _lattice_sim(4, 4, half)  # auto, P=16 ⇒ FFT lattice
+    sim.compute_impedance()
+    assert sim.solver_diag() == {
+        "operator": "LatticeArrayBlock",
+        "lattice_fft": True,
+        "n_elem": 16,
+        "n_shapes": 1,
+        "reason": None,
+    }
+
+
+def test_solver_diag_too_few_elements():
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    sim = _lattice_sim(4, 3, half)  # auto, P=12 < 16
+    sim.compute_impedance()
+    diag = sim.solver_diag()
+    assert diag["operator"] == "ArrayBlock"
+    assert diag["lattice_fft"] is False
+    assert diag["n_elem"] == 12
+    assert diag["n_shapes"] == 1
+    assert diag["reason"] == "only 12 elements; the FFT path engages at 16+"
+
+
+def test_solver_diag_non_lattice():
+    """A jittered element still parses as one shape class with 16+ elements,
+    so the reason must name the failed lattice fit specifically, not just
+    restate `lattice_fft: false`."""
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    sim = _lattice_sim(4, 4, half, jitter=(5, [0.9, 0.4, 0.0]))
+    sim.compute_impedance()
+    diag = sim.solver_diag()
+    assert diag["operator"] == "ArrayBlock"
+    assert diag["lattice_fft"] is False
+    assert diag["n_shapes"] == 1
+    assert diag["reason"] == "element centroids don't fit a regular lattice"
+
+
+def test_solver_diag_explicitly_disabled():
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    sim = _lattice_sim(4, 4, half, lattice_fft=False)
+    sim.compute_impedance()
+    diag = sim.solver_diag()
+    assert diag["lattice_fft"] is False
+    assert diag["reason"] == "lattice FFT explicitly disabled"
+
+
+def test_solver_diag_height_split_under_ground():
+    """A vertically-stacked (2-height) grounded array reports the FFT gap
+    with the height-split reason, even though it has plenty of elements and
+    every element shares one geometric shape — ground-refined block-shape
+    classes are what the gate actually checks (issue #613's headline case)."""
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    offsets = [(y, z) for z in (6.0, 12.0) for y in (-22.0, -14.0, -6.0, 2.0, 10.0)]
+    sim = _ground_array(offsets, [half] * len(offsets), ArrayBlockSolver, nsegs=8)
+    sim.compute_impedance()
+    diag = sim.solver_diag()
+    assert diag["operator"] == "ArrayBlock"
+    assert diag["lattice_fft"] is False
+    assert diag["n_shapes"] == 2
+    assert diag["reason"] == (
+        "shape classes split by height above ground (2 classes); the FFT path needs 1"
+    )
+
+
+def test_solver_diag_hmatrix_fallback():
+    """The degenerate (no exploitable partition) path reports a distinct
+    operator type and reason from the ArrayBlock per-pair path — the two
+    must not be conflated even though both report `lattice_fft: false`."""
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    sim = ArrayBlockSolver(
+        wires=[_dipole_wire(half)],
+        degree=2,
+        n_per_edge_per_wire=[[16]],
+        wavelength=22.0,
+        feeds=[(0, None, 1.0 + 0.0j)],
+    )
+    sim.compute_impedance()
+    assert sim.solver_diag() == {
+        "operator": "HMatrix",
+        "lattice_fft": False,
+        "n_elem": None,
+        "n_shapes": None,
+        "reason": "fell back to the H-matrix (no exploitable element partition)",
+    }
+
+
+def test_solver_diag_absent_for_other_solvers():
+    """Only the Array Block engine reports this — plain BSplineSolver has no
+    `solver_diag` at all, and the adapter relies on that absence to omit the
+    field for every other engine."""
+    half = 0.962 * 22 / 4
+    sim = BSplineSolver(
+        wires=[_dipole_wire(half)],
+        degree=2,
+        n_per_edge_per_wire=[[16]],
+        wavelength=22.0,
+        feeds=[(0, None, 1.0 + 0.0j)],
+    )
+    assert not hasattr(sim, "solver_diag")
+
+
+# ---- require_lattice_fft enforcement (antennaknobs#616) ----------------------
+
+
+def test_require_lattice_fft_engaged_passes():
+    """When the FFT path engages, enforcement is invisible: same solve, same
+    operator, no exception."""
+    from momwire.array_block import LatticeArrayBlock
+
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    sim = _lattice_sim(4, 4, half, require_lattice_fft=True)  # auto, P=16
+    sim.compute_impedance()
+    assert isinstance(sim._hmatrix, LatticeArrayBlock)
+
+
+def test_require_lattice_fft_too_few_elements():
+    """auto + P<16: the exception names the count gate and the concrete fix
+    (lattice_fft=True engages the path below 16 elements)."""
+    from momwire import LatticeFFTUnavailable
+
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    sim = _lattice_sim(4, 3, half, require_lattice_fft=True)  # auto, P=12
+    with pytest.raises(
+        LatticeFFTUnavailable, match=r"only 12 elements.*lattice_fft=True"
+    ):
+        sim.compute_impedance()
+
+
+def test_require_lattice_fft_non_lattice():
+    from momwire import LatticeFFTUnavailable
+
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    sim = _lattice_sim(
+        4,
+        4,
+        half,
+        lattice_fft=True,
+        require_lattice_fft=True,
+        jitter=(5, [0.9, 0.4, 0.0]),
+    )
+    with pytest.raises(LatticeFFTUnavailable, match=r"don't fit a regular lattice"):
+        sim.compute_impedance()
+
+
+def test_require_lattice_fft_height_split_under_ground():
+    """The issue's headline trap: lattice_fft=True + ground quietly degraded;
+    with enforcement it raises and names the height split."""
+    from momwire import LatticeFFTUnavailable
+
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    offsets = [(y, z) for z in (6.0, 12.0) for y in (-22.0, -14.0, -6.0, 2.0, 10.0)]
+    sim = _ground_array(
+        offsets,
+        [half] * len(offsets),
+        ArrayBlockSolver,
+        nsegs=8,
+        lattice_fft=True,
+        require_lattice_fft=True,
+    )
+    with pytest.raises(
+        LatticeFFTUnavailable,
+        match=r"split by height above ground \(2 classes\).*constant height",
+    ):
+        sim.compute_impedance()
+
+
+def test_require_lattice_fft_distinct_shapes_free_space():
+    """Two shape classes with no ground: the reason must name distinct
+    element shapes, not the height split (which can't happen in free space)."""
+    from momwire import LatticeFFTUnavailable
+
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    wires = [
+        _dipole_wire(h, y=y)
+        for y, h in [(-18.0, half), (-6.0, half), (6.0, 0.8 * half), (18.0, 0.8 * half)]
+    ]
+    sim = ArrayBlockSolver(
+        wires=wires,
+        degree=2,
+        n_per_edge_per_wire=[[10]] * len(wires),
+        wavelength=22.0,
+        feeds=[(0, None, 1.0 + 0.0j)],
+        lattice_fft=True,
+        require_lattice_fft=True,
+    )
+    with pytest.raises(LatticeFFTUnavailable, match=r"2 distinct element shapes"):
+        sim.compute_impedance()
+
+
+def test_require_lattice_fft_degenerate_partition():
+    """Degenerate partitions never reach the gate walk (H-matrix fallback,
+    issue #143) — enforcement must still fire, naming the specific cause."""
+    from momwire import LatticeFFTUnavailable
+
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    oversize = _lattice_sim(
+        4, 4, half, require_lattice_fft=True, array_max_elem_bases=4
+    )
+    with pytest.raises(LatticeFFTUnavailable, match=r"array_max_elem_bases=4"):
+        oversize.compute_impedance()
+
+    no_reuse = _lattice_sim(1, 1, half, lattice_fft=True, require_lattice_fft=True)
+    with pytest.raises(LatticeFFTUnavailable, match=r"no shape class has two members"):
+        no_reuse.compute_impedance()
+
+
+def test_require_lattice_fft_cached_operator():
+    """A cached per-pair operator (built by a permissive solver for the same
+    geometry) must not slip past enforcement on the cache-hit path."""
+    from momwire import LatticeFFTUnavailable
+
+    reset_array_caches()
+    half = 0.962 * 22 / 4
+    _lattice_sim(4, 3, half).compute_impedance()  # caches the per-pair op
+    strict = _lattice_sim(4, 3, half, require_lattice_fft=True)
+    with pytest.raises(LatticeFFTUnavailable, match=r"only 12 elements"):
+        strict.compute_impedance()
+    assert cache_stats()["operator_hit"] >= 1
+
+
+def test_require_lattice_fft_construction_errors():
+    """Contradictory or hopeless configurations fail at construction, not at
+    solve time: lattice_fft=False contradicts the requirement outright, and
+    singular enrichment forces the dense fallback for every solve."""
+    from momwire import LatticeFFTUnavailable
+
+    half = 0.962 * 22 / 4
+    with pytest.raises(ValueError, match=r"contradicts lattice_fft=False"):
+        _lattice_sim(4, 4, half, lattice_fft=False, require_lattice_fft=True)
+    with pytest.raises(LatticeFFTUnavailable, match=r"singular enrichment"):
+        _lattice_sim(4, 4, half, use_singular_enrichment=True, require_lattice_fft=True)

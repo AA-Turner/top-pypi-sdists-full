@@ -1,0 +1,808 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# ONEX Node Contract - Evidence Autoclose Sweep Effect
+#
+# OMN-16106 first slice: companion-merge -> dod_verify -> governed Done flip.
+#
+# Enumerates onex_change_control PRs merged in a lookback window, extracts
+# each merged companion's Evidence-Ticket binding, runs the existing
+# `onex skill dod_verify <ticket> --execution-audience hosted` verifier,
+# and either flips the bound Linear ticket Done (all
+# ACs receipt-proven, zero failed) or posts the honest gap as a comment
+# (never flips on any gap). DRY-RUN by default (apply=false); ANY ambiguity
+# (missing binding, ambiguous multi-ticket companion, dod_verify non-zero
+# exit, Linear API error) fails closed.
+#
+# Related Tickets:
+#   - OMN-16106: this ticket (first slice)
+#   - OMN-13856: dod_verify / DurableEvidenceGate mechanical no-fake-Done guard
+#   - OMN-16736: the changed-file listing was read with the wrong GitHub key
+#     (`path` instead of `filename`), so it was empty for every PR ever
+#     scanned and the contracts/<ticket>.yaml binding signal below was dead
+#     code — every binding came from the PR title alone. An unreadable files
+#     payload now fails closed as an error rather than as an empty list.
+#   - OMN-16736 (contract 1.1.0): two further corrections to the verdict path,
+#     both found by the first live run in which `node_dod_verify` actually
+#     resolved.
+#       (a) The dod_verify counts were read from `result.total_checks`. The
+#           capture this was corrected against nested every count under
+#           `result.terminal_payload`, with `result` carrying only the
+#           DISPATCH outcome. The reader therefore saw 0/0 on every run and
+#           no flip was reachable at all. The verdict must now also agree
+#           with dod_verify's own terminal `status: verified` — counts alone
+#           do not authorize a flip. (That correction was right for the arm
+#           it was measured on and WRONG as a universal rule; see OMN-16961
+#           below, which is the same defect one turn later.)
+#       (b) `onex skill dod_verify` exits 1 on every genuine evidence GAP
+#           while still printing a complete ModelSkillResult. stdout is now
+#           parsed regardless of exit code, so a gap is recorded as a gap
+#           instead of ERROR_VERIFY_NONZERO_EXIT ("the verifier crashed").
+#           JSON with no verdict in it still fails closed as an error.
+#   - OMN-16736 / OMN-14362 (contract 1.1.0): AC-COVERAGE GUARD. dod_verify
+#     verifies the checks declared in the OCC contract, so an acceptance
+#     criterion that lives only in the ticket's Linear description is
+#     structurally invisible to it — "3/3 verified, 0 failed" says nothing
+#     about a fourth criterion nobody encoded. Before any flip the description
+#     is re-read; an unchecked markdown checkbox, or an acceptance-criteria
+#     section listing more items than dod_verify had checks, WITHHOLDS the
+#     flip and posts GAP_AC_COVERAGE naming them.
+#   - OMN-15911 (contract 1.2.0): PROOF-CLASS GUARD. A green tally does not
+#     say what the green legs PROVED. Before OMN-15911 a `gh pr view --json
+#     state` read and an executed test suite both terminated in the same
+#     `verified`, so `verified_count == total_checks` was satisfiable
+#     entirely by "the PR merged" — and this node then wrote into Linear that
+#     the ticket's acceptance criteria were receipt-proven. dod_verify now
+#     classifies every check verdict and reports
+#     `behavior_proving_count` on its verdict (checks that both
+#     PASSED and executed the claimed behavior). A flip requires it to be
+#     >= 1; zero on an otherwise-clean run WITHHOLDS the flip and posts
+#     GAP_NO_BEHAVIOR_PROOF. A verdict carrying no such field at all (an
+#     omnimarket predating OMN-15911 — i.e. every historical receipt) is
+#     ERROR_VERIFY_UNPARSEABLE, never an inference in either direction.
+#   - OMN-16821 (contract 1.3.0): VERDICT-BEARING DENOMINATOR. The flip
+#     equality was `verified_count == total_checks` and it was unsatisfiable
+#     for most of the corpus, which is why the flip path had never fired
+#     once. `total_checks` counts every check carrying a verdict, and
+#     `non_probative` (OMN-15391 — executed, exited 0, and its exit status
+#     cannot depend on the product change) IS one of those verdicts, so a
+#     non-probative entry counted in the denominator and never in the
+#     numerator. One of them held a ticket forever regardless of the rest of
+#     the evidence, and the ticket was then classified GAP_POSTED and told
+#     under --apply that "not all ACs are receipt-proven" by a verifier that
+#     had just returned `verified` with zero failures. Measured: OMN-16260
+#     reads verified / 12 total / 6 verified / 0 failed / 1 behavior-proving
+#     and could not flip. The equality is now
+#     `verified_count + non_probative_count == total_checks` — the OMN-15390
+#     precedent applied one axis over, since `total_checks` already excludes
+#     superseded entries upstream on exactly that reasoning. Strictness is
+#     unchanged elsewhere: a real `failed` still gaps, a `skipped` check
+#     still gaps (neither verified nor non-probative), and an
+#     ALL-non-probative contract still gaps twice over — dod_verify's own
+#     status is `skipped` for that shape, and `verified_count > 0` is a
+#     conjunct so the merge-state-only corpus can never satisfy the equality
+#     by arithmetic. The OMN-15911 behavior conjunct and the OMN-16736
+#     AC-coverage guard run after this and are untouched. A verdict omitting
+#     `non_probative_count` contributes 0 and collapses back to the older,
+#     stricter rule — a fallback that can only withhold a flip. Gap comment
+#     wording now names the shortfall actually found instead of asserting the
+#     ACs are unproven, and `non_probative_count` joins the OMN-16808 dedup
+#     fingerprint because the statement varies with it.
+#   - OMN-16905 (contract 1.3.1): REPORT WHAT YOU MEASURED. The outcome row
+#     read `behavior_proving_count` off the verdict only inside the
+#     `all_verified` branch; every other exit built its outcome without the
+#     field and took the model's `default=0`. A gap-path row therefore
+#     published a structural 0 that had never been read from the verdict,
+#     indistinguishable in the emitted JSON from a measured zero. That is
+#     what made this node's own OUTCOME row disagree 1-vs-0 with dod_verify's
+#     dump for OMN-16803 in run 33210163405 while the other four counters
+#     matched exactly — the other four are read unconditionally, above the
+#     branch — and the split was misread as an omnimarket classifier
+#     regression between the gate venv and the OMN-16846 dispatch venv. There
+#     was no such regression. The read now sits with the other counters and
+#     every verdict-bearing exit publishes it; the one branch where 0 does
+#     NOT mean "measured zero" (ERROR_VERIFY_UNPARSEABLE, key genuinely
+#     absent) states its 0 explicitly. NO DECISION CHANGES: the flip
+#     predicate reads the verdict directly and always did, so no ticket's
+#     flippability moves. This is reporting fidelity — the row is the
+#     machine-readable record the fleet is triaged from, and a counter that
+#     reads 0 whenever a ticket is not already flippable cannot distinguish
+#     "no behavior proof was declared" from "behavior proof ran, passed, and
+#     something else held the flip".
+#   - OMN-16961 (contract 1.3.2): READ THE ARM THE RECEIPT DECLARES. OMN-16736
+#     (a) above fixed the verdict path against ONE live capture and stated the
+#     result as universal: "the live CLI nests every count under
+#     `result.terminal_payload`". It does not. `receipt_mode._run_and_emit`
+#     emits one of TWO receipts, branching on the run's own outcome:
+#       success-like + a handler result -> `result` IS the handler model,
+#           FLAT (`ModelDodVerifyState`); NO `terminal_payload` key exists.
+#       anything else -> `result` is a `ModelReceiptRuntimeSummary` and the
+#           verdict is nested at `result.terminal_payload`.
+#     The OMN-16736 capture happened to be a `status: failed` run — the
+#     nested arm — so the constant derived from it was correct for that arm
+#     and wrong for the other. And dod_verify's workflow result is
+#     success-like EXACTLY when its verdict is `verified`, so the arm the
+#     reader could not parse was precisely the FLIP-ELIGIBLE one:
+#     `tickets_flipped` was not stuck at 0, it was UNREACHABLE by
+#     construction for every ticket that satisfied the predicate. Run
+#     33258391128 scored 10 of 19 verdict-eligible tickets
+#     ERROR_VERIFY_UNPARSEABLE at `exit_code=0` while the diagnose step in
+#     the SAME job printed full verdicts from the same bytes — that step's
+#     `terminal_payload or envelope` fallback absorbed both arms by accident,
+#     so the run contained its own contradiction with the cause invisible in
+#     it. The reader now dispatches on `result_model`, the receipt's own
+#     declared type tag, and on nothing else. It is deliberately NOT a
+#     parser that accepts both shapes by sniffing whichever key is present:
+#     an absent or drifted `result_model` is REFUSED BY NAME, because a wrong
+#     guess here is a Done flip on evidence nobody read. Strictness is
+#     unchanged (OMN-15715): a declared arm carrying no `total_checks` is
+#     still an error and never a 0/0 "gap", and no count is ever coerced.
+#     What changes is that a refusal now names its own cause — undeclared
+#     shape, drifted `result_model`, or a genuinely unreached verdict —
+#     instead of the generic "no verdict was reached". Both arms are captured
+#     verbatim at tests/fixtures/omn16961/. The diagnose step is fixed the
+#     same way: a diagnostic that reads the receipt differently from the
+#     reader it is diagnosing cannot diagnose that reader.
+#
+#   - OMN-16106 (contract 1.4.0), class (c): A READBACK AGAINST A DEAD SURFACE
+#     IS HELD, NOT JUDGED. Fourteen tickets in the 2026-08-31 sprint have
+#     acceptance criteria that are live readbacks against onex-dev, which has
+#     been in CrashLoopBackOff since 2026-09-02. Their dod_verify checks fail,
+#     and this node reported that failure as GAP_POSTED -- whose comment
+#     asserts "your acceptance criterion is not met". That is a false
+#     statement: the check learned NOTHING about the criterion, because the
+#     thing under test was down, and the backfill rotation accrued one such
+#     comment per turn.
+#
+#     The per-check records were already on the dod_verify terminal payload
+#     (evidence_id / status / message) and this node read only the counters
+#     beside them. It now reads the records: a FAILED check, or a SKIPPED one
+#     the verifier marked with a typed unverifiable_cause,
+#     whose own message carries a surface-unreachable signal
+#     (CrashLoopBackOff, connection refused, dial tcp, no such host, i/o
+#     timeout, ...) terminates the candidate SKIPPED_LIVE_SURFACE_UNAVAILABLE.
+#     Nothing written, nothing judged, candidate re-offered next tick -- so
+#     when staging returns the ticket flips with zero human launch.
+#
+#     Per-check attribution rather than a run-level health flag, deliberately:
+#     only some candidates in a run read a live surface at all, and a "staging
+#     is down" flag would hold candidates whose evidence is entirely local --
+#     a hold nobody can clear.
+#
+#     The classifier is a message-shape match and its safety argument is
+#     DIRECTION, not accuracy: its single call site sits after every flip path
+#     has already returned, so the hold is structurally unreachable from a
+#     write and can only convert a decision already made to REFUSE. A false
+#     positive costs a gap comment that does not get written; it cannot cost a
+#     flip. Pinned by a test that reads the source, not by this paragraph.
+#
+# OMN-16106 D1/D2 — two conjuncts added to the FLIP branch, both narrowings,
+# neither of them a change to what counts as proof:
+#
+#   * the CITED-PR MERGE conjunct replicates the OMN-13856 done-flip guard's
+#     `pr_not_merged` refusal inside the closer. That guard sits on the Linear
+#     MCP tool seam; the closer writes through the Linear HTTP API from an
+#     Actions runner and never crosses it, so on 2026-09-05 the guard refused
+#     OMN-17957's flip at 17:21:23Z and the closer wrote it anyway at 17:35Z
+#     and again at 19:36Z. A ticket citing a product PR that has not merged is
+#     now HELD (`skipped_referenced_pr_unmerged`), never flipped over.
+#   * the PRIOR-REVERT fence now anchors on the closer's OWN audit-comment
+#     marker and verdict fingerprint. Its previous `actorId`-null discriminator
+#     rests on a false premise, measured live: `LINEAR_API_KEY` is a personal
+#     key, so the sweep's own flips carry a real `actorId` and the fence could
+#     never see one of its own closes being reverted.
+#
+# Both are HOLDS: nothing is written, nothing is judged, and the candidate is
+# re-offered on the next tick.
+#
+#   (d) A CHECK THAT NEVER RAN IS HELD TOO (OMN-16106, node_version 1.7.0).
+#     Class (c) fired ZERO times in the three runs after it merged
+#     (33986056683, 33991898262, 33993316390), because the population it was
+#     built for does not terminate with a failed check at all. OMN-17201 came
+#     back 3/30 verified, 0 failed, 26 non-probative, 0 behavior-proving,
+#     terminal status "skipped": nothing failed, one check simply never ran.
+#     The closer read that as GAP_POSTED and asserted an unmet acceptance
+#     criterion on the ticket twice within half an hour.
+#
+#     SKIPPED_LIVE_CHECK_NOT_EXECUTED holds that shape on three conjuncts --
+#     behavior_proving_count == 0, failed_count == 0, and at least one check
+#     that did not execute. A `non_probative` check does not qualify (it ran
+#     and exited 0), so the merge-state-only corpus still earns its
+#     gap_no_behavior_proof comment, and an executed check that went red on a
+#     reachable surface is still a gap. Same placement rule as class (c):
+#     after every flip return, unreachable from a write, pinned by the test
+#     that reads the source.
+#
+#   THE GAP-COMMENT FINGERPRINT keys on the SET OF CHECKS that withheld the
+#     flip plus this node_version -- not on the verdict counters. Between runs
+#     33991898262 and 33993316390 two of OMN-17201's checks moved from
+#     `failed` to `non_probative` with nothing about the ticket changing; the
+#     counters moved, the digest moved, and the same statement was written
+#     twice. A verdict carrying counters but no readable per-check records
+#     still keys on the counters, so an unreadable payload stays idempotent.
+#
+#   THE PER-CANDIDATE FENCE IS A CONCURRENT-WRITE FENCE, NEVER AN OWNERSHIP
+#     LIST. Operator ruling, firm, 2026-09-05T20:45:51Z (omni_home
+#     docs/tracking/ROLLING_WORK_LEDGER.md:3372): closure is
+#     ownership-agnostic -- when the acceptance criteria are met on live
+#     evidence the ticket is closed, whoever it is assigned to. The only thing
+#     `exclude_tickets` may assert is that another lane is writing this ticket
+#     right now, evidenced by a live ledger CLAIM row. It had accumulated 26
+#     ids selected by who was working them; node_version 1.7.0 NARROWED that
+#     list, it did not empty it. Measured 2026-09-06: 13 ids remain, each
+#     backed by a ledger CLAIM row. A residual that stops shrinking is the
+#     failure mode to look for.
+#
+#   - OMN-18048 (node_version 1.10.1): AC HEADING QUALIFIERS ARE PART OF THE
+#     TICKET'S HOUSE STYLE, NOT A DIFFERENT SECTION. The AC-coverage guard
+#     previously matched acceptance-criteria headings through a closed exact
+#     set after stripping markdown, leading enumeration and trailing colons.
+#     A real heading with a trailing qualifier such as
+#     "Acceptance criteria (falsifiable)" or a prefix qualifier such as
+#     "Falsifiable acceptance criteria" was therefore invisible. If no known
+#     heading remained, the documented whole-body fallback scanned unrelated
+#     bullets elsewhere in the ticket while bold criteria written as
+#     "**AC1** - ..." were also skipped because the item parser required the
+#     line to start at AC. The sweep could then compare dod_verify against a
+#     criterion count from the wrong section. The parser now normalizes
+#     trailing parenthetical qualifiers, accepts a known AC phrase at the end
+#     of the normalized heading, and tolerates leading emphasis markers before
+#     AC-numbered items. Prose that merely begins with "Acceptance" and
+#     unrelated headings remain rejected. This changes what the sweep is
+#     willing to say in a gap comment, so the gap-comment fingerprint version
+#     moves with the node_version.
+#   THE CAPTURED ITEM TEXT IS PART OF THE CONTRACT (OMN-18048 review,
+#     node_version 1.10.2). The 1.10.x parser widening was correct about WHICH
+#     lines are criteria and wrong about WHAT TEXT they carry, in two ways an
+#     adversarial review caught and a count-only assertion could not:
+#
+#       (a) The item regex consumed a LEADING emphasis run and captured the
+#           rest, so the CLOSING marker survived embedded mid-string:
+#           `**AC1** - text` -> `AC1** - text`. The count was right and the
+#           string was wrong. Item text is used downstream for evidence strings
+#           and de-duplication, so ONE criterion written two ways compared as
+#           TWO. Measuring it also found `__AC8__ bolded` matching NOTHING: a
+#           word boundary does not fire between a digit and an underscore.
+#           Token, emphasis run and remainder are now captured separately, and
+#           the trailing run is dropped ONLY when the item opened with one --
+#           stripping unconditionally truncates text that legitimately ends in
+#           an underscore, trading a capture bug for a truncation bug.
+#
+#       (b) The leading-qualifier heading path matched `endswith(" <spelling>")`
+#           against the SINGLE-TOKEN spellings, so `## Notes on AC`,
+#           `## Why we need DoD` and `## Dropping the AC` all opened a criteria
+#           section over unrelated content -- the same whole-body over-count
+#           1.10.0 exists to stop, re-entering through its own fix. The path is
+#           now eligible only against MULTI-WORD phrases: a one-word suffix is
+#           no evidence that a heading NAMES the section rather than mentioning
+#           it. Exact membership is untouched, so bare `## AC` and `## DoD`
+#           still open a section.
+#
+#   - OMN-18125 (node_version 1.11.0): THE COUNTING RULE JUDGES THE CHECKS
+#     THAT CLAIM COVERAGE, NOT EVERY CHECK IN THE CONTRACT. The bounded-
+#     minority rule ("the non-probative checks must not outnumber the verified
+#     probative ones") read the verdict's TOTALS, which count every auto-minted
+#     Evidence-Source provenance item a ticket's companion history ever
+#     accumulated -- the `-ci` product-diff-scope items, the
+#     `occ-self-bind-pr-<n>` items, the bare PR-state items, each with its
+#     derived `::pr-live-state` overlay. None of them declares `binds_ac`, so
+#     none claims to cover any acceptance criterion, and every one is a bare
+#     `gh pr view --json ...` that the verifier demotes for exactly that
+#     reason. Measured on OMN-17478 (closer run 34431989659, 2026-09-10):
+#     22 of 34 checks were that provenance, and they held a ticket whose six
+#     criteria were EACH bound to a verified probative check -- the OMN-18056
+#     binding leg had already released it. The population grows with every
+#     companion and never shrinks, so the hold was fleet-wide and got worse
+#     with a ticket's age. Both of that rule's terms are now restricted to the
+#     checks whose `binds_ac` names one of this ticket's own criteria. The
+#     more-criteria-than-checks rule is deliberately NOT narrowed: it asks a
+#     different question and narrowing it would hold a contract whose single
+#     integration proof legitimately declares several criteria. This changes
+#     which verdicts the sweep is willing to release, so the gap-comment
+#     fingerprint version moves with the node_version.
+#
+#   - OMN-18135 (node_version 1.12.0): AN ASSERTED LIVE READBACK IS ADMISSIBLE
+#     FOR A CRITERION THAT ASSERTS LIVE STATE. Orchestrator ruling under the
+#     deterministic-truth doctrine, docs/tracking/ROLLING_WORK_LEDGER.md:6148.
+#     omnimarket carries the proof class; this node carries the JOIN, because
+#     the decision needs the ticket's acceptance text and node_dod_verify
+#     never sees it.
+#
+#     It moves in BOTH directions and both are deliberate. LOOSER: a ticket
+#     whose every parsed criterion asserts live state, each discharged by a
+#     verified readback, no longer dies on behavior_proving_count <= 0 --
+#     OMN-17771 is the worked example, five shell one-liners that read a live
+#     surface and assert on it. STRICTER: a BEHAVIOUR-shaped criterion whose
+#     only verified checks are readbacks now HOLDS. Binding used to key on
+#     status alone and never on proof class, so a readback silently
+#     discharged a criterion asserting what the code does.
+#
+#     Deliberately untouched: merge-state, surrogate and indeterminate checks
+#     bind exactly as before. Narrowing those is a different argument nobody
+#     has made, and making it here would retroactively un-close tickets that
+#     flipped on that basis.
+#
+#     The honest limit, recorded rather than implied: criterion shape is read
+#     from PROSE and is a heuristic. It is tight on purpose -- state-shaped
+#     requires a positive state marker AND no behaviour marker, everything
+#     else falls to behaviour and holds. The asymmetry is chosen: reading a
+#     criterion as behaviour-shaped costs a comment, reading one as
+#     state-shaped RELEASES a flip on a readback.
+#
+#     AC3 rides here too: the gap_no_behavior_proof comment now NAMES THE BAR
+#     -- which command shapes prove behaviour, which prefixes are transparent,
+#     and that a readback is the admissible route for live state. A hold that
+#     states a verdict without a remedy teaches nobody anything, which is what
+#     three lanes spent a night rediscovering by measurement.
+#
+#   - OMN-18233 (node_version 1.12.2): A CLOSED CASCADE BUMP ONLY STOPS
+#     BLOCKING WHEN SUPERSESSION IS PROVEN. The cited-PR merge conjunct used to
+#     refuse every closed-unmerged PR forever. That is right for ordinary work
+#     and wrong for dependency-cascade bump PRs that carry release provenance
+#     and were closed because a later merged bump delivered the same or newer
+#     source package version. The handler now resolves that narrow case through
+#     a four-clause predicate: machine-readable cascade provenance, a merged PR
+#     in the same repo that moved the source package pin, delivered version >=
+#     the required version by package-version comparison, and default-branch
+#     readback of the delivered version. Every unreadable or ambiguous clause
+#     holds the cited PR as blocking. Titles and ordering are deliberately not
+#     evidence. The predicate lives outside handlers/ because it is a helper,
+#     not a routed handler.
+#
+#   - OMN-18238 (node_version 1.12.3): A PROPOSED BINDING IS NOT PROOF. A
+#     criterion is discharged by a VERIFIED check that DECLARES it, which is
+#     the right rule for a binding a person wrote and the wrong rule the moment
+#     a machine can write one -- the cheap way to make bindings plentiful is to
+#     guess a criterion from a matching check name, and a passing check with a
+#     matching name is not proof of the criterion it names. A check may now
+#     mark a subset of its claimed criteria as PROPOSALS; those labels are
+#     excluded from the discharge set and their criteria stay unbound until a
+#     person accepts the proposal. The hold says the binding is a proposal
+#     awaiting acceptance rather than "declared by nothing", because the repair
+#     differs. The marking NARROWS and never widens: a proposed label the check
+#     does not also claim is ignored, so it can demote a criterion and never
+#     introduce one. Absent means nothing is a proposal, which is what every
+#     hand-authored binding in the corpus is.
+#
+#   - OMN-18330 (node_version 1.13.0): AN ACCEPTED BINDING IS PROOF ABOUT THE
+#     CRITERION IT WAS ACCEPTED AGAINST, AND NO OTHER. OMN-18236 gave a binding
+#     record a `criterion_hash` -- the sha256 of the criterion text it was
+#     derived or accepted against -- and nothing in this node read it, so a
+#     criterion could be rewritten under a still-passing check and its binding
+#     went on reading as proof of a sentence that no longer existed. The binding
+#     leg now recomputes each criterion's hash from the ticket text as it reads
+#     NOW and compares it to the pin the check carries. A pinned label whose
+#     hash no longer matches does not discharge its criterion, and the hold
+#     names the label and says the text changed after acceptance. A pinned label
+#     whose record carries no readable hash does not discharge either, and is
+#     named apart from the stale case because the repair differs. A label with
+#     NO pin is untouched: 67 of the 68 contracts declaring `binds_ac` carry no
+#     binding record, every one hand-authored, and holding them on a pin that
+#     does not exist yet is out of scope. The pin arrives on the per-check
+#     record (`ac_binding_hashes`), the same route `binds_ac` and
+#     `draft_binds_ac` take, because the verifier is the only component that
+#     resolves and reads the contract and a second parser here would be a second
+#     truth -- and because a contract fetch on an armed closer's flip path would
+#     make a transient GitHub failure choose between a false hold and a false
+#     flip. STATED LIMIT: the verifier reads `ac_bindings` today only to derive
+#     `draft_binds_ac` and discards the hashes, so until it carries them this
+#     join is proven by fixture rather than by corpus. What is closed here is
+#     that the closer had no way to learn a criterion had moved; it now does,
+#     with no caller switch and no parameter a caller can forget.
+#   - OMN-18336 (node_version 1.14.0): A REVERT BECOMES A CORRECTION. The
+#     revert fence has fired sixteen times and nothing turned a revert into
+#     feedback: four of forty-seven flips were reverted by hand, an 8.5%
+#     false-positive rate absorbed rather than measured, and establishing what
+#     the closer believed at the moment of a wrong flip meant reading receipts
+#     back by hand. On detecting a revert of ITS OWN flip -- identified from
+#     the closer's own flip comment being on the ticket, never from the
+#     reversal alone -- the post-revert comment now names each acceptance
+#     criterion the flip counted as discharged paired with the check id that
+#     discharged it, and carries a verbatim countable marker line. The
+#     exact-fingerprint branch, which returned silently before, posts that
+#     comment too; it is the clearest revert of this mechanism's judgement
+#     there is. The receipt carries `closer_flip_reverted` per outcome and
+#     `tickets_closer_flip_reverted` per run, which is the series value the
+#     process panel reads. A reverted HAND flip sets neither and gets no
+#     feedback section: that is somebody else's judgement being undone, and
+#     counting it would inflate this mechanism's rate with an error it did not
+#     make. THE FLIP PREDICATE IS UNCHANGED -- OMN-18056 already prevents the
+#     failure class going forward and widening the hold further is explicitly
+#     not proposed. This is feedback on the predicate, not a change to it.
+#
+#   - OMN-18362 (node_version 1.14.1): A SUPERSEDED DUPLICATE CRITERION IS
+#     HISTORY, NOT A LIVE ACCEPTANCE CRITERION. Linear ticket house style keeps
+#     replaced criteria in the description under a qualifier such as
+#     "AC3 (superseded ...)" after a later revision writes the replacement.
+#     The raw AC reader still returns both strings, because its output is also
+#     the digest input shared with change-control binding. The sweep now
+#     filters that raw list before coverage, binding, and state-shape decisions:
+#     a marked item is removed only when another unmarked item with the same
+#     canonical label is present. Ambiguous cases keep both items and hold the
+#     ticket. This can only remove a duplicate declaration, never the sole
+#     declaration of a criterion.
+#
+#   - OMN-18414 (node_version 1.15.0): THE `Gate:` GRAMMAR IS DECLARED ONCE AND
+#     READ BY BOTH CONSUMERS. The same key in a Linear description is read by
+#     the AUTHORING authority (omniclaude's ticket-creation admission guard,
+#     which refuses a create whose binding it cannot read) and by this sweep.
+#     Their accepted vocabularies were DISJOINT: the guard mandated four forms
+#     -- a release-criterion id, an invariant id, a parent criterion reference,
+#     and a live-gate defect naming a check -- while this sweep accepted only
+#     `<owner>/<repo> <workflow-file.yml>`, which the guard would itself have
+#     refused at creation. So every ticket the guard admitted arrived here as
+#     an unreadable declaration and was held, and four Done-candidates were
+#     held on nothing else at the 2026-09-15T21:34Z dry-run tick.
+#
+#     The grammar now lives in `omnibase_infra/contracts/gate_binding_grammar.json`
+#     and is read by `omnibase_infra.gate_binding`; the handler spells no form
+#     pattern of its own and a test reads its source to keep it that way. The
+#     contract also declares the normalizations that survive Linear's own
+#     rewriting of a plain issue identifier into a mention element -- without
+#     them a parent-criterion pattern matches nothing on any live ticket.
+#
+#     EXACTLY ONE FORM IS A PROOF POINTER, and the contract says which. A
+#     `workflow_run` binding still resolves to its newest completed run's
+#     conclusion and still holds on anything but success: the OMN-16106
+#     behaviour is unchanged. The other four are TRACEABILITY bindings and can
+#     never produce a gate-probe hold. That is a refutation, not an omission:
+#     the beta board a criterion id would resolve against is generated FROM
+#     Linear, so holding a Linear flip on it is a cycle; and a live-gate defect
+#     names a surface that is red by construction at filing time and is
+#     frequently not a CI context at all.
+#
+#     Text matching NO declared form is still held, and the hold now names the
+#     forms that would have been readable. A traceability binding reaching the
+#     stage after the probe is the ABSENCE OF A PROOF POINTER, not a pass --
+#     every other conjunct of this sweep still applies to it.
+#
+#   - OMN-18749 (node_version 1.15.1): A TICKET-DECLARED SUCCESSOR CLEARS A
+#     CLOSED CITATION THAT IS NOT A CASCADE BUMP. The cascade-supersession
+#     conjunct above proves supersession only for a version-pin bump; a
+#     closed proof pull request that isn't one -- reopened on a clean
+#     branch, closed by an accidental rename -- never resolves there and
+#     blocked forever while the held-reason text told its reader to merge
+#     something that could never merge (OMN-18172: two closed proof pull
+#     requests whose work had landed in a third, refused identically every
+#     tick). A second, narrower predicate
+#     (`declared_supersession.resolve_declared_supersession`) is now tried
+#     after the cascade one: it accepts only a `<owner/repo#N> superseded by
+#     <owner/repo#M>` line in the ticket's own description, and only when
+#     the named successor's own merge state probes merged -- the ticket's
+#     say-so alone is never sufficient. The held-reason text is now
+#     conditional: when at least one unmerged citation is CLOSED it stops
+#     telling the reader to merge it and instead names the declare-a-
+#     successor path. No input/output model changed; contract_version is
+#     unchanged.
+#
+name: "node_evidence_autoclose_sweep_effect"
+node_type: "EFFECT_GENERIC"
+contract_version:
+  major: 1
+  minor: 10
+  patch: 0
+node_version: "1.16.1"
+description: >
+  Scheduled sweep wiring companion-merge -> dod_verify -> governed Done flip. Enumerates merged onex_change_control evidence companions, extracts their Evidence-Ticket binding, re-runs dod_verify, and flips Done, posts a gap comment, holds a closed cascade bump until verified supersession is proven via merged replacement and default-branch version readback, holds a criterion whose only declaring check marks it a proposal until a person accepts it, holds a criterion whose accepted binding is pinned to a revision of the criterion text the ticket no longer carries, and excludes explicitly superseded duplicate criteria from the live criteria set only when an unmarked replacement with the same label is present. Every outcome that reached a dod_verify verdict records one row per check -- id, status, proof class, declared bindings and a bounded message excerpt -- and a gap comment names the failing check ids, so a reader is never handed a tally with no names in it (OMN-18490). DRY-RUN by default; ONEX_AUTOCLOSE_DISABLED kill switch checked first.
+
+input_model:
+  name: "ModelEvidenceAutocloseSweepRequest"
+  module: "omnibase_infra.nodes.node_evidence_autoclose_sweep_effect.models.model_evidence_autoclose_sweep_request"
+  description: "Sweep configuration: repo, lookback window, apply flag, safety caps."
+output_model:
+  name: "ModelEvidenceAutocloseSweepResult"
+  module: "omnibase_infra.nodes.node_evidence_autoclose_sweep_effect.models.model_evidence_autoclose_sweep_result"
+  description: "Per-ticket outcomes (flipped/gap/skipped/errored) and run-level counts."
+# Top-level handler block: RuntimeLocal's single-shot "compute execution path"
+# (no terminal_event / no event bus, mirrors node_dod_verify's own contract
+# shape) resolves the handler + its input model from THIS block, not from
+# handler_routing below. Without it `onex node`/`onex skill` dispatch fails
+# closed with "Workflow contract missing 'terminal_event' topic and no
+# handler spec found" (RuntimeLocal._resolve_handler_spec /_run_compute).
+handler:
+  module: "omnibase_infra.nodes.node_evidence_autoclose_sweep_effect.handlers.handler_evidence_autoclose_sweep"
+  class: "HandlerEvidenceAutocloseSweep"
+  input_model: "omnibase_infra.nodes.node_evidence_autoclose_sweep_effect.models.model_evidence_autoclose_sweep_request.ModelEvidenceAutocloseSweepRequest"
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "sweep_evidence_autoclose"
+      handler:
+        name: "HandlerEvidenceAutocloseSweep"
+        module: "omnibase_infra.nodes.node_evidence_autoclose_sweep_effect.handlers.handler_evidence_autoclose_sweep"
+      description: "gh api enumerate -> extract binding -> dod_verify -> Linear flip/comment"
+      output_fields:
+        - mode
+        - disarm_triggered_by
+        - flip_budget_remaining
+        - companions_scanned
+        - backfill_pool_size
+        - backfill_candidates_selected
+        - bindings_extracted
+        - tickets_flipped
+        - tickets_gap_posted
+        - tickets_skipped
+        - tickets_errored
+        - outcomes
+error_handling:
+  retry_policy:
+    max_retries: 0
+    initial_delay_ms: 0
+    max_delay_ms: 0
+    exponential_base: 1
+    retry_on: []
+  error_types:
+    - name: "GITHUB_ENUMERATION_FAILED"
+      description: "gh api PR enumeration failed — sweep-level failure, no tickets processed."
+      recoverable: true
+      retry_strategy: "none"
+    - name: "LINEAR_NOT_CONFIGURED"
+      description: >
+        No usable Linear identity — neither the LINEAR_CLOSER_CLIENT_ID / LINEAR_CLOSER_CLIENT_SECRET pair nor the LINEAR_API_KEY fallback resolved, or exactly one half of the pair was set (refused, never degraded to the personal key), or the client-credentials exchange was rejected. Every ticket fails closed as ERROR_LINEAR_API.
+
+      recoverable: false
+      retry_strategy: "none"
+    - name: "DOD_VERIFY_NONZERO_EXIT"
+      description: >
+        `onex skill dod_verify <ticket>` exited non-zero AND printed no usable verdict (no `total_checks` in the receipt arm its own `result_model` declares — OMN-16961) — fail closed, never flip. A non-zero exit ALONE is not this failure: the CLI exits 1 on every genuine evidence gap while still printing a complete ModelSkillResult, and that case is a gap, not an error (OMN-16736).
+
+      recoverable: true
+      retry_strategy: "none"
+    - name: "AC_COVERAGE_GAP"
+      description: >
+        dod_verify was fully green, but the bound ticket's Linear description carries acceptance criteria its checks structurally cannot see — an unchecked markdown checkbox, or an acceptance-criteria section listing more items than dod_verify had checks. The flip is WITHHELD and the uncovered criteria are named in the comment (OMN-16736; the OMN-14362 lesson). Recorded as GAP_AC_COVERAGE and counted under tickets_gap_posted: nothing failed, the evidence base was incomplete. Conservative in exactly one direction — a false hold costs a comment, a false flip writes an unearned Done.
+
+      recoverable: false
+      retry_strategy: "none"
+    - name: "NO_BEHAVIOR_PROOF"
+      description: >
+        dod_verify was fully green AND its checks covered the ticket's criteria, but not one passing check executed the claimed behavior — every green leg bound merge state (a PR is merged) or was a surrogate (a file exists, a generic ticket-independent suite ran). That is evidence the code landed, not evidence the system does the thing, so the flip is WITHHELD (OMN-15911). Recorded as GAP_NO_BEHAVIOR_PROOF and counted under tickets_gap_posted for the same reason AC_COVERAGE_GAP is: the mechanism worked, the evidence was not strong enough to close on.
+
+      recoverable: false
+      retry_strategy: "none"
+    - name: "LIVE_CHECK_NOT_EXECUTED"
+      description: >
+        A dod_verify verdict proved no behavior, failed nothing, and carries at least one check that never EXECUTED — a SKIPPED result (with or without a typed unverifiable_cause) or an OMN-17323 unbindable derived overlay. The sweep records SKIPPED_LIVE_CHECK_NOT_EXECUTED and withholds both the Done flip and the evidence-gap comment (OMN-16106 class d). This is the sibling of LIVE_SURFACE_UNAVAILABLE and a different fact: there was no dead-surface message to read because the probe never ran. It is the shape the staging-blocked population actually terminates in — OMN-17201 (writer at replicas 0, four MSK wire topics absent) returned 3/30 verified, 0 failed, 26 non-probative, 0 behavior-proving, terminal status "skipped" in run 33993316390, and was gap-commented twice in half an hour with an assertion the run never earned. A `non_probative` check does NOT qualify: it ran and exited 0, so the merge-state-only corpus keeps the gap comment that describes it.
+
+      recoverable: true
+      retry_strategy: "none"
+    - name: "LIVE_SURFACE_UNAVAILABLE"
+      description: >
+        A dod_verify per-check verdict failed or became unverifiable because the live surface it reads could not be reached (for example CrashLoopBackOff, connection refused, no such host, i/o timeout, or gateway/service unavailable). The sweep records SKIPPED_LIVE_SURFACE_UNAVAILABLE and withholds both Done flips and evidence-gap comments: the run learned nothing about the acceptance criterion, so the candidate is re-offered on the next tick rather than judged (OMN-16106 class c).
+
+      recoverable: true
+      retry_strategy: "none"
+    - name: "DOD_VERIFY_PROOF_CLASS_UNREPORTED"
+      description: >
+        The verdict carried no `behavior_proving_count` — the verifier predates OMN-15911 and cannot say whether any green check proved behavior. Fails closed as ERROR_VERIFY_UNPARSEABLE rather than inferring a value: reading the absence as "zero behavior proof" would post a Linear comment stating a finding the run never made, and reading it as satisfied would flip on exactly the arithmetic the guard exists to stop.
+
+      recoverable: true
+      retry_strategy: "none"
+    - name: "DUPLICATE_SWEEP_COMMENT"
+      description: >
+        The sweep reached a gap verdict it has ALREADY posted on this ticket and did not repeat it (OMN-16808). Enumeration is a bare `now - lookback_hours` window with no cursor, so one merged companion sits inside several consecutive scheduled windows; before this guard every one of them posted an identical comment. Every sweep comment now carries a stable marker keyed on (gap class, verdict fingerprint) — NOT on the companion PR, because the same verdict re-derived from a later companion is the same statement — and the ticket's existing comments are read before any write. Recorded as SKIPPED_DUPLICATE_COMMENT and counted under tickets_skipped: the gap is real and still open, but this run added no information, and counting it under tickets_gap_posted would report comments that were never written. A CHANGED verdict has a different fingerprint and IS posted.
+
+      recoverable: false
+      retry_strategy: "none"
+    - name: "COMMENT_HISTORY_UNREADABLE"
+      description: >
+        The ticket's existing comments could not be read (Linear API failure, an uninterpretable payload, or a history longer than the paginated read cap), so the sweep cannot establish whether it has already made this statement. Fails closed as ERROR_LINEAR_API and writes nothing (OMN-16808): "I could not check" must never resolve to "so I will post". The flip is withheld on this path regardless — it is only ever reached from a gap classification.
+
+      recoverable: true
+      retry_strategy: "none"
+    - name: "CALLER_EXCLUDED_TICKET"
+      description: >
+        The ticket was named in `exclude_tickets` on the request, so the sweep refused it BEFORE its first Linear read — no issue fetch, no dod_verify subprocess, no verdict (OMN-17891). Recorded as SKIPPED_EXCLUDED and counted under tickets_skipped. Ordering is the property being asserted: an excluded candidate that had already been read could still surface as ERROR_LINEAR_API on a transport failure, which reads as "the fence did not apply" rather than "the fence applied". Deliberately distinct from SKIPPED_LABEL — a label is a fact this node observed in Linear, whereas this is an assertion the DISPATCHER made from evidence the node cannot see (an open ledger CLAIM, a red gate, a concurrent controller's ownership), and only one of the two is falsifiable from the ticket itself. It does not weaken the kill switch: ONEX_AUTOCLOSE_DISABLED halts the run before any candidate is enumerated, so an exclusion list can never opt one ticket back into a halted sweep.
+
+      recoverable: false
+      retry_strategy: "none"
+    - name: "OFFERED_TICKET_HAS_NO_COMPANION"
+      description: >
+        A caller nominated this ticket in `offer_tickets` and the direct search for its newest merged OCC companion returned nothing — the ticket has no merged evidence companion at all, or none this run's credential can see (OMN-16106). Recorded as SKIPPED_NO_OFFER_COMPANION and counted under tickets_skipped. Deliberately distinct from SKIPPED_NO_BINDING, which means a companion WAS read and carried no resolvable ticket id — a hygiene defect in that companion. This says no companion was found to read, which is a statement about the TICKET's evidence base and is the ordinary answer for work that has not landed. It is recorded rather than dropped because a restrictive selector's value is that its receipt reconciles every nominated ticket to exactly one terminal outcome: an offered ticket absent from the outcomes would be indistinguishable from one the run never considered. A FAILED search is ERROR_GITHUB_API, never this — "I could not look" must never resolve to "there is nothing there".
+
+      recoverable: false
+      retry_strategy: "none"
+    - name: "PARENT_HAS_OPEN_CHILDREN"
+      description: >
+        The ticket is a parent with at least one child not in a completed/canceled state, read live from Linear on this tick (OMN-17658 F-R5-7). Recorded as SKIPPED_HAS_CHILDREN and counted under tickets_skipped. A parent is not done while its own decomposition is open, and dod_verify structurally cannot know that — it verifies the checks in the PARENT's OCC contract, and a child ticket carries its own separate acceptance criteria that never appear there. A `children` connection that cannot be interpreted (absent, malformed, or a full first page that may be truncated) is ERROR_LINEAR_API, never "no children".
+
+      recoverable: true
+      retry_strategy: "none"
+    - name: "RECURRING_BOT_COMPANION"
+      description: >
+        The bound companion is the evidence companion of a recurring bot product PR — a standing refresh emission — rather than of a PR that did the ticket's work (OMN-17934). Recorded as SKIPPED_RECURRING_COMPANION. The discriminator is a conjunction of the product PR's author being a GitHub App/Bot AND its title matching the measured pin-bump shape, derived from omnibase_infra#3192 and #3199 and positive-controlled over 300 PRs (16 matches, all bot-authored, zero human). A fetch failure on the product PR is ERROR_GITHUB_API, never a flip: "I could not check" must not resolve to "so I will write".
+
+      recoverable: true
+      retry_strategy: "none"
+    - name: "PRIOR_CLOSER_FLIP_REVERTED"
+      description: >
+        The ticket's Linear state history shows a completed segment opened by an integration (actorId null — the shape this sweep's own issueUpdate has) and closed by a real actor (OMN-17934). Somebody has already disagreed with an automated close, and re-closing from the same mechanism would overrule that disagreement with a cron tick. Recorded as SKIPPED_PRIOR_REVERT, and it also DISARMS the rest of the run (see AUTOCLOSE_DISARMED). OMN-18106 adds the positive sibling for the case where the first post-revert sweep observation happens after new probative evidence already landed: before comparing the current verdict against recorded post-revert baselines, the node compares the newest reversal createdAt against the merged OCC companion timestamp and cited product-PR merged_at timestamps that the verdict is resolved from. Evidence landing at or after the reversal releases the candidate only to the ordinary flip predicate when the verdict also carries at least one verified check with a canonical binds_ac criterion; verified but unbound provenance is not enough to say the postdating artifact is the evidence the ticket is judged on. Evidence entirely before the reversal still holds under the recorded-baseline mechanism. An unreadable reversal timestamp or evidence timestamp holds and names the unreadable value, because an unresolved ordering is not evidence that the work moved after the disagreement.
+
+      recoverable: true
+      retry_strategy: "none"
+    - name: "FLIP_BUDGET_EXHAUSTED"
+      description: >
+        max_flips_per_run was already spent by earlier candidates in this run (OMN-17658). Recorded as SKIPPED_FLIP_BUDGET_EXHAUSTED. A truncation, never a verdict: the evidence cleared every conjunct and the next run offers the candidate again. Checked at the write point rather than at intake, so a candidate that would only have gapped still gets its gap comment.
+
+      recoverable: true
+      retry_strategy: "none"
+    - name: "AUTOCLOSE_DISARMED"
+      description: >
+        The run refused to write (OMN-17658). Either the caller handed in `disarmed_by_ticket` from the persisted ONEX_AUTOCLOSE_DISARMED marker, or a candidate mid-run proved a closer flip had already been undone by a person. Every remaining candidate is recorded SKIPPED_DISARMED and the result reports mode=disarmed naming the trigger. Weaker than the kill switch on purpose: a halted run does zero I/O and produces no receipt, and an operator deciding whether to re-arm needs one.
+
+      recoverable: true
+      retry_strategy: "none"
+    - name: "FLIP_READBACK_UNCONFIRMED"
+      description: >
+        issueUpdate(stateId) reported success but no completed state-history segment newer than the pre-write head appeared within readback_max_attempts reads (OMN-17658). Recorded as ERROR_READBACK_UNCONFIRMED and counted under tickets_errored, never as a flip: the API agreeing to a request is not evidence the board moved. The outcome still carries applied=true, because the state change WAS written -- measured on run 33958237006, where recording applied=false on a ticket the run had just moved to Done left a receipt that disagreed with the board in the direction nobody checks. OMN-16106, node_version 1.9.0: an unconfirmed readback is now a REFUSAL and the write is ROLLED BACK to the pre-write state, reported as flip_rolled_back. The label and the flip cannot coexist -- run 34061364537 left OMN-16025 reading Done on the board under a comment saying the readback did not confirm, and every downstream sweep and rollup reads the board while almost nobody opens the comment. A rollback target (the pre-write state id) is therefore a PRECONDITION of the write: a Done this run could not take back is a Done it may not write. The audit comment is still posted, now under the class=readback_unconfirmed marker rather than class=flipped -- stamping the flip marker on a write that was taken back would teach the prior-revert fence that this mechanism had closed a ticket it did not close, and the fence would then refuse a later, legitimate flip. If the rollback write ALSO fails, flip_rolled_back is false and both the reason and the comment say the ticket may be sitting in Done unverified.
+
+      recoverable: true
+      retry_strategy: "none"
+    - name: "AC_BINDING_UNBOUND"
+      description: >
+        dod_verify was fully green and every counting rule released, but at least one acceptance criterion parsed from the ticket's Linear description is DECLARED BY NO verified probative check (OMN-18056, node_version 1.10.0). A check is bound to a criterion only when the OCC contract's `dod_evidence` item names it in `binds_ac` AND that check verified -- a non-probative or skipped declaration is a claim, not a proof, and appears in the binding table with its status so the near-miss is legible. Recorded as GAP_AC_UNBOUND, counted under tickets_gap_posted beside AC_COVERAGE_GAP for the same reason: the run DID form an opinion about the evidence and found a criterion nothing proves. The hold NAMES the criterion by its `AC<n>`/`DoD<n>` label rather than restating a ratio, because which criterion is unproven is the whole finding. A body from which NO criterion parses holds here too, inverting the counting rules' `if not items` early exit: "nothing is written down" and "nothing can be read" are the same observation from here, and a green tally over criteria that do not exist is an arithmetic identity rather than evidence. Measured, DoD closeout sweep run 2 on 2026-09-08: 7 of the 9 tickets satisfying the full predicate were NOT done, and in every held case the criterion that decides the ticket was bound to no check. STATED HALT: 0 of 8714 OCC contracts declare `binds_ac` today, so the first armed tick after this lands holds EVERY candidate here and flips none. That is the intended fail-closed behaviour and it is the measurement; the remedy is contract authorship (the PR-authoring lane declares `binds_ac` per evidence item), never inference -- the OMN-16434 autobinder binds a DIFF and cannot know which criterion a diff proves. HONEST LIMIT: `binds_ac` is the author's CLAIM. This node can verify a named check ran and was probative; it cannot verify the check proves the criterion. What the conjunct removes is the silent case.
+
+      recoverable: false
+      retry_strategy: "none"
+    - name: "REDRAW_PENDING"
+      description: >
+        Every conjunct cleared and this is the FIRST run to observe this verdict fingerprint, so the run ARMS a re-draw and writes no Done (OMN-18056, node_version 1.10.0). A later tick that recomputes the SAME fingerprint flips. Recorded as SKIPPED_REDRAW_PENDING and counted under tickets_skipped, never as a gap: nothing about the ticket's evidence is disputed and nobody has anything to do, so reporting it as a gap would put a clean ticket on somebody's repair list once per tick until it closed. The marker lives on the ticket, like every other piece of this sweep's memory, because the runner shares no state between runs. WHY: the verdict is a function of the ticket AND of the trees its checks execute in, and the second input moves for reasons that have nothing to do with the ticket -- measured in closeout sweep run 2, fast-forwarding two stale product clones moved OMN-16025 from predicate-FAIL to predicate-PASS with no acceptance criterion having changed, and from the counters alone a pass manufactured that way is indistinguishable from one the work earned. HONEST LIMIT: this defeats a SINGLE-run perturbation. An input change that persists across two ticks -- a repaired clone, which is the steady state of a repair -- passes it. It does not make the predicate staleness-invariant; it makes a pass non-instantaneous, which is the only claim made for it. Cost: one tick.
+
+      recoverable: true
+      retry_strategy: "none"
+    - name: "GATE_PROBE_NOT_GREEN"
+      description: >
+        The ticket's own description carries a `Gate: <owner>/<repo> <workflow-file.yml>` line naming the workflow that proves it, and the newest completed run of that workflow did not conclude `success` (OMN-16106, node_version 1.9.0). The sweep records SKIPPED_GATE_PROBE_RED, writes nothing, posts no comment, and re-offers the candidate on the next tick, so the ticket flips with no human launch once its own probe goes green. Every ambiguous branch fails CLOSED and holds: a `Gate:` line that does not resolve to a repo plus a workflow filename (a bare filename is ambiguous across repos, and reading the wrong workflow's colour as this ticket's proof is worse than declining to answer), a workflow with no completed run at all (unattempted is not proven), and a `gh` read that errors. Measured: OMN-16025, "[Gate] Delegation canary green", was flipped Done at 2026-09-06T21:42:17.523Z by run 34061364537 on 6/12 verified with 0 failed, while its gate probe chain-canary.yml was conclusion=failure on EVERY run of that day -- including run 34061981317, fired 21:44:42Z, two minutes after the flip, at 3 of 5 links proven. dod_verify's counters describe the OCC contract's checks; a gate ticket's acceptance is a live surface, and the workflow probing that surface is the only thing that can answer it.
+
+      recoverable: true
+      retry_strategy: "none"
+    - name: "GITHUB_FILES_PAYLOAD_UNREADABLE"
+      # OMN-16736. The changed-file listing is a binding input, not a
+      # decoration: `contracts/<ticket>.yaml` entries are what disambiguate a
+      # companion whose title names a different (or an additional) ticket. A
+      # payload this node cannot interpret is therefore a FETCH FAILURE, and
+      # must never be read as "this companion touched zero files" — that
+      # reading silently demotes the file signal and lets a title-only match
+      # bind a ticket the real listing would have refused as ambiguous.
+      description: "`pulls/{n}/files` returned entries carrying no usable `filename` key — treated as ERROR_GITHUB_API, never as an empty changed-file list."
+      recoverable: true
+      retry_strategy: "none"
+io_operations:
+  - operation: "sweep_evidence_autoclose"
+    description: "Enumerate merged companions, verify, flip Done or post gap comments."
+    input_fields:
+      - occ_repo
+      - lookback_hours
+      - backfill_lookback_hours
+      - backfill_max_candidates
+      - backfill_pool_size
+      - backfill_rotation_minutes
+      # OMN-17658. `scheduled_apply` is THE arming authority for unattended
+      # runs and it is declared HERE, in the contract, rather than in the
+      # workflow expression that armed the closer at #3195. `trigger` carries
+      # only the fact of what launched the run. `apply` is unchanged and
+      # remains the dispatch-time write request.
+      - trigger
+      - scheduled_apply
+      - max_flips_per_run
+      - disarmed_by_ticket
+      - history_page_size
+      - history_max_pages
+      - readback_max_attempts
+      - readback_delay_seconds
+      # OMN-16106: bounded retry for the sweep's own Linear reads. A lost
+      # HTTP call ended a candidate's run as ERROR_LINEAR_API with no verdict.
+      - linear_retry_max_attempts
+      - linear_retry_base_delay_seconds
+      - apply
+      - max_companions
+      - dispatch_cwd
+      - dod_verify_timeout_seconds
+      - gh_timeout_seconds
+      - close_if_done_label
+      - exclude_tickets
+      # OMN-16106 Item 1. The RESTRICTIVE selector. Empty preserves discovery;
+      # non-empty REPLACES it with a direct newest-merged-companion resolution
+      # per nominated ticket, routed through the identical binding check and
+      # per-ticket pipeline. It selects who is asked; it can never widen what
+      # the flip predicate accepts, and `exclude_tickets` wins over it.
+      - offer_tickets
+    output_fields:
+      - mode
+      - disarm_triggered_by
+      - disarm_reason
+      - flip_budget_remaining
+      - companions_scanned
+      - backfill_pool_size
+      - backfill_candidates_selected
+      - bindings_extracted
+      - tickets_flipped
+      - tickets_gap_posted
+      - tickets_skipped
+      - tickets_errored
+      - outcomes
+      - correlation_id
+# Dependencies
+# NOTE: the dependency schema's `type` enum (environment/library/service/...)
+# has no "external CLI tool" member, so the two runtime tool requirements are
+# documented here in prose rather than as invalid schema entries:
+#   - `gh` (GitHub CLI), authenticated — paginated PR/file enumeration.
+#   - `onex skill dod_verify <ticket> --execution-audience hosted` — the
+#     EXISTING verifier, invoked from a hosted sweep run with its audience
+#     declared explicitly (OMN-15359). An omitted audience is refused by
+#     node_dod_verify before it loads the contract or executes evidence;
+#     the sweep must not infer a local_done_gate audience. The verifier is
+#     invoked from the sweep interpreter's OWN `onex` binary (OMN-16846:
+#     not `uv run`,
+#     which would re-resolve the project venv at the cwd and so tie the
+#     verifier's environment to the product clone the behaviour checks must
+#     run pytest in). The sweep must therefore be launched from an
+#     environment where node_dod_verify resolves — the co-installed
+#     omnimarket (see omnimarket_drift_guard /
+#     scripts/install-node-skill-package.sh).
+dependencies:
+  # OMN-17664. THE IDENTITY THE CLOSER WRITES AS. Exactly one of two shapes is
+  # valid and the handler refuses anything else: the application pair below
+  # (preferred), or the personal key alone (fallback). Exactly one half of the
+  # pair is a deployment error and is refused rather than silently degraded,
+  # because whoever set that half believes the application path is live.
+  - name: "linear_closer_client_id"
+    type: "environment"
+    env_var: "LINEAR_CLOSER_CLIENT_ID"
+    description: >
+      OAuth client id of the closer application. With its secret, exchanged per run for an app actor token, so a flip carries the application as its actor instead of a person. Required together with LINEAR_CLOSER_CLIENT_SECRET.
+
+    required: false
+  - name: "linear_closer_client_secret"
+    type: "environment"
+    env_var: "LINEAR_CLOSER_CLIENT_SECRET"
+    description: >
+      OAuth client secret of the closer application. Never persisted as a token: the client-credentials exchange runs once at the start of each run. Required together with LINEAR_CLOSER_CLIENT_ID.
+
+    required: false
+  - name: "linear_api_key"
+    type: "environment"
+    env_var: "LINEAR_API_KEY"
+    description: >
+      PERSONAL Linear API key for issue read + issueUpdate/commentCreate mutations. The FALLBACK identity, used only when neither application secret is set, and taken loudly: Linear attributes its writes to the person who minted it, so a flip made with it is indistinguishable on the ticket history from a human edit (measured on OMN-17957, where the sweep own 19:36:02.430Z flip carried the same actorId a person edit would).
+
+    required: false
+  - name: "autoclose_kill_switch"
+    type: "environment"
+    env_var: "ONEX_AUTOCLOSE_DISABLED"
+    description: "Checked first, unconditionally. When set (any non-empty value), the sweep performs zero I/O."
+    required: false
+  - name: "httpx"
+    type: "library"
+    library: "httpx"
+    description: "Async HTTP client for the Linear GraphQL API."
+# Health check
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 300
+  checks:
+    - name: "linear_application_identity_configured"
+      check_type: "environment"
+      env_var: "LINEAR_CLOSER_CLIENT_ID"
+      description: >
+        Verify the preferred identity is configured: the closer application client id, whose secret pairs with it to yield an app actor token.
+
+    - name: "linear_configured"
+      check_type: "environment"
+      env_var: "LINEAR_API_KEY"
+      description: >
+        Verify the FALLBACK personal key is set. Absent is not a fault when the application pair above is configured.
+
+metadata:
+  description: "Evidence autoclose sweep: companion-merge -> dod_verify -> governed Done flip (OMN-16106 first slice)"
+  author: "OmniNode Team"
+  transport_type: "http"
+  created: "2026-08-17"
+  updated: "2026-09-28"
+  tags:
+    - "effect"
+    - "linear"
+    - "github"
+    - "dod-verify"
+    - "evidence-autoclose"
+    - "scheduled-sweep"

@@ -43,8 +43,7 @@ def admin_batch_create(
     *,
     _private_sdk: Optional[PrivateUserSDK] = None,
 ) -> List[AdminCreatedUser]:
-    """Batch create, as an admin, users without email verification.
-    """
+    """Batch create, as an admin, users without email verification."""
     return _private_sdk.admin_batch_create(admin_create_users)  # type: ignore
 
 
@@ -105,9 +104,7 @@ print(user.permission_level)
 _GET_ARG_DOCSTRINGS = {
     "email": "Email address of the user to retrieve.",
     "name": "Display name of the user to retrieve.",
-    "collaborator_type": (
-        "Optional collaborator type constraint when fetching the user."
-    ),
+    "collaborator_type": ("Optional collaborator type constraint when fetching the user."),
     "is_service_account": "Filter by whether the user is a service account.",
 }
 

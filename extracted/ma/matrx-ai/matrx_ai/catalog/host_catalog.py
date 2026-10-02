@@ -418,7 +418,9 @@ def build_catalog_call_profile(model: CatalogModel) -> Any:
         auth_ref={},
         byok_secret_key=None,
         capabilities=resolve_model_capabilities(model),
-        controls=_catalog_model_controls(model, wire_format),
+        controls=_catalog_model_controls(model, wire_format).with_output_maximum(
+            model.get("max_tokens")
+        ),
         request_defaults={},
         pricing=model.get("pricing"),
         usage_basis=model.get("usage_basis"),

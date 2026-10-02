@@ -307,16 +307,21 @@ def get_capabilities(
     if os.getenv("GEO_LOCATION", False):
         capabilities["LT:Options"]["geoLocation"] = os.getenv("GEO_LOCATION")
 
-    # Timezone — configure() > test_config (dict with "region") > env var
-    _timezone = _configure.get("timezone") or ""
-    if not _timezone:
-        from testmu._test_config import load_test_config
+    # Timezone — test_config (dict with "region") > configure() > env var.
+    # configure() carries the timezone baked in at code-export time; the
+    # per-run test config carries the run's timezone, so a test run's
+    # timezone wins over the authored one (V2 parity: the generated code's
+    # baked time_zone is overridden by test_config["timezone"]["region"]).
+    _timezone = ""
+    from testmu._test_config import load_test_config
 
-        _tc = load_test_config()
-        if _tc:
-            _tz_val = _tc.get("timezone", {})
-            if isinstance(_tz_val, dict) and _tz_val.get("region"):
-                _timezone = _tz_val["region"]
+    _tc = load_test_config()
+    if _tc:
+        _tz_val = _tc.get("timezone", {})
+        if isinstance(_tz_val, dict) and _tz_val.get("region"):
+            _timezone = _tz_val["region"]
+    if not _timezone:
+        _timezone = _configure.get("timezone") or ""
     if not _timezone:
         _timezone = os.getenv("TIMEZONE", "")
     if _timezone:

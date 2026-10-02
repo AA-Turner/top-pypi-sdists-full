@@ -1,0 +1,166 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# delegation_class_rubrics.v1.yaml: per-task-class computable correctness
+# criteria for delegated answers; tool_use reads a caller-supplied transcript.
+# The v1 budget limits are recorded-only starting values to be measured.
+#
+# Read by node_delegation_rubric_check_compute. Every threshold and trigger a
+# criterion uses lives here, never in the handler. Each criterion returns
+# pass, fail or undetermined; undetermined never counts as a pass. v1 records
+# the verdict only: it decides nothing until a class's rubric has been
+# measured against labelled items and turned on.
+#
+# A class absent from `classes` resolves to an empty rubric, which yields an
+# undetermined verdict with reason no_rubric_for_class.
+
+rubric_version: delegation-class-rubrics.v1
+
+x-shared:
+  ticket_id_pattern: &ticket_id_pattern '\b(?!(?:UTF|SHA|ISO)-)[A-Z][A-Z0-9]+-\d+\b'
+  test_target_pattern: &test_target_pattern '(?<![\w/])(?:tests/[\w./-]+\.py(?:::[\w.\[\]-]+)*|test_\w+)'
+  declared_format: &declared_format
+    criterion_id: declared_format_met
+    description: Explicitly requested finding line, JSON, fence count and first line are met.
+    params:
+      finding_phrases:
+      - FINDING |
+      json_phrases:
+      - json only
+      - return json
+      fence_allow_phrases:
+      - fences allowed
+      - fence allowed
+      - may use a fence
+      - one fenced
+      # "one fenced python block per file" declares a block per file, not one block.
+      one_fence_pattern: '\bone fenced\s+([\w+-]+)\s+(?:code\s+)?block\b(?!\s+(?:per|for each|each)\b)'
+      # "<...>" in the declared first line is a placeholder matching any text.
+      first_line_pattern: 'first line(?: of each block)?\s*(?:is|must be|:|=)?\s*(?:a comment\s*)?["`]([^"`\n]+)["`]'
+
+x-review-criteria: &review_criteria
+- criterion_id: cited_lines_exist
+  description: Each cited path is a file of the supplied diff, its line falls in a hunk, and an attached quote occurs in that file's hunks (whitespace-insensitive).
+  params:
+    line_tolerance: 0
+    min_quote_chars: 8
+    no_findings_sentinels:
+    - NO FINDINGS
+- criterion_id: named_symbols_exist
+  description: Backticked code identifiers named in the answer occur in the supplied context.
+  params:
+    ignore_python_builtins: true
+    ignore_symbols:
+    - defaultdict
+    max_missing_fraction: 0.0
+- criterion_id: named_test_passes
+  description: Tests the answer names have caller-supplied passing execution results.
+  params:
+    target_pattern: *test_target_pattern
+- *declared_format
+
+x-code-criteria: &code_criteria
+- criterion_id: code_parses
+  description: Python, YAML and JSON code in the answer parses, without executing it.
+  params:
+    code_field_names:
+    - code
+    - source
+    - content
+    no_fence_phrases:
+    - without fences
+    - no fence
+    - no fences
+    - unfenced
+    python_phrases:
+    - python
+    yaml_phrases:
+    - yaml
+    json_phrases:
+    - json
+- *declared_format
+- criterion_id: stated_test_passes
+  description: Test targets named in the request or answer have caller-supplied passing execution results.
+  params:
+    target_pattern: *test_target_pattern
+- criterion_id: ids_traceable
+  description: Ticket-shaped identifiers in the added lines of a diff answer (the whole answer when it is not a diff) occur in the request or supplied context.
+  params:
+    ticket_id_pattern: *ticket_id_pattern
+    diff_scope: added_lines
+
+x-tool-use-criteria: &tool_use_criteria
+- criterion_id: tool_calls_wellformed
+  description: Recorded tool calls use declared tools with valid typed JSON arguments.
+  params:
+    allow_extra_arguments: false
+- criterion_id: no_phantom_paths
+  description: Tool paths and answer citations refer to supplied or successfully created workspace files.
+  params:
+    path_argument_names: [path, file_path, notebook_path]
+    creating_tools: [Write, create_file, write]
+    line_tolerance: 0
+- criterion_id: edits_apply
+  description: Every recorded edit has a successful caller-supplied result.
+  params:
+    edit_tools: [Edit, MultiEdit, Write, apply_patch, str_replace_based_edit_tool, edit, multiedit, write]
+- criterion_id: stated_check_passes
+  description: Test targets named in the final answer have caller-supplied passing execution results.
+  params:
+    target_pattern: *test_target_pattern
+- criterion_id: task_answer_traceable
+  description: Extractable identifiers in the final answer occur in the request, a recorded tool output or the arguments of a call the environment accepted.
+  params:
+    ticket_id_pattern: *ticket_id_pattern
+    min_quote_words: 3
+    min_number_digits: 2
+    max_facts: 20
+    # Shapes that carry no fact of their own (OMN-20233, measured on the first
+    # scored batch): a sentence's closing mark after a quote or a name, an
+    # abbreviation the file-name pattern reads as a file, an elision inside a
+    # code span, and the words of a command the run issued, refused or not.
+    # A traced path:line citation reads as its path; its lines are checked
+    # against the manifest where one maps the file.
+    trailing_punctuation: '.,;:!?'
+    ignore_tokens: [e.g, i.e, etc, vs, cf]
+    elision_markers: ['...', '…']
+    command_argument_names: [command, cmd]
+    citation_line_tolerance: 0
+    code_keywords: [try, except, finally, if, elif, else, for, while, with, async, await, import, from, return, yield, raise]
+- criterion_id: within_budget
+  description: Recorded turns, tool calls and wall time stay within the configured measurement budget; wall time is per engine.
+  params:
+    max_turns: 40
+    max_tool_calls: 80
+    # An engine with no measured wall-time budget below.
+    max_wall_time_ms: 900000
+    # Keyed by the model id the run recorded. Set from the first scored batch
+    # (OMN-20233): the lab model's p90 was about 970 s over 26 runs, five of
+    # them sharing one server (max 1374 s), so 1800 s gives it headroom. GLM-5.3
+    # ran 5 runs at max 230 s without running its own tests; 600 s leaves room
+    # for the test run its writable mode now allows (OMN-20273).
+    max_wall_time_ms_by_engine:
+      Qwen3.8-27B: 1800000
+      glm-5.3: 600000
+
+classes:
+  tool_use: *tool_use_criteria
+  code_review: *review_criteria
+  review: *review_criteria
+  summarization:
+  - criterion_id: claims_traceable
+    description: Ticket ids, PR refs, paths, backticked tokens, long quotes and multi-digit numbers in each answer unit occur in the source.
+    params:
+      ticket_id_pattern: *ticket_id_pattern
+      min_quote_words: 3
+      min_number_digits: 2
+      max_facts: 20
+  - criterion_id: id_coverage
+    description: When the request asks for every commitment or ticket id, every ticket id in the source appears in the answer.
+    params:
+      ticket_id_pattern: *ticket_id_pattern
+      trigger_patterns:
+      - '\b(?:every|all|each)\s+(?:concrete\s+)?(?:commitments?|ticket(?:\s+ids?)?s?)\b'
+      - '\bkeeping ticket ids\b'
+  code_generation: *code_criteria
+  test: *code_criteria

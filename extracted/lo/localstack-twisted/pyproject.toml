@@ -1,0 +1,95 @@
+[build-system]
+requires = [
+    "hatchling >= 1.10.0",
+    "hatch-fancy-pypi-readme >= 22.5.0",
+    "incremental >= 22.10.0",
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "localstack-twisted"
+dynamic = [
+    "version",
+]
+readme = "README.md"
+description = "An asynchronous networking framework written in Python"
+license = { text = "MIT License" }
+requires-python = ">=3.8.0"
+authors = [
+    { name = "Twisted Matrix Laboratories", email = "twisted-python@twistedmatrix.com" },
+    { name = "LocalStack", email = "info@localstack.cloud" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "zope.interface >= 5",
+    "constantly >= 15.1",
+    "incremental >= 22.10.0",
+    #"Automat >= 0.8.0",
+    "hyperlink >= 17.1.1",
+    "attrs >= 21.3.0",
+    "typing_extensions >= 4.2.0",
+    "twisted-iocpsupport >= 1.0.2, <2; platform_system == 'Windows'",
+    # inlined dependencies for tls and h2
+    "pyopenssl >= 21.0.0",
+    "idna >= 2.4",
+    "h2 >= 3.0, < 5.0",
+    "priority >= 1.1.0, < 2.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/localstack/twisted-distribution"
+Changelog = "https://github.com/twisted/twisted/blob/HEAD/NEWS.rst"
+Documentation = "https://docs.twistedmatrix.com/"
+Issues = "https://twistedmatrix.com/trac/report"
+Source = "https://github.com/twisted/twisted"
+Twitter = "https://twitter.com/twistedmatrix"
+
+[tool.hatch.version]
+source = "code"
+path = "twisted/src/twisted/__init__.py"
+search-paths = ["twisted/src"]
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    "twisted/src/twisted",
+]
+exclude = [
+    "twisted/*.pxi",
+    "twisted/*.pyx",
+    "twisted/build.bat",
+    # exclude code not needed by localstack
+    "twisted/src/twisted/conch",
+    "twisted/src/twisted/mail",
+    "twisted/src/twisted/positioning",
+    "twisted/src/twisted/test",
+    "twisted/src/twisted/trial",
+    "twisted/src/twisted/words",
+    "twisted/src/twisted/**/test",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    # Documentation
+    "README.md",
+
+    # Library code
+    "twisted/src",
+]
+exclude = [
+    # exclude code not needed by localstack
+    "twisted/src/twisted/conch",
+    "twisted/src/twisted/mail",
+    "twisted/src/twisted/positioning",
+    "twisted/src/twisted/test",
+    "twisted/src/twisted/trial",
+    "twisted/src/twisted/words",
+    "twisted/src/twisted/**/test",
+]

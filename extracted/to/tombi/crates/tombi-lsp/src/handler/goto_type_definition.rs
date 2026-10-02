@@ -7,38 +7,46 @@ use crate::{
     backend::Backend,
     config_manager::ConfigSchemaStore,
     goto_type_definition::{
-        TypeDefinition, get_tombi_document_comment_directive_type_definition, get_type_definition,
-        location_key,
+        SchemaLocation, TypeDefinition, get_tombi_document_comment_directive_type_definition,
+        get_type_definition, location_key,
     },
-    handler::hover::get_hover_keys_with_range,
+    handler::hover::get_hover_keys_with_span,
 };
 
 fn type_definition_locations(
     type_definitions: Vec<TypeDefinition>,
-) -> Vec<tombi_extension::Location> {
+    encoding: tombi_text::EncodingKind,
+) -> Vec<SchemaLocation> {
     let mut unique_type_definitions: Vec<TypeDefinition> =
         Vec::with_capacity(type_definitions.len());
     for type_definition in type_definitions {
         if !unique_type_definitions.iter().any(|existing| {
-            location_key(&existing.schema_base_uri, existing.range)
-                == location_key(&type_definition.schema_base_uri, type_definition.range)
+            location_key(&existing.schema_base_uri, span_of(existing))
+                == location_key(&type_definition.schema_base_uri, span_of(&type_definition))
         }) {
             unique_type_definitions.push(type_definition);
         }
     }
     unique_type_definitions
         .into_iter()
-        .map(|type_definition| tombi_extension::Location {
+        .map(|type_definition| SchemaLocation {
             uri: type_definition.schema_base_uri.into(),
-            range: type_definition.range,
+            range: type_definition
+                .span
+                .map(|span| span.range(encoding))
+                .unwrap_or_default(),
         })
         .collect()
+}
+
+fn span_of(type_definition: &TypeDefinition) -> Option<tombi_text::Span> {
+    type_definition.span.as_ref().map(|span| span.span)
 }
 
 pub async fn handle_goto_type_definition(
     backend: &Backend,
     params: GotoTypeDefinitionParams,
-) -> Result<Option<Vec<tombi_extension::Location>>, tower_lsp::jsonrpc::Error> {
+) -> Result<Option<Vec<SchemaLocation>>, tower_lsp::jsonrpc::Error> {
     log::trace!("{:?}", params);
 
     let GotoTypeDefinitionParams {
@@ -75,23 +83,21 @@ pub async fn handle_goto_type_definition(
 
     log::info!("handle_goto_type_definition");
 
-    let Ok(document_sources) = backend.document_sources.try_read() else {
-        return Ok(Default::default());
-    };
-    let Some(document_source) = document_sources.get(&text_document_uri) else {
+    let Some(document_source) = backend.document_source(&text_document_uri) else {
         return Ok(Default::default());
     };
 
     let root = document_source.ast();
     let toml_version = document_source.toml_version;
     let line_index = document_source.line_index();
+    let encoding = document_source.encoding_kind();
 
-    let position = position.into_lsp(line_index);
+    let offset: tombi_text::Offset = position.into_lsp(line_index, encoding);
 
     let type_definitions =
-        get_tombi_document_comment_directive_type_definition(&root, position).await;
+        get_tombi_document_comment_directive_type_definition(&root, offset).await;
     if !type_definitions.is_empty() {
-        return Ok(Some(type_definition_locations(type_definitions)));
+        return Ok(Some(type_definition_locations(type_definitions, encoding)));
     }
 
     let source_schema = schema_store
@@ -100,11 +106,13 @@ pub async fn handle_goto_type_definition(
         .ok()
         .flatten();
 
-    let Some((keys, range)) = get_hover_keys_with_range(&root, position, toml_version).await else {
+    let Some((keys, span)) =
+        get_hover_keys_with_span(&root, document_source.decoded(), offset, toml_version).await
+    else {
         return Ok(Default::default());
     };
 
-    if keys.is_empty() && range.is_none() {
+    if keys.is_empty() && span.is_none() {
         return Ok(Default::default());
     }
 
@@ -119,8 +127,8 @@ pub async fn handle_goto_type_definition(
     );
 
     let mut type_definitions = get_type_definition(
-        &document_source.document_tree(),
-        position,
+        document_source.document_tree(),
+        crate::CursorPosition::new(offset, line_index),
         &keys,
         &schema_context,
     )
@@ -136,6 +144,6 @@ pub async fn handle_goto_type_definition(
     if type_definitions.is_empty() {
         Ok(None)
     } else {
-        Ok(Some(type_definition_locations(type_definitions)))
+        Ok(Some(type_definition_locations(type_definitions, encoding)))
     }
 }

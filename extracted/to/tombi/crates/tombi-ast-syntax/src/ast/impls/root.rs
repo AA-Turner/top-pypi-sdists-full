@@ -5,17 +5,17 @@ use crate::{
     TombiDocumentCommentDirective, TombiValueCommentDirective, support,
 };
 
-impl crate::Root {
-    pub fn first_line_break(&self) -> Option<crate::SyntaxToken> {
+impl<'t> crate::Root<'t> {
+    pub fn first_line_break(&self) -> Option<crate::SyntaxToken<'t>> {
         self.syntax()
             .first_token()
             .filter(|token| token.kind() == crate::SyntaxKind::LINE_BREAK)
     }
 
-    pub fn comment_at_position(&self, position: tombi_text::Position) -> Option<crate::Comment> {
+    pub fn comment_at_offset(&self, offset: tombi_text::Offset) -> Option<crate::Comment<'t>> {
         use crate::AstToken;
 
-        match self.syntax().token_at_position(position) {
+        match self.syntax().token_at_offset(offset) {
             crate::TokenAtOffset::Single(token) => crate::Comment::cast(token),
             crate::TokenAtOffset::Between(left, right) => {
                 crate::Comment::cast(left).or_else(|| crate::Comment::cast(right))
@@ -26,59 +26,58 @@ impl crate::Root {
 
     /// TOML nodes in source order. Punctuation and trivia are intentionally
     /// excluded; malformed syntax is represented by `TomlNode::Invalid`.
-    pub fn nodes(&self) -> impl Iterator<Item = crate::TomlNode> {
+    pub fn nodes(&self) -> impl Iterator<Item = crate::TomlNode<'t>> {
         self.syntax()
             .descendants()
             .filter_map(crate::TomlNode::cast)
     }
 
-    /// TOML nodes containing `position`, ordered from the innermost node to
+    /// TOML nodes containing `offset`, ordered from the innermost node to
     /// the root. Parser-only grouping nodes are intentionally omitted.
-    pub fn nodes_at_position(
+    pub fn nodes_at_offset(
         &self,
-        position: tombi_text::Position,
-    ) -> impl Iterator<Item = crate::TomlNode> {
-        crate::algo::ancestors_at_position(self.syntax(), position)
-            .filter_map(crate::TomlNode::cast)
+        offset: tombi_text::Offset,
+    ) -> impl Iterator<Item = crate::TomlNode<'t>> {
+        crate::algo::ancestors_at_offset(self.syntax(), offset).filter_map(crate::TomlNode::cast)
     }
 
     /// Returns commas immediately before and after the syntax item at
-    /// `position`, including commas recovered as invalid syntax.
-    pub fn adjacent_commas(&self, position: tombi_text::Position) -> crate::AdjacentCommas {
+    /// `offset`, including commas recovered as invalid syntax.
+    pub fn adjacent_commas(&self, offset: tombi_text::Offset) -> crate::AdjacentCommas {
         use crate::{Direction, NodeOrToken, SyntaxElement, SyntaxKind};
 
-        let Some(node) = crate::algo::ancestors_at_position(self.syntax(), position).next() else {
+        let Some(node) = crate::algo::ancestors_at_offset(self.syntax(), offset).next() else {
             return crate::AdjacentCommas::default();
         };
 
         let before = node
             .last_child()
             .filter(|child| child.kind() == SyntaxKind::COMMA)
-            .map(|child| child.range())
+            .map(|child| child.span())
             .or_else(|| {
                 node.siblings_with_tokens(Direction::Prev)
-                    .find(|element| !element.range().contains(position))
+                    .find(|element| !element.span().contains_inclusive(offset))
                     .filter(|element| element.kind() == SyntaxKind::COMMA)
-                    .map(|element| element.range())
+                    .map(|element| element.span())
             });
 
         let after = node
             .siblings_with_tokens(Direction::Next)
             .next()
             .and_then(|element| match element.kind() {
-                SyntaxKind::COMMA => Some(element.range()),
+                SyntaxKind::COMMA => Some(element.span()),
                 SyntaxKind::INVALID_TOKEN => match element {
                     NodeOrToken::Node(node) => node
                         .first_child_or_token()
                         .and_then(SyntaxElement::into_token)
                         .filter(|token| token.kind() == SyntaxKind::COMMA)
-                        .map(|token| token.range()),
+                        .map(|token| token.span()),
                     NodeOrToken::Token(_) => None,
                 },
                 SyntaxKind::ARRAY => match element {
                     NodeOrToken::Node(node) => crate::Array::cast(node)
-                        .and_then(|array| array.comma_after(position))
-                        .map(|comma| comma.range()),
+                        .and_then(|array| array.comma_after(offset))
+                        .map(|comma| comma.span()),
                     NodeOrToken::Token(_) => None,
                 },
                 _ => None,
@@ -87,31 +86,30 @@ impl crate::Root {
         crate::AdjacentCommas { before, after }
     }
 
-    /// Innermost key-value containing `position`.
-    pub fn enclosing_key_value(&self, position: tombi_text::Position) -> Option<crate::KeyValue> {
-        self.nodes_at_position(position)
-            .find_map(|node| match node {
-                crate::TomlNode::KeyValue(key_value) => Some(key_value),
-                _ => None,
-            })
-    }
-
-    pub fn array_at_range(&self, range: tombi_text::Range) -> Option<crate::Array> {
-        self.nodes().find_map(|node| match node {
-            crate::TomlNode::Array(array) if array.range() == range => Some(array),
+    /// Innermost key-value containing `offset`.
+    pub fn enclosing_key_value(&self, offset: tombi_text::Offset) -> Option<crate::KeyValue<'t>> {
+        self.nodes_at_offset(offset).find_map(|node| match node {
+            crate::TomlNode::KeyValue(key_value) => Some(key_value),
             _ => None,
         })
     }
 
-    pub fn inline_table_at_range(&self, range: tombi_text::Range) -> Option<crate::InlineTable> {
+    pub fn array_at_span(&self, span: tombi_text::Span) -> Option<crate::Array<'t>> {
         self.nodes().find_map(|node| match node {
-            crate::TomlNode::InlineTable(table) if table.range() == range => Some(table),
+            crate::TomlNode::Array(array) if array.span() == span => Some(array),
+            _ => None,
+        })
+    }
+
+    pub fn inline_table_at_span(&self, span: tombi_text::Span) -> Option<crate::InlineTable<'t>> {
+        self.nodes().find_map(|node| match node {
+            crate::TomlNode::InlineTable(table) if table.span() == span => Some(table),
             _ => None,
         })
     }
 
     /// Returns the leading comments of the first item (key-value or table/array-of-table).
-    pub fn first_item_leading_comments(&self) -> impl Iterator<Item = crate::LeadingComment> {
+    pub fn first_item_leading_comments(&self) -> impl Iterator<Item = crate::LeadingComment<'t>> {
         if let Some(first_key_value) = self.key_values().next() {
             first_key_value.leading_comments().collect()
         } else if let Some(first_table_or_aot) = self.table_or_array_of_tables().next() {
@@ -173,15 +171,17 @@ impl crate::Root {
         })
     }
 
-    pub fn dangling_comment_groups(&self) -> impl Iterator<Item = crate::DanglingCommentGroup> {
+    pub fn dangling_comment_groups(&self) -> impl Iterator<Item = crate::DanglingCommentGroup<'t>> {
         support::comment::dangling_comment_groups(self.syntax().child_elements())
     }
 
-    pub fn key_value_groups(&self) -> impl Iterator<Item = DanglingCommentGroupOr<KeyValueGroup>> {
+    pub fn key_value_groups(
+        &self,
+    ) -> impl Iterator<Item = DanglingCommentGroupOr<'t, KeyValueGroup<'t>>> {
         support::comment::dangling_comment_group_or(self.syntax().child_elements())
     }
 
-    pub fn key_values(&self) -> impl Iterator<Item = crate::KeyValue> {
+    pub fn key_values(&self) -> impl Iterator<Item = crate::KeyValue<'t>> {
         self.key_value_groups()
             .filter_map(|group| {
                 group
@@ -191,7 +191,7 @@ impl crate::Root {
             .flatten()
     }
 
-    pub fn items(&self) -> impl Iterator<Item = crate::RootItem> {
+    pub fn items(&self) -> impl Iterator<Item = crate::RootItem<'t>> {
         self.key_values()
             .map(crate::RootItem::from)
             .chain(self.table_or_array_of_tables().map(|item| match item {
@@ -203,7 +203,7 @@ impl crate::Root {
     }
 
     #[inline]
-    pub fn table_or_array_of_tables(&self) -> impl Iterator<Item = crate::TableOrArrayOfTable> {
+    pub fn table_or_array_of_tables(&self) -> impl Iterator<Item = crate::TableOrArrayOfTable<'t>> {
         self.syntax()
             .child_nodes()
             .filter_map(crate::TableOrArrayOfTable::cast)

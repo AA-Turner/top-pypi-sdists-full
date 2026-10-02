@@ -1,0 +1,591 @@
+"""The cross-format region round-trip matrix.
+
+One fixture mesh carrying **all three** region kinds is written to and read back
+from every format meshio++ can currently map regions onto, and the table below
+declares what each format keeps and what it loses. The table is the point: it
+makes the lossiness executable documentation rather than prose that drifts, and
+a format that silently starts or stops carrying a kind fails here.
+
+Phase 1 maps Gmsh, Abaqus and MED. OpenFOAM joined in v11.4.0 (roadmap §1 tier
+B2), mapping ``pointZones``/``cellZones``/``faceZones``. Exodus reads regions
+(element blocks, node sets and side sets) but does not yet write them, so it
+is a **read-only** entry recorded below rather than a row here -- this matrix
+is a round-trip table, and a format that cannot write cannot round-trip.
+FLAC3D round-trips a cell region's *membership* but rewrites its *name* into
+the file's own ``<zone|face>:<name>:<slot>`` vocabulary, so it gets its own
+bucket too rather than weakening this table's exact-name assertion. UNV joined
+in v15.6.0, mapping its permanent groups, and Ansys ``.cdb`` components in v16.3.0.
+XDMF (its ``<Set>`` elements) and VTU (a ``<FieldData>`` convention) joined in
+v16.27.0.
+See ``doc/regions.md``.
+"""
+
+import numpy as np
+import pytest
+from numpy.testing import assert_array_equal
+
+import meshioplusplus
+
+try:
+    import h5py  # noqa: F401
+
+    _HAS_H5PY = True
+except ImportError:
+    _HAS_H5PY = False
+
+
+def fixture_mesh():
+    """Two tetrahedra carrying a point, a cell and a side region.
+
+    Tetrahedra so that side entries have somewhere to point: each cell has four
+    faces, numbered as ``detail/cell_faces.hpp`` numbers them.
+    """
+    return meshioplusplus.Mesh(
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [1.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.5, 0.5, 1.0],
+        ],
+        [("tetra", [[0, 1, 2, 4], [0, 2, 3, 4]])],
+        regions=[
+            meshioplusplus.Region("clamped", "point", [0, 3]),
+            meshioplusplus.Region("solid", "cell", [0, 1], dim=3, tag=42),
+            meshioplusplus.Region("wall", "side", [[0, 1], [1, 3]], dim=2),
+        ],
+    )
+
+
+# --------------------------------------------------------------------------- #
+# THE MATRIX                                                                   #
+#                                                                              #
+# Per format: which region kinds survive a write + read, and whether the        #
+# format-native integer `tag` comes back with them. Every "no" is a real,       #
+# understood limitation of the file format or of the Phase-1 mapping, spelled   #
+# out in `why` so the table doubles as the lossiness documentation.             #
+# --------------------------------------------------------------------------- #
+MATRIX = [
+    pytest.param(
+        "abaqus",
+        ".inp",
+        {"point": True, "cell": True, "side": True},
+        {"tag": False},
+        "*NSET / *ELSET / *SURFACE map onto the three kinds exactly. Abaqus "
+        "names its groups but has no integer id for them, so `tag` is lost.",
+        id="abaqus",
+    ),
+    pytest.param(
+        "lsdyna",
+        ".k",
+        {"point": True, "cell": True, "side": True},
+        {"tag": False},
+        "*SET_NODE / *SET_SOLID|SHELL|BEAM / *SET_SEGMENT map onto the three "
+        "kinds, and a cell region that carries a dimension (here `solid`) is "
+        "written as a `*PART`, its tag becoming the `pid`. Set ids are "
+        "assigned when a region has no positive tag, so `tag` is only "
+        "carried for parts, which this table does not assert. A segment set "
+        "is matched back to a (cell, facet) by its corner nodes, so a facet "
+        "on a cell that shares the face with a lower-numbered one comes back "
+        "on that cell.",
+        id="lsdyna",
+    ),
+    pytest.param(
+        "gmsh22",
+        ".msh",
+        {"point": False, "cell": True, "side": False},
+        {"tag": True},
+        "A gmsh physical group is a named, tagged, per-dimension group of "
+        "*elements*: the per-element tag column carries cell membership and "
+        "$PhysicalNames the name/tag/dim. There is no node-set and no "
+        "side-set concept, so point and side regions are dropped. (A gmsh "
+        "dimension-0 group tags `vertex` cells, which is a cell region.)",
+        id="gmsh22",
+    ),
+    pytest.param(
+        "med",
+        ".med",
+        {"point": True, "cell": True, "side": False},
+        {"tag": False},
+        "A MED family (FAS/NOEUD or FAS/ELEME) is a named group of nodes or "
+        "elements, so point and cell regions map directly -- one family per "
+        "unique combination of region names an entity belongs to. A family "
+        "id is per-combination rather than per-name, and a name may span "
+        "several ids, so the format-native `tag` is not carried. MED has no "
+        "facet-group concept, so side regions are dropped.",
+        marks=pytest.mark.skipif(not _HAS_H5PY, reason="h5py not installed"),
+        id="med",
+    ),
+    pytest.param(
+        "openfoam",
+        ".foam",
+        {"point": True, "cell": True, "side": True},
+        {"tag": False},
+        "pointZones and cellZones map directly -- point and cell numbering is "
+        "never reordered on write, so ids round-trip exactly, and so does a "
+        "Side entry's *cell* half. Its *facet* half is exempted from this "
+        "table's usual exact-entries assertion (see test_region_round_trip's "
+        "openfoam special case below): the reader rebuilds each named cell "
+        "type (tetra/pyramid/wedge/hexahedron) from face topology alone and "
+        "is free to relabel local nodes, so the same geometric facet can come "
+        "back at a different local index. tests/cpp/test_openfoam.cpp's "
+        "ZonesRoundTripAsNamedRegions asserts the geometric invariant that "
+        "actually holds: the returned facet's corner point ids are unchanged. "
+        "OpenFOAM has no format-native integer id for a zone, so `tag` is "
+        "not carried.",
+        id="openfoam",
+    ),
+    pytest.param(
+        "unv",
+        ".unv",
+        {"point": True, "cell": True, "side": False},
+        {"tag": False},
+        "A permanent group (dataset 2467) lists nodes (entity type 7) and "
+        "elements (type 8), so point and cell regions map onto it and a point "
+        "and a cell region sharing a name are one group. The group number is "
+        "the region's tag when it is positive; an untagged region (here "
+        "`clamped`) gets the next free number, so `tag` is not asserted. UNV "
+        "has no facet group, so side regions are dropped.",
+        id="unv",
+    ),
+    pytest.param(
+        "code_aster",
+        ".mail",
+        {"point": True, "cell": True, "side": False},
+        {"tag": False},
+        "GROUP_NO and GROUP_MA are named node and element groups with no number, "
+        "so point and cell regions survive by name and the tag is lost. A .mail "
+        "mesh has no facet group, so side regions are dropped.",
+        id="code_aster",
+    ),
+    pytest.param(
+        "nastran",
+        ".fem",
+        {"point": False, "cell": True, "side": False},
+        {"tag": True},
+        "A disjoint cell region is written as a HyperMesh component: the "
+        "`$HMMOVE` comment lists its element ids and `$HMNAME COMP` its name, "
+        "keyed by the tag. Components hold elements only, so point and side "
+        "regions are dropped (OptiStruct SET cards are read, not written).",
+        id="nastran",
+    ),
+    pytest.param(
+        "mphtxt",
+        ".mphtxt",
+        {"point": False, "cell": True, "side": False},
+        {"tag": False},
+        "A COMSOL Selection lists geometric entities of one dimension; the "
+        "writer numbers the entities after the disjoint cell regions, so a cell "
+        "region survives as a Selection with its name and dimension. Selections "
+        "have no number (tag lost) and no point or facet form.",
+        id="mphtxt",
+    ),
+    pytest.param(
+        "mphbin",
+        ".mphbin",
+        {"point": False, "cell": True, "side": False},
+        {"tag": False},
+        "The binary twin of mphtxt: the same Selections.",
+        id="mphbin",
+    ),
+    pytest.param(
+        "febio",
+        ".feb",
+        {"point": True, "cell": True, "side": True},
+        {"tag": False},
+        "A <NodeSet> is a point region and an <ElementSet> a cell region; a cell "
+        "region covering one block exactly names that <Elements> block instead. A "
+        "<Surface> whose facets are all faces of solids is a side region. An "
+        "<Elements> block's tag is its domain's material id, which the writer "
+        "numbers afresh, so the tag is not carried.",
+        id="febio",
+    ),
+    pytest.param(
+        "patran",
+        ".pat",
+        {"point": True, "cell": True, "side": False},
+        {"tag": False},
+        "A packet 21 named component lists nodes and elements, so point and cell "
+        "regions map onto it and a point and a cell region sharing a name are one "
+        "component. The component number is the region's tag when positive; an "
+        "untagged region (here `clamped`) gets the next free number, so `tag` is "
+        "not asserted. Components hold no facets, so side regions are dropped.",
+        id="patran",
+    ),
+    pytest.param(
+        "femap",
+        ".neu",
+        {"point": True, "cell": True, "side": False},
+        {"tag": False},
+        "A 408 group lists nodes and elements, so point and cell regions map onto "
+        "it (one group per name, numbered by the tag when positive, else the next "
+        "free id, so `tag` is not asserted). Groups hold no facets, so side "
+        "regions are dropped; the reader adds a property_<id> region per property.",
+        id="femap",
+    ),
+    pytest.param(
+        "mfem",
+        ".mesh",
+        {"point": False, "cell": True, "side": False},
+        {"tag": False},
+        "A cell region's cells take its tag as their attribute and the region "
+        "becomes a v1.3 attribute set of its name. A side region's facets become "
+        "boundary elements, read back as a *cell* region of lower dimension, so "
+        "the side kind does not survive. MFEM has no node sets: point regions are "
+        "dropped.",
+        id="mfem",
+    ),
+    pytest.param(
+        "ansysInp",
+        ".cdb",
+        {"point": True, "cell": True, "side": False},
+        {"tag": False},
+        "A CMBLOCK component is a named set of NODE or ELEM ids, so point and "
+        "cell regions map directly. Components have no number (tag lost) and "
+        "no facet form, so side regions are dropped.",
+        id="ansysInp",
+    ),
+    pytest.param(
+        "z88",
+        "",
+        {"point": True, "cell": True, "side": False},
+        {"tag": False},
+        "Z88Aurora's z88sets.txt (written since v16.12.0): element sets and "
+        "node sets, each with an id, so a positive tag survives, but a region "
+        "without one is numbered. No set names facets of the structure file's "
+        "elements, so side regions are dropped. The file name is fixed "
+        "(z88i1.txt).",
+        id="z88",
+    ),
+    pytest.param(
+        "radioss",
+        ".rad",
+        {"point": True, "cell": True, "side": True},
+        {"tag": False},
+        "The starter deck's /GRNOD, /GRBRIC (or a /PART, for a cell region of one "
+        "element family) and /SURF/SEG map onto the three kinds (written since "
+        "v16.17.0). Ids are the tags when positive and free, else the next free "
+        "one, so `tag` is not asserted. A segment is matched back to a (cell, "
+        "facet) by its nodes, so a face two solids share comes back on the first; "
+        "the reader adds a part region per part the writer makes.",
+        id="radioss",
+    ),
+    pytest.param(
+        "marc",
+        ".dat",
+        {"point": True, "cell": True, "side": False},
+        {"tag": False},
+        "DEFINE NODE SET and DEFINE ELEMENT SET map onto point and cell regions "
+        "(written since v16.17.0). Marc sets have names and no number, so `tag` is "
+        "lost, and Marc's own face and edge numbering is not mapped to facets, so "
+        "side regions are dropped.",
+        id="marc",
+    ),
+    pytest.param(
+        "xdmf",
+        ".xdmf",
+        {"point": True, "cell": True, "side": True},
+        {"tag": True},
+        "XDMF <Set>s map onto the three kinds (v16.27.0): SetType Node, Cell, and "
+        "Face/Edge -- the cell indices then the cell-local face or edge indices, "
+        "the XDMF model's own layout, numbered as meshio++ numbers facets. dim "
+        "and tag ride in the set's <Information> elements.",
+        id="xdmf",
+    ),
+    pytest.param(
+        "vtu",
+        ".vtu",
+        {"point": True, "cell": True, "side": True},
+        {"tag": True},
+        "VTK has no named-set concept, so regions ride in <FieldData> as the "
+        "documented `region:<kind>:<name>` Int64 arrays (v16.27.0), cells in the "
+        "file's cell order, dim and tag in `region-meta:<kind>:<name>`.",
+        id="vtu",
+    ),
+]
+
+
+def _path(tmp_path, fmt, suffix, stem="regions"):
+    """Z88's structure file has a fixed name."""
+    return tmp_path / ("z88i1.txt" if fmt == "z88" else stem + suffix)
+
+
+@pytest.mark.parametrize("fmt, suffix, survives, carries, why", MATRIX)
+def test_region_round_trip(fmt, suffix, survives, carries, why, tmp_path):
+    mesh = fixture_mesh()
+    path = _path(tmp_path, fmt, suffix)
+    meshioplusplus.write(path, mesh, file_format=fmt)
+    back = meshioplusplus.read(path)
+
+    before = {(r.name, r.kind): r for r in mesh.regions}
+    after = {(r.name, r.kind): r for r in back.regions}
+
+    for name, kind in before:
+        expected = survives[kind]
+        got = (name, kind) in after
+        assert got == expected, (
+            f"{fmt}: region '{name}' ({kind}) "
+            f"{'vanished' if expected else 'unexpectedly survived'} — {why}"
+        )
+        if not got:
+            continue
+        if fmt == "openfoam" and kind == "side":
+            # The facet half is not exact (see MATRIX's `why`) -- only the
+            # cell half and the entry count are asserted here; the geometric
+            # invariant that actually holds is asserted by
+            # tests/cpp/test_openfoam.cpp's ZonesRoundTripAsNamedRegions.
+            assert (
+                after[(name, kind)].entries.shape == before[(name, kind)].entries.shape
+            )
+            assert_array_equal(
+                after[(name, kind)].entries[:, 0],
+                before[(name, kind)].entries[:, 0],
+                err_msg=f"{fmt}: region '{name}' (side) changed which cell it names",
+            )
+            continue
+        # Membership must survive exactly. Entries are canonical on both sides
+        # (sorted, de-duplicated), so this is an equality, not a set compare.
+        assert_array_equal(
+            after[(name, kind)].entries,
+            before[(name, kind)].entries,
+            err_msg=f"{fmt}: region '{name}' ({kind}) changed membership",
+        )
+        if carries["tag"]:
+            assert (
+                after[(name, kind)].tag == before[(name, kind)].tag
+            ), f"{fmt}: region '{name}' lost its format-native tag"
+
+
+@pytest.mark.parametrize("fmt, suffix, survives, carries, why", MATRIX)
+def test_geometry_is_unaffected_by_regions(
+    fmt, suffix, survives, carries, why, tmp_path
+):
+    """Carrying regions must not perturb points or connectivity."""
+    mesh = fixture_mesh()
+    path = _path(tmp_path, fmt, suffix)
+    meshioplusplus.write(path, mesh, file_format=fmt)
+    back = meshioplusplus.read(path)
+
+    if fmt == "openfoam":
+        # OpenFOAM reconstructs cells from face topology on every read --
+        # extra boundary-face blocks, per-cell node order not preserved --
+        # regardless of whether the mesh carries regions at all. Comparing
+        # against a REGION-FREE round trip through the same reconstruction
+        # isolates "did regions perturb it" from "does OpenFOAM preserve raw
+        # connectivity" (it never does, by design; see doc/formats/openfoam.md).
+        plain = meshioplusplus.Mesh(
+            mesh.points, [("tetra", np.asarray(mesh.cells[0].data))]
+        )
+        plain_path = tmp_path / ("plain" + suffix)
+        meshioplusplus.write(plain_path, plain, file_format=fmt)
+        plain_back = meshioplusplus.read(plain_path)
+        assert np.allclose(back.points, plain_back.points)
+        assert len(back.cells) == len(plain_back.cells)
+        for a, b in zip(back.cells, plain_back.cells):
+            assert_array_equal(np.asarray(a.data), np.asarray(b.data))
+        return
+
+    if fmt == "mfem":
+        # The side region comes back as boundary cells: one block more.
+        assert np.allclose(back.points, mesh.points)
+        assert len(back.cells) == len(mesh.cells) + 1
+        assert_array_equal(
+            np.asarray(back.cells[0].data), np.asarray(mesh.cells[0].data)
+        )
+        return
+
+    assert np.allclose(back.points, mesh.points)
+    assert len(back.cells) == len(mesh.cells)
+    assert_array_equal(np.asarray(back.cells[0].data), np.asarray(mesh.cells[0].data))
+
+
+@pytest.mark.parametrize("fmt, suffix, survives, carries, why", MATRIX)
+def test_no_regions_writes_the_same_bytes(
+    fmt, suffix, survives, carries, why, tmp_path
+):
+    """A mesh with no regions must be byte-identical to one whose regions were
+    stripped — the guarantee that this feature costs existing files nothing."""
+    mesh = fixture_mesh()
+    plain = meshioplusplus.Mesh(
+        mesh.points, [("tetra", np.asarray(mesh.cells[0].data))]
+    )
+    stripped = fixture_mesh()
+    stripped.regions.clear()
+
+    if fmt == "openfoam":
+        # A directory format: the `.foam` marker file is always empty, so the
+        # real comparison is the polyMesh directory's own files. Separate
+        # subdirectories, since two `.foam` markers sharing a parent would
+        # write -- and the second overwrite -- the very same polyMesh dir.
+        a_dir, b_dir = tmp_path / "a", tmp_path / "b"
+        meshioplusplus.write(a_dir / "case.foam", plain, file_format=fmt)
+        meshioplusplus.write(b_dir / "case.foam", stripped, file_format=fmt)
+        poly_a = a_dir / "constant" / "polyMesh"
+        poly_b = b_dir / "constant" / "polyMesh"
+        for name in ("points", "faces", "owner", "neighbour", "boundary"):
+            assert (poly_a / name).read_bytes() == (poly_b / name).read_bytes()
+        return
+
+    a = tmp_path / ("a" + suffix)
+    b = tmp_path / ("b" + suffix)
+    if fmt in ("radioss", "xdmf"):
+        # The deck's run name is its file name, and an .xdmf names its .h5
+        # sibling: the same name, two directories.
+        a = tmp_path / "a" / ("deck" + suffix)
+        b = tmp_path / "b" / ("deck" + suffix)
+        a.parent.mkdir()
+        b.parent.mkdir()
+    meshioplusplus.write(a, plain, file_format=fmt)
+    meshioplusplus.write(b, stripped, file_format=fmt)
+
+    assert a.read_bytes() == b.read_bytes()
+
+
+def test_side_regions_are_the_new_capability():
+    """No format could express a side set before; Abaqus, LS-DYNA, OpenFOAM and FEBio now can.
+
+    Spelled out separately because it is the one kind with no `point_sets` /
+    `cell_sets` equivalent at all — it is only reachable through `.regions`.
+    """
+    side_capable = [p.values[0] for p in MATRIX if p.values[2]["side"]]
+    assert side_capable == [
+        "abaqus",
+        "lsdyna",
+        "openfoam",
+        "febio",
+        "radioss",
+        "xdmf",
+        "vtu",
+    ]
+
+
+# --------------------------------------------------------------------------- #
+# Read-only region support: the reader maps regions but the writer does not     #
+# emit them yet, so these formats can be a *source* of regions but not a        #
+# round-trip target. Recorded here so the half-finished state is explicit.      #
+# --------------------------------------------------------------------------- #
+READ_ONLY_REGIONS = {
+    "exodus": (
+        "reads element blocks -> Cell, node sets -> Point and side sets -> Side "
+        "(see tests/python/test_exodus.py); the writer still emits neither "
+        "eb_names nor side sets, so a region written here would not come back"
+    ),
+    "pvtu": (
+        "reads one Cell region per piece (`piece_<i>`); the writer carves by the "
+        "`partition:part` cell_data array and does not look at regions "
+        "(tests/python/test_pvtu.py)"
+    ),
+    "pvtp": "as pvtu: one Cell region per piece on read, none written",
+    "xplt": (
+        "FEBio plot files are read-only: domains -> Cell, node sets -> Point, "
+        "element sets -> Cell and surfaces -> Side, as in .feb "
+        "(tests/python/test_xplt.py)"
+    ),
+    "pvd": (
+        "reads one Cell region per entry of the chosen step (`name=`, else "
+        "`group/part_<p>`, else `part_<p>`); a step is one file on write "
+        "(tests/python/test_pvd.py)"
+    ),
+}
+
+
+# --------------------------------------------------------------------------- #
+# Round-trips membership but RENAMES: the format's own namespace is part of a  #
+# group's identity, so a region's name is rewritten into it on write and is a  #
+# fixed point only thereafter. Not a MATRIX row -- that table asserts the name #
+# survives *exactly*, which is the right assertion for every format that can   #
+# make it, and weakening it for one exception would cost the other three.      #
+# --------------------------------------------------------------------------- #
+NAMESPACED_REGIONS = {
+    "flac3d": (
+        ".f3grid",
+        "zone:solid:Default",
+        "A FLAC3D group is identified by all three of (ZGROUP vs FGROUP, name, "
+        "slot) -- zones and faces are separate namespaces and a slot partitions "
+        "the groups within one -- so meshio++ names it "
+        "`<zone|face>:<name>:<slot>`. A region named `solid` on a zone mesh "
+        "comes back as `zone:solid:Default`; a name already in that form "
+        "round-trips unchanged. FLAC3D has no node-set and no facet-group "
+        "concept, so point and side regions are dropped.",
+    ),
+}
+
+
+@pytest.mark.parametrize("fmt", sorted(NAMESPACED_REGIONS))
+def test_namespaced_region_formats_keep_membership(fmt, tmp_path):
+    """Membership survives exactly; the name is rewritten, then stable."""
+    suffix, renamed, why = NAMESPACED_REGIONS[fmt]
+    mesh = fixture_mesh()
+    path = _path(tmp_path, fmt, suffix)
+    meshioplusplus.write(path, mesh, file_format=fmt)
+    back = meshioplusplus.read(path)
+
+    cells = {r.name: r for r in back.regions if r.kind == "cell"}
+    assert list(cells) == [renamed], why
+    assert_array_equal(cells[renamed].entries, [0, 1], err_msg=why)
+    assert [r for r in back.regions if r.kind in ("point", "side")] == [], why
+
+    # ... and the rewritten name is a fixed point from there on.
+    again = tmp_path / ("again" + suffix)
+    meshioplusplus.write(again, back, file_format=fmt)
+    assert [r.name for r in meshioplusplus.read(again).regions] == [renamed], why
+
+
+@pytest.mark.parametrize("fmt", sorted(NAMESPACED_REGIONS))
+def test_namespaced_region_formats_are_not_round_trip_rows(fmt):
+    """Pins which bucket this format belongs to, as the others do."""
+    assert fmt not in {
+        p.values[0] for p in MATRIX
+    }, f"{fmt} now preserves region names: move it into MATRIX"
+    assert fmt not in READ_ONLY_REGIONS, f"{fmt} writes regions too"
+
+
+@pytest.mark.parametrize("fmt", sorted(READ_ONLY_REGIONS))
+def test_read_only_region_formats_are_not_round_trip_rows(fmt):
+    """Pins the asymmetry rather than letting it be mistaken for full support.
+
+    When such a format's writer learns to emit regions, move it into MATRIX and
+    delete its entry here.
+    """
+    assert fmt not in {
+        p.values[0] for p in MATRIX
+    }, f"{fmt} now round-trips regions: move it from READ_ONLY_REGIONS into MATRIX"
+
+
+# --------------------------------------------------------------------------- #
+# Keeps every cell and side region, but as the format's own entities: Elmer    #
+# has bodies (bulk elements) and boundaries (boundary elements with parents),  #
+# not facet groups, so a side region's facets are written as boundary          #
+# elements and come back as a cell region over those new cells. Not a MATRIX   #
+# row -- the new cells change the geometry that table compares.               #
+# --------------------------------------------------------------------------- #
+FACETS_BECOME_CELLS = {
+    "elmer": (
+        "An Elmer body is a set of bulk elements and a boundary a set of boundary "
+        "elements, each with a positive id: a cell region becomes a body (its tag "
+        "kept as the id) and a side region's facets become boundary elements, read "
+        "back as a cell region over a new triangle block. Elmer has no node set, so "
+        "point regions are dropped."
+    ),
+}
+
+
+@pytest.mark.parametrize("fmt", sorted(FACETS_BECOME_CELLS))
+def test_facet_regions_come_back_as_boundary_cells(fmt, tmp_path):
+    why = FACETS_BECOME_CELLS[fmt]
+    mesh = fixture_mesh()
+    path = tmp_path / "regions"
+    meshioplusplus.write(path, mesh, file_format=fmt)
+    back = meshioplusplus.read(path)
+
+    assert np.allclose(back.points, mesh.points), why
+    assert_array_equal(np.asarray(back.cells[0].data), np.asarray(mesh.cells[0].data))
+    got = {r.name: r for r in back.regions}
+    assert sorted(got) == ["solid", "wall"], why
+    assert got["solid"].kind == "cell" and got["solid"].tag == 42, why
+    assert_array_equal(got["solid"].entries, [0, 1], err_msg=why)
+    # The two wall facets, now the cells of a triangle block after the tets.
+    assert got["wall"].kind == "cell" and got["wall"].dim == 2, why
+    assert_array_equal(got["wall"].entries, [2, 3], err_msg=why)
+    assert back.cells[1].type == "triangle"
+    assert fmt not in {p.values[0] for p in MATRIX}

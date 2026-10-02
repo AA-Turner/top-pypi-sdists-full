@@ -1,0 +1,506 @@
+"""根据文件内容和容器结构识别 DocVortex 支持的输入后缀。"""
+
+from __future__ import annotations
+
+from io import BytesIO
+from functools import lru_cache
+from pathlib import Path
+from xml.etree import ElementTree
+from zipfile import BadZipFile, ZipFile
+
+from loguru import logger
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..foundation.magika import Magika
+
+from .filetypes import CSV_EXTENSIONS, HTML_EXTENSIONS, IMAGE_EXTENSIONS, has_mhtml_header, rtf_header_offset
+
+PDF_SIG_BYTES = b"%PDF"
+OLE2_SIG_BYTES = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
+OOXML_ROOT_RELS = "_rels/.rels"
+OOXML_CONTENT_TYPES = "[Content_Types].xml"
+OOXML_PACKAGE_REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
+OOXML_CONTENT_TYPES_NS = "http://schemas.openxmlformats.org/package/2006/content-types"
+OOXML_OFFICE_DOCUMENT_REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument"
+# ISO Strict OOXML 使用 purl.oclc.org 关系类型，主文档关系两种都认。
+OOXML_OFFICE_DOCUMENT_RELS = frozenset(
+    {
+        OOXML_OFFICE_DOCUMENT_REL,
+        "http://purl.oclc.org/ooxml/officeDocument/relationships/officeDocument",
+    }
+)
+OOXML_MAIN_CONTENT_TYPES = {
+    ("application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"): "docx",
+    ("application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"): "pptx",
+    ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"): "xlsx",
+}
+# 主文档根标签（含 Strict/Transitional 命名空间）→ 后缀，避免把注释或其他 XML 当作主文档。
+OOXML_MAIN_PART_ROOT_TAG_SUFFIXES = {
+    "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}document": "docx",
+    "{http://purl.oclc.org/ooxml/wordprocessingml/main}document": "docx",
+    "{http://schemas.openxmlformats.org/presentationml/2006/main}presentation": "pptx",
+    "{http://purl.oclc.org/ooxml/presentationml/main}presentation": "pptx",
+    "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}workbook": "xlsx",
+    "{http://purl.oclc.org/ooxml/spreadsheetml/main}workbook": "xlsx",
+}
+OOXML_CONVENTIONAL_MAIN_PARTS = ("word/document.xml", "ppt/presentation.xml", "xl/workbook.xml")
+# Magika 对手工/非标准 Office 包会做家族级误判（如 docx 认成 xlsx），此家族内以扩展名为准。
+OFFICE_PACKAGE_FAMILY_SUFFIXES = frozenset({"doc", "docx", "ppt", "pptx", "xls", "xlsx"})
+OOXML_PACKAGE_SUFFIXES = frozenset({"docx", "pptx", "xlsx"})
+
+ODF_MIMETYPE_SUFFIXES = {
+    "application/vnd.oasis.opendocument.text": "odt",
+    "application/vnd.oasis.opendocument.spreadsheet": "ods",
+    "application/vnd.oasis.opendocument.presentation": "odp",
+}
+ODF_MANIFEST_PATH = "META-INF/manifest.xml"
+ODF_MANIFEST_NS = "urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"
+# OLE2 compound file 内部 stream 名 → 旧 Office 格式后缀
+# doc: WordDocument stream；xls: Workbook 或 Book stream；ppt: PowerPoint Document stream
+OLE2_STREAM_SUFFIX_MAP: dict[str, str] = {
+    "WordDocument": "doc",
+    "Workbook": "xls",
+    "Book": "xls",
+    "PowerPoint Document": "ppt",
+}
+_STRONG_CONTENT_SUFFIXES = frozenset(
+    {
+        "pdf",
+        "doc",
+        "docx",
+        "ppt",
+        "pptx",
+        "xls",
+        "xlsx",
+        "rtf",
+        "epub",
+        "mhtml",
+        "ofd",
+        "odt",
+        "ods",
+        "odp",
+        *IMAGE_EXTENSIONS,
+    }
+)
+
+
+@lru_cache(maxsize=1)
+def _magika() -> Magika:
+    """惰性创建文件类型识别器，避免导入 parser 时加载模型。"""
+    from ..foundation.magika import Magika
+
+    return Magika()
+
+
+def _strip_package_part_name(part_name: str | None) -> str:
+    """规范化 OPC part 路径，方便匹配 Content_Types 中的 PartName。"""
+    if not part_name:
+        return ""
+    return part_name.replace("\\", "/").lstrip("/")
+
+
+def _ooxml_relationship_targets(root: ElementTree.Element) -> list[str]:
+    """从根关系文件中提取 Office 主文档关系目标，兼容 Strict 与 Transitional 关系类型。"""
+    targets = []
+    for relationship in root:
+        if relationship.tag not in {
+            f"{{{OOXML_PACKAGE_REL_NS}}}Relationship",
+            "Relationship",
+        }:
+            continue
+        if relationship.get("TargetMode") == "External":
+            continue
+        if relationship.get("Type") not in OOXML_OFFICE_DOCUMENT_RELS:
+            continue
+        target = _strip_package_part_name(relationship.get("Target"))
+        if target:
+            targets.append(target)
+    return targets
+
+
+def _ooxml_content_type_overrides(root: ElementTree.Element) -> dict[str, str]:
+    """读取 Content_Types 中每个显式 part 的 ContentType 映射。"""
+    overrides = {}
+    for override in root:
+        if override.tag not in {
+            f"{{{OOXML_CONTENT_TYPES_NS}}}Override",
+            "Override",
+        }:
+            continue
+        part_name = _strip_package_part_name(override.get("PartName"))
+        content_type = override.get("ContentType")
+        if part_name and content_type:
+            overrides[part_name] = content_type
+    return overrides
+
+
+def _ooxml_main_part_suffix(package: ZipFile, part_name: str) -> str | None:
+    """解析主文档 part 的实际根标签判型，兼容 Strict/Transitional 命名空间。"""
+    try:
+        with package.open(part_name) as stream:
+            for _, root in ElementTree.iterparse(stream, events=("start",)):
+                return OOXML_MAIN_PART_ROOT_TAG_SUFFIXES.get(root.tag)
+    except (KeyError, ElementTree.ParseError, RuntimeError, OSError, ValueError):
+        return None
+    return None
+
+
+def _guess_ooxml_suffix_from_zip(package: ZipFile) -> str | None:
+    """根据 OOXML 包内标准主文档关系和主内容类型判断 Office 子类型。
+
+    非标准包的 Content_Types Override 可能缺失或指向不存在的 part，关系类型也可能
+    是 ISO Strict 变体；Override 判定失败时按主文档 part 根元素兜底，再退到惯例路径。
+    """
+    try:
+        rels_root = ElementTree.fromstring(package.read(OOXML_ROOT_RELS))
+    except (KeyError, ElementTree.ParseError):
+        rels_root = None
+    try:
+        content_types_root = ElementTree.fromstring(package.read(OOXML_CONTENT_TYPES))
+        overrides = _ooxml_content_type_overrides(content_types_root)
+    except (KeyError, ElementTree.ParseError):
+        overrides = {}
+
+    targets = _ooxml_relationship_targets(rels_root) if rels_root is not None else []
+    for target in targets:
+        suffix = OOXML_MAIN_CONTENT_TYPES.get(overrides.get(target, ""))
+        if suffix:
+            return suffix
+    for target in targets:
+        suffix = _ooxml_main_part_suffix(package, target)
+        if suffix:
+            return suffix
+    for part_name in OOXML_CONVENTIONAL_MAIN_PARTS:
+        try:
+            package.getinfo(part_name)
+        except KeyError:
+            continue
+        suffix = _ooxml_main_part_suffix(package, part_name)
+        if suffix:
+            return suffix
+    return None
+
+
+def _guess_ooxml_suffix_by_bytes(file_bytes: bytes) -> str | None:
+    """优先用 OOXML 包结构识别 docx/pptx/xlsx，避免 Magika 被内嵌对象误导。"""
+    try:
+        with ZipFile(BytesIO(file_bytes)) as package:
+            return _guess_ooxml_suffix_from_zip(package)
+    except (
+        BadZipFile,
+        KeyError,
+        ElementTree.ParseError,
+        RuntimeError,
+        OSError,
+        ValueError,
+    ):
+        return None
+
+
+def _guess_ooxml_suffix_by_path(file_path: Path) -> str | None:
+    """从文件路径读取 OOXML 包结构；失败时交给 Magika 原有逻辑兜底。"""
+    try:
+        with ZipFile(file_path) as package:
+            return _guess_ooxml_suffix_from_zip(package)
+    except (
+        BadZipFile,
+        KeyError,
+        ElementTree.ParseError,
+        RuntimeError,
+        OSError,
+        ValueError,
+    ):
+        return None
+
+
+def _guess_odf_suffix_from_zip(package: ZipFile) -> str | None:
+    """按 ODF mimetype、manifest 根条目依次识别 odt/ods/odp。"""
+    try:
+        mimetype_info = package.getinfo("mimetype")
+        if mimetype_info.file_size <= 256:
+            mimetype = package.read(mimetype_info).decode("ascii", errors="strict").strip()
+            if suffix := ODF_MIMETYPE_SUFFIXES.get(mimetype):
+                return suffix
+    except (KeyError, UnicodeDecodeError, RuntimeError, OSError, ValueError):
+        pass
+    try:
+        manifest_info = package.getinfo(ODF_MANIFEST_PATH)
+        if manifest_info.file_size > 1024 * 1024:
+            return None
+        root = ElementTree.fromstring(package.read(manifest_info))
+    except (KeyError, ElementTree.ParseError, RuntimeError, OSError, ValueError):
+        return None
+    for entry in root.iter(f"{{{ODF_MANIFEST_NS}}}file-entry"):
+        if entry.get(f"{{{ODF_MANIFEST_NS}}}full-path") != "/":
+            continue
+        media_type = entry.get(f"{{{ODF_MANIFEST_NS}}}media-type", "").strip()
+        return ODF_MIMETYPE_SUFFIXES.get(media_type)
+    return None
+
+
+def _guess_odf_suffix_by_bytes(file_bytes: bytes) -> str | None:
+    """从内存 ZIP 包识别 ODF，失败时不影响后续 OLE/Magika/CSV 路由。"""
+    try:
+        with ZipFile(BytesIO(file_bytes)) as package:
+            return _guess_odf_suffix_from_zip(package)
+    except (BadZipFile, RuntimeError, OSError, ValueError):
+        return None
+
+
+def _guess_odf_suffix_by_path(file_path: Path) -> str | None:
+    """从路径 ZIP 包识别 ODF，保持现有 OOXML 检测优先级。"""
+    try:
+        with ZipFile(file_path) as package:
+            return _guess_odf_suffix_from_zip(package)
+    except (BadZipFile, RuntimeError, OSError, ValueError):
+        return None
+
+
+def _guess_epub_suffix_by_bytes(file_bytes: bytes) -> str | None:
+    """从内存 ZIP 包验证 EPUB 强内容身份。"""
+    from ..analyzers.native.epub import detect_epub
+
+    return "epub" if detect_epub(file_bytes) else None
+
+
+def _guess_epub_suffix_by_path(file_path: Path) -> str | None:
+    """从路径 ZIP 包验证 EPUB 强内容身份。"""
+    from ..analyzers.native.epub import detect_epub_path
+
+    return "epub" if detect_epub_path(file_path) else None
+
+
+def _guess_ofd_suffix_by_bytes(file_bytes: bytes) -> str | None:
+    """从内存 ZIP 包验证 OFD 强内容身份。"""
+    from ..analyzers.native.ofd import detect_ofd
+
+    return "ofd" if detect_ofd(file_bytes) else None
+
+
+def _guess_ofd_suffix_by_path(file_path: Path) -> str | None:
+    """从路径 ZIP 包验证 OFD 强内容身份。"""
+    from ..analyzers.native.ofd import detect_ofd_path
+
+    return "ofd" if detect_ofd_path(file_path) else None
+
+
+def _guess_ole2_suffix_by_bytes(file_bytes: bytes) -> str | None:
+    """用 OLE2 magic + olefile 内部 stream 区分 doc/xls/ppt。
+
+    olefile 是纯 Python 库且已是核心依赖（mineru.model.flash.office.legacy 使用）。
+    在 OOXML 识别失败后、Magika 兜底前插入此层，避免 Magika 对 OLE2 返回 unknown。
+    """
+    if len(file_bytes) < 8 or file_bytes[:8] != OLE2_SIG_BYTES:
+        return None
+    try:
+        import olefile  # type: ignore[import-untyped]
+
+        with olefile.OleFileIO(BytesIO(file_bytes)) as ole:
+            for stream_name in ole.listdir(streams=True):
+                name = "/".join(stream_name)
+                suffix = OLE2_STREAM_SUFFIX_MAP.get(name)
+                if suffix:
+                    return suffix
+    except Exception:
+        return None
+    return None
+
+
+def _guess_ole2_suffix_by_path(file_path: Path) -> str | None:
+    """从文件路径读取 OLE2 容器并识别旧 Office 格式。"""
+    try:
+        with open(file_path, "rb") as f:
+            return _guess_ole2_suffix_by_bytes(f.read())
+    except OSError:
+        return None
+
+
+def _has_pdf_signature_by_path(file_path: Path) -> bool:
+    """读取文件头判断路径指向的内容是否具有 PDF 强签名。"""
+    try:
+        with open(file_path, "rb") as file:
+            return file.read(len(PDF_SIG_BYTES)) == PDF_SIG_BYTES
+    except OSError:
+        return False
+
+
+def _has_rtf_signature_by_path(file_path: Path) -> bool:
+    """读取有限文件头并按共享规则识别 RTF 根组。"""
+    try:
+        with open(file_path, "rb") as file:
+            return rtf_header_offset(file.read(128)) is not None
+    except OSError:
+        return False
+
+
+def _resolve_signatureless_csv_suffix(detected_suffix: str, file_path: str | Path | None) -> str:
+    """以 .csv/.tsv 扩展名兜底无签名分隔文本：按扩展名返回独立后缀，并保留强内容类型的优先级。"""
+    extension = Path(file_path).suffix.lower().lstrip(".") if file_path else ""
+    if extension in CSV_EXTENSIONS:
+        if detected_suffix in _STRONG_CONTENT_SUFFIXES:
+            return detected_suffix
+        return extension
+    if detected_suffix in ("csv", "tsv"):
+        if extension in ODF_MIMETYPE_SUFFIXES.values():
+            return "txt"
+        return extension or "txt"
+    return detected_suffix
+
+
+def _resolve_signatureless_html_suffix(detected_suffix: str, file_path: str | Path | None) -> str:
+    """用 HTML_EXTENSIONS 兜底短文本，并把 Magika 的 HTML 结果统一规范为 html。"""
+    extension = Path(file_path).suffix.lower().lstrip(".") if file_path else ""
+    if extension in HTML_EXTENSIONS and detected_suffix not in _STRONG_CONTENT_SUFFIXES:
+        return "html"
+    return "html" if detected_suffix == "html" else detected_suffix
+
+
+def _reject_unverified_package_suffix(detected_suffix: str) -> str:
+    """拒绝未通过包身份验证、仅由启发式工具猜出的 ODF/EPUB/OFD 类型。"""
+    package_suffixes = {*ODF_MIMETYPE_SUFFIXES.values(), "epub", "ofd"}
+    return "unknown" if detected_suffix in package_suffixes else detected_suffix
+
+
+def _prefer_extension_over_office_guess(suffix: str, file_path: str | Path | None) -> str:
+    """Magika 对非标准 Office 包存在家族级误判，同家族冲突时以扩展名为准。"""
+    if not file_path:
+        return suffix
+    extension = Path(file_path).suffix.lower().lstrip(".")
+    if suffix in OFFICE_PACKAGE_FAMILY_SUFFIXES and extension in OFFICE_PACKAGE_FAMILY_SUFFIXES and suffix != extension:
+        return extension
+    return suffix
+
+
+def _has_office_container(source: bytes | Path, extension: str) -> bool:
+    """验证扩展名对应的 ZIP/OPC 或 OLE2 容器，拒绝普通未知二进制的 Office 回退。"""
+    if extension in OOXML_PACKAGE_SUFFIXES:
+        try:
+            with ZipFile(BytesIO(source) if isinstance(source, bytes) else source) as package:
+                content_types = ElementTree.fromstring(package.read(OOXML_CONTENT_TYPES))
+                relationships = ElementTree.fromstring(package.read(OOXML_ROOT_RELS))
+                return content_types.tag in {
+                    f"{{{OOXML_CONTENT_TYPES_NS}}}Types",
+                    "Types",
+                } and relationships.tag in {
+                    f"{{{OOXML_PACKAGE_REL_NS}}}Relationships",
+                    "Relationships",
+                }
+        except (BadZipFile, KeyError, ElementTree.ParseError, RuntimeError, OSError, ValueError):
+            return False
+    try:
+        import olefile  # type: ignore[import-untyped]
+
+        with olefile.OleFileIO(BytesIO(source) if isinstance(source, bytes) else str(source)) as package:
+            return bool(package.listdir(streams=True))
+    except (OSError, ValueError, RuntimeError, IndexError):
+        return False
+
+
+def _resolve_signatureless_package_suffix(
+    suffix: str,
+    file_path: str | Path | None,
+    source: bytes | Path,
+) -> str:
+    """内容嗅探为 unknown 时，仅对已验证容器使用 Office 家族扩展名回退。"""
+    if suffix != "unknown" or not file_path:
+        return suffix
+    extension = Path(file_path).suffix.lower().lstrip(".")
+    if extension in OFFICE_PACKAGE_FAMILY_SUFFIXES and _has_office_container(source, extension):
+        return extension
+    return suffix
+
+
+def guess_suffix_by_bytes(file_bytes: bytes, file_path: str | None = None) -> str:
+    """优先依据强签名与容器头识别格式，再使用通用识别器。"""
+    if file_bytes[: len(PDF_SIG_BYTES)] == PDF_SIG_BYTES:
+        return "pdf"
+    if rtf_header_offset(file_bytes[:128]) is not None:
+        return "rtf"
+    if has_mhtml_header(file_bytes):
+        return "mhtml"
+
+    ofd_suffix = _guess_ofd_suffix_by_bytes(file_bytes)
+    if ofd_suffix:
+        return ofd_suffix
+
+    epub_suffix = _guess_epub_suffix_by_bytes(file_bytes)
+    if epub_suffix:
+        return epub_suffix
+
+    ooxml_suffix = _guess_ooxml_suffix_by_bytes(file_bytes)
+    if ooxml_suffix:
+        return ooxml_suffix
+
+    odf_suffix = _guess_odf_suffix_by_bytes(file_bytes)
+    if odf_suffix:
+        return odf_suffix
+
+    ole2_suffix = _guess_ole2_suffix_by_bytes(file_bytes)
+    if ole2_suffix:
+        return ole2_suffix
+
+    suffix = _magika().identify_bytes(file_bytes).prediction.output.label
+    if (
+        file_path
+        and suffix in ["ai", "html"]
+        and Path(file_path).suffix.lower() in [".pdf"]
+        and file_bytes[:4] == PDF_SIG_BYTES
+    ):
+        suffix = "pdf"
+    suffix = _prefer_extension_over_office_guess(suffix, file_path)
+    suffix = _resolve_signatureless_csv_suffix(_reject_unverified_package_suffix(suffix), file_path)
+    suffix = _resolve_signatureless_html_suffix(suffix, file_path)
+    return _resolve_signatureless_package_suffix(suffix, file_path, file_bytes)
+
+
+def guess_suffix_by_path(file_path: str | Path) -> str:
+    """读取文件签名和有界 MIME 头，保持路径与字节入口一致。"""
+    if not isinstance(file_path, Path):
+        file_path = Path(file_path)
+
+    if _has_rtf_signature_by_path(file_path):
+        return "rtf"
+
+    ofd_suffix = _guess_ofd_suffix_by_path(file_path)
+    if ofd_suffix:
+        return ofd_suffix
+
+    epub_suffix = _guess_epub_suffix_by_path(file_path)
+    if epub_suffix:
+        return epub_suffix
+
+    ooxml_suffix = _guess_ooxml_suffix_by_path(file_path)
+    if ooxml_suffix:
+        return ooxml_suffix
+
+    odf_suffix = _guess_odf_suffix_by_path(file_path)
+    if odf_suffix:
+        return odf_suffix
+
+    ole2_suffix = _guess_ole2_suffix_by_path(file_path)
+    if ole2_suffix:
+        return ole2_suffix
+
+    if _has_pdf_signature_by_path(file_path):
+        return "pdf"
+
+    with file_path.open("rb") as source:
+        if has_mhtml_header(source.read(65536)):
+            return "mhtml"
+
+    suffix = _magika().identify_path(file_path).prediction.output.label
+    if suffix in ["ai", "html"] and file_path.suffix.lower() in [".pdf"]:
+        try:
+            with open(file_path, "rb") as f:
+                if f.read(4) == PDF_SIG_BYTES:
+                    suffix = "pdf"
+        except Exception as e:
+            logger.warning(f"Failed to read file {file_path} for PDF signature check: {e}")
+    suffix = _prefer_extension_over_office_guess(suffix, file_path)
+    suffix = _resolve_signatureless_csv_suffix(_reject_unverified_package_suffix(suffix), file_path)
+    suffix = _resolve_signatureless_html_suffix(suffix, file_path)
+    return _resolve_signatureless_package_suffix(suffix, file_path, file_path)
+
+
+__all__ = ["guess_suffix_by_bytes", "guess_suffix_by_path"]

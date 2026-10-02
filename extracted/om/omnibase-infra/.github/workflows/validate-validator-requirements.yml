@@ -1,0 +1,79 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# OMN-13291: Enforce validator-requirements.yaml fleet gate for omnibase_infra.
+# Reports ALL missing gates in a single pass (never fail-on-first).
+#
+# MIGRATED INTO ci.yml (OMN-15108, OMN-14877/OMN-14430 fast-follow pattern):
+# this workflow used to trigger on push/pull_request, giving it its OWN
+# github.run_id — structurally invisible to ci.yml's ci-summary default-deny
+# poller (confirmed live: omnibase_infra/dev's only required_status_checks
+# context is "CI Summary") and gating nothing. Its validate step now runs
+# UNCONDITIONALLY inside ci.yml (job: validate-validator-requirements) under
+# the required "CI Summary" rollup. This file is retained workflow_dispatch-only
+# for manual/ad-hoc invocation.
+name: Validate Validator Requirements
+
+on:
+  workflow_dispatch: {}
+
+env:
+  # OMN-14017: this workflow runs a raw `uv sync` (not the hardened
+  # setup-python-uv composite), which otherwise inherits uv's 30s default and
+  # fails HARD on the first PyPI timeout under fleet egress saturation (WS-F).
+  # Match the composite's 600s so downloads ride out contention. Propagates to
+  # every uv invocation in the job.
+  UV_HTTP_TIMEOUT: "600"
+
+concurrency:
+  # OMN-13949: cancel superseded PR runs to free saturated runners. merge_group
+  # entries carry a unique github.ref, so queue entries never cross-cancel.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-validator-requirements:
+    name: Enforce validator-requirements.yaml (OMN-13291)
+    # OMNI_RUNNER_SELECTOR_V1 — runners are resolved from centralized selector variables.
+    runs-on: >-
+      ${{
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name != github.repository)
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON((github.event_name == 'merge_group' && vars.OMNI_REQUIRED_CI_RUNS_ON_JSON) || vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+      }}
+    # OMN-14017: sibling checkout plus uv sync can consume the default budget
+    # while retrying transient GitHub/PyPI fetch failures.
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Checkout omnibase_core
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: OmniNode-ai/omnibase_core
+          # Pinned to the commit that exports the validate-validator-requirements hook (OMN-13291).
+          # Update by running: gh api repos/OmniNode-ai/omnibase_core/commits/dev --jq '.sha'
+          ref: d163312724489f10f58ffdf8115ba1fa9d5783e8
+          path: omnibase_core
+          token: ${{ secrets.OMNIBASE_CORE_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Enforce validator-requirements.yaml
+        run: |
+          cd omnibase_core
+          for attempt in 1 2 3; do
+            uv sync --all-extras && break
+            if [ "$attempt" = "3" ]; then
+              exit 1
+            fi
+            sleep "$((attempt * 10))"
+          done
+          uv run python -m omnibase_core.validation.validator_requirements_consumer \
+            --repo omnibase_infra \
+            --repo-root .. \
+            --spec ../architecture-handshakes/validator-requirements.yaml \
+            --baseline ../architecture-handshakes/validator-requirements-baseline.yaml

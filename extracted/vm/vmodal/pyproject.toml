@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vmodal"
+version = "1.0.0"
+description = "Thin Python SDK for the VMX external API"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "v-modal" }]
+maintainers = [{ name = "v-modal" }]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Operating System :: OS Independent",
+]
+dependencies = [
+  "httpx>=0.27.0,<1",
+  "pydantic>=2.7.0,<3",
+  "fire>=0.6.0,<1",
+  "cryptography>=42.0.0,<50",
+]
+
+[project.optional-dependencies]
+dev = [
+  "build>=1.2.1,<2",
+  "twine>=5.1.0,<7",
+]
+
+[project.scripts]
+vmodal = "vmodal.cli:main"
+
+[project.urls]
+Repository = "https://github.com/v-modal/vmodal_sdk"
+Documentation = "https://github.com/v-modal/vmodal_sdk/tree/main/sdk_python/docs/docs_ref"
+Issues = "https://github.com/v-modal/vmodal_sdk/issues"
+
+[tool.setuptools]
+packages = [
+  "vmodal",
+  "vmodal.resources",
+]
+
+[tool.setuptools.package-dir]
+vmodal = "src/vmodal"
+"vmodal.resources" = "src/vmodal/resources"

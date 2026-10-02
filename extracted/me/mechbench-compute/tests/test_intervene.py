@@ -1,0 +1,448 @@
+from __future__ import annotations
+
+import os
+
+import mlx.core as mx
+import numpy as np
+import pytest
+
+from mechbench_compute import directions as dirs
+from mechbench_compute import intervene as iv
+from mechbench_compute import shapes as S
+from mechbench_compute.lexicon import kinds as K
+from mechbench_compute.ops.intervene.apply import run_intervene as run
+
+
+def _dir(vec, layer=2, point="resid_post"):
+    return dirs.make(vec, S.space(model=None, layer=layer, point=point, d=len(vec)), method="t")
+
+
+def _spec(**kw):
+    item = {"point": "resid_post", "layers": [2], "positions": "last", "op": "zero"}
+    item.update(kw)
+    return iv.Spec(item, n_layers=4, seed=0)
+
+
+def _act(B=1, L=3, D=4, seed=0):
+    rng = np.random.default_rng(seed)
+    return mx.array(rng.normal(size=(B, L, D)).astype(np.float32))
+
+
+def _apply(spec, act, tokens=("a", "b", "c"), layer=2):
+    fn = spec.build(layer, list(tokens))
+    out = fn(act, None)
+    mx.eval(out)
+    return np.array(out)
+
+
+class TestOps:
+    def test_zero_last_position_only(self):
+        a = _act()
+        out = _apply(_spec(op="zero"), a)
+        assert np.all(out[0, -1] == 0) and np.allclose(out[0, :-1], np.array(a)[0, :-1])
+
+    def test_scale_all(self):
+        a = _act()
+        out = _apply(_spec(op="scale", strength=2.0, positions="all"), a)
+        assert np.allclose(out, 2 * np.array(a))
+
+    def test_add_direction(self):
+        a = _act()
+        d = _dir([1, 0, 0, 0])
+        out = _apply(_spec(op="add", strength=3.0, direction=d), a)
+        assert np.allclose(out[0, -1], np.array(a)[0, -1] + [3, 0, 0, 0], atol=1e-5)
+
+    def test_project_out_kills_the_component(self):
+        a = _act()
+        d = _dir([0, 1, 0, 0])
+        out = _apply(_spec(op="project_out", direction=d), a)
+        assert abs(out[0, -1, 1]) < 1e-6 and np.allclose(out[0, -1, [0, 2, 3]], np.array(a)[0, -1, [0, 2, 3]])
+
+    def test_clamp_bounds_the_projection(self):
+        a = mx.array(np.array([[[5.0, 1.0, 0.0, 0.0], [-5.0, 0.0, 0.0, 0.0], [0.5, 0.0, 0.0, 0.0]]], np.float32))
+        d = _dir([1, 0, 0, 0])
+        out = _apply(_spec(op="clamp", strength=1.0, direction=d, positions="all"), a)
+        assert np.allclose(out[0, :, 0], [1.0, -1.0, 0.5])
+        assert out[0, 0, 1] == 1.0
+
+    def test_rotate_quarter_turn_in_the_plane(self):
+        a = mx.array(np.array([[[1.0, 0.0, 0.0, 0.0]]], np.float32))
+        d1, d2 = _dir([1, 0, 0, 0]), _dir([0, 1, 0, 0])
+        out = _apply(_spec(op="rotate", strength=np.pi / 2, direction=d1, direction2=d2), a)
+        assert np.allclose(out[0, 0], [0.0, 1.0, 0.0, 0.0], atol=1e-6)
+
+    def test_mean_and_resample_from_source(self):
+        rows = [{"layer": 2, "vector": [1, 1, 1, 1]}, {"layer": 2, "vector": [3, 3, 3, 3]}]
+        src = {"kind": "residual_vectors", "rows": rows}
+        a = _act()
+        out = _apply(_spec(op="mean", source=src), a)
+        assert np.allclose(out[0, -1], [2, 2, 2, 2])
+        out2 = _apply(_spec(op="resample", source=src, seed=3), a)
+        assert np.allclose(out2[0, -1], [1, 1, 1, 1]) or np.allclose(out2[0, -1], [3, 3, 3, 3])
+
+    def test_neurons_and_heads_select_features(self):
+        a = _act(D=4)
+        out = _apply(_spec(op="zero", positions="all", neurons=[1, 3]), a)
+        assert np.all(out[0, :, [1, 3]] == 0) and np.allclose(out[0, :, [0, 2]], np.array(a)[0, :, [0, 2]])
+        heads_act = mx.array(np.ones((1, 2, 3, 4), np.float32))
+        spec = _spec(point="attn.per_head_out", op="zero", positions="all", heads=[1])
+        out = _apply(spec, heads_act)
+        assert np.all(out[0, 1] == 0) and np.all(out[0, 0] == 1)
+
+    def test_condition_gates_on_projection(self):
+        a = mx.array(np.array([[[2.0, 0, 0, 0], [-2.0, 0, 0, 0], [2.0, 0, 0, 0]]], np.float32))
+        cond = {"direction": _dir([1, 0, 0, 0]), "threshold": 0.0, "above": True}
+        out = _apply(_spec(op="zero", positions="all", condition=cond), a)
+        assert np.all(out[0, 0] == 0) and np.all(out[0, 2] == 0) and out[0, 1, 0] == -2.0
+
+    def test_token_positions(self):
+        a = _act(L=3)
+        out = _apply(_spec(op="zero", positions={"tokens": ["b"]}), a, tokens=("a", " b", "c"))
+        assert np.all(out[0, 1] == 0) and np.allclose(out[0, 0], np.array(a)[0, 0])
+
+
+class TestSpecParsing:
+    def test_bad_point_op_layer(self):
+        with pytest.raises(iv.SpecError):
+            _spec(point="resid_nope")
+        with pytest.raises(iv.SpecError):
+            _spec(op="explode")
+        with pytest.raises(iv.SpecError):
+            _spec(layers=[9])
+
+    def test_direction_ops_need_a_direction(self):
+        with pytest.raises(iv.SpecError):
+            _spec(op="add")
+
+    def test_global_points_have_no_layers(self):
+        s = _spec(point="logits", op="zero")
+        assert s.layers == [None] and s.hook_names() == ["logits"]
+
+    def test_hook_names(self):
+        assert _spec(layers=[1, 3]).hook_names() == ["blocks.1.resid_post", "blocks.3.resid_post"]
+
+    def test_width_mismatch_is_loud_at_call_time(self):
+        with pytest.raises(iv.SpecError):
+            _apply(_spec(op="add", direction=_dir([1, 0])), _act(D=4))
+
+
+class _FakeTok:
+    def encode(self, text, add_special_tokens=True):
+        return [1, 2, 3]
+
+    def apply_chat_template(self, messages, tokenize=False, add_generation_prompt=True, **kw):
+        return messages[-1]["content"]
+
+    def decode(self, ids):
+        return {1: "The", 2: " old", 3: " light"}.get(int(ids[0]), f"t{ids[0]}")
+
+
+class _FakeArch:
+    n_layers = 4
+
+
+class _FakeModel:
+    tokenizer = _FakeTok()
+    arch = _FakeArch()
+
+    def tokenize(self, prompt, chat_template=False):
+        return mx.array([[1, 2, 3]])
+
+    def run(self, ids, hooks=None, capture=None, interventions=None):
+        from mechbench_compute.interventions import compose
+
+        hooks_d, caps = compose(interventions, hooks=hooks, capture=capture)
+        L = int(ids.shape[-1])
+        h = mx.array(np.tile(np.arange(4, dtype=np.float32), (1, L, 1)))
+        fn = hooks_d.get("blocks.2.resid_post")
+        if fn is not None:
+            out = fn(h, None)
+            h = out if out is not None else h
+        W = mx.array(np.array([[1, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0],
+                               [0, 0, 1, 0, 0, 0], [0, 0, 0, 1, 0, 0]], np.float32))
+        logits = h @ W
+        cache = {}
+        if "blocks.2.resid_post" in caps:
+            cache["blocks.2.resid_post"] = h
+
+        class R:
+            pass
+
+        r = R(); r.logits = logits; r.cache = cache
+        mx.eval(logits)
+        return r
+
+
+class TestRunReadout:
+    def test_sweep_with_control_and_items(self):
+        model = _FakeModel()
+        d = _dir([1, 0, 0, 0])
+        items = []
+        out = run(model, [{"id": "r1", "user": "hi"}],
+                     {"spec": [{"point": "resid_post", "layers": [2], "op": "add",
+                                "strength": 10.0, "direction": d}],
+                      "sweep": {"strength": [1.0]}, "top_k": 2},
+                     on_item=lambda k, row: items.append(k))
+        assert out["item_kind"] == "intervene/readout" and out["sweep"] == {"strength": [0.0, 1.0]}
+        assert items == ["r1:0.0", "r1:1.0"]
+        ctrl, steered = out["items"]
+        assert ctrl["factor"] == 0.0 and steered["factor"] == 1.0
+        assert ctrl["top"][0]["token"]["text"] == " light"
+        assert steered["top"][0]["token"]["text"] == "t0"
+        assert set(ctrl["top"][0]) == {"token", "p", "logp"}
+        assert steered["entropy_bits"] < ctrl["entropy_bits"]
+        assert out["spec"][0]["direction"]["derivation"]["method"] == "t"
+
+    def test_capture_readout(self):
+        model = _FakeModel()
+        d = _dir([0, 1, 0, 0])
+        out = run(model, [{"id": "r1", "user": "hi"}],
+                     {"spec": [{"point": "resid_post", "layers": [2], "op": "project_out", "direction": d}],
+                      "readout": {"kind": "capture", "points": ["blocks.2.resid_post"]}})
+        assert out["item_kind"] == "activations/vector"
+        assert out["readout"] == "capture" and out["points"] == ["blocks.2.resid_post"]
+        cap_ctrl, cap_done = out["items"]
+        assert cap_ctrl["id"] == "r1" and cap_done["id"] == "r1"
+        assert cap_ctrl["factor"] == 0.0 and cap_done["factor"] == 1.0
+        assert cap_ctrl["space"]["layer"] == 2 and cap_ctrl["space"]["point"] == "resid_post"
+        assert cap_ctrl["vector"][1] == 1.0
+        assert abs(cap_done["vector"][1]) < 1e-6
+        assert "captures" not in cap_ctrl
+        from mechbench_compute.ops.geometry.compare import compare_geometry
+        two = run(model, [{"id": "a", "user": "hi", "coords": {"sense": "x"}},
+                             {"id": "b", "user": "yo", "coords": {"sense": "y"}}],
+                     {"spec": [{"point": "resid_post", "layers": [2], "op": "scale", "strength": 2.0}],
+                      "readout": {"kind": "capture", "points": ["blocks.2.resid_post"]}})
+        sim = compare_geometry({"items": two}, {"by": "factor", "axis": "sense"})
+        assert [g["group"] for g in sim["items"]] == ["factor=0.0", "factor=1.0"]
+        assert sim["items"][1]["labels"] == ["x", "y"]
+
+    def test_a_capture_readout_is_a_source(self):
+        model = _FakeModel()
+        captured = run(model, [{"id": "r1", "user": "hi"}],
+                          {"spec": [{"point": "resid_post", "layers": [2], "op": "scale",
+                                     "strength": 3.0}],
+                           "control": False,
+                           "readout": {"type": "capture", "points": ["blocks.2.resid_post"]}})
+        out = run(model, [{"id": "r1", "user": "hi"}],
+                     {"spec": [{"point": "resid_post", "layers": [2], "op": "mean"}],
+                      "control": True, "readout": {"type": "capture",
+                                                   "points": ["blocks.2.resid_post"]}},
+                     inputs={"source": captured})
+        ctrl, patched = out["items"]
+        v_ctrl = np.array(ctrl["vector"])
+        v_src = np.array(captured["items"][0]["vector"])
+        v_patched = np.array(patched["vector"])
+        assert np.allclose(v_patched, v_src, atol=1e-5)
+        assert not np.allclose(v_patched, v_ctrl)
+        assert out["spec"][0]["source"]["item_kind"] == "activations/vector"
+
+    def test_a_capture_readout_stored_before_0_110_is_still_a_source(self):
+        model = _FakeModel()
+        vec = S.vector(np.array([5.0, 6.0, 7.0, 8.0], np.float32),
+                       S.space(model="fake", layer=2, point="resid_post", d=4), id="blocks.2.resid_post")
+        legacy = K.collection("intervene/readout", [
+            {"id": "r1", "factor": 1.0, "position": 1,
+             "captures": K.collection("activations/vector", [vec])}])
+        out = run(model, [{"id": "r1", "user": "hi"}],
+                     {"spec": [{"point": "resid_post", "layers": [2], "op": "mean"}],
+                      "control": False,
+                      "readout": {"type": "capture", "points": ["blocks.2.resid_post"]}},
+                     inputs={"source": legacy})
+        assert np.allclose(out["items"][0]["vector"], [5.0, 6.0, 7.0, 8.0], atol=1e-5)
+
+    def test_direction_by_port_fills_the_spec(self):
+        model = _FakeModel()
+        out = run(model, [{"id": "r1", "user": "hi"}],
+                     {"spec": [{"point": "resid_post", "layers": [2], "op": "add", "strength": 5.0}],
+                      "control": False},
+                     inputs={"direction": _dir([1, 0, 0, 0])})
+        assert out["items"][0]["top"][0]["token"]["text"] == "t0"
+
+    def test_empty_spec_refused(self):
+        with pytest.raises(iv.SpecError):
+            run(_FakeModel(), [{"id": "r1", "user": "hi"}], {"spec": []})
+
+
+E2B = "mlx-community/gemma-4-e2b-it-bf16"
+
+
+@pytest.mark.skipif(
+    os.environ.get("MECHBENCH_MODEL_TESTS") != "1"
+    or not os.path.isdir(os.path.expanduser("~/.cache/huggingface/hub/models--" + E2B.replace("/", "--"))),
+    reason="set MECHBENCH_MODEL_TESTS=1 with gemma-4-e2b cached",
+)
+def test_real_project_out_zeroes_the_projection_at_the_point():
+    from mechbench_compute import Model
+
+    model = Model.load(E2B)
+    layer = model.arch.last_fresh_kv_global
+    base = model.run(model.tokenize("The old lighthouse keeper", chat_template=False),
+                     capture=[f"blocks.{layer}.resid_post"])
+    v = np.array(base.cache[f"blocks.{layer}.resid_post"][0, -1].astype(mx.float32))
+    d = dirs.make(v, S.space(model=E2B, layer=layer, point="resid_post", d=v.size), method="self")
+    out = run(model, [{"id": "lh", "user": "The old lighthouse keeper"}],
+                 {"spec": [{"point": "resid_post", "layers": [layer], "op": "project_out", "direction": d}],
+                  "readout": {"kind": "capture", "points": [f"blocks.{layer}.resid_post"]}})
+    ctrl, done = out["items"]
+    u = np.array(d["vector"], np.float32)
+    proj_ctrl = float(np.array(ctrl["vector"]) @ u)
+    proj_done = float(np.array(done["vector"]) @ u)
+    assert abs(proj_ctrl) > 1.0 and abs(proj_done) < 0.05 * abs(proj_ctrl)
+
+
+class _WeightModel(_FakeModel):
+    def __init__(self):
+        from mlx import nn
+
+        class Proj(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.o_proj = nn.Linear(4, 4, bias=False)
+
+        class Layer(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.self_attn = Proj()
+
+        class Inner(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.layers = [Layer()]
+
+        class LM(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.model = Inner()
+
+        mx.random.seed(3)
+        self.lm = LM()
+        self.lm.model.layers[0].self_attn.o_proj.weight = mx.array(
+            np.eye(4, dtype=np.float32))
+
+    def run(self, ids, hooks=None, capture=None, interventions=None):
+        r = super().run(ids, hooks=hooks, capture=capture,
+                        interventions=interventions)
+        w = self.lm.model.layers[0].self_attn.o_proj.weight.astype(mx.float32)
+        top = mx.concatenate([w, mx.zeros((4, 2))], axis=1)
+        bottom = mx.concatenate([mx.zeros((2, 4)), mx.eye(2)], axis=1)
+        r.logits = r.logits @ mx.concatenate([top, bottom], axis=0)
+        mx.eval(r.logits)
+        return r
+
+
+class TestWeightItems:
+    def _weight(self, model):
+        return np.array(
+            model.lm.model.layers[0].self_attn.o_proj.weight.astype(mx.float32))
+
+    def test_the_edit_applies_and_the_model_is_put_back_exactly(self):
+        model = _WeightModel()
+        before = self._weight(model).copy()
+        out = run(model, [{"id": "r1", "user": "hi"}],
+                     {"spec": [{"parameter": "layers.0.self_attn.o_proj",
+                                "op": "zero"}], "top_k": 2})
+        assert out["sweep"] == {"strength": [0.0, 1.0]}
+        ctrl, edited = out["items"]
+        assert ctrl["factor"] == 0.0 and edited["factor"] == 1.0
+        assert ctrl["top"][0]["p"] != pytest.approx(edited["top"][0]["p"])
+        assert np.array_equal(self._weight(model), before), "the model was not restored"
+
+    def test_the_header_records_the_weight_edit(self):
+        out = run(_WeightModel(), [{"id": "r1", "user": "hi"}],
+                     {"spec": [{"parameter": "layers.0.self_attn.o_proj",
+                                "op": "scale", "strength": 0.5}]})
+        assert out["weights"] == [{"parameter": "layers.0.self_attn.o_proj",
+                                   "op": "scale", "strength": 0.5}]
+        assert "weight edit" in out["description"]
+
+    def test_a_weight_edit_and_an_activation_edit_compose(self):
+        model = _WeightModel()
+        before = self._weight(model).copy()
+        out = run(model, [{"id": "r1", "user": "hi"}],
+                     {"spec": [{"parameter": "layers.0.self_attn.o_proj",
+                                "op": "scale", "strength": 2.0},
+                               {"point": "resid_post", "layers": [2],
+                                "op": "add", "strength": 1.0,
+                                "direction": _dir([1, 0, 0, 0])}]})
+        assert len(out["items"]) == 2
+        assert out["weights"] and out["spec"]
+        assert np.array_equal(self._weight(model), before)
+
+    def test_the_model_is_restored_even_when_a_record_fails(self):
+        model = _WeightModel()
+        before = self._weight(model).copy()
+
+        def boom(*a, **k):
+            raise RuntimeError("the forward pass died")
+
+        model.run = boom
+        with pytest.raises(RuntimeError, match="died"):
+            run(model, [{"id": "r1", "user": "hi"}],
+                   {"spec": [{"parameter": "layers.0.self_attn.o_proj",
+                              "op": "zero"}], "control": False})
+        assert np.array_equal(self._weight(model), before), \
+            "a failed run left the model edited"
+
+
+class TestSweepAxes:
+    REC = {"id": "r1", "user": "hi"}
+    ZERO = {"point": "resid_post", "op": "zero"}
+
+    def test_a_layer_sweep_is_one_node(self):
+        out = run(_FakeModel(), [self.REC], {"spec": [self.ZERO], "sweep": {"layers": [1, 2, 3]}})
+        assert out["sweep"] == {"strength": [0.0, 1.0], "layers": [1, 2, 3]}
+        rows = out["items"]
+        assert [r.get("cell") for r in rows] == ["control", "layer=1", "layer=2", "layer=3"]
+        assert [r["coords"].get("layer") for r in rows] == [None, 1, 2, 3]
+        assert [r["factor"] for r in rows] == [0.0, 1.0, 1.0, 1.0]
+        ctrl, l1, l2, l3 = rows
+        assert l1["top"][0]["token"] == ctrl["top"][0]["token"]
+        assert l3["top"][0]["token"] == ctrl["top"][0]["token"]
+        assert l2["top"][0]["token"] != ctrl["top"][0]["token"]
+
+    def test_the_control_runs_once_however_many_cells(self):
+        out = run(_FakeModel(), [self.REC], {"spec": [self.ZERO], "sweep": {"layers": [0, 1, 2, 3]}})
+        assert sum(1 for r in out["items"] if r["factor"] == 0.0) == 1
+
+    def test_strength_by_layers_is_the_product_strength_outermost(self):
+        out = run(_FakeModel(), [self.REC],
+                     {"spec": [{"point": "resid_post", "op": "scale", "strength": 0.5}],
+                      "sweep": {"strength": [1, 2], "layers": [1, 2]}, "control": False})
+        assert [r["cell"] for r in out["items"]] == [
+            "factor=1/layer=1", "factor=1/layer=2", "factor=2/layer=1", "factor=2/layer=2"]
+        assert out["sweep"] == {"strength": [1.0, 2.0], "layers": [1, 2]}
+
+    def test_a_capture_readout_carries_the_axis_too(self):
+        out = run(_FakeModel(), [self.REC],
+                     {"spec": [self.ZERO], "sweep": {"layers": [[1], [2], [3]]},
+                      "readout": {"type": "capture", "points": ["blocks.2.resid_post"]}})
+        rows = out["items"]
+        assert out["item_kind"] == "activations/vector" and len(rows) == 4
+        assert [r["coords"].get("layer") for r in rows] == [None, 1, 2, 3]
+        ctrl, l1, l2, l3 = rows
+        assert np.allclose(l1["vector"], ctrl["vector"]) and np.allclose(l3["vector"], ctrl["vector"])
+        assert np.allclose(l2["vector"], 0.0) and not np.allclose(ctrl["vector"], 0.0)
+
+    def test_grouped_layers_read_as_one_coordinate(self):
+        out = run(_FakeModel(), [self.REC],
+                     {"spec": [self.ZERO], "sweep": {"layers": [[0, 1], [2, 3]]}, "control": False})
+        assert [r["coords"]["layer"] for r in out["items"]] == ["0+1", "2+3"]
+
+    def test_sweep_over_restricts_which_items_an_axis_touches(self):
+        compiled = iv.compile(_FakeModel(), [
+            {"point": "resid_post", "layers": [0], "op": "zero", "sweep_over": ["strength"]},
+            {"point": "resid_post", "op": "scale", "strength": 0.5}])
+        [cell] = iv.sweep_cells({"sweep": {"layers": [3]}, "control": False})
+        fixed, swept = compiled.at(cell)
+        assert fixed.layers == [0]
+        assert swept.layers == [3]
+
+    def test_refusals_name_the_axes(self):
+        with pytest.raises(iv.SpecError, match="cannot vary depth"):
+            run(_FakeModel(), [self.REC], {"spec": [self.ZERO], "sweep": {"depth": [1]}})
+        with pytest.raises(iv.SpecError, match="non-empty list"):
+            run(_FakeModel(), [self.REC], {"spec": [self.ZERO], "sweep": {"layers": []}})
+        with pytest.raises(iv.SpecError, match="sweep_over"):
+            run(_FakeModel(), [self.REC],
+                   {"spec": [{**self.ZERO, "sweep_over": ["depth"]}], "sweep": {"layers": [1]}})

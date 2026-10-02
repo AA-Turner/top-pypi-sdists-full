@@ -1,0 +1,53 @@
+Metadata-Version: 2.1
+Name: dnutils
+Version: 0.3.14
+Summary: A collection of convenience tools for everyday Python programming
+Home-page: UNKNOWN
+Author: Daniel Nyga
+Author-email: nyga@cs.uni-bremen.de
+License: UNKNOWN
+Download-URL: https://github.com/danielnyga/dnutils/archive/0.3.14.tar.gz
+Keywords: testing,logging,threading,multithreading,debugging,tools,utilities
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: System :: Logging
+Classifier: Topic :: Utilities
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+License-File: LICENSE
+
+Welcome to dnutils
+==================
+
+Install dnutils with:
+
+    pip install dnutils
+
+Changes 0.3.6
+=============
+
+* new functions in tools, console, debug, stats
+* new modules math, dates
+
+Changes 0.3.5
+=============
+
+* fixed signals on Windows machines.
+
+Changelog 0.2.9
+===============
+
+Changelog 0.2.8
+===============
+
+* import error "monotonic" in threadsafe on python 2
+* import threads.Timer in __init__.py
+* fixed internal representation in Gaussian
+
+

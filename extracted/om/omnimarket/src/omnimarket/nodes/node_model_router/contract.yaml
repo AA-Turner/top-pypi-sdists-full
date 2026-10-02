@@ -1,0 +1,169 @@
+---
+name: node_model_router
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: compute
+runtime_profiles: [main]
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  Contract-driven LLM endpoint router. Every LLM call in the platform routes
+  through this node — no hardcoded model IDs, base URLs, or timeout literals
+  in handler source or node contracts. Endpoints are resolved from the runtime
+  model registry via logical model keys declared in the caller's
+  ModelRoutingPolicy.
+
+handler:
+  module: omnimarket.nodes.node_model_router.handlers.handler_model_router
+  class: HandlerModelRouter
+  input_model: ModelRoutingRequest
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: model_router
+      handler:
+        name: HandlerModelRouter
+        module: omnimarket.nodes.node_model_router.handlers.handler_model_router
+        handler_type: http
+      event_model:
+        name: ModelRoutingRequest
+        module: omnimarket.nodes.node_model_router.models.model_routing_request
+
+descriptor:
+  node_archetype: compute
+  purity: effectful
+  idempotent: false
+  timeout_ms: 120000
+
+runtime_dispatch:
+  command_topic: onex.cmd.omnimarket.model-router.v1
+  terminal_events:
+    success: onex.evt.omnimarket.model-router-completed.v1
+    failure: onex.evt.omnimarket.model-router-failed.v1
+
+dependencies:
+  - name: "ModelRoutingPolicy"
+    type: "config"
+    required: true
+    module: "omnibase_core.models.routing.model_routing_policy"
+    description: "Typed routing policy injected into HandlerModelRouter."
+  - name: "model_registry"
+    type: "config"
+    required: true
+    source: "model_registry.yaml"
+    description: "Contract-owned model endpoint registry injected as HandlerModelRouter registry."
+
+env_dependencies:
+  ONEX_CI_MODE:
+    required: false
+    description: "When set to '1' or 'true' (case-insensitive), activates CI override policy and uses ci_override.primary from the injected routing policy."
+
+model_routing_policy_schema:
+  source: injected_ModelRoutingPolicy
+  no_contract_model_defaults: true
+  required_fields:
+    - primary
+    - timeout_per_attempt_s
+    - max_retries
+  optional_fields:
+    - fallback
+    - fallback_allowed_roles
+    - reason_for_fallback
+    - ci_override
+    - call_style
+  description: >
+    The node contract declares policy shape only. Logical model keys, served
+    model IDs, endpoint URLs, fallback targets, and environment-specific
+    runtime defaults are supplied by ModelRoutingPolicy, registry, topology,
+    or approved overlays.
+
+inputs:
+  prompt:
+    type: str
+    description: "Prompt to route to a model endpoint"
+    required: true
+  role:
+    type: str
+    description: "Caller role for fallback authorization"
+    required: true
+  correlation_id:
+    type: str
+    description: "Trace/correlation ID"
+    required: true
+
+outputs:
+  model_key:
+    type: str
+    description: "Registry model_id key that was selected"
+  endpoint_url:
+    type: str
+    description: "Resolved base URL of the selected endpoint"
+  used_fallback:
+    type: bool
+    description: "True if fallback model was used"
+  route_resolved_event:
+    type: ModelLlmRouteResolvedEvent
+    module: omnibase_core.models.routing.model_llm_route_resolved_event
+    description: "Canonical event emitted when routing resolves to a concrete model endpoint"
+  route_rejected_event:
+    type: ModelLlmRouteRejectedEvent
+    module: omnibase_core.models.routing.model_llm_route_rejected_event
+    description: "Canonical event emitted when routing fails closed without a served endpoint"
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.model-router.v1
+  publish_topics:
+    - onex.evt.omnimarket.model-routing-degraded.v1
+    - onex.evt.omnimarket.model-llm-route-resolved.v1
+    - onex.evt.omnimarket.model-llm-route-rejected.v1
+    - onex.evt.omnimarket.model-router-completed.v1
+    - onex.evt.omnimarket.model-router-failed.v1
+
+externally_consumed_topics:
+  - onex.evt.omnimarket.model-routing-degraded.v1
+  - onex.evt.omnimarket.model-llm-route-resolved.v1
+  - onex.evt.omnimarket.model-llm-route-rejected.v1
+  - onex.evt.omnimarket.model-router-completed.v1
+  - onex.evt.omnimarket.model-router-failed.v1
+
+metadata:
+  transport_type: kafka
+  description: "Contract-driven LLM routing substrate"
+  author: "OmniNode Platform Team"
+  created: "2026-04-11"
+  tags:
+    - "routing"
+    - "llm"
+    - "contract-driven"
+    - "OMN-8443"
+  related_tickets:
+    - "OMN-8443"
+    - "OMN-8442"
+
+model_escalation:
+  tiers:
+    - name: local
+      description: "Self-hosted models on local GPU infrastructure"
+    - name: cheap_cloud
+      description: "Low-cost cloud API routing tier."
+      required_env_keys:
+        # OMN-15048: canonical deployed name is OPEN_ROUTER_API_KEY (with
+        # underscore) — the literal OPENROUTER_API_KEY is never set on any
+        # real deployment surface (k8s manifests, docker-compose.judge.yml,
+        # ~/.omnibase/.env all declare the underscore form).
+        - OPEN_ROUTER_API_KEY
+    - name: mid_frontier
+      description: "Mid-tier frontier routing tier."
+    - name: expensive_frontier
+      description: "High-cost frontier routing tier — excluded from auto-escalation."
+  max_attempts_per_tier: 2
+  auto_escalation_excludes:
+    - expensive_frontier
+  escalation_log_dir: ".onex_state/escalation-events"
+  note: "Exhaust ALL cheaper options before mid_frontier. Never auto-escalate to expensive_frontier."
+
+config:
+  ONEX_CI_MODE:
+    description: "When set to '1' or 'true' (case-insensitive), enables CI mode with restricted model routing."
+    required: false

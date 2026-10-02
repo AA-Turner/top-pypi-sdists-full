@@ -1,6 +1,7 @@
 ci:
   autoupdate_commit_msg: "chore(deps): update pre-commit hooks"
   autofix_commit_msg: "style: pre-commit fixes"
+  autoupdate_schedule: monthly
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -18,14 +19,14 @@ repos:
       - id: check-yaml
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: "v0.15.17"
+    rev: "v0.16.8"
     hooks:
       - id: ruff-check
         args: ["--fix", "--show-fixes"]
       - id: ruff-format
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v2.1.0
+    rev: v2.3.1
     hooks:
       - id: mypy
         files: src
@@ -33,13 +34,13 @@ repos:
         additional_dependencies: [pint<0.25.1] # upper limit given issue reported with 0.25.1, see https://github.com/hgrecco/pint/issues/2245
 
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.4.2
+    rev: v2.4.3
     hooks:
       - id: codespell
         args: ["-L", "HEP"]
 
   - repo: https://github.com/rbubley/mirrors-prettier
-    rev: "v3.8.4"
+    rev: "v3.9.8"
     hooks:
       - id: prettier
         types_or: [yaml, markdown, html, css, scss, javascript, json]

@@ -1888,6 +1888,7 @@ class DescribedWorkflowTypeDef(TypedDict):
     OnExceptionSteps: NotRequired[list[WorkflowStepOutputTypeDef]]
     WorkflowId: NotRequired[str]
     Tags: NotRequired[list[TagTypeDef]]
+    StructuredLogDestinations: NotRequired[list[str]]
 
 
 WorkflowStepUnionTypeDef = Union[WorkflowStepTypeDef, WorkflowStepOutputTypeDef]
@@ -1903,3 +1904,4 @@ class CreateWorkflowRequestTypeDef(TypedDict):
     Description: NotRequired[str]
     OnExceptionSteps: NotRequired[Sequence[WorkflowStepUnionTypeDef]]
     Tags: NotRequired[Sequence[TagTypeDef]]
+    StructuredLogDestinations: NotRequired[Sequence[str]]

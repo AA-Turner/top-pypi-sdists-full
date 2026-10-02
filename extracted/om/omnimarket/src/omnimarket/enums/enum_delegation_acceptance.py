@@ -1,0 +1,91 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""Typed accept/climb decision for a delegation quality-gate verdict (OMN-16932)."""
+
+from __future__ import annotations
+
+from enum import StrEnum, unique
+
+
+@unique
+class EnumDelegationAcceptanceDecision(StrEnum):
+    """Whether the ladder stopped on the rung that answered, or climbed past it.
+
+    The orchestrator has always made this decision (``quality_accepted`` in
+    ``handle_gate_result``); it has never recorded it. A reader of the event
+    log could only infer "it climbed" from the presence of a later provider
+    call, which is exactly why an escalation past a working free rung stayed
+    invisible until it showed up as a 429 on a metered bill.
+    """
+
+    ACCEPT = "accept"
+    """The answering rung's response was accepted; the chain ends here."""
+
+    CLIMB = "climb"
+    """The response was rejected; the ladder moves to the next rung."""
+
+    TERMINATE = "terminate"
+    """The response was rejected by a veto no costlier rung can satisfy (OMN-19016).
+
+    The third outcome the ladder has always been able to reach and has never
+    been able to say. ``CLIMB`` on the last rung of a run that stopped there
+    describes an intention the run did not carry out, and a reader could only
+    tell the difference by noticing that no further attempt appears — the same
+    infer-it-from-absence problem ``CLIMB`` itself was introduced to remove.
+    This value is recorded when the refusal is a deterministic function of the
+    response's shape, so re-asking a costlier model returns the same shape and
+    the same refusal.
+    """
+
+
+@unique
+class EnumDelegationAcceptanceReason(StrEnum):
+    """Why the accept/climb decision went the way it did.
+
+    One value per branch of the ``quality_accepted`` expression, so the reason
+    is derived from the decision rather than restated beside it. The three
+    CLIMB values mirror the three-way label OMN-15464 introduced for the
+    human-readable reason string; recording them as an enum means a consumer
+    (projection, dashboard, cost audit) never has to parse prose to learn why
+    a free rung was abandoned.
+    """
+
+    QUALITY_BAR_MET = "quality_bar_met"
+    """The gate passed the response and its score was at or above the bar."""
+
+    JUDGE_UNAVAILABLE_DETERMINISTIC_FLOOR = "judge_unavailable_deterministic_floor"
+    """The gate passed on the deterministic floor with no judge band (OMN-13959)."""
+
+    DETERMINISTIC_FLOOR_FAILED = "deterministic_floor_failed"
+    """A deterministic DoD check failed — a hard floor no score may lift."""
+
+    ACCEPTANCE_CRITERIA_FAILED = "acceptance_criteria_failed"
+    """The score cleared the bar but the gate rejected on an acceptance criterion."""
+
+    SCORE_BELOW_REQUIRED_BAR = "score_below_required_bar"
+    """The graded score was below the task class's required bar."""
+
+    HEURISTIC_VETO = "heuristic_veto"
+    """A blocking quality rule vetoed the response; the score did not decide.
+
+    OMN-18379. ``ACCEPTANCE_CRITERIA_FAILED`` says only that the gate refused
+    on something other than the bar. When the refusal is attributable to a
+    named blocking rule, this says WHICH — the detail string carries the rule,
+    the phrase it matched and that phrase's offset, so a reader never has to
+    guess why a response that out-scored the bar was abandoned. On the local
+    dispatch path the label was ``SCORE_BELOW_REQUIRED_BAR`` for every refusal
+    whatever the score, which reported a 0.900 response as sub-0.800.
+    """
+
+    PROVIDER_CALL_FAILED = "provider_call_failed"
+    """The rung's inference call itself failed, so there was no response to judge."""
+
+    REQUIRED_BAR_UNRESOLVED = "required_bar_unresolved"
+    """No required-bar authority resolved, so no accept/climb decision was reachable."""
+
+
+__all__: list[str] = [
+    "EnumDelegationAcceptanceDecision",
+    "EnumDelegationAcceptanceReason",
+]

@@ -188,7 +188,9 @@ MinimumProtocolVersionType = Literal[
     "TLSv1_2016",
 ]
 OriginAccessControlOriginTypesType = Literal["lambda", "mediapackagev2", "mediastore", "s3"]
-OriginAccessControlSigningBehaviorsType = Literal["always", "never", "no-override"]
+OriginAccessControlSigningBehaviorsType = Literal[
+    "always", "always-amz-auth", "never", "no-override"
+]
 OriginAccessControlSigningProtocolsType = Literal["sigv4", "sigv4a"]
 OriginGroupSelectionCriteriaType = Literal["default", "media-quality-based"]
 OriginProtocolPolicyType = Literal["http-only", "https-only", "match-viewer"]
@@ -302,6 +304,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -374,8 +377,10 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -404,6 +409,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -446,6 +452,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -498,6 +505,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

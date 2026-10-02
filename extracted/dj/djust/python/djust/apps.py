@@ -1,0 +1,240 @@
+import logging
+import os
+from typing import Mapping, Sequence
+
+from django.apps import AppConfig
+
+
+class DjustConfig(AppConfig):
+    name = "djust"
+    default_auto_field = "django.db.models.BigAutoField"
+
+    def ready(self) -> None:
+        # FIRST, before anything reads config: recover the settings load if it
+        # could not happen at import time (#2164/#2166).
+        #
+        # ``djust.config.config`` is built at MODULE IMPORT and reads Django
+        # settings exactly once. When a project's asgi.py imports djust BEFORE
+        # setting ``DJANGO_SETTINGS_MODULE``, that read raises
+        # ``ImproperlyConfigured``, the broad except swallows it, and the
+        # singleton serves pure defaults for the life of the process — so every
+        # ``LIVEVIEW_CONFIG`` key is silently ignored. It fails asymmetrically:
+        # correct in tests (which import late, after django.setup()), wrong in
+        # that server. Django runs ready() strictly after settings resolve, so
+        # this is the one place a recovery read is guaranteed safe.
+        #
+        # Doing it here rather than at each call site is deliberate: the readers
+        # are spread across ~40 sites, and fixing them one at a time is the
+        # 2-of-N shape #1646 exists to reject. One recovery fixes them all.
+        try:
+            from djust.config import config as _djust_config
+
+            _djust_config.ensure_settings_loaded()
+        except Exception:  # noqa: BLE001 - config recovery must never break startup
+            logging.getLogger("djust").exception(
+                "[djust] recovering the config settings load in ready() failed"
+            )
+
+        # Import checks module so @register() decorators are executed
+        import djust.checks  # noqa: F401
+
+        # Install the log sanitizer filter on every djust.* logger so every log
+        # record emitted by the framework has user-controlled string args
+        # sanitized before they reach any handler — preventing log injection
+        # without per-callsite sanitization. On EVERY framework logger, not
+        # just "djust": Python runs a logger's filters only for records logged
+        # on that logger, so a filter on the parent never saw the records that
+        # propagate up from djust.websocket and friends (#2947).
+        from djust.security.log_sanitizer import install_log_sanitizer
+
+        install_log_sanitizer()
+
+        # Install the observability log-tail handler. Always safe to
+        # install (the buffer is inert until the MCP tool fetches it);
+        # DEBUG gating happens at the endpoint level.
+        try:
+            from djust.observability.log_handler import install_handler
+
+            install_handler()
+        except Exception as e:  # noqa: BLE001
+            # Observability must never break AppConfig startup.
+            logging.getLogger("djust").warning("Observability log handler install failed: %s", e)
+
+        # Auto-enable hot reload in DEBUG. ``enable_hot_reload()`` has its
+        # own DEBUG / watchdog / config gates and is idempotent via
+        # ``hot_reload_server.is_running()``, so this is safe in production
+        # (early-return) and safe alongside an explicit consumer call.
+        # Skip during pytest runs to avoid spawning a watchdog thread for
+        # every test session — pytest sets ``PYTEST_CURRENT_TEST`` for the
+        # duration of every test invocation. (Tests that need to exercise
+        # the auto-enable path itself temporarily clear this env var; see
+        # ``_no_pytest_env()`` in
+        # ``python/djust/tests/test_auto_hot_reload.py``.)
+
+        # Wire LIVEVIEW_CONFIG['virtual_keyed_ops'] -> the process-global Rust
+        # switch (ADR-026 iteration 3, #2017). Done HERE rather than in
+        # rust_bridge's per-view `_apply_*_flag` hooks because the Rust side is
+        # a process-global AtomicBool, and applying a global from a per-view
+        # hook is last-view-wins.
+        #
+        # Unconditional (not gated on PYTEST_CURRENT_TEST): the flag must hold
+        # the same value in tests as in production, or the suite verifies a
+        # configuration nobody runs.
+        try:
+            from djust import _rust
+            from djust.config import config as _cfg
+
+            # Reads the singleton, which the ensure_settings_loaded() at the top
+            # of ready() has already made trustworthy. Deliberately NOT a direct
+            # `settings.LIVEVIEW_CONFIG` read: that would skip the documented
+            # `DJUST_CONFIG` fallback (#1993) and the flat `DJUST_*` aliases, so
+            # a value set there would read ON through `config.get()` while the
+            # differ ran OFF — a NEW silent asymmetry, the exact class this is
+            # fixing. It also keeps `_defaults` the single source of the default
+            # (ADR-026 iteration 3 flips it there, and this must follow).
+            # Same reasoning for django_value_repr (#2203): a process-global
+            # AtomicBool behind `impl Display for Value`, wired once here.
+            if hasattr(_rust, "set_django_value_repr"):
+                _rust.set_django_value_repr(bool(_cfg.get("django_value_repr")))
+            if hasattr(_rust, "set_virtual_keyed_ops"):
+                # No literal fallback here on purpose: `_defaults` is the single
+                # source of the default (the comment above says so), and a second
+                # hardcoded value silently wins if the key is ever missing —
+                # which is how a default drifts out of sync with itself.
+                _rust.set_virtual_keyed_ops(bool(_cfg.get("virtual_keyed_ops")))
+        except Exception:  # noqa: BLE001 - never let a flag break startup
+            logging.getLogger("djust").exception(
+                "[djust] applying virtual_keyed_ops to the Rust differ failed"
+            )
+
+        import os
+
+        if not os.environ.get("PYTEST_CURRENT_TEST"):
+            _start_update_notice()
+            try:
+                from djust.config import config
+
+                if config.get("hot_reload_auto_enable", True):
+                    from djust import enable_hot_reload
+
+                    enable_hot_reload()
+            except Exception:  # noqa: BLE001
+                logging.getLogger("djust").exception(
+                    "[HotReload] auto-enable in DjustConfig.ready() failed"
+                )
+
+            # Warm the Django→Rust custom-filter bridge at startup so the FIRST
+            # mount/render doesn't pay the one-time ~20ms cost of lazily importing
+            # every Django templatetag library on the request path. The bridge is
+            # memoized after the first call (``_CUSTOM_FILTERS_BRIDGED``), so this
+            # only SHIFTS that cost from first-request latency to startup. Skipped
+            # during pytest (above guard) so the suite isn't slowed and so test
+            # bootstrap orderings without a configured template engine are
+            # unaffected. Opt out via ``LIVEVIEW_CONFIG['filter_bridge_warm'] = False``.
+            self._warm_filter_bridge()
+
+        # The `{% load app_tags %}` library loader (#2547). Also installed by
+        # ``djust.template_tags`` on import; asserted here so a project that
+        # never imports that module directly still gets it at startup.
+        try:
+            from djust.template_libraries import install_loader
+
+            install_loader()
+        except Exception:  # noqa: BLE001 — startup must never break ready()
+            logging.getLogger("djust").exception(
+                "[TemplateLibraries] installing the {%% load %%} loader in ready() failed"
+            )
+
+        # The `_("…")` translator and the `{% language %}` / `{% timezone %}`
+        # scope hooks (#2558). Also installed by ``djust.template_tags`` on
+        # import; same asserted-here reasoning as the loader above.
+        try:
+            from djust.template_libraries import install_translator
+            from djust.render_env import install_scope_hooks
+
+            install_translator()
+            install_scope_hooks()
+        except Exception:  # noqa: BLE001 — startup must never break ready()
+            logging.getLogger("djust").exception(
+                "[TemplateLibraries] installing the #2558 i18n hooks in ready() failed"
+            )
+
+    def _warm_filter_bridge(self) -> bool:
+        """Eagerly run the Django→Rust filter bridge (off the request path).
+
+        Returns ``True`` if the warm ran, ``False`` if opted out or it failed.
+        Idempotent (the underlying bootstrap guards itself) and non-fatal —
+        startup must never break if the template engine isn't bridgeable.
+        """
+        try:
+            from djust.config import config
+
+            if not config.get("filter_bridge_warm", True):
+                return False
+            from djust.template_filters import _ensure_custom_filters_bridged
+
+            _ensure_custom_filters_bridged()
+            return True
+        except Exception:  # noqa: BLE001 — startup warm must never break ready()
+            logging.getLogger("djust").exception(
+                "[FilterBridge] startup warm in DjustConfig.ready() failed"
+            )
+            return False
+
+
+_SERVER_TOKENS = ("runserver", "uvicorn", "daphne", "hypercorn", "granian", "gunicorn")
+
+
+def _is_serving_process(
+    argv: "Sequence[str] | None" = None, environ: "Mapping[str, str] | None" = None
+) -> bool:
+    """Only a development server should start the update notice.
+
+    ``ready()`` runs for every management command too (``check``,
+    ``migrate``...), which must not fetch. ``runserver``'s autoreloader parent
+    process is skipped as well: Django sets ``RUN_MAIN`` in the child.
+    """
+    import sys
+
+    args: "Sequence[str]" = sys.argv if argv is None else argv
+    env: "Mapping[str, str]" = os.environ if environ is None else environ
+    joined = " ".join(args)
+    if not any(token in joined for token in _SERVER_TOKENS):
+        return False
+    if "runserver" in joined and "--noreload" not in joined and env.get("RUN_MAIN") != "true":
+        return False
+    return True
+
+
+def _start_update_notice() -> None:
+    """Log one line about a newer release or advisory, from a daemon thread.
+
+    Gated by ``djust.updates.should_check`` (off with DEBUG=False, in CI, or
+    via DJUST_CONFIG["update_check"] = False). Never raises.
+    """
+    try:
+        from django.conf import settings
+
+        # DEBUG=False never checks, and production keeps its import footprint
+        # (test_lazy_package_init_2559): decide before importing the module.
+        if not settings.DEBUG or not _is_serving_process():
+            return
+        from djust import updates
+
+        config = getattr(settings, "DJUST_CONFIG", None) or {}
+        if not updates.should_check(debug=bool(settings.DEBUG), config=config):
+            return
+
+        def announce(status: "updates.UpdateStatus") -> None:
+            message = status.message("uv pip install -U djust")
+            if not message:
+                return
+            # Under the ``django`` logger tree: Django's default LOGGING only
+            # attaches its console handler there, so the line is visible in a
+            # project with no LOGGING of its own. Advisories warn; releases inform.
+            log = logging.getLogger("django.djust.updates")
+            (log.warning if status.advisories else log.info)("%s", message)
+
+        updates.check_in_background(announce)
+    except Exception:  # noqa: BLE001 - never let the notice break startup
+        logging.getLogger("djust").debug("update notice failed to start", exc_info=True)

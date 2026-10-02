@@ -1,0 +1,72 @@
+
+
+from __future__ import annotations
+from .contents import Contents, ContentsTypedDict
+from datetime import datetime
+from pydantic import model_serializer
+from typing import Optional, Union
+from typing_extensions import NotRequired, TypedDict
+from youdotcom.types import BaseModel, LenientDateTime, UNSET_SENTINEL
+
+
+class NewsResultTypedDict(TypedDict):
+    title: NotRequired[str]
+    r"""The title of the news result."""
+    description: NotRequired[str]
+    r"""A brief description of the content of the news result."""
+    page_age: NotRequired[Union[datetime, str]]
+    r"""UTC timestamp of the article's publication date.
+
+    An ISO 8601 value parses to a ``datetime``; any other value is returned
+    verbatim as the string the API sent. Narrow with ``isinstance`` before
+    using it as a datetime.
+    """
+    thumbnail_url: NotRequired[str]
+    r"""URL of the thumbnail."""
+    url: NotRequired[str]
+    r"""The URL of the news result."""
+    contents: NotRequired[ContentsTypedDict]
+    r"""Contents of the page if ``extraction`` was enabled (formerly ``livecrawl``)."""
+
+
+class NewsResult(BaseModel):
+    title: Optional[str] = None
+    r"""The title of the news result."""
+
+    description: Optional[str] = None
+    r"""A brief description of the content of the news result."""
+
+    page_age: LenientDateTime = None
+    r"""UTC timestamp of the article's publication date.
+
+    An ISO 8601 value parses to a ``datetime``; any other value is returned
+    verbatim as the string the API sent. Narrow with ``isinstance`` before
+    using it as a datetime.
+    """
+
+    thumbnail_url: Optional[str] = None
+    r"""URL of the thumbnail."""
+
+    url: Optional[str] = None
+    r"""The URL of the news result."""
+
+    contents: Optional[Contents] = None
+    r"""Contents of the page if ``extraction`` was enabled (formerly ``livecrawl``)."""
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            ["title", "description", "page_age", "thumbnail_url", "url", "contents"]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k, serialized.get(n))
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

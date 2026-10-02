@@ -1,0 +1,40 @@
+from typing import (
+    TYPE_CHECKING,
+    List,
+)
+if TYPE_CHECKING:
+    from xoa_driver.internals.core import interfaces as itf
+
+from .ctlos import UecCtlOs
+from .linkneg import UecLinkNeg
+from .llr import UecLlr
+from .cbfc import UecCbfc
+
+class UltraEthernet:
+    """Ultra Ethernet of the port"""
+
+    def __init__(self, conn: "itf.IConnection", module_id: int, port_id: int) -> None:
+
+        self.ctlos = UecCtlOs(conn, module_id, port_id)
+        """UE CtlOS (Control and Observation System) of the port.
+
+        :type: UecCtlOs
+        """
+
+        self.linkneg = UecLinkNeg(conn, module_id, port_id)
+        """UE Link Negotiation of the port.
+
+        :type: UecLinkNeg
+        """
+
+        self.llr = UecLlr(conn, module_id, port_id)
+        """UE LLR (Link Layer Retry) of the port.
+
+        :type: UecLlr
+        """
+
+        self.cbfc = UecCbfc(conn, module_id, port_id)
+        """UE CBFC (Credit-Based Flow Control) of the port.
+
+        :type: UecCbfc
+        """

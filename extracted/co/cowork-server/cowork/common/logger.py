@@ -1,0 +1,269 @@
+import logging
+
+# Add logging import for rotating file handler
+import logging.handlers
+import os
+import sys
+from pathlib import Path
+
+try:
+    import colorlog
+
+    HAS_COLORLOG = True
+except ImportError:
+    HAS_COLORLOG = False
+
+try:
+    from rich.console import Console
+    from rich.logging import RichHandler
+
+    HAS_RICH = True
+except ImportError:
+    HAS_RICH = False
+
+
+class EventLoopClosedFilter(logging.Filter):
+    """Filter out 'Event loop is closed' errors that occur during cleanup"""
+
+    def filter(self, record) -> bool:
+        # Filter out the specific RuntimeError about event loop being closed
+        return not (
+            record.name == "asyncio"
+            and record.levelno == logging.ERROR
+            and "Event loop is closed" in record.getMessage()
+        )
+
+
+class CustomFormatter(logging.Formatter):
+    """Formatter that renders the optional ``user_id`` / ``request_id`` a call
+    site may attach via ``extra=``.
+
+    Both render as an empty string when absent, which is what lets a format
+    string reference ``%(request_context)s`` unconditionally — the vast
+    majority of records carry neither. An explicitly ``None`` value counts as
+    absent.
+    """
+
+    def format(self, record):
+        # None is absent, not a value: a producer with no id to offer still
+        # passes the key, and ``[Req:None]`` is worse than no prefix at all.
+        user_id = getattr(record, "user_id", None)
+        record.user_context = f"[User:{user_id}]" if user_id is not None else ""
+
+        request_id = getattr(record, "request_id", None)
+        record.request_context = f"[Req:{request_id}]" if request_id is not None else ""
+
+        return super().format(record)
+
+
+def get_colored_formatter():
+    """The console handler's formatter, colored when colorlog is installed.
+
+    Both branches derive from CustomFormatter because both reference
+    ``%(request_context)s``, and only a CustomFormatter defines it — a plain
+    Formatter raises per record, which logging swallows into a dropped line.
+    The console is the stream the desktop captures into the log tail it offers
+    to copy, so an id rendered only on a file handler reaches nobody: file
+    logging is off unless ENABLE_FILE_LOGGING is exported, which nothing in
+    the stack does.
+    """
+    if not HAS_COLORLOG:
+        return CustomFormatter(
+            "%(asctime)s [%(levelname)0s] %(name)s%(request_context)s: %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
+
+    class _ColoredCustomFormatter(CustomFormatter, colorlog.ColoredFormatter):
+        """Inherits the context injection so the two branches cannot drift."""
+
+    return _ColoredCustomFormatter(
+        "%(log_color)s%(asctime)s [%(levelname)0s] %(name)s%(request_context)s: "
+        "%(message)s%(reset)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        log_colors={
+            "DEBUG": "cyan",
+            "INFO": "green",
+            "WARNING": "yellow",
+            "ERROR": "red",
+            "CRITICAL": "red,bg_white",
+        },
+        secondary_log_colors={
+            "message": {
+                "DEBUG": "white",
+                "INFO": "white",
+                "WARNING": "yellow",
+                "ERROR": "red",
+                "CRITICAL": "red",
+            }
+        },
+    )
+
+
+def setup_file_logging(log_dir: str = "logs", max_bytes: int = 10485760, backup_count: int = 5):
+    """Setup file logging with rotation"""
+    log_path = Path(log_dir)
+    log_path.mkdir(exist_ok=True)
+
+    # Create handlers for different log levels
+    handlers = []
+
+    # All logs file
+    all_logs_handler = logging.handlers.RotatingFileHandler(
+        log_path / "minds.log", maxBytes=max_bytes, backupCount=backup_count
+    )
+    # CustomFormatter, not logging.Formatter: it is what defines
+    # %(request_context)s, and it renders an empty string for the records that
+    # carry no request_id — which is most of them. A plain Formatter would
+    # raise ValueError on every such line.
+    all_logs_handler.setFormatter(
+        CustomFormatter(
+            "%(asctime)s [%(levelname)8s] %(name)s%(request_context)s "
+            "[%(filename)s:%(lineno)d] %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
+    )
+    handlers.append(all_logs_handler)
+
+    # Error logs file
+    error_handler = logging.handlers.RotatingFileHandler(
+        log_path / "errors.log", maxBytes=max_bytes, backupCount=backup_count
+    )
+    error_handler.setLevel(logging.ERROR)
+    error_handler.setFormatter(
+        CustomFormatter(
+            "%(asctime)s [%(levelname)8s] %(name)s%(request_context)s "
+            "[%(filename)s:%(lineno)d] %(message)s\n%(stack_info)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
+    )
+    handlers.append(error_handler)
+
+    return handlers
+
+
+def setup_console_handler():
+    """Setup console handler with colors and rich formatting if available"""
+    if HAS_RICH and os.getenv("RICH_LOGGING", "false").lower() == "true":
+        console = Console(stderr=True)
+        handler = RichHandler(
+            console=console,
+            show_path=False,
+            show_time=True,
+            rich_tracebacks=True,
+            tracebacks_show_locals=True,
+        )
+        # CustomFormatter for the same reason the other branch uses one: this
+        # is a console stream too, and the desktop tails it.
+        handler.setFormatter(CustomFormatter(
+            "[%(name)s]%(request_context)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S",
+        ))
+    else:
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setFormatter(get_colored_formatter())
+
+    return handler
+
+
+def _resolved_log_level_name() -> str:
+    """The configured log level, read through AppSettings like every other
+    setting, falling back to `os.getenv` only if settings cannot be built.
+
+    Reading it from the environment alone was the bug: the desktop keeps its
+    config in `<COWORK_HOME>/.env`, which no environment variable carries, so a
+    customer who set LOG_LEVEL there still got the WARNING default and a log
+    holding nothing but uvicorn access lines. AppSettings already reads that
+    file through its env-file chain, and pydantic-settings still ranks real
+    environment variables above it, so a deployment's LOG_LEVEL keeps winning.
+
+    Only CONSTRUCTION is guarded, and deliberately broadly: `cowork_home()` runs
+    inside the env-file chain, so the failure modes are not only pydantic's, and
+    this runs at import, before anything could report the error. Reading the
+    field is outside the guard, so a missing or renamed `log_level` raises here
+    instead of silently degrading every deployment to WARNING.
+    """
+    from cowork.common.settings.app_settings import get_app_settings
+
+    try:
+        settings = get_app_settings()
+    except Exception:
+        # `get_app_settings` is lru_cached and does not cache exceptions, so the
+        # app's own call still raises later with the real message.
+        return os.getenv("LOG_LEVEL", "WARNING")
+    return settings.log_level
+
+
+def setup_logging():
+    """Setup comprehensive logging configuration"""
+    log_level_str = _resolved_log_level_name()
+    enable_file_logging = os.getenv("ENABLE_FILE_LOGGING", "false").lower() == "true"
+    log_dir = os.getenv("LOG_DIR", "logs")
+
+    # Map string log level to logging constants
+    log_level_map = {
+        "DEBUG": logging.DEBUG,
+        "INFO": logging.INFO,
+        "WARNING": logging.WARNING,
+        "ERROR": logging.ERROR,
+        "CRITICAL": logging.CRITICAL,
+    }
+
+    # Default to INFO if an invalid level is provided
+    log_level = log_level_map.get(log_level_str.upper(), logging.WARNING)
+
+    # Clear any existing handlers
+    root_logger = logging.getLogger()
+    root_logger.handlers.clear()
+
+    # Setup handlers
+    handlers = []
+
+    # Console handler
+    console_handler = setup_console_handler()
+    console_handler.setLevel(log_level)
+    handlers.append(console_handler)
+
+    # File handlers (if enabled)
+    if enable_file_logging:
+        file_handlers = setup_file_logging(log_dir)
+        for handler in file_handlers:
+            handler.setLevel(log_level)
+            handlers.append(handler)
+
+    # Configure root logger
+    logging.basicConfig(level=log_level, handlers=handlers, force=True)
+
+    # Suppress verbose logging from third-party libraries
+    third_party_loggers = [
+        "httpcore.http11",
+        "openai._base_client",
+        "httpcore.connection",
+        "httpx",
+        "urllib3",
+        "faiss",
+        "asyncio",
+        "requests",
+        "boto3",
+        "botocore",
+        "s3transfer",
+        "transformers",
+        "torch",
+        "tensorflow",
+        "urllib3.connectionpool",
+    ]
+
+    for logger_name in third_party_loggers:
+        logging.getLogger(logger_name).setLevel(logging.ERROR)
+
+    # Add filter to suppress "Event loop is closed" errors during cleanup
+    event_loop_filter = EventLoopClosedFilter()
+    logging.getLogger("asyncio").addFilter(event_loop_filter)
+
+    # Create application logger
+    logger = logging.getLogger(__name__)
+
+    return logger
+
+
+def get_logger(name: str) -> logging.Logger:
+    """Get a logger with the given name"""
+    return logging.getLogger(name)

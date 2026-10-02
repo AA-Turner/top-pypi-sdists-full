@@ -18,6 +18,5 @@ def validate_scheduling_priority(priority: Optional[int]) -> None:
 
     if priority < SCHEDULING_PRIORITY_MIN or priority > SCHEDULING_PRIORITY_MAX:
         raise ValueError(
-            f"'priority' must be >= {SCHEDULING_PRIORITY_MIN} "
-            f"and <= {SCHEDULING_PRIORITY_MAX}."
+            f"'priority' must be >= {SCHEDULING_PRIORITY_MIN} and <= {SCHEDULING_PRIORITY_MAX}."
         )

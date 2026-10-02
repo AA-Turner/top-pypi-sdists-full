@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "requests-async"
+version = "0.2.4"
+description = "Simple async HTTP client with requests-like interface, powered by httpx"
+readme = "README.md"
+requires-python = ">=3.7"
+license = "MIT"
+authors = [
+    {name = "requests-async contributors"}
+]
+keywords = ["http", "async", "requests", "client", "httpx", "asyncio"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers", 
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Framework :: AsyncIO",
+]
+dependencies = [
+    "httpx[socks]>=0.23.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/requests-async"
+"Bug Reports" = "https://github.com/yourusername/requests-async/issues"
+"Source" = "https://github.com/yourusername/requests-async"
+Documentation = "https://github.com/yourusername/requests-async#readme"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["requests_async*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = ["-v", "--tb=short"]
+asyncio_mode = "auto"

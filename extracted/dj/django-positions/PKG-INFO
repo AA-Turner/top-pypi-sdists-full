@@ -1,0 +1,17 @@
+Metadata-Version: 1.1
+Name: django-positions
+Version: 0.6.0
+Summary: A Django field for custom model ordering
+Home-page: http://github.com/jpwatts/django-positions
+Author: Joel Watts
+Author-email: joel@joelwatts.com
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Environment :: Web Environment
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Framework :: Django

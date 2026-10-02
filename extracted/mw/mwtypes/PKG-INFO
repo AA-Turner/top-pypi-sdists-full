@@ -1,0 +1,35 @@
+Metadata-Version: 2.1
+Name: mwtypes
+Version: 0.4.0
+Summary: A set of types for processing MediaWiki data.
+Home-page: https://github.com/mediawiki-utilities/python-mwtypes
+Author: Aaron Halfaker
+Author-email: aaron.halfaker@gmail.com
+License: MIT
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Environment :: Other Environment
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Text Processing :: General
+Classifier: Topic :: Utilities
+Classifier: Topic :: Scientific/Engineering
+License-File: LICENSE
+Requires-Dist: jsonable>=0.3.0
+
+# MediaWiki Types
+
+This library provides a set of classes for working with MediaWiki data types.  
+The point of this library is to help standardize different schemes and naming
+patterns between the database, XML dumps and API responses.  
+
+* **Installation:** ``pip install mwtypes``
+* **Documentation:** https://pythonhosted.org/mwtypes
+* **Repositiory:** https://github.com/mediawiki-utilities/python-mwtypes
+* **License:** MIT
+
+## Author
+* Aaron Halfaker -- https://github.com/halfak

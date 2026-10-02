@@ -182,7 +182,7 @@ pub enum DiagnosticKind {
 #[derive(Debug)]
 pub struct Diagnostic {
     pub kind: Box<DiagnosticKind>,
-    pub range: tombi_text::Range,
+    pub span: tombi_text::Span,
 }
 
 impl DiagnosticKind {
@@ -240,10 +240,10 @@ impl DiagnosticKind {
 }
 
 impl Diagnostic {
-    pub fn new(kind: DiagnosticKind, range: impl Into<tombi_text::Range>) -> Self {
+    pub fn new(kind: DiagnosticKind, span: impl Into<tombi_text::Span>) -> Self {
         Self {
             kind: Box::new(kind),
-            range: range.into(),
+            span: span.into(),
         }
     }
 
@@ -261,12 +261,12 @@ impl Diagnostic {
             SeverityLevel::Error => diagnostics.push(tombi_diagnostic::Diagnostic::new_error(
                 self.kind.to_string(),
                 self.code(),
-                self.range,
+                self.span,
             )),
             SeverityLevel::Warn => diagnostics.push(tombi_diagnostic::Diagnostic::new_warning(
                 self.kind.to_string(),
                 self.code(),
-                self.range,
+                self.span,
             )),
             SeverityLevel::Off => {}
         }

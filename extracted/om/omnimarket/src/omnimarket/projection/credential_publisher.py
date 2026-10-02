@@ -1,0 +1,859 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Thin publisher for BYOK inference-credential intake (OMN-16316).
+
+A customer's BYOK submission posts ``{name, provider, key_value}`` to
+``POST /v1/tenants/me/inference-credentials``. This module is the *only*
+logic behind that route (and its ``DELETE`` sibling): it performs the ONE
+value->ref exchange the secret VALUE ever crosses --
+
+    customer TLS request -> this module -> ProtocolSecretStore.set_secret
+
+-- mints a tenant-scoped ``api_key_ref``, calls ``set_secret`` synchronously
+at the effect boundary, then publishes a **credential-registered** event
+carrying only ``{tenant_id, provider, name, api_key_ref, metadata}`` (no
+value, ever) to the canonical topic. Revocation is the mirror shape: it
+deletes the Infisical store entry FIRST (via
+``ProtocolSecretStore.delete_secret``), then publishes a
+**credential-revoked** event. A failed delete raises
+``CredentialStoreDeleteRejectedError`` with no event and no ``revoked_at``
+write -- the plaintext key must not remain in custody after the customer
+requests removal (OMN-18086).
+
+Nothing in this module writes to a database, and nothing beyond the single
+``set_secret`` call ever holds the plaintext key. The downstream
+ingress/projection pair (node_projection_tenant_credentials, OMN-16316
+follow-on) is the only thing that persists the ref record.
+
+Design notes (mirrors ``generation_publisher.py``, OMN-13004)
+---------------------------------------------------------------
+* The event-bus producer is created per-publish and closed immediately
+  unless one is injected (tests, or a caller that wants to own the
+  lifecycle) -- see ``ProtocolGenerationEventBus`` precedent.
+* The secret store follows the same ownership rule (OMN-17349): built
+  per-request, ``initialize()``d at construction so it can actually write,
+  and closed in a ``finally`` -- an authenticated Infisical SDK client must
+  not outlive the POST that opened it. An injected store is never closed.
+* Fail-fast: a broker or secret store that is unreachable/unconfigured
+  raises before any state is left half-written; the route maps that to 503.
+* ``ModelInferenceCredentialCreateRequest.key_value`` is a ``pydantic.SecretStr``
+  specifically so that any accidental ``repr()``/``str()``/logging of the
+  request model prints ``SecretStr('**********')``, never the raw value.
+"""
+
+from __future__ import annotations
+
+import uuid
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
+from typing import Literal, Protocol, cast
+
+from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
+from omnibase_spi.protocols.services import ProtocolSecretStore
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SecretStr,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
+
+from omnimarket.events.topics import (
+    CREDENTIAL_REGISTERED_TOPIC_V1,
+    CREDENTIAL_REVOKED_TOPIC_V1,
+)
+from omnimarket.routing.byok_model_discovery import (
+    ModelByokModelDiscovery,
+    describe_discovery_refusal,
+    discover_byok_model,
+)
+from omnimarket.routing.byok_plan_detection import (
+    ModelByokPlanDetection,
+    detect_byok_plan,
+)
+from omnimarket.routing.byok_provider_backends import (
+    ByokCatalogError,
+    byok_provider_plans,
+    byok_routable_plans,
+    customer_provider_catalogue,
+    require_byok_plan_permitted,
+    resolve_byok_provider_backend,
+)
+
+_SOURCE_TOOL = "omnimarket-tenant-credential-intake"
+
+# Every variable the Infisical machine identity needs, resolved fail-closed and
+# reported together. Deliberately byte-identical to
+# ``inference.secret_store_resolver._INFISICAL_BOOTSTRAP_VARS`` (the READ half,
+# OMN-16984): the two halves of the BYOK chain must demand the same bootstrap,
+# or a host can be configured well enough to accept a customer's key and not
+# well enough to hand it back. ``INFISICAL_ENVIRONMENT_SLUG`` is in the REQUIRED
+# set rather than defaulted -- see ``_bootstrap_values`` (OMN-17349 AC5).
+_INFISICAL_BOOTSTRAP_VARS: tuple[str, ...] = (
+    "INFISICAL_ADDR",
+    "INFISICAL_CLIENT_ID",
+    "INFISICAL_CLIENT_SECRET",
+    "INFISICAL_PROJECT_ID",
+    "INFISICAL_ENVIRONMENT_SLUG",
+)
+
+# The folder the tenant-credential values live in. This one keeps a default:
+# unlike the environment slug, a wrong path cannot silently cross an environment
+# boundary, and the value is a fixed product-level address rather than a
+# per-host fact.
+_DEFAULT_TENANT_CREDENTIAL_SECRET_PATH = "/tenant-inference-credentials"
+
+
+class CredentialStoreError(RuntimeError):
+    """Base: the BYOK intake store could not be made ready to write.
+
+    Every subclass names ADDRESSING only -- host, project id, environment slug,
+    secret path, the minted ref, and the NAMES of bootstrap variables. No secret
+    value and no machine-identity material is ever interpolated into any of
+    these messages: the onex-api route logs this exception with
+    ``logger.exception`` before mapping it to 503, so the message lands in a pod
+    log by construction.
+    """
+
+
+class CredentialStoreConfigurationError(CredentialStoreError):
+    """The host's Infisical bootstrap configuration is missing or malformed.
+
+    Raised INSTEAD of the bare ``KeyError`` / ``ValidationError`` the previous
+    ``os.environ[...]`` triple produced, so a misconfigured host reads as a
+    legible fact rather than a traceback (OMN-17349 AC1).
+    """
+
+
+class CredentialStoreUnavailableError(CredentialStoreError):
+    """The adapter was configured but could not authenticate against Infisical.
+
+    The underlying ``InfraConnectionError`` is chained as ``__cause__`` (it is
+    already sanitized by ``omnibase_infra.utils.util_error_sanitization``), but
+    the message raised here is written from addressing this module holds rather
+    than forwarded out of the SDK.
+    """
+
+
+class CredentialStoreWriteRejectedError(CredentialStoreError):
+    """``set_secret`` reported failure WITHOUT raising -- the key is not stored.
+
+    ``ProtocolSecretStore.set_secret`` is declared ``-> bool`` ("True if stored
+    successfully, False otherwise"), so a conforming store is allowed to decline
+    a write by returning ``False`` rather than raising. The deployed
+    ``InfisicalSecretStore`` only ever returns ``True`` or raises, but this
+    publisher is written against the PROTOCOL, not that one implementation.
+
+    Discarding the boolean would publish ``credential-registered`` -- and hand
+    the customer a 201 plus an ``api_key_ref`` -- for a key that was never
+    persisted. The customer would then see a live credential in the dashboard
+    whose every delegation fails to resolve at the effect boundary: exactly the
+    "configured and inert" failure class OMN-17349 exists to remove, moved one
+    layer out. Fail loud at intake instead.
+    """
+
+
+class CredentialStoreDeleteRejectedError(CredentialStoreError):
+    """``delete_secret`` raised during revocation -- the key remains in the store.
+
+    The revoked event is NOT published and ``revoked_at`` is NOT written when
+    this is raised. The customer's plaintext provider key was not removed from
+    Infisical custody, so the revocation did not complete. Route to a 5xx.
+    """
+
+
+class ProviderCatalogueUnavailableError(RuntimeError):
+    """The customer provider catalogue could not be read, so intake cannot judge.
+
+    Deliberately NOT a ``ValueError``. ``ByokCatalogError`` is one, and pydantic
+    converts a ``ValueError`` raised inside a validator into a
+    ``ValidationError`` -- which the onex-api route surfaces to the caller as a
+    422 "your provider is invalid". A catalogue we cannot load is OUR fault, not
+    the customer's, and reporting it as bad input both blames the wrong party
+    and hides the real failure. Raised as a ``RuntimeError`` instead so it
+    escapes validation untouched and reaches the route's generic handler, which
+    maps it to a 503.
+
+    Fail-CLOSED: intake refuses while the catalogue is unreadable rather than
+    admitting a provider it cannot check.
+    """
+
+
+class CredentialPlanUndeterminedError(ValueError):
+    """The provider has several plans and this key's plan could not be decided.
+
+    OMN-20157. Raised by :func:`register_inference_credential` BEFORE anything is
+    stored or published, so a key is never filed under a product that refuses it.
+    Carries the detection outcome (``rejected`` or ``inconclusive``) and the
+    plans on offer; never the key. The intake route maps it to a 422 that asks
+    the customer to name the plan.
+    """
+
+    def __init__(self, provider: str, outcome: str, plans: tuple[str, ...]) -> None:
+        self.provider = provider
+        self.outcome = outcome
+        self.plans = plans
+        if outcome == "rejected":
+            detail = "every plan refused the key"
+        elif outcome == "ambiguous":
+            detail = "more than one plan accepts the key"
+        else:
+            detail = "a plan could not be reached or answered with a throttle"
+        super().__init__(
+            f"could not decide which {provider} plan this key belongs to "
+            f"({detail}). Submit it again naming one of: {', '.join(plans)}."
+        )
+
+
+class CredentialKeyRefusedError(ValueError):
+    """The provider refused this key, or offers it none of the catalogue's models.
+
+    OMN-20157. Raised by :func:`register_inference_credential` BEFORE anything is
+    stored or published, when the provider's own list-models endpoint, asked
+    with the key, refuses it (``rejected``), refuses on the account's billing
+    (``billing``) or lists no model the catalogue prefers for that provider
+    (``no_match``). Carries the typed outcome and the customer-facing message,
+    which quotes the provider with credential shapes scrubbed; never the key. A
+    ``ValueError`` so the intake route treats it as the customer's input.
+    """
+
+    def __init__(self, provider: str, outcome: str, message: str) -> None:
+        self.provider = provider
+        self.outcome = outcome
+        super().__init__(message)
+
+
+class ModelInferenceCredentialCreateRequest(BaseModel):
+    """Typed body of ``POST /v1/tenants/me/inference-credentials``."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: str = Field(
+        min_length=1,
+        max_length=100,
+        description="Customer-chosen logical label for this credential.",
+    )
+    provider: str = Field(
+        min_length=1,
+        max_length=100,
+        pattern=r"^[A-Za-z0-9_-]+$",
+        description=(
+            "Inference provider id (e.g. 'openrouter', 'openai'). Restricted "
+            "to a safe opaque-token charset: provider is interpolated "
+            "unencoded into api_key_ref (mint_api_key_ref), which in turn "
+            "becomes the Infisical secret path segment and the Kafka message "
+            "key -- whitespace, control bytes, or path separators here would "
+            "corrupt or path-traverse those downstream identifiers."
+        ),
+    )
+    key_value: SecretStr = Field(
+        description=(
+            "Raw customer API key. Held in-process only long enough to reach "
+            "set_secret(); never logged, never re-serialized, never returned."
+        ),
+    )
+
+    plan: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=100,
+        pattern=r"^[a-z][a-z0-9_]*$",
+        description=(
+            "OMN-20157. The provider product this key belongs to, for a provider "
+            "that has more than one (glm: 'general_api'). Omit it and intake "
+            "tries the key against the provider's plans to find out. A plan the "
+            "provider's terms bar from third-party systems (glm: 'coding_plan') "
+            "is refused with a typed code, never routed."
+        ),
+    )
+
+    @field_validator("provider", mode="after")
+    @classmethod
+    def _provider_must_be_on_the_customer_catalogue(cls, provider: str) -> str:
+        """Refuse a provider that is not on the customer-facing catalogue.
+
+        ``mode="after"`` so the field's own ``pattern`` runs FIRST: the charset
+        constraint is what keeps ``provider`` safe to interpolate into
+        ``api_key_ref`` (an Infisical path segment and a Kafka message key), and
+        a path-traversing value must be refused on those grounds before it is
+        ever compared against the catalogue.
+
+        ``customer_provider_catalogue()`` (OMN-17353) is the single authority
+        for this set, and its own docstring already declared that intake
+        surfaces validate against it -- this is that contract, wired. Placing it
+        on the MODEL rather than in the onex-api route handler is deliberate:
+        the model is what onex-api imports, so the route, this package's tests
+        and any future client inherit one refusal instead of re-implementing it.
+
+        Membership is EXACT, not case-folded. Catalogue ids are normalised to
+        lower case on load, while the field's charset pattern admits upper case,
+        so folding here would let ``OpenRouter`` and ``openrouter`` both pass and
+        mint two different ``api_key_ref`` values -- and therefore two different
+        secret paths -- for one provider.
+        """
+        try:
+            offered = customer_provider_catalogue()
+        except ByokCatalogError as exc:
+            raise ProviderCatalogueUnavailableError(
+                "BYOK intake cannot validate the submitted provider: the "
+                "customer provider catalogue could not be loaded. Refusing the "
+                "registration rather than storing a key for a provider that "
+                f"was never checked. Underlying error type: {type(exc).__name__}."
+            ) from exc
+
+        if provider not in offered:
+            raise ValueError(
+                f"{provider!r} is not a provider a key may be registered for. "
+                f"Offered: {', '.join(offered)}. A provider the platform holds "
+                "a house key for but does not offer to customers is declared "
+                "not-offered in the catalogue with the ticket that owns lifting "
+                "it; registering a key here for anything else would store a "
+                "credential that can never be routed."
+            )
+        return provider
+
+    @model_validator(mode="after")
+    def _plan_must_be_one_the_provider_declares(
+        self,
+    ) -> ModelInferenceCredentialCreateRequest:
+        """A named plan must be one the catalogue declares for that provider.
+
+        Runs after the provider field's own catalogue check, so ``provider`` is
+        already known offered here. An unknown plan is refused rather than
+        widened to the default: a key filed under the wrong product routes to an
+        endpoint that refuses it.
+
+        A DECLARED plan passes here even when it is detection-only (z.ai's Coding
+        Plan), so that ``register_inference_credential`` refuses it with the
+        plan's typed code (``BYOK_CODING_PLAN_NOT_PERMITTED``) and not as a
+        generic validation failure. The plans this message offers back are the
+        routable ones.
+        """
+        if self.plan is None:
+            return self
+        if self.plan not in byok_provider_plans(self.provider):
+            raise ValueError(
+                f"{self.plan!r} is not a plan of provider {self.provider!r}. "
+                f"Plans: {', '.join(byok_routable_plans(self.provider))}."
+            )
+        return self
+
+
+class ModelInferenceCredentialResponse(BaseModel):
+    """Response body of the create route -- ref + metadata, NEVER the value."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    api_key_ref: str
+    name: str
+    provider: str
+    #: OMN-20157. The plan the credential was registered under: the one the
+    #: customer named or detection found. ``None`` for a provider with a single
+    #: plan, where there was nothing to choose.
+    plan: str | None = None
+    #: OMN-20157. The model the key resolved from the provider's own model list,
+    #: which the route runs. ``None`` when the list could not be read at
+    #: registration; the effect then resolves it at the first delegation.
+    model: str | None = None
+    created_at: datetime
+
+
+class ModelInferenceCredentialRevokeResponse(BaseModel):
+    """Response body of the revoke route."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    api_key_ref: str
+    status: Literal["revocation-published"] = "revocation-published"
+
+
+class ModelCredentialRegisteredEvent(BaseModel):
+    """Wire shape published on ``CREDENTIAL_REGISTERED_TOPIC_V1``.
+
+    ``extra="forbid"`` is deliberate hardening: this model can never grow an
+    accidental ``value``/``key_value`` field without every construction site
+    (and ``test_credential_registered_event_never_carries_a_secret_field``)
+    breaking loudly.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    tenant_id: str
+    provider: str
+    name: str
+    api_key_ref: str
+    metadata: dict[str, str] = Field(default_factory=dict)
+
+
+class ModelCredentialRevokedEvent(BaseModel):
+    """Wire shape published on ``CREDENTIAL_REVOKED_TOPIC_V1``."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    tenant_id: str
+    api_key_ref: str
+
+
+class ProtocolCredentialEventBus(Protocol):
+    """Minimal event-bus seam this publisher needs (satisfied by EventBusKafka).
+
+    Declared locally (identical precedent to ``ProtocolGenerationEventBus``)
+    so the publisher depends on behaviour, not a concrete class, and tests
+    can inject a fake without a broker.
+    """
+
+    async def start(self) -> None: ...
+
+    async def close(self) -> None: ...
+
+    async def publish_envelope(
+        self,
+        envelope: ModelEventEnvelope[
+            ModelCredentialRegisteredEvent | ModelCredentialRevokedEvent
+        ],
+        topic: str,
+        *,
+        key: bytes | None = None,
+    ) -> None: ...
+
+
+def mint_api_key_ref(tenant_id: str, provider: str) -> str:
+    """Mint a tenant-scoped, collision-safe, opaque credential ref.
+
+    Never caller-supplied (OMN-16316 AC1: "ref generation (tenant-scoped,
+    collision-safe)"). The ref carries no secret material -- it is safe to
+    log, publish, and display.
+    """
+    return f"cred_{tenant_id}_{provider}_{uuid.uuid4().hex}"
+
+
+def _build_event_bus() -> ProtocolCredentialEventBus:
+    """Construct the canonical Kafka event bus from resolved bootstrap servers.
+
+    Lazy import mirrors ``generation_publisher._build_event_bus``: importing
+    anything from ``omnibase_infra`` transitively loads ``asyncpg``, which the
+    projection-api process must never load (OMN-15800 AC6).
+    """
+    from omnibase_infra.event_bus.event_bus_kafka import EventBusKafka
+    from omnibase_infra.event_bus.models.config.model_kafka_event_bus_config import (
+        ModelKafkaEventBusConfig,
+    )
+
+    from omnimarket.config.settings import Settings
+
+    resolved = Settings()
+    bootstrap = resolved.get_effective_kafka_bootstrap_servers()
+    if not bootstrap:
+        raise RuntimeError(
+            "KAFKA_BOOTSTRAP_SERVERS (or KAFKA_BROKER) is required to publish a "
+            "credential-registered/-revoked event; no broker configured."
+        )
+    # apply_environment_overrides() is what carries the broker's TRANSPORT auth
+    # (KAFKA_SECURITY_PROTOCOL / KAFKA_SASL_MECHANISM / KAFKA_MSK_REGION) into
+    # the config. Without it this model defaults to PLAINTEXT with no SASL
+    # mechanism, so on an MSK IAM-only listener (9098) the broker closes the
+    # connection and bus.start() raises ONEX_CORE_205_SERVICE_UNAVAILABLE --
+    # surfacing as a 503 on POST /v1/tenants/me/inference-credentials with the
+    # customer's key ALREADY written to the secret store (OMN-17372).
+    config = ModelKafkaEventBusConfig(
+        bootstrap_servers=bootstrap
+    ).apply_environment_overrides()
+    return cast(ProtocolCredentialEventBus, EventBusKafka(config))
+
+
+def _bootstrap_values() -> dict[str, str]:
+    """Resolve the Infisical bootstrap env fail-closed, naming every gap at once.
+
+    Three deliberate departures from what this replaced:
+
+    * ``INFISICAL_ADDR`` is read HERE rather than via
+      ``ModelInfisicalAdapterConfig.host``'s ``default_factory``, whose
+      ``os.environ[...]`` raises a bare ``KeyError`` from inside pydantic
+      validation.
+    * A blank / whitespace-only value counts as missing. An empty
+      ``INFISICAL_CLIENT_SECRET`` is a misconfigured host, not a credential.
+    * ``INFISICAL_ENVIRONMENT_SLUG`` is REQUIRED (OMN-17349 AC5). It previously
+      defaulted to ``"prod"``, so any host that left it unset wrote **customer
+      keys into the prod environment of the ``omninode`` project**. The safe
+      failure of a secret-write path is to refuse, never to guess the most
+      privileged environment.
+
+    Raises:
+        CredentialStoreConfigurationError: naming the missing variables. Names
+            only -- no value is ever interpolated.
+    """
+    import os
+
+    values = {
+        name: os.environ.get(name, "").strip() for name in _INFISICAL_BOOTSTRAP_VARS
+    }
+    missing = sorted(name for name, value in values.items() if not value)
+    if missing:
+        raise CredentialStoreConfigurationError(
+            "BYOK credential intake cannot reach the managed secret store: the "
+            "Infisical machine identity is not fully configured on this host. "
+            f"Missing or blank: {missing}. Required bootstrap variables: "
+            f"{list(_INFISICAL_BOOTSTRAP_VARS)}. "
+            "INFISICAL_ENVIRONMENT_SLUG has no default by design (OMN-17349): "
+            "an unset slug must refuse the write, never pick an environment."
+        )
+    values["INFISICAL_TENANT_CREDENTIAL_SECRET_PATH"] = (
+        os.environ.get("INFISICAL_TENANT_CREDENTIAL_SECRET_PATH", "").strip()
+        or _DEFAULT_TENANT_CREDENTIAL_SECRET_PATH
+    )
+    return values
+
+
+def _build_secret_store(*, allow_delete: bool = False) -> ProtocolSecretStore:
+    """Construct an INITIALIZED Infisical-backed store for the value->ref exchange.
+
+    This is the deployed default per OMN-13236 ("wire Infisical-backed
+    ProtocolSecretStore as the deployed default"), and the only branch the
+    onex-api route ever takes -- it never passes ``secret_store=``.
+
+    ``InfisicalSecretStore`` states its own precondition in its class docstring:
+    "The wrapper does not own the adapter's lifecycle; callers must
+    ``initialize()`` the adapter before passing it in." This function did not,
+    so ``AdapterInfisical`` stayed ``_authenticated = False`` and BOTH write
+    paths (``update_secret`` then the ``create_secret`` fallback) raised
+    "Infisical adapter not initialized" -- a deterministic 503 for every tenant,
+    every provider, every request (OMN-17349). ``handler_secret_seed`` is the
+    sibling construction site that gets this right.
+
+    **Ownership model (AC3): the CALLER owns what this returns.** The adapter
+    holds an authenticated SDK client, so a per-request construction that is
+    never closed leaks one authenticated client per POST.
+    :func:`register_inference_credential` closes exactly the store it built, in
+    a ``finally``, and never closes an injected one.
+
+    Raises:
+        CredentialStoreConfigurationError: bootstrap env missing/malformed.
+        CredentialStoreUnavailableError: configured, but ``initialize()`` failed.
+    """
+    from omnibase_infra.adapters._internal import adapter_infisical
+    from omnibase_infra.adapters.models.model_infisical_config import (
+        ModelInfisicalAdapterConfig,
+    )
+    from omnibase_infra.errors import InfraConnectionError
+    from omnibase_infra.secret_stores.infisical_secret_store import (
+        InfisicalSecretStore,
+    )
+
+    values = _bootstrap_values()
+    host = values["INFISICAL_ADDR"]
+    project_id = values["INFISICAL_PROJECT_ID"]
+    environment_slug = values["INFISICAL_ENVIRONMENT_SLUG"]
+    secret_path = values["INFISICAL_TENANT_CREDENTIAL_SECRET_PATH"]
+
+    try:
+        config = ModelInfisicalAdapterConfig(
+            host=host,
+            client_id=SecretStr(values["INFISICAL_CLIENT_ID"]),
+            client_secret=SecretStr(values["INFISICAL_CLIENT_SECRET"]),
+            project_id=uuid.UUID(project_id),
+            environment_slug=environment_slug,
+            secret_path=secret_path,
+        )
+    except (ValidationError, ValueError) as exc:
+        raise CredentialStoreConfigurationError(
+            "BYOK credential intake could not build the managed secret-store "
+            f"config for host={host!r} INFISICAL_PROJECT_ID={project_id!r} "
+            f"environment_slug={environment_slug!r} secret_path={secret_path!r}. "
+            f"Check {list(_INFISICAL_BOOTSTRAP_VARS)}. Underlying error type: "
+            f"{type(exc).__name__}."
+        ) from exc
+
+    adapter = adapter_infisical.AdapterInfisical(config)
+    try:
+        adapter.initialize()
+    except InfraConnectionError as exc:
+        # Release the half-built client rather than leaving an unauthenticated
+        # SDK object rooted by the traceback.
+        adapter.shutdown()
+        raise CredentialStoreUnavailableError(
+            "BYOK credential intake could not authenticate against the managed "
+            f"secret store host={host!r} project_id={project_id!r} "
+            f"environment_slug={environment_slug!r} secret_path={secret_path!r}. "
+            "The customer key was NOT stored. Verify the machine identity named "
+            f"by {list(_INFISICAL_BOOTSTRAP_VARS)} is live for that project."
+        ) from exc
+
+    return cast(
+        ProtocolSecretStore,
+        InfisicalSecretStore(
+            adapter,
+            project_id=str(config.project_id),
+            environment_slug=config.environment_slug,
+            secret_path=config.secret_path,
+            allow_delete=allow_delete,
+        ),
+    )
+
+
+async def _resolve_registration_plan(
+    request: ModelInferenceCredentialCreateRequest,
+    plan_detector: Callable[..., Awaitable[ModelByokPlanDetection]],
+) -> tuple[str | None, str | None]:
+    """The plan a registration files under, or ``None`` for a single-plan provider.
+
+    Returns ``(plan, model)``; ``model`` is what detection resolved for the
+    detected plan from the key's model list, or ``None`` when it did not run.
+
+    OMN-20157: a plan the catalogue declares detection-only (z.ai's Coding Plan,
+    whose terms bar third-party use) is never filed. It is refused with the
+    plan's typed ``refusal_code`` (:class:`ByokPlanNotPermittedError`) when the
+    customer names it, when detection finds the key answers only there, and when
+    a detector names it, before anything is stored or published.
+
+    Raises:
+        ByokPlanNotPermittedError: the plan is detection-only.
+        CredentialPlanUndeterminedError: no plan could be decided.
+    """
+    if request.plan is not None:
+        require_byok_plan_permitted(request.provider, request.plan)
+        return request.plan, None
+    # Every DECLARED plan counts here: a provider with one routable plan and one
+    # detection-only plan still needs its key tried to tell which it holds.
+    if len(byok_provider_plans(request.provider)) <= 1:
+        return None, None
+    detection = await plan_detector(request.provider, request.key_value)
+    if detection.refused_plan is not None:
+        require_byok_plan_permitted(request.provider, detection.refused_plan)
+    if detection.plan is None:
+        raise CredentialPlanUndeterminedError(
+            request.provider,
+            detection.outcome,
+            byok_routable_plans(request.provider),
+        )
+    require_byok_plan_permitted(request.provider, detection.plan)
+    return detection.plan, detection.model
+
+
+async def _resolve_registration_model(
+    request: ModelInferenceCredentialCreateRequest,
+    plan: str | None,
+    known: str | None,
+    model_discoverer: Callable[..., Awaitable[ModelByokModelDiscovery]],
+) -> str | None:
+    """The model the credential's route runs, read from the provider for this key.
+
+    OMN-20157. The catalogue pins no model: a provider retires ids for new
+    accounts while old ones keep them, so the answer for one key says nothing
+    about another. ``None`` when the provider's list could not be read (the
+    effect resolves it at the first delegation, which is not evidence against
+    the key).
+
+    Raises:
+        CredentialKeyRefusedError: the provider refused the key, refused on its
+            billing, or lists none of the catalogue's preferred models for it.
+    """
+    if known is not None:
+        return known
+    backend = resolve_byok_provider_backend(request.provider, plan=plan)
+    if backend is None:
+        return None
+    discovery = await model_discoverer(backend, request.key_value)
+    refusal = describe_discovery_refusal(discovery)
+    if refusal is not None:
+        raise CredentialKeyRefusedError(request.provider, discovery.outcome, refusal)
+    return discovery.model
+
+
+async def register_inference_credential(
+    request: ModelInferenceCredentialCreateRequest,
+    *,
+    tenant_id: str,
+    secret_store: ProtocolSecretStore | None = None,
+    event_bus: ProtocolCredentialEventBus | None = None,
+    plan_detector: Callable[..., Awaitable[ModelByokPlanDetection]] = detect_byok_plan,
+    model_discoverer: Callable[
+        ..., Awaitable[ModelByokModelDiscovery]
+    ] = discover_byok_model,
+) -> ModelInferenceCredentialResponse:
+    """Perform the value->ref exchange and thin-publish credential-registered.
+
+    OMN-20157: for a provider with more than one plan, the plan is the request's
+    own ``plan`` or, when omitted, the one ``plan_detector`` finds by trying the
+    key against each plan's endpoint. It is decided BEFORE the key is stored or
+    anything is published, and recorded on the event's ``metadata`` so the
+    projection mints the route for that plan's endpoint. When it cannot be
+    decided :class:`CredentialPlanUndeterminedError` is raised and nothing is
+    stored.
+
+    OMN-20157: the model the route runs is then read from the provider's own
+    list-models endpoint with the key (``model_discoverer``) and recorded on the
+    event's ``metadata`` beside the plan. A key the provider refuses there, or
+    whose list names none of the catalogue's preferred models, raises
+    :class:`CredentialKeyRefusedError` and nothing is stored.
+
+    ``key_value`` exists in this process for exactly one line: the
+    ``set_secret`` call below. It is never assigned to any other variable,
+    never logged, and never placed on the published event.
+
+    ``api_key_ref`` is minted from the AUTHENTICATED ``tenant_id``, never from
+    the request body -- ``ModelInferenceCredentialCreateRequest`` is
+    ``extra="forbid"`` and has no ref field, so one tenant structurally cannot
+    name (and therefore cannot overwrite) another tenant's secret.
+
+    Store ownership (OMN-17349 AC3) mirrors the ``owns_bus`` shape directly
+    below: a store this function CONSTRUCTS holds an authenticated Infisical
+    SDK client and is closed in a ``finally``, success or failure, so a
+    per-request construction cannot leak one authenticated client per POST. An
+    INJECTED store is never closed -- its caller owns its lifetime.
+
+    ``set_secret``'s ``bool`` is CHECKED, not discarded: a protocol-conforming
+    store may decline a write by returning ``False``, and publishing
+    credential-registered for a key the store does not hold would hand the
+    customer a ref that can never resolve.
+
+    Raises:
+        CredentialStoreConfigurationError: host bootstrap missing/malformed.
+        CredentialStoreUnavailableError: store configured but unauthenticated.
+        CredentialStoreWriteRejectedError: the store declined the write.
+    """
+    plan, detected_model = await _resolve_registration_plan(request, plan_detector)
+    model = await _resolve_registration_model(
+        request, plan, detected_model, model_discoverer
+    )
+    api_key_ref = mint_api_key_ref(tenant_id, request.provider)
+
+    owns_store = secret_store is None
+    store = secret_store if secret_store is not None else _build_secret_store()
+    try:
+        stored = await store.set_secret(
+            api_key_ref, request.key_value.get_secret_value()
+        )
+    finally:
+        if owns_store:
+            await store.close()
+    if not stored:
+        raise CredentialStoreWriteRejectedError(
+            "BYOK credential intake did not persist the key: the managed secret "
+            f"store declined the write for ref {api_key_ref!r} (tenant "
+            f"{tenant_id!r}, provider {request.provider!r}) by returning False. "
+            "No credential-registered event was published -- a ref the store "
+            "does not hold must never reach the projection or the customer."
+        )
+
+    event = ModelCredentialRegisteredEvent(
+        tenant_id=tenant_id,
+        provider=request.provider,
+        name=request.name,
+        api_key_ref=api_key_ref,
+        metadata={
+            key: value
+            for key, value in (("plan", plan), ("model", model))
+            if value is not None
+        },
+    )
+    envelope: ModelEventEnvelope[
+        ModelCredentialRegisteredEvent | ModelCredentialRevokedEvent
+    ] = ModelEventEnvelope(
+        payload=event,
+        envelope_timestamp=datetime.now(UTC),
+        source_tool=_SOURCE_TOOL,
+        event_type=CREDENTIAL_REGISTERED_TOPIC_V1,
+    )
+
+    owns_bus = event_bus is None
+    bus = event_bus or _build_event_bus()
+    if owns_bus:
+        await bus.start()
+    try:
+        await bus.publish_envelope(
+            envelope,
+            CREDENTIAL_REGISTERED_TOPIC_V1,
+            key=api_key_ref.encode("utf-8"),
+        )
+    finally:
+        if owns_bus:
+            await bus.close()
+
+    return ModelInferenceCredentialResponse(
+        api_key_ref=api_key_ref,
+        name=request.name,
+        provider=request.provider,
+        plan=plan,
+        model=model,
+        created_at=envelope.envelope_timestamp,
+    )
+
+
+async def revoke_inference_credential(
+    api_key_ref: str,
+    *,
+    tenant_id: str,
+    secret_store: ProtocolSecretStore | None = None,
+    event_bus: ProtocolCredentialEventBus | None = None,
+) -> ModelInferenceCredentialRevokeResponse:
+    """Delete the Infisical store entry, then publish credential-revoked.
+
+    Sequencing (OMN-18086 ruling): delete first, publish second. A failed
+    delete raises ``CredentialStoreDeleteRejectedError`` and publishes
+    nothing -- the key may remain in Infisical custody and no revoked event
+    is emitted until the delete succeeds.
+
+    Store ownership mirrors ``register_inference_credential``: a store this
+    function constructs is closed in a ``finally``; an injected store is
+    never closed -- its caller owns the lifetime.
+
+    Raises:
+        CredentialStoreConfigurationError: bootstrap env missing/malformed.
+        CredentialStoreUnavailableError: store configured but unauthenticated.
+        CredentialStoreDeleteRejectedError: delete_secret raised -- key not removed.
+    """
+    owns_store = secret_store is None
+    store = (
+        secret_store
+        if secret_store is not None
+        else _build_secret_store(allow_delete=True)
+    )
+    try:
+        deleted = await store.delete_secret(api_key_ref)
+        if not deleted:
+            raise CredentialStoreDeleteRejectedError(
+                "BYOK credential revoke did not remove the key: the managed "
+                f"secret store declined the delete for ref {api_key_ref!r} "
+                f"(tenant {tenant_id!r}) by returning False. No "
+                "credential-revoked event was published."
+            )
+    except CredentialStoreDeleteRejectedError:
+        raise
+    except Exception as exc:
+        raise CredentialStoreDeleteRejectedError(
+            "BYOK credential revoke could not delete the managed secret store "
+            f"entry for ref {api_key_ref!r} (tenant {tenant_id!r}). "
+            "No credential-revoked event was published. Underlying error type: "
+            f"{type(exc).__name__}."
+        ) from exc
+    finally:
+        if owns_store:
+            await store.close()
+
+    event = ModelCredentialRevokedEvent(tenant_id=tenant_id, api_key_ref=api_key_ref)
+    envelope: ModelEventEnvelope[
+        ModelCredentialRegisteredEvent | ModelCredentialRevokedEvent
+    ] = ModelEventEnvelope(
+        payload=event,
+        envelope_timestamp=datetime.now(UTC),
+        source_tool=_SOURCE_TOOL,
+        event_type=CREDENTIAL_REVOKED_TOPIC_V1,
+    )
+
+    owns_bus = event_bus is None
+    bus = event_bus or _build_event_bus()
+    if owns_bus:
+        await bus.start()
+    try:
+        await bus.publish_envelope(
+            envelope,
+            CREDENTIAL_REVOKED_TOPIC_V1,
+            key=api_key_ref.encode("utf-8"),
+        )
+    finally:
+        if owns_bus:
+            await bus.close()
+
+    return ModelInferenceCredentialRevokeResponse(api_key_ref=api_key_ref)

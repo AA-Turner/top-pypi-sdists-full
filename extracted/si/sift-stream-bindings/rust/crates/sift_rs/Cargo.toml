@@ -1,0 +1,31 @@
+[package]
+name = "sift_rs"
+version = { workspace = true }
+description = "General Rust client library for the Sift API"
+edition = { workspace = true }
+authors = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+keywords = { workspace = true }
+license = { workspace = true }
+categories = { workspace = true }
+readme = "README.md"
+
+[dependencies]
+async-trait =  { workspace = true }
+pbjson = { workspace = true }
+pbjson-types = { workspace = true }
+prost = { workspace = true }
+prost-types = { workspace = true }
+serde = { workspace = true }
+sift_connect = { workspace = true }
+sift_error = { workspace = true }
+tokio = { workspace = true, features = ["time"] }
+tonic = { workspace = true }
+tonic-prost = { workspace = true }
+
+[dev-dependencies]
+chrono = { workspace = true }
+rand = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+tokio-stream = { workspace = true }

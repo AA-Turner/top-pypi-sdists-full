@@ -1,0 +1,281 @@
+[build-system]
+# Pinned to a major range so a future Hatchling release cannot silently change
+# how the package is built on a publish day.
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "probatio"
+description = "A modern Python data validation library"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Franck Nijhof", email = "opensource@frenck.dev" }]
+maintainers = [{ name = "Franck Nijhof", email = "opensource@frenck.dev" }]
+keywords = [
+  "validation",
+  "schema",
+  "data",
+  "voluptuous",
+  "home-assistant",
+  "yaml",
+  "json",
+  "config",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Natural Language :: English",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Typing :: Typed",
+]
+# Stays 0.0.0 in development; the release workflow stamps the real version from
+# the git tag (`uv version`) at publish time.
+version = "0.12.5"
+
+[project.urls]
+Homepage = "https://github.com/frenck/probatio"
+Documentation = "https://probatio.frenck.dev"
+Repository = "https://github.com/frenck/probatio"
+Issues = "https://github.com/frenck/probatio/issues"
+Changelog = "https://github.com/frenck/probatio/releases"
+
+# The repository is a uv workspace: the core `probatio` package at the root, plus
+# separately published companion packages under `packages/`. They share one repo,
+# CI, and issue tracker, but each ships as its own distribution, so the core stays
+# dependency-free.
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/probatio"]
+
+# The sdist is explicit so its contents are auditable, rather than relying on
+# Hatchling's default file selection. It carries the package, the tests, and the
+# project metadata; build output and caches stay out.
+[tool.hatch.build.targets.sdist]
+include = [
+  "src/probatio",
+  "tests",
+  "pyproject.toml",
+  "README.md",
+  "LICENSE",
+  "THIRD_PARTY_LICENSES.md",
+]
+
+[dependency-groups]
+# Dependencies are pinned to exact versions for reproducible local and CI runs;
+# bump deliberately (Renovate keeps them current). CI installs these groups
+# directly with `uv sync --group <name>` rather than re-listing versions in the
+# workflows, so this file is the single source of truth.
+test = [
+  "pytest==9.1.1",
+  "pytest-cov==7.1.0",
+  "syrupy==6.1.1",
+  "covdefaults==2.3.0",
+  # voluptuous is a dev-only oracle for the conformance tests: probatio and
+  # voluptuous run the same schemas and inputs and their results are compared.
+  # It is never a runtime dependency and no code is copied from it.
+  "voluptuous==0.16.0",
+  # voluptuous-serialize is a dev-only oracle: probatio.to_field_list is compared
+  # against it on equivalent schemas. Never a runtime dependency.
+  "voluptuous-serialize==2.7.0",
+  # voluptuous-openapi is a dev-only oracle: probatio.to_openapi is compared
+  # against its convert() on equivalent schemas. Never a runtime dependency.
+  "voluptuous-openapi==0.4.1",
+  # jsonschema is a dev-only oracle: to_json_schema output is validated against
+  # it (both that the schema is valid and that it never rejects input probatio
+  # accepts). Never a runtime dependency.
+  "jsonschema==4.26.0",
+  # openapi-schema-validator is a dev-only oracle: to_openapi output is validated
+  # against it (that it is a valid OpenAPI 3.0/3.1 schema and never rejects input
+  # probatio accepts). Never a runtime dependency.
+  "openapi-schema-validator==0.9.0",
+  # mashumaro is a benchmark-only comparison for the dataclass path (its codegen
+  # from_dict against DataclassSchema). It is not an oracle: it deserializes rather
+  # than validates, so it is never compared for correctness. Never a runtime dep.
+  "mashumaro==3.23",
+  # Hypothesis drives the property-based and differential fuzz tests (the engine
+  # and the codecs are hammered with generated schemas and data). Dev-only.
+  "hypothesis==6.168.3",
+]
+typing = ["mypy==2.3.1", "ty==0.0.84"]
+lint = ["ruff==0.16.9", "codespell==2.4.3", "zizmor==1.30.1"]
+# Continuous performance testing (bench/) measured by CodSpeed. Includes the test
+# group for voluptuous, which the benchmarks compare against.
+codspeed = [{ include-group = "test" }, "pytest-codspeed==5.0.3"]
+# Cross-library comparison for the "rest of the world" benchmark (bench_world.py).
+# Benchmark-only, installed on demand (just bench-world syncs this group); none is a
+# runtime or test dependency, and none is a correctness oracle. pydantic v1 is read
+# through pydantic v2's pydantic.v1 compatibility namespace, so both versions come
+# from one install.
+bench-world = [
+  { include-group = "test" },
+  "cattrs==26.2.1",
+  "dacite==1.9.2",
+  "dataclasses-json==0.6.7",
+  "marshmallow==3.26.2",
+  "pydantic==2.13.5",
+  # Renders the benchmark charts (just charts) into the docs assets, themed to the
+  # docs. Benchmark-only; never a runtime or test dependency.
+  "matplotlib==3.11.2",
+]
+# Everything needed for local development, in one install. Includes the `just`
+# task runner (the `rust-just` wheel bundles the binary), so `uv run just` works
+# with no separate install.
+dev = [
+  { include-group = "test" },
+  { include-group = "typing" },
+  { include-group = "lint" },
+  "rust-just==1.58.0",
+]
+
+[tool.ruff]
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "ANN401",  # Opinionated warning on disallowing dynamically typed expressions
+  "A005",    # The `codecs` subpackage is always used qualified (probatio.codecs)
+  "CPY001",  # This project does not use file-level copyright headers
+  "E501",    # Line length is handled by the formatter
+  "TRY301",  # Abstract raise to inner function, not useful for this codebase
+  "D203",    # Conflicts with other rules
+  "D213",    # Conflicts with other rules
+  "D417",    # False positives in some occasions
+  "PLR2004", # Just annoying, not really useful
+
+  # Conflicts with the Ruff formatter
+  "COM812",
+  "ISC001",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests deliberately exercise odd inputs, broad excepts, and use assertions.
+# PLR0911: the spec interpreter in strategies.py dispatches with many returns.
+# FBT003: hypothesis's assume(False) takes a positional boolean by design.
+# DTZ001: naive datetimes are intentional fixtures (coercion tests, not tz logic).
+"tests/**" = ["S101", "SLF001", "PLR2004", "ANN", "D", "PLR0911", "FBT003", "DTZ001"]
+# The pytest-probatio matcher tests compare data on the left of a schema
+# (`data == S(...)`), which is the point of the API, not a Yoda condition (SIM300);
+# the tests directory is a plain pytest layout with no __init__.py (INP001).
+"packages/*/tests/**" = [
+  "S101",
+  "SLF001",
+  "ANN",
+  "D",
+  "PLR2004",
+  "SIM300",
+  "INP001",
+]
+# Benchmarks print results, time tiny throwaway callables, and are a script
+# directory rather than an importable package.
+"bench/**" = ["T201", "S101", "ANN", "D", "INP001", "SLF001"]
+# Fuzz harnesses are atheris entry points (fixed signatures, not annotated) in a
+# script directory, not importable library code. They dispatch with many returns
+# and swallow the "expected" exceptions of the surface under test.
+"fuzz/**" = ["ANN", "INP001", "S101", "PLR0911", "PLR0912", "SIM105"]
+# The docs example harness is a dev-only script: it executes first-party doc
+# snippets (eval/exec by design), prints results, uses local imports, and runs a
+# branchy dispatcher over the AST. It is not importable library code.
+"docs/verify_examples.py" = [
+  "S102",
+  "S307",
+  "T201",
+  "ANN",
+  "D",
+  "PLR0912",
+  "PLR0913",
+  "PLR0917",
+  "PLC0415",
+  "FURB188",
+  "EXE001",
+  "PTH109",
+  "FBT003",
+  "INP001",
+  "C901",
+]
+# The Home Assistant drop-in harness is a dev-only pytest plugin that mirrors
+# voluptuous internals (a private _compile_scalar shim) and aliases modules in
+# sys.modules; it is not importable library code and not held to the same rules.
+"compat/**" = ["ANN", "D", "INP001", "SLF001", "EM101", "TRY003", "ARG001"]
+# The error names (Invalid, MultipleInvalid, RangeInvalid, ...) are voluptuous's
+# fixed public contract. They cannot carry an "Error" suffix without breaking the
+# drop-in promise, so the naming rule does not apply here (N818). Invalid is a
+# rich error type: it carries the voluptuous-compatible fields plus the structured
+# layer (code, context, translation_key, placeholders), so its constructor has
+# more arguments than the default threshold (PLR0913).
+"src/probatio/error.py" = ["N818", "PLR0913"]
+# Validator names and signatures mirror voluptuous's public API exactly, which the
+# drop-in promise depends on: parameter names that shadow builtins (min, max, type,
+# A002), the positional boolean flags min_included / max_included (FBT001/FBT002),
+# and the capitalized validator functions (Lower, Email, Url, ..., N802).
+"src/probatio/validators/*.py" = ["A002", "FBT001", "FBT002", "N802"]
+# to_openapi is a faithful port of voluptuous-openapi's convert(): the drop-in
+# value is in matching its output exactly, so the dispatcher carries that
+# library's branchiness (PLR0911/PLR0912/C901). A002: `type` mirrors the
+# Coerce/validator attribute names from the voluptuous API.
+"src/probatio/codecs/openapi.py" = ["PLR0911", "PLR0912", "C901", "A002"]
+# The decode dispatchers (_from_node, _from_typed) branch once per JSON Schema
+# keyword/type they recognize, so they exceed the return-count threshold (PLR0911).
+"src/probatio/codecs/jsonschema.py" = ["PLR0911"]
+
+[tool.ruff.lint.flake8-pytest-style]
+mark-parentheses = false
+fixture-parentheses = false
+
+[tool.ruff.lint.isort]
+known-first-party = ["probatio"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 25
+
+[tool.coverage.run]
+plugins = ["covdefaults"]
+source = ["probatio"]
+
+[tool.coverage.report]
+show_missing = true
+# The suite holds 100% (line and branch); enforce it so a regression fails CI.
+fail_under = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# The pytest-probatio companion plugin (a workspace package) imports probatio at
+# plugin-load time, before pytest-cov starts, which would read probatio's
+# import-time code as uncovered. Disable it for the core suite; the package's own
+# tests run with `-o addopts=""`, so they still load it. The flag is a no-op when
+# the plugin is not installed.
+addopts = "-q --cov -p no:probatio"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src/probatio"]
+
+[tool.ty.environment]
+python-version = "3.12"
+
+# The typed, enforced surface is the package itself. Scope a bare `ty check` to
+# the same surface (mirroring mypy's `files = ["src/probatio"]`) so an unscoped
+# run does not crawl the test tree and report noise that is never enforced.
+[tool.ty.src]
+include = ["src/probatio"]
+
+[tool.codespell]
+skip = "*.lock,*package-lock.json,./docs/node_modules,./docs/dist,./.git"
+# "notin" is the NotIn validator; "hass" appears only where the style guide
+# quotes the term it bans; "nmae" is a deliberate fat-finger key in a
+# did-you-mean test fixture; "atleast" is the AtLeast example class in the docs.
+ignore-words-list = "probatio,notin,hass,nmae,atleast"

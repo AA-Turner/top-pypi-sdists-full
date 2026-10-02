@@ -46,7 +46,10 @@ def build(
     Returns the URI of the image.
     """
     return _private_sdk.build_image_from_containerfile_with_image_uri(  # type: ignore
-        name, containerfile, ray_version=ray_version, cloud_id=cloud_id,
+        name,
+        containerfile,
+        ray_version=ray_version,
+        cloud_id=cloud_id,
     )
 
 

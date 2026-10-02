@@ -1,0 +1,510 @@
+//! Shared HTTP response construction and stream delivery helpers used by
+//! every native surface: error and JSON bodies, latin-1 header transparency,
+//! keyed-replay response materialization and capture, and the bounded SSE
+//! delivery tail with its terminal settlement rules.
+
+use std::time::Instant;
+
+use axum::body::Body;
+use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
+use axum::response::Response;
+use bytes::Bytes;
+use serde_json::Value;
+use tokio::sync::mpsc;
+
+use crate::encode::{chat_data, compact_json, ChatSseEncoder};
+use crate::encode_responses::ResponsesSseEncoder;
+use crate::errors::{Failure, FailureClass, PublicError};
+use crate::events::{Event, Usage};
+use crate::relay::remaining;
+use crate::replay::{CachedResponse, OwnerLease};
+use crate::settlement::AttemptGuard;
+
+/// Log a content-free local reason whenever a live stream ends short.
+pub(crate) fn log_stream_exit(request_id: &str, reason: &'static str) {
+    let line = serde_json::json!({
+        "event": "stream_delivery_end", "request_id": request_id, "reason": reason,
+    });
+    eprintln!("exp-gateway-native: {line}");
+}
+
+#[path = "stream_delivery.rs"]
+pub(crate) mod stream_delivery;
+
+/// Build a chat encoder's sanitized failure frame and done sentinel when the
+/// stream has not already reached a terminal.
+pub(crate) fn failure_frames(encoder: &mut ChatSseEncoder, failure: &Failure) -> Vec<Bytes> {
+    if encoder.saw_terminal() {
+        return Vec::new();
+    }
+    encoder
+        .feed(&Event::Failed(failure.clone()))
+        .unwrap_or_else(|_| {
+            vec![
+                chat_data(&failure.public_error().json_body()),
+                "data: [DONE]\n\n".to_string(),
+            ]
+        })
+        .into_iter()
+        .map(Bytes::from)
+        .collect()
+}
+
+/// Emit the Responses encoder's sanitized failure lifecycle when the stream
+/// has not already reached a terminal.
+pub(crate) async fn emit_responses_failure(
+    sender: &mpsc::Sender<Result<Bytes, std::io::Error>>,
+    deadline: Instant,
+    encoder: &mut ResponsesSseEncoder,
+    failure: &Failure,
+) {
+    if encoder.saw_terminal() {
+        return;
+    }
+    let frames = encoder
+        .feed(&Event::Failed(failure.clone()))
+        .unwrap_or_default();
+    for frame in frames {
+        if !send_bounded(sender, deadline, Bytes::from(frame)).await {
+            return;
+        }
+    }
+}
+
+/// Return the event the caller should see, tracking visible refusal text.
+///
+/// A typed refusal that follows refusal text the caller already saw closes
+/// the stream publicly; the ledger still records the provider's refusal.
+pub(crate) fn outward_event(event: &Event, visible_refusal: &mut bool) -> Event {
+    if matches!(
+        event,
+        Event::RefusalDelta(_) | Event::ProviderRefusalDelta { .. }
+    ) {
+        *visible_refusal = true;
+    }
+    match event {
+        Event::Failed(failure)
+            if failure.failure_class == FailureClass::Refusal && *visible_refusal =>
+        {
+            Event::Completed
+        }
+        other => other.clone(),
+    }
+}
+
+/// Largest accepted request body on every native-served route. Bounded so
+/// one client cannot hold unbounded gateway memory; far above any real chat
+/// history.
+pub(crate) const MAXIMUM_REQUEST_BODY_BYTES: usize = 64 * 1024 * 1024;
+
+/// Largest SSE capture retained for keyed-stream replay.
+pub(crate) const STREAM_REPLAY_CAPTURE_BYTES: usize = 64 * 1024 * 1024;
+
+/// The native 404 for a route the gateway does not serve, in the OpenAI
+/// error envelope.
+pub(crate) fn unknown_route_error() -> PublicError {
+    PublicError::new(
+        404,
+        "unknown_route",
+        "Unknown route. The gateway serves /v1/models, /v1/chat/completions, \
+         /v1/responses, /v1/messages, /v1/messages/count_tokens, /health/live, \
+         /health/ready, /metrics, /metrics.json, /usage, and /usage.json.",
+        "invalid_request_error",
+    )
+}
+
+/// The answer to an escalation disposition: startup validation guarantees
+/// every granted alias is natively servable, so reaching this is an internal
+/// error rather than a degraded route.
+pub(crate) fn escalation_error() -> PublicError {
+    PublicError::new(
+        500,
+        "internal_error",
+        "The gateway cannot serve this request natively. Ask the gateway \
+         operator to inspect the server logs.",
+        "api_error",
+    )
+}
+
+pub(crate) fn error_response(error: &PublicError) -> Response {
+    let mut builder = Response::builder()
+        .status(
+            StatusCode::from_u16(error.status_code).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
+        )
+        .header(header::CONTENT_TYPE, "application/json");
+    if let Some(wait) = error.retry_after_seconds {
+        builder = builder.header(header::RETRY_AFTER, wait.to_string());
+    }
+    builder
+        .body(Body::from(compact_json(&error.json_body())))
+        .unwrap_or_else(|_| Response::new(Body::empty()))
+}
+
+pub(crate) fn json_response(
+    status: StatusCode,
+    payload: &Value,
+    headers: &[(String, String)],
+) -> Response {
+    let mut builder = Response::builder()
+        .status(status)
+        .header(header::CONTENT_TYPE, "application/json");
+    for (name, value) in headers {
+        builder = builder.header(name, value);
+    }
+    builder
+        .body(Body::from(compact_json(payload)))
+        .unwrap_or_else(|_| Response::new(Body::empty()))
+}
+
+pub(crate) fn bearer_key(headers: &HeaderMap) -> Result<String, PublicError> {
+    let value = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .ok_or_else(PublicError::invalid_key)?;
+    let key = value
+        .strip_prefix("Bearer ")
+        .ok_or_else(PublicError::invalid_key)?;
+    let trimmed = key.trim();
+    if trimmed.is_empty() {
+        return Err(PublicError::invalid_key());
+    }
+    Ok(trimmed.to_string())
+}
+
+/// Resolve the caller IP from the TRUSTED proxy hop for per-key IP enforcement:
+/// `X-Real-IP` when present, else the RIGHTMOST `X-Forwarded-For` entry. The
+/// leftmost XFF token is client-forgeable per request, so it is never trusted;
+/// the rightmost entry is the one our own ingress appended. Content-free (an
+/// address), decoded latin-1 like every other header. `None` when no trusted hop
+/// yields a non-empty address — the hosted authority then treats the IP as
+/// unknown (an allowlist fails closed, a denylist open).
+pub(crate) fn client_ip(headers: &HeaderMap) -> Option<String> {
+    if let Some(real) = latin1_header(headers, "x-real-ip") {
+        let trimmed = real.trim();
+        if !trimmed.is_empty() {
+            return Some(trimmed.to_string());
+        }
+    }
+    let forwarded = latin1_header_list(headers, "x-forwarded-for")?;
+    forwarded
+        .rsplit(',')
+        .map(str::trim)
+        .find(|token| !token.is_empty())
+        .map(str::to_string)
+}
+
+/// Read one request body under the shared explicit cap.
+pub(crate) async fn read_body(body: Body) -> Result<Bytes, PublicError> {
+    axum::body::to_bytes(body, MAXIMUM_REQUEST_BODY_BYTES)
+        .await
+        .map_err(|_| PublicError::request_too_large())
+}
+
+/// Read one header value as latin-1 text, the same byte-transparent decoding
+/// the python engine's ASGI server applies, so any HTTP-legal value produces
+/// the identical caller-operation string on both engines.
+pub(crate) fn latin1_header(headers: &HeaderMap, name: &str) -> Option<String> {
+    headers
+        .get(name)
+        .map(|value| value.as_bytes().iter().map(|&byte| byte as char).collect())
+}
+
+/// Read every value of a repeated list-typed header as latin-1 text, joined
+/// with commas in arrival order, the combining HTTP itself defines for
+/// list-typed fields. A caller or intermediary may split a comma list such as
+/// `anthropic-beta` across header lines; reading only the first line would
+/// silently drop the later tokens.
+pub(crate) fn latin1_header_list(headers: &HeaderMap, name: &str) -> Option<String> {
+    let values: Vec<String> = headers
+        .get_all(name)
+        .iter()
+        .map(|value| value.as_bytes().iter().map(|&byte| byte as char).collect())
+        .collect();
+    if values.is_empty() {
+        None
+    } else {
+        Some(values.join(","))
+    }
+}
+
+/// Re-encode one latin-1 decoded header value to its original bytes.
+pub(crate) fn latin1_bytes(value: &str) -> Vec<u8> {
+    value
+        .chars()
+        .map(|character| {
+            let code = character as u32;
+            if code < 256 {
+                code as u8
+            } else {
+                b'?'
+            }
+        })
+        .collect()
+}
+
+/// Build one exact HTTP response from a stored keyed result.
+pub(crate) fn cached_response(cached: &CachedResponse) -> Response {
+    let mut builder = Response::builder()
+        .status(
+            StatusCode::from_u16(cached.status_code).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
+        )
+        .header(header::CONTENT_TYPE, cached.media_type.as_str());
+    for (name, value) in &cached.headers {
+        if let (Ok(name), Ok(value)) = (
+            header::HeaderName::try_from(name.as_str()),
+            HeaderValue::from_bytes(&latin1_bytes(value)),
+        ) {
+            builder = builder.header(name, value);
+        }
+    }
+    builder
+        .body(Body::from(Bytes::copy_from_slice(&cached.body)))
+        .unwrap_or_else(|_| Response::new(Body::empty()))
+}
+
+/// Append one frame while it remains within the replay capture ceiling.
+pub(crate) fn capture_frame(buffer: &mut Vec<u8>, data: &[u8], replayable: bool) -> bool {
+    capture_frame_bounded(buffer, data, replayable, STREAM_REPLAY_CAPTURE_BYTES)
+}
+
+fn capture_frame_bounded(
+    buffer: &mut Vec<u8>,
+    data: &[u8],
+    replayable: bool,
+    limit: usize,
+) -> bool {
+    if !replayable || buffer.len().saturating_add(data.len()) > limit {
+        *buffer = Vec::new();
+        return false;
+    }
+    buffer.extend_from_slice(data);
+    true
+}
+
+/// Deliver one public frame bounded by the request deadline, so a connected
+/// client that stops reading cannot pin the admission permit and the upstream
+/// connection forever. `false` means the client is gone or out of time.
+pub(crate) async fn send_bounded(
+    sender: &mpsc::Sender<Result<Bytes, std::io::Error>>,
+    deadline: Instant,
+    data: Bytes,
+) -> bool {
+    let bound = remaining(deadline);
+    if bound.is_zero() {
+        return false;
+    }
+    matches!(
+        tokio::time::timeout(bound, sender.send(Ok(data))).await,
+        Ok(Ok(()))
+    )
+}
+
+/// Replace a typed refusal terminal with a public completion when refusal
+/// output already reached (or is reaching) the caller, mirroring the python
+/// executor's committed-refusal rule. Returns the recorded refusal failure.
+pub(crate) fn complete_visible_refusal(events: &mut [Event]) -> Option<Failure> {
+    let visible = events.iter().any(|event| {
+        matches!(
+            event,
+            Event::RefusalDelta(_) | Event::ProviderRefusalDelta { .. }
+        )
+    });
+    if !visible {
+        return None;
+    }
+    if let Some(last) = events.last_mut() {
+        if let Event::Failed(failure) = last {
+            if failure.failure_class == FailureClass::Refusal {
+                let failure = failure.clone();
+                *last = Event::Completed;
+                return Some(failure);
+            }
+        }
+    }
+    None
+}
+
+pub(crate) fn sse_body_response(headers: &[(String, String)], body: Vec<u8>) -> Response {
+    let mut builder = Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "text/event-stream; charset=utf-8");
+    for (name, value) in headers {
+        if let (Ok(header_name), Ok(header_value)) = (
+            header::HeaderName::try_from(name.as_str()),
+            HeaderValue::try_from(value.as_str()),
+        ) {
+            builder = builder.header(header_name, header_value);
+        }
+    }
+    builder
+        .body(Body::from(body))
+        .unwrap_or_else(|_| Response::new(Body::empty()))
+}
+
+/// Settle a stream that reached its end (or lost its client). With a terminal
+/// observed, the provider's outcome wins even on disconnect; without one, a
+/// disconnect settles as cancelled.
+pub(crate) async fn settle_stream_end(
+    guard: &mut AttemptGuard,
+    terminal: Option<&Event>,
+    usage: Option<&Usage>,
+    tool_names: &[String],
+    disconnected: bool,
+) -> bool {
+    match terminal {
+        Some(Event::Failed(failure)) => {
+            let failure = failure.clone().boundary();
+            guard
+                .settle("failed", usage, tool_names, Some(&failure), true)
+                .await
+        }
+        Some(Event::Incomplete) => {
+            guard
+                .settle("incomplete", usage, tool_names, None, true)
+                .await
+        }
+        Some(_) => {
+            guard
+                .settle("completed", usage, tool_names, None, true)
+                .await
+        }
+        None => {
+            if disconnected {
+                guard.settle_cancelled(usage, tool_names).await
+            } else {
+                true
+            }
+        }
+    }
+}
+
+/// Close one stream that reached a terminal outcome: publish the keyed
+/// capture (or abandon it), then flush the withheld terminal frames.
+///
+/// A keyed stream that cannot be retained (capture overflow or a rejected publication) ends
+/// without its terminal frames, so the caller observes a truncated stream
+/// rather than an unreplayable success, and every waiting duplicate fails
+/// closed instead of hanging.
+pub(crate) async fn finish_stream_terminal(
+    sender: &mpsc::Sender<Result<Bytes, std::io::Error>>,
+    deadline: Instant,
+    lease: &mut Option<OwnerLease>,
+    mut replayable: bool,
+    capture: &mut Vec<u8>,
+    cached_headers: &[(String, String)],
+    frames: Vec<Bytes>,
+) {
+    let request_id = cached_headers
+        .iter()
+        .find(|(name, _)| name == "x-request-id")
+        .map(|(_, value)| value.as_str())
+        .unwrap_or_default();
+    if lease.is_some() {
+        for data in &frames {
+            replayable = capture_frame(capture, data, replayable);
+        }
+    }
+    if let Some(mut owner) = lease.take() {
+        if replayable {
+            let cached = CachedResponse {
+                status_code: 200,
+                media_type: "text/event-stream; charset=utf-8".to_string(),
+                headers: cached_headers.to_vec(),
+                body: std::mem::take(capture),
+            };
+            if owner.complete(cached).await.is_err() {
+                log_stream_exit(request_id, "replay_publication_failed");
+                return;
+            }
+        } else {
+            owner.abandon().await;
+            log_stream_exit(request_id, "replay_capture_overflow");
+            return;
+        }
+    }
+    for data in frames {
+        if !send_bounded(sender, deadline, data).await {
+            log_stream_exit(request_id, "terminal_delivery_closed_or_deadline");
+            return;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn repeated_list_header_lines_join_in_arrival_order() {
+        let mut headers = HeaderMap::new();
+        headers.append("anthropic-beta", "context-1m-2025-08-07".parse().unwrap());
+        headers.append(
+            "anthropic-beta",
+            "interleaved-thinking-2025-05-14,fast-mode-2026-02-01"
+                .parse()
+                .unwrap(),
+        );
+        assert_eq!(
+            latin1_header_list(&headers, "anthropic-beta").as_deref(),
+            Some("context-1m-2025-08-07,interleaved-thinking-2025-05-14,fast-mode-2026-02-01")
+        );
+    }
+
+    #[test]
+    fn an_absent_list_header_reads_as_none() {
+        assert_eq!(
+            latin1_header_list(&HeaderMap::new(), "anthropic-beta"),
+            None
+        );
+    }
+
+    #[test]
+    fn a_single_list_header_line_reads_verbatim() {
+        let mut headers = HeaderMap::new();
+        headers.append("anthropic-beta", "context-1m-2025-08-07".parse().unwrap());
+        assert_eq!(
+            latin1_header_list(&headers, "anthropic-beta").as_deref(),
+            Some("context-1m-2025-08-07")
+        );
+    }
+
+    #[test]
+    fn client_ip_prefers_x_real_ip() {
+        let mut headers = HeaderMap::new();
+        headers.append("x-real-ip", "203.0.113.7".parse().unwrap());
+        headers.append("x-forwarded-for", "10.0.0.1, 198.51.100.9".parse().unwrap());
+        assert_eq!(client_ip(&headers).as_deref(), Some("203.0.113.7"));
+    }
+
+    #[test]
+    fn client_ip_takes_the_rightmost_forwarded_entry() {
+        // The leftmost token is client-forgeable; the rightmost is our ingress's.
+        let mut headers = HeaderMap::new();
+        headers.append(
+            "x-forwarded-for",
+            "1.2.3.4, 10.0.0.1, 198.51.100.9".parse().unwrap(),
+        );
+        assert_eq!(client_ip(&headers).as_deref(), Some("198.51.100.9"));
+    }
+
+    #[test]
+    fn client_ip_takes_the_rightmost_across_repeated_lines() {
+        let mut headers = HeaderMap::new();
+        headers.append("x-forwarded-for", "1.2.3.4".parse().unwrap());
+        headers.append("x-forwarded-for", "198.51.100.9".parse().unwrap());
+        assert_eq!(client_ip(&headers).as_deref(), Some("198.51.100.9"));
+    }
+
+    #[test]
+    fn client_ip_is_none_without_a_trusted_hop() {
+        assert_eq!(client_ip(&HeaderMap::new()), None);
+    }
+
+    #[test]
+    fn client_ip_skips_a_blank_real_ip_and_trailing_forwarded_commas() {
+        let mut headers = HeaderMap::new();
+        headers.append("x-real-ip", "   ".parse().unwrap());
+        headers.append("x-forwarded-for", "203.0.113.7, ".parse().unwrap());
+        assert_eq!(client_ip(&headers).as_deref(), Some("203.0.113.7"));
+    }
+}

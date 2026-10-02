@@ -1,0 +1,461 @@
+/*------------------------------------------------------------------------------
+-- The MIT License (MIT)
+--
+-- Copyright © 2024, Laboratory of Plasma Physics- CNRS
+--
+-- Permission is hereby granted, free of charge, to any person obtaining a copy
+-- of this software and associated documentation files (the “Software”), to deal
+-- in the Software without restriction, including without limitation the rights
+-- to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+-- of the Software, and to permit persons to whom the Software is furnished to do
+-- so, subject to the following conditions:
+--
+-- The above copyright notice and this permission notice shall be included in all
+-- copies or substantial portions of the Software.
+--
+-- THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+-- INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+-- PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+-- HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+-- OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+-- SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-------------------------------------------------------------------------------*/
+/*-- Author : Alexis Jeandet
+-- Mail : alexis.jeandet@member.fsf.org
+----------------------------------------------------------------------------*/
+#pragma once
+#include "attribute.hpp"
+#include "cdf-data.hpp"
+#include "cdf-debug.hpp"
+#include "cdf-enums.hpp"
+#include "cdf-io/majority-swap.hpp"
+#include "cdf-map.hpp"
+#include "cdf-repr.hpp"
+#include <cpp_utils/containers/no_init_vector.hpp>
+using cpp_utils::containers::no_init_vector;
+
+#include <atomic>
+#include <cstdint>
+#include <functional>
+#include <iomanip>
+#include <mutex>
+#include <optional>
+#include <source_location>
+#include <vector>
+
+#include <fmt/core.h>
+#include <fmt/ranges.h>
+#include <fmt/std.h>
+
+template <class stream_t>
+inline stream_t& operator<<(
+    stream_t& os, const cdf_map<std::string, cdf::VariableAttribute>& attributes)
+{
+    std::for_each(std::cbegin(attributes), std::cend(attributes),
+        [&os](const auto& item) { item.second.__repr__(os, indent_t {}); });
+    return os;
+}
+
+namespace cdf
+{
+
+[[nodiscard]] inline std::size_t flat_size(const no_init_vector<uint32_t>& shape) noexcept
+{
+    if (std::size(shape) > 0)
+    {
+        return std::accumulate(
+            std::cbegin(shape), std::cend(shape), 1UL, std::multiplies<std::size_t>());
+    }
+    return 0UL;
+}
+
+template <typename T>
+[[nodiscard]] std::size_t flat_size(T&& cbegin, T&& cend) noexcept
+{
+    if (cbegin != cend)
+    {
+        return std::accumulate(cbegin, cend, 1UL, std::multiplies<std::size_t>());
+    }
+    return 0UL;
+}
+
+// Loading values is a const read that replaces the variable's data: readers of a variable
+// that isn't loaded yet take the mutex; once loaded they only read the flag. Data never goes
+// back to lazy, so a copied flag stays true only for loaded data.
+struct lazy_load_guard
+{
+    std::mutex mutex;
+    std::atomic<bool> loaded = false;
+    lazy_load_guard() = default;
+    lazy_load_guard(const lazy_load_guard& other) : loaded { other.loaded.load() } { }
+    lazy_load_guard& operator=(const lazy_load_guard& other)
+    {
+        loaded = other.loaded.load();
+        return *this;
+    }
+};
+
+/*
+ * Before version 1.0 it would make sense to consider exposing a view to data instead of
+ * a vector. That would allow zero copy from and to any user defined data structure
+ * (when layout is compatible).
+ * For example, we could build a view on top of an existing numpy array without copy.
+ */
+struct Variable
+{
+    using var_data_t = data_t;
+    using shape_t = no_init_vector<uint32_t>;
+    cdf_map<std::string, VariableAttribute> attributes;
+    Variable() = default;
+    Variable(Variable&&) = default;
+    Variable(const Variable&) = default;
+    Variable& operator=(const Variable&) = default;
+    Variable& operator=(Variable&&) = default;
+    Variable(const std::string& name, std::size_t number, var_data_t&& data, shape_t&& shape,
+        cdf_majority majority = cdf_majority::row, bool is_nrv = false,
+        cdf_compression_type compression_type = cdf_compression_type::no_compression,
+        bool is_zvariable = true)
+            : p_name { name }
+            , p_number { number }
+            , p_data { std::move(data) }
+            , p_shape { std::move(shape) }
+            , p_majority { majority }
+            , p_is_nrv { is_nrv }
+            , p_compression { compression_type }
+            , p_is_zvariable { is_zvariable }
+    {
+        if (name.empty())
+        {
+            throw std::invalid_argument { "Variable name cannot be empty" };
+        }
+        if (this->majority() == cdf_majority::column)
+        {
+            majority::swap(_data(), p_shape);
+        }
+        check_shape();
+    }
+
+    Variable(const std::string& name, std::size_t number, lazy_data&& data, shape_t&& shape,
+        cdf_majority majority = cdf_majority::row, bool is_nrv = false,
+        cdf_compression_type compression_type = cdf_compression_type::no_compression,
+        bool is_zvariable = true)
+            : p_name { name }
+            , p_number { number }
+            , p_data { std::move(data) }
+            , p_shape { std::move(shape) }
+            , p_majority { majority }
+            , p_is_nrv { is_nrv }
+            , p_compression { compression_type }
+            , p_is_zvariable { is_zvariable }
+    {
+        if (name.empty())
+        {
+            throw std::invalid_argument { "Variable name cannot be empty" };
+        }
+    }
+
+    inline bool operator==(const Variable& other) const
+    {
+        return other.p_name == p_name && other.p_is_nrv == p_is_nrv
+            && other.p_compression == p_compression && other.p_shape == p_shape
+            && other.attributes == attributes && other._data() == _data();
+    }
+
+    template <CDF_Types type>
+    [[nodiscard]] decltype(auto) get()
+    {
+        return _data().get<type>();
+    }
+
+    template <CDF_Types type>
+    [[nodiscard]] decltype(auto) get() const
+    {
+        return _data().get<type>();
+    }
+
+    template <typename type>
+    [[nodiscard]] decltype(auto) get()
+    {
+        return _data().get<type>();
+    }
+
+    template <typename type>
+    [[nodiscard]] decltype(auto) get() const
+    {
+        return _data().get<type>();
+    }
+
+    [[nodiscard]] const std::string& name() const noexcept { return p_name; }
+
+    [[nodiscard]] const shape_t& shape() const noexcept { return p_shape; }
+    [[nodiscard]] std::size_t len() const noexcept
+    {
+        if (std::size(p_shape) >= 1)
+            return p_shape[0];
+        return 0;
+    }
+
+    void set_data(const Variable& source)
+    {
+        p_data = source._data();
+        p_shape = source.p_shape;
+        p_is_nrv = source.p_is_nrv;
+        p_majority = source.p_majority;
+        p_compression = source.p_compression;
+        check_shape();
+    }
+
+
+    void set_data(const data_t& data, const shape_t& shape)
+    {
+        p_data = data;
+        p_shape = shape;
+        check_shape();
+    }
+
+
+    void set_data(data_t&& data, shape_t&& shape)
+    {
+        p_data = std::move(data);
+        p_shape = std::move(shape);
+        check_shape();
+    }
+
+    void set_data(std::pair<data_t, shape_t>&& data)
+    {
+        p_data = std::move(data.first);
+        p_shape = std::move(data.second);
+        check_shape();
+    }
+
+    // Saving writes borrowed values as they are; any other access copies them first.
+    void set_data(borrowed_data&& data, shape_t&& shape)
+    {
+        p_data = std::move(data);
+        p_shape = std::move(shape);
+        p_load_guard.loaded = false;
+        check_shape();
+    }
+
+    [[nodiscard]] std::size_t bytes() const
+    {
+        if (std::size(p_shape))
+            return flat_size(p_shape) * cdf_type_size(this->type());
+        else
+            return 0UL;
+    }
+
+    [[nodiscard]] const char* bytes_ptr() const
+    {
+        {
+            auto lock = lock_unless_loaded();
+            if (const auto* borrowed = std::get_if<borrowed_data>(&p_data))
+                return borrowed->bytes_ptr();
+        }
+        return _data().bytes_ptr();
+    }
+    [[nodiscard]] char* bytes_ptr() { return _data().bytes_ptr(); }
+
+    [[nodiscard]] CDF_Types type() const
+    {
+        auto lock = lock_unless_loaded();
+        return _type();
+    }
+
+    [[nodiscard]] bool is_nrv() const noexcept { return p_is_nrv; }
+    [[nodiscard]] bool is_zvariable() const noexcept { return p_is_zvariable; }
+
+    // On-demand probe: walks the variable's VXR chain (index records only, no data)
+    // counting leaf VVR/CVVR blocks; the value is true when records are stored in a
+    // single contiguous block. Computed lazily on first call, then cached, and the
+    // retained file buffer handle is released. Variables not loaded from a file (no
+    // probe set) are reported contiguous.
+    [[nodiscard]] bool is_contiguous() const
+    {
+        std::lock_guard lock { p_load_guard.mutex };
+        return _is_contiguous();
+    }
+    void set_block_counter(std::function<std::size_t()> counter)
+    {
+        p_block_counter = std::move(counter);
+        release_file_if_loaded();
+    }
+
+    [[nodiscard]] std::size_t number() const noexcept { return p_number; }
+    [[nodiscard]] cdf_majority majority() const noexcept { return p_majority; }
+    [[nodiscard]] cdf_compression_type compression_type() const noexcept { return p_compression; }
+    void set_compression_type(cdf_compression_type ct) noexcept { p_compression = ct; }
+
+    [[nodiscard]] inline bool values_loaded() const
+    {
+        auto lock = lock_unless_loaded();
+        return holds_values();
+    }
+
+    inline void load_values() const
+    {
+        if (p_load_guard.loaded.load(std::memory_order_acquire))
+            return;
+        std::lock_guard lock { p_load_guard.mutex };
+        if (holds_values())
+        {
+            p_load_guard.loaded.store(owns_values(), std::memory_order_release);
+            return;
+        }
+        p_data = std::get<lazy_data>(p_data).load();
+        if (this->majority() == cdf_majority::column)
+        {
+            majority::swap(std::get<data_t>(p_data), p_shape);
+        }
+        p_load_guard.loaded.store(true, std::memory_order_release);
+        check_shape();
+        release_file_if_loaded();
+    }
+
+    template <typename... Ts>
+    friend auto visit(Variable& var, Ts... lambdas);
+
+    // Once values are in memory, the block count is resolved right away so the variable
+    // stops referencing its file: Windows can't overwrite a file that is still mapped.
+    void release_file_if_loaded() const
+    {
+        if (holds_values())
+            (void)_is_contiguous();
+    }
+
+    template <class stream_t>
+    inline stream_t& __repr__(stream_t& os, indent_t indent = {}, bool detailed = true) const
+    {
+        if (detailed)
+        {
+            os << indent << name() << ":\n" << indent + 2 << "shape: ";
+            stream_collection(os, shape(), ", ");
+            os << "\n"
+               << indent + 2 << "type: " << cdf_type_str(type()) << "\n"
+               << indent + 2 << "record vary: " << (is_nrv() ? "False" : "True") << "\n"
+               << indent + 2 << compression_type() << "\n\n";
+            os << indent + 2 << "Attributes:\n";
+            std::for_each(std::cbegin(attributes), std::cend(attributes),
+                [&os, indent](const auto& item) { item.second.__repr__(os, indent + 4); });
+        }
+        else
+        {
+            os << indent << name() << ": ";
+            stream_collection(os, shape(), ", ");
+            os << ", [" << cdf_type_str(type())
+               << "], record vary:" << (is_nrv() ? "False" : "True")
+               << ", compression: " << cdf_compression_type_str(compression_type()) << std::endl;
+        }
+        return os;
+    }
+
+
+private:
+    [[nodiscard]] bool holds_values() const noexcept
+    {
+        return not std::holds_alternative<lazy_data>(p_data);
+    }
+
+    [[nodiscard]] bool owns_values() const noexcept
+    {
+        return std::holds_alternative<var_data_t>(p_data);
+    }
+
+    [[nodiscard]] CDF_Types _type() const
+    {
+        return std::visit([](const auto& data) { return data.type(); }, p_data);
+    }
+
+    [[nodiscard]] std::size_t _size() const
+    {
+        if (const auto* borrowed = std::get_if<borrowed_data>(&p_data))
+            return borrowed->size();
+        return _data().size();
+    }
+
+    // The borrowed buffer's owner is released after unlocking: releasing a Python object
+    // takes the GIL, which a thread waiting on this mutex may hold.
+    void own_values() const
+    {
+        load_values();
+        if (p_load_guard.loaded.load(std::memory_order_acquire))
+            return;
+        std::optional<borrowed_data> released;
+        std::lock_guard lock { p_load_guard.mutex };
+        if (auto* borrowed = std::get_if<borrowed_data>(&p_data))
+        {
+            released = std::move(*borrowed);
+            p_data = released->copy();
+        }
+        p_load_guard.loaded.store(true, std::memory_order_release);
+    }
+
+    [[nodiscard]] std::unique_lock<std::mutex> lock_unless_loaded() const
+    {
+        if (p_load_guard.loaded.load(std::memory_order_acquire))
+            return {};
+        return std::unique_lock { p_load_guard.mutex };
+    }
+
+    [[nodiscard]] bool _is_contiguous() const
+    {
+        if (not p_contiguous.has_value())
+            p_contiguous = not p_block_counter or p_block_counter() <= 1;
+        p_block_counter = nullptr;
+        return *p_contiguous;
+    }
+
+    [[nodiscard]] var_data_t& _data()
+    {
+        own_values();
+        return std::get<var_data_t>(p_data);
+    }
+
+    [[nodiscard]] const var_data_t& _data() const
+    {
+        own_values();
+        return std::get<var_data_t>(p_data);
+    }
+
+    void check_shape() const
+    {
+
+        if (flat_size(p_shape) != _size()
+            and not(is_nrv() and _size() == 0UL
+                and (_type() == CDF_Types::CDF_CHAR or _type() == CDF_Types::CDF_UCHAR)))
+            throw std::invalid_argument { exception_message(fmt::format(R"(
+Variable: given shape and data size doesn't match:
+Variable name: "{}"
+    Shape: {} , size {}
+Data:
+    size: {}
+)",
+                p_name, p_shape, flat_size(p_shape), _size())) };
+    }
+
+    std::string p_name;
+    std::size_t p_number;
+    mutable std::variant<lazy_data, var_data_t, borrowed_data> p_data;
+    shape_t p_shape;
+    cdf_majority p_majority;
+    bool p_is_nrv;
+    cdf_compression_type p_compression;
+    bool p_is_zvariable = true;
+    mutable std::function<std::size_t()> p_block_counter;
+    mutable std::optional<bool> p_contiguous;
+    mutable lazy_load_guard p_load_guard;
+};
+
+template <typename... Ts>
+auto visit(Variable& var, Ts... lambdas)
+{
+    return visit(var.p_data, lambdas...);
+}
+
+} // namespace cdf
+
+template <class stream_t>
+inline stream_t& operator<<(stream_t& os, const cdf::Variable& variable)
+{
+    return variable.template __repr__<stream_t>(os, indent_t {});
+}

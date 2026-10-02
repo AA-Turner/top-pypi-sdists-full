@@ -1,0 +1,764 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field as dataclass_field
+from enum import StrEnum
+from importlib.metadata import PackageNotFoundError, version
+import json
+from pathlib import Path
+import re
+import tomllib
+from typing import TYPE_CHECKING, Final, Literal
+
+from packaging.version import InvalidVersion, Version
+
+from sarj_standards._meta import CONFIGS_DIR, __version__
+from sarj_standards.libs.json_boundary import parse_json
+from sarj_standards.libs.typed_containers import is_object_list, is_object_mapping
+
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+
+MANIFEST_NAME: Final = ".sarj-standards.toml"
+MANIFEST_SCHEMA: Final = 4
+LEGACY_MANIFEST_SCHEMA: Final = 3
+Profile = Literal["standard", "application"]
+PROFILES: Final[tuple[Profile, ...]] = ("standard", "application")
+HookManager = Literal["pre-commit", "lefthook", "none"]
+HOOK_MANAGERS: Final[tuple[HookManager, ...]] = ("pre-commit", "lefthook", "none")
+
+PEERS_JSON: Final = CONFIGS_DIR / "eslint.peers.json"
+_ESLINT_RULE_KEY: Final = re.compile(
+    r'^\s+"(?P<rule>[^"]+)":\s*(?:"(?:off|warn|error)"|\[)',
+    re.MULTILINE,
+)
+_SARJ_RULE_ENGINES: Final = frozenset({"python", "sql", "iac", "text"})
+_RUNNER_LABEL: Final = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,99}")
+_TOML_COLUMN_WIDTH: Final = 80  # Taplo's default; the shipped strict config does not override column_width.
+
+
+class _UpstreamRuleEngine(StrEnum):
+    CHECKOV = "checkov"
+    ESLINT = "eslint"
+    SHELLCHECK = "shellcheck"
+    ZIZMOR = "zizmor"
+
+
+#: Sibling distributions pinned exactly by `code-standards`.
+LINT_CONFIGS: Final = "code-standards"
+_PYTHON_LINT: Final = "sarj-python-lint"
+SIBLING_PACKAGES: Final = (_PYTHON_LINT, "sarj-sql-lint", "sarj-iac-lint")
+REPO_STANDARDS_VERSION: Final = "6.2.0"
+REPO_STANDARDS_REVISION: Final = "174067233a36b44382b25b8bfab65ab21c46bc2d"
+
+
+def adopted_version() -> str:
+    if __version__ != "0.0.0.dev0":
+        return __version__
+    source_project = CONFIGS_DIR.parents[2] / "pyproject.toml"
+    if not source_project.is_file():
+        return __version__
+    try:
+        parsed: object = tomllib.loads(source_project.read_text(encoding="utf-8"))
+    except OSError, tomllib.TOMLDecodeError:
+        return __version__
+    declared = text_field(table_field(as_table(parsed), "project"), "version")
+    return __version__ if declared is None else declared
+
+
+def eslint_age_gate_preapprovals() -> dict[str, str]:
+    return _eslint_exact_versions("ageGatePreapprovals")
+
+
+def eslint_yarn_identity_pins() -> dict[str, str]:
+    return _eslint_exact_versions("yarnIdentityPins")
+
+
+def _eslint_exact_versions(key: str) -> dict[str, str]:
+    raw: object = parse_json(PEERS_JSON.read_text(encoding="utf-8"))
+    table = as_table(raw)
+    versions = as_table(table.get(key))
+    if not versions or any(not isinstance(value, str) or not value for value in versions.values()):
+        msg = f"eslint.peers.json {key} must map package names to exact versions"
+        raise ValueError(msg)
+    return {name: value for name, value in versions.items() if isinstance(value, str)}
+
+
+#: Config bundle selected for each detected ecosystem.
+PYTHON_CONFIGS: Final = ("ruff", "pyright")
+PYTHON_ANALYZERS: Final = ("deptry",)
+TYPESCRIPT_CONFIGS: Final = ("eslint",)
+SWIFT_CONFIGS: Final = ("swiftformat", "swiftlint")
+KOTLIN_CONFIGS: Final = ("ktlint", "detekt")
+MOBILE_CONFIGS: Final = ("mobile-security",)
+SHARED_CONFIGS: Final = ("markdownlint", "shellcheck", "taplo", "yamllint")
+SECURITY_CONFIGS: Final = ("zizmor", "checkov")
+_SCHEMA_THREE_CONFIGS: Final = (*PYTHON_CONFIGS, *TYPESCRIPT_CONFIGS, *SHARED_CONFIGS)
+ALL_CONFIGS: Final = (
+    *PYTHON_CONFIGS,
+    *TYPESCRIPT_CONFIGS,
+    *SWIFT_CONFIGS,
+    *KOTLIN_CONFIGS,
+    *MOBILE_CONFIGS,
+    *SHARED_CONFIGS,
+    *SECURITY_CONFIGS,
+)
+ALL_CAPABILITIES: Final = (*ALL_CONFIGS, *PYTHON_ANALYZERS)
+DEFAULT_DURABLE_ARTIFACTS: Final = (
+    "**/README.md",
+    "docs/**",
+    "**/docs/**",
+    "architecture/**",
+    "**/adr/**",
+    ".github/**",
+    "**/AGENTS.md",
+    "**/CLAUDE.md",
+)
+
+
+@dataclass(frozen=True)
+class ExclusionOverride:
+    paths: tuple[str, ...]
+    rules: tuple[str, ...]
+    reason: str
+
+
+@dataclass(frozen=True)
+class Manifest:
+    version: str
+    configs: tuple[str, ...]
+    python_dest: str
+    typescript_dest: str
+    swift_dest: str = "."
+    kotlin_dest: str = "."
+    profile: Profile = "standard"
+    verify_paths: tuple[str, ...] = (".",)
+    hook_manager: HookManager = "pre-commit"
+    disabled_capabilities: tuple[str, ...] = dataclass_field(default=(), compare=False)
+    excluded_paths: tuple[str, ...] = ()
+    excluded_rules: tuple[str, ...] = ()
+    exclusion_overrides: tuple[ExclusionOverride, ...] = ()
+    durable_artifacts: tuple[str, ...] = DEFAULT_DURABLE_ARTIFACTS
+    text_excluded_paths: tuple[str, ...] = ()
+    doctor_excluded_paths: tuple[str, ...] = ()
+    diagnostic_baseline: str | None = None
+    ci_bootstrap: tuple[str, ...] = ()
+    ci_runner: str | None = None
+
+    @property
+    def enabled_capabilities(self) -> tuple[str, ...]:
+        analyzers = PYTHON_ANALYZERS if not set(self.configs).isdisjoint(PYTHON_CONFIGS) else ()
+        enabled = (*self.configs, *analyzers)
+        return tuple(name for name in enabled if name not in self.disabled_capabilities)
+
+    def render(self) -> str:
+        enabled = set(self.enabled_capabilities)
+        disabled = tuple(name for name in ALL_CAPABILITIES if name not in enabled)
+        sections = [
+            (
+                "# Managed by `code-standards setup`; commit this file.\n"
+                f'bundle = "{self.version}"\n'
+                'rule_profile = "all"\n'
+                f"schema = {MANIFEST_SCHEMA}\n"
+                "\n"
+                "[capabilities]\n"
+                f"{_array_field('disable', disabled)}"
+                "\n"
+                "[artifacts]\n"
+                f"{_array_field('durable', self.durable_artifacts)}"
+                "\n"
+                "[dest]\n"
+                f"kotlin = {_toml_string(self.kotlin_dest)}\n"
+                f"python = {_toml_string(self.python_dest)}\n"
+                f"swift = {_toml_string(self.swift_dest)}\n"
+                f"typescript = {_toml_string(self.typescript_dest)}\n"
+                "\n"
+                "[hooks]\n"
+                f'manager = "{self.hook_manager}"\n'
+            )
+        ]
+        if self.verify_paths != (".",):
+            sections.append(f"\n[verify]\n{_array_field('paths', self.verify_paths)}")
+        sections.extend(_exclusion_sections(self))
+        if self.text_excluded_paths:
+            sections.append(f"\n[text]\n{_array_field('exclude', self.text_excluded_paths)}")
+        if self.doctor_excluded_paths:
+            sections.append(f"\n[doctor]\n{_array_field('exclude', self.doctor_excluded_paths)}")
+        if self.diagnostic_baseline is not None:
+            sections.append(f"\n[baseline]\ndiagnostics = {_toml_string(self.diagnostic_baseline)}\n")
+        if self.ci_bootstrap or self.ci_runner is not None:
+            ci_fields = _array_field("bootstrap", self.ci_bootstrap) if self.ci_bootstrap else ""
+            if self.ci_runner is not None:
+                ci_fields += f"runner = {_toml_string(self.ci_runner)}\n"
+            sections.append(f"\n[ci]\n{ci_fields}")
+        return "".join(sections)
+
+
+def as_table(value: object) -> dict[str, object]:
+    if not is_object_mapping(value):
+        return {}
+    return {key: item for key, item in value.items() if isinstance(key, str)}
+
+
+def text_field(table: Mapping[str, object], key: str) -> str | None:
+    value = table.get(key)
+    return value if isinstance(value, str) else None
+
+
+def list_field(table: Mapping[str, object], key: str) -> list[object]:
+    value = table.get(key)
+    return value if is_object_list(value) else []
+
+
+def table_field(table: Mapping[str, object], key: str) -> dict[str, object]:
+    return as_table(table.get(key))
+
+
+def default_configs(
+    *,
+    has_python: bool,
+    has_typescript: bool,
+    has_swift: bool = False,
+    has_kotlin: bool = False,
+    has_mobile: bool = False,
+    has_actions: bool = False,
+    has_infrastructure: bool = False,
+) -> tuple[str, ...]:
+    selected: set[str] = set(SHARED_CONFIGS)
+    if has_actions:
+        selected.add("zizmor")
+    if has_infrastructure:
+        selected.add("checkov")
+    if has_python:
+        selected.update(PYTHON_CONFIGS)
+    if has_typescript:
+        selected.update(TYPESCRIPT_CONFIGS)
+    if has_swift:
+        selected.update(SWIFT_CONFIGS)
+    if has_mobile and has_kotlin:
+        selected.update(KOTLIN_CONFIGS)
+    if has_mobile and (has_swift or has_kotlin):
+        selected.update(MOBILE_CONFIGS)
+    order = (
+        *PYTHON_CONFIGS,
+        *TYPESCRIPT_CONFIGS,
+        *SWIFT_CONFIGS,
+        *KOTLIN_CONFIGS,
+        *MOBILE_CONFIGS,
+        *SHARED_CONFIGS,
+        *SECURITY_CONFIGS,
+    )
+    return tuple(name for name in order if name in selected)
+
+
+def manifest_path(root: Path) -> Path:
+    return root / MANIFEST_NAME
+
+
+def load(root: Path) -> Manifest | None:
+    return _load_schema(root, MANIFEST_SCHEMA)
+
+
+def _load_schema(  # ruff: ignore[too-many-locals] - one validation boundary keeps manifest errors coherent.
+    root: Path,
+    expected_schema: int,
+    *,
+    discard_removed: bool = False,
+) -> Manifest | None:
+    path = manifest_path(root)
+    if not path.is_file():
+        return None
+    try:
+        parsed: object = tomllib.loads(path.read_text(encoding="utf-8"))
+    except tomllib.TOMLDecodeError as exc:
+        msg = f"{path} is not valid TOML: {exc}"
+        raise ValueError(msg) from exc
+
+    data = as_table(parsed)
+    _check_manifest_schema(data, path, expected_schema)
+    declared = text_field(data, "bundle")
+    if data.get("rule_profile", "all") != "all":
+        msg = f"{path} `rule_profile` currently supports only: all"
+        raise ValueError(msg)
+    raw_profile = data.get("profile", "standard")
+    capabilities_table = _manifest_table(data, "capabilities")
+    disabled = _string_list(capabilities_table, "disable", label="manifest [capabilities].disable")
+    supported_capabilities = ALL_CAPABILITIES if expected_schema == MANIFEST_SCHEMA else _SCHEMA_THREE_CONFIGS
+    unknown_capabilities = sorted(set(disabled) - set(supported_capabilities))
+    if unknown_capabilities:
+        msg = f"manifest disables unknown capabilities: {', '.join(unknown_capabilities)}"
+        raise ValueError(msg)
+    if declared is None:
+        msg = f"{path} must set a string `bundle` declaration"
+        raise TypeError(msg)
+    names = tuple(name for name in _bundle_configs(declared, path, expected_schema) if name not in disabled)
+    if not isinstance(raw_profile, str) or raw_profile not in PROFILES:
+        msg = f"{path} `profile` must be one of: {', '.join(PROFILES)}"
+        raise ValueError(msg)
+    profile: Profile = raw_profile
+
+    dest_table = _manifest_table(data, "dest")
+    verify_table = _manifest_table(data, "verify")
+    hooks_table = _manifest_table(data, "hooks")
+    exclude_table = _manifest_table(data, "exclude")
+    artifacts_table = _manifest_table(data, "artifacts")
+    text_table = _manifest_table(data, "text")
+    doctor_table = _manifest_table(data, "doctor")
+    baseline_table = _manifest_table(data, "baseline")
+    ci_table = _manifest_table(data, "ci")
+    raw_hook_manager = hooks_table.get("manager", "pre-commit")
+    if not isinstance(raw_hook_manager, str) or raw_hook_manager not in HOOK_MANAGERS:
+        msg = f"manifest [hooks].manager must be one of: {', '.join(HOOK_MANAGERS)}"
+        raise ValueError(msg)
+    hook_manager: HookManager = raw_hook_manager
+    return Manifest(
+        version=declared,
+        configs=names,
+        python_dest=_dest_value(dest_table, "python"),
+        typescript_dest=_dest_value(dest_table, "typescript"),
+        swift_dest=_dest_value(dest_table, "swift", root=root),
+        kotlin_dest=_dest_value(dest_table, "kotlin", root=root),
+        profile=profile,
+        verify_paths=_verify_paths(root, verify_table),
+        hook_manager=hook_manager,
+        disabled_capabilities=disabled,
+        excluded_paths=_path_patterns(root, exclude_table, "paths"),
+        excluded_rules=_rule_selectors(
+            exclude_table,
+            "rules",
+            discard_removed=discard_removed,
+        ),
+        exclusion_overrides=_exclusion_overrides(
+            root,
+            exclude_table,
+            discard_removed=discard_removed,
+        ),
+        durable_artifacts=_string_list(
+            artifacts_table,
+            "durable",
+            label="manifest [artifacts].durable",
+            default=DEFAULT_DURABLE_ARTIFACTS,
+        ),
+        text_excluded_paths=_string_list(text_table, "exclude", label="manifest [text].exclude"),
+        doctor_excluded_paths=_string_list(doctor_table, "exclude", label="manifest [doctor].exclude"),
+        diagnostic_baseline=_relative_file(root, baseline_table, "diagnostics"),
+        ci_bootstrap=_ci_bootstrap(ci_table),
+        ci_runner=_ci_runner(ci_table),
+    )
+
+
+def _bundle_configs(declared: str, path: Path, schema: int) -> tuple[str, ...]:
+    try:
+        version = Version(declared)
+    except InvalidVersion as exc:
+        msg = f"{path} `bundle` must be a valid PEP 440 version"
+        raise ValueError(msg) from exc
+    if schema != MANIFEST_SCHEMA or version < Version("7.8.0"):
+        return _SCHEMA_THREE_CONFIGS
+    if version < Version("8.13.0"):
+        return tuple(name for name in ALL_CONFIGS if name not in SECURITY_CONFIGS)
+    return ALL_CONFIGS
+
+
+def _check_manifest_schema(data: Mapping[str, object], path: Path, expected_schema: int) -> None:
+    raw_schema = data.get("schema")
+    if type(raw_schema) is not int or raw_schema != expected_schema:
+        msg = f"{path} `schema` must equal {expected_schema}"
+        raise ValueError(msg)
+    legacy_fields = tuple(field for field in ("version", "configs", "gradual") if field in data)
+    if legacy_fields:
+        msg = f"{path} uses removed manifest fields: {', '.join(legacy_fields)}"
+        raise ValueError(msg)
+
+
+def _manifest_table(data: Mapping[str, object], key: str) -> dict[str, object]:
+    value = data.get(key)
+    if value is None:
+        return {}
+    if not is_object_mapping(value):
+        msg = f"manifest [{key}] must be a table"
+        raise TypeError(msg)
+    return as_table(value)
+
+
+def load_for_setup(root: Path) -> Manifest | None:
+    try:
+        return _load_schema(root, MANIFEST_SCHEMA, discard_removed=True)
+    except ValueError:
+        schema_three = _load_schema_three_manifest(root)
+        if schema_three is not None:
+            return schema_three
+        legacy = _load_schema_less_manifest(root)
+        if legacy is None:
+            raise
+        return legacy
+
+
+def _load_schema_three_manifest(root: Path) -> Manifest | None:
+    path = manifest_path(root)
+    try:
+        parsed: object = tomllib.loads(path.read_text(encoding="utf-8"))
+    except OSError, tomllib.TOMLDecodeError:
+        return None
+    if as_table(parsed).get("schema") != LEGACY_MANIFEST_SCHEMA:
+        return None
+    return _load_schema(root, LEGACY_MANIFEST_SCHEMA, discard_removed=True)
+
+
+def _load_schema_less_manifest(  # ruff: ignore[too-many-locals] -- validate the complete legacy policy atomically.
+    root: Path,
+) -> Manifest | None:
+    path = manifest_path(root)
+    try:
+        parsed: object = tomllib.loads(path.read_text(encoding="utf-8"))
+    except OSError, tomllib.TOMLDecodeError:
+        return None
+    data = as_table(parsed)
+    if "schema" in data or "version" not in data or "configs" not in data:
+        return None
+    declared = text_field(data, "version")
+    raw_configs = list_field(data, "configs")
+    if declared is None or not all(isinstance(item, str) and item in ALL_CONFIGS for item in raw_configs):
+        return None
+    try:
+        Version(declared)
+    except InvalidVersion:
+        return None
+    raw_profile = data.get("profile", "standard")
+    if not isinstance(raw_profile, str) or raw_profile not in PROFILES:
+        return None
+    profile: Profile = raw_profile
+    dest = table_field(data, "dest")
+    try:
+        python_dest = _dest_value(dest, "python")
+        typescript_dest = _dest_value(dest, "typescript")
+    except TypeError:
+        return None
+    gradual_table = table_field(data, "gradual")
+    if "python_baseline" in gradual_table:
+        _relative_file(root, gradual_table, "python_baseline")
+        msg = (
+            "cannot losslessly migrate legacy [gradual].python_baseline to the fingerprint-based "
+            "[baseline].diagnostics format; preserve the legacy manifest and replace or retire its baseline "
+            "before rerunning setup"
+        )
+        raise ValueError(msg)
+    verify_table = table_field(data, "verify")
+    hooks_table = table_field(data, "hooks")
+    exclude_table = table_field(data, "exclude")
+    raw_hook_manager = hooks_table.get("manager", "pre-commit")
+    if not isinstance(raw_hook_manager, str) or raw_hook_manager not in HOOK_MANAGERS:
+        msg = f"manifest [hooks].manager must be one of: {', '.join(HOOK_MANAGERS)}"
+        raise ValueError(msg)
+    hook_manager: HookManager = raw_hook_manager
+    return Manifest(
+        version=declared,
+        configs=tuple(dict.fromkeys(item for item in raw_configs if isinstance(item, str))),
+        python_dest=python_dest,
+        typescript_dest=typescript_dest,
+        profile=profile,
+        verify_paths=_verify_paths(root, verify_table),
+        hook_manager=hook_manager,
+        excluded_paths=_path_patterns(root, exclude_table, "paths"),
+        excluded_rules=_rule_selectors(exclude_table, "rules", discard_removed=True),
+        exclusion_overrides=_exclusion_overrides(root, exclude_table, discard_removed=True),
+    )
+
+
+def _applicable_configs(root: Path) -> tuple[str, ...]:
+    has_python = any((root / name).is_file() for name in ("pyproject.toml", "uv.lock", "poetry.lock", "pdm.lock"))
+    has_typescript = any(
+        path.is_file()
+        for path in (
+            root / "package.json",
+            root / "package-lock.json",
+            root / "pnpm-lock.yaml",
+            root / "yarn.lock",
+            root / "bun.lock",
+            root / "bun.lockb",
+        )
+    )
+    return default_configs(has_python=has_python, has_typescript=has_typescript)
+
+
+def _string_list(
+    table: Mapping[str, object],
+    key: str,
+    *,
+    label: str,
+    default: tuple[str, ...] = (),
+) -> tuple[str, ...]:
+    if key not in table:
+        return default
+    values = list_field(table, key)
+    if not all(type(value) is str and value for value in values):
+        msg = f"{label} must contain only non-empty strings"
+        raise TypeError(msg)
+    return tuple(dict.fromkeys(value for value in values if isinstance(value, str)))
+
+
+def _ci_bootstrap(table: Mapping[str, object]) -> tuple[str, ...]:
+    commands = _string_list(table, "bootstrap", label="manifest [ci].bootstrap")
+    if any(command != command.strip() or "\n" in command or "\r" in command for command in commands):
+        msg = "manifest [ci].bootstrap commands must be trimmed single-line strings"
+        raise ValueError(msg)
+    return commands
+
+
+def _ci_runner(table: Mapping[str, object]) -> str | None:
+    if "runner" not in table:
+        return None
+    label = table["runner"]
+    if not isinstance(label, str):
+        msg = "manifest [ci].runner must be a string"
+        raise TypeError(msg)
+    if _RUNNER_LABEL.fullmatch(label) is None:
+        msg = "manifest [ci].runner must be one GitHub Actions runner label, such as blacksmith-2vcpu-ubuntu-2404"
+        raise ValueError(msg)
+    return label
+
+
+def _path_patterns(root: Path, table: Mapping[str, object], key: str) -> tuple[str, ...]:
+    patterns = _string_list(table, key, label=f"manifest [exclude].{key}")
+    return tuple(validate_excluded_path(root, pattern) for pattern in patterns)
+
+
+def _rule_selectors(
+    table: Mapping[str, object],
+    key: str,
+    *,
+    discard_removed: bool = False,
+) -> tuple[str, ...]:
+    selectors = _string_list(table, key, label=f"manifest [exclude].{key}")
+    return tuple(
+        validate_excluded_rule(selector)
+        for selector in selectors
+        if not discard_removed or not _removed_rule_selector(selector)
+    )
+
+
+def validate_excluded_path(
+    root: Path,  # ruff: ignore[unused-function-argument] -- Preserve the public exclusion validator keyword.
+    pattern: str,
+) -> str:
+    normalized = pattern.replace("\\", "/")
+    if normalized.startswith(("/", "!")) or ".." in normalized.split("/"):
+        msg = f"manifest exclusion pattern must be a repository-relative denylist pattern: {pattern}"
+        raise ValueError(msg)
+    if normalized in {".", "*", "**", "**/*"}:
+        msg = f"manifest exclusion pattern is too broad: {pattern}"
+        raise ValueError(msg)
+    if normalized in {MANIFEST_NAME, f"**/{MANIFEST_NAME}"}:
+        msg = "manifest exclusion cannot hide the Standards manifest"
+        raise ValueError(msg)
+    return normalized
+
+
+def validate_excluded_rule(selector: str) -> str:
+    engine, separator, rule = selector.partition(":")
+    if (
+        not separator
+        or engine not in {"ruff", "basedpyright", *_UpstreamRuleEngine, *_SARJ_RULE_ENGINES}
+        or not rule
+        or rule != rule.strip()
+    ):
+        msg = f"manifest rule exclusion must use a canonical engine:rule selector: {selector}"
+        raise ValueError(msg)
+    _validate_known_rule(engine, rule, selector)
+    return selector
+
+
+def _removed_rule_selector(selector: str) -> bool:
+    from sarj_standards.libs.repository import (  # ruff: ignore[import-outside-top-level] -- avoid a manifest/ledger import cycle.
+        ledger,
+    )
+
+    engine, separator, rule = selector.partition(":")
+    if not separator or engine not in {*_SARJ_RULE_ENGINES, ledger.ESLINT}:
+        return False
+    kind = ledger.CODE if engine == "python" and re.fullmatch(r"SARJ[0-9]{3}", rule) else engine
+    return any(
+        entry.kind == kind and entry.id == rule and entry.status is ledger.Status.REMOVED
+        for entry in ledger.load().retired
+    )
+
+
+def _validate_known_rule(engine: str, rule: str, selector: str) -> None:
+    from sarj_standards.libs.linting import (  # ruff: ignore[import-outside-top-level] -- avoid a manifest/policy import cycle.
+        library_policy,
+    )
+    from sarj_standards.libs.repository import (  # ruff: ignore[import-outside-top-level] -- avoid a manifest/ledger import cycle.
+        ledger,
+    )
+
+    shipped = ledger.load()
+    if engine in _SARJ_RULE_ENGINES:
+        known = frozenset((*shipped.rules.get(engine, ()), *shipped.codes.get(engine, ())))
+        if engine == "python":
+            known |= frozenset(item.id for item in library_policy.CATALOG)
+        if rule not in known:
+            msg = f"unknown Standards rule exclusion: {selector}"
+            raise ValueError(msg)
+        return
+    try:
+        upstream = _UpstreamRuleEngine(engine)
+    except ValueError:
+        return
+    if upstream is not _UpstreamRuleEngine.ESLINT:
+        _validate_source_tool_rule(upstream, rule, selector)
+        return
+    if rule.startswith("@sarj/"):
+        known = frozenset(f"@sarj/{name}" for name in shipped.rules.get(ledger.ESLINT, ()))
+    elif "/" not in rule:
+        config = (CONFIGS_DIR / "eslint.strict.mjs").read_text(encoding="utf-8")
+        known = frozenset(match.group("rule") for match in _ESLINT_RULE_KEY.finditer(config))
+    else:
+        return
+    if rule not in known:
+        msg = f"unknown Standards rule exclusion: {selector}"
+        raise ValueError(msg)
+
+
+def _validate_source_tool_rule(engine: _UpstreamRuleEngine, rule: str, selector: str) -> None:
+    from sarj_standards.libs.linting import (  # ruff: ignore[import-outside-top-level] -- defer analyzer imports while adoption initializes.
+        security_tools,
+    )
+
+    if engine is _UpstreamRuleEngine.SHELLCHECK:
+        valid = re.fullmatch(r"SC[0-9]{4}", rule) is not None
+    else:
+        known = security_tools.CHECKOV_CHECKS if engine is _UpstreamRuleEngine.CHECKOV else security_tools.ZIZMOR_RULES
+        valid = rule in known
+    if not valid:
+        msg = f"unknown Standards rule exclusion: {selector}"
+        raise ValueError(msg)
+
+
+def _exclusion_overrides(
+    root: Path,
+    table: Mapping[str, object],
+    *,
+    discard_removed: bool = False,
+) -> tuple[ExclusionOverride, ...]:
+    values = list_field(table, "overrides")
+    overrides: list[ExclusionOverride] = []
+    for value in values:
+        item = as_table(value)
+        paths = _path_patterns(root, item, "paths")
+        rules = _rule_selectors(item, "rules", discard_removed=discard_removed)
+        reason = text_field(item, "reason")
+        if not paths or not list_field(item, "rules") or reason is None or not reason.strip():
+            msg = "each [[exclude.overrides]] entry must set non-empty paths, rules, and reason"
+            raise ValueError(msg)
+        if not rules:
+            continue
+        overrides.append(ExclusionOverride(paths, rules, reason))
+    return tuple(overrides)
+
+
+def _dest_value(table: dict[str, object], key: str, *, root: Path | None = None) -> str:
+    if key not in table:
+        return "."
+    value = table[key]
+    if not isinstance(value, str) or not value:
+        msg = f"manifest [dest].{key} must be a non-empty string"
+        raise TypeError(msg)
+    if root is not None:
+        path = Path(value)
+        if path.is_absolute() or ".." in path.parts:
+            msg = f"manifest [dest].{key} must stay inside the repository root: {value}"
+            raise ValueError(msg)
+        try:
+            (root / path).resolve().relative_to(root.resolve())
+        except (OSError, ValueError) as exc:
+            msg = f"manifest [dest].{key} escapes the repository root: {value}"
+            raise ValueError(msg) from exc
+    return value
+
+
+def _verify_paths(root: Path, table: dict[str, object]) -> tuple[str, ...]:
+    if "paths" not in table:
+        return (".",)
+    values = list_field(table, "paths")
+    if not values or not all(isinstance(value, str) and value for value in values):
+        msg = "manifest [verify].paths must be a non-empty list of non-empty strings"
+        raise TypeError(msg)
+    paths = tuple(value for value in values if isinstance(value, str))
+    for value in paths:
+        try:
+            (root / value).resolve().relative_to(root.resolve())
+        except ValueError as exc:
+            msg = f"manifest [verify].paths entry escapes repository root: {value}"
+            raise ValueError(msg) from exc
+    return paths
+
+
+def _relative_file(root: Path, table: Mapping[str, object], key: str) -> str | None:
+    if key not in table:
+        return None
+    value = text_field(table, key)
+    if value is None or not value.strip():
+        msg = f"manifest [baseline].{key} must be a non-empty repository-relative path"
+        raise TypeError(msg)
+    normalized = value.replace("\\", "/")
+    path = Path(normalized)
+    if path.is_absolute() or ".." in path.parts or path.suffix != ".json":
+        msg = f"manifest [baseline].{key} must be a repository-relative JSON path: {value}"
+        raise ValueError(msg)
+    try:
+        (root / path).resolve().relative_to(root.resolve())
+    except ValueError as exc:
+        msg = f"manifest [baseline].{key} escapes repository root: {value}"
+        raise ValueError(msg) from exc
+    return path.as_posix()
+
+
+def installed_versions() -> dict[str, str]:
+    found = {LINT_CONFIGS: adopted_version()}
+    for name in (*SIBLING_PACKAGES, "repo-standards"):
+        try:
+            found[name] = version(name)
+        except PackageNotFoundError:
+            continue
+    return found
+
+
+def eslint_peers() -> dict[str, str]:
+    parsed: object = parse_json(PEERS_JSON.read_text(encoding="utf-8"))
+    table = table_field(as_table(parsed), "peers")
+    if not table:
+        msg = f"{PEERS_JSON} must contain a `peers` object"
+        raise TypeError(msg)
+    return {name: pin for name, pin in table.items() if isinstance(pin, str)}
+
+
+def eslint_overrides() -> dict[str, object]:
+    parsed: object = parse_json(PEERS_JSON.read_text(encoding="utf-8"))
+    return table_field(as_table(parsed), "npmOverrides")
+
+
+def _exclusion_sections(manifest: Manifest) -> list[str]:
+    sections: list[str] = []
+    if manifest.excluded_paths or manifest.excluded_rules:
+        paths = _array_field("paths", manifest.excluded_paths)
+        rules = _array_field("rules", manifest.excluded_rules)
+        sections.append(f"\n[exclude]\n{paths}{rules}")
+    for override in manifest.exclusion_overrides:
+        paths = _array_field("paths", override.paths)
+        rules = _array_field("rules", override.rules)
+        sections.append(f"\n[[exclude.overrides]]\n{paths}reason = {_toml_string(override.reason)}\n{rules}")
+    return sections
+
+
+def _array_field(key: str, values: tuple[str, ...]) -> str:
+    rendered = tuple(_toml_string(value) for value in values)
+    inline = f"{key} = [{', '.join(rendered)}]"
+    if len(inline) <= _TOML_COLUMN_WIDTH:
+        return f"{inline}\n"
+    items = "".join(f"  {value},\n" for value in rendered)
+    return f"{key} = [\n{items}]\n"
+
+
+def _toml_string(value: str) -> str:
+    return json.dumps(value, ensure_ascii=False).replace("\x7f", r"\u007f")

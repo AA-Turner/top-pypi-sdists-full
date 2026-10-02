@@ -1,0 +1,354 @@
+Metadata-Version: 2.5
+Name: unifi-network-mcp
+Version: 0.36.2
+Summary: Unifi Network MCP Server
+Requires-Python: >=3.13
+Requires-Dist: aiohttp==3.14.3
+Requires-Dist: aiounifi==95
+Requires-Dist: anyio>=4.14.2
+Requires-Dist: click>=8.3.3
+Requires-Dist: cryptography>=50.0.1
+Requires-Dist: jsonschema>=4.17.0
+Requires-Dist: mcp[cli]<3,>=2.2.0
+Requires-Dist: omegaconf>=2.3.0
+Requires-Dist: pydantic-settings>=2.14.2
+Requires-Dist: pyjwt>=2.13.0
+Requires-Dist: python-dotenv>=1.2.2
+Requires-Dist: python-multipart>=0.0.31
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: starlette>=1.7.0
+Requires-Dist: typing-extensions>=4.16.0
+Requires-Dist: unifi-core[network]<0.5,>=0.4.62
+Requires-Dist: unifi-mcp-shared<0.7,>=0.6.23
+Description-Content-Type: text/markdown
+
+<!-- mcp-name: io.github.sirkirby/unifi-network-mcp -->
+# UniFi Network MCP Server
+
+<p align="center">
+  <img src="../../assets/hero-network.svg" alt="UniFi Network MCP Server" width="720">
+</p>
+
+MCP server exposing 209 UniFi Network Controller tools for AI assistants and
+other MCP-capable clients. Query clients, devices, firewall rules, VLANs, VPNs,
+Traffic Flows, stats, and more with safe-by-default permissions and
+preview-before-confirm for all mutations.
+
+Use this server when an existing AI assistant or other MCP-capable client needs
+UniFi Network tools. Software integrating over HTTP, including automation
+services, code-execution runtimes, and MCP adapters, should use
+[`unifi-api-server`](../api/) for REST and GraphQL reads, actions, and SSE
+events. The calling application must sandbox generated code and enforce its
+resource limits.
+
+## Install
+
+### Claude Code (recommended)
+
+The plugin installs the MCP server, an agent skill for tool discovery, and a guided setup command:
+
+```
+/plugin marketplace add sirkirby/unifi-mcp
+/plugin install unifi-network@unifi-plugins
+```
+
+Then run the interactive setup to configure your controller connection:
+
+```
+/unifi-network:setup
+```
+
+This walks you through entering your controller host, credentials, and permission preferences — then writes everything to `.claude/settings.local.json` so it persists across sessions. Restart Claude Code after setup to connect.
+
+### Codex
+
+Register the marketplace, then install `unifi-network` from Codex's `/plugins` UI:
+
+```bash
+codex plugin marketplace add sirkirby/unifi-mcp
+```
+
+After installing, ask Codex to use the UniFi Network setup skill. The setup flow registers the MCP server with `codex mcp add`, stores your controller environment values in Codex's MCP configuration, and prompts you to restart Codex.
+
+### PyPI / Docker
+
+```bash
+# PyPI
+uvx unifi-network-mcp@latest
+# or: pip install unifi-network-mcp
+
+# Docker
+docker pull ghcr.io/sirkirby/unifi-network-mcp:latest
+
+# From source
+git clone https://github.com/sirkirby/unifi-mcp.git
+cd unifi-mcp && uv sync
+```
+
+## Usage Examples
+
+For the approved breaking MAC argument rename in the next minor release, see the
+[MAC parameter migration guide](docs/mac-parameter-migration.md).
+
+Once connected, just ask your AI agent in natural language:
+
+> "Show me all clients on the Guest VLAN with their signal strength and data usage"
+
+> "Create a firewall rule that blocks IoT devices from reaching the internet between midnight and 6 AM"
+
+> "Which access points have the most client disconnections this week?"
+
+> "Audit my firewall policies — are there any redundant or conflicting rules?"
+
+> "Rename the device at 192.168.1.45 to 'Living Room TV' and show me its traffic stats"
+
+> "What changed on my network in the last 24 hours? Show me new clients and config changes."
+
+> "Show me the largest traffic flows from the last hour and summarize who talked to what."
+
+All mutations (firewall rules, device changes, client blocking) use a **preview-then-confirm** flow — you see exactly what will change before anything is applied.
+
+### V2 NAT rules
+
+`unifi_list_nat_rules` and `unifi_get_nat_rule` read V2 NAT rules. The create,
+update, delete, and toggle tools require Network session credentials and use
+V2 NAT rule IDs; port-forward and Integration API IDs are different. Public
+writes cover DNAT, SNAT, and MASQUERADE with IPv4, `tcp_udp` or `all`, and
+`NONE` or `ADDRESS_AND_PORT` filters. Creates default to `enabled=false`.
+Created rules are marked manual and non-predefined, and both values are checked
+on readback. Existing rules with missing or non-manual origin are not editable
+through these tools.
+SNAT rules with a translated `port` require `source_filter.port`; the controller
+validates port correspondence. Existing rules missing that source port must be
+corrected in the same update before they can be edited through these tools.
+Toggle takes an explicit `enabled` boolean, so repeating the same request is
+a no-op. IPv6, PPPoE, inverted/excluded matching, and other filter variants
+are not verified for public writes.
+Selector edits on a stored rule with an unverified type are refused, even when
+the same request changes its type to a verified one.
+
+The MCP update preview shows a fresh before/after merge. Confirmation reads
+fresh state again, sends at most one full replacement, then checks persistence;
+delete checks fresh absence. If the controller reply or readback is uncertain,
+list rules before retrying. A concurrent controller edit between fetch and PUT
+can be overwritten because V2 NAT has no conditional replacement. These checks
+prove stored configuration, not packet-level enforcement. Existing Core NAT
+methods retain their return shapes; controller mutation exceptions now carry
+safe fixed guidance instead of raw response text.
+
+For an approved packet test, use the [IPv4 DNS redirect recipe](../../plugins/unifi-network/skills/firewall-auditor/references/dns-redirect.md). It covers a single client and synthetic destination, including same-subnet return traffic and cleanup.
+
+## Configure
+
+Set these variables in the server's process environment. If you used `/unifi-network:setup`, this is already done. The server does not automatically load `.env` or working-directory YAML files; load a trusted env file explicitly in your launcher (Docker `env_file:` is supported), or select custom YAML with an absolute `CONFIG_PATH`. See [configuration](docs/configuration.md) for migration examples.
+
+```bash
+# Server-specific variables (recommended)
+UNIFI_NETWORK_HOST=192.168.1.1      # Controller IP or hostname
+UNIFI_NETWORK_USERNAME=admin         # Local admin username
+UNIFI_NETWORK_PASSWORD=your-password # Admin password
+# Optional:
+# UNIFI_NETWORK_API_KEY=             # UniFi API key (inventory and explicit Integration API tools)
+# UNIFI_NETWORK_PORT=443             # Controller HTTPS port
+# UNIFI_NETWORK_SITE=default         # UniFi site name
+# UNIFI_NETWORK_VERIFY_SSL=false     # SSL certificate verification
+# UNIFI_NETWORK_WEBSOCKET_ENABLED=true   # Real-time event listener feeding unifi_recent_events
+# UNIFI_NETWORK_EVENT_BUFFER_SIZE=100    # Positive ring buffer capacity; invalid values prevent startup
+# UNIFI_NETWORK_EVENT_BUFFER_TTL=300     # Positive lifetime in seconds; invalid values prevent startup
+```
+
+**Fallback:** Existing `UNIFI_*` variables (e.g., `UNIFI_HOST`) continue to work. The server checks for `UNIFI_NETWORK_*` first and falls back to `UNIFI_*` if the server-specific variable is not set. For single-controller setups, the shared variables are all you need.
+
+### API-key inventory and session authentication
+
+Configure `UNIFI_NETWORK_API_KEY` without a username/password for device,
+active-client, network, and WLAN lists. The same tools select the available
+read path; no duplicate API-key tools are needed. When valid session credentials
+are also configured, the existing session path remains preferred.
+
+On controllers accepting API keys on legacy inventory endpoints, the usual IDs
+and fields are preserved. This was verified on Network 10.6.106 with a UniFi OS
+proxy; the minimum supported firmware is not established. Other controllers
+can use the public Integration inventory fallback when that API is available.
+Public inventory has narrower fields and network coverage (for example, WAN/VPN
+networks may be absent). Results identify `source_api=integration` and expose
+the public UUID as `integration_id`, never as a legacy resource ID. Do not pass
+these UUIDs to legacy details/update tools. Missing legacy fields are unknown.
+API GraphQL projections therefore allow null for unavailable enabled, wired,
+and guest flags; clients must handle those nulls.
+
+Historical clients (`include_offline=true`), full details, legacy mutations,
+and the Network websocket still require their supported legacy/session paths.
+API-key legacy transport is restricted to verified inventory GET requests;
+successful reads do not imply permission to write. Explicit Integration tools
+such as DPI lookup and firewall ordering retain their own API-key contracts
+(legacy zone-ID resolution also needs a session). Protect still requires session
+bootstrap, with an additional API key for public setters; Access retains its
+independent API-token and proxy-session paths. Discovery reports `local_only`,
+`api_key_only`, `either`, or `both`; these describe requirements, not proof that
+a configured credential has authenticated successfully.
+
+### MCP response size
+
+For tool results that already provide structured output, `adaptive` is the default response mode. It classifies each request by the canonical date-based `protocolVersion` advertised during MCP initialization, not by the client's product name or application version. Requests advertising MCP `2025-06-18` or later receive concise `content` plus the full result once in `structuredContent`; requests advertising an earlier revision (such as `2024-11-05` or `2025-03-26`), or whose revision metadata is missing or malformed, keep full compatibility JSON in `content`. Set `UNIFI_NETWORK_MCP_CONTENT_MODE` to `compat` to force the duplicated compatibility form, or to `compact` to force concise text plus full structured output outside a negotiated request. This server-specific variable overrides `UNIFI_MCP_CONTENT_MODE`; use `compat` for any client that consumes the full result only from `content`, regardless of its advertised revision.
+
+The lazy-loading meta-tools (`*_tool_index`, `*_execute`, `*_batch`, `*_batch_status`, and lazy-only `*_load_tools`) remain content-only; they are not the pre-`2025-06-18` protocol category described above. For structured inner results, `*_execute` and `*_batch_status` expose one normalized JSON payload in `content` rather than a nested transport pair; content-only execute results remain unchanged. Response modes do not convert these meta-tools to `structuredContent`.
+
+Network also bounds two large source responses by default: `unifi_get_dashboard` uses `summary=true`, and `unifi_list_rogue_aps` returns a summarized page of at most 100 records. Pass `summary=false` to request the full selected dashboard or rogue-AP data.
+
+### Sensitive response fields
+
+Network tools redact known secret-bearing fields by default before returning data to MCP clients. This includes WLAN passphrases, VPN key material, whole VPN config blobs, SNMP community strings, SNMPv3 passwords, and device-SSH credentials and the management key in raw/detail responses and mutation previews. Disable redaction for a trusted local administration process with `UNIFI_NETWORK_REDACT_SENSITIVE_FIELDS=false` or the global `UNIFI_REDACT_SENSITIVE_FIELDS=false` policy flag when raw values are required.
+
+Confirmed Network/WLAN and VPN-state writes are re-read from the controller and report exact `persisted_fields`, `unchanged_fields`, `dropped_fields`, and `coerced_fields`. Already-satisfied no-op fields appear under `unchanged_fields` and do not make a failed write partially successful. A response with `success: false` and `mutation_applied: true` means the controller accepted the mutation but did not persist it exactly; it may be a partial write, not a rollback. Inspect `partial_success` and `details_after_attempt` before retrying or applying a compensating change.
+
+`unifi_update_vpn_server_alternate_address` updates a WireGuard server's advertised address using `server_id`, a partial `update_data` object, and `confirm` (default `false`). The accepted fields are `alternate_address_enabled` (boolean) and `alternate_address` (hostname or IPv4 address, without a URI, port, or path). Enabling requires a valid address in the merged configuration. Disabling preserves the stored address unless you also supply a replacement. Null and unknown fields are rejected. Server reads expose these same names, with `null` for absent controller values.
+
+This operation requires Network session credentials and the `VPN_SERVERS` UPDATE policy gate. MCP previews show fresh before/after values; API action previews show only submitted arguments, with effective-state validation at execution. The confirmed update fetches the full record again, preserves unrelated fields, and verifies the requested fields after writing. Full-record PUTs can still race with concurrent edits. An uncertain transport or readback outcome returns `mutation_applied: null`; inspect the server before trying again. Previews and results contain only the two public alternate-address fields. Other VPN server types are outside this verified write scope.
+
+## Run
+
+```bash
+# stdio transport (default — for Claude Desktop, LM Studio, etc.)
+unifi-network-mcp
+
+# Docker
+docker run -i --rm \
+  -e UNIFI_NETWORK_HOST=192.168.1.1 \
+  -e UNIFI_NETWORK_USERNAME=admin \
+  -e UNIFI_NETWORK_PASSWORD=secret \
+  ghcr.io/sirkirby/unifi-network-mcp:latest
+```
+
+### Claude Desktop
+
+Add to `claude_desktop_config.json`:
+
+```jsonc
+{
+  "mcpServers": {
+    "unifi": {
+      "command": "uvx",
+      "args": ["unifi-network-mcp"],
+      "env": {
+        "UNIFI_NETWORK_HOST": "192.168.1.1",
+        "UNIFI_NETWORK_USERNAME": "admin",
+        "UNIFI_NETWORK_PASSWORD": "your-password"
+      }
+    }
+  }
+}
+```
+
+## Agent Skills
+
+When installed via Claude Code, the network plugin ships three agent skills that extend Claude with specialized workflows for network management.
+
+### Network Health Check
+
+**Trigger:** "check network health", "what's down", "run a health check", "network status"
+
+Gathers a full diagnostic snapshot in a single `unifi_batch` call — system info, network health, device list, and active alarms — then produces a structured health report. Includes reference documents for device state codes, alarm types and severity levels, and health subsystem diagnostics (WAN → LAN → WLAN → VPN priority order).
+
+### Firewall Manager
+
+**Trigger:** "block traffic", "create firewall rule", "set up IoT isolation", "manage content filtering"
+
+Natural-language firewall management with a safe preview-then-confirm workflow. Ships with:
+
+- **Policy templates** for common scenarios (`references/policy-templates.yaml`):
+
+  | Template | Description |
+  |----------|-------------|
+  | `iot-isolation` | Block IoT VLAN from reaching the main LAN |
+  | `guest-lockdown` | Restrict guest network to internet-only |
+  | `kids-content-filter` | Time-based social media and gaming block via DPI |
+  | `block-bittorrent` | Block P2P/BitTorrent traffic via DPI |
+  | `work-vpn-split-tunnel` | Allow corporate VPN while keeping local LAN accessible |
+  | `camera-isolation` | Lock IP cameras to NVR-only communication |
+
+- **Snapshot/diff workflow** — Claude saves a timestamped JSON snapshot of all policies, zones, and groups before every mutation, then diffs the after-state against it so unintended changes are caught immediately
+- **Reference docs** for firewall schema, DPI categories, and full template parameter lists
+
+### Firewall Auditor
+
+**Trigger:** "audit firewall", "review firewall rules", "check for security issues", "score my firewall"
+
+Comprehensive automated audit across 16 security benchmarks in 4 categories, producing a 0–100 score with per-finding remediation guidance. Claude dispatches the MCP tool calls and evaluates each benchmark against `references/security-benchmarks.md`; a small CLI (`scripts/unifi-firewall-score`) turns the findings into the canonical, version-stable score so audit history stays comparable.
+
+**Score thresholds:**
+
+| Score | Rating | Meaning |
+|-------|--------|---------|
+| 80–100 | Healthy | Follows best practices with minor gaps |
+| 60–79 | Needs Attention | Notable gaps; address on a planned schedule |
+| 0–59 | Critical | Significant exposure requiring immediate remediation |
+
+**Benchmark categories (4 × 25 points):**
+
+- **Segmentation** (SEG-01–04) — IoT/Guest/Management VLAN isolation, explicit inter-VLAN policies
+- **Egress Control** (EGR-01–03) — Outbound filtering for high-risk VLANs, DNS enforcement, threat intelligence blocks
+- **Rule Hygiene** (HYG-01–05) — Conflicts, redundant/disabled rules, stale references, naming, shadowing
+- **Topology** (TOP-01–04) — Offline devices, firmware currency, VLAN consistency across switch uplinks, orphaned port profiles
+
+Each finding includes the benchmark ID, severity (critical/warning/informational), a plain-language explanation, and — when automatable — the exact MCP tool call to fix it. Audit history is tracked in `audit-history.json` so score trends are visible over time.
+
+---
+
+## Tool Improvements
+
+### Device Classification (`unifi_list_devices`)
+
+`unifi_list_devices` now returns a `device_category` field that correctly classifies every adopted device:
+
+| Category | Devices |
+|----------|---------|
+| `ap` | Real access points (excludes USP Smart Power strips that connect via wireless mesh) |
+| `switch` | Managed switches |
+| `gateway` | Security gateways and Dream Machines |
+| `pdu` | Power distribution units |
+| `wan` | UCI cable internet devices |
+| `unknown` | Unrecognized device types |
+
+The `ap` category uses the controller's `is_access_point` boolean flag as the authoritative signal, not just the device type prefix. This means USP Smart Power strips — which appear as `uap`-typed devices — are correctly excluded from the AP category.
+
+### Enriched Device Fields
+
+Each device record now includes additional fields alongside the existing MAC, name, model, IP, firmware, uptime, and status:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `device_category` | string | Semantic category: `ap`, `switch`, `gateway`, `pdu`, `wan`, `unknown` |
+| `upgradable` | bool | Whether a firmware upgrade is available |
+| `connection_network` | string | Name of the VLAN the device's management interface is on |
+| `uplink` | object | Topology info: uplink type, speed, parent device name, and port |
+| `load_avg_1` | float | 1-minute load average (from device system stats) |
+| `mem_pct` | float | Memory utilization percentage (0–100) |
+| `model_eol` | bool | Whether the device model has reached end-of-life |
+
+---
+
+## Documentation
+
+- [Configuration](docs/configuration.md) — Full env var reference, YAML config, controller type detection
+- [Permissions](docs/permissions.md) — Permission system, category defaults, how to enable high-risk tools
+- [Tool Catalog](docs/tools.md) — All 209 tools organized by category
+- [Transports](docs/transports.md) — stdio, Streamable HTTP, and SSE setup
+- [Troubleshooting and support bundles](docs/troubleshooting.md) — Reviewed support evidence, connection issues, SSL, missing tools
+
+## Development
+
+```bash
+cd apps/network
+make test         # Run tests
+make lint         # Lint
+make format       # Format
+make manifest     # Regenerate tools_manifest.json
+make pre-commit   # All of the above
+```
+
+See the root [CONTRIBUTING.md](../../CONTRIBUTING.md) for the full monorepo workflow.
+
+## License
+
+[MIT](../../LICENSE)

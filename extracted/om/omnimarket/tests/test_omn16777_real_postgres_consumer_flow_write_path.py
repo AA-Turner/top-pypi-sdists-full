@@ -1,0 +1,711 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""OMN-16777: real-Postgres write-path gate for the consumer-flow projection.
+
+Why this is not redundant with the in-memory suites: those drive the same
+derivation against ``InmemoryDatabaseAdapter``, which accepts a bound parameter
+of ANY Python type — a ``.isoformat()`` string binds as "successfully" as a real
+``datetime``. Only a real Postgres connection enforces column types through
+asyncpg's extended query protocol. That gap is exactly how the OMN-15905
+str-where-``TIMESTAMPTZ`` defect reached a merged, deployed, CrashLoopBackOff-ing
+runtime with every layer of mock-DB coverage green.
+
+Two things here need real Postgres specifically and cannot be faked:
+
+1. **NULL is not 0.** The whole AC5 claim is that a dropped window materializes
+   as ``UNKNOWN`` with NULL counters. That is only meaningful if the columns are
+   genuinely nullable in the real schema — an in-memory dict stores ``None`` in a
+   column that a ``NOT NULL DEFAULT 0`` would have rejected or coerced. This
+   asserts against the migration's actual DDL.
+
+2. **The ordering rule is enforced by the database, not by a read-then-write.**
+   ``_UPSERT_FLOW``'s ``ON CONFLICT ... WHERE`` clause is what stops a replayed
+   older window from overwriting a newer one. A read-compare-write in Python
+   races under concurrent consumers; only the SQL predicate holds. It is tested
+   against the real planner because a subtly wrong predicate silently degrades
+   to "always update", which is indistinguishable from correct until a
+   redelivery arrives.
+
+Harness: a DISPOSABLE DATABASE (not a disposable schema) so this node's
+migrations apply essentially verbatim rather than through a rewrite that would
+weaken the evidence. ONE token is rewritten, and only one: ``CREATE INDEX
+CONCURRENTLY`` becomes ``CREATE INDEX``, because asyncpg's multi-statement
+``execute()`` opens an implicit transaction and ``CONCURRENTLY`` refuses to run
+inside one. That is a property of this driver, not of the forward-migration
+runner, which executes the files statement-wise. The rewrite changes the LOCK
+the build takes and nothing about the resulting index, so the DDL under test --
+column list, order, uniqueness, predicate -- is still the migration's own.
+SKIPS (never ERRORs) without a reachable Postgres, mirroring
+``tests/test_omn15909_real_postgres_projection_write_path_gate.py``.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from urllib.parse import quote_plus
+from uuid import uuid4
+
+import asyncpg
+import pytest
+
+from omnimarket.nodes.node_projection_consumer_flow.handlers.handler_consumer_flow_runner import (
+    _INSERT_UNKNOWN,
+    _SELECT_PRIOR_STATE,
+    _SELECT_UPSTREAM,
+    _UPSERT_FLOW,
+    _UPSERT_PRODUCE,
+)
+from omnimarket.nodes.node_projection_consumer_flow.models import (
+    EnumConsumerFlowState,
+    EnumUpstreamEvidence,
+)
+
+_MIGRATIONS = (
+    Path(__file__).resolve().parents[1]
+    / "src"
+    / "omnimarket"
+    / "nodes"
+    / "node_projection_consumer_flow"
+    / "migrations"
+)
+_MIGRATION_FILES = (
+    _MIGRATIONS / "0000_create_consumer_flow_windows.sql",
+    _MIGRATIONS / "0001_add_projection_cursor.sql",
+    _MIGRATIONS / "0005_add_node_id_ingest_index.sql",
+)
+
+
+def _migration_sql(path: Path) -> str:
+    """Read a migration, stripping ``CONCURRENTLY``.
+
+    asyncpg's multi-statement ``execute()`` opens an implicit transaction and
+    ``CREATE INDEX CONCURRENTLY`` refuses to run inside one. That is a property
+    of this TEST driver, not of the forward-migration runner, which executes
+    these files statement-wise -- so the rewrite belongs here rather than in the
+    migration. Same treatment the delegation and aggregate-view harnesses give
+    their own CONCURRENTLY migrations.
+    """
+    return path.read_text(encoding="utf-8").replace(
+        "CREATE INDEX CONCURRENTLY", "CREATE INDEX"
+    )
+
+
+_T0 = datetime(2026, 8, 27, 12, 0, 0, tzinfo=UTC)
+_GROUP = "onex-dev.omnimarket.gateway-link-health-projection-compute.consume"
+_TOPIC = "onex.evt.platform.node-heartbeat.v1"  # onex-topic-allow: real topic from the OMN-16755 incident
+
+
+def _dsn(database: str) -> str:
+    password = os.environ.get(
+        "INTEGRATION_POSTGRES_PASSWORD", os.environ.get("POSTGRES_PASSWORD", "")
+    )
+    host = os.environ.get("INTEGRATION_POSTGRES_HOST", "localhost")
+    port = os.environ.get("INTEGRATION_POSTGRES_PORT", "5432")
+    user = os.environ.get("INTEGRATION_POSTGRES_USER", "postgres")
+    return f"postgresql://{quote_plus(user)}:{quote_plus(password)}@{host}:{port}/{database}"
+
+
+async def _connect_or_skip(database: str | None = None) -> asyncpg.Connection:
+    password = os.environ.get(
+        "INTEGRATION_POSTGRES_PASSWORD", os.environ.get("POSTGRES_PASSWORD", "")
+    )
+    if not password:
+        pytest.skip(
+            "INTEGRATION_POSTGRES_PASSWORD / POSTGRES_PASSWORD not set — "
+            "skipping the OMN-16777 real-Postgres write-path gate"
+        )
+        raise AssertionError("pytest.skip did not raise")
+    target = database or os.environ.get("INTEGRATION_POSTGRES_DB", "omnibase_infra")
+    try:
+        return await asyncpg.connect(_dsn(target))
+    except (OSError, asyncpg.PostgresError) as exc:  # pragma: no cover - infra
+        pytest.skip(f"no reachable Postgres for the OMN-16777 gate: {exc}")
+        raise AssertionError("pytest.skip did not raise") from None
+
+
+@asynccontextmanager
+async def _migrated_database() -> AsyncIterator[asyncpg.Connection]:
+    """A throwaway database with this node's migration applied verbatim."""
+    admin = await _connect_or_skip()
+    name = f"omn16777_{uuid4().hex[:16]}"
+    try:
+        await admin.execute(f'CREATE DATABASE "{name}"')
+    except asyncpg.PostgresError as exc:  # pragma: no cover - infra
+        await admin.close()
+        pytest.skip(
+            f"cannot create a disposable database for the OMN-16777 gate: {exc}"
+        )
+    conn: asyncpg.Connection | None = None
+    try:
+        conn = await asyncpg.connect(_dsn(name))
+        # The node-owned migration loop connects to a database where
+        # omninode_internal already exists; a throwaway database does not, so
+        # the harness provides it rather than the migration (which deliberately
+        # carries no CREATE SCHEMA — see its header, and OMN-16759).
+        await conn.execute("CREATE SCHEMA IF NOT EXISTS omninode_internal")
+        for migration in _MIGRATION_FILES:
+            await conn.execute(_migration_sql(migration))
+        yield conn
+    finally:
+        if conn is not None:
+            await conn.close()
+        try:
+            await admin.execute(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
+        finally:
+            await admin.close()
+
+
+async def _insert_window(
+    conn: asyncpg.Connection,
+    *,
+    sequence: int,
+    start: datetime,
+    end: datetime,
+    node_id: str,
+    messages_in: int,
+    messages_out: int,
+    upstream: int | None = None,
+    state: EnumConsumerFlowState = EnumConsumerFlowState.FLOWING,
+) -> list[asyncpg.Record]:
+    return await conn.fetch(
+        _UPSERT_FLOW,
+        _GROUP,
+        _TOPIC,
+        start,
+        end,
+        node_id,
+        sequence,
+        messages_in,
+        messages_out,
+        0,
+        0,
+        upstream,
+        EnumUpstreamEvidence.NONE.value,
+        state.value,
+        end,
+    )
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_the_writers_own_sql_lands_a_correctly_typed_row() -> None:
+    """The production statements, against the production schema.
+
+    Every timestamp is bound as a real ``datetime``, never a string: the columns
+    are ``TIMESTAMPTZ`` and asyncpg refuses the mismatch, which is the whole
+    point of running this against Postgres rather than a double.
+    """
+    async with _migrated_database() as conn:
+        node_id = str(uuid4())
+        end = _T0 + timedelta(seconds=60)
+
+        await conn.execute(_UPSERT_PRODUCE, _TOPIC, _T0, end, node_id, 1, 15750, end)
+        upstream_rows = await conn.fetch(_SELECT_UPSTREAM, _TOPIC, _T0, end)
+        assert upstream_rows[0]["window_count"] == 1
+        assert upstream_rows[0]["produced"] == 15750
+
+        rows = await _insert_window(
+            conn,
+            sequence=1,
+            start=_T0,
+            end=end,
+            node_id=node_id,
+            messages_in=15750,
+            messages_out=0,
+            upstream=15750,
+            state=EnumConsumerFlowState.STALLED,
+        )
+        assert len(rows) == 1
+        row = rows[0]
+        assert row["flow_state"] == EnumConsumerFlowState.STALLED.value
+        assert row["messages_in"] == 15750
+        assert row["messages_out"] == 0
+        # Real column types, not whatever Python happened to hand over.
+        assert isinstance(row["window_start"], datetime)
+        assert row["window_start"].tzinfo is not None
+        assert row["projection_cursor"] >= 1
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_a_clean_sink_window_lands_as_consuming_and_a_failing_one_as_stalled() -> (
+    None
+):
+    """OMN-19733: the verdict a sink window derives is what the column stores.
+
+    ``flow_state`` is TEXT with no CHECK constraint, so CONSUMING needs no
+    migration; this proves it against the production schema and the writer's
+    own upsert, beside a sink window with a handler error, which stays STALLED.
+    """
+    from omnimarket.nodes.node_projection_consumer_flow.handlers.handler_projection_consumer_flow import (
+        derive_flow_state,
+    )
+
+    async with _migrated_database() as conn:
+        node_id = str(uuid4())
+        end = _T0 + timedelta(seconds=60)
+        clean_state, _ = derive_flow_state(
+            messages_in=40,
+            messages_out=0,
+            messages_dlq=0,
+            handler_errors=0,
+            declares_output=False,
+            upstream_produced=None,
+        )
+        assert clean_state is EnumConsumerFlowState.CONSUMING
+        rows = await _insert_window(
+            conn,
+            sequence=1,
+            start=_T0,
+            end=end,
+            node_id=node_id,
+            messages_in=40,
+            messages_out=0,
+            state=clean_state,
+        )
+        assert rows[0]["flow_state"] == "CONSUMING"
+
+        failing_state, _ = derive_flow_state(
+            messages_in=40,
+            messages_out=0,
+            messages_dlq=0,
+            handler_errors=3,
+            declares_output=False,
+            upstream_produced=None,
+        )
+        assert failing_state is EnumConsumerFlowState.STALLED
+        rows = await _insert_window(
+            conn,
+            sequence=2,
+            start=end,
+            end=end + timedelta(seconds=60),
+            node_id=node_id,
+            messages_in=40,
+            messages_out=0,
+            state=failing_state,
+        )
+        assert rows[0]["flow_state"] == "STALLED"
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_unknown_row_stores_null_counters_because_the_columns_allow_it() -> None:
+    """AC5 against the real DDL: ``UNKNOWN != 0 messages``.
+
+    A ``NOT NULL DEFAULT 0`` on these columns would silently turn every dropped
+    window into an idle one and no in-memory test could tell. This asserts the
+    schema itself permits NULL, and that the gap statement actually writes it.
+    """
+    async with _migrated_database() as conn:
+        node_id = str(uuid4())
+        w1_end = _T0 + timedelta(seconds=60)
+        w3_start = _T0 + timedelta(seconds=120)
+
+        await _insert_window(
+            conn,
+            sequence=1,
+            start=_T0,
+            end=w1_end,
+            node_id=node_id,
+            messages_in=10,
+            messages_out=10,
+        )
+        last = await conn.fetch(_SELECT_PRIOR_STATE, node_id)
+        assert last[0]["last_sequence"] == 1
+
+        gap = await conn.fetch(
+            _INSERT_UNKNOWN,
+            _GROUP,
+            _TOPIC,
+            w1_end,
+            w3_start,
+            node_id,
+            2,
+            EnumUpstreamEvidence.NONE.value,
+            EnumConsumerFlowState.UNKNOWN.value,
+            w3_start,
+        )
+        assert len(gap) == 1, "the gap statement wrote no row for the lost window"
+        assert gap[0]["flow_state"] == EnumConsumerFlowState.UNKNOWN.value
+        assert gap[0]["messages_in"] is None, (
+            "the missed window stored 0 messages; a dropped heartbeat that reads "
+            "as observed-idle is the exact false-green this ticket closes"
+        )
+        assert gap[0]["messages_out"] is None
+        assert gap[0]["messages_dlq"] is None
+        assert gap[0]["handler_errors"] is None
+
+        nullable = {
+            record["column_name"]: record["is_nullable"]
+            for record in await conn.fetch(
+                """
+                SELECT column_name, is_nullable
+                FROM information_schema.columns
+                WHERE table_schema = 'omninode_internal'
+                  AND table_name = 'consumer_flow_windows'
+                """
+            )
+        }
+        for column in (
+            "messages_in",
+            "messages_out",
+            "messages_dlq",
+            "handler_errors",
+            "upstream_produced",
+        ):
+            assert nullable[column] == "YES", (
+                f"{column} is NOT NULL in the real schema, so UNKNOWN cannot be "
+                "distinguished from zero traffic"
+            )
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_a_replayed_older_window_is_refused_by_the_conflict_predicate() -> None:
+    """Ordering is enforced by the database, not by a racy read-then-write.
+
+    At-least-once delivery makes redelivery routine. If the ``ON CONFLICT ...
+    WHERE`` predicate is wrong it degrades to "always update", which looks
+    perfectly healthy right up until an old window replays over a new one.
+    """
+    async with _migrated_database() as conn:
+        node_id = str(uuid4())
+        end = _T0 + timedelta(seconds=60)
+
+        await _insert_window(
+            conn,
+            sequence=9,
+            start=_T0,
+            end=end,
+            node_id=node_id,
+            messages_in=100,
+            messages_out=100,
+        )
+        refused = await _insert_window(
+            conn,
+            sequence=8,
+            start=_T0,
+            end=end,
+            node_id=node_id,
+            messages_in=1,
+            messages_out=0,
+            state=EnumConsumerFlowState.STALLED,
+        )
+        assert refused == [], "an older window was allowed to overwrite a newer one"
+
+        stored = await conn.fetchrow(
+            """
+            SELECT messages_in, ingest_sequence, flow_state
+            FROM omninode_internal.consumer_flow_windows
+            WHERE consumer_group = $1 AND topic = $2 AND window_start = $3
+            """,
+            _GROUP,
+            _TOPIC,
+            _T0,
+        )
+        assert stored is not None
+        assert stored["messages_in"] == 100
+        assert stored["ingest_sequence"] == 9
+        assert stored["flow_state"] == EnumConsumerFlowState.FLOWING.value
+
+        # And the same-sequence redelivery IS accepted — idempotent replay must
+        # still work, or an at-least-once bus would wedge the projection.
+        replayed = await _insert_window(
+            conn,
+            sequence=9,
+            start=_T0,
+            end=end,
+            node_id=node_id,
+            messages_in=100,
+            messages_out=100,
+        )
+        assert len(replayed) == 1
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_a_gap_row_is_overwritten_by_the_observed_window_it_shares_a_key_with() -> (
+    None
+):
+    """OMN-17215 AC6, the table half.
+
+    A gap row is minted at the ARRIVING window's own ``window_start``, so for a
+    pair whose observed window the same message carries, the two rows share the
+    whole primary key: the gap insert lands first and the flow upsert then
+    overwrites it. The UNKNOWN row therefore never survives in the table for
+    such a pair — which is why the writer withholds its snapshot delta rather
+    than publishing a row the database does not hold. Both halves depend on the
+    real conflict target and the real predicate, so only Postgres can state it.
+    """
+    async with _migrated_database() as conn:
+        node_id = str(uuid4())
+        w3_start = _T0 + timedelta(seconds=120)
+        w3_end = w3_start + timedelta(seconds=60)
+
+        gap = await conn.fetch(
+            _INSERT_UNKNOWN,
+            _GROUP,
+            _TOPIC,
+            w3_start,
+            w3_start,
+            node_id,
+            2,
+            EnumUpstreamEvidence.NONE.value,
+            EnumConsumerFlowState.UNKNOWN.value,
+            w3_start,
+        )
+        assert len(gap) == 1
+        assert gap[0]["flow_state"] == EnumConsumerFlowState.UNKNOWN.value
+
+        observed = await _insert_window(
+            conn,
+            sequence=3,
+            start=w3_start,
+            end=w3_end,
+            node_id=node_id,
+            messages_in=512,
+            messages_out=509,
+        )
+        assert len(observed) == 1, (
+            "the observed window was refused on the key its own gap row holds"
+        )
+        assert observed[0]["flow_state"] == EnumConsumerFlowState.FLOWING.value
+        assert observed[0]["messages_in"] == 512
+
+        stored = await conn.fetch(
+            """
+            SELECT flow_state, messages_in
+            FROM omninode_internal.consumer_flow_windows
+            WHERE consumer_group = $1 AND topic = $2 AND window_start = $3
+            """,
+            _GROUP,
+            _TOPIC,
+            w3_start,
+        )
+        assert len(stored) == 1, "the gap row and the observed row are two rows"
+        assert stored[0]["flow_state"] == EnumConsumerFlowState.FLOWING.value
+        assert stored[0]["messages_in"] == 512
+
+        # A pair with no observed window in that message keeps its gap row: the
+        # suppression above must not generalize to "never write a gap row".
+        other_group = f"{_GROUP}.quiet"
+        other_gap = await conn.fetch(
+            _INSERT_UNKNOWN,
+            other_group,
+            _TOPIC,
+            w3_start,
+            w3_start,
+            node_id,
+            2,
+            EnumUpstreamEvidence.NONE.value,
+            EnumConsumerFlowState.UNKNOWN.value,
+            w3_start,
+        )
+        assert len(other_gap) == 1
+        assert other_gap[0]["flow_state"] == EnumConsumerFlowState.UNKNOWN.value
+        assert other_gap[0]["messages_in"] is None
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_upstream_lookup_returns_no_windows_rather_than_zero() -> None:
+    """``None`` and ``0`` are different answers and the SQL must keep them apart.
+
+    ``window_count == 0`` means "nothing in this runtime publishes to that
+    topic" — an externally-fed leg. Collapsing it to a produced total of 0 would
+    let the derivation call a quiet external topic STARVED on no evidence, which
+    is the alert storm AC4 forbids.
+    """
+    async with _migrated_database() as conn:
+        rows = await conn.fetch(
+            _SELECT_UPSTREAM,
+            "onex.evt.external.never-published-here.v1",  # onex-topic-allow: synthetic externally-fed topic
+            _T0,
+            _T0 + timedelta(seconds=60),
+        )
+        assert rows[0]["window_count"] == 0
+        assert rows[0]["produced"] == 0
+
+
+# ---------------------------------------------------------------------------
+# OMN-16874 — the write path through the real handler, against real Postgres.
+#
+# Everything above drives the node's SQL directly. That proves the statements
+# and the schema agree, and it is exactly the coverage that stayed green while
+# zero rows reached the live table: the defect was not in the SQL, it was in the
+# LIFETIME of the pool the SQL ran on. `handle()` opens one event loop per
+# message with `asyncio.run`, and an asyncpg pool is bound to the loop that
+# created it, so a pool surviving into a second message belongs to a loop that
+# no longer exists. A mock adapter has no loop affinity and cannot show this; a
+# single-message test cannot show it either.
+#
+# So this drives the REAL handler, twice, over a real pool.
+# ---------------------------------------------------------------------------
+
+
+def _heartbeat_payload(*, node_id: str, sequence: int) -> dict[str, object]:
+    start = _T0 + timedelta(seconds=60 * sequence)
+    end = start + timedelta(seconds=60)
+    return {
+        "flow_window": {
+            "node_id": node_id,
+            "window_start": start.isoformat(),
+            "window_end": end.isoformat(),
+            "window_sequence": sequence,
+            "consumer_deltas": [
+                {
+                    "consumer_group": _GROUP,
+                    "topic": _TOPIC,
+                    "node_id": node_id,
+                    "window_start": start.isoformat(),
+                    "window_end": end.isoformat(),
+                    "window_sequence": sequence,
+                    "messages_in": 15750,
+                    "messages_out": 0,
+                    "messages_dlq": 0,
+                    "handler_errors": 0,
+                }
+            ],
+            "produce_deltas": [],
+        },
+        "_topic": _TOPIC,
+    }
+
+
+@pytest.mark.integration
+def test_two_consecutive_messages_both_land_rows_through_the_real_handler(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Both messages write. This is OMN-16874 AC1/AC5 against a real database.
+
+    Deliberately a SYNC test: ``handle()`` calls ``asyncio.run`` itself, which
+    refuses to run inside an already-running loop. Driving it from a sync test is
+    therefore the only way to exercise the production dispatch shape — and the
+    per-message loop it opens is the thing under test, so it must not be
+    replaced with a test-owned loop.
+
+    Before the fix, the first message would have been the only one with a live
+    pool and the second would have raised ``RuntimeError: Event loop is closed``.
+    """
+    from omnimarket.adapters.asyncpg_adapter import AsyncpgAdapter
+    from omnimarket.nodes.node_projection_consumer_flow.handlers.handler_consumer_flow_runner import (
+        ConsumerFlowProjectionWriter,
+    )
+
+    database = f"omn16874_{uuid4().hex[:16]}"
+    node_id = str(uuid4())
+
+    async def _create() -> None:
+        admin = await _connect_or_skip()
+        try:
+            await admin.execute(f'CREATE DATABASE "{database}"')
+        finally:
+            await admin.close()
+        conn = await asyncpg.connect(_dsn(database))
+        try:
+            await conn.execute("CREATE SCHEMA IF NOT EXISTS omninode_internal")
+            for migration in _MIGRATION_FILES:
+                await conn.execute(_migration_sql(migration))
+        finally:
+            await conn.close()
+
+    async def _count_rows() -> int:
+        conn = await asyncpg.connect(_dsn(database))
+        try:
+            return int(
+                await conn.fetchval(
+                    "SELECT count(*) FROM omninode_internal.consumer_flow_windows"
+                )
+            )
+        finally:
+            await conn.close()
+
+    async def _drop() -> None:
+        admin = await _connect_or_skip()
+        try:
+            await admin.execute(f'DROP DATABASE IF EXISTS "{database}" WITH (FORCE)')
+        finally:
+            await admin.close()
+
+    asyncio.run(_create())
+    try:
+        monkeypatch.setenv("OMNIDASH_ANALYTICS_DB_URL", _dsn(database))
+        writer = ConsumerFlowProjectionWriter()
+        # The real adapter, the real pool — sized like the documented one-shot
+        # pool resource, because it is opened and closed once per message.
+        writer._db = AsyncpgAdapter(dsn=_dsn(database), min_size=1, max_size=2)
+        # The snapshot delta is a separate transport seam; this gate is the DB
+        # write path, and a broker is not part of what it proves.
+        writer._snapshot_exposure = None
+
+        first = writer.handle(_heartbeat_payload(node_id=node_id, sequence=1))
+        second = writer.handle(_heartbeat_payload(node_id=node_id, sequence=2))
+
+        assert first["rows_upserted"] >= 1
+        assert second["rows_upserted"] >= 1, (
+            "the second message wrote nothing — the pool did not survive into "
+            "the loop that used it"
+        )
+        assert asyncio.run(_count_rows()) == 2
+
+        # OMN-16875: what the runtime publishes as the applied event.
+        row = second["flow_rows"][0]
+        assert row["consumer_group"] == _GROUP
+        assert row["topic"] == _TOPIC
+        assert row["messages_in"] == 15750
+        assert row["messages_out"] == 0
+        assert row["flow_state"] == EnumConsumerFlowState.STALLED.value
+    finally:
+        asyncio.run(_drop())
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_the_gap_lookup_is_index_backed_and_never_a_sequential_scan() -> None:
+    """``_SELECT_PRIOR_STATE`` must not degrade to a scan of the whole relation.
+
+    This is the regression gate for the outage of 2026-09-13 -> 2026-09-21. The
+    writer runs this lookup once per heartbeat event. With no index on
+    ``node_id`` the planner chose a Parallel Seq Scan, which on the onex-dev
+    lane at 10,352,358 rows / 5,842 MB took 38.8s against the asyncpg pool's
+    ``command_timeout`` of 30 -- so every event raised a bare ``TimeoutError``,
+    wrote no row, and went to the DLQ. The table took zero rows for seven days
+    and ``consumer-flow.v1`` froze with it.
+
+    Asserting the PLAN rather than a wall-clock duration is deliberate: a timing
+    assertion passes on any small test fixture, which is exactly the condition
+    under which this defect shipped and stayed invisible. The plan shape is the
+    fact that does not depend on the size of the table it ran against.
+    """
+    async with _migrated_database() as conn:
+        node_id = str(uuid4())
+        await _insert_window(
+            conn,
+            sequence=1,
+            start=_T0,
+            end=_T0 + timedelta(seconds=30),
+            node_id=node_id,
+            messages_in=1,
+            messages_out=1,
+        )
+        plan = "\n".join(
+            record["QUERY PLAN"]
+            for record in await conn.fetch(
+                f"EXPLAIN (COSTS false) {_SELECT_PRIOR_STATE}", node_id
+            )
+        )
+
+    assert "Seq Scan" not in plan, (
+        "the gap lookup planned a sequential scan over consumer_flow_windows; "
+        "an index leading with node_id is what stops this from timing out once "
+        f"the relation is large. Plan was:\n{plan}"
+    )
+    assert "idx_consumer_flow_windows_node_ingest" in plan, (
+        "the gap lookup is not using the node_id index this node's 0005 "
+        f"migration creates. Plan was:\n{plan}"
+    )

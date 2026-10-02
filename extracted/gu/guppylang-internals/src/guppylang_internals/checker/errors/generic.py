@@ -1,0 +1,139 @@
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, ClassVar, cast
+
+from guppylang_internals.diagnostic import Error, Help, Note
+
+if TYPE_CHECKING:
+    from guppylang_internals.tys.ty import UnitaryFlags
+
+
+@dataclass(frozen=True)
+class UnsupportedError(Error):
+    title: ClassVar[str] = "Unsupported"
+    span_label: ClassVar[str] = "{things} {is_are} not supported{extra}"
+    things: str
+    singular: bool = False
+    unsupported_in: str = ""
+
+    @property
+    def is_are(self) -> str:
+        return "is" if self.singular else "are"
+
+    @property
+    def extra(self) -> str:
+        return f" in {self.unsupported_in}" if self.unsupported_in else ""
+
+
+@dataclass(frozen=True)
+class UnexpectedError(Error):
+    title: ClassVar[str] = "Unexpected {things}"
+    span_label: ClassVar[str] = "Unexpected {things}{extra}"
+    things: str
+    unexpected_in: str = ""
+
+    @property
+    def extra(self) -> str:
+        return f" in {self.unexpected_in}" if self.unexpected_in else ""
+
+
+@dataclass(frozen=True)
+class ExpectedError(Error):
+    title: ClassVar[str] = "Expected {things}"
+    span_label: ClassVar[str] = "Expected {things}{extra}"
+    things: str
+    got: str = ""
+
+    @property
+    def extra(self) -> str:
+        return f", got {self.got}" if self.got else ""
+
+    @dataclass(frozen=True)
+    class EnumHelp(Help):
+        message: ClassVar[str] = "You might use an enum variant here instead"
+
+    @dataclass(frozen=True)
+    class NotInstantiable(Note):
+        name: str
+        message: ClassVar[str] = (
+            "Cannot construct an instance of `{name}`, as it is missing a `__new__` "
+            "method."
+        )
+
+    @dataclass(frozen=True)
+    class MissingBranch(Note):
+        span_label: ClassVar[str] = (
+            "Consider adding a return statement if this expression is `{truth_value}`"
+        )
+        truth_value: bool
+
+
+@dataclass(frozen=True)
+class UnknownModifierError(Error):
+    title: ClassVar[str] = "Unknown modifier"
+    span_label: ClassVar[str] = (
+        "Expected one of {{dagger, control(...), or power(...)}}"
+    )
+
+
+@dataclass(frozen=True)
+class RecursiveModifierControlCountError(Error):
+    title: ClassVar[str] = "Increasing control count in recursive custom modifier"
+    span_label: ClassVar[str] = (
+        "This recursive call increases the number of controls from "
+        "{previous_count} to {control_count}"
+    )
+    message: ClassVar[str] = (
+        "A recursive custom controlled implementation that increases the number "
+        "of controls prevents the compiler from determining the required control "
+        "count."
+    )
+    previous_count: int
+    control_count: int
+
+
+@dataclass(frozen=True)
+class UnexpectedInWithBlockError(Error):
+    title: ClassVar[str] = "Unexpected {kind}"
+    span_label: ClassVar[str] = "{things} found in a `With` block"
+    kind: str
+    things: str
+
+    @dataclass(frozen=True)
+    class Modifier(Note):
+        span_label: ClassVar[str] = "modifier is used here"
+
+
+@dataclass(frozen=True)
+class InvalidUnderDagger(Error):
+    title: ClassVar[str] = "Invalid expression in dagger"
+    span_label: ClassVar[str] = "{things} found in a dagger context"
+    things: str
+
+    @dataclass(frozen=True)
+    class Dagger(Note):
+        span_label: ClassVar[str] = "dagger modifier is used here"
+
+    @dataclass(frozen=True)
+    class FunctionHelp(Help):
+        message: ClassVar[str] = (
+            "The function `{name}` is declared with the unitary flag: `{flags}`."
+            " Thus dagger constraints apply to its body."
+        )
+        name: str
+        unitary_flags: "UnitaryFlags"
+
+        @property
+        def flags(self) -> str:
+            from guppylang_internals.tys.ty import UnitaryFlags
+
+            if self.unitary_flags == UnitaryFlags.Unitary:
+                return "unitary=True"
+            assert UnitaryFlags.Dagger in cast("UnitaryFlags", self.unitary_flags)
+            return "daggerable=True"
+
+    @dataclass(frozen=True)
+    class ControlFlowHelp(Help):
+        message: ClassVar[str] = (
+            "Control flow statements (e.g. loops and branches) are not allowed in "
+            "daggered contexts."
+        )

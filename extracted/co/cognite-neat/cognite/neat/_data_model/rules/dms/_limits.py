@@ -1,0 +1,392 @@
+"""Validators for checking if defined data model is within CDF DMS schema limits."""
+
+from typing import Literal
+
+from cognite.neat._data_model.models.dms._container import ContainerRequest
+from cognite.neat._data_model.models.dms._data_types import EnumProperty, ListablePropertyTypeDefinition
+from cognite.neat._data_model.models.dms._indexes import BtreeIndex, InvertedIndex
+from cognite.neat._data_model.models.dms._view_property import (
+    ViewCorePropertyRequest,
+)
+from cognite.neat._data_model.rules.dms._base import (
+    DataModelRule,
+)
+from cognite.neat._issues import Recommendation
+
+BASE_CODE = "NEAT-DMS-LIMITS"
+
+
+class DataModelViewCountIsOutOfLimits(DataModelRule):
+    """Validates that the data model does not exceed the maximum number of views.
+
+    ## What it does
+    This validator checks that the total number of views referenced by the data model
+    does not exceed the limit defined in the CDF project.
+
+    ## Why is this bad?
+    CDF enforces limits on the number of views per data model to ensure optimal performance
+    and resource utilization.
+
+    ## Example
+    If the CDF project has a limit of 100 views per data model, and the data model
+    references 120 views, this validator will raise a ConsistencyError issue.
+
+    """
+
+    code = f"{BASE_CODE}-DATA-MODEL-001"
+    issue_type = Recommendation
+
+    def validate(self) -> list[Recommendation]:
+        recommendations: list[Recommendation] = []
+
+        if self.validation_resources.merged_data_model.views is None:
+            recommendations.append(
+                Recommendation(
+                    message="The data model does not have any views. This means it is not a data model.",
+                    code=self.code,
+                    fix=(
+                        "Data model should have at least 1 and no more than"
+                        f" {self.validation_resources.limits.data_models.views} views."
+                    ),
+                )
+            )
+
+        elif (
+            len(self.validation_resources.merged_data_model.views) > self.validation_resources.limits.data_models.views
+        ):
+            recommendations.append(
+                Recommendation(
+                    message=(
+                        f"The data model references {len(self.validation_resources.merged_data_model.views)} views, "
+                        "which exceeds the limit of "
+                        f"{self.validation_resources.limits.data_models.views} views per data model."
+                    ),
+                    code=self.code,
+                    fix=(
+                        "Data model should have at least 1 and no more than"
+                        f" {self.validation_resources.limits.data_models.views} views."
+                    ),
+                )
+            )
+        return recommendations
+
+
+### View level limits
+
+
+class ViewPropertyCountIsOutOfLimits(DataModelRule):
+    """Validates that a view does not exceed the maximum number of properties.
+
+    ## What it does
+    Checks that the view has no more properties than the CDF limit allows.
+
+    ## Why is this bad?
+    CDF enforces limits on the number of properties per view to ensure optimal performance.
+
+    ## Example
+    If a view has 150 properties and the CDF limit is 100 properties per view,
+    this validator will raise a ConsistencyError issue.
+    """
+
+    code = f"{BASE_CODE}-VIEW-001"
+    issue_type = Recommendation
+
+    def validate(self) -> list[Recommendation]:
+        recommendations: list[Recommendation] = []
+
+        for view_ref in self.validation_resources.merged_data_model.views or []:
+            # will be captured by a specific validator
+            if not (view := self.validation_resources.expand_view_properties(view_ref)):
+                continue
+
+            if view.properties and len(view.properties) > self.validation_resources.limits.views.properties:
+                recommendations.append(
+                    Recommendation(
+                        message=(
+                            f"View {view_ref!s} has {len(view.properties)} properties,"
+                            " which exceeds the limit of "
+                            f"{self.validation_resources.limits.views.properties} properties per view."
+                        ),
+                        code=self.code,
+                        fix=(
+                            "View should have at least 1 and no more than"
+                            f" {self.validation_resources.limits.views.properties} properties."
+                        ),
+                    )
+                )
+
+            elif not view.properties:
+                recommendations.append(
+                    Recommendation(
+                        message=(
+                            f"View {view_ref!s} does "
+                            "not have any properties defined, either directly or through implements."
+                        ),
+                        code=self.code,
+                        fix=(
+                            "View should have at least 1 and no more than"
+                            f" {self.validation_resources.limits.views.properties} properties."
+                        ),
+                    )
+                )
+
+        return recommendations
+
+
+class ViewContainerCountIsOutOfLimits(DataModelRule):
+    """Validates that a view does not reference too many containers.
+
+    ## What it does
+    Checks that the view references no more containers than the CDF limit allows.
+
+    ## Why is this bad?
+    Mapping too many containers to a single view can lead to performance issues to increasing number of joins
+    that need to be performed when querying data through the view.
+
+    ## Example
+    If a view references 20 containers and the CDF limit is 10 containers per view,
+    this validator will raise a Recommendation.
+    """
+
+    code = f"{BASE_CODE}-VIEW-002"
+    issue_type = Recommendation
+
+    def validate(self) -> list[Recommendation]:
+        recommendations: list[Recommendation] = []
+
+        # Single loop over all views
+        for view_ref in self.validation_resources.merged_data_model.views or []:
+            # will be captured by a specific validator
+            if not (view := self.validation_resources.expand_view_properties(view_ref)):
+                continue
+
+            if view.properties:
+                count = len(
+                    {
+                        prop.container
+                        for prop in view.properties.values()
+                        if (isinstance(prop, ViewCorePropertyRequest) and prop.container)
+                    }
+                )
+                if count > self.validation_resources.limits.views.containers:
+                    recommendations.append(
+                        Recommendation(
+                            message=(
+                                f"View {view_ref!s} references "
+                                f"{count} containers, which exceeds a common sense limit of "
+                                f"{self.validation_resources.limits.views.containers} containers per view."
+                            ),
+                            code=self.code,
+                            fix=(
+                                "Reduce the number of containers referenced by the view by consolidating properties"
+                                " into fewer containers or refactoring the view to reference fewer containers."
+                            ),
+                        )
+                    )
+
+        return recommendations
+
+
+class ViewImplementsCountIsOutOfLimits(DataModelRule):
+    """Validates that a view does not implement too many other views.
+
+    ## What it does
+    Checks that the view implements no more views than the CDF limit allows.
+
+    ## Why is this bad?
+    CDF enforces limits on the number of implemented views to prevent overly deep inheritance hierarchies.
+
+    ## Example
+    If a view implements 15 other views and the CDF limit is 10 implemented views per view,
+    this validator will raise a Recommendation issue.
+    """
+
+    code = f"{BASE_CODE}-VIEW-003"
+    issue_type = Recommendation
+
+    def validate(self) -> list[Recommendation]:
+        recommendations: list[Recommendation] = []
+
+        # Single loop over all views
+        for view_ref in self.validation_resources.merged_data_model.views or []:
+            ancestors = self.validation_resources.view_ancestors(view_ref)
+            if ancestors and len(ancestors) > self.validation_resources.limits.views.implements:
+                recommendations.append(
+                    Recommendation(
+                        message=(
+                            f"View {view_ref!s} implements {len(ancestors)} views,"
+                            " which exceeds the limit of"
+                            f" {self.validation_resources.limits.views.implements} implemented views per view."
+                        ),
+                        code=self.code,
+                        fix=(
+                            "Reduce the number of implemented views by "
+                            "refactoring the view hierarchy or consolidating views."
+                        ),
+                    )
+                )
+        return recommendations
+
+
+### Container level limits
+
+
+class ContainerPropertyCountIsOutOfLimits(DataModelRule):
+    """Validates that a container does not exceed the maximum number of properties.
+
+    ## What it does
+    Checks that the container has no more properties than the CDF limit allows.
+
+    ## Why is this bad?
+    CDF enforces limits on the number of properties per container to ensure optimal performance
+    and prevent PostGres tables that have too many columns.
+
+    ## Example
+    If a container has 150 properties and the CDF limit is 100 properties per container,
+    this validator will raise a Recommendation issue.
+    """
+
+    code = f"{BASE_CODE}-CONTAINER-001"
+    issue_type = Recommendation
+
+    def validate(self) -> list[Recommendation]:
+        recommendations: list[Recommendation] = []
+        # Single loop over all containers
+        for container_ref in self.validation_resources.merged.containers:
+            container = self.validation_resources.select_container(container_ref)
+            limit = self.validation_resources.limits.containers.properties.limit_per_container
+
+            if not container:
+                raise RuntimeError(
+                    f"{type(self).__name__}: Container {container_ref!s} "
+                    "not found in local resources. This is a bug in NEAT."
+                )
+
+            if container.properties and len(container.properties) > limit:
+                recommendations.append(
+                    Recommendation(
+                        message=(
+                            f"Container {container_ref!s} has {len(container.properties)} properties, "
+                            "which exceeds the default limit of "
+                            f"{limit} "
+                            "properties per container."
+                        ),
+                        fix=f"Container must have at least 1 and no more than {limit} properties.",
+                        code=self.code,
+                    )
+                )
+            elif not container.properties:
+                recommendations.append(
+                    Recommendation(
+                        message=(f"Container {container_ref!s} does not have any properties defined."),
+                        fix=f"Container must have at least 1 and no more than {limit} properties.",
+                        code=self.code,
+                    )
+                )
+
+        return recommendations
+
+
+class ContainerPropertyListSizeIsOutOfLimits(DataModelRule):
+    """Validates that container property list sizes do not exceed CDF limits.
+
+    ## What it does
+    Checks that list-type properties (max_list_size) do not exceed the appropriate limit based on:
+    - Data type (Int32, Int64, DirectRelation, etc.)
+    - Presence of btree index
+    - Default vs maximum limits
+
+    ## Why is this bad?
+    CDF enforces different list size limits for different data types and indexing configurations
+    to ensure optimal performance and prevent resource exhaustion.
+
+    ## Example
+    If a DirectRelation property has max_list_size=2000 with a btree index, but the limit
+    is 1000 for indexed DirectRelations, this validator will raise a Recommendation issue.
+
+    ## Note
+    Enum properties are skipped as they have a separate 32-value limit checked during read time of data model to neat
+    as a SyntaxError check.
+    """
+
+    code = f"{BASE_CODE}-CONTAINER-002"
+    issue_type = Recommendation
+
+    def validate(self) -> list[Recommendation]:
+        recommendations: list[Recommendation] = []
+
+        # Single loop over all containers
+        for container_ref in self.validation_resources.merged.containers:
+            container = self.validation_resources.select_container(container_ref)
+
+            if not container:
+                raise RuntimeError(
+                    f"{type(self).__name__}: Container {container_ref!s} "
+                    "not found in local resources. This is a bug in NEAT."
+                )
+
+            properties_by_index_type = self.container_property_by_index_type(container)
+
+            for property_id, property_ in container.properties.items():
+                type_ = property_.type
+
+                # Skip enum properties (have separate 32-value limit)
+                if isinstance(type_, EnumProperty):
+                    continue
+
+                # Only check listable properties with max_list_size set
+                if not isinstance(type_, ListablePropertyTypeDefinition) or type_.max_list_size is None:
+                    continue
+
+                has_btree_index = property_id in properties_by_index_type[BtreeIndex.model_fields["index_type"].default]
+                limit = self.validation_resources.limits.containers.properties.listable(type_, has_btree_index)
+
+                if type_.max_list_size > limit:
+                    recommendations.append(
+                        Recommendation(
+                            message=(
+                                f"Container {container_ref!s} has property {property_id} with list size "
+                                f"{type_.max_list_size}, which exceeds the limit of {limit} "
+                                f"for data type {type_.__class__.__name__}."
+                            ),
+                            code=self.code,
+                        )
+                    )
+
+        return recommendations
+
+    @staticmethod
+    def container_property_by_index_type(container: ContainerRequest) -> dict[Literal["btree", "inverted"], list]:
+        """Map container properties to their index types for limit validation.
+
+        Categorizes container properties by their index configuration:
+        - "btree": Properties with btree indexes (have stricter list size limits)
+        - "inverted": Properties with inverted indexes
+
+        This mapping is used to determine the appropriate list size limit for
+        each property based on whether it has a btree index.
+
+        Args:
+            container: The container to analyze.
+
+        Returns:
+            Dictionary with index type strings as keys and lists of property identifiers
+            as values. Returns empty lists for both index types if container has no indexes.
+        """
+
+        container_property_by_index_type: dict[Literal["btree", "inverted"], list] = {
+            BtreeIndex.model_fields["index_type"].default: [],
+            InvertedIndex.model_fields["index_type"].default: [],
+        }
+        if not container.indexes:
+            return container_property_by_index_type
+
+        for index in container.indexes.values():
+            if isinstance(index, BtreeIndex):
+                container_property_by_index_type[BtreeIndex.model_fields["index_type"].default].extend(index.properties)
+            elif isinstance(index, InvertedIndex):
+                container_property_by_index_type[InvertedIndex.model_fields["index_type"].default].extend(
+                    index.properties
+                )
+
+        return container_property_by_index_type

@@ -1,0 +1,192 @@
+---
+name: swarm_supervisor_orchestrator
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: orchestrator
+node_version: {major: 1, minor: 0, patch: 0}
+dependency_ownership:
+  - event_bus
+
+description: >
+  Self-healing swarm supervisor for overnight autonomous agent sessions.
+  Polls worker heartbeats, detects context exhaustion (>80% usage), zombies
+  (>10min silence), and false-completion (task marked done but PR not merged).
+  Auto-respawns failed workers with narrower scope via TaskCreate events.
+  Logs all respawn decisions to .onex_state/swarm_supervisor/.
+
+# OMN-18013 / OMN-16939: one entry per topic, each declaring its own message_category.
+handler_routing:
+  routing_strategy: topic_match
+  handlers:
+    - topic: onex.cmd.omnimarket.swarm-supervisor-orchestrator-start.v1
+      message_category: command
+      operation: swarm_supervisor
+      handler:
+        name: HandlerSwarmSupervisorOrchestrator
+        module: omnimarket.nodes.node_swarm_supervisor_orchestrator.handlers.handler_swarm_supervisor_orchestrator
+      event_model:
+        name: ModelSwarmSupervisorStartCommand
+        module: omnimarket.nodes.node_swarm_supervisor_orchestrator.models.model_swarm_supervisor_start_command
+
+descriptor:
+  node_archetype: orchestrator
+  purity: effectful
+  idempotent: false
+  timeout_ms: 43200000
+  runtime_profiles:
+    - effects
+
+inputs:
+  correlation_id:
+    type: uuid
+    description: "Unique supervisor session ID"
+    required: true
+  poll_interval_seconds:
+    type: int
+    description: "Heartbeat poll interval in seconds"
+    required: false
+    default: 300
+  zombie_threshold_seconds:
+    type: int
+    description: "Seconds of silence before a worker is considered a zombie"
+    required: false
+    default: 600
+  context_exhaustion_pct:
+    type: float
+    description: "Context usage fraction that triggers respawn (0.0–1.0)"
+    required: false
+    default: 0.80
+  max_respawn_attempts:
+    type: int
+    description: "Maximum respawn attempts per worker before abandoning"
+    required: false
+    default: 3
+  dry_run:
+    type: bool
+    description: "Log respawn decisions without actually spawning"
+    required: false
+    default: false
+  worker_ids:
+    type: list
+    description: "List of worker task IDs to supervise (empty = all active)"
+    required: false
+    default: []
+
+outputs:
+  overall_status:
+    type: str
+    description: "complete | halted | failed"
+  workers_supervised:
+    type: int
+    description: "Total number of distinct workers observed"
+  respawns_issued:
+    type: int
+    description: "Number of respawn commands published"
+  zombies_detected:
+    type: int
+    description: "Workers classified as zombie at any point"
+  false_completions_detected:
+    type: int
+    description: "Workers marked done but PR not yet merged"
+
+terminal_event: onex.evt.omnimarket.swarm-supervisor-orchestrator-completed.v1
+
+event_bus:
+  # OMN-18013: the topic(s) removed here were declared subscriptions with NO handler
+  # branch anywhere in this node -- handler_swarm_supervisor_orchestrator.py:168 SIMULATES a heartbeat poll cycle from
+  # the start command and says so in its own comment; no contract anywhere publishes this
+  # topic either, so it was starved on both sides. A declared subscription with no
+  # dispatcher is consumed, DLQ'd and COMMITTED on every message while the consumer
+  # group reads Stable / LAG 0, so the declaration was worse than its absence.
+  subscribe_topics:
+    - onex.cmd.omnimarket.swarm-supervisor-orchestrator-start.v1
+  publish_topics:
+    - onex.evt.omnimarket.swarm-supervisor-orchestrator-completed.v1
+    - onex.evt.omnimarket.swarm-supervisor-respawn-issued.v1
+    - onex.cmd.omnimarket.build-dispatch-effect-start.v1
+
+state_machine:
+  version: {major: 1, minor: 0, patch: 0}
+  state_machine_name: swarm_supervisor_orchestrator
+  state_machine_version: {major: 1, minor: 0, patch: 0}
+  description: "Swarm supervisor session: supervise workers until they are terminal, halt on a halt signal, fail on any other exception."
+  initial_state: IDLE
+  terminal_states: [COMPLETE, HALTED, FAILED]
+  error_states: [FAILED]
+  states:
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: IDLE
+      state_type: operational
+      description: "No session started."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: SUPERVISING
+      state_type: operational
+      description: "Supervision loop running."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: COMPLETE
+      state_type: terminal
+      description: "All workers terminal or the session ended."
+      is_terminal: true
+      is_recoverable: false
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: HALTED
+      state_type: terminal
+      description: "Unrecoverable error or respawn budget exceeded."
+      is_terminal: true
+      is_recoverable: false
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: FAILED
+      state_type: terminal
+      description: "Unhandled exception."
+      is_terminal: true
+      is_recoverable: false
+  transitions:
+    # start command received
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: idle_to_supervising
+      from_state: IDLE
+      to_state: SUPERVISING
+      trigger: start_received
+    # all workers terminal or session ended
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: supervising_to_complete
+      from_state: SUPERVISING
+      to_state: COMPLETE
+      trigger: workers_terminal
+    # unrecoverable error or max respawns exceeded globally
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: supervising_to_halted
+      from_state: SUPERVISING
+      to_state: HALTED
+      trigger: halt_signal
+    # unhandled exception
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: supervising_to_failed
+      from_state: SUPERVISING
+      to_state: FAILED
+      trigger: unhandled_exception
+
+metadata:
+  transport_type: kafka
+  description: "Swarm supervisor — heartbeat polling, zombie detection, auto-respawn"
+  author: "OmniNode Platform Team"
+  created: "2026-04-13"
+  tags:
+    - "swarm"
+    - "supervisor"
+    - "orchestrator"
+    - "overnight"
+    - "self-healing"
+    - "insights-task5"
+  related_tickets:
+    - "insights-task5"
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.swarm-supervisor-orchestrator-start.v1
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.cmd.omnimarket.build-dispatch-effect-start.v1
+  - onex.evt.omnimarket.swarm-supervisor-orchestrator-completed.v1
+  - onex.evt.omnimarket.swarm-supervisor-respawn-issued.v1

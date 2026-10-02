@@ -1,6 +1,7 @@
 """
 Functionality for formatting output strings for Clouds
 """
+
 import json
 from typing import List
 

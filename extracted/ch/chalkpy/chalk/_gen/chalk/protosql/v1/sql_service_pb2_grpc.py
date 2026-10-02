@@ -71,19 +71,21 @@ class SqlServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def GetOfflineQueryInputs(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """Deprecated: returns UNIMPLEMENTED. Query the offline query's data with ChalkSQL
+        (ExecuteSqlQuery) and get_dataset_revision / get_dataset_givens instead.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
     def GetOfflineQueryPreview(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """Deprecated: returns UNIMPLEMENTED; see GetOfflineQueryInputs."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
     def GetOfflineQueryStats(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """Deprecated: returns UNIMPLEMENTED; see GetOfflineQueryInputs."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")

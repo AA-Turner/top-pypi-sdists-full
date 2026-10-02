@@ -1,19 +1,13 @@
 """Reconcile SGLang router /workers with dstack's ready worker replicas (async, SSH-tunneled)."""
 
 import json
+from dataclasses import dataclass
 from typing import Any, List, Literal, Optional, TypedDict
 from urllib.parse import urlsplit, urlunsplit
 
 import grpc
 from google.protobuf.json_format import MessageToDict
-from httpx import (
-    AsyncClient,
-    ConnectError,
-    ConnectTimeout,
-    ReadTimeout,
-    RemoteProtocolError,
-    Response,
-)
+from httpx import AsyncClient, RequestError, Response
 from smg_grpc_proto import (
     sglang_scheduler_pb2,
     sglang_scheduler_pb2_grpc,
@@ -30,7 +24,6 @@ from dstack._internal.server.models import JobModel, RunModel
 from dstack._internal.server.services.jobs import get_job_provisioning_data, get_job_spec
 from dstack._internal.server.services.jobs.job_replica_grpc_client import (
     get_service_replica_grpc_channel_over_uds,
-    get_service_replica_grpc_client,
 )
 from dstack._internal.server.services.jobs.job_replica_http_client import (
     get_service_replica_client,
@@ -45,13 +38,14 @@ from .service_router_worker_sync import run_spec_has_sglang_router_replica_group
 
 logger = get_logger(__name__)
 
-_ROUTER_HTTP = "http://dstack"
-_ROUTER_HTTP_TIMEOUT = 10.0
+# Requests are made over a UDS tunnel to the replica, so the authority is a placeholder.
+_HTTP_BASE_URL = "http://dstack"
+_HTTP_TIMEOUT = 10.0
 _MAX_SERVER_INFO_RESPONSE_BYTES = 256 * 1024
 _MAX_WORKERS_RESPONSE_BYTES = 2 * 1024 * 1024
 _MAX_WORKERS_COMMAND_ACK_BYTES = 64 * 1024
 _MAX_WORKERS_LIST_ITEMS = 8192
-_GRPC_DISCOVERY_TIMEOUT = 30.0
+_GRPC_TIMEOUT = 30.0
 
 
 class _ResponseTooLargeError(Exception):
@@ -75,7 +69,7 @@ async def _request_json_limited(
     max_response_bytes: int,
     ok_statuses: set[int],
     json_body: Optional[dict] = None,
-    timeout: float = _ROUTER_HTTP_TIMEOUT,
+    timeout: float = _HTTP_TIMEOUT,
 ) -> Any:
     kwargs: dict[str, Any] = {"timeout": timeout}
     if json_body is not None:
@@ -105,24 +99,33 @@ async def _request_json_limited(
         return None
 
 
+# https://github.com/smg-project/smg/blob/3be823a700fabaff3add8a390cf78f163479d686/crates/protocols/src/worker.rs#L601
+# Only fields used to register a worker (POST /workers) are included
 class _TargetWorker(TypedDict):
     url: str
-    worker_type: str
-    bootstrap_port: NotRequired[Optional[int]]
-    connection_mode: NotRequired[str]
-    runtime_type: NotRequired[str]
+    worker_type: "_WorkerType"
+    connection_mode: "_ConnectionMode"
+    runtime_type: "_RuntimeType"
+    bootstrap_port: NotRequired[int]
     kv_connector: NotRequired[str]
     kv_role: NotRequired[str]
 
 
-class _WorkerPayloadResult(TypedDict):
-    status: Literal["ready", "not_ready"]
-    worker: Optional[_TargetWorker]
+# https://github.com/smg-project/smg/blob/3be823a700fabaff3add8a390cf78f163479d686/crates/protocols/src/worker.rs#L29
+# Only types we support are included
+_WorkerType = Literal["regular", "prefill", "decode"]
 
+# https://github.com/smg-project/smg/blob/3be823a700fabaff3add8a390cf78f163479d686/crates/protocols/src/worker.rs#L76
+# Only modes we support are included
+_ConnectionMode = Literal["http", "grpc"]
+# The order does matter -- we discover connection modes in the specified order
+_CONNECTION_MODES: tuple[_ConnectionMode, ...] = ("http", "grpc")
 
-_ConnectionMode = Literal["grpc", "http"]
+# https://github.com/smg-project/smg/blob/3be823a700fabaff3add8a390cf78f163479d686/crates/protocols/src/worker.rs#L227
+# Only types we support are included
 _RuntimeType = Literal["sglang", "vllm"]
-_GRPC_RUNTIME_TYPES: tuple[_RuntimeType, ...] = ("sglang", "vllm")
+# The order does matter -- we discover runtime types in the specified order
+_RUNTIME_TYPES: tuple[_RuntimeType, ...] = ("sglang", "vllm")
 
 
 def run_model_has_sglang_router_replica_group(run_model: RunModel) -> bool:
@@ -130,20 +133,17 @@ def run_model_has_sglang_router_replica_group(run_model: RunModel) -> bool:
     return run_spec_has_sglang_router_replica_group(run_spec)
 
 
-def _get_router_job(run_model: RunModel, router_group: ReplicaGroup) -> Optional[JobModel]:
+def _get_router_jobs(run_model: RunModel, router_group: ReplicaGroup) -> List[JobModel]:
     group_name = router_group.name
     assert group_name is not None, "Replica group name is set by validation"
-    router_jobs = [
+    # The router group is validated to have `replicas: 1`, but a rolling deployment runs the
+    # replacement router alongside the old one until the old one is scaled down. Every running
+    # router is synced, otherwise the replacement has no workers until the old one is gone.
+    return [
         j
         for j in run_model.jobs
         if job_belongs_to_group(j, group_name) and j.status == JobStatus.RUNNING
     ]
-    if not router_jobs:
-        return None
-    # Router replica group is currently validated to have count=1, so we assume a single active
-    # router job here. When we support multiple router replicas for HA, this should be updated
-    # to handle syncing across all active router jobs.
-    return router_jobs[0]
 
 
 def _normalize_worker_url(url: str) -> str:
@@ -183,7 +183,7 @@ def _get_runtime_type_from_workers(
         if worker.get("connection_mode") != "grpc":
             continue
         runtime_type = worker.get("runtime_type")
-        if isinstance(runtime_type, str) and runtime_type in _GRPC_RUNTIME_TYPES:
+        if isinstance(runtime_type, str) and runtime_type in _RUNTIME_TYPES:
             runtimes.add(runtime_type)
     if runtimes == {"sglang"}:
         return "sglang"
@@ -192,45 +192,25 @@ def _get_runtime_type_from_workers(
     return None
 
 
-def _is_expected_router_workers_fetch_error(error: Exception) -> bool:
-    """SMG router may not accept HTTP yet during startup."""
-    if isinstance(
-        error,
-        (
-            RemoteProtocolError,
-            ConnectError,
-            ConnectTimeout,
-            ReadTimeout,
-            TimeoutError,
-        ),
-    ):
-        return True
-    if isinstance(error, OSError) and error.errno in {61, 111}:
-        return True
-    return False
-
-
-def _log_router_workers_fetch_failure(error: Exception) -> None:
-    if _is_expected_router_workers_fetch_error(error):
-        logger.debug("Router /workers not ready yet: %r", error)
-        return
-    logger.exception("Error getting router /workers")
-
-
-async def _get_router_workers(client: AsyncClient) -> List[dict]:
+async def _get_router_workers(client: AsyncClient) -> Optional[List[dict]]:
     try:
         data = await _request_json_limited(
             client,
             "GET",
-            f"{_ROUTER_HTTP}/workers",
+            f"{_HTTP_BASE_URL}/workers",
             max_response_bytes=_MAX_WORKERS_RESPONSE_BYTES,
             ok_statuses={200},
         )
         if not isinstance(data, dict):
-            return []
-        workers = data.get("workers", [])
+            # Non-200 status or unparsable response or response is not a JSON object
+            return None
+        workers = data.get("workers")
         if not isinstance(workers, list):
-            return []
+            # Unexpected response structure -- `workers` is missing or is not an array
+            return None
+        # TODO: Truncating a long list and/or dropping unexpectedly shaped items doesn't seem
+        # right. We should add validation (an item must be a dict with some required fields, see
+        # _get_workers_diff) and decide what to do with a partially valid list
         if len(workers) > _MAX_WORKERS_LIST_ITEMS:
             logger.warning(
                 "Router /workers list exceeds %s items, truncating",
@@ -240,49 +220,31 @@ async def _get_router_workers(client: AsyncClient) -> List[dict]:
         return [w for w in workers if isinstance(w, dict)]
     except _ResponseTooLargeError:
         logger.warning("Router /workers response exceeded size limit")
-    except Exception as e:
-        _log_router_workers_fetch_failure(e)
-    return []
+    except RequestError as e:
+        logger.debug("Router /workers not ready yet: %r", e)
+    return None
 
 
-async def _add_worker_to_router(
-    client: AsyncClient,
-    url: str,
-    worker_type: str = "regular",
-    bootstrap_port: Optional[int] = None,
-    *,
-    connection_mode: Optional[str] = None,
-    runtime_type: Optional[str] = None,
-    kv_connector: Optional[str] = None,
-    kv_role: Optional[str] = None,
-) -> bool:
+async def _add_worker_to_router(client: AsyncClient, worker: _TargetWorker) -> bool:
+    url = worker["url"]
     try:
-        payload: dict = {"url": url, "worker_type": worker_type}
-        if bootstrap_port is not None:
-            payload["bootstrap_port"] = bootstrap_port
-        if connection_mode is not None:
-            payload["connection_mode"] = connection_mode
-        if runtime_type is not None:
-            payload["runtime_type"] = runtime_type
-        if kv_connector is not None:
-            payload["kv_connector"] = kv_connector
-        if kv_role is not None:
-            payload["kv_role"] = kv_role
         body = await _request_json_limited(
             client,
             "POST",
-            f"{_ROUTER_HTTP}/workers",
+            f"{_HTTP_BASE_URL}/workers",
             max_response_bytes=_MAX_WORKERS_COMMAND_ACK_BYTES,
             ok_statuses={202},
-            json_body=payload,
+            json_body=dict(worker),
         )
-        return isinstance(body, dict) and body.get("status") == "accepted"
+        added = isinstance(body, dict) and body.get("status") == "accepted"
+        if not added:
+            logger.warning("Unexpected add-worker response for %s: %s", url, body)
+        return added
     except _ResponseTooLargeError:
         logger.warning("Router add-worker response exceeded size limit for %s", url)
-        return False
-    except Exception:
-        logger.exception("Error adding worker %s", url)
-        return False
+    except RequestError as e:
+        logger.warning("Error adding worker %s: %r", url, e)
+    return False
 
 
 async def _remove_worker_from_router_by_id(
@@ -292,66 +254,75 @@ async def _remove_worker_from_router_by_id(
         body = await _request_json_limited(
             client,
             "DELETE",
-            f"{_ROUTER_HTTP}/workers/{worker_id}",
+            f"{_HTTP_BASE_URL}/workers/{worker_id}",
             max_response_bytes=_MAX_WORKERS_COMMAND_ACK_BYTES,
             ok_statuses={202},
         )
-        return isinstance(body, dict) and body.get("status") == "accepted"
+        removed = isinstance(body, dict) and body.get("status") == "accepted"
+        if not removed:
+            logger.warning("Unexpected remove-worker response for %s: %s", worker_url, body)
+        return removed
     except _ResponseTooLargeError:
         logger.warning("Router remove-worker response exceeded size limit for %s", worker_url)
-        return False
-    except Exception:
-        logger.exception("Error removing worker %s", worker_url)
-        return False
+    except RequestError as e:
+        logger.warning("Error removing worker %s: %r", worker_url, e)
+    return False
 
 
-async def _update_workers_in_router_replica(
-    client: AsyncClient,
-    target_workers: List[_TargetWorker],
-    *,
-    current_workers: List[dict],
-) -> None:
-    current_urls: set[str] = set()
-    current_ids_by_norm_url: dict[str, str] = {}
+@dataclass
+class _WorkersDiff:
+    to_add: List[_TargetWorker]
+    to_remove: dict[str, Optional[str]]
+    """Normalized worker URL to the router's worker id, `None` if the router reported none"""
+
+    def is_empty(self) -> bool:
+        return not self.to_add and not self.to_remove
+
+
+def _get_workers_diff(
+    target_workers: List[_TargetWorker], current_workers: List[dict]
+) -> _WorkersDiff:
+    current_ids_by_norm_url: dict[str, Optional[str]] = {}
     for w in current_workers:
         u = w.get("url")
         if not isinstance(u, str) or not u:
             continue
         norm_u = _normalize_worker_url(u)
-        current_urls.add(norm_u)
         wid = w.get("id")
         if isinstance(wid, str) and wid:
             current_ids_by_norm_url[norm_u] = wid
-    target_by_norm = {_normalize_worker_url(t["url"]): t for t in target_workers}
-    target_urls = set(target_by_norm.keys())
-    to_add = sorted(target_urls - current_urls)
-    to_remove = sorted(current_urls - target_urls)
-    for norm_url in to_add:
-        tw = target_by_norm[norm_url]
-        ok = await _add_worker_to_router(
-            client,
-            tw["url"],
-            tw["worker_type"],
-            tw.get("bootstrap_port"),
-            connection_mode=tw.get("connection_mode"),
-            runtime_type=tw.get("runtime_type"),
-            kv_connector=tw.get("kv_connector"),
-            kv_role=tw.get("kv_role"),
-        )
-        if not ok:
-            logger.warning("Failed to add worker %s, continuing with others", tw["url"])
-    for url in to_remove:
-        wid = current_ids_by_norm_url.get(url)
-        if not wid:
-            logger.error("No worker id found for url %s", url)
-            ok = False
         else:
-            ok = await _remove_worker_from_router_by_id(client, wid, worker_url=url)
-        if not ok:
-            logger.warning("Failed to remove worker %s, continuing with others", url)
+            current_ids_by_norm_url.setdefault(norm_u, None)
+    target_by_norm_url = {_normalize_worker_url(t["url"]): t for t in target_workers}
+    to_add = sorted(target_by_norm_url.keys() - current_ids_by_norm_url.keys())
+    to_remove = sorted(current_ids_by_norm_url.keys() - target_by_norm_url.keys())
+    return _WorkersDiff(
+        to_add=[target_by_norm_url[u] for u in to_add],
+        to_remove={u: current_ids_by_norm_url[u] for u in to_remove},
+    )
 
 
-def _vllm_kv_role_to_worker_type(kv_role: str) -> str:
+async def _apply_workers_diff(
+    client: AsyncClient, diff: _WorkersDiff, *, router_job: JobModel
+) -> None:
+    for worker in diff.to_add:
+        if not await _add_worker_to_router(client, worker):
+            logger.debug(
+                "%s: failed to add worker %s, continuing with others",
+                fmt(router_job),
+                worker["url"],
+            )
+    for url, worker_id in diff.to_remove.items():
+        if worker_id is None:
+            logger.error("%s: no worker id found for url %s", fmt(router_job), url)
+            continue
+        if not await _remove_worker_from_router_by_id(client, worker_id, worker_url=url):
+            logger.debug(
+                "%s: failed to remove worker %s, continuing with others", fmt(router_job), url
+            )
+
+
+def _vllm_kv_role_to_worker_type(kv_role: str) -> _WorkerType:
     if kv_role == "kv_producer":
         return "prefill"
     if kv_role == "kv_consumer":
@@ -359,29 +330,29 @@ def _vllm_kv_role_to_worker_type(kv_role: str) -> str:
     return "regular"
 
 
-def _is_expected_grpc_discovery_error(error: Exception) -> bool:
+def _is_expected_grpc_error(error: grpc.aio.AioRpcError) -> bool:
     """Expected while a gRPC worker is still starting or the wrong stub is probed."""
-    if isinstance(error, grpc.aio.AioRpcError):
-        return error.code() in (
-            grpc.StatusCode.UNAVAILABLE,
-            grpc.StatusCode.DEADLINE_EXCEEDED,
-            grpc.StatusCode.UNIMPLEMENTED,
-        )
-    return False
+    return error.code() in (
+        grpc.StatusCode.UNAVAILABLE,
+        grpc.StatusCode.DEADLINE_EXCEEDED,
+        grpc.StatusCode.UNIMPLEMENTED,
+    )
 
 
-async def _probe_http_worker(client: AsyncClient, *, worker_url: str) -> _WorkerPayloadResult:
+async def _probe_http_worker(client: AsyncClient, *, address: str) -> Optional[_TargetWorker]:
+    # The request goes over the tunnel, `worker_url` is the address the router itself dials.
+    worker_url = f"http://{address}"
     try:
         data = await _request_json_limited(
             client,
             "GET",
-            f"{_ROUTER_HTTP}/server_info",
+            f"{_HTTP_BASE_URL}/server_info",
             max_response_bytes=_MAX_SERVER_INFO_RESPONSE_BYTES,
             ok_statuses={200},
         )
         if isinstance(data, dict):
             if data.get("status") != "ready":
-                return {"status": "not_ready", "worker": None}
+                return None
             mode = data.get("disaggregation_mode", "")
             if mode == "prefill":
                 bootstrap_port = data.get("disaggregation_bootstrap_port")
@@ -393,38 +364,25 @@ async def _probe_http_worker(client: AsyncClient, *, worker_url: str) -> _Worker
                 }
                 if bootstrap_port is not None:
                     worker["bootstrap_port"] = bootstrap_port
-                return {"status": "ready", "worker": worker}
+                return worker
             if mode == "decode":
                 return {
-                    "status": "ready",
-                    "worker": {
-                        "url": worker_url,
-                        "worker_type": "decode",
-                        "connection_mode": "http",
-                        "runtime_type": "sglang",
-                    },
-                }
-            return {
-                "status": "ready",
-                "worker": {
                     "url": worker_url,
-                    "worker_type": "regular",
+                    "worker_type": "decode",
                     "connection_mode": "http",
                     "runtime_type": "sglang",
-                },
+                }
+            return {
+                "url": worker_url,
+                "worker_type": "regular",
+                "connection_mode": "http",
+                "runtime_type": "sglang",
             }
     except _ResponseTooLargeError:
         logger.warning("server_info response too large for worker %s", worker_url)
-    except RemoteProtocolError as e:
-        logger.debug("HTTP server_info not available for worker %s: %r", worker_url, e)
-    except Exception as e:
-        logger.exception("Could not fetch server_info for worker %s: %r", worker_url, e)
-    return {"status": "not_ready", "worker": None}
-
-
-async def _get_http_worker(job_model: JobModel, *, worker_url: str) -> _WorkerPayloadResult:
-    async with get_service_replica_client(job_model) as client:
-        return await _probe_http_worker(client, worker_url=worker_url)
+    except RequestError as e:
+        logger.debug("Could not fetch server_info for worker %s: %r", worker_url, e)
+    return None
 
 
 async def _get_grpc_server_info(
@@ -437,22 +395,7 @@ async def _get_grpc_server_info(
     else:
         stub = vllm_engine_pb2_grpc.VllmEngineStub(channel)
         request = vllm_engine_pb2.GetServerInfoRequest()
-    return await stub.GetServerInfo(request, timeout=_GRPC_DISCOVERY_TIMEOUT)
-
-
-async def _discover_grpc_server_info(
-    channel: grpc.aio.Channel,
-) -> tuple[Optional[_RuntimeType], Optional[Any]]:
-    # Bootstrap only: router workers list has no runtime_type yet.
-    for runtime_type in _GRPC_RUNTIME_TYPES:
-        try:
-            response = await _get_grpc_server_info(channel, runtime_type)
-        except Exception as e:
-            if _is_expected_grpc_discovery_error(e):
-                continue
-            raise
-        return runtime_type, response
-    return None, None
+    return await stub.GetServerInfo(request, timeout=_GRPC_TIMEOUT)
 
 
 def _grpc_server_info_to_worker(
@@ -498,81 +441,67 @@ def _grpc_server_info_to_worker(
 async def _probe_grpc_worker(
     channel: grpc.aio.Channel,
     *,
-    worker_url: str,
+    address: str,
     runtime_type: Optional[_RuntimeType] = None,
-) -> _WorkerPayloadResult:
-    if runtime_type is not None:
+) -> Optional[_TargetWorker]:
+    # The RPC goes over the tunnel, `worker_url` is the address the router itself dials.
+    worker_url = f"grpc://{address}"
+    runtime_types: tuple[_RuntimeType, ...]
+    if runtime_type is None:
+        # Bootstrap only: router workers list has no runtime_type yet, should try all
+        runtime_types = _RUNTIME_TYPES
+    else:
+        runtime_types = (runtime_type,)
+    for runtime_type in runtime_types:
         try:
             response = await _get_grpc_server_info(channel, runtime_type)
-        except Exception as e:
-            if _is_expected_grpc_discovery_error(e):
-                logger.debug("gRPC worker %s not ready (GetServerInfo)", worker_url)
-                return {"status": "not_ready", "worker": None}
+            break
+        except grpc.aio.AioRpcError as e:
+            if _is_expected_grpc_error(e):
+                continue
             raise
     else:
-        runtime_type, response = await _discover_grpc_server_info(channel)
-        if runtime_type is None or response is None:
-            logger.debug("gRPC worker %s not ready (GetServerInfo)", worker_url)
-            return {"status": "not_ready", "worker": None}
-
-    worker = _grpc_server_info_to_worker(worker_url, runtime_type, response)
-    return {"status": "ready", "worker": worker}
-
-
-async def _get_grpc_worker(
-    job_model: JobModel,
-    *,
-    worker_url: str,
-    runtime_type: Optional[_RuntimeType] = None,
-) -> _WorkerPayloadResult:
-    try:
-        async with get_service_replica_grpc_client(job_model) as channel:
-            return await _probe_grpc_worker(
-                channel, worker_url=worker_url, runtime_type=runtime_type
-            )
-    except Exception as e:
-        logger.exception(
-            "Could not fetch gRPC GetServerInfo for worker %s: %r",
-            worker_url,
-            e,
-        )
-        return {"status": "not_ready", "worker": None}
+        logger.debug("gRPC worker %s not ready (GetServerInfo)", worker_url)
+        return None
+    return _grpc_server_info_to_worker(worker_url, runtime_type, response)
 
 
 async def _get_worker(
     job_model: JobModel,
     *,
-    http_worker_url: str,
-    grpc_worker_url: str,
+    address: str,
     connection_mode: Optional[_ConnectionMode] = None,
     runtime_type: Optional[_RuntimeType] = None,
-) -> _WorkerPayloadResult:
-    if connection_mode == "grpc":
-        return await _get_grpc_worker(
-            job_model, worker_url=grpc_worker_url, runtime_type=runtime_type
-        )
-    if connection_mode == "http":
-        return await _get_http_worker(job_model, worker_url=http_worker_url)
-    # Router workers list is empty and no connection_mode discovered.
-    async with get_service_replica_tunnel(job_model) as uds_path:
-        async with get_service_replica_http_client_over_uds(uds_path) as client:
-            result = await _probe_http_worker(client, worker_url=http_worker_url)
-        if result["status"] == "ready":
-            return result
-        async with get_service_replica_grpc_channel_over_uds(uds_path) as channel:
-            try:
-                return await _probe_grpc_worker(
-                    channel,
-                    worker_url=grpc_worker_url,
-                    runtime_type=runtime_type,
-                )
-            except Exception as e:
-                logger.exception(
-                    "Could not fetch gRPC GetServerInfo for worker %s: %r",
-                    grpc_worker_url,
-                    e,
-                )
-                return {"status": "not_ready", "worker": None}
+) -> Optional[_TargetWorker]:
+    connection_modes: tuple[_ConnectionMode, ...]
+    if connection_mode is None:
+        # No connection_mode discovered -- should probe all
+        connection_modes = _CONNECTION_MODES
+    else:
+        connection_modes = (connection_mode,)
+    try:
+        async with get_service_replica_tunnel(job_model) as uds_path:
+            for connection_mode in connection_modes:
+                if connection_mode == "grpc":
+                    async with get_service_replica_grpc_channel_over_uds(uds_path) as channel:
+                        worker = await _probe_grpc_worker(
+                            channel, address=address, runtime_type=runtime_type
+                        )
+                elif connection_mode == "http":
+                    async with get_service_replica_http_client_over_uds(uds_path) as client:
+                        worker = await _probe_http_worker(client, address=address)
+                if worker is not None:
+                    return worker
+    except SSHError as e:
+        # An unreachable worker is reported as not ready rather than aborting the sync, so that
+        # one dead replica cannot hold back registration of the healthy ones. The cost is that a
+        # transient failure deregisters a healthy worker until the next sync re-adds it.
+        # TODO: `_get_workers_diff` cannot tell "not serving" from "could not be
+        # reached" -- both mean "absent from the target list", hence "remove". A third, unknown
+        # outcome should be excluded from both `to_add` and `to_remove`, leaving an unreachable
+        # worker as the router last saw it.
+        logger.warning("%s: failed to connect to worker replica: %r", fmt(job_model), e)
+    return None
 
 
 async def _build_target_workers(
@@ -601,28 +530,21 @@ async def _build_target_workers(
             jpd = get_job_provisioning_data(job)
             if jpd is None:
                 continue
-            ip = jpd.internal_ip or jpd.hostname
-            if not ip:
+            hostname = jpd.internal_ip or jpd.hostname
+            if not hostname:
                 continue
             job_spec = get_job_spec(job)
             port = get_service_port(job_spec, config)
-            http_worker_url = f"http://{ip}:{port}"
-            grpc_worker_url = f"grpc://{ip}:{port}"
-            result = await _get_worker(
+            worker = await _get_worker(
                 job,
-                http_worker_url=http_worker_url,
-                grpc_worker_url=grpc_worker_url,
+                address=f"{hostname}:{port}",
                 connection_mode=connection_mode,
                 runtime_type=runtime_type,
             )
-            if result["status"] == "ready" and result["worker"]:
-                workers.append(result["worker"])
-            elif result["status"] == "not_ready":
-                logger.debug(
-                    "Worker not ready http=%s grpc=%s",
-                    http_worker_url,
-                    grpc_worker_url,
-                )
+            if worker is not None:
+                workers.append(worker)
+            else:
+                logger.debug("%s: worker replica not ready", fmt(job))
     return workers
 
 
@@ -636,36 +558,80 @@ async def sync_router_workers_for_run_model(run_model: RunModel) -> None:
     if router_group is None:
         return
 
-    router_job = _get_router_job(run_model, router_group)
-    if router_job is None:
+    router_jobs = _get_router_jobs(run_model, router_group)
+    if not router_jobs:
         logger.debug(
-            "%s: no ready router job in group %s, skipping worker sync",
+            "%s: no running router job in group %s, skipping worker sync",
             fmt(run_model),
             router_group.name,
         )
         return
+    # Probing the workers may take minutes, so no router tunnel is held meanwhile. Each router
+    # is read first, and connected to again only if it needs updating, which in most syncs it
+    # doesn't. An unreachable router is skipped, like an unreachable worker, see `_get_worker`.
+    try:
+        current_workers_by_router: List[tuple[JobModel, List[dict]]] = []
+        for router_job in router_jobs:
+            current_workers = await _get_router_replica_workers(router_job)
+            if current_workers is not None:
+                current_workers_by_router.append((router_job, current_workers))
+        if not current_workers_by_router:
+            logger.debug(
+                "%s: no router in group %s returned its workers, skipping worker sync",
+                fmt(run_model),
+                router_group.name,
+            )
+            return
+        # The hints spare probing connection modes and runtime types that no registered worker
+        # uses. They are taken from all routers, as a router started by a rolling deployment has
+        # no workers yet, which alone would mean "probe everything".
+        all_current_workers = [w for _, workers in current_workers_by_router for w in workers]
+        target_workers = await _build_target_workers(
+            run_model,
+            run_spec,
+            replica_groups,
+            connection_mode=_get_connection_mode_from_workers(all_current_workers),
+            runtime_type=_get_runtime_type_from_workers(all_current_workers),
+        )
+        for router_job, current_workers in current_workers_by_router:
+            if _get_workers_diff(target_workers, current_workers).is_empty():
+                continue
+            await _update_workers_in_router_replica(router_job, target_workers)
+    except Exception:
+        logger.exception("%s: unexpected error when syncing workers with router", fmt(run_model))
+
+
+async def _get_router_replica_workers(router_job: JobModel) -> Optional[List[dict]]:
     try:
         async with get_service_replica_client(router_job) as client:
             current_workers = await _get_router_workers(client)
-            # connection_mode can be grpc or http, runtime_type can be sglang or vllm.
-            connection_mode = _get_connection_mode_from_workers(current_workers)
-            runtime_type = _get_runtime_type_from_workers(current_workers)
-            # Empty current_workers on first sync is expected. First syncprobes both connection_mode and
-            # runtime_type. Subsequent syncs don't need to probe again because connection_mode and runtime_type
-            # is already set in current_workers.
-            target_workers = await _build_target_workers(
-                run_model,
-                run_spec,
-                replica_groups,
-                connection_mode=connection_mode,
-                runtime_type=runtime_type,
-            )
-            await _update_workers_in_router_replica(
-                client, target_workers, current_workers=current_workers
-            )
     except SSHError as e:
-        logger.warning(
-            "%s: failed to sync workers with router: %r",
-            fmt(router_job),
-            e,
-        )
+        _log_router_replica_unreachable(router_job, e)
+        return None
+    if current_workers is None:
+        logger.debug("%s: failed to get current workers from the router", fmt(router_job))
+    return current_workers
+
+
+async def _update_workers_in_router_replica(
+    router_job: JobModel, target_workers: List[_TargetWorker]
+) -> None:
+    try:
+        async with get_service_replica_client(router_job) as client:
+            # Read again: the list this update was decided on was fetched before the workers
+            # were probed, possibly minutes ago.
+            current_workers = await _get_router_workers(client)
+            if current_workers is None:
+                logger.debug("%s: failed to get current workers from the router", fmt(router_job))
+                return
+            diff = _get_workers_diff(target_workers, current_workers)
+            await _apply_workers_diff(client, diff, router_job=router_job)
+    except SSHError as e:
+        _log_router_replica_unreachable(router_job, e)
+
+
+def _log_router_replica_unreachable(router_job: JobModel, error: SSHError) -> None:
+    # Warning is the right level: a job only reaches `RUNNING` after the server has talked to
+    # its runner over SSH, so an unreachable replica is always a regression, never a replica
+    # that has not started yet.
+    logger.warning("%s: failed to sync workers with router: %r", fmt(router_job), error)

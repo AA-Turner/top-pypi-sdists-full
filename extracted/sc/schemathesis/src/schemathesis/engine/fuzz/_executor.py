@@ -180,11 +180,16 @@ def run_forever(ctx: EngineContext, config: FuzzConfig) -> EventGenerator:
     from hypothesis.errors import HypothesisWarning
 
     event_queue: queue.Queue[events.EngineEvent] = queue.Queue()
-    operations = [
-        op.ok()
-        for op in ctx.schema.get_all_operations()
-        if isinstance(op, Ok) and not op.ok().has_skipped_required_body
-    ]
+    operations = []
+    for result in ctx.schema.get_all_operations():
+        if isinstance(result, Ok):
+            if not result.ok().has_skipped_required_body:
+                operations.append(result.ok())
+            continue
+        error = result.err()
+        yield events.NonFatalError(
+            error=error, phase=None, label=error.label, related_to_operation=bool(error.method and error.path)
+        )
     if not operations:
         return
 
@@ -410,6 +415,7 @@ def _run_forever_thread(
                     transport_kwargs=cached.transport_kwargs,
                     recorder=recorder,
                     response_checks=response_checks,
+                    auth_enforced_operations=ctx.auth_enforced_operations,
                 )
                 continue_on_failure = continue_on_failure_by_label[case.operation.label]
                 validate_response(
@@ -456,8 +462,8 @@ def _run_forever_thread(
     except KeyboardInterrupt:
         ctx.stop()
     except FailureGroup:
-        # Failures are already captured
-        pass
+        # Failures are already captured; without `continue-on-failure` the first one ends the whole run.
+        ctx.control.reach_failure_limit()
     except Flaky as exc:
         if ctx.has_to_stop:
             # Deadline-induced data-tree noise; campaign already stopping, suppress.

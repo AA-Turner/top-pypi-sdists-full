@@ -1,0 +1,154 @@
+Metadata-Version: 2.4
+Name: radboy
+Version: 0.1.108
+Summary: A Retail Calculator for Android/Linux
+Author: Carl Joseph Hirner III
+Author-email: Carl Hirner III <k.j.hirner.wisdom@gmail.com>
+License-Expression: GPL-3.0-only
+Project-URL: Homepage, https://google.com
+Project-URL: Issues, https://google.com
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: COPYING
+Requires-Dist: pyzipcode
+Requires-Dist: inputimeout
+Requires-Dist: gdown
+Requires-Dist: biip
+Requires-Dist: sympy
+Requires-Dist: plotext
+Requires-Dist: haversine
+Requires-Dist: holidays
+Requires-Dist: qrcode[pil]
+Requires-Dist: chardet
+Requires-Dist: nanoid
+Requires-Dist: random-password-generator
+Requires-Dist: cython
+Requires-Dist: pint
+Requires-Dist: pyupc-ean
+Requires-Dist: openpyxl
+Requires-Dist: plyer
+Requires-Dist: colored
+Requires-Dist: numpy
+Requires-Dist: pandas
+Requires-Dist: Pillow
+Requires-Dist: python-barcode
+Requires-Dist: qrcode
+Requires-Dist: requests
+Requires-Dist: sqlalchemy
+Requires-Dist: argparse
+Requires-Dist: geocoder
+Requires-Dist: beautifulsoup4
+Requires-Dist: pycryptodome
+Requires-Dist: forecast_weather
+Requires-Dist: boozelib
+Requires-Dist: pint_pandas
+Requires-Dist: xlsxwriter
+Requires-Dist: humanfriendly
+Requires-Dist: num2words
+Provides-Extra: linux
+Requires-Dist: gnureadline; extra == "linux"
+Provides-Extra: android
+Requires-Dist: readline; extra == "android"
+Dynamic: author
+Dynamic: license-file
+Dynamic: requires-python
+
+to use this application at its simplest
+
+`` is deliminates from this text and commands to be executed/or saved
+$text refers to SH/Bash/CmdLine Variable
+
+`pip install radboy==$VERSION`
+
+create a Run.py file and paste the following into it and save
+`#!/usr/bin/env python3
+from pathlib import Path
+ROOTDIR=str(Path().cwd())
+from radboy import RecordMyCodes as rmc
+rmc.quikRn(rootdir=ROOTDIR)`
+
+if you have a backup file created from TasksMode
+
+gunzip it/un-tar
+
+`tar -xvf $backup_file`
+
+run the Run.py file
+
+`python Run.py`
+
+for lookups to be made possible please explore the in-prompt help text as a populated data file is not yet ready for use comsumption.# Radboy
+# Radboy
+
+One you have entered any mode outside of root, after booting, `c` runs calculator mode, which means valid Python modules can be used inline with the formula ntended to be solved.
+
+i.e.
+
+`(1/3)*60`
+`(math.ceil(1/3)*60`
+`(math.factorial(45)/80)`
+
+For General List Making after booting
+`t`
+`mksl`
+`a`
+type $barcode or name of item
+follow prompts
+if you need to enable extra components of mksl, at the root prompt, execute `sysset`
+`sed`
+look through the displayed list and examine the settings for "list maker default" or "pricing default" to set default list maker options
+
+the list maker will be within 1 penny of the retail price due to python's use of floating points. 1 Penny is better than 10 cents but do keep this in mind. CRV follows the formula (Price+CRV)+((Price+CRV)*TAXRate) upon calculation. afterwards, it stores the actual tax not the percent rate. 
+
+Without a CRV, the formula is (Price+CRV)+((Price+CRV)*TAXRate) where CRV=0. So if your state does not use a CRV, CRV will always be 0. This system performs the math on a item by item basis where item=`Product*Qty`
+
+If you wish to use this in a produce/weight basis, then assign price the per lb price, and the qty to be the lb'age of the product.
+
+to list the build list use
+
+`bld` - where qty >=1
+`bld-` - where qty inludes values <= 0
+
+or 
+
+got into fmla utility menu
+`fmla`
+`lse` and follow the prompts
+
+to save your expense report
+`dlu`
+`a`
+
+to clear you list
+`cau`
+
+to save your expense report, and then clear you build list
+`dlu`
+`ca`
+
+to review you expenses
+`dlu`
+cost report
+`cr`
+follow the prompts
+
+or
+
+from `fmla`
+`cr`
+
+you may need to play with you dates as the `fmla` version of cost report utilizes a slightly different date system than `dlu`.
+
+know you reciepts before you hit the register/check stand to catch errors before they catch you.
+
+None is the Python Version of Null/Not A Number. If you encounter None as a value it most likely will be filtered out with FormBuilder. If you need to all FormBuilder fields to None, use `anan`. None can be set to a value using `nan`.
+
+Please, read the helptext, its more useful than if you just read this text. This is a toolbox, with graphing included. 
+
+"You know, Phaedrus, that is the strange thing about writing, which makes it truly correspond to painting. The painter’s products stand before us as though they were alive. But if you question them, they maintain a most majestic silence. It is the same with written words. They seem to talk to you as though they were intelligent, but if you ask them anything about what they say from a desire to be instructed they go on telling just the same thing forever." 
+
+~ Socrates
+
+

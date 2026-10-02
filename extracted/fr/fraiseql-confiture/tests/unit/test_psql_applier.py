@@ -1,0 +1,221 @@
+"""Unit tests for the shared COPY-aware ``psql`` applier.
+
+Covers the argv contract, stdin vs ``-f <path>`` routing, the missing-binary and
+non-zero-exit ``SchemaError`` paths (with credential redaction), and the inline
+``COPY … FROM stdin`` detection predicate used as a safety-net hint.
+"""
+
+from __future__ import annotations
+
+import subprocess
+from pathlib import Path
+from unittest.mock import MagicMock
+
+import pytest
+
+from confiture.core.psql_applier import apply_sql_via_psql, contains_inline_copy
+from confiture.exceptions import SchemaError
+
+_URL = "postgresql://localhost/confiture_db"
+
+
+class TestApplySqlViaPsql:
+    def test_inline_sql_argv_and_stdin(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_run(argv, **kwargs):
+            captured["argv"] = argv
+            captured["input"] = kwargs.get("input")
+            return MagicMock(returncode=0, stdout="", stderr="")
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+
+        apply_sql_via_psql(_URL, "CREATE TABLE t (id int);")
+
+        assert captured["argv"] == [
+            "psql",
+            "-X",
+            "-q",
+            "-v",
+            "ON_ERROR_STOP=1",
+            "-d",
+            _URL,
+            "-f",
+            "-",
+        ]
+        assert captured["input"] == "CREATE TABLE t (id int);"
+
+    def test_sql_file_uses_dash_f_path(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_run(argv, **kwargs):
+            captured["argv"] = argv
+            captured["input"] = kwargs.get("input")
+            return MagicMock(returncode=0, stdout="", stderr="")
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+        seed = tmp_path / "seed_001.sql"
+        seed.write_text("INSERT INTO t VALUES (1);\n")
+
+        apply_sql_via_psql(_URL, sql_file=seed)
+
+        assert captured["argv"][-2:] == ["-f", str(seed)]
+        assert captured["input"] is None
+
+    def test_unreadable_sql_file_is_a_schema_error_before_psql_runs(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        calls: list[object] = []
+        monkeypatch.setattr(subprocess, "run", lambda *a, **k: calls.append(a))
+
+        with pytest.raises(SchemaError, match="Cannot read"):
+            apply_sql_via_psql(_URL, sql_file=tmp_path / "missing.sql")
+
+        assert calls == []
+
+    def test_requires_exactly_one_source(self) -> None:
+        with pytest.raises(ValueError):
+            apply_sql_via_psql(_URL)
+        with pytest.raises(ValueError):
+            apply_sql_via_psql(_URL, "SELECT 1;", sql_file=Path("/tmp/x.sql"))
+
+    def test_missing_psql_raises_schema_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        def fake_run(argv, **kwargs):
+            raise FileNotFoundError("psql")
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+
+        with pytest.raises(SchemaError, match="psql not found"):
+            apply_sql_via_psql(_URL, "SELECT 1;")
+
+    def test_missing_psql_with_copy_hints_at_artifact(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fake_run(argv, **kwargs):
+            raise FileNotFoundError("psql")
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+
+        with pytest.raises(SchemaError) as exc_info:
+            apply_sql_via_psql(_URL, "COPY t FROM stdin;\n1\tx\n\\.\n")
+
+        assert "from-artifact" in (exc_info.value.resolution_hint or "")
+
+    def test_nonzero_exit_redacts_url_and_keeps_stderr_tail(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fake_run(argv, **kwargs):
+            raise subprocess.CalledProcessError(
+                1,
+                "psql",
+                stderr='psql:-:1: ERROR:  syntax error at or near "BAD"',
+            )
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+
+        with pytest.raises(SchemaError) as exc_info:
+            apply_sql_via_psql("postgresql://user:secret@host/db", "BAD;")
+
+        message = str(exc_info.value)
+        assert "syntax error" in message
+        assert "secret" not in message
+        assert "***" in message
+
+    def test_success_returns_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(
+            subprocess,
+            "run",
+            lambda argv, **kwargs: MagicMock(returncode=0, stdout="", stderr=""),
+        )
+        assert apply_sql_via_psql(_URL, "SELECT 1;") is None
+
+    def test_password_kept_off_argv_and_in_pgpassword(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_run(argv, **kwargs):
+            captured["argv"] = argv
+            captured["env"] = kwargs.get("env")
+            return MagicMock(returncode=0, stdout="", stderr="")
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+
+        apply_sql_via_psql("postgresql://user:secret@host/db", "SELECT 1;")
+
+        assert "secret" not in captured["argv"]  # never on the command line
+        assert captured["argv"][6] == "postgresql://user@host/db"  # -d <safe_url>
+        assert captured["env"]["PGPASSWORD"] == "secret"
+
+    def test_sets_synchronous_commit_off_via_pgoptions(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_run(argv, **kwargs):
+            captured["env"] = kwargs.get("env")
+            return MagicMock(returncode=0, stdout="", stderr="")
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+
+        apply_sql_via_psql(_URL, "SELECT 1;")
+
+        env = captured["env"]
+        assert env is not None  # full environment is passed through, not None
+        assert "synchronous_commit=off" in env["PGOPTIONS"]
+
+    def test_preserves_existing_pgoptions(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("PGOPTIONS", "-c statement_timeout=5000")
+        captured: dict[str, object] = {}
+
+        def fake_run(argv, **kwargs):
+            captured["env"] = kwargs.get("env")
+            return MagicMock(returncode=0, stdout="", stderr="")
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+
+        apply_sql_via_psql(_URL, "SELECT 1;")
+
+        pgoptions = captured["env"]["PGOPTIONS"]
+        assert "statement_timeout=5000" in pgoptions
+        assert "synchronous_commit=off" in pgoptions
+
+
+class TestContainsInlineCopy:
+    def test_detects_from_stdin(self) -> None:
+        assert contains_inline_copy("COPY t FROM stdin;")
+
+    def test_detects_with_columns_and_options(self) -> None:
+        assert contains_inline_copy("COPY t (a, b) FROM STDIN WITH (FORMAT csv);")
+
+    def test_server_side_file_not_detected(self) -> None:
+        assert not contains_inline_copy("COPY t FROM '/path/data.csv';")
+
+    def test_line_comment_copy_not_detected(self) -> None:
+        assert not contains_inline_copy("-- COPY t FROM stdin\nSELECT 1;")
+
+    def test_block_comment_copy_not_detected(self) -> None:
+        assert not contains_inline_copy("/* COPY t FROM stdin */\nSELECT 1;")
+
+    def test_plain_ddl_not_detected(self) -> None:
+        assert not contains_inline_copy("CREATE TABLE t (id int);")
+
+    def test_multiline_string_literal_copy_not_detected(self) -> None:
+        # COPY begins a line, but inside a single-quoted string literal.
+        assert not contains_inline_copy(
+            "INSERT INTO doc (body) VALUES ('intro\nCOPY x FROM stdin\nmore');"
+        )
+
+    def test_dollar_quoted_body_copy_not_detected(self) -> None:
+        # COPY begins a line inside a dollar-quoted function body.
+        assert not contains_inline_copy(
+            "CREATE FUNCTION f() RETURNS text AS $body$\nCOPY t FROM stdin\n$body$ LANGUAGE sql;"
+        )
+
+    def test_real_copy_after_a_string_literal_still_detected(self) -> None:
+        # A genuine COPY must still be found even alongside an innocent string.
+        assert contains_inline_copy(
+            "INSERT INTO t VALUES ('hi');\nCOPY t (a) FROM stdin;\n1\n\\.\n"
+        )

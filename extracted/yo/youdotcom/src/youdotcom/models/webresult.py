@@ -1,0 +1,91 @@
+
+
+from __future__ import annotations
+from .contents import Contents, ContentsTypedDict
+from datetime import datetime
+from pydantic import model_serializer
+from typing import List, Optional, Union
+from typing_extensions import NotRequired, TypedDict
+from youdotcom.types import BaseModel, LenientDateTime, UNSET_SENTINEL
+
+
+class WebResultTypedDict(TypedDict):
+    url: NotRequired[str]
+    r"""The URL of the specific search result."""
+    title: NotRequired[str]
+    r"""The title or name of the search result."""
+    description: NotRequired[str]
+    r"""A brief description of the content of the search result."""
+    snippets: NotRequired[List[str]]
+    r"""An array of text snippets from the search result, providing a preview of the content."""
+    thumbnail_url: NotRequired[str]
+    r"""URL of the thumbnail."""
+    page_age: NotRequired[Union[datetime, str]]
+    r"""The age of the search result.
+
+    An ISO 8601 value parses to a ``datetime``; any other value is returned
+    verbatim as the string the API sent. Narrow with ``isinstance`` before
+    using it as a datetime.
+    """
+    contents: NotRequired[ContentsTypedDict]
+    r"""Contents of the page if ``extraction`` was enabled (formerly ``livecrawl``)."""
+    favicon_url: NotRequired[str]
+    r"""The URL of the favicon of the search result's domain."""
+
+
+class WebResult(BaseModel):
+    url: Optional[str] = None
+    r"""The URL of the specific search result."""
+
+    title: Optional[str] = None
+    r"""The title or name of the search result."""
+
+    description: Optional[str] = None
+    r"""A brief description of the content of the search result."""
+
+    snippets: Optional[List[str]] = None
+    r"""An array of text snippets from the search result, providing a preview of the content."""
+
+    thumbnail_url: Optional[str] = None
+    r"""URL of the thumbnail."""
+
+    page_age: LenientDateTime = None
+    r"""The age of the search result.
+
+    An ISO 8601 value parses to a ``datetime``; any other value is returned
+    verbatim as the string the API sent. Narrow with ``isinstance`` before
+    using it as a datetime.
+    """
+
+    contents: Optional[Contents] = None
+    r"""Contents of the page if ``extraction`` was enabled (formerly ``livecrawl``)."""
+
+    favicon_url: Optional[str] = None
+    r"""The URL of the favicon of the search result's domain."""
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "url",
+                "title",
+                "description",
+                "snippets",
+                "thumbnail_url",
+                "page_age",
+                "contents",
+                "favicon_url",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k, serialized.get(n))
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

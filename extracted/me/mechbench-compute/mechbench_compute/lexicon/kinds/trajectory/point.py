@@ -1,0 +1,26 @@
+from __future__ import annotations
+
+from mechbench_compute.lexicon._base import Kind
+from mechbench_compute.lexicon.values import DIST, F
+
+KIND = Kind(
+    "trajectory/point",
+    "One step of a trajectory: the residual vector at one layer and position of one record.",
+    extends="activations/vector",
+    fields={"step": F("integer", "Along positions, the decoding step that reads the position: step k is the "
+                                 "forward pass that writes the k-th generated token, read at p + k − 1 where "
+                                 "generation began at p, so the first generated token's position is step 1. "
+                                 "Along layers, the layer's index in `layers`."),
+            "position": F("integer", "The position read."),
+            "vocab": DIST,
+            "steps": F("array", "The window pooled, when reduced.", items={"type": "integer"})},
+    required=("id", "step", "space", "vector"),
+    key=("id", "step"),
+    header={"axis": "`layers` or `positions`.", "point": "The residual read.", "layers": "The layers.",
+            "position": "For a layers axis: which position.", "positions": "For a positions axis: which positions.",
+            "d_model": "The vector width.",
+            "replay": "`trace`, `text` or `mixed`.", "n_items": "How many records.",
+            "max_steps": "The per-record step cap, when set.", "reduce": "The reduction, when reduced.", "steps": "The window, when reduced."},
+    renderer={"primitive": "table", "field_map": {"rows": "items"}},
+    doc="A projected trajectory is a collection of `activations/coordinate` with `step` and `position`, not a point without its vector.",
+)

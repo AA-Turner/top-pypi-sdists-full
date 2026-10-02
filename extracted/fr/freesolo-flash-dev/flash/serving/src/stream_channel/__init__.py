@@ -1,1 +1,0 @@
-"""Internal cancellable stream transport."""

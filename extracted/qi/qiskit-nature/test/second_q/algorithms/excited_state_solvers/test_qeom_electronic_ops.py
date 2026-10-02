@@ -1,0 +1,113 @@
+# This code is part of a Qiskit project.
+#
+# (C) Copyright IBM 2021, 2026.
+#
+# This code is licensed under the Apache License, Version 2.0. You may
+# obtain a copy of this license in the LICENSE.txt file in the root directory
+# of this source tree or at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# Any modifications or derivative works of this code must retain this
+# copyright notice, and modified files need to carry a notice indicating
+# that they have been altered from the originals.
+
+"""Tests Hopping Operators builder."""
+import unittest
+from test import QiskitNatureTestCase
+
+from qiskit_algorithms.utils import algorithm_globals
+
+from qiskit_nature.units import DistanceUnit
+from qiskit_nature.second_q.mappers import JordanWignerMapper, TaperedQubitMapper
+from qiskit_nature.second_q.drivers import PySCFDriver
+from qiskit_nature.second_q.algorithms.excited_states_solvers.qeom_electronic_ops_builder import (
+    build_electronic_ops,
+)
+import qiskit_nature.optionals as _optionals
+from .resources.expected_qeom_ops import (
+    EXPECTED_HOPPING_OPERATORS_ELECTRONIC,
+    EXPECTED_COMMUTATIVIES_ELECTRONIC,
+    EXPECTED_INDICES_ELECTRONIC,
+)
+
+
+class TestHoppingOpsBuilder(QiskitNatureTestCase):
+    """Tests Hopping Operators builder."""
+
+    @unittest.skipIf(not _optionals.HAS_PYSCF, "pyscf not available.")
+    def setUp(self):
+        super().setUp()
+        algorithm_globals.random_seed = 8
+        self.driver = PySCFDriver(
+            atom="H .0 .0 .0; H .0 .0 0.75",
+            unit=DistanceUnit.ANGSTROM,
+            charge=0,
+            spin=0,
+            basis="sto3g",
+        )
+
+        self.mapper = JordanWignerMapper()
+        self.tapered_mapper = TaperedQubitMapper(JordanWignerMapper())
+        self.electronic_structure_problem = self.driver.run()
+        self.electronic_structure_problem.second_q_ops()
+
+    def test_build_hopping_operators(self):
+        """Tests that the correct hopping operator is built with a qubit mapper."""
+
+        hopping_operators, commutativities, indices = build_electronic_ops(
+            self.electronic_structure_problem.num_spatial_orbitals,
+            self.electronic_structure_problem.num_particles,
+            "sd",
+            self.mapper,
+        )
+
+        with self.subTest("hopping operators"):
+            self.assertEqual(hopping_operators.keys(), EXPECTED_HOPPING_OPERATORS_ELECTRONIC.keys())
+            for key, exp_key in zip(
+                hopping_operators.keys(), EXPECTED_HOPPING_OPERATORS_ELECTRONIC.keys()
+            ):
+                self.assertEqual(key, exp_key)
+                val = hopping_operators[key]
+                exp_val = EXPECTED_HOPPING_OPERATORS_ELECTRONIC[exp_key]
+                if not val.equiv(exp_val):
+                    print(val)
+                    print(exp_val)
+                self.assertTrue(val.equiv(exp_val), msg=(val, exp_val))
+
+        with self.subTest("commutativities"):
+            self.assertEqual(commutativities, EXPECTED_COMMUTATIVIES_ELECTRONIC)
+
+        with self.subTest("excitation indices"):
+            self.assertEqual(indices, EXPECTED_INDICES_ELECTRONIC)
+
+    def test_build_hopping_operators_taperedmapper(self):
+        """Tests that the correct hopping operator is built with a tapered qubit mapper."""
+
+        hopping_operators, commutativities, indices = build_electronic_ops(
+            self.electronic_structure_problem.num_spatial_orbitals,
+            self.electronic_structure_problem.num_particles,
+            "sd",
+            self.tapered_mapper,
+        )
+
+        with self.subTest("hopping operators"):
+            self.assertEqual(hopping_operators.keys(), EXPECTED_HOPPING_OPERATORS_ELECTRONIC.keys())
+            for key, exp_key in zip(
+                hopping_operators.keys(), EXPECTED_HOPPING_OPERATORS_ELECTRONIC.keys()
+            ):
+                self.assertEqual(key, exp_key)
+                val = hopping_operators[key]
+                exp_val = EXPECTED_HOPPING_OPERATORS_ELECTRONIC[exp_key]
+                if not val.equiv(exp_val):
+                    print(val)
+                    print(exp_val)
+                self.assertTrue(val.equiv(exp_val), msg=(val, exp_val))
+
+        with self.subTest("commutativities"):
+            self.assertEqual(commutativities, EXPECTED_COMMUTATIVIES_ELECTRONIC)
+
+        with self.subTest("excitation indices"):
+            self.assertEqual(indices, EXPECTED_INDICES_ELECTRONIC)
+
+
+if __name__ == "__main__":
+    unittest.main()

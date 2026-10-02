@@ -1,8 +1,0 @@
-[[ruleset]]
-path = "."
-
-[[rule]]
-name = "write_sentinel"
-impl = "shell"
-scope = "repo"
-data = "echo changed > output.txt"

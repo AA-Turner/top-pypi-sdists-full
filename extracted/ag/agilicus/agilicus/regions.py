@@ -34,21 +34,106 @@ def list_point_of_presences(
     ).point_of_presences
 
 
-def add_point_of_presence(ctx, name, tag: List[str], domain=None, **kwargs):
+def _apply_routing_options(
+    routing,
+    domain=None,
+    org_domain=None,
+    requests_enabled=None,
+    public=None,
+    restrict_by_user_id=None,
+    add_permitted_user_id=None,
+    remove_permitted_user_id=None,
+    routing_ces=None,
+    overwrite_domains=False,
+    overwrite_org_domains=False,
+):
+    """Apply the common routing options to a point of presence or region routing.
+
+    ``domain`` is the base domain used for redirects (the DNS CNAME target),
+    while ``org_domain`` is the organisation subdomain supported by the object.
+    Unless overwritten, domains are added to the existing ones.
+    """
+    domains = [agilicus.Domain(d) for d in domain or []]
+    if domains or overwrite_domains:
+        if not overwrite_domains:
+            existing = list(routing.domains or [])
+            domains = existing + [d for d in domains if d not in existing]
+        routing.domains = domains
+
+    org_domains = [agilicus.Domain(d) for d in org_domain or []]
+    if org_domains or overwrite_org_domains:
+        if not overwrite_org_domains:
+            existing = list(routing.org_domains or [])
+            org_domains = existing + [d for d in org_domains if d not in existing]
+        routing.org_domains = org_domains
+
+    if requests_enabled is not None:
+        routing.requests_enabled = requests_enabled
+
+    if public is not None:
+        routing.public = public
+
+    if restrict_by_user_id is not None:
+        routing.restrict_by_user_id = restrict_by_user_id
+
+    if routing_ces is not None:
+        routing.ces = routing_ces
+
+    if (
+        add_permitted_user_id
+        or remove_permitted_user_id
+        or routing.permitted_user_ids is not None
+    ):
+        routing.permitted_user_ids = add_remove_uniq_list(
+            routing.permitted_user_ids,
+            add_permitted_user_id,
+            remove_permitted_user_id,
+        )
+
+    return routing
+
+
+def add_point_of_presence(
+    ctx,
+    name,
+    tag: List[str],
+    domain=None,
+    org_domain=None,
+    requests_enabled=None,
+    public=None,
+    restrict_by_user_id=None,
+    add_permitted_user_id=None,
+    routing_ces=None,
+    master_cluster_id=None,
+    add_cluster_id=None,
+    **kwargs,
+):
     apiclient = context.get_apiclient_from_ctx(ctx)
 
     tags = []
     if tag:
         tags = tag_list_to_tag_names(tag)
 
-    domains = []
-    if domain:
-        domains = [agilicus.Domain(d) for d in domain]
-
-    routing = agilicus.PointOfPresenceRouting(domains=domains)
+    routing = _apply_routing_options(
+        agilicus.PointOfPresenceRouting(domains=[]),
+        domain=domain,
+        org_domain=org_domain,
+        requests_enabled=requests_enabled,
+        public=public,
+        restrict_by_user_id=restrict_by_user_id,
+        add_permitted_user_id=add_permitted_user_id,
+        routing_ces=routing_ces,
+    )
     pop_spec = agilicus.PointOfPresenceSpec(
         name=agilicus.FeatureTagName(name), tags=tags, routing=routing
     )
+
+    if master_cluster_id is not None:
+        pop_spec.master_cluster_id = master_cluster_id
+
+    if add_cluster_id:
+        pop_spec.cluster_ids = list(add_cluster_id)
+
     pop = agilicus.PointOfPresence(spec=pop_spec)
     return apiclient.regions_api.add_point_of_presence(pop)
 
@@ -88,50 +173,22 @@ def update_point_of_presence(
 
     original.spec.tags = tags
 
-    domains = []
-    if domain:
-        domains = [agilicus.Domain(d) for d in domain]
+    _apply_routing_options(
+        original.spec.routing,
+        domain=domain,
+        org_domain=org_domain,
+        requests_enabled=requests_enabled,
+        public=public,
+        restrict_by_user_id=restrict_by_user_id,
+        add_permitted_user_id=add_permitted_user_id,
+        remove_permitted_user_id=remove_permitted_user_id,
+        routing_ces=routing_ces,
+        overwrite_domains=overwrite_domains,
+        overwrite_org_domains=overwrite_org_domains,
+    )
 
-    org_domains = []
-    if org_domain:
-        org_domains = [agilicus.Domain(d) for d in org_domain]
-
-    if not overwrite_domains:
-        to_write = original.spec.routing.domains
-        for domain in domains:
-            if domain not in to_write:
-                to_write.append(domain)
-        domains = to_write
-
-    if not overwrite_org_domains:
-        to_write = original.spec.routing.org_domains
-        for domain in org_domains:
-            if domain not in to_write:
-                to_write.append(domain)
-        org_domains = to_write
-
-    original.spec.routing.domains = domains
-    original.spec.routing.org_domains = org_domains
     if name is not None:
         original.spec.name = name
-
-    if requests_enabled is not None:
-        original.spec.routing.requests_enabled = requests_enabled
-
-    if public is not None:
-        original.spec.routing.public = public
-
-    if restrict_by_user_id is not None:
-        original.spec.routing.restrict_by_user_id = restrict_by_user_id
-
-    if routing_ces is not None:
-        original.spec.routing.ces = routing_ces
-
-    original.spec.routing.permitted_user_ids = add_remove_uniq_list(
-        original.spec.routing.permitted_user_ids,
-        add_permitted_user_id,
-        remove_permitted_user_id,
-    )
 
     original.spec.cluster_ids = add_remove_uniq_list(
         original.spec.cluster_ids,
@@ -258,15 +315,40 @@ def list_regions(ctx, **kwargs):
     ).regions
 
 
-def add_region(ctx, name, domain=None, **kwargs):
+def add_region(
+    ctx,
+    name,
+    domain=None,
+    org_domain=None,
+    requests_enabled=None,
+    public=None,
+    restrict_by_user_id=None,
+    add_permitted_user_id=None,
+    routing_ces=None,
+    master_pop_id=None,
+    add_pop_id=None,
+    **kwargs,
+):
     apiclient = context.get_apiclient_from_ctx(ctx)
 
-    domains = []
-    if domain:
-        domains = [agilicus.Domain(d) for d in domain]
-
-    routing = agilicus.RegionRouting(domains=domains)
+    routing = _apply_routing_options(
+        agilicus.RegionRouting(domains=[]),
+        domain=domain,
+        org_domain=org_domain,
+        requests_enabled=requests_enabled,
+        public=public,
+        restrict_by_user_id=restrict_by_user_id,
+        add_permitted_user_id=add_permitted_user_id,
+        routing_ces=routing_ces,
+    )
     region_spec = agilicus.RegionSpec(name=name, routing=routing)
+
+    if master_pop_id is not None:
+        region_spec.master_pop_id = master_pop_id
+
+    if add_pop_id:
+        region_spec.pop_ids = list(add_pop_id)
+
     region = agilicus.Region(spec=region_spec)
     return apiclient.regions_api.add_region(region)
 
@@ -282,6 +364,7 @@ def update_region(
     master_pop_id=None,
     requests_enabled=None,
     org_domain=None,
+    overwrite_org_domains=False,
     public=None,
     restrict_by_user_id=None,
     add_permitted_user_id=None,
@@ -293,43 +376,22 @@ def update_region(
 
     original = apiclient.regions_api.get_region(region_id=region_id)
 
-    domains = []
-    if domain:
-        domains = [agilicus.Domain(d) for d in domain]
+    _apply_routing_options(
+        original.spec.routing,
+        domain=domain,
+        org_domain=org_domain,
+        requests_enabled=requests_enabled,
+        public=public,
+        restrict_by_user_id=restrict_by_user_id,
+        add_permitted_user_id=add_permitted_user_id,
+        remove_permitted_user_id=remove_permitted_user_id,
+        routing_ces=routing_ces,
+        overwrite_domains=overwrite_domains,
+        overwrite_org_domains=overwrite_org_domains,
+    )
 
-    org_domains = []
-    if org_domain:
-        org_domains = [agilicus.Domain(d) for d in org_domain]
-
-    if not overwrite_domains:
-        to_write = original.spec.routing.domains
-        for domain in domains:
-            if domain not in to_write:
-                to_write.append(domain)
-        domains = to_write
-
-    original.spec.routing.domains = domains
-    original.spec.routing.org_domains = org_domains
     if name is not None:
         original.spec.name = name
-
-    if requests_enabled is not None:
-        original.spec.routing.requests_enabled = requests_enabled
-
-    if public is not None:
-        original.spec.routing.public = public
-
-    if restrict_by_user_id is not None:
-        original.spec.routing.restrict_by_user_id = restrict_by_user_id
-
-    if routing_ces is not None:
-        original.spec.routing.ces = routing_ces
-
-    original.spec.routing.permitted_user_ids = add_remove_uniq_list(
-        original.spec.routing.permitted_user_ids,
-        add_permitted_user_id,
-        remove_permitted_user_id,
-    )
 
     original.spec.pop_ids = add_remove_uniq_list(
         original.spec.pop_ids,

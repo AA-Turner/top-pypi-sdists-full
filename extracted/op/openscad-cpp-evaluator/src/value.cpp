@@ -1,0 +1,655 @@
+#include "openscad_cpp_evaluator/value.hpp"
+
+#include "openscad_cpp_evaluator/format_closure.hpp"
+#include "openscad_cpp_evaluator/utf8.hpp"
+
+#include <algorithm>
+#include <cmath>
+#include <limits>
+#include <optional>
+#include <sstream>
+#include <stdexcept>
+
+namespace oscadeval {
+
+namespace {
+
+Value makeList(std::vector<Value> items) {
+    return Value{std::make_shared<const ValueList>(ValueList{std::move(items)})};
+}
+
+} // namespace
+
+std::string oscTypeName(const Value& v) {
+    if (std::holds_alternative<std::monostate>(v)) return "undefined";
+    if (std::holds_alternative<bool>(v)) return "bool";
+    if (std::holds_alternative<double>(v)) return "number";
+    if (std::holds_alternative<std::string>(v)) return "string";
+    if (std::holds_alternative<ListPtr>(v)) return "vector";
+    if (std::holds_alternative<ObjectPtr>(v)) return "object";
+    // The reference names these too (Value.cc's getTypeName), and its
+    // "undefined operation (T op T)" diagnostics quote them verbatim --
+    // calling either one "undefined" made `[1] + [0:2]` report a phantom
+    // undef operand.
+    if (std::holds_alternative<OscRange>(v)) return "range";
+    if (std::holds_alternative<ClosurePtr>(v)) return "function";
+    return "undefined";
+}
+
+bool oscEqual(const Value& a, const Value& b) {
+    const bool aIsBool = std::holds_alternative<bool>(a);
+    const bool bIsBool = std::holds_alternative<bool>(b);
+    if (aIsBool != bIsBool) return false;
+
+    const ListPtr* la = std::get_if<ListPtr>(&a);
+    const ListPtr* lb = std::get_if<ListPtr>(&b);
+    if (la || lb) {
+        if (!la || !lb) return false;
+        const auto& ia = (*la)->items;
+        const auto& ib = (*lb)->items;
+        if (ia.size() != ib.size()) return false;
+        for (size_t i = 0; i < ia.size(); ++i) {
+            if (!oscEqual(ia[i], ib[i])) return false;
+        }
+        return true;
+    }
+
+    const ObjectPtr* oa = std::get_if<ObjectPtr>(&a);
+    const ObjectPtr* ob = std::get_if<ObjectPtr>(&b);
+    if (oa || ob) {
+        if (!oa || !ob) return false;
+        const auto& pa = (*oa)->items;
+        const auto& pb = (*ob)->items;
+        if (pa.size() != pb.size()) return false;
+        for (size_t i = 0; i < pa.size(); ++i) {
+            if (pa[i].first != pb[i].first) return false;
+            if (!oscEqual(pa[i].second, pb[i].second)) return false;
+        }
+        return true;
+    }
+
+    // ClosurePtr is a shared_ptr -- its own operator== compares the pointee
+    // ADDRESS, not Closure::operator==(), so two independently-created
+    // closures over the identical AST node (the semantics this mirrors --
+    // see Closure's own doc comment) would wrongly compare unequal via the
+    // variant fallthrough below. Dereference and compare explicitly.
+    const ClosurePtr* ca = std::get_if<ClosurePtr>(&a);
+    const ClosurePtr* cb = std::get_if<ClosurePtr>(&b);
+    if (ca || cb) {
+        if (!ca || !cb || !*ca || !*cb) return false;
+        return **ca == **cb;
+    }
+
+    // Neither operand is a list, object, or closure here, so this only ever
+    // compares monostate/bool/double/string/OscRange against its own kind
+    // (variant::operator== checks the active index first).
+    return a == b;
+}
+
+double toDoubleLenient(const Value& v) {
+    if (const double* d = std::get_if<double>(&v)) return *d;
+    if (const bool* b = std::get_if<bool>(&v)) return *b ? 1.0 : 0.0;
+    return 0.0;
+}
+
+bool truthy(const Value& v) {
+    if (const bool* b = std::get_if<bool>(&v)) return *b;
+    if (const double* d = std::get_if<double>(&v)) return *d != 0.0; // NaN != 0.0 is true
+    if (const std::string* s = std::get_if<std::string>(&v)) return !s->empty();
+    if (const ListPtr* l = std::get_if<ListPtr>(&v)) return *l && !(*l)->items.empty();
+    if (const ObjectPtr* o = std::get_if<ObjectPtr>(&v)) return *o && !(*o)->items.empty();
+    if (std::holds_alternative<std::monostate>(v)) return false;
+    return true; // OscRange, ClosurePtr
+}
+
+bool oscComparable(const Value& a, const Value& b) {
+    const bool aBool = std::holds_alternative<bool>(a);
+    const bool bBool = std::holds_alternative<bool>(b);
+    if (aBool || bBool) return aBool && bBool;
+
+    if (std::holds_alternative<double>(a) && std::holds_alternative<double>(b)) return true;
+    if (std::holds_alternative<std::string>(a) && std::holds_alternative<std::string>(b)) return true;
+    if (std::holds_alternative<ListPtr>(a) && std::holds_alternative<ListPtr>(b)) return true;
+    return false;
+}
+
+Value scale(double scalarValue, const Value& value) {
+    if (const ListPtr* list = std::get_if<ListPtr>(&value)) {
+        if (!*list) return Value{};
+        std::vector<Value> out;
+        out.reserve((*list)->items.size());
+        for (const Value& v : (*list)->items) out.push_back(scale(scalarValue, v));
+        return makeList(std::move(out));
+    }
+    if (std::holds_alternative<bool>(value)) return Value{};
+    if (const double* d = std::get_if<double>(&value)) return Value{scalarValue * *d};
+    return Value{};
+}
+
+Value divScale(const Value& value, double divisor) {
+    if (const ListPtr* list = std::get_if<ListPtr>(&value)) {
+        if (!*list) return Value{};
+        std::vector<Value> out;
+        out.reserve((*list)->items.size());
+        for (const Value& v : (*list)->items) out.push_back(divScale(v, divisor));
+        return makeList(std::move(out));
+    }
+    if (std::holds_alternative<bool>(value)) return Value{};
+    if (const double* d = std::get_if<double>(&value)) {
+        if (divisor == 0.0) {
+            return Value{*d == 0.0 ? std::numeric_limits<double>::quiet_NaN() : std::copysign(std::numeric_limits<double>::infinity(), *d)};
+        }
+        return Value{*d / divisor};
+    }
+    return Value{};
+}
+
+Value divInto(double numerator, const Value& value) {
+    if (const ListPtr* list = std::get_if<ListPtr>(&value)) {
+        if (!*list) return Value{};
+        std::vector<Value> out;
+        out.reserve((*list)->items.size());
+        for (const Value& v : (*list)->items) out.push_back(divInto(numerator, v));
+        return makeList(std::move(out));
+    }
+    if (std::holds_alternative<bool>(value)) return Value{};
+    if (const double* d = std::get_if<double>(&value)) {
+        if (*d == 0.0) {
+            return Value{numerator == 0.0 ? std::numeric_limits<double>::quiet_NaN()
+                                          : std::copysign(std::numeric_limits<double>::infinity(), numerator)};
+        }
+        return Value{numerator / *d};
+    }
+    return Value{};
+}
+
+namespace {
+
+// Shared body for vecAdd/vecSub: list/list recursion (zip -- truncates to
+// the shorter length) plus the numeric-fallback op, everything else undef.
+template <typename NumericOp>
+Value vecCombine(const Value& a, const Value& b, NumericOp numericOp) {
+    const ListPtr* la = std::get_if<ListPtr>(&a);
+    const ListPtr* lb = std::get_if<ListPtr>(&b);
+    if (la && lb) {
+        if (!*la || !*lb) return Value{};
+        const auto& ia = (*la)->items;
+        const auto& ib = (*lb)->items;
+        const size_t n = std::min(ia.size(), ib.size());
+        std::vector<Value> out;
+        out.reserve(n);
+        for (size_t i = 0; i < n; ++i) out.push_back(vecCombine(ia[i], ib[i], numericOp));
+        return makeList(std::move(out));
+    }
+    if (std::holds_alternative<bool>(a) || std::holds_alternative<bool>(b)) return Value{};
+    const double* da = std::get_if<double>(&a);
+    const double* db = std::get_if<double>(&b);
+    if (da && db) return Value{numericOp(*da, *db)};
+    return Value{};
+}
+
+} // namespace
+
+Value vecAdd(const Value& a, const Value& b) {
+    if (std::holds_alternative<std::string>(a) || std::holds_alternative<std::string>(b)) return Value{};
+    return vecCombine(a, b, [](double x, double y) { return x + y; });
+}
+
+Value vecSub(const Value& a, const Value& b) {
+    return vecCombine(a, b, [](double x, double y) { return x - y; });
+}
+
+namespace {
+
+// The four element-level products the reference splits `*` into, ported
+// shape-for-shape from Value.cc's multvecvec/multmatvec/multvecmat plus the
+// matrix*matrix branch of multiply_visitor -- including which check fires
+// first, since that decides which diagnostic a malformed operand produces.
+// `fail` records the message and returns undef.
+const ListItems& itemsOf(const Value& v) {
+    static const ListItems kEmpty;
+    const ListPtr* l = std::get_if<ListPtr>(&v);
+    return (l && *l) ? (*l)->items : kEmpty;
+}
+bool isNum(const Value& v) { return std::holds_alternative<double>(v); }
+bool isVec(const Value& v) { return std::holds_alternative<ListPtr>(v); }
+
+Value fail(std::string* error, std::string message) {
+    if (error) *error = std::move(message);
+    return Value{};
+}
+
+// Vector dot product. Sizes are equal by the caller's own check.
+Value multVecVec(const ListItems& v1, const ListItems& v2, std::string* error) {
+    double r = 0.0;
+    for (size_t i = 0; i < v1.size(); ++i) {
+        if (!isNum(v1[i]) || !isNum(v2[i])) {
+            return fail(error, "undefined operation (" + oscTypeName(v1[i]) + " * " + oscTypeName(v2[i]) + ")");
+        }
+        r += std::get<double>(v1[i]) * std::get<double>(v2[i]);
+    }
+    return Value{r};
+}
+
+Value multMatVec(const ListItems& mat, const ListItems& vec, std::string* error) {
+    std::vector<Value> out;
+    out.reserve(mat.size());
+    for (size_t i = 0; i < mat.size(); ++i) {
+        const ListItems& row = itemsOf(mat[i]);
+        if (!isVec(mat[i]) || row.size() != vec.size()) {
+            return fail(error, "Matrix must be rectangular. Problem at row " + std::to_string(i));
+        }
+        double re = 0.0;
+        for (size_t j = 0; j < row.size(); ++j) {
+            if (!isNum(row[j])) {
+                return fail(error, "Matrix must contain only numbers. Problem at row " + std::to_string(i) +
+                                        ", col " + std::to_string(j));
+            }
+            if (!isNum(vec[j])) {
+                return fail(error, "Vector must contain only numbers. Problem at index " + std::to_string(j));
+            }
+            re += std::get<double>(row[j]) * std::get<double>(vec[j]);
+        }
+        out.push_back(Value{re});
+    }
+    return makeList(std::move(out));
+}
+
+Value multVecMat(const ListItems& vec, const ListItems& mat, std::string* error) {
+    const size_t firstRowSize = itemsOf(mat[0]).size();
+    std::vector<Value> out;
+    out.reserve(firstRowSize);
+    for (size_t i = 0; i < firstRowSize; ++i) {
+        double re = 0.0;
+        for (size_t j = 0; j < vec.size(); ++j) {
+            const ListItems& row = itemsOf(mat[j]);
+            if (!isVec(mat[j]) || row.size() != firstRowSize) {
+                return fail(error, "Matrix must be rectangular. Problem at row " + std::to_string(j));
+            }
+            if (!isNum(vec[j])) {
+                return fail(error, "Vector must contain only numbers. Problem at index " + std::to_string(j));
+            }
+            if (!isNum(row[i])) {
+                return fail(error, "Matrix must contain only numbers. Problem at row " + std::to_string(j) +
+                                        ", col " + std::to_string(i));
+            }
+            re += std::get<double>(vec[j]) * std::get<double>(row[i]);
+        }
+        out.push_back(Value{re});
+    }
+    return makeList(std::move(out));
+}
+
+} // namespace
+
+Value matmul(const Value& a, const Value& b, std::string* error) {
+    const ListItems& al = itemsOf(a);
+    const ListItems& bl = itemsOf(b);
+    // The reference checks emptiness before anything else, so `[] * [1,2]`
+    // is this message rather than a length mismatch.
+    if (al.empty() || bl.empty()) return fail(error, "Multiplication is undefined on empty vectors");
+
+    const Value& e1 = al.front();
+    const Value& e2 = bl.front();
+
+    // Which of the four shapes this is comes from the FIRST element's type
+    // on each side, exactly as multiply_visitor decides it -- not from
+    // whether the whole operand happens to be a well-formed matrix. A
+    // ragged or non-numeric operand still enters the branch its first
+    // element chose, and fails inside it with that branch's own message.
+    if (isNum(e1)) {
+        if (isNum(e2)) {
+            if (al.size() == bl.size()) return multVecVec(al, bl, error);
+            return fail(error, "vector*vector requires matching lengths (" + std::to_string(al.size()) +
+                                    " != " + std::to_string(bl.size()) + ")");
+        }
+        if (isVec(e2)) {
+            if (al.size() == bl.size()) return multVecMat(al, bl, error);
+            return fail(error, "vector*matrix requires vector length to match matrix row count (" +
+                                    std::to_string(al.size()) + " != " + std::to_string(bl.size()) + ")");
+        }
+    } else if (isVec(e1)) {
+        const size_t cols = itemsOf(e1).size();
+        if (isNum(e2)) {
+            if (cols == bl.size()) return multMatVec(al, bl, error);
+            return fail(error, "matrix*vector requires matrix column count to match vector length (" +
+                                    std::to_string(cols) + " != " + std::to_string(bl.size()) + ")");
+        }
+        if (isVec(e2)) {
+            if (cols != bl.size()) {
+                return fail(error,
+                            "matrix*matrix requires left operand column count to match right operand row count (" +
+                                std::to_string(cols) + " != " + std::to_string(bl.size()) + ")");
+            }
+            std::vector<Value> rows;
+            rows.reserve(al.size());
+            for (size_t i = 0; i < al.size(); ++i) {
+                const ListItems& srcRow = itemsOf(al[i]);
+                if (srcRow.size() != bl.size()) {
+                    return fail(error,
+                                "matrix*matrix left operand row length does not match right operand row count (" +
+                                    std::to_string(srcRow.size()) + " != " + std::to_string(bl.size()) +
+                                    ") at row " + std::to_string(i));
+                }
+                std::string rowError;
+                Value row = multVecMat(srcRow, bl, &rowError);
+                if (!rowError.empty()) {
+                    return fail(error, rowError + ": while processing left operand at row " + std::to_string(i));
+                }
+                rows.push_back(std::move(row));
+            }
+            return makeList(std::move(rows));
+        }
+    }
+    return fail(error, "undefined vector*vector multiplication where first elements are types " + oscTypeName(e1) +
+                            " and " + oscTypeName(e2));
+}
+
+namespace {
+
+// `count` hex digits starting at `at`, into `out`. False (leaving `out`
+// untouched) if any of them is not a hex digit.
+bool hexDigits(const std::string& s, size_t at, size_t count, std::uint32_t& out) {
+    std::uint32_t v = 0;
+    for (size_t k = 0; k < count; ++k) {
+        const char c = s[at + k];
+        std::uint32_t d;
+        if (c >= '0' && c <= '9') d = static_cast<std::uint32_t>(c - '0');
+        else if (c >= 'a' && c <= 'f') d = static_cast<std::uint32_t>(c - 'a' + 10);
+        else if (c >= 'A' && c <= 'F') d = static_cast<std::uint32_t>(c - 'A' + 10);
+        else return false;
+        v = (v << 4) | d;
+    }
+    out = v;
+    return true;
+}
+
+// What a well-formed \x/\u escape contributes. A code point that cannot
+// be encoded -- zero, or a lone surrogate -- becomes a SPACE rather than
+// nothing or invalid UTF-8. That is the reference's behaviour, checked by
+// equality since the bytes are hard to see: "\u0000" == " ", "\ud83d" ==
+// " ", and "\x00" == "\u0000", all true on 2026.02.01. Note chr() does
+// NOT agree -- chr(55357) is the empty string -- so the two paths differ
+// deliberately.
+std::string encodeEscapedCodePoint(std::uint32_t cp) {
+    if (cp == 0 || (cp >= 0xD800u && cp <= 0xDFFFu) || cp > 0x10FFFFu) return " ";
+    return utf8Encode(cp);
+}
+
+} // namespace
+
+std::string unescapeStringLiteral(const std::string& raw) {
+    // Most strings need no work at all, and this runs on every evaluation
+    // of a literal on the tree-walking path -- so don't build a second copy
+    // unless there is something to change. A bare line ending counts as
+    // something to change (see the loop), so CR and LF open the scan too.
+    const size_t first = raw.find_first_of("\\\n\r");
+    if (first == std::string::npos) return raw;
+
+    std::string out;
+    out.reserve(raw.size());
+    out.append(raw, 0, first);
+    for (size_t i = first; i < raw.size(); ++i) {
+        // A raw line ending inside a string literal contributes NOTHING --
+        // writing a string across two source lines joins them, keeping the
+        // second line's indentation:
+        //     s = "abcd
+        //         efgh";      // -> "abcd    efgh", 12 characters
+        // CR counts as a line ending too, which the reference does not do:
+        // it drops only the LF, so every string wrapped in a file written
+        // on Windows keeps a stray CR (len 3 for "x<CR><LF>y" there, 2
+        // here). A raw CR in source is a line ending in every real file --
+        // CRLF on Windows, a lone CR on a pre-OSX Mac -- and a string that
+        // wants a real CR in it writes \r. Same reasoning as the backslash
+        // continuation below.
+        if (raw[i] == '\n' || raw[i] == '\r') continue;
+        if (raw[i] != '\\' || i + 1 >= raw.size()) {
+            out.push_back(raw[i]);  // a trailing lone backslash stands for itself
+            continue;
+        }
+        const char next = raw[i + 1];
+        switch (next) {
+            case 'n': out.push_back('\n'); ++i; break;
+            case 't': out.push_back('\t'); ++i; break;
+            case 'r': out.push_back('\r'); ++i; break;
+            case 'x': {
+                // \xNN, exactly two hex digits, and ASCII ONLY. The
+                // reference rejects anything above 0x7F -- a raw high byte
+                // would not be valid UTF-8, and the rest of the string is
+                // -- leaving the text to stand for itself: "\xff" is the
+                // three characters x, f, f. Verified against 2026.02.01,
+                // which takes \x00..\x7f and refuses \x80..\xff.
+                std::uint32_t cp = 0;
+                if (i + 3 < raw.size() && hexDigits(raw, i + 2, 2, cp) && cp <= 0x7Fu) {
+                    out += encodeEscapedCodePoint(cp);
+                    i += 3;
+                    break;
+                }
+                out.push_back(next);
+                ++i;
+                break;
+            }
+            case 'u': {
+                // \uXXXX, exactly four hex digits. No \u{...} form: the
+                // reference calls that an undefined escape.
+                std::uint32_t cp = 0;
+                if (i + 5 < raw.size() && hexDigits(raw, i + 2, 4, cp)) {
+                    out += encodeEscapedCodePoint(cp);
+                    i += 5;
+                    break;
+                }
+                out.push_back(next);
+                ++i;
+                break;
+            }
+            // A backslash before a line ending takes the whole thing; any
+            // LF after a CR is dropped by the loop itself.
+            case '\n':
+            case '\r': ++i; break;
+            default: out.push_back(next); ++i; break;  // \\ and \" land here too
+        }
+    }
+    return out;
+}
+
+std::string formatNumber(double v) {
+    if (std::isnan(v)) return "nan";
+    if (std::isinf(v)) return v > 0 ? "inf" : "-inf";
+    if (v == 0.0) return "0"; // also covers -0.0 (-0.0 == 0.0 is true)
+
+    const bool neg = v < 0;
+    const double av = std::abs(v);
+    int exp = static_cast<int>(std::floor(std::log10(av)));
+    double mantissa = std::round(av / std::pow(10.0, exp) * 1e5) / 1e5;
+    if (mantissa >= 10.0) {
+        mantissa /= 10.0;
+        ++exp;
+    }
+
+    auto trimTrailing = [](std::string s) {
+        if (s.find('.') == std::string::npos) return s;
+        size_t last = s.find_last_not_of('0');
+        s.erase(last + 1);
+        if (!s.empty() && s.back() == '.') s.pop_back();
+        return s;
+    };
+
+    std::string s;
+    if (exp >= -5 && exp <= 5) {
+        const int decimals = std::max(0, 5 - exp);
+        std::ostringstream oss;
+        oss.setf(std::ios::fixed);
+        oss.precision(decimals);
+        oss << av;
+        s = trimTrailing(oss.str());
+    } else {
+        std::ostringstream oss;
+        oss.setf(std::ios::fixed);
+        oss.precision(5);
+        oss << mantissa;
+        const std::string m = trimTrailing(oss.str());
+        s = m + "e" + (exp >= 0 ? "+" : "-") + std::to_string(std::abs(exp));
+    }
+    return neg ? "-" + s : s;
+}
+
+std::string fmtValue(const Value& v) {
+    if (std::holds_alternative<std::monostate>(v)) return "undef";
+    if (const bool* b = std::get_if<bool>(&v)) return *b ? "true" : "false";
+    if (const OscRange* r = std::get_if<OscRange>(&v)) {
+        return "[" + formatNumber(r->start) + " : " + formatNumber(r->step) + " : " + formatNumber(r->end) + "]";
+    }
+    if (const double* d = std::get_if<double>(&v)) return formatNumber(*d);
+    if (const ListPtr* l = std::get_if<ListPtr>(&v)) {
+        if (!*l) return "[]";
+        std::string s = "[";
+        const auto& items = (*l)->items;
+        for (size_t i = 0; i < items.size(); ++i) {
+            if (i) s += ", ";
+            s += fmtValue(items[i]);
+        }
+        return s + "]";
+    }
+    if (const ObjectPtr* o = std::get_if<ObjectPtr>(&v)) {
+        // `{ a = 1; b = "x"; }`, not a constructor-call spelling: this is
+        // how the reference echoes an object (ObjectType's own stream
+        // operator), and it nests and appears inside lists/str() the same
+        // way. We used to print `object(a = 1)`, which nothing else agrees
+        // with.
+        if (!*o || (*o)->items.empty()) return "{ }";
+        std::string s = "{ ";
+        for (const auto& [key, val] : (*o)->items) s += key + " = " + fmtValue(val) + "; ";
+        return s + "}";
+    }
+    if (const std::string* s = std::get_if<std::string>(&v)) return "\"" + *s + "\"";
+    if (const ClosurePtr* c = std::get_if<ClosurePtr>(&v)) {
+        // The reference prints a function literal as its own source. Falling
+        // back only when the closure has no node, which nothing constructs
+        // today but the field is a pointer.
+        if (*c && (*c)->node) return formatFunctionLiteral(*(*c)->node);
+    }
+    return "<function-literal>"; // OscRange handled above
+}
+
+// (Range::numValues()'s own count, closed-form) -- 1 + floor((end-start)/step),
+// the same epsilon IterableValues::inRange uses so this agrees exactly with
+// how many elements a lazy walk of the same range would actually produce.
+// nullopt for a step of 0 or a direction that disagrees with start/end (a
+// naturally-empty range -- 0 elements, never "too many").
+std::optional<size_t> rangeElementCount(const OscRange& r) {
+    // Zero step, wrong direction, or a NaN anywhere: nothing to iterate, and
+    // the reference says nothing about it -- `[for (i = [nan:1:-1]) i]` is
+    // [] with no warning there. BOSL2 reaches exactly that through
+    // list_rotate() on an empty list, where ((n % 0) + 0) % 0 is NaN.
+    if (r.isEmpty()) return std::nullopt;
+
+    const double count = std::floor((r.end - r.start) / r.step + 1e-10) + 1.0;
+
+    // Casting a double past size_t's range is undefined, and the platforms
+    // disagree about it in opposite directions: x86_64 wraps to 2^63 -- the
+    // "too many elements (9223372036854775809)" a CI run reported -- while
+    // arm64 produced something small enough that an INFINITE range iterated
+    // forever instead of being rejected. Neither is a wrong number so much
+    // as an unpredictable one.
+    //
+    // Clamp to what the reference reports for such a range, its own uint32
+    // ceiling: `[0:1:1/0]` warns "too many elements (4294967295)" there and
+    // yields [].
+    constexpr double kCap = 4294967295.0;
+    if (!(count < kCap)) return static_cast<size_t>(kCap);
+    return static_cast<size_t>(count);
+}
+
+IterableValues expandIterable(const Value& v, const RangeTooManyFn& onTooMany) {
+    if (std::holds_alternative<std::monostate>(v)) return IterableValues{};
+    if (const OscRange* r = std::get_if<OscRange>(&v)) {
+        if (const std::optional<size_t> count = rangeElementCount(*r); count && *count >= 1'000'000) {
+            if (onTooMany) onTooMany(*count);
+            return IterableValues{};
+        }
+        // A step pointing away from the end yields nothing, and that is
+        // almost always a typo -- but the warning for it belongs to the
+        // range's CONSTRUCTION, not its iteration: only the range literal
+        // knows whether the author chose the step or the parser supplied
+        // it. See Evaluator::applyRange.
+        // Lazy -- IterableValues itself reproduces this exact
+        // termination condition (a zero step is naturally empty: neither
+        // `x <= end` nor `x >= end` branch ever fires for it) without
+        // building a vector here.
+        return IterableValues{r->start, r->step, r->end};
+    }
+    if (const ObjectPtr* o = std::get_if<ObjectPtr>(&v)) {
+        std::vector<Value> out;
+        if (*o) {
+            for (const auto& [key, val] : (*o)->items) out.push_back(Value{key});
+        }
+        return IterableValues{std::move(out)};
+    }
+    if (const std::string* s = std::get_if<std::string>(&v)) {
+        // Characters, not bytes -- `[for (c = "aé—z") c]` yields four.
+        std::vector<Value> out;
+        for (std::string& ch : utf8Chars(*s)) out.push_back(Value{std::move(ch)});
+        return IterableValues{std::move(out)};
+    }
+    if (const ListPtr* l = std::get_if<ListPtr>(&v)) {
+        return *l ? IterableValues{*l} : IterableValues{};
+    }
+    return IterableValues{std::vector<Value>{v}}; // bare scalar -> single-element list
+}
+
+void appendEachInto(std::vector<Value>& out, const Value& v) {
+    if (const ListPtr* l = std::get_if<ListPtr>(&v); l && *l) {
+        for (const Value& x : (*l)->items) out.push_back(x);
+        return;
+    }
+    // A string and a range expand too, not just a list: the reference gives
+    // ["1", "2"] for `[each "12"]` and [0, 1, 2] for `[each [0:2]]`, where
+    // this used to hand back the string and the range whole. Reusing the
+    // expansion `for` already does keeps the two agreeing -- `[for (x = c)
+    // x]` was right over a string while `[each c]` was not, which is what
+    // broke BOSL2's str_strip(): _str_count_leading tests
+    // `in_list(s[i], [each c])` and so never matched a character.
+    //
+    // A number, a boolean and an object stay whole (`[each 5]` is [5]), and
+    // undef contributes nothing.
+    if (std::holds_alternative<std::string>(v) || std::holds_alternative<OscRange>(v)) {
+        for (const Value& x : expandIterable(v, nullptr)) out.push_back(x);
+        return;
+    }
+    if (!std::holds_alternative<std::monostate>(v)) out.push_back(v);
+}
+
+const Value& ListItems::at(size_t i) const {
+    if (i >= n_) throw std::out_of_range("list index out of range");
+    return data()[i];
+}
+
+ListPtr listAppend(const ListPtr& base, std::vector<Value>&& extra) {
+    if (!base) return std::make_shared<const ValueList>(ValueList{std::move(extra)});
+    if (extra.empty()) return base;
+    const ListItems& items = base->items;
+    const size_t n = items.n_, k = extra.size();
+    if (const auto& buf = items.buf_; buf && buf->v.capacity() - n >= k) {
+        size_t expected = n;
+        if (buf->used.compare_exchange_strong(expected, n + k)) {
+            // This list ended at the buffer's frontier and now owns the
+            // slots after it. Within capacity, push_back never reallocates,
+            // so every other view's elements stay where they are.
+            for (Value& x : extra) buf->v.push_back(std::move(x));
+            return std::make_shared<const ValueList>(ValueList{ListItems(buf, n + k)});
+        }
+    }
+    // Copy: a fresh buffer, given room to grow if this list has been
+    // appended to before (the accumulator case), exact otherwise.
+    const bool growing = items.buf_ && items.buf_->fromAppend;
+    std::vector<Value> out;
+    out.reserve(growing ? std::max<size_t>(2 * (n + k), 16) : n + k);
+    out.insert(out.end(), items.begin(), items.end());
+    for (Value& x : extra) out.push_back(std::move(x));
+    auto buf = std::make_shared<ListBuffer>(std::move(out));
+    buf->fromAppend = true;
+    const size_t len = buf->v.size();
+    return std::make_shared<const ValueList>(ValueList{ListItems(std::move(buf), len)});
+}
+
+} // namespace oscadeval

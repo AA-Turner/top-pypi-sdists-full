@@ -1,0 +1,22 @@
+Metadata-Version: 2.4
+Name: lob-python
+Version: 5.2.1
+Summary: Lob
+Home-page: https://github.com/lob/lob-python
+Author: Lob Developer Experience
+Author-email: lob-openapi@lob.com
+License: MIT
+Keywords: OpenAPI,OpenAPI-Generator,Lob
+Requires-Dist: urllib3>=1.25.3
+Requires-Dist: python-dateutil
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: summary
+
+    The Lob API is organized around REST. Our API is designed to have predictable, resource-oriented URLs and uses HTTP response codes to indicate any API errors. &lt;p&gt; Looking for our [previous documentation](https://lob.github.io/legacy-docs/)?   # noqa: E501
+    

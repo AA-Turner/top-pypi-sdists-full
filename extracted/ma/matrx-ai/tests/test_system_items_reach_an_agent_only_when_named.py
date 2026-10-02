@@ -144,7 +144,7 @@ def counted_providers(monkeypatch):
 async def _build(names: SystemContextNames | None = None, **kw: Any):
     return await agent_context_from_resolved(
         "user-1", copy.deepcopy(_resolved()), entity_type="conversation", entity_id="c-1",
-        system_names=names, **kw,
+        system_names=names, **{"organization_id": None, **kw},
     )
 
 
@@ -274,7 +274,7 @@ async def test_the_datetime_is_rendered_in_the_persons_timezone_with_its_offset(
         resolved["cell_values"][item_id] = [cell]
     agent_ctx = await agent_context_from_resolved(
         "user-1", resolved, entity_type="conversation", entity_id="c-1",
-        system_names=SystemContextNames.platform_defaults(),
+        system_names=SystemContextNames.platform_defaults(), organization_id=None,
     )
 
     got = agent_ctx.direct_variables["current_datetime"]["value"]
@@ -313,7 +313,8 @@ async def test_both_resolvers_are_handed_the_names_and_read_nothing_else(monkeyp
 
     names = SystemContextNames.none().naming([GUIDANCE_ID, "current_date"], by="the agent's variable x")
     await context_engine.build_agent_context(
-        "user-1", "conversation", "c-1", [], use_cache=False, system_names=names
+        "user-1", "conversation", "c-1", [], use_cache=False, system_names=names,
+        organization_id=None,
     )
 
     schema, fn, args = seen["rpc"]
@@ -325,7 +326,8 @@ async def test_both_resolvers_are_handed_the_names_and_read_nothing_else(monkeyp
 
     seen.clear()
     await context_engine.build_agent_context(
-        "user-1", "conversation", "c-1", [], use_cache=False, system_names=SystemContextNames.none()
+        "user-1", "conversation", "c-1", [], use_cache=False, system_names=SystemContextNames.none(),
+        organization_id=None,
     )
     # nothing named: an EXPLICIT empty array — NULL would be the knob's default list
     assert seen["rpc"][2][4].value == []
@@ -346,9 +348,9 @@ async def test_two_namings_never_share_one_cached_answer(monkeypatch):
 
     a = SystemContextNames.none().naming(["current_date"], by="a")
     b = SystemContextNames.none().naming(["company_name"], by="b")
-    await context_engine.build_agent_context("user-9", "conversation", "c-9", [], system_names=a)
-    await context_engine.build_agent_context("user-9", "conversation", "c-9", [], system_names=b)
-    await context_engine.build_agent_context("user-9", "conversation", "c-9", [], system_names=a)
+    await context_engine.build_agent_context("user-9", "conversation", "c-9", [], system_names=a, organization_id=None)
+    await context_engine.build_agent_context("user-9", "conversation", "c-9", [], system_names=b, organization_id=None)
+    await context_engine.build_agent_context("user-9", "conversation", "c-9", [], system_names=a, organization_id=None)
     context_engine.invalidate_context_cache()
 
     assert calls == [["current_date"], ["company_name"]]

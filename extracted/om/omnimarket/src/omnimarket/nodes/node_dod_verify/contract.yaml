@@ -1,0 +1,195 @@
+---
+name: dod_verify
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: compute
+runtime_profiles: [main]
+node_version: {major: 1, minor: 0, patch: 0}
+
+# OMN-13253: top-level input_model is the source the RuntimeLocal event-driven
+# path uses to seed the initial command. Without it the seeded command omitted
+# the required ticket_id and ModelDodVerifyStartCommand validation failed.
+input_model: omnimarket.nodes.node_dod_verify.models.model_dod_verify_start_command.ModelDodVerifyStartCommand
+
+description: >
+  DoD evidence verification compute node. Loads a ticket contract, runs
+  evidence checks against it, and emits a structured verification report.
+  Simple single-shot computation, not a multi-phase FSM.
+
+handler:
+  module: omnimarket.nodes.node_dod_verify.handlers.handler_dod_verify
+  class: HandlerDodVerify
+  input_model: omnimarket.nodes.node_dod_verify.models.model_dod_verify_start_command.ModelDodVerifyStartCommand
+
+# OMN-12420: single-handler operation_match with an inline event_model so the
+# runtime unwraps envelope.payload and validates it against the typed command
+# before dispatch. Without event_model the runtime handed the raw envelope dict
+# straight to the handler, producing a 6-error ValidationError and zero output.
+# Mirrors node_closeout_verifier_compute / node_ledger_stats_compute /
+# node_handler_correctness_gate. The former runtime_sha_verify operation was
+# removed: HandlerRuntimeShaVerify is only ever invoked in-process by
+# node_integration_sweep_orchestrator, never dispatched over this command topic,
+# and its presence caused it to fire (and fail) on every dod-verify-start message.
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    # OMN-13253: operation_match entries require an `operation`; runtime_local
+    # rejects the contract without it ("handlers[0].operation is missing").
+    - operation: verify
+      handler:
+        name: HandlerDodVerify
+        module: omnimarket.nodes.node_dod_verify.handlers.handler_dod_verify
+      event_model:
+        name: ModelDodVerifyStartCommand
+        module: omnimarket.nodes.node_dod_verify.models.model_dod_verify_start_command
+
+descriptor:
+  node_archetype: compute
+  purity: pure
+  idempotent: true
+  timeout_ms: 60000
+
+inputs:
+  ticket_id:
+    type: str
+    description: "Linear ticket ID (e.g. OMN-1234)"
+    required: true
+  contract_path:
+    type: str
+    description: "Override path to contract YAML"
+    required: false
+  dry_run:
+    type: bool
+    description: >-
+      Rehearsal. The checks run and the verdict is still returned and
+      published on the terminal topic, marked dry_run, because the runtime
+      publishes a def-B handler's returned model. The verdict projection
+      declines to store a rehearsal (OMN-18901).
+    required: false
+    default: false
+  execution_audience:
+    type: str
+    description: >-
+      Authorized evidence execution boundary: hosted or local_done_gate.
+      Required so a hosted verifier cannot execute local Done-gate commands.
+    required: true
+  delegation_correlation_id:
+    type: str
+    description: >-
+      Correlation id of the delegation run whose output this verification
+      judges. Carried onto the verdict and stored beside it, so the verdict
+      joins to the delegation_events row of that run (OMN-19514). Omit it
+      when the verification judges no delegated attempt.
+    required: false
+  goal_id:
+    type: uuid
+    description: "Goal being verified; enables inline goal-contract verification."
+    required: false
+  parent_goal_id:
+    type: uuid
+    description: "Parent goal identity for nested goal verification."
+    required: false
+  level:
+    type: str
+    description: "Goal level: delegate_call, workflow_lane, or interactive_session."
+    required: false
+  contract_revision:
+    type: uuid
+    description: "Immutable revision identity of the inline goal contract."
+    required: false
+  contract_schema_version:
+    type: str
+    description: >-
+      Declared contract schema version used with ticket_id and the exact inline
+      item when validating the canonical receipt entry hash.
+    required: false
+  dod_evidence:
+    type: list
+    description: >-
+      Inline ModelContractDodItem values for a goal. Required with goal_id and
+      mutually exclusive with contract_path.
+    required: false
+
+outputs:
+  status:
+    type: str
+    description: >-
+      Overall verification status: verified, failed, skipped, or unresolved.
+      OMN-17022 added `unresolved` — the run reached NO verdict (it faulted,
+      was killed by a caller-side timeout, or could not resolve the PR/repo
+      binding its checks are written against). It is terminal and never
+      counts toward completion; before it existed such a run was
+      indistinguishable from the `pending` default, i.e. from never having
+      been attempted at all.
+  total_checks:
+    type: int
+    description: "Verdict-bearing evidence checks run (excludes superseded)"
+  verified_count:
+    type: int
+    description: "Checks that passed"
+  failed_count:
+    type: int
+    description: "Checks that failed"
+  superseded_count:
+    type: int
+    description: "Items retired by a later supersedes_dod_evidence marker"
+  # OMN-17323: the second class of entry excluded from total_checks. An
+  # unbindable ::pr-live-state overlay is a check this VERIFIER synthesised,
+  # not one the ticket declared, and it skipped because the verifier's own
+  # binder derived no (repo, pr) pair. Since OMN-16434 mints one onto every new
+  # OCC companion, leaving it in the denominator made the OMN-16821 autoclose
+  # flip equality unsatisfiable by construction (24 scheduled runs, FLIP=0).
+  unbindable_overlay_count:
+    type: int
+    description: "Verifier-derived ::pr-live-state overlays with no PR binding"
+  # OMN-15911: `verified_count == total_checks` can be satisfied entirely by
+  # merge-state reads, so a green tally alone does not say the system does the
+  # thing. This names how many passing checks executed the claimed behavior;
+  # zero on a green run is the merge-state-only case a consuming lane must
+  # treat as a gap, not a completion.
+  behavior_proving_count:
+    type: int
+    description: "Checks that both passed AND executed the claimed behavior"
+  # OMN-17022: an unresolved run that cannot say WHY is the untyped
+  # RUN_ERROR_OR_TIMEOUT label all over again. The two retry policies key off
+  # this field alone — bounded backoff for a run fault, outright refusal for a
+  # credential/resolution defect a retry reproduces exactly.
+  unresolved_cause:
+    type: str
+    description: >-
+      Why the run reached no verdict, from EnumDodVerifyUnresolvedCause
+      (run_error_or_timeout | pr_lookup_failed | pr_lookup_ambiguous |
+      repo_lookup_failed | unknown). Set exactly when status is `unresolved`.
+  goal_id:
+    type: uuid
+    description: "Goal identity attached to this verification attempt."
+  parent_goal_id:
+    type: uuid
+    description: "Parent goal identity for nested verification."
+  level:
+    type: str
+    description: "Goal level for this verification attempt."
+  contract_revision:
+    type: uuid
+    description: "Immutable goal-contract revision evaluated by this attempt."
+
+terminal_event: onex.evt.omnimarket.dod-verify-completed.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.dod-verify-start.v1
+  publish_topics:
+    - onex.evt.omnimarket.dod-verify-completed.v1
+
+metadata:
+  transport_type: kafka
+
+# OMN-18900: this topic is NO LONGER a sink. node_projection_dod_verdict
+# subscribes to it and materializes one durable row per verification run, so
+# the OMN-18013 externally_consumed_topics declaration that stood here -- "no
+# node contract subscribes to these" -- became false the moment that node's
+# contract landed, and a stale sink declaration is exactly the kind of
+# contract-graph drift that closure check exists to catch.
+#
+# The publish side of this topic is wired by OMN-18901, which lands after the
+# consumer. Until it does, the projection is a reader with nothing to read:
+# that is consumer-first working, not a gap.

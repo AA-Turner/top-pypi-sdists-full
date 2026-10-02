@@ -29,8 +29,8 @@ on:
         required: true
         type: string
       agent_session_url:
-        description: "Agent session URL for context (e.g. Devin session URL)."
-        required: true
+        description: "Optional agent session URL for context (e.g. Devin session URL)."
+        required: false
         type: string
       pr_url:
         description: "Optional URL to a related pull request."
@@ -116,8 +116,8 @@ on:
         required: true
         type: string
       agent_session_url:
-        description: "Agent session URL for context."
-        required: true
+        description: "Optional agent session URL for context."
+        required: false
         type: string
       pr_url:
         description: "Optional PR URL."
@@ -271,7 +271,7 @@ jobs:
             --roster-file "$ROSTER_FILE" \
             --target-person "$INPUT_TARGET_PERSON" \
             --message "$INPUT_MESSAGE" \
-            --agent-session-url "$INPUT_AGENT_SESSION_URL" \
+            ${INPUT_AGENT_SESSION_URL:+--agent-session-url "$INPUT_AGENT_SESSION_URL"} \
             ${INPUT_CC_PERSONS:+--cc-persons "$INPUT_CC_PERSONS"} \
             ${INPUT_PR_URL:+--pr-url "$INPUT_PR_URL"} \
             ${INPUT_ISSUE_URL:+--issue-url "$INPUT_ISSUE_URL"} \

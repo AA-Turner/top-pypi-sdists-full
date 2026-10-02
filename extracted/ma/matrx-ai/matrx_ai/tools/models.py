@@ -637,6 +637,11 @@ class ToolError(BaseModel):
     error_type: str
     message: str
     traceback: str | None = None
+    # True → the traceback reaches the operator surfaces (console, debug log,
+    # tool_trace) but never the model's view of the error. For a stack that is
+    # not the calling model's to read — a child agent's provider failure, whose
+    # last line is the provider's raw text ("Add credits at https://…").
+    traceback_operator_only: bool = False
     is_retryable: bool = False
     suggested_action: str | None = None
     recovery: ToolRecovery | None = None
@@ -705,7 +710,7 @@ class ToolError(BaseModel):
             parts.append(f"Suggested action: {self.suggested_action}")
         if self.recovery is not None:
             parts.append(self.recovery.to_agent_line())
-        if self.traceback:
+        if self.traceback and not self.traceback_operator_only:
             parts.append(f"Technical details:\n{self.traceback}")
         return parts
 
@@ -1612,6 +1617,19 @@ class ToolDefinition(BaseModel):
                         root_spec.get("description", "") if isinstance(root_spec, dict) else ""
                     )
                 }
+            elif (
+                isinstance(root_spec, dict)
+                and ("type" in root_spec or "anyOf" in root_spec)
+                and any("type" not in spec and "anyOf" not in spec for spec in variant_specs)
+            ):
+                # An action that carries this field leaves it UNTYPED (its wire model
+                # says ``Any``), so a typed root is a stale narrowing, not the union.
+                # dataset.data was rooted ``array`` while update_row takes ONE object:
+                # the model could only send the row as a JSON string, and five writes
+                # failed (Compass, 2026-10-01). Keep the text, drop the false shape.
+                chosen = {"description": root_spec.get("description", "")}
+                if union_keys is not None:
+                    union_keys.add(key)  # Gemini keeps the root otherwise
             elif (
                 isinstance(root_spec, dict) and "type" not in root_spec and "anyOf" not in root_spec
             ):

@@ -1,0 +1,98 @@
+---
+name: node_projection_swarm
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: reducer
+node_version: {major: 1, minor: 0, patch: 0}
+description: >
+  Reducer node for swarm run projection. Upserts swarm_runs table from
+  terminal swarm dispatch events. Tracks freshness SLA and evidence bundles.
+
+handler:
+  name: HandlerProjectionSwarm
+  module: omnimarket.nodes.node_projection_swarm.handlers.handler_projection_swarm
+  class: HandlerProjectionSwarm
+
+handler_routing:
+  routing_strategy: topic_match
+  handlers:
+    - topic: onex.evt.omnimarket.swarm-dispatch-completed.v1
+      operation: swarm_dispatch_completed
+      event_model:
+        name: ModelSwarmDispatchEvent
+        module: omnimarket.nodes.node_projection_swarm.handlers.handler_projection_swarm
+      handler:
+        name: HandlerProjectionSwarm
+        module: omnimarket.nodes.node_projection_swarm.handlers.handler_projection_swarm
+    - topic: onex.evt.omnimarket.swarm-dispatch-failed.v1
+      operation: swarm_dispatch_failed
+      event_model:
+        name: ModelSwarmDispatchEvent
+        module: omnimarket.nodes.node_projection_swarm.handlers.handler_projection_swarm
+      handler:
+        name: HandlerProjectionSwarm
+        module: omnimarket.nodes.node_projection_swarm.handlers.handler_projection_swarm
+
+descriptor:
+  node_archetype: reducer
+  purity: effectful
+  idempotent: true
+  timeout_ms: 30000
+  runtime_profiles: [effects]
+
+event_bus:
+  subscribe_topics:
+    - onex.evt.omnimarket.swarm-dispatch-completed.v1
+    - onex.evt.omnimarket.swarm-dispatch-failed.v1
+  publish_topics:
+    - onex.evt.omnimarket.projection-swarm-applied.v1
+
+terminal_event: onex.evt.omnimarket.projection-swarm-applied.v1
+
+freshness_sla:
+  max_lag_seconds: 30
+  degraded_after_seconds: 60
+
+db_io:
+  db_tables:
+    - name: swarm_runs
+      database_ref: application
+      schema: omninode_internal
+      migration: "0001_create_swarm_runs.sql"
+      access: write
+      role: projection
+
+projection_api:
+  expose: true
+  topic: "onex.snapshot.projection.swarm.runs.v1" # onex-topic-allow: projection snapshot topics use onex.snapshot.* prefix by convention
+  key_grain: "mutable"
+  table: "swarm_runs"
+  schema: "public"
+  columns:
+    - "run_id"
+    - "correlation_id"
+    - "status"
+    - "task_hash"
+    - "subtask_count"
+    - "succeeded_count"
+    - "failed_count"
+    - "skipped_count"
+    - "models_used"
+    - "machines_used"
+    - "total_cost_usd"
+    - "cloud_equivalent_cost_usd"
+    - "savings_usd"
+    - "parallelism_speedup_ratio"
+    - "total_latency_ms"
+    - "created_at"
+  order_by: "created_at DESC"
+  freshness_column: "created_at"
+  limit: 500
+
+metadata:
+  transport_type: kafka
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  # referenced outside the node graph at omnimarket/src/omnimarket/nodes/node_projection_swarm/handlers/handler_projection_swarm.py
+  - onex.evt.omnimarket.projection-swarm-applied.v1

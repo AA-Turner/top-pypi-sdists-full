@@ -1,0 +1,82 @@
+name: Github CI
+
+on:
+  pull_request:
+    branches:
+      - '**'
+  push:
+    branches:
+      - main
+
+jobs:
+  linter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+      - name: Set up Python
+        run: uv python install
+      - name: Install Python dependencies
+        run: make dependencies
+      - name: Lint with pylint
+        run: |
+          make lint
+
+  setup:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [ '3.11', '3.12', '3.13' ]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+      - name: Install Python dependencies
+        run: make dependencies
+      - name: Install as a package
+        run: uv build
+
+  security:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [ '3.11', '3.12', '3.13' ]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+      - name: Install Python dependencies
+        run: make dependencies
+      - name: Verify security vulnerabilities
+        run: make check
+
+
+  unit:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [ '3.11', '3.12', '3.13' ]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+      - name: Install Python dependencies
+        run: make dependencies
+      - name: Unit test
+        run: make unit
+        env:
+          LOG_LEVEL: ERROR
+
+      - name: Report Coverage
+        run: |
+          pip3 install --upgrade coveralls coverage[toml]
+          coveralls --service=github
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

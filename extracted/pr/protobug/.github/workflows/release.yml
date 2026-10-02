@@ -1,0 +1,80 @@
+name: Release
+on:
+  push:
+    tags:
+      - '*'
+
+permissions: {}
+
+jobs:
+  build:
+    name: Build artifacts
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      with:
+        fetch-depth: 0  # Needed for hatch-vcs versioning
+        persist-credentials: false
+    - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
+      with:
+        python-version: "3.14"
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install --upgrade build
+    - name: Build package
+      run: python -m build
+    - name: Upload artifacts
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # v7.0.0
+      with:
+        name: artifacts
+        path: |
+          dist/protobug-*.whl
+          dist/protobug-*.tar.gz
+        compression-level: 0
+
+  publish_pypi:
+    name: Publish to PyPI
+    needs: [build]
+    if: github.repository == 'yt-dlp/protobug'
+    permissions:
+      id-token: write  # Needed for PyPI trusted publishing
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+      with:
+        path: dist
+        name: artifacts
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e  # v1.13.0
+      with:
+        verbose: true
+
+  release:
+    name: Create GitHub release
+    needs: [build, publish_pypi]
+    if: always() && !failure() && !cancelled()
+    permissions:
+      contents: write  # Needed by gh to publish release to Github
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      with:
+        persist-credentials: false
+    - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+      with:
+        path: dist
+        name: artifacts
+    - name: Create GitHub Release
+      env:
+        GH_TOKEN: ${{ github.token }}
+        TAG: ${{ github.ref_name }}
+      run: |
+        gh release create "${TAG}" \
+          --title "protobug v${TAG}" \
+          --generate-notes \
+          --verify-tag \
+          dist/protobug-*.whl \
+          dist/protobug-*.tar.gz

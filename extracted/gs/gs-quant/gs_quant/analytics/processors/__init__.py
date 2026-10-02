@@ -22,5 +22,6 @@ from .statistics_processors import PercentilesProcessor, PercentileProcessor, St
     CovarianceProcessor, ZscoresProcessor, MeanProcessor, VarianceProcessor, SumProcessor, StdDevProcessor, \
     CompoundGrowthRate
 from .utility_processors import LastProcessor, AppendProcessor, AdditionProcessor, SubtractionProcessor, \
-    MultiplicationProcessor, DivisionProcessor, MinProcessor, MaxProcessor, NthLastProcessor, OneDayProcessor
+    MultiplicationProcessor, DivisionProcessor, MinProcessor, MaxProcessor, NthLastProcessor, OneDayProcessor, \
+    SparklineProcessor
 from .scale_processors import ScaleProcessor, BarMarkerProcessor, SpotMarkerProcessor, ScaleShape

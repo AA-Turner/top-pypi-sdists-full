@@ -1,0 +1,346 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""Row derivation for the cloud-side hook-event ledger (OMN-17201, leg 5).
+
+Every refusal in this module is fail-closed and named. There is no branch that
+guesses, defaults, or silently drops: a record either derives a complete row or
+raises :class:`HookLedgerProjectionError`, which the runner classifies as POISON
+so the record lands durably in the DLQ instead of being retried forever or
+committed-and-lost.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+from datetime import datetime
+from typing import Any
+from uuid import UUID
+
+from omnibase_infra.nodes.node_bus_forwarder_effect.services.service_gateway_topic_transform import (
+    resolve_tenant_from_wire_topic,
+)
+from pydantic import BaseModel, ConfigDict, Field
+
+from omnimarket.projection.envelope import strip_runner_injected_keys
+from omnimarket.projection.error_classification import PoisonEventError
+
+#: Marks rows that arrived over the gateway relay, distinguishing them from the
+#: rows ``node_hook_event_capture`` writes into the same table from the
+#: workflow-submission spool path that OMN-16980 retires.
+RELAY_SOURCE = "gateway-relay"
+
+_CONTENT_EVENT_ID = re.compile(r"^[0-9a-f]{64}$")
+
+
+class HookLedgerProjectionError(PoisonEventError):
+    """A record that can never project, no matter how often it is retried.
+
+    The canonical ``PoisonEventError`` marker routes this deterministic input
+    refusal to the DLQ. The consumer advances its offset only after that
+    quarantine publish succeeds; a failed publish leaves the source record
+    replayable rather than dropping it.
+    """
+
+
+class ModelHookLedgerProjectionRequest(BaseModel):
+    """The typed request the canonical handler takes (definition B).
+
+    OMN-14355: a new node must be born canonical --
+    ``handle(request: ModelX) -> ModelY`` over a TYPED payload, never
+    ``handle(input_data: dict[str, Any]) -> dict[str, Any]``. The 95 baselined
+    siblings that still carry the dict shape are known debt the ratchet allows
+    to shrink and never to grow; adding this node to that baseline would be
+    using an allowlist as a fix, so the shape is correct here instead.
+
+    ``record`` stays an open mapping ON PURPOSE and that is not a loophole: it
+    is the producer's verbatim hook body, whose four classes are independently
+    versioned and gain fields without a release of this node. The typing that
+    matters -- the delivery coordinates and the wire topic that resolves tenancy
+    -- is exactly what a dict-shaped handle left unchecked.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    wire_topic: str = Field(
+        min_length=1,
+        description="The physical, tenant-prefixed cloud topic the record arrived on.",
+    )
+    record: dict[str, Any] = Field(
+        description="The unwrapped cloud envelope record, verbatim."
+    )
+    partition: int = Field(ge=0, description="Source partition of this delivery.")
+    offset: int = Field(ge=0, description="Source offset of this delivery.")
+
+
+class ModelHookLedgerProjectionResult(BaseModel):
+    """The typed response the canonical handler returns (definition B).
+
+    ``rows_upserted`` is a real count rather than ``None`` for the same reason
+    ``node_projection_work_events`` returns one: the terminal applied-event is
+    a deterministic-truth assertion that a durable row LANDED, so a zero-row
+    path must be able to suppress it (OMN-13360). Collapsing this to a bare
+    boolean would degrade that event into "handle() did not raise".
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    projected: bool = Field(
+        description="False when the topic is outside the declared wire set."
+    )
+    rows_upserted: int = Field(
+        ge=0,
+        description="1 for a new row; 0 for a duplicate the UNIQUE key suppressed.",
+    )
+    tenant_id: str | None = Field(default=None)
+    event_sha: str | None = Field(default=None)
+    envelope_id: str | None = Field(default=None)
+    correlation_id: str | None = Field(default=None)
+
+
+# OMN-18092: ``ModelHookLedgerInbound`` used to live here, and deleting it is
+# the fix rather than a tidy-up. It was referenced by nothing except the four
+# ``handler_routing[].event_model`` slots in this node's contract -- no code in
+# this module or the handler ever constructed or read one. Meanwhile the shared
+# runtime's auto-wiring validates each record into the CONTRACT-DECLARED model
+# and hands the result to ``handle()``, which takes
+# ``ModelHookLedgerProjectionRequest`` and reads ``request.wire_topic``.
+#
+# The two disagreeing is what dead-lettered every omniclaude hook record on the
+# .201 dev lane between 2026-09-06T14:00Z and 16:43Z. It was invisible to the
+# validation seam precisely because this model set ``extra="allow"`` and
+# required only ``emitted_at``: it accepted every record, so it could refuse
+# none, and the failure moved from a validation refusal into an AttributeError
+# inside the handler.
+#
+# Leaving an unused model whose docstring called it "the producer-side hook body
+# this ledger accepts" would leave the same trap armed for the next contract
+# edit. The verbatim producer body is deliberately NOT modelled at all -- it is
+# stored as JSONB by ``_stored_payload`` below, and the only typing this node
+# needs is the delivery coordinates, which ``ModelHookLedgerProjectionRequest``
+# already carries.
+
+
+def _canonical_body(payload: dict[str, Any]) -> str:
+    """Stable JSON text of the event body, for content addressing."""
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
+
+
+def derive_event_sha(canonical_topic: str, payload: dict[str, Any]) -> str:
+    """Content address of one hook event.
+
+    Deliberately derived from the event's OWN content and class only, never
+    from the delivery coordinates. A consumer-group rebalance re-reads the same
+    record at a different partition/offset; if those took part in the key, the
+    table's ``UNIQUE (tenant_id, event_sha)`` would stop deduplicating exactly
+    when it matters and a rebalance would double every row.
+    """
+    material = f"{canonical_topic}\n{_canonical_body(payload)}"
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+
+def derive_batch_sha(wire_topic: str, partition: int, offset: int) -> str:
+    """Content address of the DELIVERY unit this record arrived in.
+
+    ``hook_events.batch_sha`` is NOT NULL because the spool path submits real
+    multi-event batches. A bus record has no batch, so rather than reusing
+    ``event_sha`` (which would assert a falsehood: that the batch and the event
+    are the same thing) this addresses the genuine unit of delivery -- one
+    broker record at one coordinate. It is honest, unique per delivery, and
+    never confusable with a submitted batch's sha.
+    """
+    return hashlib.sha256(f"{wire_topic}:{partition}:{offset}".encode()).hexdigest()
+
+
+def _require_envelope(data: dict[str, Any]) -> dict[str, Any]:
+    """Return the attached cloud envelope, or refuse.
+
+    The cloud bus carries ``ModelEventEnvelope`` JSON -- the gateway forwarder
+    decodes, validates and re-encodes one on every outbound publish. The
+    STABILITY lane carries a FLAT hook body with its envelope metadata in Kafka
+    headers instead. Those two shapes are not interchangeable, and conflating
+    them silently is precisely the OMN-17919 defect one leg up the chain, where
+    261 of 261 records were rejected while the unit suite stayed green because
+    every fixture built the shape the live lane does not carry.
+
+    So this refuses by name rather than falling back to treating a flat record
+    as its own payload.
+    """
+    envelope = data.get("_envelope")
+    if not isinstance(envelope, dict):
+        raise HookLedgerProjectionError(
+            "hook ledger record carries no cloud envelope: the cloud bus wire "
+            "shape is ModelEventEnvelope, and a flat body is the stability-lane "
+            "shape (OMN-17919). Refusing rather than guessing which one this is."
+        )
+    return envelope
+
+
+def _resolve_tenant(wire_topic: str, envelope: dict[str, Any]) -> tuple[str, str]:
+    """Resolve ``(tenant_slug, canonical_topic)`` from the WIRE TOPIC, cross-checked.
+
+    Two independent refusals, both fail-closed:
+
+    * The topic must actually carry a ``tenant-<slug>.`` prefix. A bare topic
+      leaves the tenant underived, and a payload-supplied ``tenant_id`` would
+      then survive unverified -- the cross-tenant identity leak the
+      ``tenant_scoped_ingress`` gate exists to prevent.
+    * When the forwarder's own trust-boundary tag is present it must AGREE. Two
+      tenant authorities that disagree is a refusal, never a pick. OMN-17066 is
+      the live record of the alternative: a writer keying tenant isolation on a
+      single house-tenant stamp collapsed cross-tenant events onto one
+      idempotency key.
+
+    The payload's own ``tenant_id`` is never an input to this. It is producer-
+    supplied and therefore not an authority on tenancy at all.
+    """
+    slug, canonical_topic = resolve_tenant_from_wire_topic(wire_topic)
+    if slug is None:
+        raise HookLedgerProjectionError(
+            f"hook ledger wire topic carries no tenant prefix: {wire_topic!r}. "
+            "The row tenant is derived from the wire topic and there is no "
+            "second source to fall back to."
+        )
+
+    tags = envelope.get("metadata")
+    tag_slug: object = None
+    if isinstance(tags, dict):
+        raw_tags = tags.get("tags")
+        if isinstance(raw_tags, dict):
+            tag_slug = raw_tags.get("gateway_tenant_slug")
+    if tag_slug is not None and tag_slug != slug:
+        raise HookLedgerProjectionError(
+            "hook ledger tenant authorities disagree: wire topic says "
+            f"{slug!r} and the gateway tenant tag says {tag_slug!r}. Refusing."
+        )
+    return slug, canonical_topic
+
+
+def _reject_payload_tenant_claim(payload: dict[str, Any], tenant_id: str) -> None:
+    """A producer-supplied tenant that contradicts the wire topic is refused."""
+    claimed = payload.get("tenant_id")
+    if claimed is not None and claimed != tenant_id:
+        raise HookLedgerProjectionError(
+            "hook ledger payload claims tenant "
+            f"{claimed!r} but the wire topic resolves tenant {tenant_id!r}. "
+            "The payload is producer-supplied and is not an authority on "
+            "tenancy; refusing rather than trusting either one."
+        )
+
+
+def _require_occurred_at(payload: dict[str, Any]) -> datetime:
+    """The producer's own timestamp, or a refusal. Never ``now()``.
+
+    ``hook_events.occurred_at``'s own migration is explicit that ingest time
+    must never be stamped here, because these events are historical and their
+    producer timestamp is the only ordering signal they carry. A record without
+    one is refused rather than given a fabricated position in the ledger.
+    """
+    raw = payload.get("emitted_at")
+    if raw is None:
+        raise HookLedgerProjectionError(
+            "hook ledger record carries no emitted_at. occurred_at is the "
+            "producer's own timestamp and is never backfilled with ingest "
+            "time; refusing rather than fabricating an ordering position."
+        )
+    if isinstance(raw, datetime):
+        return raw
+    try:
+        return datetime.fromisoformat(str(raw))
+    except ValueError as err:
+        raise HookLedgerProjectionError(
+            f"hook ledger emitted_at is not an ISO-8601 timestamp: {raw!r}"
+        ) from err
+
+
+def _stored_payload(data: dict[str, Any]) -> dict[str, Any]:
+    """The verbatim producer body, minus only canonical runner metadata keys."""
+    return strip_runner_injected_keys(data)
+
+
+def _optional_str(value: object, *, limit: int) -> str | None:
+    """A bounded string, or ``None``.
+
+    The columns these feed are ``VARCHAR(64)``. An over-long value is truncated
+    to ``None`` rather than to a prefix: a truncated correlation id reads like a
+    real one and would silently fail to match the id the AC3 probe searches for,
+    which is worse than an honest absence.
+    """
+    if value is None:
+        return None
+    text = str(value)
+    if not text or len(text) > limit:
+        return None
+    return text
+
+
+def _require_content_event_id(envelope: dict[str, Any], expected: str) -> str:
+    """Validate the relay-provided content identity against the local derivation."""
+    metadata = envelope.get("metadata")
+    tags = metadata.get("tags") if isinstance(metadata, dict) else None
+    tagged = tags.get("event_id") if isinstance(tags, dict) else None
+    if not isinstance(tagged, str) or not _CONTENT_EVENT_ID.fullmatch(tagged):
+        raise HookLedgerProjectionError(
+            "hook ledger gateway metadata.tags.event_id must be a lowercase "
+            "64-character SHA-256 hex digest."
+        )
+    if tagged != expected:
+        raise HookLedgerProjectionError(
+            "hook ledger gateway metadata.tags.event_id does not match the "
+            "recomputed content identity."
+        )
+    return tagged
+
+
+def _require_envelope_id(envelope: dict[str, Any]) -> str:
+    """Validate the transport UUID retained separately from durable content identity."""
+    raw = envelope.get("envelope_id")
+    if not isinstance(raw, str):
+        raise HookLedgerProjectionError(
+            "hook ledger cloud envelope carries no UUID envelope_id."
+        )
+    try:
+        return str(UUID(raw))
+    except ValueError as err:
+        raise HookLedgerProjectionError(
+            "hook ledger cloud envelope_id is not a UUID."
+        ) from err
+
+
+def derive_hook_ledger_row(
+    *,
+    wire_topic: str,
+    data: dict[str, Any],
+    partition: int,
+    offset: int,
+) -> dict[str, Any]:
+    """Derive exactly one ``public.hook_events`` row from one cloud bus record."""
+    envelope = _require_envelope(data)
+    tenant_id, canonical_topic = _resolve_tenant(wire_topic, envelope)
+
+    payload = _stored_payload(data)
+    _reject_payload_tenant_claim(payload, tenant_id)
+    occurred_at = _require_occurred_at(payload)
+
+    correlation_id = _optional_str(
+        payload.get("correlation_id") or envelope.get("correlation_id"), limit=64
+    )
+
+    event_sha = derive_event_sha(canonical_topic, payload)
+    event_id = _require_content_event_id(envelope, event_sha)
+
+    return {
+        "tenant_id": tenant_id,
+        "event_sha": event_sha,
+        "event_type": canonical_topic,
+        "occurred_at": occurred_at,
+        "payload": payload,
+        "event_id": event_id,
+        "envelope_id": _require_envelope_id(envelope),
+        "correlation_id": correlation_id,
+        "run_id": _optional_str(payload.get("session_id"), limit=64),
+        "source": RELAY_SOURCE,
+        "batch_sha": derive_batch_sha(wire_topic, partition, offset),
+    }

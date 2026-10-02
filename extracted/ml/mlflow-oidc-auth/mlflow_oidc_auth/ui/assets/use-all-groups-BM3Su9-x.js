@@ -1,1 +1,0 @@
-import{t as e}from"./use-api-CboCN_D_.js";import{r as t}from"./entity-service-GmIF0ckc.js";function n(){let{data:n,isLoading:r,error:i,refetch:a}=e(t);return{allGroups:n,isLoading:r,error:i,refresh:a}}export{n as t};

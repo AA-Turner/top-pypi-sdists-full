@@ -1,1 +1,0 @@
-"""Blank for pytests testing."""

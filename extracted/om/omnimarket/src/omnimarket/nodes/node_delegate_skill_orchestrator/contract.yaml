@@ -1,0 +1,505 @@
+---
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+name: node_delegate_skill_orchestrator
+contract_name: node_delegate_skill_orchestrator
+node_name: node_delegate_skill_orchestrator
+contract_version: {major: 1, minor: 3, patch: 0}
+node_version: {major: 1, minor: 3, patch: 0}
+node_type: orchestrator
+description: >
+  Consumer-facing delegation entry point for Claude Code and Codex adapters.
+  Accepts typed delegation requests, validates task type, normalizes input,
+  dispatches to the omnibase_infra delegation runtime, and returns typed results.
+  Owns the user-facing delegation contract.
+
+input_model:
+  name: ModelDelegateSkillRequest
+  class: ModelDelegateSkillRequest
+  module: omnimarket.nodes.node_delegate_skill_orchestrator.models.model_delegate_skill_request
+  description: Consumer-facing delegation request with prompt, task_type, source, and metadata.
+
+output_model:
+  name: ModelDelegateSkillResponse
+  module: omnimarket.nodes.node_delegate_skill_orchestrator.models.model_delegate_skill_response
+  description: Typed delegation result with provider, model, response, metrics, and quality gate.
+
+# OMN-14485: declare the tenant seam on the RESPONSE/terminal side of the contract,
+# not only on the request inputs. The response is auto-published verbatim as the
+# `delegate-skill-completed.v1` terminal event that node_projection_delegation reads;
+# a response that omits tenant_id makes every projection row fall back to the
+# 'omninode' column default (the live no-op OMN-14485 fixed). Declaring it here makes
+# the tenant seam contract-first end-to-end (request tenant_id -> response/terminal
+# tenant_id -> delegation_events.tenant_id) so a future regeneration cannot silently
+# drop it, and the contract-state-coverage gate now requires a test that exercises it.
+outputs:
+  tenant_id:
+    type: str
+    description: >
+      Multi-tenant isolation identifier carried onto the terminal event so the
+      delegation_events projection row stamps a real tenant. Resolved at
+      request-acceptance from the verified request tenant_id or the ONEX_TENANT_ID
+      interim (OMN-14058); absent/None falls back to the 'omninode' column default.
+  provenance:
+    type: object
+    required: false
+    description: >
+      Canonical typed origin and traffic classification carried unchanged from
+      request acceptance. Omitted means legacy/unclassified and never synthetic.
+  required_quality_bar:
+    type: float
+    required: false
+    minimum: 0.0
+    maximum: 1.0
+    description: Authoritative minimum quality score evaluated for this result.
+  score_vs_required_bar:
+    type: str
+    required: false
+    enum: [below_bar, at_or_above_bar]
+    description: Typed relationship between quality_score and required_quality_bar.
+  failed_acceptance_criteria:
+    type: list
+    required: false
+    description: Authoritative quality-gate criteria that rejected the result.
+  terminal_failure_cause:
+    type: str
+    required: false
+    enum:
+      - provider_quota_exhausted
+      - auth_failed
+      - provider_error
+      - quality_gate_refused
+      - timeout
+      - no_terminal
+      # OMN-20117: the runtime shut down (redeploy, restart, stop) while the
+      # run was in flight; the handler answers its cancellation with this.
+      - runtime_shutdown
+    description: Stable machine-readable terminal failure cause when known.
+  credential_refusal:
+    type: dict
+    required: false
+    description: >
+      OMN-18696. Typed credential refusal from the local path, present only when
+      the terminal was one. Declares `reason` (credential_absent |
+      credential_rejected), the credential REFERENCE and env-var NAME the
+      backend declares, the backend ref, the model id, the correlation id, and
+      the refusing party's own words. Never a secret value. Absent on every
+      other terminal, so its presence is the refusal fact rather than a flag
+      beside it.
+  attempts_count:
+    type: int
+    required: false
+    default: 1
+    minimum: 1
+    description: >
+      Authoritative total inference calls, including compliance repairs,
+      same-tier retries, and the terminal attempt.
+  queue_wait_ms:
+    type: int
+    required: false
+    minimum: 0
+    description: >
+      OMN-18852. Milliseconds between the command record being published and
+      this handler picking it up -- time the work had not started. Absent means
+      NOT MEASURED (the producer stamped no published_at), never zero: an
+      unstamped request and an empty queue must not read the same.
+  execution_duration_ms:
+    type: int
+    required: false
+    minimum: 0
+    description: >
+      OMN-18852. Milliseconds from handler pickup to terminal -- time the work
+      was running. This, not the sum with queue_wait_ms, is the interval
+      handler_execution_budget.max_handler_duration_seconds governs.
+
+allowed_task_types:
+  - test
+  - document
+  - research
+  - code_generation
+  - code_review
+  - refactor
+  - reasoning
+  - complex_reasoning
+  - planning
+  - review
+  - summarization
+  - agent_delegation
+  - escalation
+  - documentation
+  - validator_generation
+
+inputs:
+  prompt:
+    type: str
+    required: true
+    description: User prompt to delegate.
+  task_type:
+    type: str
+    required: true
+    description: Contract task taxonomy for delegation routing.
+  source:
+    type: str
+    required: true
+    description: Registered adapter source.
+  provenance:
+    type: object
+    required: false
+    description: >
+      Canonical typed origin and traffic classification. Synthetic provenance
+      requires a named source_surface. Omit for legacy/unclassified traffic.
+  cwd:
+    type: str
+    required: false
+    description: Caller current directory.
+  source_file_path:
+    type: str
+    required: false
+    description: Source file context for runtime delegation.
+  working_directory:
+    type: str
+    required: false
+    description: Worker working directory requested by the caller.
+  session_id:
+    type: str
+    required: false
+    description: Session that originated the delegation request.
+  tenant_id:
+    type: str
+    required: false
+    description: Verified tenant slug derived at the gateway or runtime boundary.
+  recipient:
+    type: str
+    required: false
+    description: Requested delegation recipient surface.
+  codex_sandbox_mode:
+    type: str
+    required: false
+    description: Codex sandbox mode requested by the caller.
+  wait:
+    type: bool
+    required: false
+    default: true
+    description: Wait for synchronous result.
+  max_tokens:
+    type: int
+    required: false
+    minimum: 1
+    # OMN-13161: no contract-level default and no 8192 hardcap. When the request
+    # omits max_tokens the orchestrator resolves the effective value from the
+    # selected backend's per-backend ceiling in the routing contract
+    # (bifrost_delegation.yaml + overlay); an explicit value is capped at that
+    # backend ceiling. The absolute schema bound mirrors the backend model.
+    maximum: 200000
+    description: >
+      Optional output-token budget. Omit to resolve the effective value from the
+      selected backend's per-backend ceiling; an explicit value is capped at that
+      ceiling.
+  requested_timeout_seconds:
+    type: int
+    required: false
+    minimum: 1
+    description: >
+      Optional execution timeout requested by the caller. The handler refuses a
+      value above the selected task class ceiling and records the effective
+      execution timeout with its terminal delivery margin in budget evidence.
+  correlation_id:
+    type: uuid
+    required: false
+    description: Correlation identifier generated when the caller omits it.
+  published_at:
+    type: str
+    required: false
+    description: >
+      OMN-18852. Timezone-aware instant the command record was published,
+      stamped by the producer. It is the only source from which the handler can
+      measure queue wait (publish -> pickup), because a definition-B handler
+      receives the typed request and never the broker record. Omit it and the
+      terminal reports queue wait as NOT MEASURED rather than as zero.
+  metadata:
+    type: object
+    required: false
+    description: Additional adapter metadata.
+  quality_contract_mode:
+    type: str
+    required: false
+    default: extend_task_class
+    description: How request criteria interact with task-class quality gates.
+  acceptance_criteria:
+    type: list
+    required: false
+    description: Request-level quality criteria enforced by the quality gate.
+  backend_id:
+    type: str
+    required: false
+    description: >
+      Optional explicit backend pin (e.g. 'local-coder-mlx'). None resolves
+      the backend via the normal cheapest-first tier_order selection.
+  no_escalation:
+    type: bool
+    required: false
+    default: false
+    description: >
+      Dogfood fault-route policy marker (one provider call, no retry, no tier
+      escalation). True requires backend_id and is admitted only by the
+      trusted runtime consumer for a declared dogfood fault backend; ordinary
+      requests omit it.
+  response_contract:
+    type: object
+    required: false
+    description: >
+      Optional JSON-Schema-shaped contract describing the expected response
+      structure (OMN-15193). When set, the delegation quality gate validates
+      the response structurally against this schema instead of the
+      task-class keyword heuristics. None preserves current behavior.
+  system_prompt:
+    type: str
+    required: false
+    description: >
+      Optional caller-supplied system message (OMN-15482), sent as a distinct
+      role:system chat message alongside the user prompt. Omit to resolve the
+      task-type default system prompt, which is the pre-existing behavior.
+  temperature:
+    type: float
+    required: false
+    minimum: 0.0
+    maximum: 2.0
+    description: >
+      Optional sampling temperature (OMN-15482) forwarded verbatim to the
+      provider. Omit to resolve the effect-layer default, preserving
+      pre-existing behavior.
+  response_format:
+    type: object
+    required: false
+    description: >
+      Optional OpenAI-shaped response-format directive (OMN-15482) forwarded
+      verbatim as a wire parameter on the outbound chat-completions payload.
+      Only {"type": "json_object"} is supported; anything else is rejected
+      rather than silently dropped. Omit to send no response_format at all.
+      Distinct from response_contract, which drives ONEX-side structural
+      validation and is never sent to the provider.
+
+db_io:
+  # OMN-18887: the durable claim that stops a redelivered delegate-skill
+  # command from re-running and re-billing the inference. Declared here
+  # because a created application object without an authoritative ownership
+  # declaration is refused by the application-domain gate -- an unowned table
+  # is one nobody is accountable for granting or migrating.
+  #
+  # access is read_write, not write: the claim is a read-and-decide in one
+  # statement. The whole point is that the return value tells this node
+  # whether it won, so it necessarily reads back what it wrote.
+  #
+  # schema is omninode_internal rather than tenant. This is internal control
+  # state for one node, not tenant-scoped data, and the table declares no
+  # row-level security that a tenant claim would imply is enforced.
+  db_tables:
+    - name: delegate_skill_command_claims
+      database_ref: application
+      schema: omninode_internal
+      migration: "0001_delegate_skill_command_claims.sql"
+      access: read_write
+      role: delegate_skill_claim
+
+runtime_dispatch:
+  command_topic: onex.cmd.omnimarket.delegate-skill.v1
+  terminal_events:
+    success: onex.evt.omnimarket.delegate-skill-completed.v1
+    failure: onex.evt.omnimarket.delegate-skill-failed.v1
+  default_timeout_ms: 300000
+  max_timeout_ms: 900000
+
+delegation_runtime_dispatch:
+  topics:
+    command: onex.cmd.omnibase-infra.delegation-request.v1
+    completed: onex.evt.omnibase-infra.delegation-completed.v1
+    failed: onex.evt.omnibase-infra.delegation-failed.v1
+  request_message_type: omnibase-infra.delegation-request
+  source_tool: delegate-skill-runtime-port
+  consumer_group_prefix: delegate-skill-runtime-port
+  wait_timeout_seconds: 300
+
+# OMN-15504: the handler's own wall-clock bound on one handle() invocation.
+#
+# This node is auto-wired onto a consumer whose poll loop is serial, so a
+# handler that outruns the consumer's max_poll_interval_ms is evicted
+# mid-handle and its commit is refused with UnknownMemberIdError. The offset
+# then never advances and the same records are redelivered forever -- a
+# livelock a container restart cannot clear, because the committed offset
+# lives in the broker. That is what took the .201 dev lane's delegation chain
+# down from 2026-09-10T11:56:43Z: wait_timeout_seconds above is 300, the lane
+# ran the 300000 ms max_poll_interval_ms default, and the handler's worst case
+# landed on the eviction deadline exactly.
+#
+# The bound lives here rather than in a dispatch port because the runtime port
+# has a wait of its own while the local in-process port has none -- a bound in
+# a port would hold on one transport and not the other. It is loaded by
+# load_handler_execution_budget(), which REFUSES a value that is not strictly
+# less than wait_timeout_seconds above: a bound equal to the thing it exists
+# to pre-empt pre-empts nothing.
+handler_execution_budget:
+  max_handler_duration_seconds: 240
+
+# OMN-18852: this handler is the lane's real single-flight point, and the
+# earlier fix did not reach it.
+#
+# MEASURED 2026-09-20T11:28Z, after `node_llm_delegation_call_effect` had been
+# given `max_in_flight_records: 4` and the runtime had logged the wiring for
+# both of its topics: four concurrent wrapper delegates still ran strictly
+# serially. Peak `vllm:num_requests_running` was 1.0 across 70 one-second
+# samples, and the inference windows read out of the effects log were
+# [11:28:39-43], [11:28:46-50], [11:28:54-56], [11:29:00-07] -- zero
+# overlapping pairs, with 3-4 s gaps between them.
+#
+# The inference consumer was ALLOWED four in flight and never had more than
+# one, because records were not arriving concurrently. Four commands were
+# published in the same second and inference intents emerged 3-4 s apart. The
+# constraint had simply moved one hop upstream, to here: `handle()` awaits the
+# WHOLE delegation inline (the `asyncio.wait_for` around the dispatch port,
+# bounded by `handler_execution_budget` above), so at the default of one
+# in-flight record exactly one delegation exists at a time and the inference
+# pool downstream can never fill. Raising a bound downstream of a
+# single-flight stage buys nothing; that is the lesson, not the number.
+#
+# WHY FOUR: it matches what the pool downstream can absorb, which is itself
+# the local engine's own `--max-num-seqs 4`. Declaring more here would queue
+# at the inference topic instead of here, moving the wait rather than
+# shortening it.
+#
+# WHY THIS TOPIC IS SAFE TO PARALLELISE: every record on
+# `onex.cmd.omnimarket.delegate-skill.v1` is an independent new delegation
+# carrying its own correlation id. No two records share mutable state, so the
+# per-key ordering this node needs still holds with no key split across
+# concurrent records.
+#
+# WHY `node_delegation_orchestrator` DELIBERATELY DOES NOT GET THIS, stated
+# here because the obvious next edit is to add it there too: that node is a
+# correlation-keyed FSM that self-loops (the compliance-repair path emits a
+# fresh inference intent and stays in ROUTED), and it consumes several topics
+# whose records refer to the SAME correlation. Concurrent records there could
+# race one correlation's FSM state, which is a correctness bug rather than a
+# throughput one. Parallelising it needs per-key serialisation first. It is
+# not the bottleneck anyway: its per-record work is route-and-publish and does
+# not await the provider, so it keeps up serially once this stage stops
+# admitting one delegation at a time.
+#
+# POLL-DEADLINE SAFETY, against the OMN-15504 livelock this node already
+# carries a budget for: concurrent handlers run as tasks while the loop keeps
+# polling, so the consumer reaches its next poll sooner than in the serial
+# case, not later. Every lane declares `KAFKA_MAX_POLL_INTERVAL_MS` at
+# 1800000, far above the 240 s budget above.
+#
+# OMN-19215 AC4 (RULING ledger:4257): raised from 4 to 8 together with
+# node_llm_delegation_call_effect, whose contract carries the measurement. The
+# downstream pool is now two four-slot engines (.201 and a spread-placed .202),
+# so "what the pool can absorb" is 8. It stays equal to, never above, the
+# inference effect's bound.
+consume_concurrency:
+  max_in_flight_records: 8
+
+config_dependencies:
+  - key: INFERENCE_PROTOCOL_CONFIG_PATH
+    required: false
+    description: Optional override for typed provider request-shaping profiles used by direct local dispatch.
+
+descriptor:
+  node_archetype: orchestrator
+  purity: effectful
+  idempotent: false
+  timeout_ms: 300000
+  runtime_profiles:
+    - effects
+
+event_bus:
+  version: {major: 1, minor: 0, patch: 0}
+  plugin_managed: false
+  subscribe_topics:
+    - onex.cmd.omnimarket.delegate-skill.v1
+  publish_topics:
+    - onex.evt.omnimarket.delegate-skill-completed.v1
+    - onex.evt.omnimarket.delegate-skill-failed.v1
+    # OMN-20154: the in-process port observes every metered call it makes and
+    # delivers the observation through node_event_emit_effect; appended so the
+    # terminal pair above keeps its position.
+    - onex.evt.omnimarket.provider-quota-observed.v1
+
+terminal_event: onex.evt.omnimarket.delegate-skill-completed.v1
+
+published_events:
+  - event_type: DelegateSkillCompleted
+    topic: onex.evt.omnimarket.delegate-skill-completed.v1
+    description: Delegation completed with typed result.
+  - event_type: DelegateSkillFailed
+    topic: onex.evt.omnimarket.delegate-skill-failed.v1
+    description: Delegation failed with typed error.
+
+cross_repo_dependencies:
+  - repo: omnimarket
+    node: node_delegation_orchestrator
+    contract_name: node_delegation_orchestrator
+    compatibility: ">=0.3.0"
+    required_topics:
+      - onex.cmd.omnibase-infra.delegation-request.v1
+    terminal_events:
+      - onex.evt.omnibase-infra.delegation-completed.v1
+      - onex.evt.omnibase-infra.delegation-failed.v1
+    required_models:
+      - name: ModelDelegationRequest
+        module: omnimarket.nodes.node_delegation_orchestrator.models.model_delegation_request
+      - name: ModelDelegationResult
+        module: omnimarket.nodes.node_delegation_orchestrator.models
+
+handler:
+  name: HandlerDelegateSkill
+  module: omnimarket.nodes.node_delegate_skill_orchestrator.handlers.handler_delegate_skill
+  class: HandlerDelegateSkill
+  input_model: omnimarket.nodes.node_delegate_skill_orchestrator.models.model_delegate_skill_request.ModelDelegateSkillRequest
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: delegate-skill.orchestrate
+      message_category: command
+      handler:
+        name: HandlerDelegateSkill
+        module: omnimarket.nodes.node_delegate_skill_orchestrator.handlers.handler_delegate_skill
+      event_model:
+        name: ModelDelegateSkillRequest
+        module: omnimarket.nodes.node_delegate_skill_orchestrator.models.model_delegate_skill_request
+      event_type: omnimarket.delegate-skill
+      description: Accept a delegate-skill command and dispatch to the delegation runtime.
+
+error_handling:
+  retry_policy:
+    max_retries: 1
+    initial_delay_ms: 1000
+    max_delay_ms: 5000
+    exponential_base: 2
+    retry_on:
+      - RuntimeDispatchTimeoutError
+  error_types:
+    - name: RuntimeDispatchTimeoutError
+      description: Runtime did not respond within timeout
+      recoverable: true
+    - name: InvalidTaskTypeError
+      description: Unsupported task type submitted
+      recoverable: false
+
+timeout_behavior:
+  default_ms: 300000
+  max_ms: 900000
+  terminal_response:
+    status: timeout
+    error_message: "Delegation timed out before runtime completion"
+
+metadata:
+  transport_type: kafka
+  demo_path: true  # OMN-12777: demo-path topic coherence gate scope marker
+  author: OmniNode Team
+  license: MIT
+  created: "2026-05-12"
+  tags: [orchestrator, delegation, adapter, claude-code, codex, OMN-10889, OMN-10903, OMN-10604]
+  related_tickets:
+    - "OMN-10889"
+    - "OMN-10903"
+    - "OMN-10604"

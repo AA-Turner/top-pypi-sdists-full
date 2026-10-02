@@ -1,0 +1,366 @@
+"""Bounded per-deployment circuit and throttle state for exact-model waterfalls."""
+
+from __future__ import annotations
+
+import threading
+import time
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Literal
+
+from exp.runtime.gateway.contracts import GatewayFailure, GatewayFailureClass
+
+DeploymentHealthKey = tuple[str, str, str]
+
+_HARD_FAILURES = {
+    GatewayFailureClass.PROVIDER_AUTHENTICATION,
+    GatewayFailureClass.PROVIDER_NOT_FOUND,
+    # An unfunded provider account (402) is the same sticky operator-actionable
+    # deadness as a bad credential: open the circuit immediately so the dead
+    # rung stops being attempted first, and let the half-open probe rediscover
+    # it once the operator funds or enables the account.
+    GatewayFailureClass.PROVIDER_QUOTA,
+}
+_OPERATIONAL_FAILURES = {
+    GatewayFailureClass.TRANSPORT,
+    GatewayFailureClass.TIMEOUT,
+    GatewayFailureClass.MALFORMED_RESPONSE,
+    GatewayFailureClass.PROVIDER_INTERNAL,
+}
+
+# Clamp on a provider-stated Retry-After when it sizes a throttle window. The
+# floor keeps a degenerate "0"/"1" from thrashing the rung; the ceiling keeps
+# one absurd header from suppressing a lane for days while still letting a
+# daily-quota reset (hours) mark the rung dead-for-hours so the waterfall
+# skips it for the whole window.
+RETRY_AFTER_WINDOW_MINIMUM_SECONDS = 5.0
+RETRY_AFTER_WINDOW_MAXIMUM_SECONDS = 6.0 * 3_600.0
+# A plan's usage window resets on the provider's own clock, and the longest one
+# (the weekly window) can be days away. Suppression follows the stated reset up
+# to one week plus a day of slack; the ceiling only guards a garbage reset.
+PLAN_WINDOW_MAXIMUM_SECONDS = 8.0 * 24.0 * 3_600.0
+
+
+def health_failure_cause(
+    failure_class: GatewayFailureClass,
+) -> Literal["transport", "credential", "throttle"] | None:
+    """Classify deployment-affecting failures for circuits and scoped recovery.
+
+    Args:
+        failure_class: Normalized provider or gateway failure category.
+
+    Returns:
+        Transport for operational failures, credential for operator-actionable
+        account failures, throttle for explicit backoff, or None when the outcome
+        says nothing about deployment health. Customer ownership does not change
+        the provider failure's health effect.
+    """
+    if failure_class == GatewayFailureClass.THROTTLED:
+        return "throttle"
+    if failure_class in _HARD_FAILURES:
+        return "credential"
+    if failure_class in _OPERATIONAL_FAILURES:
+        return "transport"
+    return None
+
+
+@dataclass
+class _DeploymentHealth:
+    """Mutable content-free health state protected by the registry lock."""
+
+    consecutive_failures: int = 0
+    open_until: float = 0.0
+    throttle_until: float = 0.0
+    half_open_probe: bool = False
+    last_resort_probe: bool = False
+    refusal_count: int = 0
+
+
+class DeploymentHealthRegistry:
+    """Apply isolated circuits and throttle windows without changing logical models."""
+
+    def __init__(
+        self,
+        *,
+        failure_threshold: int = 2,
+        open_seconds: float = 30.0,
+        throttle_seconds: float = 30.0,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        """Initialize finite in-process deployment health policy.
+
+        Args:
+            failure_threshold: Consecutive operational failures that open one circuit.
+            open_seconds: Circuit cooldown before one half-open probe.
+            throttle_seconds: Independent suppression window after provider throttling.
+            clock: Injectable monotonic clock.
+
+        Raises:
+            ValueError: A threshold or duration is not positive.
+        """
+        if failure_threshold < 1:
+            raise ValueError("failure_threshold must be at least one")
+        if open_seconds <= 0 or throttle_seconds <= 0:
+            raise ValueError("health suppression windows must be positive")
+        self._failure_threshold = failure_threshold
+        self._open_seconds = open_seconds
+        self._throttle_seconds = throttle_seconds
+        self._clock = clock
+        self._states: dict[DeploymentHealthKey, _DeploymentHealth] = {}
+        self._lock = threading.Lock()
+
+    def claim(self, key: DeploymentHealthKey) -> bool:
+        """Reserve one eligible route or half-open probe.
+
+        Args:
+            key: Catalog, deployment, and connection identity tuple.
+
+        Returns:
+            Whether the caller may dispatch this deployment now.
+        """
+        now = self._clock()
+        with self._lock:
+            state = self._states.setdefault(key, _DeploymentHealth())
+            if state.throttle_until > now:
+                return False
+            if state.open_until > now:
+                return False
+            if state.consecutive_failures < self._failure_threshold:
+                return True
+            if state.half_open_probe:
+                return False
+            state.half_open_probe = True
+            return True
+
+    def claim_last_resort(self, key: DeploymentHealthKey) -> bool:
+        """Reserve one bounded probe through an open circuit when nothing else is eligible.
+
+        A request with no claimable deployment would otherwise fail for the whole
+        cooldown even after the provider has recovered. One in-flight probe per
+        deployment is allowed through an open circuit so recovery is discovered by
+        real traffic instead of a fixed timer. Throttle windows stay authoritative
+        because the provider explicitly asked for backoff.
+
+        Args:
+            key: Catalog, deployment, and connection identity tuple.
+
+        Returns:
+            Whether the caller may dispatch this suppressed deployment now.
+        """
+        now = self._clock()
+        with self._lock:
+            state = self._states.setdefault(key, _DeploymentHealth())
+            if state.throttle_until > now:
+                return False
+            if state.last_resort_probe:
+                return False
+            state.last_resort_probe = True
+            return True
+
+    def claim_forced(self, key: DeploymentHealthKey) -> bool:
+        """Admit one dispatch through an open circuit when a request would otherwise fail.
+
+        Circuit suppression is load shedding, not correctness: refusing the last
+        eligible route turns a possibly-down deployment into a certain caller
+        failure. When every healthy claim and bounded probe is unavailable, each
+        request whose alternatives are exhausted may still dispatch through an
+        open circuit, so concurrent failures never strand eligible traffic behind
+        the single half-open or last-resort probe. Throttle windows stay
+        authoritative because the provider explicitly asked for backoff.
+
+        Args:
+            key: Catalog, deployment, and connection identity tuple.
+
+        Returns:
+            Whether the caller may dispatch this suppressed deployment now.
+        """
+        now = self._clock()
+        with self._lock:
+            state = self._states.setdefault(key, _DeploymentHealth())
+            return state.throttle_until <= now
+
+    def claim_throttle_redial(self, key: DeploymentHealthKey) -> bool:
+        """Admit one post-backoff redial of a rung inside its own throttle window.
+
+        The throttle window is the fleet-shared "leave this rung alone"
+        signal for OTHER requests; the request that was throttled and has
+        already waited the pool's backoff is the one deliberately probing the
+        rung back, so its redial passes the window. An open circuit (some
+        other failure class marked the rung dead meanwhile) still refuses,
+        because a dead rung has no cache worth the wait.
+
+        Args:
+            key: Catalog, deployment, and connection identity tuple.
+
+        Returns:
+            Whether the redial may dispatch this deployment now.
+        """
+        now = self._clock()
+        with self._lock:
+            state = self._states.setdefault(key, _DeploymentHealth())
+            return state.open_until <= now
+
+    def dispatch_opened(self, key: DeploymentHealthKey) -> None:
+        """Restore admission once one provider dispatch opens successfully.
+
+        An opened stream proves the deployment is reachable again, so waiting for
+        the terminal event would refuse concurrent traffic for the full stream
+        duration. A later terminal failure re-applies suppression normally.
+
+        Args:
+            key: Catalog, deployment, and connection identity tuple.
+        """
+        with self._lock:
+            state = self._states.setdefault(key, _DeploymentHealth())
+            state.consecutive_failures = 0
+            state.open_until = 0.0
+            state.half_open_probe = False
+            state.last_resort_probe = False
+
+    def succeeded(self, key: DeploymentHealthKey) -> None:
+        """Close one circuit after a successful terminal provider result.
+
+        Args:
+            key: Catalog, deployment, and connection identity tuple.
+        """
+        with self._lock:
+            state = self._states.setdefault(key, _DeploymentHealth())
+            state.consecutive_failures = 0
+            state.open_until = 0.0
+            state.half_open_probe = False
+            state.last_resort_probe = False
+
+    def failed(self, key: DeploymentHealthKey, failure: GatewayFailure) -> None:
+        """Apply one normalized provider outcome to circuit or throttle state.
+
+        Args:
+            key: Catalog, deployment, and connection identity tuple.
+            failure: Sanitized provider failure classification.
+        """
+        now = self._clock()
+        cause = health_failure_cause(failure.failure_class)
+        with self._lock:
+            state = self._states.setdefault(key, _DeploymentHealth())
+            state.half_open_probe = False
+            state.last_resort_probe = False
+            if cause == "throttle":
+                state.throttle_until = max(
+                    state.throttle_until,
+                    now + self._throttle_window_seconds(failure),
+                )
+                return
+            if failure.failure_class == GatewayFailureClass.REFUSAL:
+                state.refusal_count += 1
+                return
+            if cause == "credential":
+                state.consecutive_failures = self._failure_threshold
+                state.open_until = now + self._open_seconds
+                return
+            if cause == "transport":
+                state.consecutive_failures += 1
+                if state.consecutive_failures >= self._failure_threshold:
+                    state.open_until = now + self._open_seconds
+
+    def exhausted(self, key: DeploymentHealthKey, reset_after_seconds: float) -> None:
+        """Suppress one deployment until its provider-stated usage window resets.
+
+        A plan rung reports its rolling usage windows on every response, so a
+        window that reaches 100 percent is known BEFORE the next request would
+        429: the rung is throttled until the reset the provider stated, however
+        many days away (a weekly window), and the waterfall moves on to the next
+        plan in the pool. A success on the same response leaves the circuit closed.
+
+        Args:
+            key: Catalog, deployment, and connection identity tuple.
+            reset_after_seconds: Provider-stated seconds until the window reopens.
+        """
+        now = self._clock()
+        window = min(
+            max(float(reset_after_seconds), RETRY_AFTER_WINDOW_MINIMUM_SECONDS),
+            PLAN_WINDOW_MAXIMUM_SECONDS,
+        )
+        with self._lock:
+            state = self._states.setdefault(key, _DeploymentHealth())
+            state.throttle_until = max(state.throttle_until, now + window)
+
+    def _throttle_window_seconds(self, failure: GatewayFailure) -> float:
+        """Size one throttle window from the provider's own stated wait.
+
+        A throttled failure carrying a parsed ``Retry-After`` sizes the window
+        from it, clamped to the bounded range, so a long provider backoff (an
+        exhausted daily quota) actually suppresses the rung for the wait the
+        provider asked for instead of re-attempting every fixed default. An
+        absent or unparseable wait keeps the fixed default window.
+
+        Args:
+            failure: Sanitized throttled failure.
+
+        Returns:
+            The window length in seconds.
+        """
+        if failure.retry_after_seconds is None:
+            return self._throttle_seconds
+        return min(
+            max(float(failure.retry_after_seconds), RETRY_AFTER_WINDOW_MINIMUM_SECONDS),
+            RETRY_AFTER_WINDOW_MAXIMUM_SECONDS,
+        )
+
+    def suppressed(self, key: DeploymentHealthKey) -> bool:
+        """Whether one deployment currently sits inside any suppression window.
+
+        A read-only probe (unlike :meth:`claim` it never reserves a half-open
+        slot), used by sticky-affinity admission to bypass and clear a binding
+        whose rung is throttled or circuit-open right now.
+
+        Args:
+            key: Catalog, deployment, and connection identity tuple.
+
+        Returns:
+            Whether the deployment is throttle- or circuit-suppressed.
+        """
+        now = self._clock()
+        with self._lock:
+            state = self._states.get(key)
+            if state is None:
+                return False
+            return state.throttle_until > now or state.open_until > now
+
+    def throttled_remaining_seconds(self, keys: tuple[DeploymentHealthKey, ...]) -> float | None:
+        """Return the longest remaining throttle window when EVERY key is inside one.
+
+        A route with no claimable deployment and no classified failure of its
+        own can only be throttle-suppressed (forced claims admit any
+        non-throttled circuit), so this names that condition explicitly: the
+        provider asked for backoff, which is caller-facing rate limiting, not
+        platform deadness.
+
+        Args:
+            keys: One health key per ordered route deployment.
+
+        Returns:
+            The longest remaining window in seconds, or ``None`` when the
+            route is empty or any deployment is outside a throttle window.
+        """
+        if not keys:
+            return None
+        now = self._clock()
+        remaining = 0.0
+        with self._lock:
+            for key in keys:
+                state = self._states.get(key)
+                if state is None or state.throttle_until <= now:
+                    return None
+                remaining = max(remaining, state.throttle_until - now)
+        return remaining
+
+    def release_probe(self, key: DeploymentHealthKey) -> None:
+        """Release a claimed half-open probe that never reached provider dispatch.
+
+        Args:
+            key: Catalog, deployment, and connection identity tuple.
+        """
+        with self._lock:
+            state = self._states.get(key)
+            if state is not None:
+                state.half_open_probe = False
+                state.last_resort_probe = False

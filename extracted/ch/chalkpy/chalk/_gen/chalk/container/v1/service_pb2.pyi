@@ -166,6 +166,7 @@ class ChalkContainerSpec(_message.Message):
         "chalk_workload_identity",
         "managed_ssh",
         "restore_from_snapshot_id",
+        "host_placement",
     )
     class TagsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -216,6 +217,7 @@ class ChalkContainerSpec(_message.Message):
     CHALK_WORKLOAD_IDENTITY_FIELD_NUMBER: _ClassVar[int]
     MANAGED_SSH_FIELD_NUMBER: _ClassVar[int]
     RESTORE_FROM_SNAPSHOT_ID_FIELD_NUMBER: _ClassVar[int]
+    HOST_PLACEMENT_FIELD_NUMBER: _ClassVar[int]
     name: str
     image: str
     entrypoint: _containers.RepeatedScalarFieldContainer[str]
@@ -239,6 +241,7 @@ class ChalkContainerSpec(_message.Message):
     chalk_workload_identity: ChalkWorkloadIdentity
     managed_ssh: _containers.MessageMap[str, ManagedSshDestination]
     restore_from_snapshot_id: str
+    host_placement: HostPlacementOptions
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -264,6 +267,7 @@ class ChalkContainerSpec(_message.Message):
         chalk_workload_identity: _Optional[_Union[ChalkWorkloadIdentity, _Mapping]] = ...,
         managed_ssh: _Optional[_Mapping[str, ManagedSshDestination]] = ...,
         restore_from_snapshot_id: _Optional[str] = ...,
+        host_placement: _Optional[_Union[HostPlacementOptions, _Mapping]] = ...,
     ) -> None: ...
 
 class StartupProbe(_message.Message):
@@ -1147,3 +1151,9 @@ class CreateContainerDebugTTYResponse(_message.Message):
 class ChalkWorkloadIdentity(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
+
+class HostPlacementOptions(_message.Message):
+    __slots__ = ("host_pool_id",)
+    HOST_POOL_ID_FIELD_NUMBER: _ClassVar[int]
+    host_pool_id: str
+    def __init__(self, host_pool_id: _Optional[str] = ...) -> None: ...

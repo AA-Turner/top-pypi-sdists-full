@@ -1,95 +1,135 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: canmatrix
-Version: 1.2
-Home-page: http://github.com/ebroecker/canmatrix
-Maintainer: Eduard Broecker
-Maintainer-email: eduard@gmx.de
-License: BSD
-Keywords: CAN dbc arxml kcd dbf sym
-Platform: any
-Classifier: Development Status :: 4 - Beta
+Version: 1.3.0
+Summary: Automotive Communication Matrix
+Author-email: Eduard Bröcker <eduard@gmx.de>
+Maintainer: canmatrix contributors
+License: BSD-2-Clause
+Project-URL: homepage, https://github.com/ebroecker/canmatrix
+Project-URL: documentation, https://canmatrix.readthedocs.io
+Project-URL: repository, https://github.com/ebroecker/canmatrix
+Keywords: CAN,canbus,dbc,arxml,kcd,dbf,sym,fibex,eds,automotive
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: Manufacturing
+Classifier: Intended Audience :: Telecommunications Industry
 Classifier: License :: OSI Approved :: BSD License
-Classifier: Topic :: Scientific/Engineering
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: MacOS
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.4
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Description-Content-Type: text/x-rst
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Embedded Systems :: Controller Area Network (CAN)
+Classifier: Topic :: System :: Networking
+Classifier: Topic :: Utilities
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: attrs>=19.2.0
+Requires-Dist: click
+Requires-Dist: importlib-metadata; python_version < "3.8"
+Requires-Dist: typing; python_version < "3.5"
 Provides-Extra: arxml
+Requires-Dist: lxml; extra == "arxml"
 Provides-Extra: csv
 Provides-Extra: dbc
 Provides-Extra: dbf
-Provides-Extra: eds
 Provides-Extra: fibex
+Requires-Dist: lxml; extra == "fibex"
 Provides-Extra: json
 Provides-Extra: kcd
+Requires-Dist: lxml; extra == "kcd"
 Provides-Extra: ldf
+Requires-Dist: ldfparser; extra == "ldf"
 Provides-Extra: odx
+Requires-Dist: lxml; extra == "odx"
 Provides-Extra: scapy
 Provides-Extra: sym
 Provides-Extra: test
+Requires-Dist: pathlib2; python_version < "3.4" and extra == "test"
+Requires-Dist: pytest; extra == "test"
 Provides-Extra: wireshark
 Provides-Extra: xls
+Requires-Dist: xlrd==1.2.0; extra == "xls"
+Requires-Dist: xlwt; extra == "xls"
 Provides-Extra: xlsx
+Requires-Dist: openpyxl; extra == "xlsx"
 Provides-Extra: yaml
-License-File: LICENSE
+Requires-Dist: pyyaml; extra == "yaml"
+Provides-Extra: eds
+Requires-Dist: canopen; extra == "eds"
+Dynamic: license-file
+
+## Canmatrix is a python package to read and write several CAN (Controller Area Network) database formats.
+
+[![PyPI](https://img.shields.io/pypi/v/canmatrix.svg)](https://pypi.org/project/canmatrix/)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/canmatrix.svg)](https://pypi.org/project/canmatrix/)
+[![Coverall](https://coveralls.io/repos/github/ebroecker/canmatrix/badge.svg?branch=development)](https://coveralls.io/github/ebroecker/canmatrix?branch=development)
+[![GitHub issues](https://img.shields.io/github/issues-raw/ebroecker/canmatrix.svg)](https://github.com/ebroecker/canmatrix/issues)
 
 
-Canmatrix implements a "Python Can Matrix Object" which describes the can-communication
-and the needed objects (Boardunits, Frames, Signals, Values, ...) Canmatrix also includes
-two Tools (canconvert and cancompare) for converting and comparing CAN databases.
-There are also some extract and merge options for dealing with can databases.
+## About
 
-**supported file formats for import:**
+***Canmatrix*** implements a "Python Can Matrix Object" which describes the can-communication and the needed objects (Boardunits, Frames, Signals, Values, ...)
+***Canmatrix*** also includes two **Tools** (canconvert and cancompare) for converting and comparing **CAN** databases.
 
-            .dbc candb / Vector
+- Multiple formats automotive related communication matrix file parsing.
+- CAN message encoding and decoding.
 
-            .dbf Busmaster (open source!)
+**Supported file formats for import:**
 
-            .kcd kayak (open source!)
+    .dbc candb / Vector
+    .dbf Busmaster (open source!)
+    .kcd kayak (open source!)
+    .arxml autosar system description
+    .yaml structured export/import (same structure as json)
+    .xls(x) excel xls-import, works with .xls-file generated by this lib
+    .sym peak pcan can description
+    .xml (fibex or CANopen eds)
+    .ldf (lin bus) 
+    .odx (diagnostic file)
+    .eds
 
-            .arxml autosar system description
+**Supported file formats for export:**
 
-            .yaml dump of the python object
+    .dbc
+    .dbf
+    .kcd
+    .xls(x)
+    .json Canard (open source!)
+    .arxml (very basic implementation)
+    .yaml structured export/import (same structure as json)
+    .sym
+    .xml (fibex)
+    .lua (wireshark script)
+    .scapy 
 
-            .xls(x) excel xls-import, works with .xls-file generated by this lib
+Project Homepage: https://github.com/ebroecker/canmatrix
 
-            .sym peak pcan can description
-
-            .xml (fibex)
-
-            .ldf (lin bus) 
-
-            .odx (diagnostic file)
+Documentation: https://canmatrix.readthedocs.io
 
 
-**supported file formats for export:**
+## Installation
 
-            .dbc
+https://canmatrix.readthedocs.io/en/latest/installation.html
 
-            .dbf
+[Chinese Translation / 安装中文方法解释及注意事项](https://github.com/ebroecker/canmatrix/wiki/%E5%AE%89%E8%A3%85%E4%B8%AD%E6%96%87%E6%96%B9%E6%B3%95%E8%A7%A3%E9%87%8A%E5%8F%8A%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9)
 
-            .kcd
 
-            .xls(x)
+## Contributing
 
-            .json Canard (open source!)
+Source Code, Documentation, Examples, Report issues and Any other contributions are **extremely appreciated**.
 
-            .arxml (very basic implementation)
-
-            .yaml (dump of the python object)
-
-            .sym
-
-            .xml (fibex)
-
-            .lua (wireshark script)
-
-            .scapy 
-
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request

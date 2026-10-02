@@ -1,0 +1,122 @@
+"""Custom scalar types for the Agent Manifest SDK."""
+from __future__ import annotations
+
+import re
+from typing import Any
+
+from pydantic import GetCoreSchemaHandler, GetJsonSchemaHandler
+from pydantic_core import CoreSchema, core_schema
+from pydantic.json_schema import JsonSchemaValue
+
+
+class ManifestId(str):
+    """UUID v7 — time-ordered per RFC 9562.
+
+    Format: xxxxxxxx-xxxx-7xxx-[89ab]xxx-xxxxxxxxxxxx
+    The version nibble (position 14 in the hex string) MUST be '7'.
+    The variant nibble (position 19) MUST be one of [89ab].
+    """
+
+    # NOTE: keeps `^`/`$` anchors (needed for the JSON-schema `pattern`
+    # exported below to mean "matches exactly", per JSON Schema/ECMA 262
+    # semantics for external consumers). Internal validation below uses
+    # `.fullmatch()`, never `.match()`, since `.match()` with a
+    # `$`-anchored pattern would let "<valid-uuid>\n" through -- Python's
+    # `$` matches at end-of-string OR just before one trailing '\n`.
+    # `.fullmatch()` requires the whole string and has no such exception.
+
+
+    _PATTERN = re.compile(
+        r"^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+        re.IGNORECASE,
+    )
+
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls, source_type: Any, handler: GetCoreSchemaHandler
+    ) -> CoreSchema:
+        return core_schema.no_info_plain_validator_function(
+            cls._validate,
+            serialization=core_schema.to_string_ser_schema(),
+        )
+
+    @classmethod
+    def __get_pydantic_json_schema__(
+        cls, _core_schema: CoreSchema, handler: GetJsonSchemaHandler
+    ) -> JsonSchemaValue:
+        return {"type": "string", "format": "uuid", "pattern": cls._PATTERN.pattern}
+
+    @classmethod
+    def _validate(cls, v: Any) -> "ManifestId":
+        if not isinstance(v, str):
+            raise ValueError(f"ManifestId must be a string, got {type(v).__name__}")
+        if not cls._PATTERN.fullmatch(v):
+            raise ValueError(
+                f"'{v}' is not a valid UUID v7. "
+                "Expected format: xxxxxxxx-xxxx-7xxx-[89ab]xxx-xxxxxxxxxxxx"
+            )
+        return cls(v)
+
+
+class HashValue(str):
+    """Cryptographic hash with algorithm prefix.
+
+    Valid formats:
+      sha256:<64 lowercase hex chars>
+      shake256:<64 lowercase hex chars>  (256-bit output, per RFC 8785 / FIPS 202)
+    """
+
+    # NOTE: same `.fullmatch()`-not-`.match()` reasoning as ManifestId above.
+    _PATTERN = re.compile(r"^(sha256|shake256):[0-9a-f]{64}$")
+
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls, source_type: Any, handler: GetCoreSchemaHandler
+    ) -> CoreSchema:
+        return core_schema.no_info_plain_validator_function(
+            cls._validate,
+            serialization=core_schema.to_string_ser_schema(),
+        )
+
+    @classmethod
+    def __get_pydantic_json_schema__(
+        cls, _core_schema: CoreSchema, handler: GetJsonSchemaHandler
+    ) -> JsonSchemaValue:
+        return {"type": "string", "pattern": cls._PATTERN.pattern}
+
+    @classmethod
+    def _validate(cls, v: Any) -> "HashValue":
+        if not isinstance(v, str):
+            raise ValueError(f"HashValue must be a string, got {type(v).__name__}")
+        if not cls._PATTERN.fullmatch(v):
+            prefix = v.split(":")[0] if ":" in v else v[:10]
+            raise ValueError(
+                f"Invalid hash value (prefix='{prefix}'). "
+                "Expected sha256:<64-hex> or shake256:<64-hex>"
+            )
+        return cls(v)
+
+    @property
+    def algorithm(self) -> str:
+        return self.split(":")[0]
+
+    @property
+    def hex_digest(self) -> str:
+        return self.split(":")[1]
+
+    @classmethod
+    def parse(cls, v: Any) -> tuple[str, bytes]:
+        """Validate *v* as a HashValue and return ``(algorithm, digest_bytes)``.
+
+        Use this anywhere a HashValue-shaped string needs to become raw
+        digest bytes, instead of a local ``partition(":")`` + ``fromhex()``
+        parse — that's easy to get looser than the schema (e.g. accepting
+        uppercase hex, or a digest that's the wrong length) without
+        noticing.
+
+        Raises ValueError if *v* isn't a string or doesn't exactly match
+        ``sha256:<64-lowercase-hex>`` / ``shake256:<64-lowercase-hex>``.
+        """
+        validated = cls._validate(v)
+        algorithm, _, hex_digest = str.partition(validated, ":")
+        return algorithm, bytes.fromhex(hex_digest)

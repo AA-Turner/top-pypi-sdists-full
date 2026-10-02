@@ -58,6 +58,10 @@ from typing import Any
 from matrx_utils import vcprint
 from pydantic import BaseModel, ConfigDict
 
+# The canonical output-ceiling key every chat api maps to its provider name
+# (max_tokens / max_completion_tokens / max_output_tokens / maxOutputTokens).
+OUTPUT_CEILING_KEY = "max_output_tokens"
+
 from matrx_ai.catalog.models import (
     PASSTHROUGH_RULE,
     Adjustment,
@@ -221,6 +225,27 @@ class CompiledControlsMap(BaseModel):
     # gender-preserving by law; without this the tts_voice metric has nothing to
     # measure and refuses (a loud drop) rather than crossing gender.
     voice_genders: dict[str, str] = {}
+    # THE MODEL'S REAL OUTPUT MAXIMUM (ai.model_definition.max_tokens), stamped
+    # per call by ``with_output_maximum`` at profile build. An output ceiling is
+    # a NUMBER with a hard per-model range, and under THE EQUIVALENCE LAW its
+    # conversion is a clamp: an agent authored on a 128K model and run on a 16K
+    # one must send 16K, never the 128K that the provider 400s
+    # (live 2026-10-02: Groq qwen3.8-27b rejected max_completion_tokens=32000 on
+    # /agents/battle). Applied in ``outbound`` BEFORE pass 1 and the processors,
+    # so every translator — scalar provider_key or a processor that consumes
+    # the key (Anthropic) — reads the clamped value. ``None`` = the catalog
+    # declares no maximum; nothing is invented.
+    output_maximum: int | None = None
+
+    def with_output_maximum(self, maximum: Any) -> CompiledControlsMap:
+        """This map, carrying the model's real output maximum (or unchanged)."""
+        try:
+            value = int(maximum) if maximum is not None and not isinstance(maximum, bool) else None
+        except (TypeError, ValueError):
+            value = None
+        if value is None or value <= 0:
+            return self
+        return self.model_copy(update={"output_maximum": value})
 
     def rule_for(self, key: str) -> ControlRule:
         return self.rules.get(key, PASSTHROUGH_RULE)
@@ -247,6 +272,29 @@ class CompiledControlsMap(BaseModel):
     ) -> tuple[dict[str, Any], list[Adjustment]]:
         out: dict[str, Any] = {}
         adjustments: list[Adjustment] = []
+
+        # ── PASS 0: the model's real output maximum (see ``output_maximum``) ──
+        # A conversion, not a drop: silent to the client, loud in the log.
+        requested = canonical.get(OUTPUT_CEILING_KEY)
+        if (
+            self.output_maximum is not None
+            and isinstance(requested, int | float)
+            and not isinstance(requested, bool)
+            and requested > self.output_maximum
+        ):
+            adjustments.append(
+                Adjustment(
+                    key=OUTPUT_CEILING_KEY,
+                    action="clamped",
+                    canonical_value=requested,
+                    sent_value=self.output_maximum,
+                    reason=(
+                        f"'{OUTPUT_CEILING_KEY}'={requested!r} clamped to the model's real "
+                        f"output maximum {self.output_maximum!r} (ai.model_definition.max_tokens)"
+                    ),
+                )
+            )
+            canonical = {**canonical, OUTPUT_CEILING_KEY: self.output_maximum}
 
         # Processor rules own their key + declared consumed keys — pass 1 skips both.
         #
@@ -477,6 +525,20 @@ class CompiledControlsMap(BaseModel):
             if not present:
                 expand_dotted(out, target, rule.default)
 
+        # A DEFAULT is a value too: a ceiling default authored for a bigger model
+        # is capped like a caller's (pass 0 only saw the caller's value).
+        ceiling_rule = self.rule_for(OUTPUT_CEILING_KEY)
+        if self.output_maximum is not None and OUTPUT_CEILING_KEY not in processor_owned:
+            target = ceiling_rule.provider_key or OUTPUT_CEILING_KEY
+            present, sent = _dotted_get(out, target)
+            if (
+                present
+                and isinstance(sent, int | float)
+                and not isinstance(sent, bool)
+                and sent > self.output_maximum
+            ):
+                expand_dotted(out, target, self.output_maximum)
+
         # ── PASS 2: processors, deterministic (order, key) ───────────────────
         for _, key, rule in sorted(processor_rules, key=lambda item: (item[0], item[1])):
             # ai_045: a processor rule honors ``default`` too — the CANONICAL
@@ -531,6 +593,7 @@ class CompiledControlsMap(BaseModel):
                 value_order=tuple(
                     str(v) for v in self.value_orders.get(key, ()) if isinstance(v, str)
                 ),
+                output_maximum=self.output_maximum,
             )
             result = fn(canonical, out, ctx)
             if result is not None:

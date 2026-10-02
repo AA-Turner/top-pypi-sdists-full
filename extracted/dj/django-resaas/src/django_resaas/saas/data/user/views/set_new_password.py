@@ -1,0 +1,24 @@
+from rest_framework import generics, status, permissions
+from rest_framework.response import Response
+
+
+from django_resaas.saas.data.user.serializers.set_new_password import SetNewPasswordSerializer
+
+
+class SetNewPasswordAPIView(generics.GenericAPIView):
+
+    # PUBLIC (explicit): used before there is a session
+    permission_classes = (permissions.AllowAny,)
+    serializer_class = SetNewPasswordSerializer
+
+    def patch(self, request):
+        serializer = self.serializer_class(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(
+            {
+                'alert_success': True,
+                'message': 'Password reset successfully'
+            },
+            status=status.HTTP_200_OK
+        )

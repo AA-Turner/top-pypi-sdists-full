@@ -1,0 +1,720 @@
+# (C) Copyright IBM 2024.
+#
+# This code is licensed under the Apache License, Version 2.0. You may
+# obtain a copy of this license in the LICENSE.txt file in the root directory
+# of this source tree or at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# Any modifications or derivative works of this code must retain this
+# copyright notice, and modified files need to carry a notice indicating
+# that they have been altered from the originals.
+
+"""Spin-balanced (local) unitary cluster Jastrow ansatz."""
+
+from __future__ import annotations
+
+import itertools
+import math
+from dataclasses import InitVar, dataclass
+from typing import cast
+
+import numpy as np
+import pyscf.ci
+
+from ffsim import gates, linalg, protocols
+from ffsim.linalg.util import unitary_from_parameters, unitary_to_parameters
+from ffsim.variational.util import (
+    orbital_rotation_from_t1_amplitudes,
+    validate_interaction_pairs,
+)
+
+
+@dataclass(frozen=True)
+class UCJOpSpinBalanced(
+    protocols.SupportsApplyUnitary, protocols.SupportsApproximateEquality
+):
+    r"""A spin-balanced unitary cluster Jastrow operator.
+
+    A unitary cluster Jastrow (UCJ) operator has the form
+
+    .. math::
+
+        \prod_{k = 1}^L \mathcal{U}_k e^{i \mathcal{J}_k} \mathcal{U}_k^\dagger
+
+    where each :math:`\mathcal{U_k}` is an orbital rotation and each :math:`\mathcal{J}`
+    is a diagonal Coulomb operator of the form
+
+    .. math::
+
+        \mathcal{J} = \frac12\sum_{\substack{ij \\ \sigma \tau}}
+        \mathbf{J}^{(\sigma \tau)}_{ij} n_{i\sigma} n_{j\tau}.
+
+    For the spin-balanced operator, we require that
+    :math:`\mathbf{J}^{(\alpha \alpha)} = \mathbf{J}^{(\beta \beta)}` and
+    :math:`\mathbf{J}^{(\alpha \beta)} = \mathbf{J}^{(\beta \alpha)}`.
+    Therefore, each diagonal Coulomb operator is described by 2 matrices,
+    :math:`\mathbf{J}^{(\alpha \alpha)}` and :math:`\mathbf{J}^{(\alpha \beta)}`, and
+    both of these matrices are symmetric.
+    Furthermore, each orbital rotation is described by a single matrix because the
+    same orbital rotation is applied to both spin alpha and spin beta.
+    The number of terms :math:`L` is referred to as the
+    number of ansatz repetitions and is accessible via the ``n_reps`` attribute.
+
+    To support variational optimization of the orbital basis, an optional final
+    orbital rotation can be included in the operator, to be performed at the end.
+
+    Args:
+        validate: Whether to validate the operator attributes. Setting this to False
+            skips validation, which is useful if you need to create many instances
+            of this class and are confident that the attributes are valid.
+        rtol: Relative numerical tolerance for validation checks.
+        atol: Absolute numerical tolerance for validation checks.
+    """
+
+    diag_coulomb_mats: np.ndarray  # shape: (n_reps, 2, norb, norb)
+    """The diagonal Coulomb matrices, as a Numpy array of shape
+    ``(n_reps, 2, norb, norb)``. The last two axes index the rows and columns of the
+    matrices, and the third from last axis, which has 2 dimensions, indexes the spin
+    interaction type of the matrix: alpha-alpha, and then alpha-beta. The first axis
+    indexes the ansatz repetitions."""
+    orbital_rotations: np.ndarray  # shape: (n_reps, norb, norb)
+    """The orbital rotations, as a Numpy array of shape ``(n_reps, norb, norb)``."""
+    final_orbital_rotation: np.ndarray | None = None  # shape: (norb, norb)
+    """The optional final orbital rotation, as a Numpy array of shape
+    ``(norb, norb)``."""
+    validate: InitVar[bool] = True
+    rtol: InitVar[float] = 1e-5
+    atol: InitVar[float] = 1e-8
+
+    def __post_init__(self, validate: bool, rtol: float, atol: float):
+        if validate:
+            if self.diag_coulomb_mats.ndim != 4 or self.diag_coulomb_mats.shape[1] != 2:
+                raise ValueError(
+                    "diag_coulomb_mats should have shape (n_reps, 2, norb, norb). "
+                    f"Got shape {self.diag_coulomb_mats.shape}."
+                )
+            if self.orbital_rotations.ndim != 3:
+                raise ValueError(
+                    "orbital_rotations should have shape (n_reps, norb, norb). "
+                    f"Got shape {self.orbital_rotations.shape}."
+                )
+            if (
+                self.final_orbital_rotation is not None
+                and self.final_orbital_rotation.ndim != 2
+            ):
+                raise ValueError(
+                    "final_orbital_rotation should have shape (norb, norb). "
+                    f"Got shape {self.final_orbital_rotation.shape}."
+                )
+            if self.diag_coulomb_mats.shape[0] != self.orbital_rotations.shape[0]:
+                raise ValueError(
+                    "diag_coulomb_mats and orbital_rotations should have the same "
+                    "first dimension. "
+                    f"Got {self.diag_coulomb_mats.shape[0]} and "
+                    f"{self.orbital_rotations.shape[0]}."
+                )
+            if not all(
+                linalg.is_real_symmetric(mats[0], rtol=rtol, atol=atol)
+                and linalg.is_real_symmetric(mats[1], rtol=rtol, atol=atol)
+                for mats in self.diag_coulomb_mats
+            ):
+                raise ValueError(
+                    "Diagonal Coulomb matrices were not all real symmetric."
+                )
+            if not all(
+                linalg.is_unitary(orbital_rotation, rtol=rtol, atol=atol)
+                for orbital_rotation in self.orbital_rotations
+            ):
+                raise ValueError("Orbital rotations were not all unitary.")
+            if self.final_orbital_rotation is not None and not linalg.is_unitary(
+                self.final_orbital_rotation, rtol=rtol, atol=atol
+            ):
+                raise ValueError("Final orbital rotation was not unitary.")
+
+    @property
+    def norb(self):
+        """The number of spatial orbitals."""
+        return self.diag_coulomb_mats.shape[-1]
+
+    @property
+    def n_reps(self):
+        """The number of ansatz repetitions."""
+        return self.diag_coulomb_mats.shape[0]
+
+    @staticmethod
+    def n_params(
+        norb: int,
+        n_reps: int,
+        *,
+        interaction_pairs: tuple[
+            list[tuple[int, int]] | None, list[tuple[int, int]] | None
+        ]
+        | None = None,
+        with_final_orbital_rotation: bool = False,
+    ) -> int:
+        r"""Return the number of parameters of an ansatz with given settings.
+
+        Args:
+            norb: The number of spatial orbitals.
+            n_reps: The number of ansatz repetitions.
+            interaction_pairs: Optional restrictions on allowed orbital interactions
+                for the diagonal Coulomb operators.
+                If specified, ``interaction_pairs`` should be a pair of lists,
+                for alpha-alpha and alpha-beta interactions, in that order.
+                Either list can be substituted with ``None`` to indicate no restrictions
+                on interactions.
+                Each list should contain pairs of integers representing the orbitals
+                that are allowed to interact. These pairs can also be interpreted as
+                indices of diagonal Coulomb matrix entries that are allowed to be
+                nonzero.
+                Each integer pair must be upper triangular, that is, of the form
+                :math:`(i, j)` where :math:`i \leq j`.
+            with_final_orbital_rotation: Whether to include a final orbital rotation
+                in the operator.
+
+        Returns:
+            The number of parameters of the ansatz.
+
+        Raises:
+            ValueError: Interaction pairs list contained duplicate interactions.
+            ValueError: Interaction pairs list contained lower triangular pairs.
+        """
+        if interaction_pairs is None:
+            interaction_pairs = (None, None)
+        pairs_aa, pairs_ab = interaction_pairs
+        validate_interaction_pairs(pairs_aa, ordered=False)
+        validate_interaction_pairs(pairs_ab, ordered=False)
+        # Each diagonal Coulomb matrix has one parameter per upper triangular
+        # entry unless indices are passed explicitly
+        n_triu_indices = norb * (norb + 1) // 2
+        n_params_aa = n_triu_indices if pairs_aa is None else len(pairs_aa)
+        n_params_ab = n_triu_indices if pairs_ab is None else len(pairs_ab)
+        # Each orbital rotation has norb**2 parameters
+        return (
+            n_reps * (n_params_aa + n_params_ab + norb**2)
+            + with_final_orbital_rotation * norb**2
+        )
+
+    @staticmethod
+    def from_parameters(
+        params: np.ndarray,
+        *,
+        norb: int,
+        n_reps: int,
+        interaction_pairs: tuple[
+            list[tuple[int, int]] | None, list[tuple[int, int]] | None
+        ]
+        | None = None,
+        with_final_orbital_rotation: bool = False,
+    ) -> UCJOpSpinBalanced:
+        r"""Initialize the UCJ operator from a real-valued parameter vector.
+
+        Args:
+            params: The real-valued parameter vector.
+            norb: The number of spatial orbitals.
+            n_reps: The number of ansatz repetitions.
+            interaction_pairs: Optional restrictions on allowed orbital interactions
+                for the diagonal Coulomb operators.
+                If specified, ``interaction_pairs`` should be a pair of lists,
+                for alpha-alpha and alpha-beta interactions, in that order.
+                Either list can be substituted with ``None`` to indicate no restrictions
+                on interactions.
+                Each list should contain pairs of integers representing the orbitals
+                that are allowed to interact. These pairs can also be interpreted as
+                indices of diagonal Coulomb matrix entries that are allowed to be
+                nonzero.
+                Each integer pair must be upper triangular, that is, of the form
+                :math:`(i, j)` where :math:`i \leq j`.
+            with_final_orbital_rotation: Whether to include a final orbital rotation
+                in the operator.
+
+        Returns:
+            The UCJ operator constructed from the given parameters.
+
+        Raises:
+            ValueError: The number of parameters passed did not match the number
+                expected based on the function inputs.
+            ValueError: Interaction pairs list contained duplicate interactions.
+            ValueError: Interaction pairs list contained lower triangular pairs.
+        """
+        n_params = UCJOpSpinBalanced.n_params(
+            norb,
+            n_reps,
+            interaction_pairs=interaction_pairs,
+            with_final_orbital_rotation=with_final_orbital_rotation,
+        )
+        if len(params) != n_params:
+            raise ValueError(
+                "The number of parameters passed did not match the number expected "
+                "based on the function inputs. "
+                f"Expected {n_params} but got {len(params)}."
+            )
+        if interaction_pairs is None:
+            interaction_pairs = (None, None)
+        pairs_aa, pairs_ab = interaction_pairs
+        triu_indices = cast(
+            list[tuple[int, int]],
+            list(itertools.combinations_with_replacement(range(norb), 2)),
+        )
+        if pairs_aa is None:
+            pairs_aa = triu_indices
+        if pairs_ab is None:
+            pairs_ab = triu_indices
+        diag_coulomb_mats: np.ndarray = np.zeros((n_reps, 2, norb, norb))
+        orbital_rotations = np.zeros((n_reps, norb, norb), dtype=complex)
+        index = 0
+        for orbital_rotation, diag_coulomb_mat in zip(
+            orbital_rotations, diag_coulomb_mats
+        ):
+            # Orbital rotations
+            n_params = norb**2
+            orbital_rotation[:] = unitary_from_parameters(
+                params[index : index + n_params], norb
+            )
+            index += n_params
+            # Diag Coulomb matrices
+            for indices, this_diag_coulomb_mat in zip(
+                (pairs_aa, pairs_ab), diag_coulomb_mat
+            ):
+                if indices:
+                    n_params = len(indices)
+                    rows, cols = zip(*indices)
+                    vals = params[index : index + n_params]
+                    this_diag_coulomb_mat[cols, rows] = vals
+                    this_diag_coulomb_mat[rows, cols] = vals
+                    index += n_params
+        # Final orbital rotation
+        final_orbital_rotation = None
+        if with_final_orbital_rotation:
+            final_orbital_rotation = unitary_from_parameters(params[index:], norb)
+        return UCJOpSpinBalanced(
+            diag_coulomb_mats=diag_coulomb_mats,
+            orbital_rotations=orbital_rotations,
+            final_orbital_rotation=final_orbital_rotation,
+        )
+
+    def to_parameters(
+        self,
+        *,
+        interaction_pairs: tuple[
+            list[tuple[int, int]] | None, list[tuple[int, int]] | None
+        ]
+        | None = None,
+    ) -> np.ndarray:
+        r"""Convert the UCJ operator to a real-valued parameter vector.
+
+        Note:
+            If ``interaction_pairs`` is specified, the returned parameter vector will
+            incorporate only the diagonal Coulomb matrix entries corresponding to the
+            specified interactions, so the original operator will not be recoverable
+            from the parameter vector.
+
+        Args:
+            interaction_pairs: Optional restrictions on allowed orbital interactions
+                for the diagonal Coulomb operators.
+                If specified, ``interaction_pairs`` should be a pair of lists,
+                for alpha-alpha and alpha-beta interactions, in that order.
+                Either list can be substituted with ``None`` to indicate no restrictions
+                on interactions.
+                Each list should contain pairs of integers representing the orbitals
+                that are allowed to interact. These pairs can also be interpreted as
+                indices of diagonal Coulomb matrix entries that are allowed to be
+                nonzero.
+                Each integer pair must be upper triangular, that is, of the form
+                :math:`(i, j)` where :math:`i \leq j`.
+
+        Returns:
+            The real-valued parameter vector.
+
+        Raises:
+            ValueError: Interaction pairs list contained duplicate interactions.
+            ValueError: Interaction pairs list contained lower triangular pairs.
+        """
+        n_reps, _, norb, _ = self.diag_coulomb_mats.shape
+        n_params = UCJOpSpinBalanced.n_params(
+            norb,
+            n_reps,
+            interaction_pairs=interaction_pairs,
+            with_final_orbital_rotation=self.final_orbital_rotation is not None,
+        )
+
+        if interaction_pairs is None:
+            interaction_pairs = (None, None)
+        pairs_aa, pairs_ab = interaction_pairs
+        triu_indices = cast(
+            list[tuple[int, int]],
+            list(itertools.combinations_with_replacement(range(norb), 2)),
+        )
+        if pairs_aa is None:
+            pairs_aa = triu_indices
+        if pairs_ab is None:
+            pairs_ab = triu_indices
+
+        params = np.zeros(n_params)
+        index = 0
+        for orbital_rotation, diag_coulomb_mat in zip(
+            self.orbital_rotations, self.diag_coulomb_mats
+        ):
+            # Orbital rotations
+            n_params = norb**2
+            params[index : index + n_params] = unitary_to_parameters(orbital_rotation)
+            index += n_params
+            # Diag Coulomb matrices
+            for indices, this_diag_coulomb_mat in zip(
+                (pairs_aa, pairs_ab), diag_coulomb_mat
+            ):
+                if indices:
+                    n_params = len(indices)
+                    params[index : index + n_params] = this_diag_coulomb_mat[
+                        tuple(zip(*indices))
+                    ]
+                    index += n_params
+        # Final orbital rotation
+        if self.final_orbital_rotation is not None:
+            params[index:] = unitary_to_parameters(self.final_orbital_rotation)
+        return params
+
+    @staticmethod
+    def from_t_amplitudes(
+        t2: np.ndarray,
+        *,
+        t1: np.ndarray | None = None,
+        n_reps: int | None = None,
+        interaction_pairs: tuple[
+            list[tuple[int, int]] | None, list[tuple[int, int]] | None
+        ]
+        | None = None,
+        tol: float = 1e-8,
+        optimize: bool = False,
+        method: str = "L-BFGS-B",
+        callback=None,
+        options: dict | None = None,
+        regularization: float = 0,
+        multi_stage_start: int | None = None,
+        multi_stage_step: int | None = None,
+    ) -> UCJOpSpinBalanced:
+        r"""Initialize the UCJ operator from t2 (and optionally t1) amplitudes.
+
+        Performs a double factorization of the t2 amplitudes and constructs the
+        ansatz repetitions from the terms of the decomposition, up to an optionally
+        specified number of ansatz repetitions.
+
+        The default behavior of this routine is to perform a straightforward
+        "exact" factorization of the t2 amplitudes tensor based on a nested
+        eigenvalue decomposition, and then truncate the terms based on the values of
+        ``tol`` and ``n_reps``.
+        If ``optimize`` is set to ``True``, then the entries of the resulting tensors
+        (the diagonal Coulomb matrices and orbital rotations) are further optimized with
+        `scipy.optimize.minimize`_ to reduce the error in the factorization.
+        See :func:`ffsim.linalg.double_factorized_t2` for details.
+
+        Args:
+            t2: The t2 amplitudes.
+            t1: The t1 amplitudes.
+            n_reps: The number of ansatz repetitions. If not specified, then it is set
+                to the number of terms resulting from the double factorization of the
+                t2 amplitudes. If the specified number of repetitions is larger than the
+                number of terms resulting from the double factorization, then the ansatz
+                is padded with additional identity operators up to the specified number
+                of repetitions.
+            interaction_pairs: Optional restrictions on allowed orbital interactions
+                for the diagonal Coulomb operators.
+                If specified, ``interaction_pairs`` should be a pair of lists,
+                for alpha-alpha and alpha-beta interactions, in that order.
+                Either list can be substituted with ``None`` to indicate no restrictions
+                on interactions.
+                Each list should contain pairs of integers representing the orbitals
+                that are allowed to interact. These pairs can also be interpreted as
+                indices of diagonal Coulomb matrix entries that are allowed to be
+                nonzero.
+                Each integer pair must be upper triangular, that is, of the form
+                :math:`(i, j)` where :math:`i \leq j`.
+            tol: Tolerance for error in the double-factorized decomposition of the
+                t2 amplitudes.
+                The error is defined as the maximum absolute difference between
+                an element of the original tensor and the corresponding element of
+                the reconstructed tensor.
+            optimize: Whether to optimize the tensors returned by the decomposition to
+                to minimize the error in the factorization.
+            method: The optimization method. See the documentation of
+                `scipy.optimize.minimize`_ for possible values.
+                This argument is ignored if ``optimize`` is set to ``False``.
+            callback: Callback function for the optimization. See the documentation of
+                `scipy.optimize.minimize`_ for usage.
+                This argument is ignored if ``optimize`` is set to ``False``.
+            options: Options for the optimization. See the documentation of
+                `scipy.optimize.minimize`_ for usage.
+                This argument is ignored if ``optimize`` is set to ``False``.
+            regularization: See :func:`ffsim.linalg.double_factorized_t2` for a
+                description of this argument.
+                This argument is ignored if ``optimize`` is set to ``False``.
+            multi_stage_start: See :func:`ffsim.linalg.double_factorized_t2` for a
+                description of this argument.
+                This argument is ignored if ``optimize`` is set to ``False``.
+            multi_stage_step: See :func:`ffsim.linalg.double_factorized_t2` for a
+                description of this argument.
+                This argument is ignored if ``optimize`` is set to ``False``.
+
+        Returns:
+            The UCJ operator with parameters initialized from the t2 amplitudes.
+
+        Raises:
+            ValueError: Interaction pairs list contained duplicate interactions.
+            ValueError: Interaction pairs list contained lower triangular pairs.
+
+        .. _scipy.optimize.minimize: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
+        """
+        if isinstance(n_reps, int) and n_reps <= 0:
+            raise ValueError(f"n_reps must be at least 1. Got {n_reps}.")
+        if interaction_pairs is None:
+            interaction_pairs = (None, None)
+        pairs_aa, pairs_ab = interaction_pairs
+        validate_interaction_pairs(pairs_aa, ordered=False)
+        validate_interaction_pairs(pairs_ab, ordered=False)
+
+        nocc, _, nvrt, _ = t2.shape
+        norb = nocc + nvrt
+        if pairs_aa is None and pairs_ab is None:
+            diag_coulomb_indices = None
+        else:
+            diag_coulomb_indices = list(set((pairs_aa or []) + (pairs_ab or [])))
+        diag_coulomb_mats, orbital_rotations = linalg.double_factorized_t2(
+            t2,
+            tol=tol,
+            max_terms=n_reps,
+            optimize=optimize,
+            method=method,
+            callback=callback,
+            options=options,
+            diag_coulomb_indices=diag_coulomb_indices,
+            regularization=regularization,
+            multi_stage_start=multi_stage_start,
+            multi_stage_step=multi_stage_step,
+            return_optimize_result=False,
+        )
+        diag_coulomb_mats = np.stack([diag_coulomb_mats, diag_coulomb_mats], axis=1)
+
+        n_vecs, _, _, _ = diag_coulomb_mats.shape
+        if n_reps is not None and n_vecs < n_reps:
+            # Pad with no-ops to the requested number of repetitions
+            diag_coulomb_mats = np.concatenate(
+                [diag_coulomb_mats, np.zeros((n_reps - n_vecs, 2, norb, norb))]
+            )
+            eye = np.eye(norb)
+            orbital_rotations = np.concatenate(
+                [orbital_rotations, np.stack([eye for _ in range(n_reps - n_vecs)])]
+            )
+
+        final_orbital_rotation = None
+        if t1 is not None:
+            final_orbital_rotation = orbital_rotation_from_t1_amplitudes(t1)
+
+        # Zero out diagonal coulomb matrix entries if requested
+        if pairs_aa is not None:
+            mask = np.zeros((norb, norb), dtype=bool)
+            if pairs_aa:
+                rows, cols = zip(*pairs_aa)
+                mask[rows, cols] = True
+                mask[cols, rows] = True
+            diag_coulomb_mats[:, 0] *= mask
+        if pairs_ab is not None:
+            mask = np.zeros((norb, norb), dtype=bool)
+            if pairs_ab:
+                rows, cols = zip(*pairs_ab)
+                mask[rows, cols] = True
+                mask[cols, rows] = True
+            diag_coulomb_mats[:, 1] *= mask
+
+        return UCJOpSpinBalanced(
+            diag_coulomb_mats=diag_coulomb_mats,
+            orbital_rotations=orbital_rotations,
+            final_orbital_rotation=final_orbital_rotation,
+        )
+
+    @staticmethod
+    def from_cisd_vec(
+        cisd_vec: np.ndarray,
+        *,
+        norb: int,
+        nocc: int,
+        c0_threshold: float = 1e-12,
+        n_reps: int | None = None,
+        interaction_pairs: tuple[
+            list[tuple[int, int]] | None, list[tuple[int, int]] | None
+        ]
+        | None = None,
+        tol: float = 1e-8,
+        optimize: bool = False,
+        method: str = "L-BFGS-B",
+        callback=None,
+        options: dict | None = None,
+        regularization: float = 0,
+        multi_stage_start: int | None = None,
+        multi_stage_step: int | None = None,
+    ) -> UCJOpSpinBalanced:
+        r"""Initialize the UCJ operator from a CISD vector.
+
+        The CISD amplitudes are converted to CC-style amplitudes using
+
+        .. math::
+
+            t_{1,ia} = \frac{c^{(1)}_{ia}}{c_0},
+            \qquad
+            t_{2,ijab} = \frac{c^{(2)}_{ijab}}{c_0} - \frac{t_{1,ia} t_{1,jb}}{2},
+
+        and the resulting amplitudes are then passed to
+        :meth:`from_t_amplitudes`.
+
+        Args:
+            cisd_vec: The CISD vector. This is a one-dimensional array containing the
+                reference coefficient :math:`c_0` in the first entry, followed by the
+                singles and then doubles coefficients.
+            norb: The number of spatial orbitals.
+            nocc: The number of occupied orbitals.
+            c0_threshold: Absolute value threshold for the reference coefficient. An
+                error is raised if the absolute value of :math:`c_0` is smaller than
+                this threshold.
+            n_reps: The number of ansatz repetitions. If not specified, then it is set
+                to the number of terms resulting from the double factorization of the
+                t2 amplitudes. If the specified number of repetitions is larger than the
+                number of terms resulting from the double factorization, then the ansatz
+                is padded with additional identity operators up to the specified number
+                of repetitions.
+            interaction_pairs: Optional restrictions on allowed orbital interactions
+                for the diagonal Coulomb operators.
+                If specified, `interaction_pairs` should be a pair of lists,
+                for alpha-alpha and alpha-beta interactions, in that order.
+                Either list can be substituted with ``None`` to indicate no restrictions
+                on interactions.
+                Each list should contain pairs of integers representing the orbitals
+                that are allowed to interact. These pairs can also be interpreted as
+                indices of diagonal Coulomb matrix entries that are allowed to be
+                nonzero.
+                Each integer pair must be upper triangular, that is, of the form
+                :math:`(i, j)` where :math:`i \leq j`.
+            tol: Tolerance for error in the double-factorized decomposition of the
+                converted t2 amplitudes.
+                The error is defined as the maximum absolute difference between
+                an element of the original tensor and the corresponding element of
+                the reconstructed tensor.
+            optimize: Whether to optimize the tensors returned by the decomposition to
+                to minimize the error in the factorization.
+            method: The optimization method. See the documentation of
+                `scipy.optimize.minimize`_ for possible values.
+                This argument is ignored if `optimize` is set to ``False``.
+            callback: Callback function for the optimization. See the documentation of
+                `scipy.optimize.minimize`_ for usage.
+                This argument is ignored if `optimize` is set to ``False``.
+            options: Options for the optimization. See the documentation of
+                `scipy.optimize.minimize`_ for usage.
+                This argument is ignored if `optimize` is set to ``False``.
+            regularization: See :func:`ffsim.linalg.double_factorized_t2` for a
+                description of this argument.
+                This argument is ignored if `optimize` is set to ``False``.
+            multi_stage_start: See :func:`ffsim.linalg.double_factorized_t2` for a
+                description of this argument.
+                This argument is ignored if `optimize` is set to ``False``.
+            multi_stage_step: See :func:`ffsim.linalg.double_factorized_t2` for a
+                description of this argument.
+                This argument is ignored if `optimize` is set to ``False``.
+
+        Returns:
+            The UCJ operator with parameters initialized from the CISD amplitudes.
+
+        Raises:
+            ValueError: The CISD reference coefficient is smaller than the
+                specified threshold c0_tol.
+
+        .. _scipy.optimize.minimize: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
+        """
+        c0, c1, c2 = pyscf.ci.cisd.cisdvec_to_amplitudes(
+            cisd_vec, norb, nocc, copy=False
+        )
+
+        if math.isclose(c0, 0.0, abs_tol=c0_threshold):
+            raise ValueError(
+                f"CISD reference coefficient c0={c0} is smaller than the"
+                f"specified threshold, c0_tol={c0_threshold}."
+            )
+
+        t1 = c1 / c0
+        t2 = c2 / c0 - 0.5 * np.einsum("ia,jb->ijab", t1, t1)
+
+        return UCJOpSpinBalanced.from_t_amplitudes(
+            t2,
+            t1=t1,
+            n_reps=n_reps,
+            interaction_pairs=interaction_pairs,
+            tol=tol,
+            optimize=optimize,
+            method=method,
+            callback=callback,
+            options=options,
+            regularization=regularization,
+            multi_stage_start=multi_stage_start,
+            multi_stage_step=multi_stage_step,
+        )
+
+    def _apply_unitary_(
+        self, vec: np.ndarray, norb: int, nelec: int | tuple[int, int], copy: bool
+    ) -> np.ndarray:
+        if isinstance(nelec, int):
+            return NotImplemented
+        if copy:
+            vec = vec.copy()
+        current_basis = np.eye(norb)
+        for (diag_coulomb_mat_aa, diag_coulomb_mat_ab), orbital_rotation in zip(
+            self.diag_coulomb_mats, self.orbital_rotations
+        ):
+            vec = gates.apply_orbital_rotation(
+                vec,
+                orbital_rotation.T.conj() @ current_basis,
+                norb=norb,
+                nelec=nelec,
+                copy=False,
+            )
+            vec = gates.apply_diag_coulomb_evolution(
+                vec,
+                (diag_coulomb_mat_aa, diag_coulomb_mat_ab, diag_coulomb_mat_aa),
+                time=-1.0,
+                norb=norb,
+                nelec=nelec,
+                copy=False,
+            )
+            current_basis = orbital_rotation
+        if self.final_orbital_rotation is None:
+            vec = gates.apply_orbital_rotation(
+                vec, current_basis, norb=norb, nelec=nelec, copy=False
+            )
+        else:
+            vec = gates.apply_orbital_rotation(
+                vec,
+                self.final_orbital_rotation @ current_basis,
+                norb=norb,
+                nelec=nelec,
+                copy=False,
+            )
+        return vec
+
+    def _approx_eq_(self, other, rtol: float, atol: float) -> bool:
+        if isinstance(other, UCJOpSpinBalanced):
+            if not np.allclose(
+                self.diag_coulomb_mats, other.diag_coulomb_mats, rtol=rtol, atol=atol
+            ):
+                return False
+            if not np.allclose(
+                self.orbital_rotations, other.orbital_rotations, rtol=rtol, atol=atol
+            ):
+                return False
+            if (self.final_orbital_rotation is None) != (
+                other.final_orbital_rotation is None
+            ):
+                return False
+            if self.final_orbital_rotation is not None:
+                return np.allclose(
+                    cast(np.ndarray, self.final_orbital_rotation),
+                    cast(np.ndarray, other.final_orbital_rotation),
+                    rtol=rtol,
+                    atol=atol,
+                )
+            return True
+        return NotImplemented

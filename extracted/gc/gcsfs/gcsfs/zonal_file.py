@@ -6,7 +6,15 @@ from google.cloud.storage.asyncio.async_appendable_object_writer import (
 )
 
 from gcsfs import zb_hns_utils
-from gcsfs.core import DEFAULT_BLOCK_SIZE, GCSFile, _coalesce_generation
+from gcsfs.core import (
+    DEFAULT_BLOCK_SIZE,
+    GCSFile,
+    _coalesce_generation,
+    _get_prefetcher_and_cache_config,
+)
+from gcsfs.retry import HttpError
+from gcsfs.utils import is_empty_range
+from gcsfs.zb_hns_utils import DEFAULT_TEARDOWN_TIMEOUT_SECONDS, sync_teardown
 
 from .caching import (  # noqa: F401 Unused import to register GCS-Specific caches, Please do not remove it.
     ReadAheadChunked,
@@ -70,13 +78,18 @@ class ZonalFile(GCSFile):
         self.pool_size = pool_size
         object_size = None
         if "r" in self.mode:
+            resolved_cache_type, resolved_cache_source = (
+                _get_prefetcher_and_cache_config(cache_type)
+            )
             self.mrd_pool = asyn.sync(
                 self.gcsfs.loop,
                 self.gcsfs._mrd_pool_cache.get,
                 bucket,
                 key,
                 generation,
-                self.pool_size,
+                pool_size=self.pool_size,
+                cache_type=resolved_cache_type,
+                cache_source=resolved_cache_source,
             )
             if getattr(self.mrd_pool, "details", None) is not None:
                 self._details = self.mrd_pool.details
@@ -190,33 +203,10 @@ class ZonalFile(GCSFile):
                 "The end and chunk_lengths arguments are mutually exclusive and cannot be used together."
             )
 
-        if self._prefetch_engine:
-            # This block is basically where caches and prefetch engines may overlap.
-            # We plan to remove this behaviour in future.
+        # Size can be stale for zonal buckets, hence not passing as part of is_empty_range check.
+        if is_empty_range(start, end):
+            return b"" if chunk_lengths is None else [b""]
 
-            try:
-                if chunk_lengths is None:
-                    return self._prefetch_engine.fetch(start, end)
-
-                # Fetch chunks sequentially through the prefetch engine
-                # Spawning concurrent task is worst here, because that would act as seek for prefetcher.
-                results = []
-                current_offset = start if start is not None else 0
-                for length in chunk_lengths:
-                    data = self._prefetch_engine.fetch(
-                        current_offset, current_offset + length
-                    )
-                    results.append(data)
-                    current_offset += length
-                    if length != len(data):
-                        raise RuntimeError("not satisfiable")
-                return results
-            except RuntimeError as e:
-                if "not satisfiable" in str(e):
-                    return b"" if chunk_lengths is None else [b""]
-                raise
-
-        # non-prefetch route
         async def _do_fetch():
             if chunk_lengths is not None:
                 return await self.gcsfs._fetch_range_split(
@@ -226,6 +216,8 @@ class ZonalFile(GCSFile):
                     chunk_lengths=chunk_lengths,
                     size=self.size,
                     mrd=self.mrd_pool,
+                    cache_type=self.cache_type,
+                    cache_source=self.cache_source,
                 )
 
             return await self.gcsfs._cat_file(
@@ -234,12 +226,14 @@ class ZonalFile(GCSFile):
                 end=end,
                 concurrency=self.concurrency,
                 mrd=self.mrd_pool,
+                cache_type=self.cache_type,
+                cache_source=self.cache_source,
             )
 
         try:
             return asyn.sync(self.fs.loop, _do_fetch)
-        except RuntimeError as e:
-            if "not satisfiable" in str(e):
+        except (RuntimeError, HttpError) as e:
+            if "not satisfiable" in str(e) or "InvalidRange" in str(e):
                 return b"" if chunk_lengths is None else [b""]
             raise
 
@@ -252,6 +246,12 @@ class ZonalFile(GCSFile):
     def write(self, data):
         """
         Writes data using AsyncAppendableObjectWriter.
+
+        Unlike standard GCSFile which buffers writes in an in-memory buffer before
+        uploading chunks, ZonalFile does not require an internal write buffer here.
+        The underlying AsyncAppendableObjectWriter manages its own internal buffering,
+        streaming, and chunk flushes. Data is passed directly to `self.aaow.append()`,
+        avoiding redundant memory copies.
 
         For more details, see the documentation for AsyncAppendableObjectWriter:
         https://github.com/googleapis/python-storage/blob/9e6fefdc24a12a9189f7119bc9119e84a061842f/google/cloud/storage/_experimental/asyncio/async_appendable_object_writer.py#L38
@@ -374,25 +374,38 @@ class ZonalFile(GCSFile):
             "_upload_chunk is not implemented yet for ZonalFile. Please use write() instead."
         )
 
-    def close(self):
-        """
-        Closes the ZonalFile and the underlying AsyncMultiRangeDownloader and AsyncAppendableObjectWriter.
-        If in write mode, finalizes the write if finalize_on_close is True.
-        """
-        if self.closed:
-            return
+    def _close_impl(self):
+        super()._close_impl()
 
-        # super is closed before aaow since flush may need aaow
-        super().close()
+        timeout = self.timeout or DEFAULT_TEARDOWN_TIMEOUT_SECONDS
+        errors = []
 
+        # Teardown the read-side MRD pool if initialized.
         if hasattr(self, "mrd_pool") and self.mrd_pool:
-            asyn.sync(self.gcsfs.loop, self.mrd_pool.close)
+            try:
+                sync_teardown(
+                    self.gcsfs.loop,
+                    self.mrd_pool.close,
+                    timeout=timeout,
+                    description=f"closing mrd_pool for {self.path}",
+                )
+            except Exception as e:
+                errors.append(e)
 
-        # Only close aaow if the stream is open
+        # Finalize and close the write-side AAOW stream.
+        # Wrapped independently so a read pool failure does not abandon write finalization.
         if self.aaow and self.aaow._is_stream_open:
-            asyn.sync(
-                self.gcsfs.loop,
-                zb_hns_utils.close_aaow,
-                self.aaow,
-                finalize_on_close=self.finalize_on_close,
-            )
+            try:
+                sync_teardown(
+                    self.gcsfs.loop,
+                    zb_hns_utils.close_aaow,
+                    self.aaow,
+                    timeout=timeout,
+                    finalize_on_close=self.finalize_on_close,
+                    description=f"finalizing AsyncAppendableObjectWriter for {self.path}",
+                )
+            except Exception as e:
+                errors.append(e)
+
+        if errors:
+            raise errors[0]

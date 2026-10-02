@@ -1,0 +1,1966 @@
+"""Filesystem-backed discovery helpers for project inputs."""
+
+from __future__ import annotations
+
+import ast
+import importlib.util
+import inspect
+import re
+import sys
+from collections.abc import Callable, Iterable, Iterator
+from dataclasses import dataclass, field
+from importlib.machinery import ModuleSpec
+from pathlib import Path
+from types import ModuleType
+from typing import get_type_hints
+
+from pydantic import ValidationError
+
+from sqlbuild.compiler.discovery._helpers.filesystem.cached_files import (
+    parse_source_file_with_cache,
+)
+from sqlbuild.compiler.discovery._helpers.filesystem.model_files import (
+    discover_matched_model_file,
+)
+from sqlbuild.compiler.discovery._helpers.filesystem.named_declarations import (
+    named_declaration_files,
+    named_declaration_roots,
+)
+from sqlbuild.compiler.discovery._helpers.filesystem.sql_test_files import discover_sql_test_files
+from sqlbuild.compiler.discovery._helpers.python.functions import parse_python_function
+from sqlbuild.compiler.discovery._helpers.sql.audits import parse_sql_audit_file
+from sqlbuild.compiler.discovery._helpers.sql.declarations import (
+    parse_constant_declaration_file,
+    parse_enum_declaration_file,
+    parse_model_schema_declaration_file,
+)
+from sqlbuild.compiler.discovery._helpers.sql.functions import parse_function_sql
+from sqlbuild.compiler.discovery._helpers.sql.hooks import parse_sql_hook_file
+from sqlbuild.compiler.discovery._helpers.sql.model_files import (
+    match_model_header,
+    prepare_matched_model_file_headers,
+)
+from sqlbuild.compiler.discovery._helpers.sql.scenarios import parse_sql_scenario_file
+from sqlbuild.compiler.discovery._helpers.yml.schema import parse_schema_yml
+from sqlbuild.compiler.discovery.constants import (
+    CANONICAL_AUTHORED_ROOTS,
+    PYTHON_INIT_MODULE_STEM,
+    PYTHON_NODE_ROOT,
+    SCHEMA_FILE_NAME,
+    SEED_FILE_SUFFIX,
+    SQL_TESTS_OWNERSHIP_ROOT,
+    YAML_FILE_SUFFIXES,
+)
+from sqlbuild.compiler.discovery.exceptions import (
+    DeclarationParseError,
+    EventExporterDiscoveryError,
+    ModelSqlParseError,
+    ProviderDiscoveryError,
+    PythonNodeDiscoveryError,
+    SchemaParseError,
+)
+from sqlbuild.compiler.discovery.models import (
+    DiscoveredAdapterFile,
+    DiscoveredAssetFunction,
+    DiscoveredAuditFactory,
+    DiscoveredAuditFile,
+    DiscoveredCheckFunction,
+    DiscoveredCommandOutputSink,
+    DiscoveredConstantFile,
+    DiscoveredEnumFile,
+    DiscoveredEventExporter,
+    DiscoveredEventExporterDeclaration,
+    DiscoveredHookFunction,
+    DiscoveredLoaderFunction,
+    DiscoveredMacroFile,
+    DiscoveredMaterializationFile,
+    DiscoveredModelSchemaFile,
+    DiscoveredProvider,
+    DiscoveredProviderUsage,
+    DiscoveredPythonFunctionFile,
+    DiscoveredPythonNodeFunctions,
+    DiscoveredSchemaFile,
+    DiscoveredSeedFile,
+    DiscoveredSourceFile,
+    DiscoveredSqlFunctionFile,
+    DiscoveredSqlHookFile,
+    DiscoveredSqlModelFile,
+    DiscoveredSqlScenarioFile,
+    DiscoveredSqlTestFile,
+    DiscoveredTaskFunction,
+    DiscoveryFileFault,
+    NamedDeclarationRoot,
+)
+from sqlbuild.compiler.discovery.types import ScopedDeclarationFile
+from sqlbuild.compiler.fact_cache.classes.fact_cache_store import FactCacheStore
+from sqlbuild.compiler.resource_names.main._validate_resource_identity import (
+    validate_resource_identity,
+)
+from sqlbuild.compiler.scopes.constants import (
+    DECLARATION_DIRECTORY_FACTS,
+    DECLARATION_GROUP_DIRECTORY,
+    GLOBAL_DECLARATION_DIRECTORIES,
+    GROUPED_NAMED_DECLARATION_DIRECTORIES,
+    INHERITED_DECLARATION_DIRECTORIES,
+    LOCAL_DECLARATION_DIRECTORIES,
+)
+from sqlbuild.compiler.scopes.types import DeclarationKind, ScopeKind
+from sqlbuild.provider.classes.provider import Provider
+from sqlbuild.provider.exceptions import ProviderInputError
+from sqlbuild.python_nodes.main.read_asset_definition import read_asset_definition
+from sqlbuild.python_nodes.main.read_audit_factory_definition import (
+    read_audit_factory_definition,
+)
+from sqlbuild.python_nodes.main.read_check_definition import read_check_definition
+from sqlbuild.python_nodes.main.read_factory_definition import read_factory_definition
+from sqlbuild.python_nodes.main.read_hook_definition import read_hook_definition
+from sqlbuild.python_nodes.main.read_loader_definition import read_loader_definition
+from sqlbuild.python_nodes.main.read_task_definition import read_task_definition
+from sqlbuild.python_nodes.models import (
+    AssetDefinition,
+    AuditCase,
+    AuditFactoryDefinition,
+    CheckDefinition,
+    FactoryDefinition,
+    HookDefinition,
+    LoaderDefinition,
+    TaskDefinition,
+)
+from sqlbuild.runtime.event_exporting.constants import EVENT_EXPORTER_EVENT_PARAMETER_NAME
+from sqlbuild.runtime.event_exporting.main.get_lifecycle_event_sink_definition import (
+    get_lifecycle_event_sink_definition,
+)
+from sqlbuild.runtime.event_exporting.models import LifecycleEventSinkDefinition
+from sqlbuild.runtime.observability.models import LifecycleEvent
+from sqlbuild.spec.contracts.models import SchemaModelEntry, SchemaSeedEntry
+
+_PROJECT_PYTHON_PACKAGE_MARKER: str = "__sqlbuild_project_python__"
+
+
+@dataclass
+class _PythonNodeDiscoveryBucket:
+    loaders: list[DiscoveredLoaderFunction] = field(default_factory=list)
+    tasks: list[DiscoveredTaskFunction] = field(default_factory=list)
+    assets: list[DiscoveredAssetFunction] = field(default_factory=list)
+    checks: list[DiscoveredCheckFunction] = field(default_factory=list)
+    audit_factories: list[DiscoveredAuditFactory] = field(default_factory=list)
+
+    def add_loader(self, item: DiscoveredLoaderFunction) -> None:
+        self.loaders.append(item)
+
+    def add_task(self, item: DiscoveredTaskFunction) -> None:
+        self.tasks.append(item)
+
+    def add_asset(self, item: DiscoveredAssetFunction) -> None:
+        self.assets.append(item)
+
+    def add_check(self, item: DiscoveredCheckFunction) -> None:
+        self.checks.append(item)
+
+    def add_audit_factory(self, item: DiscoveredAuditFactory) -> None:
+        self.audit_factories.append(item)
+
+
+@dataclass(frozen=True)
+class _DeclarationFileFacts:
+    file_path: Path
+    relative_path: Path
+    declaration_kind: DeclarationKind
+    scope_kind: ScopeKind
+    ownership_root: Path
+    owning_path: Path | None
+    declaration_root: Path
+
+
+_SCOPED_DECLARATION_DIRECTORIES: frozenset[str] = (
+    INHERITED_DECLARATION_DIRECTORIES | LOCAL_DECLARATION_DIRECTORIES
+)
+_MACRO_TEST_DIRECTORY: str = f"{DeclarationKind.MACRO.value}s"
+_SQL_FILE_SUFFIX: str = ".sql"
+_SQL_TEST_ROOT_COMPONENTS: tuple[str, ...] = Path(SQL_TESTS_OWNERSHIP_ROOT).parts
+
+
+def _discover_declaration_file_facts(
+    *, project_dir: Path, declaration_kind: DeclarationKind | None = None
+) -> tuple[_DeclarationFileFacts, ...]:
+    _validate_declaration_groups(project_dir=project_dir)
+    for directory_name in sorted(LOCAL_DECLARATION_DIRECTORIES):
+        directory_kind, _scope_kind = DECLARATION_DIRECTORY_FACTS[directory_name]
+        if (declaration_kind is None or directory_kind is declaration_kind) and (
+            project_dir / directory_name
+        ).is_dir():
+            raise DeclarationParseError(
+                f"Scoped declaration root {directory_name}/ must be below a canonical authored root"
+            )
+
+    facts: list[_DeclarationFileFacts] = []
+    global_directory: str
+    for global_directory in sorted(GLOBAL_DECLARATION_DIRECTORIES):
+        directory_kind, _scope_kind = DECLARATION_DIRECTORY_FACTS[global_directory]
+        if declaration_kind is not None and directory_kind is not declaration_kind:
+            continue
+        declaration_root: Path = project_dir / global_directory
+        if declaration_root.is_dir():
+            facts.extend(
+                _declaration_files_under_root(
+                    project_dir=project_dir,
+                    ownership_root=Path(global_directory),
+                    declaration_root=declaration_root,
+                    owning_path=None,
+                    scope_kind=ScopeKind.GLOBAL,
+                )
+            )
+
+    root_components: tuple[str, ...]
+    for root_components in CANONICAL_AUTHORED_ROOTS:
+        authored_root: Path = project_dir.joinpath(*root_components)
+        if not authored_root.is_dir():
+            continue
+        directory: Path
+        for directory in sorted(path for path in authored_root.rglob("*") if path.is_dir()):
+            if directory.name not in _SCOPED_DECLARATION_DIRECTORIES:
+                continue
+            directory_kind, directory_scope_kind = DECLARATION_DIRECTORY_FACTS[directory.name]
+            if declaration_kind is not None and directory_kind is not declaration_kind:
+                continue
+            relative_directory: Path = _project_relative_path(
+                path=directory, project_dir=project_dir
+            )
+            descendants: tuple[str, ...] = relative_directory.parts[len(root_components) :]
+            if any(part in _SCOPED_DECLARATION_DIRECTORIES for part in descendants[:-1]):
+                raise DeclarationParseError(
+                    f"Declaration root {relative_directory.as_posix()}/ is nested inside another "
+                    "declaration tree"
+                )
+            owning_path: Path = relative_directory.parent
+            if relative_directory.parent.name == DECLARATION_GROUP_DIRECTORY:
+                owning_path = relative_directory.parent.parent
+            facts.extend(
+                _declaration_files_under_root(
+                    project_dir=project_dir,
+                    ownership_root=Path(*root_components),
+                    declaration_root=directory,
+                    owning_path=owning_path,
+                    scope_kind=directory_scope_kind,
+                )
+            )
+    return tuple(sorted(facts, key=lambda item: item.relative_path.as_posix()))
+
+
+def _validate_declaration_groups(*, project_dir: Path) -> None:
+    root_group: Path = project_dir / DECLARATION_GROUP_DIRECTORY
+    if root_group.exists():
+        raise DeclarationParseError(
+            f"Grouped declaration root {DECLARATION_GROUP_DIRECTORY}/ must be below a canonical "
+            "authored root"
+        )
+    for root_components in CANONICAL_AUTHORED_ROOTS:
+        authored_root: Path = project_dir.joinpath(*root_components)
+        if not authored_root.is_dir():
+            continue
+        for group in sorted(
+            path for path in authored_root.rglob(DECLARATION_GROUP_DIRECTORY) if path.is_dir()
+        ):
+            if group.parent == authored_root:
+                raise DeclarationParseError(
+                    f"Grouped declaration root {group.relative_to(project_dir).as_posix()}/ must "
+                    "be below a concrete owner directory; use the project-wide macros/, enums/, "
+                    "constants/, audits/, schemas/, or hooks/ root instead"
+                )
+            unsupported: tuple[Path, ...] = tuple(
+                sorted(
+                    child
+                    for child in group.iterdir()
+                    if not child.is_dir()
+                    or child.name
+                    not in _SCOPED_DECLARATION_DIRECTORIES | GROUPED_NAMED_DECLARATION_DIRECTORIES
+                )
+            )
+            if unsupported:
+                rendered: str = ", ".join(
+                    _project_relative_path(path=path, project_dir=project_dir).as_posix()
+                    for path in unsupported
+                )
+                raise DeclarationParseError(
+                    f"Declaration group {group.relative_to(project_dir).as_posix()}/ contains "
+                    f"unsupported entries: {rendered}"
+                )
+
+
+def _declaration_files_under_root(
+    *,
+    project_dir: Path,
+    ownership_root: Path,
+    declaration_root: Path,
+    owning_path: Path | None,
+    scope_kind: ScopeKind,
+) -> list[_DeclarationFileFacts]:
+    nested_root: Path
+    for nested_root in sorted(
+        path
+        for path in declaration_root.rglob("*")
+        if path.is_dir() and path.name in _SCOPED_DECLARATION_DIRECTORIES
+    ):
+        relative_nested_root: str = _project_relative_path(
+            path=nested_root, project_dir=project_dir
+        ).as_posix()
+        raise DeclarationParseError(
+            f"Declaration root {relative_nested_root}/ is nested inside another declaration tree"
+        )
+    declaration_kind: DeclarationKind = DECLARATION_DIRECTORY_FACTS[declaration_root.name][0]
+    suffix: str = ".py" if declaration_kind is DeclarationKind.MACRO else ".sql"
+    results: list[_DeclarationFileFacts] = []
+    file_path: Path
+    for file_path in sorted(declaration_root.rglob(f"*{suffix}")):
+        if declaration_kind is DeclarationKind.MACRO and file_path.stem == PYTHON_INIT_MODULE_STEM:
+            continue
+        results.append(
+            _DeclarationFileFacts(
+                file_path=file_path,
+                relative_path=_project_relative_path(path=file_path, project_dir=project_dir),
+                declaration_kind=declaration_kind,
+                scope_kind=scope_kind,
+                ownership_root=ownership_root,
+                owning_path=owning_path,
+                declaration_root=_project_relative_path(
+                    path=declaration_root, project_dir=project_dir
+                ),
+            )
+        )
+    return results
+
+
+def _is_in_scoped_declaration_tree(*, file_path: Path, project_dir: Path) -> bool:
+    relative_parts: tuple[str, ...] = _project_relative_path(
+        path=file_path, project_dir=project_dir
+    ).parts
+    root_components: tuple[str, ...]
+    for root_components in CANONICAL_AUTHORED_ROOTS:
+        if relative_parts[: len(root_components)] != root_components:
+            continue
+        scoped_components: tuple[str, ...] = relative_parts[len(root_components) : -1]
+        if (
+            root_components == _SQL_TEST_ROOT_COMPONENTS
+            and file_path.suffix == _SQL_FILE_SUFFIX
+            and scoped_components[:1] == (_MACRO_TEST_DIRECTORY,)
+        ):
+            return False
+        return any(
+            component == DECLARATION_GROUP_DIRECTORY or component in _SCOPED_DECLARATION_DIRECTORIES
+            for component in scoped_components
+        )
+    return False
+
+
+def discover_model_files(
+    *,
+    project_dir: Path,
+    extract_implicit_alias_columns: bool = True,
+    extract_output_column_locations: bool = True,
+    selected_model_names: frozenset[str] | None = None,
+    on_fault: Callable[[DiscoveryFileFault], None] | None = None,
+) -> tuple[DiscoveredSqlModelFile, ...]:
+    """Discover SQL model files under models/."""
+
+    model_root: Path = project_dir / "models"
+    if not model_root.is_dir():
+        return ()
+
+    loaded_model_files: list[tuple[Path, str | None, Exception | None]] = []
+    file_path: Path
+    for file_path in sorted(model_root.rglob("*.sql")):
+        if selected_model_names is not None and file_path.stem not in selected_model_names:
+            continue
+        if _is_in_scoped_declaration_tree(file_path=file_path, project_dir=project_dir):
+            continue
+        try:
+            loaded_model_files.append((file_path, file_path.read_text(encoding="utf-8"), None))
+        except (OSError, UnicodeError, ValueError, SyntaxError) as error:
+            loaded_model_files.append((file_path, None, error))
+
+    header_matches: list[re.Match[str] | None] = [
+        match_model_header(contents) if contents is not None and error is None else None
+        for _path, contents, error in loaded_model_files
+    ]
+    prepare_matched_model_file_headers(header_matches)
+    discovered_model_files: list[DiscoveredSqlModelFile] = []
+    contents: str | None
+    read_error: Exception | None
+    header_match: re.Match[str] | None
+    for (file_path, contents, read_error), header_match in zip(
+        loaded_model_files, header_matches, strict=True
+    ):
+        if read_error is not None:
+            if on_fault is None:
+                raise read_error
+            on_fault(_discovery_fault(project_dir=project_dir, path=file_path, error=read_error))
+            continue
+        if contents is None:
+            raise ModelSqlParseError("Model file read returned neither contents nor an error")
+        try:
+            discovered_model_files.append(
+                discover_matched_model_file(
+                    file_path=file_path,
+                    relative_path=_project_relative_path(path=file_path, project_dir=project_dir),
+                    contents=contents,
+                    header_match=header_match,
+                    extract_implicit_alias_columns=extract_implicit_alias_columns,
+                    extract_output_column_locations=extract_output_column_locations,
+                )
+            )
+        except (OSError, UnicodeError, ValueError, SyntaxError) as error:
+            if on_fault is None:
+                raise
+            on_fault(_discovery_fault(project_dir=project_dir, path=file_path, error=error))
+            continue
+    return tuple(discovered_model_files)
+
+
+def discover_enum_files(
+    *,
+    project_dir: Path,
+    on_fault: Callable[[DiscoveryFileFault], None] | None = None,
+    isolate_declaration_kind: bool = False,
+) -> tuple[DiscoveredEnumFile, ...]:
+    """Discover global and scoped enum declaration files."""
+
+    return _discover_declaration_kind_files(
+        project_dir=project_dir,
+        declaration_kind=DeclarationKind.ENUM,
+        isolate_declaration_kind=isolate_declaration_kind,
+        parse_declarations=parse_enum_declaration_file,
+        discovered_file_type=DiscoveredEnumFile,
+        on_fault=on_fault,
+    )
+
+
+def discover_constant_files(
+    *,
+    project_dir: Path,
+    on_fault: Callable[[DiscoveryFileFault], None] | None = None,
+    isolate_declaration_kind: bool = False,
+) -> tuple[DiscoveredConstantFile, ...]:
+    """Discover global and scoped constant declaration files."""
+
+    return _discover_declaration_kind_files(
+        project_dir=project_dir,
+        declaration_kind=DeclarationKind.CONSTANT,
+        isolate_declaration_kind=isolate_declaration_kind,
+        parse_declarations=parse_constant_declaration_file,
+        discovered_file_type=DiscoveredConstantFile,
+        on_fault=on_fault,
+    )
+
+
+def _discover_declaration_kind_files[DeclarationT, DiscoveredT](
+    *,
+    project_dir: Path,
+    declaration_kind: DeclarationKind,
+    isolate_declaration_kind: bool,
+    parse_declarations: Callable[..., tuple[DeclarationT, ...]],
+    discovered_file_type: Callable[..., DiscoveredT],
+    on_fault: Callable[[DiscoveryFileFault], None] | None,
+) -> tuple[DiscoveredT, ...]:
+    def parse(facts: _DeclarationFileFacts) -> DiscoveredT:
+        contents: str = facts.file_path.read_text(encoding="utf-8")
+        declarations: tuple[DeclarationT, ...] = parse_declarations(
+            contents=contents,
+            file_path=facts.file_path,
+            relative_path=facts.relative_path,
+        )
+        return discovered_file_type(
+            file_path=facts.file_path,
+            relative_path=facts.relative_path,
+            contents=contents,
+            declarations=declarations,
+            scope_kind=facts.scope_kind,
+            ownership_root=facts.ownership_root,
+            owning_path=facts.owning_path,
+            declaration_root=facts.declaration_root,
+        )
+
+    return _parse_discovered_files(
+        project_dir=project_dir,
+        items=(
+            facts
+            for facts in _discover_declaration_file_facts(
+                project_dir=project_dir,
+                declaration_kind=declaration_kind if isolate_declaration_kind else None,
+            )
+            if facts.declaration_kind is declaration_kind
+        ),
+        item_path=lambda facts: facts.file_path,
+        parse=parse,
+        on_fault=on_fault,
+    )
+
+
+def _parse_discovered_files[ItemT, DiscoveredT](
+    *,
+    project_dir: Path,
+    items: Iterable[ItemT],
+    item_path: Callable[[ItemT], Path],
+    parse: Callable[[ItemT], DiscoveredT],
+    on_fault: Callable[[DiscoveryFileFault], None] | None,
+) -> tuple[DiscoveredT, ...]:
+    """Parse each discovered file, isolating per-file read and parse faults when requested."""
+
+    discovered: list[DiscoveredT] = []
+    item: ItemT
+    for item in items:
+        try:
+            discovered.append(parse(item))
+        except (OSError, UnicodeError, ValueError, SyntaxError) as error:
+            if on_fault is None:
+                raise
+            on_fault(_discovery_fault(project_dir=project_dir, path=item_path(item), error=error))
+    return tuple(discovered)
+
+
+def _parse_discovered_paths[DiscoveredT](
+    *,
+    project_dir: Path,
+    file_paths: Iterable[Path],
+    parse: Callable[[Path], DiscoveredT],
+    on_fault: Callable[[DiscoveryFileFault], None] | None,
+) -> tuple[DiscoveredT, ...]:
+    return _parse_discovered_files(
+        project_dir=project_dir,
+        items=file_paths,
+        item_path=lambda file_path: file_path,
+        parse=parse,
+        on_fault=on_fault,
+    )
+
+
+def _unscoped_files(*, root: Path, pattern: str, project_dir: Path) -> Iterator[Path]:
+    file_path: Path
+    for file_path in sorted(root.rglob(pattern)):
+        if not _is_in_scoped_declaration_tree(file_path=file_path, project_dir=project_dir):
+            yield file_path
+
+
+def discover_model_schema_files(
+    *, project_dir: Path, on_fault: Callable[[DiscoveryFileFault], None] | None = None
+) -> tuple[DiscoveredModelSchemaFile, ...]:
+    """Discover project-wide and scoped reusable model schemas."""
+
+    def parse(item: tuple[NamedDeclarationRoot, Path]) -> DiscoveredModelSchemaFile:
+        file_path: Path = item[1]
+        contents: str = file_path.read_text(encoding="utf-8")
+        relative_path: Path = _project_relative_path(path=file_path, project_dir=project_dir)
+        return DiscoveredModelSchemaFile(
+            file_path=file_path,
+            relative_path=relative_path,
+            contents=contents,
+            declarations=parse_model_schema_declaration_file(
+                contents=contents, file_path=file_path, relative_path=relative_path
+            ),
+        )
+
+    return _parse_named_declaration_files(
+        project_dir=project_dir,
+        kinds=frozenset({DeclarationKind.SCHEMA}),
+        parse=parse,
+        on_fault=on_fault,
+    )
+
+
+def _parse_named_declaration_files[DiscoveredT: ScopedDeclarationFile](
+    *,
+    project_dir: Path,
+    kinds: frozenset[DeclarationKind],
+    parse: Callable[[tuple[NamedDeclarationRoot, Path]], DiscoveredT],
+    on_fault: Callable[[DiscoveryFileFault], None] | None,
+    skip_underscored: bool = False,
+) -> tuple[DiscoveredT, ...]:
+    """Parse each SQL file in the requested named declaration roles with its role's scope facts."""
+
+    return _parse_discovered_files(
+        project_dir=project_dir,
+        items=(
+            item
+            for item in named_declaration_files(
+                roots=named_declaration_roots(project_dir=project_dir, kinds=kinds),
+                pattern="*.sql",
+            )
+            if not (skip_underscored and item[1].name.startswith("_"))
+        ),
+        item_path=lambda item: item[1],
+        parse=lambda item: item[0].place(parse(item)),
+        on_fault=on_fault,
+    )
+
+
+def discover_sql_function_files(
+    *, project_dir: Path, on_fault: Callable[[DiscoveryFileFault], None] | None = None
+) -> tuple[DiscoveredSqlFunctionFile, ...]:
+    """Discover SQL function files under functions/sql/."""
+
+    function_root: Path = project_dir / "functions" / "sql"
+    if not function_root.is_dir():
+        return ()
+
+    def parse(file_path: Path) -> DiscoveredSqlFunctionFile:
+        contents: str = file_path.read_text(encoding="utf-8")
+        header_values: dict[str, object]
+        body_sql: str
+        header_values, body_sql = parse_function_sql(contents=contents, file_path=file_path)
+        return DiscoveredSqlFunctionFile(
+            file_path=file_path,
+            relative_path=_project_relative_path(path=file_path, project_dir=project_dir),
+            contents=contents,
+            header_values=header_values,
+            body_sql=body_sql,
+        )
+
+    return _parse_discovered_paths(
+        project_dir=project_dir,
+        file_paths=_unscoped_files(root=function_root, pattern="*.sql", project_dir=project_dir),
+        parse=parse,
+        on_fault=on_fault,
+    )
+
+
+def discover_python_function_files(
+    *, project_dir: Path
+) -> tuple[DiscoveredPythonFunctionFile, ...]:
+    """Discover Python function files under functions/python/."""
+
+    function_root: Path = project_dir / "functions" / "python"
+    if not function_root.is_dir():
+        return ()
+
+    discovered_function_files: list[DiscoveredPythonFunctionFile] = []
+    file_path: Path
+    for file_path in sorted(function_root.rglob("*.py")):
+        contents: str = file_path.read_text(encoding="utf-8")
+        header_values: dict[str, object]
+        entry_point: str
+        body_python: str
+        header_values, entry_point, body_python = parse_python_function(
+            contents=contents, file_path=file_path
+        )
+        discovered_function_files.append(
+            DiscoveredPythonFunctionFile(
+                file_path=file_path,
+                relative_path=_project_relative_path(path=file_path, project_dir=project_dir),
+                contents=contents,
+                header_values=header_values,
+                entry_point=entry_point,
+                body_python=body_python,
+            )
+        )
+    return tuple(discovered_function_files)
+
+
+def discover_schema_files(*, project_dir: Path) -> tuple[DiscoveredSchemaFile, ...]:
+    """Discover model schema.yml files and seed declaration .yml files."""
+
+    schema_paths: list[Path] = []
+    models_root: Path = project_dir / "models"
+    seeds_root: Path = project_dir / "seeds"
+
+    if models_root.is_dir():
+        schema_paths.extend(
+            path
+            for path in sorted(models_root.rglob(SCHEMA_FILE_NAME))
+            if not _is_in_scoped_declaration_tree(file_path=path, project_dir=project_dir)
+        )
+    if seeds_root.is_dir():
+        yaml_path: Path
+        for yaml_path in sorted(seeds_root.rglob("*.yaml")):
+            raise SchemaParseError(
+                f"Seed declaration file {yaml_path.relative_to(project_dir)} must use .yml; "
+                ".yaml is not supported"
+            )
+        schema_paths.extend(sorted(seeds_root.rglob("*.yml")))
+
+    deduped_paths: tuple[Path, ...] = tuple(dict.fromkeys(schema_paths))
+    discovered_schema_files: list[DiscoveredSchemaFile] = []
+    file_path: Path
+    for file_path in deduped_paths:
+        contents: str = file_path.read_text(encoding="utf-8")
+        model_entries: tuple[SchemaModelEntry, ...]
+        seed_entries: tuple[SchemaSeedEntry, ...]
+        model_entries, seed_entries = parse_schema_yml(contents=contents, file_path=file_path)
+        discovered_schema_files.append(
+            DiscoveredSchemaFile(
+                file_path=file_path,
+                relative_path=_project_relative_path(path=file_path, project_dir=project_dir),
+                contents=contents,
+                model_entries=model_entries,
+                seed_entries=seed_entries,
+            )
+        )
+    return tuple(discovered_schema_files)
+
+
+def discover_source_files(
+    *,
+    project_dir: Path,
+    on_fault: Callable[[DiscoveryFileFault], None] | None = None,
+    fact_cache: FactCacheStore | None = None,
+) -> tuple[DiscoveredSourceFile, ...]:
+    """Discover source declaration YAML files under sources/."""
+
+    sources_root: Path = project_dir / "sources"
+    if not sources_root.is_dir():
+        return ()
+
+    yaml_paths: tuple[Path, ...] = tuple(
+        sorted(path for path in sources_root.iterdir() if path.suffix in YAML_FILE_SUFFIXES)
+    )
+
+    def parse(file_path: Path) -> DiscoveredSourceFile:
+        return parse_source_file_with_cache(
+            project_dir=project_dir,
+            file_path=file_path,
+            relative_path=_project_relative_path(path=file_path, project_dir=project_dir),
+            fact_cache=fact_cache,
+        )
+
+    return _parse_discovered_paths(
+        project_dir=project_dir, file_paths=yaml_paths, parse=parse, on_fault=on_fault
+    )
+
+
+def discover_seed_files(*, project_dir: Path) -> tuple[DiscoveredSeedFile, ...]:
+    """Discover seed CSV files under seeds/."""
+
+    seeds_root: Path = project_dir / "seeds"
+    if not seeds_root.is_dir():
+        return ()
+
+    return tuple(
+        DiscoveredSeedFile(
+            file_path=file_path,
+            relative_path=_project_relative_path(path=file_path, project_dir=project_dir),
+        )
+        for file_path in sorted(seeds_root.rglob("*"))
+        if file_path.is_file() and file_path.suffix == SEED_FILE_SUFFIX
+    )
+
+
+def discover_test_files(
+    *,
+    project_dir: Path,
+    selected_paths: frozenset[Path] | None = None,
+    on_fault: Callable[[DiscoveryFileFault], None] | None = None,
+    fact_cache: FactCacheStore | None = None,
+) -> tuple[DiscoveredSqlTestFile, ...]:
+    """Discover SQL-native unit test files under tests/unit/."""
+
+    tests_root: Path = project_dir / "tests" / "unit"
+    if not tests_root.is_dir():
+        return ()
+
+    file_paths: tuple[Path, ...] = tuple(
+        file_path
+        for file_path in sorted(tests_root.rglob("*.sql"))
+        if (selected_paths is None or file_path.resolve() in selected_paths)
+        and not _is_in_scoped_declaration_tree(file_path=file_path, project_dir=project_dir)
+    )
+    return discover_sql_test_files(
+        project_dir=project_dir,
+        file_paths=file_paths,
+        on_fault=on_fault,
+        fact_cache=fact_cache,
+    )
+
+
+def discover_scenario_files(
+    *, project_dir: Path, on_fault: Callable[[DiscoveryFileFault], None] | None = None
+) -> tuple[DiscoveredSqlScenarioFile, ...]:
+    """Discover SQL-native scenario files under tests/scenarios/."""
+
+    scenarios_root: Path = project_dir / "tests" / "scenarios"
+    if not scenarios_root.is_dir():
+        return ()
+
+    def parse(file_path: Path) -> DiscoveredSqlScenarioFile:
+        return parse_sql_scenario_file(
+            contents=file_path.read_text(encoding="utf-8"),
+            file_path=file_path,
+            relative_path=_project_relative_path(path=file_path, project_dir=project_dir),
+        )
+
+    return _parse_discovered_paths(
+        project_dir=project_dir,
+        file_paths=_unscoped_files(root=scenarios_root, pattern="*.sql", project_dir=project_dir),
+        parse=parse,
+        on_fault=on_fault,
+    )
+
+
+def discover_audit_files(
+    *, project_dir: Path, on_fault: Callable[[DiscoveryFileFault], None] | None = None
+) -> tuple[DiscoveredAuditFile, ...]:
+    """Discover generic and singular audit SQL files in their project-wide and scoped roles."""
+
+    def parse(item: tuple[NamedDeclarationRoot, Path]) -> DiscoveredAuditFile:
+        root, file_path = item
+        contents: str = file_path.read_text(encoding="utf-8")
+        return DiscoveredAuditFile(
+            file_path=file_path,
+            relative_path=_project_relative_path(path=file_path, project_dir=project_dir),
+            contents=contents,
+            blocks=parse_sql_audit_file(contents=contents, file_path=file_path),
+            declaration_kind=root.kind,
+        )
+
+    return _parse_named_declaration_files(
+        project_dir=project_dir,
+        kinds=frozenset({DeclarationKind.AUDIT, DeclarationKind.SINGULAR_AUDIT}),
+        parse=parse,
+        on_fault=on_fault,
+    )
+
+
+def discover_macro_files(
+    *, project_dir: Path, isolate_declaration_kind: bool = False
+) -> tuple[DiscoveredMacroFile, ...]:
+    """Discover global and scoped project macro Python files."""
+
+    return tuple(
+        DiscoveredMacroFile(
+            file_path=facts.file_path,
+            relative_path=facts.relative_path,
+            contents=facts.file_path.read_text(encoding="utf-8"),
+            scope_kind=facts.scope_kind,
+            ownership_root=facts.ownership_root,
+            owning_path=facts.owning_path,
+            declaration_root=facts.declaration_root,
+        )
+        for facts in _discover_declaration_file_facts(
+            project_dir=project_dir,
+            declaration_kind=DeclarationKind.MACRO if isolate_declaration_kind else None,
+        )
+        if facts.declaration_kind is DeclarationKind.MACRO
+    )
+
+
+def _discovery_fault(*, project_dir: Path, path: Path, error: Exception) -> DiscoveryFileFault:
+    try:
+        relative_path: Path | None = _project_relative_path(path=path, project_dir=project_dir)
+    except ValueError:
+        relative_path = None
+    message: str = str(error).replace(str(project_dir), ".")
+    return DiscoveryFileFault(path=relative_path, message=message)
+
+
+def discover_materialization_files(
+    *, project_dir: Path, providers: tuple[DiscoveredProvider, ...] = ()
+) -> tuple[DiscoveredMaterializationFile, ...]:
+    """Discover custom materialization Python files under materializations/."""
+
+    materializations_root: Path = project_dir / "materializations"
+    if not materializations_root.is_dir():
+        return ()
+
+    provider_by_name: dict[str, DiscoveredProvider] = _provider_by_name(providers)
+    discovered_files: list[DiscoveredMaterializationFile] = []
+    file_path: Path
+    for file_path in sorted(materializations_root.rglob("*.py")):
+        if file_path.stem == PYTHON_INIT_MODULE_STEM:
+            continue
+        materialize_fn: Callable[..., object] | None = _load_materialize_function(
+            file_path=file_path,
+            project_dir=project_dir,
+        )
+        discovered_files.append(
+            DiscoveredMaterializationFile(
+                file_path=file_path,
+                relative_path=_project_relative_path(path=file_path, project_dir=project_dir),
+                name=file_path.stem,
+                provider_usages=(
+                    _provider_usages(function=materialize_fn, provider_by_name=provider_by_name)
+                    if materialize_fn is not None
+                    else ()
+                ),
+            )
+        )
+    return tuple(discovered_files)
+
+
+def discover_python_node_functions(
+    *, project_dir: Path, providers: tuple[DiscoveredProvider, ...] = ()
+) -> DiscoveredPythonNodeFunctions:
+    """Discover decorated Python DAG node functions under python/."""
+
+    bucket: _PythonNodeDiscoveryBucket = _discover_python_node_functions(
+        project_dir=project_dir,
+        providers=providers,
+    )
+    return DiscoveredPythonNodeFunctions(
+        loaders=tuple(bucket.loaders),
+        tasks=tuple(bucket.tasks),
+        assets=tuple(bucket.assets),
+        checks=tuple(bucket.checks),
+        audit_factories=tuple(bucket.audit_factories),
+    )
+
+
+def discover_hook_functions(
+    *, project_dir: Path, providers: tuple[DiscoveredProvider, ...] = ()
+) -> tuple[DiscoveredHookFunction, ...]:
+    """Discover decorated model lifecycle hook functions under hooks/python/."""
+
+    discovered_hooks: list[DiscoveredHookFunction] = []
+    seen_names: dict[str, Path] = {}
+    provider_by_name: dict[str, DiscoveredProvider] = _provider_by_name(providers)
+    root: NamedDeclarationRoot
+    file_path: Path
+    for root, file_path in named_declaration_files(
+        roots=named_declaration_roots(
+            project_dir=project_dir, kinds=frozenset({DeclarationKind.PYTHON_HOOK})
+        ),
+        pattern="*.py",
+    ):
+        if file_path.stem == PYTHON_INIT_MODULE_STEM or file_path.name.startswith("_"):
+            continue
+        module: ModuleType = _load_python_node_module(
+            file_path=file_path,
+            project_dir=project_dir,
+        )
+        for _, value in inspect.getmembers(module, inspect.isfunction):
+            if value.__module__ != module.__name__:
+                continue
+            hook_definition: HookDefinition | None = read_hook_definition(value)
+            if hook_definition is None:
+                continue
+            existing_path: Path | None = seen_names.get(hook_definition.name)
+            if existing_path is not None:
+                raise PythonNodeDiscoveryError(
+                    f"Duplicate hook name '{hook_definition.name}' found in "
+                    f"{existing_path.relative_to(project_dir)} and "
+                    f"{file_path.relative_to(project_dir)}"
+                )
+            seen_names[hook_definition.name] = file_path
+            discovered_hooks.append(
+                root.place(
+                    DiscoveredHookFunction(
+                        file_path=file_path,
+                        relative_path=_project_relative_path(
+                            path=file_path, project_dir=project_dir
+                        ),
+                        name=hook_definition.name,
+                        function=value,
+                        description=hook_definition.description,
+                        reads=hook_definition.reads,
+                        provider_usages=_provider_usages(
+                            function=value,
+                            provider_by_name=provider_by_name,
+                        ),
+                    )
+                )
+            )
+    return tuple(discovered_hooks)
+
+
+def discover_sql_hook_files(
+    *, project_dir: Path, on_fault: Callable[[DiscoveryFileFault], None] | None = None
+) -> tuple[DiscoveredSqlHookFile, ...]:
+    """Discover named SQL lifecycle hooks in their project-wide and scoped roles."""
+
+    def parse(item: tuple[NamedDeclarationRoot, Path]) -> DiscoveredSqlHookFile:
+        file_path: Path = item[1]
+        return parse_sql_hook_file(
+            contents=file_path.read_text(encoding="utf-8"),
+            file_path=file_path,
+            relative_path=_project_relative_path(path=file_path, project_dir=project_dir),
+        )
+
+    return _parse_named_declaration_files(
+        project_dir=project_dir,
+        kinds=frozenset({DeclarationKind.SQL_HOOK}),
+        parse=parse,
+        on_fault=on_fault,
+        skip_underscored=True,
+    )
+
+
+def discover_provider_classes(*, project_dir: Path) -> tuple[DiscoveredProvider, ...]:
+    """Discover provider classes under providers/."""
+
+    from sqlbuild.runtime.event_exporting.main.cached_event_exporter_extensions import (
+        cached_event_exporter_extensions,
+    )
+
+    cached: (
+        tuple[
+            tuple[DiscoveredProvider, ...],
+            tuple[DiscoveredEventExporter, ...],
+            tuple[DiscoveredCommandOutputSink, ...],
+        ]
+        | None
+    ) = cached_event_exporter_extensions(project_dir=project_dir)
+    if cached is not None:
+        return cached[0]
+    providers_root: Path = project_dir / "providers"
+    if not providers_root.is_dir():
+        return ()
+
+    discovered_providers: list[DiscoveredProvider] = []
+    seen_names: dict[str, Path] = {}
+    file_path: Path
+    for file_path in _public_python_files(root=providers_root):
+        module: ModuleType = _load_provider_module(file_path=file_path, project_dir=project_dir)
+        for _, value in inspect.getmembers(module, inspect.isclass):
+            if value.__module__ != module.__name__:
+                continue
+            if value is Provider or not issubclass(value, Provider) or inspect.isabstract(value):
+                continue
+            provider_class: type[Provider] = value
+            provider_name: str = _provider_name(
+                provider_class=provider_class,
+                file_path=file_path,
+                project_dir=project_dir,
+            )
+            existing_path: Path | None = seen_names.get(provider_name)
+            if existing_path is not None:
+                raise ProviderDiscoveryError(
+                    f"Duplicate provider name '{provider_name}' found in "
+                    f"{existing_path.relative_to(project_dir)} and "
+                    f"{file_path.relative_to(project_dir)}"
+                )
+            seen_names[provider_name] = file_path
+            discovered_providers.append(
+                DiscoveredProvider(
+                    file_path=file_path,
+                    relative_path=_project_relative_path(path=file_path, project_dir=project_dir),
+                    name=provider_name,
+                    provider_class=provider_class,
+                    settings=_provider_instance(
+                        provider_class=provider_class,
+                        provider_name=provider_name,
+                        file_path=file_path,
+                        project_dir=project_dir,
+                    ),
+                )
+            )
+    return tuple(discovered_providers)
+
+
+def discover_event_exporter_functions(
+    *, project_dir: Path, providers: tuple[DiscoveredProvider, ...] = ()
+) -> tuple[DiscoveredEventExporter, ...]:
+    """Discover validated lifecycle-event sink declarations under sinks/."""
+
+    from sqlbuild.runtime.event_exporting.main.cached_event_exporter_extensions import (
+        cached_event_exporter_extensions,
+    )
+
+    cached: (
+        tuple[
+            tuple[DiscoveredProvider, ...],
+            tuple[DiscoveredEventExporter, ...],
+            tuple[DiscoveredCommandOutputSink, ...],
+        ]
+        | None
+    ) = cached_event_exporter_extensions(project_dir=project_dir)
+    if cached is not None:
+        return cached[1]
+    declarations: tuple[DiscoveredEventExporterDeclaration, ...] = (
+        discover_event_exporter_declarations(project_dir=project_dir)
+    )
+    return bind_event_exporter_declarations(
+        declarations=declarations,
+        providers=providers,
+        project_dir=project_dir,
+    )
+
+
+def discover_event_exporter_declarations(
+    *, project_dir: Path
+) -> tuple[DiscoveredEventExporterDeclaration, ...]:
+    """Import sink modules and collect lifecycle declarations without discovering providers."""
+
+    if (project_dir / "event_exporters").exists():
+        raise EventExporterDiscoveryError(
+            "event_exporters/ was replaced by sinks/ and @lifecycle_event_sink"
+        )
+    exporters_root: Path = project_dir / "sinks"
+    if not exporters_root.is_dir():
+        return ()
+    discovered: list[DiscoveredEventExporterDeclaration] = []
+    seen_names: dict[str, Path] = {}
+    for file_path in _public_python_files(root=exporters_root):
+        module: ModuleType = _load_sink_module(file_path=file_path, project_dir=project_dir)
+        seen_function_ids: set[int] = set()
+        for _, value in inspect.getmembers(module, inspect.isfunction):
+            if value.__module__ != module.__name__:
+                continue
+            function_id: int = id(value)
+            if function_id in seen_function_ids:
+                continue
+            seen_function_ids.add(function_id)
+            definition: LifecycleEventSinkDefinition | None = get_lifecycle_event_sink_definition(
+                value
+            )
+            if definition is None:
+                continue
+            existing_path: Path | None = seen_names.get(definition.name)
+            if existing_path is not None:
+                raise EventExporterDiscoveryError(
+                    f"Duplicate event exporter name '{definition.name}' found in "
+                    f"{existing_path.relative_to(project_dir)} and "
+                    f"{file_path.relative_to(project_dir)}"
+                )
+            _validate_event_exporter_declaration_signature(
+                function=value,
+                exporter_name=definition.name,
+                file_path=file_path,
+                project_dir=project_dir,
+            )
+            seen_names[definition.name] = file_path
+            discovered.append(
+                DiscoveredEventExporterDeclaration(
+                    file_path=file_path,
+                    relative_path=_project_relative_path(path=file_path, project_dir=project_dir),
+                    name=definition.name,
+                    function=value,
+                    event_kinds=definition.event_kinds,
+                    min_severity=definition.min_severity,
+                )
+            )
+    return tuple(discovered)
+
+
+def bind_event_exporter_declarations(
+    *,
+    declarations: tuple[DiscoveredEventExporterDeclaration, ...],
+    providers: tuple[DiscoveredProvider, ...],
+    project_dir: Path,
+) -> tuple[DiscoveredEventExporter, ...]:
+    """Validate declaration provider parameters against discovered project providers."""
+
+    provider_by_name: dict[str, DiscoveredProvider] = _provider_by_name(providers)
+    bound: list[DiscoveredEventExporter] = []
+    for declaration in declarations:
+        usages: tuple[DiscoveredProviderUsage, ...] = _bind_event_exporter_provider_usages(
+            function=declaration.function,
+            exporter_name=declaration.name,
+            file_path=declaration.file_path,
+            project_dir=project_dir,
+            provider_by_name=provider_by_name,
+        )
+        bound.append(
+            DiscoveredEventExporter(
+                file_path=declaration.file_path,
+                relative_path=declaration.relative_path,
+                name=declaration.name,
+                function=declaration.function,
+                event_kinds=declaration.event_kinds,
+                min_severity=declaration.min_severity,
+                provider_usages=usages,
+            )
+        )
+    return tuple(bound)
+
+
+def _validate_event_exporter_declaration_signature(
+    *,
+    function: Callable[..., object],
+    exporter_name: str,
+    file_path: Path,
+    project_dir: Path,
+) -> None:
+    relative_path: Path = _project_relative_path(path=file_path, project_dir=project_dir)
+    if inspect.iscoroutinefunction(function):
+        raise EventExporterDiscoveryError(
+            f"Event exporter '{exporter_name}' in {relative_path} must be synchronous"
+        )
+    parameters: tuple[inspect.Parameter, ...] = tuple(
+        inspect.signature(function).parameters.values()
+    )
+    if not parameters or parameters[0].name != EVENT_EXPORTER_EVENT_PARAMETER_NAME:
+        raise EventExporterDiscoveryError(
+            f"Event exporter '{exporter_name}' in {relative_path} must declare event first"
+        )
+    if any(
+        parameter.kind
+        in {
+            inspect.Parameter.POSITIONAL_ONLY,
+            inspect.Parameter.VAR_POSITIONAL,
+            inspect.Parameter.VAR_KEYWORD,
+        }
+        for parameter in parameters
+    ):
+        raise EventExporterDiscoveryError(
+            f"Event exporter '{exporter_name}' in {relative_path} must use named parameters"
+        )
+    if any(parameter.default is not inspect.Parameter.empty for parameter in parameters):
+        raise EventExporterDiscoveryError(
+            f"Event exporter '{exporter_name}' in {relative_path} parameters must not have defaults"
+        )
+    try:
+        type_hints: dict[str, object] = get_type_hints(function)
+    except (NameError, TypeError) as error:
+        raise EventExporterDiscoveryError(
+            f"Event exporter '{exporter_name}' in {relative_path} has invalid annotations"
+        ) from error
+    event_annotation: object = type_hints.get("event", parameters[0].annotation)
+    if event_annotation not in {inspect.Parameter.empty, LifecycleEvent}:
+        raise EventExporterDiscoveryError(
+            f"Event exporter '{exporter_name}' in {relative_path} event must be LifecycleEvent"
+        )
+    return_annotation: object = type_hints.get(
+        "return", inspect.signature(function).return_annotation
+    )
+    if return_annotation not in {inspect.Signature.empty, None, type(None)}:
+        raise EventExporterDiscoveryError(
+            f"Event exporter '{exporter_name}' in {relative_path} return annotation must be None"
+        )
+
+
+def _bind_event_exporter_provider_usages(
+    *,
+    function: Callable[..., object],
+    exporter_name: str,
+    file_path: Path,
+    project_dir: Path,
+    provider_by_name: dict[str, DiscoveredProvider],
+) -> tuple[DiscoveredProviderUsage, ...]:
+    relative_path: Path = _project_relative_path(path=file_path, project_dir=project_dir)
+    parameters: tuple[inspect.Parameter, ...] = tuple(
+        inspect.signature(function).parameters.values()
+    )
+    type_hints: dict[str, object] = get_type_hints(function)
+    for parameter in parameters[1:]:
+        provider: DiscoveredProvider | None = provider_by_name.get(parameter.name)
+        if provider is None:
+            raise EventExporterDiscoveryError(
+                f"Event exporter '{exporter_name}' in {relative_path} requires unknown provider "
+                f"'{parameter.name}'"
+            )
+        annotation: object = type_hints.get(parameter.name, parameter.annotation)
+        if annotation is not inspect.Parameter.empty and annotation is not provider.provider_class:
+            provider_class_name: str = provider.provider_class.__name__
+            raise EventExporterDiscoveryError(
+                f"Event exporter '{exporter_name}' in {relative_path} provider parameter "
+                f"'{parameter.name}' must be unannotated or exactly {provider_class_name}"
+            )
+    return _provider_usages(function=function, provider_by_name=provider_by_name)
+
+
+def _public_python_files(*, root: Path) -> tuple[Path, ...]:
+    public_files: list[Path] = []
+    for file_path in sorted(root.rglob("*.py")):
+        relative_parts: tuple[str, ...] = file_path.relative_to(root).parts
+        if file_path.stem == PYTHON_INIT_MODULE_STEM:
+            continue
+        if any(part.startswith("_") for part in relative_parts):
+            continue
+        public_files.append(file_path)
+    return tuple(public_files)
+
+
+def _provider_name(*, provider_class: type[Provider], file_path: Path, project_dir: Path) -> str:
+    relative_path: Path = _project_relative_path(path=file_path, project_dir=project_dir)
+    explicit_name: str | None = provider_class.provider_name
+    if explicit_name is not None:
+        validate_resource_identity(
+            name=explicit_name,
+            kind="provider",
+            path=relative_path,
+        )
+    try:
+        provider_name: str = provider_class.name()
+    except ProviderInputError as error:
+        raise ProviderDiscoveryError(
+            f"Provider class {provider_class.__name__} in {relative_path} "
+            f"has an invalid provider name: {error}"
+        ) from error
+    validate_resource_identity(
+        name=provider_name,
+        kind="provider",
+        path=relative_path,
+    )
+    return provider_name
+
+
+def _provider_instance(
+    *, provider_class: type[Provider], provider_name: str, file_path: Path, project_dir: Path
+) -> Provider:
+    try:
+        return provider_class()
+    except ValidationError as error:
+        relative_path: Path = _project_relative_path(path=file_path, project_dir=project_dir)
+        raise ProviderDiscoveryError(
+            f"Provider '{provider_name}' in {relative_path} has invalid settings:\n"
+            f"{_format_provider_validation_error(error)}"
+        ) from error
+
+
+def _format_provider_validation_error(error: ValidationError) -> str:
+    details: list[str] = []
+    for item in error.errors(include_input=False):
+        location: object = item.get("loc", ())
+        location_text: str = ".".join(str(part) for part in location) if location else "<root>"
+        message: object = item.get("msg", "invalid value")
+        error_type: object = item.get("type", "validation_error")
+        details.append(f"{location_text}: {message} [{error_type}]")
+    return "\n".join(details) or "invalid provider settings"
+
+
+def _provider_by_name(providers: tuple[DiscoveredProvider, ...]) -> dict[str, DiscoveredProvider]:
+    return {provider.name: provider for provider in providers}
+
+
+def _provider_usages(
+    *, function: Callable[..., object], provider_by_name: dict[str, DiscoveredProvider]
+) -> tuple[DiscoveredProviderUsage, ...]:
+    try:
+        type_hints: dict[str, object] = get_type_hints(function)
+    except TypeError:
+        type_hints = {}
+    usages: list[DiscoveredProviderUsage] = []
+    parameter: inspect.Parameter
+    for parameter in inspect.signature(function).parameters.values():
+        discovered_provider: DiscoveredProvider | None = provider_by_name.get(parameter.name)
+        if discovered_provider is None:
+            continue
+        annotation: object = type_hints.get(parameter.name, parameter.annotation)
+        annotation_class_name: str | None = None
+        annotation_module: str | None = None
+        if isinstance(annotation, type) and issubclass(annotation, Provider):
+            annotation_class_name = annotation.__name__
+            annotation_module = annotation.__module__
+        usages.append(
+            DiscoveredProviderUsage(
+                provider_name=discovered_provider.name,
+                parameter_name=parameter.name,
+                annotation_class_name=annotation_class_name,
+                annotation_module=annotation_module,
+            )
+        )
+    return tuple(usages)
+
+
+def _load_materialize_function(
+    *, file_path: Path, project_dir: Path
+) -> Callable[..., object] | None:
+    module: ModuleType = _load_materialization_module(
+        file_path=file_path,
+        project_dir=project_dir,
+    )
+    materialize_fn: object = getattr(module, "materialize", None)
+    return materialize_fn if callable(materialize_fn) else None
+
+
+def _discover_python_node_functions(
+    *, project_dir: Path, providers: tuple[DiscoveredProvider, ...] = ()
+) -> _PythonNodeDiscoveryBucket:
+    bucket: _PythonNodeDiscoveryBucket = _PythonNodeDiscoveryBucket()
+    provider_by_name: dict[str, DiscoveredProvider] = _provider_by_name(providers)
+    node_root: Path = project_dir / PYTHON_NODE_ROOT
+    if not node_root.is_dir():
+        return bucket
+    saved_modules: dict[str, ModuleType] = _install_python_root_package(
+        node_root=node_root, project_dir=project_dir
+    )
+    try:
+        modules: tuple[tuple[Path, ModuleType], ...] = tuple(
+            (file_path, _import_python_root_module(file_path=file_path, project_dir=project_dir))
+            for file_path in sorted(node_root.rglob("*.py"))
+            if file_path.stem != PYTHON_INIT_MODULE_STEM
+        )
+        direct_functions: dict[int, Callable[..., object]] = {}
+        file_path: Path
+        module: ModuleType
+        for file_path, module in modules:
+            direct_functions.update(
+                (id(function), function)
+                for function in _append_module_direct_nodes(
+                    bucket=bucket,
+                    module=module,
+                    file_path=file_path,
+                    project_dir=project_dir,
+                    provider_by_name=provider_by_name,
+                )
+            )
+        for file_path, module in modules:
+            _append_module_factory_nodes(
+                bucket=bucket,
+                module=module,
+                file_path=file_path,
+                project_dir=project_dir,
+                provider_by_name=provider_by_name,
+                direct_functions=direct_functions,
+            )
+    finally:
+        _restore_python_root_modules(saved_modules=saved_modules)
+    return bucket
+
+
+def _python_root_module_names() -> tuple[str, ...]:
+    return tuple(
+        module_name
+        for module_name in sys.modules
+        if module_name == PYTHON_NODE_ROOT or module_name.startswith(f"{PYTHON_NODE_ROOT}.")
+    )
+
+
+def _install_python_root_package(*, node_root: Path, project_dir: Path) -> dict[str, ModuleType]:
+    """Bind python to this project's python/ folder and return displaced unrelated modules."""
+
+    existing: ModuleType | None = sys.modules.get(PYTHON_NODE_ROOT)
+    owned: bool = existing is None or bool(getattr(existing, _PROJECT_PYTHON_PACKAGE_MARKER, False))
+    saved_modules: dict[str, ModuleType] = {}
+    module_name: str
+    for module_name in _python_root_module_names():
+        module: ModuleType | None = sys.modules.pop(module_name, None)
+        if not owned and module is not None:
+            saved_modules[module_name] = module
+    importlib.invalidate_caches()
+    init_file: Path = node_root / f"{PYTHON_INIT_MODULE_STEM}.py"
+    spec: ModuleSpec | None = (
+        importlib.util.spec_from_file_location(
+            PYTHON_NODE_ROOT, init_file, submodule_search_locations=[str(node_root)]
+        )
+        if init_file.is_file()
+        else ModuleSpec(PYTHON_NODE_ROOT, None, is_package=True)
+    )
+    if spec is None:
+        raise PythonNodeDiscoveryError(f"Could not load Python node package {node_root}")
+    spec.submodule_search_locations = [str(node_root)]
+    package: ModuleType = importlib.util.module_from_spec(spec)
+    setattr(package, _PROJECT_PYTHON_PACKAGE_MARKER, True)
+    sys.modules[PYTHON_NODE_ROOT] = package
+    if spec.loader is None:
+        return saved_modules
+    old_path: list[str] = list(sys.path)
+    sys.path.insert(0, str(project_dir))
+    try:
+        spec.loader.exec_module(package)
+    except Exception as error:
+        _restore_python_root_modules(saved_modules=saved_modules)
+        raise PythonNodeDiscoveryError(
+            f"Failed to import Python node file {init_file.relative_to(project_dir)}: {error}"
+        ) from error
+    finally:
+        sys.path = old_path
+    return saved_modules
+
+
+def _restore_python_root_modules(*, saved_modules: dict[str, ModuleType]) -> None:
+    """Put back an unrelated python package that discovery displaced."""
+
+    if not saved_modules:
+        return
+    module_name: str
+    for module_name in _python_root_module_names():
+        sys.modules.pop(module_name, None)
+    sys.modules.update(saved_modules)
+
+
+def _import_python_root_module(*, file_path: Path, project_dir: Path) -> ModuleType:
+    """Import a python/ module under its package name, reusing it within a discovery pass."""
+
+    relative_path: Path = _project_relative_path(path=file_path, project_dir=project_dir)
+    module_name: str = ".".join(relative_path.with_suffix("").parts)
+    old_path: list[str] = list(sys.path)
+    sys.path.insert(0, str(project_dir))
+    try:
+        return importlib.import_module(module_name)
+    except Exception as error:
+        raise PythonNodeDiscoveryError(
+            f"Failed to import Python node file {relative_path}: {error}"
+        ) from error
+    finally:
+        sys.path = old_path
+
+
+def _append_module_direct_nodes(
+    *,
+    bucket: _PythonNodeDiscoveryBucket,
+    module: ModuleType,
+    file_path: Path,
+    project_dir: Path,
+    provider_by_name: dict[str, DiscoveredProvider],
+) -> tuple[Callable[..., object], ...]:
+    _append_module_audit_factories(
+        bucket=bucket,
+        module=module,
+        file_path=file_path,
+        project_dir=project_dir,
+    )
+    registered: list[Callable[..., object]] = []
+    for _, value in inspect.getmembers(module, inspect.isfunction):
+        if value.__module__ != module.__name__:
+            continue
+        if _append_python_node_function(
+            bucket=bucket,
+            function=value,
+            file_path=file_path,
+            project_dir=project_dir,
+            provider_by_name=provider_by_name,
+        ):
+            registered.append(value)
+    return tuple(registered)
+
+
+def _append_module_factory_nodes(
+    *,
+    bucket: _PythonNodeDiscoveryBucket,
+    module: ModuleType,
+    file_path: Path,
+    project_dir: Path,
+    provider_by_name: dict[str, DiscoveredProvider],
+    direct_functions: dict[int, Callable[..., object]],
+) -> None:
+    for _, value in inspect.getmembers(module, inspect.isfunction):
+        if value.__module__ != module.__name__:
+            continue
+        factory_definition: FactoryDefinition | None = read_factory_definition(value)
+        if factory_definition is None:
+            continue
+        generated_functions: tuple[Callable[..., object], ...] = _call_factory(
+            factory=value,
+            factory_definition=factory_definition,
+            file_path=file_path,
+            project_dir=project_dir,
+        )
+        index: int
+        generated_function: Callable[..., object]
+        for index, generated_function in enumerate(generated_functions):
+            if direct_functions.get(id(generated_function)) is generated_function:
+                continue
+            if not _append_python_node_function(
+                bucket=bucket,
+                function=generated_function,
+                file_path=file_path,
+                project_dir=project_dir,
+                provider_by_name=provider_by_name,
+            ):
+                raise PythonNodeDiscoveryError(
+                    f"Factory '{factory_definition.name}' in "
+                    f"{file_path.relative_to(project_dir)} returned item {index} that is not "
+                    "a SQLBuild task, asset, loader, or check"
+                )
+
+
+def _append_module_audit_factories(
+    *,
+    bucket: _PythonNodeDiscoveryBucket,
+    module: ModuleType,
+    file_path: Path,
+    project_dir: Path,
+) -> None:
+    """Collect audit factories without routing them through Python-node discovery."""
+
+    for _, value in inspect.getmembers(module, inspect.isfunction):
+        if value.__module__ != module.__name__:
+            continue
+        definition: AuditFactoryDefinition | None = read_audit_factory_definition(value)
+        if definition is None:
+            continue
+        relative_path: Path = _project_relative_path(path=file_path, project_dir=project_dir)
+        if _python_node_definition_names(value):
+            kinds: str = ", ".join(_python_node_definition_names(value))
+            raise PythonNodeDiscoveryError(
+                f"Audit factory '{definition.name}' in {relative_path} cannot also be decorated "
+                f"as a Python-node kind ({kinds})"
+            )
+        existing: DiscoveredAuditFactory | None = next(
+            (item for item in bucket.audit_factories if item.name == definition.name), None
+        )
+        if existing is not None:
+            raise PythonNodeDiscoveryError(
+                f"Duplicate audit factory name '{definition.name}' found in "
+                f"{existing.relative_path} and {relative_path}"
+            )
+        cases: tuple[AuditCase, ...] = _call_audit_factory(
+            factory=value,
+            definition=definition,
+            file_path=file_path,
+            project_dir=project_dir,
+        )
+        bucket.add_audit_factory(
+            DiscoveredAuditFactory(
+                name=definition.name,
+                function=value,
+                file_path=file_path,
+                relative_path=relative_path,
+                line=inspect.getsourcelines(value)[1],
+                cases=cases,
+            )
+        )
+
+
+def _python_node_definition_names(function: Callable[..., object]) -> tuple[str, ...]:
+    definitions: tuple[tuple[str, object | None], ...] = (
+        ("factory", read_factory_definition(function)),
+        ("loader", read_loader_definition(function)),
+        ("task", read_task_definition(function)),
+        ("asset", read_asset_definition(function)),
+        ("check", read_check_definition(function)),
+    )
+    return tuple(name for name, definition in definitions if definition is not None)
+
+
+def _call_audit_factory(
+    *,
+    factory: Callable[..., object],
+    definition: AuditFactoryDefinition,
+    file_path: Path,
+    project_dir: Path,
+) -> tuple[AuditCase, ...]:
+    relative_path: Path = _project_relative_path(path=file_path, project_dir=project_dir)
+    if inspect.signature(factory).parameters:
+        raise PythonNodeDiscoveryError(
+            f"Audit factory '{definition.name}' in {relative_path} must not require arguments"
+        )
+    try:
+        result: object = factory()
+    except Exception as error:
+        raise PythonNodeDiscoveryError(
+            f"Audit factory '{definition.name}' in {relative_path} failed during discovery: {error}"
+        ) from error
+    if not isinstance(result, list | tuple):
+        raise PythonNodeDiscoveryError(
+            f"Audit factory '{definition.name}' in {relative_path} must return a list or tuple "
+            "of AuditCase instances"
+        )
+    cases: list[AuditCase] = []
+    for index, item in enumerate(result):
+        if not isinstance(item, AuditCase):
+            raise PythonNodeDiscoveryError(
+                f"Audit factory '{definition.name}' in {relative_path} returned item {index} "
+                "that is not an AuditCase"
+            )
+        cases.append(item)
+    return tuple(cases)
+
+
+def _append_python_node_function(
+    *,
+    bucket: _PythonNodeDiscoveryBucket,
+    function: Callable[..., object],
+    file_path: Path,
+    project_dir: Path,
+    provider_by_name: dict[str, DiscoveredProvider] | None = None,
+) -> bool:
+    resolved_provider_by_name: dict[str, DiscoveredProvider] = provider_by_name or {}
+    loader_definition: LoaderDefinition | None = read_loader_definition(function)
+    if loader_definition is not None:
+        bucket.add_loader(
+            DiscoveredLoaderFunction(
+                file_path=file_path,
+                relative_path=_project_relative_path(path=file_path, project_dir=project_dir),
+                name=loader_definition.name,
+                function=function,
+                depends_on=loader_definition.depends_on,
+                destination=loader_definition.destination,
+                write_strategy=loader_definition.write_strategy,
+                cursor_column=loader_definition.cursor_column,
+                unique_key=loader_definition.unique_key,
+                columns=loader_definition.columns,
+                contract=loader_definition.contract,
+                provider_usages=_provider_usages(
+                    function=function,
+                    provider_by_name=resolved_provider_by_name,
+                ),
+            )
+        )
+        return True
+    task_definition: TaskDefinition | None = read_task_definition(function)
+    if task_definition is not None:
+        bucket.add_task(
+            DiscoveredTaskFunction(
+                file_path=file_path,
+                relative_path=_project_relative_path(path=file_path, project_dir=project_dir),
+                name=task_definition.name,
+                function=function,
+                depends_on=task_definition.depends_on,
+                tags=task_definition.tags,
+                group=task_definition.group,
+                description=task_definition.description,
+                meta=task_definition.meta,
+                retry=task_definition.retry,
+                provider_usages=_provider_usages(
+                    function=function,
+                    provider_by_name=resolved_provider_by_name,
+                ),
+            )
+        )
+        return True
+    asset_definition: AssetDefinition | None = read_asset_definition(function)
+    if asset_definition is not None:
+        bucket.add_asset(
+            DiscoveredAssetFunction(
+                file_path=file_path,
+                relative_path=_project_relative_path(path=file_path, project_dir=project_dir),
+                name=asset_definition.name,
+                function=function,
+                depends_on=asset_definition.depends_on,
+                tags=asset_definition.tags,
+                group=asset_definition.group,
+                description=asset_definition.description,
+                meta=asset_definition.meta,
+                columns=asset_definition.columns,
+                column_lineage=asset_definition.column_lineage,
+                retry=asset_definition.retry,
+                provider_usages=_provider_usages(
+                    function=function,
+                    provider_by_name=resolved_provider_by_name,
+                ),
+            )
+        )
+        return True
+    check_definition: CheckDefinition | None = read_check_definition(function)
+    if check_definition is not None:
+        bucket.add_check(
+            DiscoveredCheckFunction(
+                file_path=file_path,
+                relative_path=_project_relative_path(path=file_path, project_dir=project_dir),
+                name=check_definition.name,
+                function=function,
+                depends_on=check_definition.depends_on,
+                severity=check_definition.severity,
+                tags=check_definition.tags,
+                group=check_definition.group,
+                description=check_definition.description,
+                meta=check_definition.meta,
+                provider_usages=_provider_usages(
+                    function=function,
+                    provider_by_name=resolved_provider_by_name,
+                ),
+            )
+        )
+        return True
+    return False
+
+
+def _call_factory(
+    *,
+    factory: Callable[..., object],
+    factory_definition: FactoryDefinition,
+    file_path: Path,
+    project_dir: Path,
+) -> tuple[Callable[..., object], ...]:
+    parameters: tuple[inspect.Parameter, ...] = tuple(
+        inspect.signature(factory).parameters.values()
+    )
+    if parameters:
+        raise PythonNodeDiscoveryError(
+            f"Factory '{factory_definition.name}' in {file_path.relative_to(project_dir)} "
+            "must not require arguments"
+        )
+    try:
+        result: object = factory()
+    except Exception as error:
+        raise PythonNodeDiscoveryError(
+            f"Factory '{factory_definition.name}' in {file_path.relative_to(project_dir)} "
+            f"failed during discovery: {error}"
+        ) from error
+    return _normalize_factory_result(
+        result=result,
+        factory_definition=factory_definition,
+        file_path=file_path,
+        project_dir=project_dir,
+    )
+
+
+def _normalize_factory_result(
+    *,
+    result: object,
+    factory_definition: FactoryDefinition,
+    file_path: Path,
+    project_dir: Path,
+) -> tuple[Callable[..., object], ...]:
+    if callable(result):
+        return (result,)
+    if isinstance(result, str | bytes | dict) or not isinstance(result, list | tuple | set):
+        raise PythonNodeDiscoveryError(
+            f"Factory '{factory_definition.name}' in {file_path.relative_to(project_dir)} "
+            "must return a SQLBuild node function or a list, tuple, or set of node functions"
+        )
+    functions: list[Callable[..., object]] = []
+    index: int
+    item: object
+    for index, item in enumerate(result):
+        if not callable(item):
+            raise PythonNodeDiscoveryError(
+                f"Factory '{factory_definition.name}' in {file_path.relative_to(project_dir)} "
+                f"returned item {index} that is not a SQLBuild task, asset, loader, or check"
+            )
+        functions.append(item)
+    return tuple(functions)
+
+
+def _load_python_node_module(*, file_path: Path, project_dir: Path) -> ModuleType:
+    return _exec_project_module(
+        module_name="sqlbuild_project_python_node_"
+        + "_".join(
+            _project_relative_path(path=file_path, project_dir=project_dir).with_suffix("").parts
+        ),
+        file_path=file_path,
+        project_dir=project_dir,
+        file_label="Python node",
+        error_type=PythonNodeDiscoveryError,
+    )
+
+
+def _load_provider_module(*, file_path: Path, project_dir: Path) -> ModuleType:
+    return _load_project_package_module(
+        file_path=file_path,
+        project_dir=project_dir,
+        file_label="provider",
+        error_type=ProviderDiscoveryError,
+    )
+
+
+def _load_sink_module(*, file_path: Path, project_dir: Path) -> ModuleType:
+    return _load_project_package_module(
+        file_path=file_path,
+        project_dir=project_dir,
+        file_label="sink",
+        error_type=EventExporterDiscoveryError,
+    )
+
+
+def _load_project_package_module(
+    *,
+    file_path: Path,
+    project_dir: Path,
+    file_label: str,
+    error_type: type[Exception],
+) -> ModuleType:
+    module_name: str = ".".join(
+        _project_relative_path(path=file_path, project_dir=project_dir).with_suffix("").parts
+    )
+    _evict_stale_project_package_modules(
+        root_module=module_name.split(".", maxsplit=1)[0],
+        project_dir=project_dir,
+    )
+    existing_module: ModuleType | None = sys.modules.get(module_name)
+    if existing_module is not None:
+        existing_file: object = getattr(existing_module, "__file__", None)
+        if isinstance(existing_file, str) and Path(existing_file).resolve() == file_path.resolve():
+            return existing_module
+        sys.modules.pop(module_name, None)
+    return _exec_project_module(
+        module_name=module_name,
+        file_path=file_path,
+        project_dir=project_dir,
+        file_label=file_label,
+        error_type=error_type,
+    )
+
+
+def _exec_project_module(
+    *,
+    module_name: str,
+    file_path: Path,
+    project_dir: Path,
+    file_label: str,
+    error_type: type[Exception],
+) -> ModuleType:
+    spec: ModuleSpec | None = importlib.util.spec_from_file_location(module_name, file_path)
+    if spec is None or spec.loader is None:
+        raise error_type(f"Could not load {file_label} file {file_path}")
+    module: ModuleType = importlib.util.module_from_spec(spec)
+    old_path: list[str] = list(sys.path)
+    sys.path.insert(0, str(project_dir))
+    try:
+        sys.modules[module_name] = module
+        spec.loader.exec_module(module)
+    except Exception as error:
+        raise error_type(
+            f"Failed to import {file_label} file {file_path.relative_to(project_dir)}: {error}"
+        ) from error
+    finally:
+        sys.path = old_path
+    return module
+
+
+def _evict_stale_project_package_modules(*, root_module: str, project_dir: Path) -> None:
+    root_path: Path = (project_dir / root_module).resolve()
+    module_name: str
+    module: ModuleType
+    for module_name, module in tuple(sys.modules.items()):
+        if module_name != root_module and not module_name.startswith(f"{root_module}."):
+            continue
+        module_file: object = getattr(module, "__file__", None)
+        if isinstance(module_file, str):
+            try:
+                Path(module_file).resolve().relative_to(project_dir.resolve())
+                continue
+            except ValueError:
+                sys.modules.pop(module_name, None)
+                continue
+        module_paths: object = getattr(module, "__path__", None)
+        if module_paths is None:
+            sys.modules.pop(module_name, None)
+            continue
+        if any(Path(path).resolve() == root_path for path in module_paths):
+            continue
+        sys.modules.pop(module_name, None)
+
+
+def _load_materialization_module(*, file_path: Path, project_dir: Path) -> ModuleType:
+    removed_hook_name: str = "prepare_version"
+    removed_hook_message: str = (
+        f"materialization '{file_path.stem}' at {file_path} defines "
+        "'prepare_version', which was removed with virtual environments; "
+        "projects run in direct mode"
+    )
+    try:
+        module_ast: ast.Module = ast.parse(file_path.read_text(encoding="utf-8"))
+    except SyntaxError as error:
+        raise PythonNodeDiscoveryError(
+            f"Failed to import materialization file {file_path.relative_to(project_dir)}: {error}"
+        ) from error
+    if any(
+        isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == removed_hook_name
+        for node in module_ast.body
+    ):
+        raise PythonNodeDiscoveryError(removed_hook_message)
+    module: ModuleType = _exec_project_module(
+        module_name=".".join(
+            _project_relative_path(path=file_path, project_dir=project_dir).with_suffix("").parts
+        ),
+        file_path=file_path,
+        project_dir=project_dir,
+        file_label="materialization",
+        error_type=PythonNodeDiscoveryError,
+    )
+    if hasattr(module, removed_hook_name):
+        raise PythonNodeDiscoveryError(removed_hook_message)
+    return module
+
+
+def discover_adapter_file(*, project_dir: Path) -> DiscoveredAdapterFile | None:
+    """Detect a project-level adapter.py without importing it."""
+
+    file_path: Path = project_dir / "adapter.py"
+    if not file_path.is_file():
+        return None
+
+    return DiscoveredAdapterFile(
+        file_path=file_path,
+        relative_path=_project_relative_path(path=file_path, project_dir=project_dir),
+    )
+
+
+def _project_relative_path(*, path: Path, project_dir: Path) -> Path:
+    """Return path.relative_to(project_dir) without pathlib's per-parent comparison scan."""
+
+    root_parts: tuple[str, ...] = project_dir.parts
+    path_parts: tuple[str, ...] = path.parts
+    if (
+        path.is_absolute() is not project_dir.is_absolute()
+        or path_parts[: len(root_parts)] != root_parts
+    ):
+        return path.relative_to(project_dir)
+    return path.with_segments(*path_parts[len(root_parts) :])
+
+
+def _is_relative_to(*, path: Path, parent: Path) -> bool:
+    try:
+        path.relative_to(parent)
+    except ValueError:
+        return False
+    return True

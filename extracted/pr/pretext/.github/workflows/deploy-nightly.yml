@@ -1,0 +1,111 @@
+name: deploy-nightly
+
+on:
+  schedule:
+    # * is a special character in YAML so you have to quote this string.
+    - cron: "00 6 * * *"
+  # Allows you to run this workflow manually from the Actions tab.
+  workflow_dispatch:
+    inputs:
+        core-repo:
+            description: "The repository to use for the core commit."
+            required: false
+            type: choice
+            default: "PreTeXtbook/pretext"
+            options:
+            - "PreTeXtbook/pretext"
+            - "oscarlevin/pretext"
+
+jobs:
+  prepare:
+    name: Prepare nightly source
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.prep.outputs.ready }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install python3-louis librsvg2-bin libcairo2-dev
+
+      - name: Install dependencies
+        shell: bash
+        run: uv sync --all-extras
+
+      - name: Run prep-nightly script
+        id: prep
+        shell: bash
+        run: |
+          echo "Updating core commit and version; building"
+          output=$(uv run python scripts/prep_nightly.py ${{ inputs.core-repo }})
+          echo "$output"
+          echo "Finished steps to prep nightly deployment"
+          if [[ $output == *"Ready to deploy"* ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload prepared source
+        if: ${{ steps.prep.outputs.ready == 'true' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: nightly-prepared-source
+          path: |
+            pretext/
+            tests/examples/core/
+            templates/
+            pyproject.toml
+
+  tests:
+    needs: prepare
+    if: ${{ needs.prepare.outputs.ready == 'true' }}
+    name: Run tests
+    uses: ./.github/workflows/tests.yml
+    with:
+      source-artifact: nightly-prepared-source
+
+  deploy:
+    needs: [prepare, tests]
+    if: ${{ needs.prepare.outputs.ready == 'true' }}
+    name: Deploy to pypi
+    runs-on: ubuntu-latest
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it.
+      - uses: actions/checkout@v6
+
+      # Setup uv
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install python3-louis librsvg2-bin libcairo2-dev
+
+      - name: Download prepared source
+        uses: actions/download-artifact@v8
+        with:
+          name: nightly-prepared-source
+          path: .
+
+      - name: Install dependencies
+        shell: bash
+        run: uv sync --all-extras
+
+      - name: Publish nightly build
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
+        run: |
+          uv build
+          uv publish
+          echo "Published to pypi"

@@ -1,0 +1,213 @@
+[tool.poetry]
+name = "api-client-pydantic"
+version = "3.1.0"
+description = "API Client extension for validate and transform requests / responses using pydantic."
+authors = ["MaxST <mstolpasov@gmail.com>"]
+license = "MIT"
+repository = 'https://github.com/mom1/api-client-pydantic'
+homepage = 'https://github.com/mom1/api-client-pydantic'
+keywords = ['api-client', 'api-client-extension']
+readme = 'README.md'
+classifiers = [
+  'Development Status :: 5 - Production/Stable',
+  'Environment :: Web Environment',
+  'Intended Audience :: Developers',
+  'License :: OSI Approved :: MIT License',
+  'Operating System :: OS Independent',
+  'Programming Language :: Python',
+  'Programming Language :: Python :: 3.8',
+  'Programming Language :: Python :: 3.9',
+  'Programming Language :: Python :: 3.10',
+  'Programming Language :: Python :: 3.11',
+  'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
+]
+include = ['AUTHORS']
+packages = [
+  { include = 'apiclient_pydantic' },
+]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<4"
+api-client = ">1.2.1"
+pydantic = ">=2.10,<3.0"
+
+[tool.poetry.dev-dependencies]
+# tests
+coverage = "^7.6"
+pytest = "^8.3"
+pytest-cov = "^6.0"
+pytest-asyncio = "^0.25"
+# formating
+ruff = "^0.8"
+mypy = "^1.10"
+types-setuptools = "^75.6"
+types-toml = "^0.10"
+# checks
+pre-commit = "^4.0"
+
+[build-system]
+requires = ["poetry-core>=1.8"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+# ruff configuration:
+# https://docs.astral.sh/ruff/settings/#top-level
+target-version = "py39"
+fix = true
+unsafe-fixes = true
+line-length = 120
+extend-exclude = ["apiclient_pydantic/v1"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+fixable = ["ALL"]
+extend-ignore = [
+  "PGH003",
+  "FBT",      # flake8-boolean-trap
+  "FA",       # flake8-future-annotations
+  "D100",     # Missing docstring in public module
+  "D101",     # Missing docstring in public class
+  "D102",     # Missing docstring in public method
+  "D103",     # Missing docstring in public function
+  "D104",     # Missing docstring in public package
+  "D105",     # Missing docstring in magic method
+  "D106",     # Missing docstring in public nested class
+  "D107",     # Missing docstring in __init__
+  "D203",     # 1 blank line required before class docstring
+  "D213",     # Multi-line docstring summary should start at the second line
+  "D301",     # Use r""" if any backslashes in a docstring
+  "D401",     # The First line of docstring should be in imperative mood
+  "D413",     # Missing blank line after last section ("{name}")
+  "DJ012",    # django-unordered-body-content-in-model
+  "E203",     # Whitespace around slice operators
+  "G004",     # logging-f-string
+  "PLR0913",  # too-many-arguments
+  "RET501",   # Do not explicitly `return None` in function if it is the only possible return value
+  "RET502",   # Do not implicitly `return None` in function able to return non-`None` value
+  "RET503",   # Missing explicit `return` at the end of function able to return non-`None` value
+  "RUF001",   # ambiguous-unicode-character-string
+  "RUF002",   # ambiguous-unicode-character-docstring
+  "RUF003",   # ambiguous-unicode-character-comment
+  "RUF012",   # Mutable class attributes should be annotated with typing.ClassVar
+  "S105",     # hardcoded-password-string
+  "S608",     # hardcoded-sql-expression
+  "SIM105",   # Use contextlib.suppress({exception}) instead of try-except-pass
+  # https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
+  "COM812",   # missing-trailing-comma
+  "COM819",   # prohibited-trailing-comma
+  "D206",     # indent-with-spaces
+  "D300",     # triple-single-quotes
+  "E111",     # indentation-with-invalid-multiple
+  "E114",     # indentation-with-invalid-multiple-comment
+  "E117",     # over-indented
+  "ISC001",   # single-line-implicit-string-concatenation
+  "ISC002",   # multi-line-implicit-string-concatenation
+  "Q000",     # bad-quotes-inline-string
+  "Q001",     # bad-quotes-multiline-string
+  "Q002",     # bad-quotes-docstring
+  "Q003",     # avoidable-escaped-quote
+  "W191",     # tab-indentation
+]
+flake8-quotes = { inline-quotes = "single" }
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+  "S101",     # assert
+  "S106",     # hardcoded-password-func-arg
+  "S311",     # suspicious-non-cryptographic-random-usage
+  "PLR2004",  # magic-value-comparison
+  "ANN",      # flake8-annotations
+]
+
+[tool.ruff.format]
+# https://docs.astral.sh/ruff/settings/#format
+quote-style = "single"
+
+[tool.ruff.lint.isort]
+# https://docs.astral.sh/ruff/settings/#isort
+combine-as-imports = true
+known-first-party = ["apiclient_pydantic", "tests"]
+known-local-folder = ["."]
+
+[tool.mypy]
+# https://mypy.readthedocs.io/en/latest/config_file.html#using-a-pyproject-toml-file
+pretty = true
+show_traceback = true
+color_output = true
+exclude = ["apiclient_pydantic/v1"]
+
+plugins = ["pydantic.mypy"]
+
+follow_imports = "silent"
+strict_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_any_generics = true
+check_untyped_defs = true
+no_implicit_reexport = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+[[tool.mypy.overrides]]
+module = [
+  'pydantic_core.*',
+  'apiclient.*',
+]
+follow_imports = "skip"
+
+
+[tool.coverage.run]
+# Coverage configuration:
+# https://coverage.readthedocs.io/en/latest/config.html
+# https://coverage.readthedocs.io/en/latest/config.html#run
+branch = true
+source = ["apiclient_pydantic"]
+omit = ["tests", ".github"]
+
+[tool.coverage.report]
+# https://coverage.readthedocs.io/en/latest/config.html#report
+fail_under = 100
+show_missing = true
+exclude_lines = [
+  "pragma: no cover",
+  "if TYPE_CHECKING:",
+  "raise AssertionError",
+  "raise NotImplementedError",
+  "if __name__ == .__main__.:",
+]
+
+[tool.pytest.ini_options]
+# pytest configuration:
+# https://docs.pytest.org/en/stable/customize.html
+python_files = ["tests.py", "test_*.py", "*_tests.py"]
+
+asyncio_mode = 'auto'
+asyncio_default_fixture_loop_scope = 'function'
+
+# Directories that are not visited by pytest collector:
+norecursedirs = [
+  "*.egg",
+  ".eggs",
+  "dist",
+  "build",
+  "docs",
+  ".tox",
+  ".git",
+  "__pycache__",
+]
+addopts = [
+  "-v",
+  "--strict-markers",
+  "--strict-config",
+  "--tb=short",
+  "--cov=apiclient_pydantic",
+  "--cov-report=term-missing:skip-covered",
+  "--cov-report=html",
+  "--no-cov-on-fail",
+]
+filterwarnings = ["ignore:A private pytest class or function was used.:_pytest.warning_types.PytestDeprecationWarning"]

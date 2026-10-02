@@ -1,0 +1,19 @@
+from __future__ import annotations
+
+import contextlib
+from collections.abc import Mapping, Sequence
+from typing import Any
+
+
+@contextlib.contextmanager
+def edit_weights(model, weight_items: Sequence[Mapping[str, Any]], factor: float):
+    if not weight_items or factor == 0.0:
+        yield
+        return
+    from mechbench_compute import weights as weights_mod
+
+    handle = weights_mod.edit_parameters(model.lm, weight_items, factor)
+    try:
+        yield
+    finally:
+        weights_mod.restore_parameters(model.lm, handle)

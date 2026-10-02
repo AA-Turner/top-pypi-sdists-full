@@ -1,0 +1,93 @@
+name: runtime-worker
+description: Scalable worker containers for parallel compute operations
+image: runtime:latest
+layer: runtime
+container_name: null
+required_env:
+  - POSTGRES_PASSWORD
+  - VALKEY_PASSWORD
+  - KEYCLOAK_ADMIN_CLIENT_SECRET
+  - ONEX_SERVICE_CLIENT_SECRET
+  - ONEX_REGISTRATION_AUTO_ACK
+hardcoded_env:
+  OMNIBASE_INFRA_DB_URL: 'postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}@postgres:5432/omnibase_infra'
+  OMNIINTELLIGENCE_DB_URL: 'postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}@postgres:5432/omniintelligence'
+  KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+  # OMN-19558: 240s handler + 60s margin needs deadline >= 300s;
+  # the library's 300s poll default caps the deadline at 255s.
+  KAFKA_MAX_POLL_INTERVAL_MS: '1800000'
+  KAFKA_BROKER_ALLOWLIST: 'redpanda:'
+  BUS_ID: local
+  ONEX_CONTRACTS_DIR: /app/contracts
+  ONEX_STATE_ROOT: /app/data/.onex_state
+  ONEX_STATE_DIR: /app/data/.onex_state
+  ONEX_ACTIVE_RUNTIME_PACKAGES: ${ONEX_ACTIVE_RUNTIME_PACKAGES:?runtime policy contract must set ONEX_ACTIVE_RUNTIME_PACKAGES}
+  VALKEY_HOST: valkey
+  VALKEY_PORT: '6379'
+  ONEX_MARKETPLACE_SKILLS_ROOT: /app/skills
+  USE_EVENT_ROUTING: 'true'
+  KEYCLOAK_ADMIN_URL: http://keycloak:8080
+  OTEL_SERVICE_NAME: omninode-runtime-worker
+  RUNTIME_PROFILE: workers
+  ONEX_RUNTIME_CAPABILITIES: ${DEV_RUNTIME_WORKER_CAPABILITIES:?runtime policy contract must set DEV_RUNTIME_WORKER_CAPABILITIES}
+  OMNIBASE_INFRA_SAVINGS_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+  POSTGRES_HOST: postgres
+operational_defaults:
+  POSTGRES_USER: postgres
+  ONEX_LOG_LEVEL: INFO
+  ONEX_ENVIRONMENT: local
+  ONEX_DATABASE_TOPOLOGY_PROFILE: local
+  KEYCLOAK_REALM: omninode
+  KEYCLOAK_ADMIN_CLIENT_ID: onex-admin
+  KEYCLOAK_ISSUER: http://localhost:28080/realms/omninode
+  ONEX_SERVICE_CLIENT_ID: onex-service
+  ONEX_GROUP_ID: onex-runtime-workers
+ports: null
+healthcheck:
+  # OMN-17883: the SEMANTIC probe, not `curl -sf`. `curl -sf` asserts only
+  # "status code < 400", and /health returns 200 for a running-but-DEGRADED
+  # runtime by design (ServiceHealth._handle_health), so the shallow check
+  # cannot fail on the exact condition OMN-15217 was filed for. Worse, a
+  # compose-level healthcheck OVERRIDES the image-level HEALTHCHECK, so this
+  # entry was replacing the deep probe Dockerfile.runtime already bakes in.
+  # List form renders as ["CMD", ...] and needs no shell.
+  test:
+    - python
+    - /usr/local/bin/onex-container-healthcheck
+    - --url
+    - http://localhost:8085/health
+    - --degraded-policy
+    - fail
+  interval_s: 30
+  timeout_s: 10
+  retries: 5
+  start_period_s: 1200
+volumes:
+  - worker_logs:/app/logs
+  - ../contracts:/app/contracts:ro
+# OMN-18843: service_started, NOT service_healthy. This container is a bus
+# consumer and never calls the main runtime at boot; waiting on the main
+# runtime's /health held it in State=created for 5 min 48 s of a measured
+# redeploy on the .201 dev lane (2026-09-21), during which the delegate-skill
+# command consumer group was Empty and every `onex delegate` refused
+# pre-publish. Compose starts omninode-runtime only once its own migration,
+# partition-cap and valkey conditions are met, so service_started still
+# inherits all of them transitively and still orders the main runtime first.
+# The full reasoning lives on runtime-effects in docker/docker-compose.infra.yml.
+depends_on:
+  - service: omninode-runtime
+    condition: service_started
+  - service: redpanda
+    condition: service_healthy
+restart: unless-stopped
+resources:
+  cpus: '0.5'
+  memory: 1536M
+  cpus_reservation: '0.1'
+  memory_reservation: 256M
+stop_grace_period: 90s
+labels:
+  com.omninode.service: runtime-worker
+  com.omninode.layer: runtime
+  com.omninode.version: ${RUNTIME_VERSION:-0.1.0}
+  autoheal: 'false'

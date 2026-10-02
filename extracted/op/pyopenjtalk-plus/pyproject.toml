@@ -1,0 +1,197 @@
+[build-system]
+requires = [
+    "setuptools>=64",
+    "cython>=3.0",
+    "cmake",
+    # ビルド時は必ず numpy 2.x 系をインストールする
+    # ref: https://numpy.org/doc/stable/dev/depending_on_numpy.html#numpy-2-0-specific-advice
+    "numpy>=2.0",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyopenjtalk-plus"
+dynamic = ["version"]
+description = "A Python wrapper for OpenJTalk with additional improvements"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+keywords = ["OpenJTalk", "Research"]
+authors = [
+    { name = "Ryuichi Yamamoto", email = "zryuichi@gmail.com" },
+]
+classifiers = [
+    "Operating System :: POSIX",
+    "Operating System :: Unix",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Cython",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+]
+dependencies = [
+    "numpy>=1.24.0",
+    "pydantic>=2.0.0,<3.0.0",
+    "sudachipy",
+    "sudachidict_core",
+    "typing-extensions>=4.0.0",
+]
+
+[project.optional-dependencies]
+# 実行環境ごとに適切な推論エンジンを選択できるよう extra へ分離する
+# Python 3.10 では onnxruntime の最新版にビルド済み wheel が存在しないため、
+# Python 3.10 で動作する最終版までで明示的に固定する
+onnxruntime = [
+    "onnxruntime<1.24.0; python_version=='3.10'",
+    "onnxruntime; python_version>='3.11'",
+]
+marine = [
+    "marine-plus>=0.0.6.post4",
+]
+# tsqyomi 利用時はモデル取得用に huggingface-hub 、トークナイザに tokenizers が必要
+tsqyomi = [
+    "huggingface-hub>=0.19.3",
+    "tokenizers>=0.22.0,<0.23.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/tsukumijima/pyopenjtalk-plus"
+
+# 単体利用時の依存関係グループ
+[dependency-groups]
+## 開発用の依存関係
+## Usage: uv sync --group dev
+dev = [
+    "pyopenjtalk-plus[onnxruntime,marine,tsqyomi]",
+    "click",
+    "cython>=3.0",
+    "importlib-metadata<5.0",
+    "pyright",
+    "pytest",
+    "ruff<0.14.0",
+    "taskipy",
+    "tqdm>=4.67.1,<5.0.0",
+    "types-decorator",
+    "types-setuptools",
+]
+## ドキュメント生成用の依存関係
+## Usage: uv sync --group docs
+docs = [
+    "ipython",
+    "Jinja2>=3.0.1",
+    "jupyter",
+    "nbsphinx>=0.8.6",
+    "pandoc",
+    "sphinx_rtd_theme",
+]
+
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pyopenjtalk*"]
+namespaces = false
+
+[tool.setuptools.package-data]
+"*" = [
+    "dictionary/COPYING",
+    "dictionary/*.bin",
+    "dictionary/*.dic",
+    "dictionary/left-id.def",
+    "dictionary/pos-id.def",
+    "dictionary/rewrite.def",
+    "dictionary/right-id.def",
+    "htsvoice/*.htsvoice",
+    # オリジナルの Pickle 形式のモデルファイルは参照用に残してあるもの
+    # ビルド後の wheel には ONNX 形式のモデルファイルのみを含める
+    "yomi_model/*.onnx",
+    "yomi_model/*.py",
+]
+pyopenjtalk = ["py.typed", "*.pyi", "*.pxd", "openjtalk/*.pxd"]
+
+# タスクランナーのタスク定義
+## Usage: uv run task <task-name>
+[tool.taskipy.tasks]
+install = "uv sync --group dev"
+build = "uv build"
+build-ext = "python setup.py build_ext --inplace"
+build-dictionary = "python -c 'import pyopenjtalk; pyopenjtalk.build_mecab_dictionary()'"
+clean = "rm -rf build dist pyopenjtalk_plus.egg-info pyopenjtalk/htsengine.cpp pyopenjtalk/htsengine*.so pyopenjtalk/openjtalk.cpp pyopenjtalk/openjtalk*.so && uv cache clean --force pyopenjtalk-plus"
+lint = "ruff check --fix . ; pyright"  # ruff チェックが失敗した場合でも常に pyright を実行する
+format = "ruff format . && python scripts/sort_dictionary_csv.py"
+typecheck = "pyright"
+test = "pytest"
+
+[tool.ruff]
+# 1行の長さを最大100文字に設定
+line-length = 100
+# インデントの幅を4スペースに設定
+indent-width = 4
+# サポートする最低バージョンの Python 3.10 を利用する
+target-version = "py310"
+
+[tool.ruff.lint]
+# flake8, pycodestyle, pyupgrade, isort, Ruff 固有のルールを使う
+select = ["F", "E", "W", "UP", "I", "RUF"]
+ignore = [
+    "E501",    # 1行の長さを超えている場合の警告を抑制
+    "E731",    # Do not assign a `lambda` expression, use a `def` を抑制
+    "RUF001",  # 全角記号など `ambiguous unicode character` も使いたいため
+    "RUF002",  # 全角記号など `ambiguous unicode character` も使いたいため
+    "RUF003",  # 全角記号など `ambiguous unicode character` も使いたいため
+    "RUF059",  # 戻り値を unpack する際の不要な変数もネームドにしておきたいため
+]
+
+[tool.ruff.lint.isort]
+# インポートブロックの後に2行空ける
+lines-after-imports = 2
+
+[tool.ruff.format]
+# ダブルクオートを使う
+quote-style = "double"
+# インデントにはスペースを使う
+indent-style = "space"
+
+[tool.pyright]
+# サポートする最低バージョンの Python 3.10 として型検査する
+pythonVersion = "3.10"
+# TypeCheckingMode を strict に設定（VSCode の設定と同等）
+typeCheckingMode = "strict"
+# プロジェクトルートを指定
+pythonPlatform = "All"
+# インクルードするパッケージパス
+include = [
+    "pyopenjtalk",
+    "scripts",
+    "tests",
+]
+# 除外するパス
+exclude = [
+    "**/__pycache__",
+    "**/.venv",
+    "build/",
+    "dist/",
+    "docs/",
+    "pyopenjtalk/yomi_model/convert_onnx.py",
+]
+# VSCode の settings.json の diagnosticSeverityOverrides に対応する設定
+reportConstantRedefinition = "none"
+reportDeprecated = "warning"
+reportMissingTypeStubs = "none"
+reportPrivateImportUsage = "none"
+reportUnnecessaryComparison = "none"
+reportUnknownArgumentType = "none"
+reportUnknownMemberType = "none"
+reportUnknownVariableType = "none"
+reportUntypedFunctionDecorator = "none"
+reportUnusedFunction = "none"

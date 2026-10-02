@@ -19,8 +19,7 @@ class CloudPermissionLevel(ModelEnum):
 
 @dataclass(frozen=True)
 class CreateCloudCollaborator(ModelBase):
-    """User to be added as a collaborator to a cloud.
-    """
+    """User to be added as a collaborator to a cloud."""
 
     __doc_py_example__ = """\
 import anyscale
@@ -65,8 +64,7 @@ create_cloud_collaborator = CreateCloudCollaborator(
 
 @dataclass(frozen=True)
 class CreateCloudCollaborators(ModelBase):
-    """List of users to be added as collaborators to a cloud.
-    """
+    """List of users to be added as collaborators to a cloud."""
 
     __doc_py_example__ = """\
 import anyscale
@@ -84,9 +82,7 @@ create_cloud_collaborators = CreateCloudCollaborators(
 """
 
     collaborators: List[Dict[str, Any]] = field(
-        metadata={
-            "docstring": "List of users to be added as collaborators to a cloud."
-        },
+        metadata={"docstring": "List of users to be added as collaborators to a cloud."},
     )
 
     def _validate_collaborators(self, collaborators: List[Dict[str, Any]]):
@@ -159,9 +155,7 @@ cloud = Cloud(
             "docstring": "The compute stack associated with this cloud's primary cloud resource, or UNKNOWN if not recognized."
         },
     )
-    region: Optional[str] = field(
-        default=None, metadata={"docstring": "Region for this Cloud."}
-    )
+    region: Optional[str] = field(default=None, metadata={"docstring": "Region for this Cloud."})
     created_at: Optional[datetime] = field(
         default=None, metadata={"docstring": "When the Cloud was created."}
     )
@@ -197,9 +191,7 @@ cloud = Cloud(
             raise TypeError("region must be a string")
         return region
 
-    def _validate_created_at(
-        self, created_at: Optional[datetime]
-    ) -> Optional[datetime]:
+    def _validate_created_at(self, created_at: Optional[datetime]) -> Optional[datetime]:
         if created_at is None:
             return None
         if not isinstance(created_at, datetime):
@@ -211,9 +203,7 @@ cloud = Cloud(
             raise TypeError("is_default must be a bool")
         return is_default
 
-    def _validate_compute_stack(
-        self, compute_stack: Union[ComputeStack, str]
-    ) -> ComputeStack:
+    def _validate_compute_stack(self, compute_stack: Union[ComputeStack, str]) -> ComputeStack:
         if isinstance(compute_stack, str):
             # This will raise a ValueError if the compute_stack is unrecognized.
             compute_stack = ComputeStack(compute_stack)
@@ -308,9 +298,7 @@ file_storage:
 
     file_storage_id: Optional[str] = field(
         default=None,
-        metadata={
-            "docstring": "For AWS, the EFS ID. For GCP, the Filestore instance name."
-        },
+        metadata={"docstring": "For AWS, the EFS ID. For GCP, the Filestore instance name."},
     )
     mount_targets: Optional[List[NFSMountTarget]] = field(
         default=None, metadata={"docstring": "The mount target(s) to use."}
@@ -356,31 +344,32 @@ aws_config:
 """
 
     vpc_id: Optional[str] = field(
-        default=None, metadata={"docstring": "The VPC ID."},
+        default=None,
+        metadata={"docstring": "The VPC ID."},
     )
     subnet_ids: Optional[List[str]] = field(
-        default=None, metadata={"docstring": "List of subnet IDs."},
+        default=None,
+        metadata={"docstring": "List of subnet IDs."},
     )
     zones: Optional[List[str]] = field(
         default=None,
-        metadata={
-            "docstring": "The availability zone corresponding to each subnet ID."
-        },
+        metadata={"docstring": "The availability zone corresponding to each subnet ID."},
     )
     security_group_ids: Optional[List[str]] = field(
-        default=None, metadata={"docstring": "List of security group IDs."},
+        default=None,
+        metadata={"docstring": "List of security group IDs."},
     )
     anyscale_iam_role_id: Optional[str] = field(
-        default=None, metadata={"docstring": "The Anyscale IAM role ARN."},
+        default=None,
+        metadata={"docstring": "The Anyscale IAM role ARN."},
     )
     external_id: Optional[str] = field(
         default=None,
-        metadata={
-            "docstring": "The trust policy external ID for the cross-account IAM role"
-        },
+        metadata={"docstring": "The trust policy external ID for the cross-account IAM role"},
     )
     cluster_iam_role_id: Optional[str] = field(
-        default=None, metadata={"docstring": "The IAM role ARN used by Ray clusters."},
+        default=None,
+        metadata={"docstring": "The IAM role ARN used by Ray clusters."},
     )
     cluster_instance_profile_id: Optional[str] = field(
         default=None,
@@ -394,19 +383,20 @@ aws_config:
         },
     )
     memorydb_cluster_name: Optional[str] = field(
-        default=None, metadata={"docstring": "The MemoryDB cluster name."},
+        default=None,
+        metadata={"docstring": "The MemoryDB cluster name."},
     )
     memorydb_cluster_arn: Optional[str] = field(
-        default=None, metadata={"docstring": "The MemoryDB cluster ARN."},
+        default=None,
+        metadata={"docstring": "The MemoryDB cluster ARN."},
     )
     memorydb_cluster_endpoint: Optional[str] = field(
-        default=None, metadata={"docstring": "The MemoryDB cluster endpoint."},
+        default=None,
+        metadata={"docstring": "The MemoryDB cluster endpoint."},
     )
     cloudformation_id: Optional[str] = field(
         default=None,
-        metadata={
-            "docstring": "The CloudFormation stack ID, for Anyscale-managed resources."
-        },
+        metadata={"docstring": "The CloudFormation stack ID, for Anyscale-managed resources."},
     )
 
 
@@ -431,38 +421,44 @@ gcp_config:
 """
 
     project_id: Optional[str] = field(
-        default=None, metadata={"docstring": "The GCP project ID."},
+        default=None,
+        metadata={"docstring": "The GCP project ID."},
     )
     host_project_id: Optional[str] = field(
-        default=None, metadata={"docstring": "The host project ID for shared VPCs."},
+        default=None,
+        metadata={"docstring": "The host project ID for shared VPCs."},
     )
     provider_name: Optional[str] = field(
         default=None,
-        metadata={
-            "docstring": "Workload Identity Federation provider name for Anyscale access."
-        },
+        metadata={"docstring": "Workload Identity Federation provider name for Anyscale access."},
     )
     vpc_name: Optional[str] = field(
-        default=None, metadata={"docstring": "VPC name."},
+        default=None,
+        metadata={"docstring": "VPC name."},
     )
     subnet_names: Optional[List[str]] = field(
-        default=None, metadata={"docstring": "List of GCP subnet names."},
+        default=None,
+        metadata={"docstring": "List of GCP subnet names."},
     )
     firewall_policy_names: Optional[List[str]] = field(
-        default=None, metadata={"docstring": "List of GCP firewall policy names."},
+        default=None,
+        metadata={"docstring": "List of GCP firewall policy names."},
     )
     anyscale_service_account_email: Optional[str] = field(
-        default=None, metadata={"docstring": "The Anyscale service account email."},
+        default=None,
+        metadata={"docstring": "The Anyscale service account email."},
     )
     cluster_service_account_email: Optional[str] = field(
         default=None,
         metadata={"docstring": "The service account email attached to Ray clusters."},
     )
     memorystore_instance_name: Optional[str] = field(
-        default=None, metadata={"docstring": "The Memorystore instance name."},
+        default=None,
+        metadata={"docstring": "The Memorystore instance name."},
     )
     memorystore_endpoint: Optional[str] = field(
-        default=None, metadata={"docstring": "The Memorystore instance endpoint."},
+        default=None,
+        metadata={"docstring": "The Memorystore instance endpoint."},
     )
     deployment_manager_id: Optional[str] = field(
         default=None,
@@ -495,7 +491,8 @@ kubernetes_config:
         },
     )
     zones: Optional[List[str]] = field(
-        default=None, metadata={"docstring": "List of zones to launch pods in."},
+        default=None,
+        metadata={"docstring": "List of zones to launch pods in."},
     )
     redis_endpoint: Optional[str] = field(
         default=None,
@@ -539,9 +536,7 @@ connector_config:
     )
     service_account_namespace: str = field(
         default="anyscale-connector",
-        metadata={
-            "docstring": "Namespace of the Anyscale Connector's Kubernetes ServiceAccount."
-        },
+        metadata={"docstring": "Namespace of the Anyscale Connector's Kubernetes ServiceAccount."},
     )
     allowed_namespaces: Optional[List[str]] = field(
         default=None,
@@ -593,45 +588,48 @@ aws_config:
         metadata={"docstring": "Unique identifier for this cloud resource."},
     )
     name: Optional[str] = field(
-        default=None, metadata={"docstring": "The name of this cloud resource."},
+        default=None,
+        metadata={"docstring": "The name of this cloud resource."},
     )
     provider: Union[CloudProvider, str] = field(
         default=CloudProvider.UNKNOWN,
-        metadata={
-            "docstring": "The cloud provider type (e.g., AWS, GCP, AZURE, or GENERIC)."
-        },
+        metadata={"docstring": "The cloud provider type (e.g., AWS, GCP, AZURE, or GENERIC)."},
     )
     compute_stack: Union[ComputeStack, str] = field(
         default=ComputeStack.VM,
         metadata={"docstring": "The compute stack (VM or K8S)."},
     )
     region: Optional[str] = field(
-        default=None, metadata={"docstring": "The region (e.g., us-west-2)."},
+        default=None,
+        metadata={"docstring": "The region (e.g., us-west-2)."},
     )
     networking_mode: Optional[NetworkingMode] = field(
         default=None,
         metadata={"docstring": "Whether to use public or private networking."},
     )
     object_storage: Optional[ObjectStorage] = field(
-        default=None, metadata={"docstring": "Object storage configuration."},
+        default=None,
+        metadata={"docstring": "Object storage configuration."},
     )
     file_storage: Optional[FileStorage] = field(
-        default=None, metadata={"docstring": "File storage configuration."},
+        default=None,
+        metadata={"docstring": "File storage configuration."},
     )
     aws_config: Optional[AWSConfig] = field(
-        default=None, metadata={"docstring": "AWS provider-specific configurations."},
+        default=None,
+        metadata={"docstring": "AWS provider-specific configurations."},
     )
     gcp_config: Optional[GCPConfig] = field(
-        default=None, metadata={"docstring": "GCP provider-specific configurations."},
+        default=None,
+        metadata={"docstring": "GCP provider-specific configurations."},
     )
     kubernetes_config: Optional[KubernetesConfig] = field(
-        default=None, metadata={"docstring": "Kubernetes stack configurations."},
+        default=None,
+        metadata={"docstring": "Kubernetes stack configurations."},
     )
     connector_config: Optional[ConnectorConfig] = field(
         default=None,
-        metadata={
-            "docstring": "Anyscale Connector configuration (Kubernetes resources)."
-        },
+        metadata={"docstring": "Anyscale Connector configuration (Kubernetes resources)."},
     )
 
 

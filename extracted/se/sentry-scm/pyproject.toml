@@ -1,0 +1,53 @@
+[project]
+name = "sentry-scm"
+version = "1.8.0"
+description = "A unified interface for source code management providers"
+readme = "README.md"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Colton Allen", email = "colton.allen@sentry.io" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "msgspec>=0.19.0",
+    "requests>=2.32.4",
+]
+
+[build-system]
+requires = ["uv_build<=0.9.28"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "scm"
+module-root = "src"
+
+[tool.mypy]
+python_version = "3.13"
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+
+[tool.ruff.lint]
+select = [
+  "E", # pycodestyle errors
+  "W", # pycodestyle warnings
+  "F", # pyflakes
+  "B", # flake8-bugbear
+  "LOG", # flake8-logging
+  "I", # isort
+  "T20", # flake8-print (replaces S002)
+  "UP", # pyupgrade
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.20.0",
+    "prek>=0.3.6",
+    "pyjwt[crypto]>=2.9.0",
+    "pytest>=9.0.3",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.15.10",
+    "types-requests>=2.33.0.20260408",
+]

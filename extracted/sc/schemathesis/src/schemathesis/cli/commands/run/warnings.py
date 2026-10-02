@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
 from schemathesis.cli.commands.run.filters import describe_filter
+from schemathesis.cli.constants import ExitCode
 from schemathesis.cli.context import BaseExecutionContext
 from schemathesis.cli.summary import WarningData
 from schemathesis.config import ProjectConfig, SchemathesisWarning
@@ -15,9 +16,9 @@ from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.statistic import ApiStatistic
 from schemathesis.core.transport import CallOutcome
 from schemathesis.engine import Status, events
-from schemathesis.engine.recorder import CaseNode, Interaction, RecordedScenario
+from schemathesis.engine.recorder import CaseNode, RecordedScenario
 from schemathesis.engine.run import PhaseName
-from schemathesis.generation.meta import CoveragePhaseData, CoverageScenario
+from schemathesis.generation.meta import REQUEST_SHAPE_PROBES, CoveragePhaseData, CoverageScenario, coverage_scenario
 from schemathesis.generation.modes import GenerationMode
 
 if TYPE_CHECKING:
@@ -132,12 +133,22 @@ def positive_call_outcomes(recorder: RecordedScenario) -> ValidRate:
     return outcomes
 
 
-def aggregate_status_codes(interactions: Iterable[Interaction]) -> StatusCodeStatistic:
-    """Analyze status codes from interactions."""
+def aggregate_status_codes(recorder: RecordedScenario, *, positive_only: bool = False) -> StatusCodeStatistic:
+    """Analyze status codes the operation answered with.
+
+    Requests with a method the operation does not declare reach a different operation, or none,
+    so their responses say nothing about this one. With `positive_only`, responses to cases meant
+    to be rejected are left out too.
+    """
     counts: dict[int, int] = {}
     total = 0
 
-    for interaction in interactions:
+    for case_id, interaction in recorder.interactions.items():
+        case = recorder.cases.get(case_id)
+        if case is not None and _is_request_shape_probe(case):
+            continue
+        if positive_only and (case is None or not _is_positive(case)):
+            continue
         if interaction.response is not None:
             status = interaction.response.status_code
             counts[status] = counts.get(status, 0) + 1
@@ -208,6 +219,10 @@ def resource_producers(schema: BaseSchema) -> dict[str, set[str]]:
             found |= by_resource.get(slot.resource.name, set())
         producers[label] = found - {label}
     return producers
+
+
+def _is_request_shape_probe(case: CaseNode) -> bool:
+    return coverage_scenario(case.value) in REQUEST_SHAPE_PROBES
 
 
 def _is_positive(case: CaseNode) -> bool:
@@ -303,10 +318,13 @@ class WarningCollector:
             # Synthetic skip scenarios carry no interactions to inspect.
             return
 
-        statistic = aggregate_status_codes(event.recorder.interactions.values())
+        statistic = aggregate_status_codes(event.recorder)
 
         if statistic.total == 0:
             return
+
+        # Warnings that explain why valid input was rejected look only at valid input.
+        positive = aggregate_status_codes(event.recorder, positive_only=True)
 
         assert ctx.find_operation_by_label is not None
         assert event.label is not None
@@ -326,7 +344,7 @@ class WarningCollector:
                 self.data.missing_auth.setdefault(status_code, set()).add(event.recorder.label)
                 # Check if this warning should cause test failure
                 if warnings.should_fail(SchemathesisWarning.MISSING_AUTH):
-                    ctx.exit_code = 1
+                    ctx.exit_code = ExitCode.FAILURES
 
         # A wrong base URL 404s everything, and those 404s trip other checks - so this must not be
         # gated on the scenario passing, unlike the generic 404 warning below.
@@ -335,7 +353,7 @@ class WarningCollector:
             and GenerationMode.POSITIVE
             in self.config.generation_for(operation=operation, phase=event.phase.value).modes
             and all_positive_are_rejected(event.recorder)
-            and statistic.should_warn_about_missing_test_data()
+            and positive.should_warn_about_missing_test_data()
         ):
             missing = missing_base_path(operation) if operation is not None else None
             if missing is not None:
@@ -358,13 +376,13 @@ class WarningCollector:
             in self.config.generation_for(operation=operation, phase=event.phase.value).modes
             and all_positive_are_rejected(event.recorder)
         ):
-            if statistic.should_warn_about_missing_test_data():
+            if positive.should_warn_about_missing_test_data():
                 self._handle_warning(
                     ctx,
                     SchemathesisWarning.MISSING_TEST_DATA,
                     lambda: self._record_missing_test_data(event.recorder.label, operation),
                 )
-            if statistic.should_warn_about_validation_mismatch():
+            if positive.should_warn_about_validation_mismatch():
                 self._handle_warning(
                     ctx,
                     SchemathesisWarning.VALIDATION_MISMATCH,
@@ -430,7 +448,7 @@ class WarningCollector:
             return
         record_callback()
         if self.config.warnings.should_fail(kind):
-            ctx.exit_code = 1
+            ctx.exit_code = ExitCode.FAILURES
 
     def _record_skip_warning(self, ctx: BaseExecutionContext, event: events.ScenarioFinished) -> None:
         """Record a warning surfaced via a supervisor-driven scenario skip."""
@@ -444,7 +462,7 @@ class WarningCollector:
         ):
             self.data.method_not_allowed.add(event.label)
             if warnings.should_fail(SchemathesisWarning.METHOD_NOT_ALLOWED):
-                ctx.exit_code = 1
+                ctx.exit_code = ExitCode.FAILURES
 
     def _record_missing_deserializer_warning(
         self, operation_label: str, media_type: str, status_code: str

@@ -1,0 +1,94 @@
+Metadata-Version: 2.4
+Name: kameleo.local-api-client
+Version: 5.2.0
+Summary: This Python package provides convenient access to the Local API REST interface of the Kameleo Client.
+Home-page: https://github.com/kameleo-io/kameleo
+Author: Kameleo Team
+Author-email: support@kameleo.io
+License: MIT
+Keywords: kameleo.local-api-client,kameleo,stealth browsing platform,anti-detect browser,selenium,webdriver,browser automation,web scraping,puppeteer,playwright,headless,chrome,firefox,chromium,edge
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+Requires-Dist: urllib3<3.0.0,>=1.25.3
+Requires-Dist: python-dateutil>=2.8.2
+Requires-Dist: pydantic>=2
+Requires-Dist: typing-extensions>=4.7.1
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
+
+# Kameleo SDK
+
+You patched CDP, handled canvas, fixed WebGL — and still got blocked. Sound familiar?
+
+Kameleo adapts automatically to anti-bot changes, so your browser operations keep looking like ordinary human traffic without daily maintenance. This is the Python SDK for Kameleo's [Local API](https://developer.kameleo.io/reference/api-reference/), giving you programmatic control over browser profiles from your existing Playwright, Puppeteer, or Selenium automation.
+
+## What you get
+
+- **Always-current fingerprints** — Chroma (Chrome) kernels ship within 5 days of every Chrome stable release; no manual re-testing after updates
+- **Engine-level masking** — canvas, WebGL, CDP signals, timezone, geolocation, and fonts patched at the C++ level, not via JS injection that detectors can unwind
+- **Fingerprint diversity on demand** — run Chroma and Junglefox (Firefox) side-by-side; mix browser, OS, and device type per profile to avoid cross-domain pattern matching
+- **Drop into your existing stack** — connect via Playwright, Puppeteer, or Selenium with no framework rewrite; SDKs also available for [TypeScript/JavaScript](https://www.npmjs.com/package/@kameleo/local-api-client) and [C#](https://www.nuget.org/packages/Kameleo.LocalApiClient)
+
+## Quickstart
+
+No account needed to get started — install and run immediately. A free account unlocks additional features (no credit card required). [Create a free account →](https://login.kameleo.io/Account/Register)
+
+### 1. Install Kameleo
+
+```shell
+# Windows
+winget install Kameleo.App
+
+# macOS
+brew install --cask kameleo
+```
+
+### 2. Install the SDK
+
+```shell
+pip install kameleo.local-api-client
+```
+
+### 3. Follow the quickstart guide
+
+Everything from starting the Engine to connecting your first profile is covered in the [Kameleo Developer Center](https://developer.kameleo.io/getting-started/quickstart/).
+
+## Integrations
+
+Full guides with working examples for each framework:
+
+- [Playwright →](https://developer.kameleo.io/integrations/playwright/)
+- [Puppeteer →](https://developer.kameleo.io/integrations/puppeteer/)
+- [Selenium →](https://developer.kameleo.io/integrations/selenium/)
+- [Docker / headless →](https://developer.kameleo.io/integrations/docker/)
+
+## More guides
+
+- [Filter browser fingerprints](https://developer.kameleo.io/tutorials/filtering-fingerprints/)
+- [Using proxy servers](https://developer.kameleo.io/tutorials/using-proxy-servers/)
+- [Emulate mobile devices](https://developer.kameleo.io/tutorials/emulating-mobile-devices/)
+- [Start headless browsers](https://developer.kameleo.io/tutorials/starting-headless-browsers/)
+- [Import & export cookies](https://developer.kameleo.io/tutorials/import-export-cookies/)
+
+## ⭐ Staying undetected? Star us on GitHub
+
+If Kameleo keeps your browsers undetected, a ⭐ on [GitHub](https://github.com/kameleo-io/kameleo) helps us keep pace with anti-bot changes.
+
+## API Reference
+
+All endpoints with exhaustive descriptions and example values are on the [API reference](https://developer.kameleo.io/reference/api-reference/) page. Full IntelliSense support in VS Code — no extra package needed.
+
+## License
+
+This project is released under MIT License. Please refer to LICENSE.txt for more details.

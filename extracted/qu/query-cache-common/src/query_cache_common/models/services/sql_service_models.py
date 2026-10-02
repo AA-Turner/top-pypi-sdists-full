@@ -30,6 +30,9 @@ class SubmitValuesRequest(BaseSerDeModel):
     clone_chain_depth_limit: t.Optional[int] = None
     dbt_node_state: t.Optional[shared_models.DbtNodeState] = None
     table_namespace: t.Optional[str] = None
+    allow_clones: t.Optional[bool] = None
+    is_defer_to_profile: bool = False
+    defer_enabled: bool = False
 
 
 @proto_dataclass(sql_service_pb2.SubmitEnrichedSQLRequest)
@@ -54,6 +57,9 @@ class SubmitEnrichedSQLRequest(BaseSerDeModel):
     default_schema: t.Optional[str] = None
     compare_unrendered_code: bool = False
     table_namespace: t.Optional[str] = None
+    allow_clones: t.Optional[bool] = None
+    is_defer_to_profile: bool = False
+    defer_enabled: bool = False
 
 
 @proto_dataclass(sql_service_pb2.ReadyToExecuteResponse)

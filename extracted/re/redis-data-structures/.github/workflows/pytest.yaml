@@ -1,0 +1,51 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:latest
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.8'
+
+      - name: Install uv
+        run: |
+          pip install uv
+
+      - name: Install dependencies
+        run: |
+          uv sync --group dev
+
+      - name: Run tests with coverage
+        run: |
+          uv add pytest
+          uv add pytest-cov
+          uv run python -m pytest --cov=redis_data_structures --cov-report=xml tests/
+
+      - name: Upload results to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: vndee/redis-data-structures

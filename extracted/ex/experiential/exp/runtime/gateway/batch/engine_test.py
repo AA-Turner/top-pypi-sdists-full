@@ -1,0 +1,1307 @@
+"""Engine lifecycle tests over in-memory host seams and a scripted provider."""
+
+from __future__ import annotations
+
+import asyncio
+from datetime import UTC, datetime, timedelta
+
+import pytest
+
+from exp.common.core.artifacts import JsonObject
+from exp.runtime.gateway.batch.contracts import (
+    BatchDeployment,
+    BatchFile,
+    BatchJob,
+    BatchLine,
+    BatchLineResult,
+    BatchStatus,
+    BatchSubmitError,
+    BatchSurface,
+)
+from exp.runtime.gateway.batch.engine import BatchEngine
+from exp.runtime.gateway.batch.providers import ProviderBatchSnapshot
+
+
+class MemoryStore:
+    """In-memory BatchStore."""
+
+    def __init__(self) -> None:
+        """Start empty."""
+        self.jobs: dict[str, BatchJob] = {}
+
+    def create_job(self, *, job: BatchJob) -> None:
+        """Persist one new job."""
+        self.jobs[job.batch_id] = job
+
+    def load_job(self, *, batch_id: str, organization_id: str) -> BatchJob | None:
+        """Return one owned job."""
+        job = self.jobs.get(batch_id)
+        return job if job is not None and job.organization_id == organization_id else None
+
+    def save_job(self, *, job: BatchJob) -> None:
+        """Overwrite one job."""
+        self.jobs[job.batch_id] = job
+
+    def list_jobs(self, *, organization_id: str, limit: int, after: str | None) -> list[BatchJob]:
+        """Return owned jobs newest first, starting strictly after ``after``."""
+        owned = [job for job in self.jobs.values() if job.organization_id == organization_id]
+        owned.sort(key=lambda job: (job.created_at, job.batch_id), reverse=True)
+        if after is not None:
+            position = next(
+                (index for index, job in enumerate(owned) if job.batch_id == after), None
+            )
+            owned = [] if position is None else owned[position + 1 :]
+        return owned[:limit]
+
+    def open_jobs(self) -> list[BatchJob]:
+        """Return jobs that still need the poller."""
+        return [job for job in self.jobs.values() if not job.settled]
+
+    def begin_dispatch(self, *, batch_id: str) -> bool:
+        """Claim the one-time dispatch: first caller wins."""
+        job = self.jobs[batch_id]
+        if job.dispatch_started:
+            return False
+        self.jobs[batch_id] = job.model_copy(update={"dispatch_started": True})
+        return True
+
+
+class MemoryFiles:
+    """In-memory BatchFileStore."""
+
+    def __init__(self) -> None:
+        """Start empty."""
+        self.records: dict[str, tuple[BatchFile, bytes]] = {}
+
+    def store(self, *, file: BatchFile, content: bytes) -> None:
+        """Persist one file."""
+        self.records[file.file_id] = (file, content)
+
+    def load_metadata(self, *, file_id: str, organization_id: str) -> BatchFile | None:
+        """Return one owned file's metadata."""
+        entry = self.records.get(file_id)
+        if entry is None or entry[0].organization_id != organization_id:
+            return None
+        return entry[0]
+
+    def load_content(self, *, file_id: str, organization_id: str) -> bytes | None:
+        """Return one owned file's content."""
+        entry = self.records.get(file_id)
+        if entry is None or entry[0].organization_id != organization_id:
+            return None
+        return entry[1]
+
+
+class MemoryCatalog:
+    """BatchCatalog with two batch models on different providers."""
+
+    def __init__(self) -> None:
+        """Author the fixture deployments."""
+        self.deployments = {
+            "gpt-oss-120b-batch": BatchDeployment(
+                model="gpt-oss-120b-batch",
+                provider="openrouter",
+                provider_model="openai/gpt-oss-120b:batch",
+                credential_reference="secret://openrouter",
+                surfaces=("/v1/chat/completions",),
+                input_nano_usd_per_million_tokens=40_000,
+                output_nano_usd_per_million_tokens=80_000,
+            ),
+            "kimi-k3-batch": BatchDeployment(
+                model="kimi-k3-batch",
+                provider="openai",
+                provider_model="kimi-k3-batch",
+                credential_reference="secret://openai",
+                surfaces=("/v1/chat/completions", "/v1/responses"),
+                input_nano_usd_per_million_tokens=100_000,
+                output_nano_usd_per_million_tokens=200_000,
+            ),
+        }
+
+    def batch_deployment(self, *, model: str) -> BatchDeployment | None:
+        """Resolve one explicit batch model."""
+        return self.deployments.get(model)
+
+
+class MemoryLedger:
+    """BatchLedger recording every verb; optionally rejecting reservations."""
+
+    def __init__(self, *, reject_after: int | None = None) -> None:
+        """Optionally reject the Nth reservation onward."""
+        self.reserved: list[str] = []
+        self.settled: list[tuple[str, int]] = []
+        self.settled_results: list[BatchLineResult] = []
+        self.released: list[tuple[str, str]] = []
+        self._reject_after = reject_after
+
+    def reserve_line(self, *, job: BatchJob, line: BatchLine) -> int:
+        """Reserve a deterministic estimate or reject when scripted to."""
+        if self._reject_after is not None and len(self.reserved) >= self._reject_after:
+            raise RuntimeError("insufficient credit")
+        self.reserved.append(line.custom_id)
+        return 1_000
+
+    def settle_line(self, *, job: BatchJob, line: BatchLine, result: BatchLineResult) -> None:
+        """Record one settlement."""
+        self.settled.append((line.custom_id, result.output_tokens))
+        self.settled_results.append(result)
+
+    def release_line(self, *, job: BatchJob, line: BatchLine, reason: str) -> None:
+        """Record one release."""
+        self.released.append((line.custom_id, reason))
+
+
+class MemorySecrets:
+    """BatchSecretResolver returning a fixed key per reference."""
+
+    def resolve(self, reference: str) -> str:
+        """Resolve deterministically."""
+        return f"key-for-{reference}"
+
+
+class ScriptedClient:
+    """Provider client driven by a scripted status sequence."""
+
+    provider = "openrouter"
+    supports_cancel = False
+    requires_uniform_model = True
+    surfaces: tuple[BatchSurface, ...] = ("/v1/chat/completions", "/v1/responses")
+
+    def __init__(
+        self, snapshots: list[ProviderBatchSnapshot], results: list[BatchLineResult]
+    ) -> None:
+        """Bind the scripted poll snapshots and final results."""
+        self._snapshots = snapshots
+        self._results = results
+        self.submitted: list[str] = []
+        self.cancelled = 0
+
+    def line_request(self, line: BatchLine) -> JsonObject:
+        """Pass the caller's body through; a line named 'reject-me' is untranslatable."""
+        if line.custom_id == "reject-me":
+            raise BatchSubmitError("line 'reject-me' cannot be expressed on this wire")
+        return dict(line.body)
+
+    async def submit(self, *, job: BatchJob, api_key: str) -> str:
+        """Record the submit and mint a provider id."""
+        self.submitted.append(api_key)
+        return "prov_batch_1"
+
+    async def poll(self, *, job: BatchJob, api_key: str) -> ProviderBatchSnapshot:
+        """Pop the next scripted snapshot, holding the last one."""
+        if len(self._snapshots) > 1:
+            return self._snapshots.pop(0)
+        return self._snapshots[0]
+
+    async def results(self, *, job: BatchJob, api_key: str) -> list[BatchLineResult]:
+        """Return the scripted results."""
+        return list(self._results)
+
+    async def cancel(self, *, job: BatchJob, api_key: str) -> None:
+        """Record the cancellation request."""
+        self.cancelled += 1
+
+
+def _engine(
+    *,
+    ledger: MemoryLedger | None = None,
+    client: ScriptedClient | None = None,
+) -> tuple[BatchEngine, MemoryStore, MemoryFiles, MemoryLedger, ScriptedClient]:
+    """Compose one engine over fresh in-memory seams."""
+    store = MemoryStore()
+    files = MemoryFiles()
+    bound_ledger = ledger if ledger is not None else MemoryLedger()
+    bound_client = (
+        client
+        if client is not None
+        else ScriptedClient(
+            [ProviderBatchSnapshot(status=BatchStatus.COMPLETED, results_ready=True)], []
+        )
+    )
+    engine = BatchEngine(
+        store=store,
+        files=files,
+        catalog=MemoryCatalog(),
+        ledger=bound_ledger,
+        secrets_resolver=MemorySecrets(),
+        clients={"openrouter": bound_client, "openai": bound_client},
+    )
+    return engine, store, files, bound_ledger, bound_client
+
+
+def _upload(engine: BatchEngine, lines: list[str]) -> str:
+    """Upload one JSONL input built from raw line strings."""
+    record = engine.upload_file(
+        organization_id="org_a",
+        filename="input.jsonl",
+        purpose="batch",
+        content="\n".join(lines).encode("utf-8"),
+    )
+    return record.file_id
+
+
+def _chat_line(custom_id: str, model: str = "gpt-oss-120b-batch") -> str:
+    """Render one valid chat batch line."""
+    return (
+        f'{{"custom_id": "{custom_id}", "method": "POST", "url": "/v1/chat/completions",'
+        f' "body": {{"model": "{model}", "messages": [], "max_tokens": 16}}}}'
+    )
+
+
+def test_submit_accepts_valid_lines_and_reserves_each() -> None:
+    """A valid two-line job persists validating with per-line reservations."""
+    engine, store, _, ledger, _ = _engine()
+    file_id = _upload(engine, [_chat_line("a"), _chat_line("b")])
+    job = engine.submit(
+        organization_id="org_a",
+        identity_id="id_a",
+        input_file_id=file_id,
+        endpoint="/v1/chat/completions",
+    )
+    assert job.status is BatchStatus.VALIDATING
+    assert job.counts.total == 2
+    assert job.reserved_nano_usd == 2_000
+    assert ledger.reserved == ["a", "b"]
+    assert store.jobs[job.batch_id].provider == "openrouter"
+
+
+def test_submit_quarantines_lines_the_provider_client_cannot_carry() -> None:
+    """A surface the client does not serve, or a body it cannot shape for its wire,
+    is a per-line rejection at submit, never a provider-side failure later."""
+    engine, _, _, ledger, client = _engine()
+    client.surfaces = ("/v1/responses",)
+    file_id = _upload(engine, [_chat_line("a"), _chat_line("b")])
+    with pytest.raises(BatchSubmitError, match="do not serve /v1/chat/completions"):
+        engine.submit(
+            organization_id="org_a",
+            identity_id="id_a",
+            input_file_id=file_id,
+            endpoint="/v1/chat/completions",
+        )
+    client.surfaces = ("/v1/chat/completions", "/v1/responses")
+    file_id = _upload(engine, [_chat_line("a"), _chat_line("reject-me")])
+    job = engine.submit(
+        organization_id="org_a",
+        identity_id="id_a",
+        input_file_id=file_id,
+        endpoint="/v1/chat/completions",
+    )
+    assert [line.custom_id for line in job.lines] == ["a"]
+    assert [(error.custom_id, error.code) for error in job.line_errors] == [
+        ("reject-me", "invalid_request")
+    ]
+    assert "cannot be expressed" in job.line_errors[0].message
+    assert ledger.reserved == ["a"]
+
+
+def test_rejected_lines_do_not_taint_the_provider_binding() -> None:
+    """A line rejected at the client checks never joins the provider set, so a valid
+    remainder on one provider submits instead of tripping the mixed-provider refusal."""
+    engine, _, _, ledger, _ = _engine()
+    file_id = _upload(engine, [_chat_line("a"), _chat_line("reject-me", model="kimi-k3-batch")])
+    job = engine.submit(
+        organization_id="org_a",
+        identity_id="id_a",
+        input_file_id=file_id,
+        endpoint="/v1/chat/completions",
+    )
+    assert job.provider == "openrouter"
+    assert [line.custom_id for line in job.lines] == ["a"]
+    assert [(error.custom_id, error.code) for error in job.line_errors] == [
+        ("reject-me", "invalid_request")
+    ]
+    assert ledger.reserved == ["a"]
+
+
+def test_submit_refuses_unknown_endpoint_and_missing_file() -> None:
+    """Non-batchable surfaces and unknown files are whole-job refusals."""
+    engine, _, _, _, _ = _engine()
+    with pytest.raises(BatchSubmitError, match="not batchable"):
+        engine.submit(
+            organization_id="org_a",
+            identity_id="id_a",
+            input_file_id="file_x",
+            endpoint="/v1/embeddings",
+        )
+    with pytest.raises(BatchSubmitError, match="does not exist"):
+        engine.submit(
+            organization_id="org_a",
+            identity_id="id_a",
+            input_file_id="file_x",
+            endpoint="/v1/chat/completions",
+        )
+
+
+def test_submit_quarantines_sync_models_per_line() -> None:
+    """A synchronous model name is a per-line explicit-request violation."""
+    engine, _, _, _, _ = _engine()
+    file_id = _upload(engine, [_chat_line("a"), _chat_line("b", model="gpt-oss-120b")])
+    job = engine.submit(
+        organization_id="org_a",
+        identity_id="id_a",
+        input_file_id=file_id,
+        endpoint="/v1/chat/completions",
+    )
+    assert job.counts.total == 1
+    assert job.line_errors[0].code == "not_batch_callable"
+    assert "explicit batch models" in job.line_errors[0].message
+
+
+def test_submit_refuses_mixed_providers_and_duplicate_ids() -> None:
+    """Cross-provider jobs and repeated custom ids refuse the whole job."""
+    engine, _, _, _, _ = _engine()
+    mixed = _upload(engine, [_chat_line("a"), _chat_line("b", model="kimi-k3-batch")])
+    with pytest.raises(BatchSubmitError, match="exactly one provider"):
+        engine.submit(
+            organization_id="org_a",
+            identity_id="id_a",
+            input_file_id=mixed,
+            endpoint="/v1/chat/completions",
+        )
+    duplicated = _upload(engine, [_chat_line("a"), _chat_line("a")])
+    with pytest.raises(BatchSubmitError, match="more than once"):
+        engine.submit(
+            organization_id="org_a",
+            identity_id="id_a",
+            input_file_id=duplicated,
+            endpoint="/v1/chat/completions",
+        )
+
+
+def test_submit_rolls_back_reservations_on_rejection() -> None:
+    """A mid-job budget rejection releases every prior reservation."""
+    engine, _, _, ledger, _ = _engine(ledger=MemoryLedger(reject_after=1))
+    file_id = _upload(engine, [_chat_line("a"), _chat_line("b")])
+    with pytest.raises(BatchSubmitError, match="reservation rejected"):
+        engine.submit(
+            organization_id="org_a",
+            identity_id="id_a",
+            input_file_id=file_id,
+            endpoint="/v1/chat/completions",
+        )
+    assert ledger.released == [("a", "submit_rejected")]
+
+
+def test_poller_submits_polls_and_settles_idempotently() -> None:
+    """The full lifecycle settles once per line and renders output files."""
+    results = [
+        BatchLineResult(
+            custom_id="a",
+            status_code=200,
+            response={"usage": {"prompt_tokens": 3, "completion_tokens": 5}},
+            input_tokens=3,
+            output_tokens=5,
+        )
+    ]
+    client = ScriptedClient(
+        [
+            ProviderBatchSnapshot(status=BatchStatus.IN_PROGRESS),
+            ProviderBatchSnapshot(status=BatchStatus.COMPLETED, results_ready=True),
+        ],
+        results,
+    )
+    engine, store, files, ledger, _ = _engine(client=client)
+    file_id = _upload(engine, [_chat_line("a"), _chat_line("b")])
+    job = engine.submit(
+        organization_id="org_a",
+        identity_id="id_a",
+        input_file_id=file_id,
+        endpoint="/v1/chat/completions",
+    )
+    asyncio.run(engine.poll_once())
+    assert store.jobs[job.batch_id].provider_batch_id == "prov_batch_1"
+    asyncio.run(engine.poll_once())
+    asyncio.run(engine.poll_once())
+    settled = store.jobs[job.batch_id]
+    assert settled.status is BatchStatus.COMPLETED
+    assert settled.settled is True
+    assert ledger.settled == [("a", 5)]
+    assert ledger.released == [("b", "completed")]
+    assert settled.output_file_id is not None
+    assert settled.error_file_id is not None
+    output = files.load_content(file_id=settled.output_file_id, organization_id="org_a")
+    assert output is not None and b'"custom_id": "a"' in output
+    before = (len(ledger.settled), len(ledger.released))
+    asyncio.run(engine.poll_once())
+    assert (len(ledger.settled), len(ledger.released)) == before
+
+
+def test_expiry_releases_every_line() -> None:
+    """A job past its window expires and releases all reservations."""
+    engine, store, _, ledger, _ = _engine()
+    file_id = _upload(engine, [_chat_line("a")])
+    job = engine.submit(
+        organization_id="org_a",
+        identity_id="id_a",
+        input_file_id=file_id,
+        endpoint="/v1/chat/completions",
+    )
+    expired = store.jobs[job.batch_id].model_copy(
+        update={"expires_at": datetime.now(UTC) - timedelta(seconds=1)}
+    )
+    store.save_job(job=expired)
+    asyncio.run(engine.poll_once())
+    final = store.jobs[job.batch_id]
+    assert final.status is BatchStatus.EXPIRED
+    assert ledger.released == [("a", "expired")]
+
+
+def test_cancel_before_dispatch_terminalizes_and_releases() -> None:
+    """Cancelling an unsubmitted job needs no provider and releases lines."""
+    engine, store, _, ledger, client = _engine()
+    file_id = _upload(engine, [_chat_line("a")])
+    job = engine.submit(
+        organization_id="org_a",
+        identity_id="id_a",
+        input_file_id=file_id,
+        endpoint="/v1/chat/completions",
+    )
+    cancelled = asyncio.run(engine.cancel(organization_id="org_a", batch_id=job.batch_id))
+    assert cancelled.status is BatchStatus.CANCELLED
+    assert ledger.released == [("a", "cancelled")]
+    assert client.cancelled == 0
+    assert store.jobs[job.batch_id].settled is True
+
+
+def test_cancel_of_unknown_job_is_not_found() -> None:
+    """An unknown batch id maps to the not_found code."""
+    engine, _, _, _, _ = _engine()
+    with pytest.raises(BatchSubmitError, match="does not exist"):
+        asyncio.run(engine.cancel(organization_id="org_a", batch_id="batch_missing"))
+
+
+def test_list_jobs_is_owner_scoped() -> None:
+    """Another organization's listing never sees the job."""
+    engine, _, _, _, _ = _engine()
+    file_id = _upload(engine, [_chat_line("a")])
+    engine.submit(
+        organization_id="org_a",
+        identity_id="id_a",
+        input_file_id=file_id,
+        endpoint="/v1/chat/completions",
+    )
+    assert len(engine.list_jobs(organization_id="org_a").jobs) == 1
+    assert engine.list_jobs(organization_id="org_b").jobs == ()
+
+
+def test_list_jobs_reports_has_more_and_pages_by_cursor() -> None:
+    """has_more is true exactly while jobs remain after the page; the cursor walks them all."""
+    engine, _, _, _, _ = _engine()
+    submitted: list[str] = []
+    for custom_id in ("a", "b", "c"):
+        file_id = _upload(engine, [_chat_line(custom_id)])
+        job = engine.submit(
+            organization_id="org_a",
+            identity_id="id_a",
+            input_file_id=file_id,
+            endpoint="/v1/chat/completions",
+        )
+        submitted.append(job.batch_id)
+    seen: list[str] = []
+    after: str | None = None
+    flags: list[bool] = []
+    for _ in range(4):
+        page = engine.list_jobs(organization_id="org_a", limit=1, after=after)
+        if not page.jobs:
+            break
+        assert len(page.jobs) == 1
+        seen.append(page.jobs[0].batch_id)
+        flags.append(page.has_more)
+        after = page.jobs[0].batch_id
+    assert seen == list(reversed(submitted))
+    assert flags == [True, True, False]
+    whole = engine.list_jobs(organization_id="org_a", limit=3)
+    assert len(whole.jobs) == 3 and whole.has_more is False
+
+
+def test_settlement_hands_the_host_failed_lines_with_their_reason() -> None:
+    """A per-line provider error settles as a failure carrying the reason, not as served."""
+    results = [
+        BatchLineResult(
+            custom_id="a",
+            status_code=200,
+            response={"usage": {"prompt_tokens": 3, "completion_tokens": 5}},
+            input_tokens=3,
+            output_tokens=5,
+        ),
+        BatchLineResult(
+            custom_id="b",
+            status_code=500,
+            error={"type": "invalid_request_error", "message": "max_tokens must be at least 1"},
+        ),
+    ]
+    client = ScriptedClient(
+        [ProviderBatchSnapshot(status=BatchStatus.COMPLETED, results_ready=True)], results
+    )
+    engine, store, files, ledger, _ = _engine(client=client)
+    file_id = _upload(engine, [_chat_line("a"), _chat_line("b")])
+    job = engine.submit(
+        organization_id="org_a",
+        identity_id="id_a",
+        input_file_id=file_id,
+        endpoint="/v1/chat/completions",
+    )
+    asyncio.run(engine.poll_once())
+    asyncio.run(engine.poll_once())
+    final = store.jobs[job.batch_id]
+    assert final.status is BatchStatus.COMPLETED and final.settled
+    assert final.counts.completed == 1 and final.counts.failed == 1
+    by_id = {result.custom_id: result for result in ledger.settled_results}
+    assert by_id["a"].failure_reason is None
+    assert by_id["b"].failure_reason == "max_tokens must be at least 1"
+    assert ledger.released == []
+    assert final.error_file_id is not None
+    error_file = files.records[final.error_file_id][1].decode("utf-8")
+    assert "max_tokens must be at least 1" in error_file
+
+
+def test_interrupted_dispatch_fails_closed_without_resubmitting() -> None:
+    """A job with dispatch started but no provider id never submits again."""
+    client = ScriptedClient(
+        [ProviderBatchSnapshot(status=BatchStatus.COMPLETED, results_ready=True)], []
+    )
+    engine, store, _, ledger, _ = _engine(client=client)
+    file_id = _upload(engine, [_chat_line("a")])
+    job = engine.submit(
+        organization_id="org_a",
+        identity_id="id_a",
+        input_file_id=file_id,
+        endpoint="/v1/chat/completions",
+    )
+    interrupted = store.jobs[job.batch_id].model_copy(update={"dispatch_started": True})
+    store.save_job(job=interrupted)
+    asyncio.run(engine.poll_once())
+    final = store.jobs[job.batch_id]
+    assert final.status is BatchStatus.FAILED
+    assert final.failure_message is not None and "interrupted" in final.failure_message
+    assert client.submitted == []
+    assert ledger.released == [("a", "failed")]
+
+
+def test_open_jobs_use_the_submit_time_credential_reference() -> None:
+    """Repointing the catalog mid-job never changes the credential in use."""
+    client = ScriptedClient([ProviderBatchSnapshot(status=BatchStatus.IN_PROGRESS)], [])
+    catalog = MemoryCatalog()
+    store = MemoryStore()
+    engine = BatchEngine(
+        store=store,
+        files=MemoryFiles(),
+        catalog=catalog,
+        ledger=MemoryLedger(),
+        secrets_resolver=MemorySecrets(),
+        clients={"openrouter": client, "openai": client},
+    )
+    file_id = _upload(engine, [_chat_line("a")])
+    job = engine.submit(
+        organization_id="org_a",
+        identity_id="id_a",
+        input_file_id=file_id,
+        endpoint="/v1/chat/completions",
+    )
+    assert store.jobs[job.batch_id].credential_reference == "secret://openrouter"
+    repointed = catalog.deployments["gpt-oss-120b-batch"].model_copy(
+        update={"credential_reference": "secret://other-connection"}
+    )
+    catalog.deployments["gpt-oss-120b-batch"] = repointed
+    asyncio.run(engine.poll_once())
+    assert client.submitted == ["key-for-secret://openrouter"]
+
+
+def test_definitive_submit_rejection_fails_immediately_with_the_reason() -> None:
+    """A provider response rejecting the submit terminalizes the job at once."""
+
+    class RejectingClient(ScriptedClient):
+        """Client whose submit receives a definitive provider rejection."""
+
+        async def submit(self, *, job: BatchJob, api_key: str) -> str:
+            """Raise the response-backed rejection."""
+            raise BatchSubmitError(
+                "provider batch create failed with status 401", code="provider_error"
+            )
+
+    client = RejectingClient([ProviderBatchSnapshot(status=BatchStatus.IN_PROGRESS)], [])
+    engine, store, _, ledger, _ = _engine(client=client)
+    file_id = _upload(engine, [_chat_line("a")])
+    job = engine.submit(
+        organization_id="org_a",
+        identity_id="id_a",
+        input_file_id=file_id,
+        endpoint="/v1/chat/completions",
+    )
+    asyncio.run(engine.poll_once())
+    final = store.jobs[job.batch_id]
+    assert final.status is BatchStatus.FAILED
+    assert final.failure_message is not None
+    assert "provider rejected the batch submission" in final.failure_message
+    assert "status 401" in final.failure_message
+    assert ledger.released == [("a", "failed")]
+    public = final.public_object()
+    errors = public["errors"]
+    assert isinstance(errors, dict)
+    data = errors["data"]
+    assert isinstance(data, list)
+    reason = data[-1]
+    assert isinstance(reason, dict)
+    assert reason["code"] == "failed"
+    assert reason["message"] == final.failure_message
+    assert public["failed_at"] is not None and public["completed_at"] is None
+
+
+def test_validation_and_binding_share_one_catalog_resolution() -> None:
+    """The job binds the deployment captured during line validation."""
+
+    class CountingCatalog(MemoryCatalog):
+        """Catalog counting resolutions and repointing after the first."""
+
+        def __init__(self) -> None:
+            """Track lookups."""
+            super().__init__()
+            self.lookups = 0
+
+        def batch_deployment(self, *, model: str) -> BatchDeployment | None:
+            """Repoint the credential after the first resolution."""
+            self.lookups += 1
+            deployment = super().batch_deployment(model=model)
+            if deployment is not None and self.lookups > 1:
+                return deployment.model_copy(update={"credential_reference": "secret://repointed"})
+            return deployment
+
+    catalog = CountingCatalog()
+    engine = BatchEngine(
+        store=MemoryStore(),
+        files=MemoryFiles(),
+        catalog=catalog,
+        ledger=MemoryLedger(),
+        secrets_resolver=MemorySecrets(),
+    )
+    file_id = _upload(engine, [_chat_line("a")])
+    job = engine.submit(
+        organization_id="org_a",
+        identity_id="id_a",
+        input_file_id=file_id,
+        endpoint="/v1/chat/completions",
+    )
+    assert job.credential_reference == "secret://openrouter"
+    assert catalog.lookups == 1
+
+
+def test_same_provider_different_connections_split_per_line() -> None:
+    """Lines on another connection of the same provider are rejected per line."""
+    catalog = MemoryCatalog()
+    catalog.deployments["gpt-oss-20b-batch"] = catalog.deployments["gpt-oss-120b-batch"].model_copy(
+        update={
+            "model": "gpt-oss-20b-batch",
+            "credential_reference": "secret://openrouter-second-account",
+        }
+    )
+    engine = BatchEngine(
+        store=MemoryStore(),
+        files=MemoryFiles(),
+        catalog=catalog,
+        ledger=MemoryLedger(),
+        secrets_resolver=MemorySecrets(),
+    )
+    file_id = _upload(engine, [_chat_line("a"), _chat_line("b", model="gpt-oss-20b-batch")])
+    job = engine.submit(
+        organization_id="org_a",
+        identity_id="id_a",
+        input_file_id=file_id,
+        endpoint="/v1/chat/completions",
+    )
+    assert job.counts.total == 1
+    assert job.line_errors[0].code == "connection_mismatch"
+
+
+def test_ambiguous_submit_response_takes_the_fail_closed_path() -> None:
+    """A 2xx submit response that cannot parse never counts as a rejection."""
+    from exp.runtime.gateway.batch.providers import AmbiguousProviderResponse
+
+    class AmbiguousClient(ScriptedClient):
+        """Client whose submit response is unparseable."""
+
+        async def submit(self, *, job: BatchJob, api_key: str) -> str:
+            """Raise the ambiguous outcome."""
+            raise AmbiguousProviderResponse("provider batch create returned invalid JSON")
+
+    client = AmbiguousClient([ProviderBatchSnapshot(status=BatchStatus.IN_PROGRESS)], [])
+    engine, store, _, ledger, _ = _engine(client=client)
+    file_id = _upload(engine, [_chat_line("a")])
+    job = engine.submit(
+        organization_id="org_a",
+        identity_id="id_a",
+        input_file_id=file_id,
+        endpoint="/v1/chat/completions",
+    )
+    asyncio.run(engine.poll_once())
+    assert store.jobs[job.batch_id].status is BatchStatus.VALIDATING
+    asyncio.run(engine.poll_once())
+    final = store.jobs[job.batch_id]
+    assert final.status is BatchStatus.FAILED
+    assert final.failure_message is not None and "interrupted" in final.failure_message
+    assert ledger.released == [("a", "failed")]
+
+
+def test_cancel_during_inflight_dispatch_keeps_reservations() -> None:
+    """Losing the dispatch claim marks CANCELLING and releases nothing."""
+    engine, store, _, ledger, client = _engine()
+    file_id = _upload(engine, [_chat_line("a")])
+    job = engine.submit(
+        organization_id="org_a",
+        identity_id="id_a",
+        input_file_id=file_id,
+        endpoint="/v1/chat/completions",
+    )
+    assert store.begin_dispatch(batch_id=job.batch_id)
+    cancelled = asyncio.run(engine.cancel(organization_id="org_a", batch_id=job.batch_id))
+    assert cancelled.status is BatchStatus.CANCELLING
+    assert ledger.released == []
+    assert client.cancelled == 0
+
+
+def test_terminal_jobs_settle_partial_provider_results() -> None:
+    """A cancelled provider batch still settles the lines that ran."""
+    partial = [
+        BatchLineResult(
+            custom_id="a",
+            status_code=200,
+            response={"usage": {"prompt_tokens": 1, "completion_tokens": 4}},
+            input_tokens=1,
+            output_tokens=4,
+        )
+    ]
+    client = ScriptedClient(
+        [
+            ProviderBatchSnapshot(status=BatchStatus.IN_PROGRESS),
+            ProviderBatchSnapshot(status=BatchStatus.CANCELLED),
+        ],
+        partial,
+    )
+    engine, store, _, ledger, _ = _engine(client=client)
+    file_id = _upload(engine, [_chat_line("a"), _chat_line("b")])
+    job = engine.submit(
+        organization_id="org_a",
+        identity_id="id_a",
+        input_file_id=file_id,
+        endpoint="/v1/chat/completions",
+    )
+    asyncio.run(engine.poll_once())
+    asyncio.run(engine.poll_once())
+    asyncio.run(engine.poll_once())
+    final = store.jobs[job.batch_id]
+    assert final.status is BatchStatus.CANCELLED and final.settled
+    assert ledger.settled == [("a", 4)]
+    assert ledger.released == [("b", "cancelled")]
+
+
+def test_cancel_landing_during_the_poll_still_ends_cancelled() -> None:
+    """A cancellation persisted after the poller read the job but before the provider
+    answered "ended" with cut lines ends CANCELLED (cancelled_at set), never COMPLETED."""
+    partial = [
+        BatchLineResult(
+            custom_id="a",
+            status_code=200,
+            response={"usage": {"prompt_tokens": 1, "completion_tokens": 4}},
+            input_tokens=1,
+            output_tokens=4,
+        )
+    ]
+
+    class RacingClient(ScriptedClient):
+        """Client whose terminal poll lands after a cancel was persisted mid-poll."""
+
+        provider = "openai"
+        supports_cancel = True
+
+        def __init__(self, store: MemoryStore) -> None:
+            """Script in_progress, then an ended batch with one cut line."""
+            super().__init__(
+                [
+                    ProviderBatchSnapshot(status=BatchStatus.IN_PROGRESS),
+                    ProviderBatchSnapshot(
+                        status=BatchStatus.COMPLETED,
+                        completed=1,
+                        failed=1,
+                        cancelled_lines=1,
+                        results_ready=True,
+                    ),
+                ],
+                partial,
+            )
+            self._store = store
+
+        async def poll(self, *, job: BatchJob, api_key: str) -> ProviderBatchSnapshot:
+            """Persist the caller's cancel while the provider call is in flight."""
+            snapshot = await super().poll(job=job, api_key=api_key)
+            if snapshot.status is BatchStatus.COMPLETED:
+                assert job.status is BatchStatus.IN_PROGRESS, "the poller read a stale job"
+                self._store.save_job(
+                    job=self._store.jobs[job.batch_id].model_copy(
+                        update={"status": BatchStatus.CANCELLING}
+                    )
+                )
+            return snapshot
+
+    store = MemoryStore()
+    ledger = MemoryLedger()
+    client = RacingClient(store)
+    engine = BatchEngine(
+        store=store,
+        files=MemoryFiles(),
+        catalog=MemoryCatalog(),
+        ledger=ledger,
+        secrets_resolver=MemorySecrets(),
+        clients={"openai": client},
+    )
+    file_id = _upload(
+        engine, [_chat_line("a", model="kimi-k3-batch"), _chat_line("b", model="kimi-k3-batch")]
+    )
+    job = engine.submit(
+        organization_id="org_a",
+        identity_id="id_a",
+        input_file_id=file_id,
+        endpoint="/v1/chat/completions",
+    )
+    asyncio.run(engine.poll_once())  # submit
+    asyncio.run(engine.poll_once())  # in_progress
+    asyncio.run(engine.poll_once())  # ended with a cut line; cancel lands mid-poll
+    final = store.jobs[job.batch_id]
+    assert final.status is BatchStatus.CANCELLED and final.settled
+    rendered = final.public_object()
+    assert rendered["cancelled_at"] is not None and rendered["completed_at"] is None
+    assert ledger.settled == [("a", 4)]
+    assert ledger.released == [("b", "cancelled")]
+
+
+def test_cancelled_intent_with_no_cut_lines_completes() -> None:
+    """When the provider ran every line before the cancel took effect, nothing was
+    cancelled: the job completes and every line is billed."""
+    client = ScriptedClient(
+        [
+            ProviderBatchSnapshot(status=BatchStatus.IN_PROGRESS),
+            ProviderBatchSnapshot(status=BatchStatus.COMPLETED, completed=1, results_ready=True),
+        ],
+        [
+            BatchLineResult(
+                custom_id="a",
+                status_code=200,
+                response={"usage": {"prompt_tokens": 1, "completion_tokens": 2}},
+                input_tokens=1,
+                output_tokens=2,
+            )
+        ],
+    )
+    engine, store, _, ledger, _ = _engine(client=client)
+    file_id = _upload(engine, [_chat_line("a")])
+    job = engine.submit(
+        organization_id="org_a",
+        identity_id="id_a",
+        input_file_id=file_id,
+        endpoint="/v1/chat/completions",
+    )
+    asyncio.run(engine.poll_once())
+    store.save_job(
+        job=store.jobs[job.batch_id].model_copy(update={"status": BatchStatus.CANCELLING})
+    )
+    asyncio.run(engine.poll_once())
+    asyncio.run(engine.poll_once())
+    final = store.jobs[job.batch_id]
+    assert final.status is BatchStatus.COMPLETED and final.settled
+    assert final.public_object()["completed_at"] is not None
+    assert ledger.settled == [("a", 2)] and ledger.released == []
+
+
+def test_inflight_cancel_without_provider_support_runs_to_terminal() -> None:
+    """CANCELLING survives non-terminal polls and settles at provider end."""
+    client = ScriptedClient(
+        [
+            ProviderBatchSnapshot(status=BatchStatus.IN_PROGRESS),
+            ProviderBatchSnapshot(status=BatchStatus.COMPLETED, results_ready=True),
+        ],
+        [],
+    )
+    engine, store, _, ledger, _ = _engine(client=client)
+    file_id = _upload(engine, [_chat_line("a")])
+    job = engine.submit(
+        organization_id="org_a",
+        identity_id="id_a",
+        input_file_id=file_id,
+        endpoint="/v1/chat/completions",
+    )
+    asyncio.run(engine.poll_once())
+    store.save_job(
+        job=store.jobs[job.batch_id].model_copy(update={"status": BatchStatus.CANCELLING})
+    )
+    asyncio.run(engine.poll_once())
+    assert store.jobs[job.batch_id].status is BatchStatus.CANCELLING
+    assert client.cancelled == 0
+    asyncio.run(engine.poll_once())
+    asyncio.run(engine.poll_once())
+    final = store.jobs[job.batch_id]
+    assert final.status is BatchStatus.COMPLETED and final.settled
+    assert ledger.released == [("a", "completed")]
+
+
+def test_interrupted_terminal_settlement_resumes_from_open_jobs() -> None:
+    """A terminal job whose settlement never ran settles on a later poll."""
+    engine, store, _, ledger, _ = _engine()
+    file_id = _upload(engine, [_chat_line("a")])
+    job = engine.submit(
+        organization_id="org_a",
+        identity_id="id_a",
+        input_file_id=file_id,
+        endpoint="/v1/chat/completions",
+    )
+    store.save_job(
+        job=store.jobs[job.batch_id].model_copy(
+            update={"status": BatchStatus.FAILED, "failure_message": "crashed mid-finalize"}
+        )
+    )
+    assert not store.jobs[job.batch_id].settled
+    asyncio.run(engine.poll_once())
+    final = store.jobs[job.batch_id]
+    assert final.settled
+    assert ledger.released == [("a", "failed")]
+
+
+def test_completed_job_settlement_retries_on_fetch_failure() -> None:
+    """A transient results-fetch error keeps a completed job unsettled."""
+    from exp.runtime.gateway.batch.contracts import BatchSubmitError as SubmitError
+
+    class FlakyResultsClient(ScriptedClient):
+        """Client whose first results fetch fails, then succeeds."""
+
+        def __init__(self) -> None:
+            """Script one completed snapshot and one flaky fetch."""
+            super().__init__(
+                [ProviderBatchSnapshot(status=BatchStatus.COMPLETED, results_ready=True)],
+                [
+                    BatchLineResult(
+                        custom_id="a",
+                        status_code=200,
+                        response={"usage": {"prompt_tokens": 1, "completion_tokens": 2}},
+                        input_tokens=1,
+                        output_tokens=2,
+                    )
+                ],
+            )
+            self.fetches = 0
+
+        async def results(self, *, job: BatchJob, api_key: str) -> list[BatchLineResult]:
+            """Fail the first fetch definitively, succeed afterwards."""
+            self.fetches += 1
+            if self.fetches == 1:
+                raise SubmitError(
+                    "provider result download failed with status 500", code="provider_error"
+                )
+            return list(self._results)
+
+    client = FlakyResultsClient()
+    engine, store, _, ledger, _ = _engine(client=client)
+    file_id = _upload(engine, [_chat_line("a")])
+    job = engine.submit(
+        organization_id="org_a",
+        identity_id="id_a",
+        input_file_id=file_id,
+        endpoint="/v1/chat/completions",
+    )
+    asyncio.run(engine.poll_once())
+    asyncio.run(engine.poll_once())
+    assert store.jobs[job.batch_id].settled is False
+    assert ledger.released == []
+    asyncio.run(engine.poll_once())
+    final = store.jobs[job.batch_id]
+    assert final.settled is True
+    assert ledger.settled == [("a", 2)]
+    assert ledger.released == []
+
+
+def test_poller_with_stale_snapshot_never_overwrites_a_cancelled_job() -> None:
+    """A cancel that wins the claim is final; a racing poller changes nothing."""
+    engine, store, _, ledger, client = _engine()
+    file_id = _upload(engine, [_chat_line("a")])
+    job = engine.submit(
+        organization_id="org_a",
+        identity_id="id_a",
+        input_file_id=file_id,
+        endpoint="/v1/chat/completions",
+    )
+    stale_snapshot = store.jobs[job.batch_id]
+    cancelled = asyncio.run(engine.cancel(organization_id="org_a", batch_id=job.batch_id))
+    assert cancelled.status is BatchStatus.CANCELLED and cancelled.settled
+    releases_after_cancel = list(ledger.released)
+    asyncio.run(engine._advance(stale_snapshot))
+    final = store.jobs[job.batch_id]
+    assert final.status is BatchStatus.CANCELLED
+    assert final.settled is True
+    assert ledger.released == releases_after_cancel
+    assert client.submitted == []
+
+
+def test_failed_provider_cancel_keeps_the_intent_and_retries() -> None:
+    """A provider cancel failure never loses CANCELLING; the poller retries."""
+
+    class FlakyCancelClient(ScriptedClient):
+        """Client whose first cancel fails, second succeeds."""
+
+        provider = "openai"
+        supports_cancel = True
+        requires_uniform_model = False
+
+        def __init__(self) -> None:
+            """Script the snapshots and the flaky cancel."""
+            super().__init__(
+                [
+                    ProviderBatchSnapshot(status=BatchStatus.IN_PROGRESS),
+                    ProviderBatchSnapshot(status=BatchStatus.CANCELLED),
+                ],
+                [],
+            )
+            self.cancel_attempts = 0
+
+        async def cancel(self, *, job: BatchJob, api_key: str) -> None:
+            """Fail once, then accept."""
+            self.cancel_attempts += 1
+            if self.cancel_attempts == 1:
+                raise BatchSubmitError(
+                    "provider batch cancel failed with status 500", code="provider_error"
+                )
+
+    client = FlakyCancelClient()
+    engine, store, _, ledger, _ = _engine(client=client)
+    file_id = _upload(engine, [_chat_line("a", model="kimi-k3-batch")])
+    job = engine.submit(
+        organization_id="org_a",
+        identity_id="id_a",
+        input_file_id=file_id,
+        endpoint="/v1/chat/completions",
+    )
+    asyncio.run(engine.poll_once())
+    with pytest.raises(BatchSubmitError):
+        asyncio.run(engine.cancel(organization_id="org_a", batch_id=job.batch_id))
+    assert store.jobs[job.batch_id].status is BatchStatus.CANCELLING
+    asyncio.run(engine.poll_once())
+    assert client.cancel_attempts == 2
+    asyncio.run(engine.poll_once())
+    final = store.jobs[job.batch_id]
+    assert final.status is BatchStatus.CANCELLED and final.settled
+    assert ledger.released == [("a", "cancelled")]
+
+
+def test_direct_cancel_on_an_unsupported_provider_refuses_honestly() -> None:
+    """A dispatched OpenRouter-style job refuses cancellation with the reason."""
+    client = ScriptedClient([ProviderBatchSnapshot(status=BatchStatus.IN_PROGRESS)], [])
+    engine, store, _, ledger, _ = _engine(client=client)
+    file_id = _upload(engine, [_chat_line("a")])
+    job = engine.submit(
+        organization_id="org_a",
+        identity_id="id_a",
+        input_file_id=file_id,
+        endpoint="/v1/chat/completions",
+    )
+    asyncio.run(engine.poll_once())
+    with pytest.raises(BatchSubmitError, match="cannot be cancelled"):
+        asyncio.run(engine.cancel(organization_id="org_a", batch_id=job.batch_id))
+    unchanged = store.jobs[job.batch_id]
+    assert unchanged.status is BatchStatus.IN_PROGRESS
+    assert ledger.released == []
+
+
+def test_responses_lines_reserve_at_their_own_output_ceiling() -> None:
+    """A Responses body names its ceiling as max_output_tokens; the reservation reads
+    it exactly as it reads a chat body's max_tokens, never falling to the default."""
+    engine, _, _, _, _ = _engine()
+    line = (
+        '{"custom_id": "a", "method": "POST", "url": "/v1/responses",'
+        ' "body": {"model": "kimi-k3-batch", "input": "hi", "max_output_tokens": 77}}'
+    )
+    unbounded = (
+        '{"custom_id": "b", "method": "POST", "url": "/v1/responses",'
+        ' "body": {"model": "kimi-k3-batch", "input": "hi"}}'
+    )
+    file_id = _upload(engine, [line, unbounded])
+    job = engine.submit(
+        organization_id="org_a",
+        identity_id="id_a",
+        input_file_id=file_id,
+        endpoint="/v1/responses",
+    )
+    ceilings = {line.custom_id: line.maximum_output_tokens for line in job.lines}
+    assert ceilings == {"a": 77, "b": 4096}
+
+
+def test_provider_without_a_client_is_a_whole_job_refusal() -> None:
+    """A catalog model on a provider this engine has no client for cannot be shaped
+    or dispatched, so the submit is refused up front."""
+    engine = BatchEngine(
+        store=MemoryStore(),
+        files=MemoryFiles(),
+        catalog=MemoryCatalog(),
+        ledger=MemoryLedger(),
+        secrets_resolver=MemorySecrets(),
+        clients={
+            "openrouter": ScriptedClient(
+                [ProviderBatchSnapshot(status=BatchStatus.COMPLETED, results_ready=True)], []
+            )
+        },
+    )
+    file_id = _upload(engine, [_chat_line("a", model="kimi-k3-batch")])
+    with pytest.raises(BatchSubmitError, match="openai has no batch client enabled"):
+        engine.submit(
+            organization_id="org_a",
+            identity_id="id_a",
+            input_file_id=file_id,
+            endpoint="/v1/chat/completions",
+        )
+
+
+def test_job_with_only_failed_provider_rows_retries_a_failed_results_fetch() -> None:
+    """A terminal batch whose provider counted only FAILED rows still has result rows
+    (their failure reasons); a fetch failure keeps settlement open, and the retry lands
+    the provider's own reasons rather than a generic job-status error."""
+    provider_rows = [
+        BatchLineResult(
+            custom_id="a",
+            status_code=500,
+            error={"type": "invalid_request_error", "message": "max_tokens: 0"},
+        )
+    ]
+
+    class FlakyFailedRows(ScriptedClient):
+        """Ends cancelled with one failed row and no served lines; first fetch fails."""
+
+        provider = "openai"
+        supports_cancel = True
+
+        def __init__(self) -> None:
+            """Script in_progress, then a cancelled batch with one failed row."""
+            super().__init__(
+                [
+                    ProviderBatchSnapshot(status=BatchStatus.IN_PROGRESS),
+                    ProviderBatchSnapshot(
+                        status=BatchStatus.CANCELLED, completed=0, failed=1, results_ready=True
+                    ),
+                ],
+                provider_rows,
+            )
+            self.fetches = 0
+
+        async def results(self, *, job: BatchJob, api_key: str) -> list[BatchLineResult]:
+            """Fail the first download definitively, succeed afterwards."""
+            self.fetches += 1
+            if self.fetches == 1:
+                raise BatchSubmitError(
+                    "provider result download failed with status 503", code="provider_error"
+                )
+            return list(self._results)
+
+    store = MemoryStore()
+    ledger = MemoryLedger()
+    engine = BatchEngine(
+        store=store,
+        files=MemoryFiles(),
+        catalog=MemoryCatalog(),
+        ledger=ledger,
+        secrets_resolver=MemorySecrets(),
+        clients={"openai": FlakyFailedRows()},
+    )
+    file_id = _upload(
+        engine, [_chat_line("a", model="kimi-k3-batch"), _chat_line("b", model="kimi-k3-batch")]
+    )
+    job = engine.submit(
+        organization_id="org_a",
+        identity_id="id_a",
+        input_file_id=file_id,
+        endpoint="/v1/chat/completions",
+    )
+    asyncio.run(engine.poll_once())  # submit
+    asyncio.run(engine.poll_once())  # in_progress
+    asyncio.run(engine.poll_once())  # cancelled with one failed row; fetch fails
+    pending = store.jobs[job.batch_id]
+    assert pending.status is BatchStatus.CANCELLED and pending.settled is False
+    assert ledger.settled == [] and ledger.released == []
+    asyncio.run(engine.poll_once())  # retry lands the provider's rows
+    final = store.jobs[job.batch_id]
+    assert final.settled is True
+    assert [result.failure_reason for result in ledger.settled_results] == ["max_tokens: 0"]
+    assert ledger.released == [("b", "cancelled")]
+
+
+def test_cancelled_job_with_served_lines_retries_a_failed_results_fetch() -> None:
+    """A cancelled batch whose provider counted served lines has results; a fetch
+    failure keeps settlement open instead of releasing the lines that ran."""
+    served = [
+        BatchLineResult(
+            custom_id="a",
+            status_code=200,
+            response={"usage": {"prompt_tokens": 1, "completion_tokens": 4}},
+            input_tokens=1,
+            output_tokens=4,
+        )
+    ]
+
+    class FlakyCancelledResults(ScriptedClient):
+        """Ends cancelled with one served line; the first results fetch fails."""
+
+        provider = "openai"
+        supports_cancel = True
+
+        def __init__(self) -> None:
+            """Script in_progress, then an ended batch with one cut line."""
+            super().__init__(
+                [
+                    ProviderBatchSnapshot(status=BatchStatus.IN_PROGRESS),
+                    ProviderBatchSnapshot(
+                        status=BatchStatus.COMPLETED,
+                        completed=1,
+                        failed=1,
+                        cancelled_lines=1,
+                        results_ready=True,
+                    ),
+                ],
+                served,
+            )
+            self.fetches = 0
+
+        async def results(self, *, job: BatchJob, api_key: str) -> list[BatchLineResult]:
+            """Fail the first download definitively, succeed afterwards."""
+            self.fetches += 1
+            if self.fetches == 1:
+                raise BatchSubmitError(
+                    "provider result download failed with status 503", code="provider_error"
+                )
+            return list(self._results)
+
+    client = FlakyCancelledResults()
+    store = MemoryStore()
+    ledger = MemoryLedger()
+    engine = BatchEngine(
+        store=store,
+        files=MemoryFiles(),
+        catalog=MemoryCatalog(),
+        ledger=ledger,
+        secrets_resolver=MemorySecrets(),
+        clients={"openai": client},
+    )
+    file_id = _upload(
+        engine, [_chat_line("a", model="kimi-k3-batch"), _chat_line("b", model="kimi-k3-batch")]
+    )
+    job = engine.submit(
+        organization_id="org_a",
+        identity_id="id_a",
+        input_file_id=file_id,
+        endpoint="/v1/chat/completions",
+    )
+    asyncio.run(engine.poll_once())  # submit
+    asyncio.run(engine.poll_once())  # in_progress
+    store.save_job(
+        job=store.jobs[job.batch_id].model_copy(update={"status": BatchStatus.CANCELLING})
+    )
+    asyncio.run(engine.poll_once())  # ended with a cut line; results fetch fails
+    pending = store.jobs[job.batch_id]
+    assert pending.status is BatchStatus.CANCELLED and pending.settled is False
+    assert ledger.settled == [] and ledger.released == []
+    asyncio.run(engine.poll_once())  # settlement retries and lands
+    final = store.jobs[job.batch_id]
+    assert final.settled is True
+    assert ledger.settled == [("a", 4)]
+    assert ledger.released == [("b", "cancelled")]

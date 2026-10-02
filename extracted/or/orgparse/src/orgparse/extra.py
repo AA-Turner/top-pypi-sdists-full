@@ -1,0 +1,153 @@
+from __future__ import annotations
+
+import re
+from collections.abc import Iterator, Sequence
+
+RE_TABLE_SEPARATOR = re.compile(r'\s*\|(\-+\+)*\-+\|')
+RE_TABLE_ROW = re.compile(r'\s*\|([^|]+)+\|')
+# Org's affiliated keywords, including legacy spellings of NAME.
+RE_AFFILIATED_KEYWORD = re.compile(
+    r'[ \t]*#\+'
+    r'(?:(?P<name>NAME|TBLNAME|DATA|LABEL|RESNAME|SOURCE|SRCNAME)'
+    r'|(?:CAPTION|RESULTS)(?:\[.*\])?|HEADERS?|PLOT|RESULT|ATTR_[-_A-Za-z0-9]+)'
+    r':[ \t]*(?P<value>.*)',
+    re.IGNORECASE,
+)
+STRIP_CELL_WHITESPACE = True
+
+
+Row = Sequence[str]
+
+
+class Table:
+    def __init__(self, lines: list[str], *, name: str | None = None) -> None:
+        self._lines = lines
+        self._name = name
+
+    @property
+    def name(self) -> str | None:
+        """The affiliated ``#+NAME:`` value, or ``None`` for an unnamed table.
+
+        Legacy spellings such as ``#+TBLNAME:`` are also recognized.
+        """
+        return self._name
+
+    @property
+    def blocks(self) -> Iterator[Sequence[Row]]:
+        group: list[Row] = []
+        first = True
+        for r in self._pre_rows():
+            if r is None:
+                if not first or len(group) > 0:
+                    yield group
+                    first = False
+                group = []
+            else:
+                group.append(r)
+        if len(group) > 0:
+            yield group
+
+    def __iter__(self) -> Iterator[Row]:
+        return self.rows
+
+    @property
+    def rows(self) -> Iterator[Row]:
+        for r in self._pre_rows():
+            if r is not None:
+                yield r
+
+    def _pre_rows(self) -> Iterator[Row | None]:
+        for l in self._lines:
+            if RE_TABLE_SEPARATOR.match(l):
+                yield None
+            else:
+                pr = l.strip().strip('|').split('|')
+                if STRIP_CELL_WHITESPACE:
+                    pr = [x.strip() for x in pr]
+                yield pr
+        # TODO use iparse helper?
+
+    @property
+    def as_dicts(self) -> AsDictHelper:
+        bl = list(self.blocks)
+        if len(bl) != 2:
+            raise RuntimeError('Need two-block table to non-ambiguously guess column names')
+        hrows = bl[0]
+        if len(hrows) != 1:
+            raise RuntimeError(f'Need single row heading to guess column names, got: {hrows}')
+        columns = hrows[0]
+        assert len(set(columns)) == len(columns), f'Duplicate column names: {columns}'
+        return AsDictHelper(
+            columns=columns,
+            rows=bl[1],
+        )
+
+
+class AsDictHelper:
+    def __init__(self, columns: Sequence[str], rows: Sequence[Row]) -> None:
+        self.columns = columns
+        self._rows = rows
+
+    def __iter__(self) -> Iterator[dict[str, str]]:
+        for x in self._rows:
+            yield dict(zip(self.columns, x, strict=True))
+
+
+class Gap:
+    # todo later, add indices etc
+    pass
+
+
+Rich = Table | Gap
+
+
+def _table_name(lines: Sequence[str]) -> str | None:
+    # Only consecutive affiliated keywords immediately before the table apply.
+    # Searching backwards gives the last NAME precedence, as in Org.
+    for line in reversed(lines):
+        match = RE_AFFILIATED_KEYWORD.match(line)
+        if match is None:
+            break
+        if match['name'] is not None:
+            return match['value'].strip()
+    return None
+
+
+def to_rich_text(text: str) -> Iterator[Rich]:
+    '''
+    Convert an org-mode text into a 'rich' text, e.g. tables/lists/etc, interleaved by gaps.
+    NOTE: you shouldn't rely on the number of items returned by this function,
+    it might change in the future when more types are supported.
+
+    At the moment only tables are supported.
+    '''
+    lines = text.splitlines(keepends=True)
+    group: list[str] = []
+    last: type[Rich] = Gap
+    table_name: str | None = None
+
+    def emit() -> Rich:
+        nonlocal group, last
+        if last is Gap:
+            res = Gap()
+        elif last is Table:
+            res = Table(group, name=table_name)  # type: ignore[assignment]
+        else:
+            raise RuntimeError(f'Unexpected type {last}')
+        group = []
+        return res
+
+    for line in lines:
+        if RE_TABLE_ROW.match(line) or RE_TABLE_SEPARATOR.match(line):
+            cur = Table
+        else:
+            cur = Gap  # type: ignore[assignment]
+        if cur is not last:
+            if cur is Table:
+                table_name = _table_name(group)
+            if len(group) > 0:
+                yield emit()
+            last = cur
+        group.append(line)
+    if len(group) > 0:
+        yield emit()

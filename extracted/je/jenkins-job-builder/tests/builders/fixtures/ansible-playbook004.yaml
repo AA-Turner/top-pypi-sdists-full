@@ -1,7 +1,0 @@
----
-builders:
-  - ansible-playbook:
-      playbook: "path/to/playbook.yml"
-      inventory-type: "do-not-specify"
-      become: "yes"
-      become-user: "cloud-user"

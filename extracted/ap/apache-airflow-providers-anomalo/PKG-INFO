@@ -1,0 +1,75 @@
+Metadata-Version: 2.1
+Name: apache-airflow-providers-anomalo
+Version: 0.2.2
+Summary: An Apache Airflow provider for Anomalo
+Home-page: https://github.com/anomalo-hq/anomalo-airflow-provider
+License: Apache-2.0
+Author: Anomalo
+Author-email: opensource@anomalo.com
+Requires-Python: >=3.8,<3.12
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Framework :: Apache Airflow
+Classifier: Framework :: Apache Airflow :: Provider
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Dist: anomalo (>=0.17.0,<0.18.0)
+Requires-Dist: importlib-resources (>=6.1.1,<7.0.0)
+Project-URL: Repository, https://github.com/anomalo-hq/anomalo-airflow-provider
+Description-Content-Type: text/markdown
+
+# Apache Airflow Provider for Anomalo
+A set of native Airflow operators for [Anomalo](https://www.anomalo.com/)
+
+### Requirements
+
+python >=3.9.0
+airflow >=2.8.0
+
+
+### Installation
+
+
+```
+pip install apache-airflow-providers-anomalo
+```
+You can validate that it is correctly installed by running `airflow providers list` on the command line and seeing if `apache-airflow-providers-anomalo` is a listed providers package.
+
+### Airflow Setup
+
+From the airflow UI, go to Admin > Connections and hit the `+` button at the top to add a new connection.
+
+From the "Connection Type" drop down, select "Anomalo".
+![connection](https://github.com/anomalo-hq/anomalo-airflow-provider/blob/main/docs/connection.png?raw=True)
+Then fill in the fields for "Connection Id" (`anomalo-default` is the default connection id), "Host", and "API Secret Token".
+
+## Usage
+
+1. Obtain Anomalo table name from GUI. For example
+   ![table](https://github.com/anomalo-hq/anomalo-airflow-provider/blob/main/docs/table.png?raw=True)
+   would be `public-bq.covid19_nyt.us_counties`
+
+2. This package includes 3 different operators. You can find documentation for them on the operator code itself.
+   1. Run checks Operator: `airflow.providers.anomalo.operators.anomalo.AnomaloRunCheckOperator`
+   2. Job Sensor `airflow.providers.anomalo.sensors.anomalo.AnomaloJobCompleteSensor`
+   3. Validate table checks: `airflow.providers.anomalo.operators.anomalo.AnomaloPassFailOperator`
+
+3. See `example_anomalo.py` for usage example
+
+## Releasing to PyPi
+
+To release a new version to PyPi, you will need to
+
+1. Configure your pypi token by running:
+   ```poetry config pypi-token.pypi [token here]```
+   The token can be found in the AWS secrets manager
+2. Bump the version number in pyproject.toml. Make sure that this change is committed.
+3. run
+   ```poetry publish --build```
+
+

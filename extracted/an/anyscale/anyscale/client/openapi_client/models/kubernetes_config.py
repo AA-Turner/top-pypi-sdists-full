@@ -35,16 +35,18 @@ class KubernetesConfig(object):
     openapi_types = {
         'anyscale_operator_iam_identity': 'str',
         'zones': 'list[str]',
-        'redis_endpoint': 'str'
+        'redis_endpoint': 'str',
+        'custom_image_registry': 'str'
     }
 
     attribute_map = {
         'anyscale_operator_iam_identity': 'anyscale_operator_iam_identity',
         'zones': 'zones',
-        'redis_endpoint': 'redis_endpoint'
+        'redis_endpoint': 'redis_endpoint',
+        'custom_image_registry': 'custom_image_registry'
     }
 
-    def __init__(self, anyscale_operator_iam_identity=None, zones=None, redis_endpoint=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, anyscale_operator_iam_identity=None, zones=None, redis_endpoint=None, custom_image_registry=None, local_vars_configuration=None):  # noqa: E501
         """KubernetesConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -53,6 +55,7 @@ class KubernetesConfig(object):
         self._anyscale_operator_iam_identity = None
         self._zones = None
         self._redis_endpoint = None
+        self._custom_image_registry = None
         self.discriminator = None
 
         if anyscale_operator_iam_identity is not None:
@@ -61,6 +64,8 @@ class KubernetesConfig(object):
             self.zones = zones
         if redis_endpoint is not None:
             self.redis_endpoint = redis_endpoint
+        if custom_image_registry is not None:
+            self.custom_image_registry = custom_image_registry
 
     @property
     def anyscale_operator_iam_identity(self):
@@ -130,6 +135,29 @@ class KubernetesConfig(object):
         """
 
         self._redis_endpoint = redis_endpoint
+
+    @property
+    def custom_image_registry(self):
+        """Gets the custom_image_registry of this KubernetesConfig.  # noqa: E501
+
+        Registry prefix Anyscale data-plane images are pulled from for this resource, for customers who mirror them into their own registry. When set, the registry host in every generated image reference is replaced with this value, preserving the repository path and tag: 'anyscale/vector-public:0.56.0-debian' becomes '<custom_image_registry>/anyscale/vector-public:0.56.0-debian'. Every image the data plane needs must already exist in the target registry at the same repository path, including the Ray image. Empty = Anyscale's own registry (existing resources unchanged). Must be a registry prefix of the form 'host[:port][/path]' with no scheme, no trailing slash, and no image tag, at most 255 characters.  # noqa: E501
+
+        :return: The custom_image_registry of this KubernetesConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._custom_image_registry
+
+    @custom_image_registry.setter
+    def custom_image_registry(self, custom_image_registry):
+        """Sets the custom_image_registry of this KubernetesConfig.
+
+        Registry prefix Anyscale data-plane images are pulled from for this resource, for customers who mirror them into their own registry. When set, the registry host in every generated image reference is replaced with this value, preserving the repository path and tag: 'anyscale/vector-public:0.56.0-debian' becomes '<custom_image_registry>/anyscale/vector-public:0.56.0-debian'. Every image the data plane needs must already exist in the target registry at the same repository path, including the Ray image. Empty = Anyscale's own registry (existing resources unchanged). Must be a registry prefix of the form 'host[:port][/path]' with no scheme, no trailing slash, and no image tag, at most 255 characters.  # noqa: E501
+
+        :param custom_image_registry: The custom_image_registry of this KubernetesConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._custom_image_registry = custom_image_registry
 
     def to_dict(self):
         """Returns the model properties as a dict"""

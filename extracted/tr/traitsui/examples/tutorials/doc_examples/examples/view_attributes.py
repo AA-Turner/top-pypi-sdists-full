@@ -1,0 +1,19 @@
+#  (C) Copyright 2007-2023 Enthought, Inc., Austin, TX
+#  License: BSD Style.
+
+# view_attributes.py --- Example of a view as an
+#                        attribute of a class
+from traits.api import HasTraits, Int, Str, Trait
+from traitsui.api import View
+
+
+class Person(HasTraits):
+    first_name = Str()
+    last_name = Str()
+    age = Int()
+    gender = Trait(None, 'M', 'F')
+    name_view = View('first_name', 'last_name')
+
+
+bill = Person()
+bill.configure_traits()

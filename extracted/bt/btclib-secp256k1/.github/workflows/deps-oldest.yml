@@ -1,0 +1,53 @@
+---
+name: deps-oldest
+
+# the floor sentinel: verifying the claim a floor makes to whoever
+# installs -- section 10 of btclib-org/.github calls this and
+# deps-latest.yml a mirrored pair, the same suite run in the opposite
+# resolution direction.
+#
+# The resolution, the lock it writes and the suite run over that lock are
+# btclib-org/.github's: reusable-deps-oldest.yml, called at @main so a
+# fix there reaches this tree in one landing (section 10 of its
+# README.md). What stays here is the trigger, the concurrency group, the
+# workflow-level permissions, and the two facts the called workflow asks
+# a caller for rather than states itself: the interpreter, which is
+# requires-python's own floor and not the newest
+# `.python-version` pin, and `submodules: true` -- installing this
+# package compiles libsecp256k1 out of the vendored clone, so the suite
+# needs it checked out, exactly as deps-latest.yml's own cells do
+# (btclib-org/.github#35)
+
+on:
+  schedule:
+    # The instant is section 10's grid in btclib-org/.github, the
+    # workflow's day and hour in one of its two tables and this
+    # repository's minute in the other, and neither is this file's to
+    # restate.
+    # Only the default branch schedules workflows, so on any other
+    # branch this is reachable through the dispatch below alone
+    - cron: "8 3 * * 4"
+  # the escape hatch: worth reaching for on a branch that moves a floor
+  # in pyproject.toml, which is the one edit whose effect this workflow
+  # is the only thing that measures
+  workflow_dispatch:
+
+# least privilege for the GITHUB_TOKEN: everything running in a job
+# (actions, dependencies, the vendored library's own build) can read
+# the token, so it must not be able to write to the repository
+permissions:
+  contents: read
+
+# named literally rather than through github.workflow: nothing calls
+# this workflow today, but that expression is the caller's name when
+# something does, and the convention is what keeps the groups distinct
+concurrency:
+  group: deps-oldest-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  suite-oldest:
+    uses: btclib-org/.github/.github/workflows/reusable-deps-oldest.yml@main
+    with:
+      python-version: "3.11"
+      submodules: true

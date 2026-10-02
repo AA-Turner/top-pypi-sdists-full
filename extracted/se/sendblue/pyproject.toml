@@ -1,6 +1,6 @@
 [project]
 name = "sendblue"
-version = "1.30.0"
+version = "1.30.2"
 description = "The official Python library for the sendblue-api API"
 dynamic = ["readme"]
 license = "Apache-2.0"
@@ -144,6 +144,12 @@ filterwarnings = [
 # default in strict mode as they are experimental and niche.
 typeCheckingMode = "strict"
 pythonVersion = "3.9"
+
+# Release tooling runs on Python 3.13; the installed library keeps its 3.9 floor.
+executionEnvironments = [
+    { root = "scripts", pythonVersion = "3.13", extraPaths = ["."] },
+    { root = ".", pythonVersion = "3.9" },
+]
 
 exclude = [
     "_dev",

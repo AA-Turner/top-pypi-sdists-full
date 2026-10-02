@@ -5,6 +5,9 @@ from anyscale._private.sdk.base_sdk import BaseSDK
 from anyscale.client.openapi_client.models.apply_scheduler_config_request import (
     ApplySchedulerConfigRequest,
 )
+from anyscale.client.openapi_client.models.rollback_scheduler_config_request import (
+    RollbackSchedulerConfigRequest,
+)
 from anyscale.client.openapi_client.models.scheduler_config import (
     SchedulerConfig as APISchedulerConfig,
 )
@@ -26,12 +29,28 @@ _PAGE_SIZE_CAP = 50
 
 
 class PrivateSchedulerSDK(BaseSDK):
-    def apply_config(self, config: Union[SchedulerConfig, Dict[str, Any]],) -> int:
-        request = ApplySchedulerConfigRequest(config=_to_api_config(config),)
+    def apply_config(
+        self,
+        config: Union[SchedulerConfig, Dict[str, Any]],
+    ) -> int:
+        request = ApplySchedulerConfigRequest(
+            config=_to_api_config(config),
+        )
         response = self.client.apply_scheduler_config(request)
         return response.version
 
-    def get_config(self, version: Optional[int] = None,) -> SchedulerConfigVersion:
+    def rollback_config(
+        self,
+        version: int,
+    ) -> int:
+        request = RollbackSchedulerConfigRequest(version=version)
+        response = self.client.rollback_scheduler_config(request)
+        return response.version
+
+    def get_config(
+        self,
+        version: Optional[int] = None,
+    ) -> SchedulerConfigVersion:
         if version is None:
             response = self.client.get_active_scheduler_config()
         else:
@@ -39,13 +58,15 @@ class PrivateSchedulerSDK(BaseSDK):
         return _from_api_response(response)
 
     def list_config_versions(
-        self, max_items: int = 10,
+        self,
+        max_items: int = 10,
     ) -> List[SchedulerConfigVersionSummary]:
         page_size = min(max_items, _PAGE_SIZE_CAP) if max_items > 0 else 0
 
         def _fetch_page(token: Optional[str]):
             return self.client.list_scheduler_config_versions(
-                count=page_size, paging_token=token,
+                count=page_size,
+                paging_token=token,
             )
 
         return list(
@@ -65,19 +86,13 @@ def _to_api_config(
         return APISchedulerConfig(**config.to_dict(exclude_none=True))
     if isinstance(config, dict):
         # Validate locally before sending; raises on schema errors with field path.
-        return APISchedulerConfig(
-            **SchedulerConfig.from_dict(config).to_dict(exclude_none=True)
-        )
-    raise TypeError(
-        f"config must be SchedulerConfig or dict, got {type(config).__name__}."
-    )
+        return APISchedulerConfig(**SchedulerConfig.from_dict(config).to_dict(exclude_none=True))
+    raise TypeError(f"config must be SchedulerConfig or dict, got {type(config).__name__}.")
 
 
 def _from_api_response(response: SchedulerConfigResponse) -> SchedulerConfigVersion:
     config_dict = (
-        response.config.to_dict()
-        if hasattr(response.config, "to_dict")
-        else response.config
+        response.config.to_dict() if hasattr(response.config, "to_dict") else response.config
     )
     return SchedulerConfigVersion(
         version=response.version,

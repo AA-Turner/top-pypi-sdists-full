@@ -557,14 +557,26 @@ def _agui_chat_path_rules(
     `PATH_PREFIX=<prefix>`); everything else under the prefix routes to the
     playground with the prefix rewritten to `/` (the bundle is relative-path
     safe). GCP picks the longest matching path rule, so the API rule wins.
+
+    The bare `/{prefix}` (no trailing slash) redirects to `/{prefix}/`: the
+    bundle's relative asset URLs resolve against the directory of the page,
+    so serving it at `/{prefix}` would request `/assets/*` and 404.
     """
     return [
+        gcp.compute.URLMapPathMatcherPathRuleArgs(
+            paths=[f"/{prefix}"],
+            url_redirect=gcp.compute.URLMapPathMatcherPathRuleUrlRedirectArgs(
+                path_redirect=f"/{prefix}/",
+                redirect_response_code="MOVED_PERMANENTLY_DEFAULT",
+                strip_query=False,
+            ),
+        ),
         gcp.compute.URLMapPathMatcherPathRuleArgs(
             paths=[f"/{prefix}/api", f"/{prefix}/api/*"],
             service=server_backend.self_link,
         ),
         gcp.compute.URLMapPathMatcherPathRuleArgs(
-            paths=[f"/{prefix}", f"/{prefix}/*"],
+            paths=[f"/{prefix}/*"],
             service=playground_backend.self_link,
             route_action=gcp.compute.URLMapPathMatcherPathRuleRouteActionArgs(
                 url_rewrite=gcp.compute.URLMapPathMatcherPathRuleRouteActionUrlRewriteArgs(

@@ -1,0 +1,198 @@
+name: deploy-stable
+
+on:
+  # Currently this workflow only runs when triggered manually.  Perhaps we can set it up to run when a tag is pushed.  Or when a release is made.  Or that it could create a release, on a release it can create a tag?
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+    inputs:
+      level:
+        description: "The level of release to make"
+        required: true
+        type: choice
+        default: "patch"
+        options:
+          - "patch"
+          - "minor"
+          - "major"
+      branch:
+        description: "Use main branch for regular releases, legacy-support for 1.8x fixes."
+        required: false
+        type: choice
+        default: "main"
+        options:
+          - "main"
+          - "legacy-support"
+      core-repo:
+        description: "The repository to use for the core commit."
+        required: false
+        type: choice
+        default: "PreTeXtbook/pretext"
+        options:
+          - "PreTeXtbook/pretext"
+          - "oscarlevin/pretext"
+
+
+jobs:
+  tests:
+    name: Run tests
+    uses: ./.github/workflows/tests.yml
+
+  deploy:
+    needs: tests
+    name: Deploy to pypi
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.branch }}
+
+      # Setup uv
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install python3-louis librsvg2-bin libcairo2-dev
+
+      - name: Install dependencies
+        shell: bash
+        run: uv sync --all-extras
+
+      - name: Update version if needed
+        if: ${{ inputs.level != 'patch' }}
+        run: uv version --bump ${{ inputs.level }}
+
+      - name: Build package
+        run: uv run python scripts/build_package.py ${{ inputs.core-repo }}
+
+      - name: Discover current version
+        id: version
+        run: |
+          uv run pretext --version
+          echo "VERSION=$(uv run pretext --version)" >> $GITHUB_ENV
+          echo "version=$(uv run pretext --version)" >> $GITHUB_OUTPUT
+
+      - name: Publish
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
+        run: |
+          uv build
+          uv publish
+
+      - name: update changelog
+        run: |
+          uv run python scripts/update_changelog.py
+
+      - name: Update version for next dev release
+        run: uv version --bump patch
+
+      - name: setup git config
+        run: |
+          # setup the username and email.
+          git config user.name "${{ github.actor }} via GitHub Actions"
+          git config user.email "${{ github.actor }}@github_actions.no_reply"
+
+      - name: commit version bump via pr
+        run: |
+          git checkout -b ${{ env.VERSION }}-deploy
+          git add CHANGELOG.md
+          git commit -m "update changelog for release"
+          git add pyproject.toml uv.lock
+          git commit -m "bump version to next patch level for nightly releases"
+          git add pretext/resources/resource_hash_table.json
+          git commit --allow-empty -m "commit changes to resource_hash_table.json"
+          git push -f --set-upstream origin ${{ env.VERSION }}-deploy
+          gh pr create --fill
+          # Wait briefly for PR to be fully processed before merging
+          sleep 5
+          # Retry merge up to 3 times in case of transient API errors
+          for attempt in 1 2 3; do
+            if gh pr merge -s -d -t "Update changelog and bump version to next patch level for nightly releases"; then
+              echo "PR merged successfully"
+              break
+            elif [ $attempt -lt 3 ]; then
+              echo "Merge attempt $attempt failed, retrying in 10 seconds..."
+              sleep 10
+            else
+              echo "Failed to merge PR after 3 attempts"
+              exit 1
+            fi
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ env.VERSION }}
+        run: |
+          gh release create "v$tag" \
+            --repo="$GITHUB_REPOSITORY" \
+            --title="v$tag" \
+            --notes="See the [changelog](CHANGELOG.md) for details."
+
+  dispatch:
+    needs: deploy
+    strategy:
+      matrix:
+        repo: ['pretextbook/pretext-docker', 'pretextbook/html-static']
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repository Dispatch
+        uses: peter-evans/repository-dispatch@v4
+        with:
+          token: ${{ secrets.PUSH_CODESPACES }}
+          repository: ${{ matrix.repo }}
+          event-type: pretext-publish
+          client-payload: '{"ref": "${{ github.ref }}", "sha": "${{ github.sha }}"}'
+
+  # Downstream projects that should track each stable release:
+  # - pretext-tools re-pins its schemas and Instant Preview XSL to this
+  #   release's CORE_COMMIT and publishes (which in turn updates PreTeXt-Plus).
+  # - pretext-plus-build-full rebuilds its warm build image once the
+  #   pretext-full docker image for this release is published.
+  # - pretext-plus-build (the lite build server) pins this release.
+  # legacy-support releases are not propagated.
+  dispatch-release:
+    needs: deploy
+    if: ${{ inputs.branch == 'main' }}
+    runs-on: ubuntu-latest
+    env:
+      PRETEXT_PLUS_DISPATCH_TOKEN: ${{ secrets.PRETEXT_PLUS_DISPATCH_TOKEN }}
+    steps:
+      - name: Record release time
+        id: released
+        run: echo "at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch to pretext-tools
+        uses: peter-evans/repository-dispatch@v4
+        with:
+          token: ${{ secrets.PUSH_CODESPACES }}
+          repository: PreTeXtBook/pretext-tools
+          event-type: pretext-cli-release
+          client-payload: '{"version": "${{ needs.deploy.outputs.version }}"}'
+
+      # PreTeXtPlus is a different organization, so this needs its own token.
+      - name: Dispatch to pretext-plus-build-full
+        if: ${{ env.PRETEXT_PLUS_DISPATCH_TOKEN != '' }}
+        uses: peter-evans/repository-dispatch@v4
+        with:
+          token: ${{ env.PRETEXT_PLUS_DISPATCH_TOKEN }}
+          repository: PreTeXtPlus/pretext-plus-build-full
+          event-type: pretext-cli-release
+          client-payload: '{"version": "${{ needs.deploy.outputs.version }}", "released_at": "${{ steps.released.outputs.at }}"}'
+
+      - name: Dispatch to pretext-plus-build
+        if: ${{ env.PRETEXT_PLUS_DISPATCH_TOKEN != '' }}
+        uses: peter-evans/repository-dispatch@v4
+        with:
+          token: ${{ env.PRETEXT_PLUS_DISPATCH_TOKEN }}
+          repository: PreTeXtPlus/pretext-plus-build
+          event-type: pretext-cli-release
+          client-payload: '{"version": "${{ needs.deploy.outputs.version }}"}'

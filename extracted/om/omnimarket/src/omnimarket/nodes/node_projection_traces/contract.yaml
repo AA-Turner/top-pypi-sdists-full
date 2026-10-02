@@ -1,0 +1,94 @@
+---
+name: node_projection_traces
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: REDUCER_GENERIC
+node_version: {major: 1, minor: 0, patch: 0}
+input_model: ModelTraceProjectionEvent
+description: >
+  Aggregates correlation-grouped log entries into repeatable trace snapshots for
+  the dashboard trace-explorer. One row per correlation_id with running/error
+  status and timeline bounds.
+
+handler:
+  module: omnimarket.nodes.node_projection_traces.handlers.handler_projection_traces
+  class: HandlerProjectionTraces
+
+handler_routing:
+  routing_strategy: payload_type_match
+  routes:
+    - input_model: omnimarket.nodes.node_projection_traces.models.model_trace_event.ModelTraceProjectionEvent
+      output_model: omnimarket.nodes.node_projection_traces.models.model_trace_event.ModelTraceSnapshot
+  handlers:
+    - handler:
+        name: HandlerProjectionTraces
+        module: omnimarket.nodes.node_projection_traces.handlers.handler_projection_traces
+      event_model: omnimarket.nodes.node_projection_traces.models.model_trace_event.ModelTraceProjectionEvent
+
+idempotency:
+  enabled: true
+  strategy: snapshot_upsert
+  hash_fields:
+    - correlation_id
+
+event_bus:
+  subscribe_topics:
+    - onex.evt.platform.log-entry.v1
+  publish_topics:
+    - onex.evt.omnimarket.traces-snapshot.v1
+
+# db_io.db_tables is the WRITE-side declaration the runtime auto-wiring
+# materialization path requires: omnibase_infra.runtime.auto_wiring.handler_wiring
+# only wires the DB-injecting projection callback
+# (_make_projection_dispatch_callback) for contracts where _contract_declares_db_io
+# is true (i.e. db_io.db_tables is present). Without this block the consumer
+# subscribes and advances offsets but handle() is never invoked with a _db
+# adapter, so the traces table never materializes (OMN-13083 root cause). The
+# projection_api block below is read-side only (powers GET /projection/...).
+db_io:
+  db_tables:
+    - name: traces
+      database_ref: application
+      schema: omninode_internal
+      migration: "0001_create_traces.sql"
+      # OMN-16690: this handler QUERIES this table (idempotency / lookup)
+      # before writing. `access: write` is refused fail-closed at the
+      # runtime read seam (ProjectionTableOperation._assert_read_declared),
+      # which quarantines every event while the caller still sees a 202.
+      # The declaration must cover what the handler actually does.
+      access: read_write
+      role: traces
+
+projection_api:
+  expose: true
+  topic: "onex.snapshot.projection.traces.v1" # onex-topic-allow: projection snapshot topics use onex.snapshot.* prefix by convention
+  key_grain: "mutable"
+  table: "traces"
+  schema: "public"
+  columns:
+    - "correlation_id"
+    - "nodes_involved"
+    - "event_count"
+    - "first_event_at"
+    - "last_event_at"
+    - "duration_ms"
+    - "has_error"
+    - "is_running"
+    - "latest_message"
+  order_by: "last_event_at DESC"
+  freshness_column: "last_event_at"
+  limit: 100
+
+metadata:
+  transport_type: kafka
+
+# OMN-18013 -- explicit external PRODUCER declaration (contract topic graph closure).
+# Replaces the deleted contract_topic_graph_baseline.yaml external_producers map:
+# the declaration now lives beside the subscription it explains.
+externally_produced_topics:
+  - topic: onex.evt.platform.log-entry.v1
+    producer: "omnimarket.logging.structured_logger.StructuredLogger.publish (structured_logger.py:131) -- the process-wide log emitter, not a node contract"
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.traces-snapshot.v1

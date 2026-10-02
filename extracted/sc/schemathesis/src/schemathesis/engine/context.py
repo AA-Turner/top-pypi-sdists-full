@@ -20,6 +20,7 @@ from schemathesis.engine.observations import Observations
 from schemathesis.engine.outage import ServerMonitor
 from schemathesis.engine.run.cache import Cache
 from schemathesis.engine.supervisor import Supervisor
+from schemathesis.generation import derive_operation_seed
 from schemathesis.generation.case import Case
 from schemathesis.generation.coverage import GenerationSession
 from schemathesis.python._constants.orchestrator import build_constants_pool
@@ -99,6 +100,7 @@ class EngineContext:
         "_constants_extraction_lock",
         "coverage_session",
         "coverage_unexpected_methods_seen",
+        "auth_enforced_operations",
         "reauth",
     )
 
@@ -145,6 +147,8 @@ class EngineContext:
         # Coverage generation state lives and dies with the run.
         self.coverage_session = GenerationSession()
         self.coverage_unexpected_methods_seen: set[tuple[str, str]] = set()
+        # Operations whose missing and invalid credentials were already rejected in this run.
+        self.auth_enforced_operations: set[str] = set()
 
     def _repr_pretty_(self, *args: Any, **kwargs: Any) -> None: ...
 
@@ -246,6 +250,10 @@ class EngineContext:
         """Run seed shifted by the cycle, so a repeat covers ground the last one did not."""
         seed = self.config.seed
         return None if seed is None else seed + self.cycle_index
+
+    def operation_seed(self, operation: APIOperation) -> int | None:
+        """Cycle seed mixed with the operation label, so operations with identical parameters draw different inputs."""
+        return derive_operation_seed(self.cycle_seed, operation.label)
 
     def next_stateful_seed(self) -> int | None:
         """Seed for the next stateful suite; every suite in the run gets its own, cycles included."""

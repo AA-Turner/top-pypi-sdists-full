@@ -1,0 +1,195 @@
+Metadata-Version: 2.1
+Name: tmol
+Version: 0.1.55
+Summary: GPU-accelerated PyTorch reimplementation of the Rosetta energy function
+Author-Email: Institute for Protein Design <contact@ipd.uw.edu>
+License: Apache-2.0
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Natural Language :: English
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: MacOS
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
+Project-URL: Documentation, https://uw-ipd.github.io/tmol/
+Project-URL: Issues, https://github.com/uw-ipd/tmol/issues
+Project-URL: Repository, https://github.com/uw-ipd/tmol
+Project-URL: Releases, https://github.com/uw-ipd/tmol/releases
+Requires-Python: >=3.11
+Requires-Dist: torch>=2.5
+Requires-Dist: numpy>=1.24
+Requires-Dist: scipy>=1.11
+Requires-Dist: attrs>=21.0
+Requires-Dist: attrs_strict<2,>=1.0
+Requires-Dist: cattrs>=22.0
+Requires-Dist: frozendict>=2.4
+Requires-Dist: pandas<3,>=2.0
+Requires-Dist: pyarrow>=12
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: networkx>=3.0
+Requires-Dist: toolz<2,>=0.12.0
+Requires-Dist: decorator>=4.0
+Requires-Dist: typing_extensions<5,>=4.0
+Requires-Dist: typing_inspect>=0.9
+Requires-Dist: pint<1,>=0.23
+Requires-Dist: psutil>=5.9
+Requires-Dist: requests<3,>=2.28
+Requires-Dist: sparse>=0.13
+Requires-Dist: numba>=0.56
+Requires-Dist: llvmlite>=0.39
+Requires-Dist: hypothesis>=5.35
+Requires-Dist: astor>=0.8
+Requires-Dist: biotite>=1.4.0
+Requires-Dist: rdkit>=2024.3
+Provides-Extra: ligand
+Requires-Dist: openbabel-wheel==3.1.1.22; extra == "ligand"
+Provides-Extra: dev
+Requires-Dist: black==26.3.1; extra == "dev"
+Requires-Dist: flake8==7.3.0; extra == "dev"
+Requires-Dist: pre-commit>=4.0; extra == "dev"
+Requires-Dist: clang-format==21.1.8; extra == "dev"
+Requires-Dist: pytest>=8.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.1; extra == "dev"
+Requires-Dist: pytest-benchmark>=5.1; extra == "dev"
+Requires-Dist: pytest-forked>=1.6; extra == "dev"
+Requires-Dist: pytest-instafail>=0.5; extra == "dev"
+Requires-Dist: pytest-repeat>=0.9; extra == "dev"
+Requires-Dist: pytest-watch>=4.2; extra == "dev"
+Requires-Dist: pytest-xdist>=3.6; extra == "dev"
+Requires-Dist: ipython>=8.0; extra == "dev"
+Requires-Dist: seaborn>=0.13; extra == "dev"
+Requires-Dist: tmol[ligand]; extra == "dev"
+Provides-Extra: cuda
+Requires-Dist: nvidia-cuda-nvcc>=13; extra == "cuda"
+Requires-Dist: nvidia-cuda-cccl>=13; extra == "cuda"
+Provides-Extra: docs
+Requires-Dist: sphinx<9,>=8.0; extra == "docs"
+Requires-Dist: pydata-sphinx-theme<1,>=0.16; extra == "docs"
+Requires-Dist: myst-parser<5,>=4.0; extra == "docs"
+Requires-Dist: nbsphinx<1,>=0.9; extra == "docs"
+Requires-Dist: sphinx-togglebutton<1,>=0.3; extra == "docs"
+Requires-Dist: matplotlib<4,>=3.8; extra == "docs"
+Requires-Dist: pypandoc-binary<2,>=1.15; extra == "docs"
+Requires-Dist: linkify-it-py<3,>=2.0; extra == "docs"
+Requires-Dist: ipython>=8.0; extra == "docs"
+Requires-Dist: py3Dmol<3,>=2.4; extra == "docs"
+Requires-Dist: itables>=2.0; extra == "docs"
+Requires-Dist: nbclient<1,>=0.10; extra == "docs"
+Requires-Dist: nbformat<6,>=5.10; extra == "docs"
+Requires-Dist: ipykernel<7,>=6.29; extra == "docs"
+Requires-Dist: openbabel-wheel==3.1.1.22; extra == "docs"
+Description-Content-Type: text/markdown
+
+<h1 align="center">TMol</h1>
+
+<p align="center"><em>Rosetta molecular modeling at PyTorch speed.</em></p>
+
+<p align="center">
+  <a href="https://pypi.org/project/tmol/"><img src="https://img.shields.io/pypi/v/tmol.svg" alt="PyPI version"></a>
+  <a href="https://pypi.org/project/tmol/"><img src="https://img.shields.io/pypi/pyversions/tmol.svg" alt="Python versions"></a>
+  <a href="https://pypi.org/project/tmol/"><img src="https://img.shields.io/pypi/dm/tmol.svg" alt="PyPI downloads"></a>
+  <a href="https://github.com/uw-ipd/tmol/actions/workflows/ci.yml"><img src="https://github.com/uw-ipd/tmol/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="https://uw-ipd.github.io/tmol/"><img src="https://github.com/uw-ipd/tmol/actions/workflows/docs.yml/badge.svg" alt="Documentation"></a>
+  <a href="https://codecov.io/gh/uw-ipd/tmol"><img src="https://codecov.io/gh/uw-ipd/tmol/graph/badge.svg" alt="Code coverage"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/uw-ipd/tmol.svg" alt="License"></a>
+</p>
+
+TMol scores, packs, minimizes, and relaxes all-atom molecular structures as
+batched PyTorch tensors—on CPU or GPU, with gradients. It provides fast
+C++/CUDA kernels and modeling primitives for proteins, nucleic acids, ligands,
+and their complexes.
+
+Explore the **[TMol documentation](https://uw-ipd.github.io/tmol/)** for
+complete installation guidance, executable tutorials, workflows, and the API
+reference.
+
+Three ways in:
+
+- 🚀 **Start scoring** → [quick start](#quick-start), then the full **[Quickstart](https://uw-ipd.github.io/tmol/latest/quickstart.html)**.
+- 🧬 **Build a workflow** → **[scoring, packing, minimization, FastRelax, and ligand recipes](https://uw-ipd.github.io/tmol/latest/workflows/index.html)**.
+- 🛠️ **Develop TMol** → **[contributor guide](https://uw-ipd.github.io/tmol/latest/contributor_guide.html)**.
+
+## Install
+
+The shortest path is:
+
+```bash
+pip install tmol
+```
+
+TMol first looks for a matching prebuilt wheel and otherwise builds locally.
+For a deterministic CPU/GPU binary install, supported Python/PyTorch/CUDA
+combinations, Colab, macOS, and HPC troubleshooting, see the
+**[installation guide](https://uw-ipd.github.io/tmol/latest/installation.html)**
+and **[GitHub Releases](https://github.com/uw-ipd/tmol/releases)**.
+
+Verify the installation:
+
+```bash
+python -c "import tmol; print(tmol.__version__)"
+```
+
+---
+
+## Quick start
+
+Score a structure on GPU when CUDA is available, otherwise on CPU:
+
+```python
+import torch
+import tmol
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+pose = tmol.pose_stack_from_pdb("input.pdb", device)
+
+score_function = tmol.beta2016_score_function(device)
+score = score_function.render_whole_pose_scoring_module(pose)
+print(score(pose.coords))
+```
+
+From here, use the **[interactive examples](https://uw-ipd.github.io/tmol/latest/examples_index.html)**
+to pack side chains, analyze score terms, minimize coordinates, run FastRelax,
+prepare ligands, or model nucleic acids.
+
+---
+
+## What TMol provides
+
+- Batched, differentiable all-atom structures backed by PyTorch tensors.
+- Rosetta-inspired score terms with CPU and CUDA implementations.
+- Side-chain packing and design, Cartesian and kinematic minimization, and FastRelax.
+- Protein, ligand, RNA, and DNA structure preparation and analysis.
+- RoseTTAFold2, OpenFold, Biotite, PDB, and canonical tensor integrations.
+- Ahead-of-time compiled wheels plus source and just-in-time build paths.
+
+See the **[task index](https://uw-ipd.github.io/tmol/latest/tutorial/recipe_index.html)**
+to jump from a modeling task to its maintained tutorial, workflow, and API.
+
+---
+
+## Development
+
+```bash
+git clone https://github.com/uw-ipd/tmol.git
+cd tmol
+TMOL_DISABLE_WHEEL_FETCH=1 pip install -e ".[dev]"
+```
+
+The **[development guide](https://uw-ipd.github.io/tmol/latest/user_guide/development.html)**
+covers CMake/CUDA builds, tests, benchmarks, containers, CI, and releases.
+
+## Citation
+
+If you use TMol in your work, please cite:
+
+> Andrew Leaver-Fay, Jeff Flatten, Alex Ford, Joseph Kleinhenz, Henry Solberg,
+> David Baker, Andrew M. Watkins, Brian Kuhlman, Frank DiMaio, *tmol: a
+> GPU-accelerated, PyTorch implementation of Rosetta's relax protocol*
+> (manuscript in preparation).
+
+TMol is available under the terms in [LICENSE](LICENSE).

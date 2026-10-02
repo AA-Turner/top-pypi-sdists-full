@@ -1,0 +1,487 @@
+// Copyright (c) 2023 - 2024 Contributors to the Eclipse Foundation
+//
+// See the NOTICE file(s) distributed with this work for additional
+// information regarding copyright ownership.
+//
+// This program and the accompanying materials are made available under the
+// terms of the Apache Software License 2.0 which is available at
+// https://www.apache.org/licenses/LICENSE-2.0, or the MIT license
+// which is available at https://opensource.org/licenses/MIT.
+//
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
+//! # Example
+//!
+//! ```
+//! use iceoryx2::prelude::*;
+//!
+//! # fn main() -> Result<(), Box<dyn core::error::Error>> {
+//! let node = NodeBuilder::new().create::<ipc::Service>()?;
+//! let service = node.service_builder(&"My/Funk/ServiceName".try_into()?)
+//!     .publish_subscribe::<u64>()
+//!     .open_or_create()?;
+//!
+//! let subscriber = service.subscriber_builder().create()?;
+//!
+//! while let Some(sample) = subscriber.receive()? {
+//!     println!("received: {:?}", *sample);
+//! }
+//!
+//! # Ok(())
+//! # }
+//! ```
+
+use core::fmt::Debug;
+use core::marker::PhantomData;
+use core::ptr::NonNull;
+
+use iceoryx2_bb_concurrency::atomic::Ordering;
+use iceoryx2_bb_concurrency::cell::UnsafeCell;
+use iceoryx2_bb_container::slotmap::SlotMap;
+use iceoryx2_bb_container::vector::polymorphic_vec::*;
+use iceoryx2_bb_elementary::CallbackProgression;
+use iceoryx2_bb_elementary::cyclic_tagger::CyclicTagger;
+use iceoryx2_bb_elementary_traits::iceoryx_send::IceoryxSend;
+use iceoryx2_bb_elementary_traits::testing::abandonable::Abandonable;
+use iceoryx2_bb_elementary_traits::zero_copy_send::ZeroCopySend;
+use iceoryx2_bb_memory::heap_allocator::HeapAllocator;
+use iceoryx2_cal::arc_sync_policy::ArcSyncPolicy;
+use iceoryx2_cal::bag::Bag;
+use iceoryx2_cal::bag::{BagFamily, BagStateFamily};
+use iceoryx2_cal::dynamic_storage::DynamicStorage;
+use iceoryx2_cal::zero_copy_connection::{CHANNEL_STATE_OPEN, ChannelId};
+use iceoryx2_log::{fail, warn};
+
+use crate::port::port_lifetime_tag::PortLifetimeTag;
+use crate::port::port_name::PortName;
+use crate::port::update_connections::UpdateConnections;
+use crate::service::SharedServiceState;
+use crate::service::dynamic_config::publish_subscribe::{PublisherDetails, SubscriberDetails};
+use crate::service::port_factory::subscriber::SubscriberConfig;
+use crate::service::resource::publish_subscribe::PublishSubscribeResources;
+use crate::service::static_config::publish_subscribe::StaticConfig;
+use crate::{sample::Sample, service};
+
+use super::ReceiveError;
+use super::details::chunk::Chunk;
+use super::details::chunk_details::ChunkDetails;
+use super::details::receiver::*;
+use super::update_connections::ConnectionFailure;
+use crate::identifiers::UniqueSubscriberId;
+
+/// Describes the failures when a new [`Subscriber`] is created via the
+/// [`crate::service::port_factory::subscriber::PortFactorySubscriber`].
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+pub enum SubscriberCreateError {
+    /// The maximum amount of [`Subscriber`]s that can connect to a
+    /// [`Service`](crate::service::Service) is
+    /// defined in [`crate::config::Config`]. When this is exceeded no more [`Subscriber`]s
+    /// can be created for a specific [`Service`](crate::service::Service).
+    ExceedsMaxSupportedSubscribers,
+    /// When the [`Subscriber`] requires a larger buffer size than the
+    /// [`Service`](crate::service::Service) offers the creation will fail.
+    BufferSizeExceedsMaxSupportedBufferSizeOfService,
+    /// Caused by a failure when instantiating a [`ArcSyncPolicy`] defined in the
+    /// [`Service`](crate::service::Service) as `ArcThreadSafetyPolicy`.
+    FailedToDeployThreadsafetyPolicy,
+    /// The tracking port tag, required for cleanup, could not be created.
+    UnableToCreatePortTag,
+    /// When the [`Subscriber`] requests a larger history than the
+    /// [`Service`](crate::service::Service) offers the creation will fail.
+    HistoryRequestExceedsHistorySizeOfService,
+    /// When the [`Subscriber`] requests a larger history than its buffer can hold.
+    HistoryRequestExceedsBufferSizeOfSubscriber,
+    /// The [`UniqueSubscriberId`] could not be generated.
+    UnableToGenerateUniqueSubscriberId,
+}
+
+impl core::fmt::Display for SubscriberCreateError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "SubscriberCreateError::{self:?}")
+    }
+}
+
+impl core::error::Error for SubscriberCreateError {}
+
+#[derive(Debug)]
+pub(crate) struct SubscriberSharedState<Service: service::Service> {
+    pub(crate) receiver: Receiver<Service, PublishSubscribeResources<Service>>,
+    pub(crate) publisher_list_state:
+        UnsafeCell<<Service::Bag as BagFamily>::BagState<PublisherDetails>>,
+    // IMPORTANT!
+    // Fields of a rust struct are dropped in declaration order. Since this tag is our marker that the
+    // port exists and might require cleanup after a crash, the tag must be defined as last member of
+    // the struct.
+    // Otherwise the process might crash during cleanup, has already removed the tag but other resources
+    // are still existing. This would make a cleanup from another process impossible.
+    lifetime_tag: PortLifetimeTag<Service>,
+}
+
+impl<Service: service::Service> Abandonable for SubscriberSharedState<Service> {
+    unsafe fn abandon_in_place(mut this: NonNull<Self>) {
+        let this = unsafe { this.as_mut() };
+        unsafe { Receiver::abandon_in_place(NonNull::from_mut(&mut this.receiver)) };
+        unsafe { Abandonable::abandon_in_place(NonNull::from_mut(&mut this.lifetime_tag)) };
+    }
+}
+
+/// The receiving endpoint of a publish-subscribe communication.
+#[derive(Debug)]
+pub struct Subscriber<
+    Service: service::Service,
+    Payload: IceoryxSend + Debug + ?Sized + 'static,
+    UserHeader: ZeroCopySend + Debug,
+> {
+    dynamic_subscriber_handle: <Service::Bag as BagFamily>::BagHandle,
+    subscriber_details: &'static SubscriberDetails,
+    subscriber_shared_state: Service::ArcThreadSafetyPolicy<SubscriberSharedState<Service>>,
+
+    _payload: PhantomData<Payload>,
+    _user_header: PhantomData<UserHeader>,
+}
+
+unsafe impl<
+    Service: service::Service,
+    Payload: IceoryxSend + Debug + ?Sized,
+    UserHeader: Debug + ZeroCopySend,
+> Send for Subscriber<Service, Payload, UserHeader>
+where
+    Service::ArcThreadSafetyPolicy<SubscriberSharedState<Service>>: Send + Sync,
+{
+}
+
+unsafe impl<
+    Service: service::Service,
+    Payload: IceoryxSend + Debug + ?Sized,
+    UserHeader: Debug + ZeroCopySend,
+> Sync for Subscriber<Service, Payload, UserHeader>
+where
+    Service::ArcThreadSafetyPolicy<SubscriberSharedState<Service>>: Send + Sync,
+{
+}
+
+impl<
+    Service: service::Service,
+    Payload: IceoryxSend + Debug + ?Sized,
+    UserHeader: Debug + ZeroCopySend,
+> Abandonable for Subscriber<Service, Payload, UserHeader>
+{
+    unsafe fn abandon_in_place(mut this: NonNull<Self>) {
+        let this = unsafe { this.as_mut() };
+        unsafe {
+            Service::ArcThreadSafetyPolicy::abandon_in_place(NonNull::from_mut(
+                &mut this.subscriber_shared_state,
+            ))
+        };
+    }
+}
+
+impl<
+    Service: service::Service,
+    Payload: IceoryxSend + Debug + ?Sized,
+    UserHeader: Debug + ZeroCopySend,
+> Drop for Subscriber<Service, Payload, UserHeader>
+{
+    fn drop(&mut self) {
+        self.subscriber_shared_state
+            .lock()
+            .receiver
+            .service_state
+            .dynamic_storage()
+            .get()
+            .publish_subscribe()
+            .release_subscriber_handle(self.dynamic_subscriber_handle)
+    }
+}
+
+impl<
+    Service: service::Service,
+    Payload: IceoryxSend + Debug + ?Sized,
+    UserHeader: Debug + ZeroCopySend,
+> Subscriber<Service, Payload, UserHeader>
+{
+    pub(crate) fn new(
+        service: SharedServiceState<Service, PublishSubscribeResources<Service>>,
+        static_config: &StaticConfig,
+        config: SubscriberConfig,
+    ) -> Result<Self, SubscriberCreateError> {
+        let msg = "Failed to create Subscriber port";
+        let origin = "Subscriber::new()";
+        let subscriber_id = fail!(from origin,
+            when UniqueSubscriberId::new::<Service>(config.port_name, service.shared_node().config()),
+            with SubscriberCreateError::UnableToGenerateUniqueSubscriberId,
+            "{msg} since the UniqueSubscriberId could not be generated.");
+        // !MUST! be the first thing that is created when a new port is instantiated otherwise the
+        // port resources might leak if this process is killed in between.
+        let lifetime_tag = PortLifetimeTag::new(
+            origin,
+            msg,
+            subscriber_id.0.value(),
+            service.shared_node(),
+            SubscriberCreateError::UnableToCreatePortTag,
+        )?;
+
+        let publisher_list = &service
+            .dynamic_storage()
+            .get()
+            .publish_subscribe()
+            .publishers;
+
+        let buffer_size = match config.buffer_size {
+            Some(buffer_size) => {
+                if static_config.subscriber_max_buffer_size < buffer_size {
+                    fail!(from origin, with SubscriberCreateError::BufferSizeExceedsMaxSupportedBufferSizeOfService,
+                        "{} since the requested buffer size {} exceeds the maximum supported buffer size {} of the service.",
+                        msg, buffer_size, static_config.subscriber_max_buffer_size);
+                }
+                buffer_size
+            }
+            None => static_config.subscriber_max_buffer_size,
+        };
+
+        let history_request = match config.history_request {
+            Some(history_request) => {
+                if history_request > static_config.history_size {
+                    fail!(from origin, with SubscriberCreateError::HistoryRequestExceedsHistorySizeOfService,
+                          "{} since the requested history {} exceeds the supported history size {} of the service.",
+                          msg, history_request, static_config.history_size);
+                }
+
+                if history_request > buffer_size {
+                    fail!(from origin, with SubscriberCreateError::HistoryRequestExceedsBufferSizeOfSubscriber,
+                        "{} since the requested history {} exceeds the buffer size {}.",
+                        msg, history_request, buffer_size);
+                }
+
+                history_request
+            }
+            None => static_config.history_size.min(buffer_size),
+        };
+
+        let subscriber_max_borrowed_samples = static_config.subscriber_max_borrowed_samples;
+        let subscriber_expired_connection_buffer = service
+            .shared_node()
+            .config()
+            .defaults
+            .publish_subscribe
+            .subscriber_expired_connection_buffer;
+
+        let number_of_to_be_removed_connections = if subscriber_expired_connection_buffer
+            >= subscriber_max_borrowed_samples
+        {
+            subscriber_expired_connection_buffer
+        } else {
+            warn!(
+                "Subscriber max borrowed samples is larger than expired connection buffer! Set buffer capacity to value of max borrowed samples."
+            );
+            subscriber_max_borrowed_samples
+        };
+
+        let number_of_active_connections = publisher_list.capacity();
+        let number_of_connections =
+            number_of_to_be_removed_connections + number_of_active_connections;
+
+        let subscriber_shared_state = Service::ArcThreadSafetyPolicy::new(SubscriberSharedState {
+            lifetime_tag,
+            publisher_list_state: UnsafeCell::new(unsafe { publisher_list.get_state() }),
+            receiver: Receiver {
+                connections: PolymorphicVec::from_fn(
+                    HeapAllocator::global(),
+                    number_of_active_connections,
+                    |_| UnsafeCell::new(None),
+                )
+                .expect("Heap allocator provides memory."),
+                receiver_port_id: subscriber_id.value(),
+                service_state: service.clone(),
+                message_type_details: static_config.message_type_details,
+                receiver_max_borrowed_chunks: subscriber_max_borrowed_samples,
+                enable_safe_overflow: static_config.enable_safe_overflow,
+                buffer_size,
+                tagger: CyclicTagger::new(),
+                to_be_removed_connections: UnsafeCell::new(
+                    PolymorphicVec::new(
+                        HeapAllocator::global(),
+                        number_of_to_be_removed_connections,
+                    )
+                    .expect("Heap allocator provides memory."),
+                ),
+                degradation_handler: config.degradation_handler,
+                number_of_channels: 1,
+                connection_storage: UnsafeCell::new(SlotMap::new(number_of_connections)),
+                initial_channel_state: CHANNEL_STATE_OPEN,
+            },
+        });
+
+        let subscriber_shared_state = match subscriber_shared_state {
+            Ok(v) => v,
+            Err(e) => {
+                fail!(from origin,
+                            with SubscriberCreateError::FailedToDeployThreadsafetyPolicy,
+                            "{msg} since the threadsafety policy could not be instantiated ({e:?}).");
+            }
+        };
+
+        if let Err(e) = Self::force_update_connections(&subscriber_shared_state.lock()) {
+            warn!(from origin, "The new subscriber is unable to connect to every publisher, caused by {:?}.", e);
+        }
+
+        core::sync::atomic::compiler_fence(Ordering::SeqCst);
+
+        // !MUST! be the last task otherwise a subscriber is added to the dynamic config without
+        // the creation of all required channels
+        let (details, handle) = match service
+            .dynamic_storage()
+            .get()
+            .publish_subscribe()
+            .register_subscriber_id(SubscriberDetails {
+                subscriber_id,
+                buffer_size,
+                history_request,
+                node_id: *service.shared_node().id(),
+                subscriber_name: config.port_name,
+            }) {
+            Some(v) => v,
+            None => {
+                fail!(from origin, with SubscriberCreateError::ExceedsMaxSupportedSubscribers,
+                                "{} since it would exceed the maximum supported amount of subscribers of {}.",
+                                msg, service.static_config().publish_subscribe().max_subscribers);
+            }
+        };
+
+        Ok(Self {
+            subscriber_shared_state,
+            dynamic_subscriber_handle: handle,
+            subscriber_details: unsafe { &*details },
+            _payload: PhantomData,
+            _user_header: PhantomData,
+        })
+    }
+
+    fn force_update_connections(
+        subscriber_shared_state: &SubscriberSharedState<Service>,
+    ) -> Result<(), ConnectionFailure> {
+        subscriber_shared_state
+            .receiver
+            .start_update_connection_cycle();
+
+        let mut result = Ok(());
+        unsafe {
+            (*subscriber_shared_state.publisher_list_state.get()).for_each(|index, details| {
+                let inner_result = subscriber_shared_state.receiver.update_connection(
+                    index,
+                    SenderDetails {
+                        port_id: details.publisher_id.value(),
+                        number_of_chunks: details.number_of_samples,
+                        max_number_of_segments: details.max_number_of_segments,
+                        data_segment_type: details.data_segment_type,
+                    },
+                );
+
+                if result.is_ok() {
+                    result = inner_result;
+                }
+                CallbackProgression::Continue
+            })
+        };
+
+        subscriber_shared_state
+            .receiver
+            .finish_update_connection_cycle();
+
+        result
+    }
+
+    /// Returns the [`UniqueSubscriberId`] of the [`Subscriber`]
+    pub fn id(&self) -> UniqueSubscriberId {
+        self.subscriber_details.subscriber_id
+    }
+
+    /// Returns the [`PortName`] of the [`Subscriber`]
+    pub fn name(&self) -> &PortName {
+        &self.subscriber_details.subscriber_name
+    }
+
+    /// Returns the internal buffer size of the [`Subscriber`].
+    pub fn buffer_size(&self) -> usize {
+        self.subscriber_shared_state.lock().receiver.buffer_size
+    }
+
+    /// Returns true if the [`Subscriber`] has samples in the buffer that can be received with [`Subscriber::receive`].
+    pub fn has_samples(&self) -> Result<bool, ConnectionFailure> {
+        fail!(from self, when self.update_connections(),
+                "Some samples are not being received since not all connections to publishers could be established.");
+        Ok(self
+            .subscriber_shared_state
+            .lock()
+            .receiver
+            .has_chunks(ChannelId::new(0)))
+    }
+
+    fn receive_impl(&self) -> Result<Option<(ChunkDetails, Chunk)>, ReceiveError> {
+        fail!(from self, when self.update_connections(),
+                "Some samples are not being received since not all connections to publishers could be established.");
+
+        self.subscriber_shared_state
+            .lock()
+            .receiver
+            .receive(ChannelId::new(0))
+    }
+}
+
+impl<
+    Service: service::Service,
+    Payload: IceoryxSend + Debug + ?Sized,
+    UserHeader: Debug + ZeroCopySend,
+> UpdateConnections for Subscriber<Service, Payload, UserHeader>
+{
+    fn update_connections(&self) -> Result<(), ConnectionFailure> {
+        let subscriber_shared_state = self.subscriber_shared_state.lock();
+        if unsafe {
+            subscriber_shared_state
+                .receiver
+                .service_state
+                .dynamic_storage()
+                .get()
+                .publish_subscribe()
+                .publishers
+                .update_state(&mut *subscriber_shared_state.publisher_list_state.get())
+        } {
+            fail!(from self, when Self::force_update_connections(&subscriber_shared_state),
+                "Connections were updated only partially since at least one connection to a publisher failed.");
+        }
+
+        Ok(())
+    }
+}
+
+impl<Service: service::Service, Payload: IceoryxSend + Debug, UserHeader: Debug + ZeroCopySend>
+    Subscriber<Service, Payload, UserHeader>
+{
+    /// Receives a [`crate::sample::Sample`] from [`crate::port::publisher::Publisher`]. If no sample could be
+    /// received [`None`] is returned. If a failure occurs [`ReceiveError`] is returned.
+    pub fn receive(&self) -> Result<Option<Sample<Service, Payload, UserHeader>>, ReceiveError> {
+        Ok(self.receive_impl()?.map(|(details, chunk)| Sample {
+            subscriber_shared_state: self.subscriber_shared_state.clone(),
+            details,
+            chunk,
+            _payload: PhantomData,
+            _user_header: PhantomData,
+        }))
+    }
+}
+
+impl<Service: service::Service, Payload: Debug + ZeroCopySend, UserHeader: Debug + ZeroCopySend>
+    Subscriber<Service, [Payload], UserHeader>
+{
+    /// Receives a [`crate::sample::Sample`] from [`crate::port::publisher::Publisher`]. If no sample could be
+    /// received [`None`] is returned. If a failure occurs [`ReceiveError`] is returned.
+    pub fn receive(&self) -> Result<Option<Sample<Service, [Payload], UserHeader>>, ReceiveError> {
+        Ok(self.receive_impl()?.map(|(details, chunk)| Sample {
+            subscriber_shared_state: self.subscriber_shared_state.clone(),
+            details,
+            chunk,
+            _payload: PhantomData,
+            _user_header: PhantomData,
+        }))
+    }
+}

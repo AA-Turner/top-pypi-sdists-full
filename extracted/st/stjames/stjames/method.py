@@ -1,0 +1,331 @@
+from typing import Literal
+
+from .base import LowercaseStrEnum
+from .engine import Engine
+
+
+class Method(LowercaseStrEnum):
+    """Computational chemistry method."""
+
+    HARTREE_FOCK = "hf"
+    HF3C = "hf_3c"
+
+    # DFT methods
+    ## Pure functionals
+    PBE = "pbe"
+    BP86 = "bp86"
+    B973C = "b97_3c"
+    B97D3BJ = "b97_d3bj"
+    R2SCAN = "r2scan"
+    R2SCAN3C = "r2scan_3c"
+    TPSS = "tpss"
+    M06L = "m06l"
+
+    ## Hybrid functionals
+    PBE0 = "pbe0"
+    B3LYP = "b3lyp"
+    TPSSH = "tpssh"
+    M06 = "m06"
+    M062X = "m062x"
+
+    ## Range-separated hybrid functionals
+    CAMB3LYP = "camb3lyp"
+    WB97XD3 = "wb97x_d3"
+    WB97XV = "wb97x_v"
+    WB97X3C = "wb97x_3c"
+    WB97MV = "wb97m_v"
+    WB97MD3BJ = "wb97m_d3bj"
+
+    ## Double hybrid functionals
+    DSDBLYPD3BJ = "dsd_blyp_d3bj"
+
+    ## ML functionals
+    SKALA = "skala"
+
+    # NNPs
+    AIMNET2_WB97MD3 = "aimnet2_wb97md3"
+
+    ## MACE (Deprecated)
+    MACE_MP_0 = "mace_mp_0"  # Deprecated
+    MACE_MP_0B2_L = "mace_mp_0b2_l"  # Deprecated
+
+    OMOL25_CONSERVING_S = "omol25_conserving_s"
+
+    ## UMA
+    UMA_S_OMOL = "uma_s_omol"
+    UMA_S_1_2_OMOL = "uma_s_1_2_omol"
+    UMA_M_OMOL = "uma_m_omol"
+    UMA_S_OMAT = "uma_s_omat"
+    UMA_S_1_2_OMAT = "uma_s_1_2_omat"
+    UMA_M_OMAT = "uma_m_omat"
+    UMA_S_OMC = "uma_s_omc"
+    UMA_S_1_2_OMC = "uma_s_1_2_omc"
+    UMA_M_OMC = "uma_m_omc"
+
+    ## Orb
+    ORB_V3_CONSERVATIVE_INF_OMAT = "orb_v3_conservative_inf_omat"
+    ORB_V3_CONSERVATIVE_OMOL = "orb_v3_conservative_omol"
+
+    ## Egret
+    EGRET_1 = "egret_1"
+    EGRET_1E = "egret_1e"
+    EGRET_1T = "egret_1t"
+
+    # Semiempirical methods
+    GFN_FF = "gfn_ff"
+    GFN0_XTB = "gfn0_xtb"
+    GFN1_XTB = "gfn1_xtb"
+    GFN2_XTB = "gfn2_xtb"
+    G_XTB = "g_xtb"
+
+    ## MOPAC semiempirical methods
+    PM6 = "pm6"
+    PM6_D3H4X = "pm6_d3h4x"
+    PM6_ORG = "pm6_org"
+    PM7 = "pm7"
+
+    # Force fields
+    OFF_SAGE_2_0_0 = "off_sage_2_0_0"
+    OFF_SAGE_2_2_1 = "off_sage_2_2_1"
+    OFF_SAGE_2_3_0 = "off_sage_2_3_0"
+    MANGO_1_0_0 = "mango_1_0_0"
+
+    # Deprecated force fields
+    SMIRNOFF_2_0_0_AMBER_AM1BCC = "smirnoff_2_0_0_amber_am1bcc"  # Deprecated: use OFF_SAGE_2_0_0
+    SMIRNOFF_2_2_1_AMBER_AM1BCC = "smirnoff_2_2_1_amber_am1bcc"  # Deprecated: use OFF_SAGE_2_2_1
+
+    def default_engine(self, *, is_periodic: bool = False) -> Engine:
+        """
+        Return the canonical Engine for this quantum-chemistry method.
+
+        :param is_periodic: if True and method supports periodic DFT, return
+            "quantum_espresso"; if True and method is in XTB family, return
+            "tblite" (periodic-capable backend) instead of "xtb"
+        :return: lower-case engine identifier (e.g. "psi4", "xtb")
+
+        >>> Method.GFN2_XTB.default_engine().value
+        'xtb'
+        >>> Method.GFN2_XTB.default_engine(is_periodic=True).value
+        'tblite'
+        >>> Method.PBE.default_engine(is_periodic=True).value
+        'quantum_espresso'
+        >>> Method.PBE.default_engine().value
+        'gpu4pyscf'
+        """
+        match self:
+            case method if is_periodic and method in QUANTUM_ESPRESSO_METHODS:
+                return Engine.QUANTUM_ESPRESSO
+            case Method.AIMNET2_WB97MD3:
+                return Engine.AIMNET2
+            case Method.MACE_MP_0B2_L:
+                return Engine.MACE
+            case (
+                Method.OMOL25_CONSERVING_S
+                | Method.UMA_S_OMOL
+                | Method.UMA_S_1_2_OMOL
+                | Method.UMA_M_OMOL
+                | Method.UMA_S_OMAT
+                | Method.UMA_S_1_2_OMAT
+                | Method.UMA_M_OMAT
+                | Method.UMA_S_OMC
+                | Method.UMA_S_1_2_OMC
+                | Method.UMA_M_OMC
+            ):
+                return Engine.OMOL25
+            case Method.ORB_V3_CONSERVATIVE_INF_OMAT | Method.ORB_V3_CONSERVATIVE_OMOL:
+                return Engine.ORB
+            case method if method in XTB_METHODS:
+                return Engine.TBLITE if is_periodic else Engine.XTB
+            case method if method in MOPAC_METHODS:
+                return Engine.MOPAC
+            case method if method in FORCE_FIELD_METHODS:
+                return Engine.OPENFF
+            case Method.EGRET_1 | Method.EGRET_1E | Method.EGRET_1T:
+                return Engine.EGRET
+            case Method.SKALA:
+                return Engine.PYSCF
+            case (
+                Method.HARTREE_FOCK
+                | Method.BP86
+                | Method.PBE
+                | Method.R2SCAN
+                | Method.TPSS
+                | Method.M06L
+                | Method.PBE0
+                | Method.B3LYP
+                | Method.TPSSH
+                | Method.M06
+                | Method.M062X
+                | Method.CAMB3LYP
+                | Method.WB97XV
+                | Method.WB97MV
+                | Method.WB97MD3BJ
+            ):
+                # gpu4pyscf supports D4 on all methods including mGGA
+                return Engine.GPU4PYSCF
+            case _:
+                # psi4-only: composite methods, wb97x_d3, dsd_blyp_d3bj, b97_d3bj
+                return Engine.PSI4
+
+
+class WaterForceField(LowercaseStrEnum):
+    TIP3P = "tip3p"
+    TIP4P = "tip4p_ew"
+    OPC = "opc"
+
+
+class ProteinForceField(LowercaseStrEnum):
+    FF14SB = "ff14sb"
+    FF19SB = "ff19sb"
+    FF99SBildn = "ff99SBildn"
+
+
+PrepackagedNNPMethod = Literal[
+    Method.AIMNET2_WB97MD3,
+    Method.OMOL25_CONSERVING_S,
+    Method.UMA_S_OMOL,
+    Method.UMA_S_1_2_OMOL,
+    Method.UMA_M_OMOL,
+    Method.UMA_S_OMAT,
+    Method.UMA_S_1_2_OMAT,
+    Method.UMA_M_OMAT,
+    Method.UMA_S_OMC,
+    Method.UMA_S_1_2_OMC,
+    Method.UMA_M_OMC,
+    Method.ORB_V3_CONSERVATIVE_INF_OMAT,
+    Method.ORB_V3_CONSERVATIVE_OMOL,
+    Method.EGRET_1,
+    Method.EGRET_1E,
+    Method.EGRET_1T,
+]
+
+PREPACKAGED_NNP_METHODS = {
+    Method.AIMNET2_WB97MD3,
+    Method.OMOL25_CONSERVING_S,
+    Method.UMA_S_OMOL,
+    Method.UMA_S_1_2_OMOL,
+    Method.UMA_M_OMOL,
+    Method.UMA_S_OMAT,
+    Method.UMA_S_1_2_OMAT,
+    Method.UMA_M_OMAT,
+    Method.UMA_S_OMC,
+    Method.UMA_S_1_2_OMC,
+    Method.UMA_M_OMC,
+    Method.ORB_V3_CONSERVATIVE_INF_OMAT,
+    Method.ORB_V3_CONSERVATIVE_OMOL,
+    Method.EGRET_1,
+    Method.EGRET_1E,
+    Method.EGRET_1T,
+}
+
+CorrectableNNPMethod = Literal[Method.MACE_MP_0, Method.MACE_MP_0B2_L]  # Deprecated
+CORRECTABLE_NNP_METHODS = {Method.MACE_MP_0, Method.MACE_MP_0B2_L}  # Deprecated
+
+NNPMethod = PrepackagedNNPMethod | CorrectableNNPMethod
+NNP_METHODS = PREPACKAGED_NNP_METHODS | CORRECTABLE_NNP_METHODS
+
+XTBMethod = Literal[Method.GFN_FF, Method.GFN0_XTB, Method.GFN1_XTB, Method.GFN2_XTB, Method.G_XTB]
+XTB_METHODS = {Method.GFN_FF, Method.GFN0_XTB, Method.GFN1_XTB, Method.GFN2_XTB, Method.G_XTB}
+
+MOPACMethod = Literal[Method.PM6, Method.PM6_D3H4X, Method.PM6_ORG, Method.PM7]
+MOPAC_METHODS = {Method.PM6, Method.PM6_D3H4X, Method.PM6_ORG, Method.PM7}
+
+CompositeMethod = Literal[Method.HF3C, Method.B973C, Method.R2SCAN3C, Method.WB97X3C]
+COMPOSITE_METHODS = {Method.HF3C, Method.B973C, Method.R2SCAN3C, Method.WB97X3C}
+
+FFMethod = Literal[
+    Method.OFF_SAGE_2_0_0,
+    Method.OFF_SAGE_2_2_1,
+    Method.OFF_SAGE_2_3_0,
+    Method.MANGO_1_0_0,
+]
+FF_METHODS = {
+    Method.OFF_SAGE_2_0_0,
+    Method.OFF_SAGE_2_2_1,
+    Method.OFF_SAGE_2_3_0,
+    Method.MANGO_1_0_0,
+}
+DEPRECATED_FF_METHODS = {
+    Method.SMIRNOFF_2_0_0_AMBER_AM1BCC,
+    Method.SMIRNOFF_2_2_1_AMBER_AM1BCC,
+}
+FORCE_FIELD_METHODS = FF_METHODS | DEPRECATED_FF_METHODS
+
+# Methods supported by the Quantum ESPRESSO periodic DFT engine
+QUANTUM_ESPRESSO_METHODS: frozenset[Method] = frozenset(
+    {
+        Method.HARTREE_FOCK,
+        Method.PBE,
+        Method.BP86,
+        Method.R2SCAN,
+        Method.TPSS,
+        Method.M06L,
+        Method.B97D3BJ,
+        Method.PBE0,
+        Method.B3LYP,
+        Method.TPSSH,
+        Method.M06,
+        Method.M062X,
+        Method.CAMB3LYP,
+        Method.WB97XD3,
+    }
+)
+
+PrepackagedMethod = XTBMethod | MOPACMethod | CompositeMethod | PrepackagedNNPMethod | FFMethod
+PREPACKAGED_METHODS = XTB_METHODS | MOPAC_METHODS | COMPOSITE_METHODS | PREPACKAGED_NNP_METHODS | FF_METHODS
+
+MethodWithCorrection = Literal[Method.WB97XD3, Method.WB97XV, Method.WB97MV, Method.WB97MD3BJ, Method.DSDBLYPD3BJ]
+METHODS_WITH_CORRECTION = {Method.WB97XD3, Method.WB97XV, Method.WB97MV, Method.WB97MD3BJ, Method.DSDBLYPD3BJ, Method.B97D3BJ}
+
+MGGAFunctional = Literal[Method.R2SCAN, Method.R2SCAN3C, Method.TPSS, Method.TPSSH, Method.M06L, Method.M06, Method.M062X, Method.WB97MD3BJ, Method.WB97MV]
+MGGA_FUNCTIONALS = {Method.R2SCAN, Method.R2SCAN3C, Method.TPSS, Method.TPSSH, Method.M06L, Method.M06, Method.M062X, Method.WB97MD3BJ, Method.WB97MV}
+
+RangeSeparatedFunctional = Literal[Method.CAMB3LYP, Method.WB97XD3, Method.WB97XV, Method.WB97X3C, Method.WB97MV, Method.WB97MD3BJ]
+RANGE_SEPARATED_FUNCTIONALS = {Method.CAMB3LYP, Method.WB97XD3, Method.WB97XV, Method.WB97X3C, Method.WB97MV, Method.WB97MD3BJ}
+
+DFTFunctional = Literal[
+    Method.PBE,
+    Method.PBE0,
+    Method.BP86,
+    Method.B3LYP,
+    Method.B973C,
+    Method.B97D3BJ,
+    Method.R2SCAN,
+    Method.R2SCAN3C,
+    Method.TPSS,
+    Method.TPSSH,
+    Method.M06L,
+    Method.M06,
+    Method.M062X,
+    Method.CAMB3LYP,
+    Method.WB97XD3,
+    Method.WB97XV,
+    Method.WB97X3C,
+    Method.WB97MV,
+    Method.WB97MD3BJ,
+    Method.DSDBLYPD3BJ,
+    Method.SKALA,
+]
+DFT_FUNCTIONALS = {
+    Method.PBE,
+    Method.PBE0,
+    Method.BP86,
+    Method.B3LYP,
+    Method.B973C,
+    Method.B97D3BJ,
+    Method.R2SCAN,
+    Method.R2SCAN3C,
+    Method.TPSS,
+    Method.TPSSH,
+    Method.M06L,
+    Method.M06,
+    Method.M062X,
+    Method.CAMB3LYP,
+    Method.WB97XD3,
+    Method.WB97XV,
+    Method.WB97X3C,
+    Method.WB97MV,
+    Method.WB97MD3BJ,
+    Method.DSDBLYPD3BJ,
+    Method.SKALA,
+}

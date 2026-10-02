@@ -1,0 +1,523 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""The redeploy orchestrator can actually receive the gate decision (OMN-16939).
+
+WHAT WAS BROKEN, MEASURED ON THE .201 DEV LANE 2026-09-06
+---------------------------------------------------------
+``node_redeploy_orchestrator`` declared nine ``subscribe_topics`` under ONE
+``operation_match`` handler entry with no ``message_category``. ``handler_wiring``
+derives an entry's category once — explicit ``message_category``, else
+``_derive_message_category(subscribe_topics[0])`` — and stamps it on EVERY route the
+entry registers. ``subscribe_topics[0]`` is ``onex.cmd.omnimarket.redeploy-start.v1``,
+so all nine routes registered under ``command`` and every ``.evt.`` topic, arriving as
+``event``, matched zero routes.
+
+Live consequence, read with ``rpk`` on compose project ``omnibase-infra``:
+
+* ``onex.evt.omnimarket.prod-promotion-gate-evaluated.v1`` HIGH-WATERMARK 93,
+* group ``local.omnimarket.node_redeploy_orchestrator...gate-evaluated.v1``
+  ``Stable`` / ``MEMBERS 1`` / ``CURRENT-OFFSET 93`` / ``LAG 0``,
+* ``onex.cmd.omnimarket.redeploy-deploy-publish.v1`` and
+  ``onex.cmd.deploy.rebuild-requested.v1`` both at HIGH-WATERMARK **0**.
+
+30 consumed, 30 dispatched to nowhere, offset committed every time — the OMN-16939
+signature exactly: every liveness signal green, 100% of the traffic lost.
+
+THREE DISTINCT DEFECTS ARE ASSERTED HERE, IN THE ORDER A MESSAGE HITS THEM
+-------------------------------------------------------------------------
+1. **Routing.** The topic must resolve to a registered dispatcher for its OWN
+   ``(category, message type)``. Asserted through the REAL production helpers via
+   ``omnibase_infra.validators.subscriber_dispatcher_resolution`` — not a
+   re-implementation, which is how this class survived three prior gates.
+2. **Handler event-type matching.** The runtime sets ``envelope.event_type`` from the
+   event body, and the gate compute's published body carries the ALIAS form
+   ``"omnimarket.prod-promotion-gate-evaluated"`` — no ``.v1``. The handler branched on
+   ``event_type.endswith("...-evaluated.v1")``, so even a correctly-routed event would
+   have fallen through to the redeploy-start branch. The pre-existing golden chain
+   passed only because it fed the full topic string, a shape the bus never carries.
+3. **Deploy context.** The gate hop dropped ``git_ref`` / ``build_source`` / ``scope``:
+   the decision is four fields and the orchestrator is stateless, so it rebuilt a
+   DEFAULTED start (``git_ref='origin/main'``, ``build_source=release``) and would have
+   asked the deploy agent to rebuild the wrong tree. The gate command now carries a
+   ``deploy_context`` the pure COMPUTE echoes back on the decision.
+"""
+
+from __future__ import annotations
+
+import ast
+import asyncio
+import re
+from collections.abc import Sequence
+from pathlib import Path
+from uuid import uuid4
+
+import pytest
+import yaml
+from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
+from omnibase_infra.validators.subscriber_dispatcher_resolution import scan
+
+from omnimarket.events.runtime_deployment import (
+    EnumBuildSource,
+    EnumRedeployPhase,
+    EnumRedeployScope,
+    EnumRuntimeLane,
+    ModelDeployPublishCommand,
+    ModelProdPromotionGateCommand,
+    ModelRedeployCompletedEvent,
+    ModelRedeployRolledBackEvent,
+)
+from omnimarket.nodes.node_prod_promotion_gate_compute.handlers.handler_prod_promotion_gate import (
+    HandlerProdPromotionGate,
+)
+from omnimarket.nodes.node_redeploy_orchestrator.handlers.handler_redeploy_orchestrator import (
+    TOPIC_DEPLOY_PUBLISH,
+    TOPIC_REDEPLOY_COMPLETED,
+    HandlerRedeployOrchestrator,
+    RedeployContextMissingError,
+)
+from omnimarket.nodes.node_redeploy_orchestrator.models.model_redeploy_start_command import (
+    ModelRedeployStartCommand,
+)
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_SCAN_ROOT = _REPO_ROOT / "src" / "omnimarket"
+_CONTRACT = _SCAN_ROOT / "nodes" / "node_redeploy_orchestrator" / "contract.yaml"
+
+_ORCHESTRATOR = "node_redeploy_orchestrator"
+_GATE_EVALUATED_TOPIC = "onex.evt.omnimarket.prod-promotion-gate-evaluated.v1"
+_GRANT_RESOLVED_TOPIC = "onex.evt.omnimarket.prod-promotion-grant-resolved.v1"
+_IMAGE_BUILT_TOPIC = "onex.evt.omnimarket.runtime-image-built.v1"
+_START_TOPIC = "onex.cmd.omnimarket.redeploy-start.v1"
+_ROLLED_BACK_TOPIC = "onex.evt.omnimarket.redeploy-rolled-back.v1"
+
+# Every topic the redeploy FSM traverses between a merge and a lane rebuild, plus the
+# rollback fact that terminalizes the run when the rebuild does not happen. Each one must
+# resolve. Readiness-gate outcomes and runtime attestations stay out of subscribe_topics
+# until the handler has explicit branches for them.
+_FSM_PATH_TOPICS = (
+    _START_TOPIC,
+    _IMAGE_BUILT_TOPIC,
+    _GRANT_RESOLVED_TOPIC,
+    _GATE_EVALUATED_TOPIC,
+    _ROLLED_BACK_TOPIC,
+)
+
+# A scan that collapses returns zero findings and reads exactly like a clean tree, so
+# the contract count is the positive control on every assertion below.
+_MIN_EXPECTED_CONTRACTS = 300
+
+
+def _category_for(topic: str) -> str:
+    """The category a message on ``topic`` actually arrives under."""
+    return {"evt": "event", "cmd": "command", "intent": "intent"}[topic.split(".")[1]]
+
+
+@pytest.fixture(scope="module")
+def scan_result() -> tuple[list[object], int]:
+    """One real discovery + resolution pass over the omnimarket contract tree."""
+    findings, contract_count = scan(_SCAN_ROOT)
+    return list(findings), contract_count
+
+
+@pytest.mark.unit
+def test_scan_is_not_vacuous(scan_result: tuple[list[object], int]) -> None:
+    """Positive control: a collapsed discovery would make every assertion below pass."""
+    _, contract_count = scan_result
+    assert contract_count >= _MIN_EXPECTED_CONTRACTS, (
+        f"discovery collapsed to {contract_count} contracts; every resolution "
+        "assertion in this module would then be vacuously green"
+    )
+
+
+@pytest.mark.unit
+def test_fsm_path_topics_resolve_to_a_registered_dispatcher(
+    scan_result: tuple[list[object], int],
+) -> None:
+    """RED before the fix: all three event topics report ``category_mismatch``.
+
+    Resolved through the real ``_topics_for_handler_entry`` /
+    ``derive_entry_message_category`` / ``derive_entry_message_types`` helpers that
+    ``_prepare_handler_wiring`` itself calls, so the gate cannot drift from the runtime.
+    """
+    findings, _ = scan_result
+    unresolved = {
+        (f.contract, f.topic): f.reason  # type: ignore[attr-defined]
+        for f in findings
+    }
+    offenders = {
+        topic: unresolved[(_ORCHESTRATOR, topic)]
+        for topic in _FSM_PATH_TOPICS
+        if (_ORCHESTRATOR, topic) in unresolved
+    }
+    assert not offenders, (
+        f"{_ORCHESTRATOR} subscribes to these redeploy-FSM topics but no dispatcher "
+        f"can ever receive them: {offenders}"
+    )
+
+
+@pytest.mark.unit
+def test_each_fsm_path_topic_declares_its_own_category() -> None:
+    """The contract-level invariant, stated where a reviewer reads it.
+
+    An entry that omits ``message_category`` inherits the category derived from
+    ``subscribe_topics[0]`` — a ``.cmd.`` topic here — so an event topic sharing that
+    entry registers as ``command`` and never matches a real event.
+    """
+    contract = yaml.safe_load(_CONTRACT.read_text())
+    subscribe_topics = contract["event_bus"]["subscribe_topics"]
+    # The trap: the fallback category for any entry that omits message_category.
+    assert _category_for(subscribe_topics[0]) == "command"
+
+    by_topic = {
+        entry["topic"]: entry
+        for entry in contract["handler_routing"]["handlers"]
+        if entry.get("topic")
+    }
+    for topic in _FSM_PATH_TOPICS:
+        assert topic in subscribe_topics, f"{topic} is not a declared subscribe topic"
+        entry = by_topic.get(topic)
+        assert entry is not None, f"{topic} has no handler_routing entry naming it"
+        assert entry.get("message_category") == _category_for(topic), (
+            f"{topic} must declare message_category={_category_for(topic)!r}; "
+            f"got {entry.get('message_category')!r}"
+        )
+
+
+def _gate_evaluated_envelope(
+    decision_payload: dict[str, object], correlation_id: object
+) -> ModelEventEnvelope[object]:
+    """The envelope the runtime really builds for a gate-evaluated event.
+
+    ``event_type`` is the ALIAS the auto-wiring consume boundary stamps from the event
+    body (``handler_wiring`` prefers ``data["event_type"]``), which is what the gate
+    COMPUTE's published envelope carries — no ``.v1`` suffix, no ``onex.evt.`` prefix.
+    """
+    return ModelEventEnvelope[object](
+        payload=decision_payload,
+        correlation_id=correlation_id,
+        event_type="omnimarket.prod-promotion-gate-evaluated",
+    )
+
+
+@pytest.mark.unit
+def test_wire_shaped_gate_decision_routes_to_the_deploy_publish_command() -> None:
+    """RED before the fix: the alias event_type fell through to the start branch.
+
+    The payload is the FLAT decision the pure COMPUTE actually publishes — not the
+    ``{"decision": ..., "start": ...}`` wrapper the pre-existing golden chain fed it,
+    which nothing on the bus produces.
+    """
+    correlation_id = uuid4()
+    envelope = _gate_evaluated_envelope(
+        {
+            "allowed": True,
+            "image_digest": None,
+            "rollback_target": "omninode-runtime:v2.3.1",
+            "reason": "dev lane is not gated; deploy may proceed",
+            # OMN-18121: the context is now part of the wire shape. This test
+            # asserts ROUTING (the alias event_type reaches the gate branch),
+            # and it used to do so with a context-less payload that the
+            # orchestrator turned into a defaulted deploy. That fabrication is
+            # what reset the shared deploy clone onto the release branch five
+            # times, so it is no longer available to lean on here; the routing
+            # claim is unchanged.
+            "deploy_context": {
+                "scope": "full",
+                "git_ref": "46207e2a1c48ccc7ec8526d99360612531ec2a52",
+                "runtime_lane": "dev",
+                "build_source": "workspace",
+                "requested_by": "gha/omnibase_infra/pr-3243",
+            },
+        },
+        correlation_id,
+    )
+
+    output = asyncio.run(HandlerRedeployOrchestrator().handle(envelope))
+
+    assert [e.event_type for e in output.events] == [TOPIC_DEPLOY_PUBLISH]
+
+
+@pytest.mark.unit
+def test_wire_shaped_gate_decision_without_a_context_refuses() -> None:
+    """OMN-18121: the payload the five incident jobs were built from.
+
+    Byte-for-byte the shape read off ``prod-promotion-gate-evaluated`` at
+    offsets 139-152 -- allowed, no digest, no ``deploy_context``. It must not
+    produce a deploy command; every field of one would be a field default.
+    """
+    envelope = _gate_evaluated_envelope(
+        {
+            "allowed": True,
+            "image_digest": None,
+            "rollback_target": "omninode-runtime:v2.3.1",
+            "reason": "dev lane is not gated; deploy may proceed",
+        },
+        uuid4(),
+    )
+
+    with pytest.raises(RedeployContextMissingError):
+        asyncio.run(HandlerRedeployOrchestrator().handle(envelope))
+
+
+@pytest.mark.unit
+def test_deploy_command_carries_the_git_ref_the_merge_asked_for() -> None:
+    """The whole two-hop chain, with the REAL compute in the middle.
+
+    start -> gate-evaluate command -> HandlerProdPromotionGate -> decision ->
+    orchestrator -> deploy-publish. RED before the fix: the orchestrator rebuilt a
+    defaulted start, so the deploy agent would have been asked to rebuild
+    ``origin/main`` from a ``release`` artifact instead of the merge commit the
+    post-merge trigger published.
+    """
+    merge_sha = "46207e2a1c48ccc7ec8526d99360612531ec2a52"
+    start = ModelRedeployStartCommand(
+        correlation_id=uuid4(),
+        git_ref=merge_sha,
+        runtime_lane=EnumRuntimeLane.DEV,
+        build_source=EnumBuildSource.WORKSPACE,
+        scope=EnumRedeployScope.FULL,
+        requested_by="gha/omnibase_infra/pr-3243",
+    )
+    orchestrator = HandlerRedeployOrchestrator()
+
+    gate_output = asyncio.run(
+        orchestrator.handle(
+            ModelEventEnvelope[object](
+                payload=start,
+                correlation_id=start.correlation_id,
+                event_type="omnimarket.redeploy-start",
+            )
+        )
+    )
+    assert [e.event_type for e in gate_output.events] == [
+        "onex.cmd.omnimarket.prod-promotion-gate-evaluate.v1"
+    ]
+    gate_command = ModelProdPromotionGateCommand.model_validate(
+        gate_output.events[0].payload
+    )
+    decision = asyncio.run(HandlerProdPromotionGate().handle(gate_command))
+    assert decision.allowed
+
+    deploy_output = asyncio.run(
+        orchestrator.handle(
+            _gate_evaluated_envelope(
+                decision.model_dump(mode="json"), start.correlation_id
+            )
+        )
+    )
+    publish = ModelDeployPublishCommand.model_validate(deploy_output.events[0].payload)
+
+    assert publish.git_ref == merge_sha
+    assert publish.build_source is EnumBuildSource.WORKSPACE
+    assert publish.runtime_lane is EnumRuntimeLane.DEV
+    assert publish.requested_by == "gha/omnibase_infra/pr-3243"
+
+
+@pytest.mark.unit
+def test_a_rolled_back_deploy_terminalizes_the_run() -> None:
+    """RED before the fix: the rollback fact was consumed, matched nothing, and DLQ'd.
+
+    Proven on the .201 dev lane 2026-09-06 for correlation `86d5da00`, the first real
+    post-merge run that got this far: the deploy command reached the agent's topic, the
+    agent was not running, `node_redeploy_deploy_effect` rolled back and published this
+    fact, and the runtime answered `No dispatcher registered for category 'event' and
+    message type 'omnimarket.redeploy-rolled-back'`. `redeploy-completed` stayed flat, so
+    nothing downstream could tell a failed run from one still in flight.
+    """
+    rolled_back = ModelRedeployRolledBackEvent(
+        correlation_id=uuid4(),
+        runtime_lane=EnumRuntimeLane.DEV,
+        restored_image="omninode-runtime:v2.3.1",
+        failure_reason="deploy agent did not answer within the monitor deadline",
+        failed_phase=EnumRedeployPhase.REBUILD,
+    )
+    envelope = ModelEventEnvelope[object](
+        payload=rolled_back.model_dump(mode="json"),
+        correlation_id=rolled_back.correlation_id,
+        event_type="omnimarket.redeploy-rolled-back",
+    )
+
+    output = asyncio.run(HandlerRedeployOrchestrator().handle(envelope))
+
+    assert [e.event_type for e in output.events] == [TOPIC_REDEPLOY_COMPLETED]
+    completed = ModelRedeployCompletedEvent.model_validate(output.events[0].payload)
+    assert completed.final_phase is EnumRedeployPhase.ROLLED_BACK
+    assert completed.correlation_id == rolled_back.correlation_id
+    # The terminal says WHY, not just that a phase failed.
+    assert "deploy agent did not answer" in (completed.error_message or "")
+    assert "omninode-runtime:v2.3.1" in (completed.error_message or "")
+
+
+# ---------------------------------------------------------------------------
+# OMN-17296 AC2 — the dropped attestation subscriptions must stay dropped.
+# ---------------------------------------------------------------------------
+#
+# WHY A SUBSCRIBE TOPIC WITH NO HANDLER BRANCH IS WORSE THAN AN UNRESOLVED ONE
+#
+# ``HandlerRedeployOrchestrator.handle`` dispatches on a chain of explicit
+# ``event_name == "..."`` branches terminated by a DEFAULT ``else`` that treats
+# anything unmatched as ``redeploy-start``. An event subscription with no explicit
+# branch therefore does not fall through harmlessly — it STARTS A REDEPLOY. A
+# ``runtime-booted`` or ``runtime-manifest-published`` event arriving on that default
+# is an unbounded redeploy loop: the redeploy publishes a rebuild, the rebuilt runtime
+# boots and publishes another attestation, and the loop closes.
+#
+# This is a blind spot of the dispatcher-resolution gate, by construction. That gate
+# (``subscriber_dispatcher_resolution``) asks whether a topic resolves to a REGISTERED
+# DISPATCHER for its own (category, message type). Re-adding one of these topics with a
+# correct ``message_category: event`` entry pointing at this same handler satisfies it
+# completely — the gate reports the subscription resolved and stays green while every
+# message lands on the default start branch. The gate cannot see handler BRANCHES, only
+# routes, so this invariant has to be asserted here.
+#
+# The four topics below were subscribed by this contract and had no branch. They were
+# dropped by omnimarket#2375 (OMN-18026), which is the disposition OMN-17296 AC2 records
+# for this subscriber: DROP, not convert. ``runtime-manifest-published`` is the one
+# OMN-17296 is about — it was one of the two declared subscribers of that topic, and the
+# only DLQ'd routing the ticket attributes to omnimarket. Verified on the .201 dev lane
+# 2026-09-16: ``rpk group list`` shows this node holding exactly five consumer groups,
+# one per FSM-path topic, and none on any topic below.
+#
+# The branch set is PARSED FROM THE HANDLER SOURCE rather than restated here, so this
+# guard cannot drift from the code it guards: adding a branch is what licenses adding a
+# subscription, in one edit, and neither half alone moves this test.
+
+_HANDLER_SOURCE = (
+    _SCAN_ROOT
+    / "nodes"
+    / "node_redeploy_orchestrator"
+    / "handlers"
+    / "handler_redeploy_orchestrator.py"
+)
+
+# Named so the disposition is legible without git archaeology. Each is an attestation or
+# readiness-outcome event this handler has no branch for.
+_DROPPED_ATTESTATION_TOPICS = (
+    "onex.evt.omnibase-infra.runtime-manifest-published.v1",
+    "onex.evt.omnibase-infra.runtime-booted.v1",
+    "onex.evt.omnimarket.readiness-gate-blocked.v1",
+    "onex.evt.omnimarket.readiness-gate-completed.v1",
+)
+
+_EVENT_VERSION_SUFFIX_RE = re.compile(r"\.v\d+$")
+
+
+def _event_name_of(topic_or_event_type: str) -> str:
+    """The bare event name, by the same reduction the handler itself applies."""
+    return _EVENT_VERSION_SUFFIX_RE.sub("", topic_or_event_type.strip()).rpartition(
+        "."
+    )[2]
+
+
+def _handler_branch_event_names() -> frozenset[str]:
+    """Every ``event_name == "..."`` literal the handler explicitly branches on.
+
+    Parsed with ``ast`` over the handler module, so a branch that is deleted or renamed
+    moves this set. A regex over the source would also match the literal inside a
+    docstring or a comment; comparing AST ``Compare`` nodes does not.
+    """
+    tree = ast.parse(_HANDLER_SOURCE.read_text())
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Compare):
+            continue
+        left = node.left
+        if not (isinstance(left, ast.Name) and left.id == "event_name"):
+            continue
+        for op, comparator in zip(node.ops, node.comparators, strict=True):
+            if (
+                isinstance(op, ast.Eq)
+                and isinstance(comparator, ast.Constant)
+                and isinstance(comparator.value, str)
+            ):
+                names.add(comparator.value)
+    return frozenset(names)
+
+
+def _event_subscriptions_without_a_branch(
+    subscribe_topics: Sequence[str], branch_names: frozenset[str]
+) -> tuple[str, ...]:
+    """Event-category subscribe topics that would land on the default start branch."""
+    return tuple(
+        topic
+        for topic in subscribe_topics
+        if _category_for(topic) == "event" and _event_name_of(topic) not in branch_names
+    )
+
+
+@pytest.mark.unit
+def test_handler_branch_names_parse_to_the_live_branch_set() -> None:
+    """Positive control: an empty or collapsed parse makes both guards below vacuous."""
+    branch_names = _handler_branch_event_names()
+    # The four branches the handler documents in its own dispatch docstring. If a parse
+    # regression returned an empty set, `_event_subscriptions_without_a_branch` would
+    # report every event topic and the guard would fail loudly rather than pass — but a
+    # parse that returned a SUPERSET would silence it, so the set is pinned both ways.
+    assert branch_names == {
+        "redeploy-rolled-back",
+        "prod-promotion-grant-resolved",
+        "prod-promotion-gate-evaluated",
+        "runtime-image-built",
+    }, f"handler branch set drifted: {sorted(branch_names)}"
+
+
+@pytest.mark.unit
+def test_every_event_subscription_has_an_explicit_handler_branch() -> None:
+    """The invariant: no subscribed event may land on the default redeploy-start branch."""
+    contract = yaml.safe_load(_CONTRACT.read_text())
+    subscribe_topics = contract["event_bus"]["subscribe_topics"]
+    # Positive control on the contract read itself: an empty or mis-parsed
+    # subscribe_topics list would make the assertion below vacuously true.
+    assert set(_FSM_PATH_TOPICS) <= set(subscribe_topics), (
+        f"contract read is wrong: the five FSM-path topics are not all present in "
+        f"{subscribe_topics}"
+    )
+
+    offenders = _event_subscriptions_without_a_branch(
+        subscribe_topics, _handler_branch_event_names()
+    )
+    assert not offenders, (
+        f"{_ORCHESTRATOR} subscribes to these event topics with no explicit handler "
+        f"branch, so every message on them starts a redeploy: {list(offenders)}. "
+        "Add a branch to HandlerRedeployOrchestrator.handle in the same change, or "
+        "do not subscribe."
+    )
+
+
+@pytest.mark.unit
+def test_the_branch_guard_fires_on_a_re_added_unbranched_subscription() -> None:
+    """Falsification control: the guard above is not green because it cannot fail.
+
+    Re-adding ``runtime-manifest-published`` — the OMN-17296 topic, dropped by
+    omnimarket#2375 — is reported, while the five real FSM-path topics are not.
+    """
+    branch_names = _handler_branch_event_names()
+    re_added = [*_FSM_PATH_TOPICS, *_DROPPED_ATTESTATION_TOPICS]
+
+    offenders = _event_subscriptions_without_a_branch(re_added, branch_names)
+
+    assert set(offenders) == set(_DROPPED_ATTESTATION_TOPICS), (
+        f"guard did not report exactly the re-added unbranched topics: {offenders}"
+    )
+
+
+@pytest.mark.unit
+def test_dropped_attestation_topics_are_absent_from_the_contract() -> None:
+    """OMN-17296 AC2's disposition for this subscriber, asserted by name.
+
+    AC2 allows exactly two states per subscriber — convert to a real route, or drop the
+    subscription. This asserts the drop, naming each topic, so the record does not
+    depend on reading a diff.
+    """
+    contract = yaml.safe_load(_CONTRACT.read_text())
+    subscribe_topics = set(contract["event_bus"]["subscribe_topics"])
+    # Positive control, again: the absence assertion is only meaningful against a
+    # contract that really was read.
+    assert set(_FSM_PATH_TOPICS) <= subscribe_topics
+
+    still_declared = sorted(subscribe_topics & set(_DROPPED_ATTESTATION_TOPICS))
+    assert not still_declared, (
+        f"{_ORCHESTRATOR} declares attestation/readiness subscriptions its handler has "
+        f"no branch for: {still_declared}"
+    )

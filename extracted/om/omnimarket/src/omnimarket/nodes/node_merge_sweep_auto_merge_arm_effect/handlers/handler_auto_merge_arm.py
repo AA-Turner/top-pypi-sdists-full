@@ -1,0 +1,187 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Handler for node_merge_sweep_auto_merge_arm_effect [OMN-8960].
+
+EFFECT node. Serial-in-handler execution per Phase 1 audit.
+Arms auto-merge (GraphQL, SQUASH) inline through the shared landing transport.
+Returns ModelHandlerOutput.for_effect(events=(completion,)).
+
+NEVER calls gh pr merge --auto. NEVER uses --admin. Always GraphQL.
+Idempotent: re-arming an already-armed PR returns success.
+
+The GitHub token is resolved at handle() time from the contract-declared
+``api_key_ref`` (``GITHUB_TOKEN``) — no direct ``os.environ`` read.
+
+OMN-14151: this is one of the three legacy arm surfaces superseded by the
+merge-queue governor's single gated arm path (node_pr_arm_gate_compute +
+node_pr_lifecycle_merge_effect). Hard-gated fail-closed — the GraphQL mutation
+never fires unless ``_LEGACY_ARM_ENV_VAR`` is explicitly enabled.
+
+OMN-15053: this exact surface landed omnimarket#1879 on 2026-07-24 as a
+"working as designed" side effect of an agent dogfooding ``/onex:merge_sweep``
+per CLAUDE.md rule 1, in direct tension with CLAUDE.md rule 3 ("agents never
+merge"). The disabled path used to return a silent no-op success event;
+it now raises ``LegacyMergeArmDisabledError`` loudly instead, so a disabled
+guard can never be mistaken for a guard that was never reached. Re-enabling
+requires a fresh operator decision — see OMN-15053 before setting
+``_LEGACY_ARM_ENV_VAR=true``.
+
+OMN-19831: the GraphQL call goes through the shared landing transport
+(``omnimarket.github_landing``), the same request builder and send path
+node_pr_landing_github_effect uses. The mutation is unchanged, byte for byte.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import time
+from pathlib import Path
+from uuid import uuid4
+
+from omnibase_core.models.dispatch.model_handler_output import ModelHandlerOutput
+from pydantic import SecretStr
+
+from omnimarket.config.env_flags import require_legacy_merge_arm_enabled
+from omnimarket.github_landing.github_landing_requests import (
+    enable_auto_merge_request,
+)
+from omnimarket.github_landing.github_landing_transport import (
+    GithubLandingTransportError,
+    UrllibGithubLandingTransport,
+)
+from omnimarket.inference.secret_store_resolver import resolve_api_key_async
+from omnimarket.nodes.contract_topics import contract_secret_ref
+from omnimarket.nodes.node_merge_sweep_auto_merge_arm_effect.models.model_auto_merge_armed_event import (
+    ModelAutoMergeArmedEvent,
+)
+from omnimarket.nodes.node_merge_sweep_auto_merge_arm_effect.models.model_auto_merge_unarmed_clean_alert_event import (
+    ModelAutoMergeUnarmedCleanAlertEvent,
+)
+from omnimarket.nodes.node_merge_sweep_triage_orchestrator.models.model_triage_request import (
+    ModelAutoMergeArmCommand,
+)
+
+_log = logging.getLogger(__name__)
+_CONTRACT_PATH = Path(__file__).resolve().parents[1] / "contract.yaml"
+
+# OMN-14151: legacy arm surface hard-gate. Safe default False — the GraphQL
+# mutation never fires unless an operator explicitly opts this surface back in.
+# OMN-15053: a disabled attempt now raises LegacyMergeArmDisabledError (loud)
+# instead of returning a no-op success event (silent).
+_LEGACY_ARM_ENV_VAR = "OMNIMARKET_LEGACY_MERGE_ARM_ENABLED"
+
+
+class HandlerAutoMergeArmEffect:
+    """EFFECT: arm auto-merge via GraphQL SQUASH, inline, serial."""
+
+    async def handle(self, request: ModelAutoMergeArmCommand) -> ModelHandlerOutput:  # type: ignore[type-arg]
+        """Arm auto-merge. Real work runs inline before returning.
+
+        The GitHub token ref-name is sourced from the contract ``secrets`` block
+        (OMN-12856) and resolved at the effect boundary via the canonical
+        secret-store resolver — never read from env directly in this handler.
+        """
+        # OMN-15053: loud refusal, not a silent no-op. A disabled guard must
+        # never look like a guard that was simply never reached.
+        require_legacy_merge_arm_enabled(
+            _LEGACY_ARM_ENV_VAR,
+            surface="node_merge_sweep_auto_merge_arm_effect",
+            context=f"{request.repo}#{request.pr_number}",
+        )
+
+        # Resolve token ref-name from contract, then value from secret store.
+        _github_ref = contract_secret_ref(_CONTRACT_PATH, "GITHUB_TOKEN")
+        github_secret = await resolve_api_key_async(_github_ref)
+        if github_secret is None:
+            raise RuntimeError(
+                f"api_key_ref {_github_ref!r} resolved to None — "
+                "ensure GITHUB_TOKEN is set in the secret store."
+            )
+        token = github_secret.get_secret_value()
+
+        t0 = time.monotonic()
+        armed, error = await self._arm(request.pr_node_id, request.repo, token)
+        elapsed = time.monotonic() - t0
+
+        if armed:
+            _log.info(
+                "auto-merge armed: %s#%s (elapsed=%.2fs)",
+                request.repo,
+                request.pr_number,
+                elapsed,
+            )
+        else:
+            _log.error(
+                "auto-merge arm failed: %s#%s error=%r (elapsed=%.2fs)",
+                request.repo,
+                request.pr_number,
+                error,
+                elapsed,
+            )
+
+        completion = ModelAutoMergeArmedEvent(
+            pr_number=request.pr_number,
+            repo=request.repo,
+            correlation_id=request.correlation_id,
+            run_id=request.run_id,
+            total_prs=request.total_prs,
+            armed=armed,
+            error=error,
+            elapsed_seconds=elapsed,
+        )
+
+        # The arm command is published by triage only for CLEAN PRs (Rule 2),
+        # so an arm failure here is exactly the "CLEAN but auto-merge not armed"
+        # case (omnibase_core#1280). Emit a dedicated alert event alongside the
+        # completion so the failed-to-arm case is observable on its own topic —
+        # the completion event proves the effect ran; the alert names the failure
+        # (OMN-13322). A missing OCC preflight (OMN-10485) surfaces here as the
+        # GraphQL/arm error string.
+        events: tuple[
+            ModelAutoMergeArmedEvent | ModelAutoMergeUnarmedCleanAlertEvent, ...
+        ]
+        if armed:
+            events = (completion,)
+        else:
+            alert = ModelAutoMergeUnarmedCleanAlertEvent(
+                pr_number=request.pr_number,
+                repo=request.repo,
+                correlation_id=request.correlation_id,
+                run_id=request.run_id,
+                total_prs=request.total_prs,
+                reason=error or "auto-merge arm failed with no error detail",
+                elapsed_seconds=elapsed,
+            )
+            events = (completion, alert)
+
+        return ModelHandlerOutput.for_effect(
+            input_envelope_id=uuid4(),
+            correlation_id=request.correlation_id,
+            handler_id="node_merge_sweep_auto_merge_arm_effect",
+            events=events,
+        )
+
+    async def _arm(
+        self, pr_node_id: str, repo: str, token: str
+    ) -> tuple[bool, str | None]:
+        """Enable auto-merge via GraphQL. Idempotent per GitHub API contract."""
+        return await asyncio.to_thread(self._arm_sync, pr_node_id, repo, token)
+
+    def _arm_sync(
+        self, pr_node_id: str, repo: str, token: str
+    ) -> tuple[bool, str | None]:
+        transport = UrllibGithubLandingTransport(SecretStr(token))
+        try:
+            response = transport.send_sync(
+                enable_auto_merge_request(pr_node_id, "SQUASH", expected_head_sha=None)
+            )
+        except GithubLandingTransportError as exc:
+            return False, str(exc)
+        if not 200 <= response.status < 300:
+            return False, response.message()
+        errors = (response.body or {}).get("errors")
+        if errors:
+            return False, json.dumps(errors)
+        return True, None

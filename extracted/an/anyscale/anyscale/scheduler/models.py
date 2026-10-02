@@ -159,9 +159,7 @@ def _validate_non_negative_quota(name: str, value: Optional[float]):
     # For finite values .exponent is an int (= -decimal_places).
     exponent = Decimal(str(value)).as_tuple().exponent
     if isinstance(exponent, int) and -exponent > _MAX_QUOTA_DECIMAL_PLACES:
-        raise ValueError(
-            f"'{name}' supports at most {_MAX_QUOTA_DECIMAL_PLACES} decimal places."
-        )
+        raise ValueError(f"'{name}' supports at most {_MAX_QUOTA_DECIMAL_PLACES} decimal places.")
 
 
 def _coerce_list(name: str, value, item_cls):
@@ -212,9 +210,7 @@ expr = MatchExpression(key="team", operator=Operator.IN, values=["research", "ml
             raise ValueError("'key' must be a non-empty string.")
 
     operator: Operator = field(
-        metadata={
-            "docstring": "Match operator: 'in', 'not_in', 'exists', or 'does_not_exist'."
-        }
+        metadata={"docstring": "Match operator: 'in', 'not_in', 'exists', or 'does_not_exist'."}
     )
 
     def _validate_operator(self, operator: Operator) -> Operator:
@@ -292,9 +288,7 @@ flavor = ResourceFlavor(
     def _validate_advanced_instance_config(
         self, advanced_instance_config: Optional[Dict[str, Any]]
     ):
-        if advanced_instance_config is not None and not isinstance(
-            advanced_instance_config, dict
-        ):
+        if advanced_instance_config is not None and not isinstance(advanced_instance_config, dict):
             raise TypeError("'advanced_instance_config' must be a dict.")
 
     @classmethod
@@ -303,8 +297,7 @@ flavor = ResourceFlavor(
         sel = filtered.get("selector")
         if isinstance(sel, list):
             filtered["selector"] = [
-                MatchExpression.from_api_dict(r) if isinstance(r, dict) else r
-                for r in sel
+                MatchExpression.from_api_dict(r) if isinstance(r, dict) else r for r in sel
             ]
         return cls(**filtered)
 
@@ -354,9 +347,7 @@ flavor_quota = FlavorQuota(
 )
 """
 
-    name: str = field(
-        metadata={"docstring": "Name of the resource flavor this quota applies to."}
-    )
+    name: str = field(metadata={"docstring": "Name of the resource flavor this quota applies to."})
 
     def _validate_name(self, name: str):
         if not isinstance(name, str) or not name.strip():
@@ -381,8 +372,7 @@ flavor_quota = FlavorQuota(
         resources = filtered.get("resources")
         if isinstance(resources, list):
             filtered["resources"] = [
-                ResourceQuotaSpec.from_api_dict(r) if isinstance(r, dict) else r
-                for r in resources
+                ResourceQuotaSpec.from_api_dict(r) if isinstance(r, dict) else r for r in resources
             ]
         return cls(**filtered)
 
@@ -430,9 +420,7 @@ group = ResourceGroup(
         return normalized
 
     flavors: List[FlavorQuota] = field(
-        metadata={
-            "docstring": "Flavor-level quotas for the resources in covered_resources."
-        }
+        metadata={"docstring": "Flavor-level quotas for the resources in covered_resources."}
     )
 
     def _validate_flavors(self, flavors: List[FlavorQuota]) -> List[FlavorQuota]:
@@ -446,8 +434,7 @@ group = ResourceGroup(
         flavors = filtered.get("flavors")
         if isinstance(flavors, list):
             filtered["flavors"] = [
-                FlavorQuota.from_api_dict(f) if isinstance(f, dict) else f
-                for f in flavors
+                FlavorQuota.from_api_dict(f) if isinstance(f, dict) else f for f in flavors
             ]
         return cls(**filtered)
 
@@ -503,7 +490,8 @@ queue = ResourceQueue(name="research")
             raise ValueError("'name' must be a non-empty string.")
 
     preemption: Optional[PreemptionPolicy] = field(
-        default=None, metadata={"docstring": "Preemption settings for this queue."},
+        default=None,
+        metadata={"docstring": "Preemption settings for this queue."},
     )
 
     def _validate_preemption(
@@ -538,8 +526,7 @@ queue = ResourceQueue(name="research")
         groups = filtered.get("resource_groups")
         if isinstance(groups, list):
             filtered["resource_groups"] = [
-                ResourceGroup.from_api_dict(g) if isinstance(g, dict) else g
-                for g in groups
+                ResourceGroup.from_api_dict(g) if isinstance(g, dict) else g for g in groups
             ]
         return cls(**filtered)
 
@@ -563,14 +550,16 @@ policy = PriorityPolicy(default=50, min=0, max=100, on_violation=OnViolationActi
         _validate_non_negative_int("default", default)
 
     min: Optional[int] = field(  # noqa: A003
-        default=None, metadata={"docstring": "Minimum allowed priority."},
+        default=None,
+        metadata={"docstring": "Minimum allowed priority."},
     )
 
     def _validate_min(self, min: Optional[int]):  # noqa: A002
         _validate_non_negative_int("min", min)
 
     max: Optional[int] = field(  # noqa: A003
-        default=None, metadata={"docstring": "Maximum allowed priority."},
+        default=None,
+        metadata={"docstring": "Maximum allowed priority."},
     )
 
     def _validate_max(self, max: Optional[int]):  # noqa: A002
@@ -609,9 +598,7 @@ rule = SchedulingRule(
 """
 
     resource_queue: str = field(
-        metadata={
-            "docstring": "Name of the queue requests matching this rule are routed to."
-        }
+        metadata={"docstring": "Name of the queue requests matching this rule are routed to."}
     )
 
     def _validate_resource_queue(self, resource_queue: str):
@@ -632,9 +619,7 @@ rule = SchedulingRule(
 
     priority_policy: Optional[PriorityPolicy] = field(
         default=None,
-        metadata={
-            "docstring": "Priority bounds applied to requests matched by this rule."
-        },
+        metadata={"docstring": "Priority bounds applied to requests matched by this rule."},
     )
 
     def _validate_priority_policy(
@@ -654,8 +639,7 @@ rule = SchedulingRule(
         sel = filtered.get("selector")
         if isinstance(sel, list):
             filtered["selector"] = [
-                MatchExpression.from_api_dict(s) if isinstance(s, dict) else s
-                for s in sel
+                MatchExpression.from_api_dict(s) if isinstance(s, dict) else s for s in sel
             ]
         pp = filtered.get("priority_policy")
         if isinstance(pp, dict):
@@ -764,20 +748,17 @@ scheduling_rules:
         flavors = filtered.get("resource_flavors")
         if isinstance(flavors, list):
             filtered["resource_flavors"] = [
-                ResourceFlavor.from_api_dict(f) if isinstance(f, dict) else f
-                for f in flavors
+                ResourceFlavor.from_api_dict(f) if isinstance(f, dict) else f for f in flavors
             ]
         queues = filtered.get("resource_queues")
         if isinstance(queues, list):
             filtered["resource_queues"] = [
-                ResourceQueue.from_api_dict(q) if isinstance(q, dict) else q
-                for q in queues
+                ResourceQueue.from_api_dict(q) if isinstance(q, dict) else q for q in queues
             ]
         rules = filtered.get("scheduling_rules")
         if isinstance(rules, list):
             filtered["scheduling_rules"] = [
-                SchedulingRule.from_api_dict(r) if isinstance(r, dict) else r
-                for r in rules
+                SchedulingRule.from_api_dict(r) if isinstance(r, dict) else r for r in rules
             ]
         return cls(**filtered)
 
@@ -796,17 +777,13 @@ version = anyscale.scheduler.get_config()
 print(version.version, version.is_active, version.config)
 """
 
-    version: int = field(
-        metadata={"docstring": "Monotonic version number for this config."}
-    )
+    version: int = field(metadata={"docstring": "Monotonic version number for this config."})
 
     def _validate_version(self, version: int):
         if not isinstance(version, int) or isinstance(version, bool):
             raise TypeError("'version' must be an integer.")
 
-    is_active: bool = field(
-        metadata={"docstring": "Whether this is the currently active config."}
-    )
+    is_active: bool = field(metadata={"docstring": "Whether this is the currently active config."})
 
     def _validate_is_active(self, is_active: bool):
         if not isinstance(is_active, bool):

@@ -6,7 +6,7 @@ use super::{AllOfSchema, AnyOfSchema, NotSchema, OneOfSchema};
 pub struct StringSchema {
     pub title: Option<String>,
     pub description: Option<String>,
-    pub range: tombi_text::Range,
+    pub span: tombi_text::Span,
     pub content_encoding: Option<String>,
     pub content_media_type: Option<String>,
     pub content_schema: Option<tombi_json::Value>,
@@ -48,14 +48,14 @@ impl StringSchema {
             description: object
                 .get("description")
                 .and_then(|v| v.as_str().map(|s| s.to_string())),
-            range: object.range,
+            span: object.span,
             content_encoding: object
                 .get("contentEncoding")
                 .and_then(|v| v.as_str().map(|s| s.to_string())),
             content_media_type: object
                 .get("contentMediaType")
                 .and_then(|v| v.as_str().map(|s| s.to_string())),
-            content_schema: object.get("contentSchema").cloned().map(Into::into),
+            content_schema: object.get("contentSchema").map(Into::into),
             min_length: object
                 .get("minLength")
                 .and_then(|v| v.as_u64().map(|n| n as usize)),

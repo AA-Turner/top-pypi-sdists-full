@@ -12,16 +12,17 @@ use crate::{
     },
 };
 
-impl FindCompletionContents for tombi_document_tree_syntax::String {
+impl FindCompletionContents for tombi_document_tree_syntax::String<'_> {
     fn find_completion_contents<'a: 'b, 'b>(
         &'a self,
-        position: tombi_text::Position,
-        keys: &'a [tombi_document_tree_syntax::Key],
+        cursor: crate::CursorPosition<'a>,
+        keys: &'a [tombi_document_tree_syntax::Key<'_>],
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext<'a>,
         completion_hint: Option<CompletionHint>,
     ) -> tombi_future::BoxFuture<'b, Vec<CompletionContent>> {
+        let offset = cursor.offset();
         log::trace!("self = {:?}", self);
         log::trace!("keys = {:?}", keys);
         log::trace!("accessors = {:?}", accessors);
@@ -33,7 +34,7 @@ impl FindCompletionContents for tombi_document_tree_syntax::String {
                 get_key_table_value_comment_directive_content_and_schema_uri::<
                     StringCommonFormatRules,
                     StringCommonLintRules,
-                >(self.comment_directives(), position, accessors)
+                >(self.comment_directives(), offset, accessors)
                 && let Some(completions) = get_tombi_comment_directive_content_completion_contents(
                     comment_directive_context,
                     schema_uri,
@@ -43,7 +44,7 @@ impl FindCompletionContents for tombi_document_tree_syntax::String {
                 return completions;
             }
 
-            if !self.range().contains(position) {
+            if !self.span().contains_inclusive(offset) {
                 return Vec::new();
             }
 
@@ -52,7 +53,7 @@ impl FindCompletionContents for tombi_document_tree_syntax::String {
             if let Some(current_schema) = current_schema {
                 SchemaCompletion
                     .find_completion_contents(
-                        position,
+                        cursor,
                         keys,
                         accessors,
                         Some(current_schema),
@@ -86,7 +87,7 @@ impl FindCompletionContents for tombi_document_tree_syntax::String {
 
                         completion_content.edit = CompletionEdit::new_string_literal_while_editing(
                             &completion_content.label,
-                            self.range(),
+                            self.span(),
                         );
 
                         Some(completion_content)
@@ -103,20 +104,21 @@ impl FindCompletionContents for tombi_document_tree_syntax::String {
 impl FindCompletionContents for StringSchema {
     fn find_completion_contents<'a: 'b, 'b>(
         &'a self,
-        position: tombi_text::Position,
-        _keys: &'a [tombi_document_tree_syntax::Key],
+        cursor: crate::CursorPosition<'a>,
+        _keys: &'a [tombi_document_tree_syntax::Key<'_>],
         _accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         _schema_context: &'a tombi_schema_store::SchemaContext<'a>,
         completion_hint: Option<CompletionHint>,
     ) -> tombi_future::BoxFuture<'b, Vec<CompletionContent>> {
+        let offset = cursor.offset();
         async move {
             let mut completion_items = vec![];
             let schema_base_uri = current_schema.map(|schema| schema.schema_base_uri.as_ref());
 
             if let Some(default) = &self.default {
                 let label = format!("\"{default}\"");
-                let edit = CompletionEdit::new_literal(&label, position, completion_hint);
+                let edit = CompletionEdit::new_literal(&label, offset, completion_hint);
                 completion_items.push(CompletionContent::new_default_value(
                     label,
                     self.title.clone(),
@@ -129,7 +131,7 @@ impl FindCompletionContents for StringSchema {
 
             if let Some(const_value) = &self.const_value {
                 let label = format!("\"{const_value}\"");
-                let edit = CompletionEdit::new_literal(&label, position, completion_hint);
+                let edit = CompletionEdit::new_literal(&label, offset, completion_hint);
                 completion_items.push(CompletionContent::new_const_value(
                     label,
                     self.title.clone(),
@@ -139,7 +141,7 @@ impl FindCompletionContents for StringSchema {
                     self.deprecated(),
                 ));
                 return merge_adjacent_schema_completion_items(
-                    position,
+                    cursor,
                     _keys,
                     _accessors,
                     current_schema,
@@ -156,7 +158,7 @@ impl FindCompletionContents for StringSchema {
             if let Some(r#enum) = &self.r#enum {
                 for item in r#enum {
                     let label = format!("\"{item}\"");
-                    let edit = CompletionEdit::new_literal(&label, position, completion_hint);
+                    let edit = CompletionEdit::new_literal(&label, offset, completion_hint);
                     completion_items.push(CompletionContent::new_enum_value(
                         label,
                         self.title.clone(),
@@ -167,7 +169,7 @@ impl FindCompletionContents for StringSchema {
                     ));
                 }
                 return merge_adjacent_schema_completion_items(
-                    position,
+                    cursor,
                     _keys,
                     _accessors,
                     current_schema,
@@ -187,7 +189,7 @@ impl FindCompletionContents for StringSchema {
                     if completion_items.iter().any(|item| item.label == label) {
                         continue;
                     }
-                    let edit = CompletionEdit::new_literal(&label, position, completion_hint);
+                    let edit = CompletionEdit::new_literal(&label, offset, completion_hint);
                     completion_items.push(CompletionContent::new_example_value(
                         label,
                         self.title.clone(),
@@ -200,7 +202,7 @@ impl FindCompletionContents for StringSchema {
             }
 
             completion_items.extend(
-                type_hint_string(position, schema_base_uri, completion_hint)
+                type_hint_string(offset, schema_base_uri, completion_hint)
                     .into_iter()
                     .filter(|completion_content| {
                         self.default
@@ -211,7 +213,7 @@ impl FindCompletionContents for StringSchema {
             );
 
             merge_adjacent_schema_completion_items(
-                position,
+                cursor,
                 _keys,
                 _accessors,
                 current_schema,
@@ -229,7 +231,7 @@ impl FindCompletionContents for StringSchema {
 }
 
 pub fn type_hint_string(
-    position: tombi_text::Position,
+    offset: tombi_text::Offset,
     schema_base_uri: Option<&SchemaUri>,
     completion_hint: Option<CompletionHint>,
 ) -> Vec<CompletionContent> {
@@ -245,7 +247,7 @@ pub fn type_hint_string(
             CompletionKind::String,
             quote,
             detail,
-            CompletionEdit::new_string_literal(quote, position, completion_hint),
+            CompletionEdit::new_string_literal(quote, offset, completion_hint),
             schema_base_uri,
         )
     })

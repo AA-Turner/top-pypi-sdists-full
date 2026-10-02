@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: go-task-bin
-Version: 3.53.1
+Version: 3.54.0
 Summary: A fast, cross-platform build tool inspired by Make, designed for modern workflows.
 Keywords: build,build-tool,devops,go,make,makefile,runner,task,task-runner,taskfile,tool
 Author-Email: dowon <ks2515@naver.com>

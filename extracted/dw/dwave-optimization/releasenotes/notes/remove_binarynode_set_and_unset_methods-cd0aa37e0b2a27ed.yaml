@@ -1,4 +1,0 @@
----
-deprecations:
-  - |
-    Remove mutate methods ``set()`` and ``unset()`` from ``BinaryNode``.

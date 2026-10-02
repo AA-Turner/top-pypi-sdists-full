@@ -1,0 +1,522 @@
+"""Type checking code for control-flow graphs
+
+Operates on CFGs produced by the `CFGBuilder`. Produces a `CheckedCFG` consisting of
+`CheckedBB`s with inferred type signatures.
+"""
+
+import ast
+import collections
+import itertools
+from collections.abc import Iterator, Sequence
+from dataclasses import dataclass, field
+from typing import ClassVar
+
+from guppylang_internals.ast_util import line_col
+from guppylang_internals.cfg.bb import BB
+from guppylang_internals.cfg.builder import is_tmp_var
+from guppylang_internals.cfg.cfg import CFG, BaseCFG
+from guppylang_internals.checker.core import (
+    Context,
+    Globals,
+    Locals,
+    Place,
+    Variable,
+)
+from guppylang_internals.checker.expr_checker import (
+    ExprSynthesizer,
+    coerces_to,
+    to_bool,
+)
+from guppylang_internals.checker.modifier import (
+    NO_CALL_MODIFIERS,
+    ModifierContext,
+)
+from guppylang_internals.checker.stmt_checker import StmtChecker
+from guppylang_internals.diagnostic import Error, Help, Note
+from guppylang_internals.engine import MonoDefId
+from guppylang_internals.error import GuppyError
+from guppylang_internals.tys.arg import Argument
+from guppylang_internals.tys.ty import (
+    FunctionDefType,
+    InputFlags,
+    NestedFunctionDefType,
+    Type,
+)
+
+type Row[V] = Sequence[V]
+
+
+@dataclass(frozen=True)
+class Signature[V]:
+    """The signature of a basic block.
+
+    Stores the input/output variables with their types. Generic over the representation
+    of program variables.
+    """
+
+    input_row: Row[V]
+    output_rows: Sequence[Row[V]]  # One for each successor
+
+    dummy_output_rows: Sequence[Row[V]] = field(default_factory=list)
+
+    @staticmethod
+    def empty() -> "Signature[V]":
+        return Signature([], [], [])
+
+
+@dataclass(eq=False)  # Disable equality to recover hash from `object`
+class CheckedBB[V](BB):
+    """Basic block annotated with an input and output type signature.
+
+    The signature is generic over the representation of program variables.
+    """
+
+    sig: Signature[V] = field(default_factory=Signature.empty)
+
+
+class CheckedCFG[V](BaseCFG[CheckedBB[V]]):
+    input_tys: list[Type]
+    output_ty: Type
+
+    def __init__(self, input_tys: list[Type], output_ty: Type) -> None:
+        super().__init__([])
+        self.input_tys = input_tys
+        self.output_ty = output_ty
+
+
+def check_cfg(
+    cfg: CFG,
+    inputs: Row[Variable],
+    return_ty: Type,
+    generic_args: dict[str, Argument],
+    func_name: str,
+    globals: Globals,
+    current_caller: MonoDefId,
+    modifier_ctx: ModifierContext = NO_CALL_MODIFIERS,
+    first_modifier_node: ast.expr | None = None,
+    modified_block_name_base: str | None = None,
+    modified_block_counter: Iterator[int] | None = None,
+) -> CheckedCFG[Place]:
+    """Instantiates a control-flow graph with the given `generic_args` and then type
+    checks it.
+
+    Annotates the basic blocks with input and output type signatures and removes
+    unreachable blocks. Note that the inputs/outputs are annotated in the form of
+    *places* rather than just variables.
+
+    Note that the resulting types will all be monomorphic - generic parameters will
+    be instantiated to the provided `generic_args`.
+
+    `first_modifier_node`: if None, the cfg is not a modifier block.
+    Otherwise, it's the AST node of the first modifier, used in error reporting.
+    """
+
+    if modified_block_counter is None:
+        modified_block_counter = itertools.count()
+    if modified_block_name_base is None:
+        modified_block_name_base = func_name
+
+    # First, we need to run program analysis
+    ass_before = {v.name for v in inputs}
+    inout_vars = [v for v in inputs if InputFlags.Inout in v.flags]
+    cfg.analyze(ass_before, ass_before, [v.name for v in inout_vars])
+
+    # We start by compiling the entry BB
+    checked_cfg: CheckedCFG[Variable] = CheckedCFG([v.ty for v in inputs], return_ty)
+    checked_cfg.entry_bb = check_bb(
+        cfg.entry_bb,
+        checked_cfg,
+        inputs,
+        return_ty,
+        generic_args,
+        globals,
+        modified_block_name_base,
+        modified_block_counter,
+        current_caller=current_caller,
+        modifier_ctx=modifier_ctx,
+    )
+    compiled = {cfg.entry_bb: checked_cfg.entry_bb}
+
+    # Visit all control-flow edges in BFS order. We can't just do a normal loop over
+    # all BBs since the input types for a BB are computed by checking a predecessor.
+    # We do BFS instead of DFS to get a better error ordering.
+    queue = collections.deque(
+        (checked_cfg.entry_bb, i, succ)
+        # We enumerate the successor starting from the back, so we start with the `True`
+        # branch. This way, we find errors in a more natural order
+        for i, succ in reverse_enumerate(
+            cfg.entry_bb.successors + cfg.entry_bb.dummy_successors
+        )
+    )
+    while len(queue) > 0:
+        pred, num_output, bb = queue.popleft()
+        pred_outputs = [*pred.sig.output_rows, *pred.sig.dummy_output_rows]
+        input_row = pred_outputs[num_output]
+
+        if bb in compiled:
+            # If the BB was already compiled, we just have to check that the signatures
+            # match.
+            check_rows_match(input_row, compiled[bb].sig.input_row, bb)
+        else:
+            # Otherwise, check the BB and enqueue its successors
+            checked_bb = check_bb(
+                bb,
+                checked_cfg,
+                input_row,
+                return_ty,
+                generic_args,
+                globals,
+                modified_block_name_base,
+                modified_block_counter,
+                current_caller=current_caller,
+                modifier_ctx=modifier_ctx,
+            )
+            queue += [
+                # We enumerate the successor starting from the back, so we start with
+                # the `True` branch. This way, we find errors in a more natural order
+                (checked_bb, i, succ)
+                for i, succ in reverse_enumerate(bb.successors)
+            ]
+            compiled[bb] = checked_bb
+
+        # Link up BBs in the checked CFG, excluding the unreachable ones
+        if bb.reachable:
+            compiled[bb].predecessors.append(pred)
+            pred.successors[num_output] = compiled[bb]
+
+    # The exit BB might be unreachable. In that case it won't be visited above and we
+    # have to handle it here
+    if cfg.exit_bb not in compiled:
+        assert not cfg.exit_bb.reachable
+        compiled[cfg.exit_bb] = CheckedBB(
+            cfg.exit_bb.idx, checked_cfg, reachable=False, sig=Signature(inout_vars, [])
+        )
+
+    required_bbs = [bb for bb in cfg.bbs if bb.reachable or bb.is_exit]
+    checked_cfg.bbs = [compiled[bb] for bb in required_bbs]
+    checked_cfg.exit_bb = compiled[cfg.exit_bb]
+    checked_cfg.live_before = {compiled[bb]: cfg.live_before[bb] for bb in required_bbs}
+    checked_cfg.ass_before = {compiled[bb]: cfg.ass_before[bb] for bb in required_bbs}
+    checked_cfg.maybe_ass_before = {
+        compiled[bb]: cfg.maybe_ass_before[bb] for bb in required_bbs
+    }
+    checked_cfg.unitary_flags = cfg.unitary_flags
+
+    # Finally, run the linearity check
+    from guppylang_internals.checker.linearity_checker import check_cfg_linearity
+
+    linearity_checked_cfg = check_cfg_linearity(
+        checked_cfg, func_name, globals, first_modifier_node=first_modifier_node
+    )
+
+    from guppylang_internals.checker.unitary_checker import check_cfg_unitary
+
+    check_cfg_unitary(linearity_checked_cfg, linearity_checked_cfg.unitary_flags)
+
+    return linearity_checked_cfg
+
+
+@dataclass(frozen=True)
+class VarNotDefinedError(Error):
+    title: ClassVar[str] = "Variable not defined"
+    span_label: ClassVar[str] = "`{var}` is not defined"
+    var: str
+
+
+@dataclass(frozen=True)
+class VarMaybeNotDefinedError(Error):
+    title: ClassVar[str] = "Variable not defined"
+    var: str
+
+    @dataclass(frozen=True)
+    class BadBranch(Note):
+        span_label: ClassVar[str] = "... if this expression is `{truth_value}`"
+        var: str
+        truth_value: bool
+
+    @property
+    def rendered_span_label(self) -> str:
+        s = f"`{self.var}` might be undefined"
+        if self.children:
+            s += " ..."
+        return s
+
+
+@dataclass(frozen=True)
+class BranchTypeError(Error):
+    title: ClassVar[str] = "Different types"
+    span_label: ClassVar[str] = "{ident} may refer to different types"
+    ident: str
+
+    @dataclass(frozen=True)
+    class TypeHint(Note):
+        var: str
+        ty: Type
+
+        @property
+        def rendered_span_label(self) -> str:
+            if isinstance(self.ty, NestedFunctionDefType):
+                return f"This is a distinct function `{self.var}` of type `{self.ty}`"
+            return f"This is of type `{self.ty}`"
+
+    @dataclass(frozen=True)
+    class CoerceOneHint(Help):
+        var: str
+        ty: Type
+
+        @property
+        def rendered_span_label(self) -> str:
+            if is_tmp_var(self.var):
+                return f"Consider coercing this value to `{self.ty}`"
+            return f"Consider adding a type annotation: `{self.var}: {self.ty} = ...`"
+
+    @dataclass(frozen=True)
+    class CoerceBothHint(Help):
+        var: str
+        ty: str
+        extra: str = ""
+
+        @property
+        def rendered_message(self) -> str:
+            if is_tmp_var(self.var):
+                return f"Consider coercing both values to `{self.ty}`"
+            return (
+                f"Consider adding type annotations{self.extra}: "
+                f"`{self.var}: {self.ty} = ...`"
+            )
+
+
+@dataclass(frozen=True)
+class AssignedInModifierError(Error):
+    title: ClassVar[str] = "Variable assigned in modifier block"
+    span_label: ClassVar[str] = "`{var}` cannot be used..."
+    var: str
+
+    @dataclass(frozen=True)
+    class AssignedHere(Note):
+        span_label: ClassVar[str] = "... since it was assigned in a modifier block"
+
+    @dataclass(frozen=True)
+    class Explanation(Help):
+        message: ClassVar[str] = (
+            "Variables assigned inside a modifier block are not available"
+            " outside the block"
+        )
+
+
+def check_bb(
+    bb: BB,
+    checked_cfg: CheckedCFG[Variable],
+    inputs: Row[Variable],
+    return_ty: Type,
+    generic_args: dict[str, Argument],
+    globals: Globals,
+    modified_block_name_base: str,
+    modified_block_counter: Iterator[int],
+    current_caller: MonoDefId,
+    modifier_ctx: ModifierContext,
+) -> CheckedBB[Variable]:
+    cfg = bb.containing_cfg
+
+    # For the entry BB we have to separately check that all used variables are
+    # defined. For all other BBs, this will be checked when compiling a predecessor.
+    if bb == cfg.entry_bb:
+        assert len(bb.predecessors) == 0
+        for x, use in bb.vars.used.items():
+            if (
+                x not in cfg.ass_before[bb]
+                and x not in globals
+                and x not in generic_args
+            ):
+                raise GuppyError(VarNotDefinedError(use, x))
+
+    # We check that the block does not use defined variables that have been redefined
+    # inside a modifier block
+    if bb.vars.badly_used_after_modifier_block:
+        x, (use, assignment) = next(
+            iter(bb.vars.badly_used_after_modifier_block.items())
+        )
+        raise GuppyError(_assigned_in_modifier_error(x, use, assignment))
+
+    # Check the basic block
+    ctx = Context(
+        globals,
+        Locals({v.name: v for v in inputs}),
+        generic_args,
+        modified_block_name_base=modified_block_name_base,
+        modified_block_counter=modified_block_counter,
+        current_caller=current_caller,
+        modifier_ctx=modifier_ctx,
+    )
+    checked_stmts = StmtChecker(ctx, bb, return_ty).check_stmts(bb.statements)
+
+    # If we branch, we also have to check the branch predicate
+    if len(bb.successors) > 1:
+        assert bb.branch_pred is not None
+        bb.branch_pred, ty = ExprSynthesizer(ctx).synthesize(bb.branch_pred)
+        bb.branch_pred, _ = to_bool(bb.branch_pred, ty, ctx)
+
+    for succ in bb.successors + bb.dummy_successors:
+        for x, use_bb in cfg.live_before[succ].items():
+            # Check that the variables requested by the successor are defined. If `x` is
+            # a local variable, then we must be able to find it in the context.
+            # Following Python, locals are exactly those variables that are defined
+            # somewhere in the function body.
+            if x in cfg.assigned_somewhere:
+                if x not in ctx.locals:
+                    # If the variable is defined on *some* paths, we can give a more
+                    # informative error message
+                    if x in cfg.maybe_ass_before[use_bb]:
+                        err: Error = VarMaybeNotDefinedError(use_bb.vars.used[x], x)
+                        if bad_branch := diagnose_maybe_undefined(use_bb, x, cfg):
+                            branch_expr, truth_value = bad_branch
+                            note = VarMaybeNotDefinedError.BadBranch(
+                                branch_expr, x, truth_value
+                            )
+                            err.add_sub_diagnostic(note)
+                    else:
+                        err = VarNotDefinedError(use_bb.vars.used[x], x)
+                    raise GuppyError(err)
+            # If x is not a local, then it must be a global or generic param
+            elif x not in ctx.globals and x not in generic_args:
+                raise GuppyError(VarNotDefinedError(use_bb.vars.used[x], x))
+
+            # We also check that the variables assigned in a modifier block are not
+            # in successor blocks
+            if x in bb.vars.assigned_in_modifier_block:
+                raise GuppyError(
+                    _assigned_in_modifier_error(
+                        x, use_bb.vars.used[x], bb.vars.assigned_in_modifier_block[x]
+                    )
+                )
+
+    # Finally, we need to compute the signature of the basic block
+    outputs = [
+        [ctx.locals[x] for x in cfg.live_before[succ] if x in ctx.locals]
+        for succ in bb.successors
+    ]
+    dummy_outputs = [
+        [ctx.locals[x] for x in cfg.live_before[succ] if x in ctx.locals]
+        for succ in bb.dummy_successors
+    ]
+
+    # Also prepare the successor list so we can fill it in later
+    checked_bb = CheckedBB(
+        bb.idx,
+        checked_cfg,
+        checked_stmts,
+        reachable=bb.reachable,
+        sig=Signature(inputs, outputs, dummy_outputs),
+    )
+    checked_bb.successors = [None] * len(bb.successors)  # type: ignore[list-item]
+    checked_bb.branch_pred = bb.branch_pred
+    return checked_bb
+
+
+def _assigned_in_modifier_error(
+    var: str, use: ast.AST, assignment: ast.AST
+) -> AssignedInModifierError:
+    err = AssignedInModifierError(use, var)
+    err.add_sub_diagnostic(AssignedInModifierError.AssignedHere(assignment))
+    err.add_sub_diagnostic(AssignedInModifierError.Explanation(None))
+    return err
+
+
+def check_rows_match(row1: Row[Variable], row2: Row[Variable], bb: BB) -> None:
+    """Checks that the types of two rows match up.
+
+    Otherwise, an error is thrown, alerting the user that a variable has different
+    types on different control-flow paths.
+    """
+    map1, map2 = {v.name: v for v in row1}, {v.name: v for v in row2}
+    for x in map1.keys() | map2.keys():
+        # If block signature lengths don't match but no undefined error was thrown, some
+        # variables may be shadowing global variables.
+        v1, v2 = map1[x], map2[x]
+        if v1.ty != v2.ty:
+            # In the error message, we want to mention the variable that was first
+            # defined at the start.
+            if (
+                v1.defined_at
+                and v2.defined_at
+                and line_col(v2.defined_at) < line_col(v1.defined_at)
+            ):
+                v1, v2 = v2, v1
+            # We shouldn't mention temporary variables (starting with `%`)
+            # in error messages:
+            ident = "Expression" if v1.name.startswith("%") else f"Variable `{v1.name}`"
+            use = bb.containing_cfg.live_before[bb][v1.name].vars.used[v1.name]
+            err = BranchTypeError(use, ident)
+            # We don't add a location to the type hint for the global variable,
+            # since it could lead to cross-file diagnostics (which are not
+            # supported) or refer to long function definitions.
+            err.add_sub_diagnostic(
+                BranchTypeError.TypeHint(v1.defined_at, v1.name, v1.ty)
+            )
+            err.add_sub_diagnostic(
+                BranchTypeError.TypeHint(v2.defined_at, v2.name, v2.ty)
+            )
+            if hint := maybe_coerce_hint(v1, v2):
+                err.add_sub_diagnostic(hint)
+            raise GuppyError(err)
+
+
+def maybe_coerce_hint(v1: Variable, v2: Variable) -> Help | None:
+    """Generates a help message telling the user to add type annotations to trigger
+    coercions that fix a type mismatch across different control-flow paths."""
+    assert v1.name == v2.name
+    assert v1.ty != v2.ty
+    if coerces_to(v1.ty, v2.ty):
+        return BranchTypeError.CoerceOneHint(v1.defined_at, v1.name, v2.ty)
+    if coerces_to(v2.ty, v1.ty):
+        return BranchTypeError.CoerceOneHint(v2.defined_at, v2.name, v1.ty)
+    # Suggest to coerce function definition types into opaque function types
+    if (
+        isinstance(v1.ty, FunctionDefType)
+        and isinstance(v2.ty, FunctionDefType)
+        and v1.ty.sig == v2.ty.sig
+    ):
+        unquantified, _ = v1.ty.sig.unquantified()
+        args = ", ".join(str(inp.ty) for inp in unquantified.inputs)
+        fn_str = f"Function[[{args}], {unquantified.output}]"
+        extra = " to coerce them into opaque function values"
+        return BranchTypeError.CoerceBothHint(None, v1.name, fn_str, extra)
+    return None
+
+
+def diagnose_maybe_undefined(
+    bb: BB, x: str, cfg: BaseCFG[BB]
+) -> tuple[ast.expr, bool] | None:
+    """Given a BB and a variable `x`, tries to find a branch where one of the successors
+    leads to an assignment of `x` while the other one does not.
+
+    Returns the branch condition and a flag whether the value being `True` leads to the
+    undefined path. Returns `None` if no such branch can be found.
+    """
+    assert x in cfg.maybe_ass_before[bb]
+    # Find all BBs that can reach this BB and which ones of those assign `x`
+    ancestors = list(cfg.ancestors(bb))
+    assigns = [anc for anc in ancestors if x in anc.vars.assigned]
+    # Compute which ancestors can possibly reach an assignment
+    reaches_assignment = set(cfg.ancestors(*assigns))
+    # Try to find a branching BB where one of paths can reach an assignment, while the
+    # other one cannot
+    for anc in ancestors:
+        match anc.successors:
+            case [true_succ, false_succ]:
+                assert anc.branch_pred is not None
+                true_reaches_assignment = true_succ in reaches_assignment
+                false_reaches_assignment = false_succ in reaches_assignment
+                if true_reaches_assignment != false_reaches_assignment:
+                    return anc.branch_pred, true_reaches_assignment
+    return None
+
+
+def reverse_enumerate[T](xs: list[T]) -> Iterator[tuple[int, T]]:
+    """Enumerates a list in reverse order.
+
+    Equivalent to `reversed(list(enumerate(data)))` without creating an intermediate
+    list.
+    """
+    for i in range(len(xs) - 1, -1, -1):
+        yield i, xs[i]

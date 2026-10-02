@@ -1,0 +1,252 @@
+"""
+StreamsMixin - Memory-efficient collection management for LiveView.
+"""
+
+from typing import Any, Callable, Dict, Optional
+
+from ..session_utils import Stream
+
+
+def _prune_items(stream_obj: Stream, limit: int, edge: str) -> None:
+    """Apply a ``stream_prune`` to the server-side items (#2964).
+
+    Every render lists the stream's items, and the VDOM diff turns that list
+    into DOM changes, so dropping pruned items here is what removes their rows
+    from the page. (The ``stream_prune`` op is also still queued for the
+    test client, but nothing ships ops to the browser.) ``"top"`` drops from
+    the start, ``"bottom"`` from the end.
+    """
+    surplus = len(stream_obj.items) - limit
+    if surplus <= 0:
+        return
+    if edge == "bottom":
+        del stream_obj.items[limit:]
+    else:
+        del stream_obj.items[:surplus]
+
+
+class StreamsMixin:
+    """Methods for managing streams: stream, stream_insert, stream_delete, stream_reset."""
+
+    def stream(
+        self,
+        name: str,
+        items: Any,
+        dom_id: Optional[Callable[[Any], str]] = None,
+        at: int = -1,
+        reset: bool = False,
+        limit: Optional[int] = None,
+    ) -> Stream:
+        """
+        Initialize or update a stream with items.
+
+        Streams are memory-efficient collections that are automatically cleared
+        after each render. The client preserves existing DOM elements.
+
+        Args:
+            name: Stream name (used in template as streams.{name})
+            items: Iterable of items to add to the stream
+            dom_id: Function to generate DOM id from item (default: lambda x: x.id)
+            at: Position to insert (-1 = end, 0 = beginning)
+            reset: If True, clear existing items first
+            limit: If set, cap the stream at ``limit`` items after the
+                insert, so the rendered list (and the DOM) stays bounded.
+                Items are pruned from the opposite edge of ``at``:
+                prepending (``at=0``) prunes the bottom; appending
+                (``at=-1``) prunes the top. Used for bidirectional
+                infinite scroll with ``dj-viewport-top/bottom``.
+
+        Returns:
+            Stream object for chaining
+        """
+
+        # The default factory is Stream.default_dom_id itself, not a local
+        # closure — dom_id_for() distinguishes default from custom by
+        # identity, and a closure would be a fresh object every call (#2121).
+        # `explicit` is captured BEFORE the coercion: testing
+        # `dom_id is not Stream.default_dom_id` afterwards cannot tell "not
+        # passed" from "passed the default on purpose", and the latter should
+        # rebind a stream that currently holds a custom factory.
+        explicit = dom_id is not None
+        if dom_id is None:
+            dom_id = Stream.default_dom_id
+
+        if name not in self._streams or reset:
+            self._streams[name] = Stream(name, dom_id)
+            if reset:
+                self._stream_operations.append(
+                    {
+                        "type": "stream_reset",
+                        "stream": name,
+                    }
+                )
+
+        stream_obj = self._streams[name]
+
+        # An explicit dom_id= on an EXISTING stream is authoritative. Without
+        # this the loop below would emit ids from the new factory while
+        # stream_insert/stream_delete kept using the old one — the same
+        # insert/delete disagreement one call later (#2121). Note this is
+        # last-writer-wins: rows inserted under an earlier factory keep the
+        # dom ids it produced, and deleting one of them by item now emits the
+        # NEW factory's id. Re-binding mid-stream is pathological; documented
+        # rather than defended against.
+        if explicit:
+            stream_obj.dom_id_fn = dom_id
+
+        # Convert items to list if needed
+        if hasattr(items, "__iter__") and not isinstance(items, (str, bytes)):
+            items_list = list(items)
+        else:
+            items_list = [items] if items is not None else []
+
+        # Issue #799: when `limit=N` is set, the server-side trim is
+        # already guaranteed by the client-side stream_prune op we emit
+        # below. Pre-trim the inserts themselves to at-most `limit` so we
+        # don't ship `items_list` over the wire only to have the client
+        # throw most of them away. This is pure bandwidth savings — the
+        # client-visible DOM is identical.
+        if limit is not None and limit >= 0 and len(items_list) > limit:
+            # Trim from the OPPOSITE edge of the insert direction so the
+            # items that would survive the prune on the client are the
+            # ones we actually send.
+            if at == 0:
+                # Prepending — client keeps the first `limit` items, so
+                # slice the leading `limit` of our inserts.
+                items_list = items_list[:limit]
+            else:
+                # Appending — client keeps the last `limit` items.
+                items_list = items_list[-limit:]
+
+        for item in items_list:
+            stream_obj.insert(item, at=at)
+            self._stream_operations.append(
+                {
+                    "type": "stream_insert",
+                    "stream": name,
+                    "dom_id": stream_obj.dom_id_for(item),
+                    "at": at,
+                }
+            )
+
+        if limit is not None and limit >= 0:
+            # Prune from the opposite edge of the insert direction so the
+            # newly added items are preserved.
+            edge = "bottom" if at == 0 else "top"
+            _prune_items(stream_obj, int(limit), edge)
+            self._stream_operations.append(
+                {
+                    "type": "stream_prune",
+                    "stream": name,
+                    "limit": int(limit),
+                    "edge": edge,
+                }
+            )
+
+        return stream_obj
+
+    def stream_prune(self, name: str, limit: int, edge: str = "top") -> None:
+        """
+        Cap a stream at ``limit`` items, removing the surplus rows from the
+        page on the next render.
+
+        Args:
+            name: Stream name. Must have been initialized via ``stream()``.
+            limit: Maximum number of items (rows) to keep. Must be >= 0.
+            edge: ``"top"`` removes from the start of the container (oldest
+                children in an append-only feed); ``"bottom"`` removes from
+                the end.
+        """
+        if name not in self._streams:
+            raise ValueError(f"Stream '{name}' not initialized. Call stream() first.")
+        if limit < 0:
+            raise ValueError("limit must be >= 0")
+        if edge not in ("top", "bottom"):
+            raise ValueError("edge must be 'top' or 'bottom'")
+        _prune_items(self._streams[name], int(limit), edge)
+        self._stream_operations.append(
+            {
+                "type": "stream_prune",
+                "stream": name,
+                "limit": int(limit),
+                "edge": edge,
+            }
+        )
+
+    def stream_insert(self, name: str, item: Any, at: int = -1) -> None:
+        """Insert an item into a stream (-1 = append, 0 = prepend)."""
+        if name not in self._streams:
+            raise ValueError(f"Stream '{name}' not initialized. Call stream() first.")
+
+        stream_obj = self._streams[name]
+
+        stream_obj.insert(item, at=at)
+        self._stream_operations.append(
+            {
+                "type": "stream_insert",
+                "stream": name,
+                "dom_id": stream_obj.dom_id_for(item),
+                "at": at,
+            }
+        )
+
+    def stream_delete(self, name: str, item_or_id: Any) -> None:
+        """Delete an item from a stream by item or id."""
+        if name not in self._streams:
+            raise ValueError(f"Stream '{name}' not initialized. Call stream() first.")
+
+        stream_obj = self._streams[name]
+
+        # One chokepoint with both insert sites, so a custom dom_id= factory
+        # cannot make them disagree (#2121, #1646).
+        dom_id_val = stream_obj.dom_id_for(item_or_id, allow_factory_fallback=True)
+
+        stream_obj.delete(item_or_id)
+        self._stream_operations.append(
+            {
+                "type": "stream_delete",
+                "stream": name,
+                "dom_id": dom_id_val,
+            }
+        )
+
+    def stream_reset(self, name: str, items: Any = None) -> None:
+        """Reset a stream, clearing all items and optionally adding new ones."""
+        if name in self._streams:
+            self._streams[name].clear()
+
+        self._stream_operations.append(
+            {
+                "type": "stream_reset",
+                "stream": name,
+            }
+        )
+
+        if items is not None:
+            self.stream(name, items, reset=False)
+
+    def _get_streams_context(self) -> Dict[str, list]:
+        """Get streams data for template context.
+
+        Returns a COPY of each item list. Handing out ``stream_obj.items``
+        directly aliased the live list, so ``_reset_streams()`` — which calls
+        ``Stream.clear()``, an in-place ``items.clear()`` — emptied a value
+        that had already been handed to the context. Change-detection could
+        not see the reset either, because its "before" and "after" were the
+        same object (#2119, Action #1039 mutation-after-capture).
+
+        The copy is shallow: the ITEMS are shared, which is correct — they are
+        the caller's own objects. Only the list container is independent.
+        """
+        return {name: list(stream_obj.items) for name, stream_obj in self._streams.items()}
+
+    def _get_stream_operations(self) -> list:
+        """Get and clear pending stream operations."""
+        ops = self._stream_operations.copy()
+        self._stream_operations.clear()
+        return ops
+
+    def _reset_streams(self) -> None:
+        """Reset all streams after render to free memory."""
+        for stream_obj in self._streams.values():
+            stream_obj.clear()

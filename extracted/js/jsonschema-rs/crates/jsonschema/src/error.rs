@@ -1414,6 +1414,10 @@ fn write_unexpected_suffix(f: &mut Formatter<'_>, len: usize) -> fmt::Result {
     })
 }
 
+fn write_item_count(f: &mut Formatter<'_>, count: usize) -> fmt::Result {
+    write!(f, "{count} item{})", if count == 1 { "" } else { "s" })
+}
+
 const MAX_DISPLAYED_ENUM_VARIANTS: usize = 3;
 
 fn write_enum_message(
@@ -1674,7 +1678,14 @@ impl fmt::Display for MaskedValidationError<'_, '_, '_> {
                 write!(f, r#"{} is not a "{format}""#, self.placeholder)
             }
             ValidationErrorKind::AdditionalItems { limit } => {
-                write!(f, "Additional items are not allowed ({limit} items)")
+                // `limit` is how many items the schema allows; report how many exceed it.
+                let extra = self
+                    .error
+                    .instance()
+                    .as_array()
+                    .map_or(0, |array| array.len().saturating_sub(*limit));
+                f.write_str("Additional items are not allowed (")?;
+                write_item_count(f, extra)
             }
             ValidationErrorKind::AdditionalProperties { unexpected } => {
                 f.write_str("Additional properties are not allowed (")?;
@@ -1807,11 +1818,8 @@ impl fmt::Display for MaskedValidationError<'_, '_, '_> {
                 )
             }
             ValidationErrorKind::UnevaluatedItems { unexpected } => {
-                write!(
-                    f,
-                    "Unevaluated items are not allowed ({} items)",
-                    unexpected.len()
-                )
+                f.write_str("Unevaluated items are not allowed (")?;
+                write_item_count(f, unexpected.len())
             }
             ValidationErrorKind::UnevaluatedProperties { unexpected } => {
                 f.write_str("Unevaluated properties are not allowed (")?;
@@ -2192,6 +2200,75 @@ mod tests {
         assert_eq!(error.instance_path().as_str(), expected);
     }
 
+    #[test_case(&json!({"anyOf": [{"type": "string"}, {"type": "boolean"}]}), &json!(1), "anyOf", "[REDACTED] is not valid under any of the schemas listed in the 'anyOf' keyword"; "any of")]
+    #[test_case(&json!({"oneOf": [{"type": "string"}, {"type": "boolean"}]}), &json!(1), "oneOf", "[REDACTED] is not valid under any of the schemas listed in the 'oneOf' keyword"; "one of none valid")]
+    #[test_case(&json!({"oneOf": [{"type": "integer"}, {"minimum": 0}]}), &json!(1), "oneOf", "[REDACTED] is valid under more than one of the schemas listed in the 'oneOf' keyword"; "one of multiple valid")]
+    #[test_case(&json!({"contains": {"type": "string"}}), &json!([1]), "contains", "None of [REDACTED] are valid under the given schema"; "contains")]
+    #[test_case(&json!({"const": "secret"}), &json!("x"), "const", "\"secret\" was expected"; "constant")]
+    #[test_case(&json!({"$schema": "http://json-schema.org/draft-07/schema#", "contentEncoding": "base64"}), &json!("not base64!"), "contentEncoding", "[REDACTED] is not compliant with \"base64\" content encoding"; "content encoding")]
+    #[test_case(&json!({"$schema": "http://json-schema.org/draft-07/schema#", "contentMediaType": "application/json"}), &json!("{"), "contentMediaType", "[REDACTED] is not compliant with \"application/json\" media type"; "content media type")]
+    #[test_case(&json!({"$schema": "http://json-schema.org/draft-07/schema#", "contentMediaType": "application/json", "contentEncoding": "base64"}), &json!("/w=="), "contentEncoding", "invalid utf-8 sequence of 1 bytes from index 0"; "decoded content is not utf-8")]
+    #[test_case(&json!({"enum": ["a", "b"]}), &json!("c"), "enum", "[REDACTED] is not one of \"a\" or \"b\""; "enumeration")]
+    #[test_case(&json!({"exclusiveMaximum": 1}), &json!(1), "exclusiveMaximum", "[REDACTED] is greater than or equal to the maximum of 1"; "exclusive maximum")]
+    #[test_case(&json!({"exclusiveMinimum": 1}), &json!(1), "exclusiveMinimum", "[REDACTED] is less than or equal to the minimum of 1"; "exclusive minimum")]
+    #[test_case(&json!(false), &json!(1), "falseSchema", "False schema does not allow [REDACTED]"; "false schema")]
+    #[test_case(&json!({"maximum": 1}), &json!(2), "maximum", "[REDACTED] is greater than the maximum of 1"; "maximum")]
+    #[test_case(&json!({"maxLength": 1}), &json!("ab"), "maxLength", "[REDACTED] is longer than 1 character"; "max length singular")]
+    #[test_case(&json!({"minLength": 1}), &json!(""), "minLength", "[REDACTED] is shorter than 1 character"; "min length singular")]
+    #[test_case(&json!({"minLength": 2}), &json!("a"), "minLength", "[REDACTED] is shorter than 2 characters"; "min length plural")]
+    #[test_case(&json!({"maxItems": 1}), &json!([1, 2]), "maxItems", "[REDACTED] has more than 1 item"; "max items singular")]
+    #[test_case(&json!({"maxItems": 0}), &json!([1]), "maxItems", "[REDACTED] has more than 0 items"; "max items plural")]
+    #[test_case(&json!({"minItems": 1}), &json!([]), "minItems", "[REDACTED] has less than 1 item"; "min items singular")]
+    #[test_case(&json!({"minItems": 2}), &json!([1]), "minItems", "[REDACTED] has less than 2 items"; "min items plural")]
+    #[test_case(&json!({"maxProperties": 1}), &json!({"a": 1, "b": 2}), "maxProperties", "[REDACTED] has more than 1 property"; "max properties singular")]
+    #[test_case(&json!({"maxProperties": 0}), &json!({"a": 1}), "maxProperties", "[REDACTED] has more than 0 properties"; "max properties plural")]
+    #[test_case(&json!({"minProperties": 1}), &json!({}), "minProperties", "[REDACTED] has less than 1 property"; "min properties singular")]
+    #[test_case(&json!({"minProperties": 2}), &json!({"a": 1}), "minProperties", "[REDACTED] has less than 2 properties"; "min properties plural")]
+    #[test_case(&json!({"not": {"type": "integer"}}), &json!(1), "not", "{\"type\":\"integer\"} is not allowed for [REDACTED]"; "not")]
+    #[test_case(&json!({"propertyNames": {"maxLength": 1}}), &json!({"ab": 1}), "propertyNames", "\"ab\" is longer than 1 character"; "property names")]
+    #[test_case(&json!({"required": ["a"]}), &json!({}), "required", "\"a\" is a required property"; "required")]
+    #[test_case(&json!({"multipleOf": 2}), &json!(3), "multipleOf", "[REDACTED] is not a multiple of 2"; "multiple of")]
+    #[test_case(&json!({"properties": {"a": {}}, "unevaluatedProperties": false}), &json!({"a": 1, "b": 2}), "unevaluatedProperties", "Unevaluated properties are not allowed ('b' was unexpected)"; "unevaluated properties")]
+    #[test_case(&json!({"type": ["string", "null"]}), &json!(1), "type", "[REDACTED] is not of types \"null\", \"string\""; "multiple types")]
+    #[test_case(&json!({"$schema": "http://json-schema.org/draft-04/schema#", "type": ["string", "null"]}), &json!(1), "type", "[REDACTED] is not of types \"null\", \"string\""; "multiple types draft 4")]
+    fn masked_validation_messages(schema: &Value, instance: &Value, keyword: &str, expected: &str) {
+        let validator = crate::validator_for(schema).expect("Invalid schema");
+        let error = validator.validate(instance).expect_err("Should fail");
+        assert_eq!(
+            (
+                error.kind().keyword(),
+                error.masked_with("[REDACTED]").to_string()
+            ),
+            (keyword, expected.to_string())
+        );
+    }
+
+    #[test]
+    fn masked_unresolvable_reference() {
+        let error = crate::validator_for(&json!({"$ref": "#/missing"})).expect_err("Should fail");
+        assert_eq!(
+            (error.kind().keyword(), error.masked().to_string()),
+            ("$ref", "Pointer '/missing' does not exist".to_string())
+        );
+    }
+
+    #[test]
+    fn masked_backtrack_limit_exceeded() {
+        let validator = crate::options()
+            .with_pattern_options(crate::PatternOptions::fancy_regex().backtrack_limit(1))
+            .build(&json!({"pattern": "(?<=ab)c"}))
+            .expect("Invalid schema");
+        let instance = json!("abc");
+        let error = validator.validate(&instance).expect_err("Should fail");
+        assert_eq!(
+            (error.kind().keyword(), error.masked().to_string()),
+            (
+                "pattern",
+                "Error executing regex: Max limit for backtracking count exceeded".to_string()
+            )
+        );
+    }
+
     #[test_case(
         json!("2023-13-45"), 
         ValidationErrorKind::Format {
@@ -2274,6 +2351,62 @@ mod tests {
         assert_eq!(error.masked_with(placeholder).to_string(), expected);
     }
 
+    fn single_error_messages(
+        draft: referencing::Draft,
+        schema: &Value,
+        instance: &Value,
+    ) -> (String, String, String) {
+        let validator = crate::options()
+            .with_draft(draft)
+            .build(schema)
+            .expect("schema compiles");
+        let mut errors = validator.iter_errors(instance);
+        let error = errors.next().expect("validation error");
+        assert!(errors.next().is_none());
+        (
+            error.to_string(),
+            error.masked().to_string(),
+            error.masked_with("***").to_string(),
+        )
+    }
+
+    #[test_case(referencing::Draft::Draft4, &json!([1, 2]), "Additional items are not allowed (2 was unexpected)", "Additional items are not allowed (1 item)"; "draft4 one extra")]
+    #[test_case(referencing::Draft::Draft4, &json!([1, 2, 3]), "Additional items are not allowed (2, 3 were unexpected)", "Additional items are not allowed (2 items)"; "draft4 two extra")]
+    #[test_case(referencing::Draft::Draft6, &json!([1, 2]), "Additional items are not allowed (2 was unexpected)", "Additional items are not allowed (1 item)"; "draft6 one extra")]
+    #[test_case(referencing::Draft::Draft6, &json!([1, 2, 3]), "Additional items are not allowed (2, 3 were unexpected)", "Additional items are not allowed (2 items)"; "draft6 two extra")]
+    #[test_case(referencing::Draft::Draft7, &json!([1, 2]), "Additional items are not allowed (2 was unexpected)", "Additional items are not allowed (1 item)"; "draft7 one extra")]
+    #[test_case(referencing::Draft::Draft7, &json!([1, 2, 3]), "Additional items are not allowed (2, 3 were unexpected)", "Additional items are not allowed (2 items)"; "draft7 two extra")]
+    #[test_case(referencing::Draft::Draft7, &json!([1, "a", null, 4]), "Additional items are not allowed (\"a\", null, 4 were unexpected)", "Additional items are not allowed (3 items)"; "draft7 three extra")]
+    #[test_case(referencing::Draft::Draft201909, &json!([1, 2]), "Additional items are not allowed (2 was unexpected)", "Additional items are not allowed (1 item)"; "draft2019 one extra")]
+    #[test_case(referencing::Draft::Draft201909, &json!([1, 2, 3]), "Additional items are not allowed (2, 3 were unexpected)", "Additional items are not allowed (2 items)"; "draft2019 two extra")]
+    fn masked_additional_items_counts_extra_items(
+        draft: referencing::Draft,
+        instance: &Value,
+        expected: &str,
+        expected_masked: &str,
+    ) {
+        let schema = json!({"items": [{}], "additionalItems": false});
+        let (message, masked, masked_with) = single_error_messages(draft, &schema, instance);
+        assert_eq!(message, expected);
+        assert_eq!(masked, expected_masked);
+        assert_eq!(masked_with, expected_masked);
+    }
+
+    #[test_case(&json!([1, 2]), "Unevaluated items are not allowed ('2' was unexpected)", "Unevaluated items are not allowed (1 item)"; "one extra")]
+    #[test_case(&json!([1, 2, 3]), "Unevaluated items are not allowed ('2', '3' were unexpected)", "Unevaluated items are not allowed (2 items)"; "two extra")]
+    fn masked_unevaluated_items_pluralises_count(
+        instance: &Value,
+        expected: &str,
+        expected_masked: &str,
+    ) {
+        let schema = json!({"prefixItems": [{}], "unevaluatedItems": false});
+        let (message, masked, masked_with) =
+            single_error_messages(referencing::Draft::Draft202012, &schema, instance);
+        assert_eq!(message, expected);
+        assert_eq!(masked, expected_masked);
+        assert_eq!(masked_with, expected_masked);
+    }
+
     #[test]
     fn test_absolute_keyword_location_absent_for_schema_without_base_uri() {
         let schema = serde_json::json!({"type": "string"});
@@ -2337,7 +2470,7 @@ mod tests {
             .expect("false schema should have absolute keyword location");
         assert_eq!(
             absolute_location.as_str(),
-            "https://example.com/schema.json"
+            "https://example.com/schema.json#"
         );
     }
 

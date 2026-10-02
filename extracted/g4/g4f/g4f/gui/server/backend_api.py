@@ -12,14 +12,11 @@ import shutil
 import random
 import datetime
 from hashlib import sha256
-from urllib.parse import quote_plus
 from functools import lru_cache
 from flask import Flask, Response, redirect, request, jsonify, send_from_directory
 from werkzeug.exceptions import NotFound
 from typing import Generator
 from pathlib import Path
-from urllib.parse import quote_plus
-from hashlib import sha256
 
 try:
     from PIL import Image, UnidentifiedImageError
@@ -77,10 +74,10 @@ from ...image import (
     MEDIA_TYPE_MAP,
     is_safe_url as _is_safe_url,
 )
+from ...config import AppConfig
 from ...cookies import get_cookies_dir
 from ...image.copy_images import (
     secure_filename,
-    get_source_url,
     get_media_dir,
     copy_media,
 )
@@ -994,6 +991,12 @@ class Backend_Api(Api):
 
         @app.route("/backend-api/v2/upload_cookies", methods=["POST"])
         def upload_cookies():
+            # Security: restrict uploads to loopback clients while no API key
+            # is configured, matching the /v1/upload_cookies guard.
+            peer = request.remote or ""
+            if peer not in ("127.0.0.1", "::1") and not peer.startswith("127."):
+                if not AppConfig.g4f_api_key:
+                    return "Forbidden: cookie uploads require an API key", 403
             file = None
             if "file" in request.files:
                 file = request.files["file"]

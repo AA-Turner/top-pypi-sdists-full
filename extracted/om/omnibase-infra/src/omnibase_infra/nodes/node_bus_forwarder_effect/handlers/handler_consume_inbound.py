@@ -1,0 +1,136 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Inbound gateway transform handler."""
+
+from __future__ import annotations
+
+from uuid import UUID
+
+from omnibase_core.models.dispatch.model_handler_output import ModelHandlerOutput
+from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
+from omnibase_infra.enums import EnumHandlerType, EnumHandlerTypeCategory
+from omnibase_infra.errors import ProtocolConfigurationError
+from omnibase_infra.nodes.node_bus_forwarder_effect.models import (
+    ModelGatewayEnvelope,
+    ModelGatewayForwarderConfig,
+)
+from omnibase_infra.nodes.node_bus_forwarder_effect.services.service_gateway_topic_transform import (
+    prefix_topic,
+    strip_topic_prefix,
+)
+from omnibase_infra.shared.tenant_stamp import stamp_verified_tenant_slug
+
+
+class HandlerConsumeInbound:
+    """Validate cloud wire topics and strip to a bare local contract topic."""
+
+    def __init__(self, config: ModelGatewayForwarderConfig | None = None) -> None:
+        self._config = config
+
+    @property
+    def handler_type(self) -> EnumHandlerType:
+        return EnumHandlerType.COMPUTE_HANDLER
+
+    @property
+    def handler_category(self) -> EnumHandlerTypeCategory:
+        return EnumHandlerTypeCategory.COMPUTE
+
+    async def handle(
+        self,
+        envelope: object,
+    ) -> ModelHandlerOutput[ModelGatewayEnvelope]:
+        """Dispatch entrypoint: extract gateway envelope, apply inbound transform, return compute output.
+
+        ``envelope`` is typed ``object`` because the runtime dispatcher delivers
+        either a ``ModelEventEnvelope`` instance or its serialized ``dict`` form
+        (OMN-13580); ``_coerce_dispatch_input`` normalizes both to the typed
+        envelope before reading ``.payload``.
+        """
+        gateway_envelope, envelope_id, correlation_id = _coerce_dispatch_input(envelope)
+        transformed = self.consume_inbound(gateway_envelope)
+        return ModelHandlerOutput.for_compute(
+            input_envelope_id=envelope_id,
+            correlation_id=correlation_id,
+            handler_id=type(self).__name__,
+            result=transformed,
+        )
+
+    def consume_inbound(self, envelope: ModelGatewayEnvelope) -> ModelGatewayEnvelope:
+        """Return an inbound envelope with a validated bare canonical topic."""
+        config = self._require_config()
+        identity = config.tenant_identity
+        if envelope.tenant_id != identity.tenant_id:
+            raise ValueError("envelope tenant_id does not match attached tenant")
+        if envelope.tenant_slug != identity.tenant_slug:
+            raise ValueError("envelope tenant_slug does not match attached tenant")
+
+        canonical_topic = strip_topic_prefix(identity.tenant_slug, envelope.wire_topic)
+        if canonical_topic != envelope.canonical_topic:
+            raise ValueError("wire_topic and canonical_topic do not match")
+        if canonical_topic not in config.declared_inbound_topics:
+            raise ValueError("canonical_topic is not declared for inbound mirroring")
+        expected_wire_topic = prefix_topic(identity.tenant_slug, canonical_topic)
+        if envelope.wire_topic != expected_wire_topic:
+            raise ValueError("wire_topic does not match canonical tenant prefix")
+
+        # OMN-14345: the outer envelope's tenant_id/tenant_slug is validated
+        # above but was never propagated into the inner payload -- downstream
+        # consumers (e.g. node_llm_delegation_call_effect) read the payload,
+        # not the gateway envelope shell, so the verified identity was
+        # silently discarded at this hop. Stamp the config-bound identity
+        # into the payload here, OVERWRITING any payload-supplied value: the
+        # forwarder's tenant_identity is config-bound at deploy time (the
+        # trust anchor), never client-writable, so it always wins over
+        # whatever the inbound payload happens to carry.
+        #
+        # OMN-14367: route through the canonical shared helper so this
+        # producer cannot diverge from the runtime auto-wiring stamp again --
+        # ``payload["tenant_id"] = <slug>``, no separate ``tenant_slug`` key.
+        # See ``omnibase_infra.shared.tenant_stamp`` for the full rationale.
+        # The prior hand-rolled shape stamped ``tenant_id`` as the raw tenant
+        # UUID plus a separate ``tenant_slug`` key, which extra="forbid"
+        # delegation payload contracts reject outright.
+        verified_payload: dict[str, object] = stamp_verified_tenant_slug(
+            envelope.payload, identity.tenant_slug
+        )
+
+        return envelope.model_copy(
+            update={
+                "source_topic": envelope.wire_topic,
+                "canonical_topic": canonical_topic,
+                "payload": verified_payload,
+            }
+        )
+
+    def _require_config(self) -> ModelGatewayForwarderConfig:
+        if self._config is None:
+            raise ProtocolConfigurationError(
+                "HandlerConsumeInbound requires ModelGatewayForwarderConfig"
+            )
+        return self._config
+
+
+def _coerce_dispatch_input(
+    envelope: object,
+) -> tuple[ModelGatewayEnvelope, UUID, UUID]:
+    # OMN-13580: the runtime dispatcher delivers the OUTER envelope as a raw
+    # dict, not a ModelEventEnvelope instance. Deserialize to the typed envelope
+    # BEFORE reading ``.payload`` (matching the OMN-12001/12940 dict-vs-typed
+    # coercion pattern) so the handler does not crash with
+    # ``AttributeError: 'dict' object has no attribute 'payload'``.
+    typed_envelope = (
+        envelope
+        if isinstance(envelope, ModelEventEnvelope)
+        else ModelEventEnvelope[object].model_validate(envelope)
+    )
+    payload = typed_envelope.payload
+    gateway_envelope = (
+        payload
+        if isinstance(payload, ModelGatewayEnvelope)
+        else ModelGatewayEnvelope.model_validate(payload)
+    )
+    return (
+        gateway_envelope,
+        typed_envelope.envelope_id,
+        typed_envelope.correlation_id or gateway_envelope.correlation_id,
+    )

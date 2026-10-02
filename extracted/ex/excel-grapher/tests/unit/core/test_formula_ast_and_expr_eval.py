@@ -1,0 +1,171 @@
+from __future__ import annotations
+
+import math
+from collections.abc import Mapping
+
+import pytest
+
+from excel_grapher.core.expr_eval import Unsupported, evaluate_expr
+from excel_grapher.core.formula_ast import (
+    BoolNode,
+    CellRefNode,
+    FunctionCallNode,
+    NumberNode,
+    RangeNode,
+    StringNode,
+    parse,
+    parse_optional,
+)
+from excel_grapher.core.types import CellValue
+
+
+def _make_get_cell_value(values: Mapping[str, CellValue]):
+    def get_cell_value(address: str) -> CellValue:
+        return values[address]
+
+    return get_cell_value
+
+
+def test_core_formula_ast_parses_basic_literals_and_refs() -> None:
+    assert parse("=1") == NumberNode(1.0)
+    assert parse('="x"') == StringNode("x")
+    assert parse("=TRUE") == BoolNode(True)
+    assert parse("=Sheet1!A1") == CellRefNode("Sheet1!A1")
+    assert parse("=Sheet1!A1:B2") == RangeNode("Sheet1!A1", "Sheet1!B2")
+
+    ast = parse("=SUM(Sheet1!A1:A3)")
+    assert isinstance(ast, FunctionCallNode)
+    assert ast.name == "SUM"
+    assert ast.args == (RangeNode("Sheet1!A1", "Sheet1!A3"),)
+
+    ast = parse('=_xludf.IFNA(Sheet1!A1, "fallback")')
+    assert isinstance(ast, FunctionCallNode)
+    assert ast.name == "_XLUDF.IFNA"
+
+    ast = parse("=_xlfn.XLOOKUP(Sheet1!A1, Sheet1!A1:A3, Sheet1!B1:B3)")
+    assert isinstance(ast, FunctionCallNode)
+    assert ast.name == "XLOOKUP"
+
+
+def test_parse_optional_returns_none_for_missing_blank_or_unparseable() -> None:
+    assert parse_optional(None) is None
+    assert parse_optional("") is None
+    assert parse_optional("   ") is None
+    assert parse_optional("=SUM(IF(@A1:A3>0,@B1:B3,0))") is None
+    assert parse_optional("=Sheet1!A1+2") == parse("=Sheet1!A1+2")
+
+
+def test_parse_scientific_number_literals() -> None:
+    assert parse("=1e2") == NumberNode(100.0)
+    assert parse("=1E+2") == NumberNode(100.0)
+    assert parse("=1.5e-1") == NumberNode(0.15)
+    assert parse("=.5E+1") == NumberNode(5.0)
+    assert parse("=SUM(1e2,Sheet1!A1)") == FunctionCallNode(
+        "SUM",
+        [NumberNode(100.0), CellRefNode("Sheet1!A1")],
+    )
+
+
+def test_incomplete_scientific_literal_is_unparseable() -> None:
+    """`1e` / `1E+` without an exponent fail-soft rather than becoming `NumberNode(1)`."""
+    assert parse_optional("=1e") is None
+    assert parse_optional("=1E+") is None
+    assert parse_optional("=1e-") is None
+
+
+def test_core_expr_eval_basic_functions_over_integers() -> None:
+    values: dict[str, CellValue] = {
+        "Sheet1!A1": 1,
+        "Sheet1!A2": 2,
+        "Sheet1!A3": 3,
+        "Sheet1!B1": -5,
+    }
+    get_cell_value = _make_get_cell_value(values)
+
+    # SUM over a 1D range.
+    ast = parse("=SUM(Sheet1!A1:Sheet1!A3)")
+    assert evaluate_expr(ast, get_cell_value=get_cell_value) == 6.0
+
+    # MIN/MAX over the same range.
+    ast = parse("=MIN(Sheet1!A1:Sheet1!A3)")
+    assert evaluate_expr(ast, get_cell_value=get_cell_value) == 1.0
+
+    ast = parse("=MAX(Sheet1!A1:Sheet1!A3)")
+    assert evaluate_expr(ast, get_cell_value=get_cell_value) == 3.0
+
+    # ABS over a single cell reference.
+    ast = parse("=ABS(Sheet1!B1)")
+    assert evaluate_expr(ast, get_cell_value=get_cell_value) == 5.0
+
+    # EXP over a single cell reference.
+    ast = parse("=EXP(Sheet1!A1)")
+    assert evaluate_expr(ast, get_cell_value=get_cell_value) == pytest.approx(math.e)
+
+    # IF over simple boolean conditions.
+    ast = parse("=IF(TRUE, 1, 2)")
+    assert evaluate_expr(ast, get_cell_value=get_cell_value) == 1.0
+
+    ast = parse("=IF(FALSE, 1, 2)")
+    assert evaluate_expr(ast, get_cell_value=get_cell_value) == 2.0
+
+
+def test_core_expr_eval_if_empty_vs_omitted_branches() -> None:
+    """Empty IF branches evaluate to 0; omitted else is FALSE."""
+
+    def get_cell_value(addr: str) -> int:
+        return 0
+
+    ast = parse("=IF(FALSE, 1)")
+    assert evaluate_expr(ast, get_cell_value=get_cell_value) is False
+
+    ast = parse("=IF(FALSE, 1,)")
+    assert evaluate_expr(ast, get_cell_value=get_cell_value) == 0
+
+    ast = parse("=IF(TRUE, , 5)")
+    assert evaluate_expr(ast, get_cell_value=get_cell_value) == 0
+
+    ast = parse("=IF(FALSE, , 5)")
+    assert evaluate_expr(ast, get_cell_value=get_cell_value) == 5.0
+
+
+def test_core_expr_eval_unsupported_function_returns_sentinel() -> None:
+    ast = parse("=FOO(1, 2)")
+    result = evaluate_expr(ast, get_cell_value=lambda addr: 0)
+    assert isinstance(result, Unsupported)
+
+
+def test_core_expr_eval_respects_max_depth() -> None:
+    # Build a modestly nested IF expression.
+    # =IF(TRUE, IF(TRUE, IF(TRUE, 1, 0), 0), 0)
+    formula = "=IF(TRUE, IF(TRUE, IF(TRUE, 1, 0), 0), 0)"
+    ast = parse(formula)
+
+    # With a very small max_depth, evaluation should give an Unsupported sentinel.
+    shallow_result = evaluate_expr(ast, get_cell_value=lambda addr: 0, max_depth=1)
+    assert isinstance(shallow_result, Unsupported)
+
+    # With a generous max_depth, evaluation should succeed.
+    deep_result = evaluate_expr(ast, get_cell_value=lambda addr: 0, max_depth=10)
+    assert deep_result == 1.0
+
+
+def test_core_expr_eval_row_and_column() -> None:
+    # ROW(ref) returns the row number of the reference (value in ref is ignored).
+    ast = parse("=ROW(Sheet1!B106)")
+    assert evaluate_expr(ast, get_cell_value=lambda addr: 0) == 106
+
+    ast = parse("=COLUMN(Sheet1!B106)")
+    assert evaluate_expr(ast, get_cell_value=lambda addr: 0) == 2
+
+    # ROW() and COLUMN() with no args require context.
+    ast = parse("=ROW()")
+    result = evaluate_expr(ast, get_cell_value=lambda addr: 0)
+    assert isinstance(result, Unsupported)
+
+    ast = parse("=ROW()")
+    assert (
+        evaluate_expr(ast, get_cell_value=lambda addr: 0, context={"row": 106, "column": 1}) == 106
+    )
+
+    ast = parse("=ROW()-ROW(Sheet1!B106)+1")
+    assert evaluate_expr(ast, get_cell_value=lambda addr: 0, context={"row": 106, "column": 1}) == 1

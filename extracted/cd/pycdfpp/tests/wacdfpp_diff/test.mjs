@@ -1,0 +1,258 @@
+// Pure Node test for wacdfpp/cdf-diff.js — no WASM required.
+//   node test.mjs
+import { buildModel } from "../../wacdfpp/cdf-model.js";
+import { diffModels, diffSummary, buildLines, lineRows, wordParts } from "../../wacdfpp/cdf-diff.js";
+import { createRequire } from "node:module";
+// The page loads jsdiff as a classic <script> that sets the global `Diff`.
+globalThis.Diff = createRequire(import.meta.url)("../../wacdfpp/jsdiff.js");
+
+let failures = 0;
+function check(name, ok) {
+    if (ok) console.log(`ok   ${name}`);
+    else { console.error(`FAIL ${name}`); failures += 1; }
+}
+
+const V = (name, over = {}) => ({
+    name, shape: [3], typeName: "CDF_FLOAT", type: 21, isNrv: false,
+    varType: "data", attributes: { VAR_TYPE: "data" }, ...over,
+});
+
+// Identical models -> every variable "same", no field/attr diffs.
+{
+    const a = buildModel([V("B")], []);
+    const b = buildModel([V("B")], []);
+    const d = diffModels(a, b);
+    const row = d.groups.data.find(v => v.name === "B");
+    check("identical var -> same", row.status === "same");
+    check("identical var -> no field diffs", row.fields.length === 0);
+    check("identical var -> no attr diffs", row.attributes.length === 0);
+}
+
+// Added / removed variables (distinct shape/type: no content overlap, so the
+// rename pass — added below — must not mistake this pair for a rename).
+{
+    const a = buildModel([V("only_a", { shape: [3], typeName: "CDF_FLOAT" })], []);
+    const b = buildModel([V("only_b", { shape: [7], typeName: "CDF_INT4" })], []);
+    const d = diffModels(a, b);
+    check("removed var", d.groups.data.find(v => v.name === "only_a").status === "removed");
+    check("added var", d.groups.data.find(v => v.name === "only_b").status === "added");
+}
+
+// Changed shape / type / isNrv.
+{
+    const a = buildModel([V("B")], []);
+    const b = buildModel([V("B", { shape: [4], typeName: "CDF_DOUBLE", type: 22, isNrv: true })], []);
+    const d = diffModels(a, b);
+    const row = d.groups.data.find(v => v.name === "B");
+    const fieldNames = row.fields.map(f => f.field).sort();
+    check("changed var -> changed status", row.status === "changed");
+    check("changed shape/type/isNrv fields", fieldNames.join() === "isNrv,shape,type");
+    const shape = row.fields.find(f => f.field === "shape");
+    check("shape field old->new", shape.a === "3" && shape.b === "4");
+}
+
+// Per-variable attribute add / remove / change.
+{
+    const a = buildModel([V("B", { attributes: { VAR_TYPE: "data", UNITS: "nT", FILLVAL: "-1e31" } })], []);
+    const b = buildModel([V("B", { attributes: { VAR_TYPE: "data", UNITS: "T", SCALE: "log" } })], []);
+    const d = diffModels(a, b);
+    const row = d.groups.data.find(v => v.name === "B");
+    const byName = Object.fromEntries(row.attributes.map(x => [x.name, x]));
+    check("attr changed (UNITS)", byName.UNITS.status === "changed" && byName.UNITS.a === "nT" && byName.UNITS.b === "T");
+    check("attr removed (FILLVAL)", byName.FILLVAL.status === "removed" && byName.FILLVAL.b === null);
+    check("attr added (SCALE)", byName.SCALE.status === "added" && byName.SCALE.a === null);
+    check("unchanged attr not listed (VAR_TYPE absent)", byName.VAR_TYPE === undefined);
+}
+
+// Rename detection: same content, new name -> one "renamed" entry, not an
+// unrelated add+remove pair (SciQLop/CDFpp#102 — a whole screen of disconnected
+// +/- blocks for what were actually renames was reported as "messy to
+// understand at first glance").
+{
+    const attrs = { VAR_TYPE: "data", CATDESC: "Ion energy flux", UNITS: "cm-2 s-1", FIELDNAM: "Energy" };
+    const a = buildModel([V("old_name", { attributes: attrs })], []);
+    const b = buildModel([V("new_name", { attributes: attrs })], []);
+    const d = diffModels(a, b);
+    check("pure rename -> no residual added/removed rows",
+        !d.groups.data.some(v => v.status === "added" || v.status === "removed"));
+    const row = d.groups.data.find(v => v.status === "renamed");
+    check("pure rename detected", !!row);
+    check("pure rename oldName/name", row?.oldName === "old_name" && row?.name === "new_name");
+    check("pure rename has no field/attr diffs (collapses to one line)",
+        row?.fields.length === 0 && row?.attributes.length === 0);
+}
+
+// Rename + a genuine content change: still detected as a rename, but with the
+// changed attribute reported so the UI can show a sub-diff under it.
+{
+    const a = buildModel([V("old_name", {
+        attributes: { VAR_TYPE: "data", CATDESC: "Ion energy flux", UNITS: "cm-2 s-1", FIELDNAM: "Energy" },
+    })], []);
+    const b = buildModel([V("new_name", {
+        attributes: { VAR_TYPE: "data", CATDESC: "Ion energy flux", UNITS: "cm-2 s-1 sr-1", FIELDNAM: "Energy" },
+    })], []);
+    const d = diffModels(a, b);
+    const row = d.groups.data.find(v => v.status === "renamed");
+    check("rename+change detected as renamed", row?.oldName === "old_name" && row?.name === "new_name");
+    check("rename+change reports the changed attribute",
+        row?.attributes.some(x => x.name === "UNITS" && x.status === "changed"));
+}
+
+// Unrelated add+remove (no meaningful content overlap) must NOT be paired up
+// as a rename — only content-similar pairs qualify.
+{
+    const a = buildModel([V("gone", { attributes: { VAR_TYPE: "data", CATDESC: "Magnetic field" } })], []);
+    const b = buildModel([V("new_thing", { shape: [7], typeName: "CDF_INT4", attributes: { VAR_TYPE: "data", CATDESC: "Spacecraft potential" } })], []);
+    const d = diffModels(a, b);
+    check("unrelated pair stays removed", d.groups.data.some(v => v.status === "removed" && v.name === "gone"));
+    check("unrelated pair stays added", d.groups.data.some(v => v.status === "added" && v.name === "new_thing"));
+    check("unrelated pair not renamed", !d.groups.data.some(v => v.status === "renamed") &&
+        !d.groups.support_data.some(v => v.status === "renamed"));
+}
+
+// Greedy matching picks the best-scoring pair when multiple candidates overlap
+// partially, rather than an arbitrary first match.
+{
+    const attrsClose = { VAR_TYPE: "data", CATDESC: "Ion energy flux", UNITS: "cm-2 s-1", FIELDNAM: "IonE" };
+    const attrsFar = { VAR_TYPE: "data", CATDESC: "Ion energy flux", UNITS: "counts", FIELDNAM: "Other" };
+    const a = buildModel([
+        V("ion_flux_old", { attributes: attrsClose }),
+        V("other_old", { attributes: attrsFar }),
+    ], []);
+    const b = buildModel([V("ion_flux_new", { attributes: attrsClose })], []);
+    const d = diffModels(a, b);
+    const renamed = d.groups.data.filter(v => v.status === "renamed");
+    check("best match wins the rename pairing", renamed.length === 1 && renamed[0].oldName === "ion_flux_old");
+    check("the weaker candidate stays removed", d.groups.data.some(v => v.status === "removed" && v.name === "other_old"));
+}
+
+// diffSummary counts renames separately from added/removed.
+{
+    const attrs = { VAR_TYPE: "data", CATDESC: "Ion energy flux", UNITS: "cm-2 s-1" };
+    const a = buildModel([V("old_name", { attributes: attrs })], []);
+    const b = buildModel([V("new_name", { attributes: attrs })], []);
+    const s = diffSummary(diffModels(a, b));
+    check("summary counts the rename, not an add+remove", s.renamed === 1 && s.added === 0 && s.removed === 0);
+}
+
+// buildLines: a pure rename is one "item" line labeled "old -> new" with no
+// detail lines; a rename with a content change also gets its sub-diff details.
+{
+    const attrs = { VAR_TYPE: "data", CATDESC: "Ion energy flux", UNITS: "cm-2 s-1" };
+    const a = buildModel([V("old_name", { attributes: attrs })], []);
+    const b = buildModel([V("new_name", { attributes: attrs })], []);
+    const lines = buildLines(diffModels(a, b), false);
+    const item = lines.find(l => l.type === "item" && l.status === "renamed");
+    check("buildLines labels a rename 'old -> new'", item?.label === "old_name → new_name");
+    check("pure rename emits no detail lines",
+        !lines.some(l => l.type === "detail"));
+}
+
+// Variable placed by effective group (uses B's group; here VAR_TYPE support_data).
+{
+    const a = buildModel([V("E", { varType: "support_data", attributes: { VAR_TYPE: "support_data" } })], []);
+    const b = buildModel([V("E", { varType: "support_data", attributes: { VAR_TYPE: "support_data" } })], []);
+    const d = diffModels(a, b);
+    check("grouped under support_data", d.groups.support_data.some(v => v.name === "E"));
+}
+
+// Global attributes: added / removed / per-entry changed, index-aligned.
+{
+    const ga = [
+        { name: "Project", entries: ["THEMIS"], types: [51] },
+        { name: "TimeRes", entries: ["1s", "3s"], types: [51, 51] },
+        { name: "OnlyA", entries: ["x"], types: [51] },
+    ];
+    const gb = [
+        { name: "Project", entries: ["THEMIS"], types: [51] },           // same
+        { name: "TimeRes", entries: ["1s", "5s", "10s"], types: [51, 51, 51] }, // entry 1 changed, entry 2 added
+        { name: "OnlyB", entries: ["y"], types: [51] },                  // added
+    ];
+    const d = diffModels(buildModel([], ga), buildModel([], gb));
+    const by = Object.fromEntries(d.globalAttributes.map(a => [a.name, a]));
+    check("global same attr", by.Project.status === "same" && by.Project.entries.length === 0);
+    check("global removed attr", by.OnlyA.status === "removed");
+    check("global added attr", by.OnlyB.status === "added");
+    check("global changed attr", by.TimeRes.status === "changed");
+    const e = Object.fromEntries(by.TimeRes.entries.map(x => [x.index, x]));
+    check("entry 1 changed 3s->5s", e[1].status === "changed" && e[1].a === "3s" && e[1].b === "5s");
+    check("entry 2 added", e[2].status === "added" && e[2].a === null && e[2].b === "10s");
+    check("entry 0 unchanged not listed", e[0] === undefined);
+}
+
+// Summary counts across globals + variables ("gone"/"new" get distinct
+// shape+type so they have no content overlap and aren't matched as a rename).
+{
+    const a = buildModel([V("keep"), V("gone", { shape: [3], typeName: "CDF_FLOAT" })],
+        [{ name: "A", entries: ["1"], types: [51] }]);
+    const b = buildModel([V("keep", { shape: [9] }), V("new", { shape: [7], typeName: "CDF_INT4" })],
+        [{ name: "B", entries: ["2"], types: [51] }]);
+    const s = diffSummary(diffModels(a, b));
+    check("summary added (new var + B attr)", s.added === 2);
+    check("summary removed (gone var + A attr)", s.removed === 2);
+    check("summary changed (keep var shape)", s.changed === 1);
+}
+
+// buildLines: flatten a diff into ordered render lines.
+{
+    const a = buildModel(
+        [V("B", { attributes: { VAR_TYPE: "data", UNITS: "nT" } }), V("same_var")],
+        [{ name: "G", entries: ["x"], types: [51] }, { name: "H", entries: ["k"], types: [51] }]);
+    const b = buildModel(
+        [V("B", { shape: [4], attributes: { VAR_TYPE: "data", UNITS: "T" } }), V("same_var")],
+        [{ name: "G", entries: ["y"], types: [51] }, { name: "H", entries: ["k"], types: [51] }]);
+    const diff = diffModels(a, b);
+
+    const changes = buildLines(diff, false);
+    const types = changes.map(l => l.type);
+    check("buildLines starts with global section",
+        changes[0].type === "section" && changes[0].section === "global");
+    check("buildLines has a data section",
+        changes.some(l => l.type === "section" && l.section === "data"));
+    check("buildLines emits changed var item B",
+        changes.some(l => l.type === "item" && l.label === "B" && l.status === "changed"));
+    check("buildLines emits shape detail old->new",
+        changes.some(l => l.type === "detail" && l.label === "shape" && l.a === "3" && l.b === "4"));
+    check("buildLines emits UNITS detail",
+        changes.some(l => l.type === "detail" && l.label === "UNITS" && l.a === "nT" && l.b === "T"));
+    check("buildLines (changes) omits same_var",
+        !changes.some(l => l.type === "item" && l.label === "same_var"));
+    check("buildLines (changes) omits unchanged global H",
+        !changes.some(l => l.type === "item" && l.label === "H"));
+
+    const all = buildLines(diff, true);
+    check("buildLines (all) includes same_var", all.some(l => l.type === "item" && l.label === "same_var"));
+    check("buildLines (all) includes unchanged global H", all.some(l => l.type === "item" && l.label === "H"));
+}
+
+// lineRows: GitHub-style line diff of a multi-line value. Unchanged lines come
+// back once (a === b); a removed run followed by an added run pairs up line by
+// line; leftovers are pure removals (b null) or additions (a null).
+{
+    const eq = (x, y) => JSON.stringify(x) === JSON.stringify(y);
+    check("lineRows identical single line", eq(lineRows("x", "x"), [{ a: "x", b: "x" }]));
+    check("lineRows single-line edit pairs", eq(lineRows("11keV", "8keV"), [{ a: "11keV", b: "8keV" }]));
+    const rows = lineRows("one\ntwo\nthree", "one\nnew\ntwo\nTHREE");
+    check("lineRows keeps context, inserts, pairs edits", eq(rows, [
+        { a: "one", b: "one" },
+        { a: null, b: "new" },
+        { a: "two", b: "two" },
+        { a: "three", b: "THREE" },
+    ]));
+    check("lineRows unpaired removal", eq(lineRows("a\nb\nc", "a\nc"),
+        [{ a: "a", b: "a" }, { a: "b", b: null }, { a: "c", b: "c" }]));
+    check("lineRows null side is all-added", eq(lineRows(null, "p\nq"),
+        [{ a: null, b: "p" }, { a: null, b: "q" }]));
+}
+
+// wordParts: word-level parts for an edited line, or null when the two lines
+// are too different for word marks to help (GitHub then only tints the lines).
+{
+    const p = wordParts("H+ contamination above 11keV here", "H+ contamination above 8keV here");
+    check("wordParts similar lines -> parts", Array.isArray(p) && p.some(x => x.added) && p.some(x => x.removed));
+    check("wordParts unrelated lines -> null",
+        wordParts("No 1-spin delay correction from S/C clock", "Due to MSA flight software misconfiguration") === null);
+    check("wordParts short value edit kept", wordParts("UNITS: nT", "UNITS: T") !== null);
+}
+
+process.exit(failures ? 1 : 0);

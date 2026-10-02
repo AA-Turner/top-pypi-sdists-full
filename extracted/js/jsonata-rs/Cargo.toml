@@ -1,0 +1,15 @@
+[workspace]
+members = ["crates/jsonata", "crates/jsonata-py"]
+resolver = "2"
+
+# Placeholder version. The real version is stamped from the git tag at
+# release time by scripts/set-version-from-git.sh (run in CI). Both crates
+# inherit it via `version.workspace = true`, and the Python wheel follows
+# because pyproject.toml declares `dynamic = ["version"]`.
+[workspace.package]
+version = "0.1.4"
+edition = "2021"
+license = "Apache-2.0"
+
+[profile.release]
+opt-level = 3

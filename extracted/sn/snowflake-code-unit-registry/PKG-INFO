@@ -1,0 +1,123 @@
+Metadata-Version: 2.4
+Name: snowflake-code-unit-registry
+Version: 0.8.78
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Rust
+Requires-Dist: pydantic>=2.0
+Requires-Dist: scai-cloud-state>=0.8.9 ; extra == 'cloud-state'
+Requires-Dist: datamodel-code-generator>=0.26,<1.0 ; extra == 'codegen'
+Requires-Dist: pytest>=7.0 ; extra == 'dev'
+Requires-Dist: mypy>=1.0 ; extra == 'dev'
+Provides-Extra: cloud-state
+Provides-Extra: codegen
+Provides-Extra: dev
+Summary: SCAI state management library for database migrations
+License: Apache-2.0
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+
+# scai-state
+
+SCAI state management library for database migrations.
+
+## Installation
+
+```bash
+pip install scai-state
+```
+
+## Usage
+
+```python
+from scai_state import CodeUnitRegistry
+from scai_state.types import CodeUnit, SourceMetadata, TargetMetadata, ObjectType, Kind
+
+# Initialize a new registry
+registry = CodeUnitRegistry.init("/path/to/repo")
+
+# Or open an existing registry
+registry = CodeUnitRegistry.open("/path/to/existing/repo")
+
+# Create a code unit
+code_unit = CodeUnit(
+    kind=Kind.databaseObject,
+    source=SourceMetadata(
+        objectType=ObjectType.table,
+        database="RETAIL_DB",
+        schema="dbo",
+        name="Customer",
+    ),
+    target=TargetMetadata(
+        objectType=ObjectType.table,
+        database="RETAIL",
+        schema="DBO",
+        name="CUSTOMER",
+    ),
+)
+
+# Returns the ID (auto-generated if not provided)
+id = registry.create(code_unit)
+
+# Load a code unit
+cu = registry.load(id)
+
+# List all code units (with optional filter)
+results = registry.list("source.objectType = 'table'")
+
+# Update specific fields
+registry.update(id, {"planning.wave": 2})
+
+# Delete a code unit
+registry.delete(id)
+```
+
+## Testing
+
+Integration tests live in `tests/` and cover the full Python -> Rust -> disk -> Rust -> Python round-trip:
+
+| Test file | What it verifies |
+|---|---|
+| `test_serialization.py` | FFI round-trip fidelity for all fields, Pydantic alias handling, `extensions` empty-map preservation |
+| `test_errors.py` | `ScaiError.error_code` contract across FFI (1001, 1003) |
+| `test_batch.py` | `BatchResult` wire format with partial failures (1004) |
+| `test_crud.py` | Full CRUD lifecycle, upsert deep-merge semantics |
+| `test_query.py` | `find_by_object` partial matching with `exclude_unset` |
+
+Run them from the repo root:
+
+```bash
+./scripts/run-tests.sh python
+```
+
+Or directly:
+
+```bash
+cd crates/scai-state-python
+maturin develop
+pytest tests/ -v
+```
+
+## Building from Source
+
+This package requires Rust and maturin to build:
+
+```bash
+# Install maturin
+pip install maturin
+
+# Build and install in development mode
+cd crates/scai-state-python
+maturin develop
+```
+
+## License
+
+Apache-2.0
+

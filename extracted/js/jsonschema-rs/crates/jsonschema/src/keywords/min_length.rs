@@ -7,7 +7,7 @@ use crate::{
         CompilationResult,
     },
     paths::{LazyLocation, Location, RefTracker},
-    validator::{EvaluationResult, Validate, ValidationContext},
+    validator::{evaluate_assertion, EvaluationResult, Validate, ValidationContext},
     Json, Node,
 };
 use referencing::Uri;
@@ -48,6 +48,16 @@ impl<F: Json> Validate<F> for MinLengthValidator {
             }
         }
         Ok(())
+    }
+
+    fn evaluate(
+        &self,
+        instance: &F::Node<'_>,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> EvaluationResult {
+        evaluate_assertion::<F, _>(self, instance, location, tracker, ctx)
     }
 }
 
@@ -295,5 +305,36 @@ mod tests {
         let instance = json!("secretvalue");
         tests_util::assert_keyword_location(&validator, &instance, "", "/minLength");
         tests_util::assert_keyword_location(&validator, &instance, "", "/maxLength");
+    }
+
+    #[test]
+    fn fused_error_locations() {
+        let schema = json!({"minLength": 2, "maxLength": 3});
+        tests_util::assert_error_locations(
+            &schema,
+            &json!("a"),
+            &[("\"a\" is shorter than 2 characters", "", "/minLength")],
+        );
+        tests_util::assert_error_locations(
+            &schema,
+            &json!("abcd"),
+            &[("\"abcd\" is longer than 3 characters", "", "/maxLength")],
+        );
+        tests_util::assert_error_locations(
+            &json!({"minLength": 20, "maxLength": 5}),
+            &json!("secretvalue"),
+            &[
+                (
+                    "\"secretvalue\" is shorter than 20 characters",
+                    "",
+                    "/minLength",
+                ),
+                (
+                    "\"secretvalue\" is longer than 5 characters",
+                    "",
+                    "/maxLength",
+                ),
+            ],
+        );
     }
 }

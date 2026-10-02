@@ -55,11 +55,14 @@ class Bundler:
     """Bundler tracks schema ids stored in a bundle."""
 
     counter: int
+    # Whether keywords next to `$ref` apply (Draft 2019-09+) or are ignored (Draft 4).
+    ref_siblings: bool
 
-    __slots__ = ("counter",)
+    __slots__ = ("counter", "ref_siblings")
 
-    def __init__(self) -> None:
+    def __init__(self, *, ref_siblings: bool = True) -> None:
         self.counter = 0
+        self.ref_siblings = ref_siblings
 
     def bundle(self, schema: JsonSchema, resolver: Resolver) -> Bundle:
         """Bundle a JSON Schema by embedding all references."""
@@ -83,7 +86,8 @@ class Bundler:
             name = uri_to_name.get(uri)
             if name is None:
                 self.counter += 1
-                name = f"schema{self.counter}"
+                # Fixed width, so names sort in creation order however many schemas were bundled before.
+                name = f"schema{self.counter:06d}"
                 uri_to_name[uri] = name
             return name
 
@@ -183,23 +187,31 @@ class Bundler:
 
         assert isinstance(bundled, dict)
 
-        # The root reference to a single target that never points back at itself reads the same
-        # spelled out in place. A sibling pointing at that target keeps the storage it needs.
-        if not has_recursive_references and "$ref" in bundled and len(defs) == 1 and reference_count == 1:
-            result = {key: value for key, value in bundled.items() if key != "$ref"}
-            for value in defs.values():
-                if isinstance(value, dict):
-                    result.update(value)
-            return Bundle(schema=result, name_to_uri={})
+        # A root reference to a single non-recursive target reads the same spelled out in place, unless
+        # a sibling points at that target or shares a keyword with it (the merge would overwrite one).
+        # Where siblings are ignored, spelling the target out next to them would enforce them instead.
+        if (
+            not has_recursive_references
+            and "$ref" in bundled
+            and len(defs) == 1
+            and reference_count == 1
+            and (self.ref_siblings or len(bundled) == 1)
+        ):
+            (target,) = defs.values()
+            if not isinstance(target, dict) or bundled.keys().isdisjoint(target):
+                result = {key: value for key, value in bundled.items() if key != "$ref"}
+                if isinstance(target, dict):
+                    result.update(target)
+                return Bundle(schema=result, name_to_uri={})
 
         if defs:
             bundled[BUNDLE_STORAGE_KEY] = defs
         return Bundle(schema=bundled, name_to_uri={v: k for k, v in uri_to_name.items()})
 
 
-def bundle(schema: JsonSchema, resolver: Resolver) -> Bundle:
+def bundle(schema: JsonSchema, resolver: Resolver, *, ref_siblings: bool = True) -> Bundle:
     """Gather every reachable reference target into the schema, keeping the references themselves."""
-    return Bundler().bundle(schema, resolver)
+    return Bundler(ref_siblings=ref_siblings).bundle(schema, resolver)
 
 
 def unbundle_path(path: list[str | int], name_to_uri: dict[str, str]) -> list[str | int]:

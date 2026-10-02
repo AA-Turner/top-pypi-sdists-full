@@ -1,0 +1,81 @@
+-
+    version: 1.3.0
+    date: June 2, 2018
+    notes: >
+        Updated testing. Now includes Python 3.7 pre-release.
+
+        Quashed bug in a complex use case. Found by increasing branch test coverage to 100%.
+
+-
+    version: 1.2.7
+    date: May 31, 2017
+    notes: >
+        Updated testing.
+
+-
+  date: January 31, 2017
+  version: 1.2.6
+  notes: >
+    Packaged as full Python package, not just module. Change log upgraded from
+    RST to YAML. Recertified testing and testing coverage.
+
+-
+  date: June 22, 2016
+  version: 1.2.3
+  notes: Updates testing. Newly qualified under 2.7.13 and 3.6, as well as most recent
+    builds of pypy and pypy3. Removes Python 3.2 support given its age.
+
+-
+  date: June 22, 2016
+  version: 1.2.2
+  notes: Updated testing matrix. Latest versions of 2.7, 3.3, 3.4, 3.5, the new 3.6
+    (alpha 2), and PyPy are confirmed working.
+
+-
+  date: August 24, 2015
+  version: '1.2'
+  notes: Adds the ``mementos`` shorthand.
+
+-
+  version: 1.1.2
+  notes: Adds automatic measurement of test branch coverage. Starts with 95% branch
+    coverage.
+
+-
+  version: '1.1'
+  notes: Initiates automatic measurement of test coverage. Line coverage is 100%.
+    Hooah!
+
+-
+  date: August 4, 2015
+  version: 1.0.6
+  notes: >
+    Switched to Apache Software License 2.0.
+    Updated testing configuration to add 3.5 and tox improvements.
+    Added wheel software packaging.
+
+-
+  date: July 22, 2015
+  version: 1.0.5
+  notes: Inaugurated continuous integration testing with Travis CI.
+
+-
+  date: May 14, 2005
+  version: 1.0.4
+  notes: Updated testing to include 3.5a4 and most recent versions of PyPy and PyPy3.
+    Tweaks to docs.
+
+-
+  date: December 30, 2014
+  version: 1.0.3
+  notes: Tweaked documentation. Reran tests on latest versions. Withdrew support for
+    Python 2.5, which is no longer supported by my testing tools.
+
+-
+  date: null
+  version: '1.0'
+  notes: >
+    Cleaned up source for better PEP8 conformance
+    Bumped version number to 1.0 as part of move to `semantic versioning <http://semver.org>`_,
+    or at least enough of it so as to not screw up Python installation procedures
+    (which don't seem to understand 0.401 is a lesser version that 0.5, because 401 > 5).

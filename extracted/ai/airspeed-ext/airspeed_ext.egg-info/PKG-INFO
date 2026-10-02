@@ -1,0 +1,19 @@
+Metadata-Version: 2.1
+Name: airspeed-ext
+Version: 0.6.9
+Summary: Airspeed is a powerful and easy-to-use templating engine for Python that aims for a high level of compatibility with Velocity templates in AWS cloud services.
+Home-page: https://github.com/localstack/airspeed/
+Download-URL: http://pypi.python.org/pypi/airspeed/
+Author: Steve Purcell, Chris Tarttelin, LocalStack Team
+Author-email: steve@pythonconsulting.com, chris@pythonconsulting.com, info@localstack.cloud
+License: BSD
+Keywords: web.templating
+Classifier: Environment :: Web Environment
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Provides-Extra: dev
+License-File: LICENCE

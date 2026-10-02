@@ -10,6 +10,8 @@ pub struct Lexed {
     pub joints: Vec<bits>,
     pub errors: Vec<crate::Error>,
     pub line_ending: LineEnding,
+    /// The start offset of each line, to build a [`tombi_text::LineIndex`] without scanning again.
+    pub line_starts: Vec<tombi_text::Offset>,
 }
 
 impl Lexed {
@@ -17,28 +19,22 @@ impl Lexed {
     pub(crate) fn push_result_token(
         &mut self,
         result_token: Result<crate::Token, crate::Error>,
-    ) -> (tombi_text::Span, tombi_text::Range) {
+    ) -> tombi_text::Span {
         let idx = self.len();
         if idx.is_multiple_of(bits::BITS as usize) {
             self.joints.push(0);
         }
         match result_token {
             Ok(token) => {
-                let (span, range) = (token.span(), token.range());
+                let span = token.span();
                 self.tokens.push(token);
-
-                (span, range)
+                span
             }
             Err(error) => {
-                let (span, range) = (error.span(), error.range());
-
-                self.tokens.push(crate::Token::new(
-                    INVALID_TOKEN,
-                    (error.span(), error.range()),
-                ));
+                let span = error.span();
+                self.tokens.push(crate::Token::new(INVALID_TOKEN, span));
                 self.errors.push(error);
-
-                (span, range)
+                span
             }
         }
     }

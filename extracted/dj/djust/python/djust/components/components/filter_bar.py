@@ -1,0 +1,58 @@
+"""FilterBar component."""
+
+import html
+from django.utils.html import conditional_escape
+from djust import Component
+from typing import Any
+
+
+class FilterBar(Component):
+    """Filter bar component with filter controls.
+
+    Args:
+        content: filter controls (pre-rendered HTML)
+        clear_event: dj-click event for clearing filters
+        active_count: number of active filters"""
+
+    def __init__(
+        self,
+        content: str = "",
+        clear_event: str = "clear_filters",
+        active_count: int = 0,
+        custom_class: str = "",
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(
+            content=content,
+            clear_event=clear_event,
+            active_count=active_count,
+            custom_class=custom_class,
+            **kwargs,
+        )
+        self.content = content
+        self.clear_event = clear_event
+        self.active_count = active_count
+        self.custom_class = custom_class
+
+    def _render_custom(self) -> str:
+        """Render the filterbar HTML."""
+        cls = "dj-filter-bar"
+        if self.custom_class:
+            cls += f" {html.escape(self.custom_class)}"
+        badge_html = (
+            f' <span class="dj-filter-bar__badge">{self.active_count}</span>'
+            if self.active_count > 0
+            else ""
+        )
+        clear_html = (
+            f'<button class="dj-filter-bar__clear" '
+            f"{self.event_attrs(self.clear_event)}>Clear filters{badge_html}</button>"
+            if self.active_count > 0
+            else ""
+        )
+        return (
+            f'<div class="{cls}">'
+            f'<div class="dj-filter-bar__controls">{conditional_escape(self.content)}</div>'
+            f"{clear_html}"
+            f"</div>"
+        )

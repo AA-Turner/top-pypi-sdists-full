@@ -1,0 +1,1246 @@
+"""CLI command runtime models."""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from datetime import datetime
+from pathlib import Path
+from typing import Any, TextIO
+
+from sqlbuild.adapter.contract.classes.base_adapter import BaseAdapter
+from sqlbuild.cli.commands.classes.build_progress_callbacks import BuildProgressCallbacks
+from sqlbuild.cli.commands.classes.direct_python_lifecycle_state import (
+    DirectPythonLifecycleState,
+)
+from sqlbuild.cli.commands.types import (
+    DebugCheckStatus,
+    FreshnessSourceStatus,
+    PlaygroundTemplate,
+)
+from sqlbuild.cli.compile.models import (  # noqa: F401
+    CompileAnalysis,
+    CompileCommandRequest,
+    CompileProfileFlags,
+    CompileWriteResult,
+    SqlTestArtifactCacheRecord,
+    SqlTestArtifactIdentityContext,
+)
+from sqlbuild.cli.entry.models import (  # noqa: F401
+    CliEntrypointHandlers,
+    ParsedCliInvocation,
+    SelectorFileSummary,
+    SelectorInputs,
+)
+from sqlbuild.cli.output.models import (  # noqa: F401
+    SkillInstallTarget,
+    SkillMaintenanceResult,
+    SkillSettings,
+    SkillUpdateResult,
+    WrittenTarget,
+)
+from sqlbuild.cli.progress.classes.audit_progress_reporter import AuditProgressReporter
+from sqlbuild.cli.progress.classes.connection_progress_reporter import (
+    ConnectionProgressReporter,
+)
+from sqlbuild.cli.progress.classes.nested_command_progress_callbacks import (
+    NestedCommandProgressCallbacks,
+)
+from sqlbuild.cli.progress.classes.planning_progress_reporter import PlanningProgressReporter
+from sqlbuild.cli.progress.models import AuditDisplayEntry, ExecutionCounts  # noqa: F401
+from sqlbuild.compiler.compile.models import (
+    CompiledObjectKey,
+    CompiledProject,
+    CompiledSqlScenario,
+    CompilerDiagnostic,
+)
+from sqlbuild.compiler.discovery.models import (
+    DiscoveredCheckFunction,
+    DiscoveredProjectInputs,
+)
+from sqlbuild.compiler.lineage.models import (
+    ColumnLineageEdge,
+    QualifiedLineageColumn,
+)
+from sqlbuild.compiler.lineage.types import ColumnLineageMode
+from sqlbuild.compiler.pipeline.models import (
+    ClonePipelineResult,
+    CompilePipelineResult,
+    PythonPlanEntry,
+)
+from sqlbuild.compiler.planner.models import CursorOverrides, PlanOutput
+from sqlbuild.compiler.python_nodes.models import PythonNodeGraph, PythonSqlRunLifecyclePlan
+from sqlbuild.compiler.refactoring.models import RefactorProject
+from sqlbuild.compiler.source_freshness.types import SourceFreshnessAgeStatus
+from sqlbuild.cost.types import CostStatus
+from sqlbuild.executor.build.models import BuildExecutionResult, SeedExecutionResult
+from sqlbuild.executor.clone.models import CloneExecutionResult
+from sqlbuild.executor.diff.models import DiffExecutionResult
+from sqlbuild.executor.janitor.models import JanitorPlan
+from sqlbuild.executor.load.models import LoadExecutionResult
+from sqlbuild.executor.python_nodes.models import PythonNodeExecutionResult
+from sqlbuild.integrations.dbt.models import DbtInitRequest
+from sqlbuild.presentation.classes.transient_status_reporter import TransientStatusReporter
+from sqlbuild.python_nodes.models import SqlResourceRef
+from sqlbuild.runtime.contracts.types import NodeStartCallback
+from sqlbuild.spec.contracts.models import (
+    CostConfig,
+    ExecutionLimitsConfig,
+    SnapshotsConfig,
+    SourceEntry,
+)
+
+
+@dataclass(frozen=True)
+class AuditCommandRequest:
+    """CLI inputs for one audit command invocation."""
+
+    project_dir: Path | None = None
+    no_sql_validation: bool = False
+    defer_to: str | None = None
+    no_color: bool = False
+    selected_target: str | None = None
+    concurrency: int | None = None
+    select: tuple[str, ...] = ()
+    exclude: tuple[str, ...] = ()
+    cli_vars: dict[str, object] | None = None
+    json_output: bool = False
+    json_output_path: Path | None = None
+
+
+@dataclass(frozen=True)
+class AuditInvocation:
+    """Resolved project, adapter, and reporter context for the audit command."""
+
+    effective_project_dir: Path
+    discovered_inputs: DiscoveredProjectInputs
+    adapter_name: str
+    adapter: BaseAdapter
+    connection_config: dict[str, object]
+    use_color: bool
+    progress_stream: TextIO
+    connection_progress: ConnectionProgressReporter
+    planning_progress: PlanningProgressReporter
+
+
+@dataclass(frozen=True)
+class AuditExecutionPreparation:
+    """Prepared nested progress and execution reporters for audit runs."""
+
+    progress: AuditProgressReporter
+    execution_connection_progress: ConnectionProgressReporter
+    effective_concurrency: int
+    worker_count: int
+
+
+@dataclass(frozen=True)
+class BuildRunContext:
+    """Resolved inputs needed to render one build execution context."""
+
+    command: str
+    project: CompiledProject
+    plan: PlanOutput
+    discovered_inputs: DiscoveredProjectInputs
+    python_plan_entries: tuple[PythonPlanEntry, ...]
+    connection_config: dict[str, object]
+    concurrency: int
+    full_refresh: bool
+    selector_files: tuple[SelectorFileSummary, ...]
+
+
+@dataclass(frozen=True)
+class BuildCommandRequest:
+    """CLI inputs for one build command invocation."""
+
+    project_dir: Path | None = None
+    no_sql_validation: bool = False
+    defer_to: str | None = None
+    defer_clone_from: str | None = None
+    defer_sources_to: str | None = None
+    selected_target: str | None = None
+    cursor_overrides: CursorOverrides | None = None
+    no_color: bool = False
+    fail_fast: bool = False
+    full_refresh: bool = False
+    load_sources: bool | None = None
+    reload_sources: bool = False
+    include_python: bool = True
+    allow_snapshot_full_refresh: bool = False
+    allow_table_type_downgrade: bool = False
+    allow_retention_decrease: bool = False
+    allow_missing_migration_origin: bool = False
+    allow_snapshot_schema_change: bool = False
+    concurrency: int | None = None
+    select: tuple[str, ...] = ()
+    exclude: tuple[str, ...] = ()
+    verbose: bool = False
+    debug: bool = False
+    cli_vars: dict[str, object] | None = None
+    run_tests: bool = True
+    run_audits: bool = True
+    manifest: bool = False
+    json_output: bool = False
+    json_output_path: Path | None = None
+    event_output_path: Path | None = None
+    no_cache: bool = False
+    max_microbatches: int | None = None
+    selection_diagnostics: bool = False
+    selector_files: tuple[SelectorFileSummary, ...] = ()
+
+
+@dataclass(frozen=True)
+class DirectLifecycleCallbacks:
+    """Node progress callbacks and output settings for direct Python lifecycle."""
+
+    on_node_complete: Callable[[object], None]
+    progress_stream: TextIO
+    use_color: bool
+    on_node_start: NodeStartCallback | None = None
+
+
+@dataclass(frozen=True)
+class BuildInvocation:
+    """Resolved project, adapter, and reporter context for the build command."""
+
+    effective_project_dir: Path
+    discovered_inputs: DiscoveredProjectInputs
+    effective_defer_clone_from: str | None
+    adapter_name: str
+    adapter: BaseAdapter
+    connection_config: dict[str, object]
+    use_color: bool
+    progress_stream: TextIO
+    connection_progress: ConnectionProgressReporter
+    planning_progress: PlanningProgressReporter
+    should_load_sources: bool
+    effective_target_name: str | None = None
+    execution_limits: ExecutionLimitsConfig = field(default_factory=ExecutionLimitsConfig)
+
+
+@dataclass(frozen=True)
+class DeferClonePrephaseOutcome:
+    """Selectors and destination resolved by the build defer-clone prephase."""
+
+    destination_target_name: str | None
+    boundary_selectors: tuple[str, ...]
+    view_chain_selectors: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class DeferClonePrephaseInputs:
+    """Resolved project, targets, and selection for the defer-clone prephase."""
+
+    discovered_inputs: DiscoveredProjectInputs
+    adapter: BaseAdapter
+    origin_target_name: str
+    destination_target_name: str | None
+    no_sql_validation: bool
+    select: tuple[str, ...]
+    caused_by_names: tuple[str, ...]
+    cli_vars: dict[str, object] | None
+    connection_config: dict[str, object]
+    project_dir: Path
+    no_cache: bool = False
+
+
+@dataclass(frozen=True)
+class DeferClonePrephaseOutputContext:
+    """Progress reporting context for the defer-clone prephase."""
+
+    on_progress: Callable[[str], None] | None = None
+    progress_stream: TextIO | None = None
+    use_color: bool = False
+
+
+@dataclass(frozen=True)
+class BuildExecutionPreparation:
+    """Prepared callbacks, concurrency, cursors, and python lifecycle for execution."""
+
+    callbacks: BuildProgressCallbacks
+    effective_concurrency: int
+    execution_connection_progress: ConnectionProgressReporter
+    python_lifecycle: DirectPythonLifecycleState
+    start_cursor_ts: datetime | None
+    end_cursor_ts: datetime | None
+    start_cursor_int: int | None
+    end_cursor_int: int | None
+
+
+@dataclass(frozen=True)
+class BuildRunOutcome:
+    """Build pipeline execution result and finalized python node results."""
+
+    result: BuildExecutionResult
+    python_results: tuple[PythonNodeExecutionResult, ...]
+
+
+@dataclass(frozen=True)
+class BuildPhaseTimings:
+    """Final monotonic phase durations for verbose build output."""
+
+    compile_seconds: float | None = None
+    planning_seconds: float | None = None
+    connection_preparation_seconds: float | None = None
+    schema_preparation_seconds: float | None = None
+    execution_seconds: float | None = None
+    cost_collection_seconds: float | None = None
+    total_seconds: float | None = None
+
+
+@dataclass(frozen=True)
+class CheckCommandRequest:
+    """CLI inputs for one check command invocation."""
+
+    project_dir: Path | None = None
+    no_sql_validation: bool = False
+    no_color: bool = False
+    selected_target: str | None = None
+    select: tuple[str, ...] = ()
+    exclude: tuple[str, ...] = ()
+    cli_vars: dict[str, object] | None = None
+    json_output: bool = False
+    json_output_path: Path | None = None
+
+
+@dataclass(frozen=True)
+class CheckInvocation:
+    """Resolved project, adapter, and reporter context for the check command."""
+
+    effective_project_dir: Path
+    discovered_inputs: DiscoveredProjectInputs
+    adapter_name: str
+    adapter: BaseAdapter
+    connection_config: dict[str, object]
+    use_color: bool
+    progress_stream: TextIO
+    connection_progress: ConnectionProgressReporter
+    planning_progress: PlanningProgressReporter
+
+
+@dataclass(frozen=True)
+class CheckExecutionPreparation:
+    """Prepared Python graph, check selection, lifecycle, and relation defaults."""
+
+    python_graph: PythonNodeGraph
+    check_functions: tuple[DiscoveredCheckFunction, ...]
+    lifecycle_plan: PythonSqlRunLifecyclePlan
+    relation_targets: dict[SqlResourceRef, str]
+    relation_refs: frozenset[SqlResourceRef]
+    default_database: str | None
+    default_schema: str | None
+    project_relations: dict[SqlResourceRef, str] | None = None
+
+
+@dataclass(frozen=True)
+class CloneCommandRequest:
+    """CLI inputs for one clone command invocation."""
+
+    project_dir: Path | None
+    no_color: bool
+    no_sql_validation: bool
+    origin_target_name: str
+    destination_target_name: str | None
+    hard_copy: bool
+    select: tuple[str, ...] = ()
+    exclude: tuple[str, ...] = ()
+    verbose: bool = False
+    cli_vars: dict[str, object] | None = None
+    json_output_path: Path | None = None
+    event_output_path: Path | None = None
+
+
+@dataclass(frozen=True)
+class CloneInvocation:
+    """Resolved project, adapter, and output context for clone."""
+
+    effective_project_dir: Path
+    discovered_inputs: DiscoveredProjectInputs
+    adapter_name: str
+    adapter: BaseAdapter
+    destination_target_name: str
+    use_color: bool
+    progress_stream: TextIO
+
+
+@dataclass(frozen=True)
+class CloneConnectionContext:
+    """Destination connection configuration and handle for a clone."""
+
+    destination_connection_config: dict[str, object]
+    destination_connection: Any
+
+
+@dataclass(frozen=True)
+class CloneExecutionPreparation:
+    """Prepared direct clone pipeline and selected destination entries."""
+
+    pipeline_result: ClonePipelineResult
+
+
+@dataclass(frozen=True)
+class CloneRunOutcome:
+    """Direct clone execution result and elapsed time."""
+
+    result: CloneExecutionResult
+    elapsed: float
+
+
+@dataclass(frozen=True)
+class DbtSqlbuildWorkContext:
+    """Shared execution context for one dbt interop SQLBuild work run."""
+
+    plan_output: PlanOutput
+    connection_config: dict[str, object]
+    adapter: BaseAdapter
+    adapter_name: str
+    output_stream: TextIO
+    use_color: bool
+    snapshots_config: SnapshotsConfig
+    execution_limits: ExecutionLimitsConfig
+
+
+@dataclass(frozen=True)
+class PlanSafetyGates:
+    """Pre-confirmed plan safety gates and the guidance shown when one needs a terminal."""
+
+    allow_missing_migration_origin: bool
+    allow_snapshot_full_refresh: bool
+    allow_table_type_downgrade: bool
+    allow_retention_decrease: bool
+    missing_origin_help: str
+    snapshot_full_refresh_help: str
+    table_type_downgrade_help: str
+    retention_decrease_help: str
+    execution_limit_note: str
+
+
+@dataclass(frozen=True)
+class DbtInitCommandRequest:
+    """CLI inputs for one dbt init command invocation."""
+
+    cwd: Path
+    dbt_project_dir: str | None
+    profiles_dir: str | None
+    profile_name: str | None
+    target_name: str | None
+    sqb_output_dir: str | None
+    dry_run: bool
+    overwrite: bool
+    skip_dbt_debug: bool
+
+
+@dataclass(frozen=True)
+class DbtInitInvocation:
+    """Resolved profile-init request and output styling context."""
+
+    request: DbtInitRequest
+    use_color: bool
+
+
+@dataclass(frozen=True)
+class DebugLine:
+    label: str
+    message: str
+    status: DebugCheckStatus | None = None
+    status_message: str | None = None
+
+
+@dataclass(frozen=True)
+class DebugResult:
+    runtime: tuple[DebugLine, ...]
+    configuration: tuple[DebugLine, ...]
+    providers: tuple[DebugLine, ...]
+    connection: tuple[DebugLine, ...]
+
+    @property
+    def success(self) -> bool:
+        return all(line.status != DebugCheckStatus.ERROR for line in self.lines)
+
+    @property
+    def lines(self) -> tuple[DebugLine, ...]:
+        return self.runtime + self.configuration + self.providers + self.connection
+
+
+@dataclass(frozen=True)
+class DiffCommandRequest:
+    """CLI inputs for one diff command invocation."""
+
+    project_dir: Path | None
+    no_color: bool
+    no_sql_validation: bool
+    from_name: str | None
+    to_name: str | None
+    full: bool
+    schema_only: bool
+    bounded: str | None
+    max_column_examples: int | None = None
+    max_row_only_examples: int | None = None
+    sample_rows: int | None = None
+    sample_seed: int | None = None
+    exhaustive: bool = False
+    json_output: bool = False
+    json_output_path: Path | None = None
+    max_models: int | None = None
+    max_columns: int | None = None
+    select: tuple[str, ...] = ()
+    exclude: tuple[str, ...] = ()
+    verbose: bool = False
+    cli_vars: dict[str, object] | None = None
+    selected_target: str | None = None
+    left_query: str | None = None
+    left_query_file: Path | None = None
+    left_label: str | None = None
+    right_query: str | None = None
+    right_query_file: Path | None = None
+    right_label: str | None = None
+    unique_key_override: tuple[str, ...] = ()
+    unkeyed: bool = False
+    excluded_columns_override: tuple[str, ...] = ()
+    tolerance_overrides: tuple[str, ...] = ()
+    max_value_length: int | None = None
+    suppress_example_values: bool = False
+    full_example_values: bool = False
+
+
+@dataclass(frozen=True)
+class DiffInvocation:
+    """Resolved project discovery and mode for diff."""
+
+    effective_project_dir: Path
+    discovered_inputs: DiscoveredProjectInputs
+
+
+@dataclass(frozen=True)
+class DirectDiffPreparation:
+    """Resolved direct diff adapter and compiled target projects."""
+
+    from_target: str
+    to_target: str
+    adapter: BaseAdapter
+    left_project: Any
+    right_project: Any
+    selected_names: tuple[str, ...]
+    connection_config: dict[str, object]
+    effective_max_column_examples: int
+    effective_max_row_only_examples: int
+
+
+@dataclass(frozen=True)
+class QueryDiffPreparation:
+    """Resolved raw-query diff adapter, connection, SQL, and limits."""
+
+    adapter: BaseAdapter
+    connection_config: dict[str, object]
+    left_sql: str
+    right_sql: str
+    left_label: str
+    right_label: str
+    selected_target: str | None
+    database: str | None
+    schema: str
+    run_id: str
+    artifact_ttl: str
+    effective_max_column_examples: int
+    effective_max_row_only_examples: int
+
+
+@dataclass(frozen=True)
+class DiffExampleRenderOptions:
+    """Bounded example rendering controls independent of comparison execution."""
+
+    max_value_length: int | None
+    suppress_values: bool = False
+
+
+@dataclass(frozen=True)
+class RenderedDiffExampleValue:
+    """One safely bounded value plus explicit information-loss metadata."""
+
+    text: str | None
+    original_length: int
+    truncated: bool
+    suppressed: bool
+    first_difference: int | None
+
+
+@dataclass(frozen=True)
+class QueryDiffRunOutcome:
+    """Raw-query result plus measured lifecycle phase durations."""
+
+    result: DiffExecutionResult
+    phase_seconds: dict[str, float]
+    outcome: str
+    exit_code: int
+
+
+@dataclass(frozen=True)
+class FreshnessCommandRequest:
+    """CLI inputs for one `sqb freshness` invocation."""
+
+    project_dir: Path | None = None
+    no_sql_validation: bool = False
+    no_color: bool = False
+    selected_target: str | None = None
+    select: tuple[str, ...] = ()
+    exclude: tuple[str, ...] = ()
+    cli_vars: dict[str, object] | None = None
+    json_output: bool = False
+    json_output_path: Path | None = None
+    fail_on_error: bool = False
+    compare_state: bool = False
+    fail_on_stale: bool = False
+
+
+@dataclass(frozen=True)
+class FreshnessSourceResult:
+    """Freshness observation result for one source."""
+
+    name: str
+    status: FreshnessSourceStatus
+    strategy: str | None = None
+    value_kind: str | None = None
+    current_data_version: str | None = None
+    previous_data_version: str | None = None
+    lag_tolerance: str | None = None
+    target_database: str | None = None
+    target_schema: str | None = None
+    target_name: str | None = None
+    message: str | None = None
+    age_status: SourceFreshnessAgeStatus | None = None
+
+
+@dataclass(frozen=True)
+class FreshnessCommandResult:
+    """Source freshness command output payload."""
+
+    sources: tuple[FreshnessSourceResult, ...] = field(default_factory=tuple)
+
+    @property
+    def observed_count(self) -> int:
+        return sum(1 for source in self.sources if source.status == FreshnessSourceStatus.OBSERVED)
+
+    @property
+    def changed_count(self) -> int:
+        return sum(1 for source in self.sources if source.status == FreshnessSourceStatus.CHANGED)
+
+    @property
+    def unchanged_count(self) -> int:
+        return sum(1 for source in self.sources if source.status == FreshnessSourceStatus.UNCHANGED)
+
+    @property
+    def tolerated_count(self) -> int:
+        return sum(1 for source in self.sources if source.status == FreshnessSourceStatus.TOLERATED)
+
+    @property
+    def unknown_count(self) -> int:
+        return sum(1 for source in self.sources if source.status == FreshnessSourceStatus.UNKNOWN)
+
+    @property
+    def error_count(self) -> int:
+        return sum(1 for source in self.sources if source.status == FreshnessSourceStatus.ERROR)
+
+    @property
+    def age_pass_count(self) -> int:
+        return sum(
+            1 for source in self.sources if source.age_status == SourceFreshnessAgeStatus.PASS
+        )
+
+    @property
+    def age_warn_count(self) -> int:
+        return sum(
+            1 for source in self.sources if source.age_status == SourceFreshnessAgeStatus.WARN
+        )
+
+    @property
+    def age_error_count(self) -> int:
+        return sum(
+            1 for source in self.sources if source.age_status == SourceFreshnessAgeStatus.ERROR
+        )
+
+    @property
+    def age_unknown_count(self) -> int:
+        return sum(
+            1 for source in self.sources if source.age_status == SourceFreshnessAgeStatus.UNKNOWN
+        )
+
+
+@dataclass(frozen=True)
+class JanitorCommandRequest:
+    """CLI inputs for one janitor command invocation."""
+
+    project_dir: Path | None
+    no_color: bool = False
+    auto_approve: bool = False
+    retention_days: int | None = None
+    direct_state_history_versions: int | None = None
+    drop_old_name_views: tuple[str, ...] = ()
+    selected_target: str | None = None
+    as_target: str | None = None
+
+
+@dataclass(frozen=True)
+class JanitorInvocation:
+    """Resolved project discovery and output context for janitor."""
+
+    effective_project_dir: Path
+    discovered_inputs: DiscoveredProjectInputs
+    use_color: bool
+    selected_target: str | None = None
+    active_target_name: str | None = None
+    as_target: str | None = None
+
+
+@dataclass(frozen=True)
+class JanitorSettings:
+    """Validated effective janitor settings."""
+
+    retention_days: int
+    direct_state_history_versions: int
+    archive_retention_days: int = 14
+    drop_old_name_views: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class JanitorCompileContext:
+    """Compiled project and adapter context for janitor."""
+
+    adapter_name: str
+    adapter: BaseAdapter
+    project: CompiledProject
+    connection_config: dict[str, object]
+
+
+@dataclass(frozen=True)
+class JanitorConnectionContext:
+    """Janitor warehouse connection handle."""
+
+    connection: object
+
+
+@dataclass(frozen=True)
+class JanitorPlanningResult:
+    """Built janitor plan."""
+
+    plan: JanitorPlan
+
+
+@dataclass(frozen=True)
+class LineageNode:
+    """One displayable lineage graph node."""
+
+    key: CompiledObjectKey
+    relative_path: str | None = None
+    qualified_name: str | None = None
+
+
+@dataclass(frozen=True)
+class LineageGraph:
+    """Selected lineage graph slice."""
+
+    nodes: tuple[LineageNode, ...]
+    edges: tuple[tuple[CompiledObjectKey, CompiledObjectKey], ...]
+    focus_keys: tuple[CompiledObjectKey, ...] = field(default_factory=tuple)
+    direction: str | None = None
+
+
+@dataclass(frozen=True)
+class RelationLineageIndex:
+    """Cacheable structural graph used by relation-level lineage inspection."""
+
+    nodes: dict[CompiledObjectKey, LineageNode]
+    upstream_deps: dict[CompiledObjectKey, tuple[CompiledObjectKey, ...]]
+    downstream_deps: dict[CompiledObjectKey, tuple[CompiledObjectKey, ...]]
+    tag_index: dict[str, frozenset[CompiledObjectKey]]
+    path_index: dict[CompiledObjectKey, str]
+    all_keys: dict[str, CompiledObjectKey]
+
+
+@dataclass(frozen=True)
+class LineageSelectionAnchors:
+    """Selector anchors used for optional post-selection depth trimming."""
+
+    upstream: frozenset[CompiledObjectKey] = field(default_factory=frozenset)
+    downstream: frozenset[CompiledObjectKey] = field(default_factory=frozenset)
+    retained: frozenset[CompiledObjectKey] = field(default_factory=frozenset)
+
+
+@dataclass(frozen=True)
+class ParsedLineageSelector:
+    """One parsed non-path lineage selector."""
+
+    kind: str
+    value: str
+    upstream: bool = False
+    downstream: bool = False
+
+
+@dataclass(frozen=True)
+class ParsedLineagePathSelector:
+    """One parsed path-between lineage selector."""
+
+    start_name: str
+    end_name: str
+    upstream: bool = False
+    downstream: bool = False
+
+
+@dataclass(frozen=True)
+class ColumnLineageTrace:
+    """Selected column-level lineage trace."""
+
+    target: QualifiedLineageColumn
+    trace: tuple[ColumnLineageEdge, ...]
+    direction: str
+    mode: ColumnLineageMode = ColumnLineageMode.RICH
+    max_depth: int | None = None
+    analyzed_model_count: int = 0
+    truncated: bool = False
+
+
+@dataclass(frozen=True)
+class LoadCommandRequest:
+    """CLI inputs for one load command invocation."""
+
+    project_dir: Path | None
+    no_color: bool = False
+    selected_target: str | None = None
+    select: tuple[str, ...] = ()
+    exclude: tuple[str, ...] = ()
+    reload: bool = False
+    concurrency: int | None = None
+    cursor_overrides: CursorOverrides | None = None
+    cli_vars: dict[str, object] | None = None
+    json_output: bool = False
+    json_output_path: Path | None = None
+
+
+@dataclass(frozen=True)
+class LoadInvocation:
+    """Resolved project, selected sources, and output context for load."""
+
+    effective_project_dir: Path
+    discovered_inputs: DiscoveredProjectInputs
+    selected_sources: tuple[SourceEntry, ...]
+    reference_sources: tuple[SourceEntry, ...]
+    use_color: bool
+    progress_stream: TextIO
+    relation_sources: tuple[SourceEntry, ...]
+
+
+@dataclass(frozen=True)
+class LoadExecutionPreparation:
+    """Prepared adapter, connection, runtime, and execution settings."""
+
+    adapter_name: str
+    adapter: BaseAdapter
+    connection_config: dict[str, object]
+    target_name: str | None
+    effective_vars: dict[str, object]
+    run_id: str
+    effective_cursor_overrides: CursorOverrides
+    effective_concurrency: int
+    provider_session: Any
+    project_relations: dict[SqlResourceRef, str] | None
+
+
+@dataclass(frozen=True)
+class LoadRunOutcome:
+    """Load execution results, elapsed time, and summary counts."""
+
+    results: tuple[LoadExecutionResult, ...]
+    elapsed: float
+    success_count: int
+    fail_count: int
+    skip_count: int
+    warn_count: int
+
+
+@dataclass(frozen=True)
+class LoadSelectionSets:
+    """Mutable selection sets returned explicitly by selection phases."""
+
+    selected_sources: set[str]
+    selected_loaders: set[str]
+
+
+@dataclass(frozen=True)
+class LoadSelectorSets:
+    """Selection sets updated while applying include selectors."""
+
+    selected_sources: set[str]
+    selected_loaders: set[str]
+    directly_selected_loaders: set[str]
+
+
+@dataclass(frozen=True)
+class PlanCommandRequest:
+    """CLI inputs for one plan command invocation."""
+
+    project_dir: Path | None = None
+    no_sql_validation: bool = False
+    defer_to: str | None = None
+    defer_sources_to: str | None = None
+    selected_target: str | None = None
+    as_target: str | None = None
+    cursor_overrides: CursorOverrides | None = None
+    json_output: bool = False
+    full_refresh: bool = False
+    load_sources: bool | None = None
+    include_python: bool = True
+    no_color: bool = False
+    select: tuple[str, ...] = ()
+    exclude: tuple[str, ...] = ()
+    verbose: bool = False
+    cli_vars: dict[str, object] | None = None
+    no_cache: bool = False
+    max_microbatches: int | None = None
+    selection_diagnostics: bool = False
+
+
+@dataclass(frozen=True)
+class PlanInvocation:
+    """Resolved project, adapter, and reporter context for the plan command."""
+
+    effective_project_dir: Path
+    discovered_inputs: DiscoveredProjectInputs
+    adapter: BaseAdapter
+    connection_config: dict[str, object]
+    use_color: bool
+    progress_stream: TextIO
+    connection_progress: ConnectionProgressReporter
+    planning_progress: PlanningProgressReporter
+    should_load_sources: bool
+
+
+@dataclass(frozen=True)
+class PlaygroundCommandRequest:
+    """CLI inputs for one playground command invocation."""
+
+    project_dir: Path | None
+    target_path: str
+    template: str = PlaygroundTemplate.WAFFLE_SHOP.value
+
+
+@dataclass(frozen=True)
+class PlaygroundTarget:
+    """Resolved playground destination directory and template."""
+
+    target_dir: Path
+    template: PlaygroundTemplate
+
+
+@dataclass(frozen=True)
+class AdapterConnectionContext:
+    """Resolved adapter and connection configuration for one CLI command."""
+
+    adapter_name: str
+    adapter: BaseAdapter
+    connection_config: dict[str, object]
+
+
+@dataclass(frozen=True)
+class ScenarioRunNamespace:
+    """Effective artifact namespace and its configuration source."""
+
+    value: str | None = None
+    source: str = "unset"
+
+
+@dataclass(frozen=True)
+class ScenarioRunOutputContext:
+    """Progress stream and JSON output settings for one scenario CLI run."""
+
+    progress_stream: TextIO
+    use_color: bool
+    namespace: ScenarioRunNamespace = ScenarioRunNamespace()
+    json_output: bool = False
+    json_output_path: Path | None = None
+
+
+@dataclass(frozen=True)
+class ScenarioSnapshotLimitInputs:
+    """CLI snapshot capture-limit overrides for one scenario run."""
+
+    max_snapshot_rows: int | None = None
+    max_snapshot_total_rows: int | None = None
+    max_snapshot_bytes: int | None = None
+    max_snapshot_total_bytes: int | None = None
+    force: bool = False
+
+
+@dataclass(frozen=True)
+class ScenarioTestCommandRequest:
+    """CLI inputs for one `sqb scenario test` invocation."""
+
+    project_dir: Path | None = None
+    scenario_namespace: str | None = None
+    no_sql_validation: bool = False
+    no_color: bool = False
+    selectors: tuple[str, ...] = ()
+    exclude: tuple[str, ...] = ()
+    retain: bool = False
+    local: bool = False
+    strict: bool = False
+    sync_snapshots: bool = False
+    refresh: bool = False
+    limit_inputs: ScenarioSnapshotLimitInputs = ScenarioSnapshotLimitInputs()
+    json_output: bool = False
+    json_output_path: Path | None = None
+
+
+@dataclass(frozen=True)
+class ScenarioCaptureCommandRequest:
+    """CLI inputs for one `sqb scenario capture` invocation."""
+
+    project_dir: Path | None = None
+    scenario_namespace: str | None = None
+    no_sql_validation: bool = False
+    no_color: bool = False
+    selectors: tuple[str, ...] = ()
+    exclude: tuple[str, ...] = ()
+    retain: bool = False
+    limit_inputs: ScenarioSnapshotLimitInputs = ScenarioSnapshotLimitInputs()
+
+
+@dataclass(frozen=True)
+class LocalSnapshotSyncInputs:
+    """Resolved project, adapters, and scenarios for a local snapshot sync run."""
+
+    project_dir: Path
+    discovered_inputs: DiscoveredProjectInputs
+    local_pipeline_result: CompilePipelineResult
+    local_scenarios: tuple[CompiledSqlScenario, ...]
+    local_adapter: BaseAdapter
+    project_adapter: BaseAdapter
+    project_adapter_name: str
+    capture_dialect: str
+    project_connection_config: dict[str, object]
+    project_name: str
+    no_sql_validation: bool
+    refresh: bool
+
+
+@dataclass(frozen=True)
+class SeedCommandRequest:
+    """CLI inputs for one seed command invocation."""
+
+    project_dir: Path | None
+    no_color: bool = False
+    selected_target: str | None = None
+    select: tuple[str, ...] = ()
+    exclude: tuple[str, ...] = ()
+    concurrency: int | None = None
+    cli_vars: dict[str, object] | None = None
+    json_output: bool = False
+    json_output_path: Path | None = None
+
+
+@dataclass(frozen=True)
+class SeedInvocation:
+    """Resolved project, adapter, connection, and output context for seed."""
+
+    effective_project_dir: Path
+    discovered_inputs: DiscoveredProjectInputs
+    adapter_name: str
+    adapter: BaseAdapter
+    connection_config: dict[str, object]
+    use_color: bool
+    progress_stream: TextIO
+
+
+@dataclass(frozen=True)
+class SeedExecutionPreparation:
+    """Prepared seed execution settings and compiled pipeline."""
+
+    pipeline_result: CompilePipelineResult
+    effective_concurrency: int
+
+
+@dataclass(frozen=True)
+class SeedRunOutcome:
+    """Seed execution results and elapsed time."""
+
+    results: tuple[SeedExecutionResult, ...]
+    elapsed: float
+
+
+@dataclass(frozen=True)
+class TestCommandRequest:
+    """CLI inputs for one test command invocation."""
+
+    project_dir: Path | None = None
+    no_sql_validation: bool = False
+    no_color: bool = False
+    selected_target: str | None = None
+    select: tuple[str, ...] = ()
+    exclude: tuple[str, ...] = ()
+    cli_vars: dict[str, object] | None = None
+    json_output: bool = False
+    json_output_path: Path | None = None
+    concurrency: int | None = None
+    case_name: str | None = None
+    inspect: bool = False
+
+
+@dataclass(frozen=True)
+class RefactorCommandRequest:
+    """CLI inputs for one `sqb rename` or `sqb mv` invocation."""
+
+    command: str
+    target: str
+    new_name: str | None = None
+    destination: str | None = None
+    project_dir: Path | None = None
+    cascade: bool = False
+    dry_run: bool = False
+    json_output: bool = False
+    no_color: bool = False
+
+
+@dataclass(frozen=True)
+class RefactorCompile:
+    """One offline compile for a refactoring: its facts, or the errors that stopped it."""
+
+    project: RefactorProject | None
+    errors: tuple[CompilerDiagnostic, ...]
+
+
+@dataclass(frozen=True)
+class ScopeCommandRequest:
+    """CLI inputs for one offline declaration-scope inspection."""
+
+    project_dir: Path | None = None
+    target: str | None = None
+    at: str | None = None
+    as_path: str | None = None
+    browse: str | None = None
+    list_path: str | None = None
+    defined_under: str | None = None
+    kinds: tuple[str, ...] = ()
+    match: str | None = None
+    used_only: bool = False
+    include_nearby: bool = False
+    nearby_depth: int = 1
+    dependency_depth: int = 0
+    explain: str | None = None
+    globals: str = "summary"
+    page_size: int = 100
+    after: str | None = None
+    paths: str = "relative"
+    json_output: bool = False
+    no_cache: bool = False
+    verbose: bool = False
+    no_color: bool = False
+
+
+@dataclass(frozen=True)
+class TestInvocation:
+    """Resolved project, adapter, and reporter context for the test command."""
+
+    effective_project_dir: Path
+    discovered_inputs: DiscoveredProjectInputs
+    adapter_name: str
+    adapter: BaseAdapter
+    connection_config: dict[str, object]
+    use_color: bool
+    progress_stream: TextIO
+    connection_progress: ConnectionProgressReporter
+    planning_progress: PlanningProgressReporter
+
+
+@dataclass(frozen=True)
+class TestExecutionPreparation:
+    """Prepared nested progress and execution reporters for test runs."""
+
+    progress: NestedCommandProgressCallbacks
+    execution_connection_progress: ConnectionProgressReporter
+    preflight_progress: TransientStatusReporter
+    effective_concurrency: int
+    worker_count: int
+
+
+@dataclass(frozen=True)
+class RulesCommandRequest:
+    """Inputs for focused rule execution, inspection, or skill generation."""
+
+    project_dir: Path | None
+    json_output: bool
+    action: str
+    rule_selector: str | None
+    skills_check: bool
+    select: tuple[str, ...] = ()
+    exclude: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class CostCommandRequest:
+    """Inputs for local run-cost history and drill-down."""
+
+    project_dir: Path | None
+    selector: str
+    no_color: bool
+    limit: int | None
+    no_limit: bool
+    sort: str | None
+    order: str | None
+    since: str | None
+    until: str | None
+    json_output: bool
+    json_output_path: Path | None
+
+
+@dataclass(frozen=True)
+class BuildCostFinalization:
+    """Inputs for nonfatal automatic build-cost finalization."""
+
+    project_dir: Path
+    adapter_name: str
+    adapter: object
+    connection_config: dict[str, object]
+    target_name: str | None
+    target_database: str | None
+    run_id: str
+    build_status: str
+    started_at: datetime
+    completed_at: datetime
+    config: CostConfig
+    output_stream: TextIO
+    use_color: bool
+    collect: bool = True
+    render: bool = True
+    cost_status: CostStatus = CostStatus.COMPLETE
+    cost_message: str = "No executable warehouse work was planned for this build."
+    had_executable_work: bool | None = True
+
+
+@dataclass(frozen=True)
+class ContractCommandRequest:
+    """CLI inputs for physical contract comparison and repository adoption."""
+
+    action: str
+    from_target: str
+    project_dir: Path | None = None
+    select: tuple[str, ...] = ()
+    exclude: tuple[str, ...] = ()
+    write: bool = False
+    overwrite: bool = False
+    json_output: bool = False
+    no_color: bool = False
+    cli_vars: dict[str, object] | None = None
+
+
+@dataclass(frozen=True)
+class LineageCommandRequest:
+    """CLI inputs for dependency and column lineage inspection."""
+
+    project_dir: Path | None
+    no_sql_validation: bool = False
+    targets: tuple[str, ...] = ()
+    output_format: str = "tree"
+    direction: str | None = None
+    depth: str = "all"
+    select: tuple[str, ...] = ()
+    exclude: tuple[str, ...] = ()
+    lineage_mode: ColumnLineageMode = ColumnLineageMode.RICH
+    include_uses: bool = False
+    cli_vars: dict[str, object] | None = None

@@ -2,24 +2,20 @@ use std::{
     borrow::Cow,
     fmt,
     hash::{Hash, Hasher},
-    sync::{Arc, OnceLock},
 };
-use unicode_segmentation::UnicodeSegmentation;
 
 use crate::{Direction, NodeOrToken, SyntaxKind, TokenAtOffset, WalkEvent};
 
 const ROOT_PARENT: u32 = u32::MAX;
 const DECODE_ERROR_SPAN: tombi_text::Span = tombi_text::Span::MAX;
-const GRAPHEME_CHECKPOINT_INTERVAL: usize = 64;
 
 /// Decoded TOML text for exactly one TOML version.
 #[doc(hidden)]
 pub struct DecodedTextResolver {
     version: tombi_toml_version::TomlVersion,
-    source: Arc<Box<str>>,
-    decoded: Arc<Box<str>>,
+    decoded: Box<str>,
     token_ids: Box<[u32]>,
-    ranges: Box<[tombi_text::Span]>,
+    spans: Box<[tombi_text::Span]>,
     errors: Box<[(u32, tombi_toml_text::ParseError)]>,
 }
 
@@ -31,55 +27,44 @@ impl DecodedTextResolver {
     }
 
     #[inline]
-    fn decoded_range(&self, index: usize) -> Result<tombi_text::Span, tombi_toml_text::ParseError> {
-        let range = self.ranges[index];
-        if range == DECODE_ERROR_SPAN {
+    fn decoded_span(&self, index: usize) -> Result<tombi_text::Span, tombi_toml_text::ParseError> {
+        let span = self.spans[index];
+        if span == DECODE_ERROR_SPAN {
             let error_index = self
                 .errors
                 .binary_search_by_key(&(index as u32), |(index, _)| *index)
                 .expect("decoded text error must be present");
             Err(self.errors[error_index].1.clone())
         } else {
-            Ok(range)
+            Ok(span)
         }
     }
 
-    fn resolve(
-        &self,
-        tree: &Tree,
+    fn resolve<'r>(
+        &'r self,
+        tree: &SyntaxTree<'r>,
         token_id: u32,
-    ) -> Result<(Arc<Box<str>>, tombi_text::Span), tombi_toml_text::ParseError> {
-        debug_assert!(Arc::ptr_eq(&self.source, &tree.source));
+    ) -> Result<&'r str, tombi_toml_text::ParseError> {
         let entry = tree.entry(token_id);
         if entry.needs_decode() {
             let index = self.decoded_index(token_id);
-            let range = self.decoded_range(index)?;
-            return Ok((Arc::clone(&self.decoded), range));
+            let span = self.decoded_span(index)?;
+            return Ok(&self.decoded[span]);
         }
 
-        let content = tree.try_to_token_content(token_id, self.version)?;
-        let Cow::Borrowed(content) = content else {
-            unreachable!("escaped basic strings must use decoded text storage")
-        };
-        let source_start = self.source.as_ptr() as usize;
-        let start = content.as_ptr() as usize - source_start;
-        Ok((
-            Arc::clone(&self.source),
-            tombi_text::Span::new(
-                (start as u32).into(),
-                ((start + content.len()) as u32).into(),
-            ),
-        ))
+        match tree.try_to_token_content(token_id, self.version)? {
+            Cow::Borrowed(content) => Ok(content),
+            Cow::Owned(_) => unreachable!("escaped basic strings must use decoded text storage"),
+        }
     }
 
-    fn resolve_raw(&self, tree: &Tree, token_id: u32) -> (Arc<Box<str>>, tombi_text::Span) {
-        debug_assert!(Arc::ptr_eq(&self.source, &tree.source));
-        (Arc::clone(&self.source), tree.entry(token_id).span)
+    fn resolve_raw<'r>(&self, tree: &SyntaxTree<'r>, token_id: u32) -> &'r str {
+        &tree.source()[tree.entry(token_id).span]
     }
 }
 
 fn decode_escaped_basic_strings(
-    tree: &Tree,
+    tree: &SyntaxTree<'_>,
     version: tombi_toml_version::TomlVersion,
 ) -> DecodedTextResolver {
     let mut token_ids = Vec::new();
@@ -92,11 +77,11 @@ fn decode_escaped_basic_strings(
     }
 
     let mut decoded = String::with_capacity(capacity);
-    let mut ranges = Vec::with_capacity(token_ids.len());
+    let mut spans = Vec::with_capacity(token_ids.len());
     let mut errors = Vec::new();
     for &token_id in &token_ids {
         let entry = tree.entry(token_id);
-        let text = &tree.source[entry.span];
+        let text = &tree.source()[entry.span];
         let content = match entry.kind {
             SyntaxKind::BASIC_STRING => tombi_toml_text::try_from_basic_string(text, version),
             SyntaxKind::MULTI_LINE_BASIC_STRING => {
@@ -109,7 +94,7 @@ fn decode_escaped_basic_strings(
             Ok(Cow::Owned(content)) => {
                 let start = tombi_text::Offset::of(&decoded);
                 decoded.push_str(&content);
-                ranges.push(tombi_text::Span::new(
+                spans.push(tombi_text::Span::new(
                     start,
                     tombi_text::Offset::of(&decoded),
                 ));
@@ -118,18 +103,17 @@ fn decode_escaped_basic_strings(
                 unreachable!("source-backed string content must not enter the decoded text pool")
             }
             Err(error) => {
-                errors.push((ranges.len() as u32, error));
-                ranges.push(DECODE_ERROR_SPAN);
+                errors.push((spans.len() as u32, error));
+                spans.push(DECODE_ERROR_SPAN);
             }
         }
     }
 
     DecodedTextResolver {
         version,
-        source: Arc::clone(&tree.source),
-        decoded: Arc::new(decoded.into_boxed_str()),
+        decoded: decoded.into_boxed_str(),
         token_ids: token_ids.into_boxed_slice(),
-        ranges: ranges.into_boxed_slice(),
+        spans: spans.into_boxed_slice(),
         errors: errors.into_boxed_slice(),
     }
 }
@@ -178,153 +162,38 @@ impl Entry {
     }
 }
 
+/// The owner of a source-backed preorder syntax tape.
+///
+/// Syntax handles borrow it, so it must outlive every [`SyntaxNode`] and [`SyntaxToken`].
 #[derive(Debug)]
-struct Tree {
-    source: Arc<Box<str>>,
+pub struct SyntaxTree<'src> {
+    line_index: tombi_text::LineIndex<'src>,
     entries: Box<[Entry]>,
     token_ids: Box<[u32]>,
-    position_index: OnceLock<PositionIndex>,
+    header_index: std::sync::OnceLock<crate::ast::HeaderIndex>,
 }
 
-#[derive(Debug)]
-struct PositionIndex {
-    line_starts: Box<[u32]>,
-    unicode_lines: Box<[UnicodeLine]>,
-    grapheme_checkpoints: Box<[u32]>,
-}
-
-#[derive(Debug, Clone, Copy)]
-struct UnicodeLine {
-    line: u32,
-    grapheme_count: u32,
-    checkpoint_start: u32,
-    checkpoint_end: u32,
-}
-
-impl PositionIndex {
-    fn new(source: &str) -> Self {
-        let mut starts = Vec::new();
-        starts.push(0);
-        for index in memchr::memchr_iter(b'\n', source.as_bytes()) {
-            starts.push((index + 1) as u32);
-        }
-
-        let mut unicode_lines = Vec::new();
-        let mut grapheme_checkpoints = Vec::new();
-        for line in 0..starts.len() {
-            let text = line_text(source, &starts, line);
-            if text.is_ascii() {
-                continue;
-            }
-
-            let checkpoint_start = grapheme_checkpoints.len() as u32;
-            let mut grapheme_count = 0;
-            for (column, (offset, _)) in text.grapheme_indices(true).enumerate() {
-                if column % GRAPHEME_CHECKPOINT_INTERVAL == 0 {
-                    grapheme_checkpoints.push(starts[line] + offset as u32);
-                }
-                grapheme_count = column as u32 + 1;
-            }
-            unicode_lines.push(UnicodeLine {
-                line: line as u32,
-                grapheme_count,
-                checkpoint_start,
-                checkpoint_end: grapheme_checkpoints.len() as u32,
-            });
-        }
-
-        Self {
-            line_starts: starts.into_boxed_slice(),
-            unicode_lines: unicode_lines.into_boxed_slice(),
-            grapheme_checkpoints: grapheme_checkpoints.into_boxed_slice(),
-        }
+impl<'src> SyntaxTree<'src> {
+    /// The root node of the tape.
+    #[inline]
+    pub fn root(&self) -> SyntaxNode<'_> {
+        SyntaxNode::new(self, 0)
     }
 
-    fn unicode_line(&self, line: usize) -> Option<UnicodeLine> {
-        self.unicode_lines
-            .binary_search_by_key(&(line as u32), |unicode_line| unicode_line.line)
-            .ok()
-            .map(|index| self.unicode_lines[index])
+    /// The line index of the whole source, to convert spans into ranges.
+    #[inline]
+    pub fn line_index(&self) -> &tombi_text::LineIndex<'src> {
+        &self.line_index
     }
 
-    fn checkpoints(&self, line: UnicodeLine) -> &[u32] {
-        &self.grapheme_checkpoints[line.checkpoint_start as usize..line.checkpoint_end as usize]
-    }
-}
-
-fn line_text<'a>(source: &'a str, starts: &[u32], line: usize) -> &'a str {
-    let start = starts[line] as usize;
-    let end = starts
-        .get(line + 1)
-        .map_or(source.len(), |end| *end as usize);
-    let text = &source[start..end];
-    match text.strip_suffix('\n') {
-        Some(text) => text.strip_suffix('\r').unwrap_or(text),
-        None => text,
-    }
-}
-
-impl Tree {
     #[inline]
     fn entry(&self, id: u32) -> Entry {
         self.entries[id as usize]
     }
 
-    fn position_index(&self) -> &PositionIndex {
-        self.position_index
-            .get_or_init(|| PositionIndex::new(&self.source))
-    }
-
-    fn position(&self, offset: u32) -> tombi_text::Position {
-        let index = self.position_index();
-        let starts = &index.line_starts;
-        let line = starts.partition_point(|start| *start <= offset) - 1;
-        let line_start = starts[line] as usize;
-        let offset = offset as usize;
-        let column = match index.unicode_line(line) {
-            Some(unicode_line) => {
-                let checkpoints = index.checkpoints(unicode_line);
-                let checkpoint = checkpoints.partition_point(|start| *start <= offset as u32) - 1;
-                let checkpoint_offset = checkpoints[checkpoint] as usize;
-                (checkpoint * GRAPHEME_CHECKPOINT_INTERVAL
-                    + self.source[checkpoint_offset..offset]
-                        .graphemes(true)
-                        .count()) as u32
-            }
-            None => (offset - line_start) as u32,
-        };
-        tombi_text::Position::new(line as u32, column)
-    }
-
-    fn offset(&self, position: tombi_text::Position) -> Option<u32> {
-        let index = self.position_index();
-        let starts = &index.line_starts;
-        let line_index = position.line as usize;
-        let start = *starts.get(line_index)? as usize;
-        let line = line_text(&self.source, starts, line_index);
-        let Some(unicode_line) = index.unicode_line(line_index) else {
-            return (position.column as usize <= line.len())
-                .then_some((start + position.column as usize) as u32);
-        };
-
-        if position.column == unicode_line.grapheme_count {
-            return Some((start + line.len()) as u32);
-        }
-        if position.column > unicode_line.grapheme_count {
-            return None;
-        }
-
-        let checkpoints = index.checkpoints(unicode_line);
-        let checkpoint = position.column as usize / GRAPHEME_CHECKPOINT_INTERVAL;
-        let checkpoint_offset = *checkpoints.get(checkpoint)? as usize;
-        let checkpoint_column = checkpoint * GRAPHEME_CHECKPOINT_INTERVAL;
-        let line = &self.source[checkpoint_offset..start + line.len()];
-        let mut bytes = 0usize;
-        let mut graphemes = line.graphemes(true);
-        for _ in checkpoint_column..position.column as usize {
-            bytes += graphemes.next()?.len();
-        }
-        Some((checkpoint_offset + bytes) as u32)
+    #[inline]
+    fn source(&self) -> &'src str {
+        self.line_index.text()
     }
 
     fn text_token_id(&self, id: u32) -> u32 {
@@ -345,7 +214,7 @@ impl Tree {
         &self,
         id: u32,
         version: tombi_toml_version::TomlVersion,
-    ) -> Result<Cow<'_, str>, tombi_toml_text::ParseError> {
+    ) -> Result<Cow<'src, str>, tombi_toml_text::ParseError> {
         let id = self.text_token_id(id);
         self.try_to_token_content(id, version)
     }
@@ -354,10 +223,10 @@ impl Tree {
         &self,
         token_id: u32,
         version: tombi_toml_version::TomlVersion,
-    ) -> Result<Cow<'_, str>, tombi_toml_text::ParseError> {
+    ) -> Result<Cow<'src, str>, tombi_toml_text::ParseError> {
         let entry = self.entry(token_id);
         debug_assert!(entry.is_token());
-        let text = &self.source[entry.span];
+        let text = &self.source()[entry.span];
         match entry.kind {
             SyntaxKind::BARE_KEY => tombi_toml_text::try_from_bare_key(text),
             SyntaxKind::BASIC_STRING => tombi_toml_text::try_from_basic_string(text, version),
@@ -380,11 +249,11 @@ impl Tree {
     }
 
     #[inline]
-    fn element(self: &Arc<Self>, id: u32) -> SyntaxElement {
+    fn element<'t>(&'t self, id: u32) -> SyntaxElement<'t> {
         if self.entry(id).is_token() {
-            NodeOrToken::Token(SyntaxToken::new(Arc::clone(self), id))
+            NodeOrToken::Token(SyntaxToken::new(self, id))
         } else {
-            NodeOrToken::Node(SyntaxNode::new(Arc::clone(self), id))
+            NodeOrToken::Node(SyntaxNode::new(self, id))
         }
     }
 }
@@ -392,22 +261,22 @@ impl Tree {
 /// Direct builder for a source-backed preorder syntax tape.
 #[derive(Debug)]
 #[doc(hidden)]
-pub struct SyntaxTreeBuilder {
-    source: Arc<Box<str>>,
+pub struct SyntaxTreeBuilder<'src> {
+    line_index: tombi_text::LineIndex<'src>,
     entries: Vec<Entry>,
     token_ids: Vec<u32>,
     open: Vec<u32>,
     last_child: Vec<u32>,
 }
 
-impl SyntaxTreeBuilder {
-    pub fn new(source: impl Into<Box<str>>) -> Self {
-        Self::with_capacity(source, 0)
+impl<'src> SyntaxTreeBuilder<'src> {
+    pub fn new(line_index: tombi_text::LineIndex<'src>) -> Self {
+        Self::with_capacity(line_index, 0)
     }
 
-    pub fn with_capacity(source: impl Into<Box<str>>, capacity: usize) -> Self {
+    pub fn with_capacity(line_index: tombi_text::LineIndex<'src>, capacity: usize) -> Self {
         Self {
-            source: Arc::new(source.into()),
+            line_index,
             entries: Vec::with_capacity(capacity),
             token_ids: Vec::with_capacity(capacity / 2),
             open: Vec::new(),
@@ -447,7 +316,7 @@ impl SyntaxTreeBuilder {
         let needs_decode = matches!(
             kind,
             SyntaxKind::BASIC_STRING | SyntaxKind::MULTI_LINE_BASIC_STRING
-        ) && self.source[span].contains('\\');
+        ) && self.line_index.text()[span].contains('\\');
         self.entries.push(Entry {
             span,
             parent,
@@ -468,20 +337,19 @@ impl SyntaxTreeBuilder {
         entry.subtree_end = subtree_end;
     }
 
-    pub fn finish(self) -> SyntaxNode {
+    pub fn finish(self) -> SyntaxTree<'src> {
         assert!(self.open.is_empty(), "unclosed syntax nodes");
         assert!(!self.entries.is_empty(), "syntax tape has no root");
-        let tree = Arc::new(Tree {
-            source: self.source,
+        SyntaxTree {
+            line_index: self.line_index,
             token_ids: self.token_ids.into_boxed_slice(),
             entries: self.entries.into_boxed_slice(),
-            position_index: OnceLock::new(),
-        });
-        SyntaxNode::new(tree, 0)
+            header_index: Default::default(),
+        }
     }
 }
 
-pub(crate) type SyntaxElement = NodeOrToken<SyntaxNode, SyntaxToken>;
+pub(crate) type SyntaxElement<'t> = NodeOrToken<SyntaxNode<'t>, SyntaxToken<'t>>;
 
 /// Materialized syntax hierarchy intended only for diagnostics and parser
 /// snapshot tests. Runtime consumers should use the typed TOML accessors.
@@ -498,16 +366,16 @@ pub enum DebugTree {
     },
 }
 
-/// A lightweight node cursor (`Arc` plus preorder id).
-#[derive(Clone)]
-pub struct SyntaxNode {
-    tree: Arc<Tree>,
+/// A lightweight node cursor (borrowed tree plus preorder id).
+#[derive(Clone, Copy)]
+pub struct SyntaxNode<'t> {
+    tree: &'t SyntaxTree<'t>,
     id: u32,
 }
 
-impl SyntaxNode {
+impl<'t> SyntaxNode<'t> {
     #[inline]
-    fn new(tree: Arc<Tree>, id: u32) -> Self {
+    fn new(tree: &'t SyntaxTree<'t>, id: u32) -> Self {
         debug_assert!(!tree.entry(id).is_token());
         Self { tree, id }
     }
@@ -518,11 +386,11 @@ impl SyntaxNode {
     }
 
     #[inline]
-    fn element(&self, id: u32) -> SyntaxElement {
+    fn element(&self, id: u32) -> SyntaxElement<'t> {
         self.tree.element(id)
     }
 
-    fn next_sibling_raw(&self) -> Option<SyntaxElement> {
+    fn next_sibling_raw(&self) -> Option<SyntaxElement<'t>> {
         let entry = self.entry();
         let next = entry.subtree_end;
         (entry.parent != ROOT_PARENT
@@ -531,49 +399,49 @@ impl SyntaxNode {
             .then(|| self.element(next))
     }
 
-    fn prev_sibling_raw(&self) -> Option<SyntaxElement> {
+    fn prev_sibling_raw(&self) -> Option<SyntaxElement<'t>> {
         let prev = self.entry().prev_sibling;
         (prev != ROOT_PARENT).then(|| self.element(prev))
     }
 
     fn parent_node(&self) -> Option<Self> {
         let parent = self.entry().parent;
-        (parent != ROOT_PARENT).then(|| Self::new(Arc::clone(&self.tree), parent))
+        (parent != ROOT_PARENT).then(|| Self::new(self.tree, parent))
     }
 
-    fn child_ids(&self) -> ChildIds {
+    fn child_ids(&self) -> ChildIds<'t> {
         let entry = self.entry();
         ChildIds {
-            tree: Arc::clone(&self.tree),
+            tree: self.tree,
             next: self.id + 1,
             end: entry.subtree_end,
         }
     }
 }
 
-impl PartialEq for SyntaxNode {
+impl PartialEq for SyntaxNode<'_> {
     fn eq(&self, other: &Self) -> bool {
-        self.id == other.id && Arc::ptr_eq(&self.tree, &other.tree)
+        self.id == other.id && std::ptr::eq(self.tree, other.tree)
     }
 }
-impl Eq for SyntaxNode {}
-impl Hash for SyntaxNode {
+impl Eq for SyntaxNode<'_> {}
+impl Hash for SyntaxNode<'_> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        Arc::as_ptr(&self.tree).hash(state);
+        std::ptr::from_ref(self.tree).hash(state);
         self.id.hash(state);
     }
 }
 
-/// A lightweight token cursor (`Arc` plus preorder id).
-#[derive(Clone)]
-pub struct SyntaxToken {
-    tree: Arc<Tree>,
+/// A lightweight token cursor (borrowed tree plus preorder id).
+#[derive(Clone, Copy)]
+pub struct SyntaxToken<'t> {
+    tree: &'t SyntaxTree<'t>,
     id: u32,
 }
 
-impl SyntaxToken {
+impl<'t> SyntaxToken<'t> {
     #[inline]
-    fn new(tree: Arc<Tree>, id: u32) -> Self {
+    fn new(tree: &'t SyntaxTree<'t>, id: u32) -> Self {
         debug_assert!(tree.entry(id).is_token());
         Self { tree, id }
     }
@@ -583,12 +451,12 @@ impl SyntaxToken {
         self.tree.entry(self.id)
     }
 
-    fn parent_node(&self) -> Option<SyntaxNode> {
+    fn parent_node(&self) -> Option<SyntaxNode<'t>> {
         let parent = self.entry().parent;
-        (parent != ROOT_PARENT).then(|| SyntaxNode::new(Arc::clone(&self.tree), parent))
+        (parent != ROOT_PARENT).then(|| SyntaxNode::new(self.tree, parent))
     }
 
-    fn next_sibling_raw(&self) -> Option<SyntaxElement> {
+    fn next_sibling_raw(&self) -> Option<SyntaxElement<'t>> {
         let entry = self.entry();
         let next = self.id + 1;
         (entry.parent != ROOT_PARENT
@@ -597,33 +465,33 @@ impl SyntaxToken {
             .then(|| self.tree.element(next))
     }
 
-    fn prev_sibling_raw(&self) -> Option<SyntaxElement> {
+    fn prev_sibling_raw(&self) -> Option<SyntaxElement<'t>> {
         let prev = self.entry().prev_sibling;
         (prev != ROOT_PARENT).then(|| self.tree.element(prev))
     }
 }
 
-impl PartialEq for SyntaxToken {
+impl PartialEq for SyntaxToken<'_> {
     fn eq(&self, other: &Self) -> bool {
-        self.id == other.id && Arc::ptr_eq(&self.tree, &other.tree)
+        self.id == other.id && std::ptr::eq(self.tree, other.tree)
     }
 }
-impl Eq for SyntaxToken {}
-impl Hash for SyntaxToken {
+impl Eq for SyntaxToken<'_> {}
+impl Hash for SyntaxToken<'_> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        Arc::as_ptr(&self.tree).hash(state);
+        std::ptr::from_ref(self.tree).hash(state);
         self.id.hash(state);
     }
 }
 
 #[derive(Clone)]
-struct ChildIds {
-    tree: Arc<Tree>,
+struct ChildIds<'t> {
+    tree: &'t SyntaxTree<'t>,
     next: u32,
     end: u32,
 }
 
-impl Iterator for ChildIds {
+impl Iterator for ChildIds<'_> {
     type Item = u32;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -637,7 +505,7 @@ impl Iterator for ChildIds {
     }
 }
 
-impl SyntaxNode {
+impl<'t> SyntaxNode<'t> {
     #[inline]
     pub fn kind(&self) -> SyntaxKind {
         self.entry().kind
@@ -648,16 +516,14 @@ impl SyntaxNode {
         self.entry().span
     }
 
-    pub fn range(&self) -> tombi_text::Range {
-        let entry = self.entry();
-        tombi_text::Range::new(
-            self.tree.position(entry.span.start.into()),
-            self.tree.position(entry.span.end.into()),
-        )
+    /// The line index of the whole source, to convert spans into ranges.
+    #[inline]
+    pub fn line_index(&self) -> &'t tombi_text::LineIndex<'t> {
+        &self.tree.line_index
     }
 
-    pub fn text(&self) -> &str {
-        &self.tree.source[self.span()]
+    pub fn text(&self) -> &'t str {
+        &self.tree.source()[self.span()]
     }
 
     #[inline]
@@ -665,7 +531,7 @@ impl SyntaxNode {
     pub fn try_to_content(
         &self,
         version: tombi_toml_version::TomlVersion,
-    ) -> Result<Cow<'_, str>, tombi_toml_text::ParseError> {
+    ) -> Result<Cow<'t, str>, tombi_toml_text::ParseError> {
         self.tree.try_to_content(self.id, version)
     }
 
@@ -680,20 +546,20 @@ impl SyntaxNode {
 
     #[inline]
     #[doc(hidden)]
-    pub fn resolve_text(
+    pub fn resolve_text<'r>(
         &self,
-        resolver: &DecodedTextResolver,
-    ) -> Result<(Arc<Box<str>>, tombi_text::Span), tombi_toml_text::ParseError> {
-        resolver.resolve(&self.tree, self.tree.text_token_id(self.id))
+        resolver: &'r DecodedTextResolver,
+    ) -> Result<&'r str, tombi_toml_text::ParseError>
+    where
+        't: 'r,
+    {
+        resolver.resolve(self.tree, self.tree.text_token_id(self.id))
     }
 
     #[inline]
     #[doc(hidden)]
-    pub fn resolve_raw_text(
-        &self,
-        resolver: &DecodedTextResolver,
-    ) -> (Arc<Box<str>>, tombi_text::Span) {
-        resolver.resolve_raw(&self.tree, self.tree.text_token_id(self.id))
+    pub fn resolve_raw_text(&self, resolver: &DecodedTextResolver) -> &'t str {
+        resolver.resolve_raw(self.tree, self.tree.text_token_id(self.id))
     }
 
     #[doc(hidden)]
@@ -733,20 +599,35 @@ impl SyntaxNode {
         self.parent_node()
     }
 
-    pub(crate) fn ancestors(&self) -> impl Iterator<Item = Self> {
+    #[inline]
+    pub(crate) fn id(&self) -> u32 {
+        self.id
+    }
+
+    /// Lazily built, per-tree index shared by every node of this tree.
+    pub(crate) fn header_index(&self) -> &'t crate::ast::HeaderIndex {
+        self.tree
+            .header_index
+            .get_or_init(|| crate::ast::HeaderIndex::build(self))
+    }
+
+    pub(crate) fn node_at(&self, id: u32) -> Self {
+        Self::new(self.tree, id)
+    }
+
+    pub(crate) fn ancestors(&self) -> impl Iterator<Item = Self> + use<'t> {
         std::iter::successors(self.parent(), Self::parent)
     }
 
-    pub(crate) fn child_nodes(&self) -> impl Iterator<Item = Self> + use<> {
-        let tree = Arc::clone(&self.tree);
-        let filter_tree = Arc::clone(&tree);
+    pub(crate) fn child_nodes(&self) -> impl Iterator<Item = Self> + use<'t> {
+        let tree = self.tree;
         self.child_ids()
-            .filter(move |id| !filter_tree.entry(*id).is_token())
-            .map(move |id| Self::new(Arc::clone(&tree), id))
+            .filter(move |id| !tree.entry(*id).is_token())
+            .map(move |id| Self::new(tree, id))
     }
 
-    pub(crate) fn child_elements(&self) -> impl Iterator<Item = SyntaxElement> + use<> {
-        let tree = Arc::clone(&self.tree);
+    pub(crate) fn child_elements(&self) -> impl Iterator<Item = SyntaxElement<'t>> + use<'t> {
+        let tree = self.tree;
         self.child_ids().map(move |id| tree.element(id))
     }
 
@@ -754,100 +635,72 @@ impl SyntaxNode {
         self.child_nodes().last()
     }
 
-    pub(crate) fn first_child_or_token(&self) -> Option<SyntaxElement> {
+    pub(crate) fn first_child_or_token(&self) -> Option<SyntaxElement<'t>> {
         self.child_elements().next()
     }
 
-    pub(crate) fn next_sibling_or_token(&self) -> Option<SyntaxElement> {
+    pub(crate) fn next_sibling_or_token(&self) -> Option<SyntaxElement<'t>> {
         self.next_sibling_raw()
     }
 
-    pub(crate) fn prev_sibling_or_token(&self) -> Option<SyntaxElement> {
+    pub(crate) fn prev_sibling_or_token(&self) -> Option<SyntaxElement<'t>> {
         self.prev_sibling_raw()
     }
 
-    pub(crate) fn next_sibling(&self) -> Option<Self> {
-        let mut element = self.next_sibling_or_token();
-        while let Some(current) = element {
-            match current {
-                NodeOrToken::Node(node) => return Some(node),
-                NodeOrToken::Token(token) => element = token.next_sibling_or_token(),
-            }
-        }
-        None
-    }
-
-    pub(crate) fn prev_sibling(&self) -> Option<Self> {
-        let mut element = self.prev_sibling_or_token();
-        while let Some(current) = element {
-            match current {
-                NodeOrToken::Node(node) => return Some(node),
-                NodeOrToken::Token(token) => element = token.prev_sibling_or_token(),
-            }
-        }
-        None
-    }
-
-    pub(crate) fn first_token(&self) -> Option<SyntaxToken> {
+    pub(crate) fn first_token(&self) -> Option<SyntaxToken<'t>> {
         let entry = self.entry();
         (self.id + 1..entry.subtree_end).find_map(|id| {
             self.tree
                 .entry(id)
                 .is_token()
-                .then(|| SyntaxToken::new(Arc::clone(&self.tree), id))
+                .then(|| SyntaxToken::new(self.tree, id))
         })
     }
 
-    pub(crate) fn last_token(&self) -> Option<SyntaxToken> {
+    pub(crate) fn last_token(&self) -> Option<SyntaxToken<'t>> {
         let entry = self.entry();
         (self.id + 1..entry.subtree_end).rev().find_map(|id| {
             self.tree
                 .entry(id)
                 .is_token()
-                .then(|| SyntaxToken::new(Arc::clone(&self.tree), id))
-        })
-    }
-
-    pub(crate) fn siblings(&self, direction: Direction) -> impl Iterator<Item = Self> {
-        let first = Some(self.clone());
-        std::iter::successors(first, move |node| match direction {
-            Direction::Next => node.next_sibling(),
-            Direction::Prev => node.prev_sibling(),
+                .then(|| SyntaxToken::new(self.tree, id))
         })
     }
 
     pub(crate) fn siblings_with_tokens(
         &self,
         direction: Direction,
-    ) -> impl Iterator<Item = SyntaxElement> {
-        let first = Some(NodeOrToken::Node(self.clone()));
+    ) -> impl Iterator<Item = SyntaxElement<'t>> + use<'t> {
+        let first = Some(NodeOrToken::Node(*self));
         std::iter::successors(first, move |element| match direction {
             Direction::Next => element.next_sibling_or_token(),
             Direction::Prev => element.prev_sibling_or_token(),
         })
     }
 
-    pub(crate) fn descendants(&self) -> impl Iterator<Item = Self> {
-        let tree = Arc::clone(&self.tree);
-        let filter_tree = Arc::clone(&tree);
+    pub(crate) fn descendants(&self) -> impl Iterator<Item = Self> + use<'t> {
+        let tree = self.tree;
         let entry = self.entry();
         (self.id..entry.subtree_end)
-            .filter(move |id| !filter_tree.entry(*id).is_token())
-            .map(move |id| Self::new(Arc::clone(&tree), id))
+            .filter(move |id| !tree.entry(*id).is_token())
+            .map(move |id| Self::new(tree, id))
     }
 
-    pub(crate) fn preorder_with_tokens(&self) -> PreorderWithTokens {
-        PreorderWithTokens::new(self.clone())
+    pub(crate) fn preorder_with_tokens(&self) -> PreorderWithTokens<'t> {
+        PreorderWithTokens::new(*self)
     }
 
-    pub(crate) fn token_at_offset(&self, offset: tombi_text::Offset) -> TokenAtOffset<SyntaxToken> {
+    pub(crate) fn token_at_offset(
+        &self,
+        offset: tombi_text::Offset,
+    ) -> TokenAtOffset<SyntaxToken<'t>> {
         let subtree = self.id + 1..self.entry().subtree_end;
         let token_ids = &self.tree.token_ids;
         let first = token_ids.partition_point(|id| *id < subtree.start);
         let last = token_ids.partition_point(|id| *id < subtree.end);
         let tokens = &token_ids[first..last];
         let index = tokens.partition_point(|id| self.tree.entry(*id).span.end <= offset);
-        let token = |id: u32| SyntaxToken::new(Arc::clone(&self.tree), id);
+        let token = |id: u32| SyntaxToken::new(self.tree, id);
         let left = index
             .checked_sub(1)
             .and_then(|index| tokens.get(index))
@@ -872,96 +725,71 @@ impl SyntaxNode {
             _ => TokenAtOffset::None,
         }
     }
-
-    pub(crate) fn token_at_position(
-        &self,
-        position: tombi_text::Position,
-    ) -> TokenAtOffset<SyntaxToken> {
-        self.tree
-            .offset(position)
-            .map_or(TokenAtOffset::None, |offset| {
-                self.token_at_offset(offset.into())
-            })
-    }
 }
 
-impl fmt::Debug for SyntaxNode {
+impl fmt::Debug for SyntaxNode<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?} @{} @{}", self.kind(), self.span(), self.range())
+        write!(f, "{:?} @{}", self.kind(), self.span())
     }
 }
-impl fmt::Display for SyntaxNode {
+impl fmt::Display for SyntaxNode<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.tree.source[self.span()])
+        f.write_str(&self.tree.source()[self.span()])
     }
 }
 
-impl SyntaxToken {
+impl<'t> SyntaxToken<'t> {
     pub fn kind(&self) -> SyntaxKind {
         self.entry().kind
     }
     pub fn span(&self) -> tombi_text::Span {
         self.entry().span
     }
-    pub fn range(&self) -> tombi_text::Range {
-        let entry = self.entry();
-        tombi_text::Range::new(
-            self.tree.position(entry.span.start.into()),
-            self.tree.position(entry.span.end.into()),
-        )
+    pub fn text(&self) -> &'t str {
+        &self.tree.source()[self.span()]
     }
-    pub fn text(&self) -> &str {
-        &self.tree.source[self.span()]
-    }
-    pub(crate) fn parent(&self) -> Option<SyntaxNode> {
+    pub(crate) fn parent(&self) -> Option<SyntaxNode<'t>> {
         self.parent_node()
     }
-    pub(crate) fn parent_ancestors(&self) -> impl Iterator<Item = SyntaxNode> {
+    pub(crate) fn parent_ancestors(&self) -> impl Iterator<Item = SyntaxNode<'t>> + use<'t> {
         std::iter::successors(self.parent(), SyntaxNode::parent)
     }
-    pub(crate) fn next_sibling_or_token(&self) -> Option<SyntaxElement> {
+    pub(crate) fn next_sibling_or_token(&self) -> Option<SyntaxElement<'t>> {
         self.next_sibling_raw()
     }
-    pub(crate) fn prev_sibling_or_token(&self) -> Option<SyntaxElement> {
+    pub(crate) fn prev_sibling_or_token(&self) -> Option<SyntaxElement<'t>> {
         self.prev_sibling_raw()
     }
 }
 
-impl fmt::Debug for SyntaxToken {
+impl fmt::Debug for SyntaxToken<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{:?} @{} @{} {:?}",
-            self.kind(),
-            self.span(),
-            self.range(),
-            self.text()
-        )
+        write!(f, "{:?} @{} {:?}", self.kind(), self.span(), self.text())
     }
 }
-impl fmt::Display for SyntaxToken {
+impl fmt::Display for SyntaxToken<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.text())
     }
 }
 
-impl From<SyntaxNode> for SyntaxElement {
-    fn from(node: SyntaxNode) -> Self {
+impl<'t> From<SyntaxNode<'t>> for SyntaxElement<'t> {
+    fn from(node: SyntaxNode<'t>) -> Self {
         NodeOrToken::Node(node)
     }
 }
 
-impl From<SyntaxToken> for SyntaxElement {
-    fn from(token: SyntaxToken) -> Self {
+impl<'t> From<SyntaxToken<'t>> for SyntaxElement<'t> {
+    fn from(token: SyntaxToken<'t>) -> Self {
         NodeOrToken::Token(token)
     }
 }
 
-impl SyntaxElement {
-    pub(crate) fn range(&self) -> tombi_text::Range {
+impl<'t> SyntaxElement<'t> {
+    pub(crate) fn span(&self) -> tombi_text::Span {
         match self {
-            NodeOrToken::Node(node) => node.range(),
-            NodeOrToken::Token(token) => token.range(),
+            NodeOrToken::Node(node) => node.span(),
+            NodeOrToken::Token(token) => token.span(),
         }
     }
     pub(crate) fn kind(&self) -> SyntaxKind {
@@ -984,14 +812,14 @@ impl SyntaxElement {
     }
 }
 
-pub(crate) struct PreorderWithTokens {
-    tree: Arc<Tree>,
+pub(crate) struct PreorderWithTokens<'t> {
+    tree: &'t SyntaxTree<'t>,
     next: u32,
     end: u32,
     leaving: Vec<u32>,
 }
-impl PreorderWithTokens {
-    fn new(root: SyntaxNode) -> Self {
+impl<'t> PreorderWithTokens<'t> {
+    fn new(root: SyntaxNode<'t>) -> Self {
         let entry = root.entry();
         Self {
             tree: root.tree,
@@ -1001,8 +829,8 @@ impl PreorderWithTokens {
         }
     }
 }
-impl Iterator for PreorderWithTokens {
-    type Item = WalkEvent<SyntaxElement>;
+impl<'t> Iterator for PreorderWithTokens<'t> {
+    type Item = WalkEvent<SyntaxElement<'t>>;
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(id) = self.leaving.last().copied()
             && self.next >= self.tree.entry(id).subtree_end
@@ -1025,31 +853,10 @@ impl Iterator for PreorderWithTokens {
 
 #[cfg(test)]
 mod tests {
-    use super::{Entry, GRAPHEME_CHECKPOINT_INTERVAL, PositionIndex};
+    use super::Entry;
 
     #[test]
     fn entry_is_compact() {
         assert_eq!(std::mem::size_of::<Entry>(), 24);
-    }
-
-    #[test]
-    fn position_index_does_not_scale_with_ascii_line_length() {
-        let index = PositionIndex::new(&"a".repeat(1_000_000));
-
-        assert_eq!(index.line_starts.as_ref(), [0]);
-        assert!(index.unicode_lines.is_empty());
-        assert!(index.grapheme_checkpoints.is_empty());
-    }
-
-    #[test]
-    fn unicode_position_index_uses_sparse_checkpoints() {
-        let graphemes = 10_000;
-        let index = PositionIndex::new(&"é".repeat(graphemes));
-
-        assert_eq!(index.unicode_lines.len(), 1);
-        assert_eq!(
-            index.grapheme_checkpoints.len(),
-            graphemes.div_ceil(GRAPHEME_CHECKPOINT_INTERVAL)
-        );
     }
 }

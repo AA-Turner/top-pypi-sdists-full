@@ -104,7 +104,9 @@ def _read_name_from_config_file(path: str):
     ],
 )
 @service_cli.command(
-    name="deploy", short_help="Deploy or update a service.", cls=AnyscaleCommand,
+    name="deploy",
+    short_help="Deploy or update a service.",
+    cls=AnyscaleCommand,
 )
 @click.argument("import_path", type=str, required=False, default=None)
 @click.argument("arguments", nargs=-1, required=False)
@@ -167,7 +169,14 @@ def _read_name_from_config_file(path: str):
     required=False,
     default=None,
     type=str,
-    help="Path to a local directory or a remote URI to a .zip file (S3, GS, HTTP) that will be the working directory for the service. The files in the directory will be automatically uploaded to cloud storage. When running in a workspace, this defaults to the current working directory.",
+    help="Path to a local directory or a remote URI to a .zip file that will be the working directory "
+    "for the service. A local directory is uploaded to cloud storage automatically. A remote URI "
+    "(s3://, gs://, https://, azure://, abfss://) is passed through unchanged and downloaded by Ray on "
+    "the cluster nodes, so it must be readable from them. For private storage behind cloud IAM, grant "
+    "read access to the cluster's identity rather than relying on your local credentials. To use a "
+    "directory that is already inside your container image, pass a 'local://' URI (e.g. local:///app); "
+    "it is read from the image in place, never uploaded or downloaded. When running in a workspace, "
+    "this defaults to the current working directory.",
 )
 @click.option(
     "-e",
@@ -325,14 +334,9 @@ def deploy(  # noqa: PLR0912, PLR0913 C901
         else:
             # when config_file is not provided.
             if import_path is None:
-                raise click.ClickException(
-                    "Either config file or import path must be provided."
-                )
+                raise click.ClickException("Either config file or import path must be provided.")
 
-            if (
-                import_path.endswith((".yaml", ".yml"))
-                or pathlib.Path(import_path).is_file()
-            ):
+            if import_path.endswith((".yaml", ".yml")) or pathlib.Path(import_path).is_file():
                 log.warning(
                     f"The provided import path '{import_path}' looks like a config file. Did you mean to use '-f config.yaml'?"
                 )
@@ -389,7 +393,9 @@ def deploy(  # noqa: PLR0912, PLR0913 C901
             config = config.options(requirements=requirements)
 
         if env:
-            config = override_env_vars(config, convert_kv_strings_to_dict(env))
+            config = override_env_vars(
+                config, convert_kv_strings_to_dict(env, allow_empty_values=True)
+            )
 
         if py_module:
             for module in py_module:
@@ -524,9 +530,7 @@ def deploy(  # noqa: PLR0912, PLR0913 C901
                     "name": "601bd56c4b",
                     "state": "RUNNING",
                     "weight": 100,
-                    "created_at": datetime(
-                        2026, 5, 20, 12, 34, 56, tzinfo=timezone.utc
-                    ),
+                    "created_at": datetime(2026, 5, 20, 12, 34, 56, tzinfo=timezone.utc),
                 },
             },
         ),
@@ -544,7 +548,12 @@ def deploy(  # noqa: PLR0912, PLR0913 C901
     cls=AnyscaleCommand,
 )
 @click.option(
-    "-n", "--name", required=False, default=None, type=str, help="Name of the service.",
+    "-n",
+    "--name",
+    required=False,
+    default=None,
+    type=str,
+    help="Name of the service.",
 )
 @click.option(
     "-f",
@@ -572,9 +581,7 @@ def deploy(  # noqa: PLR0912, PLR0913 C901
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice(
-        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
-    ),
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
     help="Output format for the result.",
@@ -605,9 +612,7 @@ def status(
     if json:
         warn_deprecated_flag("--json", "-o json")
     if name is not None and config_file is not None:
-        raise click.ClickException(
-            "Only one of '--name' and '--config-file' can be provided."
-        )
+        raise click.ClickException("Only one of '--name' and '--config-file' can be provided.")
 
     if config_file is not None:
         name = _read_name_from_config_file(config_file)
@@ -617,9 +622,7 @@ def status(
             "Service name must be provided using '--name' or in a config file using '-f'."
         )
 
-    status: ServiceStatus = anyscale.service.status(
-        name=name, cloud=cloud, project=project
-    )
+    status: ServiceStatus = anyscale.service.status(name=name, cloud=cloud, project=project)
     status_dict = status.to_dict()
     if not verbose:
         # TODO(edoakes): consider adding this as an API on the model itself if it
@@ -667,7 +670,12 @@ def status(
     cls=AnyscaleCommand,
 )
 @click.option(
-    "-n", "--name", required=False, default=None, type=str, help="Name of the service.",
+    "-n",
+    "--name",
+    required=False,
+    default=None,
+    type=str,
+    help="Name of the service.",
 )
 @click.option(
     "-f",
@@ -718,9 +726,7 @@ def wait(
         raise click.ClickException(str(e))
 
     if name is not None and config_file is not None:
-        raise click.ClickException(
-            "Only one of '--name' and '--config-file' can be provided."
-        )
+        raise click.ClickException("Only one of '--name' and '--config-file' can be provided.")
 
     if config_file is not None:
         name = _read_name_from_config_file(config_file)
@@ -741,10 +747,16 @@ def wait(
 # This is a private CLI command to be used internally for testing. This is HIDDEN
 # from the user and is not documented in the CLI help.
 @service_cli.command(
-    name="controller-logs", help="View the controller logs of a service.", hidden=True,
+    name="controller-logs",
+    help="View the controller logs of a service.",
+    hidden=True,
 )
 @click.option(
-    "-n", "--name", required=True, type=str, help="Name of the service.",
+    "-n",
+    "--name",
+    required=True,
+    type=str,
+    help="Name of the service.",
 )
 @click.option(
     "--cloud",
@@ -815,7 +827,9 @@ def validate_max_items(ctx, param, value):
     return validate_non_negative_arg(ctx, param, value)
 
 
-def _parse_sort_option(sort: Optional[str],) -> Tuple[Optional[str], ServiceSortOrder]:
+def _parse_sort_option(
+    sort: Optional[str],
+) -> Tuple[Optional[str], ServiceSortOrder]:
     """
     Given a raw sort string (e.g. "-created_at"), return
     (canonical_field_name, SortOrder).
@@ -837,9 +851,7 @@ def _parse_sort_option(sort: Optional[str],) -> Tuple[Optional[str], ServiceSort
     key = raw.lower()
     if key not in allowed:
         allowed_names = ", ".join(sorted(allowed.values()))
-        raise click.BadParameter(
-            f"Invalid sort field '{raw}'. Allowed fields: {allowed_names}"
-        )
+        raise click.BadParameter(f"Invalid sort field '{raw}'. Allowed fields: {allowed_names}")
 
     return allowed[key], order
 
@@ -848,10 +860,18 @@ def _create_service_list_table(show_header: bool) -> Table:
     table = Table(show_header=show_header, expand=True)
     # NAME and ID: larger ratios, can wrap but never truncate
     table.add_column(
-        "NAME", no_wrap=False, overflow="fold", ratio=3, min_width=15,
+        "NAME",
+        no_wrap=False,
+        overflow="fold",
+        ratio=3,
+        min_width=15,
     )
     table.add_column(
-        "ID", no_wrap=False, overflow="fold", ratio=2, min_width=12,
+        "ID",
+        no_wrap=False,
+        overflow="fold",
+        ratio=2,
+        min_width=12,
     )
     # all other columns will wrap as needed
     for heading in (
@@ -861,7 +881,11 @@ def _create_service_list_table(show_header: bool) -> Table:
         "LAST DEPLOYED AT",
     ):
         table.add_column(
-            heading, no_wrap=False, overflow="fold", ratio=1, min_width=8,
+            heading,
+            no_wrap=False,
+            overflow="fold",
+            ratio=1,
+            min_width=8,
         )
 
     return table
@@ -922,9 +946,7 @@ def _format_service_output_data(svc: ServiceStatus) -> Dict[str, str]:
     help="List services.",
     cls=AnyscaleCommand,
 )
-@click.option(
-    "--service-id", "--id", "service_id", help="ID of the service to display."
-)
+@click.option("--service-id", "--id", "service_id", help="ID of the service to display.")
 @click.option("--name", "-n", help="Name of the service to display.")
 @click.option(
     "--cloud",
@@ -1077,9 +1099,7 @@ def list(  # noqa: PLR0913, A001
     stderr.print(f"• max-items total = {effective_max or 'all'}")
     stderr.print(f"\nView your Services in the UI at {get_endpoint('/services')}\n")
 
-    creator_id = (
-        ServiceController().get_authenticated_user_id() if created_by_me else None
-    )
+    creator_id = ServiceController().get_authenticated_user_id() if created_by_me else None
 
     # choose formatter
     if json_output:
@@ -1182,9 +1202,7 @@ def add_tags(
     tag_map = parse_tags_kv_to_str_map(tags)
     if not tag_map:
         raise click.ClickException("Provide at least one --tag key=value.")
-    anyscale.service.add_tags(
-        id=service_id, name=name, cloud=cloud, project=project, tags=tag_map
-    )
+    anyscale.service.add_tags(id=service_id, name=name, cloud=cloud, project=project, tags=tag_map)
     stderr = Console(stderr=True)
     ident = service_id or name or "<unknown>"
     stderr.print(f"Tags updated for service '{ident}'.")
@@ -1298,9 +1316,7 @@ def list_tags(
         warn_deprecated_flag("--json", "-o json")
     if not service_id and not name:
         raise click.ClickException("Provide either --service-id/--id or --name.")
-    tag_map = anyscale.service.list_tags(
-        id=service_id, name=name, cloud=cloud, project=project
-    )
+    tag_map = anyscale.service.list_tags(id=service_id, name=name, cloud=cloud, project=project)
     if output_format != OutputFormat.TEXT.value:
         print_output(tag_map, output_format)
     elif json_output:
@@ -1354,7 +1370,9 @@ def rollback(
     """Perform a rollback for a service that is currently in a rollout."""
     service_controller = ServiceController()
     service_id = service_controller.get_service_id(
-        service_id=service_id, service_name=name, project_id=project_id,
+        service_id=service_id,
+        service_name=name,
+        project_id=project_id,
     )
     service_controller.rollback(service_id, max_surge_percent)
 
@@ -1386,9 +1404,7 @@ def rollback(
     ),
     cls=AnyscaleCommand,
 )
-@click.option(
-    "--service-id", "--id", "service_id", required=False, help="ID of service."
-)
+@click.option("--service-id", "--id", "service_id", required=False, help="ID of service.")
 @click.option("-n", "--name", required=False, help="Name of service.")
 @click.option("--project-id", required=False, help="Filter by project id.")
 @click.option(
@@ -1426,13 +1442,9 @@ def terminate(
     try:
         anyscale.service.terminate(id=service_id)
         log.info(f"Service {service_id} terminate initiated.")
-        log.info(
-            f"View the service in the UI at {get_endpoint(f'/services/{service_id}')}"
-        )
+        log.info(f"View the service in the UI at {get_endpoint(f'/services/{service_id}')}")
     except Exception as e:  # noqa: BLE001
-        raise from_command_exception(
-            e, "Error terminating service", legacy_exit_code=0
-        ) from None
+        raise from_command_exception(e, "Error terminating service", legacy_exit_code=0) from None
 
 
 @command_metadata(
@@ -1450,17 +1462,17 @@ def terminate(
 @service_cli.command(
     name="archive",
     short_help="Archive a service.",
-    help=(
-        "Archive a service.\n\n"
-        "Exactly one of --service-id/--id or --name must be provided."
-    ),
+    help=("Archive a service.\n\nExactly one of --service-id/--id or --name must be provided."),
     cls=AnyscaleCommand,
 )
+@click.option("--service-id", "--id", "service_id", required=False, help="ID of service.")
 @click.option(
-    "--service-id", "--id", "service_id", required=False, help="ID of service."
-)
-@click.option(
-    "-n", "--name", required=False, default=None, type=str, help="Name of the service.",
+    "-n",
+    "--name",
+    required=False,
+    default=None,
+    type=str,
+    help="Name of the service.",
 )
 @click.option(
     "--cloud",
@@ -1493,9 +1505,7 @@ def archive(
         anyscale.service.archive(id=service_id, name=name, cloud=cloud, project=project)
         log.info(f"Successfully archived service: {identifier}")
     except Exception as e:  # noqa: BLE001
-        raise from_command_exception(
-            e, "Error archiving service", legacy_exit_code=0
-        ) from None
+        raise from_command_exception(e, "Error archiving service", legacy_exit_code=0) from None
 
 
 @command_metadata(
@@ -1513,17 +1523,17 @@ def archive(
 @service_cli.command(
     name="delete",
     short_help="Delete a service.",
-    help=(
-        "Delete a service.\n\n"
-        "Exactly one of --service-id/--id or --name must be provided."
-    ),
+    help=("Delete a service.\n\nExactly one of --service-id/--id or --name must be provided."),
     cls=AnyscaleCommand,
 )
+@click.option("--service-id", "--id", "service_id", required=False, help="ID of service.")
 @click.option(
-    "--service-id", "--id", "service_id", required=False, help="ID of service."
-)
-@click.option(
-    "-n", "--name", required=False, default=None, type=str, help="Name of the service.",
+    "-n",
+    "--name",
+    required=False,
+    default=None,
+    type=str,
+    help="Name of the service.",
 )
 @click.option(
     "--cloud",
@@ -1556,14 +1566,10 @@ def delete(
         anyscale.service.delete(id=service_id, name=name, cloud=cloud, project=project)
         log.info(f"Successfully deleted service: {identifier}")
     except Exception as e:  # noqa: BLE001
-        raise from_command_exception(
-            e, "Error deleting service", legacy_exit_code=0
-        ) from None
+        raise from_command_exception(e, "Error deleting service", legacy_exit_code=0) from None
 
 
-@service_cli.group(
-    "token", help="Manage bearer tokens for a service (zero-downtime rotation)."
-)
+@service_cli.group("token", help="Manage bearer tokens for a service (zero-downtime rotation).")
 def token_group() -> None:
     pass
 
@@ -1591,7 +1597,12 @@ def token_group() -> None:
     cls=AnyscaleCommand,
 )
 @click.option(
-    "-n", "--name", required=False, default=None, type=str, help="Name of the service.",
+    "-n",
+    "--name",
+    required=False,
+    default=None,
+    type=str,
+    help="Name of the service.",
 )
 @click.option(
     "--service-id",
@@ -1630,9 +1641,7 @@ def token_add(
             name=name, service_id=service_id, cloud=cloud, project=project
         )
     except Exception as e:  # noqa: BLE001
-        raise from_command_exception(
-            e, "Error adding token", legacy_exit_code=0
-        ) from None
+        raise from_command_exception(e, "Error adding token", legacy_exit_code=0) from None
 
     log.info(f"Primary token: {primary_auth_token}")
     if secondary_auth_token is not None:
@@ -1666,7 +1675,12 @@ def token_add(
     cls=AnyscaleCommand,
 )
 @click.option(
-    "-n", "--name", required=False, default=None, type=str, help="Name of the service.",
+    "-n",
+    "--name",
+    required=False,
+    default=None,
+    type=str,
+    help="Name of the service.",
 )
 @click.option(
     "--service-id",
@@ -1717,9 +1731,7 @@ def token_delete(
             auth_token=auth_token,
         )
     except Exception as e:  # noqa: BLE001
-        raise from_command_exception(
-            e, "Error deleting token", legacy_exit_code=0
-        ) from None
+        raise from_command_exception(e, "Error deleting token", legacy_exit_code=0) from None
 
     log.info(f"Primary token: {primary_auth_token}")
     if secondary_auth_token is not None:

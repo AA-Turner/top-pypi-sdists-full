@@ -1,0 +1,47 @@
+Metadata-Version: 2.1
+Name: django-custom-commands
+Version: 0.1.0
+Summary: A Django package which allows specifying custom paths to load managenent commands from.
+Home-page: https://github.com/mikicz/django-custom-commands
+Keywords: django,commands
+Author: Mikuláš Poul
+Author-email: mikulaspoul@gmail.com
+Requires-Python: >=3.11
+Classifier: Development Status :: 4 - Beta
+Classifier: Framework :: Django
+Classifier: Framework :: Django :: 5.1
+Classifier: License :: OSI Approved :: MIT License
+Classifier: License :: Public Domain
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: django (>=5.1.0)
+Project-URL: Repository, https://github.com/mikicz/django-custom-commands
+Description-Content-Type: text/markdown
+
+# Django Custom Commands
+
+A Django package which allows specifying custom paths to load managenent commands from. This allows loading management commands which are not in Django apps.
+
+## Installation
+
+```bash
+pip install django-custom-commands
+```
+
+## Usage
+
+There's two things you need to do to use this package:
+1. Import `call_command`, `get_commands` and `execute_from_command_line` from `django_custom_commands.management` instead of `django.core.management`.
+2. Define a `CUSTOM_COMMAND_LOCATIONS` setting in your settings.
+
+The `CUSTOM_COMMAND_LOCATIONS` should be a list of strings, where each string points to a module where commands can appear. The string should be a dotted path, similar to how apps are defined. The package will then try to load commands from `.management.commands` in those modules. For example if you have a command in `src.demo.management.commands`, but you can't/don't want to make `src.demo` a Django app, you would configure `CUSTOM_COMMAND_LOCATIONS = ["src.demo"]`.
+
+## Running tests
+
+```bash
+poetry run pytest
+```
+

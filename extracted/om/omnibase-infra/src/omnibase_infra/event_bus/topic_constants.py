@@ -1,0 +1,573 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Topic naming constants and utilities for ONEX event bus.
+
+This module defines DLQ (Dead Letter Queue) topic naming conventions and
+wiring health monitoring topic constants for the ONEX event-driven architecture.
+
+IMPORTANT: All ONEX topics (including DLQ) are realm-agnostic -- environment
+prefixes (dev., prod., etc.) must NOT appear on the wire. Environment isolation
+is enforced at the bus level (separate Redpanda instances for local vs cloud).
+See ``omnibase_infra.topics.TopicResolver`` for the canonical resolution path.
+
+DLQ Topic Naming:
+    - **Format**: ``onex.dlq.omnibase-infra.<category>.<version>``
+    - Example: ``onex.dlq.omnibase-infra.intents.v1``, ``onex.dlq.omnibase-infra.events.v1``
+
+    This convention ensures:
+    - DLQ topics are clearly identifiable by the 'dlq' domain
+    - Category (intents, events, commands) is preserved for routing analysis
+    - Version control for DLQ message schema evolution
+
+Usage:
+    >>> from omnibase_infra.event_bus.topic_constants import (
+    ...     build_dlq_topic,
+    ...     DLQ_INTENT_TOPIC_SUFFIX,
+    ... )
+    >>>
+    >>> # Build realm-agnostic DLQ topic
+    >>> topic = build_dlq_topic("intents")
+    >>> print(topic)
+    onex.dlq.omnibase-infra.intents.v1
+
+See Also:
+    - ModelKafkaEventBusConfig.dead_letter_topic: DLQ configuration
+    - EventBusKafka._publish_to_dlq(): DLQ publishing implementation
+    - topic_category_validator.py: Topic naming validation
+
+.. versionchanged:: 0.21.0
+    OMN-5189: DLQ topics are now realm-agnostic (fixed ``onex`` prefix).
+    ``build_dlq_topic()`` no longer takes an ``environment`` parameter.
+"""
+
+from __future__ import annotations
+
+import re
+from typing import Final
+
+from omnibase_infra.enums import EnumInfraTransportType
+from omnibase_infra.errors import ModelInfraErrorContext, ProtocolConfigurationError
+
+# ==============================================================================
+# DLQ Topic Version
+# ==============================================================================
+# Version suffix for DLQ topics. Increment when DLQ message schema changes.
+# Current schema includes: original_topic, original_message, failure_reason,
+# failure_timestamp, correlation_id, retry_count, error_type
+
+DLQ_TOPIC_VERSION: Final[str] = "v1"
+
+# ==============================================================================
+# DLQ Topic Domain
+# ==============================================================================
+# The 'dlq' domain identifies Dead Letter Queue topics
+
+DLQ_DOMAIN: Final[str] = "dlq"
+
+_DLQ_PREFIX: Final[str] = "onex"
+"""Fixed prefix for all DLQ topics. DLQ topics are realm-agnostic."""
+
+DLQ_PRODUCER: Final[str] = "omnibase-infra"
+"""Producer segment for infra-owned DLQ topics."""
+
+# ==============================================================================
+# DLQ Topic Suffixes (without environment prefix)
+# ==============================================================================
+# These suffixes can be combined with the fixed ``onex`` prefix to form full
+# topic names. Format: dlq.omnibase-infra.<category>.<version>
+
+DLQ_INTENT_TOPIC_SUFFIX: Final[str] = (
+    f"{DLQ_DOMAIN}.{DLQ_PRODUCER}.intents.{DLQ_TOPIC_VERSION}"
+)
+"""DLQ topic suffix for permanently failed intents: 'dlq.omnibase-infra.intents.v1'"""
+
+DLQ_EVENT_TOPIC_SUFFIX: Final[str] = (
+    f"{DLQ_DOMAIN}.{DLQ_PRODUCER}.events.{DLQ_TOPIC_VERSION}"
+)
+"""DLQ topic suffix for permanently failed events: 'dlq.omnibase-infra.events.v1'"""
+
+DLQ_COMMAND_TOPIC_SUFFIX: Final[str] = (
+    f"{DLQ_DOMAIN}.{DLQ_PRODUCER}.commands.{DLQ_TOPIC_VERSION}"
+)
+"""DLQ topic suffix for permanently failed commands: 'dlq.omnibase-infra.commands.v1'"""
+
+# ==============================================================================
+# Category-to-Suffix Mapping
+# ==============================================================================
+
+DLQ_CATEGORY_SUFFIXES: Final[dict[str, str]] = {
+    "intent": DLQ_INTENT_TOPIC_SUFFIX,
+    "intents": DLQ_INTENT_TOPIC_SUFFIX,
+    "event": DLQ_EVENT_TOPIC_SUFFIX,
+    "events": DLQ_EVENT_TOPIC_SUFFIX,
+    "command": DLQ_COMMAND_TOPIC_SUFFIX,
+    "commands": DLQ_COMMAND_TOPIC_SUFFIX,
+}
+"""Mapping from message category to DLQ topic suffix (singular and plural forms)."""
+
+# ==============================================================================
+# DLQ Topic Validation Pattern
+# ==============================================================================
+# Validates DLQ topics in realm-agnostic format:
+# onex.dlq.omnibase-infra.<category>.<version>
+# - prefix: must be 'onex' (fixed, realm-agnostic)
+# - domain: must be 'dlq'
+# - producer: must be 'omnibase-infra' for newly emitted topics
+# - category: lowercase identifier (intents, events, commands, intelligence, platform, etc.)
+# - version: v followed by digits (e.g., v1, v2)
+
+DLQ_TOPIC_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r"^(?P<prefix>[\w-]+)\.dlq\.(?:(?P<producer>[a-z][a-z0-9_-]*)\.)?(?P<category>[a-z][a-z0-9_-]*)\.(?P<version>v\d+)$",
+    re.IGNORECASE,
+)
+"""
+Regex pattern for validating DLQ topic names.
+
+Groups:
+    - prefix: Topic prefix (canonical: 'onex'; legacy env prefixes also matched
+      for backward-compatible parsing)
+    - producer: DLQ producer segment (e.g. 'omnibase-infra', 'omnimarket';
+      absent for legacy four-segment topics)
+    - category: DLQ category (intents, events, commands, intelligence, platform, etc.)
+    - version: Topic version (e.g., 'v1')
+
+Example matches:
+    - onex.dlq.omnibase-infra.intents.v1
+    - onex.dlq.omnibase-infra.events.v1
+    - onex.dlq.omnibase-infra.commands.v2
+    - onex.dlq.omnibase-infra.intelligence.v1
+    - onex.dlq.omnibase-infra.platform.v1
+    - onex.dlq.omnimarket.adversarial-pipeline.v1
+
+.. versionchanged:: 0.7.0
+    Expanded category pattern from ``intents|events|commands`` to any
+    lowercase identifier to support domain-based DLQ routing (OMN-2040).
+
+.. versionchanged:: 0.21.0
+    OMN-5189: DLQ topics now use fixed ``onex`` prefix. Pattern still accepts
+    any alphanumeric prefix for backward-compatible parsing of legacy topics.
+
+.. versionchanged:: 0.38.17
+    OMN-17497: the ``producer`` group accepts ANY producer segment, not only
+    the ``omnibase-infra`` literal. Hardcoding one repo's name made
+    ``is_dlq_topic()`` answer ``False`` for every ``onex.dlq.omnimarket.*``
+    sink -- 15+ of which are declared live in omnimarket contracts -- so any
+    caller keyed on "is this a DLQ topic" silently excluded most of the
+    platform's real DLQ traffic. The ``dlq`` DOMAIN segment is what makes a
+    topic a DLQ topic; the producer segment names its owner and was never
+    meant to be an allowlist of one.
+"""
+
+# ==============================================================================
+# DLQ Category Validation Pattern
+# ==============================================================================
+# Validates DLQ category identifiers: starts with letter, followed by lowercase
+# letters, digits, hyphens, or underscores. This pattern is used by build_dlq_topic()
+# to accept both standard categories (intents, events, commands) and domain-based
+# categories (intelligence, platform, etc.).
+
+_DLQ_CATEGORY_PATTERN: Final[re.Pattern[str]] = re.compile(r"^[a-z][a-z0-9_-]*$")
+"""
+Regex pattern for validating DLQ category identifiers.
+
+Valid examples: 'intents', 'events', 'intelligence', 'platform', 'my-domain'
+Invalid examples: '123abc', '-starts-with-dash', '', 'UPPER'
+
+.. versionadded:: 0.7.0
+    Added for domain-based DLQ routing (OMN-2040).
+"""
+
+
+def build_dlq_topic(
+    category: str,
+    *,
+    version: str | None = None,
+) -> str:
+    # INTENTIONAL ENV PREFIX: DLQ topics are infrastructure-scoped, not event routing.
+    # They use the fixed "onex" prefix rather than environment-based prefixes because
+    # DLQ routing is an infrastructure concern, not a domain routing concern.
+    """Build a realm-agnostic DLQ topic name from components.
+
+    Constructs a Dead Letter Queue topic name following ONEX conventions
+    in realm-agnostic format:
+    ``onex.dlq.omnibase-infra.<category>.<version>``.
+
+    Args:
+        category: DLQ category identifier. Accepts standard message categories
+            in singular or plural form ('intent'/'intents', 'event'/'events',
+            'command'/'commands') which are normalized to plural form, as well
+            as domain-based categories ('intelligence', 'platform', 'agent',
+            etc.) which pass through as-is.
+        version: Optional topic version (e.g., 'v1', 'v2'). If not provided,
+            defaults to DLQ_TOPIC_VERSION ('v1').
+
+    Returns:
+        Realm-agnostic DLQ topic name.
+
+    Raises:
+        ProtocolConfigurationError: If category is invalid.
+
+    Example:
+        >>> build_dlq_topic("intents")
+        'onex.dlq.omnibase-infra.intents.v1'
+        >>> build_dlq_topic("intent")  # Singular form accepted
+        'onex.dlq.omnibase-infra.intents.v1'
+        >>> build_dlq_topic("events", version="v2")
+        'onex.dlq.omnibase-infra.events.v2'
+        >>> build_dlq_topic("commands")
+        'onex.dlq.omnibase-infra.commands.v1'
+        >>> build_dlq_topic("intelligence")
+        'onex.dlq.omnibase-infra.intelligence.v1'
+
+    .. versionchanged:: 0.21.0
+        OMN-5189: Removed ``environment`` parameter. DLQ topics now use
+        fixed ``onex`` prefix for realm-agnostic naming.
+    """
+    # Normalize category to lowercase and validate format
+    cat_lower = category.lower().strip()
+    if not cat_lower:
+        context = ModelInfraErrorContext.with_correlation(
+            transport_type=EnumInfraTransportType.KAFKA,
+            operation="build_dlq_topic",
+        )
+        raise ProtocolConfigurationError(
+            "category cannot be empty",
+            context=context,
+            parameter="category",
+        )
+
+    # Validate category format: must start with letter, then alphanumeric/hyphens/underscores
+    if not _DLQ_CATEGORY_PATTERN.match(cat_lower):
+        context = ModelInfraErrorContext.with_correlation(
+            transport_type=EnumInfraTransportType.KAFKA,
+            operation="build_dlq_topic",
+        )
+        raise ProtocolConfigurationError(
+            f"Invalid category '{category}'. "
+            "Must start with a letter and contain only lowercase letters, digits, "
+            "hyphens, or underscores.",
+            context=context,
+            parameter="category",
+            value=category,
+        )
+
+    # Determine version to use
+    topic_version = version if version else DLQ_TOPIC_VERSION
+
+    # Normalize standard categories to plural form for consistency;
+    # domain-based categories (e.g., "intelligence", "platform") pass through as-is.
+    normalized_category = _normalize_category(cat_lower)
+
+    return f"{_DLQ_PREFIX}.{DLQ_DOMAIN}.{DLQ_PRODUCER}.{normalized_category}.{topic_version}"
+
+
+def _normalize_category(category: str) -> str:
+    """Normalize category to plural form.
+
+    Args:
+        category: Category in singular or plural form.
+
+    Returns:
+        Category in plural form (intents, events, commands).
+    """
+    category_map = {
+        "intent": "intents",
+        "intents": "intents",
+        "event": "events",
+        "events": "events",
+        "command": "commands",
+        "commands": "commands",
+    }
+    return category_map.get(category, category)
+
+
+def parse_dlq_topic(topic: str) -> dict[str, str] | None:
+    """Parse a DLQ topic name into its components.
+
+    Extracts prefix, producer, category, and version from a DLQ topic name
+    that follows the ONEX naming convention.
+
+    Args:
+        topic: The DLQ topic name to parse.
+
+    Returns:
+        A dictionary with keys 'prefix', 'producer', 'category', and 'version'
+        if the topic matches the DLQ pattern, or None if it doesn't match.
+
+    Example:
+        >>> parse_dlq_topic("onex.dlq.omnibase-infra.intents.v1")
+        {'prefix': 'onex', 'producer': 'omnibase-infra', 'category': 'intents', 'version': 'v1'}
+        >>> parse_dlq_topic("onex.dlq.omnibase-infra.events.v2")
+        {'prefix': 'onex', 'producer': 'omnibase-infra', 'category': 'events', 'version': 'v2'}
+        >>> parse_dlq_topic("not.a.dlq.topic")
+        None
+    """
+    match = DLQ_TOPIC_PATTERN.match(topic)
+    if not match:
+        return None
+
+    return {
+        "prefix": match.group("prefix"),
+        "producer": match.group("producer") or "",
+        "category": match.group("category"),
+        "version": match.group("version"),
+    }
+
+
+def is_dlq_topic(topic: str) -> bool:
+    """Check if a topic name is a DLQ topic.
+
+    Args:
+        topic: The topic name to check.
+
+    Returns:
+        True if the topic matches the DLQ naming pattern, False otherwise.
+
+    Example:
+        >>> is_dlq_topic("onex.dlq.omnibase-infra.intents.v1")
+        True
+        >>> is_dlq_topic("onex.evt.platform.node-registered.v1")
+        False
+    """
+    return DLQ_TOPIC_PATTERN.match(topic) is not None
+
+
+def get_dlq_topic_for_original(
+    original_topic: str,
+) -> str | None:
+    """Get the DLQ topic for an original message topic.
+
+    Infers the appropriate DLQ topic based on the category of the original
+    topic. If it follows ONEX naming conventions, the category is extracted
+    automatically. DLQ topics are realm-agnostic (always ``onex.dlq.*``).
+
+    A DLQ topic is REFUSED as input (OMN-18084). This function reads the
+    category out of the topic's own segments, so a ``onex.dlq.*`` name resolves
+    to ITSELF: ``onex.dlq.omnibase-infra.events.v1`` carries the segment
+    ``events``, classifies as EVENT, and rebuilds the identical string. That
+    fixed point is not a curiosity — it is what turned one broken consumer on
+    the .201 dev lane into 193.8 records/s of self-referential dead letters,
+    ~151 GB/day against a mount with 590 GB free shared by the prod,
+    stability-test and judge lanes.
+
+    Callers must therefore decide what a failure ON a dead-letter sink means
+    BEFORE asking where to route it. Such a record is already durably captured;
+    the answer is structured evidence and a stop, never another dead-letter
+    write. ``is_dlq_topic`` is the guard to take that branch on.
+
+    Args:
+        original_topic: The original topic where the message was consumed from.
+            Must not itself be a DLQ topic.
+
+    Returns:
+        The DLQ topic name, or None if the category cannot be determined.
+
+    Raises:
+        DlqTopicFixedPointError: ``original_topic`` is itself a DLQ topic.
+
+    Example:
+        >>> get_dlq_topic_for_original("onex.evt.platform.node-registered.v1")
+        'onex.dlq.omnibase-infra.events.v1'
+        >>> get_dlq_topic_for_original("onex.cmd.intent-classified.v1")
+        'onex.dlq.omnibase-infra.commands.v1'
+
+    .. versionchanged:: 0.21.0
+        OMN-5189: Removed ``environment`` parameter. DLQ topics are
+        realm-agnostic.
+    """
+    # Import here to avoid circular imports
+    from omnibase_infra.enums import EnumMessageCategory
+    from omnibase_infra.errors import DlqTopicFixedPointError
+
+    if is_dlq_topic(original_topic):
+        raise DlqTopicFixedPointError(
+            "cannot resolve a DLQ topic for a topic that is already a DLQ "
+            f"topic: {original_topic} — this resolver is a fixed point on "
+            "dead-letter names, so answering would republish the record onto "
+            "the topic it was consumed from (OMN-18084). Guard the call with "
+            "is_dlq_topic() and record the failure instead.",
+            original_topic=original_topic,
+        )
+
+    # Try to infer category from topic
+    category = EnumMessageCategory.from_topic(original_topic)
+    if category is None:
+        return None
+
+    return build_dlq_topic(category.topic_suffix)
+
+
+def derive_event_type_alias_for_topic(topic: str) -> str | None:
+    """Derive the canonical envelope ``event_type`` alias for an ONEX topic.
+
+    Convention: ``onex.<kind>.<producer>.<event-name>.v<n>`` -> ``<producer>.<event-name>``
+    (e.g. ``onex.evt.omnibase-infra.runtime-manifest-published.v1`` ->
+    ``omnibase-infra.runtime-manifest-published``). Returns ``None`` for a topic that is
+    not a 5-segment ``onex.*`` topic, so callers can fail closed rather than publish an
+    alias nothing can route.
+
+    THIS IS THE SINGLE SOURCE FOR THAT ALIAS ON BOTH SIDES OF THE WIRE (OMN-17296).
+    The auto-wiring dispatcher index registers a subscriber under exactly this alias
+    (``derive_entry_message_types``), and ``MessageDispatchEngine.dispatch`` matches
+    ``envelope.event_type`` against that index VERBATIM. A publisher that stamps any
+    other spelling is unroutable: the runtime consumes the message, routes it to the DLQ
+    with ``failure_class=no_dispatcher`` and COMMITS the offset, so the consumer group
+    reads Stable / LAG 0 while 100% of the traffic is lost.
+
+    ``publish_runtime_manifest`` hard-coded the bare event name
+    (``"runtime-manifest-published"``, producer segment missing) and was the dev lane's
+    dominant DLQ source at 189 dropped events per runtime start. Publishers derive the
+    alias through this function so the spelling cannot drift from the topic again.
+
+    ``derive_dlq_topic_for_event_type`` also reads the first dot-segment of ``event_type``
+    as the producer domain, so a bare alias additionally mis-derives the DLQ topic.
+
+    Args:
+        topic: A fully-qualified ONEX topic.
+
+    Returns:
+        The ``<producer>.<event-name>`` alias, or ``None`` when ``topic`` is not a
+        5-segment ``onex.*`` topic.
+
+    Example:
+        >>> derive_event_type_alias_for_topic(
+        ...     "onex.evt.omnibase-infra.runtime-manifest-published.v1"
+        ... )
+        'omnibase-infra.runtime-manifest-published'
+        >>> derive_event_type_alias_for_topic("not.a.onex.topic") is None
+        True
+
+    .. versionadded:: 0.38.16
+        OMN-17296: promoted from the private auto-wiring helper so the publish side
+        and the dispatch index derive the alias from ONE function.
+    """
+    parts = topic.split(".")
+    if len(parts) >= 5 and parts[0] == "onex":
+        return f"{parts[2]}.{parts[3]}"
+    return None
+
+
+def derive_dlq_topic_for_event_type(
+    event_type: str | None,
+    original_topic: str,
+) -> str | None:
+    """Derive the DLQ topic for an unroutable message based on its event_type.
+
+    When ``MessageDispatchEngine`` finds no registered dispatcher for an envelope,
+    this function determines which DLQ topic the message should be routed to.
+    All DLQ topics are realm-agnostic (``onex.dlq.*``).
+
+    The DLQ category is derived from the event_type domain prefix:
+
+    - ``intelligence.*`` -> ``onex.dlq.omnibase-infra.intelligence.v1``
+    - ``platform.*`` -> ``onex.dlq.omnibase-infra.platform.v1``
+    - ``agent.*`` -> ``onex.dlq.omnibase-infra.agent.v1``
+
+    For messages with no event_type (Phase 1 legacy), the function falls back
+    to the existing topic-based DLQ routing via ``get_dlq_topic_for_original()``,
+    which uses the message category (events/commands/intents) from the topic name.
+
+    Args:
+        event_type: The event_type from the envelope. May be None or empty for
+            legacy messages that don't use event_type-based routing.
+        original_topic: The Kafka topic the message was consumed from. Used as
+            fallback for legacy DLQ routing when event_type is absent.
+
+    Returns:
+        The DLQ topic name (e.g., ``onex.dlq.omnibase-infra.intelligence.v1``), or None if
+        neither event_type nor topic-based DLQ routing can determine a target.
+
+    Raises:
+        DlqTopicFixedPointError: The legacy no-``event_type`` path delegates to
+            ``get_dlq_topic_for_original``, which refuses a DLQ topic. Leaving
+            this path unrefused would keep one laundering route into the fixed
+            point open (OMN-18084).
+
+    Example:
+        >>> derive_dlq_topic_for_event_type(
+        ...     "intelligence.code-analysis-completed.v1",
+        ...     ``onex.evt.intelligence.code-analysis.v1``,
+        ... )
+        'onex.dlq.omnibase-infra.intelligence.v1'
+        >>> derive_dlq_topic_for_event_type(
+        ...     "platform.node-registered.v1",
+        ...     ``onex.evt.platform.node-registration.v1``,
+        ... )
+        'onex.dlq.omnibase-infra.platform.v1'
+        >>> derive_dlq_topic_for_event_type(
+        ...     None,
+        ...     ``onex.evt.platform.node-registration.v1``,
+        ... )
+        'onex.dlq.omnibase-infra.events.v1'
+
+    .. versionadded:: 0.7.0
+        Added for DLQ routing of unknown event_type (OMN-2040).
+
+    .. versionchanged:: 0.21.0
+        OMN-5189: Removed ``environment`` parameter. DLQ topics are
+        realm-agnostic.
+    """
+    # Normalize event_type
+    normalized = str(event_type).strip() if event_type is not None else ""
+
+    if normalized:
+        # Extract domain prefix: first segment before the first '.'
+        dot_index = normalized.find(".")
+        if dot_index > 0:
+            domain = normalized[:dot_index].lower()
+        else:
+            # Single-segment event_type (no dots) - use the whole string as domain
+            domain = normalized.lower()
+
+        # Validate domain is a valid category identifier
+        if _DLQ_CATEGORY_PATTERN.match(domain):
+            return build_dlq_topic(domain)
+
+        # Domain prefix is invalid (e.g., starts with digit) — cannot
+        # determine DLQ topic from event_type.  Return None rather than
+        # falling back to topic-based routing, because the presence of an
+        # event_type indicates the new routing model where the domain prefix
+        # is authoritative.
+        return None
+
+    # Legacy path: no event_type, use topic-based DLQ routing.
+    return get_dlq_topic_for_original(original_topic)
+
+
+# ---------------------------------------------------------------------------
+# Session Coordination + Delegation Pipeline Topics — all literals removed
+# ---------------------------------------------------------------------------
+#
+# All module-level ``TOPIC_*`` literals have been removed from this module:
+#   - 13 orphaned ``TOPIC_DELEGATION_*`` pipeline constants — removed in OMN-13195
+#     after their consumers migrated to contract-sourced resolution (OMN-13191
+#     infra applier → ``ServiceTopicRegistry``; OMN-13193 omnimarket
+#     ``node_delegation_orchestrator`` → its own ``contract.yaml``).
+#   - ``TOPIC_SESSION_COORDINATION_SIGNAL`` + the two ``TOPIC_DELEGATE_SKILL_*``
+#     constants — removed in OMN-13202. These were the AST source for
+#     ``generate_topic_enums.py`` (``EnumOmniclaudeTopic.EVT_SESSION_COORDINATION_SIGNAL_V1``
+#     and ``EnumOmnimarketTopic.EVT_DELEGATE_SKILL_*_V1``, the latter consumed at
+#     bootstrap by ``runtime/service_kernel.py``, OMN-11996). The codegen now reads
+#     these strings from the contract-declarative ``runtime/topics.yaml`` manifest
+#     (which mirrors the owning omnimarket ``node_delegate_skill_orchestrator`` /
+#     ``node_emit_daemon`` contracts), so the literals are no longer needed here.
+#
+# Resolve topic strings via ``ServiceTopicRegistry`` / ``topic_keys`` (infra) or
+# the owning ``contract.yaml`` (omnimarket), never by re-adding a literal here.
+# Only the DLQ builders/format helpers above remain in this module.
+
+__all__ = [
+    "DLQ_CATEGORY_SUFFIXES",
+    "DLQ_COMMAND_TOPIC_SUFFIX",
+    "DLQ_DOMAIN",
+    "DLQ_EVENT_TOPIC_SUFFIX",
+    "DLQ_INTENT_TOPIC_SUFFIX",
+    "DLQ_TOPIC_PATTERN",
+    "DLQ_TOPIC_VERSION",
+    "_DLQ_PREFIX",
+    "build_dlq_topic",
+    "derive_dlq_topic_for_event_type",
+    "get_dlq_topic_for_original",
+    "is_dlq_topic",
+    "parse_dlq_topic",
+]

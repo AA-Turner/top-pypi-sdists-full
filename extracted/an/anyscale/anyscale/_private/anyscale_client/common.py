@@ -77,6 +77,9 @@ from anyscale.client.openapi_client.models.job_run_summary import (
 )
 from anyscale.client.openapi_client.models.production_job import ProductionJob
 from anyscale.client.openapi_client.models.resource_tag_record import ResourceTagRecord
+from anyscale.client.openapi_client.models.rollback_scheduler_config_request import (
+    RollbackSchedulerConfigRequest,
+)
 from anyscale.client.openapi_client.models.scheduler_config_response import (
     SchedulerConfigResponse,
 )
@@ -101,7 +104,7 @@ from anyscale.utils.workspace_notification import WorkspaceNotification
 # Maybe just make it part of the release process to update it, or fetch the
 # default builds and get the latest one. The best thing to do is probably
 # to populate this in the backend.
-DEFAULT_RAY_VERSION = "2.57.0"  # RAY_RELEASE_UPDATE: update to latest version
+DEFAULT_RAY_VERSION = "2.59.0"  # RAY_RELEASE_UPDATE: update to latest version
 DEFAULT_PYTHON_VERSION = "py311"
 RUNTIME_ENV_PACKAGE_FORMAT = "pkg_{content_hash}.zip"
 
@@ -127,9 +130,7 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_compute_config_ui_url(
-        self, compute_config_id: str, *, cloud_id: str
-    ) -> str:
+    def get_compute_config_ui_url(self, compute_config_id: str, *, cloud_id: str) -> str:
         """Get a URL to the webpage for a compute config."""
         raise NotImplementedError
 
@@ -286,9 +287,7 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_compute_config(
-        self, compute_config_id: str
-    ) -> Optional[DecoratedComputeTemplate]:
+    def get_compute_config(self, compute_config_id: str) -> Optional[DecoratedComputeTemplate]:
         """Get the compute config for the provided ID.
 
         Returns None if not found.
@@ -337,9 +336,7 @@ class AnyscaleClientInterface(ABC):
     def get_cluster_env_by_name(
         self, name: str, cloud_id: Optional[str] = None
     ) -> Optional[ClusterEnvironment]:
-        """Get a cluster environment by its name.
-
-        """
+        """Get a cluster environment by its name."""
         raise NotImplementedError
 
     @abstractmethod
@@ -354,8 +351,7 @@ class AnyscaleClientInterface(ABC):
 
     @abstractmethod
     def get_cluster_env_build(self, build_id: str) -> Optional[ClusterEnvironmentBuild]:
-        """Get the cluster env build.
-        """
+        """Get the cluster env build."""
         raise NotImplementedError
 
     @abstractmethod
@@ -461,9 +457,7 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_service_by_id(
-        self, service_id: str
-    ) -> Optional[DecoratedProductionServiceV2APIModel]:
+    def get_service_by_id(self, service_id: str) -> Optional[DecoratedProductionServiceV2APIModel]:
         """Get a service by id."""
         raise NotImplementedError
 
@@ -683,9 +677,7 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def rollback_service(
-        self, service_id: str, *, max_surge_percent: Optional[int] = None
-    ):
+    def rollback_service(self, service_id: str, *, max_surge_percent: Optional[int] = None):
         """Roll the service back to the primary version.
 
         This can only be used during an active rollout.
@@ -693,9 +685,7 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def terminate_service(
-        self, service_id: str
-    ) -> DecoratedProductionServiceV2APIModel:
+    def terminate_service(self, service_id: str) -> DecoratedProductionServiceV2APIModel:
         """Mark the service to be terminated asynchronously."""
         raise NotImplementedError
 
@@ -853,14 +843,12 @@ class AnyscaleClientInterface(ABC):
 
     @abstractmethod
     def set_schedule_state(self, id: str, is_paused: bool):  # noqa: A002
-        """Set the state of a schedule with id.
-        """
+        """Set the state of a schedule with id."""
         raise NotImplementedError
 
     @abstractmethod
     def trigger_schedule(self, id: str):  # noqa: A002
-        """Trigger a schedule with id.
-        """
+        """Trigger a schedule with id."""
         raise NotImplementedError
 
     @abstractmethod
@@ -916,9 +904,7 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_workspace_cluster(
-        self, workspace_id: Optional[str]
-    ) -> Optional[DecoratedSession]:
+    def get_workspace_cluster(self, workspace_id: Optional[str]) -> Optional[DecoratedSession]:
         """Get the cluster model for the provided workspace ID."""
         raise NotImplementedError
 
@@ -972,9 +958,7 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def create_api_key(
-        self, duration: float, user_id: Optional[str]
-    ) -> ServerSessionToken:
+    def create_api_key(self, duration: float, user_id: Optional[str]) -> ServerSessionToken:
         """Create a new API key."""
         raise NotImplementedError
 
@@ -991,9 +975,7 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def create_organization_invitations(
-        self, emails: List[str]
-    ) -> Tuple[List[str], List[str]]:
+    def create_organization_invitations(self, emails: List[str]) -> Tuple[List[str], List[str]]:
         """Create organization invitations."""
         raise NotImplementedError
 
@@ -1042,9 +1024,7 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def create_resource_quota(
-        self, create_resource_quota: CreateResourceQuota
-    ) -> ResourceQuota:
+    def create_resource_quota(self, create_resource_quota: CreateResourceQuota) -> ResourceQuota:
         """Create a resource quota."""
         raise NotImplementedError
 
@@ -1066,9 +1046,7 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def set_resource_quota_status(
-        self, resource_quota_id: str, is_enabled: bool
-    ) -> None:
+    def set_resource_quota_status(self, resource_quota_id: str, is_enabled: bool) -> None:
         """Set the status of a resource quota."""
         raise NotImplementedError
 
@@ -1076,9 +1054,18 @@ class AnyscaleClientInterface(ABC):
 
     @abstractmethod
     def apply_scheduler_config(
-        self, request: ApplySchedulerConfigRequest,
+        self,
+        request: ApplySchedulerConfigRequest,
     ) -> ApplySchedulerConfigResponse:
         """Apply a new scheduler config version (creates a new active version)."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def rollback_scheduler_config(
+        self,
+        request: RollbackSchedulerConfigRequest,
+    ) -> ApplySchedulerConfigResponse:
+        """Apply an existing scheduler config version's contents as a new active version."""
         raise NotImplementedError
 
     @abstractmethod
@@ -1087,13 +1074,19 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_scheduler_config_version(self, version: int,) -> SchedulerConfigResponse:
+    def get_scheduler_config_version(
+        self,
+        version: int,
+    ) -> SchedulerConfigResponse:
         """Get a specific scheduler config version."""
         raise NotImplementedError
 
     @abstractmethod
     def list_scheduler_config_versions(
-        self, *, count: Optional[int] = None, paging_token: Optional[str] = None,
+        self,
+        *,
+        count: Optional[int] = None,
+        paging_token: Optional[str] = None,
     ) -> SchedulerconfigversionsummaryListResponse:
         """Per-page wrapper. Returns a page response with .results and .metadata.next_paging_token."""
         raise NotImplementedError
@@ -1110,7 +1103,10 @@ class AnyscaleClientInterface(ABC):
 
     @abstractmethod
     def delete_resource_tags(
-        self, resource_type: ResourceTagResourceType, resource_id: str, keys: List[str],
+        self,
+        resource_type: ResourceTagResourceType,
+        resource_id: str,
+        keys: List[str],
     ) -> None:
         """Delete tags for the provided keys from a resource."""
         raise NotImplementedError
@@ -1124,7 +1120,10 @@ class AnyscaleClientInterface(ABC):
 
     @abstractmethod
     def list_user_groups(
-        self, *, count: int = 50, paging_token: Optional[str] = None,
+        self,
+        *,
+        count: int = 50,
+        paging_token: Optional[str] = None,
     ) -> "UsergroupListResponse":
         """List user groups in the organization."""
         raise NotImplementedError
@@ -1145,21 +1144,27 @@ class AnyscaleClientInterface(ABC):
 
     @abstractmethod
     def update_resource_policy(
-        self, resource_type: str, resource_id: str, policy: "UpdatePolicyRequest",
+        self,
+        resource_type: str,
+        resource_id: str,
+        policy: "UpdatePolicyRequest",
     ) -> None:
         """Update user group permission policy for a resource."""
         raise NotImplementedError
 
     @abstractmethod
     def get_resource_policy(
-        self, resource_type: str, resource_id: str,
+        self,
+        resource_type: str,
+        resource_id: str,
     ) -> "PolicyResponse":
         """Get user group permission policy for a resource."""
         raise NotImplementedError
 
     @abstractmethod
     def list_resource_policies(
-        self, resource_type: str,
+        self,
+        resource_type: str,
     ) -> "ResourcepolicyitemListResponse":
         """List permission policies for all resources of a specific type."""
         raise NotImplementedError
@@ -1234,7 +1239,10 @@ class AnyscaleClientInterface(ABC):
 
     @abstractmethod
     def get_skills_manifest(
-        self, *, version: Optional[str] = None, include_bundle_url: bool = True,
+        self,
+        *,
+        version: Optional[str] = None,
+        include_bundle_url: bool = True,
     ) -> SkillsManifestResponse:
         """Get the skills manifest for a version.
 

@@ -1,0 +1,1943 @@
+"""Bounded prepared transcript presentations, independent of owner attachment.
+
+The owner and its canonical state stay authoritative. This module only owns
+widgets and replay bookkeeping; preparing one has no subscription, prompt,
+acknowledgement, or reference to the currently selected app session.
+"""
+
+from __future__ import annotations
+
+import sys
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from typing import Any, Protocol, cast
+
+from pydantic import BaseModel
+from textual import events
+from textual.binding import Binding
+from textual.message import Message
+
+from local_operator.harness.types import ImageContent
+from local_operator.tui.session_interaction import SessionDraft
+from local_operator.tui.widgets.image_block import ImageBlock
+from local_operator.tui.widgets.transcript import (
+    NoticeBlock,
+    NoticeKind,
+    TranscriptBlock,
+    TranscriptView,
+)
+
+#: Resident bytes of retained text one parked presentation may hold, measured
+#: with ``sys.getsizeof`` rather than estimated from a character count. It must
+#: stay >= ``DISPLAY_HISTORY_BYTES`` (512 KiB): the window layer is permitted to
+#: produce a payload that large, so a smaller retain budget structurally refuses
+#: presentations the layer above legitimately built. See
+#: :meth:`SessionPresentation.retainable` for what this protects against and how
+#: to measure a real presentation against it before changing it.
+RETAIN_TEXT_BYTES = 1024 * 1024
+
+#: The in-transcript seam between what the agent still sees and what it does
+#: not. Both halves of that sentence have to be on screen: the rows it points
+#: at are REAL history (so the reader is not being told anything was lost) and
+#: they are outside the model's context (so the reader is not misled into
+#: thinking the agent can still refer to them).
+#:
+#: The direction is ABOVE, and it is not interchangeable with "below". A
+#: transcript paints oldest-at-top, so the pre-compaction rows sit above this
+#: marker and the rows below it are the newer ones the model still sees.
+#: Design review round 1 (D1) measured both halves of the original "older
+#: messages below" wording against real mounted block positions and against
+#: ``mode="context"`` membership: rows BELOW a marker were 100% still in
+#: context — exactly what the sentence claimed the agent could not see — while
+#: the rows above were 0-1%. Audit reading is the one task where someone is
+#: reasoning about which rows the agent could have used, so a marker pointing
+#: the wrong way is worse for a trusting reader than the silent nothing it
+#: replaced.
+#:
+#: The wrap budget at 80 columns is 70 text columns, and the MECHANICAL check
+#: is ``NoticeBlock.body_budget(76) == 70`` rather than hand arithmetic (design
+#: review round 2, D6). The chain, measured on a block mounted in an 80x30
+#: pilot rather than reasoned on paper: an 80-column terminal gives a 78-column
+#: screen; ``scrollbar-gutter: stable`` on ``TranscriptView`` permanently
+#: reserves one more column whether or not the bar is visible (77); the view's
+#: own left padding takes one (76, which is the width the block is actually
+#: painted); ``_build`` folds at ``max(width - 2, 12)`` (74); and the hanging
+#: glyph field is ``GLYPH_COLS`` = ``SPINE_INDENT + 2`` = 4, not 2 (70).
+#: Corroborated by rendered block height at that geometry: a 70-character
+#: string is one row, a 71-character string is two.
+#:
+#: This string is 66, so it sits 4 columns inside the budget, and the unit
+#: guard pins 66 rather than 70 — a copy change that wants the headroom has to
+#: move that guard deliberately. Do NOT re-derive the budget from the older
+#: "68 usable, so 66" arithmetic: it landed on a safe number through two
+#: COMPENSATING errors — it subtracted neither the reserved scrollbar column
+#: nor the fold clamp, and charged the glyph 2 where it costs 4 — so it cannot
+#: be carried to any other width. Round 1's "under ~76", also derived on
+#: paper, produced a 71-character string that still wrapped in the frame. That
+#: is why a longer string is checked in a RENDERED frame rather than counted:
+#: it orphans its last word on a second line at every compaction, 48 times in
+#: the reference journal (D2). Capture one with
+#: ``scripts/audit_history_shot.py <dir> marker 80x30``.
+COMPACTION_MARKER_NOTICE = "context compacted — earlier history above the agent no longer sees"
+
+
+def live_projection_call_ids(session: Any) -> set[str]:
+    """Call ids a settled replay must SKIP because they are executing NOW.
+
+    ``executing() - pending()``, and the subtraction is the load-bearing
+    half. A turn parked at an approval gate is ALSO a streaming one, so both
+    accessors answer with exactly the call the gate is holding; seeding a
+    projection with the un-subtracted set would skip that call out of the
+    replay, and the skip path (``_paint_skipped_live_tool_rows``) paints
+    ``running`` without consulting the gate — bypassing the "waiting wins"
+    rule ``_mark_pending_tool_rows`` exists to enforce. With the held call
+    left out of the seed, the replay mounts its row and the pending scan
+    marks it ``waiting``: the honest state for a call parked on the USER,
+    not on a tool.
+
+    One helper because three sites ask this question — the visible seed in
+    ``_project_settled_rows``, the offscreen seed in the sidebar prepare
+    path, and the fold's own fallback for a target that never seeded — and
+    a divergence between any two reopens the gate bug on exactly one path.
+    Lives here rather than on the app so the fold can ask it without a
+    circular import.
+    """
+    executing = getattr(session, "executing_display_tool_ids", None)
+    if not callable(executing):
+        return set()
+    live = cast(set[str], executing())
+    pending = getattr(session, "pending_display_tool_ids", None)
+    if callable(pending):
+        live -= cast(set[str], pending())
+    return live
+
+
+def live_tool_start_epochs(session: Any) -> dict[str, float | None] | None:
+    """The session's own start epoch per live tool call.
+
+    ``None`` when the session cannot answer AT ALL, and that is a third answer
+    rather than a detail: the accessor is probed rather than called directly, so
+    a reduced facade — a test double, an embedding host — may not implement it
+    at all, and a caller that read its absence as an empty map would be reading
+    "no call has started" into an answer the session never gave. That reading is
+    load-bearing now: a call absent from the map is one with no start, which a
+    replay paints ``queued`` rather than ``running``. So the two shapes are
+    kept apart here — ``None`` is "cannot say, keep today's behaviour (paint the
+    call live and withhold its clock)" and ``{}`` is "says so, and nothing has
+    started".
+
+    The same shape is answered by BOTH real session kinds, and it is the SAME
+    fact either way: the epochs a producer stamped on its
+    ``tool_execution_start`` events, folded per call. That is what lets a live
+    row and the switched-to row for one call share an anchor instead of
+    differing by when each was painted.
+
+    Two answers ride in one map and the callers of this helper need both: a
+    MISSING ID is a call that never started (so a replayed row for it must not
+    be painted running), while a present id whose value is ``None`` started
+    under a producer that stamped no epoch (so the row keeps the blank clock it
+    already had).
+    """
+    accessor = getattr(session, "live_tool_start_epochs", None)
+    if not callable(accessor):
+        return None
+    return dict(cast("dict[str, float | None]", accessor()))
+
+
+def activity_phase_clock(session: Any) -> tuple[str, float | None]:
+    """The session's folded phase and its zero, or ``("", None)`` for none.
+
+    The companion to the accessor above, for the arm of the working line that
+    has no tool call behind it: ``thinking``, ``responding`` and ``composing``
+    are dated by a phase edge rather than by a call, so a viewer that arrived
+    mid-turn has no other way to know how long the model call has been going.
+
+    ``("", None)`` is the answer for a facade with no fold and for a session
+    that has not been published yet. The consumer compares the phase against
+    the one it derived itself and withholds the clock on any mismatch, so the
+    empty value matches nothing and no age is invented from it.
+    """
+    accessor = getattr(session, "activity_phase_clock", None)
+    if not callable(accessor):
+        return ("", None)
+    phase, started_at = cast("tuple[str, float | None]", accessor())
+    return str(phase or ""), started_at
+
+
+class CompactionMarkerBlock(NoticeBlock):
+    """The compaction seam, spaced apart from whatever it lands beside.
+
+    A plain ``NoticeBlock`` would be right in every respect but one. In the
+    audit state the head notice sits directly above this row, and the two share
+    a ``SPACING_KIND`` of ``notice``, so the adaptive rule stacks them flush
+    (see :func:`needs_gap_above`: same kind, previous is one row, no gap). They
+    also share the ``·`` glyph and the ``note`` ink, and after the round-1 copy
+    fix they open with nearly the same words — "earlier history above — scroll
+    up to load" over "context compacted — earlier history above …". Design
+    review round 1 (D3) flagged the pair as indistinguishable, and the D1 fix
+    alone did not resolve it: verified in a rendered 80x30 frame, the two rows
+    still read as one wrapped block, with nothing to say that the first is a
+    CONTROL (focusable, clickable, `enter`-bound) and this one is inert.
+
+    ``SPACING_AIRY`` is the mechanism the tool ledger already uses for exactly
+    this — "each row is a separate thing, not a paragraph of one" — so the seam
+    takes a blank row above itself rather than earning a second glyph or a
+    second ink. The designer's own preference, and it keeps ``NOTICE_GLYPHS``'
+    deliberate sharing of ``·`` between ``info`` and ``note`` intact.
+    """
+
+    SPACING_AIRY = True
+
+
+class HistoryPageNotice(NoticeBlock, can_focus=True):
+    BINDINGS = [Binding("enter", "more", "More recent messages", show=False)]
+
+    class Requested(Message):
+        def __init__(self, notice: HistoryPageNotice) -> None:
+            super().__init__()
+            self.notice = notice
+
+    def __init__(self) -> None:
+        super().__init__("More recent messages below", "note")
+        self.add_class("interactive-notice")
+
+    def action_more(self) -> None:
+        self.post_message(self.Requested(self))
+
+    def on_click(self, event: events.Click) -> None:
+        event.stop()
+        self.action_more()
+
+
+class OlderHistoryNotice(NoticeBlock, can_focus=True):
+    """The HEAD notice, and the twin of :class:`HistoryPageNotice` above it.
+
+    The two ends of one transcript solve the same problem — "there is more
+    conversation off this edge of the screen" — and they must not solve it in
+    opposite ways. The tail notice has always been a control: focusable,
+    clickable, `enter`-bound, with the `interactive-notice` styling that gives
+    it hover and focus affordances. The head notice was a bare label that
+    recited a keyboard chord (`ctrl+home`) which appears NOWHERE else in the
+    product — not in the footer hints, not in the `?` help screen — and which
+    on most Mac keyboards is itself a chord (`fn+ctrl+←`). A reader who had
+    learned to click the bottom notice would click this one and get nothing.
+
+    Making it a control is what lets the copy stay a plain statement: the row
+    no longer has to explain how to operate it, because it IS the thing you
+    operate. That matters most in the state this notice exists for — a frame
+    too tall to scroll, where the history is otherwise a dead end.
+    """
+
+    BINDINGS = [Binding("enter", "older", "Older messages", show=False)]
+
+    class Requested(Message):
+        def __init__(self, notice: OlderHistoryNotice) -> None:
+            super().__init__()
+            self.notice = notice
+
+    def __init__(self, text: str, *, fold_width: int = 0) -> None:
+        super().__init__(text, "note", fold_width=fold_width)
+        self._interactive = True
+        self.add_class("interactive-notice")
+
+    def set_interactive(self, interactive: bool) -> None:
+        """Advertise an action only while there is one to take.
+
+        The head notice restates rather than removing itself when the history
+        runs out (removing the first row would shift every row below it and
+        undo the anchor an insert just held), so unlike its tail twin it
+        outlives its own action. A row that keeps `interactive-notice`, keeps
+        `can_focus`, and paints the full-width focus band while activating it
+        does nothing is a focus stop that answers Enter with silence.
+
+        `can_focus` is an instance attribute here, shadowing the class-level
+        value Textual's `can_focus=True` keyword set. Textual reads
+        `allow_focus()` -> `can_focus` per widget at focus time, so flipping it
+        removes the row from the focus chain without touching the class or the
+        twin.
+
+        Idempotent, and reversible in both directions: a remote page can refill
+        an exhausted head, and a control that only ever went one way would be
+        the same stale-state defect the copy already guards against.
+        """
+        if interactive == self._interactive:
+            return
+        self._interactive = interactive
+        if not interactive and self.has_focus:
+            # Focus cannot rest on a row that just left the focus chain: it
+            # would keep the band painted and keep swallowing Enter.
+            #
+            # ORDER IS LOAD-BEARING: blur BEFORE `can_focus` is cleared.
+            # `blur()` -> `Screen._reset_focus(self)` locates this widget in
+            # the focus chain to hand focus to an ordered NEIGHBOUR. Clearing
+            # `can_focus` first removes the row from that chain, so the lookup
+            # raises and Textual takes its "widget was made invisible" fallback
+            # instead: the first focusable VISIBLE SIBLING, which in a
+            # transcript is the topmost `ToolCard` — measured ~770 rows above a
+            # reader sitting at the tail, with the reader's next `enter`
+            # silently expanding a card they cannot see (review round 3, R9).
+            # Blurring while still in the chain lands focus on `TranscriptView`,
+            # which is on screen and answers `enter` with nothing.
+            self.blur()
+        self.can_focus = interactive
+        self.set_class(interactive, "interactive-notice")
+
+    def action_older(self) -> None:
+        self.post_message(self.Requested(self))
+
+    def on_click(self, event: events.Click) -> None:
+        event.stop()
+        if not self._interactive:
+            # Stopped anyway: the row still occupies its cells, and letting the
+            # click fall through to the transcript beneath would scroll a
+            # surface the reader was pointing at, not aiming past.
+            return
+        self.action_older()
+
+
+class HeldPayloadNotice(NoticeBlock, can_focus=True):
+    """Shared base for the rows that hold a payload a send could not consume.
+
+    Two rows share one shape — an offer that says WHICH payload it affects,
+    names the key that operates it, and is RESTATED in place rather than
+    appended again (one payload never grows a second row).
+    :class:`DraftRecoveryNotice` offers a parked draft back to the composer;
+    :class:`SendFailureNotice` carries the fate of a painted message whose send
+    failed, with its resolution verbs.
+
+    The conventions are the transcript's, not this row's invention: focusable
+    with the ``interactive-notice`` styling, click stops at the row (a click is
+    aimed AT the row, not past it), and Enter is the primary verb — the same
+    shape :class:`OlderHistoryNotice` established for a row whose copy would
+    otherwise have to recite its own controls. The click-ACTIVATES half is the
+    one exception: :class:`SendFailureNotice` carries two verbs and overrides
+    ``on_click`` for them (focus-first, activate-second, UX round 1, U1); a
+    single-offer row has no ambiguity to resolve and keeps click-to-run.
+    """
+
+    def __init__(self, text: str, kind: NoticeKind, *, source_token: str) -> None:
+        super().__init__(text, kind)
+        self.source_token = source_token
+        self.add_class("interactive-notice")
+
+    def action_default(self) -> None:
+        """Enter's verb. Subclasses own it; the base has no primary offer."""
+        raise NotImplementedError
+
+    def on_click(self, event: events.Click) -> None:
+        event.stop()
+        self.action_default()
+
+
+class DraftRecoveryNotice(HeldPayloadNotice):
+    """The offer to put an undelivered draft back in the composer.
+
+    Reached when the composer is NOT empty at the moment a send fails — the
+    common case for a refusal, whose refit runs ~315 ms on a thread, long
+    enough for the user to have started their next thought. The draft parks in
+    ``source.unsent`` and this row is how it comes back.
+
+    The label has three jobs the bare ``Restore unsent prompt`` did none of
+    (design round 1, D5):
+
+    **It says WHICH prompt.** One row reading the same words whatever it holds
+    cannot be told from another, and the user has no way to know whether the
+    thing on offer is the message they care about or carries their attachment.
+    So the opening words of the draft and its attachment count ride the label.
+
+    **It says it is INTERACTIVE.** The row is focusable with ``enter`` and
+    click bindings, but nothing in the pixels said press or click, so the
+    affordance existed only for a user who tried it. The key is named in the
+    label, which is the same way the app tells the user about every other
+    non-obvious key.
+
+    **It is ``note``, not ``warning``.** It rendered in the same amber as the
+    refusal directly beneath it, so two rows of identical ink said two
+    different kinds of thing — a state to recover from, and a failure to act
+    on. ``note`` is the tier ``NoticeBlock`` documents for "the answer to
+    something the user just did", which is exactly what an offer to restore is.
+    """
+
+    BINDINGS = [Binding("enter", "restore", "Restore unsent prompt", show=False)]
+
+    #: Characters of the draft quoted in the label. Long enough to tell two
+    #: drafts apart, short enough that the row stays one line beside the
+    #: attachment clause and the key hint at ordinary widths.
+    _PREVIEW_CHARS = 32
+
+    class Requested(Message):
+        def __init__(self, notice: DraftRecoveryNotice) -> None:
+            super().__init__()
+            self.notice = notice
+
+    def __init__(self, source_token: str, draft: SessionDraft) -> None:
+        super().__init__(self._label_for(draft), "note", source_token=source_token)
+        self.draft = draft
+
+    @staticmethod
+    def _label_for(draft: SessionDraft) -> str:
+        """``↩ restore unsent prompt "…" (1 image) — enter``.
+
+        The glyph is the one the row's action means (put this back), and it
+        leads because the row is an OFFER rather than a report. Degrades
+        cleanly: a draft with no text quotes nothing, one with no attachments
+        says nothing about them, and the key hint is always present because it
+        is the part the user cannot discover any other way.
+        """
+        from local_operator.tui.widgets.editor import ATTACHMENT_MARKER
+
+        parts = ["↩ restore unsent prompt"]
+        # One line of it, whitespace collapsed: a multi-line draft would
+        # otherwise put its second line into this row's own wrap. Attachment
+        # markers come out first — the restored draft carries an `[Image #1]`
+        # citation for every attachment, and quoting them here would spend the
+        # preview's whole budget restating what the count clause says next.
+        preview = " ".join(ATTACHMENT_MARKER.sub("", draft.text).split())
+        if preview:
+            if len(preview) > DraftRecoveryNotice._PREVIEW_CHARS:
+                preview = preview[: DraftRecoveryNotice._PREVIEW_CHARS - 1].rstrip() + "…"
+            parts.append(f'"{preview}"')
+        images = sum(
+            1 for attachment in draft.attachments.values() if getattr(attachment, "image", None)
+        )
+        if images:
+            parts.append(f"({images} image{'s' if images != 1 else ''})")
+        return " ".join(parts) + " — enter"
+
+    def action_restore(self) -> None:
+        self.post_message(self.Requested(self))
+
+    def action_default(self) -> None:
+        self.action_restore()
+
+
+class SendFailureNotice(HeldPayloadNotice):
+    """The fate of a painted message whose send failed, with its two verbs.
+
+    THE ROW THAT REPLACES "the message is back in the composer". Under the
+    boundary rule a failure raised after the row was painted keeps the row on
+    the transcript, and this notice states what happened beneath it plus the
+    two ways out: ``send again`` replays the payload under the ordinary submit
+    path, ``edit`` returns it through the existing restore funnel. Both were
+    previously automatic (the withdraw-and-restore branches) and are now the
+    user's deliberate choice — the payload has one home, and it is this row's
+    record.
+
+    RENDERED FROM THE RECORD, never from the error: the record (``FailedSend``
+    in ``session_interaction``) is what the verbs act on, it is what a resend
+    re-arms, and it is why a second failure restates THIS row in place rather
+    than appending a second one below it.
+
+    ONE ACTION SET, TWO SHAPES. A class with no session to send into (a stopped
+    viewer, a bare ``/stop``) offers ``edit`` alone and Enter means edit there:
+    an Enter that answered with nothing would be a focus stop that lies.
+    """
+
+    BINDINGS = [
+        # Enter owns the PRIMARY verb: `send again` wherever the class allows
+        # it, `edit` where there is no session to send into (see action_resolve).
+        Binding("enter", "resolve", "Send again", show=False),
+        Binding("e", "edit", "Edit", show=False),
+    ]
+
+    #: The verbs as the label spells them. NBSP-joined so the notice's own
+    #: wrapper — ``wrap_cells``, which breaks on the ASCII space only — cannot
+    #: split the actionable half across rows: at 80 columns the old spaced
+    #: phrase wrapped as ``…send again ⏎`` / ``· edit e``, and on the runtime
+    #: class as ``…— send`` / ``again ⏎ · edit e`` (design round 1, D1). The
+    #: key is spelled in words rather than the ``⏎`` glyph this row was born
+    #: with: the glyph occurs nowhere else in the app, while the sibling row
+    #: one screen up spells ``— enter`` and the keymap copy agrees (design
+    #: round 1, D3; UX round 1, U5).
+    _SEND_AGAIN_CONTROLS = "send\u00a0again\u00a0enter\u00a0·\u00a0edit\u00a0e"
+    _EDIT_CONTROLS = "edit\u00a0e"
+
+    class Requested(Message):
+        """One of the notice's verbs, by name: ``"send_again"`` or ``"edit"``."""
+
+        def __init__(self, notice: SendFailureNotice, action: str) -> None:
+            super().__init__()
+            self.notice = notice
+            self.action = action
+
+    def __init__(self, source_token: str, record: Any) -> None:
+        super().__init__(self._label_for(record), record.kind, source_token=source_token)
+        self.record = record
+
+    @staticmethod
+    def _label_for(record: Any) -> str:
+        """``<the class's sentence> — send again enter · edit e``.
+
+        The sentence states the fate and the cause (it is the class's own copy,
+        with no composer claim — the payload is not in the composer under the
+        boundary rule); the keys are last because they are the part no user can
+        discover from the pixels, the same reason ``DraftRecoveryNotice`` ends
+        its label with ``— enter``. "enter" is the word, matching that sibling
+        and the keymap (design round 1, D3).
+        """
+        controls = (
+            SendFailureNotice._SEND_AGAIN_CONTROLS
+            if record.can_send_again
+            else SendFailureNotice._EDIT_CONTROLS
+        )
+        return f"{record.sentence} — {controls}"
+
+    def focus_on_click(self) -> bool:
+        """NO, deliberately — this row is focus-first, activate-second.
+
+        Textual's click-to-focus runs inside ``Screen._forward_event`` BEFORE
+        the press reaches the row (``set_focus`` is called on MouseDown, then
+        the event is forwarded), so a row that let itself be focused there
+        could never tell a first press from a repeat: ``on_click`` would always
+        find itself focused and always run the primary verb. That is the
+        measured harm (UX round 1, U1) — a mouse user who meant ``edit`` had
+        already resent — and it happens on exactly the two-verb shape this row
+        is. Declining the auto-focus hands the discrimination to ``on_click``.
+        """
+        return False
+
+    def on_click(self, event: events.Click) -> None:
+        """Focus first; activate only when the click lands on a focused row.
+
+        ONE CLICK CANNOT MEAN TWO THINGS when the user has not chosen between
+        ``send again`` and ``edit`` yet, so the first click means "this is the
+        row" (the focus tint is the feedback) and the verb fires on a click on
+        the already-focused row — or on Enter, the documented primary. The
+        single-verb sibling (``DraftRecoveryNotice``) keeps click-to-run: with
+        one offer there is no ambiguity to resolve.
+
+        ``prevent_default`` is LOAD-BEARING, not belt-and-braces: Textual runs
+        EVERY ``on_click`` in the class MRO, most derived first
+        (``MessagePump._get_dispatch_methods``), so without it the base
+        ``HeldPayloadNotice`` handler would run ``action_default`` right after
+        this one focused the row — the first click would activate anyway, which
+        is the measured harm this override exists to remove. Found by the
+        click-contract cell in ``test_transcript_focus.py``, whose first run
+        failed exactly this way.
+        """
+        event.stop()
+        event.prevent_default()
+        if self.has_focus:
+            self.action_default()
+        else:
+            self.focus()
+
+    def action_resolve(self) -> None:
+        if self.record.can_send_again:
+            self.post_message(self.Requested(self, "send_again"))
+        else:
+            self.post_message(self.Requested(self, "edit"))
+
+    def action_edit(self) -> None:
+        self.post_message(self.Requested(self, "edit"))
+
+    def action_default(self) -> None:
+        self.action_resolve()
+
+
+@dataclass
+class ReplayState:
+    _resume_results: dict[str, Any] = field(default_factory=dict)
+    _resume_pending_head: list[Any] = field(default_factory=list)
+    _resume_pending_tail: list[Any] = field(default_factory=list)
+    _resume_tail_notice: NoticeBlock | None = None
+    _resume_head_notice: NoticeBlock | None = None
+    _resume_mounted_ids: set[str] = field(default_factory=set)
+    _replay_bang_pending: bool = False
+    _live_peer_receipts: set[str] = field(default_factory=set)
+    _live_wake_receipts: set[tuple[str, object]] = field(default_factory=set)
+    _live_monitor_receipts: set[tuple[str, str]] = field(default_factory=set)
+    _block_sink: list[Any] | None = None
+    _projection_message_id: str = ""
+    _projection_part: int = 0
+    #: Call ids of the turn still executing on the session being projected,
+    #: captured at projection time by the caller that knows the session (the
+    #: app for the visible transcript, the prepare caller for an offscreen
+    #: presentation). ``replay_tool_call`` skips the settled row for these —
+    #: the live path owns that call's one visible row — and the empty default
+    #: is the COLD-resume answer: no live turn, nothing to skip.
+    _projection_live_call_ids: set[str] = field(default_factory=set)
+    #: The CALL OBJECTS the projection skipped because their call id is live,
+    #: in transcript order. Read by the projection's owner after the fold to
+    #: paint the one visible row for a still-running call that no live path
+    #: will paint (a local resume onto a turn already in flight). Cleared with
+    #: the ids above.
+    _projection_skipped_live: list[Any] = field(default_factory=list)
+
+
+class ReplayTarget(Protocol):
+    _resume_results: dict[str, Any]
+    _resume_pending_head: list[Any]
+    _resume_pending_tail: list[Any]
+    _resume_tail_notice: NoticeBlock | None
+    _resume_head_notice: NoticeBlock | None
+    _resume_mounted_ids: set[str]
+    _replay_bang_pending: bool
+    _live_peer_receipts: set[str]
+    _live_wake_receipts: set[tuple[str, object]]
+    _live_monitor_receipts: set[tuple[str, str]]
+    _block_sink: list[Any] | None
+    _projection_message_id: str
+    _projection_part: int
+    _projection_live_call_ids: set[str]
+    _projection_skipped_live: list[Any]
+
+    def _transcript_view(self) -> TranscriptView: ...
+
+    def _append_block(
+        self, block: Any, *, ends_empty_state: bool = True, pin_tail: bool = False
+    ) -> None: ...
+
+    def _append_image_blocks(
+        self,
+        images: list[ImageContent],
+        *,
+        marker_text: str | None = None,
+        fold_width: int = 0,
+    ) -> list[ImageBlock]: ...
+
+    def _painted_tool_card(self, call_id: str) -> Any: ...
+
+    def _settle_painted_tool_card(self, card: Any, result: Any) -> None: ...
+
+    def _replay_tool_call(
+        self,
+        call: Any,
+        results: dict[str, Any],
+        *,
+        user_run: bool = False,
+        fold_width: int = 0,
+    ) -> None: ...
+
+
+@dataclass
+class PreparedReplay(ReplayState):
+    _resume_head_notice: NoticeBlock | None = None
+    _resume_tail_notice: NoticeBlock | None = None
+    view: TranscriptView = field(default_factory=TranscriptView)
+    blocks: list[TranscriptBlock] = field(default_factory=list)
+
+    def _transcript_view(self) -> TranscriptView:
+        return self.view
+
+    def _append_block(
+        self, block: Any, *, ends_empty_state: bool = True, pin_tail: bool = False
+    ) -> None:
+        # Same recording as the live appender: a prepared replay decides its own
+        # empty state from these blocks (`prepare` below), and the commit path
+        # asks the mounted view the same question afterwards.
+        block.ends_empty_state = ends_empty_state
+        if not block.navigation_anchor_id:
+            block.navigation_anchor_id = self._projection_message_id
+            block.navigation_anchor_part = self._projection_part
+        self._projection_part += 1
+        self.blocks.append(block)
+
+    def _append_image_blocks(
+        self,
+        images: list[ImageContent],
+        *,
+        marker_text: str | None = None,
+        fold_width: int = 0,
+    ) -> list[ImageBlock]:
+        # ``fold_width`` is accepted to satisfy ``ReplayTarget``: a prepared
+        # replay is built OFFSCREEN, so there is no laid-out destination to
+        # name and the caller passes nothing (its blocks are folded when the
+        # presentation is committed into a mounted view).
+        return append_image_blocks(
+            self,
+            images,
+            marker_text=marker_text,
+            navigation_visible=False,
+            fold_width=fold_width,
+        )
+
+    def _painted_tool_card(self, call_id: str) -> None:
+        return None
+
+    def _settle_painted_tool_card(self, card: Any, result: Any) -> None:
+        raise AssertionError("a prepared replay cannot contain a live tool card")
+
+    def _replay_tool_call(
+        self,
+        call: Any,
+        results: dict[str, Any],
+        *,
+        user_run: bool = False,
+        fold_width: int = 0,
+    ) -> None:
+        # Zero for a prepared replay — see `_append_image_blocks` above.
+        replay_tool_call(self, call, results, user_run=user_run, fold_width=fold_width)
+
+    def prepare(
+        self,
+        history: list[Any],
+        *,
+        bound: int = 12,
+        anchor_id: str = "",
+        live_call_ids: set[str] | None = None,
+    ) -> None:
+        # Snapshot the session's in-flight calls NOW, before the fold: the
+        # answer can change mid-projection, and a half-guarded tail is the
+        # duplicate this field exists to prevent.
+        self._projection_live_call_ids = set(live_call_ids or ())
+        self._projection_skipped_live = []
+        self._block_sink = self.blocks
+        anchor = (
+            next(
+                (
+                    index
+                    for index, message in enumerate(history)
+                    if str(getattr(message, "id", "")) == anchor_id
+                    or any(
+                        f"tool:{getattr(call, 'id', '')}" == anchor_id
+                        for call in getattr(message, "tool_calls", ())
+                    )
+                ),
+                None,
+            )
+            if anchor_id
+            else None
+        )
+        end = min(len(history), anchor + bound) if anchor is not None else None
+        project_settled_rows(self, history, bound=bound, end=end)
+        if self._resume_pending_head:
+            from local_operator.tui.app import RESUME_OLDER_NOTICE
+
+            # No width: a prepared replay is authored offscreen for a parked
+            # view (see `project_settled_rows`' `fold_width` note), and this
+            # notice is folded when that view is laid out.
+            self._resume_head_notice = OlderHistoryNotice(RESUME_OLDER_NOTICE)
+            self.blocks.insert(0, self._resume_head_notice)
+        if self._resume_pending_tail:
+            self._resume_tail_notice = HistoryPageNotice()
+            self.blocks.append(self._resume_tail_notice)
+        self._block_sink = None
+        # One projection's liveness answer must not leak into the next pass:
+        # the empty set is the cold-resume default, the only correct answer
+        # when nobody re-seeds it.
+        self._projection_live_call_ids = set()
+
+
+@dataclass
+class SessionPresentation:
+    replay: PreparedReplay
+    revision: int = 0
+    replay_revision: int = 0
+    source_stamp: tuple[Any, ...] = ()
+    source_token: str = ""
+    history_size: int = 0
+    needs_live_projection: bool = True
+    streaming_block: Any = None
+    tool_cards: dict[str, Any] = field(default_factory=dict)
+    composing_cards: dict[str, Any] = field(default_factory=dict)
+    working_block: Any = None
+    working_fallback: str = ""
+    compaction_owns_working_block: bool = False
+    shell_card: Any = None
+    queued_steer_notices: list[Any] = field(default_factory=list)
+    deferred_steer_notices: list[Any] = field(default_factory=list)
+    held_steer_blocks: list[Any] = field(default_factory=list)
+    #: The `interrupted` row the app painted for this conversation's own turn,
+    #: still waiting for the anchor its session publishes for that outcome.
+    #:
+    #: Carried for the same reason `held_steer_blocks` is: it names a widget in
+    #: THIS presentation's transcript, so it belongs to the conversation rather
+    #: than to the app. Left behind, a switch away and back let the attention
+    #: poller append a second `Interrupted` under the live `interrupted` — the
+    #: duplicate row `OperatorApp._adopt_own_interrupt_notice` exists to remove.
+    own_interrupt_notice: Any = None
+    #: Which outcome kind ``own_interrupt_notice`` was painted for — "interrupted"
+    #: or "error". The adoption must refuse when the published kind differs from
+    #: the row it holds, and the block cannot be asked (its kind is consumed into
+    #: a token and a glyph at construction). Carried WITH the block, because the
+    #: pair is what makes the dedupe survive a session switch: the block alone
+    #: would come back unable to recognise its own outcome.
+    own_interrupt_kind: str = ""
+    welcome: Any = None
+    welcome_visible: bool | None = False
+
+    def retainable(self) -> bool:
+        """Bound explicit payloads, not a widget's private object graph.
+
+        One cached view can otherwise retain arbitrarily much history. Unknown
+        renderers (including decoded images) are rebuilt instead of guessing.
+
+        **What the budget is protecting against, and in what units.** The bound
+        is RESIDENT BYTES of retained text, not characters and not the JSON
+        wire frame the window layer prices itself in. It exists so ONE parked
+        view cannot pin an unbounded slice of a 200 MB journal in RAM;
+        ``RETAINED_PRESENTATIONS`` parked views each get this budget, so
+        N x this number bounds the retained TEXT.
+
+        It does **not** bound a retained presentation's total resident cost.
+        The mounted ``TranscriptView`` and its widget tree are parked (offset
+        ``100vw``), not freed, and that tree is not what this method measures —
+        so N x the budget is a bound on one term, not a memory ceiling for the
+        cache. Stated plainly because the previous wording ("the real ceiling
+        is N x this number") reads as the latter, and the next person tuning
+        this needs to know which quantity they are holding. The text term is
+        still the one worth bounding here: it is the term that scales with
+        conversation length, which is what makes a long transcript expensive.
+
+        **Why ``sys.getsizeof`` and not ``len(value) * k``.** CPython stores
+        ``str`` in PEP 393 compact form: 1, 2 or 4 bytes per character
+        depending on the widest code point, plus a header. So no constant
+        multiplier is right for all content — measured here, the same 4096
+        characters cost 4137 bytes as ASCII, 8250 as BMP and 16444 as astral.
+        ``getsizeof`` is the honest measure of one string object, and it costs
+        ~75 ns against ~29 ns for ``len`` on a 500 KB string — irrelevant
+        beside the mount + layout this predicate decides whether to repeat.
+
+        It is honest **per object**, which is why the charge sits below the
+        ``id(value) in seen`` check: charged above it, one string aliased by N
+        blocks was charged N times for a single allocation (measured: one
+        300 KB string under 5 keys charged 1.43 MiB and was refused at a true
+        cost of 0.29 MiB). Over-charging is how both previous mis-tunings
+        failed, so the identity check is load-bearing, not tidiness.
+
+        **This bound has now been mis-tuned twice, in the same direction.**
+        The node cap (see the comment below) silently refused every real owner
+        once. Then the string term charged ``len(value) * 4`` — a worst-case
+        UTF-32 assumption — against a 1 MiB budget, so the effective budget was
+        256 KiB while ``DISPLAY_HISTORY_BYTES`` permits the window layer to
+        hand this predicate a 512 KiB payload. The two limits contradicted each
+        other and the cache silently never cached: a refused presentation is
+        never inserted into ``_sidebar_presentations``, so it never stops
+        matching the prewarm candidate filter and is fully re-prepared (mount +
+        layout + unmount, on the event loop) on every 2 s sidebar poll. Three
+        of the operator's ten live sessions were stuck in that loop, which is
+        the reported "lag with the sidebar open, fine when I close it".
+
+        **How to verify this rather than re-derive it.** Do not reason about
+        the multiplier; measure a real presentation. Walk the same roots this
+        method walks, sum ``sys.getsizeof`` over the strings, and compare
+        against ``RETAIN_TEXT_BYTES``. On the operator's eight largest real
+        transcripts the retained text measures 3-660 KiB (the roots are the
+        blocks plus the unmounted ``_resume_pending_head``/``_resume_results``
+        paging buffers, which dominate at 127-357 KiB), so 1 MiB admits every
+        one of them with the largest at 64% of budget. If you are considering
+        tightening this, get that measurement first: the failure mode of a too-
+        tight bound here is not a rejected cache entry, it is a permanent
+        re-preparation loop that looks like general UI slowness.
+        """
+        if len(self.replay.view.blocks()) > 128:
+            return False
+        state = self.replay
+        stack: list[Any] = [
+            self.replay.view.blocks(),
+            state._resume_pending_head,
+            state._resume_pending_tail,
+            state._resume_results,
+            self.tool_cards,
+            self.composing_cards,
+            self.streaming_block,
+            self.working_block,
+            self.shell_card,
+            self.queued_steer_notices,
+            self.deferred_steer_notices,
+            self.held_steer_blocks,
+        ]
+        seen: set[int] = set()
+        # `seen` stores ADDRESSES, and an address only identifies an object
+        # among those that are simultaneously ALIVE. Every node the walk drops
+        # can therefore have its address handed to a later, unrelated node,
+        # which `seen` then skips as already-visited — silently un-charging it.
+        # This is not hypothetical: `retained_payloads()` builds a FRESH tuple
+        # per block, so on a 64-block presentation holding 64 KiB of distinct
+        # text each, 62 of 64 tuples reused a freed address and the walk
+        # charged 0.13 MiB against 4.00 MiB actual — and admitted it.
+        #
+        # So everything that gets an id in `seen` is kept alive here until the
+        # walk returns. Bounded by construction: the node cap caps the pointer
+        # count, and the string budget caps the transient TEXT held, because
+        # the walk returns False as soon as `remaining` goes negative.
+        alive: list[Any] = []
+        remaining = RETAIN_TEXT_BYTES
+        nodes = 0
+        while stack:
+            value = stack.pop()
+            nodes += 1
+            # The node cap guards against a pathological object graph, not
+            # memory — the 1 MiB string budget below is the memory bound. At
+            # 4096 it silently refused every real owner: a pydantic Message
+            # costs ~14 nodes, so a kept window past ~290 messages (the live
+            # owners hold 355–456) was never retained and every return click
+            # was cold (retained_views stayed at 1 with N=4 configured).
+            # 65536 admits ~4,600 plain messages, which the string budget
+            # trips long before on any real content.
+            if nodes > 65536:
+                return False
+            if value is None or isinstance(value, (bool, int, float)):
+                continue
+            if id(value) in seen:
+                continue
+            seen.add(id(value))
+            alive.append(value)
+            if isinstance(value, str):
+                # Resident cost, not character count: see the docstring. A
+                # `len(value) * 4` estimate here over-charged ASCII content 4x
+                # and disabled the cache entirely.
+                #
+                # Charged BELOW the identity check, so one string object held
+                # by N blocks costs one copy of RAM and is charged once. Above
+                # it, a transcript with repeated identical tool output was
+                # charged N x for a single allocation — an over-estimate, and
+                # over-estimating is the direction that produced both previous
+                # mis-tunings.
+                remaining -= sys.getsizeof(value)
+            elif isinstance(value, bytes):
+                remaining -= len(value)
+            else:
+                if isinstance(value, TranscriptBlock):
+                    payload = value.retained_payloads()
+                    if payload is None:
+                        return False
+                    stack.append(payload)
+                elif isinstance(value, BaseModel):
+                    stack.extend(getattr(value, key) for key in type(value).model_fields)
+                elif isinstance(value, Mapping):
+                    if len(value) + len(stack) > 4096:
+                        return False
+                    stack.extend(value.values())
+                elif isinstance(value, (list, tuple, set)):
+                    if len(value) + len(stack) > 4096:
+                        return False
+                    stack.extend(value)
+                else:
+                    return False
+            if remaining < 0:
+                return False
+        return True
+
+
+def project_settled_rows(
+    self: ReplayTarget,
+    history: list[Any],
+    *,
+    bound: int | None = None,
+    end: int | None = None,
+    start: int | None = None,
+    fold_width: int = 0,
+) -> bool:
+    """Mount settled transcript rows through the ONE role-aware renderer.
+
+    The shared history/render seam: cold resume feeds it the whole
+    conversation and a reconnect's durable gap replay
+    (:class:`HistoryRowsSettled`) feeds it exactly the rows no frontend
+    painted. One implementation is the point — the gap replay previously
+    synthesized role-blind assistant events and a recovered user prompt
+    painted as agent speech (review round 3, MAJOR-1/U7/D1). Whatever
+    this method does for ``--resume`` is by construction what a
+    reconnect gap does: user rows as :class:`UserBlock` with images,
+    assistant prose + tool cards paired with results, wake/peer custom
+    rows as their own blocks, refusal/error notices.
+
+    Returns whether anything mounted, so callers can skip tail-follow
+    work for an empty projection.
+
+    ``bound`` renders only the LAST ``bound`` messages and holds the rest
+    for :meth:`_mount_older_resume_page`. It is a display bound and nothing
+    else: the deferred messages stay in ``_resume_pending_head`` in full,
+    and the model's conversation — built from the transcript, not from this
+    projection — never sees the split at all. The gap-replay caller passes
+    no bound, because a reconnect gap is by definition the small set of
+    rows no frontend painted and bounding it could hide one.
+
+    ``start`` is the same deferral with the cut already DECIDED: messages
+    before it go to ``_resume_pending_head`` exactly as ``bound``'s snapped cut
+    would put them. It exists for the viewport-first resume
+    (``OperatorApp._render_resumed_history``), which has to paint a SUBSET of
+    the frame ``bound`` would paint and then fill in the rest at the cut
+    ``bound`` would have chosen — so it computes both cuts itself and hands
+    this one down, rather than asking for a second snapping rule here.
+    ``bound`` is ignored when ``start`` is given.
+
+    ``fold_width`` is the width every block this pass BUILDS will be given.
+    Zero means "not supplied", and it is only right where there is no
+    destination to name: a prepared replay authors offscreen for a parked view
+    and is laid out inside it before that view is revealed.
+
+    Every other caller has a destination and must name it, because a block
+    built without one folds at the 80-column fallback, pins that fold as its
+    height, and is re-authored by the first layout's resize — a second build
+    per block and a painted frame whose rows wrap at 78 cells inside a 96 or
+    146-cell pane. `OperatorApp._project_settled_rows` derives it from the live
+    transcript for the tail, the reconnect gap replay, the sidebar commit's
+    top-up and the older-page collect, so those four cannot disagree about the
+    destination. It is threaded to CONSTRUCTION rather than applied after,
+    because a block that wraps in ``__init__`` never reads a hint set later.
+
+    The one authoring seam on a live transcript that still has no width is
+    ``TranscriptView.append_block`` / ``OperatorApp._append_block``: a live
+    prompt, notice or running card is built first and mounted second, so its
+    rows come out of the fallback too and are saved only by that same resize.
+    Deliberately not part of this seam: no painted narrow frame was observed on
+    it (the append's mount and resize both complete before the paint; measured
+    at 150x40 and 160x40 by review round 1 and the design round), so it is a
+    wasted build rather than a visible defect — recorded in the PR's "not
+    addressed" list, and it cannot be fixed from here because a hint applied at
+    append arrives after the rows exist.
+    """
+    from contextlib import nullcontext
+
+    from local_operator.compaction.marker import (
+        COMPACTION_MARKER_TYPE,
+        COMPACTION_REFUSED_TYPE,
+    )
+    from local_operator.cross_session import cross_session_hidden
+    from local_operator.harness.approval import GATE_TIMEOUT_CUSTOM_TYPE
+
+    # ``job_result`` is declared beside the job manager that writes it, not with
+    # the harness markers above — imported from its own home so this fold cannot
+    # drift from the type the writer stamps on the row.
+    from local_operator.harness.jobs import JOB_RESULT_MESSAGE_TYPE
+    from local_operator.harness.message_types import (
+        ASK_RESPONSE_MESSAGE_TYPE as ASK_RESPONSE_CUSTOM_TYPE,
+    )
+    from local_operator.harness.message_types import (
+        ASK_TIMEOUT_MESSAGE_TYPE as ASK_TIMEOUT_CUSTOM_TYPE,
+    )
+    from local_operator.harness.message_types import (
+        PEER_MESSAGE_MESSAGE_TYPE,
+        SESSION_BINDING_NOTICE_MESSAGE_TYPE,
+        SESSION_CREDENTIAL_REDACTION_MESSAGE_TYPE,
+        SESSION_INCIDENT_MESSAGE_TYPE,
+        SESSION_MCP_UNAVAILABLE_MESSAGE_TYPE,
+        SESSION_SEND_NOTICE_MESSAGE_TYPE,
+    )
+
+    # The row DECISIONS this fold shares with the phone's. Held outside both
+    # hosts so neither owns them: every divergence the convergence review
+    # found was a decision one surface made and the other missed
+    # (docs/design/history-fold-convergence.md §3).
+    from local_operator.harness.rows import (
+        ask_response_notice,
+        ask_timeout_notice,
+        assistant_row_text,
+        assistant_stop_notice,
+        compaction_refused_notice,
+        gate_timeout_notice,
+        held_delivery_notice,
+        is_harness_chrome,
+        is_harness_notice_row,
+        is_hidden_tool_call,
+        turn_cut_tool_call,
+        user_row_text,
+    )
+    from local_operator.tui.app import (
+        MONITOR_PROMPT_MESSAGE_TYPE,
+        RESUME_OLDER_NOTICE,
+        WAKE_PROMPT_MESSAGE_TYPE,
+        AssistantBlock,
+        MonitorDeltaBlock,
+        PeerMessageBlock,
+        UserBlock,
+        WakeBlock,
+        _resume_tail_start,
+    )
+
+    # The SAME classification the live path applies at finalize — one
+    # implementation, so live and replay cannot drift about what they showed.
+    from local_operator.tui.narration import (
+        DEFAULT_NARRATION,
+        is_intermediate_narration,
+    )
+    from local_operator.tui.settings import settings_get
+
+    # Results are keyed by the call they answer, and a tool message can sit
+    # several messages after its call (one assistant turn issues a batch).
+    # Indexing first is what lets each call render WITH its outcome instead
+    # of as a second, orphaned row.
+    #
+    # Indexed over the WHOLE history, before any bound is applied: a call in
+    # the deferred head is often answered by a result inside the rendered
+    # tail, and a per-page index would show that call as `interrupted`.
+    #
+    # Seeded from the whole-conversation index a bounded resume kept, so a
+    # deferred page's call still finds a result that lives in the already
+    # rendered tail. Empty for every unbounded caller.
+    results: dict[str, Any] = dict(self._resume_results)
+    settled_results: set[str] = set()
+    for message in history:
+        if getattr(message, "role", None) != "tool":
+            continue
+        call_id = getattr(message, "tool_call_id", None)
+        if not call_id:
+            continue
+        results[call_id] = message
+        # A result whose call painted LIVE before a disconnect must
+        # settle the card already on screen — the disconnect marked it
+        # ``interrupted``, and replaying it as a new row would double the
+        # card (review round 4, MINOR-1). The disconnect retired the card
+        # out of ``_tool_cards`` but left it mounted, so scan the
+        # transcript for the painted card carrying this call id.
+        painted = self._painted_tool_card(call_id)
+        if painted is not None:
+            self._settle_painted_tool_card(painted, message)
+            settled_results.add(call_id)
+    # Fresh batch, fresh pairing: a flag left by an earlier replay (or a
+    # truncated one) must not open a card in this conversation.
+    self._replay_bang_pending = False
+
+    # Split the conversation into the head this frame defers and the tail it
+    # paints. Sliced on MESSAGES rather than on rendered blocks because the
+    # split has to be decided before anything is built — deciding it by
+    # block count would mean building the blocks first, which is the cost
+    # being avoided. A message mounts 0-2 blocks, so the block count lands
+    # near the bound rather than on it, which is fine: the bound is a budget,
+    # not a contract about how many rows appear.
+    if end is not None and end < len(history):
+        # Pair results against the whole history, then retain only the chosen
+        # viewport window. Newer rows remain reachable through forward paging.
+        self._resume_results = results
+        self._resume_pending_tail = history[end:]
+        history = history[:end]
+    if start is None and bound is not None and len(history) > bound:
+        start = _resume_tail_start(history, bound)
+    if start is not None:
+        if start > 0:
+            deferred, history = history[:start], history[start:]
+            # Whole-conversation results, so a deferred call still pairs with a
+            # result that renders (or already rendered) in the tail.
+            self._resume_results = results
+            self._resume_pending_head = deferred
+    transcript = self._transcript_view()
+
+    appended = bool(settled_results)
+    # The "older messages" notice has to be the FIRST row, so it is
+    # appended before the batch rather than prepended after it.
+    # `prepend_blocks` restores a scroll anchor on a later refresh, which
+    # would fight `follow_tail` for the same frame — the reflow-after-paint
+    # #451/#452 exist to prevent. One extra mount of a one-line notice is
+    # not the cost this bound is avoiding.
+    if self._block_sink is None and self._resume_pending_head and self._resume_head_notice is None:
+        # The width goes to construction here for the same reason every other
+        # block in this pass gets it: a notice wraps itself in `__init__`, and
+        # this one is authored and mounted in the same pass as the rows below
+        # it, so without it the row is folded at the 80-column fallback before
+        # any hint can reach it (QA round 1, Q1 caught exactly this row:
+        # `OlderHistoryNotice box=96 authored at 80`).
+        #
+        # The pane where that is VISIBLE is a narrow one, not the 96-cell pane
+        # the `box=` readout above happens to carry (design round 2, D6). The
+        # sentence is 40 cells and the body budget is `width - 6` (`body_budget`:
+        # the 2-cell spine indent plus the 4-cell glyph column), so the row stops
+        # wrapping at pane 46 — one row from 46 up, two rows at 44 and below.
+        # Measured by building the notice at fold widths 36..54 and reading each
+        # row's cell length: pane 44 → `[39, 8]` cells, pane 46 → `[44]`. An
+        # earlier cut of this comment carried the 40x20 PANE (36) as though it
+        # were the sentence's length — the sentence is 40, and a figure no
+        # reader can re-derive is worse than no figure.
+        #
+        # At 100x30 and 60x20 this notice therefore paints identically before
+        # and after, and the observable case is 40x20 (pane 36): the fallback
+        # build is one row ending `…scroll up`, and this one wraps to a second,
+        # hanging-indented row — `…scroll` / `up to load`. Below the wrap
+        # threshold the width is the difference between the whole sentence and
+        # a truncated one.
+        notice = OlderHistoryNotice(RESUME_OLDER_NOTICE, fold_width=fold_width)
+        self._resume_head_notice = notice
+        self._append_block(notice)
+        appended = True
+    # ONCE per pass, not per message: `settings_get` is cached, but this loop
+    # runs over hundreds of messages and a display preference cannot change
+    # part-way through a single projection.
+    hide_narration = not settings_get("display.narration", DEFAULT_NARRATION)
+    # The cross-session row filter reads ONCE per pass for the same reason.
+    hide_cross_session = cross_session_hidden()
+    # ONE mount for the whole conversation. Per-block mounting made Textual
+    # re-walk its stylesheet, invalidate the container and schedule a settle
+    # callback 297 times over on a 396-message session, for a layout that is
+    # only looked at once — see `TranscriptView.batch_append`. A collected
+    # backward page must not open a batch on the live transcript: the
+    # blocks are inserted later, and an empty batch still schedules a
+    # settle pass that would race the insert's own settle.
+    batch = nullcontext() if self._block_sink is not None else transcript.batch_append()
+    with batch:
+        for message in history:
+            self._projection_message_id = str(getattr(message, "id", ""))
+            self._projection_part = 0
+            # A wake delivery is a CustomMessage, so it has no ``role``
+            # and would fall through every branch below — which is exactly
+            # why a resumed session showed the agent answering a wake with
+            # no sign the wake ever fired. Replaying it as its own block
+            # keeps the receipt on screen. The catch-up prompt is
+            # user-attributed, so replaying it too would put a raw
+            # '(alarm) The session resumed…' line in the transcript as if
+            # the user had typed it.
+            if getattr(message, "custom_type", None) == WAKE_PROMPT_MESSAGE_TYPE:
+                details = getattr(message, "details", None) or {}
+                # A HIDDEN delivery (a patience fire) paints NOTHING: not a
+                # receipt, not a row, not a fold anchor — the requirement is
+                # "no wake line" for a wake the user was never told about. The
+                # fire's text still reaches the model (the renderer turns the
+                # custom message into a user turn either way); this branch is
+                # the display half, and it must not register the receipt key
+                # either, or a later replay would paint what this skipped.
+                if details.get("hidden"):
+                    continue
+                if not details.get("wake_catchup"):
+                    key = (str(details.get("wake_id", "")), details.get("occurrence"))
+                    # Skip a receipt this session already painted live —
+                    # replaying it would double the line (round 2, m2).
+                    if key not in self._live_wake_receipts:
+                        self._append_block(
+                            WakeBlock(
+                                str(details.get("text", "")),
+                                catchup=False,
+                                fold_width=fold_width,
+                            )
+                        )
+                        appended = True
+                continue
+            # A monitor delta rides the same shape: a CustomMessage with no
+            # ``role``, so without this branch a resumed session would show the
+            # work the delta triggered but never the delta itself. The dedup
+            # key is the delivered TEXT — the live event carries no occurrence
+            # counter (the wake branch's key), and the formatted text is the
+            # one identity both the live event and this persisted row carry
+            # verbatim.
+            if getattr(message, "custom_type", None) == MONITOR_PROMPT_MESSAGE_TYPE:
+                details = getattr(message, "details", None) or {}
+                key = (str(details.get("monitor_id", "")), str(details.get("text", "")))
+                if key not in self._live_monitor_receipts:
+                    self._append_block(
+                        MonitorDeltaBlock(
+                            str(details.get("text", "")),
+                            fold_width=fold_width,
+                        )
+                    )
+                    appended = True
+                continue
+            # A peer message (`lop send` from another session) is also a
+            # CustomMessage with no ``role`` and would otherwise fall
+            # through, leaving a resumed session with the agent's reply but
+            # no sign the peer note arrived. Replay it as its own block,
+            # skipping one already painted live this session (double-paint
+            # guard, mirroring the wake branch above).
+            if getattr(message, "custom_type", None) == PEER_MESSAGE_MESSAGE_TYPE:
+                details = getattr(message, "details", None) or {}
+                if str(getattr(message, "id", "")) not in self._live_peer_receipts:
+                    # `display.hide_cross_session`: the branch and its
+                    # `continue` are kept (the message is still consumed), but
+                    # the mount is gated — nothing is painted and `appended`
+                    # stays as it was, because nothing was appended.
+                    if not hide_cross_session:
+                        self._append_block(
+                            PeerMessageBlock(
+                                str(details.get("body", "")),
+                                details.get("sender") or {},
+                                fold_width=fold_width,
+                            )
+                        )
+                        appended = True
+                continue
+            # A gate that timed out unattended is the most expensive event
+            # in the detached feature — up to a day of held residency ends
+            # here — and it rendered NOWHERE (round 1, D2/U2): the user
+            # returned to a conversation that promised an action and
+            # appeared to simply stop. The payload already carried the
+            # tool, the description and the wait; only a renderer was
+            # missing.
+            #
+            # `warning` ink because it is a state the user must know about,
+            # not a receipt they can skip: a tool was denied, and denied by
+            # expiry rather than by their decision — which is the same
+            # distinction the transcript row itself exists to preserve.
+            if getattr(message, "custom_type", None) in (
+                ASK_TIMEOUT_CUSTOM_TYPE,
+                ASK_RESPONSE_CUSTOM_TYPE,
+            ):
+                # A queued ask settling (design docs/design/ask-nonblocking.md
+                # §2.3/§2.5). Both rows render, for the reason the gate row below
+                # exists: a custom message with no branch falls through every
+                # branch and past the role handling, so the row renders NOWHERE.
+                # The ANSWER is `notice` ink — it is a receipt — while the
+                # DEADLINE is `warning`: the user must know the agent stopped
+                # waiting, and that their silence cost a decision.
+                details = getattr(message, "details", None) or {}
+                if getattr(message, "custom_type", None) == ASK_TIMEOUT_CUSTOM_TYPE:
+                    text, kind = ask_timeout_notice(details)
+                else:
+                    text, kind = ask_response_notice(details)
+                self._append_block(NoticeBlock(text, kind=kind, fold_width=fold_width))
+                appended = True
+                continue
+            if getattr(message, "custom_type", None) == GATE_TIMEOUT_CUSTOM_TYPE:
+                details = getattr(message, "details", None) or {}
+                self._append_block(
+                    NoticeBlock(gate_timeout_notice(details), kind="warning", fold_width=fold_width)
+                )
+                appended = True
+                continue
+            # A compaction that did NOT run. Rendered here for the same
+            # reason as the row above: a custom row with no renderer is a
+            # row nobody sees, and this one exists to CORRECT the
+            # optimistic "compacting context…" receipt the routed command
+            # already showed (round 5, U17). `warning` ink because the
+            # context the user asked to reclaim is still there.
+            if getattr(message, "custom_type", None) == COMPACTION_REFUSED_TYPE:
+                details = getattr(message, "details", None) or {}
+                text, kind = compaction_refused_notice(details)
+                self._append_block(NoticeBlock(text, kind=kind, fold_width=fold_width))
+                appended = True
+                continue
+            # A credential-shape incident — the operator's ticket for a credential
+            # that reached a tool. It has its own branch for the reason every row
+            # above does: a custom message with no branch falls through all of them
+            # and past the role-based handling below, so the row rendered NOWHERE.
+            # Measured on the live run before this branch: the persisted row folded
+            # to a blank frame, and the model was the only reader that ever saw it.
+            #
+            # `warning` ink for BOTH classifications — the operator asked to be shown
+            # the event either way, and the severity difference is carried by the
+            # text ("rotate it" only when the value reached this context). A quieter
+            # ink for the contained case is a design decision on this row, not
+            # something the redaction change should make by the back door.
+            if getattr(message, "custom_type", None) == SESSION_INCIDENT_MESSAGE_TYPE:
+                details = getattr(message, "details", None) or {}
+                text = str(details.get("text", "")).strip()
+                if text:
+                    self._append_block(NoticeBlock(text, kind="warning", fold_width=fold_width))
+                    appended = True
+                continue
+            # The credential-SHAPE notice, which carries its OWN type rather than
+            # ``session_incident``: the record is operator-facing and stopped
+            # entering the model's context (see ``harness/message_types.py``), and
+            # its own type needs its own branch for exactly the reason the incident
+            # branch above exists — a custom message with no branch falls past every
+            # one of them and past the role-based handling below, so an unbranched
+            # record paints NOWHERE.
+            #
+            # NO NEW ROW OF THIS TYPE IS WRITTEN (2026-09-27): the operator ruled
+            # the notice false-positive noise — "Remove the operator-facing
+            # information too, it's false positive so it would confuse users" — and
+            # ``Session.journal_shape_incident`` is now silent. This branch is KEPT
+            # because a transcript written before that date still carries the rows,
+            # and a resumed session replays them from the journal through this fold:
+            # deleting the branch would turn every stored notice into a row that
+            # paints nowhere, which is the defect the branch was added to fix (the
+            # live fold had no receipt for it either). Same `warning` ink as before
+            # the notice was retired, because what the row shows on REPLAY has not
+            # changed — only whether a live session still produces one.
+            if getattr(message, "custom_type", None) == SESSION_CREDENTIAL_REDACTION_MESSAGE_TYPE:
+                details = getattr(message, "details", None) or {}
+                text = str(details.get("text", "")).strip()
+                if text:
+                    self._append_block(NoticeBlock(text, kind="warning", fold_width=fold_width))
+                    appended = True
+                continue
+            # An MCP server's tools going away (its grant expired, its
+            # reconnect breaker suspended). Its own branch because the RECORD
+            # is its own type — nothing FAILED, the session's inventory shrank,
+            # and the incident branch's three-line shape (a failure category,
+            # a ``suggested action:`` line, and the false "this is why the
+            # previous turn ended" tail) was wrong for it. Measured live on
+            # 2026-09-20, where an expired grant painted all three.
+            #
+            # `warning`, by the role table in ``tui/widgets/transcript.py``
+            # (``NoticeBlock._KIND_TOKENS``): "a state they must act on or know
+            # about". This row is that state, and the action is the
+            # operator's — ``/mcp reauth <server>`` is theirs to run, and the
+            # Reason line names it. An earlier revision painted it `note` (the
+            # answer to something the user just did), which shares its ink with
+            # the receipts a reader is trained to skim and left the one
+            # actionable row in the frame looking like bookkeeping (design
+            # review round 1, D1). `note` is the tier for a receipt; a lost
+            # capability whose fix only the operator can run is the tier above
+            # it. Do not move this back down without taking D1's argument apart
+            # first.
+            if getattr(message, "custom_type", None) == SESSION_MCP_UNAVAILABLE_MESSAGE_TYPE:
+                details = getattr(message, "details", None) or {}
+                text = str(details.get("text", "")).strip()
+                if text:
+                    self._append_block(NoticeBlock(text, kind="warning", fold_width=fold_width))
+                    appended = True
+                continue
+            # An ACCOUNT CHANGE: the account serving this session moved to a
+            # different one (mesh credential binding, slice B). Its own branch
+            # for the MCP warning's reason — the record is its own type,
+            # nothing FAILED, and the incident branch's failure shape would be
+            # a lie. `warning`, not `note`: it is a state the operator must
+            # know about and may have to act on (the session is now spending a
+            # different login, possibly someone else's quota), which is the
+            # tier the MCP branch above reserved for exactly this shape of
+            # row. The text is rendered at the writer
+            # (``network/credentials/messages.py``) and replayed verbatim, so
+            # live and replay read the same sentence.
+            if getattr(message, "custom_type", None) == SESSION_BINDING_NOTICE_MESSAGE_TYPE:
+                details = getattr(message, "details", None) or {}
+                text = str(details.get("text", "")).strip()
+                if text:
+                    self._append_block(NoticeBlock(text, kind="warning", fold_width=fold_width))
+                    appended = True
+                continue
+            # A SEND THAT WAS NOT ACKNOWLEDGED, written by the opt-in
+            # ``send.journal_unconfirmed`` setting (design note B, design round 1
+            # D1 = UX round 1 U2). The tool RESULT already carries the same facts
+            # live; this row is the durable copy an operator asked for, and until
+            # this branch existed it was model-visible and PHONE-visible while the
+            # terminal — the surface a local session is read on — showed nothing,
+            # live or on resume: a ``CustomMessage`` has no ``role``, so it fell
+            # past every arm above and then past the role-based handling below.
+            # That is the identical trap the binding notice one arm up was added
+            # for.
+            #
+            # `warning`, not `note`: the message may already have landed, and the
+            # one thing the reader must not do is send it again. The text is the
+            # writer's own sentence, replayed verbatim, so live and replay read
+            # the same words — and the phone keeps its generic custom-message
+            # fallback, which already renders this type (verified, UX round 1:
+            # adding a second phone arm would paint the row twice).
+            if getattr(message, "custom_type", None) == SESSION_SEND_NOTICE_MESSAGE_TYPE:
+                details = getattr(message, "details", None) or {}
+                text = str(details.get("text", "")).strip()
+                if text:
+                    self._append_block(NoticeBlock(text, kind="warning", fold_width=fold_width))
+                    appended = True
+                continue
+            # The compaction boundary itself. The replay layer has always
+            # emitted this row, and it rendered as NOTHING: it is a custom
+            # message, so it fell past every branch above and then past the
+            # role-based handling below, which drops what it does not
+            # recognise. That was survivable while the row only ever sat at the
+            # very top of the model's replay; it is not survivable now that
+            # audit paging puts one at each compaction MID-transcript, because
+            # the reader would scroll from live conversation into
+            # pre-compaction history with no sign of the seam.
+            #
+            # `note`, not `info`, for the reason `RESUME_UNREACHABLE_NOTICE`
+            # is: this answers "where did my history go", and `info` maps to
+            # `dim`, which measures below the AA contrast floor on the light
+            # theme. Nothing went wrong here, so it is neither a warning nor an
+            # error — the rows below are real history, they are simply outside
+            # what the agent can still see.
+            if getattr(message, "custom_type", None) == COMPACTION_MARKER_TYPE:
+                self._append_block(
+                    CompactionMarkerBlock(
+                        COMPACTION_MARKER_NOTICE, kind="note", fold_width=fold_width
+                    )
+                )
+                appended = True
+                continue
+            # A child's report that arrived after this session's runtime had
+            # committed to leaving, so it was HELD for the next turn instead of
+            # being delivered (``Session._hold_job_results_for_next_turn``).
+            #
+            # THIS BRANCH IS THE ROW'S ONLY ARRIVAL SIGNAL, and it is why it
+            # exists at all (UX round 1, U1). A held row opens no turn, publishes
+            # no outcome and paints nothing else, so before this branch the
+            # operator returned to a session that read "idle, turn complete" while
+            # a report they had delegated was owed to a turn that had not happened
+            # — indistinguishable from the children having reported nothing. The
+            # phone already showed it, through its generic custom-message
+            # fallback; the TUI had no branch for the type, so the row fell past
+            # every arm above and then past the role-based handling below, which
+            # drops a custom message with no role (the same trap the incident and
+            # MCP branches were added for).
+            #
+            # ONLY THE HELD ROW IS PAINTED, deliberately, and the difference is
+            # real rather than a shortcut: a DELIVERED row was acknowledged by the
+            # turn it opened, and that turn's own answer is already in this frame
+            # — so painting it too would add a duplicate of the assistant's reply
+            # on every ordinary child delivery, which is not what this change is
+            # for. A held row has no such answer, and the notice line distinguishes
+            # it from one that has (U6).
+            if getattr(message, "custom_type", None) == JOB_RESULT_MESSAGE_TYPE:
+                held = held_delivery_notice(getattr(message, "details", None) or {})
+                if held is not None:
+                    text, severity = held
+                    self._append_block(NoticeBlock(text, kind=severity, fold_width=fold_width))
+                    appended = True
+                continue
+            role = getattr(message, "role", None)
+            if role == "tool":
+                continue  # already rendered beside the call that asked for it
+            text = getattr(message, "text", "") or ""
+            text = text.strip() if isinstance(text, str) else ""
+            if role == "user":
+                # The live path never paints harness chrome as a user row
+                # (LOOP_PROMPT is registered as a pending echo and consumed;
+                # the auto-continuation prompt is never announced at all).
+                # Replay must make the same choice, or a resumed session
+                # shows rows the live one deliberately suppressed — the
+                # live/replay divergence review round 2 pinned.
+                #
+                # The network-continuation prompt joins them for the same
+                # reason: it is persisted so the TRANSCRIPT explains why one
+                # answer arrived in two pieces, but the user never typed it
+                # and the live run showed a NoticeEvent instead.
+                #
+                # The list itself lives in ``harness/rows.py`` so the phone
+                # fold reads the SAME three. It previously kept its own
+                # partial copy — suppressing the connectivity prompt while
+                # painting the other two as the user's own words.
+                if is_harness_chrome(text):
+                    continue
+                # A row the harness wrote and re-seated, or minted from a
+                # ``CustomMessage`` (a model-switch notice, a session incident,
+                # a wake delivery) is neither the operator's words nor, on the
+                # live path, ever painted here — so skipping it is live/replay
+                # parity rather than a second opinion, and it also covers the
+                # rows an older build already wrote to existing transcripts
+                # (stamped, or carried forward in a compaction block without a
+                # stamp). See ``harness/rows.py`` for the one decision.
+                if is_harness_notice_row(message):
+                    continue
+                # A `$skill` invocation persists as its EXPANDED payload,
+                # because that is what the model was sent. Replaying it
+                # verbatim showed a resumed conversation the whole SKILL.md
+                # body as the user's row — and, since the picker titles a
+                # session from its first user turn, named every such thread
+                # "The user invoked the `research` skill…". The typed line
+                # rides the payload's own opening tag, so replay repaints
+                # exactly what the live session painted. Same live/replay
+                # parity rule as the two prompts skipped above.
+                text = user_row_text(text)
+                # The images ride the persisted message as base64 content
+                # blocks — the same bytes the model saw — so a resumed
+                # prompt replays WITH its pictures, not just the receipt
+                # count. This is the resume half of the promise the live
+                # path makes in `_submit_prompt`.
+                replay_images = [
+                    block
+                    for block in (getattr(message, "content", None) or [])
+                    if isinstance(block, ImageContent)
+                ]
+                if text or replay_images:
+                    self._append_block(UserBlock(text, len(replay_images), fold_width=fold_width))
+                    self._append_image_blocks(
+                        replay_images, marker_text=text, fold_width=fold_width
+                    )
+                    appended = True
+                # A bang-mode receipt replays as open as it lived: the
+                # user row is `! <command>` and the assistant message that
+                # follows carries exactly one bash call. Remembered so the
+                # call's card can open on settle, the same contract the
+                # live path makes.
+                if text.startswith("! "):
+                    self._replay_bang_pending = True
+                continue
+            if role != "assistant":
+                continue
+            # Consume the pending bang marker on EVERY assistant message:
+            # record_shell writes the call-bearing assistant immediately
+            # after the `!` row, and a later unrelated turn must never
+            # inherit the open-on-settle flag.
+            bang_pending = self._replay_bang_pending
+            self._replay_bang_pending = False
+            # Through the shared helper even though this loop already
+            # stripped: the DECISION about what an assistant row shows is the
+            # thing both surfaces must read from one place. Leaving it as a
+            # bare truthiness test here is what let the phone's own bare test
+            # drift — the helper is only load-bearing if both hosts call it.
+            # HOISTED above the block gate: the same two fields the live path
+            # classifies on have to be in hand BEFORE the block is created,
+            # because the decision is whether to create it at all.
+            tool_calls = getattr(message, "tool_calls", None) or []
+            # PARITY with the live path's removal in
+            # `app.py::on_assistant_message_end` — both surfaces call
+            # `is_intermediate_narration` so a resumed session cannot disagree
+            # with the live one about what it showed. Replay NEVER MOUNTS
+            # rather than mounting-then-removing: it has the settled message in
+            # hand and no streaming to show, so not mounting avoids the
+            # multi-block arrangement seam the live path cannot avoid.
+            #
+            # Classified ONCE for this message and read twice below: the mount
+            # decision (`display.narration` OFF) and the RAIL mark. The rail
+            # marks the ANSWER, so a resumed session has to reproduce the
+            # un-railed progress sentence the live one painted — a second read
+            # of these two fields here is how the two surfaces come to disagree
+            # about which block earned the mark.
+            narration = is_intermediate_narration(
+                stop_reason=getattr(message, "stop_reason", None),
+                has_tool_calls=bool(tool_calls),
+            )
+            hidden = hide_narration and narration
+            if assistant_row_text(text) and not hidden:
+                block = AssistantBlock()
+                block.completion_anchor_id = str(getattr(message, "id", ""))
+                # Before `update_text`: this block authors its rows through the
+                # fold ladder on every update, and a hint set afterwards would
+                # only reach a rebuild that has already happened.
+                block.set_fold_hint(fold_width)
+                # And marked SETTLED before it too, for the same rate reason and
+                # a second one: every row this pass projects belongs to a message
+                # the engine has already committed to the transcript, so it has
+                # stopped arriving and there is no streaming frame to paint. Left
+                # to `finalize_text` alone, the first `update_text` would author
+                # the whole lane with no rail and the commit would then re-fold
+                # the same message two cells narrower — a discarded paint per
+                # row, at a width these rows are never seen at (review round 1, R2).
+                block.mark_settled()
+                # And marked narration before it too, for exactly that reason: the
+                # rail is read at paint rate, so a mark applied after
+                # `update_text` would leave the rows this call authors carrying a
+                # rail the next rebuild drops. Replay is a REPLAY of the live
+                # frame, and the live one is marked in the same order at
+                # `app.py::on_assistant_message_end`.
+                if narration:
+                    block.mark_narration()
+                # ONE render: this message has stopped arriving, so the
+                # streaming pass `update_text` would build is discarded unseen
+                # by the whole-message render the commit does anyway
+                # (`AssistantBlock.commit_text` has the measurement).
+                block.commit_text(text)
+                self._append_block(block)
+                appended = True
+            for call in tool_calls:
+                # A HIDDEN tool's row never paints (UX round 1, U2): the
+                # ``patience`` arm is an internal timer, and the replay is
+                # where its row came back on every reopen. The call STAYS in
+                # the context (the model reads what it armed) and its result
+                # is still paired; only the settled row is skipped.
+                if is_hidden_tool_call(call):
+                    continue
+                # Only the FIRST call of a bang assistant message is the
+                # command's own card; the shape record_shell writes has
+                # exactly one, so consuming here is exact in practice and
+                # conservative in theory.
+                user_run = bool(
+                    bang_pending and tool_calls[0] is call and getattr(call, "name", "") == "bash"
+                )
+                self._replay_tool_call(call, results, user_run=user_run, fold_width=fold_width)
+                appended = True
+            # A refused, failed or interrupted turn needs a notice the prose
+            # alone does not carry — a refusal fires even when the model
+            # streamed some prose first, while error/aborted fire only for a
+            # turn that produced nothing at all. The decision is shared with
+            # the phone fold, which had NO stop_reason branch and therefore
+            # showed a truncated answer as complete and a failed turn as
+            # silence (§3, D2-D4).
+            notice = assistant_stop_notice(
+                text=text,
+                has_tool_calls=bool(tool_calls),
+                stop_reason=getattr(message, "stop_reason", None),
+                provider_payload=getattr(message, "provider_payload", None),
+                # The limit's ARM, from the turn's OWN results: this fold has
+                # them (`results` is keyed by call id), and without it the
+                # notice names a cause the call's own row contradicts -- a
+                # length-stopped turn whose every call arrived complete read
+                # "tool call cut off at the output limit" under a card saying
+                # "turn cut off at the output limit before this call ran"
+                # (design round 1, D1; QA Q-R2-1; review round 2, MINOR-2).
+                cut_tool_call=turn_cut_tool_call(tool_calls, results),
+            )
+            if notice is not None:
+                reason, severity = notice
+                self._append_block(NoticeBlock(reason, severity, fold_width=fold_width))
+                appended = True
+    # Every message this pass rendered, by stable id — the dedupe key a
+    # later backward page is filtered through.
+    self._projection_message_id = ""
+    self._resume_mounted_ids.update(
+        str(getattr(message, "id", "")) for message in history if getattr(message, "id", None)
+    )
+    if self._block_sink is not None:
+        # A collected page mounts nothing and owns no viewport: the head
+        # notice belongs to the first render, and `follow_tail` would drag
+        # the reader from the history they scrolled up to read down to the
+        # newest turn — the exact opposite of the gesture that asked for it.
+        return appended
+    if appended:
+        # Replay is mounted as one synchronous batch, before Textual can
+        # remeasure the growing container between blocks. Land the reader on
+        # the latest turn and ARM the anchor there, so the first thing the
+        # resumed session streams carries them with it rather than growing
+        # off the bottom of a viewport pinned to the replay's last frame.
+        transcript.follow_tail()
+    return appended
+
+
+def replay_tool_call(
+    self: ReplayTarget,
+    call: Any,
+    results: dict[str, Any],
+    *,
+    user_run: bool = False,
+    fold_width: int = 0,
+) -> None:
+    """Mount one settled tool row for a call from a previous session.
+
+    The card is built exactly as a live one is — same constructor, same
+    summary derivation from the arguments — so a resumed row is
+    indistinguishable from the row the user watched run, including its
+    duration: the harness persists the executor's measured interval as
+    ``provider_payload.duration_s`` beside the result's ``details``, and it is
+    restored here rather than recomputed from when this row was mounted.
+
+    One call has exactly ONE visible row. When the transcript carries an
+    outcome, a card the live path already painted is settled in place rather
+    than doubled by a second row. When the call is live IN THIS PROCESS right
+    now — the replay ran against a session whose turn is still in flight, as
+    ``/resume`` onto a running conversation does — mounting a settled row at
+    all is the reported duplicate: the running turn's own ``ToolStarted``
+    paints (or has painted) the live row, and this second card would sit
+    beside it, overcount "running N tools", and stamp ``⊘ interrupted`` on a
+    call that has not stopped. Skipping the settled row loses nothing: the
+    live row owns the call's intent (which the transcript does not persist)
+    and its real start time. Where no live row exists yet — the local adopt,
+    whose ``ToolStarted`` predates this process's subscription — the
+    projection's owner paints the one row afterwards
+    (``_paint_skipped_live_tool_rows``) and registers it with the event
+    controller, so it settles through the ordinary ``on_tool_ended`` path.
+    A COLD resume has no live turn, so ``executing_display_tool_ids()`` is
+    empty there and killed-mid-turn calls still render ``interrupted``
+    exactly as before.
+    """
+    from local_operator.cross_session import SEND_TOOL_NAME, cross_session_hidden
+    from local_operator.harness.rows import output_limit_call_receipt
+    from local_operator.harness.types import FAULT_KEY, INTERRUPTED_FAULTS
+    from local_operator.tui.app import ImageContent, ToolCard, _first_line
+    from local_operator.tui.widgets.tool_card import parse_duration
+
+    # `display.hide_cross_session`: a hidden `send` mounts NOTHING. The return
+    # sits at the very TOP on purpose — before the live-skip feeder
+    # (`_projection_skipped_live.append` below) could receive the call —
+    # because the feeder's owner would otherwise paint the very row this
+    # filter exists to suppress (`_paint_skipped_live_tool_rows` carries the
+    # second door).
+    if cross_session_hidden() and (getattr(call, "name", "") or "") == SEND_TOOL_NAME:
+        return
+    call_id = getattr(call, "id", "") or ""
+    result = results.get(call_id)
+    if result is not None:
+        # The outcome is recorded, so the call cannot still be running: a card
+        # the live path already painted (a resumed live projection, a
+        # reconnect's pre-disconnect card) is settled in place through the same
+        # derivation instead of being doubled by a fresh row — review round 4,
+        # MINOR-1 built exactly this pairing for the gap replay.
+        painted = self._painted_tool_card(call_id)
+        if painted is not None:
+            self._settle_painted_tool_card(painted, result)
+            return
+    else:
+        # The snapshot the caller seeded for this projection first; a
+        # ReplayTarget carrying the session itself (the app) falls back to
+        # asking the session directly through the SAME subtracted question
+        # the seed uses, so a caller that never seeded cannot reopen the
+        # gate-parked-skip bug (a target with no session — a prepared
+        # presentation — answers nothing and mounts, which for a prepared
+        # tail the commit path repaints is the pre-existing behaviour).
+        live_ids: set[str] = self._projection_live_call_ids
+        if not live_ids:
+            session = getattr(self, "_session", None)
+            live_ids = live_projection_call_ids(session)
+        if call_id in live_ids:
+            # Record it, so the projection's owner can paint the ONE row for
+            # this call when no live path is going to (a local resume: the
+            # turn's ToolStarted fired before this process/subscription
+            # existed, so no card will arrive for it). The replay itself still
+            # mounts nothing — the owner paints it after the fold, where it
+            # knows whether a card is already on screen.
+            self._projection_skipped_live.append(call)
+            return
+        # The gate-free seed answered "not live", but the seed is a snapshot:
+        # a call parked at an approval gate is subtracted out of it (so the
+        # row paints `waiting`, not `running`) while the live ToolStarted
+        # already mounted a card during adoption. Mounting a second row here
+        # is the same duplicate the live-skip above prevents, one arm over —
+        # consult the already-painted registry exactly as the outcome branch
+        # does (QA round 2, Q-R2-1).
+        if self._painted_tool_card(call_id) is not None:
+            return
+    card = ToolCard(
+        call_id,
+        getattr(call, "name", "") or "",
+        getattr(call, "arguments", None) or {},
+        user_run=user_run,
+    )
+    # Before the `restore`/`mark_*` calls below re-author the row: the
+    # constructor's own build is the throwaway one (a detached card has no
+    # width to ask and falls to the console fallback), and every state call
+    # that follows rebuilds through the fold ladder — so this is the moment
+    # the card can be told the width its rows should be authored at.
+    card.set_fold_hint(fold_width)
+    self._append_block(card)
+    if result is None:
+        # No result recorded: the session ended between the call and its
+        # answer. Showing it as complete would invent an outcome, and there is
+        # no measured interval to restore either — the distinction that governs
+        # the duration column is result-present vs result-absent, and this is
+        # the only arm on the absent side.
+        card.restore(state="interrupted")
+        return
+    result_text = getattr(result, "text", "") or ""
+    payload = getattr(result, "provider_payload", None) or {}
+    is_dict = isinstance(payload, dict)
+    details = payload.get("details") if is_dict else None
+    # Validated, never trusted: the key is absent on every row written before
+    # durations were persisted, and a transcript is an on-disk file another
+    # process may have written. `parse_duration` degrades anything that is not
+    # a finite non-negative number to ``None``, which paints the same blank
+    # column a legacy row paints — the one honest answer when the interval is
+    # unknown. Replay must not fail on a bad value, and must not invent a
+    # ``0.0s`` that says the tool returned instantly.
+    duration_s = parse_duration(payload.get("duration_s")) if is_dict else None
+    # The result's own FAULT class, when its emitter marked one, settles the
+    # row FIRST and by MARKER rather than by wording: `{skipped, aborted}` is
+    # an interruption — the user's Esc, a steering skip — so the row takes the
+    # dim `interrupted ⊘` presentation the live frame gave it, with the
+    # receipt kept reachable in the expansion. Same rule as `on_tool_ended`
+    # and `_settle_painted_tool_card`, so one call cannot read one way live
+    # and another on `/resume`.
+    fault = details.get(FAULT_KEY) if isinstance(details, dict) else None
+    if getattr(result, "is_error", False) and fault in INTERRUPTED_FAULTS:
+        card.restore(state="interrupted", result_text=result_text, duration_s=duration_s)
+        return
+    if getattr(result, "is_error", False) and result_text.startswith("aborted ("):
+        # LEGACY FALLBACK, kept forever because old journals are read forever.
+        # It classifies by TEXT, which is all a row written before the abort
+        # markers has; a transcript this build wrote reaches the marker arm
+        # above and never this sniff. Delete it and every historical replay
+        # re-reddens the user's own Esc.
+        #
+        # An aborted call persists as an error result (the model-facing
+        # shape), but the LIVE frame it came from was the dim shut
+        # `interrupted ⊘` row. Replaying it through the error branch would
+        # reopen the user's own Esc as a red failure (design round 1, D1).
+        #
+        # The parenthesised prefix identifies ONE producer, and it is not the
+        # agent loop: `execute_bash` builds this text itself via `_error(...)`
+        # (`tools/builtin.py:1478`, `:1990`), as does `tools/eval.py:882`.
+        # `harness/loop.py`'s synthetic abort is `ABORTED_RESULT_TEXT =
+        # "aborted"` with NO parenthesis, so every result the loop parks a
+        # duration onto fails this guard and takes the plain error arm below.
+        # (Those line numbers predate this workstream's own edits to both
+        # files; the arms they name are the pre-aborted and mid-run abort
+        # receipts, which now also carry the abort MARKER, so new rows
+        # classify above.)
+        #
+        # `duration_s` is passed for faithfulness, not for a population we can
+        # point at today. `_error(...)` sets no `duration_s`, and the only
+        # producer that MEASURES one is the agent loop (`loop.py::park`, which
+        # stamps `result.duration_s` from its own `time.monotonic()` span) —
+        # review round 2 swept 37 real aborted runs (model-issued bash,
+        # parallel-batch races, eval kernel aborts) and produced the
+        # `aborted (` + `duration_s` conjunction zero times. The arm is
+        # therefore inert on the COLUMN but correct: `park()` stamps any
+        # NORMALLY returned result, so the moment a producer returns this
+        # text with a measured interval the row shows it instead of silently
+        # dropping it. `tools/eval.py`'s `aborted (…): kernel killed mid-run`
+        # is the plausible future one — it returns normally rather than by
+        # cancellation — but neither reviewer could drive a turn into that
+        # branch or prove it unreachable, so its status is unsettled.
+        #
+        # The RECEIPT is passed on this arm too, so the legacy and marked
+        # paths differ in nothing the operator can read: before this the arm
+        # stored no output, and a row that had said `⊘` said only that.
+        #
+        # Not covered here: a bang-mode `! cmd` the user stopped. That row
+        # persists through `session/shell_record.py` → `Message.tool_result`,
+        # which DOES carry a `provider_payload` when the result has one (a
+        # spilled capture writes `details['spill']`). It still replays blank,
+        # for a different reason: nothing measures a bang command, so
+        # `duration_s` is `None`. The terminal runs it outside a turn, so the
+        # loop's `park()` — the only caller that stamps an interval — never
+        # sees it, and `execute_bash` reports no duration of its own. A
+        # successful `! echo hi` replays blank for the same reason. The
+        # producer gap is upstream and out of scope.
+        card.restore(state="interrupted", result_text=result_text, duration_s=duration_s)
+        return
+    if getattr(result, "is_error", False):
+        # A call the OUTPUT LIMIT kept from running carries a SYNTHETIC result,
+        # and that result's text is addressed to the MODEL ("Reply with the call
+        # itself, not with an explanation of why it cannot be sent"). Painting it
+        # here put a model-directed imperative on the operator's screen, under a
+        # red error row about a file that does not exist (review round 1, F2).
+        # The row takes the harness's own vocabulary instead, selected by the arm
+        # marker the result carries; every OTHER error result is untouched and
+        # keeps its own text.
+        #
+        # The status line AND the expanded body, because the body is that same
+        # model-facing string and leaving it there would only move the prose one
+        # click away. The result keeps its text in the transcript and on the wire
+        # -- this is a display decision, not a rewrite of what the model was
+        # told.
+        receipt = output_limit_call_receipt(details)
+        card.restore(
+            state="error",
+            result_text=receipt or result_text,
+            details=details,
+            error=receipt or _first_line(result_text),
+            duration_s=duration_s,
+        )
+    else:
+        card.restore(
+            state="success",
+            result_text=result_text,
+            details=details,
+            duration_s=duration_s,
+        )
+    # Same rule as `on_tool_ended`: a result carrying image blocks shows
+    # them under the settled card, so a resumed session's screenshots are
+    # back on screen exactly where the live session showed them.
+    self._append_image_blocks(
+        [
+            block
+            for block in (getattr(result, "content", None) or [])
+            if isinstance(block, ImageContent)
+        ]
+    )
+
+
+def append_image_blocks(
+    self: ReplayTarget,
+    images: list[ImageContent],
+    *,
+    marker_text: str | None = None,
+    navigation_visible: bool = True,
+    fold_width: int = 0,
+) -> list[ImageBlock]:
+    """Mount one :class:`ImageBlock` per image, in order.
+
+    The single entry point for putting pictures on the transcript — the
+    prompt path, the tool-result path, and the resume replay all route
+    here so a rendering decision (caps, protocol, the unavailable
+    receipt) is made in exactly one place. Guarded per block: a block
+    whose bytes will not decode still mounts (as its unavailable
+    receipt), but a failure CONSTRUCTING one must not take down the
+    message dispatch that carried a perfectly good tool result.
+
+    Labels name WHICH of several images a receipt is about, and only
+    when the batch has more than one — a receipt for a batch of one
+    names nothing the row above it has not already said (review round
+    1, F4). Where ``marker_text`` is given (the prompt paths), the
+    numbers are read from the text's own ``[Image #N]`` citations, in
+    citation order — the same walk ``resolve_markers`` built ``images``
+    from — because marker numbers are not positional: delete #1 and
+    paste again and the draft reads ``[Image #2] [Image #3]``, so a
+    positional ``#1`` would name a marker the prompt does not contain
+    (review round 2, F9). Tool results have no markers and fall back to
+    positions.
+    """
+    from local_operator.tui.app import logger
+
+    indices: list[int] = []
+    if marker_text:
+        from local_operator.tui.widgets.editor import IMAGE_MARKER
+
+        indices = [int(match.group("index")) for match in IMAGE_MARKER.finditer(marker_text)]
+    mounted: list[ImageBlock] = []
+    for index, image in enumerate(images):
+        if len(images) <= 1:
+            label = ""
+        elif index < len(indices):
+            label = f"#{indices[index]}"
+        else:
+            label = f"#{index + 1}"
+        try:
+            block = ImageBlock(
+                image.data or None,
+                image.mime_type,
+                label=label,
+                navigation_visible=navigation_visible,
+                fold_width=fold_width,
+            )
+        except Exception:
+            logger.debug("image block construction failed", exc_info=True)
+            continue
+        self._append_block(block)
+        mounted.append(block)
+    return mounted

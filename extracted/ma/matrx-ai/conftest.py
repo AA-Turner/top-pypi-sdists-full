@@ -78,3 +78,15 @@ collect_ignore = [
     "matrx_ai/agents/tests/test_categorization.py",
     "matrx_ai/agents/tests/new_agent_test.py",
 ]
+
+
+@pytest.fixture(autouse=True)
+def _fresh_provider_alarm_memory():
+    """The out-of-credit door files one row per (provider, request) per window —
+    process memory that would otherwise make a test's alarm depend on whether an
+    earlier test already filed one for the same provider."""
+    from matrx_ai.providers.failure_report import reset_alarm_memory
+
+    reset_alarm_memory()
+    yield
+    reset_alarm_memory()

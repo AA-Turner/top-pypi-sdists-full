@@ -25,9 +25,7 @@ class WorkspaceNotification(BaseModel):
     action: WorkspaceNotificationAction
 
 
-def send_workspace_notification(
-    anyscale_api_client: BaseApi, notification: WorkspaceNotification
-):
+def send_workspace_notification(anyscale_api_client: BaseApi, notification: WorkspaceNotification):
 
     try:
         if get_cluster_model_for_current_workspace(anyscale_api_client) is None:

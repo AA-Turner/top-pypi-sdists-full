@@ -18,21 +18,24 @@ macro_rules! test_lex_tokens {
                 )*
             ]
             .into_iter()
-            .fold((vec![], (0, tombi_text::Position::MIN)), |(mut acc, (start_offset, start_position)), (result, text)| {
+            .fold((vec![], 0), |(mut acc, start_offset), (result, text)| {
                 let text: &str = text;
                 let end_offset = start_offset + (text.len() as u32);
-                let end_position = start_position + tombi_text::RelativePosition::of(text);
-                let span_range = (
-                    (start_offset, end_offset).into(),
-                    (start_position, end_position).into(),
-                );
+                let span = (start_offset, end_offset).into();
                 acc.push(match result {
-                    Ok(kind) => Ok(Token::new(kind, span_range)),
-                    Err(kind) => Err(tombi_lexer::Error::new(kind, span_range)),
+                    Ok(kind) => Ok(Token::new(kind, span)),
+                    Err(kind) => Err(tombi_lexer::Error::new(kind, span)),
                 });
-                (acc, (end_offset, end_position))
+                (acc, end_offset)
             });
             pretty_assertions::assert_eq!(tokens, expected);
+
+            let line_starts = tombi_lexer::lex(&source).line_starts;
+            let line_index = tombi_text::LineIndex::new(&*source);
+            pretty_assertions::assert_eq!(
+                line_starts,
+                line_index.iter().map(|span| span.start).collect_vec()
+            );
         }
     };
 
@@ -52,8 +55,6 @@ macro_rules! test_lex_token {
             let source = source.trim();
             let mut cursor = Cursor::new(&source);
             let tokens = tokenize(&mut cursor).collect_vec();
-            let start_position = tombi_text::Position::MIN;
-            let end_position = start_position + tombi_text::RelativePosition::of(&source);
 
             pretty_assertions::assert_eq!(
                 tokens,
@@ -61,10 +62,7 @@ macro_rules! test_lex_token {
                     Ok(
                         Token::new(
                             $kind,
-                            (
-                                ($start_offset, $end_offset).into(),
-                                (start_position, end_position).into()
-                            )
+                            ($start_offset, $end_offset).into()
                         )
                     )
                 ]
@@ -78,8 +76,6 @@ macro_rules! test_lex_token {
             let source = textwrap::dedent($source);
             let mut cursor = Cursor::new(&source);
             let tokens = tokenize(&mut cursor).collect_vec();
-            let start_position = tombi_text::Position::MIN;
-            let end_position = start_position + tombi_text::RelativePosition::of(&source);
 
             pretty_assertions::assert_eq!(
                 tokens,
@@ -87,10 +83,7 @@ macro_rules! test_lex_token {
                     Err(
                         tombi_lexer::Error::new(
                             $kind,
-                            (
-                                ($start_offset, $end_offset).into(),
-                                (start_position, end_position).into()
-                            )
+                            ($start_offset, $end_offset).into()
                         )
                     )
                 ]

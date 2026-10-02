@@ -1,0 +1,572 @@
+"""Document — the ElementTree analogue; owns the tree, its pool, and
+(when parsed from a string) the buffer the engine parsed in place.
+
+Release it with close() (or the context manager); __del__ is a
+last-resort safety net for CPython refcounting, not a contract.
+"""
+
+from __future__ import annotations
+
+import os
+from typing import List, Optional, Tuple
+
+from . import _ffi
+
+from collections import namedtuple
+
+ParseDiagnostic = namedtuple("ParseDiagnostic", ["kind", "message"])
+ParseDiagnostic.__doc__ = (
+    "One recover-class parse event: the diagnostic kind name"
+    " (e.g. 'RECOVER') and the engine's message."
+)
+_DIAG_KIND_NAMES = {
+    0: "INVALID",
+    1: "NOT_ALLOWED_ANYWHERE",
+    2: "NOT_ALLOWED_HERE",
+    3: "NOT_ALLOWED_YET",
+    4: "INCOMPLETE",
+    5: "MISSING_REQUIRED_ATTR",
+    6: "ATTR_NOT_ALLOWED",
+    7: "ATTR_VALUE_INVALID",
+    8: "CHAR_CONTENT_INVALID",
+    9: "RECOVER",
+}
+from .error import LeptrisError, ParseError, status_message
+
+
+def serialize_options(
+    encoding: Optional[str] = None,
+    pretty_print: bool = False,
+    xml_declaration: Optional[bool] = None,
+) -> Tuple[object, List[object]]:
+    """Build a LeptrisSerializeOptions (or NULL for defaults).
+
+    Returns (pointer, keepalive) — the keepalive list must stay
+    referenced until serialization completes.
+    """
+    ffi = _ffi.ffi
+    declaration = xml_declaration
+    if declaration is None:
+        # lxml default: an explicit encoding implies a declaration.
+        declaration = encoding is not None
+    if not declaration and not pretty_print and encoding is None:
+        return ffi.NULL, []
+    options = ffi.new("LeptrisSerializeOptions*")
+    keepalive = [options]
+    options.indent = 2 if pretty_print else 0
+    options.xml_declaration = 1 if declaration else 0
+    if encoding is not None:
+        buffer = ffi.new("char[]", encoding.encode("utf-8"))
+        options.encoding = buffer
+        keepalive.append(buffer)
+    return options, keepalive
+
+
+class Document:
+    __slots__ = ("_ptr", "_freed", "_accel_registry", "_raw_addr", "_buffer")
+
+    @classmethod
+    def create(cls) -> "Document":
+        """A fresh, empty document for programmatic construction.
+
+        Pair with :meth:`create_element` and :meth:`set_root`, or
+        build through :meth:`Element.create_child`. The tree
+        serializes with the standard writers.
+
+        .. versionadded:: 1.9.216.0
+        """
+        from .element import _accel
+
+        registry = _accel.new_registry()
+        addr = _ffi.lib.leptris_document_create()
+        if addr == _ffi.ffi.NULL:
+            raise LeptrisError("document_create failed")
+        return cls._from_parts(
+            int(_ffi.ffi.cast("uintptr_t", addr)), registry
+        )
+
+    def create_element(self, name, attrs=None) -> "Element":
+        """Create an element owned by this document (unattached).
+
+        With ``attrs`` (a name → value dict, libleptris 1.9.237+)
+        the element and all its attributes are built in ONE C call
+        (``leptris_element_new_with_attributes``).
+
+        Attach it with :meth:`set_root`, or build in place with
+        :meth:`Element.create_child`.
+
+        .. versionadded:: 1.9.216.0
+        .. versionchanged:: 1.9.237.0
+            added ``attrs``.
+        """
+        if self._freed:
+            raise LeptrisError("operation on a closed document")
+        if isinstance(name, str):
+            name = name.encode("utf-8")
+        if not isinstance(name, bytes) or not name:
+            raise ValueError("element name must be a non-empty str")
+        from .element import _accel
+
+        if attrs:
+            if not isinstance(attrs, dict):
+                raise TypeError("attrs must be a dict or None")
+            names = list(attrs)
+            name_arr = _ffi.ffi.new("const char*[]", len(names))
+            value_arr = _ffi.ffi.new("const char*[]", len(names))
+            keepalive = []
+            for index, (attr_name, attr_value) in enumerate(
+                attrs.items()
+            ):
+                name_c = _ffi.ffi.new(
+                    "char[]", str(attr_name).encode("utf-8")
+                )
+                value_c = _ffi.ffi.new(
+                    "char[]", str(attr_value).encode("utf-8")
+                )
+                name_arr[index] = name_c
+                value_arr[index] = value_c
+                keepalive.append(name_c)
+                keepalive.append(value_c)
+            raw = _ffi.lib.leptris_element_new_with_attributes(
+                self._cd(), name, name_arr, value_arr, len(names)
+            )
+            del keepalive
+        else:
+            raw = _ffi.lib.leptris_element_create(self._cd(), name)
+        if raw == _ffi.ffi.NULL:
+            raise LeptrisError("element_create failed")
+        return _accel.create(
+            int(_ffi.ffi.cast("uintptr_t", raw)),
+            _ffi.ffi.cast("LeptrisElement", raw),
+            self,
+        )
+
+    def set_root(self, element) -> "Document":
+        """Attach ``element`` as this document's root.
+
+        .. versionadded:: 1.9.216.0
+        """
+        if self._freed:
+            raise LeptrisError("operation on a closed document")
+        from .element import Element
+
+        if not isinstance(element, Element):
+            raise TypeError("expected an Element")
+        rc = _ffi.lib.leptris_document_set_root(
+            self._cd(), element._cd()
+        )
+        if rc != 0:
+            raise LeptrisError(f"set_root failed (status {rc})")
+        return self
+
+    @classmethod
+    def _from_parts(cls, address, registry, buffer=None):
+        doc = cls.__new__(cls)
+        doc._ptr = _ffi.ffi.NULL
+        doc._freed = False
+        doc._accel_registry = registry
+        doc._raw_addr = address
+        # In-place parses retain pointers into the input buffer until
+        # document_free; the view (which owns the bytearray) must
+        # outlive the document. Dropped in close(), after the free.
+        doc._buffer = buffer
+        return doc
+
+    @classmethod
+    def parse(
+        cls,
+        xml,
+        *,
+        recover: bool = False,
+        attribute_defaults: bool = False,
+        remove_blank_text: bool = False,
+        skip_dup_detection: bool = False,
+        skip_source_positions: bool = False,
+    ) -> "Document":
+        """Parse XML. With recover=True a malformed document yields an
+        empty (rootless) Document instead of raising ParseError
+        (libleptris 1.9.0 recover mode — partial-tree recovery is not
+        yet implemented upstream). With attribute_defaults=True,
+        DTD ATTLIST default (and #FIXED) values materialize on
+        matching elements (lxml applies them by default; the XML 1.0
+        spec permits either — libleptris 1.9.8 defaults to excluding
+        them, like ElementTree, and this binding follows unless
+        asked). With remove_blank_text=True, whitespace-only text
+        nodes are dropped at parse time (lxml's parser option of
+        the same name) — ~35% faster on pretty-printed documents,
+        and pretty-printing via tostring() re-indents anyway.
+
+        Perf opt-outs (libleptris 1.9.273+): with
+        ``skip_dup_detection=True`` duplicate attributes are
+        admitted silently (first still wins for queries; no
+        recover diagnostic); with ``skip_source_positions=True``
+        element source columns degrade to zeros (lines still
+        resolve). Defaults keep every feature ON."""
+        if isinstance(xml, str):
+            xml = xml.encode("utf-8")
+        if not isinstance(xml, (bytes, bytearray, memoryview)):
+            raise TypeError("xml must be str or bytes")
+        data = bytearray(xml)  # writable copy: the engine may parse in place
+        if not data:
+            raise ParseError("parse error: empty input")
+        from .element import _accel
+
+        # A declared non-UTF-8 encoding must bypass the fast path:
+        # the engine's UTF-8 parse is lenient and would "succeed"
+        # with unconverted bytes instead of failing into the retry.
+        head = bytes(data[:512])
+        if b"encoding=" in head:
+            import re
+
+            match = re.search(
+                rb"encoding\s*=\s*[\x27\x22]([^\x27\x22]+)[\x27\x22]",
+                head,
+                re.I,
+            )
+            if match and match.group(1).lower() not in (
+                b"utf-8", b"utf8", b"us-ascii", b"ascii"
+            ):
+                address, registry, status = _accel.parse_with_encoding(
+                    bytes(data), recover
+                )
+                if address is None:
+                    raise ParseError(status_message(status))
+                return cls._from_parts(address, registry)
+
+        view = _ffi.ffi.from_buffer("char[]", data)
+        address, registry, status = _accel.parse_inplace(
+            int(_ffi.ffi.cast("uintptr_t", view)),
+            len(data),
+            recover,
+            (1 if remove_blank_text else 0)
+            | (2 if attribute_defaults else 0)
+            | (8 if skip_dup_detection else 0)
+            | (16 if skip_source_positions else 0),
+        )
+        if address is None and not recover:
+            # Non-UTF-8 encodings fail the UTF-8 fast path; retry
+            # through the engine's encoding auto-detection (BOM,
+            # declaration, heuristic — UTF-16/32 and single-byte
+            # alike, content converted to UTF-8 since libleptris
+            # 1.9.15/#613): lxml parity at zero fast-path cost.
+            address, registry, status = _accel.parse_with_encoding(
+                bytes(data), recover
+            )
+            if address is not None:
+                return cls._from_parts(address, registry)
+        if address is None:
+            raise ParseError(status_message(status))
+        return cls._from_parts(address, registry, view)
+
+    @classmethod
+    def parse_file(cls, path) -> "Document":
+        path = os.fspath(path)
+        if isinstance(path, str):
+            path = path.encode("utf-8")
+        from .element import _accel
+
+        address, registry, status = _accel.parse_file(path)
+        if address is None:
+            raise ParseError(status_message(status))
+        return cls._from_parts(address, registry)  # file parse copies internally
+
+    def _cd(self):
+        """cffi handle for cold cffi paths, created lazily."""
+        ptr = self._ptr
+        if ptr == _ffi.ffi.NULL:
+            ptr = _ffi.ffi.cast("LeptrisDocument", self._raw_addr)
+            self._ptr = ptr
+        return ptr
+
+    @property
+    def root(self) -> Optional["Element"]:
+        if self._freed:
+            raise LeptrisError("operation on a closed document")
+        from .element import _accel
+
+        return _accel.document_root(self._raw_addr, self)
+
+    def getroot(self) -> Optional["Element"]:
+        return self.root
+
+    @property
+    def doctype(self):
+        """The DOCTYPE declaration as ``(name, public_id,
+        system_id)``, or None when absent.
+
+        HTML documents record the doctype since libleptris 1.9.116
+        (WHATWG mode lowercases the name; html4 preserves it).
+        """
+        if self._freed:
+            raise LeptrisError("operation on a closed document")
+        lib = _ffi.lib
+        dt = lib.leptris_document_internal_subset(self._cd())
+        if dt == _ffi.ffi.NULL:
+            return None
+
+        def _text(ptr):
+            return (
+                _ffi.ffi.string(ptr).decode("utf-8", "replace")
+                if ptr != _ffi.ffi.NULL
+                else None
+            )
+
+        return (
+            _text(lib.leptris_doctype_get_name(dt)),
+            _text(lib.leptris_doctype_get_public_id(dt)),
+            _text(lib.leptris_doctype_get_system_id(dt)),
+        )
+
+    def toplevel_comments(self) -> List[str]:
+        """Document-level comments outside the root (prolog then epilog).
+
+        Requires libleptris 1.9.3+. Contents are the text between the
+        markers; the markers themselves are not included.
+        """
+        if self._freed:
+            raise LeptrisError("operation on a closed document")
+        lib, ffi = _ffi.lib, _ffi.ffi
+        doc = self._cd()
+        count = lib.leptris_document_comment_count(doc)
+        items = []
+        for index in range(count):
+            ptr = lib.leptris_document_comment_content(doc, index)
+            items.append(
+                ffi.string(ptr).decode("utf-8") if ptr != ffi.NULL else ""
+            )
+        return items
+
+    def toplevel_pis(self) -> List[Tuple[str, Optional[str]]]:
+        """Document-level processing instructions outside the root.
+
+        Returns (target, data) pairs. A dataless PI (<?target?>)
+        yields data as the empty string (libleptris 1.9.3+).
+        """
+        if self._freed:
+            raise LeptrisError("operation on a closed document")
+        lib, ffi = _ffi.lib, _ffi.ffi
+        doc = self._cd()
+        count = lib.leptris_document_pi_count(doc)
+        items = []
+        for index in range(count):
+            target = lib.leptris_document_pi_target(doc, index)
+            data = lib.leptris_document_pi_data(doc, index)
+            items.append(
+                (
+                    ffi.string(target).decode("utf-8") if target != ffi.NULL else "",
+                    (
+                        ffi.string(data).decode("utf-8")
+                        if data != ffi.NULL
+                        else None
+                    ),
+                )
+            )
+        return items
+
+    def xpath(self, expression: str, *, context=None, namespaces=None,
+              variables=None, version=None):
+        if self._freed:
+            raise LeptrisError("operation on a closed document")
+        from .xpath import _version_flag
+
+        _version_flag(version)
+        if version is None and variables is None:
+            from .xpath import _c_evaluate
+
+            items = _c_evaluate(self, context, expression, namespaces)
+            if items is not None:
+                return items
+        if version is None and variables is not None:
+            from .xpath import _c_evaluate_vars
+
+            items = _c_evaluate_vars(
+                self, context, expression, variables
+            )
+            if items is not None:
+                return items
+        from .xpath import _XPathEngine
+
+        return _XPathEngine.evaluate(
+            self, context, expression, namespaces=namespaces,
+            variables=variables, version=version,
+        )
+
+    def write(
+        self,
+        file,
+        *,
+        encoding: Optional[str] = None,
+        pretty_print: bool = False,
+        xml_declaration: Optional[bool] = None,
+        method: Optional[str] = None,
+    ) -> None:
+        if self._freed:
+            raise LeptrisError("operation on a closed document")
+        if hasattr(file, "write"):
+            from .api import tostring
+
+            file.write(
+                tostring(
+                    self,
+                    encoding=encoding,
+                    pretty_print=pretty_print,
+                    xml_declaration=xml_declaration,
+                    method=method,
+                )
+            )
+            return
+        if method == "html":
+            if isinstance(path := os.fspath(file), str):
+                path = path.encode("utf-8")
+            options, _keepalive = serialize_options(
+                encoding, pretty_print, xml_declaration
+            )
+            status = _ffi.lib.leptris_document_save_html(
+                self._cd(), path, options
+            )
+            if status != 0:
+                raise LeptrisError(status_message(status))
+            return
+        path = os.fspath(file)
+        if isinstance(path, str):
+            path = path.encode("utf-8")
+        options, _keepalive = serialize_options(encoding, pretty_print, xml_declaration)
+        status = _ffi.lib.leptris_document_save_file(self._cd(), path, options)
+        if status != 0:
+            raise LeptrisError(status_message(status))
+
+    def save_html(
+        self,
+        path,
+        *,
+        encoding: Optional[str] = None,
+        pretty_print: bool = False,
+    ) -> None:
+        """Save as HTML (libleptris 1.9.225+): void-element shapes
+        and block layout regardless of the document's flavor.
+
+        .. versionadded:: 1.9.226.0
+        """
+        self.write(
+            path,
+            encoding=encoding,
+            pretty_print=pretty_print,
+            xml_declaration=False,
+            method="html",
+        )
+
+    @property
+    def version(self) -> Optional[str]:
+        """The XML declaration's version (None when absent; the
+        engine default is "1.0" for parsed docs)."""
+        if self._freed:
+            raise LeptrisError("operation on a closed document")
+        from ._ffi import lib, ffi
+
+        value = lib.leptris_document_version(self._cd())
+        return ffi.string(value).decode("utf-8", "replace") if value != ffi.NULL else None
+
+    @property
+    def standalone(self) -> Optional[bool]:
+        """The XML declaration's standalone flag (None when the
+        declaration carries no standalone attribute)."""
+        if self._freed:
+            raise LeptrisError("operation on a closed document")
+        from ._ffi import lib
+
+        # The engine signals absence with -1.
+        value = lib.leptris_document_standalone(self._cd())
+        return None if value < 0 else bool(value)
+
+    def process_xinclude(self, base_url: Optional[str] = None) -> "Document":
+        if self._freed:
+            raise LeptrisError("operation on a closed document")
+        base = base_url.encode("utf-8") if base_url is not None else _ffi.ffi.NULL
+        rc = _ffi.lib.leptris_xinclude_process(self._cd(), base)
+        if rc != 0:
+            raise LeptrisError("XInclude processing failed")
+        return self
+
+    @property
+    def parse_diagnostics(self):
+        """Recover-class events recorded while parsing this
+        document (libleptris 1.9.206+): the input was not
+        conformant, the document is still usable (duplicate
+        attributes today). One :class:`ParseDiagnostic`
+        (kind, message) per event; empty for a clean parse.
+
+        .. versionadded:: 1.9.208.0
+        """
+        if self._freed:
+            raise LeptrisError("operation on a closed document")
+        lib, ffi = _ffi.lib, _ffi.ffi
+        count = lib.leptris_document_parse_diag_count(self._cd())
+        out = []
+        for index in range(count):
+            kind = ffi.new("LeptrisDiagKind*")
+            buf = ffi.new("char[256]")
+            if not lib.leptris_document_parse_diag(
+                self._cd(), index, kind, buf, 256
+            ):
+                break
+            out.append(ParseDiagnostic(
+                kind=_DIAG_KIND_NAMES.get(kind[0], f"kind{kind[0]}"),
+                message=ffi.string(buf).decode("utf-8", "replace"),
+            ))
+        return out
+
+    def clear_declaration(self) -> "Document":
+        """Un-set the XML declaration: serialization emits none,
+        exactly as if the input had none. Idempotent.
+
+        .. versionadded:: 1.9.204.0
+        """
+        if self._freed:
+            raise LeptrisError("operation on a closed document")
+        _ffi.lib.leptris_document_clear_declaration(self._cd())
+        return self
+
+    def remove_doctype(self) -> bool:
+        """Un-set the document's DOCTYPE (libleptris 1.9.204+).
+
+        Returns True when a DOCTYPE was removed, False when the
+        document had none.
+
+        .. versionadded:: 1.9.204.0
+        """
+        if self._freed:
+            raise LeptrisError("operation on a closed document")
+        rc = _ffi.lib.leptris_document_remove_doctype(self._cd())
+        if rc == 0:
+            return True
+        if rc == -6:  # LEPTRIS_ERROR_NOT_FOUND
+            return False
+        raise LeptrisError(f"remove_doctype failed (status {rc})")
+
+    def close(self) -> None:
+        if not self._freed:
+            from .element import _accel
+
+            registry = getattr(self, "_accel_registry", None)
+            if registry is not None:
+                _accel.invalidate(registry)
+            _accel.close_document(self._raw_addr)
+            self._freed = True
+            self._ptr = _ffi.ffi.NULL
+            self._buffer = None
+
+    @property
+    def closed(self) -> bool:
+        return self._freed
+
+    def __enter__(self) -> "Document":
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.close()
+
+    def __del__(self):
+        try:
+            self.close()
+        except Exception:
+            pass

@@ -1,0 +1,44 @@
+---
+name: Feature request
+description: Wrap something libsecp256k1 or secp256k1-zkp offers, or change how it is wrapped
+labels: [enhancement]
+
+body:
+  - type: markdown
+    attributes:
+      value: >
+        What is wrapped here is what the vendored libraries expose and
+        what has no state of its own; anything needing a session, a
+        wallet or a transaction belongs in
+        [btclib](https://github.com/btclib-org/btclib/issues) instead.
+        The import line says which library a wrapper draws from:
+        libsecp256k1 outside `btclib_secp256k1.zkp`, and secp256k1-zkp
+        under it. See the Design section of the README.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What is missing
+      description: >
+        The libsecp256k1 or secp256k1-zkp function or module, if there
+        is one, and what it would let a caller do.
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it belongs in the bindings
+      description: >
+        What cannot be done today through the raw cffi surface
+        (`btclib_secp256k1.ffi` and `.lib`), which is always available.
+        secp256k1-zkp's own surface is `btclib_secp256k1.zkp.ffi` and
+        `.zkp.lib`, which a build under `BTCLIB_LIBSECP256K1_ZKP=true`
+        supplies.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

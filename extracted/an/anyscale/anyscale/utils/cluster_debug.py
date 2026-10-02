@@ -35,9 +35,7 @@ def debug_cluster(
     has_experienced_a_failure: bool = False
 
     tests = list(
-        _tests_for(
-            cluster_domain_name, anyscale_ip, skip_tls_no_sni=skip_tls_no_sni
-        ).items()
+        _tests_for(cluster_domain_name, anyscale_ip, skip_tls_no_sni=skip_tls_no_sni).items()
     )
 
     for name, test in tests:
@@ -157,15 +155,16 @@ def _tcp_test(endpoint: str) -> None:
 def _tls_test(endpoint: str, hostname: Optional[str] = None) -> None:
     """Create a TLS connection to the destination.
 
-        The optional hostname is used if the TLS connection is made directly to an IP address
-        and we want to set the SNI separately.
+    The optional hostname is used if the TLS connection is made directly to an IP address
+    and we want to set the SNI separately.
     """
     if hostname is None:
         hostname = endpoint
 
-    with socket.create_connection(
-        (endpoint, 443)
-    ) as sock, ssl.create_default_context().wrap_socket(sock, server_hostname=hostname):
+    with (
+        socket.create_connection((endpoint, 443)) as sock,
+        ssl.create_default_context().wrap_socket(sock, server_hostname=hostname),
+    ):
         pass
 
 
@@ -178,8 +177,9 @@ def _tls_no_sni(endpoint: str) -> None:
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
 
-    with socket.create_connection((endpoint, 443)) as sock, ctx.wrap_socket(
-        sock, server_hostname=None
+    with (
+        socket.create_connection((endpoint, 443)) as sock,
+        ctx.wrap_socket(sock, server_hostname=None),
     ):
         pass
 
@@ -193,9 +193,7 @@ def _https_test(endpoint: str, hostname: Optional[str] = None) -> None:
     resp = session.get(f"https://{endpoint}")
 
     if resp.status_code != requests.codes["unauthorized"]:
-        raise RuntimeError(
-            f"Unexpected status code from https://{endpoint}: {resp.status_code}"
-        )
+        raise RuntimeError(f"Unexpected status code from https://{endpoint}: {resp.status_code}")
 
     assert (
         "x-anyscale-authentication-status" in resp.headers

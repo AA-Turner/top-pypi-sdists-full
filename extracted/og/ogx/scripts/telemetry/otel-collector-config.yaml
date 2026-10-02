@@ -1,0 +1,54 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+
+exporters:
+  # Export traces to Jaeger
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+
+  # Export traces to MLflow (OTLP/HTTP). Endpoint should be host:port; path defaults to /v1/traces.
+  # Configure via env:
+  #   MLFLOW_OTEL_ENDPOINT (e.g., http://host.docker.internal:5000)
+  #   MLFLOW_OTEL_HEADERS  (e.g., Authorization=Bearer <token>)
+  otlphttp/mlflow:
+    # MLflow OTLP/HTTP endpoint (/v1/traces). Use mlflow service name on telemetry network.
+    endpoint: http://mlflow:5000
+    traces_endpoint: /v1/traces
+    tls:
+      insecure: true
+    headers:
+      x-mlflow-experiment-id: ${env:MLFLOW_EXPERIMENT_ID_STR}
+      Authorization: "${MLFLOW_OTEL_HEADERS}"
+
+  # Export metrics to Prometheus
+  prometheus:
+    endpoint: 0.0.0.0:9464
+    namespace: ogx
+
+  # Debug exporter for troubleshooting
+  debug:
+    verbosity: detailed
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp/jaeger, otlphttp/mlflow, debug]
+
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus, debug]

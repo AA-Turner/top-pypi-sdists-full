@@ -1,0 +1,100 @@
+[project]
+name = "otpauth"
+description = "Implements one time password of HOTP/TOTP"
+authors = [{name = "Hsiaoming Yang", email="me@lepture.com"}]
+dependencies = []
+license = {text = "BSD-3-Clause"}
+requires-python = ">=3.7"
+dynamic = ["version"]
+readme = "README.rst"
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Environment :: Web Environment",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: BSD License",
+  "Operating System :: OS Independent",
+  "Topic :: Security",
+  "Topic :: Utilities",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+
+[project.urls]
+Source = "https://github.com/authlib/otpauth"
+Documentation = "https://otp.authlib.org/"
+Donate = "https://github.com/sponsors/authlib"
+Blog = "https://blog.authlib.org/"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.4.1",
+    "pytest>=7.4.4",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.9.9",
+]
+
+[tool.hatch.version]
+path = "src/otpauth/__init__.py"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+branch = true
+source = ["otpauth"]
+
+[tool.coverage.paths]
+source = ["src"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "raise NotImplementedError",
+  "@(abc\\.)?abstractmethod",
+]
+
+[tool.mypy]
+strict = true
+python_version = "3.8"
+files = ["src/otpauth"]
+show_error_codes = true
+pretty = true
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "B", # flake8-bugbear
+    "E", # pycodestyle
+    "F", # pyflakes
+    "I", # isort
+    "UP", # pyupgrade
+]
+ignore = [
+    "E501", # line-too-long
+    "E722", # bare-except
+]
+
+[tool.ruff.lint.isort]
+force-single-line = true
+
+[tool.ruff.format]
+docstring-code-format = true

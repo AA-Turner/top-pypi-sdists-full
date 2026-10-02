@@ -1,0 +1,324 @@
+from __future__ import annotations
+
+import pytest
+
+from mechbench_compute import judge as J
+from mechbench_compute.ops.eval.judge import Scale, aggregate, build_prompts, summarize
+from mechbench_compute.ops.eval.judge import run_judge as run
+from mechbench_compute.protocol import ProtocolExecutor, ProtocolSpec
+
+STORIES = [
+    {"id": "s1", "coords": {"arm": "base"}, "text": "The dust settled slowly."},
+    {"id": "s2", "coords": {"arm": "tuned"}, "text": "A kettle sang in the dark."},
+]
+
+
+def judged(text, **params):
+    base = {
+        "judge": {"model": {"provider": "mock", "model": "judge-1"},
+                  "system": "Grade the story for cliché.",
+                  "provider_options": {"mock": {"text": text}}},
+        "scale": {"kind": "numeric", "min": 1, "max": 5},
+        "budget_usd": 1.0,
+        "records": STORIES,
+    }
+    base.update(params)
+    return run(base, inputs={"records": base.pop("records")})
+
+
+class TestScales:
+    def test_a_numeric_scale_reads_json_or_a_bare_number(self):
+        scale = Scale({"kind": "numeric", "min": 1, "max": 5})
+        assert scale.read('{"score": 4, "rationale": "fresh"}') == {
+            "score": 4.0, "rationale": "fresh"}
+        loose = scale.read("I would say 2 out of 5.")
+        assert loose["score"] == 2.0 and loose["rationale"]
+
+    def test_out_of_range_is_clamped_and_flagged(self):
+        scale = Scale({"kind": "numeric", "min": 1, "max": 5})
+        out = scale.read('{"score": 9}')
+        assert out["score"] == 5.0 and out["out_of_range"] == 9.0
+
+    def test_a_categorical_scale_takes_a_label_by_name(self):
+        scale = Scale({"kind": "categorical", "labels": ["cliché", "fresh"]})
+        assert scale.read('{"label": "fresh"}')["label"] == "fresh"
+        assert scale.read("This one reads as fresh to me.")["label"] == "fresh"
+        assert scale.read("no idea") == {}
+
+    def test_a_pairwise_scale_takes_a_side(self):
+        scale = Scale({"kind": "pairwise"})
+        assert scale.read('{"winner": "B", "rationale": "richer"}')["winner"] == "B"
+        assert scale.read("I prefer A.")["winner"] == "A"
+
+    def test_unreadable_is_unparsed_not_zero(self):
+        assert Scale({"kind": "numeric"}).read("hmm, hard to say") == {}
+
+    def test_a_malformed_scale_is_refused(self):
+        with pytest.raises(ValueError, match="unknown scale"):
+            Scale({"kind": "vibes"})
+        with pytest.raises(ValueError, match="max > min"):
+            Scale({"kind": "numeric", "min": 5, "max": 5})
+        with pytest.raises(ValueError, match="two labels"):
+            Scale({"kind": "categorical", "labels": ["only"]})
+
+
+class TestVotesAndSpread:
+    def test_numeric_votes_average_and_keep_the_spread(self):
+        votes = [{"parsed": True, "score": 2.0, "rationale": "a"},
+                 {"parsed": True, "score": 5.0, "rationale": "b"},
+                 {"parsed": True, "score": 3.0, "rationale": "c"}]
+        row = aggregate({"id": "s1", "coords": {}}, votes,
+                          scale=Scale({"kind": "numeric"}))
+        assert row["score"] == pytest.approx(3.3333, abs=1e-4)
+        assert row["spread"] > 1.0 and row["min"] == 2.0 and row["max"] == 5.0
+        assert row["n_parsed"] == 3
+
+    def test_categorical_votes_take_the_majority_and_report_agreement(self):
+        scale = Scale({"kind": "categorical", "labels": ["cliché", "fresh"]})
+        votes = [{"parsed": True, "label": "fresh"},
+                 {"parsed": True, "label": "fresh"},
+                 {"parsed": True, "label": "cliché"}]
+        row = aggregate({"id": "s1"}, votes, scale=scale)
+        assert row["label"] == "fresh"
+        assert row["agreement"] == pytest.approx(0.6667, abs=1e-4)
+        assert row["counts"] == {"fresh": 2, "cliché": 1}
+
+    def test_a_subject_nobody_could_grade_says_so(self):
+        row = aggregate({"id": "s1"}, [{"parsed": False}, {"parsed": False}],
+                          scale=Scale({"kind": "numeric"}))
+        assert row["unparsed"] is True and "score" not in row
+
+    def test_the_summary_carries_what_a_reader_would_cite(self):
+        scale = Scale({"kind": "numeric"})
+        rows = [{"score": 4.0}, {"score": 2.0}, {"unparsed": True}]
+        summary = summarize(rows, scale=scale, votes=[])
+        assert summary["mean"] == 3.0 and summary["n_unparsed"] == 1
+        assert summary["n_subjects"] == 3
+
+
+class TestPairwisePosition:
+    def test_the_order_flips_per_vote_and_is_recorded(self):
+        prompts = build_prompts(
+            [{"id": "s1", "text_a": "AAA", "text_b": "BBB"}],
+            scale=Scale({"kind": "pairwise"}), rubric="pick one",
+            fields=["text"], n_votes=8, seed=11,
+            pairwise_fields=["text_a", "text_b"])
+        orders = [p["order"] for p in prompts]
+        assert set(orders) == {"AB", "BA"}
+        ab = next(p for p in prompts if p["order"] == "AB")
+        ba = next(p for p in prompts if p["order"] == "BA")
+        assert ab["user"].startswith("A:\nAAA")
+        assert ba["user"].startswith("A:\nBBB")
+
+    def test_the_same_seed_gives_the_same_orders(self):
+        args = {"scale": Scale({"kind": "pairwise"}), "rubric": "r",
+                "fields": ["text"], "n_votes": 6, "seed": 3,
+                "pairwise_fields": ["text_a", "text_b"]}
+        one = build_prompts([{"id": "s1"}], **args)
+        two = build_prompts([{"id": "s1"}], **args)
+        assert [p["order"] for p in one] == [p["order"] for p in two]
+
+    def test_an_answer_is_mapped_back_from_what_the_judge_saw(self):
+        out = judged('{"winner": "A", "rationale": "the first one"}',
+                     n_votes=4, scale={"kind": "pairwise"},
+                     records=[{"id": "p1", "coords": {},
+                               "text_a": "one", "text_b": "two"}])
+        votes = out["items"][0]["votes"]
+        assert {v["shown_winner"] for v in votes} == {"A"}
+        for v in votes:
+            assert v["winner"] == ("A" if v["order"] == "AB" else "B")
+
+    def test_a_judge_that_always_picks_the_first_shown_is_visibly_biased(self):
+        out = judged('{"winner": "A"}', n_votes=6,
+                     scale={"kind": "pairwise"},
+                     records=[{"id": "p1", "coords": {},
+                               "text_a": "one", "text_b": "two"}])
+        assert out["summary"]["first_shown_win_rate"] == 1.0
+        assert out["items"][0]["agreement"] < 1.0
+
+    def test_position_bias_is_reported_as_a_rate(self):
+        votes = [{"parsed": True, "winner": "A", "order": "AB"},
+                 {"parsed": True, "winner": "B", "order": "BA"},
+                 {"parsed": True, "winner": "A", "order": "AB"}]
+        summary = summarize([{"winner": "A", "agreement": 1.0}],
+                              scale=Scale({"kind": "pairwise"}), votes=votes)
+        assert summary["first_shown_win_rate"] == 1.0
+
+
+class TestTheBlock:
+    def test_it_grades_a_corpus_and_records_what_it_cost(self):
+        out = judged('{"score": 4, "rationale": "unhurried"}', n_votes=3)
+        assert [r["id"] for r in out["items"]] == ["s1", "s2"]
+        row = out["items"][0]
+        assert row["score"] == 4.0 and row["n_votes"] == 3
+        assert row["coords"]["arm"] == "base"
+        assert row["rationale"] == "unhurried"
+        assert out["summary"]["mean"] == 4.0
+        assert out["spend"]["calls"] == 6
+        assert out["judge"]["scale"] == "numeric"
+
+    def test_the_output_is_a_record_set_downstream_blocks_can_read(self):
+        from mechbench_compute import ops
+
+        out = judged('{"score": 3}')
+        stats = ops.run_standalone(
+            "records/group", {"records": out}, {"by": {"arm": "coords.arm"}, "aggregates": {"mean": "mean(score)"}})
+        assert stats["kind"] == "collection"
+        assert {r["arm"] for r in stats["items"]} == {"base", "tuned"}
+
+    def test_an_unreadable_judge_does_not_become_a_score(self):
+        out = judged("I would rather not say.")
+        assert all(r.get("unparsed") for r in out["items"])
+        assert out["summary"]["n_unparsed"] == 2
+        assert "mean" not in out["summary"]
+
+    def test_a_judge_without_a_rubric_or_a_model_is_refused(self):
+        with pytest.raises(ValueError, match="needs a rubric"):
+            run({"judge": {"model": {"provider": "mock", "model": "m"}},
+                   "budget_usd": 1.0}, inputs={"records": STORIES})
+        with pytest.raises(ValueError, match="judge: \\{model, system\\}"):
+            run({"scale": {"kind": "numeric"}}, inputs={"records": STORIES})
+
+    def test_no_temperature_is_sent_unless_the_author_named_one(self):
+        import mechbench_compute.judge as judge_mod
+
+        sent = []
+        real = judge_mod.chat_mod.run_remote
+
+        def spy(ref, prompts, params, **kw):
+            sent.append(params.get("temperature"))
+            return real(ref, prompts, params, **kw)
+
+        old, judge_mod.chat_mod.run_remote = real, spy
+        try:
+            judged('{"score": 4}')
+            judged('{"score": 4}', judge={
+                "model": {"provider": "mock", "model": "judge-1"},
+                "system": "Grade the story for cliché.", "temperature": 0.0,
+                "provider_options": {"mock": {"text": '{"score": 4}'}}})
+        finally:
+            judge_mod.chat_mod.run_remote = old
+        assert sent == [None, 0.0]
+
+    def test_error_refuses_a_subject_with_nothing_to_judge_by_name(self):
+        with pytest.raises(ValueError, match="no text to judge") as exc:
+            judged('{"score": 4}', on_missing="error",
+                   records=[STORIES[0], {"id": "s2", "coords": {}, "text": " "}])
+        assert "'s2'" in str(exc.value) and "'s1'" not in str(exc.value)
+
+    def test_by_default_the_rest_are_graded_and_the_gap_stays_visible(self):
+        out = judged('{"score": 4}',
+                     records=[STORIES[0], {"id": "s2", "coords": {}}])
+        rows = {r["id"]: r for r in out["items"]}
+        assert rows["s1"]["score"] == 4.0
+        assert rows["s2"]["unjudged"] and rows["s2"]["missing"] == ["text"]
+        assert out["summary"]["mean"] == 4.0
+        assert out["summary"]["n_unjudged"] == 1
+        assert out["summary"]["unjudged"] == ["s2"]
+
+    def test_a_pairwise_subject_needs_both_sides(self):
+        with pytest.raises(ValueError, match="text_a and text_b"):
+            judged('{"winner": "A"}', scale={"kind": "pairwise"}, on_missing="error",
+                   records=[{"id": "p1", "coords": {}, "text_a": "a story",
+                             "text_b": ""}])
+
+    def test_an_unknown_on_missing_is_refused(self):
+        with pytest.raises(ValueError, match="on_missing is"):
+            judged('{"score": 4}', on_missing="placeholder")
+
+    def test_a_remote_judge_needs_a_cap(self):
+        with pytest.raises(ValueError, match="budget_usd"):
+            run({"judge": {"model": {"provider": "mock", "model": "m"},
+                             "system": "grade it"}},
+                  inputs={"records": STORIES})
+
+
+class TestThroughTheExecutor:
+    def test_a_judge_node_runs_end_to_end(self):
+        graph = {"dataflow": 2, "nodes": [{
+            "id": "grade", "block": "eval/judge",
+            "params": {
+                "judge": {"model": {"provider": "mock", "model": "judge-1"},
+                          "system": "Grade the story for cliché.",
+                          "provider_options": {"mock": {"text": '{"score": 5}'}}},
+                "scale": {"kind": "numeric", "min": 1, "max": 5},
+                "n_votes": 2,
+                "budget_usd": 1.0,
+            },
+            "inputs": {"records": STORIES}}], "edges": []}
+        out = ProtocolExecutor().run(ProtocolSpec(
+            kind="pipeline", prompt="", model_id=None, extra={"graph": graph}))
+        node = out.payload["outputs"]["grade"]
+        assert node["summary"]["mean"] == 5.0
+        assert out.payload["resources"]["spend"]["by_node"]["grade"]["calls"] == 4
+
+    def test_a_local_judge_runs_through_the_same_path(self, monkeypatch):
+        from mechbench_compute import distill, generate
+
+        monkeypatch.setattr(distill, "encode", lambda tok, text: [1, 2, 3])
+        monkeypatch.setattr(distill, "prefill_decision", lambda m, ids: None)
+        monkeypatch.setattr(generate, "sample_completion_cached",
+                            lambda *a, **k: ('{"score": 2, "rationale": "flat"}', []))
+
+        class FakeTok:
+            def apply_chat_template(self, turns, **kw):
+                return " | ".join(t["content"] for t in turns)
+
+        class FakeModel:
+            tokenizer = FakeTok()
+
+        ex = ProtocolExecutor()
+        monkeypatch.setattr(ex, "_model_loaded", lambda *_a, **_k: FakeModel())
+        out = ex.run(ProtocolSpec(kind="pipeline", prompt="", model_id=None, extra={
+            "graph": {"dataflow": 2, "nodes": [{
+                "id": "grade", "block": "eval/judge",
+                "params": {
+                    "judge": {"model": "google/gemma-3-4b-it",
+                              "system": "Grade the story for cliché."},
+                    "scale": {"kind": "numeric", "min": 1, "max": 5},
+                },
+                "inputs": {"records": STORIES}}], "edges": []}}))
+        node = out.payload["outputs"]["grade"]
+        assert node["summary"]["mean"] == 2.0
+        assert "spend" not in node
+
+    def test_the_resume_level_follows_the_judges_model(self):
+        from mechbench_compute import resume as resume_mod
+
+        assert resume_mod.resume_level("eval/judge", {
+            "judge": {"model": {"provider": "anthropic", "model": "x"}}}) == "exchangeable"
+        assert resume_mod.resume_level("eval/judge", {
+            "judge": {"model": "google/gemma-3-4b-it"}}) == "reproducible"
+
+
+CORPUS_FIXTURE = {
+    "kind": "document_collection",
+    "item_kind": "~canonical/kinds/text",
+    "items": [
+        {"id": "story-s0", "kind": "~canonical/kinds/text",
+         "text": "The old lighthouse keeper watched the storm.",
+         "metadata": {"coords": {"prompt": "neutral", "sample": 0}}},
+        {"id": "story-s1", "kind": "~canonical/kinds/text",
+         "text": "A kettle sang on the stove at midnight.",
+         "metadata": {"coords": {"prompt": "flash", "sample": 1}}},
+    ],
+}
+
+
+class TestSubjectsFromACorpus:
+    def test_coords_survive_from_metadata(self):
+        out = run({
+            "judge": {"model": {"provider": "mock", "model": "judge-1"},
+                      "system": "Grade the story for cliché.",
+                      "provider_options": {"mock": {"text": '{"score": 3}'}}},
+            "scale": {"kind": "numeric", "min": 1, "max": 5},
+            "budget_usd": 1.0,
+        }, inputs={"records": CORPUS_FIXTURE})
+        assert [r["coords"]["prompt"] for r in out["items"]] == ["neutral", "flash"]
+
+    def test_the_judge_sees_the_story_and_not_its_condition(self):
+        prompts = build_prompts(
+            J.chat_mod.read_records(CORPUS_FIXTURE), scale=Scale({"kind": "numeric"}),
+            rubric="grade it", fields=["text"], n_votes=1, seed=0)
+        assert "lighthouse" in prompts[0]["user"]
+        assert "neutral" not in prompts[0]["user"]

@@ -36,7 +36,8 @@ from anyscale.util import AnyscaleJSONEncoder, get_endpoint, validate_non_negati
 
 
 @click.group(
-    "image", help="Manage images to define dependencies on Anyscale.",
+    "image",
+    help="Manage images to define dependencies on Anyscale.",
 )
 def image_cli() -> None:
     pass
@@ -53,16 +54,32 @@ def _create_image_list_table(show_header: bool) -> Table:
     # Allow wrapping for all columns to prevent text cutoff
     table.add_column("NAME", no_wrap=False, overflow="fold", ratio=3, min_width=15)
     table.add_column(
-        "LATEST VERSION", no_wrap=False, overflow="fold", ratio=2, min_width=14,
+        "LATEST VERSION",
+        no_wrap=False,
+        overflow="fold",
+        ratio=2,
+        min_width=14,
     )
     table.add_column(
-        "LATEST URI", no_wrap=False, overflow="fold", ratio=4, min_width=20,
+        "LATEST URI",
+        no_wrap=False,
+        overflow="fold",
+        ratio=4,
+        min_width=20,
     )
     table.add_column(
-        "CREATED BY", no_wrap=False, overflow="fold", ratio=3, min_width=24,
+        "CREATED BY",
+        no_wrap=False,
+        overflow="fold",
+        ratio=3,
+        min_width=24,
     )
     table.add_column(
-        "CREATED AT", no_wrap=False, overflow="fold", ratio=2, min_width=20,
+        "CREATED AT",
+        no_wrap=False,
+        overflow="fold",
+        ratio=2,
+        min_width=20,
     )
     return table
 
@@ -101,9 +118,7 @@ def _format_image_output(image: ImageBuild) -> Dict[str, str]:
 def _format_image_output_verbose(image: ImageBuild) -> Dict[str, str]:
     created_at = image.created_at.strftime("%Y-%m-%d %H:%M") if image.created_at else ""
     last_modified = (
-        image.last_modified_at.strftime("%Y-%m-%d %H:%M")
-        if image.last_modified_at
-        else ""
+        image.last_modified_at.strftime("%Y-%m-%d %H:%M") if image.last_modified_at else ""
     )
     latest_version = (
         "" if image.latest_build_revision is None else str(image.latest_build_revision)
@@ -179,7 +194,10 @@ def build(
     try:
         containerfile_str = containerfile.read().decode("utf-8")
         image_uri = anyscale.image.build(
-            containerfile_str, name=name, ray_version=ray_version, cloud_id=cloud_id,
+            containerfile_str,
+            name=name,
+            ray_version=ray_version,
+            cloud_id=cloud_id,
         )
         print(f"Image built successfully with URI: {image_uri}")
     except ValueError as e:
@@ -214,9 +232,7 @@ def build(
                 "creator_email": "someone@myorg.com",
                 "is_anonymous": False,
                 "created_at": datetime(2026, 1, 1, 18, 42, 0, tzinfo=timezone.utc),
-                "last_modified_at": datetime(
-                    2026, 1, 1, 18, 42, 0, tzinfo=timezone.utc
-                ),
+                "last_modified_at": datetime(2026, 1, 1, 18, 42, 0, tzinfo=timezone.utc),
                 "latest_build_id": "bld_abc123",
                 "latest_build_revision": 1,
                 "latest_build_status": "SUCCEEDED",
@@ -245,10 +261,19 @@ def build(
     required=True,
 )
 @click.option(
-    "-j", "--json", "json_output", is_flag=True, default=False, help="Output as JSON.",
+    "-j",
+    "--json",
+    "json_output",
+    is_flag=True,
+    default=False,
+    help="Output as JSON.",
 )
 @click.option(
-    "--yaml", "yaml_output", is_flag=True, default=False, help="Output as YAML.",
+    "--yaml",
+    "yaml_output",
+    is_flag=True,
+    default=False,
+    help="Output as YAML.",
 )
 @click.option(
     "-v",
@@ -267,9 +292,7 @@ def build(
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice(
-        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
-    ),
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
     help="Output format for the result.",
@@ -358,9 +381,7 @@ def get(  # noqa: PLR0913
                     "creator_email": "someone@myorg.com",
                     "is_anonymous": False,
                     "created_at": datetime(2026, 1, 1, 18, 42, 0, tzinfo=timezone.utc),
-                    "last_modified_at": datetime(
-                        2026, 1, 1, 18, 42, 0, tzinfo=timezone.utc
-                    ),
+                    "last_modified_at": datetime(2026, 1, 1, 18, 42, 0, tzinfo=timezone.utc),
                     "latest_build_id": "bld_abc123",
                     "latest_build_revision": 3,
                     "latest_build_status": "SUCCEEDED",
@@ -373,9 +394,7 @@ def get(  # noqa: PLR0913
                     "creator_email": "another@myorg.com",
                     "is_anonymous": False,
                     "created_at": datetime(2026, 1, 2, 9, 15, 0, tzinfo=timezone.utc),
-                    "last_modified_at": datetime(
-                        2026, 1, 2, 9, 15, 0, tzinfo=timezone.utc
-                    ),
+                    "last_modified_at": datetime(2026, 1, 2, 9, 15, 0, tzinfo=timezone.utc),
                     "latest_build_id": "bld_def456",
                     "latest_build_revision": 1,
                     "latest_build_status": "SUCCEEDED",
@@ -386,7 +405,10 @@ def get(  # noqa: PLR0913
     ],
 )
 @image_cli.command(
-    name="list", short_help="List images.", help="List images.", cls=AnyscaleCommand,
+    name="list",
+    short_help="List images.",
+    help="List images.",
+    cls=AnyscaleCommand,
 )
 @click.option("--image-id", "--id", "image_id", help="ID of the image to display.")
 @click.option("--name", "-n", help="Substring to match against the image name.")

@@ -37,9 +37,7 @@ def get_default_cluster_compute(
 
     if cloud_name is None:
         default_cloud_name = get_organization_default_cloud(api_client)
-        cloud_name = default_cloud_name or get_last_used_cloud(
-            project_id, anyscale_api_client
-        )
+        cloud_name = default_cloud_name or get_last_used_cloud(project_id, anyscale_api_client)
 
     cloud_id, _ = get_cloud_id_and_name(api_client, cloud_name=cloud_name)
     config_object = anyscale_api_client.get_default_compute_config(cloud_id).result  # type: ignore
@@ -89,9 +87,10 @@ def get_cluster_compute_from_name(
 
     version = None
 
-    (cluster_compute_name, version,) = parse_cluster_compute_name_version(
-        cluster_compute_name
-    )
+    (
+        cluster_compute_name,
+        version,
+    ) = parse_cluster_compute_name_version(cluster_compute_name)
 
     cloud_id = None
     if cloud_name:
@@ -121,7 +120,8 @@ def get_cluster_compute_from_name(
 
 
 def register_compute_template(
-    config_object: ComputeTemplateConfig, api_client: Optional[DefaultApi] = None,
+    config_object: ComputeTemplateConfig,
+    api_client: Optional[DefaultApi] = None,
 ) -> ComputeTemplate:
     """
     Register compute template with a default name and return the compute template id."""
@@ -129,7 +129,8 @@ def register_compute_template(
         api_client = get_auth_api_client().api_client
     created_template = api_client.create_compute_template_api_v2_compute_templates_post(
         create_compute_template=CreateComputeTemplate(
-            config=config_object, anonymous=True,
+            config=config_object,
+            anonymous=True,
         )
     ).result
     return created_template
@@ -155,7 +156,9 @@ def get_selected_cloud_id_or_default(
     )
     if cloud_id or cloud_name:
         parent_cloud_id, _ = get_cloud_id_and_name(
-            api_client=api_client, cloud_id=cloud_id, cloud_name=cloud_name,
+            api_client=api_client,
+            cloud_id=cloud_id,
+            cloud_name=cloud_name,
         )
     elif cluster_compute_id:
         parent_cloud_id = anyscale_api_client.get_cluster_compute(  # type: ignore
@@ -164,7 +167,5 @@ def get_selected_cloud_id_or_default(
     elif cluster_compute_config:
         parent_cloud_id = cluster_compute_config.cloud_id
     else:
-        parent_cloud_id = (
-            anyscale_api_client.get_default_cluster_compute().result.config.cloud_id
-        )
+        parent_cloud_id = anyscale_api_client.get_default_cluster_compute().result.config.cloud_id
     return parent_cloud_id

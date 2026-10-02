@@ -1,0 +1,91 @@
+Metadata-Version: 2.4
+Name: chide
+Version: 4.0.0
+Summary: Quickly create sample objects from data.
+Project-URL: Homepage, https://github.com/cjw296/chide
+Project-URL: Documentation, https://chide.readthedocs.org/en/latest/
+Project-URL: Repository, https://github.com/cjw296/chide
+Project-URL: Changelog, https://chide.readthedocs.io/en/latest/changes.html
+Author-email: Chris Withers <chris@withers.org>
+License: MIT
+License-File: LICENSE.txt
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.11
+Provides-Extra: sqlalchemy
+Requires-Dist: sqlalchemy>=2.0.36; extra == 'sqlalchemy'
+Description-Content-Type: text/x-rst
+
+Chide
+=====
+
+
+|Docs|_ |PyPI|_  |Git|_ |CI|_
+
+.. |Docs| image:: https://readthedocs.org/projects/chide/badge/?version=latest
+.. _Docs: http://chide.readthedocs.org/en/latest/
+
+.. |PyPI| image:: https://badge.fury.io/py/chide.svg
+.. _PyPI: https://pypi.org/project/chide/
+
+.. |Git| image:: https://badge.fury.io/gh/cjw296%2Fchide.svg
+.. _Git: https://github.com/cjw296/chide
+
+.. |CI| image:: https://github.com/cjw296/chide/actions/workflows/ci.yml/badge.svg
+.. _CI: https://github.com/cjw296/chide
+
+Quickly create and compare sample objects.
+
+Chide's philosophy is to give you a simple registry of parameters
+needed to instantiate objects for your tests.
+There's also support for simplifying objects down to mappings of their attributes
+for easier comparison and rendering, along with parsing and rendering of formats
+for inserting or asserting about multiple objects that are naturally tabular.
+
+Quickstart
+~~~~~~~~~~
+
+Say we have two classes that each require two parameters in order to
+be instantiated:
+
+.. code-block:: python
+
+  from dataclasses import dataclass
+
+  @dataclass
+  class ClassOne:
+    x: int
+    y: int
+
+  @dataclass
+  class ClassTwo:
+    a: int
+    b: ClassOne
+
+We can set up a registry of sample values as follows:
+
+.. code-block:: python
+
+  from chide import Collection, nest
+
+  samples = Collection({
+      ClassOne: {'x': 1, 'y': 2},
+      ClassTwo: {'a': 1, 'b': nest(ClassOne)},
+  })
+
+Now we can quickly make sample objects:
+
+>>> samples.make(ClassOne)
+ClassOne(x=1, y=2)
+
+We can provide our own overrides if we want:
+
+>>> samples.make(ClassOne, y=3)
+ClassOne(x=1, y=3)
+
+We can also create nested trees of objects:
+
+>>> samples.make(ClassTwo)
+ClassTwo(a=1, b=ClassOne(x=1, y=2))

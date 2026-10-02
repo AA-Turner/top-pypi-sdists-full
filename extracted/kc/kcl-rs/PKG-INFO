@@ -1,0 +1,368 @@
+Metadata-Version: 2.4
+Name: kcl-rs
+Version: 0.1.4
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Summary: Rust-powered Python bindings for the Amazon Kinesis Client Library
+License: Apache-2.0
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+
+# kcl-rs
+
+A Rust port of the [Amazon Kinesis Client Library (KCL)](https://github.com/awslabs/amazon-kinesis-client)
+with native Python bindings — the KCL v3 consumer framework without a JVM and
+without the MultiLangDaemon.
+
+Like the Java KCL, this is the framework that turns "read from a Kinesis
+stream" into a production consumer fleet: it coordinates shard **leases**
+between workers through a DynamoDB table, **checkpoints** progress, follows
+**resharding** (parents before children), balances load across workers (KCL v3
+variance-based assignment, including CPU-informed rebalancing), retrieves
+records via **polling or enhanced fan-out**, and publishes **CloudWatch** (or
+OpenTelemetry) metrics. The port is behaviorally faithful: same lease
+algorithms, same DynamoDB table schema, same lifecycle semantics.
+
+Two crates in one workspace:
+
+| Crate | What it is |
+|---|---|
+| [`kcl/`](kcl/) | The core library — pure Rust, tokio + `aws-sdk-*`. |
+| [`kcl-python/`](kcl-python/) | PyO3 bindings, published to PyPI as **`kcl-rs`** (import name `kcl_rs`; the API mirrors `amazon_kclpy`). |
+
+---
+
+## Python
+
+### Install
+
+```sh
+pip install kcl-rs
+```
+
+Wheels are abi3 (one wheel per platform, CPython ≥ 3.11) for Linux
+(manylinux + musllinux, x86_64 + aarch64) and macOS (Apple Silicon). The
+package is fully typed (PEP 561): `mypy --strict` works out of the box, and
+your editor gets docstrings and signatures for everything.
+
+### Quick start
+
+Subclass `RecordProcessorBase`, hand the class to a `Scheduler`, and run it.
+Each processor instance owns one shard.
+
+```python
+from kcl_rs import RecordProcessorBase, Scheduler, CheckpointError
+
+
+class MyProcessor(RecordProcessorBase):
+    def initialize(self, initialize_input):
+        print(f"starting on shard {initialize_input.shard_id}")
+
+    def process_records(self, process_records_input):
+        for record in process_records_input.records:
+            handle(record.binary_data)          # raw bytes, already de-aggregated
+        try:
+            process_records_input.checkpointer.checkpoint()
+        except CheckpointError as e:
+            if e.value == "ThrottlingException":
+                ...                             # back off and retry
+
+    def lease_lost(self, lease_lost_input):
+        pass                                    # lease taken by another worker
+
+    def shard_ended(self, shard_ended_input):
+        shard_ended_input.checkpointer.checkpoint()   # required to complete the shard
+
+    def shutdown_requested(self, shutdown_requested_input):
+        shutdown_requested_input.checkpointer.checkpoint()
+
+
+scheduler = Scheduler(
+    stream_name="my-stream",
+    application_name="my-app",                  # also the lease-table name
+    record_processor_factory=MyProcessor,       # called once per shard
+    region="us-east-1",
+)
+scheduler.run()   # blocks; Ctrl-C triggers a graceful shutdown
+```
+
+`scheduler.start()` is the non-blocking variant (the KCL runs on background
+threads); call `scheduler.shutdown()` — from any thread — to stop either mode
+gracefully.
+
+### Where to start reading the stream
+
+```python
+Scheduler(..., initial_position="TRIM_HORIZON")                  # oldest available
+Scheduler(..., initial_position="LATEST")                        # default: only new records
+Scheduler(..., initial_position="AT_TIMESTAMP",
+          timestamp=datetime(2024, 1, 1, tzinfo=timezone.utc))   # or epoch seconds
+```
+
+The initial position only applies to shards without a checkpoint; a restarted
+application always resumes from its lease table.
+
+### Multi-stream mode
+
+One worker can consume several streams — pass serialized stream identifiers
+(`"accountId:streamName:creationEpoch"`) instead of a stream name:
+
+```python
+Scheduler(
+    stream_identifiers=[
+        "123456789012:orders:1700000000",
+        "123456789012:events:1700000001",
+    ],
+    application_name="my-app",
+    record_processor_factory=MyProcessor,
+)
+```
+
+### Retrieval mode
+
+Fan-out (EFO `SubscribeToShard`) is the default, matching Java KCL 2.x/3.x.
+Switch to classic polling (`GetRecords`) and tune its pacing with two knobs
+mirroring Java `PollingConfig`:
+
+```python
+Scheduler(..., retrieval_mode="POLLING",
+          max_records=500, idle_time_between_reads_millis=1000)
+```
+
+`max_records`/`idle_time_between_reads_millis` require `retrieval_mode="POLLING"`
+and are otherwise a `ValueError`. Unlike the Java multilang daemon's
+`RetrievalMode`, there is no `DEFAULT` auto-detect mode — pick one explicitly.
+
+### Two-phase (prepared) checkpoints
+
+For exactly-once-style side effects across failover, durably record a
+*pending* checkpoint first, commit it after the side effect:
+
+```python
+prepared = checkpointer.prepare_checkpoint()
+write_side_effect()
+prepared.checkpoint()
+```
+
+### LocalStack
+
+```python
+Scheduler(..., endpoint_url="http://localhost:4566",
+          access_key_id="test", secret_access_key="test")
+```
+
+There is no implicit credential fallback: either export the standard
+`AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` env vars (or a profile) or pass
+`access_key_id`/`secret_access_key`/`session_token` explicitly. A runnable
+end-to-end sample lives at [`kcl-python/samples/`](kcl-python/samples/), and
+an automated pytest e2e suite at [`kcl-python/tests/`](kcl-python/tests/) —
+see [Python e2e tests](#python-e2e-tests) below.
+
+### Runtime model
+
+The Rust KCL runs on its own tokio runtime on background threads **with the
+GIL released** — leases, retrieval, and metrics never contend with your Python
+code. The GIL is acquired only for the duration of each callback. This is the
+main practical difference from `amazon_kclpy`: no Java daemon, no
+stdin/stdout protocol, one process.
+
+### Logging
+
+Importing `kcl_rs` installs a default `tracing` subscriber so retrieval and
+lifecycle failures — e.g. a `GetShardIterator`/`GetRecords` error — are visible
+instead of silently dropped: `WARN` and above, written to stderr. Override the
+level/targets with the `RUST_LOG` env var (e.g. `RUST_LOG=kcl=debug`); an
+embedding application that installs its own subscriber first is respected.
+
+---
+
+## Rust
+
+The core crate is a regular Rust library (not on crates.io yet — use a git or
+path dependency):
+
+```toml
+[dependencies]
+kcl = { git = "https://github.com/localstack/kcl-rs", package = "kcl" }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal"] }
+aws-config = "1"
+aws-sdk-kinesis = "1"
+aws-sdk-dynamodb = "1"
+aws-sdk-cloudwatch = "1"
+```
+
+Implement the (synchronous) `ShardRecordProcessor` trait and a factory, build
+the seven sub-configs with `ConfigsBuilder`, and drive the `Scheduler`. The
+full runnable version of this example is
+[`kcl/examples/single_stream.rs`](kcl/examples/single_stream.rs)
+(`cargo run --example single_stream`):
+
+```rust
+use std::sync::Arc;
+
+use kcl::common::ConfigsBuilder;
+use kcl::coordinator::Scheduler;
+use kcl::lifecycle::events::{
+    InitializationInput, LeaseLostInput, ProcessRecordsInput, ShardEndedInput,
+    ShutdownRequestedInput,
+};
+use kcl::processor::{
+    ShardRecordProcessor, ShardRecordProcessorFactory, SingleStreamTracker, StreamTracker,
+};
+
+struct MyProcessor;
+
+impl ShardRecordProcessor for MyProcessor {
+    fn initialize(&mut self, input: InitializationInput) {
+        println!("initializing on shard {:?}", input.shard_id());
+    }
+
+    fn process_records(&mut self, input: ProcessRecordsInput) {
+        for record in input.records().unwrap_or(&[]) {
+            println!("record pk={:?} seq={:?}", record.partition_key(), record.sequence_number());
+        }
+        if let Some(checkpointer) = input.checkpointer() {
+            checkpointer.checkpoint().expect("checkpoint failed");
+        }
+    }
+
+    fn lease_lost(&mut self, _input: LeaseLostInput) {}
+
+    fn shard_ended(&mut self, input: ShardEndedInput) {
+        // Required: completing the shard lets its children be processed.
+        input.checkpointer().checkpoint().expect("checkpoint at shard end failed");
+    }
+
+    fn shutdown_requested(&mut self, input: ShutdownRequestedInput) {
+        let _ = input.checkpointer().checkpoint();
+    }
+}
+
+struct MyFactory;
+
+impl ShardRecordProcessorFactory for MyFactory {
+    fn shard_record_processor(&self) -> Box<dyn ShardRecordProcessor + Send + Sync> {
+        Box::new(MyProcessor)
+    }
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Region/credentials/endpoint come from the standard AWS environment
+    // (AWS_PROFILE, AWS_REGION, AWS_ENDPOINT_URL, ...).
+    let aws = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+
+    let tracker: Arc<dyn StreamTracker + Send + Sync> =
+        Arc::new(SingleStreamTracker::from_stream_name("my-stream"));
+    let configs = ConfigsBuilder::new(
+        tracker,
+        "my-app", // application name = lease table + CloudWatch namespace
+        aws_sdk_kinesis::Client::new(&aws),
+        aws_sdk_dynamodb::Client::new(&aws),
+        aws_sdk_cloudwatch::Client::new(&aws),
+        "worker-1",
+        Arc::new(MyFactory),
+    );
+
+    let scheduler = Scheduler::new(
+        configs.checkpoint_config(),
+        configs.coordinator_config(),
+        configs.lease_management_config(),
+        configs.lifecycle_config(),
+        configs.metrics_config(),
+        configs.processor_config(),
+        configs.retrieval_config(),
+    )?;
+
+    // Graceful shutdown on Ctrl-C.
+    let scheduler_for_signal = Arc::clone(&scheduler);
+    tokio::spawn(async move {
+        tokio::signal::ctrl_c().await.expect("ctrl-c handler");
+        scheduler_for_signal.shutdown().await;
+    });
+
+    scheduler.run().await; // blocks until shutdown completes
+    Ok(())
+}
+```
+
+Things worth knowing:
+
+* **The processor callbacks are synchronous** (matching Java's `void`
+  signatures); all AWS I/O underneath is async. Blocking briefly in a callback
+  is fine — callbacks run on blocking-capable threads, never on a tokio worker.
+* **`Scheduler::new` must be called inside a tokio runtime** (collaborators
+  capture the runtime handle) but performs no network I/O; the first I/O
+  happens when the scheduler runs.
+* Each of the seven config structs has fluent setters for the knobs you'd
+  tune in Java (`failover_time_millis`, `max_records`, idle times, retrieval
+  mode — polling vs enhanced fan-out — and so on). See the `common`,
+  `leases`, and `retrieval` module docs.
+* Everything scales the same way as Java KCL: run more worker processes with
+  the same `application_name` and leases redistribute automatically.
+
+### Consuming from LocalStack
+
+Both languages honor the standard AWS environment, so no code changes:
+
+```sh
+AWS_ENDPOINT_URL=http://localhost:4566 AWS_REGION=us-east-1 \
+AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
+  cargo run --example single_stream
+```
+
+---
+
+## Development
+
+```sh
+cargo test -p kcl                        # unit suite (~1,300 tests, hermetic)
+cargo test -p kcl -- --include-ignored   # + integration tests (needs AWS or LocalStack)
+cargo clippy --workspace --all-targets   # expect zero warnings
+
+# Python bindings (tests embed a Python interpreter):
+LD_LIBRARY_PATH=$(python3 -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))') \
+  cargo test -p kcl-python
+
+# Build the wheel:
+cd kcl-python && maturin build --release
+```
+
+No system prerequisites beyond Rust and Python — the KPL protobuf wire format
+is decoded by hand-written code (no `protoc`), and release builds are
+size-optimized (stripped, thin LTO).
+
+### Python e2e tests
+
+[`kcl-python/tests/`](kcl-python/tests/) is an opt-in pytest suite that drives
+a real `Scheduler` (FANOUT and POLLING) against a live Kinesis + DynamoDB
+backend — the Python-side analog of the Rust `#[ignore]` integration tests.
+It's skipped entirely unless `AWS_ENDPOINT_URL` is set, so it never runs by
+accident. Locally, against LocalStack:
+
+```sh
+uv venv && source .venv/bin/activate
+uv pip install --directory kcl-python --group dev maturin
+# Run maturin from kcl-python/: `maturin develop` installs the crate's PEP 735
+# dependency groups via `uv pip install --group`, resolved against the CWD's
+# pyproject.toml — from the repo root (with `-m kcl-python/Cargo.toml`) the
+# build works but that group install can't find a root pyproject.toml.
+(cd kcl-python && maturin develop --release)   # or omit --release for a faster local build
+
+AWS_ENDPOINT_URL=http://localhost:4566 AWS_REGION=us-east-1 \
+AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
+  pytest kcl-python/tests/ -v
+```
+
+Each `Scheduler` cold start against LocalStack takes ~30-90s, so the suite's
+poll-until-done waits are bounded by `KCLRS_E2E_AWAIT_SECS` (default 300s)
+rather than fixed sleeps. CI runs this suite in the `rust-test` job.
+
+Porting conventions, subsystem status, and the decisions log live in
+[`PORTING.md`](PORTING.md); deliberately-skipped Java tests are documented in
+[`TEST-PARITY.md`](TEST-PARITY.md).
+
+## License
+
+Apache-2.0, same as the upstream Amazon Kinesis Client Library.
+

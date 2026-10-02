@@ -1,0 +1,129 @@
+language: en
+
+# Adapted from Home Assistant's built-in sentence starter pack:
+# https://www.home-assistant.io/voice_control/builtin_sentences
+cases:
+  - sentence: set a timer for 5 minutes
+    frames:
+      - intent: HassStartTimer
+        combination: minutes_only
+        response_key: default
+        slots: {minutes: 5}
+
+  - sentences:
+      - 5 minute timer
+      - timer five minutes
+    frames:
+      - intent: HassStartTimer
+        combination: minutes_only
+        response_key: default
+        slots: {minutes: 5}
+
+  - sentence: 1 hour 5 minute timer
+    frames:
+      - intent: HassStartTimer
+        combination: hours_minutes
+        response_key: default
+        slots: {hours: 1, minutes: 5}
+
+  - sentence: set a timer for 1 hour 5 minutes
+    frames:
+      - intent: HassStartTimer
+        combination: hours_minutes
+        response_key: default
+        slots: {hours: 1, minutes: 5}
+
+  - sentence: 1 minute 30 second timer
+    frames:
+      - intent: HassStartTimer
+        combination: minutes_seconds
+        response_key: default
+        slots: {minutes: 1, seconds: 30}
+
+  - sentence: cancel timer
+    frames:
+      - intent: HassCancelTimer
+        combination: default
+        response_key: default
+        slots: {}
+
+  - sentence: cancel all timers
+    frames:
+      - intent: HassCancelAllTimers
+        combination: default
+        response_key: default
+        slots: {}
+
+  - sentence: cancel 5 minute timer
+    frames:
+      - intent: HassCancelTimer
+        combination: minutes_only
+        response_key: default
+        slots: {start_minutes: 5}
+
+  - sentence: add 5 minutes to timer
+    frames:
+      - intent: HassIncreaseTimer
+        combination: minutes_only
+        response_key: default
+        slots: {minutes: 5}
+
+  - sentence: add 1 hour 5 minutes to timer
+    frames:
+      - intent: HassIncreaseTimer
+        combination: hours_minutes
+        response_key: default
+        slots: {hours: 1, minutes: 5}
+
+  - sentence: remove 1 minute from timer
+    frames:
+      - intent: HassDecreaseTimer
+        combination: minutes_only
+        response_key: default
+        slots: {minutes: 1}
+
+  - sentence: remove 1 minute 30 seconds from timer
+    frames:
+      - intent: HassDecreaseTimer
+        combination: minutes_seconds
+        response_key: default
+        slots: {minutes: 1, seconds: 30}
+
+  - sentence: pause timer
+    frames:
+      - intent: HassPauseTimer
+        combination: default
+        response_key: default
+        slots: {}
+
+  - sentence: resume timer
+    frames:
+      - intent: HassUnpauseTimer
+        combination: default
+        response_key: default
+        slots: {}
+
+  - sentences:
+      - timer status
+      - what about my timer?
+      - when will the timer go off?
+      - how long till the timer is done?
+    frames:
+      - intent: HassTimerStatus
+        combination: default
+        response_key: default
+        slots: {}
+
+  - sentence: how much time is left on 5 minute timer
+    frames:
+      - intent: HassTimerStatus
+        combination: minutes_only
+        response_key: default
+        slots: {start_minutes: 5}
+
+  - sentence: nevermind
+    frames:
+      - intent: HassNevermind
+        combination: default
+        response_key: default
+        slots: {}

@@ -229,6 +229,25 @@ def test_xrange(r: ClientType):
     assert get_ids(results) == [m1]
 
 
+@pytest.mark.unsupported_server_types("kividb")
+def test_xrange_bounds_without_sequence_number(r: ClientType):
+    for seq in (1, 2, 3):
+        r.xadd("s", {"f": "v"}, id=f"5-{seq}")
+    r.xadd("s", {"f": "v"}, id="6-0")
+    # A bare millisecond time starts a range at its first sequence number and ends it at its last.
+    assert get_ids(r.xrange("s", min="5", max="5")) == [b"5-1", b"5-2", b"5-3"]
+    assert get_ids(r.xrevrange("s", max="5", min="-")) == [b"5-3", b"5-2", b"5-1"]
+    assert get_ids(r.xrange("s", min="(5", max="+")) == [b"5-1", b"5-2", b"5-3", b"6-0"]
+    assert get_ids(r.xrange("s", min="-", max="(6")) == [b"5-1", b"5-2", b"5-3", b"6-0"]
+    r.xgroup_create("s", "g", id="0")
+    r.xreadgroup("g", "c", {"s": ">"})
+    assert [p["message_id"] for p in r.xpending_range("s", "g", min="-", max="5", count=10)] == [
+        b"5-1",
+        b"5-2",
+        b"5-3",
+    ]
+
+
 def get_stream_message(client, stream, message_id):
     """Fetch a stream message and format it as a (message_id, fields) pair"""
     response = client.xrange(stream, min=message_id, max=message_id)
@@ -520,9 +539,10 @@ def test_xreadgroup(r: ClientType, real_server_details):
     assert actual == resp_conversion(r, expected_resp3, expected_resp2)
     # delete all the messages in the stream
     assert r.xtrim(stream, 0) == 2
-    # TODO groups keep ids of deleted messages
-    # expected = [[stream.encode(), [(m1, {}), (m2, {})]]]
-    # assert r.xreadgroup(group, consumer, streams={stream: "0"}) == expected
+    # The group keeps the ids of the deleted messages pending, with their fields gone.
+    expected_resp2 = [[stream.encode(), [(m1, {}), (m2, {})]]]
+    expected_resp3 = {stream.encode(): [[(m1, {}), (m2, {})]]}
+    assert r.xreadgroup(group, consumer, streams={stream: "0"}) == resp_conversion(r, expected_resp3, expected_resp2)
     # A blocking read that finds nothing: on dragonfly under RESP3 the empty-array reply
     # is not something redis-py can parse, so issue it raw there.
     testtools.assert_empty_stream_read(

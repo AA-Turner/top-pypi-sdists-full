@@ -5,12 +5,9 @@ from ninja.security import django_auth
 # Django
 from django.conf import settings
 
-# Alliance Auth
-from allianceauth.services.hooks import get_extension_logger
-
 # AA Killstats
 from killstats import __title__
-from killstats.api import killstats
+from killstats.api import admin, general, killboard, stats
 
 api = NinjaAPI(
     title="Killstats API",
@@ -20,5 +17,13 @@ api = NinjaAPI(
     openapi_url=settings.DEBUG and "/openapi.json" or "",
 )
 
-# Add the character endpoints
-killstats.setup(api)
+
+def setup(ninja_api):
+    killboard.ApiEndpoints(ninja_api)
+    admin.ApiEndpoints(ninja_api)
+    stats.ApiEndpoints(ninja_api)
+    general.ApiEndpoints(ninja_api)
+
+
+# Initialize API endpoints
+setup(api)

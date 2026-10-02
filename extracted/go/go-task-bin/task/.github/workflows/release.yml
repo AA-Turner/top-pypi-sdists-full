@@ -21,7 +21,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: 1.26.x
+          go-version: 1.27.x
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -46,17 +46,27 @@ jobs:
         run: pnpm install
         working-directory: website
 
+      # GoReleaser builds the snap packages but does not install snapcraft.
+      - name: Install snapcraft
+        run: sudo snap install snapcraft --classic
+
+      - name: Generate release notes
+        run: go run ./cmd/release --notes > "${RUNNER_TEMP}/release-notes.md"
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7
         with:
           distribution: goreleaser-pro
           version: latest
-          args: release --clean --draft
+          args: release --clean --release-notes=${{ runner.temp }}/release-notes.md
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
           GH_GORELEASER_TOKEN: ${{secrets.GH_GORELEASER_TOKEN}}
           GORELEASER_KEY: ${{secrets.GORELEASER_KEY}}
           CLOUDSMITH_TOKEN: ${{secrets.CLOUDSMITH_TOKEN}}
+          DISCORD_WEBHOOK_ID: ${{secrets.DISCORD_WEBHOOK_ID}}
+          DISCORD_WEBHOOK_TOKEN: ${{secrets.DISCORD_WEBHOOK_TOKEN}}
+          SNAPCRAFT_STORE_CREDENTIALS: ${{secrets.SNAPCRAFT_STORE_CREDENTIALS}}
 
       - name: Deploy Website
         shell: bash

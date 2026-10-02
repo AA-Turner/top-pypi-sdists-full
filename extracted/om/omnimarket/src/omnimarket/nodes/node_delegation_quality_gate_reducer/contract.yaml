@@ -1,0 +1,518 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodeDelegationQualityGateReducer
+#
+# Deterministic quality gate for the delegation pipeline.
+# Evaluates LLM output quality using heuristic checks: length,
+# refusal detection, task-type marker presence.
+#
+# Related Tickets:
+#   - OMN-7040: Node-based delegation pipeline
+name: "node_delegation_quality_gate_reducer"
+contract_name: "node_delegation_quality_gate_reducer"
+node_name: "node_delegation_quality_gate_reducer"
+contract_version:
+  major: 0
+  minor: 2
+  patch: 0
+node_version:
+  major: 0
+  minor: 2
+  patch: 0
+node_type: "REDUCER_GENERIC"
+runtime_profiles: [main]
+description: >
+  Deterministic quality gate reducer for the delegation pipeline. Evaluates LLM output quality using DoD checks declared in the task-class contract: deterministic structural/schema checks (output_parses, signature_preserved, response_non_empty, etc.) BLOCK delegation result injection on failure but are reject-only pass-side diagnostics; heuristic pre-filters (no_refusal, min_length_chars, cites_* markers, methodical_analysis markers, sentence-count checks, etc.) are also reject-only and may not promote output to adequate by themselves (OMN-13370). Substantive task checks such as semantic_adequacy may serve as adequacy authority only when explicitly declared in the task contract. Reads dod_deterministic and dod_heuristic from ModelQualityGateInput (OMN-10616). Pure function, no I/O.
+
+  OMN-13367 adds the controlled, reproducible, auditable judge verdict event schema for non-verifiable task classes. The judge verdict event records the judge identity bundle and replay hash; it does not claim LLM judge inference is deterministic.
+
+  OMN-18278 adds one class-independent floor evaluated ahead of every branch above, including the caller-declared response_contract branch: when the caller reports that the PROVIDER stopped generating because the output-token budget ran out (finish_reason=length), acceptance is vetoed as fail_deterministic at score 0.0 with the blocking rule not_truncated_by_output_budget named on the verdict. It is deliberately not a declared DoD check -- a declared check is one a task class may decline to name, and the two criteria written for this shape (final_artifact_only, response_non_empty) were named, ran, and passed a response that was nothing but the model's scratchpad. The reason carries the WEAK_OUTPUT prefix so the attempt CLIMBS: the next rung brings its own budget. A caller that supplies no signal records finish_reason=absent on the result, which is never read as evidence that a response completed.
+
+  Failure categories: REFUSAL, MALFORMED, WEAK_OUTPUT, TASK_MISMATCH, FAIL_DETERMINISTIC.
+
+input_model:
+  name: "ModelQualityGateInput"
+  module: "omnimarket.nodes.node_delegation_quality_gate_reducer.models"
+  description: "LLM response content and expected quality markers."
+output_model:
+  name: "ModelQualityGateResult"
+  module: "omnimarket.nodes.node_delegation_quality_gate_reducer.models"
+  description: "Pass/fail verdict, quality score, and failure reasons."
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  subscribe_topics:
+    - "onex.cmd.omnibase-infra.delegation-quality-gate-request.v1"
+  publish_topics:
+    - "onex.evt.omnibase-infra.quality-gate-result.v1"
+    - "onex.evt.omnibase-infra.delegation-judge-verdict.v1"
+    # OMN-17445: the address the consume boundary answers at when
+    # HandlerQualityGateIntent RAISES. APPENDED, never prepended: the
+    # dispatch-result applier resolves this contract's SUCCESS terminal as the
+    # FIRST publish topic (no top-level terminal_event is declared), so a
+    # prepended failure terminal would silently become the success terminal.
+    - "onex.evt.omnibase-infra.quality-gate-result-failed.v1"
+    # OMN-20154: the judge's provider quota observation, delivered through
+    # node_event_emit_effect (spool, then bus) by the judge adapter, folded by
+    # node_projection_provider_quota. APPENDED for the same reason as above.
+    - "onex.evt.omnimarket.provider-quota-observed.v1"
+
+# OMN-17445 -- WHY THIS DECLARATION EXISTS.
+#
+# OMN-16812's boundary emitter publishes onto the failing contract's OWN
+# declared failure terminal and only when `_declared_failure_terminal_topics`
+# resolves EXACTLY ONE. This contract declared none, so the gate resolved zero
+# and the emitter was inert: a raise inside HandlerQualityGateIntent -- e.g.
+# the ProtocolConfigurationError `_load_response_contract_schema` raises for a
+# task class whose `response_contract_ref` does not import -- was DLQ'd safely,
+# produced no terminal, and left the delegation FSM parked in
+# INFERENCE_COMPLETED forever. `delegation-failed.v1` was never published and
+# the caller's gateway row never left 'published'.
+#
+# `success` is declared alongside `failure` deliberately: with a failure entry
+# alone the Pattern B broker treats `terminal_events[0]` -- the failure topic --
+# as this contract's success topic.
+#
+# Arming this also arms the OMN-15468 AC2 re-route guard over this node's
+# RETURN values, which was adjudicated before the declaration landed, not
+# after: `ModelQualityGateResult(passed=False)` is a NORMAL outcome and is NOT
+# re-routed, because `resolve_terminal_verdict` reads only
+# `terminal_failure_cause` / `status` / `ok` / `success` / `contract_passed`
+# and this model declares none of them (`passed` and its `pass_` authority
+# sibling are not among them). Pinned in
+# tests/unit/delegation/test_omn17445_effect_and_gate_failure_terminals.py so a
+# later field addition trips a test rather than silently stranding every
+# escalation a failing gate is supposed to trigger.
+runtime_dispatch:
+  terminal_events:
+    success: "onex.evt.omnibase-infra.quality-gate-result.v1"
+    failure: "onex.evt.omnibase-infra.quality-gate-result-failed.v1"
+# Maps the handler's returned model to its publish topic so the runtime
+# dispatch-result applier routes ModelQualityGateResult to quality-gate-result.v1.
+# event_type is the Model-prefix-stripped short class name (OMN-12294).
+published_events:
+  - event_type: "QualityGateResult"
+    topic: "onex.evt.omnibase-infra.quality-gate-result.v1"
+    description: "Quality gate verdict emitted by HandlerQualityGateIntent for the delegation orchestrator."
+  - event_type: "DelegationJudgeVerdictEvent"
+    topic: "onex.evt.omnibase-infra.delegation-judge-verdict.v1"
+    model:
+      name: "ModelDelegationJudgeVerdictEvent"
+      module: "omnimarket.events.delegation_judge_verdict"
+    description: "Controlled, reproducible, auditable judge verdict for non-verifiable delegation classes. Includes judge_model, judge_model_version, judge_provider, rubric_id, rubric_hash, prompt_hash, input_hash, temperature, judge_node_version, reasoning_hash, verdict, actual_score, and event_hash."
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    # The reducer's pure quality-gate logic (handler_quality_gate.delta) is
+    # invoked by HandlerQualityGateIntent below. The bridge-era
+    # "delegation.quality_gate" entry was removed in OMN-12294: it named a
+    # HandlerQualityGate class that never existed (the module exposes only
+    # delta()), and only ever ran via the in-process bridge calling delta()
+    # directly. With the bridge gone the orchestrator publishes
+    # ModelQualityGateIntent and this node consumes it. event_model makes the
+    # runtime validate the payload to ModelQualityGateIntent before calling
+    # handle() AND type-scopes the dispatcher.
+    - operation: delegation_quality_gate
+      event_model:
+        name: "ModelQualityGateIntent"
+        module: "omnibase_core.models.delegation.wire"
+      handler:
+        name: "HandlerQualityGateIntent"
+        module: "omnimarket.nodes.node_delegation_quality_gate_reducer.handlers.handler_quality_gate_intent"
+      description: "Unwrap ModelQualityGateIntent from the orchestrator and publish ModelQualityGateResult to quality-gate-result.v1 (OMN-12294 — Kafka-native quality-gate-intent consumer for the pure-bus delegation chain)."
+error_handling:
+  retry_policy:
+    max_retries: 0
+    initial_delay_ms: 0
+    max_delay_ms: 0
+    exponential_base: 1
+    retry_on: []
+  error_types:
+    - name: "QualityGateError"
+      description: "Unexpected error during quality gate evaluation"
+      recoverable: false
+# OMN-18297 -- IDENTIFIER GROUNDING.
+#
+# WHY THIS EXISTS. Local delegation d715f096-27b9-444f-9355-3554819ef8a5 (a
+# 22-row standup over ~18K input tokens, backend local-heavy-reasoning,
+# Qwen3.6-35B-A3B) emitted eight pull-request citations that occur NOWHERE in
+# the fed rows, while every OMN ticket number it emitted was grounded. This
+# gate scored that response passed=true score=1.0, because none of its checks
+# ever compared the response against the input it was derived from: refusal,
+# emptiness, length, markers and semantic adequacy are all response-only.
+#
+# WHAT THIS DECLARES. The CLOSED set of identifier classes whose occurrences in
+# a response must be traceable to the grounding source, the form each class is
+# looked up in, the markers a response may use to declare an identifier
+# unverified, and the failure policy. The check implementation reads this
+# block; it hardcodes no class and no pattern.
+#
+# WHAT IT DOES NOT CLAIM. Grounding is looked up by the declared
+# `grounding_form`, which for a pull-request reference is the NUMBER token
+# (`#NNNN`) and not the repository-qualified spelling. A response that attaches
+# a real number to the wrong repository is NOT caught: the fed rows themselves
+# cite PRs in both forms (`omnibase_infra#3465` and a bare `#1407` inside an
+# omninode_infra row), so a repo-qualified lookup would report every correctly
+# resolved bare citation as fabricated. That is exactly the error the original
+# finding made -- it grepped the qualified spelling and reported ~20 fabricated
+# numbers where 8 are genuinely absent in any form. Repo-attribution
+# correctness needs a live repository probe, which is an EFFECT and is not this
+# pure reducer's job.
+identifier_grounding:
+  policy_version: "identifier-grounding.v1"
+  # The DoD check name a task class declares to arm this. Declared in the
+  # heuristic band in task_class_contracts.v1.yaml; reject-only, so a passing
+  # grounding check never by itself promotes an output to adequate (OMN-13370).
+  check_name: "identifiers_grounded"
+  # Each class: `pattern` is a Python `re` pattern with a named group `token`
+  # naming the substring to ground; `grounding_form` is the string the source
+  # is searched for, `{token}` substituted. `prefix_match` grounds a shorter
+  # token that is a prefix of a longer source occurrence (abbreviated shas).
+  classes:
+    - class_name: pull_request_ref
+      pattern: '(?<![\w#])(?:[A-Za-z][A-Za-z0-9._-]*)?#(?P<token>\d{1,7})(?![\w])'
+      grounding_form: "#{token}"
+      prefix_match: false
+      description: "repo#NNN or a bare #NNN pull-request citation."
+    - class_name: ticket_ref
+      pattern: '(?<![\w-])(?P<token>OMN-\d{3,6})(?![\w-])'
+      grounding_form: "{token}"
+      prefix_match: false
+      description: "Linear ticket identifier."
+    - class_name: commit_sha
+      # `(?=[0-9a-f]*\d)` requires at least one digit, so hex-alphabet English
+      # words ("defaced", "facade", "added") are not read as shas.
+      pattern: '(?<![\w])(?P<token>(?=[0-9a-f]*\d)[0-9a-f]{7,40})(?![\w])'
+      grounding_form: "{token}"
+      prefix_match: true
+      description: "Abbreviated or full lowercase git commit sha."
+    - class_name: github_run_id
+      pattern: '(?<![\w])(?:run|run[ _-]?id)[ :#]+(?P<token>\d{9,12})(?![\w])'
+      grounding_form: "{token}"
+      prefix_match: false
+      description: "GitHub Actions run id cited as `run <id>`."
+    - class_name: correlation_uuid
+      pattern: '(?<![\w-])(?P<token>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?![\w-])'
+      grounding_form: "{token}"
+      prefix_match: false
+      description: "Delegation run / correlation / tenant UUID."
+  # A response MAY cite an identifier it could not verify, provided it says so.
+  # Each entry is a Python `re` pattern searched in the `unverified_window`
+  # characters following the identifier occurrence.
+  unverified_markers:
+    - '\(\s*unverified\s*\)'
+    - '\[\s*unverified\s*\]'
+    - '\(\s*not\s+verified\s*\)'
+    - '\(\s*unconfirmed\s*\)'
+  unverified_window: 40
+  failure_policy:
+    # Reject-only heuristic band: an ungrounded identifier FAILS the check,
+    # which fails the gate and escalates the ladder. It never promotes.
+    band: heuristic
+    on_ungrounded: fail
+    # The grounding source is the delegated prompt. The bus path's
+    # ModelQualityGateIntent carries only ModelQualityGateInput, which has no
+    # prompt field, so on that path no source is available. Recording the check
+    # as SKIPPED is the only honest verdict: it is excluded from the scored
+    # total so an unevaluated check cannot report a phantom pass, and it is
+    # named in the result's skipped_checks so the absence is visible rather
+    # than silent. Never "pass" -- an empty result is not evidence of absence.
+    on_source_unavailable: skip_and_record
+    max_reported: 25
+  answer_segment:
+    # OMN-18278 (open, NOT fixed here): local-tier responses ship the model's
+    # scratchpad ahead of the answer, terminated by a closing think tag with no
+    # matching opening tag, so the ordinary paired-tag strip leaves the whole
+    # trace in place. Grounding is evaluated on the segment AFTER the last such
+    # terminator, because a scratchpad enumerates candidate identifiers the
+    # model then discards and grading those would be grading the wrong text.
+    # This isolates the answer for THIS check only; it does not strip the trace
+    # from the response the caller receives. That strip is OMN-18278's.
+    stray_trace_terminator: "</think>"
+    rule: after_last_terminator
+# OMN-19529 -- NUMBER GROUNDING.
+#
+# WHY THIS EXISTS. The delegation capability matrix of 2026-09-25 replayed 76
+# trials against their tickets' own DoD checks. The gate accepted report prose
+# that said "Nine classes" over a table listing eight (run eba20c71), and a
+# summary that added the derived count "ten" after being told to use only the
+# numbers it was given (run f740d9ca). Both scored passed=true 1.0. Identifier
+# grounding (above) cannot see either: a count is not an identifier.
+#
+# WHAT THIS DECLARES. The pattern a digit claim is read with, the spelled
+# number words (a tens word followed by a unit word is one compound, so
+# "twenty-three" is 23), the words too ambiguous to read as a count, and the
+# spans of an answer that are not claims. The check implementation reads this
+# block; it hardcodes no pattern and no word.
+#
+# WHAT IT DOES NOT CLAIM. A number that occurs anywhere in the source grounds
+# every use of it, so a real number attached to the wrong subject passes. The
+# source side is read generously on purpose -- every digit run and each of its
+# dot- and comma-separated parts -- because a false refusal pushes a correct
+# local answer up a quota-limited ladder (OMN-19199, comment of 2026-09-22).
+# Measured on the matrix: zero refusals across the 20 prose trials whose DoD
+# passed, two refusals among the trials whose DoD failed.
+numeric_grounding:
+  policy_version: "numeric-grounding.v1"
+  check_name: "numbers_grounded"
+  # A digit claim. The look-behind keeps numbers that belong to an identifier
+  # (OMN-123, #45, v1.2, a/b/3, file.py:12, 2026-09-25) out of the claim set;
+  # identifier grounding owns identifiers, and a date component is not a count.
+  claim_pattern: '(?<![\w.#/:-])(?P<token>\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)(?![\w]|\.\d)'
+  # Every digit run in the source, split below on its separators.
+  source_pattern: '\d[\d,]*(?:\.\d+)?'
+  source_part_separators: '[.,]'
+  # Spans removed from the answer before claims are read: fenced code (a
+  # constant in code is not a claim about the input), a list enumerator at
+  # the start of a line, and a line citation. A line number is DERIVED from a
+  # diff hunk header, not copied: run 9168a0df cited "Line: 25" inside a hunk
+  # headed @@ -22,6 +22,20 @@, and 25 is the right line. Whether a cited line
+  # exists is the code-review rules' question, not this check's.
+  excluded_answer_spans:
+    - '```.*?(?:```|\Z)'
+    - '(?m)^[ \t]*\d+[.)][ \t]'
+    - '(?i)\blines?\b[^0-9\n]{0,8}\d+(?:\s*(?:-|to|and)\s*\d+)?'
+  number_words:
+    two: 2
+    three: 3
+    four: 4
+    five: 5
+    six: 6
+    seven: 7
+    eight: 8
+    nine: 9
+    ten: 10
+    eleven: 11
+    twelve: 12
+    thirteen: 13
+    fourteen: 14
+    fifteen: 15
+    sixteen: 16
+    seventeen: 17
+    eighteen: 18
+    nineteen: 19
+    twenty: 20
+    thirty: 30
+    forty: 40
+    fifty: 50
+    sixty: 60
+    seventy: 70
+    eighty: 80
+    ninety: 90
+  # Read in the SOURCE (so "one trial" there grounds a 1), never as a claim in
+  # the answer: "one paragraph", "the one that", "zero cost" are not counts.
+  source_only_words:
+    zero: 0
+    one: 1
+  compound_separator: '[- ]'
+  # A spelled number immediately followed by a hyphen and a letter modifies
+  # the next word ("Two-way", "three-tier", "twenty-three-year") rather than
+  # stating a count. This applies only to answer claims; source reading remains
+  # generous. The compound pattern consumes "twenty-three" before this follower
+  # is tried, so an unjoined "twenty-three rows" remains a claim of 23.
+  spelled_modifier_follower: '-[^\W\d_]'
+  # Same convention as identifier grounding: a response may state a number it
+  # could not check, provided it says so right after it.
+  unverified_markers:
+    - '\(\s*unverified\s*\)'
+    - '\[\s*unverified\s*\]'
+    - '\(\s*not\s+verified\s*\)'
+    - '\(\s*derived\s*\)'
+  unverified_window: 40
+  failure_policy:
+    band: heuristic
+    on_ungrounded: fail
+    on_source_unavailable: skip_and_record
+    # A request that states no number carries no numeric source material, so
+    # this check cannot distinguish an invented count from general knowledge.
+    # Refusing it pushes a correct answer up a quota-limited ladder: the same
+    # false-refusal cost cited above (OMN-19199, comment of 2026-09-22).
+    on_source_without_numbers: skip_and_record
+    max_reported: 25
+# OMN-19199 -- CLAIM GROUNDING.
+#
+# WHY THIS EXISTS. Operator run 844cac18 (summarization, local tier) wrote
+# "the third lane (OMN-19174) is currently deprioritized to accommodate the
+# producer work". OMN-19174 occurs in the input only inside one row's cost
+# sentence, and no row says anything is deprioritized. Every identifier in the
+# answer is real, so identifier grounding passes it by construction, and the
+# gate scored it passed=true 1.0. The defect sits one level up: the claim made
+# about a grounded identifier.
+#
+# WHAT THIS DECLARES. The identifier patterns a clause is anchored by, how an
+# answer is cut into clauses, and the STATE groups a clause can assert. A clause
+# that uses a word of a group asserts that state. If the clause cites an
+# identifier the source holds, the state must occur in the source rows that
+# hold that identifier (any wording of the group grounds it). A clause that
+# cites no identifier the source holds is not checked, and the check is armed on
+# summarization only: a state word in free prose ("the app is closed") is
+# ordinary English. An unsupported state fails the response.
+#
+# WHAT IT DOES NOT CLAIM. It reads only the declared states. A false claim that
+# uses no state word, a true state attached to the wrong subject inside one row,
+# and an invented reason all pass. Groups are generous synonym sets on purpose,
+# because a false refusal pushes a correct local answer up a quota-limited
+# ladder. This is a deterministic floor, not the faithfulness judge OMN-13470
+# adds; that judge stays the route for what this check cannot see.
+claim_grounding:
+  policy_version: "claim-grounding.v1"
+  check_name: "claims_grounded"
+  anchor_patterns:
+    - '(?<![\w-])OMN-\d{3,6}(?![\w-])'
+    - '(?:[A-Za-z][A-Za-z0-9._-]*)?#\d{1,7}(?![\w])'
+    - '(?<![\w])(?=[0-9a-f]*\d)[0-9a-f]{7,40}(?![\w])'
+    - '(?<![\w-])[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?![\w-])'
+  # Sentence ends, semicolons and line breaks cut statements; an identifier
+  # never carries across one.
+  clause_split: '(?<=[.!?])\s+|[;\n]'
+  # Commas and the words that join independent claims cut a statement into
+  # clauses. A clause with no identifier of its own inherits the one before it,
+  # so "the lane (OMN-19174), is deprioritized" is still about OMN-19174.
+  subclause_split: ',\s+|\s+(?:while|whereas|but)\s+'
+  excluded_answer_spans:
+    - '```.*?(?:```|\Z)'
+  state_groups:
+    completed: [complet, done, finish, merg, resolv, shipp, landed, succe, passed, green]
+    in_progress: [in progress, ongoing, underway, active, claim, resum, started, working, wip, taken over]
+    blocked: [block, stuck, stall, waiting, halted, on hold]
+    deprioritized: [deprioriti, demot, shelv, backlog, postpon, defer, paus, sidelin, low priority, lower priority]
+    cancelled: [cancel, abandon, withdr, retire, dropped, scrapp, supersed]
+    delayed: [delay, displac, slip, pushed back]
+    failed: [fail, kill, crash, broke, error, abort, reject, refus]
+  unverified_markers:
+    - '\(\s*unverified\s*\)'
+    - '\[\s*unverified\s*\]'
+    - '\(\s*not\s+verified\s*\)'
+    - '\(\s*unconfirmed\s*\)'
+  unverified_window: 40
+  failure_policy:
+    band: heuristic
+    on_ungrounded: fail
+    on_source_unavailable: skip_and_record
+    max_reported: 25
+# OMN-19529 -- NAME RESOLUTION FOR CODE CLASSES.
+#
+# WHY THIS EXISTS. compiles_without_errors proves only that code PARSES. Run
+# 40e9de70 returned code that raises NameError on import and scored 1.0. The
+# nearest thing to "imports in isolation" that a pure reducer can do without
+# executing model-written code is static name resolution: every name the code
+# reads must be bound by the code, be a builtin, or occur in the grounding
+# source (a fragment written for insertion into a file the prompt describes
+# may use that file's names).
+#
+# WHAT IT DOES NOT CLAIM. It does not execute anything, so an attribute that
+# does not exist, a wrong import path and a runtime error all pass. A name the
+# prompt mentions anywhere counts as resolvable, which is why 40e9de70 itself
+# passes: its prompt spelled the bare names it then misused. With no grounding
+# source the check is skipped and recorded, never passed.
+name_resolution:
+  policy_version: "name-resolution.v1"
+  check_name: "names_resolve"
+  # Fence language tags read as Python. An untagged fence and unfenced content
+  # are read as Python too, exactly as compiles_without_errors reads them.
+  python_fence_tags: ["", "python", "py", "python3"]
+  # How a name is looked up in the grounding source: as a whole word.
+  source_word_pattern: '[A-Za-z_][A-Za-z0-9_]*'
+  # Module attributes Python binds at import that `builtins` does not list.
+  implicit_module_names:
+    - "__file__"
+    - "__name__"
+    - "__doc__"
+    - "__spec__"
+    - "__loader__"
+    - "__package__"
+    - "__builtins__"
+    - "__path__"
+    - "__annotations__"
+    - "__module__"
+    - "__qualname__"
+    - "__class__"
+  failure_policy:
+    band: deterministic
+    on_source_unavailable: skip_and_record
+    max_reported: 25
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+  checks:
+    - name: "quality_gate_handler_loaded"
+      type: "handler"
+      critical: true
+metadata:
+  description: "Delegation quality gate that evaluates LLM output using reject-only schema/format, length, refusal, and marker diagnostics plus explicit semantic adequacy authority, and records controlled, reproducible, auditable judge verdicts for non-verifiable classes."
+  judge_verdict_event:
+    topic: "onex.evt.omnibase-infra.delegation-judge-verdict.v1"
+    score_source: "reproducible_judge"
+    terminology: "controlled_reproducible_auditable"
+    identity_bundle_fields:
+      - judge_model
+      - judge_model_version
+      - judge_provider
+      - rubric_id
+      - rubric_hash
+      - prompt_hash
+      - input_hash
+      - temperature
+      - judge_node_version
+      - reasoning_hash
+      - verdict
+      - actual_score
+    failure_semantics: "judge_failed verdict carries failure_kind/failure_message and actual_score=null, never a silent zero score"
+  demo_path: true  # OMN-12777: demo-path topic coherence gate scope marker
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-03-30"
+  tags:
+    - reducer
+    - quality-gate
+    - delegation
+    - validation
+  related_tickets:
+    - "OMN-7040"
+
+# OMN-13734: machine-readable FSM (transcribed from authoritative handler/model logic).
+state_machine:
+  version: {major: 1, minor: 0, patch: 0}
+  state_machine_name: delegation_quality_gate_fsm
+  state_machine_version: {major: 1, minor: 0, patch: 0}
+  description: "delegation_quality_gate_fsm"
+  initial_state: idle
+  terminal_states: []
+  error_states: []
+  persistence_enabled: false
+  states:
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: idle
+      state_type: operational
+      description: "No quality-gate evaluation folded yet."
+      required_data: []
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: evaluated
+      state_type: operational
+      description: "Quality-gate result projection materialized."
+      required_data: []
+  transitions:
+    # Quality-gate evaluation requested.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: idle_to_evaluated_on_quality_gate_request
+      from_state: idle
+      to_state: evaluated
+      trigger: quality_gate_request
+    # Fold another evaluation request.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: evaluated_to_evaluated_on_quality_gate_request
+      from_state: evaluated
+      to_state: evaluated
+      trigger: quality_gate_request
+    # Re-observe own result (idempotent).
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: evaluated_to_evaluated_on_quality_gate_result
+      from_state: evaluated
+      to_state: evaluated
+      trigger: quality_gate_result

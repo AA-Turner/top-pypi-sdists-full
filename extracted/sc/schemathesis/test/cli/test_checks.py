@@ -3,7 +3,7 @@ import xml.etree.ElementTree as ET
 
 import pytest
 from _pytest.main import ExitCode
-from flask import jsonify, request
+from flask import jsonify, redirect, request
 
 import schemathesis
 from schemathesis.checks import CHECKS
@@ -282,6 +282,70 @@ def test_negative_data_rejection_uuid_path_param_with_pattern_no_false_positive(
         "--mode=negative",
         "--phases=stateful,fuzzing",
         "--max-examples=200",
+        exit_code=ExitCode.OK,
+    )
+
+
+def test_negative_data_rejection_wildcard_media_type_link_body_no_false_positive(ctx, cli, app_runner):
+    # A link writes into a body sent under a concrete media type the operation declares only as `*/*`.
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/api/items": {
+                "post": {
+                    "operationId": "createItem",
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"type": "object"}}},
+                    },
+                    "responses": {
+                        "201": {
+                            "description": "Created",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "required": ["id"],
+                                        "properties": {"id": {"type": "integer"}},
+                                    }
+                                }
+                            },
+                            "links": {
+                                "UpdateItem": {
+                                    "operationId": "updateItem",
+                                    "requestBody": {"id": "$response.body#/id"},
+                                }
+                            },
+                        }
+                    },
+                }
+            },
+            "/api/items/update": {
+                "post": {
+                    "operationId": "updateItem",
+                    "requestBody": {
+                        "required": True,
+                        "content": {"*/*": {"schema": {"type": "object", "properties": {"id": {"type": "integer"}}}}},
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+        }
+    )
+
+    @app.route("/api/items", methods=["POST"])
+    def create_item():
+        return jsonify({"id": 1}), 201
+
+    @app.route("/api/items/update", methods=["POST"])
+    def update_item():
+        return jsonify({}), 200
+
+    cli.run_and_assert(
+        app_runner.openapi_url(app),
+        "--checks=negative_data_rejection,not_a_server_error",
+        "--mode=positive",
+        "--phases=stateful",
+        "--max-examples=20",
         exit_code=ExitCode.OK,
     )
 
@@ -615,6 +679,74 @@ def test_optional_auth_should_not_trigger_ignored_auth_check(ctx, cli, snapshot_
         return jsonify({"status": "Ok"})
 
     assert cli.run_openapi_app(app, "-c ignored_auth", "--phases=fuzzing", "--max-examples=3") == snapshot_cli
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_login_redirect_counts_as_enforced_auth(ctx, cli, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app(
+        {"/me": {"get": {"security": [{"session": []}], "responses": {"200": {"description": "OK"}}}}},
+        components={"securitySchemes": {"session": {"type": "apiKey", "in": "cookie", "name": "session"}}},
+    )
+
+    @app.route("/me", methods=["GET"])
+    def me():
+        if request.cookies.get("session") != "valid":
+            return redirect("/login?next=/me")
+        return jsonify({"user": "alice"})
+
+    @app.route("/login", methods=["GET"])
+    def login():
+        return "<form>Sign in</form>", 200, {"Content-Type": "text/html"}
+
+    assert (
+        cli.run_openapi_app(
+            app, "-c ignored_auth", "--phases=fuzzing", "--max-examples=1", "-H", "Cookie: session=valid"
+        )
+        == snapshot_cli
+    )
+
+
+TOKEN_HEADER_SCHEME = {"type": "apiKey", "in": "header", "name": "Token"}
+BEARER_SCHEME = {"type": "http", "scheme": "bearer"}
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+@pytest.mark.parametrize(
+    ["scheme", "enforced", "args"],
+    [
+        pytest.param(
+            TOKEN_HEADER_SCHEME,
+            True,
+            ["-H", "Authorization: Bearer secret"],
+            id="credentials-in-undeclared-authorization",
+        ),
+        pytest.param(
+            TOKEN_HEADER_SCHEME,
+            True,
+            ["-H", "authorization: Bearer secret"],
+            id="credentials-in-undeclared-lowercase-authorization",
+        ),
+        pytest.param(TOKEN_HEADER_SCHEME, False, [], id="auth-not-enforced"),
+        # `Authorization` is declared, so probes can strip it and the check keeps its verdict
+        pytest.param(BEARER_SCHEME, False, ["-H", "Authorization: Bearer secret"], id="declared-authorization"),
+    ],
+)
+def test_ignored_auth_with_credentials_in_undeclared_authorization_header(
+    ctx, cli, snapshot_cli, scheme, enforced, args
+):
+    # The `Token` scheme is declared, but the enforcing server reads `Authorization`
+    app, _ = ctx.openapi.make_flask_app(
+        {"/items": {"get": {"security": [{"auth": []}], "responses": {"200": {"description": "OK"}}}}},
+        components={"securitySchemes": {"auth": scheme}},
+    )
+
+    @app.route("/items", methods=["GET"])
+    def items():
+        if enforced and request.headers.get("Authorization") != "Bearer secret":
+            return jsonify({"detail": "unauthorized"}), 401
+        return jsonify([])
+
+    assert cli.run_openapi_app(app, "-c ignored_auth", "--phases=fuzzing", "--max-examples=3", *args) == snapshot_cli
 
 
 @pytest.mark.parametrize(
@@ -1763,3 +1895,22 @@ def test_alternative_security_requirements_should_not_trigger_negative_data_reje
     assert (
         cli.run_openapi_app(app, "-c negative_data_rejection", "--phases=coverage", "--auth=user:pass") == snapshot_cli
     )
+
+
+def test_ignored_auth_probes_each_operation_until_enforcement_is_confirmed(ctx, cli):
+    # Every successful case used to trigger its own unauthenticated requests; one confirmation is enough.
+    api = ctx.openapi.apps.basic_with_query()
+
+    cli.run(
+        api.schema_url,
+        "--auth=test:test",
+        "--checks=ignored_auth",
+        "--phases=fuzzing",
+        "--mode=positive",
+        "--max-examples=20",
+    )
+
+    authorized = [request for request in api.requests if request.headers.get("Authorization") == "Basic dGVzdDp0ZXN0"]
+    unauthorized = [request for request in api.requests if request.headers.get("Authorization") != "Basic dGVzdDp0ZXN0"]
+    assert len(authorized) > 1
+    assert len(unauthorized) == 2

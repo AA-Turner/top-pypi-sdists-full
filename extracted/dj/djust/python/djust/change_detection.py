@@ -1,0 +1,186 @@
+"""One structural fingerprint for every "did this value change?" decision (#2664).
+
+Four places decide whether a piece of LiveView state changed between two
+points in time: the pre/post event snapshot (``websocket._snapshot_assigns``),
+the Rust state sync (``rust_bridge._sync_state_to_rust``), dirty tracking
+(``LiveView._dirty_fingerprint``) and the memoised ``@computed`` cache. Until
+#2664 each carried its own shallow fingerprint (``id`` + length + top-level
+keys) and the Rust sync kept a REFERENCE to the previous container and
+compared it by ``==`` — which is the mutation-after-capture aliasing of #1039:
+after ``self.columns["done"].append(card)`` the "previous" value IS the
+mutated object, so it compares equal to itself and the browser never hears
+about the change. The two seams disagreed with each other too (one skipped
+the event, the other rendered and sent ``patches: []``), which is the #1646
+parallel-path shape.
+
+:func:`deep_fingerprint` walks plain containers (``dict`` / ``list`` /
+``tuple`` / ``set`` / ``frozenset``) structurally down to their leaves and
+returns a hashable, comparable value that shares NO reference with the state,
+so a later in-place mutation cannot retroactively change it. Leaves:
+
+* immutables (``str`` / ``int`` / ``float`` / ``bool`` / ``bytes`` / ``None``)
+  by value, tagged with their type so ``1`` / ``True`` / ``1.0`` differ;
+* everything else by ``id()`` — a model instance, a form, a queryset. A
+  reassignment is seen, an in-place attribute write on such an object is not
+  (the Phoenix LiveView contract; ``set_changed_keys`` remains the hatch).
+
+Cost is bounded by ``budget`` visited nodes (default 20 000). Past it the
+remaining subtrees collapse to ``id()`` and the caller is told, so it can emit
+the one-shot "fingerprint truncated" warning naming the attribute; the walk
+is also depth-capped and cycle-safe. Measured on the model-backed WS
+benchmark (50 rows × 6 columns, ``tests/benchmarks/``) the deep walk is
+within noise of the shallow one because the rows are model instances — leaves.
+"""
+
+from __future__ import annotations
+
+from typing import Any, Hashable, List, Tuple
+
+__all__ = ["deep_fingerprint", "warn_fingerprint_truncated", "DEFAULT_BUDGET", "FINGERPRINT_FIELDS"]
+
+#: Maximum container nodes + leaves visited per top-level value before the
+#: walk degrades to identity for whatever remains.
+DEFAULT_BUDGET = 20_000
+
+_MAX_DEPTH = 32
+
+_IMMUTABLE_LEAVES = (str, int, float, bool, bytes, type(None))
+
+# Tags keep the shape unambiguous: ("L", ...) for a list can never equal
+# ("T", ...) for the same items as a tuple, and a leaf ("v", int, 1) never
+# equals ("v", bool, True).
+_TAG_VALUE = "v"
+_TAG_ID = "i"
+_TAG_LIST = "L"
+_TAG_TUPLE = "T"
+_TAG_DICT = "D"
+_TAG_SET = "S"
+_TAG_TRUNCATED = "x"
+
+
+def warn_fingerprint_truncated(cls: type, name: str, value: Any) -> None:
+    """Warn ONCE per (view class, attribute) that *name* exceeded the budget.
+
+    Both change-detection sites that can hit the budget — the pre/post event
+    snapshot (``websocket._snapshot_assigns``) and the Rust state sync
+    (``rust_bridge._sync_state_to_rust``) — call this with the same key, so
+    an attribute that trips both is reported once, and a SECOND oversized
+    attribute on the same view is still reported (per-attribute sentinel,
+    not per-class).
+    """
+    from .utils import emit_one_shot_class_warning
+
+    emit_one_shot_class_warning(
+        cls,
+        "fingerprint_truncated_%s" % name,
+        "[djust] %s: %s '%s' has %d items and exceeds the change-detection "
+        "budget (%d nodes) — content fingerprint truncated. In-place mutations "
+        "inside it will NOT be detected by auto-diff. Use "
+        "self.set_changed_keys({'%s'}) or assign a new %s reference.",
+        cls.__qualname__,
+        type(value).__name__,
+        name,
+        len(value) if hasattr(value, "__len__") else 0,
+        DEFAULT_BUDGET,
+        name,
+        type(value).__name__,
+    )
+
+
+#: The plain containers every snapshot walks structurally (#2664).
+CONTAINER_TYPES = (dict, list, tuple, set, frozenset)
+
+#: Marker a wrapper class sets so the snapshots fingerprint the object it
+#: wraps rather than the wrapper's ``id()``. ``BoundComponent`` (ADR-031) sets
+#: it: a class-level component's slot holds the wrapper, whose identity never
+#: changes, while the ``State`` inside it is what a handler mutates (#2900).
+STATE_MARKER = "_djust_fingerprint_state"
+
+
+#: Name of the optional class attribute that narrows the walk of a
+#: state-marked object (ADR-033 D3). A tuple of state keys: those are walked
+#: structurally; every OTHER key is a leaf — compared by value when it is a
+#: scalar, by ``id()`` otherwise — so a data table's ``rows`` cost one node
+#: instead of a ten-thousand-row walk, and reassigning them is still seen.
+#: ``None`` (the default) walks the whole state under the budget.
+FINGERPRINT_FIELDS = "fingerprint_fields"
+
+
+def _leaf(value: Any) -> Hashable:
+    """The one-node fingerprint of *value*: scalars by value, else identity."""
+    if value is None or isinstance(value, _IMMUTABLE_LEAVES):
+        return (_TAG_VALUE, type(value), value)
+    return (_TAG_ID, id(value))
+
+
+def fingerprints_by_content(value: Any) -> bool:
+    """Is *value* compared by STRUCTURE (walked) rather than by ``id()``?
+
+    ONE statement of the rule for every snapshot — ``_snapshot_assigns``, the
+    dirty baseline, ``@computed``'s dependency key and ``_sync_state_to_rust``
+    — so a shape one of them walks cannot be a leaf to another (#1646, #2900).
+    """
+    return isinstance(value, CONTAINER_TYPES) or bool(getattr(type(value), STATE_MARKER, False))
+
+
+def deep_fingerprint(value: Any, budget: int = DEFAULT_BUDGET) -> Tuple[Hashable, bool]:
+    """Return ``(fingerprint, truncated)`` for *value*.
+
+    ``fingerprint`` is hashable and shares no reference with *value*;
+    ``truncated`` is True when *budget* ran out and part of the structure was
+    reduced to ``id()`` (in-place mutations inside that part are invisible).
+    """
+    counter: List[int] = [budget]
+    fp = _walk(value, counter, 0, ())
+    return fp, counter[0] < 0
+
+
+def _walk(value: Any, counter: List[int], depth: int, path_ids: Tuple[int, ...]) -> Hashable:
+    fields: Any = None
+    if getattr(type(value), STATE_MARKER, False):
+        fields = getattr(type(value), FINGERPRINT_FIELDS, None)
+        if isinstance(fields, str):  # ``fingerprint_fields = "columns"`` — one key, not chars
+            fields = (fields,)
+        value = getattr(value, "state", value)
+    counter[0] -= 1
+    if counter[0] < 0:
+        return (_TAG_TRUNCATED, id(value))
+    if value is None or isinstance(value, _IMMUTABLE_LEAVES):
+        return (_TAG_VALUE, type(value), value)
+    if isinstance(value, (dict, list, tuple, set, frozenset)):
+        vid = id(value)
+        if depth >= _MAX_DEPTH or vid in path_ids:
+            # Too deep, or a cycle back onto an ancestor: identity only.
+            return (_TAG_ID, vid)
+        inner = path_ids + (vid,)
+        if isinstance(value, dict):
+            if fields is not None:
+                # ADR-033 D3: a narrowed component state — the declared keys
+                # are walked, the rest are one-node leaves.
+                return (
+                    _TAG_DICT,
+                    tuple(
+                        (
+                            _walk(k, counter, depth + 1, inner),
+                            _walk(v, counter, depth + 1, inner) if k in fields else _leaf(v),
+                        )
+                        for k, v in dict.items(value)
+                    ),
+                )
+            return (
+                _TAG_DICT,
+                tuple(
+                    (_walk(k, counter, depth + 1, inner), _walk(v, counter, depth + 1, inner))
+                    # ``dict.items(value)``, not ``value.items()``: a TypedState
+                    # field named ``items`` is a property shadowing the method.
+                    for k, v in dict.items(value)
+                ),
+            )
+        if isinstance(value, (set, frozenset)):
+            try:
+                return (_TAG_SET, frozenset(_walk(v, counter, depth + 1, inner) for v in value))
+            except TypeError:  # pragma: no cover — every branch returns hashables
+                return (_TAG_ID, vid)
+        tag = _TAG_LIST if isinstance(value, list) else _TAG_TUPLE
+        return (tag, tuple(_walk(v, counter, depth + 1, inner) for v in value))
+    return (_TAG_ID, id(value))

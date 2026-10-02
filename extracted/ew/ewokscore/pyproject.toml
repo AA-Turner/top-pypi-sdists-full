@@ -1,0 +1,96 @@
+[build-system]
+requires = ["setuptools>=46.4"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ewokscore"
+version = "5.0.0"
+authors = [{ name = "ESRF", email = "dau-pydev@esrf.fr" }]
+description = "API for graphs and tasks in Ewoks"
+readme = { file = "README.md", content-type = "text/markdown" }
+license = { file = "LICENSE.md" }
+keywords = ["ewoks"]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "numpy >=1.15",
+    "networkx >=2",
+    "silx >=1",
+    "pyyaml >=5.1",
+    "h5py >=2.8",
+    "packaging",
+    "ewoksutils >=1.10.0",
+    "importlib_metadata;python_version < '3.9'",
+    "pydantic >= 2",
+    "typing_extensions;python_version < '3.11'",
+    "backports.strenum;python_version < '3.11'",
+]
+
+[project.urls]
+Homepage = "https://github.com/ewoks-kit/ewokscore"
+Documentation = "https://ewokscore.readthedocs.io/"
+Repository = "https://github.com/ewoks-kit/ewokscore"
+Issues = "https://github.com/ewoks-kit/ewokscore/issues/"
+Changelog = "https://github.com/ewoks-kit/ewokscore/blob/main/CHANGELOG.md"
+
+[project.optional-dependencies]
+notebooks = ["papermill"]
+test = ["ewokscore[notebooks]", "pytest >=7", "matplotlib >=3", "ipykernel"]
+dev = ["ewokscore[test]", "ruff"]
+doc = [
+    "ewokscore[test]",
+    "sphinx >=4.5",
+    "sphinxcontrib-mermaid >=0.7",
+    "sphinx-autodoc-typehints >=1.16",
+    "nbsphinx",
+    # v0.21 incompatible with nbsphinx_link: https://github.com/vidartf/nbsphinx-link/issues/22
+    "docutils < 0.21",
+    "nbsphinx_link",
+    "pydata-sphinx-theme",
+    "sphinx-copybutton",
+]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"*" = ["*.json", "*.ipynb"]
+
+[tool.coverage.run]
+omit = ["*/tests/*"]
+
+[project.entry-points."ewoks.tasks.class"]
+"ewokscore.tests.examples.tasks.*" = "ewokscore"
+
+[project.entry-points."ewoks.tasks.method"]
+"ewokscore.tests.examples.tasks.*" = "ewokscore"
+
+[project.entry-points."ewoks.engines"]
+"core" = "ewokscore.engine:CoreWorkflowEngine"
+
+[project.entry-points."ewoks.engines.serialization.representations"]
+"json" = "ewokscore.engine:CoreWorkflowEngine"
+"json_dict" = "ewokscore.engine:CoreWorkflowEngine"
+"json_string" = "ewokscore.engine:CoreWorkflowEngine"
+"json_module" = "ewokscore.engine:CoreWorkflowEngine"
+"yaml" = "ewokscore.engine:CoreWorkflowEngine"
+"yaml_module" = "ewokscore.engine:CoreWorkflowEngine"
+"test_core" = "ewokscore.engine:CoreWorkflowEngine"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# Ignore `S101` (assert used violations) in all test files
+"src/ewokscore/tests/*.py" = ["S101"]
+
+[tool.ruff.lint.isort]
+force-single-line = true

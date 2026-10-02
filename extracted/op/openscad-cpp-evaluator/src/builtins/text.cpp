@@ -1,0 +1,139 @@
+#include "builtins.hpp"
+
+#include "openscad_cpp_evaluator/call_args.hpp"
+#include "openscad_cpp_evaluator/evaluator.hpp"
+#include "openscad_cpp_evaluator/segments.hpp"
+#include "openscad_cpp_evaluator/text_metrics.hpp"
+
+#include <algorithm>
+
+// text(text=, size=10, font=, halign="default", valign="default", spacing=1,
+// direction=, language=, script=) -- renders `text` as 2D glyph outlines
+// through the FontProvider (Evaluator::fontProvider(), lazily the built-in
+// FreetypeFontProvider if none was injected).
+//
+// The layout is HarfBuzz's, so kerning, ligatures and bidi reordering
+// apply, and direction/language/script are honoured rather than merely
+// accepted -- whichever of them is left empty is guessed from the text
+// itself by the shaper.
+//
+// The font is resolved once here, at resolve time, and its handle rides in
+// CSGParams through to generate time, same as every other primitive's
+// parameters: the generate pass can run without an EvalContext in reach.
+
+namespace oscadeval {
+
+namespace {
+std::string asStringOr(const Value& v, const std::string& fallback) {
+    const std::string* s = std::get_if<std::string>(&v);
+    return s ? *s : fallback;
+}
+} // namespace
+
+CSGParams resolveText(Evaluator& ev, const oscad::ModularCall& node, EvalContext& ctx) {
+    auto [args, effCtx] = resolveCallArgs(ev, node.arguments, ctx);
+    const std::string text = asStringOr(getArg(args, 0, "text", Value{std::string("")}), "");
+    const double size = toDoubleLenient(getArg(args, 1, "size", Value{10.0}));
+    // font is POSITIONAL, at index 2: `text("Hi", 10, "Liberation Sans")`
+    // is how people write it and how the reference reads it -- measured
+    // against the 2026.02.01 binary, whose bounding box for the
+    // positional form matches the named one exactly.
+    //
+    // Only font. halign/valign/spacing/direction/language/script stay
+    // name-only, because the same measurement shows the reference
+    // ignoring them positionally: `text("Hi", 10, "F", "center")` is NOT
+    // centred there, while halign="center" is. text() and textmetrics()
+    // genuinely differ here -- textmetrics takes all nine positionally --
+    // so neither can be assumed from the other.
+    const std::string fontSpec = asStringOr(getArg(args, 2, "font", Value{std::string("")}), "");
+    const std::string halign = asStringOr(getArg(args, std::nullopt, "halign", Value{std::string("default")}), "default");
+    const std::string valign = asStringOr(getArg(args, std::nullopt, "valign", Value{std::string("default")}), "default");
+    const double spacing = toDoubleLenient(getArg(args, std::nullopt, "spacing", Value{1.0}));
+    ShapeOptions shape;
+    shape.direction = asStringOr(getArg(args, std::nullopt, "direction", Value{std::string("")}), "");
+    shape.language = asStringOr(getArg(args, std::nullopt, "language", Value{std::string("")}), "");
+    shape.script = asStringOr(getArg(args, std::nullopt, "script", Value{std::string("")}), "");
+
+    FontProvider& fp = ev.fontProvider();
+    const FontHandle handle = fp.resolveFont(fontSpec);
+    const FontMetrics fm = fp.metrics(handle);
+    const double scale = size * (100.0 / 72.0) / fm.unitsPerEm;
+    // Steps per glyph curve: an eighth of a circle's segments at the text's
+    // size, plus one (upstream FreetypeRenderer). This read $fn at radius 0
+    // and halved it, so default text came out at 2 steps per curve, not 4.
+    const int segs = std::max(Discretizer::fromCtx(effCtx).circular(size).value_or(3) / 8 + 1, 2);
+    const TextMeasurement m = measureText(fp, handle, text, size, spacing, shape);
+    const auto [offsetX, offsetY] = textAlignOffset(
+        halign, valign, m, [&](const std::string& w) { ev.warn(w, &node.position()); });
+
+    std::vector<Value> glyphs;
+    glyphs.reserve(m.glyphs.size());
+    for (const TextMeasurement::Placed& g : m.glyphs) {
+        glyphs.push_back(Value{std::make_shared<const ValueList>(
+            ValueList{{Value{static_cast<double>(g.glyph)}, Value{g.x}, Value{g.y}}})});
+    }
+
+    CSGParams params;
+    // The handle is what generateText looks the face up by, but it is an
+    // index into THIS evaluator's FontProvider -- the first font resolved
+    // is handle 0 whatever it is. Two evaluators sharing a ManifoldCache
+    // (two tabs in a GUI, say) therefore agreed on "font_handle=0" for
+    // entirely different fonts, and the second render was served the
+    // first one's glyphs. The spec goes in the params too, so the cache
+    // key tells them apart: the same spec always resolves to the same
+    // face, and two specs that happen to resolve alike merely miss the
+    // cache rather than collide.
+    params["font_spec"] = Value{fontSpec};
+    params["font_handle"] = Value{static_cast<double>(handle)};
+    params["scale"] = Value{scale};
+    params["segs"] = Value{static_cast<double>(segs)};
+    params["offset_x"] = Value{offsetX};
+    params["offset_y"] = Value{offsetY};
+    params["glyphs"] = Value{std::make_shared<const ValueList>(ValueList{std::move(glyphs)})};
+    params["color"] = colorToValue(effCtx.color);
+    return params;
+}
+
+std::vector<ColoredBody> generateText(Evaluator& ev, const CSGParams& params, const std::vector<std::unique_ptr<CSGNode>>&,
+                                       const oscad::ASTNode&) {
+    const FontHandle handle = static_cast<FontHandle>(std::get<double>(params.at("font_handle")));
+    const double scale = std::get<double>(params.at("scale"));
+    const int segs = static_cast<int>(std::get<double>(params.at("segs")));
+    const auto& glyphs = std::get<ListPtr>(params.at("glyphs"))->items;
+
+    std::optional<manifold::CrossSection> cs;
+    for (const Value& gv : glyphs) {
+        const auto& placed = std::get<ListPtr>(gv)->items;
+        const GlyphId glyph = static_cast<GlyphId>(std::get<double>(placed[0]));
+        const double penX = std::get<double>(placed[1]);
+        const double penY = std::get<double>(placed[2]);
+
+        const GlyphContours contours = ev.fontProvider().glyphOutline(handle, glyph, segs);
+        if (contours.empty()) continue;
+        manifold::Polygons polys;
+        polys.reserve(contours.size());
+        for (const auto& c : contours) {
+            manifold::SimplePolygon poly;
+            poly.reserve(c.size());
+            for (const auto& p : c) poly.push_back(manifold::vec2(p[0], p[1]));
+            polys.push_back(std::move(poly));
+        }
+        // NonZero, not EvenOdd: a glyph's holes are cut by winding
+        // direction (TrueType wraps outer contours one way and inner the
+        // other), so the fill rule is what makes the counter of an 'o' a
+        // hole rather than a second filled blob.
+        manifold::CrossSection glyphCs(polys, manifold::CrossSection::FillRule::NonZero);
+        glyphCs = glyphCs.Scale(manifold::vec2(scale, scale)).Translate(manifold::vec2(penX, penY));
+        cs = cs ? (*cs + glyphCs) : glyphCs;
+    }
+
+    manifold::CrossSection result = cs.value_or(manifold::CrossSection());
+    result = result.Translate(manifold::vec2(std::get<double>(params.at("offset_x")), std::get<double>(params.at("offset_y"))));
+
+    ColoredBody body;
+    body.section = std::move(result);
+    body.color = valueToColor(params.at("color"));
+    return {body};
+}
+
+} // namespace oscadeval

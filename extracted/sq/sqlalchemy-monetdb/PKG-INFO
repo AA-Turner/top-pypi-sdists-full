@@ -1,0 +1,72 @@
+Metadata-Version: 2.5
+Name: sqlalchemy_monetdb
+Version: 2.1.0
+Summary: SQLAlchemy dialect for MonetDB
+Project-URL: Homepage, https://github.com/MonetDB/sqlalchemy-monetdb
+Project-URL: Repository, https://github.com/MonetDB/sqlalchemy-monetdb
+Project-URL: Issues, https://github.com/MonetDB/sqlalchemy-monetdb/issues
+Project-URL: Changelog, https://github.com/me/spam/blob/master/CHANGES
+Author-email: Gijs Molenaar <gijsmolenaar@gmail.com>
+License-Expression: MIT
+License-File: LICENSE
+Keywords: MonetDB,SQLAlchemy
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Topic :: Database
+Classifier: Topic :: Database :: Database Engines/Servers
+Classifier: Topic :: Database :: Front-Ends
+Requires-Python: >=3.8.1
+Requires-Dist: pymonetdb>=1.8.2
+Requires-Dist: sqlalchemy>=1.4.54
+Provides-Extra: test
+Requires-Dist: coverage>=7.3.0; extra == 'test'
+Requires-Dist: flake8>=6.1.0; extra == 'test'
+Requires-Dist: mypy>=1.5.1; extra == 'test'
+Requires-Dist: pytest-cov>=4.1.0; extra == 'test'
+Requires-Dist: pytest>=7.4.0; extra == 'test'
+Description-Content-Type: text/x-rst
+
+MonetDB dialect for SQLAlchemy
+==============================
+
+This is the MonetDB dialect driver for SQLAlchemy 2.*. It has support for Python 3.8+ and PyPy. It supports
+SQLalchemy 2.*.
+
+
+Installation
+------------
+
+To install this dialect run::
+
+    $ pip install sqlalchemy_monetdb
+
+or from the source folder::
+
+    $ pip install .
+
+
+Usage
+-----
+
+To start using this dialect::
+
+    from sqlalchemy import create_engine
+    engine = create_engine('monetdb://monetdb:monetdb@localhost:50000/demo', echo=True)
+
+Alternatively, you can also specify the driver::
+
+    engine = create_engine('monetdb+pymonetdb://monetdb:monetdb@localhost:50000/demo', echo=True)
+
+More info
+---------
+
+ * http://www.sqlalchemy.org/
+ * http://www.monetdb.org/

@@ -3,7 +3,7 @@ from typing import Any, List, Optional
 
 from .bootstrap import attach_session, get_action_id, get_action_record
 from .identity import resolve_project_id, resolve_sidecar_base_url
-from .models import FacialRecognitionServer, HealthStatus, PeopleActivityRequest, RedisDetails, ServiceShutdownRequest, ServiceShutdownResult, SimilarFaceMatch, SimilarFaceSearchRequest, StaffDetails, StaffEmbedding, StaffEnrollRequest, StaffEnrollResult, StaffImageUpdateRequest, StaffImageUpdateResult, UnknownPersonEnrollRequest, UnknownPersonEnrollResult
+from .models import FacialRecognitionServer, HealthStatus, PeopleActivityRequest, ServiceShutdownRequest, ServiceShutdownResult, SimilarFaceMatch, SimilarFaceSearchRequest, StaffDetails, StaffEmbedding, StaffEnrollRequest, StaffEnrollResult, StaffImageUpdateRequest, StaffImageUpdateResult, UnknownPersonEnrollRequest, UnknownPersonEnrollResult
 from .response import CallFailure, unwrap_fr_sidecar, unwrap_platform
 from .transport import Uploader, _rpc_model, _rpc_sent, backend_base_url
 
@@ -42,7 +42,6 @@ class FRClient:
     ENROLL_UNKNOWN: str
     HEALTH: str
     PEOPLE_ACTIVITY: str
-    REDIS_DETAILS: str
     SEARCH_SIMILAR: str
     SERVER: str
     SHUTDOWN: str
@@ -188,21 +187,6 @@ class FRClient:
         
                 Returns:
                     The status, or ``None`` when the sidecar answers with no payload.
-        
-                Raises:
-                    CallFailure: There is no session or no sidecar address, or the call failed.
-        """
-        ...
-
-    async def fetch_redis_details(self: Any) -> Optional[Any]:
-        """
-        The Redis the sidecar publishes its matches to.
-        
-                **The one sidecar route with no query string at all.** There is one Redis per sidecar,
-                so neither the project nor the server id narrows the answer.
-        
-                Returns:
-                    The details, or ``None`` when the sidecar answers with no payload.
         
                 Raises:
                     CallFailure: There is no session or no sidecar address, or the call failed.

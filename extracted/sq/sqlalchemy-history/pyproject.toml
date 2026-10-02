@@ -1,0 +1,82 @@
+[build-system]
+requires = [
+    "setuptools>=80", # Recommended by setuptools-scm
+    "setuptools-scm",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "SQLAlchemy-History"
+description = "History tracking extension for SQLAlchemy."
+dynamic = ['version']
+authors = [
+    { "name" = "Corridor Platforms", "email" = "postmaster@corridorplatforms.com" },
+]
+license = "Apache-2.0 AND BSD-3-Clause"
+license-files = ["LICENSE"]
+requires-python = ">=3.9"
+readme = "README.md"
+classifiers = [
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Typing :: Typed",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = ["SQLAlchemy>=2", "SQLAlchemy-Utils>=0.30.12", "anyio>3"]
+
+[project.optional-dependencies]
+asyncio = ["SQLAlchemy[asyncio]>=2"]
+alembic = ["alembic"]
+
+[project.urls]
+Homepage = "https://github.com/corridor/sqlalchemy-history"
+Repository = "https://github.com/corridor/sqlalchemy-history"
+Issues = "https://github.com/corridor/sqlalchemy-history/issues"
+Changelog = "https://github.com/corridor/sqlalchemy-history/releases"
+
+[dependency-groups]
+dev = ["ruff", "prek"]
+test = [
+    "sqlalchemy-history[asyncio]",
+    "pytest",
+    "pytest-cov",
+    # Drivers
+    "psycopg2-binary",
+    "PyMySQL",
+    "pyodbc",
+    "oracledb",           # Supports both sync and async
+    "aiosqlite",
+    "asyncpg",
+    "aioodbc",
+    "aiomysql",
+    "importlib-metadata",
+    "termcolor",          # Used in benchmark.py
+]
+docs = [
+    "mkdocs",
+    "mkdocs-autorefs",
+    "mkdocs-awesome-pages-plugin",
+    "mkdocstrings-python",
+]
+
+[tool.setuptools_scm]
+root = "."
+
+[tool.setuptools.packages.find]
+include = ["sqlalchemy_history", "sqlalchemy_history.*"]
+
+[tool.setuptools.package-data]
+sqlalchemy_history = ["py.typed"]
+
+[tool.coverage.run]
+dynamic_context = "test_function"
+branch = true
+
+[tool.uv]
+exclude-newer = "1 week" # Cooldown period for new vulnerabilities

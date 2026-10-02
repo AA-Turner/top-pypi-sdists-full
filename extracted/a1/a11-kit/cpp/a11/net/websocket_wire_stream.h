@@ -1,0 +1,231 @@
+/*
+ * Copyright 2026 The A11 Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
+ * @file
+ * @brief WebSocket WireStream transport built on A11's nghttp2/HTTP2 stack.
+ *
+ * A WebSocketWireStream carries A11 WireMessage traffic over a WebSocket, and
+ * WebSocketWireServer hosts inbound connections. This is the default transport
+ * for connecting agents across a network: pick it whenever both ends can reach
+ * each other over TCP and you want a persistent bidirectional channel. Logical
+ * messages are framed over the socket by the shared ChannelWireStream layer.
+ * Delivery carries no global ordering guarantee but is synchronised on closure
+ * -- a reader observes every delivered message before the stream completes.
+ */
+
+#ifndef A11_NET_WEBSOCKET_WIRE_STREAM_H_
+#define A11_NET_WEBSOCKET_WIRE_STREAM_H_
+
+#include <cstdint>
+#include <functional>
+#include <memory>
+#include <string>
+
+#include <absl/base/nullability.h>
+#include <absl/status/status.h>
+#include <absl/status/statusor.h>
+
+#include "a11/concurrency/future.h"
+#include "a11/net/channel_wire_stream.h"
+#include "a11/net/describe_endpoint.h"
+#include "a11/net/http2.h"
+#include "a11/net/server_headers.h"
+#include "a11/net/wire_stream.h"
+
+namespace a11::net {
+
+/**
+ * @brief Client-side tuning for a WebSocketWireStream connection.
+ *
+ * Configures the underlying HTTP/2 transport (including TLS), extra HTTP
+ * headers sent on the WebSocket handshake, and the channel framing that
+ * governs message splitting and buffering.
+ */
+struct WebSocketClientOptions {
+  Http2Options http2_options;     ///< HTTP/2 connection and TLS policy.
+  HttpHeaders headers;            ///< Extra WebSocket handshake headers.
+  ChannelFramingOptions framing;  ///< Packet splitting and reassembly bounds.
+  /**
+   * @brief How long the handshake alone may take.
+   *
+   * What a caller almost always means by "connect timeout": bound reaching a
+   * peer that accepts the TCP connection and then says nothing, without
+   * bounding the session that follows. `http2_options.deadline` and
+   * `WireStreamOptions::deadline` both abort the stream when they pass, which
+   * for a long-lived session is a different request entirely.
+   */
+  absl::Time handshake_deadline = absl::InfiniteFuture();
+
+  /** @return OK if the options are internally consistent. */
+  absl::Status Validate() const;
+};
+
+/**
+ * @brief A WireStream that carries A11 traffic over a client or accepted
+ * WebSocket.
+ *
+ * Client instances are created with CreateClient(); server-accepted instances
+ * are produced by WebSocketWireServer. Framing and message delivery are
+ * handled by the ChannelWireStream base.
+ */
+class WebSocketWireStream final : public ChannelWireStream {
+ private:
+  struct ConstructorToken {};
+
+ public:
+  /**
+   * @brief Dials a WebSocket endpoint and returns a WireStream over it.
+   *
+   * @param url The ws:// or wss:// URL of the remote A11 endpoint.
+   * @param options Transport-level WireStreamOptions (buffering, deadlines).
+   * @param websocket_options Handshake headers, framing, HTTP/2 and TLS
+   *     settings.
+   * @return The connected stream, or an error status. Drive it asynchronously
+   *     via Start()/Send() once returned.
+   */
+  static absl::StatusOr<std::shared_ptr<WebSocketWireStream>> CreateClient(
+      const std::string& url, WireStreamOptions options = {},
+      WebSocketClientOptions websocket_options = {});
+
+  /**
+   * @brief The path this stream was accepted on, query string included.
+   *
+   * Empty for a client stream, which knows where it dialled. On a server
+   * accepting under WebSocketServerOptions::path_prefix this is the only place
+   * the rest of the path survives, and so the only way a handler can serve
+   * more than one thing on one port.
+   */
+  [[nodiscard]] const std::string& GetRequestPath() const {
+    return request_path_;
+  }
+
+  /**
+   * @brief The headers the accepted request carried. Empty for a client.
+   *
+   * A per-connection credential arrives here, which is what lets a server
+   * authenticate a stream rather than a port.
+   */
+  [[nodiscard]] const HttpHeaders& GetRequestHeaders() const {
+    return request_headers_;
+  }
+
+  explicit WebSocketWireStream(ConstructorToken, std::shared_ptr<State> state)
+      : ChannelWireStream(std::move(state)) {}
+
+ private:
+  static absl::StatusOr<std::shared_ptr<WebSocketWireStream>> CreateAccepted(
+      HttpRequest request, std::shared_ptr<Http2ResponseWriter> response,
+      WireStreamOptions options, ChannelFramingOptions framing);
+
+  // Set once, before the stream is handed to on_stream, and read-only after;
+  // no lock, because nothing ever writes them again.
+  std::string request_path_;
+  HttpHeaders request_headers_;
+
+  friend class WebSocketWireServer;
+};
+
+/**
+ * @brief Listen address, path, and per-stream defaults for a
+ * WebSocketWireServer.
+ *
+ * A port of 0 requests an ephemeral port. `stream_options` and `framing` are
+ * applied to each accepted stream; `http2_options` carries transport and TLS
+ * settings.
+ */
+struct WebSocketServerOptions {
+  std::string path = "/a11";  ///< Exact WebSocket endpoint path.
+  /**
+   * @brief Also accept anything under this prefix, as well as `path`.
+   *
+   * Empty by default, which serves exactly one endpoint. Set it to serve many
+   * on one port -- one per agent, say -- and read the rest of the path from
+   * WebSocketWireStream::GetRequestPath() in the `on_stream` handler. Must
+   * start and end with '/'.
+   */
+  std::string path_prefix;
+  std::string bind_address = "127.0.0.1";  ///< Local listen address.
+  std::uint16_t port = 0;  ///< Listen port; zero requests an ephemeral port.
+  WireStreamOptions stream_options;  ///< Defaults for accepted streams.
+  ChannelFramingOptions framing;     ///< Framing for accepted streams.
+  Http2Options http2_options;        ///< Server HTTP/2 and TLS policy.
+  // `GET /actions` on this same port, when something above filled in the
+  // handler.
+  /// `GET /actions` on this same port, when something above filled in the
+  /// handler. A WebSocket client can ask `__list_actions__` over the stream it
+  /// already has; this is for whoever has only the port number. See
+  /// a11/net/describe_endpoint.h.
+  DescribeEndpointOptions describe;
+  // Response-header policy for this port's HTTP surface -- the `Server` header,
+  // cross-origin access and cache hints.
+  /// Response-header policy for this port's HTTP surface -- the `Server`
+  /// header, cross-origin access and cache hints. It has one even though its
+  /// business is upgrades: a 404 and a `GET /actions` are ordinary HTTP
+  /// responses, and a browser reading either needs the same headers as it does
+  /// from the SSE port. See a11/net/server_headers.h.
+  ServerHeaderOptions headers;
+
+  /** @return OK if the options are internally consistent. */
+  absl::Status Validate() const;
+};
+
+/** Callback invoked with a fresh WireStream for each accepted connection. */
+using OnWebSocketStream =
+    std::function<a11::Task(std::shared_ptr<WebSocketWireStream>)>;
+
+/**
+ * @brief Accepts inbound WebSocket connections and hands each to a callback.
+ *
+ * The server-side entry point for hosting an agent over WebSockets: every
+ * accepted connection invokes `on_stream` concurrently with a fresh
+ * WebSocketWireStream, which the handler typically drives via Accept().
+ */
+class WebSocketWireServer
+    : public std::enable_shared_from_this<WebSocketWireServer> {
+ public:
+  /**
+   * @brief Starts a WebSocket server accepting A11 connections.
+   *
+   * @param on_stream Callback run for each accepted stream.
+   * @param options Listen address, port, path, and TLS/framing settings.
+   * @return The running server, or an error status.
+   */
+  static absl::StatusOr<std::shared_ptr<WebSocketWireServer>> Create(
+      OnWebSocketStream on_stream, WebSocketServerOptions options = {});
+  ~WebSocketWireServer();
+
+  /** Stops the server and closes the listening socket. */
+  absl::Status Stop();
+  /** @return The actual port listened on, resolved even for an ephemeral 0. */
+  absl::StatusOr<std::uint16_t> port() const;
+  /** @return Whether the server is currently accepting connections. */
+  [[nodiscard]] bool running() const;
+  /** @return An opaque native handle for advanced interop, or nullptr. */
+  [[nodiscard]] void* absl_nullable GetImpl() const;
+
+ private:
+  struct State;
+
+  explicit WebSocketWireServer(std::shared_ptr<State> state)
+      : state_(std::move(state)) {}
+
+  std::shared_ptr<State> state_;
+};
+
+}  // namespace a11::net
+
+#endif  // A11_NET_WEBSOCKET_WIRE_STREAM_H_

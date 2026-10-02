@@ -71,12 +71,11 @@ class WorkspaceSDK:
         logger: Optional[BlockLogger] = None,
         timer: Optional[Timer] = None,
     ):
-        self._private_sdk = PrivateWorkspaceSDK(
-            client=client, logger=logger, timer=timer
-        )
+        self._private_sdk = PrivateWorkspaceSDK(client=client, logger=logger, timer=timer)
 
     @sdk_docs(
-        doc_py_example=_CREATE_EXAMPLE, arg_docstrings=_CREATE_ARG_DOCSTRINGS,
+        doc_py_example=_CREATE_EXAMPLE,
+        arg_docstrings=_CREATE_ARG_DOCSTRINGS,
     )
     def create(self, config: Optional[WorkspaceConfig]) -> str:  # noqa: F811
         """Create a workspace.
@@ -86,7 +85,8 @@ class WorkspaceSDK:
         return self._private_sdk.create(config=config)  # type: ignore
 
     @sdk_docs(
-        doc_py_example=_START_EXAMPLE, arg_docstrings=_START_ARG_DOCSTRINGS,
+        doc_py_example=_START_EXAMPLE,
+        arg_docstrings=_START_ARG_DOCSTRINGS,
     )
     def start(  # noqa: F811
         self,
@@ -103,7 +103,8 @@ class WorkspaceSDK:
         return self._private_sdk.start(name=name, id=id, cloud=cloud, project=project)
 
     @sdk_docs(
-        doc_py_example=_TERMINATE_EXAMPLE, arg_docstrings=_TERMINATE_ARG_DOCSTRINGS,
+        doc_py_example=_TERMINATE_EXAMPLE,
+        arg_docstrings=_TERMINATE_ARG_DOCSTRINGS,
     )
     def terminate(  # noqa: F811
         self,
@@ -117,12 +118,11 @@ class WorkspaceSDK:
 
         Returns the id of the terminated workspace.
         """
-        return self._private_sdk.terminate(
-            name=name, id=id, cloud=cloud, project=project
-        )
+        return self._private_sdk.terminate(name=name, id=id, cloud=cloud, project=project)
 
     @sdk_docs(
-        doc_py_example=_STATUS_EXAMPLE, arg_docstrings=_STATUS_ARG_DOCSTRINGS,
+        doc_py_example=_STATUS_EXAMPLE,
+        arg_docstrings=_STATUS_ARG_DOCSTRINGS,
     )
     def status(  # noqa: F811
         self,
@@ -139,7 +139,8 @@ class WorkspaceSDK:
         return self._private_sdk.status(name=name, id=id, cloud=cloud, project=project)
 
     @sdk_docs(
-        doc_py_example=_WAIT_EXAMPLE, arg_docstrings=_WAIT_ARG_DOCSTRINGS,
+        doc_py_example=_WAIT_EXAMPLE,
+        arg_docstrings=_WAIT_ARG_DOCSTRINGS,
     )
     def wait(  # noqa: F811
         self,
@@ -190,7 +191,8 @@ class WorkspaceSDK:
         )
 
     @sdk_docs(
-        doc_py_example=_RUN_COMMAND_EXAMPLE, arg_docstrings=_RUN_COMMAND_ARG_DOCSTRINGS,
+        doc_py_example=_RUN_COMMAND_EXAMPLE,
+        arg_docstrings=_RUN_COMMAND_ARG_DOCSTRINGS,
     )
     def run_command(  # noqa: F811
         self,
@@ -211,7 +213,8 @@ class WorkspaceSDK:
         )
 
     @sdk_docs(
-        doc_py_example=_PULL_EXAMPLE, arg_docstrings=_PULL_ARG_DOCSTRINGS,
+        doc_py_example=_PULL_EXAMPLE,
+        arg_docstrings=_PULL_ARG_DOCSTRINGS,
     )
     def pull(  # noqa: F811
         self,
@@ -242,7 +245,8 @@ class WorkspaceSDK:
         )
 
     @sdk_docs(
-        doc_py_example=_PUSH_EXAMPLE, arg_docstrings=_PUSH_ARG_DOCSTRINGS,
+        doc_py_example=_PUSH_EXAMPLE,
+        arg_docstrings=_PUSH_ARG_DOCSTRINGS,
     )
     def push(  # noqa: F811
         self,
@@ -273,18 +277,24 @@ class WorkspaceSDK:
         )
 
     @sdk_docs(
-        doc_py_example=_UPDATE_EXAMPLE, arg_docstrings=_UPDATE_ARG_DOCSTRINGS,
+        doc_py_example=_UPDATE_EXAMPLE,
+        arg_docstrings=_UPDATE_ARG_DOCSTRINGS,
     )
     def update(  # noqa: F811
-        self, *, id: Optional[str] = None, config: UpdateWorkspaceConfig  # noqa: A002
+        self,
+        *,
+        id: Optional[str] = None,  # noqa: A002
+        config: UpdateWorkspaceConfig,  # noqa: A002
     ):
         """Update a workspace."""
         self._private_sdk.update(
-            id=id, config=config,  # type: ignore
+            id=id,
+            config=config,  # type: ignore
         )
 
     @sdk_docs(
-        doc_py_example=_GET_EXAMPLE, arg_docstrings=_GET_ARG_DOCSTRINGS,
+        doc_py_example=_GET_EXAMPLE,
+        arg_docstrings=_GET_ARG_DOCSTRINGS,
     )
     def get(  # noqa: F811
         self,
@@ -309,7 +319,8 @@ class WorkspaceSDK:
         )
 
     @sdk_docs(
-        doc_py_example=_LIST_EXAMPLE, arg_docstrings=_LIST_ARG_DOCSTRINGS,
+        doc_py_example=_LIST_EXAMPLE,
+        arg_docstrings=_LIST_ARG_DOCSTRINGS,
     )
     def list(  # noqa: F811, A001, PLR0913, PLR0917
         self,
@@ -348,7 +359,8 @@ class WorkspaceSDK:
         )
 
     @sdk_docs(
-        doc_py_example=_TAGS_ADD_EXAMPLE, arg_docstrings=_TAGS_ADD_ARG_DOCSTRINGS,
+        doc_py_example=_TAGS_ADD_EXAMPLE,
+        arg_docstrings=_TAGS_ADD_ARG_DOCSTRINGS,
     )
     def add_tags(  # noqa: F811
         self,
@@ -365,7 +377,8 @@ class WorkspaceSDK:
         )
 
     @sdk_docs(
-        doc_py_example=_TAGS_REMOVE_EXAMPLE, arg_docstrings=_TAGS_REMOVE_ARG_DOCSTRINGS,
+        doc_py_example=_TAGS_REMOVE_EXAMPLE,
+        arg_docstrings=_TAGS_REMOVE_ARG_DOCSTRINGS,
     )
     def remove_tags(  # noqa: F811
         self,
@@ -382,7 +395,8 @@ class WorkspaceSDK:
         )
 
     @sdk_docs(
-        doc_py_example=_TAGS_LIST_EXAMPLE, arg_docstrings=_TAGS_LIST_ARG_DOCSTRINGS,
+        doc_py_example=_TAGS_LIST_EXAMPLE,
+        arg_docstrings=_TAGS_LIST_ARG_DOCSTRINGS,
     )
     def list_tags(  # noqa: F811
         self,
@@ -393,6 +407,4 @@ class WorkspaceSDK:
         project: Optional[str] = None,
     ) -> Dict[str, str]:
         """List tags for a workspace."""
-        return self._private_sdk.list_tags(
-            id=id, name=name, cloud=cloud, project=project
-        )
+        return self._private_sdk.list_tags(id=id, name=name, cloud=cloud, project=project)

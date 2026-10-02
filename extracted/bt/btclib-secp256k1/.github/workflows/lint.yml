@@ -1,0 +1,125 @@
+---
+name: lint
+
+# fast gate, kept apart from the test workflow: the pre-commit hooks
+# (formatting, linting, typing) are worthless unless something enforces
+# them, and the build matrix is far too expensive to be the place where a
+# style error surfaces. A workflow of its own is also what makes the
+# distinction visible: two badges, two lines in the checks list, and a
+# lint failure that no longer reads as "the build is red"
+#
+# The checkout, the uv setup, the runner-image step, the hook cache and
+# the pre-commit run are btclib-org/.github's: reusable-lint.yml, called
+# at @main so a fix there reaches this tree in one landing (section 10 of
+# its README.md). What stays here is the trigger, the concurrency group
+# and the workflow-level permissions (btclib-org/.github#35)
+
+on:
+  push:
+    # main only: a push to a branch that has an open pull request would
+    # run this workflow twice, once per event, and the two runs land in
+    # different concurrency groups for every pull_request action except
+    # closed on a merge -- see that trigger's own comment below, and the
+    # concurrency block, for why closed is the exception and how the
+    # group now avoids it. The pull_request run is the one worth
+    # keeping, because it tests the merge commit and is the only run a
+    # fork's pull request produces at all.
+    # main keeps a trigger of its own because a merge creates a commit
+    # that is not the one the pull request tested, and nothing else would
+    # ever test it. Tag pushes are covered by the release workflow
+    branches: [main]
+  pull_request:
+    # ready_for_review, so a pull request marked ready gets the run the
+    # draft condition in reusable-lint.yml withheld while it was a draft:
+    # the default types do not include it, and without it a readied pull
+    # request would wait for its next push to be checked at all.
+    # closed joins them for a different reason: merging or closing a pull
+    # request is neither a push nor a synchronize, so a run still held in
+    # this pull request's own concurrency group survives it --
+    # cancel-in-progress only fires when a new run lands in that group,
+    # and nothing otherwise does. Landing the closed event there is what
+    # lets it supersede the stale run instead of leaving it to finish on
+    # a branch nobody is going to look at again; the job below declines
+    # the real work on it, the merge commit being main's own push
+    # trigger's question. "This pull request's own group" is the part
+    # github.ref alone got wrong: for a closed, merged pull request it
+    # resolves to the base branch's ref, the same one the push trigger's
+    # own run computes, so the closed run landed in *that* group instead
+    # and would cancel the run linting the actual merge commit --
+    # observed doing exactly that to bitcoin-core-rpc's own main, after
+    # btclib-org/bitcoin-core-rpc#136 merged there. The concurrency block
+    # below groups by the pull request's own number instead, immune to
+    # that collision under any action
+    types: [opened, reopened, synchronize, ready_for_review, closed]
+  # allows the release workflow to reuse this gate
+  workflow_call:
+    inputs:
+      concurrency-suffix:
+        description: >
+          Appended to the concurrency group, and the release workflow is
+          the only caller that passes one. See the group below.
+        type: string
+        default: ""
+  # the escape hatch: a run on demand for a branch whose pull request is
+  # not open yet
+  workflow_dispatch:
+
+# least privilege for the GITHUB_TOKEN: everything running in a job
+# (actions, pip dependencies, build scripts) can read the token, so it
+# must not be able to write to the repository
+permissions:
+  contents: read
+
+# cancel superseded runs on the same branch/PR. The group is named
+# literally, not through github.workflow: concurrency groups are
+# per-repository, and what that context resolves to inside a called
+# workflow is not documented (the explicit note covers job.workflow_ref
+# only). Were it the caller's name, this workflow and every
+# other one the release workflow calls would compute the same group, and
+# cancel-in-progress would have each cancel the last: a release losing its
+# lint gate, its docs build or its whole build matrix, on a path that runs
+# once per release and where nobody is watching for a cancellation.
+#
+# github.ref has the same shape of problem one level down, and it is why
+# the suffix is there. Inside a called workflow that context is the
+# caller's ref, so a rehearsal -- a workflow_dispatch of release.yml on a
+# branch, which is what RELEASING.md prescribes -- computes
+# lint-refs/heads/<branch>, the very group a push to that branch or a
+# direct dispatch of this workflow computes. One then kills the other:
+# either the rehearsal dies mid-build, or it cancels the run of the push.
+# A tag run is unaffected, refs/tags/v* being a ref nothing else uses.
+# release.yml passes a suffix of its own, which keeps the release path
+# out of the branch groups while still letting a second rehearsal of the
+# same branch supersede the first.
+#
+# github.event.pull_request.number, not github.ref alone, is a third
+# problem with the same shape: for a closed, merged pull request's run,
+# github.ref resolves to the base branch's ref rather than
+# refs/pull/N/merge, colliding with the push trigger's own group --
+# the pull_request trigger's own comment above has the evidence. A
+# pull_request run of any action, closed included, now groups by the
+# pull request's own number instead, which a push never carries and so
+# still groups by github.ref, unchanged
+concurrency:
+  group: lint-${{ github.event.pull_request.number || github.ref }}${{ inputs.concurrency-suffix }}
+  cancel-in-progress: true
+
+jobs:
+  # the checkout, the uv setup, the runner-image step, the hook cache and
+  # the pre-commit run are the called workflow's own; the draft and
+  # closed declines are also its own, reading
+  # github.event.pull_request.draft and github.event.action off this
+  # caller's trigger.
+  #
+  # This is the one tree in the family that passes both inputs rather
+  # than leaving them at their defaults: `submodule-pin` resolves the
+  # release README.md names in the vendored clone's own refs, so it
+  # needs that clone checked out (`submodules: true`) and it needs the
+  # clone's own tags, which a depth-1 checkout does not carry
+  # (`fetch-depth: 0`) -- the whole cost of moving that check off the
+  # release path. Every other hook here reads files this repository owns
+  lint:
+    uses: btclib-org/.github/.github/workflows/reusable-lint.yml@main
+    with:
+      submodules: true
+      fetch-depth: 0

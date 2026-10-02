@@ -3,7 +3,7 @@ use tombi_ast_syntax::{SyntaxKind::*, T};
 use super::Parse;
 use crate::{ErrorKind::*, parser::Parser, token_set::TS_KEY_FIRST};
 
-impl Parse for tombi_ast_syntax::Keys {
+impl Parse for tombi_ast_syntax::Keys<'_> {
     fn parse(p: &mut Parser<'_>) {
         let m = p.start();
         if eat_keys(p) {
@@ -25,10 +25,7 @@ pub fn eat_keys(p: &mut Parser<'_>) -> bool {
             }
 
             if !p.at_ts(TS_KEY_FIRST) {
-                p.error(crate::Error::new(
-                    ForbiddenKeysLastPeriod,
-                    p.current_range(),
-                ));
+                p.error(crate::Error::new(ForbiddenKeysLastPeriod, p.current_span()));
                 break;
             }
         }
@@ -59,7 +56,7 @@ pub fn eat_key(p: &mut Parser<'_>) -> bool {
         }
         _ => {
             let m = p.start();
-            p.error(crate::Error::new(ExpectedKey, p.current_range()));
+            p.error(crate::Error::new(ExpectedKey, p.current_span()));
             // p.bump_remap(INVALID_TOKEN);
             m.complete(p, INVALID_TOKEN);
             false

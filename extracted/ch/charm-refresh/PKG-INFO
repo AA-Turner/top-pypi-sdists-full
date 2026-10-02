@@ -1,0 +1,28 @@
+Metadata-Version: 2.1
+Name: charm-refresh
+Version: 3.1.1.8
+Summary: In-place rolling refreshes (upgrades) of stateful charmed applications
+Author: Carl Csaposs
+Author-email: carl.csaposs@canonical.com
+Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: charm-api (>=0.1.1)
+Requires-Dist: charm-json (>=0.1.1)
+Requires-Dist: httpx (>=0.28.1)
+Requires-Dist: lightkube (>=0.15.4)
+Requires-Dist: ops (>=2.9.0)
+Requires-Dist: packaging (>=24.1)
+Requires-Dist: pyyaml (>=6.0.2)
+Requires-Dist: tomli (>=2.0.1)
+Project-URL: documentation, https://canonical-charm-refresh.readthedocs-hosted.com/
+Project-URL: repository, https://github.com/canonical/charm-refresh
+Description-Content-Type: text/markdown
+
+Documentation: https://canonical-charm-refresh.readthedocs-hosted.com/
+

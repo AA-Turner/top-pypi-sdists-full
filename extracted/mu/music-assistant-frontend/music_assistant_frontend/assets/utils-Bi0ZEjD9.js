@@ -1,1 +1,0 @@
-var e=(...e)=>e.filter(Boolean).join(` `);export{e as t};

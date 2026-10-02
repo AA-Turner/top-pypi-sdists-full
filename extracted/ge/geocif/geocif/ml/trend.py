@@ -140,6 +140,27 @@ def _detrend_gaussian(df, column_name, sigma=5):
     return DetrendedData(detrended, model, "gaussian")
 
 
+def gaussian_expected_for_year(model: dict, year) -> float:
+    """Expected yield for ``year`` under a fitted gaussian detrend model.
+
+    Training anomalies are taken relative to the LOCAL Gaussian smooth
+    (``expected_yields``); retrending a hindcast year with the global OLS
+    line instead gave train and test two different reference curves (a
+    systematic per-year bias on plateau-then-rise series). Inside the fitted
+    year range the smooth is interpolated (the held-out year sits between its
+    neighbours); beyond it the OLS line through the smooth extrapolates.
+    """
+    years = np.asarray(model["years"], dtype=float)
+    expected = np.asarray(model["expected_yields"], dtype=float)
+    y = float(year)
+    ok = np.isfinite(years) & np.isfinite(expected)
+    if ok.sum() >= 2 and years[ok].min() <= y <= years[ok].max():
+        order = np.argsort(years[ok])
+        return float(np.interp(y, years[ok][order], expected[ok][order]))
+    X = add_constant(np.array([y]), has_constant="add")
+    return float(model["extrap_model"].predict(X)[0])
+
+
 def segment_aware_trend(train_years, train_yields, *,
                         cp_threshold=0.5,
                         tcp_minmax=(0, 8),

@@ -1,0 +1,4186 @@
+# doppler — development control centre
+#
+# CONFIGURATION ONLY. Every shared target lives in `standard.mk`, vendored from
+# https://just-buildit.github.io/standard.mk and never edited in place — per-repo
+# variation is the variables below, because a local edit is a fork. Design RFC:
+# doppler-dsp/doppler#555. Plan + criteria: the just-buildit/.github README.
+#
+# `make help` is GENERATED from the `##` comment on each target's rule line, so
+# there is no hand-written target list here. There used to be, and it advertised
+# `make wheel` (which had no rule and exited 0 having done nothing) and
+# `make gen-pyext` (which did not exist), while omitting 20 targets that did.
+#
+# Overrides (pass on the command line or export from the environment):
+#   BUILD_DIR    Build directory            (default: build)
+#   BUILD_TYPE   CMake build type           (default: Release)
+#   NPROC        Parallel build jobs        (default: nproc || 4)
+#   CMAKE_ARGS   Extra -D flags for every configure step
+
+# ── Feature flags ────────────────────────────────────────────────────────────
+# doppler is the demanding consumer: every group is on.
+HAS_C        = 1
+HAS_PYTHON   = 1
+HAS_RUST     = 1
+HAS_DOCS     = 1
+HAS_DOXYGEN  = 1
+HAS_BENCH    = 1
+HAS_COVERAGE = 1
+HAS_RELEASE  = 1
+HAS_EXAMPLES = 1
+
+# ── Layout ───────────────────────────────────────────────────────────────────
+BUILD_DIR   ?= build
+BUILD_TYPE  ?= Release
+PREFIX      ?= /usr/local
+PYEXT_DIR   ?= src/doppler
+PY_BUILD_DIR ?= $(BUILD_DIR)
+RUST_DIR    ?= ffi/rust
+DOCKER_IMAGE ?= doppler
+# Container images — the Makefile is the single driver for every docker build;
+# CI and release call the docker-* targets, never a raw `docker build` (a stray
+# context or a missing --target silently builds the wrong image). Tag + build
+# args are overridable; JM_VERSION is read from the manifest so the SDK image's
+# jm stays in lock-step with the repo pin.
+DOCKER_TAG          ?= dev
+DOCKER_VERSION      ?= $(shell grep -m1 '^version' pyproject.toml | cut -d'"' -f2)
+JM_VERSION          ?= $(shell grep -m1 '^jm_version' just-makeit.toml | cut -d'"' -f2)
+EXAMPLES_DOCKERFILE := deploy/docker/Dockerfile.examples
+NPROC       ?= $(shell nproc 2>/dev/null || \
+                       sysctl -n hw.logicalcpu 2>/dev/null || echo 4)
+CTEST       := ctest
+CMAKE       := cmake
+
+# Python executable used when building extensions with `make pyext`.
+# Defaults to the uv-managed venv Python so the extension suffix always
+# matches the active interpreter.  Override on the command line:
+#   make pyext PYTHON_EXECUTABLE=/usr/bin/python3.13
+PYTHON_EXECUTABLE ?= $(shell uv run python -c \
+    'import sys; print(sys.executable)' 2>/dev/null || which python3)
+PYTHON_EXECUTABLE := $(or $(JUST_BUILDIT_PYTHON),$(PYTHON_EXECUTABLE))
+
+# $(call CONTAINER_CHECKOUT,<build dir>) -- the `docker run` flags for "this
+# checkout, bind-mounted read-write at /w, worked on by a `make` inside".
+# Every such mount goes through here; container-mount-check requires it.
+#
+# The line above is why. A `make` inside the container expands it too, and
+# `uv run` there syncs the project environment -- which, through the mount,
+# is the HOST's .venv -- for the container's interpreter, stamping every
+# entry point `#!/w/.venv/bin/python`. The next host `make lint` then dies on
+# "Failed to spawn: just-makeit" (gh-1452). UV_PROJECT_ENVIRONMENT moves the
+# container's venv into the build tree the container already owns: per image,
+# gitignored, and cleaned with it.
+#
+# As the caller, not root: the build tree lands in the checkout, and a
+# root-owned one is a `make clean` away from needing sudo.
+CONTAINER_CHECKOUT = -u $$(id -u):$$(id -g) -v "$(CURDIR)":/w -w /w \
+                     -e UV_PROJECT_ENVIRONMENT=/w/$(1)/.venv
+
+# Extra cmake args passed through to every configure step.
+# Example: make build CMAKE_ARGS="-DENABLE_SIMD=OFF"
+CMAKE_ARGS  ?=
+
+# Everyday `make build` / `make pyext` target a PORTABLE baseline
+# (x86-64-v2) — the same flags every released wheel uses, so a local build
+# can never behave differently from what ships.  For host-tuned speed, use
+# `make blazing` (sets -DDOPPLER_NATIVE=ON -> -march=native) or pass
+# CMAKE_ARGS=-DDOPPLER_NATIVE=ON.  Native builds must never be packaged.
+#
+# Extra C flags layered on top of -march=native by the `blazing` target.
+BLAZING_CFLAGS ?= -march=native
+
+# ── Tooling ──────────────────────────────────────────────────────────────────
+# The ONLY place a tool binary is named or given flags. Humans, the pre-commit
+# hooks and CI all reach the tools through standard.mk's targets, so a flag
+# change is a one-line edit here. Versions live in pyproject.toml's `dev` group
+# and are pinned by uv.lock — which is what makes local and CI resolve
+# identically, and why the hook config resolves no lock-managed tool itself.
+UV         = uv
+
+# A BARE interpreter, deliberately not `$(UV) run python`, and the exception
+# is narrow: scripts/nats_streams.py is stdlib-only (there is a test pinning
+# that) and its callers are the two places a resolved dev venv cannot be
+# assumed. `nats-up` runs in the C-only sanitizer/Docker jobs, which never
+# sync the dev group -- routing it through uv made those jobs provision a
+# whole Python environment to count streams, and TSan failed in 40s doing it.
+# `nats-down` runs `if: always()`, after a job that may have failed for any
+# reason at all, including a broken environment.
+NATS_STREAMS = python3 scripts/nats_streams.py
+DEV_RUN    = $(UV) run --group dev
+RUFF       = $(DEV_RUN) ruff
+# Routed through the dev group, not PATH: uv.lock is the one pin, shared by
+# make, the pre-commit hooks and jm's own `c_format_command`.
+CLANG_FORMAT = $(DEV_RUN) clang-format
+CLANG_TIDY   = $(DEV_RUN) clang-tidy
+MDFORMAT   = $(DEV_RUN) mdformat
+PRE_COMMIT = $(DEV_RUN) pre-commit
+SYNC_CMD   = $(UV) sync
+
+# ── lint-<tool> dispatch ─────────────────────────────────────────────────────
+# LINT_TOOLS stamps out one `lint-<tool>` target each; .pre-commit-config.yaml
+# calls `make -s lint-<tool>`, so a hook cannot run a tool differently from the
+# way `make format` runs it. That is what closes the "same command, different
+# environment" class of drift: the tool comes from `--group dev` and uv.lock
+# owns the version, so there is no `additional_dependencies` left to drift.
+LINT_TOOLS   = conflict ruff ruff-format mdformat clang-format \
+               clang-tidy phase-conversion alloc-helpers stimulus-sources \
+               retired-names ci-pipefail rust-abi header-example-arity \
+               wfm-enum-tables fmod-fold lgamma-reentrant full-scale \
+               bench-timer bare-libm gnu-flags workflow-tag-triggers \
+               version-literals text-encoding cmake-script-policy
+FORMAT_TOOLS = ruff-format ruff mdformat clang-format
+
+# ruff reads its own excludes from pyproject's [tool.ruff] extend-exclude
+# (*.pyi, vendor, the re-export __init__.py shims), so the path list is just
+# the tree.
+RUFF_PATHS = .
+
+# mdformat's own --exclude needs Python >=3.13 (it uses glob.translate), so the
+# file list is built from `git ls-files` minus this regex instead — which also
+# keeps the exclusions in ONE place rather than mirrored into the hook config.
+# Generated, not hand-written: docs/c-api/ is mkdoxy output from the C headers;
+# docs/benchmarks.md is `make bench-docs` output (mdformat would realign its
+# tables on every regen -> spurious diffs); docs/**/archive/ are frozen
+# snapshots (and one trips a plugin render-consistency bug across mdformat-gfm
+# versions); examples/*/docs/ is the docs stub `jm new` scaffolds for a nested
+# jm project, which `jm apply` recreates; src/doppler/.*/tests/validation/ holds
+# each object's results.md, written by that folder's own validate.py, so
+# reformatting it would drift against the next regeneration. vendor/ is not
+# ours.
+MD_EXCLUDE_RE = ^(vendor/|docs/c-api/|docs/guide/wfmgen/options\.md$$|docs/benchmarks\.md$$|docs/.*/archive/|examples/[^/]+/docs/|src/doppler/(.*/)?tests/validation/)
+
+LINT_ruff        = $(RUFF) check --fix --unsafe-fixes $(RUFF_PATHS)
+LINT_ruff-format = $(RUFF) format $(RUFF_PATHS)
+
+# ── C formatting ─────────────────────────────────────────────────────────────
+# The exclusions live HERE, not in the hook config, for the same reason
+# MD_EXCLUDE_RE does: one place, and `make format` cannot disagree with the
+# hook about which files are ours.
+#
+# native/inc/** carries jm-injected public declarations, and *_ext.c are jm
+# aggregators — both regenerated by `jm apply`, so formatting them drifts the
+# manifest gate. `(^|/)` rather than `^`: examples/downstream-jm is a separate
+# jm project living in-tree with its own native/inc, and an anchored pattern
+# misses it — clang-format then ping-pongs with jm over its generated headers
+# forever. vendor/ is the pristine upstream FFT cores (pocketfft / PFFFT).
+#
+# jm_bench.h and jm_test.h joined that list once jm 0.59.0 could SAY they had
+# diverged. They are jm's create-only files, exactly like the jm_*.h under
+# native/inc/ — the only reason they were formatted is that they live under
+# native/benchmarks/ and native/tests/, which the path pattern above never
+# reached. The cost was invisible until gh-949: `jm status` reported
+# jm_bench.h as OUTDATED on a tree whose content is byte-identical to jm's,
+# because doppler's own formatter had rewritten it from K&R to GNU. Measured
+# — strip all whitespace from both and the hashes match. Its siblings under
+# native/inc/ were absent from that same report, which is the control.
+#
+# So the exclusion is what makes the new signal mean something: with these
+# formatted, OUTDATED fires forever on a file nobody needs to act on, and a
+# real upstream change would arrive into a line already being ignored.
+#
+# test_<obj>_symbols.c (jm 0.77.0) is the same case once more, and worse: jm
+# regenerates it on every apply and does NOT run c_format_command over it, so
+# formatting it here made all 84 STALE in `jm status --check` -- a drift gate
+# red on files nobody edited.
+C_EXCLUDE_RE = (^|/)(native/inc/|vendor/)|(^|/)jm_(bench|test)\.h$$|_ext\.c$$|_symbols\.c$$
+
+# ...except the `_ext.c` of a `no_generate` module, which is HAND-WRITTEN: the
+# blanket exclusion left it formatted by nobody until `jm apply`, whose c_style
+# pass walks all of native/src, rewrote it under whoever applied next
+# (buffer_ext.c after doppler#1432). Derived from the manifest, so a migrated
+# module leaves the set by itself.
+C_FILES = { git ls-files '*.c' '*.h' | grep -Ev '$(C_EXCLUDE_RE)'; \
+            uv run python scripts/list_hand_ext_c.py; }
+
+LINT_clang-format = @$(C_FILES) | xargs -r $(CLANG_FORMAT) -i --style=file
+
+# clang-tidy does NOT take clang-format's file list, and sharing C_FILES was
+# the reason its first real run emitted 6916 lines of which ~1700 were noise.
+# clang-format formats any file it is handed; clang-tidy COMPILES one, so it
+# needs a translation unit that compile_commands.json actually has an entry
+# for. C_FILES has three kinds of file that are not that: the per-object
+# `*_ext_<obj>.c` fragments (105 of them) are #included into the generated
+# aggregator and never compiled alone, so each one fails on PyObject_HEAD;
+# examples/downstream-jm is a separate jm project with its own build tree, so
+# every file there fails on a header it cannot find; and a bare .h is not a TU.
+# A parse failure is not a finding — it is the gate not running on that file,
+# which is the failure mode this whole exercise exists to remove.
+#
+# Scope is the LIBRARY, not the harnesses. native/tests and native/benchmarks
+# carry ~4900 diagnostics, 4587 of them cert-err33-c for an unchecked printf
+# return in a test — a real rule, aimed at code where nobody is reading the
+# screen. Holding shipped code to it while a test prints freely is the honest
+# split, and it is what keeps the gate at zero rather than behind a ratchet.
+#
+# native/inc is covered WITHOUT being listed: .clang-tidy's HeaderFilterRegex
+# surfaces header diagnostics through whichever TU includes them. That is also
+# why it must not be listed — clang-tidy would then own a file jm generates.
+# The object half of `_ext_<obj>.c` is the CLASS name, so it is CamelCase for
+# Resampler/RateConverter/HalfbandDecimator — a lowercase-only character class
+# misses exactly those three and lets 53 parse failures back in.
+TIDY_FILES = git ls-files 'native/src/*.c' | grep -Ev '_ext(_[A-Za-z0-9_]+)?\.c$$'
+
+LINT_clang-tidy   = @$(TIDY_FILES) | xargs -r $(CLANG_TIDY) -p $(BUILD_DIR) --quiet
+
+# FIRST in LINT_TOOLS, and that ordering is the point rather than a
+# preference: mdformat NORMALISES a conflict marker instead of refusing it, so
+# a check that runs after it is looking for something the formatter has already
+# rewritten. Check-only, so not in FORMAT_TOOLS. Logic lives in the script
+# rather than inline here so a test can run it over seeded files — a lint
+# target whose only exercise is corrupting the repo is a target nobody proves.
+LINT_conflict = ./scripts/conflict-check.sh
+
+# Check-only, so it is in LINT_TOOLS but deliberately NOT in FORMAT_TOOLS.
+# nco_core.h calls confining the double->phase-word conversion "a STRUCTURAL
+# rule rather than a stylistic one", and records that duplicated copies have
+# already drifted once (one truncated while a sibling rounded). A rule with
+# no gate behind it is how that happened; this is the gate.
+LINT_phase-conversion = $(UV) run python scripts/check_phase_conversion_sites.py
+
+# A version-site file states the version ONCE. A second literal is bumped by
+# nothing, and it turns `ci-changes` (which substitutes old -> new across each
+# changed file) into src=true on every release PR -- the full matrix, forever,
+# failing closed and therefore silently. v0.53.0's release PR found the first:
+# a comment spelling `libdoppler.so.0.52.0`.
+LINT_version-literals = python3 scripts/version_sites.py --check-literals
+
+# Folding a value into [0, m) has one home, dp_fmod_pos() in clib_common.h:
+# the fmod-then-add-if-negative fix-up had been written by hand five times
+# (a code phase, a harmonic, a table index, the DLL's replica tap, a
+# hand-over phase) before #1249 gave it one. No allowlist -- every copy was
+# converted when the gate landed.
+LINT_fmod-fold = $(UV) run python scripts/check_fmod_fold_sites.py
+
+# A wire format's full scale has one home, dp_format_full_scale(). doppler
+# had FOUR private copies of the constant plus the arithmetic around it
+# (wfm_sink, wfm_writer, wfm_reader, pocketfft) and they had already drifted:
+# the three wfm ones truncated where every cvt converter rounds -- 6.0 dB of
+# extra quantisation noise on every integer wire type -- and all four used
+# 2^(N-1)-1 where cvt uses 2^(N-1), so wfm.Reader and cvt.I16ToF32 disagreed
+# on 2.3% of int16 codes (#1117). Fires on a file naming the full scale of
+# two or more WIDTHS, which is a table; one width's two clamp bounds stay
+# legal. No allowlist -- every copy was converted when the gate landed.
+LINT_full-scale = $(UV) run python scripts/check_full_scale_sites.py
+
+# The monotonic clock a benchmark times with has one home, jm_bench_now_ns()
+# in the vendored native/benchmarks/jm_bench.h. All 106 benchmarks used to
+# open `clock_gettime(CLOCK_MONOTONIC)` themselves and carry their own
+# four-line `elapsed_sec()` -- 85 copies of one primitive, the same shape as
+# fmod-fold and full-scale above, and undrifted only because nobody had yet
+# needed to touch it. The UCRT has no clock_gettime, so it was also why every
+# benchmark failed to compile on Windows; jm 0.76.4 (gh-1341) put the clock
+# in jm_bench.h over QPC/clock_gettime and doppler re-vendored it. No
+# allowlist -- every copy was converted when the gate landed. CLOCK_REALTIME
+# and struct timespec stay legal: bench_stream.c wall-clock-stamps NATS
+# messages and sleeps intervals, which is a different clock for a different
+# job, and it is POSIX-only by its own CMake guard.
+LINT_bench-timer = $(UV) run python scripts/check_bench_timer.py
+
+# libm has one spelling in a link line, ${DP_MATH_LIBRARY} -- resolved once in
+# the root CMakeLists by find_library, so it is a path on POSIX and empty on
+# Windows, where the UCRT carries the math functions and a bare `m` means
+# `m.lib`, which does not exist. That is how the Windows link died after all
+# ~576 objects compiled (#1364): 85 hand-written link lines named `m`, plus
+# eight `extra_link_libs = ["m"]` in the manifest that jm rendered verbatim.
+# No allowlist -- every one was converted when the gate landed. Scoped to
+# doppler's own CMake project by DERIVING the owning project(), because a
+# separate project in the tree never sees DP_MATH_LIBRARY.
+LINT_bare-libm = $(UV) run python scripts/check_bare_libm.py
+
+# A GCC-style flag in target_compile_options() is silently dropped by
+# clang-cl; dp_gnu_compile_options() spells it for either driver (#1360).
+LINT_gnu-flags = $(UV) run python scripts/check_gnu_flags.py
+
+# lgamma() writes the global signgam, so two threads race on it -- found by
+# TSan the first time a pool of receivers rebuilt their chains across
+# threads (#1260). dp_lgamma() in clib_common.h wraps lgamma_r() once; a
+# bare lgamma in library C is the next race. No allowlist.
+LINT_lgamma-reentrant = $(UV) run python scripts/check_lgamma_sites.py
+
+# Path.read_text() without an encoding decodes with the locale codec, which
+# is cp1252 on Windows: the first Windows run of the suite lost three test
+# modules to it at collection, and 68 such reads sat in the package, library
+# code included (doppler#1457). Every one was made explicit; no allowlist.
+LINT_text-encoding = $(UV) run python scripts/check_text_encoding.py
+
+# A trusted internal allocation goes through clib_common.h's abort-on-OOM
+# helpers, because the alternative is an unwind path no test can reach --
+# uncoverable by construction, against a patch-coverage gate every changed C
+# line has to satisfy. The helpers landed 2026-07-21 and the rule then lived
+# in a memory file and nowhere else, so nothing extended it and a bare malloc
+# beside a helper call passed every gate the repo had. Ratcheted: the 313
+# sites that predate it may only shrink.
+LINT_alloc-helpers = $(UV) run python scripts/check_alloc_helpers.py
+
+lint-alloc-helpers-baseline: ## Re-record the alloc ratchet after converting some
+	@$(UV) run python scripts/check_alloc_helpers.py --update-baseline
+
+# A rename is finished when the old name appears NOWHERE, and that is a
+# different event from the build going green. fec_ -> ccsds_tm_ (#828) went
+# green with eleven occurrences of the retired prefix still in the tree --
+# five of them the NAME a C test prints, which no compiler can notice. The
+# list is data, added by the commit that retires a name.
+LINT_retired-names = $(UV) run python scripts/check_retired_names.py
+
+# A `cmake -P` script inherits no policies: without its own
+# cmake_minimum_required every policy is OLD, which CMake 4 hides and the CMake
+# CI runs does not (#1578: IN_LIST failed every Linux build). Plain python3:
+# the script imports nothing outside the standard library.
+LINT_cmake-script-policy = python3 scripts/check_cmake_script_policy.py
+
+# A header's example block is compiled by NOTHING. `docs/**` fences are built
+# -Werror against libdoppler.a; a header's is rendered by doxygen, published
+# to docs/c-api/**, and -- for a constructor -- transplanted by jm into the
+# .pyi a Python user reads, and not one of those paths type-checks it. So
+# dp_mpsk_receiver_create()'s example passed SIXTEEN arguments to a fifteen-
+# parameter function, and dp_ber_meter_score()'s passes eleven to five. This is
+# the cheap half of #1082: arity only, no compiler, no stand-in preamble for
+# the locals an example fragment references. Python doctest blocks are
+# skipped on their `>>>` -- they carry the binding's arity, not the C one.
+# Ratcheted: the 11 that predate it may only shrink.
+LINT_header-example-arity = \
+    $(UV) run python scripts/check_header_example_arity.py
+
+# A waveform name table's ORDER is the C enum value, so a second copy does not
+# fail to compile -- it maps a flag to the wrong waveform. just-makeit.toml has
+# claimed to be the tables' one source since gh-285; measured, that was true of
+# the Python binding only, while C kept twelve in wfmgen.c, seven in wfm_json.c
+# and three in wfm_names.h, one pair already in OPPOSITE orders (#760). This
+# holds the one header to the manifest's [[enum]] blocks, to the C enums that
+# pin the indices, and to the no-second-home rule.
+# Design: docs/design/waveform-enum-ssot.md
+LINT_wfm-enum-tables = $(UV) run python scripts/check_wfm_enum_tables.py
+
+# A CI step may not throw away the exit code it just produced. The default
+# Actions shell is `bash -e`, where a PIPELINE reports the last command's
+# status -- so `make coverage | tee coverage.txt` was green over a recipe that
+# had failed, and the missing report only surfaced one step later as the patch
+# gate opening an lcov that was never written. Same shape as the leading `-`
+# this repo removed from the coverage pytest: the code is computed and then
+# discarded. Registration-free -- it walks every workflow and composite action,
+# so a new file is covered the moment it exists.
+LINT_ci-pipefail = $(UV) run python scripts/check_workflow_pipelines.py
+
+# A push trigger with only `paths:` fires on every TAG push (GitHub ignores
+# paths for tags): ci-image.yml rebuilt the image on each release tag.
+LINT_workflow-tag-triggers = $(UV) run python scripts/check_workflow_tag_triggers.py
+
+# ffi/rust/ is the one binding jm does not generate, so `jm status --check`
+# has nothing to say about it and an `extern "C"` block is a promise no
+# compiler, linker or runtime ever checks. doppler#911 is what that cost: a
+# control port declared `*const f32` against a C `const double *`, so C read
+# twice the buffer it was handed, from a safe method, and the crate's own test
+# passed because it used an all-zero control — the one input whose bit pattern
+# is identical at both widths. Check-only, so not in FORMAT_TOOLS.
+LINT_rust-abi = $(UV) run python scripts/check_rust_abi.py
+
+# Stimulus and its measurement have ONE home, and it is the library: wfmgen
+# (wfm_synth_*/Synth) generates signal, ber_* measures it. A private copy in a
+# test, harness or example does not merely duplicate code -- it invents a
+# CONVENTION, and the convention is what goes wrong silently. Measured: a
+# 0.25-of-peak backoff in ratesync_demo under-drove RateSync ~40x in loop gain
+# and failed its own lock assertion with nothing pointing at the level.
+LINT_stimulus-sources = $(UV) run python scripts/check_stimulus_sources.py
+
+# mdformat needs Python >=3.10 (see pyproject's dev group, where it carries a
+# marker). On a 3.9 dev env it is simply absent, so skip with a notice rather
+# than failing — the CI lint job runs a modern Python and enforces it there.
+define LINT_mdformat
+@if $(MDFORMAT) --version > /dev/null 2>&1; then \
+    git ls-files '*.md' \
+        | grep -Ev '$(MD_EXCLUDE_RE)' \
+        | xargs -r $(MDFORMAT); \
+else \
+    echo "mdformat unavailable (needs Python >=3.10) — skipping"; \
+fi
+endef
+
+# ── Test ─────────────────────────────────────────────────────────────────────
+# `test` is CTest (native/ unit tests); the Python suite is `test-python`.
+#
+# $(TEST_EXCLUDE_SWEEP) for the reason SAN_EXCLUDE_SWEEP and COV_EXCLUDE_SWEEP
+# give, extended to the OPTIMISED suite -- doppler#1292 measured the
+# instrumented ones and stopped there, so `make test` was the one consumer
+# still paying for the whole set. Measured 2026-09-12, 20 cores, serial:
+#
+#   the 34 `sweep` validators are 88.5% of the C suite (294.2s of 332.4s);
+#     the other 138 tests are 38.2s. Three validators added in the six days
+#     to 2026-09-08 are 199.3s of that 294.2s on their own.
+#   `make test` is what CI runs on EVERY platform build (ci.yml), so that
+#     294.2s was paid three times per push -- ubuntu-22.04, ubuntu-24.04 and
+#     macos-latest -- for one set of machine-independent numeric checks.
+#
+# They are not dropped, they are RELOCATED: `make test-sweep` runs them and
+# the `sweep validators` CI job runs that, once, on the pinned image. Which
+# is also the only place their wall-clock budget means anything, so the two
+# belong in one target rather than two.
+#
+# TEST_SWEEP=1 puts them back -- `make test TEST_SWEEP=1` is the full C
+# battery, as SAN_SWEEP=1 and COV_SWEEP=1 are for their suites.
+TEST_EXCLUDE_SWEEP = $(if $(TEST_SWEEP),,-LE sweep)
+# Every suite runs under LEAK_CHECK: a PASSING run must leave no file behind,
+# in the source tree or (--ctest) in any test's working directory. Three C
+# tests left 67 files in the build tree on every green run, and the same tests
+# run by hand from the root dropped them there, gitignored and unseen. The
+# wrapper returns the suite's own exit code when it fails. Stdlib-only, so it
+# runs on the plain python3 of every CI image and matrix leg.
+LEAK_CHECK    = python3 scripts/check_test_leaks.py
+TEST_CMD      = $(LEAK_CHECK) --ctest -- \
+                    $(CTEST) --test-dir $(BUILD_DIR) --output-on-failure \
+                    $(TEST_EXCLUDE_SWEEP)
+TEST_FAST_CMD = $(LEAK_CHECK) --ctest -- \
+                    $(CTEST) --test-dir $(BUILD_DIR) --output-on-failure \
+                    --stop-on-failure $(TEST_EXCLUDE_SWEEP)
+# The SELECTION must match CI's exactly, or `make test-python` means one thing
+# locally and another in CI — which it did: local ran everything under src/,
+# CI excluded the `docs_snippets` and `examples` markers. Those two markers have
+# their own targets (`test-snippets`, `test-examples-python`), so excluding them
+# here is what makes the suites add up instead of overlapping. PYTEST_ARGS is
+# how CI adds its coverage reporting without changing what runs.
+#
+# The suite is embarrassingly parallel across module directories, and
+# pytest-xdist is in the dev group, so `make test-python` runs it on every
+# core. Override with `PYTEST_ARGS="-n 0"` to force serial.
+#
+# It is ON by default, in a way that costs nothing: pytest-benchmark disables
+# itself under xdist ("Benchmarks cannot be performed reliably in a
+# parallelized environment"), so a blanket `-n auto` would silently turn the
+# benchmark tests under src/doppler/*/benchmarks/ into correctness-only runs —
+# and a gate must not quietly measure less than it appears to. So the run is
+# SPLIT: everything except those directories goes through xdist, and they get
+# a second, serial pass. Nothing is downgraded and nothing is skipped.
+#
+# Measured on 8 cores: 274s all-serial -> 178s, as 60s for the parallel bulk
+# (2493 tests) plus 117s for the serial benchmark pass (133 tests). Same
+# 2626 passed / 6 skipped either way. The benchmark pass now dominates and is
+# irreducible by parallelism BY DEFINITION -- pytest-benchmark needs a quiet
+# machine, and min_rounds x max_time puts a floor of ~1s on each of its tests.
+#
+# Do NOT parallelize `test-stubs`: measured 2.35s -> 2.24s (startup dominates),
+# and a text-mode .pyi shares ONE doctest namespace across the whole file, so
+# any future finer-than-file split would break name bindings that earlier
+# examples in the same file establish.
+PYTEST_ARGS     ?=
+PYTEST_SELECT   = -m "not docs_snippets and not examples"
+# Every src/doppler/<mod>/benchmarks directory, derived not listed.
+PYTEST_BENCH_DIRS = $(wildcard src/doppler/*/benchmarks)
+# ONE pass, and the benchmark directories are IN it -- as tests, not as
+# measurements. `--benchmark-disable` says so EXPLICITLY: the fixture stays
+# (so the 138 benchmark tests still run, and a broken benchmark script fails
+# here, where it should) and nothing is timed.
+#
+# Explicit, because the alternative is implicit and conditional: pytest-
+# benchmark also disables itself whenever xdist is active, which would leave
+# this depending on `-n auto`. `PYTEST_ARGS="-n 0"` is a DOCUMENTED override
+# (see the note above), and under it the timing would quietly switch back on
+# inside the step everyone runs -- slower, and taking measurements nobody
+# reads. `-p no:benchmark` is the wrong knob: it removes the fixture, and all
+# 138 tests error with "fixture 'benchmark' not found". Both measured.
+#
+# MEASURING is `make bench-python`, and the separation is the point: tests are
+# run constantly, benchmarks occasionally, and they answer different
+# questions. This target used to do both -- a second, SERIAL pass over the
+# benchmark dirs so pytest-benchmark would measure -- which put a measurement
+# nobody was reading inside the step everyone runs. Measured in CI: 139s of a
+# 268s step, on all SIX Python versions, ~14 minutes a run spent timing code
+# on a shared runner and discarding the numbers. Timing on a shared runner is
+# also the thing doppler#543 already deleted perf-regression.yml over.
+TEST_PYTHON_CMD = $(LEAK_CHECK) -- uv run pytest src/ -v $(PYTEST_SELECT) \
+                      --benchmark-disable -n auto $(PYTEST_ARGS)
+TEST_RUST_CMD   = cargo test --manifest-path $(RUST_DIR)/Cargo.toml
+
+# Fail-closed: every src/doppler/examples/*.py (plus the standalone example) is
+# discovered and run by the pytest gate -- no hand list to rot. Skips live in
+# src/doppler/examples/.examples-skip (reasons mandatory).
+TEST_EXAMPLES_CMD = $(MAKE) --no-print-directory test-examples-c
+
+TEST_ALL_DEPS = test test-examples test-python test-examples-python
+
+# The stream suite's nats:// tests self-skip when 127.0.0.1:4222 is
+# unreachable, so whether they RUN is a property of the environment, not of the
+# test selection. CI started the broker with a bare `bash scripts/start-nats.sh`
+# and tore it down with an inline `docker rm -f nats` written two different
+# ways -- and `gates-check` scans for `make <target>`, so the one step that
+# decides whether a whole transport is exercised was invisible to the gate that
+# exists to catch CI-only steps. As targets they are visible, listed in
+# GATES_PROVISION, and runnable before `make test-python` or `make coverage`.
+#
+# `docker rm -f` first because start-nats.sh runs `docker run --name nats`,
+# which fails outright if a container by that name is already there -- fine for
+# a fresh runner, wrong for a dev box running it twice.
+nats-up: ## Start the NATS JetStream broker the nats:// stream tests need
+	@docker rm -f nats >/dev/null 2>&1 || true
+	@bash scripts/start-nats.sh
+	@$(NATS_STREAMS) --check
+
+# The remedy `nats-up` names. Deleting is prefix-guarded to DP_WORK_*, so a
+# shared broker's other streams are reported and left alone.
+nats-purge: ## Delete the leftover DP_WORK_* JetStream work queues
+	@$(NATS_STREAMS) --delete --quiet-when-absent
+
+# Symmetric with start-nats.sh's two paths: kill the binary by its pidfile,
+# remove the container if there is one. Both unconditionally and both quietly,
+# because `nats-down` runs with `if: always()` after a failed job and must not
+# turn "the tests failed" into "the cleanup failed too".
+#
+# EVERY WRITER IS STOPPED AND WAITED FOR BEFORE THE STORE IS REMOVED, and that
+# ordering is the whole point. `kill` returns when the signal is QUEUED, not
+# when the process is gone -- measured here, nats-server stayed alive for ~900
+# further `kill -0` polls after `kill` returned, and a JetStream shutdown
+# spends that window flushing stream state to disk. An `rm -rf` racing it
+# empties a stream's msgs/ directory and then fails its rmdir on a file the
+# server re-created in between:
+#
+#   rm: cannot remove '.../streams/DP_WORK_ep752264292/msgs': Directory not empty
+#
+# which is a cleanup step failing a job whose tests had passed. Reproduced
+# deterministically against a writer that keeps writing through SIGTERM: with
+# the wait it removes clean, without it, that exact message.
+#
+# The container comes down before the store too. It publishes no bind mount
+# today, so it cannot be the writer -- but "stop every writer, then remove" is
+# the invariant, and ordering it the other way would let a future bind mount
+# reintroduce this silently.
+#
+# The removal itself cannot fail the target. That is the `if: always()` rule
+# above: the store is a temp directory, and a surviving one is worth a warning
+# and not worth converting a red test run into a red cleanup.
+# THE STREAMS COME OUT FIRST, and that is the ordering this target was
+# missing rather than a refinement. Everything below cleans up a broker THIS
+# repo started -- the pidfile's process, the container, its own temp store.
+# But start-nats.sh REUSES a broker already listening on 4222, and on that
+# path there is no pidfile, no container and no temp store, so every step
+# below is a no-op and the durable work queues simply stay. They accumulated
+# to 5,236 streams / 40.8 GiB on one dev box, and because a work queue is
+# keyed by an endpoint that repeats (dp-chain-<port>), a later run opened onto
+# the previous era's queue and a compose test failed on 174,133 frames in a
+# retired wire format. Deleting them needs the broker UP, so it happens here,
+# before anything is killed.
+#
+# Non-fatal for the same reason the store removal below is: this runs with
+# `if: always()` after a job that may already have failed, and a cleanup step
+# must not convert red tests into a red cleanup.
+nats-down: ## Stop and remove the NATS JetStream broker
+	@$(NATS_STREAMS) --delete --quiet-when-absent \
+	    || echo "nats-down: WARNING — could not purge DP_WORK_* streams"
+	@pidfile="$${NATS_PIDFILE:-$${TMPDIR:-/tmp}/doppler-nats.pid}"; \
+	 if [ -f "$$pidfile" ]; then \
+	     pid="$$(cat "$$pidfile")"; \
+	     kill "$$pid" 2>/dev/null || true; \
+	     n=0; \
+	     while kill -0 "$$pid" 2>/dev/null; do \
+	         n=$$((n + 1)); \
+	         if [ $$n -eq 100 ]; then kill -9 "$$pid" 2>/dev/null || true; fi; \
+	         if [ $$n -ge 150 ]; then \
+	             echo "nats-down: pid $$pid outlived SIGTERM+SIGKILL"; \
+	             break; \
+	         fi; \
+	         sleep 0.1; \
+	     done; \
+	     rm -f "$$pidfile"; \
+	 fi
+	@docker rm -f nats >/dev/null 2>&1 || true
+	@store="$${TMPDIR:-/tmp}/doppler-nats-store"; \
+	 rm -rf "$$store" 2>/dev/null || rm -rf "$$store" 2>/dev/null || true; \
+	 if [ -e "$$store" ]; then \
+	     echo "nats-down: WARNING — $$store survived removal, so something is"; \
+	     echo "  still writing to it. Not failing the target: this runs after a"; \
+	     echo "  job that may already have failed, and the store is a temp dir."; \
+	 fi
+	@echo "nats-down: broker stopped"
+
+# `gates` must run every gate CI does — enforced by `gates-check` (standard.mk),
+# which scans ci.yml and fails on any `make <target>` CI runs that `gates`
+# cannot reach. Every such target is here or in GATES_PROVISION; nothing is
+# silently omitted. GATES_PROVISION is the setup/build steps a dev runs BEFORE
+# gating (install the deps, build the tree), not gates themselves.
+# nats-up/nats-down are provisioning, not gates: they decide whether the
+# nats:// stream tests RUN at all (the suite self-skips on an unreachable
+# broker), so they belong to the "bring the box up" half, the same as build.
+# doppler's root compile_commands.json is a relative SYMLINK into the build
+# tree, not a copy: it resolves to whatever the last configure wrote, so there
+# is nothing to refresh and no staleness gate to add, and being relative it
+# survives a worktree or a fresh clone. That is not a preference — the root
+# entry had silently been a stale in-source COPY (247 entries against 425, cc
+# off PATH with no -O3 -march), and scripts/bench_report.py reads it, so
+# published benchmark records carried an unoptimized toolchain line.
+#
+# canonical takes `copy` or `symlink` (just-buildit.github.io#23, filed from
+# here after its cp refused outright against the symlink doppler already had).
+COMPILE_DB = symlink
+
+# ccache-stats prints a hit rate; it asserts nothing and cannot fail the
+# build, so it is provisioning/reporting rather than a gate. gates-check is
+# what noticed -- CI called a target `gates` could not reach, and said so.
+#
+# gates-check only walks that ONE direction, though: CI -> gates. An entry
+# below that no workflow runs passes it without a word, which is how
+# test-ubsan and test-tsan sat here-adjacent and gated no PR for their whole
+# lives (#1026). The mirror check belongs in standard.mk, which is vendored
+# verbatim -- just-buildit/just-makeit#1158.
+# package-c-tarball is the Windows job's BUILD step (it builds, installs and
+# zips in one recipe, the one release.yml runs), so it is provisioning too.
+#
+# GATES_WINDOWS_ONLY are real gates whose execution home is ci.yml's binding
+# Windows job, and which `make gates` -- run on the Linux dev box, as
+# abi-check and glibc-gate already assume -- cannot run: complex-helpers-check
+# reads clang-cl objects, and package-c-smoke consumes the archive
+# package-c-tarball just built, a recipe that reconfigures the build tree
+# without Python and must not be run on a dev box by `make gates`; and
+# vcpkg-smoke needs a bootstrapped vcpkg (VCPKG_ROOT), which the Windows
+# runner image carries and a dev box has no reason to; and wheel-smoke
+# (ci.yml's wheel-smoke-windows, doppler#1586) installs the wheel that job's
+# `make wheel` just built -- `make gates` builds none. Excluded
+# by name, like provisioning, so that adding one is a visible decision.
+GATES_WINDOWS_ONLY = complex-helpers-check package-c-smoke vcpkg-smoke \
+                     wheel-smoke
+# ci-changes is ci.yml's `changes` job: it CLASSIFIES the diff (is it a
+# version bump alone?) so the matrix can skip, and gates nothing itself --
+# the gating is `CI passed`'s, in scripts/ci_passed.py.
+GATES_PROVISION = install-deps install-docs-deps build pyext nats-up \
+                  nats-down install-deps-ci install-docs-deps-ci \
+                  ccache-stats \
+                  apt-stall-config \
+                  package-c-tarball wheel ci-changes $(GATES_WINDOWS_ONLY) \
+                  package-deb package-rpm package-linux
+GATES_DEPS    = lint changelog-check release-notes-size-check \
+                drift-check doxygen-check docs-check \
+                gen-c-api-check \
+                validate-check \
+                test-all test-sweep test-stubs test-api-docs test-snippets \
+                test-rust \
+                abi-check link-check installed-headers-check \
+                exported-link-check symbol-prefix-check vendored-collision-check \
+                test-asan test-ubsan test-tsan \
+                consumer-faces-check burst-pipeline-check uno-q-check uno-q-nats-check glibc-gate \
+                check-isotime-parity coverage coverage-gate \
+                docker-examples ci-image-repin-check package-linux-smoke
+
+# ── Build ────────────────────────────────────────────────────────────────────
+# Compile through ccache when it is installed, and silently not when it is
+# not: bootstrap.toml lists it, but a checkout predating that, or a box
+# provisioned another way, must still build. DERIVED rather than declared for
+# the same reason the coverage target derives its profile runtime -- asking
+# whether the tool is there beats asserting that it is.
+#
+# CMake caches the launcher in CMakeCache.txt, so an existing build tree keeps
+# whatever it was configured with until it is reconfigured. That is why this
+# reaches CONFIGURE, not the build step.
+CCACHE_BIN   := $(shell command -v ccache 2>/dev/null)
+CCACHE_FLAGS := $(if $(CCACHE_BIN),-DCMAKE_C_COMPILER_LAUNCHER=ccache,)
+
+CMAKE_FLAGS = -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+              -DPython3_EXECUTABLE=$(PYTHON_EXECUTABLE) $(CCACHE_FLAGS) \
+              $(CMAKE_ARGS)
+
+# `CMAKE_FLAGS` reaches the CONFIGURE step only, and the standard's `build`
+# ends with a bare `cmake --build $(BUILD_DIR)` — so there is no flag surface
+# for `--parallel`, and doppler's build would drop from $(NPROC) jobs to one.
+# CMake's own environment knob covers it, and covers it better: it applies to
+# every `cmake --build` in the tree, including `pyext` and both downstream
+# example builds, instead of only the one recipe a flag would reach.
+export CMAKE_BUILD_PARALLEL_LEVEL = $(NPROC)
+
+# clang-tidy and `scripts/bench_report.py` both look for the compilation
+# database at the REPO ROOT, while cmake writes it into $(BUILD_DIR) — so the
+# root entry is a second copy of a generated file, and a second copy goes
+# stale silently. It did: the root database sat at a July in-source configure
+# for weeks (247 entries against the build tree's 425, `cc` off PATH instead
+# of the real `-march`/`-O3` line), so every consumer was reading flags no
+# translation unit was actually compiled with, and nothing said so.
+#
+# A SYMLINK cannot drift — it resolves to whatever the last configure wrote,
+# so there is nothing to refresh and no staleness gate to add. It is relative,
+# so it carries no $(CURDIR) and works in a worktree or a fresh clone; the
+# file is gitignored, hence the rule rather than a checked-in link. Hung off
+# `build` (standard.mk's, extended here by prerequisite) so a clone gets it
+# from the first build. `ln -sfn` is idempotent, and re-running while the
+# link dangles — before the first configure — is harmless.
+#
+# It is a real file target rather than a .PHONY, so make skips it once the
+# link is there. That also means `help-check` sees it: the target is listed in
+# LOCAL_TARGETS and carries a `##` description like any other. Worth knowing
+# why it has to be — help-check skips a file target that EXISTS, and this one
+# is gitignored, so it exists on every developer's box and on no fresh
+# checkout. Undocumented, it passes locally and fails only in CI.
+# Canonical's `compile-commands` produces the root entry the same way, because
+# COMPILE_DB is set to `symlink` above — so the explicit target and this
+# build-time one agree by construction instead of racing to write the same
+# path two different ways. This rule stays because it is hung off `build`: a
+# fresh clone gets the database from its first build, without having to know
+# to ask for it.
+build: compile_commands.json
+compile_commands.json: ## Link the compilation database to the build tree
+	@ln -sfn $(BUILD_DIR)/compile_commands.json $@
+
+# Re-configures with BUILD_PYTHON=ON (default is OFF for C-only builds), then
+# syncs so the venv sees the freshly built extensions.
+#
+# UV_SYNC_FLAGS can be overridden by dependents (e.g. just-build passes
+# --no-group docs so the wheel build path never downloads the docs toolchain).
+UV_SYNC_FLAGS ?=
+define PYEXT_CMD
+$(CMAKE) -B $(BUILD_DIR) -S . -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
+    $(CMAKE_FLAGS) -DBUILD_PYTHON=ON
+$(CMAKE) --build $(BUILD_DIR) --parallel $(NPROC)
+uv sync $(UV_SYNC_FLAGS)
+endef
+
+# `wheel` used to be a .PHONY with no rule: advertised in help, exiting 0 with
+# no wheel produced. This is what it should always have been.
+WHEEL_CMD = $(UV) build --wheel
+
+# ── Docs ─────────────────────────────────────────────────────────────────────
+# zensical reads mkdocs.yml natively. The docs toolchain lives in the `docs`
+# dependency group, which is NOT auto-synced — hence `--group docs` on every
+# invocation, so a clean checkout renders identically to CI. A stale local
+# zensical.toml (gitignored, absent in CI) shadows mkdocs.yml and silently
+# truncates the nav, so it is removed before every build.
+ZENSICAL     = $(UV) run --group docs zensical
+DOCS_PREPARE = @rm -f zensical.toml
+
+# The docs gate: every check runs, every failure is reported in one pass. The
+# ordering is the point — cheap script gates first, so a drifted generated file
+# is reported without paying for a site build; then the strict build; then
+# check_site_links, which walks the freshly built site/ and cannot run before
+# it exists.
+#
+# These were one hand-rolled accumulator loop, with DOCS_CHECK_BUILD_CMD
+# neutered to `:` so the recipe could own the build's position. The standard
+# now expresses the shape directly, so the build line goes back to being the
+# standard's — one implementation again, which is what criterion 5 asked for.
+define DOCS_CHECK_PRE_CMDS
+uv run python scripts/check_api_docs.py
+uv run python scripts/check_docstring_coverage.py --check
+uv run python scripts/check_nav_index.py
+uv run python scripts/check_wfmgen_flag_docs.py
+uv run python scripts/gen_related_pages.py --check
+uv run python scripts/gen_readme.py --check
+uv run python scripts/gen_install_scripts.py --check
+uv run python scripts/gen_wfm_defaults.py --check
+uv run python scripts/gen_stage_kinds.py --check
+uv run python scripts/gen_validation_log.py --check
+uv run python scripts/gen_doc_versions.py --check
+uv run python scripts/gen_changelog_links.py --check
+uv run python scripts/check_version_strings.py
+uv run python scripts/check_doc_targets.py
+uv run python scripts/check_doc_paths.py
+uv run python scripts/check_md_tables.py
+uv run python scripts/check_mermaid_theme.py
+uv run python scripts/check_serializable.py
+uv run python scripts/check_doc_face_parity.py
+uv run python scripts/check_init_param_optionality.py
+uv run python scripts/check_out_param_guard.py
+uv run python scripts/check_c_api_link_refs.py
+endef
+
+# docs-check's invariants WITHOUT the site build, so pre-commit can run them.
+#
+# The whole gate is ~11 s and most of that is zensical building the site; the
+# 13 checks above are 1.6 s together. That is cheap enough to run on every
+# commit, which matters because two of them -- check_api_docs and
+# check_docstring_coverage --check -- are what caught a new class arriving
+# undocumented in doppler#858, after a local run came back clean.
+#
+# Iterates DOCS_CHECK_PRE_CMDS itself rather than restating any of it, so this
+# target and docs-check cannot disagree about what an invariant is: adding a
+# line above puts it in both. Reports every failure rather than stopping at the
+# first, the same as docs-check.
+docs-invariants: ## docs-check's fast invariants, no site build (pre-commit)
+	@tmp=$$(mktemp); trap 'rm -f "$$tmp"' EXIT; fail=0; \
+	 printf '%s\n' "$$DOCS_CHECK_PRE_CMDS" >"$$tmp"; \
+	 while IFS= read -r c; do \
+	     [ -n "$$c" ] || continue; \
+	     echo "=== $$c ==="; \
+	     sh -c "$$c" || { echo "docs-invariants: FAILED: $$c"; fail=1; }; \
+	 done <"$$tmp"; \
+	 if [ "$$fail" != 0 ]; then \
+	     echo "docs-invariants: FAILURES above — every check ran, all reported"; \
+	     exit 1; \
+	 fi; \
+	 echo "docs-invariants: OK — $$(printf '%s\n' "$$DOCS_CHECK_PRE_CMDS" \
+	     | grep -c .) invariant(s)"
+
+define DOCS_CHECK_POST_CMDS
+uv run python scripts/check_site_links.py
+endef
+
+# ── Doxygen ──────────────────────────────────────────────────────────────────
+# Version matters more than it looks: doxygen releases disagree about what
+# counts as a warning, so checking with a different version than CI's gives a
+# different answer. Runs natively when the local doxygen matches CI's, and
+# otherwise inside DOXYGEN_IMAGE, which pins it.
+DOXYGEN_VERSION ?= 1.9.8
+DOXYGEN_CMD      = doxygen Doxyfile
+
+# The same pin, applied to GENERATION rather than checking (gen-c-api).
+#
+# doxygen versions disagree about output, not just about warnings, so
+# regenerating docs/c-api with a local doxygen writes a diff CI would never
+# produce. Measured: local 1.15.0 against CI's 1.9.8 turned a nine-line content
+# change into 164 modified / 88 added / 6 deleted files, with nothing to
+# distinguish the real change from the version churn.
+#
+# Only the doxygen BINARY needs pinning — mkdoxy and mkdocs come from uv.lock,
+# so they are already identical here and in CI. That is why this shims one
+# executable onto PATH instead of re-entering the whole target in a container:
+# no uv, no network sync, no root-owned output tree.
+#
+# The pinned doxygen comes from $(CI_IMAGE) — the image CI itself runs in —
+# rather than from a bespoke doppler-doxygen image built here. Both existed to
+# answer the same question ("give me CI's doxygen"), and the CI image is the
+# one that can answer it by construction: the doxygen job runs INSIDE it, so
+# what it ships is what CI used, not a second thing built from the same base
+# and hoped to match. Retiring the private image also retires 556 MB and a
+# `docker build` from every `gen-c-api` on a box whose doxygen differs.
+#
+# The mount uses the same absolute path inside and out, so any absolute path
+# mkdoxy hands to doxygen resolves identically on both sides. `docker run -i`
+# is load-bearing, not hygiene: mkdoxy invokes `doxygen -` and pipes the whole
+# generated config on STDIN (mkdoxy/doxyrun.py `run`), so without it doxygen
+# reads an empty config, emits no XML, and the failure surfaces later as a
+# missing index.xml — after the recipe has already wiped docs/c-api.
+#
+# The version assertion moved with it: an upstream bump in the image must fail
+# LOUDLY here rather than silently changing generated output, so both fallback
+# paths below check the image's doxygen against DOXYGEN_VERSION first.
+DOXYGEN_IMAGE_CHECK = \
+  got=$$(docker run --rm $(CI_IMAGE) doxygen --version 2>/dev/null \
+         | cut -d' ' -f1); \
+  if [ "$$got" != "$(DOXYGEN_VERSION)" ]; then \
+      echo "doxygen: the CI image ships doxygen $$got, not $(DOXYGEN_VERSION)."; \
+      echo "  CI runs the doxygen job INSIDE that image, so CI has moved too."; \
+      echo "  Update DOXYGEN_VERSION and re-check the docs/c-api diff rather"; \
+      echo "  than pinning around it."; \
+      exit 1; \
+  fi
+
+define DOXYGEN_CHECK_CMD
+@have=$$(doxygen --version 2>/dev/null | cut -d' ' -f1); \
+if [ "$$have" = "$(DOXYGEN_VERSION)" ]; then \
+  $(MAKE) -s doxygen-warn-gate; \
+else \
+  echo "doxygen-check: local $${have:-none} != CI's $(DOXYGEN_VERSION), using the CI image"; \
+  $(DOXYGEN_IMAGE_CHECK); \
+  docker run --rm -v "$(CURDIR)":/w:ro -w /w $(CI_IMAGE) \
+    make -s doxygen-warn-gate; \
+fi
+endef
+
+# ── Bench ────────────────────────────────────────────────────────────────────
+BENCH_THRESHOLD ?= 0.30
+
+# Benchmarks reported by the advisory perf gate but never failed by it
+# (jm bench --check --allow). Keep this list SHORT and justified — an
+# exemption is a blind spot, so each entry names why the measurement, not the
+# code, is untrustworthy.
+#
+# test_bench_execute_decim_64k: bimodal on GitHub runners. It lands in one of
+#   two internally-tight states ~1.66x apart (min 1.10 ms vs 1.84 ms, each
+#   with ~1.2% stddev) that track per-process memory layout rather than any
+#   code change. It has flagged PRs containing no DSP code at all (#519
+#   docs-only +59.7%, #524 tooling-only +66.5%). Not reproducible locally:
+#   448 us +/- 0.2% across 8 separate processes. A gate that fires on
+#   documentation changes stops being read.
+BENCH_ALLOW ?= test_bench_execute_decim_64k
+
+# `jm bench` covers jm's COMPONENTS — the objects in objects/*.toml — and
+# structurally cannot see anything else. A `c_deps` entry (conv, rs, ccsds_tm)
+# or a function-only module (mpsk, ber, snr, util, detection) is not a
+# component, so its bench binary is built by CMake and run by NOTHING:
+# `just-makeit bench util` answers `unknown component(s): util`.
+#
+# So ten benchmarks in this tree do not run here, and that is a known,
+# tracked gap rather than an oversight — just-makeit#1023 asks jm to run
+# them, and doppler deliberately does not carry a local runner that the fix
+# would immediately retire. Until it ships they are run by hand:
+#
+#     cmake --build build --target bench_conv_core && ./build/.../bench_conv_core
+#
+# scripts/check_bench_coverage.py holds what CAN be held meanwhile — every
+# one of them has a CMake target, records a measurement, and writes its JSON
+# under the name a collector opens. See docs/dev/contributing/benchmarking.md.
+BENCH_CMD         = uv run just-makeit bench
+BENCH_SAVE_CMD    = uv run just-makeit bench --python-only --tag base
+BENCH_COMPARE_CMD = uv run just-makeit bench --check \
+                        --python-only --baseline base \
+                        --threshold $(BENCH_THRESHOLD) \
+                        $(foreach b,$(BENCH_ALLOW),--allow $(b))
+
+# ── Coverage ─────────────────────────────────────────────────────────────────
+# `coverage` builds a dedicated clang-instrumented tree and merges the C,
+# Python and Rust .profraw into one llvm-cov report; `coverage-gate` fails when
+# the C lines a PR adds aren't covered. clang + matching llvm tools required;
+# override the tool names if they are version-suffixed (e.g. llvm-cov-22).
+COV_DIR       ?= build-cov
+
+# `llvm-cov` consults debuginfod for every object it opens, and Ubuntu turns
+# that on FOR EVERY SHELL in /etc/profile.d/debuginfod.sh
+# (DEBUGINFOD_URLS=https://debuginfod.ubuntu.com). Nothing it could fetch
+# exists — these objects were built here, minutes ago, and carry their own
+# coverage mapping — so each lookup is a network round trip that ends in a
+# timeout.
+#
+# Measured on one extension `.so`: **over 120 s producing no output at all,
+# against 0.105 s with the variable cleared.** This target opens 33 objects
+# and passes over them three times (report, show, export), so the effect is
+# not a slow build, it is a target that never finishes. It presents as a
+# process asleep at 0 % CPU with an open socket, which reads like a hang in
+# llvm-cov and sent one investigation to `-num-threads=1` (no effect —
+# threading was never involved) before an fd listing showed the socket.
+#
+# Cleared for the coverage tools alone, via the recipe rather than a note in
+# a doc: a developer's own debuginfod setup is untouched everywhere else, and
+# a machine that has the variable set — which on Ubuntu is every machine —
+# cannot be the difference between this target working and not.
+# Applied at the CALL SITES, not folded into the tool names below: those are
+# documented as overridable for a version-suffixed toolchain
+# (`LLVM_COV=llvm-cov-22`), and an override must not be able to drop this.
+COV_ENV       ?= env DEBUGINFOD_URLS=
+LLVM_PROFDATA ?= llvm-profdata
+LLVM_COV      ?= llvm-cov
+COV_BASE      ?= origin/main
+COV_PATCH_MIN ?= 90
+# The build and the three suites run under a memory ceiling where the host
+# can hold one (scripts/mem-guard.sh: a systemd user scope with MemoryMax,
+# proved enforced before it is trusted, else unguarded and said so). A
+# runaway on a small VM does not fail, it takes the machine down: three WSL
+# kills here, the last a C test that read /dev/full without end. This target
+# runs everything the repo has, instrumented, eight-wide, so it is where a
+# runaway has the most company to take with it. `COV_GUARD=` disables;
+# `MEM_GUARD_MAX=4G` overrides the 3/4-of-RAM default. The probe's
+# interpreter is exported rather than prefixed, because the ctest phase
+# runs from inside $(COV_DIR) and reaches the script through $(CURDIR)/ --
+# a prefix there would be taken for the path.
+COV_GUARD     ?= scripts/mem-guard.sh
+# The instrumented C suite excludes the `sweep` validators, exactly as the
+# three sanitizer suites do (SAN_EXCLUDE_SWEEP). Spelled as its own variable
+# rather than a literal so `check_instrumented_sweep.py` can resolve it, and
+# so the two suites' escape hatches read the same. The measurement that
+# justifies it is at the ctest call site below. `COV_SWEEP=1` restores them.
+COV_EXCLUDE_SWEEP = $(if $(COV_SWEEP),,-LE sweep)
+export MEM_GUARD_PYTHON ?= $(PYTHON_EXECUTABLE)
+# Excluded from the report: vendored code, jm-generated binding aggregators
+# (`<mod>_ext.c`) and per-object fragments, and the test/bench/validation
+# harnesses — only first-party _core.c counts.
+#
+# `native/validation/` was MISSING from that list for as long as the list has
+# existed, and it is not a small omission: the validator harnesses are 9310
+# lines, a quarter of the reported denominator, counted as library code at
+# 78.97%. The rule stated below — "the test SOURCES stay out of the report
+# through COV_IGNORE; only what they exercised in library headers is added"
+# — is exactly as true of a `validate_*` harness as of a `test_*` one; the
+# regex simply never named the directory. Correcting it moves the reported
+# total from 84.36% to 86.05%, the number for doppler's own source
+# (doppler#1292). `native/src/app/` (the wfmgen CLI) is excluded
+# too: its body is an OBJECT lib compiled into BOTH the executable and a `.so`,
+# but the report attributes only to the `.so`, whose copy is never executed.
+#
+# `jm_*.h` is vendored code that simply was not listed. It stayed invisible
+# because the patch gate only sees lines a branch CHANGES, and nothing had
+# changed one until the 0.58.0 re-vendor — which added jm's `jm_dot_f32` /
+# `jm_dot_f64` inline helpers, 22 uncovered lines doppler does not call, and
+# failed `coverage-gate` at 18.5% on a header doppler does not write. The
+# `jm_` prefix is deliberately narrow: `native/inc/` is otherwise doppler's own
+# (`dp_simd.h`, `dp_state.h`, every `*_core.h`) and those inline bodies must
+# stay measured. Only jm's own inline functions lose attribution, and the SIMD
+# MACROS doppler actually uses are unaffected — a macro expands at its call
+# site and is attributed to the `.c` that used it.
+COV_IGNORE    ?= (^|/)(vendor|build|build-cov|native/src/app)/|(^|/)jm_[a-z]+\.h$$|_ext(_[a-z0-9_]+)?\.c$$|/(tests|benchmarks|validation)/
+
+# Preflight: can this toolchain link an instrumented binary at all? Without
+# it the build compiles every object and dies at the FIRST LINK with "cannot
+# find .../libclang_rt.profile.a", which reads like a broken toolchain rather
+# than a missing package -- it cost a full gates run to diagnose.
+#
+# DERIVED rather than listed in bootstrap.toml's dev group, because whether `clang`
+# already carries its profile runtime is a property of the distro RELEASE and
+# one package list cannot express it: Ubuntu 22.04 ships it inside clang's own
+# packages and has no libclang-rt package at all (naming one fails apt
+# outright), while 26.04 splits it into libclang-rt-21-dev that `clang` does
+# not depend on. See the note in bootstrap.toml.
+define COVERAGE_CMD
+@printf 'int main(void){return 0;}\n' > $(COV_DIR)-probe.c 2>/dev/null \
+    || { mkdir -p $(dir $(COV_DIR)) ; \
+         printf 'int main(void){return 0;}\n' > $(COV_DIR)-probe.c ; }
+@clang -fprofile-instr-generate -fcoverage-mapping \
+     $(COV_DIR)-probe.c -o $(COV_DIR)-probe 2>/dev/null \
+  || { v=$$(clang --version | head -1 | tr -dc '0-9. ' \
+              | tr ' ' '\n' | grep -m1 '[0-9]' | cut -d. -f1); \
+       echo ""; \
+       echo "coverage: clang cannot link -fprofile-instr-generate here."; \
+       echo "  The profile runtime (libclang_rt.profile.a) is missing, and"; \
+       echo "  clang does not depend on it where it ships separately."; \
+       echo ""; \
+       echo "  Ubuntu/Debian 24.04+ :  sudo apt-get install libclang-rt-$$v-dev"; \
+       echo "  Arch                 :  pacman -S compiler-rt"; \
+       echo "  Fedora               :  dnf install compiler-rt"; \
+       echo "  openSUSE             :  zypper install llvm-compiler-rt"; \
+       echo ""; \
+       echo "  Not in bootstrap.toml's dev group on purpose: 22.04 has no such"; \
+       echo "  package at all and naming one fails apt outright. See bootstrap.toml."; \
+       echo ""; \
+       rm -f $(COV_DIR)-probe.c $(COV_DIR)-probe; exit 1; }
+@rm -f $(COV_DIR)-probe.c $(COV_DIR)-probe
+$(CMAKE) -B $(COV_DIR) -S . \
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DCMAKE_C_COMPILER=clang \
+    $(CCACHE_FLAGS) \
+    -DDOPPLER_COVERAGE=ON -DBUILD_PYTHON=ON \
+    -DPython3_EXECUTABLE=$(PYTHON_EXECUTABLE) \
+    -DPYTHON_PACKAGE_DIR=$(CURDIR)/$(COV_DIR)/pkg/doppler \
+    -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+    $(CMAKE_ARGS)
+$(COV_GUARD) $(CMAKE) --build $(COV_DIR) --parallel $(NPROC)
+mkdir -p $(COV_DIR)/pkg/doppler
+# The extract below is ADDITIVE -- it overwrites what it carries and leaves
+# everything else -- so a test deleted or renamed in src/ lingered here and
+# kept running, forever. Found by sabotage: a temporary failing test removed
+# from src/ still failed the next run from this copy.
+#
+# A deleted test that keeps passing is worse than one that keeps failing: it
+# reports coverage for source that no longer exists. So the python half is
+# cleared first, by name rather than by wiping the directory -- the freshly
+# built *.so live here too (PYTHON_PACKAGE_DIR points at it) and removing
+# those would force a relink on every run.
+find $(COV_DIR)/pkg/doppler -type f ! -name '*.so' -delete 2>/dev/null || true
+find $(COV_DIR)/pkg/doppler -type d -empty -delete 2>/dev/null || true
+(cd src/doppler && tar cf - --exclude='*.so' .) \
+    | (cd $(COV_DIR)/pkg/doppler && tar xf -)
+# The tar above excludes *.so but NOT executables, so `_bin/wfmgen` rode
+# along from the NORMAL build -- gcc, optimised -- while `import doppler`
+# resolved to the instrumented clang/Debug library beside it. Every test
+# asserting byte parity between the CLI and the library then compared two
+# different builds of the same source and failed on floating-point output:
+# 8 of them, invisible under the leading `-` on pytest below.
+#
+# Installing the instrumented binary makes them RUN and contribute coverage,
+# which is the same reasoning as resolving the repo root by walking up
+# rather than skipping the tests that could not find it.
+#
+# `mkdir -p` FIRST, and it is load-bearing rather than defensive. The build
+# itself already bundles wfmgen here (wfmcompose/CMakeLists.txt's POST_BUILD
+# copy into PYTHON_PACKAGE_DIR), and the purge above then deletes it -- it is
+# not a `*.so` -- and takes the emptied `wfm/_bin/` with it. The directory
+# came back only from the tar, i.e. only on a box whose `src/doppler/wfm/_bin/`
+# already held a binary from a NORMAL build; that path is .gitignored, so it
+# exists on a developer's tree and never in CI. This target therefore passed
+# locally and died in CI on `install: cannot create regular file`, which is
+# the whole "works here" class -- a recipe reaching for an artifact no clean
+# checkout has.
+mkdir -p $(COV_DIR)/pkg/doppler/wfm/_bin
+install -m 755 $(COV_DIR)/native/src/wfmcompose/wfmgen \
+    $(COV_DIR)/pkg/doppler/wfm/_bin/wfmgen
+rm -rf $(COV_DIR)/prof && mkdir -p $(COV_DIR)/prof
+# -j, because this suite is the single biggest block of the coverage job:
+# 682s serial in CI against 135 tests. Source-based coverage is per-PROCESS
+# (LLVM_PROFILE_FILE's %p), so concurrent tests each write their own .profraw
+# and the merge below is unaffected -- the profile format is what makes this
+# safe, not luck.
+#
+# $(COV_EXCLUDE_SWEEP) for the reason SAN_EXCLUDE_SWEEP gives, measured again
+# here because coverage is the one instrumented suite where dropping a test
+# could lose REPORT data rather than only time. Both halves were measured on
+# one instrumented build, 20 cores, doppler#1292:
+#
+#   the 34 `sweep` validators are 94.3% of the instrumented ctest CPU
+#     (4615.7s of 4893.6s), and validate_acq_surface_jitter ALONE is 1261.7s
+#     against a 1266.0s leg -- so the suite finishes when that one test
+#     finishes and no amount of -j helps. Excluded: 55.7s.
+#   what the report loses is NINE LINES of 29738, 86.05% -> 86.02%, in four
+#     files (ber_meter, wfm_synth, doppler_channel, awgn). Each is a line
+#     a validator reaches and no unit test does, which is a missing C test
+#     rather than coverage worth 21 minutes of instrumented runtime.
+#
+# The 9.4-POINT drop a naive reading of the same two reports shows is the
+# validator HARNESSES reporting on themselves (9310 lines, 78.97% -> 15.54%)
+# -- they are harnesses like native/tests/, and COV_IGNORE now says so. The
+# two changes ship together on purpose: either alone reads as a collapse.
+#
+# COV_SWEEP=1 puts them back, as SAN_SWEEP=1 does for the sanitizers.
+cd $(COV_DIR) && LLVM_PROFILE_FILE="$(CURDIR)/$(COV_DIR)/prof/c-%p-%m.profraw" \
+    $(CURDIR)/$(COV_GUARD) $(CTEST) --output-on-failure -j $(NPROC) \
+        $(COV_EXCLUDE_SWEEP)
+# -n auto for the same reason as ctest above: 486s serial in CI, 102s here.
+#
+# `not validation_limits` for the reason the ctest leg drops `sweep`, one
+# language over. Every test_validation_limits.py builds an object's whole
+# validation report in a fixture and asserts its limits; instrumented, the
+# async_dsss_pool one alone spent 823.7 s in setup of an 854.5 s pass on 20
+# cores (2026-09-18, --durations), and the leg took 40 min on CI's 4. The
+# plain `make test-python` still runs every limit on every push -- only the
+# ~6x instrumentation tax on them goes. check_instrumented_sweep.py holds it.
+# The per-process profile argument is identical -- xdist workers are separate
+# processes and %p gives each its own .profraw.
+#
+# NO LEADING `-`. This ran with make ignoring pytest's exit code, hiding 89
+# results (27 failed, 62 errors) in the one job that produces the coverage
+# number -- the "a gate that cannot fail" shape where it can least afford to
+# be. All 89 are now fixed at their cause rather than tolerated: 81 by
+# resolving the repo root by walking up, 7 by installing the instrumented
+# wfmgen above, and 1 by withholding a scaling assertion that profiling
+# invalidates. A failure here is now a failure.
+#
+# DOPPLER_BUILD_DIR and PATH are what make this run self-sufficient, and both
+# were supplied by the DEVELOPER'S MACHINE until the exit code started being
+# read. This job builds only $(COV_DIR), yet three gates asked for `build/`
+# (the C doc-snippet compiler, the conv/rs certify harnesses) and four asked
+# for console scripts on PATH (`wfmgen` in the sh doc fences, `doppler-source`
+# / `doppler-fir` / `doppler-specan` in the cli block tests). A dev box has an
+# ordinary build tree and an activated venv, so all of it passed here and
+# failed on a runner -- 44 failures and 6 errors, none of them about the code
+# under test.
+#
+# The instrumented wfmgen goes FIRST, ahead of the venv's console script, so
+# the fences drive the binary this run built and their work lands in the
+# report. The variable is jm's own name for this, already used by the cargo
+# leg below and by ffi/rust/build.rs; `build_dir()` in doppler.tests._repo is
+# the single reader on the Python side.
+LLVM_PROFILE_FILE="$(CURDIR)/$(COV_DIR)/prof/py-%p-%m.profraw" \
+    PYTHONPATH="$(CURDIR)/$(COV_DIR)/pkg" \
+    DOPPLER_BUILD_DIR="$(CURDIR)/$(COV_DIR)" \
+    PATH="$(CURDIR)/$(COV_DIR)/pkg/doppler/wfm/_bin:$(dir $(PYTHON_EXECUTABLE)):$$PATH" \
+    $(COV_GUARD) $(PYTHON_EXECUTABLE) -m pytest $(COV_DIR)/pkg/doppler \
+    -q -p no:cacheprovider --ignore-glob='*/benchmarks/*' \
+    -m "not examples_serial and not validation_limits" -n auto
+# The SERIAL pass, and the reason this job needs one at all: `-n auto` is 4
+# workers on CI's runner and 20 on a dev box, and `.examples-serial` exists
+# precisely because some examples cannot share the machine -- ddc_fn_scaling
+# asserts a thread-scaling speedup to prove execute() releases the GIL, and
+# the example pairs rendezvous between two processes over a broker. The
+# example gate has split them since the registry was added; THIS job never
+# did, so the one command that produces the coverage number ran them under
+# full xdist. It cost a report, not just a red line: the run aborts before
+# llvm-cov, so `make coverage` emitted nothing at all on a 20-core box and
+# `make gates` could not pass there (doppler#1376).
+#
+# Same shape as test-examples-python, exit code and all: 5 is pytest's "no
+# tests collected", which an emptied registry produces, and a gate must not
+# go red for the correction that emptied it.
+set +e; \
+    LLVM_PROFILE_FILE="$(CURDIR)/$(COV_DIR)/prof/py-%p-%m.profraw" \
+    PYTHONPATH="$(CURDIR)/$(COV_DIR)/pkg" \
+    DOPPLER_BUILD_DIR="$(CURDIR)/$(COV_DIR)" \
+    PATH="$(CURDIR)/$(COV_DIR)/pkg/doppler/wfm/_bin:$(dir $(PYTHON_EXECUTABLE)):$$PATH" \
+    $(COV_GUARD) $(PYTHON_EXECUTABLE) -m pytest $(COV_DIR)/pkg/doppler \
+    -q -p no:cacheprovider --ignore-glob='*/benchmarks/*' \
+    -m "examples_serial"; \
+    rc=$$?; \
+    if [ $$rc -eq 5 ]; then \
+        echo "coverage: no examples_serial items — nothing needs a serial pass"; \
+    elif [ $$rc -ne 0 ]; then exit $$rc; fi
+-DOPPLER_BUILD_DIR="$(CURDIR)/$(COV_DIR)" \
+    LLVM_PROFILE_FILE="$(CURDIR)/$(COV_DIR)/prof/rs-%p-%m.profraw" \
+    $(COV_GUARD) cargo test --manifest-path $(RUST_DIR)/Cargo.toml
+# -failure-mode=all, because a partial .profraw here is EXPECTED, not damage.
+# Two tests spawn a child that imports the instrumented extension and is then
+# terminated rather than allowed to exit -- test_server_ws.py kills the server
+# it started, test_missing_extras.py runs a module that is supposed to fail.
+# A killed process never runs the profile runtime's flush, so it leaves its
+# mmap'd counter pages behind as 4096-byte files with an unfinished header.
+# That is not fixable at the test end: you cannot ask a process you had to
+# kill to write a clean profile first.
+#
+# llvm-profdata's DEFAULT failure mode is `any`, which discards the entire
+# report over any single unreadable input -- measured here as 12 such files
+# against 166 good ones, and the whole of `coverage` failing with "error: no
+# profile can be merged". `all` merges everything readable and only fails when
+# nothing is, which is the honest reading of a directory that is expected to
+# contain both.
+#
+# This does not hide a real loss of data: if profiles genuinely stopped being
+# written, the numbers collapse and `coverage-gate`'s threshold fails, which
+# is the gate that exists for exactly that.
+# The test executables are objects too, not only the libraries. A `static`
+# function in a header (det_private.h's det_peak_list, dp_state.h's cursors)
+# is instantiated per translation unit and carries that unit's name in the
+# profile, so the copy a C test calls DIRECTLY never merges into the
+# library's copies -- and an export over the libraries alone reports the
+# test's calls as never made. Measured on #1210: two early returns proven
+# by test_acq_core.c showed DA:0 in the export and 89% in the test binary's
+# own report, and the patch gate failed at 88% on lines that had a test. The
+# test SOURCES stay out of the report through COV_IGNORE; only what they
+# exercised in library headers is added.
+#
+# The WHOLE build tree, not native/: a test declared in the root CMakeLists
+# builds at the top of $(COV_DIR), and `find $(COV_DIR)/native` never saw
+# those 19 (test_dp_isotime, test_dp_state, test_dp_mf, ...). #1210's fix
+# was therefore half applied -- dp_isotime.h read 70.4% where its own test
+# proves 80.5%, and #1360's patch gate failed at 89% on lines a test ran.
+# pkg/ is pruned: it holds the Python package, whose .so are listed above.
+@objs="$(COV_DIR)/libdoppler.so $$(ls $(COV_DIR)/pkg/doppler/*/*.so \
+    2>/dev/null | sed 's/^/-object /' | tr '\n' ' ') \
+    $$(find $(COV_DIR) -path $(COV_DIR)/pkg -prune -o -type f -perm -u+x \
+         \( -name 'test_*' -o -name 'validate_*' \) -print \
+       | sed 's/^/-object /' | tr '\n' ' ')"; \
+$(COV_ENV) $(LLVM_PROFDATA) merge -sparse -failure-mode=all $(COV_DIR)/prof/*.profraw \
+    -o $(COV_DIR)/doppler.profdata; \
+$(COV_ENV) $(LLVM_COV) report $$objs -instr-profile=$(COV_DIR)/doppler.profdata \
+    -ignore-filename-regex='$(COV_IGNORE)'; \
+$(COV_ENV) $(LLVM_COV) show $$objs -instr-profile=$(COV_DIR)/doppler.profdata \
+    -ignore-filename-regex='$(COV_IGNORE)' \
+    -format=html -output-dir=$(COV_DIR)/html; \
+$(COV_ENV) $(LLVM_COV) export $$objs -instr-profile=$(COV_DIR)/doppler.profdata \
+    -ignore-filename-regex='$(COV_IGNORE)' -format=lcov \
+    > $(COV_DIR)/coverage.lcov
+sed -i 's|SF:$(CURDIR)/|SF:|' $(COV_DIR)/coverage.lcov
+@echo "coverage: HTML -> $(COV_DIR)/html/index.html  lcov -> $(COV_DIR)/coverage.lcov"
+endef
+
+define COVERAGE_GATE_CMD
+uvx diff-cover $(COV_DIR)/coverage.lcov \
+    --compare-branch=$(COV_BASE) \
+    --fail-under=$(COV_PATCH_MIN) \
+    --format html:$(COV_DIR)/patch.html \
+    --format markdown:$(COV_DIR)/patch.md
+endef
+
+# ── Release ──────────────────────────────────────────────────────────────────
+# ONE declaration of the version sites, in scripts/version_sites.py, with one
+# reader and one writer over it. Both directions used to be spelled out here,
+# per site, and they differed by more than a filename: five bespoke
+# `grep | sed` reads and five bespoke `sed -i` writes, so the two spellings of
+# one site could disagree about which line they meant, and a site in one list
+# and not the other was invisible.
+#
+# They DID disagree. The writer stripped a pre-release suffix on the way into
+# CMakeLists.txt and Cargo.toml (CMake and Cargo reject `1.2.3rc1`) while the
+# reader read back whatever was there and `version-check` demanded every site
+# match. Measured 2026-08-24:
+#
+#     $ make bump-version VERSION=0.44.0rc1
+#     $ make version-check
+#     ERROR: CMakeLists.txt has 0.44.0, but pyproject.toml has 0.44.0rc1
+#
+# A bump that cannot pass its own check, in the exact step release.yml runs
+# against the tag. Each rule was locally reasonable; jointly they were
+# impossible. Pre-releases are now REFUSED with that reason rather than
+# half-supported -- doppler has cut zero of them -- and supporting them needs a
+# change in the vendored standard.mk: just-buildit/just-buildit.github.io#30.
+#
+# uv.lock's and ffi/rust/Cargo.lock's copies are re-synced by the `uv lock`
+# and `cargo metadata` below; CHANGELOG is prose. A LOCKFILE is never a site
+# in the table above -- it is generated, so the fix belongs where it is
+# generated from, and a regex rewriting one by hand would be overwritten by
+# the next build anyway. Cargo.lock sat at 0.46.0 against a 0.47.0 project
+# precisely because nothing regenerated it here (doppler#1316).
+VERSION_SITES_CMD = python3 scripts/version_sites.py
+
+# The labels, once. The probe COMMAND is identical for every site, so this
+# derives the whole VERSION_PROBES block standard.mk wants instead of carrying
+# five hand-written pipelines. `$(shell)` is deliberately absent: standard.mk
+# EXPORTS VERSION_PROBES, so a shell in it would run once per recipe, on every
+# target -- this is pure make text and costs nothing.
+VERSION_SITE_LABELS = pyproject.toml CMakeLists.txt Cargo.toml \
+                      bootstrap.toml just-makeit.toml vcpkg.json
+
+define VERSION_PROBE_NEWLINE
+
+
+endef
+# The newline leads each entry rather than trailing it: `foreach` joins with a
+# SPACE, and a space after the newline lands inside the next entry's label
+# (standard.mk splits on `|` only, so it would print as indentation). Leading
+# it puts that space after the command, where the shell ignores it, and the
+# empty first line is dropped by standard.mk's own blank-line filter.
+VERSION_PROBES := $(foreach L,$(VERSION_SITE_LABELS),$(VERSION_PROBE_NEWLINE)$(L)|$(VERSION_SITES_CMD) --read $(L))
+
+# `--write` sets every DECLARED site and reads them all back, so a site missing
+# from VERSION_SITE_LABELS above is still written and still verified -- the
+# silent direction of the old two-list arrangement cannot recur.
+define BUMP_VERSION_CMD
+$(VERSION_SITES_CMD) --write $(VERSION)
+uv lock
+cd ffi/rust && cargo metadata --offline --format-version 1 >/dev/null
+@$(MAKE) --no-print-directory docs-relink
+endef
+
+# PROJECT names the namespaced env var standard.mk accepts a version from:
+# JUST_BUILDIT_DOPPLER_VERSION. A BARE exported VERSION is refused for the
+# release targets, because that name carries no evidence anyone meant it --
+# measured before the guard existed, `VERSION=9.9.9 make -n bump-version`
+# rewrote every manifest from a variable nobody typed, and `release-branch`
+# would have branched on it. Set here rather than guarded here: the guard is
+# generic to every repo on standard.mk and lives there, not in a private copy
+# (just-buildit/just-buildit.github.io#29). Inert until that lands.
+PROJECT = DOPPLER
+
+define RELEASE_BRANCH_NOTES
+@echo "  - if perf-relevant code changed since the last release (release.md"
+@echo "    §2b): make bench-interleaved VERSION=$(VERSION) && make bench-docs"
+@echo "    (on a representative machine), then commit benchmarks/published +"
+@echo "    docs/benchmarks.md"
+endef
+
+# The script is VENDORED from canonical (just-buildit.github.io) and held to it
+# by standard-check; everything doppler-specific is here. It used to be a local
+# 194-line copy that had drifted from just-makeit's — same filename, same
+# target, different capabilities.
+#
+# RW_MIN_ASSETS is the real count, not a floor well under it: the C archive
+# per platform (linux x86_64/aarch64, macOS arm64 .tar.gz, Windows .zip), a
+# starter per non-Windows platform, and the sdist -- 8. At 3 it could not
+# notice a whole platform missing from a release.
+#
+# RW_PUBLISH_JOB must stay precise: a matcher that also caught
+# "Publish container images" would read PyPI as live before it is, and one that
+# matches nothing at all would let a rerun fire after a successful publish.
+RELEASE_WATCH_CMD = @REPO=doppler-dsp/doppler RW_PKG=doppler-dsp \
+                        RW_PUBLISH_JOB="publish to pypi" \
+                        HANG_MIN=30 RW_MIN_ASSETS=8 \
+                        RW_ASSET_PATTERN='\.(tar\.gz|zip)$$' \
+                        scripts/release-watch.sh "$(VERSION)"
+
+# ── Clean ────────────────────────────────────────────────────────────────────
+CLEAN_PATHS = $(BUILD_DIR) $(PY_BUILD_DIR) $(UBSAN_DIR) $(TSAN_DIR) \
+              $(ASAN_DIR) \
+              $(GLIBC_BUILD_DIR) \
+              docs/doxygen/ site/ \
+              *.png bench_*.json zensical.toml __pycache__
+
+define CLEAN_CMD
+@find $(PYEXT_DIR) -name '*.cpython-*.so' -delete
+@find $(PYEXT_DIR) -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
+endef
+
+# ── Repo-local targets ───────────────────────────────────────────────────────
+# Named here so they land in `.PHONY` and in generated `help`, and so the same
+# gates cover them: criterion 2 is "help lists EVERY target", not "every
+# standard target" — a local target help omits is exactly as invisible.
+LOCAL_TARGETS = specan record-demo gallery blazing gen-c-api just-build \
+                docs-invariants \
+                jm-apply jm-apply-downstream \
+                jm-upgrade changelog-assemble changelog-assembled-check \
+                plot-rx-dynamics \
+                gen-c-api-check \
+                gen-c-api-run \
+                package-c package-c-tarball package-c-smoke vcpkg-smoke \
+                package-deb package-rpm package-linux package-linux-smoke \
+                complex-helpers-check sdist release-notes \
+                release-pr release-notes-body-check \
+                release-freshness-check \
+                print-jm-version nats-up nats-down nats-purge \
+                docs-relink docs-drift-check drift-check changelog-check \
+                release-notes-size-check workflow-syntax-check \
+                ci-aggregator-check \
+                jm-pin \
+                issue-link-check \
+                validate validate-c validate-check \
+                test-sweep validation-time-baseline \
+                characterize characterization-check \
+                doxygen-warn-gate \
+                test-examples-c test-examples-python test-example-downstream \
+                test-example-downstream-python \
+                package-starter-tarball test-starter-tarball \
+                test-stubs test-api-docs test-snippets lint-stubs \
+                test-ubsan test-tsan test-asan \
+                check-docstring-coverage \
+                abi-check link-check consumer-faces-check \
+                burst-pipeline-check uno-q-check uno-q-nats-check \
+                glibc-check glibc-gate glibc-image \
+                check-isotime-parity \
+                tests-ssot validation-report-check \
+                lint-alloc-helpers-baseline \
+                compile_commands.json \
+                install-docs-deps install-deps-ci install-docs-deps-ci \
+                apt-stall-config deps-budget-check cargo-floor-check \
+                bench-coverage-check kwarg-parity-check issues \
+                doc-sections-check \
+                installed-headers-check exported-link-check symbol-prefix-check \
+                vendored-collision-check \
+                ci-image ci-image-check ci-image-repin-check \
+                ccsds-isolation-check instrumented-sweep-check \
+                container-mount-check \
+                cargo-lock-check design-pages-check \
+                ci-image-shell ci-image-source-hash \
+                ci-shell ci-run ci-gates ccache-stats pr-watch \
+                wheel-check wheel-smoke release-smoke release-smoke-pypi \
+                release-smoke-packages \
+                bench-python \
+                bench-interleaved bench-publish bench-docs bench-stream \
+                bench-report \
+                docker-runtime docker-sdk docker-downstream docker-stream \
+                docker-examples smoke-image
+
+# ── Vendored from canonical ──────────────────────────────────────────────────
+# Verbatim copies the drift gate holds to canonical, alongside standard.mk
+# itself. Edit canonical and re-vendor; never edit these in place.
+VENDORED_FILES = scripts/release-watch.sh scripts/pr-watch.sh
+
+# What `ci-changes` may IGNORE when it asks "is this a version bump and
+# nothing else?" (standard.mk's knob, extended rather than copied). A release
+# PR carries more than the bump: the gallery PNGs `make gallery` re-rendered
+# and the benchmark snapshots `make bench-interleaved` measured, plus the
+# docs/benchmarks.md rendered from them. None of them is compiled, imported
+# or executed by the test matrix, so treating them as source ran the whole
+# matrix twice per release (the PR, then main) over code its parent had
+# already passed. The Docs workflow still builds the site from them, so a
+# broken asset is still caught -- just not by re-running the C/Python tests.
+CI_INERT_RE = ^(CHANGELOG\.md|changelog\.d/.+|docs/assets/[^/]+\.png|benchmarks/published/.+|docs/benchmarks\.md)$$
+
+include standard.mk
+
+# ── Everything below is genuinely doppler's own ──────────────────────────────
+
+# Hung off `lint` as an extra prerequisite rather than added to standard.mk,
+# which is vendored and must not be edited. CI runs `make lint` and nothing
+# else, so this is what makes the rule enforced instead of merely written in
+# native/tests/README.md — which is the distinction that matters, since the
+# convention WAS written down while 90 copies of CHECK accumulated under it.
+#
+# `changelog-check` joined this list for the second half of that same reason.
+# It was in GATES_DEPS and nowhere else, and NO CI job runs `make gates` — so
+# a gate this repo believed it had was executed by nothing on every PR for as
+# long as it has existed. Being inert (#705) was only half the problem; not
+# running was the other half, and `gates` is a local convenience, not CI.
+#
+# `release-notes-size-check` joined for the SAME reason, one release later. It
+# was still GATES_DEPS-only, so the two-sentences-above paragraph described it
+# exactly: a gate the repo believed it had, run by nothing on any PR. It now
+# also enforces the per-entry length that changelog.d/README.md asks for, and
+# guidance without a gate is the thing this repo keeps re-learning -- v0.44.0
+# assembled to 72,636 characters at a median of 24 lines per entry while a
+# README asked politely for less.
+# `drift-check` joined for the THIRD instance of the same lesson, from the
+# other direction. The two above were gates CI did not run; this one CI runs
+# in its own job (`ci.yml`'s "jm manifest drift gate") while `lint` did not,
+# so the local sweep was the half that lied. A header is an input to jm's
+# codegen, and CLAUDE.md points at `make lint` as "every gate CI runs" -- so
+# a doxygen `@param` edit could leave a `.pyi` stale, pass lint, pass
+# docs-check, pass test-fast, and fail CI on the one gate the local sweep
+# omitted. Measured on #1166: four local targets green, `drift-check` exit 2.
+# It costs ~35s warm, which is why it was left out and is the whole argument
+# against; a round trip through CI costs more (#1171).
+#
+# `doxygen-check` joins it, because a header feeds THREE generators and the
+# other two were already reachable from `lint` -- jm's codegen (drift-check,
+# above) and mkdoxy's docs/c-api (gen-c-api-check, via docs-invariants). A
+# sweep that covers two of three still sends the third to CI.
+#
+# It carries a dependency the others do not: it runs the CI image through
+# Docker whenever local doxygen is not exactly DOXYGEN_VERSION (1.9.8), which
+# is every box measured so far (this one ships 1.18.0). That is a deliberate,
+# recorded trade -- doppler development assumes Docker, and it is already
+# required by docker-examples, glibc-gate and ci-image-repin-check. It is the
+# reason to re-open this line if that ever stops being true: the failure mode
+# is `lint` refusing to report on a contributor's own change for a reason
+# that has nothing to do with it. Pinning local doxygen to 1.9.8 makes it
+# run natively and skip Docker entirely.
+lint: tests-ssot characterization-check validation-report-check changelog-check \
+      workflow-syntax-check ci-aggregator-check release-notes-size-check \
+      issue-link-check deps-budget-check ci-image-check cargo-floor-check \
+      bench-coverage-check kwarg-parity-check doc-sections-check \
+      ccsds-isolation-check container-mount-check cargo-lock-check \
+      instrumented-sweep-check \
+      design-pages-check drift-check doxygen-check
+
+# The base the assertion ratchet compares against, same shape as COV_BASE:
+# no test file may end up with FEWER assertions than the base ref has. A
+# migration or a badly resolved rebase can drop assertions while the suite
+# stays green -- this branch dropped 43 across three files before it was
+# caught, and only one of the three was visible to review.
+ASSERT_BASE ?= origin/main
+tests-ssot: ## Verify no C test re-defines dp_test.h's macros or loses assertions
+	@uv run python scripts/check_tests_ssot.py --base $(ASSERT_BASE)
+
+# On `lint` rather than `bench` deliberately: `bench` is the occasional
+# activity (see bench-python), so a gate hung off it reports a missing
+# benchmark weeks after the component landed, if ever. Both directions are
+# checked -- a tested component with no benchmark, and a benchmark no runner
+# can reach -- because this repo has now had both, and the second one looks
+# fixed from every angle except the snapshot it never appears in.
+bench-coverage-check: ## Verify every tested component has a benchmark that runs
+	@uv run python scripts/check_bench_coverage.py
+
+# On `lint` rather than `drift-check`, because drift-check structurally
+# CANNOT see this: a `_kwlist` lives in the wrapper body of a sacred
+# `_ext_<obj>.c` fragment, and jm's own output says that part is "yours …
+# not counted as drift". Measured before this target existed -- renaming
+# DelayCf64.ptr's kwarg back to `n` left drift-check reporting exactly what
+# it reported before, and passing, while a caller following the stub got a
+# TypeError (#619). Reads both faces instead, discovering every fragment.
+# GitHub does not parse a `run:` block, so a shell syntax error there does not
+# announce itself -- the shell runs what it managed to parse and the step fails
+# somewhere else. v0.43.0's release died on
+# `mkdir: build/starter-pkg: Permission denied` because an unbalanced `"` in a
+# COMMENT closed the container's script early and the rest ran on the runner.
+workflow-syntax-check: ## Verify every workflow `run:` block is valid shell
+	@uv run python scripts/check_workflow_syntax.py
+
+# protect-main requires ONE status check, `CI passed`, so ci.yml's `ci-passed`
+# `needs` list is the whole merge gate: a job left out of it can fail on every
+# PR and block nothing. Relaxing the ruleset from four named checks to that one
+# aggregator (2026-09-14) moved the gate into a hand-kept YAML list; this reads it.
+ci-aggregator-check: ## Verify every ci.yml job feeds the required `CI passed` check
+	@uv run python scripts/check_ci_aggregator.py
+
+kwarg-parity-check: ## Verify each binding accepts the keywords its stub publishes
+	@uv run python scripts/check_kwarg_parity.py
+
+# check_doc_paths.py holds the FILE half of a prose citation; this holds the
+# SECTION half. Neither is covered by check_site_links, which reads links in
+# the built site and cannot see `docs/design/mpsk.md` §3.2 written as prose
+# inside a C comment. Both halves matter for the same reason: a citation
+# reads as authority, so one pointing at the wrong argument is worse than
+# none -- the reader concludes the claim is unsupported (#795).
+doc-sections-check: ## Verify every `docs/x.md` section citation resolves
+	@uv run python scripts/check_doc_sections.py
+
+# `build` as a prerequisite, not a note: this reads `nm` output, so without a
+# built archive it has nothing to check -- and a gate that skips when its
+# input is missing is the failure it exists to catch, one level up. It says
+# so and fails rather than passing on an empty set.
+#
+# Absolute, with no allowlist. The two headers #801 named are deleted, so the
+# right number is zero; an allowlist would only be somewhere for a third to
+# hide -- and there WAS a third, which this found on arrival.
+#
+# Plain `python3`, not `uv run`: this runs in the C-only build jobs, which
+# never set uv up -- `make: uv: No such file or directory`, exit 127, which
+# is a gate that cannot run rather than one that fails. The script imports
+# nothing outside the standard library precisely so it does not need one.
+installed-headers-check: build ## Verify installed headers declare only what the libraries define, and define no feature-test macro
+	@command -v python3 >/dev/null 2>&1 || { \
+	    echo "installed-headers-check: no python3 — this gate has not run,"; \
+	    echo "  so it has not passed."; exit 1; }
+	@python3 scripts/check_installed_headers.py
+
+# The TEXT of the exported doppler-targets.cmake, because nothing that builds
+# a consumer on the build machine can see the defect: an absolute library path
+# (v0.51.0 exported find_library's `/usr/lib64/libm.so`) exists there, and
+# only a consumer on another distro fails. CMake writes the export file into
+# the build tree at configure time, so this needs `build` and no install.
+# Plain `python3` for the same reason as installed-headers-check above.
+exported-link-check: build ## Verify the exported CMake link interface names no absolute path
+	@python3 scripts/check_exported_link_paths.py $(BUILD_DIR)
+
+# Every symbol the installed archives export carries dp_ (#1545 for what jm
+# derives, #1565 for the rest, vendored code as dp__v_*). Absolute: no
+# allowlist -- a bare export is a collision with any other library that
+# exports the same name, and only the consumer's link would notice. Reads
+# `nm`, so it needs the build; plain python3, standard library only.
+symbol-prefix-check: build ## Verify every exported symbol carries the dp_ prefix
+	@DOPPLER_BUILD_DIR=$(BUILD_DIR) python3 scripts/check_symbol_prefix.py
+
+# Hung off `lint` rather than `validate-check` deliberately. `validate-check`
+# re-runs each validator and compares -- a STALENESS gate, and staleness is
+# not correctness: a generator that emits a broken report agrees with itself
+# perfectly. Under that green gate, five of six reports carried a malformed
+# table and ALL SIX rendered none of the findings they counted. This reads
+# the RENDERED file instead, so it also catches a hand edit and a future
+# validator that grows its own emitter. On `lint` it runs in the fast CI
+# job, seconds after the mistake, instead of behind the validators.
+validation-report-check: ## Verify every generated validation report is structurally sound
+	@uv run python scripts/check_validation_reports.py
+
+# The docs system deps (doxygen, graphviz, LaTeX) — the `docs` group in
+# bootstrap.toml. standard.mk's `install-deps` installs only the default groups
+# (runtime, dev) and is vendored, so it cannot take a group; this local target
+# is the one place CI's doxygen job and the Pages docs workflow both reach for
+# the docs group, keeping bootstrap.toml the single dependency list. Bootstraps jbx
+# the same way standard.mk's install-deps does.
+install-docs-deps: ## Install the docs system deps (bootstrap.toml `docs` group)
+	@command -v jbx >/dev/null 2>&1 \
+	    || curl -sSL https://just-buildit.github.io/get-jb.sh | bash
+	PATH="$$HOME/.local/bin:$$PATH" jbx install-deps -g docs
+
+# ── Provisioning with a deadline (doppler#879) ───────────────────────────────
+# Both targets above reach the network three times — the jbx bootstrap curl,
+# then jbx's own apt/brew — and none of those calls carries a timeout. So a
+# stalled mirror does not fail provisioning, it HANGS it, until GitHub's
+# 360-minute job limit, reporting `pending` the whole way where a reader
+# cannot tell it from slow CI. Measured 2026-08-19: one commit hung 3h45m and
+# then 2h42m at `Install system dependencies` while a sibling branch passed
+# the identical step ninety seconds later.
+#
+# A RETRY ALONE WOULD HAVE BEEN DECORATION. The retry-on-failure pattern this
+# repo already runs (.github/actions/setup-uv) keys on a step EXITING
+# non-zero — correct for the 2026-08-07 fetch that timed out and *returned* an
+# error, and inert against a hang, which never exits at all. The deadline is
+# what converts the hang into a failure; the retry is what then recovers
+# instead of merely failing faster. scripts/with-deadline.sh carries both, in
+# that order, and says so.
+#
+# These wrap rather than replace `install-deps` so there is still ONE spelling
+# of how the tool runs: a developer keeps the plain target, CI reaches for the
+# bounded one, and neither is a second copy of the invocation.
+#
+# Sized from measurement rather than feel: healthy runs took 16–179s across 9
+# samples (median 18), so 300s is ~1.7x the worst observed. The workflow steps
+# carry `timeout-minutes` too — the backstop for a shell with no `timeout(1)`,
+# and the half that cannot be bypassed.
+# 600, not 300. The first live run caught a REAL stall at 300s — apt sat 229
+# seconds with zero output midway through a 114 MB download from
+# azure.archive.ubuntu.com — so the deadline works. But the 9 healthy samples
+# it was sized from (16-179s) were all fast ones, and a wall-clock deadline
+# CANNOT tell a stalled mirror from a slow one. 600s is ~3.4x the worst
+# observed healthy run and still bounds a true hang at ten minutes against the
+# 360 it used to get. The apt-level timeout below is what actually makes that
+# distinction; this is the backstop for everything it does not cover.
+#
+# THE BUDGET MUST FIT THE STEP CEILING, and the first version of this did not:
+# 600s x 3 tries is 30 minutes against a `timeout-minutes: 15`, so a retry
+# after a full-deadline attempt was killed mid-download every time. Measured
+# exactly that way -- the reclaim worked, apt restarted cleanly with no lock
+# error, and the step ceiling ended it four minutes later. Keep
+#
+#     DEPS_DEADLINE x DEPS_TRIES + backoff  <  the workflow's timeout-minutes
+#
+# true whenever either number moves: 420 x 3 + 30s is ~21.5 min, under the 25
+# the steps now allow.
+#
+# THREE SHORTER ATTEMPTS, NOT TWO LONG ONES, and the split is measured rather
+# than guessed. On 2026-08-19 the runners' azure mirror was answering `Ign` and
+# apt was falling back to archive.ubuntu.com, where the same 112 MB sometimes
+# trickled. What the timings show is that the RETRY IS THE THING THAT WORKS:
+#
+#   Build on ubuntu-24.04   831s = 600 (attempt 1 killed) + 10 + 221 -> PASSED
+#   Python 3.13 (re-run)    119s                                     -> PASSED
+#   coverage, Python 3.11  1210s = 600 + 10 + 600, both exhausted    -> FAILED
+#
+# A healthy attempt is 120-220s, so 600s was buying nothing after the first
+# few minutes -- a stalled attempt spends the rest of its deadline stalled.
+# Three 420s attempts give the mirror lottery three rolls with ~2x headroom
+# over a healthy install, inside the SAME step ceiling that two 600s attempts
+# used. deps-budget-check enforces the inequality above either way.
+DEPS_DEADLINE ?= 420
+DEPS_TRIES    ?= 3
+
+# Teach apt to fail a STALLED connection fast and retry it itself.
+#
+# This is the layer the problem actually lives at. A wall-clock deadline can
+# only ask "has the whole step taken too long", which conflates a hung mirror
+# with a large download over a slow link. apt can ask the question that
+# matters — "has this connection produced no bytes for 30 seconds" — and its
+# own retry RESUMES rather than restarting, with no dpkg lock left behind,
+# which is exactly what the outer retry cannot do (see with-deadline.sh).
+#
+# Written as a config drop-in because `jbx install-deps` invokes apt-get
+# itself and takes no pass-through options. Linux only: `sudo`/apt may not
+# exist (macOS runners use brew), so the whole thing is best-effort and never
+# fails provisioning by itself.
+APT_STALL_CONF = /etc/apt/apt.conf.d/99-doppler-stall
+define APT_STALL_CONFIG
+Acquire::http::Timeout "30";
+Acquire::https::Timeout "30";
+Acquire::ftp::Timeout "30";
+Acquire::Retries "3";
+endef
+export APT_STALL_CONFIG
+
+apt-stall-config: ## Make apt fail a stalled mirror fast (CI, Linux, no-op elsewhere)
+	@if command -v apt-get >/dev/null 2>&1 && command -v sudo >/dev/null 2>&1; \
+	 then \
+	    printf '%s\n' "$$APT_STALL_CONFIG" \
+	        | sudo tee $(APT_STALL_CONF) >/dev/null \
+	        && echo "apt-stall-config: 30s connection timeout, 3 retries" \
+	        || echo "apt-stall-config: could not write $(APT_STALL_CONF) — skipped"; \
+	 else \
+	    echo "apt-stall-config: no apt-get/sudo — skipped (not an error)"; \
+	 fi
+
+# The Rust floor, as a gate rather than a comment. Cargo writes lockfile
+# format v4 from 1.78 onward and will rewrite this file the first time it
+# resolves anything -- silently, since a lockfile is not something anyone
+# reads. The distro cargo on both Ubuntu LTSes is 1.75, which REFUSES v4
+# ("lock file version 4 requires -Znext-lockfile-bump"), so a bump strands
+# every developer who provisioned from bootstrap.toml.
+#
+# That is not hypothetical: it is gh-887, and it went unnoticed because the
+# hosted runner's rustup cargo shadowed apt's, so CI passed while the
+# documented dev path could not run `make test-rust` at all. The bump is
+# invisible, the failure is far from the cause, and both halves are why this
+# is a gate.
+cargo-floor-check: ## Fail if the Rust lockfile or MSRV leaves the distro floor
+	@lock=$(RUST_DIR)/Cargo.lock; toml=$(RUST_DIR)/Cargo.toml; rc=0; \
+	 v=$$(grep -m1 '^version = ' "$$lock" | tr -dc '0-9'); \
+	 if [ "$$v" != "3" ]; then \
+	     echo "cargo-floor-check: $$lock is format v$$v, not v3."; \
+	     echo "  cargo >= 1.78 rewrote it. The distro cargo on both Ubuntu"; \
+	     echo "  LTSes is 1.75 and cannot read v4, so this strands anyone"; \
+	     echo "  provisioned from bootstrap.toml (gh-887)."; \
+	     echo "  Fix: sed -i 's/^version = 4$$/version = 3/' $$lock"; \
+	     echo "  and re-run the Rust tests to confirm nothing needed v4."; \
+	     rc=1; \
+	 fi; \
+	 if ! grep -q '^rust-version = ' "$$toml"; then \
+	     echo "cargo-floor-check: $$toml declares no rust-version."; \
+	     echo "  The MSRV is the floor this gate defends; undeclared, cargo"; \
+	     echo "  cannot enforce it and the next contributor cannot see it."; \
+	     rc=1; \
+	 fi; \
+	 [ $$rc -eq 0 ] || exit 1; \
+	 echo "cargo-floor-check: OK — lockfile v3," \
+	      "MSRV $$(grep -m1 '^rust-version = ' "$$toml" | cut -d'"' -f2)"
+
+# The budget rule above, as a gate rather than a comment, because it already
+# drifted once: 600x3 shipped against a 15-minute ceiling and every retry died
+# mid-download. Derived from the real numbers on both sides -- DEPS_* here, the
+# `timeout-minutes:` the workflows actually carry -- so moving either one
+# without the other fails here instead of four minutes into a CI retry.
+deps-budget-check: ## Verify DEPS_DEADLINE x DEPS_TRIES fits the workflow ceiling
+	@budget=$$(( $(DEPS_DEADLINE) * $(DEPS_TRIES) )); \
+	 backoff=0; i=1; \
+	 while [ $$i -lt $(DEPS_TRIES) ]; do \
+	     backoff=$$(( backoff + i * 10 )); i=$$(( i + 1 )); \
+	 done; \
+	 need=$$(( budget + backoff )); \
+	 ceilings=$$(grep -rhoE '^[[:space:]]*timeout-minutes: [0-9]+' \
+	     .github/workflows/*.yml | grep -oE '[0-9]+' | LC_ALL=C sort -un); \
+	 if [ -z "$$ceilings" ]; then \
+	     echo "ERROR: deps-budget-check found no timeout-minutes in"; \
+	     echo "  .github/workflows — the scan found nothing, so it did not"; \
+	     echo "  run, so it has not passed."; \
+	     exit 1; \
+	 fi; \
+	 rc=0; \
+	 for c in $$ceilings; do \
+	     have=$$(( c * 60 )); \
+	     if [ $$need -ge $$have ]; then \
+	         echo "ERROR: provisioning can need $${need}s"; \
+	         echo "  ($(DEPS_DEADLINE)s x $(DEPS_TRIES) tries + $${backoff}s"; \
+	         echo "  backoff) against a $${c}-minute step ceiling ($${have}s)."; \
+	         echo "  A retry after a full-deadline attempt would be killed"; \
+	         echo "  mid-download, which is the bug this pairing exists to"; \
+	         echo "  avoid. Lower DEPS_DEADLINE/DEPS_TRIES or raise"; \
+	         echo "  timeout-minutes."; \
+	         rc=1; \
+	     fi; \
+	 done; \
+	 [ $$rc -eq 0 ] || exit 1; \
+	 echo "deps-budget-check: $${need}s budget fits every step ceiling" \
+	      "($$(echo $$ceilings | tr '\n' ' ')min)"
+
+install-deps-ci: apt-stall-config ## install-deps under a per-attempt deadline + retries (CI)
+	@./scripts/with-deadline.sh $(DEPS_DEADLINE) $(DEPS_TRIES) \
+	    $(MAKE) --no-print-directory install-deps
+
+install-docs-deps-ci: apt-stall-config ## install-docs-deps under a deadline + retries (CI)
+	@./scripts/with-deadline.sh $(DEPS_DEADLINE) $(DEPS_TRIES) \
+	    $(MAKE) --no-print-directory install-docs-deps
+
+specan: ## Launch the live spectrum analyzer in a browser
+	uv run doppler-specan
+
+record-demo: ## Re-record the specan demo frames (docs/specan/frames.json)
+	uv run python -m doppler.specan.record_demo \
+	    --frames 120 --fft-size 512 \
+	    -o docs/specan/frames.json
+
+# Run all plot-generating examples and copy output PNGs to docs/assets/.
+# Run before releasing whenever src/doppler/examples/ has changed.
+#
+# A characterization subject with a published page belongs here too, and is
+# invoked SEPARATELY below rather than joined to the two lists that follow.
+# Those lists are hand-maintained and must agree with each other — 35 script
+# paths, then 35 PNG names in one `mv` — so a subject added to them would be
+# two more edits that can silently disagree. It takes an explicit destination
+# instead (the argv its `__main__` accepts), which needs neither list and
+# writes straight to docs/assets/.
+#
+# Why it is regenerated here at all: `docs/assets/dsss_acq_characterization.png`
+# was a hand-committed file from 2026-07-11 that NOTHING refreshed — not
+# `make gallery` (the script was never in GALLERY_SCRIPTS) and not
+# `make characterize`. Its page therefore showed an image that could not be
+# reproduced by any target, which is the same "no gate runs it" failure the
+# validation tree had.
+# ONE entry only: the recipe below passes a hard-coded destination, so a second
+# entry would become the first script's argv[1]. Loop + derive the destination
+# before adding one — gh-694.
+GALLERY_CHARACTERIZATIONS := \
+    src/doppler/acquire/tests/characterization/burst_acquisition/characterize.py
+
+GALLERY_SCRIPTS := \
+    src/doppler/examples/agc_demo.py \
+    src/doppler/examples/ccsds_link_demo.py \
+    src/doppler/examples/agc_settling_design_demo.py \
+    src/doppler/examples/ber_awgn_demo.py \
+    src/doppler/examples/cic_demo.py \
+    src/doppler/examples/corr_demo.py \
+    src/doppler/examples/detection_curves.py \
+    src/doppler/examples/detection_sim.py \
+    src/doppler/examples/detection2d_demo.py \
+    src/doppler/examples/lockdet_demo.py \
+    src/doppler/examples/telemetry_fanin_demo.py \
+    src/doppler/examples/mpsk_telemetry_capture_demo.py \
+    src/doppler/examples/rate_converter_demo.py \
+    src/doppler/examples/ratesync_demo.py \
+    src/doppler/examples/ddc_fn_demo.py \
+    src/doppler/examples/ddc_fn_scaling.py \
+    src/doppler/examples/adc_demo.py \
+    src/doppler/examples/hbdecim_q15_demo.py \
+    src/doppler/examples/wfmgen_demo.py \
+    src/doppler/examples/symbols_demo.py \
+    src/doppler/examples/wfm_composition_demo.py \
+    src/doppler/examples/wcdma_carriers_demo.py \
+    src/doppler/examples/plan_demo.py \
+    src/doppler/examples/crowded_band_demo.py \
+    src/doppler/examples/measure_demo.py \
+    src/doppler/examples/measure_imd_npr_demo.py \
+    src/doppler/examples/wfm_write_demo.py \
+    src/doppler/examples/awgn_demo.py \
+    src/doppler/examples/doppler_channel_demo.py \
+    src/doppler/examples/wfm_io_demo.py \
+    src/doppler/examples/dsss_burst_pipeline_demo.py \
+    src/doppler/examples/dsss_burst_receiver_demo.py \
+    src/doppler/examples/async_dsss_receiver_spec_demo.py \
+    src/doppler/examples/dsss_receiver_demo.py \
+    src/doppler/examples/carrier_acq_rrc_demo.py \
+    src/doppler/examples/mpsk_receiver_demo.py \
+    src/doppler/examples/mpsk_receiver_performance_demo.py
+
+# The receiver-dynamics figure. NOT a gallery script: the measurement is C
+# (validate_rx_dynamics) and this only renders the telemetry that harness
+# captured, so it depends on `build` rather than on the Python examples and it
+# writes straight to docs/assets/ instead of the gallery's mv dance.
+plot-rx-dynamics: build ## Render docs/assets/rx-dynamics.png from the C harness's telemetry
+	uv run python scripts/plot_rx_dynamics.py
+
+# EXAMPLES_SKIP is the same list src/doppler/tests/test_examples.py reads, and
+# it is read here rather than restated: a script the smoke gate deliberately
+# does not run is a script this target cannot run either, and two copies of
+# that judgement is how they came to disagree. They did --
+# mpsk_receiver_performance_demo.py has been skipped by the gate since its
+# Monte Carlo was found to be draw-dependent, while `gallery` ran it anyway and
+# exited 1 on the failure, so step 2 of the release checklist could not pass
+# (gh-857). A skip is announced with its reason rather than being silent,
+# because a quietly-absent panel is how gh-780's stale assets accumulated.
+EXAMPLES_SKIP := src/doppler/examples/.examples-skip
+
+gallery: ## Run the plot examples and copy their PNGs to docs/assets/
+	@echo "Regenerating gallery plots..."
+	@for script in $(GALLERY_SCRIPTS); do \
+	    base=$$(basename $$script); \
+	    if grep -q "^$$base:" $(EXAMPLES_SKIP) 2>/dev/null; then \
+	        printf "  %-45s%s\n" "$$script" "SKIP ($(EXAMPLES_SKIP))"; \
+	        continue; \
+	    fi; \
+	    printf "  %-45s" "$$script"; \
+	    uv run python $$script > /dev/null 2>&1 && echo "OK" || { echo "FAIL"; exit 1; }; \
+	done
+	@for png in agc_convergence.png ccsds_link_demo.png agc_settling_design.png ber_awgn_demo.png cic_demo_spectrum.png corr_demo.png detection_curves.png detection_sim.png detection2d_demo.png lockdet_demo.png telemetry_fanin_demo.png mpsk_telemetry_capture_demo.png rate_converter_demo.png ratesync_demo.png ddc_fn_demo.png ddc_fn_scaling.png adc_demo.png hbdecim_q15_demo.png wfmgen_demo.png symbols_demo.png wfm_composition_demo.png wcdma_carriers_demo.png plan_demo.png plan_background_demo.png crowded_band_demo.png measure_demo.png measure_imd_npr_demo.png wfm_write_demo.png awgn_demo.png doppler_channel_demo.png wfm_io_demo.png dsss_burst_pipeline_demo.png dsss_burst_receiver_demo.png async_dsss_receiver_spec_demo.png dsss_receiver_demo.png carrier_acq_rrc_demo.png mpsk_receiver_demo.png mpsk_receiver_performance_demo.png; do \
+	    [ -e "$$png" ] && mv -f "$$png" docs/assets/ || true; \
+	done
+	# The demos that WRITE a capture leave it in the repo root. burst.blue
+	# was cleaned; the SigMF and BLUE pairs the wfm_io/wfm_write demos
+	# emit were not, so `make gallery` left four untracked files behind --
+	# which is how an artifact gets committed by accident.
+	@rm -f burst.blue probe.ci16 probe.ci16.sigmf-meta \
+	       scene.cf32 scene.cf32.sigmf-meta
+	@printf "  %-45s" "$(GALLERY_CHARACTERIZATIONS)"
+	@uv run python $(GALLERY_CHARACTERIZATIONS) \
+	     docs/assets/dsss_acq_characterization.png > /dev/null 2>&1 \
+	     && echo "OK" || { echo "FAIL"; exit 1; }
+	@echo "Gallery plots written to docs/assets/."
+
+# ── Undefined behaviour ──────────────────────────────────────────────────────
+# The C suite, rebuilt under UBSan, with `halt_on_error=1` so a report is a
+# FAILURE and not a line in a log nobody reads.
+#
+# This exists because the behavioural suite structurally cannot cover this
+# class. An out-of-range float->integer conversion is undefined, and on
+# x86-64 it happens to yield 0 -- which is frequently the right answer, so
+# every test stays green while the program is wrong by the standard and would
+# behave differently on another target. Three instances of exactly that have
+# already landed in this tree (symsync's nominal_inc, resamp's phase_inc at
+# rate 1, get_branch's `ph >> 32`), and two of them CANCELLED, which is how
+# `Synth(sps=1)` became a silently dead waveform instead of a crash. A gate
+# that only runs the program cannot see any of it; this one can.
+#
+# `alignment` is excluded, and that is a RATCHET, not an exemption: every
+# report is `member access within misaligned address`, from casting a byte
+# cursor to a struct pointer in dp_tlm, buffer and dp_state. Fixing them is its
+# own change. The exclusion may only ever shrink -- if you find yourself adding
+# a second `-fno-sanitize=`, fix the code instead.
+#
+#   measured     count   how
+#   (undated)      821   the number this comment carried before #1026
+#   2026-08-27     853   the command below
+#
+# It GREW by 32 between those two rows, silently, because nothing reads it --
+# "may only shrink" is a sentence in a comment, not a gate (#1028).
+#
+# To re-measure, drop the exclusion, make reports non-fatal, and read the
+# output under `ctest -V`:
+#
+#     make test-ubsan UBSAN_DIR=/tmp/ub UBSAN_OFF=float-divide-by-zero \
+#          UBSAN_OPTS=halt_on_error=0
+#     ( cd /tmp/ub && ctest -V 2>&1 | grep -c 'runtime error' )
+#
+# `-V` is load-bearing, and leaving it out cost an hour here: with reports
+# non-fatal every test PASSES, so `--output-on-failure` -- what this target
+# passes -- prints nothing, and the count comes back 0 from a run that found
+# 853. Absent output is not a pass, one layer further out than usual: the
+# diagnostics existed and ctest discarded them.
+UBSAN_DIR    ?= build-ubsan
+UBSAN_OFF    ?= alignment
+UBSAN_FLAGS   = -fsanitize=undefined,float-cast-overflow \
+                -fno-sanitize=$(UBSAN_OFF) -fno-omit-frame-pointer -g
+# halt_on_error is the whole point: without it UBSan prints and carries on,
+# the suite passes, and the gate is decorative.
+UBSAN_OPTS    = halt_on_error=1:print_stacktrace=1:abort_on_error=1
+
+test-ubsan: ## Run the C suite under UBSan; any undefined behaviour fails
+	$(CMAKE) -B $(UBSAN_DIR) -S . \
+		-DCMAKE_BUILD_TYPE=Debug \
+		-DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+		"-DCMAKE_C_FLAGS=$(UBSAN_FLAGS)" \
+		"-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=undefined" \
+		"-DCMAKE_SHARED_LINKER_FLAGS=-fsanitize=undefined" \
+		$(CMAKE_ARGS)
+	$(CMAKE) --build $(UBSAN_DIR) --parallel $(NPROC)
+# An empty result set is not a pass -- see test-asan.
+	@n=$$($(CTEST) --test-dir $(UBSAN_DIR) $(SAN_EXCLUDE_SWEEP) -N | sed -n 's/^Total Tests: //p'); \
+	 if [ "$$n" = "0" ] || [ -z "$$n" ]; then \
+	   echo "test-ubsan: the suite registered no tests — nothing ran,"; \
+	   echo "  so this gate has not passed."; exit 1; \
+	 fi; \
+	 echo "test-ubsan: $$n test(s) under UndefinedBehaviorSanitizer"
+	UBSAN_OPTIONS=$(UBSAN_OPTS) \
+		$(CTEST) --test-dir $(UBSAN_DIR) $(SAN_EXCLUDE_SWEEP) --output-on-failure
+
+# ── AddressSanitizer ─────────────────────────────────────────────────────────
+# The C suite rebuilt under ASan, with LeakSanitizer left ON.
+#
+# UBSan above covers what the standard leaves undefined; this covers what the
+# ALLOCATOR knows and the program does not -- reads and writes outside an
+# object, and allocations nothing releases. Neither the behavioural suite nor
+# UBSan can see that class: an overflowing write lands on whatever the
+# compiler happened to put next, so the program is wrong and the assertions
+# are green. doppler#1024 is the instance that bought this target. A test
+# wrote 93 bytes into a 64-byte stack buffer, 29 bytes into its own caller's
+# frame, on top of the array holding the values the next assertion compared
+# against. gcc at -O2 padded the frame and hid it for as long as it existed;
+# `make test` was 152/152. It surfaced only because the coverage job builds
+# with clang at -O0 and the layout there exposed it -- a stack layout, not a
+# check. ASan names the write, the buffer and both frames in one report.
+#
+# Whole-suite, because unlike a race a bad access needs no special test to
+# provoke: every target that touches memory is a candidate, which is all of
+# them. test-tsan below has since been widened to the whole suite too, for a
+# related reason -- a name cannot tell you whether the LIBRARY spawns threads
+# underneath a test that has none of its own.
+#
+# There is NO exclusion here, and that is a property to keep rather than a
+# coincidence. Turning the run on found nine failures on a green tree -- two
+# genuine out-of-bounds reads and seven leaks -- and all nine were test-side
+# and fixed in the same change, so this target has never had a ratchet and
+# should not acquire its first one quietly. Adding `detect_leaks=0` or a
+# suppressions file is a change in what this gate promises; fix the code.
+ASAN_DIR   ?= build-asan
+ASAN_FLAGS  = -fsanitize=address -fno-omit-frame-pointer -g
+# halt_on_error, for the reason UBSAN_OPTS gives above. `detect_leaks` is
+# spelled out rather than left to the platform default: it is ON by default on
+# Linux and OFF on macOS, so relying on the default would mean the gate
+# silently checks less on one of the two platforms CI builds.
+ASAN_OPTS   = halt_on_error=1:abort_on_error=1:detect_leaks=1
+
+test-asan: ## Run the C suite under ASan+LSan; any bad access or leak fails
+	$(CMAKE) -B $(ASAN_DIR) -S . \
+		-DCMAKE_BUILD_TYPE=Debug \
+		-DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+		"-DCMAKE_C_FLAGS=$(ASAN_FLAGS)" \
+		"-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address" \
+		"-DCMAKE_SHARED_LINKER_FLAGS=-fsanitize=address" \
+		$(CMAKE_ARGS)
+	$(CMAKE) --build $(ASAN_DIR) --parallel $(NPROC)
+# An empty result set is not a pass -- the same trap test-tsan guards, and it
+# bites harder here because this target takes no pattern: a configure that
+# registered no tests would run zero of them and exit 0, reporting a clean
+# sanitizer run over nothing at all.
+	@n=$$($(CTEST) --test-dir $(ASAN_DIR) $(SAN_EXCLUDE_SWEEP) -N | sed -n 's/^Total Tests: //p'); \
+	 if [ "$$n" = "0" ] || [ -z "$$n" ]; then \
+	   echo "test-asan: the suite registered no tests — nothing ran,"; \
+	   echo "  so this gate has not passed."; exit 1; \
+	 fi; \
+	 echo "test-asan: $$n test(s) under AddressSanitizer + LeakSanitizer"
+	ASAN_OPTIONS=$(ASAN_OPTS) \
+		$(CTEST) --test-dir $(ASAN_DIR) $(SAN_EXCLUDE_SWEEP) --output-on-failure
+
+# ── ThreadSanitizer ──────────────────────────────────────────────────────────
+# WHOLE-SUITE, like test-asan, and that is a correction rather than a
+# preference. This used to run `ctest -R 'race|parallel|thread'` on the
+# argument that a name is a better selector than a hand-kept list. Measured
+# 2026-08-27 (#1026), that pattern selected 2 of the suite's tests: ONE real
+# threaded test, plus `test_acc_trace_core`, which matched by accident on the
+# "race" inside "t-race". Three genuinely threaded tests -- test_buffer_core,
+# test_dp_tlm_core and test_wfm_plan -- matched nothing and had never run.
+#
+# The deeper reason a name cannot work: whether a test runs threads is not a
+# property of the TEST. `Plan.prepare()` fans its per-source builds across
+# cores through dp_parallel, so test_wfm_plan is threaded without a thread
+# anywhere in it, and no naming convention can know that. A whole-suite run is
+# dominated by targets that cannot report anything, which costs 2m31s of wall
+# clock and buys a denominator that is actually true.
+#
+# ONE exclusion, and it is a RATCHET that may only shrink. test_stream_nats_core
+# interrupts a stream from a second thread, which races the read of the
+# process-wide flag: `volatile sig_atomic_t` is the right type for a SIGNAL
+# handler and is not a C11 atomic, so a genuine cross-thread race on it is
+# exactly what TSan should say. Fixing it means atomics on a C99 codebase and
+# a signal-safety argument on a facility three modules share -- its own change,
+# filed as #1027, not a thing to smuggle into wiring up a gate.
+#
+# halt_on_error, for exactly the reason UBSAN_OPTS gives above: without it
+# TSan prints a race and the suite still passes, and the gate is decorative.
+TSAN_DIR     ?= build-tsan
+# ── What a SANITIZER suite re-runs ───────────────────────────────────────────
+# The `validate_*` harnesses register their `--check` SPOT CHECK as a ctest
+# entry (their full sweep is `make validate-c`, run when an object changes).
+# That spot check belongs on every PR and it runs in the ordinary C suite,
+# where it is cheap. Re-running it under instrumentation is what costs:
+# measured on CI run 33132488070, the 23 validators were 80% of ASan's ctest
+# time, 80% of UBSan's and 90% of TSan's -- 1166s across the three legs, for
+# work the unsanitized suite already did. The same harnesses cost 4.4s and
+# 3.3s optimised, so it is a ~60x instrumentation tax, not a big subset.
+#
+# They are labelled `sweep` in native/validation/CMakeLists.txt by enumerating
+# that directory, so this stays true as validators are added. `-LE` excludes
+# by label; validate_rx_dynamics is labelled `threaded` instead, because it is
+# the only validator that starts one and it costs TSan 0.34s.
+#
+# Set SAN_SWEEP=1 to put them back -- `make test-asan SAN_SWEEP=1` is the
+# instrumented full-battery run, for when a kernel change wants it.
+SAN_EXCLUDE_SWEEP = $(if $(SAN_SWEEP),,-LE sweep)
+
+TSAN_EXCLUDE ?= ^test_stream_nats_core$$
+TSAN_FLAGS    = -fsanitize=thread -fno-omit-frame-pointer -g
+TSAN_OPTS     = halt_on_error=1:second_deadlock_stack=1
+
+test-tsan: ## Run the C suite under TSan; any data race fails
+	$(CMAKE) -B $(TSAN_DIR) -S . \
+		-DCMAKE_BUILD_TYPE=Debug \
+		-DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+		"-DCMAKE_C_FLAGS=$(TSAN_FLAGS)" \
+		"-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=thread" \
+		"-DCMAKE_SHARED_LINKER_FLAGS=-fsanitize=thread" \
+		$(CMAKE_ARGS)
+	$(CMAKE) --build $(TSAN_DIR) --parallel $(NPROC)
+# An empty result set is not a pass -- the same trap the glibc and tarball
+# gates were both caught by, and the one this target's old name-pattern was
+# nearly caught by: a pattern that matches almost nothing still matches
+# something, so the guard fires only in the total case.
+	@n=$$($(CTEST) --test-dir $(TSAN_DIR) -E '$(TSAN_EXCLUDE)' $(SAN_EXCLUDE_SWEEP) -N \
+	      | sed -n 's/^Total Tests: //p'); \
+	 if [ "$$n" = "0" ] || [ -z "$$n" ]; then \
+	   echo "test-tsan: the suite registered no tests — nothing ran,"; \
+	   echo "  so this gate has not passed."; exit 1; \
+	 fi; \
+	 echo "test-tsan: $$n test(s) under ThreadSanitizer" \
+	      "(excluding '$(TSAN_EXCLUDE)', see #1027)"
+	TSAN_OPTIONS=$(TSAN_OPTS) \
+		$(CTEST) --test-dir $(TSAN_DIR) -E '$(TSAN_EXCLUDE)' $(SAN_EXCLUDE_SWEEP) \
+		--output-on-failure
+
+blazing: ## Clean + Release + -march=native (max speed; never packaged)
+	@$(MAKE) --no-print-directory clean
+	$(CMAKE) -B $(BUILD_DIR) -S . \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+		-DDOPPLER_NATIVE=ON \
+		"-DCMAKE_C_FLAGS=$(BLAZING_CFLAGS)" \
+		$(CMAKE_ARGS)
+	$(CMAKE) --build $(BUILD_DIR) --parallel $(NPROC)
+
+gen-c-api: ## Regenerate docs/c-api/ from the headers (mkdoxy, CI's doxygen)
+	@have=$$(doxygen --version 2>/dev/null | cut -d' ' -f1); \
+	 if [ "$$have" = "$(DOXYGEN_VERSION)" ]; then \
+	   echo "gen-c-api: local doxygen $$have matches CI's — running natively"; \
+	   $(MAKE) -s gen-c-api-run; \
+	 else \
+	   echo "gen-c-api: local $${have:-none} != CI's $(DOXYGEN_VERSION) — shimming the CI image"; \
+	   $(DOXYGEN_IMAGE_CHECK); \
+	   shim=$$(mktemp -d); \
+	   printf '#!/bin/sh\nexec docker run --rm -i -u %s:%s -v "%s":"%s" -w "$$PWD" %s doxygen "$$@"\n' \
+	     "$$(id -u)" "$$(id -g)" "$(CURDIR)" "$(CURDIR)" "$(CI_IMAGE)" > $$shim/doxygen; \
+	   chmod +x $$shim/doxygen; \
+	   PATH="$$shim:$$PATH" $(MAKE) -s gen-c-api-run; rc=$$?; \
+	   rm -rf $$shim; exit $$rc; \
+	 fi
+
+# The committed tree is replaced only by a COMPLETE render. mkdoxy builds into
+# .mkdoxy while $(CAPI_OUT) stays in place; the hand-written index.md (which
+# mkdoxy does not emit) is carried over from the tree itself, not from git --
+# a commit hook is mid-way through git's state; and the swap is two renames.
+# A build that fails leaves the tree exactly as it was.
+#
+# It did not, once: this target used to `rm -rf docs/c-api` FIRST, and on
+# 2026-09-02 a `uv sync` running concurrently (a `make pyext` beside a `git
+# commit` whose pre-commit hook runs this) broke the mkdocs build between the
+# wipe and the restore -- 594 pages gone, index.md with them, and the
+# `git checkout` restore failed too because the deletions were by then
+# staged. Nothing was lost, but a note would not stop the next one:
+# test_gen_c_api_atomic.py drives this recipe with CAPI_BUILD=false against a
+# scratch copy and requires the copy untouched.
+#
+# CAPI_BUILD / CAPI_OUT are parameters for that test, not knobs: the render
+# and the tree it replaces are the same recipe either way.
+CAPI_CONFIG ?= mkdocs-capi.yml
+CAPI_OUT    ?= docs/c-api
+CAPI_BUILD  ?= uv run --group docs mkdocs build -f $(CAPI_CONFIG)
+gen-c-api-run: ## gen-c-api proper (re-entered with CI's doxygen on PATH)
+	rm -rf .mkdoxy .capi-site
+	$(CAPI_BUILD)
+	test -d .mkdoxy/doppler/c-api
+	cp $(CAPI_OUT)/index.md .mkdoxy/doppler/c-api/index.md
+	rm -rf $(CAPI_OUT).new
+	mv .mkdoxy/doppler/c-api $(CAPI_OUT).new
+	rm -rf $(CAPI_OUT)
+	mv $(CAPI_OUT).new $(CAPI_OUT)
+	# `latex/` too: the repo's Doxyfile sets GENERATE_LATEX = NO, but mkdoxy
+	# builds its OWN config dict and does not, so every run drops an untracked
+	# latex/ in the repo root. Cleaned here rather than gitignored — it is
+	# output of this target, and nothing else in the tree wants that name.
+	rm -rf .mkdoxy .capi-site latex
+
+# docs/c-api/ is GENERATED and COMMITTED, and until now it was the one
+# generated tree with no --check behind it: `docs-drift-check` covers
+# gen_related_pages / gen_readme / gen_install_scripts / gen_validation_log
+# and stops there. It drifted, exactly as an ungated generated tree does --
+# 22 pages, including `util__core_8h.md` missing `ema_step` and
+# `ema_alpha_decim` from the EMA primitive campaign, which merged with its C
+# API docs never regenerated and nothing to say so.
+#
+# Regenerates IN PLACE and asks git whether anything moved, rather than
+# building into a scratch dir and diffing. That would be a second code path
+# for the thing being checked -- doxygen behind a version shim, then mkdoxy,
+# then the index.md restore -- and a check that reimplements its subject is
+# the duplication this repo keeps paying for. CI's checkout is disposable; a
+# developer is left with the tree REGENERATED, which is the state the failure
+# message would have told them to produce anyway.
+# Compared against the INDEX, not against HEAD, and that distinction is the
+# whole difference between a gate and a wall. `git status --porcelain` reports
+# a STAGED change too, so the pre-commit hook that runs this could never pass
+# on the very commit introducing a regeneration -- you regenerate, `git add`
+# exactly as the hook's own message tells you to, and it fails again on the
+# files you just staged. The documented recovery did not work, so the habit it
+# produced was `--no-verify`, which is worse than the drift.
+#
+# `git diff` (worktree vs index) is right in both callers. In CI's clean
+# checkout the index IS HEAD, so it still asks "does the committed tree match
+# the headers"; under pre-commit it asks "does what you are about to commit
+# match the headers", which is the same question at the only moment it can be
+# answered. Staging a stale tree is still caught: the recipe regenerates in
+# place first, so the worktree holds the truth and a stale index differs from
+# it.
+gen-c-api-check: ## Fail if the committed docs/c-api is stale against the headers
+	@$(MAKE) -s gen-c-api >/dev/null
+	@d=$$(git diff --name-only -- docs/c-api; \
+	      git ls-files --others --exclude-standard -- docs/c-api); \
+	 if [ -n "$$d" ]; then \
+	     printf '%s\n' "$$d"; \
+	     echo "gen-c-api-check: docs/c-api is stale — $$(printf '%s\n' "$$d" \
+	         | wc -l | tr -d ' ') file(s) differ from what the headers"; \
+	     echo "  produce. The tree has been regenerated in place: review it,"; \
+	     echo "  'git add docs/c-api', and commit."; \
+	     exit 1; \
+	 fi; \
+	 echo "gen-c-api-check: docs/c-api matches the headers"
+
+# PEP 517 build hook for just-buildit. It sets JUST_BUILDIT_OUTPUT_DIR and
+# JUST_BUILDIT_PYTHON before calling this target; the package tree is copied
+# there to be packaged. The docs group is excluded so a docs-dep network blip
+# cannot fail a wheel build.
+just-build: UV_SYNC_FLAGS = --no-group docs
+just-build: pyext ## PEP 517 build hook for just-buildit
+	mkdir -p $(JUST_BUILDIT_OUTPUT_DIR)
+	cp -r $(PYEXT_DIR) $(JUST_BUILDIT_OUTPUT_DIR)/doppler
+
+# The relocatable C-library package: Release, no Python extension, headers +
+# static/shared libs + the cmake/pkg-config config, installed to PREFIX. This is
+# the ONE definition of the C tarball build — release.yml's three
+# Package-C-library jobs (linux x86_64/aarch64, macOS) each call it, so the
+# install layout lives in one place. LIBDIR=lib (not the RHEL/manylinux lib64
+# default) so a consumer's find_package/CMAKE_PREFIX_PATH resolves the config on
+# every distro (CMake searches lib/ universally; lib64/ only where the platform
+# opts in). Tarball naming used to stay in the caller, "per-platform and
+# trivial" — see `package-c-tarball` below for how that turned out.
+package-c: ## PREFIX=<dir> — build+install the relocatable C library (no Python)
+ifndef PREFIX
+	@echo "usage: make package-c PREFIX=<dir>"; exit 1
+endif
+	$(CMAKE) -S . -B $(BUILD_DIR) -DCMAKE_BUILD_TYPE=Release \
+	    -DBUILD_PYTHON=OFF -DCMAKE_INSTALL_LIBDIR=lib $(CMAKE_ARGS)
+	$(CMAKE) --build $(BUILD_DIR) --parallel $(NPROC)
+	$(CMAKE) --install $(BUILD_DIR) --prefix $(PREFIX)
+# Every header this install wrote is under include/doppler/ (doppler#1408),
+# read from CMake's own install manifest -- so a shared prefix's other
+# packages, and a stale older install, are not mistaken for ours. Checked
+# HERE so that every caller -- the release tarballs, the Windows job, the
+# starter tarball -- gets it, rather than in one of them.
+	$(CMAKE) -DMANIFEST=$(BUILD_DIR)/install_manifest.txt -DPREFIX=$(PREFIX) \
+	    -P cmake/check_installed_headers.cmake
+
+# "Trivial" was true of each copy and false of the set. This was three
+# hand-written `tar -czf` lines in release.yml — one per platform — wrapped in
+# two more hand-written manylinux `docker run` blocks, and no target anywhere
+# produced the artifact. So the tarball a release ships could not be built or
+# inspected before cutting a tag, while `release-smoke` could only test one
+# already published: doppler could smoke-test an artifact it could not make.
+#
+# The platform string is DERIVED here rather than passed in. Each CI copy
+# hard-coded its own, which is precisely how one could disagree with the runner
+# it ran on; uname cannot. Two renames: `darwin` is spelled `macos` in the
+# published names, and Git Bash's `MINGW64_NT-10.0-26100` (MSYS/Cygwin alike)
+# is `windows`. `sed -E` because macOS's BSD sed has no `\|` in a basic regex.
+#
+# Windows ships a .zip -- what a Windows user expects to open -- and every
+# other platform a .tar.gz. The zip is written by `cmake -E tar`: Git Bash's
+# tar is GNU tar, which cannot write one, and cmake is already on the path.
+# The staging prefix goes UNDER $(BUILD_DIR), not the repo root. CI installed
+# to ./install and got away with it on a throwaway runner; on a dev box that is
+# an untracked directory in the tree (`install/` is not even gitignored) and
+# scattered cmake output, which this repo's layout rule exists to prevent.
+C_PLATFORM ?= $(shell uname -s | tr '[:upper:]' '[:lower:]' \
+                  | sed -E -e 's/^darwin$$/macos/' \
+                        -e 's/^(mingw|msys|cygwin).*/windows/')-$(shell uname -m)
+C_ARCHIVE_EXT ?= $(if $(filter windows-%,$(C_PLATFORM)),zip,tar.gz)
+C_INSTALL_DIR ?= $(BUILD_DIR)/package-c-prefix
+DIST_DIR      ?= dist
+
+package-c-tarball: ## VERSION=x.y.z — build + tar the released C library into $(DIST_DIR)/
+ifndef VERSION
+	@echo "usage: make package-c-tarball VERSION=<x.y.z>"; exit 1
+endif
+# Staged fresh every time: an install into a surviving prefix MERGES, so a
+# header deleted since the last run would ship in the tarball forever.
+# $(abspath), not $(CURDIR)/, because C_INSTALL_DIR follows BUILD_DIR and an
+# absolute BUILD_DIR made that `/home/.../doppler//tmp/...` -- cmake installed
+# there while tar read the real path, and the release tarball came out EMPTY.
+	@rm -rf $(C_INSTALL_DIR)
+	@$(MAKE) --no-print-directory package-c PREFIX=$(abspath $(C_INSTALL_DIR))
+	@python3 scripts/check_exported_link_paths.py $(C_INSTALL_DIR)
+	@mkdir -p $(DIST_DIR)
+	@tb="$(abspath $(DIST_DIR))/doppler-$(VERSION)-$(C_PLATFORM).$(C_ARCHIVE_EXT)"; \
+	 rm -f "$$tb"; \
+	 if [ "$(C_ARCHIVE_EXT)" = zip ]; then \
+	     ( cd $(C_INSTALL_DIR) && $(CMAKE) -E tar cf "$$tb" --format=zip . ); \
+	 else tar -czf "$$tb" -C $(C_INSTALL_DIR) .; fi
+# And then CHECK it, because the failure above wrote a 20-byte archive on its
+# way out: had the prefix merely been empty rather than absent, tar would have
+# exited 0 and this would have shipped an empty tarball to a GitHub Release.
+# Assert the shape a consumer needs, not merely that bytes exist -- the three
+# documented faces resolve through include/, lib/ and lib/pkgconfig/.
+	@tb="$(DIST_DIR)/doppler-$(VERSION)-$(C_PLATFORM).$(C_ARCHIVE_EXT)"; \
+	 list() { $(CMAKE) -E tar tf "$$tb"; }; \
+	 for want in include/ lib/ lib/pkgconfig/ lib/cmake/doppler/; do \
+	     list | grep -Eq "^(\./)?$$want" || { \
+	         echo "package-c-tarball: $$tb has no $$want — refusing to ship it"; \
+	         exit 1; }; \
+	 done; \
+	 echo "package-c-tarball: $$tb ($$(list | wc -l) entries)"
+
+# ── .deb / .rpm (doppler#1409) ───────────────────────────────────────────────
+# The same build `package-c` makes, configured for a SYSTEM prefix and the
+# libdir each format wants, then split into runtime / dev / tools packages by
+# CPack from cmake/packaging.cmake -- the one description of both formats.
+#
+# Two configures, not one tree moved twice: doppler-targets.cmake computes its
+# prefix from its own depth below it, so lib/<multiarch>/cmake/doppler and
+# lib64/cmake/doppler are different files. Reconfiguring changes the install
+# rules and the .pc files and recompiles nothing.
+#
+# Built where the release tarballs are -- the manylinux_2_28 image -- so ONE
+# binary package per arch covers every distro at or above that glibc floor
+# (`glibc-gate`). release.yml calls package-deb/package-rpm inside the
+# container it already runs; `package-linux` is the same thing from outside
+# one, for a dev box and for CI.
+CPACK           ?= cpack
+PKG_BUILD_DIR   ?= build-pkg
+PKG_OUT_DIR     ?= $(DIST_DIR)/linux-packages
+DEB_MULTIARCH   ?= $(shell uname -m)-linux-gnu
+PKG_IMAGE       ?= quay.io/pypa/manylinux_2_28_$(shell uname -m)
+
+define PKG_BUILD
+	$(CMAKE) -S . -B $(PKG_BUILD_DIR) -DCMAKE_BUILD_TYPE=Release \
+	    -DBUILD_PYTHON=OFF -DCMAKE_INSTALL_PREFIX=/usr \
+	    -DCMAKE_INSTALL_LIBDIR=$(1) $(CMAKE_ARGS)
+	$(CMAKE) --build $(PKG_BUILD_DIR) --parallel $(NPROC)
+	@mkdir -p $(PKG_OUT_DIR)
+	cd $(PKG_BUILD_DIR) && $(CPACK) -G $(2)
+	@mv $(PKG_BUILD_DIR)/*.$(3) $(PKG_OUT_DIR)/
+endef
+
+package-deb: ## Build the .deb packages into $(PKG_OUT_DIR)/ (runtime, -dev, tools)
+	$(call PKG_BUILD,lib/$(DEB_MULTIARCH),DEB,deb)
+
+package-rpm: ## Build the .rpm packages into $(PKG_OUT_DIR)/ (needs rpmbuild)
+	@command -v rpmbuild >/dev/null 2>&1 || { \
+	    echo "package-rpm: no rpmbuild on PATH (dnf install rpm-build), or"; \
+	    echo "  run 'make package-linux' to build inside the manylinux image."; \
+	    exit 1; }
+	$(call PKG_BUILD,lib64,RPM,rpm)
+
+# As the caller, not root, for the reason glibc-gate gives: the build tree
+# lands in the bind-mounted checkout. rpm-build therefore cannot be installed
+# at run time, so it is a one-line derived image.
+PKG_BUILDER_IMAGE ?= doppler-pkg-builder:local
+package-linux: ## Build the .deb and .rpm packages inside the manylinux_2_28 image
+	printf 'FROM %s\nRUN dnf install -y rpm-build && dnf clean all\n' \
+	    "$(PKG_IMAGE)" | docker build -q -t $(PKG_BUILDER_IMAGE) - >/dev/null
+	@rm -rf $(PKG_OUT_DIR)
+	docker run --rm -e HOME=/tmp $(call CONTAINER_CHECKOUT,$(PKG_BUILD_DIR)) \
+	    $(PKG_BUILDER_IMAGE) \
+	    make package-deb package-rpm PKG_BUILD_DIR=$(PKG_BUILD_DIR)
+	@ls -1 $(PKG_OUT_DIR)
+
+# Install the packages the way a user does -- the distro's own package manager,
+# from local files -- in one container per distro, then build and run the
+# consumer against /usr with nothing but find_package and pkg-config. The
+# floor (almalinux:8, glibc 2.28) is in the list on purpose: it is the claim
+# the manylinux build makes.
+#
+# The Ubuntu 24.04 leg runs on the pinned CI image, not stock ubuntu:24.04
+# (doppler#1524). What it checks is OUR packages, whose only archive
+# dependencies are libc6 and libc6-dev; what stock 24.04 had to download was
+# the consumer's toolchain, which the image already carries. So the leg loses
+# nothing and stops reaching a mirror that 404s mid-sync. The other three
+# stay stock: we have no image for them, and there the archive is the point.
+PKG_SMOKE_DISTROS ?= debian:stable $(CI_IMAGE_2404) almalinux:8 fedora:latest
+
+# $(call PKG_SMOKE_RUN,<target>,<packages dir, relative to the checkout>) --
+# the distro loop both package smokes run, so the packages CI just built and
+# the packages a user downloads are held to one script and one distro list.
+# Read-only mount: the script only reads the checkout (consumer sources).
+# The pinned-image leg runs with NO network: that is the claim it exists to
+# keep (the toolchain is baked, our packages install from local files). A
+# change that makes it NEED the archive -- a package the image lacks --
+# fails here ("Unable to locate package"), rather than quietly returning the
+# leg to the mirror it was moved off (doppler#1524). Offline, an
+# `apt-get update` only warns, so it can never fetch a newer candidate for
+# an install to upgrade to: the 404's other route is closed, not just seen.
+PKG_SMOKE_RUN = for d in $(PKG_SMOKE_DISTROS); do \
+	    echo ">> $$d"; \
+	    net=; [ "$$d" = "$(CI_IMAGE_2404)" ] && net=--network=none; \
+	    docker run --rm $$net -v "$(CURDIR)":/w:ro -w /w $$d \
+	        bash tests/install/linux-package-smoke.sh /w/$(2) \
+	        || { echo "$(1): FAILED in $$d"; exit 1; }; \
+	 done; \
+	 echo "$(1): PASS in $(PKG_SMOKE_DISTROS)"
+
+package-linux-smoke: package-linux ## Install the built packages in each of $(PKG_SMOKE_DISTROS) and consume them
+	@$(call PKG_SMOKE_RUN,package-linux-smoke,$(PKG_OUT_DIR))
+
+# The same smoke, on the packages a user actually downloads: this machine's
+# architecture's .deb/.rpm set from the GitHub Release, not a local build.
+# release.yml builds and uploads them, but until this nothing installed a
+# PUBLISHED one on any arch -- v0.53.0's and v0.54.0's were each installed
+# once, by hand (doppler#1413), and that by-hand run is how doppler#1451 was
+# found. Rehearsable against any released version, which is what makes it
+# testable before a tag exists: `make release-smoke-packages VERSION=0.54.1`.
+#
+# EXACTLY 6 files (runtime, -dev, -tools, times deb and rpm): the smoke script
+# takes the first glob match, so a second arch's file in the directory would
+# be installed on the wrong machine, and a missing one would fail as "no
+# package matching" rather than naming the release as short.
+RELEASE_PKG_DIR ?= $(DIST_DIR)/release-packages
+release-smoke-packages: ## Install the PUBLISHED .deb/.rpm for this arch in each of $(PKG_SMOKE_DISTROS) (VERSION=x.y.z)
+ifndef VERSION
+	@echo "usage: make release-smoke-packages VERSION=<x.y.z>"; exit 1
+endif
+	@rm -rf $(RELEASE_PKG_DIR) && mkdir -p $(RELEASE_PKG_DIR)
+	@case "$$(uname -m)" in \
+	     x86_64)        deb=amd64; rpm=x86_64 ;; \
+	     aarch64|arm64) deb=arm64; rpm=aarch64 ;; \
+	     *) echo "release-smoke-packages: no packages for $$(uname -m)"; \
+	        exit 1 ;; \
+	 esac; \
+	 gh release download "v$(VERSION)" -R doppler-dsp/doppler \
+	     -D $(RELEASE_PKG_DIR) -p "*_$$deb.deb" -p "*.$$rpm.rpm"; \
+	 n=$$(ls $(RELEASE_PKG_DIR) | wc -l); \
+	 if [ "$$n" -ne 6 ]; then \
+	     echo "release-smoke-packages: v$(VERSION) has $$n $$deb/$$rpm"; \
+	     echo "  packages, want 6 (runtime, -dev, -tools x deb, rpm):"; \
+	     ls -1 $(RELEASE_PKG_DIR) | sed 's/^/    /'; exit 1; \
+	 fi; \
+	 ls -1 $(RELEASE_PKG_DIR)
+	@$(call PKG_SMOKE_RUN,release-smoke-packages,$(RELEASE_PKG_DIR))
+
+# The packaged archive, consumed the way a downstream consumes the published
+# one: extract it into a fresh prefix and run the release smoke against that
+# prefix (find_package static + shared, pkg-config, the stream layer -- each
+# where the platform has it). `release-smoke` can only test an asset already
+# on a GitHub Release; this is the same script on the archive CI just built,
+# so the Windows zip is exercised on every PR rather than first at a tag.
+C_SMOKE_PREFIX ?= $(BUILD_DIR)/package-c-smoke-prefix
+
+package-c-smoke: ## VERSION=x.y.z — extract the package-c-tarball archive and smoke-test it
+ifndef VERSION
+	@echo "usage: make package-c-smoke VERSION=<x.y.z>"; exit 1
+endif
+	@rm -rf $(C_SMOKE_PREFIX) && mkdir -p $(C_SMOKE_PREFIX)
+	@cd $(C_SMOKE_PREFIX) && $(CMAKE) -E tar xf \
+	    "$(abspath $(DIST_DIR))/doppler-$(VERSION)-$(C_PLATFORM).$(C_ARCHIVE_EXT)"
+	bash tests/install/release-smoke.sh "$(VERSION)" "$(C_SMOKE_PREFIX)"
+
+# The vcpkg face: install doppler through the in-repo overlay port
+# (packaging/vcpkg/) and build the same consumer through vcpkg's toolchain
+# file -- no CMAKE_PREFIX_PATH, no PATH edit, because a vcpkg user writes
+# neither. The port builds THIS checkout, so it is tested on every PR against
+# the source it ships with, and wraps the same configure `package-c` runs.
+# The work dir sits under $(BUILD_DIR) so a failed run can be inspected.
+VCPKG_SMOKE_DIR ?= $(BUILD_DIR)/vcpkg-smoke
+
+vcpkg-smoke: ## [TRIPLET=...] install the vcpkg overlay port and consume it (needs VCPKG_ROOT)
+	@rm -rf $(VCPKG_SMOKE_DIR)
+	bash tests/install/vcpkg-smoke.sh "$(TRIPLET)" "$(VCPKG_SMOKE_DIR)"
+
+# clang-cl links against the MSVC runtime, which defines none of compiler-rt's
+# complex helpers (__mulsc3 and friends) and no _Fcomplex arithmetic. A build
+# that references one compiles and then fails at a CONSUMER's link -- how
+# `undefined symbol: ___muldc3` reached a user while CI was green. So the
+# objects are read, not the build's exit code. Windows-only: llvm-nm ships
+# with the clang toolchain there. Both Windows legs call this one recipe.
+complex-helpers-check: ## (Windows) Refuse compiler-rt complex helpers in the objects
+	@command -v llvm-nm >/dev/null 2>&1 \
+	    || { echo "complex-helpers-check: llvm-nm not on PATH"; exit 1; }
+	@found=$$(find $(BUILD_DIR) -name '*.obj' -print0 \
+	    | xargs -0 -r llvm-nm --undefined-only 2>/dev/null \
+	    | grep -iE '_Fcomplex|__mulsc3|__divsc3|__muldc3|__divdc3' \
+	    | sort -u || true); \
+	 n=$$(find $(BUILD_DIR) -name '*.obj' | wc -l); \
+	 if [ "$$n" = 0 ]; then \
+	     echo "complex-helpers-check: no .obj under $(BUILD_DIR) — nothing was checked"; \
+	     exit 1; fi; \
+	 if [ -n "$$found" ]; then \
+	     echo "$$found" | head -20; \
+	     echo "complex-helpers-check: FAIL — compiler-rt complex helpers are"; \
+	     echo "  referenced; the MSVC link has nothing that defines them"; \
+	     exit 1; fi; \
+	 echo "complex-helpers-check: OK — none referenced in $$n objects"
+
+# ── The starter tarball ──────────────────────────────────────────────────────
+# `examples/downstream-jm` shipped as something a newcomer can extract and
+# build, with doppler INSIDE it. The point is that the two commands in its
+# README are the whole story: no doppler checkout, no install step, no
+# CMAKE_PREFIX_PATH, no network.
+#
+# That is why the SDK is bundled rather than fetched. A FetchContent path would
+# have made one platform-independent archive instead of three, and it would
+# have moved the failure a beginner hits from "it built" to "it could not
+# reach github.com" -- on the first command they run, in the artifact whose
+# entire job is to demonstrate that consuming doppler is easy.
+#
+# The project half comes from `git archive`, not from a copy of the working
+# tree: the working tree carries build/, .pytest_cache/ and a
+# compile_commands.json full of absolute paths from this machine, and a
+# starter that ships someone else's paths is a starter that reads as broken.
+#
+# TWO names, because they answer different questions. The published asset is
+# `doppler-starter-<version>-<platform>.tar.gz`: on a release page beside
+# `doppler-<version>-<platform>.tar.gz` it has to say what it IS, and
+# `iqtools-…` says nothing to someone who has never heard of iqtools. The
+# directory inside it stays `iqtools`, because that is the project's own name
+# — its package, its manifests and its README all say so, and renaming it to
+# yours is step one of using it.
+STARTER_STAGE ?= $(BUILD_DIR)/starter-pkg
+STARTER_DIR   ?= iqtools
+STARTER_ASSET ?= doppler-starter
+
+package-starter-tarball: ## VERSION=x.y.z — tar the starter project with the SDK bundled
+ifndef VERSION
+	@echo "usage: make package-starter-tarball VERSION=<x.y.z>"; exit 1
+endif
+	@rm -rf $(STARTER_STAGE)
+	@mkdir -p $(STARTER_STAGE)/$(STARTER_DIR)
+# HEAD, so the archive is a commit rather than whatever is unsaved. A starter
+# built from a dirty tree cannot be reproduced by the person who receives it.
+#
+# Through a FILE rather than a pipe into tar, so `git archive` failing is
+# caught by its own exit status. Piped, the `||` sees tar's status, not git's,
+# and whether that fails is up to how the local tar treats an empty stream:
+# GNU tar errors ("This does not look like a tar archive", exit 2), which is
+# the only reason the pipe version was safe on Linux, and it is not a property
+# worth betting the macOS leg on. Measured in the manylinux container against
+# a checkout git refuses -- see the safe.directory note in release.yml.
+	@git archive HEAD:$(DOWNSTREAM_DIR) > $(STARTER_STAGE)/project.tar \
+	    || { echo "package-starter-tarball: git archive failed — is $(DOWNSTREAM_DIR) committed, and is this checkout one git will read?"; exit 1; }
+	@tar -xf $(STARTER_STAGE)/project.tar -C $(STARTER_STAGE)/$(STARTER_DIR)
+	@rm -f $(STARTER_STAGE)/project.tar
+	@$(MAKE) --no-print-directory package-c \
+	    PREFIX=$(abspath $(STARTER_STAGE)/$(STARTER_DIR)/third_party/doppler)
+	@mkdir -p $(DIST_DIR)
+	@tar -czf "$(DIST_DIR)/$(STARTER_ASSET)-$(VERSION)-$(C_PLATFORM).tar.gz" \
+	    -C $(STARTER_STAGE) $(STARTER_DIR)
+# Assert the shape the README promises, for the reason package-c-tarball does:
+# a tar of an empty prefix exits 0 and ships nothing. Both halves are checked
+# -- the project AND the doppler it is supposed to carry -- because bundling
+# is the whole claim and a tarball missing it still configures on a machine
+# that happens to have doppler installed.
+	@tb="$(DIST_DIR)/$(STARTER_ASSET)-$(VERSION)-$(C_PLATFORM).tar.gz"; \
+	 for want in $(STARTER_DIR)/CMakeLists.txt \
+	             $(STARTER_DIR)/just-makeit.toml \
+	             $(STARTER_DIR)/third_party/doppler/include/ \
+	             $(STARTER_DIR)/third_party/doppler/lib/libdoppler.a \
+	             $(STARTER_DIR)/third_party/doppler/lib/cmake/; do \
+	     tar -tzf "$$tb" | grep -q "^$$want" || { \
+	         echo "package-starter-tarball: $$tb has no $$want — refusing to ship it"; \
+	         exit 1; }; \
+	 done; \
+	 echo "package-starter-tarball: $$tb ($$(tar -tzf "$$tb" | wc -l) entries)"
+
+# The gate on the artifact, not on the source: extract the tarball somewhere
+# with no relationship to this repo and run EXACTLY the commands the README
+# leads with. `test-example-downstream` builds the same
+# project from the source tree against a build-tree doppler -- a different
+# question (can a consumer link libdoppler.a, answered on glibc 2.28 without
+# Python), and it cannot see a packaging mistake, because nothing it touches
+# comes out of the tarball.
+#
+# Runs in a temp dir OUTSIDE the repo: extracted under $(BUILD_DIR) it would
+# still find this checkout through a relative path and pass while the bundle
+# was empty, which is the failure it exists to catch.
+#
+# BUILD_PYTHON=OFF, and that is the README's headline path rather than a
+# convenience here. The tarball can bundle doppler; it cannot bundle
+# python3-dev and NumPy's headers, and the jm-owned preamble's
+# `find_package(Python3 COMPONENTS Development.Module NumPy)` is REQUIRED --
+# so a genuinely flag-free configure fails on any box without them. Measured:
+# it fails on this one. The C half is what the tarball can promise with
+# nothing installed at all, so the C half is what the README leads with and
+# what this gate runs; the Python half is a documented second step with one
+# prerequisite, already covered by test-example-downstream-python.
+test-starter-tarball: ## Extract the starter tarball and build it with no flags
+	@v="$$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml | head -1)"; \
+	 $(MAKE) --no-print-directory package-starter-tarball VERSION="$$v" \
+	   || exit 1; \
+	 tb="$(abspath $(DIST_DIR))/$(STARTER_ASSET)-$$v-$(C_PLATFORM).tar.gz"; \
+	 tmp="$$(mktemp -d)"; trap 'rm -rf "$$tmp"' EXIT; \
+	 tar xzf "$$tb" -C "$$tmp"; \
+	 printf "  %-22s" "extract + build"; \
+	 if (cd "$$tmp/$(STARTER_DIR)" \
+	     && cmake -B build . -DBUILD_PYTHON=OFF > "$$tmp/log" 2>&1 \
+	     && cmake --build build --parallel $(NPROC) >> "$$tmp/log" 2>&1 \
+	     && $(CTEST) --test-dir build >> "$$tmp/log" 2>&1); then \
+	     echo "PASS"; \
+	 else \
+	     echo "FAIL"; cat "$$tmp/log"; exit 1; \
+	 fi
+
+# Source distribution, sibling of standard.mk's `wheel` (= uv build --wheel).
+# release.yml's build-sdist job calls this instead of hand-rolling a
+# uv-venv/pip/`python -m build --sdist` bootstrap.
+sdist: ## Build a source distribution into dist/
+	$(UV) build --sdist
+	@echo ""
+	@ls -lh dist/*.tar.gz
+
+# JM_VERSION already reads just-makeit.toml (see the Container images block).
+# release.yml re-derived the same value with its own grep/sed, so one pin had
+# two extractions that agreed only by luck -- and the SDK image's jm is built
+# from whichever one the caller happened to use. This is the one that counts.
+print-jm-version: ## Print the just-makeit pin (release.yml reads it from here)
+	@echo "$(JM_VERSION)"
+
+# The ONE definition of the GitHub Release body — release.yml's github-release
+# job pipes this into `body_path` rather than carrying its own copy of the
+# Install template. Run it locally to see exactly what a tag will publish,
+# WITHOUT cutting a release; it fails when the version has no CHANGELOG
+# section, which is what an unpromoted [Unreleased] heading looks like.
+release-notes: ## VERSION=x.y.z — print the GitHub Release body
+ifndef VERSION
+	@echo "usage: make release-notes VERSION=<x.y.z>"; exit 1
+endif
+	@scripts/release-notes.sh "$(VERSION)"
+
+# Regenerates every generated doc region: the "## Related pages" blocks on
+# docs/api/*.md, README.md's synced body from docs/index.md, the per-distro
+# install scripts from bootstrap.toml, and the release version stamped into
+# doc-version regions.
+# NOT part of docs-relink, and not in CI, for one reason: this is the only
+# generator whose input is off the machine. `--write` reads the live issue
+# list through `gh`, so it needs the network and an authenticated CLI, and a
+# CI job built on it would fail on a rate limit rather than on the tree.
+#
+# What IS gated is the half that can be: `--check` re-renders from the
+# committed docs/dev/issue-tiers.toml and diffs the page, offline and
+# deterministic, so a hand-edit of a generated page is caught (docs-check).
+# Freshness against GitHub is not checkable offline, so the page carries the
+# date it was derived and the command that derives it -- the same
+# date-plus-derivation the rest of this repo requires of a recorded live
+# value.
+issues: ## Refresh docs/dev/issues.md from the live issue list (needs gh)
+	uv run python scripts/gen_issue_tracker.py --write
+
+docs-relink: ## Regenerate every generated doc region
+	uv run python scripts/gen_related_pages.py --write
+	uv run python scripts/gen_readme.py --write
+	uv run python scripts/gen_install_scripts.py --write
+	uv run python scripts/gen_validation_log.py --write
+	uv run python scripts/gen_doc_versions.py --write
+	uv run python scripts/gen_jm_pin.py --write
+	uv run python scripts/gen_changelog_links.py --write
+
+# The pre-push half of docs-relink: the three regions a source edit can drift
+# without touching the generated file. The hook dispatches HERE rather than
+# inlining the three commands, so the hook and this target cannot disagree
+# about what "drifted" means. If it trips: run `make docs-relink`.
+docs-drift-check: ## Check the generated doc regions are up to date
+	uv run python scripts/gen_related_pages.py --check
+	uv run python scripts/gen_readme.py --check
+	uv run python scripts/gen_install_scripts.py --check
+	uv run python scripts/gen_validation_log.py --check
+	uv run python scripts/gen_issue_tracker.py --check
+
+# Every object certified under the validation campaign owns
+# src/doppler/<module>/tests/validation/<object>/, and `results.md` there is
+# GENERATED -- so it gets the same treatment as every other generated region:
+# a --check that fails when the committed file no longer matches what the
+# code produces. Discovered, not registered, so a new object is gated the
+# moment its folder exists.
+#
+# NB this is the REPORT's staleness only. The limits inside it are asserted
+# by src/doppler/<module>/tests/test_validation_limits.py, which runs in the
+# ordinary pytest suite -- the two gates answer different questions and both
+# are needed.
+VALIDATORS = $(shell find src/doppler -path '*/tests/validation/*/validate.py' | sort)
+
+validate: ## Regenerate every object's validation report and plots
+	@for v in $(VALIDATORS); do \
+	    echo "=== $$v ==="; \
+	    uv run python $$v || exit 1; \
+	 done
+	@$(MAKE) --no-print-directory validate-c
+
+# The C half of "refresh the validation". ctest runs each of these with
+# `--check`, which is the REGRESSION SUBSET -- the downselect that would catch
+# a real defect returning. Run with NO arguments they perform the full sweep:
+# every axis, every roll-off, the characterisation the reports quote. That is
+# a one-and-done per component, refreshed when the component or the toolchain
+# changes, and it is why the two modes exist at all.
+#
+# Measured, and the reason for the split: ratesync_scurve's full sweep is 81s
+# and was 78% of `make test-fast`, so every push re-derived characterisation
+# that had already been recorded. Its regression subset is 14s.
+#
+# Output goes to $(BUILD_DIR), not the tree: these tables are evidence for a
+# report a human is writing, not a generated artifact with a staleness gate,
+# and a validator that writes into the repo is the thing `write=False` exists
+# to prevent on the Python side.
+# Derived from the tracked SOURCES, not from what happens to sit in the build
+# directory. Globbing `$(BUILD_DIR)/native/validation/validate_*` was tried and
+# is wrong: it picked up `validate_symsync_ted_scurve`, a binary left from
+# 2026-08-08 whose .c had since been deleted, and ran it as though it were a
+# live harness. A stale artifact reporting PASS is worse than no harness at
+# all, and a build directory is not a source of truth about what exists.
+VALIDATORS_C = $(patsubst native/validation/%.c,\
+                 $(BUILD_DIR)/native/validation/validate_%,\
+                 $(shell git ls-files 'native/validation/*.c'))
+VALIDATE_C_OUT = $(BUILD_DIR)/validation-full
+
+# The `sweep` validators' SPOT CHECKS, relocated out of `make test` (see
+# TEST_EXCLUDE_SWEEP) and run once, here. ONE run serves both purposes: it
+# executes the checks and it produces the timings the budget gate reads, so
+# the gate cannot be measuring a different run from the one that passed.
+#
+# The log goes to a file rather than a pipe: `ctest | tee` would hand this
+# recipe tee's exit status and a failing validator would read as a pass.
+.PHONY: test-sweep validation-time-baseline
+test-sweep: ## Run the sweep validators' spot checks + gate their wall-clock budget
+	@mkdir -p $(BUILD_DIR)
+	$(CTEST) --test-dir $(BUILD_DIR) --output-on-failure -L sweep \
+	    > $(BUILD_DIR)/sweep-ctest.log 2>&1; \
+	 rc=$$?; cat $(BUILD_DIR)/sweep-ctest.log; \
+	 if [ $$rc -ne 0 ]; then exit $$rc; fi
+	$(UV) run python scripts/check_validation_times.py \
+	    --ctest-log $(BUILD_DIR)/sweep-ctest.log --build $(BUILD_DIR) \
+	    $(if $(SWEEP_STRICT),--strict,)
+
+# The ratchet's shrink path, the sibling of lint-alloc-helpers-baseline.
+validation-time-baseline: ## Re-record the sweep spot-check budget from a run
+	$(CTEST) --test-dir $(BUILD_DIR) --output-on-failure -L sweep \
+	    > $(BUILD_DIR)/sweep-ctest.log 2>&1 || true
+	$(UV) run python scripts/check_validation_times.py \
+	    --ctest-log $(BUILD_DIR)/sweep-ctest.log --build $(BUILD_DIR) --update
+
+.PHONY: validate-c
+validate-c: ## Run every C validation harness's FULL sweep (not the --check subset)
+	@if [ -z "$(VALIDATORS_C)" ]; then \
+	    echo "validate-c: no harness sources found under native/validation/"; \
+	    exit 1; \
+	 fi
+	@mkdir -p $(VALIDATE_C_OUT)
+	@for v in $(VALIDATORS_C); do \
+	    n=$$(basename $$v); \
+	    if [ ! -x "$$v" ]; then \
+	        echo "validate-c: $$n is not built — run 'make build' first"; \
+	        exit 1; \
+	    fi; \
+	    echo "=== $$n (full sweep) ==="; \
+	    $$v > $(VALIDATE_C_OUT)/$$n.txt 2>&1 \
+	        || { echo "validate-c: $$n FAILED — see $(VALIDATE_C_OUT)/$$n.txt"; \
+	             exit 1; }; \
+	 done
+	@echo "validate-c: $(words $(VALIDATORS_C)) harness(es) → $(VALIDATE_C_OUT)/"
+
+# `--check` prints a unified diff when a report is stale, and this target used
+# to send it to /dev/null -- so the ONE caller anyone uses discarded the whole
+# diagnosis and printed a filename. Measured: four reports came back stale in
+# CI and the log said only which files, which is the half that does not
+# distinguish an edited validator (re-run `make validate`) from a machine
+# difference (re-running fixes nothing).
+#
+# The classification then moved OUT of this recipe (doppler#1074). A shell
+# loop cannot be tested, and this one had a third case it did not name: any
+# non-zero exit read as STALE, so a validator that CRASHED -- the usual
+# reason being a fresh worktree where `make build` has not built the Python
+# extensions -- was reported stale and answered with `make validate`, which
+# cannot fix an import. The script tells the three apart and is gated by
+# test_validate_check_classifies.py. The validator list stays here, so
+# VALIDATORS remains the one declaration of what is checked.
+validate-check: ## Fail if any validation report is stale (CI gate)
+	@uv run python scripts/validate_check.py $(VALIDATORS)
+
+# ── Characterization ─────────────────────────────────────────────────────────
+# A characterization sweeps an object across its whole operating envelope —
+# C/N0, Doppler, sample rate, seed — until the answer is statistically
+# meaningful. That takes MINUTES, which is the entire reason it is a category
+# of its own and not an example.
+#
+# Both subjects here used to live in src/doppler/examples/ and therefore ran on
+# every push through the example smoke gate. Measured: 164.6 s + 117.7 s, i.e.
+# **75% of that gate's 376 s**, against ~58 s for the other 65 examples put
+# together. Shortening a 300-trial Monte-Carlo to fit a smoke gate trades away
+# the statistical confidence that is its whole point, so the sweep moved
+# instead of shrinking.
+#
+# Deliberately NOT in GATES_DEPS and not in ci.yml: this target is run on
+# purpose, when the envelope is the question. What guards the code per-push is
+# each subject's fast twin in src/doppler/<mod>/tests/, plus
+# `characterization-check` below — and be honest about the difference: the twin
+# proves the helpers still import and run, NOT that the envelope still holds.
+# A regression that moves a pull-in boundary without breaking an import waits
+# for the next `make characterize`. That window, and the figure-freshness gap
+# below it, are tracked in gh-692 rather than left standing on this comment.
+#
+# Discovered by glob, like VALIDATORS, so a new subject is covered the moment
+# its folder exists. That is not a style choice — the validation tree was
+# executed by NOTHING for its first two objects because it needed a
+# registration step nobody performed (docs/dev/validation.md).
+CHARACTERIZATIONS = $(shell find src/doppler \
+                        -path '*/tests/characterization/*/characterize.py' \
+                      | sort)
+
+characterize: ## Run every characterization sweep (MINUTES — deliberate, not per-push)
+	@for c in $(CHARACTERIZATIONS); do \
+	    echo "=== $$c ==="; \
+	    uv run python $$c || exit 1; \
+	 done
+	@echo "characterize: $(words $(CHARACTERIZATIONS)) subject(s) swept"
+
+characterization-check: ## Verify every characterization subject is runnable and has a fast twin
+	@uv run python scripts/check_characterization.py
+
+# The write half of the drift gate. `drift-check` was the only jm invocation
+# the Makefile carried, so the routine action -- REGENERATING after a manifest
+# edit or a pin bump -- had no target and got typed as a bare
+# `.venv/bin/just-makeit apply`, which the make-SSOT hook then blocks. A gate
+# with no matching write target teaches people to reach around the gate.
+#
+# `uv run` rather than the venv binary, and after the sync, so apply and
+# drift-check cannot run different jms -- the skew this repo has been bitten by
+# is a bare console script left over from an older pin.
+#
+# JM_APPLY_ARGS exists because arguments must travel through a variable, but
+# note what a path argument does NOT do: `jm apply objects/x.toml` is a FULL
+# regeneration that merely starts from that fragment, not a scoped one. Nothing
+# here can limit the blast radius, which is why the reminder below is printed
+# every time rather than written down somewhere.
+JM_APPLY_ARGS ?=
+
+# The jm pin lives in three files and a lock. `just-makeit.toml` is the SSOT,
+# `gen_jm_pin.py --write` (via docs-relink) propagates to pyproject.toml and the
+# downstream example, and `uv lock` re-resolves the dev group the pin names.
+# Before this target that sequence had no home, so every bump improvised it --
+# which is how the 0.63.3 -> 0.65.0 bump came to be done with a raw `sed`, a
+# direct script call and a bare `uv lock`, in a repo whose rule is that make is
+# the SSOT. `gen_jm_pin.py --check` already gates that the sites agree; this
+# gates HOW they get there.
+jm-pin: ## JM=x.y.z — move the just-makeit pin everywhere and re-lock
+ifndef JM
+	@echo "usage: make jm-pin JM=<x.y.z>"; exit 1
+endif
+# Pre-flight BEFORE touching anything, because the failure mode is asymmetric:
+# `docs-relink` runs under `uv run`, so once pyproject.toml names a version uv
+# cannot resolve, the environment is broken and this target can no longer run
+# to fix itself. Measured while writing it -- `make jm-pin JM=9.9.9` left three
+# files moved, a stale lock, and no way back through make.
+#
+# It also answers the question actually being asked most of the time: has the
+# version been released yet? `jm status` says CLOSED, and a closed issue is not
+# a release.
+	@curl -fsS -o /dev/null "https://pypi.org/pypi/just-makeit/$(JM)/json" || { \
+	    echo "jm-pin: just-makeit $(JM) is not on PyPI — nothing changed."; \
+	    echo "  A merged fix is not a release. Check:"; \
+	    echo "    gh release list --repo just-buildit/just-makeit --limit 3"; \
+	    exit 1; }
+	@sed -i 's/^jm_version = ".*"/jm_version = "$(JM)"/' just-makeit.toml
+	@$(MAKE) --no-print-directory docs-relink
+	@uv lock
+	@echo "jm-pin: pinned $(JM). Next: make jm-apply, then make drift-check."
+
+# `jm upgrade` is the migration step a jm release can ask for (0.75.0: the
+# `complex` -> `_Complex` respelling of the sacred headers, which `apply`
+# cannot do). It rewrites hand-owned files, so it is a target: the make-SSOT
+# hook blocks the bare tool, and a bypass is a missing option, not a habit.
+jm-upgrade: ## Run just-makeit's project migration (after `make jm-pin`)
+	uv sync --group dev --no-install-project
+	uv run just-makeit upgrade
+	@echo "jm-upgrade: done. Next: make jm-apply, then the full gate set."
+
+jm-apply: ## Regenerate jm-owned glue from the manifest (then run drift-check)
+	uv sync --group dev --no-install-project
+	uv run just-makeit apply $(JM_APPLY_ARGS)
+	@echo
+	@echo "jm-apply: regenerated. Two things this does NOT do for you:"
+	@echo "  - a sacred native/src/<mod>/<mod>_ext_<obj>.c fragment is"
+	@echo "    reconciled member-by-member, never re-rendered -- read the diff"
+	@echo "  - a SCOPED apply (JM_APPLY_ARGS=objects/<obj>.toml) leaves the"
+	@echo "    downstream example alone; a bare one regenerates it too."
+# The downstream example is a jm project in its own right, and `drift-check`
+# has always CHECKED it -- with nothing here to fix what it found. So every
+# pin bump ended in the same hand-run `cd examples/downstream-jm && jm apply`,
+# which the make-SSOT hook rightly refuses, and which is forgotten often
+# enough to have its own note. A bare `jm apply` now regenerates both; a
+# scoped one is about one object of doppler's and leaves the example alone.
+	$(if $(JM_APPLY_ARGS),,@$(MAKE) --no-print-directory jm-apply-downstream)
+
+jm-apply-downstream: ## Regenerate the downstream example's jm glue (same pin)
+	cd $(DOWNSTREAM_DIR) && uv run --project $(CURDIR) just-makeit apply
+
+# The jm manifest drift gate. --no-install-project because the gate only reads
+# the manifest, so there is no reason to build the C extension for it.
+drift-check: ## jm manifest drift gate (CI's 'jm manifest drift')
+# FIRST, and before the sync: the pin states the jm version in three files, and
+# a bump that misses one used to be invisible — jm's gh-183 skew notice is a
+# `warning:` line in a wall of advisory output and does not fail anything
+# (mutation-verified: reverting the downstream pin alone left this target
+# exiting 0). Checking here, ahead of the sync, also stops us installing one jm
+# and gating with a manifest that names another.
+	uv run python scripts/gen_jm_pin.py --check
+	uv sync --group dev --no-install-project
+	uv run just-makeit status --check
+	@echo "── downstream jm example ──"
+# The example is a just-makeit project in its own right, so its generated
+# bindings/stubs/CMake can drift from its manifest exactly like doppler's can.
+# Checked with the SAME pinned jm, so the example cannot silently document a jm
+# version doppler is not on.
+	cd $(DOWNSTREAM_DIR) && uv run --project $(CURDIR) just-makeit status --check
+
+# One definition of "code", used by BOTH questions below — and by
+# `issue-link-check`, which asks a third question of the same branch. Splitting
+# it was how the halves would drift: a path added to one and not the others
+# leaves a gate that is honest about a file the rest have never heard of.
+CHANGELOG_CODE_PATHS = src native objects ffi
+
+# The base a BRANCH is measured against. Overridden in CI, where a
+# `pull_request` checkout has no local `main` to compare with — see ci.yml.
+CHANGELOG_BASE ?= origin/main
+
+# A branch that changes code must SAY what it closes, or say it closes
+# nothing. GitHub only closes an issue when a closing keyword reaches the
+# default branch, and a commit message carries it there either way doppler
+# merges: a rebase keeps each commit, and a squash commit's body is the
+# branch's commit messages (repo setting squash_merge_commit_message:
+# COMMIT_MESSAGES, measured 2026-09-14). This
+# asks whether any branch used one, because nothing did: c0e0e615 gated the
+# generated C API tree, which IS #714, and left it open for a day. The same
+# triage found #663/#664/#665 fixed-and-open on PR #717. An open count that
+# includes finished work is a backlog nobody can plan from.
+#
+# `No-issue:` passes, deliberately. Most branches close nothing, and a gate
+# that demanded an issue number from a re-vendor would argue with its author —
+# the failure mode changelog-check's own comment warns about. Silence is the
+# only rejected answer, because silence cannot be told apart from a closure
+# nobody wrote down.
+#
+# Logic in the script rather than inline so the gate's own test can drive it
+# over seeded messages instead of fabricating a scratch repository.
+issue-link-check: ## A branch changing code must declare Closes #N or No-issue:
+	@ISSUE_BASE=$(CHANGELOG_BASE) ISSUE_CODE_PATHS="$(CHANGELOG_CODE_PATHS)" \
+	    ./scripts/issue-link-check.sh
+
+# `changelog-check` asks TWO questions, folded into one target rather than
+# split into two, because they share the code-path definition above and a
+# second target would be a second place to keep it right.
+#
+#   1. PER BRANCH — did THIS branch change code without touching CHANGELOG.md?
+#   2. PER REPO   — has code shipped since the last tag with [Unreleased] empty?
+#
+# Question 1 is the one that matters, and it is new. The repo-state question
+# alone goes INERT the moment a single entry exists, so every branch after the
+# first passes for free: #700 shipped a public C API — a whole EMA primitive —
+# with no entry at all, straight through this target, and #705 is that hole.
+# The 0.58.0 bump on `chore/jm-0.58.0` would have gone the same way this week.
+# A question about what this branch did cannot be satisfied by somebody else's
+# earlier commit, which is exactly the property the repo-state question lacks.
+#
+# The design is lifted from just-buildit/just-makeit#956, which cites #705 by
+# URL as its motivating case; jm hit the same thing from the other side, having
+# assembled a seven-PR release in which not one PR wrote an entry. jm keeps it
+# in `local.mk`; doppler has no `local.mk`, and this target already lived here.
+#
+# TOUCHING the file is the bar, not growing a particular section. A refactor
+# that genuinely warrants no user-facing note is one honest line from passing,
+# and a gate that tries to judge which changes *deserve* an entry is a gate
+# that argues with its author.
+#
+# INERT on main by construction: HEAD is an ancestor of the base there, so the
+# range is empty and question 1 has nothing to judge. It only has an opinion on
+# a branch that is ahead.
+#
+# The RELEASE PR is the one legitimate empty [Unreleased]: promotion moves every
+# entry into `## [X.Y.Z]`, so the notes exist, just not under [Unreleased]. That
+# exemption is narrow on purpose — the version must HAVE a section AND its tag
+# must NOT exist yet, which is what stops it becoming permanent. It applies to
+# question 2 only; a release PR still touches CHANGELOG.md, so question 1 needs
+# no exemption at all.
+changelog-assemble: ## Promote changelog.d/ fragments ([Unreleased], or VERSION=x.y.z)
+	@$(UV) run python scripts/changelog-assemble.py \
+	    $(if $(VERSION),--version $(VERSION))
+# Stage what it just did. The fragments are DELETED in the worktree but still
+# tracked, so the next `make lint` hands mdformat a list of paths that no
+# longer exist and fails on a step that succeeded. Cutting v0.44.0 that cost a
+# confused detour; the fix is one line here rather than a sentence in the
+# runbook that the next releaser reads after hitting it.
+	@git add -A changelog.d CHANGELOG.md
+
+changelog-assembled-check: ## Fail if any fragment is still unassembled
+	@$(UV) run python scripts/changelog-assemble.py --check
+
+# The execution home this check did not have. It was named in LOCAL_TARGETS --
+# which is the .PHONY/help list -- and in NOTHING else: not GATES_DEPS, not
+# lint, no CI job. A gate that runs nowhere reports no findings because it
+# never looks, and this repo has now found that shape three times.
+#
+# `lint` is the wrong home for it: a feature branch legitimately carries
+# unassembled fragments, so it would be red on every PR and get deleted. The
+# only moment the question means anything is the one irreversible one --
+# `tag-release` pushes the tag, the tag starts the release workflow, and
+# `github-release` publishes whatever CHANGELOG.md says. Cutting today with
+# 62 fragments outstanding would have published 5 entries out of 67.
+#
+# A prerequisite rather than an edit to standard.mk: tag-release is vendored,
+# and a private copy of an upstream target is how the two drift.
+tag-release: changelog-assembled-check
+
+# The other two "regenerate it if it changed since the last release" steps --
+# release.md §2 (gallery plots) and §2b (published benchmarks) -- which
+# nothing checked. Same home and the same argument as the line above: a
+# feature branch legitimately changes a gallery script without re-rendering
+# its plot, so `lint` would be red on every PR and get deleted. The tag is
+# the one moment the question means anything, and the one that cannot be
+# taken back.
+#
+# DIFF-based, never regenerate-and-compare. A gallery PNG is not guaranteed
+# byte-stable across a re-render, so a gate that re-rendered and diffed would
+# flap -- and a flapping gate gets disabled, taking the real signal with it.
+#
+# GALLERY_SCRIPTS is passed IN rather than restated in the script: a second
+# list is one that can disagree with the first.
+release-freshness-check: ## VERSION=x.y.z — refuse a tag with stale plots or benchmarks
+ifndef VERSION
+	@echo "usage: make release-freshness-check VERSION=<x.y.z>"; exit 1
+endif
+	@$(UV) run python scripts/check_release_freshness.py \
+	    --version $(VERSION) $(GALLERY_SCRIPTS)
+
+tag-release: release-freshness-check
+
+# Sized against what would actually be PUBLISHED, not what CHANGELOG.md holds:
+# a version section may carry a `### Highlights` block, and release-notes.sh
+# publishes that instead when the whole section will not fit. The same number
+# doubles as the release-cadence signal -- deferring a release is what makes it
+# grow -- so there is no separate "days since the last tag" rule to drift out
+# of step with this one. It runs here rather than at tag time because
+# `github-release` needs `publish-python`: at tag time the version is already
+# on PyPI and PyPI refuses a re-upload.
+# The bump PR in ONE command. `release-branch` (vendored) branches off
+# origin/main and bumps the five version sites; everything after it used to be
+# six hand steps in the runbook, and the hand steps are the ones that rot --
+# the comparison links were hand-written until 0.43.0, 0.43.1 and 0.43.2 all
+# shipped without them and nothing checked (#996).
+#
+# `release-notes-size-check` runs HERE, before the PR, because this is the
+# last place its answer can still be acted on: after the tag, publish-python
+# has already written to PyPI and that version can never be re-uploaded.
+#
+# Deliberately NOT lifted into the vendored standard.mk: it chains
+# `changelog-assemble`, which is doppler's own. If a second repo grows the
+# same shape, that is the moment to promote it to canonical -- not before,
+# and never as a private copy of something that already lives there.
+#
+# Every tree-only gate `tag-release` will ask, asked HERE, in the order in
+# which it can still be acted on -- so a merged, green release commit goes
+# through `make ship` without a surprise at the one irreversible step:
+#
+# - freshness FIRST, before a branch exists (it refused v0.51.1 at the tag);
+# - the projected size and entry-length check BEFORE assembly: it reads
+#   [Unreleased] and the fragments, which assembly empties -- run after it,
+#   as it used to be, it measured nothing ("0 entries" for v0.52.0, #1400);
+# - after assembly, the RENDERED body, produced by the script release.yml
+#   publishes with, plus the assembled and version checks tag-release runs.
+release-pr: ## VERSION=x.y.z — branch, bump, assemble, open the release PR
+ifndef VERSION
+	@echo "usage: make release-pr VERSION=<x.y.z>"; exit 1
+endif
+	@$(MAKE) release-freshness-check VERSION=$(VERSION)
+	@$(MAKE) release-notes-size-check
+	@$(MAKE) release-branch VERSION=$(VERSION)
+	@$(MAKE) changelog-assemble VERSION=$(VERSION)
+	@$(MAKE) docs-relink
+	@$(MAKE) version-check VERSION=$(VERSION)
+	@$(MAKE) changelog-assembled-check
+	@$(MAKE) release-notes-body-check VERSION=$(VERSION)
+	git commit -a -m "chore: release v$(VERSION)" -m "No-issue:"
+	git push -u origin HEAD
+	gh pr create --fill
+	@echo ""
+	@echo "Merge once \`CI passed\` is green, then:"
+	@echo "  git checkout main && git pull && make ship VERSION=$(VERSION)"
+
+release-notes-size-check: ## Fail if the release notes would exceed GitHub's cap
+	@uv run python scripts/check_release_notes_size.py
+
+# The body release.yml will actually publish -- rendered by release-notes.sh,
+# not re-derived from CHANGELOG.md -- sized against GitHub's cap. This is the
+# check that still means something once the fragments are assembled.
+release-notes-body-check: ## VERSION=x.y.z — size the rendered release body
+ifndef VERSION
+	@echo "usage: make release-notes-body-check VERSION=<x.y.z>"; exit 1
+endif
+	@t=$$(mktemp); trap 'rm -f "$$t"' EXIT; \
+	 scripts/release-notes.sh "$(VERSION)" > "$$t" \
+	 && uv run python scripts/check_release_notes_size.py --body-file "$$t"
+
+changelog-check: ## A branch changing code must add a changelog entry
+	@base=$$(git merge-base HEAD $(CHANGELOG_BASE) 2>/dev/null) || { \
+	  echo "changelog-check: no merge base with $(CHANGELOG_BASE) —"; \
+	  echo "  fetch it (CI needs fetch-depth: 0) or set CHANGELOG_BASE."; \
+	  exit 1; \
+	}; \
+	files=$$(git diff --name-only "$$base"..HEAD); \
+	if [ -z "$$files" ]; then \
+	  ./scripts/uncommitted-code-guard.sh --inert changelog-check $(CHANGELOG_CODE_PATHS) \
+	    || exit 1; \
+	  echo "changelog-check: no commits ahead of $(CHANGELOG_BASE) — branch check inert"; \
+	else \
+	  ./scripts/uncommitted-code-guard.sh changelog-check $(CHANGELOG_CODE_PATHS); \
+	  ./scripts/changelog-fragment-guard.sh "$$base" || exit 1; \
+	  pat=$$(printf '%s\n' $(CHANGELOG_CODE_PATHS) | sed 's|.*|^&/|' | paste -sd'|'); \
+	  code=$$(printf '%s\n' "$$files" | grep -E "$$pat" || true); \
+	  if [ -z "$$code" ]; then \
+	    echo "changelog-check: no code changes on this branch"; \
+	  elif printf '%s\n' "$$files" | grep -qE '^(CHANGELOG\.md|changelog\.d/.+\.md)$$'; then \
+	    echo "changelog-check: $$(printf '%s\n' "$$code" | grep -c .) code file(s) on this branch, changelog touched — OK"; \
+	  else \
+	    echo "changelog-check: this branch changes code and says nothing — FAIL"; \
+	    printf '%s\n' "$$code" | sed 's/^/  /' | head -20; \
+	    echo ""; \
+	    echo "  Write ONE FILE naming what changed, so the release is a"; \
+	    echo "  promotion rather than an archaeology exercise:"; \
+	    echo ""; \
+	    echo "    changelog.d/<added|changed|fixed|removed|breaking>/<slug>.md"; \
+	    echo ""; \
+	    echo "  The directory IS the section heading; the content is the"; \
+	    echo "  entry, starting with '- '. See changelog.d/README.md for why"; \
+	    echo "  it is a file and not a line in CHANGELOG.md."; \
+	    echo "  A purely internal change still gets one honest entry."; \
+	    exit 1; \
+	  fi; \
+	fi; \
+	t=$$(git describe --tags --abbrev=0 2>/dev/null || true); \
+	n=$$(git log --oneline $${t:+$$t..}HEAD -- $(CHANGELOG_CODE_PATHS) 2>/dev/null | wc -l); \
+	e=$$(awk '/^## \[Unreleased\]/{f=1;next} f&&/^## /{exit} f' CHANGELOG.md \
+	     | grep -c '^- ' || true); \
+	frag=$$(find changelog.d -mindepth 2 -name '*.md' 2>/dev/null | wc -l); \
+	e=$$((e + frag)); \
+	v=$$(awk -F'"' '/^version = /{print $$2; exit}' pyproject.toml); \
+	if [ "$$n" -gt 0 ] && [ "$$e" -eq 0 ] \
+	   && grep -q "^## \[$$v\]" CHANGELOG.md \
+	   && ! git rev-parse -q --verify "refs/tags/v$$v" >/dev/null 2>&1; then \
+	  echo "changelog-check: release PR for $$v — notes are promoted into [$$v], v$$v not yet tagged — OK"; \
+	  exit 0; \
+	fi; \
+	if [ "$$n" -gt 0 ] && [ "$$e" -eq 0 ]; then \
+	  echo "changelog-check: $$n code commit(s) since $${t:-repo start}, [Unreleased] is empty and changelog.d/ holds nothing — FAIL"; \
+	  exit 1; \
+	fi; \
+	echo "changelog-check: $$e entry/entries ($$frag unassembled) for $$n code commit(s) since $${t:-repo start}"
+
+# The doxygen gate proper. Split out so doxygen-check's Docker branch can
+# re-enter it with the pinned doxygen on PATH. Writes NOTHING into the tree:
+# the container mounts the repo read-only, so the generated XML/HTML and the
+# log go to a scratch dir. A gate that mutates the tree it checks is a bug.
+doxygen-warn-gate: ## The doxygen warning gate proper (re-entered in Docker)
+	@out=$$(mktemp -d); \
+	{ cat Doxyfile; \
+	  echo "OUTPUT_DIRECTORY=$$out"; \
+	  echo "WARN_LOGFILE="; } | doxygen - > $$out/stdout.log 2>&1; \
+	n=$$(grep -c 'warning:' $$out/stdout.log || true); \
+	if [ "$$n" != "0" ]; then \
+	  grep 'warning:' $$out/stdout.log; \
+	  echo "doxygen-check: $$n warning(s) — FAIL"; rm -rf $$out; exit 1; \
+	fi; \
+	rm -rf $$out; \
+	echo "doxygen-check: 0 warnings"
+
+# ── Examples ─────────────────────────────────────────────────────────────────
+# Smoke-test every standalone C example. Excluded (each needs a live NATS peer
+# or terminal interaction, not just a broker): transmitter, receiver,
+# pipeline_demo, spectrum_analyzer.
+EXAMPLE_BIN_DIR := $(BUILD_DIR)/native/examples
+STANDALONE_BUILD_DIR := example-projects/standalone/build
+DOWNSTREAM_DIR := examples/downstream-jm
+# Build trees live under doppler's BUILD_DIR, not inside the example: the
+# example is a jm project and `jm status` walks its tree, so a build dir there
+# would be scanned on every drift check.
+DOWNSTREAM_BUILD_DIR := $(BUILD_DIR)/downstream-jm
+
+# Wall-clock ceiling per example, mirroring test_examples.py's TIMEOUT_S.
+# It is load-bearing rather than defensive: the failure this gate exists to
+# catch is an example nothing runs, and the cheapest way to reintroduce it
+# is an example that runs forever -- the gate then hangs instead of failing,
+# which reads as "still working" in CI until the job's own ceiling kills it
+# and names the wrong thing. A deadline turns that into a FAIL with the
+# example's name on it.
+C_EXAMPLE_TIMEOUT ?= 120
+C_EXAMPLE_SKIPS   := native/examples/.examples-skip
+
+test-examples-c: build ## Smoke-test every standalone C example
+# DISCOVERED, never listed. This used to iterate a hand-written list of nine
+# names, so the other four compiled, shipped and were executed by nothing --
+# with no reason recorded, nothing failing if a fifth joined them, and
+# nothing noticing if one was deleted (gh-863). Opting one out now costs an
+# entry in $(C_EXAMPLE_SKIPS) with a mandatory reason, the same contract
+# src/doppler/examples/.examples-skip already holds the Python side to.
+	@echo "Running C example smoke tests..."
+	@bash scripts/smoke-c-examples.sh $(EXAMPLE_BIN_DIR) $(C_EXAMPLE_TIMEOUT)
+# Through the example's own Makefile, for the reason burst-pipeline-check
+# gives: its README tells a reader to run `make DOPPLER_BUILD_DIR=... run`, so
+# that is the command this has to prove still works.
+	@echo "Building standalone example..."
+	@printf "  %-24s" "awgn_example"; \
+	if $(MAKE) --no-print-directory -C example-projects/standalone \
+	       BUILD_DIR=$(abspath $(STANDALONE_BUILD_DIR)) \
+	       DOPPLER_BUILD_DIR=$(abspath $(BUILD_DIR)) run > /dev/null 2>&1; then \
+	    echo "PASS"; \
+	else \
+	    echo "FAIL"; exit 1; \
+	fi
+	@$(MAKE) --no-print-directory test-example-downstream
+	@echo "All C example smoke tests passed."
+
+# The downstream just-makeit project built the way a real consumer builds it:
+# `find_package(doppler)` against this build tree, linking libdoppler.a. Its
+# own CTest suite writes captures with doppler's writer and reads them back
+# through the façade, so it exercises the whole consume-doppler path.
+#
+# BUILD_PYTHON=OFF deliberately: this runs inside test-examples-c, which CI
+# also runs in the debian:buster-slim glibc container where there is no Python
+# and no NumPy. Keeping the C half Python-free means "can a downstream link
+# libdoppler.a" gets answered on ubuntu, macOS AND glibc 2.28.
+test-example-downstream: build ## Build the downstream jm example (C only)
+	@echo "Building downstream jm example (C only, links libdoppler.a)..."
+# Output is captured rather than discarded: a gate that hides why it failed
+# costs a whole CI round-trip to diagnose, which this one did on its first
+# macOS run. Quiet on success, the real compiler/linker error on failure.
+	@cmake -B $(DOWNSTREAM_BUILD_DIR) $(DOWNSTREAM_DIR) \
+	    -Ddoppler_DIR=$(abspath $(BUILD_DIR)) \
+	    -DBUILD_PYTHON=OFF \
+	    -DCMAKE_BUILD_TYPE=Release \
+	    > $(DOWNSTREAM_BUILD_DIR).log 2>&1 \
+	    || { echo "  configure FAILED"; cat $(DOWNSTREAM_BUILD_DIR).log; exit 1; }
+	@cmake --build $(DOWNSTREAM_BUILD_DIR) --parallel $(NPROC) \
+	    > $(DOWNSTREAM_BUILD_DIR).log 2>&1 \
+	    || { echo "  build FAILED"; cat $(DOWNSTREAM_BUILD_DIR).log; exit 1; }
+	@printf "  %-24s" "downstream-jm"; \
+	if $(CTEST) --test-dir $(DOWNSTREAM_BUILD_DIR) > /dev/null 2>&1; then \
+	    echo "PASS"; \
+	else \
+	    echo "FAIL"; \
+	    $(CTEST) --test-dir $(DOWNSTREAM_BUILD_DIR) --output-on-failure; \
+	    exit 1; \
+	fi
+
+# ── The release-path gates ───────────────────────────────────────────────────
+# These guard what users actually download. They ran only inside release.yml,
+# so they could not be rehearsed: the first time you learn a release gate is
+# wrong is while a release is failing. Each is now a target, and each was run
+# for real against v0.40.0 before being wired in.
+
+WHEEL_DIR ?= dist
+
+# A distributed wheel must run on any CPU of its arch. `-march=native` on the
+# build host sprays AVX2/AVX-512 across every function and SIGILLs on older
+# hardware -- doppler 0.5.1 shipped exactly that bug. Wide SIMD is legitimate
+# ONLY inside runtime-dispatched functions, which carry the ISA in their name
+# and sit behind a __builtin_cpu_supports() check.
+#
+# One target, not two: the x86 and aarch64 scans were separate CI steps with
+# separate `if:` conditions, but they differ only in the register pattern and
+# the allowed function-name substring. Detecting the arch here deletes the
+# duplication and the condition with it.
+wheel-check: ## Verify built wheels carry no -march/-mcpu=native SIMD leak
+	@arch="$$(uname -m)"; \
+	 case "$$arch" in \
+	   x86_64)  pat='%zmm[0-9]|%ymm[0-9]';        ok='avx512'; isa='AVX2/AVX-512';; \
+	   aarch64|arm64) pat='[ ,](z[0-9]+\.[bhsdq]|p[0-9]+/[mz])'; ok='sve'; isa='SVE';; \
+	   *) echo "wheel-check: no SIMD-leak pattern for $$arch — skipping"; exit 0;; \
+	 esac; \
+	 ls $(WHEEL_DIR)/*.whl > /dev/null 2>&1 \
+	   || { echo "wheel-check: no wheel in $(WHEEL_DIR)/ — run 'make wheel'"; exit 1; }; \
+	 fail=0; tmp="$$(mktemp -d)"; \
+	 for whl in $(WHEEL_DIR)/*.whl; do \
+	     unzip -q -o "$$whl" -d "$$tmp/x"; \
+	     find "$$tmp/x" \( -name '*.cpython-*.so' \
+	           -o -path '*/wfm/_bin/wfmgen' \) > "$$tmp/solist"; \
+	     while IFS= read -r so; do \
+	         bad=$$(objdump -d "$$so" 2>/dev/null | awk -v pat="$$pat" -v ok="$$ok" ' \
+	           /^[0-9a-f]+ <.*>:/ { fn=$$2; gsub(/[<>:]/, "", fn) } \
+	           $$0 ~ pat { if (fn !~ ok) { print fn; exit } }'); \
+	         if [ -n "$$bad" ]; then \
+	             echo "  FAIL $$(basename $$whl): $$(basename $$so) has $$isa in"; \
+	             echo "       non-dispatched function '$$bad' (built with -native?)"; \
+	             fail=1; \
+	         fi; \
+	     done < "$$tmp/solist"; \
+	     rm -rf "$$tmp/x"; \
+	 done; \
+	 rm -rf "$$tmp"; \
+	 if [ "$$fail" -ne 0 ]; then \
+	     echo "wheel-check: refusing a non-portable wheel — build without -DDOPPLER_NATIVE"; \
+	     exit 1; \
+	 fi; \
+	 echo "wheel-check: portable — $$isa only in runtime-dispatched *$$ok* functions"
+
+# The PRE-publish face of tests/install/wheel-smoke.sh: install the wheel this
+# build produced into a throwaway venv and run the e2e from a clean cwd.
+# `release-smoke-pypi` below is the post-publish face — the SAME script, because
+# the only thing that differs is where the wheel comes from, and a second copy
+# would drift from this one the first time either side is fixed.
+#
+# The venv/PATH and clean-cwd reasoning that used to live here is now in the
+# script's header, next to the code it constrains.
+wheel-smoke: ## Install the built wheel in a temp venv and run the e2e
+	bash tests/install/wheel-smoke.sh --wheel-dir "$(WHEEL_DIR)"
+
+# The published C tarball, fetched and exercised the way a consumer would.
+# Runnable against any released version, which is what makes it rehearsable:
+# `make release-smoke VERSION=0.40.0` after a release, or before touching the
+# script.
+release-smoke: ## Smoke-test a PUBLISHED C tarball (VERSION=x.y.z)
+ifndef VERSION
+	@echo "usage: make release-smoke VERSION=<x.y.z>"; exit 1
+endif
+	bash tests/install/release-smoke.sh "$(VERSION)"
+
+# The published WHEEL, installed from PyPI the way a user gets it — the
+# post-publish twin of `release-smoke` above, and the one thing `wheel-smoke`
+# cannot do: that installs a local file, so until this nothing in a release
+# ever exercised the index (#1347). `release-watch.sh` queries the PyPI
+# metadata endpoint, which says a version is LISTED, not that it installs.
+# Rehearsable against any released version, which is what makes it testable
+# before a tag exists: `make release-smoke-pypi VERSION=0.49.0`.
+release-smoke-pypi: ## Smoke-test the PUBLISHED wheel from PyPI (VERSION=x.y.z)
+ifndef VERSION
+	@echo "usage: make release-smoke-pypi VERSION=<x.y.z>"; exit 1
+endif
+	bash tests/install/wheel-smoke.sh --pypi "$(VERSION)"
+
+# ── The binary-hygiene gates ─────────────────────────────────────────────────
+# These inspect what the build actually produced, and each one exists because
+# the property it checks is invisible in source and expensive to discover late:
+# a wheel that SIGILLs on a user's CPU, a C library that drags in libstdc++, an
+# archive a downstream cannot link. They were inline CI steps, so none could be
+# run before pushing.
+
+# Linux-only: both inspect ELF with objdump/nm/ldd. The link smoke below is
+# the cross-platform one.
+abi-check: ## Verify the built libraries are portable and C++-free (Linux)
+	@fail=0; \
+	 echo "=== portable SIMD (no leaked AVX2/AVX-512) ==="; \
+	 bad=$$(objdump -d $(BUILD_DIR)/libdoppler.so 2>/dev/null | awk ' \
+	   /^[0-9a-f]+ <.*>:/ { fn=$$2; gsub(/[<>:]/, "", fn) } \
+	   /%zmm[0-9]|%ymm[0-9]/ { if (fn !~ /avx512/) { print fn; exit } }'); \
+	 if [ -n "$$bad" ]; then \
+	     echo "  FAIL: wide SIMD in non-dispatched function '$$bad' —"; \
+	     echo "        a wide-SIMD flag leaked into the default build?"; \
+	     fail=1; \
+	 else echo "  OK — wide SIMD only in runtime-dispatched *avx512* functions."; fi; \
+	 echo "=== C++-free (no libstdc++ / CXXABI anywhere) ==="; \
+	 pat='GLIBCXX_|CXXABI_|std::|operator new|operator delete'; \
+	 bad=$$(nm -CD $(BUILD_DIR)/libdoppler.so 2>/dev/null | grep -E "$$pat" || true); \
+	 bad="$$bad$$(nm -C $(BUILD_DIR)/libdoppler.a 2>/dev/null | grep -E "$$pat" || true)"; \
+	 bad="$$bad$$(nm -CD $(BUILD_DIR)/libdoppler_stream.so 2>/dev/null | grep -E "$$pat" || true)"; \
+	 bad="$$bad$$(nm -C $(BUILD_DIR)/libdoppler_stream.a 2>/dev/null | grep -E "$$pat" || true)"; \
+	 if [ -n "$$bad" ]; then \
+	     echo "  FAIL: doppler references the C++ runtime — the build must be pure C:"; \
+	     echo "$$bad" | head -20; fail=1; \
+	 elif ldd $(BUILD_DIR)/libdoppler.so 2>/dev/null | grep -qi 'libstdc++' \
+	   || ldd $(BUILD_DIR)/libdoppler_stream.so 2>/dev/null | grep -qi 'libstdc++'; then \
+	     echo "  FAIL: a dynamic libstdc++ dependency"; fail=1; \
+	 else echo "  OK — C++-free everywhere; links -lm only."; fi; \
+	 echo "=== versioned SONAME (libdoppler.so.MAJOR.MINOR, doppler#1407) ==="; \
+	 want=$$($(VERSION_SITES_CMD) --read CMakeLists.txt | cut -d. -f1,2); \
+	 for lib in libdoppler libdoppler_stream; do \
+	     got=$$(readelf -d $(BUILD_DIR)/$$lib.so 2>/dev/null \
+	            | sed -n 's/.*(SONAME).*\[\(.*\)\]/\1/p'); \
+	     if [ "$$got" = "$$lib.so.$$want" ]; then echo "  OK — $$got"; \
+	     else echo "  FAIL: $$lib.so has SONAME '$$got', want '$$lib.so.$$want' —"; \
+	          echo "        an unversioned SONAME lets an upgrade swap the ABI"; \
+	          echo "        under every consumer already linked."; fail=1; fi; \
+	 done; \
+	 if [ "$$fail" = 0 ]; then echo "abi-check: ALL PASS"; \
+	 else echo "abi-check: FAILURES above"; exit 1; fi
+
+# Cross-platform, unlike abi-check: this is the question a downstream actually
+# asks — does libdoppler.a link with the two flags the docs name? — and it is
+# answered on Linux and macOS both.
+# `-lm -lpthread` is the whole documented link line, and it is spelled here
+# by hand ON PURPOSE: this target answers what a downstream typing the
+# command gets, so taking the flags from pkg-config would make it agree with
+# itself rather than with the docs. pthread joined the line when rs.c moved
+# to `pthread_once`; on glibc >= 2.34 it is folded into libc and omitting it
+# still links, which is exactly why a gate that names it is worth having.
+# A consumer with its OWN cJSON / nats.c links doppler statically, and doppler
+# keeps its own copies (#1565). The archives embed both; before their symbols
+# were respelled dp__v_* this failed at the consumer's link -- `multiple
+# definition of 'cJSON_Parse'` -- which is exactly what it did when sabotaged
+# by reversing the rename on copies of the two archives. POSIX-only, like
+# libdoppler_stream (#1575).
+vendored-collision-check: build ## A consumer with its own cJSON/nats.c still links doppler statically
+	@t=$$(mktemp -d); \
+	 if cc tests/install/vendored-collision/app.c -Inative/inc \
+	       -I$(BUILD_DIR)/native/inc $(BUILD_DIR)/libdoppler_stream.a \
+	       $(BUILD_DIR)/libdoppler.a -lm -lpthread -o "$$t/vc" \
+	    && "$$t/vc"; then \
+	     rm -rf "$$t"; \
+	 else \
+	     echo "vendored-collision-check: FAIL -- a consumer's own cJSON or" \
+	          "nats.c collides with doppler's (see output above)"; \
+	     rm -rf "$$t"; exit 1; \
+	 fi
+
+link-check: ## Smoke-test that a downstream links libdoppler.a with -lm -lpthread
+	@t=$$(mktemp -d); \
+	 if cc example-projects/consumer/main.c -Inative/inc -I$(BUILD_DIR)/native/inc \
+	       $(BUILD_DIR)/libdoppler.a -lm -lpthread -o "$$t/consumer_smoke" \
+	    && ( cd "$$t" && ./consumer_smoke > /dev/null ); then \
+	     echo "link-check: OK — libdoppler.a links with -lm -lpthread."; \
+	     rm -rf "$$t"; \
+	 else \
+	     echo "link-check: FAIL — a downstream cannot link libdoppler.a" \
+	          "with -lm -lpthread"; \
+	     rm -rf "$$t"; exit 1; \
+	 fi
+
+# The three documented consumer faces (bare cc / CMake find_package /
+# pkg-config), built against a fresh install of THIS build tree and asserted
+# to produce identical output. build-three-ways.sh is the SSOT — the docs
+# --8<-- include its command regions, and release-smoke.sh runs the same
+# script against the PUBLISHED tarball. This target gives CI's per-commit path
+# and a local dev the exact same check without waiting for a release.
+consumer-faces-check: build ## Build a consumer via cc/CMake/pkg-config, assert identical output
+	@t=$$(mktemp -d); \
+	 $(CMAKE) --install $(BUILD_DIR) --prefix "$$t/pfx" > /dev/null \
+	 && bash tests/install/stream-consumer/build-three-ways.sh "$$t/pfx"; \
+	 rc=$$?; rm -rf "$$t"; exit $$rc
+
+# example-projects/burst-pipeline is a directory users are told to COPY, so it
+# has to keep building the way they will build it: find_package against an
+# install prefix, not this source tree. It runs too, and its checks are real --
+# `repeats` against a hand-listed train, the declared SNR recovered from the
+# gap and the burst, a cached Plan render byte-identical to a full compose, and
+# BLUE round-tripped byte-exact -- so this also catches an API change that
+# still compiles.
+#
+# THROUGH THE EXAMPLE'S OWN MAKEFILE, not a cmake line of our own. Its README
+# tells a reader to run `make PREFIX=... run`; a gate that configured CMake
+# separately would prove something adjacent to what they are about to type,
+# and would keep passing after that Makefile broke. `run` builds both link
+# modes -- the static one is where a missing transitive dependency shows up --
+# and the static binary's EXISTENCE is asserted here rather than there,
+# because the example only NOTES its absence while this gate must fail on it.
+burst-pipeline-check: build ## Build+run example-projects/burst-pipeline against an install prefix
+	@t=$$(mktemp -d); \
+	 $(CMAKE) --install $(BUILD_DIR) --prefix "$$t/pfx" > /dev/null \
+	 && $(MAKE) --no-print-directory -C example-projects/burst-pipeline \
+	        BUILD_DIR="$$t/b" PREFIX="$$t/pfx" run \
+	 && { [ -x "$$t/b/burst_pipeline_static" ] || { \
+	        echo "burst-pipeline-check: static target not built"; exit 1; }; }; \
+	 rc=$$?; rm -rf "$$t"; \
+	 if [ $$rc -eq 0 ]; then echo "burst-pipeline-check: OK — both link modes"; fi; \
+	 exit $$rc
+
+# The same shape as burst-pipeline-check, for the RTL-SDR front end the UNO Q
+# example demonstrates: install to a scratch prefix, then the example's OWN
+# `make PREFIX=... run`, which self-tests in both link modes -- the cu8 bias
+# present before the DDC and filtered after it, the tone mixed to DC, the SNR
+# the chain's parameters predict. Its failures are real exits, so this is a
+# check of U8ToF32 + DDC + PSD composed, not only of the example compiling.
+uno-q-check: build ## Build+run example-projects/uno-q against an install prefix
+	@t=$$(mktemp -d); \
+	 $(CMAKE) --install $(BUILD_DIR) --prefix "$$t/pfx" > /dev/null \
+	 && $(MAKE) --no-print-directory -C example-projects/uno-q \
+	        BUILD_DIR="$$t/b" PREFIX="$$t/pfx" run \
+	 && { [ -x "$$t/b/uno_q_static" ] || { \
+	        echo "uno-q-check: static target not built"; exit 1; }; }; \
+	 rc=$$?; rm -rf "$$t"; \
+	 if [ $$rc -eq 0 ]; then echo "uno-q-check: OK — both link modes"; fi; \
+	 exit $$rc
+
+# The uno-q NATS transport, both patterns, through the example's OWN
+# `make nats-check` against a scratch install: pub/sub delivers every frame
+# of the self-test scene once, and push/pull does too across a deliberate
+# consumer stall, each run held to the self-test's checks. Needs the
+# JetStream broker `make nats-up` starts; with none it FAILS -- a check that
+# could not run has not passed. CI runs it in the job that starts the broker.
+uno-q-nats-check: build ## Build+run example-projects/uno-q's NATS transport (needs make nats-up)
+	@t=$$(mktemp -d); \
+	 $(CMAKE) --install $(BUILD_DIR) --prefix "$$t/pfx" > /dev/null \
+	 && $(MAKE) --no-print-directory -C example-projects/uno-q \
+	        BUILD_DIR="$$t/b" PREFIX="$$t/pfx" nats-check; \
+	 rc=$$?; rm -rf "$$t"; exit $$rc
+
+# The oldest glibc a released ARTIFACT may reference. Pure inspection, and only
+# meaningful against a build MADE on that glibc: pointed at a modern distro's
+# build it fails on that build's legitimately newer symbols, which is the
+# check working, not a bug. `glibc-gate` below supplies the old-glibc input;
+# this target is what it (and nothing else now) runs against the result.
+#
+# It inspects libdoppler.so AND every example binary, because the .so alone was
+# not the whole shipped surface. deploy/docker/Dockerfile.examples ships three
+# of those binaries (transmitter/receiver/spectrum_analyzer) in the compose
+# image, and they had drifted to GLIBC_2.38 — fmod plus the __isoc23_sscanf /
+# __isoc23_strtol redirects glibc's own headers apply from 2.38 onward — while
+# this gate stayed green, because it only ever opened one file. `glibc-gate`
+# was already BUILDING those binaries at the floor and then throwing the
+# evidence away. The list is globbed, never enumerated, so a new example is
+# covered the moment it builds.
+GLIBC_MAX ?= 2.28
+GLIBC_EXAMPLE_DIR = $(BUILD_DIR)/native/examples
+glibc-check: ## Verify no glibc symbol newer than $(GLIBC_MAX) (needs an old-glibc build)
+# Fail-closed on BOTH ways of reading nothing, because "no bad symbols found"
+# and "no symbols found" produced the identical green line: pointed at a dir
+# with no .so, objdump wrote its error to stderr, $$BAD came back empty and
+# this printed ALL SYMBOLS OK. Harmless while a human ran it right after a
+# build; a false pass once `glibc-gate` made it a gate in GATES_DEPS. The same
+# trap has two more mouths now that the input is a globbed list: an empty glob,
+# and a single file in the list that objdump reads nothing from.
+	@so=$(BUILD_DIR)/libdoppler.so; \
+	 if [ ! -f "$$so" ]; then \
+	     echo "glibc-check: no $$so to inspect — build it first," \
+	          "or run 'make glibc-gate' to build one on glibc $(GLIBC_MAX)"; \
+	     exit 1; \
+	 fi; \
+	 examples=$$(find $(GLIBC_EXAMPLE_DIR) -maxdepth 1 -type f -perm -u+x \
+	             2>/dev/null | sort); \
+	 if [ -z "$$examples" ]; then \
+	     echo "glibc-check: no example binaries under $(GLIBC_EXAMPLE_DIR) —" \
+	          "the compose image ships three of these, so an empty list is a" \
+	          "broken build, not a clean run"; \
+	     exit 1; \
+	 fi; \
+	 rc=0; high=; n=0; \
+	 for f in "$$so" $$examples; do \
+	     n=$$((n + 1)); \
+	     seen=$$(objdump -T "$$f" 2>/dev/null \
+	             | grep -oP 'GLIBC_\K[0-9.]+' | sort -Vu); \
+	     if [ -z "$$seen" ]; then \
+	         echo "glibc-check: $$f references no versioned glibc symbol at" \
+	              "all — objdump read nothing, so nothing was asserted"; \
+	         rc=1; continue; \
+	     fi; \
+	     bad=$$(printf '%s\n' "$$seen" \
+	            | awk -F. -v mx="$(GLIBC_MAX)" \
+	                'BEGIN{split(mx,m,".")} $$1 > m[1] || ($$1 == m[1] && $$2 > m[2])'); \
+	     if [ -n "$$bad" ]; then \
+	         echo "glibc-check: $$f references glibc > $(GLIBC_MAX):" \
+	              "$$(printf '%s ' $$bad)"; \
+	         rc=1; \
+	     fi; \
+	     high=$$(printf '%s\n%s\n' "$$high" "$$seen" \
+	             | grep -v '^$$' | sort -Vu | tail -1); \
+	 done; \
+	 [ $$rc -eq 0 ] || exit 1; \
+	 echo "glibc-check: all glibc symbols <= $(GLIBC_MAX) across $$n files" \
+	      "(highest: $$high)"
+
+# The missing half: a way to PRODUCE an old-glibc build anywhere. Without it
+# the floor was answerable only by pushing and reading CI, and `glibc-check`
+# sat in GATES_DEPS as a gate no dev box could pass — so the fix is to supply
+# the input, never to weaken the assertion above.
+#
+# Its own build dir, deliberately. Sharing $(BUILD_DIR) would leave a
+# Buster-compiled CMake cache in the dev's tree, and the next local
+# `cmake -B build` aborts on the changed compiler. STANDALONE_BUILD_DIR is
+# overridden for exactly the same reason: it is the one path reached by
+# `test-examples` that is not already derived from BUILD_DIR.
+#
+# `test-examples` runs here because it is the half of CI's old job that
+# proves the artifact WORKS under glibc $(GLIBC_MAX), not merely that its
+# symbol table looks right — dropping it would quietly shrink coverage.
+#
+# The image is a toolchain, not a product: no source baked in, checkout
+# bind-mounted, nothing published. That is why this `docker build` sits here
+# beside the gate it feeds rather than in the container-images section, whose
+# rule is about the images doppler SHIPS.
+GLIBC_BUILD_DIR  ?= build-glibc228
+GLIBC_IMAGE      ?= $(DOCKER_IMAGE)-glibc228:$(DOCKER_TAG)
+GLIBC_DOCKERFILE := deploy/docker/Dockerfile.glibc228
+
+# The toolchain image is its own target because it now has TWO consumers:
+# this gate, and `docker-stream`, which compiles the compose image's three
+# streaming binaries at the floor rather than on the modern builder. Inlining
+# the `docker build` in both would be two definitions of "glibc $(GLIBC_MAX)"
+# free to drift — the exact thing Dockerfile.glibc228's own header says moving
+# it out of ci.yml was meant to stop.
+glibc-image: ## Build the glibc $(GLIBC_MAX) toolchain image (shared: glibc-gate, docker-stream)
+	docker build -f $(GLIBC_DOCKERFILE) -t $(GLIBC_IMAGE) deploy/docker
+
+glibc-gate: glibc-image ## Build in a glibc $(GLIBC_MAX) container, then run glibc-check on it
+# Run as the caller, not root: the build tree lands in the bind-mounted
+# checkout, and a root-owned build-glibc228/ is one `make clean` away from
+# needing sudo. One `make` invocation, three goals — command-line overrides
+# propagate to the sub-makes `test-examples` spawns.
+	docker run --rm $(call CONTAINER_CHECKOUT,$(GLIBC_BUILD_DIR)) \
+	    $(GLIBC_IMAGE) \
+	    make build test-examples glibc-check \
+	        BUILD_DIR=$(GLIBC_BUILD_DIR) \
+	        STANDALONE_BUILD_DIR=$(GLIBC_BUILD_DIR)/standalone
+# Repoint the compilation database at the normal build tree. The isolation
+# above is about the CMake cache; this is the OTHER thing a BUILD_DIR override
+# leaks into the checkout, and it was missed. `build` depends on the
+# `compile_commands.json` target, whose recipe is
+# `ln -sfn $(BUILD_DIR)/compile_commands.json $@` — so the sub-make above
+# repoints the repo-root symlink at build-glibc228/ and LEAVES it there.
+#
+# What that database contains is the problem: it was generated inside the
+# container under `-w /w`, so every entry names `/w/native/src/...`. Measured
+# after a gate run: 434 entries, and ZERO of them exist on the host.
+#
+# doppler's own `make lint-clang-tidy` is unaffected — it overrides
+# LINT_clang-tidy to pass `-p $(BUILD_DIR)` and takes its file list from
+# `git ls-files`, so it never reads this symlink. The consumers that DO are
+# clangd (every C file in the editor resolves against a database of paths that
+# do not exist) and standard.mk's default `-p .` recipe, which any repo not
+# overriding it would hit.
+#
+# $(BUILD_DIR) here is the OUTER value (the override applies only to the
+# sub-make), so this restores whatever the developer actually builds into.
+# Unconditional rather than guarded: re-linking to where it already points is
+# a no-op, and a conditional would have to re-derive the default it is fixing.
+	@ln -sfn $(BUILD_DIR)/compile_commands.json compile_commands.json
+
+# ── The CI toolchain image (gh-885) ──────────────────────────────────────────
+# Beside the glibc image above and for the same reason: this is a build
+# ENVIRONMENT for gates, not one of the images doppler ships. Every Linux CI
+# job used to open by apt-installing the dev group -- ~112 MB per job, ten
+# jobs a run, and most of it already on the runner outside dpkg. That download
+# was the whole exposure to mirror weather; baking it removes the step.
+#
+# TWO BASES, and the pair is load-bearing rather than thorough: build-and-test
+# runs ubuntu-22.04 and ubuntu-24.04 on purpose. One image for both would
+# leave the matrix naming two environments while testing one.
+CI_IMAGE_REPO  ?= ghcr.io/doppler-dsp/doppler-ci
+CI_IMAGE_BASES ?= ubuntu:22.04 ubuntu:24.04
+CI_DOCKERFILE  := deploy/docker/Dockerfile.ci
+# The pin. `include`d rather than parsed so make reads the digests directly,
+# and `-` so a fresh clone before the first publish is a clear gate failure
+# rather than a parse error.
+CI_IMAGE_PIN   := .github/ci-images.env
+-include $(CI_IMAGE_PIN)
+
+# What the pinned image was built FROM. Hashing the two inputs is what makes
+# the gate offline and instant: it answers "has anyone changed the dependency
+# list or the image recipe since this digest was taken", which is the drift a
+# developer can actually cause. Whether UPSTREAM packages moved is a different
+# question, and the nightly rebuild in ci-image.yml is what asks it -- it
+# compares the package fingerprint baked into the image, not this.
+# Make the cache's effect VISIBLE. CI calls this after its build steps, so
+# the hit rate is in the log rather than being an assumption about a tool
+# nobody can see working -- if the cache silently stopped hitting, the only
+# other symptom would be builds slowly getting longer.
+ccache-stats: ## Print compiler-cache hit statistics (no-op without ccache)
+	@if [ -n "$(CCACHE_BIN)" ]; then \
+	    $(CCACHE_BIN) --show-stats --verbose 2>/dev/null \
+	        || $(CCACHE_BIN) --show-stats; \
+	 else \
+	    echo "ccache-stats: ccache not installed — builds are uncached"; \
+	 fi
+
+# Plain `python3`, not `$(UV) run python`, and deliberately: the script is
+# stdlib-only, and ci-image.yml shells out to THIS target so the workflow and
+# the check cannot compute different numbers. That workflow builds the image
+# the rest of CI runs inside, so it is the one place that cannot assume a
+# synced uv environment -- it has neither a setup-python nor a uv install step.
+# Nothing is unpinned by this: `uv run` pins dependencies, and this script has
+# none.
+ci-image-source-hash: ## Print the hash of the CI image's inputs (plumbing)
+	@python3 scripts/ci_image_source_hash.py
+
+ci-image: ## Build the CI toolchain image locally, one per base
+	@for b in $(CI_IMAGE_BASES); do \
+	     tag="doppler-ci:$$(echo $$b | tr ':' '-')"; \
+	     echo "=== $$b -> $$tag"; \
+	     docker build -f $(CI_DOCKERFILE) --build-arg BASE=$$b -t "$$tag" . \
+	         || exit 1; \
+	 done
+
+# Run it like CI runs it, in the SAME image CI pins -- by digest, not by a
+# local tag that happens to share a name. This is the payoff of baking the
+# toolchain: "works on my machine" and "works in CI" become the same
+# sentence, and today's two failures are both cases it would have caught
+# before a push. `make test-rust` died in CI on a cargo old enough to reject
+# the repo's own lockfile, invisible on a box carrying rustup; and a build
+# tree from THIS host, handed to the container, failed to link with
+# atan2f@GLIBC_2.43 because the host's glibc is newer than the image's.
+#
+# Hence CI_BUILD_DIR, and it is not a nicety: the container and the host
+# produce objects for different glibcs, so sharing one build/ is how you get
+# a link error that looks like a code bug. Same separation, same reason, as
+# glibc-gate's build-glibc228.
+CI_IMAGE     ?= $(CI_IMAGE_2404)
+CI_BUILD_DIR ?= build-ci
+CI_DOCKER_RUN = docker run --rm $(call CONTAINER_CHECKOUT,$(CI_BUILD_DIR))
+
+ci-shell: ## Interactive shell in the PINNED CI image, checkout at /w
+	@docker run --rm -it $(call CONTAINER_CHECKOUT,$(CI_BUILD_DIR)) \
+	    $(CI_IMAGE) bash
+
+ci-run: ## Run `make TARGET=<goals>` inside the PINNED CI image
+	@if [ -z "$(TARGET)" ]; then \
+	    echo "ci-run: name what to run, e.g."; \
+	    echo "    make ci-run TARGET='build test-rust'"; \
+	    echo "    make ci-run TARGET=lint"; \
+	    exit 2; \
+	 fi
+	$(CI_DOCKER_RUN) -e DOPPLER_BUILD_DIR=/w/$(CI_BUILD_DIR) $(CI_IMAGE) \
+	    make $(TARGET) BUILD_DIR=$(CI_BUILD_DIR) \
+	        STANDALONE_BUILD_DIR=$(CI_BUILD_DIR)/standalone \
+	        ASAN_DIR=$(CI_BUILD_DIR)-asan \
+	        UBSAN_DIR=$(CI_BUILD_DIR)-ubsan \
+	        TSAN_DIR=$(CI_BUILD_DIR)-tsan
+# DOPPLER_BUILD_DIR as well as BUILD_DIR, because they are read by different
+# consumers and missing the second one fails in a way that reads as a code
+# bug: ffi/rust/build.rs locates the library itself, defaulting to ../../build
+# -- the HOST tree -- so `ci-run TARGET=test-rust` linked this box's
+# glibc-2.43 .so inside a 2.39 container and died on
+# `undefined reference: atan2f@GLIBC_2.43`. Pointing both at the container
+# tree is what makes "run it like CI" true rather than nearly true.
+# The three sanitizer dirs for a plainer reason: they are separate variables,
+# so a container run left a `build-asan/` in the HOST checkout whose
+# CMakeCache.txt names /w paths, and the next `make test-asan` on the host died
+# with "CMakeCache.txt directory ... is different". Gitignored, so nothing is
+# lost -- it just costs an `rm -rf` and a puzzled minute to work out why.
+# Repoint the compilation database at the HOST build tree, for the same
+# reason glibc-gate does: `build` symlinks it at $(BUILD_DIR), so a container
+# run leaves the repo root pointing into $(CI_BUILD_DIR), whose every entry
+# names /w/... — paths that do not exist here, which breaks clangd silently.
+	@ln -sfn $(BUILD_DIR)/compile_commands.json compile_commands.json
+
+# The composition a developer actually wants before pushing: the gate set
+# CI runs, in the environment CI runs it in. `gates` is already "every gate CI
+# runs" (gates-check enforces that against ci.yml); this is that list with the
+# environment question removed too.
+#
+# Deliberately NOT a git pre-push hook. `gates` includes `coverage`, which is
+# ~10 minutes -- a hook that slow is one people pass --no-verify to, and a
+# gate routinely bypassed is decoration. It is a target you run when you mean
+# it, and CI remains the thing that is not optional.
+ci-gates: ## Run the full gate set inside the PINNED CI image (pre-push check)
+	@$(MAKE) --no-print-directory ci-run TARGET=gates
+
+ci-image-shell: ## A shell in the LOCALLY BUILT CI image (see ci-image)
+	@docker run --rm -it $(call CONTAINER_CHECKOUT,$(CI_BUILD_DIR)) \
+	    doppler-ci:ubuntu-24.04 bash
+# Report what a PR's checks did. It NEVER authorizes a merge -- that is
+# `gh pr merge <n> --auto --rebase`, which evaluates the repo's required set
+# SERVER-side and cannot be got wrong by a poll loop. Arm auto-merge first;
+# use this to find out whether the PR landed or is genuinely stuck, so a
+# failure is noticed rather than waited on forever.
+#
+# It exists because every hand-rolled version of this loop fails TOWARD green,
+# silently, and all three ways have been hit for real:
+#
+#   1. `gh run list -L 1` returns the newest run of ANY workflow on the
+#      branch, so it reports the docker job finishing while the test matrix is
+#      still queued. Bind to the PR's head SHA instead.
+#   2. Right after a force-push GitHub has not created the check runs yet, so
+#      a `grep pending` finds nothing and the loop declares victory over ZERO
+#      checks. An empty check set is not a green one.
+#   3. `gh pr checks --watch` can attach to the PRIOR run after a re-push and
+#      render its old conclusions instantly, which looks like a fast pass.
+#
+# Ported from just-buildit/just-makeit (skills://merge-set says to); REPO
+# derives from `git remote get-url origin` here rather than being required.
+#
+#   make pr-watch PR=1044
+#   make pr-watch PR=1044 TIMEOUT_MIN=90 ADVISORY="codecov/patch,flaky-thing"
+pr-watch: ## Watch PR=<n>'s checks to a settled verdict (never merges)
+	@test -n "$(PR)" || { echo "usage: make pr-watch PR=<number>"; exit 2; }
+	@bash scripts/pr-watch.sh $(PR)
+
+
+# The gate. Two questions, both answerable with no network and no docker:
+#
+#   1. Does every image a workflow can run in trace back to the pin file? A
+#      `container:` naming anything else is how a run stops being
+#      reproducible -- including a tag, which is mutable by definition.
+#      Delegated to scripts/ci_image_refs_check.py: the refs are expressions
+#      now, so answering this means RESOLVING `${{ … }}` rather than
+#      skipping it, which is more than a grep should be asked to do. Its own
+#      header carries why the previous shell scan could not survive the
+#      change (#1215).
+#   2. Is the pin still describing the current inputs? bootstrap.toml gaining
+#      a package with no rebuild means CI provisions an environment the repo
+#      no longer describes, and the failure would land later, somewhere else,
+#      as a missing tool.
+ci-image-check: ## Fail when the pinned CI image no longer matches its inputs
+	@rc=0; \
+	 if [ ! -f "$(CI_IMAGE_PIN)" ]; then \
+	     echo "ci-image-check: $(CI_IMAGE_PIN) is missing — the CI image has"; \
+	     echo "  never been published, or the pin was deleted. Run the"; \
+	     echo "  ci-image workflow and commit the pin it prints."; \
+	     exit 1; \
+	 fi; \
+	 have=$$($(MAKE) -s ci-image-source-hash); \
+	 if [ "$$have" != "$(CI_IMAGE_SOURCE_HASH)" ]; then \
+	     echo "ci-image-check: the CI image's inputs changed since the"; \
+	     echo "  pinned image was built (bootstrap.toml's package/tool"; \
+	     echo "  tables, or $(CI_DOCKERFILE) -- NOT [project], which"; \
+	     echo "  no layer reads; see scripts/ci_image_source_hash.py)."; \
+	     echo "    pinned inputs: $(CI_IMAGE_SOURCE_HASH)"; \
+	     echo "    this tree:     $$have"; \
+	     echo "  Push the branch (ci-image.yml builds on those paths), then"; \
+	     echo "  commit the pin block it prints into $(CI_IMAGE_PIN)."; \
+	     rc=1; \
+	 fi; \
+	 $(UV) run python scripts/ci_image_refs_check.py || rc=1; \
+	 [ $$rc -eq 0 ] || exit 1; \
+	 echo "ci-image-check: OK — pin matches its inputs"
+
+# The OTHER half of the same question, and the half `ci-image-check` above
+# deliberately cannot answer: it is a no-network gate, so it compares OUR
+# inputs (CI_IMAGE_SOURCE_HASH) and never the package fingerprints the image
+# actually came out with. Upstream moving underneath an unchanged Dockerfile
+# is exactly the drift the nightly exists to find, and until doppler#1212
+# nothing gated it -- the nightly's only delivery mechanism was a PR the org
+# forbids Actions from opening, so it force-pushed `ci/repin-image` and died.
+#
+# Logic in a script rather than an inline recipe for the same reason
+# `issue-link-check` is: the gate's own test drives it over two seeded pin
+# blocks instead of fabricating a scratch repository and a remote.
+ci-image-repin-check: ## Fail when a rebuilt CI-image pin is pending and unmerged
+	@bash scripts/ci-image-repin-check.sh
+
+# The layering `wfm/wfm_frame.h` states about itself -- "`ccsds_tm` must depend
+# on this file ... so this file must not call `ccsds_tm`'s kernels" -- is a
+# property of the include graph, and nothing measured it. The design page
+# proposed exactly this gate and it went unwritten, so four components reached
+# into `ccsds_tm` while the page said none did.
+#
+# It reads the two files the general primitive is made of -- wfm_frame.h and
+# wfm_frame.c -- and fails on a ccsds_tm include or a call into its kernels.
+# A consumer composing the two is the design working, so nothing else is
+# scanned (an earlier version ratcheted every component; see the script).
+# Logic in a script so the gate's own test can drive it over a seeded tree,
+# as `issue-link-check` does.
+ccsds-isolation-check: ## Fail when wfm_frame.{h,c} include or call ccsds_tm
+	@$(UV) run python scripts/check_ccsds_isolation.py
+
+# A read-write mount of the checkout is only safe through CONTAINER_CHECKOUT,
+# which keeps an in-container `uv run` off the host's .venv (gh-1452). So the
+# Makefile must hold EXACTLY ONE such mount -- the declaration's. A second is
+# a site that bypasses it; zero means the pattern no longer finds the
+# declaration, and a check that finds nothing has checked nothing. `:ro`
+# mounts are exempt: nothing can be written through them.
+container-mount-check: ## Fail on a writable checkout mount outside CONTAINER_CHECKOUT
+	@hits=$$(grep -nE -- '-v +"?\$$\(CURDIR\)"?:[^ :"]+( |\\|$$)' \
+	     $(filter Makefile %.mk,$(MAKEFILE_LIST)) /dev/null); \
+	 n=$$(printf '%s\n' "$$hits" | grep -c .); \
+	 if [ "$$n" -ne 1 ] || ! printf '%s' "$$hits" | \
+	     grep -q 'CONTAINER_CHECKOUT = '; then \
+	     echo "container-mount-check: want exactly 1 writable checkout"; \
+	     echo "  mount (CONTAINER_CHECKOUT's), found $$n:"; \
+	     printf '%s\n' "$$hits" | sed 's/^/    /'; \
+	     echo "  Use \$$(call CONTAINER_CHECKOUT,<build dir>) (gh-1452)."; \
+	     exit 1; \
+	 fi
+
+# Cargo.lock records the resolved graph INCLUDING doppler's own version, and
+# `bump-version` never regenerated it -- so it stated 0.46.0 against a 0.47.0
+# project, one whole release behind. It had no symptom because nothing reads
+# it: cargo simply rewrites it on the next build, which is how it was found
+# (a `cargo metadata` inside `make gates` dirtied the tree mid-rebase).
+#
+# A staleness gate rather than a sixth version site: the lockfile is
+# GENERATED, so this compares it against its source instead of restating the
+# number a third time. Same shape as gen-c-api-check and validate-check.
+cargo-lock-check: ## Fail when Cargo.lock's doppler version lags Cargo.toml
+	@$(UV) run python scripts/check_cargo_lock.py
+
+# The `sweep` validators cost ~20-40x under instrumentation and their `--check`
+# already runs in the Release suite. ASan, UBSan and TSan each excluded them,
+# with a measurement; the COVERAGE leg did not, and nothing could say so -- the
+# omission had no symptom until the job began being cancelled at its 90-minute
+# cap, which reads as flaky infrastructure rather than as a leg doing work
+# twice. It blocked every open PR in the repo for a day (doppler#1292).
+#
+# The rule is the property, not the flag: an instrumented block that runs ctest
+# must exclude the label. A fourth sanitizer added tomorrow is covered without
+# being registered anywhere. Logic in a script so the gate's own test can drive
+# it over seeded makefiles, as `issue-link-check` does.
+instrumented-sweep-check: ## Fail when an instrumented ctest leg runs the sweep validators
+	@$(UV) run python scripts/check_instrumented_sweep.py
+
+# A design page states what IS. The convention was written down, applied once
+# by hand to this very page -- async-dsss-receiver.md was split at 3686 lines,
+# its dated record moved to a companion -measurements.md keeping the section
+# numbers -- and then did not hold: the page was back to 2270 lines and 17%
+# play-by-play. A rule with no gate is a wish.
+#
+# Three patterns, each a heading or a preamble and never prose: a dated
+# section, a `**Status:**`/`*Phase N*` preamble, a record-family heading. The
+# companion `-measurements.md` is exempt BY NAME, so a new one is covered the
+# moment it exists. Ratcheted, because rx-test.md (1270) and mpsk.md (1978, 79
+# external §-citations) cannot be fixed here -- and the list fails on a FIXED
+# entry too, so it can only shrink.
+design-pages-check: ## Fail when a design page narrates its own construction
+	@$(UV) run python scripts/check_design_pages.py
+
+# The recorded specan demo frames used to be gated by `specan-check`, which
+# asked whether `docs/specan/frames.json` moved whenever anything under the
+# specan source did. That question is a proxy for the one that matters -- are
+# the committed frames what the analyzer produces? -- and it could not answer
+# it, because the recorder was unseeded: any re-record satisfied the gate, so
+# a behaviour-neutral edit passed only by committing a noise diff (#1195).
+#
+# `record_demo` is seeded now, which also made the old gate UNSATISFIABLE: a
+# faithful re-record of an inert change produces identical bytes, so there is
+# no diff for it to find and no action that clears it
+# ([[feedback-a-check-that-cannot-succeed]]).
+#
+# The real check lives where a build already exists --
+# `src/doppler/specan/tests/test_recorded_demo_frames.py` re-records 120
+# frames in 0.25 s and compares them to the committed file: geometry exactly,
+# levels within 0.2 dB (the C FFT's SIMD tier varies by arch and the frames
+# round to 0.1 dB). No watched-path list to keep in sync, which is what the
+# old gate got wrong once already -- it watched only the Python while the
+# 1601-vs-801 bin drift arrived through the C side.
+
+# dp_isotime.h follows just-bashit's `iso-8601-basic`; it does not define it.
+# test_dp_isotime.c pins a snapshot of that helper's output, and a snapshot
+# goes stale silently — the committed vectors keep passing while the helper
+# moves on, and doppler keeps emitting a spelling the comment above them
+# says matches. This runs the real helper against the real C, so the
+# agreement is checked rather than claimed.
+#
+# ISOTIME_REQUIRE=1 makes a missing just-bashit an error instead of a skip.
+# CI sets it, because CI clones the reference and an absent one there means
+# the gate silently stopped gating; a developer without the checkout gets the
+# skip and still has the golden vectors.
+ISOTIME_REQUIRE ?= 0
+check-isotime-parity: build ## Check dp_isotime.h against just-bashit
+	@BUILD_DIR=$(BUILD_DIR) bash scripts/check_isotime_parity.sh \
+	    $(if $(filter 1,$(ISOTIME_REQUIRE)),--require,)
+
+# ── The doc gates ────────────────────────────────────────────────────────────
+# These four existed ONLY as inline CI steps, so none could be run locally by
+# name — you found out a docstring example was broken by pushing. The RFC
+# counted them as five gates with no target (#555); they are three targets
+# because the snippet trio always runs together, under one CI condition.
+
+test-stubs: ## Doctest every generated .pyi stub
+	uv run python -m pytest --doctest-glob='*.pyi' -q \
+	    $$(find $(PYEXT_DIR) -name '*.pyi')
+
+# 79-col gate for the generated .pyi stubs. They are jm-owned and excluded from
+# the main ruff run (its autofixing rules would rewrite them and drift the
+# manifest gate), so this is a SEPARATE check-only pass: E501 + W505 have no
+# autofix, so they verify the width WITHOUT ever touching the bytes -- the one
+# way to enforce a rule on generated files without drifting them. E501 catches
+# every line (signatures + docstring prose); W505 (doc-line-too-long) is the
+# intent-explicit doc twin, redundant at max-doc-length == line-length == 79 but
+# selected to document purpose. --isolated bypasses pyproject's .pyi exclusion
+# (which force-excludes them). NOT yet wired into `lint`/CI: it is red today
+# because jm emits unwrapped docstring summaries + wide signatures. It goes
+# green once just-makeit wraps generated stubs to 79 (just-makeit#744); wire it
+# into the `lint` prereqs at that point.
+lint-stubs: ## Check generated .pyi stays within 79 cols (check-only; see jm#744)
+	$(RUFF) check --isolated --select E501,W505 --line-length 79 \
+	    --config 'lint.pycodestyle.max-doc-length = 79' \
+	    $$(find $(PYEXT_DIR) -name '*.pyi')
+
+# Docstring-coverage burn-down meter. Scores BOTH doc faces: the .pyi stubs
+# (static, always) and the runtime __doc__ (needs the built extension, so this
+# reads both only after `make build`/`make pyext`; without a build it reports
+# the stub face and notes the runtime face was skipped). This target is the
+# human-facing both-face REPORT; the no-regression ratchet
+# (`--check` against docs/.docstring-coverage-baseline) runs inside the
+# docs-check gate (DOCS_CHECK_PRE_CMDS above), green from baseline and failing
+# only on backsliding. Refresh the baseline after improving coverage with
+# `python scripts/check_docstring_coverage.py --update-baseline`.
+check-docstring-coverage: ## Report docstring coverage across both Python faces
+	uv run python scripts/check_docstring_coverage.py
+
+test-api-docs: ## Doctest the docs/api/*.md reference pages
+	uv run python -m pytest --doctest-glob='*.md' -q docs/api/
+
+# python/C/shell fences under docs/. Run as one target and reported together:
+# a page usually breaks all three the same way, and stopping at the first costs
+# a whole round trip to see the rest. The C gate compiles every fence against
+# build/libdoppler.a, so `make build` first; the python gate's `broker=` fences
+# need a NATS broker on :4222 and skip without one.
+#
+# PAGE=<docs-relative path> narrows all three gates to one page while you are
+# writing it. Each gate parametrizes over pages with the docs-relative path as
+# the test id, so one `-k` reaches all three without any of them growing a
+# selector of its own.
+#
+#     make test-snippets PAGE=guide/wfmgen/coding.md
+#
+# It exists because the unscoped target is the whole corpus, and iterating on
+# a single new page through it is slow enough that the actual behaviour was to
+# reach past `make` for a raw pytest with `-k` -- seven times in one session,
+# each prefixed with MAKE_SSOT_OK=1 to get past the hook that exists to stop
+# exactly that. A rule routinely bypassed is a missing option, not a
+# discipline problem: the bypass ran a DIFFERENT command from the gate, which
+# is how a page passes locally and fails in CI.
+#
+# Unscoped is still the gate. PAGE is an iteration aid, so it says so on the
+# way out rather than printing the same "ALL FENCE GATES PASS" line a full run
+# earns.
+test-snippets: ## Run the python/C/shell doc-fence gates (PAGE=<path> to narrow)
+	@fail=0; empty=0; n=0; \
+	 for t in test_doc_snippets test_c_doc_snippets test_sh_doc_snippets; do \
+	     echo "=== $$t ==="; \
+	     n=$$((n + 1)); \
+	     $(LEAK_CHECK) -- uv run python -m pytest -m docs_snippets -q \
+	         $(if $(PAGE),-k "$(PAGE)") \
+	         src/doppler/tests/$$t.py; rc=$$?; \
+	     : "5 is pytest's 'collected nothing'. Under PAGE that is the normal"; \
+	     : "answer for two of the three -- a page with only sh fences has no"; \
+	     : "python or C ones -- so it is not a failure. Unscoped it stays"; \
+	     : "one, because the corpus having no fences means discovery broke."; \
+	     if [ "$$rc" = 5 ] && [ -n "$(PAGE)" ]; then empty=$$((empty + 1)); \
+	     elif [ "$$rc" != 0 ]; then fail=1; fi; \
+	 done; \
+	 if [ "$$fail" != 0 ]; then echo "test-snippets: FAILURES above"; exit 1; \
+	 elif [ -n "$(PAGE)" ] && [ "$$empty" = "$$n" ]; then \
+	     : "Every gate collected nothing, so the selector matched NO page."; \
+	     : "Reporting that as a pass is how a typo'd PAGE reads as green."; \
+	     echo "test-snippets: PAGE=$(PAGE) matched no fences in any gate —"; \
+	     echo "  nothing ran. The id is the docs-relative path, e.g."; \
+	     echo "    make test-snippets PAGE=guide/wfmgen/coding.md"; \
+	     exit 1; \
+	 elif [ -n "$(PAGE)" ]; then \
+	     echo "test-snippets: PAGE=$(PAGE) passes ($$empty of $$n gate(s) had"; \
+	     echo "  no fences of their kind) — NOT a full run; the gate is"; \
+	     echo "  \`make test-snippets\` with no PAGE."; \
+	 else echo "test-snippets: ALL FENCE GATES PASS"; fi
+
+# Parallel by default, for the same reason `test-python` is: the workload is
+# embarrassingly parallel and pytest-xdist is already a dev dependency. Each
+# example runs as its own SUBPROCESS in a throwaway cwd with MPLBACKEND=Agg and
+# stdin closed (see test_examples.py), so there is no shared state for workers
+# to collide over — unlike the benchmark suite, which must stay serial because
+# pytest-benchmark disables itself under xdist, and unlike `test-stubs`, where
+# a text-mode .pyi shares one doctest namespace across the file.
+#
+# Measured on 8 cores, and only one half of the win is parallelism:
+#
+#   376.6 s  before — three Monte-Carlo sweeps dominated the gate
+#    68.8 s  after moving them to `make characterize` (5.5x, still serial)
+#    ~13  s  with -n auto as well; 20.6 s for this whole target, downstream
+#            example included
+#
+# The two halves are worth keeping separate because the first one is where the
+# thinking was: 164.6 s + 117.7 s + 18.9 s of sweep against ~58 s for every
+# other example combined. No amount of parallelism fixes a gate whose cost is
+# one item, and Amdahl said so — with the biggest sweep still present the floor
+# was its own 164.6 s.
+#
+# What is left is the shape xdist is actually good at: the longest single
+# example is now `detector2d_acq_demo.py` at ~6.2 s, with a smooth tail behind
+# it (5.6, 5.3, 4.0, 3.0 …), so no one item sets the floor. Sublinear scaling
+# is expected and not worth chasing — several examples drive Plan.prepare()'s
+# own pthread parallel-for, so workers oversubscribe by design.
+#
+# TWO passes, and the split is the point — exactly as `test-python` splits out
+# its benchmark directories, for the same reason. `ddc_fn_scaling.py` asserts a
+# 2-thread speedup (`su2 > 1.25`) to prove `execute()` releases the GIL; under
+# xdist the workers already own every core, so it measured **1.15x** and read
+# the contention as "execute appears GIL-bound". A gate must not fail for
+# running, and equally must not be weakened to fit its harness, so the examples
+# whose assertion IS a timing get a second serial pass. Which ones is declared
+# in `src/doppler/examples/.examples-serial` (reasons mandatory), and the
+# `examples_serial` marker is applied from that registry — so neither pass
+# names a script and the registry stays the only place a name appears.
+#
+# Override with PYTEST_ARGS="-n 0" to force serial, matching `test-python`.
+# test_c_example_pairs.py runs here rather than under test-examples-c for
+# two reasons that are both about this being the only place it can actually
+# run: the C examples it drives need a live broker AND the built binaries,
+# and this is the gate CI reaches with both (test-examples-c also runs in
+# the macOS build job, where there is no nats-server to start). It
+# self-skips without either.
+test-examples-python: ## Run the Python example gate (requires pyext)
+	$(LEAK_CHECK) -- uv run pytest -m "examples and not examples_serial" \
+	    -q -n auto \
+	    $(PYTEST_ARGS) src/doppler/tests/test_examples.py \
+	    src/doppler/tests/test_c_example_pairs.py
+	@# Exit 5 is pytest's "no tests collected", which is what an EMPTY
+	@# .examples-serial produces -- every item deselected. That is the
+	@# registry doing its job (the constraint was fixed and the line
+	@# deleted), so it must not read as a failure: this target would then go
+	@# red for the correction, which is the same "a gate must not fail for
+	@# running" rule the serial pass exists to honour. Measured, not
+	@# assumed -- a marker expression selecting nothing exits 5 here.
+	@set +e; \
+	 $(LEAK_CHECK) -- uv run pytest -m "examples and examples_serial" -q \
+	     $(PYTEST_ARGS) src/doppler/tests/test_examples.py; \
+	 rc=$$?; \
+	 if [ $$rc -eq 5 ]; then \
+	     echo "test-examples-python: .examples-serial is empty — nothing needs a serial pass"; \
+	 elif [ $$rc -ne 0 ]; then exit $$rc; fi
+	@$(MAKE) --no-print-directory test-example-downstream-python
+
+# The Python half of the downstream example: build its extension against the
+# same interpreter pytest will use, then run its own suite. Separate from the C
+# half because test-examples-c also runs in a Python-free CI container.
+#
+# The suite is the point of the example, not a smoke test -- it pins that the
+# jm `view` really is a second constructor over one core, so a regression in
+# jm's view codegen fails here rather than in someone's project.
+test-example-downstream-python: ## Build + test the downstream example (Python)
+	@echo "Building downstream jm example (Python extension)..."
+	@cmake -B $(DOWNSTREAM_BUILD_DIR)-py $(DOWNSTREAM_DIR) \
+	    -Ddoppler_DIR=$(abspath $(BUILD_DIR)) \
+	    -DBUILD_PYTHON=ON \
+	    -DPython3_EXECUTABLE=$$(uv run python -c 'import sys; print(sys.executable)') \
+	    -DCMAKE_BUILD_TYPE=Release \
+	    > $(DOWNSTREAM_BUILD_DIR)-py.log 2>&1 \
+	    || { echo "  configure FAILED"; cat $(DOWNSTREAM_BUILD_DIR)-py.log; exit 1; }
+	@cmake --build $(DOWNSTREAM_BUILD_DIR)-py --parallel $(NPROC) \
+	    > $(DOWNSTREAM_BUILD_DIR)-py.log 2>&1 \
+	    || { echo "  build FAILED"; cat $(DOWNSTREAM_BUILD_DIR)-py.log; exit 1; }
+	@# Its own pyproject, so not doppler's addopts: pytest-benchmark would
+	@# create .benchmarks/ in the cwd -- the repo root -- on every run.
+	PYTHONPATH=$(abspath $(DOWNSTREAM_DIR))/src $(LEAK_CHECK) -- \
+	    uv run pytest -q $(DOWNSTREAM_DIR)/src/iqtools/capture/tests/ \
+	    --benchmark-storage=file://$(abspath $(BUILD_DIR))/.benchmarks
+
+# ── Bench scripts that are not save/compare ──────────────────────────────────
+# Representative published numbers live under benchmarks/published/v<ver>/, two
+# builds per release (portable = the wheel, native = -DDOPPLER_NATIVE=ON), each
+# stamped with the compiler + flags. Measure on a REAL machine, not CI.
+#
+# bench-interleaved is the canonical path: it builds portable + native in two
+# git worktrees and runs them alternately K times (K=5; override with K=N),
+# keeping the per-benchmark best so the *from src* column isn't corrupted by
+# cross-run drift. bench-publish stamps a single build by hand if you need it.
+# The Python microbenchmarks, MEASURED -- serially, because pytest-benchmark
+# disables itself under xdist and a number it refuses to produce is better
+# than one taken on eight busy cores.
+#
+# It is its own target because it is its own activity: `make test-python` runs
+# constantly and runs these files as TESTS (xdist, no timing); this runs
+# occasionally and is the only thing that times them. Folding the two put a
+# 139s measurement inside every test run, six times over in CI, feeding
+# nothing -- see TEST_PYTHON_CMD.
+bench-python: ## Time the Python microbenchmarks (serial; pytest-benchmark)
+	uv run pytest $(PYTEST_BENCH_DIRS) -v $(PYTEST_SELECT) $(PYTEST_ARGS)
+
+bench-interleaved: ## Measure portable + native alternately, denoised (VERSION=)
+ifndef VERSION
+	@echo "usage: make bench-interleaved VERSION=X.Y.Z [K=5]"; exit 1
+endif
+	uv run python scripts/bench_interleaved.py $(VERSION) $(if $(K),-k $(K),)
+
+bench-publish: ## Stamp one build's numbers for a release (VERSION= BUILD=)
+ifndef VERSION
+	@echo "usage: make bench-publish VERSION=X.Y.Z BUILD=portable|native"; exit 1
+endif
+	uv run python scripts/bench_report.py --publish $(VERSION) \
+		--build $(or $(BUILD),portable)
+
+bench-docs: ## Render docs/benchmarks.md from the published numbers
+	uv run python scripts/bench_report.py --page --out docs/benchmarks.md
+
+# Transport (P0) bench: NATS firehose throughput + status-plane RTT via the
+# bench_stream C harness. Self-contained — starts a JetStream broker on an
+# isolated port (temp store) and tears it down.
+bench-stream: ## Transport bench: NATS firehose + status-plane RTT
+	uv run python scripts/bench_stream.py $(if $(VERSION),--publish $(VERSION),)
+
+bench-report: ## Portable-build trend across releases
+	uv run python scripts/bench_report.py
+
+# ── Container images ─────────────────────────────────────────────────────────
+# Three shapes, one job each (see deploy/docker/README.md). Each target builds
+# AND smoke-runs its image, so the target is the whole gate — CI just calls it.
+# Raw `docker build` is never invoked outside these rules; the flags live here.
+
+# Each target builds its image, then smoke-tests it via scripts/smoke-image.sh
+# — the SAME script release.yml runs against the pushed image, so the local
+# gate and the published-image gate cannot drift (see the script header).
+
+docker-runtime: ## Build+smoke the runtime "try it" image (needs the wheel on PyPI)
+	docker build -f deploy/docker/Dockerfile.cli \
+	    --build-arg DOPPLER_VERSION=$(DOCKER_VERSION) \
+	    -t $(DOCKER_IMAGE):$(DOCKER_TAG) .
+	bash scripts/smoke-image.sh runtime $(DOCKER_IMAGE):$(DOCKER_TAG)
+
+docker-sdk: ## Build+smoke the SDK / develop image (doppler-sdk)
+	docker build -f $(EXAMPLES_DOCKERFILE) --target sdk \
+	    --build-arg BUILD_BASE=$(CI_IMAGE_2404) \
+	    --build-arg JM_VERSION=$(JM_VERSION) \
+	    -t $(DOCKER_IMAGE)-sdk:$(DOCKER_TAG) .
+	bash scripts/smoke-image.sh sdk $(DOCKER_IMAGE)-sdk:$(DOCKER_TAG)
+
+docker-downstream: ## Build+smoke the iqtools showcase image (doppler-downstream-jm)
+# The build itself runs `make test` inside the image, so a green build IS the
+# smoke; the run only confirms the shipped, pre-built package imports.
+	docker build -f $(EXAMPLES_DOCKERFILE) --target downstream-jm \
+	    --build-arg BUILD_BASE=$(CI_IMAGE_2404) \
+	    --build-arg JM_VERSION=$(JM_VERSION) \
+	    -t $(DOCKER_IMAGE)-downstream-jm:$(DOCKER_TAG) .
+	bash scripts/smoke-image.sh downstream \
+	    $(DOCKER_IMAGE)-downstream-jm:$(DOCKER_TAG)
+
+# Depends on glibc-image because this is the one image whose binaries RUN on a
+# different base than the one that compiled them, so they are built at the
+# floor (see Dockerfile.examples' stream-build stage). That dependency is also
+# why `docker compose up` on a clean checkout cannot be the entry point for
+# this image: the FROM in stream-build names a local tag nothing pulls.
+# docker-compose.yml says so at the top.
+docker-stream: glibc-image ## Build+smoke the lean compose streaming-services image
+	docker build -f $(EXAMPLES_DOCKERFILE) --target stream-services \
+	    --build-arg GLIBC_BASE=$(GLIBC_IMAGE) \
+	    -t $(DOCKER_IMAGE)-stream-services:$(DOCKER_TAG) .
+	bash scripts/smoke-image.sh stream \
+	    $(DOCKER_IMAGE)-stream-services:$(DOCKER_TAG)
+
+docker-examples: docker-sdk docker-downstream docker-stream ## Build+smoke all build-on-doppler images
+	@echo "All build-on-doppler images built and smoked."
+
+# The targets above smoke a LOCAL single-arch `:dev` image; release.yml smokes
+# the PUSHED multi-arch one, once per architecture. That per-arch loop was
+# written out three times in release.yml (runtime / sdk / downstream),
+# identical but for the kind and the image ref — the same hand-copying that
+# this file's own comments record twice: the release SDK check silently
+# degrading to a version print, and the #601 quoting SyntaxError. Both lived in
+# a re-typed copy, so the loop is now typed once too.
+SMOKE_ARCHES ?= amd64 arm64
+
+smoke-image: ## KIND=<runtime|sdk|downstream|stream> IMAGE=<ref> — smoke it on $(SMOKE_ARCHES)
+ifndef KIND
+	@echo "usage: make smoke-image KIND=<kind> IMAGE=<ref>"; exit 1
+endif
+ifndef IMAGE
+	@echo "usage: make smoke-image KIND=<kind> IMAGE=<ref>"; exit 1
+endif
+	@for a in $(SMOKE_ARCHES); do \
+	     bash scripts/smoke-image.sh $(KIND) "$(IMAGE)" "linux/$$a" || exit 1; \
+	 done

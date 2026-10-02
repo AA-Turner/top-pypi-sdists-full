@@ -45,7 +45,9 @@ class AnyscaleClientConnectResponse:
 
 class AnyscaleClientContext(ClientContext):  # type: ignore
     def __init__(
-        self, anyscale_cluster_info: AnyscaleClientConnectResponse, **kwargs: Any,
+        self,
+        anyscale_cluster_info: AnyscaleClientConnectResponse,
+        **kwargs: Any,
     ) -> None:
         if _multiclient_supported() and "_context_to_restore" not in kwargs:
             # Set to None for now until multiclient is supported on connect
@@ -61,7 +63,9 @@ def _multiclient_supported() -> bool:
 
 
 def find_project_id(
-    sdk: Union["AnyscaleSDK", "DefaultApi"], project_name: str, parent_cloud_id: str,
+    sdk: Union["AnyscaleSDK", "DefaultApi"],
+    project_name: str,
+    parent_cloud_id: str,
 ) -> Optional[str]:
     """Return id if a project of a given name exists.
 
@@ -123,9 +127,7 @@ def list_entities(
     filters = filters or {}
     while has_more and (not max or len(entities) < max):
         if container_id:
-            resp = list_function(
-                container_id, count=50, paging_token=paging_token, **filters
-            )
+            resp = list_function(container_id, count=50, paging_token=paging_token, **filters)
         else:
             resp = list_function(count=50, paging_token=paging_token, **filters)
         entities.extend(resp.results)
@@ -205,8 +207,7 @@ def paginate(
             or (not interactive and len(queues) >= max_items)
             or (
                 interactive
-                and input("Press Enter to load more, or 'q' to quit: ").strip().lower()
-                == "q"
+                and input("Press Enter to load more, or 'q' to quit: ").strip().lower() == "q"
             )
         ):
             break

@@ -1,0 +1,60 @@
+[package]
+name = "vegafusion-core"
+license = "BSD-3-Clause"
+edition = "2021"
+version = "1.6.9"
+description = "Core components required by multiple VegaFusion crates, with WASM compatibility"
+resolver = "2"
+
+[features]
+tonic_support = [ "tonic", "tonic-build",]
+pyarrow = [ "pyo3", "datafusion-common/pyarrow", "vegafusion-common/pyarrow",]
+
+[dependencies]
+thiserror = "^1.0.29"
+bytes = "1.1.0"
+itertools = "0.10.3"
+lazy_static = "^1.4.0"
+regex = "^1.5.5"
+ordered-float = "3.6.0"
+petgraph = "0.6.0"
+deterministic-hash = "1.0.1"
+chrono = "0.4.23"
+num-complex = "0.4.2"
+rand = "0.8.5"
+json-patch = "1.0.0"
+prost = { version = "0.12.1" }
+prost-types = { version = "0.12.1" }
+sqlparser = { version = "0.41.0" , optional = true}
+pyo3 = { version = "0.20.0" , optional = true}
+
+[dependencies.datafusion-common]
+version = "36.0.0"
+
+[dependencies.serde_json]
+version = "1.0.91"
+features = [ "preserve_order",]
+
+[dependencies.vegafusion-common]
+path = "../vegafusion-common"
+features = [ "json", "sqlparser",]
+version = "1.6.9"
+
+[dependencies.serde]
+version = "1.0.137"
+features = [ "derive",]
+
+[dependencies.tonic]
+version = "0.10.2"
+optional = true
+
+[build-dependencies.prost-build]
+version = "0.12.1"
+
+[build-dependencies.tonic-build]
+version = "0.10.2"
+optional = true
+
+[build-dependencies.protobuf-src]
+version = "1.1.0"
+optional = true

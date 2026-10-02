@@ -81,6 +81,32 @@ def test_missing_deserializer_warning_grouped_by_media_type(cli, ctx, snapshot_c
     assert cli.run(str(schema_path), f"--url={api.base_url}/api", "--max-examples=1") == snapshot_cli
 
 
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_missing_deserializer_warning_names_unvalidated_media_type(cli, ctx, snapshot_cli):
+    # JSON responses are validated; only the CSV variant is skipped
+    body = {"type": "object", "properties": {"id": {"type": "integer"}}}
+    schema_path = ctx.openapi.write_schema(
+        {
+            "/users": {
+                "get": {
+                    "responses": {
+                        "200": {
+                            "description": "Success",
+                            "content": {"application/json": {"schema": body}, "text/csv": {"schema": body}},
+                        }
+                    }
+                }
+            }
+        }
+    )
+
+    api = ctx.openapi.apps.success()
+    result = cli.run(str(schema_path), f"--url={api.base_url}/api", "--max-examples=1")
+    assert "1 operation cannot validate text/csv responses" in result.stdout
+    assert "operation cannot validate responses" not in result.stdout
+    assert result == snapshot_cli
+
+
 def test_missing_deserializer_warning_with_fail_on(cli, ctx, tmp_path, monkeypatch):
     # Given a schema with a custom media type and config that fails on missing deserializer
     schema_path = ctx.openapi.write_schema(
@@ -747,3 +773,101 @@ def test_missing_test_data_for_graphql_survives_stateful(cli, app_runner, tmp_pa
         cli.run(str(sdl), f"--url=http://127.0.0.1:{port}/graphql", "--max-examples=5", "-m", "positive")
         == snapshot_cli
     )
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_validation_mismatch_ignores_undeclared_method_probes(ctx, cli, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/bookings/{booking_id}": {
+                "get": {
+                    "parameters": [
+                        {"name": "booking_id", "in": "path", "required": True, "schema": {"type": "string"}}
+                    ],
+                    "responses": {"200": {"description": "OK"}, "404": {"description": "Not found"}},
+                }
+            },
+            "/bookings": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"type": "object"}}},
+                    },
+                    "responses": {"201": {"description": "Created"}, "422": {"description": "Invalid"}},
+                }
+            },
+        }
+    )
+
+    @app.route("/bookings/<booking_id>", methods=["GET"], provide_automatic_options=False)
+    def get_booking(booking_id):
+        return jsonify({"detail": "Not found"}), 404
+
+    @app.route("/bookings", methods=["POST"], provide_automatic_options=False)
+    def create_booking():
+        return jsonify({"detail": "Invalid"}), 422
+
+    assert cli.run_openapi_app(app, "--phases=coverage", "-c not_a_server_error") == snapshot_cli
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_validation_mismatch_ignores_negative_rejections(ctx, cli, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items/{item_id}": {
+                "get": {
+                    "parameters": [
+                        {"name": "item_id", "in": "path", "required": True, "schema": {"type": "integer"}},
+                        {
+                            "name": "p0",
+                            "in": "query",
+                            "required": False,
+                            "schema": {"type": "integer", "minimum": 1, "maximum": 100},
+                        },
+                    ],
+                    "responses": {
+                        "200": {"description": "OK"},
+                        "404": {"description": "Not found"},
+                        "422": {"description": "Invalid"},
+                    },
+                }
+            }
+        }
+    )
+
+    @app.route("/items/<item_id>", methods=["GET"])
+    def get_item(item_id):
+        try:
+            int(item_id)
+            values = [int(value) for value in request.args.getlist("p0")]
+        except ValueError:
+            return jsonify({"detail": "Invalid"}), 422
+        if len(values) > 1 or any(not 1 <= value <= 100 for value in values):
+            return jsonify({"detail": "Invalid"}), 422
+        return jsonify({"detail": "Not found"}), 404
+
+    assert cli.run_openapi_app(app, "--phases=coverage", "--max-examples=10") == snapshot_cli
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_missing_test_data_ignores_negative_not_found(ctx, cli, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items/{item_id}": {
+                "get": {
+                    "parameters": [{"name": "item_id", "in": "path", "required": True, "schema": {"type": "integer"}}],
+                    "responses": {"200": {"description": "OK"}, "422": {"description": "Invalid"}},
+                }
+            }
+        }
+    )
+
+    @app.route("/items/<item_id>", methods=["GET"])
+    def get_item(item_id):
+        try:
+            int(item_id)
+        except ValueError:
+            return jsonify({"detail": "Not found"}), 404
+        return jsonify({"detail": "Invalid"}), 422
+
+    assert cli.run_openapi_app(app, "--phases=coverage", "-c not_a_server_error") == snapshot_cli

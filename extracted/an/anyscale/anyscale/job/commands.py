@@ -11,7 +11,8 @@ logger = BlockLogger()
 
 
 def _resolve_id_from_args(
-    id: Optional[str], kwargs: Dict[str, Any]  # noqa: A002
+    id: Optional[str],  # noqa: A002
+    kwargs: Dict[str, Any],
 ) -> Optional[str]:
     """Return the correct id as passed through id and kwargs.
 
@@ -121,7 +122,9 @@ def status(
 ) -> JobStatus:
     """Get the status of a job."""
     id = _resolve_id_from_args(id, _kwargs)  # noqa: A001
-    return _private_sdk.status(name=name, job_id=id, cloud=cloud, project=project, include_archived=include_archived)  # type: ignore
+    return _private_sdk.status(  # type: ignore
+        name=name, job_id=id, cloud=cloud, project=project, include_archived=include_archived
+    )
 
 
 _TERMINATE_EXAMPLE = """
@@ -164,7 +167,9 @@ def terminate(
     Returns the id of the terminated job.
     """
     id = _resolve_id_from_args(id, _kwargs)  # noqa: A001
-    return _private_sdk.terminate(name=name, job_id=id, cloud=cloud, project=project, include_archived=include_archived)  # type: ignore
+    return _private_sdk.terminate(  # type: ignore
+        name=name, job_id=id, cloud=cloud, project=project, include_archived=include_archived
+    )
 
 
 _ARCHIVE_EXAMPLE = """
@@ -207,7 +212,9 @@ def archive(
     Returns the id of the archived job.
     """
     id = _resolve_id_from_args(id, _kwargs)  # noqa: A001
-    return _private_sdk.archive(name=name, job_id=id, cloud=cloud, project=project, include_archived=include_archived)  # type: ignore
+    return _private_sdk.archive(  # type: ignore
+        name=name, job_id=id, cloud=cloud, project=project, include_archived=include_archived
+    )
 
 
 _DELETE_EXAMPLE = """
@@ -251,7 +258,9 @@ def delete(
     Returns the id of the deleted job.
     """
     id = _resolve_id_from_args(id, _kwargs)  # noqa: A001
-    return _private_sdk.delete(name=name, job_id=id, cloud=cloud, project=project, include_archived=include_archived)  # type: ignore
+    return _private_sdk.delete(  # type: ignore
+        name=name, job_id=id, cloud=cloud, project=project, include_archived=include_archived
+    )
 
 
 _WAIT_EXAMPLE = """\

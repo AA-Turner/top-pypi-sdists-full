@@ -1,0 +1,166 @@
+import binascii
+import contextlib
+
+import pytest
+
+from mindee import Base64Input, PathInput
+from mindee.error.mindee_error import MindeeClientError, MindeeError
+from mindee.error.mindee_http_error import MindeeHTTPError
+from mindee.input.local_input_source import LocalInputSource
+from mindee.input.local_response import LocalResponse
+from mindee.v1 import (
+    AsyncPredictResponse,
+    Client,
+    PageOptions,
+    PredictResponse,
+    product,
+)
+from mindee.v1.product import MultiReceiptsDetectorV1
+from mindee.v1.product.international_id import InternationalIdV2
+from mindee.v1.product.invoice.invoice_v4 import InvoiceV4
+from mindee.v1.product.invoice_splitter.invoice_splitter_v1 import InvoiceSplitterV1
+from mindee.v1.product.receipt.receipt_v5 import ReceiptV5
+from tests.utils import (
+    FILE_TYPES_PATH,
+    V1_ERROR_PATH,
+    V1_PRODUCT_PATH,
+    clear_envvars,
+    dummy_envvars,
+)
+
+
+@pytest.fixture
+def empty_client(monkeypatch) -> Client:
+    clear_envvars(monkeypatch)
+    return Client()
+
+
+@pytest.fixture
+def env_client(monkeypatch) -> Client:
+    dummy_envvars(monkeypatch)
+    return Client("dummy")
+
+
+@pytest.fixture
+def dummy_client() -> Client:
+    return Client("dummy")
+
+
+def test_parse_path_without_token(empty_client: Client):
+    input_doc = PathInput(FILE_TYPES_PATH / "pdf" / "blank.pdf")
+    with pytest.raises(RuntimeError):
+        empty_client.parse(product.ReceiptV5, input_doc)
+
+
+def test_parse_path_with_env_token(env_client: Client):
+    input_doc = PathInput(FILE_TYPES_PATH / "pdf" / "blank.pdf")
+    with pytest.raises(MindeeHTTPError):
+        env_client.parse(product.ReceiptV5, input_doc)
+
+
+def test_parse_path_with_wrong_filetype(dummy_client: Client):
+    with pytest.raises(AssertionError):
+        PathInput(FILE_TYPES_PATH / "receipt.jpga")
+
+
+def test_parse_path_with_wrong_token(dummy_client: Client):
+    input_doc = PathInput(FILE_TYPES_PATH / "pdf" / "blank.pdf")
+    with pytest.raises(MindeeHTTPError):
+        dummy_client.parse(product.ReceiptV5, input_doc)
+
+
+def test_request_with_wrong_type(dummy_client: Client):
+    with pytest.raises(FileNotFoundError), open("./tests/data/test.txt") as path_input:
+        PathInput(path_input.read())
+
+
+def test_request_with_wrong_type_b64(dummy_client: Client):
+    with pytest.raises(binascii.Error):
+        Base64Input("./tests/data/test.txt", "test.jpg")
+
+
+def test_interface_version(dummy_client: Client):
+    dummy_endpoint = dummy_client.create_endpoint(
+        endpoint_name="dummy",
+        account_name="dummy",
+        version="1.1",
+    )
+    input_doc = PathInput(FILE_TYPES_PATH / "receipt.jpg")
+    with pytest.raises(MindeeHTTPError):
+        dummy_client.parse(product.CustomV1, input_doc, endpoint=dummy_endpoint)
+
+
+def test_keep_file_open(dummy_client: Client):
+    input_doc: LocalInputSource = PathInput(f"{FILE_TYPES_PATH}/receipt.jpg")
+    with contextlib.suppress(MindeeHTTPError):
+        dummy_client.parse(product.ReceiptV5, input_doc, close_file=False)
+    assert not input_doc.file_object.closed
+    input_doc.close()
+    assert input_doc.file_object.closed
+
+
+@pytest.mark.pypdfium2
+def test_cut_options(dummy_client: Client):
+    input_doc: LocalInputSource = PathInput(f"{FILE_TYPES_PATH}/pdf/multipage.pdf")
+    with contextlib.suppress(MindeeHTTPError):
+        dummy_client.parse(
+            ReceiptV5,
+            input_doc,
+            close_file=False,
+            page_options=PageOptions(page_indexes=range(5)),
+        )
+    assert input_doc.page_count == 5
+
+
+def test_async_wrong_initial_delay(dummy_client: Client):
+    input_doc = PathInput(FILE_TYPES_PATH / "pdf" / "blank.pdf")
+    with pytest.raises(MindeeClientError):
+        dummy_client.enqueue_and_parse(
+            InvoiceSplitterV1, input_doc, initial_delay_sec=0
+        )
+
+
+def test_async_wrong_polling_delay(dummy_client: Client):
+    input_doc = PathInput(FILE_TYPES_PATH / "pdf" / "blank.pdf")
+    with pytest.raises(MindeeClientError):
+        dummy_client.enqueue_and_parse(InvoiceSplitterV1, input_doc, delay_sec=0)
+
+
+def test_local_response_from_sync_json(dummy_client: Client):
+    input_file = LocalResponse(
+        V1_PRODUCT_PATH / "multi_receipts_detector" / "response_v1" / "complete.json"
+    )
+    with open(
+        V1_PRODUCT_PATH / "multi_receipts_detector" / "response_v1" / "summary_full.rst"
+    ) as f:
+        reference_doc = f.read()
+    result = dummy_client.load_prediction(MultiReceiptsDetectorV1, input_file)
+    assert isinstance(result, PredictResponse)
+    assert str(result.document) == reference_doc
+
+
+def test_local_response_from_async_json(dummy_client: Client):
+    input_file = LocalResponse(
+        V1_PRODUCT_PATH / "international_id" / "response_v2" / "complete.json"
+    )
+    with open(
+        V1_PRODUCT_PATH / "international_id" / "response_v2" / "summary_full.rst"
+    ) as f:
+        reference_doc = f.read()
+    result = dummy_client.load_prediction(InternationalIdV2, input_file)
+    assert isinstance(result, AsyncPredictResponse)
+    assert str(result.document) == reference_doc
+
+
+def test_local_response_from_invalid_file(dummy_client: Client):
+    local_response = LocalResponse(
+        V1_PRODUCT_PATH / "invoices" / "response_v4" / "summary_full.rst"
+    )
+    with pytest.raises(MindeeError):
+        print(local_response.as_dict)
+
+
+def test_local_response_from_invalid_dict(dummy_client: Client):
+    input_file = LocalResponse(V1_ERROR_PATH / "error_400_no_details.json")
+    with pytest.raises(MindeeError):
+        dummy_client.load_prediction(InvoiceV4, input_file)

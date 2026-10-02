@@ -1,0 +1,125 @@
+---
+name: node_evidence_pipeline_orchestrator
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: ORCHESTRATOR_GENERIC
+node_version: {major: 0, minor: 1, patch: 0}
+node_not_implemented: false
+description: >
+  Native node for the per-PR evidence pipeline FSM. The
+  orchestrator coordinates collection, extraction, deterministic contract
+  matching, provisional OCC PR creation, advisory Linear annotation, and final
+  completion event emission through typed node ports.
+
+handler:
+  module: omnimarket.nodes.node_evidence_pipeline_orchestrator.handlers.handler_evidence_pipeline_orchestrator
+  class: HandlerEvidencePipelineOrchestrator
+  input_model: omnibase_compat.contracts.evidence_pipeline.wire.model_evidence_pipeline_command.ModelEvidencePipelineCommand
+
+handler_routing:
+  handlers:
+    - operation: evidence_pipeline
+      handler:
+        name: HandlerEvidencePipelineOrchestrator
+        module: omnimarket.nodes.node_evidence_pipeline_orchestrator.handlers.handler_evidence_pipeline_orchestrator
+
+input_model:
+  name: ModelEvidencePipelineCommand
+  module: omnibase_compat.contracts.evidence_pipeline.wire.model_evidence_pipeline_command
+  description: "Trigger payload containing repo, PR, ticket, commit, and correlation identity."
+output_model:
+  name: ModelOccPrReference
+  module: omnibase_compat.contracts.evidence_pipeline.wire.model_occ_pr_reference
+  description: "Reference to the provisional OCC evidence PR created for this run."
+
+descriptor:
+  node_archetype: orchestrator
+  purity: effectful
+  runtime_profiles: [effects]
+  idempotent: true
+  timeout_ms: 600000
+
+terminal_event: onex.evt.omnimarket.evidence-pipeline-completed.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.evidence-pipeline-start.v1
+  publish_topics:
+    - onex.evt.omnimarket.evidence-pipeline-completed.v1
+
+externally_consumed_topics:
+  - onex.evt.omnimarket.evidence-pipeline-completed.v1
+
+state_machine:
+  version: {major: 1, minor: 0, patch: 0}
+  state_machine_name: evidence_pipeline_orchestrator
+  state_machine_version: {major: 1, minor: 0, patch: 0}
+  description: "The order of port calls in HandlerEvidencePipelineOrchestrator.handle: collect, extract, match the contract, then write the OCC PR and publish. The handler keeps no state between calls, and an exception in any port propagates to the caller, so there is no failure state."
+  initial_state: COLLECTING
+  terminal_states: [COMPLETE]
+  error_states: []
+  states:
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: COLLECTING
+      state_type: operational
+      description: "ports.collect(command)."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: EXTRACTING
+      state_type: operational
+      description: "ports.extract(raw)."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: MATCHING
+      state_type: operational
+      description: "ports.match_contract(bundle)."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: GENERATING_PR
+      state_type: operational
+      description: "ports.write_occ_pr, update_linear and publish."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: COMPLETE
+      state_type: terminal
+      description: "The OCC PR reference is returned."
+      is_terminal: true
+      is_recoverable: false
+  transitions:
+    # OMN-19548: the old fsm: block declared these states and no transitions.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: collecting_to_extracting
+      from_state: COLLECTING
+      to_state: EXTRACTING
+      trigger: raw_evidence_collected
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: extracting_to_matching
+      from_state: EXTRACTING
+      to_state: MATCHING
+      trigger: evidence_bundle_extracted
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: matching_to_generating_pr
+      from_state: MATCHING
+      to_state: GENERATING_PR
+      trigger: contract_match_validated
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: generating_pr_to_complete
+      from_state: GENERATING_PR
+      to_state: COMPLETE
+      trigger: occ_pr_published
+
+evidence_authority:
+  tier: dev
+  lifecycle_start_state: PROVISIONAL
+  provisional_is_completion_proof: false
+  readiness_gate_is_deployment_authority: true
+  deterministic_validation_required: true
+
+dependencies:
+  nodes:
+    - node_evidence_collector_effect
+    - node_evidence_extractor_compute
+    - node_contract_matcher_compute
+    - node_occ_pr_writer_effect
+    - node_linear_updater_effect
+    - node_evidence_publisher_effect
+
+metadata:
+  transport_type: kafka
+  implementation_wave: 3
+  related_tickets: ["OMN-11443", "OMN-12395"]

@@ -1,0 +1,199 @@
+Metadata-Version: 2.5
+Name: monocle_apptrace
+Version: 0.8.15
+Summary: package with monocle genAI tracing
+Project-URL: Homepage, https://github.com/monocle2ai/monocle
+Project-URL: Issues, https://github.com/monocle2ai/monocle/issues
+Author-email: "Okahu Inc." <okahu-pypi@okahu.ai>
+License: Apache-2.0
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.8
+Requires-Dist: opentelemetry-api<2.0.0,>=1.20.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.20.0
+Requires-Dist: opentelemetry-instrumentation>=0.41b0
+Requires-Dist: opentelemetry-sdk<2.0.0,>=1.20.0
+Requires-Dist: pyyaml>=6.0.2
+Requires-Dist: requests
+Requires-Dist: rfc3986>=2.0.0
+Requires-Dist: wrapt>=1.14.0
+Provides-Extra: ai-test
+Requires-Dist: bert-score; extra == 'ai-test'
+Requires-Dist: transformers; extra == 'ai-test'
+Provides-Extra: aws
+Requires-Dist: boto3==1.42.86; extra == 'aws'
+Provides-Extra: azure
+Requires-Dist: azure-ai-inference; extra == 'azure'
+Requires-Dist: azure-storage-blob==12.22.0; extra == 'azure'
+Provides-Extra: clickhouse
+Requires-Dist: clickhouse-connect; extra == 'clickhouse'
+Provides-Extra: dev
+Requires-Dist: a2a-sdk==0.3.6; extra == 'dev'
+Requires-Dist: agent-framework-core==1.15.0; extra == 'dev'
+Requires-Dist: anthropic-haystack==4.6.0; extra == 'dev'
+Requires-Dist: anthropic>=0.75.0; extra == 'dev'
+Requires-Dist: azure-functions==1.24.0; extra == 'dev'
+Requires-Dist: azure-identity; extra == 'dev'
+Requires-Dist: azure-storage-blob==12.22.0; extra == 'dev'
+Requires-Dist: beautifulsoup4; extra == 'dev'
+Requires-Dist: bedrock-agentcore==1.6.1; extra == 'dev'
+Requires-Dist: boto3==1.42.86; extra == 'dev'
+Requires-Dist: chromadb<2.0.0,>=1.0.0; extra == 'dev'
+Requires-Dist: click==8.2.1; extra == 'dev'
+Requires-Dist: crewai==0.95.0; extra == 'dev'
+Requires-Dist: datasets==4.3.0; extra == 'dev'
+Requires-Dist: faiss-cpu==1.8.0; extra == 'dev'
+Requires-Dist: fastapi==0.135.3; extra == 'dev'
+Requires-Dist: fastmcp==2.14.1; extra == 'dev'
+Requires-Dist: flask; extra == 'dev'
+Requires-Dist: google-adk; extra == 'dev'
+Requires-Dist: google-ai-haystack; extra == 'dev'
+Requires-Dist: google-generativeai; extra == 'dev'
+Requires-Dist: haystack-ai==3.0.0; extra == 'dev'
+Requires-Dist: httpx==0.28.1; extra == 'dev'
+Requires-Dist: huggingface-hub==0.35.3; extra == 'dev'
+Requires-Dist: instructorembedding==1.0.1; extra == 'dev'
+Requires-Dist: langchain-anthropic>=0.3.20; extra == 'dev'
+Requires-Dist: langchain-aws>=0.3.0; extra == 'dev'
+Requires-Dist: langchain-chroma>=0.2.5; extra == 'dev'
+Requires-Dist: langchain-community>=0.4.1; extra == 'dev'
+Requires-Dist: langchain-google-genai; extra == 'dev'
+Requires-Dist: langchain-mcp-adapters==0.2.1; extra == 'dev'
+Requires-Dist: langchain-mistralai>=0.3.0; extra == 'dev'
+Requires-Dist: langchain-openai; extra == 'dev'
+Requires-Dist: langchain==1.2.15; extra == 'dev'
+Requires-Dist: langchainhub==0.1.21; extra == 'dev'
+Requires-Dist: langgraph-supervisor==0.0.31; extra == 'dev'
+Requires-Dist: langgraph==1.1.5; extra == 'dev'
+Requires-Dist: litellm==1.77.5; extra == 'dev'
+Requires-Dist: llama-index-embeddings-huggingface==0.6.0; extra == 'dev'
+Requires-Dist: llama-index-llms-anthropic==0.8.1; extra == 'dev'
+Requires-Dist: llama-index-llms-azure-openai==0.4.0; extra == 'dev'
+Requires-Dist: llama-index-llms-mistralai==0.7.0; extra == 'dev'
+Requires-Dist: llama-index-llms-openai==0.5.0; extra == 'dev'
+Requires-Dist: llama-index-tools-mcp==0.3.0; extra == 'dev'
+Requires-Dist: llama-index-vector-stores-chroma==0.5.0; extra == 'dev'
+Requires-Dist: llama-index-vector-stores-opensearch==1.1.1; extra == 'dev'
+Requires-Dist: llama-index==0.13.0; extra == 'dev'
+Requires-Dist: mcp==1.27.0; extra == 'dev'
+Requires-Dist: mistral-haystack==0.0.2; extra == 'dev'
+Requires-Dist: mistralai==1.9.9; extra == 'dev'
+Requires-Dist: numpy==1.26.4; extra == 'dev'
+Requires-Dist: openai-agents; extra == 'dev'
+Requires-Dist: opendal==0.45.14; extra == 'dev'
+Requires-Dist: opensearch-haystack==8.2.0; extra == 'dev'
+Requires-Dist: opentelemetry-instrumentation-flask; extra == 'dev'
+Requires-Dist: opentelemetry-semantic-conventions-ai==0.4.13; extra == 'dev'
+Requires-Dist: opentelemetry-semantic-conventions==0.60b1; extra == 'dev'
+Requires-Dist: parameterized==0.9.0; extra == 'dev'
+Requires-Dist: pydantic==2.11.7; extra == 'dev'
+Requires-Dist: pytest-asyncio>=0.26.0; extra == 'dev'
+Requires-Dist: pytest-venv; extra == 'dev'
+Requires-Dist: pytest>=8.0.0; extra == 'dev'
+Requires-Dist: python-dotenv>=1.2.2; extra == 'dev'
+Requires-Dist: requests-aws4auth==1.2.3; extra == 'dev'
+Requires-Dist: types-requests==2.31.0.20240106; extra == 'dev'
+Requires-Dist: uvicorn==0.44.0; extra == 'dev'
+Provides-Extra: dev-gemini
+Requires-Dist: llama-index-llms-gemini==0.6.0; extra == 'dev-gemini'
+Provides-Extra: dev-msagent
+Requires-Dist: agent-framework-foundry==1.11.0; extra == 'dev-msagent'
+Requires-Dist: agent-framework-openai==1.14.0; extra == 'dev-msagent'
+Requires-Dist: openai>=2.8.0; extra == 'dev-msagent'
+Provides-Extra: dev-strands
+Requires-Dist: strands-agents-tools==0.2.10; extra == 'dev-strands'
+Requires-Dist: strands-agents==1.11.0; extra == 'dev-strands'
+Provides-Extra: dev-tranformers
+Requires-Dist: sentence-transformers-haystack==0.1.1; extra == 'dev-tranformers'
+Provides-Extra: gcp
+Requires-Dist: google-cloud-storage==2.18.0; extra == 'gcp'
+Provides-Extra: obfuscation
+Requires-Dist: presidio-analyzer>=2.2.0; extra == 'obfuscation'
+Requires-Dist: presidio-anonymizer>=2.2.0; extra == 'obfuscation'
+Provides-Extra: opentelemetry-exporter
+Requires-Dist: opentelemetry-exporter-otlp-proto-http; extra == 'opentelemetry-exporter'
+Provides-Extra: postgres
+Requires-Dist: psycopg2-binary; extra == 'postgres'
+Description-Content-Type: text/markdown
+
+# Monocle Apptrace
+
+**Monocle** helps developers and platform engineers building or managing GenAI apps monitor these in prod by making it easy to instrument their code to capture traces that are compliant with open-source cloud-native observability ecosystem. 
+
+**Monocle** is a community-driven OSS framework for tracing GenAI app code governed as a [Linux Foundation AI & Data project](https://lfaidata.foundation/projects/monocle/). 
+
+## Use Monocle
+
+- Get the Monocle package
+  
+```
+    pip install monocle_apptrace 
+```
+- Instrument your app code
+     - Import the Monocle package
+       ```
+          from monocle_apptrace.instrumentor import setup_monocle_telemetry
+       ```
+     - Setup instrumentation in your ```main()``` function  
+       ``` 
+          setup_monocle_telemetry(workflow_name="your-app-name")
+       ```         
+- (Optionally) Modify config to alter where traces are sent
+
+See [Monocle user guide](../docs/Monocle_User_Guide.md) for more details.
+
+## Claude Code Instrumentation
+
+```bash
+# 1. Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 2. Install package
+uv tool install monocle_apptrace
+
+# 3. Register hooks — prompts for Okahu API key (leave blank for local-only)
+monocle-apptrace claude-setup
+```
+
+Start a new Claude Code session — traces flow automatically.
+
+See [Hook Setup Guide](HOOK_SETUP.md) for complete instructions.
+
+## Codex CLI Instrumentation
+
+```bash
+# 1. Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 2. Install package
+uv tool install monocle_apptrace
+
+# 3. Register hooks — prompts for Okahu API key (leave blank for local-only)
+monocle-apptrace codex-setup
+```
+
+Start a new Codex session — traces flow automatically.
+
+See [Hook Setup Guide](HOOK_SETUP.md) for complete instructions.
+
+## GitHub Copilot Instrumentation
+
+```bash
+# 1. Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 2. Install package
+uv tool install monocle_apptrace
+
+# 3. Register hooks — prompts for Okahu API key (leave blank for local-only)
+monocle-apptrace copilot-setup
+```
+
+After setup, reload your environment for the config to take effect — run `source ~/.zshrc` (or your shell's equivalent) in the terminal, or **Developer: Reload Window** in VS Code.
+
+Captures traces from both Copilot CLI and VS Code Copilot Chat. Start a session — traces flow automatically.
+
+Token counts are collected via Copilot's built-in OpenTelemetry file exporter, which `copilot-setup` enables automatically. Trace data is written to `~/.monocle/.copilot_otel/copilot.jsonl` and attached to the emitted OTel spans at the end of each turn.
+
+See [Hook Setup Guide](HOOK_SETUP.md) for complete instructions.

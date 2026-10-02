@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spiffe
-Version: 0.3.1
+Version: 0.3.2
 Summary: Python library for SPIFFE support
 Author-email: Max Lambrecht <maxlambrecht@gmail.com>
 License-Expression: Apache-2.0
@@ -10,7 +10,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: grpcio<2,>=1.78.0
 Requires-Dist: cryptography>=46
-Requires-Dist: pyjwt[crypto]<2.14,>=2
+Requires-Dist: pyjwt[crypto]<3,>=2
 Requires-Dist: pyasn1<0.7.0,>=0.6.0
 Requires-Dist: pyasn1-modules<0.5.0,>=0.4.0
 Requires-Dist: pem<24,>=23

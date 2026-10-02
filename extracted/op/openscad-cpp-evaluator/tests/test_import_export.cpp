@@ -1,0 +1,544 @@
+#include "openscad_cpp_evaluator/evaluator.hpp"
+#include "openscad_cpp_evaluator/export.hpp"
+#include "openscad_cpp_evaluator/zip_stored.hpp"
+
+#include "test_helpers.hpp"
+
+#include <filesystem>
+#include <fstream>
+#include <gtest/gtest.h>
+#include <manifold/manifold.h>
+
+using namespace oscadeval;
+using namespace oscadeval::test;
+
+namespace {
+
+std::filesystem::path tempPath(const std::string& name) {
+    return std::filesystem::temp_directory_path() / ("oscad_eval_test_" + name);
+}
+
+// A unit cube (size 2, centered -> volume 8) exported to `path` in every
+// format under test, via the real evaluator pipeline (not a hand-built
+// mesh) so export.cpp itself is exercised too.
+void writeCubeAs(const std::filesystem::path& path, const std::string& format = "") {
+    // Through exportModel rather than a writer directly: that is the entry
+    // point every front end uses, so it is the one worth exercising.
+    Evaluated e = evalSrc("cube(2, center=true);");
+    ExportOptions opts;
+    opts.format = format;
+    exportModel(path.string(), e.bodies, opts);
+}
+
+Value asExpr(const std::string& code, Evaluator& ev) {
+    std::vector<std::unique_ptr<oscad::ASTNode>> ast;
+    const oscad::Expression* expr = exprSrc(code, ast);
+    auto scope = oscad::buildScopes(ast);
+    EvalContext ctx = EvalContext::makeRoot(scope.get());
+    return ev.evalExpr(*expr, ctx);
+}
+
+} // namespace
+
+// -- Module-context import() (geometry statement) --------------------------
+
+TEST(ImportModuleContext, StlRoundTripPreservesVolume) {
+    const auto path = tempPath("cube.stl");
+    writeCubeAs(path);
+    Evaluated e = evalSrc("import(\"" + path.generic_string() + "\");");
+    ASSERT_EQ(e.bodies.size(), 1u);
+    ASSERT_TRUE(e.bodies[0].body.has_value());
+    EXPECT_NEAR(e.bodies[0].body->Volume(), 8.0, 1e-6);
+    std::filesystem::remove(path);
+}
+
+TEST(ImportModuleContext, ObjRoundTripPreservesVolume) {
+    const auto path = tempPath("cube.obj");
+    writeCubeAs(path);
+    Evaluated e = evalSrc("import(\"" + path.generic_string() + "\");");
+    ASSERT_EQ(e.bodies.size(), 1u);
+    ASSERT_TRUE(e.bodies[0].body.has_value());
+    EXPECT_NEAR(e.bodies[0].body->Volume(), 8.0, 1e-6);
+    std::filesystem::remove(path);
+}
+
+TEST(ImportModuleContext, OffRoundTripPreservesVolume) {
+    const auto path = tempPath("cube.off");
+    writeCubeAs(path);
+    Evaluated e = evalSrc("import(\"" + path.generic_string() + "\");");
+    ASSERT_EQ(e.bodies.size(), 1u);
+    ASSERT_TRUE(e.bodies[0].body.has_value());
+    EXPECT_NEAR(e.bodies[0].body->Volume(), 8.0, 1e-6);
+    std::filesystem::remove(path);
+}
+
+TEST(ImportModuleContext, ThreeMfRoundTripPreservesVolume) {
+    const auto path = tempPath("cube.3mf");
+    writeCubeAs(path);
+    Evaluated e = evalSrc("import(\"" + path.generic_string() + "\");");
+    ASSERT_EQ(e.bodies.size(), 1u);
+    ASSERT_TRUE(e.bodies[0].body.has_value());
+    EXPECT_NEAR(e.bodies[0].body->Volume(), 8.0, 1e-6);
+    std::filesystem::remove(path);
+}
+
+// The .3mf writeThreeMf() produces is DEFLATE-compressed, not stored. The
+// round-trip test above passes either way -- the reader accepts both
+// methods -- so without this a regression to STORED would show up only as
+// files several times bigger than they need to be.
+TEST(ImportModuleContext, ThreeMfIsDeflateCompressed) {
+    const auto path = tempPath("cube_compressed.3mf");
+    writeCubeAs(path);
+
+    std::ifstream in(path, std::ios::binary);
+    ASSERT_TRUE(in);
+    std::vector<uint8_t> buf((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    in.close();
+
+    bool sawModel = false;
+    for (size_t i = 0; i + 46 <= buf.size(); ++i) {
+        if (!(buf[i] == 0x50 && buf[i + 1] == 0x4B && buf[i + 2] == 0x01 && buf[i + 3] == 0x02)) continue;
+        const uint16_t method = static_cast<uint16_t>(buf[i + 10] | (buf[i + 11] << 8));
+        const uint32_t compressedSize =
+            static_cast<uint32_t>(buf[i + 20] | (buf[i + 21] << 8) | (buf[i + 22] << 16) | (buf[i + 23] << 24));
+        const uint32_t rawSize =
+            static_cast<uint32_t>(buf[i + 24] | (buf[i + 25] << 8) | (buf[i + 26] << 16) | (buf[i + 27] << 24));
+        const uint16_t nameLen = static_cast<uint16_t>(buf[i + 28] | (buf[i + 29] << 8));
+        if (i + 46 + nameLen > buf.size()) continue;
+        const std::string name(reinterpret_cast<const char*>(&buf[i + 46]), nameLen);
+        if (name.find("3dmodel.model") == std::string::npos) continue;
+        sawModel = true;
+        EXPECT_EQ(method, 8) << "3dmodel.model stored uncompressed";
+        EXPECT_LT(compressedSize, rawSize) << "compressed " << compressedSize << " vs raw " << rawSize;
+    }
+    EXPECT_TRUE(sawModel) << "no 3dmodel.model entry in the archive";
+
+    std::filesystem::remove(path);
+}
+
+// -- AMF, X3D, VRML: the multi-object formats export writes ------------------
+
+TEST(ImportModuleContext, AmfRoundTripPreservesVolume) {
+    const auto path = tempPath("cube.amf");
+    writeCubeAs(path);
+    Evaluated e = evalSrc("import(\"" + path.generic_string() + "\");");
+    ASSERT_EQ(e.bodies.size(), 1u);
+    EXPECT_NEAR(e.bodies[0].body->Volume(), 8.0, 1e-6);
+    std::filesystem::remove(path);
+}
+
+TEST(ImportModuleContext, X3dRoundTripPreservesVolume) {
+    const auto path = tempPath("cube.x3d");
+    writeCubeAs(path);
+    Evaluated e = evalSrc("import(\"" + path.generic_string() + "\");");
+    ASSERT_EQ(e.bodies.size(), 1u);
+    EXPECT_NEAR(e.bodies[0].body->Volume(), 8.0, 1e-6);
+    std::filesystem::remove(path);
+}
+
+TEST(ImportModuleContext, VrmlRoundTripPreservesVolume) {
+    const auto path = tempPath("cube.wrl");
+    writeCubeAs(path);
+    Evaluated e = evalSrc("import(\"" + path.generic_string() + "\");");
+    ASSERT_EQ(e.bodies.size(), 1u);
+    EXPECT_NEAR(e.bodies[0].body->Volume(), 8.0, 1e-6);
+    std::filesystem::remove(path);
+}
+
+namespace {
+
+// A unit cube as six quads; the last polygon deliberately has no closing -1,
+// which both specs allow.
+const char* kCubePoints = "0 0 0, 1 0 0, 1 1 0, 0 1 0, 0 0 1, 1 0 1, 1 1 1, 0 1 1";
+const char* kCubeQuads = "0 3 2 1 -1 4 5 6 7 -1 0 1 5 4 -1 1 2 6 5 -1 2 3 7 6 -1 3 0 4 7";
+
+struct Imported {
+    double volume = 0;
+    manifold::Box box;
+    std::vector<std::string> messages;
+};
+
+Imported importText(const std::string& name, const std::string& text) {
+    const auto path = tempPath(name);
+    std::ofstream(path, std::ios::binary) << text;
+    Imported out;
+    Evaluated e = evalSrc("import(\"" + path.generic_string() + "\");",
+                          [&](const std::string& m) { out.messages.push_back(m); });
+    std::filesystem::remove(path);
+    if (!e.bodies.empty() && e.bodies[0].body) {
+        out.volume = e.bodies[0].body->Volume();
+        out.box = e.bodies[0].body->BoundingBox();
+    }
+    return out;
+}
+
+bool anyContains(const std::vector<std::string>& messages, const std::string& needle) {
+    for (const std::string& m : messages) {
+        if (m.find(needle) != std::string::npos) return true;
+    }
+    return false;
+}
+
+} // namespace
+
+// A cube scaled x2 and moved, the same cube USEd again under a 90-degree
+// rotation, a tetrahedron written clockwise with ccw="false", and a Box
+// primitive that is skipped with a warning. 8 + 1 + 4.5 = 13.5.
+TEST(ImportModuleContext, X3dAppliesTransformsDefUseAndCcw) {
+    const std::string x3d = std::string(R"(<?xml version="1.0"?>
+<!DOCTYPE X3D PUBLIC "ISO//Web3D//DTD X3D 3.3//EN" "x">
+<X3D><Scene>
+  <!-- <Shape> in a comment is not a shape -->
+  <Transform translation="10 0 0" scale="2 2 2">
+    <Shape DEF="CUBE"><IndexedFaceSet coordIndex=")") + kCubeQuads + R"("><Coordinate point=")" + kCubePoints + R"("/></IndexedFaceSet></Shape>
+  </Transform>
+  <Transform translation="30 0 0" rotation="0 0 1 1.5707963267948966"><Shape USE="CUBE"/></Transform>
+  <Shape><IndexedTriangleSet ccw="false" index="0 1 2 0 3 1 0 2 3 1 3 2"><Coordinate point="50 0 0, 53 0 0, 50 3 0, 50 0 3"/></IndexedTriangleSet></Shape>
+  <Shape><Box size="4 4 4"/></Shape>
+</Scene></X3D>)";
+    const Imported r = importText("hand.x3d", x3d);
+    EXPECT_NEAR(r.volume, 13.5, 1e-9);
+    EXPECT_NEAR(r.box.min.x, 10, 1e-9);   // the scaled cube
+    EXPECT_NEAR(r.box.max.x, 53, 1e-9);   // the tetrahedron
+    EXPECT_TRUE(anyContains(r.messages, "skipped what is not a mesh: 1 Box")) << ::testing::PrintToString(r.messages);
+}
+
+// The same scene in VRML97, plus a PROTO, a ROUTE and comments the parser
+// has to step over. The rotated cube spans x 29..30 -- 31 would mean the
+// rotation was ignored.
+TEST(ImportModuleContext, VrmlAppliesTransformsAndSkipsProtoAndRoute) {
+    const std::string wrl = std::string("#VRML V2.0 utf8\n# a comment\n"
+        "PROTO Unused [ field SFFloat x 1 ] { Group { } }\n"
+        "Transform { translation 10 0 0 scale 2 2 2 children [\n"
+        "  DEF CUBE Shape { geometry IndexedFaceSet { coord Coordinate { point [ ") + kCubePoints +
+        " ] } coordIndex [ " + kCubeQuads + " ] } }\n] }\n"
+        "Transform { translation 30 0 0 rotation 0 0 1 1.5707963267948966 children [ USE CUBE ] }\n"
+        "Group { children [ Shape { geometry Sphere { radius 2 } } ] }\n"
+        "DEF T TimeSensor { }\nROUTE T.fraction_changed TO T.set_startTime\n";
+    const Imported r = importText("hand.wrl", wrl);
+    EXPECT_NEAR(r.volume, 9.0, 1e-9);
+    EXPECT_NEAR(r.box.max.x, 30, 1e-9);
+    EXPECT_TRUE(anyContains(r.messages, "skipped what is not a mesh: 1 Sphere")) << ::testing::PrintToString(r.messages);
+}
+
+TEST(ImportModuleContext, VrmlIndexPastItsPointsErrors) {
+    Evaluator ev;
+    const auto path = tempPath("bad.wrl");
+    std::ofstream(path) << "#VRML V2.0 utf8\nShape { geometry IndexedFaceSet { coord Coordinate { point [ 0 0 0, 1 0 0, 0 1 0 ] }"
+                           " coordIndex [ 0 1 7 -1 ] } }\n";
+    auto ast = parseSrc("import(\"" + path.generic_string() + "\");");
+    auto scope = oscad::buildScopes(ast);
+    EvalContext ctx = EvalContext::makeRoot(scope.get());
+    EXPECT_THROW(ev.resolveTree(ast, ctx), EvalError);
+    std::filesystem::remove(path);
+}
+
+namespace {
+
+std::string inchCubeAmf() {
+    const int tris[12][3] = {{0, 3, 2}, {0, 2, 1}, {4, 5, 6}, {4, 6, 7}, {0, 1, 5}, {0, 5, 4},
+                             {1, 2, 6}, {1, 6, 5}, {2, 3, 7}, {2, 7, 6}, {3, 0, 4}, {3, 4, 7}};
+    const int pts[8][3] = {{0, 0, 0}, {1, 0, 0}, {1, 1, 0}, {0, 1, 0}, {0, 0, 1}, {1, 0, 1}, {1, 1, 1}, {0, 1, 1}};
+    std::string amf = "<?xml version=\"1.0\"?>\n<amf unit=\"inch\"><object id=\"1\"><mesh><vertices>";
+    for (const auto& p : pts)
+        amf += "<vertex><coordinates><x>" + std::to_string(p[0]) + "</x><y>" + std::to_string(p[1]) + "</y><z>" +
+               std::to_string(p[2]) + "</z></coordinates></vertex>";
+    amf += "</vertices><volume>";
+    for (const auto& t : tris)
+        amf += "<triangle><v1>" + std::to_string(t[0]) + "</v1><v2>" + std::to_string(t[1]) + "</v2><v3>" +
+               std::to_string(t[2]) + "</v3></triangle>";
+    amf += "</volume></mesh></object><constellation id=\"2\"><instance objectid=\"1\"/></constellation></amf>";
+    return amf;
+}
+
+} // namespace
+
+// unit="inch" scales to millimetres; a constellation is not applied, and
+// says so.
+TEST(ImportModuleContext, AmfUnitScalesToMillimetres) {
+    const Imported r = importText("inch.amf", inchCubeAmf());
+    EXPECT_NEAR(r.volume, 25.4 * 25.4 * 25.4, 1e-6);
+    EXPECT_NEAR(r.box.max.x, 25.4, 1e-9);
+    EXPECT_TRUE(anyContains(r.messages, "AMF constellations are not applied"));
+}
+
+// Compressed AMF: a zip holding one .amf, deflated.
+TEST(ImportModuleContext, ZippedAmfImports) {
+    const std::string amf = inchCubeAmf();
+    const auto path = tempPath("zipped.amf");
+    writeDeflateZip(path.string(), {ZipEntry{"model.amf", std::vector<uint8_t>(amf.begin(), amf.end())}});
+    Evaluated e = evalSrc("import(\"" + path.generic_string() + "\");", [](const std::string&) {});
+    std::filesystem::remove(path);
+    ASSERT_EQ(e.bodies.size(), 1u);
+    EXPECT_NEAR(e.bodies[0].body->Volume(), 25.4 * 25.4 * 25.4, 1e-6);
+}
+
+TEST(ImportModuleContext, UnsupportedExtensionErrors) {
+    const auto path = tempPath("unsupported.xyz");
+    std::ofstream(path) << "x";
+    Evaluator ev;
+    auto ast = parseSrc("import(\"" + path.generic_string() + "\");");
+    auto scope = oscad::buildScopes(ast);
+    EvalContext ctx = EvalContext::makeRoot(scope.get());
+    EXPECT_THROW(ev.resolveTree(ast, ctx), EvalError);
+}
+
+TEST(ImportModuleContext, MissingFileArgumentErrors) {
+    Evaluator ev;
+    auto ast = parseSrc("import();");
+    auto scope = oscad::buildScopes(ast);
+    EvalContext ctx = EvalContext::makeRoot(scope.get());
+    EXPECT_THROW(ev.resolveTree(ast, ctx), EvalError);
+}
+
+TEST(ImportModuleContext, JsonExtensionErrorsAsGeometryStatement) {
+    const auto path = tempPath("data_as_module.json");
+    {
+        std::ofstream out(path);
+        out << R"({"a": 1})";
+    }
+    Evaluator ev;
+    auto ast = parseSrc("import(\"" + path.generic_string() + "\");");
+    auto scope = oscad::buildScopes(ast);
+    EvalContext ctx = EvalContext::makeRoot(scope.get());
+    EXPECT_THROW(ev.resolveTree(ast, ctx), EvalError);
+    std::filesystem::remove(path);
+}
+
+TEST(ImportModuleContext, MalformedMeshFileErrors) {
+    // loadMeshByExt's own exception -> caught and rethrown as ev.error()
+    // inside resolveImport's try/catch -- every other STL/OBJ/OFF/3MF test
+    // here round-trips a well-formed file written by this project's own
+    // exporter.
+    const auto path = tempPath("malformed.stl");
+    {
+        std::ofstream out(path);
+        out << "this is not a valid STL file at all";
+    }
+    Evaluator ev;
+    auto ast = parseSrc("import(\"" + path.generic_string() + "\");");
+    auto scope = oscad::buildScopes(ast);
+    EvalContext ctx = EvalContext::makeRoot(scope.get());
+    EXPECT_THROW(ev.resolveTree(ast, ctx), EvalError);
+    std::filesystem::remove(path);
+}
+
+TEST(ImportModuleContext, NonManifoldMeshWarns) {
+    // generateImport's own Manifold::Status() != NoError branch -- a
+    // single free-floating triangle (not welded to anything, non-manifold
+    // boundary) via a hand-written OFF file, distinct from every other
+    // mesh test here which round-trips a valid, closed, watertight cube.
+    const auto path = tempPath("nonmanifold.off");
+    {
+        std::ofstream out(path);
+        out << "OFF\n3 1 0\n0 0 0\n1 0 0\n0 1 0\n3 0 1 2\n";
+    }
+    std::string lastWarning;
+    Evaluated e = evalSrc("import(\"" + path.generic_string() + "\");", [&](const std::string& msg) { lastWarning = msg; });
+    EXPECT_NE(lastWarning.find("import: mesh is not a closed solid"), std::string::npos);
+    // The triangle is now handed back for display rather than dropped: a
+    // file that warns once and then shows nothing gives no way to see what
+    // is actually wrong with it. It carries no Manifold, so it still can't
+    // take part in a CSG operation.
+    ASSERT_EQ(e.bodies.size(), 1u);
+    EXPECT_TRUE(e.bodies[0].isDisplayOnly());
+    EXPECT_EQ(e.bodies[0].rawMesh->triVerts.size(), 3u);
+    std::filesystem::remove(path);
+}
+
+TEST(ImportModuleContext, EmptyMeshHasNoTrianglesErrors) {
+    // generateImport's own "tris.empty()" check -- only reachable at
+    // generate time (not resolveTree()'s own try/catch, which only guards
+    // loadMeshByExt itself), so this needs the full resolve+generate
+    // pipeline, unlike every other error test in this file.
+    const auto path = tempPath("empty.off");
+    {
+        std::ofstream out(path);
+        out << "OFF\n0 0 0\n";
+    }
+    EXPECT_THROW(evalSrc("import(\"" + path.generic_string() + "\");"), EvalError);
+    std::filesystem::remove(path);
+}
+
+// -- Expression-context import() -------------------------------------------
+
+TEST(ImportExpressionContext, StlReturnsVnfShape) {
+    const auto path = tempPath("cube_vnf.stl");
+    writeCubeAs(path);
+    Evaluator ev;
+    Value v = asExpr("import(\"" + path.generic_string() + "\")", ev);
+    const auto& outer = std::get<ListPtr>(v)->items;
+    ASSERT_EQ(outer.size(), 2u);
+    const auto& verts = std::get<ListPtr>(outer[0])->items;
+    const auto& faces = std::get<ListPtr>(outer[1])->items;
+    EXPECT_EQ(verts.size(), 8u); // a welded cube has 8 corners
+    EXPECT_GT(faces.size(), 0u);
+    std::filesystem::remove(path);
+}
+
+TEST(ImportExpressionContext, JsonReturnsNativeValues) {
+    const auto path = tempPath("data.json");
+    {
+        std::ofstream out(path);
+        out << R"({"name": "x", "n": 3, "nested": {"a": 1, "b": 2}, "list": [1, 2, 3]})";
+    }
+    Evaluator ev;
+    Value v = asExpr("import(\"" + path.generic_string() + "\")", ev);
+    const auto& obj = std::get<ObjectPtr>(v)->items;
+    ASSERT_EQ(obj.size(), 4u);
+    EXPECT_EQ(obj[0].first, "name");
+    EXPECT_EQ(std::get<std::string>(obj[0].second), "x");
+    EXPECT_EQ(obj[1].first, "n");
+    EXPECT_DOUBLE_EQ(std::get<double>(obj[1].second), 3.0);
+    const auto& nested = std::get<ObjectPtr>(obj[2].second)->items;
+    ASSERT_EQ(nested.size(), 2u);
+    EXPECT_EQ(nested[0].first, "a");
+    const auto& list = std::get<ListPtr>(obj[3].second)->items;
+    ASSERT_EQ(list.size(), 3u);
+    EXPECT_DOUBLE_EQ(std::get<double>(list[2]), 3.0);
+    std::filesystem::remove(path);
+}
+
+TEST(ImportExpressionContext, JsonNullValueBecomesUndef) {
+    // jsonToValue's own final fallback (null, or any other unhandled JSON
+    // node type) -- every other JsonReturnsNativeValues field above is a
+    // string/number/object/list.
+    const auto path = tempPath("data_null.json");
+    {
+        std::ofstream out(path);
+        out << R"({"x": null})";
+    }
+    Evaluator ev;
+    Value v = asExpr("import(\"" + path.generic_string() + "\")", ev);
+    const auto& obj = std::get<ObjectPtr>(v)->items;
+    ASSERT_EQ(obj.size(), 1u);
+    EXPECT_TRUE(std::holds_alternative<std::monostate>(obj[0].second));
+    std::filesystem::remove(path);
+}
+
+TEST(ImportExpressionContext, DxfReturnsRegionContours) {
+    const auto path = tempPath("square_expr_ie.dxf");
+    {
+        std::ofstream out(path);
+        out << "0\nSECTION\n2\nENTITIES\n0\nLWPOLYLINE\n8\n0\n90\n4\n70\n1\n"
+               "10\n0.0\n20\n0.0\n10\n1.0\n20\n0.0\n10\n1.0\n20\n1.0\n10\n0.0\n20\n1.0\n"
+               "0\nENDSEC\n0\nEOF\n";
+    }
+    Evaluator ev;
+    Value v = asExpr("import(\"" + path.generic_string() + "\")", ev);
+    const auto& contours = std::get<ListPtr>(v)->items;
+    ASSERT_EQ(contours.size(), 1u);
+    std::filesystem::remove(path);
+}
+
+TEST(ImportExpressionContext, MissingFileArgumentErrors) {
+    Evaluator ev;
+    EXPECT_THROW(asExpr("import()", ev), EvalError);
+}
+
+TEST(ImportExpressionContext, UnsupportedExtensionErrors) {
+    const auto path = tempPath("unsupported_expr.xyz");
+    std::ofstream(path) << "x";
+    Evaluator ev;
+    EXPECT_THROW(asExpr("import(\"" + path.generic_string() + "\")", ev), EvalError);
+}
+
+// A missing file warns and carries on, in OpenSCAD 2026.02.01's words; it
+// aborted the render. The module form warns at generate, after the echoes.
+TEST(ImportMissingFile, ModuleFormWarnsAndImportsNothing) {
+    const auto dir = tempPath("missing_dir");
+    std::filesystem::create_directories(dir);
+    std::vector<std::string> log;
+    Evaluator ev([&](const std::string& m) { log.push_back(m); });
+    const std::string stl = (dir / "nope.stl").generic_string(), dxf = (dir / "nope.dxf").generic_string();
+    auto ast = parseSrc("import(\"" + stl + "\");\nimport(\"" + dxf + "\");\necho(1);\ncube(1);\n");
+    auto scope = oscad::buildScopes(ast);
+    EvalContext ctx = EvalContext::makeRoot(scope.get());
+    const std::vector<ColoredBody> bodies = ev.evaluate(ast, ctx);
+    EXPECT_EQ(bodies.size(), 1u);
+    ASSERT_EQ(log.size(), 3u);
+    EXPECT_EQ(log[0], "ECHO: 1");
+    EXPECT_EQ(log[1], "WARNING: Can't open import file '" + stl + "', import() at line 1");
+    EXPECT_EQ(log[2], "WARNING: Can't open DXF file '" + dxf + "'.");
+}
+
+TEST(ImportMissingFile, ExpressionFormWarnsAndIsUndef) {
+    std::string last;
+    Evaluator ev([&](const std::string& m) { last = m; });
+    const std::string path = tempPath("nope_expr.json").generic_string();
+    EXPECT_TRUE(std::holds_alternative<std::monostate>(asExpr("import(\"" + path + "\")", ev)));
+    EXPECT_EQ(last.rfind("WARNING: Could not read file '" + path + "'", 0), 0u) << last;
+}
+
+TEST(ImportExpressionContext, MalformedMeshFileErrors) {
+    const auto path = tempPath("malformed_expr.stl");
+    {
+        std::ofstream out(path);
+        out << "not a valid STL file";
+    }
+    Evaluator ev;
+    EXPECT_THROW(asExpr("import(\"" + path.generic_string() + "\")", ev), EvalError);
+    std::filesystem::remove(path);
+}
+
+// -- object()/is_object()/has_key() ----------------------------------------
+
+TEST(ObjectBuiltin, ConstructsOrderedMapFromNamedArgs) {
+    Evaluator ev;
+    Value v = asExpr("object(b=2, a=1)", ev);
+    const auto& items = std::get<ObjectPtr>(v)->items;
+    ASSERT_EQ(items.size(), 2u);
+    EXPECT_TRUE(std::get<bool>(asExpr("is_object(object(a=1))", ev)));
+}
+
+TEST(ObjectBuiltin, PositionalMergesExistingObject) {
+    Evaluator ev;
+    Value v = asExpr("object(object(a=1,b=2), c=3)", ev);
+    const auto& items = std::get<ObjectPtr>(v)->items;
+    ASSERT_EQ(items.size(), 3u);
+}
+
+// -- mesh-built geometry keeps full precision ----------------------------
+//
+// polyhedron()/sphere()/roof()/surface()/import() build their Manifold from
+// a mesh, and MeshGL is MeshGLP<float>. Going through it truncated script
+// doubles to ~7 significant digits, which does not merely lose precision:
+// it snaps nearly-distinct coordinates onto exactly-equal ones and
+// manufactures degenerate coincidences that make a later boolean leave a
+// zero-thickness membrane behind, sealing a hole that should go through.
+//
+// Found via a real user model (a coin-cell dispenser using BOSL2's
+// rounded/teardrop cyl(), which builds through polyhedron()): the bore came
+// out capped, the export was a valid closed solid a slicer would happily
+// print solid, and every mesh integrity check passed -- watertight,
+// manifold, orientable, no duplicate or degenerate faces. Only the genus
+// gave it away. A plain cylinder() never showed it, because that is a
+// Manifold primitive built in double precision all along.
+// A whole-model reproduction needs BOSL2 (its rounded/teardrop cyl() is what
+// builds through polyhedron() in the wild), which this suite cannot depend
+// on -- and a hand-written box does NOT reproduce it: Manifold handles
+// exactly-coincident PLANAR faces fine, as checked directly. The end-to-end
+// case lives in BelfrySCAD's scratch/coplanar_cut_repro.scad. What is
+// guarded here is the cause rather than one of its symptoms: that
+// mesh-built geometry keeps the precision it was given.
+TEST(MeshPrecision, PolyhedronKeepsCoordinatesFloatWouldRound) {
+    // 0.1 + 0.2 style values a float cannot hold: at float32 these two
+    // vertices would land on the same coordinate and the solid would
+    // degenerate. In doubles they stay apart.
+    Evaluated e = evalSrc(R"(
+        polyhedron(
+            points = [[0,0,0],[10.000000123,0,0],[10.000000123,10,0],[0,10,0],
+                      [0,0,10],[10.000000123,0,10],[10.000000123,10,10],[0,10,10]],
+            faces  = [[1,2,3,0],[7,6,5,4],[4,5,1,0],
+                      [5,6,2,1],[6,7,3,2],[7,4,0,3]]);
+    )");
+    ASSERT_FALSE(e.bodies.empty());
+    const manifold::MeshGL64 mesh = e.bodies.front().body->GetMeshGL64();
+    double maxX = 0.0;
+    for (size_t i = 0; i < mesh.vertProperties.size(); i += mesh.numProp) {
+        maxX = std::max(maxX, mesh.vertProperties[i]);
+    }
+    // float32 would round this to 10.0 exactly; double keeps the tail.
+    EXPECT_GT(maxX, 10.0);
+    EXPECT_NEAR(maxX, 10.000000123, 1e-9);
+}

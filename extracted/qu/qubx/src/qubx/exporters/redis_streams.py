@@ -1,0 +1,321 @@
+"""
+Redis Streams Exporter for trading data.
+
+This module provides an implementation of ITradeDataExport that exports trading data to Redis Streams.
+"""
+
+from time import sleep
+from typing import Any, Dict, List, Optional, cast
+
+import redis
+from redis.exceptions import ConnectionError as RedisConnectionError
+from redis.exceptions import TimeoutError as RedisTimeoutError
+from redis.typing import EncodableT, FieldT
+
+from qubx import logger
+from qubx.core.basics import Instrument, Signal, TargetPosition, dt_64
+from qubx.core.interfaces import IAccountViewer, ITradeDataExport
+from qubx.exporters.formatters import DefaultFormatter, IExportFormatter
+from qubx.utils.threading import BoundedWorker
+
+# Simple retry policy for transient Redis errors (connection drops, timeouts).
+# Non-retryable errors (e.g. encoding bugs) are logged and dropped immediately.
+_REDIS_RETRY_ATTEMPTS = 3
+_REDIS_RETRY_BACKOFF_SECONDS = 0.5
+
+
+class RedisStreamsExporter(ITradeDataExport):
+    """
+    Exports trading data to Redis Streams.
+
+    This exporter can be configured to export signals, target positions, and leverage changes.
+    """
+
+    def __init__(
+        self,
+        redis_url: str,
+        strategy_name: str,
+        export_signals: bool = False,
+        export_targets: bool = False,
+        export_position_changes: bool = False,
+        signals_stream: Optional[str] = None,
+        targets_stream: Optional[str] = None,
+        position_changes_stream: Optional[str] = None,
+        max_stream_length: int = 1000,
+        formatter: Optional[IExportFormatter] = None,
+        max_queue: int = 1000,
+        account: Optional[IAccountViewer] = None,
+    ):
+        """
+        Initialize the Redis Streams Exporter.
+
+        Args:
+            redis_url: Redis connection URL (e.g., "redis://localhost:6379/0")
+            strategy_name: Name of the strategy (used in stream keys if not provided)
+            export_signals: Whether to export signals
+            export_targets: Whether to export target positions
+            export_position_changes: Whether to export position changes
+            signals_stream: Custom stream name for signals (default: "strategy:{strategy_name}:signals")
+            targets_stream: Custom stream name for target positions (default: "strategy:{strategy_name}:targets")
+            position_changes_stream: Custom stream name for position changes (default: "strategy:{strategy_name}:position_changes")
+            max_stream_length: Maximum length of each stream
+            formatter: Formatter to use for formatting data (default: DefaultFormatter)
+            max_queue: Maximum number of pending Redis operations queued on the background
+                worker before the oldest is dropped.
+            account: Optional account viewer to get account information like total capital, leverage, etc.
+        """
+        # - bounded-failure client: a dead peer costs seconds, never TCP-retransmission
+        #   minutes (incident 2026-08-19; platform #375).
+        self._redis = redis.from_url(
+            redis_url,
+            socket_connect_timeout=2.0,
+            socket_timeout=5.0,
+            socket_keepalive=True,
+            health_check_interval=30,
+        )
+        self._strategy_name = strategy_name
+
+        self._export_signals = export_signals
+        self._export_targets = export_targets
+        self._export_position_changes = export_position_changes
+
+        self._signals_stream = signals_stream or f"strategy:{strategy_name}:signals"
+        self._targets_stream = targets_stream or f"strategy:{strategy_name}:targets"
+        self._position_changes_stream = position_changes_stream or f"strategy:{strategy_name}:position_changes"
+
+        self._max_stream_length = max_stream_length
+        self._formatter = formatter or DefaultFormatter()
+
+        self._instrument_to_previous_leverage = {}
+
+        # - single bounded worker: preserves XADD ordering per stream (2 pool workers could
+        #   reorder targets) and bounds memory/burst under outages (platform #375).
+        self._worker = BoundedWorker("redis_exporter", maxlen=max_queue)
+        self._stopped = False
+
+        if account:
+            self._instrument_to_previous_leverage = dict(account.get_leverages())
+
+        logger.info(
+            f"[RedisStreamsExporter] Initialized for strategy '{strategy_name}' with "
+            f"signals: {export_signals}, targets: {export_targets}, position_changes: {export_position_changes}"
+        )
+
+    def _log_warning(self, msg: str) -> None:
+        try:
+            logger.warning(f"[RedisStreamsExporter] {msg}")
+        except Exception:
+            pass
+
+    def __del__(self):
+        self.stop()
+
+    def stop(self) -> None:
+        """Shut down the worker and close the Redis connection."""
+        if self._stopped:
+            return
+        self._stopped = True
+
+        try:
+            self._worker.stop(flush_timeout_s=5.0)
+        except Exception as e:
+            self._log_warning(f"Error during worker shutdown: {e}")
+
+        try:
+            self._redis.close()
+        except Exception as e:
+            self._log_warning(f"Failed to close Redis connection: {e}")
+
+    def get_export_info(self) -> dict[str, list[str]]:
+        info: dict[str, list[str]] = {}
+        if self._export_signals:
+            info["signals"] = [self._signals_stream]
+        if self._export_targets:
+            info["targets"] = [self._targets_stream]
+        if self._export_position_changes:
+            info["position_changes"] = [self._position_changes_stream]
+        return info
+
+    def _prepare_for_redis(self, data: Dict[str, Any]) -> Dict[FieldT, EncodableT]:
+        """
+        Prepare data for Redis by ensuring all values are strings.
+
+        Args:
+            data: Dictionary with string keys and any values
+
+        Returns:
+            Dictionary with keys and values compatible with Redis
+        """
+        # Convert all values to strings and cast the result to the type expected by Redis
+        string_dict = {k: str(v) for k, v in data.items()}
+        return cast(Dict[FieldT, EncodableT], string_dict)
+
+    def _add_to_redis_stream(self, stream: str, data: Dict[str, Any]) -> None:
+        """
+        Add data to a Redis stream in a background thread.
+
+        Args:
+            stream: The name of the Redis stream
+            data: The data to add to the stream
+        """
+        try:
+            # Prepare data for Redis
+            redis_data = self._prepare_for_redis(data)
+
+            # Submit the task to the background worker
+            self._worker.submit(self._add_to_redis_stream_impl, stream, redis_data, self._max_stream_length)
+        except Exception as e:
+            logger.exception(
+                f"[RedisStreamsExporter] Failed to queue Redis stream operation for '{stream}', data={data}: {e}"
+            )
+
+    def _add_to_redis_stream_impl(self, stream: str, redis_data: Dict[FieldT, EncodableT], max_length: int) -> bool:
+        """
+        Implementation that actually adds data to Redis stream (called from worker thread).
+
+        Retries transient connection/timeout errors up to ``_REDIS_RETRY_ATTEMPTS`` times with
+        a short linear backoff. Non-retryable errors (encoding, programming bugs) are logged
+        and dropped on the first failure.
+
+        Args:
+            stream: The name of the Redis stream
+            redis_data: The data to add to the stream
+            max_length: The maximum length of the stream
+
+        Returns:
+            bool: True if the operation was successful, False otherwise
+        """
+        for attempt in range(1, _REDIS_RETRY_ATTEMPTS + 1):
+            try:
+                self._redis.xadd(stream, redis_data, maxlen=max_length, approximate=True)
+                if attempt > 1:
+                    logger.info(
+                        f"[RedisStreamsExporter] xadd to '{stream}' succeeded on attempt "
+                        f"{attempt}/{_REDIS_RETRY_ATTEMPTS}"
+                    )
+                return True
+            except (RedisConnectionError, RedisTimeoutError) as e:
+                if attempt < _REDIS_RETRY_ATTEMPTS:
+                    delay = _REDIS_RETRY_BACKOFF_SECONDS * attempt
+                    logger.warning(
+                        f"[RedisStreamsExporter] Transient xadd error to '{stream}' "
+                        f"(attempt {attempt}/{_REDIS_RETRY_ATTEMPTS}), retrying in {delay:.1f}s: {e}"
+                    )
+                    sleep(delay)
+                else:
+                    logger.exception(
+                        f"[RedisStreamsExporter] Dropping message: xadd to '{stream}' failed after "
+                        f"{_REDIS_RETRY_ATTEMPTS} attempts, data={redis_data}: {e}"
+                    )
+                    return False
+            except Exception as e:
+                logger.exception(
+                    f"[RedisStreamsExporter] Non-retryable error on xadd to '{stream}', data={redis_data}: {e}"
+                )
+                return False
+
+        return False
+
+    def export_signals(self, time: dt_64, signals: List[Signal], account: IAccountViewer) -> None:
+        """
+        Export signals to Redis Stream.
+
+        Args:
+            time: Timestamp when the signals were generated
+            signals: List of signals to export
+            account: Account viewer to get account information like total capital, leverage, etc.
+        """
+        if not self._export_signals or not signals:
+            return
+
+        try:
+            exported_count = 0
+            for signal in signals:
+                # Format the signal using the formatter
+                data = self._formatter.format_signal(time, signal, account)
+
+                # Skip if formatter returned empty data
+                if not data:
+                    logger.debug(
+                        f"[RedisStreamsExporter] Skipping signal for {signal.instrument} - formatter returned empty data"
+                    )
+                    continue
+
+                # Add to Redis stream in background thread
+                self._add_to_redis_stream(self._signals_stream, data)
+                exported_count += 1
+
+            logger.debug(
+                f"[RedisStreamsExporter] Queued {exported_count}/{len(signals)} signals for export to {self._signals_stream}"
+            )
+        except Exception:
+            logger.exception("[RedisStreamsExporter] Failed to export signals")
+
+    def export_target_positions(self, time: dt_64, targets: List[TargetPosition], account: IAccountViewer) -> None:
+        """
+        Export target positions to Redis Stream.
+
+        Args:
+            time: Timestamp when the target positions were generated
+            targets: List of target positions to export
+            account: Account viewer to get account information like total capital, leverage, etc.
+        """
+        if not self._export_targets or not targets:
+            return
+
+        try:
+            exported_count = 0
+            for target in targets:
+                # Format the target position using the formatter
+                data = self._formatter.format_target_position(time, target, account)
+
+                # Skip if formatter returned empty data
+                if not data:
+                    logger.debug(
+                        f"[RedisStreamsExporter] Skipping target position for {target.instrument} - formatter returned empty data"
+                    )
+                    continue
+
+                # Add to Redis stream in background thread
+                self._add_to_redis_stream(self._targets_stream, data)
+                exported_count += 1
+
+            logger.debug(
+                f"[RedisStreamsExporter] Queued {exported_count}/{len(targets)} target positions for export to {self._targets_stream}"
+            )
+        except Exception:
+            logger.exception("[RedisStreamsExporter] Failed to export target positions")
+
+    def export_position_changes(
+        self, time: dt_64, instrument: Instrument, price: float, account: IAccountViewer,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        """
+        Export position changes to Redis Stream.
+
+        Args:
+            time: Timestamp when the position change occurred
+            instrument: The instrument for which the position change occurred
+            price: Price at which the position change occurred
+            account: Account viewer to get account information like total capital, leverage, etc.
+        """
+        if not self._export_position_changes:
+            return
+
+        previous_leverage = self._instrument_to_previous_leverage.get(instrument, 0.0)
+        new_leverage = account.get_leverage(instrument)
+        self._instrument_to_previous_leverage[instrument] = new_leverage
+
+        try:
+            # Format the leverage change using the formatter
+            data = self._formatter.format_position_change(time, instrument, price, account, metadata=metadata)
+
+            # Add to Redis stream in background thread
+            self._add_to_redis_stream(self._position_changes_stream, data)
+
+            logger.debug(
+                f"[RedisStreamsExporter] Queued position change for {instrument}: "
+                f"{previous_leverage:0.2%} -> {new_leverage:0.2%} @ {price}"
+            )
+        except Exception:
+            logger.exception("[RedisStreamsExporter] Failed to export position change")

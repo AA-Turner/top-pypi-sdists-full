@@ -4,16 +4,11 @@ import logging
 import re
 from itertools import cycle
 
-import numpy as np
 import requests
-import tls_client
-import urllib3
+from curl_cffi import requests as curl_requests
 from markdownify import markdownify as md
-from requests.adapters import HTTPAdapter, Retry
 
 from jobspy.model import CompensationInterval, JobType, Site
-
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 def create_logger(name: str):
@@ -30,6 +25,8 @@ def create_logger(name: str):
 
 
 class RotatingProxySession:
+    request_timeout = 15
+
     def __init__(self, proxies=None):
         if isinstance(proxies, str):
             self.proxy_cycle = cycle([self.format_proxy(proxies)])
@@ -45,86 +42,53 @@ class RotatingProxySession:
     @staticmethod
     def format_proxy(proxy):
         """Utility method to format a proxy string into a dictionary."""
-        if proxy.startswith("http://") or proxy.startswith("https://"):
-            return {"http": proxy, "https": proxy}
-        if proxy.startswith("socks5://"):
-            return {"http": proxy, "https": proxy}
-        return {"http": f"http://{proxy}", "https": f"http://{proxy}"}
+        if not proxy.startswith(("http://", "https://", "socks5://")):
+            proxy = f"http://{proxy}"
+        return {"http": proxy, "https": proxy}
+
+    def request(self, method, url, **kwargs):
+        if self.proxy_cycle:
+            proxy = next(self.proxy_cycle)
+            self.proxies = {} if proxy["http"] == "http://localhost" else proxy
+        kwargs.setdefault("timeout", self.request_timeout)
+        return super().request(method, url, **kwargs)
 
 
 class RequestsRotating(RotatingProxySession, requests.Session):
-    def __init__(self, proxies=None, has_retry=False, delay=1, clear_cookies=False):
+    def __init__(self, proxies=None, clear_cookies=False):
         RotatingProxySession.__init__(self, proxies=proxies)
         requests.Session.__init__(self)
         self.clear_cookies = clear_cookies
-        self.allow_redirects = True
-        self.setup_session(has_retry, delay)
-
-    def setup_session(self, has_retry, delay):
-        if has_retry:
-            retries = Retry(
-                total=3,
-                connect=3,
-                status=3,
-                status_forcelist=[500, 502, 503, 504, 429],
-                backoff_factor=delay,
-            )
-            adapter = HTTPAdapter(max_retries=retries)
-            self.mount("http://", adapter)
-            self.mount("https://", adapter)
 
     def request(self, method, url, **kwargs):
         if self.clear_cookies:
             self.cookies.clear()
-
-        if self.proxy_cycle:
-            next_proxy = next(self.proxy_cycle)
-            if next_proxy["http"] != "http://localhost":
-                self.proxies = next_proxy
-            else:
-                self.proxies = {}
-        return requests.Session.request(self, method, url, **kwargs)
+        return super().request(method, url, **kwargs)
 
 
-class TLSRotating(RotatingProxySession, tls_client.Session):
+class TLSRotating(RotatingProxySession, curl_requests.Session):
     def __init__(self, proxies=None):
         RotatingProxySession.__init__(self, proxies=proxies)
-        tls_client.Session.__init__(self, random_tls_extension_order=True)
-
-    def execute_request(self, *args, **kwargs):
-        if self.proxy_cycle:
-            next_proxy = next(self.proxy_cycle)
-            if next_proxy["http"] != "http://localhost":
-                self.proxies = next_proxy
-            else:
-                self.proxies = {}
-        response = tls_client.Session.execute_request(self, *args, **kwargs)
-        response.ok = response.status_code in range(200, 400)
-        return response
+        curl_requests.Session.__init__(
+            self, impersonate="chrome", allow_redirects=False
+        )
 
 
 def create_session(
     *,
-    proxies: dict | str | None = None,
+    proxies: list[str] | str | None = None,
     ca_cert: str | None = None,
     is_tls: bool = True,
-    has_retry: bool = False,
-    delay: int = 1,
     clear_cookies: bool = False,
-) -> requests.Session:
+) -> RequestsRotating | TLSRotating:
     """
-    Creates a requests session with optional tls, proxy, and retry settings.
-    :return: A session object
+    Creates a proxy-rotating session: curl_cffi with a browser fingerprint if is_tls,
+    else requests (supports clear_cookies).
     """
     if is_tls:
         session = TLSRotating(proxies=proxies)
     else:
-        session = RequestsRotating(
-            proxies=proxies,
-            has_retry=has_retry,
-            delay=delay,
-            clear_cookies=clear_cookies,
-        )
+        session = RequestsRotating(proxies=proxies, clear_cookies=clear_cookies)
 
     if ca_cert:
         session.verify = ca_cert
@@ -137,7 +101,7 @@ def set_logger_level(verbose: int):
     Adjusts the logger's level. This function allows the logging level to be changed at runtime.
 
     Parameters:
-    - verbose: int {0, 1, 2} (default=2, all logs)
+    - verbose: int {0, 1, 2} (0 errors only, 1 adds warnings, 2 all logs)
     """
     if verbose is None:
         return
@@ -157,6 +121,15 @@ def markdown_converter(description_html: str):
     markdown = md(description_html)
     return markdown.strip()
 
+def plain_converter(decription_html:str):
+    from bs4 import BeautifulSoup
+    if decription_html is None:
+        return None
+    soup = BeautifulSoup(decription_html, "html.parser")
+    text = soup.get_text(separator=" ")
+    text = re.sub(r'\s+',' ',text)
+    return text.strip()
+
 
 def extract_emails_from_text(text: str) -> list[str] | None:
     if not text:
@@ -174,23 +147,6 @@ def get_enum_from_job_type(job_type_str: str) -> JobType | None:
         if job_type_str in job_type.value:
             res = job_type
     return res
-
-
-def currency_parser(cur_str):
-    # Remove any non-numerical characters
-    # except for ',' '.' or '-' (e.g. EUR)
-    cur_str = re.sub("[^-0-9.,]", "", cur_str)
-    # Remove any 000s separators (either , or .)
-    cur_str = re.sub("[.,]", "", cur_str[:-3]) + cur_str[-3:]
-
-    if "." in list(cur_str[-3:]):
-        num = float(cur_str)
-    elif "," in list(cur_str[-3:]):
-        num = float(cur_str.replace(",", "."))
-    else:
-        num = float(cur_str)
-
-    return np.round(num, 2)
 
 
 def remove_attributes(tag):
@@ -300,18 +256,10 @@ def get_enum_from_value(value_str):
 
 
 def convert_to_annual(job_data: dict):
-    if job_data["interval"] == "hourly":
-        job_data["min_amount"] *= 2080
-        job_data["max_amount"] *= 2080
-    if job_data["interval"] == "monthly":
-        job_data["min_amount"] *= 12
-        job_data["max_amount"] *= 12
-    if job_data["interval"] == "weekly":
-        job_data["min_amount"] *= 52
-        job_data["max_amount"] *= 52
-    if job_data["interval"] == "daily":
-        job_data["min_amount"] *= 260
-        job_data["max_amount"] *= 260
+    factors = {"hourly": 2080, "daily": 260, "weekly": 52, "monthly": 12}
+    factor = factors[job_data["interval"]]
+    job_data["min_amount"] = round(job_data["min_amount"] * factor, 2)
+    job_data["max_amount"] = round(job_data["max_amount"] * factor, 2)
     job_data["interval"] = "yearly"
 
 

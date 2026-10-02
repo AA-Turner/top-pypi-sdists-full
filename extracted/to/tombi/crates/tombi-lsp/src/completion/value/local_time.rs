@@ -16,15 +16,16 @@ use crate::{
 impl FindCompletionContents for tombi_document_tree_syntax::LocalTime {
     fn find_completion_contents<'a: 'b, 'b>(
         &'a self,
-        position: tombi_text::Position,
-        keys: &'a [tombi_document_tree_syntax::Key],
+        cursor: crate::CursorPosition<'a>,
+        keys: &'a [tombi_document_tree_syntax::Key<'_>],
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         _schema_context: &'a tombi_schema_store::SchemaContext<'a>,
         completion_hint: Option<CompletionHint>,
     ) -> tombi_future::BoxFuture<'b, Vec<CompletionContent>> {
+        let offset = cursor.offset();
         log::trace!("self = {:?}", self);
-        log::trace!("position = {:?}", position);
+        log::trace!("offset = {:?}", offset);
         log::trace!("keys = {:?}", keys);
         log::trace!("accessors = {:?}", accessors);
         log::trace!("current_schema = {:?}", current_schema);
@@ -35,7 +36,7 @@ impl FindCompletionContents for tombi_document_tree_syntax::LocalTime {
                 get_key_table_value_comment_directive_content_and_schema_uri::<
                     LocalTimeCommonFormatRules,
                     LocalTimeCommonLintRules,
-                >(self.comment_directives(), position, accessors)
+                >(self.comment_directives(), offset, accessors)
                 && let Some(completions) = get_tombi_comment_directive_content_completion_contents(
                     comment_directive_context,
                     schema_uri,
@@ -54,15 +55,16 @@ impl FindCompletionContents for tombi_document_tree_syntax::LocalTime {
 impl FindCompletionContents for LocalTimeSchema {
     fn find_completion_contents<'a: 'b, 'b>(
         &'a self,
-        position: tombi_text::Position,
-        keys: &'a [tombi_document_tree_syntax::Key],
+        cursor: crate::CursorPosition<'a>,
+        keys: &'a [tombi_document_tree_syntax::Key<'_>],
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext<'a>,
         completion_hint: Option<CompletionHint>,
     ) -> tombi_future::BoxFuture<'b, Vec<CompletionContent>> {
+        let offset = cursor.offset();
         log::trace!("self = {:?}", self);
-        log::trace!("position = {:?}", position);
+        log::trace!("offset = {:?}", offset);
         log::trace!("keys = {:?}", keys);
         log::trace!("accessors = {:?}", accessors);
         log::trace!("current_schema = {:?}", current_schema);
@@ -74,7 +76,7 @@ impl FindCompletionContents for LocalTimeSchema {
 
             if let Some(const_value) = &self.const_value {
                 let label = const_value.to_string();
-                let edit = CompletionEdit::new_literal(&label, position, completion_hint);
+                let edit = CompletionEdit::new_literal(&label, offset, completion_hint);
                 completion_items.push(CompletionContent::new_const_value(
                     label,
                     self.title.clone(),
@@ -85,7 +87,7 @@ impl FindCompletionContents for LocalTimeSchema {
                 ));
 
                 return merge_adjacent_schema_completion_items(
-                    position,
+                    cursor,
                     keys,
                     accessors,
                     current_schema,
@@ -102,7 +104,7 @@ impl FindCompletionContents for LocalTimeSchema {
             if let Some(r#enum) = &self.r#enum {
                 for item in r#enum {
                     let label = item.to_string();
-                    let edit = CompletionEdit::new_literal(&label, position, completion_hint);
+                    let edit = CompletionEdit::new_literal(&label, offset, completion_hint);
                     completion_items.push(CompletionContent::new_enum_value(
                         label,
                         self.title.clone(),
@@ -114,7 +116,7 @@ impl FindCompletionContents for LocalTimeSchema {
                 }
 
                 return merge_adjacent_schema_completion_items(
-                    position,
+                    cursor,
                     keys,
                     accessors,
                     current_schema,
@@ -130,7 +132,7 @@ impl FindCompletionContents for LocalTimeSchema {
 
             if let Some(default) = &self.default {
                 let label = default.to_string();
-                let edit = CompletionEdit::new_literal(&label, position, completion_hint);
+                let edit = CompletionEdit::new_literal(&label, offset, completion_hint);
                 completion_items.push(CompletionContent::new_default_value(
                     label,
                     self.title.clone(),
@@ -147,7 +149,7 @@ impl FindCompletionContents for LocalTimeSchema {
                     if completion_items.iter().any(|item| item.label == label) {
                         continue;
                     }
-                    let edit = CompletionEdit::new_literal(&label, position, completion_hint);
+                    let edit = CompletionEdit::new_literal(&label, offset, completion_hint);
                     completion_items.push(CompletionContent::new_example_value(
                         label,
                         self.title.clone(),
@@ -161,14 +163,14 @@ impl FindCompletionContents for LocalTimeSchema {
 
             if completion_items.is_empty() {
                 completion_items.extend(type_hint_local_time(
-                    position,
+                    offset,
                     schema_base_uri,
                     completion_hint,
                 ));
 
                 if schema_context.has_string_format(StringFormat::TimeLocal) {
                     completion_items.extend(super::string::type_hint_string(
-                        position,
+                        offset,
                         schema_base_uri,
                         completion_hint,
                     ));
@@ -176,7 +178,7 @@ impl FindCompletionContents for LocalTimeSchema {
             }
 
             merge_adjacent_schema_completion_items(
-                position,
+                cursor,
                 keys,
                 accessors,
                 current_schema,
@@ -194,7 +196,7 @@ impl FindCompletionContents for LocalTimeSchema {
 }
 
 pub fn type_hint_local_time(
-    position: tombi_text::Position,
+    offset: tombi_text::Offset,
     schema_base_uri: Option<&SchemaUri>,
     completion_hint: Option<CompletionHint>,
 ) -> Vec<CompletionContent> {
@@ -206,7 +208,7 @@ pub fn type_hint_local_time(
         };
     };
     let label = today.format("%H:%M:%S%.3f").to_string();
-    let edit = CompletionEdit::new_selectable_literal(&label, position, completion_hint);
+    let edit = CompletionEdit::new_selectable_literal(&label, offset, completion_hint);
 
     vec![CompletionContent::new_type_hint_value(
         CompletionKind::LocalTime,

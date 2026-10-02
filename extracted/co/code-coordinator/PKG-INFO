@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: code-coordinator
-Version: 0.5.551
+Version: 0.5.559
 Summary: Coordinate Claude Code workers across multiple machines and repos.
 Author-email: John Donaghy <johnfdonaghy@gmail.com>
 License-Expression: LicenseRef-FSL-1.1-MIT
@@ -38,6 +38,8 @@ Requires-Dist: comtypes>=1.2; sys_platform == "win32" and extra == "win-native"
 Provides-Extra: mac-native
 Requires-Dist: pyobjc-framework-Quartz>=10.0; sys_platform == "darwin" and extra == "mac-native"
 Requires-Dist: pyobjc-framework-ApplicationServices>=10.0; sys_platform == "darwin" and extra == "mac-native"
+Provides-Extra: gtk-native
+Requires-Dist: PyGObject>=3.46; sys_platform == "linux" and extra == "gtk-native"
 Provides-Extra: all
 Requires-Dist: code-coordinator[server]; extra == "all"
 Requires-Dist: code-coordinator[reports-xlsx]; extra == "all"

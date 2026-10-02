@@ -1,0 +1,288 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# scripts/ci/test_selection_adjacency.yaml
+# Static adjacency map from src/omnimemory/<module> to dependent modules.
+# When a key module changes, every module in `reverse_deps` ALSO has its tests run.
+# Treated as CI contract data — manually curated, reviewed in PRs that change it.
+
+schema_version: 1
+
+# `shared_modules` is a FULL-SUITE ESCALATION POLICY, not an architectural ontology.
+# Listing a module here means "if this module changes, run the full suite".
+# Curate based on operational risk + import fan-out.
+shared_modules:
+  - models
+  - enums
+  - errors
+  - protocols
+  - runtime
+
+# Per-repo full-suite escalation thresholds.
+thresholds:
+  modules_changed_for_full_suite: 6
+
+# Test infrastructure — any change forces the full suite.
+test_infrastructure_paths:
+  - tests/conftest.py
+  - pytest.ini
+  - pyproject.toml
+
+# Reverse dependency edges. Key = changed module; value = modules that import it.
+# When `models` changes, also run tests for everything in `models.reverse_deps`.
+# Note: shared_modules entries here are not consulted at runtime
+# (they trigger full suite first), but kept for completeness/documentation.
+adjacency:
+  models:
+    reverse_deps: [handlers, nodes, runtime, tools, audit, utils]
+  enums:
+    reverse_deps: [models, handlers, nodes, runtime, protocols, tools]
+  errors:
+    reverse_deps: [handlers, nodes, runtime, tools, utils, audit]
+  protocols:
+    reverse_deps: [handlers, nodes, runtime, tools]
+  runtime:
+    reverse_deps: [nodes, handlers]
+  handlers:
+    reverse_deps: [nodes]
+  nodes:
+    reverse_deps: []
+  tools:
+    reverse_deps: [handlers, nodes]
+  audit:
+    reverse_deps: []
+  utils:
+    reverse_deps: [handlers, nodes, tools]
+
+# Test locations the src-module mapping cannot reach (OMN-15271).
+#
+# omnimemory keeps its structural gates at tests/ root and its per-area suites
+# in tests/<area>/ — a deliberate layout documented in tests/conftest.py. The
+# adjacency map above only ever resolves to tests/unit/<module>/, so before
+# OMN-15271 none of these could be selected on a PR into dev: a changed root
+# test never ran, and a src/omnimemory/nodes/** change never pulled in the
+# gates that read those nodes (omnimemory#417, CI run 30310898812).
+#
+# Key = repo-relative path ('tests/<file>.py' or 'tests/<dir>/').
+# `triggers` = path prefixes whose change selects it (directory prefixes end
+# with '/', file prefixes are exact). Prefer COARSE directory triggers: a
+# too-narrow trigger stops firing silently when a file is renamed.
+# Empty `triggers` requires a `reason` — "runs nothing" must be a decision.
+#
+# Only tests/unit/<module>/ where <module> is an adjacency key above is
+# auto-covered. Everything else needs an entry: tests/ root modules,
+# tests/<area>/ packages, files directly under tests/unit/, and any
+# tests/unit/<dir>/ with no matching source module.
+#
+# FAIL-CLOSED: a test location present on disk but missing here escalates the
+# whole PR to the full suite (undeclared_test_family). Add the entry rather
+# than waiting for the promotion run to catch the regression.
+#
+# NOT covered here: non-.py fixtures under tests/. A changed *.py test file
+# always self-selects; a changed fixture still falls back to the tests/unit/
+# tree.
+test_families:
+  # --- structural gates that read the src tree directly -------------------
+  tests/test_contract_validation.py:
+    triggers:
+      - src/omnimemory/nodes/
+      - src/omnimemory/models/contracts/
+      - contracts/
+  tests/test_contract_version.py:
+    triggers:
+      - src/omnimemory/nodes/
+      - contracts/
+  tests/test_node_enforcement.py:
+    triggers:
+      - src/omnimemory/nodes/
+  tests/test_node_imports.py:
+    triggers:
+      - src/omnimemory/nodes/
+  tests/test_validation_scripts.py:
+    triggers:
+      - scripts/validation/
+  tests/test_precommit_staged_scope_omn19612.py:
+    triggers:
+      - scripts/
+      - .pre-commit-config.yaml
+      - .github/workflows/ci.yml
+  tests/gates/:
+    triggers:
+      - src/omnimemory/
+      # OMN-15639 consumer-group authorization gate. It AST-walks the WHOLE src
+      # tree default-deny, so its trigger must be the whole src tree: a narrower
+      # trigger would let a non-conformant group name land in an untriggered
+      # package. Coarse on purpose.
+
+  # --- runtime/foundation suites ------------------------------------------
+  tests/test_bootstrap.py:
+    triggers:
+      - src/omnimemory/bootstrap.py
+      - src/omnimemory/secrets.py
+      - src/omnimemory/models/config/
+  tests/test_foundation.py:
+    triggers:
+      - src/omnimemory/__init__.py
+      - src/omnimemory/protocols/
+      - src/omnimemory/models/
+  tests/test_secrets_provider.py:
+    triggers:
+      - src/omnimemory/secrets.py
+      - src/omnimemory/protocols/
+  tests/test_settings.py:
+    triggers:
+      - src/omnimemory/settings.py
+      - src/omnimemory/models/config/
+  tests/test_config_models.py:
+    triggers:
+      - src/omnimemory/models/config/
+  tests/test_semantic_compute_policy_config.py:
+    triggers:
+      - src/omnimemory/models/config/
+  tests/test_migration_progress.py:
+    triggers:
+      - src/omnimemory/models/foundation/
+
+  # --- adapter suites (coarse: the whole adapters package) ----------------
+  tests/test_concurrency.py:
+    triggers:
+      - src/omnimemory/adapters/
+  tests/test_db_url.py:
+    triggers:
+      - src/omnimemory/adapters/
+  tests/test_health_manager.py:
+    triggers:
+      - src/omnimemory/adapters/
+      - src/omnimemory/models/foundation/
+  tests/test_observability_manager.py:
+    triggers:
+      - src/omnimemory/adapters/
+  tests/test_observability_metrics.py:
+    triggers:
+      - src/omnimemory/adapters/
+  tests/test_resource_manager.py:
+    triggers:
+      - src/omnimemory/adapters/
+
+  tests/test_performance.py:
+    triggers: []
+    # Self-contained benchmark module: it copies the shapes it measures rather
+    # than importing src (see its module docstring), so no source path selects
+    # it. Runs on the promotion full suite and when the file itself changes.
+    reason: "self-contained benchmarks; no source path selects them"
+
+  # --- test packages outside tests/unit/ ----------------------------------
+  tests/nodes/:
+    triggers:
+      - src/omnimemory/nodes/
+  tests/handlers/:
+    triggers:
+      - src/omnimemory/handlers/
+      - src/omnimemory/adapters/
+  tests/models/:
+    triggers:
+      - src/omnimemory/models/
+  tests/scripts/:
+    triggers:
+      - scripts/
+  tests/workflows/:
+    triggers:
+      - .github/workflows/
+      # OMN-16509. These suites extract the live Bash out of .github/workflows/*.yml
+      # and execute it against a stubbed CLI, so the workflow YAML is their only
+      # upstream — no src/ path can select them. Coarse on the whole workflows
+      # directory on purpose: a per-file trigger would silently stop firing the
+      # moment a workflow is renamed, which is exactly the failure mode the
+      # surrounding comment warns about.
+  tests/fixtures/:
+    triggers: []
+    # Data fixtures only, with no pytest modules; their sole consumer is the
+    # OMN-19666 shell guard run by the pre-commit hook.
+    reason: "data fixtures consumed only by the OMN-19666 pre-commit shell guard"
+  tests/integration/:
+    triggers: []
+    # Service-backed suites (Postgres/Qdrant/Memgraph/Kafka) that skip without
+    # live backends; CI has no integration job, so they are proven on the
+    # promotion full suite. A changed integration test still self-selects.
+    reason: "service-backed; proven on the promotion full suite"
+
+  # --- inside tests/unit/, but not reachable from tests/unit/<module>/ -----
+  # OMN-17236: PII detector behavioral suite. `adapters` is not an adjacency
+  # key, so tests/unit/adapters/ is not auto-covered. Triggers are coarse on
+  # purpose: the suite pins both the detector patterns and the two live
+  # callers inside node_intent_storage_effect, and a false positive in either
+  # is a hard refusal on the storage path.
+  tests/unit/adapters/:
+    triggers:
+      - src/omnimemory/adapters/
+      - src/omnimemory/nodes/node_intent_storage_effect/
+  tests/unit/scripts/:
+    triggers:
+      - scripts/
+  tests/unit/test_auto_tag_app_token_push_omn18662.py:
+    triggers:
+      - .github/workflows/
+      # OMN-18662. It parses auto-tag-on-merge.yml and asserts the two
+      # conditions that let an App-token tag push start release.yml. The
+      # workflow directory is its only upstream; no src path selects it.
+      # Coarse on the whole directory on purpose, per the warning above: a
+      # per-file trigger stops firing silently the moment a workflow is
+      # renamed, and this one also scans every sibling workflow for a
+      # re-introduced call to the shared reusable tagger.
+  tests/unit/test_ci_workflow_shape.py:
+    triggers:
+      - .github/workflows/
+  tests/unit/test_occ_companion_effect_edited_trigger_omn_18334.py:
+    triggers:
+      - .github/workflows/
+  tests/unit/test_contract_linter.py:
+    triggers:
+      - src/omnimemory/tools/
+  tests/unit/test_detect_test_paths.py:
+    triggers:
+      - scripts/ci/
+  tests/unit/test_dispatch_retrieval_config.py:
+    triggers:
+      - src/omnimemory/runtime/
+  tests/unit/test_entry_points.py:
+    triggers:
+      - pyproject.toml
+  tests/unit/test_graphify_to_memgraph.py:
+    triggers:
+      - scripts/graphify_to_memgraph.py
+  tests/unit/test_graphify_to_qdrant.py:
+    triggers:
+      - scripts/graphify_to_qdrant.py
+  tests/unit/test_handler_subscription_notify_strict.py:
+    triggers:
+      - src/omnimemory/handlers/
+      - src/omnimemory/models/subscription/
+  tests/unit/test_ingestion_models.py:
+    triggers:
+      - src/omnimemory/models/
+      - src/omnimemory/enums/
+  tests/unit/test_model_user_persona_v1.py:
+    triggers:
+      - src/omnimemory/models/persona/
+      - src/omnimemory/enums/
+  tests/unit/test_no_duplicate_node_uuids.py:
+    triggers:
+      - src/omnimemory/nodes/
+  tests/unit/test_persona_enums.py:
+    triggers:
+      - src/omnimemory/enums/
+  tests/unit/test_scope_mapping_config.py:
+    triggers:
+      - src/omnimemory/models/config/
+      - src/omnimemory/enums/
+  tests/unit/test_sql_placeholders.py:
+    triggers:
+      - src/omnimemory/handlers/
+  tests/unit/test_validate_ci_precommit_alignment.py:
+    triggers:
+      - scripts/validate_ci_precommit_alignment.py
+      - .github/workflows/
+      - .pre-commit-config.yaml
+  tests/unit/test_validate_kafka_imports.py:
+    triggers:
+      - scripts/validation/

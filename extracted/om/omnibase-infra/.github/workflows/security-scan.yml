@@ -1,0 +1,76 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# CodeQL security and quality analysis for omnibase_infra.
+# Kept repo-local so CodeQL can use the repo config that excludes CI metadata.
+# OMN-5425
+
+name: Security Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main, dev]
+    # OMN-16216: labeled/unlabeled/ready_for_review so applying/removing
+    # ci:ready or a draft->ready flip retriggers this workflow's evaluation
+    # of the codeql job's if:.
+    types: [opened, synchronize, reopened, labeled, unlabeled, ready_for_review]
+  schedule:
+    # Run weekly on Monday at 06:00 UTC
+    - cron: "0 6 * * 1"
+
+concurrency:
+  # OMN-13949: cancel superseded PR runs to free saturated runners. merge_group
+  # entries carry a unique github.ref, so queue entries never cross-cancel.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  codeql:
+    timeout-minutes: 30
+    name: CodeQL
+    # OMN-16216 draft-state CI admission gate (mirrors onex_change_control
+    # PR #6686 / OMN-15731): "CodeQL" is an EXPECTED_EXTERNAL_CONTEXTS member
+    # in scripts/ci/ci_summary_gate.py, where EXTERNAL_GOOD_CONCLUSIONS =
+    # {"success"} -- a "skipped" conclusion already fails closed there with
+    # no code change needed, so gating this job on draft/ci:ready is safe
+    # as-is for pull_request events. push/schedule are unaffected (no PR to
+    # gate on). Main-boundary carve-out unchanged.
+    if: github.event_name != 'pull_request' || github.base_ref != 'dev' || !github.event.pull_request.draft || contains(github.event.pull_request.labels.*.name, 'ci:ready')
+    runs-on: >-
+      ${{
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name != github.repository)
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON(vars.OMNI_SECURITY_SCAN_RUNS_ON_JSON || vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+      }}
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@dc73d59c2d7bd4f8194098a91219eeee6d8a1719 # v4
+        with:
+          languages: python
+          queries: security-and-quality
+          config-file: ./.github/codeql/codeql-config.yml
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@dc73d59c2d7bd4f8194098a91219eeee6d8a1719 # v4
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@dc73d59c2d7bd4f8194098a91219eeee6d8a1719 # v4
+        with:
+          category: /language:python
+          # GitHub code-scanning upload/processing returned malformed .github
+          # annotations for this PR. Keep the required CodeQL execution check
+          # useful without blocking on server-side SARIF processing.
+          upload: never
+          wait-for-processing: false

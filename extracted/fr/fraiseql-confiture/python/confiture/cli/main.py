@@ -1,0 +1,255 @@
+"""Main CLI entry point for Confiture.
+
+This module defines the main Typer application and registers all CLI commands.
+"""
+
+import importlib.util
+
+import typer
+
+from confiture import __version__
+
+# Sub-applications
+from confiture.cli.commands.admin import (
+    install_helpers,
+    restore,
+    validate_config,
+    validate_profile,
+    verify_checksums,
+)
+from confiture.cli.commands.apply_as import migrate_apply_as
+from confiture.cli.commands.bootstrap import bootstrap
+from confiture.cli.commands.build import build
+from confiture.cli.commands.debug import debug_app
+from confiture.cli.commands.diff import schema_diff
+from confiture.cli.commands.drift import drift
+from confiture.cli.commands.hooks import hooks_app
+from confiture.cli.commands.init import init
+from confiture.cli.commands.introspect import introspect
+from confiture.cli.commands.lint import lint
+from confiture.cli.commands.lint_unified import lint_unified
+from confiture.cli.commands.mcp import mcp_app
+from confiture.cli.commands.migrate.baseline import migrate_baseline
+from confiture.cli.commands.migrate.current import migrate_current
+from confiture.cli.commands.migrate.diff import migrate_diff
+from confiture.cli.commands.migrate.down import migrate_down, migrate_down_to
+from confiture.cli.commands.migrate.fix import migrate_fix
+from confiture.cli.commands.migrate.fix_signatures import migrate_fix_signatures
+from confiture.cli.commands.migrate.generate import migrate_generate
+from confiture.cli.commands.migrate.introspect import migrate_introspect
+from confiture.cli.commands.migrate.preflight import migrate_preflight
+from confiture.cli.commands.migrate.rebuild import migrate_rebuild
+from confiture.cli.commands.migrate.reinit import migrate_reinit
+from confiture.cli.commands.migrate.squash import migrate_squash, migrate_squash_ledger
+from confiture.cli.commands.migrate.status import migrate_status
+from confiture.cli.commands.migrate.steps import migrate_steps
+from confiture.cli.commands.migrate.up import migrate_up
+from confiture.cli.commands.migrate.validate import migrate_validate
+from confiture.cli.commands.migrate.verify import migrate_verify
+from confiture.cli.commands.schema import schema_app
+from confiture.cli.generate import generate_app
+from confiture.cli.helpers import console
+from confiture.cli.markup import verbatim
+from confiture.cli.plugins import load_plugins
+from confiture.cli.schema_to_schema import schema_to_schema_app
+from confiture.cli.seed import seed_app
+from confiture.cli.sync import sync
+from confiture.cli.test_db import test_db_app
+from confiture.core.parser_info import parser_line
+from confiture.error_codes import render_exit_codes_doc, render_exit_codes_json
+
+# Valid output formats for linting
+LINT_FORMATS = ("table", "json", "csv")
+
+# Common command names for "Did you mean?" suggestions
+COMMON_COMMANDS = [
+    "init",
+    "build",
+    "migrate",
+    "lint",
+    "introspect",
+    "seed",
+    "generate",
+    "install-helpers",
+    "restore",
+    "bootstrap",
+    "migrate-up",
+    "migrate-down",
+    "migrate-status",
+    "migrate-validate",
+    "drift",
+]
+
+# Exit-code summary shown in the top-level --help epilog. The full contract
+# lives in docs/reference/exit-codes.md (issue #146).
+_EXIT_CODE_EPILOG = (
+    "Exit codes (see docs/reference/exit-codes.md): "
+    "0 success · 1 generic failure · 2 tracking table absent · "
+    "3 DB connection failed · 4 schema/build · 5 config invalid · "
+    "6 lock contention · 7 git/grant · 8 irreversible rollback."
+)
+
+# Create Typer app
+app = typer.Typer(
+    name="confiture",
+    help="PostgreSQL migrations, sweetly done 🍓",
+    epilog=_EXIT_CODE_EPILOG,
+    add_completion=False,
+)
+
+# Create migrate subcommand group
+migrate_app = typer.Typer(help="Migration commands")
+app.add_typer(migrate_app, name="migrate")
+
+# Add generate subcommand group (function trees, pgTAP, stubs)
+app.add_typer(generate_app, name="generate")
+
+# Add seed subcommand group (seed validation)
+app.add_typer(seed_app, name="seed")
+
+# Add test-db subcommand group (CI template/clone provisioning)
+app.add_typer(test_db_app, name="test-db")
+
+# Add mcp subcommand group (MCP server)
+app.add_typer(mcp_app, name="mcp")
+
+# Add debug subcommand group (CTE debugger)
+app.add_typer(debug_app, name="debug")
+
+# Add hooks subcommand group (notification hook testing)
+app.add_typer(hooks_app, name="hooks")
+
+# Add schema subcommand group (the schema model itself)
+app.add_typer(schema_app, name="schema")
+
+
+def version_callback(value: bool) -> None:
+    """Print version and exit."""
+    if value:
+        console.print(f"confiture version {verbatim(__version__)}")
+        console.print(parser_line())
+        native = importlib.util.find_spec("confiture._core") is not None
+        console.print(f"native extension: {verbatim('yes' if native else 'no')}")
+        raise typer.Exit()
+
+
+def exit_codes_callback(value: bool) -> None:
+    """Print the canonical exit-code reference and exit."""
+    if value:
+        console.print("confiture exit-code convention (#146):\n")
+        console.print(render_exit_codes_doc())
+        raise typer.Exit()
+
+
+def exit_codes_json_callback(value: bool) -> None:
+    """Print the machine-readable exit-code contract as JSON and exit.
+
+    The stable seam wrapper authors (the fraisier adapters) parse to keep their
+    exit-code classifiers in lockstep with this contract. Emitted with
+    ``typer.echo`` — raw, never through the Rich console, so the JSON's ``[``/``]``
+    are not mistaken for markup and no soft-wrapping corrupts the payload.
+    """
+    if value:
+        typer.echo(render_exit_codes_json())
+        raise typer.Exit()
+
+
+@app.callback()
+def main(
+    version: bool = typer.Option(
+        False,
+        "--version",
+        callback=version_callback,
+        is_eager=True,
+        help="Show version and exit",
+    ),
+    exit_codes: bool = typer.Option(
+        False,
+        "--exit-codes",
+        callback=exit_codes_callback,
+        is_eager=True,
+        hidden=True,
+        help="Print the canonical exit-code convention and exit",
+    ),
+    exit_codes_json: bool = typer.Option(
+        False,
+        "--exit-codes-json",
+        callback=exit_codes_json_callback,
+        is_eager=True,
+        hidden=True,
+        help="Print the machine-readable exit-code contract (JSON) and exit",
+    ),
+) -> None:
+    """Confiture - PostgreSQL migrations, sweetly done 🍓."""
+    pass
+
+
+# Register schema commands
+app.command()(init)
+app.command()(build)
+app.command()(lint)
+app.command("lint-unified")(lint_unified)
+app.command()(introspect)
+
+# Register diff command
+app.command("diff")(schema_diff)
+
+# Register drift command
+app.command()(drift)
+
+# Register admin commands
+app.command("install-helpers")(install_helpers)
+app.command()(validate_profile)
+# #143: verify-checksums is the checksum check's canonical name.
+# #311: also registered under `migrate` below. Both names are permanent — the
+# top-level one is on the fraisier adapter's exit-code table, and `migrate` is
+# where a user looking for a migration concern actually looks.
+app.command("verify-checksums")(verify_checksums)
+# #144: offline config + migrations-tree validation (never connects).
+app.command("validate-config")(validate_config)
+app.command()(restore)
+
+# Register bootstrap command (#137 — one-shot environment ownership setup)
+app.command()(bootstrap)
+
+# Medium 3: production data sync (with opt-in PII anonymization)
+app.command("sync")(sync)
+
+# Register migrate core commands
+migrate_app.command("status")(migrate_status)
+migrate_app.command("current")(migrate_current)
+migrate_app.command("up")(migrate_up)
+migrate_app.command("down")(migrate_down)
+migrate_app.command("down-to")(migrate_down_to)
+migrate_app.command("generate")(migrate_generate)
+
+# Register migrate state commands
+migrate_app.command("baseline")(migrate_baseline)
+migrate_app.command("reinit")(migrate_reinit)
+migrate_app.command("rebuild")(migrate_rebuild)
+migrate_app.command("squash")(migrate_squash)
+migrate_app.command("squash-ledger")(migrate_squash_ledger)
+
+# Register migrate analysis commands
+migrate_app.command("diff")(migrate_diff)
+migrate_app.command("validate")(migrate_validate)
+migrate_app.command("fix")(migrate_fix)
+migrate_app.command("fix-signatures")(migrate_fix_signatures)
+migrate_app.command("introspect")(migrate_introspect)
+migrate_app.command("verify")(migrate_verify)
+# #311: the same callable as the top-level `verify-checksums`, not a wrapper —
+# one function and one option list, so the two names cannot drift.
+migrate_app.command("verify-checksums")(verify_checksums)
+migrate_app.command("preflight")(migrate_preflight)
+migrate_app.command("steps")(migrate_steps)
+migrate_app.command("apply-as")(migrate_apply_as)
+
+# Medium 4: schema-to-schema (FDW) subcommand group
+migrate_app.add_typer(schema_to_schema_app, name="schema-to-schema")
+
+# Installed distributions add theirs last, to a tree whose own commands are all in.
+load_plugins(app)
+
+
+if __name__ == "__main__":
+    app()

@@ -1,0 +1,268 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Change-aware test path resolution for omnimarket CI."""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from fnmatch import fnmatchcase
+from pathlib import Path
+
+from scripts.ci.test_selection_loader import ModelAdjacencyMap, load_adjacency_map
+from scripts.ci.test_selection_models import (
+    EnumFullSuiteReason,
+    ModelTestSelection,
+)
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+SRC_PREFIX = "src/omnimarket/"
+TEST_PREFIX = "tests/"
+
+FULL_SUITE_BRANCHES = {"main"}
+
+
+def resolve_test_paths(
+    changed_files: list[str],
+    adjacency_path: Path,
+    repo_root: Path | None = None,
+) -> list[str]:
+    """Map changed file paths to deterministic test directories.
+
+    Behavior:
+      - Source changes under src/omnimarket/<module>: include tests/<module>/.
+      - Test-only changes under tests/: include the changed test directory.
+      - Files outside src/ and tests/: no contribution.
+      - Mapped paths that do not exist on disk are dropped, so pytest never
+        receives a non-existent test directory.
+    """
+    config = load_adjacency_map(adjacency_path)
+    return _resolve(changed_files, config, repo_root=repo_root or REPO_ROOT)
+
+
+def _requires_unnarrowable_full_suite(changed_files: list[str]) -> bool:
+    """True when a changed path directly under tests/ cannot be narrowed.
+
+    A path is "root-level" when it has exactly one path separator after the
+    `tests/` prefix (i.e. `parts[1]` is the file itself, not a subdirectory
+    name) -- `tests/test_foo.py`, not `tests/nodes/test_foo.py`. Such a path
+    has no containing directory below `tests/` itself.
+
+    Before this check, `_resolve()` built the string `tests/<parts[1]>/` for
+    every tests/-prefixed change regardless of whether `parts[1]` names a
+    directory or a file. For a root-level file that construction is wrong:
+    it is either a non-existent pseudo-directory the on-disk filter silently
+    drops (changed file absent at selection time -- e.g. deleted), or a
+    `TestPath` value that is file-shaped rather than the directory-only shape
+    the model documents (changed file present at selection time). Escalating
+    to the real full suite, attributed by reason, replaces both outcomes with
+    one deterministic and provable answer -- it does not depend on whether
+    the file happens to exist on disk when the selector runs.
+    """
+    for path in changed_files:
+        if not path.startswith(TEST_PREFIX) or not path.endswith(".py"):
+            continue
+        parts = path.split("/")
+        if len(parts) == 2:
+            return True
+    return False
+
+
+def _resolve(
+    changed_files: list[str],
+    config: ModelAdjacencyMap,
+    repo_root: Path,
+) -> list[str]:
+    direct_modules: set[str] = set()
+    selected: set[str] = set()
+
+    for path in changed_files:
+        if path.startswith(SRC_PREFIX):
+            module = path[len(SRC_PREFIX) :].split("/", 1)[0]
+            if module in config.adjacency:
+                direct_modules.add(module)
+        elif path.startswith(TEST_PREFIX):
+            parts = path.split("/")
+            if len(parts) == 2 and path.endswith(".py"):
+                # OMN-15277: a root-level test file (no subdirectory) has no
+                # containing directory below tests/ itself. Constructing
+                # tests/<file>.py/ here would produce a pseudo-directory that
+                # is either silently dropped by the on-disk filter below
+                # (file absent at resolution time) or a file-shaped TestPath
+                # value that only "works" via an accidental pathlib
+                # trailing-slash normalization (file present). This function
+                # has no full-suite-escalation concept of its own (that lives
+                # in compute_selection()'s CHANGED_TEST_UNNARROWABLE check,
+                # which short-circuits before ever reaching this function) --
+                # contribute the real containing scope, tests/ itself,
+                # instead of a malformed pseudo-path. CodeRabbit-flagged gap:
+                # this direct resolve_test_paths() API has no equivalent
+                # escalation of its own, so it must never emit the malformed
+                # shape either.
+                selected.add(TEST_PREFIX)
+            elif len(parts) >= 2:
+                selected.add(f"{TEST_PREFIX}{parts[1]}/")
+
+    expanded: set[str] = set(direct_modules)
+    for module in direct_modules:
+        expanded.update(config.adjacency[module].reverse_deps)
+
+    for module in expanded:
+        selected.add(f"{TEST_PREFIX}{module}/")
+
+    return sorted(p for p in selected if (repo_root / p).exists())
+
+
+def compute_selection(
+    changed_files: list[str],
+    adjacency_path: Path,
+    ref_name: str,
+    event_name: str = "pull_request",
+    feature_flag_enabled: bool = True,
+    repo_root: Path | None = None,
+) -> ModelTestSelection:
+    config = load_adjacency_map(adjacency_path)
+    root = repo_root or REPO_ROOT
+
+    if not feature_flag_enabled:
+        return _full_suite(EnumFullSuiteReason.FEATURE_FLAG_OFF)
+
+    if ref_name in FULL_SUITE_BRANCHES:
+        return _full_suite(EnumFullSuiteReason.MAIN_BRANCH)
+    if event_name == "merge_group":
+        return _full_suite(EnumFullSuiteReason.MERGE_GROUP)
+    if event_name == "schedule":
+        return _full_suite(EnumFullSuiteReason.SCHEDULED)
+
+    for changed in changed_files:
+        if any(
+            changed == infra or changed.startswith(infra.rstrip("/") + "/")
+            for infra in config.test_infrastructure_paths
+        ):
+            return _full_suite(EnumFullSuiteReason.TEST_INFRASTRUCTURE)
+
+    # OMN-20180: delegation coverage spans unit, golden and flat tests, so
+    # module-to-directory narrowing cannot safely represent these surfaces.
+    if any(
+        fnmatchcase(changed, pattern)
+        for changed in changed_files
+        for pattern in config.full_suite_path_globs
+    ):
+        return _full_suite(EnumFullSuiteReason.PROTECTED_SURFACE)
+
+    # Fail closed even in mixed diffs: an unmapped source must not disappear
+    # merely because another changed module contributed a test directory.
+    # A file directly under src/omnimarket/ has no mapped module either.
+    source_paths = [
+        path[len(SRC_PREFIX) :] for path in changed_files if path.startswith(SRC_PREFIX)
+    ]
+    if any(
+        "/" not in path or path.split("/", 1)[0] not in config.adjacency
+        for path in source_paths
+    ):
+        return _full_suite(EnumFullSuiteReason.UNMAPPED_MODULE)
+
+    # OMN-15277: a changed test path directly under tests/ root (no
+    # subdirectory) cannot be narrowed below tests/ itself. Checked after the
+    # test-infrastructure loop so paths already declared there (e.g.
+    # tests/conftest.py) keep reporting TEST_INFRASTRUCTURE, not this reason.
+    if _requires_unnarrowable_full_suite(changed_files):
+        return _full_suite(EnumFullSuiteReason.CHANGED_TEST_UNNARROWABLE)
+
+    changed_modules = {path.split("/", 1)[0] for path in source_paths}
+    if changed_modules & set(config.shared_modules):
+        return _full_suite(EnumFullSuiteReason.SHARED_MODULE)
+
+    if len(changed_modules) >= config.thresholds.modules_changed_for_full_suite:
+        return _full_suite(EnumFullSuiteReason.THRESHOLD_MODULES)
+
+    selected = _resolve(changed_files, config, repo_root=root)
+    if not selected:
+        # OMN-20305: nothing narrowed, so the whole tests/ tree runs. Take the
+        # full-suite shard matrix; an is_full_suite=False selection of tests/
+        # became one serial Split 1/1 job (63 minutes on omnimarket#3175).
+        return _full_suite(EnumFullSuiteReason.NO_NARROWABLE_SELECTION)
+    # OMN-15639: repo-wide gates are unioned in after narrowing. They assert
+    # invariants over files the adjacency map cannot attribute to a single
+    # module (all of src/**/contract.yaml, for instance), so a narrowed run
+    # that omits them would let the invariant be reintroduced on the everyday
+    # dev path. Not filtered against the on-disk tree -- see the field
+    # docstring on ModelAdjacencyMap.always_selected_paths.
+    if not any(path == TEST_PREFIX for path in selected):
+        selected = sorted(set(selected) | set(config.always_selected_paths))
+    split_count = _split_count_for(selected)
+
+    return ModelTestSelection(
+        selected_paths=selected,
+        split_count=split_count,
+        is_full_suite=False,
+        full_suite_reason=None,
+        matrix=list(range(1, split_count + 1)),
+    )
+
+
+def _full_suite(reason: EnumFullSuiteReason) -> ModelTestSelection:
+    return ModelTestSelection(
+        selected_paths=["tests/"],
+        split_count=20,
+        is_full_suite=True,
+        full_suite_reason=reason,
+        matrix=list(range(1, 21)),
+    )
+
+
+def _split_count_for(selected_paths: list[str]) -> int:
+    n = len(selected_paths)
+    if n <= 2:
+        return 1
+    if n <= 5:
+        return 2
+    if n <= 10:
+        return 3
+    if n <= 16:
+        return 4
+    return 5
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Resolve change-aware test paths")
+    parser.add_argument(
+        "--changed-files-from",
+        type=Path,
+        required=True,
+        help="Path to a file with one changed-file path per line.",
+    )
+    parser.add_argument("--ref-name", required=True)
+    parser.add_argument("--event-name", default="pull_request")
+    parser.add_argument(
+        "--adjacency",
+        type=Path,
+        default=Path(__file__).parent / "test_selection_adjacency.yaml",
+    )
+    parser.add_argument(
+        "--feature-flag",
+        choices=("on", "off"),
+        default="on",
+    )
+    args = parser.parse_args(argv)
+
+    changed = [
+        line.strip()
+        for line in args.changed_files_from.read_text().splitlines()
+        if line.strip()
+    ]
+    selection = compute_selection(
+        changed_files=changed,
+        adjacency_path=args.adjacency,
+        ref_name=args.ref_name,
+        event_name=args.event_name,
+        feature_flag_enabled=(args.feature_flag == "on"),
+    )
+    sys.stdout.write(selection.model_dump_json())
+    sys.stdout.write("\n")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

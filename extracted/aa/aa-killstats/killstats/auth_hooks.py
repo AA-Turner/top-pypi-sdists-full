@@ -18,7 +18,7 @@ class KillstatsMenuItem(MenuItemHook):
         super().__init__(
             f"{app_settings.KILLSTATS_APP_NAME}",
             "fas fa-star fa-fw",
-            "killstats:index",
+            "killstats:react_base",
             navactive=["killstats:"],
         )
 

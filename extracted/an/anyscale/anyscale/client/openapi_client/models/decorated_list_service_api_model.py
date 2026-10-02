@@ -53,6 +53,7 @@ class DecoratedListServiceAPIModel(object):
         'base_url': 'str',
         'ended_at': 'datetime',
         'service_status_checklist': 'ServiceStatusChecklist',
+        'traffic_distribution': 'ServiceTrafficDistribution',
         'creator': 'MiniUser',
         'is_multi_version': 'bool',
         'error_message': 'str',
@@ -80,13 +81,14 @@ class DecoratedListServiceAPIModel(object):
         'base_url': 'base_url',
         'ended_at': 'ended_at',
         'service_status_checklist': 'service_status_checklist',
+        'traffic_distribution': 'traffic_distribution',
         'creator': 'creator',
         'is_multi_version': 'is_multi_version',
         'error_message': 'error_message',
         'type': 'type'
     }
 
-    def __init__(self, id=None, name=None, description=None, project_id=None, cloud_id=None, creator_id=None, created_at=None, hostname=None, current_state=None, goal_state=None, auth_token=None, secondary_auth_token=None, auto_rollout_enabled=None, versions=None, primary_version=None, canary_version=None, service_observability_urls=None, base_url=None, ended_at=None, service_status_checklist=None, creator=None, is_multi_version=None, error_message=None, type=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, description=None, project_id=None, cloud_id=None, creator_id=None, created_at=None, hostname=None, current_state=None, goal_state=None, auth_token=None, secondary_auth_token=None, auto_rollout_enabled=None, versions=None, primary_version=None, canary_version=None, service_observability_urls=None, base_url=None, ended_at=None, service_status_checklist=None, traffic_distribution=None, creator=None, is_multi_version=None, error_message=None, type=None, local_vars_configuration=None):  # noqa: E501
         """DecoratedListServiceAPIModel - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -112,6 +114,7 @@ class DecoratedListServiceAPIModel(object):
         self._base_url = None
         self._ended_at = None
         self._service_status_checklist = None
+        self._traffic_distribution = None
         self._creator = None
         self._is_multi_version = None
         self._error_message = None
@@ -144,6 +147,8 @@ class DecoratedListServiceAPIModel(object):
             self.ended_at = ended_at
         if service_status_checklist is not None:
             self.service_status_checklist = service_status_checklist
+        if traffic_distribution is not None:
+            self.traffic_distribution = traffic_distribution
         self.creator = creator
         self.is_multi_version = is_multi_version
         if error_message is not None:
@@ -637,6 +642,29 @@ class DecoratedListServiceAPIModel(object):
         """
 
         self._service_status_checklist = service_status_checklist
+
+    @property
+    def traffic_distribution(self):
+        """Gets the traffic_distribution of this DecoratedListServiceAPIModel.  # noqa: E501
+
+        How the service's traffic splits across its cloud resources and versions, from the most recent reconciler snapshot. Null unless the service's DNS spreads it across more than one cloud resource.  # noqa: E501
+
+        :return: The traffic_distribution of this DecoratedListServiceAPIModel.  # noqa: E501
+        :rtype: ServiceTrafficDistribution
+        """
+        return self._traffic_distribution
+
+    @traffic_distribution.setter
+    def traffic_distribution(self, traffic_distribution):
+        """Sets the traffic_distribution of this DecoratedListServiceAPIModel.
+
+        How the service's traffic splits across its cloud resources and versions, from the most recent reconciler snapshot. Null unless the service's DNS spreads it across more than one cloud resource.  # noqa: E501
+
+        :param traffic_distribution: The traffic_distribution of this DecoratedListServiceAPIModel.  # noqa: E501
+        :type: ServiceTrafficDistribution
+        """
+
+        self._traffic_distribution = traffic_distribution
 
     @property
     def creator(self):

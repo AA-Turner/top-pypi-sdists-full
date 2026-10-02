@@ -1,0 +1,161 @@
+"""Common formatting utilities for structured output.
+
+Provides reusable functions for JSON and CSV output handling
+across all CLI commands that support structured output.
+"""
+
+import csv
+from io import StringIO
+from pathlib import Path
+from typing import Any
+
+from rich.console import Console
+
+from confiture.cli.helpers import emit
+from confiture.cli.markup import verbatim
+
+
+def save_csv(headers: list[str], rows: list[list[Any]], output_path: Path) -> None:
+    """Save data as CSV file with proper escaping.
+
+    Args:
+        headers: Column headers for CSV
+        rows: List of rows (each row is a list of values)
+        output_path: Path to write CSV file to
+    """
+    csv_output = StringIO()
+    writer = csv.writer(csv_output)
+    writer.writerow(headers)
+    writer.writerows(rows)
+    output_path.write_text(csv_output.getvalue())
+
+
+def print_csv(headers: list[str], rows: list[list[Any]], console: Console) -> None:
+    """Print CSV to console.
+
+    Args:
+        headers: Column headers for CSV
+        rows: List of rows (each row is a list of values)
+        console: Rich console for output
+    """
+    csv_output = StringIO()
+    writer = csv.writer(csv_output)
+    writer.writerow(headers)
+    writer.writerows(rows)
+    console.print(csv_output.getvalue())
+
+
+def display_drift_report(report: Any, console: Console) -> None:
+    """Display drift report to console.
+
+    Args:
+        report: DriftReport instance with drift detection results
+        console: Rich console for output
+    """
+    if not report.has_drift:
+        console.print("[green]✅ No schema drift detected.[/green]")
+        return
+    console.print(
+        f"[yellow]⚠️  Schema drift detected[/yellow]: "
+        f"{verbatim(report.critical_count)} critical, "
+        f"{verbatim(report.warning_count)} warnings, "
+        f"{verbatim(report.info_count)} info"
+    )
+
+    # Partition items so structural, ACL, and ownership drift are visually distinct.
+    acl_types = {"missing_grant", "extra_grant"}
+    ownership_types = {"wrong_owner"}
+    structural_items = [
+        i
+        for i in report.drift_items
+        if i.drift_type.value not in acl_types and i.drift_type.value not in ownership_types
+    ]
+    acl_items = [i for i in report.drift_items if i.drift_type.value in acl_types]
+    ownership_items = [i for i in report.drift_items if i.drift_type.value in ownership_types]
+
+    def _emit(item: Any) -> None:
+        color = "red" if item.severity.value == "critical" else "yellow"
+        console.print(
+            f"  [{color}]{verbatim(item.severity.value.upper())}[/{color}] "
+            f"{verbatim(item.drift_type.value.upper())} "
+            f"{verbatim(item.object_name)}: {verbatim(item.message)}"
+        )
+
+    for item in structural_items:
+        _emit(item)
+    if acl_items:
+        console.print("\n[bold]ACL drift[/bold]")
+        for item in acl_items:
+            _emit(item)
+    if ownership_items:
+        console.print("\n[bold]Ownership drift[/bold]")
+        for item in ownership_items:
+            _emit(item)
+
+
+def display_signature_drift_report(report: Any, console: Console) -> None:
+    """Display a FunctionSignatureDriftReport to console.
+
+    Args:
+        report: FunctionSignatureDriftReport instance
+        console: Rich console for output
+    """
+    if not report.has_drift:
+        console.print(
+            f"[green]✅ No stale function overloads detected "
+            f"({verbatim(report.functions_checked)} functions checked)[/green]"
+        )
+        return
+
+    console.print(
+        f"[red]❌ {len(report.stale_overloads)} stale function overload(s) detected[/red]"
+    )
+    for overload in report.stale_overloads:
+        console.print(f"\n  [bold]{verbatim(overload.schema)}.{verbatim(overload.name)}[/bold]")
+        console.print(f"    Stale (in DB):   [red]{verbatim(overload.stale_signature)}[/red]")
+        for src in overload.source_signatures:
+            console.print(f"    Source defines:  [green]{verbatim(src)}[/green]")
+        console.print(f"    [cyan]Fix: {verbatim(overload.drop_sql)}[/cyan]")
+
+    if report.missing_from_db:
+        console.print(
+            f"\n  [dim]ℹ️  {len(report.missing_from_db)} source function(s) "
+            f"not yet in DB (pending deployment)[/dim]"
+        )
+
+
+def handle_output(
+    format_type: str,
+    data_dict: dict[str, Any],
+    csv_data: tuple[list[str], list[list[Any]]] | None,
+    output_path: Path | None,
+    console: Console,
+) -> None:
+    """Handle output in requested format.
+
+    Routes output to appropriate handler (JSON/CSV/text) and either
+    saves to file or prints to console.
+
+    Args:
+        format_type: "text", "json", or "csv"
+        data_dict: Data for JSON output
+        csv_data: (headers, rows) tuple for CSV output, or None if CSV not supported
+        output_path: Optional file to save to
+        console: Rich console for printing
+    """
+    if format_type == "json":
+        emit(data_dict, output_path, console)
+
+    elif format_type == "csv":
+        if csv_data is None:
+            console.print("[yellow]⚠ CSV output not supported for this command[/yellow]")
+            return
+
+        headers, rows = csv_data
+        if output_path:
+            save_csv(headers, rows, output_path)
+            console.print(
+                f"[green]✓ CSV report saved to {verbatim(output_path.absolute())}[/green]"
+            )
+        else:
+            print_csv(headers, rows, console)

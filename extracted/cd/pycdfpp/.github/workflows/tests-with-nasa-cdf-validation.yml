@@ -1,0 +1,73 @@
+name: Validate output against the NASA CDF reference library
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    name: build the NASA CDF toolkit and validate CDFpp's output with it
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Install system dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y g++
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+      - name: Install Python dependencies
+        run: python3.14 -m pip install meson ninja numpy meson-python>=0.14.0 build wheel ddt requests
+
+      - name: Configure and build CDFpp (pycdfpp is built by default)
+        run: |
+          meson setup build
+          ninja -C build
+
+      # Cached on the pinned distribution version -- this is NASA's own reference
+      # implementation, not something we track for updates; bump the key (and the
+      # URL below) only on a deliberate version bump.
+      - name: Cache the NASA CDF reference library build
+        id: nasa-cdf-cache
+        uses: actions/cache@v6
+        with:
+          path: nasa-cdf
+          key: nasa-cdf-toolkit-3.9.2-${{ runner.os }}
+
+      # Shared with every other job that runs tests/full_corpus (see test.py's
+      # fetch_cdf): same key everywhere so one populated cache serves them all,
+      # instead of each job re-fetching the same ~33 files from the mirror.
+      - name: Cache full_corpus fixtures
+        uses: actions/cache@v6
+        with:
+          path: tests/full_corpus/.cache
+          key: cdf-corpus-v1-${{ hashFiles('tests/full_corpus/test.py') }}
+          restore-keys: cdf-corpus-v1-
+
+      - name: Build the NASA CDF reference library (cdfvalidate) from source
+        if: steps.nasa-cdf-cache.outputs.cache-hit != 'true'
+        run: |
+          # spdf.gsfc.nasa.gov has been observed to be slow/unreliable from
+          # GitHub-hosted runners' network path even though it's fine from a
+          # regular residential/office connection -- retry with generous
+          # per-attempt timeouts rather than failing on the first hiccup.
+          curl --retry 5 --retry-delay 10 --retry-all-errors \
+            --connect-timeout 30 --max-time 180 --proto '=https' \
+            -sL https://spdf.gsfc.nasa.gov/pub/software/cdf/dist/cdf39_2/linux/cdf39_2-dist-all.tar.gz \
+            -o cdf.tar.gz
+          mkdir -p nasa-cdf
+          tar xzf cdf.tar.gz -C nasa-cdf --strip-components=1
+          cd nasa-cdf
+          cp Makefile-classic Makefile
+          make OS=linux ENV=gnu CURSES=no SHARED=yes all
+
+      - name: Validate CDFpp-saved fixtures against the NASA reference tool
+        env:
+          LD_LIBRARY_PATH: ${{ github.workspace }}/nasa-cdf/src/lib
+          CDFVALIDATE: ${{ github.workspace }}/nasa-cdf/src/tools/cdfvalidate
+        run: |
+          PYTHONPATH="$(pwd)/build" python3 tests/nasa_cdf_validation/validate.py tests/resources --with-corpus

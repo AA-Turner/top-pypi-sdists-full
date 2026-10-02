@@ -1,0 +1,116 @@
+---
+name: close_out
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: compute
+runtime_profiles: [main]
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  Close-out pipeline WorkflowPackage. Coordinates the multi-phase end-of-day
+  close-out workflow. Phase order mirrors
+  omniclaude/scripts/closeout-phase-contract.yaml phases whose category is not
+  "build".
+  Circuit breaker trips after 3 consecutive failures.
+
+handler:
+  module: omnimarket.nodes.node_close_out.handlers.handler_close_out
+  class: HandlerCloseOut
+  input_model: omnimarket.nodes.node_close_out.models.model_close_out_start_command.ModelCloseOutStartCommand
+
+descriptor:
+  node_archetype: compute
+  purity: pure
+  idempotent: true
+  timeout_ms: 300000
+
+inputs:
+  dry_run:
+    type: bool
+    description: "Run without side effects"
+    required: false
+    default: false
+
+outputs:
+  final_phase:
+    type: str
+    description: "Terminal phase reached (done or failed)"
+  prs_merged:
+    type: int
+    description: "Total PRs merged during close-out"
+  prs_polished:
+    type: int
+    description: "Total PRs polished during close-out"
+
+terminal_event: onex.evt.omnimarket.close-out-completed.v1
+
+concurrent_run_guard:
+  # File-based lease; see close_out_lease.py. Lock filename is relative to the
+  # state_dir passed into HandlerCloseOut.handle_with_guard() (typically
+  # $ONEX_REGISTRY_ROOT/.onex_state/). Lease expiry is 2x the handler timeout
+  # (2 * 300s = 600s) so a crashed run never wedges the pipeline indefinitely.
+  lock_file: close-out-lock.json
+  lease_expiry_seconds: 600
+  skipped_event_model: omnimarket.nodes.node_close_out.models.model_close_out_skipped.ModelCloseOutSkipped
+  skip_reason: concurrent_run_in_progress
+
+closeout_phase_order:
+  source: omniclaude/scripts/closeout-phase-contract.yaml
+  excludes_categories:
+    - build
+  phases:
+    - a1_merge_sweep
+    - a2_deploy_plugin
+    - a2b_plugin_refresh
+    - a3_start_env
+    - b1_runtime_sweep
+    - b2_data_flow_sweep
+    - b3_database_sweep
+    - b4b_database_sweep
+    - b4b_database_sweep_retry
+    - b4b_data_flow_sweep
+    - b4b_data_flow_sweep_retry
+    - b4b_runtime_sweep
+    - b4b_runtime_sweep_retry
+    - b5_integration
+    - b6_contract_verify
+    - c1_release
+    - c2_redeploy
+    - d3_dashboard_sweep
+    - e1_foundation_tests
+    - e2_pipeline_tests
+    - e4_golden_chain
+    - e4_golden_chain_retry
+    - e3_dashboard_tests
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.close-out-start.v1
+  publish_topics:
+    - onex.evt.omnimarket.close-out-phase-transition.v1
+    - onex.evt.omnimarket.close-out-completed.v1
+    - onex.evt.omnimarket.close-out-skipped.v1
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: close_out
+      handler:
+        name: HandlerCloseOut
+        module: omnimarket.nodes.node_close_out.handlers.handler_close_out
+      event_model:
+        name: ModelCloseOutStartCommand
+        module: omnimarket.nodes.node_close_out.models.model_close_out_start_command
+
+metadata:
+  transport_type: kafka
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.close-out-start.v1
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.close-out-completed.v1
+  - onex.evt.omnimarket.close-out-phase-transition.v1
+  - onex.evt.omnimarket.close-out-skipped.v1

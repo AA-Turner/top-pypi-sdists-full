@@ -1,0 +1,34 @@
+#
+# This file is part of pysmi software.
+#
+# Copyright (c) 2015-2019, Ilya Etingof <etingof@gmail.com>
+# License: https://github.com/pysnmp/pysmi/blob/main/LICENSE.rst
+#
+"""Relaxations of the SMI grammar.
+
+MIBs in the wild routinely deviate from the standards. Each of these describes
+one set of deviations to tolerate.
+"""
+
+from typing import Any
+
+#
+# Preconfigured sets of parser options.
+# Individual options could be used in certain combinations.
+#
+smiV2: dict[str, Any] = {}
+
+smiV1 = smiV2.copy()
+smiV1.update(supportSmiV1Keywords=True, supportIndex=True)
+
+smiV1Relaxed = smiV1.copy()
+smiV1Relaxed.update(
+    commaAtTheEndOfImport=True,
+    commaAtTheEndOfSequence=True,
+    mixOfCommasAndSpaces=True,
+    uppercaseIdentifier=True,
+    lowcaseIdentifier=True,
+    uppercaseDescriptor=True,
+    curlyBracesAroundEnterpriseInTrap=True,
+    noCells=True,
+)

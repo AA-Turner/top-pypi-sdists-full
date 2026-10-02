@@ -53,7 +53,7 @@ fn dependency_schema_context<'a>(
 /// `match_evidence` does not propagate out of a dependent schema.
 async fn validate_dependent_schemas<'a>(
     entries: &[(&'a str, &'a tombi_schema_store::SchemaItem)],
-    table_value: &tombi_document_tree_syntax::Table,
+    table_value: &tombi_document_tree_syntax::Table<'_>,
     accessors: &[tombi_schema_store::Accessor],
     keys: &[&str],
     current_schema: &CurrentSchema<'_>,
@@ -92,7 +92,7 @@ async fn validate_dependent_schemas<'a>(
             Err(err) => {
                 if let Some(diagnostic) = crate::validate::schema_resolution_diagnostic(
                     &err,
-                    table_value.range(),
+                    table_value.span(),
                     common_rules,
                 ) {
                     failures.insert(
@@ -110,7 +110,7 @@ async fn validate_dependent_schemas<'a>(
     failures
 }
 
-impl Validate for tombi_document_tree_syntax::Table {
+impl Validate for tombi_document_tree_syntax::Table<'_> {
     fn validate<'a: 'b, 'b>(
         &'a self,
         accessors: &'a [tombi_schema_store::Accessor],
@@ -224,7 +224,7 @@ impl Validate for tombi_document_tree_syntax::Table {
 
 #[allow(clippy::result_large_err)]
 async fn validate_table(
-    table_value: &tombi_document_tree_syntax::Table,
+    table_value: &tombi_document_tree_syntax::Table<'_>,
     accessors: &[tombi_schema_store::Accessor],
     table_schema: &tombi_schema_store::TableSchema,
     current_schema: &CurrentSchema<'_>,
@@ -359,7 +359,7 @@ async fn validate_table(
                     }) = result
                     {
                         assertion_failed |= child_assertion_failed;
-                        convert_deprecated_diagnostics_range(
+                        convert_deprecated_diagnostics_span(
                             &property_schema,
                             value,
                             key,
@@ -374,7 +374,7 @@ async fn validate_table(
                 Err(err) => {
                     if let Some(diagnostic) = crate::validate::schema_resolution_diagnostic(
                         &err,
-                        key.range() + value.range(),
+                        key.span() + value.span(),
                         key_common_rules,
                     ) {
                         total_diagnostics.push(diagnostic);
@@ -425,7 +425,7 @@ async fn validate_table(
                             }) = result
                             {
                                 assertion_failed |= child_assertion_failed;
-                                convert_deprecated_diagnostics_range(
+                                convert_deprecated_diagnostics_span(
                                     &property_schema,
                                     value,
                                     key,
@@ -440,7 +440,7 @@ async fn validate_table(
                         Err(err) => {
                             if let Some(diagnostic) = crate::validate::schema_resolution_diagnostic(
                                 &err,
-                                key.range() + value.range(),
+                                key.span() + value.span(),
                                 key_common_rules,
                             ) {
                                 total_diagnostics.push(diagnostic);
@@ -475,7 +475,7 @@ async fn validate_table(
                                 .collect(),
                         ),
                     }),
-                    range: key.range(),
+                    span: key.span(),
                 }
                 .push_diagnostic_with_level(level, &mut total_diagnostics);
             } else if key_rules
@@ -553,7 +553,7 @@ async fn validate_table(
                     Err(err) => {
                         if let Some(diagnostic) = crate::validate::schema_resolution_diagnostic(
                             &err,
-                            key.range() + value.range(),
+                            key.span() + value.span(),
                             key_common_rules,
                         ) {
                             total_diagnostics.push(diagnostic);
@@ -599,7 +599,7 @@ async fn validate_table(
                         Err(err) => {
                             if let Some(diagnostic) = crate::validate::schema_resolution_diagnostic(
                                 &err,
-                                key.range() + value.range(),
+                                key.span() + value.span(),
                                 key_common_rules,
                             ) {
                                 total_diagnostics.push(diagnostic);
@@ -614,7 +614,7 @@ async fn validate_table(
                         kind: Box::new(crate::DiagnosticKind::UnevaluatedPropertyNotAllowed {
                             key: key.to_string(),
                         }),
-                        range: key.range() + value.range(),
+                        span: key.span() + value.span(),
                     }
                     .push_diagnostic_with_level(
                         SeverityLevelDefaultError::default(),
@@ -639,7 +639,7 @@ async fn validate_table(
                         schema_uri: current_schema.schema_uri.as_ref().clone(),
                         key: key.to_string(),
                     }),
-                    range: key.range() + value.range(),
+                    span: key.span() + value.span(),
                 }
                 .push_diagnostic_with_level(SeverityLevel::Warn, &mut total_diagnostics);
 
@@ -662,7 +662,7 @@ async fn validate_table(
                     kind: Box::new(crate::DiagnosticKind::KeyNotAllowed {
                         key: key.to_string(),
                     }),
-                    range: key.range() + value.range(),
+                    span: key.span() + value.span(),
                 }
                 .push_diagnostic_with_level(level, &mut total_diagnostics);
                 continue;
@@ -700,7 +700,7 @@ async fn validate_table(
                     kind: Box::new(crate::DiagnosticKind::TableKeyRequired {
                         key: required_key.to_string(),
                     }),
-                    range: table_value.range(),
+                    span: table_value.span(),
                 }
                 .push_diagnostic_with_level(level, &mut total_diagnostics);
             } else {
@@ -746,7 +746,7 @@ async fn validate_table(
                 max_keys: max_properties,
                 actual: table_value.keys().count(),
             }),
-            range: table_value.range(),
+            span: table_value.span(),
         }
         .push_diagnostic_with_level(level, &mut total_diagnostics);
     } else if table_rules
@@ -782,7 +782,7 @@ async fn validate_table(
                 min_keys: min_properties,
                 actual: table_value.keys().count(),
             }),
-            range: table_value.range(),
+            span: table_value.span(),
         }
         .push_diagnostic_with_level(level, &mut total_diagnostics);
     } else if table_rules
@@ -815,7 +815,7 @@ async fn validate_table(
                                     dependent_key: dependent_key.to_string(),
                                     required_key: required_key.to_string(),
                                 }),
-                                range: table_value.range(),
+                                span: table_value.span(),
                             }
                             .push_diagnostic_with_level(
                                 SeverityLevelDefaultError::default(),
@@ -849,7 +849,7 @@ async fn validate_table(
                             dependent_key: dependent_key.to_string(),
                             required_key: required_key.to_string(),
                         }),
-                        range: table_value.range(),
+                        span: table_value.span(),
                     }
                     .push_diagnostic_with_level(
                         SeverityLevelDefaultError::default(),
@@ -894,7 +894,7 @@ async fn validate_table(
                         expected: tombi_json_value::Value::Object(const_value.clone()).to_string(),
                         actual: tombi_json_value::Value::Object(actual_object.clone()).to_string(),
                     }),
-                    range: table_value.range(),
+                    span: table_value.span(),
                 }
                 .push_diagnostic_with_level(level, &mut total_diagnostics);
             }
@@ -929,7 +929,7 @@ async fn validate_table(
                             .collect(),
                         actual: tombi_json_value::Value::Object(actual_object).to_string(),
                     }),
-                    range: table_value.range(),
+                    span: table_value.span(),
                 }
                 .push_diagnostic_with_level(level, &mut total_diagnostics);
             }
@@ -963,7 +963,7 @@ async fn validate_table(
                 Err(err) => {
                     if let Some(diagnostic) = crate::validate::schema_resolution_diagnostic(
                         &err,
-                        table_value.range(),
+                        table_value.span(),
                         common_rules,
                     ) {
                         total_diagnostics.push(diagnostic);
@@ -1050,7 +1050,7 @@ async fn validate_table(
 }
 
 fn collect_evaluated_properties_from_table_schema<'a>(
-    table_value: &'a tombi_document_tree_syntax::Table,
+    table_value: &'a tombi_document_tree_syntax::Table<'_>,
     accessors: &'a [tombi_schema_store::Accessor],
     table_schema: &'a tombi_schema_store::TableSchema,
     current_schema: &'a CurrentSchema<'a>,
@@ -1179,7 +1179,7 @@ fn collect_evaluated_properties_from_table_schema<'a>(
 }
 
 fn collect_evaluated_properties_from_referable_schemas<'a>(
-    table_value: &'a tombi_document_tree_syntax::Table,
+    table_value: &'a tombi_document_tree_syntax::Table<'_>,
     accessors: &'a [tombi_schema_store::Accessor],
     applicator: &'a (impl CompositeSchema + Sync),
     current_schema: &'a CurrentSchema<'a>,
@@ -1234,7 +1234,7 @@ fn collect_evaluated_properties_from_referable_schemas<'a>(
 
 #[allow(clippy::result_large_err)]
 async fn validate_table_without_schema(
-    table_value: &tombi_document_tree_syntax::Table,
+    table_value: &tombi_document_tree_syntax::Table<'_>,
     accessors: &[tombi_schema_store::Accessor],
     schema_context: &tombi_schema_store::SchemaContext<'_>,
 ) -> Result<crate::Valid, crate::Invalid> {
@@ -1295,27 +1295,27 @@ async fn validate_table_without_schema(
 }
 
 /// Convert deprecated diagnostics to warnings for the given value
-async fn convert_deprecated_diagnostics_range(
+async fn convert_deprecated_diagnostics_span(
     current_schema: &CurrentSchema<'_>,
-    value: &tombi_document_tree_syntax::Value,
-    key: &tombi_document_tree_syntax::Key,
+    value: &tombi_document_tree_syntax::Value<'_>,
+    key: &tombi_document_tree_syntax::Key<'_>,
     schema_diagnostics: &mut [tombi_diagnostic::Diagnostic],
 ) {
     if current_schema.schema_view.deprecation().await.is_some() {
         for diagnostic in schema_diagnostics.iter_mut() {
-            if diagnostic.code() == "deprecated" && diagnostic.range() == value.range() {
-                let range = key.range() + value.range();
+            if diagnostic.code() == "deprecated" && diagnostic.span() == value.span() {
+                let span = key.span() + value.span();
                 *diagnostic = if diagnostic.is_error() {
                     tombi_diagnostic::Diagnostic::new_error(
                         diagnostic.message(),
                         diagnostic.code(),
-                        range,
+                        span,
                     )
                 } else {
                     tombi_diagnostic::Diagnostic::new_warning(
                         diagnostic.message(),
                         diagnostic.code(),
-                        range,
+                        span,
                     )
                 };
                 break;

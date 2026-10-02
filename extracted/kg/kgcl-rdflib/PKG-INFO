@@ -1,0 +1,34 @@
+Metadata-Version: 2.1
+Name: kgcl-rdflib
+Version: 0.5.0
+Summary: Schema for the KGCL project.
+License: MIT
+Author: Christian Kindermann
+Author-email: christian.kindermann@postgrad.manchester.ac.uk
+Requires-Python: >=3.8,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Provides-Extra: docs
+Requires-Dist: kgcl-schema (>=0.5.0)
+Requires-Dist: linkml-runtime (>=1.1.24)
+Description-Content-Type: text/markdown
+
+# kgcl-rdflib
+
+An engine that applies changes or diffs specified in KGCL to an RDF graph stored using rdflib
+
+## KGCL
+
+KGCL (Knowledge Graph Change Language) is a datamodel and language for representing changes in ontologies and knowledge graphs
+
+The core KGCL repo is here:
+
+ - https://github.com/INCATools/kgcl
+ 
+ This kgcl-rdflib repo applies the KGCL model to rdflib graphs.
+
+

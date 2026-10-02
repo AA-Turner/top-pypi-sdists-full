@@ -1,0 +1,239 @@
+Metadata-Version: 2.4
+Name: docvortex
+Version: 0.5.8
+Summary: A fast, multi-format document parsing and conversion engine
+License-Expression: MIT
+Project-URL: Repository, https://github.com/myhloli/DocVortex
+Project-URL: Issues, https://github.com/myhloli/DocVortex/issues
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: <3.15,>=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE.md
+Requires-Dist: click>=8.1.7
+Requires-Dist: loguru>=0.7.2
+Requires-Dist: numpy>=1.21.6
+Requires-Dist: pillow>=11.0.0
+Requires-Dist: pypdfium2<6,>=5.10.1
+Requires-Dist: pypdf>=5.6.0
+Requires-Dist: pydantic<3,>=2.12.5
+Requires-Dist: metafile-render<1.0.0,>=0.3.0
+Requires-Dist: ftfy<7,>=6.3.1
+Requires-Dist: fonttools<5,>=4
+Requires-Dist: beautifulsoup4<5,>=4.13.5
+Requires-Dist: lxml<7,>=4
+Requires-Dist: nh3<0.4,>=0.3.6
+Requires-Dist: python-docx<2,>=1.2.0
+Requires-Dist: pypptx-with-oxml<2,>=1.0.3
+Requires-Dist: mammoth<2,>=1.11.0
+Requires-Dist: openpyxl<4,>=3.1.5
+Requires-Dist: olefile<1,>=0.47
+Requires-Dist: pylatexenc<3,>=2.10
+Requires-Dist: latex2mathml<4,>=3.81.0
+Requires-Dist: mathml2omml==0.0.2
+Requires-Dist: resvg_py<0.6,>=0.5.0
+Requires-Dist: reportlab[accel]
+Requires-Dist: ziamath<0.14,>=0.13
+Requires-Dist: magika<1.1.0,>=0.6.2
+Requires-Dist: opencv-python>=4.11.0.86
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: pytest-xdist<4,>=3.8; extra == "test"
+Requires-Dist: markdown; extra == "test"
+Requires-Dist: jsonschema<5,>=4; extra == "test"
+Provides-Extra: dev
+Requires-Dist: ruff==0.14.2; extra == "dev"
+Requires-Dist: build; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+Dynamic: license-file
+
+<div align="center">
+
+<img src="https://gcore.jsdelivr.net/gh/myhloli/DocVortex@main/docs/images/docvortex-logo.jpg" alt="DocVortex logo" width="200">
+
+# DocVortex
+
+**Native document parsing. One structure, many outputs.**
+
+[![PyPI](https://img.shields.io/pypi/v/docvortex?color=008cff)](https://pypi.org/project/docvortex/)
+[![Python](https://img.shields.io/pypi/pyversions/docvortex)](https://pypi.org/project/docvortex/)
+[![Downloads](https://static.pepy.tech/badge/docvortex)](https://pepy.tech/project/docvortex)
+[![Monthly Downloads](https://static.pepy.tech/badge/docvortex/month)](https://pepy.tech/project/docvortex)
+[![CI](https://github.com/myhloli/DocVortex/actions/workflows/ci.yml/badge.svg)](https://github.com/myhloli/DocVortex/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/myhloli/DocVortex/blob/main/LICENSE.md)
+
+**English** · [简体中文](https://github.com/myhloli/DocVortex/blob/main/README_zh-CN.md)
+
+[Performance](#pdf-performance) · [Quick start](#quick-start) · [Formats](#supported-formats) · [Documentation](#documentation)
+
+</div>
+
+## Documents in. Possibilities out.
+
+DocVortex is a standalone Python engine for parsing and converting documents.
+It reads native text and document structure into a unified representation,
+then exports the result in the formats your workflow needs.
+
+- **Multi-format input** — read text PDFs, Office files, OpenDocument files, EPUB, HTML, OFD, CSV and TSV.
+- **Parse once, export many times** — reuse the same result for Markdown, HTML, LaTeX, DOCX, EPUB, PDF and structured JSON.
+- **Portable results** — save document structure and image assets in a Bundle, then export again without the source file.
+- **Composable APIs** — use the complete pipeline or integrate analysis, postprocessing and rendering separately.
+
+Native parsing works without an OCR or VLM inference service. Use DocVortex directly through its CLI or Python SDK.
+
+![DocVortex pipeline: native documents become a unified representation, then Markdown, HTML, LaTeX, DOCX, EPUB, PDF or structured JSON.](https://gcore.jsdelivr.net/gh/myhloli/DocVortex@main/docs/images/docvortex-overview.jpg)
+
+## PDF performance
+
+**The 0.5 series brings a major boost to PDF processing with Rust acceleration: public parsing is 2.76× as fast as 0.4.25 on the tested corpus.**
+
+| Pipeline | 0.4.25 | 0.5.2 (Rust + session) | Speedup | Time reduction | Peak RSS reduction |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| DocVortex public `parse()` | 42.36 s | 15.35 s | **2.76×** | **63.77%** | **33.45%** |
+| MinerU Flash | 44.50 s | 15.78 s | **2.82×** | **64.53%** | **32.78%** |
+| MinerU shared PDF processing | 76.28 s | 14.91 s | **5.12×** | **80.45%** | **36.25%** |
+
+Same-machine warm-run comparison on 32 PDFs / 299 pages (31 PDFs for Flash); times are sums of per-document medians. RSS reductions are medians of per-document process-tree peak RSS reductions. MinerU results include improvements in both projects. The shared pipeline excludes model computation; excluding the extreme dense-table sample, its speedup is **2.46×**.
+
+## Quick start
+
+Requires **Python 3.10–3.14**.
+
+### Install
+
+```bash
+pip install docvortex
+```
+
+### Command line
+
+Convert a text PDF to Markdown:
+
+```bash
+docvortex convert report.pdf --format markdown --output output/report.md
+```
+
+Replace `report.pdf` with a local file in any supported input format.
+Use `--format` to choose the output; run `docvortex convert --help` for options.
+The root-level `--log-level` option controls loguru output and defaults to `info`.
+It must precede the command; `DOCVORTEX_LOG_LEVEL=warning` can also configure it.
+
+### Python
+
+Parse a document once and export it twice:
+
+```python
+import docvortex
+
+result = docvortex.parse("report.pdf")
+result.export("output/report.md", output_format="markdown")
+result.export("output/report.docx", output_format="docx")
+```
+
+The result owns its document structure and assets, so further exports do not
+reopen or reparse the source. Existing output files are protected by default;
+use `overwrite=True` in Python or `--overwrite` in the CLI to replace them.
+
+## Supported formats
+
+### Native inputs · 20 formats
+
+| Document family | File extensions |
+| --- | --- |
+| PDF with native text | `.pdf` |
+| Word & rich text | `.doc`, `.docx`, `.rtf` |
+| Presentations | `.ppt`, `.pptx` |
+| Spreadsheets | `.xls`, `.xlsx`, `.csv`, `.tsv` |
+| OpenDocument | `.odt`, `.ods`, `.odp` |
+| E-books | `.epub` |
+| Web documents | `.html`, `.htm`, `.shtml` |
+| Web archives | `.mhtml`, `.mht` |
+| Open Fixed-layout Document | `.ofd` |
+
+### Outputs · 7 formats
+
+| Output | `--format` / `output_format` |
+| --- | --- |
+| Markdown | `markdown` |
+| HTML | `html` |
+| LaTeX | `latex` |
+| Word document | `docx` |
+| EPUB e-book | `epub` |
+| PDF | `pdf` |
+| Structured JSON | `structured_content` |
+
+PPT/PPTX and XLS/XLSX are input formats only. Structured JSON is an export
+format; the [document JSON protocol](https://github.com/myhloli/DocVortex/blob/main/docs/JSON_PROTOCOL.md)
+separately defines the analysis and intermediate representations.
+
+## Save now, export later
+
+A Bundle packages the parsed document and its image assets for reuse across
+processes or machines. Load it whenever you need another output format:
+
+```python
+import docvortex
+
+result = docvortex.parse("report.pdf")
+result.save_bundle("output/report.bundle")
+
+restored = docvortex.load_bundle("output/report.bundle")
+restored.export("output/report.epub", output_format="epub")
+```
+
+The restored result works without the original file. See the
+[usage guide](https://github.com/myhloli/DocVortex/blob/main/docs/USAGE.md#portable-bundles)
+for Bundle contents, asset handling and overwrite rules.
+
+Need only the title, authors or other source properties?
+[`docvortex.extract_metadata()`](https://github.com/myhloli/DocVortex/blob/main/docs/METADATA.md)
+reads metadata without parsing the document body.
+
+## Choose the right workflow
+
+- **Text PDFs:** native parsing uses the document's existing text and structure. Scanned pages requiring OCR need an external OCR or inference service.
+- **PDF classification:** `docvortex classify report.pdf` returns `txt` or `ocr`. Classification is explicit and does not start inference; parsing does not automatically switch backends.
+- **PDF export:** PDF sources with page geometry default to block layout restoration, with selectable text and HTML-based tables; charts retain region images. Other sources and older results use semantic reflow. Use `--pdf-layout original|reflow` to select explicitly; fonts, line breaks and drawing instructions are not reproduced losslessly. See [PDF output layout](docs/USAGE.md#pdf-output-layout).
+
+## Documentation
+
+| Guide | What you will find |
+| --- | --- |
+| [Usage](https://github.com/myhloli/DocVortex/blob/main/docs/USAGE.md) | Stage APIs, PDF pages, classification, images and Bundles |
+| [Agent skill](skills/docvortex/SKILL.md) | CLI and Python SDK workflows for agents; copy the entire `skills/docvortex` folder to reuse |
+| [Examples](https://github.com/myhloli/DocVortex/blob/main/demo/README.md) | Local samples for PDF, Office, EPUB, web documents and OFD with a runnable demo |
+| [Metadata](https://github.com/myhloli/DocVortex/blob/main/docs/METADATA.md) | Source properties and per-format coverage |
+| [JSON protocol](https://github.com/myhloli/DocVortex/blob/main/docs/JSON_PROTOCOL.md) | Document schemas, extensions and protocol migration |
+| [HTML protocol](https://github.com/myhloli/DocVortex/blob/main/docs/HTML_PROTOCOL.md) | Semantic markers and round trips |
+| [Public SDK & migration](https://github.com/myhloli/DocVortex/blob/main/docs/sdk-0.4.md) | Supported integration boundaries and the 0.4 upgrade |
+| [Rendering ownership](https://github.com/myhloli/DocVortex/blob/main/docs/RENDER_OWNERSHIP.md) | DocVortex exports and MinerU-specific renderers |
+
+## Development
+
+See [Repository architecture](docs/ARCHITECTURE.md) for directory responsibilities,
+the Python/Rust boundary, and pure Python or native development commands.
+
+From a local checkout:
+
+```bash
+uv venv
+uv pip install -e ".[test,dev]"
+uv run --no-project python -m pytest -q
+uv run --no-project ruff check src
+uv run --no-project ruff format --check src
+uv build
+```
+
+Bug reports and contributions are welcome. When reporting a parsing issue,
+include a reproducible command and a sample document you can share in
+[GitHub Issues](https://github.com/myhloli/DocVortex/issues).
+
+## License
+
+DocVortex project code is released under the
+[MIT License](https://github.com/myhloli/DocVortex/blob/main/LICENSE.md).

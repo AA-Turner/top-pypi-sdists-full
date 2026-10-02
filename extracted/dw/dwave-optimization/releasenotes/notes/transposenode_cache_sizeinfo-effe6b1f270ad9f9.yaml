@@ -1,4 +1,0 @@
----
-features:
-  - |
-    `Transpose` symbol can infer its size from its predecessor's size.

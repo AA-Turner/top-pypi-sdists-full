@@ -1,0 +1,774 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+#
+# BSD 3-Clause License
+
+"""Modal sandbox implementation.
+
+`Modal <https://modal.com/docs/guide/sandbox>`_ provides secure, cloud-hosted
+containers that can run arbitrary code. This sandbox uses ``modal.Sandbox`` to
+provision a container and executes Python snippets inside it via ``sandbox.exec``.
+
+One ``python -u -c`` process is started with the sandbox and fed JSON lines on
+stdin — one request, one reply — so snippets share a namespace: ``x = 1`` in one
+call is still there in the next. A session that cannot be started, or that goes
+away mid-run, drops back to a fresh ``python -c`` process per snippet, which
+works and merely forgets. Rich display outputs (images, HTML) are not captured;
+stdout, stderr and the value of a trailing expression are.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import logging
+import math
+import time
+import uuid
+from dataclasses import dataclass
+from typing import Any
+
+from ...base import Sandbox, marks_execution
+from ...contents import (
+    CREDENTIAL_DELIVERY_UNSUPPORTED,
+    FILESYSTEM_PRIMITIVES,
+    ContentAttachmentSpec,
+    ContentCapabilities,
+    ContentManifest,
+    CreationTimeMounts,
+    PreparedAttachment,
+    environment_features,
+    local_bridge_capability,
+    prepare_local_bridge,
+    stop_bridge_mount,
+)
+from ...exceptions import SandboxConfigurationError, SandboxNotStartedError
+from ...jupyter_ingress import preparation_command, resolved_options, websocket_url
+from ...models import (
+    CodeError,
+    Context,
+    ExecutionResult,
+    JupyterServerEndpoint,
+    JupyterServerOptions,
+    Logs,
+    OutputHandler,
+    OutputMessage,
+    Result,
+    SandboxConfig,
+    SandboxEnvironment,
+    SandboxInfo,
+    SandboxStatus,
+    gpu_memory,
+)
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_APP_NAME = "code-sandboxes"
+DEFAULT_MODAL_PYTHON_VERSION = "3.12"
+
+#: The sandbox contract's own identity and content directory (D-4, §3) — the
+#: numbers a Modal-built Environments artifact's image is always chowned to
+#: (`environments/adapters/modal.py`), duplicated here rather than imported:
+#: this module is the general-purpose launcher, that one a layer above it
+#: built only for Environments, and the dependency runs one way.
+_CONTRACT_UID = "1000"
+_CONTRACT_GID = "100"
+_CONTRACT_HOME = "/home/datalayer"
+_CONTRACT_CONTENT_DIR = "/home/datalayer"
+
+
+def _resolve_modal_gpu(gpu_flavor: str, modal_module: Any) -> Any:
+    """Resolve a GPU flavor string to a Modal GPU spec when possible.
+
+    Falls back to the raw string when no structured constructor is available.
+    """
+    flavor = gpu_flavor.strip()
+    gpu_ns = getattr(modal_module, "gpu", None)
+    if gpu_ns is None:
+        return flavor
+
+    normalized = flavor.upper().replace("_", "-")
+
+    if normalized == "A100-80GB" and hasattr(gpu_ns, "A100"):
+        try:
+            return gpu_ns.A100(size="80GB")
+        except Exception:
+            return flavor
+
+    attr_by_flavor = {
+        "T4": "T4",
+        "L4": "L4",
+        "A10G": "A10G",
+        "A100": "A100",
+        "H100": "H100",
+    }
+    attr_name = attr_by_flavor.get(normalized)
+    if not attr_name or not hasattr(gpu_ns, attr_name):
+        return flavor
+
+    candidate = getattr(gpu_ns, attr_name)
+    try:
+        return candidate()
+    except TypeError:
+        return candidate
+
+
+#: The process that holds the session inside the container.
+#:
+#: `sandbox.exec("python", "-c", code)` is a fresh interpreter per snippet, so
+#: `x = 1` in one call and `x` in the next was a NameError: the container
+#: persists, the namespace did not. This driver is started once and fed JSON
+#: lines on stdin — one request, one reply — executing everything in a single
+#: namespace, with stdout/stderr captured per request and the value of a
+#: trailing expression repr'd the way a REPL would.
+#:
+#: **Where the sandbox contract's identity is put back, for a contract
+#: artifact only (PLAN_ENV.md E2-05).** Modal ignores the image's own
+#: Dockerfile `USER`, so every process it starts — this driver included —
+#: runs as root regardless of what a Datalayer-built artifact's own image
+#: bakes in. `modal.Sandbox.exec()` has no `user=` of its own to ask for
+#: instead (confirmed against the installed SDK's own signature), so this
+#: driver, which this package authors and controls end to end, is where
+#: that gets fixed instead. `_start_driver` sets
+#: `DATALAYER_SANDBOX_CONTRACT_UID`/`_GID` only when `self._image_id` is
+#: set — that is, only when this `ModalSandbox` was launched from a built
+#: Environments artifact, whose image the Modal builder (`adapters/modal.py`)
+#: always chowns to `1000:100` even though the `USER` line it also emits is
+#: the very thing Modal ignores. A plain `ModalSandbox` (`debian_slim`, or
+#: anyone else's image, with no `image_id` at all) never has the two
+#: variables set and drops nothing — unaffected, on purpose. Even set, the
+#: drop only takes if `os.getuid() == 0` and the target ids are real in
+#: *this* image; anything else leaves the driver exactly as it started
+#: rather than crash a session that could otherwise still run.
+_DRIVER_SOURCE = """
+import ast, contextlib, io, json, os, sys, traceback
+
+_contract_uid = os.environ.pop("DATALAYER_SANDBOX_CONTRACT_UID", "")
+_contract_gid = os.environ.pop("DATALAYER_SANDBOX_CONTRACT_GID", "")
+_contract_home = os.environ.pop("DATALAYER_SANDBOX_CONTRACT_HOME", "")
+if _contract_uid and _contract_gid and os.getuid() == 0:
+    try:
+        os.setgid(int(_contract_gid))
+        os.setuid(int(_contract_uid))
+        if _contract_home:
+            os.environ["HOME"] = _contract_home
+    except OSError:
+        pass  # not real in this image; stay as we were rather than crash
+
+namespace = {"__name__": "__main__"}
+for line in sys.stdin:
+    line = line.strip()
+    if not line:
+        continue
+    request = json.loads(line)
+    out, err = io.StringIO(), io.StringIO()
+    reply = {"seq": request.get("seq"), "status": "ok"}
+    try:
+        tree = ast.parse(request.get("code", ""), mode="exec")
+        trailing = None
+        if tree.body and isinstance(tree.body[-1], ast.Expr):
+            trailing = ast.Expression(tree.body.pop(-1).value)
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            if tree.body:
+                exec(compile(tree, "<sandbox>", "exec"), namespace)
+            if trailing is not None:
+                value = eval(compile(trailing, "<sandbox>", "eval"), namespace)
+                if value is not None:
+                    reply["result"] = repr(value)
+    except BaseException as error:
+        reply["status"] = "error"
+        reply["error"] = {
+            "name": type(error).__name__,
+            "value": str(error),
+            "traceback": traceback.format_exc(),
+        }
+    reply["stdout"] = out.getvalue()
+    reply["stderr"] = err.getvalue()
+    print(json.dumps(reply), flush=True)
+"""
+
+
+@dataclass
+class _Session:
+    """One context's session process: the driver, its replies, its sequence.
+
+    A class rather than a tuple because the sequence is written on every
+    request, and a dataclass says which fields a reader may expect.
+    """
+
+    driver: Any
+    replies: Any
+    seq: int = 0
+
+
+def _modal_exec_timeout_seconds(timeout: float | None, default: float) -> int:
+    """Return a Modal-compatible timeout in integer seconds."""
+    value = timeout if timeout is not None else default
+    return max(1, math.ceil(value))
+
+
+class ModalSandbox(Sandbox):
+    """Sandbox backed by a Modal cloud container.
+
+    Args:
+        config: Optional sandbox configuration.
+        app_name: Name of the Modal App to attach the sandbox to (created if missing).
+        image: An optional pre-built ``modal.Image``. When omitted, a
+            ``debian_slim`` image is used, optionally extended with ``pip_packages``.
+        pip_packages: Optional list of pip packages to install in the default image.
+        python_executable: Executable used to run snippets (default ``python``).
+        client: The ``modal.Client`` to act as. The app, the image and the
+            sandbox are all looked up and created with it, so a sandbox runs
+            in the workspace that client opens. With none, the SDK's own
+            ambient credentials decide — right for a person's own machine,
+            wrong for a worker acting for an owner (D-8), which passes the
+            owner's.
+    """
+
+    def __init__(
+        self,
+        config: SandboxConfig | None = None,
+        app_name: str = DEFAULT_APP_NAME,
+        image: Any | None = None,
+        image_id: str | None = None,
+        pip_packages: list[str] | None = None,
+        python_version: str = DEFAULT_MODAL_PYTHON_VERSION,
+        python_executable: str = "python",
+        features: list[str] | None = None,
+        client: Any | None = None,
+        **kwargs,
+    ):
+        super().__init__(config)
+        self._client = client
+        self._app_name = app_name
+        self._image = image
+        #: A Modal image id, `im-…`: what an Environment build of this variant
+        #: records, and the only reference a launch may use — a published name
+        #: is mutable by design (PLAN_ENV.md section 6, E2-02).
+        self._image_id = str(image_id or "").strip()
+        self._pip_packages = pip_packages or []
+        self._python_version = python_version
+        self._python_executable = python_executable
+        #: What the environment this sandbox runs in is known to allow, when
+        #: the caller passed it with the rest of the environment's metadata;
+        #: otherwise looked up by name in `list_environments()`.
+        self._features = list(features) if features is not None else None
+        self._app = None
+        self._sandbox = None
+        #: One session process per context, made on first use: a driver holds
+        #: one namespace, so a single one would make `create_context` a label
+        #: rather than an isolation (PLAN_ENV.md E2-02).
+        self._drivers: dict[str, Any] = {}
+        self._driver: Any | None = None
+        self._sandbox_id = str(uuid.uuid4())
+        self._execution_count = 0
+        self._jupyter_endpoint: JupyterServerEndpoint | None = None
+        #: Volumes to mount, which Modal takes only when the sandbox is
+        #: created: `Sandbox.create(volumes={path: Volume.from_name(...)})`.
+        self._volume_mounts = CreationTimeMounts()
+        self._extra_kwargs = kwargs
+
+    # -- Contents attachments ---------------------------------------------
+
+    def content_capabilities(self) -> ContentCapabilities:
+        # Modal CAN mount a bucket — `CloudBucketMount` — but only from a
+        # Modal secret holding the bucket's credentials, which would mean a
+        # credential leaving Contents for the provider. Refused, so it stays
+        # False here and a bucket mount is answered with why.
+        return ContentCapabilities(
+            provider="modal",
+            mount=True,
+            bucket_mount=False,
+            materialize=True,
+            client=True,
+            local_bridge_mount=local_bridge_capability(self._environment_features()),
+            filesystem_primitives=list(FILESYSTEM_PRIMITIVES),
+        )
+
+    def configure_contents(self, manifest: ContentManifest) -> None:
+        super().configure_contents(manifest)
+        self._volume_mounts.request_all(manifest)
+
+    def _prepare_mount(self, spec: ContentAttachmentSpec, *, reconcile: bool) -> PreparedAttachment:
+        del reconcile
+        return self._volume_mounts.prepare(
+            self, spec, provider="modal", bucket_code=CREDENTIAL_DELIVERY_UNSUPPORTED
+        )
+
+    def _forget_mount(self, spec: ContentAttachmentSpec) -> None:
+        self._volume_mounts.forget(spec)
+
+    def _environment_features(self) -> list[str]:
+        """The features of the environment this sandbox was created with."""
+        return environment_features(
+            type(self).list_environments(), self.config.environment, self._features
+        )
+
+    def _prepare_local_bridge(
+        self, spec: ContentAttachmentSpec, *, reconcile: bool
+    ) -> PreparedAttachment:
+        """Bridge a person's folder in, where the ENVIRONMENT can run the filesystem.
+
+        Per environment, never per provider: only an environment advertising
+        `fuse` starts the bridge mount inside the sandbox, and it is ready
+        only once the mount says it is connected. Everywhere else the answer
+        is a refusal that offers Synchronize — a copy, called a copy.
+        """
+        return prepare_local_bridge(
+            self,
+            spec,
+            provider="modal",
+            environment=self.config.environment,
+            features=self._environment_features(),
+            reconcile=reconcile,
+        )
+
+    def _release_local_bridge(self, spec: ContentAttachmentSpec) -> None:
+        stop_bridge_mount(self, spec)
+
+    def prepare_jupyter_server(
+        self, options: JupyterServerOptions | None = None
+    ) -> JupyterServerEndpoint:
+        """Prepare Jupyter and expose it through a Modal connect token."""
+        if not self._started or self._sandbox is None:
+            raise SandboxNotStartedError()
+        if self._jupyter_endpoint is not None:
+            return self._jupyter_endpoint
+
+        value = resolved_options(options)
+        process = self._sandbox.exec(
+            "sh", "-lc", preparation_command(value), timeout=math.ceil(value.install_timeout)
+        )
+        process.wait()
+        if getattr(process, "returncode", 0) not in (0, None):
+            stderr = process.stderr.read() if getattr(process, "stderr", None) else ""
+            raise SandboxConfigurationError(
+                "Could not install and start Jupyter Server in the Modal sandbox: " + str(stderr)
+            )
+        credentials = self._sandbox.create_connect_token(port=value.port)
+        url = credentials.url.rstrip("/")
+        self._jupyter_endpoint = JupyterServerEndpoint(
+            port=value.port,
+            http_url=url,
+            websocket_url=websocket_url(url),
+            headers={"Authorization": f"Bearer {credentials.token}"},
+            query={"token": value.token or ""},
+        )
+        return self._jupyter_endpoint
+
+    @classmethod
+    def list_environments(cls) -> list[SandboxEnvironment]:
+        """The environments this provider ships.
+
+        Modal takes a machine specification per sandbox; what is offered here
+        are the two shapes worth naming — a plain container, and one with a
+        GPU attached — so that choosing an environment is choosing between
+        two named things, as it is with every other provider.
+
+        `features` is what each environment is known to allow beyond running
+        code. Neither declares `fuse`: a Modal sandbox does not expose
+        `/dev/fuse`, so no local folder is bridged into either as a
+        filesystem. An image built to expose FUSE with fusepy preinstalled
+        would carry it.
+        """
+        return [
+            SandboxEnvironment(
+                name="modal-cpu",
+                title="Modal CPU",
+                language="python",
+                owner="modal",
+                visibility="cloud",
+                burning_rate=0.0,
+                metadata={"variant": "modal", "gpu": None, "features": []},
+            ),
+            SandboxEnvironment(
+                name="modal-gpu",
+                title="Modal GPU",
+                language="python",
+                owner="modal",
+                visibility="cloud",
+                burning_rate=0.0,
+                gpu="T4",
+                gpu_count=1,
+                gpu_memory=gpu_memory("T4"),
+                metadata={"variant": "modal", "gpu": "T4", "features": []},
+            ),
+        ]
+
+    def start(self) -> None:
+        if self._started:
+            return
+
+        try:
+            import modal
+        except ImportError as exc:
+            raise SandboxConfigurationError(
+                "modal is required for ModalSandbox. Install it with: pip install modal"
+            ) from exc
+
+        # The client, when given, on every call that names a workspace: the
+        # app, the image and the sandbox are all the owner's or none are.
+        on_client = {"client": self._client} if self._client is not None else {}
+        self._app = modal.App.lookup(self._app_name, create_if_missing=True, **on_client)
+
+        image = self._image
+        if image is None and self._image_id:
+            # `Image.from_id` in the Python SDK; `images.fromId` is the
+            # JavaScript one, which an earlier note had here (correction 42).
+            image = modal.Image.from_id(self._image_id, **on_client)
+        if image is None:
+            image = modal.Image.debian_slim(python_version=self._python_version)
+            if self._pip_packages:
+                image = image.pip_install(*self._pip_packages)
+
+        secrets = []
+        if self.config.env_vars:
+            secrets.append(modal.Secret.from_dict(dict(self.config.env_vars)))
+
+        create_kwargs: dict[str, Any] = {
+            "app": self._app,
+            "image": image,
+            "timeout": int(self.config.max_lifetime),
+            **on_client,
+        }
+        if self.config.gpu:
+            create_kwargs["gpu"] = _resolve_modal_gpu(self.config.gpu, modal)
+        if secrets:
+            create_kwargs["secrets"] = secrets
+        if self._volume_mounts.requested:
+            # `from_name` never creates: a volume Contents named that Modal
+            # does not have is Modal's error to raise, not ours to paper over.
+            create_kwargs["volumes"] = {
+                mount_path: modal.Volume.from_name(volume_id)
+                for mount_path, volume_id in self._volume_mounts.requested.items()
+            }
+
+        # An Environments artifact's main process only holds the container:
+        # everything this class runs in it is an exec, Jupyter included
+        # (`prepare_jupyter_server`). Named here rather than left to the
+        # image, since an artifact built before code-sandboxes 1.9.36 carries
+        # its base's `start-jupyter.sh` as its CMD, which Modal runs under the
+        # entrypoint; that server exits within a minute and ends the sandbox
+        # (found live on 2026-09-18: a smoke test's restarted sandbox died
+        # between checks 8 and 9).
+        command = ("sleep", "infinity") if self._image_id else ()
+        self._sandbox = modal.Sandbox.create(*command, **create_kwargs)
+        self._volume_mounts.created()
+        self._start_driver()
+
+        self._default_context = self.create_context("default")
+        self._info = SandboxInfo(
+            id=self._sandbox_id,
+            variant="modal",
+            status=SandboxStatus.RUNNING,
+            created_at=time.time(),
+            name=self.config.name,
+            metadata={
+                "app_name": self._app_name,
+                "modal_sandbox_id": getattr(self._sandbox, "object_id", None),
+            },
+            config=self.config,
+        )
+        self._started = True
+
+    def _start_driver(self, context_id: str = "default") -> Any | None:
+        """Start a session process for one context, or nothing on failure.
+
+        **One driver per context** (PLAN_ENV.md E2-02). A driver holds one
+        namespace, so a single one made `create_context` a label rather than
+        an isolation: `x = 1` in one context was readable from another, which
+        is what check 14 of E0-04 found. Each context gets its own process,
+        made on first use — starting one is a round trip, and most callers use
+        the default alone.
+
+        A driver that cannot come up leaves the context without one, and
+        `run_code` then executes each snippet in its own process as before —
+        working, merely stateless.
+        """
+        import queue
+        import threading
+
+        exec_kwargs: dict[str, Any] = {}
+        if self._image_id:
+            # Only for a launch from a built Environments artifact (D-4,
+            # §3) — `_DRIVER_SOURCE`'s own comment says why, and why a plain
+            # `ModalSandbox` (no `image_id`) never sets these and drops
+            # nothing. `exec()` has no `user=` of its own to ask for
+            # instead (confirmed against the installed SDK's own
+            # signature), so the driver does the dropping, and `workdir=`
+            # is exec's own, real parameter for the rest.
+            exec_kwargs["env"] = {
+                "DATALAYER_SANDBOX_CONTRACT_UID": _CONTRACT_UID,
+                "DATALAYER_SANDBOX_CONTRACT_GID": _CONTRACT_GID,
+                "DATALAYER_SANDBOX_CONTRACT_HOME": _CONTRACT_HOME,
+            }
+            exec_kwargs["workdir"] = _CONTRACT_CONTENT_DIR
+        try:
+            driver = self._sandbox.exec(
+                self._python_executable, "-u", "-c", _DRIVER_SOURCE, **exec_kwargs
+            )
+        except Exception:
+            logger.warning(
+                "The Modal session driver could not be started; snippets will not share state.",
+                exc_info=True,
+            )
+            return None
+        replies: queue.Queue = queue.Queue()
+
+        def pump() -> None:
+            # The reader dies with the driver, and says so with the sentinel
+            # below rather than with an exception nobody is there to catch.
+            with contextlib.suppress(Exception):
+                for line in driver.stdout:
+                    replies.put(line)
+            replies.put(None)
+
+        # A thread reads the replies: the stream blocks, and a request that
+        # never gets its answer must time out rather than hang run_code. One
+        # queue per driver, so a reply cannot be read by another context's
+        # request — with one queue for every context, a slow answer surfaced
+        # under whichever request was waiting.
+        thread = threading.Thread(
+            target=pump, name=f"modal-driver-stdout-{context_id}", daemon=True
+        )
+        thread.start()
+        session = _Session(driver=driver, replies=replies)
+        self._drivers[context_id] = session
+        if context_id == "default":
+            # Kept for the code that reads `_driver` to ask whether a session
+            # came up at all.
+            self._driver = driver
+        return session
+
+    def _session(self, context_id: str) -> Any | None:
+        """The driver of this context, started on first use."""
+        existing = self._drivers.get(context_id)
+        if existing is not None:
+            return existing
+        return self._start_driver(context_id)
+
+    def _forget_session(self, context_id: str) -> None:
+        self._drivers.pop(context_id, None)
+        if context_id == "default":
+            self._driver = None
+
+    def _driver_request(
+        self, code: str, timeout: float, context_id: str = "default"
+    ) -> dict | None:
+        """One request to this context's session process, or None when it cannot serve."""
+        import json as json_module
+        import queue
+
+        session = self._session(context_id)
+        if session is None or session.driver is None:
+            return None
+        session.seq += 1
+        try:
+            session.driver.stdin.write(json_module.dumps({"seq": session.seq, "code": code}) + "\n")
+            session.driver.stdin.drain()
+        except Exception:
+            logger.warning("The Modal session driver went away; restarting stateless.")
+            self._forget_session(context_id)
+            return None
+        deadline = time.monotonic() + timeout
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError(f"No reply from the Modal session within {timeout:.0f}s.")
+            try:
+                line = session.replies.get(timeout=remaining)
+            except queue.Empty:
+                continue
+            if line is None:
+                # The reader reached EOF: the driver is gone.
+                self._forget_session(context_id)
+                return None
+            try:
+                reply = json_module.loads(line)
+            except ValueError:
+                continue
+            if reply.get("seq") == session.seq:
+                return reply
+
+    def stop(self) -> None:
+        # Guarded on the resource itself, not `_started` (found in review,
+        # code-sandboxes#32): `start()` creates the remote sandbox well
+        # before it marks itself started (`_start_driver`, `create_context`,
+        # building `SandboxInfo` all come after), so a failure in between
+        # would otherwise leave a real, running sandbox that `stop()` skips
+        # entirely and this object can never clean up again.
+        if self._sandbox is None:
+            return
+        try:
+            self._sandbox.terminate()
+        except Exception:
+            logger.debug("Ignoring error while terminating Modal sandbox", exc_info=True)
+        try:
+            self._sandbox.detach()
+        except Exception:
+            logger.debug("Ignoring error while detaching Modal sandbox", exc_info=True)
+        self._sandbox = None
+        self._app = None
+        self._jupyter_endpoint = None
+        self._volume_mounts.stopped()
+        self._started = False
+        if self._info:
+            self._info.status = SandboxStatus.STOPPED
+
+    @marks_execution
+    def run_code(  # noqa: C901
+        self,
+        code: str,
+        language: str = "python",
+        context: Context | None = None,
+        on_stdout: OutputHandler[OutputMessage] | None = None,
+        on_stderr: OutputHandler[OutputMessage] | None = None,
+        on_result: OutputHandler[Result] | None = None,
+        on_error: OutputHandler[CodeError] | None = None,
+        envs: dict[str, str] | None = None,
+        timeout: float | None = None,
+    ) -> ExecutionResult:
+        if not self._started or self._sandbox is None:
+            raise SandboxNotStartedError()
+
+        if language != "python":
+            raise ValueError(f"ModalSandbox only supports Python, got: {language}")
+
+        started_at = time.time()
+        self._execution_count += 1
+
+        if envs:
+            env_code = "\n".join(f"import os; os.environ[{k!r}] = {v!r}" for k, v in envs.items())
+            code = f"{env_code}\n{code}"
+
+        stdout_messages: list[OutputMessage] = []
+        stderr_messages: list[OutputMessage] = []
+        code_error: CodeError | None = None
+
+        # One process for the session: state persists between snippets, and a
+        # trailing expression answers with its repr, as a REPL would. The
+        # fresh-process path below stays as the fallback when the driver is
+        # not there.
+        reply = None
+        try:
+            reply = self._driver_request(
+                code,
+                timeout or self.config.timeout,
+                context_id=context.id if context else "default",
+            )
+        except TimeoutError as error:
+            return ExecutionResult(
+                execution_ok=False,
+                execution_error=str(error),
+                started_at=started_at,
+                completed_at=time.time(),
+                context_id=context.id if context else "default",
+            )
+        if reply is not None:
+            current_time = time.time()
+            results: list[Result] = []
+            for line in (reply.get("stdout") or "").splitlines():
+                msg = OutputMessage(line=line, timestamp=current_time, error=False)
+                stdout_messages.append(msg)
+                if on_stdout:
+                    on_stdout(msg)
+            for line in (reply.get("stderr") or "").splitlines():
+                msg = OutputMessage(line=line, timestamp=current_time, error=True)
+                stderr_messages.append(msg)
+                if on_stderr:
+                    on_stderr(msg)
+            if reply.get("result") is not None:
+                value = Result(data={"text/plain": reply["result"]}, is_main_result=True)
+                results.append(value)
+                if on_result:
+                    on_result(value)
+            if reply.get("status") == "error":
+                detail = reply.get("error") or {}
+                code_error = CodeError(
+                    name=detail.get("name", "Error"),
+                    value=detail.get("value", ""),
+                    traceback=detail.get("traceback", ""),
+                )
+                if on_error:
+                    on_error(code_error)
+            return ExecutionResult(
+                results=results,
+                logs=Logs(stdout=stdout_messages, stderr=stderr_messages),
+                execution_ok=True,
+                code_error=code_error,
+                started_at=started_at,
+                completed_at=current_time,
+                execution_count=self._execution_count,
+                context_id=context.id if context else "default",
+            )
+
+        try:
+            process = self._sandbox.exec(
+                self._python_executable,
+                "-c",
+                code,
+                timeout=_modal_exec_timeout_seconds(timeout, self.config.timeout),
+            )
+            stdout_text = process.stdout.read()
+            stderr_text = process.stderr.read()
+            process.wait()
+            returncode = process.returncode
+        except Exception as e:
+            return ExecutionResult(
+                execution_ok=False,
+                execution_error=f"Failed to execute code on Modal: {e}",
+                started_at=started_at,
+                completed_at=time.time(),
+                context_id=context.id if context else "default",
+            )
+
+        current_time = time.time()
+        for line in (stdout_text or "").splitlines():
+            msg = OutputMessage(line=line, timestamp=current_time, error=False)
+            stdout_messages.append(msg)
+            if on_stdout:
+                on_stdout(msg)
+        for line in (stderr_text or "").splitlines():
+            msg = OutputMessage(line=line, timestamp=current_time, error=True)
+            stderr_messages.append(msg)
+            if on_stderr:
+                on_stderr(msg)
+
+        exit_code: int | None = None
+        # A non-zero return code with stderr output indicates the user code
+        # raised an exception. Surface it as a code error.
+        if returncode not in (0, None) and stderr_text:
+            last_line = stderr_text.strip().splitlines()[-1] if stderr_text.strip() else ""
+            name = last_line.split(":", 1)[0].strip() or "Error"
+            value = last_line.split(":", 1)[1].strip() if ":" in last_line else last_line
+            code_error = CodeError(name=name, value=value, traceback=stderr_text)
+            if on_error:
+                on_error(code_error)
+        elif returncode not in (0, None):
+            exit_code = int(returncode)
+
+        return ExecutionResult(
+            results=[],
+            logs=Logs(stdout=stdout_messages, stderr=stderr_messages),
+            execution_ok=True,
+            code_error=code_error,
+            exit_code=exit_code,
+            execution_count=self._execution_count,
+            context_id=context.id if context else "default",
+            started_at=started_at,
+            completed_at=time.time(),
+        )
+
+    def _do_interrupt(self) -> bool:
+        """Modal does not support interrupts."""
+        return False
+
+    def _get_internal_variable(self, name: str, context: Context | None = None):
+        raise NotImplementedError(
+            "ModalSandbox holds variables in its session process; read them by "
+            "running code, e.g. run_code(f'print({name})')."
+        )
+
+    def _set_internal_variable(self, name: str, value, context: Context | None = None) -> None:
+        raise NotImplementedError(
+            "ModalSandbox holds variables in its session process; set them by "
+            "running code, e.g. run_code(f'{name} = ...')."
+        )

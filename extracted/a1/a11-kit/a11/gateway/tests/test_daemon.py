@@ -1,0 +1,224 @@
+# Copyright 2026 The A11 Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Managing a gateway that is not in the foreground.
+
+State-file bookkeeping and log reading are tested directly; spawning a real
+child process is covered by one test marked slow, because it starts an
+interpreter and waits for it to bind a port.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import json
+import os
+import pathlib
+import signal
+import socket
+import subprocess
+import sys
+import time
+
+import pytest
+
+from a11.gateway import config, daemon
+
+
+@pytest.fixture(autouse=True)
+def _isolated_runtime(tmp_path, monkeypatch):
+    """Point the daemon's state and log at a directory of this test's own."""
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path))
+    return tmp_path
+
+
+def test_the_runtime_directory_follows_xdg(tmp_path):
+    assert daemon.runtime_dir() == tmp_path / "a11" / "gateway"
+    assert daemon.state_file().name == "gateway.json"
+    assert daemon.log_file().name == "gateway.log"
+
+
+def test_the_runtime_directory_falls_back_to_the_cache(monkeypatch, tmp_path):
+    monkeypatch.delenv("XDG_RUNTIME_DIR", raising=False)
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
+    assert daemon.runtime_dir() == tmp_path / "a11" / "gateway"
+
+
+def test_nothing_running_reports_not_running():
+    current = daemon.status()
+    assert not current.running
+    assert current.pid is None
+    # The fields are the scriptable contract, so they exist either way.
+    assert current.as_fields()["running"] is False
+    assert "log" in current.as_fields()
+
+
+def test_a_recorded_gateway_reports_itself_running():
+    settings = config.GatewayConfig(a11_port=9999)
+    with daemon.recorded(settings, [settings.url]):
+        current = daemon.status()
+        assert current.running
+        assert current.pid == os.getpid()
+        assert current.url == "ws://127.0.0.1:9999/a11"
+        assert current.uptime_seconds is not None
+    # The record is cleaned up on the way out, so a crashed run does not leave a
+    # gateway that looks alive forever.
+    assert not daemon.status().running
+
+
+def test_a_stale_record_is_reported_and_removed():
+    """A pid that is gone must not read as a running gateway."""
+    daemon.runtime_dir().mkdir(parents=True, exist_ok=True)
+    # A pid that cannot exist: the kernel would never assign it.
+    daemon.state_file().write_text(
+        json.dumps({"pid": 2**30, "url": "ws://127.0.0.1:8011/a11"})
+    )
+
+    current = daemon.status()
+    assert not current.running
+    assert current.stale
+    assert not daemon.state_file().exists()
+
+
+def test_an_unreadable_record_is_treated_as_absent():
+    daemon.runtime_dir().mkdir(parents=True, exist_ok=True)
+    daemon.state_file().write_text("this is not json")
+    assert not daemon.status().running
+
+
+def test_stopping_nothing_is_an_error_not_a_silent_success():
+    with pytest.raises(RuntimeError, match="no gateway is running"):
+        daemon.stop()
+
+
+def test_starting_while_one_runs_refuses_rather_than_doubling_up():
+    settings = config.GatewayConfig()
+    with daemon.recorded(settings, [settings.url]):
+        with pytest.raises(RuntimeError, match="already running"):
+            daemon.spawn()
+
+
+def test_reading_logs_when_there_is_none_is_empty_not_an_error():
+    assert daemon.read_logs() == []
+
+
+def test_logs_return_the_trailing_lines():
+    daemon.runtime_dir().mkdir(parents=True, exist_ok=True)
+    daemon.log_file().write_text("\n".join(f"line {n}" for n in range(10)))
+
+    assert daemon.read_logs(3) == ["line 7", "line 8", "line 9"]
+    # Zero means everything, which is what `-n 0` asks for.
+    assert len(daemon.read_logs(0)) == 10
+
+
+def test_the_status_fields_are_single_line_and_stable():
+    """`a11 gateway status | grep pid` has to keep working."""
+    settings = config.GatewayConfig(a11_port=8123)
+    with daemon.recorded(settings, [settings.url]):
+        fields = daemon.status().as_fields()
+    assert set(fields) >= {"running", "pid", "url", "log"}
+    for value in fields.values():
+        assert "\n" not in str(value)
+
+
+def test_a_real_detached_gateway_starts_answers_and_stops(tmp_path):
+    """The whole cycle, with an actual child process."""
+    store = tmp_path / "conversations"
+    started = daemon.spawn([
+        "--a11-port",
+        "8097",
+        "--conversation-store-root",
+        str(store),
+        "--no-shell-tools",
+        "--no-audio-capture",
+        "--no-speech-recognition",
+    ])
+    try:
+        assert started.running
+        assert started.pid and started.pid != os.getpid()
+        assert started.url == "ws://127.0.0.1:8097/a11"
+        # It wrote its own record, so a separate `status` call finds it.
+        assert daemon.status().pid == started.pid
+        # And it is really serving: unbuffered output means the log has content
+        # while it is still running, which is the point of `a11 gateway logs`.
+        assert any("listening on" in line for line in daemon.read_logs(0))
+    finally:
+        daemon.stop()
+    assert not daemon.status().running
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="SIGINT process semantics are POSIX-only"
+)
+def test_ctrl_c_immediately_closes_a_gateway_with_a_live_client(tmp_path):
+    """An interactive stop must not drain a long-lived WebSocket session."""
+    from websockets.sync.client import connect
+
+    with socket.socket() as reservation:
+        reservation.bind(("127.0.0.1", 0))
+        port = reservation.getsockname()[1]
+
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "a11.cli",
+            "gateway",
+            "--a11-port",
+            str(port),
+            "--conversation-store-root",
+            str(tmp_path / "conversations"),
+            "--no-coding-tools",
+            "--no-shell-tools",
+            "--no-audio-capture",
+            "--no-speech-recognition",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    connection = None
+    try:
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            try:
+                connection = connect(
+                    f"ws://127.0.0.1:{port}/a11", open_timeout=0.2
+                )
+                break
+            except (OSError, TimeoutError):
+                time.sleep(0.05)
+        assert connection is not None, process.communicate(timeout=1)[0]
+
+        # Let the accepted socket become a tracked service session. With the
+        # former graceful-drain path this client forced every Ctrl+C to wait
+        # the complete three-second timeout.
+        time.sleep(0.05)
+        started = time.monotonic()
+        process.send_signal(signal.SIGINT)
+        process.wait(timeout=1.5)
+        assert time.monotonic() - started < 1.5
+        assert process.returncode == 0
+    finally:
+        if connection is not None:
+            with contextlib.suppress(Exception):
+                connection.close()
+        if process.poll() is None:
+            process.terminate()
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                process.wait(timeout=2)
+        if process.poll() is None:
+            process.kill()
+        if process.stdout is not None:
+            process.stdout.close()

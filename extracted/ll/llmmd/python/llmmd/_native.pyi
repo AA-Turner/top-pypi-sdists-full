@@ -1,0 +1,3 @@
+from llmmd.types import MessageChunk
+
+def process_markdown(markdown: str, with_photo: bool = False) -> list[MessageChunk]: ...

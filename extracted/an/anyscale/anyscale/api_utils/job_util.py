@@ -11,9 +11,9 @@ def _get_job_run_id(
     job_id: Optional[str] = None,
     job_run_id: Optional[str] = None,
 ) -> str:
-    assert bool(job_id) != bool(
-        job_run_id
-    ), "Exactly one of `job_id` or `job_run_id` must be provided."
+    assert bool(job_id) != bool(job_run_id), (
+        "Exactly one of `job_id` or `job_run_id` must be provided."
+    )
     if job_id:
         prod_job: ProductionJob = base_api.get_production_job(job_id).result
         if not prod_job.last_job_run_id:

@@ -1588,8 +1588,8 @@ async fn tool_upgrade_invalid_auth() -> Result<()> {
     exit_code: 1 (failure)
     ----- stderr -----
     error: Failed to upgrade executable-application
-      cause: Failed to fetch: `http://[LOCALHOST]/basic-auth/simple/executable-application/`
-      cause: Missing credentials for http://[LOCALHOST]/basic-auth/simple/executable-application/
+      cause: Failed to fetch: http://[LOCALHOST]/basic-auth/simple/executable-application/
+      cause: Missing credentials for: http://[LOCALHOST]/basic-auth/simple/executable-application/
     ");
 
     Ok(())
@@ -1624,7 +1624,7 @@ fn tool_upgrade_writes_preview_lock() {
     insta::with_settings!({ filters => context.filters() }, {
         assert_snapshot!(context.read("tools/simple-launcher/uv.lock"), @r#"
         version = 1
-        revision = 3
+        revision = 5
         requires-python = ">=3.12"
 
         [options]

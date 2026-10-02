@@ -1,0 +1,1890 @@
+from __future__ import annotations
+
+import hmac
+import inspect
+import math
+import pickle
+import signal
+from collections import defaultdict
+from collections.abc import AsyncGenerator, Awaitable, Callable, Sequence
+from contextlib import AbstractAsyncContextManager, AsyncExitStack, asynccontextmanager
+from contextvars import ContextVar
+from datetime import UTC, datetime, timedelta, tzinfo
+from hashlib import sha256
+from textwrap import shorten
+from typing import Any, Generic, Literal, Self, cast, overload
+from uuid import UUID, uuid4
+
+from anyio import (
+    TASK_STATUS_IGNORED,
+    AsyncContextManagerMixin,
+    CancelScope,
+    CapacityLimiter,
+    Path,
+    TaskHandle,
+    create_memory_object_stream,
+    create_task_group,
+    current_time,
+    fail_after,
+    get_cancelled_exc_class,
+    move_on_after,
+    open_signal_receiver,
+    run,
+    sleep,
+)
+from anyio.abc import TaskStatus as AnyStatus
+from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
+from coredis import (
+    ClusterConnectionPool,
+    ConnectionPool,
+    PureToken,
+    Redis,
+    RedisCluster,
+    Sentinel,
+)
+from coredis.client import Client
+from coredis.commands import CommandRequest
+from coredis.connection import TCPLocation
+from coredis.exceptions import RedisError, StreamConsumerGroupError
+from coredis.response.types import ScoredMember
+from coredis.typing import KeyT
+from crontab import CronTab
+
+from streaq import logger
+from streaq.constants import (
+    REDIS_ABORT,
+    REDIS_CHANNEL,
+    REDIS_CRON,
+    REDIS_DEPENDENCIES,
+    REDIS_DEPENDENTS,
+    REDIS_FALLBACK,
+    REDIS_GROUP,
+    REDIS_HEALTH,
+    REDIS_PREFIX,
+    REDIS_PREVIOUS,
+    REDIS_QUEUE,
+    REDIS_RESULT,
+    REDIS_RESULTS_SET,
+    REDIS_RETRY,
+    REDIS_RUNNING_SET,
+    REDIS_STREAM,
+    REDIS_TASK,
+    REDIS_UNIQUE,
+)
+from streaq.task import (
+    AsyncRegisteredTask,
+    RegisteredMiddleware,
+    SyncRegisteredTask,
+    Task,
+    TaskInfo,
+    TaskResult,
+    TaskStatus,
+    _task_context,
+)
+from streaq.types import (
+    AsyncCron,
+    AsyncTask,
+    C,
+    CronDecorator,
+    Entries,
+    Middleware,
+    P,
+    R,
+    StreamMessage,
+    Streaq,
+    StreaqCancelled,
+    StreaqError,
+    StreaqRetry,
+    SyncCron,
+    SyncTask,
+    TaskDecorator,
+    is_async_task,
+)
+from streaq.utils import datetime_ms, now_ms, to_ms, to_seconds, to_tuple
+
+
+@asynccontextmanager
+async def _lifespan() -> AsyncGenerator[Any]:
+    yield None
+
+
+async def _placeholder() -> None: ...
+
+
+def _deterministic_id(identifier: str) -> str:
+    deterministic_hash = sha256(identifier.encode()).hexdigest()
+    return UUID(bytes=bytes.fromhex(deterministic_hash[:32]), version=4).hex
+
+
+_worker_context = ContextVar[Any]("_worker_context")
+
+
+class Worker(AsyncContextManagerMixin, Generic[C]):
+    """
+    Worker object that fetches and executes tasks from a queue.
+
+    :param redis_url: connection URI for Redis
+    :param redis_pool: coredis connection pool for Redis client
+    :param redis_kwargs: additional keyword arguments for Redis client
+    :param concurrency: number of tasks the worker can run simultaneously
+    :param sync_concurrency:
+        max number of synchronous tasks the worker can run simultaneously
+        in separate threads; defaults to the same as ``concurrency``
+    :param queue_name: name of queue in Redis
+    :param priorities: list of priorities from lowest to highest
+    :param prefetch:
+        max number of tasks to prefetch from Redis, defaults to ``concurrency``
+    :param lifespan:
+        async context manager that wraps worker execution and provides task
+        dependencies
+    :param serializer: function to serialize task data for Redis
+    :param deserializer: function to deserialize task data from Redis
+    :param tz: timezone to use for cron jobs
+    :param handle_signals: whether to handle signals for graceful shutdown
+    :param signing_secret:
+        if provided, used to sign data stored in Redis, which can improve security
+        especially if using pickle. For binary serializers only. You can generate
+        a key using secrets, for example: `secrets.token_urlsafe(32)`
+    :param idle_timeout:
+        the number of seconds to wait before re-enqueuing idle tasks (either
+        prefetched tasks that don't run, or running tasks that become unresponsive)
+    :param grace_period:
+        the number of seconds after receiving SIGINT or SIGTERM to wait for tasks to
+        finish before performing a hard shutdown
+    :param anyio_backend: anyio backend to use, either Trio or asyncio
+    :param anyio_kwargs: extra arguments to pass to anyio backend
+    :param sentinel_nodes: list of (address, port) tuples to create sentinel from
+    :param sentinel_master: name of sentinel master to use
+    :param sentinel_kwargs: extra arguments to pass to sentinel (but not instances)
+    :param cluster_nodes: list of (address, port) tuples to create cluster from
+    :param id: custom worker ID
+    """
+
+    def __init__(
+        self,
+        redis_url: str = "redis://localhost:6379",
+        redis_pool: ConnectionPool[Any] | ClusterConnectionPool | None = None,
+        redis_kwargs: dict[str, Any] | None = None,
+        concurrency: int = 16,
+        sync_concurrency: int | None = None,
+        queue_name: str = "default",
+        priorities: list[str] | None = None,
+        prefetch: int | None = None,
+        lifespan: Callable[[], AbstractAsyncContextManager[C]] = _lifespan,
+        serializer: Callable[
+            [Any], bytes | str | Awaitable[bytes | str]
+        ] = pickle.dumps,
+        deserializer: Callable[[bytes], Any] = pickle.loads,
+        tz: tzinfo = UTC,
+        handle_signals: bool = True,
+        signing_secret: str | None = None,
+        idle_timeout: timedelta | float = 60,
+        grace_period: int = 0,
+        anyio_backend: Literal["asyncio", "trio"] = "asyncio",
+        anyio_kwargs: dict[str, Any] | None = None,
+        sentinel_nodes: list[tuple[str, int]] | None = None,
+        sentinel_master: str = "mymaster",
+        sentinel_kwargs: dict[str, Any] | None = None,
+        cluster_nodes: list[tuple[str, int]] | None = None,
+        id: str | None = None,
+    ) -> None:
+        # Redis connection
+        redis_kwargs = redis_kwargs or {}
+        if redis_kwargs.pop("decode_responses", None) is not None:
+            logger.warning("decode_responses ignored in redis_kwargs")
+        if redis_pool and not redis_pool.decode_responses:
+            raise StreaqError(
+                "Worker can't use a connection pool with `decode_responses=False`!"
+            )
+        self._sentinel = self._cluster = None
+        if sentinel_nodes:
+            self._sentinel = Sentinel(
+                [TCPLocation(*n) for n in sentinel_nodes],
+                decode_responses=True,
+                sentinel_kwargs=sentinel_kwargs,
+                **redis_kwargs,
+            )
+            self._redis: Redis[str] | RedisCluster[str] = self._sentinel.primary_for(
+                sentinel_master
+            )
+        elif cluster_nodes:
+            self._cluster = self._redis = RedisCluster(
+                startup_nodes=[TCPLocation(*n) for n in cluster_nodes],
+                decode_responses=True,
+                max_connections_per_node=True,
+                **redis_kwargs,
+            )
+        elif isinstance(redis_pool, ClusterConnectionPool):
+            self._cluster = self._redis = RedisCluster(
+                connection_pool=redis_pool, decode_responses=True, **redis_kwargs
+            )
+        else:
+            if redis_pool:
+                self._redis = Redis(
+                    connection_pool=redis_pool, decode_responses=True, **redis_kwargs
+                )
+            else:
+                self._redis = Redis.from_url(
+                    redis_url, decode_responses=True, **redis_kwargs
+                )
+        # user-facing properties
+        self.concurrency = concurrency
+        self.queue_name = queue_name
+        self.priorities = priorities or ["normal"]
+        self.priorities.reverse()
+        self.prefetch = (prefetch or concurrency) + concurrency
+        self.handle_signals = handle_signals
+        self.grace_period = grace_period
+        #: mapping of task name -> task wrapper
+        self.registry: dict[
+            str, AsyncRegisteredTask[Any, Any] | SyncRegisteredTask[Any, Any]
+        ] = {}
+        #: mapping of type of task -> number of tasks of that type
+        #: eg ``{"completed": 4, "failed": 1, "retried": 0}``
+        self.counters: dict[str, int] = defaultdict(int)
+        #: unique ID of worker
+        self.id = id or uuid4().hex[:8]
+        self.serializer = serializer
+        self.deserializer = deserializer
+        self.tz = tz
+        #: whether to shut down the worker when the queue is empty; set via CLI
+        self.burst = False
+        # save anyio configuration
+        self.anyio_backend = anyio_backend
+        self.anyio_kwargs = anyio_kwargs or {}
+        #: list of middlewares added to the worker
+        self.middlewares: list[RegisteredMiddleware] = []
+        self.signing_secret = signing_secret.encode() if signing_secret else None
+        self.sync_concurrency = sync_concurrency or concurrency
+        self.lifespan = lifespan()
+        self.idle_timeout = to_ms(idle_timeout)
+        # internal objects
+        self._cancel_scopes: dict[str, CancelScope] = {}
+        self._running_tasks: dict[str, set[str]] = defaultdict(set)
+        self._limiter: CapacityLimiter = CapacityLimiter(self.sync_concurrency)
+        self._initialized = self._running = False
+        self._async_serializer = inspect.iscoroutinefunction(serializer)
+        self._async_deserializer = inspect.iscoroutinefunction(deserializer)
+        self._count = 0
+        self._stream_empty = False
+        # precalculate Redis prefixes
+        self.prefix = REDIS_PREFIX + self.queue_name
+        self.cron_data_key = self.prefix + REDIS_CRON + "data:"
+        self.cron_registry_key = self.prefix + REDIS_CRON + "jobs"
+        self.cron_schedule_key = self.prefix + REDIS_CRON + "schedule"
+        self.queue_key = self.prefix + REDIS_QUEUE
+        self.stream_key = self.prefix + REDIS_STREAM
+        self.task_key = self.prefix + REDIS_TASK
+        self.dependents_key = self.prefix + REDIS_DEPENDENTS
+        self.dependencies_key = self.prefix + REDIS_DEPENDENCIES
+        self.results_key = self.prefix + REDIS_RESULT
+        self._abort_key = self.prefix + REDIS_ABORT
+        self._channel_key = self.prefix + REDIS_CHANNEL
+        self._previous_key = self.prefix + REDIS_PREVIOUS
+        self._results_set = self.prefix + REDIS_RESULTS_SET
+        self._retry_key = self.prefix + REDIS_RETRY
+        self._running_set = self.prefix + REDIS_RUNNING_SET
+        self._fallback_key = self.prefix + REDIS_FALLBACK
+        self._supports_max_count = False
+        self._streams = {self.stream_key + p: ">" for p in self.priorities}
+
+    def include(self, other: Worker[Any]) -> None:
+        """
+        Copy another worker's tasks and cron jobs to the current worker.
+
+        This works by modifying the included worker's tasks to point to this worker
+        instead. Since only one worker should be running per process, this generally
+        works as expected. If you want to run a worker that is included in another
+        worker elsewhere, make sure the included worker isn't aware of its parent
+        worker at import time.
+
+        :param other: worker to copy tasks and cron jobs from
+        """
+        for name, task in other.registry.items():
+            if name in self.registry:
+                raise StreaqError(f"Duplicate task {name} in worker {self.id}!")
+            task.worker = self
+            self.registry[name] = task
+
+    def running(self) -> int:
+        """
+        Get the number of currently running tasks in the worker.
+        """
+        return len(self._cancel_scopes)
+
+    def __str__(self) -> str:
+        counters = dict(sorted((k, v) for k, v in self.counters.items() if v))
+        if self._cancel_scopes:
+            counters["running"] = self.running()
+        counters_str = repr(counters).replace("'", "")
+        return f"worker {self.id} {counters_str}"
+
+    @asynccontextmanager
+    async def __asynccontextmanager__(self) -> AsyncGenerator[Self]:
+        async with AsyncExitStack() as stack:
+            if self._sentinel:
+                await stack.enter_async_context(
+                    self._sentinel.__asynccontextmanager__()
+                )
+            await stack.enter_async_context(self._redis.__asynccontextmanager__())
+            logger.debug(f"Redis connection established in worker {self.id}")
+            # register lua scripts from library
+            text = await (Path(__file__).parent / "lua/streaq.lua").read_text()
+            self._lib = await Streaq(self._redis, code=text, replace=True)
+            # check if new XREADGROUP arguments are supported
+            await self._check_xreadgroup_compatibility()
+            self._cancelled_class = get_cancelled_exc_class()
+            self._initialized = True
+            yield self
+
+    async def _check_xreadgroup_compatibility(self) -> None:
+        try:
+            await self._redis.xreadgroup(
+                REDIS_GROUP, self.id, {uuid4().hex: ">"}, max_count=10
+            )
+        except StreamConsumerGroupError:  # pragma: gated cover[xreadgroup-max-count]
+            self._supports_max_count = True
+        except RedisError:  # pragma: gated cover[xreadgroup-no-max-count]
+            pass  # syntax is invalid
+
+    @property
+    def redis(self) -> Redis[str] | RedisCluster[str]:
+        """
+        Worker's coredis client instance.
+
+        Only available inside the worker's context manager.
+        """
+        if not self._initialized:
+            raise StreaqError("Worker not initialized, use the async context manager!")
+        return self._redis
+
+    @property
+    def context(self) -> C:
+        """
+        Get the workers's unique context. Only available in running workers.
+        """
+        if not self._running:
+            raise StreaqError("Context is only available in running workers!")
+        return cast(C, _worker_context.get())
+
+    def cron(
+        self,
+        tab: str,
+        *,
+        max_schedule_drift: timedelta | int | None = None,
+        max_tries: int | None = 3,
+        name: str | None = None,
+        retry_timeouts: bool = False,
+        silent: bool = False,
+        timeout: timedelta | int | None = timedelta(hours=1),
+        ttl: timedelta | int | None = timedelta(minutes=5),
+        unique: bool = True,
+    ) -> CronDecorator:
+        """
+        Register a task to be run at regular intervals as specified.
+
+        :param tab:
+            crontab for scheduling, follows the specification
+            `here <https://github.com/josiahcarlson/parse-crontab?tab=readme-ov-file#description>`_.
+        :param max_schedule_drift:
+            maximum amount of time a cron task can be delayed from its scheduled
+            execution time before getting discarded. If None, no check is performed.
+        :param max_tries:
+            number of times to retry the task should it fail during execution
+        :param name: use a custom name for the cron job instead of the function name
+        :param retry_timeouts: whether to retry the task if it times out
+        :param silent: whether to silence task logs; defaults to False
+        :param timeout: time after which to abort the task, if None will never time out
+        :param ttl: time to store results in Redis, if None will never expire
+        :param unique: whether multiple instances of the task can exist simultaneously
+        """
+
+        @overload
+        def wrapped(fn: AsyncCron[R]) -> AsyncRegisteredTask[[], R]: ...  # type: ignore[overload-overlap]
+
+        @overload
+        def wrapped(fn: SyncCron[R]) -> SyncRegisteredTask[[], R]: ...
+
+        def wrapped(
+            fn: AsyncCron[R] | SyncCron[R],
+        ) -> Any:
+            if unique and timeout is None:
+                raise StreaqError("Unique tasks must have a timeout set!")
+            if (fn_name := name or fn.__qualname__) in self.registry:
+                raise StreaqError(
+                    f"A task named {fn_name} has already been registered!"
+                )
+            if is_async_task(fn):
+                task = AsyncRegisteredTask(
+                    fn=fn,
+                    expire=None,
+                    max_schedule_drift=max_schedule_drift,
+                    max_tries=max_tries,
+                    retry_timeouts=retry_timeouts,
+                    silent=silent,
+                    timeout=timeout,
+                    ttl=ttl,
+                    unique=unique,
+                    fn_name=fn_name,
+                    crontab=tab,
+                    worker=self,
+                )
+                self.registry[fn_name] = task
+                return task
+            _task = SyncRegisteredTask(
+                fn=fn,
+                expire=None,
+                max_schedule_drift=max_schedule_drift,
+                max_tries=max_tries,
+                retry_timeouts=retry_timeouts,
+                silent=silent,
+                timeout=timeout,
+                ttl=ttl,
+                unique=unique,
+                fn_name=fn_name,
+                crontab=tab,
+                worker=self,
+            )
+            self.registry[fn_name] = _task
+            return _task
+
+        return wrapped
+
+    @overload
+    def task(self, fn: AsyncTask[P, R], /) -> AsyncRegisteredTask[P, R]: ...  # type: ignore[overload-overlap]
+
+    @overload
+    def task(self, fn: SyncTask[P, R], /) -> SyncRegisteredTask[P, R]: ...
+
+    @overload
+    def task(
+        self,
+        *,
+        expire: timedelta | int | None = None,
+        max_tries: int | None = 3,
+        name: str | None = None,
+        retry_timeouts: bool = False,
+        silent: bool = False,
+        timeout: timedelta | int | None = None,
+        ttl: timedelta | int | None = timedelta(minutes=5),
+        unique: bool = False,
+    ) -> TaskDecorator: ...
+
+    def task(
+        self,
+        fn: AsyncTask[P, R] | SyncTask[P, R] | None = None,
+        *,
+        expire: timedelta | int | None = None,
+        max_tries: int | None = 3,
+        name: str | None = None,
+        retry_timeouts: bool = False,
+        silent: bool = False,
+        timeout: timedelta | int | None = None,
+        ttl: timedelta | int | None = timedelta(minutes=5),
+        unique: bool = False,
+    ) -> Any:
+        """
+        Register a task with the worker which can later be enqueued.
+
+        :param expire:
+            time after which to dequeue the task, if None will never be dequeued
+        :param max_tries:
+            number of times to retry the task should it fail during execution
+        :param name: use a custom name for the task instead of the function name
+        :param retry_timeouts: whether to retry the task if it times out
+        :param silent: whether to silence task logs; defaults to False
+        :param timeout: time after which to abort the task, if None will never time out
+        :param ttl: time to store results in Redis, if None will never expire
+        :param unique: whether multiple instances of the task can exist simultaneously
+        """
+
+        def wrapped(
+            fn: AsyncTask[P, R] | SyncTask[P, R],
+        ) -> AsyncRegisteredTask[P, R] | SyncRegisteredTask[P, R]:
+            if unique and timeout is None:
+                raise StreaqError("Unique tasks must have a timeout set!")
+            if (fn_name := name or fn.__qualname__) in self.registry:
+                raise StreaqError(
+                    f"A task named {fn_name} has already been registered!"
+                )
+            if is_async_task(fn):
+                task = AsyncRegisteredTask(
+                    fn=fn,
+                    expire=expire,
+                    max_schedule_drift=None,
+                    max_tries=max_tries,
+                    retry_timeouts=retry_timeouts,
+                    silent=silent,
+                    timeout=timeout,
+                    ttl=ttl,
+                    unique=unique,
+                    fn_name=fn_name,
+                    crontab=None,
+                    worker=self,
+                )
+                self.registry[fn_name] = task
+                return task
+            _task = SyncRegisteredTask(
+                fn=fn,
+                expire=expire,
+                max_schedule_drift=None,
+                max_tries=max_tries,
+                retry_timeouts=retry_timeouts,
+                silent=silent,
+                timeout=timeout,
+                ttl=ttl,
+                unique=unique,
+                fn_name=fn_name,
+                crontab=None,
+                worker=self,
+            )
+            self.registry[fn_name] = _task
+            return _task
+
+        if fn is not None:
+            return wrapped(fn)
+        return wrapped
+
+    def middleware(self, new_middleware: Middleware) -> RegisteredMiddleware:
+        """
+        Register the given middleware with the worker.
+        """
+        registered = RegisteredMiddleware(new_middleware)
+        self.middlewares.append(registered)
+        return registered
+
+    def run_sync(self) -> None:
+        """
+        Run the worker loop in a blocking manner.
+        """
+        run(
+            self.run_async,
+            backend=self.anyio_backend,
+            backend_options=self.anyio_kwargs,
+        )
+
+    async def run_async(
+        self, *, task_status: AnyStatus[None] = TASK_STATUS_IGNORED
+    ) -> None:
+        """
+        Run the worker in the current event loop.
+        """
+        logger.info(f"starting worker {self.id} for queue {self.queue_name}")
+        # run user-defined initialization code
+        async with self, self.lifespan as context:
+            _worker_context.set(context)
+            now = now_ms()
+            tasks: list[Task[Any, Any]] = []
+            async with self.redis.pipeline(transaction=False) as pipe:
+                # create consumer group if it doesn't exist
+                Streaq(pipe).create_groups(
+                    self.stream_key, REDIS_GROUP, *self.priorities
+                )
+                # initial cron schedules
+                for cj in self.registry.values():
+                    if not cj.crontab:
+                        continue
+                    dt = self._next_datetime(cj.crontab)
+                    ts = datetime_ms(dt)
+                    task = cj.enqueue().start(schedule=dt)
+                    task.id = _deterministic_id(cj.fn_name + str(ts))
+                    tasks.append(task)
+                    pipe.set(self.cron_data_key + cj.fn_name, await task.serialize(now))
+                    pipe.hset(self.cron_registry_key, {cj.fn_name: cj.crontab})
+                    pipe.zadd(self.cron_schedule_key, {cj.fn_name: ts})
+            await self.enqueue_many(tasks)
+            start_time = current_time()
+            send, receive = create_memory_object_stream[StreamMessage](
+                max_buffer_size=self.prefetch
+            )
+
+            # start tasks
+            try:
+                async with create_task_group() as tg:
+                    # register signal handler
+                    tg.start_soon(self.signal_handler, tg.cancel_scope)
+                    scope = CancelScope(shield=True)
+                    tg.start_soon(self.renew_idle_timeouts, scope)
+                    limiter = await tg.start(
+                        self.run_consumers, receive, scope, tg.cancel_scope
+                    )
+                    tg.start_soon(self.schedule_delayed_tasks)
+                    tg.start_soon(self.producer, send, limiter, tg.cancel_scope)
+                    task_status.started()
+                    self._running = True
+            finally:
+                run_time = to_ms(current_time() - start_time)
+                logger.info(f"shutdown {self!s} after {run_time}ms")
+
+    async def consumer(
+        self,
+        queue: MemoryObjectReceiveStream[StreamMessage],
+        limiter: CapacityLimiter,
+        scope: CancelScope,
+    ) -> None:
+        """
+        Listen for and run tasks from the queue.
+        """
+        with queue:
+            async for msg in queue:
+                async with limiter:
+                    await self.run_task(msg)
+                self._count -= 1
+                # wrap things up if we burstin'
+                if self.burst and self._stream_empty and self._count == 0:
+                    scope.cancel("No tasks left for worker with --burst")
+                    return
+
+    async def run_consumers(
+        self,
+        receive: MemoryObjectReceiveStream[StreamMessage],
+        renew_scope: CancelScope,
+        produce_scope: CancelScope,
+        *,
+        task_status: AnyStatus[CapacityLimiter] = TASK_STATUS_IGNORED,
+    ) -> None:
+        """
+        Run all consumers in a dedicated task group, finally clean up.
+        """
+        limiter = CapacityLimiter(self.concurrency)
+        try:
+            async with create_task_group() as tg:
+                for _ in range(self.concurrency):
+                    tg.start_soon(
+                        self.consumer, receive.clone(), limiter, produce_scope
+                    )
+                task_status.started(limiter)
+        finally:
+            # don't cancel renewal task until consumers finish
+            renew_scope.cancel()
+
+    async def renew_idle_timeouts(self, scope: CancelScope) -> None:
+        """
+        Periodically renew idle timeout for running tasks.
+
+        This allows the queue to be resilient to sudden shutdowns. Additionally marks
+        worker as healthy.
+        """
+        timeout = self.idle_timeout / 1000 * 0.9  # 10% buffer
+        health_key = f"{self.prefix}{REDIS_HEALTH}:{self.id}"
+        # prevent cancellation until consumers finish
+        with scope:
+            while True:
+                async with self.redis.pipeline(transaction=False) as pipe:
+                    pipe.set(health_key, str(self), px=self.idle_timeout)
+                    pipe.zremrangebyscore(self._results_set, 0, now_ms())
+                    for priority, tasks in self._running_tasks.items():
+                        if tasks:
+                            pipe.xclaim(
+                                self.stream_key + priority,
+                                REDIS_GROUP,
+                                self.id,
+                                0,
+                                tasks,
+                                justid=True,
+                            )
+                await sleep(timeout)
+
+    async def _read_streams_legacy(
+        self, count: int, block: bool = False
+    ) -> Entries:  # pragma: gated cover[xreadgroup-no-max-count]
+        if block:
+            return await self.redis.xreadgroup(
+                REDIS_GROUP,
+                self.id,
+                self._streams,
+                block=self.idle_timeout,
+                count=count,
+            )
+        return await self._lib.read_streams(
+            self.stream_key,
+            REDIS_GROUP,
+            self.id,
+            count,
+            self.idle_timeout,
+            *self.priorities,
+        )
+
+    async def _read_streams_max_count(
+        self, count: int, block: bool = False
+    ) -> Entries:  # pragma: gated cover[xreadgroup-max-count]
+        return await self.redis.xreadgroup(
+            REDIS_GROUP,
+            self.id,
+            self._streams,
+            block=self.idle_timeout if block else None,
+            claim=self.idle_timeout,
+            max_count=count,
+        )
+
+    async def producer(
+        self,
+        queue: MemoryObjectSendStream[StreamMessage],
+        limiter: CapacityLimiter,
+        scope: CancelScope,
+    ) -> None:
+        """
+        Listen for new or stale tasks from the stream and add them to the queue.
+        """
+        stream_priorities = {self.stream_key + p: p for p in self.priorities}
+        if self._supports_max_count:  # pragma: gated cover[xreadgroup-max-count]
+            reader = self._read_streams_max_count
+            probe_first = self.burst
+        else:  # pragma: gated cover[xreadgroup-no-max-count]
+            reader = self._read_streams_legacy
+            probe_first = True
+
+        with queue:
+            while True:
+                # calculate how many messages to fetch to fill the buffer
+                if (count := self.prefetch - self._count) <= 0:
+                    # acquire and release immediately, triggers when a task finishes
+                    async with limiter:
+                        count = self.prefetch - self._count
+                # fetch new messages
+                if count > 0:
+                    # non-blocking first
+                    entries = await reader(count) if probe_first else None
+                    if not entries:
+                        if probe_first:
+                            # wrap things up if we burstin'
+                            if self.burst and self._count == 0:
+                                scope.cancel("No tasks left for worker with --burst")
+                                return
+                            self._stream_empty = True
+                        # again, but blocking this time
+                        entries = await reader(count, block=True)
+                    self._stream_empty = not entries
+                    if entries:
+                        for stream, msgs in entries.items():
+                            priority = stream_priorities[stream]
+                            self._count += len(msgs)
+                            for msg_id, msg, _, _ in msgs:
+                                # this will succeed since we manually compute quantity
+                                queue.send_nowait(
+                                    StreamMessage(
+                                        message_id=msg_id,  # type: ignore
+                                        task_id=msg["task_id"],  # type: ignore
+                                        priority=priority,
+                                        enqueue_time=int(msg.get("enqueue_time", 0)),
+                                    )
+                                )
+
+    def abort_tasks(self, tasks: set[str]) -> None:
+        """
+        Aborts tasks scheduled for abortion if they're present on this worker.
+        """
+        for task_id in tasks:
+            if scope := self._cancel_scopes.pop(task_id, None):
+                scope.cancel("Task aborted by user")
+                logger.debug(
+                    f"task ⊘ {task_id} marked for abortion in worker {self.id}"
+                )
+
+    async def schedule_cron_jobs(self, ready: tuple[str, ...]) -> None:
+        """
+        Schedules any pending cron jobs for future execution.
+        """
+        registry = await self.redis.hgetall(self.cron_registry_key)
+        logger.debug(f"enqueuing cron jobs in worker {self.id}")
+        async with self.redis.pipeline(transaction=False) as pipe:
+            lib = Streaq(pipe)
+            for fn_name in ready:
+                tab = registry[fn_name]
+                ts = self.next_run(tab)
+                new_id = _deterministic_id(fn_name + str(ts))
+                lib.schedule_cron_job(
+                    self.cron_schedule_key,
+                    self.queue_key + self.priorities[-1],
+                    self.cron_data_key + fn_name,
+                    self.prefix + REDIS_TASK + new_id,
+                    new_id,
+                    ts,
+                    fn_name,
+                )
+
+    async def schedule_delayed_tasks(self) -> None:
+        """
+        Schedule delayed tasks and cron jobs, then cancel aborted tasks.
+        """
+        while True:
+            start_time = current_time()
+            async with self.redis.pipeline(transaction=False) as pipe:
+                now = now_ms()
+                lib = Streaq(pipe)
+                for priority in self.priorities:
+                    lib.publish_delayed_tasks(
+                        self.queue_key + priority, self.stream_key + priority, now
+                    )
+                aborted = pipe.smembers(self._abort_key)
+                cron_jobs = pipe.zrange(
+                    self.cron_schedule_key, 0, now, sortby=PureToken.BYSCORE
+                )
+            # aborted tasks
+            self.abort_tasks(await aborted)
+            # cron jobs
+            if ready := await cron_jobs:
+                await self.schedule_cron_jobs(ready)
+            await sleep(max(0, 0.5 - current_time() + start_time))
+
+    async def finish_failed_task(
+        self,
+        msg: StreamMessage,
+        exc: BaseException,
+        tries: int,
+        created_time: int,
+        fn_name: str = "Unknown",
+        ttl: timedelta | int | None = 300,
+        otherwise: str | None = None,
+    ) -> None:
+        """
+        Serialize a failed task with metadata and handle failure.
+        """
+        now = now_ms()
+        task_id = msg.task_id
+        data = {
+            "f": fn_name,
+            "ct": created_time,
+            "et": msg.enqueue_time,
+            "s": False,
+            "r": exc,
+            "st": now,
+            "ft": now,
+            "t": tries,
+            "w": self.id,
+        }
+        raw = await self.serialize(data)
+
+        self.counters["failed"] += 1
+        stream_key = self.stream_key + msg.priority
+        async with self.redis.pipeline(transaction=True) as pipe:
+            lib = Streaq(pipe)
+            pipe.delete([self._retry_key + task_id, self.task_key + task_id])
+            pipe.publish(self._channel_key + task_id, raw).route(self.queue_name)
+            pipe.srem(self._abort_key, [task_id])
+            pipe.xack(stream_key, REDIS_GROUP, [msg.message_id])
+            pipe.xdel(stream_key, [msg.message_id])
+            pipe.srem(self._running_set, [task_id])
+            if ttl != 0:
+                pipe.zadd(self._results_set, {task_id: now + to_ms(ttl or 1e11)})
+                pipe.set(self.results_key + task_id, raw, ex=ttl)
+            command = lib.fail_dependents(
+                self.prefix + REDIS_DEPENDENTS,
+                self.prefix + REDIS_DEPENDENCIES,
+                task_id,
+                otherwise or "",
+            )
+        if (res := await command) or otherwise:
+            await self.fail_task_dependents(res, otherwise)
+
+    async def finish_task(
+        self,
+        msg: StreamMessage,
+        finish: bool,
+        schedule: int | None,
+        return_value: Any,
+        start_time: int,
+        finish_time: int,
+        created_time: int,
+        fn_name: str,
+        success: bool,
+        silent: bool,
+        ttl: timedelta | int | None,
+        triggers: str | None,
+        lock_key: str | None,
+        tries: int,
+        otherwise: str | None,
+    ) -> None:
+        """
+        Cleanup for a task that executed successfully or will be retried.
+        """
+        task_id = msg.task_id
+        stream_key = self.stream_key + msg.priority
+        to_delete: list[KeyT] = []
+        if lock_key:
+            to_delete.append(lock_key)
+        if finish:
+            data = {
+                "f": fn_name,
+                "ct": created_time,
+                "et": msg.enqueue_time,
+                "s": success,
+                "r": return_value,
+                "st": start_time,
+                "ft": finish_time,
+                "t": tries,
+                "w": self.id,
+            }
+            result = await self.serialize(data)
+            async with self.redis.pipeline(transaction=True) as pipe:
+                lib = Streaq(pipe)
+                pipe.xack(stream_key, REDIS_GROUP, [msg.message_id])
+                pipe.xdel(stream_key, [msg.message_id])
+                pipe.publish(self._channel_key + task_id, result).route(self.queue_name)
+                if success:
+                    self.counters["completed"] += 1
+                else:
+                    self.counters["failed"] += 1
+                pipe.srem(self._running_set, [task_id])
+                if ttl != 0:
+                    pipe.zadd(
+                        self._results_set, {task_id: now_ms() + to_ms(ttl or 1e11)}
+                    )
+                    pipe.set(self.results_key + task_id, result, ex=ttl)
+                to_delete.extend([self._retry_key + task_id, self.task_key + task_id])
+                pipe.delete(to_delete)
+                pipe.srem(self._abort_key, [task_id])
+                if success:
+                    if not silent:
+                        output = shorten(str(return_value), width=32)
+                        logger.info(f"task {fn_name} ■ {task_id} ← {output}")
+                    if triggers:
+                        args = await self.serialize(to_tuple(return_value))
+                        pipe.set(
+                            self._previous_key + task_id, args, ex=timedelta(minutes=5)
+                        )
+                    command = lib.update_dependents(
+                        self.prefix + REDIS_DEPENDENTS,
+                        self.prefix + REDIS_DEPENDENCIES,
+                        task_id,
+                    )
+                else:
+                    command = lib.fail_dependents(
+                        self.prefix + REDIS_DEPENDENTS,
+                        self.prefix + REDIS_DEPENDENCIES,
+                        task_id,
+                        otherwise or "",
+                    )
+            if (res := await command) or otherwise:
+                if success:
+                    async with self.redis.pipeline(transaction=False) as pipe:
+                        now = now_ms()
+                        for dep_id in res:
+                            if dep_id == otherwise:
+                                pipe.set(self._fallback_key + dep_id, result)
+                            else:
+                                logger.info(f"↳ dependent {dep_id} triggered")
+                            pipe.xadd(
+                                stream_key, {"task_id": dep_id, "enqueue_time": now}
+                            )
+                else:
+                    await self.fail_task_dependents(res, otherwise)
+        elif schedule:
+            async with self.redis.pipeline(transaction=True) as pipe:
+                pipe.xack(stream_key, REDIS_GROUP, [msg.message_id])
+                pipe.xdel(stream_key, [msg.message_id])
+                pipe.srem(self._running_set, [task_id])
+                if to_delete:
+                    pipe.delete(to_delete)
+                pipe.zadd(self.queue_key + msg.priority, {task_id: schedule})
+        else:
+            async with self.redis.pipeline(transaction=True) as pipe:
+                pipe.srem(self._running_set, [task_id])
+                if to_delete:
+                    pipe.delete(to_delete)
+                # mark message as immediately reclaimable
+                if (
+                    self._supports_max_count
+                ):  # pragma: gated cover[xreadgroup-max-count]
+                    pipe.xnack(
+                        self.stream_key + msg.priority,
+                        REDIS_GROUP,
+                        PureToken.FAIL,
+                        [msg.message_id],
+                    )
+                else:  # pragma: gated cover[xreadgroup-no-max-count]
+                    pipe.xclaim(
+                        self.stream_key + msg.priority,
+                        REDIS_GROUP,
+                        self.id,
+                        0,
+                        [msg.message_id],
+                        justid=True,
+                        idle=self.idle_timeout,
+                    )
+
+    async def run_task(self, msg: StreamMessage) -> None:
+        """
+        Execute the registered task, then store the result in Redis.
+        """
+        task_id = msg.task_id
+        async with self.redis.pipeline(transaction=False) as pipe:
+            _raw = pipe.get(self.task_key + task_id)
+            _task_try = pipe.incr(self._retry_key + task_id)
+            abort = pipe.srem(self._abort_key, [task_id])
+            active = Streaq(pipe).refresh_timeout(
+                self.stream_key + msg.priority,
+                self._running_set,
+                REDIS_GROUP,
+                self.id,
+                msg.message_id,
+                task_id,
+            )
+        task_try = await _task_try
+        if not (raw := await _raw):
+            logger.warning(f"task † {task_id} expired")
+            return await self.finish_failed_task(
+                msg, StreaqError("Task expired!"), task_try, 0
+            )
+        if not await active:
+            logger.warning(f"task ↩ {task_id} reclaimed from worker {self.id}")
+            self.counters["relinquished"] += 1
+            return None
+
+        try:
+            data: dict[str, Any] = await self.deserialize(raw)
+        except StreaqError as e:
+            logger.error(f"task ☒ {task_id} failed to deserialize")
+            return await self.finish_failed_task(msg, e, task_try, 0)
+
+        otherwise: str | None = data.get("O")
+        if (fn_name := data["f"]) not in self.registry:
+            logger.error(f"task {fn_name} ⊘ {task_id} skipped, missing function")
+            return await self.finish_failed_task(
+                msg,
+                StreaqError(f"Missing function {fn_name}!"),
+                task_try,
+                data["t"],
+                fn_name=data["f"],
+                otherwise=otherwise,
+            )
+        task = self.registry[fn_name]
+
+        if await abort:
+            if not task.silent:
+                logger.info(f"task {fn_name} ⊘ {task_id} aborted prior to run")
+            return await self.finish_failed_task(
+                msg,
+                StreaqCancelled("Task aborted prior to run!"),
+                task_try,
+                data["t"],
+                fn_name=fn_name,
+                ttl=task.ttl,
+                otherwise=otherwise,
+            )
+        if task.max_tries and task_try > task.max_tries:
+            if not task.silent:
+                logger.warning(
+                    f"task {fn_name} × {task_id} failed after {task.max_tries} retries"
+                )
+            return await self.finish_failed_task(
+                msg,
+                StreaqError("Max retry attempts reached for task!"),
+                task_try,
+                data["t"],
+                fn_name=fn_name,
+                ttl=task.ttl,
+                otherwise=otherwise,
+            )
+        if task.max_schedule_drift is not None and now_ms() - msg.enqueue_time > to_ms(
+            task.max_schedule_drift
+        ):
+            if not task.silent:
+                logger.warning(
+                    f"task {fn_name} ⊘ {task_id} missed scheduled time, skipping"
+                )
+            return await self.finish_failed_task(
+                msg,
+                StreaqError("Cron task exceeded max schedule drift!"),
+                task_try,
+                data["t"],
+                fn_name=fn_name,
+                ttl=task.ttl,
+                otherwise=otherwise,
+            )
+
+        timeout = (
+            None if task.timeout is None else self.idle_timeout + to_ms(task.timeout)
+        )
+        lock_key = None
+        if task.unique:
+            lock_key = self.prefix + REDIS_UNIQUE + fn_name
+            locked = await self.redis.set(
+                lock_key, task_id, get=True, condition=PureToken.NX, px=timeout
+            )
+            # allow retries of the same task but not new ones
+            if locked and locked != task_id:
+                if not task.silent:
+                    logger.warning(
+                        f"task {fn_name} ↯ {task_id} clashed with unique task {locked}"
+                    )
+                return await self.finish_failed_task(
+                    msg,
+                    StreaqError(
+                        "Task is unique and another instance of the same task is "
+                        "already running!"
+                    ),
+                    task_try,
+                    data["t"],
+                    fn_name=fn_name,
+                    ttl=task.ttl,
+                    otherwise=otherwise,
+                )
+        if data.get("F") and (
+            parent_raw := await self.redis.get(self._fallback_key + task_id)
+        ):
+            parent = await self.deserialize(parent_raw)
+            if not task.silent:
+                logger.debug(f"fallback {fn_name} ⊘ {task_id} skipped")
+            now = now_ms()
+            return await self.finish_task(
+                msg,
+                finish=True,
+                schedule=None,
+                return_value=parent["r"],
+                start_time=now,
+                finish_time=now,
+                created_time=data["t"],
+                fn_name=fn_name,
+                success=True,
+                silent=True,
+                ttl=task.ttl,
+                triggers=data.get("T"),
+                lock_key=lock_key,
+                tries=task_try,
+                otherwise=data.get("O"),
+            )
+
+        task_context = task.build_context(task_id, task_try)
+        if after := data.get("A"):
+            previous = await self.redis.get(self.prefix + REDIS_PREVIOUS + after)
+            args = await self.deserialize(previous)
+        else:
+            args = data["a"]
+        kwargs = data["k"]
+        start_time = now_ms()
+        success, done, schedule = True, True, None
+        # apply middlewares in reverse order
+        wrapped = task.runner
+        for middleware in reversed(self.middlewares):
+            wrapped = middleware(wrapped)
+        result: Any = None
+        original_deadline = math.inf
+        self._running_tasks[msg.priority].add(msg.message_id)
+        token = _task_context.set(task_context)
+        if not task.silent:
+            logger.info(f"task {task.fn_name} □ {task_id} → worker {self.id}")
+        try:
+            with move_on_after(to_seconds(task.timeout), shield=True) as scope:
+                original_deadline = scope.deadline
+                self._cancel_scopes[task_id] = scope
+                result = await wrapped(*args, **kwargs)
+        except StreaqRetry as e:
+            success, done = False, False
+            self.counters["retried"] += 1
+            if e.schedule:
+                schedule = datetime_ms(e.schedule)
+                if not task.silent:
+                    logger.exception(f"Retrying task {task_id}!")
+                    logger.info(
+                        f"task {task.fn_name} ↻ {task_id} retrying at {schedule}"
+                    )
+            else:
+                delay = to_ms(e.delay) if e.delay is not None else task_try**2 * 1000
+                schedule = now_ms() + delay
+                if not task.silent:
+                    logger.exception(f"Retrying task {task_id}!")
+                    logger.info(
+                        f"task {task.fn_name} ↻ {task_id} retrying in {delay}ms"
+                    )
+        except Exception as e:  # noqa: BLE001
+            success, done, result = False, True, e
+            if not task.silent:
+                logger.exception(f"Task {task_id} failed!")
+                logger.info(f"task {task.fn_name} × {task_id} failed")
+        else:
+            # there are 3 reasons this could happen
+            if scope.cancelled_caught:
+                # this was the result of an abort() call
+                if task_id not in self._cancel_scopes:
+                    result = StreaqCancelled("Task aborted by user!")
+                    success, done = False, True
+                    if not task.silent:
+                        logger.info(f"task {task.fn_name} ⊘ {task_id} aborted")
+                    self.counters["aborted"] += 1
+                    self.counters["failed"] -= 1  # this will get incremented later
+                # task timed out normally
+                elif scope.deadline == original_deadline:
+                    if task.retry_timeouts:
+                        delay = task_try**2 * 1000
+                        schedule = now_ms() + delay
+                        success, done = False, False
+                        self.counters["retried"] += 1
+                        if not task.silent:
+                            logger.error(f"task {task.fn_name} … {task_id} timed out")
+                            logger.info(
+                                f"task {task.fn_name} ↻ {task_id} retrying in {delay}ms"
+                            )
+                    else:
+                        if not task.silent:
+                            logger.error(f"task {task.fn_name} … {task_id} timed out")
+                        result = TimeoutError("Task timed out!")
+                        success, done = False, True
+                # task timed out after grace period
+                else:
+                    self.counters["relinquished"] += 1
+                    if not task.silent:
+                        logger.info(
+                            f"task {task.fn_name} ↻ {task_id} cancelled, will be "
+                            f"retried"
+                        )
+                    success, done = False, False
+        finally:
+            self._cancel_scopes.pop(task_id, None)
+            _task_context.reset(token)
+            try:
+                self._running_tasks[msg.priority].remove(msg.message_id)
+            except KeyError:  # pragma: no cover
+                logger.critical(
+                    f"Task {task_id} ran twice in the same worker! The event loop is "
+                    f"getting blocked for extended periods of time. Consider using "
+                    f"`anyio.to_thread()` or explore non-blocking alternatives."
+                )
+        # shield is necessary here
+        with CancelScope(shield=True):
+            await self.finish_task(
+                msg,
+                finish=done,
+                schedule=schedule,
+                return_value=result,
+                start_time=start_time,
+                finish_time=now_ms(),
+                created_time=data["t"],
+                fn_name=data["f"],
+                success=success,
+                silent=task.silent,
+                ttl=task.ttl,
+                triggers=data.get("T"),
+                lock_key=lock_key,
+                tries=task_try,
+                otherwise=otherwise,
+            )
+
+    async def fail_task_dependents(
+        self, dependents: list[str], otherwise: str | None
+    ) -> None:
+        """
+        Fail dependents for the given task.
+        """
+        now = now_ms()
+        failure = {
+            "s": False,
+            "r": StreaqError("Dependency failed, not running task!"),
+            "ct": now,
+            "st": now,
+            "ft": now,
+            "et": 0,
+            "f": "Unknown",
+            "t": 0,
+            "w": self.id,
+        }
+        result = await self.serialize(failure)
+        self.counters["failed"] += len(dependents)
+        to_delete: list[str] = []
+        async with self.redis.pipeline(transaction=False) as pipe:
+            if otherwise:
+                logger.info(f"↳ fallback {otherwise} triggered")
+                pipe.xadd(
+                    self.stream_key + self.priorities[-1],
+                    {"task_id": otherwise, "enqueue_time": now},
+                )
+            for dep_id in dependents:
+                logger.info(f"task dependent × {dep_id} failed")
+                to_delete.append(self.prefix + REDIS_TASK + dep_id)
+                pipe.set(self.results_key + dep_id, result, ex=300)
+                pipe.publish(self._channel_key + dep_id, result).route(self.queue_name)
+            if to_delete:
+                expire_at = 300_000 + now  # 5 minutes from now in ms
+                pipe.zadd(self._results_set, {tid: expire_at for tid in dependents})
+                pipe.delete(to_delete)
+
+    def enqueue_unsafe(
+        self,
+        fn_name: str,
+        *args: Any,
+        **kwargs: Any,
+    ) -> Task[Any, Any]:
+        """
+        Enqueue a task without checking for a matching registry entry.
+
+        This is unsafe because it doesn't check if the task is registered with the
+        worker and doesn't enforce types, so it should only be used if you need to
+        separate the task queuing and task execution code. You also lose the ability to
+        control certain parameters like uniqueness and queue expiration time. Consider
+        using type stubs instead as explained `here <https://streaq.readthedocs.io/en/latest/integrations.html#separating-enqueuing-from-task-definitions>`_.
+
+        :param fn_name: name of the function to run
+        :param args: positional arguments for the task
+        :param kwargs: keyword arguments for the task
+
+        :return: task object
+        """
+        registered = AsyncRegisteredTask(
+            fn=_placeholder,
+            expire=None,
+            max_schedule_drift=None,
+            max_tries=None,
+            retry_timeouts=False,
+            silent=False,
+            timeout=None,
+            ttl=None,
+            unique=False,
+            fn_name=fn_name,
+            crontab=None,
+            worker=self,
+        )
+        return Task(args, kwargs, registered, self)
+
+    async def enqueue_many(self, tasks: Sequence[Task[Any, Any]]) -> None:
+        """
+        Enqueue multiple tasks for immediate execution.
+
+        This uses a Redis pipeline, so it's more efficient than awaiting each
+        individual task. Not reliable for tasks with dependencies, which should be
+        enqueued individually.
+
+        :param tasks: sequence of task objects to enqueue
+
+        Example usage::
+
+            # importantly, we're not using `await` here
+            tasks = [foobar.enqueue(i) for i in range(10)]
+            async with worker:
+                await worker.enqueue_many(tasks)
+
+        """
+        enqueue_time = now_ms()
+        handles: list[TaskHandle[Any, None]] = []
+        async with create_task_group() as tg:
+            for task in tasks:
+                if task._after:
+                    raise StreaqError("Pipelined tasks can't be enqueued in batches!")
+                handles.append(tg.start_soon(task.serialize, enqueue_time))
+        async with self.redis.pipeline(transaction=False) as pipe:
+            lib = Streaq(pipe)
+            for task, data in zip(tasks, handles):
+                self.publish_task(pipe, task, data.return_value, enqueue_time, lib=lib)
+
+    def publish_task(
+        self,
+        pipe: Client[str],
+        task: Task[Any, Any],
+        data: Any,
+        enqueue_time: int,
+        lib: Streaq | None = None,
+    ) -> CommandRequest[None]:
+        task.priority = task.priority or self.priorities[-1]
+        expire = to_ms(task.parent.expire or 0)
+        if isinstance(task.schedule, str):
+            score = self.next_run(task.schedule)
+            pipe.set(self.cron_data_key + task.id, data)
+            pipe.hset(self.cron_registry_key, {task.id: task.schedule})
+            pipe.zadd(self.cron_schedule_key, {task.id: score})
+        elif task.schedule is not None:
+            score = datetime_ms(task.schedule)
+        elif task.delay is not None:
+            score = enqueue_time + to_ms(task.delay)
+        else:
+            score = 0
+        return (lib or self._lib).publish_task(
+            self.stream_key + task.priority,
+            self.queue_key + task.priority,
+            self.task_key + task.id,
+            self.dependents_key,
+            self.dependencies_key,
+            self.results_key,
+            task.id,
+            data,
+            score,
+            expire,
+            enqueue_time,
+            *task.after,
+        )
+
+    async def queue_size(self, include_scheduled: bool = True) -> int:
+        """
+        Return the number of tasks currently queued in Redis.
+
+        :param include_scheduled: whether to include tasks in the delayed queue also
+        """
+        async with self.redis.pipeline(transaction=True) as pipe:
+            commands = [
+                pipe.xlen(self.stream_key + priority) for priority in self.priorities
+            ]
+            if include_scheduled:
+                commands.extend(
+                    [
+                        pipe.zcard(self.queue_key + priority)
+                        for priority in self.priorities
+                    ]
+                )
+        return sum([await c for c in commands])
+
+    def _next_datetime(self, tab: str) -> datetime:
+        return CronTab(tab).next(now=datetime.now(self.tz), return_datetime=True)  # type: ignore
+
+    def next_run(self, tab: str) -> int:
+        """
+        Given a cron tab, get the next run time in ms.
+
+        :param tab: cron tab to calculate next run for
+        """
+        return datetime_ms(self._next_datetime(tab))
+
+    async def signal_handler(self, scope: CancelScope) -> None:
+        """
+        Gracefully shutdown the worker when a signal is received.
+
+        Doesn't work on Windows!
+        """
+        with open_signal_receiver(signal.SIGINT, signal.SIGTERM) as signals:
+            signum = await anext(signals)
+            logger.info(
+                f"received signal {signum.name}, shutting down worker {self.id}"
+            )
+            scope.cancel(f"Signal handler received {signum.name}")
+            # set running tasks to fail after deadline
+            deadline = current_time() + self.grace_period
+            for _scope in self._cancel_scopes.values():
+                _scope.deadline = min(scope.deadline, deadline)
+            if self.grace_period and self._cancel_scopes:
+                logger.info(
+                    f"waiting up to {self.grace_period}s for tasks to finish "
+                    f"in worker {self.id}"
+                )
+
+    async def status_by_id(self, task_id: str) -> TaskStatus:
+        """
+        Fetch the current status of the given task.
+
+        :param task_id: ID of the task to check
+
+        :return: status of the task
+        """
+        async with self.redis.pipeline(transaction=True) as pipe:
+            delayed = [
+                pipe.zscore(self.queue_key + priority, task_id)
+                for priority in self.priorities
+            ]
+            done = pipe.exists([self.results_key + task_id])
+            running = pipe.sismember(self._running_set, task_id)
+            data = pipe.exists([self.task_key + task_id])
+            dependencies = pipe.exists([self.dependencies_key + task_id])
+
+        if await done:
+            return TaskStatus.DONE
+        elif await running:
+            return TaskStatus.RUNNING
+        score = any([await d for d in delayed])
+        if score or await dependencies:
+            return TaskStatus.SCHEDULED
+        elif await data:
+            return TaskStatus.QUEUED
+        return TaskStatus.NOT_FOUND
+
+    async def result_by_id(
+        self, task_id: str, timeout: timedelta | int | None = None
+    ) -> TaskResult[Any]:
+        """
+        Wait for and return the given task's result, optionally with a timeout.
+
+        :param task_id: ID of the task to get results for
+        :param timeout: amount of time to wait before raising a `TimeoutError`
+
+        :return: wrapped result object
+        """
+        result_key = self.results_key + task_id
+        with fail_after(to_seconds(timeout)):
+            async with self.redis.pubsub(
+                channels=[self._channel_key + task_id],
+                ignore_subscribe_messages=True,
+                subscription_timeout=5,
+            ) as pubsub:
+                if not (raw := await self.redis.get(result_key)):
+                    msg = await anext(pubsub)
+                    raw = cast(str, msg["data"])
+        data = await self.deserialize(raw)
+        return TaskResult(
+            task_id=task_id,
+            fn_name=data["f"],
+            created_time=data["ct"],
+            enqueue_time=data["et"],
+            success=data["s"],
+            start_time=data["st"],
+            finish_time=data["ft"],
+            tries=data["t"],
+            worker_id=data["w"],
+            _result=data["r"],
+        )
+
+    async def abort_by_id(
+        self, task_id: str, timeout: timedelta | int | None = 5
+    ) -> bool:
+        """
+        Notify workers that the task should be aborted, then wait for confirmation.
+
+        :param task_id: ID of the task to abort
+        :param timeout:
+            how long to wait to confirm abortion was successful. None means wait
+            forever, 0 means don't wait at all.
+
+        :return: whether the task was aborted successfully
+        """
+        # pubsub should be open when we call SADD or we might miss the message
+        async with self.redis.pubsub(
+            channels=[self._channel_key + task_id],
+            ignore_subscribe_messages=True,
+            subscription_timeout=5,
+        ) as pubsub:
+            task_key = self.prefix + REDIS_TASK + task_id
+            # check for result, add to abort set, check delayed queue(s)
+            async with self.redis.pipeline(transaction=True) as pipe:
+                val = pipe.get(self.results_key + task_id)
+                raw = pipe.get(task_key)
+                pipe.sadd(self._abort_key, [task_id])
+                delayed = [
+                    pipe.zrem(self.queue_key + priority, [task_id])
+                    for priority in self.priorities
+                ]
+            # task was in delayed queue, we need to handle deps
+            if any([await d for d in delayed]):
+                otherwise = None
+                if data := await raw:
+                    otherwise = (await self.deserialize(data)).get("O")
+                async with self.redis.pipeline(transaction=True) as pipe:
+                    pipe.delete([task_key])
+                    pipe.srem(self._abort_key, [task_id])
+                    command = Streaq(pipe).fail_dependents(
+                        self.prefix + REDIS_DEPENDENTS,
+                        self.prefix + REDIS_DEPENDENCIES,
+                        task_id,
+                        otherwise or "",
+                    )
+                if (res := await command) or otherwise:
+                    await self.fail_task_dependents(res, otherwise)
+                return True
+            if not (_raw := await val):
+                # check for 0, works with timedelta
+                if timeout is not None and not timeout:
+                    return False
+                # wait for result if not available
+                with move_on_after(to_seconds(timeout)):
+                    msg = await anext(pubsub)
+                    _raw = cast(str, msg["data"])
+                    # build result
+                    data = await self.deserialize(_raw)
+                    return not data["s"] and isinstance(data["r"], StreaqCancelled)
+            return False
+
+    async def info_by_id(self, task_id: str) -> TaskInfo | None:
+        """
+        Fetch info about an unfinished task.
+
+        :param task_id: ID of the task to get info for
+
+        :return: task info, unless task has finished or doesn't exist
+        """
+        async with self.redis.pipeline(transaction=False) as pipe:
+            delayed = [
+                pipe.zscore(self.queue_key + priority, task_id)
+                for priority in self.priorities
+            ]
+            result = pipe.exists([self.results_key + task_id])
+            _raw = pipe.get(self.task_key + task_id)
+            try_count = pipe.get(self._retry_key + task_id)
+            dependencies = pipe.smembers(self.dependencies_key + task_id)
+            dependents = pipe.smembers(self.dependents_key + task_id)
+            running = pipe.sismember(self._running_set, task_id)
+        # result exists or task data doesn't
+        if await result or not (raw := await _raw):
+            return None
+        data = await self.deserialize(raw)
+        res = [await d for d in delayed]
+        score = next((r for r in res if r), None)
+        if score:
+            dt = datetime.fromtimestamp(score / 1000, tz=self.tz)
+            status = TaskStatus.SCHEDULED
+        else:
+            dt = None
+            status = TaskStatus.RUNNING if running else TaskStatus.QUEUED
+        return TaskInfo(
+            task_id=task_id,
+            fn_name=data["f"],
+            created_time=data["t"],
+            args=data["a"],
+            kwargs=data["k"],
+            tries=int(await try_count or 0),
+            scheduled=dt,
+            dependencies=await dependencies,
+            dependents=await dependents,
+            status=status,
+        )
+
+    async def unschedule_by_id(self, task_id: str) -> bool:
+        """
+        Stop scheduling the repeating task if registered.
+
+        :param task_id: ID of the task to unregister
+
+        :return: whether the task was unscheduled successfully
+        """
+        async with self.redis.pipeline(transaction=False) as pipe:
+            hdel = pipe.hdel(self.cron_registry_key, [task_id])
+            zrem = pipe.zrem(self.cron_schedule_key, [task_id])
+            delete = pipe.delete([self.cron_data_key + task_id])
+        return (await hdel + await zrem + await delete) == 3
+
+    @overload
+    async def get_tasks_by_status(
+        self,
+        status: Literal[TaskStatus.SCHEDULED, TaskStatus.QUEUED],
+        *,
+        priority: str | None = ...,
+        limit: int = ...,
+    ) -> list[TaskInfo]: ...
+
+    @overload
+    async def get_tasks_by_status(
+        self,
+        status: Literal[TaskStatus.RUNNING],
+        *,
+        limit: int = ...,
+    ) -> list[TaskInfo]: ...
+
+    @overload
+    async def get_tasks_by_status(
+        self,
+        status: Literal[TaskStatus.DONE],
+        *,
+        limit: int = ...,
+    ) -> list[TaskResult[Any]]: ...
+
+    @overload
+    async def get_tasks_by_status(
+        self,
+        status: TaskStatus,
+        *,
+        limit: int = ...,
+    ) -> list[TaskInfo] | list[TaskResult[Any]]: ...
+
+    async def get_tasks_by_status(
+        self,
+        status: TaskStatus,
+        *,
+        priority: str | None = None,
+        limit: int = 100,
+    ) -> Any:
+        """
+        Get tasks by their status.
+
+        :param status: the task status to filter by
+        :param priority: filter by priority queue
+        :param limit: maximum number of tasks to return
+
+        :return: list of tasks with given status
+        """
+        if status == TaskStatus.NOT_FOUND:
+            raise StreaqError("Can't search for nonexistent tasks!")
+        if status == TaskStatus.SCHEDULED:
+            return await self._get_scheduled_tasks(priority, limit)
+        elif status == TaskStatus.QUEUED:
+            return await self._get_queued_tasks(priority, limit)
+        elif status == TaskStatus.RUNNING:
+            return await self._get_running_tasks(limit)
+        return await self._get_completed_tasks(limit)
+
+    async def _get_info_for_ids(
+        self, status: TaskStatus, task_ids: list[str], scores: list[float] | None = None
+    ) -> list[TaskInfo]:
+        if not task_ids:
+            return []
+        _dependents: list[CommandRequest[set[str]]] = []
+        _dependencies: list[CommandRequest[set[str]]] = []
+        _tries: list[CommandRequest[str | None]] = []
+        async with self.redis.pipeline(transaction=True) as pipe:
+            serialized = pipe.mget([self.prefix + REDIS_TASK + tid for tid in task_ids])
+            for task_id in task_ids:
+                _dependents.append(pipe.smembers(self.dependents_key + task_id))
+                _dependencies.append(pipe.smembers(self.dependencies_key + task_id))
+                _tries.append(pipe.get(self.prefix + REDIS_RETRY + task_id))
+        tasks: list[TaskInfo] = []
+        for i, (task_id, raw, dependents, dependencies, tries) in enumerate(
+            zip(
+                task_ids,
+                await serialized,
+                [await d for d in _dependents],
+                [await d for d in _dependencies],
+                [await t for t in _tries],
+            )
+        ):
+            # it's possible the task got aborted or finished between the pipe and now
+            if raw:
+                data = await self.deserialize(raw)
+                if scores:
+                    dt = datetime.fromtimestamp(scores[i] / 1000, tz=self.tz)
+                else:
+                    dt = None
+                tasks.append(
+                    TaskInfo(
+                        task_id=task_id,
+                        fn_name=data["f"],
+                        created_time=data["t"],
+                        args=data["a"],
+                        kwargs=data["k"],
+                        tries=int(tries or 0),
+                        scheduled=dt,
+                        dependencies=dependencies,
+                        dependents=dependents,
+                        status=status,
+                    )
+                )
+        return tasks
+
+    async def _get_scheduled_tasks(
+        self,
+        priority: str | None = None,
+        limit: int = 100,
+    ) -> list[TaskInfo]:
+        """
+        Get tasks in the delayed queue (scheduled for future execution).
+
+        :param priority: filter by priority queue, or None for all priorities
+        :param limit: maximum number of tasks to return
+
+        :return: list of scheduled tasks
+        """
+        priorities = [priority] if priority else self.priorities
+        task_ids_with_scores: list[ScoredMember] = []
+        async with self.redis.pipeline(transaction=False) as pipe:
+            delayed = [
+                pipe.zrange(self.queue_key + p, 0, limit - 1, withscores=True)
+                for p in priorities
+            ]
+        for result in [await d for d in delayed]:
+            task_ids_with_scores.extend(result)
+
+        # Sort by score (scheduled time) and apply limit
+        task_ids_with_scores.sort(key=lambda x: x[1])
+        task_ids_with_scores = task_ids_with_scores[:limit]
+        ids = [str(tid) for tid, _ in task_ids_with_scores]
+        scores = [score for _, score in task_ids_with_scores]
+        return await self._get_info_for_ids(TaskStatus.SCHEDULED, ids, scores)
+
+    async def _get_queued_tasks(
+        self,
+        priority: str | None = None,
+        limit: int = 100,
+    ) -> list[TaskInfo]:
+        """
+        Get tasks in the stream queue (waiting to be picked up by workers).
+
+        Uses XINFO STREAM FULL to atomically get stream entries and pending
+        entries list. Queued tasks are those in the stream but not yet claimed
+        by any consumer (not in PEL).
+
+        :param priority: filter by priority queue, or None for all priorities
+        :param limit: maximum number of tasks to return
+
+        :return: list of queued tasks
+        """
+        priorities = [priority] if priority else self.priorities
+        # Collect queued task IDs from all priority streams
+        async with self.redis.pipeline(transaction=True) as pipe:
+            infos = [
+                pipe.xinfo_stream(self.stream_key + p, full=True, count=limit)
+                for p in priorities
+            ]
+        task_ids: list[str] = []
+        for info in [await i for i in infos]:
+            entries = info["entries"] or ()
+            groups = cast(list[dict[str, Any]], info["groups"])
+            # Collect all pending entry IDs (claimed by consumers)
+            pending_ids: set[str] = set()
+            for group in groups:
+                for pending_entry in group["pending"]:
+                    # pending_entry is [entry_id, consumer, idle_time, delivery_count]
+                    if pending_entry:
+                        pending_ids.add(str(pending_entry[0]))
+            # Queued = entries not in pending (not yet claimed)
+            for entry in entries:
+                if entry.identifier not in pending_ids:
+                    task_ids.append(str(entry.field_values["task_id"]))
+
+        task_ids = task_ids[:limit]
+        return await self._get_info_for_ids(TaskStatus.QUEUED, task_ids)
+
+    async def _get_running_tasks(self, limit: int = 100) -> list[TaskInfo]:
+        """
+        Get currently running tasks.
+
+        :param limit: maximum number of tasks to return
+
+        :return: list of running tasks
+        """
+        task_ids = list(await self.redis.smembers(self._running_set))[:limit]
+        return await self._get_info_for_ids(TaskStatus.RUNNING, task_ids)
+
+    async def _get_completed_tasks(self, limit: int = 100) -> list[TaskResult[Any]]:
+        """
+        Get completed tasks (both successful and failed).
+
+        :param limit: maximum number of tasks to return
+
+        :return: list of task results
+        """
+        task_ids = await self.redis.zrange(self._results_set, 0, limit - 1, rev=True)
+        if not task_ids:
+            return []
+        result_keys = [self.results_key + tid for tid in task_ids]
+        serialized = await self.redis.mget(result_keys)
+        results: list[TaskResult[Any]] = []
+        for task_id, raw in zip(task_ids, serialized):
+            if raw:
+                data = await self.deserialize(raw)
+                results.append(
+                    TaskResult(
+                        task_id=task_id,
+                        fn_name=data["f"],
+                        created_time=data["ct"],
+                        enqueue_time=data["et"],
+                        success=data["s"],
+                        start_time=data["st"],
+                        finish_time=data["ft"],
+                        tries=data["t"],
+                        worker_id=data["w"],
+                        _result=data["r"],
+                    )
+                )
+        return results
+
+    async def serialize(self, data: Any) -> str | bytes:
+        """
+        Wrap serializer to append signature as last 32 bytes if applicable.
+        """
+        try:
+            out = self.serializer(data)
+            serialized: bytes | str = await out if self._async_serializer else out  # type: ignore
+        except Exception as e:
+            raise StreaqError(f"Failed to serialize data: {data}") from e
+        if self.signing_secret:
+            # will only work if data is binary data
+            if isinstance(serialized, str):
+                raise StreaqError("Can't sign non-binary data from serializer!")
+            serialized += hmac.digest(self.signing_secret, serialized, "sha256")
+        return serialized
+
+    async def deserialize(self, data: Any) -> Any:
+        """
+        Wrap deserializer to validate signature from last 32 bytes if applicable.
+        """
+        if self.signing_secret:
+            data_bytes, signature = data[:-32], data[-32:]
+            verify = hmac.digest(self.signing_secret, data_bytes, "sha256")
+            if not hmac.compare_digest(signature, verify):
+                raise StreaqError("Invalid signature for task data!")
+            data = data_bytes
+        try:
+            out = self.deserializer(data)
+            return await out if self._async_deserializer else out
+        except Exception as e:
+            raise StreaqError(f"Failed to deserialize data: {data}") from e

@@ -1,0 +1,20 @@
+Metadata-Version: 2.1
+Name: sonora
+Version: 0.2.3
+Summary: A WSGI and ASGI compatible grpc-web implementation.
+Home-page: https://github.com/public/sonora
+License: Apache-2.0
+Author: Alex Stapleton
+Author-email: alexs@prol.etari.at
+Requires-Python: >=3.7,<4.0
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Dist: aiohttp (>=3.7.4,<4.0.0)
+Requires-Dist: async-timeout (>=3.0.1,<5)
+Requires-Dist: grpcio (>=1.57.0,<2.0.0)
+Requires-Dist: urllib3 (>=1.26.4,<2.0.0)

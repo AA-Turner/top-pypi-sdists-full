@@ -318,27 +318,12 @@ Type "change config" to proceed, or press Ctrl+C to cancel: change config
 Applied scheduler config (version 3).
 """
 
-SCHEDULER_CONFIG_GET_EXAMPLE = """\
-version: 3
-is_active: true
-created_at: '2026-04-25T10:00:00Z'
-creator_id: usr_abc123
-config:
-  resource_flavors:
-    - name: spot
-      requirements:
-        - key: market
-          operator: in
-          values: [spot]
-"""
+SCHEDULER_CONFIG_ROLLBACK_EXAMPLE = """\
+Once applied, all workloads in your organization will be admitted, scheduled, run, or rejected according to this new configuration.
 
-SCHEDULER_CONFIG_LIST_EXAMPLE = """\
-VERSION  CREATED AT
-3        2026-04-25T10:00:00Z
-2        2026-04-20T08:30:00Z
-1        2026-04-15T14:00:00Z
+Type "change config" to proceed, or press Ctrl+C to cancel: change config
+Rolled back to scheduler config version 2 (applied as version 4).
 """
-
 
 COMPUTE_CONFIG_CREATE_EXAMPLE = """\
 Created compute config: 'my-compute-config:1'
@@ -675,8 +660,8 @@ Users with incomplete SCIM permission setup:
 
 2 users have incomplete permission setup.
 
-Run 'anyscale policy set' to grant project-level permissions.
-See https://docs.anyscale.com/administration/organization/scim for details.
+To grant access through SCIM user groups, contact support@anyscale.com.
+For a project-level grant, see 'anyscale project add-collaborators --help'.
 """
 
 USER_LIST_PERMISSIONS_EXAMPLE = """\

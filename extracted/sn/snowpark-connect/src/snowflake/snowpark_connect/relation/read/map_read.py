@@ -406,6 +406,21 @@ class StagePathStr(str):
         return str(self).partition(__sep)
 
 
+def _raw_path_glob_filter(options: dict) -> str | None:
+    """The user's ``pathGlobFilter`` as written, looked up case-insensitively.
+
+    Spark option lookup is case-insensitive, so every spelling must be found. Both callers must
+    read this BEFORE ``inject_anchor_pattern`` runs: when the user did NOT set the option, that
+    call overwrites ``options["pathGlobFilter"]`` with its own machine-generated anchor regex, and
+    afterwards the two are indistinguishable. Returns ``None`` when the user did not set it.
+
+    Do not cache one result across both call sites: ``consume_modified_time_filters`` may pop the
+    key in between, so the NSS site and the Parquet-Direct site can legitimately see different
+    answers. Only the lookup is shared, never the value.
+    """
+    return next((options[k] for k in options if k.lower() == "pathglobfilter"), None)
+
+
 def _quote_stage_path(stage_path: str) -> str:
     """
     Quote stage paths to escape any special characters.
@@ -579,9 +594,12 @@ def _read_file(
     if read_format in ("csv", "json"):
         from snowflake.snowpark_connect.config import is_nss_enabled
         from snowflake.snowpark_connect.nss.nss_scan_options import (
+            conjoin_patterns,
             nss_glob_patterns,
+            nss_spark_file_rules_patterns,
             raise_if_multiple_storage_locations,
             raise_if_named_stage_files_missing,
+            user_path_glob_filter_pattern,
         )
 
         if is_nss_enabled():
@@ -635,6 +653,34 @@ def _read_file(
         # Still ahead of the quoting below, which is the form normalize_stage_paths unquotes
         # back to. Anything that rewrites a path after this point must move this call too.
         nss_glob_patterns_by_path = nss_glob_patterns(clean_source_paths, paths)
+        # A user-supplied pathGlobFilter is silently ignored on the NSS path otherwise: it is
+        # stripped by the reader-option allow-list, inject_anchor_pattern deliberately leaves a
+        # user value untranslated, and GS does not know the option, so the read returns every
+        # file. Read here rather than after inject_anchor_pattern, which overwrites this same
+        # key with its own anchor regex when the user did NOT set one -- reading it later cannot
+        # tell the two apart.
+        nss_user_glob = user_path_glob_filter_pattern(_raw_path_glob_filter(options))
+        if nss_user_glob:
+            for path in paths:
+                # Spark applies BOTH a path glob and pathGlobFilter, and GS allows one PATTERN
+                # per element, so the two are ANDed via lookahead rather than one being dropped.
+                # Dropping either is wrong in whichever direction the kept filter is looser, and
+                # NEITHER dominates -- see conjoin_patterns for the measured pair of cases.
+                nss_glob_patterns_by_path[path] = conjoin_patterns(
+                    nss_glob_patterns_by_path.get(path), nss_user_glob
+                )
+
+        # Spark's depth and metadata-exclusion rules. COPY receives these via
+        # inject_anchor_pattern -> options["pathGlobFilter"], which the NSS reader-option
+        # allow-list strips, so they are compiled into the per-element PATTERN here instead.
+        # Must stay ahead of the quoting below, like the two blocks above: the builders look
+        # these up by the rewritten-but-unquoted path.
+        for path, rules in nss_spark_file_rules_patterns(
+            clean_source_paths, paths, is_recursive=is_recursive
+        ).items():
+            nss_glob_patterns_by_path[path] = conjoin_patterns(
+                nss_glob_patterns_by_path.get(path), rules
+            )
 
     paths = [_quote_stage_path(path) for path in paths]
 
@@ -682,9 +728,7 @@ def _read_file(
     # anchor regex, so reading it afterwards would no longer be the user's glob. The Parquet Direct
     # path threads this raw glob into the PD table's ``PATTERN`` so PD honors ``pathGlobFilter`` like
     # the COPY / reference-Spark path (today PD ignores it). ``None`` when the user didn't set it.
-    user_path_glob_filter = next(
-        (options[k] for k in options if k.lower() == "pathglobfilter"), None
-    )
+    user_path_glob_filter = _raw_path_glob_filter(options)
     if not mod_time_expanded_paths:
         inject_anchor_pattern(
             clean_source_paths,

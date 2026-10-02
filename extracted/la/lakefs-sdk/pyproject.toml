@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lakefs_sdk"
-version = "1.87.0"
+version = "1.88.0"
 description = "lakeFS API"
 authors = ["Treeverse <services@treeverse.io>"]
 license = "BUSL-1.1"

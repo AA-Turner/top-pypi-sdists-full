@@ -82,7 +82,9 @@ def policy_cli() -> None:
     help="Path to a YAML config file with policy bindings.",
 )
 def set_policy(
-    resource_type: str, resource_id: Optional[str], config_file: str,
+    resource_type: str,
+    resource_id: Optional[str],
+    config_file: str,
 ) -> None:
     """
     Set user group permission policy for a resource.
@@ -135,9 +137,7 @@ def set_policy(
         raise click.ClickException(f"Failed to parse YAML file '{config_file}': {e}")
 
     if config_dict is None:
-        raise click.ClickException(
-            f"Invalid config file '{config_file}': file is empty."
-        )
+        raise click.ClickException(f"Invalid config file '{config_file}': file is empty.")
     if not isinstance(config_dict, dict):
         raise click.ClickException(
             f"Invalid config file '{config_file}': expected a YAML mapping with top-level 'bindings'."
@@ -145,7 +145,10 @@ def set_policy(
 
     try:
         bindings = [
-            PolicyBinding(role_name=b["role_name"], principals=b["principals"],)
+            PolicyBinding(
+                role_name=b["role_name"],
+                principals=b["principals"],
+            )
             for b in config_dict.get("bindings", [])
         ]
         config = PolicyConfig(bindings=bindings)
@@ -154,7 +157,9 @@ def set_policy(
 
     try:
         anyscale.policy.set(
-            resource_type=resource_type, resource_id=resource_id, config=config,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            config=config,
         )
     except ValueError as e:
         raise click.ClickException(f"Failed to set policy: {e}")
@@ -172,9 +177,7 @@ def set_policy(
             command="anyscale policy get --resource-type cloud --resource-id cld_abc123",
             output_raw=command_examples.POLICY_GET_EXAMPLE,
             output_instance=lambda: Policy(
-                bindings=[
-                    PolicyBinding(role_name="collaborator", principals=["ug_abc123"])
-                ],
+                bindings=[PolicyBinding(role_name="collaborator", principals=["ug_abc123"])],
                 sync_status=PolicySyncStatus.success,
             ),
         ),
@@ -204,15 +207,15 @@ def set_policy(
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice(
-        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
-    ),
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
     help="Output format for the result.",
 )
 def get_policy(
-    resource_type: str, resource_id: Optional[str], output_format: str,
+    resource_type: str,
+    resource_id: Optional[str],
+    output_format: str,
 ) -> None:
     """
     Get user group permission policy for a resource.
@@ -237,7 +240,8 @@ def get_policy(
 
     try:
         policy = anyscale.policy.get(
-            resource_type=resource_type, resource_id=resource_id,
+            resource_type=resource_type,
+            resource_id=resource_id,
         )
     except ValueError as e:
         raise UserError(f"Failed to get policy: {e}", legacy_exit_code=0) from None
@@ -260,7 +264,8 @@ def get_policy(
             table_data.append((binding.role_name, principal, status_str))
 
     table = tabulate.tabulate(
-        table_data, headers=["Role", "Principal (User Group ID)", "Process Status"],
+        table_data,
+        headers=["Role", "Principal (User Group ID)", "Process Status"],
     )
     rprint(table)
 
@@ -278,11 +283,7 @@ def get_policy(
                 ResourcePolicy(
                     resource_id="cld_abc123",
                     resource_type="cloud",
-                    bindings=[
-                        PolicyBinding(
-                            role_name="collaborator", principals=["ug_abc123"]
-                        )
-                    ],
+                    bindings=[PolicyBinding(role_name="collaborator", principals=["ug_abc123"])],
                     sync_status=PolicySyncStatus.success,
                 )
             ],
@@ -306,9 +307,7 @@ def get_policy(
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice(
-        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
-    ),
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
     help="Output format for the result.",
@@ -348,6 +347,7 @@ def list_policies(resource_type: str, output_format: str) -> None:
             for principal in binding.principals:
                 table_data.append((binding.role_name, principal, status_str))
         table = tabulate.tabulate(
-            table_data, headers=["Role", "Principal (User Group ID)", "Process Status"],
+            table_data,
+            headers=["Role", "Principal (User Group ID)", "Process Status"],
         )
         rprint(table)

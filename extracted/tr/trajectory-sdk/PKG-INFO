@@ -1,0 +1,142 @@
+Metadata-Version: 2.4
+Name: trajectory-sdk
+Version: 0.8.10
+Summary: Generated Trajectory API client and high-level workflows
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: httpx>=0.28.1
+Requires-Dist: pathspec>=0.12
+Requires-Dist: pydantic>=2.0
+Requires-Dist: tqdm>=4.67
+Dynamic: license-file
+
+# Trajectory SDK
+
+Generated Python client for the Trajectory API, with high-level workflows for uploading
+trajectories, telemetry, and runtime-backed benchmarks.
+
+## Install
+
+```bash
+pip install trajectory-sdk
+```
+
+## Quick start
+
+Set `TRAJECTORY_API_KEY`, then create a client:
+
+```python
+from trajectory import Client
+
+client = Client()
+benchmarks = client.benchmarks.list(limit=10)
+```
+
+For task execution, follow the [native benchmark harness](#native-benchmark-harness) and
+[registration and image builds](#registration-and-image-builds) examples below.
+
+SDK-owned HTTP clients use a 600-second read/write/pool timeout and a 5-second connection timeout.
+Supplying `http_client=` inherits that client's timeouts, including a bare HTTPX client's 5-second
+default. An explicit `Client(timeout=...)` overrides the supplied client; a resource method's
+`timeout=` overrides that request. `timeout=None` disables timeouts. Retry counts are unchanged.
+
+The generated resource methods map directly to the public HTTP API. Benchmark submission
+and file-upload workflows are available from `trajectory.lib`. Detailed authored guides are
+not currently available without documentation access; the core workflow is included here.
+
+## Native benchmark harness
+
+A task's `run_command` starts your program inside its runtime. This self-contained example uses
+an inline question and expected answer for clarity. Inputs and references may come from files or
+other sources; ensure the agent and its tools cannot access private reference data. `input_messages`
+is stored task metadata; the native runtime does not send it to the model or to your program's
+stdin. Your harness reads the input, calls the model, grades its answer, records the reward, and
+completes the trajectory before exiting. The SDK has no `trajectory` CLI executable.
+
+Managed runs supply `TRAJECTORY_API_KEY` and `TRAJECTORY_BASE_URL`.
+Use `Client()` without embedding credentials in the image. `trajectories.create()` returns the
+precreated trajectory ID; pass that ID explicitly to model, reward, and completion calls. Model
+requests use the same client and API key, while the Backend resolves the model endpoint.
+
+```python harness.py
+from trajectory import Client
+
+client = Client()
+question = "What is 2 + 2?"
+expected_answer = "4"
+
+tid = client.trajectories.create().tid
+
+response = client.chat.completions.create(
+    model="policy",
+    messages=[{"role": "user", "content": question}],
+    x_trajectory_id=tid,
+)
+
+model_answer = response.choices[0].message.content or ""
+reward = float(model_answer.strip() == expected_answer)
+
+client.trajectories.log_reward(
+    tid,
+    reward_id="answer",
+    name="accuracy",
+    value=reward,
+)
+client.trajectories.complete(tid, termination_reason="ENV_DONE")
+```
+
+Package this file and its dependencies in your Dockerfile. For example, copying it to
+`/app/harness.py` makes `python /app/harness.py` the task's `run_command`. A wrong answer gets
+reward zero and `ENV_DONE`. Process exit alone does not complete a trajectory.
+
+## Registration and image builds
+
+Define a `BenchmarkSpec` named `benchmark` with your tasks, distinct `train`/`test` splits,
+and a runtime such as `DockerfileBuild("Dockerfile")`. With the Dockerfile and harness under
+the local `benchmark/` directory, register it and build its runtime:
+
+```python registration.py
+from pathlib import Path
+
+from trajectory import Client
+from trajectory.lib import push, wait_for_benchmark_images
+
+client = Client()
+result = push(client, benchmark, agent_name="support-agent", root=Path("benchmark"))
+images = wait_for_benchmark_images(client, result.bench_id)
+```
+
+Uploads accept `agent_id="agt_existing"`, `agent_name="support-agent"`, or both
+(which must match). The agent must already exist. The benchmark name comes from
+`manifest.name`: reusing a name under the same agent pushes a new version.
+Every new submission returns a new benchmark ID. Uploads do not accept a benchmark ID.
+
+`push()` calls `start_push()` and waits for registration, returning a benchmark result
+with `bench_id`. Both upload files with progress and accept the same arguments. Image builds
+are off by default; pass `build_images=True` to include them.
+
+Use `start_push()` when you want control over waiting: it uploads files before returning
+a `BenchmarkOperation`, while server processing continues. Call `operation.result()` to wait,
+or save `operation.id` and reconnect later with `get_operation(client, operation.id)`.
+It is a regular Python function; it does not require `await`.
+
+`wait_for_benchmark_images()` first calls `client.benchmarks.images.build(bench_id)` and then
+polls for completion. `client.benchmarks.images.list(bench_id)` only reads status. Once the
+runtime is ready, use the benchmark ID to start evaluation or training; uploading does not
+execute the tasks. Run this registration code with your organization's API key.
+
+## Development
+
+```bash
+uv run pytest
+uv run ruff check .
+uv run ruff format --check .
+```
+
+The generated client lives in `src/trajectory/`. Handwritten workflows live in
+`src/trajectory/lib/`, and tests live in `tests/`.
+
+## License
+
+[Apache 2.0](LICENSE)

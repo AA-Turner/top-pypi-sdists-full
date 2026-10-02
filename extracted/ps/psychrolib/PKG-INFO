@@ -1,0 +1,14 @@
+Metadata-Version: 1.0
+Name: PsychroLib
+Version: 2.5.0
+Summary: Library of psychrometric functions to calculate thermodynamic properties of air
+Home-page: https://github.com/psychrometrics/psychrolib
+Author: The PsychroLib Developers
+Author-email: didierthevenard@users.noreply.github.com
+License: MIT
+Description: UNKNOWN
+Platform: Windows
+Platform: Linux
+Platform: Solaris
+Platform: Mac OS-X
+Platform: Unix

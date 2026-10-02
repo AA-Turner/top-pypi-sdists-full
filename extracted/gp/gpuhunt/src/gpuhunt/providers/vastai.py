@@ -1,0 +1,284 @@
+import copy
+import logging
+import re
+from collections import defaultdict
+from collections.abc import Iterable, Mapping
+from typing import Any, Literal, cast
+
+import requests
+from typing_extensions import NotRequired, TypedDict
+
+from gpuhunt._internal.constraints import correct_gpu_memory_gib
+from gpuhunt._internal.models import AcceleratorVendor, CatalogItem, QueryFilter
+from gpuhunt.providers.base import OnlineProvider
+
+logger = logging.getLogger(__name__)
+bundles_url = "https://console.vast.ai/api/v0/bundles/"
+kilo = 1000
+# Maximum number of offers to fetch when GPU name mapping fails.
+Operators = Literal["lt", "lte", "eq", "gte", "gt"]
+FilterValue = int | float | str | bool
+
+
+class VastAIProvider(OnlineProvider):
+    NAME = "vastai"
+
+    @classmethod
+    def from_env(cls) -> "VastAIProvider":
+        return cls()
+
+    def __init__(
+        self,
+        extra_filters: dict[str, dict[Operators, FilterValue]] | None = None,
+        community_cloud: bool = True,
+        order: Iterable[tuple[str, str]] = [("score", "desc")],
+    ):
+        self.extra_filters = extra_filters
+        self.community_cloud = community_cloud
+        self.order = list(order)
+
+    def get(
+        self,
+        query_filter: QueryFilter | None = None,
+        balance_resources: bool = True,
+        apply_filter: bool = False,
+    ) -> list[CatalogItem]:
+        filters: dict[str, Any] = self.make_filters(query_filter or QueryFilter())
+        if self.extra_filters:
+            for key, constraints in self.extra_filters.items():
+                for op, value in constraints.items():
+                    filters[key][op] = stricter_constraint(op, filters[key].get(op), value)
+        resp = requests.post(bundles_url, json=filters, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+
+        offers: list[CatalogItem] = []
+        for offer in data["offers"]:
+            cpu_cores = offer["cpu_cores"]
+            # although this is not stated in the docs, the value can be None,
+            # leaving no way to compute the memory available to the instance
+            if not cpu_cores:
+                logger.warning("Offer %s has no CPU cores, skipping", offer["id"])
+                continue
+            # the effective core count can be fractional, and we cannot offer a fraction of a core
+            cpu = int(offer["cpu_cores_effective"])
+            if cpu < 1:
+                logger.warning("Offer %s has less than one CPU core, skipping", offer["id"])
+                continue
+            # the instance gets a share of the machine RAM proportional to its share of cores.
+            # the share can be a fraction of a gigabyte, so it must not be rounded to a whole one
+            memory = round(offer["cpu_ram"] * offer["cpu_cores_effective"] / cpu_cores / kilo, 2)
+            if memory <= 0:
+                logger.warning("Offer %s has no memory, skipping", offer["id"])
+                continue
+            disk_size = query_filter and query_filter.min_disk_size or offer["disk_space"]
+            if not self.satisfies_filters(offer, filters):
+                logger.warning("Offer %s does not satisfy filters", offer["id"])
+                continue
+            gpu_name = get_dstack_gpu_name(offer["gpu_name"])
+            gpu_memory = correct_gpu_memory_gib(gpu_name, offer["gpu_ram"])
+            disk_cost = disk_size * offer["storage_cost"] / 30 / 24
+            ondemand_offer = CatalogItem(
+                provider=VastAIProvider.NAME,
+                instance_name=str(offer["id"]),
+                location=get_location(offer["geolocation"]),
+                # storage_cost is $/gb/month
+                price=round(offer["dph_base"] + disk_cost, 5),
+                cpu=cpu,
+                memory=memory,
+                gpu_vendor=AcceleratorVendor.NVIDIA if offer["num_gpus"] else None,
+                gpu_count=offer["num_gpus"],
+                gpu_name=gpu_name,
+                gpu_memory=float(gpu_memory),
+                spot=False,
+                disk_size=disk_size,
+            )
+            offer_variants = [ondemand_offer]
+
+            if offer.get("min_bid"):
+                spot_offer = copy.deepcopy(ondemand_offer)
+                spot_offer.price = round(offer["min_bid"] + disk_cost, 5)
+                spot_offer.spot = True
+                cast(VastAICatalogItemProviderData, spot_offer.provider_data)["min_bid"] = offer[
+                    "min_bid"
+                ]
+                offer_variants.append(spot_offer)
+
+            offer_variants.sort(key=lambda i: i.price)
+            offers.extend(offer_variants)
+        return offers
+
+    def make_filters(self, q: QueryFilter) -> dict[str, Any]:
+        """
+        Build the bundles request body: per-field operator constraints, plus the
+        `limit` and `order` query params.
+        """
+
+        filters: dict[str, Any] = defaultdict(dict)
+        if q.min_cpu is not None:
+            filters["cpu_cores"]["gte"] = q.min_cpu
+        if q.max_cpu is not None:
+            filters["cpu_cores"]["lte"] = q.max_cpu
+        if q.min_memory is not None:
+            filters["cpu_ram"]["gte"] = q.min_memory * kilo
+        if q.max_memory is not None:
+            filters["cpu_ram"]["lte"] = q.max_memory * kilo
+        if q.min_gpu_count is not None:
+            filters["num_gpus"]["gte"] = q.min_gpu_count
+        if q.max_gpu_count is not None:
+            filters["num_gpus"]["lte"] = q.max_gpu_count
+        if q.gpu_name:
+            vastai_gpu_names = []
+            for g in q.gpu_name:
+                vastai_gpu_names.extend(get_vastai_gpu_names(g))
+            if vastai_gpu_names:
+                filters["gpu_name"]["in"] = vastai_gpu_names
+            else:
+                # If GPU name mapping fails, fetch all offers (to filter locally)
+                filters["limit"] = 3000
+        # See correct_gpu_memory_gib in gpuhunt/_internal/constraints.py
+        if q.min_gpu_memory is not None:
+            filters["gpu_ram"]["gte"] = q.min_gpu_memory * 1024 * 0.93
+        if q.max_gpu_memory is not None:
+            filters["gpu_ram"]["lte"] = q.max_gpu_memory * 1024 * 1.07
+        if q.min_disk_size is not None:
+            filters["disk_space"]["gte"] = q.min_disk_size
+        if q.max_disk_size is not None:
+            filters["disk_space"]["lte"] = q.max_disk_size
+        if q.min_price is not None:
+            filters["dph_total"]["gte"] = q.min_price
+        if q.max_price is not None:
+            filters["dph_total"]["lte"] = q.max_price
+        # TODO(egor-s): add compute capability info for all GPUs
+        if q.min_compute_capability is not None:
+            filters["compute_cap"]["gte"] = compute_cap(q.min_compute_capability)
+        if q.max_compute_capability is not None:
+            filters["compute_cap"]["lte"] = compute_cap(q.max_compute_capability)
+        # Datacenter offers map to Vast's "server cloud" scope.
+        # When community_cloud is enabled, keep scope unfiltered so both
+        # server and community offers are returned.
+        if not self.community_cloud:
+            filters["datacenter"]["eq"] = True
+        filters["rentable"]["eq"] = True
+        filters["rented"]["eq"] = False
+        filters["order"] = self.order
+        return filters
+
+    @staticmethod
+    def satisfies_filters(offer: dict, filters: Mapping[str, Any]) -> bool:
+        for key, constraints in filters.items():
+            # `datacenter`/`external` are query scope controls.
+            # They don't map to offer fields with strict eq semantics.
+            if key in {"datacenter", "external"}:
+                continue
+            if key not in offer:
+                continue
+            if not isinstance(constraints, dict):
+                # `limit`/`order` are query params, not per-field constraints
+                continue
+            for op, value in constraints.items():
+                if op == "lt" and offer[key] >= value:
+                    return False
+                if op == "lte" and offer[key] > value:
+                    return False
+                if op == "eq" and offer[key] != value:
+                    return False
+                if op == "gte" and offer[key] < value:
+                    return False
+                if op == "gt" and offer[key] <= value:
+                    return False
+        return True
+
+
+class VastAICatalogItemProviderData(TypedDict):
+    min_bid: NotRequired[float]
+
+
+GPU_MAPPING = {
+    "L40S": ["L40S"],
+    "L40": ["L40"],
+    "A10": ["A10"],
+    "A40": ["A40"],
+    "L4": ["L4"],
+    "A100X": ["A100X"],
+    "H200": ["H200"],
+    "H200NVL": ["H200 NVL"],
+    "P100": ["Tesla P100"],
+    "T4": ["Tesla T4"],
+    "P4": ["Tesla P4"],
+    "P40": ["Tesla P40"],
+    "V100": ["Tesla V100"],
+    "A100": ["A100 PCIE", "A100 SXM4"],
+    "A800PCIE": ["A800 PCIE"],
+    "H100": ["H100 PCIE", "H100 SXM"],
+    "H100NVL": ["H100 NVL"],
+    "B300": ["B300", "B300 PC"],
+}
+
+GPU_MAPPING_RULES = {
+    r"^RTX(\d{4}\D?)$": r"RTX \1",  # RTX4090 -> RTX 4090, RTX4090S -> RTX 4090S
+    r"^QRTX(\d{4})$": r"Q RTX \1",  # QRTX8000 -> Q RTX 8000
+    r"^RTX(\d{4})Ada$": r"RTX \1Ada",  # RTX4090Ada -> RTX 4090Ada
+    r"^RTX(\d{4}\D?)Ti$": r"RTX \1 Ti",  # RTX4090Ti -> RTX 4090 Ti
+    r"^A(\d{4})": r"RTX A\1",  # A5000 -> RTX A5000
+}
+
+
+def get_vastai_gpu_names(gpu_name: str) -> list[str]:
+    if gpu_name in GPU_MAPPING:
+        return GPU_MAPPING[gpu_name]
+    for pattern, replacement in GPU_MAPPING_RULES.items():
+        if re.match(pattern, gpu_name):
+            return [re.sub(pattern, replacement, gpu_name)]
+    return []
+
+
+def get_dstack_gpu_name(gpu_name: str) -> str:
+    """
+    Convert VastAI GPU names to a standardized format using essential heuristics
+    """
+    gpu_name = gpu_name.replace("RTX A", "A").replace("Tesla ", "")
+    if gpu_name.startswith("A100 "):
+        return "A100"
+    if gpu_name.startswith("H100 ") and "NVL" not in gpu_name:
+        return "H100"
+    # "B300 PC" is how Vast lists boards that report "NVIDIA B300 SXM6 PC" rather than
+    # "NVIDIA B300 SXM6 AC": the same B300 GPU (PCI device 0x3182) on a different board SKU
+    if gpu_name == "B300 PC":
+        return "B300"
+    return gpu_name.replace(" ", "")
+
+
+def get_location(location: str | None) -> str:
+    if location is None:
+        return ""
+    try:
+        city, country = location.replace(", ", ",").split(",")
+        location = f"{country}-{city}"
+    except ValueError:
+        pass
+    return location.lower().replace(" ", "")
+
+
+def compute_cap(cc: tuple[int, int]) -> int:
+    """
+    Convert a compute capability to Vast's `compute_cap` value, e.g. (8, 6) -> 860.
+    """
+    major, minor = cc
+    return major * 100 + minor * 10
+
+
+def stricter_constraint(
+    op: Operators, current: FilterValue | None, new: FilterValue
+) -> FilterValue:
+    """
+    Combine two values for the same operator so that both constraints hold.
+    For `eq`, the new value wins.
+    """
+    if current is None:
+        return new
+    if op in ("gte", "gt"):
+        return max(current, new)
+    if op in ("lte", "lt"):
+        return min(current, new)
+    return new

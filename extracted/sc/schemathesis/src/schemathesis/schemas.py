@@ -582,9 +582,9 @@ class BaseSchema(Mapping):
         # `quote` — decoding it would turn an escaped reserved character such as `%3F` into a live delimiter.
         return unquote(urljoin(base_url.replace("%", "%25"), quote(path)))
 
-    def prepare_request_body(self, body: Body) -> Body:
+    def prepare_request_body(self, case: Case) -> Body:
         """Apply spec-specific transformations to a generated body before sending."""
-        return body
+        return case.body
 
     def evaluate_server_error(self, case: Case, response: Response) -> None:
         """Raise a Failure if the schema's own conventions classify this response as a server error.
@@ -836,6 +836,18 @@ class APIOperation(Generic[P, R, S, SchemaT]):
             return self.body
         return None
 
+    def get_parameter_set(self, location: ParameterLocation) -> ParameterSet[P]:
+        match location:
+            case ParameterLocation.PATH:
+                return self.path_parameters
+            case ParameterLocation.HEADER:
+                return self.headers
+            case ParameterLocation.COOKIE:
+                return self.cookies
+            case ParameterLocation.QUERY:
+                return self.query
+        raise ValueError(f"`{location.value}` is not a parameter location")
+
     def add_parameter(self, parameter: P) -> None:
         # If the parameter has a typo, then by default, there will be an error from `jsonschema` earlier.
         # But if the user wants to skip schema validation, we choose to ignore a malformed parameter.
@@ -881,7 +893,9 @@ class APIOperation(Generic[P, R, S, SchemaT]):
 
             kwargs["constants_value_source"] = make_constants_value_source(self.schema)
         if self.schema.config.headers:
-            headers = kwargs.setdefault("headers", {})
+            headers = kwargs.get("headers")
+            if headers is None:
+                headers = kwargs["headers"] = {}
             headers.update(self.schema.config.headers)
         strategy = self.schema.get_case_strategy(self, generation_mode=generation_mode, **kwargs)
         return apply_case_hooks(strategy, self, local=kwargs.get("hooks"))

@@ -1,0 +1,4170 @@
+"""Which previous session ``--resume`` reopens.
+
+A module of its own, and a deliberately tiny one: it imports nothing but
+``pathlib``. The CLI has to resolve ``--resume`` before it starts anything (a
+typo must be one line on stderr, not a full-screen app that launches, paints and
+tears down to report it), and the CLI's startup path is guarded by tests that
+FAIL if importing it drags in the engine, the providers, or even ``asyncio``.
+Putting this policy in ``session_factory`` — the obvious home — is what broke
+that guard: the sentinel alone pulled ``local_operator.harness`` and asyncio onto
+every ``local-operator --help``.
+
+Resuming is a filesystem question ("which transcript directory"), so nothing
+here needs the engine. ``session_factory`` imports these same functions for the
+transcript-directory decision, so the rule has one definition.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+import re
+import time
+from collections.abc import Callable, Iterable, Iterator
+from pathlib import Path
+from typing import Any, NamedTuple
+
+from local_operator.procstate import is_zombie, pid_liveness, process_sample
+
+# The archive index is imported at module scope deliberately: it is stdlib-only
+# at ITS module scope (its one local import, of ``session.catalog``, is made
+# inside the function that needs it precisely because ``catalog`` imports this
+# module), so it costs this module's import budget nothing and the scan can read
+# it without a per-poll import.
+from local_operator.session.archived import archived_ids
+
+#: Module level, not lazy, and deliberately so: this module sits on the CLI
+#: startup path, and ``session.errors`` is the one importable that costs
+#: nothing there -- the package ``__init__`` is empty and the module itself
+#: imports no stdlib and no engine. Hiding the refusal behind a function-local
+#: import would make the type unreachable to a caller that wants to catch it.
+from local_operator.session.errors import SessionStoreUnavailable
+from local_operator.session.runtime.types import reported_subagent_count
+from local_operator.session_lease import LEASE_NAME, _read_claim
+
+logger = logging.getLogger(__name__)
+
+#: ``--resume`` with no id. A sentinel rather than a second boolean flag so the
+#: whole "which session" decision stays ONE value threaded through one parameter.
+RESUME_LATEST = "@latest"
+
+#: Rows the CLI's ``--resume <typo>`` recovery listing prints to stderr.
+#:
+#: Named rather than a bare ``10`` at the call site because it is a DELIBERATELY
+#: short list, not an incidental one: the listing is an error message helping a
+#: user who mistyped an id, where the newest few sessions are the help and the
+#: whole store would bury it. The picker is the surface that shows everything
+#: (:func:`recent_session_rows` returns the full store by default); this is the
+#: one place a cap is the right answer, so it says so.
+RESUME_RECOVERY_LISTING = 10
+
+#: The file whose presence makes a directory a resumable session. Also what the
+#: recency ordering is read from: a directory's own mtime moves for reasons that
+#: are not turns (an origin stamp, a sibling file), so it is not the clock to use.
+TRANSCRIPT_NAME = "transcript.jsonl"
+
+#: Marks a session directory as machine-started rather than user-started. A
+#: subagent's child session is an ephemeral directory under ``sessions/`` with
+#: exactly the shape of a real conversation, so nothing on disk told the two
+#: apart and the ``/resume`` picker offered every delegated review, design and
+#: scout run as if the user had opened it — on one machine 40 of 50 rows.
+#:
+#: A SIDECAR file rather than a field in the transcript: the picker's whole
+#: cost model is one bounded read per row, and a marker inside the JSONL could
+#: only be found by parsing it. ``Path.is_file()`` is one stat, and it answers
+#: even for a child whose transcript has not been written yet.
+ORIGIN_NAME = "origin.json"
+
+#: ``origin`` value for a session a subagent runs. The file is JSON, and the
+#: key is a string rather than a bare flag, so a future non-user origin (a
+#: scheduled run, a server-side session) is a new value and not a second file.
+ORIGIN_SUBAGENT = "subagent"
+
+#: ``origin`` value for a session a command from an agent's shell opened — the
+#: escape hatch of :mod:`local_operator.agent_shell`, and (since 2026-09-19) an
+#: ALLOWED ``lop exec`` from a session whose role may delegate. The FIRST value
+#: minted on the "any non-user origin is hidden" default rather than on a new
+#: kind of hidden, which is the point: the operator's sidebar listed two review
+#: sessions spawned this way because nothing on disk said a machine had started
+#: them. Broadened rather than re-minted when the guard learned to allow the
+#: delegating case, because it answers one question — did a command from an
+#: agent's shell open this? — and every listing that filters on it wants exactly
+#: that answer.
+ORIGIN_AGENT_SHELL = "agent-shell"
+
+#: ``origin`` value for a session ``/fork`` branched off another. Unlike
+#: :data:`ORIGIN_SUBAGENT` this marks the user's OWN work: the marker records
+#: PROVENANCE (which conversation this branched from, in its ``parent`` field),
+#: and provenance is not a reason to hide a row.
+ORIGIN_FORK = "fork"
+
+#: ``origin`` value for a session an agent's shell opened as a WORKSTREAM: a
+#: long-lived parallel run the operator explicitly asked for, which is listed,
+#: labelled as agent-opened and steerable rather than hidden.
+#:
+#: WHY A NEW VALUE RATHER THAN :data:`ORIGIN_AGENT_SHELL`. Both are minted by
+#: the same guard and the same call site, so reusing the existing value would
+#: have been one line — and it is exactly the wrong line. ``agent-shell``
+#: answers ONE question, "did a command from an agent's shell open this?", and
+#: every listing filtering on it wants precisely that answer (see that
+#: constant's docstring). A workstream is the same provenance with the OPPOSITE
+#: disposition: the operator asked for it, so it belongs in the sidebar with
+#: attribution. Overloading ``agent-shell`` would make the hidden case
+#: UNHIDEABLE — the two populations would share a value, so listing the ones
+#: the operator asked for would list every throwaway review run beside them,
+#: and hiding those would hide the workstream. One value per ANSWER, and the
+#: answer here is "an agent opened this because the operator asked for a
+#: parallel workstream".
+#:
+#: The intent that mints it is carried explicitly (`lop exec --workstream`),
+#: never inferred: absent the flag an agent's run is stamped
+#: :data:`ORIGIN_AGENT_SHELL` and stays hidden, because that is the default and
+#: what every pre-existing caller gets.
+ORIGIN_AGENT_WORKSTREAM = "agent-workstream"
+
+#: ``origin`` value for a session a CONFIGURATION RUN owns: the supervised
+#: background session an operator starts from the Agents/Teams page to author
+#: agents and teams by conversation.
+#:
+#: HIDDEN, AND DELIBERATELY NOT IN :data:`USER_ORIGINS`. A configuration run is
+#: the operator's work in the sense that they asked for it, but it is the wrong
+#: disposition for every listing that predicate feeds: ``/resume``, the desktop
+#: sidebar, the phone list, the first-run scan and ``lop sessions`` all answer
+#: "which of my conversations exist", and a config run is a chore that was
+#: asked for *from* the Agents page and is watched *on* the Agents page. Listing
+#: it in the sidebar would put a throwaway run beside the conversations it is
+#: configuring, and the run's own watcher is the page's strip.
+#:
+#: The value is nevertheless ADMITTED THROUGH THE DESKTOP DOOR for exactly one
+#: origin (:func:`local_operator.server.utils.desktop_sessions.DesktopSessions`),
+#: because "hidden" must mean "unlisted" rather than "unreachable": the run is
+#: a real session with a transcript the server owns, and the page reaches it by
+#: id to watch it, prompt it, interrupt it and re-attach after a reload. The two
+#: halves are one decision stated twice and must move together — see
+#: :data:`USER_ORIGINS` above for what leaving an origin out of THIS set means.
+#:
+#: A NEW VALUE rather than the neighbouring ones, by the rule
+#: :data:`ORIGIN_AGENT_WORKSTREAM` states: an origin is an ANSWER, and the
+#: answer here — "a run the Agents page asked for, watched on that page, never in
+#: a listing" — is one no existing value gives.
+ORIGIN_AGENT_CONFIG = "agent-config"
+
+#: Origins that are still the user's own conversation, so :func:`is_user_session`
+#: keeps listing them.
+#:
+#: An ALLOW-LIST rather than an ``or`` bolted onto the predicate, because the
+#: default for a new origin must stay "not the user's" (see
+#: :func:`is_user_session`): visibility is opt-IN, so an author minting a new
+#: origin value has to come here and say so deliberately. That is exactly the
+#: "has to say so here" the predicate's docstring already demanded — this makes
+#: the place to say it a named constant instead of an edit to a boolean.
+#:
+#: Registering :data:`ORIGIN_AGENT_WORKSTREAM` here is the WHOLE visibility
+#: change: every listing in the tree funnels through one scan plus this
+#: predicate (the desktop sidebar and the TUI's through ``session.catalog``,
+#: ``/resume`` through :func:`recent_session_rows`, the machine-wide desktop
+#: feed, the phone's history, ``lop sessions`` and search), so a second place
+#: saying "and workstreams too" would be the drift this constant exists to
+#: prevent.
+USER_ORIGINS: frozenset[str] = frozenset({ORIGIN_FORK, ORIGIN_AGENT_WORKSTREAM})
+#: ``ORIGIN_AGENT_CONFIG`` is deliberately ABSENT above, and the absence is the
+#: mechanism rather than an omission: this predicate is what the catalogue, the
+#: desktop feed, the mobile list, the first-run scan and ``/resume`` all read, so
+#: keeping a configuration run out of this set keeps it out of all five at once.
+
+#: Memoised ``origin.json`` verdicts for :func:`recent_sessions`, keyed on each
+#: marker's own ``(mtime, size)``.
+#:
+#: Why this exists. The listing must READ AND PARSE every marker that exists —
+#: existence alone must never be read as "subagent", because a truncated or
+#: hand-edited sidecar deliberately parses to ``""`` so it reads as the USER's
+#: session rather than vanishing from the picker (see :func:`session_origin`;
+#: one such file took the picker down for every session on the machine). The
+#: markers that exist are the SUBAGENT ones, and subagents outnumber user
+#: sessions ~10.6:1, so that rule costs one file read per subagent directory:
+#: measured at 1127 ms over a 31,700-directory store, of which 639 ms is the
+#: reads and only 17 ms the parsing. Skipping the read for unmarked directories
+#: therefore saves ~8% and cannot fix it; the parse is not the cost.
+#:
+#: Why memoising is SOUND rather than a guess: the marker is written once, at
+#: directory creation (``harness.subagent``), and the only other writer is the
+#: one-shot backfill below. The verdict is immutable once written, so a marker
+#: whose ``(mtime, size)`` is unchanged cannot have changed its meaning.
+#:
+#: What may NOT go in here, and why each would be a bug:
+#: * Only a verdict actually PARSED from a marker that was READ is stored. A
+#:   stat failure or an unreadable file falls through to the real read every
+#:   time (:func:`_session_origin_read` reports readability separately for
+#:   exactly this): those describe the MOMENT — EMFILE under the descriptor
+#:   pressure this scan itself creates, a network volume blip — while the key
+#:   is the marker's immutable ``(mtime, size)``, so caching one would serve a
+#:   transient outage as a permanent wrong verdict for the life of the file.
+#: * A CORRUPT payload is cached, and that is deliberate rather than an
+#:   oversight: a parse failure is a fact about the file's CONTENT, stable for
+#:   as long as the bytes are, and re-deriving it every scan would return the
+#:   same ``""``. Rewriting the marker changes its ``(mtime, size)`` and
+#:   expires the entry, which is exactly when the verdict could differ.
+#: * ABSENCE is never cached. Unmarked already means user and is the cheap path,
+#:   and a directory the backfill stamps later must be re-read, not answered
+#:   from a stale "no marker" fact.
+#: * A MARKED-BUT-INACTIVE directory IS cached — an abandoned subagent
+#:   directory that never wrote a transcript or spool. It was not before the
+#:   gate reorder, which reached the activity check first and dropped such a
+#:   row (with its cache entry) on the way. This is intended, not a leak: the
+#:   set tracks which markers EXIST ON DISK, the verdict is a fact about the
+#:   marker rather than about the directory's activity, and retaining it avoids
+#:   re-reading those markers on every scan. Boundedness is unaffected — the
+#:   file is rewritten to exactly the names seen in the current scan, so a
+#:   disposed directory still drops out. Measured impact on the reporting
+#:   machine at the time of the change: 0 of 1,986 directories affected
+#:   (agent review round 1, R3).
+#:
+#: Each entry also carries the directory's ``ino``, which is what lets a
+#: known-HIDDEN directory be skipped whole — before its marker is stat'd at all
+#: — for zero syscalls, and which bounds how long a reused session id can serve
+#: a dead directory's verdict. How MUCH it bounds it is filesystem-dependent
+#: (APFS reallocates on recreate, ext4 recycles), so :data:`REVALIDATE_EVERY`
+#: rather than the inode is the correctness guarantee; see the scan loop in
+#: :func:`_scan_sessions` for both measurements.
+ORIGIN_CACHE_NAME = "origin-verdicts.json"
+
+#: Bumped when the cache's shape or key changes, so an older file is discarded
+#: rather than misread. Independent of ``search_index.INDEX_VERSION`` — the two
+#: caches version separately and neither number constrains the other; only the
+#: mechanism is borrowed.
+#:
+#: 2 added the ``ino`` field. An entry without one cannot arm the hidden-skip
+#: fast path, so a v1 file would merely be slow rather than wrong — but the
+#: loader already discards an unknown version and rebuilds
+#: (:func:`_load_origin_cache`), which is the cheaper and more obviously correct
+#: migration than teaching the fast path to reason about a missing field.
+ORIGIN_CACHE_VERSION = 2
+
+#: How many scans pass between full revalidations of the hidden-skip fast path.
+#:
+#: **Counted in POLLS, not seconds.** At the sidebar's 2 s interval
+#: (``app.py``'s ``set_interval(2.0, self._refresh_sidebar)``) 150 polls is
+#: ~5 minutes, which is the ceiling on how long a stale verdict can leave a real
+#: session hidden. If the poll rate ever becomes variable, re-express this as
+#: elapsed time — a faster poll makes revalidation more frequent (safe, but
+#: costlier) while a slower one stretches the staleness window in wall-clock
+#: terms without this number changing.
+#:
+#: Why revalidate at all, given that "once a subagent, always a subagent" holds
+#: for every writer in the tree (``harness/subagent.py``, ``fork.py``, and the
+#: backfill below, which explicitly refuses to re-stamp an existing marker):
+#: because the backfill's refusal exists precisely so that **a marker a human
+#: deleted by hand to un-hide a session is not silently written back**. The
+#: codebase therefore treats deleting ``origin.json`` as a supported gesture,
+#: and a permanent skip would answer that gesture with a session that stays
+#: invisible forever. Three independent repairs bound it: this epoch, the
+#: revalidation stamp (:data:`REVALIDATE_WINDOW_S` — a scan whose store was
+#: last fully re-derived more than the window ago revalidates it itself), and
+#: the cache being derived data under ``cache/`` that a user may delete at any
+#: time.
+#:
+#: THE COUNTER ADVANCES PER POLL, NOT PER SECOND, so within any one polling
+#: process the "~5 minutes" ceiling holds only while that process is actually
+#: polling (a closed sidebar pauses its timer, ``_sidebar_timer.pause()``, and
+#: freezes the counter). The stamp closes that gap ACROSS processes: it is
+#: written whenever a full revalidation completes and read by any later
+#: process's first scan, so staleness is bounded per WALL-CLOCK as well. That
+#: conversion costs one deliberate behaviour change, recorded at
+#: :data:`REVALIDATE_WINDOW_S`: a restart INSIDE the window serves the armed
+#: fast path rather than repairing a just-deleted marker on the spot — the
+#: hand-edit is noticed when the window next expires instead of immediately.
+#:
+#: One caller opts out of all of this rather than living with the window:
+#: ``session.cleanup`` passes ``revalidate=True`` through
+#: :func:`recent_sessions`, because its listing is the recent-N deletion guard
+#: and a stale row there is an irreversible loss rather than a late redraw
+#: (agent review round 1, R2). That forced scan does NOT make a reopened
+#: sidebar fresh — it is scoped to the cleanup call and restarts the epoch as a
+#: side effect of being a genuine revalidation.
+#:
+#: Cost of the epoch, measured at 4,000 directories / 50 users. Quote the
+#: figure for the surface you mean — these are FULL ``load_catalog`` polls,
+#: which is what the sidebar actually pays, and they differ from a bare
+#: :func:`_scan_sessions` call by ``load_catalog``'s own per-row work (the
+#: scan alone is 151 armed / 4,101 revalidating on the same store, which is
+#: what an earlier revision of this comment quoted without saying so):
+#:
+#: * a fast poll is 266 syscalls, a revalidating one 4,216, so the AMORTISED
+#:   figure is 292 against main's 8,166 — a 28.0x reduction.
+#: * 292 is the honest number to quote, not 266.
+#:
+#: Independently reproduced in QA round 1 as 265 / 4,215 / 291.3 / 8,165, and
+#: the PR body's table matches; the ~1-syscall spread is where each counter
+#: hooks ``os``, not a disagreement. The earlier 151 / 4,101 / 177 / 8,052
+#: figures in this comment were the SCAN-only path quoted as if they were the
+#: poll — same structure and ratio, wrong surface (QA round 1, Q2).
+REVALIDATE_EVERY = 150
+
+#: How stale a completed revalidation may be before a fresh process's first
+#: scan revalidates the store rather than arming the hidden-skip fast path.
+#:
+#: WHY THIS EXISTS — the ONE-SHOT caller. The epoch above is counted in POLLS
+#: of a single process, and its "first scan of a fresh process revalidates"
+#: rule was written for long-lived pollers restarting: a sidebar that rescans
+#: on open. But ``lop sessions`` — and every other one-shot caller: the CLI's
+#: recovery listing, search, a script — issues exactly ONE scan per process,
+#: so under poll-counted terms EVERY invocation is a cold start and pays the
+#: revalidating pass. Measured on a 15k-directory pad (1,400 user sessions):
+#: 17,820 syscalls and ~121 ms warm per invocation, against the 4,220
+#: syscalls / ~39 ms the armed scan it can never reach would pay.
+#:
+#: THE STAMP, not a persisted counter: a scan that completes a revalidation
+#: writes ``revalidated_at`` into the verdict cache, and a first scan that
+#: finds it fresh arms the fast path instead of re-deriving. Consecutive CLI
+#: invocations inside the window then cost the armed number, and the store
+#: still gets a full revalidation at most once per window — from whichever
+#: scan first runs after it expires. The window is the epoch's own ~5 minutes
+#: at the sidebar's 2 s cadence, so a polling sidebar's cadence is unchanged:
+#: it revalidates every 150 polls (each one stamping) and its restarts merely
+#: stop re-paying a scan some process already paid inside the window.
+#:
+#: WHY A WALL-CLOCK BOUND AT ALL: the repair gesture above ("delete the
+#: marker to un-hide the session") needs a ceiling, and a count of polls
+#: cannot bound a process that never polls again. The ceiling therefore has to
+#: be a fact about the store that outlives the process — the same shape as
+#: ``model.catalogue.REVALIDATE_BACKOFF_S``, except PERSISTED, because the
+#: question ("were these verdicts fully re-derived lately?") is about the
+#: cache file and must be answerable by the NEXT process, not only by the one
+#: that asked. The counter (:data:`_SCAN_COUNT`) therefore stays process-local
+#: — it is policy — while the stamp lives beside the verdicts it describes.
+#: The epoch's in-process scans are untouched: scan #150 of a live process
+#: revalidates on schedule whatever the stamp says.
+#:
+#: FAILURE MODES — every one degrades to "revalidate", the conservative
+#: direction (a redundant scan; never a wrong row, never a raise):
+#: * cache absent, unreadable, corrupt, torn, or written by an older build:
+#:   no stamp is read, so the scan revalidates and re-stamps; the save itself
+#:   is best-effort and swallows its ``OSError``, so an unwritable cache just
+#:   means the next process revalidates again;
+#: * clock jump forward: the stamp looks old, costing one redundant
+#:   revalidation; clock jump backward: the stamp looks FUTURE and
+#:   ``_revalidation_is_due`` deliberately distrusted a negative age (see its
+#:   docstring), so skew can cost scans but cannot freeze a stale verdict;
+#: * two processes whose clocks disagree can flap a scan between them —
+#:   bounded by the window, costs one redundant scan per flap, recorded here
+#:   rather than defended against because a monotonic clock cannot be
+#:   persisted across restarts, which is exactly the property the stamp needs.
+REVALIDATE_WINDOW_S = 5 * 60
+
+#: Scans issued so far, per store, driving :data:`REVALIDATE_EVERY`.
+#:
+#: Process-local on purpose: it is a POLICY counter — "how long has THIS
+#: process been serving the skip" — and the store-side question ("when were
+#: these verdicts last fully re-derived?") is answered by the stamp in the
+#: cache file instead (:data:`REVALIDATE_WINDOW_S`), a fact about the verdicts
+#: rather than a count of one process's polls. In production this holds
+#: exactly one key, the running session's config dir. Keyed by path string
+#: rather than ``Path`` so a test's ``tmp_path`` cannot collide with a live
+#: store.
+_SCAN_COUNT: dict[str, int] = {}
+
+#: Journals the session's title (and every name it has ever borne) beside the
+#: transcript, mirroring :data:`ORIGIN_NAME` exactly. A SIDECAR rather than a
+#: field in the JSONL for the same reason the origin marker is one: the picker's
+#: cost model is one bounded read per row, and the title in force can sit
+#: anywhere in a multi-megabyte transcript (the auto-name lands at turn 2, a
+#: mid-session ``/rename`` lands in the untouched middle — see
+#: :data:`TITLE_SCAN_BYTES` for the window-scan gap this closes). ``Path.stat``
+#: plus a sub-kilobyte read is O(1) in transcript size where the scan is not,
+#: so :func:`stored_session_title` consults this first and only falls back to
+#: the window scan for sessions written before the sidecar existed.
+TITLE_SIDECAR_NAME = "title.json"
+
+#: The title backfill's per-directory "nothing to journal" marker. The sweep
+#: used to treat only an existing :data:`TITLE_SIDECAR_NAME` as answered, so a
+#: session with no journalled title anywhere in its transcript — the majority
+#: of a long-lived store, since every session that simply never got renamed
+#: stays in that state forever — was FULLY RE-READ on every boot: measured 323
+#: ms per boot on a 1,365-session store, 1,268 of which could never produce a
+#: sidecar. The sentinel records that the scan RAN and found nothing, so the
+#: second boot's answer costs one ``stat`` per directory. JSON rather than an
+#: empty file so a future reader can carry a reason (``scanned_at``) without a
+#: second format migration; ``write_session_title``'s mtime-preservation
+#: contract applies to it too, for the reason its docstring gives.
+TITLE_SCAN_SENTINEL_NAME = "title-scan.json"
+
+#: The origin sweep's own "considered and not a subagent" marker, mirroring
+#: :data:`TITLE_SCAN_SENTINEL_NAME`. It exists SEPARATELY from that sentinel
+#: because the two sweeps answer different questions and traverse
+#: independently: the origin sweep stops at ``limit`` STAMPS while the title
+#: sweep is uncapped, so a title sentinel must never stand in for an origin
+#: answer — a directory the origin sweep never reached would be suppressed
+#: forever. Only the origin sweep writes this file, so its presence means
+#: exactly "this pass read this opener and it was not a subagent's".
+ORIGIN_SCAN_SENTINEL_NAME = "origin-scan.json"
+
+#: The session's ATTACHED IDENTITY — the ``/team`` roster, the ``/agent``
+#: profile, and the ``/goal`` — journalled beside the transcript, mirroring
+#: :data:`TITLE_SIDECAR_NAME` exactly.
+#:
+#: Why this file has to exist at all: the team and agent briefs ride the
+#: VOLATILE TAIL of the system prompt (see ``prompts_api.build_system_blocks``
+#: and ``session/goal.py``), and the tail is rebuilt from a ``GoalState`` that
+#: ``session_factory`` constructs EMPTY on every session. Nothing in the
+#: transcript reproduces it, so a ``--resume`` genuinely dropped the persona
+#: from the prompt — the manager a user attached with ``/team`` was not merely
+#: missing from the status band, it was gone from the model's instructions and
+#: the conversation carried on as an ordinary session. Only the FRONT END could
+#: see the blank band, which is why this read as a display bug for so long.
+#:
+#: A SIDECAR rather than a transcript row, for the reasons the title sidecar
+#: documents and one more that is specific to this state: the attachment is a
+#: property OF the session, not an event IN the conversation, and the restore
+#: runs during construction, before any replay, so a value it had to scan the
+#: JSONL for would arrive too late to reach the first prompt's tail.
+ATTACHMENT_SIDECAR_NAME = "attachment.json"
+
+#: The judged-goal record's own sidecar, beside the attachment rather than
+#: inside it (see :func:`write_goal_record`). New in the judged-goal feature:
+#: older builds neither read nor write it, which is what lets a record survive a
+#: downgrade round trip.
+GOAL_SIDECAR_NAME = "goal.json"
+
+#: The two openings only the subagent runner can produce, used ONLY by the
+#: one-time backfill for directories that predate the marker.
+#:
+#: ``[role: <name>]`` is built by ``AgentProfile.preamble`` and ``[scout mode:``
+#: is a literal constant in the subagent module; both are stamped in FRONT of
+#: the caller's prompt, so they can only appear at offset 0 of a child's first
+#: user message. Anchored and exact for that reason: the cost of a false
+#: positive is hiding one of the user's own conversations, which is the very
+#: failure the absence-means-user default exists to avoid, so these match what
+#: the machine writes and nothing that merely resembles it.
+_ROLE_PREAMBLE = re.compile(r"\[role: [a-z0-9_-]+\]\n")
+_SCOUT_PREAMBLE = "[scout mode:"
+
+#: How much of the opening message a session name may keep. Long enough to tell
+#: two days' work apart, short enough that a column of them still scans.
+NAME_MAX_CHARS = 64
+
+#: The custom-entry type a session journals its title under. Spelled here as
+#: well as in ``session/naming.py`` because this module may not import the
+#: engine (see the module docstring — the CLI's startup guard fails if it
+#: does), and :func:`stored_session_title` scans the raw JSONL rather than
+#: replaying it. ``test_the_journalled_title_type_matches_the_writer`` pins the
+#: two spellings together, so a rename breaks a test instead of silently
+#: returning every session to its opening message.
+_TITLE_CUSTOM_TYPE = "conversation_name"
+
+#: Bytes of the transcript the stored-title scan reads at EACH END. Both ends,
+#: because the two facts about a title pull in opposite directions:
+#:
+#: * The title in force is the NEWEST one — a rename appends a fresh row rather
+#:   than rewriting the old one — so a rename made an hour into a long session
+#:   is only findable near the tail.
+#: * The FIRST title is journalled when the session is auto-named, at turn 2,
+#:   which is near the head and is pushed further from the tail by every turn
+#:   that follows.
+#:
+#: A tail-only scan therefore missed the title on most real sessions: measured
+#: on this store, 145 of 187 transcripts (78%) are larger than this window, so
+#: a session named at turn 2 and then worked in for an hour silently reverted
+#: to being labelled by its opening message — the exact failure this function
+#: exists to fix, and the long sessions it hit hardest are the ones a user is
+#: most likely to be hunting for a week later.
+#:
+#: Reading both ends rather than the whole file is what keeps the cost per
+#: picker row bounded on a 6 MB transcript.
+#:
+#: **The window gap this scan cannot close, and where it is closed instead.**
+#: A rename made mid-conversation, then buried under a further 128 KB and never
+#: renamed again, falls between the two windows: the head still holds the
+#: ORIGINAL title, so a window-only scan labels that session with the name it
+#: was renamed *away from*. Worse, a topic-pivot session auto-named late (its
+#: only titles sitting in the untouched middle of a multi-megabyte transcript)
+#: is invisible to both windows and reverts to its opening message — the
+#: reported failure of a session that could not be found by its own subject.
+#:
+#: This scan does not try to fix that by widening: reading whole transcripts on
+#: the picker's synchronous path was measured at 400 ms against 64 ms across a
+#: real store. Instead the fix the previous comment here PRESCRIBED is now
+#: implemented — the title is journalled to a sidecar (``title.json``, see
+#: :func:`write_session_title`) the way :func:`mark_session_origin` journals
+#: origin, one stat and one small read with no size dependence at all.
+#: :func:`stored_session_title` consults that sidecar first, so this window
+#: scan is now the FALLBACK for sessions written before the sidecar existed and
+#: not yet reached by :func:`backfill_session_titles`, not the primary path.
+#: Both ends are still read because that fallback still wants the newest title
+#: it can reach on a pre-sidecar session.
+TITLE_SCAN_BYTES = 131_072
+
+#: Matches a journalled title row in raw JSONL, tolerant of whitespace after
+#: the colons for the same reason :data:`_FRAGMENT_USER_RE` is: the session
+#: writer emits compact JSON, but a transcript written by a fixture or a future
+#: exporter is the same document. ``(?:[^"\\]|\\.)*`` steps over escaped quotes
+#: so a title containing one is not cut at it.
+_TITLE_ROW_RE = re.compile(
+    r'"custom_type"\s*:\s*"' + _TITLE_CUSTOM_TYPE + r'".*?"text"\s*:\s*"((?:[^"\\]|\\.)*)"'
+)
+
+#: Characters of a transcript the name scan will read before giving up — not
+#: bytes: the file is opened in text mode, so this bounds the decoded string,
+#: which is what actually occupies memory here. A name is a convenience; a
+#: pathological first line (a pasted file, a base64 image) must not turn
+#: opening the picker into reading megabytes off disk for every row.
+NAME_SCAN_CHARS = 64_000
+
+#: How far into a half-read first line the scan will look for the marker that
+#: says the fragment is a user message. The writer emits ``id``/``ts``/``type``
+#: before the payload, so the role sits ~110 characters in; a few hundred is
+#: slack for a longer id without letting the marker match something deep in a
+#: pasted body.
+_FRAGMENT_HEAD_CHARS = 400
+
+#: BYTES of a transcript's tail read when previewing its last reply.
+#:
+#: Bytes, not characters, because this seeks from the END of the file, and a
+#: byte offset is the only thing ``seek`` accepts. The window is decoded with
+#: ``errors="replace"`` and its first (probably partial) line dropped, so
+#: landing mid-codepoint is harmless.
+#:
+#: Sized for the same reason :data:`NAME_SCAN_CHARS` is: the preview is a
+#: convenience shown on a list row, and one pathological entry — a pasted file,
+#: a base64 image — must not turn painting that list into reading megabytes per
+#: session. 64 KiB comfortably holds the last several entries of an ordinary
+#: transcript while bounding the pathological one.
+PREVIEW_SCAN_BYTES = 64_000
+
+#: Characters of the previewed reply kept. A list row shows one line; anything
+#: past this is cut by the surface anyway, and carrying more over the wire for
+#: every row in the list is pure weight.
+PREVIEW_MAX_CHARS = 200
+
+#: ``harness.message_types.SESSION_INCIDENT_MESSAGE_TYPE``, spelled out rather
+#: than imported. This module's contract (see the module docstring, and
+#: ``tests/unit/test_import_graph.py``) is that importing it drags in nothing —
+#: not the engine, not the providers, not ``asyncio`` — because it is on the
+#: path of ``local-operator --help`` and of every picker row. The vocabulary
+#: module is a cheap module today, but the guard is about the GRAPH, not about
+#: today's cost, and a literal keeps this module's import list empty.
+#:
+#: The duplication is pinned by a test that imports both and asserts they are
+#: equal, so a rename cannot silently turn this scan into one that matches
+#: nothing (which would degrade to the house sentence and look like "this
+#: session had no failure" rather than like a bug).
+#:
+#: ``SESSION_CREDENTIAL_REDACTION_MESSAGE_TYPE`` is deliberately NOT added to
+#: this scan or to any replay path in this module, and that is worth stating
+#: because it moved out of ``session_incident`` — a reader could reasonably
+#: expect a second literal here. Two reasons it needs none. (1) The only use of
+#: this literal is :func:`session_failure_summary` below, which reads
+#: ``details.raw``; the credential record has never carried ``raw`` (it carries
+#: ``text``, ``tool``, ``shapes``, ``summary``), so this scan could not return
+#: that record even while it was a ``session_incident``. (2) Nothing in this
+#: module re-injects an incident into a model context — a resumed session
+#: replays through ``transcript.replay_entries`` into
+#: ``harness/render.py``'s allow-list, which is where the new type is excluded.
+_SESSION_INCIDENT_TYPE = "session_incident"
+
+#: The marker that says a fragment is a user message, and the first COMPLETE
+#: JSON string value of a ``text`` key. Both tolerate whitespace around the
+#: colon: the session writer emits compact JSON, but a transcript written by
+#: anything else (a test fixture, a hand-edited file, a future exporter) is
+#: still the same document, and a scan that only matched the compact spelling
+#: silently returned no name for it.
+#:
+#: The closing quote is what makes the text value complete: a value still
+#: running when the read window ended cannot match, so a name is never a word
+#: cut in half. ``(?:[^"\\]|\\.)*`` steps over escaped quotes rather than
+#: stopping at the first one.
+_FRAGMENT_USER_RE = re.compile(r'"role"\s*:\s*"user"')
+_TEXT_VALUE_RE = re.compile(r'"text"\s*:\s*"((?:[^"\\]|\\.)*)"')
+
+#: The image-payload key, whose position relative to the text decides whether a
+#: fragment is trustworthy. Same whitespace tolerance, same reason.
+_DATA_KEY_RE = re.compile(r'"data"\s*:')
+
+
+class ResumeNotFound(Exception):
+    """``--resume`` named a session that is not on disk (or none exist)."""
+
+
+def mark_session_origin(session_dir: Path, origin: str, **details: object) -> None:
+    """Record that ``session_dir`` was started by ``origin``, not by the user.
+
+    Written by whoever CREATES the directory, which is the only place that
+    knows: by the time the picker reads it back, a child session and a user's
+    conversation are the same shape on disk.
+
+    Best-effort by contract. Marking is bookkeeping for a listing, and a child
+    that cannot write its marker (read-only volume) must still RUN — the cost
+    of the failure is one extra row in a picker, and taking a delegated task
+    down for it would be the more expensive bug.
+
+    **The directory's mtime is preserved.** Recency for ``--resume`` and the
+    picker is read from the transcript's mtime, not the directory's, but
+    other readers still look at the directory (``os.listdir`` + ``stat``
+    listings, backup tools). Writing a marker is bookkeeping ABOUT a
+    session, never activity IN it, so it must not answer the question "when
+    was this session last used". A directory this call creates has no prior
+    mtime and is unaffected.
+    """
+    payload = {"origin": origin, **details}
+    try:
+        # Read before the write: this is the value the write is about to
+        # destroy. ``None`` for a directory that does not exist yet, which is
+        # the fresh-child path and needs no restore.
+        try:
+            previous = session_dir.stat().st_mtime
+        except OSError:
+            previous = None
+        session_dir.mkdir(parents=True, exist_ok=True)
+        (session_dir / ORIGIN_NAME).write_text(json.dumps(payload), encoding="utf-8")
+        if previous is not None:
+            os.utime(session_dir, (previous, previous))
+    except (OSError, TypeError, ValueError):
+        return
+
+
+def session_origin(session_dir: Path) -> str:
+    """``origin`` recorded for a session, or ``""`` when it is the user's own.
+
+    Absence means USER, and that direction is deliberate. The alternative —
+    marking user sessions and hiding everything unmarked — would have made
+    every conversation that predates the marker disappear from the picker,
+    which loses real work; an unmarked child merely shows one stale row that
+    retention eventually evicts. A listing that shows too much is recoverable
+    by typing a filter, one that hides your own session is not.
+
+    Tolerant for the same reason :func:`session_name` is: this runs over every
+    session directory to paint a picker, so a truncated or hand-edited marker
+    yields ``""`` (treated as the user's) rather than taking the picker down.
+
+    ``errors="replace"`` is load-bearing, not decoration. :func:`mark_session_origin`
+    writes non-atomically, so a child killed mid-write (SIGKILL, sleep, a full
+    volume) leaves the file cut INSIDE a multi-byte character — and a strict
+    decode raises ``UnicodeDecodeError``, which is a ``ValueError`` and would
+    sail past an ``except OSError``. One such sidecar took down the whole
+    picker and every ``--resume`` with no id, for every session, until the
+    user found and deleted the file by hand.
+    """
+    origin, _readable = _session_origin_read(session_dir)
+    return origin
+
+
+def _session_origin_read(session_dir: Path) -> tuple[str, bool]:
+    """:func:`session_origin`'s verdict, plus whether the marker was READ at all.
+
+    Exists because those two facts are different and only the traversal needs
+    the second. ``session_origin`` deliberately collapses every failure into
+    ``""`` — that tolerance is its whole point and its public contract, and a
+    caller asking "is this the user's session" is right to be told "yes" when
+    the claim cannot be trusted.
+
+    A CACHE, though, must not memoise that answer. ``""`` from a parse failure
+    is a fact about the file's CONTENT, so it is stable while the bytes are:
+    re-deriving it on every scan would return the same verdict, and the marker
+    changing is exactly when the memo's ``(mtime, size)`` key expires. ``""``
+    from an ``OSError`` is a fact about the MOMENT — EMFILE under the descriptor
+    pressure a 30,000-directory scan creates, a network volume blip, a
+    permissions change mid-scan — and the file it describes is immutable by
+    design, so memoising it pins a wrong verdict for the life of the marker
+    rather than for the life of the outage. ``readable=False`` is how the
+    traversal tells those apart and declines to cache the second.
+    """
+    try:
+        raw = (session_dir / ORIGIN_NAME).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return "", False
+    try:
+        payload = json.loads(raw)
+    except ValueError:
+        return "", True
+    if not isinstance(payload, dict):
+        return "", True
+    origin = payload.get("origin")
+    return (origin if isinstance(origin, str) else ""), True
+
+
+class SessionTitle(NamedTuple):
+    """The title sidecar's contents: the in-force name and every past one.
+
+    ``text`` is the name currently on the band and the terminal tab — the one
+    the user last saw and will search by. ``names`` is every distinct title the
+    session has ever carried, first-seen order, so a search matches a name the
+    session was renamed *away from* as well as its current one. ``user_set``
+    rides along for parity with the transcript entry: the picker does not need
+    it, but a future reader deciding rename precedence might, and it costs
+    nothing to keep.
+    """
+
+    text: str
+    user_set: bool
+    names: tuple[str, ...]
+
+
+def _read_title_sidecar(session_dir: Path) -> SessionTitle | None:
+    """Parse ``title.json``, or ``None`` when it is absent or unusable.
+
+    Tolerant for the same reason :func:`session_origin` is, and with the same
+    ``errors="replace"`` load-bearing detail: this runs over every session
+    directory to paint a picker, and :func:`write_session_title` writes
+    non-atomically, so a process killed mid-write can leave the file cut inside
+    a multi-byte character. A strict decode would raise ``UnicodeDecodeError``
+    (a ``ValueError``) and could sail past an ``except OSError`` and take the
+    whole picker down — the exact failure a corrupt ``origin.json`` once caused.
+    A missing or malformed sidecar yields ``None`` so the caller falls back to
+    the window scan, never an exception.
+
+    ONE SPELLING IS CURRENT — ``text`` — and the ``title`` key is read as a
+    fallback because a build of the mesh branch wrote it (see the note on the
+    fallback itself). :func:`write_session_title` is the only writer of the
+    current spelling, which is how the two stay agreed.
+
+    A BLANK ``text`` IS A MISSING ``text``, not a name (QA round 13, Q13-4).
+    The fallback below used to fire only on a key that was absent or not a
+    string, so a half-rewritten sidecar — ``{"text": "", "title":
+    "legacy-name"}``, the shape the interim writer could leave while the store
+    was being migrated — reached this reader with the legacy name sitting right
+    there in it and answered with nothing instead. A blank name is not a name
+    the user typed, so nothing correct can be shadowed by treating it as
+    absent: the check is widened to a value carrying no visible characters.
+    """
+    try:
+        raw = (session_dir / TITLE_SIDECAR_NAME).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    try:
+        payload = json.loads(raw)
+    except ValueError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    text = payload.get("text")
+    if not isinstance(text, str) or not text.strip():
+        # THE LEGACY SPELLING, kept deliberately, and this is the one place a
+        # reader may still meet it. A build of the mesh branch wrote its
+        # sidecar under ``title`` (``network.relay._op_session_create``, before
+        # that write was routed through :func:`write_session_title`), and those
+        # directories exist on the devices that ran it. Refusing the key would
+        # not make those records go away, it would make the name inside them
+        # UNRECOVERABLE — the file holds it and no reader will ever look —
+        # while the only cost of accepting it is one ``.get`` on a path reached
+        # solely when ``text`` cannot answer. ``text`` therefore WINS whenever
+        # it is present AND USABLE and this cannot shadow a correct record; it
+        # answers only for the records already written. Removable once no store
+        # carries the old spelling, which is not a condition a reader can check.
+        #
+        # A BLANK legacy value changes nothing: the blank ``text`` is left in
+        # place below, so a record whose names list is all it has keeps them.
+        legacy = payload.get("title")
+        if isinstance(legacy, str) and legacy.strip():
+            text = legacy
+    if not isinstance(text, str):
+        return None
+    raw_names = payload.get("names")
+    names = (
+        tuple(name for name in raw_names if isinstance(name, str))
+        if (isinstance(raw_names, list))
+        else ()
+    )
+    return SessionTitle(
+        text=" ".join(text.split()),
+        user_set=bool(payload.get("user_set")),
+        names=names,
+    )
+
+
+def read_title_state(session_dir: Path) -> SessionTitle | None:
+    """The title sidecar's contents — the name, its precedence flag, its history.
+
+    The SIDECAR-ONLY reader, unlike :func:`stored_session_title` (which falls
+    back to the transcript's windows) and :func:`session_name` (which falls back
+    to the opening message). Callers that can read the transcript themselves
+    need the two halves apart: a boot restoring naming state has to know whether
+    a title came from the sidecar, because the sidecar can hold a name the
+    transcript never journalled at all — see ``Session._load_conversation_name``
+    and QA round 13's Q13-1.
+
+    ``SessionTitle.user_set`` is the reason this function exists rather than a
+    narrower string accessor: it is PRECEDENCE, not display, and until this
+    reader existed the flag had no reader on the boot path — a ``--name`` typed
+    by a user was written into the sidecar and then silently outranked by the
+    first generated title, because the live holder it is compared against had
+    never learned the claim.
+
+    ``None`` on the same terms as :func:`_read_title_sidecar`: absent, unreadable
+    or unusable is no title, never an exception, so a boot cannot be refused by
+    a decoration.
+    """
+    return _read_title_sidecar(session_dir)
+
+
+def read_title_names(session_dir: Path) -> list[str]:
+    """Every name this session has borne, from the sidecar; ``[]`` when absent.
+
+    The source the digest folds in (see ``search_index.build_index``) so a
+    session is findable by any subject it was ever named for, not only its
+    current title. Empty for a pre-sidecar session, which the backfill sweep
+    (:func:`backfill_session_titles`) fills in once at startup.
+    """
+    sidecar = _read_title_sidecar(session_dir)
+    return list(sidecar.names) if sidecar else []
+
+
+def write_session_title(
+    session_dir: Path, text: str, *, user_set: bool, past_names: list[str]
+) -> None:
+    """Journal the in-force title (and every name ever borne) to a sidecar.
+
+    Why a sidecar: :func:`stored_session_title`'s window scan is blind to a
+    title in the middle of a large transcript (see :data:`TITLE_SCAN_BYTES` —
+    an auto-name at turn 2 pushed past the head window by an hour of work, or a
+    mid-session ``/rename`` buried between the two windows). One stat and one
+    small read here is O(1) in transcript size, closing that gap for good.
+
+    Best-effort by contract, exactly like :func:`mark_session_origin`: a title
+    is decoration, and a session that cannot write its sidecar (read-only
+    volume, full disk) must still RUN. The cost of the failure is a stale
+    picker label until the next rename or the backfill sweep, never a lost turn.
+
+    ``names`` accumulates: ``text`` is appended to ``past_names`` (deduped,
+    first-seen order preserved) so a search matches a name the session was
+    renamed away from. The list is authoritative for names seen since the
+    sidecar began; the one-time :func:`backfill_session_titles` sweep recovers
+    the complete history for sessions that predate it.
+
+    **The directory's mtime is preserved**, for the same reason
+    :func:`mark_session_origin` preserves it: recency ranks by the transcript's
+    mtime, but other readers (``os.listdir`` + ``stat`` listings, backups) look
+    at the directory, and journalling a title is bookkeeping ABOUT a session,
+    never activity IN it. The write is atomic (pid-named temp + ``replace``,
+    like ``search_index._save``) because the picker may read this file while a
+    concurrent session rewrites it.
+    """
+    normalized = " ".join(text.split())
+    # Whitespace-normalise every name the same way ``text`` is, so the sidecar's
+    # ``names`` and its ``text`` agree and the digest folds a name in exactly as
+    # the reader will match it. Dedup runs AFTER normalisation so two names that
+    # differ only in internal whitespace collapse to one. ``dict.fromkeys`` is
+    # the stdlib ordered-set idiom, preserving first-seen order; empties (a name
+    # that was all whitespace) are dropped. The in-force title is folded in as
+    # the newest name so a caller that passes only the prior history still gets
+    # a complete list.
+    normalized_past = [n for n in (" ".join(p.split()) for p in past_names) if n]
+    names = (
+        list(dict.fromkeys([*normalized_past, normalized]))
+        if normalized
+        else list(dict.fromkeys(normalized_past))
+    )
+    payload = {"text": normalized, "user_set": user_set, "names": names}
+    try:
+        try:
+            previous = session_dir.stat().st_mtime
+        except OSError:
+            previous = None
+        session_dir.mkdir(parents=True, exist_ok=True)
+        sidecar = session_dir / TITLE_SIDECAR_NAME
+        # The temp carries the writer's PID so two sessions writing at once do
+        # not ``replace`` a document the other is still filling — the same
+        # torn-write hazard ``search_index._save`` documents.
+        tmp = sidecar.with_suffix(f".{os.getpid()}.tmp")
+        tmp.write_text(json.dumps(payload), encoding="utf-8")
+        tmp.replace(sidecar)
+        if previous is not None:
+            os.utime(session_dir, (previous, previous))
+    except (OSError, TypeError, ValueError):
+        return
+
+
+class SessionAttachment(NamedTuple):
+    """What ``/team``, ``/agent`` and ``/goal`` had put on a session.
+
+    NAMES, never brief BODIES, and that is the load-bearing decision rather
+    than a size optimisation. A stored brief is a SNAPSHOT of a team's
+    collaboration/project text or a profile's instructions at attach time; the
+    operator edits those files between sessions (that is the whole point of a
+    durable registry), so replaying a stored copy would resume the session onto
+    instructions that no longer exist anywhere. Re-resolving the name through
+    the live registry on restore means a resumed session runs the CURRENT
+    definition, which is what the user means by "resume my lopdev manager".
+
+    The tradeoff is accepted deliberately: a renamed or deleted team cannot be
+    restored, where a stored brief could have been. That case is handled by
+    saying so plainly (see the TUI's restore notice) rather than by silently
+    reviving a definition the operator removed.
+    """
+
+    #: ``/team`` roster name; "" when no team was attached.
+    team: str
+    #: ``/agent`` profile DISPLAY name; "" when no profile was attached.
+    agent: str
+    #: The standing ``/goal`` text; "" when unset. Stored here rather than left
+    #: to the transcript because it shares the volatile tail's fate exactly.
+    goal: str
+
+
+def read_session_attachment(session_dir: Path) -> SessionAttachment | None:
+    """Parse ``attachment.json``, or ``None`` when absent or unusable.
+
+    Tolerant on exactly the same terms as :func:`_read_title_sidecar`, and the
+    ``errors="replace"`` is load-bearing for the same reason: a process killed
+    mid-write can cut the file inside a multi-byte character, and a strict
+    decode raises ``UnicodeDecodeError`` — a ``ValueError``, which would sail
+    past an ``except OSError`` and take down not a picker row this time but the
+    whole RESUME. A session must always reopen; losing an attachment is a
+    notice, losing the conversation is not survivable.
+    """
+    try:
+        raw = (session_dir / ATTACHMENT_SIDECAR_NAME).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    try:
+        payload = json.loads(raw)
+    except ValueError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+
+    def _text(key: str) -> str:
+        value = payload.get(key)
+        return value.strip() if isinstance(value, str) else ""
+
+    return SessionAttachment(team=_text("team"), agent=_text("agent"), goal=_text("goal"))
+
+
+def write_session_attachment(session_dir: Path, *, team: str, agent: str, goal: str) -> None:
+    """Journal the session's attached identity so a resume can rebuild it.
+
+    Called on CHANGE (attach, detach, goal set/clear), never per turn: the
+    attachment moves a handful of times in a session's life, and a per-turn
+    write would be pure I/O for a value that did not move.
+
+    Best-effort by contract, exactly like :func:`write_session_title` and
+    :func:`mark_session_origin`. An attachment that cannot be journalled
+    (read-only volume, full disk) must never fail the turn that changed it: the
+    cost is one resume that opens unattached, which is the behaviour every
+    session had before this file existed.
+
+    The write is ATOMIC (pid-named temp + ``replace``) because two processes
+    can hold the same session directory — a live owner and a ``/resume`` that
+    is about to be refused both touch it — and a reader hitting a half-written
+    document would parse as "no attachment" and silently drop the persona. The
+    PID in the temp name keeps two concurrent writers from ``replace``-ing a
+    document the other is still filling, the same hazard ``write_session_title``
+    and ``search_index._save`` document.
+
+    **The directory's mtime is preserved**, for the reason the other two
+    sidecars preserve it: recency ranks by the transcript's mtime, and
+    journalling an attachment is bookkeeping ABOUT a session, never activity IN
+    it. Attaching a team must not reorder the ``/resume`` picker.
+    """
+    # ``strip()`` ONLY — never ``" ".join(x.split())``. These are LOOKUP KEYS,
+    # not display titles, and every resolver they are matched against strips
+    # without collapsing (``resolve_profile``, ``resolve_profile_or_specialist``,
+    # ``TeamRegistry.get_team_by_name``, which casefolds and strips). Collapsing
+    # internal whitespace here broke the round trip for any agent profile whose
+    # registered name contains repeated spaces — free-form and not normalised by
+    # ``AgentRegistry.create_agent`` — so a profile named ``"Deep  Auditor"``
+    # attached live, was written as ``"Deep Auditor"``, then failed to resolve on
+    # resume and told the user it had been renamed or deleted (R2). Normalising
+    # is right for a title (the sidecar this shape was copied from) and wrong
+    # for a key: what is stored has to be what the resolver will compare.
+    payload = {
+        "team": (team or "").strip(),
+        "agent": (agent or "").strip(),
+        "goal": (goal or "").strip(),
+    }
+    try:
+        try:
+            previous = session_dir.stat().st_mtime
+        except OSError:
+            previous = None
+        session_dir.mkdir(parents=True, exist_ok=True)
+        sidecar = session_dir / ATTACHMENT_SIDECAR_NAME
+        tmp = sidecar.with_suffix(f".{os.getpid()}.tmp")
+        tmp.write_text(json.dumps(payload), encoding="utf-8")
+        tmp.replace(sidecar)
+        if previous is not None:
+            os.utime(session_dir, (previous, previous))
+    except (OSError, TypeError, ValueError):
+        return
+
+
+def read_goal_record(session_dir: Path) -> dict[str, Any] | None:
+    """Parse ``goal.json``, or ``None`` when absent or unusable.
+
+    Tolerant on exactly the same terms as :func:`read_session_attachment`, and
+    for the same load-bearing reason: a process killed mid-write can cut the
+    file inside a multi-byte character, and a strict decode raises
+    ``UnicodeDecodeError`` — a ``ValueError`` that would sail past an
+    ``except OSError`` and take down the whole RESUME. An unreadable record must
+    cost the record, never the conversation.
+
+    The caller (``Session._restore_goal_record``) treats ``None`` as the
+    pre-lifecycle state, which is exactly what a session whose record was never
+    written is: a goal text and nothing else.
+    """
+    try:
+        raw = (session_dir / GOAL_SIDECAR_NAME).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    try:
+        payload = json.loads(raw)
+    except ValueError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return payload
+
+
+def write_goal_record(session_dir: Path, payload: dict[str, Any]) -> None:
+    """Journal the goal record beside the transcript.
+
+    A SIBLING of ``attachment.json`` rather than a key inside it, and the reason
+    is the writer, not the reader: ``write_session_attachment`` REBUILDS its
+    whole payload from its three arguments and replaces the file atomically, so
+    the moment an older ``lop`` build (or a different install on this machine)
+    touches that session's attachment for any reason, anything this build had
+    added to it would be destroyed. ``goal.json`` is invisible to every existing
+    writer, so the record survives a downgrade round trip. The cost is a file.
+
+    Called on TRANSITION only — a status change, a history append, a judge state
+    change — never on a tick: the judge moves on every turn end, and journalling
+    that would be pure I/O for a value that did not move (the rule
+    ``_persist_attachment`` states for the attachment, which binds harder here).
+
+    Best-effort and ATOMIC by the same contract as its sibling: never raises into
+    a turn, pid-named temp + ``replace`` (two processes can hold the same session
+    directory), and **the directory mtime is preserved**, because journalling a
+    goal transition is bookkeeping ABOUT a session and never activity IN it — a
+    mark-done must not reorder the ``/resume`` picker.
+    """
+    try:
+        try:
+            previous = session_dir.stat().st_mtime
+        except OSError:
+            previous = None
+        session_dir.mkdir(parents=True, exist_ok=True)
+        sidecar = session_dir / GOAL_SIDECAR_NAME
+        tmp = sidecar.with_suffix(f".{os.getpid()}.tmp")
+        tmp.write_text(json.dumps(payload), encoding="utf-8")
+        tmp.replace(sidecar)
+        if previous is not None:
+            os.utime(session_dir, (previous, previous))
+    except (OSError, TypeError, ValueError):
+        return
+
+
+def backfill_session_origins(
+    config_dir: Path,
+    limit: int = 500,
+    *,
+    should_stop: Callable[[], bool] | None = None,
+) -> int:
+    """Stamp pre-existing subagent directories once, and return how many.
+
+    Without this the fix only applies to sessions created after the upgrade,
+    so the person who reported a picker full of ``[role: reviewer]`` rows
+    would upgrade, look, and see the same 40 rows — the change would be
+    correct and appear to do nothing until natural churn cleared the store.
+
+    Identification is by the openings only the subagent runner can produce
+    (:data:`_ROLE_PREAMBLE`, :data:`_SCOUT_PREAMBLE`), matched at offset 0 of
+    the first user message because both are stamped in FRONT of the caller's
+    prompt. This deliberately under-claims: a delegated run launched with no
+    role profile is indistinguishable from a user's own session and stays
+    listed. That is the right direction — an unmarked child costs one stale
+    row, while a false positive hides the user's real work, and the whole
+    point of a one-time sweep is that a row it misses is one the user can
+    still reach.
+
+    Best-effort and bounded like every other function here: it runs at
+    startup, so an unreadable directory is skipped rather than raised, and
+    ``limit`` caps how many directories are STAMPED per run.
+
+    The cap is on work done, never on how far the scan reaches. Capping the
+    scan instead — slicing the directory list — sounds equivalent and is not:
+    the list sorts by hex NAME, and the same prefix is recomputed on every
+    startup, so any directory sorting past the cut was never visited on any
+    run, ever. Measured: a 600-directory store with 50 children sorting after
+    the cut stamped 0 on three consecutive startups. Deciding a session's
+    origin by where its random name falls in an alphabet is not a policy
+    anyone would choose deliberately.
+
+    ``should_stop`` is a cooperative halt for a runtime that is LEAVING, and it
+    defaults to ``None`` so every existing caller is byte-identical in
+    behaviour: the CLI ``--resume`` sweeps call this to FINISH, and a predicate
+    they do not pass cannot change what they do. The store-maintenance thread
+    passes the same event that halts the pass sequence (see
+    :func:`local_operator.session_factory.request_store_maintenance_stop`),
+    which is what turns a walk worth minutes (measured on the fleet's own store:
+    10,737 directories at 16.7-38.4 ms each, i.e. 3-7 minutes per pass) into one
+    that leaves within a directory of the request — one step of this loop. It is
+    checked once per ITERATION rather than once per call because the pass IS the
+    expensive unit: every directory between one check and the next is a
+    directory a departing runtime paid to stat. Stopping between directories is
+    safe at any point — the two writes below are atomic and idempotent, and
+    nothing is carried across iterations — and the caller's completed-sequence
+    guard reads the same event, so a partial sweep is never published as a
+    completed one (``_run_store_maintenance``).
+    """
+    stamped = 0
+    sessions = config_dir / "sessions"
+    try:
+        directories = sorted(sessions.iterdir())
+    except OSError:
+        return 0
+    for directory in directories:
+        if should_stop is not None and should_stop():
+            break
+        if stamped >= limit:
+            break
+        try:
+            if not (directory / TRANSCRIPT_NAME).is_file():
+                continue
+            # Already answered: never re-stamp, so a marker a user removed by
+            # hand to un-hide a session is not silently written back.
+            if (directory / ORIGIN_NAME).exists():
+                continue
+            # This pass's OWN "considered and not a subagent" marker — not
+            # the title sweep's sentinel. The two sweeps traverse
+            # independently and THIS one stops at ``limit`` stamps, so a
+            # title sentinel written for a directory this pass never reached
+            # would suppress the origin question forever (the 501st
+            # stampable subagent behind a >500 backlog, permanently
+            # unmarked). A marker only this pass writes can only exist for
+            # a directory this pass genuinely visited.
+            if (directory / ORIGIN_SCAN_SENTINEL_NAME).exists():
+                continue
+        except OSError:
+            continue
+        opening = session_name(directory, max_chars=NAME_MAX_CHARS, condense=False)
+        if not opening:
+            continue
+        if _ROLE_PREAMBLE.match(opening) or opening.startswith(_SCOUT_PREAMBLE):
+            mark_session_origin(directory, ORIGIN_SUBAGENT, backfilled=True)
+            stamped += 1
+        else:
+            # Not a subagent: record it the same way the marker records the
+            # opposite answer, so the next boot's sweep costs one stat here
+            # too. Best-effort and mtime-preserving for the same reasons the
+            # title sentinel's writer gives; a failed write costs one redundant
+            # opener read, never a lost session.
+            _write_origin_scan_sentinel(directory)
+    return stamped
+
+
+def _scan_all_titles(transcript: Path) -> list[tuple[str, bool]]:
+    """Every ``(text, user_set)`` title journalled in ``transcript``, in order.
+
+    A FULL read, unlike :func:`stored_session_title`'s two windows — which is
+    why it lives only on the backfill path and never on the picker's hot path.
+    Finding *all* titles (not just the newest) requires it: they can sit
+    anywhere, as the topic-pivot session that motivated this proved. Parsed
+    line-by-line rather than by the windowed regex so ``user_set`` is read
+    alongside each ``text`` and the ordering is exact.
+
+    Tolerant like every reader here: an unreadable transcript or a half-written
+    final line yields what it could parse, never an exception.
+    """
+    titles: list[tuple[str, bool]] = []
+    try:
+        with transcript.open("r", encoding="utf-8", errors="replace") as handle:
+            for line in handle:
+                line = line.strip()
+                if not line or _TITLE_CUSTOM_TYPE not in line:
+                    # Cheap reject before the JSON parse: title rows are a tiny
+                    # fraction of a transcript, and the substring check skips
+                    # the decode for every message and tool line.
+                    continue
+                try:
+                    entry = json.loads(line)
+                except ValueError:
+                    continue
+                if not isinstance(entry, dict):
+                    continue
+                payload = entry.get("payload")
+                if not isinstance(payload, dict):
+                    continue
+                if payload.get("custom_type") != _TITLE_CUSTOM_TYPE:
+                    continue
+                details = payload.get("details")
+                if not isinstance(details, dict):
+                    continue
+                text = details.get("text")
+                if isinstance(text, str) and text.strip():
+                    titles.append((" ".join(text.split()), bool(details.get("user_set"))))
+    except OSError:
+        return titles
+    return titles
+
+
+def _write_origin_scan_sentinel(session_dir: Path) -> None:
+    """Record that the origin sweep read this opener and found no subagent.
+
+    Same best-effort, mtime-preserving, atomic-write contract as
+    :func:`_write_title_scan_sentinel` — see its docstring for the reasoning;
+    this is that function with a different file name, kept separate so each
+    sweep owns its own answer.
+    """
+    try:
+        try:
+            previous = session_dir.stat().st_mtime
+        except OSError:
+            previous = None
+        sentinel = session_dir / ORIGIN_SCAN_SENTINEL_NAME
+        tmp = sentinel.with_suffix(f".{os.getpid()}.tmp")
+        tmp.write_text(json.dumps({"scanned": True}), encoding="utf-8")
+        tmp.replace(sentinel)
+        if previous is not None:
+            os.utime(session_dir, (previous, previous))
+    except (OSError, TypeError, ValueError):
+        return
+
+
+def _write_title_scan_sentinel(session_dir: Path) -> None:
+    """Record that the title backfill scanned this directory and found nothing.
+
+    Mirrors :func:`write_session_title`'s best-effort contract, because it is
+    the same trade: the sentinel is a boot-cost optimisation, and a session on
+    a read-only volume must still RUN. The cost of a failed write is one
+    redundant full scan on the next boot — the pre-fix behaviour — never a
+    lost turn. Mtime is preserved and the write is atomic (pid-named temp +
+    ``replace``) for the reasons the title sidecar's writer documents at
+    length: journalling a scan is bookkeeping ABOUT a session, never activity
+    IN it, and a concurrent reader must never see a torn file.
+    """
+    try:
+        try:
+            previous = session_dir.stat().st_mtime
+        except OSError:
+            previous = None
+        sentinel = session_dir / TITLE_SCAN_SENTINEL_NAME
+        tmp = sentinel.with_suffix(f".{os.getpid()}.tmp")
+        tmp.write_text(json.dumps({"scanned": True}), encoding="utf-8")
+        tmp.replace(sentinel)
+        if previous is not None:
+            os.utime(session_dir, (previous, previous))
+    except (OSError, TypeError, ValueError):
+        return
+
+
+def backfill_session_titles(
+    config_dir: Path,
+    limit: int = 500,
+    *,
+    should_stop: Callable[[], bool] | None = None,
+) -> int:
+    """Write the title sidecar for sessions that predate it, and return how many.
+
+    Mirrors :func:`backfill_session_origins` exactly, and for the same reason:
+    without it the sidecar fix only applies to sessions renamed AFTER the
+    upgrade, so the person who reported being unable to find a topic-pivot
+    session by its subject would upgrade, look, and see the same unfindable row
+    — the change would be correct and appear to do nothing until each session's
+    next rename. This one-time sweep makes every existing session findable by
+    every name it has borne immediately after upgrade.
+
+    A session with a title in the untouched middle of a large transcript is the
+    case this exists for: :func:`stored_session_title`'s window scan misses it,
+    so a full read (:func:`_scan_all_titles`) is the only way to recover its
+    real title and its past names. That read is O(transcript size), which is why
+    it is confined to this startup path — bounded by ``limit`` and run once per
+    session ever, never per picker-open — exactly the trade
+    :func:`backfill_session_origins` makes.
+
+    "Once per session ever" now includes the no-title case. A directory with
+    no journalled title gets a sentinel (:data:`TITLE_SCAN_SENTINEL_NAME`) so
+    the next boot answers it with one ``stat`` instead of another full read;
+    without it the sweep was perpetual on exactly the store it was meant to
+    fix once — a session that never bore a title can never grow a sidecar, so
+    it was re-scanned to the same "nothing" on every launch for the store's
+    whole life (measured 323 ms per boot on a real 1,365-session store,
+    1,268 of them permanently in that state). The sentinel is deliberately
+    NOT a title: neither the picker nor :func:`stored_session_title` reads it,
+    so their behaviour is byte-identical before and after.
+
+    Best-effort and bounded like every other function here: an unreadable
+    directory is skipped rather than raised, and ``limit`` caps how many
+    sidecars are WRITTEN per run.
+
+    The cap is on work done, never on how far the scan reaches, for the reason
+    :func:`backfill_session_origins` documents at length: slicing the directory
+    list instead would leave any session sorting past the cut unvisited on
+    every run forever, because the list sorts by hex name and the same prefix
+    is recomputed each startup.
+
+    ``should_stop`` is the cooperative halt :func:`backfill_session_origins`
+    documents at length, checked once per directory for the same reason: this
+    is the sweep a teardown dump most often caught mid-walk, and the title scan
+    is the most expensive single step here (``_scan_all_titles`` reads a whole
+    transcript), so a departing runtime must not have to finish one. Defaults to
+    ``None``, which is the byte-identical behaviour every existing caller has.
+    """
+    written = 0
+    sessions = config_dir / "sessions"
+    try:
+        directories = sorted(sessions.iterdir())
+    except OSError:
+        return 0
+    for directory in directories:
+        if should_stop is not None and should_stop():
+            break
+        if written >= limit:
+            break
+        try:
+            transcript = directory / TRANSCRIPT_NAME
+            if not transcript.is_file():
+                continue
+            # Already answered: never re-stamp. The sidecar is event-sourced
+            # from here on, so a rewrite would only risk clobbering a newer
+            # sidecar with an older full scan on a session that has since been
+            # renamed. The scan sentinel answers the same "considered" question
+            # for the no-title case, which is what ends the perpetual rescan.
+            if (directory / TITLE_SIDECAR_NAME).exists():
+                continue
+            if (directory / TITLE_SCAN_SENTINEL_NAME).exists():
+                continue
+        except OSError:
+            continue
+        titles = _scan_all_titles(transcript)
+        if not titles:
+            # No journalled title at all (a session that predates title
+            # journalling, or one closed before its naming call landed). Leave
+            # it to the window-scan fallback and the opening-message name; there
+            # is nothing to journal — but RECORD that the scan ran, so the next
+            # boot does not pay for the same answer again.
+            _write_title_scan_sentinel(directory)
+            continue
+        past_names = [text for text, _ in titles]
+        newest_text, newest_user_set = titles[-1]
+        write_session_title(directory, newest_text, user_set=newest_user_set, past_names=past_names)
+        written += 1
+    return written
+
+
+def is_user_session_origin(origin: str) -> bool:
+    """Whether a parsed ``origin`` value keeps its session the user's own.
+
+    THE visibility rule, spelled ONCE here, and every surface that decides
+    whether a conversation is offered to a human reaches THIS function: the
+    store scan asks it of each marker it parses (:func:`_scan_sessions`, both
+    its cached skip and its fresh read -- which is also why it takes the parsed
+    VALUE rather than a directory; asking a path would re-read what the scan
+    already has in hand), :func:`is_user_session` is its directory-level
+    spelling for the consumers holding a path, and the mobile daemon's live
+    half asks it of a live runtime's marker (a record carries no origin). An
+    author minting a new origin registers it in :data:`USER_ORIGINS` and every
+    one of those sites follows -- one place to add, not two spellings to keep
+    in step by hand.
+
+    The direction is deliberate: any non-empty value is HIDDEN unless named,
+    so a value minted by a later code path is opt-OUT of every listing by
+    default, while a corrupt or unreadable marker reads as ``""`` -- the
+    user's own -- because hiding real work is the severe direction (see
+    :func:`session_origin`).
+    """
+    return not origin or origin in USER_ORIGINS
+
+
+def is_user_session(session_dir: Path) -> bool:
+    """True when a human started this session, so a picker may offer it.
+
+    Every non-empty origin is hidden EXCEPT the ones named in
+    :data:`USER_ORIGINS`: a new value added later (a scheduled run, a
+    server-side session) is therefore opt-OUT of the picker by default, and an
+    author who wants a new origin to remain listable has to say so there. That
+    default is the safe direction — a value is minted by whichever code path
+    creates the directory, and the paths that do so are the machine's own.
+
+    ``fork`` is the first origin to take the opt-in, and it is worth stating why
+    it differs in kind from ``subagent``: a subagent directory is a machine's
+    delegated run that the user never opened, while a fork is a conversation the
+    user deliberately branched. Both carry a marker; only one of them is
+    somebody else's work. Four consumers read this predicate and a fork is
+    wanted in all four — the ``/resume`` picker, ``resume_dir``'s ``@latest``
+    scan, the multiplexer's crash-restore binding, and the mobile session list.
+
+    The rule itself lives in :func:`is_user_session_origin`; this is the
+    directory-level spelling of it (read the marker, then ask).
+    """
+    return is_user_session_origin(session_origin(session_dir))
+
+
+class _reverse_name(str):
+    """A ``max`` key for "ascending id wins on a tie": ``max`` over
+    ``(activity, id)`` would pick the LARGEST id, and the picker's sort puts
+    the smallest first."""
+
+    def __lt__(self, other: object) -> bool:
+        return str.__gt__(self, str(other))
+
+    def __gt__(self, other: object) -> bool:
+        return str.__lt__(self, str(other))
+
+
+def resume_dir(config_dir: Path, requested: str) -> Path:
+    """The session directory ``--resume`` names, or raise :class:`ResumeNotFound`.
+
+    Resuming is deliberately CONFINED to ``sessions/``: an agent directory is
+    that agent's own long-lived history, reached with ``--agent``/``--train``, and
+    letting an id select one would silently append a throwaway session's turns
+    onto it.
+
+    Existence is checked HERE rather than left to the transcript reader, because
+    a typo'd id would otherwise create an empty directory and start a session
+    that looks resumed and has no history — the one failure a resume must never
+    have.
+
+    WHAT COUNTS AS RESUMABLE IS WHAT THE PICKER LISTS: a directory with
+    activity (``session_activity`` — a transcript OR an unread mail spool).
+    One rule on both surfaces, or the picker offers a row this function then
+    refuses (review round 3, R3-5: a peer's message spooled into an idle
+    open-and-quit session gave it the top picker row and ``ResumeNotFound``).
+    An inbox-only session IS worth reopening — a spooled message is a reason
+    to come back, and the transcript store starts empty for it exactly as it
+    does for a fresh session — so the rule was widened rather than the row
+    hidden.
+    """
+    from local_operator.session.retention import session_activity
+
+    sessions = config_dir / "sessions"
+    if requested == RESUME_LATEST:
+        # ``@latest`` means the latest conversation THE USER had. A subagent
+        # writes its child transcript into the same directory, and a delegated
+        # review finishing after the parent's last turn made it the newest
+        # directory on disk — so a bare ``--resume`` reopened the reviewer
+        # rather than the session that launched it.
+        # Ranked by the picker's clock with the picker's tie-break, so
+        # ``@latest`` is the picker's first row by construction (R3-5).
+        candidates = [
+            (activity, path)
+            for path in sessions.glob("*")
+            if (activity := session_activity(path)) is not None and is_user_session(path)
+        ]
+        if not candidates:
+            raise ResumeNotFound("no previous session to resume")
+        return max(candidates, key=lambda item: (item[0], _reverse_name(item[1].name)))[1]
+
+    # A session id must be ONE path component and nothing else. Enumerating the
+    # ways to escape (`/`, `\`, `..`, and on Windows the drive-relative `C:x`
+    # form) is a list that is never finished; asking the path library whether the
+    # string survives as its own basename is the same question asked once. The
+    # empty/dot cases are named because `Path("").name` is `""`, which would pass
+    # a bare equality check.
+    if requested in ("", ".", "..") or Path(requested).name != requested:
+        raise ResumeNotFound(f"not a session id: {requested!r}")
+    candidate = sessions / requested
+    try:
+        present = session_activity(candidate) is not None
+    except OSError:
+        # Same race the `@latest` scan guards, on the path a user reaches by
+        # typing an id: a retention sweep unlinking the directory, or a
+        # permission/ENAMETOOLONG error from the stat. "That session is not
+        # there" is the honest answer, and it is what the caller already knows
+        # how to report — a bare OSError here is a traceback on the way to the
+        # TUI instead.
+        present = False
+    if not present:
+        raise ResumeNotFound(f"no session {requested!r} to resume")
+    return candidate
+
+
+def resolve_resume_id(config_dir: Path, requested: str) -> str:
+    """Validate ``--resume`` up front and return the CONCRETE session id.
+
+    Returning the resolved id (never the ``@latest`` sentinel) means the session
+    factory sees a real directory name, and the resume command the app prints on
+    exit names the same id the user could pass back in.
+    """
+    return resume_dir(config_dir, requested).name
+
+
+def live_runtime_pid(config_dir: Path, session_id: str, *, check_zombie: bool = True) -> int | None:
+    """Pid of the process currently hosting ``session_id``, or ``None``.
+
+    Two writers on one transcript is how a TUI ``/resume`` of a phone-started
+    session painted the splash: the second process claimed the directory,
+    replayed a mid-write journal, and left the first process as the only one
+    still appending. The live process already publishes to the phone, so a
+    second front end should attach to THAT process rather than open another
+    writer.
+
+    Consults the session directory's ``.session.pid`` liveness marker — the
+    same file the retention sweep uses. Stdlib-only and import-light: this
+    module must stay off the engine and the mobile package (see the module
+    docstring); the shared probe it uses is the stdlib-only leaf module
+    :mod:`local_operator.procstate`, which is not part of either. A live TUI or
+    phone-started child always writes that marker when it claims the directory.
+
+    **A zombie is not an owner.** Signal 0 succeeds against an exited-but-
+    unreaped process, and this marker is written by the runtime that owns the
+    session — whose parent is often a long-lived TUI that may never reap it.
+    Reporting such a pid as the owner is what turned a killed runtime's session
+    into one that no interface would open: every attach path here refused with
+    "session X is already open in another process (pid N)", naming a corpse,
+    while the lease that decision agrees with kept the claim out of reach of
+    the one mechanism that recovers it. Discovery, the attach guard and the
+    lease all learn the same answer from one probe now; see
+    :func:`local_operator.procstate.is_zombie`.
+
+    ``check_zombie=False`` is for the engage loop's DISCOVERY path, which calls
+    this on every pass of its dense 10 ms grid: the proof costs a `ps` fork
+    (2.4-4.6 ms measured across runs on this host), which is more than the dead
+    time that grid exists to remove. At the three user-facing call sites (the
+    TUI's ``/resume``, ``lop exec --resume`` and the phone's attach) the answer
+    IS the decision, so they keep the default.
+
+    Cheap mode is not merely a wait, and saying so would be wrong. It cannot
+    change ARBITRATION — the loop's decision to attach or spawn still ends in a
+    runtime that has to acquire the lease, and that path always demands the proof
+    — but its answer is also read by ``find_runtime_record`` to SELECT a record,
+    and the two errands that deliver nothing (``WarmErrand``, ``WakeErrand``)
+    treat reaching a live record as the completed errand. So on the one pass
+    where an owner published AND died between two dense polls, the cheap answer
+    can hand back a corpse's record and report that errand ready. The window is a
+    single dense pass (~10-25 ms) because any pass that sees a record ends the
+    grid, the next pass proves the owner dead, and a wake is retried rather than
+    lost (the schedule stays overdue until a runtime loads). It is also strictly
+    narrower than the behaviour before this branch, when such a record read as
+    live for the ~45 s until its heartbeat quieted.
+
+    **A PID IS NOT AN OWNER EITHER — the marker outlives its writer.** The
+    marker holds a number, and the kernel hands a reaped process's number to the
+    next process that wants one, so this reported a dead runtime's session as
+    "already open in pid N" naming an unrelated stranger: every attach path
+    refused it and nothing was running (session bfbc971ef537, 2026-09-21). The
+    identity comes from the session's ``.execution-lease`` CLAIM, which records
+    the birth token of the process that wrote it
+    (:func:`local_operator.procstate.same_birth`): when the claim names THIS
+    pid and its recorded birth differs from the live process's, the writer is
+    gone and this returns ``None``. The marker itself keeps its bare-pid format
+    on purpose — ``retention``, ``cleanup`` and this module all parse it as an
+    ``int()``, and an unparseable value reads there as "no owner", which is a
+    second writer against a live one. A marker with no claim beside it, or a
+    claim naming a different pid, has no recorded identity and keeps today's
+    pid-liveness behaviour: that is the mixed-generation cell that keeps an
+    older build's live owner safe.
+    """
+    if session_id in ("", ".", "..") or Path(session_id).name != session_id:
+        return None
+    session_dir = config_dir / "sessions" / session_id
+    marker = session_dir / ".session.pid"
+    try:
+        raw = marker.read_text(encoding="utf-8").strip()
+        pid = int(raw)
+    except (OSError, ValueError):
+        return None
+    if pid <= 0:
+        return None
+    # ``os.kill(pid, 0)`` is a liveness probe on POSIX and a KILL on Windows,
+    # where CPython's ``os_kill_impl`` reaches ``TerminateProcess`` for any
+    # signal but the two console events — so probing there would kill the
+    # phone-started child this is trying to share (F2). The shared tri-state
+    # owns that distinction (``procstate.pid_liveness``); this used to spell its
+    # own ``sys.platform`` branch, which is the drift the shared authority
+    # exists to stop, and the spelling the rest of the tree already replaced.
+    # ``None`` (unprovable) is read as LIVE: a session called dead is one a
+    # ``/resume`` starts a second runtime against.
+    if pid_liveness(pid) is False:
+        return None
+    if not check_zombie:
+        # The engage loop's dense 10 ms grid: the cheap answer only, which is
+        # the same deferral the corpse proof gets below and the identity proof
+        # gets with it. The grid exists to shorten the dead time between a
+        # runtime publishing and the parent noticing; a ``ps`` fork costs
+        # 2.4-4.6 ms against a 23-30 µs iteration budget. What it can cost here
+        # is bounded and cannot recovers the impersonation: on that path the
+        # cheap answer selects a record or reports an errand ready, and the
+        # decision to attach or spawn still ends in a runtime that must acquire
+        # the lease — and acquisition always proves identity.
+        return pid
+    sample = process_sample(pid)
+    if sample is None:
+        # The platform could not answer at all. Fall back to the question this
+        # used to ask alone, which never displaces a live owner.
+        return None if is_zombie(pid) else pid
+    if sample.zombie:
+        # The probe is spent only here, where signal 0 has already said
+        # "exists". At the user-facing call sites the difference between a
+        # working runtime and its corpse decides whether someone is told to go
+        # and steer a session that nobody is running; on the engage loop's dense
+        # discovery path it is deferred, because there it can only cost a wait.
+        return None
+    identity = _mirror_identity(session_dir, pid)
+    if identity is not None and sample.is_birth(*identity) is False:
+        # THE MARKER NAMES A PID, AND THIS PROCESS IS NOT THE ONE THAT WROTE IT.
+        # A pid is not an identity: the mirror outlives the process that wrote
+        # it, and the kernel hands the number to the next process that wants one,
+        # so this used to report a session as "already open in pid N" naming a
+        # stranger — every attach path refused while nothing was running. The
+        # identity is read from the CLAIM (the mirror stays a bare pid, because
+        # its readers parse it as an int and an unparseable value there means
+        # "no owner", i.e. a second writer).
+        return None
+    return pid
+
+
+def _mirror_identity(session_dir: Path, pid: int) -> tuple[str | None, str | None] | None:
+    """The birth the CLAIM records for ``pid``, or ``None`` for a legacy mirror.
+
+    ``None`` — the legacy cell, and the whole compatibility story — covers both
+    a mirror with no claim beside it (an older build's marker, or the window
+    between release unlinking the claim and the mirror) and a claim that names a
+    DIFFERENT pid than the mirror, where the mirror's writer is not the claim's
+    and nothing about that pid's identity has been recorded. Both are read as
+    "no identity available", which keeps today's pid-liveness behaviour; only a
+    live process whose measured birth differs from the recorded one is demoted.
+    """
+    claim = _read_claim(session_dir / LEASE_NAME)
+    if claim.pid != pid or claim.pid is None:
+        return None
+    return claim.birth
+
+
+def origin_cache_path(config_dir: Path) -> Path:
+    """Where this store's ``origin.json`` verdict cache lives.
+
+    Beside the search index, under ``cache/``: both are derived data a user may
+    delete at any time to force a rebuild, and neither is a source of truth.
+    """
+    return config_dir / "cache" / ORIGIN_CACHE_NAME
+
+
+def _load_origin_cache(path: Path) -> tuple[dict[str, Any], float | None]:
+    """The cached verdicts AND their revalidation stamp; empties when unusable.
+
+    Every failure yields ``({}, None)`` rather than raising, mirroring
+    ``search_index._load``: this is a cache whose worst cost must be a rebuild
+    (today's full-read behaviour), never a wrong verdict and never the picker.
+
+    The second term is when the verdicts were last FULLY re-derived
+    (:data:`REVALIDATE_WINDOW_S`), or ``None`` when no trustworthy one exists —
+    no cache, an unreadable or corrupt one, a document written before the stamp
+    existed, or a stamp of the wrong type. ``None`` is the conservative answer
+    every caller treats as "revalidate": see :func:`_revalidation_is_due`.
+    """
+    try:
+        raw = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return {}, None
+    try:
+        loaded = json.loads(raw)
+    except ValueError:
+        return {}, None
+    if not isinstance(loaded, dict) or loaded.get("version") != ORIGIN_CACHE_VERSION:
+        return {}, None
+    entries = loaded.get("entries")
+    stamp = loaded.get("revalidated_at")
+    if isinstance(stamp, bool) or not isinstance(stamp, (int, float)):
+        stamp = None
+    return (
+        entries if isinstance(entries, dict) else {},
+        float(stamp) if stamp is not None else None,
+    )
+
+
+def _revalidation_is_due(stamp: float | None, *, now: float | None = None) -> bool:
+    """Whether a fresh process's first scan must revalidate the store.
+
+    ``stamp`` is :func:`_load_origin_cache`'s second term. DUE is the
+    conservative direction, and every failure takes it:
+
+    * ``None`` — no cache, an unreadable, corrupt or older-format one, or a
+      save that never landed — revalidates, exactly as every cold start did
+      before the stamp existed;
+    * an age OUTSIDE ``[0, window)`` revalidates: older than the window is the
+      ordinary expiry, and a NEGATIVE age (a stamp in the future, i.e. a clock
+      that moved backward between writer and reader) is deliberately
+      distrusted rather than served — otherwise a skewed clock could freeze a
+      stale verdict for as long as the skew lasted. The cost of distrusting it
+      is one redundant scan, the direction that can never show a wrong row.
+
+    Only an age inside the window, in the past, arms the fast path. ``now`` is
+    injectable so the boundary is testable without touching the clock.
+    """
+    if stamp is None:
+        return True
+    age = (time.time() if now is None else now) - stamp
+    return not (0.0 <= age < REVALIDATE_WINDOW_S)
+
+
+def _save_origin_cache(
+    path: Path,
+    entries: dict[str, Any],
+    *,
+    revalidated_at: float | None = None,
+    create: bool = False,
+) -> None:
+    """Persist the verdicts AND the revalidation stamp, best-effort and atomically.
+
+    Atomic with a PID-suffixed temp for the reason ``search_index._save``
+    documents: several sessions open a picker at once, and a fixed temp name
+    lets one process ``replace`` a document another is still filling. A torn
+    document is discarded by the loader, so the bound is a needless rebuild.
+
+    ``revalidated_at`` rides in the SAME document as the verdicts because it is
+    a fact ABOUT them — one file must tell a reader both what the verdicts are
+    and how stale they are. An armed caller that found its entries changed
+    passes the stamp it loaded so the write preserves it; ``None`` records
+    "no revalidation is claimed" and reads exactly like a pre-stamp file.
+
+    ``create`` GATES THE ONE THING A READ PATH MAY NOT DO, and the default is
+    the strict answer. The desktop's read routes must leave the tree exactly as
+    they found it — ``tests/unit/server/test_desktop_reads_create_nothing.py``
+    snapshots an isolated root before and after EVERY route and asserts the
+    listings are equal — and the verdict cache lives inside that tree. A scan
+    that merely REFRESHED a stamp used to create ``cache/`` and
+    ``cache/origin-verdicts.json`` on a store that had neither, which is a
+    creation no read may make (CI, the ``desktop-reads-create-nothing`` job).
+    So with ``create=False`` this function writes ONLY when the file already
+    exists: it can refresh a stamp in place, and it can NEVER bring the file or
+    its directory into being (no ``mkdir``, no ``O_CREAT``). The single caller
+    that passes ``create=True`` is the entries-changed write — the write this
+    cache has always made, and the one that legitimately brings the file into
+    existence; keeping it is what preserves the pre-change behaviour on a store
+    that has no cache yet.
+    """
+    try:
+        if create:
+            path.parent.mkdir(parents=True, exist_ok=True)
+        elif not path.exists():
+            # A STAMP-ONLY REFRESH NEVER CREATES ANYTHING. On a store with no
+            # cache yet this is the pre-stamp behaviour: the read writes
+            # nothing, and the next process revalidates (the conservative
+            # direction). The one-shot perf win applies where the cache
+            # exists, which is the common case — a populated store, the file
+            # brought into being by the entries-changed write above or by a
+            # long-lived polling path.
+            return
+        tmp = path.with_suffix(f".{os.getpid()}.tmp")
+        document: dict[str, Any] = {"version": ORIGIN_CACHE_VERSION, "entries": entries}
+        if revalidated_at is not None:
+            document["revalidated_at"] = revalidated_at
+        tmp.write_text(json.dumps(document), encoding="utf-8")
+        tmp.replace(path)
+    except OSError:
+        return
+
+
+def recent_sessions(
+    config_dir: Path,
+    limit: int | None = None,
+    *,
+    revalidate: bool = False,
+    include_archived: bool = False,
+) -> list[tuple[str, float]]:
+    """``(id, mtime)`` for the USER's resumable sessions, newest first.
+
+    ``include_archived=False`` is the DEFAULT because every caller of this
+    function is a LISTING, and an archived conversation is exactly what a
+    listing is not supposed to offer. The one caller that must say otherwise is
+    ``session.cleanup``'s retention policy, which ranks this listing to decide
+    what to KEEP: an archived session dropped from that ranking would stop
+    being protected by the recent-N rule and be swept as if it were work nobody
+    kept. See :func:`recent_session_rows` for the picker's version of the same
+    question.
+
+    ``limit=None`` means NO TRUNCATION and is the default, so a caller that says
+    nothing gets the whole store. That direction is deliberate and was learned
+    the expensive way: this defaulted to ``10`` while the picker called it with
+    no argument, and the "uncapped" picker silently showed ten rows on a
+    236-session store — a worse version of the bug the change was written to
+    fix. A default that truncates makes forgetting to pass a limit look like
+    working code, so the safe default is the complete answer and every caller
+    that wants less has to say so at its own call site, where a reader can see
+    it.
+
+    Subagent sessions are excluded (:func:`is_user_session`): they are the
+    machine's own scratch conversations, and a listing offered to a human is
+    about work the human did. They remain resumable by explicit id — nothing
+    here removes a directory, and ``hub op='resume'`` continues a child by its
+    own path — so this narrows what is OFFERED, never what exists.
+
+    The mtime is RETURNED rather than used and dropped: the sort already reads
+    it, and it is the one fact that makes a list of 12-hex ids pickable instead
+    of a wall of hashes.
+
+    Best-effort: a directory that vanishes mid-scan (retention sweeps run
+    concurrently) is skipped rather than raising out of an error path whose whole
+    job is to be helpful.
+
+    The traversal is ``os.scandir``-based over the store, and in the steady
+    state a directory already known to be a subagent session costs NOTHING:
+    it is skipped from the verdict cache before its marker is stat'd, on facts
+    (`name`, `inode`) the ``readdir`` batch already supplied. Only a directory
+    the cache cannot answer for pays the origin stat, and only one that
+    survives that gate pays the activity stats — see the skip and gate-order
+    notes in :func:`_scan_sessions`, which is where the per-directory cost is
+    actually decided.
+
+    So per-directory cost is **O(user sessions + directories that are neither
+    listed nor cached-hidden)**, not O(the store): measured flat at 266
+    syscalls per poll while the store grew 100 -> 8,000 directories with users
+    held at 50 (``scripts/bench_catalog_scan.py store-axis``), against
+    366 -> 16,166 before.
+
+    STATE THAT MIDDLE TERM, do not round it away. A directory with NEITHER an
+    origin marker NOR any activity is in neither ``rows`` nor
+    ``hidden_names``: it can never arm the skip, so it pays its origin stat
+    and ``load_catalog``'s desktop probe on EVERY poll, forever, while never
+    being listable. Measured with users fixed at 50 and hidden fixed at 500,
+    varying only that third population (``bench_catalog_scan.py
+    unmarked-axis``): 266 / 2,266 / 8,266 / 32,266 at 0 / 500 / 2,000 / 8,000
+    — strictly linear at 4.0 syscalls each (agent review round 1, R1, which
+    measured 268 -> 32,268 with a counter that also counts ``open`` and
+    ``listdir``; the slope is the claim, not the constant). Pinned by
+    ``unmarked-axis`` and
+    ``test_the_cost_is_linear_in_directories_that_are_neither_listed_nor_hidden``).
+    A corrupt marker and ``{"origin": ""}`` behave identically, and the
+    corrupt case is the very fail-safe this design preserves. The store
+    accumulates these from idle open-and-quit launches — 23 on the reporting
+    machine. It is a real limit, RECORDED here rather than left to be
+    rediscovered: "tracks the user's own sessions" is true of the hidden
+    population and false of this one.
+
+    Fixing that cost is a separate change and is deliberately NOT attempted
+    here: caching "unmarked" is refused for the reason stated at the marker
+    stat below, and the refusal is load-bearing.
+
+    What is still O(total entries) is the single batched ``scandir`` — the
+    poll has stopped stat-ing the store, not stopped touching it — and the
+    verdict cache's own parse, which at 7,950 markers is 704 KB / 5.6 ms.
+    Those two and the never-active population above are the dominant
+    remaining terms; anyone optimising this path next should start there, and
+    should count :func:`~local_operator.session.catalog.load_catalog`'s
+    desktop probe too — it is the second site, and the hidden set returned by
+    :func:`_scan_sessions` is what removed it.
+
+    The store is scanned once rather than each directory
+    being scanned individually: the latter is what the origin design proposed,
+    and it measures ~2x WORSE (1986 ms vs 1127 ms over 31,700 dirs) because it
+    stats every entry in every directory to learn two filenames. Do not "fix"
+    it back.
+
+    The cost this used to be dominated by was the ORIGIN check, which ran once
+    per directory and therefore scaled with the SUBAGENT population — ~10.6x
+    the user population on the reporting machine. Because a marker that EXISTS
+    must still be read and parsed (see :data:`ORIGIN_CACHE_NAME`), that was one
+    file read per subagent directory: 1127 ms over 31,700 dirs, of which the
+    reads were 639 ms. The verdict cache removed the READS (~310 ms warm,
+    ``bench/resume-picker-after.json``), and the hidden-skip above removed the
+    remaining per-directory STAT. Quote the recorded bench figure here rather
+    than a remembered one — an optimistic number in a docstring is how the next
+    person's regression looks like an improvement.
+
+    ``limit`` truncates the RESULT, never the work: every directory is visited
+    regardless, so a caller asking for all sessions costs the same as one
+    asking for ten.
+
+    ``revalidate=True`` opts OUT of the skip for this call, re-reading every
+    marker so the answer reflects the store as it is now rather than as the
+    last revalidating scan found it. It is for a caller whose decision is
+    IRREVERSIBLE — ``session.cleanup`` protects the recent-N by this listing,
+    so a stale row there is a deleted conversation, not a missing one. A caller
+    that merely DISPLAYS the listing must not set it: the whole point of the
+    epoch is that a 2-second poll does not pay a full scan.
+    """
+    return [
+        (name, mtime)
+        for name, mtime, _origin, _archived in _recent_sessions_with_origin(
+            config_dir, limit, revalidate=revalidate, include_archived=include_archived
+        )
+    ]
+
+
+def _recent_sessions_with_origin(
+    config_dir: Path,
+    limit: int | None = None,
+    *,
+    revalidate: bool = False,
+    strict: bool = False,
+    include_archived: bool = False,
+) -> list[tuple[str, float, str, bool]]:
+    """:func:`recent_sessions`, plus the ``origin`` this scan already parsed.
+
+    The scan reads and parses every marker that exists in order to decide
+    visibility, then threw that verdict away — so a caller needing the origin
+    (the picker, to mark a fork) re-opened the same file per row. Returning it
+    costs nothing: the read has happened, and for the common unmarked session
+    the value is ``""`` with no syscall added at all.
+
+    Private because the public pair is what every other caller wants and the
+    CLI's recovery listing pins its shape. Callers that also want the hidden
+    names — only ``session.catalog.load_catalog``, to skip a second per-directory
+    stat — use :func:`_scan_sessions` directly.
+
+    ``revalidate`` is forwarded verbatim; see :func:`_scan_sessions`.
+    ``strict`` is forwarded the same way, and exists so a caller building a
+    MEMBERSHIP listing through :func:`recent_session_rows` (the phone's
+    history) can declare that for itself rather than only through the
+    catalogue; see that function.
+
+    ``include_archived`` is forwarded too, and the row's fourth element is the
+    session's archive state AS THIS SCAN READ IT. It travels on the row rather
+    than being re-derived by the caller for two reasons: the scan has already
+    read the index it filtered against, so a second read is a second answer that
+    can disagree; and ``catalog.cached_session_rows`` serves rows out of a cache
+    keyed on the transcript's own stat, under which an id archived between two
+    polls would keep serving ``archived=False`` from a row built before it was
+    archived.
+    """
+    return _scan_sessions(
+        config_dir,
+        limit,
+        revalidate=revalidate,
+        strict=strict,
+        include_archived=include_archived,
+    )[0]
+
+
+def _store_error_detail(error: OSError) -> str:
+    """A path-free description of a store read failure, for the log and the error.
+
+    ``str(error)`` from ``os.scandir`` carries the store's absolute path, which
+    names the operator's home directory. The log may carry it -- the chained
+    cause had it anyway -- but the exception crosses to the HTTP layer, and this
+    codebase's rule for anything that does is that no path rides along (see the
+    ``session.errors`` module docstring). So the detail is rebuilt from the
+    errno alone; a caller losing the path can still get it from ``__cause__``.
+    """
+    if error.errno is None:
+        return type(error).__name__
+    return f"[Errno {error.errno}] {error.strerror or type(error).__name__}"
+
+
+def _scanned_entries(scan: Iterable[os.DirEntry[str]]) -> Iterator[os.DirEntry[str]]:
+    """Yield ``scan``'s entries, turning a MID-SCAN failure into a typed refusal.
+
+    The constructor was guarded and the iteration was not. A ``scandir`` can
+    die after the open instead: the directory grows or rotates under the
+    2-second poll, or the same descriptor exhaustion that would have failed the
+    open arrives one ``readdir`` batch later. Unguarded, that escaped as a bare
+    ``OSError``, which no handler in ``routes/desktop_sessions.errors`` maps --
+    the ladder maps enumerated categories -- so the sidebar's primary read
+    answered a bare 500 with no sentence on it.
+
+    Always raises, in BOTH modes, unlike the failed open: a half-built listing
+    is never a valid answer to give anyone. Every caller today already sees the
+    ``OSError`` propagate, so no caller loses a result it used to get, and the
+    tolerant sites that catch ``OSError`` keep catching this (the refusal
+    subclasses ``OSError`` on purpose -- see ``SessionStoreUnavailable``).
+
+    ``iter(scan)`` rather than ``next(scan)``: the thing being wrapped is only
+    required to be ITERABLE, which is what the ``for`` loop this replaces
+    demanded. A real ``ScandirIterator`` is its own iterator and this is a
+    no-op for it, but a caller that hands in something whose ``__iter__``
+    builds a fresh generator (the suite does exactly that, to inject an inode
+    failure) would otherwise start raising ``TypeError`` on the very scan it is
+    watching.
+
+    A generator rather than a ``try`` around the loop body because that body is
+    the scan's whole per-entry algorithm: wrapping it would re-indent ~180 lines
+    and bury this one-line guard inside them.
+    """
+    entries = iter(scan)
+    while True:
+        try:
+            entry = next(entries)
+        except StopIteration:
+            return
+        except OSError as error:
+            logger.warning("session store could not be read mid-scan", exc_info=True)
+            raise SessionStoreUnavailable(_store_error_detail(error)) from error
+        yield entry
+
+
+def _scan_sessions(
+    config_dir: Path,
+    limit: int | None = None,
+    *,
+    revalidate: bool = False,
+    strict: bool = False,
+    include_archived: bool = False,
+) -> tuple[list[tuple[str, float, str, bool]], set[str]]:
+    """The one store scan: ``(rows, hidden_names)``.
+
+    ``revalidate=True`` forces this scan to re-read every marker instead of
+    serving the armed fast path — the caller declaring that a stale verdict is
+    not acceptable to IT, whatever the epoch says. Only a caller that ACTS on
+    the listing rather than displaying it should ask for this; see
+    ``session.cleanup._picker_rows``, which is a deletion authority and must
+    never decide from a speculatively-stale answer.
+
+    A caller that does NOT pass ``revalidate`` still gets a first scan whose
+    cost follows the STORE rather than this process merely being new: a
+    process-first scan arms the fast path when the store's verdicts were fully
+    re-derived — by anyone — within :data:`REVALIDATE_WINDOW_S`, and
+    revalidates when they were not. That is the window that keeps a one-shot
+    caller (``lop sessions``, a script) from paying the revalidating pass on
+    every invocation; in-process epoch scans and ``revalidate=True`` are
+    unchanged.
+
+    ``strict=True`` makes a store that exists but cannot be WALKED an error
+    (:class:`~local_operator.session.errors.SessionStoreUnavailable`) instead
+    of an empty listing, and the caller declaring it is one whose answer a UI
+    adopts as MEMBERSHIP -- ``session.catalog.load_catalog``, which feeds the
+    desktop sidebar and the TUI's, and ``recent_session_rows(strict=True)``,
+    which feeds the phone's conversation list. A missing store is an empty
+    answer in both modes; see the ``FileNotFoundError`` boundary below. Left
+    off by default because the OTHER callers document the opposite contract for
+    good reason (search, the ``/resume`` picker and the retention policy all
+    answer display-only questions, where an error is worse than an empty
+    answer) and because flipping it for them is a behaviour change to eight
+    surfaces this change has no evidence about. The phone's listing is
+    deliberately NOT in that list any more: it publishes rows the client
+    replaces wholesale, so an empty answer there is the same membership lie
+    this parameter exists to stop, and its own caller declares that.
+
+    ``hidden_names`` is every directory this scan established is NOT the user's
+    own session — whether it was skipped from cache or re-read. It exists for
+    ``load_catalog``, which otherwise stats a ``desktop.json`` in every
+    directory the listing did not return. That probe is answerable without the
+    filesystem here: ``desktop.json`` has exactly one writer
+    (``server/utils/desktop_sessions.py``'s ``DesktopSessions.create``), which
+    mints a fresh ``uuid4`` directory and never writes an origin marker into it,
+    so a directory carrying an origin marker cannot also carry a desktop one.
+    Skipping the probe for these names is HALF the total saving of this design.
+
+    Split from :func:`_recent_sessions_with_origin` rather than widening its
+    return type because that shape is pinned by the CLI's recovery listing and
+    by every other caller, none of which has any use for the second value.
+
+    ``include_archived`` is THE archive predicate for every listing in this
+    codebase, and that is the whole design: the picker, the sidebar catalogue,
+    the desktop catalogue and the search digests all reach their rows through
+    this function, so ONE filter here is what makes those four surfaces agree
+    about which conversations exist to be offered. A second filter at a second
+    call site is exactly how the sidebar and the phone came to disagree about
+    subagent visibility before this scan owned that question too.
+
+    With it off (the default) an archived directory is dropped from ``rows``
+    and NOT added to ``hidden_names``: hidden means "not the user's own
+    session" and carries a second meaning at ``load_catalog``, where a hidden
+    name is one the desktop-marker probe may skip. An archived session is the
+    user's own; it is simply not being OFFERED.
+
+    The flag therefore NARROWS WHAT IS OFFERED AND NEVER WHAT EXISTS. An
+    archived session still resolves by explicit id (``lop resume <id>``, the
+    desktop's ``GET /v1/desktop/sessions/{id}``), exactly as a subagent run
+    stays resolvable while the listing hides it — the rule
+    ``_recent_sessions_with_origin``'s docstring already states for the other
+    axis of visibility.
+
+    The archive index is read AT MOST once per scan and LAZILY: only a
+    candidate that has already passed the hidden-origin gate and the
+    directory checks reaches the archive decision, so a store whose entries
+    are all hidden pays no stat and no read for an answer none of them can
+    use, and a store with nothing archived pays one stat and no read (the
+    index is stat-ed before it is opened — see ``session.archived``).
+    """
+    # Lazy and stdlib-only on the other side: ``retention`` imports nothing
+    # heavier than ``logging``, and the CLI startup guard measures this
+    # module's import, not this function's.
+    from local_operator.session.retention import session_activity_path
+
+    # Which scan this is for this store, and therefore whether the fast path is
+    # armed. Read BEFORE the scandir can fail so a store that is not there yet
+    # still advances the counter — otherwise a session started before its
+    # config dir exists would sit at 0 and revalidate on every poll forever.
+    scans_so_far = _SCAN_COUNT.get(str(config_dir), 0)
+    cold_start = False
+    if revalidate:
+        # A FORCED revalidation is the epoch's expensive scan, merely arriving
+        # early, so it RESTARTS the epoch rather than counting as one more
+        # armed poll. Leaving the counter to advance would let the fast path
+        # stay armed on a scan that just re-read the store — the counter would
+        # then describe polls issued rather than staleness accrued since the
+        # last fresh verdict, which is the only thing it exists to bound. 1,
+        # not 0, because this scan IS the revalidating one: the next poll is
+        # legitimately allowed to be cheap.
+        _SCAN_COUNT[str(config_dir)] = 1
+    else:
+        _SCAN_COUNT[str(config_dir)] = scans_so_far + 1
+        if scans_so_far == 0:
+            # A PROCESS-FIRST scan's decision is DEFERRED past the cache load
+            # below, where the store's revalidation stamp answers it: a
+            # one-shot caller (``lop sessions``, a script) must arm the skip
+            # when some process already revalidated inside the window, and it
+            # has no next poll in which its own epoch could. The counter still
+            # advances here, before any I/O can fail, so the deferral cannot
+            # starve it (see the read-before-scandir note above).
+            cold_start = True
+        else:
+            revalidate = scans_so_far % REVALIDATE_EVERY == 0
+
+    rows: list[tuple[str, float, str, bool]] = []
+    # THE ARCHIVE INDEX, READ LAZILY AND MEMOISED, on the first candidate that
+    # reaches the archive decision below. Not read up front, and that is a
+    # syscall budget rather than a style choice: the poll's per-directory cost
+    # is asserted in syscalls (``tests/unit/session/test_catalog_scan_cost.py``),
+    # and a store whose entries are all hidden — a machine between turns, with
+    # every directory a delegated run — must cost ONE ``scandir`` and nothing
+    # else. Reading the index eagerly added a stat (plus a read when a file is
+    # there) to exactly that scan, for an answer no hidden directory can use.
+    # ``None`` means "not read yet"; an empty store reads nothing at all.
+    archived: frozenset[str] | None = None
+    # Every directory this scan established is not the user's own session. See
+    # the docstring: ``load_catalog`` uses it to skip a second per-directory
+    # stat.
+    hidden_names: set[str] = set()
+    try:
+        scan = os.scandir(config_dir / "sessions")
+    except FileNotFoundError:
+        # NO STORE YET, which is a normal, empty answer and not a failure: a
+        # fresh install, a `lop` that has never run a session, and a probe of a
+        # config dir that does not exist all land here, and every one of them
+        # must keep answering "no conversations" rather than an error. It stays
+        # an empty answer under `strict` too, for that reason.
+        return [], set()
+    except OSError as error:
+        # ANY OTHER `OSError` IS A BROKEN READ, NOT AN EMPTY STORE -- `EMFILE`
+        # under descriptor exhaustion, `EACCES`, `EIO`, and `ENOTDIR` (a
+        # `sessions` entry that is a file, not a directory: something IS there
+        # and cannot be walked, which is the opposite of absent). Reporting
+        # these as "no conversations" is the defect this boundary closes; see
+        # `SessionStoreUnavailable` for why one category is so much worse than
+        # the other at the surface that adopts the listing as membership.
+        #
+        # Logged in BOTH modes. The tolerant caller still gets the empty answer
+        # its own docstring promises, but the failure is now an incident a
+        # normal run shows: nothing at the default log level was the other half
+        # of the report, because an operator could not reconstruct afterwards
+        # why the sidebar had gone empty for a while.
+        logger.warning("session store could not be read", exc_info=True)
+        if strict:
+            raise SessionStoreUnavailable(_store_error_detail(error)) from error
+        return [], set()
+    cache_path = origin_cache_path(config_dir)
+    cached, revalidated_at = _load_origin_cache(cache_path)
+    if cold_start:
+        # THE WINDOW, asked of the STORE rather than of this process: arm the
+        # skip when the verdicts were fully re-derived within
+        # ``REVALIDATE_WINDOW_S`` by whoever scanned last. Every failure of the
+        # stamp (absent, corrupt, unwritable, clock-skewed) is answered by
+        # ``_revalidation_is_due`` in the conservative direction — revalidate.
+        revalidate = _revalidation_is_due(revalidated_at)
+    fresh: dict[str, Any] = {}
+    # Every name that carried a marker in THIS scan. The cache is rewritten to
+    # exactly this set, which is what drops entries for disposed sessions and
+    # keeps the file bounded by the live store rather than by every session
+    # that has ever existed.
+    seen: set[str] = set()
+    with scan:
+        for entry in _scanned_entries(scan):
+            previous = cached.get(entry.name)
+            # ---- THE ZERO-SYSCALL SKIP -------------------------------------
+            # A directory already known to be hidden is dropped here, before
+            # its marker is stat'd at all. Both facts this needs come FREE from
+            # the ``readdir`` batch ``scandir`` already paid for: measured
+            # structurally, ``DirEntry.inode()`` still answers after the
+            # directory has been deleted, so it cannot be stat-backed (the same
+            # probe makes ``entry.stat()`` raise ENOENT). So a hidden directory
+            # costs exactly zero syscalls, which is what turns the poll's
+            # per-directory cost from O(the whole store) into O(the user's own
+            # sessions).
+            #
+            # WHY THE INODE IS HERE: keyed on the name alone this is wrong
+            # under ID REUSE. Delete a subagent directory, later create a real
+            # session under the same 12-hex id, and the dead directory's
+            # "hidden" verdict is served for the live one — a real session
+            # invisible in the picker, the severe failure this design must
+            # bound. Where the filesystem reallocates on recreate the inode
+            # closes that hole outright: measured on APFS (912841799 ->
+            # 912841800), the recreated id misses the cache and is visible on
+            # the very next poll.
+            #
+            # The inode is a HINT, never truth, and HOW MUCH it buys is a
+            # property of the filesystem rather than of this code. ext4
+            # recycles the number immediately (measured in python:3.12-slim:
+            # 67634 -> 67634), so there the skip still fires and the case
+            # degrades to exactly the name-keyed behaviour — repaired by
+            # :data:`REVALIDATE_EVERY` rather than at once. Same where the
+            # inode is unavailable (``ino is None``). So the epoch is the
+            # correctness guarantee and the inode is the latency improvement on
+            # top of it; do not delete the epoch on the strength of the inode,
+            # and do not assume the APFS timing holds on the Linux CI leg.
+            # ``test_a_recreated_id_is_visible_rather_than_serving_a_dead_verdict``
+            # asserts both behaviours explicitly for this reason.
+            try:
+                ino: int | None = entry.inode()
+            except OSError:
+                # A DirEntry that cannot report its inode gets the slow path
+                # rather than a guess; this is the safe direction.
+                ino = None
+            if (
+                not revalidate
+                and ino is not None
+                and isinstance(previous, dict)
+                and previous.get("ino") == ino
+                and isinstance(previous.get("origin"), str)
+                and not is_user_session_origin(previous["origin"])
+            ):
+                # The marker is still on disk as far as this scan knows, so the
+                # entry is retained rather than dropped from the rewritten
+                # cache. Skipping it is what makes the next poll free too.
+                seen.add(entry.name)
+                hidden_names.add(entry.name)
+                continue
+
+            # ---- ORDER OF THE TWO GATES IS A MEASURED CHOICE ----------------
+            # A row must pass BOTH "has activity" and "is user-visible". That
+            # is a conjunction, so evaluating the cheaper, more SELECTIVE gate
+            # first is output-identical and strictly less work.
+            #
+            # The origin gate is far more selective in practice: on the
+            # reporting machine 1,785 of 1,946 directories (92%) are subagent
+            # sessions that this scan discards. Asking the activity question
+            # first spent two stats on each of them to rank a row that was
+            # then thrown away — the scan's dominant cost.
+            #
+            # What this buys, stated precisely: a hidden directory drops from
+            # three stats to one, so the 2-second poll pays a ~2.2x smaller
+            # CONSTANT per directory. It does NOT change the scaling. The poll
+            # is still O(total session directories) — this stat runs for every
+            # entry, and ``load_catalog``'s desktop-marker probe runs for every
+            # unlisted one (~2.0-2.2 syscalls/dir combined, measured flat from
+            # 150 to 4,050 directories in agent review / QA round 1). A store
+            # that grows large enough re-reaches today's cost at roughly 8,000
+            # directories. Making the poll genuinely track the user's own
+            # sessions needs an index or a persistent per-directory memo, which
+            # is a separate change — do not read this reordering as having
+            # solved it.
+            #
+            # Ordering it this way costs nothing when the gate does NOT fire:
+            # the marker stat below has to happen for a user session anyway, so
+            # it is merely moved earlier, never added.
+            #
+            # This stat does triple duty — it answers "is there a marker",
+            # produces the verdict-cache key, AND gates visibility — so the
+            # cache still costs no extra syscall.
+            marker = os.path.join(entry.path, ORIGIN_NAME)
+            try:
+                marker_stat: os.stat_result | None = os.stat(marker)
+            except OSError:
+                # No marker, or it cannot be stat'd. ABSENCE means the user's
+                # own session and is deliberately NOT cached: it is already the
+                # cheap path, and a directory the backfill stamps later must be
+                # re-read rather than answered from a stale "unmarked" fact.
+                marker_stat = None
+            if marker_stat is not None:
+                seen.add(entry.name)
+                key = [marker_stat.st_mtime, marker_stat.st_size]
+                if (
+                    isinstance(previous, dict)
+                    and previous.get("key") == key
+                    and isinstance(previous.get("origin"), str)
+                ):
+                    origin = previous["origin"]
+                    # The VERDICT hit deliberately does not require the inode to
+                    # match: the marker's own (mtime, size) is what makes the
+                    # verdict sound, and demanding an inode here would make a
+                    # filesystem that cannot supply one (``ino is None``) re-read
+                    # every marker on every poll — strictly worse than before
+                    # this change. The inode gates only the zero-syscall skip
+                    # above, which is an optimisation that may safely not arm.
+                    #
+                    # Restamped when the inode moved or was missing, so the entry
+                    # can arm that skip on the next poll. Byte-equal entries make
+                    # ``merged == cached`` below, so a steady store still writes
+                    # nothing.
+                    if previous.get("ino") != ino:
+                        fresh[entry.name] = {"key": key, "origin": origin, "ino": ino}
+                else:
+                    # Existence gates the READ, never the verdict: the file is
+                    # read and PARSED, because ``session_origin`` returns "" for
+                    # a truncated or hand-edited sidecar so a CORRUPT marker
+                    # reads as the user's own session rather than vanishing from
+                    # the picker. Treating "file exists" as "subagent" would
+                    # invert that fail-safe and hide real work.
+                    origin, readable = _session_origin_read(Path(entry.path))
+                    # Only a verdict PARSED off a marker that was actually read
+                    # is memoised. A read failure yields the same "" as a
+                    # corrupt payload — safe for the listing, which shows the
+                    # session — but it describes the moment, not the file, and
+                    # the key is the marker's immutable (mtime, size): caching
+                    # it would serve one transient EMFILE or volume blip as a
+                    # permanent wrong verdict for the life of that marker. So it
+                    # falls through and is re-read on the next scan instead.
+                    if readable:
+                        fresh[entry.name] = {"key": key, "origin": origin, "ino": ino}
+                    else:
+                        # Drop any entry inherited from ``cached``: this scan
+                        # could not confirm it, and ``merged`` below is built
+                        # from the names seen here.
+                        seen.discard(entry.name)
+                # THE ONE PREDICATE (:func:`is_user_session_origin`), asked of
+                # the marker this loop just read rather than of the directory --
+                # delegating through :func:`is_user_session` would pay a second
+                # stat per directory for the answer already in hand. One rule,
+                # one function: a new user-visible origin is registered in
+                # :data:`USER_ORIGINS` and nothing here changes.
+                if not is_user_session_origin(origin):
+                    # Exported even though this scan re-read the marker: what
+                    # ``load_catalog`` needs is the hidden SET, and a directory
+                    # that took the slow path this poll (a fresh subagent, a
+                    # revalidating poll, a filesystem with no inode) is hidden
+                    # exactly as much as one that was skipped.
+                    hidden_names.add(entry.name)
+                    continue
+            else:
+                # No marker: the user's own session, and the cheap path this
+                # scan is careful to keep free of reads.
+                origin = ""
+            # ONE ranking clock, shared with the cleanup policy
+            # (``session.retention.session_activity``): the picker's "most
+            # recent" and the policy's "most recent" must be the same
+            # directories, or the policy removes rows the picker shows
+            # (QA round 1 Q2, UX round 2 U11). A directory with no activity
+            # is not a resumable session and gets no row.
+            #
+            # Runs AFTER the origin gate (see the note above) so the ~92% of
+            # directories that are subagent sessions never pay for it. Note the
+            # marker bookkeeping above is unaffected by this order: ``seen``
+            # tracks which markers EXIST on disk, which is a fact about the
+            # store and not about whether a row is emitted, so a marked
+            # directory that fails this gate still keeps its cached verdict
+            # rather than being dropped and re-read on every scan.
+            #
+            # ``session_activity_path`` over ``session_activity``: same clock,
+            # same answer, without building a ``Path`` per candidate.
+            #
+            # AN ARCHIVED DIRECTORY IS NOT OFFERED, and this is the one place
+            # that decides it for every listing in this codebase (see the
+            # docstring). Checked BEFORE the activity stat because the answer is
+            # a set lookup: an archived directory then costs no filesystem call
+            # at all on the 2-second poll, which is the poll this branch is
+            # walked by.
+            if archived is None:
+                archived = archived_ids(config_dir)
+            is_archived = entry.name in archived
+            if is_archived and not include_archived:
+                continue
+            activity = session_activity_path(entry.path)
+            if activity is None:
+                continue
+            rows.append((entry.name, activity, origin, is_archived))
+    merged = {
+        name: entry for name, entry in cached.items() if name in seen and isinstance(entry, dict)
+    }
+    merged.update(fresh)
+    entries_changed = merged != cached
+    # Written when the entries changed, and ALSO when this scan completed a
+    # revalidation: the stamp is what lets the NEXT process's first scan arm
+    # the skip, and refreshing it is the one write a steady store pays — once
+    # per revalidation, not per poll. An armed scan whose entries are unchanged
+    # still writes nothing, so a steady store's picker open stays read-only as
+    # before. The stamp passed through on an armed write is the one loaded; on
+    # a revalidating write it is this scan's own completion moment.
+    #
+    # ONLY THE ENTRIES WRITE MAY CREATE THE FILE (``create=entries_changed``):
+    # the stamp-only refresh is non-creating, so a read route on a store with
+    # no cache leaves the tree as it found it (see ``_save_origin_cache`` and
+    # ``tests/unit/server/test_desktop_reads_create_nothing.py``).
+    if entries_changed or revalidate:
+        _save_origin_cache(
+            cache_path,
+            merged,
+            revalidated_at=time.time() if revalidate else revalidated_at,
+            create=entries_changed,
+        )
+    # Newest first; EQUAL stamps break on the id, ascending, so the order is
+    # a property of the store rather than of ``scandir`` on this filesystem.
+    # The cleanup policy sorts on the same key: with an unstable tie order
+    # the policy's "first page" and the picker's disagreed on a store of
+    # equal stamps, and each launch shaved one more session (QA round 2,
+    # Q10).
+    rows.sort(key=lambda row: (-row[1], row[0]))
+    # Sliced only when a limit was actually asked for: ``rows[:None]`` would
+    # also return everything, but spelling it out keeps "no limit" a decision
+    # the code states rather than a property of slice syntax.
+    #
+    # ``hidden_names`` is NEVER truncated by ``limit``: it describes the store,
+    # not the page, and ``load_catalog`` consults it for directories that by
+    # definition fell outside the listing.
+    return (rows if limit is None else rows[:limit]), hidden_names
+
+
+def format_age(seconds: float) -> str:
+    """A coarse "how long ago" for the recovery list: ``2h ago``, ``3d ago``.
+
+    Coarse on purpose — the list exists to let someone recognise WHICH session,
+    and a timestamp to the second is harder to scan than a rough age.
+    """
+    for size, unit in ((86400, "d"), (3600, "h"), (60, "m")):
+        if seconds >= size:
+            return f"{int(seconds // size)}{unit} ago"
+    return "just now"
+
+
+def _counted(value: int | None) -> int:
+    """A published subagent count as an arithmetic-safe ``int``, or ``0``.
+
+    WHY A GUARD IS NEEDED AT ALL, on a field typed ``int | None``:
+    ``SessionRecord.from_json`` filters keys and calls the constructor — it does
+    no type validation — so every field on a record is whatever the writer put
+    in the file, and :attr:`SessionRow.delegating` is the first thing to do
+    ARITHMETIC on these two. A ``str`` or a ``list`` would raise ``TypeError``
+    inside the sidebar's poll loop behind ``/resume``, and a merely-numeric
+    wrong value would pass silently and render as measured fact.
+
+    THE RULE IS NOT RESTATED HERE. ``reported_subagent_count``
+    (``session.runtime.types``, beside the fields it validates) is the one
+    implementation, shared with ``info.collect``'s fleet tally and with the
+    desktop listing's response model, because three readers disagreeing about
+    which values are believable is how one surface prints a figure another drops
+    (review round 1, R4). Its docstring carries the incident that made the rule.
+
+    ``0`` RATHER THAN ``None``, and that is this call site's own contract:
+    :attr:`SessionRow.delegating` needs a number to add, and both answers mean
+    the same thing to it — a value nobody reported can never make a row
+    delegating. Nothing here is ever RENDERED, so "not reported" and "zero"
+    cannot be confused on a frame; the surfaces that do render a count keep the
+    ``None`` (see ``CatalogEntry.status`` and ``session-list.tsx``), which is why
+    the shared function returns ``None`` and this wrapper collapses it.
+    """
+    return reported_subagent_count(value) or 0
+
+
+class SessionRow(NamedTuple):
+    """One pickable conversation: what it was about, when, and its id.
+
+    The id alone is what the recovery list used to offer, and a column of
+    12-hex strings is not something anyone recognises their own work in. The
+    name is the part a human picks by; the id is what the machine resumes.
+    """
+
+    id: str
+    mtime: float
+    name: str
+    #: True while this session is a FORK still wearing the title it inherited
+    #: from its parent, so the picker can tell the branch from the trunk.
+    #:
+    #: Without it a fresh fork and its parent are byte-identical rows — same
+    #: name, same "just now" — separable only by a 12-hex id, in exactly the
+    #: window where a user is most likely to be looking for one of them. The
+    #: state is not always brief either: a bare ``/fork`` keeps the borrowed
+    #: title until the user sends it something, which may be never.
+    #:
+    #: Defaulted so every existing construction site keeps working; only the
+    #: picker's row builder sets it.
+    forked: bool = False
+
+    #: Whether this conversation is ARCHIVED: hidden from every default listing
+    #: and from search, still resumable by explicit id.
+    #:
+    #: Present on the row rather than looked up per render because a renderer
+    #: paints a whole page at once and the archive index is one small file read
+    #: per SCAN (``resume._scan_sessions``), not per row. The picker's reveal
+    #: toggle reads it to decide which rows it is revealing, and every other
+    #: surface simply never receives a row with it set — the flag is the honest
+    #: statement of what the listing did, in both directions.
+    #:
+    #: Defaulted so every existing construction site keeps working, exactly as
+    #: ``forked`` above is: only the scan and the row builders set it.
+    archived: bool = False
+
+    #: WHO opened this session, for an AGENT WORKSTREAM row only — the opener's
+    #: role, task label and session id, each ``str | None``
+    #: (:data:`OPENED_BY_KEYS`), and ``None`` on every other row.
+    #:
+    #: The 2026-09-18 incident was that a machine-started session was
+    #: INDISTINGUISHABLE from one the operator had opened, so a workstream row
+    #: being visible is only half the fix: without this the row reads as the
+    #: operator's own conversation, which is the confusion the marker exists to
+    #: resolve. Set from the marker the stamp wrote at creation, gated on the
+    #: origin the caller already parsed (:func:`workstream_opened_by`).
+    #:
+    #: Defaulted so every existing construction site keeps working, and a DICT
+    #: rather than three fields because it is one fact that travels to the
+    #: desktop wire as one frozen object (``opened_by``): the sidebar renders
+    #: all three or none, and three parallel nullable fields would let a future
+    #: reader publish a partial claim the renderer has no rule for.
+    opened_by: dict[str, str | None] | None = None
+
+    # -- live state, supplied by the CALLER -------------------------------
+    # This module stays stdlib-only and never scans the registry itself: it
+    # sits on the CLI startup path, and `lop --resume` must not pay for a
+    # record walk. The picker does one ``registry.scan()`` and one
+    # ``wakes.store.read_index()`` when it opens and fills these in; every
+    # other construction site keeps the defaults and renders exactly as before.
+
+    #: ``"busy"`` (a turn is running), ``"idle"`` (resident, warm),
+    #: ``"attached"`` (another terminal is watching), ``"wedged"`` (a live pid
+    #: that has stopped reporting — see below), or ``""`` for a cold session.
+    live_state: str = ""
+    #: How long ago the owning process last wrote its discovery heartbeat, or
+    #: ``None`` for a cold row with no record.
+    #:
+    #: A QUALIFIER, not a state: it is what turns ``live_state == "wedged"`` into
+    #: the honest sentence a reader needs. The beat is authored by the runtime's
+    #: own event loop, so the same reading covers a frozen process and a
+    #: perfectly healthy one starved by a long turn, and the only defensible
+    #: thing to say about it is that the owner has not reported for this long
+    #: (``registry.classify`` owns the rule; this is its number). Defaulted
+    #: exactly like the live-state fields above, so every construction site but
+    #: the live-decorating one renders as before.
+    heartbeat_age_s: float | None = None
+    #: ``"approval"`` / ``"ask"`` when the session is waiting for a PERSON.
+    #: The needs-you marker, and the reason a row sorts first.
+    pending: str | None = None
+    #: The record's own phrase when the runtime has been SIGNALLED and is
+    #: finishing the work in flight before it leaves (``LEAVING_ON_SIGNAL``);
+    #: ``""`` otherwise.
+    #:
+    #: SEPARATE FROM ``live_state`` ON PURPOSE. A draining runtime is busy, so
+    #: ``busy`` is true of it — but it is the wrong fact to lead with, and
+    #: ``live_state`` is a TOKEN that several surfaces branch on (the transport
+    #: spelling ``status_code``, the ranking in ``session_category``). Adding a
+    #: third value there would be a contract change made to carry a phrase,
+    #: which is the same call the CLI's LEAVING column made instead of teaching
+    #: STATE a new word (design round 2, D3). Carried as its own field, the row
+    #: can say it in the runtime's words — the ones `lop sessions` and `/info`
+    #: print — without teaching every consumer a new token (UX round 2, U8).
+    leaving: str = ""
+    #: How many of this session's OWN delegated children are running, and how
+    #: many are parked waiting for a capacity slot — both straight off the
+    #: live ``SessionRecord``, or ``None`` when there is no record or the build
+    #: that wrote it does not report them.
+    #:
+    #: WHY THEY RIDE THE ROW. The state they exist to name is invisible without
+    #: them: ``live_state`` is the parent's OWN lane, and
+    #: ``ServingSessionHandle.is_conversationally_active`` deliberately excludes
+    #: children from it (publishing residency there made every live session
+    #: claim to be working). So a parent whose turn ended while its children
+    #: still run decorates as ``idle`` and every surface reads it as no
+    #: activity. The fact was already on the record the decorators hold and was
+    #: simply dropped; carrying it on the row is what lets one predicate serve
+    #: the catalogue AND the TUI mark, so the glyph and the words cannot
+    #: disagree about whether this row is delegating.
+    #:
+    #: ``None`` IS NOT ``0``. It means "this build does not report a count",
+    #: which is the only honest thing to say about a record written before the
+    #: field existed — a client that renders it as zero asserts "no subagents"
+    #: about a session it could not ask (see :attr:`delegating`, which treats
+    #: the two identically for the STATE and differently for the COUNT).
+    #:
+    #: Defaulted exactly like ``leaving``/``heartbeat_age_s`` above, so every
+    #: existing construction site keeps working unchanged; only the live
+    #: decorators (``decorate_rows`` and the desktop feed's ``_row_for``) set
+    #: them.
+    subagents_running: int | None = None
+    subagents_queued: int | None = None
+    #: How many wakes are scheduled, and whether they are dormant because the
+    #: session was deliberately stopped.
+    wakes: int = 0
+    wakes_dormant: bool = False
+    #: How many monitors are armed, and whether they are dormant because the
+    #: session was deliberately stopped. The ``wakes`` pair's twin: one fact
+    #: per family, so the rank key and every badge can tell armed from dormant
+    #: without re-reading two indexes.
+    monitors: int = 0
+    monitors_dormant: bool = False
+    #: The live record's ``kind`` — ``"tui"``, ``"exec"``, ``"daemon"`` — or
+    #: ``""`` for a cold session with no record.
+    #:
+    #: Carried so the picker can SAY what is behind a row rather than implying
+    #: it. Since #804 every ``lop exec`` publishes an ordinary attachable
+    #: record, so exec runs have been appearing in this list (via
+    #: ``decorate_rows(include_live=True)``) rendered identically to a terminal
+    #: conversation — an idle one-shot and a session the user was sitting in
+    #: both read as "Ready". They are not interchangeable: an exec record is
+    #: deliberately ephemeral and can vanish between the paint and the Enter,
+    #: which is a row the user picked disappearing rather than a session they
+    #: lost. Naming the kind is what makes that predictable instead of a
+    #: glitch.
+    #:
+    #: Empty for every construction site but the live-decorating one, exactly
+    #: like the live-state fields above.
+    kind: str = ""
+    #: Which live-decoration sources could NOT be read for this row, out of
+    #: ``session.catalog.DECORATION_SOURCES`` — empty for a poll that read them
+    #: all. This is the answer to a question the fields above cannot answer:
+    #: they are defaults, and a defaulted ``live_state=""``/``wakes=0`` reads
+    #: to every consumer as a confident "this session is cold", which is what
+    #: made a swallowed registry failure render as "Nothing running right now"
+    #: over a store full of running work.
+    #:
+    #: A tuple rather than one flag per source, and the fact belongs to the
+    #: READ rather than to the row: one ``registry.scan()`` answers for the whole
+    #: listing, so the value is the same on every row of a degraded poll and a
+    #: client reads it as "I could not tell", never as "this row is special".
+    #: Additive on the wire (the desktop row model passes extras through), so an
+    #: older client keeps rendering exactly as it does today.
+    degraded: tuple[str, ...] = ()
+    #: Immutable conversation birth, not transcript activity or runtime start.
+    #: Unknown legacy dates tie at zero and are ordered by session id.
+    created_at: float = 0.0
+
+    # -- where the session LIVES (the mesh's half of R6) --------------------
+    # The five fields below are ``docs/design/mesh-ui.md`` §1.3's, named there
+    # after ``mesh-session-mobility.md`` §9.2's row vocabulary rather than
+    # invented locally: one wire shape, one spelling, so a client that groups by
+    # ``owner_device_name`` cannot disagree with the feed about what a device is
+    # called. Every one is DEFAULTED, exactly like the live-state fields above,
+    # because there are ~40 construction sites and a store with no mesh must keep
+    # constructing the identical row it does today.
+
+    #: ``""`` (unknown), ``"local"`` or ``"remote"``. **Unknown renders as
+    #: local**: a row read from THIS machine's store is a session on this machine
+    #: by construction, and a mark for the ordinary case would be a glyph on
+    #: every row that says nothing (design D6/D9 — the ``⇄`` is painted only on
+    #: remote rows). The empty string is therefore the honest default for the
+    #: sites that never learned about the mesh, not a claim that a session is
+    #: local-and-verified.
+    locality: str = ""
+    #: The owning device's member id. Empty for a local session.
+    owner_device: str = ""
+    #: The owning device's human NAME — the heading and the tooltip read this,
+    #: never the id, because a 32-hex device id is not something a user
+    #: recognises their own laptop by.
+    owner_device_name: str = ""
+    #: Whether the owning device answered on the last projection read. ``True``
+    #: for local rows, and the default for remote ones — a remote row is only
+    #: ever stamped by a reader that just answered (§8.3: a peer that does not
+    #: answer contributes no row at all unless the row came from a cache, and the
+    #: cached case sets this False).
+    reachable: bool = True
+    #: Why the owning device is unreachable, in the reading client's words
+    #: (``relay.py``'s unavailability vocabulary). Empty whenever ``reachable``.
+    unreachable_reason: str = ""
+    #: The projection behind these fields is CACHE-only — the row was remembered
+    #: rather than just confirmed. Distinct from ``reachable=False``: a peer can
+    #: be unreachable with a fresh cache or reachable with a stale one, and the
+    #: section heading only claims what this flag plus ``reachable`` prove.
+    placement_stale: bool = False
+
+    @property
+    def is_remote(self) -> bool:
+        """Whether this row is provably a session on ANOTHER device.
+
+        The one predicate every surface asks, rather than each comparing
+        ``locality`` to a string it spells itself: ``"remote"`` is the only
+        value that earns a mark, so a typo in a comparison is a mark that never
+        appears (or one that appears on every local row) rather than an error.
+        """
+        return self.locality == "remote"
+
+    @property
+    def owner_label(self) -> str:
+        """What to call the owning device: its name, else its id's tail."""
+        if self.owner_device_name:
+            return self.owner_device_name
+        return self.owner_device[:8] if self.owner_device else ""
+
+    @property
+    def delegating(self) -> tuple[int, int] | None:
+        """``(running, queued)`` when this row owns subagent work, else ``None``.
+
+        THE single fact behind the ``delegating`` state, read by both builders
+        of a status — ``session.catalog.CatalogEntry.status_code``/``status``
+        and ``tui.widgets.session_picker.row_state_mark`` — so the words and
+        the glyph are two renderings of one answer rather than two derivations
+        that a future edit can drift apart. That is the same shape
+        ``CatalogEntry.shows_completion_mark`` has, and for the same reason: the
+        pairing used to be held together by a comment asking the next author to
+        keep the two ladders in step, and a comment is not a mechanism.
+
+        IT ANSWERS ONLY THE COUNT QUESTION, deliberately. Every rung ABOVE
+        this state is a separate louder fact — a parked gate, a wedged or busy
+        runtime, an unread completion, an attached session — and each caller
+        already tests those in its own ladder before it reaches this one, in
+        the order ``row_state_mark`` documents. Folding them in here would give
+        the two callers a second, hidden precedence to keep in step, which is
+        the failure this property exists to remove.
+
+        THE DRAIN IS THE ONE EXCEPTION, and it is here rather than left to the
+        callers because ``leaving`` is a GATE and not a rung: in
+        ``CatalogEntry.status`` the phrase already wins above ``busy``, but
+        ``status_code`` has no leaving arm at all, so a draining row whose
+        ``live_state`` happened to be idle would otherwise publish ``delegating``
+        beside a tooltip reading "Leaving…" — and would draw ``⇉`` next to it.
+        A runtime committed to exiting is the stronger fact, so it suppresses
+        the state at the one place both readers look.
+
+        ``None`` report is treated as zero FOR THE STATE: an unknown count can
+        never make a row delegating. It is still not written as a zero anywhere
+        — the label builder in the catalogue omits a count it was not given.
+        "Queued with nothing running" is the case that must not read as idle:
+        the capacity gate parks a child with ``queued=True`` while it waits for a
+        slot (``harness/subagent.py:663``, ``queued = jobs_manager.at_capacity()``
+        → ``harness/jobs.py:648``, whose ``at_capacity`` counts only
+        non-``queued`` running jobs), so a parent holding only parked children is
+        working in exactly the sense the operator is complaining about.
+        """
+        if self.leaving:
+            return None
+        running = _counted(self.subagents_running)
+        queued = _counted(self.subagents_queued)
+        if running + queued < 1:
+            return None
+        return running, queued
+
+
+#: What a DEVICE with no name is called, on every surface that has to name one.
+#:
+#: One string, exported, because the alternative was measured: the sidebar said
+#: ``another device`` for a peer whose member record carries no name while the
+#: network panel painted a bare id in the same condition, so one missing fact read
+#: two ways on two surfaces of the same screen (design round 1, D8).
+UNNAMED_DEVICE = "unnamed device"
+
+
+#: What a row says when NONE of a member's declared addresses answered.
+#:
+#: One spelling for THREE arrivals: the ``unreachable`` stage word (a member whose
+#: addresses all failed the same way), the bare ``no_answer`` code the probe reports
+#: when every address it DIALLED went quiet, and the compound list below (a member
+#: whose addresses failed differently). They are the same answer to the reader, and
+#: the branches that produce it must not drift into three sentences for it.
+_NO_ADDRESS_ANSWERED = "no address of it answered"
+
+#: What a row says for the one reason whose body is a SENTENCE WITH AN ADDRESS IN IT.
+#:
+#: ``handshake_not_attempted`` is the relay's own prose — an address ANSWERED and
+#: THIS device's listing budget expired before the handshake could start
+#: (``relay.handshake_not_attempted_reason``). It is keyed on its stage word rather
+#: than by shape because its body carries the winning endpoint, a bare
+#: ``host:port``: a shape test that asks "is there a colon with something after
+#: it" reads the sentence as a machine list and tells the reader NOTHING answered —
+#: the exact inverse of what happened, and the state whose remedy differs (a peer
+#: that never answered versus a listing that gave up on our side) — which is what
+#: round 10's MAJOR-1 was. The address itself is not for a human line and not for
+#: the reader's question (the row is about the DEVICE); it stays in the ``--json``
+#: payload, where the whole sentence does.
+_HANDSHAKE_ANSWERED_WORDS = "it answered, and the listing ran out of time before the handshake"
+
+#: What a BARE wire code with no entry in the table below reads as.
+#:
+#: The arrivals this is for, none of which mean silence: the dial's own handshake
+#: refusals (``handshake.REASON_*`` — ``epoch_stale``, ``untrusted``,
+#: ``protocol_mismatch`` …) and the phase guard
+#: (``pair_phase_requires_the_ceremony``), where the peer ANSWERED and the link was
+#: not made; and the handshake's own refusal stage (``handshake_refused:<exception>``,
+#: the socket CONNECTED and the far side closed it or never spoke — the stage word
+#: says the peer answered, which is why its tail may not be read as silence; round
+#: 24, Q-R24-1). Saying "nothing answered" for those would be the same inversion
+#: MAJOR-1 is about, one state over; printing the code would put a bare wire word
+#: on a human line. A peer's own refusal message is the one arrival in this field
+#: this device did not write, and its single-word form reads the same way — as that
+#: peer's own refusal, which is what it is.
+#:
+#: A refusal raised on THIS device before the far one is involved — ``secrets_missing``
+#: and ``no_network_secret``, which ``store.require_secrets`` raises — reaches this
+#: field through the same fallback and is deliberately NOT in this family: the fault is
+#: ours, and "the link was refused" is a claim about the other machine (round 11's
+#: R11-6, where the pre-fix raw code at least named a local one). Those two have their
+#: own entries in the table below.
+_BARE_CODE_WORDS = "the link was refused"
+
+#: The stage words whose tail reports an address that ANSWERED before OUR clock
+#: expired — the listing's own (``relay.HANDSHAKE_NOT_ATTEMPTED``) and the spelling a
+#: relay started before round 24 wrote into a DOCTOR ``detail``, which a member row
+#: can still be handed (round 11, Q-R25-3). Generic across the two because they name
+#: one state and only the clock differs (round 24, Q-R24-2).
+#:
+#: ``not_attempted`` is in this set AND is a member-level PROSE producer
+#: (``relay.NOT_ATTEMPTED_REASON``, which says nothing was dialled): the set is only
+#: ever consulted for a tail that NAMES AN ENDPOINT, and that producer's tail does
+#: not, so its sentence survives while the doctor's address-bearing one does not.
+_ANSWERED_STAGES = frozenset({"handshake_not_attempted", "not_attempted"})
+
+#: A ``host:port`` (or a bracketed IPv6 ``[::1]:port``) as a whitespace-separated
+#: field. THE SHAPE OF THE THING A HUMAN LINE MUST NOT CARRY: the relay's prose
+#: reasons embed the endpoint that answered, and the addresses a candidate list
+#: carries are the other half of the same leak (see :func:`_names_an_endpoint`).
+_ENDPOINT_FIELD = re.compile(r"^(?:\[[0-9A-Fa-f:]+\]|[A-Za-z0-9._-]+):\d{1,5}$")
+
+
+def _names_an_endpoint(text: str) -> bool:
+    """Does this text name a concrete ``host:port`` rather than describe a state?
+
+    THE SECOND DISCRIMINATOR, for prose the wire-token test cannot judge. A tail with
+    no ``;``-segment ending in a probe detail is not a machine list, but it is not
+    automatically fit to print either: the relay's own ``handshake_not_attempted``
+    sentences embed the endpoint that ANSWERED, and a member row can be handed the
+    doctor's pre-round-24 spelling of the same state (round 11, Q-R25-3). Neither is a
+    list, and both would put an address on a human line.
+
+    A bare hostname is deliberately NOT an endpoint here: hosts are advertised
+    verbatim and unvalidated, so ``host-a`` is as likely to be an English word as an
+    address, and a false positive would gloss a sentence that is safe to read. A
+    ``host:port`` is a dialable address and nothing else in these fields is — which
+    is also why the port must be present for this to fire.
+    """
+    return any(_ENDPOINT_FIELD.match(field) for field in text.split())
+
+
+#: The first N characters of a device id, for the sentences that have to name one.
+#: The TUI's peer table abbreviates to the same width (``network_panel.short_id``,
+#: whose prefix-carrying rationale this follows): a prefix is what makes two ids
+#: comparable, and the 34-character whole is a wall on a line a person reads.
+DEVICE_ID_CELLS = 12
+
+
+def short_device_id(device_id: str) -> str:
+    """One device id abbreviated for a human sentence. See :data:`DEVICE_ID_CELLS`."""
+    value = str(device_id or "")
+    return value[:DEVICE_ID_CELLS] if len(value) > DEVICE_ID_CELLS else value
+
+
+#: The relay's ``reason`` tokens, in the words a person reads. See
+#: :func:`peer_reason_words` for why the token itself is not the answer.
+PEER_REASON_WORDS: dict[str, str] = {
+    "no_endpoint": "no address published for it",
+    "not_a_member": "it is not a member of this network",
+    "member_removed": "it was removed from this network",
+    # THE PROBE'S OWN CODES (round 10, MAJOR-2). The single-code path reports one of
+    # these bare, and it used to reach a human line unchanged: a row read
+    # ``… (no_answer)``. Every code in the probe's vocabulary has an entry here, and
+    # a test fails if one is added to the vocabulary without a reading.
+    #
+    # ``not_attempted`` and ``no_answer`` are not the same state and read
+    # differently on purpose: nothing was dialled versus everything dialled was
+    # silent — which is also why ``no_answer`` takes the spelling the other two
+    # arrivals of "nothing answered" already use.
+    "no_answer": _NO_ADDRESS_ANSWERED,
+    "not_attempted": "the listing ran out of time before it was tried",
+    "bad_endpoint": "the address it publishes cannot be dialled",
+    # THIS DEVICE'S OWN FAULT, NOT THE PEER'S (round 11, R11-6). ``relay.dial``
+    # returns the CODE of a ``MeshRefusal`` raised HERE — ``store.require_secrets``
+    # refuses before the far device is involved at all — and the bare-code fallback
+    # read those as "the link was refused", a claim about the other machine where the
+    # missing thing is ours. Two codes, because the store names two states: a secrets
+    # file whose key is unusable, and no secrets file at all (the post-``disconnect``
+    # / ``rm`` state).
+    "secrets_missing": "this device's network secret is unusable",
+    "no_network_secret": "this device no longer holds that network's secret",
+}
+
+
+def _carries_wire_tokens(tail: str) -> bool:
+    """Does a ``stage:`` tail carry the relay's OWN tokens rather than a sentence?
+
+    THE QUESTION IS ASKED OF EACH SEGMENT, AND EACH SEGMENT ENDS IN A CODE THE
+    RELAY CAN WRITE (QA round 21, Q-R21-1; round 10, MAJOR-1). It used to be
+    ``" " in tail``, and the COMPOUND failure reason broke that test: a member
+    advertising several addresses reports every one of them as ``unreachable:
+    <endpoint> <detail>; <endpoint> <detail>`` — a MACHINE list that contains
+    spaces — so the sentence test matched and the whole line, addresses and Python
+    class names included, was printed to the user verbatim. The replacement asked
+    whether ONE wire token appears anywhere in the tail, which then broke the
+    relay's prose: its ``handshake_not_attempted`` reason embeds the endpoint that
+    ANSWERED, and an endpoint is a ``host:port`` — a colon with something after it
+    — so that reason was read as a machine list and told the reader nothing
+    answered, when the truth was a listing budget that expired on this side.
+
+    A machine list is a ``;``-separated sequence of ``<endpoint> <detail>`` pairs,
+    so the unit is the SEGMENT and the field that decides it is the one each
+    segment ENDS with: is it a detail the relay's own probe can write
+    (:func:`local_operator.network.relay.is_probe_detail`)? Every segment of a
+    compound answers yes; a sentence that merely contains an address ends in prose
+    and answers no. Nothing is decided by a bare ``host:port`` any more, because a
+    ``host:port`` is not a detail.
+
+    THE INVARIANT, AND WHAT MOVES IF YOU CHANGE IT (round 10, MINOR-2): this test
+    is only as good as the CLOSED vocabulary it reads. Every detail
+    ``relay.probe_candidates`` writes is a member of ``relay.PROBE_DETAIL_CODES`` or
+    carries ``relay.CONNECT_FAILED_PREFIX``, and the sites that write them spell
+    them from those constants. A detail written OUTSIDE that set — a bare English
+    word, in a compound whose endpoints declare no port — ends a segment
+    unrecognised, so the whole tail is handed back as prose: the endpoint-and-code
+    leak this function exists to prevent, back in the middle of a sentence. That is
+    why the recognition reads the producer's set rather than a shape of its own,
+    and why the tests enumerate both sides.
+
+    FAILING TOWARDS THE GLOSS IS DELIBERATE. A tail mistaken for wire tokens loses
+    a sentence and reads as "it did not answer", which is blander than the truth but
+    never names a transport's failure mode at a reader; the reverse mistake —
+    trusting a tail that turns out to be a list — is the defect this exists to
+    prevent, and it puts endpoint addresses and exception class names on a user's
+    screen.
+    """
+    segments = [segment for segment in tail.split(";") if segment.strip()]
+    if not segments:
+        return False
+    # ANY, NOT ALL — THE RULE FAILS CLOSED (round 11, R11-2). It used to require
+    # EVERY segment to end in a detail, so one unrecognised segment handed the whole
+    # tail back as prose. That is unsound because SEGMENTATION IS NOT SOUND: an
+    # endpoint is operator config (``advertise_hosts``) or a peer's handshake
+    # ``peer_endpoints``, stored verbatim and unvalidated at both write points, so
+    # one ``;`` inside an address splits an ``<endpoint> <detail>`` pair in two and
+    # leaves a segment whose last field is an address — whereupon the old rule read a
+    # genuine machine list as prose and printed addresses and class names to a person.
+    # With ANY, one recognisable pair is enough to read the tail as wire, which costs
+    # at most a sentence on a tail that mixes prose with wire content (the blander
+    # direction this function documents as deliberate) and never an address.
+    return any(_segment_ends_in_wire_detail(segment) for segment in segments)
+
+
+def _segment_ends_in_wire_detail(segment: str) -> bool:
+    """Is one ``<endpoint> <detail>`` segment of a machine list spelled like one?
+
+    The detail is the LAST field: the relay writes each entry as
+    ``f"{outcome.endpoint} {outcome.detail}"`` (``relay.probe_reason``), and a
+    declared endpoint can carry no port at all (hosts are advertised verbatim), so
+    the field count is not fixed and the endpoint cannot be told from the detail by
+    position from the left.
+    """
+    fields = segment.split()
+    if not fields:
+        return False
+    from local_operator.network.relay import is_probe_detail
+
+    return is_probe_detail(fields[-1])
+
+
+def _is_bare_code(token: str) -> bool:
+    """Is this whole reason ONE bare wire code rather than a sentence or a list?
+
+    ``str.isidentifier`` is the test the wire's own spellings pass and a sentence
+    written for a reader does not: ``epoch_stale`` and
+    ``pair_phase_requires_the_ceremony`` are identifiers, while ``asked, and it did
+    not answer`` — and even a one-word ``asked,`` — is not. It cannot tell a code
+    from a peer's own one-word refusal message, and it does not need to: each is a refusal
+    from that peer, and each reads the same way (:data:`_BARE_CODE_WORDS`).
+    """
+    return token.isidentifier()
+
+
+def peer_reason_words(reason: str) -> str:
+    """The relay's ``reason`` token said in words, and never empty.
+
+    A REASON IS EITHER A TOKEN OR A SENTENCE, and the rule follows from that.
+    ``connect_failed:ConnectionRefusedError`` is a token — a stage, a colon with
+    no space after it, and a Python class name — and a user surface that printed
+    it named the transport's failure mode where the reader needs "that device is
+    not there" (design round 1, D3, which is where the gloss table below comes
+    from). ``asked, and it did not answer`` is a SENTENCE the relay already wrote
+    for a person; it is returned unchanged, because glossing it away would
+    replace a specific answer with a shorter, blander one. A ``stage: <sentence>``
+    (``not_attempted: the listing budget ran out…``) keeps its sentence and loses
+    only the stage word.
+
+    THE COMPOUND LIST IS THE THIRD SHAPE (QA round 21, Q-R21-1): a member that
+    advertises several addresses reports those that failed DIFFERENTLY as
+    ``unreachable: <endpoint> <detail>; <endpoint> <detail>``, so it rides a
+    ``stage: `` prefix while being a machine list rather than prose. It is glossed
+    whole here, because an endpoint address and a Python class name are exactly the
+    two things a human line must not carry — and it is recognised SEGMENT BY
+    SEGMENT, by the codes the relay's own probe can write (:func:`_carries_wire_tokens`),
+    rather than by its prefix or by the shape of its fields: "a colon somewhere"
+    was true of the relay's prose as well, and read the reason that says an address
+    ANSWERED as one that says nothing did (round 10, MAJOR-1).
+
+    ONE FUNCTION, THREE SURFACES. It moved here from the network panel (UX round
+    3, U23) because by the last round three surfaces printed the same token three
+    ways: the panel said the words, while the sidebar's tooltip and the
+    ``--all-peers`` listing each printed the raw token. The sibling family is
+    supposed to read as one voice (UX round 2, U14), and the panel is a Textual
+    widget the CLI cannot import — so the shared spelling had to sit in this
+    module, which both sides already import and which is where the screen's other
+    shared strings (``UNNAMED_DEVICE``, ``UNTITLED_CONVERSATION``) live for the
+    same reason.
+
+    WHAT A READER IS TOLD FOR EVERY CODE THIS FIELD CARRIES (round 10, MAJOR-2).
+    Five producers write it, and each arrival has a stated reading: the record's own
+    facts (``no_endpoint``, ``not_a_member``, ``member_removed``) and the probe's
+    codes (``no_answer``, ``not_attempted``, ``bad_endpoint``) are TABLE ENTRIES, so
+    no bare token reaches a human line; ``connect_failed:<exception>``, the bare
+    handshake refusals (``epoch_stale``, ``untrusted``, … — ``handshake.REASON_*``
+    and the dial's own phase guard) and ``handshake_refused:<exception>`` (an address
+    that ANSWERED and a link that was not made) fall to the two STRUCTURAL FALLBACKS
+    below, which are sentences rather than tokens; the relay's
+    ``handshake_not_attempted`` sentence is keyed on its stage and keeps its meaning
+    without its address; and a sentence written for a reader — the relay's
+    ``not_attempted`` reason, a peer's own refusal message — is returned as written.
+    The tests walk that vocabulary from the source, so a code added without a reading
+    fails them.
+
+    A SENTENCE IS ONLY RETURNED WHEN IT IS SAFE TO PRINT, and that is a second test
+    rather than a consequence of the first (round 11, Q-R25-3 and R11-2): a tail
+    that is not a machine list can still NAME AN ADDRESS — the relay writes the
+    endpoint that answered into two of its own sentences — so it is glossed rather
+    than handed over, and the machine-list test itself fails CLOSED for an endpoint
+    carrying a ``;`` (:func:`_carries_wire_tokens`). Reading a leak as prose is the
+    failure this function exists to prevent; reading ordinary prose as a leak costs
+    one blunter sentence, and the docstrings of both tests say so.
+
+    Prefix-matched on the stage before the ``:`` rather than on the exception
+    class, because the tail is whatever the dial raised: a vocabulary of Python
+    class names would be a second registry to keep, and the distinction a reader
+    needs is "nothing answered", not which exception said so — which is also why
+    the compound list is glossed whole rather than summarised entry by entry.
+
+    WHERE THE TOKEN SURVIVES. It is the ``reason`` field of the ``--json`` payload
+    every one of these verbs ships, which is the machine surface these summaries
+    are a summary OF. It used to be printed per candidate by ``lop network peers``
+    as well, and UX round 5's U28 removed that: a human listing is not where a
+    Python class name belongs, and the human line and the payload are the two
+    registers. ``lop network doctor`` renders a peer's reachability through
+    :func:`doctor_detail_words` for the same reason (round 10's MINOR-1 took the
+    narrower option here, and round 24's Q-R24-2 measured what it cost), which is
+    why the member-level sentences ABOVE are not that renderer's table: on a row
+    about ONE address, ``no_answer`` reading "no address of it answered" is a claim
+    about every address a peer publishes. Its raw ``detail`` fields are still the
+    ``--json`` register, byte for byte. (``lop network log`` prints codes, and is not
+    a third case: it prints the audit RECORD — event and detail as the record — so
+    its human form and its ``--json`` carry the same bytes.)
+    """
+    token = (reason or "").strip()
+    if not token:
+        return "it did not answer"
+    if token in PEER_REASON_WORDS:
+        return PEER_REASON_WORDS[token]
+    stage, sep, tail = token.partition(":")
+    if stage == "handshake_not_attempted":
+        # THE RELAY'S OWN PROSE ABOUT AN ADDRESS THAT ANSWERED. Keyed on the stage
+        # word rather than on the tail, because the tail's first field is the
+        # endpoint that answered: a machine-list reading of this sentence is not
+        # merely blunter, it is the opposite of the truth (round 10, MAJOR-1), and
+        # the reader's question is about the DEVICE, so the address is not lost by
+        # leaving it in the ``--json`` field it came from.
+        return _HANDSHAKE_ANSWERED_WORDS
+    if stage == "handshake_refused":
+        # A STAGE ONLY EVER WRITTEN ON A SOCKET THAT CONNECTED (round 24, Q-R24-1).
+        # ``relay.handshake_refused_reason`` writes it in the dial's ``except`` arm,
+        # after the connection was handed in, so it always means the address ANSWERED
+        # and the link was not made — and its tail is a Python class name, which is
+        # the ``--json`` register. The bare refusal codes got exactly this reading in
+        # round 10 for exactly this reason; this stage — the ONE arrival in the field
+        # whose own name says the peer answered — was left falling through to the
+        # "nothing answered" default, so a peer that answered and hung up, or
+        # answered and never spoke the protocol, was reported as one that never
+        # answered at all.
+        return _BARE_CODE_WORDS
+    if not sep:
+        # NOT a ``stage:tail`` pair, so it is one of two things: a sentence written
+        # for a reader already, or a BARE WIRE CODE. ``epoch_stale`` and
+        # ``pair_phase_requires_the_ceremony`` are the latter, and neither means
+        # silence — the peer answered and refused — so they may not fall to the
+        # "nothing answered" default below.
+        #
+        # THE TWO STAGE WORDS ARE READ FIRST (round 11, R11-4). They are bare
+        # identifiers, so the fallback matched them before any arm written for them
+        # could: the stage word that means "every address was tried and none of them
+        # answered" read as a REFUSAL — the opposite state, and the very inversion
+        # Q-R24-1 was raised for one line up — while the arm for it sat below,
+        # permanently unreachable. Neither word is a refusal.
+        if token == "unreachable":
+            return _NO_ADDRESS_ANSWERED
+        if token == "connect_failed":
+            return "it did not answer"
+        return _BARE_CODE_WORDS if _is_bare_code(token) else token
+    if " " in tail.strip():
+        # A tail containing a space is EITHER the compound failure list or a
+        # ``stage: <sentence>``, and the two are told apart by what the tail is made
+        # of (:func:`_carries_wire_tokens`) rather than by the stage word: the whole
+        # point is that a list of wire tokens must never be handed back as prose, and
+        # that holds for whatever stage word prefixes one. Both branches answer with
+        # the same sentence a bare ``unreachable`` stage gets, because a list of
+        # failed candidates IS "none of its addresses answered".
+        if _carries_wire_tokens(tail):
+            return _NO_ADDRESS_ANSWERED
+        if _names_an_endpoint(tail) or _names_an_endpoint(token):
+            # PROSE THAT NAMES AN ADDRESS IS STILL NOT FIT TO PRINT (round 11,
+            # Q-R25-3). A ``stage: <sentence>`` whose sentence embeds the endpoint
+            # that answered is the doctor's PRE-round-24 spelling of the same state,
+            # which an old stored reason or a peer on an older build can still hand
+            # this register. The address is the only part of that tail a reader
+            # cannot use — the row is about the DEVICE, and the endpoint's own column
+            # is where an address belongs. The state the producers of that spelling
+            # report is an address that ANSWERED; any other stage keeps the module's
+            # own default rather than claiming that state on a stranger's behalf.
+            #
+            # The WHOLE TOKEN is tested as well as the tail, because a malformed
+            # arrival can put the address on the left of the first colon (``partition``
+            # splits at the first one, which is inside ``host:port``).
+            if stage in _ANSWERED_STAGES:
+                return _HANDSHAKE_ANSWERED_WORDS
+            return "it did not answer"
+        return tail.strip()
+    if stage == "connect_failed":
+        return "it did not answer"
+    # The default is also the answer for a stage whose tail names a failure this
+    # module has never seen: an unreadable reason is still "it did not answer" to
+    # the person reading the row, and a claim about the peer's state is never
+    # invented out of a tail this module cannot read.
+    return "it did not answer"
+
+
+#: The producer's own opening words for the doctor's ``connected`` stage — one
+#: address ANSWERED and the LINK went to another address the member publishes
+#: (``relay.doctor_link_elsewhere_detail``). It is a sentence rather than a stage
+#: prefix, so it is recognised by the prefix the producer writes; a test builds the
+#: string from that producer and asserts the reading below, so the two cannot drift.
+_DOCTOR_LINK_ELSEWHERE_PREFIX = "connected;"
+
+#: What a doctor row says when the address was dialled and nothing answered at it.
+#: One string for the transport's failure (``connect_failed:<exception>``) and for a
+#: dial that returned without a reason at all (``unreachable``): the reader's answer
+#: is the same, and the exception class is the ``--json`` register.
+_DOCTOR_NOTHING_ANSWERED = "nothing answered at that address"
+
+#: What a doctor row says when its address ANSWERED and THIS DEVICE's own doctor
+#: budget expired before the handshake could start. The same state the listing
+#: reports as ``handshake_not_attempted``; only the clock differs, so only the clock
+#: is named differently.
+_DOCTOR_HANDSHAKE_ANSWERED_WORDS = (
+    "it answered, and the doctor ran out of time before the handshake"
+)
+
+#: What a doctor row says when its address ANSWERED and the link was established at
+#: ANOTHER address the member publishes — a successful dial that is not the winner.
+_DOCTOR_LINK_ELSEWHERE_WORDS = (
+    "it answered; the link was established at another address this member publishes"
+)
+
+#: What ``lop network doctor`` tells a person for one check row's ``detail``.
+#:
+#: A DOCTOR ROW IS ABOUT ONE ADDRESS, AND THAT IS WHY THIS IS NOT
+#: :data:`PEER_REASON_WORDS` (QA round 24, Q-R24-2). Every sentence in the table
+#: above is about a MEMBER: ``no_answer`` reads "no address of it answered" — a
+#: claim about every address a peer publishes, painted onto a row that reports the
+#: result of ONE dial beside that address in its own column — and ``not_attempted``
+#: names the LISTING's clock, which is not the clock that expired here. So one token
+#: is said twice in this module, each time about what the surface reading it is
+#: actually reporting; neither table is a rename of the other, and collapsing them
+#: is how a true sentence becomes false one surface over (round 10, MAJOR-1). The
+#: record facts are the exception: ``no_endpoint`` says the same thing about a member
+#: on both surfaces, so it is spelled once and referenced here.
+#:
+#: ``present`` AND ``ok`` ARE THE DOCTOR'S OWN ENGLISH, not wire words: they are what
+#: a person would say, so they are their own reading — and the guard test in
+#: ``tests/unit/network/test_endpoint_probe.py`` names them as the two entries it
+#: does not require to differ, rather than leaving them unenumerated.
+DOCTOR_DETAIL_WORDS: dict[str, str] = {
+    "identity_missing": "this device has no mesh identity",
+    "present": "present",
+    "ok": "ok",
+    # One member-level fact, one wording: this one is not per-address, so the doctor's
+    # table does not get a second spelling of it.
+    "no_endpoint": PEER_REASON_WORDS["no_endpoint"],
+    "unreachable": _DOCTOR_NOTHING_ANSWERED,
+    "refused_by_peers": "peers are refusing this device's handshakes",
+    "not_attempted": "the doctor ran out of time before this address was tried",
+    "no_answer": _DOCTOR_NOTHING_ANSWERED,
+    "bad_endpoint": "the address it publishes cannot be dialled",
+    # THIS DEVICE'S OWN FAULT, NOT THE PEER'S (round 11, R11-6): the same two codes
+    # ``relay.dial`` returns for a ``MeshRefusal`` raised HERE (``store.require_secrets``)
+    # before the far device is involved. A row whose subject is an address still must
+    # not say "the link was refused" about a fault on this machine.
+    "secrets_missing": PEER_REASON_WORDS["secrets_missing"],
+    "no_network_secret": PEER_REASON_WORDS["no_network_secret"],
+}
+
+
+def doctor_detail_words(detail: str) -> str:
+    """One ``lop network doctor`` check row's ``detail``, in the words a person reads.
+
+    IT IS STILL A GLOSS AND NOT A PRINT. The doctor rendered this field verbatim
+    until round 24 (round 10's MINOR-1 took the narrower option, and QA round 24
+    measured what that cost on the one state the listing's own fix exists for:
+    ``not_attempted: 127.0.0.1:64994 answered and the doctor budget ran out before
+    the handshake`` — a stage word AND an endpoint address on a human line, in the
+    one state whose remedy differs). Words here, tokens in ``--json``: the raw
+    ``detail`` is unchanged and every row still carries it byte for byte.
+
+    WHAT THE WORDS KEEP, AND WHAT THEY DROP. They keep the STAGE of the dial the row
+    reports — nothing answered at that address, the address ANSWERED and the link was
+    refused (the refusal family, including the bare refusal codes the peer's own
+    build decides), the address answered only after our clock expired, an address
+    that was never tried, one whose published form cannot be dialled at all — which
+    is what the command exists to tell apart. They drop the two things a person does
+    not act on from a row: the transport's failure mode (the exception class name in
+    ``connect_failed:*`` and ``handshake_refused:*``), and any endpoint address
+    inside a sentence, which the row already carries in its own column. That is
+    :func:`peer_reason_words`' own argument — a vocabulary of Python class names
+    would be a second registry to keep, and the distinction a reader needs is which
+    stage the dial reached, not which exception said so.
+
+    Two spellings of the same state are read here on purpose, because the relay is a
+    separate, LONG-RUNNING process: this build writes
+    ``handshake_not_attempted: <endpoint> answered and the doctor budget ran out …``
+    (the listing's own producer, with the doctor's clock), and a relay started before
+    this build wrote ``not_attempted: <endpoint> answered and the doctor budget ran
+    out …`` into the same field. Both are the "answered" state and both read the
+    same way; the probe's own ``not_attempted`` code is always BARE — it is a member
+    of ``relay.PROBE_DETAIL_CODES``, which is what makes the distinction between the
+    two safe to read off the colon.
+
+    AN EMPTY DETAIL READS AS NOTHING, unlike :func:`peer_reason_words`, whose callers
+    paint it into a clause: this one is appended to a row that already ends where its
+    facts do.
+    """
+    token = (detail or "").strip()
+    if not token:
+        return ""
+    if token in DOCTOR_DETAIL_WORDS:
+        return DOCTOR_DETAIL_WORDS[token]
+    if token.startswith(_DOCTOR_LINK_ELSEWHERE_PREFIX):
+        # The winning endpoint is in this sentence and must not survive into a row a
+        # person reads: the row shows ITS OWN address in its own column, and the
+        # winner is the row above it.
+        return _DOCTOR_LINK_ELSEWHERE_WORDS
+    stage, sep, tail = token.partition(":")
+    if not sep:
+        # A BARE CODE WITH NO ENTRY: the handshake's refusal family
+        # (``handshake.REASON_*``, which the peer's own build decides) and the dial's
+        # phase guard. Neither means silence — the peer answered and refused — so
+        # neither may fall to the "nothing answered" reading.
+        return _BARE_CODE_WORDS if _is_bare_code(token) else token
+    if stage == "connect_failed":
+        return _DOCTOR_NOTHING_ANSWERED
+    if stage == "handshake_refused":
+        # Written only on a socket that CONNECTED (``relay.handshake_refused_reason``).
+        return _BARE_CODE_WORDS
+    if stage == "handshake_not_attempted" or (
+        stage == "not_attempted" and _names_an_endpoint(tail)
+    ):
+        # The second spelling is a relay started before this build, and it is told
+        # apart from the MEMBER's own ``not_attempted`` sentence — which says the
+        # opposite, that nothing was dialled — by the address it embeds, not by its
+        # stage word alone (round 11; QA round 25's Q-R25-3 fixes the same collision
+        # in the member table).
+        return _DOCTOR_HANDSHAKE_ANSWERED_WORDS
+    if stage == "not_attempted":
+        # The member's own sentence, in a doctor field: an address that was never
+        # dialled reads as the doctor's own reading for that state rather than as the
+        # "it answered" claim above or the blunter default below.
+        return DOCTOR_DETAIL_WORDS["not_attempted"]
+    # FAIL CLOSED FOR A STAGE WORD THIS BUILD DOES NOT KNOW (round 11, R11-5, and
+    # QA round 25's Q-R25-2). A ``stage:tail`` whose stage is a WIRE IDENTIFIER is a
+    # shape this build's own producers do not write: every prose arrival in this
+    # field (the membership sentence, the local fallback's ``not probed: …``) has an
+    # English stage with a space in it, and each of the wire stages is an arm above.
+    # So an identifier stage with a tail is evidence of a producer this build cannot
+    # read, and the row gets the blunter sentence rather than the token. Without this
+    # the arm below handed an unrecognised shape back VERBATIM — QA round 25 fed it a
+    # compound machine list and got the list back whole, addresses and exception
+    # class names included, which is the same round-10 leak one table over — and it
+    # would equally hand back the next ``stage:<Class>`` a later build writes.
+    if _is_bare_code(stage):
+        return _DOCTOR_NOTHING_ANSWERED
+    # A sentence this device did not write — the membership sentence, the local
+    # fallback's "not probed: …" — is already prose for a reader, and every sentence
+    # the doctor writes itself is an arm above this line.
+    return token
+
+
+#: The membership TABLE's own ``reason`` tokens, in the words a person reads.
+#:
+#: A THIRD TABLE, because this is a third vocabulary: a ``MembershipReport.silent``
+#: row is neither a peer reason nor a doctor detail — it answers "why did that
+#: member's TABLE not arrive?" — and it reached ``lop network ls``/``show`` (and the
+#: agent tool's digest of the same JSON, and the TUI through the same CLI) as a raw
+#: token beside the member's 34-character device id. It is Step 1 of round 11's own
+#: enumeration, and none of rounds 9-11 named it: the sweep counted the surfaces that
+#: render a PEER's reason and missed the ones that render a MEMBERSHIP row's.
+#: See :func:`table_reason_words` for the readings and what holds them.
+TABLE_REASON_WORDS: dict[str, str] = {
+    "no_live_link": "nothing is connected to it",
+}
+
+#: The one reading a table reason gets when this build cannot read it: blunter than
+#: the truth, and never the token. ``no_table:<why>`` is the producer's own spelling
+#: for "the read failed"; the ``why`` is the relay's error word, which is the part a
+#: reader does not act on.
+_TABLE_READ_FAILED = "it did not answer the table read"
+
+
+def table_reason_words(reason: str) -> str:
+    """One membership-table ``reason``, in the words a person reads. Never a token.
+
+    The producers are ``relay.RelayServer.refresh_membership``'s three:
+    ``no_live_link`` (this device holds no live link to that member), ``no_table:<why>``
+    (a link, and a read that failed) and ``not_asked: <sentence>`` (the refresh budget
+    expired before that member's turn — already a sentence, written for a reader).
+
+    THE SAME FAIL-CLOSED DIRECTION AS :func:`peer_reason_words`, for the same reason: a
+    shape this module does not recognise gets the blunter sentence rather than the
+    string, because the string is a machine token and the field has no
+    human-rendering contract of its own. A tail that is prose is returned as written —
+    unless it NAMES AN ADDRESS (:func:`_names_an_endpoint`), which is the one thing a
+    membership line must not carry, since the row it is on already names the device.
+    """
+    token = (reason or "").strip()
+    if not token:
+        return _TABLE_READ_FAILED
+    # THE WHOLE TOKEN FIRST: ``partition`` splits at the FIRST colon, which is inside a
+    # ``host:port``, so a sentence that names an address must be judged before that
+    # split rather than on whatever ends up in the tail.
+    if _names_an_endpoint(token):
+        return _TABLE_READ_FAILED
+    if token in TABLE_REASON_WORDS:
+        return TABLE_REASON_WORDS[token]
+    _stage, sep, tail = token.partition(":")
+    if sep and " " in tail.strip():
+        # ``not_asked: <sentence>`` — the relay wrote this tail for a reader.
+        return tail.strip()
+    if sep or _is_bare_code(token):
+        # ``no_table:<why>``, and any other token of this shape: the stage is the
+        # fact, the ``why`` is the relay's own error word.
+        return _TABLE_READ_FAILED
+    return token
+
+
+#: The session plane's ``state`` tokens, in the words a person reads. See
+#: :func:`session_state_words` for why the token itself is not the answer.
+SESSION_STATE_WORDS: dict[str, str] = {
+    "stored": "not running",
+}
+
+
+def session_state_words(state: str) -> str:
+    """One session-plane state token, in the words the other surfaces use.
+
+    ``stored`` is the federated catalogue's word for the second of its two
+    states (``live``, and this): a session that exists durably on its owning
+    device with NO runtime behind it right now. It is also the token
+    ``/network sessions`` printed in its STATE column (UX round 5, U29), where it
+    was a third vocabulary for a state the rest of the app already shows: the
+    sidebar paints that same session under a ``⇄`` heading with a row mark, and
+    the listing's reader had to infer three of its four columns from shape alone.
+
+    "not running" is the app's own phrase for exactly this condition rather than
+    a gloss invented here: ``info.collect`` describes the stored half of a
+    listing as "sessions that are NOT running — directories under
+    ``config_dir()/sessions/`` with no live record", and it is what the row's own
+    other columns already say (``lop sessions`` prints ``—`` for a stored row's
+    PID, RSS and heartbeat, because there is no process to measure). The local
+    listing keeps the token in ``STATE`` deliberately — that column holds seven
+    cells consumers branch on, ``stored`` among them (``cli.STATE_COLUMN_WIDTH``)
+    — so this is the federated listing's phrasing, not a rename of that contract.
+
+    A token this table does not know is passed through unchanged: an unrecognised
+    state is not evidence of "not running", and inventing a word for it would be
+    the same defect one state over.
+    """
+    token = (state or "").strip()
+    return SESSION_STATE_WORDS.get(token, token)
+
+
+#: What a SESSION with no stored name is called, on every surface that has to
+#: name one — the same export and for the same measured reason as
+#: :data:`UNNAMED_DEVICE` one paragraph up.
+#:
+#: The two halves of one list disagreed about this: a nameless row this device
+#: holds printed ``Untitled conversation`` (``session/catalog.py``), while a
+#: nameless row READ FROM A PEER printed its bare 12-hex id
+#: (``session/peer_rows.py``). A remote row is the one row a reader cannot
+#: resolve by looking around them, so it was the row least able to afford a
+#: string nobody typed — and design round 2 (D14) read the committed sidebar
+#: frame showing exactly that. One spelling, so a name-less session reads the
+#: same whichever machine minted it.
+UNTITLED_CONVERSATION = "Untitled conversation"
+
+
+#: The fork tag's text as a FILTER sees it. The mark itself is drawn per
+#: surface (``session_picker.FORK_MARKER`` in the TUI, the phone's list
+#: renderer on mobile); this is the one spelling every one of them searches by.
+FORK_HAYSTACK = "[fork]"
+
+
+def fork_haystack(row: SessionRow) -> str:
+    """``row``'s searchable text, including the fork tag when it wears one.
+
+    Every surface splices the tag in at RENDER time, so without this a user who
+    reads ``[fork]`` on screen and types it into the filter gets zero rows back
+    — a picker reporting "no matches" about a store full of visibly marked
+    forks, which reads as a broken filter rather than as an unsupported query.
+    A filter has to hold the invariant that what is displayed is matchable.
+
+    Lives HERE, beside :class:`SessionRow`, rather than in the TUI picker that
+    first needed it, because the phone's session search matches on the same
+    rows and must not disagree about what a row's text is — and importing the
+    picker into ``mobile.daemon`` to share one expression would pull Textual
+    into the daemon's import graph for a string join.
+    """
+    return f"{FORK_HAYSTACK} {row.name}" if row.forked else row.name
+
+
+#: One file's stat key: ``(st_ino, st_mtime_ns, st_size, st_mode)``; ``None``
+#: for a file that is genuinely ABSENT (a stable fact — see :func:`_stat_key`).
+_StatKey = tuple[int, int, int, int]
+
+#: ``str(sessions root) -> {session id: entry}`` for :data:`_TITLE_MEMO` and
+#: :data:`_OPENER_MEMO`, the two stat-keyed memos :func:`stored_session_title`
+#: and :func:`_opening_message` answer through.
+#:
+#: WHY A MEMO. ``recent_session_rows`` runs on the desktop chat search and on
+#: every sidebar listing, and asks :func:`session_name` once per row; each call
+#: opened the row's title sidecar and its transcript — twice, for the opener —
+#: for files a previous call had already read and nothing had touched since.
+#: Measured on a 15,441-directory store: 24,293 ``open()`` calls per call
+#: (~3/row), 2.0 s of a 2.5 s scan, all of it re-reads. The memo answers the
+#: same question from one or two ``stat`` calls while the files are unchanged.
+#:
+#: STAT BEFORE READ, keyed on the file's own ``(st_ino, st_mtime_ns, st_size,
+#: st_mode)``: the same discipline as ``session.catalog``'s birth memo, with the
+#: mode carried too because READABILITY IS PART OF THE ANSWER this memo caches:
+#: an entry read while the file was readable must miss once it is not, or the
+#: hit path would serve a name an uncached call would fall back from. A file
+#: rewritten between its stat and its read lands its NEW content under the OLD
+#: key, so the next call's stat misses and re-reads — the race resolves toward
+#: a re-read, never toward serving a stale answer. The accepted blind spot is
+#: the same one that memo takes, one term wider: a rewrite that keeps the
+#: inode, the size, the mode AND restores the nanosecond mtime.
+#:
+#: ABSENT IS CACHEABLE; UNREADABLE IS NOT. :func:`session_origin` draws this
+#: module's line: a genuinely absent file is a fact about CONTENT, and its
+#: ``None`` key is stable (the moment the file appears, the stat misses); a
+#: read that failed for any other reason is a fact about the MOMENT — ``EMFILE``
+#: under the descriptor pressure a 30,000-directory scan creates, a permissions
+#: blip — and memoising it would pin a wrong verdict for the process's life. So
+#: a stat that raises anything but ``FileNotFoundError``, and a read that fails
+#: while its file exists, both decline to store; the answer is still returned.
+#:
+#: BOUNDED in two directions, mirroring ``session.catalog``'s birth memo: at
+#: most :data:`_SESSION_MEMO_ROOTS` stores are remembered (oldest evicted
+#: first), so a process that lists many stores — the test suite — cannot grow
+#: these without limit; and a FULL scan (:func:`recent_session_rows` with
+#: ``limit=None``, the one call that sees the whole store) prunes each map to
+#: the sessions it just saw, so entries for deleted sessions drop out and a
+#: long-lived backend is bounded by the store it HAS, not by every session it
+#: has ever listed.
+_SESSION_MEMO_ROOTS = 4
+
+_TITLE_MEMO: dict[str, dict[str, tuple[_StatKey | None, bool, _StatKey | None, str]]] = {}
+_OPENER_MEMO: dict[str, dict[str, tuple[_StatKey | None, str]]] = {}
+
+
+def _session_memo_for(memo: dict[str, dict[str, Any]], session_dir: Path) -> dict[str, Any]:
+    """This store's map in ``memo``, created (oldest root evicted) on first use.
+
+    One map per sessions ROOT — the session directory's parent — so a full
+    scan and a single session's boot path reach the same map, and at most
+    :data:`_SESSION_MEMO_ROOTS` stores are remembered, exactly as
+    ``session.catalog``'s memos bound themselves and for the same reason.
+    """
+    root = memo.get(str(session_dir.parent))
+    if root is None:
+        # SNAPSHOT, AND GUARDED. The desktop lists from worker threads, so a
+        # second caller can evict or insert between an iterator and its first
+        # read, and CPython raises ``RuntimeError("dictionary changed size
+        # during iteration")`` for exactly that — which would escape
+        # ``session_name`` into a listing or a search. Standing down is safe
+        # because the root count is only a bound: a lost race costs one call
+        # with an extra store remembered, and the next call re-checks and
+        # evicts it, while raising would cost the caller its scan.
+        while len(memo) >= _SESSION_MEMO_ROOTS:
+            try:
+                oldest = next(iter(list(memo)))
+            except (StopIteration, RuntimeError):
+                break
+            memo.pop(oldest, None)
+        root = memo.setdefault(str(session_dir.parent), {})
+    return root
+
+
+def _prune_session_scan_memos(sessions_root: Path, keep: set[str]) -> None:
+    """Drop memo entries for sessions a FULL scan did not see.
+
+    Called only by :func:`recent_session_rows`' untruncated scan: a bounded
+    listing sees a subset of the store, and pruning to THAT would evict entries
+    the next call needs, while the full scan is the one call that knows the
+    store as it is now. ``keep`` may hold ids ``session_name`` was never called
+    on, which only makes the sweep conservative — it can never evict a live
+    entry, because every session the scan saw keeps its entry.
+
+    ``keep`` comes from the scan's OWN filters, and one of them is worth
+    naming: a full scan with ``include_archived=False`` (the desktop search's
+    default) never emits archived ids, so an archived session's entry is evicted
+    with the rest. That is accepted — the cost is one re-read the next time a
+    listing touches that session, and threading the archive predicate through
+    the prune would cost more than the re-read it saves. Wrongness is not on
+    the table: a pruned entry only ever means a re-read.
+    """
+    key = str(sessions_root)
+    for memo in (_TITLE_MEMO, _OPENER_MEMO):
+        root = memo.get(key)
+        if root is None:
+            continue
+        for stale in root.keys() - keep:
+            root.pop(stale, None)
+
+
+def _stat_key(path: Path) -> tuple[_StatKey | None, bool]:
+    """``((ino, mtime_ns, size, mode) | None, cacheable)`` for one file.
+
+    ``None`` is the ABSENT key, and it is stable: a file that is not there is a
+    fact about content, and the moment it appears its stat yields a key that
+    misses. The mode rides in the key because a permission change is a change
+    of what a reader would see (a mode-0 sidecar falls back to the transcript),
+    and it is free here — the stat that supplies the rest supplies it too.
+    Anything else that keeps the key from being trusted — an ``EACCES``, an
+    ``EMFILE``, a path that is not a plain file — clears the second element,
+    and callers decline to memoise on it: see :data:`_TITLE_MEMO` for why the
+    two states must not be conflated, and :func:`session_origin` for the same
+    distinction pressed into a bool.
+    """
+    try:
+        info = os.stat(path)
+    except FileNotFoundError:
+        return None, True
+    except OSError:
+        return None, False
+    return (info.st_ino, info.st_mtime_ns, info.st_size, info.st_mode), True
+
+
+def stored_session_title(session_dir: Path) -> str:
+    """The title this session was last named, or ``""`` when it has none.
+
+    The name a user searches by is the name they last SAW, and that is the
+    stored title — auto-generated on the first substantive turn, or typed at
+    ``/rename``. Before this existed the picker labelled every row with the
+    session's opening message, so a conversation renamed to something
+    memorable was still listed under whatever happened to be typed first, and
+    a user who could not recall that opening line could not find the session
+    at all. That is the reported failure this function closes.
+
+    Scanned out of the raw JSONL rather than replayed through ``Transcript``
+    on purpose. This module is import-guarded (see the module docstring): a
+    picker row must not drag the engine, the providers or ``asyncio`` onto
+    ``local-operator --help``. A regex over two bounded windows is the same
+    question asked cheaply.
+
+    BOTH ENDS are read — see :data:`TITLE_SCAN_BYTES` for why a tail-only scan
+    missed the title on 78% of real sessions. The LAST match wins across the
+    two windows, because each rename appends a full snapshot and the newest row
+    is the title in force.
+
+    Tolerant like everything else on this path — an unreadable or truncated
+    transcript yields ``""`` and the caller falls back to the opening message
+    rather than the picker failing.
+
+    **The title sidecar is consulted FIRST** (``title.json``, written by
+    :func:`write_session_title` on the same event that journals the title to
+    the transcript). It is one stat and a sub-kilobyte read, O(1) in transcript
+    size, and it is what closes the window-scan gap :data:`TITLE_SCAN_BYTES`
+    describes: a title in the untouched middle of a multi-megabyte transcript
+    is invisible to the two windows but sits in the sidecar. The scan below
+    remains the fallback for sessions written before the sidecar existed and
+    not yet reached by :func:`backfill_session_titles`.
+
+    THE ANSWER IS MEMOISED, keyed on the two files' stats — see
+    :data:`_TITLE_MEMO`. Every repeat call on an unchanged session is one
+    ``stat`` of the sidecar, plus one of the transcript only when the cached
+    answer came from the transcript scan; the scan itself reruns only when one
+    of the files that produced the answer has moved. The answer is unchanged:
+    the sidecar still wins when it has text and the window scan is still the
+    fallback, and an answer read from a file that exists but could not be
+    opened is never memoised.
+    """
+    memo = _session_memo_for(_TITLE_MEMO, session_dir)
+    name = session_dir.name
+    sidecar_key, sidecar_stable = _stat_key(session_dir / TITLE_SIDECAR_NAME)
+    if sidecar_stable:
+        cached = memo.get(name)
+        if cached is not None:
+            cached_sidecar, from_sidecar, cached_transcript, cached_title = cached
+            if cached_sidecar == sidecar_key:
+                if from_sidecar:
+                    # The sidecar answered; the transcript was never consulted,
+                    # so its stat cannot invalidate this.
+                    return cached_title
+                transcript_key, transcript_stable = _stat_key(session_dir / TRANSCRIPT_NAME)
+                if transcript_stable and transcript_key == cached_transcript:
+                    return cached_title
+    sidecar = _read_title_sidecar(session_dir)
+    # A sidecar that EXISTS but did not parse — or could not be opened — is
+    # left un-memoised: malformed content and a transient unreadable look the
+    # same from here, and re-reading a file of a few hundred bytes is cheaper
+    # than pinning either. A sidecar that appeared between the stat and the
+    # read (``sidecar_key`` None while the parse succeeded) is a third such
+    # case: the disagreement itself says the file moved under this call.
+    sidecar_memoizable = sidecar_stable and ((sidecar_key is None) == (sidecar is None))
+    if sidecar is not None and sidecar.text:
+        if sidecar_memoizable:
+            memo[name] = (sidecar_key, True, None, sidecar.text)
+        return sidecar.text
+    transcript = session_dir / TRANSCRIPT_NAME
+    transcript_key, transcript_stable = _stat_key(transcript)
+    try:
+        with transcript.open("rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            size = handle.tell()
+            if size > TITLE_SCAN_BYTES * 2:
+                # Large enough for two disjoint windows: read the head, then
+                # seek to the last TITLE_SCAN_BYTES for the tail.
+                handle.seek(0)
+                head = handle.read(TITLE_SCAN_BYTES)
+                handle.seek(size - TITLE_SCAN_BYTES)
+                tail = handle.read()
+            else:
+                # Small enough that the two windows would overlap: read the
+                # WHOLE file once and let it serve as both. Splitting it here
+                # is what broke this the first time round -- the head was read,
+                # the handle was left at EOF by the size probe, and the `else`
+                # branch's read returned b"", so files between 1x and 2x the
+                # window (30% of a real store) were searched head-only. That
+                # silently reverted a late rename to the name it was renamed
+                # AWAY from, which is worse than the missing name this function
+                # exists to prevent.
+                handle.seek(0)
+                head = tail = handle.read()
+    except FileNotFoundError:
+        # Genuinely absent, which is stable: a file that is not there holds no
+        # window, so "" is the same answer every scan gives.
+        if sidecar_memoizable and transcript_key is None:
+            memo[name] = (sidecar_key, False, None, "")
+        return ""
+    except OSError:
+        # A file that exists but could not be READ is a fact about this moment,
+        # not about the transcript; answer, never memoise.
+        return ""
+    # The tail is searched FIRST and wins: a rename made late in a long session
+    # is the newest title, and the head can only hold older ones.
+    for window in (tail, head):
+        matches = _TITLE_ROW_RE.findall(window.decode("utf-8", errors="replace"))
+        if matches:
+            break
+    value = ""
+    if matches:
+        try:
+            # Through the JSON decoder rather than a manual unescape, so a title
+            # holding a quote, a backslash or a \uXXXX escape reads back as the
+            # characters the user actually saw.
+            title = json.loads(f'"{matches[-1]}"')
+        except ValueError:
+            title = None
+        if title is not None:
+            value = " ".join(str(title).split())
+    if sidecar_memoizable and transcript_stable and transcript_key is not None:
+        memo[name] = (sidecar_key, False, transcript_key, value)
+    return value
+
+
+def session_name(
+    session_dir: Path, *, max_chars: int = NAME_MAX_CHARS, condense: bool = True
+) -> str:
+    """A conversation's display name: its stored title, else its opening message.
+
+    The stored title comes first because it is the name the user last saw on
+    the band and in the terminal tab, and therefore the one they will search
+    for. The opening message is the FALLBACK, for the two cases that have no
+    stored title: a transcript written before titles were journalled, and a
+    session closed before its naming call landed. Both still deserve a
+    recognisable row, and the opener is what the picker always used.
+
+    Deliberately tolerant. This runs over every session directory to paint a
+    picker, so a transcript that is truncated, half-written by a session still
+    running, or corrupt yields ``""`` and a nameless row rather than taking
+    the picker down. The scan also stops at the first user message and at
+    :data:`NAME_SCAN_CHARS`, so it costs one short read per session instead of
+    a full parse of a file that can be hundreds of kilobytes. Both reads are
+    memoised on the stats of the files that produced them (see
+    :data:`_TITLE_MEMO` and :func:`_opening_message`), so a repeated scan of an
+    unchanged store pays a stat, not a read.
+    """
+    stored = stored_session_title(session_dir)
+    if stored:
+        return _condense(stored, max_chars) if condense else stored
+    opening = _opening_message(session_dir)
+    if not opening:
+        return ""
+    # ``condense=False`` returns the opening text with its line breaks intact,
+    # which the backfill needs: the role preamble it matches is
+    # ``[role: <name>]\n``, and condensing flattens that newline into a space
+    # before the pattern could ever see it.
+    return _condense(opening, max_chars) if condense else opening
+
+
+def _opening_message(session_dir: Path) -> str:
+    """The opening user message's raw text — ``session_name``'s fallback, memoised.
+
+    Split out of :func:`session_name` so the fallback half can carry its own
+    memo (:data:`_OPENER_MEMO`): it is consulted for every session whose stored
+    title is empty — most of a real store — and it re-reads the transcript head
+    on every scan. The memo is stat-keyed like :func:`stored_session_title`'s,
+    and it returns the SAME text the scan would, BEFORE :func:`_condense`:
+    ``max_chars`` and ``condense`` are the caller's arguments, not facts about
+    the file, so condensing stays :func:`session_name`'s per-call step.
+
+    Tolerance is unchanged, and so is its rationale: a transcript that is
+    truncated, half-written by a session still running, or unreadable yields
+    ``""`` and a nameless row rather than taking the picker down, and the scan
+    is bounded exactly as this module documents (one short read, stopping at
+    the first user message and at :data:`NAME_SCAN_CHARS`). Absent memoises,
+    unreadable does not — see :data:`_TITLE_MEMO`.
+    """
+    memo = _session_memo_for(_OPENER_MEMO, session_dir)
+    name = session_dir.name
+    transcript = session_dir / TRANSCRIPT_NAME
+    transcript_key, transcript_stable = _stat_key(transcript)
+    if transcript_stable:
+        cached = memo.get(name)
+        if cached is not None and cached[0] == transcript_key:
+            return cached[1]
+    try:
+        with transcript.open("r", encoding="utf-8", errors="replace") as handle:
+            # ONE bounded read, not `for line in handle`. Iterating the file
+            # materialises each line in full BEFORE any cap can be checked, so a
+            # transcript whose first line is a pasted file or a base64 image —
+            # exactly the case this cap exists for — allocated the whole line
+            # anyway (measured: an 80 MB first line peaked at 168 MB before the
+            # check that was supposed to prevent it). Reading a fixed window
+            # first makes the bound real.
+            head = handle.read(NAME_SCAN_CHARS)
+    except OSError:
+        # Absent is stable and "" is the answer every scan gives; a file that
+        # exists but could not be opened is not stable, and is not memoised.
+        if transcript_stable and transcript_key is None:
+            memo[name] = (None, "")
+        return ""
+    # A final line with no newline after it is HELD BACK from the strict parse
+    # only when the window was actually filled — i.e. the read stopped because
+    # of the cap, so that line is a half-READ one and parsing it as JSON would
+    # be parsing a fragment. When the whole file fitted, the same shape is a
+    # complete last line that simply has no trailing newline, and dropping it
+    # lost the name of any session whose transcript is a single entry. Held
+    # rather than discarded because the fragment still carries the opener's
+    # text: see ``_text_from_fragment``.
+    truncated = len(head) >= NAME_SCAN_CHARS
+    lines = head.splitlines()
+    fragment = ""
+    if truncated and lines and not head.endswith("\n"):
+        fragment = lines.pop()
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            # A partial final line is normal for a session that is still
+            # running: the writer appends, we may read mid-write.
+            continue
+        if not isinstance(entry, dict) or entry.get("type") != "message":
+            continue
+        payload = entry.get("payload")
+        if not isinstance(payload, dict):
+            continue
+        # ``role`` is matched EXACTLY: a tool result is also a four-character
+        # role and carries the tool's output, which would name the
+        # conversation after a directory listing.
+        if payload.get("role") != "user":
+            continue
+        text = _first_text(payload.get("content"))
+        if text:
+            if transcript_stable and transcript_key is not None:
+                memo[name] = (transcript_key, text)
+            return text
+    # The window held no COMPLETE line, so the opener is a fragment. Dropping
+    # it (which is all this used to do) left every session that begins with a
+    # pasted screenshot permanently nameless: one base64 image puts the first
+    # line past the cap, and the picker then showed `(unnamed session)` for the
+    # rest of that conversation's life. Measured on two real sessions whose
+    # first lines were 115,289 and 733,034 chars.
+    value = _text_from_fragment(fragment) if fragment else ""
+    if transcript_stable and transcript_key is not None:
+        memo[name] = (transcript_key, value)
+    return value
+
+
+def _text_from_fragment(fragment: str) -> str:
+    """The opening user message's text, recovered from a HALF-READ first line.
+
+    Deliberately a scan and not a parse: the fragment is an incomplete JSON
+    object, so there is nothing `json.loads` can do with it. What makes the scan
+    safe is the ORDER the writer emits: a user message with attachments
+    serializes its text block before the image data (``Message.user(text,
+    images)`` keeps that order), so on a line whose tail is megabytes of base64
+    the topic sits in the first few hundred characters — measured at offset 135,
+    with the image ``data`` key at 443.
+
+    Three guards, because a wrong name here is worse than none. The fragment
+    must identify itself as a user message, the text value must be COMPLETE (a
+    closing quote inside the window, never a mid-word cut), and it must appear
+    before any ``data`` key so a session can never be named after base64.
+    """
+    if _FRAGMENT_USER_RE.search(fragment[:_FRAGMENT_HEAD_CHARS]) is None:
+        return ""
+    match = _TEXT_VALUE_RE.search(fragment)
+    if match is None:
+        return ""
+    data = _DATA_KEY_RE.search(fragment)
+    if data is not None and data.start() < match.start():
+        return ""
+    try:
+        # Through the JSON decoder rather than a hand-rolled unescape: the
+        # captured span is a JSON string body, and a title showing a literal
+        # ``\u2014`` would be its own bug.
+        return json.loads(f'"{match.group(1)}"')
+    except ValueError:
+        return ""
+
+
+def session_preview(session_dir: Path, *, max_chars: int = PREVIEW_MAX_CHARS) -> str:
+    """The session's most recent ASSISTANT reply, condensed for a list row.
+
+    The conversation-list counterpart to :func:`session_name`: the name says
+    what a conversation is about, the preview says where it got to.
+
+    Canonical sessions keep their conversation in ``transcript.jsonl`` and never
+    write the legacy agent record's ``last_message`` field, so a list rendering
+    that field showed "No messages yet" against conversations with a full
+    transcript on disk — a false statement about the user's own data, sitting
+    inches from the timestamp of the very message it denied (design D19).
+    Reading the transcript makes the durable conversation the ONE authority for
+    both facts.
+
+    Bounded like the name scan and tolerant for the same reasons, but it reads
+    the TAIL rather than the head: the newest entry is the last line. A
+    transcript shorter than the window is read whole; a longer one is seeked to
+    its final :data:`PREVIEW_SCAN_BYTES`, whose first line is dropped because a
+    seek to a byte offset lands mid-line.
+
+    An assistant entry with no text — a turn that only made tool calls — is
+    skipped rather than previewed as an empty string, so the row shows the last
+    thing the model actually SAID. Returns ``""`` when the transcript is
+    missing, unreadable, or contains no assistant text, and the caller renders
+    its own empty state.
+    """
+    for entry in _tail_entries(session_dir):
+        if entry.get("type") != "message":
+            continue
+        payload = entry.get("payload")
+        if not isinstance(payload, dict) or payload.get("role") != "assistant":
+            continue
+        text = _first_text(payload.get("content"))
+        if text.strip():
+            return _condense(text, max_chars)
+    return ""
+
+
+def session_failure_summary(session_dir: Path, *, max_chars: int = PREVIEW_MAX_CHARS) -> str:
+    """The raw text of this session's most recent failure, or ``""``.
+
+    The conversation-list preview answers "where did it get to"; this answers
+    "what went wrong", for the one banner where the first question has no
+    honest answer. A notification that says only "Stopped with an error" tells
+    the user a thing they must act on while withholding the only fact that
+    would let them act — whether to top up a quota, fix a credential, or simply
+    retry (design round 1, D4).
+
+    Read from the ``session_incident`` record's ``details.raw``, which is the
+    UNRENDERED provider text. Deliberately not ``details.text``: that is the
+    formatted model-facing block, several lines long and tailed with "This is
+    why the previous turn ended. Take it into account before repeating the same
+    request." — an instruction addressed to the model, which on a lock screen
+    reads as nonsense. ``raw`` is the sentence a human wants.
+
+    A credential-redaction record (``session_credential_redaction``, which left
+    ``session_incident`` on 2026-09-24) is NOT matched here, and the reason is
+    the same as before the split rather than a consequence of it: it carries no
+    ``raw`` field at all, so a notification's failure text was never composed
+    from one. ``notifications/compose.py``'s ``error`` body therefore still
+    takes its text only from a real failed turn, which is what that body claims.
+
+    No new durable path is introduced. ``incidents.py`` already journals this
+    record on every classified failure, precisely so a resumed session can
+    explain itself, and it is persisted for the same reason this needs it.
+
+    Bounded and tolerant exactly like :func:`session_preview`, and for the same
+    reasons — it shares that function's tail window, so the cost is the same
+    single bounded read and is independent of transcript size. Returns ``""``
+    for a missing, unreadable or incident-free transcript, and the caller falls
+    back to the house sentence.
+    """
+    for entry in _tail_entries(session_dir):
+        payload = entry.get("payload")
+        if not isinstance(payload, dict):
+            continue
+        if payload.get("custom_type") != _SESSION_INCIDENT_TYPE:
+            continue
+        details = payload.get("details")
+        if not isinstance(details, dict):
+            continue
+        raw = details.get("raw")
+        if isinstance(raw, str) and raw.strip():
+            return _condense(raw, max_chars)
+    return ""
+
+
+def _tail_entries(session_dir: Path) -> list[dict[str, Any]]:
+    """Parsed entries from the transcript's tail window, NEWEST FIRST.
+
+    Factored out of :func:`session_preview` when
+    :func:`session_failure_summary` needed the identical scan: one bounded
+    seek, the first (fragment) line dropped, newest-first iteration, and every
+    unparseable line skipped because a live writer may be mid-append. Two
+    copies of that would be two places for the window arithmetic to drift.
+    """
+    transcript = session_dir / TRANSCRIPT_NAME
+    try:
+        size = transcript.stat().st_size
+        with transcript.open("rb") as handle:
+            if size > PREVIEW_SCAN_BYTES:
+                handle.seek(size - PREVIEW_SCAN_BYTES)
+                window = handle.read()
+                # The seek landed at an arbitrary byte, so the first line is a
+                # fragment. Unlike the name scan there is nothing to recover
+                # from it: the newest entry is at the other end.
+                _, _, window = window.partition(b"\n")
+            else:
+                window = handle.read()
+    except OSError:
+        return []
+    entries: list[dict[str, Any]] = []
+    for line in reversed(window.decode("utf-8", "replace").splitlines()):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            # Normal for a live session: the writer appends and we may read
+            # mid-write, so the final line can be half-written.
+            continue
+        if isinstance(entry, dict):
+            entries.append(entry)
+    return entries
+
+
+def _first_text(content: object) -> str:
+    """The first text part of a persisted message's content list."""
+    if not isinstance(content, list):
+        return ""
+    for part in content:
+        if isinstance(part, dict):
+            text = part.get("text")
+            if isinstance(text, str) and text.strip():
+                return text
+    return ""
+
+
+def _condense(text: str, max_chars: int) -> str:
+    """One line, no runs of whitespace, ellipsised at ``max_chars``.
+
+    A prompt is usually several lines and often starts with a pasted block;
+    the picker has one row per session, so the name has to survive being cut.
+    """
+    flat = " ".join(text.split())
+    if len(flat) <= max_chars:
+        return flat
+    # Cut on a word boundary when one is close to the limit, so the name ends
+    # on a word rather than mid-token.
+    cut = flat[: max_chars - 1]
+    spaced = cut.rsplit(" ", 1)[0]
+    if len(spaced) >= max_chars - 12:
+        cut = spaced
+    return cut.rstrip(" ,.;:") + "…"
+
+
+def recent_session_rows(
+    config_dir: Path,
+    limit: int | None = None,
+    *,
+    strict: bool = False,
+    include_archived: bool = False,
+) -> list[SessionRow]:
+    """:class:`SessionRow` per resumable session, newest first.
+
+    Layered over :func:`recent_sessions` rather than replacing it: the CLI's
+    recovery listing wants only ``(id, mtime)`` and must stay as cheap as it
+    is, while the picker pays one extra short read per row for the name.
+
+    Synchronous, and called from the UI thread when the picker opens. That is
+    deliberate: each read is bounded (:data:`NAME_SCAN_CHARS`) and stops at the
+    first user turn, so the pathological case — a transcript whose first line
+    is an 80 MB paste — measures 0.2 ms, and fifty of them are still under a
+    frame. Moving this to a worker would trade that for a picker that opens
+    empty and fills in, which is worse for a list the user is about to read.
+
+    ``limit=None`` means NO TRUNCATION, matching :func:`recent_sessions` — see
+    its docstring for why the untruncated answer is the DEFAULT rather than the
+    opt-in. The ``/resume`` picker relies on that default; every caller that
+    wants a short list passes its own number at its own call site (the CLI's
+    recovery listing, the mobile daemon's history and search), so the cap is
+    visible where it is chosen instead of hiding in this signature.
+
+    Uncapping is affordable because the scan underneath is limit-independent
+    (see :func:`recent_sessions`) and the only per-row cost added is
+    :func:`session_name`, one bounded head read.
+
+    **The fork mark costs nothing on an unmarked session.** The scan already
+    parsed every ``origin.json`` that exists, so the verdict is threaded out of
+    it (:func:`_recent_sessions_with_origin`) rather than re-read here; a
+    session with no marker — the overwhelming majority — adds no syscall at
+    all, and only a row already known to be a FORK pays the title probe. An
+    earlier revision asked ``wears_inherited_title`` per row unconditionally,
+    which attempted two reads per row on a store containing zero forks (the
+    absence was discovered from the ``OSError``) and measured +52% on a
+    3,000-session store, on this synchronous UI-thread path. That is the exact
+    "unmarked is the cheap path" property :func:`recent_sessions` documents at
+    length, and it must not be given back here.
+
+    ``strict=True`` forwards to the scan, so a store that exists but cannot be
+    WALKED raises :class:`~local_operator.session.errors.SessionStoreUnavailable`
+    instead of answering an empty list. It is off by default because these
+    callers answer display-only questions in the sense that matters -- a
+    picker, a search, a recovery listing -- and an error is worse for them than
+    an empty answer; flipping the default would be a behaviour change to eight
+    surfaces this parameter has no evidence about.
+
+    THE PHONE'S HISTORY IS NOT ONE OF THOSE, and it is the reason the parameter
+    exists at all. ``mobile.daemon`` builds its durable listing from these rows
+    and publishes them as the phone's conversation list, which the client
+    REPLACES wholesale -- so an unreadable store read as "no conversations" is
+    the same confidently-wrong membership this whole change removes from the
+    desktop and TUI sidebars, one surface out. That caller passes
+    ``strict=True`` and keeps the last listing it did read.
+
+    ``include_archived=False`` keeps archived conversations out of the rows, and
+    that is the default every listing wants. The ``/resume`` picker is the one
+    caller that passes ``True``: it has a toggle that REVEALS them, so it needs
+    the rows in hand and the ``archived`` flag on each one to know which rows the
+    toggle is revealing. A caller that only lists (the CLI's recovery listing,
+    the phone's history, the search) leaves it off and so cannot offer an
+    archived conversation at all.
+    """
+    rows: list[SessionRow] = []
+    seen_ids: set[str] = set()
+    for session_id, mtime, origin, archived in _recent_sessions_with_origin(
+        config_dir, limit, strict=strict, include_archived=include_archived
+    ):
+        seen_ids.add(session_id)
+        session_dir = config_dir / "sessions" / session_id
+        rows.append(
+            SessionRow(
+                session_id,
+                mtime,
+                session_name(session_dir),
+                # Gated on the origin the scan ALREADY parsed. Non-forks — every
+                # ordinary conversation — short-circuit here without touching
+                # the disk again.
+                forked=origin == ORIGIN_FORK and wears_inherited_title(session_dir),
+                # Taken from the scan's own read rather than re-derived here; see
+                # ``_recent_sessions_with_origin``. With the flag off this is
+                # ``False`` for every row by construction, and it is still
+                # stamped rather than left to the field's default so a caller
+                # never has to ask which mode produced the list.
+                archived=archived,
+                # Gated on the origin the scan already parsed, exactly as the
+                # fork mark above is: only a workstream row pays the read.
+                opened_by=(
+                    workstream_opened_by(session_dir) if origin == ORIGIN_AGENT_WORKSTREAM else None
+                ),
+            )
+        )
+    if limit is None:
+        # A full scan is the one call that sees the store as it is, so it is
+        # the call that prunes the title/opener memos to it (see
+        # _SESSION_MEMO_ROOTS). A bounded listing sees a subset, and pruning to
+        # THAT would evict entries the next call needs.
+        _prune_session_scan_memos(config_dir / "sessions", seen_ids)
+    return rows
+
+
+def wears_inherited_title(session_dir: Path) -> bool:
+    """True while a FORK is still displaying the title it inherited.
+
+    The marker is about the AMBIGUOUS STATE, not about ancestry: a fork that has
+    named itself is a conversation in its own right and tagging it forever would
+    be noise on every row it ever appears in. So this asks the same question
+    ``Session._is_unnamed_fork`` asks at boot — is the newest journalled title
+    older than the fork instant — and answers False as soon as the fork writes
+    its own name.
+
+    Read from the sidecar rather than the transcript so the picker keeps its
+    one-bounded-read-per-row cost model; a fork always has the sidecar, because
+    the clone copies it precisely so the row is never blank.
+    """
+    forked_at = _fork_instant(session_dir)
+    if forked_at is None:
+        return False
+    sidecar = _read_title_sidecar(session_dir)
+    if sidecar is None or not sidecar.text:
+        # A fork of a NEVER-NAMED parent is still ambiguous, and this used to
+        # return False on the reasoning that nothing was inherited. That was
+        # wrong: ``session_name`` falls back to the transcript's opening
+        # message, and the clone copies the transcript — so the fork displays
+        # the identical opener beside its parent, which is exactly the
+        # duplicate-row confusion the mark exists to resolve. It has no title
+        # of its own yet by definition, so it is still borrowing.
+        return True
+    try:
+        stamped = (session_dir / TITLE_SIDECAR_NAME).stat().st_mtime
+    except OSError:
+        return False
+    # The sidecar is rewritten when this session names itself, so a stamp newer
+    # than the fork means the title on show is its own.
+    return stamped <= forked_at
+
+
+#: The three members the desktop wire publishes for a workstream row's opener.
+#:
+#: FROZEN, and the reason is a second repository: the sidebar that renders the
+#: attribution is written against exactly these names, so a rename here is a
+#: silent empty label there rather than an error anyone sees. Every member is
+#: ``str | None`` — a value the stamp could not read is published as ``null``
+#: and never invented (see :func:`local_operator.agent_shell._origin_attribution`).
+#:
+#: ``label`` is the REQUESTING session's task label and ``agent`` its role, the
+#: same pair the hidden subagent layer renders (``catalog._subagent_marker``
+#: reads it from the requester's own marker); ``session`` is the requesting
+#: session's id, which is what makes the supervising session reachable from the
+#: row.
+OPENED_BY_KEYS: tuple[str, ...] = ("agent", "label", "session")
+
+
+def workstream_opened_by(session_dir: Path) -> dict[str, str | None] | None:
+    """Who opened an AGENT WORKSTREAM session, or ``None`` for any other row.
+
+    The original 2026-09-18 incident was not only "a session was listed": it
+    was that a machine-started session was indistinguishable from one the
+    operator had opened. A visible workstream row therefore has to carry WHO
+    opened it and on whose behalf, which the stamp recorded in the marker at
+    creation time (:func:`local_operator.agent_shell.stamp_agent_shell_session`)
+    because that is the only moment the requesting session is knowable.
+
+    Read from the sidecar rather than kept in the scan, and GATED ON THE ORIGIN
+    the caller already has in hand: a workstream row pays one small read, and
+    every other row — the overwhelming majority, including every subagent
+    directory — pays a comparison. That is the same shape as
+    :func:`wears_inherited_title`'s fork probe, for the same reason (an
+    unconditional read here would be one extra open per row per poll on a
+    listing drawn on a UI thread).
+
+    Deliberately NOT in the scan's return tuple: that shape is pinned by six
+    callers, none of which has any use for this, and widening it would make the
+    CLI's recovery listing pay for a key it never renders.
+
+    Tolerant like every other reader of this file: a truncated, hand-edited or
+    non-object ``opened_by`` yields the three keys as ``None`` rather than a
+    raised error, because the row is still the operator's workstream and a
+    listing that hid it for a bookkeeping problem would be the worse failure.
+    """
+    try:
+        raw = (session_dir / ORIGIN_NAME).read_text(encoding="utf-8", errors="replace")
+        payload = json.loads(raw)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(payload, dict) or payload.get("origin") != ORIGIN_AGENT_WORKSTREAM:
+        return None
+    detail = payload.get("opened_by")
+    if not isinstance(detail, dict):
+        detail = {}
+    opened: dict[str, str | None] = {}
+    for key in OPENED_BY_KEYS:
+        value = detail.get(key)
+        opened[key] = value if isinstance(value, str) and value else None
+    return opened
+
+
+def _fork_instant(session_dir: Path) -> float | None:
+    """``forked_at`` from the origin marker, or None when this is not a fork.
+
+    Duplicated in spirit with ``fork.fork_instant`` and deliberately NOT
+    imported from it: this module is import-guarded (see the module docstring)
+    and ``fork`` imports ``shutil``/``uuid`` plus the retention module, which
+    the CLI's ``--resume`` path must not acquire. The payload is three keys and
+    the reader is five lines; the import edge would cost more than the copy.
+    """
+    try:
+        raw = (session_dir / ORIGIN_NAME).read_text(encoding="utf-8", errors="replace")
+        payload = json.loads(raw)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(payload, dict) or payload.get("origin") != ORIGIN_FORK:
+        return None
+    forked_at = payload.get("forked_at")
+    return float(forked_at) if isinstance(forked_at, (int, float)) else None

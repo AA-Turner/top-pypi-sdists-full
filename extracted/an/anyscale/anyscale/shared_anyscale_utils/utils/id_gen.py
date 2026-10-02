@@ -108,6 +108,7 @@ class IDTypes(Enum):
     email_magic_links = "eml"
     email_magic_link_tokens = "emlt"
     billing_versions = "billv"
+    organization_billing = "orgbil"
     customer_aggregated_logs_configs = "calc"
     service_accounts = "sa"
     organization_configurations = "orgconf"
@@ -125,6 +126,8 @@ class IDTypes(Enum):
     user_groups = "ug"
     user_group_memberships = "ugm"
     resource_permissions = "rperm"
+    roles = "rol"
+    role_bindings = "rb"
     resource_policies = "rpol"
     workload_connections = "wlc"
     connection_configs = "ccfg"
@@ -134,12 +137,21 @@ class IDTypes(Enum):
     azure_oro_tracking = "aot"
     scheduler_configs = "schcfg"
     scheduler_event = "schevt"
+    scheduler_queues = "schq"
+    data_catalogs = "dcat"
+    skills = "skl"
     skills_versions = "sklv"
     skills_terms_acceptances = "sklta"
+    # API keys are minted as server_sessions ("sss"); this label exists only to
+    # carry the api_keys RBAC resource-proxy (admin api-key revoke endpoints),
+    # whose check resolves to the caller's organization and ignores this id.
+    api_keys = "apikey"  # pragma: allowlist secret
     kuberay_crs = "kcr"
     kuberay_cr_states = "kcrst"
     kuberay_cr_scheduling_states = "kcrsch"
     workload_specs = "wspec"
+    organization_settings = "orgset"
+    api_key_expiration = "apikeyexp"  # pragma: allowlist secret
 
 
 _default_id_length: int = 26
@@ -160,8 +172,7 @@ class IDGenerator:
 
         self.rand = random.SystemRandom()
         self.possible_characters = list(
-            set(string.ascii_lowercase + string.digits)
-            - {"o", "0"}  # No confusing characters
+            set(string.ascii_lowercase + string.digits) - {"o", "0"}  # No confusing characters
         )
 
     def generate_id(self, k: int = _default_id_length) -> str:

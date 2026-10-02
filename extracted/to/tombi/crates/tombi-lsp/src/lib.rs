@@ -3,6 +3,7 @@ pub mod code_action;
 mod comment_directive;
 mod completion;
 mod config_manager;
+mod cursor_position;
 mod diagnostic;
 mod document;
 pub mod extension;
@@ -74,7 +75,7 @@ pub mod handler {
     pub use goto_declaration::handle_goto_declaration;
     pub use goto_definition::handle_goto_definition;
     pub use goto_type_definition::handle_goto_type_definition;
-    pub use hover::{get_hover_keys_with_range, handle_hover};
+    pub use hover::{get_hover_keys_with_span, handle_hover};
     pub use initialize::handle_initialize;
     pub use initialized::handle_initialized;
     pub use inlay_hint::handle_inlay_hint;
@@ -93,6 +94,7 @@ pub(crate) use comment_directive::{
     DOCUMENT_SCHEMA_DIRECTIVE_DESCRIPTION, DOCUMENT_SCHEMA_DIRECTIVE_TITLE,
     DOCUMENT_TOMBI_DIRECTIVE_DESCRIPTION, DOCUMENT_TOMBI_DIRECTIVE_TITLE,
 };
+pub(crate) use cursor_position::CursorPosition;
 pub use hover::HoverContent;
 
 pub fn lsp_service(

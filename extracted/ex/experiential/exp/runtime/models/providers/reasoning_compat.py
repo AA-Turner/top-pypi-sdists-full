@@ -1,0 +1,630 @@
+"""Provider-specific support and normalization for reasoning-effort controls."""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import Collection, Mapping, Sequence
+from typing import TYPE_CHECKING, cast
+
+from pydantic import JsonValue
+
+from exp.common.models.known_models import canonical_model_id, known_model_metadata
+from exp.common.models.model import ReasoningEffort
+from exp.runtime.models.providers.anthropic_tool_compat import matches_anthropic_release
+from exp.runtime.models.providers.errors import (
+    ProviderParameterError,
+    UnsupportedReasoningEffortError,
+)
+
+if TYPE_CHECKING:
+    from exp.runtime.gateway.contracts import GatewayRequest
+    from exp.runtime.models.providers.base import GatewayWireProfile
+
+_logger = logging.getLogger(__name__)
+
+REASONING_EFFORTS = (
+    "none",
+    "minimal",
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "ultra",
+    "max",
+)
+_EFFORT_ORDER = REASONING_EFFORTS
+
+
+def default_reasoning_effort(
+    model_id: str,
+    wire_format: str,
+    *,
+    configured_fallback: ReasoningEffort = "medium",
+) -> ReasoningEffort | None:
+    """Choose a valid explicit route pin without normalizing a caller value."""
+    supported = supported_reasoning_efforts(
+        model_id,
+        wire_format,
+        configured_effort=configured_fallback,
+    )
+    if (
+        wire_format in {"anthropic_adaptive", "reasoning"}
+        and matches_anthropic_release(model_id, ("claude-sonnet-5-5",))
+        and "high" in supported
+    ):
+        return "high"
+    if "medium" in supported:
+        return "medium"
+    if "high" in supported:
+        return "high"
+    return cast("ReasoningEffort", supported[0]) if supported else None
+
+
+def efforts_by_nearness(
+    requested: str,
+    supported: Collection[str],
+) -> tuple[ReasoningEffort, ...]:
+    """Order supported efforts by closeness to the request on the ladder.
+
+    Distance is measured in ladder positions (none < minimal < low < medium <
+    high < xhigh < ultra < max); a tie prefers the LOWER level. Callers must
+    restrict candidates to permitted substitutions and disclose any change:
+    this helper only orders the candidates.
+
+    Args:
+        requested: Caller-provided effort value.
+        supported: Efforts the route's deployments can preserve.
+
+    Returns:
+        Supported efforts from nearest to farthest, empty when the requested
+        value is not a known level or nothing is supported.
+    """
+    if requested not in _EFFORT_ORDER:
+        return ()
+    requested_index = _EFFORT_ORDER.index(requested)
+    ordered = sorted(
+        (effort for effort in _EFFORT_ORDER if effort in supported),
+        key=lambda effort: (
+            abs(_EFFORT_ORDER.index(effort) - requested_index),
+            _EFFORT_ORDER.index(effort),
+        ),
+    )
+    return cast("tuple[ReasoningEffort, ...]", tuple(ordered))
+
+
+def require_sampling_reasoning_compatibility(
+    *,
+    reasoning_effort: str | None,
+    sampling_requires_reasoning_none: bool,
+    temperature_requested: bool,
+    top_p_requested: bool,
+) -> None:
+    """Reject sampling controls that require an exact no-reasoning mode."""
+    if not sampling_requires_reasoning_none or reasoning_effort == "none":
+        return
+    param = "temperature" if temperature_requested else "top_p"
+    if not temperature_requested and not top_p_requested:
+        return
+    raise ProviderParameterError(
+        message=(
+            f"The parameter {param!r} is supported by this model only when "
+            "reasoning_effort is 'none'. Set reasoning_effort to 'none' or remove the "
+            "sampling control."
+        ),
+        param=param,
+        code="invalid_parameter",
+    )
+
+
+def supported_reasoning_efforts(
+    model_id: str,
+    wire_format: str,
+    *,
+    configured_effort: str | None = None,
+    explicit_efforts: Collection[str] | None = None,
+) -> tuple[str, ...]:
+    """Return efforts a route can send without provider-side normalization.
+
+    Unknown OpenAI-compatible and OpenRouter model families expose only their
+    operator-pinned effort. That keeps manually declared models callable while
+    preventing a caller value from reaching an upstream compatibility shim
+    that may silently clamp it.
+
+    Args:
+        model_id: Exact provider model identifier.
+        wire_format: Provider field used to carry reasoning effort.
+        configured_effort: Optional operator-pinned effort proven by the catalog.
+        explicit_efforts: Exact provider-published values for this deployment.
+
+    Returns:
+        Canonically ordered efforts that preserve the caller's exact value.
+    """
+    if explicit_efforts is not None:
+        return tuple(effort for effort in _EFFORT_ORDER if effort in explicit_efforts)
+    supported: Collection[str] | None
+    if wire_format in {"openai_responses", "reasoning_effort"}:
+        supported = _openai_supported_efforts(model_id)
+    elif wire_format == "anthropic_adaptive":
+        supported = _anthropic_supported_efforts(model_id)
+    elif wire_format == "gemini_thinking":
+        supported = _gemini_supported_efforts(model_id)
+    elif wire_format == "reasoning":
+        normalized = model_id.lower()
+        if normalized.startswith("openai/"):
+            supported = _openai_supported_efforts(model_id)
+        elif normalized.startswith("anthropic/"):
+            supported = _anthropic_supported_efforts(model_id.split("/", 1)[-1])
+        elif normalized.startswith("google/"):
+            supported = _gemini_supported_efforts(model_id.split("/", 1)[-1])
+        else:
+            supported = None
+    else:
+        return ()
+    if supported is None:
+        supported = (configured_effort,) if configured_effort in _EFFORT_ORDER else ()
+    return tuple(effort for effort in _EFFORT_ORDER if effort in supported)
+
+
+# Family entries are GENERATION PREFIXES matched as substrings of the
+# normalized model id (dots and underscores become hyphens), so point
+# releases inherit their generation's contract by construction:
+# claude-fable-5-1 matches "claude-fable-5" (verified live 2026-09-01, the
+# 5.1 launch). A NEW generation (claude-fable-6) matches nothing and must be
+# added here deliberately; the known-models drift gate fails by name when a
+# served Anthropic listing id resolves no generation contract.
+_ANTHROPIC_ADAPTIVE_ONLY_FAMILIES = (
+    "claude-fable-5",
+    "claude-mythos-5",
+    "claude-opus-5",
+    "claude-opus-4-8",
+    "claude-opus-4-7",
+    "claude-sonnet-5",
+)
+_ANTHROPIC_ALWAYS_THINKING_FAMILIES = (
+    "claude-fable-5",
+    "claude-mythos-5",
+    "claude-mythos-preview",
+)
+# Opus 5.5 changes the off-switch contract without changing the whole generation.
+_ANTHROPIC_ALWAYS_THINKING_RELEASES = ("claude-opus-5-5",)
+
+
+def anthropic_adaptive_only_thinking(model_id: str) -> bool:
+    """Return whether enabling thinking forbids a manual token budget.
+
+    These families reject budgeted ``thinking.type.enabled``. That does not
+    imply that thinking cannot be disabled: older Sonnet and Opus releases
+    support an off switch, while Opus 5.5 always reasons adaptively. Sonnet 5.5
+    additionally supports its non-budgeted ``between_tools`` mode.
+
+    Args:
+        model_id: Exact Anthropic model identifier.
+
+    Returns:
+        ``True`` when enabling thinking requires adaptive rather than a budget.
+    """
+    normalized = _normalized_model(model_id)
+    return any(family in normalized for family in _ANTHROPIC_ADAPTIVE_ONLY_FAMILIES)
+
+
+def anthropic_budgeted_enabled_only(model_id: str) -> bool:
+    """Whether an Anthropic model reasons via a token budget but rejects adaptive.
+
+    haiku-4-5 is marked ``supports_reasoning`` yet is NOT the effort/adaptive
+    generation (``supports_reasoning_effort`` is False), so it honors a
+    budgeted ``thinking: {type: enabled, budget_tokens}`` config while
+    rejecting ``thinking: {type: adaptive}`` and ``output_config.effort`` by
+    name. The effort generation (sonnet-4-6, opus-5, fable-5-1, ...) carries
+    ``supports_reasoning_effort`` and accepts the adaptive object verbatim,
+    so it is NOT one of these.
+
+    Args:
+        model_id: Exact Anthropic model identifier.
+
+    Returns:
+        ``True`` only for a reasoning model whose depth is a token budget and
+        which rejects an adaptive thinking config.
+    """
+    known = known_model_metadata("anthropic", model_id)
+    if known is None:
+        return False
+    return known.supports_reasoning is True and not known.supports_reasoning_effort
+
+
+MINIMUM_THINKING_BUDGET_TOKENS = 1024
+"""Smallest budget Anthropic accepts for an ``enabled`` thinking config."""
+
+MAXIMUM_THINKING_BUDGET_TOKENS = 16384
+"""Ceiling on a gateway-derived thinking budget when the caller supplied none."""
+
+
+def anthropic_thinking_budget_tokens(maximum_output_tokens: int | None) -> int | None:
+    """Return a legal ``budget_tokens`` for a translated enabled config, or None.
+
+    Anthropic requires ``1024 <= budget_tokens < max_tokens`` for an enabled
+    thinking config. With no effort→budget table to consult, the budget is
+    half the caller's output ceiling, clamped to a sane band. An unbounded
+    caller (no ceiling) takes the band ceiling. When the ceiling is too small
+    to admit any legal budget the translation is impossible and the caller
+    must fall through to the drop path.
+
+    Args:
+        maximum_output_tokens: The caller's output-token ceiling, if any.
+
+    Returns:
+        A legal budget, or ``None`` when no budget fits the ceiling.
+    """
+    if maximum_output_tokens is None:
+        return MAXIMUM_THINKING_BUDGET_TOKENS
+    budget = min(
+        max(maximum_output_tokens // 2, MINIMUM_THINKING_BUDGET_TOKENS),
+        MAXIMUM_THINKING_BUDGET_TOKENS,
+    )
+    if MINIMUM_THINKING_BUDGET_TOKENS <= budget < maximum_output_tokens:
+        return budget
+    return None
+
+
+def anthropic_reasoning_effort(model_id: str, effort: str) -> str:
+    """Return one exact Anthropic effort or reject it before provider dispatch."""
+    return _require_exact_effort(
+        model_id,
+        effort,
+        _anthropic_supported_efforts(model_id),
+    )
+
+
+def gemini_thinking_level(model_id: str, effort: str) -> str:
+    """Return one exact Gemini thinking level or reject it before dispatch."""
+    return _require_exact_effort(model_id, effort, _gemini_supported_efforts(model_id))
+
+
+def _gemini_supported_efforts(model_id: str) -> Collection[str]:
+    """Return documented native thinking levels for one Gemini family."""
+    normalized = (
+        _normalized_model(model_id)
+        .removeprefix("publishers/google/models/")
+        .removeprefix("models/")
+    )
+    if "gemini-3-7-flash" in normalized or "gemini-3-1-pro" in normalized:
+        supported: Collection[str] = ("low", "medium", "high")
+    elif "gemini-3-pro" in normalized:
+        supported = ("low", "high")
+    elif "gemini-3-1-flash-lite-image" in normalized:
+        supported = ("minimal", "high")
+    elif any(
+        family in normalized
+        for family in (
+            "gemini-3-6-flash",
+            "gemini-3-5-flash",
+            "gemini-3-5-flash-lite",
+            "gemini-3-1-flash-lite",
+            "gemini-3-flash",
+        )
+    ):
+        supported = ("minimal", "low", "medium", "high")
+    elif normalized.startswith("gemini-2-5-"):
+        supported = ("low", "medium", "high")
+    else:
+        # New Gemini 3 variants remain callable while discovery catches up.
+        # HIGH is the only level documented across every current family.
+        supported = ("high",)
+    return supported
+
+
+def openai_reasoning_effort(model_id: str, effort: str) -> str:
+    """Return one exact effort accepted by the exact OpenAI model family."""
+    supported = _openai_supported_efforts(model_id)
+    if supported is None:
+        # Preserve explicitly configured third-party OpenAI-compatible wires.
+        return effort
+    return _require_exact_effort(model_id, effort, supported)
+
+
+def _openai_supported_efforts(model_id: str) -> Collection[str] | None:
+    """Return exact documented efforts for one maintained OpenAI model family."""
+    provider_model = model_id.split("/", 1)[-1]
+    identity = canonical_model_id("openai", provider_model)
+    if identity == "gpt-5-pro":
+        supported: Collection[str] = ("high",)
+    elif identity in {"gpt-5.2-pro", "gpt-5.4-pro", "gpt-5.5-pro"}:
+        supported = ("medium", "high", "xhigh")
+    elif identity.startswith("gpt-5.6-"):
+        # Provider-verified 2026-08-28: gpt-5.6-sol and gpt-5.6-codex accept
+        # exactly these seven and reject "ultra" by name.
+        supported = ("none", "minimal", "low", "medium", "high", "xhigh", "max")
+    elif identity in {
+        "gpt-5.2",
+        "gpt-5.4",
+        "gpt-5.4-mini",
+        "gpt-5.4-nano",
+        "gpt-5.5",
+    }:
+        # Each model page documents "none, low, medium, high and xhigh".
+        # Provider-verified 2026-09-03 on direct OpenAI (all five) and Azure
+        # OpenAI (gpt-5.4): "none" answers with zero reasoning tokens and is
+        # the only effort at which temperature and top_p are honored; every
+        # other effort rejects them with 400 unsupported_value. Without
+        # "none" on this ladder the sampling hatch declared by
+        # sampling_requires_reasoning_none is unreachable.
+        supported = ("none", "low", "medium", "high", "xhigh")
+    elif identity == "gpt-5.1":
+        supported = ("none", "low", "medium", "high")
+    elif identity in {"gpt-5", "gpt-5-mini", "gpt-5-nano"}:
+        supported = ("minimal", "low", "medium", "high")
+    elif identity.startswith(("o1", "o3", "o4")):
+        supported = ("low", "medium", "high")
+    else:
+        return None
+    return supported
+
+
+def _anthropic_supported_efforts(model_id: str) -> Collection[str]:
+    """Return exact native effort values accepted by one Anthropic model."""
+    normalized = _normalized_model(model_id)
+    xhigh_families = (
+        "claude-fable-5",
+        "claude-mythos-5",
+        "claude-opus-5",
+        "claude-opus-4-8",
+        "claude-opus-4-7",
+        "claude-sonnet-5",
+    )
+    supported = ["low", "medium", "high"]
+    if any(family in normalized for family in xhigh_families):
+        supported.append("xhigh")
+    max_families = (
+        "claude-fable-5",
+        "claude-mythos-5",
+        "claude-mythos-preview",
+        "claude-opus-5",
+        "claude-opus-4-8",
+        "claude-opus-4-7",
+        "claude-opus-4-6",
+        "claude-sonnet-5",
+        "claude-sonnet-4-6",
+    )
+    if any(family in normalized for family in max_families):
+        supported.append("max")
+    return tuple(supported)
+
+
+def _require_exact_effort(
+    model_id: str,
+    effort: str,
+    supported: Collection[str],
+) -> str:
+    """Reject an effort a known provider model would otherwise clamp or reject."""
+    if effort in supported:
+        return effort
+    ordered = tuple(candidate for candidate in _EFFORT_ORDER if candidate in supported)
+    raise UnsupportedReasoningEffortError(
+        effort=effort,
+        supported_efforts=ordered,
+        param="reasoning_effort",
+    )
+
+
+def _normalized_model(model_id: str) -> str:
+    """Normalize common provider separators without weakening identity checks."""
+    return model_id.lower().replace(".", "-").replace("_", "-")
+
+
+def fill_bare_enabled_budget(
+    config: Mapping[str, object], maximum_output_tokens: int | None
+) -> dict[str, object] | None:
+    """Give a budget-less ``enabled`` thinking config the derived legal budget.
+
+    Claude Code sends ``{"type": "enabled"}``; the Anthropic wire requires
+    ``1024 <= budget_tokens < max_tokens``. The fill is the same derivation the
+    adaptive->enabled translation uses, so both paths agree on the depth an
+    unspecified budget means.
+
+    Args:
+        config: The caller's verbatim thinking object (type ``enabled``, no
+            budget).
+        maximum_output_tokens: The caller's reply ceiling.
+
+    Returns:
+        The config with ``budget_tokens`` filled, or ``None`` when no legal
+        budget fits under the ceiling (the caller cannot request thinking on
+        this turn at all).
+    """
+    budget = anthropic_thinking_budget_tokens(maximum_output_tokens)
+    if budget is None:
+        return None
+    return {**config, "budget_tokens": budget}
+
+
+THINKING_BUDGET_DERIVED_DISCLOSURE = "thinking.budget_tokens->derived"
+"""Disclosure recorded when a bare ``enabled`` config (no budget, Claude Code's
+shape) is forwarded to an Anthropic rung with the gateway's derived budget."""
+
+
+def require_between_tools_support(
+    profiles: Sequence[GatewayWireProfile],
+    request: GatewayRequest,
+) -> None:
+    """Validate the exact native contract without translating this thinking mode.
+
+    Between-tools reasoning is neither disabled nor a portable effort request.
+    Its only carrier is a Sonnet 5.5 Messages rung, at low, medium or high
+    effort. Check the effective wire value, including a verbatim output config
+    and any required profile default, before other shaping can alter it.
+
+    Args:
+        profiles: Every rung the shaped request could dispatch to.
+        request: The caller's canonical request, including native thinking fields.
+
+    Raises:
+        ProviderParameterError: The shape, model, dialect or effort is unsupported.
+    """
+    config = request.provider_thinking_config
+    if config is None or config.get("type") != "between_tools":
+        return
+    extras = sorted(set(config) - {"type"})
+    if extras:
+        raise ProviderParameterError(
+            message=(
+                "Thinking type 'between_tools' accepts only the 'type' field. "
+                "Remove the other thinking fields, or use adaptive thinking."
+            ),
+            param=f"thinking.{extras[0]}",
+            code="invalid_parameter",
+        )
+    for profile in profiles:
+        if profile.dialect != "anthropic_messages" or not matches_anthropic_release(
+            profile.model_id, ("claude-sonnet-5-5",)
+        ):
+            raise ProviderParameterError(
+                message=(
+                    "Thinking type 'between_tools' requires Claude Sonnet 5.5 on a native "
+                    "Anthropic Messages route. Choose a supported route, or explicitly "
+                    "choose a thinking mode that this route supports."
+                ),
+                param="thinking.type",
+                code="unsupported_parameter",
+            )
+        effort: JsonValue = request.reasoning_effort
+        effort_parameter = request.caller_effort_parameter
+        if effort is None and profile.reasoning_effort_required:
+            effort = profile.reasoning_effort
+        if effort is None:
+            effort = "high"
+        if (
+            request.provider_output_config is not None
+            and "effort" in request.provider_output_config
+        ):
+            effort = request.provider_output_config["effort"]
+            effort_parameter = "output_config.effort"
+        if effort not in ("low", "medium", "high"):
+            raise ProviderParameterError(
+                message=(
+                    "Thinking type 'between_tools' requires effort 'low', 'medium' or 'high'. "
+                    "Choose one of these efforts, or use adaptive thinking for higher effort."
+                ),
+                param=effort_parameter,
+                code="invalid_parameter",
+            )
+
+
+def shape_anthropic_thinking_config(
+    profiles: Sequence[GatewayWireProfile],
+    request: GatewayRequest,
+    provider_updates: dict[str, object],
+    ignored: list[str],
+) -> None:
+    """Family-gate a caller thinking config for a route with Anthropic rungs.
+
+    Budgeted-enabled support and the ability to disable thinking are separate
+    model facts. Valid off switches travel verbatim; an unsupported off switch
+    is refused before dispatch rather than removed. A bare ``enabled`` config
+    gets a disclosed budget only once its output ceiling is known. When the
+    ceiling is omitted, per-rung payload construction derives the budget from
+    that rung's required output limit. An impossible budget is a refusal.
+
+    Args:
+        profiles: The route's wire profiles.
+        request: The caller's canonical request; ``provider_thinking_config``
+            must be present.
+        provider_updates: The dispatched-request overrides, written in place.
+        ignored: The route's disclosure list, appended in place.
+
+    Raises:
+        ProviderParameterError: The config names a mode this family rejects.
+    """
+    config = request.provider_thinking_config
+    if config is None:
+        return
+
+    def disclose(path: str) -> None:
+        """Record a changed parameter exactly once."""
+        if path not in ignored:
+            ignored.append(path)
+
+    config_type = str(config.get("type"))
+    adaptive_only = all(anthropic_adaptive_only_thinking(profile.model_id) for profile in profiles)
+    budgeted_enabled_only = all(
+        profile.dialect == "anthropic_messages"
+        and anthropic_budgeted_enabled_only(profile.model_id)
+        for profile in profiles
+    )
+    if budgeted_enabled_only and config_type == "adaptive":
+        raise ProviderParameterError(
+            message=(
+                "The parameter 'thinking.type' cannot be 'adaptive' on this model: "
+                "it reasons via an explicit token budget. Send thinking "
+                "{type: 'enabled', budget_tokens: N} or remove the field."
+            ),
+            param="thinking.type",
+            code="unsupported_parameter",
+        )
+    if adaptive_only and "budget_tokens" in config:
+        raise ProviderParameterError(
+            message=(
+                "This model cannot enforce thinking.budget_tokens. Choose a model that "
+                "supports a thinking-token budget, or explicitly remove the budget and "
+                "use adaptive thinking with effort instead."
+            ),
+            param="thinking.budget_tokens",
+            code="unsupported_parameter",
+        )
+    if adaptive_only and config_type == "enabled":
+        # A bare enable requests thinking but specifies no numerical bound.
+        provider_updates["provider_thinking_config"] = {**config, "type": "adaptive"}
+        disclose("thinking.type->adaptive")
+        _logger.warning(
+            "translated a caller bare 'enabled' thinking config to adaptive; "
+            "the mode change was disclosed"
+        )
+    elif config_type == "enabled" and "budget_tokens" not in config:
+        if request.maximum_output_tokens is not None:
+            filled = fill_bare_enabled_budget(config, request.maximum_output_tokens)
+            if filled is None:
+                raise ProviderParameterError(
+                    message=(
+                        "The output limit cannot fit an enabled thinking budget. "
+                        "Increase max_tokens above 1024 or explicitly disable thinking."
+                    ),
+                    param="thinking.budget_tokens",
+                    code="invalid_parameter",
+                )
+            provider_updates["provider_thinking_config"] = filled
+        disclose(THINKING_BUDGET_DERIVED_DISCLOSURE)
+    elif config_type == "disabled":
+        for profile in profiles:
+            if matches_anthropic_release(profile.model_id, ("claude-sonnet-5-5",)):
+                raise ProviderParameterError(
+                    message=(
+                        "Claude Sonnet 5.5 does not support thinking type 'disabled'. "
+                        "Use thinking {type: 'between_tools'} at low, medium or high effort "
+                        "to turn off up-front thinking, or use adaptive thinking."
+                    ),
+                    param="thinking.type",
+                    code="unsupported_parameter",
+                )
+            normalized = _normalized_model(profile.model_id)
+            always_thinks = any(
+                family in normalized for family in _ANTHROPIC_ALWAYS_THINKING_FAMILIES
+            ) or matches_anthropic_release(profile.model_id, _ANTHROPIC_ALWAYS_THINKING_RELEASES)
+            effort = request.reasoning_effort
+            if request.provider_output_config is not None:
+                effort = request.provider_output_config.get("effort", effort)
+            if effort is None and profile.reasoning_effort_required:
+                effort = profile.reasoning_effort
+            restricted_effort = "claude-opus-5" in normalized and effort in ("xhigh", "max")
+            if always_thinks or restricted_effort:
+                reason = (
+                    "this model always reasons adaptively"
+                    if always_thinks
+                    else "this model requires thinking at effort xhigh or max"
+                )
+                raise ProviderParameterError(
+                    message=(
+                        f"The parameter 'thinking.type' cannot be 'disabled': {reason}. "
+                        "Choose a model and effort that support disabling thinking, or "
+                        "explicitly enable thinking."
+                    ),
+                    param="thinking.type",
+                    code="unsupported_parameter",
+                )

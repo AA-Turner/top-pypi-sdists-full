@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: schemathesis
-Version: 4.28.0
+Version: 4.29.0
 Summary: Adaptive API testing for OpenAPI and GraphQL
 Project-URL: Documentation, https://schemathesis.readthedocs.io/en/stable/
 Project-URL: Changelog, https://github.com/schemathesis/schemathesis/blob/master/CHANGELOG.md
@@ -34,7 +34,7 @@ Requires-Dist: click<9,>=8.0
 Requires-Dist: harfile<1.0,>=0.5.0
 Requires-Dist: hypothesis-graphql<1,>=0.13.2
 Requires-Dist: hypothesis<7,>=6.130.12
-Requires-Dist: jsonschema-rs<0.58.0,>=0.57.1
+Requires-Dist: jsonschema-rs<0.59.0,>=0.58.4
 Requires-Dist: pyrate-limiter<5.0,>=4.0
 Requires-Dist: pytest<10,>=8.4
 Requires-Dist: pyyaml<7.0,>=5.1
@@ -51,6 +51,7 @@ Provides-Extra: cov
 Requires-Dist: coverage-enable-subprocess; extra == 'cov'
 Requires-Dist: coverage[toml]>=5.3; extra == 'cov'
 Provides-Extra: dev
+Requires-Dist: allure-pytest>=2.13.0; extra == 'dev'
 Requires-Dist: allure-python-commons>=2.13.0; extra == 'dev'
 Requires-Dist: coverage-enable-subprocess; extra == 'dev'
 Requires-Dist: coverage>=6; extra == 'dev'
@@ -85,6 +86,7 @@ Provides-Extra: scripts
 Requires-Dist: seaborn>=0.13; extra == 'scripts'
 Requires-Dist: tracecov>=0.21; extra == 'scripts'
 Provides-Extra: tests
+Requires-Dist: allure-pytest>=2.13.0; extra == 'tests'
 Requires-Dist: allure-python-commons>=2.13.0; extra == 'tests'
 Requires-Dist: coverage>=6; extra == 'tests'
 Requires-Dist: django<6,>=5.2; extra == 'tests'
@@ -173,11 +175,11 @@ uvx schemathesis run https://your-api.com/openapi.json
 
 > ⚠️ **Upgrading from older versions?** Check our [Migration Guide](https://github.com/schemathesis/schemathesis/blob/master/MIGRATION.md) for key changes.
 
-# Installation & Usage
+## Installation & Usage
 
 **Command Line:**
 ```console
-uv pip install schemathesis
+uv tool install schemathesis
 schemathesis run https://your-api.com/openapi.json
 ```
 
@@ -216,7 +218,7 @@ TestAPI = APIWorkflow.TestCase
 
 ## Who uses it
 
-Used by teams at **[Spotify](https://github.com/backstage/backstage)**, **[WordPress](https://github.com/WordPress/openverse)**, **JetBrains**, **Red Hat**, and dozens of other companies.
+Used by teams at **[Spotify](https://github.com/backstage/backstage)**, **[WordPress](https://github.com/WordPress/openverse)**, **JetBrains**, and **Red Hat**.
 
 
 > "_Schemathesis is the best tool for fuzz testing of REST APIs on the market. We at Red Hat use it for examining our applications in functional and integration testing levels._" - Dmitry Misharov, RedHat
@@ -231,7 +233,11 @@ Used by teams at **[Spotify](https://github.com/backstage/backstage)**, **[WordP
 
 ## Documentation
 
-📚 **[Documentation](https://schemathesis.readthedocs.io/en/stable/)** with guides, examples, and API reference.
+📚 **[Documentation](https://schemathesis.readthedocs.io/en/stable/)** with guides, examples, and API reference. Start here:
+
+- [Quick Start](https://schemathesis.readthedocs.io/en/stable/quick-start/) - 5 minutes
+- [CLI Tutorial](https://schemathesis.readthedocs.io/en/stable/tutorials/cli/) - 20 minutes
+- [Pytest Tutorial](https://schemathesis.readthedocs.io/en/stable/tutorials/pytest/) - 15 minutes
 
 ## Get Help
 

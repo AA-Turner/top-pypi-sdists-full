@@ -1,0 +1,27 @@
+Metadata-Version: 2.1
+Name: tree-sitter-starlark
+Version: 1.3.0
+Summary: Starlark grammar for tree-sitter
+Author-email: Amaan Qureshi <amaanq12@gmail.com>
+License: MIT
+Project-URL: Homepage, https://github.com/tree-sitter-grammars/tree-sitter-starlark
+Keywords: incremental,parsing,tree-sitter,starlark
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Compilers
+Classifier: Topic :: Text Processing :: Linguistic
+Classifier: Typing :: Typed
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Provides-Extra: core
+Requires-Dist: tree-sitter~=0.22; extra == "core"
+
+# tree-sitter-starlark
+
+[![Build Status](https://github.com/tree-sitter-grammars/tree-sitter-starlark/actions/workflows/ci.yml/badge.svg)](https://github.com/tree-sitter-grammars/tree-sitter-starlark/actions/workflows/ci.yml)
+[![Discord](https://img.shields.io/discord/1063097320771698699?logo=discord)](https://discord.gg/w7nTvsVJhm)
+
+Starlark grammar for [tree-sitter](https://github.com/tree-sitter/tree-sitter)
+
+Adapted from the [official spec](https://github.com/bazelbuild/starlark/blob/master/spec.md)
+and the [Google spec](https://github.com/google/starlark-go/blob/master/doc/spec.md)

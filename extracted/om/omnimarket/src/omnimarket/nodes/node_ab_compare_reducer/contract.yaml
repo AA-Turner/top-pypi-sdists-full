@@ -1,0 +1,104 @@
+---
+name: ab_compare_reducer
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: reducer
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  Collects inference results for a correlation_id, calculates costs
+  from registry pricing, and emits the completed comparison.
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: ab_compare
+      handler:
+        name: HandlerAbCompareReducer
+        module: omnimarket.nodes.node_ab_compare_reducer.handlers.handler_ab_compare_reducer
+
+handler:
+  module: omnimarket.nodes.node_ab_compare_reducer.handlers.handler_ab_compare_reducer
+  class: HandlerAbCompareReducer
+  input_model: omnimarket.nodes.node_ab_compare_reducer.models.model_ab_compare_state.ModelAbCompareState
+
+descriptor:
+  node_archetype: reducer
+  purity: pure
+  idempotent: true
+  timeout_ms: 30000
+
+event_bus:
+  subscribe_topics:
+    - onex.evt.omnimarket.ab-inference-completed.v1
+  publish_topics:
+    - onex.evt.omnimarket.ab-compare-completed.v1
+
+projection_api:
+  expose: true
+  topic: "onex.snapshot.projection.ab-compare.v1"  # onex-topic-allow: projection-snapshot
+  key_grain: "mutable"
+  table: "llm_call_metrics"
+  schema: "public"
+  columns:
+    - "correlation_id"
+    - "model_id"
+    - "prompt_tokens"
+    - "completion_tokens"
+    - "total_tokens"
+    - "estimated_cost_usd"
+    - "latency_ms"
+    - "usage_source"
+    - "created_at"
+  order_by: "created_at DESC"
+  freshness_column: "created_at"
+  limit: 100
+
+metadata:
+  transport_type: kafka
+
+# OMN-13734: machine-readable FSM (transcribed from authoritative handler/model logic).
+state_machine:
+  version: {major: 1, minor: 0, patch: 0}
+  state_machine_name: ab_compare_fsm
+  state_machine_version: {major: 1, minor: 0, patch: 0}
+  description: "ab_compare_fsm"
+  initial_state: idle
+  terminal_states: []
+  error_states: []
+  persistence_enabled: false
+  states:
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: idle
+      state_type: operational
+      description: "No A/B inference folded yet."
+      required_data: []
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: compared
+      state_type: operational
+      description: "A/B comparison projection materialized."
+      required_data: []
+  transitions:
+    # Inference completed; fold into comparison.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: idle_to_compared_on_ab_inference_completed
+      from_state: idle
+      to_state: compared
+      trigger: ab_inference_completed
+    # Fold another inference result.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: compared_to_compared_on_ab_inference_completed
+      from_state: compared
+      to_state: compared
+      trigger: ab_inference_completed
+    # Re-observe own projection (idempotent).
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: compared_to_compared_on_ab_compare_completed
+      from_state: compared
+      to_state: compared
+      trigger: ab_compare_completed
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  # referenced outside the node graph at omnimarket/src/omnimarket/nodes/node_ab_compare_reducer/models/model_ab_compare_completed.py
+  - onex.evt.omnimarket.ab-compare-completed.v1

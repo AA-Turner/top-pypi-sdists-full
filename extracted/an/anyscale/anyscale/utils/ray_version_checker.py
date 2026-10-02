@@ -39,7 +39,8 @@ def check_required_ray_version(
         "{}\nPlease install the required "
         "Ray version by running:\n\t`pip uninstall ray -y && pip install -U {}`\nTo unsafely "
         "ignore this check, set IGNORE_VERSION_CHECK=1.".format(
-            msg, get_wheel_url(required_ray_commit, required_ray_version),
+            msg,
+            get_wheel_url(required_ray_commit, required_ray_version),
         )
     )
     if ignore_version_check:

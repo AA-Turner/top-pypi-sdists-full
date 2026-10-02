@@ -1,0 +1,99 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "govrail"
+dynamic = ["version"]
+description = "A language-agnostic governance plane for agent-driven development: gates and notes, delivered by the gov CLI (pip install govrail → command: gov → first step: gov init)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "govrail" }]
+keywords = ["agent", "governance", "gates", "notes", "development"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+]
+dependencies = [
+    "tree-sitter>=0.26",
+    "tree-sitter-python",
+    "tree-sitter-go",
+    "tree-sitter-java",
+    "tree-sitter-rust",
+    "tree-sitter-javascript",
+    "tree-sitter-typescript",
+    "tree-sitter-c",
+    "tree-sitter-cpp",
+    "tree-sitter-swift",
+    "tree-sitter-kotlin",
+    "tree-sitter-ada",
+    "tree-sitter-bash",
+    "tree-sitter-c-sharp",
+    "tree-sitter-css",
+    "tree-sitter-cuda",
+    "tree-sitter-dart",
+    "tree-sitter-elixir",
+    "tree-sitter-embedded-template",
+    "tree-sitter-fortran",
+    "tree-sitter-groovy",
+    "tree-sitter-haskell",
+    "tree-sitter-hcl",
+    "tree-sitter-html",
+    "tree-sitter-json",
+    "tree-sitter-julia",
+    "tree-sitter-lua",
+    "tree-sitter-make",
+    "tree-sitter-markdown",
+    "tree-sitter-nix",
+    "tree-sitter-objc",
+    "tree-sitter-ocaml",
+    "tree-sitter-php",
+    "tree-sitter-powershell",
+    "tree-sitter-ruby",
+    "tree-sitter-scala",
+    "tree-sitter-sql",
+    "tree-sitter-svelte",
+    "tree-sitter-toml",
+    "tree-sitter-yaml",
+    "tree-sitter-zig",
+]
+
+[project.urls]
+Homepage = "https://github.com/Lixiang9716/govrail"
+Repository = "https://github.com/Lixiang9716/govrail"
+Issues = "https://github.com/Lixiang9716/govrail/issues"
+Changelog = "https://github.com/Lixiang9716/govrail/blob/master/CHANGELOG.md"
+
+[project.scripts]
+gov = "gov.cli:main"
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-xdist", "build", "ruff>=0.6", "pyyaml",
+       "tomli; python_version < \"3.11\""]
+
+[tool.setuptools.dynamic]
+version = { attr = "gov.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["gov*"]
+
+[tool.setuptools.package-data]
+"gov" = ["HIGHLIGHTS.md", "langs/*.json", "checks/*.json"]
+"gov.templates" = ["*", "skills/*/SKILL.md",
+                   "presets/*/*", "presets/*/skills/*/SKILL.md"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 90
+target-version = "py310"
+extend-exclude = ["examples"]
+
+[tool.ruff.lint]
+select = ["F", "E9"]

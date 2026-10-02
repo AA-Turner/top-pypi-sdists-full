@@ -163,7 +163,7 @@ FormatToExtensions: dict[InputFormat, list[str]] = {
     InputFormat.XML_XBRL: ["xml", "xbrl"],
     InputFormat.XML_DOCLANG: ["dclg", "dclg.xml"],
     InputFormat.DCLX: ["dclx"],
-    InputFormat.IMAGE: ["jpg", "jpeg", "png", "tif", "tiff", "bmp", "webp"],
+    InputFormat.IMAGE: ["jpg", "jpeg", "png", "tif", "tiff", "bmp", "webp", "gif"],
     InputFormat.ASCIIDOC: ["adoc", "asciidoc", "asc"],
     InputFormat.CSV: ["csv"],
     InputFormat.XLSX: ["xlsx", "xlsm", "xltx", "xltm"],
@@ -508,6 +508,11 @@ class Page(BaseModel):
     _backend: Optional["PdfPageBackend"] = (
         None  # Internal PDF backend. By default it is cleared during assembling.
     )
+    # Visible vector geometry captured while the page backend is alive. These
+    # are transient pipeline signals and deliberately stay out of serialized
+    # conversion results.
+    _shape_lines: list[BoundingBox] | None = PrivateAttr(default=None)
+    _shape_bounding_boxes: list[BoundingBox] | None = PrivateAttr(default=None)
     _default_image_scale: float = 1.0  # Default image scale for external usage.
     _image_cache: dict[
         float, Image

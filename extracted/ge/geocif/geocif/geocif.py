@@ -38,6 +38,17 @@ plt.style.use("default")
 import warnings
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
+# Model families whose fitters accept NaN feature values natively. Every
+# other family is train-median / mode imputed in _setup_training_data (and
+# the same fills are applied to the test rows). CID cells are no longer
+# zero-filled upstream (0.4.1063), so NaN now reaches this layer.
+_NAN_NATIVE_MODELS = frozenset({
+    "catboost", "catboost_quantile", "cubist", "tabpfn_phe",
+    "tabpfn", "tabpfn_ft", "tabpfn_v3", "tabpfn_gsa",
+    "tabicl", "tabicl_ft", "tabicl_gsa",
+    "tabfm", "tabfm_gsa", "exaone", "mitra", "mitra_ft",
+})
+
 
 @dataclass
 class Geocif:
@@ -1909,7 +1920,10 @@ class Geocif:
                     exp_lead = (tgt - init_month) % 12
                     if exp_lead >= max_lead:
                         continue  # outside lead horizon
-                    sub = (sid == tgt) & (lead == exp_lead)
+                    # Stage_ID is the INIT month of the forecast row (not the
+                    # target): take the rows initialised in this init month
+                    # whose lead reaches the target.
+                    sub = (sid == init_month) & (lead == exp_lead)
                     if sub.any():
                         target_log.append((int(tgt), int(exp_lead), int(sub.sum())))
                         matches = matches | sub
@@ -2094,14 +2108,34 @@ class Geocif:
 
         self.simulation_stages = all_simulation_stages
 
+    def _exclude_heldout_season(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Rows of ``df`` that are not the season this fold holds out."""
+        fs = getattr(self, "forecast_season", None)
+        if fs is None or "Harvest Year" not in df.columns:
+            return df
+        years = pd.to_numeric(df["Harvest Year"], errors="coerce")
+        return df[years != fs]
+
+    def _mask_heldout_target(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Copy of ``df`` with the held-out season's target set to NaN, so
+        yield-based clustering never sees the fold's test yields."""
+        fs = getattr(self, "forecast_season", None)
+        if fs is None or "Harvest Year" not in df.columns or self.target not in df.columns:
+            return df
+        out = df.copy()
+        years = pd.to_numeric(out["Harvest Year"], errors="coerce")
+        out.loc[years == fs, self.target] = np.nan
+        return out
+
     def _filter_low_production_regions(self, df: pd.DataFrame) -> pd.DataFrame:
         """Exclude bottom-5th-pct production regions and regions with ≤3 data points."""
         if "Area (ha)" not in df.columns or self.target not in df.columns:
             return df
-        counts = df.groupby("Region")[self.target].count()
-        prod = df.groupby("Region").apply(
-            lambda g: (g["Area (ha)"] * g[self.target]).mean()
-        )
+        # Decide on training years only: the held-out season's production
+        # must not influence which regions exist in its own fold.
+        hist = self._exclude_heldout_season(df)
+        counts = hist.groupby("Region")[self.target].count()
+        prod = (hist["Area (ha)"] * hist[self.target]).groupby(hist["Region"]).mean()
         threshold = prod.quantile(0.05)
         keep = prod.index[(prod >= threshold) & (counts > 3)]
         n_excluded = len(prod) - len(keep)
@@ -2148,7 +2182,9 @@ class Geocif:
         # typically 'Yield'). compute_production_pct defaults to a different
         # obs_col name ('Observed Yield (tn per ha)') that doesn't exist here,
         # so pass self.target explicitly.
-        prod_pct = diag.compute_production_pct(df, country_val, obs_col=self.target)
+        prod_pct = diag.compute_production_pct(
+            self._exclude_heldout_season(df), country_val, obs_col=self.target
+        )
         if not prod_pct:
             self.logger.warning(
                 f"min_production_share_pct={threshold}: production_pct empty "
@@ -2521,12 +2557,22 @@ class Geocif:
                 .astype("Int64")
             )
             future_set = {int(m) for m in remaining}
-            # Freshest init for target M at this step = LEAD (M - L) mod 12
-            expected_lead = (sid - int(latest_covered)) % 12
+            # FLDAS/S2S rows are stamped with their INIT month as Stage_ID
+            # (one row per (col, lead, init), emitted under the single-month
+            # stage of the init month). The freshest forecast available at
+            # this step is the one initialised in the latest covered month
+            # L; the lead that reaches a future target M is (M - L) mod 12.
+            # (Until 0.4.1063 this keyed on Stage_ID == target, which
+            # admitted forecasts initialised 1..k months AFTER the cutoff
+            # into hindcast folds — 2026-09-30 audit.)
+            latest_covered_int = int(latest_covered)
+            expected_leads = sorted(
+                {(m - latest_covered_int) % 12 for m in future_set}
+            )
             fresh_future_mask = (
                 self.df_inputs["Type"].isin(("FLDAS", "S2S"))
-                & sid.isin(future_set)
-                & (lead == expected_lead)
+                & (sid == latest_covered_int)
+                & lead.isin(expected_leads)
             )
             n_admitted = int(fresh_future_mask.sum())
             if n_admitted:
@@ -2559,26 +2605,62 @@ class Geocif:
         """
         if df.empty:
             return df
-        needed = {"Type", "Stage Name", "Index", "Region", "Harvest Year"}
+        # A forecast row is stamped with the stage window that EMITTED it
+        # (the init month's window), exactly like the observed CIDs of that
+        # window, so no stage LABEL identifies its target month. The target
+        # is init + lead: a "..._LEAD2" row under stage "5" (init May)
+        # targets July, and once the slice holds an observed window covering
+        # July ("7_6_5") the forecast is stale. Until 0.4.1062 this keyed on
+        # a "Stage Name" column the statistics CSV never carries (silent
+        # no-op); keying on the plural column would have deleted EVERY
+        # forecast row (2026-10-01 review). Only the monthly methods stamp
+        # month numbers, so other methods are left untouched.
+        stage_col = "Stage_ID" if "Stage_ID" in df.columns else "Stage"
+        needed = {"Type", stage_col, "Index", "Region", "Harvest Year"}
         if not needed.issubset(df.columns):
+            return df
+        method = str(getattr(self, "method", "") or "")
+        if not method.startswith("monthly"):
             return df
 
         forecast_mask = (
-            df["Type"].isin(["FLDAS", "S2S"]) &
-            df["Index"].fillna("").str.contains("_LEAD", regex=False)
+            df["Type"].isin(["FLDAS", "S2S"])
+            & df["Index"].fillna("").astype(str).str.contains("_LEAD", regex=False)
         )
         if not forecast_mask.any():
             return df
 
-        observed_keys = pd.MultiIndex.from_frame(
-            df.loc[~forecast_mask, ["Region", "Harvest Year", "Stage Name"]]
-            .drop_duplicates()
+        tokens = df[stage_col].astype(str).str.split("_")
+
+        # Months covered by observed windows, per (Region, Harvest Year).
+        obs = df.loc[~forecast_mask, ["Region", "Harvest Year"]].copy()
+        obs["month"] = tokens[~forecast_mask]
+        obs = obs.explode("month")
+        obs["month"] = pd.to_numeric(obs["month"], errors="coerce")
+        obs = obs.dropna(subset=["month"])
+        covered = set(zip(
+            obs["Region"].astype(str), obs["Harvest Year"], obs["month"].astype(int)
+        ))
+
+        # Target month of each forecast row = init month + lead; the init
+        # month is the as-of month of the emitting window (first token for
+        # the reverse-cumulative methods, last token otherwise).
+        fc = df.loc[forecast_mask]
+        init = pd.to_numeric(
+            tokens[forecast_mask].str[0 if method.endswith("_r") else -1],
+            errors="coerce",
         )
-        forecast_keys = pd.MultiIndex.from_frame(
-            df.loc[forecast_mask, ["Region", "Harvest Year", "Stage Name"]]
+        lead = pd.to_numeric(
+            fc["Index"].astype(str).str.extract(r"_LEAD(\d+)", expand=False),
+            errors="coerce",
         )
-        stale_within_forecast = forecast_keys.isin(observed_keys)
-        stale_idx = df.index[forecast_mask][stale_within_forecast]
+        target = (((init - 1 + lead) % 12) + 1).fillna(-1).astype(int)
+        ok = (init.notna() & lead.notna()).to_numpy()
+        stale = np.array([
+            bool(o) and (str(r), hy, int(t)) in covered
+            for o, r, hy, t in zip(ok, fc["Region"], fc["Harvest Year"], target)
+        ], dtype=bool)
+        stale_idx = fc.index[stale]
 
         n_pruned = len(stale_idx)
         if n_pruned:
@@ -2685,7 +2767,22 @@ class Geocif:
         summary_path = explore_dir / "pearson_summary.csv"
         corr_path = explore_dir / "pearson_corr_matrix.csv"
 
-        if summary_path.exists() and corr_path.exists():
+        # The on-disk summary is computed once from EVERY year, including
+        # the season this fold holds out, so a CID screen read from it
+        # leaks the test yield into the fold's feature set. When the fold's
+        # long frame is available, screen on the training years only and do
+        # not persist (the result is fold-specific).
+        fold_filtered = False
+        fs = getattr(self, "forecast_season", None)
+        if (
+            df_long is not None and not df_long.empty
+            and fs is not None and "Harvest Year" in df_long.columns
+        ):
+            years = pd.to_numeric(df_long["Harvest Year"], errors="coerce")
+            df_long = df_long[years != fs]
+            fold_filtered = True
+
+        if not fold_filtered and summary_path.exists() and corr_path.exists():
             try:
                 pearson_df = pd.read_csv(summary_path).set_index("cid")
                 corr = pd.read_csv(corr_path, index_col=0)
@@ -2735,13 +2832,19 @@ class Geocif:
 
         # Best-effort persist so sibling folds in the same run skip the
         # recompute. Failure to write is non-fatal (siblings just retry).
-        try:
-            explore_dir.mkdir(parents=True, exist_ok=True)
-            pearson_df.reset_index().to_csv(summary_path, index=False)
-            if not corr.empty:
-                corr.to_csv(corr_path)
-        except Exception:  # noqa: BLE001
-            pass
+        # A fold-filtered summary (training years only) is never persisted:
+        # it is specific to this fold's held-out season.
+        if not fold_filtered:
+            try:
+                explore_dir.mkdir(parents=True, exist_ok=True)
+                pearson_df.reset_index().to_csv(summary_path, index=False)
+                if not corr.empty:
+                    corr.to_csv(corr_path)
+            except Exception as exc:  # noqa: BLE001
+                self.logger.warning(
+                    f"  {self.model_name}: could not persist pearson summary "
+                    f"to {explore_dir}: {exc}"
+                )
 
         return pearson_df, corr
 
@@ -3018,6 +3121,20 @@ class Geocif:
         """
         if not self.correlation_plots:
             return {}, {}
+
+        # The pre-selection (CID whitelist via correlation_threshold, the
+        # linear model's top CIDs) must not see the season this fold holds
+        # out; the cache path already includes the season.
+        fs = getattr(self, "forecast_season", None)
+        if fs is not None and "Harvest Year" in df.columns:
+            years = pd.to_numeric(df["Harvest Year"], errors="coerce")
+            n_held = int((years == fs).sum())
+            if n_held:
+                df = df[years != fs]
+                self.logger.info(
+                    f"Correlation pre-selection for {self.country} {self.crop}: "
+                    f"excluding held-out season {fs} ({n_held} rows)"
+                )
 
         kwargs = self._build_correlation_kwargs()
 
@@ -4427,9 +4544,14 @@ class Geocif:
             )
             df = df.loc[:, ~df.columns.duplicated()]
 
-        all_cid_columns = self.get_cid_column_names(df)
-        df.loc[:, all_cid_columns] = df.loc[:, all_cid_columns].fillna(0)
-
+        # NaN CID cells stay NaN (until 0.4.1063 every CID column was
+        # fillna(0)-ed here). Zero is a real value for anomaly-type CIDs
+        # (ESI, CCI, ENSO), the feature-selection NaN gate could never drop
+        # a sparse window, and a forecast-year month whose EO product had
+        # not arrived was scored as 0 with no trace. NaN-native models
+        # (CatBoost, TabPFN, TabICL, Mitra, Cubist's own fitter) take NaN;
+        # every other family is train-median imputed in _setup_training_data
+        # and the same fills are applied to the test rows.
         return df
 
     def _add_engineered_features(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -4697,7 +4819,9 @@ class Geocif:
         elif self.cluster_strategy == "individual":
             df["Region_ID"] = df["Region"].cat.codes
         elif self.cluster_strategy == "auto_detect":
-            clusters_assigned = fe.detect_clusters(df, self.target)
+            clusters_assigned = fe.detect_clusters(
+                self._mask_heldout_target(df), self.target
+            )
             df = df.merge(clusters_assigned, on="Region")
             df["Region_ID"] = df["Region_ID"].astype("category")
         elif self.cluster_strategy == "crop_calendar":
@@ -4798,7 +4922,9 @@ class Geocif:
             # Stage 2: yield-based sub-clustering within this calendar group
             df_group = df[df["Region"].isin(regions)]
             try:
-                sub_clusters = fe.detect_clusters(df_group, self.target)
+                sub_clusters = fe.detect_clusters(
+                    self._mask_heldout_target(df_group), self.target
+                )
                 for _, row in sub_clusters.iterrows():
                     region_to_final[row["Region"]] = final_id + row["Region_ID"]
                 final_id += sub_clusters["Region_ID"].nunique()
@@ -5177,7 +5303,13 @@ class Geocif:
             self.feature_names.extend(["Analogous Year", "Analogous Year Yield"])
         
         if self.use_outlook_as_feature:
-            self.feature_names.append("FCST")
+            # No producer ever creates an "FCST" column; appending it made
+            # every region's X_train raise KeyError (swallowed by loop_ml,
+            # so the run finished with zero predictions).
+            self.logger.warning(
+                "use_outlook_as_feature is not implemented (no FCST column is "
+                "produced); ignoring the flag"
+            )
         
         if self.include_lat_lon_as_feature:
             self.feature_names.extend(["lat", "lon"])
@@ -5687,6 +5819,19 @@ class Geocif:
 
     def _preprocess_test_data(self, X_test: pd.DataFrame, scaler) -> pd.DataFrame:
         """Preprocess test data based on model requirements."""
+        # Train-only imputation for the families that were median/mode
+        # filled in _setup_training_data (the scaled, gam and cubist paths
+        # below keep their own fill tables).
+        _fills = getattr(self, "_nan_fill_values", None)
+        if (
+            _fills
+            and self.dispatch_name not in ("linear", "gpr", "george", "gam")
+            and self.model_name != "cubist"
+        ):
+            X_test = X_test.fillna(
+                {c: v for c, v in _fills.items() if c in X_test.columns}
+            )
+
         if self.dispatch_name in ("linear", "gpr", "george"):
             X_test = X_test.drop(
                 columns=[item for item in self.cat_features if item != "Harvest Year"]
@@ -6188,8 +6333,10 @@ class Geocif:
                 if model_type == "gaussian":
                     gaussian_model = self.detrend_models[region]
                     year = df_region.iloc[ri]["Harvest Year"]
-                    X = add_constant(np.array([year]), has_constant="add")
-                    yei = gaussian_model["extrap_model"].predict(X)[0]
+                    # Same reference curve as the training anomalies inside
+                    # the fitted range (local smooth, interpolated across the
+                    # LOOCV hole); the OLS line only beyond it.
+                    yei = trend.gaussian_expected_for_year(gaussian_model, year)
                     # Detrended values are percent anomalies: Yai = 100*(Yi-Yei)/Yei
                     # Retrend: Yi = Yei * (1 + Yai/100)
                     y_pred_retrended[ri] = _apply(y_pred[ri], yei=yei, model_type="gaussian")
@@ -7027,8 +7174,11 @@ class Geocif:
 
         self.X_train = self._clean_training_features(self.X_train)
 
-        if self.dispatch_name in ["gam", "linear", "gpr"]:
+        if self.dispatch_name not in _NAN_NATIVE_MODELS:
             self._fill_missing_values()
+        else:
+            # Never let a previous region/model's fills reach this test frame.
+            self._nan_fill_values = {}
 
         self.y_train = df_region_train[self.target_column]
 
@@ -7155,14 +7305,17 @@ class Geocif:
 
         Median for numerics (undefined on Categorical).  Mode (most common
         level) for categoricals/objects — same behavior as sklearn
-        ``SimpleImputer(strategy='most_frequent')``.
+        ``SimpleImputer(strategy='most_frequent')``. The fill values are
+        recorded in ``self._nan_fill_values`` so the test rows get the same
+        (train-only) imputation in ``_preprocess_test_data``.
         """
+        fills = {}
         for col in self.X_train.columns:
             s = self.X_train[col]
-            if s.isna().sum() == 0:
-                continue
             if pd.api.types.is_numeric_dtype(s):
                 fill = s.median()
+                if pd.isna(fill):
+                    continue
             else:
                 mode = s.mode(dropna=True)
                 if not mode.empty:
@@ -7171,7 +7324,10 @@ class Geocif:
                     fill = s.cat.categories[0]
                 else:
                     fill = ""
-            self.X_train[col] = s.fillna(fill)
+            fills[col] = fill
+            if s.isna().any():
+                self.X_train[col] = s.fillna(fill)
+        self._nan_fill_values = fills
 
     def _select_features(self, region_id: int, dir_output: Path):
         """Apply feature selection for the region."""
@@ -7239,7 +7395,10 @@ class Geocif:
                 save_model_blobs=save_model_blobs,
             )
         except Exception as e:
+            # Re-raise: a swallowed write left the run "complete" with
+            # missing rows (the per-region loop logs it with context).
             self.logger.error(f"Error storing results for {experiment_id}: {e}")
+            raise
 
 
 # ============================================================================
@@ -7270,7 +7429,21 @@ class ModelTrainer:
         # during calibration, producing either a dimension error or
         # silently meaningless prediction intervals.
         X_for_cal = X_train_scaled if scaler is not None else X_train
-        self._add_confidence_intervals_if_needed(X_for_cal)
+        # Harvest Year per training row from the SAME frame y_train was
+        # built from: a numpy X_for_cal has no columns, and the region
+        # subset was reset_index-ed so its labels do not resolve against
+        # df_train (2026-10-01 review).
+        years = None
+        y_tr = getattr(self.obj, "y_train", None)
+        if y_tr is not None and "Harvest Year" in df_region.columns:
+            try:
+                years = pd.to_numeric(
+                    df_region.loc[pd.Series(y_tr).index, "Harvest Year"],
+                    errors="coerce",
+                ).to_numpy()
+            except (KeyError, TypeError):
+                years = None
+        self._add_confidence_intervals_if_needed(X_for_cal, years=years)
     
     def _prepare_training_data(self, df_region: pd.DataFrame) -> pd.DataFrame:
         """Extract and prepare features for training, aligned to y_train.
@@ -7298,6 +7471,18 @@ class ModelTrainer:
                     f"shared rows (NaN target, e.g. a collapsed class scheme)."
                 )
                 X = X.loc[common]
+        # Same train-only fills the test rows get in _preprocess_test_data.
+        # _fill_missing_values recorded them on self.X_train (the
+        # feature-selection frame), which is NOT the matrix fitted here
+        # (2026-10-01 review: non-NaN-native models were fitted on NaN and
+        # predicted on medians).
+        fills = getattr(self.obj, "_nan_fill_values", None)
+        if (
+            fills
+            and self.obj.dispatch_name not in ("linear", "gpr", "george", "gam")
+            and self.obj.model_name != "cubist"
+        ):
+            X = X.fillna({c: v for c, v in fills.items() if c in X.columns})
         return X
     
     def _save_training_data(
@@ -7363,9 +7548,14 @@ class ModelTrainer:
             self.obj.optimize,
             "Harvest Year",
             df_region[
-                self.obj.selected_features + 
-                self.obj.cat_features + 
-                [self.obj.target]
+                self.obj.selected_features +
+                self.obj.cat_features +
+                # raw AND detrended target: the optuna objective reads
+                # target_col=target_column, which differs from target when
+                # check_yield_trend=True (every trial raised KeyError -> inf
+                # until 0.4.1063)
+                [c for c in dict.fromkeys([self.obj.target, self.obj.target_column])
+                 if c in df_region.columns]
             ],
             X_train_scaled,
             self.obj.y_train,
@@ -7387,7 +7577,7 @@ class ModelTrainer:
             kumo_params=getattr(self.obj, "kumo_params", None),
         )
 
-    def _add_confidence_intervals_if_needed(self, X_train=None):
+    def _add_confidence_intervals_if_needed(self, X_train=None, years=None):
         """Wrap model with confidence interval estimator."""
         if not self.obj.estimate_ci:
             return
@@ -7417,9 +7607,118 @@ class ModelTrainer:
             if self.obj.model_name == "cubist":
                 cal_X = self.obj._preprocess_test_data(X_train, None)
             if hasattr(self.obj.model, 'calibrate'):
-                self.obj.model.calibrate(cal_X, self.obj.y_train.values)
+                self._calibrate_crepes_oof(cal_X, self.obj.y_train, years=years)
             elif hasattr(self.obj.model, 'conformalize'):
+                self.obj.logger.warning(
+                    "ci_method=mapie: split-conformal intervals are calibrated "
+                    "on the training rows (in-sample residuals undercover); "
+                    "use ci_method=crepes for year-held-out calibration"
+                )
                 self.obj.model.conformalize(cal_X, self.obj.y_train)
+
+    def _training_years(self, cal_X, y_train, years=None):
+        """Harvest Year per training row, or None when it cannot be recovered.
+
+        ``years`` (from ``train``, read off the region frame y_train came
+        from) wins; a DataFrame ``cal_X`` carrying Harvest Year is the
+        fallback. There is deliberately no lookup into ``df_train``: the
+        region subset is reset_index-ed, so its labels point at other
+        regions' rows there.
+        """
+        n = len(pd.Series(y_train))
+        if years is not None and len(years) == n:
+            return np.asarray(years, dtype=float)
+        if "Harvest Year" in getattr(cal_X, "columns", []):
+            return pd.to_numeric(cal_X["Harvest Year"], errors="coerce").to_numpy()
+        return None
+
+    def _calibrate_crepes_oof(self, cal_X, y_train, n_splits_max: int = 5, years=None):
+        """Calibrate the crepes wrapper on year-grouped OUT-OF-FOLD residuals.
+
+        Split conformal needs residuals from rows the learner did not fit.
+        ``WrapRegressor.calibrate(X_train, y_train)`` used the in-sample
+        residuals of the final fit, which are far too small for CatBoost,
+        Cubist or GAM, so the intervals undercovered (cubist: 0.31-0.44 at a
+        nominal 0.80; 2026-09-30 audit). Here clones of the learner are
+        refitted on year-grouped folds, the held-out predictions give the
+        residuals, and the FINAL learner keeps the point forecasts. Falls
+        back to the old in-sample calibration (with a warning) when the
+        learner cannot be cloned/refitted or fewer than three training years
+        exist.
+        """
+        from crepes import ConformalRegressor
+        from sklearn.base import clone
+        from sklearn.model_selection import GroupKFold
+
+        model = self.obj.model
+        y = np.asarray(pd.Series(y_train).values, dtype=float)
+        learner = getattr(model, "learner", None)
+        years = self._training_years(cal_X, y_train, years)
+        n_groups = int(pd.Series(years).dropna().nunique()) if years is not None else 0
+        if learner is None or n_groups < 3 or len(y) != len(cal_X):
+            self.obj.logger.warning(
+                f"conformal ({self.obj.model_name}): cannot build year-grouped "
+                f"out-of-fold residuals ({n_groups} training years); "
+                f"calibrating in-sample (intervals will be too narrow)"
+            )
+            model.calibrate(cal_X, y)
+            return
+
+        n_splits = min(n_splits_max, n_groups)
+        oof = np.full(len(y), np.nan)
+
+        def _take(X, idx):
+            return X.iloc[idx] if hasattr(X, "iloc") else X[idx]
+
+        # CatBoost was fitted through a Pool that declared the categorical
+        # columns (CatBoostFitter); a bare refit on the same frame would
+        # reject the string columns and silently push every fold into the
+        # in-sample fallback below.
+        fit_kwargs = {}
+        if learner.__class__.__name__.startswith("CatBoost") and hasattr(cal_X, "columns"):
+            cats = [
+                c for c in (getattr(self.obj, "cat_features", None) or [])
+                if c in cal_X.columns
+            ]
+            if cats:
+                fit_kwargs["cat_features"] = cats
+
+        valid_idx = np.flatnonzero(np.isfinite(years))
+        try:
+            for tr, te in GroupKFold(n_splits=n_splits).split(
+                valid_idx, groups=years[valid_idx]
+            ):
+                tr_idx, te_idx = valid_idx[tr], valid_idx[te]
+                fold_model = clone(learner)
+                fold_model.fit(_take(cal_X, tr_idx), y[tr_idx], **fit_kwargs)
+                oof[te_idx] = np.asarray(
+                    fold_model.predict(_take(cal_X, te_idx)), dtype=float
+                ).ravel()
+        except Exception as exc:  # noqa: BLE001
+            self.obj.logger.warning(
+                f"conformal ({self.obj.model_name}): out-of-fold refit failed "
+                f"({exc}); calibrating in-sample (intervals will be too narrow)"
+            )
+            model.calibrate(cal_X, y)
+            return
+
+        residuals = y - oof
+        residuals = residuals[np.isfinite(residuals)]
+        if len(residuals) < 2:
+            model.calibrate(cal_X, y)
+            return
+        model.de = None
+        model.mc = None
+        model.cr = ConformalRegressor()
+        model.cr.fit(residuals)
+        model.cps = None
+        model.calibrated = True
+        model.calibrated_ = True
+        self.obj.logger.info(
+            f"conformal ({self.obj.model_name}): calibrated on {len(residuals)} "
+            f"out-of-fold residuals from {n_splits} year-grouped folds "
+            f"({n_groups} training years)"
+        )
     
     def _fit_final_model(
         self, 
@@ -7519,7 +7818,9 @@ class CatBoostFitter(BaseFitter):
         from catboost import Pool
         from sklearn.model_selection import train_test_split
 
-        train_X, val_X, train_y, val_y = train_test_split(
+        # Early-stopping rows held out by year (trainers.year_holdout_split):
+        # a row split put the same season's regions on both sides.
+        train_X, val_X, train_y, val_y = trainers.year_holdout_split(
             X_train, self.obj.y_train, test_size=0.2, random_state=42,
         )
         train_pool = Pool(train_X, train_y, cat_features=self.obj.cat_features)
@@ -7619,9 +7920,11 @@ class TabPFNFTFitter(BaseFitter):
                     )
                     self.obj.model.fit(X_train, y)
                 else:
-                    X_tr, X_val, y_tr, y_val = train_test_split(
-                        X_train, y, test_size=val_frac,
-                        random_state=42, shuffle=True,
+                    # Held out by year (trainers.year_holdout_split): a
+                    # row split leaks within-season structure into the
+                    # early-stopping score.
+                    X_tr, X_val, y_tr, y_val = trainers.year_holdout_split(
+                        X_train, y, test_size=val_frac, random_state=42,
                     )
                     self.obj.model.fit(X_tr, y_tr, X_val=X_val, y_val=y_val)
         finally:
@@ -7663,8 +7966,10 @@ class TabICLFTFitter(BaseFitter):
                 sklearn.set_config(transform_output=prev)
             return
 
-        X_tr, X_val, y_tr, y_val = train_test_split(
-            X_train, y, test_size=val_frac, random_state=42, shuffle=True
+        # Held out by year (trainers.year_holdout_split): a row split leaks
+        # within-season structure into the early-stopping score.
+        X_tr, X_val, y_tr, y_val = trainers.year_holdout_split(
+            X_train, y, test_size=val_frac, random_state=42,
         )
 
         prev = sklearn.get_config()["transform_output"]

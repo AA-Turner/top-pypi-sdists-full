@@ -6,6 +6,7 @@ from typing import IO, Literal, Sequence
 # will cause Array to be included in the generated docs in this module.
 import arro3.core as core
 import arro3.core.types as types
+from typing_extensions import Buffer
 
 from ._pyo3_object_store import ObjectStore
 
@@ -31,11 +32,20 @@ ParquetEncoding = Literal[
 ]
 """Allowed Parquet encodings."""
 
-def read_parquet(file: IO[bytes] | Path | str) -> core.RecordBatchReader:
+def read_parquet(
+    file: IO[bytes] | Path | str | Buffer,
+    *,
+    batch_size: int | None = None,
+) -> core.RecordBatchReader:
     """Read a Parquet file to an Arrow RecordBatchReader
 
     Args:
         file: The input Parquet file path or buffer.
+
+    Keyword Args:
+        batch_size: The number of rows per batch in the returned reader.
+            Defaults to 1024, the underlying arrow-rs default, if not specified. Larger values reduce per-batch
+            overhead and can significantly improve read performance.
 
     Returns:
         The loaded Arrow data.

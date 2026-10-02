@@ -56,6 +56,10 @@ COMMON_ERRRORS: list[dict[str, Any]] = [
         "error_type": exceptions.ForbiddenException,
     },
     {
+        "errorCode": "err.func.wired.unauthorized",
+        "error_type": exceptions.UnauthorizedException,
+    },
+    {
         "errorCode": "409001",
         "error_type": exceptions.ChargeModeInProgressException,
     },
@@ -206,6 +210,7 @@ _VEHICLE_ENDPOINTS: dict[str, dict[str, EndpointDefinition | None]] = {
         "actions/hvac-start": _DEFAULT_ENDPOINTS["actions/hvac-start"],
         "actions/hvac-stop": _KCA_ALTERNATIVE_ENDPOINTS["actions/hvac-stop"],
         "actions/lights-start": _DEFAULT_ENDPOINTS["actions/lights-start"],
+        "actions/refresh-location": _DEFAULT_ENDPOINTS["actions/refresh-location"],
         "alerts": None,  # Reason: err.func.wired.not-found
         "battery-status": _DEFAULT_ENDPOINTS["battery-status"],
         "charge-history": None,  # Reason: err.func.wired.not-found
@@ -216,7 +221,7 @@ _VEHICLE_ENDPOINTS: dict[str, dict[str, EndpointDefinition | None]] = {
         "cockpit": _DEFAULT_ENDPOINTS["cockpit"],
         "hvac-history": None,  # Reason: err.func.wired.not-found
         "hvac-sessions": None,  # Reason: err.func.wired.not-found
-        "hvac-settings": _DEFAULT_ENDPOINTS["hvac-settings"],
+        "hvac-settings": None,  # Reason: errorCode 502000 (technical) on every call
         "hvac-status": _DEFAULT_ENDPOINTS["hvac-status"],
         "location": _DEFAULT_ENDPOINTS["location"],
         "lock-status": None,  # Reason: err.func.wired.notFound
@@ -410,6 +415,7 @@ _VEHICLE_ENDPOINTS: dict[str, dict[str, EndpointDefinition | None]] = {
         "actions/charge-stop": None,  # Reason: err.func.wired.invalid-body-format
         "actions/horn-start": _DEFAULT_ENDPOINTS["actions/horn-start"],
         "actions/hvac-start": _DEFAULT_ENDPOINTS["actions/hvac-start"],
+        "actions/hvac-stop": _KCA_ALTERNATIVE_ENDPOINTS["actions/hvac-stop"],
         "actions/lights-start": _DEFAULT_ENDPOINTS["actions/lights-start"],
         "battery-status": _DEFAULT_ENDPOINTS["battery-status"],
         "charge-history": None,  # Reason: "err.func.wired.not-found"
@@ -510,14 +516,18 @@ _VEHICLE_ENDPOINTS: dict[str, dict[str, EndpointDefinition | None]] = {
         "res-state": None,  # Reason: "err.func.wired.notFound"
     },
     "XHN1ML": {  # Renault Espace VI (OpenRLink)
+        "actions/charge-start": None,  # err.func.wired.forbidden
+        "actions/charge-stop": None,  # err.func.wired.not-found
         "actions/horn-start": _DEFAULT_ENDPOINTS["actions/horn-start"],
         "actions/hvac-start": None,  # err.func.wired.forbidden
         "actions/lights-start": _DEFAULT_ENDPOINTS["actions/lights-start"],
+        "actions/refresh-location": _DEFAULT_ENDPOINTS["actions/refresh-location"],
+        "alerts": None,  # err.func.wired.not-found
         "battery-status": None,  # err.func.wired.notFound
         "charge-history": None,  # err.func.wired.not-found
         "charge-mode": None,  # err.func.wired.forbidden
         "charge-schedule": None,  # err.func.wired.forbidden
-        "charges": None,  # err.func.wired.forbidden
+        "charges": None,  # err.func.wired.notFound
         "charging-settings": None,  # err.func.wired.forbidden
         "cockpit": _DEFAULT_ENDPOINTS["cockpit"],
         "hvac-history": None,  # err.func.wired.not-found
@@ -931,18 +941,18 @@ class KamereonVehicleDetails(BaseModel):
         """Return True if model reports history durations in minutes."""
         # Default to False (=seconds) for unknown vehicles
         if self.model and self.model.code:
-            return VEHICLE_SPECIFICATIONS.get(  # type:ignore[no-any-return]
-                self.model.code, {}
-            ).get("reports-charge-session-durations-in-minutes", False)
+            return VEHICLE_SPECIFICATIONS.get(self.model.code, {}).get(
+                "reports-charge-session-durations-in-minutes", False
+            )
         return False
 
     def reports_charging_power_in_watts(self) -> bool:
         """Return True if model reports chargingInstantaneousPower in watts."""
         # Default to False for unknown vehicles
         if self.model and self.model.code:
-            return VEHICLE_SPECIFICATIONS.get(  # type:ignore[no-any-return]
-                self.model.code, {}
-            ).get("reports-in-watts", False)
+            return VEHICLE_SPECIFICATIONS.get(self.model.code, {}).get(
+                "reports-in-watts", False
+            )
         return False
 
     def supports_endpoint(self, endpoint: str) -> bool:
@@ -959,9 +969,9 @@ class KamereonVehicleDetails(BaseModel):
         )
         # Default to False for unknown vehicles
         if self.model and self.model.code:
-            return VEHICLE_SPECIFICATIONS.get(  # type:ignore[no-any-return]
-                self.model.code, {}
-            ).get(f"control-{action}-via-kcm", False)
+            return VEHICLE_SPECIFICATIONS.get(self.model.code, {}).get(
+                f"control-{action}-via-kcm", False
+            )
         return False
 
     def get_endpoints(self) -> Mapping[str, EndpointDefinition | None]:
@@ -1222,9 +1232,9 @@ class KamereonVehicleCarAdapterData(KamereonVehicleDataAttributes):
         """Return True if model reports chargingInstantaneousPower in watts."""
         # Default to False for unknown vehicles
         if self.carGateway:
-            return GATEWAY_SPECIFICATIONS.get(  # type:ignore[no-any-return]
-                self.carGateway, {}
-            ).get("reports-in-watts", False)
+            return GATEWAY_SPECIFICATIONS.get(self.carGateway, {}).get(
+                "reports-in-watts", False
+            )
         return False
 
     def controls_action_via_kcm(self, action: str) -> bool:
@@ -1236,9 +1246,9 @@ class KamereonVehicleCarAdapterData(KamereonVehicleDataAttributes):
         )
         # Default to False for unknown vehicles
         if self.modelCodeDetail:
-            return VEHICLE_SPECIFICATIONS.get(  # type:ignore[no-any-return]
-                self.modelCodeDetail, {}
-            ).get(f"control-{action}-via-kcm", False)
+            return VEHICLE_SPECIFICATIONS.get(self.modelCodeDetail, {}).get(
+                f"control-{action}-via-kcm", False
+            )
         return False
 
 

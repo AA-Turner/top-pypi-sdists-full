@@ -1,1 +1,0 @@
-"""SURDS benchmark adapter package."""

@@ -1,0 +1,2418 @@
+/**
+ * Check if element has dj-confirm and show confirmation dialog.
+ * @param {HTMLElement} element - Element with potential dj-confirm attribute
+ * @returns {boolean} - true if confirmed or no dialog needed, false if cancelled
+ */
+function checkDjConfirm(element) {
+    const confirmMsg = element.getAttribute('dj-confirm');
+    if (confirmMsg && !window.confirm(confirmMsg)) {
+        return false; // User cancelled
+    }
+    return true; // Proceed
+}
+
+// Track which DOM nodes have actually had event handlers attached.
+// WeakMap<Element, Set<string>> — keys are live DOM nodes, values are
+// sets of handler types already bound (e.g. 'click', 'submit').
+// Unlike data attributes, WeakMap entries are automatically invalidated
+// when a DOM node is replaced (cloned/morphed) because the new node
+// is a different object.  This prevents stale binding flags from
+// blocking re-binding after VDOM patches.
+const _boundHandlers = new WeakMap();
+
+function _isHandlerBound(element, type) {
+    const set = _boundHandlers.get(element);
+    return set ? set.has(type) : false;
+}
+
+function _markHandlerBound(element, type) {
+    let set = _boundHandlers.get(element);
+    if (!set) {
+        set = new Set();
+        _boundHandlers.set(element, set);
+    }
+    set.add(type);
+}
+
+function _unmarkHandlerBound(element, type) {
+    const set = _boundHandlers.get(element);
+    if (set) set.delete(type);
+}
+
+// ============================================================================
+// Scoped Listener Helpers (window/document event binding)
+// ============================================================================
+
+// Track all elements that have scoped (window/document) listeners so we can
+// sweep and clean up listeners for elements removed from the DOM.
+const _scopedListenerElements = new Set();
+
+/**
+ * Clean up all scoped (window/document) listeners stored on an element.
+ * Each listener is stored as { target, eventType, handler, capture } in
+ * element._djustScopedListeners.
+ * @param {HTMLElement} element
+ */
+function _cleanupScopedListeners(element) {
+    if (!element._djustScopedListeners) return;
+    for (const entry of element._djustScopedListeners) {
+        entry.target.removeEventListener(entry.eventType, entry.handler, entry.capture || false);
+    }
+    element._djustScopedListeners = [];
+    _scopedListenerElements.delete(element);
+}
+
+/**
+ * Register a scoped listener on an element. Stores the reference for cleanup.
+ * @param {HTMLElement} element - Declaring element (anchor)
+ * @param {EventTarget} target - window or document
+ * @param {string} eventType - DOM event type (e.g. 'keydown')
+ * @param {Function} handler - Event handler function
+ * @param {boolean} [capture=false] - Use capture phase
+ * @param {string} attrName - The directive attribute that declares this
+ *   listener (e.g. 'dj-shortcut'). The orphan sweep evicts per attribute
+ *   (#2832), so it must know what declared each listener.
+ * @param {string} boundType - Key used in the _boundHandlers marker map
+ *   (e.g. 'shortcut'), so eviction can un-mark the element and a later
+ *   re-declaration of the attribute can re-bind.
+ * @param {string} [boundValue] - The attribute VALUE (or composite key) the
+ *   handler closure was built from. The #2845 rebuild check compares this
+ *   against the current attribute on every bind pass: an element that
+ *   survives a morph keeps both its listener and its _boundHandlers marker,
+ *   so only a value match justifies skipping the re-bind.
+ */
+function _addScopedListener(element, target, eventType, handler, capture, attrName, boundType, boundValue) {
+    if (!element._djustScopedListeners) element._djustScopedListeners = [];
+    const useCapture = capture || false;
+    element._djustScopedListeners.push({
+        target, eventType, handler, capture: useCapture,
+        attrName: attrName, boundType: boundType, boundValue: boundValue,
+    });
+    target.addEventListener(eventType, handler, useCapture);
+    _scopedListenerElements.add(element);
+}
+
+/**
+ * The value the existing scoped listener for `boundType` on `element` was
+ * built from (#2845), or undefined when none is attached. The bind loops
+ * compare this against the CURRENT attribute value to decide skip vs rebuild
+ * — the sweep predicate judges attribute PRESENCE only, so it cannot detect
+ * a value change on a surviving element.
+ * @param {HTMLElement} element
+ * @param {string} boundType
+ * @returns {string|undefined}
+ */
+function _scopedBoundValue(element, boundType) {
+    const listeners = element._djustScopedListeners;
+    if (!listeners) return undefined;
+    for (let i = 0; i < listeners.length; i++) {
+        // eslint-disable-next-line security/detect-object-injection
+        if (listeners[i].boundType === boundType) return listeners[i].boundValue;
+    }
+    return undefined;
+}
+
+/**
+ * Remove every scoped listener an element carries for one boundType (#2845):
+ * detach the real addEventListener handles, un-mark the _boundHandlers entry,
+ * and drop the entries — the targeted per-boundType counterpart of the
+ * sweep's eviction, used by the bind loops to REBUILD a closure whose
+ * declaring attribute value changed under a surviving element.
+ * @param {HTMLElement} element
+ * @param {string} boundType
+ */
+function _removeScopedListeners(element, boundType) {
+    const listeners = element._djustScopedListeners;
+    if (!listeners || listeners.length === 0) return;
+    const survivors = [];
+    for (let i = 0; i < listeners.length; i++) {
+        // eslint-disable-next-line security/detect-object-injection
+        const entry = listeners[i];
+        if (entry.boundType === boundType) {
+            entry.target.removeEventListener(entry.eventType, entry.handler, entry.capture || false);
+            if (entry.boundType) _unmarkHandlerBound(element, entry.boundType);
+        } else {
+            survivors.push(entry);
+        }
+    }
+    if (survivors.length === 0) {
+        element._djustScopedListeners = [];
+        _scopedListenerElements.delete(element);
+    } else if (survivors.length !== listeners.length) {
+        element._djustScopedListeners = survivors;
+    }
+}
+
+// ============================================================================
+// Shared scoped-listener eviction predicate (#2832)
+// ============================================================================
+
+// LiveView roots governing scoped-listener eviction. Recomputed by
+// _refreshScopedGovernorRoots() — called from _scanScopedElements(), which
+// bindLiveViewEvents() runs on EVERY bind — so every consumer below (the
+// registry eviction, the orphan sweep) reads a root set fresh from the
+// current DOM. Held at module level because the eviction predicate must be
+// reachable from BOTH scoped-listener paths: isGoverned() used to be a
+// closure over this set inside _scanScopedElements(), and the orphan sweep
+// could not share it — so it kept a stale copy of the pre-#2108 predicate
+// and dj-shortcut / dj-click-away kept firing after the template stopped
+// declaring them (#2832). One predicate, implemented once.
+let _scopedGovernorRoots = [];
+
+/**
+ * Recompute the module-level LiveView-root set used by the shared eviction
+ * predicate. EVERY LiveView root, not just the first (a page can carry more
+ * than one — {% live_render %} children, sticky views; picking only the
+ * first meant a second root's elements were never governed — #2110).
+ *
+ * Keep only the OUTERMOST roots: containment is transitive, so a nested
+ * root's subtree is already covered by its ancestor, and querySelectorAll
+ * returns document order in which an ancestor always precedes its
+ * descendants — a single pass comparing against the last kept root suffices.
+ * This MUST stay in lockstep with the scan set in _scanScopedElements():
+ * when the sweep's governed set and the scan's disagreed, an entry outside
+ * the scanned root was neither refreshed nor evicted — exactly the #2110 bug.
+ */
+function _refreshScopedGovernorRoots() {
+    const allRoots = document.querySelectorAll('[dj-view], [dj-root]');
+    const roots = [];
+    allRoots.forEach(function(r) {
+        if (roots.length && roots[roots.length - 1].contains(r)) return;
+        roots.push(r);
+    });
+    _scopedGovernorRoots = roots;
+}
+
+/** Is `el` one of the roots, or inside one? (No roots ⇒ document fallback.) */
+function _isGovernedByScopedRoots(el) {
+    if (_scopedGovernorRoots.length === 0) return true;
+    for (let i = 0; i < _scopedGovernorRoots.length; i++) {
+        // eslint-disable-next-line security/detect-object-injection
+        const r = _scopedGovernorRoots[i];
+        if (r === el || r.contains(el)) return true;
+    }
+    return false;
+}
+
+/**
+ * THE eviction predicate for scoped listeners (#2832) — the single
+ * implementation behind BOTH paths:
+ *
+ *   1. the _scopedRegistry path (dj-window-* / dj-document-*), where
+ *      _scanScopedElements() drops registry entries, and
+ *   2. the _sweepOrphanedScopedListeners() path (dj-shortcut /
+ *      dj-click-away), which removes real addEventListener handles.
+ *
+ * An entry is stale when the element left the DOM, the server dropped the
+ * declaring attribute, or the element is no longer governed by any root.
+ * The middle case matters because morphdom PATCHES a surviving element's
+ * attributes rather than replacing the node — a replaced element is evicted
+ * by the contains() check, but one that is merely mutated would otherwise
+ * keep dispatching a directive the template no longer declares (#2108).
+ * The last case keeps the sweep symmetric with the scan (#2110): an entry
+ * the scan can no longer reach must not keep firing a value nothing will
+ * refresh. Both paths used to carry their own copy of this predicate and
+ * only the registry path got the #2108 fix (#2832).
+ */
+function _scopedListenerIsStale(element, attrName) {
+    return (
+        !document.contains(element) ||
+        element.getAttribute(attrName) === null ||
+        !_isGovernedByScopedRoots(element)
+    );
+}
+
+/**
+ * Sweep all tracked scoped-listener elements and evict every listener whose
+ * declaring attribute is stale — judged by the SAME predicate the registry
+ * path uses (#2832), so dj-shortcut / dj-click-away cannot keep firing after
+ * the template stops declaring them on a surviving element.
+ *
+ * Eviction is per declaring attribute: one element may carry several scoped
+ * directives (e.g. dj-shortcut + dj-click-away) and only the ones whose
+ * attribute the template dropped must be removed. Evicting also un-marks
+ * the _boundHandlers entry — the other half of this bug: a surviving
+ * element keeps its marker, so the re-scan would otherwise never re-bind
+ * even after the attribute returns.
+ *
+ * Call ordering: bindLiveViewEvents() must run this AFTER the
+ * dj-click-away / dj-shortcut bind loops, not before. The bind loops are
+ * document-wide, so a sweep that ran first would evict an entry (e.g. an
+ * ungoverned element) that the loops immediately re-bind — eviction that is
+ * undone in the same tick is decoration, not enforcement. Sweeping last
+ * means every attached listener is judged at a point where nothing re-adds
+ * it until the next bind.
+ */
+function _sweepOrphanedScopedListeners() {
+    for (const element of _scopedListenerElements) {
+        const listeners = element._djustScopedListeners;
+        if (!listeners || listeners.length === 0) {
+            _scopedListenerElements.delete(element);
+            continue;
+        }
+        const survivors = [];
+        for (let i = 0; i < listeners.length; i++) {
+            // eslint-disable-next-line security/detect-object-injection
+            const entry = listeners[i];
+            if (_scopedListenerIsStale(element, entry.attrName)) {
+                entry.target.removeEventListener(entry.eventType, entry.handler, entry.capture || false);
+                if (entry.boundType) _unmarkHandlerBound(element, entry.boundType);
+            } else {
+                survivors.push(entry);
+            }
+        }
+        if (survivors.length === 0) {
+            element._djustScopedListeners = [];
+            _scopedListenerElements.delete(element);
+        } else if (survivors.length !== listeners.length) {
+            element._djustScopedListeners = survivors;
+        }
+    }
+}
+
+// Key-name map for `_normalizeKeyName`: lowercased attribute suffix →
+// `KeyboardEvent.key` value. Anything NOT in this map resolves through the
+// RAW-name fallback (`_KEY_NAME_MAP[lower] || name`) — that fallback is what
+// lets single characters (`.a`) and correctly-cased DOM key names (`.PageUp`,
+// `.F1`) fire, and what leaves multi-character all-lowercase misspellings
+// (`.esc`, `.f1`) silently inert forever, since every multi-character
+// KeyboardEvent.key is UpperCamelCase. `_warnUnrecognizedDjModifiers` consults
+// this same map to warn about that inert class in debug mode (#2842) — one
+// map, two readers, so they cannot drift (#1646).
+const _KEY_NAME_MAP = {
+    'escape': 'Escape',
+    'enter': 'Enter',
+    'tab': 'Tab',
+    'space': ' ',
+    'backspace': 'Backspace',
+    'delete': 'Delete',
+    'arrowup': 'ArrowUp',
+    'arrowdown': 'ArrowDown',
+    'arrowleft': 'ArrowLeft',
+    'arrowright': 'ArrowRight',
+    // Bare direction words. `docs/website/guides/tutorials.md` documents
+    // `dj-keydown.right="skip_tutorial"` as a copy-pasteable example, and
+    // without these the lookup fell through to the RAW name while `e.key`
+    // is `ArrowRight` — so the documented modifier never fired, the same
+    // silently-inert class as #2831. Added for all four directions rather
+    // than only the one the docs happen to spell out (parallel-path drift).
+    'up': 'ArrowUp',
+    'down': 'ArrowDown',
+    'left': 'ArrowLeft',
+    'right': 'ArrowRight',
+};
+
+// Directives whose dotted in-name modifier is a KEY name
+// (`dj-keydown.escape`). `_declaredKey` reads the FIRST modifier only;
+// the #2842 warning pass mirrors that. Scoped twins split on the dot the
+// same way: `dj-window-keydown.escape`.split('.') gives the base as
+// `dj-window-keydown` (hyphens, not dots, inside the base name).
+const _KEYBOARD_KEY_DIRECTIVES = {
+    'dj-keydown': true,
+    'dj-keyup': true,
+    'dj-window-keydown': true,
+    'dj-window-keyup': true,
+    'dj-document-keydown': true,
+    'dj-document-keyup': true,
+};
+
+/**
+ * Normalize a key name to match KeyboardEvent.key values.
+ * @param {string} name - Key name from attribute (e.g. 'escape', 'enter', 'k')
+ * @returns {string} - Normalized key name
+ */
+function _normalizeKeyName(name) {
+    const lower = name.toLowerCase();
+    // eslint-disable-next-line security/detect-object-injection
+    return _KEY_NAME_MAP[lower] || name;
+}
+
+// ============================================================================
+// Scoped Event Delegation (dj-window-*, dj-document-*)
+// ============================================================================
+// Install ONE listener per event type on window/document (one-shot). When the
+// event fires, dispatch to registered declaring elements. Declaring elements are
+// registered by _scanScopedElements(), which bindLiveViewEvents() calls on EVERY
+// invocation — so elements that enter the DOM via a later patch (e.g. inside a
+// {% if %} that becomes true), on TurboNav, or at initial mount all get picked
+// up. Only the window/document addEventListener install is one-shot (guarded by
+// _scopedDelegationInstalled); the registry scan is not.
+
+// Registry: Map<"prefix:evtType", Set<{element, attrName, handler, requiredKey}>>
+const _scopedRegistry = new Map();
+let _scopedDelegationInstalled = false;
+
+/**
+ * Scan the DOM for elements with dj-window-[event] / dj-document-[event] attributes
+ * and register them in the scoped registry for delegated dispatch.
+ */
+function _scanScopedElements() {
+    const scopedPrefixes = ['dj-window-', 'dj-document-'];
+    const scopedEventTypes = ['keydown', 'keyup', 'click', 'scroll', 'resize'];
+    // Refresh the shared governed-roots set first: the registry eviction
+    // below and the orphan sweep both judge staleness against it, and the
+    // set must describe the CURRENT DOM on every bind. Root-selection rules
+    // (every root, outermost only, MUST match the sweep's set) live on
+    // _refreshScopedGovernorRoots (#2110, #2832).
+    _refreshScopedGovernorRoots();
+
+    // Clear stale entries through the SAME predicate the orphan sweep uses
+    // (#2832): the element left the DOM, the server dropped the attribute,
+    // or the element is no longer governed by any root. The predicate's
+    // comment carries the per-condition reasoning (#2108 / #2110).
+    _scopedRegistry.forEach(function(entries, _key) {
+        entries.forEach(function(entry) {
+            if (_scopedListenerIsStale(entry.element, entry.attrName)) {
+                entries.delete(entry);
+            }
+        });
+    });
+
+    // Scan ALL elements in the LiveView root (only way to find dotted attr names).
+    // bindLiveViewEvents() calls this on EVERY invocation (#1996) — only the
+    // window/document listener install is one-shot.
+    //
+    // The root element ITSELF must be included: querySelectorAll matches
+    // descendants only, so a scoped attr written on the dj-view/dj-root element
+    // (e.g. <div dj-view="app.SnakeView" dj-window-keydown="key">) was never
+    // registered and the directive was silently dead — no error, no WS frame
+    // (#2097).
+    // Iterate the NodeList directly and scan the root separately — building a
+    // combined array would allocate two arrays on every patch, and this runs on
+    // every bind in one of the largest client modules.
+    function scanElement(element) {
+        for (let ai = 0; ai < element.attributes.length; ai++) {
+            // eslint-disable-next-line security/detect-object-injection
+            const attrName = element.attributes[ai].name;
+            for (let pi = 0; pi < scopedPrefixes.length; pi++) {
+                // eslint-disable-next-line security/detect-object-injection
+                const prefix = scopedPrefixes[pi];
+                if (!attrName.startsWith(prefix)) continue;
+
+                // Find which event type this is (e.g. 'keydown' from 'dj-window-keydown.escape')
+                const rest = attrName.slice(prefix.length); // 'keydown' or 'keydown.escape'
+                let evtType = null;
+                for (let ei = 0; ei < scopedEventTypes.length; ei++) {
+                    // eslint-disable-next-line security/detect-object-injection
+                    if (rest === scopedEventTypes[ei] || rest.startsWith(scopedEventTypes[ei] + '.')) {
+                        // eslint-disable-next-line security/detect-object-injection
+                        evtType = scopedEventTypes[ei];
+                        break;
+                    }
+                }
+                if (!evtType) continue;
+
+                const registryKey = prefix + evtType;
+                if (!_scopedRegistry.has(registryKey)) {
+                    _scopedRegistry.set(registryKey, new Set());
+                }
+
+                const suffix = rest.slice(evtType.length); // '' or '.escape'
+                const requiredKey = suffix.startsWith('.') ? _normalizeKeyName(suffix.slice(1)) : null;
+                // eslint-disable-next-line security/detect-object-injection
+                const parsed = parseEventHandler(element.attributes[ai].value);
+
+                // Check if already registered (prevent duplicates). An existing
+                // entry is REFRESHED rather than skipped: the element survives a
+                // morph while its attribute VALUE changes, so a skip would keep
+                // dispatching the old handler (and old kwargs / old key filter)
+                // forever (#2108).
+                const entries = _scopedRegistry.get(registryKey);
+                let alreadyRegistered = false;
+                entries.forEach(function(entry) {
+                    if (entry.element === element && entry.attrName === attrName) {
+                        entry.parsed = parsed;
+                        entry.requiredKey = requiredKey;
+                        alreadyRegistered = true;
+                    }
+                });
+                if (alreadyRegistered) continue;
+
+                entries.add({
+                    element: element,
+                    attrName: attrName,
+                    parsed: parsed,
+                    requiredKey: requiredKey,
+                });
+            }
+        }
+    }
+
+    if (_scopedGovernorRoots.length === 0) {
+        // No LiveView root on the page — fall back to the whole document.
+        // `document` itself has no .attributes (scanning it would throw), and
+        // its querySelectorAll('*') already covers <html>/<body>.
+        document.querySelectorAll('*').forEach(scanElement);
+        return;
+    }
+
+    // Each outermost root plus its descendants. Nested roots need no separate
+    // visit — they are already inside one of these subtrees.
+    _scopedGovernorRoots.forEach(function(r) {
+        scanElement(r);
+        r.querySelectorAll('*').forEach(scanElement);
+    });
+}
+
+/**
+ * Install delegated listeners on window/document for scoped events.
+ * One-shot: the window/document addEventListener calls must run exactly once
+ * (window persists across patches, so re-adding would double-dispatch). The
+ * registry that these listeners dispatch to is (re)populated separately by
+ * _scanScopedElements(), which bindLiveViewEvents() calls on every invocation.
+ */
+function _installScopedDelegation() {
+    if (_scopedDelegationInstalled) return;
+    _scopedDelegationInstalled = true;
+
+    const scopedTargets = [
+        { prefix: 'dj-window-', target: window },
+        { prefix: 'dj-document-', target: document },
+    ];
+    const scopedEventTypes = ['keydown', 'keyup', 'click', 'scroll', 'resize'];
+
+    for (let ti = 0; ti < scopedTargets.length; ti++) {
+        // eslint-disable-next-line security/detect-object-injection
+        const prefix = scopedTargets[ti].prefix;
+        // eslint-disable-next-line security/detect-object-injection
+        const target = scopedTargets[ti].target;
+
+        for (let ei = 0; ei < scopedEventTypes.length; ei++) {
+            // eslint-disable-next-line security/detect-object-injection
+            const evtType = scopedEventTypes[ei];
+            if (target === document && (evtType === 'scroll' || evtType === 'resize')) continue;
+
+            (function(prefix, target, evtType) {
+                const registryKey = prefix + evtType;
+
+                target.addEventListener(evtType, function(e) {
+                    const entries = _scopedRegistry.get(registryKey);
+                    if (!entries || entries.size === 0) return;
+
+                    entries.forEach(function(entry) {
+                        // Skip elements removed from DOM
+                        if (!document.contains(entry.element)) return;
+
+                        // Key filtering
+                        if (entry.requiredKey && e.key !== entry.requiredKey) return;
+
+                        const params = extractTypedParams(entry.element);
+                        addEventContext(params, entry.element);
+
+                        if (evtType === 'keydown' || evtType === 'keyup') {
+                            params.key = e.key;
+                            params.code = e.code;
+                        } else if (evtType === 'click') {
+                            params.clientX = e.clientX;
+                            params.clientY = e.clientY;
+                        } else if (evtType === 'scroll') {
+                            params.scrollY = window.scrollY;
+                            params.scrollX = window.scrollX;
+                        } else if (evtType === 'resize') {
+                            params.innerWidth = window.innerWidth;
+                            params.innerHeight = window.innerHeight;
+                        }
+
+                        if (entry.parsed.args.length > 0) {
+                            params._args = entry.parsed.args;
+                        }
+
+                        handleEvent(entry.parsed.name, params);
+                    });
+                }, evtType === 'scroll' || evtType === 'resize' ? { passive: true } : false);
+            })(prefix, target, evtType);
+        }
+    }
+}
+
+/**
+ * Add component and embedded view context to event params.
+ * Extracts component_id and view_id from the element's ancestry.
+ * @param {Object} params - Event params object to augment
+ * @param {HTMLElement} element - Element that triggered the event
+ */
+function addEventContext(params, element) {
+    const componentId = getComponentId(element);
+    if (componentId) params.component_id = componentId;
+    const embeddedViewId = getEmbeddedViewId(element);
+    if (embeddedViewId) params.view_id = embeddedViewId;
+}
+
+// WeakSet to track elements whose dj-mounted handler has already fired.
+// Using WeakSet means entries are GC'd when the DOM node is replaced,
+// allowing the handler to fire again for genuinely new elements.
+const _mountedElements = new WeakSet();
+
+/**
+ * Check if element is a form element that supports the disabled property.
+ * @param {HTMLElement} element
+ * @returns {boolean}
+ */
+function _isFormElement(element) {
+    const tag = element.tagName;
+    return tag === 'BUTTON' || tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA';
+}
+
+/**
+ * Lock an element: set data-djust-locked marker and disable/style it.
+ * For form elements (button, input, select, textarea): sets disabled = true.
+ * For non-form elements: adds CSS class 'djust-locked'.
+ * @param {HTMLElement} element
+ */
+function _lockElement(element) {
+    element.setAttribute('data-djust-locked', '');
+    if (_isFormElement(element)) {
+        element.disabled = true;
+    } else {
+        element.classList.add('djust-locked');
+    }
+}
+
+/**
+ * Check if element has dj-lock and is already locked. If locked, return true
+ * to signal the caller to skip the event. If not locked but has dj-lock, lock it.
+ * @param {HTMLElement} element
+ * @returns {boolean} true if event should be skipped (already locked)
+ */
+function _checkAndLock(element) {
+    if (!element.hasAttribute('dj-lock')) return false;
+    if (element.hasAttribute('data-djust-locked')) return true; // Already locked, skip
+    _lockElement(element);
+    return false;
+}
+
+/**
+ * Apply dj-disable-with: save original text and replace with loading text.
+ * Only saves original text if not already saved (prevents overwrite on double-submit).
+ * @param {HTMLElement} element - Element with dj-disable-with attribute
+ */
+function _applyDisableWith(element) {
+    const disableText = element.getAttribute('dj-disable-with');
+    if (!disableText) return;
+    if (!element.hasAttribute('data-djust-original-text')) {
+        element.setAttribute('data-djust-original-text', element.textContent);
+    }
+    element.textContent = disableText;
+    element.disabled = true;
+}
+
+/**
+ * Toggle pending state on a `<form dj-submit>` and all `[dj-form-pending]`
+ * descendants. v0.8.0 — React 19 `useFormStatus` equivalent (#991 follow-up):
+ * any element nested inside a form-with-dj-submit can declare
+ * `dj-form-pending="hide|show|disabled"` and react automatically when its
+ * ancestor form's submit handler is in-flight.
+ *
+ * Modes:
+ *   - `hide`     — hidden while pending, visible otherwise
+ *   - `show`     — visible while pending, hidden otherwise
+ *   - `disabled` — `disabled=true` while pending, original state otherwise
+ *
+ * The form itself gets a `data-djust-form-pending="true"` attribute so CSS
+ * selectors (`form[data-djust-form-pending] .submit-spinner`) can hook in
+ * without JS. Removed when the submission resolves (success or error).
+ *
+ * @param {HTMLFormElement} form - Form being submitted
+ * @param {boolean} pending - true at submit start, false on resolve
+ */
+function _setFormPending(form, pending) {
+    if (!form) return;
+    if (pending) {
+        form.setAttribute('data-djust-form-pending', 'true');
+    } else {
+        form.removeAttribute('data-djust-form-pending');
+    }
+    const targets = form.querySelectorAll('[dj-form-pending]');
+    for (const el of targets) {
+        const mode = el.getAttribute('dj-form-pending');
+        if (mode === 'hide') {
+            // Hidden while pending. Use the `hidden` attribute (not display:none)
+            // so user CSS overrides keep working.
+            if (pending) {
+                el.setAttribute('hidden', '');
+            } else {
+                el.removeAttribute('hidden');
+            }
+        } else if (mode === 'show') {
+            // Visible while pending — opposite of `hide`.
+            if (pending) {
+                el.removeAttribute('hidden');
+            } else {
+                el.setAttribute('hidden', '');
+            }
+        } else if (mode === 'disabled') {
+            // `disabled` is property-only on form controls; setAttribute also
+            // works for non-form elements (e.g. <a> with aria-disabled wiring).
+            if (pending) {
+                if (!el.hasAttribute('data-djust-form-pending-was-disabled')) {
+                    el.setAttribute(
+                        'data-djust-form-pending-was-disabled',
+                        el.disabled ? 'true' : 'false',
+                    );
+                }
+                el.disabled = true;
+            } else {
+                const wasDisabled = el.getAttribute('data-djust-form-pending-was-disabled');
+                if (wasDisabled !== null) {
+                    el.disabled = wasDisabled === 'true';
+                    el.removeAttribute('data-djust-form-pending-was-disabled');
+                } else {
+                    el.disabled = false;
+                }
+            }
+        }
+        // Unknown modes are silently ignored — future-extensible without
+        // breaking forward compat.
+    }
+}
+
+// ============================================================================
+// Delegated Event Handlers
+// ============================================================================
+
+// WeakMaps to store per-element rate limit state for delegated events.
+// Since delegation means we don't have a closure per element, we use
+// WeakMaps to associate rate-limited wrappers with their elements.
+const _inputRateLimitState = new WeakMap();
+const _changeRateLimitState = new WeakMap();
+const _clickRateLimitState = new WeakMap();
+const _keydownRateLimitState = new WeakMap();
+const _keyupRateLimitState = new WeakMap();
+// dj-mouseenter / dj-mouseleave (#2869) — same (element, matched-attribute)
+// wrapper-cache invariant as the keyboard paths (#2831): one persistent
+// wrapper per binding so dj-debounce/dj-throttle timers survive morphs.
+const _mouseRateLimitState = new WeakMap();
+
+// Helper: Extract field name from element attributes
+// Priority: data-field (explicit) > name (standard) > id (fallback)
+function getFieldName(element) {
+    if (element.dataset && element.dataset.field) {
+        return element.dataset.field;
+    }
+    if (element.name) {
+        return element.name;
+    }
+    if (element.id) {
+        // Strip common prefixes like 'id_' (Django convention)
+        return element.id.replace(/^id_/, '');
+    }
+    return null;
+}
+
+/**
+ * Build standard form event params with component context.
+ * Used by change, input, blur, focus event handlers.
+ * @param {HTMLElement} element - Form element that triggered the event
+ * @param {any} value - Current value of the field
+ * @returns {Object} - Params object with value, field, and optional component_id
+ */
+function buildFormEventParams(element, value) {
+    const fieldName = getFieldName(element);
+    const params = { value, field: fieldName };
+    // Merge dj-value-* attributes from the triggering element
+    Object.assign(params, collectDjValues(element));
+    addEventContext(params, element);
+    return params;
+}
+
+/**
+ * Get or create a rate-limited handler wrapper for one element+BINDING pair.
+ *
+ * @param {WeakMap} stateMap - WeakMap of element -> Map<variant, wrapper>
+ * @param {HTMLElement} element - Element to get/create wrapper for
+ * @param {string} eventType - Event type (for server rate limit lookup)
+ * @param {Function} rawHandler - The raw (unwrapped) handler function
+ * @param {string} [variant] - The matched attribute name, for elements that
+ *   can carry several bindings for one event type
+ * @returns {Function} - Rate-limited wrapper or raw handler
+ */
+function _getOrCreateRateLimitedHandler(stateMap, element, eventType, rawHandler, variant) {
+    // The cache CANNOT be keyed on the element alone, for two independent
+    // reasons — both found in review of #2831:
+    //
+    //  1. The rawHandler closure captures the matched attribute NAME
+    //     (`dj-keydown` vs `dj-keydown.enter`). A single slot per element would
+    //     freeze whichever binding arrived first: a morphdom attribute swap on a
+    //     surviving node would then keep dispatching the stale binding, going
+    //     silently dead with no error.
+    //  2. The wrapper OWNS rate-limit state. `debounce()` keeps its timer inside
+    //     the closure it returns, so REBUILDING the wrapper resets that timer
+    //     and defeats `dj-debounce` / `dj-throttle` entirely — N server events
+    //     for N keystrokes. With one binding per element the slot was stable and
+    //     hid this; an element carrying two bindings alternated variants on
+    //     every keystroke and rebuilt the wrapper each time.
+    //
+    // Keying on (element, variant) gives each binding ONE persistent wrapper,
+    // which is what both concerns need.
+    const key = variant ?? eventType;
+    let byVariant = stateMap.get(element);
+    if (!byVariant) {
+        byVariant = new Map();
+        stateMap.set(element, byVariant);
+    }
+    if (byVariant.has(key)) return byVariant.get(key);
+
+    // Create rate-limited wrapper for this element
+    let wrapped = _applyRateLimitAttrs(element, rawHandler);
+    if (wrapped === rawHandler && window.djust.rateLimit) {
+        wrapped = window.djust.rateLimit.wrapWithRateLimit(element, eventType, rawHandler);
+    }
+    byVariant.set(key, wrapped);
+    return wrapped;
+}
+
+/**
+ * Handle dj-click events via delegation.
+ * @param {HTMLElement} element - Element with dj-click attribute
+ * @param {Event} e - The original click event
+ */
+async function _handleDjClick(element, e) {
+    e.preventDefault();
+
+    // dj-lock: skip if already locked
+    if (_checkAndLock(element)) return;
+
+    // Read attribute at fire time so morphElement attribute updates take effect
+    const rawClickValue = element.getAttribute('dj-click') || '';
+
+    // dj-confirm: show confirmation dialog before executing commands/events
+    if (!checkDjConfirm(element)) {
+        return; // User cancelled
+    }
+
+    // JS Commands: synchronously check whether the attribute is a
+    // JSON command chain. If so, fire-and-forget the chain (push
+    // ops still round-trip, but we don't block the rest of this
+    // handler on them). A plain event name falls through to the
+    // normal dj-click path without adding an `await` boundary,
+    // so synchronous expectations on dj-disable-with and friends
+    // continue to hold.
+    if (window.djust.js) {
+        const _ops = window.djust.js._parseCommandValue(rawClickValue);
+        if (_ops) {
+            window.djust.js._executeOps(_ops, element);
+            return;
+        }
+    }
+
+    const parsed = parseEventHandler(rawClickValue);
+
+    // dj-disable-with: disable and show loading text
+    _applyDisableWith(element);
+
+    // Apply optimistic update if specified
+    let optimisticUpdateId = null;
+    if (window.djust.optimistic) {
+        optimisticUpdateId = window.djust.optimistic.applyOptimisticUpdate(element, parsed.name);
+    }
+
+    // Extract all data-* attributes with type coercion support
+    const params = extractTypedParams(element);
+
+    // Add positional arguments from handler syntax if present
+    // e.g., dj-click="set_period('month')" -> params._args = ['month']
+    if (parsed.args.length > 0) {
+        params._args = parsed.args;
+    }
+
+    addEventContext(params, element);
+
+    // Pass target element and optimistic update ID
+    params._targetElement = element;
+    params._optimisticUpdateId = optimisticUpdateId;
+
+    // Handle dj-target for scoped updates
+    const targetSelector = element.getAttribute('dj-target');
+    if (targetSelector) {
+        params._djTargetSelector = targetSelector;
+    }
+
+    await handleEvent(parsed.name, params);
+}
+
+/**
+ * Handle dj-copy — client-side clipboard copy (no server round-trip).
+ * @param {HTMLElement} element - Element with dj-copy attribute
+ * @param {Event} e - The original click event
+ */
+function _handleDjCopy(element, e) {
+    e.preventDefault();
+    // Read attribute at click time (not bind time) so morph updates take effect
+    const currentValue = element.getAttribute('dj-copy');
+    if (!currentValue) return;
+
+    // Selector-based copy: if value starts with #, . or [, try querySelector
+    let textToCopy = currentValue;
+    if (currentValue.charAt(0) === '#' || currentValue.charAt(0) === '.' || currentValue.charAt(0) === '[') {
+        try {
+            const target = document.querySelector(currentValue);
+            if (target) {
+                textToCopy = target.textContent;
+            }
+        } catch (_err) {
+            // Invalid selector — fall back to literal copy
+        }
+    }
+
+    navigator.clipboard.writeText(textToCopy).then(function() {
+        // CSS class feedback: add class and remove after 2s
+        const cssClass = element.getAttribute('dj-copy-class') || 'dj-copied';
+        element.classList.add(cssClass);
+        setTimeout(function() { element.classList.remove(cssClass); }, 2000);
+
+        // Text feedback: custom or default "Copied!"
+        const feedbackText = element.getAttribute('dj-copy-feedback') || 'Copied!';
+        const original = element.textContent;
+        element.textContent = feedbackText;
+        setTimeout(function() { element.textContent = original; }, 1500);
+
+        // Optional server event for analytics
+        const copyEvent = element.getAttribute('dj-copy-event');
+        if (copyEvent) {
+            handleEvent(copyEvent, { text: textToCopy });
+        }
+    });
+}
+
+/**
+ * Handle dj-submit events on forms via delegation.
+ * @param {HTMLElement} element - Form element with dj-submit attribute
+ * @param {Event} e - The original submit event
+ */
+async function _handleDjSubmit(element, e) {
+    e.preventDefault();
+
+    // dj-lock: skip if already locked
+    if (_checkAndLock(element)) return;
+
+    // dj-confirm: show confirmation dialog before sending event
+    if (!checkDjConfirm(element)) {
+        return; // User cancelled
+    }
+
+    // Closes #1278 — flush pending debounced dj-input handlers in this form
+    // BEFORE dispatching submit. Without this, a user who types a field then
+    // immediately clicks submit (within the 300 ms debounce window) hits a
+    // race: submit fires while per-field dj-input events are still pending,
+    // so the server-side state populated by those handlers is empty when the
+    // submit handler reads it. FormData on the form element captures the
+    // typed values, but views that depend on dj-input updating server state
+    // per-keystroke (e.g., WizardMixin's wizard_step_data) see stale data.
+    _flushPendingDebouncesInForm(element);
+    // #2656 — same race, other timer set: `_flushPendingDebouncesInForm`
+    // only flushes the element-level `dj-debounce` wrappers. A handler
+    // carrying `@debounce` / `@throttle` has its pending send parked in the
+    // handler-level gate, which this drains.
+    flushHandlerRateLimit();
+
+    // Read attribute at fire time so morphElement attribute updates take effect
+    const submitHandler = element.getAttribute('dj-submit');
+
+    // dj-disable-with: disable submit buttons within the form
+    const submitBtns = element.querySelectorAll('button[type="submit"][dj-disable-with]');
+    submitBtns.forEach(btn => _applyDisableWith(btn));
+    // Also check the submitter if it has dj-disable-with
+    if (e.submitter && e.submitter.hasAttribute('dj-disable-with')) {
+        _applyDisableWith(e.submitter);
+    }
+
+    // v0.8.0 — `dj-form-pending` (React 19 useFormStatus equivalent):
+    // toggle visibility/disabled-state on every nested element that declared
+    // a `dj-form-pending="hide|show|disabled"` mode. Set BEFORE the network
+    // round-trip so the loading UI flips immediately; cleared in `finally`
+    // so it always resolves regardless of error.
+    _setFormPending(element, true);
+
+    const formData = new FormData(element);
+    const params = Object.fromEntries(formData.entries());
+
+    // Merge dj-value-* attributes from the form element
+    Object.assign(params, collectDjValues(element));
+
+    addEventContext(params, element);
+
+    // _target: include submitter name if available
+    params._target = (e.submitter && (e.submitter.name || e.submitter.id)) || null;
+
+    // Pass target element for optimistic updates (Phase 3)
+    params._targetElement = element;
+
+    try {
+        await handleEvent(submitHandler, params);
+    } finally {
+        _setFormPending(element, false);
+    }
+}
+
+/**
+ * Handle dj-change events via delegation.
+ * @param {HTMLElement} element - Element with dj-change attribute
+ * @param {Event} e - The original change event
+ */
+async function _handleDjChange(element, e) {
+    // dj-lock: skip if already locked
+    if (_checkAndLock(element)) return;
+
+    // dj-confirm: show confirmation dialog before sending event
+    if (!checkDjConfirm(element)) {
+        return; // User cancelled
+    }
+
+    // Read and parse attribute at fire time
+    const changeHandler = element.getAttribute('dj-change');
+    const parsedChange = parseEventHandler(changeHandler);
+
+    const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+    const params = buildFormEventParams(e.target, value);
+
+    // Add positional arguments from handler syntax if present
+    // e.g., dj-change="toggle_todo(3)" -> params._args = [3]
+    if (parsedChange.args.length > 0) {
+        params._args = parsedChange.args;
+    }
+
+    // _target: include triggering field's name (or id, or null)
+    params._target = e.target.name || e.target.id || null;
+
+    // Add target element for loading state (consistent with other handlers)
+    params._targetElement = e.target;
+
+    // Handle dj-target for scoped updates
+    const targetSelector = element.getAttribute('dj-target');
+    if (targetSelector) {
+        params._djTargetSelector = targetSelector;
+    }
+
+    if (globalThis.djustDebug) {
+        djLog(`[LiveView] dj-change handler: value="${value}", params=`, params);
+    }
+    await handleEvent(parsedChange.name, params);
+}
+
+/**
+ * Handle dj-input events via delegation.
+ * @param {HTMLElement} element - Element with dj-input attribute
+ * @param {Event} e - The original input event
+ */
+async function _handleDjInput(element, e) {
+    // dj-lock: skip if already locked
+    if (_checkAndLock(element)) return;
+
+    // dj-confirm: show confirmation dialog before sending event
+    if (!checkDjConfirm(element)) {
+        return; // User cancelled
+    }
+
+    // Read and parse attribute at fire time
+    const inputHandler = element.getAttribute('dj-input');
+    const parsedInput = parseEventHandler(inputHandler);
+
+    const params = buildFormEventParams(e.target, e.target.value);
+    if (parsedInput.args.length > 0) {
+        params._args = parsedInput.args;
+    }
+
+    // _target: include triggering field's name (or id, or null)
+    params._target = e.target.name || e.target.id || null;
+
+    await handleEvent(parsedInput.name, params);
+}
+
+/**
+ * Handle dj-blur events via delegation (using focusout which bubbles).
+ * @param {HTMLElement} element - Element with dj-blur attribute
+ * @param {Event} e - The original focusout event
+ */
+async function _handleDjBlur(element, e) {
+    // dj-lock: skip if already locked
+    if (_checkAndLock(element)) return;
+
+    // dj-confirm: show confirmation dialog before sending event
+    if (!checkDjConfirm(element)) {
+        return; // User cancelled
+    }
+
+    // Read and parse attribute at fire time
+    const blurHandler = element.getAttribute('dj-blur');
+    const parsedBlur = parseEventHandler(blurHandler);
+
+    const params = buildFormEventParams(e.target, e.target.value);
+    if (parsedBlur.args.length > 0) {
+        params._args = parsedBlur.args;
+    }
+    await handleEvent(parsedBlur.name, params);
+}
+
+/**
+ * Handle dj-focus events via delegation (using focusin which bubbles).
+ * @param {HTMLElement} element - Element with dj-focus attribute
+ * @param {Event} e - The original focusin event
+ */
+async function _handleDjFocus(element, e) {
+    // dj-lock: skip if already locked
+    if (_checkAndLock(element)) return;
+
+    // dj-confirm: show confirmation dialog before sending event
+    if (!checkDjConfirm(element)) {
+        return; // User cancelled
+    }
+
+    // Read and parse attribute at fire time
+    const focusHandler = element.getAttribute('dj-focus');
+    const parsedFocus = parseEventHandler(focusHandler);
+
+    const params = buildFormEventParams(e.target, e.target.value);
+    if (parsedFocus.args.length > 0) {
+        params._args = parsedFocus.args;
+    }
+    await handleEvent(parsedFocus.name, params);
+}
+
+/**
+ * Handle dj-paste events via delegation.
+ * Extracts structured clipboard payload (plain text, rich HTML, files)
+ * and sends it to the server as a single event call.
+ * @param {HTMLElement} element - Element with dj-paste attribute
+ * @param {Event} e - The original paste event
+ */
+async function _handleDjPaste(element, e) {
+    // dj-lock: skip if already locked
+    if (_checkAndLock(element)) return;
+
+    // dj-confirm: show confirmation dialog before sending event
+    if (!checkDjConfirm(element)) {
+        return; // User cancelled
+    }
+
+    // Read and parse attribute at fire time
+    const pasteHandler = element.getAttribute('dj-paste');
+    const parsedPaste = parseEventHandler(pasteHandler);
+
+    const clipboardData = e.clipboardData || window.clipboardData;
+    if (!clipboardData) {
+        // No clipboard data available — let the default paste happen
+        return;
+    }
+
+    // Build structured payload: text, html, and file metadata.
+    // The actual file bytes are NOT sent in this event — that would
+    // blow the WS frame budget. Instead, set a dj-upload slot on
+    // the element and UploadMixin will pick up any files from the
+    // clipboard files list via the existing upload pipeline.
+    let text = '';
+    let html = '';
+    const files = [];
+    try {
+        text = clipboardData.getData('text/plain') || '';
+    } catch (_err) { /* older browsers */ }
+    try {
+        html = clipboardData.getData('text/html') || '';
+    } catch (_err) { /* older browsers */ }
+    if (clipboardData.files) {
+        for (let i = 0; i < clipboardData.files.length; i++) {
+            // eslint-disable-next-line security/detect-object-injection
+            const f = clipboardData.files[i];
+            files.push({
+                name: f.name || 'clipboard-paste',
+                type: f.type || '',
+                size: f.size || 0,
+            });
+        }
+    }
+
+    // If the element has an upload slot configured, route pasted
+    // files through the upload pipeline (image paste → chat, etc).
+    // We route BEFORE sending the server event so the handler can
+    // react to both the metadata and the pending upload in one tick.
+    if (files.length > 0 && window.djust && window.djust.uploads && element.getAttribute('dj-upload')) {
+        try {
+            await window.djust.uploads.queueClipboardFiles(element, clipboardData.files);
+        } catch (err) {
+            if (globalThis.djustDebug) console.log('[LiveView] dj-paste: upload route failed', err);
+        }
+    }
+
+    const params = {
+        text: text,
+        html: html,
+        has_files: files.length > 0,
+        files: files,
+    };
+    if (parsedPaste.args.length > 0) {
+        params._args = parsedPaste.args;
+    }
+
+    // Suppress the default paste only when the element opts in
+    // with dj-paste-suppress. Otherwise let the browser also
+    // insert into the input so hybrid UIs still feel natural.
+    if (element.hasAttribute('dj-paste-suppress')) {
+        e.preventDefault();
+    }
+
+    await handleEvent(parsedPaste.name, params);
+}
+
+/**
+ * Find EVERY binding for `directive` on the path from `node` outward, nearest
+ * element first and attribute order within an element. A binding is either bare
+ * or carries a dotted modifier suffix — `dj-keydown` AND `dj-keydown.enter`.
+ *
+ * A dot is a legal attribute-name character, so `[dj-keydown]` cannot match the
+ * dotted form: the same trap `#1999` documents for `dj-input.debounce-200`. The
+ * framework treats the dotted form as a legitimate convention
+ * (`_warnUnrecognizedDjModifiers` deliberately does not warn about it), so it
+ * must be found — hence matching on the attribute NAME by prefix, the same
+ * scan-and-prefix-match shape that warning function uses.
+ *
+ * @param {Element} node - Node to start from (walks up via parentElement)
+ * @param {string} directive - Bare directive name, e.g. 'dj-keydown'
+ * @returns {{element: Element, attrName: string}|null}
+ */
+function _keyboardBindings(node, directive) {
+    const prefix = directive + '.';
+    const out = [];
+    for (let el = node; el && el.attributes; el = el.parentElement) {
+        const attrs = el.attributes;
+        for (let i = 0; i < attrs.length; i++) {
+            // eslint-disable-next-line security/detect-object-injection
+            const name = attrs[i].name;
+            if (name === directive || name.startsWith(prefix)) {
+                out.push({ element: el, attrName: name });
+            }
+        }
+    }
+    return out;
+}
+
+/**
+ * The key a binding declares, or null when it fires on any key.
+ *
+ * The modifier can only come from the attribute NAME: a value never contains a
+ * dot, which is why deriving it from the value left the check dead. `dj-key` is
+ * deliberately NOT consulted — it is the framework's VNode list-identity
+ * attribute (`docs/guides/lists.md`, `schema.py`, the Rust parser), so reading
+ * it as a keyboard filter silently killed handlers on keyed list rows (#2831
+ * review).
+ */
+function _declaredKey(attrName) {
+    // Only the FIRST modifier is honoured: `dj-keydown.enter.shift` is read as
+    // `.enter`, and the scoped twin reads the same suffix as the literal string
+    // 'enter.shift' (so it never matches). The syntax is undocumented; this
+    // spelling is the more forgiving of the two, and it does not throw.
+    return attrName.includes('.') ? attrName.split('.')[1] : null;
+}
+
+/** Does this binding fire for this event? Synchronous, so the delegation can
+ *  decide whether to keep walking to outer bindings without awaiting. */
+function _keyboardBindingMatches(attrName, e) {
+    const declared = _declaredKey(attrName);
+    return !declared || e.key === _normalizeKeyName(declared);
+}
+
+/**
+ * Dispatch one dj-keydown / dj-keyup binding.
+ *
+ * @param {HTMLElement} element - Element carrying the attribute
+ * @param {Event} e - The original keyboard event
+ * @param {string} eventType - 'keydown' or 'keyup'
+ * @param {string} [attrName] - The matched attribute name (`dj-keydown` or
+ *   `dj-keydown.enter`); the value is read at fire time so a morph that changes
+ *   the handler name is picked up
+ * @returns {Promise<void>|undefined}
+ */
+async function _handleDjKeyboard(element, e, eventType, attrName) {
+    // Read attribute at fire time. `attrName` is the name the delegation
+    // actually matched (`dj-keydown` or `dj-keydown.enter`); falling back keeps
+    // direct callers working.
+    const name = attrName || 'dj-' + eventType;
+    const keyHandler = element.getAttribute(name);
+    if (!keyHandler) return;
+    const handlerName = keyHandler;
+
+    // Defensive: the delegation already matched this binding synchronously
+    // (`_keyboardBindingMatches`) so it could decide whether to keep walking to
+    // outer bindings. Re-checked here for direct callers.
+    if (!_keyboardBindingMatches(name, e)) return false;
+
+    // dj-lock: skip if already locked
+    if (_checkAndLock(element)) return;
+
+    // dj-confirm: show confirmation dialog before sending event
+    if (!checkDjConfirm(element)) {
+        return; // User cancelled
+    }
+
+    const fieldName = getFieldName(e.target);
+    const params = {
+        key: e.key,
+        code: e.code,
+        value: e.target.value,
+        field: fieldName
+    };
+
+    // Merge dj-value-* attributes from the element
+    Object.assign(params, collectDjValues(element));
+
+    addEventContext(params, e.target);
+
+    // Add target element and handle dj-target
+    params._targetElement = e.target;
+    const targetSelector = element.getAttribute('dj-target');
+    if (targetSelector) {
+        params._djTargetSelector = targetSelector;
+    }
+
+    await handleEvent(handlerName, params);
+}
+
+// ============================================================================
+// Event Delegation
+// ============================================================================
+
+/**
+ * Install ONE delegated listener per DOM event type on the given root element.
+ * Idempotent — uses AbortController to tear down old listeners before
+ * installing new ones, preventing double-firing after TurboNav navigation.
+ * @param {HTMLElement} root - The LiveView root element to delegate from
+ */
+function installDelegatedListeners(root) {
+    // Tear down previous delegated listeners (if any) to prevent double-firing
+    // after TurboNav morphs the page content while preserving the root element.
+    if (root._djustDelegateAbort) {
+        root._djustDelegateAbort.abort();
+    }
+    const controller = new AbortController();
+    root._djustDelegateAbort = controller;
+    const opts = { signal: controller.signal };
+
+    // Helper: addEventListener with abort signal for clean teardown
+    function on(event, handler) {
+        root.addEventListener(event, handler, opts);
+    }
+
+    // click → dj-copy (client-only) first, then dj-click
+    on('click', function(e) {
+        const copyEl = e.target.closest('[dj-copy]');
+        if (copyEl) {
+            _handleDjCopy(copyEl, e);
+            return;
+        }
+        const clickEl = e.target.closest('[dj-click]');
+        if (clickEl) {
+            // Rate-limit per element using WeakMap
+            const rawHandler = function(ev) { return _handleDjClick(clickEl, ev); };
+            const wrapped = _getOrCreateRateLimitedHandler(_clickRateLimitState, clickEl, 'click', rawHandler);
+            wrapped(e);
+        }
+    });
+
+    // submit → dj-submit
+    on('submit', function(e) {
+        const submitEl = e.target.closest('[dj-submit]');
+        if (submitEl) {
+            _handleDjSubmit(submitEl, e);
+        }
+    });
+
+    // change → dj-change
+    on('change', function(e) {
+        const changeEl = e.target.closest('[dj-change]');
+        if (changeEl) {
+            // Rate-limit per element using WeakMap
+            const rawHandler = function(ev) { return _handleDjChange(changeEl, ev); };
+            const wrapped = _getOrCreateRateLimitedHandler(_changeRateLimitState, changeEl, 'change', rawHandler);
+            wrapped(e);
+        }
+    });
+
+    // input → dj-input (with smart rate limiting)
+    on('input', function(e) {
+        const inputEl = e.target.closest('[dj-input]');
+        if (inputEl) {
+            // Get or create rate-limited wrapper for this element
+            let state = _inputRateLimitState.get(inputEl);
+            if (!state) {
+                // Build the raw handler
+                const rawHandler = function(ev) { return _handleDjInput(inputEl, ev); };
+
+                // Determine rate limit strategy.
+                // Clone the default before letting dj-* overrides mutate it,
+                // otherwise the shared const entry in DEFAULT_RATE_LIMITS gets
+                // permanently flipped and pollutes every subsequently-bound
+                // element of the same type.
+                const inputType = inputEl.type || inputEl.tagName.toLowerCase();
+                const rateLimit = Object.prototype.hasOwnProperty.call(DEFAULT_RATE_LIMITS, inputType)
+                    // eslint-disable-next-line security/detect-object-injection
+                    ? Object.assign({}, DEFAULT_RATE_LIMITS[inputType])
+                    : { type: 'debounce', ms: 300 };
+
+                // Check for explicit overrides: dj-* attributes take precedence
+                if (inputEl.hasAttribute('dj-debounce')) {
+                    const djVal = inputEl.getAttribute('dj-debounce');
+                    if (djVal === 'blur') {
+                        rateLimit.type = 'blur';
+                        rateLimit.ms = 0;
+                    } else {
+                        rateLimit.type = 'debounce';
+                        rateLimit.ms = parseInt(djVal, 10);
+                    }
+                } else if (inputEl.hasAttribute('dj-throttle')) {
+                    rateLimit.type = 'throttle';
+                    rateLimit.ms = parseInt(inputEl.getAttribute('dj-throttle'), 10);
+                } else if (inputEl.hasAttribute('data-debounce')) {
+                    rateLimit.type = 'debounce';
+                    rateLimit.ms = parseInt(inputEl.getAttribute('data-debounce'));
+                } else if (inputEl.hasAttribute('data-throttle')) {
+                    rateLimit.type = 'throttle';
+                    rateLimit.ms = parseInt(inputEl.getAttribute('data-throttle'));
+                }
+
+                // Apply rate limiting wrapper
+                let wrapped;
+                if (rateLimit.type === 'passthrough') {
+                    // Click-fired widgets (radio/checkbox/select) — one value
+                    // per interaction, no rate-limiting needed. Fire the
+                    // handler synchronously so the WS event goes out on the
+                    // same tick as the input event.
+                    wrapped = rawHandler;
+                } else if (rateLimit.type === 'blur') {
+                    wrapped = deferUntilBlur(inputEl, rawHandler);
+                } else if (rateLimit.type === 'throttle') {
+                    wrapped = throttle(rawHandler, rateLimit.ms);
+                } else {
+                    wrapped = debounce(rawHandler, rateLimit.ms);
+                }
+
+                state = { wrapped: wrapped };
+                _inputRateLimitState.set(inputEl, state);
+            }
+            state.wrapped(e);
+        }
+    });
+
+    // keydown → dj-keydown
+    on('keydown', function(e) {
+        // Walk EVERY binding from the target outward, not just the nearest
+        // element: an element may carry several (`dj-keydown.enter` +
+        // `dj-keydown.escape` is documented as a pair in the four files
+        // core-concepts/events.md, core-concepts/templates.md,
+        // guides/template-cheatsheet.md and ai/templates.md), and a binding
+        // whose key does not match must not swallow the event for a
+        // container-level handler (#2831 review).
+        const bindings = _keyboardBindings(e.target, 'dj-keydown');
+        for (let i = 0; i < bindings.length; i++) {
+            // eslint-disable-next-line security/detect-object-injection
+            const hit = bindings[i];
+            if (!_keyboardBindingMatches(hit.attrName, e)) continue;
+            const keyEl = hit.element;
+            const keyAttr = hit.attrName;
+            const rawHandler = function(ev) { return _handleDjKeyboard(keyEl, ev, 'keydown', keyAttr); };
+            _getOrCreateRateLimitedHandler(
+                _keydownRateLimitState, keyEl, 'keydown', rawHandler, keyAttr,
+            )(e);
+            // No early return: keep walking. Same semantics as the scoped
+            // `dj-window-keydown` delegation, which dispatches EVERY matching
+            // registry entry. Returning here made a bare binding on the same
+            // element shadow a dotted sibling permanently (a bare binding
+            // matches every key), and let a matching descendant suppress a
+            // container handler that origin/main did fire (#2831 review).
+            // Double-submit protection stays the job of `dj-lock`, which
+            // `_handleDjKeyboard` honours.
+        }
+    });
+
+    // keyup → dj-keyup (separate WeakMap from keydown to avoid handler collision)
+    on('keyup', function(e) {
+        const bindings = _keyboardBindings(e.target, 'dj-keyup');
+        for (let i = 0; i < bindings.length; i++) {
+            // eslint-disable-next-line security/detect-object-injection
+            const hit = bindings[i];
+            if (!_keyboardBindingMatches(hit.attrName, e)) continue;
+            const keyEl = hit.element;
+            const keyAttr = hit.attrName;
+            const rawHandler = function(ev) { return _handleDjKeyboard(keyEl, ev, 'keyup', keyAttr); };
+            _getOrCreateRateLimitedHandler(
+                _keyupRateLimitState, keyEl, 'keyup', rawHandler, keyAttr,
+            )(e);
+            // No early return — see the keydown delegation above.
+        }
+    });
+
+    // paste → dj-paste
+    on('paste', function(e) {
+        const pasteEl = e.target.closest('[dj-paste]');
+        if (pasteEl) {
+            _handleDjPaste(pasteEl, e);
+        }
+    });
+
+    // focusin → dj-focus (focusin bubbles, focus doesn't)
+    on('focusin', function(e) {
+        const focusEl = e.target.closest('[dj-focus]');
+        if (focusEl) {
+            _handleDjFocus(focusEl, e);
+        }
+    });
+
+    // focusout → dj-blur (focusout bubbles, blur doesn't)
+    on('focusout', function(e) {
+        const blurEl = e.target.closest('[dj-blur]');
+        if (blurEl) {
+            _handleDjBlur(blurEl, e);
+        }
+    });
+}
+
+function bindLiveViewEvents(scope) {
+    const root = scope || getLiveViewRoot() || document;
+
+    // Install delegated listeners on the LiveView root element.
+    // Only install on actual [dj-view]/[dj-root] elements, NOT on document.body
+    // fallback — body persists across TurboNav page swaps, causing duplicate
+    // events when navigating away from a LiveView page and back.
+    const liveRoot = findPageViewContainer() || document.querySelector('[dj-root]'); // #2632
+    if (liveRoot) installDelegatedListeners(liveRoot);
+
+    // Bind upload handlers (dj-upload, dj-upload-drop, dj-upload-preview)
+    if (window.djust.uploads) {
+        window.djust.uploads.bindHandlers(scope);
+    }
+
+    // Bind navigation directives (dj-patch, dj-navigate)
+    if (window.djust.navigation) {
+        window.djust.navigation.bindDirectives(scope);
+    }
+
+    // === Per-element scanning section (only for non-delegable events) ===
+
+    // dj-poll needs per-element interval setup
+    const pollSelector = '[dj-poll]';
+    const pollElements = root.querySelectorAll(pollSelector);
+    pollElements.forEach(element => {
+        const pollHandler = element.getAttribute('dj-poll');
+        if (!pollHandler) return;
+
+        // #2858 — the interval closure is built from the attribute VALUE and
+        // the interval, and a surviving element keeps both its interval and
+        // its _boundHandlers marker across a morph, so the marker alone
+        // cannot justify the skip: only an UNCHANGED (value, interval) pair
+        // can. This loop carries one invariant the #2855 rebuild rule does
+        // not: an unchanged pair must NOT restart the poll phase — the bind
+        // loop runs on every patch, and restarting would reset the interval
+        // timer on every morph, so a poll would never fire on schedule. A
+        // changed pair evicts the old phase (clearInterval + visibilitychange
+        // teardown — the same teardown the element-removal paths in
+        // 01-dom-helpers-turbo.js / 12-vdom-patch.js perform) and rebuilds.
+        const interval = parseInt(element.getAttribute('dj-poll-interval'), 10) || 5000;
+        const boundKey = pollHandler + '\u0000' + interval;
+        if (_isHandlerBound(element, 'poll')) {
+            if (element._djustPollBoundKey === boundKey) return;
+            if (element._djustPollIntervalId) {
+                clearInterval(element._djustPollIntervalId);
+                element._djustPollIntervalId = null;
+            }
+            if (element._djustPollVisibilityHandler) {
+                document.removeEventListener('visibilitychange', element._djustPollVisibilityHandler);
+                element._djustPollVisibilityHandler = null;
+            }
+            _unmarkHandlerBound(element, 'poll');
+        }
+        _markHandlerBound(element, 'poll');
+        element._djustPollBoundKey = boundKey;
+
+        const parsed = parseEventHandler(pollHandler);
+
+        // Params are read at FIRE time, not bind time — dj-click / dj-change
+        // read their element at fire time for the same reason: data-*
+        // attributes can change under a surviving element too, and a
+        // bind-time snapshot would keep dispatching the old ones (#2858).
+        const firePoll = () => {
+            if (document.hidden) return;
+            handleEvent(parsed.name, Object.assign(extractTypedParams(element), { _skipLoading: true }));
+        };
+
+        const intervalId = setInterval(firePoll, interval);
+        element._djustPollIntervalId = intervalId;
+
+        // Pause/resume on visibility change
+        const visHandler = () => {
+            if (!document.hidden) firePoll();
+        };
+        document.addEventListener('visibilitychange', visHandler);
+        element._djustPollVisibilityHandler = visHandler;
+    });
+
+    // ================================================================
+    // Scoped listeners: dj-window-*, dj-document-*, dj-click-away, dj-shortcut
+    // ================================================================
+
+    // --- Feature 1: dj-window-* and dj-document-* event scoping ---
+    // Delegated approach: install ONE listener per event type on window/document
+    // (one-shot). When the event fires, dispatch to the declaring elements held in
+    // the scoped registry. This avoids per-event querySelectorAll('*').
+    _installScopedDelegation();
+
+    // Re-scan for dj-window-*/dj-document-* declaring elements on EVERY bind so
+    // that elements which entered the DOM via a later patch (e.g. inside a
+    // {% if %} that became true) register too — mirroring the per-bind rescan
+    // dj-shortcut / dj-click-away already do below. _scanScopedElements() is
+    // idempotent per-element (see its alreadyRegistered check) and also drops
+    // registry entries for elements that left the DOM, so repeated calls are
+    // safe and cheap. Without this, a dj-window-keydown.escape on patch-inserted
+    // content would silently never bind (#1996).
+    _scanScopedElements();
+
+    // --- Feature 2: dj-click-away ---
+    document.querySelectorAll('[dj-click-away]').forEach(element => {
+        const handlerName = element.getAttribute('dj-click-away');
+        if (_isHandlerBound(element, 'click-away')) {
+            // #2845 — a surviving element keeps both its listener and its
+            // marker across a morph, so the marker alone cannot justify the
+            // skip: only an UNCHANGED attribute value can. A changed value
+            // means the template re-points the directive; evict the old
+            // listener and rebuild the closure from the new value (the sweep
+            // path's counterpart of the #2108 registry refresh).
+            if (_scopedBoundValue(element, 'click-away') === handlerName) return;
+            _removeScopedListeners(element, 'click-away');
+        }
+        _markHandlerBound(element, 'click-away');
+
+        const clickAwayHandler = async (e) => {
+            // Only fire if click is outside the element
+            if (element.contains(e.target)) return;
+
+            // dj-confirm support
+            if (!checkDjConfirm(element)) return;
+
+            const params = extractTypedParams(element);
+            addEventContext(params, element);
+
+            await handleEvent(handlerName, params);
+        };
+
+        // Use capture phase so stopPropagation inside doesn't prevent detection
+        _addScopedListener(element, document, 'click', clickAwayHandler, true, 'dj-click-away', 'click-away', handlerName);
+    });
+
+    // --- Feature 3: dj-shortcut ---
+    document.querySelectorAll('[dj-shortcut]').forEach(element => {
+        const attrValue = element.getAttribute('dj-shortcut');
+        const allowInInput = element.hasAttribute('dj-shortcut-in-input');
+
+        // #2845 — same rebuild-or-skip rule as the dj-click-away loop above.
+        // The closure captures BOTH the parsed bindings (from the attribute
+        // VALUE) and the input gate (from dj-shortcut-in-input PRESENCE), so
+        // the rebuild key must cover both: a change to either under a
+        // surviving element must rebuild, an unchanged pair must not
+        // (double-attach would dispatch every keypress twice).
+        const boundKey = allowInInput ? attrValue + '\u0000in-input' : attrValue;
+        if (_isHandlerBound(element, 'shortcut')) {
+            if (_scopedBoundValue(element, 'shortcut') === boundKey) return;
+            _removeScopedListeners(element, 'shortcut');
+        }
+        _markHandlerBound(element, 'shortcut');
+
+        // Parse comma-separated bindings
+        // Each binding: [modifier+...]key:handler[:prevent]
+        const bindings = attrValue.split(',').map(b => b.trim()).filter(b => b).map(binding => {
+            const parts = binding.split(':');
+            const keyCombo = parts[0].trim(); // e.g. 'ctrl+k' or 'escape'
+            const handler = parts[1] ? parts[1].trim() : '';
+            const preventDefault = parts[2] ? parts[2].trim() === 'prevent' : false;
+
+            // Parse key combo into modifiers + key
+            const comboParts = keyCombo.split('+');
+            const key = _normalizeKeyName(comboParts[comboParts.length - 1]);
+            const modifiers = new Set();
+            for (let i = 0; i < comboParts.length - 1; i++) {
+                // eslint-disable-next-line security/detect-object-injection
+                modifiers.add(comboParts[i].toLowerCase());
+            }
+
+            return { key, modifiers, handler, preventDefault, comboString: keyCombo };
+        });
+
+        const shortcutHandler = async (e) => {
+            // Skip if active element is a form input (unless opt-out)
+            if (!allowInInput) {
+                const active = document.activeElement;
+                if (active) {
+                    const tag = active.tagName;
+                    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || active.isContentEditable) {
+                        return;
+                    }
+                }
+            }
+
+            // Skip if element is not visible (hidden modals etc.)
+            // Check hidden attribute and display:none; offsetParent is used as
+            // a secondary check when available (not in JSDOM/SSR environments).
+            if (element.hidden || element.style.display === 'none') return;
+            if (!document.contains(element)) return;
+
+            for (const binding of bindings) {
+                if (e.key !== binding.key) continue;
+
+                // Check modifiers
+                const ctrlMatch = binding.modifiers.has('ctrl') === e.ctrlKey;
+                const altMatch = binding.modifiers.has('alt') === e.altKey;
+                const shiftMatch = binding.modifiers.has('shift') === e.shiftKey;
+                const metaMatch = binding.modifiers.has('meta') === e.metaKey;
+
+                if (!ctrlMatch || !altMatch || !shiftMatch || !metaMatch) continue;
+
+                // Match found
+                if (binding.preventDefault) {
+                    e.preventDefault();
+                }
+
+                const params = extractTypedParams(element);
+                addEventContext(params, element);
+                params.key = e.key;
+                params.code = e.code;
+                params.shortcut = binding.comboString;
+
+                await handleEvent(binding.handler, params);
+                return; // Fire first match only
+            }
+        };
+
+        _addScopedListener(element, document, 'keydown', shortcutHandler, false, 'dj-shortcut', 'shortcut', boundKey);
+    });
+
+    // --- Feature 4: dj-mouseenter / dj-mouseleave (#2869) ---
+    // These two events DO NOT BUBBLE: a document/root-level delegated
+    // listener never fires for them (mouseleave fires only for the document
+    // itself), so the delegation shape dj-click uses cannot serve them and
+    // mouseover/mouseout would have to re-derive enter/leave containment
+    // that the platform already provides. Instead, attach DIRECTLY to the
+    // declaring element via the scoped-listener machinery — its target is a
+    // parameter, so the attach / #2845 value-rebuild / #2832 sweep lifecycle
+    // applies unchanged. Nesting semantics are inherited from the event
+    // types themselves: the browser fires mouseenter/mouseleave only on the
+    // element actually entered/left, so moving from a parent into its child
+    // fires neither the parent's leave nor its enter — the entire reason
+    // these directives use these event types rather than mouseover/mouseout.
+    document.querySelectorAll('[dj-mouseenter], [dj-mouseleave]').forEach(element => {
+        for (let mi = 0; mi < 2; mi++) {
+            const attrName = mi === 0 ? 'dj-mouseenter' : 'dj-mouseleave';
+            const attrValue = element.getAttribute(attrName);
+            if (attrValue === null) continue;
+            const evtType = attrName.slice(3); // 'mouseenter' / 'mouseleave'
+
+            // #2845 — the marker alone cannot justify the skip on a
+            // surviving element: skip only when the registered boundValue
+            // matches the CURRENT attribute value; a changed value evicts
+            // and rebuilds. The closure below re-reads the value at FIRE
+            // time, so a rebuild is cheap bookkeeping, never a capture of
+            // the old handler (#2858).
+            if (_isHandlerBound(element, evtType)) {
+                if (_scopedBoundValue(element, evtType) === attrValue) continue;
+                _removeScopedListeners(element, evtType);
+            }
+            _markHandlerBound(element, evtType);
+
+            const rawHandler = async function() {
+                if (!document.contains(element)) return;
+                // Fire-time reads: the attribute value can change under a
+                // surviving element (#2858), and the element can be removed
+                // between scheduling and firing.
+                const raw = element.getAttribute(attrName);
+                if (raw === null) return;
+                if (!checkDjConfirm(element)) return;
+                const parsed = parseEventHandler(raw);
+                const params = extractTypedParams(element);
+                if (parsed.args.length > 0) {
+                    params._args = parsed.args;
+                }
+                addEventContext(params, element);
+                await handleEvent(parsed.name, params);
+            };
+            const wrapped = _getOrCreateRateLimitedHandler(
+                _mouseRateLimitState, element, evtType, rawHandler, attrName
+            );
+
+            // Target is the ELEMENT ITSELF — the non-bubbling constraint.
+            _addScopedListener(element, element, evtType, wrapped, false, attrName, evtType, attrValue);
+        }
+    });
+
+    // Sweep orphaned scoped listeners (click-away, shortcut) AFTER the bind
+    // loops above: eviction judged by the shared predicate (#2832) must not
+    // be immediately undone by a bind loop re-attaching what the sweep just
+    // removed — sweep-last means every attached listener is judged at a
+    // point where nothing re-adds it until the next bind.
+    _sweepOrphanedScopedListeners();
+
+    // Re-scan dj-loading attributes after DOM updates so dynamically
+    // added elements (e.g. inside modals) get registered.
+    globalLoadingManager.scanAndRegister();
+
+    // dj-mounted: fire event for elements that have entered the DOM after
+    // initial mount. Uses WeakSet to track already-fired elements so each
+    // DOM node only triggers once (replaced nodes are new objects and will fire again).
+    if (window.djust._mountReady) {
+        document.querySelectorAll('[dj-mounted]').forEach(el => {
+            if (_mountedElements.has(el)) return;
+            _mountedElements.add(el);
+
+            const handlerName = el.getAttribute('dj-mounted');
+            if (!handlerName) return;
+
+            // Collect dj-value-* and data-* params from the mounted element
+            const params = extractTypedParams(el);
+            addEventContext(params, el);
+
+            handleEvent(handlerName, params);
+        });
+    }
+
+    // #1999: surface unrecognized `.modifier` suffixes (debug-mode only).
+    _warnUnrecognizedDjModifiers(root);
+}
+
+/**
+ * #2859: the dj-shortcut VALUE resolves key names through the same
+ * `_normalizeKeyName` helper as the dotted keyboard directives, but through
+ * the comma syntax (`pageup:handler`) rather than the attribute name. A
+ * mapped name (`escape`) or a single character (`k`) fires; an all-lowercase
+ * multi-character name (`pageup`) can never match — every multi-character
+ * KeyboardEvent.key is UpperCamelCase (`PageUp`), and no KeyboardEvent.key
+ * is all-lowercase. Unlike attribute NAMES, attribute VALUES are NOT
+ * lowercased by the HTML parser, so the correctly-cased raw spelling
+ * (`PageUp:handler`) DOES match via the raw-name fallback — the warning
+ * points at that spelling. Debug mode only; deduplicated per bind pass so
+ * the same dead key name (within one value or across elements) warns once.
+ * @param {string} attrValue - The dj-shortcut attribute value
+ * @param {Set<string>} warned - Per-pass set of already-warned key names
+ */
+function _warnInertShortcutKeyNames(attrValue, warned) {
+    const bindings = attrValue.split(',');
+    for (const binding of bindings) {
+        const parts = binding.trim().split(':');
+        const comboParts = parts[0].trim().split('+');
+        const key = comboParts[comboParts.length - 1].trim();
+        if (!key || key.length === 1) continue; // single chars fire via the raw fallback
+        if (_KEY_NAME_MAP[key.toLowerCase()]) continue; // mapped name — normalizes to a real key
+        if (key !== key.toLowerCase()) continue; // correctly-cased raw key (PageUp) — matches e.key
+        if (warned.has(key)) continue;
+        warned.add(key);
+        console.warn(
+            '[LiveView] Unrecognized keyboard name in dj-shortcut value "' +
+                attrValue +
+                '": the key name "' +
+                key +
+                '" never matches a KeyboardEvent.key, so this shortcut will ' +
+                'never fire. Unlike attribute names, attribute values keep ' +
+                'their casing, so spell named keys with their DOM casing — ' +
+                'e.g. "PageUp:handler", not "pageup:handler" — or use a mapped ' +
+                'name: escape, enter, tab, space, backspace, delete, arrowup, ' +
+                'arrowdown, arrowleft, arrowright, up, down, left, right — or ' +
+                'any single character (k:handler).'
+        );
+    }
+}
+
+/**
+ * #1999: Warn (debug-mode only) when the `.lazy` / `.debounce-N` in-name
+ * modifier — which ONLY `dj-model` understands — is mis-applied to another
+ * directive.
+ *
+ * `dj-model` parses its own attribute NAME for `.lazy` / `.debounce-N`
+ * (`20-model-binding.js` `_parseModelAttr`). Every other directive —
+ * `dj-input`, `dj-change`, `dj-click`, … — controls throttling via the
+ * SEPARATE standalone `dj-debounce="N"` attribute and does NOT parse any
+ * in-name modifier. Because a dot is a legal attribute-name character,
+ * `dj-input.debounce-200` reads as a single LITERAL attribute that no
+ * `[dj-input]` selector matches — so the directive silently never binds (no
+ * handler, no event, no error). That's the canonical trap, made worse by
+ * `dj-model.debounce-300` working exactly that way.
+ *
+ * This targets ONLY the `.lazy` / `.debounce` modifiers on non-`model`
+ * directives — it deliberately does NOT touch other legitimate dotted
+ * conventions (`dj-keydown.enter`, `dj-window-keydown.escape`,
+ * `dj-loading.class` / `.show` / `.hide` / `.disable` / `.for`), which are
+ * real key / loading-state modifiers, not this mistake.
+ *
+ * A SECOND pass (#2842) warns when a KEYBOARD directive's dotted key-name
+ * modifier (`dj-keydown.<key>`) spells a key that can never match: any
+ * multi-character name that is not in `_KEY_NAME_MAP`. HTML parsers lowercase
+ * attribute names, so `.PageUp` arrives as `.pageup` while `e.key` is
+ * `"PageUp"` — the raw-name fallback in `_normalizeKeyName` can never return
+ * a cased multi-character key name, and no such KeyboardEvent.key is
+ * all-lowercase. The handler is silently inert forever. Single characters
+ * (`.a`) DO fire via the raw fallback and are deliberately NOT warned about.
+ *
+ * A THIRD pass (#2859) warns when a `dj-shortcut` VALUE spells a key name
+ * that can never match — the same inertness, reached through the comma
+ * syntax (`pageup:handler`) instead of the attribute name; see
+ * `_warnInertShortcutKeyNames`. Attribute VALUES keep their casing, so the
+ * correctly-cased raw spelling (`PageUp:handler`) works and is NOT warned.
+ *
+ * A FOURTH pass (#2859) warns that `dj-document-scroll` /
+ * `dj-document-resize` are parsed but never installed — `_scanScopedElements`
+ * registers their entries while `_installScopedDelegation` deliberately skips
+ * the document-level scroll/resize listeners (`resize` never fires on
+ * `document`) — and points at the documented `dj-window-*` twins.
+ *
+ * Skipped entirely outside debug mode (zero production cost).
+ *
+ * @param {ParentNode} scope - Root to scan (defaults to document).
+ */
+function _warnUnrecognizedDjModifiers(scope) {
+    if (!globalThis.djustDebug) return;
+    // A `.lazy` / `.debounce[-N]` in-name modifier on some `dj-<name>` directive.
+    // Group 1 is the directive base name; only `dj-model` legitimately uses it.
+    // Prefix-matched (no trailing `-\d+` capture) to keep the regex star-height 1
+    // — a nested `(-\d+)?` trips security/detect-unsafe-regex on the built bundle.
+    const MODEL_MODIFIER = /^(dj-[a-z][\w-]*)\.(lazy|debounce)/;
+    const root = scope || document;
+    const els = root.querySelectorAll('*');
+    // #2859 — per-pass dedup for the dj-shortcut key-name warning: one bind
+    // pass warns about each distinct dead key name at most once.
+    const warnedShortcutKeys = new Set();
+    for (let i = 0; i < els.length; i++) {
+        // eslint-disable-next-line security/detect-object-injection
+        const attrs = els[i].attributes;
+        for (let j = 0; j < attrs.length; j++) {
+            // eslint-disable-next-line security/detect-object-injection
+            const name = attrs[j].name;
+            const m = MODEL_MODIFIER.exec(name);
+            if (m && m[1] !== 'dj-model') {
+                const base = m[1];
+                console.warn(
+                    '[LiveView] Unrecognized modifier suffix on attribute "' +
+                        name +
+                        '": the `.lazy` / `.debounce-N` in-name modifier is only ' +
+                        'supported on `dj-model`, so `' +
+                        name +
+                        '` is a literal attribute that never binds (no handler ' +
+                        'attaches). For `' +
+                        base +
+                        '`, use the standalone form instead — e.g. `' +
+                        base +
+                        '="handler" dj-debounce="200"`. See the model-binding / dj-input guide.'
+                );
+                continue;
+            }
+
+            // #2859: inert dj-shortcut key NAME in the attribute VALUE.
+            if (name === 'dj-shortcut') {
+                // eslint-disable-next-line security/detect-object-injection
+                _warnInertShortcutKeyNames(attrs[j].value, warnedShortcutKeys);
+                continue;
+            }
+
+            // #2859: dj-document-scroll / dj-document-resize are recognised
+            // by _scanScopedElements and their entries ARE registered, but
+            // _installScopedDelegation deliberately skips the document-level
+            // listeners for scroll/resize (`resize` never fires on
+            // `document`), so these attributes parsed and did nothing. The
+            // documented spelling for both events is the dj-window-* twin.
+            if (name === 'dj-document-scroll' || name === 'dj-document-resize' ||
+                name.startsWith('dj-document-scroll.') || name.startsWith('dj-document-resize.')) {
+                const winTwin = name.startsWith('dj-document-scroll') ? 'dj-window-scroll' : 'dj-window-resize';
+                console.warn(
+                    '[LiveView] Unsupported directive on attribute "' +
+                        name +
+                        '": dj-document-scroll / dj-document-resize are parsed ' +
+                        'but the document-level listener is never installed, so ' +
+                        'this handler will never fire (a resize event never ' +
+                        'targets `document`). Use the supported window-level ' +
+                        'spelling instead: ' + winTwin + '="handler".'
+                );
+                continue;
+            }
+
+            // #2842: inert keyboard key-name modifier.
+            const dot = name.indexOf('.');
+            if (dot === -1) continue;
+            const baseName = name.slice(0, dot);
+            // eslint-disable-next-line security/detect-object-injection
+            if (!_KEYBOARD_KEY_DIRECTIVES[baseName]) continue;
+            // First modifier only — the same spelling `_declaredKey` honours.
+            const suffix = name.slice(dot + 1).split('.')[0];
+            // eslint-disable-next-line security/detect-object-injection
+            if (_KEY_NAME_MAP[suffix]) continue;
+            if (suffix.length === 1) continue; // single chars fire via the raw fallback
+            // Every multi-character suffix outside the map is inert. HTML
+            // parsers LOWERCASE attribute names, so `.PageUp` arrives here as
+            // `.pageup` while `e.key` is `"PageUp"` — the raw-name fallback in
+            // `_normalizeKeyName` can never return a cased key name, and no
+            // multi-character KeyboardEvent.key is all-lowercase.
+            console.warn(
+                '[LiveView] Unrecognized keyboard modifier on attribute "' +
+                    name +
+                    '": the key name "' +
+                    suffix +
+                    '" never matches a KeyboardEvent.key, so this handler ' +
+                    'will never fire. Recognized names: escape, enter, tab, space, ' +
+                    'backspace, delete, arrowup, arrowdown, arrowleft, arrowright, ' +
+                    'up, down, left, right — plus any single character ' +
+                    '(dj-keydown.a). HTML lowercases attribute names, so ' +
+                    '.F1/.PageUp-style casing cannot match either. For example, ' +
+                    'use .escape, not .esc.'
+            );
+        }
+    }
+}
+
+/**
+ * Apply dj-debounce / dj-throttle HTML attributes to an event handler.
+ * If the element has dj-debounce or dj-throttle, wraps the handler accordingly.
+ * dj-debounce="blur" is a special value that defers until the element loses focus.
+ * Returns the (potentially wrapped) handler.
+ * @param {HTMLElement} element - Element with potential dj-debounce/dj-throttle
+ * @param {Function} handler - Original event handler
+ * @returns {Function} - Wrapped or original handler
+ */
+function deferUntilBlur(element, handler) {
+    let latestArgs = null;
+    const wrapped = function (...args) {
+        latestArgs = args;
+        pendingElementRateLimits.add(wrapped);
+    };
+    wrapped.cancel = function () {
+        latestArgs = null;
+        pendingElementRateLimits.delete(wrapped);
+    };
+    wrapped.flush = function () {
+        if (latestArgs === null) return;
+        const args = latestArgs;
+        wrapped.cancel();
+        handler(...args);
+    };
+    element.addEventListener('blur', wrapped.flush);
+    return wrapped;
+}
+
+function _applyRateLimitAttrs(element, handler) {
+    if (element.hasAttribute('dj-debounce')) {
+        const val = element.getAttribute('dj-debounce');
+        if (val === 'blur') {
+            return deferUntilBlur(element, handler);
+        }
+        const ms = parseInt(val, 10);
+        if (ms === 0) {
+            return handler; // dj-debounce="0" means no debounce
+        }
+        return debounce(handler, ms);
+    }
+    if (element.hasAttribute('dj-throttle')) {
+        const ms = parseInt(element.getAttribute('dj-throttle'), 10);
+        return throttle(handler, ms);
+    }
+    return handler;
+}
+
+/**
+ * Flush all pending debounced dj-input handlers on inputs inside a form.
+ *
+ * Iterates the form's [dj-input] descendants; for each, looks up the
+ * cached rate-limit state in `_inputRateLimitState` and calls
+ * `wrapped.flush()` if the wrapped handler exposes one (only the
+ * `debounce` rate-limit type does; throttle / passthrough / blur don't
+ * need flushing here).
+ *
+ * Closes #1278 — see `_handleDjSubmit` for context.
+ *
+ * @param {HTMLFormElement} form
+ */
+function _flushPendingDebouncesInForm(form) {
+    const inputs = form.querySelectorAll('[dj-input]');
+    for (let i = 0; i < inputs.length; i++) {
+        // eslint-disable-next-line security/detect-object-injection
+        const state = _inputRateLimitState.get(inputs[i]);
+        if (state && state.wrapped && typeof state.wrapped.flush === 'function') {
+            state.wrapped.flush();
+        }
+    }
+}
+
+// Helper: Debounce function with .flush() method.
+//
+// flush() fires the pending invocation immediately and clears the timer.
+// No-op if no invocation is pending. Used by _handleDjSubmit to ensure
+// debounced dj-input events fire before form submission, otherwise
+// per-field server-state updates (set by dj-input handlers) would race
+// the submit handler that reads them. Closes #1278.
+function debounce(func, wait) {
+    let timeout = null;
+    let pendingArgs = null;
+    let pendingThis = null;
+
+    function debounced(...args) {
+        pendingArgs = args;
+        pendingThis = this;
+        pendingElementRateLimits.add(debounced);
+        const later = () => {
+            timeout = null;
+            pendingElementRateLimits.delete(debounced);
+            const a = pendingArgs;
+            const t = pendingThis;
+            pendingArgs = null;
+            pendingThis = null;
+            func.apply(t, a);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    }
+
+    debounced.flush = function () {
+        if (timeout === null) return;
+        clearTimeout(timeout);
+        timeout = null;
+        pendingElementRateLimits.delete(debounced);
+        const a = pendingArgs;
+        const t = pendingThis;
+        pendingArgs = null;
+        pendingThis = null;
+        func.apply(t, a);
+    };
+
+    debounced.cancel = function () {
+        clearTimeout(timeout);
+        timeout = null;
+        pendingArgs = null;
+        pendingThis = null;
+        pendingElementRateLimits.delete(debounced);
+    };
+    return debounced;
+}
+
+// Helper: Throttle function
+function throttle(func, limit) {
+    let timeout = null;
+    const throttled = function (...args) {
+        if (timeout !== null) return;
+        func(...args);
+        pendingElementRateLimits.add(throttled);
+        timeout = setTimeout(throttled.cancel, limit);
+    };
+    throttled.cancel = function () {
+        clearTimeout(timeout);
+        timeout = null;
+        pendingElementRateLimits.delete(throttled);
+    };
+    // Element throttling is leading-only: it has no trailing payload to send.
+    throttled.flush = throttled.cancel;
+    return throttled;
+}
+
+// Helper: Get LiveView root element (the PARENT / page container).
+//
+// Callers that operate on the parent (mainline patch application, form
+// helpers, etc.) must never receive a [dj-sticky-root] / embedded
+// subtree. The old comment here relied on document ORDER ("the first
+// [dj-view] is the parent") — which is exactly the premise #2632 showed
+// to be false (a sticky/embedded root can precede the page container),
+// so selection is by QUALIFIER via the shared helper instead. Sticky
+// targets are reached via the scoped applier in 45-child-view.js, NOT
+// via getLiveViewRoot().
+function getLiveViewRoot() {
+    return findPageViewContainer() || document.querySelector('[dj-root]') || document.body;
+}
+
+// Helper: Clear optimistic state
+function clearOptimisticState(eventName) {
+    if (eventName && optimisticUpdates.has(eventName)) {
+        const { element: _element, originalState: _originalState } = optimisticUpdates.get(eventName);
+        // TODO: Restore original state on error (e.g. _element, _originalState)
+        optimisticUpdates.delete(eventName);
+    }
+}
+
+/**
+ * Reinitialize all dynamic content after a DOM replacement.
+ *
+ * Call this after any operation that replaces or morphs DOM content
+ * (html_update, html_recovery, TurboNav, embedded view update, etc.)
+ * instead of manually calling initReactCounters + initTodoItems +
+ * bindLiveViewEvents + updateHooks individually.
+ */
+// WeakSet to track elements that have already been scrolled into view.
+// Fresh DOM nodes (from VDOM replacement) won't be in the set, so they
+// will scroll again — correct behavior for newly inserted content.
+const _scrolledElements = new WeakSet();
+
+function reinitAfterDOMUpdate(scope) {
+    initReactCounters();
+    initTodoItems();
+    bindLiveViewEvents(scope);
+    // A clear_draft() from an event handler arrives in a patch (#2971).
+    applyDraftClearFlag();
+    // Extract any new colocated hook definitions (<script type="djust/hook">)
+    // from the freshly-patched DOM BEFORE we mount/update hooks so definitions
+    // are visible to mountHooks().
+    if (window.djust.extractColocatedHooks) {
+        window.djust.extractColocatedHooks(scope || document);
+    }
+    if (window.djust.mountHooks) {
+        // updateHooks scans for [dj-hook] — scope it too
+        const hookRoot = scope || getLiveViewRoot();
+        hookRoot.querySelectorAll('[dj-hook]').forEach(el => {
+            // Delegate to the hook system's per-element logic
+            if (window.djust.mountHooks) window.djust.mountHooks(el);
+        });
+    }
+    updateHooks();
+
+    // {% djust_offline_indicator %} text / status class for any indicator
+    // this update inserted (#3051, 52-offline-state.js).
+    if (window.djust._syncOfflineIndicators) window.djust._syncOfflineIndicators(scope || document);
+
+    // dj-virtual / dj-viewport-*: re-scan after VDOM morph so new containers
+    // get observers and existing ones pick up new first/last children. For
+    // dj-virtual, existing containers must ALSO be refreshed so stream-
+    // appended items render (initVirtualLists short-circuits on already-
+    // tracked containers; refreshVirtualList is the re-window path).
+    const reinitScope = scope || document;
+    if (window.djust.initVirtualLists) window.djust.initVirtualLists(reinitScope);
+    if (window.djust.refreshVirtualList) {
+        reinitScope.querySelectorAll('[dj-virtual]').forEach((el) => {
+            window.djust.refreshVirtualList(el);
+        });
+    }
+    if (window.djust.initInfiniteScroll) window.djust.initInfiniteScroll(reinitScope);
+
+    // dj-scroll-into-view: auto-scroll elements into view after DOM updates
+    const scrollRoot = scope || document;
+    scrollRoot.querySelectorAll('[dj-scroll-into-view]').forEach(el => {
+        if (_scrolledElements.has(el)) return;
+        _scrolledElements.add(el);
+
+        const value = el.getAttribute('dj-scroll-into-view') || '';
+        let options;
+        switch (value) {
+            case 'instant':
+                options = { behavior: 'instant', block: 'nearest' };
+                break;
+            case 'center':
+                options = { behavior: 'smooth', block: 'center' };
+                break;
+            case 'start':
+                options = { behavior: 'smooth', block: 'start' };
+                break;
+            case 'end':
+                options = { behavior: 'smooth', block: 'end' };
+                break;
+            default:
+                options = { behavior: 'smooth', block: 'nearest' };
+                break;
+        }
+        el.scrollIntoView(options);
+    });
+}
+
+/**
+ * Process dj-auto-recover elements after a WebSocket reconnect.
+ * Scans for [dj-auto-recover] elements, serializes their DOM state
+ * (form values + data-* attributes), and fires the named event.
+ * Only fires when _isReconnect flag is set; clears the flag after processing.
+ */
+function _processAutoRecover() {
+    if (!window.djust._isReconnect) return;
+    window.djust._isReconnect = false;
+
+    document.querySelectorAll('[dj-auto-recover]').forEach(function(container) {
+        const handlerName = container.getAttribute('dj-auto-recover');
+        if (!handlerName) return;
+
+        // Serialize form field values within the container
+        const formValues = {};
+        container.querySelectorAll('input, textarea, select').forEach(function(field) {
+            const name = field.name;
+            if (!name) return;
+            if (field.type === 'checkbox') {
+                // eslint-disable-next-line security/detect-object-injection
+                formValues[name] = field.checked;
+            } else if (field.type === 'radio') {
+                // eslint-disable-next-line security/detect-object-injection
+                if (field.checked) formValues[name] = field.value;
+            } else {
+                // eslint-disable-next-line security/detect-object-injection
+                formValues[name] = field.value;
+            }
+        });
+
+        // Collect data-* attributes from the container element
+        const dataAttrs = {};
+        for (let i = 0; i < container.attributes.length; i++) {
+            // eslint-disable-next-line security/detect-object-injection
+            const attr = container.attributes[i];
+            if (attr.name.startsWith('data-')) {
+                const key = attr.name.slice(5); // Strip 'data-' prefix
+                // eslint-disable-next-line security/detect-object-injection
+                dataAttrs[key] = attr.value;
+            }
+        }
+
+        const params = {
+            _form_values: formValues,
+            _data_attrs: dataAttrs
+        };
+
+        handleEvent(handlerName, params);
+    });
+}
+
+/**
+ * Process automatic form recovery after a WebSocket reconnect.
+ * Scans all form fields with dj-change or dj-input inside [dj-view] and
+ * fires synthetic change events when the DOM value differs from the
+ * server-rendered default, restoring server state transparently.
+ *
+ * Skips fields with dj-no-recover or fields inside dj-auto-recover
+ * containers (custom handlers take precedence).
+ *
+ * Fires events sequentially (batched) via handleEvent() to avoid
+ * race conditions on the server.
+ */
+function _formRecoveryFields(root) {
+    return Array.from(root.querySelectorAll('input, textarea, select')).filter(field =>
+        (field.hasAttribute('dj-change') || field.hasAttribute('dj-input') || field.closest('[dj-auto-recover]'))
+        && !field.hasAttribute('dj-no-recover') && !field.hasAttribute('dj-force-value')
+        && !field.disabled && field.type !== 'file');
+}
+
+function _formRecoveryKey(field, root) {
+    const form = field.form;
+    return JSON.stringify([
+        form ? (form.getAttribute('id') || form.getAttribute('name') || Array.from(root.querySelectorAll('form')).indexOf(form)) : null,
+        field.id, field.name, field.tagName, field.type,
+        field.type === 'radio' ? field.value : null,
+        field.getAttribute('dj-change'), field.getAttribute('dj-input'),
+    ]);
+}
+
+// Capture before mount mutates the DOM. Keep defaults in the NEW markup so
+// the normal recovery scanner can still compare the draft with server state.
+function _captureFormRecovery() {
+    const root = findPageViewContainer() || document.querySelector('[dj-root]');
+    if (!root) return null;
+    const values = new Map();
+    for (const field of _formRecoveryFields(root)) {
+        const key = _formRecoveryKey(field, root);
+        if (!values.has(key)) values.set(key, []);
+        values.get(key).push({
+            value: field.value, checked: field.checked,
+            selected: field.multiple ? Array.from(field.selectedOptions, option => option.value) : null,
+        });
+    }
+    return { view: root.getAttribute('dj-view'), values: values };
+}
+
+function _restoreFormRecovery(snapshot) {
+    if (!snapshot) return;
+    const root = findPageViewContainer() || document.querySelector('[dj-root]');
+    if (!root || root.getAttribute('dj-view') !== snapshot.view) return;
+    for (const field of _formRecoveryFields(root)) {
+        const values = snapshot.values.get(_formRecoveryKey(field, root));
+        if (!values || !values.length) continue;
+        const saved = values.shift();
+        if (field.type === 'checkbox' || field.type === 'radio') {
+            field.checked = saved.checked;
+        } else if (saved.selected) {
+            for (const option of field.options) option.selected = saved.selected.includes(option.value);
+        } else {
+            field.value = saved.value;
+        }
+    }
+}
+
+function _processFormRecovery() {
+    if (!window.djust._isReconnect) return;
+
+    let root = findPageViewContainer(); // #2632
+    if (!root) root = document.querySelector('[dj-root]');
+    if (!root) return;
+
+    // Collect fields to recover
+    const fields = _formRecoveryFields(root);
+    const pendingEvents = [];
+
+    for (let i = 0; i < fields.length; i++) {
+        // eslint-disable-next-line security/detect-object-injection
+        const field = fields[i];
+
+        // Skip fields inside dj-auto-recover containers (custom handler takes precedence)
+        if (field.closest('[dj-auto-recover]')) continue;
+
+        // Determine handler name — prefer dj-change, fall back to dj-input
+        const handlerAttr = field.hasAttribute('dj-change') ? 'dj-change' : 'dj-input';
+        const handlerString = field.getAttribute(handlerAttr);
+        if (!handlerString) continue;
+
+        // Parse handler string to extract function name
+        const parsed = parseEventHandler(handlerString);
+        const handlerName = parsed.name;
+
+        // Determine current DOM value and server default
+        const tagName = field.tagName.toLowerCase();
+        const fieldType = (field.type || '').toLowerCase();
+        let domValue;
+        let serverDefault;
+
+        if (fieldType === 'checkbox') {
+            domValue = field.checked;
+            serverDefault = field.hasAttribute('checked');
+        } else if (fieldType === 'radio') {
+            // Match native change events: one selected VALUE, not two boolean
+            // events that can restore the wrong member of the group.
+            if (!field.checked) continue;
+            domValue = field.value;
+            serverDefault = field.hasAttribute('checked') ? field.value : null;
+        } else if (tagName === 'select') {
+            domValue = field.value;
+            // Server default: the option with 'selected' attribute, or the first option
+            const selectedOption = field.querySelector('option[selected]');
+            serverDefault = selectedOption ? selectedOption.value : (field.options.length > 0 ? field.options[0].value : '');
+        } else {
+            // text, textarea, number, email, etc.
+            domValue = field.value;
+            serverDefault = field.getAttribute('value') || (tagName === 'textarea' ? field.defaultValue : '');
+        }
+
+        // Skip if DOM value matches server default (avoid unnecessary server work)
+        if (domValue === serverDefault) continue;
+
+        // Build event params matching dj-change param structure
+        const value = domValue;
+        const fieldName = field.name || field.id || null;
+        const params = { value: value, field: fieldName };
+
+        // Add positional arguments from handler syntax if present
+        if (parsed.args.length > 0) {
+            params._args = parsed.args;
+        }
+
+        // _target: include triggering field's name
+        params._target = fieldName;
+
+        pendingEvents.push({ handlerName: handlerName, params: params });
+    }
+
+    // Fire events sequentially to avoid server race conditions
+    if (pendingEvents.length > 0) {
+        if (globalThis.djustDebug) console.log('[LiveView] Form recovery: restoring ' + pendingEvents.length + ' field(s)');
+        const fireSequentially = function(index) {
+            if (index >= pendingEvents.length) return;
+            // eslint-disable-next-line security/detect-object-injection
+            const evt = pendingEvents[index];
+            void handleEvent(evt.handlerName, evt.params).then(function() { fireSequentially(index + 1); });
+        };
+        fireSequentially(0);
+    }
+}
+
+// Export for testing and for createNodeFromVNode to mark VDOM-created elements as bound
+window.djust.bindLiveViewEvents = bindLiveViewEvents;
+window.djust.reinitAfterDOMUpdate = reinitAfterDOMUpdate;
+window.djust.installDelegatedListeners = installDelegatedListeners;
+window.djust._isHandlerBound = _isHandlerBound;
+window.djust._markHandlerBound = _markHandlerBound;
+window.djust._processAutoRecover = _processAutoRecover;
+window.djust._processFormRecovery = _processFormRecovery;
+window.djust._captureFormRecovery = _captureFormRecovery;
+window.djust._restoreFormRecovery = _restoreFormRecovery;
+window.djust._isReconnect = false;

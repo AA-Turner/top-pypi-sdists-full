@@ -26,6 +26,7 @@ A prereq's `min_version` is `None` until a floor has actually been confirmed
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import re
@@ -289,6 +290,125 @@ def _probe_playwright_browsers(prereq: Prereq, _timeout: float) -> ToolProbe:
     return ToolProbe(
         tool=prereq.tool, capability=prereq.capability, found=bool(builds),
         version=str(builds[-1]) if builds else None,
+        min_version=prereq.min_version, meets_floor=None,
+        what_breaks=prereq.what_breaks,
+    )
+
+
+# --- Tier-2 lane driver dependencies (#3515) --------------------------------
+#
+# Epic #3482's Tier-2 lane drivers (`win-native`/`mac-native`/`gtk-native`,
+# plus `tui-pty`'s `pyte`) each need Python packages that, until #3515, no
+# fleet roll or agent update ever installed — the `pyproject.toml` extras
+# existed but nothing pulled them onto the machines that run those lanes
+# (`coord.acceptance_drivers.LANE_CAPABILITY_EXTRAS` is the install-side fix;
+# these two helpers + the `Prereq` entries below are the VERIFY side, so a
+# lane that silently lost its dependency on some future rebuild reads as a
+# named, actionable `coord doctor` line instead of a stack trace the first
+# time that lane's driver actually runs).
+
+#: Shared `what_breaks` text for `pyte`'s three structurally-identical
+#: `Prereq` entries below (`gtk`/`windows`/`macos`) — there is no standalone
+#: `tui-pty` capability to key a single entry off of (see the comment above
+#: the `gtk` one), so the entry itself has to be duplicated per capability;
+#: this constant is the one place the actual remedy text lives, so a future
+#: edit to it can't drift across the three copies.
+_TUI_PTY_WHAT_BREAKS = (
+    "the tui-pty acceptance driver cannot drive a real pty/ConPTY "
+    "session — `pip install 'code-coordinator[tui-pty]'`"
+)
+
+
+def _probe_binary_presence_only(prereq: Prereq, _timeout: float) -> ToolProbe:
+    """`custom_probe` for a binary with no reliable `--version` flag (#3515)
+    — `shutil.which` alone decides `found`, the same lenient contract
+    `_probe_opencode` above uses and for the same reason: `xwd` (no clean
+    version flag at all) must not read "not found" just because a probe
+    GUESS at a version flag exited nonzero — the generic `probe()` path
+    treats ANY nonzero exit from `version_args` as "not found" (see its own
+    comment on `gtk4`'s `pkg-config --modversion`), which is the right call
+    for a subcommand-lookup probe but the wrong one for a bare presence
+    check.
+    """
+    found = shutil.which(prereq.binary) is not None
+    return ToolProbe(
+        tool=prereq.tool, capability=prereq.capability, found=found,
+        version=None, min_version=prereq.min_version, meets_floor=None,
+        what_breaks=prereq.what_breaks,
+    )
+
+
+def _probe_python_module(module_name: str) -> Callable[["Prereq", float], "ToolProbe"]:
+    """Build a `custom_probe` reporting whether `module_name` resolves via
+    `importlib.util.find_spec` in THIS interpreter — the agent's own venv,
+    exactly where `pip install 'code-coordinator[<lane extra>]'` installs a
+    lane driver's Python deps (#3515).
+
+    Deliberately `find_spec`, never a real `import`: a GObject-introspection
+    binding (`gi`) or a Quartz/AX binding (`pyobjc`) can have real side
+    effects at import time (opening a display, touching the Accessibility
+    API) that a prereq SWEEP — run on every `/health` poll — must never
+    trigger just to answer "is it even installed".
+    """
+
+    def _probe(prereq: Prereq, _timeout: float) -> ToolProbe:
+        try:
+            found = importlib.util.find_spec(module_name) is not None
+        except (ImportError, ValueError, ModuleNotFoundError, AttributeError):
+            # A parent package missing (or a malformed one shadowing the
+            # real module) all degrade to "not found" rather than taking
+            # down the whole prereq sweep over one broken lane dependency.
+            found = False
+        return ToolProbe(
+            tool=prereq.tool, capability=prereq.capability, found=found,
+            version="importable" if found else None,
+            min_version=prereq.min_version, meets_floor=None,
+            what_breaks=prereq.what_breaks,
+        )
+
+    return _probe
+
+
+def _probe_comtypes(prereq: Prereq, timeout: float) -> ToolProbe:
+    """`custom_probe` backing the `windows` capability's `comtypes` check
+    (#3515) — the WSL-aware sibling of :func:`_probe_python_module`.
+
+    A WSL-hosted agent (`coord.win_native_bridge.is_wsl_host`) can never see
+    `comtypes` importable in ITS OWN (Linux) interpreter — `ctypes.windll`
+    has no meaning there, full stop. So on a WSL host this checks the real
+    Windows-side venv `coord.win_native_bridge.ensure_windows_win_native_venv`
+    bootstraps instead (`import comtypes` run on THAT interpreter via a
+    direct subprocess call, never the bootstrap itself — a probe must not
+    have the side effect of installing something on every `/health` poll).
+    A missing Windows-side venv (never bootstrapped, or `python.exe`
+    unreachable through interop) degrades to `found=False`, the same honest
+    "not met yet" every other prereq in this module reports, never a crash.
+
+    Everywhere else (native Windows, or a test harness with no `windows`
+    capability in play at all) this is exactly
+    `_probe_python_module("comtypes")`.
+    """
+    from coord.win_native_bridge import (  # noqa: PLC0415 — avoid an import cycle
+        DEFAULT_WINDOWS_VENV_DIR,
+        is_wsl_host,
+        windows_venv_python,
+    )
+
+    if not is_wsl_host():
+        return _probe_python_module("comtypes")(prereq, timeout)
+
+    venv_python = windows_venv_python(DEFAULT_WINDOWS_VENV_DIR)
+    try:
+        result = subprocess.run(
+            [venv_python, "-c", "import comtypes"],
+            capture_output=True, text=True, timeout=timeout,
+        )
+        found = result.returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        found = False
+    return ToolProbe(
+        tool=prereq.tool, capability=prereq.capability, found=found,
+        version="importable (Windows-side win-native bridge venv)" if found else None,
         min_version=prereq.min_version, meets_floor=None,
         what_breaks=prereq.what_breaks,
     )
@@ -834,6 +954,59 @@ CAPABILITY_PREREQS: tuple[Prereq, ...] = (
         version_re=r"(\S+)", min_version=None, capability="gtk",
         what_breaks="the coord-tui `--features gtk` build cannot link against GTK4",
     ),
+    # #3515: the `gtk-native` acceptance driver's own dependencies —
+    # `coord.gtk_native_driver` imports `gi.repository.Atspi` and shells out
+    # to `xdotool`/`xwd` (see `coord/gtk_native_driver.py`'s module docstring
+    # and `pyproject.toml`'s `gtk-native` extra comment for the full list).
+    Prereq(
+        tool="gi", binary="", version_args=(), version_re="",
+        min_version=None, capability="gtk",
+        what_breaks=(
+            "the gtk-native acceptance driver cannot import "
+            "gi.repository.Atspi — `pip install 'code-coordinator"
+            "[gtk-native]'` (plus the gir1.2-atspi-2.0/at-spi2-core/build-"
+            "header system packages named in pyproject.toml's `gtk-native` "
+            "extra comment, which pip cannot install)"
+        ),
+        custom_probe=_probe_python_module("gi"),
+    ),
+    Prereq(
+        tool="xdotool", binary="xdotool", version_args=(), version_re="",
+        min_version=None, capability="gtk",
+        what_breaks=(
+            "the gtk-native driver cannot drive `key`/`click` steps — "
+            "`apt install xdotool`"
+        ),
+        custom_probe=_probe_binary_presence_only,
+    ),
+    Prereq(
+        tool="xwd", binary="xwd", version_args=(), version_re="",
+        min_version=None, capability="gtk",
+        what_breaks=(
+            "the gtk-native driver's per-window `capture` step (the "
+            "evidence attached to every failing step) cannot run — "
+            "`apt install x11-apps`"
+        ),
+        custom_probe=_probe_binary_presence_only,
+    ),
+    # #3515: `tui-pty`'s `pyte` is not gated behind a `tui-pty` CAPABILITY —
+    # unlike `gtk`/`windows`/`macos`, no machine declares `tui-pty` in its
+    # `capabilities:` list (it's a property of which REPOS a host serves,
+    # see `coord.acceptance_drivers.repos_requiring_tui_pty`), so there is no
+    # single capability string to hang this prereq off of the way the other
+    # three are. Registered under all three native capabilities instead —
+    # the same conservative "a native lane also needs tui-pty" rule
+    # `coord.acceptance_drivers.lane_extras_for_machine`'s own fallback
+    # applies on the install side (every native lane in this issue's own
+    # incident table needed `pyte` too). Harmless if a host has more than
+    # one native capability: `probe_all` dedupes by tool name, and the
+    # check itself is identical regardless of which capability triggered it.
+    Prereq(
+        tool="pyte", binary="", version_args=(), version_re="",
+        min_version=None, capability="gtk",
+        what_breaks=_TUI_PTY_WHAT_BREAKS,
+        custom_probe=_probe_python_module("pyte"),
+    ),
     # `browser` gates Playwright acceptance suites in the repos this fleet
     # drives — the `coord-web` repo's `test:e2e` -> `playwright test` (it
     # lived at `coord/dashboard/webapp` in THIS repo until #2009 moved it
@@ -915,6 +1088,74 @@ CAPABILITY_PREREQS: tuple[Prereq, ...] = (
             "toolchain (#2952)"
         ),
         custom_probe=_probe_windows_msvc_target,
+    ),
+    # #3515: the `win-native` acceptance driver's own Python dependency.
+    # `comtypes` carries a `sys_platform == 'win32'` marker in `pyproject.
+    # toml` for a real reason a plain in-process probe cannot paper over:
+    # dell64's `windows` capability is backed by a WSL-hosted (Linux) agent
+    # venv, and `pip install` on Linux resolves the marker to "skip this
+    # dependency" — there is structurally no way for an import check run in
+    # THAT venv to ever see `comtypes` importable, no matter what gets
+    # pip-installed into it. `_probe_comtypes` below is WSL-aware: on a WSL
+    # host it checks the real Windows-side venv `coord.win_native_bridge`
+    # bootstraps instead of this process's own interpreter (see that
+    # module's docstring for the full WSL->Windows mechanism and
+    # `coord.acceptance_drivers._run_win_native`, its one caller at run
+    # time). Everywhere else (native Windows, or no `windows` capability at
+    # all) this is exactly `_probe_python_module("comtypes")`.
+    Prereq(
+        tool="comtypes", binary="", version_args=(), version_re="",
+        min_version=None, capability="windows",
+        what_breaks=(
+            "the win-native acceptance driver cannot import comtypes (the "
+            "UI Automation client) — on native Windows, `pip install "
+            "'code-coordinator[win-native]'`; on a WSL-hosted agent (e.g. "
+            "dell64), `python -m coord.win_native_bridge --ensure` "
+            "bootstraps the Windows-side venv this needs (also run "
+            "automatically by `install-agent.sh`/a fleet roll when the "
+            "`windows` capability is declared) — see that module's "
+            "docstring if it still reads unmet after that"
+        ),
+        custom_probe=_probe_comtypes,
+    ),
+    Prereq(
+        tool="pyte", binary="", version_args=(), version_re="",
+        min_version=None, capability="windows",
+        what_breaks=_TUI_PTY_WHAT_BREAKS,
+        custom_probe=_probe_python_module("pyte"),
+    ),
+    # #3515: backs a future `macos` capability the same way `gtk`/`windows`
+    # back `gtk-native`/`win-native` above — see `coord.acceptance_drivers
+    # .LANE_CAPABILITY_EXTRAS`. No machine declares `macos` today (macmini's
+    # own capabilities are `[python, rust]`, not `macos` — `docs/
+    # MAC_MINI.md`), but `probe_all` only probes a capability a machine
+    # actually claims, so registering these ahead of that declaration costs
+    # nothing and avoids a second silent "no fleet roll ever installed
+    # this" gap the moment an operator DOES add `macos` to a machine.
+    Prereq(
+        tool="pyobjc-quartz", binary="", version_args=(), version_re="",
+        min_version=None, capability="macos",
+        what_breaks=(
+            "the mac-native acceptance driver cannot import Quartz (real "
+            "CGEvent input) — `pip install 'code-coordinator[mac-native]'`"
+        ),
+        custom_probe=_probe_python_module("Quartz"),
+    ),
+    Prereq(
+        tool="pyobjc-application-services", binary="", version_args=(),
+        version_re="", min_version=None, capability="macos",
+        what_breaks=(
+            "the mac-native acceptance driver cannot probe the "
+            "Accessibility (AX) tree — `pip install 'code-coordinator"
+            "[mac-native]'`"
+        ),
+        custom_probe=_probe_python_module("ApplicationServices"),
+    ),
+    Prereq(
+        tool="pyte", binary="", version_args=(), version_re="",
+        min_version=None, capability="macos",
+        what_breaks=_TUI_PTY_WHAT_BREAKS,
+        custom_probe=_probe_python_module("pyte"),
     ),
     # #3233: backs the `azure` capability routing `**/*.tf` (terraform
     # driver, #3230 child 1). See the module comment above

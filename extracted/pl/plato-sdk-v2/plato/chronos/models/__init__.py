@@ -3795,9 +3795,19 @@ class NodeTreeInput(BaseModel):
         extra="allow",
     )
     root: Annotated[
-        SplitNodeInput | ArtifactBrowserNode | ScreenshotCarouselNode | TextNode | CommentPanelNode,
+        SplitNodeInput
+        | ArtifactBrowserNodeInput
+        | ScreenshotCarouselNodeInput
+        | TextNode
+        | CommentPanelNode
+        | ClickCollectorNodeInput
+        | ClickCollectorElementsNodeInput
+        | WorldLaunchNodeInput
+        | ArtifactReviewNodeInput
+        | PromptConfirmNodeInput,
         Field(discriminator="type", title="Root"),
     ]
+    outputs: Annotated[dict[str, StaticValue | Ref] | None, Field(title="Outputs")] = None
 
 
 class NodeTreeOutput(BaseModel):
@@ -3805,9 +3815,19 @@ class NodeTreeOutput(BaseModel):
         extra="allow",
     )
     root: Annotated[
-        SplitNodeOutput | ArtifactBrowserNode | ScreenshotCarouselNode | TextNode | CommentPanelNode,
+        SplitNodeOutput
+        | ArtifactBrowserNodeOutput
+        | ScreenshotCarouselNodeOutput
+        | TextNode
+        | CommentPanelNode
+        | ClickCollectorNodeOutput
+        | ClickCollectorElementsNodeOutput
+        | WorldLaunchNodeOutput
+        | ArtifactReviewNodeOutput
+        | PromptConfirmNodeOutput,
         Field(discriminator="type", title="Root"),
     ]
+    outputs: Annotated[dict[str, StaticValue | Ref], Field(title="Outputs")]
 
 
 class ReviewListResponse(BaseModel):
@@ -3860,22 +3880,6 @@ class SplitNodeOutput(BaseModel):
     direction: Annotated[Direction, Field(title="Direction")]
     children: Annotated[list[Children1], Field(title="Children")]
     sizes: Annotated[list[float] | None, Field(title="Sizes")] = None
-
-
-class Children(RootModel[SplitNodeInput | ArtifactBrowserNode | ScreenshotCarouselNode | TextNode | CommentPanelNode]):
-    root: Annotated[
-        SplitNodeInput | ArtifactBrowserNode | ScreenshotCarouselNode | TextNode | CommentPanelNode,
-        Field(discriminator="type"),
-    ]
-
-
-class Children1(
-    RootModel[SplitNodeOutput | ArtifactBrowserNode | ScreenshotCarouselNode | TextNode | CommentPanelNode]
-):
-    root: Annotated[
-        SplitNodeOutput | ArtifactBrowserNode | ScreenshotCarouselNode | TextNode | CommentPanelNode,
-        Field(discriminator="type"),
-    ]
 
 
 class ArtifactBrowserNodeInput(BaseModel):
@@ -4538,6 +4542,64 @@ class SessionListItem(BaseModel):
     active_child_count: Annotated[int, Field(title="Active Child Count")]
     archived_at: Annotated[datetime | None, Field(title="Archived At")] = None
     total_active_env_count: Annotated[int | None, Field(title="Total Active Env Count")] = None
+
+
+class Children(
+    RootModel[
+        SplitNodeInput
+        | ArtifactBrowserNodeInput
+        | ScreenshotCarouselNodeInput
+        | TextNode
+        | CommentPanelNode
+        | ClickCollectorNodeInput
+        | ClickCollectorElementsNodeInput
+        | WorldLaunchNodeInput
+        | ArtifactReviewNodeInput
+        | PromptConfirmNodeInput
+    ]
+):
+    root: Annotated[
+        SplitNodeInput
+        | ArtifactBrowserNodeInput
+        | ScreenshotCarouselNodeInput
+        | TextNode
+        | CommentPanelNode
+        | ClickCollectorNodeInput
+        | ClickCollectorElementsNodeInput
+        | WorldLaunchNodeInput
+        | ArtifactReviewNodeInput
+        | PromptConfirmNodeInput,
+        Field(discriminator="type"),
+    ]
+
+
+class Children1(
+    RootModel[
+        SplitNodeOutput
+        | ArtifactBrowserNodeOutput
+        | ScreenshotCarouselNodeOutput
+        | TextNode
+        | CommentPanelNode
+        | ClickCollectorNodeOutput
+        | ClickCollectorElementsNodeOutput
+        | WorldLaunchNodeOutput
+        | ArtifactReviewNodeOutput
+        | PromptConfirmNodeOutput
+    ]
+):
+    root: Annotated[
+        SplitNodeOutput
+        | ArtifactBrowserNodeOutput
+        | ScreenshotCarouselNodeOutput
+        | TextNode
+        | CommentPanelNode
+        | ClickCollectorNodeOutput
+        | ClickCollectorElementsNodeOutput
+        | WorldLaunchNodeOutput
+        | ArtifactReviewNodeOutput
+        | PromptConfirmNodeOutput,
+        Field(discriminator="type"),
+    ]
 
 
 FullLineageNode.model_rebuild()

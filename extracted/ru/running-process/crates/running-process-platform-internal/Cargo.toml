@@ -1,0 +1,97 @@
+[package]
+name = "running-process-platform-internal"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Blessed platform process operations for running-process (implementation detail)"
+publish = true
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[features]
+# This is a published implementation-detail crate. These two capabilities
+# were historically unconditional public surface, so its default remains
+# source-compatible. Consumers that need a trimmed graph, including the root
+# facade below, must opt out explicitly with `default-features = false`.
+default = ["async-process", "window-icon"]
+window-icon = ["dep:png", "dep:x11rb"]
+fs = ["dep:dirs"]
+# Owner-private directory creation and inspection are shared by persisted
+# registration records and local IPC roots, but require neither a transport
+# nor endpoint-name hashing.
+private-dir = []
+independent-spawn = ["ipc", "dep:serde", "dep:serde_json", "dep:tempfile", "dep:getrandom", "dep:prost", "dep:running-process-protocol"]
+ipc = ["private-dir", "dep:interprocess", "dep:dirs", "dep:blake3"]
+async-process = ["dep:tokio", "tokio/time", "process-inspection"]
+ipc-async = ["ipc", "async-process", "interprocess/tokio", "tokio/net"]
+session-relay = ["ipc-async"]
+process-inspection = ["dep:sysinfo"]
+pty = ["dep:portable-pty", "process-inspection"]
+# Terminal capability probing is independent of pseudo-terminal allocation and
+# remains available to the root terminal-graphics feature without `pty`.
+terminal-graphics = []
+conpty-sidecar = [
+    "pty",
+    "dep:dirs",
+    "dep:sha2",
+    "dep:ureq",
+    "dep:zstd",
+    "dep:tar",
+]
+
+[dependencies]
+prost = { version = "0.14", optional = true }
+running-process-protocol = { version = "=4.10.15", path = "../running-process-protocol", optional = true }
+tokio = { version = "1", default-features = false, features = ["io-util", "macros", "process", "rt"], optional = true }
+sysinfo = { version = "0.30", optional = true }
+interprocess = { version = "2", optional = true }
+thiserror = "2"
+serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", optional = true }
+getrandom = { version = "0.4", optional = true }
+tempfile = { version = "3", optional = true }
+portable-pty = { version = "0.9", optional = true }
+blake3 = { version = "1.8.7", optional = true }
+# Needed by the `ipc` feature on every host for the per-user runtime
+# fallback root, and by `conpty-sidecar` on Windows.
+dirs = { version = "6", optional = true }
+
+[dev-dependencies]
+tokio = { version = "1", default-features = false, features = ["io-util", "macros", "process", "rt", "rt-multi-thread", "time"] }
+tempfile = "3"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+x11rb = { version = "0.13", optional = true }
+png = { version = "0.17", optional = true }
+
+[target.'cfg(windows)'.dependencies]
+sha2 = { version = "0.10", optional = true }
+ureq = { version = "2", default-features = false, features = ["tls"], optional = true }
+zstd = { version = "0.13", default-features = false, optional = true }
+tar = { version = "0.4", default-features = false, optional = true }
+windows-sys = { version = "0.61", features = [
+    "Wdk_System_Threading",
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Console",
+    "Win32_System_Environment",
+    "Win32_System_IO",
+    "Win32_System_JobObjects",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Memory",
+    "Win32_System_Pipes",
+    "Win32_System_Registry",
+    "Win32_System_Threading",
+] }
+winapi = { version = "0.3", features = ["consoleapi", "errhandlingapi", "fileapi", "handleapi", "ioapiset", "jobapi2", "minwindef", "namedpipeapi", "processenv", "processthreadsapi", "securitybaseapi", "shellapi", "synchapi", "tlhelp32", "winbase", "wincon", "wincontypes", "windef", "winerror", "winnt", "winuser"] }
+widestring = "1"

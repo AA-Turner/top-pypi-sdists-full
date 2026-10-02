@@ -53,6 +53,7 @@ from schemathesis.cli.options import (
     REPORT_NDJSON_PATH,
     REPORT_PRESERVE_BYTES,
     REPORT_VCR_PATH,
+    REPORT_WFC_PATH,
     REQUEST_CERT,
     REQUEST_CERT_KEY,
     REQUEST_RETRIES,
@@ -135,6 +136,7 @@ load_all_checks()
 @grouped_option(*REPORT_HAR_PATH.args, **REPORT_HAR_PATH.kwargs)
 @grouped_option(*REPORT_NDJSON_PATH.args, **REPORT_NDJSON_PATH.kwargs)
 @grouped_option(*REPORT_JSON_PATH.args, **REPORT_JSON_PATH.kwargs)
+@grouped_option(*REPORT_WFC_PATH.args, **REPORT_WFC_PATH.kwargs)
 @grouped_option(*REPORT_ALLURE_PATH.args, **REPORT_ALLURE_PATH.kwargs)
 @grouped_option(*REPORT_PRESERVE_BYTES.args, **REPORT_PRESERVE_BYTES.kwargs)
 @grouped_option(*OUTPUT_SANITIZE.args, **OUTPUT_SANITIZE.kwargs)
@@ -211,6 +213,7 @@ def fuzz(
     report_har_path: IO[str] | None = None,
     report_ndjson_path: IO[str] | None = None,
     report_json_path: IO[str] | None = None,
+    report_wfc_path: IO[str] | None = None,
     report_allure_path: str | None = None,
     report_preserve_bytes: bool | None = None,
     output_sanitize: bool | None = None,
@@ -232,7 +235,9 @@ def fuzz(
     """Continuously fuzz your API with multi-step operation sequences.
 
     Generates chains of API calls across operations and validates each
-    response. Runs until --max-time is reached or interrupted.
+    response. Stops at the first failure, when --max-time is reached, or when
+    interrupted. With --continue-on-failure it keeps fuzzing until
+    --max-failures failures.
 
     \b
     LOCATION can be:
@@ -266,6 +271,7 @@ def fuzz(
         har_path=report_har_path.name if report_har_path else None,
         ndjson_path=report_ndjson_path.name if report_ndjson_path else None,
         json_path=report_json_path.name if report_json_path else None,
+        wfc_path=report_wfc_path.name if report_wfc_path else None,
         allure_path=report_allure_path,
         directory=Path(report_directory),
         preserve_bytes=report_preserve_bytes,

@@ -15,12 +15,15 @@ from dataclasses import dataclass, field as dataclass_field
 from email import policy
 from email.message import Message
 from email.parser import BytesParser
+from functools import cache
 from io import BytesIO
 from pathlib import Path, PureWindowsPath
 from typing import Any, Final, Iterator, Literal, Optional, Union, cast
 from urllib.parse import unquote, urljoin, urlparse
 from urllib.request import url2pathname
 
+import requests
+import urllib3
 from docling_core.types.doc import (
     BoundingBox,
     CodeLanguageLabel,
@@ -68,7 +71,7 @@ from docling.backend.utils.table_spans import (
 from docling.datamodel.backend_options import HTMLBackendOptions
 from docling.datamodel.base_models import FormatToMimeType, InputFormat
 from docling.datamodel.document import InputDocument
-from docling.exceptions import DocumentLoadError
+from docling.exceptions import DocumentLoadError, OperationNotAllowed
 from docling.utils.code_language import (
     _HINT_PREFIXES,
     detect_code_language,
@@ -91,6 +94,29 @@ _INSTALL_HINT = (
 )
 
 _log = logging.getLogger(__name__)
+
+# Response headers not forwarded when serving a fetched resource to the browser:
+# the body is already decoded and complete, so encoding/length/range framing
+# from the origin server no longer applies.
+_BROWSER_DROPPED_RESPONSE_HEADERS: Final = {
+    "connection",
+    "content-encoding",
+    "content-length",
+    "content-range",
+    "keep-alive",
+    "transfer-encoding",
+}
+
+
+@cache
+def _warn_headers_without_origin() -> None:
+    _log.warning(
+        "HTMLBackendOptions.headers are configured but no origin is allowed to "
+        "receive them, so they are not sent. Headers go to the source document's "
+        "origin by default; set HTMLBackendOptions.headers_allowed_origins to "
+        "send them to other origins."
+    )
+
 
 # Sentinel character for explicit line breaks from <br> tags
 # Using Unicode Private Use Area to avoid conflicts with actual content
@@ -460,6 +486,7 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
             max_remote_image_bytes=options.max_remote_image_bytes,
             max_redirects=options.max_redirects,
             headers=options.headers,
+            header_origins=self._get_header_origins(options, configured_base_path),
         )
 
         # Initialize the parents for the hierarchy
@@ -912,6 +939,21 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
         self._walk(content, doc)
         return doc
 
+    @staticmethod
+    def _get_header_origins(
+        options: HTMLBackendOptions, source_uri: Optional[str]
+    ) -> list[str]:
+        """Return the origins that receive ``options.headers``."""
+        if options.headers_allowed_origins is not None:
+            origins = list(options.headers_allowed_origins)
+        elif source_uri is not None and ImageResourceLoader.is_remote_url(source_uri):
+            origins = [source_uri]
+        else:
+            origins = []
+        if options.headers and not origins:
+            _warn_headers_without_origin()
+        return origins
+
     def _get_render_page_size(self) -> tuple[int, int]:
         options = cast(HTMLBackendOptions, self.options)
         width = options.render_page_width
@@ -974,6 +1016,38 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
 
         return f"URL scheme '{scheme or '<empty>'}' is not allowed"
 
+    def _fulfill_remote_browser_request(
+        self, route: Any, request: Any
+    ) -> Optional[str]:
+        """Serve a remote browser request with the image loader.
+
+        The resource is downloaded in Python, so address validation, redirect
+        handling, header scoping and the size limit are the same as for image
+        fetches. Returns None once the request is fulfilled, or the reason it
+        must be aborted.
+        """
+        if request.method != "GET":
+            return f"method {request.method} is not allowed for remote requests"
+        try:
+            resource = self._image_loader.fetch_remote(request.url)
+        except (
+            OperationNotAllowed,
+            ValueError,
+            requests.RequestException,
+            urllib3.exceptions.HTTPError,
+        ) as exc:
+            return str(exc)
+        route.fulfill(
+            status=resource.status_code,
+            headers={
+                name: value
+                for name, value in resource.headers.items()
+                if name.lower() not in _BROWSER_DROPPED_RESPONSE_HEADERS
+            },
+            body=resource.content,
+        )
+        return None
+
     def _is_browser_request_allowed(self, request_url: str) -> bool:
         return self._get_browser_request_block_reason(request_url) is None
 
@@ -1028,24 +1102,51 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
                 render_html, self._coerce_base_url(self.base_path)
             )
 
+        # Main-frame navigations may only target the source document or the
+        # blank/srcdoc placeholders used with set_content.
+        allowed_navigation_urls = {"about:blank", "about:srcdoc"}
+        if render_url:
+            allowed_navigation_urls.add(render_url)
+
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(headless=True)
-            # If remote fetch is disabled, keep Chromium offline.
-            offline_mode = not options.enable_remote_fetch
             context = browser.new_context(
                 viewport={"width": width, "height": height},
                 device_scale_factor=options.render_device_scale,
                 # Disable page JavaScript execution for deterministic static rendering.
                 java_script_enabled=False,
-                offline=offline_mode,
+                # Chromium never uses the network itself: remote resources are
+                # downloaded by the image loader and served from the route below.
+                offline=True,
                 service_workers="block",
             )
 
             def _route_request(route, request) -> None:
+                # Abort main-frame navigations that leave the source document.
+                if (
+                    request.is_navigation_request()
+                    and request.frame.parent_frame is None
+                    and request.url not in allowed_navigation_urls
+                ):
+                    warnings.warn(
+                        "Blocked main-frame navigation during HTML rendering: "
+                        f"{request.method} {request.url} "
+                        "(navigation away from the source document)"
+                    )
+                    route.abort("blockedbyclient")
+                    return
+
                 block_reason = self._get_browser_request_block_reason(request.url)
                 if block_reason is None:
-                    route.continue_()
-                else:
+                    if ImageResourceLoader.is_remote_url(request.url):
+                        # Remote resources are downloaded in Python and served
+                        # to the browser, which stays offline.
+                        block_reason = self._fulfill_remote_browser_request(
+                            route, request
+                        )
+                    else:
+                        route.continue_()
+                if block_reason is not None:
                     warnings.warn(
                         "Blocked browser request during HTML rendering: "
                         f"{request.method} {request.url} ({block_reason})"

@@ -1,0 +1,156 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+#
+# BSD 3-Clause License
+
+"""A base channel resolves to the digest its release pushed, and never to one nobody pushed."""
+
+from __future__ import annotations
+
+import pytest
+from pydantic import ValidationError
+
+from code_sandboxes.environments import errors
+from code_sandboxes.environments.bases import (
+    APPROVED_BASES,
+    ApprovedBase,
+    BaseChannelUnpublishedError,
+    approved_repositories,
+    channel_snapshot,
+    resolve_base,
+)
+from code_sandboxes.environments.errors import EnvironmentsError
+from code_sandboxes.environments.spec import VARIANTS
+
+DIGEST = "sha256:" + "a" * 64
+
+
+@pytest.mark.parametrize("variant", VARIANTS)
+def test_the_2026_09_channel_of_python_cuda_resolves_the_digest_its_release_pushed(
+    variant: str,
+) -> None:
+    """PLAN_ENV.md, E2-17: released 2026-09-18, one image for every variant,
+    carrying the CUDA 12.8 toolkit a spec's `accelerator.cuda` may ask for."""
+    base = APPROVED_BASES["datalayer/python-cuda"]
+    assert resolve_base(base.ref, "2026.09", variant) == (
+        "sha256:dc8f0015b4f7dbca92a88d2d6a4a96714b76f9a1af9dddd86835812493e40f08"
+    )
+    assert (base.accelerator, base.cuda) == (True, "12.8")
+
+
+@pytest.mark.parametrize("variant", VARIANTS)
+def test_a_channel_with_no_digest_yet_is_refused_rather_than_made_up(variant: str) -> None:
+    """A channel is approved before its release pushes it: nothing may be made up."""
+    ref = "datalayer/python-next"
+    bases = {ref: ApprovedBase(ref=ref, python_versions=("3.13",), channels={"2026.10": {}})}
+    with pytest.raises(BaseChannelUnpublishedError) as refused:
+        resolve_base(ref, "2026.10", variant, bases)
+    error = refused.value
+    assert isinstance(error, EnvironmentsError)
+    assert error.code is errors.ARTIFACT_MISSING
+    assert error.retryable is True
+    assert error.detail == {
+        "reason": "base_channel_unpublished",
+        "base": ref,
+        "channel": "2026.10",
+        "variant": variant,
+        "repository": "environments/base/python-next",
+    }
+    assert "sha256:" not in str(error)
+    assert error.to_body()["code"] == "DL_ENV_ARTIFACT_MISSING"
+
+
+@pytest.mark.parametrize("variant", VARIANTS)
+def test_the_2026_09_channel_of_python_cpu_resolves_the_digest_its_release_pushed(
+    variant: str,
+) -> None:
+    """PLAN_ENV.md, E1-05: the digest the channel's last release pushed, the
+    same one for every variant.
+
+    **This moves with every base release**, and `bases.py` is where it moves
+    first: two releases (2026-09-15's and 2026-09-16's) changed the channel
+    and left this assertion on 2026-09-14's digest, so it sat red rather than
+    catching anything. Current: released 2026-09-16, the contract layer that
+    starts kernels in `/home/datalayer` (E1-05, Appendix B check 2).
+    """
+    ref = "datalayer/python-cpu"
+    digest = "sha256:122d3e31f5e2507251457cbf47871c39ac1753adb1d83777ab0743fa11cd6148"
+    assert APPROVED_BASES[ref].channels == {"2026.09": dict.fromkeys(VARIANTS, digest)}
+    assert resolve_base(ref, "2026.09", variant) == digest
+
+
+def test_a_published_channel_resolves_to_the_digest_its_release_printed() -> None:
+    base = ApprovedBase(
+        ref="datalayer/python-cpu",
+        python_versions=("3.13",),
+        channels={"2026.09": {"datalayer": DIGEST, "Modal": DIGEST}},
+    )
+    bases = {base.ref: base}
+    assert resolve_base("datalayer/python-cpu", "2026.09", "datalayer", bases) == DIGEST
+    assert resolve_base("datalayer/python-cpu", "2026.09", " MODAL ", bases) == DIGEST
+    with pytest.raises(BaseChannelUnpublishedError) as refused:
+        resolve_base("datalayer/python-cpu", "2026.09", "e2b", bases)
+    assert refused.value.detail["variant"] == "e2b"
+
+
+def test_an_unknown_channel_is_the_specs_fault_and_names_the_channels() -> None:
+    with pytest.raises(EnvironmentsError) as refused:
+        resolve_base("datalayer/python-cpu", "2027.01", "datalayer")
+    assert not isinstance(refused.value, BaseChannelUnpublishedError)
+    assert refused.value.code is errors.SPEC_INVALID
+    assert refused.value.detail["field"] == "spec.base.channel"
+    assert refused.value.detail["channels"] == ["2026.09"]
+
+
+def test_an_unapproved_base_is_the_specs_fault() -> None:
+    with pytest.raises(EnvironmentsError) as refused:
+        resolve_base("python", "3.13", "datalayer")
+    assert refused.value.code is errors.SPEC_INVALID
+    assert refused.value.detail["field"] == "spec.base.ref"
+    assert refused.value.detail["approved"] == ["datalayer/python-cpu", "datalayer/python-cuda"]
+
+
+@pytest.mark.parametrize(
+    "pinned",
+    ["latest", "2026.09", "sha256:abc", "sha256:" + "A" * 64, "python-cpu@sha256:" + "a" * 64],
+)
+def test_a_channel_pins_nothing_but_a_digest(pinned: str) -> None:
+    with pytest.raises(ValidationError, match="not a sha256 digest"):
+        ApprovedBase(
+            ref="datalayer/python-cpu",
+            python_versions=("3.13",),
+            channels={"2026.09": {"datalayer": pinned}},
+        )
+
+
+def test_each_base_is_published_under_its_own_repository() -> None:
+    assert approved_repositories() == (
+        "datalayer/python-cpu",
+        "environments/base/python-cpu",
+        "datalayer/python-cuda",
+        "environments/base/python-cuda",
+    )
+
+
+def test_the_2026_09_channel_of_python_cpu_pins_apt_to_its_snapshot() -> None:
+    """D-9: the moment just after the channel's image upgraded its packages.
+
+    Moves with the channel, like the digest above, and had rotted the same
+    way — left on 2026-09-14's id after the channel moved to 2026-09-16's.
+    """
+    assert channel_snapshot("datalayer/python-cpu", "2026.09") == "20260916T120000Z"
+    assert channel_snapshot("datalayer/python-cuda", "2026.09") == "20260918T150000Z"
+    assert channel_snapshot("datalayer/nothing", "2026.09") == ""
+
+
+@pytest.mark.parametrize(
+    "snapshot",
+    ["2026-09-14", "https://snapshot.ubuntu.com/ubuntu/20260914T150000Z", "20260914T1500Z"],
+)
+def test_a_channel_pins_apt_to_nothing_but_a_snapshot_id(snapshot: str) -> None:
+    with pytest.raises(ValidationError):
+        ApprovedBase(
+            ref="datalayer/python-cpu",
+            python_versions=("3.13",),
+            channels={"2026.09": {}},
+            snapshots={"2026.09": snapshot},
+        )

@@ -1,0 +1,43 @@
+# The svc_seo platform data contract — DECLARATIVE, drift-checked.
+#
+# This manifest IS the boundary: the service role may touch its own schema plus
+# exactly these platform surfaces, enforced by Postgres grants (applied in
+# migrations/20260721190000_seo_canonical_rebuild.sql) and drift-checked by
+# aidream's scripts/validate_service_grants.py (loud, non-blocking, release.sh).
+# Change the reach → change this file AND the live grants in the same session.
+role: svc_seo
+attributes:
+  login: false          # LOGIN + password are minted at deploy time, not before
+  bypassrls: true       # trusted service; reach is constrained by grants, rows by app-layer scoping
+owns_schemas:
+  - seo                 # owner of every table (owner bypasses RLS on its own tables)
+schema_usage:
+  - web
+  - workspace
+  - platform
+  - users
+  - iam
+table_grants:
+  web.site: [SELECT]
+  web.page: [SELECT]
+  workspace.projects: [SELECT]
+  platform.associations: [SELECT, INSERT, UPDATE, DELETE]
+  platform.entity_types: [SELECT]
+  # THE FACET VOCABULARY (D37). Dimensions and their allowed values are rows a
+  # USER authors through seo.facet_dimension_upsert / seo.facet_value_upsert;
+  # the classifier only READS them to learn what it may say, and
+  # seo.keyword_facet FKs into them. Read-only is the whole guarantee.
+  platform.categories: [SELECT]
+  # Operational knobs (ceilings, feature defaults). Read-only: the ONE write path
+  # is platform.feature_knob_set, an admin-gated SECURITY DEFINER function.
+  platform.feature_knob: [SELECT]
+  users.user_secrets: [SELECT, UPDATE]   # UPDATE is column-limited to last_used_at (battery touch)
+  # SELECT is required by matrx_orm.secrets_battery.require_secret's
+  # personal→organization resolution: an org-scoped secret lookup checks the
+  # caller's grant row in users.user_secret_grants (DEF-16, 2026-07-23 — the
+  # live svc_seo role already carried this grant; the manifest had drifted
+  # behind it and gone unnoticed because validate_service_grants.py is loud
+  # but non-blocking).
+  users.user_secret_grants: [SELECT]
+  users.integration_connections: [SELECT]
+  users.integration_connection_resources: [SELECT]

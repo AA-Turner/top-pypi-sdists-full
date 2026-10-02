@@ -1,0 +1,358 @@
+# Per-PR ephemeral envs only: when `ephemeral: true`, this chart renders an
+# extra Secret manifest (cowork-db) via templates/ephemeral-secrets.yaml so
+# per-PR namespaces work without ESO. dev/staging/prod leave this off and
+# source `cowork-db` externally.
+ephemeral: false
+
+# Shared EFS tree, mounted read-write with noexec, backing the cowork-shared
+# PVC that COWORK_HOME and the volumeMounts below point at unconditionally.
+# Enabled here, not per-overlay, because dev, staging and prod all need it;
+# none of them ever set this false. Set enabled: false only for a desktop or
+# bare-chart install that has no filesystem and no COWORK_HOME to satisfy.
+sharedStorage:
+  enabled: true
+  storageClassName: efs-cowork-env
+  size: 1Gi
+
+# Who may open a connection to the cowork-server pods. See
+# templates/network-policy.yaml for why this is the boundary the identity
+# headers depend on.
+#
+# Off by default so a bare install, a desktop chart or an environment nobody
+# has validated yet cannot lock itself out. Turn it on one environment at a
+# time and watch pod readiness while it rolls: rule (b) is what keeps the
+# kubelet's probes working, and a wrong CIDR there fails the readiness probe
+# rather than anything a user would notice first.
+#
+# Enforcement is not the same on both clusters. newdev runs the AWS VPC CNI's
+# policy controller AND Cilium; newprod runs Cilium alone, installed 2026-08-20.
+# Cilium recomputes policy for the endpoints it already manages, so a running pod
+# is covered by a policy applied after it. The only pod it never covers is one
+# that started before Cilium itself was installed, because that pod has no
+# Cilium-managed endpoint. Prove the policy after enabling rather than assuming.
+#
+# BEFORE ENABLING THIS IN A NEW ENVIRONMENT, CHECK THREE THINGS, ALL OUTSIDE
+# THIS CHART. The first and third fail loudly. The second does not fail at all
+# until users notice.
+#
+#   1. The CI deploy identity can create the kind. `helm upgrade` runs
+#      in-cluster as `system:serviceaccount:infrastructure:<env>-gha-runner`,
+#      which holds `create networkpolicies` only in the namespaces listed under
+#      `runner_deploy_namespaces` in Kubernetes-Foundational-Services. staging
+#      and prod are in that set and a PR environment is not. Where it is
+#      missing, the release fails and `--atomic` rolls the whole deploy back.
+#        kubectl --context <ctx> -n <ns> auth can-i create networkpolicies \
+#          --as=system:serviceaccount:infrastructure:<env>-gha-runner
+#   2. That cluster's ingress controller actually matches the selectors below,
+#      and its namespace carries the label they select on. This one fails
+#      SILENTLY: the release succeeds, both replicas stay Ready because the
+#      kubelet is still allowed, and every real request is dropped.
+#        kubectl --context <ctx> -n infrastructure get pods -l nginx-ingress-controller=true
+#        kubectl --context <ctx> get ns infrastructure -o jsonpath='{.metadata.labels}{"\n"}'
+#   3. No NetworkPolicy of this name is in the namespace already. Helm will not
+#      adopt an object it does not own, so a leftover from a hand-applied test
+#      fails the release.
+#        kubectl --context <ctx> -n <ns> get networkpolicies
+#
+# There is still no canary. `kubectl port-forward` cannot observe this policy at
+# all: containerd's CRI PortForward enters the pod's network namespace and dials
+# localhost, so the bytes never cross the veth where Cilium or the VPC CNI agent
+# enforces ingress. Pod readiness is a real signal and the integration job's
+# cross-replica test is not. So the probe that actually proves this works is the
+# forged-header curl from a pod in another namespace, run by hand after a
+# rollout.
+networkPolicy:
+  enabled: false
+
+  # Both default off the values the deployment itself uses, so neither can
+  # drift. Set them only to deviate deliberately.
+  #
+  # Drift in either fails SILENTLY and in opposite directions: a port nothing
+  # listens on drops every legitimate request, and a podSelector matching no pod
+  # makes the policy a no-op that still reads as enabled.
+  port: ""            # defaults to deployment.service.targetPort
+  podSelectorLabels: {}   # defaults to {app: deployment.name}
+
+  # The nginx ingress controller, which is the only thing that should ever
+  # reach these pods over the network. It runs in `infrastructure`, NOT in
+  # `ingress-nginx`. Kubernetes stamps kubernetes.io/metadata.name on every
+  # namespace, so that label needs nothing added to the cluster. Confirm with:
+  #   kubectl get ns -L kubernetes.io/metadata.name | grep -i infra
+  #
+  # The podSelector is not optional in practice. A namespaceSelector on its own
+  # admits every pod in `infrastructure`, and that namespace also runs the
+  # GitHub Actions runners and openvpn, which MASQUERADEs VPN client traffic to
+  # its own pod IP. Either could then send forged identity headers, which is the
+  # exact caller this policy exists to refuse. The label below is stamped by
+  # Kubernetes-Foundational-Services (nginx-ingress values `controller.podLabels`)
+  # with no per-environment override, so nothing needs adding to the cluster:
+  #   kubectl -n infrastructure get pods -l nginx-ingress-controller=true
+  ingressController:
+    enabled: true
+    namespaceSelector:
+      kubernetes.io/metadata.name: infrastructure
+    podSelector:
+      nginx-ingress-controller: "true"
+
+  # Escape hatch for traffic that arrives from a node rather than a pod, which
+  # is what kubelet probes and `kubectl port-forward` do. Empty on purpose, and
+  # it should stay empty.
+  #
+  # Both enforcers already allow a node to reach a pod it hosts, because a
+  # policy that refused the kubelet would fail every readiness probe in the
+  # cluster. So probes are expected to keep working with no rule here. Verify
+  # that when enabling an environment rather than trusting it: watch the pods
+  # stay Ready through the rollout. Do NOT read the integration job's
+  # cross-replica test as the signal, whichever way it goes, for the reason in
+  # the header above.
+  #
+  # READ THIS BEFORE FILLING IT IN. The VPC CNI gives pods addresses out of the
+  # same VPC subnets the nodes use: in newdev both nodes and pods sit in
+  # 10.105.0.0/16. So "the node CIDR" is also every pod's CIDR, and putting it
+  # here re-admits the arbitrary in-cluster caller this whole policy exists to
+  # refuse. If probes really do need a rule, use the individual node addresses
+  # as /32s, and treat needing that at all as a reason to go back and find out
+  # why the CNI is not exempting host traffic.
+  nodeCidrs: []
+
+  # Verbatim extra ingress rules, for anything the three above do not cover.
+  extraIngress: []
+
+# Default values for deployment, this is necessary because we're using a unified helm subchart
+deployment:
+  # This is the name of the deployment, this is used in a _lot_ of places in the helm charts so lets just specify it
+  name: cowork-server
+
+  # Safe above 1 only with COWORK_STREAM_BACKEND=redis, set below: turn buffers
+  # and the turn index then live in Redis, so a reconnect or a stop works on
+  # whichever replica it lands on. On the file backend a second replica has
+  # neither the buffer nor the handle and 404s.
+  replicaCount: 2
+
+  image:
+    # The build-push-ecr action derives the ECR repo name from the GitHub repo
+    # slug, so this must track the GitHub repo name (cowork-server).
+    repository: 168681354662.dkr.ecr.us-east-1.amazonaws.com/mindsdb-cowork-server
+    command: ["python", "-m", "uvicorn", "cowork.server:app"]
+    # Async FastAPI: the event loop handles concurrency per worker. Scale via
+    # replicas (and HPA) rather than worker count. --forwarded-allow-ips '*'
+    # trusts the in-cluster ingress for X-Forwarded-* headers.
+    args: ["--host", "0.0.0.0", "--port", "9010", "--forwarded-allow-ips", "*"]
+
+  # Alembic locks via the alembic_version table, so concurrent replicas don't
+  # race; on already-migrated databases this is a no-op. The deployment
+  # subchart applies `tpl` to top-level string fields on each initContainer,
+  # so the image string can reference the same chart helpers as the main
+  # container — no need to duplicate the repository/tag here.
+  initContainers:
+    - name: db-migrate
+      image: '{{ template "get-repository" . }}:{{ template "get-release-tag" . }}'
+      imagePullPolicy: Always
+      command: ["python", "-m", "alembic", "upgrade", "head"]
+      env:
+        - name: DATABASE_URI
+          valueFrom:
+            secretKeyRef:
+              name: cowork-db
+              key: database_uri
+
+  # Liveness restarts the pod if it fails. Kept tolerant (failureThreshold * periodSeconds = 60s)
+  # so a transient stall doesn't take the pod down. Points at the zero-I/O /live
+  # route so a database outage can't be misread as "this process is dead".
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+    path: /api/v1/health/live
+
+  # Readiness gates traffic. Polls quickly so the pod returns to service fast after a hiccup.
+  # failureThreshold * periodSeconds = 15s before the pod is pulled from endpoints.
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 15
+    periodSeconds: 5
+    timeoutSeconds: 4
+    failureThreshold: 3
+    path: /api/v1/health/
+
+  # deployment container resource requests/limits
+  # Limits are HARD limits; Requests are "soft" and drive HPA aggressiveness when enabled.
+  resources:
+    limits:
+      cpu: 1
+      memory: 1Gi
+    requests:
+      cpu: 1
+      memory: 1Gi
+
+  autoscaling:
+    enabled: false
+
+  ingress:
+    enabled: true
+    name: cowork-server
+    annotations:
+      nginx.ingress.kubernetes.io/proxy-connect-timeout: "1200"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "1200"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "1200"
+      nginx.ingress.kubernetes.io/proxy-body-size: 500m
+      nginx.ingress.kubernetes.io/enable-cors: "true"
+      nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+      nginx.ingress.kubernetes.io/cors-allow-methods: "GET,OPTIONS,PUT,POST,PATCH,DELETE"
+      nginx.ingress.kubernetes.io/cors-allow-origin: "http://localhost:3000"
+      nginx.ingress.kubernetes.io/cors-allow-headers: >-
+        DNT,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,
+        Authorization,X-CSRF-Token,Accept,Origin,Access-Control-Allow-Origin,X-File-Name,Set-Cookie,X-User-Id,X-User-Email,
+        X-Organization-Id,X-User-Roles,X-Forwarded-User,X-Cowork-Expected-Organization-Id
+      nginx.ingress.kubernetes.io/cors-expose-headers: "X-Cowork-Organization-Reload"
+      nginx.ingress.kubernetes.io/cors-max-age: "3600"
+      nginx.ingress.kubernetes.io/use-regex: "true"
+      nginx.ingress.kubernetes.io/auth-url: "auth-url" # Modify per environment
+      nginx.ingress.kubernetes.io/auth-method: "GET"
+      # cowork-server's TrustedHeaderMiddleware (org tenancy mode) reads the
+      # identity headers the auth service returns here.
+      nginx.ingress.kubernetes.io/auth-response-headers: >-
+        X-Organization-Id,X-User-Id,X-User-Email,X-User-Roles,X-Forwarded-User
+      nginx.ingress.kubernetes.io/auth-request-headers: "Authorization,Cookie"
+
+  service:
+    targetPort: 9010
+
+  # Must match the access point's posixUser (uid/gid 1000), or every org tree
+  # is unreadable. The image pins the same ids.
+  podSecurityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+
+  volumes:
+    - name: cowork-shared
+      persistentVolumeClaim:
+        claimName: cowork-shared
+
+  volumeMounts:
+    - name: cowork-shared
+      mountPath: /mnt/cowork-shared
+
+  globalEnvs:
+
+    # ====================================
+    # SERVER SETTINGS
+    # ====================================
+
+    # cowork-server defaults to 127.0.0.1:26866 (desktop sidecar). In-cluster
+    # it must bind all interfaces on the service target port.
+    - name: COWORK_SERVER_HOST
+      value: "0.0.0.0"
+    - name: COWORK_LISTEN_PORT
+      value: "9010"
+
+    # Multi-tenant cloud deployment: requests carry trusted identity headers
+    # (X-User-Id / X-Organization-Id) injected by the ingress auth subrequest,
+    # from which a per-request principal is built.
+    - name: COWORK_TENANCY_MODE
+      value: "org"
+
+    # All cowork state moves onto the shared tree so the agent's pod can read
+    # and write the same files. noexec is set on the PV's mountOptions.
+    - name: COWORK_HOME
+      value: "/mnt/cowork-shared"
+
+    # Stays off the shared tree: it is this deployment's own state, not any
+    # org's, and the shared root is where org directories live. Note the env
+    # var is STATE_PATH, not a COWORK_-prefixed name: OAuthSettings.state_path
+    # has no validation_alias in cowork/common/settings/app_settings.py, so
+    # pydantic-settings falls back to the bare uppercased field name (same
+    # pattern as MASTER_KEY_PATH below).
+    - name: STATE_PATH
+      value: "/home/app/oauth_state.json"
+
+    # DB settings for sqlalchemy. cowork-server defaults to SQLite; cloud points
+    # at Postgres via this secret (see also the db-migrate initContainer).
+    - name: DATABASE_URI
+      valueFrom:
+        secretKeyRef:
+          name: cowork-db
+          key: database_uri
+
+    # Fernet master key for encrypting sensitive settings at rest. Without it
+    # the server generates a key into an ephemeral per-pod file, so a restart
+    # or a second replica cannot decrypt what an earlier pod wrote. Sourced
+    # from a Secret so the key is stable across restarts and replicas. Must be
+    # a valid urlsafe-base64 Fernet key (add it to mindsdb-secrets).
+    - name: COWORK_MASTER_KEY
+      valueFrom:
+        secretKeyRef:
+          name: mindsdb-secrets
+          key: COWORK_MASTER_KEY
+
+    # ====================================
+    # TURN EXECUTION
+    # ====================================
+
+    # Route each agent turn to the scratchpad-controller over Redis instead of running it in-process.
+    - name: COWORK_TURN_BACKEND
+      value: "remote"
+
+    # Populated by the redis-auth ExternalSecret (terraform-custom-*-redis-auth).
+    # Listed before the URL so Kubernetes can expand $(REDIS_PASSWORD) into it.
+    - name: REDIS_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: redis-auth
+          key: redis-password
+
+    - name: COWORK_TURN_REDIS_URL
+      value: "redis://default:$(REDIS_PASSWORD)@redis-master:6379/0"
+
+    # Turn buffers and the turn index in Redis rather than on the pod's disk,
+    # so any replica can serve a reconnect or a stop for a turn another replica
+    # started. Must be the same Redis the controller uses, since the cancel
+    # flag is written here and read there.
+    - name: COWORK_STREAM_BACKEND
+      value: "redis"
+    
+    - name: COWORK_TURN_AUTH_INTERNAL_BASE_URL
+      value: "http://auth:80"
+
+    - name: COWORK_TURN_AUTH_INTERNAL_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: auth-secrets
+          key: INTERNAL_AUTH_SHARED_SECRET
+    
+    - name: COWORK_TURN_TURN_KEY_TTL_SECONDS
+      value: "1200"
+
+    # Inference base URL the pod's turn calls. MUST be this env's own inference:
+    # the turn key is minted by this env's auth, and each inference validates
+    # against the auth in ITS namespace — PR envs run their own Postgres, so a
+    # key from one env is unknown to another (cross-env gives 401, not 404).
+    # Unset here on purpose: the producer derives it from POD_NAMESPACE, which is
+    # correct for dev, staging, prod and per-PR alike.
+    # A hardcoded value here pinned a per-PR host and 404'd every env at once
+    # when that PR was reaped.
+
+    # ====================================
+    # PROVIDER API KEYS
+    # ====================================
+
+    - name: ANTHROPIC_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: mindsdb-secrets
+          key: ANTHROPIC_API_KEY
+
+    - name: OPENAI_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: mindsdb-secrets
+          key: OPENAI_API_KEY
+
+    - name: GEMINI_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: mindsdb-secrets
+          key: GEMINI_API_KEY

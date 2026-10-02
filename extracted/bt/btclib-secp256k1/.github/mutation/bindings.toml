@@ -1,0 +1,380 @@
+# The wrapping, mutated. Coverage says every line of it runs -- the ratchet
+# in pyproject.toml is at 100% and has no slack -- and this asks whether the
+# suite would notice if one of those lines were wrong.
+#
+# The gap is not theoretical for this package, and the shape of its own code
+# is why. What is hand-written here is a boundary: `if len(x) != 32: raise`,
+# `if not 0 < scalar < n: raise`, a return code checked against zero. Change
+# `!=` to `<=`, or 32 to 31, and the line still runs and coverage still
+# reads 100% -- what kills that mutant is a test that passes 31 octets *and*
+# one that passes 33.
+#
+# Statement coverage and this are two questions with different answers, and
+# a bound that has only one side is what only this one finds.
+#
+# Two shapes ask a question of the code rather than of the suite, and the
+# code is written so that a test can answer it:
+#
+#   ffi.new("size_t *", 73) -> 74 or 72, the capacity of an output buffer,
+#   written as a second copy of the buffer's own size.
+#   `ffi.sizeof` derives the capacity from the buffer and the buffer is
+#   what is unpacked, so a wrong size reaches the caller instead of being
+#   absorbed. The DER buffer is 72 octets, the most a serialization can
+#   take, so shrinking it is a mutant `test_der_reaches_all_72_octets`
+#   kills by reaching the last octet
+#
+#   secrets.token_bytes(32) -> 31 or 33, randomness this package generates
+#   rather than accepts: a BIP340 aux, an ellswift encoding, the context
+#   seed. What comes back cannot show the length -- a shorter aux is hashed
+#   into a different signature that verifies just as well -- so a test
+#   records what is *asked* of `secrets`, and the context seed is
+#   randomized through a function taking the context as an argument, the
+#   way `_load_lib` takes the module
+#
+# What a scheduled run finds is read off `bindings-survivors.txt` and
+# `zkp-survivors.txt`, which the workflow uploads with the two sessions of
+# this file and of zkp.toml, and only a sweep that reached every mutant is
+# read: a session cut at its budget says `never run` in its own summary line
+# and has no verdict for what it never reached. A survivor of a complete
+# sweep is a test nobody has written, or one of the kinds below, which no
+# test worth writing can kill; the diff `cr-report --show-diff` prints says
+# which, without another session. A kind can be killable by a test written
+# for the mutant, as the metaclass and the zero-length array below are, and
+# is listed because that test is not worth writing; the survivors that match
+# none of the kinds are the ones to count and leave to a decision, and
+# `cr-report --surviving-only` lists every survivor to sort that way, so no
+# number is kept here. Each kind is a shape, so
+# the sites in the tree are what a search for the shape finds and not a list
+# kept here, and they are the survivors of either session:
+#
+#   A mutant inside an `@overload` stub, which is never run: the
+#   implementation's `def` replaces the stub when the module is imported,
+#   and the operators excluded below take out only the decorator. A
+#   signature closing in `: ...` is one -- a default such as `attempt: int
+#   = 0` mutated to 1, or the keyword-only marker `*` mutated to `/`. That
+#   same `/` in a signature with a docstring after it is not this kind:
+#   there an argument becomes passable by position, and a test that passes
+#   it so kills it.
+#
+#   `type(value) is bytes` -> `==`. A class equals itself and nothing else
+#   unless a metaclass defines `__eq__`, so every argument a caller can
+#   hand in takes the same branch either way; killing it takes a metaclass
+#   written for the mutant, which asks about the mutant and not about the
+#   package.
+#
+#   `ctype.kind != "array"` -> `>`, in `_scalar._owned_octets`. The kind is
+#   one of `primitive`, `pointer`, `array`, `struct`, `union`, `enum`,
+#   `function` and `void`, the strings cffi's backend holds, and none sorts
+#   below `"array"`.
+#
+#   `ffi.sizeof(ctype.item) != 1` -> `> 1`, in `_scalar._owned_octets`. The
+#   two differ only for an item of size 0, which is an array of zero-length
+#   arrays such as `ffi.new("char[2][0]")`: the original refuses it as a
+#   `TypeError`, the mutant lets it reach the length check and refuses it as
+#   the `ValueError` of that, and a test that passes it and asks for the
+#   class kills it. It is a kind and not a test nobody has written because
+#   that test is not worth its place: both versions refuse a value no
+#   caller has, and only the class of the refusal changes.
+#
+#   `!=` or `==` between two integers -> `is not` or `is`, where one side
+#   is a size the package fixes below 257: `len(x) != _XONLY_SIZE`, or the
+#   `view.nbytes != size` of `_secret.into_buffer`, where `size` is the
+#   32 octets of the secret `take` read; or one the package bounds below
+#   it by a check above, as the `sum(rsizes) != len(pubkeys)` of
+#   `zkp.rangeproof.borromean_verify` does, `len(pubkeys)` being held to
+#   128 at the top of the function. A literal there is a SyntaxWarning,
+#   which `filterwarnings = ["error"]` makes a syntax error and so a kill; a
+#   name is not one. CPython caches the integers up to 256, so identity and
+#   equality agree wherever the two are that small. Two lengths compared
+#   with each other are not this kind -- past 256 they are different
+#   objects -- and a test with that many terms kills it.
+#
+#   `zip(..., strict=False)` -> `True` in `keys.pubkey_tweak_mul_sum`, whose
+#   length check above it has already raised for every input the two
+#   differ on.
+#
+#   `min_bits: int = 0` -> `1`, the default of `zkp.rangeproof.sign`. A
+#   proof of a range has a mantissa of at least one bit, which is all
+#   `min_bits=1` asks for, and one of a single value reads no `min_bits`,
+#   so `sign` answers the same proof octet for octet, or the same
+#   refusal, under either: a comparison of the two calls over values,
+#   exponents and minimum values finds no difference.
+#
+#   `lib.secp256k1_rangeproof_max_size(ctx, 2**64 - 1, 0)` in
+#   `zkp.rangeproof.sign`, which sizes the buffer the proof is written to,
+#   with `2**64 - 2` or `2**64 >> 1` for the first argument, or `1` or `-1`
+#   for the second. The library reads the first as a bit length and the
+#   second only where it is larger than that, so each of them answers the
+#   size the original does and no proof can tell the buffers apart.
+#   `2**63 - 1` is not this kind: its bit length is shorter, the size
+#   answers smaller, and a proof of a value of the full width does not fit
+#   in a buffer of it.
+#
+#   `len(pubkey_bytes) == _XONLY_SIZE` -> `<=` in `xonly.from_pubkey` and
+#   `xonly.to_pubkey`. A value shorter than 32 takes the other branch under
+#   the mutant, and `keys.parse` refuses it there as it refuses it in the
+#   branch it takes without: the same exception, the same message.
+#
+#   A survivor of zkp.toml's session that a test outside its command kills.
+#   It is a cost of the split and not a test nobody has written, the whole
+#   suite being this file's command. The claim is a command: it runs the
+#   survivors of `zkp.sqlite`, the session file, again under this file's
+#   `test-command` and prints the ones that die, so it prints nothing where
+#   the split has cost no verdict. It runs from the repository root, writes
+#   its two files under a temporary directory, and runs the mutants in
+#   place, so nothing else reads the tree while it does:
+#
+#     d=$(mktemp -d)
+#     cp zkp.sqlite $d/whole.sqlite
+#     sqlite3 $d/whole.sqlite \
+#       "DELETE FROM work_results WHERE test_outcome = 'SURVIVED'"
+#     sed "s|^test-command = .*|$(grep '^test-command' \
+#       .github/mutation/bindings.toml)|" .github/mutation/zkp.toml \
+#       > $d/whole.toml
+#     BTCLIB_LIBSECP256K1_ZKP=true uv run --locked --no-default-groups \
+#       --group test --group mutation cosmic-ray exec $d/whole.toml \
+#       $d/whole.sqlite
+#     sqlite3 $d/whole.sqlite "ATTACH 'zkp.sqlite' AS zkp;
+#       SELECT s.module_path, s.start_pos_row, s.operator_name
+#       FROM mutation_specs s
+#       JOIN work_results r ON r.job_id = s.job_id
+#       JOIN zkp.work_results z ON z.job_id = s.job_id
+#       WHERE z.test_outcome = 'SURVIVED' AND r.test_outcome = 'KILLED'"
+#
+#   It needs the build that has the extension, which CONTRIBUTING.md's
+#   block has: against one without it the tests marked `zkp` skip and the
+#   survivors survive either way, so it prints nothing on the real data
+#   whether or not it works. The control that says it works is the same
+#   command over a `zkp.sqlite` of a session whose `test-command` names only
+#   `tests/zkp*_test.py`, which prints the mutants that `secret_test.py`
+#   and `examples_test.py` kill.
+#
+#   A line for a mutant that dies on some random draws only is not a cost
+#   of the split, and is the random-draws case of the paragraph below.
+#
+# The number the workflow prints for each session is the survivors over what
+# ran, and no test drives it to zero: the kinds above stay in it, and a kill
+# is not always a test noticing, a mutant that stops the package importing
+# being killed by whichever test is collected first. Nor is a survivor always
+# the same one: a mutant that survives one sweep and dies in the next is
+# reached by its test on some random draws only, and pinning the draw is the
+# test to write. The number is read against the list of survivors and
+# against the run before it.
+#
+# One thing to know that is not a survivor at all, and is the reason a
+# falling mutant count is not by itself a tighter suite (#231).
+# #221 collapsed every buffer width in the package to one statement, and in
+# two modules that turned several independently mutable copies of a number
+# into one: `ellswift` had 64 at `_decode_` and at both of `xdh`'s length
+# checks, and `ssa` had it at `_verify_` and at `verify`.
+# `core/NumberReplacer` carries `OFFSETS = [+1, -1]` and yields a position
+# per offset, so where each of `ellswift`'s separate literals used to give
+# its own pair of mutants, the one shared constant now gives a single pair
+# for every site together -- and either of those two mutants changes every
+# site at once and dies on whichever test reaches it first. Nothing is
+# hidden today: every constant #221 introduced was mutated both ways before
+# it landed, bytecode writing off and a control run either side, and every
+# one of those mutants dies. What is gone is resolution for the
+# session after next: a check that later loses the test covering it can no
+# longer surface here, because the mutant that would have reported it is
+# killed elsewhere. So this is the mirror of the two shapes above -- not a
+# survivor to skip, but a silence to know about. The ratchet catches a lost
+# test only where losing it stops the line running at all; a check still
+# executed by some other test and asserted by none is what neither
+# question sees, and one constant is now the whole of what would have
+# asked about it.
+#
+# That is a statement about the shapes, not a promise about the rate:
+# what the next scheduled run reports is what it reports, and it is not
+# restated here, a number in a comment being a line every change to the
+# suite would edit.
+#
+# Here rather than at the repository root: cosmic-ray takes the path of its
+# configuration as an argument, so nothing forces a name or a place, and
+# this repository runs no check-manifest to make a root file's placement
+# something that needs recording. What that tool would ask -- whether the
+# sdist carries what a build from it needs -- is answered here instead by
+# suite-sdist in test.yml, which installs from the built sdist and compiles
+# the vendored library on every platform its matrix covers; this file plays
+# no part in that build, so where it sits does not bear on the question.
+# .github/ is simply where the rest of the CI configuration already lives.
+#
+# The `zkp` subpackage has a file of its own, zkp.toml, and the workflow runs
+# the two as the two sessions of one profile. A sibling repository in the
+# organization splits its scope the same way, because the halves differ in
+# what a mutant costs and one shared test command makes every cheap mutant
+# pay the expensive one's price. The `zkp` test files sort last in this
+# suite, so under this file's command a mutant of `zkp` costs the rest of
+# the suite before the test that kills it, where a mutant of the rest dies
+# on an earlier one; zkp.toml's command runs those files first, and says how
+# what it leaves out was measured.
+
+[cosmic-ray]
+# the package, less the `zkp` subpackage that `excluded-modules` below hands
+# to zkp.toml: dividing the work between two sessions, not excluding code
+# from the question. A module added under it is in scope without this line
+# being edited, and one added under `zkp` is in zkp.toml's.
+# `cosmic-ray init` enumerates the mutants without running any, so
+# how many there are is a command rather than a number here. The sessions
+# quoted below are records of what was judged, not of what a run counted --
+# a scheduled run prints the count, and this file does not repeat it.
+# The vendored C is not in it and cannot be -- libsecp256k1 is upstream's,
+# and what this repository is answerable for is how the bindings drive it
+module-path = "src/btclib_secp256k1"
+
+# the whole suite, for every mutant of the package but `zkp`'s. One mutant
+# costs one run of it, so a session is as long as the mutants it runs times
+# what `cosmic-ray baseline`, which runs it
+# once unmutated, takes; a survivor costs the whole run and a kill only as
+# far as its first failure.
+#
+# -x stops at the first failure: a mutant needs one test to kill it, and the
+# rest of the run is spent proving what is already known.
+# -p no:randomly because pytest-randomly is in the test group: with -x the
+# collection order decides which test does the killing, so a shuffled order
+# makes both the runtime and a timeout verdict irreproducible.
+# -q because the log is not a terminal.
+#
+# --no-cov, against the --cov addopts carries: a mutant is reached by no
+# test on purpose, so the ratchet would fail every single run and report
+# every mutant as killed by the gate rather than by a test
+test-command = "python -m pytest -x -q -p no:randomly --no-cov"
+
+# seconds of wall clock. What this guards is a mutant that turns a bound
+# into a loop with no exit, and nothing else. Wide rather than tight,
+# because a timeout is a verdict of its own -- neither killed nor survived
+# -- so every second of slack a loaded machine needs is a survivor not
+# reported as noise. One run of the suite is what `cosmic-ray baseline`
+# times, and 120 is wide against it; the limit costs nothing except on the
+# mutants that do hang
+timeout = 120
+
+# The `zkp` subpackage is zkp.toml's, not this file's: each mutant is in
+# exactly one of the two sessions. The claim is a command run over the two
+# session files after `cosmic-ray init` of each, which prints two empty
+# sets -- the modules both sessions enumerate, and the package's modules
+# neither does:
+#
+#   python3 - bindings.sqlite zkp.sqlite <<'EOF'
+#   import sqlite3, subprocess, sys
+#   seen = [
+#       {m for (m,) in sqlite3.connect(path).execute(
+#           "SELECT DISTINCT module_path FROM mutation_specs")}
+#       for path in sys.argv[1:]
+#   ]
+#   package = set(subprocess.check_output(
+#       ["git", "ls-files", "src/btclib_secp256k1/*.py"], text=True).split())
+#   print(seen[0] & seen[1], package - (seen[0] | seen[1]))
+#   EOF
+#
+# The extension `zkp` needs is built only where `BTCLIB_LIBSECP256K1_ZKP` is
+# set, and mutation.yml sets it for both sessions, this one included: the
+# whole suite this file runs holds the tests of `zkp`, which skip against a
+# build without the extension. zkp.toml says what the variable has to be.
+excluded-modules = ["src/btclib_secp256k1/zkp/**/*.py"]
+
+# Each operator excluded has its own reason and its own claim about the tree,
+# and the claim is the thing to re-check rather than the comment beside it:
+# a mutant excluded is one no session reports. Excluded by
+# operator and not with `# pragma: no mutate`, because the workflow this
+# tree calls runs `cr-filter-operators` and no `cr-filter-pragma`, so a
+# marker would filter nothing; the decision is one line here, in the file
+# that already says what is mutated and what judges it.
+#
+# `core/ReplaceBinaryOperator_BitOr_.*`, which is a mutant of `bytes | int`
+# being nothing. Every module but the package's own `__init__` opens with
+# `from __future__ import annotations`, so an annotation is an unevaluated
+# string, and cosmic-ray mutates the `|` inside it eleven ways -- `bytes >>
+# int` and ten more -- none of which any test can reach, because nothing
+# ever evaluates the expression. The claim is a grep:
+#
+#   git grep -nF ' | ' -- 'src/btclib_secp256k1/*.py'
+#
+# The command runs over the package, `zkp` included, because zkp.toml
+# excludes the same operator on the same claim. Every hit is an annotation,
+# bar the two evaluated `|` there are:
+# `BytesLike` and `MutableBytesLike` in `__init__.py`, unions built when the
+# package is imported. Those the filter hides too, and hides no survivor:
+# none of the eleven replacements is defined between two classes, so each
+# of their mutants raises TypeError as the suite is collected and is
+# killed there. Run with `module-path` on `__init__.py` alone and no
+# filter, they all die that way. There is no bitwise operator of any kind in
+# the package -- no `^`, no `&`, no shift outside a doctest prompt -- which
+# is why the pattern excludes the BitOr family and nothing else. A sibling
+# repository in the organization keeps the same exclusion that narrow for
+# the opposite reason: `^` is what one of its own checks is written with.
+#
+# The pattern is anchored on what is *replaced*, which is what leaves the
+# one BitOr mutant a test does kill: `2**256` in _scalar.py mutated to
+# `2 | 256` is `core/ReplaceBinaryOperator_Pow_BitOr`, so it does not match
+# and it still runs, dying on the int scalar test written for it.
+#
+# `core/RemoveDecorator`, which here removes an `@overload`: a stub is
+# replaced by the implementation's `def` when the module is imported, so
+# the stub with or without its decorator is a function nobody can call. The
+# claim is that `@overload` is the only decorator in the package, and it is
+# a grep whose second command prints nothing:
+#
+#   grep -rn '^ *@' src/btclib_secp256k1 | grep -c '@overload$'
+#   grep -rn '^ *@' src/btclib_secp256k1 | grep -v '@overload$'
+#
+# A `@property`, `@staticmethod` or `@dataclass` written into it would be
+# skipped in silence, so the second command is what a change adding one
+# must run first.
+#
+# `core/ReplaceBinaryOperator_Mul_` with every replacement but `Div`, which
+# is a mutant of a `*` that is not a multiplication. A bare `*` is the
+# keyword-only marker of a signature, and parso, so cosmic-ray, reads it as
+# a binary operator. Of its eleven replacements only `/` leaves a signature
+# Python accepts -- `a, /, b` makes `a` positional-only and `b`
+# positional-or-keyword -- so the other ten are a syntax error in the module
+# as it is imported, killed as the suite is collected: kills that say
+# nothing about any test, each costing a start of pytest. `Div` is kept
+# because it is not noise:
+# in an `@overload` stub it survives by construction, which is the first
+# kind recorded above, while in an implementation it accepts a keyword-only
+# argument positionally, which a test that passes it so kills.
+#
+# The claim behind the ten is that no `*` in this file's scope is a
+# multiplication, which is a question for the syntax tree -- a grep cannot
+# tell a marker from an operator -- and this command, over the modules that
+# are this file's, prints nothing:
+#
+#   python3 - src/btclib_secp256k1/*.py <<'EOF'
+#   import ast, sys
+#   for path in sys.argv[1:]:
+#       for node in ast.walk(ast.parse(open(path).read())):
+#           if isinstance(node, (ast.BinOp, ast.AugAssign)):
+#               if isinstance(node.op, ast.Mult):
+#                   print(path, node.lineno)
+#   EOF
+#
+# Over `src/btclib_secp256k1/zkp/*.py` it prints the one there is,
+# `32 * len(pubkeys)` in `rangeproof.py`. The filter matches the name of the
+# operator and nothing about where it stands in the source, so a marker and
+# a product are `Mul_Add` alike and no pattern can spare one and keep the
+# other: which is why zkp.toml carries no exclusion of this operator, and
+# why this file's claim stops at its own modules. A `*` that is a product in
+# one of them would be skipped in silence, and the command above is what a
+# change adding one must run first.
+#
+# What the exclusions do to the one number the workflow prints is why
+# btclib-org/.github's mutation_counts.py exists: `cr-rate` counts
+# anything that is not SURVIVED as a kill, a skip included, so on a
+# filtered session it divides by mutants nothing ran
+[cosmic-ray.filters.operators-filter]
+exclude-operators = [
+    "core/ReplaceBinaryOperator_BitOr_.*",
+    "core/RemoveDecorator$",
+    "core/ReplaceBinaryOperator_Mul_(?!Div$)",
+]
+
+# one mutant at a time, in this working tree. The local distributor writes
+# the mutation into the file itself and restores it afterwards, so a second
+# session -- or a pytest in another shell -- would read mutated source, and
+# the two sessions of the profile run one after the other for that reason.
+# The http distributor is what cosmic-ray offers instead, and it wants a
+# worker per checkout: parallelism at the price of a clone each, for
+# sessions that already fit in their budgets
+[cosmic-ray.distributor]
+name = "local"

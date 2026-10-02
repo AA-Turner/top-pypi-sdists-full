@@ -1,0 +1,923 @@
+Metadata-Version: 2.5
+Name: probe-research
+Version: 0.205.3
+Summary: CLI + SDK + read-only MCP client for Probe Research (experiment tracking).
+Project-URL: Homepage, https://github.com/prbe-ai/research-os-agent
+Project-URL: Repository, https://github.com/prbe-ai/research-os-agent
+Author-email: Probe <team@prbe.ai>
+License: Apache-2.0
+License-File: LICENSE
+Keywords: experiment-tracking,mcp,mlops,probe-research,reinforcement-learning
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.10
+Requires-Dist: anyio>=4.5
+Requires-Dist: httpx>=0.27
+Requires-Dist: mcp<2,>=1.23
+Requires-Dist: nvidia-ml-py>=12.535
+Requires-Dist: pathspec>=1.0
+Requires-Dist: psutil>=5.9
+Requires-Dist: pydantic>=2.9
+Requires-Dist: questionary<3,>=2.0
+Requires-Dist: tiktoken<0.14,>=0.8
+Requires-Dist: tomli>=1.1; python_version < '3.11'
+Requires-Dist: typer<1.0,>=0.12
+Provides-Extra: all
+Requires-Dist: anyio>=4.5; extra == 'all'
+Requires-Dist: mcp<2,>=1.23; extra == 'all'
+Requires-Dist: questionary<3,>=2.0; extra == 'all'
+Requires-Dist: tiktoken<0.14,>=0.8; extra == 'all'
+Requires-Dist: typer<1.0,>=0.12; extra == 'all'
+Provides-Extra: cli
+Requires-Dist: questionary<3,>=2.0; extra == 'cli'
+Requires-Dist: typer<1.0,>=0.12; extra == 'cli'
+Provides-Extra: daemon
+Requires-Dist: pydantic-ai-harness[skills]==0.36.0; extra == 'daemon'
+Requires-Dist: pydantic-ai-skills==2.0.0; extra == 'daemon'
+Requires-Dist: pydantic-ai-slim[mcp,openai]==2.51.0; extra == 'daemon'
+Provides-Extra: dev
+Requires-Dist: datamodel-code-generator>=0.25; extra == 'dev'
+Requires-Dist: h5py>=3.10; extra == 'dev'
+Requires-Dist: hatchling>=1.27; extra == 'dev'
+Requires-Dist: numpy>=1.24; extra == 'dev'
+Requires-Dist: omegaconf>=2.3; extra == 'dev'
+Requires-Dist: pyarrow>=14; extra == 'dev'
+Requires-Dist: pytest-xdist>=3.2; extra == 'dev'
+Requires-Dist: pytest>=8; extra == 'dev'
+Requires-Dist: safetensors>=0.4; extra == 'dev'
+Provides-Extra: harbor
+Requires-Dist: harbor<0.22,>=0.20; (python_version >= '3.12') and extra == 'harbor'
+Provides-Extra: huggingface
+Requires-Dist: transformers[torch]>=4.46; extra == 'huggingface'
+Provides-Extra: lightning
+Requires-Dist: lightning>=2.0; extra == 'lightning'
+Provides-Extra: mcp
+Requires-Dist: anyio>=4.5; extra == 'mcp'
+Requires-Dist: mcp<2,>=1.23; extra == 'mcp'
+Requires-Dist: tiktoken<0.14,>=0.8; extra == 'mcp'
+Provides-Extra: mcp-http
+Requires-Dist: uvicorn>=0.30; extra == 'mcp-http'
+Description-Content-Type: text/markdown
+
+# probe-research (`probe` SDK/CLI + `probe-research` plugin)
+
+> **License & repo status (2026-08-12).** This project is open source under
+> [Apache-2.0](LICENSE). The source of truth now lives in Probe's monorepo, and
+> this repository is transitioning into a **CI-generated distribution mirror**
+> carrying exactly what installations pull from here: the Claude Code / Codex
+> plugin marketplace (`probe-research`, `probe-research-tap`),
+> `client-version.json`, and the CHANGELOG. Nothing changes for users —
+> installed plugins keep updating from this repo, and the CLI/launcher keep
+> shipping via [PyPI](https://pypi.org/project/probe-research/) and npm
+> (`npx probe-research`). Until the cutover completes, the full source remains
+> here and development continues in this repo.
+
+CLI + SDK client for **Probe Research**, Probe's experiment-tracking platform. It is a
+thin client over the v3 ingestion contract (`CONTRACT.md` in the Probe Research backend).
+Implemented experiment calls map onto real endpoints.
+
+## Two client surfaces
+
+Probe Research tracks the team's ML work — experiments and training runs, but also surveys, design decisions, data processing and provisioning — through two separate surfaces over the same backend, for two different workflows:
+
+- **`probe` — SDK + CLI (non-agent).** A Python library (`import probe`) and the `probe` command-line tool for integrating with existing setups and manual experimentation. Drop it into a training script or pipeline to record runs, metrics, spans, and artifacts. No agent required.
+- **`probe-research` — plugin: skills + MCP (agent-centric).** Installed into a coding agent (Claude Code or Codex). Its skills teach the agent the experiment workflow, its read-only MCP server lets the agent query experiment state, and writes flow through the `probe` CLI. This is the surface for agent-driven research loops such as Anthrogen.
+
+Same backend, two entry points: humans-in-code reach for the SDK/CLI; agents-in-the-loop use the plugin.
+
+## Package boundaries
+
+```text
+src/probe/
+├── sdk/       # typed client, uploads, local capture, session adapter ABI
+│   ├── fluent.py    # probe.init/log/finish — ambient run, contextvar-bound
+│   └── analysis.py  # client.compare(): N runs aligned on step
+├── cli/       # `probe`: thin shell over the SDK
+└── mcp/       # `probe-research-mcp`: strictly read-only tools and resources
+skills/
+├── probe/
+├── track-work/
+└── visualize-progress/
+```
+
+The SDK is the implementation. The CLI, MCP source adapter, future hooks,
+Python experiments, and passive platform integrations all use it. CLI and SDK
+therefore have capability parity; they differ only in ergonomics.
+
+Codex packaging, transcript capture, and the three-layer release gate are
+documented in [docs/codex-integration.md](docs/codex-integration.md).
+
+| Surface | SDK | CLI | Intended caller |
+|---|---|---|---|
+| Experiment upload | `Client.run`, `Run.log/span/log_artifact/snapshot/link/execute`, `Client.events`, `Client.promote` | `run`, `log`, `span`, `artifact`, `snapshot`, `link`, `exec`, `notes`, `promote` | Researchers, agents, notebooks, training/platform code |
+| Ambient upload | `probe.init/log/log_hw/log_artifact/span/context/finish`, `probe.active_run` | n/a (a CLI call has no ambient run) | Training scripts, and library code with no handle to pass |
+| Session adapter | `Client.sessions.attach/checkpoint/detach` | `probe hook session ...` | **Future deterministic hooks/broker only** |
+| Artifact reuse check | `Client.list_anchored(Anchor.SHARED, prefix=…)` + `list_artifact_versions`, normally behind MCP | `probe artifact versions` | Agent through read-only MCP |
+| Passive ingestion | `Client.ingest` | No convenience command yet | Install-once platform integration |
+| Read plane | SDK reads used by `probe.mcp`; `Client.compare` for N-run analysis | `get`/`bundle` diagnostics | MCP for agents; CLI for humans/scripts |
+
+Session commands do not upload metrics or experiment outputs. They correlate a
+coding-agent session with a run and checkpoint redacted transcript metadata.
+No hooks are installed in this release.
+
+## Install
+
+```bash
+pip install -e ".[dev]"     # from this directory
+```
+
+## Auth
+
+Set up and sign in with the Probe wizard — it is the only setup path:
+
+```bash
+npx probe-research   # browser device flow (RFC 8628 + PKCE); nothing to paste
+```
+
+On a machine with no browser (a remote GPU box, a self-hosted server), use the wizard's
+sign-in-only mode with a token: `probe wizard --action login --token probe_pat_xxxxxxxx`
+(add `--base-url …` for a self-hosted server; verified via `GET /v1/me`). Both write
+`~/.config/probe/config.json`. CI needs no setup: set `PROBE_TOKEN`.
+
+## Import existing work
+
+Use **Import existing work** in `probe wizard`, or run:
+
+```bash
+probe backfill /path/to/work --project existing-project
+probe backfill --transcripts-only
+```
+
+In interactive onboarding, session and folder imports run in the background
+after approval. For folders, **Review the plan first** keeps scanning and reading
+in the installer, then asks you to approve the plan before background delivery.
+Choose **Scan and import in background** to approve the resulting proposal
+automatically: scanning and uploading run as phases of one saved import job,
+and you can continue immediately. This option is never selected by default.
+Reading progress identifies its current phase and completed analysis steps;
+completed reads are cached so an interrupted preparation can reuse them.
+The session picker detects
+saved histories independently of which coding agents you installed and selects
+all detected sources by default; only the histories you keep selected are
+imported. Both pickers have an explicit Skip action. The folder picker also
+offers Ctrl+B for Back and Ctrl+N to continue with the current folder, alongside
+Ctrl+L to edit its path and Enter to open a folder.
+
+The final onboarding page shows compact live progress for both kinds of import,
+with session imports first and folder backfill below. The main menu also shows
+active import bars directly below the device details. You can
+exit while they run, then use `npx probe-research` → **Existing imports** to check
+results or resume work that needs attention. Status
+updates live while the page is open. Workers survive a terminal
+disconnect and retry temporary network failures automatically. After a machine
+restart, reopening the installer resumes interrupted jobs from their saved
+checkpoints. Recovery keeps the original session versions and destination;
+folder delivery resumes the saved plan and file versions. New or changed files
+are not silently added to that delivery during a retry. Direct `probe
+backfill` commands remain synchronous and share the same file coverage and
+delivery receipts, so completed uploads are reused whichever entry point you
+use.
+
+Folder imports either review placement before writing or use the explicit
+automatic approval option, and report current-file coverage separately from
+pending delivery. Rerun to resume; use the reported `--source-id`
+when a source folder moves within the same authenticated destination. Changed
+files and unresolved legacy matches require review through `--import-changed`
+or `--import-unverified`. References remain distinguished from uploaded bytes.
+
+If the folder is a GitHub checkout, backfill checks the existing integration's
+access and uses bounded commit history as context. It reuses or attaches the
+corresponding Code source after placement review. File/Git reconstruction drafts
+are saved for explicit publication review; AI Summary refresh is a separate step.
+
+Historical conversations import as standalone sessions. Backfill verifies their
+native session identity and preserves immutable retries, but does not infer or
+create project, experiment, run or other entity links. Protocol-2 transcript
+imports require the compatible engine/API and tap release.
+
+`probe wizard` → **Sign in or switch account** is the same thing with a screen. It signs
+in (again, on a device that already holds a credential — that is how a wrong-account
+install is corrected), switches between accounts already saved here (the named contexts
+of `probe context list`), and signs out: revoking this device's token, clearing the
+active context, and stopping session capture so it cannot keep uploading to the account
+you just left. The plugins stay installed — removing those is Uninstall. Scripts use
+`probe wizard --action login` / `--action logout`, which never prompt.
+Or set env: `PROBE_BASE_URL`, `PROBE_TOKEN` (user token, `/v1`), `PROBE_INGEST_TOKEN`
+(ingest token, `/ingest`), `PROBE_HMAC_SECRET` (optional body-signature secret).
+SDK-created runs heartbeat every 60s so the server can reap crashed ones;
+`PROBE_HEARTBEAT_SECONDS` tunes the interval (`<=0` disables).
+
+You can also skip the wizard's sign-in entirely: the first `client.run()` /
+`probe run start` with no token triggers the same browser approval inline (TTY only)
+and persists the result. Disable with `PROBE_AUTO_LOGIN=0`; headless/CI keeps the
+crisp `AuthError` and should set `PROBE_TOKEN`.
+
+The MCP server prefers `PROBE_MCP_TOKEN`, which should be a separately minted
+read-only token. It falls back to `PROBE_TOKEN` for local development, but exposes
+no mutation tools.
+
+On rented compute (RunPod) with no standing config, the `/track-work` skill
+seeds `PROBE_TOKEN` at session start.
+
+## SDK (agent-driven / interactive)
+
+Two forms, same implementation. The module-level one when you want to log from
+code that has no handle to pass around:
+
+```python
+import probe
+
+probe.init(
+    project="folding",
+    experiment="dockq-sweep",
+    question="temp 0.7 wins",
+)
+probe.log({"loss": 0.42, "dockq": 0.71}, step=42)    # from anywhere, any thread
+probe.finish()
+```
+
+`probe.init()` takes everything `client.run()` does and returns the same `Run`
+handle, so `with probe.init(...) as run:` works and the rest of the API is one
+attribute away. The binding is a contextvar backed by a process default: a worker
+thread finds the run (a bare contextvar would not — threads start with an empty
+context), while a second `init()` inside a thread or block *shadows* rather than
+hijacking the outer one. That is the part of `wandb.init()`'s global that
+silently corrupts concurrent runs. `probe.active_run()` returns the current
+binding, and a script that exits without `finish()` is closed at exit as
+`completed` / `failed` / `canceled` rather than left to the crash reaper.
+
+The explicit form has no ambient state at all:
+
+```python
+import probe
+
+client = probe.Client()  # resolves creds from env / the stored login
+
+# run() resolves by default. `question=` is the one opt-in to creation, so the
+# FIRST run in a new experiment says what you expect to see:
+run = client.run(experiment="dockq-sweep", question="temp 0.7 wins",
+                 name="run-1", project="folding",
+                 description="DockQ baseline at temperature 0.7",
+                 source="runpod", external_id="rp-9931")
+
+# …and every run after that is bare — the experiment already exists, and its
+# question is first-write-wins so reopening never rewrites it:
+run = client.run(experiment="dockq-sweep")
+
+# No question and no experiment? That is a project-direct run, which is the honest
+# home for work with none — better than an experiment named after your cwd:
+run = client.run(project="folding")
+
+# Omit `name` and the server names the run after its slug — or after the petname
+# short_id it mints when there is none — then replaces that with a generated title
+# once the run reaches a terminal status. A name you supply is yours and is never
+# overwritten. A slug that is a near-miss of an existing one is REFUSED, not
+# created: a warning is invisible from a training loop. Creation is SDK-only —
+# `probe run start` never creates, because on the CLI the slug is hand-typed every
+# time, which is where typos come from.
+
+client.update_run(run.id, name="DockQ baseline",
+                  description="Stable reference run")
+child = run.child("retry-1", relation="retry",
+                  description="Retry after fixing the data loader")
+run.snapshot()                                   # non-disruptive git + deps + GPU capture
+run.link(wandb_run_id="abc123", s3_prefix="s3://x/y")
+
+for step in range(100):
+    run.log({"loss": ..., "dockq": ...}, step=step)     # POST /v1/runs/{id}/metrics
+
+# Omit `step` and it auto-increments per metric kind, so the bare loop shape
+# still produces a curve. `step=None` explicitly means no step at all
+# (wall-clock axis) — that is what the CLI and the passive importers pass.
+for batch in loader:
+    run.log({"loss": loss})                             # steps 0, 1, 2, …
+
+# Values of any type are accepted. Numbers (and bools, numpy scalars, 0-d
+# tensors) become metric points and plot; strings, lists and None go into that
+# step's record and read back through the trajectory view. A nested dict is
+# flattened to `/` keys first: here `cfg/lr` plots and `cfg/opt` joins the
+# step's record.
+run.log({"loss": 0.4, "phase": "eval", "cfg": {"lr": 3e-4, "opt": "adam"}})
+
+# Below-run coordinates: `coords` are bounded grouping axes (series identity:
+# rank/split/..., never a per-sample id), `labels` per-sample drill-down ids
+# (point identity only). Everything logged inside the unit carries them, and
+# nested units merge (child wins per key).
+with run.unit(coords={"rank": 0}, labels={"sample": 3}):
+    run.log({"reward": 0.71}, step=12)   # -> dimensions={"rank": 0}, labels={"sample": 3}
+
+# Failure-only context: a crash inside names this batch/epoch in the crash
+# email, and NOTHING is stamped onto what is logged (no labels, no dimensions),
+# so it is safe to enter once per batch. `probe.context(...)` is the ambient form.
+with run.context(batch_id=17, epoch=3):
+    run.log({"loss": 0.4}, step=12)      # same series as outside the block
+
+with run.span("rollout", name="rollout-0", step_index=1) as span:  # trajectory span
+    span.attributes["reward"] = 0.8      # closes with ended_at + a terminal status,
+    ...                                  # `failed` if the body raises; nests inside
+run.log_artifact("final.sif", uri="r2://bucket/final.sif", kind="artifact")
+run.finish()                                     # flushes spool, sets status+ended_at
+```
+
+Structured knowledge and local process capture use the same SDK:
+
+```python
+run.execute(["python", "train.py", "--config", "dockq.yaml"])
+client.events.add(run.id, "decision", "Use DockQ scorer v3", evidence_refs=["tool:91"])
+report = client.check_run(run.id)
+```
+
+Data writes are **fail-open** by default: on failure they spool to disk
+(`~/.local/state/probe/spool`) and return, never blocking the training loop. `run.finish()`
+(or `probe flush`) replays the spool. Appends and queue rewrites are fsync'd and
+atomic. On rented compute, put the queue on durable storage with
+`PROBE_SPOOL_DIR=/shared/probe/spool` or `probe --spool-dir /shared/probe/spool …`.
+Pass `strict=True` to make a write raise.
+
+`run.snapshot()` / `probe snapshot RUN` records git state, dependencies and hardware,
+and stores the files git cannot supply. Each file becomes its own artifact row on
+the run (visible in the artifact explorer, deduped across runs and users by
+content, uploaded in windows of 256 with every byte verified against the manifest
+before it leaves the machine); `PROBE_CODE_STORAGE=archive` keeps the older
+one-`code-bytes`-archive-per-run behaviour, and `--max-upload-mb` caps both
+storages. `probe snapshot-show RUN` lists every captured
+file and where its bytes are (`captured` row, `code-bytes` archive, or
+`needs-upload`); `probe snapshot-restore RUN DEST` rebuilds the tree, taking each
+file from the run's capture rows first and the archive second; `probe artifact tree
+RUN --prefix P` prints one folder level of the run's artifacts.
+
+## Miles tracking backend (`probe.connectors.miles`)
+
+Drop-in wandb-parity backend for [Miles'](https://github.com/MoonshotAI/miles)
+`TrackingManager`. Zero miles commits: the registry is a plain dict checked
+against args flags at init, so activation is two lines in your launcher,
+before `init_tracking(args)`:
+
+```python
+from probe.connectors.miles import register
+register(args)          # registers the backend + sets args.use_probe
+```
+
+Every `TrackingManager.log()` lands with its own step counter (`train/step`
+and `rollout/step` map to `step_index` per key, the counter entry itself is
+stripped), values arrive after Miles' DP-rank reduction — exactly what wandb
+sees — and the run declares its labeled-point plan (`num_rollout x
+rollout_batch_size x n_samples_per_prompt`) so later per-sample capture never
+trips the server's default budget mid-training. Config: `PROBE_BASE_URL` /
+`PROBE_TOKEN`, optional `args.probe_experiment` / `args.probe_run_name`
+(fall back to the wandb names). Fail-open end to end: a broken tracker never
+costs a training step; non-finite values are dropped per-point. Per-rank and
+per-sample detail is enabled without replacing aggregate logging by passing:
+
+```text
+--custom-rollout-log-function-path probe.connectors.miles.per_sample_rollout_log
+```
+
+The hook logs labeled sample points through the same durable queue as Miles'
+aggregate `tracking.log()` calls. Every point carries `metric_scope=sample`,
+the Miles sample id, an optional group id, and—when the sample carries Harbor's
+returned capture `external_key`—the exact deterministic rollout span. The
+dashboard can therefore separate aggregate and sample points while resolving
+sample → trial → trajectory/sandbox without a Miles-core change.
+
+Reward and effective response length are captured by default. Applications can
+publish arbitrary numeric sample measurements without connector changes by
+putting an inline dictionary on the sample:
+
+```python
+sample.metadata["probe_metrics"] = {
+    "agent/input_tokens": input_tokens,
+    "agent/output_tokens": output_tokens,
+    "quality/custom_score": score,
+}
+```
+
+If values already live elsewhere on the Miles sample, declare metric-name to
+dotted-path mappings on the same args object Miles sends to RolloutManager:
+
+```python
+args.probe_sample_metrics = {
+    "agent/observed_tokens": "metadata.agent_metrics.observed_tokens",
+    "agent/turns": "metadata.agent_metrics.turns",
+    "agent/tool_calls": "metadata.agent_metrics.tool_calls",
+}
+```
+
+Stock Miles launchers that do not expose arbitrary rollout args can put the
+same inline mapping in a tiny importable hook module instead:
+
+```python
+# my_project/probe_metrics.py
+from probe.connectors.miles import make_per_sample_rollout_log
+
+per_sample_rollout_log = make_per_sample_rollout_log({
+    "agent/observed_tokens": "metadata.agent_metrics.observed_tokens",
+    "agent/turns": "metadata.agent_metrics.turns",
+    "agent/tool_calls": "metadata.agent_metrics.tool_calls",
+})
+```
+
+Then set `--custom-rollout-log-function-path` to
+`my_project.probe_metrics.per_sample_rollout_log`. This stays entirely outside
+Miles source while preserving the shipped hook's durable queue, sample labels,
+and Harbor span linkage.
+
+Missing, non-numeric, boolean, and non-finite values are omitted; an explicit
+numeric zero is retained. Configured paths override a same-named
+`metadata["probe_metrics"]` entry. The run reserves 1,024 sample metric points per
+sample by default; set `args.probe_sample_metric_budget` higher when a sample
+schema intentionally exceeds that.
+
+Per-rank detail otherwise rides the capture-at-source arc (`run.unit` +
+`capture_trial`). Upstreaming a native `--use-probe` flag into a miles fork is
+optional polish (registry docstring's own recipe).
+
+## SDK (install-once / passive push)
+
+```python
+client.ingest(
+    project_slug="protein-folding",
+    experiment_slug="dockq",
+    run={"name": "r1", "source": "temporal", "external_id": "wf-1", "status": "running"},
+    metrics=[{"kind": "model", "key": "loss", "value": 0.5, "step_index": 1}],
+    batch_id="deadbeef",          # idempotent redelivery
+)
+```
+
+One idempotent push (bearer ingest token + optional HMAC), keyed on
+`(customer_id, source, external_id)`.
+
+## SDK (reading runs back for comparison)
+
+```python
+comparison = client.compare(experiment_id=exp_id, keys=["dockq"])
+aligned = comparison.aligned("dockq")
+
+for label, values in aligned.values.items():
+    plot(aligned.steps, values, label=label)     # or aligned.to_pandas()
+```
+
+Name the runs with `run_ids=[...]` or select them with the filters `list_runs`
+takes (`experiment_id=`, `group_id=`). One `POST /v1/series/query` per 50 runs —
+more than that batches rather than truncating, because silently dropping runs 51+
+reads as "these are all of them". Columns are labelled by the server's petname
+`short_id`; runs of differing length keep `None` holes rather than being cut to
+the shortest, since differing length is usually what is being compared. pandas is
+optional and only touched by `.to_pandas()`.
+
+There is no separate read client. `wandb.Api()` is a distinct object because W&B
+has two transports (a service process for writes, GraphQL for reads); one REST
+transport does not need the split, so this is a shaping layer on `Client`.
+
+## CLI (`probe`)
+
+```bash
+probe project create folding
+probe experiment create dockq --question "temp 0.7 wins" --project folding
+RUN=$(probe run start --experiment dockq --name run-1 \
+        --project folding --source runpod --external-id rp-9931 \
+        --description "DockQ baseline at temperature 0.7")
+probe project set folding --name "Protein folding" --description "DockQ studies"
+probe project get folding | jq -r '.summary_markdown // ""' > PROJECT.md
+# Edit the whole visible project document, retaining useful existing sections.
+probe project set folding --summary @PROJECT.md
+probe project get folding | jq -r '.summary_markdown // ""'  # verify what landed
+probe experiment set EXPERIMENT_ID --name "DockQ sweep" --description "Temperature sweep"
+probe experiment set EXPERIMENT_ID --summary @EXPERIMENT.md
+probe run set $RUN --name "DockQ baseline" --description "Stable reference run" \
+  --summary @RUN.md
+probe snapshot $RUN
+probe link $RUN --set wandb_run_id=abc --set gpu_job=rp-9931
+probe log $RUN loss=0.42 dockq=0.71 --step 42
+probe span add $RUN --type rollout --name rollout-0 --step 1
+probe artifact add $RUN ./final.sif --kind artifact
+probe notes show                      # the project's notes
+probe notes write --append ./note.md  # free-text markdown, one file per project
+probe exec $RUN -- python train.py --config dockq.yaml  # the work, under the run: its reads and writes are recorded
+probe run check $RUN
+probe run end $RUN --status completed
+probe bundle $RUN            # read: run + series + artifacts
+probe artifact tree $RUN     # read: one folder level of the run's artifacts (--prefix P --limit N)
+```
+
+Project, experiment, and run prose each has three homes: `description` is the
+short identity; `summary_markdown` is the durable teammate-facing document --
+on a project or experiment a block INSIDE the Overview page that the page's AI
+writer may not rewrite, on a run its own field below the AI Summary; and
+`probe notes` is the private operational briefing for agents. Authored Markdown
+is whole-document and last-write-wins, so use a read-edit-write-read loop --
+but on a project or experiment the last read answers from the page, which
+RENDERS the document, so check it contains what you meant rather than expecting
+the bytes to match. Private notes support `--append` when concurrent
+handoffs must not overwrite one another. A line containing only
+`[README](https://github.com/owner/repo)` embeds that repository's README at that
+point in any of those visible documents.
+
+### Curves in the terminal (`probe metrics plot`)
+
+The same read `probe metrics wide` does, drawn instead of dumped.
+
+```bash
+probe metrics plot $RUN                                  # board: every series, one spark each
+probe metrics plot $RUN --key train/loss                 # one panel, braille, with axes
+probe metrics plot $RUN --key train/loss --key eval/loss # a panel each
+probe metrics plot $RUN --key rollout/response_len/{mean,median} --overlay
+probe metrics plot $RUN --key train/loss --ascii --no-color   # for a pipe or a dumb terminal
+```
+
+Bare, it prints the board — every key the run logged with its last/min/max, which
+is the overview to read before choosing what to look at. `--key` promotes those
+series to full panels; several keys get a panel each, because two metrics on
+different scales do not share an axis. `--overlay` puts them on one canvas and
+therefore one y-axis, drawing each series with its own glyph (identity that
+survives a pipe or a monochrome terminal) and saying in the footer when the
+scales are far enough apart that the smaller curve has flattened.
+
+Anything the picture cannot show is printed to stderr before it: a read the
+window cut short, a `--key` that matched nothing, a series dropped from a full
+overlay, a non-finite point no scale can hold. On the canvas, `%` marks a cell
+more than one curve reached.
+
+Unlike its siblings in `probe metrics`, this one takes a petname `short_id` as
+well as a uuid. Color is off when stdout is not a TTY and whenever `NO_COLOR` is
+set; braille and box-drawing degrade to ASCII when the stream's encoding cannot
+carry them.
+
+### Harbor trial capture (`probe trial`)
+
+Capture a Harbor trial directory into a run, keyed to the training step —
+the sandbox↔step join (see `docs/2026-07-15-harbor-native-ownership-plan.md`
+for status: what's shipped vs parked):
+
+```bash
+# rollout span + reward metric + labeled CAS file uploads + kind=harbor_trial
+# manifest; a recognized trajectory format (ATIF v1.x built in) also expands
+# into turn/tool_call spans under the rollout span
+probe trial add $RUN jobs/my-job/trials/swe-fix__x1 --step 600 --env-type skypilot-fork
+probe trial add $RUN <dir> --step 601 --no-expand      # raw-only capture
+# Copy/checksum a host trial tree onto a durable volume without touching the network.
+probe trial stage <host-trial-dir> --to /shared/probe/trial-601 \
+  --expect result.json --expect lock.json
+# Retry one or every Miles bridge request. The descriptor supplies run/step/correlation.
+probe trial export /shared/probe/trial-601/export-request.json
+probe trial drain /shared/probe/captures
+probe trial watch /shared/probe/captures --interval 5
+# Bind descriptors produced during an offline run initialization:
+probe trial drain /shared/probe/captures --run "$PROBE_RUN_ID"
+# retroactively expand a stored trajectory (e.g. after a fork's parser ships);
+# deterministic span ids make this idempotent — re-runs upsert, never duplicate
+probe trial expand $RUN <manifest-artifact-id> --max-spans 0
+```
+
+Query it back: `client.list_run_artifacts(run_id, kind="harbor_trial",
+step_from=599, step_to=601)`. Fork parsers plug in via
+`probe.connectors.atif.register_trajectory_parser("their-format", fn)`;
+unknown formats are captured raw (never rejected) and expanded later.
+
+`probe trial stage` and the `probe-harbor-export/1` consumer keep an atomic
+`.probe-capture.json` beside the durable trial bytes. Its collection status is
+separate from remote-upload status, so an exporter outage leaves a precise,
+retryable list of unconfirmed files instead of losing their paths. Stable
+external keys and span IDs make retries update the same rollout; arbitrary
+Miles/Osmosis correlation fields are preserved under the `harbor_trial`
+manifest's `source.context`. The exporter additionally promotes `sample_id`
+and `group_id` to the Probe point labels `sample` and `group`, respectively,
+on the reward and `harbor_trial` manifest. Those labels preserve distinct
+same-step samples without creating a separate metric series.
+
+**Trajectory sources — Harbor-first, by decision.** Today trajectories enter
+Probe through Harbor's on-disk contract: ATIF-supporting agents write
+`trajectory.json` into their logs dir, the harness delivers it at
+`<trial_dir>/agent/trajectory.json` (the location Harbor's own viewer reads),
+and `parse_trial`/`capture_trial` pick it up from there — raw bytes always
+stored, recognized formats expanded into turn/tool_call spans, unknown formats
+expandable retroactively via `probe trial expand`. Emission is per-agent
+opt-in upstream (`SUPPORTS_ATIF`; e.g. the oracle agent emits nothing), so
+absence is a normal, captured state. "Traditional" trajectory tracking — live
+SDK/OTel-style span streaming from instrumented agent code, the W&B
+Weave/MLflow-Tracing model, with no file contract at all — is planned as the
+second door: the server-side turn/tool_call span rails it needs already exist,
+so it is an SDK-instrumentation arc, not a schema change. For now the scope is
+deliberately the Harbor framework.
+
+The completeness claim is intentionally bounded: it covers declared regular
+files in the **host Harbor trial directory**. Public Harbor tears down the
+sandbox before `Trial.run()` returns, so a post-run SDK consumer cannot know
+about undeclared state Harbor never materialized. The ledger reports that state
+as unknown, inventories explicitly declared missing files, and treats hidden
+files/symlinks as visible skips. A true pre-teardown guarantee requires the
+producer or environment implementation to invoke durable collection from its
+lifecycle hook.
+
+The following commands are reserved for future hook configuration and are not
+part of the normal researcher workflow:
+
+```bash
+probe hook session attach RUN --session-id SESSION --transcript-path PATH --cwd DIR
+probe hook session checkpoint RUN --session-id SESSION --transcript-path PATH --reason pre_compact
+probe hook session detach RUN --session-id SESSION --reason session_end
+```
+
+They currently encode session links in `run.metadata.agent.sessions[]` and
+transcript checkpoints as redacted local-reference artifacts. Until managed
+artifact upload exists, transcript portability remains explicitly false.
+
+## Read-only MCP server
+
+Run the stdio server with `probe-research-mcp`. It exposes **six** tools:
+
+| Tool | Answers |
+|---|---|
+| `browse` | "What exists here?" — the structured project → experiment → run tree |
+| `search_knowledge` | "Find things about X" — one-index exact+semantic search with per-result provenance |
+| `entity` | "Show me this thing" — one entity through a purpose-shaped `view` |
+| `metrics` | "What are the numbers?" — one run's metrics at the `mode` you ask for |
+| `find_papers` | "What does the literature report?" — 40M+ abstracts, and reading the papers |
+| `query_sql` | "Exactly how many?" — one read-only SQL SELECT over the research tables, for counts, joins and checking a number |
+
+Use the host agent's web tools for general web searches and opening URLs.
+`find_papers` retains its `search`, `read`, and `similar` modes for research papers.
+
+Every tool accepts `token_budget`, and every tool but `query_sql` accepts `cursor` (SQL answers in one page). The budget applies to the complete
+response, including its envelope, errors, verbose output, and all items in an
+`entity` batch. It defaults to 2,000 reference tokens and accepts integers from
+512 through 8,000; the UTF-8 byte ceiling is eight times that value. The frozen
+[`o200k_base` encoding](src/probe/mcp/_tokenizer/README.md) ships in the package and works offline. These reference
+counts describe tool text, not model-specific billing or total conversation usage.
+The MCP emits one compact text payload without a duplicate structured payload.
+
+Envelope keys appear only when they carry signal: a complete result has no
+`completeness`, a last page has no `next_cursor`, and an `entity` batch whose
+refs all resolved has no `missing`. `verbose=true` returns the full envelope.
+
+A fitting result retains its view shape. Larger results return bounded pages and
+an opaque `next_cursor`; resume by passing it as `cursor` with the same tool,
+references, view, filters, and other arguments. `token_budget` may change between
+pages. Do not pass an MCP cursor as a metric `step_from`/`after_id` or as a raw
+REST cursor. An invalid or changed-source continuation reports a restart error.
+
+An oversized document or record can use `data.format="text_fragment"` or
+`"json_fragment"`. Within each fragment sequence, concatenate `data.text` in
+`offset` order; `total_chars`, `sha256`, and `complete` describe that sequence.
+Decode JSON only after its sequence is complete. The outer `next_cursor` can
+still lead to another source page or batch item. Notes/summary fragments can
+include identity, status, headline values, and a notes excerpt in first-page
+`context`; if it cannot fit, `context.omitted` and a card detail door say so.
+The requested document still makes progress, including an explicitly empty one.
+
+Document reads use a saved version when available or pin the original text
+prefix, allowing later appends while rejecting edits/deletions of that prefix.
+Full JSON reads reject substantive changes rather than splice different records.
+`browse` defaults to `limit=10` per source list and uses backend-issued positions to preserve nested
+children and independent project lists under the same output cap. Its backend
+must support `continuation_handles`; legacy browse cursors require a fresh read.
+Ordinary SDK/CLI record reads retain their existing response contract and do not
+initialize the MCP tokenizer. `Client.browse(continuation_handles=True)` exposes
+the separate REST handle contract for consumers that trim fetched rows; omission
+keeps the SDK's prior response and keyset cursors.
+
+`find_papers` is the only tool whose payload nobody in this lab wrote, and it is
+the reason `provenance: "open-web"` exists: that text came from a page somebody outside
+the team controls, so it is evidence about the world and never an instruction. It
+proxies `POST /v1/web/papers`, which the backend serves from one Firecrawl key — this server
+holds no third-party credential of its own. It also holds a bounded share of the
+worker pool (`PROBE_MCP_WEB_CAPACITY`, a quarter of it by default), because a web read
+can run for seconds and the other five must not queue behind a browsing burst.
+
+`metrics(run_id, mode=...)` replaced `get_metrics_grouped`, `get_run_coordinates`
+and `export_metric_points`, which were one question about GRAIN asked three ways. The
+grain is now an argument:
+
+| `mode` | Reads | Also takes |
+|---|---|---|
+| `grouped` | one key reduced over coordinate axes and step buckets | `key` (required), `kind`, `agg`, `by`, `where`, `step_bucket`, `step_from`, `step_to`, `max_rows` |
+| `coordinates` | the run's coordinate catalog — which axes it logged on | nothing beyond `run_id` |
+| `points` | raw points, losslessly, one bounded page | `key`, `kind`, `step_from`, `step_to`, `after_id`, `limit` |
+
+**Each mode is validated against its own column, not against the union.** An argument
+the chosen mode does not read is REFUSED, never dropped — `mode="points"` with
+`by=["rank"]` is an error rather than a page of ungrouped points. That is the whole
+hazard of a merged tool: the schema is the union of the branches, so a wrong-mode
+argument passes the schema, reaches the endpoint, gets dropped in silence (FastAPI
+ignores an undeclared query parameter; pydantic's default `extra="ignore"` drops an
+undeclared body field), and a 200 comes back having answered a question nobody asked.
+`mode` itself is required for the same reason: a default would pick the grain for a
+caller who did not state one.
+
+`get_metrics_grouped`, `get_run_coordinates` and `export_metric_points` have been
+REMOVED. They answered as fixed-mode delegations for one release; that window has
+closed, and calls to them now fail as unknown tools.
+
+`research_context`, `research_search`, `research_get`, `research_compare` and
+`research_resolve` have been REMOVED. They answered as deprecated aliases for one
+release; that window has closed. Calls to them now fail as unknown tools.
+
+**Thin harness, fat skills.** Coverage grows through `entity`'s `view` and `filters`
+parameters, never through more tools. `browse` is the one addition that cleared
+that bar: it answers a question the others structurally cannot, because search ranks by
+relevance to a query and therefore needs you to already know what to search for.
+
+`entity(refs=[...], view=..., view_options=..., token_budget=..., cursor=...)` accepts
+1–20 references, each at most 256 characters. Keep the `kind:` prefix on the slug
+or UUID returned by browse/search; `team-note` addresses the shared team document.
+
+| Kind | Views |
+|---|---|
+| run | `card` · `record` · `notes` · `summary` · `trajectory` · `trials` · `metrics` · `artifacts` · `reproduce` · `handoff` · `lineage` · `events` · `code` |
+| experiment | `card` · `record` · `notes` · `summary` · `artifacts` · `lineage` · `groups` · `versions` · `reproduce` · `code` |
+| artifact | `card` · `record` · `versions` |
+| project | `card` · `record` · `artifacts` · `notes` · `summary` · `code` · `papers` |
+| group | `card` · `record` · `notes` |
+| trial | `card` · `record` · `trajectory` |
+| session | `card` · `record` · `transcript` |
+| team note | `card` · `record` |
+
+`card` (the default) returns `available_views` for that entity, so one call tells you what
+else you can ask for — the matrix above is documentation, not something to memorise.
+An unrecognised ref kind is rejected outright rather than guessed at: the resolver used to
+try every getter in turn, so a retired kind surfaced whichever backend parse error came
+first instead of saying the kind was gone.
+
+Cards carry a compact selection of identity, status, headline values, and authored
+caveats. `view="record"` returns the resolved source record through bounded pages.
+Select one field with `view_options={"field":"metadata.summary"}`; use a path list
+such as `view_options={"field":["metadata","metric.with.dots"]}` for a literal dotted key.
+For example, these are arguments to the MCP `entity` tool:
+
+```json
+{"refs":["run:example-run"],"view":"record","view_options":{"field":"config"},"token_budget":2000}
+```
+
+The continuation request retains those arguments and adds `"cursor":"<next_cursor>"`.
+`notes` reads operational notes; `summary` reads authored Overview Markdown and
+includes a bounded notes caveat alongside existing status/headline context. An
+excerpt explicitly reports `truncated:false` when complete, or `truncated:true`
+with its detail door. Artifact notes use `view="record", view_options={"field":"notes"}`
+because artifacts have no MCP `notes` view.
+
+Artifacts resolve by NAME, because the reuse check has a name and not an id — and because
+no `GET /v1/artifacts/{id}` route exists. The lookup runs against the SHARED, lab-wide
+level, which is where an official artifact is promoted to and the nearest thing to the
+tenant-unique names the retired asset registry enforced.
+`entity(refs=["artifact:<name>"], view="versions", view_options={"requirement": ">=2"})` is
+where `research_resolve` went. A name that does not exist raises not-found; a name that
+exists with no satisfying version returns `state="no_match"` **with the versions that do
+exist**, so you can see the real ceiling. Requirements match monotonic integers and labels,
+not semver — `">=2.0"` is rejected rather than silently matching nothing. A name carried by
+more than one shared artifact is a 422 naming both ids: the duplication this check exists
+to prevent has already happened, and picking one silently would compound it.
+An `artifact:<uuid>` also resolves: versions work for any anchor, while a non-shared
+ID has limited by-ID metadata. Its card reports `shared:false`, a resolution note,
+and the versions detail door; `record` cannot supply fields the source did not return.
+
+`trajectory` reads a run's spans (the run bundle carries span_type *counts* only). `metrics`
+returns series summaries, and `view_options={"key": "<key>"}` drills to raw points. `reproduce`
+resolves `env_ref` through its execution record. These reads all use the complete
+response budget above; a large reproduction manifest remains reconstructable
+through bounded fragments and `next_cursor`.
+
+There is no trace-file tool: no backend trace index has ever existed, so it answered
+`matches: []` to every query, which agents read as "this file has no lineage". To trace a
+path/URI/hash, use `search_knowledge` (its exact channel matches artifacts) and follow
+`entity(refs=[...], view="lineage")` on a kind that supports that view.
+
+MCP reads through the Probe Research API—never directly from Postgres or R2. Its
+logical sources are control identity/tenant scope, the structured experiment
+store, the artifact/manifest registry, the one-index search door (`POST /v1/search`:
+exact SQL channel + the KB engine's semantic channel; search capabilities are
+discovered against the live backend with one cached probe), and object-store
+resource pointers returned by the API. W&B, RunPod, Kubernetes,
+Git, and local transcript paths are not live MCP sources; adapters upload their
+identifiers and evidence first.
+
+Hosted deployment and tokenizer health checks are described in the
+[hosting reference](deploy/mcp/README.md).
+
+## Skills
+
+One skill carries the whole arc. `probe run start` opens a run in an experiment
+that already exists, or project-direct with no experiment at all; it never
+creates. Creation on the CLI is always `probe project create` /
+`probe experiment create`. `run start` is deprecated, and a run it opens records
+nothing of what its work reads or writes: run the work under it with
+`probe exec RUN -- cmd`, or `probe.init()` in the job.
+
+- `probe` is the switch: `on` / `read` / `off` for this conversation.
+  Typed bare by the researcher it TOGGLES `on` <-> `read`; `off` is not on
+  that cycle and is reached only by typing `/probe off` (a press while off
+  leaves for `read`). An agent's own bare invocation only loads guidance and
+  never moves it. The states are STORED as `full` / `read-only` / `off` -- the older
+  spelling, kept because every other copy of the client on the machine reads
+  those files -- and both spellings are accepted wherever a state is typed.
+
+- `track-work` is everything recorded while the switch is `on`:
+  orient against what exists, create the project and experiment
+  explicitly — first, before the scaffold — route what the work produces
+  (files to artifacts on the right anchor, numbers to metrics, decisions to
+  notes), get inputs into the run snapshot, read back what actually landed,
+  and close with the real lifecycle outcome. It is re-entered through the
+  session rather than run once. Its `reference.md` holds the capture-call and
+  artifact command syntax, the publication sequence, and project admin.
+- `visualize-progress` renders where the work stands: the tracked state, the
+  gaps, and the arc as one timeline with the next action named.
+
+Reuse hooks are deliberately deferred. `track-work` contains the
+reuse-before-create rule; deterministic enforcement can be added later without
+changing the SDK, CLI, MCP, or skill contracts.
+
+## What maps to what (v3 endpoints)
+
+| Client call | Endpoint |
+|---|---|
+| `client.run()` / `run.child()` | `POST /v1/projects` (`kind=experiment`), `POST /v1/projects/{id}/runs` |
+| `run.log()` / `run.log_hw()` | `POST /v1/runs/{id}/metrics`, and `/steps` for non-numeric values |
+| `run.span()` / `run.step()` | `POST /v1/runs/{id}/spans` \| `/steps` |
+| `run.log_artifact()` | `POST /v1/runs/{id}/artifacts` |
+| `run.snapshot()` | `POST /v1/execution-records`, then one row per file via `POST /v1/runs/{id}/artifacts/uploads/batch` + `POST /v1/artifacts/confirm/batch` — or, with `PROBE_CODE_STORAGE=archive`, the `code-bytes` archive via `POST /v1/runs/{id}/artifacts` |
+| `client.list_run_artifact_tree()` (`probe artifact tree`) | `GET /v1/runs/{id}/artifacts/tree?prefix=&limit=` |
+| `client.presign_download_batch()` (used by `probe snapshot-restore`) | `POST /v1/artifacts/download/batch` |
+| `run.link()` | `PATCH /v1/runs/{id}` (merges `metadata.foreign_keys`) |
+| `run.finish()` | `PATCH /v1/runs/{id}` |
+| `client.events.add()` | `POST /v1/runs/{id}/artifacts` (`kind=research_event`, v3 encoding) |
+| `client.sessions.*` | `PATCH /v1/runs/{id}` + transcript artifact metadata (hook ABI) |
+| `client.ingest()` | `POST /ingest/v1/runs` |
+| `client.run_bundle()` / `run_lineage()` | `GET /v1/runs/{id}/bundle` \| `/lineage` |
+| `client.search()` (used by `research_search`) | `POST /v1/search` (exact+semantic, sectioned) |
+
+## v0.4.0.0 ingestion fold-in (Phase 1)
+
+Most earlier gaps are closed by Probe Research v0.4 (PR #13). Now wired:
+
+- **Real metric dimensions.** `log_hw(..., device=3, host="n1")` sends `dimensions`
+  (fold #9); `log(..., dimensions={...})`. No more key-encoding.
+- **Presign artifact upload.** `log_artifact(path=...)` runs presign → PUT to R2 →
+  confirm (fold #16), carrying `kind`/`meta` so byte uploads are labeled like
+  reference artifacts (Harbor-ownership Phase 0). Fails open to a reference on error.
+- **Execution records.** `snapshot()` posts a content-addressed `execution-record`
+  (fold #7); `client.execution_record(...)`.
+- **Artifact versions.** `client.list_artifact_versions()` + `create_artifact_version()`.
+  The separate asset registry that used to sit here was folded into artifacts
+  (research-os #143/#144): an artifact is a named thing in a container with a chain
+  of immutable versions, which is what an asset was.
+- **Experiment versions.** `client.experiment_version()` mints the immutable manifest
+  (fold #6). This replaces the removed run-level `promote`.
+- **Lineage edges.** `client.add_edge()` / `run.edges()` (fold #2).
+- **foreign_keys.** first-class on the ingest path (`run['foreign_keys']`, fold #8) and
+  surfaced on reads (`run.foreign_keys`, `run.short_id`).
+- **Events read.** `client.events.list()` / `for_run()` (server-emitted lifecycle log).
+
+### Remaining
+
+- **MCP semantic/KB search** is now wired to `POST /v1/search` (workspaces+kb
+  fold-in) with an honest keyword fallback on older backends; transcript
+  evidence is not indexed yet. **Session hooks** remain later work.
+- **Harbor-native ownership Phases 1–3** (trial capture connector, capture-at-source,
+  platform surface): see `docs/2026-07-15-harbor-native-ownership-plan.md`.
+
+(Previously listed here and since shipped: `RunPatch` `foreign_keys`/`env_ref` parity,
+asset `materialize`, upload `kind`/`meta`, and server-side artifact list filters
+`?kind=&step_from=&step_to=`.)
+
+## Typed models (generated from the OpenAPI contract)
+
+Request/response models are generated from the backend's OpenAPI schema, not
+hand-written, so the client cannot silently drift from the contract. The write
+paths (`log`/`span`/`log_artifact`/`ingest`/`edges`/`execution-records`)
+build their payloads through the generated models, so a renamed or removed field
+fails client-side instead of as a server 422. `/ingest/v1/runs` is now declared in
+the schema too (Probe Research PR #12), so the passive push is generated and validated
+like every other path.
+
+- `schema/openapi.json` - a snapshot of Probe Research's FastAPI schema.
+- `src/probe/_generated/models.py` - generated, never hand-edited.
+- `src/probe/models.py` - the stable import seam the SDK uses.
+
+Refresh when the contract moves:
+
+```bash
+make regen        # dump-openapi (RESEARCH_OS=../../research-os) + gen-models
+# or step by step:
+RESEARCH_OS=/path/to/research-os python scripts/dump_openapi.py
+python scripts/gen_models.py
+```
+
+`RESEARCH_OS` points at a local checkout of the Probe Research backend source repo
+(directory name `research-os`); it is only used to regenerate the schema snapshot.
+
+## CLI grammar note
+
+The CLI is built on **typer**. Connection flags are global and go *before* the
+command: `probe --token probe_pat_x log RUN loss=0.1`. The wizard's sign-in also accepts
+them directly (`probe wizard --action login --token ...`).
+
+## Tests
+
+```bash
+pytest        # mocked/unit tests plus real-git snapshot tests; no live server
+```

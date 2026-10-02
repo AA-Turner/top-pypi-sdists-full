@@ -35,9 +35,7 @@ def copy_file(to_s3: bool, source: str, target: Any, download: bool) -> None:
             else:
                 with open(source, "rb") as f:
                     files = {"file": ("object", f)}
-                    resp = requests.post(
-                        target["url"], data=target["fields"], files=files
-                    )
+                    resp = requests.post(target["url"], data=target["fields"], files=files)
                     assert resp.ok, resp.text
         else:
             shutil.copyfile(source, target)

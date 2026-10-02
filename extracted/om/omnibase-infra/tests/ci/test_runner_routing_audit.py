@@ -1,0 +1,1313 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+from __future__ import annotations
+
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+import pytest
+
+pytestmark = pytest.mark.unit
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+SCRIPT = REPO_ROOT / "scripts" / "audit-runner-routing.py"
+POLICY = REPO_ROOT / "config" / "runner_routing_policy.yaml"
+
+
+def _load_script():
+    spec = importlib.util.spec_from_file_location("audit_runner_routing", SCRIPT)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_local_workflow_audit_rejects_unallowlisted_hosted_runner(
+    tmp_path: Path,
+) -> None:
+    module = _load_script()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "bad.yml").write_text(
+        "name: bad\njobs:\n  test:\n    runs-on: ubuntu-latest\n",
+        encoding="utf-8",
+    )
+    policy = {"hosted_runner_allowlist": []}
+
+    findings = module.audit_local_workflows(policy, tmp_path)
+
+    assert len(findings) == 1
+    # OMN-18031: the scope gained the job name when this check moved from a
+    # whole-file regex to a per-job read of the parsed runs-on value. A file
+    # can pin several jobs and only some of them wrongly, so the file alone was
+    # never enough to act on.
+    assert findings[0].scope == ".github/workflows/bad.yml:test"
+    assert "OMNI_RUNNER_SELECTOR_V1" in findings[0].message
+
+
+def test_local_workflow_audit_honors_explicit_allowlist(tmp_path: Path) -> None:
+    module = _load_script()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "fork-only.yml").write_text(
+        "name: fork-only\njobs:\n  verify:\n    runs-on: ubuntu-latest\n",
+        encoding="utf-8",
+    )
+    policy = {
+        "hosted_runner_allowlist": [
+            {"path": ".github/workflows/fork-only.yml", "reason": "fork-only"}
+        ]
+    }
+
+    assert module.audit_local_workflows(policy, tmp_path) == []
+
+
+def test_local_workflow_audit_rejects_dev_base_shortcut(tmp_path: Path) -> None:
+    module = _load_script()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "bad.yml").write_text(
+        """name: bad
+jobs:
+  test:
+    runs-on: >-
+      ${{
+        (github.event_name == 'pull_request' && github.base_ref == 'dev')
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON)
+        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON)
+      }}
+""",
+        encoding="utf-8",
+    )
+
+    findings = module.audit_local_workflows({"hosted_runner_allowlist": []}, tmp_path)
+
+    assert len(findings) == 2
+    assert "dev-base shortcut" in findings[0].message
+    assert "head repository differs" in findings[1].message
+
+
+def test_local_workflow_audit_rejects_public_runner_for_every_pr(
+    tmp_path: Path,
+) -> None:
+    module = _load_script()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "bad.yml").write_text(
+        """name: bad
+jobs:
+  test:
+    runs-on: >-
+      ${{
+        github.event_name == 'pull_request'
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON)
+        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON)
+      }}
+""",
+        encoding="utf-8",
+    )
+
+    findings = module.audit_local_workflows({"hosted_runner_allowlist": []}, tmp_path)
+
+    assert len(findings) == 1
+    assert "head repository differs" in findings[0].message
+
+
+def test_runner_variable_selection_is_fork_aware() -> None:
+    module = _load_script()
+
+    assert (
+        module.runner_variable_for_event(
+            "pull_request", "OmniNode-ai/omnibase_infra", "OmniNode-ai/omnibase_infra"
+        )
+        == "OMNI_TRUSTED_CI_RUNS_ON_JSON"
+    )
+    assert (
+        module.runner_variable_for_event(
+            "pull_request", "contributor/omnibase_infra", "OmniNode-ai/omnibase_infra"
+        )
+        == "OMNI_PUBLIC_PR_RUNS_ON_JSON"
+    )
+    assert (
+        module.runner_variable_for_event("push", None, "OmniNode-ai/omnibase_infra")
+        == "OMNI_TRUSTED_CI_RUNS_ON_JSON"
+    )
+    assert (
+        module.runner_variable_for_event(
+            "merge_group",
+            None,
+            "OmniNode-ai/omnibase_infra",
+            merge_group_variable="OMNI_REQUIRED_CI_RUNS_ON_JSON",
+        )
+        == "OMNI_REQUIRED_CI_RUNS_ON_JSON"
+    )
+
+
+def test_repository_workflows_follow_fork_aware_runner_policy() -> None:
+    module = _load_script()
+    import yaml
+
+    policy = yaml.safe_load(POLICY.read_text(encoding="utf-8"))
+
+    assert module.audit_local_workflows(policy, REPO_ROOT) == []
+
+
+def test_local_workflow_audit_rejects_pull_request_target(tmp_path: Path) -> None:
+    module = _load_script()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "bad.yml").write_text(
+        """name: bad
+on: pull_request_target
+jobs:
+  test:
+    runs-on: ubuntu-latest
+""",
+        encoding="utf-8",
+    )
+
+    findings = module.audit_local_workflows(
+        {
+            "hosted_runner_allowlist": [
+                {"path": ".github/workflows/bad.yml", "reason": "test"}
+            ]
+        },
+        tmp_path,
+    )
+
+    assert len(findings) == 1
+    assert "pull_request_target is prohibited" in findings[0].message
+
+
+def test_policy_tracks_repos_that_drifted_to_hosted_minutes() -> None:
+    import yaml
+
+    policy = yaml.safe_load(POLICY.read_text(encoding="utf-8"))
+
+    assert policy["trusted_runner_variable"]["name"] == "OMNI_TRUSTED_CI_RUNS_ON_JSON"
+    # OMN-16682: the trusted-CI seam was re-flipped to GitHub-hosted runners at
+    # org scope and all five repo shadows on 2026-08-27. The policy states the
+    # INTENDED value, so it tracks the flip; pinning this assertion to the old
+    # self-hosted literal is what kept the hourly audit red on six scopes.
+    assert policy["trusted_runner_variable"]["expected_json"] == '["ubuntu-latest"]'
+    assert {
+        "omnibase_core",
+        "omnibase_infra",
+        "omniclaude",
+        "omnimarket",
+        "onex_change_control",
+    }.issubset(set(policy["repositories"]))
+
+
+def test_github_variable_audit_allows_repo_to_inherit_org_policy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_script()
+
+    def fake_variables(args: list[str]) -> list[dict[str, str]]:
+        if args == ["--org", "OmniNode-ai"]:
+            return [
+                {
+                    "name": "OMNI_TRUSTED_CI_RUNS_ON_JSON",
+                    "value": '["self-hosted","omnibase-ci"]',
+                }
+            ]
+        return []
+
+    monkeypatch.setattr(module, "_variables", fake_variables)
+
+    policy = {
+        "trusted_runner_variable": {
+            "name": "OMNI_TRUSTED_CI_RUNS_ON_JSON",
+            "expected_json": '["self-hosted","omnibase-ci"]',
+        },
+        "repositories": ["omnibase_infra"],
+    }
+
+    assert module.audit_github_variables(policy) == []
+
+
+def test_github_variable_audit_rejects_repo_hosted_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_script()
+
+    def fake_variables(args: list[str]) -> list[dict[str, str]]:
+        if args == ["--org", "OmniNode-ai"]:
+            return [
+                {
+                    "name": "OMNI_TRUSTED_CI_RUNS_ON_JSON",
+                    "value": '["self-hosted","omnibase-ci"]',
+                }
+            ]
+        return [
+            {
+                "name": "OMNI_TRUSTED_CI_RUNS_ON_JSON",
+                "value": '["ubuntu-latest"]',
+            }
+        ]
+
+    monkeypatch.setattr(module, "_variables", fake_variables)
+
+    policy = {
+        "trusted_runner_variable": {
+            "name": "OMNI_TRUSTED_CI_RUNS_ON_JSON",
+            "expected_json": '["self-hosted","omnibase-ci"]',
+        },
+        "repositories": ["omnibase_core"],
+    }
+
+    findings = module.audit_github_variables(policy)
+
+    assert len(findings) == 1
+    assert findings[0].scope == "omnibase_core"
+    assert "ubuntu-latest" in findings[0].message
+
+
+def test_github_variable_audit_honors_repository_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """OMN-18031: a repo shadow that the policy declares is not drift.
+
+    ``expected_json`` is a single value applied to the org and every repo
+    shadow, so before this a deliberately different shadow was indistinguishable
+    from silent drift. The interim self-hosted relief flip on omnimarket and
+    omnibase_infra is exactly that shape.
+    """
+    module = _load_script()
+
+    def fake_variables(args: list[str]) -> list[dict[str, str]]:
+        if args == ["--org", "OmniNode-ai"]:
+            return [
+                {
+                    "name": "OMNI_TRUSTED_CI_RUNS_ON_JSON",
+                    "value": '["ubuntu-latest"]',
+                }
+            ]
+        return [
+            {
+                "name": "OMNI_TRUSTED_CI_RUNS_ON_JSON",
+                "value": '["self-hosted","omnibase-ci"]',
+            }
+        ]
+
+    monkeypatch.setattr(module, "_variables", fake_variables)
+
+    policy = {
+        "trusted_runner_variable": {
+            "name": "OMNI_TRUSTED_CI_RUNS_ON_JSON",
+            "expected_json": '["ubuntu-latest"]',
+            "repository_overrides": {
+                "omnimarket": {
+                    "expected_json": '["self-hosted","omnibase-ci"]',
+                    "revert_when": "interim",
+                    "activation_gate": {
+                        "sustained_samples": 4,
+                        "sustained_min_span_seconds": 3600,
+                        "capacity_budget": "measured fan-out leaves headroom",
+                        "maintenance_roll_convergence": "roller can drain busy runners",
+                        "evidence_companion_fate_isolation": "companion stays hosted",
+                        "positive_control_acceptance": "reports file, job, and label",
+                    },
+                }
+            },
+        },
+        "repositories": ["omnimarket"],
+    }
+
+    assert module.audit_github_variables(policy) == []
+
+
+def test_github_variable_audit_rejects_drift_from_a_repository_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An override is a new assertion to hold, not a hole in the audit."""
+    module = _load_script()
+
+    def fake_variables(args: list[str]) -> list[dict[str, str]]:
+        if args == ["--org", "OmniNode-ai"]:
+            return [
+                {
+                    "name": "OMNI_TRUSTED_CI_RUNS_ON_JSON",
+                    "value": '["ubuntu-latest"]',
+                }
+            ]
+        return [
+            {
+                "name": "OMNI_TRUSTED_CI_RUNS_ON_JSON",
+                "value": '["ubuntu-latest"]',
+            }
+        ]
+
+    monkeypatch.setattr(module, "_variables", fake_variables)
+
+    policy = {
+        "trusted_runner_variable": {
+            "name": "OMNI_TRUSTED_CI_RUNS_ON_JSON",
+            "expected_json": '["ubuntu-latest"]',
+            "repository_overrides": {
+                "omnimarket": {
+                    "expected_json": '["self-hosted","omnibase-ci"]',
+                    "revert_when": "interim",
+                    "activation_gate": {
+                        "sustained_samples": 4,
+                        "sustained_min_span_seconds": 3600,
+                        "capacity_budget": "measured fan-out leaves headroom",
+                        "maintenance_roll_convergence": "roller can drain busy runners",
+                        "evidence_companion_fate_isolation": "companion stays hosted",
+                        "positive_control_acceptance": "reports file, job, and label",
+                    },
+                }
+            },
+        },
+        "repositories": ["omnimarket"],
+    }
+
+    findings = module.audit_github_variables(policy)
+
+    assert len(findings) == 1
+    assert findings[0].scope == "omnimarket"
+    assert "self-hosted" in findings[0].message
+
+
+def test_repository_override_does_not_relax_the_org_scope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An override is repo-scoped: the org value is still judged on expected_json."""
+    module = _load_script()
+
+    def fake_variables(args: list[str]) -> list[dict[str, str]]:
+        if args == ["--org", "OmniNode-ai"]:
+            return [
+                {
+                    "name": "OMNI_TRUSTED_CI_RUNS_ON_JSON",
+                    "value": '["self-hosted","omnibase-ci"]',
+                }
+            ]
+        return [
+            {
+                "name": "OMNI_TRUSTED_CI_RUNS_ON_JSON",
+                "value": '["self-hosted","omnibase-ci"]',
+            }
+        ]
+
+    monkeypatch.setattr(module, "_variables", fake_variables)
+
+    policy = {
+        "trusted_runner_variable": {
+            "name": "OMNI_TRUSTED_CI_RUNS_ON_JSON",
+            "expected_json": '["ubuntu-latest"]',
+            "repository_overrides": {
+                "omnimarket": {
+                    "expected_json": '["self-hosted","omnibase-ci"]',
+                    "revert_when": "interim",
+                    "activation_gate": {
+                        "sustained_samples": 4,
+                        "sustained_min_span_seconds": 3600,
+                        "capacity_budget": "measured fan-out leaves headroom",
+                        "maintenance_roll_convergence": "roller can drain busy runners",
+                        "evidence_companion_fate_isolation": "companion stays hosted",
+                        "positive_control_acceptance": "reports file, job, and label",
+                    },
+                }
+            },
+        },
+        "repositories": ["omnimarket"],
+    }
+
+    findings = module.audit_github_variables(policy)
+
+    assert len(findings) == 1
+    assert findings[0].scope == "OmniNode-ai"
+
+
+def test_every_repository_override_carries_a_revert_condition() -> None:
+    """A deliberate divergence with no stated end is indistinguishable from drift."""
+    module = _load_script()
+    import yaml
+
+    policy = yaml.safe_load(POLICY.read_text(encoding="utf-8"))
+    overrides = policy["trusted_runner_variable"].get("repository_overrides", {})
+
+    # Empty is the correct steady state; the assertion is about SHAPE, so it
+    # holds whether or not an override happens to be live right now.
+    for repo, entry in overrides.items():
+        assert repo in policy["repositories"], f"{repo} is not an audited repository"
+        assert entry["expected_json"], f"{repo} override has no expected_json"
+        module._canonical_json(entry["expected_json"])
+        assert entry.get("revert_when"), f"{repo} override has no revert_when"
+        assert entry.get("activation_gate"), f"{repo} override has no activation_gate"
+
+
+def test_repository_override_without_activation_gate_is_rejected(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A future fleet flip needs a measured activation gate, not only a note."""
+    module = _load_script()
+    monkeypatch.setattr(
+        module,
+        "_variables",
+        lambda args: [
+            {
+                "name": "OMNI_TRUSTED_CI_RUNS_ON_JSON",
+                "value": '["ubuntu-latest"]',
+            }
+        ],
+    )
+    policy = {
+        "trusted_runner_variable": {
+            "name": "OMNI_TRUSTED_CI_RUNS_ON_JSON",
+            "expected_json": '["ubuntu-latest"]',
+            "repository_overrides": {
+                "onex_change_control": {
+                    "expected_json": '["self-hosted","omnibase-ci"]',
+                    "revert_when": "until hosted queue drains",
+                }
+            },
+        },
+        "repositories": ["onex_change_control"],
+    }
+
+    with pytest.raises(ValueError, match="activation_gate"):
+        module.audit_github_variables(policy)
+
+
+def test_repository_override_activation_gate_requires_all_criteria(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Sustained samples alone are not enough to authorize a repo shadow flip."""
+    module = _load_script()
+    monkeypatch.setattr(
+        module,
+        "_variables",
+        lambda args: [
+            {
+                "name": "OMNI_TRUSTED_CI_RUNS_ON_JSON",
+                "value": '["self-hosted","omnibase-ci"]',
+            }
+        ],
+    )
+    policy = {
+        "trusted_runner_variable": {
+            "name": "OMNI_TRUSTED_CI_RUNS_ON_JSON",
+            "expected_json": '["ubuntu-latest"]',
+            "repository_overrides": {
+                "onex_change_control": {
+                    "expected_json": '["self-hosted","omnibase-ci"]',
+                    "revert_when": "until hosted queue drains",
+                    "activation_gate": {
+                        "sustained_samples": 4,
+                    },
+                }
+            },
+        },
+        "repositories": ["onex_change_control"],
+    }
+
+    with pytest.raises(ValueError, match="sustained_min_span_seconds"):
+        module.audit_github_variables(policy)
+
+
+# ---------------------------------------------------------------------------
+# OMN-18031: a bare hosted pin must be caught whatever YAML shape it is written
+# in. The check used to be a regex over raw file text anchored on `runs-on:`
+# with the label on the SAME line, so every multi-line spelling of the same
+# value walked past it. That is a gate failing open, which reads as compliance.
+#
+# The evasions below are not hypothetical shapes invented for a test: 69 of the
+# 72 runs-on declarations in the onex_change_control workflow tree use a folded
+# block scalar, and that repo's sibling gate shipped the same line-oriented
+# assumption.
+# ---------------------------------------------------------------------------
+
+_EVASIONS = {
+    "folded_block_scalar": "name: x\njobs:\n  a:\n    runs-on: >-\n      ubuntu-latest\n",
+    "literal_block_scalar": "name: x\njobs:\n  a:\n    runs-on: |-\n      ubuntu-latest\n",
+    "multiline_sequence": "name: x\njobs:\n  a:\n    runs-on:\n      - ubuntu-latest\n",
+    "same_line": "name: x\njobs:\n  a:\n    runs-on: ubuntu-latest\n",
+    "inline_sequence": "name: x\njobs:\n  a:\n    runs-on: [ubuntu-latest]\n",
+    "group_labels_mapping": (
+        "name: x\njobs:\n  a:\n    runs-on:\n      group: g\n      labels:\n        - ubuntu-latest\n"
+    ),
+}
+
+
+@pytest.mark.parametrize("shape", sorted(_EVASIONS))
+def test_bare_hosted_pin_is_caught_in_every_yaml_shape(
+    tmp_path: Path, shape: str
+) -> None:
+    module = _load_script()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "bad.yml").write_text(_EVASIONS[shape], encoding="utf-8")
+
+    findings = module.audit_local_workflows({"hosted_runner_allowlist": []}, tmp_path)
+
+    assert [f.scope for f in findings] == [".github/workflows/bad.yml:a"], (
+        f"a bare hosted pin written as {shape} was not reported"
+    )
+
+
+def test_legacy_line_regex_missed_the_multiline_shapes() -> None:
+    """The positive control for the fix: prove the old matcher really failed.
+
+    Without this, "the new check catches it" is unfalsifiable -- a check that
+    was never broken and a check that was fixed look identical once green.
+    """
+    import re
+
+    legacy = re.compile(
+        r"^\s*runs-on:\s*(?:\[)?\s*ubuntu-latest(?![\w-])", re.MULTILINE
+    )
+
+    # The shapes the old regex did catch.
+    assert legacy.search(_EVASIONS["same_line"])
+    assert legacy.search(_EVASIONS["inline_sequence"])
+
+    # The shapes it walked straight past, every one a real hosted pin.
+    for shape in ("folded_block_scalar", "literal_block_scalar", "multiline_sequence"):
+        assert not legacy.search(_EVASIONS[shape]), (
+            f"{shape} is expected to defeat the legacy regex; if this now matches, "
+            "the control is stale and the fix needs re-justifying"
+        )
+
+
+def test_selector_expression_is_not_a_bare_pin(tmp_path: Path) -> None:
+    """A compliant folded selector must not become a false positive."""
+    module = _load_script()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "ok.yml").write_text(
+        "name: x\njobs:\n  a:\n    runs-on: >-\n"
+        "      ${{ fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON"
+        ' || \'["self-hosted","omnibase-ci"]\') }}\n',
+        encoding="utf-8",
+    )
+
+    assert module.audit_local_workflows({"hosted_runner_allowlist": []}, tmp_path) == []
+
+
+def test_allowlisted_path_still_exempts_a_bare_pin(tmp_path: Path) -> None:
+    module = _load_script()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "ok.yml").write_text(
+        _EVASIONS["folded_block_scalar"], encoding="utf-8"
+    )
+    policy = {
+        "hosted_runner_allowlist": [
+            {"path": ".github/workflows/ok.yml", "reason": "test"}
+        ]
+    }
+
+    assert module.audit_local_workflows(policy, tmp_path) == []
+
+
+def test_job_delegating_with_uses_is_out_of_scope(tmp_path: Path) -> None:
+    """The callee owns placement, so a `uses:` job has no runs-on to audit."""
+    module = _load_script()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "ok.yml").write_text(
+        "name: x\njobs:\n  a:\n    uses: OmniNode-ai/other/.github/workflows/w.yml@main\n",
+        encoding="utf-8",
+    )
+
+    assert module.audit_local_workflows({"hosted_runner_allowlist": []}, tmp_path) == []
+
+
+def test_unreadable_runs_on_is_a_finding_not_an_empty_pass(tmp_path: Path) -> None:
+    """Fail loud on a shape we cannot read.
+
+    An unreadable value that returned no labels would be indistinguishable from
+    a compliant job -- the same class of silent pass this whole change exists to
+    remove.
+    """
+    module = _load_script()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "weird.yml").write_text(
+        "name: x\njobs:\n  a:\n    runs-on: 17\n", encoding="utf-8"
+    )
+
+    findings = module.audit_local_workflows({"hosted_runner_allowlist": []}, tmp_path)
+
+    assert [f.scope for f in findings] == [".github/workflows/weird.yml:a"]
+    assert "int" in findings[0].message
+
+
+def test_job_with_neither_runs_on_nor_uses_is_reported(tmp_path: Path) -> None:
+    module = _load_script()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "weird.yml").write_text(
+        "name: x\njobs:\n  a:\n    steps:\n      - run: echo hi\n", encoding="utf-8"
+    )
+
+    findings = module.audit_local_workflows({"hosted_runner_allowlist": []}, tmp_path)
+
+    assert [f.scope for f in findings] == [".github/workflows/weird.yml:a"]
+    assert "neither runs-on nor uses" in findings[0].message
+
+
+def test_runs_on_labels_reads_each_accepted_shape() -> None:
+    module = _load_script()
+
+    assert module.runs_on_labels("ubuntu-latest") == ["ubuntu-latest"]
+    assert module.runs_on_labels(["self-hosted", "omnibase-ci"]) == [
+        "self-hosted",
+        "omnibase-ci",
+    ]
+    assert module.runs_on_labels({"group": "g", "labels": ["a", "b"]}) == ["a", "b"]
+    assert module.runs_on_labels({"group": "g", "labels": "solo"}) == ["solo"]
+
+    for bad in (17, None, {"group": "g", "labels": 3}, ["ok", 5]):
+        with pytest.raises(module.UnreadableRunsOnError):
+            module.runs_on_labels(bad)
+
+
+# ---------------------------------------------------------------------------
+# OMN-18205: the scoped routing variables, which sit AHEAD of the trusted seam
+# ---------------------------------------------------------------------------
+#
+# These two variables were live for weeks and read by nothing: no rule, no plan
+# enumeration, no audit surface. Ten job definitions in this repository resolve
+# their runner through the docker one BEFORE the seam is consulted, so a silent
+# edit to it moves ten jobs while the seam's own audit reports green.
+
+
+def _scoped_policy() -> dict[str, object]:
+    return {
+        "docker_ci_runner_variable": {
+            "name": "OMNI_DOCKER_CI_RUNS_ON_JSON",
+            "expected_json": '["ubuntu-latest"]',
+            "repositories": ["omnibase_infra"],
+            "org_scope": "absent",
+        },
+        "security_scan_runner_variable": {
+            "name": "OMNI_SECURITY_SCAN_RUNS_ON_JSON",
+            "expected_json": '["ubuntu-latest"]',
+            "repositories": ["omnibase_infra", "omniclaude"],
+            "org_scope": "absent",
+        },
+        "cloud_canary_runner_variable": {
+            "name": "OMNI_CLOUD_CANARY_RUNS_ON_JSON",
+            "expected_json": '["self-hosted","omni-cloud-ci"]',
+            "repositories": ["omnibase_infra"],
+            "org_scope": "absent",
+        },
+        "repositories": ["omnibase_infra", "omniclaude", "omnimarket"],
+    }
+
+
+def _fake_vars(
+    monkeypatch: pytest.MonkeyPatch,
+    module: object,
+    table: dict[str, list[tuple[str, str]]],
+) -> None:
+    def fake_variables(args: list[str]) -> list[dict[str, str]]:
+        key = args[1]
+        return [{"name": n, "value": v} for n, v in table.get(key, [])]
+
+    monkeypatch.setattr(module, "_variables", fake_variables)
+
+
+def test_scoped_variable_audit_passes_on_the_declared_shape(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The clean case: declared repos carry the value, others carry nothing."""
+    module = _load_script()
+    _fake_vars(
+        monkeypatch,
+        module,
+        {
+            "OmniNode-ai": [],
+            "OmniNode-ai/omnibase_infra": [
+                ("OMNI_DOCKER_CI_RUNS_ON_JSON", '["ubuntu-latest"]'),
+                ("OMNI_SECURITY_SCAN_RUNS_ON_JSON", '["ubuntu-latest"]'),
+                (
+                    "OMNI_CLOUD_CANARY_RUNS_ON_JSON",
+                    '["self-hosted","omni-cloud-ci"]',
+                ),
+            ],
+            "OmniNode-ai/omniclaude": [
+                ("OMNI_SECURITY_SCAN_RUNS_ON_JSON", '["ubuntu-latest"]')
+            ],
+            "OmniNode-ai/omnimarket": [],
+        },
+    )
+    assert module.audit_scoped_variables(_scoped_policy()) == []
+
+
+def test_scoped_variable_audit_catches_an_undeclared_shadow(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The finding that matters, and the reason this pass exists.
+
+    A shadow APPEARING on a repository that declares none is the invisible edit:
+    nothing else in the estate would ever mention it, and it governs placement
+    ahead of the seam. This is the positive control for the clean case above --
+    an audit that can only ever pass is indistinguishable from one that is not
+    running.
+    """
+    module = _load_script()
+    _fake_vars(
+        monkeypatch,
+        module,
+        {
+            "OmniNode-ai": [],
+            "OmniNode-ai/omnibase_infra": [
+                ("OMNI_DOCKER_CI_RUNS_ON_JSON", '["ubuntu-latest"]'),
+                ("OMNI_SECURITY_SCAN_RUNS_ON_JSON", '["ubuntu-latest"]'),
+                (
+                    "OMNI_CLOUD_CANARY_RUNS_ON_JSON",
+                    '["self-hosted","omni-cloud-ci"]',
+                ),
+            ],
+            "OmniNode-ai/omniclaude": [
+                ("OMNI_SECURITY_SCAN_RUNS_ON_JSON", '["ubuntu-latest"]')
+            ],
+            "OmniNode-ai/omnimarket": [
+                ("OMNI_DOCKER_CI_RUNS_ON_JSON", '["self-hosted","omnibase-ci"]')
+            ],
+        },
+    )
+    findings = module.audit_scoped_variables(_scoped_policy())
+    assert len(findings) == 1, findings
+    assert findings[0].scope == "omnimarket"
+    assert "declares no scope" in findings[0].message
+
+
+def test_scoped_variable_audit_catches_drift_in_a_declared_scope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_script()
+    _fake_vars(
+        monkeypatch,
+        module,
+        {
+            "OmniNode-ai": [],
+            "OmniNode-ai/omnibase_infra": [
+                ("OMNI_DOCKER_CI_RUNS_ON_JSON", '["self-hosted","omnibase-ci"]'),
+                ("OMNI_SECURITY_SCAN_RUNS_ON_JSON", '["ubuntu-latest"]'),
+                (
+                    "OMNI_CLOUD_CANARY_RUNS_ON_JSON",
+                    '["self-hosted","omni-cloud-ci"]',
+                ),
+            ],
+            "OmniNode-ai/omniclaude": [
+                ("OMNI_SECURITY_SCAN_RUNS_ON_JSON", '["ubuntu-latest"]')
+            ],
+            "OmniNode-ai/omnimarket": [],
+        },
+    )
+    findings = module.audit_scoped_variables(_scoped_policy())
+    assert len(findings) == 1, findings
+    assert findings[0].scope == "omnibase_infra"
+    assert "drifted" in findings[0].message
+
+
+def test_scoped_variable_audit_catches_a_missing_declared_shadow(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A declared scope with no shadow falls through to the seam silently."""
+    module = _load_script()
+    _fake_vars(
+        monkeypatch,
+        module,
+        {
+            "OmniNode-ai": [],
+            "OmniNode-ai/omnibase_infra": [
+                ("OMNI_SECURITY_SCAN_RUNS_ON_JSON", '["ubuntu-latest"]'),
+                (
+                    "OMNI_CLOUD_CANARY_RUNS_ON_JSON",
+                    '["self-hosted","omni-cloud-ci"]',
+                ),
+            ],
+            "OmniNode-ai/omniclaude": [
+                ("OMNI_SECURITY_SCAN_RUNS_ON_JSON", '["ubuntu-latest"]')
+            ],
+            "OmniNode-ai/omnimarket": [],
+        },
+    )
+    findings = module.audit_scoped_variables(_scoped_policy())
+    assert len(findings) == 1, findings
+    assert "no shadow exists" in findings[0].message
+
+
+def test_scoped_variable_audit_catches_an_org_level_value(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An org value for a scoped variable would govern every repository."""
+    module = _load_script()
+    _fake_vars(
+        monkeypatch,
+        module,
+        {
+            "OmniNode-ai": [("OMNI_DOCKER_CI_RUNS_ON_JSON", '["ubuntu-latest"]')],
+            "OmniNode-ai/omnibase_infra": [
+                ("OMNI_DOCKER_CI_RUNS_ON_JSON", '["ubuntu-latest"]'),
+                ("OMNI_SECURITY_SCAN_RUNS_ON_JSON", '["ubuntu-latest"]'),
+                (
+                    "OMNI_CLOUD_CANARY_RUNS_ON_JSON",
+                    '["self-hosted","omni-cloud-ci"]',
+                ),
+            ],
+            "OmniNode-ai/omniclaude": [
+                ("OMNI_SECURITY_SCAN_RUNS_ON_JSON", '["ubuntu-latest"]')
+            ],
+            "OmniNode-ai/omnimarket": [],
+        },
+    )
+    findings = module.audit_scoped_variables(_scoped_policy())
+    assert len(findings) == 1, findings
+    assert findings[0].scope == "OmniNode-ai"
+    assert "org_scope: absent" in findings[0].message
+
+
+def test_removing_a_scoped_declaration_is_itself_a_finding(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Deleting the declaration must not silently stop auditing a live variable.
+
+    Without this, the cheapest way to make a drift finding go away would be to
+    delete the declaration that produced it.
+    """
+    module = _load_script()
+    _fake_vars(monkeypatch, module, {"OmniNode-ai": []})
+    policy = _scoped_policy()
+    del policy["docker_ci_runner_variable"]
+    findings = module.audit_scoped_variables(policy)
+    assert any("is missing from the policy file" in f.message for f in findings)
+
+
+def test_the_live_policy_declares_every_scoped_variable() -> None:
+    """The shipped policy file must carry every declaration, machine-readable."""
+    import yaml
+
+    policy = yaml.safe_load(POLICY.read_text(encoding="utf-8"))
+    for key in (
+        "docker_ci_runner_variable",
+        "security_scan_runner_variable",
+        "cloud_canary_runner_variable",
+    ):
+        declaration = policy[key]
+        assert declaration["org_scope"] == "absent"
+        assert isinstance(declaration["repositories"], list)
+        assert declaration["repositories"]
+        for repo in declaration["repositories"]:
+            assert repo in policy["repositories"], (
+                f"{key} names {repo}, which the audit never reads"
+            )
+
+
+# ---------------------------------------------------------------------------
+# OMN-18205: withdrawn claims must not come back
+# ---------------------------------------------------------------------------
+
+
+def test_the_policy_does_not_assert_the_withdrawn_exclusion_claims() -> None:
+    """Two claims in this file were measurably false and are withdrawn.
+
+    Both said, in different words, that the customer-path boundary gate cannot
+    run on the self-hosted fleet: that it "needs a hosted class of its own", and
+    that flipping either repository shadow "re-runs the 2026-09-07 harm
+    verbatim". The runner-topology defect behind both was fixed in #3286, merged
+    2026-09-07T15:03:14Z -- two hours and six minutes AFTER the shadow reverted
+    to hosted at 12:57:48Z -- so the five-of-five failure A/B those sentences
+    rest on is pre-fix by construction, and the gate has since run green on a
+    named fleet runner in both repositories.
+
+    This test exists because the file is the asserted-intent surface every
+    future flip lane reads, and a stale exclusion reason there gets cited as
+    current. That is precisely how the pre-fix A/B blocked two already-fixed
+    repositories for four days. The measured A/B itself is deliberately NOT
+    pinned here -- it is accurate history and should survive; what must not come
+    back is the forward-looking claim attached to it.
+    """
+    text = POLICY.read_text(encoding="utf-8")
+    withdrawn = (
+        "needs a hosted class of its own",
+        "re-runs the 2026-09-07 harm verbatim",
+    )
+    present = [claim for claim in withdrawn if claim in text]
+    assert not present, (
+        "config/runner_routing_policy.yaml asserts a withdrawn claim: "
+        f"{present}. The boundary gate has been proven green on a fleet runner; "
+        "if it regresses, record the new evidence rather than restoring the old "
+        "sentence."
+    )
+
+
+# ---------------------------------------------------------------------------
+# OMN-18291: the cloud canary variable
+# ---------------------------------------------------------------------------
+
+
+def test_every_scoped_key_in_the_script_is_declared_in_the_shipped_policy() -> None:
+    """The two lists must not drift apart, in either direction.
+
+    A key in the script with no declaration makes every audit run emit a
+    "missing from the policy file" finding. A declaration with no key in the
+    script is worse and silent: the variable looks audited to anyone reading
+    the policy file and is read by nothing.
+    """
+    import yaml
+
+    module = _load_script()
+    policy = yaml.safe_load(POLICY.read_text(encoding="utf-8"))
+
+    for key in module.SCOPED_VARIABLE_KEYS:
+        assert key in policy, f"{key} is audited by the script and declared nowhere"
+
+    declared = {
+        key
+        for key, value in policy.items()
+        if isinstance(value, dict) and "org_scope" in value
+    }
+    assert declared == set(module.SCOPED_VARIABLE_KEYS), (
+        "a scoped declaration exists that the script never reads, so it is "
+        "documentation rather than an audit"
+    )
+
+
+def test_the_cloud_canary_variable_points_at_the_cloud_fleet_label() -> None:
+    """It is the only routing value in the estate that names the cloud fleet.
+
+    Asserted rather than assumed because the label is what makes this a routing
+    change AT ALL: the same variable holding a hosted or lab value would read as
+    a live canary in every surface while routing nothing.
+    """
+    import yaml
+
+    policy = yaml.safe_load(POLICY.read_text(encoding="utf-8"))
+    declaration = policy["cloud_canary_runner_variable"]
+
+    assert declaration["name"] == "OMNI_CLOUD_CANARY_RUNS_ON_JSON"
+    assert json.loads(declaration["expected_json"]) == [
+        "self-hosted",
+        "omni-cloud-ci",
+    ]
+    assert declaration["repositories"] == ["omnibase_infra"]
+    assert declaration["org_scope"] == "absent", (
+        "an organization-level value would point EVERY repository's canary job "
+        "class at a fleet whose maximum is four instances"
+    )
+    assert declaration["revert_when"].strip()
+
+
+def test_the_canary_variable_is_read_ahead_of_the_docker_seam() -> None:
+    """Precedence is the whole design, and it is only true if it is written.
+
+    Read from the PARSED runs-on of the one job it governs, so a mention of the
+    variable in a comment elsewhere in the file cannot satisfy it.
+    """
+    import yaml
+
+    workflow = yaml.safe_load(
+        (
+            REPO_ROOT / ".github" / "workflows" / "application-acl-postgres16-proof.yml"
+        ).read_text(encoding="utf-8")
+    )
+    runs_on = workflow["jobs"]["rebuilt-postgres16-proof"]["runs-on"]
+
+    canary = runs_on.index("OMNI_CLOUD_CANARY_RUNS_ON_JSON")
+    docker = runs_on.index("OMNI_DOCKER_CI_RUNS_ON_JSON")
+    trusted = runs_on.index("OMNI_TRUSTED_CI_RUNS_ON_JSON")
+    assert canary < docker < trusted
+
+    # NEGATIVE CONTROL for the ordering above: the fork branch must still come
+    # first of all, because this repository is public and a fork pull request
+    # must never reach a self-hosted runner of any kind.
+    assert runs_on.index("OMNI_PUBLIC_PR_RUNS_ON_JSON") < canary
+
+
+def test_the_capacity_requester_cannot_resolve_onto_the_fleet_it_requests() -> None:
+    """The requester is hosted by literal, and that is load-bearing.
+
+    A requester that resolved through any routing variable could be relocated
+    onto the scale-to-zero fleet it exists to start, which deadlocks: the job
+    that would ask for capacity is itself waiting for capacity.
+    """
+    import yaml
+
+    workflow = yaml.safe_load(
+        (
+            REPO_ROOT / ".github" / "workflows" / "application-acl-postgres16-proof.yml"
+        ).read_text(encoding="utf-8")
+    )
+    requester = workflow["jobs"]["request-cloud-capacity"]
+
+    assert requester["runs-on"] == "ubuntu-latest"
+    assert "${{" not in str(requester["runs-on"])
+    assert workflow["jobs"]["rebuilt-postgres16-proof"]["needs"] == (
+        "request-cloud-capacity"
+    )
+
+
+def test_the_requester_file_is_allowlisted_for_its_bare_hosted_pin() -> None:
+    """Otherwise the local-workflow audit reports it as a routing violation."""
+    import yaml
+
+    policy = yaml.safe_load(POLICY.read_text(encoding="utf-8"))
+    paths = {entry["path"] for entry in policy["hosted_runner_allowlist"]}
+    assert ".github/workflows/application-acl-postgres16-proof.yml" in paths
+
+
+def test_public_pr_runner_variable_drift_is_reported_at_org_scope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """OMN-16684: audit_github_variables must also audit the public-PR variable.
+
+    Before the fix, ``audit_github_variables`` reads only
+    ``policy["trusted_runner_variable"]`` and never looks at
+    ``public_pr_runner_variable`` at all, so a drifted org-level value -- the
+    exact OMN-16683 shape, where fork PRs routed onto the self-hosted fleet for
+    seven weeks -- produces zero findings and the audit reports green.
+    """
+    module = _load_script()
+
+    def fake_variables(args: list[str]) -> list[dict[str, str]]:
+        if args == ["--org", "OmniNode-ai"]:
+            return [
+                {
+                    "name": "OMNI_PUBLIC_PR_RUNS_ON_JSON",
+                    "value": '["self-hosted","Linux","X64","omnibase-ci"]',
+                },
+                {
+                    "name": "OMNI_TRUSTED_CI_RUNS_ON_JSON",
+                    "value": '["ubuntu-latest"]',
+                },
+            ]
+        return [
+            {"name": "OMNI_TRUSTED_CI_RUNS_ON_JSON", "value": '["ubuntu-latest"]'},
+        ]
+
+    monkeypatch.setattr(module, "_variables", fake_variables)
+
+    policy = {
+        "trusted_runner_variable": {
+            "name": "OMNI_TRUSTED_CI_RUNS_ON_JSON",
+            "expected_json": '["ubuntu-latest"]',
+        },
+        "public_pr_runner_variable": {
+            "name": "OMNI_PUBLIC_PR_RUNS_ON_JSON",
+            "expected_json": '["ubuntu-latest"]',
+        },
+        "repositories": ["omnibase_infra"],
+    }
+
+    findings = module.audit_github_variables(policy)
+
+    assert any(
+        f.scope == "OmniNode-ai" and "OMNI_PUBLIC_PR_RUNS_ON_JSON" in f.message
+        for f in findings
+    ), findings
+
+
+def test_public_pr_runner_variable_drift_is_reported_at_undeclared_repo_scope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """OMN-18365 AC4 falsifier.
+
+    Sets the public-PR variable on a repository the policy declares should not
+    carry it (no ``repository_overrides`` entry for the public-PR variable
+    exists anywhere in the live policy) and asserts the audit returns a finding
+    naming that scope.
+    """
+    module = _load_script()
+
+    def fake_variables(args: list[str]) -> list[dict[str, str]]:
+        if args == ["--org", "OmniNode-ai"]:
+            return [
+                {"name": "OMNI_PUBLIC_PR_RUNS_ON_JSON", "value": '["ubuntu-latest"]'},
+            ]
+        if args == ["--repo", "OmniNode-ai/omnibase_core"]:
+            return [
+                {
+                    "name": "OMNI_PUBLIC_PR_RUNS_ON_JSON",
+                    "value": '["self-hosted","omnibase-ci"]',
+                },
+            ]
+        return []
+
+    monkeypatch.setattr(module, "_variables", fake_variables)
+
+    policy = {
+        "trusted_runner_variable": {
+            "name": "OMNI_TRUSTED_CI_RUNS_ON_JSON",
+            "expected_json": '["ubuntu-latest"]',
+        },
+        "public_pr_runner_variable": {
+            "name": "OMNI_PUBLIC_PR_RUNS_ON_JSON",
+            "expected_json": '["ubuntu-latest"]',
+        },
+        "repositories": ["omnibase_core"],
+    }
+
+    findings = module.audit_github_variables(policy)
+
+    assert any(
+        f.scope == "omnibase_core" and "self-hosted" in f.message for f in findings
+    ), findings
+
+
+RUNNER_ROUTING_AUDIT_WORKFLOW = (
+    REPO_ROOT / ".github" / "workflows" / "runner-routing-audit.yml"
+)
+
+
+def test_second_audit_step_is_not_masked_by_the_first_steps_failure() -> None:
+    """OMN-16727: a finding in the local-workflows step must not hide the
+    github-vars step.
+
+    ``runner-routing-audit.yml`` runs the two passes as separate ``run:``
+    steps. GitHub Actions skips a step whose ``if:`` does not call
+    ``always()``/``failure()``/``cancelled()`` once any earlier step fails --
+    the default condition is implicitly ANDed with ``success()``. During the
+    2026-08-26/27 re-flip, stale policy drift failed the first step and the
+    second (the ``OMN-16683`` fork-isolation surface) never ran at all.
+
+    The fix requires three things of the workflow, all missing today:
+    1. the local-workflows step tolerates its own failure so later steps run
+       (``continue-on-error: true``),
+    2. the github-vars step's condition includes ``always()`` so a first-step
+       failure cannot skip it, and
+    3. a final step evaluates both outcomes and fails the job once, so neither
+       surface's finding is silently swallowed by a per-step green checkmark.
+    """
+    import yaml
+
+    text = RUNNER_ROUTING_AUDIT_WORKFLOW.read_text(encoding="utf-8")
+    workflow = yaml.safe_load(text)
+    steps = workflow["jobs"]["audit"]["steps"]
+
+    local_step = next(
+        s for s in steps if s.get("name") == "Audit local workflow routing"
+    )
+    github_vars_step = next(
+        s for s in steps if s.get("name") == "Audit GitHub runner variables"
+    )
+
+    assert local_step.get("continue-on-error") is True, (
+        "the local-workflows step must tolerate its own failure so the "
+        "github-vars step is not skipped"
+    )
+    assert "always()" in str(github_vars_step.get("if", "")), (
+        "the github-vars step's condition must include always() or a first-"
+        "step failure skips it (the implicit success() default)"
+    )
+
+    combine_steps = [
+        s
+        for s in steps
+        if "always()" in str(s.get("if", ""))
+        and ("outcome" in str(s.get("run", "")) or "outcome" in json.dumps(s))
+    ]
+    assert combine_steps, (
+        "no step evaluates both step outcomes and fails the job once; without "
+        "it a per-step green checkmark can still hide a finding"
+    )
+
+
+def test_repository_universe_derived_from_live_visibility(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """OMN-18365 AC3 falsifier.
+
+    A fixture private repository carrying one hosted-labelled job on its
+    default branch must produce a finding naming that job; a fixture where
+    every repository routes onto the fleet must exit clean. The universe of
+    repositories to check comes from a live-visibility callable, not from the
+    hand-curated ``repositories:`` list in the policy file.
+    """
+    module = _load_script()
+
+    def fake_visibility(org: str) -> list[tuple[str, bool]]:
+        return [("private-repo-with-hosted-job", True), ("public-repo", False)]
+
+    def fake_workflows(repo_name: str) -> dict[str, str]:
+        if repo_name == "private-repo-with-hosted-job":
+            return {
+                ".github/workflows/ci.yml": (
+                    "name: ci\njobs:\n  build:\n    runs-on: ubuntu-latest\n"
+                )
+            }
+        if repo_name == "public-repo":
+            return {
+                ".github/workflows/ci.yml": (
+                    "name: ci\njobs:\n  build:\n    runs-on: ubuntu-latest\n"
+                )
+            }
+        return {}
+
+    findings = module.audit_private_repo_hosted_placement(
+        visibility_fn=fake_visibility,
+        workflow_fetch_fn=fake_workflows,
+    )
+
+    assert any(
+        "private-repo-with-hosted-job" in f.scope and "build" in f.scope
+        for f in findings
+    ), findings
+    assert not any("public-repo" in f.scope for f in findings), findings
+
+    def fake_workflows_all_fleet(repo_name: str) -> dict[str, str]:
+        return {
+            ".github/workflows/ci.yml": (
+                "name: ci\njobs:\n  build:\n"
+                '    runs-on: ["self-hosted", "omnibase-ci"]\n'
+            )
+        }
+
+    clean_findings = module.audit_private_repo_hosted_placement(
+        visibility_fn=fake_visibility,
+        workflow_fetch_fn=fake_workflows_all_fleet,
+    )
+    assert clean_findings == []
+
+
+def test_live_repository_visibility_uses_a_gh_cli_flag_that_actually_exists(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression: ``gh repo list --visibility all`` is not a real invocation.
+
+    The live post-merge run of this audit (omnibase_infra workflow run
+    35003988912, 2026-09-15) crashed with ``invalid argument "all" for
+    "--visibility" flag: valid values are {public|private|internal}`` --
+    the fixture-based test above mocks ``visibility_fn`` entirely and never
+    exercises the real ``gh`` invocation, so it could not catch this. Omitting
+    ``--visibility`` returns repositories of every visibility the token can
+    see, which is what this check needs since it filters on the returned
+    ``isPrivate`` field itself.
+    """
+    module = _load_script()
+    captured_args: list[list[str]] = []
+
+    def fake_run_gh(args: list[str], timeout: int = 20) -> object:
+        captured_args.append(args)
+
+        class _Result:
+            returncode = 0
+            stdout = json.dumps(
+                [
+                    {"name": "a-private-repo", "isPrivate": True},
+                    {"name": "a-public-repo", "isPrivate": False},
+                ]
+            )
+            stderr = ""
+
+        return _Result()
+
+    monkeypatch.setattr(module, "_run_gh", fake_run_gh)
+
+    result = module._live_repository_visibility("OmniNode-ai")
+
+    assert captured_args == [
+        ["repo", "list", "OmniNode-ai", "--limit", "500", "--json", "name,isPrivate"]
+    ]
+    assert "--visibility" not in captured_args[0]
+    assert result == [("a-private-repo", True), ("a-public-repo", False)]

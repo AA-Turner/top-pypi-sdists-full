@@ -6,12 +6,19 @@
 
 from __future__ import annotations
 
-__version__ = "1.17.0"
+__version__ = "1.18.0"
 
 import asyncio
 from typing import TYPE_CHECKING, Any, TypeVar, overload
 
-from cwsandbox._auth import AuthConfig, AuthHeaders, AuthProvider, AuthStrategy, set_auth_mode
+from cwsandbox._auth import (
+    AuthConfig,
+    AuthHeaders,
+    AuthProvider,
+    AuthStrategy,
+    WandbAuth,
+    set_auth_mode,
+)
 from cwsandbox._cleanup import disable_signal_handlers
 from cwsandbox._defaults import SandboxDefaults
 from cwsandbox._discovery import (
@@ -429,6 +436,7 @@ __all__ = [
     "VolumeTypeNotSupportedError",
     "VolumeWaitTimeoutError",
     "Waitable",
+    "WandbAuth",
     "format_bytes",
     "format_cpu",
     "results",

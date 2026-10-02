@@ -1,0 +1,12 @@
+Metadata-Version: 1.1
+Name: protol
+Version: 0.0.3
+Summary: Compile ProtoBuf proto files on the fly
+Home-page: https://github.com/sumartoyo/protol
+Author: Dimas Sumartoyo
+Author-email: dimas.gs@outlook.com
+License: MIT
+Download-URL: https://github.com/sumartoyo/protol/archive/0.0.3.tar.gz
+Description: UNKNOWN
+Keywords: proto protobuf grpc
+Platform: UNKNOWN

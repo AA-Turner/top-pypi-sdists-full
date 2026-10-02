@@ -41,9 +41,20 @@ class ReasoningStreamState:
     flight (Anthropic's sequential content blocks); ``started_ids`` /
     ``signaled_ids`` serve providers that id their reasoning items (OpenAI's
     Responses API). Both live here so a provider never invents a third home.
+
+    ``block_text`` / ``block_citations`` hold an Anthropic text block's streamed
+    text and its citations until the block stops, so each citation is checked
+    against the claim it is attached to before it is sent (W-37).
     """
 
-    __slots__ = ("open", "signaled", "started_ids", "signaled_ids")
+    __slots__ = (
+        "open",
+        "signaled",
+        "started_ids",
+        "signaled_ids",
+        "block_text",
+        "block_citations",
+    )
 
     def __init__(self) -> None:
         self.reset()
@@ -53,6 +64,8 @@ class ReasoningStreamState:
         self.signaled: bool = False
         self.started_ids: dict[str, bool] = {}
         self.signaled_ids: set[str] = set()
+        self.block_text: dict[int, list[str]] = {}
+        self.block_citations: dict[int, list[dict[str, Any]]] = {}
 
 
 _states: MutableMapping[Any, ReasoningStreamState] = WeakKeyDictionary()

@@ -1,0 +1,425 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+# Copyright (c) 2026 OmniNode Team
+"""Unit tests for provision-infisical.py (OMN-4044).
+
+Tests:
+    - test_already_provisioned_runs_folder_creation_not_credentials
+    - test_already_provisioned_dry_run_returns_0_without_http
+    - test_already_provisioned_missing_admin_token_returns_1
+    - test_already_provisioned_missing_project_id_in_env_returns_1
+    - test_folder_creation_idempotent_logs_skipped
+    - test_folder_creation_new_logs_created
+    - test_fresh_provision_runs_full_flow
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+from typing import Any
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+# Script has a hyphenated name — use sys.path insertion + importlib.
+_SCRIPTS_DIR = Path(__file__).resolve().parent.parent.parent.parent / "scripts"
+sys.path.insert(0, str(_SCRIPTS_DIR))
+
+import importlib
+
+_provision_mod = importlib.import_module("provision-infisical")
+
+_create_infisical_folders = _provision_mod._create_infisical_folders
+_default_shared_folder_slugs = _provision_mod._default_shared_folder_slugs
+_shared_folder_slugs_from_registry = _provision_mod._shared_folder_slugs_from_registry
+_main = _provision_mod.main
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _make_httpx_response(
+    status_code: int, json_data: dict[str, Any] | None = None
+) -> MagicMock:
+    resp = MagicMock()
+    resp.status_code = status_code
+    resp.text = ""
+    if json_data is not None:
+        resp.json.return_value = json_data
+    return resp
+
+
+def _write_env(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content)
+
+
+@pytest.fixture(autouse=True)
+def _hermetic_infisical_addr(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Isolate ``provision-infisical``'s ``--addr`` default from the ambient env.
+
+    ``scripts/provision-infisical.py`` resolves ``--addr`` from
+    ``os.environ.get("INFISICAL_ADDR", "http://localhost:8880")``. On a developer
+    machine that sources ``~/.omnibase/.env``, ``INFISICAL_ADDR`` is PRESENT but
+    EMPTY (``""``), so the argparse default becomes ``""`` and ``main()`` rejects
+    it ("error: --addr must start with 'http://' or 'https://', got: ''") -- a
+    deterministic rc=1 that has nothing to do with the provisioning logic these
+    tests exercise (they call ``main()`` without ``--addr``). On a clean CI runner
+    ``INFISICAL_ADDR`` is simply unset, so the fallback applies and the tests pass;
+    the failure only reproduces where the ambient var is empty. Delete the var so
+    the script's own valid fallback default always applies, making these tests
+    hermetic with respect to the host env. (OMN-14744)
+    """
+    monkeypatch.delenv("INFISICAL_ADDR", raising=False)
+
+
+# ---------------------------------------------------------------------------
+# Tests: _create_infisical_folders idempotency logging
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestCreateInfisicalFoldersIdempotency:
+    """_create_infisical_folders should log [idempotent] on 400/409, [created] on 200/201."""
+
+    def test_folder_creation_new_logs_created(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """201 response → logs [created] for each folder."""
+        client = MagicMock()
+        client.post.return_value = _make_httpx_response(201)
+
+        import logging
+
+        with caplog.at_level(logging.INFO, logger="provision-infisical"):
+            _create_infisical_folders(
+                client,
+                "http://localhost:8880",
+                "tok",
+                "proj-id",
+                environments=("dev",),
+                transport_folders=("db",),
+            )
+
+        log_text = caplog.text
+        assert "[created]" in log_text
+        assert "[idempotent]" not in log_text
+
+    def test_folder_creation_idempotent_logs_skipped(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """409 response → logs [idempotent] for each folder."""
+        client = MagicMock()
+        resp_409 = _make_httpx_response(409)
+        resp_409.text = "already exists"
+        client.post.return_value = resp_409
+
+        import logging
+
+        with caplog.at_level(logging.INFO, logger="provision-infisical"):
+            _create_infisical_folders(
+                client,
+                "http://localhost:8880",
+                "tok",
+                "proj-id",
+                environments=("dev",),
+                transport_folders=("db",),
+            )
+
+        log_text = caplog.text
+        assert "[idempotent]" in log_text
+        assert "[created]" not in log_text
+
+    def test_default_folder_creation_uses_registry_and_transport_map(self) -> None:
+        """Default provisioning must include all registry and runtime-prefetch folders."""
+        client = MagicMock()
+        client.post.return_value = _make_httpx_response(201)
+
+        _create_infisical_folders(
+            client,
+            "http://localhost:8880",
+            "tok",
+            "proj-id",
+            environments=("prod",),
+        )
+
+        created_folder_names = {
+            call.kwargs["json"]["name"]
+            for call in client.post.call_args_list
+            if call.kwargs["json"].get("path") == "/shared"
+        }
+
+        assert "filesystem" in created_folder_names
+
+
+@pytest.mark.unit
+class TestSharedFolderRegistry:
+    """Shared Infisical folders must be derived from typed source-of-truth maps."""
+
+    def test_shared_folder_slugs_from_registry(self, tmp_path: Path) -> None:
+        registry_path = tmp_path / "shared_key_registry.yaml"
+        registry_path.write_text(
+            """
+version: "1.1"
+shared:
+  /shared/db/:
+    - POSTGRES_HOST
+  /shared/filesystem/:
+    - FS_BASE_PATH
+bootstrap_only:
+  - POSTGRES_PASSWORD
+identity_defaults:
+  - POSTGRES_DATABASE
+""",
+            encoding="utf-8",
+        )
+
+        assert _shared_folder_slugs_from_registry(registry_path) == (
+            "db",
+            "filesystem",
+        )
+
+    def test_default_shared_folder_slugs_include_runtime_prefetch_and_seed_folders(
+        self,
+    ) -> None:
+        folders = set(_default_shared_folder_slugs())
+
+        assert "filesystem" in folders
+        assert "llm" in folders
+        assert "valkey" in folders
+        assert "auth" in folders
+
+
+# ---------------------------------------------------------------------------
+# Tests: main() — already-provisioned path
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestMainAlreadyProvisioned:
+    """When credentials already exist in the env file, main() must run folder creation."""
+
+    def _env_with_credentials(self, tmp_path: Path) -> Path:
+        env_file = tmp_path / ".env"
+        _write_env(
+            env_file,
+            (
+                "INFISICAL_CLIENT_ID=existing-client-id\n"
+                "INFISICAL_CLIENT_SECRET=existing-secret\n"
+                "INFISICAL_PROJECT_ID=existing-project-id\n"
+            ),
+        )
+        return env_file
+
+    def _admin_token_file(
+        self, tmp_path: Path, content: str = "admin-token-value\n"
+    ) -> Path:
+        token_file = tmp_path / ".infisical-admin-token"
+        token_file.write_text(content)
+        return token_file
+
+    def test_already_provisioned_dry_run_returns_0_without_http(
+        self, tmp_path: Path
+    ) -> None:
+        """--dry-run with credentials present must return 0 without any HTTP call."""
+        env_file = self._env_with_credentials(tmp_path)
+
+        with (
+            patch.object(_provision_mod, "_ENV_FILE", env_file),
+            patch.object(
+                _provision_mod, "_ADMIN_TOKEN_FILE", tmp_path / ".infisical-admin-token"
+            ),
+            patch(
+                "sys.argv",
+                ["provision-infisical.py", "--dry-run", f"--env-file={env_file}"],
+            ),
+        ):
+            rc = _main()
+
+        assert rc == 0
+
+    def test_already_provisioned_missing_admin_token_returns_1(
+        self, tmp_path: Path
+    ) -> None:
+        """When admin token file is missing, must return 1 with an error."""
+        env_file = self._env_with_credentials(tmp_path)
+        missing_token = tmp_path / ".infisical-admin-token-nonexistent"
+
+        status_resp = _make_httpx_response(200, {"status": "ok"})
+        mock_client_cm = MagicMock()
+        mock_client_cm.__enter__ = MagicMock(return_value=mock_client_cm)
+        mock_client_cm.__exit__ = MagicMock(return_value=False)
+        mock_client_cm.get.return_value = status_resp
+
+        with (
+            patch.object(_provision_mod, "_ENV_FILE", env_file),
+            patch.object(_provision_mod, "_ADMIN_TOKEN_FILE", missing_token),
+            patch("sys.argv", ["provision-infisical.py", f"--env-file={env_file}"]),
+            patch("httpx.Client", return_value=mock_client_cm),
+        ):
+            rc = _main()
+
+        assert rc == 1
+
+    def test_already_provisioned_missing_project_id_returns_1(
+        self, tmp_path: Path
+    ) -> None:
+        """When INFISICAL_PROJECT_ID is missing from env, must return 1."""
+        env_file = tmp_path / ".env"
+        _write_env(
+            env_file,
+            (
+                "INFISICAL_CLIENT_ID=existing-client-id\n"
+                "INFISICAL_CLIENT_SECRET=existing-secret\n"
+                # INFISICAL_PROJECT_ID deliberately omitted
+            ),
+        )
+        # PROJECT_ID missing means _already_provisioned=False → fresh provision path,
+        # not the already-provisioned path. Test the case where project_id is empty
+        # after reading existing_env (edge case: key present but value empty).
+        env_file2 = tmp_path / ".env2"
+        _write_env(
+            env_file2,
+            (
+                "INFISICAL_CLIENT_ID=existing-client-id\n"
+                "INFISICAL_CLIENT_SECRET=existing-secret\n"
+                "INFISICAL_PROJECT_ID=\n"  # present but empty
+            ),
+        )
+        # With empty PROJECT_ID, _already_provisioned=False → takes fresh path.
+        # This test documents that an empty PROJECT_ID value is not treated as provisioned.
+        with (
+            patch.object(_provision_mod, "_ENV_FILE", env_file2),
+            patch.object(
+                _provision_mod,
+                "_ADMIN_TOKEN_FILE",
+                tmp_path / ".infisical-admin-token",
+            ),
+            patch(
+                "sys.argv",
+                ["provision-infisical.py", "--dry-run", f"--env-file={env_file2}"],
+            ),
+        ):
+            rc = _main()
+
+        # dry-run on fresh provision path returns 0
+        assert rc == 0
+
+    def test_already_provisioned_runs_folder_creation(self, tmp_path: Path) -> None:
+        """With credentials present and Infisical reachable, folder creation must run."""
+        env_file = self._env_with_credentials(tmp_path)
+        token_file = self._admin_token_file(tmp_path)
+
+        status_resp = _make_httpx_response(200, {"status": "ok"})
+        folder_resp = _make_httpx_response(201)
+
+        folder_calls: list[dict[str, Any]] = []
+
+        def fake_post(url: str, **kwargs: Any) -> MagicMock:
+            if "/api/v1/folders" in url:
+                folder_calls.append(kwargs.get("json", {}))
+                return folder_resp
+            return _make_httpx_response(200)
+
+        mock_client = MagicMock()
+        mock_client.__enter__ = MagicMock(return_value=mock_client)
+        mock_client.__exit__ = MagicMock(return_value=False)
+        mock_client.get.return_value = status_resp
+        mock_client.post.side_effect = fake_post
+
+        with (
+            patch.object(_provision_mod, "_ENV_FILE", env_file),
+            patch.object(_provision_mod, "_ADMIN_TOKEN_FILE", token_file),
+            patch("sys.argv", ["provision-infisical.py", f"--env-file={env_file}"]),
+            patch("httpx.Client", return_value=mock_client),
+        ):
+            rc = _main()
+
+        assert rc == 0
+        # At least one folder creation call must have been made
+        assert len(folder_calls) > 0
+
+
+# ---------------------------------------------------------------------------
+# Tests: main() — fresh-provision readiness gate (OMN-12966)
+# ---------------------------------------------------------------------------
+
+
+class _GatePassedError(Exception):
+    """Raised from the mocked bootstrap call to signal the fresh-provision
+    readiness gate was passed (i.e. did NOT short-circuit with return 1)."""
+
+
+@pytest.mark.unit
+class TestMainFreshProvisionReadinessGate:
+    """The fresh-provision path (no credentials in env) must accept both the
+    enterprise {"status": "ok"} and community {"message": "Ok"} status payloads
+    at its readiness gate before attempting bootstrap.
+
+    Regression for OMN-12966: the fresh-path gate only accepted {"status":
+    "ok"} and rejected the community-edition payload returned by the Infisical
+    instance deployed on .201, returning 1 before bootstrap could run.
+    """
+
+    def _empty_env(self, tmp_path: Path) -> Path:
+        env_file = tmp_path / ".env"
+        _write_env(env_file, "INFRA_HOST=192.168.86.201\n")  # no INFISICAL_* creds
+        return env_file
+
+    def _run_with_status(self, tmp_path: Path, status_body: dict[str, Any]) -> int:
+        env_file = self._empty_env(tmp_path)
+        status_resp = _make_httpx_response(200, status_body)
+
+        # First httpx.Client (readiness probe) returns the status body.
+        # Second httpx.Client (bootstrap flow) raises _GatePassedError so the test
+        # proves the gate was passed without exercising the full bootstrap.
+        probe_client = MagicMock()
+        probe_client.__enter__ = MagicMock(return_value=probe_client)
+        probe_client.__exit__ = MagicMock(return_value=False)
+        probe_client.get.return_value = status_resp
+
+        bootstrap_client = MagicMock()
+        bootstrap_client.__enter__ = MagicMock(side_effect=_GatePassedError())
+
+        with (
+            patch.object(_provision_mod, "_ENV_FILE", env_file),
+            patch.object(
+                _provision_mod, "_ADMIN_TOKEN_FILE", tmp_path / ".infisical-admin-token"
+            ),
+            patch("sys.argv", ["provision-infisical.py", f"--env-file={env_file}"]),
+            patch("httpx.Client", side_effect=[probe_client, bootstrap_client]),
+        ):
+            try:
+                return int(_main())
+            except _GatePassedError:
+                # Reaching the bootstrap client means the readiness gate passed.
+                return 0
+
+    def test_fresh_provision_community_edition_message_ok_passes_gate(
+        self, tmp_path: Path
+    ) -> None:
+        rc = self._run_with_status(tmp_path, {"message": "Ok"})
+        assert rc == 0  # gate passed (bootstrap reached via _GatePassedError)
+
+    def test_fresh_provision_enterprise_status_ok_passes_gate(
+        self, tmp_path: Path
+    ) -> None:
+        rc = self._run_with_status(tmp_path, {"status": "ok"})
+        assert rc == 0
+
+    def test_fresh_provision_not_ready_returns_1(self, tmp_path: Path) -> None:
+        # Neither status=ok nor message=Ok: gate must reject with rc=1, never
+        # reach bootstrap.
+        rc = self._run_with_status(tmp_path, {"message": "initializing"})
+        assert rc == 1
+
+
+__all__: list[str] = [
+    "TestCreateInfisicalFoldersIdempotency",
+    "TestMainAlreadyProvisioned",
+    "TestMainFreshProvisionReadinessGate",
+]

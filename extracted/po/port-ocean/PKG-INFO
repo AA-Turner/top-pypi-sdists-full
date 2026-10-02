@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: port-ocean
-Version: 0.52.4
+Version: 0.53.1
 Summary: Port Ocean is a CLI tool for managing your Port projects.
 License-File: LICENSE.md
 Keywords: ocean,port-ocean,port
@@ -25,15 +25,15 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Utilities
 Provides-Extra: aws-vault
 Provides-Extra: cli
-Requires-Dist: aiofiles (>=24.1.0,<25.0.0)
+Requires-Dist: aiofiles (>=25.1.0,<26.0.0)
 Requires-Dist: aiostream (>=0.5.2,<0.7.0)
-Requires-Dist: boto3 (>=1.43.64,<2.0.0) ; extra == "aws-vault"
-Requires-Dist: click (>=8.1.3,<9.0.0) ; extra == "cli"
-Requires-Dist: confluent-kafka (>=2.10.1,<3.0.0)
+Requires-Dist: boto3 (>=1.43.106,<2.0.0) ; extra == "aws-vault"
+Requires-Dist: click (>=8.5.0,<9.0.0) ; extra == "cli"
+Requires-Dist: confluent-kafka (>=2.15.1,<3.0.0)
 Requires-Dist: cookiecutter (>=2.1.1,<3.0.0) ; extra == "cli"
 Requires-Dist: cryptography (>=49.0.0,<50.0.0)
 Requires-Dist: fastapi (>=0.133.0,<0.134.0)
-Requires-Dist: filelock (>=3.20.1,<4.0.0)
+Requires-Dist: filelock (>=3.32.7,<4.0.0)
 Requires-Dist: httpx (>=0.28.1,<0.29.0)
 Requires-Dist: ijson (>=3.4.0,<4.0.0)
 Requires-Dist: jinja2 (>=3.1.6)
@@ -46,23 +46,23 @@ Requires-Dist: loguru (>=0.7.0,<0.8.0)
 Requires-Dist: prometheus-client (>=0.21.1,<0.22.0)
 Requires-Dist: psutil (>=7.2.1,<8.0.0)
 Requires-Dist: pydantic-settings (>=2.13.0,<3.0.0)
-Requires-Dist: pydantic[dotenv] (>=2.13.4,<3.0.0)
+Requires-Dist: pydantic[dotenv] (>=2.13.5,<3.0.0)
 Requires-Dist: pydispatcher (>=2.0.7,<3.0.0)
 Requires-Dist: pyhumps (>=3.8.0,<4.0.0)
-Requires-Dist: pyjwt (>=2.13.0,<3.0.0)
+Requires-Dist: pyjwt (>=2.15.1,<3.0.0)
 Requires-Dist: pytest-cov (>=6,<8)
 Requires-Dist: python-dateutil (>=2.9.0.post0,<3.0.0)
-Requires-Dist: python-dotenv (>=1.2.2,<2.0.0)
+Requires-Dist: python-dotenv (>=1.2.4,<2.0.0)
 Requires-Dist: pyyaml (>=6.0,<7.0)
 Requires-Dist: redis[hiredis] (>=6.1.0,<7.0.0)
 Requires-Dist: rich (>=13.4.1,<14.0.0) ; extra == "cli"
 Requires-Dist: six (>=1.16.0,<2.0.0)
-Requires-Dist: starlette (>=1.0.1,<2.0)
+Requires-Dist: starlette (>=1.7.0,<2.0)
 Requires-Dist: tomli (>=2.0.1,<3.0.0)
-Requires-Dist: urllib3 (>=2.7.0,<3.0.0)
-Requires-Dist: uvicorn (>=0.34.3,<0.35.0)
+Requires-Dist: urllib3 (>=2.8.0,<3.0.0)
+Requires-Dist: uvicorn (>=0.54.0,<0.55.0)
 Requires-Dist: virtualenv (>=20.36.1,<21.0.0)
-Requires-Dist: werkzeug (>=3.1.6,<4.0.0)
+Requires-Dist: werkzeug (>=3.1.9,<4.0.0)
 Project-URL: Homepage, https://app.getport.io
 Project-URL: Repository, https://github.com/port-labs/Port-Ocean
 Description-Content-Type: text/markdown

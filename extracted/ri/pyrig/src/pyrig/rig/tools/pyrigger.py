@@ -77,9 +77,8 @@ class Pyrigger(VersionControlHookTool):
         Config files whose `removable()` returns `False`, such as
         `pyproject.toml`, are left untouched.
         """
-        for config_file in (cf().path() for cf in ConfigFile.removable_subclasses()):
-            if config_file.exists():
-                config_file.unlink()
+        for config_file in ConfigFile.removable_subclasses():
+            config_file().remove()
 
     def setup_steps(self) -> tuple[tuple[Args, dict[str, Any]], ...]:
         """Return the ordered setup steps for project initialization.
@@ -128,6 +127,14 @@ class Pyrigger(VersionControlHookTool):
     def runtime_dependency(self) -> str:
         """Return `"pyrig-runtime"`, the package name of pyrig's runtime dependency."""
         return snake_to_kebab_case(pyrig_runtime.__name__)
+
+    def dev_dependencies(self) -> tuple[str, ...]:
+        """Return no dev dependencies; projects add pyrig manually.
+
+        Pyrig would only be able to add itself as a dev dependency
+        if it is already installed so this is unnecessary.
+        """
+        return ()
 
     def hooks(self) -> tuple[dict[str, Any], ...]:
         """Return the project-synchronization hook.

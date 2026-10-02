@@ -1,0 +1,47 @@
+MACOSX_DEPLOYMENT_TARGET:
+- '11.0' # [osx]
+MACOSX_SDK_VERSION:
+- '11.0' # [osx]
+c_compiler:
+- vs2022 # [win64]
+- gcc # [linux]
+- clang # [osx]
+c_compiler_version:
+- '14' # [linux]
+- '19' # [osx]
+c_stdlib:
+- vs # [win64]
+- sysroot #[linux]
+- macosx_deployment_target # [osx]
+c_stdlib_version:
+- '2.17' # [linux]
+- '11.0' # [osx]
+cdt_name:
+- conda # [linux]
+channel_sources:
+- conda-forge
+channel_targets:
+- conda-forge main
+fortran_compiler:
+- flang # [win64]
+- gfortran # [linux or osx]
+fortran_compiler_version:
+- '5' # [win64]
+- '14' # [linux or osx]
+libblas:
+- 3.9 *netlib
+libcblas:
+- 3.9 *netlib
+liblapack:
+- 3.9 *netlib
+numpy:
+- '2'
+pin_run_as_build:
+  python:
+    min_pin: x.x
+    max_pin: x.x
+python:
+- 3.10.* *_cpython
+- 3.11.* *_cpython
+- 3.12.* *_cpython
+- 3.13.* *_cp313

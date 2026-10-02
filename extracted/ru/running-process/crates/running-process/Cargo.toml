@@ -1,0 +1,330 @@
+[package]
+name = "running-process"
+version = "4.10.15"
+edition = "2021"
+rust-version = "1.95"
+license = "BSD-3-Clause"
+repository = "https://github.com/zackees/running-process"
+homepage = "https://github.com/zackees/running-process"
+description = "Subprocess and PTY runtime for the running-process project"
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[[bin]]
+# Wave 4 of #165: PM2-style supervisor CLI absorbed from
+# `running-process-client`. Requires the `client` feature for IPC deps.
+name = "runpm"
+path = "src/bin/runpm.rs"
+required-features = ["client"]
+
+[[bin]]
+# Wave 5 of #165: daemon binary absorbed from `running-process-daemon`.
+# Requires the heavy `daemon` feature (tokio, sqlite, etc.).
+name = "running-process-daemon"
+path = "src/bin/daemon.rs"
+required-features = ["daemon"]
+
+[[bin]]
+# Wave 6 of #165: tiny launcher binary absorbed from the
+# `daemon-trampoline` crate. Reads a sidecar JSON file and execs the target
+# command. Its explicit feature owns serialization without widening core.
+name = "daemon-trampoline"
+path = "src/bin/trampoline.rs"
+required-features = ["daemon-trampoline"]
+
+[[bin]]
+name = "running-process-launcher"
+path = "src/bin/running-process-launcher.rs"
+required-features = ["independent-spawn"]
+
+[[bin]]
+name = "running-process-cleanup"
+path = "src/bin/running-process-cleanup.rs"
+required-features = ["client"]
+
+[[bin]]
+name = "running-process-broker-v1"
+path = "src/bin/running-process-broker-v1.rs"
+required-features = ["daemon"]
+
+# v2 broker binary scaffold (slice 3a of #483). Pure print-and-exit
+# scaffold today; subsequent slices add the pipe acceptor and Hello
+# handler. Gated on `client` (not `daemon`) — v2 is a per-program proxy
+# that doesn't need the full daemon runtime.
+[[bin]]
+name = "running-process-broker-v2"
+path = "src/bin/running-process-broker-v2.rs"
+required-features = ["client"]
+
+[[bin]]
+# Real-process fixture for broker lifecycle conformance. It is physically
+# absent from normal builds and published binaries; the off-by-default
+# `test-seams` feature is enabled only by the repository's test pass.
+name = "running-process-lifecycle-test-backend"
+path = "src/bin/running-process-lifecycle-test-backend.rs"
+required-features = ["test-seams"]
+
+[[example]]
+# Dev-only evidence harness for #387: deploys the real broker binary plus
+# a separate backend process and measures the opt-in handle-passing
+# handoff against the reconnect fallback. Never shipped; see
+# docs/v1-handoff-optimization.md for the recorded numbers.
+name = "handoff_rollout_evidence"
+required-features = ["client"]
+
+[[example]]
+# Reproducible copy-avoidance evidence for #949. Exercises the real local
+# socket transport and production SESSION relay alongside controls; it is not
+# shipped and does not change the broker wire.
+name = "session_relay_evidence"
+required-features = ["daemon"]
+
+[features]
+# Final feature scheme per #165:
+# * `core`   — always-available API (spawn / containment).
+# * `pty`    — PTY-backed process APIs.
+# * `client` — adds proto types + IPC client (prost, interprocess, dirs).
+# * `telemetry` — tee sink primitives without the full daemon runtime.
+# * `daemon`    — superset of client; adds the full daemon runtime
+#                 (tokio, rusqlite, tracing, etc.).
+# Default ships `client` so `cargo install running-process` installs
+# the `runpm` binary out of the box (per Q1 resolution in #165:
+# `required-features` are not auto-activated by cargo install).
+default = ["client", "pty", "conpty-sidecar", "daemon-trampoline", "window-icon"]
+window-icon = ["running-process-platform-internal/window-icon"]
+# Stable consumer spelling for kernal-api.  This is deliberately semantic:
+# consumers select the native async substrate without naming its private seams.
+kernel-substrate = ["async-process"]
+independent-spawn = ["running-process-platform-internal/independent-spawn"]
+# Frozen v1 Frame envelope codec and payload-protocol registration primitives.
+# This is intentionally transport- and identity-free: consumers retain their
+# own endpoint, payload schema, and runtime while preserving the broker's
+# exact `[1][u32 LE][prost Frame]` bytes.
+frame-v1-codec = ["dep:prost", "dep:running-process-protocol"]
+# Frozen v1 manifest and service-definition registration substrate.  This
+# persists the existing protobuf schema and owner-private files without
+# selecting an endpoint, broker client, daemon runtime, or identity probe.
+daemon-registration = [
+    "dep:prost",
+    "dep:running-process-protocol",
+    "dep:sha2",
+    "running-process-platform-internal/fs",
+    "running-process-platform-internal/private-dir",
+]
+# Frozen v2 service-definition writer substrate. This intentionally remains
+# separate from v1 registration: v2 service definitions neither seal a
+# manifest nor need SHA-256. It preserves the existing service-definition
+# layout and owner-private directory policy without selecting broker IPC,
+# negotiation, identity, frames, or a runtime.
+daemon-registration-v2 = [
+    "dep:prost",
+    "dep:running-process-protocol",
+    "running-process-platform-internal/fs",
+    "running-process-platform-internal/private-dir",
+]
+# Direct backend identity/probe substrate for a daemon that keeps its existing
+# endpoint and payload protocol.  This deliberately owns only the frozen v1
+# probe/frame/sidecar mechanics: no broker client, daemon runtime, CLI, PTY,
+# SQLite, or async runtime is pulled in.
+backend-identity = [
+    "frame-v1-codec",
+    "running-process-platform-internal/ipc",
+    "dep:blake3",
+    "dep:sha2",
+    "dep:getrandom",
+    "dep:serde",
+    "dep:serde_json",
+]
+# The actor-backed substrate needs semantic tree termination today.  It uses
+# the same platform implementation as the synchronous facade; it does not
+# expose Tokio types or create a second engine.
+async-process = ["dep:tokio", "process-inspection", "running-process-platform-internal/async-process"]
+core = []
+telemetry = []
+pty = ["terminal-graphics", "process-inspection", "running-process-platform-internal/pty"]
+terminal-graphics = ["dep:serde", "running-process-platform-internal/terminal-graphics"]
+daemon-trampoline = ["dep:serde", "dep:serde_json"]
+process-inspection = ["dep:sysinfo", "running-process-platform-internal/process-inspection"]
+client = [
+    "backend-identity",
+    "daemon-registration",
+    "daemon-registration-v2",
+    "dep:prost-types", "dep:interprocess", "dep:dirs",
+    "running-process-platform-internal/fs",
+    "dep:anyhow", "dep:clap", "terminal-graphics", "process-inspection",
+    # Phase 5 of #222 (#428): the `runpm` CLI parses `runpm.toml` batch
+    # config files (`[[app]]` entries). The TOML parsing helpers live
+    # in `src/runpm_config.rs` and are exercised by both the binary
+    # and the integration tests, so `toml` is gated on `client` rather
+    # than `daemon`. The `daemon` feature still composes `client`, so
+    # the daemon-side `src/daemon/config.rs` autostart loader picks up
+    # the same dep transitively.
+    "dep:toml",
+]
+# #445: Windows-only ConPTY sidecar self-acquisition. Kept in the default
+# feature set for compatibility, but split from `client` so broker-only
+# consumers can use `default-features = false, features = ["client"]`
+# without pulling a second HTTP/TLS stack.
+conpty-sidecar = [
+    "pty",
+    "running-process-platform-internal/conpty-sidecar",
+]
+# Opt-in async client surface for tokio daemons (#414). Adds async
+# variants of `BackendHandle::probe_with_service` and `FrameClient`
+# on top of the existing blocking surface. The synchronous probe and
+# frame wire is the wire-of-record; the async layer wraps each
+# round-trip in `tokio::task::spawn_blocking` so the caller's task
+# yields the runtime worker thread without us duplicating the v1
+# wire against `AsyncRead`/`AsyncWrite`. That keeps the tokio
+# footprint minimal — only `rt` + `time` are required.
+client-async = [
+    "client",
+    # Async client surface (#414) plus the async transport primitives the v2
+    # broker's async SESSION serve path needs (soldr#2365): interprocess tokio
+    # sockets, the frame codec layer, and a multi-thread runtime. These were
+    # daemon-only; the async broker is client-async, not daemon.
+    #
+    # `async-process` provides `ContainedProcessGroup`, which the SESSION
+    # takeover handler (`broker::session_takeover`) spawns compiler children
+    # into — so a `client-async` consumer daemon can serve SESSION.
+    "async-process",
+    "dep:tokio",
+    "tokio/rt",
+    "tokio/rt-multi-thread",
+    "tokio/net",
+    "tokio/io-util",
+    "tokio/macros",
+    "tokio/time",
+    "tokio/sync",
+    "running-process-platform-internal/ipc-async",
+    "interprocess/tokio",
+    "running-process-platform-internal/session-relay",
+    "dep:tokio-util",
+    "dep:bytes",
+    "dep:futures-util",
+]
+daemon = [
+    "client",
+    "client-async",
+    "pty",
+    "dep:tokio", "dep:tokio-util", "dep:bytes", "dep:futures-util",
+    "tokio/full",
+    "dep:tracing", "dep:tracing-subscriber",
+    "dep:rusqlite", "process-inspection",
+]
+originator-scan = ["process-inspection"] # used by running-process-py for cwd-tagging
+
+# #633: the probe client facade (`src/probe/`). Talks to `rpprobed` over IPC —
+# it deliberately does NOT depend on the probe *daemon* crate.
+#
+# `running-process-probe` is pulled in with default-features off purely for the
+# `probe_diag.v1` schema. Its injection vehicles (`inject_windows`,
+# `inject_unix`) are gated on that crate's `embed-helper` feature, which stays
+# off here, so enabling `probe` adds zero injection symbols to this crate — the
+# #539 static-AV-surface invariant is preserved. `probe_facade_adds_no_injection_symbols`
+# asserts this rather than trusting it.
+probe = ["client", "process-inspection", "dep:running-process-probe"]
+# #433 R4: opt-in test seam. Gates the `RUNNING_PROCESS_FAKE_BACKEND` backdoor
+# inside `connect_to_backend`. OFF by default and never listed by production
+# consumers, so the backdoor is physically absent from every shipped build.
+# Enabled only by the crate's own test pass (see `ci/test.py`).
+test-seams = ["client"]
+# #415: consumer-consumable conformance test kit
+# (`crate::test_support::conformance`). Off by default; consumers opt in
+# from their `dev-dependencies`.
+test-support = ["client"]
+
+[dependencies]
+libc = "0.2"
+sysinfo = { version = "0.30", optional = true }
+thiserror = "2"
+winapi = { version = "0.3", features = ["errhandlingapi", "fileapi", "handleapi", "ioapiset", "jobapi2", "namedpipeapi", "processthreadsapi", "winnt", "minwindef", "windef", "winuser", "consoleapi", "processenv", "synchapi", "winbase", "wincon", "tlhelp32", "securitybaseapi", "winerror", "sysinfoapi"] }
+# Wave 4 of #165: client-feature deps. All optional so the always-on
+# `core` API stays a minimal-dep leaf.
+prost = { version = "0.14", optional = true }
+prost-types = { version = "0.14", optional = true }
+interprocess = { version = "2", optional = true }
+dirs = { version = "6", optional = true }
+# Used by the `runpm` PM2-style supervisor CLI (src/bin/runpm.rs).
+anyhow = { version = "1", optional = true }
+clap = { version = "4", features = ["derive"], optional = true }
+# Phase 1 of #228 (issue #230): broker user-SID hashing in
+# `src/broker/lifecycle/sid.rs`. 1.8.7 is the security floor: it removes
+# `arrayref` after that crate's registry owner was compromised (#1048).
+# #891: `content_hash::blake3_file` hashes a file's bytes via
+# `Hasher::update_mmap_rayon`, which requires blake3's `mmap` + `rayon`
+# features (page-cache-warm mmap + multi-core hashing of the executable).
+blake3 = { version = "1.8.7", optional = true, features = ["mmap", "rayon"] }
+sha2 = { version = "0.10", optional = true }
+getrandom = { version = "0.4", optional = true }
+# #633: schema-only dependency for the probe client facade. default-features
+# off keeps the interposer/injection machinery out — see the `probe` feature.
+running-process-probe = { path = "../running-process-probe", version = "4.10.15", default-features = false, optional = true }
+running-process-protocol = { path = "../running-process-protocol", version = "4.10.15", optional = true }
+# Preserve the long-standing `process_tree::kill_tree` path for 4.x
+# `default-features = false` consumers. The current Phase 0.5 containment
+# primitive is sysinfo-backed, so the root selects this narrow private
+# platform capability unconditionally while keeping public inspection APIs
+# behind `process-inspection`. Other platform capabilities stay opt-in.
+running-process-platform-internal = { path = "../running-process-platform-internal", version = "4.10.15", default-features = false, features = ["process-inspection"] }
+# Wave 5 of #165: daemon-feature deps. All optional.
+# tokio: `client-async` (#414) only needs the `rt` (spawn_blocking)
+# and `time` (`tokio::time::timeout`) features; the `daemon` feature
+# layers `tokio/full` on top below. Cargo unifies feature sets, so
+# any consumer enabling both ends up with the daemon footprint
+# exactly as before.
+tokio = { version = "1", default-features = false, features = ["io-util", "net", "process", "rt", "rt-multi-thread", "sync", "time"], optional = true }
+tokio-util = { version = "0.7", features = ["codec"], optional = true }
+bytes = { version = "1", optional = true }
+futures-util = { version = "0.3", features = ["sink"], optional = true }
+tracing = { version = "0.1", optional = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"], optional = true }
+rusqlite = { version = "0.32", features = ["bundled"], optional = true }
+toml = { version = "0.8", optional = true }
+# Product serialization is opt-in. `client` owns runpm config, cleanup, and
+# broker-admin JSON; `terminal-graphics` owns its derives; and
+# `daemon-trampoline` owns its sidecar parser.
+serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", optional = true }
+
+[dev-dependencies]
+# Platform-default service-definition dir tests (#386) assert against
+# the same `dirs` resolution the loader uses, not hardcoded strings.
+dirs = "6"
+serde_json = "1"
+tempfile = "3"
+test-watchdog = { path = "../test-watchdog" }
+# Slice 33 of #500: trybuild UI harness assertions on the
+# `BrokeredBackend` trait (#497) — every documented misuse pattern
+# gets its own compile-fail case under `tests/ui/`.
+trybuild = "1"
+tokio = { version = "1", default-features = false, features = ["macros", "process", "rt", "rt-multi-thread", "test-util", "time"] }
+
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+# The public X11 round-trip test creates its own window and PNG fixture.
+x11rb = "0.13"
+png = "0.17"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Wdk_System_Threading",
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Console",
+    "Win32_System_IO",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Memory",
+    "Win32_System_Pipes",
+    "Win32_System_Registry",
+    "Win32_System_Threading",
+    "Win32_System_Diagnostics_Debug",
+    "Win32_System_Environment",
+] }
+# Wave 5 of #165: extra dev-deps absorbed from `running-process-daemon`
+# for its windows-only and unix-only integration tests.
+[target.'cfg(windows)'.dev-dependencies]
+winapi = { version = "0.3", features = ["handleapi", "processthreadsapi", "winnt"] }

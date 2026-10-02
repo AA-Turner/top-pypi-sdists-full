@@ -16,9 +16,7 @@ def deprecated(message: Optional[str] = None) -> Callable[..., Any]:
         def decorated_func(*args, **kwargs) -> Any:
             warnings.simplefilter("always", DeprecationWarning)  # turn on filter
             deprecated_message = (
-                message
-                if message
-                else f"Call to deprecated function `{func.__name__}`."
+                message if message else f"Call to deprecated function `{func.__name__}`."
             )
             # stacklevel=2 logs at the caller level of func
             # eg. DeprecationWarning: Call to deprecated function `foo()`

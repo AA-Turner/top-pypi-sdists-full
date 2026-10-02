@@ -1,0 +1,191 @@
+---
+name: node_deployment_evidence_reducer
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: REDUCER_GENERIC
+node_version: {major: 0, minor: 1, patch: 0}
+node_not_implemented: false
+description: >
+  Native reducer that aggregates append-only evidence validation
+  events into deployment evidence and readiness projection surfaces. Corrections
+  and supersessions are new events; prior evidence truth is not mutated.
+
+handler:
+  module: omnimarket.nodes.node_deployment_evidence_reducer.handlers.handler_deployment_evidence_reducer
+  class: HandlerDeploymentEvidenceReducer
+  input_model: omnibase_compat.contracts.evidence_pipeline.wire.model_evidence_validation_result.ModelEvidenceValidationResult
+
+handler_routing:
+  handlers:
+    - operation: deployment_evidence
+      handler:
+        name: HandlerDeploymentEvidenceReducer
+        module: omnimarket.nodes.node_deployment_evidence_reducer.handlers.handler_deployment_evidence_reducer
+
+input_model:
+  name: ModelEvidenceValidationResult
+  module: omnibase_compat.contracts.evidence_pipeline.wire.model_evidence_validation_result
+  description: "Append-only evidence validation event consumed by the reducer."
+output_model:
+  name: ModelDeploymentReadinessResult
+  module: omnibase_compat.contracts.evidence_pipeline.wire.model_deployment_readiness_result
+  description: "Derived deployment readiness projection state."
+
+descriptor:
+  node_archetype: reducer
+  purity: pure
+  # Reducers run as standalone bus consumers; they must be owned by a deployed
+  # runtime profile. `compute` is NOT a registered runtime profile, so a
+  # [compute] declaration assigns this contract to no running runtime and no
+  # consumer group is ever started (see omnibase_infra runtime_profile._PROFILES
+  # and auto_wiring.profile_ownership.filter_manifest_for_runtime_profile).
+  # `workers` is the deployed standalone-consumer runtime on every lane.
+  runtime_profiles: [workers]
+  idempotent: true
+  timeout_ms: 120000
+
+terminal_event: onex.evt.omnimarket.deployment-evidence-reduced.v1
+
+db_io:
+  # ADR-0027 assigns "registry, orchestration, evidence, telemetry, baseline,
+  # and operational relations" to the platform-internal domain, and the typed
+  # topology declares exactly three schemas for `application`
+  # (omninode_internal, platform_catalog, tenant). `public` is disallowed by
+  # design — unclassified relations fail closed — so strict-mode auto-wiring
+  # refused these two declarations and killed the runtime-worker boot. The
+  # sibling node_evidence_dashboard_reducer already declares its evidence
+  # relations as application.omninode_internal.
+  db_tables:
+    - name: deployment_evidence_projection
+      database_ref: application
+      schema: omninode_internal
+      migration: "0001_create_deployment_evidence_projection_tables.sql"
+      access: write
+      role: deployment_evidence
+    - name: deployment_readiness_projection
+      database_ref: application
+      schema: omninode_internal
+      migration: "0001_create_deployment_evidence_projection_tables.sql"
+      access: write
+      role: deployment_readiness
+
+event_bus:
+  subscribe_topics:
+    - onex.evt.omnimarket.evidence-validated.v1
+    - onex.evt.omnimarket.readiness-scored.v1
+    - onex.evt.omnimarket.occ-pr-created.v1
+  publish_topics:
+    - onex.evt.omnimarket.deployment-evidence-reduced.v1
+
+externally_consumed_topics:
+  - onex.evt.omnimarket.deployment-evidence-reduced.v1
+
+reducer_contract:
+  state_update: "delta(state, event) -> (new_state, intents)"
+  append_only: true
+  ordering_authority: ingest_sequence
+  duplicate_key_fields:
+    - ticket_id
+    - pr_number
+    - validation_run_id
+  projection_surfaces:
+    - deployment_evidence_projection
+    - deployment_readiness_projection
+
+projection_api:
+  expose: true
+  exposures:
+    - topic: "onex.snapshot.projection.deployment-evidence.v1" # onex-topic-allow: projection snapshot topics use onex.snapshot.* prefix by convention
+      key_grain: "mutable"
+      table: "deployment_evidence_projection"
+      schema: "public"
+      columns:
+        - "deployment_id"
+        - "correlation_id"
+        - "ticket_id"
+        - "validation_run_id"
+        - "repository"
+        - "evidence_lifecycle_state"
+        - "validation_state"
+        - "readiness_state"
+        - "topology_affecting"
+        - "blocking_reason_codes"
+        - "contract_hash"
+        - "evidence_bundle_hash"
+        - "updated_at"
+      order_by: "updated_at DESC"
+      freshness_column: "updated_at"
+      limit: 500
+    - topic: "onex.snapshot.projection.deployment-readiness.v1" # onex-topic-allow: projection snapshot topics use onex.snapshot.* prefix by convention
+      key_grain: "mutable"
+      table: "deployment_readiness_projection"
+      schema: "public"
+      columns:
+        - "deployment_id"
+        - "correlation_id"
+        - "validation_run_id"
+        - "readiness_state"
+        - "blocking_reason_codes"
+        - "gap_report_hash"
+        - "validator_version"
+        - "updated_at"
+      order_by: "updated_at DESC"
+      freshness_column: "updated_at"
+      limit: 500
+
+metadata:
+  transport_type: kafka
+  implementation_wave: 3
+  related_tickets: ["OMN-11443", "OMN-12395", "OMN-12578"]
+
+# OMN-13734: machine-readable FSM (transcribed from authoritative handler/model logic).
+state_machine:
+  version: {major: 1, minor: 0, patch: 0}
+  state_machine_name: deployment_evidence_fsm
+  state_machine_version: {major: 1, minor: 0, patch: 0}
+  description: "deployment_evidence_fsm"
+  initial_state: idle
+  terminal_states: []
+  error_states: []
+  persistence_enabled: false
+  states:
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: idle
+      state_type: operational
+      description: "No deployment evidence folded yet."
+      required_data: []
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: reduced
+      state_type: operational
+      description: "Deployment evidence projection materialized."
+      required_data: []
+  transitions:
+    # Validated evidence folded.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: idle_to_reduced_on_evidence_validated
+      from_state: idle
+      to_state: reduced
+      trigger: evidence_validated
+    # Fold more validated evidence.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: reduced_to_reduced_on_evidence_validated
+      from_state: reduced
+      to_state: reduced
+      trigger: evidence_validated
+    # Readiness score folded.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: reduced_to_reduced_on_readiness_scored
+      from_state: reduced
+      to_state: reduced
+      trigger: readiness_scored
+    # OCC PR creation folded.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: reduced_to_reduced_on_occ_pr_created
+      from_state: reduced
+      to_state: reduced
+      trigger: occ_pr_created
+    # Re-observe own projection (idempotent).
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: reduced_to_reduced_on_deployment_evidence_reduced
+      from_state: reduced
+      to_state: reduced
+      trigger: deployment_evidence_reduced

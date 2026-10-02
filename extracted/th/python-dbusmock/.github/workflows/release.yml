@@ -1,0 +1,57 @@
+name: tag
+on:
+  push:
+    tags:
+      # this is a glob, not a regexp
+      - '[0-9]*'
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      # PyPI trusted publisher
+      id-token: write
+      # create release
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v5
+        with:
+          # need this to also fetch tags
+          fetch-depth: 0
+
+      - name: Workaround for https://github.com/actions/checkout/pull/697
+        run: git fetch --force origin $(git describe --tags):refs/tags/$(git describe --tags)
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-build python3-setuptools python3-setuptools-scm python3-venv
+
+      - name: Build release tarball
+        run: python3 -m build --sdist
+
+      - name: Sanity check
+        run: |
+          set -eux
+          mkdir tmp
+          cd tmp
+          tar xf ../dist/python_dbusmock-${{ github.ref_name }}.tar.gz
+          cd python_dbusmock-*
+          test "$(PYTHONPATH=. python3 -c 'import dbusmock; print(dbusmock.__version__)')" = "${{ github.ref_name }}"
+          PYTHONPATH=. python3 tests/test_api.py
+          cd ../..
+          rm -rf tmp
+
+      - name: Create GitHub release
+        run: |
+          VERSION="${{ github.ref_name }}"
+          git tag -l --format='%(contents:body)' $VERSION > release-note.txt
+
+          gh release create --title $VERSION --notes-file release-note.txt $VERSION \
+            "dist/python_dbusmock-${VERSION}.tar.gz"
+
+      - name: Create PyPy release
+        uses: pypa/gh-action-pypi-publish@release/v1

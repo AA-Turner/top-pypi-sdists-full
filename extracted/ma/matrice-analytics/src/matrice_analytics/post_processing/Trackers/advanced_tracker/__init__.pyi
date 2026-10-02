@@ -3,9 +3,9 @@ from typing import Any, Dict, List, Optional
 
 from ...advanced_tracker import AdvancedTracker
 from ...advanced_tracker.config import TrackerConfig
-from ...advanced_tracker.rtp_clock import RtpClock
 from ..base import BaseObjectTracker, DetectionDict
 from ..config import MatriceTrackerConfig
+from ..frame_timestamp import FrameTimestampReader
 
 # Constants
 logger: Any = ...  # From adapter

@@ -1,0 +1,43 @@
+name: unit-tests
+on:
+  push:
+  pull_request:
+  schedule:
+  - cron: 0 4 * * MON,FRI
+jobs:
+  OS:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario:
+          - docker.io/debian:unstable
+          - docker.io/ubuntu:devel
+          - docker.io/ubuntu:rolling
+          - docker.io/ubuntu:latest
+          - registry.fedoraproject.org/fedora:latest
+          - registry.fedoraproject.org/fedora:rawhide
+          - quay.io/centos/centos:stream10-development
+
+    timeout-minutes: 30
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v5
+        with:
+          # need this to also fetch tags
+          fetch-depth: 0
+
+      - name: Workaround for https://github.com/actions/checkout/pull/697
+        run: |
+          set -ex
+          TAG=$(git describe --tags)
+          if echo "$TAG" | grep -q '^[0-9.]\+$'; then
+            git fetch --force origin $TAG:refs/tags/$TAG
+          fi
+
+      - name: Run unit tests
+        run: |
+          dpkg -s podman docker || true
+          cat /etc/apt/sources.list
+          cat /etc/apt/sources.list.d/*
+          ${{ matrix.env }} tests/run ${{ matrix.scenario }}

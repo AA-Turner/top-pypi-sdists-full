@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hopsworks-aiomysql
-Version: 0.2.3
+Version: 0.2.4
 Summary: MySQL driver for asyncio.
 Home-page: https://github.com/logicalclocks/aiomysql
 Download-URL: https://pypi.python.org/pypi/aiomysql

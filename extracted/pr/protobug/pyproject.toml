@@ -1,0 +1,94 @@
+[build-system]
+requires = [
+  "hatchling>=1.27.0",
+  "hatch-vcs",
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "protobug"
+dynamic = ["version"]
+description = "A pythonic protobuf library using dataclasses and enums"
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = ["protobuf"]
+license = "Unlicense"
+license-files = ["LICENSE"]
+authors = [
+  { name = "Simon Sawicki", email = "contact@grub4k.dev" },
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: Implementation :: CPython",
+]
+dependencies = []
+
+[dependency-groups]
+test = [
+  "pytest",
+]
+mypy = [
+  "mypy",
+  {include-group = "test"},
+]
+pyright = [
+  "pyright",
+  {include-group = "test"},
+]
+static-analysis = [
+  "ruff==0.14.*",
+]
+
+[project.urls]
+Documentation = "https://github.com/yt-dlp/protobug?tab=readme-ov-file"
+Repository = "https://github.com/yt-dlp/protobug"
+Issues = "https://github.com/yt-dlp/protobug/issues"
+Source = "https://github.com/yt-dlp/protobug"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/protobug/_version.py"
+
+[tool.mypy]
+python_version = "3.11"
+check_untyped_defs = true
+disallow_untyped_defs = true
+
+[tool.ruff.lint]
+select = [
+  "C4",
+  "E",
+  "F",
+  "I",
+  "PLC",
+  "PLE",
+  "PLW",
+  "PYI",
+  "RET",
+  "RUF",
+  "SIM",
+  "TD",
+  "TID",
+  "W",
+]
+ignore = [
+  "TD003",
+  "E402",
+  "E501",
+  "PLR09",
+]
+
+[tool.ruff.lint.isort]
+required-imports = ["from __future__ import annotations"]
+force-single-line = true
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"

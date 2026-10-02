@@ -47,10 +47,7 @@ def get_full_name():
     eg. `get_full_name() -> "john_doe"`
     """
     full_name = (
-        os.getenv("ANYSCALE_USERNAME")
-        or os.getenv("USERNAME")
-        or os.getenv("USER")
-        or "default"
+        os.getenv("ANYSCALE_USERNAME") or os.getenv("USERNAME") or os.getenv("USER") or "default"
     )
     # Join the full name with underscores
     full_name = "_".join(full_name.split())

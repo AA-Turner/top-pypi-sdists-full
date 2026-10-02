@@ -1,0 +1,2013 @@
+# docker-compose.infra.yml
+# ONEX Infrastructure & Runtime Services
+#
+# This compose file provides the complete ONEX platform: infrastructure services
+# (PostgreSQL, Valkey, Redpanda) and runtime services (kernel, effects, workers).
+# OMN-3431: Local Docker Redpanda replaces the remote M2 Ultra broker (always-on).
+# Broker addresses are hardcoded as literals (not interpolated from host env).
+#
+#
+# Usage (prefer `make up` / `make up-runtime` from the repo root, or
+# scripts/deploy-runtime.sh -- see knowledge-base-internal:runbooks/omnibase-infra-docker-deployment.md Quick Start):
+#   # Core infrastructure -- postgres, valkey, redpanda, keycloak, infisical.
+#   # Infisical is always-on (OMN-5831), not a separate profile: INFISICAL_ENCRYPTION_KEY
+#   # and INFISICAL_AUTH_SECRET must be set in .env before this succeeds.
+#   docker compose -f docker/docker-compose.infra.yml up -d
+#
+#   # With runtime services
+#   docker compose -f docker/docker-compose.infra.yml --profile runtime up -d
+#
+#   # With omnimemory (Memgraph, OMN-4310)
+#   docker compose -f docker/docker-compose.infra.yml --profile omnimemory up -d
+#
+#   # Full stack (runtime + omnimemory, on top of the always-on default set)
+#   docker compose -f docker/docker-compose.infra.yml --profile full up -d
+#
+#   # Infisical bootstrap (first-time only: creates machine identities and seeds
+#   # secrets). There is no separate "bootstrap" profile -- this runs against the
+#   # default (already-up) infrastructure.
+#   bash scripts/bootstrap-infisical.sh
+#
+#   # Build runtime and start
+#   docker compose -f docker/docker-compose.infra.yml --profile runtime up -d --build
+#
+#   # Stop services (--remove-orphans also removes profile-gated runtime
+#   # containers, which a bare `down` would leave orphaned — OMN-13886)
+#   docker compose -f docker/docker-compose.infra.yml down --remove-orphans
+#
+#   # Stop and remove volumes (CAUTION: destroys data)
+#   docker compose -f docker/docker-compose.infra.yml down -v --remove-orphans
+#
+# Profiles:
+#   - (default): Core infrastructure (postgres, valkey, redpanda, keycloak, infisical) -- always on
+#   - runtime: ONEX runtime services (omninode-runtime, effects, workers, observability)
+#   - omnimemory: Memgraph (OMN-4310)
+#   - full: (default) + runtime + omnimemory
+# Note (OMN-10089): keycloak moved into the default profile so a vanilla
+# `docker compose up -d` brings up the full local auth stack with no extra
+# flags. Operators who want to skip keycloak can `docker compose stop keycloak`
+# after startup.
+#
+# Redpanda / Kafka:
+#   OMN-3431: Local Docker Redpanda is the default event bus (always-on, no profile needed).
+#   Containers use redpanda:9092 (Docker-internal). Host scripts use localhost:19092.
+#   Invariant: NO Docker service inherits KAFKA_BOOTSTRAP_SERVERS from the host environment.
+#              All broker addresses are hardcoded literals in compose.
+#
+# External Ports:
+#   Infrastructure:
+#     - PostgreSQL: 5436 (internal 5432)
+#     - Valkey: 16379 (internal 6379)
+#     - Redpanda: 19092 (internal 9092) [always-on]
+#     - Infisical: 8881 (internal 8080) [secrets profile] (OMN-13417: dev-lane port; stability lane uses 8880)
+#     - Keycloak: 28080 (internal 8080) [default — OMN-10089]
+#   Runtime:
+#     - omninode-runtime: 8085 [runtime profile]
+#     - runtime-effects: 8086 [runtime profile]
+#     - agent-actions-consumer: 8087 [runtime profile]
+#     - intelligence-api: 8053 [runtime profile]
+#     - contract-resolver: 8091 [runtime profile] (OMN-2756 transitional bridge)
+#     - skill-lifecycle-consumer: 8092 [runtime profile] (OMN-2934)
+#     - context-audit-consumer: 8093 [runtime profile] (OMN-5240)
+#     - phoenix: 6006 [runtime profile] (OMN-3542, LLM observability OTLP HTTP + UI)
+#
+# Dashboard Requirements (OMN-3337):
+#   Several omnidash dashboards require the runtime profile to be active:
+#
+#   Cost Trends dashboard (llm_cost_aggregates):
+#     Requires: --profile runtime
+#     Producer: runtime-effects (NodeLlmInferenceEffect → ServiceLlmMetricsPublisher)
+#     Topic:    onex.evt.omniintelligence.llm-call-completed.v1
+#     Note: LLM inference calls must be routed through the ONEX node pipeline,
+#           not directly to the LLM endpoint, for cost events to be generated.
+#
+#   Skill Executions dashboard (skill_executions):
+#     Requires: --profile runtime
+#     Producer: skill-lifecycle-consumer (already wired)
+#
+#   To start all runtime services:
+#     docker compose -f docker/docker-compose.infra.yml --profile runtime up -d
+#
+name: omnibase-infra
+# ==========================================================================
+# IMPORTANT: Requires Docker Compose v2.20.0 or later (nested variable expansion).
+# Older versions will SILENTLY produce malformed DSNs.
+# Verify: docker compose version
+# ==========================================================================
+# Shared Configuration Templates (YAML Anchors)
+# ==========================================================================
+
+# Default healthcheck configuration
+x-healthcheck-defaults: &healthcheck-defaults
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 10s
+# Default logging configuration
+x-logging-defaults: &logging-defaults
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+# Runtime service base configuration
+x-runtime-base: &runtime-base
+  build:
+    context: ..
+    dockerfile: docker/Dockerfile.runtime
+    args:
+      BUILD_SOURCE: "${BUILD_SOURCE:-release}"
+      EXPECTED_BUILD_SOURCE: "${EXPECTED_BUILD_SOURCE:-release}"
+  networks:
+    - omnibase-infra-network
+  logging: *logging-defaults
+  restart: unless-stopped
+  deploy:
+    resources:
+      limits:
+        cpus: '1.0'
+        memory: 1536M
+      reservations:
+        cpus: '0.25'
+        memory: 256M
+# Runtime environment variables (OMN-2287: slimmed for Infisical bootstrap)
+# When INFISICAL_ADDR is set, the runtime prefetches most config from Infisical.
+# Only bootstrap-essential vars remain here; all others come from Infisical.
+x-runtime-env: &runtime-env
+  # --- Bootstrap essentials (always needed) ---
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+  POSTGRES_USER: ${POSTGRES_USER:-postgres}
+  # OMN-4084: Containers always use the Docker-internal hostname postgres:5432 regardless
+  # of what ~/.omnibase/.env sets for OMNIBASE_INFRA_DB_URL. The host-side value uses
+  # localhost:5436 (external port); the container-side value must use postgres:5432.
+  # This override ensures containers are never broken by a host-side localhost:5436 URL.
+  OMNIBASE_INFRA_DB_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}@postgres:5432/omnibase_infra"
+  # OMN-3431: Local Docker Redpanda — containers use Docker-internal redpanda:9092
+  KAFKA_BOOTSTRAP_SERVERS: "redpanda:9092"
+  # Allowlist lets service_kernel.py's denylist accept Docker-internal redpanda: hostname
+  KAFKA_BROKER_ALLOWLIST: "redpanda:"
+  # OMN-13220: per-consumer Kafka consumer-start budget. On a fully-cold lane the
+  # kernel joins a consumer group per subscribed topic; with 1300+ topics on a
+  # freshly-provisioned broker the default 30s blew on the slow group-coordinator
+  # tail and the kernel recycled before reaching healthy. deploy-runtime.sh
+  # exports a raised COLD_START_KAFKA_TIMEOUT_SECONDS before the restart; the
+  # :-30 default preserves the prior steady-state value when the var is unset
+  # (e.g. a plain `docker compose up` outside the deploy script). Mapped to
+  # ModelKafkaEventBusConfig.timeout_seconds (le=300) via apply_environment_overrides.
+  KAFKA_TIMEOUT_SECONDS: ${KAFKA_TIMEOUT_SECONDS:-30}
+  BUS_ID: "local"
+  ONEX_CONTRACTS_DIR: /app/contracts
+  ONEX_STATE_ROOT: /app/data/.onex_state
+  ONEX_STATE_DIR: /app/data/.onex_state
+  # OMN-12864: Hardcoded default — do NOT use ${BIFROST_CONTRACT_PATH:-...} here.
+  # The :-/empty fallback was a footgun: if a host operator accidentally exported
+  # BIFROST_CONTRACT_PATH="" in their shell, it propagated to ALL services including
+  # the runtime containers that need bifrost rendering, silently disabling it and
+  # causing a 9→4 backend drop on the next restart. Hardcoding the path removes that
+  # ambient-env override path. Services that legitimately disable rendering
+  # (projection-api, contract-resolver) explicitly set BIFROST_CONTRACT_PATH: ""
+  # in their own environment blocks — those overrides remain intentional.
+  BIFROST_CONTRACT_PATH: /app/data/delegation/bifrost_delegation.yaml
+  # OMN-17150: the lane's typed Bifrost overlay, resolved from this explicit
+  # pin — the renderer no longer carries a hardcoded dev.bifrost.yaml default
+  # that every lane silently fell through to. Hardcoded (no ${VAR:-} form) for
+  # the same OMN-12864 ambient-override reason as BIFROST_CONTRACT_PATH above.
+  # The dev lane runs this file alone; stability-test and prod layer it and
+  # mount the same file at this path, which is a deliberate, now-legible
+  # decision to share the dev binding rather than a silent fallthrough.
+  # Services that disable rendering (projection-api, contract-resolver) set
+  # BIFROST_LANE_OVERLAY_PATH: "" alongside their BIFROST_CONTRACT_PATH opt-out.
+  BIFROST_LANE_OVERLAY_PATH: /app/config/delegation/dev.bifrost.yaml
+  BIFROST_VERIFY_ENDPOINTS: ${BIFROST_VERIFY_ENDPOINTS:?runtime policy contract must set BIFROST_VERIFY_ENDPOINTS}
+  # OMN-15645: Hardcoded default — same locus/reason as BIFROST_CONTRACT_PATH
+  # above (OMN-12864: no ${VAR:-} ambient-override footgun). omnimarket#2000
+  # (OMN-15628) removed the packaged-default fallback in the delegation routing
+  # reducer, so an unbound key now fails boot with ProtocolConfigurationError
+  # instead of silently defaulting. The value is NOT a literal python3.X
+  # site-packages path (that trap is exactly what OMN-15628's runtime
+  # entrypoint self-heal exists to correct for a *stale* pin) — it is a fixed,
+  # version-independent location that docker/Dockerfile.runtime bakes into the
+  # image at build time from the installed omnimarket package's own configs/
+  # directory (glob-derived, never a hardcoded interpreter minor version).
+  # /app/config/ (not /app/contracts/) deliberately: the runtime services
+  # bind-mount ../contracts:/app/contracts:ro (host content that would shadow
+  # anything baked into that path at image-build time); /app/config/ carries
+  # no volume/bind-mount entry anywhere in these compose lane files.
+  # Services that have no delegation-routing surface (projection-api,
+  # contract-resolver) explicitly set DELEGATION_ROUTING_TIERS_PATH: "" in
+  # their own environment blocks below, mirroring the BIFROST_CONTRACT_PATH
+  # opt-out.
+  DELEGATION_ROUTING_TIERS_PATH: /app/config/delegation/routing_tiers.yaml
+  ONEX_SECRET_RESOLVER_CONFIG_PATH: ${DEV_RUNTIME_MAIN_SECRET_RESOLVER_CONFIG_PATH:?runtime policy contract must set DEV_RUNTIME_MAIN_SECRET_RESOLVER_CONFIG_PATH}
+  ONEX_SECRET_RESOLVER_CONFIG_JSON: ${DEV_RUNTIME_MAIN_SECRET_RESOLVER_CONFIG_JSON:?runtime policy contract must set DEV_RUNTIME_MAIN_SECRET_RESOLVER_CONFIG_JSON}
+  # Restrict the runtime surface to first-party infra + marketplace packages.
+  ONEX_ACTIVE_RUNTIME_PACKAGES: ${ONEX_ACTIVE_RUNTIME_PACKAGES:?runtime policy contract must set ONEX_ACTIVE_RUNTIME_PACKAGES}
+  # OMN-6440: Runtime contract YAMLs from omnibase_core (env var override for Docker)
+  ONEX_RUNTIME_CONTRACTS_DIR: /app/contracts/runtime
+  ONEX_LOG_LEVEL: ${ONEX_LOG_LEVEL:-INFO}
+  ONEX_ENVIRONMENT: ${ONEX_ENVIRONMENT:-local}
+  ONEX_DATABASE_TOPOLOGY_PROFILE: local
+  # Local Docker Redpanda uses a bounded single-shard broker. Cap default topic
+  # creation to one partition unless an operator explicitly opts into wider
+  # contract-declared partition counts.
+  ONEX_TOPIC_PROVISIONER_MAX_PARTITIONS: ${ONEX_TOPIC_PROVISIONER_MAX_PARTITIONS:-1}
+  ONEX_BOUNDARY_DLQ_ENABLED: ${DEV_BOUNDARY_DLQ_ENABLED:?runtime policy contract must set DEV_BOUNDARY_DLQ_ENABLED}
+  ONEX_SINGLE_OWNER_COMMAND_TOPICS: ${ONEX_SINGLE_OWNER_COMMAND_TOPICS:-0}
+  ONEX_TOPIC_ENFORCEMENT_MODE: ${ONEX_TOPIC_ENFORCEMENT_MODE:-warn}
+  ONEX_WIRING_STRICT_MODE: ${ONEX_WIRING_STRICT_MODE:-0}
+  # Linear API for build loop ticket fetching
+  LINEAR_API_KEY: ${LINEAR_API_KEY:?LINEAR_API_KEY must be set}
+  # GitHub API/CLI auth for runtime-owned PR lifecycle inventory and merge gates.
+  # gh reads GH_TOKEN in non-interactive containers; handlers using HTTP clients
+  # read GITHUB_TOKEN.
+  GITHUB_TOKEN: ${GITHUB_TOKEN:?GITHUB_TOKEN must be set}
+  GH_TOKEN: ${GITHUB_TOKEN:?GITHUB_TOKEN must be set}
+  # OMN-15529 (OMN-15362 blocker 3 cutover): OnexBot-OCC-Writer App identity for
+  # the OCC companion producer (node_occ_companion_effect / OccCompanionEmitter).
+  # This anchor is an ALLOWLIST, not a host-env pass-through — a credential in
+  # ~/.omnibase/.env is invisible to the container unless it is named here.
+  #
+  # Optional by design, NOT a silent fallback: the App key is provisioned only on
+  # hosts the operator has minted it onto (.201 today), and every other lane must
+  # render and run unchanged without it. Empty is the safe, inert state on both
+  # consumers, verified field-by-field against omnimarket@dev:
+  #   * handler_occ_companion_effect.py:187 and occ_companion_emitter.py:208 read
+  #     `os.environ.get("OMNI_OCC_GITHUB_AUTH_MODE", "pat").strip().lower() or "pat"`
+  #     — "" coalesces to PAT mode, the current behaviour, unchanged.
+  #   * github_app_auth.py resolves both credentials through
+  #     `resolve_api_key(..., required=False)`, which treats an empty value as
+  #     absent and raises GitHubAppCredentialMissingError in app mode rather than
+  #     falling back to the shared PAT.
+  # `:?` is therefore wrong here — it would wedge every lane that has no App key.
+  ONEXBOT_OCC_APP_ID: ${ONEXBOT_OCC_APP_ID:-}
+  ONEXBOT_OCC_PRIVATE_KEY: ${ONEXBOT_OCC_PRIVATE_KEY:-}
+  OMNI_OCC_GITHUB_AUTH_MODE: ${OMNI_OCC_GITHUB_AUTH_MODE:-}
+  # OMN-19492: HMAC secret of the onexbot-pr-reader App webhook, read by
+  # node_github_webhook_ingress_effect. Source of truth: secret store key
+  # dev:/shared/env/GITHUB_WEBHOOK_SECRET. Optional for the same reason as the
+  # OCC App pair above: a lane without it renders and runs, and the ingress
+  # node refuses every delivery (dead-lettered, never a silent success).
+  GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+  # OMN-15009: node_redeploy_deploy_effect signs rebuild commands before they
+  # cross the runtime/deploy-agent trust boundary. The deploy agent rejects
+  # unsigned commands, so an absent secret must fail at compose render time.
+  DEPLOY_AGENT_HMAC_SECRET: ${DEPLOY_AGENT_HMAC_SECRET:?DEPLOY_AGENT_HMAC_SECRET must be set in ~/.omnibase/.env}
+  # --- Infisical config (OMN-5382: removed from base env — injected per-bundle) ---
+  # Infisical vars are only present when the secrets bundle is selected.
+  # --- Container-internal service addresses (OMN-5381: same invariant as OMN-3431 for Kafka) ---
+  # Containers use Docker-internal valkey:6379. Host scripts use localhost:16379.
+  # Password is required — no fallback to dev defaults.
+  VALKEY_HOST: "valkey"
+  VALKEY_PORT: "6379"
+  VALKEY_PASSWORD: ${VALKEY_PASSWORD:-valkey-dev-password}
+  # OmniIntelligence domain plugin — Docker-internal hostname (same pattern as OMNIBASE_INFRA_DB_URL)
+  OMNIINTELLIGENCE_DB_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}@postgres:5432/omniintelligence"
+  OMNIDASH_ANALYTICS_DB_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}@postgres:5432/omnidash_analytics"
+  # ==========================================================================
+  # INTERNAL PROJECTION CONNECTION IDENTITY (OMN-16843, epic OMN-15426)
+  # ==========================================================================
+  # The `local` topology instance binds `omninode_runtime_service` to THREE DSN
+  # envs, one per database — OMNIBASE_INFRA_DB_URL, OMNIINTELLIGENCE_DB_URL and
+  # this one, which carries the `application` database under the
+  # `omninode_runtime` principal. `handler_wiring` resolves every binding a
+  # contract targets with `os.environ.get(binding.dsn_env, "")` and RAISES when
+  # any is empty.
+  #
+  # This key was set by ZERO compose files while both siblings were set by all
+  # five runtime services, so 19 `database_ref: application` contracts —
+  # projection_consumer_flow, projection_baselines, node_projection_traces and
+  # the rest — failed to prepare at every boot on every compose lane. Because
+  # auto-wiring is NON-STRICT the runtime then reported `status=healthy` with
+  # those projections silently unattached: a green lane consuming nothing.
+  # OMN-15426's landed slice (omninode_infra#803) wired the onex-dev Kubernetes
+  # workloads via secretKeyRef; this is the compose half of the same cutover.
+  #
+  # WHY THE BASE FILE AND NOT A LANE OVERLAY
+  # ----------------------------------------
+  # The inverse of the OMN-15363 analytics block below it. That identity is
+  # deliberately lab-lane-only because it is a PROVING-GROUND choice that must
+  # not leak to other lanes. This one is not a choice: `principal:
+  # omninode_runtime` is declared identically by every topology instance
+  # (local, onex-dev, onex-prod), so every lane needs the same identity and
+  # putting it here is what makes a future lane correct by default instead of
+  # rediscovering the defect by hand (OMN-16843 AC5).
+  #
+  # WHY NOT ${POSTGRES_USER}
+  # ------------------------
+  # `postgres` is the table OWNER and carries SUPERUSER + BYPASSRLS. Postgres
+  # exempts owners and BYPASSRLS roles from row-level security unconditionally,
+  # FORCE included. Resolving this pool as the superuser would satisfy the
+  # wiring check while re-creating, for a second connection pool, the exact
+  # RLS-exempt identity OMN-15363 removed from the analytics pool.
+  # `omninode_runtime` is NOSUPERUSER / NOBYPASSRLS / non-owner, and its
+  # authorization is the narrow per-table INSERT/SELECT/UPDATE set the topology
+  # instance declares — no DDL, no ownership, no tenant schema.
+  #
+  # `:?` and not `:-`: an empty password renders a NON-EMPTY DSN, which would
+  # pass the wiring check and move the failure from boot — where a log line
+  # names it — to first connect, surfacing as an auth error on whichever
+  # projection happens to flush first. That is strictly worse than the defect
+  # being fixed here. The credential VALUE is deployment-owned and lives in the
+  # host env / secret store (never this file); the LOGIN attach is minted by
+  # docker/migrations/forward/000_create_multiple_databases.sh, per 094's
+  # invariant that no credential material lives in a migration.
+  OMNINODE_INTERNAL_DB_URL: "postgresql://omninode_runtime:${OMNINODE_RUNTIME_PASSWORD:?OMNINODE_RUNTIME_PASSWORD must be set — the internal projections connect to omnidash_analytics as the non-BYPASSRLS omninode_runtime principal (OMN-16843), never as the postgres superuser}@postgres:5432/omnidash_analytics"
+  # ==========================================================================
+  # TENANT PROJECTION CONNECTION IDENTITY (OMN-15425 — the other half)
+  # ==========================================================================
+  # Everything the block above says about `omninode_runtime` and the
+  # OMNINODE_INTERNAL domain applies here, unchanged, to
+  # `tenant_projection_writer` and the TENANT domain. The two are deliberately
+  # symmetric: one database (omnidash_analytics), one login role per binding.
+  #
+  # WHY THIS IS A SEPARATE DSN ENV AND NOT A REUSE OF OMNIDASH_ANALYTICS_DB_URL
+  # --------------------------------------------------------------------------
+  # It is the same reason env-example-full.txt already records for
+  # OMNINODE_INTERNAL_DB_URL: the `tenant_projection` binding shares the
+  # database with OMNIDASH_ANALYTICS_DB_URL but connects as a DIFFERENT
+  # principal, which is why it is a separate binding in the topology instance
+  # rather than a reuse of that DSN. Sharing the env var is not merely untidy,
+  # it is unsatisfiable: OMN-16911's `ProjectionBindingConnections.get()`
+  # attests `current_user` against `binding.principal` on every connection, and
+  # one DSN cannot read back as both `app_dashboard` and
+  # `tenant_projection_writer`.
+  #
+  # THE DEFECT THIS CLOSES
+  # ----------------------
+  # Before this key existed the binding resolved OMNIDASH_ANALYTICS_DB_URL,
+  # which the dev-lane overlay below points at `role_omnidash`. On the .201 dev
+  # lane, 2026-08-29, that produced 143/143 DLQ'd messages on
+  # node_projection_delegation_inference_response with
+  #   PermissionError: Projection binding 'tenant_projection' connected as
+  #     ('role_omnidash', 'omnidash_analytics'),
+  #     expected ('tenant_projection_writer', 'omnidash_analytics')
+  # — the database matched, the login role did not. 100% loss (OMN-15425).
+  #
+  # WHY THE BASE FILE AND NOT A LANE OVERLAY
+  # ----------------------------------------
+  # `principal: tenant_projection_writer` is declared identically by every
+  # topology instance (local, onex-dev, onex-prod), so this is not a lane
+  # proving-ground choice the way the OMN-15363 analytics override below is.
+  # Every lane needs the same identity.
+  #
+  # WHY NOT ${POSTGRES_USER}, AND WHY `:?`
+  # --------------------------------------
+  # Both exactly as reasoned in the OMN-16843 block above, and more sharply
+  # here: `tenant_projection_writer` is the identity the OMN-14894
+  # tenant_isolation policies are enforced against, so resolving this pool as
+  # the SUPERUSER/BYPASSRLS owner would not just re-create an RLS-exempt pool,
+  # it would make the tenant isolation proof a false clean. The credential
+  # VALUE is deployment-owned (host env / secret store, never this file); the
+  # LOGIN attach is minted by 000_create_multiple_databases.sh's
+  # LOGIN_ONLY_ROLE_MAP, and 102 creates the role itself NOLOGIN.
+  ONEX_TENANT_DB_URL: "postgresql://tenant_projection_writer:${TENANT_PROJECTION_WRITER_PASSWORD:?TENANT_PROJECTION_WRITER_PASSWORD must be set — the tenant projections connect to omnidash_analytics as the non-BYPASSRLS tenant_projection_writer principal (OMN-15425), never as the postgres superuser and never as the dashboard-facing analytics role}@postgres:5432/omnidash_analytics"
+  # --- OmniMemory domain plugin ---
+  # PluginMemory activation policy is contract-owned. Compose only consumes the
+  # rendered runtime-policy env values.
+  OMNIMEMORY_ENABLED: ${OMNIMEMORY_ENABLED:?runtime policy contract must set OMNIMEMORY_ENABLED}
+  OMNIMEMORY_MEMGRAPH_HOST: ${OMNIMEMORY_MEMGRAPH_HOST?runtime policy contract must set OMNIMEMORY_MEMGRAPH_HOST}
+  OMNIMEMORY_MEMGRAPH_PORT: ${OMNIMEMORY_MEMGRAPH_PORT:?runtime policy contract must set OMNIMEMORY_MEMGRAPH_PORT}
+  OMNIMEMORY_DB_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}@postgres:5432/omnimemory"
+  # OMN-14297: node_architecture_graph_{populate,query}_effect's bolt_uri
+  # config ref. Same Memgraph instance as OMNIMEMORY_MEMGRAPH_HOST/PORT above
+  # (container omnimemory-memgraph, aliased omnibase-infra-memgraph on this
+  # network) — only reachable from services on omnibase-infra-network (dev
+  # lane); stability-test/judge/prod run on isolated lane networks and cannot
+  # resolve this hostname.
+  ARCH_GRAPH_BOLT_URI: ${ARCH_GRAPH_BOLT_URI:?runtime policy contract must set ARCH_GRAPH_BOLT_URI}
+  # Filesystem crawler path prefixes — comma-separated list of dirs to crawl for .md files
+  OMNIMEMORY_CRAWL_PATH_PREFIXES: ${OMNIMEMORY_CRAWL_PATH_PREFIXES:-/data/omninode/omni_home}
+  # Qdrant vector store (embeddings for semantic memory)
+  QDRANT_HOST: ${QDRANT_HOST:-}
+  QDRANT_PORT: ${QDRANT_PORT:-6333}
+  QDRANT_API_KEY: ${QDRANT_API_KEY:-}
+  # Marketplace skill-manifest root for topic provisioning (flat-list topics.yaml manifests).
+  # This is the single runtime ingress for marketplace-packaged skills.
+  ONEX_MARKETPLACE_SKILLS_ROOT: ${ONEX_MARKETPLACE_SKILLS_ROOT:-/app/skills}
+  # --- Infisical config store ---
+  # Runtime config prefetch is opt-in for local Docker. Use ONEX_RUNTIME_INFISICAL_*
+  # so host-level INFISICAL_* variables do not accidentally enable it.
+  INFISICAL_ADDR: ${ONEX_RUNTIME_INFISICAL_ADDR:-}
+  INFISICAL_CLIENT_ID: ${ONEX_RUNTIME_INFISICAL_CLIENT_ID:-}
+  INFISICAL_CLIENT_SECRET: ${ONEX_RUNTIME_INFISICAL_CLIENT_SECRET:-}
+  INFISICAL_PROJECT_ID: ${ONEX_RUNTIME_INFISICAL_PROJECT_ID:-}
+  INFISICAL_ENVIRONMENT: ${ONEX_RUNTIME_INFISICAL_ENVIRONMENT:-}
+  # OMN-5381: Containers always use event routing. Host-side USE_EVENT_ROUTING is for local dev scripts.
+  USE_EVENT_ROUTING: "true"
+  # --- Keycloak / Auth (auth profile, OMN-3361) ---
+  # OMN-5381: Keycloak internal address — hardcoded literal.
+  # KEYCLOAK_ISSUER: external browser-visible URL — must match token iss claim.
+  KEYCLOAK_ADMIN_URL: "http://keycloak:8080"
+  KEYCLOAK_REALM: ${KEYCLOAK_REALM:-omninode}
+  KEYCLOAK_ADMIN_CLIENT_ID: ${KEYCLOAK_ADMIN_CLIENT_ID:-onex-admin}
+  KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET:-}
+  KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-http://localhost:28080/realms/omninode}
+  # OMN-15918: gateway_attach dependency wiring (node_gateway_attach_effect).
+  # Introspection (RFC 7662) and JWKS (RFC 7517) endpoints for the same
+  # in-network Keycloak this block already targets via KEYCLOAK_ADMIN_URL --
+  # container-to-container, never the browser-facing KEYCLOAK_ISSUER host.
+  # Keep the URLs explicit so compose interpolation stays single-pass; the
+  # runtime contract owns the deployed topology and rejects nested defaults.
+  GATEWAY_ATTACH_KEYCLOAK_INTROSPECTION_URL: ${GATEWAY_ATTACH_KEYCLOAK_INTROSPECTION_URL:?GATEWAY_ATTACH_KEYCLOAK_INTROSPECTION_URL must be set in ~/.omnibase/.env}
+  GATEWAY_ATTACH_KEYCLOAK_JWKS_URL: ${GATEWAY_ATTACH_KEYCLOAK_JWKS_URL:?GATEWAY_ATTACH_KEYCLOAK_JWKS_URL must be set in ~/.omnibase/.env}
+  ONEX_SERVICE_CLIENT_ID: ${ONEX_SERVICE_CLIENT_ID:-onex-service}
+  ONEX_SERVICE_CLIENT_SECRET: ${ONEX_SERVICE_CLIENT_SECRET:?ONEX_SERVICE_CLIENT_SECRET must be set in ~/.omnibase/.env}
+  # --- Registration lifecycle (OMN-3446) ---
+  # Auto-ACK local/internal nodes after introspection. Never set in production —
+  # external nodes send their own ack. Must be explicitly set to true or false.
+  ONEX_REGISTRATION_AUTO_ACK: ${ONEX_REGISTRATION_AUTO_ACK:?ONEX_REGISTRATION_AUTO_ACK must be set in ~/.omnibase/.env (true or false)}
+  # --- LLM endpoints (OMN-7979) ---
+  # PluginLlm.should_activate() returns true when any LLM_*_URL in
+  # _LLM_URL_ENV_VARS is set (e.g. LLM_SMALL_URL, LLM_GLM_URL,
+  # LLM_OPENROUTER_URL, or the four below). This compose contract requires
+  # these four baseline endpoints so delegation wiring is consistently
+  # available; without at least one, LlmCallerDelegation wires llm_caller=None.
+  # Values come from ~/.omnibase/.env (or Infisical in managed deployments).
+  # This PluginLlm transport lane is outside Bifrost receipt delegation: the
+  # mounted typed Bifrost overlay is its sole model/endpoint authority.
+  LLM_CODER_URL: ${LLM_CODER_URL:?LLM_CODER_URL required for PluginLlm activation}
+  LLM_CODER_FAST_URL: ${LLM_CODER_FAST_URL:?LLM_CODER_FAST_URL required for PluginLlm activation}
+  LLM_EMBEDDING_URL: ${LLM_EMBEDDING_URL:?LLM_EMBEDDING_URL required for PluginLlm activation}
+  LLM_DEEPSEEK_R1_URL: ${LLM_DEEPSEEK_R1_URL:?LLM_DEEPSEEK_R1_URL required for PluginLlm activation}
+  # OMN-20173: GLM variables are optional; Coding Plan use is Claude Code only.
+  # System callers must supply a separately entitled endpoint explicitly.
+  LLM_GLM_URL: ${LLM_GLM_URL:-}
+  LLM_GLM_MODEL_NAME: ${LLM_GLM_MODEL_NAME:-}
+  LLM_GLM_API_KEY: ${LLM_GLM_API_KEY:-}
+  # Gemini/Google ADK hackathon lane: the routing authority declares
+  # api_key_ref=llm.gemini.api_key for cloud-gemini-flash. The secret resolver
+  # maps that ref to GEMINI_API_KEY, so runtime containers must receive the key.
+  GEMINI_API_KEY: ${GEMINI_API_KEY:?GEMINI_API_KEY is required for Gemini routing}
+  GOOGLE_API_KEY: ${GOOGLE_API_KEY:?GOOGLE_API_KEY is required for Gemini/Google ADK routing}
+  # OMN-17398: the free OpenRouter rung (cheap_frontier, a `:free` model at zero
+  # cost) declares the OpenRouter secret_ref, which the runtime policy's
+  # resolver config maps to this variable. The value lives in the secret store at
+  # /lab-provider-keys and in the lane host's .env; without this line it never
+  # reached the container and the rung was dead on the lab. Optional on purpose
+  # (allowlisted in tests/unit/infra/test_compose_no_silent_fallbacks.py): an
+  # empty value leaves the ref unresolved, which the routing report shows and
+  # the effect boundary raises on. It is never a required env var.
+  OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+  # Vertex bearer path (OMN-12971): ADDITIVE next to the Gemini API-key path. The
+  # routing authority declares secret_ref=llm.vertex.access_token for
+  # cloud-vertex-gemini; the secret resolver maps it to the mounted token FILE
+  # (source_type=file, /run/secrets/vertex_access_token — see
+  # runtime_policy.contract.yaml). The effect boundary posts Authorization: Bearer
+  # <value>, so that file holds a short-lived OAuth access token minted from ADC
+  # (`gcloud auth application-default print-access-token`), refreshed by the
+  # operator/bootstrap (tokens expire ~1h). The token VALUE is never in committed
+  # config. These vars fail fast when the Vertex route is configured so a partial
+  # project/region/endpoint setup cannot silently disable the bearer path.
+  # BIFROST_VERTEX_GEMINI_ENDPOINT_URL is the COMPLETE project+region Vertex
+  # OpenAI-compat chat-completions URL, supplied by the overlay (OMN-12815).
+  BIFROST_VERTEX_GEMINI_ENDPOINT_URL: ${BIFROST_VERTEX_GEMINI_ENDPOINT_URL:?BIFROST_VERTEX_GEMINI_ENDPOINT_URL is required for Vertex Gemini routing}
+  GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT:?GOOGLE_CLOUD_PROJECT is required for Vertex Gemini routing}
+  GOOGLE_CLOUD_LOCATION: ${GOOGLE_CLOUD_LOCATION:?GOOGLE_CLOUD_LOCATION is required for Vertex Gemini routing}
+  # --- Slack alert delivery (OMN-16778 / OMN-13733) ---
+  # node_slack_publish_effect resolves api_key_ref SLACK_BOT_TOKEN through the
+  # canonical secret resolver and posts to https://slack.com/api/chat.postMessage;
+  # node_consumer_flow_stall_alert_effect resolves SLACK_CHANNEL_ID the same way
+  # for its destination. Both were reachable and wired on the .201 dev lane while
+  # NEITHER variable existed in the container, so a decided stall alert had no
+  # token and no channel — an alerting path that cannot alert, which is the exact
+  # failure class epic OMN-16776 exists to end.
+  #
+  # Empty-permitting on purpose (allowlisted in
+  # tests/unit/infra/test_compose_no_silent_fallbacks.py with the same rationale
+  # as ONEXBOT_OCC_*): these live in the operator's host `.env` only on the lanes
+  # that alert, so a `:?` form would wedge compose render everywhere else. An
+  # empty value is not a silent disable — the resolver is required=True and
+  # raises at the effect boundary, and the stall alert records the undelivered
+  # decision by name on its terminal event.
+  SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN:-}
+  SLACK_CHANNEL_ID: ${SLACK_CHANNEL_ID:-}
+  LLM_ENDPOINT_CIDR_ALLOWLIST: ${LLM_ENDPOINT_CIDR_ALLOWLIST:?LLM_ENDPOINT_CIDR_ALLOWLIST required for local LLM HTTP egress}
+  LLM_CLOUD_ENDPOINT_HOST_ALLOWLIST: ${LLM_CLOUD_ENDPOINT_HOST_ALLOWLIST:?runtime policy contract must set LLM_CLOUD_ENDPOINT_HOST_ALLOWLIST}
+  LOCAL_LLM_SHARED_SECRET: ${LOCAL_LLM_SHARED_SECRET:?LOCAL_LLM_SHARED_SECRET required for local LLM HTTP request signing}
+  # --- OpenTelemetry (OMN-8697: wired to Phoenix for LLM span visibility) ---
+  # Phoenix runs alongside the runtime; all containers export spans via OTLP HTTP.
+  # OTEL_SERVICE_NAME is set per-service (see individual service blocks below).
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://phoenix:6006"
+  OTEL_TRACES_EXPORTER: "otlp"
+# ==========================================================================
+# Services
+# ==========================================================================
+services:
+  # ==========================================================================
+  # PostgreSQL - Primary Data Store
+  # ==========================================================================
+  # SECURITY: Database credentials require explicit configuration.
+  # Never use default passwords in production environments.
+  # Set POSTGRES_PASSWORD in .env or environment before starting.
+  postgres:
+    image: postgres:16-alpine
+    container_name: omnibase-infra-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      # SECURITY: Password is required and must be explicitly set (no default)
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: omnibase_infra
+      # Per-service role passwords (DB-SPLIT-05 / OMN-2056)
+      # Roles are created only when the corresponding password env var is set.
+      # Empty defaults are intentional — the init script treats empty as "skip role".
+      # Generate each with: openssl rand -hex 32
+      ROLE_OMNIBASE_PASSWORD: ${ROLE_OMNIBASE_PASSWORD:-}
+      ROLE_OMNICLAUDE_PASSWORD: ${ROLE_OMNICLAUDE_PASSWORD:-}
+      ROLE_OMNIDASH_PASSWORD: ${ROLE_OMNIDASH_PASSWORD:-}
+      ROLE_OMNIINTELLIGENCE_PASSWORD: ${ROLE_OMNIINTELLIGENCE_PASSWORD:-}
+      ROLE_OMNIMEMORY_PASSWORD: ${ROLE_OMNIMEMORY_PASSWORD:-}
+      ROLE_OMNINODE_PASSWORD: ${ROLE_OMNINODE_PASSWORD:-}
+      # OMN-16843: login credential for the topology-governed omninode_runtime
+      # principal, consumed by 000_create_multiple_databases.sh's
+      # LOGIN_ONLY_ROLE_MAP. Distinct from ROLE_OMNINODE_PASSWORD above, which
+      # belongs to role_omninode / omninode_cloud — different role, different
+      # database. Empty-means-skip here for the same reason as the ROLE_* vars:
+      # this is the FIRST-STARTUP provisioning seam and a lane that has not
+      # minted the credential must not get a half-configured role. The
+      # fail-closed `:?` lives on the CONSUMER (OMNINODE_INTERNAL_DB_URL in
+      # x-runtime-env), where an unset value is an actual defect rather than an
+      # unprovisioned volume.
+      OMNINODE_RUNTIME_PASSWORD: ${OMNINODE_RUNTIME_PASSWORD:-}
+      # OMN-15425: the TENANT-domain counterpart of the variable above, same
+      # LOGIN_ONLY_ROLE_MAP seam, same empty-means-skip first-startup
+      # semantics. The fail-closed `:?` lives on the CONSUMER
+      # (ONEX_TENANT_DB_URL in x-runtime-env).
+      TENANT_PROJECTION_WRITER_PASSWORD: ${TENANT_PROJECTION_WRITER_PASSWORD:-}
+      # OMN-18060: the third LOGIN_ONLY_ROLE_MAP entry -- chain_canary_reader,
+      # the read-only instrument identity node_chain_canary_effect uses for its
+      # OMN-16025 link-2 projection readback. Empty-means-skip, exactly as on
+      # the two keys above: a lane with no canary provisioned leaves the role
+      # absent, run-forward-migrations.sh's LOGIN_ONLY_ROLE_GRANT_MAP seam
+      # skips its grants and names the role in the skip, and the canary reports
+      # skipped_not_configured -- red and honest, never a green from a check
+      # that never ran.
+      #
+      # OMN-18115: the GRANTS come from scripts/run-forward-migrations.sh, not
+      # from the flat migration stream. That seam re-asserts CONNECT, schema
+      # USAGE, and column-scoped SELECT (correlation_id, state) on every compose
+      # up, and FAILS the run when the readback does not confirm them -- a GRANT
+      # issued without grant option on the object warns and returns success, so
+      # the readback is the only thing separating a real grant from a silent
+      # no-op. This comment previously credited a numbered migration that does
+      # not exist, and that error is what OMN-18115 was filed against.
+      #
+      # TWO LANES, AND THE MANAGED ONE HAS NEITHER SEAM. This principal is a
+      # compose-lane instrument. It is minted by 000_create_multiple_databases.sh
+      # on a fresh volume and re-asserted by run-forward-migrations.sh's
+      # credential seam on a warm one -- both compose-only. The k8s migrate Job
+      # applies the flat SQL corpus and never runs that script, so on the
+      # managed (RDS) lane chain_canary_reader has no pg_roles row, holds
+      # nothing, and needs nothing. That asymmetry is the reason the grant lives
+      # in the runner rather than in the flat stream: a flat file would deliver
+      # on the lanes that already have the runner, and skip on the one lane that
+      # would otherwise apply it.
+      CHAIN_CANARY_READER_PASSWORD: ${CHAIN_CANARY_READER_PASSWORD:-}
+    ports:
+      - "${POSTGRES_EXTERNAL_PORT:-5436}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations/forward:/docker-entrypoint-initdb.d:ro
+    networks:
+      - omnibase-infra-network
+    healthcheck:
+      !!merge <<: *healthcheck-defaults
+      # OMN-17150 defect 1: probe over TCP, not the local unix socket. On a
+      # fresh volume the postgres image runs a TEMPORARY server for its
+      # initdb / init-script phase with `listen_addresses=''` — unix socket
+      # only, no TCP listener. A socket-based `pg_isready` therefore answers
+      # HEALTHY against that temporary server, releases every
+      # `condition: service_healthy` dependent, and those dependents are then
+      # refused while the temporary server is stopped and the real one starts.
+      # Probing the compose SERVICE NAME (not a literal address) forces a real
+      # TCP connection over the lane network — the same path every dependent
+      # uses — so this check answers TRUE only for the server they can actually
+      # reach, which is the property `service_healthy` is supposed to carry. A
+      # loopback literal would work equally well and is deliberately not used:
+      # test_self_contained_infrastructure rejects hardcoded addresses in
+      # compose, and it is right to — the service name is the portable form. Measured on omnibase-infra-lakshman 2026-08-31:
+      # intelligence-migration was released 5.7s after postgres started and
+      # ~29s before postgres was really serving, and died on the refusal.
+      #
+      # start_period is sized for a genuine cold initdb — on this image the
+      # whole /docker-entrypoint-initdb.d forward-migration tree runs inside
+      # that window — so a still-initialising server stays `health: starting`
+      # instead of flipping UNHEALTHY and failing the dependents outright.
+      # Same right-sizing rationale as the OMN-12973 migration-gate floor. The
+      # shorter interval keeps a warm volume reporting healthy quickly.
+      test: ["CMD-SHELL", "pg_isready -h postgres -p 5432 -U ${POSTGRES_USER:-postgres} -d omnibase_infra"]
+      interval: 10s
+      start_period: 180s
+      retries: 5
+    logging: *logging-defaults
+    restart: unless-stopped
+    labels:
+      - "com.omninode.service=postgres"
+      - "com.omninode.layer=infrastructure"
+  # ==========================================================================
+  # Redpanda - Kafka-Compatible Event Streaming (LOCAL DOCKER, ALWAYS-ON)
+  # ==========================================================================
+  # OMN-3431: Local Docker Redpanda replaces the remote M2 Ultra broker.
+  # Containers: redpanda:9092 (Docker-internal). Host: localhost:19092 (external).
+  # Invariant: NO Docker service inherits KAFKA_BOOTSTRAP_SERVERS from the host env.
+  #            All broker addresses are hardcoded literals in compose.
+  # Memory: REDPANDA_MEMORY defaults to 8G. Override via env for constrained hosts.
+  redpanda:
+    image: redpandadata/redpanda:v24.2.7
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    container_name: omnibase-infra-redpanda
+    command:
+      - redpanda
+      - start
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+      # OMN-15173: DEV_REDPANDA_ADVERTISE_HOST has NO silent default. A silent
+      # ${VAR:-localhost} default rendered a broker address unreachable by any
+      # off-host client (CI runner, another machine) whenever the operator
+      # forgot to export the var — the client-side symptom (connection refused
+      # / timeout against a "localhost" the client cannot resolve to the actual
+      # host) surfaces far from this file. Fail fast instead: set it explicitly
+      # to localhost for pure single-host dev, or to the reachable host/IP for
+      # off-host clients.
+      - --advertise-kafka-addr internal://redpanda:9092,external://${DEV_REDPANDA_ADVERTISE_HOST:?DEV_REDPANDA_ADVERTISE_HOST is required - use localhost for single-host dev or the reachable host/IP for off-host clients}:${REDPANDA_EXTERNAL_PORT:-19092}
+      - --pandaproxy-addr internal://0.0.0.0:8082,external://0.0.0.0:18082
+      - --advertise-pandaproxy-addr internal://redpanda:8082,external://${DEV_REDPANDA_ADVERTISE_HOST:?DEV_REDPANDA_ADVERTISE_HOST is required - use localhost for single-host dev or the reachable host/IP for off-host clients}:${REDPANDA_PANDAPROXY_PORT:-18082}
+      - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:18081
+      - --rpc-addr redpanda:33145
+      - --advertise-rpc-addr redpanda:33145
+      - --mode dev-container
+      - --smp 1
+      # OMN-19085: the dev lane reads its OWN dial, not the shared
+      # REDPANDA_MEMORY. Three lanes -- dev (this file), stability-test
+      # (docker-compose.stability-test.yml) and judge (docker-compose.judge.yml)
+      # -- all read REDPANDA_MEMORY, and the value that actually takes effect
+      # comes from the host-global operator env file that deploy-runtime.sh
+      # resolves via OMNIBASE_OPERATOR_ENV_FILE. So there was no way to change
+      # the dev broker's reservation without also changing the other two at
+      # their next recreate. lakshman, dogfood, prod and ci-bus already have
+      # their own variables; dev did not, and now does.
+      #
+      # The value is also a fix, not just a rename. The operator env set 24G,
+      # which is not in version control and appears in no required-env manifest,
+      # so nothing declared or enforced it. On a 91 GB host running four brokers
+      # that reserved 52 GB between them while holding 2.9 GB resident, and the
+      # kernel paged the unused arena out: 22.7 GB of this broker alone sat in
+      # swap (OMN-19077). Carrying the value here as a default closes the
+      # undeclared-env gap for this lane.
+      #
+      # Sized against a control on the same host rather than guessed: the judge
+      # broker serves 1537 partitions on 2G, and this one carries 1756, so 12G
+      # is a deliberately conservative first step. 12G -> 8G is a later ticket,
+      # gated on a 24h soak. Raise it back by setting DEV_REDPANDA_MEMORY.
+      - --memory ${DEV_REDPANDA_MEMORY:-12G}
+      # OMN-5176: --admin-addr removed — rpk wraps it into redpanda.yaml but
+      # the actual binary rejects the flag, causing a crash-loop on recreate.
+      # Admin API defaults to 0.0.0.0:9644 in dev-container mode; port mapping
+      # in ports: section is sufficient for external access.
+      - --default-log-level=warn
+      # OMN-7302: raise partition cap from default 1000 to 7000 to prevent
+      # "Not enough resources" failures when topic count × partitions exceeds
+      # the per-shard limit.
+      # NOTE: --set is a node-startup flag that may not persist to cluster config
+      # on a fresh volume. The primary reset-proof mechanism is .bootstrap.yaml
+      # (mounted below). The redpanda-partition-cap init service also applies the
+      # value via rpk cluster config set post-startup. All three layers agree on
+      # 7000. (OMN-13469)
+      - --set topic_partitions_per_shard=7000
+    ports:
+      - "${REDPANDA_EXTERNAL_PORT:-19092}:19092"
+      # Pandaproxy (REST API for Kafka)
+      - "${REDPANDA_PANDAPROXY_PORT:-18082}:18082"
+      # Schema Registry
+      - "${REDPANDA_SCHEMA_REGISTRY_PORT:-18081}:18081"
+      # OMN-4959: Admin API (used by omnidash event-bus-health-poller)
+      - "${REDPANDA_ADMIN_PORT:-9644}:9644"
+    volumes:
+      - redpanda_data:/var/lib/redpanda/data
+      # OMN-13469: .bootstrap.yaml is the volume-reset-proof primary mechanism.
+      # Redpanda reads this file on first cluster formation (fresh volume) and
+      # applies the config before any topics are created. This is belt #1;
+      # the --set flag above is belt #2; the redpanda-partition-cap init service
+      # is belt #3. Do NOT apply to prod/stability/judge (follow-up: OMN-13469).
+      - ./redpanda/.bootstrap.yaml:/etc/redpanda/.bootstrap.yaml:ro
+    networks:
+      - omnibase-infra-network
+    healthcheck:
+      !!merge <<: *healthcheck-defaults
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy:.*true' || exit 1"]
+      start_period: 30s
+    logging: *logging-defaults
+    restart: unless-stopped
+    labels:
+      - "com.omninode.service=redpanda"
+      - "com.omninode.layer=infrastructure"
+  # ==========================================================================
+  # Redpanda Partition Cap - Init Service (OMN-11886)
+  # ==========================================================================
+  # One-shot init container that raises the per-shard partition limit from the
+  # Redpanda default (1000) to 7000 via rpk cluster config set, matching the
+  # prod and stability-test lane values. This complements the --set flag already
+  # passed in dev-container mode by ensuring the value is persisted to cluster
+  # config and visible to rpk introspection tools.
+  #
+  # Runtime services that auto-create topics (omninode-runtime) must wait for
+  # this container to complete before starting, to avoid hitting partition limits
+  # on fresh Redpanda volumes.
+  redpanda-partition-cap:
+    image: redpandadata/redpanda:v24.2.7
+    container_name: omnibase-infra-redpanda-partition-cap
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        /usr/bin/rpk -X brokers=redpanda:9092 -X admin.hosts=redpanda:9644 cluster config set topic_partitions_per_shard 7000
+        /usr/bin/rpk -X brokers=redpanda:9092 -X admin.hosts=redpanda:9644 cluster config set topic_memory_per_partition 1048576
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    networks:
+      - omnibase-infra-network
+    restart: "no"
+    labels:
+      - "com.omninode.service=redpanda-partition-cap"
+      - "com.omninode.layer=infrastructure"
+      - "com.omninode.ticket=OMN-11886"
+  # ==========================================================================
+  # Topic Provisioning
+  # ==========================================================================
+  # Topics are provisioned by TopicProvisioner on runtime boot (service_kernel.py).
+  # The single source of truth for topic names and config is ALL_PLATFORM_TOPIC_SPECS
+  # in src/omnibase_infra/topics/platform_topic_suffixes.py.
+  #
+  # For manual provisioning without the runtime (e.g., development without runtime services):
+  #   uv run python -m omnibase_infra.event_bus.service_topic_manager
+  # ==========================================================================
+  # Valkey - Redis-Compatible Cache and Pub/Sub
+  # ==========================================================================
+  # SECURITY NOTE: Port 16379 is intentionally exposed for local development.
+  # This allows host-based tools and tests to connect directly to Valkey.
+  # The default binding to 0.0.0.0 is acceptable for development environments
+  # where localhost isolation via host firewall provides sufficient security.
+  # Password authentication is enabled by default (VALKEY_PASSWORD=valkey-dev-password).
+  # For production, either:
+  #   - Remove port exposure and use internal Docker networking only
+  #   - Bind to 127.0.0.1: "127.0.0.1:16379:6379"
+  #   - Set a strong VALKEY_PASSWORD in .env
+  valkey:
+    image: valkey/valkey:8.0-alpine
+    container_name: omnibase-infra-valkey
+    # Shell form avoids passing empty string arguments when VALKEY_PASSWORD is unset
+    # $$ escapes prevent Docker Compose from interpolating; the container's
+    # shell expands VALKEY_PASSWORD from the environment block below.
+    command: >-
+      sh -c 'valkey-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru $${VALKEY_PASSWORD:+--requirepass "$$VALKEY_PASSWORD"}'
+    ports:
+      - "${VALKEY_EXTERNAL_PORT:-16379}:6379"
+    volumes:
+      - valkey_data:/data
+    networks:
+      - omnibase-infra-network
+    environment:
+      # Pass password for healthcheck authentication
+      # SECURITY: Set VALKEY_PASSWORD in .env for production. Default is for local dev only.
+      VALKEY_PASSWORD: ${VALKEY_PASSWORD:-valkey-dev-password}
+    healthcheck:
+      !!merge <<: *healthcheck-defaults
+      # Use password for healthcheck if VALKEY_PASSWORD is set
+      test: ["CMD-SHELL", "valkey-cli $${VALKEY_PASSWORD:+-a \"$$VALKEY_PASSWORD\" --no-auth-warning} ping | grep -q PONG"]
+    logging: *logging-defaults
+    restart: unless-stopped
+    labels:
+      - "com.omninode.service=valkey"
+      - "com.omninode.layer=infrastructure"
+  # ==========================================================================
+  # Memgraph - Graph Database (Optional, omnimemory profile)
+  # ==========================================================================
+  # Added: OMN-4310 — Memgraph must share omnibase-infra-network so that
+  # omninode-runtime (PluginMemory) can reach it. It CANNOT run only in
+  # omnimemory/docker-compose.yml (separate network, unreachable from runtime).
+  omnibase-infra-memgraph:
+    image: "memgraph/memgraph:${MEMGRAPH_VERSION:-2.18.1}"
+    container_name: "omnibase-infra-memgraph"
+    profiles: ["omnimemory", "full"]
+    restart: unless-stopped
+    ports:
+      - "${MEMGRAPH_BOLT_PORT:-7687}:7687"
+      - "${MEMGRAPH_HTTP_PORT:-7444}:7444"
+    networks:
+      - omnibase-infra-network
+    volumes:
+      - omnibase-infra-memgraph-data:/var/lib/memgraph
+      - omnibase-infra-memgraph-logs:/var/log/memgraph
+    environment:
+      MEMGRAPH_BOLT_PORT: "${MEMGRAPH_BOLT_PORT:-7687}"
+      MEMGRAPH_HTTP_PORT: "${MEMGRAPH_HTTP_PORT:-7444}"
+    command: >
+      --storage-snapshot-retention-count=2 --storage-wal-enabled=true --storage-snapshot-interval-sec=3600 --log-level=WARNING
+
+    healthcheck:
+      # OMN-9061: previous `echo > /dev/tcp/...` needed bash, but CMD-SHELL uses
+      # /bin/sh which parses it as a file redirect ("Directory nonexistent").
+      # mgconsole ships in the image and proves Bolt accepts a real query.
+      test: ["CMD-SHELL", "echo 'RETURN 1;' | mgconsole --host localhost --port ${MEMGRAPH_BOLT_PORT:-7687} --output-format=csv"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    mem_limit: "${MEMGRAPH_MEMORY_LIMIT_MB:-4096}m"
+    labels:
+      - "com.omninode.service=memgraph"
+      - "com.omninode.layer=infrastructure"
+  # ==========================================================================
+  # Infisical - Secrets Management (always-on since OMN-5831)
+  # ==========================================================================
+  infisical:
+    image: infisical/infisical:v0.146.0-postgres
+    container_name: omnibase-infra-infisical
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    environment:
+      DB_CONNECTION_URI: ${INFISICAL_DB_CONNECTION_URI:?INFISICAL_DB_CONNECTION_URI must be set in ~/.omnibase/.env}
+      # Redis URL for Infisical's cache backend (Valkey is Redis-compatible)
+      REDIS_URL: ${INFISICAL_REDIS_URL:?INFISICAL_REDIS_URL must be set in ~/.omnibase/.env}
+      # SECURITY: INFISICAL_ENCRYPTION_KEY and INFISICAL_AUTH_SECRET must be set
+      # in .env (or environment). There are no inline defaults -- the service will
+      # refuse to start without them to prevent running with known-insecure keys.
+      # Generate with: openssl rand -hex 16 (encryption) / openssl rand -hex 32 (auth)
+      # Development defaults are provided in docker/.env.example.
+      ENCRYPTION_KEY: ${INFISICAL_ENCRYPTION_KEY:?INFISICAL_ENCRYPTION_KEY must be set in .env}
+      AUTH_SECRET: ${INFISICAL_AUTH_SECRET:?INFISICAL_AUTH_SECRET must be set in .env}
+      SITE_URL: ${INFISICAL_SITE_URL:-http://localhost:8881}
+      TELEMETRY_ENABLED: "false"
+    ports:
+      # OMN-13417: dev lane infisical defaults to host port 8881 so a cold dev
+      # `docker compose up` no longer collides with the stability-test lane
+      # infisical (omnibase-infra-infisical-stability), which binds host 8880.
+      # The two lanes are separate compose projects on the same host; sharing the
+      # 8880 default made dev `up` exit rc=1 once stability was already running.
+      - "${INFISICAL_EXTERNAL_PORT:-8881}:8080"
+    networks:
+      - omnibase-infra-network
+    healthcheck:
+      !!merge <<: *healthcheck-defaults
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/api/status"]
+      start_period: 60s
+    logging: *logging-defaults
+    restart: unless-stopped
+    labels:
+      - "com.omninode.service=infisical"
+      - "com.omninode.layer=infrastructure"
+  # ==========================================================================
+  # Keycloak - OIDC / Auth Service (Default Profile) [OMN-3361, OMN-10089]
+  # ==========================================================================
+  # Local Keycloak for OIDC authentication in dev. Eliminates dependency on
+  # auth.omninode.ai for local development.
+  #
+  # OMN-10089: Moved out of the `auth` profile into the default profile so a
+  # vanilla `docker compose up -d` brings up the full local auth stack. The
+  # top-level omnibase Makefile (`make docker-up`) no longer needs to pass
+  # `--profile auth`. Skip locally with `docker compose stop keycloak` after
+  # startup if not needed.
+  #
+  # Usage:
+  #   docker compose -f docker/docker-compose.infra.yml up -d
+  #   # Then reconcile service clients (idempotent):
+  #   bash scripts/seed-keycloak.sh
+  #
+  # Realm JSON is imported at startup via --import-realm (start-dev command).
+  # Service clients (onex-service, onex-admin, etc.) are reconciled by
+  # seed-keycloak.sh → seed-keycloak-clients.py from desired-clients.json.
+  # Compose healthcheck uses Keycloak's management readiness endpoint.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.3.3
+    container_name: omnibase-infra-keycloak
+    command: start-dev --import-realm
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: postgres
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-keycloak-dev-password}
+      KC_HTTP_ENABLED: "true"
+      KC_HTTP_PORT: "8080"
+      KC_HEALTH_ENABLED: "true"
+      KC_HOSTNAME_STRICT: "false"
+      # KC_HOSTNAME_STRICT_HTTPS removed: not supported in Keycloak 26+
+      KC_LOG_LEVEL: INFO
+    ports:
+      - "28080:8080" # +20000 per omnibase convention; verify no existing service on 28080 before use
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+      - ./keycloak/omninode-realm.json:/opt/keycloak/data/import/omninode-realm.json:ro
+    networks:
+      - omnibase-infra-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -ec \"{ printf 'HEAD /health/ready HTTP/1.0\\r\\n\\r\\n' >&0; grep 'HTTP/1.0 200'; } 0<>/dev/tcp/localhost/9000\""]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    logging: *logging-defaults
+    restart: unless-stopped
+    labels:
+      - "com.omninode.service=keycloak"
+      - "com.omninode.layer=infrastructure"
+      - "com.omninode.ticket=OMN-3361"
+  # ==========================================================================
+  # Forward Migration Runner - Apply pending forward migrations (Runtime Profile) [OMN-4175]
+  # ==========================================================================
+  # One-shot service that applies any pending SQL files from
+  # docker/migrations/forward/ to an existing (warm) Postgres volume.
+  # docker-entrypoint-initdb.d only fires on fresh volume init; this service
+  # closes the gap by running on every compose up via run-forward-migrations.sh.
+  #
+  # Migrations are tracked in public.schema_migrations. Already-applied files
+  # are skipped (idempotent). migration-gate depends on this service completing
+  # successfully before checking the sentinel flag.
+  forward-migration:
+    image: postgres:16-alpine
+    # Project-namespaced to match the omnibase-infra-* convention used by every
+    # other base service (postgres, redpanda, valkey, ...). The bare
+    # "omnibase-forward-migration" name was the one base container_name NOT
+    # carrying the lane prefix, so it collided across compose projects on the
+    # same host (e.g. a leftover dev-lane container blocked a stability rebuild).
+    # Lane overlays append their lane segment, yielding the derivable form
+    # <compose-project>-forward-migration that deploy-runtime.sh waits on (OMN-12987).
+    container_name: omnibase-infra-forward-migration
+    profiles: ["runtime", "full"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: omnibase_infra
+      NODE_POSTGRES_DB: omnidash_analytics
+      MIGRATIONS_DIR: /migrations/forward
+      # OMN-16993: the same credential the postgres service consumes on FIRST
+      # startup. `docker-entrypoint-initdb.d` runs the bootstrap `.sh` only on a
+      # fresh volume and this runner only applies `*.sql`, so before this line
+      # every warm volume kept omninode_runtime NOLOGIN with a NULL password
+      # while OMNINODE_INTERNAL_DB_URL resolved and then failed at connect.
+      # Empty-means-skip, exactly as on the postgres service.
+      OMNINODE_RUNTIME_PASSWORD: ${OMNINODE_RUNTIME_PASSWORD:-}
+      # OMN-17138: the TENANT-domain counterpart, and the second entry in the
+      # runner's LOGIN_ONLY_ROLE_MAP. OMN-15425 added the map entry and the
+      # fail-closed ONEX_TENANT_DB_URL consumer but not this line, so on every
+      # warm volume -- which is every lane -- the runner logged
+      # `skip tenant_projection_writer (TENANT_PROJECTION_WRITER_PASSWORD not
+      # set)` and the role stayed NOLOGIN with a NULL password while the DSN
+      # resolved and then failed at connect. Empty-means-skip, exactly as on
+      # the key above; the judge lane already carried its own copy.
+      TENANT_PROJECTION_WRITER_PASSWORD: ${TENANT_PROJECTION_WRITER_PASSWORD:-}
+      # OMN-18060: the third LOGIN_ONLY_ROLE_MAP entry -- chain_canary_reader,
+      # the read-only instrument identity node_chain_canary_effect uses for its
+      # OMN-16025 link-2 projection readback. Empty-means-skip, exactly as on
+      # the two keys above: a lane with no canary provisioned leaves the role
+      # absent, run-forward-migrations.sh's LOGIN_ONLY_ROLE_GRANT_MAP seam
+      # skips its grants and names the role in the skip, and the canary reports
+      # skipped_not_configured -- red and honest, never a green from a check
+      # that never ran.
+      #
+      # OMN-18115: the GRANTS come from scripts/run-forward-migrations.sh, not
+      # from the flat migration stream. That seam re-asserts CONNECT, schema
+      # USAGE, and column-scoped SELECT (correlation_id, state) on every compose
+      # up, and FAILS the run when the readback does not confirm them -- a GRANT
+      # issued without grant option on the object warns and returns success, so
+      # the readback is the only thing separating a real grant from a silent
+      # no-op. This comment previously credited a numbered migration that does
+      # not exist, and that error is what OMN-18115 was filed against.
+      #
+      # TWO LANES, AND THE MANAGED ONE HAS NEITHER SEAM. This principal is a
+      # compose-lane instrument. It is minted by 000_create_multiple_databases.sh
+      # on a fresh volume and re-asserted by run-forward-migrations.sh's
+      # credential seam on a warm one -- both compose-only. The k8s migrate Job
+      # applies the flat SQL corpus and never runs that script, so on the
+      # managed (RDS) lane chain_canary_reader has no pg_roles row, holds
+      # nothing, and needs nothing. That asymmetry is the reason the grant lives
+      # in the runner rather than in the flat stream: a flat file would deliver
+      # on the lanes that already have the runner, and skip on the one lane that
+      # would otherwise apply it.
+      CHAIN_CANARY_READER_PASSWORD: ${CHAIN_CANARY_READER_PASSWORD:-}
+      # OMN-18438: role_omninode, and the FIRST entry that is not a
+      # LOGIN_ONLY_ROLE_MAP principal. It is a SERVICE_DB_MAP principal in
+      # 000_create_multiple_databases.sh -- the MAPPED SERVICE ROLE of
+      # omninode_cloud, which onex-api reaches `tenants` and `tenant_api_keys`
+      # through and which the cloud-migration one-shot applies the corpus AS, so
+      # that every GRANT in the corpus points at the right principal and the
+      # applying session is not exempt from the RLS the lane is the proving
+      # ground for.
+      #
+      # OMN-18508: this comment used to call it "the owning login". It is not,
+      # and never was -- measured on the .201 dev lane, every database in the
+      # cluster is owned by `postgres`. What the role holds is CONNECT, schema
+      # USAGE + CREATE, and (OMN-18508) CREATE on the DATABASE, which is the
+      # separate privilege `CREATE EXTENSION pgcrypto` needs and which the
+      # corpus's first statement dies without. The prose was corrected rather
+      # than the ownership graph: ownership would additionally confer DROP
+      # DATABASE on a principal pinned NOSUPERUSER NOBYPASSRLS NOCREATEDB.
+      #
+      # It is consumed by a SEPARATE seam in run-forward-migrations.sh
+      # (SERVICE_ROLE_DB_ACCESS_MAP), not by the login-only one above, because
+      # this principal needs database access as well as a password and the
+      # login-only seam is pinned to issue no GRANT at all. Empty-means-skip
+      # exactly as on the three keys above -- the fail-closed required-variable
+      # form would fail compose RENDER for the whole project on every lane that
+      # has not provisioned the credential, turning a provisioning gap into an
+      # outage of lanes that need nothing from this seam. (The literal spelling
+      # of that form is deliberately not written here: this file is parsed for
+      # variable references, and a comment that spells one declares it.)
+      #
+      # Measured on the .201 dev lane 2026-09-16, on a volume created
+      # 2026-07-31: pg_roles held no role_omninode row and onex-api logged 112
+      # `password authentication failed` in one hour while reporting healthy.
+      # That is the fourth instance of the OMN-16993 class, and it is this line
+      # and its seam that close it.
+      ROLE_OMNINODE_PASSWORD: ${ROLE_OMNINODE_PASSWORD:-}
+    volumes:
+      - ../scripts/run-forward-migrations.sh:/run-forward-migrations.sh:ro
+      - ../docker/migrations/forward:/migrations/forward:ro
+    entrypoint: ["sh", "/run-forward-migrations.sh"]
+    networks:
+      - omnibase-infra-network
+    restart: "no"
+    logging: *logging-defaults
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 64M
+    labels:
+      - "com.omninode.service=forward-migration"
+      - "com.omninode.layer=infrastructure"
+      - "com.omninode.ticket=OMN-4175"
+  # ==========================================================================
+  # Migration Gate - Boot-Order Sentinel (Runtime Profile) [OMN-3737]
+  # ==========================================================================
+  # Lightweight healthcheck-only service that gates runtime service startup
+  # on all forward migrations being applied. The healthcheck queries
+  # db_metadata.migrations_complete (set by migration 037). Runtime services
+  # depend on this gate via service_healthy condition.
+  #
+  # Why: omniintelligence's validate_handshake auto-stamps a schema fingerprint
+  # on first boot. If tables like idempotency_records don't exist yet, the
+  # fingerprint is wrong and all subsequent boots fail (Audit Gap #7).
+  migration-gate:
+    image: postgres:16-alpine
+    container_name: omnibase-infra-migration-gate
+    profiles: ["runtime", "full"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      forward-migration:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: omnibase_infra
+      NODE_POSTGRES_DB: omnidash_analytics
+      REQUIRED_PROJECTION_TABLES: "delegation_events node_service_registry"
+    # Stay alive so healthcheck can run; no actual workload.
+    entrypoint: ["sh", "-c", "while true; do sleep 3600; done"]
+    volumes:
+      - ../scripts/check_migrations_complete.sh:/check_migrations_complete.sh:ro
+    networks:
+      - omnibase-infra-network
+    healthcheck:
+      # start_period must cover the real forward+intelligence migration window.
+      # This sentinel is a long-running keepalive (entrypoint above), NOT a
+      # one-shot; the healthcheck runs continuously against
+      # db_metadata.migrations_complete. On a cold prod volume the migrations
+      # take ~2 min to apply and stamp the flag (OMN-12973: prod gate started
+      # 09:35:22, intelligence-migration finished 09:37:18). With start_period
+      # 10s the gate left `starting` after 10s and was reported UNHEALTHY for
+      # ~2 min until migrations completed. start_period 180s keeps the gate in
+      # `health: starting` for the full migration window so a still-applying
+      # gate is never reported UNHEALTHY. Floor enforced by
+      # validate_migration_gate_start_period (OMN-12973).
+      test: ["CMD-SHELL", "sh /check_migrations_complete.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 180s
+    logging: *logging-defaults
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 32M
+    labels:
+      - "com.omninode.service=migration-gate"
+      - "com.omninode.layer=infrastructure"
+      - "com.omninode.ticket=OMN-3737"
+  # ==========================================================================
+  # ONEX Runtime - Main Kernel (Runtime Profile)
+  # ==========================================================================
+  # Primary runtime service that handles the kernel bootstrap process.
+  # OMN-9741: Main startup also performs long serial Kafka subscription joins.
+  # Keep the health window aligned with effects so autoheal does not recycle the
+  # process while it is still wiring contracts or joining consumer groups.
+  omninode-runtime:
+    !!merge <<: *runtime-base
+    container_name: omninode-runtime
+    profiles: ["runtime", "full"]
+    depends_on:
+      migration-gate:
+        condition: service_healthy
+      intelligence-migration:
+        condition: service_completed_successfully
+      redpanda:
+        condition: service_healthy
+      redpanda-partition-cap:
+        condition: service_completed_successfully
+      valkey:
+        condition: service_healthy
+    environment:
+      !!merge <<: *runtime-env
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-omninode-runtime-main}
+      RUNTIME_PROFILE: main
+      ONEX_RUNTIME_CAPABILITIES: ${DEV_RUNTIME_MAIN_CAPABILITIES:?runtime policy contract must set DEV_RUNTIME_MAIN_CAPABILITIES}
+      ONEX_GROUP_ID: ${ONEX_GROUP_ID:-onex-runtime-main}
+      KAFKA_INSTANCE_ID: runtime-main
+      ENABLE_RUNTIME_LOG_BRIDGE: "true"
+      # OMN-9060: HandlerRegistrationStoragePostgres reads POSTGRES_HOST directly
+      # from env (matches the override already present on runtime-effects and
+      # runtime-worker). Without it the handler throws KeyError during wiring and
+      # the container stays DEGRADED.
+      POSTGRES_HOST: postgres
+      # OMN-2342: Gate intelligence introspection/heartbeat publishing to this
+      # container only. Workers and effects containers inherit x-runtime-env but
+      # do NOT set this flag, so they process intelligence events without
+      # starting duplicate heartbeat loops for the same deterministic node IDs.
+      OMNIINTELLIGENCE_PUBLISH_INTROSPECTION: ${DEV_RUNTIME_MAIN_PUBLISH_INTROSPECTION:?runtime policy contract must set DEV_RUNTIME_MAIN_PUBLISH_INTROSPECTION}
+    ports:
+      - "${DEV_RUNTIME_MAIN_PORT:?runtime policy contract must set DEV_RUNTIME_MAIN_PORT}:8085"
+    stop_grace_period: 90s
+    volumes:
+      - runtime_logs:/app/logs
+      - runtime_data:/app/data
+      - ../contracts:/app/contracts:ro
+      - ./lane-overlays/dev.bifrost.yaml:/app/config/delegation/dev.bifrost.yaml:ro
+      - ${OMNICLAUDE_SKILLS_DIR:-./skills}:/app/skills:ro
+      # OMN-12971: Vertex bearer-token delivery. Bind the operator-supplied token
+      # file read-only at the path the secret resolver reads
+      # (llm.vertex.access_token → /run/secrets/vertex_access_token). The file
+      # holds a short-lived OAuth access token minted from ADC and refreshed by
+      # the operator/bootstrap; the effect boundary posts it as Authorization:
+      # Bearer <value>. The token VALUE never enters committed config — only the
+      # host path is operator-supplied. Defaults to /dev/null so lanes without
+      # Vertex configured still start (resolver returns empty → router skips
+      # Vertex, Gemini key path unaffected).
+      - ${VERTEX_ACCESS_TOKEN_HOST_FILE:-/dev/null}:/run/secrets/vertex_access_token:ro
+    tmpfs:
+      - /run/onex-runtime:uid=1000,gid=1000,mode=0770
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8085/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 1800s
+    labels:
+      - "com.omninode.service=runtime-main"
+      - "com.omninode.layer=runtime"
+      - "com.omninode.version=${RUNTIME_VERSION:-0.1.0}"
+      - "autoheal=true"
+  # ==========================================================================
+  # ONEX Runtime - Effects Handler (Runtime Profile)
+  # ==========================================================================
+  # Handles effect nodes for external service interactions.
+  # OMN-9741/OMN-11068: Effects startup performs long serial Kafka subscription
+  # joins. /health is liveness, but runtime_pending and is_running=false return
+  # HTTP 503 so Docker cannot report a degraded runtime as healthy. The extended
+  # health window prevents autoheal from recycling a live process before startup
+  # completes.
+  # Unhealthy detection latency = start_period + (interval * retries) = 1800s + 150s = 1950s.
+  # AUTOHEAL_START_PERIOD (2400s) must exceed this window to avoid premature restarts.
+  runtime-effects:
+    !!merge <<: *runtime-base
+    container_name: omninode-runtime-effects
+    profiles: ["runtime", "full"]
+    # OMN-18843: this container is a BUS CONSUMER and must not wait on the main
+    # runtime's HEALTH before it starts. Measured on the .201 dev lane
+    # 2026-09-21: a force-recreate created it at 18:47:59Z and compose held it
+    # in State=created, StartedAt=0001-01-01, until 18:53:47Z -- 5 min 48 s --
+    # because omninode-runtime answered /health 503 the whole time while it
+    # auto-wired 507 contracts under the 1800 s start_period below, so compose
+    # waited rather than failing. node_delegate_skill_orchestrator runs in the
+    # effects profile, so its command consumer group was Empty for that entire
+    # window and every `onex delegate` refused pre-publish, correctly. Second
+    # measured occurrence; the first is on the ticket.
+    #
+    # The edge was never justified. It dates to 706ec9229 (2026-02-06,
+    # OMN-1897), the FIRST commit of this file, with no stated reason, and the
+    # boot log says there is nothing behind it: this container's startup talks
+    # to postgres (schema-fingerprint stamp), redpanda (SASL auth and topic
+    # provisioning) and four LLM endpoints, and never calls omninode-runtime on
+    # any port.
+    #
+    # service_started, NOT the removal of the edge. Compose starts
+    # omninode-runtime only once ITS OWN depends_on set is satisfied -- the
+    # migration gate healthy, both migrations run to completion, the partition
+    # cap applied, valkey healthy (see that service above). Waiting for it to be
+    # STARTED therefore still inherits every one of those preconditions
+    # transitively, and still orders the main runtime first so it wins the
+    # topic-provisioning race. The ONLY thing dropped is its /health, which is
+    # the only thing this container never needed.
+    depends_on:
+      omninode-runtime:
+        condition: service_started
+      redpanda:
+        condition: service_healthy
+    environment:
+      !!merge <<: *runtime-env
+      OTEL_SERVICE_NAME: omninode-runtime-effects
+      RUNTIME_PROFILE: effects
+      ONEX_RUNTIME_CAPABILITIES: ${DEV_RUNTIME_EFFECTS_CAPABILITIES:?runtime policy contract must set DEV_RUNTIME_EFFECTS_CAPABILITIES}
+      ONEX_SECRET_RESOLVER_CONFIG_PATH: ${DEV_RUNTIME_EFFECTS_SECRET_RESOLVER_CONFIG_PATH:?runtime policy contract must set DEV_RUNTIME_EFFECTS_SECRET_RESOLVER_CONFIG_PATH}
+      ONEX_SECRET_RESOLVER_CONFIG_JSON: ${DEV_RUNTIME_EFFECTS_SECRET_RESOLVER_CONFIG_JSON:?runtime policy contract must set DEV_RUNTIME_EFFECTS_SECRET_RESOLVER_CONFIG_JSON}
+      ONEX_GROUP_ID: ${ONEX_EFFECTS_GROUP_ID:-onex-runtime-effects}
+      KAFKA_INSTANCE_ID: runtime-effects
+      ENABLE_RUNTIME_LOG_BRIDGE: "true"
+      # OMN-13247 (epic OMN-13245): coding-agent runtime env. These are
+      # effects-only (the four coding-agent nodes run in runtime_profiles:
+      # [effects]) so they live on this service, not the shared x-runtime-env
+      # anchor. Both are container-internal paths (never secrets); they were
+      # patched live on dev for the e2e proof and are committed here so the lane
+      # is reproducible.
+      #   - CODING_AGENT_CRED_HOME: claude/codex read AMBIENT OAuth from $HOME, but
+      #     the runtime container runs as root (HOME=/root) while the creds are
+      #     bind-mounted under /home/omniinfra; the invoke EFFECT overrides the
+      #     child env with HOME=$CODING_AGENT_CRED_HOME (CODEX_HOME=$.../.codex).
+      #   - ONEX_CODING_AGENT_WORKSPACE_ROOT: the orchestrator resolves its
+      #     contract descriptor.allowed_workspace_roots from ${env.…} and FAILS
+      #     CLOSED if unset (no unscoped workspace is ever permitted).
+      CODING_AGENT_CRED_HOME: /home/omniinfra
+      ONEX_CODING_AGENT_WORKSPACE_ROOT: /home/omniinfra/agent-workspaces
+      # OMN-7569: Savings estimation consumer config (env_prefix=OMNIBASE_INFRA_SAVINGS_)
+      OMNIBASE_INFRA_SAVINGS_KAFKA_BOOTSTRAP_SERVERS: "redpanda:9092"
+      # OMN-7569: HandlerRegistrationStoragePostgres reads POSTGRES_HOST directly from env
+      POSTGRES_HOST: postgres
+    ports:
+      - "${DEV_RUNTIME_EFFECTS_PORT:?runtime policy contract must set DEV_RUNTIME_EFFECTS_PORT}:8085"
+    # OMN-8852: runtime-effects must also join omnimemory-network so PluginMemory
+    # can reach omnimemory-memgraph:7687. The base anchor only declares omnibase-infra-network.
+    networks:
+      - omnibase-infra-network
+      - omnimemory-network
+    stop_grace_period: 90s
+    volumes:
+      - effects_logs:/app/logs
+      - effects_data:/app/data
+      - ../contracts:/app/contracts:ro
+      - ./lane-overlays/dev.bifrost.yaml:/app/config/delegation/dev.bifrost.yaml:ro
+      - ${OMNICLAUDE_SKILLS_DIR:-./skills}:/app/skills:ro
+      # OMN-12971: Vertex bearer-token delivery to the effects container (the
+      # runtime that makes the outbound provider call). Operator-supplied host
+      # token file bound read-only; token VALUE never in committed config.
+      - ${VERTEX_ACCESS_TOKEN_HOST_FILE:-/dev/null}:/run/secrets/vertex_access_token:ro
+      # OMN-13248 (epic OMN-13245): read-only OAuth credential bind-mounts for the
+      # coding-agent EFFECT (node_coding_agent_invoke_effect). codex / claude read
+      # AMBIENT OAuth from ~/.codex and ~/.claude — no ANTHROPIC_API_KEY / *_MODEL /
+      # endpoint env. Credential VALUES are NEVER baked into the image and NEVER
+      # committed; operator-supplied host directories bound read-only.
+      #
+      # DEV credential source (Phase 0, OMN-13246 / omni_home PR #182): a fresh
+      # Linux login INSIDE the .201 container produced portable on-disk creds —
+      # /home/omniinfra/.codex (auth.json, ChatGPT OAuth + refresh token) and
+      # /home/omniinfra/.claude (.credentials.json, claude.ai OAuth + refresh
+      # token). Claude Code 2.x on macOS stores its credential in the Keychain,
+      # so there is NO ~/.claude/auth.json on the Mac to copy — the Linux login
+      # is the source. The operator copies both dirs to a stable host path on
+      # .201 (e.g. /home/jonah/.onex-agent-creds/{.codex,.claude}) and sets
+      # CODING_AGENT_{CODEX,CLAUDE}_CREDS_HOST_DIR.
+      #
+      # Default /dev/null keeps lanes without creds configured startable (the
+      # CLIs have no ambient auth and fail closed on invocation, never at boot).
+      #
+      # codex: mount the credential FILE (auth.json) read-only, NOT the whole
+      # ~/.codex dir. codex 0.141.0 writes app-server / session state into
+      # CODEX_HOME (~/.codex) at runtime, so a fully read-only dir mount makes
+      # `codex exec` fail with "Read-only file system" even though the creds are
+      # valid (verified in-container 2026-06-18). Binding only auth.json :ro keeps
+      # the credential VALUE read-only (cannot be overwritten/exfiltrated) while
+      # leaving the rest of ~/.codex on the container's writable layer.
+      - ${CODING_AGENT_CODEX_AUTH_HOST_FILE:-/dev/null}:/home/omniinfra/.codex/auth.json:ro
+      # claude: the whole ~/.claude dir read-only works (claude reads
+      # .credentials.json for ambient OAuth and does not require write access to
+      # that dir for `claude -p`; verified in-container 2026-06-18).
+      - ${CODING_AGENT_CLAUDE_CREDS_HOST_DIR:-/dev/null}:/home/omniinfra/.claude:ro
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8085/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 1800s
+    labels:
+      - "com.omninode.service=runtime-effects"
+      - "com.omninode.layer=runtime"
+      - "com.omninode.version=${RUNTIME_VERSION:-0.1.0}"
+      - "autoheal=true"
+  # ==========================================================================
+  # OmniMarket Projection API (Runtime Profile)
+  # ==========================================================================
+  # Serves reducer-owned projection snapshots. This is an API over materialized
+  # Postgres projection state; it is not an authority over client state.
+  projection-api:
+    !!merge <<: *runtime-base
+    container_name: omnimarket-projection-api
+    profiles: ["runtime", "full"]
+    depends_on:
+      migration-gate:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    command: ["omnimarket-projection-api"]
+    environment:
+      !!merge <<: *runtime-env
+      OTEL_SERVICE_NAME: omnimarket-projection-api
+      RUNTIME_PROFILE: projection-api
+      # Projection API serves materialized read models and has no runtime data
+      # volume for the rendered Bifrost delegation contract.
+      BIFROST_CONTRACT_PATH: ""
+      # Mirrors the BIFROST_CONTRACT_PATH opt-out: no render, no overlay pin.
+      BIFROST_LANE_OVERLAY_PATH: ""
+      # OMN-15645: Projection API is a read-only materialized-view server; it
+      # never invokes the delegation routing reducer, so it deliberately has no
+      # delegation-routing surface (mirrors the BIFROST_CONTRACT_PATH opt-out
+      # above).
+      DELEGATION_ROUTING_TIERS_PATH: ""
+    ports:
+      - "${PROJECTION_API_PORT:-3002}:3002"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    labels:
+      - "com.omninode.service=projection-api"
+      - "com.omninode.layer=runtime"
+      - "com.omninode.version=${RUNTIME_VERSION:-0.1.0}"
+      - "autoheal=true"
+  # ==========================================================================
+  # ONEX Runtime - Workers (Runtime Profile)
+  # ==========================================================================
+  # Scalable worker containers for parallel compute operations.
+  # OMN-7235/OMN-9741: Workers have an extended start_period (1200s) and
+  # retries (5) because Kafka consumer groups are joined sequentially at
+  # startup. Autoheal uses a workspace-wide 2400s grace period so main,
+  # effects, and workers can all finish contract wiring before restart checks.
+  # OMN-7569 (SUPERSEDED by OMN-14968): this block used to default replicas to 0
+  # via a bare ${WORKER_REPLICAS:-0}, because workers joined the same per-topic
+  # consumer groups as the main runtime on 1-partition topics and caused a constant
+  # rebalance storm — "scale to 0 UNTIL the kernel supports profile-based
+  # subscription filtering". That filtering shipped: each lane process now carries a
+  # disjoint capability set (this service resolves DEV_RUNTIME_WORKER_CAPABILITIES =
+  # workflow.dispatch,contract.update,runtime.worker, disjoint from the main
+  # runtime's market.skill-proof,workflow.orchestration,runtime.main), and OMN-12990
+  # pinned worker replicas to 1 for EVERY lane in
+  # contracts/services/runtime_policy.contract.yaml.
+  #
+  # OMN-12988 / OMN-12990 converted the stability-test and prod overlays to the
+  # lane-prefixed fail-closed form but left this base line bare, so the dev lane
+  # (which has no overlay — this file IS the dev lane) still resolved to 0: a plain
+  # `up -d --no-deps runtime-worker` exited 0 creating nothing, while
+  # deploy-runtime.sh's RUNTIME_SERVICES / RT-6 deploy readback requires a running
+  # container, aborting and auto-restoring every dev-lane deploy. deploy.replicas
+  # below is now lane-prefixed and fail-closed, exactly like the sibling
+  # DEV_RUNTIME_WORKER_* vars in this same service block.
+  runtime-worker:
+    !!merge <<: *runtime-base
+    profiles: ["runtime", "full"]
+    # OMN-18843: service_started, not service_healthy, for the reason stated in
+    # full on runtime-effects above -- this container is a bus consumer, it
+    # never calls the main runtime at boot, and waiting on the main runtime's
+    # /health held it in State=created for 5 min 48 s of a measured redeploy.
+    # service_started still inherits the main runtime's own migration and broker
+    # preconditions transitively, so nothing is lost but the health wait.
+    depends_on:
+      omninode-runtime:
+        condition: service_started
+      redpanda:
+        condition: service_healthy
+    environment:
+      !!merge <<: *runtime-env
+      OTEL_SERVICE_NAME: omninode-runtime-worker
+      RUNTIME_PROFILE: workers
+      ONEX_RUNTIME_CAPABILITIES: ${DEV_RUNTIME_WORKER_CAPABILITIES:?runtime policy contract must set DEV_RUNTIME_WORKER_CAPABILITIES}
+      ONEX_SECRET_RESOLVER_CONFIG_PATH: ${DEV_RUNTIME_WORKER_SECRET_RESOLVER_CONFIG_PATH:?runtime policy contract must set DEV_RUNTIME_WORKER_SECRET_RESOLVER_CONFIG_PATH}
+      ONEX_SECRET_RESOLVER_CONFIG_JSON: ${DEV_RUNTIME_WORKER_SECRET_RESOLVER_CONFIG_JSON:?runtime policy contract must set DEV_RUNTIME_WORKER_SECRET_RESOLVER_CONFIG_JSON}
+      ONEX_GROUP_ID: ${ONEX_WORKER_GROUP_ID:-onex-runtime-workers}
+      KAFKA_INSTANCE_ID: runtime-worker
+      # OMN-7569: Savings estimation consumer config (env_prefix=OMNIBASE_INFRA_SAVINGS_)
+      OMNIBASE_INFRA_SAVINGS_KAFKA_BOOTSTRAP_SERVERS: "redpanda:9092"
+      # OMN-7569: HandlerRegistrationStoragePostgres reads POSTGRES_HOST directly from env
+      POSTGRES_HOST: postgres
+    stop_grace_period: 90s
+    volumes:
+      - worker_logs:/app/logs
+      - ../contracts:/app/contracts:ro
+      - ./lane-overlays/dev.bifrost.yaml:/app/config/delegation/dev.bifrost.yaml:ro
+      - ${OMNICLAUDE_SKILLS_DIR:-./skills}:/app/skills:ro
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8085/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 1200s
+    deploy:
+      mode: replicated
+      replicas: ${DEV_WORKER_REPLICAS:?runtime policy contract must set DEV_WORKER_REPLICAS (source docker/runtime-policy.env)}
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1536M
+        reservations:
+          cpus: '0.1'
+          memory: 256M
+    labels:
+      - "com.omninode.service=runtime-worker"
+      - "com.omninode.layer=runtime"
+      - "com.omninode.version=${RUNTIME_VERSION:-0.1.0}"
+      - "autoheal=true"
+  # ==========================================================================
+  # TENANT-domain projection carrier (Runtime Profile: tenant-projection)
+  # ==========================================================================
+  # OMN-18114. Eight omnimarket contracts declare
+  # `runtime_profiles: [tenant-projection]` -- canary_score_reducer,
+  # node_hook_event_capture, node_projection_cost_summary,
+  # node_projection_delegation_inference_response, node_projection_dep_health,
+  # projection_context_roi, projection_pattern_learning,
+  # projection_routing_decision -- because each resolves the `tenant_projection`
+  # topology binding and one process owns that binding (OMN-17641, ratified
+  # permanent by OMN-17556).
+  #
+  # `filter_manifest_for_runtime_profile` admits a contract to a profile only
+  # when the profile is named in the contract's own list, so `main` and
+  # `effects` SKIP all eight. Until this service existed, NO process on any
+  # compose lane bound RUNTIME_PROFILE=tenant-projection, so all eight were
+  # discovered and consumed by nothing. Measured on the .201 dev lane
+  # 2026-09-10: every one of their consumer groups Empty, and
+  # node_projection_delegation_inference_response at offset 644 / log-end 840 /
+  # LAG 196, last commit 2026-09-04T09:46Z. Nothing logged an error, because
+  # from each running process's own point of view the manifest never contained
+  # them.
+  #
+  # WHAT THIS IS. The ONEX runtime kernel under a different RUNTIME_PROFILE --
+  # same image, same entrypoint, same wire_from_manifest path, no `command:`
+  # override. It is NOT a BaseProjectionRunner like the six standalone writers
+  # in the lane overlays: those are OMN-15905 Shape A and get a topology-BLIND
+  # adapter, which handler_hook_event_capture's own docstring records as the
+  # reason it stopped extending that class. This shape mirrors the onex-dev
+  # Deployment `omnimarket-tenant-projection-writer` exactly.
+  #
+  # WHY IT IS DECLARED HERE AND STARTED NOWHERE BY DEFAULT. The runtime env
+  # anchors (`*runtime-base`, `*runtime-env`) live in this file and YAML anchors
+  # do not cross compose files, so declaring the carrier in a lane overlay would
+  # mean re-declaring ~340 lines of environment -- the duplication this repo has
+  # repeatedly paid for. Instead it is declared once here under a compose
+  # profile NO lane's bring-up requests, and the two lab lanes opt in by
+  # overriding `profiles:` in their own overlay. prod, judge and lakshman render
+  # this service and never start it; that inertness is asserted by
+  # tests/ci/test_lane_runtime_profile_carriage_omn18114.py, which also refuses
+  # a `runtime`/`full` value here.
+  #
+  # ITS OWN ROLE IDENTITY, not main's. A second kernel process reusing main's
+  # capabilities would put a second claimant on main-owned topics and start
+  # duplicate heartbeat loops for the same deterministic node IDs -- the reason
+  # the base gates OMNIINTELLIGENCE_PUBLISH_INTROSPECTION to one container. The
+  # contract declares `publish_introspection: false` for this process and it is
+  # not set here.
+  tenant-projection-writer:
+    !!merge <<: *runtime-base
+    container_name: omnimarket-tenant-projection-writer
+    profiles: ["profile-carrier-optin"]
+    depends_on:
+      migration-gate:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      !!merge <<: *runtime-env
+      OTEL_SERVICE_NAME: omnimarket-tenant-projection-writer
+      RUNTIME_PROFILE: tenant-projection
+      ONEX_RUNTIME_CAPABILITIES: ${DEV_RUNTIME_TENANT_PROJECTION_CAPABILITIES:?runtime policy contract must set DEV_RUNTIME_TENANT_PROJECTION_CAPABILITIES}
+      ONEX_SECRET_RESOLVER_CONFIG_PATH: ${DEV_RUNTIME_TENANT_PROJECTION_SECRET_RESOLVER_CONFIG_PATH:?runtime policy contract must set DEV_RUNTIME_TENANT_PROJECTION_SECRET_RESOLVER_CONFIG_PATH}
+      ONEX_SECRET_RESOLVER_CONFIG_JSON: ${DEV_RUNTIME_TENANT_PROJECTION_SECRET_RESOLVER_CONFIG_JSON:?runtime policy contract must set DEV_RUNTIME_TENANT_PROJECTION_SECRET_RESOLVER_CONFIG_JSON}
+      # A distinct group id and instance id are what keep this process off the
+      # shared kernels' partitions. The consumer group name embeds
+      # KAFKA_INSTANCE_ID (`...__i.<instance>...`), so the eight contracts get
+      # their own groups here rather than resuming the stranded
+      # `__i.runtime-main` ones the profile pin orphaned.
+      ONEX_GROUP_ID: ${ONEX_TENANT_PROJECTION_GROUP_ID:-onex-runtime-tenant-projection}
+      KAFKA_INSTANCE_ID: tenant-projection-writer
+      # OMN-9060: HandlerRegistrationStoragePostgres reads POSTGRES_HOST directly
+      # from env; without it the handler throws KeyError during wiring.
+      POSTGRES_HOST: postgres
+    stop_grace_period: 90s
+    volumes:
+      - tenant_projection_logs:/app/logs
+      - tenant_projection_data:/app/data
+      - ../contracts:/app/contracts:ro
+      - ./lane-overlays/dev.bifrost.yaml:/app/config/delegation/dev.bifrost.yaml:ro
+      - ${OMNICLAUDE_SKILLS_DIR:-./skills}:/app/skills:ro
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8085/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 1200s
+    # Sized as a strict subset of main's work: the same kernel over a manifest
+    # filtered to eight contracts. Matches the onex-dev Deployment's measured
+    # request rather than being guessed upward.
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1024M
+        reservations:
+          cpus: '0.1'
+          memory: 256M
+    labels:
+      - "com.omninode.service=tenant-projection-writer"
+      - "com.omninode.layer=runtime"
+      - "com.omninode.ticket=OMN-18114"
+      - "com.omninode.version=${RUNTIME_VERSION:-0.1.0}"
+      - "autoheal=true"
+  # ==========================================================================
+  # Agent Actions Consumer - Observability (Runtime Profile)
+  # ==========================================================================
+  # Consumes agent action events from Kafka and persists to PostgreSQL.
+  agent-actions-consumer:
+    !!merge <<: *runtime-base
+    container_name: omninode-agent-actions-consumer
+    profiles: ["runtime", "full"]
+    depends_on:
+      migration-gate:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    command: ["python", "-m", "omnibase_infra.services.observability.agent_actions.consumer"]
+    environment:
+      # OMN-3431: Local Docker Redpanda
+      OMNIBASE_INFRA_AGENT_ACTIONS_KAFKA_BOOTSTRAP_SERVERS: "redpanda:9092"
+      # OMN-5831: Docker-internal DB URL — no longer leaks localhost:5436 from host env.
+      OMNIBASE_INFRA_AGENT_ACTIONS_POSTGRES_DSN: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}@postgres:5432/omnibase_infra"
+      OMNIBASE_INFRA_AGENT_ACTIONS_BATCH_SIZE: ${AGENT_ACTIONS_BATCH_SIZE:-100}
+      OMNIBASE_INFRA_AGENT_ACTIONS_BATCH_TIMEOUT_MS: ${AGENT_ACTIONS_BATCH_TIMEOUT_MS:-1000}
+      OMNIBASE_INFRA_AGENT_ACTIONS_HEALTH_CHECK_PORT: "8087"
+      OMNIBASE_INFRA_AGENT_ACTIONS_HEALTH_CHECK_HOST: "0.0.0.0"
+      ONEX_LOG_LEVEL: ${ONEX_LOG_LEVEL:-INFO}
+      ONEX_ENVIRONMENT: ${ONEX_ENVIRONMENT:-local}
+      OMNIMEMORY_ENABLED: ${AUXILIARY_SERVICES_OMNIMEMORY_ENABLED:?runtime policy contract must set AUXILIARY_SERVICES_OMNIMEMORY_ENABLED}
+      # TTL cleanup — ServiceTTLCleanup co-runs inside consumer (OMN-7012)
+      OMNIBASE_INFRA_TTL_CLEANUP_POSTGRES_DSN: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}@postgres:5432/omnibase_infra"
+      OMNIBASE_INFRA_TTL_CLEANUP_RETENTION_DAYS: "30"
+      OMNIBASE_INFRA_TTL_CLEANUP_INTERVAL_SECONDS: "600"
+      OMNIBASE_INFRA_TTL_CLEANUP_BATCH_SIZE: "1000"
+    ports:
+      - "${AGENT_ACTIONS_CONSUMER_PORT:-8087}:8087"
+    stop_grace_period: 60s
+    volumes:
+      - agent_actions_logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8087/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    labels:
+      - "com.omninode.service=agent-actions-consumer"
+      - "com.omninode.layer=runtime"
+      - "com.omninode.version=${RUNTIME_VERSION:-0.1.0}"
+      - "autoheal=true"
+  # ==========================================================================
+  # Skill Lifecycle Consumer - Observability (Runtime Profile) [OMN-2934]
+  # ==========================================================================
+  # Consumes skill-started and skill-completed events from Kafka and persists
+  # them to the skill_executions PostgreSQL table for omnidash monitoring.
+  skill-lifecycle-consumer:
+    !!merge <<: *runtime-base
+    container_name: omninode-skill-lifecycle-consumer
+    profiles: ["runtime", "full"]
+    depends_on:
+      migration-gate:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    command: ["python", "-m", "omnibase_infra.services.observability.skill_lifecycle.consumer"]
+    environment:
+      # OMN-3431: Local Docker Redpanda
+      OMNIBASE_INFRA_SKILL_LIFECYCLE_KAFKA_BOOTSTRAP_SERVERS: "redpanda:9092"
+      # OMN-5831: Docker-internal DB URL
+      OMNIBASE_INFRA_SKILL_LIFECYCLE_POSTGRES_DSN: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}@postgres:5432/omnibase_infra"
+      OMNIBASE_INFRA_SKILL_LIFECYCLE_BATCH_SIZE: ${SKILL_LIFECYCLE_BATCH_SIZE:-100}
+      OMNIBASE_INFRA_SKILL_LIFECYCLE_BATCH_TIMEOUT_MS: ${SKILL_LIFECYCLE_BATCH_TIMEOUT_MS:-1000}
+      OMNIBASE_INFRA_SKILL_LIFECYCLE_HEALTH_CHECK_PORT: "8092"
+      OMNIBASE_INFRA_SKILL_LIFECYCLE_HEALTH_CHECK_HOST: "0.0.0.0"
+      ONEX_LOG_LEVEL: ${ONEX_LOG_LEVEL:-INFO}
+      ONEX_ENVIRONMENT: ${ONEX_ENVIRONMENT:-local}
+    ports:
+      - "${SKILL_LIFECYCLE_CONSUMER_PORT:-8092}:8092"
+    stop_grace_period: 60s
+    volumes:
+      - skill_lifecycle_logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8092/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    labels:
+      - "com.omninode.service=skill-lifecycle-consumer"
+      - "com.omninode.layer=runtime"
+      - "com.omninode.version=${RUNTIME_VERSION:-0.1.0}"
+      - "autoheal=true"
+  # ==========================================================================
+  # Context Audit Consumer - Observability (Runtime Profile) [OMN-5240]
+  # ==========================================================================
+  # Consumes context integrity audit events from Kafka and persists them to
+  # the context_audit_events PostgreSQL table (migration 053, OMN-5239).
+  context-audit-consumer:
+    !!merge <<: *runtime-base
+    container_name: omninode-context-audit-consumer
+    profiles: ["runtime", "full"]
+    depends_on:
+      migration-gate:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    command: ["python", "-m", "omnibase_infra.services.observability.context_audit.consumer"]
+    environment:
+      # OMN-3431: Local Docker Redpanda
+      OMNIBASE_INFRA_CONTEXT_AUDIT_KAFKA_BOOTSTRAP_SERVERS: "redpanda:9092"
+      # OMN-5831: Docker-internal DB URL
+      OMNIBASE_INFRA_CONTEXT_AUDIT_POSTGRES_DSN: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}@postgres:5432/omnibase_infra"
+      OMNIBASE_INFRA_CONTEXT_AUDIT_BATCH_SIZE: ${CONTEXT_AUDIT_BATCH_SIZE:-100}
+      OMNIBASE_INFRA_CONTEXT_AUDIT_BATCH_TIMEOUT_MS: ${CONTEXT_AUDIT_BATCH_TIMEOUT_MS:-1000}
+      OMNIBASE_INFRA_CONTEXT_AUDIT_HEALTH_CHECK_PORT: "8093"
+      OMNIBASE_INFRA_CONTEXT_AUDIT_HEALTH_CHECK_HOST: "0.0.0.0"
+      ONEX_LOG_LEVEL: ${ONEX_LOG_LEVEL:-INFO}
+      ONEX_ENVIRONMENT: ${ONEX_ENVIRONMENT:-local}
+    ports:
+      - "${CONTEXT_AUDIT_CONSUMER_PORT:-8093}:8093"
+    stop_grace_period: 60s
+    volumes:
+      - context_audit_logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8093/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    labels:
+      - "com.omninode.service=context-audit-consumer"
+      - "com.omninode.layer=runtime"
+      - "com.omninode.version=${RUNTIME_VERSION:-0.1.0}"
+      - "autoheal=true"
+  # ==========================================================================
+  # OmniIntelligence Migration Runner (Runtime Profile) — OMN-4082
+  # ==========================================================================
+  # One-shot init container that creates the omniintelligence database (if
+  # absent) and applies all pending SQL migrations before intelligence-api
+  # starts. Uses the bundled SQL files at docker/migrations/intelligence/.
+  #
+  # Why a separate service: intelligence-api runs uvicorn and has no built-in
+  # migration entrypoint. PluginIntelligence.validate_handshake() auto-stamps
+  # a schema fingerprint on first boot — if tables are missing the fingerprint
+  # is wrong and all subsequent boots fail (Audit Gap #7).
+  #
+  # This service exits 0 on success; intelligence-api depends on
+  # service_completed_successfully so it will not start if migration fails.
+  intelligence-migration:
+    image: postgres:16-alpine
+    container_name: omnibase-infra-intelligence-migration
+    profiles: ["runtime", "full"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      MIGRATIONS_DIR: /migrations/intelligence
+    volumes:
+      - ../scripts/run-intelligence-migrations.sh:/run-intelligence-migrations.sh:ro
+      - ../docker/migrations/intelligence:/migrations/intelligence:ro
+    entrypoint: ["sh", "/run-intelligence-migrations.sh"]
+    networks:
+      - omnibase-infra-network
+    restart: "no"
+    logging: *logging-defaults
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 64M
+    labels:
+      - "com.omninode.service=intelligence-migration"
+      - "com.omninode.layer=infrastructure"
+      - "com.omninode.ticket=OMN-4082"
+  # ==========================================================================
+  # OmniIntelligence HTTP API - Pattern Query Service (Runtime Profile)
+  # ==========================================================================
+  # Serves GET /api/v1/patterns for runtime enforcement nodes.
+  # Shares Dockerfile.runtime (omniintelligence==0.5.0 is installed there).
+  intelligence-api:
+    !!merge <<: *runtime-base
+    container_name: omnibase-intelligence-api
+    profiles: ["runtime", "full"]
+    depends_on:
+      migration-gate:
+        condition: service_healthy
+      intelligence-migration:
+        condition: service_completed_successfully
+      redpanda:
+        condition: service_healthy
+    command:
+      - uvicorn
+      - omniintelligence.api.app:create_app
+      - --factory
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8053"
+      - --workers
+      - "1"
+    environment:
+      # DatabaseSettings reads POSTGRES_* env vars (env_prefix="POSTGRES_")
+      # Must point to the omniintelligence database, not omnibase_infra.
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DATABASE: omniintelligence
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+      ONEX_LOG_LEVEL: ${ONEX_LOG_LEVEL:-INFO}
+      ONEX_ENVIRONMENT: ${ONEX_ENVIRONMENT:-local}
+    ports:
+      - "${INTELLIGENCE_API_EXTERNAL_PORT:-8053}:8053"
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8053/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 768M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    labels:
+      - "com.omninode.service=intelligence-api"
+      - "com.omninode.layer=runtime"
+      - "com.omninode.version=${RUNTIME_VERSION:-0.1.0}"
+  # ==========================================================================
+  # Contract Resolver Bridge - Synchronous HTTP for Dashboard (Runtime Profile)
+  # ==========================================================================
+  # Transitional HTTP bridge (OMN-2756) that exposes NodeContractResolveCompute
+  # via POST /api/nodes/contract.resolve so the dashboard can resolve contracts
+  # without a Kafka round-trip. Node-shaped: same contract, same events, same
+  # registry entry as the production node. Only the execution path changes when
+  # the real ONEX node runner supports HTTP invocation.
+  omninode-contract-resolver:
+    !!merge <<: *runtime-base
+    container_name: omninode-contract-resolver
+    profiles: ["runtime", "full"]
+    # OMN-18843: service_started, not service_healthy, for the reason stated in
+    # full on runtime-effects above -- this container is a bus consumer, it
+    # never calls the main runtime at boot, and waiting on the main runtime's
+    # /health held it in State=created for 5 min 48 s of a measured redeploy.
+    # service_started still inherits the main runtime's own migration and broker
+    # preconditions transitively, so nothing is lost but the health wait.
+    depends_on:
+      omninode-runtime:
+        condition: service_started
+      redpanda:
+        condition: service_healthy
+    command:
+      - uvicorn
+      - omnibase_infra.services.contract_resolver.launcher:app
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8091"
+      - --workers
+      - "1"
+    environment:
+      !!merge <<: *runtime-env
+      OTEL_SERVICE_NAME: omninode-contract-resolver
+      # Contract resolver does not mount /app/data, so it must not render the
+      # Bifrost delegation contract into the shared runtime data path.
+      BIFROST_CONTRACT_PATH: ""
+      # Mirrors the BIFROST_CONTRACT_PATH opt-out: no render, no overlay pin.
+      BIFROST_LANE_OVERLAY_PATH: ""
+      # OMN-15645: Contract resolver is a synchronous HTTP bridge for
+      # NodeContractResolveCompute (contract *resolution*, not delegation
+      # *routing*); it never invokes the delegation routing reducer, so it
+      # deliberately has no delegation-routing surface (mirrors the
+      # BIFROST_CONTRACT_PATH opt-out above).
+      DELEGATION_ROUTING_TIERS_PATH: ""
+      CORS_ORIGINS: ${CONTRACT_RESOLVER_CORS_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:8085}
+      CONTRACT_RESOLVER_PORT: "8091"
+      ONEX_LOG_LEVEL: ${ONEX_LOG_LEVEL:-INFO}
+    ports:
+      - "${CONTRACT_RESOLVER_PORT:-8091}:8091"
+    stop_grace_period: 30s
+    volumes:
+      - contract_resolver_logs:/app/logs
+      - ../contracts:/app/contracts:ro
+      - ${OMNICLAUDE_SKILLS_DIR:-./skills}:/app/skills:ro
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8091/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    labels:
+      - "com.omninode.service=contract-resolver"
+      - "com.omninode.layer=runtime"
+      - "com.omninode.version=${RUNTIME_VERSION:-0.1.0}"
+      - "com.omninode.ticket=OMN-2756"
+      - "com.omninode.transitional=true"
+  # ==========================================================================
+  # Arize Phoenix - LLM Observability (OTLP HTTP Backend) [Runtime Profile]
+  # ==========================================================================
+  # Arize Phoenix provides LLM observability: traces, spans, and evals for ONEX
+  # LLM inference calls. Accepts OTLP HTTP on port 6006 and serves its UI there too.
+  # Docker-internal consumers reach Phoenix at phoenix:6006.
+  # Host browsers access the UI at http://localhost:6006.
+  # OMN-3542: Added as a runtime-profile service alongside intelligence-api.
+  phoenix:
+    image: arizephoenix/phoenix:13.11.0 # Pinned; update via PR when bumping (OMN-4303)
+    container_name: omnibase-infra-phoenix
+    profiles: ["runtime", "full"]
+    environment:
+      PHOENIX_WORKING_DIR: /data
+    ports:
+      - "${PHOENIX_PORT:-6006}:6006"
+    volumes:
+      - phoenix_data:/data
+    networks:
+      - omnibase-infra-network
+    healthcheck:
+      !!merge <<: *healthcheck-defaults
+      # OMN-6700: Phoenix slim image has no /bin/sh or curl. Use CMD (not
+      # CMD-SHELL) with python3 directly to probe the health endpoint.
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:6006/healthz')"]
+      start_period: 20s
+    logging: *logging-defaults
+    restart: unless-stopped
+    labels:
+      - "com.omninode.service=phoenix"
+      - "com.omninode.layer=runtime"
+      - "com.omninode.ticket=OMN-3542"
+  # ==========================================================================
+  # Autoheal - Automatic restart of unhealthy containers (OMN-3428)
+  # ==========================================================================
+  # Rationale: Docker restart: unless-stopped only fires on process exit, not
+  # on healthcheck failure. Kafka consumer services (aiokafka) can enter a
+  # permanent retry loop after a broker disconnect without exiting, leaving
+  # the container alive but unhealthy. Autoheal fills that gap.
+  #
+  # Scope: only containers labeled autoheal=true are watched (not infra services
+  # like postgres/valkey, which could cascade-fail dependents if restarted).
+  #
+  # Profiles: runtime, full only. Not active in dev/bootstrap/auth profiles.
+  #
+  # LOCAL INFRA ONLY: docker.sock mount grants root-equivalent Docker control.
+  # Do not use this pattern in shared or multi-user environments.
+  #
+  # Rollback per-container: remove autoheal=true label from the service in this
+  #   file, then: docker compose -f docker/docker-compose.infra.yml --profile runtime up -d --no-build
+  # Rollback entire watchdog:
+  #   docker compose -f docker/docker-compose.infra.yml --profile runtime stop autoheal
+  autoheal:
+    image: willfarrell/autoheal:1.2.0
+    container_name: omnibase-infra-autoheal
+    profiles: ["runtime", "full"]
+    restart: unless-stopped
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: autoheal
+      AUTOHEAL_INTERVAL: 60
+      # OMN-9741: Set to 2400s to exceed main/effects unhealthy detection windows.
+      # Main/effects: start_period=1800s + retries=5×interval=30s = 1950s max.
+      # Workers: start_period=1200s + retries=5×interval=30s = 1350s max.
+      # AUTOHEAL_START_PERIOD (2400s) must exceed all runtime unhealthy windows.
+      AUTOHEAL_START_PERIOD: 2400
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    logging: *logging-defaults
+    labels:
+      - "com.omninode.service=autoheal"
+      - "com.omninode.layer=infrastructure"
+# ==========================================================================
+# Network Configuration
+# ==========================================================================
+networks:
+  omnibase-infra-network:
+    name: omnibase-infra-network
+    driver: bridge
+  # OMN-8852: omnimemory-network is owned by omnimemory/docker-compose.yml.
+  # runtime-effects must join it so PluginMemory can reach omnimemory-memgraph:7687.
+  omnimemory-network:
+    name: omnimemory-network
+    external: true
+# ==========================================================================
+# Volume Configuration
+# ==========================================================================
+volumes:
+  # Infrastructure volumes
+  postgres_data:
+    name: omnibase-infra-postgres-data
+  redpanda_data:
+    name: omnibase-infra-redpanda-data
+  valkey_data:
+    name: omnibase-infra-valkey-data
+  keycloak_data:
+    name: omnibase-infra-keycloak-data
+  # Runtime volumes
+  runtime_logs:
+    name: omninode-runtime-logs
+  runtime_data:
+    name: omninode-runtime-data
+  effects_logs:
+    name: omninode-effects-logs
+  effects_data:
+    name: omninode-effects-data
+  worker_logs:
+    name: omninode-worker-logs
+  # OMN-18114: the TENANT-domain projection carrier's own log/data volumes.
+  # Named, not shared with the shared kernels: two processes writing one
+  # /app/data state root is how a lane gets a state dir it cannot attribute.
+  tenant_projection_logs:
+    name: omnimarket-tenant-projection-logs
+  tenant_projection_data:
+    name: omnimarket-tenant-projection-data
+  agent_actions_logs:
+    name: omninode-agent-actions-logs
+  skill_lifecycle_logs:
+    name: omninode-skill-lifecycle-logs
+  context_audit_logs:
+    name: omninode-context-audit-logs
+  contract_resolver_logs:
+    name: omninode-contract-resolver-logs
+  phoenix_data:
+    name: omnibase-infra-phoenix-data
+  # Memgraph volumes (omnimemory profile, OMN-4310)
+  omnibase-infra-memgraph-data:
+    name: "omnibase-infra-memgraph-data"
+  omnibase-infra-memgraph-logs:
+    name: "omnibase-infra-memgraph-logs"

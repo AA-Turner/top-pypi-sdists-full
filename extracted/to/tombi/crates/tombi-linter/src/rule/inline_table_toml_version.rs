@@ -4,8 +4,8 @@ use crate::{Diagnostic, DiagnosticKind, Rule};
 
 pub struct InlineTableTomlVersionRule;
 
-impl Rule<tombi_ast_syntax::InlineTable> for InlineTableTomlVersionRule {
-    async fn check(node: &tombi_ast_syntax::InlineTable, l: &mut crate::Linter<'_>) {
+impl Rule<tombi_ast_syntax::InlineTable<'_>> for InlineTableTomlVersionRule {
+    async fn check(node: &tombi_ast_syntax::InlineTable<'_>, l: &mut crate::Linter<'_>) {
         if l.toml_version() != TomlVersion::V1_0_0 {
             return;
         }
@@ -13,19 +13,19 @@ impl Rule<tombi_ast_syntax::InlineTable> for InlineTableTomlVersionRule {
             l.extend_diagnostics(Diagnostic {
                 kind: DiagnosticKind::InlineTableMustSingleLine,
                 level: SeverityLevel::Error,
-                range: node.range(),
+                span: node.span(),
             });
         }
         if node.has_last_key_value_trailing_comma()
-            && let Some(comma_range) = node
+            && let Some(comma_span) = node
                 .key_values_with_comma()
                 .last()
-                .and_then(|(_, comma)| comma.map(|c| c.range()))
+                .and_then(|(_, comma)| comma.map(|c| c.span()))
         {
             l.extend_diagnostics(Diagnostic {
                 kind: DiagnosticKind::ForbiddenInlineTableLastComma,
                 level: SeverityLevel::Error,
-                range: comma_range,
+                span: comma_span,
             });
         }
     }

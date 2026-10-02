@@ -1,0 +1,6347 @@
+// @generated
+impl serde::Serialize for BatchConfig {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.run_name.is_empty() {
+            len += 1;
+        }
+        if !self.run_id.is_empty() {
+            len += 1;
+        }
+        if !self.asset_name.is_empty() {
+            len += 1;
+        }
+        if self.default_csv_config.is_some() {
+            len += 1;
+        }
+        if self.default_tdms_config.is_some() {
+            len += 1;
+        }
+        if self.default_parquet_config.is_some() {
+            len += 1;
+        }
+        if self.default_hdf5_config.is_some() {
+            len += 1;
+        }
+        if self.default_ulog_config.is_some() {
+            len += 1;
+        }
+        if self.default_mcap_config.is_some() {
+            len += 1;
+        }
+        if !self.file_configs.is_empty() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.BatchConfig", len)?;
+        if !self.run_name.is_empty() {
+            struct_ser.serialize_field("runName", &self.run_name)?;
+        }
+        if !self.run_id.is_empty() {
+            struct_ser.serialize_field("runId", &self.run_id)?;
+        }
+        if !self.asset_name.is_empty() {
+            struct_ser.serialize_field("assetName", &self.asset_name)?;
+        }
+        if let Some(v) = self.default_csv_config.as_ref() {
+            struct_ser.serialize_field("defaultCsvConfig", v)?;
+        }
+        if let Some(v) = self.default_tdms_config.as_ref() {
+            struct_ser.serialize_field("defaultTdmsConfig", v)?;
+        }
+        if let Some(v) = self.default_parquet_config.as_ref() {
+            struct_ser.serialize_field("defaultParquetConfig", v)?;
+        }
+        if let Some(v) = self.default_hdf5_config.as_ref() {
+            struct_ser.serialize_field("defaultHdf5Config", v)?;
+        }
+        if let Some(v) = self.default_ulog_config.as_ref() {
+            struct_ser.serialize_field("defaultUlogConfig", v)?;
+        }
+        if let Some(v) = self.default_mcap_config.as_ref() {
+            struct_ser.serialize_field("defaultMcapConfig", v)?;
+        }
+        if !self.file_configs.is_empty() {
+            struct_ser.serialize_field("fileConfigs", &self.file_configs)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for BatchConfig {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "run_name",
+            "runName",
+            "run_id",
+            "runId",
+            "asset_name",
+            "assetName",
+            "default_csv_config",
+            "defaultCsvConfig",
+            "default_tdms_config",
+            "defaultTdmsConfig",
+            "default_parquet_config",
+            "defaultParquetConfig",
+            "default_hdf5_config",
+            "defaultHdf5Config",
+            "default_ulog_config",
+            "defaultUlogConfig",
+            "default_mcap_config",
+            "defaultMcapConfig",
+            "file_configs",
+            "fileConfigs",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            RunName,
+            RunId,
+            AssetName,
+            DefaultCsvConfig,
+            DefaultTdmsConfig,
+            DefaultParquetConfig,
+            DefaultHdf5Config,
+            DefaultUlogConfig,
+            DefaultMcapConfig,
+            FileConfigs,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "runName" | "run_name" => Ok(GeneratedField::RunName),
+                            "runId" | "run_id" => Ok(GeneratedField::RunId),
+                            "assetName" | "asset_name" => Ok(GeneratedField::AssetName),
+                            "defaultCsvConfig" | "default_csv_config" => Ok(GeneratedField::DefaultCsvConfig),
+                            "defaultTdmsConfig" | "default_tdms_config" => Ok(GeneratedField::DefaultTdmsConfig),
+                            "defaultParquetConfig" | "default_parquet_config" => Ok(GeneratedField::DefaultParquetConfig),
+                            "defaultHdf5Config" | "default_hdf5_config" => Ok(GeneratedField::DefaultHdf5Config),
+                            "defaultUlogConfig" | "default_ulog_config" => Ok(GeneratedField::DefaultUlogConfig),
+                            "defaultMcapConfig" | "default_mcap_config" => Ok(GeneratedField::DefaultMcapConfig),
+                            "fileConfigs" | "file_configs" => Ok(GeneratedField::FileConfigs),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = BatchConfig;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.BatchConfig")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<BatchConfig, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut run_name__ = None;
+                let mut run_id__ = None;
+                let mut asset_name__ = None;
+                let mut default_csv_config__ = None;
+                let mut default_tdms_config__ = None;
+                let mut default_parquet_config__ = None;
+                let mut default_hdf5_config__ = None;
+                let mut default_ulog_config__ = None;
+                let mut default_mcap_config__ = None;
+                let mut file_configs__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::RunName => {
+                            if run_name__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("runName"));
+                            }
+                            run_name__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::RunId => {
+                            if run_id__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("runId"));
+                            }
+                            run_id__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::AssetName => {
+                            if asset_name__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("assetName"));
+                            }
+                            asset_name__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::DefaultCsvConfig => {
+                            if default_csv_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("defaultCsvConfig"));
+                            }
+                            default_csv_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::DefaultTdmsConfig => {
+                            if default_tdms_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("defaultTdmsConfig"));
+                            }
+                            default_tdms_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::DefaultParquetConfig => {
+                            if default_parquet_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("defaultParquetConfig"));
+                            }
+                            default_parquet_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::DefaultHdf5Config => {
+                            if default_hdf5_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("defaultHdf5Config"));
+                            }
+                            default_hdf5_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::DefaultUlogConfig => {
+                            if default_ulog_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("defaultUlogConfig"));
+                            }
+                            default_ulog_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::DefaultMcapConfig => {
+                            if default_mcap_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("defaultMcapConfig"));
+                            }
+                            default_mcap_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::FileConfigs => {
+                            if file_configs__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("fileConfigs"));
+                            }
+                            file_configs__ = Some(
+                                map_.next_value::<std::collections::HashMap<_, _>>()?
+                            );
+                        }
+                    }
+                }
+                Ok(BatchConfig {
+                    run_name: run_name__.unwrap_or_default(),
+                    run_id: run_id__.unwrap_or_default(),
+                    asset_name: asset_name__.unwrap_or_default(),
+                    default_csv_config: default_csv_config__,
+                    default_tdms_config: default_tdms_config__,
+                    default_parquet_config: default_parquet_config__,
+                    default_hdf5_config: default_hdf5_config__,
+                    default_ulog_config: default_ulog_config__,
+                    default_mcap_config: default_mcap_config__,
+                    file_configs: file_configs__.unwrap_or_default(),
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.BatchConfig", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for BatchFileConfig {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if self.r#type != 0 {
+            len += 1;
+        }
+        if self.config.is_some() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.BatchFileConfig", len)?;
+        if self.r#type != 0 {
+            let v = DataTypeKey::try_from(self.r#type)
+                .map_err(|_| serde::ser::Error::custom(format!("Invalid variant {}", self.r#type)))?;
+            struct_ser.serialize_field("type", &v)?;
+        }
+        if let Some(v) = self.config.as_ref() {
+            match v {
+                batch_file_config::Config::CsvConfig(v) => {
+                    struct_ser.serialize_field("csvConfig", v)?;
+                }
+                batch_file_config::Config::TdmsConfig(v) => {
+                    struct_ser.serialize_field("tdmsConfig", v)?;
+                }
+                batch_file_config::Config::ParquetConfig(v) => {
+                    struct_ser.serialize_field("parquetConfig", v)?;
+                }
+                batch_file_config::Config::Hdf5Config(v) => {
+                    struct_ser.serialize_field("hdf5Config", v)?;
+                }
+                batch_file_config::Config::UlogConfig(v) => {
+                    struct_ser.serialize_field("ulogConfig", v)?;
+                }
+                batch_file_config::Config::McapConfig(v) => {
+                    struct_ser.serialize_field("mcapConfig", v)?;
+                }
+            }
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for BatchFileConfig {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "type",
+            "csv_config",
+            "csvConfig",
+            "tdms_config",
+            "tdmsConfig",
+            "parquet_config",
+            "parquetConfig",
+            "hdf5_config",
+            "hdf5Config",
+            "ulog_config",
+            "ulogConfig",
+            "mcap_config",
+            "mcapConfig",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            Type,
+            CsvConfig,
+            TdmsConfig,
+            ParquetConfig,
+            Hdf5Config,
+            UlogConfig,
+            McapConfig,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "type" => Ok(GeneratedField::Type),
+                            "csvConfig" | "csv_config" => Ok(GeneratedField::CsvConfig),
+                            "tdmsConfig" | "tdms_config" => Ok(GeneratedField::TdmsConfig),
+                            "parquetConfig" | "parquet_config" => Ok(GeneratedField::ParquetConfig),
+                            "hdf5Config" | "hdf5_config" => Ok(GeneratedField::Hdf5Config),
+                            "ulogConfig" | "ulog_config" => Ok(GeneratedField::UlogConfig),
+                            "mcapConfig" | "mcap_config" => Ok(GeneratedField::McapConfig),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = BatchFileConfig;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.BatchFileConfig")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<BatchFileConfig, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut r#type__ = None;
+                let mut config__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::Type => {
+                            if r#type__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("type"));
+                            }
+                            r#type__ = Some(map_.next_value::<DataTypeKey>()? as i32);
+                        }
+                        GeneratedField::CsvConfig => {
+                            if config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("csvConfig"));
+                            }
+                            config__ = map_.next_value::<::std::option::Option<_>>()?.map(batch_file_config::Config::CsvConfig)
+;
+                        }
+                        GeneratedField::TdmsConfig => {
+                            if config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("tdmsConfig"));
+                            }
+                            config__ = map_.next_value::<::std::option::Option<_>>()?.map(batch_file_config::Config::TdmsConfig)
+;
+                        }
+                        GeneratedField::ParquetConfig => {
+                            if config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("parquetConfig"));
+                            }
+                            config__ = map_.next_value::<::std::option::Option<_>>()?.map(batch_file_config::Config::ParquetConfig)
+;
+                        }
+                        GeneratedField::Hdf5Config => {
+                            if config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("hdf5Config"));
+                            }
+                            config__ = map_.next_value::<::std::option::Option<_>>()?.map(batch_file_config::Config::Hdf5Config)
+;
+                        }
+                        GeneratedField::UlogConfig => {
+                            if config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("ulogConfig"));
+                            }
+                            config__ = map_.next_value::<::std::option::Option<_>>()?.map(batch_file_config::Config::UlogConfig)
+;
+                        }
+                        GeneratedField::McapConfig => {
+                            if config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("mcapConfig"));
+                            }
+                            config__ = map_.next_value::<::std::option::Option<_>>()?.map(batch_file_config::Config::McapConfig)
+;
+                        }
+                    }
+                }
+                Ok(BatchFileConfig {
+                    r#type: r#type__.unwrap_or_default(),
+                    config: config__,
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.BatchFileConfig", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for Ch10Config {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.asset_name.is_empty() {
+            len += 1;
+        }
+        if !self.run_name.is_empty() {
+            len += 1;
+        }
+        if self.scale_values {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.Ch10Config", len)?;
+        if !self.asset_name.is_empty() {
+            struct_ser.serialize_field("assetName", &self.asset_name)?;
+        }
+        if !self.run_name.is_empty() {
+            struct_ser.serialize_field("runName", &self.run_name)?;
+        }
+        if self.scale_values {
+            struct_ser.serialize_field("scaleValues", &self.scale_values)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for Ch10Config {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "asset_name",
+            "assetName",
+            "run_name",
+            "runName",
+            "scale_values",
+            "scaleValues",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            AssetName,
+            RunName,
+            ScaleValues,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "assetName" | "asset_name" => Ok(GeneratedField::AssetName),
+                            "runName" | "run_name" => Ok(GeneratedField::RunName),
+                            "scaleValues" | "scale_values" => Ok(GeneratedField::ScaleValues),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = Ch10Config;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.Ch10Config")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<Ch10Config, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut asset_name__ = None;
+                let mut run_name__ = None;
+                let mut scale_values__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::AssetName => {
+                            if asset_name__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("assetName"));
+                            }
+                            asset_name__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::RunName => {
+                            if run_name__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("runName"));
+                            }
+                            run_name__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::ScaleValues => {
+                            if scale_values__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("scaleValues"));
+                            }
+                            scale_values__ = Some(map_.next_value()?);
+                        }
+                    }
+                }
+                Ok(Ch10Config {
+                    asset_name: asset_name__.unwrap_or_default(),
+                    run_name: run_name__.unwrap_or_default(),
+                    scale_values: scale_values__.unwrap_or_default(),
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.Ch10Config", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for CreateDataImportFromUploadRequest {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if self.csv_config.is_some() {
+            len += 1;
+        }
+        if self.ch10_config.is_some() {
+            len += 1;
+        }
+        if self.tdms_config.is_some() {
+            len += 1;
+        }
+        if self.parquet_config.is_some() {
+            len += 1;
+        }
+        if self.hdf5_config.is_some() {
+            len += 1;
+        }
+        if self.batch_config.is_some() {
+            len += 1;
+        }
+        if self.ulog_config.is_some() {
+            len += 1;
+        }
+        if self.mcap_config.is_some() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.CreateDataImportFromUploadRequest", len)?;
+        if let Some(v) = self.csv_config.as_ref() {
+            struct_ser.serialize_field("csvConfig", v)?;
+        }
+        if let Some(v) = self.ch10_config.as_ref() {
+            struct_ser.serialize_field("ch10Config", v)?;
+        }
+        if let Some(v) = self.tdms_config.as_ref() {
+            struct_ser.serialize_field("tdmsConfig", v)?;
+        }
+        if let Some(v) = self.parquet_config.as_ref() {
+            struct_ser.serialize_field("parquetConfig", v)?;
+        }
+        if let Some(v) = self.hdf5_config.as_ref() {
+            struct_ser.serialize_field("hdf5Config", v)?;
+        }
+        if let Some(v) = self.batch_config.as_ref() {
+            struct_ser.serialize_field("batchConfig", v)?;
+        }
+        if let Some(v) = self.ulog_config.as_ref() {
+            struct_ser.serialize_field("ulogConfig", v)?;
+        }
+        if let Some(v) = self.mcap_config.as_ref() {
+            struct_ser.serialize_field("mcapConfig", v)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for CreateDataImportFromUploadRequest {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "csv_config",
+            "csvConfig",
+            "ch10_config",
+            "ch10Config",
+            "tdms_config",
+            "tdmsConfig",
+            "parquet_config",
+            "parquetConfig",
+            "hdf5_config",
+            "hdf5Config",
+            "batch_config",
+            "batchConfig",
+            "ulog_config",
+            "ulogConfig",
+            "mcap_config",
+            "mcapConfig",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            CsvConfig,
+            Ch10Config,
+            TdmsConfig,
+            ParquetConfig,
+            Hdf5Config,
+            BatchConfig,
+            UlogConfig,
+            McapConfig,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "csvConfig" | "csv_config" => Ok(GeneratedField::CsvConfig),
+                            "ch10Config" | "ch10_config" => Ok(GeneratedField::Ch10Config),
+                            "tdmsConfig" | "tdms_config" => Ok(GeneratedField::TdmsConfig),
+                            "parquetConfig" | "parquet_config" => Ok(GeneratedField::ParquetConfig),
+                            "hdf5Config" | "hdf5_config" => Ok(GeneratedField::Hdf5Config),
+                            "batchConfig" | "batch_config" => Ok(GeneratedField::BatchConfig),
+                            "ulogConfig" | "ulog_config" => Ok(GeneratedField::UlogConfig),
+                            "mcapConfig" | "mcap_config" => Ok(GeneratedField::McapConfig),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = CreateDataImportFromUploadRequest;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.CreateDataImportFromUploadRequest")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<CreateDataImportFromUploadRequest, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut csv_config__ = None;
+                let mut ch10_config__ = None;
+                let mut tdms_config__ = None;
+                let mut parquet_config__ = None;
+                let mut hdf5_config__ = None;
+                let mut batch_config__ = None;
+                let mut ulog_config__ = None;
+                let mut mcap_config__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::CsvConfig => {
+                            if csv_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("csvConfig"));
+                            }
+                            csv_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::Ch10Config => {
+                            if ch10_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("ch10Config"));
+                            }
+                            ch10_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::TdmsConfig => {
+                            if tdms_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("tdmsConfig"));
+                            }
+                            tdms_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::ParquetConfig => {
+                            if parquet_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("parquetConfig"));
+                            }
+                            parquet_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::Hdf5Config => {
+                            if hdf5_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("hdf5Config"));
+                            }
+                            hdf5_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::BatchConfig => {
+                            if batch_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("batchConfig"));
+                            }
+                            batch_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::UlogConfig => {
+                            if ulog_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("ulogConfig"));
+                            }
+                            ulog_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::McapConfig => {
+                            if mcap_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("mcapConfig"));
+                            }
+                            mcap_config__ = map_.next_value()?;
+                        }
+                    }
+                }
+                Ok(CreateDataImportFromUploadRequest {
+                    csv_config: csv_config__,
+                    ch10_config: ch10_config__,
+                    tdms_config: tdms_config__,
+                    parquet_config: parquet_config__,
+                    hdf5_config: hdf5_config__,
+                    batch_config: batch_config__,
+                    ulog_config: ulog_config__,
+                    mcap_config: mcap_config__,
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.CreateDataImportFromUploadRequest", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for CreateDataImportFromUploadResponse {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.upload_url.is_empty() {
+            len += 1;
+        }
+        if !self.data_import_id.is_empty() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.CreateDataImportFromUploadResponse", len)?;
+        if !self.upload_url.is_empty() {
+            struct_ser.serialize_field("uploadUrl", &self.upload_url)?;
+        }
+        if !self.data_import_id.is_empty() {
+            struct_ser.serialize_field("dataImportId", &self.data_import_id)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for CreateDataImportFromUploadResponse {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "upload_url",
+            "uploadUrl",
+            "data_import_id",
+            "dataImportId",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            UploadUrl,
+            DataImportId,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "uploadUrl" | "upload_url" => Ok(GeneratedField::UploadUrl),
+                            "dataImportId" | "data_import_id" => Ok(GeneratedField::DataImportId),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = CreateDataImportFromUploadResponse;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.CreateDataImportFromUploadResponse")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<CreateDataImportFromUploadResponse, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut upload_url__ = None;
+                let mut data_import_id__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::UploadUrl => {
+                            if upload_url__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("uploadUrl"));
+                            }
+                            upload_url__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::DataImportId => {
+                            if data_import_id__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("dataImportId"));
+                            }
+                            data_import_id__ = Some(map_.next_value()?);
+                        }
+                    }
+                }
+                Ok(CreateDataImportFromUploadResponse {
+                    upload_url: upload_url__.unwrap_or_default(),
+                    data_import_id: data_import_id__.unwrap_or_default(),
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.CreateDataImportFromUploadResponse", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for CreateDataImportFromUrlRequest {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.url.is_empty() {
+            len += 1;
+        }
+        if self.csv_config.is_some() {
+            len += 1;
+        }
+        if self.ch10_config.is_some() {
+            len += 1;
+        }
+        if self.tdms_config.is_some() {
+            len += 1;
+        }
+        if self.parquet_config.is_some() {
+            len += 1;
+        }
+        if self.hdf5_config.is_some() {
+            len += 1;
+        }
+        if self.batch_config.is_some() {
+            len += 1;
+        }
+        if self.ulog_config.is_some() {
+            len += 1;
+        }
+        if self.mcap_config.is_some() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.CreateDataImportFromUrlRequest", len)?;
+        if !self.url.is_empty() {
+            struct_ser.serialize_field("url", &self.url)?;
+        }
+        if let Some(v) = self.csv_config.as_ref() {
+            struct_ser.serialize_field("csvConfig", v)?;
+        }
+        if let Some(v) = self.ch10_config.as_ref() {
+            struct_ser.serialize_field("ch10Config", v)?;
+        }
+        if let Some(v) = self.tdms_config.as_ref() {
+            struct_ser.serialize_field("tdmsConfig", v)?;
+        }
+        if let Some(v) = self.parquet_config.as_ref() {
+            struct_ser.serialize_field("parquetConfig", v)?;
+        }
+        if let Some(v) = self.hdf5_config.as_ref() {
+            struct_ser.serialize_field("hdf5Config", v)?;
+        }
+        if let Some(v) = self.batch_config.as_ref() {
+            struct_ser.serialize_field("batchConfig", v)?;
+        }
+        if let Some(v) = self.ulog_config.as_ref() {
+            struct_ser.serialize_field("ulogConfig", v)?;
+        }
+        if let Some(v) = self.mcap_config.as_ref() {
+            struct_ser.serialize_field("mcapConfig", v)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for CreateDataImportFromUrlRequest {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "url",
+            "csv_config",
+            "csvConfig",
+            "ch10_config",
+            "ch10Config",
+            "tdms_config",
+            "tdmsConfig",
+            "parquet_config",
+            "parquetConfig",
+            "hdf5_config",
+            "hdf5Config",
+            "batch_config",
+            "batchConfig",
+            "ulog_config",
+            "ulogConfig",
+            "mcap_config",
+            "mcapConfig",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            Url,
+            CsvConfig,
+            Ch10Config,
+            TdmsConfig,
+            ParquetConfig,
+            Hdf5Config,
+            BatchConfig,
+            UlogConfig,
+            McapConfig,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "url" => Ok(GeneratedField::Url),
+                            "csvConfig" | "csv_config" => Ok(GeneratedField::CsvConfig),
+                            "ch10Config" | "ch10_config" => Ok(GeneratedField::Ch10Config),
+                            "tdmsConfig" | "tdms_config" => Ok(GeneratedField::TdmsConfig),
+                            "parquetConfig" | "parquet_config" => Ok(GeneratedField::ParquetConfig),
+                            "hdf5Config" | "hdf5_config" => Ok(GeneratedField::Hdf5Config),
+                            "batchConfig" | "batch_config" => Ok(GeneratedField::BatchConfig),
+                            "ulogConfig" | "ulog_config" => Ok(GeneratedField::UlogConfig),
+                            "mcapConfig" | "mcap_config" => Ok(GeneratedField::McapConfig),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = CreateDataImportFromUrlRequest;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.CreateDataImportFromUrlRequest")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<CreateDataImportFromUrlRequest, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut url__ = None;
+                let mut csv_config__ = None;
+                let mut ch10_config__ = None;
+                let mut tdms_config__ = None;
+                let mut parquet_config__ = None;
+                let mut hdf5_config__ = None;
+                let mut batch_config__ = None;
+                let mut ulog_config__ = None;
+                let mut mcap_config__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::Url => {
+                            if url__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("url"));
+                            }
+                            url__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::CsvConfig => {
+                            if csv_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("csvConfig"));
+                            }
+                            csv_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::Ch10Config => {
+                            if ch10_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("ch10Config"));
+                            }
+                            ch10_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::TdmsConfig => {
+                            if tdms_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("tdmsConfig"));
+                            }
+                            tdms_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::ParquetConfig => {
+                            if parquet_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("parquetConfig"));
+                            }
+                            parquet_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::Hdf5Config => {
+                            if hdf5_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("hdf5Config"));
+                            }
+                            hdf5_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::BatchConfig => {
+                            if batch_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("batchConfig"));
+                            }
+                            batch_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::UlogConfig => {
+                            if ulog_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("ulogConfig"));
+                            }
+                            ulog_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::McapConfig => {
+                            if mcap_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("mcapConfig"));
+                            }
+                            mcap_config__ = map_.next_value()?;
+                        }
+                    }
+                }
+                Ok(CreateDataImportFromUrlRequest {
+                    url: url__.unwrap_or_default(),
+                    csv_config: csv_config__,
+                    ch10_config: ch10_config__,
+                    tdms_config: tdms_config__,
+                    parquet_config: parquet_config__,
+                    hdf5_config: hdf5_config__,
+                    batch_config: batch_config__,
+                    ulog_config: ulog_config__,
+                    mcap_config: mcap_config__,
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.CreateDataImportFromUrlRequest", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for CreateDataImportFromUrlResponse {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.data_import_id.is_empty() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.CreateDataImportFromUrlResponse", len)?;
+        if !self.data_import_id.is_empty() {
+            struct_ser.serialize_field("dataImportId", &self.data_import_id)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for CreateDataImportFromUrlResponse {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "data_import_id",
+            "dataImportId",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            DataImportId,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "dataImportId" | "data_import_id" => Ok(GeneratedField::DataImportId),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = CreateDataImportFromUrlResponse;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.CreateDataImportFromUrlResponse")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<CreateDataImportFromUrlResponse, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut data_import_id__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::DataImportId => {
+                            if data_import_id__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("dataImportId"));
+                            }
+                            data_import_id__ = Some(map_.next_value()?);
+                        }
+                    }
+                }
+                Ok(CreateDataImportFromUrlResponse {
+                    data_import_id: data_import_id__.unwrap_or_default(),
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.CreateDataImportFromUrlResponse", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for CsvConfig {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.asset_name.is_empty() {
+            len += 1;
+        }
+        if !self.run_name.is_empty() {
+            len += 1;
+        }
+        if !self.run_id.is_empty() {
+            len += 1;
+        }
+        if self.first_data_row != 0 {
+            len += 1;
+        }
+        if self.time_column.is_some() {
+            len += 1;
+        }
+        if !self.data_columns.is_empty() {
+            len += 1;
+        }
+        if self.num_rows.is_some() {
+            len += 1;
+        }
+        if self.use_embedded_config {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.CsvConfig", len)?;
+        if !self.asset_name.is_empty() {
+            struct_ser.serialize_field("assetName", &self.asset_name)?;
+        }
+        if !self.run_name.is_empty() {
+            struct_ser.serialize_field("runName", &self.run_name)?;
+        }
+        if !self.run_id.is_empty() {
+            struct_ser.serialize_field("runId", &self.run_id)?;
+        }
+        if self.first_data_row != 0 {
+            struct_ser.serialize_field("firstDataRow", &self.first_data_row)?;
+        }
+        if let Some(v) = self.time_column.as_ref() {
+            struct_ser.serialize_field("timeColumn", v)?;
+        }
+        if !self.data_columns.is_empty() {
+            struct_ser.serialize_field("dataColumns", &self.data_columns)?;
+        }
+        if let Some(v) = self.num_rows.as_ref() {
+            #[allow(clippy::needless_borrow)]
+            #[allow(clippy::needless_borrows_for_generic_args)]
+            struct_ser.serialize_field("numRows", ToString::to_string(&v).as_str())?;
+        }
+        if self.use_embedded_config {
+            struct_ser.serialize_field("useEmbeddedConfig", &self.use_embedded_config)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for CsvConfig {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "asset_name",
+            "assetName",
+            "run_name",
+            "runName",
+            "run_id",
+            "runId",
+            "first_data_row",
+            "firstDataRow",
+            "time_column",
+            "timeColumn",
+            "data_columns",
+            "dataColumns",
+            "num_rows",
+            "numRows",
+            "use_embedded_config",
+            "useEmbeddedConfig",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            AssetName,
+            RunName,
+            RunId,
+            FirstDataRow,
+            TimeColumn,
+            DataColumns,
+            NumRows,
+            UseEmbeddedConfig,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "assetName" | "asset_name" => Ok(GeneratedField::AssetName),
+                            "runName" | "run_name" => Ok(GeneratedField::RunName),
+                            "runId" | "run_id" => Ok(GeneratedField::RunId),
+                            "firstDataRow" | "first_data_row" => Ok(GeneratedField::FirstDataRow),
+                            "timeColumn" | "time_column" => Ok(GeneratedField::TimeColumn),
+                            "dataColumns" | "data_columns" => Ok(GeneratedField::DataColumns),
+                            "numRows" | "num_rows" => Ok(GeneratedField::NumRows),
+                            "useEmbeddedConfig" | "use_embedded_config" => Ok(GeneratedField::UseEmbeddedConfig),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = CsvConfig;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.CsvConfig")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<CsvConfig, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut asset_name__ = None;
+                let mut run_name__ = None;
+                let mut run_id__ = None;
+                let mut first_data_row__ = None;
+                let mut time_column__ = None;
+                let mut data_columns__ = None;
+                let mut num_rows__ = None;
+                let mut use_embedded_config__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::AssetName => {
+                            if asset_name__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("assetName"));
+                            }
+                            asset_name__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::RunName => {
+                            if run_name__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("runName"));
+                            }
+                            run_name__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::RunId => {
+                            if run_id__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("runId"));
+                            }
+                            run_id__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::FirstDataRow => {
+                            if first_data_row__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("firstDataRow"));
+                            }
+                            first_data_row__ =
+                                Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
+                            ;
+                        }
+                        GeneratedField::TimeColumn => {
+                            if time_column__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("timeColumn"));
+                            }
+                            time_column__ = map_.next_value()?;
+                        }
+                        GeneratedField::DataColumns => {
+                            if data_columns__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("dataColumns"));
+                            }
+                            data_columns__ = Some(
+                                map_.next_value::<std::collections::HashMap<::pbjson::private::NumberDeserialize<u32>, _>>()?
+                                    .into_iter().map(|(k,v)| (k.0, v)).collect()
+                            );
+                        }
+                        GeneratedField::NumRows => {
+                            if num_rows__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("numRows"));
+                            }
+                            num_rows__ =
+                                map_.next_value::<::std::option::Option<::pbjson::private::NumberDeserialize<_>>>()?.map(|x| x.0)
+                            ;
+                        }
+                        GeneratedField::UseEmbeddedConfig => {
+                            if use_embedded_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("useEmbeddedConfig"));
+                            }
+                            use_embedded_config__ = Some(map_.next_value()?);
+                        }
+                    }
+                }
+                Ok(CsvConfig {
+                    asset_name: asset_name__.unwrap_or_default(),
+                    run_name: run_name__.unwrap_or_default(),
+                    run_id: run_id__.unwrap_or_default(),
+                    first_data_row: first_data_row__.unwrap_or_default(),
+                    time_column: time_column__,
+                    data_columns: data_columns__.unwrap_or_default(),
+                    num_rows: num_rows__,
+                    use_embedded_config: use_embedded_config__.unwrap_or_default(),
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.CsvConfig", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for CsvTimeColumn {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if self.column_number != 0 {
+            len += 1;
+        }
+        if self.format != 0 {
+            len += 1;
+        }
+        if self.relative_start_time.is_some() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.CsvTimeColumn", len)?;
+        if self.column_number != 0 {
+            struct_ser.serialize_field("columnNumber", &self.column_number)?;
+        }
+        if self.format != 0 {
+            let v = TimeFormat::try_from(self.format)
+                .map_err(|_| serde::ser::Error::custom(format!("Invalid variant {}", self.format)))?;
+            struct_ser.serialize_field("format", &v)?;
+        }
+        if let Some(v) = self.relative_start_time.as_ref() {
+            struct_ser.serialize_field("relativeStartTime", v)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for CsvTimeColumn {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "column_number",
+            "columnNumber",
+            "format",
+            "relative_start_time",
+            "relativeStartTime",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            ColumnNumber,
+            Format,
+            RelativeStartTime,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "columnNumber" | "column_number" => Ok(GeneratedField::ColumnNumber),
+                            "format" => Ok(GeneratedField::Format),
+                            "relativeStartTime" | "relative_start_time" => Ok(GeneratedField::RelativeStartTime),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = CsvTimeColumn;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.CsvTimeColumn")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<CsvTimeColumn, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut column_number__ = None;
+                let mut format__ = None;
+                let mut relative_start_time__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::ColumnNumber => {
+                            if column_number__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("columnNumber"));
+                            }
+                            column_number__ =
+                                Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
+                            ;
+                        }
+                        GeneratedField::Format => {
+                            if format__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("format"));
+                            }
+                            format__ = Some(map_.next_value::<TimeFormat>()? as i32);
+                        }
+                        GeneratedField::RelativeStartTime => {
+                            if relative_start_time__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("relativeStartTime"));
+                            }
+                            relative_start_time__ = map_.next_value()?;
+                        }
+                    }
+                }
+                Ok(CsvTimeColumn {
+                    column_number: column_number__.unwrap_or_default(),
+                    format: format__.unwrap_or_default(),
+                    relative_start_time: relative_start_time__,
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.CsvTimeColumn", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for DataImport {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.data_import_id.is_empty() {
+            len += 1;
+        }
+        if !self.source_url.is_empty() {
+            len += 1;
+        }
+        if self.status != 0 {
+            len += 1;
+        }
+        if !self.error_message.is_empty() {
+            len += 1;
+        }
+        if self.created_date.is_some() {
+            len += 1;
+        }
+        if self.modified_date.is_some() {
+            len += 1;
+        }
+        if self.csv_config.is_some() {
+            len += 1;
+        }
+        if self.ch10_config.is_some() {
+            len += 1;
+        }
+        if self.tdms_config.is_some() {
+            len += 1;
+        }
+        if self.parquet_config.is_some() {
+            len += 1;
+        }
+        if self.hdf5_config.is_some() {
+            len += 1;
+        }
+        if self.batch_config.is_some() {
+            len += 1;
+        }
+        if self.ulog_config.is_some() {
+            len += 1;
+        }
+        if self.mcap_config.is_some() {
+            len += 1;
+        }
+        if self.run_id.is_some() {
+            len += 1;
+        }
+        if self.report_id.is_some() {
+            len += 1;
+        }
+        if self.asset_id.is_some() {
+            len += 1;
+        }
+        if self.data_start_time.is_some() {
+            len += 1;
+        }
+        if self.data_stop_time.is_some() {
+            len += 1;
+        }
+        if !self.warning_messages.is_empty() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.DataImport", len)?;
+        if !self.data_import_id.is_empty() {
+            struct_ser.serialize_field("dataImportId", &self.data_import_id)?;
+        }
+        if !self.source_url.is_empty() {
+            struct_ser.serialize_field("sourceUrl", &self.source_url)?;
+        }
+        if self.status != 0 {
+            let v = DataImportStatus::try_from(self.status)
+                .map_err(|_| serde::ser::Error::custom(format!("Invalid variant {}", self.status)))?;
+            struct_ser.serialize_field("status", &v)?;
+        }
+        if !self.error_message.is_empty() {
+            struct_ser.serialize_field("errorMessage", &self.error_message)?;
+        }
+        if let Some(v) = self.created_date.as_ref() {
+            struct_ser.serialize_field("createdDate", v)?;
+        }
+        if let Some(v) = self.modified_date.as_ref() {
+            struct_ser.serialize_field("modifiedDate", v)?;
+        }
+        if let Some(v) = self.csv_config.as_ref() {
+            struct_ser.serialize_field("csvConfig", v)?;
+        }
+        if let Some(v) = self.ch10_config.as_ref() {
+            struct_ser.serialize_field("ch10Config", v)?;
+        }
+        if let Some(v) = self.tdms_config.as_ref() {
+            struct_ser.serialize_field("tdmsConfig", v)?;
+        }
+        if let Some(v) = self.parquet_config.as_ref() {
+            struct_ser.serialize_field("parquetConfig", v)?;
+        }
+        if let Some(v) = self.hdf5_config.as_ref() {
+            struct_ser.serialize_field("hdf5Config", v)?;
+        }
+        if let Some(v) = self.batch_config.as_ref() {
+            struct_ser.serialize_field("batchConfig", v)?;
+        }
+        if let Some(v) = self.ulog_config.as_ref() {
+            struct_ser.serialize_field("ulogConfig", v)?;
+        }
+        if let Some(v) = self.mcap_config.as_ref() {
+            struct_ser.serialize_field("mcapConfig", v)?;
+        }
+        if let Some(v) = self.run_id.as_ref() {
+            struct_ser.serialize_field("runId", v)?;
+        }
+        if let Some(v) = self.report_id.as_ref() {
+            struct_ser.serialize_field("reportId", v)?;
+        }
+        if let Some(v) = self.asset_id.as_ref() {
+            struct_ser.serialize_field("assetId", v)?;
+        }
+        if let Some(v) = self.data_start_time.as_ref() {
+            struct_ser.serialize_field("dataStartTime", v)?;
+        }
+        if let Some(v) = self.data_stop_time.as_ref() {
+            struct_ser.serialize_field("dataStopTime", v)?;
+        }
+        if !self.warning_messages.is_empty() {
+            struct_ser.serialize_field("warningMessages", &self.warning_messages)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for DataImport {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "data_import_id",
+            "dataImportId",
+            "source_url",
+            "sourceUrl",
+            "status",
+            "error_message",
+            "errorMessage",
+            "created_date",
+            "createdDate",
+            "modified_date",
+            "modifiedDate",
+            "csv_config",
+            "csvConfig",
+            "ch10_config",
+            "ch10Config",
+            "tdms_config",
+            "tdmsConfig",
+            "parquet_config",
+            "parquetConfig",
+            "hdf5_config",
+            "hdf5Config",
+            "batch_config",
+            "batchConfig",
+            "ulog_config",
+            "ulogConfig",
+            "mcap_config",
+            "mcapConfig",
+            "run_id",
+            "runId",
+            "report_id",
+            "reportId",
+            "asset_id",
+            "assetId",
+            "data_start_time",
+            "dataStartTime",
+            "data_stop_time",
+            "dataStopTime",
+            "warning_messages",
+            "warningMessages",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            DataImportId,
+            SourceUrl,
+            Status,
+            ErrorMessage,
+            CreatedDate,
+            ModifiedDate,
+            CsvConfig,
+            Ch10Config,
+            TdmsConfig,
+            ParquetConfig,
+            Hdf5Config,
+            BatchConfig,
+            UlogConfig,
+            McapConfig,
+            RunId,
+            ReportId,
+            AssetId,
+            DataStartTime,
+            DataStopTime,
+            WarningMessages,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "dataImportId" | "data_import_id" => Ok(GeneratedField::DataImportId),
+                            "sourceUrl" | "source_url" => Ok(GeneratedField::SourceUrl),
+                            "status" => Ok(GeneratedField::Status),
+                            "errorMessage" | "error_message" => Ok(GeneratedField::ErrorMessage),
+                            "createdDate" | "created_date" => Ok(GeneratedField::CreatedDate),
+                            "modifiedDate" | "modified_date" => Ok(GeneratedField::ModifiedDate),
+                            "csvConfig" | "csv_config" => Ok(GeneratedField::CsvConfig),
+                            "ch10Config" | "ch10_config" => Ok(GeneratedField::Ch10Config),
+                            "tdmsConfig" | "tdms_config" => Ok(GeneratedField::TdmsConfig),
+                            "parquetConfig" | "parquet_config" => Ok(GeneratedField::ParquetConfig),
+                            "hdf5Config" | "hdf5_config" => Ok(GeneratedField::Hdf5Config),
+                            "batchConfig" | "batch_config" => Ok(GeneratedField::BatchConfig),
+                            "ulogConfig" | "ulog_config" => Ok(GeneratedField::UlogConfig),
+                            "mcapConfig" | "mcap_config" => Ok(GeneratedField::McapConfig),
+                            "runId" | "run_id" => Ok(GeneratedField::RunId),
+                            "reportId" | "report_id" => Ok(GeneratedField::ReportId),
+                            "assetId" | "asset_id" => Ok(GeneratedField::AssetId),
+                            "dataStartTime" | "data_start_time" => Ok(GeneratedField::DataStartTime),
+                            "dataStopTime" | "data_stop_time" => Ok(GeneratedField::DataStopTime),
+                            "warningMessages" | "warning_messages" => Ok(GeneratedField::WarningMessages),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = DataImport;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.DataImport")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<DataImport, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut data_import_id__ = None;
+                let mut source_url__ = None;
+                let mut status__ = None;
+                let mut error_message__ = None;
+                let mut created_date__ = None;
+                let mut modified_date__ = None;
+                let mut csv_config__ = None;
+                let mut ch10_config__ = None;
+                let mut tdms_config__ = None;
+                let mut parquet_config__ = None;
+                let mut hdf5_config__ = None;
+                let mut batch_config__ = None;
+                let mut ulog_config__ = None;
+                let mut mcap_config__ = None;
+                let mut run_id__ = None;
+                let mut report_id__ = None;
+                let mut asset_id__ = None;
+                let mut data_start_time__ = None;
+                let mut data_stop_time__ = None;
+                let mut warning_messages__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::DataImportId => {
+                            if data_import_id__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("dataImportId"));
+                            }
+                            data_import_id__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::SourceUrl => {
+                            if source_url__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("sourceUrl"));
+                            }
+                            source_url__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::Status => {
+                            if status__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("status"));
+                            }
+                            status__ = Some(map_.next_value::<DataImportStatus>()? as i32);
+                        }
+                        GeneratedField::ErrorMessage => {
+                            if error_message__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("errorMessage"));
+                            }
+                            error_message__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::CreatedDate => {
+                            if created_date__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("createdDate"));
+                            }
+                            created_date__ = map_.next_value()?;
+                        }
+                        GeneratedField::ModifiedDate => {
+                            if modified_date__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("modifiedDate"));
+                            }
+                            modified_date__ = map_.next_value()?;
+                        }
+                        GeneratedField::CsvConfig => {
+                            if csv_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("csvConfig"));
+                            }
+                            csv_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::Ch10Config => {
+                            if ch10_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("ch10Config"));
+                            }
+                            ch10_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::TdmsConfig => {
+                            if tdms_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("tdmsConfig"));
+                            }
+                            tdms_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::ParquetConfig => {
+                            if parquet_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("parquetConfig"));
+                            }
+                            parquet_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::Hdf5Config => {
+                            if hdf5_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("hdf5Config"));
+                            }
+                            hdf5_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::BatchConfig => {
+                            if batch_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("batchConfig"));
+                            }
+                            batch_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::UlogConfig => {
+                            if ulog_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("ulogConfig"));
+                            }
+                            ulog_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::McapConfig => {
+                            if mcap_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("mcapConfig"));
+                            }
+                            mcap_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::RunId => {
+                            if run_id__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("runId"));
+                            }
+                            run_id__ = map_.next_value()?;
+                        }
+                        GeneratedField::ReportId => {
+                            if report_id__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("reportId"));
+                            }
+                            report_id__ = map_.next_value()?;
+                        }
+                        GeneratedField::AssetId => {
+                            if asset_id__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("assetId"));
+                            }
+                            asset_id__ = map_.next_value()?;
+                        }
+                        GeneratedField::DataStartTime => {
+                            if data_start_time__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("dataStartTime"));
+                            }
+                            data_start_time__ = map_.next_value()?;
+                        }
+                        GeneratedField::DataStopTime => {
+                            if data_stop_time__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("dataStopTime"));
+                            }
+                            data_stop_time__ = map_.next_value()?;
+                        }
+                        GeneratedField::WarningMessages => {
+                            if warning_messages__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("warningMessages"));
+                            }
+                            warning_messages__ = Some(map_.next_value()?);
+                        }
+                    }
+                }
+                Ok(DataImport {
+                    data_import_id: data_import_id__.unwrap_or_default(),
+                    source_url: source_url__.unwrap_or_default(),
+                    status: status__.unwrap_or_default(),
+                    error_message: error_message__.unwrap_or_default(),
+                    created_date: created_date__,
+                    modified_date: modified_date__,
+                    csv_config: csv_config__,
+                    ch10_config: ch10_config__,
+                    tdms_config: tdms_config__,
+                    parquet_config: parquet_config__,
+                    hdf5_config: hdf5_config__,
+                    batch_config: batch_config__,
+                    ulog_config: ulog_config__,
+                    mcap_config: mcap_config__,
+                    run_id: run_id__,
+                    report_id: report_id__,
+                    asset_id: asset_id__,
+                    data_start_time: data_start_time__,
+                    data_stop_time: data_stop_time__,
+                    warning_messages: warning_messages__.unwrap_or_default(),
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.DataImport", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for DataImportStatus {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let variant = match self {
+            Self::Unspecified => "DATA_IMPORT_STATUS_UNSPECIFIED",
+            Self::Pending => "DATA_IMPORT_STATUS_PENDING",
+            Self::InProgress => "DATA_IMPORT_STATUS_IN_PROGRESS",
+            Self::Succeeded => "DATA_IMPORT_STATUS_SUCCEEDED",
+            Self::Failed => "DATA_IMPORT_STATUS_FAILED",
+        };
+        serializer.serialize_str(variant)
+    }
+}
+impl<'de> serde::Deserialize<'de> for DataImportStatus {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "DATA_IMPORT_STATUS_UNSPECIFIED",
+            "DATA_IMPORT_STATUS_PENDING",
+            "DATA_IMPORT_STATUS_IN_PROGRESS",
+            "DATA_IMPORT_STATUS_SUCCEEDED",
+            "DATA_IMPORT_STATUS_FAILED",
+        ];
+
+        struct GeneratedVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = DataImportStatus;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(formatter, "expected one of: {:?}", &FIELDS)
+            }
+
+            fn visit_i64<E>(self, v: i64) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                i32::try_from(v)
+                    .ok()
+                    .and_then(|x| x.try_into().ok())
+                    .ok_or_else(|| {
+                        serde::de::Error::invalid_value(serde::de::Unexpected::Signed(v), &self)
+                    })
+            }
+
+            fn visit_u64<E>(self, v: u64) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                i32::try_from(v)
+                    .ok()
+                    .and_then(|x| x.try_into().ok())
+                    .ok_or_else(|| {
+                        serde::de::Error::invalid_value(serde::de::Unexpected::Unsigned(v), &self)
+                    })
+            }
+
+            fn visit_str<E>(self, value: &str) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                match value {
+                    "DATA_IMPORT_STATUS_UNSPECIFIED" => Ok(DataImportStatus::Unspecified),
+                    "DATA_IMPORT_STATUS_PENDING" => Ok(DataImportStatus::Pending),
+                    "DATA_IMPORT_STATUS_IN_PROGRESS" => Ok(DataImportStatus::InProgress),
+                    "DATA_IMPORT_STATUS_SUCCEEDED" => Ok(DataImportStatus::Succeeded),
+                    "DATA_IMPORT_STATUS_FAILED" => Ok(DataImportStatus::Failed),
+                    _ => Err(serde::de::Error::unknown_variant(value, FIELDS)),
+                }
+            }
+        }
+        deserializer.deserialize_any(GeneratedVisitor)
+    }
+}
+impl serde::Serialize for DataTypeKey {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let variant = match self {
+            Self::Unspecified => "DATA_TYPE_KEY_UNSPECIFIED",
+            Self::Csv => "DATA_TYPE_KEY_CSV",
+            Self::Tdms => "DATA_TYPE_KEY_TDMS",
+            Self::Ch10 => "DATA_TYPE_KEY_CH10",
+            Self::ParquetFlatdataset => "DATA_TYPE_KEY_PARQUET_FLATDATASET",
+            Self::ParquetSingleChannelPerRow => "DATA_TYPE_KEY_PARQUET_SINGLE_CHANNEL_PER_ROW",
+            Self::Hdf5 => "DATA_TYPE_KEY_HDF5",
+            Self::Ulog => "DATA_TYPE_KEY_ULOG",
+            Self::Mcap => "DATA_TYPE_KEY_MCAP",
+        };
+        serializer.serialize_str(variant)
+    }
+}
+impl<'de> serde::Deserialize<'de> for DataTypeKey {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "DATA_TYPE_KEY_UNSPECIFIED",
+            "DATA_TYPE_KEY_CSV",
+            "DATA_TYPE_KEY_TDMS",
+            "DATA_TYPE_KEY_CH10",
+            "DATA_TYPE_KEY_PARQUET_FLATDATASET",
+            "DATA_TYPE_KEY_PARQUET_SINGLE_CHANNEL_PER_ROW",
+            "DATA_TYPE_KEY_HDF5",
+            "DATA_TYPE_KEY_ULOG",
+            "DATA_TYPE_KEY_MCAP",
+        ];
+
+        struct GeneratedVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = DataTypeKey;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(formatter, "expected one of: {:?}", &FIELDS)
+            }
+
+            fn visit_i64<E>(self, v: i64) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                i32::try_from(v)
+                    .ok()
+                    .and_then(|x| x.try_into().ok())
+                    .ok_or_else(|| {
+                        serde::de::Error::invalid_value(serde::de::Unexpected::Signed(v), &self)
+                    })
+            }
+
+            fn visit_u64<E>(self, v: u64) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                i32::try_from(v)
+                    .ok()
+                    .and_then(|x| x.try_into().ok())
+                    .ok_or_else(|| {
+                        serde::de::Error::invalid_value(serde::de::Unexpected::Unsigned(v), &self)
+                    })
+            }
+
+            fn visit_str<E>(self, value: &str) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                match value {
+                    "DATA_TYPE_KEY_UNSPECIFIED" => Ok(DataTypeKey::Unspecified),
+                    "DATA_TYPE_KEY_CSV" => Ok(DataTypeKey::Csv),
+                    "DATA_TYPE_KEY_TDMS" => Ok(DataTypeKey::Tdms),
+                    "DATA_TYPE_KEY_CH10" => Ok(DataTypeKey::Ch10),
+                    "DATA_TYPE_KEY_PARQUET_FLATDATASET" => Ok(DataTypeKey::ParquetFlatdataset),
+                    "DATA_TYPE_KEY_PARQUET_SINGLE_CHANNEL_PER_ROW" => Ok(DataTypeKey::ParquetSingleChannelPerRow),
+                    "DATA_TYPE_KEY_HDF5" => Ok(DataTypeKey::Hdf5),
+                    "DATA_TYPE_KEY_ULOG" => Ok(DataTypeKey::Ulog),
+                    "DATA_TYPE_KEY_MCAP" => Ok(DataTypeKey::Mcap),
+                    _ => Err(serde::de::Error::unknown_variant(value, FIELDS)),
+                }
+            }
+        }
+        deserializer.deserialize_any(GeneratedVisitor)
+    }
+}
+impl serde::Serialize for DetectConfigRequest {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.data.is_empty() {
+            len += 1;
+        }
+        if self.r#type != 0 {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.DetectConfigRequest", len)?;
+        if !self.data.is_empty() {
+            #[allow(clippy::needless_borrow)]
+            #[allow(clippy::needless_borrows_for_generic_args)]
+            struct_ser.serialize_field("data", pbjson::private::base64::encode(&self.data).as_str())?;
+        }
+        if self.r#type != 0 {
+            let v = DataTypeKey::try_from(self.r#type)
+                .map_err(|_| serde::ser::Error::custom(format!("Invalid variant {}", self.r#type)))?;
+            struct_ser.serialize_field("type", &v)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for DetectConfigRequest {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "data",
+            "type",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            Data,
+            Type,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "data" => Ok(GeneratedField::Data),
+                            "type" => Ok(GeneratedField::Type),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = DetectConfigRequest;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.DetectConfigRequest")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<DetectConfigRequest, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut data__ = None;
+                let mut r#type__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::Data => {
+                            if data__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("data"));
+                            }
+                            data__ =
+                                Some(map_.next_value::<::pbjson::private::BytesDeserialize<_>>()?.0)
+                            ;
+                        }
+                        GeneratedField::Type => {
+                            if r#type__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("type"));
+                            }
+                            r#type__ = Some(map_.next_value::<DataTypeKey>()? as i32);
+                        }
+                    }
+                }
+                Ok(DetectConfigRequest {
+                    data: data__.unwrap_or_default(),
+                    r#type: r#type__.unwrap_or_default(),
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.DetectConfigRequest", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for DetectConfigResponse {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if self.csv_config.is_some() {
+            len += 1;
+        }
+        if self.parquet_config.is_some() {
+            len += 1;
+        }
+        if self.hdf5_config.is_some() {
+            len += 1;
+        }
+        if self.tdms_config.is_some() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.DetectConfigResponse", len)?;
+        if let Some(v) = self.csv_config.as_ref() {
+            struct_ser.serialize_field("csvConfig", v)?;
+        }
+        if let Some(v) = self.parquet_config.as_ref() {
+            struct_ser.serialize_field("parquetConfig", v)?;
+        }
+        if let Some(v) = self.hdf5_config.as_ref() {
+            struct_ser.serialize_field("hdf5Config", v)?;
+        }
+        if let Some(v) = self.tdms_config.as_ref() {
+            struct_ser.serialize_field("tdmsConfig", v)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for DetectConfigResponse {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "csv_config",
+            "csvConfig",
+            "parquet_config",
+            "parquetConfig",
+            "hdf5_config",
+            "hdf5Config",
+            "tdms_config",
+            "tdmsConfig",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            CsvConfig,
+            ParquetConfig,
+            Hdf5Config,
+            TdmsConfig,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "csvConfig" | "csv_config" => Ok(GeneratedField::CsvConfig),
+                            "parquetConfig" | "parquet_config" => Ok(GeneratedField::ParquetConfig),
+                            "hdf5Config" | "hdf5_config" => Ok(GeneratedField::Hdf5Config),
+                            "tdmsConfig" | "tdms_config" => Ok(GeneratedField::TdmsConfig),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = DetectConfigResponse;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.DetectConfigResponse")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<DetectConfigResponse, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut csv_config__ = None;
+                let mut parquet_config__ = None;
+                let mut hdf5_config__ = None;
+                let mut tdms_config__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::CsvConfig => {
+                            if csv_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("csvConfig"));
+                            }
+                            csv_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::ParquetConfig => {
+                            if parquet_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("parquetConfig"));
+                            }
+                            parquet_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::Hdf5Config => {
+                            if hdf5_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("hdf5Config"));
+                            }
+                            hdf5_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::TdmsConfig => {
+                            if tdms_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("tdmsConfig"));
+                            }
+                            tdms_config__ = map_.next_value()?;
+                        }
+                    }
+                }
+                Ok(DetectConfigResponse {
+                    csv_config: csv_config__,
+                    parquet_config: parquet_config__,
+                    hdf5_config: hdf5_config__,
+                    tdms_config: tdms_config__,
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.DetectConfigResponse", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for GetDataImportRequest {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.data_import_id.is_empty() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.GetDataImportRequest", len)?;
+        if !self.data_import_id.is_empty() {
+            struct_ser.serialize_field("dataImportId", &self.data_import_id)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for GetDataImportRequest {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "data_import_id",
+            "dataImportId",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            DataImportId,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "dataImportId" | "data_import_id" => Ok(GeneratedField::DataImportId),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = GetDataImportRequest;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.GetDataImportRequest")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<GetDataImportRequest, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut data_import_id__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::DataImportId => {
+                            if data_import_id__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("dataImportId"));
+                            }
+                            data_import_id__ = Some(map_.next_value()?);
+                        }
+                    }
+                }
+                Ok(GetDataImportRequest {
+                    data_import_id: data_import_id__.unwrap_or_default(),
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.GetDataImportRequest", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for GetDataImportResponse {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if self.data_import.is_some() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.GetDataImportResponse", len)?;
+        if let Some(v) = self.data_import.as_ref() {
+            struct_ser.serialize_field("dataImport", v)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for GetDataImportResponse {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "data_import",
+            "dataImport",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            DataImport,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "dataImport" | "data_import" => Ok(GeneratedField::DataImport),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = GetDataImportResponse;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.GetDataImportResponse")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<GetDataImportResponse, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut data_import__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::DataImport => {
+                            if data_import__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("dataImport"));
+                            }
+                            data_import__ = map_.next_value()?;
+                        }
+                    }
+                }
+                Ok(GetDataImportResponse {
+                    data_import: data_import__,
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.GetDataImportResponse", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for Hdf5Config {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.asset_name.is_empty() {
+            len += 1;
+        }
+        if !self.run_name.is_empty() {
+            len += 1;
+        }
+        if !self.run_id.is_empty() {
+            len += 1;
+        }
+        if !self.data.is_empty() {
+            len += 1;
+        }
+        if self.time_format != 0 {
+            len += 1;
+        }
+        if self.relative_start_time.is_some() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.Hdf5Config", len)?;
+        if !self.asset_name.is_empty() {
+            struct_ser.serialize_field("assetName", &self.asset_name)?;
+        }
+        if !self.run_name.is_empty() {
+            struct_ser.serialize_field("runName", &self.run_name)?;
+        }
+        if !self.run_id.is_empty() {
+            struct_ser.serialize_field("runId", &self.run_id)?;
+        }
+        if !self.data.is_empty() {
+            struct_ser.serialize_field("data", &self.data)?;
+        }
+        if self.time_format != 0 {
+            let v = TimeFormat::try_from(self.time_format)
+                .map_err(|_| serde::ser::Error::custom(format!("Invalid variant {}", self.time_format)))?;
+            struct_ser.serialize_field("timeFormat", &v)?;
+        }
+        if let Some(v) = self.relative_start_time.as_ref() {
+            struct_ser.serialize_field("relativeStartTime", v)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for Hdf5Config {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "asset_name",
+            "assetName",
+            "run_name",
+            "runName",
+            "run_id",
+            "runId",
+            "data",
+            "time_format",
+            "timeFormat",
+            "relative_start_time",
+            "relativeStartTime",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            AssetName,
+            RunName,
+            RunId,
+            Data,
+            TimeFormat,
+            RelativeStartTime,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "assetName" | "asset_name" => Ok(GeneratedField::AssetName),
+                            "runName" | "run_name" => Ok(GeneratedField::RunName),
+                            "runId" | "run_id" => Ok(GeneratedField::RunId),
+                            "data" => Ok(GeneratedField::Data),
+                            "timeFormat" | "time_format" => Ok(GeneratedField::TimeFormat),
+                            "relativeStartTime" | "relative_start_time" => Ok(GeneratedField::RelativeStartTime),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = Hdf5Config;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.Hdf5Config")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<Hdf5Config, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut asset_name__ = None;
+                let mut run_name__ = None;
+                let mut run_id__ = None;
+                let mut data__ = None;
+                let mut time_format__ = None;
+                let mut relative_start_time__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::AssetName => {
+                            if asset_name__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("assetName"));
+                            }
+                            asset_name__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::RunName => {
+                            if run_name__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("runName"));
+                            }
+                            run_name__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::RunId => {
+                            if run_id__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("runId"));
+                            }
+                            run_id__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::Data => {
+                            if data__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("data"));
+                            }
+                            data__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::TimeFormat => {
+                            if time_format__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("timeFormat"));
+                            }
+                            time_format__ = Some(map_.next_value::<TimeFormat>()? as i32);
+                        }
+                        GeneratedField::RelativeStartTime => {
+                            if relative_start_time__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("relativeStartTime"));
+                            }
+                            relative_start_time__ = map_.next_value()?;
+                        }
+                    }
+                }
+                Ok(Hdf5Config {
+                    asset_name: asset_name__.unwrap_or_default(),
+                    run_name: run_name__.unwrap_or_default(),
+                    run_id: run_id__.unwrap_or_default(),
+                    data: data__.unwrap_or_default(),
+                    time_format: time_format__.unwrap_or_default(),
+                    relative_start_time: relative_start_time__,
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.Hdf5Config", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for Hdf5DataConfig {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.time_dataset.is_empty() {
+            len += 1;
+        }
+        if self.time_index != 0 {
+            len += 1;
+        }
+        if !self.value_dataset.is_empty() {
+            len += 1;
+        }
+        if self.value_index != 0 {
+            len += 1;
+        }
+        if self.channel_config.is_some() {
+            len += 1;
+        }
+        if self.time_field.is_some() {
+            len += 1;
+        }
+        if self.value_field.is_some() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.Hdf5DataConfig", len)?;
+        if !self.time_dataset.is_empty() {
+            struct_ser.serialize_field("timeDataset", &self.time_dataset)?;
+        }
+        if self.time_index != 0 {
+            #[allow(clippy::needless_borrow)]
+            #[allow(clippy::needless_borrows_for_generic_args)]
+            struct_ser.serialize_field("timeIndex", ToString::to_string(&self.time_index).as_str())?;
+        }
+        if !self.value_dataset.is_empty() {
+            struct_ser.serialize_field("valueDataset", &self.value_dataset)?;
+        }
+        if self.value_index != 0 {
+            #[allow(clippy::needless_borrow)]
+            #[allow(clippy::needless_borrows_for_generic_args)]
+            struct_ser.serialize_field("valueIndex", ToString::to_string(&self.value_index).as_str())?;
+        }
+        if let Some(v) = self.channel_config.as_ref() {
+            struct_ser.serialize_field("channelConfig", v)?;
+        }
+        if let Some(v) = self.time_field.as_ref() {
+            struct_ser.serialize_field("timeField", v)?;
+        }
+        if let Some(v) = self.value_field.as_ref() {
+            struct_ser.serialize_field("valueField", v)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for Hdf5DataConfig {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "time_dataset",
+            "timeDataset",
+            "time_index",
+            "timeIndex",
+            "value_dataset",
+            "valueDataset",
+            "value_index",
+            "valueIndex",
+            "channel_config",
+            "channelConfig",
+            "time_field",
+            "timeField",
+            "value_field",
+            "valueField",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            TimeDataset,
+            TimeIndex,
+            ValueDataset,
+            ValueIndex,
+            ChannelConfig,
+            TimeField,
+            ValueField,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "timeDataset" | "time_dataset" => Ok(GeneratedField::TimeDataset),
+                            "timeIndex" | "time_index" => Ok(GeneratedField::TimeIndex),
+                            "valueDataset" | "value_dataset" => Ok(GeneratedField::ValueDataset),
+                            "valueIndex" | "value_index" => Ok(GeneratedField::ValueIndex),
+                            "channelConfig" | "channel_config" => Ok(GeneratedField::ChannelConfig),
+                            "timeField" | "time_field" => Ok(GeneratedField::TimeField),
+                            "valueField" | "value_field" => Ok(GeneratedField::ValueField),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = Hdf5DataConfig;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.Hdf5DataConfig")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<Hdf5DataConfig, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut time_dataset__ = None;
+                let mut time_index__ = None;
+                let mut value_dataset__ = None;
+                let mut value_index__ = None;
+                let mut channel_config__ = None;
+                let mut time_field__ = None;
+                let mut value_field__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::TimeDataset => {
+                            if time_dataset__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("timeDataset"));
+                            }
+                            time_dataset__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::TimeIndex => {
+                            if time_index__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("timeIndex"));
+                            }
+                            time_index__ =
+                                Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
+                            ;
+                        }
+                        GeneratedField::ValueDataset => {
+                            if value_dataset__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("valueDataset"));
+                            }
+                            value_dataset__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::ValueIndex => {
+                            if value_index__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("valueIndex"));
+                            }
+                            value_index__ =
+                                Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
+                            ;
+                        }
+                        GeneratedField::ChannelConfig => {
+                            if channel_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("channelConfig"));
+                            }
+                            channel_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::TimeField => {
+                            if time_field__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("timeField"));
+                            }
+                            time_field__ = map_.next_value()?;
+                        }
+                        GeneratedField::ValueField => {
+                            if value_field__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("valueField"));
+                            }
+                            value_field__ = map_.next_value()?;
+                        }
+                    }
+                }
+                Ok(Hdf5DataConfig {
+                    time_dataset: time_dataset__.unwrap_or_default(),
+                    time_index: time_index__.unwrap_or_default(),
+                    value_dataset: value_dataset__.unwrap_or_default(),
+                    value_index: value_index__.unwrap_or_default(),
+                    channel_config: channel_config__,
+                    time_field: time_field__,
+                    value_field: value_field__,
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.Hdf5DataConfig", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for ListDataImportsRequest {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if self.page_size != 0 {
+            len += 1;
+        }
+        if !self.page_token.is_empty() {
+            len += 1;
+        }
+        if !self.filter.is_empty() {
+            len += 1;
+        }
+        if !self.order_by.is_empty() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.ListDataImportsRequest", len)?;
+        if self.page_size != 0 {
+            struct_ser.serialize_field("pageSize", &self.page_size)?;
+        }
+        if !self.page_token.is_empty() {
+            struct_ser.serialize_field("pageToken", &self.page_token)?;
+        }
+        if !self.filter.is_empty() {
+            struct_ser.serialize_field("filter", &self.filter)?;
+        }
+        if !self.order_by.is_empty() {
+            struct_ser.serialize_field("orderBy", &self.order_by)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for ListDataImportsRequest {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "page_size",
+            "pageSize",
+            "page_token",
+            "pageToken",
+            "filter",
+            "order_by",
+            "orderBy",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            PageSize,
+            PageToken,
+            Filter,
+            OrderBy,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "pageSize" | "page_size" => Ok(GeneratedField::PageSize),
+                            "pageToken" | "page_token" => Ok(GeneratedField::PageToken),
+                            "filter" => Ok(GeneratedField::Filter),
+                            "orderBy" | "order_by" => Ok(GeneratedField::OrderBy),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = ListDataImportsRequest;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.ListDataImportsRequest")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<ListDataImportsRequest, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut page_size__ = None;
+                let mut page_token__ = None;
+                let mut filter__ = None;
+                let mut order_by__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::PageSize => {
+                            if page_size__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("pageSize"));
+                            }
+                            page_size__ =
+                                Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
+                            ;
+                        }
+                        GeneratedField::PageToken => {
+                            if page_token__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("pageToken"));
+                            }
+                            page_token__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::Filter => {
+                            if filter__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("filter"));
+                            }
+                            filter__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::OrderBy => {
+                            if order_by__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("orderBy"));
+                            }
+                            order_by__ = Some(map_.next_value()?);
+                        }
+                    }
+                }
+                Ok(ListDataImportsRequest {
+                    page_size: page_size__.unwrap_or_default(),
+                    page_token: page_token__.unwrap_or_default(),
+                    filter: filter__.unwrap_or_default(),
+                    order_by: order_by__.unwrap_or_default(),
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.ListDataImportsRequest", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for ListDataImportsResponse {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.data_imports.is_empty() {
+            len += 1;
+        }
+        if !self.next_page_token.is_empty() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.ListDataImportsResponse", len)?;
+        if !self.data_imports.is_empty() {
+            struct_ser.serialize_field("dataImports", &self.data_imports)?;
+        }
+        if !self.next_page_token.is_empty() {
+            struct_ser.serialize_field("nextPageToken", &self.next_page_token)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for ListDataImportsResponse {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "data_imports",
+            "dataImports",
+            "next_page_token",
+            "nextPageToken",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            DataImports,
+            NextPageToken,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "dataImports" | "data_imports" => Ok(GeneratedField::DataImports),
+                            "nextPageToken" | "next_page_token" => Ok(GeneratedField::NextPageToken),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = ListDataImportsResponse;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.ListDataImportsResponse")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<ListDataImportsResponse, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut data_imports__ = None;
+                let mut next_page_token__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::DataImports => {
+                            if data_imports__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("dataImports"));
+                            }
+                            data_imports__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::NextPageToken => {
+                            if next_page_token__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("nextPageToken"));
+                            }
+                            next_page_token__ = Some(map_.next_value()?);
+                        }
+                    }
+                }
+                Ok(ListDataImportsResponse {
+                    data_imports: data_imports__.unwrap_or_default(),
+                    next_page_token: next_page_token__.unwrap_or_default(),
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.ListDataImportsResponse", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for McapComplexTypesImportMode {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let variant = match self {
+            Self::Unspecified => "MCAP_COMPLEX_TYPES_IMPORT_MODE_UNSPECIFIED",
+            Self::Ignore => "MCAP_COMPLEX_TYPES_IMPORT_MODE_IGNORE",
+            Self::Both => "MCAP_COMPLEX_TYPES_IMPORT_MODE_BOTH",
+            Self::String => "MCAP_COMPLEX_TYPES_IMPORT_MODE_STRING",
+            Self::Bytes => "MCAP_COMPLEX_TYPES_IMPORT_MODE_BYTES",
+        };
+        serializer.serialize_str(variant)
+    }
+}
+impl<'de> serde::Deserialize<'de> for McapComplexTypesImportMode {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "MCAP_COMPLEX_TYPES_IMPORT_MODE_UNSPECIFIED",
+            "MCAP_COMPLEX_TYPES_IMPORT_MODE_IGNORE",
+            "MCAP_COMPLEX_TYPES_IMPORT_MODE_BOTH",
+            "MCAP_COMPLEX_TYPES_IMPORT_MODE_STRING",
+            "MCAP_COMPLEX_TYPES_IMPORT_MODE_BYTES",
+        ];
+
+        struct GeneratedVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = McapComplexTypesImportMode;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(formatter, "expected one of: {:?}", &FIELDS)
+            }
+
+            fn visit_i64<E>(self, v: i64) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                i32::try_from(v)
+                    .ok()
+                    .and_then(|x| x.try_into().ok())
+                    .ok_or_else(|| {
+                        serde::de::Error::invalid_value(serde::de::Unexpected::Signed(v), &self)
+                    })
+            }
+
+            fn visit_u64<E>(self, v: u64) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                i32::try_from(v)
+                    .ok()
+                    .and_then(|x| x.try_into().ok())
+                    .ok_or_else(|| {
+                        serde::de::Error::invalid_value(serde::de::Unexpected::Unsigned(v), &self)
+                    })
+            }
+
+            fn visit_str<E>(self, value: &str) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                match value {
+                    "MCAP_COMPLEX_TYPES_IMPORT_MODE_UNSPECIFIED" => Ok(McapComplexTypesImportMode::Unspecified),
+                    "MCAP_COMPLEX_TYPES_IMPORT_MODE_IGNORE" => Ok(McapComplexTypesImportMode::Ignore),
+                    "MCAP_COMPLEX_TYPES_IMPORT_MODE_BOTH" => Ok(McapComplexTypesImportMode::Both),
+                    "MCAP_COMPLEX_TYPES_IMPORT_MODE_STRING" => Ok(McapComplexTypesImportMode::String),
+                    "MCAP_COMPLEX_TYPES_IMPORT_MODE_BYTES" => Ok(McapComplexTypesImportMode::Bytes),
+                    _ => Err(serde::de::Error::unknown_variant(value, FIELDS)),
+                }
+            }
+        }
+        deserializer.deserialize_any(GeneratedVisitor)
+    }
+}
+impl serde::Serialize for McapConfig {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.asset_name.is_empty() {
+            len += 1;
+        }
+        if !self.run_name.is_empty() {
+            len += 1;
+        }
+        if !self.run_id.is_empty() {
+            len += 1;
+        }
+        if !self.data.is_empty() {
+            len += 1;
+        }
+        if self.relative_start_time.is_some() {
+            len += 1;
+        }
+        if !self.metadata_records.is_empty() {
+            len += 1;
+        }
+        if self.parse_error_policy != 0 {
+            len += 1;
+        }
+        if self.complex_types_import_mode != 0 {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.McapConfig", len)?;
+        if !self.asset_name.is_empty() {
+            struct_ser.serialize_field("assetName", &self.asset_name)?;
+        }
+        if !self.run_name.is_empty() {
+            struct_ser.serialize_field("runName", &self.run_name)?;
+        }
+        if !self.run_id.is_empty() {
+            struct_ser.serialize_field("runId", &self.run_id)?;
+        }
+        if !self.data.is_empty() {
+            struct_ser.serialize_field("data", &self.data)?;
+        }
+        if let Some(v) = self.relative_start_time.as_ref() {
+            struct_ser.serialize_field("relativeStartTime", v)?;
+        }
+        if !self.metadata_records.is_empty() {
+            struct_ser.serialize_field("metadataRecords", &self.metadata_records)?;
+        }
+        if self.parse_error_policy != 0 {
+            let v = McapParseErrorPolicy::try_from(self.parse_error_policy)
+                .map_err(|_| serde::ser::Error::custom(format!("Invalid variant {}", self.parse_error_policy)))?;
+            struct_ser.serialize_field("parseErrorPolicy", &v)?;
+        }
+        if self.complex_types_import_mode != 0 {
+            let v = McapComplexTypesImportMode::try_from(self.complex_types_import_mode)
+                .map_err(|_| serde::ser::Error::custom(format!("Invalid variant {}", self.complex_types_import_mode)))?;
+            struct_ser.serialize_field("complexTypesImportMode", &v)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for McapConfig {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "asset_name",
+            "assetName",
+            "run_name",
+            "runName",
+            "run_id",
+            "runId",
+            "data",
+            "relative_start_time",
+            "relativeStartTime",
+            "metadata_records",
+            "metadataRecords",
+            "parse_error_policy",
+            "parseErrorPolicy",
+            "complex_types_import_mode",
+            "complexTypesImportMode",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            AssetName,
+            RunName,
+            RunId,
+            Data,
+            RelativeStartTime,
+            MetadataRecords,
+            ParseErrorPolicy,
+            ComplexTypesImportMode,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "assetName" | "asset_name" => Ok(GeneratedField::AssetName),
+                            "runName" | "run_name" => Ok(GeneratedField::RunName),
+                            "runId" | "run_id" => Ok(GeneratedField::RunId),
+                            "data" => Ok(GeneratedField::Data),
+                            "relativeStartTime" | "relative_start_time" => Ok(GeneratedField::RelativeStartTime),
+                            "metadataRecords" | "metadata_records" => Ok(GeneratedField::MetadataRecords),
+                            "parseErrorPolicy" | "parse_error_policy" => Ok(GeneratedField::ParseErrorPolicy),
+                            "complexTypesImportMode" | "complex_types_import_mode" => Ok(GeneratedField::ComplexTypesImportMode),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = McapConfig;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.McapConfig")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<McapConfig, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut asset_name__ = None;
+                let mut run_name__ = None;
+                let mut run_id__ = None;
+                let mut data__ = None;
+                let mut relative_start_time__ = None;
+                let mut metadata_records__ = None;
+                let mut parse_error_policy__ = None;
+                let mut complex_types_import_mode__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::AssetName => {
+                            if asset_name__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("assetName"));
+                            }
+                            asset_name__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::RunName => {
+                            if run_name__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("runName"));
+                            }
+                            run_name__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::RunId => {
+                            if run_id__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("runId"));
+                            }
+                            run_id__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::Data => {
+                            if data__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("data"));
+                            }
+                            data__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::RelativeStartTime => {
+                            if relative_start_time__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("relativeStartTime"));
+                            }
+                            relative_start_time__ = map_.next_value()?;
+                        }
+                        GeneratedField::MetadataRecords => {
+                            if metadata_records__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("metadataRecords"));
+                            }
+                            metadata_records__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::ParseErrorPolicy => {
+                            if parse_error_policy__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("parseErrorPolicy"));
+                            }
+                            parse_error_policy__ = Some(map_.next_value::<McapParseErrorPolicy>()? as i32);
+                        }
+                        GeneratedField::ComplexTypesImportMode => {
+                            if complex_types_import_mode__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("complexTypesImportMode"));
+                            }
+                            complex_types_import_mode__ = Some(map_.next_value::<McapComplexTypesImportMode>()? as i32);
+                        }
+                    }
+                }
+                Ok(McapConfig {
+                    asset_name: asset_name__.unwrap_or_default(),
+                    run_name: run_name__.unwrap_or_default(),
+                    run_id: run_id__.unwrap_or_default(),
+                    data: data__.unwrap_or_default(),
+                    relative_start_time: relative_start_time__,
+                    metadata_records: metadata_records__.unwrap_or_default(),
+                    parse_error_policy: parse_error_policy__.unwrap_or_default(),
+                    complex_types_import_mode: complex_types_import_mode__.unwrap_or_default(),
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.McapConfig", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for McapDataConfig {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.topic.is_empty() {
+            len += 1;
+        }
+        if self.channel_config.is_some() {
+            len += 1;
+        }
+        if self.selector.is_some() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.McapDataConfig", len)?;
+        if !self.topic.is_empty() {
+            struct_ser.serialize_field("topic", &self.topic)?;
+        }
+        if let Some(v) = self.channel_config.as_ref() {
+            struct_ser.serialize_field("channelConfig", v)?;
+        }
+        if let Some(v) = self.selector.as_ref() {
+            match v {
+                mcap_data_config::Selector::Ros2(v) => {
+                    struct_ser.serialize_field("ros2", v)?;
+                }
+            }
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for McapDataConfig {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "topic",
+            "channel_config",
+            "channelConfig",
+            "ros2",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            Topic,
+            ChannelConfig,
+            Ros2,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "topic" => Ok(GeneratedField::Topic),
+                            "channelConfig" | "channel_config" => Ok(GeneratedField::ChannelConfig),
+                            "ros2" => Ok(GeneratedField::Ros2),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = McapDataConfig;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.McapDataConfig")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<McapDataConfig, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut topic__ = None;
+                let mut channel_config__ = None;
+                let mut selector__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::Topic => {
+                            if topic__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("topic"));
+                            }
+                            topic__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::ChannelConfig => {
+                            if channel_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("channelConfig"));
+                            }
+                            channel_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::Ros2 => {
+                            if selector__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("ros2"));
+                            }
+                            selector__ = map_.next_value::<::std::option::Option<_>>()?.map(mcap_data_config::Selector::Ros2)
+;
+                        }
+                    }
+                }
+                Ok(McapDataConfig {
+                    topic: topic__.unwrap_or_default(),
+                    channel_config: channel_config__,
+                    selector: selector__,
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.McapDataConfig", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for McapParseErrorPolicy {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let variant = match self {
+            Self::Unspecified => "MCAP_PARSE_ERROR_POLICY_UNSPECIFIED",
+            Self::FailOnError => "MCAP_PARSE_ERROR_POLICY_FAIL_ON_ERROR",
+            Self::IgnoreError => "MCAP_PARSE_ERROR_POLICY_IGNORE_ERROR",
+        };
+        serializer.serialize_str(variant)
+    }
+}
+impl<'de> serde::Deserialize<'de> for McapParseErrorPolicy {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "MCAP_PARSE_ERROR_POLICY_UNSPECIFIED",
+            "MCAP_PARSE_ERROR_POLICY_FAIL_ON_ERROR",
+            "MCAP_PARSE_ERROR_POLICY_IGNORE_ERROR",
+        ];
+
+        struct GeneratedVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = McapParseErrorPolicy;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(formatter, "expected one of: {:?}", &FIELDS)
+            }
+
+            fn visit_i64<E>(self, v: i64) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                i32::try_from(v)
+                    .ok()
+                    .and_then(|x| x.try_into().ok())
+                    .ok_or_else(|| {
+                        serde::de::Error::invalid_value(serde::de::Unexpected::Signed(v), &self)
+                    })
+            }
+
+            fn visit_u64<E>(self, v: u64) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                i32::try_from(v)
+                    .ok()
+                    .and_then(|x| x.try_into().ok())
+                    .ok_or_else(|| {
+                        serde::de::Error::invalid_value(serde::de::Unexpected::Unsigned(v), &self)
+                    })
+            }
+
+            fn visit_str<E>(self, value: &str) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                match value {
+                    "MCAP_PARSE_ERROR_POLICY_UNSPECIFIED" => Ok(McapParseErrorPolicy::Unspecified),
+                    "MCAP_PARSE_ERROR_POLICY_FAIL_ON_ERROR" => Ok(McapParseErrorPolicy::FailOnError),
+                    "MCAP_PARSE_ERROR_POLICY_IGNORE_ERROR" => Ok(McapParseErrorPolicy::IgnoreError),
+                    _ => Err(serde::de::Error::unknown_variant(value, FIELDS)),
+                }
+            }
+        }
+        deserializer.deserialize_any(GeneratedVisitor)
+    }
+}
+impl serde::Serialize for McapRos2Selector {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.field_path.is_empty() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.McapRos2Selector", len)?;
+        if !self.field_path.is_empty() {
+            struct_ser.serialize_field("fieldPath", &self.field_path)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for McapRos2Selector {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "field_path",
+            "fieldPath",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            FieldPath,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "fieldPath" | "field_path" => Ok(GeneratedField::FieldPath),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = McapRos2Selector;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.McapRos2Selector")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<McapRos2Selector, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut field_path__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::FieldPath => {
+                            if field_path__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("fieldPath"));
+                            }
+                            field_path__ = Some(map_.next_value()?);
+                        }
+                    }
+                }
+                Ok(McapRos2Selector {
+                    field_path: field_path__.unwrap_or_default(),
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.McapRos2Selector", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for ParquetColumn {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.path.is_empty() {
+            len += 1;
+        }
+        if self.column_config.is_some() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.ParquetColumn", len)?;
+        if !self.path.is_empty() {
+            struct_ser.serialize_field("path", &self.path)?;
+        }
+        if let Some(v) = self.column_config.as_ref() {
+            struct_ser.serialize_field("columnConfig", v)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for ParquetColumn {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "path",
+            "column_config",
+            "columnConfig",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            Path,
+            ColumnConfig,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "path" => Ok(GeneratedField::Path),
+                            "columnConfig" | "column_config" => Ok(GeneratedField::ColumnConfig),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = ParquetColumn;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.ParquetColumn")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<ParquetColumn, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut path__ = None;
+                let mut column_config__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::Path => {
+                            if path__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("path"));
+                            }
+                            path__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::ColumnConfig => {
+                            if column_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("columnConfig"));
+                            }
+                            column_config__ = map_.next_value()?;
+                        }
+                    }
+                }
+                Ok(ParquetColumn {
+                    path: path__.unwrap_or_default(),
+                    column_config: column_config__,
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.ParquetColumn", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for ParquetComplexTypesImportMode {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let variant = match self {
+            Self::Unspecified => "PARQUET_COMPLEX_TYPES_IMPORT_MODE_UNSPECIFIED",
+            Self::Ignore => "PARQUET_COMPLEX_TYPES_IMPORT_MODE_IGNORE",
+            Self::Both => "PARQUET_COMPLEX_TYPES_IMPORT_MODE_BOTH",
+            Self::String => "PARQUET_COMPLEX_TYPES_IMPORT_MODE_STRING",
+            Self::Bytes => "PARQUET_COMPLEX_TYPES_IMPORT_MODE_BYTES",
+        };
+        serializer.serialize_str(variant)
+    }
+}
+impl<'de> serde::Deserialize<'de> for ParquetComplexTypesImportMode {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "PARQUET_COMPLEX_TYPES_IMPORT_MODE_UNSPECIFIED",
+            "PARQUET_COMPLEX_TYPES_IMPORT_MODE_IGNORE",
+            "PARQUET_COMPLEX_TYPES_IMPORT_MODE_BOTH",
+            "PARQUET_COMPLEX_TYPES_IMPORT_MODE_STRING",
+            "PARQUET_COMPLEX_TYPES_IMPORT_MODE_BYTES",
+        ];
+
+        struct GeneratedVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = ParquetComplexTypesImportMode;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(formatter, "expected one of: {:?}", &FIELDS)
+            }
+
+            fn visit_i64<E>(self, v: i64) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                i32::try_from(v)
+                    .ok()
+                    .and_then(|x| x.try_into().ok())
+                    .ok_or_else(|| {
+                        serde::de::Error::invalid_value(serde::de::Unexpected::Signed(v), &self)
+                    })
+            }
+
+            fn visit_u64<E>(self, v: u64) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                i32::try_from(v)
+                    .ok()
+                    .and_then(|x| x.try_into().ok())
+                    .ok_or_else(|| {
+                        serde::de::Error::invalid_value(serde::de::Unexpected::Unsigned(v), &self)
+                    })
+            }
+
+            fn visit_str<E>(self, value: &str) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                match value {
+                    "PARQUET_COMPLEX_TYPES_IMPORT_MODE_UNSPECIFIED" => Ok(ParquetComplexTypesImportMode::Unspecified),
+                    "PARQUET_COMPLEX_TYPES_IMPORT_MODE_IGNORE" => Ok(ParquetComplexTypesImportMode::Ignore),
+                    "PARQUET_COMPLEX_TYPES_IMPORT_MODE_BOTH" => Ok(ParquetComplexTypesImportMode::Both),
+                    "PARQUET_COMPLEX_TYPES_IMPORT_MODE_STRING" => Ok(ParquetComplexTypesImportMode::String),
+                    "PARQUET_COMPLEX_TYPES_IMPORT_MODE_BYTES" => Ok(ParquetComplexTypesImportMode::Bytes),
+                    _ => Err(serde::de::Error::unknown_variant(value, FIELDS)),
+                }
+            }
+        }
+        deserializer.deserialize_any(GeneratedVisitor)
+    }
+}
+impl serde::Serialize for ParquetConfig {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.asset_name.is_empty() {
+            len += 1;
+        }
+        if !self.run_name.is_empty() {
+            len += 1;
+        }
+        if !self.run_id.is_empty() {
+            len += 1;
+        }
+        if self.footer_offset != 0 {
+            len += 1;
+        }
+        if self.footer_length != 0 {
+            len += 1;
+        }
+        if self.complex_types_import_mode != 0 {
+            len += 1;
+        }
+        if self.config.is_some() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.ParquetConfig", len)?;
+        if !self.asset_name.is_empty() {
+            struct_ser.serialize_field("assetName", &self.asset_name)?;
+        }
+        if !self.run_name.is_empty() {
+            struct_ser.serialize_field("runName", &self.run_name)?;
+        }
+        if !self.run_id.is_empty() {
+            struct_ser.serialize_field("runId", &self.run_id)?;
+        }
+        if self.footer_offset != 0 {
+            #[allow(clippy::needless_borrow)]
+            #[allow(clippy::needless_borrows_for_generic_args)]
+            struct_ser.serialize_field("footerOffset", ToString::to_string(&self.footer_offset).as_str())?;
+        }
+        if self.footer_length != 0 {
+            struct_ser.serialize_field("footerLength", &self.footer_length)?;
+        }
+        if self.complex_types_import_mode != 0 {
+            let v = ParquetComplexTypesImportMode::try_from(self.complex_types_import_mode)
+                .map_err(|_| serde::ser::Error::custom(format!("Invalid variant {}", self.complex_types_import_mode)))?;
+            struct_ser.serialize_field("complexTypesImportMode", &v)?;
+        }
+        if let Some(v) = self.config.as_ref() {
+            match v {
+                parquet_config::Config::FlatDataset(v) => {
+                    struct_ser.serialize_field("flatDataset", v)?;
+                }
+                parquet_config::Config::SingleChannelPerRow(v) => {
+                    struct_ser.serialize_field("singleChannelPerRow", v)?;
+                }
+            }
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for ParquetConfig {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "asset_name",
+            "assetName",
+            "run_name",
+            "runName",
+            "run_id",
+            "runId",
+            "footer_offset",
+            "footerOffset",
+            "footer_length",
+            "footerLength",
+            "complex_types_import_mode",
+            "complexTypesImportMode",
+            "flat_dataset",
+            "flatDataset",
+            "single_channel_per_row",
+            "singleChannelPerRow",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            AssetName,
+            RunName,
+            RunId,
+            FooterOffset,
+            FooterLength,
+            ComplexTypesImportMode,
+            FlatDataset,
+            SingleChannelPerRow,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "assetName" | "asset_name" => Ok(GeneratedField::AssetName),
+                            "runName" | "run_name" => Ok(GeneratedField::RunName),
+                            "runId" | "run_id" => Ok(GeneratedField::RunId),
+                            "footerOffset" | "footer_offset" => Ok(GeneratedField::FooterOffset),
+                            "footerLength" | "footer_length" => Ok(GeneratedField::FooterLength),
+                            "complexTypesImportMode" | "complex_types_import_mode" => Ok(GeneratedField::ComplexTypesImportMode),
+                            "flatDataset" | "flat_dataset" => Ok(GeneratedField::FlatDataset),
+                            "singleChannelPerRow" | "single_channel_per_row" => Ok(GeneratedField::SingleChannelPerRow),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = ParquetConfig;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.ParquetConfig")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<ParquetConfig, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut asset_name__ = None;
+                let mut run_name__ = None;
+                let mut run_id__ = None;
+                let mut footer_offset__ = None;
+                let mut footer_length__ = None;
+                let mut complex_types_import_mode__ = None;
+                let mut config__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::AssetName => {
+                            if asset_name__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("assetName"));
+                            }
+                            asset_name__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::RunName => {
+                            if run_name__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("runName"));
+                            }
+                            run_name__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::RunId => {
+                            if run_id__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("runId"));
+                            }
+                            run_id__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::FooterOffset => {
+                            if footer_offset__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("footerOffset"));
+                            }
+                            footer_offset__ =
+                                Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
+                            ;
+                        }
+                        GeneratedField::FooterLength => {
+                            if footer_length__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("footerLength"));
+                            }
+                            footer_length__ =
+                                Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
+                            ;
+                        }
+                        GeneratedField::ComplexTypesImportMode => {
+                            if complex_types_import_mode__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("complexTypesImportMode"));
+                            }
+                            complex_types_import_mode__ = Some(map_.next_value::<ParquetComplexTypesImportMode>()? as i32);
+                        }
+                        GeneratedField::FlatDataset => {
+                            if config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("flatDataset"));
+                            }
+                            config__ = map_.next_value::<::std::option::Option<_>>()?.map(parquet_config::Config::FlatDataset)
+;
+                        }
+                        GeneratedField::SingleChannelPerRow => {
+                            if config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("singleChannelPerRow"));
+                            }
+                            config__ = map_.next_value::<::std::option::Option<_>>()?.map(parquet_config::Config::SingleChannelPerRow)
+;
+                        }
+                    }
+                }
+                Ok(ParquetConfig {
+                    asset_name: asset_name__.unwrap_or_default(),
+                    run_name: run_name__.unwrap_or_default(),
+                    run_id: run_id__.unwrap_or_default(),
+                    footer_offset: footer_offset__.unwrap_or_default(),
+                    footer_length: footer_length__.unwrap_or_default(),
+                    complex_types_import_mode: complex_types_import_mode__.unwrap_or_default(),
+                    config: config__,
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.ParquetConfig", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for ParquetDataColumn {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.path.is_empty() {
+            len += 1;
+        }
+        if self.channel_config.is_some() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.ParquetDataColumn", len)?;
+        if !self.path.is_empty() {
+            struct_ser.serialize_field("path", &self.path)?;
+        }
+        if let Some(v) = self.channel_config.as_ref() {
+            struct_ser.serialize_field("channelConfig", v)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for ParquetDataColumn {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "path",
+            "channel_config",
+            "channelConfig",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            Path,
+            ChannelConfig,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "path" => Ok(GeneratedField::Path),
+                            "channelConfig" | "channel_config" => Ok(GeneratedField::ChannelConfig),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = ParquetDataColumn;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.ParquetDataColumn")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<ParquetDataColumn, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut path__ = None;
+                let mut channel_config__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::Path => {
+                            if path__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("path"));
+                            }
+                            path__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::ChannelConfig => {
+                            if channel_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("channelConfig"));
+                            }
+                            channel_config__ = map_.next_value()?;
+                        }
+                    }
+                }
+                Ok(ParquetDataColumn {
+                    path: path__.unwrap_or_default(),
+                    channel_config: channel_config__,
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.ParquetDataColumn", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for ParquetFlatDatasetConfig {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if self.time_column.is_some() {
+            len += 1;
+        }
+        if !self.data_columns.is_empty() {
+            len += 1;
+        }
+        if self.use_embedded_config {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.ParquetFlatDatasetConfig", len)?;
+        if let Some(v) = self.time_column.as_ref() {
+            struct_ser.serialize_field("timeColumn", v)?;
+        }
+        if !self.data_columns.is_empty() {
+            struct_ser.serialize_field("dataColumns", &self.data_columns)?;
+        }
+        if self.use_embedded_config {
+            struct_ser.serialize_field("useEmbeddedConfig", &self.use_embedded_config)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for ParquetFlatDatasetConfig {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "time_column",
+            "timeColumn",
+            "data_columns",
+            "dataColumns",
+            "use_embedded_config",
+            "useEmbeddedConfig",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            TimeColumn,
+            DataColumns,
+            UseEmbeddedConfig,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "timeColumn" | "time_column" => Ok(GeneratedField::TimeColumn),
+                            "dataColumns" | "data_columns" => Ok(GeneratedField::DataColumns),
+                            "useEmbeddedConfig" | "use_embedded_config" => Ok(GeneratedField::UseEmbeddedConfig),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = ParquetFlatDatasetConfig;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.ParquetFlatDatasetConfig")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<ParquetFlatDatasetConfig, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut time_column__ = None;
+                let mut data_columns__ = None;
+                let mut use_embedded_config__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::TimeColumn => {
+                            if time_column__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("timeColumn"));
+                            }
+                            time_column__ = map_.next_value()?;
+                        }
+                        GeneratedField::DataColumns => {
+                            if data_columns__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("dataColumns"));
+                            }
+                            data_columns__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::UseEmbeddedConfig => {
+                            if use_embedded_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("useEmbeddedConfig"));
+                            }
+                            use_embedded_config__ = Some(map_.next_value()?);
+                        }
+                    }
+                }
+                Ok(ParquetFlatDatasetConfig {
+                    time_column: time_column__,
+                    data_columns: data_columns__.unwrap_or_default(),
+                    use_embedded_config: use_embedded_config__.unwrap_or_default(),
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.ParquetFlatDatasetConfig", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for ParquetSingleChannelPerRowConfig {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if self.time_column.is_some() {
+            len += 1;
+        }
+        if !self.columns.is_empty() {
+            len += 1;
+        }
+        if self.config.is_some() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.ParquetSingleChannelPerRowConfig", len)?;
+        if let Some(v) = self.time_column.as_ref() {
+            struct_ser.serialize_field("timeColumn", v)?;
+        }
+        if !self.columns.is_empty() {
+            struct_ser.serialize_field("columns", &self.columns)?;
+        }
+        if let Some(v) = self.config.as_ref() {
+            match v {
+                parquet_single_channel_per_row_config::Config::SingleChannel(v) => {
+                    struct_ser.serialize_field("singleChannel", v)?;
+                }
+                parquet_single_channel_per_row_config::Config::MultiChannel(v) => {
+                    struct_ser.serialize_field("multiChannel", v)?;
+                }
+            }
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for ParquetSingleChannelPerRowConfig {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "time_column",
+            "timeColumn",
+            "columns",
+            "single_channel",
+            "singleChannel",
+            "multi_channel",
+            "multiChannel",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            TimeColumn,
+            Columns,
+            SingleChannel,
+            MultiChannel,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "timeColumn" | "time_column" => Ok(GeneratedField::TimeColumn),
+                            "columns" => Ok(GeneratedField::Columns),
+                            "singleChannel" | "single_channel" => Ok(GeneratedField::SingleChannel),
+                            "multiChannel" | "multi_channel" => Ok(GeneratedField::MultiChannel),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = ParquetSingleChannelPerRowConfig;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.ParquetSingleChannelPerRowConfig")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<ParquetSingleChannelPerRowConfig, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut time_column__ = None;
+                let mut columns__ = None;
+                let mut config__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::TimeColumn => {
+                            if time_column__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("timeColumn"));
+                            }
+                            time_column__ = map_.next_value()?;
+                        }
+                        GeneratedField::Columns => {
+                            if columns__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("columns"));
+                            }
+                            columns__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::SingleChannel => {
+                            if config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("singleChannel"));
+                            }
+                            config__ = map_.next_value::<::std::option::Option<_>>()?.map(parquet_single_channel_per_row_config::Config::SingleChannel)
+;
+                        }
+                        GeneratedField::MultiChannel => {
+                            if config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("multiChannel"));
+                            }
+                            config__ = map_.next_value::<::std::option::Option<_>>()?.map(parquet_single_channel_per_row_config::Config::MultiChannel)
+;
+                        }
+                    }
+                }
+                Ok(ParquetSingleChannelPerRowConfig {
+                    time_column: time_column__,
+                    columns: columns__.unwrap_or_default(),
+                    config: config__,
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.ParquetSingleChannelPerRowConfig", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for ParquetSingleChannelPerRowMultiChannelConfig {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.name_path.is_empty() {
+            len += 1;
+        }
+        if !self.data_path.is_empty() {
+            len += 1;
+        }
+        if !self.channels.is_empty() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.ParquetSingleChannelPerRowMultiChannelConfig", len)?;
+        if !self.name_path.is_empty() {
+            struct_ser.serialize_field("namePath", &self.name_path)?;
+        }
+        if !self.data_path.is_empty() {
+            struct_ser.serialize_field("dataPath", &self.data_path)?;
+        }
+        if !self.channels.is_empty() {
+            struct_ser.serialize_field("channels", &self.channels)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for ParquetSingleChannelPerRowMultiChannelConfig {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "name_path",
+            "namePath",
+            "data_path",
+            "dataPath",
+            "channels",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            NamePath,
+            DataPath,
+            Channels,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "namePath" | "name_path" => Ok(GeneratedField::NamePath),
+                            "dataPath" | "data_path" => Ok(GeneratedField::DataPath),
+                            "channels" => Ok(GeneratedField::Channels),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = ParquetSingleChannelPerRowMultiChannelConfig;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.ParquetSingleChannelPerRowMultiChannelConfig")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<ParquetSingleChannelPerRowMultiChannelConfig, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut name_path__ = None;
+                let mut data_path__ = None;
+                let mut channels__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::NamePath => {
+                            if name_path__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("namePath"));
+                            }
+                            name_path__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::DataPath => {
+                            if data_path__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("dataPath"));
+                            }
+                            data_path__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::Channels => {
+                            if channels__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("channels"));
+                            }
+                            channels__ = Some(
+                                map_.next_value::<std::collections::HashMap<_, _>>()?
+                            );
+                        }
+                    }
+                }
+                Ok(ParquetSingleChannelPerRowMultiChannelConfig {
+                    name_path: name_path__.unwrap_or_default(),
+                    data_path: data_path__.unwrap_or_default(),
+                    channels: channels__.unwrap_or_default(),
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.ParquetSingleChannelPerRowMultiChannelConfig", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for ParquetSingleChannelPerRowSingleChannelConfig {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.data_path.is_empty() {
+            len += 1;
+        }
+        if self.channel.is_some() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.ParquetSingleChannelPerRowSingleChannelConfig", len)?;
+        if !self.data_path.is_empty() {
+            struct_ser.serialize_field("dataPath", &self.data_path)?;
+        }
+        if let Some(v) = self.channel.as_ref() {
+            struct_ser.serialize_field("channel", v)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for ParquetSingleChannelPerRowSingleChannelConfig {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "data_path",
+            "dataPath",
+            "channel",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            DataPath,
+            Channel,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "dataPath" | "data_path" => Ok(GeneratedField::DataPath),
+                            "channel" => Ok(GeneratedField::Channel),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = ParquetSingleChannelPerRowSingleChannelConfig;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.ParquetSingleChannelPerRowSingleChannelConfig")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<ParquetSingleChannelPerRowSingleChannelConfig, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut data_path__ = None;
+                let mut channel__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::DataPath => {
+                            if data_path__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("dataPath"));
+                            }
+                            data_path__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::Channel => {
+                            if channel__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("channel"));
+                            }
+                            channel__ = map_.next_value()?;
+                        }
+                    }
+                }
+                Ok(ParquetSingleChannelPerRowSingleChannelConfig {
+                    data_path: data_path__.unwrap_or_default(),
+                    channel: channel__,
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.ParquetSingleChannelPerRowSingleChannelConfig", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for ParquetTimeColumn {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.path.is_empty() {
+            len += 1;
+        }
+        if self.format != 0 {
+            len += 1;
+        }
+        if self.relative_start_time.is_some() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.ParquetTimeColumn", len)?;
+        if !self.path.is_empty() {
+            struct_ser.serialize_field("path", &self.path)?;
+        }
+        if self.format != 0 {
+            let v = TimeFormat::try_from(self.format)
+                .map_err(|_| serde::ser::Error::custom(format!("Invalid variant {}", self.format)))?;
+            struct_ser.serialize_field("format", &v)?;
+        }
+        if let Some(v) = self.relative_start_time.as_ref() {
+            struct_ser.serialize_field("relativeStartTime", v)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for ParquetTimeColumn {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "path",
+            "format",
+            "relative_start_time",
+            "relativeStartTime",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            Path,
+            Format,
+            RelativeStartTime,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "path" => Ok(GeneratedField::Path),
+                            "format" => Ok(GeneratedField::Format),
+                            "relativeStartTime" | "relative_start_time" => Ok(GeneratedField::RelativeStartTime),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = ParquetTimeColumn;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.ParquetTimeColumn")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<ParquetTimeColumn, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut path__ = None;
+                let mut format__ = None;
+                let mut relative_start_time__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::Path => {
+                            if path__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("path"));
+                            }
+                            path__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::Format => {
+                            if format__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("format"));
+                            }
+                            format__ = Some(map_.next_value::<TimeFormat>()? as i32);
+                        }
+                        GeneratedField::RelativeStartTime => {
+                            if relative_start_time__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("relativeStartTime"));
+                            }
+                            relative_start_time__ = map_.next_value()?;
+                        }
+                    }
+                }
+                Ok(ParquetTimeColumn {
+                    path: path__.unwrap_or_default(),
+                    format: format__.unwrap_or_default(),
+                    relative_start_time: relative_start_time__,
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.ParquetTimeColumn", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for RetryDataImportRequest {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.data_import_id.is_empty() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.RetryDataImportRequest", len)?;
+        if !self.data_import_id.is_empty() {
+            struct_ser.serialize_field("dataImportId", &self.data_import_id)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for RetryDataImportRequest {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "data_import_id",
+            "dataImportId",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            DataImportId,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "dataImportId" | "data_import_id" => Ok(GeneratedField::DataImportId),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = RetryDataImportRequest;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.RetryDataImportRequest")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<RetryDataImportRequest, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut data_import_id__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::DataImportId => {
+                            if data_import_id__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("dataImportId"));
+                            }
+                            data_import_id__ = Some(map_.next_value()?);
+                        }
+                    }
+                }
+                Ok(RetryDataImportRequest {
+                    data_import_id: data_import_id__.unwrap_or_default(),
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.RetryDataImportRequest", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for RetryDataImportResponse {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let len = 0;
+        let struct_ser = serializer.serialize_struct("sift.data_imports.v2.RetryDataImportResponse", len)?;
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for RetryDataImportResponse {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                            Err(serde::de::Error::unknown_field(value, FIELDS))
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = RetryDataImportResponse;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.RetryDataImportResponse")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<RetryDataImportResponse, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                while map_.next_key::<GeneratedField>()?.is_some() {
+                    let _ = map_.next_value::<serde::de::IgnoredAny>()?;
+                }
+                Ok(RetryDataImportResponse {
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.RetryDataImportResponse", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for TdmsConfig {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.asset_name.is_empty() {
+            len += 1;
+        }
+        if !self.run_name.is_empty() {
+            len += 1;
+        }
+        if self.start_time_override.is_some() {
+            len += 1;
+        }
+        if self.file_size.is_some() {
+            len += 1;
+        }
+        if !self.run_id.is_empty() {
+            len += 1;
+        }
+        if !self.data.is_empty() {
+            len += 1;
+        }
+        if self.fallback_method != 0 {
+            len += 1;
+        }
+        if self.time_format.is_some() {
+            len += 1;
+        }
+        if self.relative_start_time.is_some() {
+            len += 1;
+        }
+        if self.import_file_properties {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.TDMSConfig", len)?;
+        if !self.asset_name.is_empty() {
+            struct_ser.serialize_field("assetName", &self.asset_name)?;
+        }
+        if !self.run_name.is_empty() {
+            struct_ser.serialize_field("runName", &self.run_name)?;
+        }
+        if let Some(v) = self.start_time_override.as_ref() {
+            struct_ser.serialize_field("startTimeOverride", v)?;
+        }
+        if let Some(v) = self.file_size.as_ref() {
+            #[allow(clippy::needless_borrow)]
+            #[allow(clippy::needless_borrows_for_generic_args)]
+            struct_ser.serialize_field("fileSize", ToString::to_string(&v).as_str())?;
+        }
+        if !self.run_id.is_empty() {
+            struct_ser.serialize_field("runId", &self.run_id)?;
+        }
+        if !self.data.is_empty() {
+            struct_ser.serialize_field("data", &self.data)?;
+        }
+        if self.fallback_method != 0 {
+            let v = TdmsFallbackMethod::try_from(self.fallback_method)
+                .map_err(|_| serde::ser::Error::custom(format!("Invalid variant {}", self.fallback_method)))?;
+            struct_ser.serialize_field("fallbackMethod", &v)?;
+        }
+        if let Some(v) = self.time_format.as_ref() {
+            let v = TimeFormat::try_from(*v)
+                .map_err(|_| serde::ser::Error::custom(format!("Invalid variant {}", *v)))?;
+            struct_ser.serialize_field("timeFormat", &v)?;
+        }
+        if let Some(v) = self.relative_start_time.as_ref() {
+            struct_ser.serialize_field("relativeStartTime", v)?;
+        }
+        if self.import_file_properties {
+            struct_ser.serialize_field("importFileProperties", &self.import_file_properties)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for TdmsConfig {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "asset_name",
+            "assetName",
+            "run_name",
+            "runName",
+            "start_time_override",
+            "startTimeOverride",
+            "file_size",
+            "fileSize",
+            "run_id",
+            "runId",
+            "data",
+            "fallback_method",
+            "fallbackMethod",
+            "time_format",
+            "timeFormat",
+            "relative_start_time",
+            "relativeStartTime",
+            "import_file_properties",
+            "importFileProperties",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            AssetName,
+            RunName,
+            StartTimeOverride,
+            FileSize,
+            RunId,
+            Data,
+            FallbackMethod,
+            TimeFormat,
+            RelativeStartTime,
+            ImportFileProperties,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "assetName" | "asset_name" => Ok(GeneratedField::AssetName),
+                            "runName" | "run_name" => Ok(GeneratedField::RunName),
+                            "startTimeOverride" | "start_time_override" => Ok(GeneratedField::StartTimeOverride),
+                            "fileSize" | "file_size" => Ok(GeneratedField::FileSize),
+                            "runId" | "run_id" => Ok(GeneratedField::RunId),
+                            "data" => Ok(GeneratedField::Data),
+                            "fallbackMethod" | "fallback_method" => Ok(GeneratedField::FallbackMethod),
+                            "timeFormat" | "time_format" => Ok(GeneratedField::TimeFormat),
+                            "relativeStartTime" | "relative_start_time" => Ok(GeneratedField::RelativeStartTime),
+                            "importFileProperties" | "import_file_properties" => Ok(GeneratedField::ImportFileProperties),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = TdmsConfig;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.TDMSConfig")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<TdmsConfig, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut asset_name__ = None;
+                let mut run_name__ = None;
+                let mut start_time_override__ = None;
+                let mut file_size__ = None;
+                let mut run_id__ = None;
+                let mut data__ = None;
+                let mut fallback_method__ = None;
+                let mut time_format__ = None;
+                let mut relative_start_time__ = None;
+                let mut import_file_properties__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::AssetName => {
+                            if asset_name__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("assetName"));
+                            }
+                            asset_name__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::RunName => {
+                            if run_name__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("runName"));
+                            }
+                            run_name__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::StartTimeOverride => {
+                            if start_time_override__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("startTimeOverride"));
+                            }
+                            start_time_override__ = map_.next_value()?;
+                        }
+                        GeneratedField::FileSize => {
+                            if file_size__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("fileSize"));
+                            }
+                            file_size__ =
+                                map_.next_value::<::std::option::Option<::pbjson::private::NumberDeserialize<_>>>()?.map(|x| x.0)
+                            ;
+                        }
+                        GeneratedField::RunId => {
+                            if run_id__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("runId"));
+                            }
+                            run_id__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::Data => {
+                            if data__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("data"));
+                            }
+                            data__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::FallbackMethod => {
+                            if fallback_method__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("fallbackMethod"));
+                            }
+                            fallback_method__ = Some(map_.next_value::<TdmsFallbackMethod>()? as i32);
+                        }
+                        GeneratedField::TimeFormat => {
+                            if time_format__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("timeFormat"));
+                            }
+                            time_format__ = map_.next_value::<::std::option::Option<TimeFormat>>()?.map(|x| x as i32);
+                        }
+                        GeneratedField::RelativeStartTime => {
+                            if relative_start_time__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("relativeStartTime"));
+                            }
+                            relative_start_time__ = map_.next_value()?;
+                        }
+                        GeneratedField::ImportFileProperties => {
+                            if import_file_properties__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("importFileProperties"));
+                            }
+                            import_file_properties__ = Some(map_.next_value()?);
+                        }
+                    }
+                }
+                Ok(TdmsConfig {
+                    asset_name: asset_name__.unwrap_or_default(),
+                    run_name: run_name__.unwrap_or_default(),
+                    start_time_override: start_time_override__,
+                    file_size: file_size__,
+                    run_id: run_id__.unwrap_or_default(),
+                    data: data__.unwrap_or_default(),
+                    fallback_method: fallback_method__.unwrap_or_default(),
+                    time_format: time_format__,
+                    relative_start_time: relative_start_time__,
+                    import_file_properties: import_file_properties__.unwrap_or_default(),
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.TDMSConfig", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for TdmsComplexComponent {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let variant = match self {
+            Self::Unspecified => "TDMS_COMPLEX_COMPONENT_UNSPECIFIED",
+            Self::Real => "TDMS_COMPLEX_COMPONENT_REAL",
+            Self::Imaginary => "TDMS_COMPLEX_COMPONENT_IMAGINARY",
+        };
+        serializer.serialize_str(variant)
+    }
+}
+impl<'de> serde::Deserialize<'de> for TdmsComplexComponent {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "TDMS_COMPLEX_COMPONENT_UNSPECIFIED",
+            "TDMS_COMPLEX_COMPONENT_REAL",
+            "TDMS_COMPLEX_COMPONENT_IMAGINARY",
+        ];
+
+        struct GeneratedVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = TdmsComplexComponent;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(formatter, "expected one of: {:?}", &FIELDS)
+            }
+
+            fn visit_i64<E>(self, v: i64) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                i32::try_from(v)
+                    .ok()
+                    .and_then(|x| x.try_into().ok())
+                    .ok_or_else(|| {
+                        serde::de::Error::invalid_value(serde::de::Unexpected::Signed(v), &self)
+                    })
+            }
+
+            fn visit_u64<E>(self, v: u64) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                i32::try_from(v)
+                    .ok()
+                    .and_then(|x| x.try_into().ok())
+                    .ok_or_else(|| {
+                        serde::de::Error::invalid_value(serde::de::Unexpected::Unsigned(v), &self)
+                    })
+            }
+
+            fn visit_str<E>(self, value: &str) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                match value {
+                    "TDMS_COMPLEX_COMPONENT_UNSPECIFIED" => Ok(TdmsComplexComponent::Unspecified),
+                    "TDMS_COMPLEX_COMPONENT_REAL" => Ok(TdmsComplexComponent::Real),
+                    "TDMS_COMPLEX_COMPONENT_IMAGINARY" => Ok(TdmsComplexComponent::Imaginary),
+                    _ => Err(serde::de::Error::unknown_variant(value, FIELDS)),
+                }
+            }
+        }
+        deserializer.deserialize_any(GeneratedVisitor)
+    }
+}
+impl serde::Serialize for TdmsDataConfig {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.group_name.is_empty() {
+            len += 1;
+        }
+        if !self.channel_name.is_empty() {
+            len += 1;
+        }
+        if self.channel_config.is_some() {
+            len += 1;
+        }
+        if self.time_channel_name.is_some() {
+            len += 1;
+        }
+        if self.scaled.is_some() {
+            len += 1;
+        }
+        if self.complex_component.is_some() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.TdmsDataConfig", len)?;
+        if !self.group_name.is_empty() {
+            struct_ser.serialize_field("groupName", &self.group_name)?;
+        }
+        if !self.channel_name.is_empty() {
+            struct_ser.serialize_field("channelName", &self.channel_name)?;
+        }
+        if let Some(v) = self.channel_config.as_ref() {
+            struct_ser.serialize_field("channelConfig", v)?;
+        }
+        if let Some(v) = self.time_channel_name.as_ref() {
+            struct_ser.serialize_field("timeChannelName", v)?;
+        }
+        if let Some(v) = self.scaled.as_ref() {
+            struct_ser.serialize_field("scaled", v)?;
+        }
+        if let Some(v) = self.complex_component.as_ref() {
+            let v = TdmsComplexComponent::try_from(*v)
+                .map_err(|_| serde::ser::Error::custom(format!("Invalid variant {}", *v)))?;
+            struct_ser.serialize_field("complexComponent", &v)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for TdmsDataConfig {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "group_name",
+            "groupName",
+            "channel_name",
+            "channelName",
+            "channel_config",
+            "channelConfig",
+            "time_channel_name",
+            "timeChannelName",
+            "scaled",
+            "complex_component",
+            "complexComponent",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            GroupName,
+            ChannelName,
+            ChannelConfig,
+            TimeChannelName,
+            Scaled,
+            ComplexComponent,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "groupName" | "group_name" => Ok(GeneratedField::GroupName),
+                            "channelName" | "channel_name" => Ok(GeneratedField::ChannelName),
+                            "channelConfig" | "channel_config" => Ok(GeneratedField::ChannelConfig),
+                            "timeChannelName" | "time_channel_name" => Ok(GeneratedField::TimeChannelName),
+                            "scaled" => Ok(GeneratedField::Scaled),
+                            "complexComponent" | "complex_component" => Ok(GeneratedField::ComplexComponent),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = TdmsDataConfig;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.TdmsDataConfig")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<TdmsDataConfig, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut group_name__ = None;
+                let mut channel_name__ = None;
+                let mut channel_config__ = None;
+                let mut time_channel_name__ = None;
+                let mut scaled__ = None;
+                let mut complex_component__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::GroupName => {
+                            if group_name__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("groupName"));
+                            }
+                            group_name__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::ChannelName => {
+                            if channel_name__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("channelName"));
+                            }
+                            channel_name__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::ChannelConfig => {
+                            if channel_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("channelConfig"));
+                            }
+                            channel_config__ = map_.next_value()?;
+                        }
+                        GeneratedField::TimeChannelName => {
+                            if time_channel_name__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("timeChannelName"));
+                            }
+                            time_channel_name__ = map_.next_value()?;
+                        }
+                        GeneratedField::Scaled => {
+                            if scaled__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("scaled"));
+                            }
+                            scaled__ = map_.next_value()?;
+                        }
+                        GeneratedField::ComplexComponent => {
+                            if complex_component__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("complexComponent"));
+                            }
+                            complex_component__ = map_.next_value::<::std::option::Option<TdmsComplexComponent>>()?.map(|x| x as i32);
+                        }
+                    }
+                }
+                Ok(TdmsDataConfig {
+                    group_name: group_name__.unwrap_or_default(),
+                    channel_name: channel_name__.unwrap_or_default(),
+                    channel_config: channel_config__,
+                    time_channel_name: time_channel_name__,
+                    scaled: scaled__,
+                    complex_component: complex_component__,
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.TdmsDataConfig", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for TdmsFallbackMethod {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let variant = match self {
+            Self::Unspecified => "TDMS_FALLBACK_METHOD_UNSPECIFIED",
+            Self::FailOnError => "TDMS_FALLBACK_METHOD_FAIL_ON_ERROR",
+            Self::IgnoreError => "TDMS_FALLBACK_METHOD_IGNORE_ERROR",
+        };
+        serializer.serialize_str(variant)
+    }
+}
+impl<'de> serde::Deserialize<'de> for TdmsFallbackMethod {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "TDMS_FALLBACK_METHOD_UNSPECIFIED",
+            "TDMS_FALLBACK_METHOD_FAIL_ON_ERROR",
+            "TDMS_FALLBACK_METHOD_IGNORE_ERROR",
+        ];
+
+        struct GeneratedVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = TdmsFallbackMethod;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(formatter, "expected one of: {:?}", &FIELDS)
+            }
+
+            fn visit_i64<E>(self, v: i64) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                i32::try_from(v)
+                    .ok()
+                    .and_then(|x| x.try_into().ok())
+                    .ok_or_else(|| {
+                        serde::de::Error::invalid_value(serde::de::Unexpected::Signed(v), &self)
+                    })
+            }
+
+            fn visit_u64<E>(self, v: u64) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                i32::try_from(v)
+                    .ok()
+                    .and_then(|x| x.try_into().ok())
+                    .ok_or_else(|| {
+                        serde::de::Error::invalid_value(serde::de::Unexpected::Unsigned(v), &self)
+                    })
+            }
+
+            fn visit_str<E>(self, value: &str) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                match value {
+                    "TDMS_FALLBACK_METHOD_UNSPECIFIED" => Ok(TdmsFallbackMethod::Unspecified),
+                    "TDMS_FALLBACK_METHOD_FAIL_ON_ERROR" => Ok(TdmsFallbackMethod::FailOnError),
+                    "TDMS_FALLBACK_METHOD_IGNORE_ERROR" => Ok(TdmsFallbackMethod::IgnoreError),
+                    _ => Err(serde::de::Error::unknown_variant(value, FIELDS)),
+                }
+            }
+        }
+        deserializer.deserialize_any(GeneratedVisitor)
+    }
+}
+impl serde::Serialize for TimeFormat {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let variant = match self {
+            Self::Unspecified => "TIME_FORMAT_UNSPECIFIED",
+            Self::RelativeNanoseconds => "TIME_FORMAT_RELATIVE_NANOSECONDS",
+            Self::RelativeMicroseconds => "TIME_FORMAT_RELATIVE_MICROSECONDS",
+            Self::RelativeMilliseconds => "TIME_FORMAT_RELATIVE_MILLISECONDS",
+            Self::RelativeSeconds => "TIME_FORMAT_RELATIVE_SECONDS",
+            Self::RelativeMinutes => "TIME_FORMAT_RELATIVE_MINUTES",
+            Self::RelativeHours => "TIME_FORMAT_RELATIVE_HOURS",
+            Self::AbsoluteRfc3339 => "TIME_FORMAT_ABSOLUTE_RFC3339",
+            Self::AbsoluteDatetime => "TIME_FORMAT_ABSOLUTE_DATETIME",
+            Self::AbsoluteUnixSeconds => "TIME_FORMAT_ABSOLUTE_UNIX_SECONDS",
+            Self::AbsoluteUnixMilliseconds => "TIME_FORMAT_ABSOLUTE_UNIX_MILLISECONDS",
+            Self::AbsoluteUnixMicroseconds => "TIME_FORMAT_ABSOLUTE_UNIX_MICROSECONDS",
+            Self::AbsoluteUnixNanoseconds => "TIME_FORMAT_ABSOLUTE_UNIX_NANOSECONDS",
+        };
+        serializer.serialize_str(variant)
+    }
+}
+impl<'de> serde::Deserialize<'de> for TimeFormat {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "TIME_FORMAT_UNSPECIFIED",
+            "TIME_FORMAT_RELATIVE_NANOSECONDS",
+            "TIME_FORMAT_RELATIVE_MICROSECONDS",
+            "TIME_FORMAT_RELATIVE_MILLISECONDS",
+            "TIME_FORMAT_RELATIVE_SECONDS",
+            "TIME_FORMAT_RELATIVE_MINUTES",
+            "TIME_FORMAT_RELATIVE_HOURS",
+            "TIME_FORMAT_ABSOLUTE_RFC3339",
+            "TIME_FORMAT_ABSOLUTE_DATETIME",
+            "TIME_FORMAT_ABSOLUTE_UNIX_SECONDS",
+            "TIME_FORMAT_ABSOLUTE_UNIX_MILLISECONDS",
+            "TIME_FORMAT_ABSOLUTE_UNIX_MICROSECONDS",
+            "TIME_FORMAT_ABSOLUTE_UNIX_NANOSECONDS",
+        ];
+
+        struct GeneratedVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = TimeFormat;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(formatter, "expected one of: {:?}", &FIELDS)
+            }
+
+            fn visit_i64<E>(self, v: i64) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                i32::try_from(v)
+                    .ok()
+                    .and_then(|x| x.try_into().ok())
+                    .ok_or_else(|| {
+                        serde::de::Error::invalid_value(serde::de::Unexpected::Signed(v), &self)
+                    })
+            }
+
+            fn visit_u64<E>(self, v: u64) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                i32::try_from(v)
+                    .ok()
+                    .and_then(|x| x.try_into().ok())
+                    .ok_or_else(|| {
+                        serde::de::Error::invalid_value(serde::de::Unexpected::Unsigned(v), &self)
+                    })
+            }
+
+            fn visit_str<E>(self, value: &str) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                match value {
+                    "TIME_FORMAT_UNSPECIFIED" => Ok(TimeFormat::Unspecified),
+                    "TIME_FORMAT_RELATIVE_NANOSECONDS" => Ok(TimeFormat::RelativeNanoseconds),
+                    "TIME_FORMAT_RELATIVE_MICROSECONDS" => Ok(TimeFormat::RelativeMicroseconds),
+                    "TIME_FORMAT_RELATIVE_MILLISECONDS" => Ok(TimeFormat::RelativeMilliseconds),
+                    "TIME_FORMAT_RELATIVE_SECONDS" => Ok(TimeFormat::RelativeSeconds),
+                    "TIME_FORMAT_RELATIVE_MINUTES" => Ok(TimeFormat::RelativeMinutes),
+                    "TIME_FORMAT_RELATIVE_HOURS" => Ok(TimeFormat::RelativeHours),
+                    "TIME_FORMAT_ABSOLUTE_RFC3339" => Ok(TimeFormat::AbsoluteRfc3339),
+                    "TIME_FORMAT_ABSOLUTE_DATETIME" => Ok(TimeFormat::AbsoluteDatetime),
+                    "TIME_FORMAT_ABSOLUTE_UNIX_SECONDS" => Ok(TimeFormat::AbsoluteUnixSeconds),
+                    "TIME_FORMAT_ABSOLUTE_UNIX_MILLISECONDS" => Ok(TimeFormat::AbsoluteUnixMilliseconds),
+                    "TIME_FORMAT_ABSOLUTE_UNIX_MICROSECONDS" => Ok(TimeFormat::AbsoluteUnixMicroseconds),
+                    "TIME_FORMAT_ABSOLUTE_UNIX_NANOSECONDS" => Ok(TimeFormat::AbsoluteUnixNanoseconds),
+                    _ => Err(serde::de::Error::unknown_variant(value, FIELDS)),
+                }
+            }
+        }
+        deserializer.deserialize_any(GeneratedVisitor)
+    }
+}
+impl serde::Serialize for UlogConfig {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.asset_name.is_empty() {
+            len += 1;
+        }
+        if !self.run_name.is_empty() {
+            len += 1;
+        }
+        if !self.run_id.is_empty() {
+            len += 1;
+        }
+        if !self.data.is_empty() {
+            len += 1;
+        }
+        if self.relative_start_time.is_some() {
+            len += 1;
+        }
+        if !self.info_keys.is_empty() {
+            len += 1;
+        }
+        if !self.param_keys.is_empty() {
+            len += 1;
+        }
+        if self.parse_error_policy != 0 {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.UlogConfig", len)?;
+        if !self.asset_name.is_empty() {
+            struct_ser.serialize_field("assetName", &self.asset_name)?;
+        }
+        if !self.run_name.is_empty() {
+            struct_ser.serialize_field("runName", &self.run_name)?;
+        }
+        if !self.run_id.is_empty() {
+            struct_ser.serialize_field("runId", &self.run_id)?;
+        }
+        if !self.data.is_empty() {
+            struct_ser.serialize_field("data", &self.data)?;
+        }
+        if let Some(v) = self.relative_start_time.as_ref() {
+            struct_ser.serialize_field("relativeStartTime", v)?;
+        }
+        if !self.info_keys.is_empty() {
+            struct_ser.serialize_field("infoKeys", &self.info_keys)?;
+        }
+        if !self.param_keys.is_empty() {
+            struct_ser.serialize_field("paramKeys", &self.param_keys)?;
+        }
+        if self.parse_error_policy != 0 {
+            let v = UlogParseErrorPolicy::try_from(self.parse_error_policy)
+                .map_err(|_| serde::ser::Error::custom(format!("Invalid variant {}", self.parse_error_policy)))?;
+            struct_ser.serialize_field("parseErrorPolicy", &v)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for UlogConfig {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "asset_name",
+            "assetName",
+            "run_name",
+            "runName",
+            "run_id",
+            "runId",
+            "data",
+            "relative_start_time",
+            "relativeStartTime",
+            "info_keys",
+            "infoKeys",
+            "param_keys",
+            "paramKeys",
+            "parse_error_policy",
+            "parseErrorPolicy",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            AssetName,
+            RunName,
+            RunId,
+            Data,
+            RelativeStartTime,
+            InfoKeys,
+            ParamKeys,
+            ParseErrorPolicy,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "assetName" | "asset_name" => Ok(GeneratedField::AssetName),
+                            "runName" | "run_name" => Ok(GeneratedField::RunName),
+                            "runId" | "run_id" => Ok(GeneratedField::RunId),
+                            "data" => Ok(GeneratedField::Data),
+                            "relativeStartTime" | "relative_start_time" => Ok(GeneratedField::RelativeStartTime),
+                            "infoKeys" | "info_keys" => Ok(GeneratedField::InfoKeys),
+                            "paramKeys" | "param_keys" => Ok(GeneratedField::ParamKeys),
+                            "parseErrorPolicy" | "parse_error_policy" => Ok(GeneratedField::ParseErrorPolicy),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = UlogConfig;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.UlogConfig")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<UlogConfig, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut asset_name__ = None;
+                let mut run_name__ = None;
+                let mut run_id__ = None;
+                let mut data__ = None;
+                let mut relative_start_time__ = None;
+                let mut info_keys__ = None;
+                let mut param_keys__ = None;
+                let mut parse_error_policy__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::AssetName => {
+                            if asset_name__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("assetName"));
+                            }
+                            asset_name__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::RunName => {
+                            if run_name__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("runName"));
+                            }
+                            run_name__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::RunId => {
+                            if run_id__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("runId"));
+                            }
+                            run_id__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::Data => {
+                            if data__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("data"));
+                            }
+                            data__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::RelativeStartTime => {
+                            if relative_start_time__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("relativeStartTime"));
+                            }
+                            relative_start_time__ = map_.next_value()?;
+                        }
+                        GeneratedField::InfoKeys => {
+                            if info_keys__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("infoKeys"));
+                            }
+                            info_keys__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::ParamKeys => {
+                            if param_keys__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("paramKeys"));
+                            }
+                            param_keys__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::ParseErrorPolicy => {
+                            if parse_error_policy__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("parseErrorPolicy"));
+                            }
+                            parse_error_policy__ = Some(map_.next_value::<UlogParseErrorPolicy>()? as i32);
+                        }
+                    }
+                }
+                Ok(UlogConfig {
+                    asset_name: asset_name__.unwrap_or_default(),
+                    run_name: run_name__.unwrap_or_default(),
+                    run_id: run_id__.unwrap_or_default(),
+                    data: data__.unwrap_or_default(),
+                    relative_start_time: relative_start_time__,
+                    info_keys: info_keys__.unwrap_or_default(),
+                    param_keys: param_keys__.unwrap_or_default(),
+                    parse_error_policy: parse_error_policy__.unwrap_or_default(),
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.UlogConfig", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for UlogDataConfig {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut len = 0;
+        if !self.message_name.is_empty() {
+            len += 1;
+        }
+        if self.instance != 0 {
+            len += 1;
+        }
+        if !self.field_name.is_empty() {
+            len += 1;
+        }
+        if self.channel_config.is_some() {
+            len += 1;
+        }
+        let mut struct_ser = serializer.serialize_struct("sift.data_imports.v2.UlogDataConfig", len)?;
+        if !self.message_name.is_empty() {
+            struct_ser.serialize_field("messageName", &self.message_name)?;
+        }
+        if self.instance != 0 {
+            #[allow(clippy::needless_borrow)]
+            #[allow(clippy::needless_borrows_for_generic_args)]
+            struct_ser.serialize_field("instance", ToString::to_string(&self.instance).as_str())?;
+        }
+        if !self.field_name.is_empty() {
+            struct_ser.serialize_field("fieldName", &self.field_name)?;
+        }
+        if let Some(v) = self.channel_config.as_ref() {
+            struct_ser.serialize_field("channelConfig", v)?;
+        }
+        struct_ser.end()
+    }
+}
+impl<'de> serde::Deserialize<'de> for UlogDataConfig {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "message_name",
+            "messageName",
+            "instance",
+            "field_name",
+            "fieldName",
+            "channel_config",
+            "channelConfig",
+        ];
+
+        #[allow(clippy::enum_variant_names)]
+        enum GeneratedField {
+            MessageName,
+            Instance,
+            FieldName,
+            ChannelConfig,
+        }
+        impl<'de> serde::Deserialize<'de> for GeneratedField {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                struct GeneratedVisitor;
+
+                impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+                    type Value = GeneratedField;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                        write!(formatter, "expected one of: {:?}", &FIELDS)
+                    }
+
+                    #[allow(unused_variables)]
+                    fn visit_str<E>(self, value: &str) -> std::result::Result<GeneratedField, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        match value {
+                            "messageName" | "message_name" => Ok(GeneratedField::MessageName),
+                            "instance" => Ok(GeneratedField::Instance),
+                            "fieldName" | "field_name" => Ok(GeneratedField::FieldName),
+                            "channelConfig" | "channel_config" => Ok(GeneratedField::ChannelConfig),
+                            _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
+                        }
+                    }
+                }
+                deserializer.deserialize_identifier(GeneratedVisitor)
+            }
+        }
+        struct GeneratedVisitor;
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = UlogDataConfig;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct sift.data_imports.v2.UlogDataConfig")
+            }
+
+            fn visit_map<V>(self, mut map_: V) -> std::result::Result<UlogDataConfig, V::Error>
+                where
+                    V: serde::de::MapAccess<'de>,
+            {
+                let mut message_name__ = None;
+                let mut instance__ = None;
+                let mut field_name__ = None;
+                let mut channel_config__ = None;
+                while let Some(k) = map_.next_key()? {
+                    match k {
+                        GeneratedField::MessageName => {
+                            if message_name__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("messageName"));
+                            }
+                            message_name__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::Instance => {
+                            if instance__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("instance"));
+                            }
+                            instance__ =
+                                Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
+                            ;
+                        }
+                        GeneratedField::FieldName => {
+                            if field_name__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("fieldName"));
+                            }
+                            field_name__ = Some(map_.next_value()?);
+                        }
+                        GeneratedField::ChannelConfig => {
+                            if channel_config__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("channelConfig"));
+                            }
+                            channel_config__ = map_.next_value()?;
+                        }
+                    }
+                }
+                Ok(UlogDataConfig {
+                    message_name: message_name__.unwrap_or_default(),
+                    instance: instance__.unwrap_or_default(),
+                    field_name: field_name__.unwrap_or_default(),
+                    channel_config: channel_config__,
+                })
+            }
+        }
+        deserializer.deserialize_struct("sift.data_imports.v2.UlogDataConfig", FIELDS, GeneratedVisitor)
+    }
+}
+impl serde::Serialize for UlogParseErrorPolicy {
+    #[allow(deprecated)]
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let variant = match self {
+            Self::Unspecified => "ULOG_PARSE_ERROR_POLICY_UNSPECIFIED",
+            Self::FailOnError => "ULOG_PARSE_ERROR_POLICY_FAIL_ON_ERROR",
+            Self::IgnoreError => "ULOG_PARSE_ERROR_POLICY_IGNORE_ERROR",
+        };
+        serializer.serialize_str(variant)
+    }
+}
+impl<'de> serde::Deserialize<'de> for UlogParseErrorPolicy {
+    #[allow(deprecated)]
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        const FIELDS: &[&str] = &[
+            "ULOG_PARSE_ERROR_POLICY_UNSPECIFIED",
+            "ULOG_PARSE_ERROR_POLICY_FAIL_ON_ERROR",
+            "ULOG_PARSE_ERROR_POLICY_IGNORE_ERROR",
+        ];
+
+        struct GeneratedVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for GeneratedVisitor {
+            type Value = UlogParseErrorPolicy;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(formatter, "expected one of: {:?}", &FIELDS)
+            }
+
+            fn visit_i64<E>(self, v: i64) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                i32::try_from(v)
+                    .ok()
+                    .and_then(|x| x.try_into().ok())
+                    .ok_or_else(|| {
+                        serde::de::Error::invalid_value(serde::de::Unexpected::Signed(v), &self)
+                    })
+            }
+
+            fn visit_u64<E>(self, v: u64) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                i32::try_from(v)
+                    .ok()
+                    .and_then(|x| x.try_into().ok())
+                    .ok_or_else(|| {
+                        serde::de::Error::invalid_value(serde::de::Unexpected::Unsigned(v), &self)
+                    })
+            }
+
+            fn visit_str<E>(self, value: &str) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                match value {
+                    "ULOG_PARSE_ERROR_POLICY_UNSPECIFIED" => Ok(UlogParseErrorPolicy::Unspecified),
+                    "ULOG_PARSE_ERROR_POLICY_FAIL_ON_ERROR" => Ok(UlogParseErrorPolicy::FailOnError),
+                    "ULOG_PARSE_ERROR_POLICY_IGNORE_ERROR" => Ok(UlogParseErrorPolicy::IgnoreError),
+                    _ => Err(serde::de::Error::unknown_variant(value, FIELDS)),
+                }
+            }
+        }
+        deserializer.deserialize_any(GeneratedVisitor)
+    }
+}

@@ -60,6 +60,7 @@ from anyscale.commands.setup_k8s import (
     setup_kubernetes_cloud,
     setup_kubernetes_cloud_resource,
 )
+from anyscale.commands.setup_kuberay import setup_kuberay_cloud
 from anyscale.commands.util import AnyscaleCommand, OptionPromptNull
 from anyscale.controllers.cloud_controller import CloudController
 from anyscale.errors import InvalidConfigError, ResourceNotFoundError, UserError
@@ -72,6 +73,7 @@ from anyscale.util import (
 )
 from anyscale.utils.azure_util import disabled_on_azure
 from anyscale.utils.cloud_utils import (
+    missing_object_storage_problem,
     placeholder_credential_problems,
     validate_aws_credentials,
 )
@@ -111,7 +113,9 @@ def setup_vm_cloud_resource(  # noqa: PLR0912, PLR0913
         controller = CloudController()
 
     resolved_cloud_id, resolved_cloud_name = get_cloud_id_and_name(
-        api_client=controller.api_client, cloud_id=cloud_id, cloud_name=cloud_name,
+        api_client=controller.api_client,
+        cloud_id=cloud_id,
+        cloud_name=cloud_name,
     )
 
     controller.log.info(
@@ -134,9 +138,7 @@ def setup_vm_cloud_resource(  # noqa: PLR0912, PLR0913
             cluster_node_iam_role_name = f"{resource_id}-cluster_node_role"
 
         try:
-            anyscale_aws_account = (
-                controller.api_client.get_anyscale_aws_account_api_v2_clouds_anyscale_aws_account_get().result.anyscale_aws_account
-            )
+            anyscale_aws_account = controller.api_client.get_anyscale_aws_account_api_v2_clouds_anyscale_aws_account_get().result.anyscale_aws_account
             cfn_stack = controller.run_cloudformation(
                 region=region,
                 cloud_id=resolved_cloud_id,
@@ -171,9 +173,7 @@ def setup_vm_cloud_resource(  # noqa: PLR0912, PLR0913
 
         try:
             organization_id = get_organization_id(controller.api_client)
-            anyscale_aws_account = (
-                controller.api_client.get_anyscale_aws_account_api_v2_clouds_anyscale_aws_account_get().result.anyscale_aws_account
-            )
+            anyscale_aws_account = controller.api_client.get_anyscale_aws_account_api_v2_clouds_anyscale_aws_account_get().result.anyscale_aws_account
 
             setup_utils.enable_project_apis(
                 factory, project_id, controller.log, enable_head_node_fault_tolerance
@@ -266,10 +266,7 @@ def _format_cloud_output_data(cloud: Any) -> Dict[str, str]:
 @cloud_cli.command(
     name="delete",
     short_help="Delete a cloud.",
-    help=(
-        "Delete a cloud.\n\n"
-        "Specify the cloud by name (-n/--name) or by ID (--cloud-id)."
-    ),
+    help=("Delete a cloud.\n\nSpecify the cloud by name (-n/--name) or by ID (--cloud-id)."),
     cls=AnyscaleCommand,
 )
 @click.argument("cloud-name", required=False)
@@ -281,9 +278,7 @@ def _format_cloud_output_data(cloud: Any) -> Dict[str, str]:
     help="Cloud id to delete. Alternative to cloud name.",
     required=False,
 )
-@click.option(
-    "--yes", "-y", is_flag=True, default=False, help="Don't ask for confirmation."
-)
+@click.option("--yes", "-y", is_flag=True, default=False, help="Don't ask for confirmation.")
 @click.option(
     "--force",
     is_flag=True,
@@ -354,9 +349,7 @@ def cloud_set_default(
             "The positional argument CLOUD_NAME and the keyword argument --name "
             "were both provided. Please only provide one of these two arguments."
         )
-    CloudController().set_default_cloud(
-        cloud_name=cloud_name or name, cloud_id=cloud_id
-    )
+    CloudController().set_default_cloud(cloud_name=cloud_name or name, cloud_id=cloud_id)
 
 
 def default_region(provider: str) -> str:
@@ -423,21 +416,44 @@ def default_region(provider: str) -> str:
 @click.option("--name", "-n", help="Name of the cloud.", required=True, prompt="Name")
 @click.option(
     "--stack",
-    help="The compute stack to use (vm or k8s).",
+    help="The compute stack to use (vm, k8s, or kuberay).",
     required=False,
-    type=click.Choice(["vm", "k8s"], case_sensitive=False),
+    type=click.Choice(["vm", "k8s", "kuberay"], case_sensitive=False),
     default="vm",
     show_default=True,
 )
 @click.option(
-    "--cluster-name", help="Kubernetes cluster name. (K8s)", required=False, type=str,
+    "--cluster-name",
+    help="Kubernetes cluster name. (K8s)",
+    required=False,
+    type=str,
+)
+@click.option(
+    "--cluster-context",
+    help="Kubeconfig context of the target cluster; defaults to the current context. (KubeRay)",
+    required=False,
+    type=str,
+)
+@click.option(
+    "--connector-chart",
+    help="Path to connector chart (skips helm repo add/update). (KubeRay)",
+    required=False,
+    type=str,
+    hidden=True,
+)
+@click.option(
+    "--connector-values",
+    help="Extra Helm values file for the connector install. (KubeRay)",
+    required=False,
+    type=str,
+    hidden=True,
 )
 @click.option(
     "--namespace",
-    help="Kubernetes namespace for Anyscale operator. (K8s)",
+    help="Kubernetes namespace to install into. Defaults to anyscale-operator (K8s) or anyscale-connector (KubeRay).",
     required=False,
     type=str,
-    default="anyscale-operator",
+    default=None,
 )
 @click.option(
     "--gcp-project-id",
@@ -472,9 +488,7 @@ def default_region(provider: str) -> str:
     default=False,
     help="Whether to enable head node fault tolerance for services. (VM)",
 )
-@click.option(
-    "--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation."
-)
+@click.option("--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation.")
 @click.option(
     "--disable-auto-add-user",
     is_flag=True,
@@ -500,7 +514,10 @@ def default_region(provider: str) -> str:
     type=str,
 )
 @click.option(
-    "--debug", is_flag=True, default=False, help="Enable debug logging.",
+    "--debug",
+    is_flag=True,
+    default=False,
+    help="Enable debug logging.",
 )
 @click.option(
     "--operator-chart",
@@ -525,7 +542,10 @@ def setup_cloud(  # noqa: PLR0913
     name: str,
     stack: str,
     cluster_name: Optional[str],
-    namespace: str,
+    cluster_context: Optional[str],
+    connector_chart: Optional[str],
+    connector_values: Optional[str],
+    namespace: Optional[str],
     project_id: str,
     resource_group: Optional[str],
     functional_verify: Optional[str],
@@ -546,6 +566,26 @@ def setup_cloud(  # noqa: PLR0913
         CloudController().create_empty_cloud(name=name)
         return
 
+    # Handle KubeRay (connector) stack before the provider prompt: these clouds
+    # register through the generic provider, so no provider input applies.
+    if stack == "kuberay":
+        if provider:
+            raise click.ClickException(
+                "--provider is not supported with --stack=kuberay: KubeRay clouds "
+                "register through the generic provider."
+            )
+        setup_kuberay_cloud(
+            name=name,
+            cluster_context=cluster_context,
+            namespace=namespace or "anyscale-connector",
+            yes=yes,
+            connector_chart=connector_chart,
+            connector_values=connector_values,
+            auto_add_user=(not disable_auto_add_user),
+            debug=debug,
+        )
+        return
+
     # For normal setup, provider and region are required - prompt if not provided
     if not provider:
         provider = click.prompt(
@@ -560,16 +600,14 @@ def setup_cloud(  # noqa: PLR0913
     # Handle Kubernetes stack
     if stack == "k8s":
         if not cluster_name:
-            raise click.ClickException(
-                "--cluster-name is required when using --stack=k8s"
-            )
+            raise click.ClickException("--cluster-name is required when using --stack=k8s")
 
         setup_kubernetes_cloud(
             provider=provider,
             region=region,
             name=name,
             cluster_name=cluster_name,
-            namespace=namespace,
+            namespace=namespace or "anyscale-operator",
             project_id=project_id,
             resource_group=resource_group,
             functional_verify=bool(functional_verify),
@@ -848,9 +886,7 @@ def cloud_config_group() -> None:
         "resource to Anyscale as-is."
     ),
 )
-@click.option(
-    "--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation."
-)
+@click.option("--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation.")
 @disabled_on_azure("cloud resource create")
 def cloud_resource_create(
     cloud: Optional[str],
@@ -860,9 +896,7 @@ def cloud_resource_create(
     yes: bool,
 ) -> None:
     try:
-        CloudController().create_cloud_resource(
-            cloud, cloud_id, file, skip_verification, yes
-        )
+        CloudController().create_cloud_resource(cloud, cloud_id, file, skip_verification, yes)
     except click.ClickException as e:
         print(e)
 
@@ -904,7 +938,9 @@ def cloud_resource_create(
     type=click.Choice(["aws", "gcp"], case_sensitive=False),
 )
 @click.option(
-    "--region", help="Region to set up the resources in.", required=True,
+    "--region",
+    help="Region to set up the resources in.",
+    required=True,
 )
 @click.option(
     "--stack",
@@ -927,7 +963,10 @@ def cloud_resource_create(
     required=False,
 )
 @click.option(
-    "--cluster-name", help="Kubernetes cluster name. (K8s)", required=False, type=str,
+    "--cluster-name",
+    help="Kubernetes cluster name. (K8s)",
+    required=False,
+    type=str,
 )
 @click.option(
     "--namespace",
@@ -951,9 +990,7 @@ def cloud_resource_create(
     is_flag=False,
     flag_value="workspace",
 )
-@click.option(
-    "--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation."
-)
+@click.option("--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation.")
 @click.option(
     "--values-file",
     help="Path to save the generated Helm values file (K8s: default - auto-generated with timestamp). (K8s)",
@@ -961,7 +998,10 @@ def cloud_resource_create(
     type=str,
 )
 @click.option(
-    "--debug", is_flag=True, default=False, help="Enable debug logging.",
+    "--debug",
+    is_flag=True,
+    default=False,
+    help="Enable debug logging.",
 )
 @click.option(
     "--operator-chart",
@@ -1021,9 +1061,7 @@ def cloud_resource_setup(  # noqa: PLR0913
     """
     if stack == "k8s":
         if not cluster_name:
-            raise click.ClickException(
-                "--cluster-name is required when using --stack=k8s"
-            )
+            raise click.ClickException("--cluster-name is required when using --stack=k8s")
         setup_kubernetes_cloud_resource(
             provider=provider,
             region=region,
@@ -1084,11 +1122,13 @@ def cloud_resource_setup(  # noqa: PLR0913
     type=str,
     required=True,
 )
-@click.option(
-    "--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation."
-)
+@click.option("--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation.")
 @disabled_on_azure("cloud resource delete")
-def cloud_resource_delete(cloud: str, resource: str, yes: bool,) -> None:
+def cloud_resource_delete(
+    cloud: str,
+    resource: str,
+    yes: bool,
+) -> None:
     try:
         CloudController().remove_cloud_resource(cloud, resource, yes)
     except click.ClickException as e:
@@ -1109,10 +1149,7 @@ def cloud_resource_delete(cloud: str, resource: str, yes: bool,) -> None:
 @cloud_cli.command(
     name="update",
     short_help="Update a cloud.",
-    help=(
-        "Update a cloud.\n\n"
-        "Specify the cloud by name (-n/--name) or by ID (--cloud-id)."
-    ),
+    help=("Update a cloud.\n\nSpecify the cloud by name (-n/--name) or by ID (--cloud-id)."),
     cls=AnyscaleCommand,
 )
 @click.argument("cloud-name", required=False)
@@ -1124,9 +1161,7 @@ def cloud_resource_delete(cloud: str, resource: str, yes: bool,) -> None:
     required=False,
 )
 @click.option("--name", "-n", help="Update configuration of cloud by name.", type=str)
-@click.option(
-    "--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation."
-)
+@click.option("--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation.")
 @click.option(
     "--functional-verify",
     help="Verify the cloud is functional. This will check that the cloud can launch workspace/service.",
@@ -1241,9 +1276,7 @@ def cloud_update(  # noqa: PLR0913
     type=str,
     required=False,
 )
-@click.option(
-    "--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation."
-)
+@click.option("--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation.")
 def cloud_update_storage_cors(
     cloud_name: Optional[str],
     name: Optional[str],
@@ -1329,9 +1362,7 @@ def cloud_update_storage_cors(
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice(
-        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
-    ),
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
     help="Output format for the result.",
@@ -1413,9 +1444,7 @@ def _handle_log_ingestion_config(enable_log_ingestion: Optional[bool]) -> None:
             type=str,
         )
         if consent_message != "consent":
-            raise click.ClickException(
-                'You must type "consent" to enable log ingestion.'
-            )
+            raise click.ClickException('You must type "consent" to enable log ingestion.')
     elif enable_log_ingestion is False:
         confirm_response = click.confirm(
             "--disable-log-ingestion is specified. Please note the logs that's "
@@ -1654,10 +1683,16 @@ def cloud_config_update(  # noqa: PLR0913
     hidden=True,
 )
 @click.option(
-    "--name", "-n", help="Name of the cloud.", required=True,
+    "--name",
+    "-n",
+    help="Name of the cloud.",
+    required=True,
 )
 @click.option(
-    "--vpc-id", help="The ID of the VPC.", required=False, type=str,
+    "--vpc-id",
+    help="The ID of the VPC.",
+    required=False,
+    type=str,
 )
 @click.option(
     "--subnet-ids",
@@ -1672,7 +1707,11 @@ def cloud_config_update(  # noqa: PLR0913
     type=str,
 )
 @click.option(
-    "--efs-id", help="The EFS ID.", required=False, type=str, hidden=True,
+    "--efs-id",
+    help="The EFS ID.",
+    required=False,
+    type=str,
+    hidden=True,
 )
 @click.option(
     "--anyscale-iam-role-id",
@@ -1693,7 +1732,11 @@ def cloud_config_update(  # noqa: PLR0913
     type=str,
 )
 @click.option(
-    "--s3-bucket-id", help="S3 bucket ID.", required=False, type=str, hidden=True,
+    "--s3-bucket-id",
+    help="S3 bucket ID.",
+    required=False,
+    type=str,
+    hidden=True,
 )
 @click.option(
     "--external-id",
@@ -1702,7 +1745,10 @@ def cloud_config_update(  # noqa: PLR0913
     type=str,
 )
 @click.option(
-    "--memorydb-cluster-id", help="Memorydb cluster ID", required=False, type=str,
+    "--memorydb-cluster-id",
+    help="Memorydb cluster ID",
+    required=False,
+    type=str,
 )
 @click.option(
     "--gcp-project-id",
@@ -1713,7 +1759,10 @@ def cloud_config_update(  # noqa: PLR0913
     type=str,
 )
 @click.option(
-    "--vpc-name", help="VPC name for GCP clouds", required=False, type=str,
+    "--vpc-name",
+    help="VPC name for GCP clouds",
+    required=False,
+    type=str,
 )
 @click.option(
     "--subnet-names",
@@ -1832,7 +1881,10 @@ def cloud_config_update(  # noqa: PLR0913
     type=str,
 )
 @click.option(
-    "--private-network", help="Use private network.", is_flag=True, default=False,
+    "--private-network",
+    help="Use private network.",
+    is_flag=True,
+    default=False,
 )
 @click.option(
     "--functional-verify",
@@ -1841,9 +1893,7 @@ def cloud_config_update(  # noqa: PLR0913
     is_flag=False,
     flag_value="workspace",
 )
-@click.option(
-    "--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation."
-)
+@click.option("--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation.")
 @click.option(
     "--skip-verifications",
     help="Skip verifications. This will skip all verifications.",
@@ -1950,9 +2000,7 @@ def register_cloud(  # noqa: PLR0913, PLR0912, C901
             if cloud_resource.file_storage:
                 cloud_resource.file_storage = FileStorage(**cloud_resource.file_storage)
             if cloud_resource.object_storage:
-                cloud_resource.object_storage = ObjectStorage(
-                    **cloud_resource.object_storage
-                )
+                cloud_resource.object_storage = ObjectStorage(**cloud_resource.object_storage)
             if cloud_resource.aws_config:
                 cloud_resource.aws_config = AWSConfig(**cloud_resource.aws_config)
             if cloud_resource.gcp_config:
@@ -2032,7 +2080,11 @@ def register_cloud(  # noqa: PLR0913, PLR0912, C901
             required_resources = [
                 (vpc_id, "--vpc-id", (ComputeStack.VM)),
                 (subnet_ids, "--subnet-ids", (ComputeStack.VM)),
-                (anyscale_iam_role_id, "--anyscale-iam_role-id", (ComputeStack.VM),),
+                (
+                    anyscale_iam_role_id,
+                    "--anyscale-iam_role-id",
+                    (ComputeStack.VM),
+                ),
                 (instance_iam_role_id, "--instance-iam-role-id", (ComputeStack.VM)),
                 (security_group_ids, "--security-group-ids", (ComputeStack.VM)),
                 (
@@ -2073,16 +2125,12 @@ def register_cloud(  # noqa: PLR0913, PLR0912, C901
                     persistent_volume_claim=persistent_volume_claim,
                     csi_ephemeral_volume_driver=csi_ephemeral_volume_driver,
                 )
-                if file_storage_id
-                or persistent_volume_claim
-                or csi_ephemeral_volume_driver
+                if file_storage_id or persistent_volume_claim or csi_ephemeral_volume_driver
                 else None,
                 aws_config=AWSConfig(
                     vpc_id=vpc_id,
                     subnet_ids=subnet_ids.split(",") if subnet_ids else [],
-                    security_group_ids=security_group_ids.split(",")
-                    if security_group_ids
-                    else [],
+                    security_group_ids=security_group_ids.split(",") if security_group_ids else [],
                     anyscale_iam_role_id=anyscale_iam_role_id,
                     external_id=external_id,
                     cluster_iam_role_id=instance_iam_role_id,
@@ -2164,9 +2212,7 @@ def register_cloud(  # noqa: PLR0913, PLR0912, C901
                     persistent_volume_claim=persistent_volume_claim,
                     csi_ephemeral_volume_driver=csi_ephemeral_volume_driver,
                 )
-                if file_storage_id
-                or persistent_volume_claim
-                or csi_ephemeral_volume_driver
+                if file_storage_id or persistent_volume_claim or csi_ephemeral_volume_driver
                 else None,
                 gcp_config=GCPConfig(
                     project_id=project_id,
@@ -2207,9 +2253,7 @@ def register_cloud(  # noqa: PLR0913, PLR0912, C901
                 if len(parts) == 1:
                     mount_targets.append(NFSMountTarget(address=parts[0]))
                 elif len(parts) == 2:
-                    mount_targets.append(
-                        NFSMountTarget(address=parts[1], zone=parts[0])
-                    )
+                    mount_targets.append(NFSMountTarget(address=parts[1], zone=parts[0]))
                 else:
                     raise click.ClickException(
                         f"Invalid mount target {target}; expected (zone,address) tuple or a singular address."
@@ -2236,9 +2280,7 @@ def register_cloud(  # noqa: PLR0913, PLR0912, C901
                     persistent_volume_claim=persistent_volume_claim,
                     csi_ephemeral_volume_driver=csi_ephemeral_volume_driver,
                 )
-                if mount_targets
-                or persistent_volume_claim
-                or csi_ephemeral_volume_driver
+                if mount_targets or persistent_volume_claim or csi_ephemeral_volume_driver
                 else None,
                 azure_config=AzureConfig(tenant_id=azure_tenant_id)
                 if provider == "azure" and azure_tenant_id
@@ -2261,6 +2303,14 @@ def register_cloud(  # noqa: PLR0913, PLR0912, C901
         placeholder_problems = placeholder_credential_problems(cloud_resource)
         if placeholder_problems:
             raise click.ClickException(" ".join(placeholder_problems))
+
+    # KUBERAY is excluded: only K8S resources register an operator, which is what
+    # needs the bucket. Both register routes converge here, so the resource-file
+    # route -- which skips the per-provider required-argument tables -- is covered.
+    if cloud_resource.compute_stack == ComputeStack.K8S:
+        storage_problem = missing_object_storage_problem(cloud_resource)
+        if storage_problem:
+            raise click.ClickException(storage_problem)
 
     if provider == "aws":
         CloudController().register_aws_cloud(
@@ -2351,9 +2401,7 @@ def register_cloud(  # noqa: PLR0913, PLR0912, C901
     default=False,
     help="Strict Verify. Treat warnings as failures.",
 )
-@click.option(
-    "--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation."
-)
+@click.option("--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation.")
 def cloud_verify(
     cloud_name: Optional[str],
     name: Optional[str],
@@ -2407,7 +2455,10 @@ def cloud_verify(
     required=False,
 )
 @click.option(
-    "--aws-s3-id", help="New S3 bucket ID.", required=False, type=str,
+    "--aws-s3-id",
+    help="New S3 bucket ID.",
+    required=False,
+    type=str,
 )
 @click.option("--aws-efs-id", help="New EFS ID.", required=False, type=str)
 @click.option(
@@ -2506,9 +2557,7 @@ def cloud_edit(  # noqa: PLR0913
             )
         if (
             memorystore_instance_name is not None
-            and re.search(
-                "projects/.+/locations/.+/instances/.+", memorystore_instance_name
-            )
+            and re.search("projects/.+/locations/.+/instances/.+", memorystore_instance_name)
             is None
         ):
             raise click.ClickException(
@@ -2552,15 +2601,16 @@ def cloud_edit(  # noqa: PLR0913
     help="Add collaborators to the cloud.",
     cls=AnyscaleCommand,
 )
-@click.option(
-    "--cloud", "-c", help="Name of the cloud to add collaborators to.", required=True
-)
+@click.option("--cloud", "-c", help="Name of the cloud to add collaborators to.", required=True)
 @click.option(
     "--users-file",
     help="Path to a YAML file containing a list of users to add to the cloud.",
     required=True,
 )
-def add_collaborators(cloud: str, users_file: str,) -> None:
+def add_collaborators(
+    cloud: str,
+    users_file: str,
+) -> None:
     collaborators = CreateCloudCollaborators.from_yaml(users_file)
 
     try:
@@ -2572,9 +2622,7 @@ def add_collaborators(cloud: str, users_file: str,) -> None:
             ],
         )
     except ValueError as e:
-        raise UserError(
-            f"Error adding collaborators to cloud: {e}", legacy_exit_code=0
-        ) from None
+        raise UserError(f"Error adding collaborators to cloud: {e}", legacy_exit_code=0) from None
 
     log.info(
         f"Successfully added {len(collaborators.collaborators)} collaborators to cloud {cloud}."
@@ -2595,7 +2643,7 @@ def _get_cloud_info(
     :param name: The name of the cloud to retrieve.
     :param output: Optional file path to write output to.
     :param include_status: If True, include status fields (created_at, is_default,
-        operator_status, operator_status_details). If False, these fields are hidden.
+        operator/connector status and details). If False, these fields are hidden.
     :param output_format: Structured output format for stdout; ignored when
         writing to a file.
     """
@@ -2612,9 +2660,7 @@ def _get_cloud_info(
             raise ResourceNotFoundError("Cloud not found.", legacy_exit_code=0)
 
         # Include all cloud resources for the cloud.
-        cloud_resources = CloudController().get_formatted_cloud_resources(
-            cloud_id=cloud.id
-        )
+        cloud_resources = CloudController().get_formatted_cloud_resources(cloud_id=cloud.id)
 
         if not include_status:
             # Remove status fields from cloud resources for cleaner output.
@@ -2624,6 +2670,8 @@ def _get_cloud_info(
                 "is_default",
                 "operator_status",
                 "operator_status_details",
+                "connector_status",
+                "connector_status_details",
             }
             for resource in cloud_resources:
                 for field in status_fields_to_hide:
@@ -2727,9 +2775,7 @@ def _get_cloud_info(
 @click.option(
     "--output-format",
     "output_format",
-    type=click.Choice(
-        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
-    ),
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
     help="Output format for the result. Ignored when writing to a file.",
@@ -2842,9 +2888,7 @@ def get_cloud(
 @click.option(
     "--output-format",
     "output_format",
-    type=click.Choice(
-        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
-    ),
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
     help="Output format for the result. Ignored when writing to a file.",
@@ -2908,9 +2952,7 @@ def cloud_status(
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice(
-        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
-    ),
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
     help="Output format for the result.",
@@ -2938,9 +2980,7 @@ def get_default_cloud(output_format: str) -> None:
         print(yaml.dump(cloud_dict, sort_keys=False))
 
     except ValueError as e:
-        raise UserError(
-            f"Error retrieving default cloud: {e}", legacy_exit_code=0
-        ) from None
+        raise UserError(f"Error retrieving default cloud: {e}", legacy_exit_code=0) from None
 
 
 @cloud_cli.command(
@@ -3007,13 +3047,9 @@ def generate_jobs_report(
         out = "jobs_report.html" if not csv else "jobs_report.csv"
 
     try:
-        CloudController().generate_jobs_report(
-            cloud_id, csv, out, sort_by, sort_order == "asc"
-        )
+        CloudController().generate_jobs_report(cloud_id, csv, out, sort_by, sort_order == "asc")
     except ValueError as e:
-        raise UserError(
-            f"Error generating jobs report: {e}", legacy_exit_code=0
-        ) from None
+        raise UserError(f"Error generating jobs report: {e}", legacy_exit_code=0) from None
 
 
 @command_metadata(
@@ -3061,9 +3097,7 @@ def terminate_system_cluster(cloud_id: str, wait: Optional[bool]) -> None:
     try:
         anyscale.cloud.terminate_system_cluster(cloud_id, wait)
     except ValueError as e:
-        raise UserError(
-            f"Error terminating system cluster: {e}", legacy_exit_code=0
-        ) from None
+        raise UserError(f"Error terminating system cluster: {e}", legacy_exit_code=0) from None
 
 
 # --- Gateway Migration Commands ---
@@ -3076,7 +3110,10 @@ def terminate_system_cluster(cloud_id: str, wait: Optional[bool]) -> None:
     hidden=True,
 )
 @click.option(
-    "--cloud-id", help="ID of the cloud.", type=str, required=True,
+    "--cloud-id",
+    help="ID of the cloud.",
+    type=str,
+    required=True,
 )
 def start_gateway_migration(cloud_id: str) -> None:
     controller = CloudController()
@@ -3090,7 +3127,10 @@ def start_gateway_migration(cloud_id: str) -> None:
     hidden=True,
 )
 @click.option(
-    "--cloud-id", help="ID of the cloud.", type=str, required=True,
+    "--cloud-id",
+    help="ID of the cloud.",
+    type=str,
+    required=True,
 )
 @click.option(
     "--weight",
@@ -3110,7 +3150,10 @@ def set_gateway_canary_weight(cloud_id: str, weight: int) -> None:
     hidden=True,
 )
 @click.option(
-    "--cloud-id", help="ID of the cloud.", type=str, required=True,
+    "--cloud-id",
+    help="ID of the cloud.",
+    type=str,
+    required=True,
 )
 def gateway_migration_status(cloud_id: str) -> None:
     controller = CloudController()

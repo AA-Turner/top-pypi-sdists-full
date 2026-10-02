@@ -14,9 +14,7 @@ class MachinePool(ModelBase):
         if not isinstance(machine_pool_name, str):
             raise TypeError("'machine_pool_name' must be a string.")
 
-    machine_pool_id: str = field(
-        metadata={"docstring": "Unique identifier for the machine pool."}
-    )
+    machine_pool_id: str = field(metadata={"docstring": "Unique identifier for the machine pool."})
 
     def _validate_machine_pool_id(self, machine_pool_id: str):
         if not isinstance(machine_pool_id, str):

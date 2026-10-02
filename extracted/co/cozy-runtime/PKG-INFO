@@ -1,0 +1,47 @@
+Metadata-Version: 2.5
+Name: cozy-runtime
+Version: 0.18.99
+Summary: Cozy v2 worker runtime: author surface, worker, executor
+License-File: native/LICENSE
+License-File: native/NOTICE
+Requires-Python: >=3.12
+Requires-Dist: cryptography>=45
+Requires-Dist: grpcio>=1.76
+Requires-Dist: msgspec>=0.19
+Requires-Dist: numpy>=1.26
+Requires-Dist: packaging>=24
+Requires-Dist: pillow>=12
+Requires-Dist: protobuf>=6.31
+Requires-Dist: tensorfs>=0.3.78
+Provides-Extra: adapters
+Requires-Dist: peft<0.21,>=0.20; extra == 'adapters'
+Requires-Dist: torch>=2.13; extra == 'adapters'
+Provides-Extra: assessment
+Requires-Dist: cozy-eval>=0.7; extra == 'assessment'
+Provides-Extra: corpus
+Requires-Dist: diffusers>=0.36; extra == 'corpus'
+Requires-Dist: torch>=2.13; extra == 'corpus'
+Requires-Dist: transformers>=4.40; extra == 'corpus'
+Provides-Extra: derive
+Requires-Dist: torch>=2.13; extra == 'derive'
+Provides-Extra: media
+Requires-Dist: av>=18.1; extra == 'media'
+Provides-Extra: minimax-h3
+Requires-Dist: diffusers>=0.40.0; extra == 'minimax-h3'
+Requires-Dist: numpy>=1.26; extra == 'minimax-h3'
+Requires-Dist: peft<0.21,>=0.20; extra == 'minimax-h3'
+Requires-Dist: safetensors>=0.8.0; extra == 'minimax-h3'
+Requires-Dist: tokenizers>=0.23.1; extra == 'minimax-h3'
+Requires-Dist: torch>=2.13; extra == 'minimax-h3'
+Requires-Dist: torchvision>=0.28; extra == 'minimax-h3'
+Requires-Dist: transformers>=5.16.1; extra == 'minimax-h3'
+Provides-Extra: model-execution
+Requires-Dist: tensorfs>=0.3.78; extra == 'model-execution'
+Provides-Extra: qwen-image21
+Requires-Dist: diffusers>=0.40.0; extra == 'qwen-image21'
+Requires-Dist: numpy>=1.26; extra == 'qwen-image21'
+Requires-Dist: safetensors>=0.8; extra == 'qwen-image21'
+Requires-Dist: tokenizers>=0.23.1; extra == 'qwen-image21'
+Requires-Dist: torch>=2.13; extra == 'qwen-image21'
+Requires-Dist: torchvision>=0.28; extra == 'qwen-image21'
+Requires-Dist: transformers>=5.17; extra == 'qwen-image21'

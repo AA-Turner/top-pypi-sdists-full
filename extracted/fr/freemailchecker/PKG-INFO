@@ -1,0 +1,54 @@
+Metadata-Version: 2.1
+Name: freemailchecker
+Version: 0.1.1
+Summary: A simple python package which checks for the domain in a list of free and disposable email domains. Includes gmail.com and mailinator.com style
+Home-page: https://github.com/pjr/freemailchecker
+Author: Philip Reynolds
+Author-email: philip.reynolds@gmail.com
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: importlib-resources; python_version < "3.9"
+
+# freemailchecker
+Small python package which checks for free or disposable email addresses from a pre-compiled list
+
+Includes gmail.com style free email addresses and mailinator style disposable
+addresses.
+
+# Installing
+
+```bash
+pip install freemailchecker
+```
+
+# Usage
+
+```python
+
+>>> from freemailchecker import check_free_email, check_free_domain
+
+>>> check_free_email('test@gmail.com')
+True
+>>> check_free_email('test@google.com')
+False
+>>> check_free_domain('hotmail.com')
+True
+>>> check_free_domain('microsoft.com')
+False 
+```
+
+# Contributions
+
+Contributions to the project or list of domains are very welcome. Please issue
+a PR.
+
+The list of domains are in `src/freemailchecker/data/freemaildomains.csv`
+
+# Licence
+
+This code is released under an MIT licence.
+
+# Author
+
+Author is Philip Reynolds. First name dot last name at gmail.com.

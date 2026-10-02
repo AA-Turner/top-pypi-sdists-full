@@ -1,0 +1,50 @@
+package:
+  name: slycot
+  version: {{ environ.get('GIT_DESCRIBE_TAG', 'v0.0.0')[1:] }}
+
+source:
+  git_url: ../
+
+build:
+  number: {{ environ.get('GIT_DESCRIBE_NUMBER', 0) }}
+  string: py{{ environ.get('PY_VER').replace('.', '') }}_{{ environ.get('GIT_DESCRIBE_HASH', '') }}_{{ environ.get('GIT_DESCRIBE_NUMBER', 0) }}
+
+requirements:
+  build:
+    - python                                 # [build_platform != target_platform]
+    - cross-python_{{ target_platform }}     # [build_platform != target_platform]
+    - {{ compiler('fortran') }}
+    - {{ compiler('c') }}
+    - {{ stdlib("c") }}
+    - cmake >=3.15
+    - ninja
+  host:
+    - libblas
+    - liblapack
+    - numpy
+    - pip
+    - python
+    - scikit-build-core
+    - setuptools_scm
+  run:
+    - python
+
+test:
+  requires:
+    - pytest
+    - scipy
+  imports:
+    - slycot
+  commands:
+    - pytest --pyargs slycot
+
+about:
+  home: https://github.com/python-control/Slycot
+  dev_url: https://github.com/python-control/Slycot
+  license: GPL-2.0-only
+  license_family: GPL
+  license_file: LICENSE.txt
+  summary: 'Slycot: a wrapper for the SLICOT control and systems library'
+  description: |
+    Slycot wraps the SLICOT library which is used for control and systems
+    analysis.

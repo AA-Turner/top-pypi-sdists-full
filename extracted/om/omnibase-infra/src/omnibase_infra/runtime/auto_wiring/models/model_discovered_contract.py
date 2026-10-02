@@ -1,0 +1,167 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Discovered contract model from onex.nodes entry point scanning (OMN-7653)."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from omnibase_core.models.contracts.subcontracts.model_db_ownership_subcontract import (
+    ModelDbOwnershipSubcontract,
+)
+from omnibase_core.models.contracts.subcontracts.model_runtime_lane_scope import (
+    ModelRuntimeLaneScope,
+)
+from omnibase_infra.runtime.auto_wiring.models.model_contract_version import (
+    ModelContractVersion,
+)
+from omnibase_infra.runtime.auto_wiring.models.model_event_bus_wiring import (
+    ModelEventBusWiring,
+)
+from omnibase_infra.runtime.auto_wiring.models.model_handler_routing import (
+    ModelHandlerRouting,
+)
+
+
+class ModelDiscoveredContract(BaseModel):
+    """A single contract discovered from an onex.nodes entry point.
+
+    Captures the subset of contract YAML fields needed for auto-wiring
+    without importing any handler or node classes.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
+
+    name: str = Field(..., description="Node name from contract")
+    node_type: str = Field(..., description="Node type (e.g. EFFECT_GENERIC)")
+    description: str = Field(default="", description="Node description")
+    contract_version: ModelContractVersion = Field(
+        ..., description="Contract semantic version"
+    )
+    node_version: str = Field(default="1.0.0", description="Node version string")
+    contract_path: Path = Field(..., description="Filesystem path to contract.yaml")
+    contract_content_hash: str | None = Field(
+        default=None,
+        description=(
+            "Canonical content hash of the contract file at contract_path "
+            "(OMN-18708). Lowercase hex SHA-256 over the file's bytes with "
+            "line endings normalised -- the form declared by "
+            "omnibase_infra.runtime.util_contract_content_hash, so a consumer "
+            "outside this repository reproduces it without importing anything. "
+            "Explicitly nullable and null by default: only the discovery pass "
+            "reads a contract off disk, so a contract constructed any other "
+            "way has no file to hash and must SAY so rather than carry a value "
+            "that is not a content hash. A reader that needs the triple "
+            "refuses a null rather than treating it as agreement."
+        ),
+    )
+    entry_point_name: str = Field(..., description="Name of the onex.nodes entry point")
+    package_name: str = Field(
+        ..., description="Distribution package that registered the entry point"
+    )
+    package_version: str = Field(
+        default="0.0.0", description="Distribution package version"
+    )
+    runtime_profiles: tuple[str, ...] = Field(
+        default_factory=tuple,
+        description=(
+            "Optional runtime profiles allowed to own this contract. "
+            "Empty means backward-compatible ownership by every runtime profile."
+        ),
+    )
+    runtime_lanes: ModelRuntimeLaneScope | None = Field(
+        default=None,
+        description=(
+            "Optional runtime lanes this contract may attach on (OMN-19408), "
+            "parsed from the top-level contract.yaml `runtime_lanes` list. "
+            "None means unscoped: the contract attaches on any lane whose "
+            "runtime profile owns it. When set, the ownership filter attaches "
+            "it only on a runtime whose declared ONEX_RUNTIME_LANE is in the "
+            "scope, and fails closed with a discovery error on a runtime that "
+            "declares no registered lane."
+        ),
+    )
+    compatibility_publish_topics: tuple[str, ...] = Field(
+        default_factory=tuple,
+        description=(
+            "Contract-declared cross-package compatibility topics. These are "
+            "allowed to publish into an inactive legacy package domain without "
+            "making that package part of the active runtime surface."
+        ),
+    )
+    terminal_event: str | None = Field(
+        default=None,
+        description="Optional contract-declared terminal event topic.",
+    )
+    requires_cloud_gateway: bool = Field(
+        default=False,
+        description=(
+            "True when the contract declares a cloud gateway leg "
+            "(config.gateway_forwarder.cloud_leg). Such a node forwards between "
+            "the local bus and a hosted cloud Kafka edge and must only be wired "
+            "on lanes where cloud mirroring is provisioned/enabled (OMN-13809)."
+        ),
+    )
+    event_bus: ModelEventBusWiring | None = Field(
+        default=None, description="Event bus wiring if declared"
+    )
+    handler_routing: ModelHandlerRouting | None = Field(
+        default=None, description="Handler routing if declared"
+    )
+    db_io: ModelDbOwnershipSubcontract | None = Field(
+        default=None,
+        description=(
+            "Typed database ownership declarations. Table locations are validated "
+            "at discovery and never re-read as raw YAML during handler wiring."
+        ),
+    )
+
+    @field_validator("runtime_profiles", mode="before")
+    @classmethod
+    def validate_runtime_profiles(cls, value: object) -> tuple[str, ...]:
+        """Normalize optional runtime profile ownership declarations."""
+        if value is None:
+            return ()
+        if isinstance(value, str):
+            raw_values = (value,)
+        elif isinstance(value, (list, tuple, set)):
+            raw_values = tuple(value)
+        else:
+            raise TypeError("runtime_profiles must be a string or sequence of strings")
+
+        profiles: list[str] = []
+        for raw in raw_values:
+            if not isinstance(raw, str):
+                raise TypeError("runtime_profiles entries must be strings")
+            profile = raw.strip().lower()
+            if not profile:
+                raise ValueError("runtime_profiles entries cannot be blank")
+            profiles.append(profile)
+        return tuple(dict.fromkeys(profiles))
+
+    @field_validator("compatibility_publish_topics", mode="before")
+    @classmethod
+    def validate_compatibility_publish_topics(cls, value: object) -> tuple[str, ...]:
+        """Normalize contract-declared compatibility publish topics."""
+        if value is None:
+            return ()
+        if isinstance(value, str):
+            raw_values = (value,)
+        elif isinstance(value, (list, tuple, set)):
+            raw_values = tuple(value)
+        else:
+            raise TypeError(
+                "compatibility_publish_topics must be a string or sequence of strings"
+            )
+
+        topics: list[str] = []
+        for raw in raw_values:
+            if not isinstance(raw, str):
+                raise TypeError("compatibility_publish_topics entries must be strings")
+            topic = raw.strip()
+            if not topic:
+                raise ValueError("compatibility_publish_topics entries cannot be blank")
+            topics.append(topic)
+        return tuple(dict.fromkeys(topics))

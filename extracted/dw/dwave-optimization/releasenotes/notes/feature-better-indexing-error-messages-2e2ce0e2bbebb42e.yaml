@@ -1,3 +1,0 @@
----
-features:
-  - Raise clearer error messages when trying to use out-of-bounds indices.

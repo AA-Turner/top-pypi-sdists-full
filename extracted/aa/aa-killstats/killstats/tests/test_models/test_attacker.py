@@ -1,5 +1,4 @@
 # Django
-from django.test import TestCase
 from django.utils import timezone
 
 # Alliance Auth (External Libs)
@@ -7,49 +6,28 @@ from eve_sde.models.types import ItemType
 
 # AA Killstats
 from killstats.models.general import EveEntity
-from killstats.tests.testdata.eveentity import load_eveentity
-from killstats.tests.testdata.load_allianceauth import load_allianceauth
-from killstats.tests.testdata.utils import create_attacker, create_killmail
+from killstats.tests import AuthTestCase
+from killstats.tests.testdata.killstats import AttackerFactory, KillmailFactory
 
 MODULE_PATH = "killstats.models.killstatsaudit"
 
 
-class TestAttackertModel(TestCase):
+class TestAttackerModel(AuthTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        load_allianceauth()
-        load_eveentity()
-        cls.killmail = create_killmail(
-            killmail_id=119303113,
-            killmail_date=timezone.now(),
-            victim=EveEntity.objects.get(id=1001),
-            victim_ship=ItemType.objects.get(id=670),
-            victim_corporation_id=2001,
-            victim_alliance_id=3001,
-            hash="hash",
-            victim_total_value=1000,
-            victim_fitted_value=500,
-            victim_destroyed_value=500,
-            victim_dropped_value=500,
-            victim_region_id=1001,
-            victim_solar_system_id=2001,
-            victim_position_x=1.0,
-            victim_position_y=1.0,
-            victim_position_z=1.0,
-        )
-        cls.attacker = create_attacker(
-            killmail=cls.killmail,
-            character=EveEntity.objects.get(id=1000),
-            corporation=EveEntity.objects.get(id=1000125),
-            alliance=EveEntity.objects.get(id=3001),
-            ship=ItemType.objects.get(id=670),
-            damage_done=500,
-            final_blow=True,
+        cls.killmail = KillmailFactory()
+        cls.attacker = AttackerFactory(
+            character__id=1000,
+            character__name="Character",
+            corporation__id=1000125,
+            corporation__name="CONCORD",
+            alliance__id=3001,
+            alliance__name="Voices of War",
         )
 
     def test_evaluate_attacker_id(self):
-        self.assertEqual(self.attacker.evaluate_attacker(), (1000, "CONCORD"))
+        self.assertEqual(self.attacker.evaluate_attacker(), (1000, "Character"))
         self.attacker.character = None
         self.assertEqual(self.attacker.evaluate_attacker(), (1000125, "CONCORD"))
         self.attacker.corporation = None

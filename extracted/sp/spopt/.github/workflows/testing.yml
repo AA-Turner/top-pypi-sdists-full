@@ -2,8 +2,7 @@
 name: Continuous Integration
 on:
   push:
-    branches:
-      - "*"
+    branches: [main]
   pull_request:
     branches:
       - "*"
@@ -25,17 +24,17 @@ jobs:
         os:
           - ubuntu-latest
         environment-file:
-          - ci/py311_spopt-oldest.yaml
-          - ci/py311_spopt-latest.yaml
-          - ci/py312_spopt-latest.yaml
-          - ci/py313_spopt-latest.yaml
-          - ci/py313_spopt-dev.yaml
+          - ci/312-oldest.yaml
+          - ci/312-latest.yaml
+          - ci/313-latest.yaml
+          - ci/314-latest.yaml
+          - ci/314-dev.yaml
         include:
-          - environment-file: ci/py313_spopt-latest.yaml
-            os: macos-13
-          - environment-file: ci/py313_spopt-latest.yaml
-            os: macos-14
-          - environment-file: ci/py313_spopt-latest.yaml
+          - environment-file: ci/314-latest.yaml
+            os: macos-15-intel
+          - environment-file: ci/314-latest.yaml
+            os: macos-latest
+          - environment-file: ci/314-latest.yaml
             os: windows-latest
       fail-fast: false
     defaults:
@@ -43,11 +42,11 @@ jobs:
         shell: bash -l {0}
     steps:
       - name: checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: setup micromamba
-        uses: mamba-org/setup-micromamba@v2
+        uses: mamba-org/setup-micromamba@v3
         with:
           environment-file: ${{ matrix.environment-file }}
           micromamba-version: latest

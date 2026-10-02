@@ -186,7 +186,8 @@ def test_geomerge_treats_pi_as_a_static_left_join():
     """pi has no time dimension, so it must be ordered with the other statics
     and LEFT-joined -- an outer join would multiply rows."""
     src = (GEOPREPARE / "geomerge.py").read_text(encoding="utf-8", errors="ignore")
-    assert '1 if v in ("aef", "soilgrids", "aridity", "pi")' in src
+    # "dem" joined the static set in geoprepare 0.6.325 (ELEVATION dataset).
+    assert '1 if v in ("aef", "soilgrids", "aridity", "pi", "dem")' in src
     assert 'elif var == "pi":' in src
     assert '["country", "region", "region_id", "pi"]' in src
-    assert '"aridity", "pi") else "left"' in src
+    assert '"aridity", "pi", "dem") else "left"' in src

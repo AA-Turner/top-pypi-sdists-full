@@ -1,0 +1,19 @@
+packages:
+  - lib/node
+  - lib/node/dist/darwin-arm64
+  - lib/node/dist/darwin-x64
+  - lib/node/dist/linux-x64
+  - lib/node/dist/win32-x64
+  - lib/react
+  - lib/react-native
+  - lib/react-native/example
+  - lib/types
+  - lib/wasm
+  - site
+
+catalogs:
+  test:
+    "@vitest/browser-playwright": ^4.1.4
+    playwright: ^1.59.1
+    vite: "6"
+    vitest: ^4.1.4

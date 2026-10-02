@@ -54,14 +54,16 @@ class SkillsSDK:
         self._private_sdk = PrivateSkillsSDK(client=client, logger=logger, timer=timer)
 
     @sdk_docs(
-        doc_py_example=_LIST_EXAMPLE, arg_docstrings=_LIST_ARG_DOCSTRINGS,
+        doc_py_example=_LIST_EXAMPLE,
+        arg_docstrings=_LIST_ARG_DOCSTRINGS,
     )
     def list(self, version: Optional[str] = None) -> "SkillsListResult":  # noqa: F811
         """List installed skills and available updates."""
         return self._private_sdk.list(version=version)
 
     @sdk_docs(
-        doc_py_example=_INSTALL_EXAMPLE, arg_docstrings=_INSTALL_ARG_DOCSTRINGS,
+        doc_py_example=_INSTALL_EXAMPLE,
+        arg_docstrings=_INSTALL_ARG_DOCSTRINGS,
     )
     def install(  # noqa: F811
         self,
@@ -81,18 +83,25 @@ class SkillsSDK:
         )
 
     @sdk_docs(
-        doc_py_example=_UPDATE_EXAMPLE, arg_docstrings=_UPDATE_ARG_DOCSTRINGS,
+        doc_py_example=_UPDATE_EXAMPLE,
+        arg_docstrings=_UPDATE_ARG_DOCSTRINGS,
     )
     def update(  # noqa: F811
-        self, force: bool = False, accept_terms: bool = False,  # noqa: F811
+        self,
+        force: bool = False,
+        accept_terms: bool = False,  # noqa: F811
     ) -> str:
         """Update skills to the latest version."""
         return self._private_sdk.update(force=force, accept_terms=accept_terms)
 
     @sdk_docs(
-        doc_py_example=_GET_TERMS_EXAMPLE, arg_docstrings=_GET_TERMS_ARG_DOCSTRINGS,
+        doc_py_example=_GET_TERMS_EXAMPLE,
+        arg_docstrings=_GET_TERMS_ARG_DOCSTRINGS,
     )
-    def get_terms(self, version: Optional[str] = None,) -> "TermsStatus":  # noqa: F811
+    def get_terms(
+        self,
+        version: Optional[str] = None,
+    ) -> "TermsStatus":  # noqa: F811
         """Fetch the current user's terms acceptance status."""
         return self._private_sdk.get_terms(version=version)
 

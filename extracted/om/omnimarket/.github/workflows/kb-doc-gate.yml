@@ -1,0 +1,52 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# KB Doc Gate — thin caller. OMN-16589.
+# Blocks new/regrown non-KB markdown docs, evaluated against the PR diff.
+# Validator lives in omniclaude (mirrors deploy-gate.yml's thin-caller pattern).
+#
+# Pilot wiring (P1): transition mode, NOT a required status check yet. The
+# required-check flip is explicit follow-up scope once this repo and
+# omnibase_core both run green on real PRs — see OMN-16589 AC.
+
+name: KB Doc Gate
+
+on:
+  pull_request:
+    branches: [dev]
+
+# OMN-19643: cancel only superseded pull request runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+
+jobs:
+  kb-doc-gate:
+    # Pinned by immutable SHA, not @main: omniclaude main is release-synced and
+    # carries neither this reusable workflow nor scripts/kb_doc_gate.py
+    # (verified: `git cat-file -e origin/main:scripts/kb_doc_gate.py` fails).
+    #
+    # This pin MUST be a real omniclaude commit on `dev` that contains BOTH the
+    # reusable workflow and the validator script. The previous pin
+    # (3b3f5e6966df2beebfb1435d15948394f92771de, landed by #2153) is not a
+    # commit in omniclaude at all —
+    # `GET /repos/OmniNode-ai/omniclaude/commits/<sha>` returns 422 "No commit
+    # found for SHA" — so GitHub could not resolve the reusable workflow and
+    # every run here failed with zero jobs.
+    #
+    # 96dd1896 (omniclaude#2052) keeps the validator checkout pinned to
+    # `github.job_workflow_sha` and fetches full caller history, so the gate's
+    # `origin/dev...HEAD` diff has the merge base it requires.
+    # OMN-16613 bumped this pin from 96dd1896 to omniclaude dev 6bfba15f:
+    # `strict` mode and the `allowed:` config key both land with
+    # omniclaude#2099 (a78b103e5, OMN-17172), which 96dd1896 predates.
+    # Same commit as the exported pre-commit hook's rev in
+    # .pre-commit-config.yaml, so local and CI cannot disagree.
+    uses: OmniNode-ai/omniclaude/.github/workflows/kb-doc-gate-reusable.yml@6bfba15f7d103ddaa9e949c459e95153b1ca6a94
+    with:
+      # OMN-16613: omnimarket's Wave-4 doc migration has landed (docs/ carries
+      # zero markdown), so the gate runs tree-wide, not just over the PR diff.
+      # .kb-doc-gate.yaml at the repo root sets the same value and wins over
+      # this input; both are set so the two surfaces cannot disagree.
+      mode: strict

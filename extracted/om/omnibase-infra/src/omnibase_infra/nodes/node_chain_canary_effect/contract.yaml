@@ -1,0 +1,432 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# ONEX Node Contract - Event Chain Canary Effect
+#
+# OMN-16773: fire ONE live delegation through the deployed runtime ingress
+# on a schedule and assert the chain carried it to a terminal. The 13-class
+# delegation matrix existed only as a manual recipe; nothing ran it, and the
+# chain was dead for four days before a human fired the recipe by hand
+# (OMN-16767).
+#
+# Scope note: the dev lane is the pre-authorized mutable lane and the only
+# lane this node is scheduled against. It asserts nothing about
+# stability-test, judge, or prod.
+#
+# Related Tickets:
+#   - OMN-18891: the consumer that reads the terminal back now subscribes to the PHYSICAL
+#     topic when a deployment namespace is configured, so a second runtime on a
+#     shared broker reads its own chain rather than the dev lane's
+#   - OMN-16773: this ticket
+#   - OMN-16767: the dead delegation chain this canary catches
+#   - OMN-16769: aggregate quarantine-sink observability (separate concern)
+#   - OMN-15190: dev-lane-liveness, the sibling scheduled lane probe
+#   - OMN-14771: delegation-seam-gate, the PR-time in-memory seam gate that
+#     stayed green while the live chain was dead
+#   - OMN-16931: the terminal is read back off the BROKER, not off the
+#     ingress HTTP response, and the receipt carries a status per
+#     OMN-16025 chain link
+#   - OMN-16025: the five-link delegation gate this canary reports against
+#   - OMN-16931 (regression, 2026-09-06): the readback's backward seek
+#     clamped to offset 0 instead of to the partition's log start, so a
+#     truncated terminal topic was skipped entirely and every scheduled run
+#     of the day reported TERMINAL_MISSING while the terminal for its own
+#     correlation id sat on the bus. Clamped to beginning_offsets.
+#   - OMN-16963: paid link 2's debt. Link 2 now has a real leg — a
+#     correlation-scoped readback of delegation_workflow_state — and a
+#     non-passing link 2 fails the SCALAR verdict, not only
+#     `chain_proof_complete`. Before that, an unconfigured or stranded
+#     projection still produced GREEN with success=True.
+#   - OMN-18389: link 5 waits for the writer it grades, bounded by the
+#     readback window and keyed on the expected hop count. The leg read the
+#     relation about one second before the writer persisted the last hop.
+#   - OMN-16964: paid link 5's debt. Link 5 now has a real leg — ledger
+#     chain assembly, replay, and an HONEST tier-2 verifier whose SKIP is a
+#     distinct non-passing status — and a non-passing link 5 fails the
+#     SCALAR verdict too. No link reports `no_leg` any more: with links 2
+#     and 5 both paid, this node can claim a five-link proof honestly, and
+#     `chain_proof_complete` means what it says.
+#   - OMN-18172: link 2 now reads the typed, stored traffic classification
+#     beside the FSM state so one receipt distinguishes synthetic canary
+#     traffic from organic/non-canary traffic without reading the JSONB
+#     payload that carries the prompt.
+#
+name: "node_chain_canary_effect"
+node_type: "EFFECT_GENERIC"
+# 1.1.0 -> 1.2.0: additive. The node gains declared capability rather than a
+# fix — every non-passing projection and ledger outcome is now a verdict the
+# handler can actually emit, and LEDGER_REPLAY_UNREADABLE closes the last
+# EnumLedgerReplayStatus member (ERROR) that had no declared page.
+#
+# 1.2.0 -> 1.2.1: fix, no declared surface change. The correlation-scoped
+# readback's backward seek was clamped to offset 0, which is a valid floor
+# only for a partition that has never been truncated. Once retention advanced
+# a terminal topic's log start above 0 the seek was OFFSET_OUT_OF_RANGE, the
+# broker refused the fetch, and auto_offset_reset="latest" silently
+# repositioned the consumer past every record already written — so the run
+# emitted TERMINAL_MISSING for a terminal that was on the bus. Clamped to each
+# partition's own beginning offset. No verdict, input or output changed; the
+# verdicts this node already declares are simply reachable for the right
+# reasons again.
+# 1.2.1 -> 1.3.0: DECLARED SURFACE CHANGE (OMN-18060). The link-2 projection
+# DSN is no longer an input VALUE. The request field `projection_dsn` is
+# replaced by `projection_dsn_env`, which carries the NAME of the environment
+# variable the DSN arrives under — resolved from the lane's declared
+# `projection_readback.dsn_env` (omnimarket config/ci_bus_lanes.yaml) and read
+# by the handler out of os.environ. `onex skill` serialises every input into
+# the node payload, onto the bus and into the event log, and builds them from
+# CLI flags that land in argv, so a DSN in an input field was three durable
+# copies of a credential; the model now refuses a value that parses as a
+# connection string, and there is no --projection-dsn flag to pass one on.
+#
+# One new declared error member, PROJECTION_READBACK_REFUSED: the readback
+# COULD have run and this node declined to run it — a DSN that reached the
+# process through argv, or a DSN whose role carries SUPERUSER / BYPASSRLS
+# (probed un-forgeably against pg_roles for current_user, BEFORE the row read).
+# Deliberately distinct from PROJECTION_READBACK_FAILED: an error is the store
+# not answering and sends you to the database, a refusal is this node declining
+# and sends you to the wiring.
+#
+# 1.3.0 -> 1.4.0: additive declared surface change (OMN-18172). The existing
+# link-2 projection readback now returns `projection_traffic_class`, a typed
+# synthetic/organic/unclassified classifier stored beside the FSM state.
+# The least-privilege reader still cannot read the prompt-bearing payload.
+# 1.4.0 -> 1.4.1: fix, no input/output model change (OMN-18172). The scheduled
+# chain canary now marks its delegated /skill request with a typed synthetic
+# canary hint (`source=external-client`, `traffic_class=synthetic`,
+# `source_surface=scheduled-chain-canary`, `requested_by=chain-canary`) so the
+# downstream classifier can store canary traffic without prompt-shape inference.
+# The receipt still reports only the projection readback's stored
+# `projection_traffic_class`; the request body is not treated here as
+# authorization evidence for any caller outside this scheduled producer.
+#
+# 1.4.1 -> 1.4.2: fix, no input/output model change (OMN-18389). Link 5 now
+# WAITS for the writer it grades. The leg used to read `ledger_chain` once,
+# immediately, while `node_delegation_chain_ledger_effect` is a separate
+# process dispatched BY the same terminal event that settles for up to
+# 20 x 250 ms before it writes. Measured on the .201 dev lane: run
+# 35016830667's own correlation had five rows persisted at 21:16:56, one
+# second AFTER the read at 21:16:55, which reported all four hops missing; on
+# the 20:42 scheduled run the gap was 55 seconds. The leg now polls, keyed on
+# the EXPECTED HOP COUNT and never on a fixed sleep, bounded by the same
+# readback window link 4 already holds open -- so it stops the instant every
+# declared hop is present and costs no additional wall-clock in the common
+# case. A read that FAILED is still reported as LEDGER_REPLAY_UNREADABLE on
+# the first attempt rather than retried into a vague incompleteness, and
+# LEDGER_CHAIN_INCOMPLETE now states how many reads it made over what window,
+# because "missing on one look" and "missing after the whole window" are
+# different facts about the chain. No verdict member is added or removed.
+#
+# 1.5.0 -> 1.6.0: additive declared surface change (OMN-19811). Run
+# 36202173467 (2026-09-25T23:44Z) reported TERMINAL_MISSING because
+# deploy-agent job 193cfeda recreated omninode-runtime inside the 120 s
+# budget: the lane was being replaced under the probe and the canary never
+# asked. Two new inputs, `deploy_agent_url` (the lane's deploy agent HTTP
+# surface, the one verify-lane-converged reads) and `deploy_wait_seconds`,
+# and one new output, `deploy_window`. Before firing, the probe waits out a
+# deploy in flight or queued. When an attempt ends TERMINAL_MISSING or
+# INGRESS_UNREACHABLE (the two verdicts a redeploy produces on a healthy
+# chain; the second was met by this change's own lab run 36279784915, fired
+# while deploy 3d3f4b1a recreated onex-api) and the agent reports a job
+# accepted, running or completed inside that attempt's window,
+# the run waits for the lane to converge and fires ONCE more; the receipt
+# names the deploy job and keeps the first attempt. Every other case --
+# another verdict, no deploy in the window, an unreadable agent, a deploy that
+# never converged, a retry that is itself RED -- leaves the RED
+# standing. No verdict member is added or removed.
+contract_version:
+  major: 1
+  minor: 7
+  patch: 0
+node_version: "1.7.0"
+description: >
+  Scheduled live event-chain canary (OMN-16773, OMN-16931). Fires one delegation through POST {probe_url}/skill with a freshly minted per-run correlation id and an OMN-18172 typed synthetic canary hint, then reads that correlation id back off the contract-declared terminal topics on the broker to decide whether a terminal actually landed inside the budget, checks the platform quarantine sink for the same id, and reports the typed traffic class stored by projection readback rather than trusting the outbound request body as evidence. The terminal verdict never comes from the ingress HTTP response: that response is a claim by the request path, and it was wrong in both directions on the live dev lane (OMN-16931 false RED, OMN-15468 false GREEN). Reports a distinct verdict for quarantined vs terminal-missing vs ingress-error-with-terminal-present vs readback-failed vs ingress-unreachable, reports SKIPPED rather than CLEAN for legs that were not configured, and emits a per-link verdict against the five OMN-16025 chain links so a three-link probe can never render as a five-link proof. OMN-15504 (node_version 1.3.1): the terminal-missing verdict used to render a BUDGET-EXHAUSTED ingress as an ingress failure, which reads as an accusation and was taken as one -- an ingress that consumes its entire budget and then reports a dispatch timeout has accepted the request and published it, and is observing the same silence the readback did. That wording sent the 2026-09-10 investigation to the ingress while the delegate-skill consumer sat in a rebalance livelock one hop downstream. The verdict now discriminates on evidence the probe already collects (elapsed_ms against budget_ms): a budget-exhausted answer attributes the silence to the chain and points at the command topic's consumer, while an ingress that refuses INSIDE its budget keeps its own distinct wording so a real refusal is not lost. Link 1 itself is unchanged -- it already passed on reachability alone, and only the prose verdict beside the link table was wrong. OMN-18421 (node_version 1.5.0): the probe now submits through the TENANT-BEARING onex-api route when one is declared, because the /skill ingress it used reads X-Correlation-ID and nothing else -- no authorization header, no tenant -- so every event the resulting chain published was unattributed and was refused fail-closed by the delegation projection writer, and this probe reported PROBE-GREEN on a chain that projected nothing. The refusal is correct and is untouched: a writer under FORCE ROW LEVEL SECURITY cannot discover a row's tenant by reading, and the runtime will not source one (carrying a tenant across a hop is its job, inventing one is forbidden), so the arrivals stop when the SUBMISSION carries a verified tenant. There is no fallback from the authenticated route to the tenant-less one; a declared route whose credential is missing is SUBMISSION_ROUTE_NOT_CONFIGURED, which is RED, publishes nothing and names the variable it looked for. The gateway's 202 remains an ack and never a terminal claim, so the verdict still comes from the correlation-scoped broker readback. OMN-18872 (node_version 1.5.1): link 2's projection readback is a BOUNDED POLL against the same readback window every other leg is measured by, not the single sample it was. The single sample was sound only while the ingress BLOCKED until the chain finished; the OMN-18421 route above answers 202 in a few hundred milliseconds, so the sample began landing tens of seconds before the projection wrote anything and every run reported PROJECTION_ROW_ABSENT against a row that appeared moments later and reached COMPLETED well before the verdict was published. The poll runs to a TERMINAL FSM state rather than to first sight of the row, because a row is created non-terminal and reaches COMPLETED a beat later, so stopping at first sight would have swapped a wrong ROW_ABSENT for a wrong PROJECTION_STRANDED and left the canary just as red; STRANDED is now reported only when the deadline expires with the row still mid-FSM, which is the OMN-14843 condition it was written for. No new knob: a projection-specific deadline would let a run narrow the poll without narrowing the window it claims to have waited. ROW_ABSENT and STRANDED now carry how long the poll ran and how many reads it took, because an absence found after one read and one found after two minutes are different findings.
+
+event_bus:
+  version: {major: 1, minor: 0, patch: 0}
+  subscribe_topics: []
+  publish_topics:
+    - &board_probe_result_topic "onex.evt.omnibase-infra.board-probe-result.v1"
+published_events:
+  - topic: *board_probe_result_topic
+    event_type: "ModelBoardProbeResultEvent"
+    message_category: "EVENT"
+    description: "The chain-canary verdict mapped into the shared board probe result event."
+input_model:
+  name: "ModelChainCanaryRequest"
+  module: "omnibase_infra.nodes.node_chain_canary_effect.models.model_chain_canary_request"
+  description: "Probe configuration: submission route (tenant-bearing gateway or the legacy tenant-less ingress), delegation class, budget, quarantine-check settings."
+output_model:
+  name: "ModelChainCanaryResult"
+  module: "omnibase_infra.nodes.node_chain_canary_effect.models.model_chain_canary_result"
+  description: "Run receipt: verdict, probe correlation id, timing, terminal event, typed projection traffic classification, and quarantine status."
+# Top-level handler block: RuntimeLocal's single-shot compute execution path
+# resolves the handler + its input model from THIS block, not from
+# handler_routing below. Without it `onex skill` dispatch fails closed with
+# "Workflow contract missing 'terminal_event' topic and no handler spec
+# found" (RuntimeLocal._resolve_handler_spec / _run_compute) — the same
+# trap node_sync_revert_watchdog_effect documents in its own contract.
+handler:
+  module: "omnibase_infra.nodes.node_chain_canary_effect.handlers.handler_chain_canary"
+  class: "HandlerChainCanary"
+  input_model: "omnibase_infra.nodes.node_chain_canary_effect.models.model_chain_canary_request.ModelChainCanaryRequest"
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "probe_event_chain"
+      handler:
+        name: "HandlerChainCanary"
+        module: "omnibase_infra.nodes.node_chain_canary_effect.handlers.handler_chain_canary"
+        # The handler speaks multiple transports and all must be declared, or the
+        # handler-contract-compliance scanner reports the undeclared one.
+        # metadata.transport_type below carries HTTP (the /skill ingress POST);
+        # this carries KAFKA (the correlation-scoped quarantine tail scan).
+        # Declaring KAFKA via event_bus.subscribe_topics would ALSO satisfy the
+        # scanner and is deliberately NOT done: a declared subscribe topic is
+        # how the runtime auto-wires a live consumer, and a canary must never
+        # become a subscriber on the quarantine sink it only samples on demand.
+        # node_kafka_replay_compute sets the same precedent — KAFKA declared,
+        # event_bus topic lists left empty.
+        handler_type: "KAFKA"
+      description: "POST /skill delegation probe -> correlation-scoped terminal readback off the declared terminal topics -> correlation-scoped quarantine check -> per-link verdicts"
+      output_fields:
+        - verdict
+        - success
+        - detail
+        - probe_correlation_id
+        - elapsed_ms
+        - terminal_event
+        - terminal_readback_status
+        - projection_traffic_class
+        - quarantine_status
+        - link_verdicts
+        - links_proven
+        - chain_proof_complete
+    - operation: "probe_event_chain_projection_readback"
+      handler:
+        name: "HandlerChainCanary"
+        module: "omnibase_infra.nodes.node_chain_canary_effect.handlers.handler_chain_canary"
+        # OMN-16963 adds the correlation-scoped delegation_workflow_state
+        # readback leg. It is deliberately direct asyncpg I/O because link 2
+        # asks for projection evidence from the materialized projection.
+        #
+        # OMN-18060: the DSN this leg connects with is never an input. The
+        # request carries `projection_dsn_env` — a NAME — and the handler
+        # reads the value from os.environ under it, so no credential enters
+        # the payload, the bus, the event log or argv. On connect the leg
+        # asks the server for current_user's pg_roles row and REFUSES a role
+        # carrying SUPERUSER or BYPASSRLS before it reads anything: the
+        # canary is a reader, and either attribute would exempt it from the
+        # isolation the projection enforces.
+        handler_type: "DATABASE"
+      description: "Declares the OMN-16963 projection readback transport used by the live canary handler, with the OMN-18060 declared-DSN-reference resolution and least-privilege identity probe."
+    - operation: "board_probe.publish_result"
+      event_model:
+        name: "ModelBoardProbeResultEvent"
+        module: "omnibase_infra.nodes.node_board_probe_effect.models.model_board_probe_result_event"
+      handler:
+        name: "HandlerBoardProbeResultPublisher"
+        module: "omnibase_infra.nodes.node_board_probe_effect.handlers.handler_board_probe_result_publisher"
+      description: "Publish a mapped chain-canary verdict through the runtime-owned effect publisher"
+      output_events:
+        - "ModelBoardProbeResultEvent"
+error_handling:
+  retry_policy:
+    # Zero retries on purpose. A retry would let an intermittently dead
+    # chain report green, which is the exact failure this node exists to
+    # end. Cadence is the retry: the next scheduled run is 2h away.
+    #
+    # The one exception lives in the handler, not here, and is narrow by
+    # construction (OMN-19811): a TERMINAL_MISSING or INGRESS_UNREACHABLE
+    # whose window the deploy agent itself says a deploy job overlapped earns
+    # ONE re-fire after the lane converges. The deploy is evidence of why the
+    # run went red; without that evidence nothing is retried.
+    max_retries: 0
+    initial_delay_ms: 0
+    max_delay_ms: 0
+    exponential_base: 1
+    retry_on: []
+  error_types:
+    - name: "INGRESS_UNREACHABLE"
+      description: "The runtime ingress could not be reached at all — lane-level failure, not a chain-level one."
+      recoverable: true
+      retry_strategy: "none"
+    - name: "TERMINAL_MISSING"
+      description: "No terminal event inside the budget (explicit dispatch_timeout, or ok=true carrying no terminal)."
+      recoverable: true
+      retry_strategy: "none"
+    - name: "QUARANTINED"
+      description: "The probe's own correlation id was found in the platform quarantine sink — a handler refused or errored on the event."
+      recoverable: true
+      retry_strategy: "none"
+    - name: "QUARANTINE_PROBE_FAILED"
+      description: "The quarantine check was configured but could not run. Fails closed — an unrunnable check is never reported as a passing one."
+      recoverable: true
+      retry_strategy: "none"
+    - name: "INGRESS_ERROR_TERMINAL_PRESENT"
+      description: "The ingress reported an error AND the terminal is on the bus for this correlation id. The chain carried the request; the failure is in the request path. A different page from TERMINAL_MISSING, which would send an operator hunting a chain that is alive (OMN-16931, run 33251822642)."
+      recoverable: true
+      retry_strategy: "none"
+    - name: "TERMINAL_READBACK_FAILED"
+      description: "The correlation-scoped terminal readback was configured but could not run. Fails closed on the same terms as QUARANTINE_PROBE_FAILED."
+      recoverable: true
+      retry_strategy: "none"
+    - name: "TERMINAL_READBACK_NOT_CONFIGURED"
+      description: "No broker was configured for the terminal readback, so the run has no evidence about the terminal. Deliberately NOT a fallback to the ingress response — that fallback is the OMN-16931 defect."
+      recoverable: true
+      retry_strategy: "none"
+    - name: "PROJECTION_STRANDED"
+      description: "The terminal IS on the bus for this correlation id and delegation_workflow_state holds a non-terminal FSM state for it. The chain carried the event and the FSM did not finish with it — the OMN-14843 shape, invisible to every other leg."
+      recoverable: true
+      retry_strategy: "none"
+    - name: "PROJECTION_ROW_ABSENT"
+      description: "The terminal IS on the bus and the projection carries NO row for this correlation id. Kept distinct from PROJECTION_STRANDED because a row that stopped mid-FSM is a projection defect while an absent row may equally be a publish that never happened — they send you to different layers."
+      recoverable: true
+      retry_strategy: "none"
+    - name: "PROJECTION_READBACK_FAILED"
+      description: "The projection readback was configured but could not run. Fails closed on the same terms as TERMINAL_READBACK_FAILED — an unrunnable check is never reported as a passing one."
+      recoverable: true
+      retry_strategy: "none"
+    - name: "PROJECTION_READBACK_NOT_CONFIGURED"
+      description: "No DSN reference resolved for the projection readback — the lane declared no `projection_readback.dsn_env`, or the variable it names is unset in this process — so the run has no evidence about link 2. Deliberately NOT green-with-a-caveat the way an unconfigured quarantine leg is: quarantine is a supplementary check, link 2 is one of the five OMN-16025 chain links, and a run that cannot see it is the three-links-rendered-as-five defect itself (OMN-16963). The detail names the variable that was looked for, so an unresolved reference is diagnosable rather than merely red (OMN-18060)."
+      recoverable: true
+      retry_strategy: "none"
+    - name: "PROJECTION_READBACK_REFUSED"
+      description: "The projection readback was configured and this node declined to run it (OMN-18060). Two refusals: a Postgres connection string reached the process through argv, where every process on the host can read it out of /proc and the dispatch step echoes its own configuration into the run log; or the DSN authenticates as a role carrying SUPERUSER or BYPASSRLS, established un-forgeably by asking the server for current_user's own pg_roles row BEFORE any data is read. The second is not about disclosure: such a role is exempt from row-level security unconditionally, so a green read through it cannot distinguish a readable projection from one readable only by an identity nothing else has. Distinct from PROJECTION_READBACK_FAILED — an error is the store not answering, a refusal is this node declining to ask."
+      recoverable: true
+      retry_strategy: "none"
+    - name: "LEDGER_CHAIN_INCOMPLETE"
+      description: "The ledger chain was assembled but a declared hop is missing, so there is nothing complete to replay (OMN-16964). Distinct from LEDGER_REPLAY_FAILED: the evidence was never there, rather than present and failing to reproduce."
+      recoverable: true
+      retry_strategy: "none"
+    - name: "LEDGER_REPLAY_FAILED"
+      description: "A complete ledger chain was replayed and the replay was not green (OMN-16964). The replay ran and disagreed, rather than having nothing to run on."
+      recoverable: true
+      retry_strategy: "none"
+    - name: "LEDGER_VERIFIER_SKIPPED"
+      description: "The tier-2 verifier ran and returned SKIP. Never counted as a pass — this is the member the word HONEST in the OMN-16025 link-5 gate text exists for, and folding it into PASS would re-create the defect the gate was written to catch."
+      recoverable: true
+      retry_strategy: "none"
+    # OMN-16964 follow-up. EnumLedgerReplayStatus has SIX members, five of
+    # them non-passing, and ERROR — the ledger store itself not answering —
+    # had no declared page here. Distinct failure layers get distinct
+    # diagnoses, the same doctrine that keeps PROJECTION_STRANDED and
+    # PROJECTION_ROW_ABSENT apart one link over: CHAIN_INCOMPLETE is evidence
+    # that was never there, LEDGER_REPLAY_FAILED is evidence present that did
+    # not reproduce, and this is an infrastructure page rather than a chain
+    # page — the store did not answer at all.
+    - name: "LEDGER_REPLAY_UNREADABLE"
+      description: "The ledger chain was configured but could not be assembled, replayed or verified — the store itself did not answer. Fails closed on the same terms as the other unrunnable checks. An infrastructure page, not a chain page: distinct from LEDGER_CHAIN_INCOMPLETE (read, and found short a hop) and from LEDGER_REPLAY_FAILED (read, replayed, and disagreed)."
+      recoverable: true
+      retry_strategy: "none"
+    - name: "LEDGER_REPLAY_NOT_CONFIGURED"
+      description: "No ledger source was configured, so the run has no evidence about the chain and no green is available. Fails closed on the same terms as TERMINAL_READBACK_NOT_CONFIGURED."
+      recoverable: true
+      retry_strategy: "none"
+    - name: "SUBMISSION_ROUTE_NOT_CONFIGURED"
+      description: "OMN-18421. The run declared the tenant-bearing submission route (the gateway) and could not use it, so nothing was published and every link reports NOT_EVALUATED rather than FAIL — a FAIL on link 1 would be a claim about the lane, while this is a claim about the canary's own wiring. There is deliberately NO fallback to the tenant-less /skill ingress: a probe that quietly submits the unattributed way keeps reporting PROBE-GREEN on a chain whose every event the delegation projection writer refuses fail-closed for want of attribution, which is the exact false-clean that let the malformed sink take continuous arrivals while this probe said the chain was alive."
+      recoverable: true
+      retry_strategy: "none"
+io_operations:
+  - operation: "probe_event_chain"
+    description: "Fire one live delegation and assert the chain carried it to a terminal."
+    input_fields:
+      - probe_url
+      # OMN-18421, the TENANT-BEARING submission route. When gateway_url is
+      # set the probe submits POST {gateway_url}/v1/workflows with a real
+      # credential and the gateway resolves the tenant from it, stamping the
+      # tenant on the published envelope — the field omnimarket's delegation
+      # projection writer reads. Empty keeps the legacy probe_url/skill route,
+      # which reads no authorization header and therefore starts a chain that
+      # is refused on every hop. gateway_api_key_env is a NAME, never a key:
+      # the value is injected into the job environment under this name and
+      # read there, so it never reaches argv, this node's serialised payload,
+      # or the event log. A declared gateway_url with no credential name is
+      # refused at the request model, and a name that resolves to nothing is
+      # the SUBMISSION_ROUTE_NOT_CONFIGURED verdict above.
+      - gateway_url
+      - gateway_api_key_env
+      - gateway_workflow_type
+      - runtime_command
+      - task_type
+      - prompt
+      - max_tokens
+      - budget_ms
+      - terminal_bootstrap_servers
+      - terminal_success_topics
+      - terminal_failure_topics
+      - terminal_scan_records
+      - terminal_readback_timeout_seconds
+      - quarantine_bootstrap_servers
+      - quarantine_topic
+      - quarantine_scan_records
+      - quarantine_timeout_seconds
+      # OMN-16964, link 5. A NAME, never a DSN: the value is injected into
+      # the job environment under this name and read there, so it never
+      # reaches argv, this node's serialised payload, or the event log. An
+      # empty ledger_source_env makes NO claim about the chain and reports
+      # NOT_CONFIGURED — it never falls back to the bus terminal or the
+      # projection, because a link with no instrument pointed at it has no
+      # evidence. expected_ledger_hops is what "complete" is measured
+      # against, so a gap is never tolerated silently.
+      - ledger_source_env
+      - expected_ledger_hops
+      - settle_seconds
+      # OMN-19811. The lane's deploy agent HTTP surface (/health, /job/{id}, /queue),
+      # resolved in the workflow from config/deploy_lane_routing.yaml
+      # verify.deploy_agent_url -- the same declaration and the same surface
+      # the verify-lane-converged job reads. Empty makes no deploy claim and
+      # never retries. deploy_wait_seconds is one budget shared by the
+      # pre-fire wait and the wait before the single retry.
+      - deploy_agent_url
+      - deploy_wait_seconds
+    output_fields:
+      - correlation_id
+      - probe_correlation_id
+      - verdict
+      - success
+      - detail
+      - elapsed_ms
+      - ingress_ok
+      - ingress_error_code
+      - ingress_terminal_event
+      - terminal_event
+      - terminal_readback_status
+      - terminal_topic
+      - terminal_readback_records_scanned
+      - terminal_readback_window_seconds
+      - projection_traffic_class
+      - quarantine_status
+      - quarantine_records_scanned
+      - link_verdicts
+      - links_proven
+      - links_total
+      - chain_proof_complete
+      - deploy_window
+dependencies:
+  - name: "chain_canary_kill_switch"
+    type: "environment"
+    env_var: "ONEX_CHAIN_CANARY_DISABLED"
+    description: "Checked first, unconditionally. When set (any non-empty value), the canary performs zero I/O and makes no claim about the chain."
+    required: false
+  - name: "httpx"
+    type: "library"
+    library: "httpx"
+    description: "Async HTTP client for the runtime /skill ingress."
+  - name: "aiokafka"
+    type: "library"
+    library: "aiokafka"
+    description: "Kafka client for BOTH correlation-scoped broker legs — the terminal readback (link 4) and the quarantine tail scan. Imported lazily so an unconfigured leg costs nothing. The two legs run concurrently: the readback holds its consumer open for the remainder of the budget, and serializing the quarantine tail scan behind it would push that scan minutes past the window it samples."
+health_check:
+  enabled: false
+metadata:
+  description: "Event-chain canary: scheduled live delegation probe against a named runtime ingress (OMN-16773)"
+  author: "OmniNode Team"
+  transport_type: "http"
+  created: "2026-08-27"
+  updated: "2026-09-26"
+  tags:
+    - "effect"
+    - "canary"
+    - "delegation"
+    - "observability"
+    - "scheduled-probe"

@@ -1,0 +1,81 @@
+name: _run-tests
+on:
+  workflow_call:
+    secrets: { }
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # If set, uv will run without updating the uv.lock file. Equivalent to the `uv run --frozen`.
+  UV_FROZEN: "1"
+
+permissions:
+  contents: read
+
+# The unit lane runs `-m "not integration"`, so it declares no environment and receives no
+# credentials. Keep it that way: a fork PR gets no secrets and still goes green, and a live
+# test added without the marker fails here instead of passing on someone else's.
+jobs:
+  ruff:
+    name: 🧪 Ruff
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Install dependencies
+        uses: ./.github/actions/python-uv-setup
+      - name: Run linter
+        run: make lint
+
+  typecheck:
+    name: 🧪 Type Check (ty)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Install dependencies
+        uses: ./.github/actions/python-uv-setup
+      - name: Run type checker
+        run: make typecheck
+
+  # ── Non-video tests (chat, feeds, etc.) ────────────────────────────
+  # Uses STREAM_CHAT_* credentials which do NOT have video enabled.
+  # Video paths and manual test paths are defined in the Makefile.
+  test-non-video:
+    name: 🧪 Non-video tests (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Install dependencies
+        uses: ./.github/actions/python-uv-setup
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Run tests
+        run: make test
+
+  # ── Video tests (video-enabled credentials) ─────────────────────
+  # Uses STREAM_* credentials which have video enabled.
+  test-video:
+    name: 🧪 Video tests (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Install dependencies
+        uses: ./.github/actions/python-uv-setup
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Run tests
+        run: make test-video

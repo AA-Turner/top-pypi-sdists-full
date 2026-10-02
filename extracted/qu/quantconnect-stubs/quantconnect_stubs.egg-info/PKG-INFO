@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: quantconnect-stubs
-Version: 18146
+Version: 18149
 Summary: Type stubs for QuantConnect's Lean
 Home-page: https://github.com/QuantConnect/quantconnect-stubs-generator
 Author: QuantConnect

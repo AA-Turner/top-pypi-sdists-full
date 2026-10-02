@@ -21783,6 +21783,14 @@ def _repo_scan_stamp(workspace: str) -> tuple:
         rel = entry[0] if isinstance(entry, (tuple, list)) and entry else entry
         if isinstance(rel, str) and rel:
             names.append(rel)
+    # System-prompt, Skill and rules files are discovered by walking, so they
+    # are listed per workspace. A Skill folder dropped in after the first clean
+    # scan changes this list, and a changed list is a changed stamp.
+    try:
+        from clawmetry import repo_scan as _rs2
+        names.extend(_rs2.prompt_file_paths(workspace) or [])
+    except Exception:  # noqa: BLE001
+        pass
     out = []
     for rel in names:
         try:
@@ -21791,6 +21799,30 @@ def _repo_scan_stamp(workspace: str) -> tuple:
         except Exception:  # noqa: BLE001 — absent is a state, not an error
             out.append((rel, None, None))
     return tuple(out)
+
+
+def _openclaw_scan_workspace(runtime: str, cwd: str) -> str:
+    """The folder to scan for a session: its ``cwd``, or OpenClaw's workspace.
+
+    OpenClaw sessions record no cwd (clawmetry-pro#228), so without this the
+    workspace scan never ran for them. The workspace is also where OpenClaw
+    keeps HEARTBEAT.md, SOUL.md and AGENTS.md, which it loads into every new
+    system prompt (clawmetry-pro#258, ATLAS AML.CS0051 S13). The config's
+    ``agents.defaults.workspace`` wins over ``<openclaw dir>/workspace``.
+    """
+    if cwd or runtime != "openclaw":
+        return cwd
+    base = _get_openclaw_dir()
+    ws = os.path.join(base, "workspace")
+    try:
+        with open(os.path.join(base, "openclaw.json"), encoding="utf-8") as f:
+            cfg = json.load(f)
+        val = ((cfg.get("agents") or {}).get("defaults") or {}).get("workspace")
+        if isinstance(val, str) and val.strip():
+            ws = os.path.expanduser(val.strip())
+    except Exception:  # noqa: BLE001 — no config is the default layout
+        pass
+    return ws if os.path.isdir(ws) else ""
 
 
 def _workspace_incidents(state: dict, cwd: str, session_id: str,
@@ -22673,7 +22705,8 @@ def _emit_detector_incidents(store, state: dict) -> int:
         # critical" rule, written about runaway agents, cannot start pausing
         # sessions over a property of a checkout.
         workspace = _workspace_incidents(
-            state, facts.get("cwd") or "", sid, runtime or "unknown", now,
+            state, _openclaw_scan_workspace(runtime or "", facts.get("cwd") or ""),
+            sid, runtime or "unknown", now,
             **({"disabled": disabled} if disabled else {}))
         if workspace:
             all_incidents.extend(workspace)

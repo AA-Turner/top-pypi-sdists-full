@@ -1,0 +1,222 @@
+"""
+Django template backend engine for djust.
+
+Provides the DjustTemplateBackend class that integrates with Django's
+template engine framework.
+"""
+
+import logging
+from pathlib import Path
+from os.path import abspath
+from typing import Any, Dict, List
+
+from django.template import TemplateDoesNotExist, Origin
+from django.conf import settings
+from django.core.exceptions import SuspiciousFileOperation
+from django.utils._os import safe_join
+from django.template.backends.base import BaseEngine
+
+from .rendering import DjustTemplate
+
+logger = logging.getLogger(__name__)
+
+
+class DjustTemplateBackend(BaseEngine):
+    """
+    Django template backend using djust's Rust rendering engine.
+
+    Benefits:
+    - 10-100x faster rendering than Django templates
+    - Sub-millisecond template compilation
+    - Automatic template caching
+    - Compatible with Django template syntax
+
+    Limitations:
+    - Not all Django template tags/filters supported yet
+    - See djust documentation for supported features
+
+    ``{% load app_tags %}`` imports the project's Django template library and
+    bridges its tags and filters into the Rust engine (#2547). ``OPTIONS``
+    accepts Django's ``libraries`` (label → dotted path, added to the
+    installed-app discovery) and ``builtins`` (dotted paths bridged at
+    construction, no ``{% load %}`` needed), with the same meaning they have
+    on ``DjangoTemplates``.
+    """
+
+    app_dirname = "templates"
+
+    #: Duck-typing marker so ``template_libraries._template_backend()`` can
+    #: identify a configured djust engine among ``django.template.engines``
+    #: WITHOUT importing this class (#2847). Both modules already import each
+    #: other lazily, inside a method, specifically so the cycle never bites at
+    #: module-load time — but CodeQL's ``py/cyclic-import`` flags a cycle in
+    #: the static import graph regardless of where the ``import`` sits. An
+    #: ``isinstance`` check is the only reason ``template_libraries.py`` named
+    #: this class at all; a marker attribute does the same job with no import
+    #: in either direction, which removes the cycle rather than deferring it.
+    _is_djust_template_backend = True
+
+    def __init__(self, params: Dict[str, Any]):
+        """Initialize the Djust template backend."""
+        params = params.copy()
+        options = params.pop("OPTIONS").copy()
+        super().__init__(params)
+
+        self.context_processors = options.pop("context_processors", [])
+
+        # Django's ``OPTIONS['string_if_invalid']`` (#2517): what ``{{ missing }}``
+        # renders. Default ``""`` — render nothing — exactly as ``Engine`` has it.
+        # A non-empty value RETURNS from the variable node without running the
+        # filter chain, which is Django's own control flow; see
+        # ``Context::string_if_invalid_for``.
+        self.string_if_invalid: str = str(options.pop("string_if_invalid", "") or "")
+
+        # `debug` (#2518): Django defaults it to `settings.DEBUG`.
+        self.debug: bool = bool(options.pop("debug", getattr(settings, "DEBUG", False)))
+
+        # Match Django's engine default; render-time Context settings can
+        # override it. Context dictionary keys never configure escaping.
+        self.autoescape = bool(options.pop("autoescape", True))
+
+        # Anything still in OPTIONS is a key djust does not implement. Django
+        # raises `ImproperlyConfigured` for an unknown option; staying silent is
+        # what let the four keys above go unnoticed.
+        if options:
+            logger.warning(
+                "DjustTemplateBackend: unsupported TEMPLATES OPTIONS key(s) %s — ignored",
+                ", ".join(sorted(options)),
+            )
+
+        # Django's `OPTIONS['libraries']` / `OPTIONS['builtins']`, with the
+        # meaning `DjangoTemplates` gives them (#2547). `libraries` extends
+        # the `{% load %}` name map; `builtins` are bridged now.
+        self.template_libraries: Dict[str, str] = dict(options.pop("libraries", {}) or {})
+        self.template_builtins: List[str] = list(options.pop("builtins", []) or [])
+        from ..template_libraries import register_backend_libraries, rendering_with_backend
+
+        with rendering_with_backend(self):
+            register_backend_libraries(self.template_libraries, self.template_builtins)
+
+        # Build list of template directories
+        self.template_dirs = self._get_template_dirs(
+            params.get("DIRS", []), params.get("APP_DIRS", False)
+        )
+
+        # Check if Rust rendering is available
+        try:
+            from djust._rust import render_template, render_template_with_dirs
+
+            self._render_fn = render_template
+            self._render_fn_with_dirs = render_template_with_dirs
+        except ImportError as e:
+            raise ImportError(
+                "djust Rust extension not available. "
+                "Make sure djust is properly installed with: pip install -e ."
+            ) from e
+
+    def _get_template_dirs(self, configured_dirs: List, app_dirs: bool) -> List[Path]:
+        """Get list of directories to search for templates."""
+        template_dirs = [Path(d) for d in configured_dirs]
+
+        if app_dirs:
+            from django.apps import apps
+
+            for app_config in apps.get_app_configs():
+                template_dir = Path(app_config.path) / self.app_dirname
+                if template_dir.is_dir():
+                    template_dirs.append(template_dir)
+
+        return template_dirs
+
+    def from_string(self, template_code: str) -> DjustTemplate:
+        """
+        Create a template from a string.
+
+        Args:
+            template_code: Template source code
+
+        Returns:
+            DjustTemplate instance
+        """
+        return DjustTemplate(template_code, backend=self)
+
+    def get_template(self, template_name: str) -> DjustTemplate:
+        """
+        Load a template by name.
+
+        Searches through template directories in order until the template
+        is found.
+
+        Args:
+            template_name: Name of template to load (e.g., 'home.html')
+
+        Returns:
+            DjustTemplate instance
+
+        Raises:
+            TemplateDoesNotExist: If template not found
+        """
+        tried = []
+        for template_dir in self.template_dirs:
+            try:
+                template_path = Path(safe_join(template_dir, template_name))
+            except SuspiciousFileOperation:
+                continue
+            if template_path.is_file():
+                try:
+                    with open(template_path, "r", encoding="utf-8") as f:
+                        template_code = f.read()
+                    origin = Origin(
+                        name=abspath(template_path),
+                        template_name=template_name,
+                        loader=self,
+                    )
+                    return DjustTemplate(template_code, backend=self, origin=origin)
+                except OSError as e:
+                    raise TemplateDoesNotExist(template_name) from e
+
+            tried.append(
+                (
+                    Origin(name=abspath(template_path), template_name=template_name, loader=self),
+                    "Source does not exist",
+                )
+            )
+
+        raise TemplateDoesNotExist(
+            template_name,
+            tried=tried,
+            backend=self,
+        )
+
+    def select_template(self, template_name_list: List[str]) -> DjustTemplate:
+        """
+        Load and return the first template in ``template_name_list`` that exists.
+
+        Mirrors ``django.template.engine.Engine.select_template``. Django calls
+        this on ``context.template.engine`` for an admin inclusion tag
+        (``InclusionAdminNode`` — the whole changelist/change-form surface),
+        an ``inclusion_tag`` registered with a LIST of template names
+        (``django/template/library.py``), and ``{% include [...] %}``
+        (``django/template/loader_tags.py``). Inside a djust render that
+        engine is ``template_libraries._StubEngine``, which hands the call to
+        the active backend — so with the ``djust new --with-db`` shape
+        (this backend first, ``APP_DIRS: True``) every admin page beyond the
+        login and index used to 500 with ``AttributeError: no attribute
+        'select_template'`` (#2872).
+
+        There is no fallback engine to delegate to: cross-engine selection
+        belongs to ``django.template.loader`` (which loops name x engine over
+        ``get_template`` and never calls ``engine.select_template``), so this
+        method searches only this backend's directories, as ``Engine``'s own
+        does.
+        """
+        if not template_name_list:
+            raise TemplateDoesNotExist("No template names provided")
+        not_found = []
+        for template_name in template_name_list:
+            try:
+                return self.get_template(template_name)
+            except TemplateDoesNotExist as exc:
+                if exc.args[0] not in not_found:
+                    not_found.append(exc.args[0])
+        raise TemplateDoesNotExist(", ".join(not_found))

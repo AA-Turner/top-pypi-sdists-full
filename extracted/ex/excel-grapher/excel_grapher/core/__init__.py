@@ -1,0 +1,85 @@
+"""Shared Excel semantics (types, coercions, operators).
+
+Representation-agnostic types and logic used by both the evaluator runtime
+and the standalone export runtime.
+"""
+
+from .address_keys import NormalizedAddress
+from .coercions import (
+    as_scalar,
+    excel_casefold,
+    flatten,
+    get_error,
+    numeric_values,
+    to_bool,
+    to_int,
+    to_native,
+    to_number,
+    to_string,
+)
+from .operators import (
+    _xl_compare,
+    xl_add,
+    xl_concat,
+    xl_div,
+    xl_eq,
+    xl_ge,
+    xl_gt,
+    xl_iferror,
+    xl_le,
+    xl_lt,
+    xl_mul,
+    xl_ne,
+    xl_neg,
+    xl_percent,
+    xl_pos,
+    xl_pow,
+    xl_sub,
+)
+from .types import (
+    CellValue,
+    ExcelRange,
+    FormulaValue,
+    NestedGrid,
+    XlError,
+    XlErrorException,
+    resolve_excel_range,
+)
+
+__all__ = [
+    "NormalizedAddress",
+    "CellValue",
+    "FormulaValue",
+    "NestedGrid",
+    "ExcelRange",
+    "XlError",
+    "XlErrorException",
+    "resolve_excel_range",
+    "as_scalar",
+    "excel_casefold",
+    "flatten",
+    "get_error",
+    "numeric_values",
+    "to_bool",
+    "to_int",
+    "to_native",
+    "to_number",
+    "to_string",
+    "_xl_compare",
+    "xl_add",
+    "xl_concat",
+    "xl_div",
+    "xl_eq",
+    "xl_ge",
+    "xl_gt",
+    "xl_iferror",
+    "xl_le",
+    "xl_lt",
+    "xl_mul",
+    "xl_ne",
+    "xl_neg",
+    "xl_percent",
+    "xl_pos",
+    "xl_pow",
+    "xl_sub",
+]

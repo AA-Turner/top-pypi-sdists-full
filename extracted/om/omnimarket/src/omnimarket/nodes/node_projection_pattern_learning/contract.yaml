@@ -1,0 +1,106 @@
+---
+name: projection_pattern_learning
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: reducer
+node_version: {major: 1, minor: 0, patch: 0}
+input_model: omnimarket.nodes.node_projection_pattern_learning.handlers.handler_projection_pattern_learning.ModelPatternStoredEvent
+description: >
+  Projects pattern-stored events into the pattern_learning_artifacts table.
+  UPSERT by pattern_id (latest-state-wins). Source topic:
+  onex.evt.omniintelligence.pattern-stored.v1. Closes the golden chain
+  pattern_learning chain (OMN-13124): the tail table had no consumer for
+  pattern-stored.v1, so the sweep timed out. This reducer is the consumer.
+
+# OMN-17556: this projection writes a TENANT-domain table, so its handler
+# resolves the tenant_projection binding. That binding's credential is a
+# store-resolved secret_ref read through SecretResolver at the binding
+# boundary, and exactly one process holds it: the consolidated writer that
+# boots RUNTIME_PROFILE=tenant-projection and owns every TENANT-domain
+# projection contract. `tenant-projection` is a registered, consumer-attached
+# runtime profile, so this contract is drained by that writer and is
+# deliberately absent from `main` and `effects` -- neither of those processes
+# carries the credential, and per the 2026-09-03 operator ruling neither ever
+# will as a container env var. This is the permanent ownership boundary, not
+# a temporary orphaning.
+runtime_profiles: [tenant-projection]
+
+handler:
+  module: omnimarket.nodes.node_projection_pattern_learning.handlers.handler_projection_pattern_learning
+  class: HandlerProjectionPatternLearning
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: projection_pattern_learning
+      handler:
+        name: HandlerProjectionPatternLearning
+        module: omnimarket.nodes.node_projection_pattern_learning.handlers.handler_projection_pattern_learning
+      handler_module: omnimarket.nodes.node_projection_pattern_learning.handlers.handler_projection_pattern_learning
+      event_model: omnimarket.nodes.node_projection_pattern_learning.handlers.handler_projection_pattern_learning.ModelPatternStoredEvent
+    - operation: pattern_learning_projection_runner
+      handler:
+        name: PatternLearningProjectionRunner
+        module: omnimarket.nodes.node_projection_pattern_learning.handlers.handler_pattern_learning
+      handler_module: omnimarket.nodes.node_projection_pattern_learning.handlers.handler_pattern_learning
+
+terminal_event: onex.evt.omnimarket.projection-pattern-learning-applied.v1
+
+# Golden path: pattern_learning chain (pattern-stored -> pattern_learning_artifacts table)
+golden_path:
+  - "Consume pattern-stored event from onex.evt.omniintelligence.pattern-stored.v1"
+  - "Projection handler upserts row into pattern_learning_artifacts table"
+  - "Dedup by pattern_id (UPSERT semantics)"
+  - "Preserve existing scoring evidence when a sparse event arrives later"
+  - "Emit projection-applied event to onex.evt.omnimarket.projection-pattern-learning-applied.v1"
+  - "Verify row exists with pattern_id, pattern_name, correlation_id fields"
+  - "Golden chain test: omnimarket/tests/test_golden_chain_pattern_learning.py"
+
+db_io:
+  db_tables:
+    - name: pattern_learning_artifacts
+      database_ref: application
+      # OMN-15655 / operator ruling 2026-08-02 (house tenant): workload-
+      # attributable rows live in the tenant domain; platform-own workloads
+      # are the house tenant's rows. ADR-0027 classification, not a rename.
+      schema: public
+      migration: "0000_create_pattern_learning_artifacts.sql"
+      # OMN-16690: this handler QUERIES this table (idempotency / lookup)
+      # before writing. `access: write` is refused fail-closed at the
+      # runtime read seam (ProjectionTableOperation._assert_read_declared),
+      # which quarantines every event while the caller still sees a 202.
+      # The declaration must cover what the handler actually does.
+      access: read_write
+      role: artifacts
+
+event_bus:
+  subscribe_topics:
+    - onex.evt.omniintelligence.pattern-stored.v1
+  publish_topics:
+    - onex.evt.omnimarket.projection-pattern-learning-applied.v1
+
+externally_consumed_topics:
+  - onex.evt.omnimarket.projection-pattern-learning-applied.v1
+
+projection_api:
+  expose: true
+  topic: "onex.snapshot.projection.pattern-learning.v1" # onex-topic-allow: projection snapshot topics use onex.snapshot.* prefix by convention
+  key_grain: "mutable"
+  table: "pattern_learning_artifacts"
+  schema: "public"
+  columns:
+    - "pattern_id"
+    - "pattern_name"
+    - "pattern_type"
+    - "language"
+    - "lifecycle_state"
+    - "composite_score"
+    - "correlation_id"
+    - "created_at"
+    - "updated_at"
+    - "projected_at"
+  order_by: "updated_at DESC"
+  freshness_column: "updated_at"
+  limit: 100
+
+metadata:
+  transport_type: kafka

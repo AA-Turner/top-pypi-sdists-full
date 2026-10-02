@@ -1,0 +1,52 @@
+"""sentry-options: file-based runtime configuration for Sentry services.
+
+A client library that reads configuration values from volume-mounted
+ConfigMaps. Schemas (JSON) define available options with types and defaults;
+values are managed in sentry-options-automator and deployed as JSON files.
+The library watches for file changes and refreshes values automatically.
+"""
+from __future__ import annotations
+
+from typing import TypeAlias
+
+from sentry_options._core import condition_operators
+from sentry_options._core import feature_property
+from sentry_options._core import FeatureChecker
+from sentry_options._core import FeatureContext
+from sentry_options._core import features
+from sentry_options._core import fetch_schemas
+from sentry_options._core import init
+from sentry_options._core import NamespaceOptions
+from sentry_options._core import NotInitializedError
+from sentry_options._core import options
+from sentry_options._core import OptionsError
+from sentry_options._core import refresh
+from sentry_options._core import SchemaError
+from sentry_options._core import SchemaRegistry
+from sentry_options._core import UnknownNamespaceError
+from sentry_options._core import UnknownOptionError
+
+JsonPrimitive: TypeAlias = str | int | float | bool | None
+OptionValue: TypeAlias = JsonPrimitive | list['OptionValue'] | dict[str, 'OptionValue']
+
+
+__all__ = [
+    'init',
+    'condition_operators',
+    'feature_property',
+    'features',
+    'fetch_schemas',
+    'FeatureChecker',
+    'FeatureContext',
+    'NotInitializedError',
+    'NamespaceOptions',
+    'options',
+    'SchemaRegistry',
+    'JsonPrimitive',
+    'OptionValue',
+    'OptionsError',
+    'refresh',
+    'SchemaError',
+    'UnknownNamespaceError',
+    'UnknownOptionError',
+]

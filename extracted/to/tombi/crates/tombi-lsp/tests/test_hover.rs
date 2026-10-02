@@ -1889,8 +1889,7 @@ mod hover_keys_value {
                     .await;
             }
 
-            let line_index =
-                tombi_text::LineIndex::new(&toml_text, tombi_text::EncodingKind::Utf16);
+            let line_index = tombi_text::LineIndex::new(toml_text.as_str());
             let toml_file_url = Url::from_file_path(&source_path)
                 .map_err(|_| "failed to convert source file path to URL")?;
 
@@ -1912,9 +1911,8 @@ mod hover_keys_value {
                 tower_lsp::lsp_types::HoverParams {
                     text_document_position_params: TextDocumentPositionParams {
                         text_document: TextDocumentIdentifier { uri: toml_file_url },
-                        position: (tombi_text::Position::default()
-                            + tombi_text::RelativePosition::of(&toml_text[..index]))
-                        .into_lsp(&line_index),
+                        position: tombi_text::Offset::of(&toml_text[..index])
+                            .into_lsp(&line_index, tombi_text::EncodingKind::Utf16),
                     },
                     work_done_progress_params: WorkDoneProgressParams::default(),
                 },
@@ -2703,7 +2701,7 @@ mod hover_keys_value {
                 };
 
                 let line_index =
-                tombi_text::LineIndex::new(&toml_text, tombi_text::EncodingKind::Utf16);
+                tombi_text::LineIndex::new(toml_text.as_str());
 
                 let source_path = args.source_file_path.as_deref().unwrap_or(temp_file.path());
 
@@ -2759,9 +2757,7 @@ mod hover_keys_value {
                             text_document: TextDocumentIdentifier {
                                 uri: toml_file_url,
                             },
-                            position: (tombi_text::Position::default()
-                                + tombi_text::RelativePosition::of(&toml_text[..index]))
-                            .into_lsp(&line_index),
+                            position: tombi_text::Offset::of(&toml_text[..index]).into_lsp(&line_index, tombi_text::EncodingKind::Utf16),
                         },
                         work_done_progress_params: WorkDoneProgressParams::default(),
                     },

@@ -1,0 +1,3627 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""OMN-15336 — the compose runner must honour the same node-migration fence as
+the k8s runner.
+
+Defect, found by the 2026-07-28 operator-ordered migration audit and confirmed
+live: the operator fence gating the tenant-RLS node migrations existed ONLY in
+``omninode_infra/k8s/migrations/omnibase-infra-migrate.yaml``.
+``scripts/run-forward-migrations.sh`` — the runner every *compose* lane executes
+(dev, stability-test, judge, prod all mount it; see
+``docker/catalog/services/forward-migration.yaml``) — had no fence and no skip
+branch of any kind in its node loop, so it applied every ``nodes/*/*.sql`` it
+discovered.
+
+Live readback 2026-07-28/29 on ``.201`` (read-only, four lanes, db
+``omnidash_analytics``):
+
+* dev (compose)   — all 6 gated ids in the ledger (+ registration 0002); 6
+  tables with ``relforcerowsecurity``
+* stability-test  — all 6 gated ids in the ledger (+ registration 0002); 6
+  tables with ``relforcerowsecurity``
+* prod            — only registration 0000/0001; ZERO forced tables
+* judge           — only registration 0000/0001; ZERO forced tables
+
+So the breach is wider than the ticket recorded (stability-test, the designated
+proof lane, is also over the fence), AND the prod + judge compose lanes are
+clean but *pending*: without this fence the next forward-migration run on either
+would apply the gated tenant-RLS migrations unattended. Rolling back the two
+breached lanes is deliberately NOT part of this change — that disposition is an
+outstanding operator decision.
+
+THE SEAM (cross-repo, and drift-prone by construction)
+------------------------------------------------------
+Both runners walk the SAME vendored SQL tree
+(``docker/migrations/forward/nodes/<node>/*.sql``, kept in sync by
+``scripts/sync-node-migrations.sh``) and both mint the SAME id
+``node:<node>:<filename>``. The fence is therefore a shared list over a shared
+id space, matched field-by-field:
+
+Each field is stated as ``<field>: k8s Job -> compose runner``.
+
+* id grammar: ``node:${node_name}:$(basename "$sql_file")`` ->
+  ``node:${node_name}:${filename}`` — identical strings.
+* list contents AND order: ``FENCED_NODE_MIGRATION_IDS=( ... )`` (bash array) ->
+  ``FENCED_NODE_MIGRATION_IDS="..."`` (newline-delimited string); same seven
+  ids, same order.
+* match: exact string equality per element -> ``grep -Fxq`` (exact whole-line).
+* position in loop: before the already-applied probe -> before the
+  already-applied probe.
+* on match: log + ``node_skipped++`` + ``continue`` -> log + ``NODE_SKIPPED++``
+  + ``continue``.
+* ledger row written: NO -> NO.
+* env-overridable: NO (literal array) -> NO (unconditional assignment).
+
+Syntax differs and must: the k8s Job runs ``bash`` (arrays, ``set -euo
+pipefail``); this runner is ``#!/bin/sh`` under busybox ash in the migration
+container, where arrays do not exist. The SEAM is the id list and the
+semantics, not the shell dialect.
+
+"Skip + record" means record THE SKIP — counted into ``NODE_SKIPPED`` and named
+on stdout. A fenced id is deliberately NOT inserted into ``schema_migrations``,
+matching the k8s runner: a ledger row would make the eventual un-fencing a
+silent no-op (the runner would read the row, call it already applied, and never
+run the migration).
+
+DRIFT HAZARD / follow-up — RESOLVED for the baseline by OMN-15349
+------------------------------------------------------------------
+Originally there was no single source of truth for this list: it was
+duplicated in two repos and only prose and these tests kept them equal.
+OMN-15349 (Option 1, operator ruling R-f 2026-08-05) removed that duplication
+for the BASELINE fence: ``docker/migrations/forward/fenced-node-migrations.yaml``
+is now the sole committed list, and ``scripts/run-forward-migrations.sh``
+parses it at runtime instead of carrying its own literal copy (see the
+"single-sourced" comment in the OMN-15336 fence block there). The k8s Job
+(``omninode_infra``) parses the same manifest out of the same
+``omnibase-infra-migrate`` image it already pulls.
+
+What single-sourcing the baseline does NOT do: make the two runners' EFFECTIVE
+fences equal. Each runner layers its own, independently operator-ruled,
+lane-scoped RELEASE on top of the shared baseline (see the OMN-15379 section
+below and ``manifest_ids()``/``K8S_RULING_21_RELEASE`` here) — a release is an
+environment-specific operator decision, not fence data, so it deliberately
+stays out of the manifest. ``test_fence_matches_omninode_infra_k8s_runner``
+below therefore asserts baseline-superset + known-release-subtraction, not
+raw equality.
+
+* Always on, gating every PR: ``test_manifest_pins_the_known_baseline_fence``
+  pins the manifest's content, exact and IN ORDER — the same change-control
+  friction the old pinned-tuple test gave the shell script, now pointed at
+  the actual single source. ``test_manifest_shell_parse_matches_yaml_parse``
+  guards the OTHER hazard single-sourcing introduces: both runners parse this
+  YAML with a plain ``sed`` one-liner (no YAML library in ``/bin/sh`` or the
+  k8s Job's minimal bash), so a manifest reformatted in a way ``yaml.safe_load``
+  still accepts but the sed grammar cannot (e.g. single-quoted ids, an
+  unindented list) would silently ship a truncated or empty fence in
+  production while every YAML-aware tool kept reading it fine.
+* Opt-in: ``test_fence_matches_omninode_infra_k8s_runner`` diffs the manifest
+  baseline against the live k8s manifest's effective (post-ruling-21) list. It
+  is opt-in on purpose — it depends on an ``omninode_infra`` checkout whose
+  freshness this repo cannot guarantee, and an always-on version went RED on
+  the ``.200`` build host purely because that clone sat two commits behind
+  dev. False REDs from another repo's local staleness are worse than the gap
+  they close.
+
+Residual gap, unchanged by OMN-15349: a NEW baseline id added to the k8s side
+alone (as opposed to a release-policy change) would still land unnoticed here
+until someone runs the opt-in check — single-sourcing the data removes the
+"two literals to keep in sync" hazard, it does not make one repo's CI aware of
+the other repo's uncommitted intentions.
+
+Live proofs drive THE ARTIFACT THAT RUNS — the shipped
+``scripts/run-forward-migrations.sh``, executed against a real Postgres.
+``test_fence_free_runner_applies_the_fenced_migration`` is the RED control: the
+same harness against a copy of the runner with the fence mechanically stripped,
+asserting it reproduces the ``.201`` breach (fenced SQL applied, ledger row
+written). Without that control the GREEN proof would be unfalsifiable — it would
+also pass against a harness that never reached the node loop.
+
+Database selection matches the sibling OMN-15291 module: external
+``MIGRATION_LOCK_TEST_HOST``/``_PORT``/``_USER``/``_PASSWORD``/``_DB``, else an
+ephemeral ``initdb``/``pg_ctl`` cluster, else skip — unless
+``REQUIRE_MIGRATION_LOCK_DB`` is set, in which case fail. A check that silently
+skips is a check that does not exist.
+
+OMN-15379 — LANE-SCOPED RELEASE (operator ruling 15, 2026-07-29)
+----------------------------------------------------------------
+Two changes land on top of the above.
+
+1. ``node:node_projection_registration:0002_node_service_registry_tenant_rls.sql``
+   joins the fence. It was in the k8s list from the start and missing from this
+   one. That was not cosmetic: with 0000 (the CREATE) fenced and 0002 (the
+   dependent ALTER) not, every COLD compose lane ran 0002 against a table that
+   had never been created and died —
+   ``0002_node_service_registry_tenant_rls.sql:41 ERROR: relation
+   "node_service_registry" does not exist`` — taking the forward-migration
+   one-shot to exit 3 and the whole lane with it (measured on ``.201``,
+   2026-07-29). A fence that gates a CREATE but not its dependent ALTER is worse
+   than no fence. This also makes the two lists identical again at SEVEN ids.
+
+2. Operator ruling 15 extends node_service_registry FORCE ROW LEVEL SECURITY to
+   the LAB LANE ONLY, so the compose runner gains a lane-scoped release: with
+   ``ONEX_MIGRATION_LANE=dev`` the registration TRIO (0000/0001/0002) applies in
+   full — CREATE, heartbeat columns, ENABLE + FORCE RLS — making the lab the
+   proving ground that generates the evidence the staging un-fence is waiting
+   on. The omninode_infra k8s fence is UNCHANGED.
+
+The release is fail-closed on three independent axes, one test each:
+
+* ``ONEX_MIGRATION_LANE`` unset -> release nothing. An UNKNOWN value -> release
+  nothing, and say so on stderr.
+* The release SET is committed in the runner. The env var selects among literal
+  policies; it never carries ids, and the release is only consulted for ids the
+  fence already covers, so a lane can only ever un-gate a SUBSET of the fence.
+* The indicator is NOT in ``docker-compose.infra.yml``. Every lane overlay
+  MERGES that base (stability-test's forward-migration override is a lone
+  ``container_name:`` line — it inherits the base ``environment:`` wholesale),
+  so a value there would be inherited by stability-test, prod, judge and any
+  future lane. It lives in ``docker/docker-compose.dev-lane.yml``, which only
+  the dev/lab project loads.
+
+The live half drives the shipped runner over the REAL vendored registration SQL
+BOTH WAYS against one Postgres — dev lane applies the trio and
+``pg_class.relforcerowsecurity`` reads true; default lane skips it and
+``node_service_registry`` does not exist. Neither leg can pass vacuously: a
+runner that ignored the indicator would fail one of them whichever way it
+defaulted. A fenced delegation id rides along in the same run as the negative
+control, since ruling 15 released the registration trio and nothing else.
+"""
+
+from __future__ import annotations
+
+import ast
+import hashlib
+import math
+import os
+import re
+import shutil
+import subprocess
+import tempfile
+import time
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+import pytest
+import yaml
+
+from omnibase_core.validators.no_unguarded_git_subprocess import (
+    scrub_git_location_env,
+)
+
+# Bound by assignment rather than `from ... import`: the OMN-15291 module owns
+# the scratch-Postgres harness, and re-exporting its `pg_target` fixture as an
+# import makes every test that takes it as a parameter read as a redefinition.
+from tests.scripts import test_forward_migration_advisory_lock as _advisory_lock
+
+RUNNER = _advisory_lock.RUNNER
+PgTarget = _advisory_lock.PgTarget
+_find_pg_binary = _advisory_lock._find_pg_binary
+_psql = _advisory_lock._psql
+_free_port = _advisory_lock._free_port
+_unavailable = _advisory_lock._unavailable
+pg_target = _advisory_lock.pg_target
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+# `pytester` is a first-party pytest plugin that is opt-in per module. It backs
+# the behavioural proof that a marked runner budget really does outrank the
+# governed `--timeout=60` CLI default. Same declaration shape as
+# `tests/unit/runtime/test_rsd_postgres_acceptance_overlay.py`.
+pytest_plugins = ("pytester",)
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+FENCE_BEGIN = "# ---- BEGIN operator fence — node migration ids (OMN-15336) ----"
+FENCE_END = "# ---- END operator fence — node migration ids (OMN-15336) ----"
+SKIP_BEGIN = "# ---- BEGIN fenced-id skip (OMN-15336) ----"
+SKIP_END = "# ---- END fenced-id skip (OMN-15336) ----"
+# OMN-15336 item 4: the unclassified-FORCE-RLS guard. Two blocks — the
+# predicate's own definition (sits beside is_fenced_node_migration) and the
+# call site (sits in the node loop, after the already-applied probe).
+FORCE_RLS_GUARD_DEF_BEGIN = (
+    "# ---- BEGIN unclassified FORCE ROW LEVEL SECURITY guard (OMN-15336 item 4) ----"
+)
+FORCE_RLS_GUARD_DEF_END = (
+    "# ---- END unclassified FORCE ROW LEVEL SECURITY guard (OMN-15336 item 4) ----"
+)
+FORCE_RLS_GUARD_CALL_BEGIN = (
+    "# ---- BEGIN unclassified FORCE ROW LEVEL SECURITY guard call "
+    "(OMN-15336 item 4) ----"
+)
+FORCE_RLS_GUARD_CALL_END = (
+    "# ---- END unclassified FORCE ROW LEVEL SECURITY guard call "
+    "(OMN-15336 item 4) ----"
+)
+# OMN-15336 item 4 repair (D1, 2026-08-05): the grandfather-snapshot block —
+# the fix for the guard's over-fire against the established, pre-guard tree.
+GRANDFATHER_BLOCK_BEGIN = (
+    "# ---- BEGIN FORCE ROW LEVEL SECURITY grandfather snapshot "
+    "(OMN-15336 item 4 repair) ----"
+)
+GRANDFATHER_BLOCK_END = (
+    "# ---- END FORCE ROW LEVEL SECURITY grandfather snapshot "
+    "(OMN-15336 item 4 repair) ----"
+)
+
+# --- OMN-15349 single-sourced manifest ---------------------------------------
+MANIFEST_RELPATH = "docker/migrations/forward/fenced-node-migrations.yaml"
+MANIFEST_PATH = REPO_ROOT / MANIFEST_RELPATH
+
+# The regex both runners actually execute against the manifest at runtime
+# (POSIX `sed`; neither /bin/sh nor the k8s Job's bash has a YAML library).
+# This is the REAL parse path in production.
+_MANIFEST_ID_LINE = re.compile(r'^\s*-\s*id:\s*"([^"]*)"', re.MULTILINE)
+
+
+def parse_shell_manifest_ids(text: str) -> tuple[str, ...]:
+    """Reproduce the shell `sed` extraction of `- id: "..."` lines verbatim."""
+    return tuple(_MANIFEST_ID_LINE.findall(text))
+
+
+def _load_manifest() -> list[dict[str, str]]:
+    """Independent oracle: a real YAML parse of the manifest, schema-checked."""
+    doc = yaml.safe_load(MANIFEST_PATH.read_text(encoding="utf-8"))
+    assert isinstance(doc, dict) and "fenced_node_migrations" in doc, (
+        f"{MANIFEST_RELPATH} must be a mapping with a top-level "
+        "'fenced_node_migrations' key"
+    )
+    entries = doc["fenced_node_migrations"]
+    assert isinstance(entries, list) and entries, (
+        f"{MANIFEST_RELPATH}'s fenced_node_migrations must be a non-empty list"
+    )
+    for i, entry in enumerate(entries):
+        assert isinstance(entry, dict) and "id" in entry, (
+            f"{MANIFEST_RELPATH} entry {i} is not a mapping with an 'id' key: {entry!r}"
+        )
+    return entries
+
+
+def manifest_ids() -> tuple[str, ...]:
+    """Ordered ids from the manifest, via the YAML-parse oracle."""
+    return tuple(entry["id"] for entry in _load_manifest())
+
+
+# The OMN-14974/OMN-15313 delegation hold. Kept as its own tuple so a failure
+# says WHICH half of the fence moved.
+#
+# It was the QUARTET 0023-0026 until OMN-15683 (2026-09-08), when the operator
+# ruling that a fence on a migration is a defect to close released the
+# delegation path. What survived, and why, because a future reader will
+# otherwise re-derive it from the quartet this tuple used to be:
+#
+#   0024 (drop routing_rule / routing_confidence / routing_candidates) and
+#   0025 (tenant_id on delegation_judge_verdict_events) LEFT THE BASELINE.
+#   Neither declares FORCE ROW LEVEL SECURITY, so neither is caught by the
+#   OMN-15336 item-4 guard on the way out. 0024 is read by no live code -- the
+#   only occurrences anywhere are hardcoded NULL literals in the dashboard
+#   views' jsonb_build_object, which never SELECT the columns -- and the
+#   columns do not exist at all on the .201 dev lane. 0025's table holds ZERO
+#   rows there, so its ADD COLUMN and correlation_id backfill lock nothing out
+#   of an existing dataset.
+#
+#   0026 STAYS FULLY FENCED, on a measurement rather than a hold-over. It was
+#   released on the dev arm in this change's first revision and applied on the
+#   .201 dev lane, and its ENABLE + FORCE RLS on delegation_judge_verdict_events
+#   refuses every write the lane's own ASYNC judge-verdict writer issues: that
+#   writer resolves tenant_id by correlation join (a UUID on that lane) and then
+#   INSERTs through AsyncpgAdapter.execute with no `tenant=` argument, so the
+#   adapter stamps the GUC from resolve_read_tenant(None) -- the house SLUG --
+#   and the WITH CHECK predicate is false for every row. That is the OMN-15919
+#   two-divergent-resolvers shape, and it is exactly the un-gate bar this fence
+#   has always stated ("prove the writer sets app.tenant_id per connection").
+#   It was reverted on the lane and taken back out of the release. Note also
+#   that a BASELINE removal of 0026 is independently FATAL: it enables FORCE ROW
+#   LEVEL SECURITY and is not grandfathered, so the item-4 guard refuses it --
+#   measured against a virgin Postgres through the real runner, "FATAL: ...
+#   enables FORCE ROW LEVEL SECURITY but is not in the operator fence manifest
+#   ... NOTHING was applied by this migration".
+#
+#   0023 STAYS FULLY FENCED, and as a SUPERSEDED id rather than a pending
+#   ruling. Its delegation_events half CREATEs tenant_isolation with a
+#   TEXT-to-TEXT comparison -- deliberately, per its own "SEAM DECISION" -- and
+#   the column is uuid once the conversion chain has run. `uuid = text` has no
+#   operator, so that CREATE POLICY raises `operator does not exist: uuid =
+#   text`; and because the runner is `psql -v ON_ERROR_STOP=1 -f` with NO
+#   --single-transaction, the ENABLE/FORCE and the DROP POLICY ahead of it have
+#   already COMMITTED, leaving the table FORCE-RLS with ZERO policies. 0034
+#   restates that policy with the ::uuid cast and restates the app_dashboard
+#   GRANT, so nothing is lost by holding it.
+FENCED_DELEGATION_IDS = (
+    "node:node_projection_delegation:0023_delegation_rls_tenant_isolation.sql",
+    "node:node_projection_delegation:"
+    "0026_delegation_judge_verdict_events_rls_tenant_isolation.sql",
+)
+# The subset of the delegation hold that no lane may release today: 0023 alone,
+# because it aborts against the converted column. 0026 left this set on
+# 2026-09-26 (OMN-15092). It was here because releasing it locked the lane's own
+# async judge-verdict writer out of its table (measured 2026-09-08); that writer
+# now threads the row's tenant into the adapter (OMN-17627), which was the
+# release condition, so the dev arm releases it. It stays in
+# FENCED_DELEGATION_IDS above: a baseline removal is FATAL under the item-4
+# FORCE-RLS guard.
+UNRELEASABLE_DELEGATION_IDS = (
+    "node:node_projection_delegation:0023_delegation_rls_tenant_isolation.sql",
+)
+# The registration hold, as of OMN-17150 (2026-08-31): 0002 ALONE.
+#
+# It was the full trio from OMN-15379 until OMN-17150. 0000 (the CREATE) and
+# 0001 (heartbeat columns) were released from the baseline because fencing them
+# fenced the ONLY migration in the corpus that creates node_service_registry —
+# a table scripts/check_migrations_complete.sh REQUIRES before migration-gate
+# reports HEALTHY. Every lane without a release therefore cold-booted into a
+# permanent deadlock (proven live on omnibase-infra-lakshman, 2026-08-31).
+#
+# The old rationale here was that "a fence that gated the CREATE (0000) but not
+# the dependent ALTER (0002) took every cold compose lane to exit 3 with
+# `relation "node_service_registry" does not exist`". That is true and still is,
+# but it is directional: it forbids CREATE-fenced + ALTER-released. The shape
+# below is the reverse — CREATE released, ALTER held — which has no such failure
+# mode, and which 0003/0004 already assume (both are written
+# `IF to_regclass(...) IS NOT NULL`).
+#
+# 0002 stays, and could not have come with them: it enables FORCE ROW LEVEL
+# SECURITY and is not grandfathered, so removing it from the manifest hands it
+# to the OMN-15336 item-4 guard, which is FATAL for an unclassified FORCE id
+# that has never applied — turning a hung gate on prod/judge into a hard
+# migration failure.
+FENCED_REGISTRATION_IDS = (
+    "node:node_projection_registration:0002_node_service_registry_tenant_rls.sql",
+)
+# All three files the registration node ships in the range this module drives,
+# regardless of fence state. The live fixtures copy THIS tuple: after OMN-17150
+# the fenced set and the applied set are deliberately different, so a fixture
+# built from either one alone would prove only half of the behaviour.
+REGISTRATION_TRIO_IDS = (
+    "node:node_projection_registration:0000_create_node_service_registry.sql",
+    "node:node_projection_registration:0001_add_heartbeat_columns.sql",
+    "node:node_projection_registration:0002_node_service_registry_tenant_rls.sql",
+)
+# The OMN-15717/OMN-15376 node_pr_review_bot id. Fenced (not SQL-edited) to
+# satisfy the OMN-15376 shape-reconciliation gate without changing the file's
+# content sha256, which is bound to an already-applied production row (see
+# fenced-node-migrations.yaml's own rationale comment for the full argument).
+# Not releasable on any lane today — no ONEX_MIGRATION_LANE value un-gates it.
+FENCED_PR_REVIEW_BOT_IDS = (
+    "node:node_pr_review_bot:001_create_review_bot_bypass_log.sql",
+)
+# OMN-15336 item 4 / OMN-15656: contract-declared TENANT domain (unlike
+# node_service_registry, this is not a misclassification), held for the same
+# OMN-15301 writer-tenant-context reason as the delegation quartet. Was never
+# in this manifest on any runner before this entry — see the manifest's own
+# docstring for the incident.
+FENCED_INFERENCE_RESPONSE_IDS = (
+    "node:node_projection_delegation_inference_response:"
+    "0003_inference_response_text_rls_tenant_isolation.sql",
+)
+# OMN-16090: FORCE ROW LEVEL SECURITY on hook_events, a NEW table with nothing
+# live on any lane. Split out of its own CREATE migration so the create applies
+# unfenced while the RLS posture is held here — fenced on ARRIVAL rather than
+# after the fact, unlike the inference-response entry above, which applied
+# unattended on the .201 dev lane purely because nothing named it.
+FENCED_HOOK_EVENT_CAPTURE_IDS = (
+    "node:node_hook_event_capture:0002_hook_events_tenant_rls.sql",
+)
+# OMN-16493, under the 2026-08-28 operator ruling "Fence 0031, HOLD the repin".
+# The first id here fenced for neither an RLS posture nor a shape gate: 0031's
+# `ALTER COLUMN tenant_id TYPE UUID USING (CASE ... END)` has no ELSE, so the 9
+# live rows under 5 slugs outside its closed map convert to NULL and trip the
+# pre-existing NOT NULL from 0022 -- the migration ABORTS, and because both
+# runners are set -e / ON_ERROR_STOP=1 and iterate node dirs LC_ALL=C-sorted,
+# that abort killed the whole Job before node_projection_tenant_credentials'
+# 0001/0002 were ever attempted. Fencing is what decouples the BYOK lane from
+# the tenancy ruling; the real fix is a `0030a_` pre-step after OMN-16804
+# closes the slug set, never an edit to 0031's bytes (already applied on the
+# .201 dev lane -- `conflicting migration checksum`, the OMN-16705 class).
+# OMN-16930, under the 2026-08-29 operator ruling "Hold + fix mechanism", which
+# CANCELLED the `0030a_` pre-step named in the paragraph above and replaced it.
+# 0032 re-expresses the conversion additively and resolves each slug by JOINing
+# `tenant_registry_mirror` -- a relation node_projection_tenant_registry
+# materializes from onex.tenant.events -- so no literal map appears anywhere in
+# its transform expression, and the set never has to be closed. It is fenced for
+# the SAME reason 0031 is: it can abort, and an abort in this node directory
+# takes an unrelated team's migrations down with it by lexical sort order. It
+# stays fenced until (1) the projection is deployed AND caught up and (2)
+# write-time UUID stamping (OMN-16804) is live; releasing it is an operator
+# action, not an agent's inference that the mirror "looks caught up". 0031 stays
+# in this tuple permanently -- it is RETIRED, not released (supersession
+# recorded in _ledger/migration-supersessions.tsv).
+# OMN-17288 superseded 0032 in turn, and 0033 is the THIRD id in this tuple.
+# 0032 placed DROP POLICY / CREATE POLICY / GRANT after its DO block, which
+# broke it two ways: (a) `RETURN` exits the block, not the file, so the path
+# 0032 documented as "nothing to convert" ran those trailing statements against
+# a relation it had just established does not exist, and aborted; (b) `END$$`
+# COMMITS -- the runner is `psql -v ON_ERROR_STOP=1 -f` with NO
+# --single-transaction -- so between that commit and the standalone
+# CREATE POLICY the table was committed with RLS enabled and ZERO policies,
+# denying every application read if anything interrupted it there. Both are
+# proven against 0032's real bytes on a scratch Postgres in omnimarket
+# tests/test_omn17288_migration_policy_atomicity.py. 0033 moves the recreate
+# and the GRANT inside the guarded block and lets the already-uuid branch fall
+# through to them. It is fenced on ARRIVAL for the same reason 0032 was -- it
+# is the conversion, and it can abort.
+# OMN-17316 superseded 0033 in turn, making 0034 the FOURTH id here -- and the
+# defect was in the guard that was supposed to make this chain legible. 0033
+# tested `pg_has_role(..., 'USAGE')` and then performed the role switch with
+# `set_config('role', ...)`. Since PostgreSQL 16, INHERIT and SET are
+# INDEPENDENT membership options, so a membership granted
+# `WITH INHERIT TRUE, SET FALSE` passed the guard and aborted just past it on a
+# bare `permission denied to set role` -- the opaque failure the guard exists
+# to replace, from inside the guard's own blind spot. 0034 tests BOTH
+# predicates before the switch and carries 0033's body verbatim otherwise;
+# proven by execution in
+# tests/integration/migrations/test_omn17316_role_set_membership_guard.py.
+# OMN-15683 superseded 0034 in turn, making 0036 the FIFTH id here. 0034
+# resolves identity with a SINGLE predicate, m.tenant_slug = d.tenant_id, and
+# has NO branch for a tenant_id that is ALREADY the canonical UUID. Write-time
+# UUID stamping (OMN-16804) is live and writes canonical UUIDs into the
+# still-text column, so the column is MIXED: measured read-only on onex-dev
+# 2026-09-08, 26 of 229 rows across 3 values already hold canonical UUIDs that
+# ARE in tenant_registry_mirror -- under tenant_uuid, which 0034 never reads.
+# 0034 aborts on all of them, and its message blames the tenant-registry
+# projection for data the projection has. 0036 resolves on BOTH forms and stays
+# fail-closed on neither; proven by execution against the seeded onex-dev shape
+# on the .201 dev-lane Postgres. There is no 0035 in this chain -- 0035 is an
+# unrelated GRANT and 0036 is simply the next free ordinal.
+# 0036 JOINED THEM on 2026-09-08, later the same day, superseded by 0037: it
+# reads tenant_registry_mirror AFTER set_config('role', <delegation_events'
+# owner>, true), and on onex-dev that owner is absent from the mirror's ACL --
+# staging deploy run 34281092205 aborted with `permission denied for table
+# tenant_registry_mirror` at inline_code_block line 262 and rolled its whole
+# transaction back. 0037 snapshots the mirror into a session-local TEMP table
+# as the MIGRATE IDENTITY, before the role switch, and joins that snapshot
+# everywhere below.
+# 0031, 0032, 0033, 0034 and 0036 all stay in this tuple permanently: they are
+# RETIRED, not released, and when the operator un-gates it is 0037 and only
+# 0037.
+FENCED_DELEGATION_UUID_CONVERSION_IDS = (
+    "node:node_projection_delegation:0031_delegation_events_tenant_id_to_uuid.sql",
+    "node:node_projection_delegation:"
+    "0032_delegation_events_tenant_id_uuid_via_registry.sql",
+    "node:node_projection_delegation:"
+    "0033_delegation_events_uuid_via_registry_single_transaction.sql",
+    "node:node_projection_delegation:"
+    "0034_delegation_events_uuid_via_registry_role_set_guard.sql",
+    "node:node_projection_delegation:"
+    "0036_delegation_events_uuid_mixed_representation.sql",
+    "node:node_projection_delegation:"
+    "0037_delegation_events_uuid_mixed_representation_guard_before_set_role.sql",
+)
+# Pinned expectation for the manifest content (OMN-15349): the baseline fence,
+# exact and in order. A manifest edit that moves this must update the pin in
+# the same PR — same change-control friction the pre-OMN-15349 shell-literal
+# pin gave, now pointed at the actual single source instead of a copy of it.
+# OMN-14894, 2026-09-14. 0023 put ENABLE + FORCE ROW LEVEL SECURITY and a
+# tenant_isolation policy on delegation_events AND delegation_budget_state in
+# one file. delegation_events was converted to a uuid tenant_id and recovered
+# its posture from the operative 0037; 0023 is fenced above as a superseded id
+# that now aborts against that column. delegation_budget_state recovered
+# nothing -- measured 2026-09-14 as relrowsecurity=f, relforcerowsecurity=f and
+# zero policies on BOTH the .201 compose dev lane and the onex-dev RDS, a
+# TENANT-classified relation with no tenant boundary anywhere. 0041 is 0023's
+# second half re-landed alone.
+#
+# It is FENCED ON ARRIVAL and that is not a hold on its own merits: it enables
+# FORCE ROW LEVEL SECURITY and cannot be grandfathered (that snapshot does not
+# grow), so an id landing unfenced goes to the OMN-15336 item-4 guard, which is
+# FATAL for a FORCE-enabling id that is neither fenced nor grandfathered and has
+# never applied on that database. It carries NO lane release: releasing it is a
+# live operator decision, the same shape 0036/0037 took.
+FENCED_BUDGET_STATE_RLS_IDS = (
+    "node:node_projection_delegation:"
+    "0041_delegation_budget_state_rls_tenant_isolation.sql",
+)
+FENCED_OMN18987_IDS = (
+    "node:node_projection_delegation:0043z_preflight_delegation_shadow_comparisons.sql",
+    "node:node_projection_delegation:0044_restore_delegation_shadow_comparisons.sql",
+)
+# OMN-19978: this new TENANT table RLS posture is fenced on arrival. Its
+# release is a separate operator-sequenced step that needs an operator ruling;
+# this fence addition carries no lane release.
+FENCED_USAGE_BY_MODEL_DAY_RLS_IDS = (
+    "node:node_projection_usage_by_model_day:0001_grant_usage_by_model_day.sql",
+)
+# OMN-19790: delegation_eval_items' FORCE ROW LEVEL SECURITY lives in its own
+# 0002 migration (split out of the create, the same split node_hook_event_capture
+# 0002 used), so only that step is fenced on arrival. 0000 (the create) and 0001
+# (the tenant_projection_writer grant) apply on every lane; a fence on either
+# would skip the CREATE TABLE or apply the grant against a missing relation. The
+# release of 0002 is a separate operator-sequenced step that needs an operator
+# ruling; this fence addition carries no lane release.
+FENCED_DELEGATION_EVAL_ITEMS_RLS_IDS = (
+    "node:node_projection_delegation_eval:0002_force_rls_delegation_eval_items.sql",
+)
+# OMN-20154: provider_quota_state's FORCE ROW LEVEL SECURITY lives in its own
+# 0002 migration, split out of the create exactly as delegation_eval_items' was,
+# so only that step is fenced on arrival. Its release is a separate
+# operator-sequenced step; this fence addition carries no lane release.
+FENCED_PROVIDER_QUOTA_STATE_RLS_IDS = (
+    "node:node_projection_provider_quota:0002_force_rls_provider_quota_state.sql",
+)
+# OMN-19793: the eval-run tables' FORCE ROW LEVEL SECURITY lives in 0006, split
+# out of the 0003/0004 creates for the same reason as 0002 above. Only that step
+# is fenced on arrival; the creates and the 0005 grant apply on every lane.
+FENCED_DELEGATION_EVAL_RUN_RLS_IDS = (
+    "node:node_projection_delegation_eval:0006_force_rls_delegation_eval_run_tables.sql",
+)
+# OMN-20242: only the separate FORCE RLS step waits for an operator release.
+# The create, writer grants and security_invoker usage view apply on every lane.
+FENCED_DELEGATION_DISPOSITIONS_RLS_IDS = (
+    "node:node_projection_delegation_disposition:0002_force_rls_delegation_dispositions.sql",
+)
+EXPECTED_FENCE = (
+    FENCED_DELEGATION_IDS
+    + FENCED_REGISTRATION_IDS
+    + FENCED_PR_REVIEW_BOT_IDS
+    + FENCED_INFERENCE_RESPONSE_IDS
+    + FENCED_HOOK_EVENT_CAPTURE_IDS
+    + FENCED_DELEGATION_UUID_CONVERSION_IDS
+    + FENCED_BUDGET_STATE_RLS_IDS
+    + FENCED_OMN18987_IDS
+    + FENCED_USAGE_BY_MODEL_DAY_RLS_IDS
+    + FENCED_DELEGATION_EVAL_ITEMS_RLS_IDS
+    + FENCED_PROVIDER_QUOTA_STATE_RLS_IDS
+    + FENCED_DELEGATION_EVAL_RUN_RLS_IDS
+    + FENCED_DELEGATION_DISPOSITIONS_RLS_IDS
+)
+
+# --- OMN-15336 item 4 repair (D1, 2026-08-05): FORCE-RLS grandfather snapshot
+# --------------------------------------------------------------------------
+# See docker/migrations/forward/grandfathered-force-rls-migrations.yaml's own
+# header for what this is and why it is a snapshot, not an allowlist. Pinned
+# here with the SAME change-control friction as EXPECTED_FENCE: growing this
+# tuple without a corresponding manifest edit (or vice versa) fails
+# test_grandfather_pins_the_snapshot_baseline closed.
+GRANDFATHER_MANIFEST_RELPATH = (
+    "docker/migrations/forward/grandfathered-force-rls-migrations.yaml"
+)
+GRANDFATHER_MANIFEST_PATH = REPO_ROOT / GRANDFATHER_MANIFEST_RELPATH
+
+EXPECTED_GRANDFATHER = (
+    "node:node_canary_score_reducer:0002_capability_scores_tenant_id_and_rls.sql",
+    "node:node_projection_context_roi:003_context_roi_scores_tenant_id_and_rls.sql",
+    "node:node_projection_cost_summary:0002_llm_cost_aggregates_tenant_id_and_rls.sql",
+    "node:node_projection_dep_health:002_dep_health_findings_tenant_id_and_rls.sql",
+    "node:node_projection_instruction_eval:"
+    "0002_instruction_eval_aggregate_snapshots_tenant_id_and_rls.sql",
+    "node:node_projection_pattern_learning:"
+    "0001_pattern_learning_artifacts_tenant_id_and_rls.sql",
+    "node:node_projection_routing_decision:"
+    "0022_agent_routing_decisions_tenant_id_and_rls.sql",
+    "node:node_projection_savings:081_savings_estimates_rls_tenant_isolation.sql",
+    "node:node_projection_skill_executions:"
+    "0002_skill_execution_snapshots_tenant_id_and_rls.sql",
+)
+
+
+def _load_grandfather_manifest() -> list[dict[str, str]]:
+    """Independent oracle: a real YAML parse of the grandfather manifest."""
+    doc = yaml.safe_load(GRANDFATHER_MANIFEST_PATH.read_text(encoding="utf-8"))
+    assert isinstance(doc, dict) and "grandfathered_force_rls_migrations" in doc, (
+        f"{GRANDFATHER_MANIFEST_RELPATH} must be a mapping with a top-level "
+        "'grandfathered_force_rls_migrations' key"
+    )
+    entries = doc["grandfathered_force_rls_migrations"]
+    assert isinstance(entries, list) and entries, (
+        f"{GRANDFATHER_MANIFEST_RELPATH}'s grandfathered_force_rls_migrations "
+        "must be a non-empty list"
+    )
+    for i, entry in enumerate(entries):
+        assert isinstance(entry, dict) and "id" in entry, (
+            f"{GRANDFATHER_MANIFEST_RELPATH} entry {i} is not a mapping with "
+            f"an 'id' key: {entry!r}"
+        )
+    return entries
+
+
+def grandfather_manifest_ids() -> tuple[str, ...]:
+    """Ordered ids from the grandfather manifest, via the YAML-parse oracle."""
+    return tuple(entry["id"] for entry in _load_grandfather_manifest())
+
+
+# --- OMN-15349 k8s-side release (operator ruling 21, OMN-15332 comment
+# 1a067542, 2026-07-31T14:05Z GO) --------------------------------------------
+# Unlike the lab-lane release below (env-gated, ruling 15), ruling 21
+# authorized a DURABLE release of the registration trio on the k8s Job, which
+# serves exactly one environment (staging/onex-dev). This is a k8s-side
+# runner policy, not manifest data (see the manifest file's own docstring for
+# why) — pinned here only so the opt-in cross-repo test
+# (`test_fence_matches_omninode_infra_k8s_runner`) can state the expected
+# baseline-minus-release relationship instead of asserting raw equality.
+K8S_RULING_21_RELEASE = (
+    "node:node_projection_registration:0000_create_node_service_registry.sql",
+    "node:node_projection_registration:0001_add_heartbeat_columns.sql",
+    "node:node_projection_registration:0002_node_service_registry_tenant_rls.sql",
+)
+# OMN-17150 released these two from the shared BASELINE, so the k8s Job's
+# ruling-21 array now names ids the baseline no longer covers. That is inert,
+# not drift, and provably so: on both runners the release set is consulted ONLY
+# inside the already-fenced branch (run-forward-migrations.sh's node loop; the
+# k8s Job's identical baseline-minus-release filter), so an id that is not in
+# the baseline can neither be gated nor un-gated by naming it. The k8s outcome
+# is byte-identical either way — the two files applied there before and apply
+# there now. Trimming the omninode_infra array is housekeeping and is tracked
+# separately; it is deliberately NOT required for this repo's fence to be
+# correct, which is why the check below tolerates exactly these two and nothing
+# else.
+K8S_RELEASE_IDS_NOW_UNFENCED = (
+    "node:node_projection_registration:0000_create_node_service_registry.sql",
+    "node:node_projection_registration:0001_add_heartbeat_columns.sql",
+)
+
+# --- OMN-15379 lane-scoped release (operator ruling 15, 2026-07-29) ----------
+# Ruling 15: node_service_registry FORCE ROW LEVEL SECURITY extends to the LAB
+# LANE ONLY. The lab (compose dev lane, project `omnibase-infra`) applies the
+# registration trio in full as the proving ground. The omninode_infra k8s
+# fence is a SEPARATE release (ruling 21, K8S_RULING_21_RELEASE above) — not
+# "unchanged," and not the same mechanism (durable vs env-gated). See the
+# CORRECTION comment in run-forward-migrations.sh's LANE-SCOPED FENCE RELEASE
+# block for the same fix applied at the runner.
+LANE_INDICATOR_ENV = "ONEX_MIGRATION_LANE"
+DEV_LANE_VALUE = "dev"
+# Spelled out rather than aliased to FENCED_REGISTRATION_IDS: if the two are
+# meant to be equal, that equality is an assertion, not a definition. Aliasing
+# would let a change to one silently move the other.
+#
+# Narrowed to 0002 by OMN-17150, in step with the fence: 0000/0001 left the
+# baseline, so releasing them here would name ids the fence no longer covers.
+# The dev lane's OUTCOME is unchanged — all three still apply there — but two of
+# them now apply because nothing fences them, not because this release un-gates
+# them.
+#
+# WIDENED by OMN-15683 (2026-09-08): the dev/lab arm now also releases the
+# operative uuid conversion. THE RELEASED ID IS 0036, NOT 0034 -- 0034 was
+# released here earlier the same day and lost the release when the onex-dev
+# read-only enumeration showed it cannot convert a mixed-representation column
+# (it resolves on m.tenant_slug alone; 26 of 229 rows already hold canonical
+# UUIDs). 0034 keeps its baseline entry and is retired in place. 0036 stays in
+# the BASELINE
+# manifest rather than leaving it, because it enables FORCE ROW LEVEL SECURITY
+# and is not grandfathered -- a baseline removal is FATAL under the OMN-15336
+# item-4 guard, whose own message prescribes exactly this remedy ("add a fence
+# entry citing the owning ticket ... with a lane release only if an operator
+# ruling authorizes one"). It is also the safer outcome: the .201
+# stability-test lane still holds delegation_events.tenant_id as TEXT with an
+# EMPTY tenant_registry_mirror, so a baseline release would abort there and
+# take every later node directory with it by lexical sort order.
+# OMN-14894, 2026-09-15: 0041 joined this arm. It is the lab release of
+# delegation_budget_state's tenant boundary — the one TENANT-classified relation
+# in this corpus that carried none on any lane. It stays in the BASELINE fence
+# (a removal is FATAL under the item-4 FORCE-RLS guard, same mechanical reason
+# as 0037), so the lane release is again the only mechanism that can un-gate it.
+# The operator authorization is the OPERATOR-CONSENT row of 2026-09-14 in
+# omni_home docs/tracking/ROLLING_WORK_LEDGER.md, which authorizes resuming
+# tenant row-level security on relations the OMN-15354 manifest classifies
+# TENANT, lab first and staging second.
+# OMN-15092, 2026-09-26: 0026 joined this arm under the same authorization. It
+# puts the tenant boundary on delegation_judge_verdict_events, the last
+# TENANT-classified relation the dev lane left without one. Its 2026-09-08
+# refusal was a writer defect, fixed by OMN-17627, not a property of the SQL.
+LANE_RELEASED_IDS = (
+    "node:node_projection_registration:0002_node_service_registry_tenant_rls.sql",
+    "node:node_projection_delegation:"
+    "0026_delegation_judge_verdict_events_rls_tenant_isolation.sql",
+    "node:node_projection_delegation:"
+    "0037_delegation_events_uuid_mixed_representation_guard_before_set_role.sql",
+    "node:node_projection_delegation:"
+    "0041_delegation_budget_state_rls_tenant_isolation.sql",
+)
+
+BASE_COMPOSE_RELPATH = "docker/docker-compose.infra.yml"
+DEV_LANE_OVERLAY_RELPATH = "docker/docker-compose.dev-lane.yml"
+CATALOG_SERVICE_RELPATH = "docker/catalog/services/forward-migration.yaml"
+# Every lane that MERGES the base compose file. The lane indicator must not be
+# reachable from any of them.
+NON_DEV_OVERLAY_RELPATHS = (
+    "docker/docker-compose.stability-test.yml",
+    "docker/docker-compose.prod.yml",
+    "docker/docker-compose.judge.yml",
+)
+
+# An id that is NOT fenced, used by the live proofs as the discriminator: if the
+# node loop applied nothing at all, the fenced-ids-absent assertion would pass
+# vacuously.
+UNFENCED_CONTROL_ID = "node:node_projection_delegation:0099_unfenced_control.sql"
+
+
+def _runner_text() -> str:
+    return RUNNER.read_text()
+
+
+def extract_fence_block(text: str | None = None) -> str:
+    """Return the fence definition block, markers stripped.
+
+    Raises with a specific message if the markers are missing or duplicated —
+    that is how a silent removal of the fence surfaces as a test failure rather
+    than as a vacuous pass.
+    """
+    return _extract_marked(
+        text if text is not None else _runner_text(), FENCE_BEGIN, FENCE_END
+    )
+
+
+def extract_skip_branch(text: str | None = None) -> str:
+    """Return the in-loop fenced-id skip branch, markers stripped."""
+    return _extract_marked(
+        text if text is not None else _runner_text(), SKIP_BEGIN, SKIP_END
+    )
+
+
+def _extract_marked(text: str, begin: str, end: str) -> str:
+    lines = text.splitlines()
+    starts = [i for i, ln in enumerate(lines) if ln.strip() == begin]
+    ends = [i for i, ln in enumerate(lines) if ln.strip() == end]
+    if len(starts) != 1 or len(ends) != 1 or ends[0] <= starts[0]:
+        msg = (
+            f"scripts/run-forward-migrations.sh: expected exactly one block "
+            f"delimited by {begin!r} / {end!r} (found {len(starts)} begin / "
+            f"{len(ends)} end markers)"
+        )
+        raise AssertionError(msg)
+    return "\n".join(lines[starts[0] + 1 : ends[0]]) + "\n"
+
+
+def extract_force_rls_guard_def(text: str | None = None) -> str:
+    """Return the unclassified-FORCE-RLS predicate's own definition block."""
+    return _extract_marked(
+        text if text is not None else _runner_text(),
+        FORCE_RLS_GUARD_DEF_BEGIN,
+        FORCE_RLS_GUARD_DEF_END,
+    )
+
+
+def extract_force_rls_guard_call(text: str | None = None) -> str:
+    """Return the in-loop call site of the unclassified-FORCE-RLS guard."""
+    return _extract_marked(
+        text if text is not None else _runner_text(),
+        FORCE_RLS_GUARD_CALL_BEGIN,
+        FORCE_RLS_GUARD_CALL_END,
+    )
+
+
+def extract_grandfather_block(text: str | None = None) -> str:
+    """Return the FORCE-RLS grandfather-snapshot block, markers stripped."""
+    return _extract_marked(
+        text if text is not None else _runner_text(),
+        GRANDFATHER_BLOCK_BEGIN,
+        GRANDFATHER_BLOCK_END,
+    )
+
+
+def strip_force_rls_guard(text: str) -> str:
+    """The pre-OMN-15336-item-4 runner: byte-identical minus the guard.
+
+    Derived from the shipped artifact, same discipline as ``strip_fence``
+    above, so the RED-control-for-the-RED-control can never drift from the
+    thing it is the control for.
+    """
+    out = text
+    for begin, end in (
+        (FORCE_RLS_GUARD_DEF_BEGIN, FORCE_RLS_GUARD_DEF_END),
+        (FORCE_RLS_GUARD_CALL_BEGIN, FORCE_RLS_GUARD_CALL_END),
+    ):
+        lines = out.splitlines(keepends=True)
+        start = next(i for i, ln in enumerate(lines) if ln.strip() == begin)
+        stop = next(i for i, ln in enumerate(lines) if ln.strip() == end)
+        out = "".join(lines[:start] + lines[stop + 1 :])
+    return out
+
+
+def strip_fence(text: str) -> str:
+    """The pre-OMN-15336 runner: byte-identical minus both fence blocks.
+
+    Derived from the shipped artifact rather than pinned as a copy, so the RED
+    control can never drift away from the thing it is the control for.
+    """
+    out = text
+    for begin, end in ((FENCE_BEGIN, FENCE_END), (SKIP_BEGIN, SKIP_END)):
+        lines = out.splitlines(keepends=True)
+        start = next(i for i, ln in enumerate(lines) if ln.strip() == begin)
+        stop = next(i for i, ln in enumerate(lines) if ln.strip() == end)
+        out = "".join(lines[:start] + lines[stop + 1 :])
+    return out
+
+
+def parse_lane_release_policies(block: str) -> dict[str, tuple[str, ...]]:
+    """Parse the OMN-15379 ``case "${ONEX_MIGRATION_LANE}" in ... esac`` policy.
+
+    Returns ``{case-label: released ids}``. A label whose arm assigns the empty
+    string maps to ``()`` — i.e. FULLY FENCED. A label whose arm makes no
+    assignment at all maps to ``None``, which every caller treats as a defect:
+    an un-assigned arm would inherit whatever the previous arm left behind.
+    """
+    case_match = re.search(
+        r'case\s+"\$\{ONEX_MIGRATION_LANE\}"\s+in\n(?P<body>.*?)\nesac',
+        block,
+        re.DOTALL,
+    )
+    assert case_match is not None, (
+        'the lane-release policy must be a `case "${ONEX_MIGRATION_LANE}" in '
+        "... esac` over COMMITTED arms. If the shape moved, fix this parser — "
+        "do not restate the policy here."
+    )
+    policies: dict[str, tuple[str, ...] | None] = {}
+    for arm in case_match.group("body").split(";;"):
+        label_match = re.match(r"\s*(?P<label>[^\s)]+)\)", arm)
+        if label_match is None:
+            continue
+        label = label_match.group("label").strip('"')
+        assign = re.search(
+            r'LANE_RELEASED_NODE_MIGRATION_IDS="\\?\n?(?P<body>[^"]*)"',
+            arm,
+            re.DOTALL,
+        )
+        policies[label] = (
+            None
+            if assign is None
+            else tuple(
+                line.strip()
+                for line in assign.group("body").splitlines()
+                if line.strip()
+            )
+        )
+    return policies  # type: ignore[return-value]
+
+
+# --------------------------------------------------------------------------
+# Static assertions — no database required, so they gate every PR.
+# --------------------------------------------------------------------------
+
+
+def test_runner_carries_the_operator_fence() -> None:
+    block = extract_fence_block()
+    assert "FENCED_NODE_MIGRATION_IDS=" in block, (
+        "the OMN-15336 block must actually define the fence list"
+    )
+    assert "is_fenced_node_migration()" in block, (
+        "the fence block must define the predicate the node loop calls"
+    )
+
+
+def test_manifest_pins_the_known_baseline_fence() -> None:
+    """Exact-set and ORDER, not containment — now pinned against the manifest.
+
+    OMN-15349: the shell script no longer carries its own literal copy of the
+    fence, so there is nothing left to pin THERE. This is the same
+    change-control friction as the pre-OMN-15349 test, pointed at the actual
+    single source: a manifest edit that silently drops one id while adding
+    another is precisely the regression this assertion exists to catch.
+    """
+    found = manifest_ids()
+    assert found == EXPECTED_FENCE, (
+        f"{MANIFEST_RELPATH} changed. Expected exactly:\n  "
+        + "\n  ".join(EXPECTED_FENCE)
+        + "\nFound:\n  "
+        + "\n  ".join(found)
+    )
+    assert found[: len(FENCED_DELEGATION_IDS)] == FENCED_DELEGATION_IDS, (
+        "the OMN-14974 delegation fence was disturbed"
+    )
+    registration_end = len(FENCED_DELEGATION_IDS) + len(FENCED_REGISTRATION_IDS)
+    assert (
+        found[len(FENCED_DELEGATION_IDS) : registration_end] == FENCED_REGISTRATION_IDS
+    ), "the OMN-15335/OMN-15343 registration hold is not the exact expected trio"
+    pr_review_bot_end = registration_end + len(FENCED_PR_REVIEW_BOT_IDS)
+    assert found[registration_end:pr_review_bot_end] == FENCED_PR_REVIEW_BOT_IDS, (
+        "the OMN-15717/OMN-15376 node_pr_review_bot hold is not the exact expected id"
+    )
+    inference_response_end = pr_review_bot_end + len(FENCED_INFERENCE_RESPONSE_IDS)
+    assert (
+        found[pr_review_bot_end:inference_response_end] == FENCED_INFERENCE_RESPONSE_IDS
+    ), "the OMN-15336 item-4 inference-response hold is not the expected id"
+    hook_event_capture_end = inference_response_end + len(FENCED_HOOK_EVENT_CAPTURE_IDS)
+    assert (
+        found[inference_response_end:hook_event_capture_end]
+        == FENCED_HOOK_EVENT_CAPTURE_IDS
+    ), "the OMN-16090 hook_event_capture hold is not the expected id"
+    uuid_conversion_end = hook_event_capture_end + len(
+        FENCED_DELEGATION_UUID_CONVERSION_IDS
+    )
+    assert (
+        found[hook_event_capture_end:uuid_conversion_end]
+        == FENCED_DELEGATION_UUID_CONVERSION_IDS
+    ), "the OMN-16493 delegation-0031 hold is not the expected id"
+    post_conversion_tail_end = uuid_conversion_end + len(
+        FENCED_BUDGET_STATE_RLS_IDS + FENCED_OMN18987_IDS
+    )
+    assert found[uuid_conversion_end:post_conversion_tail_end] == (
+        FENCED_BUDGET_STATE_RLS_IDS + FENCED_OMN18987_IDS
+    ), "the post-conversion operator fence tail is not the expected ids"
+    assert found[post_conversion_tail_end:] == (
+        FENCED_USAGE_BY_MODEL_DAY_RLS_IDS
+        + FENCED_DELEGATION_EVAL_ITEMS_RLS_IDS
+        + FENCED_PROVIDER_QUOTA_STATE_RLS_IDS
+        + FENCED_DELEGATION_EVAL_RUN_RLS_IDS
+        + FENCED_DELEGATION_DISPOSITIONS_RLS_IDS
+    ), (
+        "the OMN-19978 usage_by_model_day, OMN-19790 delegation_eval_items, "
+        "OMN-20154 provider_quota_state, OMN-19793 eval-run and OMN-20242 "
+        "delegation_dispositions RLS holds are not "
+        "the expected ids"
+    )
+
+
+def test_manifest_shell_parse_matches_yaml_parse() -> None:
+    """The REAL production parse path (`sed`) must agree with `yaml.safe_load`.
+
+    Neither runner has a YAML library available. A manifest edit that a real
+    YAML parser still accepts but the shell one-liner cannot (single-quoted
+    ids, an unindented list, a missing closing quote) would ship a truncated
+    or empty fence in production while looking correct to every YAML-aware
+    tool, including this test file's own `manifest_ids()` oracle if it were
+    the only check.
+    """
+    text = MANIFEST_PATH.read_text(encoding="utf-8")
+    shell_parsed = parse_shell_manifest_ids(text)
+    yaml_parsed = manifest_ids()
+    assert shell_parsed == yaml_parsed, (
+        "the sed one-liner both runners execute against the manifest "
+        "disagrees with a real YAML parse — the manifest format is not "
+        "parseable the way production actually parses it.\n"
+        f"  sed:  {shell_parsed}\n  yaml: {yaml_parsed}"
+    )
+
+
+def test_manifest_ids_are_well_formed_and_unique() -> None:
+    """Schema/shape validator (OMN-15349): grammar + no duplicates.
+
+    A typo'd id or an accidental duplicate fences nothing extra (or hides a
+    duplicate entry silently) without this check — `grep -Fxq` in the runner
+    would just never match, or match the same line twice.
+    """
+    ids = manifest_ids()
+    assert len(ids) == len(set(ids)), (
+        f"{MANIFEST_RELPATH} has duplicate ids: {[i for i in ids if ids.count(i) > 1]}"
+    )
+    for entry_id in ids:
+        parts = entry_id.split(":")
+        assert len(parts) == 3 and parts[0] == "node" and all(parts), (
+            f"{entry_id!r} does not match the node:<node>:<filename> grammar"
+        )
+        assert parts[2].endswith(".sql"), f"{entry_id!r} does not name a .sql file"
+
+
+def test_every_fenced_id_names_a_real_vendored_sql_file() -> None:
+    """A typo'd id fences nothing and fails open, silently."""
+    nodes_root = REPO_ROOT / "docker" / "migrations" / "forward" / "nodes"
+    for fenced in EXPECTED_FENCE:
+        _, node_name, filename = fenced.split(":", 2)
+        path = nodes_root / node_name / filename
+        assert path.is_file(), (
+            f"fenced id {fenced} names {path.relative_to(REPO_ROOT)}, which does "
+            "not exist — the fence entry matches nothing and gates nothing"
+        )
+
+
+def test_fence_is_not_overridable_by_environment() -> None:
+    """Only a COMMITTED fence is honoured — same rule as the skip-manifest."""
+    block = extract_fence_block()
+    offenders = [
+        ln
+        for ln in block.splitlines()
+        if re.search(r"FENCED_NODE_MIGRATION_IDS=\$?\{?FENCED_NODE_MIGRATION_IDS", ln)
+        or re.search(r'FENCED_NODE_MIGRATION_IDS="\$\{', ln)
+    ]
+    assert not offenders, (
+        "the fence list must be assigned unconditionally; a "
+        "${FENCED_NODE_MIGRATION_IDS:-...} form lets an operator env var empty "
+        f"the fence: {offenders}"
+    )
+
+
+def test_fence_is_checked_before_the_ledger_probe_and_the_apply() -> None:
+    """Ordering is load-bearing: a fence evaluated after the already-applied
+    probe could be defeated by a probe that fails open, and a fence evaluated
+    after ``psql -f`` would not be a fence at all.
+    """
+    text = _runner_text()
+    # Scope to the NODE loop: the flat loop above it carries a byte-identical
+    # already-applied probe, so a whole-file index would compare against the
+    # wrong occurrence and the assertion would be meaningless.
+    node_loop = text[text.index("Auto-discover and apply node-owned migrations") :]
+    fence_call = node_loop.index('if is_fenced_node_migration "${migration_id}"')
+    declaration = node_loop.index('resolve_application_migration "$artifact_path"')
+    probe = node_loop.index("if migration_is_applied")
+    apply_sql = node_loop.index('-v ON_ERROR_STOP=1 -f "$apply_file"')
+    assert fence_call < declaration < probe < apply_sql, (
+        "the fenced-id check must precede declaration resolution and the "
+        "canonical already-applied probe, which must precede the apply "
+        f"(node-loop offsets: fence={fence_call} declaration={declaration} "
+        f"probe={probe} apply={apply_sql})"
+    )
+
+
+def test_fenced_skip_never_records_a_ledger_row() -> None:
+    """Recording a fenced id would make un-fencing a silent no-op."""
+    branch = extract_skip_branch()
+    assert "continue" in branch, "the fence branch must skip the migration"
+    assert "INSERT" not in branch.upper(), (
+        "a fenced migration must NOT be written to schema_migrations — the "
+        "runner would then read the row, call it already applied, and never run "
+        f"it once un-fenced:\n{branch}"
+    )
+    assert "psql" not in branch, (
+        f"the fence branch must not touch the database at all:\n{branch}"
+    )
+    assert "NODE_SKIPPED=$((NODE_SKIPPED + 1))" in branch, (
+        "the skip must be RECORDED in the run's skipped counter, so a fenced "
+        "run is distinguishable from a run that discovered nothing"
+    )
+
+
+def test_unclassified_force_rls_guard_is_defined() -> None:
+    """OMN-15336 item 4: the predicate and its call site both exist."""
+    definition = extract_force_rls_guard_def()
+    assert "migration_declares_unclassified_force_rls()" in definition, (
+        "the guard predicate must be defined"
+    )
+    call = extract_force_rls_guard_call()
+    assert "migration_declares_unclassified_force_rls" in call, (
+        "the node loop must call the guard predicate"
+    )
+    assert "exit 1" in call, "the guard must FATAL, not warn, on a match"
+
+
+def test_unclassified_force_rls_guard_excludes_no_force_statements() -> None:
+    """`NO FORCE ROW LEVEL SECURITY` (a disabling statement) must never trip
+    the guard — otherwise a future FORCE-strip migration could never ship.
+    """
+    definition = extract_force_rls_guard_def()
+    assert "NO[[:space:]]+FORCE" in definition, (
+        "the predicate must explicitly exclude the NO FORCE (disabling) form"
+    )
+
+
+def test_unclassified_force_rls_guard_is_checked_only_for_unfenced_ids() -> None:
+    """The guard must not re-litigate an id someone already classified.
+
+    Both the fenced-and-held and the fenced-and-released cases must bypass
+    it: the manifest entry itself is the classification the guard exists to
+    require, whether or not this lane also carries a release for it.
+    """
+    call = extract_force_rls_guard_call()
+    assert re.search(r"!\s*is_fenced_node_migration\s+\"\$\{migration_id\}\"", call), (
+        "the guard must be gated on `! is_fenced_node_migration ...`"
+    )
+
+
+def test_unclassified_force_rls_guard_runs_after_the_already_applied_probe() -> None:
+    """Ordering is load-bearing the OTHER way from the fence-skip check above:
+    this guard must run AFTER ``migration_is_applied`` returns false, never
+    before — a guard that ran earlier would FATAL on every subsequent run of
+    a lane where an unclassified id already applied before this guard
+    existed (e.g. the real .201 dev lane's 0003/081), bricking that lane's
+    every future deploy over already-committed history it cannot undo.
+    """
+    text = _runner_text()
+    node_loop = text[text.index("Auto-discover and apply node-owned migrations") :]
+    probe = node_loop.index("if migration_is_applied")
+    guard_call = node_loop.index('if ! is_fenced_node_migration "${migration_id}" \\')
+    apply_sql = node_loop.index('-v ON_ERROR_STOP=1 -f "$apply_file"')
+    assert probe < guard_call < apply_sql, (
+        "the unclassified-FORCE-RLS guard must run strictly between the "
+        "already-applied probe and the apply "
+        f"(node-loop offsets: probe={probe} guard={guard_call} apply={apply_sql})"
+    )
+
+
+def test_fence_predicate_is_posix_sh() -> None:
+    """The container shell is busybox ash; bashisms would fail only in prod."""
+    assert _runner_text().splitlines()[0] == "#!/bin/sh"
+    block = extract_fence_block()
+    assert not re.search(r"^\s*local\s", block, re.MULTILINE), (
+        "`local` is not POSIX and is unavailable in every /bin/sh this runner "
+        "may execute under"
+    )
+    assert "=(" not in block, (
+        "bash arrays do not exist in busybox ash; the fence is a newline-"
+        "delimited string matched with grep -Fxq"
+    )
+
+
+# --------------------------------------------------------------------------
+# OMN-15379 — lane-scoped fence release. Static half.
+#
+# Three independent properties, one test each, so a failure names WHICH one
+# broke:
+#   1. the default and unknown lanes are FULLY fenced (fail-closed),
+#   2. the release set is COMMITTED and is a strict subset of the fence,
+#   3. the lane indicator is NOT reachable from the base compose file, so no
+#      non-dev lane can inherit it.
+# --------------------------------------------------------------------------
+
+
+def test_lane_release_arms_are_exactly_dev_default_and_unknown() -> None:
+    """Every arm must ASSIGN. An arm that falls through inherits the last value.
+
+    ``case`` in POSIX sh does not reset the variable between arms, so an arm
+    that matches but assigns nothing would silently carry whatever the previous
+    arm set. That is the shape of a fail-open bug, so the arm set is pinned.
+    """
+    policies = parse_lane_release_policies(extract_fence_block())
+    assert set(policies) == {DEV_LANE_VALUE, "", "*"}, (
+        "the lane-release policy must have exactly three arms — the dev/lab "
+        f"lane, the unset default, and the unknown-value catch-all. Found: "
+        f"{sorted(policies)}"
+    )
+    unassigned = [label for label, ids in policies.items() if ids is None]
+    assert not unassigned, (
+        "these case arms match but never assign "
+        f"LANE_RELEASED_NODE_MIGRATION_IDS, so they inherit the preceding "
+        f"arm's value: {unassigned}"
+    )
+
+
+def test_unset_and_unknown_lane_are_fully_fenced() -> None:
+    """THE fail-closed property, asserted statically as well as live below."""
+    policies = parse_lane_release_policies(extract_fence_block())
+    assert policies[""] == (), (
+        "an unset ONEX_MIGRATION_LANE must release NOTHING — the full operator "
+        f"fence applies. Found: {policies['']}"
+    )
+    assert policies["*"] == (), (
+        "an UNKNOWN ONEX_MIGRATION_LANE must fail closed to the full fence, not "
+        f"be treated as dev. Found: {policies['*']}"
+    )
+
+
+def test_dev_lane_releases_exactly_the_ruled_set() -> None:
+    """Two rulings, one arm, and nothing else in it.
+
+    Ruling 15 is scoped to node_service_registry; post-OMN-17150 that is 0002
+    alone, because 0000/0001 are no longer fenced for any lane to release, and
+    the dev lane still ends up with the whole trio applied. OMN-15683
+    (2026-09-08) added the operative delegation conversion on the same arm — it
+    stays in the baseline because a removal is FATAL under the item-4 FORCE-RLS
+    guard, so the lane release is the only mechanism that can un-gate it. The
+    id it names is 0036: 0034 held this slot for part of the same day and lost
+    it once the onex-dev enumeration showed it cannot convert a
+    mixed-representation column.
+    """
+    policies = parse_lane_release_policies(extract_fence_block())
+    assert policies[DEV_LANE_VALUE] == LANE_RELEASED_IDS, (
+        "the dev/lab lane release set changed. It must be exactly the "
+        "still-fenced half of the registration trio (ruling 15) plus the "
+        "OMN-15683 delegation pair:\n  "
+        + "\n  ".join(LANE_RELEASED_IDS)
+        + "\nFound:\n  "
+        + "\n  ".join(policies[DEV_LANE_VALUE])
+    )
+    # The composition the constants are DEFINED separately to express.
+    assert set(FENCED_REGISTRATION_IDS) < set(LANE_RELEASED_IDS), (
+        "the dev-lane release no longer covers the fenced registration hold"
+    )
+    assert set(LANE_RELEASED_IDS) - set(FENCED_REGISTRATION_IDS) == {
+        "node:node_projection_delegation:"
+        "0026_delegation_judge_verdict_events_rls_tenant_isolation.sql",
+        "node:node_projection_delegation:"
+        "0037_delegation_events_uuid_mixed_representation_guard_before_set_role.sql",
+        "node:node_projection_delegation:"
+        "0041_delegation_budget_state_rls_tenant_isolation.sql",
+    }, "the dev-lane release carries ids no operator ruling names"
+
+
+def test_no_lane_can_release_anything_outside_the_fence() -> None:
+    """A release is only ever consulted for an already-fenced id.
+
+    Asserted at the list level too, so the invariant is legible without reading
+    the node loop: an id in a release arm but not in the fence would be dead
+    weight at best and a mis-stated policy at worst.
+    """
+    fence = set(manifest_ids())
+    for label, released in parse_lane_release_policies(extract_fence_block()).items():
+        stray = sorted(set(released or ()) - fence)
+        assert not stray, (
+            f"lane '{label}' claims to release ids that the fence does not "
+            f"cover: {stray}"
+        )
+
+
+def test_unreleasable_delegation_ids_are_not_releasable_on_any_lane() -> None:
+    """0023 and the retired conversions may not be un-gated by any lane.
+
+    0023 is superseded in place: its CREATE POLICY compares TEXT to TEXT and
+    raises `operator does not exist: uuid = text` against the converted column,
+    after its ENABLE/FORCE and DROP POLICY have already committed. 0031, 0032
+    and 0033 are retired conversions, and neither runner has any supersession
+    awareness, so releasing one applies a superseded conversion on every lane
+    that has not already recorded it. 0026 was here until 2026-09-26, when its
+    writer-side release condition was met (OMN-17627) and the dev arm released
+    it (OMN-15092). 0034 joined them on 2026-09-08, superseded by
+    0036 under OMN-15683 -- it resolves identity on m.tenant_slug alone and
+    aborts on the 26 already-canonical-UUID rows onex-dev holds. OMN-15683
+    released 0036 on the dev/lab lane; that one id is deliberately outside this
+    set.
+    """
+    forbidden = set(UNRELEASABLE_DELEGATION_IDS) | set(
+        FENCED_DELEGATION_UUID_CONVERSION_IDS
+    ) - {
+        "node:node_projection_delegation:"
+        "0037_delegation_events_uuid_mixed_representation_guard_before_set_role.sql"
+    }
+    for label, released in parse_lane_release_policies(extract_fence_block()).items():
+        leaked = sorted(set(released or ()) & forbidden)
+        assert not leaked, (
+            f"lane '{label}' releases delegation migrations that no operator "
+            f"ruling has un-gated: {leaked}"
+        )
+
+
+def test_lane_release_set_is_not_supplied_by_environment() -> None:
+    """The env var selects a COMMITTED policy; it never carries ids.
+
+    Same rule as the fence list and the skip-manifest. A
+    ``LANE_RELEASED_NODE_MIGRATION_IDS="${SOMETHING}"`` form would let an
+    operator env var release arbitrary fenced migrations on any lane.
+    """
+    block = extract_fence_block()
+    offenders = [
+        ln
+        for ln in block.splitlines()
+        if re.search(r'LANE_RELEASED_NODE_MIGRATION_IDS="?\$', ln)
+    ]
+    assert not offenders, (
+        "the release set must be assigned from literals inside the committed "
+        f"case arms, never interpolated from the environment: {offenders}"
+    )
+
+
+def test_release_is_checked_inside_the_fenced_branch_not_beside_it() -> None:
+    """Structural: the release may only ever narrow the fence.
+
+    If ``is_lane_released_node_migration`` were called at the top of the loop
+    instead of inside ``if is_fenced_node_migration``, it would become an
+    independent gate over the whole node corpus rather than a carve-out of the
+    fence, and its blast radius would no longer be bounded by the fence list.
+    """
+    branch = extract_skip_branch()
+    assert "is_lane_released_node_migration" in branch, (
+        "the lane-release check must live inside the fenced-id skip branch"
+    )
+    text = _runner_text()
+    node_loop = text[text.index("Auto-discover and apply node-owned migrations") :]
+    assert node_loop.count("is_lane_released_node_migration") == 1, (
+        "the release predicate is called more than once in the node loop; the "
+        "only sanctioned call site is inside the fenced-id branch"
+    )
+    fence_call = node_loop.index('if is_fenced_node_migration "${migration_id}"')
+    release_call = node_loop.index(
+        'if is_lane_released_node_migration "${migration_id}"'
+    )
+    assert fence_call < release_call, (
+        "the release check must be nested INSIDE the fence check "
+        f"(offsets: fence={fence_call} release={release_call})"
+    )
+
+
+def _construct_compose_value(loader: yaml.SafeLoader, node: yaml.Node) -> object:
+    """Resolve a Docker Compose merge tag to the value it decorates.
+
+    OMN-17562 gave the dev-lane overlay's three runtime services
+    ``labels: !override`` (compose APPENDS label sequences, so a plain block
+    would leave the base ``autoheal=true`` armed beside the new strict probe).
+    ``yaml.safe_load`` raises ``ConstructorError`` on that tag, so any parse of
+    a lane overlay needs the same tag support the stability-lane suite has
+    carried since OMN-15217. The tag is a compose MERGE directive; it carries no
+    meaning for the ``forward-migration`` environment these checks read.
+    """
+    if isinstance(node, yaml.MappingNode):
+        return loader.construct_mapping(node)
+    if isinstance(node, yaml.SequenceNode):
+        return loader.construct_sequence(node)
+    assert isinstance(node, yaml.ScalarNode)
+    return loader.construct_scalar(node)
+
+
+class _ComposeSafeLoader(yaml.SafeLoader):
+    """Test-local YAML loader with Docker Compose tag support."""
+
+
+_ComposeSafeLoader.add_constructor("!override", _construct_compose_value)
+
+
+def _forward_migration_environment(relpath: str) -> dict[str, str] | None:
+    """The ``forward-migration`` service's ``environment:`` in one compose file.
+
+    ``None`` when the file does not define that service at all — which is a
+    meaningfully different statement from "defines it with no environment".
+    """
+    text = (REPO_ROOT / relpath).read_text(encoding="utf-8")
+    doc = yaml.load(text, Loader=_ComposeSafeLoader)  # noqa: S506
+    service = (doc.get("services") or {}).get("forward-migration")
+    if service is None:
+        return None
+    env = service.get("environment") or {}
+    if isinstance(env, list):
+        pairs = [item.split("=", 1) for item in env]
+        return {k: (v[0] if v else "") for k, *v in pairs}
+    return {str(k): str(v) for k, v in env.items()}
+
+
+def test_lane_indicator_is_absent_from_the_base_compose_file() -> None:
+    """THE fail-closed mechanism, asserted at the compose seam.
+
+    Compose merges a lane overlay's ``environment:`` ON TOP of the base's — it
+    is a union with the overlay winning per key. So the merged value of
+    ``ONEX_MIGRATION_LANE`` is absent for a lane iff it is absent from BOTH the
+    base and that lane's overlay. Every non-dev lane overlay merges
+    ``docker-compose.infra.yml`` (stability-test's forward-migration override is
+    a single ``container_name:`` line — it inherits the base ``environment:``
+    block wholesale), so the indicator sitting in the base would be inherited by
+    stability-test, prod, judge, and by any lane added later. That is fail-OPEN.
+
+    This assertion plus ``test_only_the_dev_lane_overlay_carries_the_indicator``
+    below are jointly the proof that no non-dev lane can reach it.
+    """
+    env = _forward_migration_environment(BASE_COMPOSE_RELPATH)
+    assert env is not None, (
+        f"{BASE_COMPOSE_RELPATH} no longer defines forward-migration — this "
+        "check's premise moved"
+    )
+    assert LANE_INDICATOR_ENV not in env, (
+        f"{LANE_INDICATOR_ENV} is set in {BASE_COMPOSE_RELPATH}. Every lane "
+        "overlay merges that file, so this releases the fenced registration "
+        "migrations on stability-test, prod, judge and every future lane. It "
+        f"belongs in {DEV_LANE_OVERLAY_RELPATH}, which only the dev/lab project "
+        "loads."
+    )
+    # The catalog manifest GENERATES the base compose service, so the same
+    # statement has to hold one level up or a regenerate reintroduces it.
+    catalog = yaml.safe_load(
+        (REPO_ROOT / CATALOG_SERVICE_RELPATH).read_text(encoding="utf-8")
+    )
+    for field in ("hardcoded_env", "operational_defaults", "required_env"):
+        block = catalog.get(field) or {}
+        keys = block if isinstance(block, list) else list(block)
+        assert LANE_INDICATOR_ENV not in keys, (
+            f"{LANE_INDICATOR_ENV} is declared in {CATALOG_SERVICE_RELPATH} "
+            f"under {field}; regenerating the compose catalog would put it back "
+            "into the base file that every lane merges"
+        )
+
+
+def test_only_the_dev_lane_overlay_carries_the_indicator() -> None:
+    """The dev overlay sets it to exactly ``dev``; no other overlay mentions it."""
+    dev_env = _forward_migration_environment(DEV_LANE_OVERLAY_RELPATH)
+    assert dev_env is not None, (
+        f"{DEV_LANE_OVERLAY_RELPATH} must define the forward-migration service"
+    )
+    assert dev_env.get(LANE_INDICATOR_ENV) == DEV_LANE_VALUE, (
+        f"{DEV_LANE_OVERLAY_RELPATH} must set "
+        f"{LANE_INDICATOR_ENV}={DEV_LANE_VALUE}; found {dev_env!r}"
+    )
+
+    for relpath in NON_DEV_OVERLAY_RELPATHS:
+        text = (REPO_ROOT / relpath).read_text(encoding="utf-8")
+        assert LANE_INDICATOR_ENV not in text, (
+            f"{relpath} mentions {LANE_INDICATOR_ENV}. Non-dev lanes must carry "
+            "no lane indicator at all — the runner's fail-closed default is what "
+            "keeps them fenced, and a value here (even a benign-looking one) is "
+            "a release waiting on a typo."
+        )
+
+
+def test_dev_lane_overlay_is_wired_into_both_lane_mappings() -> None:
+    """Two files own lane -> compose-file mapping; both must layer the overlay.
+
+    ``scripts/deploy-runtime.sh`` is what actually brings the ``.201`` lab lane
+    up, and ``deploy_agent.executor._LANE_CONFIGS`` is the tested mapping the
+    deploy agent uses. They are already required to agree (the comment in
+    ``resolve_compose_file_args`` says so); a release wired into only one of
+    them would apply the trio through one path and not the other.
+    """
+    overlay_filename = Path(DEV_LANE_OVERLAY_RELPATH).name
+
+    # OMN-16729: resolve_compose_file_args() moved out of deploy-runtime.sh into
+    # scripts/runtime_build/compose_files.sh, which deploy-runtime.sh and both
+    # lane-refresh wrappers now source. Both halves are asserted: the resolver
+    # layers the overlay, AND deploy-runtime.sh actually loads the file that
+    # defines it -- a lib nobody sources brings the lane up with no indicator
+    # just as surely as a resolver that omits the overlay.
+    deploy_runtime = (REPO_ROOT / "scripts" / "deploy-runtime.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "runtime_build/compose_files.sh" in deploy_runtime, (
+        "deploy-runtime.sh does not source the shared compose-file resolver, so "
+        "it has no lane -> compose-file mapping at all"
+    )
+    compose_files = (
+        REPO_ROOT / "scripts" / "runtime_build" / "compose_files.sh"
+    ).read_text(encoding="utf-8")
+    resolver = re.search(
+        r"^resolve_compose_file_args\s*\(\)\s*\{.*?\n\}",
+        compose_files,
+        re.DOTALL | re.MULTILINE,
+    )
+    assert resolver is not None, (
+        "resolve_compose_file_args() not found in scripts/runtime_build/compose_files.sh"
+    )
+    assert overlay_filename in resolver.group(0), (
+        f"resolve_compose_file_args() does not layer {overlay_filename} for the "
+        "dev lane, so `deploy-runtime.sh` brings the lab lane up with no lane "
+        "indicator and the registration trio stays fenced there"
+    )
+
+    executor = (
+        REPO_ROOT / "scripts" / "deploy-agent" / "deploy_agent" / "executor.py"
+    ).read_text(encoding="utf-8")
+    dev_config = re.search(
+        r"EnumRuntimeLane\.DEV:\s*ModelLaneConfig\((?P<body>.*?)\n    \),",
+        executor,
+        re.DOTALL,
+    )
+    assert dev_config is not None, "_LANE_CONFIGS[EnumRuntimeLane.DEV] not found"
+    assert "_DEV_LANE_OVERLAY" in dev_config.group("body"), (
+        "_LANE_CONFIGS[DEV].compose_files does not include _DEV_LANE_OVERLAY"
+    )
+    assert re.search(
+        rf'_DEV_LANE_OVERLAY\s*=\s*f?"[^"]*{re.escape(overlay_filename)}"', executor
+    ), f"_DEV_LANE_OVERLAY does not point at {overlay_filename}"
+
+
+K8S_MANIFEST_RELPATH = "k8s/migrations/omnibase-infra-migrate.yaml"
+
+
+def _omninode_infra_root() -> Path | None:
+    """Locate a reachable ``omninode_infra`` checkout."""
+    candidates = []
+    explicit = os.environ.get("OMNINODE_INFRA_ROOT")
+    if explicit:
+        candidates.append(Path(explicit))
+    omni_home = os.environ.get("OMNI_HOME")
+    if omni_home:
+        candidates.append(Path(omni_home) / "omninode_infra")
+    # Worktrees live at $OMNI_HOME/omni_worktrees/<ticket>/<repo>; the canonical
+    # clones are three levels up. A plain sibling checkout is covered too.
+    candidates.append(REPO_ROOT.parents[2] / "omninode_infra")
+    candidates.append(REPO_ROOT.parent / "omninode_infra")
+    for root in candidates:
+        if (root / K8S_MANIFEST_RELPATH).is_file():
+            return root
+    return None
+
+
+def _k8s_manifest_source(root: Path) -> tuple[str, str]:
+    """Return (manifest text, provenance) for the k8s runner.
+
+    ``origin/dev`` is preferred over the working tree: dev is what actually
+    deploys, and a checkout parked on an older commit is the common case on a
+    shared build host. Provenance is returned so a failure can be read as
+    "stale clone" rather than misdiagnosed as real drift — a stale canonical
+    clone producing phantom findings is a known, repeated trap here, and
+    ``git show`` reads whatever ``origin/dev`` was last FETCHED to, which this
+    test deliberately does not refresh (tests do no network I/O).
+    """
+    show = subprocess.run(
+        ["git", "-C", str(root), "show", f"origin/dev:{K8S_MANIFEST_RELPATH}"],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=scrub_git_location_env(os.environ),
+    )
+    if show.returncode == 0:
+        sha = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--short", "origin/dev"],
+            check=False,
+            capture_output=True,
+            text=True,
+            env=scrub_git_location_env(os.environ),
+        ).stdout.strip()
+        return show.stdout, f"{root} origin/dev@{sha or '?'} (last local fetch)"
+    return (
+        (root / K8S_MANIFEST_RELPATH).read_text(),
+        f"{root / K8S_MANIFEST_RELPATH} (working tree; origin/dev unreadable)",
+    )
+
+
+def test_fence_matches_omninode_infra_k8s_runner() -> None:
+    """THE cross-repo seam assertion.
+
+    Pre-OMN-15349 shape: assert raw equality of two independently-maintained
+    literal lists. Post-OMN-15349 shape: the two runners no longer maintain
+    independent lists at all — the k8s Job parses the SAME manifest baseline
+    this repo owns (``manifest_ids()``) and layers its own, operator-ruled
+    release (ruling 21, ``K8S_RULING_21_RELEASE``) on top. So this test
+    asserts three things instead of raw equality:
+
+      1. the k8s Job still references the shared manifest by name (it did not
+         quietly revert to a hardcoded baseline copy),
+      2. the k8s Job's committed release policy still matches the expected
+         ruling-21 registration trio, exactly (drift here IS a real defect —
+         unlike the baseline, there is only one copy of this release list),
+      3. the k8s Job's resulting EFFECTIVE fence (baseline minus release)
+         still equals the delegation quartet — the only ids ruling 21 left
+         fenced there.
+
+    OPT-IN via ``REQUIRE_CROSS_REPO_FENCE_PARITY`` — deliberately, and this is
+    the honest shape rather than the convenient one. The comparison depends on
+    an artifact outside this repo whose freshness this repo cannot guarantee:
+    run against a stale ``omninode_infra`` clone it reports drift that does not
+    exist (measured — the ``.200`` build host's clone sat 2 commits behind dev
+    while this change was being gated, and an always-on version of this test
+    went RED there for exactly that reason). Gating every PR on another repo's
+    local checkout freshness manufactures false REDs, so the always-on leg is
+    ``test_manifest_pins_the_known_baseline_fence`` above; this is the sharper
+    check you run deliberately, after fetching, on a host that has both repos.
+    """
+    if not os.environ.get("REQUIRE_CROSS_REPO_FENCE_PARITY"):
+        pytest.skip(
+            "cross-repo fence diff is opt-in: fetch omninode_infra, then run "
+            "with REQUIRE_CROSS_REPO_FENCE_PARITY=1 (optionally "
+            "OMNINODE_INFRA_ROOT=<path>). The pinned "
+            "test_manifest_pins_the_known_baseline_fence assertion gates "
+            "every PR regardless."
+        )
+
+    root = _omninode_infra_root()
+    if root is None:
+        pytest.fail(
+            "REQUIRE_CROSS_REPO_FENCE_PARITY is set but no omninode_infra "
+            "checkout was found (tried OMNINODE_INFRA_ROOT, "
+            "$OMNI_HOME/omninode_infra, and sibling paths)"
+        )
+
+    text, provenance = _k8s_manifest_source(root)
+    manifest_filename = MANIFEST_RELPATH.rsplit("/", 1)[-1]
+    assert manifest_filename in text, (
+        f"{provenance}: the k8s Job no longer references the shared manifest "
+        f"{manifest_filename!r} — it may have reverted to a hardcoded fence "
+        "baseline, reopening the exact duplication OMN-15349 removed"
+    )
+
+    release_match = re.search(
+        r"K8S_RULING_21_RELEASED_NODE_MIGRATION_IDS=\((?P<body>.*?)\)",
+        text,
+        re.DOTALL,
+    )
+    assert release_match is not None, (
+        f"{provenance}: K8S_RULING_21_RELEASED_NODE_MIGRATION_IDS array not "
+        "found — the k8s Job's ruling-21 release policy was removed or "
+        "reshaped"
+    )
+    k8s_release = tuple(re.findall(r'"([^"]+)"', release_match.group("body")))
+    assert k8s_release == K8S_RULING_21_RELEASE, (
+        "CROSS-REPO RELEASE-POLICY DRIFT: the k8s Job's ruling-21 release no "
+        "longer matches the expected registration trio.\n"
+        f"  k8s ({provenance}):\n    "
+        + "\n    ".join(k8s_release)
+        + "\n  expected:\n    "
+        + "\n    ".join(K8S_RULING_21_RELEASE)
+    )
+
+    baseline = manifest_ids()
+    stray = sorted(set(k8s_release) - set(baseline) - set(K8S_RELEASE_IDS_NOW_UNFENCED))
+    assert not stray, (
+        f"{provenance}: the k8s release names ids the shared manifest "
+        f"baseline does not cover, beyond the known-inert set: {stray}"
+    )
+    effective_k8s_fence = tuple(i for i in baseline if i not in k8s_release)
+    # Everything in the baseline EXCEPT the registration hold, which ruling 21
+    # releases durably on the k8s Job. Spelled out group by group so a failure
+    # names which hold moved rather than dumping two id lists to diff by eye.
+    #
+    # This expectation was stale before OMN-17150 — it omitted the OMN-16090
+    # hook_event_capture hold and the OMN-16493/16930/17288 delegation UUID
+    # conversion holds, so the assertion could not have passed on any recent
+    # tree. It is opt-in, which is why nobody saw it go red. Repaired here.
+    expected_effective_k8s_fence: tuple[str, ...] = (
+        FENCED_DELEGATION_IDS
+        + FENCED_REGISTRATION_IDS
+        + FENCED_PR_REVIEW_BOT_IDS
+        + FENCED_INFERENCE_RESPONSE_IDS
+        + FENCED_HOOK_EVENT_CAPTURE_IDS
+        + FENCED_DELEGATION_UUID_CONVERSION_IDS
+    )
+    expected_effective_k8s_fence = tuple(
+        i for i in expected_effective_k8s_fence if i not in k8s_release
+    )
+    assert effective_k8s_fence == expected_effective_k8s_fence, (
+        "the k8s Job's effective (post-release) fence no longer equals the "
+        "expected composition of the pinned holds — either the shared manifest "
+        "baseline or the k8s release changed: "
+        f"{effective_k8s_fence}"
+    )
+
+
+# --------------------------------------------------------------------------
+# Live proofs against a real Postgres.
+# --------------------------------------------------------------------------
+
+MARKER_PREFIX = "omn15336_marker_"
+
+
+def _marker_for(migration_id: str) -> str:
+    """A table name unique per migration id and legal as an identifier."""
+    return MARKER_PREFIX + re.sub(r"\W", "_", migration_id.split(":", 2)[2])[:40]
+
+
+@pytest.fixture
+def node_tree(tmp_path: Path) -> Path:
+    """A vendored-shaped node tree: every fenced id plus one unfenced control.
+
+    Each file creates a marker table, so "was this applied?" is answered by the
+    database, not by parsing the runner's own log.
+    """
+    forward = tmp_path / "migrations" / "forward"
+    forward.mkdir(parents=True)
+    # A flat migration must exist for the infra phase; keep it trivial.
+    (forward / "001_noop.sql").write_text("SELECT 1;\n")
+
+    for migration_id in (*EXPECTED_FENCE, UNFENCED_CONTROL_ID):
+        _, node_name, filename = migration_id.split(":", 2)
+        node_dir = forward / "nodes" / node_name
+        node_dir.mkdir(parents=True, exist_ok=True)
+        (node_dir / filename).write_text(
+            f"CREATE TABLE public.{_marker_for(migration_id)} (id INT);\n"
+        )
+    _write_fence_manifest(forward, EXPECTED_FENCE)
+    _write_grandfather_manifest(forward)
+    _write_application_ledger_contract(forward)
+    return forward
+
+
+def _write_fence_manifest(forward: Path, ids: tuple[str, ...]) -> None:
+    """Write a synthetic fence manifest into a test harness's migrations tree.
+
+    OMN-15349: the shipped runner unconditionally requires
+    ``${MIGRATIONS_DIR}/fenced-node-migrations.yaml`` now — a harness that
+    built its own ``forward/`` tree without one would only prove the runner's
+    FATAL-if-missing guard, not the fence itself. Written in the exact format
+    the shipped ``sed`` one-liner parses (mirrors the committed manifest under
+    ``docker/migrations/forward/fenced-node-migrations.yaml``).
+    """
+    lines = ["fenced_node_migrations:"]
+    for migration_id in ids:
+        lines.append(f'  - id: "{migration_id}"')
+    (forward / "fenced-node-migrations.yaml").write_text(
+        "\n".join(lines) + "\n", encoding="utf-8"
+    )
+
+
+def _write_grandfather_manifest(forward: Path, ids: tuple[str, ...] = ()) -> None:
+    """Write a synthetic FORCE-RLS grandfather snapshot into a test harness's
+    migrations tree (OMN-15336 item 4 repair).
+
+    The shipped runner unconditionally requires
+    ``${MIGRATIONS_DIR}/grandfathered-force-rls-migrations.yaml`` now, same
+    discipline as ``_write_fence_manifest`` above. Defaults to an empty list:
+    none of the synthetic fixtures in this module vendor real FORCE-RLS SQL
+    bodies (their marker files are plain ``CREATE TABLE ... (id INT);``), so
+    an empty grandfather snapshot is correct unless a fixture explicitly
+    passes ids.
+    """
+    lines = ["grandfathered_force_rls_migrations:"]
+    for migration_id in ids:
+        lines.append(f'  - id: "{migration_id}"')
+    (forward / "grandfathered-force-rls-migrations.yaml").write_text(
+        "\n".join(lines) + "\n", encoding="utf-8"
+    )
+
+
+def _write_application_ledger_contract(forward: Path) -> None:
+    """Derive a typed ledger contract from a synthetic node migration tree.
+
+    OMN-15413 rejects undeclared application migrations. These fence harnesses
+    construct their own SQL, so their manifest must bind those exact bytes
+    rather than copy production checksums and fail for an unrelated reason.
+    """
+    ledger_dir = forward / "_ledger"
+    ledger_dir.mkdir()
+    bootstrap = REPO_ROOT / "docker/migrations/forward/_ledger/bootstrap.sql"
+    (ledger_dir / "bootstrap.sql").write_text(
+        bootstrap.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+
+    declarations: list[str] = []
+    for migration in sorted((forward / "nodes").glob("*/*.sql")):
+        node_name = migration.parent.name
+        version = f"node:{node_name}:{migration.name}"
+        checksum = hashlib.sha256(migration.read_bytes()).hexdigest()
+        declarations.append(
+            "\t".join(
+                (
+                    f"nodes/{node_name}/{migration.name}",
+                    f"node:{node_name}",
+                    f"node:{node_name}",
+                    "tenant",
+                    version,
+                    checksum,
+                )
+            )
+        )
+    (ledger_dir / "application-migrations.tsv").write_text(
+        "\n".join(declarations) + "\n", encoding="utf-8"
+    )
+    (ledger_dir / "application-migration-blocks.tsv").write_text("", encoding="utf-8")
+    (ledger_dir / "cloud-migration-aliases.tsv").write_text("", encoding="utf-8")
+    # OMN-15717 (#2678) added LEGACY_NODE_MIGRATION_DECLARATIONS as a fourth
+    # unconditionally-required manifest file in validate_application_migration_
+    # manifest() -- empty is valid (mirrors the two files above: the awk
+    # per-record validators never fire on zero input lines, so an empty file
+    # passes every format/duplicate/overlap check untouched).
+    (ledger_dir / "legacy-node-migrations.tsv").write_text("", encoding="utf-8")
+    (ledger_dir / "verified-checksum-adoptions.tsv").write_text("", encoding="utf-8")
+    (ledger_dir / "verified-divergent-adoptions.tsv").write_text("", encoding="utf-8")
+    (ledger_dir / "verified-cross-source-adoptions.tsv").write_text(
+        "", encoding="utf-8"
+    )
+    # OMN-17139: the fourth adoption relation, consulted by bootstrap.sql's
+    # canonical-ledger adoption. Empty here -- this fixture declares none -- but
+    # the runner requires the file to exist so a missing declaration file fails
+    # closed rather than silently admitting nothing.
+    (ledger_dir / "verified-canonical-adoptions.tsv").write_text("", encoding="utf-8")
+
+
+@pytest.fixture
+def node_db(pg_target: PgTarget) -> Iterator[str]:
+    """A SEPARATE node database, as compose configures (omnidash_analytics)."""
+    admin = PgTarget(
+        host=pg_target.host,
+        port=pg_target.port,
+        user=pg_target.user,
+        password=pg_target.password,
+        dbname="postgres",
+    )
+    name = f"omn15336_node_{int(time.time() * 1000) % 100_000_000}"
+    _psql(admin, f'CREATE DATABASE "{name}"')
+    try:
+        yield name
+    finally:
+        _psql(admin, f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
+
+
+def _runner_env(
+    target: PgTarget,
+    migrations: Path,
+    node_db_name: str,
+    lane: str | None = None,
+) -> dict[str, str]:
+    psql_dir = str(Path(_find_pg_binary("psql") or "psql").parent)
+    env = {
+        **os.environ,
+        "PATH": f"{psql_dir}{os.pathsep}{os.environ.get('PATH', '')}",
+        "POSTGRES_USER": target.user,
+        "POSTGRES_PASSWORD": target.password,
+        "POSTGRES_HOST": target.host,
+        "POSTGRES_PORT": str(target.port),
+        "POSTGRES_DB": target.dbname,
+        "NODE_POSTGRES_DB": node_db_name,
+        "MIGRATIONS_DIR": str(migrations),
+        "NODE_MIGRATIONS_DIR": str(migrations / "nodes"),
+        "MIGRATION_LOCK_WAIT_SECONDS": "60",
+    }
+    # OMN-15379: `lane is None` means the variable is genuinely ABSENT, which is
+    # the state every non-dev lane is in. Popping it rather than setting "" also
+    # stops an ambient ONEX_MIGRATION_LANE on the test host from leaking in
+    # through the `**os.environ` splat and silently un-fencing the default-lane
+    # proof — the exact way a fail-closed check turns vacuous.
+    if lane is None:
+        env.pop(LANE_INDICATOR_ENV, None)
+    else:
+        env[LANE_INDICATOR_ENV] = lane
+    return env
+
+
+# --------------------------------------------------------------------------
+# OMN-17639 — the live runner's budget is MEASURED on the host in front of it.
+# --------------------------------------------------------------------------
+# This helper used to pass a bare ``timeout=180``. That number was never
+# measured and it is not a property of the runner; it is a bet about the host.
+# The bet lost. Both virgin-tree proofs
+# (``test_virgin_database_applies_the_full_real_vendored_tree`` and
+# ``test_virgin_database_still_refuses_a_new_unfenced_force_rls_migration``)
+# raised ``subprocess.TimeoutExpired ... after 180 seconds`` on two consecutive
+# governed pre-push runs (OMN-17549, 2026-09-02, logs push2.log/push3.log),
+# blocking a push whose diff touched neither migrations nor this module.
+#
+# WHY A FIXED WALL CLOCK CANNOT WORK HERE. The shipped runner is a POSIX ``sh``
+# loop that spawns ``psql`` several times per migration file, so its cost is
+# (number of SQL files) x (cost of a psql round trip on this host right now).
+# The second factor is the one a constant cannot see. Measured on this repo's
+# tree against the ephemeral cluster the harness itself starts (arm64 macOS
+# 26.6, 24 logical cores, 1-minute load average ~60-76 -- i.e. the ~3x
+# oversubscription a governed full-suite escalation actually produces):
+#
+#   tree                       SQL files   probe(8 round trips)   _run wall
+#   real_registration_tree             6                2.360 s      18.899 s
+#   real_registration_tree             6                2.616 s       6.238 s
+#   real_registration_tree             6                1.230 s       7.944 s
+#   node_tree                         15                1.145 s      13.612 s
+#   node_tree                         15                0.711 s      15.229 s
+#   node_tree                         15                1.385 s      13.959 s
+#   docker/migrations/forward        239                2.072 s     457.479 s
+#   docker/migrations/forward        239                1.670 s     503.305 s
+#   docker/migrations/forward        239                3.663 s     344.785 s
+#   docker/migrations/forward        239                2.332 s     888.00  s   (*)
+#
+# (*) taken separately, on the same host at 1-minute load average 123 falling
+#     to 100, by a paired probe+run harness outside pytest
+#     (.claude_scratch/omn17639/measure_run.py); rc=0, ending "Sentinel set.
+#     Migration gate will report HEALTHY." Its probe was 10 single round trips,
+#     mean 0.2915 s, restated above as an 8-trip total for one comparable
+#     column. Every other row is from the in-pytest harness at load ~60-76.
+#
+# The four 239-file rows are what the two virgin proofs drive. All four are
+# over the old 180 s bound -- by 2.5x, 2.8x, 1.9x and 4.9x. That is not a flake
+# to be waited out; on a loaded host it is deterministic, which is exactly what
+# the two governed pre-push runs showed. Reproduced live in this branch's own
+# session, at load ~66-80, before the fix:
+#
+#   subprocess.TimeoutExpired: Command '['/bin/sh', '.../run-forward-migrations.sh']'
+#   timed out after 180 seconds
+#     test_virgin_database_applies_the_full_real_vendored_tree           180.03s
+#     test_virgin_database_still_refuses_a_new_unfenced_force_rls_...    180.87s
+#
+# THE MODEL, AND ITS HONEST ACCURACY. The runner's cost factors into (number of
+# SQL files) x (psql round trips it shells out per file) x (what one round trip
+# costs on this host right now). Files are counted at call time; the round trip
+# is probed at call time; only the middle term is committed. Normalising each
+# 239-file row to round trips per file gives:
+#
+#   probe8 2.072 s -> 0.259 s/trip -> 457.479 / (239 x 0.259)  =  7.39
+#   probe8 1.670 s -> 0.209 s/trip -> 503.305 / (239 x 0.209)  = 10.09
+#   probe8 3.663 s -> 0.458 s/trip -> 344.785 / (239 x 0.458)  =  3.15
+#   probe8 2.332 s -> 0.291 s/trip -> 888.00  / (239 x 0.291)  = 12.75
+#
+# Those disagree by 4x, and row three is anti-correlated outright: the SLOWEST
+# probe of the four produced the FASTEST run. So the ratio is NOT a
+# load-invariant property of the runner, and a constant fitted to any single
+# row is another unmeasured number wearing a measurement's clothes -- the first
+# revision of this block committed 7.4 from row one and asserted it to +/-5%,
+# which rows two through four already falsified.
+#
+# What survives the data is weaker and true: the probe bounds the run, it does
+# not predict it. The committed constant is therefore an ENVELOPE over every
+# measured row (12.75, the worst, plus ~10%), and the margin on top absorbs
+# drift between the probe and the end of a run that outlives it. The invariant
+# the tests below enforce is "never optimistic about any row we measured", not
+# "reproduces the row we happened to measure first".
+#
+# The derivation is clamped at BOTH ends. The floor is the old 180 s exactly,
+# so this change cannot make any leg tighter than it already was -- and every
+# small-tree row above lands on it. The ceiling keeps a genuinely hung runner
+# failing in bounded time: past 2400 s the probe is claiming a host slower than
+# anything in the table, and that is a hang, not a load story.
+#
+# Same class of defect as OMN-17239 (test_heavy_lock's fixed 10 s SIGKILL
+# budget) and OMN-14833; same measured-baseline discipline as OMN-15836.
+
+# One trivial round trip per iteration; 8 is enough to average out scheduler
+# noise while costing ~0.5 s idle and ~2 s at the load measured above.
+_BUDGET_PROBE_ROUND_TRIPS = 8
+# Per round trip. A cluster this far gone is not something a bigger migration
+# budget would rescue, so the probe gives up and the floor applies.
+_BUDGET_PROBE_ROUND_TRIP_TIMEOUT_SECONDS = 30.0
+# NOT a fitted mean -- an upper envelope over the four measured 239-file rows
+# (worst observed 12.75, plus ~10% so the worst row is bounded rather than
+# merely touched). Named for what it is: the ratio is not load-invariant and
+# must not be re-fitted to a single fresh measurement.
+_PSQL_ROUND_TRIPS_PER_MIGRATION_ENVELOPE = 14.1
+# On top of the envelope: drift between the probe and the end of a run that
+# outlives it, plus per-file cost variance the flat model does not carry
+# (larger SQL bodies, index builds).
+_RUN_BUDGET_MARGIN = 2.0
+# Exactly the pre-OMN-17639 constant: the derivation may only ever widen.
+_RUN_BUDGET_FLOOR_SECONDS = 180.0
+# Above every measured row's derived budget, so no measured row is capped here;
+# past this the probe is describing a hang, not a slow host.
+_RUN_BUDGET_CEILING_SECONDS = 2400.0
+# OMN-17949 -- the outer bound must exceed the cost of the work, not equal it.
+# The ceiling plus the probe is exactly what a maximally slow, still-healthy
+# invocation is allowed to spend. Setting the outer limit to that sum leaves
+# nothing for the final poll, the pipe drain and fixture teardown, so a run
+# that used its whole measured budget is killed during cleanup and reads as
+# the very false red the inner derivation exists to prevent. Finite and small
+# on purpose: wide enough to cover scheduling and teardown, far too narrow to
+# rescue a hang, which still fails on the ceiling.
+_PYTEST_TIMEOUT_SCHEDULING_MARGIN_SECONDS = 60.0
+# OMN-17923 -- the OUTER half of the OMN-17639 repair.
+#
+# OMN-17639 made the runner invocation's budget host-measured (above) precisely
+# because a wall-clock literal "measures the host, not the runner, and turns
+# host load into a push-blocking false red" -- see
+# `test_no_runner_invocation_carries_a_bare_wall_clock_timeout`, whose own
+# docstring records that "the virgin proofs only fail on a loaded host".
+#
+# That repair was incomplete on the path it exists for. pytest-timeout is the
+# OUTER limit and it fires while the inner budget is still counting. The
+# governed pre-push remote leg runs the suite with a flat `--timeout=60
+# --timeout-method=signal` (read live from the h105 run's `argv.txt`,
+# 2026-09-04), and 60s is below `_RUN_BUDGET_FLOOR_SECONDS` (180.0) -- so on
+# that leg NO measured budget could ever be exercised, and a `_run` proof died
+# in `subprocess.communicate` rather than on anything it asserts.
+#
+# Measured: the two live virgin proofs failed on h105 (10-core M4, `-n4
+# --dist=loadgroup`, 27276 tests) in three consecutive runs at `d3f9c2ea2686`
+# and PASSED on that same host at `29d71d16dc80` against a byte-identical
+# migration corpus -- load, not content. Standalone on an unloaded host they
+# take ~63s each, i.e. they straddle the 60s line.
+#
+# Derived, never guessed, for the same reason the inner budget is: the largest
+# budget an invocation may consume, the probe that measures it, and a finite
+# scheduling/teardown margin. It is an upper bound a healthy run never
+# approaches -- a genuine hang still fails, it just fails on the runner's own
+# ceiling instead of below its floor.
+_RUNNER_PROOF_PYTEST_TIMEOUT_SECONDS = (
+    _RUN_BUDGET_CEILING_SECONDS
+    + (_BUDGET_PROBE_ROUND_TRIPS * _BUDGET_PROBE_ROUND_TRIP_TIMEOUT_SECONDS)
+    + _PYTEST_TIMEOUT_SCHEDULING_MARGIN_SECONDS
+)
+
+
+def _psql_round_trip_seconds(target: PgTarget) -> float | None:
+    """Wall time for ``_BUDGET_PROBE_ROUND_TRIPS`` trivial ``psql`` calls, now.
+
+    Deliberately NOT ``_psql``: that helper is ``check=True`` with no timeout,
+    so a wedged cluster would hang the probe forever and replace a bounded
+    false red with an unbounded one. Returns ``None`` on any failure, which the
+    caller reads as "no measurement" and falls back to the floor.
+    """
+    psql = _find_pg_binary("psql") or "psql"
+    argv = [
+        psql,
+        "-h",
+        target.host,
+        "-p",
+        str(target.port),
+        "-U",
+        target.user,
+        "-d",
+        target.dbname,
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-tAc",
+        "SELECT 1",
+    ]
+    start = time.monotonic()
+    for _ in range(_BUDGET_PROBE_ROUND_TRIPS):
+        try:
+            probe = subprocess.run(
+                argv,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=_BUDGET_PROBE_ROUND_TRIP_TIMEOUT_SECONDS,
+                env=target.env(),
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+        if probe.returncode != 0:
+            return None
+    return time.monotonic() - start
+
+
+def _sql_file_count(migrations: Path) -> int:
+    """How many SQL files the runner will actually iterate over this tree."""
+    return sum(1 for _ in migrations.rglob("*.sql"))
+
+
+def _runner_budget_seconds(probe_seconds: float | None, sql_files: int) -> float:
+    """Seconds to allow the shipped runner, derived from a live host probe.
+
+    ``probe_seconds`` is the cost of ``_BUDGET_PROBE_ROUND_TRIPS`` psql round
+    trips measured moments ago; ``sql_files`` is the size of the tree. Any
+    degenerate input (no measurement, non-finite, non-positive, empty tree)
+    yields the floor rather than a nonsense budget -- the floor is the old
+    behaviour, so falling back can only ever restore it.
+    """
+    if (
+        probe_seconds is None
+        or not math.isfinite(probe_seconds)
+        or probe_seconds <= 0.0
+        or sql_files <= 0
+    ):
+        return _RUN_BUDGET_FLOOR_SECONDS
+    per_round_trip = probe_seconds / _BUDGET_PROBE_ROUND_TRIPS
+    expected = sql_files * _PSQL_ROUND_TRIPS_PER_MIGRATION_ENVELOPE * per_round_trip
+    budget = expected * _RUN_BUDGET_MARGIN
+    return min(_RUN_BUDGET_CEILING_SECONDS, max(_RUN_BUDGET_FLOOR_SECONDS, budget))
+
+
+def _run(
+    runner: Path,
+    target: PgTarget,
+    migrations: Path,
+    node_db_name: str,
+    lane: str | None = None,
+) -> subprocess.CompletedProcess[str]:
+    budget = _runner_budget_seconds(
+        _psql_round_trip_seconds(target), _sql_file_count(migrations)
+    )
+    return subprocess.run(
+        ["/bin/sh", str(runner)],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=budget,
+        env=_runner_env(target, migrations, node_db_name, lane),
+    )
+
+
+# --------------------------------------------------------------------------
+# OMN-17639 — the budget derivation, proved without a database.
+# --------------------------------------------------------------------------
+# Every (probe, files, run) row measured for this ticket, verbatim from the
+# harness logs quoted in the writeup above `_psql_round_trip_seconds`. They are
+# ASSERTED against, not merely cited, so a future re-fit of
+# `_PSQL_ROUND_TRIPS_PER_MIGRATION_ENVELOPE` that stops bounding the runner
+# fails here rather than silently re-arming the false red.
+#
+# probe_seconds is the wall time of `_BUDGET_PROBE_ROUND_TRIPS` round trips, so
+# these are directly `_runner_budget_seconds` inputs — no restating at use.
+_MEASURED_RUNS: tuple[tuple[str, float, int, float], ...] = (
+    ("real_registration_tree rep0", 2.360, 6, 18.899),
+    ("real_registration_tree rep1", 2.616, 6, 6.238),
+    ("real_registration_tree rep2", 1.230, 6, 7.944),
+    ("node_tree rep0", 1.145, 15, 13.612),
+    ("node_tree rep1", 0.711, 15, 15.229),
+    ("node_tree rep2", 1.385, 15, 13.959),
+    ("forward tree rep0 (load ~60-76)", 2.072, 239, 457.479),
+    ("forward tree rep1 (load ~60-76)", 1.670, 239, 503.305),
+    ("forward tree rep2 (load ~60-76)", 3.663, 239, 344.785),
+    ("forward tree, load 123 (paired harness)", 2.332, 239, 888.00),
+)
+_MEASURED_FULL_TREE_SQL_FILES = 239
+
+
+@pytest.mark.unit
+def test_the_committed_envelope_is_never_optimistic_about_a_measured_run() -> None:
+    """The envelope must BOUND every row measured, not fit any one of them.
+
+    The first revision of this block committed 7.4 — the ratio of the first row
+    alone — and asserted it to +/-5%. Rows two through four of the same harness
+    already falsified that, so the assertion here is the weaker true one: for
+    every row, the modelled cost is at least the cost actually observed.
+    """
+    optimistic: list[str] = []
+    for label, probe, files, run in _MEASURED_RUNS:
+        per_round_trip = probe / _BUDGET_PROBE_ROUND_TRIPS
+        modelled = files * _PSQL_ROUND_TRIPS_PER_MIGRATION_ENVELOPE * per_round_trip
+        if modelled < run:
+            optimistic.append(
+                f"{label}: modelled {modelled:.1f}s < measured {run:.1f}s"
+            )
+    assert not optimistic, (
+        "_PSQL_ROUND_TRIPS_PER_MIGRATION_ENVELOPE no longer bounds every "
+        "measured run — it is an envelope, not a fit, so raise it to cover the "
+        "row(s) below rather than widening a tolerance:\n" + "\n".join(optimistic)
+    )
+
+
+@pytest.mark.unit
+def test_every_measured_run_fits_its_derived_budget_with_2x_headroom() -> None:
+    """The regression this ticket exists for, stated as an assertion over the
+    whole corpus rather than one row of it."""
+    tight: list[str] = []
+    for label, probe, files, run in _MEASURED_RUNS:
+        budget = _runner_budget_seconds(probe, files)
+        if budget < run * 2.0:
+            tight.append(f"{label}: budget {budget:.1f}s < 2x measured {run:.1f}s")
+    assert not tight, (
+        "a measured run no longer sits inside its derived budget with 2x "
+        "headroom:\n" + "\n".join(tight)
+    )
+
+
+@pytest.mark.unit
+def test_the_old_constant_failed_every_full_tree_run_that_was_measured() -> None:
+    """Guards against the corpus going vacuous.
+
+    If every measured row ever drops back under 180s, these assertions stop
+    describing a defect and the whole derivation is unmotivated — that should
+    surface as a red test demanding a re-measure, not as quiet decoration.
+    """
+    full_tree = [
+        (label, run)
+        for label, _probe, files, run in _MEASURED_RUNS
+        if files == _MEASURED_FULL_TREE_SQL_FILES
+    ]
+    assert len(full_tree) >= 4, "the full-tree corpus lost rows"
+    for label, run in full_tree:
+        assert run > _RUN_BUDGET_FLOOR_SECONDS, (
+            f"{label} ({run:.1f}s) no longer exceeds the old 180s constant, so "
+            "the corpus no longer demonstrates the defect — re-measure"
+        )
+
+
+@pytest.mark.unit
+def test_the_round_trip_ratio_is_not_load_invariant() -> None:
+    """The finding that forced an envelope instead of a fit, pinned.
+
+    Across the four full-tree rows the implied round-trips-per-file ratio spans
+    more than 3x, and the row with the SLOWEST probe produced the FASTEST run.
+    A future author who re-fits the constant to one fresh measurement should
+    fail here and read the writeup, not ship a tighter number.
+    """
+    ratios = [
+        run / (files * (probe / _BUDGET_PROBE_ROUND_TRIPS))
+        for _label, probe, files, run in _MEASURED_RUNS
+        if files == _MEASURED_FULL_TREE_SQL_FILES
+    ]
+    assert max(ratios) / min(ratios) > 3.0, (
+        "the full-tree rows now agree closely enough that a fitted constant "
+        f"would be defensible ({min(ratios):.2f}..{max(ratios):.2f}) — that is "
+        "a real change in the data, so re-read the writeup before acting on it"
+    )
+    assert max(ratios) < _PSQL_ROUND_TRIPS_PER_MIGRATION_ENVELOPE, (
+        "the envelope must sit strictly above the worst observed ratio "
+        f"({max(ratios):.2f}), otherwise it is a fit wearing an envelope's name"
+    )
+
+
+@pytest.mark.unit
+def test_budget_scales_with_host_slowness() -> None:
+    """Twice as slow a host buys twice the budget — that is the whole point."""
+    files = 100
+    fast = _runner_budget_seconds(2.0, files)
+    slow = _runner_budget_seconds(4.0, files)
+    assert _RUN_BUDGET_FLOOR_SECONDS < fast < slow < _RUN_BUDGET_CEILING_SECONDS, (
+        f"both budgets must land strictly inside the clamps for this to test "
+        f"scaling, got fast={fast} slow={slow}"
+    )
+    assert slow == pytest.approx(fast * 2.0)
+
+
+@pytest.mark.unit
+def test_budget_scales_with_tree_size() -> None:
+    """A tree that grows gets a budget that grows with it.
+
+    The old constant did not: every node migration added to
+    ``docker/migrations/forward`` silently ate margin until there was none.
+    """
+    probe = 2.0
+    small = _runner_budget_seconds(probe, 60)
+    large = _runner_budget_seconds(probe, 120)
+    assert _RUN_BUDGET_FLOOR_SECONDS < small < large < _RUN_BUDGET_CEILING_SECONDS
+    assert large == pytest.approx(small * 2.0)
+
+
+@pytest.mark.unit
+def test_a_fast_host_never_dips_below_the_pre_ticket_constant() -> None:
+    """The derivation may only ever widen. An idle host that models out to a
+    couple of seconds still gets the old 180s, so no leg becomes tighter than
+    it was before this change."""
+    assert _runner_budget_seconds(0.05, 6) == _RUN_BUDGET_FLOOR_SECONDS
+    assert _runner_budget_seconds(0.001, 1) == _RUN_BUDGET_FLOOR_SECONDS
+
+
+@pytest.mark.unit
+def test_an_absurd_probe_is_clamped_so_a_hung_runner_still_fails() -> None:
+    """A derived budget that can run away is a hang that never surfaces."""
+    assert _runner_budget_seconds(100.0, 239) == _RUN_BUDGET_CEILING_SECONDS
+    assert _runner_budget_seconds(1e9, 1) == _RUN_BUDGET_CEILING_SECONDS
+    assert math.isfinite(_RUN_BUDGET_CEILING_SECONDS)
+    assert _RUN_BUDGET_CEILING_SECONDS > _RUN_BUDGET_FLOOR_SECONDS
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "probe",
+    [None, 0.0, -1.0, float("nan"), float("inf"), float("-inf")],
+)
+def test_a_degenerate_probe_falls_back_to_the_floor(probe: float | None) -> None:
+    """No measurement is not a licence to invent one. ``None`` (probe failed),
+    zero (impossibly fast — a broken clock), negative, and the non-finite
+    values all resolve to the pre-ticket behaviour rather than to 0, inf, or a
+    ZeroDivisionError."""
+    assert _runner_budget_seconds(probe, 239) == _RUN_BUDGET_FLOOR_SECONDS
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("files", [0, -1])
+def test_an_empty_tree_falls_back_to_the_floor(files: int) -> None:
+    assert _runner_budget_seconds(2.0, files) == _RUN_BUDGET_FLOOR_SECONDS
+
+
+@pytest.mark.unit
+def test_the_floor_is_exactly_the_pre_ticket_constant() -> None:
+    """Pinned deliberately: the floor's job is to make this change incapable of
+    regressing any leg, which only holds while it equals the old literal."""
+    assert _RUN_BUDGET_FLOOR_SECONDS == 180.0
+
+
+@pytest.mark.unit
+def test_sql_file_count_sees_nested_node_migrations(tmp_path: Path) -> None:
+    """The count must reach into ``nodes/<node>/`` — that subtree is 150 of the
+    239 files in the real corpus, so a non-recursive count would under-budget
+    the very legs that time out."""
+    (tmp_path / "001_flat.sql").write_text("SELECT 1;\n")
+    node_dir = tmp_path / "nodes" / "node_example"
+    node_dir.mkdir(parents=True)
+    (node_dir / "0000_create.sql").write_text("SELECT 1;\n")
+    (node_dir / "0001_alter.sql").write_text("SELECT 1;\n")
+    (tmp_path / "notes.md").write_text("not sql\n")
+    assert _sql_file_count(tmp_path) == 3
+
+
+@pytest.mark.unit
+def test_the_probe_reports_no_measurement_rather_than_hanging() -> None:
+    """Aimed at a port nothing is listening on. ``_psql`` would have raised
+    ``CalledProcessError`` from ``check=True``; the probe must instead return
+    ``None`` so the caller lands on the floor."""
+    dead = PgTarget(
+        host="127.0.0.1",
+        port=_free_port(),
+        user="postgres",
+        password="postgres",
+        dbname="postgres",
+    )
+    started = time.monotonic()
+    assert _psql_round_trip_seconds(dead) is None
+    assert time.monotonic() - started < _BUDGET_PROBE_ROUND_TRIP_TIMEOUT_SECONDS, (
+        "a refused connection must fail fast, not burn the per-round-trip timeout"
+    )
+
+
+@pytest.mark.unit
+def test_no_runner_invocation_carries_a_bare_wall_clock_timeout() -> None:
+    """Ratchet. ``timeout=180`` is one edit away from coming back, and it would
+    come back GREEN — the virgin proofs only fail on a loaded host.
+
+    Parsed rather than grepped, and scoped to every ``subprocess`` call in this
+    module that names the runner rather than to ``_run``'s source text alone:
+    the defect is "a runner invocation carries a wall-clock literal", and a
+    second invocation added beside ``_run`` would carry it just as well. The
+    ``check_migrations_complete.sh`` healthcheck below is deliberately out of
+    scope — nothing in this ticket measured it, and extending the rule to it
+    unmeasured would install exactly the guessed number this change removes.
+    """
+    module = ast.parse(Path(__file__).read_text(encoding="utf-8"))
+    offenders: list[str] = []
+    for node in ast.walk(module):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if not (
+            isinstance(func, ast.Attribute)
+            and func.attr in {"run", "Popen"}
+            and isinstance(func.value, ast.Name)
+            and func.value.id == "subprocess"
+        ):
+            continue
+        if not {n.id for n in ast.walk(node) if isinstance(n, ast.Name)} & {
+            "RUNNER",
+            "runner",
+        }:
+            continue
+        timeout = next((kw.value for kw in node.keywords if kw.arg == "timeout"), None)
+        if timeout is None:
+            offenders.append(f"line {node.lineno}: runner invocation with no timeout=")
+        elif isinstance(timeout, ast.Constant) and isinstance(
+            timeout.value, (int, float)
+        ):
+            offenders.append(
+                f"line {node.lineno}: bare timeout={timeout.value!r} — the budget "
+                "must come from _runner_budget_seconds(), which measures the host"
+            )
+    assert not offenders, (
+        "a runner invocation regained a hardcoded wall-clock budget, which is "
+        "the OMN-17639 defect: it measures the host, not the runner, and turns "
+        "host load into a push-blocking false red.\n" + "\n".join(offenders)
+    )
+
+
+@pytest.mark.unit
+def test_runner_proof_pytest_timeout_covers_probe_runner_and_teardown() -> None:
+    """The outer timeout must outlive one complete, bounded ``_run`` call.
+
+    The bare sum of the inner ceiling and the probe is the cost of the work
+    itself. It leaves nothing for the interpreter to schedule the last poll,
+    drain the pipes and tear the fixture down, so a run that consumed its
+    whole measured budget is killed by the outer limit during cleanup -- the
+    OMN-17639 false red, one layer out. A finite, positive margin is what
+    makes the outer bound a ceiling rather than a tie.
+    """
+    bare_bound = _RUN_BUDGET_CEILING_SECONDS + (
+        _BUDGET_PROBE_ROUND_TRIPS * _BUDGET_PROBE_ROUND_TRIP_TIMEOUT_SECONDS
+    )
+    assert math.isfinite(_RUNNER_PROOF_PYTEST_TIMEOUT_SECONDS)
+    assert _PYTEST_TIMEOUT_SCHEDULING_MARGIN_SECONDS > 0.0
+    assert math.isfinite(_PYTEST_TIMEOUT_SCHEDULING_MARGIN_SECONDS)
+    assert (
+        bare_bound + _PYTEST_TIMEOUT_SCHEDULING_MARGIN_SECONDS
+        == _RUNNER_PROOF_PYTEST_TIMEOUT_SECONDS
+    )
+    assert bare_bound < _RUNNER_PROOF_PYTEST_TIMEOUT_SECONDS
+
+
+@pytest.mark.unit
+def test_runner_proof_timeout_marker_overrides_only_the_cli_default(
+    pytester: pytest.Pytester,
+) -> None:
+    """A marked runner proof must outlive the governed ``--timeout=60`` leg.
+
+    Behavioural, not structural: it runs pytest-timeout for real and reads the
+    resolved per-item setting back, so the ratchet above is proven to buy the
+    thing it claims. The unmarked companion is the positive control -- without
+    it, a build of pytest-timeout that ignored the CLI default entirely would
+    pass this test while leaving every unmarked test unbounded.
+    """
+    pytester.makeconftest(
+        """
+def pytest_timeout_set_timer(item, settings):
+    print(f"RESOLVED {item.name} {settings.timeout}")
+    return True
+"""
+    )
+    pytester.makepyfile(
+        f"""
+import pytest
+
+@pytest.mark.timeout({_RUNNER_PROOF_PYTEST_TIMEOUT_SECONDS})
+def test_runner_proof_shape():
+    pass
+
+def test_ordinary_shape():
+    pass
+"""
+    )
+    result = pytester.runpytest("--timeout=60", "--timeout-method=signal", "-s")
+    result.assert_outcomes(passed=2)
+    output = result.stdout.str()
+    assert (
+        "RESOLVED test_runner_proof_shape "
+        f"{_RUNNER_PROOF_PYTEST_TIMEOUT_SECONDS}" in output
+    )
+    assert "RESOLVED test_ordinary_shape 60.0" in output
+
+
+def _timeout_marker_arg(func_node: ast.FunctionDef) -> ast.expr | None:
+    """The single argument of ``@pytest.mark.timeout(...)`` on ``func_node``,
+    or None when the decorator is absent or carries no positional argument."""
+    for deco in func_node.decorator_list:
+        if not isinstance(deco, ast.Call):
+            continue
+        func = deco.func
+        if (
+            isinstance(func, ast.Attribute)
+            and func.attr == "timeout"
+            and isinstance(func.value, ast.Attribute)
+            and func.value.attr == "mark"
+        ):
+            return deco.args[0] if deco.args else None
+    return None
+
+
+@pytest.mark.unit
+def test_every_runner_proof_outlives_the_suite_wide_pytest_timeout() -> None:
+    """The companion ratchet (OMN-17923). A host-measured INNER budget is dead
+    code on any leg whose OUTER pytest timeout is tighter than it.
+
+    The governed pre-push remote leg runs ``--timeout=60
+    --timeout-method=signal``, below ``_RUN_BUDGET_FLOOR_SECONDS`` (180.0). So
+    before this ratchet every ``_run`` proof was capped at 60s there no matter
+    what the probe measured: it died in ``subprocess.communicate`` rather than
+    on anything it asserts, and the OMN-17639 repair could never take effect on
+    the one host class it was written for. Two of these proofs did exactly that
+    three runs in a row on h105 while passing on the same host earlier the same
+    day against a byte-identical corpus.
+
+    Rule: a test that calls ``_run`` carries the full explicit
+    ``pytest.mark.timeout`` outer bound. Dropping the marker, shrinking it back
+    under the ceiling, or dropping the finite teardown margin fails HERE --
+    deterministically, on every host -- instead of as a false red on whichever
+    host happens to be loaded that night.
+
+    Exact equality, not a lower bound (OMN-17949): a marker set ABOVE the
+    derived bound is just as much a defect, because it re-introduces a
+    hand-picked wall clock that no longer tracks the measured budget.
+
+    The eight proofs against small synthetic trees are in scope with the two
+    live ones deliberately: they carry the identical structural defect and are
+    green today only because their trees are small.
+    """
+    module = ast.parse(Path(__file__).read_text(encoding="utf-8"))
+    constants = {
+        "_RUN_BUDGET_CEILING_SECONDS": _RUN_BUDGET_CEILING_SECONDS,
+        "_RUN_BUDGET_FLOOR_SECONDS": _RUN_BUDGET_FLOOR_SECONDS,
+        "_BUDGET_PROBE_ROUND_TRIPS": _BUDGET_PROBE_ROUND_TRIPS,
+        "_BUDGET_PROBE_ROUND_TRIP_TIMEOUT_SECONDS": (
+            _BUDGET_PROBE_ROUND_TRIP_TIMEOUT_SECONDS
+        ),
+        "_PYTEST_TIMEOUT_SCHEDULING_MARGIN_SECONDS": (
+            _PYTEST_TIMEOUT_SCHEDULING_MARGIN_SECONDS
+        ),
+        "_RUNNER_PROOF_PYTEST_TIMEOUT_SECONDS": (_RUNNER_PROOF_PYTEST_TIMEOUT_SECONDS),
+    }
+    offenders: list[str] = []
+    proofs = 0
+
+    for node in ast.walk(module):
+        if not (isinstance(node, ast.FunctionDef) and node.name.startswith("test_")):
+            continue
+        if not any(
+            isinstance(c, ast.Call)
+            and isinstance(c.func, ast.Name)
+            and c.func.id == "_run"
+            for c in ast.walk(node)
+        ):
+            continue
+        proofs += 1
+
+        arg = _timeout_marker_arg(node)
+        if arg is None:
+            offenders.append(
+                f"line {node.lineno}: {node.name} calls _run() with no "
+                "pytest.mark.timeout -- the governed remote leg's suite-wide "
+                "--timeout=60 caps it below the runner's own "
+                f"{_RUN_BUDGET_FLOOR_SECONDS:.0f}s budget floor"
+            )
+            continue
+
+        try:
+            # Resolved against THIS module's constants, so a derived expression
+            # is checked by VALUE rather than trusted by shape.
+            marked = float(
+                eval(  # noqa: S307 - AST parsed from this very file
+                    compile(ast.Expression(arg), "<ratchet>", "eval"),
+                    {"__builtins__": {}},
+                    dict(constants),
+                )
+            )
+        except (NameError, TypeError, ValueError, ZeroDivisionError) as exc:
+            offenders.append(
+                f"line {node.lineno}: {node.name} carries a timeout marker this "
+                f"ratchet cannot resolve ({exc!r}); express it from the module's "
+                "budget constants"
+            )
+            continue
+
+        if marked != _RUNNER_PROOF_PYTEST_TIMEOUT_SECONDS:
+            offenders.append(
+                f"line {node.lineno}: {node.name} carries "
+                f"pytest.mark.timeout({marked:.0f}), not the full runner-proof "
+                f"outer bound {_RUNNER_PROOF_PYTEST_TIMEOUT_SECONDS:.0f} -- the "
+                "outer limit can still bind before the measured budget and its "
+                "teardown complete"
+            )
+
+    assert proofs, "no _run proofs found; this ratchet has stopped watching anything"
+    assert not offenders, (
+        "a _run proof can be killed by the suite-wide pytest timeout before its "
+        "host-measured budget expires, reintroducing the OMN-17639 false red "
+        "through the outer limit instead of the inner one.\n" + "\n".join(offenders)
+    )
+
+
+@pytest.mark.unit
+def test_the_live_runner_call_actually_uses_the_measured_path() -> None:
+    """The ratchet above proves the literal is gone. This proves what replaced
+    it is the MEASURED path — that the budget is derived from a probe taken
+    against this cluster and a count taken of this tree, and not from a helper
+    that quietly returns a constant. Those are two different regressions and
+    both have to be shut."""
+    module = ast.parse(Path(__file__).read_text(encoding="utf-8"))
+    run_fn = next(
+        node
+        for node in module.body
+        if isinstance(node, ast.FunctionDef) and node.name == "_run"
+    )
+    derivations = [
+        call
+        for call in ast.walk(run_fn)
+        if isinstance(call, ast.Call)
+        and isinstance(call.func, ast.Name)
+        and call.func.id == "_runner_budget_seconds"
+    ]
+    assert len(derivations) == 1, "_run must derive exactly one budget"
+    called = {
+        inner.func.id
+        for inner in ast.walk(derivations[0])
+        if isinstance(inner, ast.Call) and isinstance(inner.func, ast.Name)
+    }
+    assert {"_psql_round_trip_seconds", "_sql_file_count"} <= called, (
+        "the budget must be derived from a probe of the cluster this invocation "
+        "is about to drive AND a count of the tree it is about to walk; got "
+        f"{sorted(called)}"
+    )
+
+
+def _table_exists(target: PgTarget, dbname: str, table: str) -> bool:
+    scoped = PgTarget(
+        host=target.host,
+        port=target.port,
+        user=target.user,
+        password=target.password,
+        dbname=dbname,
+    )
+    return _psql(scoped, f"SELECT to_regclass('public.{table}') IS NOT NULL") == "t"
+
+
+def _ledger_ids(target: PgTarget, dbname: str) -> set[str]:
+    scoped = PgTarget(
+        host=target.host,
+        port=target.port,
+        user=target.user,
+        password=target.password,
+        dbname=dbname,
+    )
+    rows = _psql(
+        scoped,
+        "SELECT version FROM platform_catalog.schema_migrations "
+        "WHERE migration_stream LIKE 'node:%'",
+    )
+    return {line.strip() for line in rows.splitlines() if line.strip()}
+
+
+@pytest.mark.integration
+@pytest.mark.timeout(_RUNNER_PROOF_PYTEST_TIMEOUT_SECONDS)
+def test_shipped_runner_skips_and_records_fenced_node_migrations(
+    pg_target: PgTarget,
+    node_tree: Path,
+    node_db: str,
+) -> None:
+    """GREEN: every fenced id is skipped, counted, never applied, never recorded.
+
+    The unfenced control in the same node directory IS applied — without it the
+    "no fenced marker exists" assertion would pass on a runner that never
+    reached the node loop.
+    """
+    result = _run(RUNNER, pg_target, node_tree, node_db)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    for fenced in EXPECTED_FENCE:
+        assert "SKIP (operator-gated" in result.stdout and fenced in result.stdout, (
+            f"{fenced} was not reported as operator-gated:\n{result.stdout}"
+        )
+        assert not _table_exists(pg_target, node_db, _marker_for(fenced)), (
+            f"FENCE BREACH: {fenced} was APPLIED — its DDL took effect"
+        )
+
+    # The skip is RECORDED in the run summary, and only there.
+    assert f"{len(EXPECTED_FENCE)} node skipped" in result.stdout, (
+        f"expected {len(EXPECTED_FENCE)} node skips in the summary line:\n"
+        f"{result.stdout}"
+    )
+
+    ledger = _ledger_ids(pg_target, node_db)
+    assert not (ledger & set(EXPECTED_FENCE)), (
+        "a fenced id was written to schema_migrations; un-fencing it later "
+        f"would then be a silent no-op: {sorted(ledger & set(EXPECTED_FENCE))}"
+    )
+
+    assert _table_exists(pg_target, node_db, _marker_for(UNFENCED_CONTROL_ID)), (
+        "the unfenced control migration was NOT applied — the node loop did not "
+        "run, so the fenced-ids-absent assertions above are vacuous"
+    )
+    assert UNFENCED_CONTROL_ID in ledger, (
+        "the unfenced control was applied but not recorded — the ledger write "
+        "path is broken, so 'no fenced row' proves nothing"
+    )
+
+
+@pytest.mark.integration
+@pytest.mark.timeout(_RUNNER_PROOF_PYTEST_TIMEOUT_SECONDS)
+def test_fence_free_runner_applies_the_fenced_migration(
+    pg_target: PgTarget,
+    node_tree: Path,
+    node_db: str,
+    tmp_path: Path,
+) -> None:
+    """RED control: strip the fence and the ``.201`` breach reproduces exactly.
+
+    Derived mechanically from the shipped runner, so this control cannot drift
+    away from the artifact it is the control for.
+    """
+    legacy = tmp_path / "run-forward-migrations.prefence.sh"
+    legacy.write_text(strip_fence(_runner_text()))
+
+    result = _run(legacy, pg_target, node_tree, node_db)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    applied = [
+        f for f in EXPECTED_FENCE if _table_exists(pg_target, node_db, _marker_for(f))
+    ]
+    assert applied == list(EXPECTED_FENCE), (
+        "the fence-free runner was expected to apply EVERY gated migration (the "
+        "OMN-15336 defect, reproduced live on the .201 dev and stability-test "
+        f"lanes) but applied only {applied}. The GREEN proof above cannot "
+        "distinguish the fixed runner from this one and is vacuous.\n"
+        f"{result.stdout}"
+    )
+    ledger = _ledger_ids(pg_target, node_db)
+    assert set(EXPECTED_FENCE) <= ledger, (
+        "the fence-free runner did not record the gated ids either — the RED "
+        f"control does not reproduce the live ledger state: {sorted(ledger)}"
+    )
+    assert "operator-gated" not in result.stdout, (
+        "the fence block was not actually stripped from the RED control"
+    )
+
+
+# --------------------------------------------------------------------------
+# OMN-15379 — lane-scoped fence release. Live half.
+#
+# These drive the SHIPPED runner against a real Postgres, over the REAL
+# vendored registration SQL (not marker stubs), and answer the question from
+# the database: does node_service_registry exist, and is FORCE ROW LEVEL
+# SECURITY actually on it?
+#
+# The pair is the discriminator. A runner that ignored the lane indicator
+# entirely would fail one of the two legs whichever way it defaulted, so
+# neither leg can pass vacuously:
+#   * dev lane      -> the trio is APPLIED and relforcerowsecurity is TRUE
+#   * default lane  -> the table EXISTS (0000/0001 unfenced, OMN-17150) but
+#                      relforcerowsecurity is FALSE and there is no tenant_id
+#                      column, because 0002 is still fenced
+#
+# The default leg used to assert the table was ABSENT. That was the OMN-17150
+# defect written down as an invariant: the migration gate requires the table,
+# so "absent on every non-dev lane" and "the gate reports HEALTHY" could never
+# both be true on a cold boot. The discriminator is now FORCE RLS, which is
+# what ruling 15 was ever actually about.
+# --------------------------------------------------------------------------
+
+REGISTRATION_NODE = "node_projection_registration"
+REGISTRY_TABLE = "node_service_registry"
+VENDORED_NODES = REPO_ROOT / "docker" / "migrations" / "forward" / "nodes"
+# The SHIPPED migration-gate healthcheck, run as the container runs it. Driving
+# the real script is the point: a reimplementation of "does the table exist"
+# inside this test could not have caught OMN-17150, because the contradiction
+# was between two committed files, not between a file and a belief about it.
+GATE_HEALTHCHECK = REPO_ROOT / "scripts" / "check_migrations_complete.sh"
+
+
+@pytest.fixture
+def real_registration_tree(tmp_path: Path) -> Path:
+    """A migrations tree carrying the REAL vendored registration trio.
+
+    Marker stubs would prove the runner reached the file; they would not prove
+    FORCE ROW LEVEL SECURITY landed, which is the whole point of ruling 15. The
+    files are copied verbatim from ``docker/migrations/forward/nodes`` so this
+    can never drift from what the lab lane actually executes.
+
+    The flat migration creates the ``app_dashboard`` role, reproducing the real
+    dependency: node 0002 opens with a DO block that RAISEs unless that role
+    exists (it is created by flat migration 094 in the real corpus). Keeping the
+    dependency real means this proof also fails if that ordering breaks.
+    """
+    forward = tmp_path / "migrations" / "forward"
+    forward.mkdir(parents=True)
+    (forward / "001_create_app_dashboard_role.sql").write_text(
+        "DO $$\n"
+        "BEGIN\n"
+        "  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_dashboard') "
+        "THEN\n"
+        "    CREATE ROLE app_dashboard NOLOGIN;\n"
+        "  END IF;\n"
+        "END;\n"
+        "$$;\n"
+    )
+
+    node_dir = forward / "nodes" / REGISTRATION_NODE
+    node_dir.mkdir(parents=True)
+    copied = []
+    for member in REGISTRATION_TRIO_IDS:
+        _, node_name, filename = member.split(":", 2)
+        source = VENDORED_NODES / node_name / filename
+        assert source.is_file(), (
+            f"vendored migration {source} is missing; the id names nothing and "
+            "this proof would be vacuous"
+        )
+        (node_dir / filename).write_text(source.read_text(encoding="utf-8"))
+        copied.append(filename)
+    assert len(copied) == 3, copied
+
+    # One UNRELEASABLE delegation id in the same run, as the negative control:
+    # the dev arm releases the registration hold plus the OMN-15683 pair and
+    # nothing else, so 0023 must still be skipped even on the dev lane.
+    delegation_id = UNRELEASABLE_DELEGATION_IDS[0]
+    _, del_node, del_file = delegation_id.split(":", 2)
+    del_dir = forward / "nodes" / del_node
+    del_dir.mkdir(parents=True, exist_ok=True)
+    (del_dir / del_file).write_text(
+        f"CREATE TABLE public.{_marker_for(delegation_id)} (id INT);\n"
+    )
+    _write_fence_manifest(forward, EXPECTED_FENCE)
+    _write_grandfather_manifest(forward)
+    _write_application_ledger_contract(forward)
+    return forward
+
+
+def _relrowsecurity(target: PgTarget, dbname: str, table: str) -> tuple[bool, bool]:
+    """``(relrowsecurity, relforcerowsecurity)`` straight from ``pg_class``.
+
+    The catalog, not the migration text — "the SQL says FORCE" is not evidence
+    that FORCE is in force.
+    """
+    scoped = PgTarget(
+        host=target.host,
+        port=target.port,
+        user=target.user,
+        password=target.password,
+        dbname=dbname,
+    )
+    row = _psql(
+        scoped,
+        # S608 is suppressed on all three catalog reads in this module: the
+        # interpolated name is a module constant (REGISTRY_TABLE), never
+        # external input, and SQL has no bind-parameter form for an identifier.
+        "SELECT relrowsecurity, relforcerowsecurity FROM pg_class "  # noqa: S608
+        f"WHERE oid = to_regclass('public.{table}')",
+    )
+    enabled, forced = row.split("|")
+    return enabled == "t", forced == "t"
+
+
+@pytest.mark.integration
+@pytest.mark.timeout(_RUNNER_PROOF_PYTEST_TIMEOUT_SECONDS)
+def test_dev_lane_applies_the_registration_trio_with_force_rls(
+    pg_target: PgTarget,
+    real_registration_tree: Path,
+    node_db: str,
+) -> None:
+    """ONEX_MIGRATION_LANE=dev: the trio applies and FORCE is LIVE.
+
+    This is the acceptance for operator ruling 15 at the runner boundary — the
+    same assertion the ``.201`` lab-lane readback makes, run here against an
+    ephemeral cluster so it gates every PR rather than one machine.
+    """
+    result = _run(
+        RUNNER, pg_target, real_registration_tree, node_db, lane=DEV_LANE_VALUE
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    # Scoped to the registration half of the release set on purpose: this
+    # fixture vendors the registration trio and one delegation marker, so the
+    # OMN-15683 id (0034) is not in this tree at all. Its membership in the dev
+    # arm is pinned statically by test_dev_lane_releases_exactly_the_ruled_set,
+    # and proven by execution on the .201 dev lane; asserting it here would
+    # assert about a file this fixture never wrote.
+    for released in FENCED_REGISTRATION_IDS:
+        assert (
+            "RELEASED on lane 'dev'" in result.stdout and released in result.stdout
+        ), f"{released} was not reported as released on the dev lane:\n{result.stdout}"
+
+    assert _table_exists(pg_target, node_db, REGISTRY_TABLE), (
+        f"{REGISTRY_TABLE} does not exist — 0000 did not apply, so every "
+        "assertion below would be about a table that was never created"
+    )
+    enabled, forced = _relrowsecurity(pg_target, node_db, REGISTRY_TABLE)
+    assert enabled, f"{REGISTRY_TABLE}.relrowsecurity is false — 0002 did not apply"
+    assert forced, (
+        f"{REGISTRY_TABLE}.relforcerowsecurity is FALSE. Operator ruling 15 "
+        "makes the lab lane the FORCE proving ground; without FORCE the table "
+        "owner is exempt from the tenant policy and the lane proves nothing"
+    )
+
+    ledger = _ledger_ids(pg_target, node_db)
+    assert set(REGISTRATION_TRIO_IDS) <= ledger, (
+        "the trio was applied but not RECORDED, so the next run would "
+        f"re-apply it: {sorted(set(REGISTRATION_TRIO_IDS) - ledger)}"
+    )
+
+    # 0001's heartbeat column and 0002's tenant column both landed — proof the
+    # whole trio ran, not just the CREATE.
+    scoped = PgTarget(
+        host=pg_target.host,
+        port=pg_target.port,
+        user=pg_target.user,
+        password=pg_target.password,
+        dbname=node_db,
+    )
+    columns = set(
+        _psql(
+            scoped,
+            "SELECT column_name FROM information_schema.columns "  # noqa: S608
+            f"WHERE table_schema='public' AND table_name='{REGISTRY_TABLE}'",
+        ).splitlines()
+    )
+    assert {"last_heartbeat_at", "uptime_seconds"} <= columns, (
+        f"0001 did not apply — heartbeat columns absent: {sorted(columns)}"
+    )
+    assert "tenant_id" in columns, f"0002 did not apply — no tenant_id: {columns}"
+    policies = _psql(
+        scoped,
+        "SELECT polname FROM pg_policy "  # noqa: S608
+        f"WHERE polrelid = to_regclass('public.{REGISTRY_TABLE}')",
+    )
+    assert "tenant_isolation" in policies, (
+        f"0002's tenant_isolation policy is absent: {policies!r}"
+    )
+
+    # NEGATIVE CONTROL: the dev release is a strict subset of the fence, and
+    # 0023 is in neither ruling 15's scope nor OMN-15683's. It must still be
+    # fenced ON the dev lane.
+    delegation_id = UNRELEASABLE_DELEGATION_IDS[0]
+    assert not _table_exists(pg_target, node_db, _marker_for(delegation_id)), (
+        f"FENCE BREACH: the dev-lane release leaked to {delegation_id}, which "
+        "no operator ruling has un-gated"
+    )
+    assert delegation_id not in ledger, (
+        f"{delegation_id} was recorded on the dev lane; the release set is not "
+        "scoped to the registration trio"
+    )
+
+
+@pytest.mark.integration
+@pytest.mark.timeout(_RUNNER_PROOF_PYTEST_TIMEOUT_SECONDS)
+def test_default_lane_creates_the_registry_table_without_force_rls(
+    pg_target: PgTarget,
+    real_registration_tree: Path,
+    node_db: str,
+) -> None:
+    """No lane indicator: the table EXISTS, and FORCE RLS does not.
+
+    This assertion is inverted from what it was before OMN-17150, and the
+    inversion is the point. It used to read
+    ``assert not _table_exists(... REGISTRY_TABLE)`` under the name
+    ``test_default_lane_skips_the_trio_and_the_registry_table_is_absent`` — an
+    invariant pinning "node_service_registry does not exist on any non-dev
+    lane" while ``scripts/check_migrations_complete.sh`` simultaneously refused
+    to report HEALTHY until that same table existed. Two green surfaces, one
+    deadlock, nobody asked the two of them the same question. Cold-booting a
+    lane is what asks it, and no lane had been cold-booted between ruling 15
+    landing and 2026-08-31.
+
+    ``lane=None`` unsets the variable entirely, which is the state of
+    stability-test, prod, judge, the lakshman lane, CI, and a fresh-volume
+    ``docker compose -f docker-compose.infra.yml up`` — i.e. everything except
+    the lab lane.
+    """
+    result = _run(RUNNER, pg_target, real_registration_tree, node_db, lane=None)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    assert "RELEASED on lane" not in result.stdout, (
+        f"a lane release fired with no lane indicator set:\n{result.stdout}"
+    )
+    for held in FENCED_REGISTRATION_IDS:
+        assert "SKIP (operator-gated" in result.stdout and held in result.stdout, (
+            f"{held} was not reported as operator-gated:\n{result.stdout}"
+        )
+
+    # THE fix, asserted from the database: the CREATE is no longer fenced, so a
+    # lane with no indicator gets the table the migration gate requires.
+    assert _table_exists(pg_target, node_db, REGISTRY_TABLE), (
+        f"{REGISTRY_TABLE} does NOT exist on a default lane. The migration "
+        "gate requires it (REQUIRED_PROJECTION_TABLES), so this is the "
+        "OMN-17150 deadlock: forward-migration exits 0, the sentinel goes "
+        "TRUE, and migration-gate stays unhealthy forever"
+    )
+
+    # ...and the half that is still held is genuinely still held. Read from
+    # pg_class, not from the log: "the runner said SKIP" is not proof that FORCE
+    # is off.
+    enabled, forced = _relrowsecurity(pg_target, node_db, REGISTRY_TABLE)
+    assert not forced, (
+        f"FENCE BREACH: {REGISTRY_TABLE}.relforcerowsecurity is TRUE on a lane "
+        "with no indicator — 0002 applied unfenced, which is the one thing "
+        "OMN-17150 did not release"
+    )
+    assert not enabled, (
+        f"{REGISTRY_TABLE}.relrowsecurity is TRUE on a default lane; only 0002 "
+        "enables it and 0002 is fenced"
+    )
+
+    scoped = PgTarget(
+        host=pg_target.host,
+        port=pg_target.port,
+        user=pg_target.user,
+        password=pg_target.password,
+        dbname=node_db,
+    )
+    columns = set(
+        _psql(
+            scoped,
+            "SELECT column_name FROM information_schema.columns "  # noqa: S608
+            f"WHERE table_schema='public' AND table_name='{REGISTRY_TABLE}'",
+        ).splitlines()
+    )
+    assert {"last_heartbeat_at", "uptime_seconds"} <= columns, (
+        "the heartbeat columns are absent on a default lane — 0000 declares "
+        f"them directly, so the CREATE did not apply as expected: {sorted(columns)}"
+    )
+    assert "tenant_id" not in columns, (
+        "tenant_id is present on a default lane; only the fenced 0002 adds it"
+    )
+
+    ledger = _ledger_ids(pg_target, node_db)
+    assert not (ledger & set(FENCED_REGISTRATION_IDS)), (
+        "a fenced id was recorded on the default lane, which would make the "
+        f"eventual un-fence a silent no-op: {sorted(ledger & set(FENCED_REGISTRATION_IDS))}"
+    )
+    unfenced_trio = set(REGISTRATION_TRIO_IDS) - set(FENCED_REGISTRATION_IDS)
+    assert unfenced_trio <= ledger, (
+        "the unfenced registration ids applied but were not RECORDED, so every "
+        f"run would re-apply them: {sorted(unfenced_trio - ledger)}"
+    )
+
+
+@pytest.mark.integration
+@pytest.mark.timeout(_RUNNER_PROOF_PYTEST_TIMEOUT_SECONDS)
+def test_default_lane_cold_boot_satisfies_the_migration_gate(
+    pg_target: PgTarget,
+    real_registration_tree: Path,
+    node_db: str,
+) -> None:
+    """End-to-end reproduction of the OMN-17150 block, in CI.
+
+    The test above proves the table exists. This one asks the actual shipped
+    healthcheck — the same ``scripts/check_migrations_complete.sh`` the
+    ``migration-gate`` container runs — whether it is satisfied, because that
+    is the surface that was red on Lakshman Patel's lane while every other
+    signal was green.
+
+    RED before the OMN-17150 fence change: forward-migration exits 0 and sets
+    the sentinel TRUE, and this script still exits 1 on ``node_service_registry
+    -> f``. That is the whole defect, and it is now a test rather than a lane
+    someone has to cold-boot to discover.
+    """
+    result = _run(RUNNER, pg_target, real_registration_tree, node_db, lane=None)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Setting sentinel TRUE" in result.stdout, (
+        "the runner did not reach its sentinel step, so the gate would be red "
+        f"for an unrelated reason and this proof would be vacuous:\n{result.stdout}"
+    )
+
+    psql_dir = str(Path(_find_pg_binary("psql") or "psql").parent)
+    gate = subprocess.run(
+        ["/bin/sh", str(GATE_HEALTHCHECK)],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        env={
+            **os.environ,
+            "PATH": f"{psql_dir}{os.pathsep}{os.environ.get('PATH', '')}",
+            "POSTGRES_USER": pg_target.user,
+            "POSTGRES_PASSWORD": pg_target.password,
+            "POSTGRES_HOST": pg_target.host,
+            "POSTGRES_PORT": str(pg_target.port),
+            "POSTGRES_DB": pg_target.dbname,
+            "NODE_POSTGRES_DB": node_db,
+            # Scoped to the one table this fixture's tree can create.
+            # delegation_events is the gate's other required table and belongs
+            # to a different node; including it here would fail for a reason
+            # that has nothing to do with the fence.
+            "REQUIRED_PROJECTION_TABLES": REGISTRY_TABLE,
+        },
+    )
+    assert gate.returncode == 0, (
+        "migration-gate's healthcheck is UNSATISFIED after a clean default-lane "
+        "migration run. forward-migration reported success and set the "
+        "sentinel; the gate still refuses. That is the OMN-17150 contradiction: "
+        "the fence forbids creating a table the gate requires, so the runtime "
+        f"tier never starts.\nrunner:\n{result.stdout}\n"
+        f"gate stdout:\n{gate.stdout}\ngate stderr:\n{gate.stderr}"
+    )
+
+
+@pytest.mark.integration
+@pytest.mark.timeout(_RUNNER_PROOF_PYTEST_TIMEOUT_SECONDS)
+def test_unknown_lane_value_fails_closed_to_the_full_fence(
+    pg_target: PgTarget,
+    real_registration_tree: Path,
+    node_db: str,
+) -> None:
+    """An unrecognised lane is fenced, loudly — not silently treated as dev.
+
+    ``stability-test`` is used as the value deliberately: it is a real lane
+    name, so a runner that pattern-matched loosely (prefix, glob, "any non-empty
+    value means release") would betray itself here rather than on an obviously
+    bogus string.
+    """
+    result = _run(
+        RUNNER, pg_target, real_registration_tree, node_db, lane="stability-test"
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    # Post-OMN-17150 the discriminator is FORCE RLS, not the table's existence:
+    # 0000 is unfenced, so the table exists on every lane by design. What an
+    # unknown lane must NOT get is the still-fenced 0002.
+    _, forced = _relrowsecurity(pg_target, node_db, REGISTRY_TABLE)
+    assert not forced, (
+        "FENCE BREACH: an UNKNOWN lane value released the fenced 0002 — "
+        f"{REGISTRY_TABLE}.relforcerowsecurity is TRUE"
+    )
+    assert "RELEASED on lane" not in result.stdout, result.stdout
+    assert "unknown ONEX_MIGRATION_LANE" in result.stderr, (
+        "failing closed silently is still a silent failure — the runner must "
+        f"say it did not recognise the lane:\n{result.stderr}"
+    )
+
+
+# --------------------------------------------------------------------------
+# OMN-15336 item 4 — unclassified FORCE ROW LEVEL SECURITY guard. Live half.
+#
+# The required-fix item this closes: "Reconsider whether 0003/081/0002
+# belong in the fence list — they carry the same hazard and are currently
+# ungated on every runner." 0002 was added by OMN-15379/OMN-15349; this
+# guard is the durable mechanism so the NEXT one (there is no reason to
+# believe 0003/081 are the last) is refused instead of silently applying —
+# closing the gap the proof stage found: nothing in either runner, and
+# nothing wired into omnibase_infra CI, inspected a migration's SQL text to
+# block an unfenced FORCE ROW LEVEL SECURITY statement.
+# --------------------------------------------------------------------------
+
+UNCLASSIFIED_FORCE_RLS_CONTROL_ID = (
+    "node:node_projection_delegation:0098_unclassified_force_rls_control.sql"
+)
+
+
+@pytest.fixture
+def unclassified_force_rls_tree(tmp_path: Path) -> Path:
+    """``node_tree`` plus one migration that enables FORCE ROW LEVEL SECURITY
+    and is deliberately ABSENT from the fence manifest — the exact OMN-15336
+    item-4 scenario that produced the real, ungated 0003 and 081 incidents:
+    a live hazard with no classification at all (as opposed to a classified
+    id someone has reviewed and either held or released).
+    """
+    forward = tmp_path / "migrations" / "forward"
+    forward.mkdir(parents=True)
+    (forward / "001_noop.sql").write_text("SELECT 1;\n")
+
+    for migration_id in (*EXPECTED_FENCE, UNFENCED_CONTROL_ID):
+        _, node_name, filename = migration_id.split(":", 2)
+        node_dir = forward / "nodes" / node_name
+        node_dir.mkdir(parents=True, exist_ok=True)
+        (node_dir / filename).write_text(
+            f"CREATE TABLE public.{_marker_for(migration_id)} (id INT);\n"
+        )
+
+    _, control_node, control_filename = UNCLASSIFIED_FORCE_RLS_CONTROL_ID.split(":", 2)
+    control_dir = forward / "nodes" / control_node
+    control_dir.mkdir(parents=True, exist_ok=True)
+    marker = _marker_for(UNCLASSIFIED_FORCE_RLS_CONTROL_ID)
+    control_dir.joinpath(control_filename).write_text(
+        "-- a real DDL shape, matching the actual 0003/081 migrations: a\n"
+        "-- prose comment mentioning FORCE ROW LEVEL SECURITY must NOT alone\n"
+        "-- trip the guard (comment-blind matching), only the DDL below does.\n"
+        f"CREATE TABLE public.{marker} (id INT, tenant_id TEXT);\n"
+        f"ALTER TABLE public.{marker} ENABLE ROW LEVEL SECURITY;\n"
+        f"ALTER TABLE public.{marker} FORCE ROW LEVEL SECURITY;\n"
+    )
+
+    _write_fence_manifest(forward, EXPECTED_FENCE)
+    _write_grandfather_manifest(forward)
+    _write_application_ledger_contract(forward)
+    return forward
+
+
+@pytest.mark.integration
+@pytest.mark.timeout(_RUNNER_PROOF_PYTEST_TIMEOUT_SECONDS)
+def test_unclassified_force_rls_migration_is_refused(
+    pg_target: PgTarget,
+    unclassified_force_rls_tree: Path,
+    node_db: str,
+) -> None:
+    """RED control: a node migration enabling FORCE ROW LEVEL SECURITY with
+    no fence entry at all must be REFUSED, not applied.
+
+    Before this guard, this is exactly what happened to
+    node_projection_delegation_inference_response/0003 and
+    node_projection_savings/081 — neither was ever in the fence manifest on
+    any runner, and both applied unattended on the .201 dev lane (see the
+    module docstring's incident description and OMN-15336's required-fix
+    item 4).
+    """
+    result = _run(RUNNER, pg_target, unclassified_force_rls_tree, node_db)
+    combined = result.stdout + result.stderr
+    assert result.returncode != 0, (
+        "the runner must refuse an unclassified FORCE ROW LEVEL SECURITY "
+        f"migration, not apply it silently:\n{combined}"
+    )
+    assert UNCLASSIFIED_FORCE_RLS_CONTROL_ID in combined, (
+        f"the FATAL must name the offending migration id:\n{combined}"
+    )
+    assert "FATAL" in combined and "FORCE ROW LEVEL SECURITY" in combined, (
+        f"expected a FATAL naming the FORCE ROW LEVEL SECURITY hazard:\n{combined}"
+    )
+    assert not _table_exists(
+        pg_target, node_db, _marker_for(UNCLASSIFIED_FORCE_RLS_CONTROL_ID)
+    ), "FENCE BREACH: the unclassified FORCE RLS migration was APPLIED"
+    ledger = _ledger_ids(pg_target, node_db)
+    assert UNCLASSIFIED_FORCE_RLS_CONTROL_ID not in ledger, (
+        "a refused migration must not be recorded as applied — that would "
+        "make later classification a silent no-op"
+    )
+
+
+@pytest.mark.integration
+@pytest.mark.timeout(_RUNNER_PROOF_PYTEST_TIMEOUT_SECONDS)
+def test_guard_free_runner_applies_the_unclassified_migration(
+    pg_target: PgTarget,
+    unclassified_force_rls_tree: Path,
+    node_db: str,
+    tmp_path: Path,
+) -> None:
+    """RED control FOR the RED control: without the guard, the exact same
+    scenario reproduces the OMN-15336 item-4 incident — silent apply.
+
+    Without this, ``test_unclassified_force_rls_migration_is_refused`` could
+    be passing for an unrelated reason (a checksum mismatch, a missing
+    manifest declaration) and still look like proof the guard works.
+    """
+    legacy = tmp_path / "run-forward-migrations.preguard.sh"
+    legacy.write_text(strip_force_rls_guard(_runner_text()))
+
+    result = _run(legacy, pg_target, unclassified_force_rls_tree, node_db)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert _table_exists(
+        pg_target, node_db, _marker_for(UNCLASSIFIED_FORCE_RLS_CONTROL_ID)
+    ), (
+        "the guard-free runner was expected to apply the unclassified FORCE "
+        f"RLS migration, reproducing the item-4 incident:\n{result.stdout}"
+    )
+    ledger = _ledger_ids(pg_target, node_db)
+    assert UNCLASSIFIED_FORCE_RLS_CONTROL_ID in ledger, (
+        f"the guard-free runner did not record the migration either: {sorted(ledger)}"
+    )
+
+
+# ==============================================================================
+# OMN-15336 item 4 REPAIR (D1, empirically reproduced 2026-08-05)
+# ==============================================================================
+# Defect: the guard above fires for ANY FORCE-enabling node migration absent
+# from the operator fence, with no notion of "already part of the tree." The
+# vendored tree carries 13 FORCE-enabling node migrations; the fence
+# classifies only 4. The other 9 were ordinary, already-shipped migrations
+# that had been applying on every warm lane since before the guard existed —
+# but the guard could not distinguish them from a brand-new, unreviewed one.
+# Reproduced live: shipped runner against a virgin PG16 -> exit 1, FATAL at
+# node:node_canary_score_reducer:0002 (the first of the 9 in sort order), 1
+# node migration applied, 87 withheld. A cold lane bring-up (CI, a fresh
+# compose volume) could never converge.
+#
+# Fix: docker/migrations/forward/grandfathered-force-rls-migrations.yaml, a
+# frozen snapshot (not a rolling allowlist) of exactly those 9 ids, consulted
+# by the guard as a SECOND, independent bypass alongside the fence. See that
+# file's own header and the "FORCE ROW LEVEL SECURITY grandfather snapshot"
+# block in scripts/run-forward-migrations.sh for the full rationale.
+#
+# GUARD_INTRODUCTION_COMMIT is the commit that first shipped the unclassified-
+# FORCE-RLS guard; every grandfathered id must have existed in the tree at its
+# PARENT (i.e. immediately before the guard could ever have fired for it).
+#
+# OMN-15831: this constant has now rotted to an unreachable commit TWICE
+# (bbac5205 -> 7a957a0a -> 90cd78a5) because each prior pin named a #2666
+# BRANCH commit that squash-merge + branch deletion later orphaned (no ref
+# contains it, `merge-base --is-ancestor` fails). The value below is the
+# #2666 SQUASH MERGE commit itself, which is permanent history on `dev` and
+# cannot be orphaned by branch cleanup the way a branch-tip commit can.
+# `test_guard_introduction_commit_is_reachable` (below) makes this a fail-
+# closed, self-diagnosing assertion instead of a silent future recurrence.
+GUARD_INTRODUCTION_COMMIT = "3bc7fcaf2e0858b04dda5f3fd3e695a7df88b754"
+
+
+def _sql_declares_unclassified_force_rls(sql_text: str) -> bool:
+    """Python mirror of migration_declares_unclassified_force_rls()'s pipeline.
+
+    Kept as an independent re-implementation (not a subprocess call into the
+    shell function) so a bug shared between the shell predicate and this
+    oracle cannot hide a mis-scoped grandfather entry from both.
+    """
+    stripped = re.sub(r"--.*$", "", sql_text, flags=re.MULTILINE)
+    force_lines = [
+        line
+        for line in stripped.splitlines()
+        if re.search(r"FORCE[ \t]+ROW[ \t]+LEVEL[ \t]+SECURITY", line, re.IGNORECASE)
+    ]
+    qualifying = [
+        line
+        for line in force_lines
+        if not re.search(
+            r"NO[ \t]+FORCE[ \t]+ROW[ \t]+LEVEL[ \t]+SECURITY", line, re.IGNORECASE
+        )
+    ]
+    return len(qualifying) > 0
+
+
+def test_grandfather_manifest_pins_the_snapshot_baseline() -> None:
+    """The ratchet: the grandfather manifest's content is pinned, exact and IN
+    ORDER. Growing this list — the only way to widen what the guard silently
+    lets through — requires editing BOTH the committed manifest AND this pin
+    in the same PR, exactly the friction EXPECTED_FENCE gives the operator
+    fence. A manifest edit that is not matched here fails CI closed.
+    """
+    found = grandfather_manifest_ids()
+    assert found == EXPECTED_GRANDFATHER, (
+        "grandfathered-force-rls-migrations.yaml drifted from the pinned "
+        "snapshot baseline. If this is a deliberate change it must be "
+        "justified same as any other change to what the FORCE-RLS guard lets "
+        "through unclassified — update EXPECTED_GRANDFATHER in the same PR.\n"
+        f"  found:    {found}\n"
+        f"  expected: {EXPECTED_GRANDFATHER}"
+    )
+
+
+def test_grandfather_manifest_shell_parse_matches_yaml_parse() -> None:
+    """The sed one-liner the shipped runner actually executes must extract the
+    same ids as a real YAML parse — same hazard class as the fence manifest's
+    own parity test.
+    """
+    text = GRANDFATHER_MANIFEST_PATH.read_text(encoding="utf-8")
+    assert parse_shell_manifest_ids(text) == grandfather_manifest_ids()
+
+
+def test_every_grandfathered_id_names_a_real_vendored_sql_file() -> None:
+    for grandfathered in EXPECTED_GRANDFATHER:
+        _, node_name, filename = grandfathered.split(":", 2)
+        path = (
+            REPO_ROOT
+            / "docker"
+            / "migrations"
+            / "forward"
+            / "nodes"
+            / node_name
+            / filename
+        )
+        assert path.is_file(), f"grandfathered id names a missing file: {path}"
+
+
+def test_grandfathered_ids_actually_declare_force_rls() -> None:
+    """Every grandfathered id must genuinely need grandfathering — i.e. its
+    vendored SQL must trip the same predicate the guard tests. An id that
+    does NOT declare FORCE ROW LEVEL SECURITY has no business on this list;
+    it would be dead weight at best and a laundering vector at worst (padding
+    the snapshot with ids that don't need it, making a REAL future addition
+    look like "just one more" in review).
+    """
+    for grandfathered in EXPECTED_GRANDFATHER:
+        _, node_name, filename = grandfathered.split(":", 2)
+        path = (
+            REPO_ROOT
+            / "docker"
+            / "migrations"
+            / "forward"
+            / "nodes"
+            / node_name
+            / filename
+        )
+        assert _sql_declares_unclassified_force_rls(path.read_text(encoding="utf-8")), (
+            f"{grandfathered} is grandfathered but its SQL does not declare "
+            "FORCE ROW LEVEL SECURITY — remove it from the snapshot"
+        )
+
+
+def test_guard_introduction_commit_is_reachable() -> None:
+    """OMN-15831: fail closed with a DIAGNOSIS, not a mystery, the moment
+    GUARD_INTRODUCTION_COMMIT next rots.
+
+    This pin has already gone unreachable twice (bbac5205 -> 7a957a0a ->
+    90cd78a5) because each prior value named a PR-branch commit that a later
+    squash-merge + branch deletion orphaned — `git show <pin>~1:<path>` then
+    fails on any fresh checkout with no stale local objects, and the bare
+    `returncode == 0` assert in test_grandfathered_ids_predate_the_guard_commit
+    gave no hint why. This test runs first (alphabetically before
+    ...predate...) and asserts the pin is an ancestor of HEAD before anything
+    downstream tries to dereference it.
+    """
+    result = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", GUARD_INTRODUCTION_COMMIT, "HEAD"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+        env=scrub_git_location_env(os.environ),
+    )
+    assert result.returncode == 0, (
+        f"GUARD_INTRODUCTION_COMMIT ({GUARD_INTRODUCTION_COMMIT}) is not an "
+        "ancestor of HEAD — this is the squash-orphaning failure mode "
+        "documented at OMN-15831 (third occurrence in the OMN-15336 lane: "
+        "the pin named a PR-branch commit that was squash-merged and "
+        "then had its branch deleted, so the commit object is unreachable "
+        "from any ref. Repoint GUARD_INTRODUCTION_COMMIT to the SQUASH MERGE "
+        "commit SHA for the PR that introduced the guard (verify with "
+        "`git merge-base --is-ancestor <candidate> origin/dev`), not a "
+        "branch-tip commit that will be deleted after merge.\n"
+        f"stderr: {result.stderr}"
+    )
+
+
+def test_grandfathered_ids_predate_the_guard_commit() -> None:
+    """Entry criterion #2 from the manifest's own header: every grandfathered
+    id must have existed in the tree BEFORE the guard could ever have fired
+    for it. Checked against the actual git history, not by assertion.
+    """
+    for grandfathered in EXPECTED_GRANDFATHER:
+        _, node_name, filename = grandfathered.split(":", 2)
+        relpath = f"docker/migrations/forward/nodes/{node_name}/{filename}"
+        result = subprocess.run(
+            ["git", "show", f"{GUARD_INTRODUCTION_COMMIT}~1:{relpath}"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+            env=scrub_git_location_env(os.environ),
+        )
+        assert result.returncode == 0, (
+            f"{grandfathered} is grandfathered but did not exist at "
+            f"{GUARD_INTRODUCTION_COMMIT}~1 ({relpath}) — a genuinely new "
+            "migration must go through the operator fence, not the "
+            f"grandfather snapshot:\n{result.stderr}"
+        )
+
+
+def test_grandfathered_ids_are_disjoint_from_the_fence() -> None:
+    """The two lists are independent mechanisms with different semantics (a
+    frozen historical fact vs. an operator-editable gate). An id on both
+    would be dead code on whichever list is checked second and would blur the
+    line the manifest's own header draws between them.
+    """
+    overlap = set(EXPECTED_GRANDFATHER) & set(EXPECTED_FENCE)
+    assert not overlap, (
+        f"ids present in BOTH the fence and the grandfather list: {overlap}"
+    )
+
+
+def test_runner_carries_the_grandfather_snapshot() -> None:
+    """Static structural check: the grandfather block exists, is unconditional
+    (FATAL if the manifest file is missing), and is committed-file-only (no
+    operator env-var fallback) — same discipline as the fence manifest.
+    """
+    block = extract_grandfather_block()
+    assert "GRANDFATHER_MANIFEST=" in block
+    assert 'if [ ! -f "${GRANDFATHER_MANIFEST}" ]; then' in block
+    assert "is_grandfathered_force_rls_migration" in block
+    offenders = [
+        ln
+        for ln in block.splitlines()
+        if re.search(
+            r"GRANDFATHERED_FORCE_RLS_IDS=\$?\{?GRANDFATHERED_FORCE_RLS_IDS", ln
+        )
+        or re.search(r'GRANDFATHERED_FORCE_RLS_IDS="\$\{', ln)
+    ]
+    assert not offenders, (
+        "the grandfather list must be assigned unconditionally from the "
+        f"committed manifest, never from an operator env var: {offenders}"
+    )
+
+
+def test_grandfather_guard_is_consulted_at_the_call_site() -> None:
+    """The call site must check BOTH the fence and the grandfather snapshot
+    before FATALing — this is the actual repair, so it is asserted directly
+    against the call site text, not just inferred from the live proofs below.
+    """
+    call = extract_force_rls_guard_call()
+    assert "is_fenced_node_migration" in call
+    assert "is_grandfathered_force_rls_migration" in call
+    # Both must be negated conditions ANDed together ahead of the FATAL — a
+    # call site that checked is_grandfathered_force_rls_migration but forgot
+    # the `!` would silently invert the repair into "only grandfathered ids
+    # are ever refused."
+    assert re.search(
+        r"!\s*is_fenced_node_migration.*\n.*!\s*is_grandfathered_force_rls_migration",
+        call,
+    ), f"expected both checks negated and ANDed ahead of the FATAL:\n{call}"
+
+
+@pytest.fixture
+def virgin_pg_target() -> Iterator[PgTarget]:
+    """A GENUINELY empty scratch database — deliberately NOT the shared
+    ``pg_target`` fixture from the OMN-15291 advisory-lock module.
+
+    That fixture's ``SETUP_SQL`` pre-seeds a minimal ``public.db_metadata`` /
+    ``public.apply_probe`` / ``public.schema_migrations`` specifically so the
+    lock-race tests can treat the runner's own bootstrap DDL as a no-op —
+    exactly the opposite of what a "does the real tree converge on a virgin
+    database" proof needs. Reusing it here made
+    ``029_create_db_metadata.sql`` see a pre-existing, schema-incompatible
+    ``db_metadata`` and fail on a missing ``owner_service`` column — a
+    fixture mismatch, not a FORCE-RLS defect. This fixture applies nothing
+    before yielding: same connection/bring-up logic as ``pg_target``,
+    minus the seed.
+    """
+    if not _find_pg_binary("psql"):
+        _unavailable("psql client not available")
+
+    host = os.environ.get("MIGRATION_LOCK_TEST_HOST")
+    if host:
+        admin = PgTarget(
+            host=host,
+            port=int(os.environ.get("MIGRATION_LOCK_TEST_PORT", "5432")),
+            user=os.environ.get("MIGRATION_LOCK_TEST_USER", "postgres"),
+            password=os.environ.get("MIGRATION_LOCK_TEST_PASSWORD", "postgres"),
+            dbname=os.environ.get("MIGRATION_LOCK_TEST_DB", "postgres"),
+        )
+        scratch = f"omn15336_virgin_{int(time.time() * 1000) % 100_000_000}"
+        _psql(admin, f'CREATE DATABASE "{scratch}"')
+        scoped = PgTarget(
+            host=admin.host,
+            port=admin.port,
+            user=admin.user,
+            password=admin.password,
+            dbname=scratch,
+        )
+        try:
+            yield scoped
+        finally:
+            _psql(admin, f'DROP DATABASE IF EXISTS "{scratch}" WITH (FORCE)')
+        return
+
+    initdb = _find_pg_binary("initdb")
+    pg_ctl = _find_pg_binary("pg_ctl")
+    if not initdb or not pg_ctl:
+        _unavailable(
+            "no MIGRATION_LOCK_TEST_HOST and no local initdb/pg_ctl to start an "
+            "ephemeral cluster"
+        )
+        return
+
+    with tempfile.TemporaryDirectory(dir="/tmp", prefix="omn15336-virgin-") as base:
+        datadir = Path(base) / "pgdata"
+        subprocess.run(
+            [initdb, "-D", str(datadir), "-U", "postgres", "--auth=trust", "--no-sync"],
+            check=True,
+            capture_output=True,
+        )
+        port = _free_port()
+        subprocess.run(
+            [
+                pg_ctl,
+                "-D",
+                str(datadir),
+                "-l",
+                str(Path(base) / "pg.log"),
+                "-o",
+                f"-p {port} -c listen_addresses=127.0.0.1 "
+                f"-c unix_socket_directories={base}",
+                "-w",
+                "start",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        target = PgTarget(
+            host="127.0.0.1",
+            port=port,
+            user="postgres",
+            password="postgres",
+            dbname="postgres",
+        )
+        try:
+            yield target
+        finally:
+            subprocess.run(
+                [pg_ctl, "-D", str(datadir), "-m", "immediate", "-w", "stop"],
+                check=False,
+                capture_output=True,
+            )
+
+
+@pytest.fixture
+def virgin_node_db(virgin_pg_target: PgTarget) -> Iterator[str]:
+    """A separate node database against ``virgin_pg_target``'s coordinates —
+    mirrors ``node_db`` above, but bound to the un-seeded target.
+
+    Named LITERALLY ``omnidash_analytics``, not randomly: several REAL flat
+    migrations (e.g. ``083_create_log_entries.sql``) hardcode
+    ``\\connect omnidash_analytics`` rather than reading ``NODE_POSTGRES_DB``
+    -- a pre-existing production assumption (that database is provisioned
+    ahead of the migration run, same as ``omnibase_infra``'s own PGDB) that
+    has nothing to do with this ticket's FORCE-RLS guard. A random name here
+    would make ``\\connect`` fail with "database ... does not exist" for an
+    unrelated reason, not prove or disprove the guard fix. ``virgin_pg_target``
+    (a private ephemeral cluster, or a scratch external server used by one
+    test at a time) makes the literal name safe.
+
+    Migration 107 is in the flat tree and deliberately refuses to create
+    ``action_authorization_claim`` itself because managed lanes must provision
+    that schema through the application-database provisioning seam before the
+    forward runner starts. The fixture creates only that required schema in
+    the flat-runner database and the node database, then leaves the committed
+    runner and migration tree to prove the same cold-lane behavior these tests
+    own.
+    """
+    admin = PgTarget(
+        host=virgin_pg_target.host,
+        port=virgin_pg_target.port,
+        user=virgin_pg_target.user,
+        password=virgin_pg_target.password,
+        dbname="postgres",
+    )
+    name = "omnidash_analytics"
+    _psql(admin, f'CREATE DATABASE "{name}"')
+    _psql(admin, "CREATE SCHEMA action_authorization_claim")
+    node = PgTarget(
+        host=virgin_pg_target.host,
+        port=virgin_pg_target.port,
+        user=virgin_pg_target.user,
+        password=virgin_pg_target.password,
+        dbname=name,
+    )
+    _psql(node, "CREATE SCHEMA action_authorization_claim")
+    try:
+        yield name
+    finally:
+        _psql(admin, f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
+
+
+# --- Live proofs against the REAL vendored tree -----------------------------
+# Everything above is static/structural. These two are the acceptance proof
+# itself, automated: the shipped runner, unmodified, against
+# docker/migrations/forward exactly as committed (no synthetic stand-in tree),
+# on a virgin database. Without these, every static check above could pass
+# while the runner still FATALs on a cold lane — which is exactly what
+# happened: the pre-repair guard passed all 30 of its own synthetic tests
+# while failing against the real tree it actually runs against in production.
+REAL_FORWARD_DIR = REPO_ROOT / "docker" / "migrations" / "forward"
+
+
+@pytest.mark.integration
+@pytest.mark.timeout(_RUNNER_PROOF_PYTEST_TIMEOUT_SECONDS)
+def test_virgin_database_applies_the_full_real_vendored_tree(
+    virgin_pg_target: PgTarget,
+    virgin_node_db: str,
+) -> None:
+    """THE acceptance proof: a virgin database converges cleanly against the
+    real, committed migration tree. Before the repair this FATALed at
+    node:node_canary_score_reducer:0002 with 1 node migration applied and 87
+    withheld; after the repair it must reach the sentinel.
+    """
+    result = _run(RUNNER, virgin_pg_target, REAL_FORWARD_DIR, virgin_node_db)
+    combined = result.stdout + result.stderr
+    assert result.returncode == 0, (
+        "the shipped runner must converge a virgin database against the real "
+        f"vendored tree without any guard FATAL:\n{combined}"
+    )
+    assert "FATAL" not in combined, f"unexpected FATAL in an exit-0 run:\n{combined}"
+    assert "Sentinel set. Migration gate will report HEALTHY." in combined, (
+        f"expected the sentinel to be set at the end of a clean run:\n{combined}"
+    )
+    # Confirm the fix is real DDL, not a silent skip: at least one previously
+    # ungated grandfathered table must actually carry FORCE ROW LEVEL SECURITY.
+    assert (
+        _psql(
+            PgTarget(
+                host=virgin_pg_target.host,
+                port=virgin_pg_target.port,
+                user=virgin_pg_target.user,
+                password=virgin_pg_target.password,
+                dbname=virgin_node_db,
+            ),
+            "SELECT relforcerowsecurity FROM pg_class WHERE relname = "
+            "'capability_scores'",
+        )
+        == "t"
+    ), "capability_scores must have FORCE ROW LEVEL SECURITY actually applied"
+
+
+@pytest.mark.integration
+@pytest.mark.timeout(_RUNNER_PROOF_PYTEST_TIMEOUT_SECONDS)
+def test_virgin_database_still_refuses_a_new_unfenced_force_rls_migration(
+    virgin_pg_target: PgTarget,
+    virgin_node_db: str,
+    tmp_path: Path,
+) -> None:
+    """The original RED control, re-run against a copy of the REAL vendored
+    tree (not the minimal synthetic fixture) plus one genuinely new,
+    unclassified FORCE-RLS migration. Proves the repair narrows the guard's
+    blind spot to exactly the pre-existing 9 — it does not disable the guard.
+    """
+    forward = tmp_path / "forward"
+    shutil.copytree(REAL_FORWARD_DIR, forward)
+
+    control_id = "node:node_projection_zz_new_control:0001_new_unfenced_force_rls.sql"
+    control_node, control_file = (
+        "node_projection_zz_new_control",
+        "0001_new_unfenced_force_rls.sql",
+    )
+    control_dir = forward / "nodes" / control_node
+    control_dir.mkdir(parents=True)
+    control_sql = (
+        "CREATE TABLE public.zz_new_control_marker (id INT, tenant_id TEXT);\n"
+        "ALTER TABLE public.zz_new_control_marker ENABLE ROW LEVEL SECURITY;\n"
+        "ALTER TABLE public.zz_new_control_marker FORCE ROW LEVEL SECURITY;\n"
+    )
+    (control_dir / control_file).write_text(control_sql, encoding="utf-8")
+    checksum = hashlib.sha256(control_sql.encode("utf-8")).hexdigest()
+    with (forward / "_ledger" / "application-migrations.tsv").open(
+        "a", encoding="utf-8"
+    ) as ledger:
+        ledger.write(
+            f"nodes/{control_node}/{control_file}\t{control_id.rsplit(':', 1)[0]}\t"
+            f"{control_id.rsplit(':', 1)[0]}\ttenant\t{control_id}\t{checksum}\n"
+        )
+
+    result = _run(RUNNER, virgin_pg_target, forward, virgin_node_db)
+    combined = result.stdout + result.stderr
+    assert result.returncode != 0, (
+        f"a genuinely new unfenced FORCE-RLS migration must still be refused:\n{combined}"
+    )
+    assert control_id in combined and "FATAL" in combined, (
+        f"expected a FATAL naming the new control migration:\n{combined}"
+    )
+    assert not _table_exists(
+        virgin_pg_target, virgin_node_db, "zz_new_control_marker"
+    ), "FENCE BREACH: the new unfenced FORCE RLS migration was APPLIED"

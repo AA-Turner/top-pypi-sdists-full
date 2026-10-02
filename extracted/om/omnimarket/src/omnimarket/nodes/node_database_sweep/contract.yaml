@@ -1,0 +1,92 @@
+---
+name: database_sweep
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: compute
+runtime_profiles: [main]
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  Projection table health and migration tracking — checks row count and staleness
+  for every table in omnidash_analytics, plus migration state across all ONEX
+  databases (Alembic + Drizzle + node-vendored). Reports
+  HEALTHY/STALE/EMPTY/MISSING/ORPHAN/UNKNOWN status per table and
+  CURRENT/PENDING/AHEAD/FAILED/NO_TABLE per database. The node-vendored check
+  (OMN-13636) detects node-owned migrations vendored into the deploy tree but
+  never recorded in schema_migrations — the silent application-gap failure mode.
+  Supports per-table staleness thresholds with fallback to a global default.
+
+handler:
+  module: omnimarket.nodes.node_database_sweep.handlers.handler_database_sweep
+  class: NodeDatabaseSweep
+  input_model: omnimarket.nodes.node_database_sweep.handlers.handler_database_sweep.DatabaseSweepRequest
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: sweep
+      handler:
+        name: NodeDatabaseSweep
+        module: omnimarket.nodes.node_database_sweep.handlers.handler_database_sweep
+
+descriptor:
+  node_archetype: compute
+  purity: impure
+  idempotent: true
+  timeout_ms: 120000
+
+inputs:
+  omni_home:
+    type: str
+    description: "Root path of the omni_home repo registry"
+    required: false
+  table:
+    type: str
+    description: "Scan a single table only (default: all tables)"
+    required: false
+  staleness_threshold_hours:
+    type: int
+    description: "Hours before data is considered stale (default: 24)"
+    required: false
+    default: 24
+  staleness_thresholds:
+    type: "dict[str, float]"
+    description: "Per-table staleness thresholds in hours (table_name -> hours); overrides global staleness_threshold_hours for matched tables"
+    required: false
+  dry_run:
+    type: bool
+    description: "If true, report findings without creating Linear tickets"
+    required: false
+    default: false
+
+outputs:
+  table_results:
+    type: list[ModelTableHealthResult]
+    description: "Per-table health classification results"
+  migration_results:
+    type: list[ModelMigrationStateResult]
+    description: "Per-database migration state results"
+  summary:
+    type: object
+    description: "Aggregated counts by table status and migration state"
+
+terminal_event: onex.evt.omnimarket.database-sweep-completed.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.database-sweep-start.v1
+  publish_topics:
+    - onex.evt.omnimarket.database-sweep-table-checked.v1
+    - onex.evt.omnimarket.database-sweep-completed.v1
+
+metadata:
+  transport_type: kafka
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.database-sweep-start.v1
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.database-sweep-completed.v1
+  - onex.evt.omnimarket.database-sweep-table-checked.v1

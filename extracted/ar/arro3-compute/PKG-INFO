@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arro3-compute
-Version: 0.8.3
+Version: 0.9.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Rust
@@ -9,4 +9,4 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Dist: arro3-core
 Home-Page: https://kylebarron.dev/arro3
 License-Expression: MIT OR Apache-2.0
-Requires-Python: >=3.9
+Requires-Python: >=3.11

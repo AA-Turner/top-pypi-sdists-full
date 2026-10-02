@@ -1,0 +1,874 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+#
+# BSD 3-Clause License
+
+"""The two gates between a build and a sandbox (PLAN_ENV.md E1-08, E1-09, D-11).
+
+The scan decides whether an artifact may be used, and the signature is
+Datalayer's word that it was decided. Nothing here reaches AWS or runs cosign:
+the ECR client is a double answering recorded findings, and cosign is a
+function whose argv is read.
+
+The findings below are shaped as ECR's `DescribeImageScanFindings` answers
+them — `enhancedFindings` with `packageVulnerabilityDetails`, and the older
+`findings` with `attributes` — because the rule being tested is what those
+rows amount to, and a paraphrase of them would test the paraphrase.
+"""
+
+from __future__ import annotations
+
+import json
+import subprocess
+from types import SimpleNamespace
+
+import pytest
+
+from code_sandboxes.environments.attest import (
+    Attestor,
+    attest_artifact,
+    licenses_by_package,
+    licenses_of,
+    signature_tag,
+)
+from code_sandboxes.environments.builders import ArtifactReference
+from code_sandboxes.environments.errors import PROVIDER_ERROR, EnvironmentsError
+from code_sandboxes.environments.policy import (
+    DEFAULT_POLICY,
+    EnvironmentsPolicy,
+    Finding,
+    ScanPolicy,
+    decide,
+    findings_of,
+    refuse_if_blocked,
+)
+
+REGISTRY = "123456789012.dkr.ecr.us-east-1.amazonaws.com"
+REPOSITORY = "environments/u/01k0wner000000000000000000/geo"
+DIGEST = "sha256:" + "aa" * 32
+KEY = "awskms:///alias/datalayer-environments"
+
+
+def enhanced(
+    identifier: str,
+    severity: str,
+    *,
+    package: str = "libxml2",
+    version: str = "2.9.14",
+    fixed: str = "",
+) -> dict:
+    """One `enhancedFindings` row, as ECR's enhanced scanning answers it."""
+    return {
+        "severity": severity,
+        "title": identifier,
+        "packageVulnerabilityDetails": {
+            "vulnerabilityId": identifier,
+            "sourceUrl": f"https://nvd.nist.gov/vuln/detail/{identifier}",
+            "vulnerablePackages": [
+                {
+                    "name": package,
+                    "version": version,
+                    **({"fixedInVersion": fixed} if fixed else {}),
+                }
+            ],
+        },
+    }
+
+
+def basic(identifier: str, severity: str, *, package: str = "openssl") -> dict:
+    """One older `findings` row, which reports no fixed version."""
+    return {
+        "name": identifier,
+        "severity": severity,
+        "uri": f"https://security.example/{identifier}",
+        "attributes": [
+            {"key": "package_name", "value": package},
+            {"key": "package_version", "value": "3.0.2"},
+        ],
+    }
+
+
+class FakeEcr:
+    """The three ECR calls the attestor makes, and nothing else."""
+
+    def __init__(
+        self,
+        *,
+        statuses=("ACTIVE",),
+        findings=(),
+        enhanced_findings=True,
+        manifest: dict | None = None,
+        pages: list[list[dict]] | None = None,
+        size_bytes: int | None = 2_147_483_648,
+    ) -> None:
+        self.statuses = list(statuses)
+        self.findings = list(findings)
+        #: Each entry is one `describe_image_scan_findings` page's own
+        #: findings, read in order and merged by `_describe` — overrides
+        #: `findings` when given, to test reading more than one page.
+        self.pages = pages
+        self.enhanced_findings = enhanced_findings
+        self.manifest = manifest
+        #: What `describe_images` answers for the digest; None makes it raise
+        #: `ImageNotFoundException`, the way a registry that lost it would.
+        self.size_bytes = size_bytes
+        self.asked = 0
+        self.scanned: list[str] = []
+        self.sized: list[str] = []
+
+    def batch_get_image(self, repositoryName, imageIds, acceptedMediaTypes):  # noqa: N803 - boto3's spelling
+        manifest = self.manifest or {
+            "mediaType": "application/vnd.oci.image.manifest.v1+json",
+            "layers": [],
+        }
+        return {
+            "images": [
+                {
+                    "imageId": imageIds[0],
+                    "imageManifestMediaType": manifest["mediaType"],
+                    "imageManifest": json.dumps(manifest),
+                }
+            ]
+        }
+
+    def describe_images(self, repositoryName, imageIds):  # noqa: N803 - boto3's spelling
+        self.sized.append(imageIds[0]["imageDigest"])
+        if self.size_bytes is None:
+            error = Exception("ImageNotFoundException")
+            error.response = {"Error": {"Code": "ImageNotFoundException"}}
+            raise error
+        return {"imageDetails": [{"imageSizeInBytes": self.size_bytes}]}
+
+    def describe_image_scan_findings(self, repositoryName, imageId, nextToken=None):  # noqa: N803 - boto3's spelling
+        self.asked += 1
+        self.scanned.append(imageId["imageDigest"])
+        status = self.statuses[min(self.asked, len(self.statuses)) - 1]
+        if status == "RAISES_IN_PROGRESS":
+            error = Exception("ScanInProgressException")
+            error.response = {"Error": {"Code": "ScanInProgressException"}}
+            raise error
+        if status == "SCAN_NOT_FOUND":
+            error = Exception("ScanNotFoundException")
+            error.response = {"Error": {"Code": "ScanNotFoundException"}}
+            raise error
+        if status == "MISSING":
+            error = Exception("ImageNotFoundException")
+            error.response = {"Error": {"Code": "ImageNotFoundException"}}
+            raise error
+        key = "enhancedFindings" if self.enhanced_findings else "findings"
+        if self.pages is not None:
+            index = int(nextToken or "0")
+            answer = {
+                "imageScanStatus": {"status": status},
+                "imageScanFindings": {
+                    key: list(self.pages[index]),
+                    "imageScanCompletedAt": "2026-09-12T09:00:00Z",
+                },
+            }
+            if index + 1 < len(self.pages):
+                answer["nextToken"] = str(index + 1)
+            return answer
+        return {
+            "imageScanStatus": {"status": status},
+            "imageScanFindings": {
+                key: list(self.findings),
+                "imageScanCompletedAt": "2026-09-12T09:00:00Z",
+            },
+        }
+
+
+class Cosign:
+    """Every cosign invocation, in order; `argv`/`env` are the last call's own.
+
+    `verify_returncode` is `sign`'s own upfront replay check (E1-09): 1 (not
+    signed yet) unless a test says otherwise, so the ordinary path — verify,
+    then sign — still leaves `argv`/`env` as the `sign` call a test written
+    against the single-call fake already expects.
+    """
+
+    def __init__(self, returncode: int = 0, *, verify_returncode: int = 1) -> None:
+        self.returncode = returncode
+        self.verify_returncode = verify_returncode
+        self.calls: list[tuple[list[str], dict[str, str] | None]] = []
+        self.argv: list[str] = []
+        self.env: dict[str, str] | None = None
+
+    def __call__(self, argv, *, env=None, **_kwargs) -> subprocess.CompletedProcess[str]:
+        self.argv = list(argv)
+        self.env = env
+        self.calls.append((self.argv, self.env))
+        code = self.verify_returncode if "verify" in argv else self.returncode
+        return subprocess.CompletedProcess(self.argv, code, "", "Pushing signature\n")
+
+
+def an_attestor(**changes) -> Attestor:
+    options = {
+        "ecr": FakeEcr(),
+        "cosign": "/usr/bin/cosign",
+        "key": KEY,
+        "run": Cosign(),
+        "sleep": lambda _seconds: None,
+        "now": lambda: 0.0,
+    }
+    options.update(changes)
+    return Attestor(**options)
+
+
+# -- what the findings amount to ------------------------------------------------
+
+
+class TestThePolicy:
+    def test_a_critical_finding_with_a_fix_blocks(self) -> None:
+        found = findings_of([enhanced("CVE-2026-1234", "CRITICAL", fixed="2.9.15")])
+        decision = decide(found)
+        assert decision.decision == "blocked"
+        assert [finding.id for finding in decision.blocking] == ["CVE-2026-1234"]
+        # And the refusal names what to do about it.
+        assert "fixed in 2.9.15" in decision.said()
+        assert "libxml2 2.9.14" in decision.said()
+
+    def test_a_critical_finding_nothing_fixes_is_recorded_and_does_not_block(self) -> None:
+        """Blocking it would leave the owner nothing to do but wait."""
+        decision = decide(findings_of([enhanced("CVE-2026-9999", "CRITICAL")]))
+        assert decision.decision == "pass"
+        assert decision.recorded_unfixable == 1
+        assert decision.body()["critical"] == 1
+        assert decision.body()["blocking"] == []
+
+    def test_a_high_finding_with_a_fix_does_not_block_under_the_default(self) -> None:
+        decision = decide(findings_of([enhanced("CVE-2026-5678", "HIGH", fixed="3.0.3")]))
+        assert decision.decision == "pass"
+        assert decision.body()["counts"] == {"HIGH": 1}
+
+    def test_an_organization_can_tighten_it(self) -> None:
+        strict = ScanPolicy(blocks_at="HIGH", only_fixable=False)
+        decision = decide(findings_of([enhanced("CVE-2026-9999", "HIGH")]), policy=strict)
+        assert decision.decision == "blocked"
+        assert decision.body()["policy"] == {"blocksAt": "HIGH", "onlyFixable": False}
+
+    def test_an_allowed_advisory_is_recorded_as_allowed_rather_than_missed(self) -> None:
+        policy = ScanPolicy(allowed=("CVE-2026-1234",))
+        decision = decide(
+            findings_of([enhanced("CVE-2026-1234", "CRITICAL", fixed="2.9.15")]), policy=policy
+        )
+        assert decision.decision == "pass"
+        assert decision.body()["policy"]["allowed"] == ["CVE-2026-1234"]
+        # The finding is still counted: an allowance hides nothing.
+        assert decision.body()["counts"] == {"CRITICAL": 1}
+
+    def test_the_default_policy_allows_the_base_channels_esm_locked_ffmpeg_advisories(
+        self,
+    ) -> None:
+        """`datalayer/python-cpu:2026.09`'s own five (E1-05, E1-08, 2026-09-14):
+        Inspector marks each fixable, but the fix is an Ubuntu ESM package
+        version a plain `apt-get upgrade` cannot reach. Reviewed and allowed,
+        not silently missed — still counted, and any other critical still
+        blocks."""
+        allowed = (
+            "CVE-2024-35366",
+            "CVE-2024-35367",
+            "CVE-2024-35368",
+            "CVE-2026-40962",
+            "CVE-2025-57052",
+        )
+        for cve in allowed:
+            decision = decide(
+                findings_of([enhanced(cve, "CRITICAL", package="ffmpeg", fixed="7:6.1.1-esm")])
+            )
+            assert decision.decision == "pass", cve
+            assert decision.body()["policy"]["allowed"] == list(allowed)
+        # A critical outside that fixed list still blocks under the default.
+        decision = decide(findings_of([enhanced("CVE-2026-9999", "CRITICAL", fixed="1.2.3")]))
+        assert decision.decision == "blocked"
+
+    def test_the_older_findings_shape_is_read_too(self) -> None:
+        found = findings_of([basic("CVE-2026-1111", "CRITICAL")])
+        assert [(finding.id, finding.package, finding.fixable) for finding in found] == [
+            ("CVE-2026-1111", "openssl", False)
+        ]
+        # Basic scanning knows no fixed version, so under the default nothing
+        # it reports blocks — and the decision says how many were recorded.
+        decision = decide(found)
+        assert (decision.decision, decision.recorded_unfixable) == ("pass", 1)
+
+    def test_a_severity_nobody_knows_is_kept_and_does_not_block(self) -> None:
+        decision = decide(findings_of([enhanced("CVE-2026-2222", "UNTRIAGED", fixed="1.0")]))
+        assert decision.decision == "pass"
+        assert decision.body()["counts"] == {"INFORMATIONAL": 1}
+
+    def test_the_record_holds_what_it_was_decided_from(self) -> None:
+        decision = decide(
+            findings_of([enhanced("CVE-2026-1234", "CRITICAL", fixed="2.9.15")]),
+            scanner="ECR enhanced",
+            scanned_at="2026-09-12T09:00:00Z",
+            scan_status="ACTIVE",
+        )
+        body = decision.body()
+        assert body["scanner"] == "ECR enhanced"
+        assert body["scannedAt"] == "2026-09-12T09:00:00Z"
+        assert body["scanStatus"] == "ACTIVE"
+        assert body["blocking"][0]["fixedVersion"] == "2.9.15"
+
+    def test_refusing_names_the_cve_and_carries_the_record(self) -> None:
+        decision = decide(findings_of([enhanced("CVE-2026-1234", "CRITICAL", fixed="2.9.15")]))
+        with pytest.raises(EnvironmentsError) as raised:
+            refuse_if_blocked(decision, reference=f"{REGISTRY}/{REPOSITORY}@{DIGEST}")
+        assert raised.value.code.code == "DL_ENV_SCAN_BLOCKED"
+        assert "CVE-2026-1234" in raised.value.message
+        assert raised.value.detail["blocking"] == ["CVE-2026-1234"]
+        assert raised.value.detail["decision"]["decision"] == "blocked"
+
+    def test_a_passing_decision_refuses_nothing(self) -> None:
+        refuse_if_blocked(decide([Finding(id="CVE-1", severity="LOW")]))  # no raise
+
+
+# -- waiting for the scan -------------------------------------------------------
+
+
+class TestTheScan:
+    def test_a_finished_scan_is_read_and_decided(self) -> None:
+        ecr = FakeEcr(findings=[enhanced("CVE-2026-1234", "CRITICAL", fixed="2.9.15")])
+        decision = an_attestor(ecr=ecr).scan(repository=REPOSITORY, digest=DIGEST)
+        assert decision.decision == "blocked"
+        assert ecr.asked == 1
+
+    def test_it_waits_while_the_scan_is_in_progress(self) -> None:
+        ecr = FakeEcr(statuses=("IN_PROGRESS", "IN_PROGRESS", "ACTIVE"), findings=[])
+        waits: list[float] = []
+        decision = an_attestor(ecr=ecr, sleep=waits.append).scan(
+            repository=REPOSITORY, digest=DIGEST
+        )
+        assert decision.passed
+        assert ecr.asked == 3 and waits == [10.0, 10.0]
+
+    def test_a_scan_that_answers_with_an_error_while_it_runs_is_waited_for_too(self) -> None:
+        ecr = FakeEcr(statuses=("RAISES_IN_PROGRESS", "ACTIVE"))
+        assert an_attestor(ecr=ecr).scan(repository=REPOSITORY, digest=DIGEST).passed
+
+    def test_a_scan_that_never_finishes_is_retryable(self) -> None:
+        ecr = FakeEcr(statuses=("IN_PROGRESS",))
+        clock = iter([0.0, 0.0, 10_000.0, 10_000.0, 10_000.0])
+        with pytest.raises(EnvironmentsError) as raised:
+            an_attestor(ecr=ecr, now=lambda: next(clock)).scan(repository=REPOSITORY, digest=DIGEST)
+        assert raised.value.code.code == "DL_ENV_PROVIDER_ERROR"
+        assert raised.value.code.retry.value != "no"
+
+    def test_a_scanner_that_refuses_the_image_says_so(self) -> None:
+        ecr = FakeEcr(statuses=("UNSUPPORTED_IMAGE",))
+        with pytest.raises(EnvironmentsError) as raised:
+            an_attestor(ecr=ecr).scan(repository=REPOSITORY, digest=DIGEST)
+        assert raised.value.detail["scanStatus"] == "UNSUPPORTED_IMAGE"
+
+    def test_an_image_the_registry_has_no_scan_for_is_named(self) -> None:
+        ecr = FakeEcr(statuses=("MISSING",))
+        with pytest.raises(EnvironmentsError) as raised:
+            an_attestor(ecr=ecr).scan(repository=REPOSITORY, digest=DIGEST)
+        assert raised.value.code.code == "DL_ENV_PROVIDER_ERROR"
+        assert raised.value.detail["digest"] == DIGEST
+
+    def test_every_page_of_findings_is_read_before_deciding(self) -> None:
+        """Found live, 2026-09-14: a single unpaginated call answered only its
+        first page, and a real image with 1,547 findings across many pages
+        passed a decision that should have blocked — none of its 31 critical
+        findings were on the one page a single call happened to see. Every
+        page is now read and merged before `decide` runs."""
+        page_1 = [enhanced("CVE-2026-1111", "LOW")]
+        page_2 = [enhanced("CVE-2026-1234", "CRITICAL", fixed="2.9.15")]
+        page_3 = [enhanced("CVE-2026-2222", "MEDIUM")]
+        ecr = FakeEcr(pages=[page_1, page_2, page_3])
+        decision = an_attestor(ecr=ecr).scan(repository=REPOSITORY, digest=DIGEST)
+        assert decision.decision == "blocked"
+        assert [finding.id for finding in decision.blocking] == ["CVE-2026-1234"]
+        assert decision.body()["counts"] == {"LOW": 1, "CRITICAL": 1, "MEDIUM": 1}
+        assert ecr.asked == 3
+
+    def test_reading_pages_stops_at_the_cap_rather_than_paginating_forever(self) -> None:
+        pages = [
+            [enhanced(f"CVE-2026-{n:04d}", "LOW")] for n in range(Attestor._MAX_FINDING_PAGES + 5)
+        ]
+        ecr = FakeEcr(pages=pages)
+        decision = an_attestor(ecr=ecr).scan(repository=REPOSITORY, digest=DIGEST)
+        assert decision.decision == "pass"
+        assert ecr.asked == Attestor._MAX_FINDING_PAGES
+
+    IMAGE = "sha256:" + "bb" * 32
+    ATTESTATION = "sha256:" + "cc" * 32
+
+    def an_index(self, *entries: dict) -> dict:
+        return {"mediaType": "application/vnd.oci.image.index.v1+json", "manifests": list(entries)}
+
+    def attestation_entry(self) -> dict:
+        return {
+            "digest": self.ATTESTATION,
+            "platform": {"os": "unknown", "architecture": "unknown"},
+            "annotations": {"vnd.docker.reference.type": "attestation-manifest"},
+        }
+
+    def test_an_index_is_decided_by_the_scan_of_its_linux_amd64_image(self) -> None:
+        """The builder pushes with attestations, so what it records is an
+        index, and the scanner answers `UNSUPPORTED_IMAGE` for an index (found
+        live on r1, 2026-09-14)."""
+        ecr = FakeEcr(
+            manifest=self.an_index(
+                self.attestation_entry(),
+                {"digest": self.IMAGE, "platform": {"os": "linux", "architecture": "amd64"}},
+            ),
+            findings=[enhanced("CVE-2026-1234", "CRITICAL", fixed="2.9.15")],
+        )
+        decision = an_attestor(ecr=ecr).scan(repository=REPOSITORY, digest=DIGEST)
+        assert ecr.scanned == [self.IMAGE]
+        assert decision.decision == "blocked"
+
+    def test_an_index_with_no_linux_amd64_image_is_named(self) -> None:
+        ecr = FakeEcr(manifest=self.an_index(self.attestation_entry()))
+        with pytest.raises(EnvironmentsError) as raised:
+            an_attestor(ecr=ecr).scan(repository=REPOSITORY, digest=DIGEST)
+        assert raised.value.code.code == "DL_ENV_PROVIDER_ERROR"
+        assert "linux/amd64" in raised.value.message
+        assert ecr.scanned == []
+
+    def test_an_image_pushed_a_moment_ago_is_waited_for_until_its_scan_exists(self) -> None:
+        """Enhanced scanning starts after the push: the first answers for a
+        new image are `ScanNotFoundException` (found live on r1, 2026-09-14)."""
+        ecr = FakeEcr(statuses=("SCAN_NOT_FOUND", "SCAN_NOT_FOUND", "ACTIVE"))
+        waits: list[float] = []
+        decision = an_attestor(ecr=ecr, sleep=waits.append).scan(
+            repository=REPOSITORY, digest=DIGEST
+        )
+        assert decision.passed
+        assert ecr.asked == 3 and waits == [10.0, 10.0]
+
+    def test_a_scan_that_never_appears_is_retryable(self) -> None:
+        ecr = FakeEcr(statuses=("SCAN_NOT_FOUND",))
+        clock = iter([0.0, 0.0, 10_000.0, 10_000.0, 10_000.0])
+        with pytest.raises(EnvironmentsError) as raised:
+            an_attestor(ecr=ecr, now=lambda: next(clock)).scan(repository=REPOSITORY, digest=DIGEST)
+        assert raised.value.code.code == "DL_ENV_PROVIDER_ERROR"
+        assert raised.value.code.retry.value != "no"
+
+    def test_a_single_image_is_scanned_by_its_own_digest(self) -> None:
+        ecr = FakeEcr()
+        an_attestor(ecr=ecr).scan(repository=REPOSITORY, digest=DIGEST)
+        assert ecr.scanned == [DIGEST]
+
+    def test_a_refused_scan_names_both_the_artifact_and_the_image_read(self) -> None:
+        ecr = FakeEcr(
+            statuses=("UNSUPPORTED_IMAGE",),
+            manifest=self.an_index(
+                {"digest": self.IMAGE, "platform": {"os": "linux", "architecture": "amd64"}}
+            ),
+        )
+        with pytest.raises(EnvironmentsError) as raised:
+            an_attestor(ecr=ecr).scan(repository=REPOSITORY, digest=DIGEST)
+        assert raised.value.detail["digest"] == DIGEST
+        assert raised.value.detail["scannedDigest"] == self.IMAGE
+
+
+# -- the signature --------------------------------------------------------------
+
+
+class TestTheSignature:
+    def test_it_signs_the_digest_with_the_kms_key(self) -> None:
+        cosign = Cosign()
+        reference, signed_now = an_attestor(run=cosign).sign(
+            registry=REGISTRY, repository=REPOSITORY, digest=DIGEST
+        )
+        assert cosign.argv == [
+            "/usr/bin/cosign",
+            "sign",
+            "--yes",
+            # Never the public transparency log: found live 2026-09-13,
+            # a bare `cosign sign` reaches for the public Rekor service by
+            # default and prompts for consent to publish an immutable
+            # record — the wrong default for a private environment.
+            "--tlog-upload=false",
+            # cosign 3.1.3 defaults to a TUF-provided signing config that
+            # `--tlog-upload=false` alone can no longer override (found live
+            # 2026-09-14): turned off so the plain flag is honored again.
+            "--use-signing-config=false",
+            "--key",
+            KEY,
+            f"{REGISTRY}/{REPOSITORY}@{DIGEST}",
+        ]
+        # The digest itself: what `cosign verify --key <key>` takes, not a
+        # tag — cosign 3.1.3 defaults to storing a signature as an OCI 1.1
+        # referrer, not the classic `sha256-<hex>.sig` sidecar tag (found
+        # live 2026-09-14, twice: `--registry-referrers-mode` only ever
+        # governed *reading* referrers, never where `sign` writes one).
+        assert reference == f"{REGISTRY}/{REPOSITORY}@{DIGEST}"
+        assert signed_now is True
+        # The upfront replay check, cosign's own answer for whether this key
+        # already signed it — not yet, here, so `sign` ran right after.
+        subcommands = [call[0][1] for call in cosign.calls]
+        assert subcommands == ["verify", "sign"]
+
+    def test_no_registry_auth_leaves_cosigns_own_environment_untouched(self) -> None:
+        """The common case — nothing to add — inherits this process's own
+        environment rather than replacing it with an empty one."""
+        cosign = Cosign()
+        an_attestor(run=cosign).sign(registry=REGISTRY, repository=REPOSITORY, digest=DIGEST)
+        assert cosign.env is None
+
+    def test_registry_auth_reaches_cosign_as_docker_config(self) -> None:
+        """cosign has no AWS credential chain of its own for ECR, unlike the
+        boto3 client the scan is read with: found live, 2026-09-14, `cosign
+        sign` reached the registry anonymously and was refused with a plain
+        `401 Unauthorized` on every real artifact this pipeline tried to
+        sign. The same `{"DOCKER_CONFIG": <dir>}` the resolver and the
+        builder already take off a `BuildCredential` fixes it here too."""
+        docker_config = "/tmp/dl-docker-abc"  # noqa: S108 - a build's own dir, never touched by this test
+        cosign = Cosign()
+        an_attestor(run=cosign, registry_auth={"DOCKER_CONFIG": docker_config}).sign(
+            registry=REGISTRY, repository=REPOSITORY, digest=DIGEST
+        )
+        assert cosign.env is not None
+        assert cosign.env["DOCKER_CONFIG"] == docker_config
+        # Added to this process's own environment, not instead of it — cosign
+        # still needs AWS's own chain to reach the KMS key with `--key`.
+        import os
+
+        for name in ("PATH", "HOME"):
+            if name in os.environ:
+                assert cosign.env[name] == os.environ[name]
+
+    def test_a_replay_finds_the_signature_instead_of_pushing_a_second(self) -> None:
+        """A second signature would not error the way a second push under the
+        old immutable tag once did, but it would still be two things claiming
+        to be Datalayer's word on the same artifact — cosign's own answer to
+        `verify` is asked first, and `sign` never runs when it says yes."""
+        cosign = Cosign(verify_returncode=0)
+        reference, signed_now = an_attestor(run=cosign).sign(
+            registry=REGISTRY, repository=REPOSITORY, digest=DIGEST
+        )
+        assert signed_now is False
+        assert len(cosign.calls) == 1
+        assert "verify" in cosign.argv
+        assert "sign" not in cosign.argv
+        assert reference == f"{REGISTRY}/{REPOSITORY}@{DIGEST}"
+
+    def test_cosign_refusing_is_a_provider_error(self) -> None:
+        with pytest.raises(EnvironmentsError) as raised:
+            an_attestor(run=Cosign(returncode=1)).sign(
+                registry=REGISTRY, repository=REPOSITORY, digest=DIGEST
+            )
+        assert raised.value.code.code == "DL_ENV_PROVIDER_ERROR"
+
+    def test_no_key_is_said_by_name_rather_than_signing_nothing(self) -> None:
+        with pytest.raises(EnvironmentsError) as raised:
+            an_attestor(key="").sign(registry=REGISTRY, repository=REPOSITORY, digest=DIGEST)
+        assert raised.value.detail["missing"] == "DATALAYER_ENVIRONMENTS_KMS_KEY"
+
+    def test_no_cosign_is_said_by_name(self) -> None:
+        with pytest.raises(EnvironmentsError) as raised:
+            an_attestor(cosign="").sign(registry=REGISTRY, repository=REPOSITORY, digest=DIGEST)
+        assert raised.value.detail["missing"] == "cosign"
+
+    def test_can_verify_asks_cosign_and_answers_its_exit_code(self) -> None:
+        reference = f"{REGISTRY}/{REPOSITORY}@{DIGEST}"
+        assert an_attestor(run=Cosign(verify_returncode=0)).can_verify(reference) is True
+        assert an_attestor(run=Cosign(verify_returncode=1)).can_verify(reference) is False
+
+    def test_can_verify_names_the_key_and_ignores_the_transparency_log(self) -> None:
+        cosign = Cosign(verify_returncode=0)
+        an_attestor(run=cosign, key=KEY).can_verify(f"{REGISTRY}/{REPOSITORY}@{DIGEST}")
+        assert cosign.argv == [
+            "/usr/bin/cosign",
+            "verify",
+            "--insecure-ignore-tlog=true",
+            "--key",
+            KEY,
+            f"{REGISTRY}/{REPOSITORY}@{DIGEST}",
+        ]
+
+    def test_the_signature_sits_beside_the_image_at_cosigns_own_tag(self) -> None:
+        assert signature_tag(DIGEST) == "sha256-" + "aa" * 32 + ".sig"
+        with pytest.raises(ValueError):
+            signature_tag("not-a-digest")
+
+
+# -- both, in order -------------------------------------------------------------
+
+
+class TestAttestingAnArtifact:
+    def an_artifact(self) -> ArtifactReference:
+        return ArtifactReference(
+            variant="datalayer",
+            immutable_reference=f"{REGISTRY}/{REPOSITORY}@{DIGEST}",
+            provider_artifact_id=DIGEST,
+            contract_version="sandbox-contract/v1",
+        )
+
+    def test_a_clean_artifact_is_scanned_then_signed(self) -> None:
+        cosign = Cosign()
+        attestor = an_attestor(run=cosign)
+        answer = attest_artifact(
+            artifact=self.an_artifact(), size_bytes=116_183_040, attestor=attestor
+        )
+        assert answer["scan_summary"]["decision"] == "pass"
+        assert answer["signature_ref"] == f"{REGISTRY}/{REPOSITORY}@{DIGEST}"
+        assert answer["sbom_ref"].endswith(".sbom")
+        assert answer["provenance_ref"].endswith(".att")
+        assert answer["size_bytes"] == 116_183_040
+        assert cosign.argv, "a clean artifact is signed"
+
+    def test_a_blocked_artifact_is_never_signed(self) -> None:
+        """The order is the point: a signature is Datalayer's word on it."""
+        cosign = Cosign()
+        ecr = FakeEcr(findings=[enhanced("CVE-2026-1234", "CRITICAL", fixed="2.9.15")])
+        with pytest.raises(EnvironmentsError) as raised:
+            attest_artifact(artifact=self.an_artifact(), attestor=an_attestor(ecr=ecr, run=cosign))
+        assert raised.value.code.code == "DL_ENV_SCAN_BLOCKED"
+        assert "CVE-2026-1234" in raised.value.message
+        assert cosign.argv == [], "a blocked artifact must not be signed"
+
+    def test_a_denied_licence_is_never_signed(self) -> None:
+        """The order is the point, the same as a blocked scan: a signature is
+        Datalayer's word, and this is the second word that goes into it."""
+        cosign = Cosign()
+        sbom = {"packages": [{"name": "gpl-lib", "licenseConcluded": "GPL-3.0"}]}
+        policy = EnvironmentsPolicy(allowed_licenses=("MIT", "Apache-2.0"))
+        with pytest.raises(EnvironmentsError) as raised:
+            attest_artifact(
+                artifact=self.an_artifact(),
+                attestor=an_attestor(run=cosign),
+                sbom=sbom,
+                environments_policy=policy,
+            )
+        assert raised.value.code.code == "DL_ENV_POLICY_DENIED"
+        assert "GPL-3.0" in raised.value.message and "gpl-lib" in raised.value.message
+        assert cosign.argv == [], "a denied licence must not be signed"
+
+    def test_an_allowed_licence_is_signed_as_usual(self) -> None:
+        cosign = Cosign()
+        sbom = {"packages": [{"name": "requests", "licenseConcluded": "Apache-2.0"}]}
+        policy = EnvironmentsPolicy(allowed_licenses=("MIT", "Apache-2.0"))
+        answer = attest_artifact(
+            artifact=self.an_artifact(),
+            attestor=an_attestor(run=cosign),
+            sbom=sbom,
+            environments_policy=policy,
+        )
+        assert answer["licenses"] == ["Apache-2.0"]
+        assert cosign.argv, "an allowed licence is signed"
+
+    def test_with_no_organization_policy_nothing_about_licences_is_refused(self) -> None:
+        """The default: no organization has written this section, so a build
+        with any licence at all is unrestricted, the same as every artifact
+        before this box existed."""
+        cosign = Cosign()
+        sbom = {"packages": [{"name": "gpl-lib", "licenseConcluded": "GPL-3.0"}]}
+        answer = attest_artifact(
+            artifact=self.an_artifact(), attestor=an_attestor(run=cosign), sbom=sbom
+        )
+        assert answer["licenses"] == ["GPL-3.0"]
+        assert cosign.argv, "unrestricted by default"
+
+    def test_a_reference_that_is_not_a_digest_cannot_be_attested(self) -> None:
+        """A `datalayer` artifact must be a digest in this platform's registry.
+
+        `attest_artifact` takes `artifact: Any`, so nothing guarantees every
+        caller went through the model validator that would have refused this.
+        """
+        artifact = SimpleNamespace(variant="datalayer", immutable_reference="im-1234567890")
+        with pytest.raises(EnvironmentsError) as raised:
+            attest_artifact(artifact=artifact, attestor=an_attestor())
+        assert raised.value.code.code == "DL_ENV_PROVIDER_ERROR"
+
+    def test_a_malformed_digest_cannot_be_attested_either(self) -> None:
+        """`sha256:bad` starts with `sha256:` too: only a whole one is
+        accepted (found on PR #27's Copilot review). Asked of `datalayer`,
+        since that is the variant this check is for — `attest_artifact` takes
+        `artifact: Any`, so nothing guarantees every caller went through the
+        model validator that would have refused it."""
+        artifact = SimpleNamespace(
+            variant="datalayer",
+            immutable_reference=f"{REGISTRY}/{REPOSITORY}@sha256:bad",
+        )
+        with pytest.raises(EnvironmentsError) as raised:
+            attest_artifact(artifact=artifact, attestor=an_attestor())
+        assert raised.value.code.code == "DL_ENV_PROVIDER_ERROR"
+
+    def test_the_policy_it_was_decided_under_is_part_of_the_record(self) -> None:
+        answer = attest_artifact(artifact=self.an_artifact(), attestor=an_attestor())
+        assert answer["scan_summary"]["policy"] == DEFAULT_POLICY.body()
+
+    def test_the_size_is_read_from_the_registry_when_nobody_hands_one_down(self) -> None:
+        """Which is every real call: the builder answers a reference, not a
+        weight, so `environments.artifact.bytes` — section 14's artifact size
+        — had no point in it although artifacts had been recorded (E1-25)."""
+        ecr = FakeEcr(size_bytes=2_147_483_648)
+        answer = attest_artifact(artifact=self.an_artifact(), attestor=an_attestor(ecr=ecr))
+        assert answer["size_bytes"] == 2_147_483_648
+        assert ecr.sized == [DIGEST]
+
+    def test_a_size_handed_down_is_kept_and_the_registry_is_not_asked(self) -> None:
+        ecr = FakeEcr()
+        answer = attest_artifact(
+            artifact=self.an_artifact(), size_bytes=116_183_040, attestor=an_attestor(ecr=ecr)
+        )
+        assert answer["size_bytes"] == 116_183_040
+        assert ecr.sized == []
+
+    def test_a_size_that_cannot_be_read_is_not_a_reason_to_refuse(self) -> None:
+        """A missing number on a dashboard, against an artifact nothing can
+        launch: the artifact is signed and the attestation stands."""
+        said: list[str] = []
+        attestor = an_attestor(ecr=FakeEcr(size_bytes=None), log=said.append)
+        answer = attest_artifact(artifact=self.an_artifact(), attestor=attestor)
+        assert answer["size_bytes"] is None
+        assert answer["signature_ref"] == f"{REGISTRY}/{REPOSITORY}@{DIGEST}"
+        assert any("size could not be read" in line for line in said)
+
+
+def test_nothing_reaches_a_registry_when_nothing_could_sign() -> None:
+    """The order that keeps a refusal cheap and honest (E1-08, E1-09).
+
+    An artifact nobody can sign can never be used, so waiting a quarter of an
+    hour for its scan first would spend the wait to reach the same refusal —
+    and would read in the log as the scan being the problem.
+    """
+    ecr = FakeEcr()
+    artifact = ArtifactReference(
+        variant="datalayer",
+        immutable_reference=f"{REGISTRY}/{REPOSITORY}@{DIGEST}",
+        provider_artifact_id=DIGEST,
+        contract_version="sandbox-contract/v1",
+    )
+    with pytest.raises(EnvironmentsError) as raised:
+        attest_artifact(artifact=artifact, attestor=an_attestor(ecr=ecr, key=""))
+    assert raised.value.detail["missing"] == "DATALAYER_ENVIRONMENTS_KMS_KEY"
+    assert ecr.asked == 0, "the registry was asked before anything could have been signed"
+
+
+# -- the licences a publication carries ---------------------------------------------------------
+
+
+class TestLicencesFromTheSbom:
+    """What `licenses_of` reads, and what it refuses to guess.
+
+    A published version's page says it shows the licences its SBOM names
+    (D-12, E2-16). They had nowhere to come from: the snapshot read the scan
+    summary, and the registry's scanner reports vulnerabilities.
+    """
+
+    def test_it_reads_spdx_which_is_what_buildkit_writes(self) -> None:
+        document = {
+            "packages": [
+                {"name": "gdal", "licenseConcluded": "MIT"},
+                {"name": "numpy", "licenseConcluded": "BSD-3-Clause"},
+                {"name": "again", "licenseConcluded": "MIT"},
+            ]
+        }
+        assert licenses_of(document) == ["BSD-3-Clause", "MIT"]
+
+    def test_a_concluded_licence_wins_over_a_declared_one(self) -> None:
+        """`licenseConcluded` is what the tool decided; `licenseDeclared` is the claim."""
+        document = {
+            "packages": [
+                {"licenseConcluded": "Apache-2.0", "licenseDeclared": "MIT"},
+            ]
+        }
+        assert licenses_of(document) == ["Apache-2.0"]
+
+    def test_noassertion_is_not_a_licence_and_falls_through(self) -> None:
+        """SPDX writes NOASSERTION when it could not tell, which must not be shown."""
+        document = {
+            "packages": [
+                {"licenseConcluded": "NOASSERTION", "licenseDeclared": "BSD-3-Clause"},
+                {"licenseConcluded": "NONE", "licenseDeclared": ""},
+            ]
+        }
+        assert licenses_of(document) == ["BSD-3-Clause"]
+
+    def test_it_reads_cyclonedx_by_id_by_name_and_by_expression(self) -> None:
+        document = {
+            "components": [
+                {"licenses": [{"license": {"id": "Apache-2.0"}}]},
+                {"licenses": [{"license": {"name": "Public Domain"}}]},
+                {"licenses": [{"expression": "MIT OR Apache-2.0"}]},
+            ]
+        }
+        assert licenses_of(document) == [
+            "Apache-2.0",
+            "MIT OR Apache-2.0",
+            "Public Domain",
+        ]
+
+    def test_a_document_it_does_not_understand_names_nothing(self) -> None:
+        """Never a reason to fail a build: a licence list is worth having, not dying for."""
+        for document in (None, {}, {"packages": None}, {"components": [1, 2]}, "spdx"):
+            assert licenses_of(document) == []
+
+
+class TestWhatIsAttestedAndWhatIsNot:
+    """D-11 is about the Datalayer artifact, not every artifact.
+
+    It lives in this platform's registry: the scanner reads it there, cosign
+    signs that digest, and the Operator refuses to start what is unsigned. A
+    managed artifact is none of those things — it lives in the owner's own
+    provider account (D-8), named the way that provider names it.
+    """
+
+    def _artifact(self, variant: str, reference: str):
+        return SimpleNamespace(variant=variant, immutable_reference=reference)
+
+    def test_a_daytona_snapshot_is_not_attested(self) -> None:
+        """Its reference is a uuid, and attesting it anyway failed the first
+        real Daytona build *after* the snapshot was already built
+        (2026-09-17)."""
+        answer = attest_artifact(
+            artifact=self._artifact("daytona", "51d10ab0-d98d-4117-bdb5-918e98646c92"),
+            size_bytes=1234,
+        )
+        assert answer["scan_summary"] == {}
+        assert answer["signature_ref"] == ""
+        assert answer["signed_now"] is False
+        # What the provider told us is still recorded.
+        assert answer["size_bytes"] == 1234
+
+    def test_an_e2b_build_id_and_a_modal_image_id_are_not_either(self) -> None:
+        for variant, reference in (("e2b", "bld-123"), ("modal", "im-abc123")):
+            answer = attest_artifact(artifact=self._artifact(variant, reference))
+            assert answer["signed_now"] is False, variant
+            assert answer["scan_summary"] == {}, variant
+
+    def test_a_datalayer_artifact_that_is_not_a_digest_still_fails(self) -> None:
+        """The check that matters is kept where it means something."""
+        with pytest.raises(EnvironmentsError) as raised:
+            attest_artifact(artifact=self._artifact("datalayer", "not-a-digest"))
+        assert raised.value.code is PROVIDER_ERROR
+        assert "cannot be attested" in str(raised.value)
+
+
+class TestLicencesByPackage:
+    """`licenses_by_package`: the attribution `licenses_of` itself throws away
+    (E3-06 needs to name which package carries a denied licence)."""
+
+    def test_it_pairs_each_spdx_package_with_its_licence(self) -> None:
+        document = {
+            "packages": [
+                {"name": "gdal", "licenseConcluded": "MIT"},
+                {"name": "numpy", "licenseConcluded": "BSD-3-Clause"},
+            ]
+        }
+        assert licenses_by_package(document) == [
+            ("gdal", "MIT"),
+            ("numpy", "BSD-3-Clause"),
+        ]
+
+    def test_it_pairs_each_cyclonedx_component_with_its_licence(self) -> None:
+        document = {
+            "components": [
+                {"name": "requests", "licenses": [{"license": {"id": "Apache-2.0"}}]},
+            ]
+        }
+        assert licenses_by_package(document) == [("requests", "Apache-2.0")]
+
+    def test_an_unnamed_package_still_carries_its_licence(self) -> None:
+        """`licenses_of` must not lose a licence just because this test does not name one."""
+        document = {"packages": [{"licenseConcluded": "MIT"}]}
+        assert licenses_by_package(document) == [("", "MIT")]
+        assert licenses_of(document) == ["MIT"]
+
+    def test_a_document_it_does_not_understand_names_nothing(self) -> None:
+        for document in (None, {}, {"packages": None}, {"components": [1, 2]}, "spdx"):
+            assert licenses_by_package(document) == []

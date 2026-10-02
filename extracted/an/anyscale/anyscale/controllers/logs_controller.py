@@ -27,6 +27,7 @@ from anyscale.sdk.anyscale_client.models.cluster import Cluster
 from anyscale.sdk.anyscale_client.models.session_state import SessionState
 from anyscale.shared_anyscale_utils.utils.asyncio import run_sync
 from anyscale.utils.logs_utils import LogGroup
+from anyscale.utils.proxy_util import get_proxy_config
 
 
 # Page size for listing bucket
@@ -49,9 +50,7 @@ DEFAULT_UNPACK_MAX_FILE_DESCRIPTORS = int(
 
 
 class LogsController(BaseController):
-    def __init__(
-        self, log: Optional[BlockLogger] = None, initialize_auth_api_client: bool = True
-    ):
+    def __init__(self, log: Optional[BlockLogger] = None, initialize_auth_api_client: bool = True):
         if log is None:
             log = BlockLogger()
 
@@ -62,9 +61,7 @@ class LogsController(BaseController):
         # spam the CLI output when users have had multiple sessions.
         self._unpack_log_sent = False
 
-    def get_cluster_id_and_last_job_run_id_for_prodjob(
-        self, prodjob_id: str
-    ) -> Tuple[str, str]:
+    def get_cluster_id_and_last_job_run_id_for_prodjob(self, prodjob_id: str) -> Tuple[str, str]:
         last_job_run_id = _get_job_run_id(self.anyscale_api_client, job_id=prodjob_id)
         last_job_run = self.api_client.get_decorated_job_api_v2_decorated_jobs_job_id_get(
             job_id=last_job_run_id
@@ -88,16 +85,15 @@ class LogsController(BaseController):
 
     def get_cluster_id_for_workspace(self, workspace_id: str):
         try:
-            workspace = self.api_client.get_workspace_api_v2_experimental_workspaces_workspace_id_get(
-                workspace_id
+            workspace = (
+                self.api_client.get_workspace_api_v2_experimental_workspaces_workspace_id_get(
+                    workspace_id
+                )
             )
             if workspace is None or workspace.result is None:
                 raise click.ClickException(f"Workspace {workspace_id} not found.")
             workspace_result = workspace.result
-            if (
-                not hasattr(workspace_result, "cluster_id")
-                or workspace_result.cluster_id is None
-            ):
+            if not hasattr(workspace_result, "cluster_id") or workspace_result.cluster_id is None:
                 raise click.ClickException(
                     f"Workspace {workspace_id} does not have an associated cluster."
                 )
@@ -107,12 +103,8 @@ class LogsController(BaseController):
                 raise
             # Handle 404 errors specifically
             if hasattr(e, "status") and e.status == 404:
-                raise click.ClickException(
-                    f"Workspace {workspace_id} not found."
-                ) from e
-            raise click.ClickException(
-                f"Failed to get workspace {workspace_id}: {e!s}"
-            ) from e
+                raise click.ClickException(f"Workspace {workspace_id} not found.") from e
+            raise click.ClickException(f"Failed to get workspace {workspace_id}: {e!s}") from e
 
     def get_cluster_id_for_service(  # noqa: C901, PLR0912
         self, service_id: str, version_name_or_id: Optional[str] = None
@@ -126,13 +118,13 @@ class LogsController(BaseController):
         # For services, we need to get the cluster_id from the service's version
         # Services can have multiple clusters, so we'll get the specified version or latest
         try:
-            versions = self.api_client.get_service_versions_api_v2_services_v2_service_id_versions_get(
-                service_id=service_id
+            versions = (
+                self.api_client.get_service_versions_api_v2_services_v2_service_id_versions_get(
+                    service_id=service_id
+                )
             )
             if not versions or not versions.results:
-                raise click.ClickException(
-                    f"Service {service_id} has no versions available."
-                )
+                raise click.ClickException(f"Service {service_id} has no versions available.")
 
             # Find the specified version or use the latest
             target_version = None
@@ -142,21 +134,14 @@ class LogsController(BaseController):
                     if (
                         hasattr(v, "id")
                         and v.id
-                        and (
-                            v.id == version_name_or_id
-                            or v.id.endswith(version_name_or_id)
-                        )
+                        and (v.id == version_name_or_id or v.id.endswith(version_name_or_id))
                     ):
                         target_version = v
                         break
                 # If not found by ID, try by name
                 if target_version is None:
                     for v in versions.results:
-                        if (
-                            hasattr(v, "version")
-                            and v.version
-                            and v.version == version_name_or_id
-                        ):
+                        if hasattr(v, "version") and v.version and v.version == version_name_or_id:
                             target_version = v
                             break
                 if target_version is None:
@@ -174,9 +159,7 @@ class LogsController(BaseController):
                     and v.current_state
                     and str(v.current_state).upper() == "RUNNING"
                 ]
-                target_version = (
-                    running_versions[0] if running_versions else versions.results[0]
-                )
+                target_version = running_versions[0] if running_versions else versions.results[0]
 
             # Print information about which service version was fetched
             version_name = (
@@ -204,8 +187,10 @@ class LogsController(BaseController):
                 for production_job_id in target_version.production_job_ids:
                     try:
                         # Get the decorated production job to access cluster_id
-                        job = self.api_client.get_job_api_v2_decorated_ha_jobs_production_job_id_get(
-                            production_job_id=production_job_id
+                        job = (
+                            self.api_client.get_job_api_v2_decorated_ha_jobs_production_job_id_get(
+                                production_job_id=production_job_id
+                            )
                         )
                         if job and job.result and job.result.state:
                             # Try cluster_id from state first
@@ -267,9 +252,7 @@ class LogsController(BaseController):
         timeout: timedelta,
     ) -> LogGroup:
         if filter.cluster_id:
-            cluster: Cluster = self.anyscale_api_client.get_cluster(
-                filter.cluster_id
-            ).result
+            cluster: Cluster = self.anyscale_api_client.get_cluster(filter.cluster_id).result
             if cluster.state == SessionState.RUNNING:
                 self.log.warning(
                     "The latest 24 hours of logs are not guaranteed if the cluster is still running. "
@@ -379,9 +362,7 @@ class LogsController(BaseController):
             return os.path.join(base_dir, resource_id)
         return base_dir
 
-    def _write_logs_to_stdout(
-        self, log_group: LogGroup, tmp_dir: str, tail: int
-    ) -> bool:
+    def _write_logs_to_stdout(self, log_group: LogGroup, tmp_dir: str, tail: int) -> bool:
         """Write logs to stdout. Returns True if we hit the tail limit and should stop."""
         lines_read = 0
         for log_file in log_group.get_files():
@@ -423,12 +404,11 @@ class LogsController(BaseController):
                     downloaded_chunk_path = os.path.join(tmp_dir, chunk.chunk_name)
                     if not os.path.exists(downloaded_chunk_path):
                         self.log.error(
-                            "Download failed for file: %s", chunk.chunk_name,
+                            "Download failed for file: %s",
+                            chunk.chunk_name,
                         )
                         continue
-                    with open(
-                        downloaded_chunk_path, encoding="utf-8", errors="replace"
-                    ) as source:
+                    with open(downloaded_chunk_path, encoding="utf-8", errors="replace") as source:
                         for line in source:
                             dest.write(line)
                         dest.write("\n")
@@ -484,9 +464,7 @@ class LogsController(BaseController):
                         return
                 else:
                     assert final_download_dir is not None
-                    self._write_logs_to_files(
-                        log_group, tmp_dir, final_download_dir, unpack
-                    )
+                    self._write_logs_to_files(log_group, tmp_dir, final_download_dir, unpack)
                     absolute_path = os.path.abspath(final_download_dir)
                     self.console.log(
                         f"Download complete! Files have been downloaded to {absolute_path}"
@@ -542,10 +520,7 @@ class LogsController(BaseController):
                     status.update(
                         f"Scanning available logs...discovered {len(all_log_chunks)} log file chunks."
                     )
-                if (
-                    result.next_page_token is None
-                    or result.next_page_token == next_page_token
-                ):
+                if result.next_page_token is None or result.next_page_token == next_page_token:
                     break
                 next_page_token = result.next_page_token
 
@@ -619,10 +594,11 @@ class LogsController(BaseController):
             timeout = aiohttp.ClientTimeout(
                 total=None, sock_connect=30, sock_read=read_timeout.seconds
             )
-            headers = (
-                {"Authorization": f"Bearer {bearer_token}"} if bearer_token else {}
-            )
-            async with session.get(url, timeout=timeout, headers=headers) as response:
+            headers = {"Authorization": f"Bearer {bearer_token}"} if bearer_token else {}
+            proxy, proxy_headers = get_proxy_config(url)
+            async with session.get(
+                url, timeout=timeout, headers=headers, proxy=proxy, proxy_headers=proxy_headers
+            ) as response:
                 if response.status == 200:
                     try:
                         with open(file_name, "wb") as fhand:
@@ -720,9 +696,10 @@ class LogsController(BaseController):
             self._unpack_log_sent = True
         error_count = 0
         seen = set()
-        with _FileDescriptorCache(DEFAULT_UNPACK_MAX_FILE_DESCRIPTORS) as fds, open(
-            log_path, encoding="utf-8", errors="replace"
-        ) as f:
+        with (
+            _FileDescriptorCache(DEFAULT_UNPACK_MAX_FILE_DESCRIPTORS) as fds,
+            open(log_path, encoding="utf-8", errors="replace") as f,
+        ):
             for line in f.readlines():
                 try:
                     j = json.loads(line)

@@ -1,0 +1,23 @@
+from cleo.helpers import option
+from poetry.console.commands.command import Command
+from polylith.bricks import create_component
+from polylith.poetry.commands.create_brick import try_create
+
+
+class CreateComponentCommand(Command):
+    name = "poly create component"
+    description = "Creates a <comment>Polylith</> component."
+
+    options = [
+        option("name", None, "Name of the component.", flag=False),
+        option(
+            "description",
+            None,
+            "Description of the component.",
+            flag=False,
+            value_required=False,
+        ),
+    ]
+
+    def handle(self) -> int:
+        return try_create(self, create_component)

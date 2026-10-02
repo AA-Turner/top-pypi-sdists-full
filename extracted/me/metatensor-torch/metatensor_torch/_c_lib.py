@@ -1,0 +1,203 @@
+import ctypes
+import glob
+import importlib
+import os
+import sys
+from ctypes import wintypes
+
+import torch
+
+import metatensor
+
+from ._build_versions import BUILD_METATENSOR_CORE_VERSION
+from ._version import __version__
+from .utils import _parse_version
+
+
+def _version_compatible(actual, required):
+    actual = _parse_version(actual)
+    required = _parse_version(required)
+
+    if actual.major != required.major:
+        return False
+    elif actual.minor != required.minor:
+        return False
+    else:
+        return True
+
+
+if not _version_compatible(metatensor.__version__, BUILD_METATENSOR_CORE_VERSION):
+    raise ImportError(
+        "Trying to load metatensor-torch with metatensor-core "
+        f"v{metatensor.__version__}, but it was compiled against "
+        f"metatensor-core v{BUILD_METATENSOR_CORE_VERSION}, which "
+        "is not ABI compatible"
+    )
+
+_HERE = os.path.realpath(os.path.dirname(__file__))
+
+
+def _lib_name():
+    """Name of the metatensor_torch shared library on the current platform"""
+    if sys.platform.startswith("darwin"):
+        return "libmetatensor_torch.dylib"
+    elif sys.platform.startswith("linux"):
+        return "libmetatensor_torch.so"
+    elif sys.platform.startswith("win"):
+        return "metatensor_torch.dll"
+    else:
+        raise ImportError("Unknown platform. Please edit this file")
+
+
+def _already_loaded(name):
+    """
+    Check if the library with the given ``name`` is already loaded in the current
+    process, and return the corresponding ``CDLL`` if it is. This makes sure we share
+    the global state of the library (error buffers, registered data origins, ...) with
+    whoever loaded it first, instead of using a second, independent copy of the library.
+
+    Returns ``None`` if the library is not already loaded.
+    """
+    if sys.platform.startswith("win"):
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.GetModuleHandleW.restype = wintypes.HMODULE
+        kernel32.GetModuleHandleW.argtypes = [wintypes.LPCWSTR]
+
+        handle = kernel32.GetModuleHandleW(name)
+        if not handle:
+            return None
+
+        return ctypes.CDLL(name, handle=handle)
+    else:
+        # RTLD_NOLOAD gives us a handle if the library is already loaded, and fails
+        # instead of loading it otherwise.
+        RTLD_NOLOAD = getattr(os, "RTLD_NOLOAD", None)
+        if RTLD_NOLOAD is None:
+            return None
+
+        try:
+            return ctypes.CDLL(name, mode=RTLD_NOLOAD | os.RTLD_LOCAL)
+        except OSError:
+            return None
+
+
+def _lib_path():
+    torch_version = _parse_version(torch.__version__)
+    install_prefix = os.path.join(
+        _HERE, f"torch-{torch_version.major}.{torch_version.minor}"
+    )
+
+    if os.path.exists(install_prefix):
+        # check if we are using an externally-provided version of the shared library
+        external_path = os.path.join(install_prefix, "_external.py")
+        if os.path.exists(external_path):
+            spec = importlib.util.spec_from_file_location("_external", external_path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            return module.EXTERNAL_METATENSOR_TORCH_PATH
+
+        windows = sys.platform.startswith("win")
+        if windows:
+            path = os.path.join(install_prefix, "bin", _lib_name())
+        else:
+            path = os.path.join(install_prefix, "lib", _lib_name())
+
+        if os.path.isfile(path):
+            if windows:
+                _check_dll(path)
+            return path
+        else:
+            raise ImportError(
+                "Could not find metatensor_torch shared library at " + path
+            )
+
+    # gather which torch version(s) the current install was built
+    # with to create the error message
+    existing_versions = []
+    for prefix in glob.glob(os.path.join(_HERE, "torch-*")):
+        existing_versions.append(os.path.basename(prefix)[6:])
+
+    if len(existing_versions) == 1:
+        raise ImportError(
+            f"Trying to load metatensor-torch with torch v{torch.__version__}, "
+            f"but it was compiled against torch v{existing_versions[0]}, which "
+            "is not ABI compatible"
+        )
+    else:
+        all_versions = ", ".join(
+            map(lambda version: f"v{version}", sorted(existing_versions))
+        )
+        raise ImportError(
+            f"Trying to load metatensor-torch with torch v{torch.__version__}, "
+            f"we found builds for torch {all_versions}; which are not ABI compatible.\n"
+            "You can try to re-install from source with "
+            "`pip install metatensor-torch --no-binary=metatensor-torch`"
+        )
+
+
+def _check_dll(path):
+    """
+    Check if the DLL pointer size matches Python (32-bit or 64-bit)
+    """
+    import platform
+    import struct
+
+    IMAGE_FILE_MACHINE_I386 = 332
+    IMAGE_FILE_MACHINE_AMD64 = 34404
+
+    machine = None
+    with open(path, "rb") as fd:
+        header = fd.read(2).decode(encoding="utf-8", errors="strict")
+        if header != "MZ":
+            raise ImportError(path + " is not a DLL")
+        else:
+            fd.seek(60)
+            header = fd.read(4)
+            header_offset = struct.unpack("<L", header)[0]
+            fd.seek(header_offset + 4)
+            header = fd.read(2)
+            machine = struct.unpack("<H", header)[0]
+
+    arch = platform.architecture()[0]
+    if arch == "32bit":
+        if machine != IMAGE_FILE_MACHINE_I386:
+            raise ImportError("Python is 32-bit, but this DLL is not")
+    elif arch == "64bit":
+        if machine != IMAGE_FILE_MACHINE_AMD64:
+            raise ImportError("Python is 64-bit, but this DLL is not")
+    else:
+        raise ImportError("Could not determine pointer size of Python")
+
+
+def _load_library():
+    # Load metatensor shared library in the process first, to ensure
+    # the metatensor_torch shared library can find it
+    metatensor._c_lib._get_library()
+
+    # if the library is already loaded in the current process, its operators and
+    # classes are already registered with torch, and we should not load a second,
+    # independent copy of it
+    if _already_loaded(_lib_name()) is None:
+        # load the C++ operators and custom classes
+        try:
+            torch.ops.load_library(_lib_path())
+        except Exception as e:
+            if "undefined symbol" in str(e):
+                file_name = os.path.basename(_lib_path())
+                raise ImportError(
+                    f"{file_name} is not compatible with the current PyTorch "
+                    "installation.\nThis can happen if PyTorch comes from one source "
+                    "(pip, conda, custom), but metatensor-torch comes from a "
+                    "different one.\nIn this case, you can try to compile "
+                    "metatensor-torch yourself with `pip install "
+                    "--no-binary=metatensor-torch metatensor-torch`"
+                ) from e
+            else:
+                raise e
+
+    lib_version = torch.ops.metatensor.version()
+    if not _version_compatible(lib_version, __version__):
+        raise ImportError(
+            f"Trying to load the Python package metatensor-torch v{__version__} "
+            f"with the incompatible metatensor-torch C++ library v{lib_version}"
+        )

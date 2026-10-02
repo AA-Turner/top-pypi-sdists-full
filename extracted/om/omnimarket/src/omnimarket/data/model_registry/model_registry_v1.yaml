@@ -1,0 +1,269 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# Model Registry — Source of truth for LLM model capabilities and pricing.
+# Version: 1.0.0
+# Ticket: OMN-11779 (epic OMN-11771)
+#
+# This file is loaded at startup by ModelRegistryLoader.
+# Its SHA-256 hash (model_registry_hash) is included in every delegation event.
+#
+# IMPORTANT: Pricing data is point-in-time. Always check pricing_observed_at
+# before using cost estimates. Refresh before any pricing claim is used in routing.
+#
+# Hardcoding volatile model facts (pricing, context windows, model versions)
+# in Python or YAML is prohibited — use this registry as the single source.
+
+schema_version: "1.0.0"
+model_registry_version: "1.3.0"
+pricing_manifest_version: "2026-06-11-gemini-25-flash-lite"
+observed_at: "2026-06-11T00:00:00Z"
+
+models:
+  qwen3-coder-30b:
+    model_id: "qwen3-coder-30b"
+    provider: "local"
+    endpoint_env: "LLM_CODER_URL"
+    model_name: "Qwen3.8-27B"
+    context_window: 131072
+    pricing_per_1m_input: "0.00"
+    pricing_per_1m_output: "0.00"
+    cost_basis: "zero_marginal_api_cost"
+    observed_at: "2026-09-05T23:12:00Z"
+    source: "live probe"
+    notes: >
+      Routing key retained for downstream contract stability; the actual served
+      model is Qwen3.6-35B-A3B on .201:8000 via vLLM. Live-probed 2026-09-05
+      (OMN-16999): GET /v1/models -> http=200, {"id": "Qwen3.6-35B-A3B",
+      "owned_by": "vllm", "root": "/data/inference/hf-cache/Qwen3.6-35B-A3B-GPTQ-Int4",
+      "max_model_len": 131072}. This SUPERSEDES the OMN-16419/OMN-16492 readback
+      of 2026-08-23, which recorded {"id": "qwen3.8", "owned_by": "sglang",
+      "max_model_len": 122880}: the endpoint has since been redeployed
+      SGLang -> vLLM and serves the pre-OMN-16419 id again. Zero marginal API
+      cost. context_window=131072 (live max_model_len).
+
+  deepseek-r1-14b:
+    model_id: "deepseek-r1-14b"
+    provider: "local"
+    endpoint_env: "LLM_CODER_FAST_URL"
+    model_name: "Qwen3.6-27B-MTP-IQ4_XS.gguf"
+    context_window: 114688
+    pricing_per_1m_input: "0.00"
+    pricing_per_1m_output: "0.00"
+    cost_basis: "zero_marginal_api_cost"
+    observed_at: "2026-05-30T00:00:00Z"
+    source: "manual benchmark"
+    notes: >
+      Stale slot — the .201:8001 endpoint (llama.cpp GPU1) is DEAD: connection
+      refused on live probe 2026-08-23 (OMN-16419/OMN-16442, GPU1 decommissioned).
+      Superseded by qwen3-coder-30b (Qwen3.6-35B-A3B via SGLang on .201:8000). Key retained
+      for routing contract stability; downstream contracts should migrate to
+      qwen3-coder-30b. model_name/context_window record the last-served model.
+
+  deepseek-r1-32b:
+    model_id: "deepseek-r1-32b"
+    provider: "local"
+    endpoint_env: "LLM_DEEPSEEK_R1_URL"
+    context_window: 8192
+    pricing_per_1m_input: "0.00"
+    pricing_per_1m_output: "0.00"
+    cost_basis: "zero_marginal_api_cost"
+    observed_at: "2026-05-24T00:00:00Z"
+    source: "manual benchmark"
+    notes: >
+      Stale slot — previously MLX-served on .200:8101. Superseded by ds-v4-flash
+      (OMN-12492). Key retained for routing contract stability; downstream contracts
+      should migrate to ds-v4-flash. LLM_DEEPSEEK_R1_URL env var still declared.
+
+  ds-v4-flash:
+    model_id: "ds-v4-flash"
+    provider: "local"
+    endpoint_env: "LLM_DS_V4_FLASH_URL"
+    model_name: "deepseek-v4-flash"
+    context_window: 65536
+    pricing_per_1m_input: "0.00"
+    pricing_per_1m_output: "0.00"
+    cost_basis: "zero_marginal_api_cost"
+    observed_at: "2026-05-30T00:00:00Z"
+    source: "manual benchmark"
+    notes: >
+      DeepSeek V4 Flash (284B MoE) served by antirez/ds4 on .200:8101 (Mac Studio).
+      RE-PROBED 2026-08-28 (OMN-16442) and still LIVE: GET
+      .200:8101/v1/models lists ids {"deepseek-v4-flash",
+      "deepseek-v4-pro"} (both name the same model), owned_by "ds4.c",
+      context_length 131072. context_window below stays 65536 — a DELIBERATE
+      conservative budget matching routing_tiers.yaml's max_context_tokens, not a
+      claim about the server's ceiling (which is 131072).
+      Zero marginal API cost.
+      LLM_DS_V4_FLASH_URL env var — actual URL lives in bifrost_overrides.yaml overlay (local file, not committed).
+
+  qwen3.6-35b:
+    model_id: "qwen3.6-35b"
+    provider: "local"
+    endpoint_env: "LLM_QWEN3_NEXT_URL"
+    model_name: "mlx-community/Qwen3.6-35B-A3B-8bit"
+    context_window: 8192
+    pricing_per_1m_input: "0.00"
+    pricing_per_1m_output: "0.00"
+    cost_basis: "zero_marginal_api_cost"
+    observed_at: "2026-05-24T00:00:00Z"
+    source: "manual benchmark"
+    notes: >
+      STALE SLOT (OMN-16442, 2026-08-28) — the endpoint behind LLM_QWEN3_NEXT_URL
+      (.200:8102, MLX Qwen3.6-35B-A3B-8bit) is DEAD: `curl
+      .200:8102/v1/models` returns exit 7 "Couldn't connect to
+      server", and the canonical inventory
+      (omni_home/docs/reference/AI_LAB_HARDWARE.md, verified 2026-08-28) records
+      that ports 8100/8102/8103 on the Mac Studio have no model listener. The Mac
+      Studio's MLX server now serves Qwen3.8-27B-8bit on 127.0.0.1:8099,
+      LOCALHOST-ONLY. Key retained ONLY because routing_tiers.yaml still names it
+      as the local/cheap_cloud/cheap_frontier `eval_model`; repointing that
+      eval_model is the scoped follow-on on OMN-16442. Do NOT treat this row as a
+      routable serving slot.
+
+  qwen3-next-80b:
+    model_id: "qwen3-next-80b"
+    provider: "local"
+    endpoint_env: "LLM_QWEN3_NEXT_URL"
+    model_name: "mlx-community/Qwen3.6-35B-A3B-8bit"
+    context_window: 8192
+    pricing_per_1m_input: "0.00"
+    pricing_per_1m_output: "0.00"
+    cost_basis: "zero_marginal_api_cost"
+    observed_at: "2026-05-24T00:00:00Z"
+    source: "manual benchmark"
+    notes: >
+      Compatibility alias for qwen3.6-35b. Key retained for routing key stability.
+      STALE SLOT (OMN-16442, 2026-08-28) — inherits qwen3.6-35b's dead
+      LLM_QWEN3_NEXT_URL (.200:8102, connection refused on live probe). Not a
+      routable serving slot; see the qwen3.6-35b entry above.
+
+  gemini-2.5-flash-lite:
+    model_id: "gemini-2.5-flash-lite"
+    provider: "google"
+    endpoint_env: "GEMINI_API_URL"
+    model_name: "gemini-2.5-flash-lite"
+    served_model_names:
+      # AI Studio (generativelanguage) serves the bare model id.
+      ai_studio: "gemini-2.5-flash-lite"
+      # Vertex AI requires the publisher-qualified resource path. Posting the
+      # bare AI-Studio name to the Vertex environment 404s — the P2.7 failure
+      # mode (OMN-12937: gemini-2.0-flash 404 on Vertex). Live Vertex resource:
+      # publishers/google/models/gemini-2.5-flash-lite (Vertex model garden, 2026-06).
+      vertex: "publishers/google/models/gemini-2.5-flash-lite"
+    requires_api_key_env: "GEMINI_API_KEY"
+    context_window: 1048576
+    pricing_per_1m_input: "0.10"
+    pricing_per_1m_output: "0.40"
+    cost_basis: "cloud_api_cost"
+    observed_at: "2026-06-11T00:00:00Z"
+    source: "provider docs"
+    notes: >
+      Gemini 2.5 Flash Lite. 1M context window. GEMINI_API_KEY or GOOGLE_API_KEY required.
+      Pricing: $0.10/1M input, $0.40/1M output (Google AI pricing 2026-06-11).
+      endpoint_url empty in repo default; overlay fills https://generativelanguage.googleapis.com/v1beta/openai/.
+      Routed via cloud-gemini-flash bifrost backend.
+      OMN-12937: retargeted from gemini-2.0-flash, whose free tier was quota-exhausted
+      (HTTP 429). The delegation inference effect sources the wire model id from this
+      registry entry directly; gemini-2.5-flash-lite probes HTTP 200 on the deployed key.
+      OMN-12972 (P2.7): served_model_names maps each serving environment to its exact
+      Vertex/AI-Studio wire name. The key-path id stays stable; the call boundary picks
+      the env-specific served name so neither environment receives a name it 404s on.
+      model_name retains the AI-Studio (default) served name for single-name consumers.
+
+  vertex-gemini-flash:
+    model_id: "vertex-gemini-flash"
+    provider: "vertex"
+    endpoint_env: "BIFROST_VERTEX_GEMINI_ENDPOINT_URL"
+    model_name: "gemini-2.5-flash-lite"
+    requires_secret_ref: "llm.vertex.access_token"
+    context_window: 1048576
+    pricing_per_1m_input: "0.10"
+    pricing_per_1m_output: "0.40"
+    cost_basis: "cloud_api_cost"
+    observed_at: "2026-06-11T00:00:00Z"
+    source: "provider docs"
+    notes: >
+      Vertex-served Gemini 2.5 Flash Lite (OMN-12971). Burns the Vertex $500
+      credit via Vertex AI. The outbound call carries Authorization: Bearer
+      <token>, where the token is a short-lived OAuth access token minted from
+      Application Default Credentials (ADC) and published to the secret store as
+      llm.vertex.access_token. ADC delivery to the effects container is a mounted
+      credential file (GOOGLE_APPLICATION_CREDENTIALS) exchanged for that token;
+      the token VALUE is resolved fail-closed at the effect boundary and never
+      committed. ADDITIVE next to gemini-2.5-flash-lite (AI Studio key path);
+      both routes stay selectable (provider-agnostic). endpoint_url null in repo
+      default; the overlay supplies the COMPLETE project+region Vertex
+      OpenAI-compat URL via BIFROST_VERTEX_GEMINI_ENDPOINT_URL. ADC proven HTTP
+      200 from .201. Routed via cloud-vertex-gemini bifrost backend.
+
+  openrouter-qwen3-coder-480b:
+    model_id: "openrouter-qwen3-coder-480b"
+    provider: "openrouter"
+    endpoint_env: "OPENROUTER_URL"
+    model_name: "nvidia/nemotron-3-ultra-550b-a55b:free"
+    requires_api_key_env: "OPENROUTER_API_KEY"
+    context_window: 1000000
+    pricing_per_1m_input: "0.00"
+    pricing_per_1m_output: "0.00"
+    cost_basis: "zero_marginal_api_cost"
+    observed_at: "2026-08-01T00:00:00Z"
+    source: "openrouter catalog"
+    notes: >
+      OpenRouter free tier — NVIDIA Nemotron 3 Ultra (550B total / 55B active
+      hybrid Mamba-Transformer MoE, 1M context, native tool-calling). Cheap
+      frontier direct (OMN-12492). OMN-15638: repointed from
+      qwen/qwen3-coder:free, which OpenRouter RETIRED to paid-only — that slug
+      now returns a permanent HTTP 404 and is absent from the live catalog. Per
+      operator ruling R9-amended the rung stays FREE rather than adopting the
+      paid qwen/qwen3-coder ($0.30/$1.00 per M), so pricing 0.00/0.00 and
+      zero_marginal_api_cost remain TRUE — verified in-band, the provider's own
+      usage payload returned "cost": 0. Rate-limited (429), no SLA. Requires
+      OPENROUTER_API_KEY. Falls back to the cheap_cloud direct z.ai GLM-5.2
+      (cloud-glm) or local when key absent (OMN-13380). model_id retained as
+      openrouter-qwen3-coder-480b: it is a stable seam key naming the RUNG, and
+      must stay byte-identical to the bifrost backend_id.
+
+  llama-3.3-70b-free:
+    model_id: "llama-3.3-70b-free"
+    provider: "openrouter"
+    endpoint_env: "OPENROUTER_URL"
+    model_name: "meta-llama/llama-3.3-70b-instruct:free"
+    requires_api_key_env: "OPENROUTER_API_KEY"
+    context_window: 131072
+    pricing_per_1m_input: "0.00"
+    pricing_per_1m_output: "0.00"
+    cost_basis: "zero_marginal_api_cost"
+    observed_at: "2026-05-23T00:00:00Z"
+    source: "openrouter catalog"
+    notes: >
+      OpenRouter free tier — Llama 3.3 70B Instruct. Rate-limited, no SLA.
+      Zero API cost but provider bears inference cost. CI default.
+
+  claude-sonnet-4-6:
+    model_id: "claude-sonnet-4-6"
+    provider: "anthropic"
+    endpoint_env: "ANTHROPIC_DELEGATION_URL"
+    context_window: 200000
+    pricing_per_1m_input: "3.00"
+    pricing_per_1m_output: "15.00"
+    cost_basis: "cloud_api_cost"
+    observed_at: "2026-05-23T00:00:00Z"
+    source: "provider docs"
+    notes: >
+      Claude Sonnet 4.6. Frontier fallback. Metered CLOUD_API_COST.
+      Pricing sourced from Anthropic docs 2026-05-23.
+
+  claude-opus-4-6:
+    model_id: "claude-opus-4-6"
+    provider: "anthropic"
+    endpoint_env: "ANTHROPIC_DELEGATION_URL"
+    context_window: 1000000
+    pricing_per_1m_input: "15.00"
+    pricing_per_1m_output: "75.00"
+    cost_basis: "cloud_api_cost"
+    observed_at: "2026-05-23T00:00:00Z"
+    source: "provider docs"
+    notes: >
+      Claude Opus 4.6. Baseline for opus-equivalent cost calculations.
+      Metered CLOUD_API_COST. Pricing sourced from Anthropic docs 2026-05-23.

@@ -1,0 +1,22 @@
+[build-system]
+requires = [
+    "setuptools>=64.0.0",
+    "wheel",
+    "packaging>=20.0",
+    "pip>=19.3.1",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+markers = [
+    "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
+    "slow: marks tests as slow running",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::UserWarning",
+]

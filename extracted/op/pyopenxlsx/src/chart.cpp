@@ -1,0 +1,149 @@
+#include <nanobind/stl/optional.h>
+
+#include "bindings.hpp"
+
+void init_chart(py::module_& m) {
+    py::enum_<XLChartType>(m, "XLChartType")
+        .value("Bar", XLChartType::Bar)
+        .value("BarStacked", XLChartType::BarStacked)
+        .value("BarPercentStacked", XLChartType::BarPercentStacked)
+        .value("Bar3D", XLChartType::Bar3D)
+        .value("Bar3DStacked", XLChartType::Bar3DStacked)
+        .value("Bar3DPercentStacked", XLChartType::Bar3DPercentStacked)
+        .value("Column", XLChartType::Column)
+        .value("ColumnStacked", XLChartType::ColumnStacked)
+        .value("ColumnPercentStacked", XLChartType::ColumnPercentStacked)
+        .value("Column3D", XLChartType::Column3D)
+        .value("Column3DStacked", XLChartType::Column3DStacked)
+        .value("Column3DPercentStacked", XLChartType::Column3DPercentStacked)
+        .value("Line", XLChartType::Line)
+        .value("LineStacked", XLChartType::LineStacked)
+        .value("LinePercentStacked", XLChartType::LinePercentStacked)
+        .value("Line3D", XLChartType::Line3D)
+        .value("Pie", XLChartType::Pie)
+        .value("Pie3D", XLChartType::Pie3D)
+        .value("Scatter", XLChartType::Scatter)
+        .value("ScatterLine", XLChartType::ScatterLine)
+        .value("ScatterLineMarker", XLChartType::ScatterLineMarker)
+        .value("ScatterSmooth", XLChartType::ScatterSmooth)
+        .value("ScatterSmoothMarker", XLChartType::ScatterSmoothMarker)
+        .value("ScatterMarker", XLChartType::ScatterMarker)
+        .value("Bubble", XLChartType::Bubble)
+        .value("StockHLC", XLChartType::StockHLC)
+        .value("StockOHLC", XLChartType::StockOHLC)
+        .value("Surface", XLChartType::Surface)
+        .value("Surface3D", XLChartType::Surface3D)
+        .value("SurfaceWireframe", XLChartType::SurfaceWireframe)
+        .value("Surface3DWireframe", XLChartType::Surface3DWireframe)
+        .value("Area", XLChartType::Area)
+        .value("AreaStacked", XLChartType::AreaStacked)
+        .value("AreaPercentStacked", XLChartType::AreaPercentStacked)
+        .value("Area3D", XLChartType::Area3D)
+        .value("Area3DStacked", XLChartType::Area3DStacked)
+        .value("Area3DPercentStacked", XLChartType::Area3DPercentStacked)
+        .value("Doughnut", XLChartType::Doughnut)
+        .value("Radar", XLChartType::Radar)
+        .value("RadarFilled", XLChartType::RadarFilled)
+        .value("RadarMarkers", XLChartType::RadarMarkers);
+
+    py::enum_<XLLegendPosition>(m, "XLLegendPosition")
+        .value("Bottom", XLLegendPosition::Bottom)
+        .value("Left", XLLegendPosition::Left)
+        .value("Right", XLLegendPosition::Right)
+        .value("Top", XLLegendPosition::Top)
+        .value("TopRight", XLLegendPosition::TopRight)
+        .value("Hidden", XLLegendPosition::Hidden);
+
+    py::enum_<XLAxisOrientation>(m, "XLAxisOrientation")
+        .value("MinMax", XLAxisOrientation::MinMax)
+        .value("MaxMin", XLAxisOrientation::MaxMin);
+
+    py::enum_<XLAxisCrosses>(m, "XLAxisCrosses")
+        .value("AutoZero", XLAxisCrosses::AutoZero)
+        .value("Min", XLAxisCrosses::Min)
+        .value("Max", XLAxisCrosses::Max);
+
+    py::enum_<XLMarkerStyle>(m, "XLMarkerStyle")
+        .value("None", XLMarkerStyle::None)
+        .value("Circle", XLMarkerStyle::Circle)
+        .value("Dash", XLMarkerStyle::Dash)
+        .value("Diamond", XLMarkerStyle::Diamond)
+        .value("Dot", XLMarkerStyle::Dot)
+        .value("Picture", XLMarkerStyle::Picture)
+        .value("Plus", XLMarkerStyle::Plus)
+        .value("Square", XLMarkerStyle::Square)
+        .value("Star", XLMarkerStyle::Star)
+        .value("Triangle", XLMarkerStyle::Triangle)
+        .value("X", XLMarkerStyle::X)
+        .value("Default", XLMarkerStyle::Default);
+
+    py::class_<XLChartSeries>(m, "XLChartSeries")
+        .def("set_title", &XLChartSeries::setTitle)
+        .def("set_smooth", &XLChartSeries::setSmooth)
+        .def("set_marker_style", &XLChartSeries::setMarkerStyle)
+        .def("set_data_labels", &XLChartSeries::setDataLabels, "show_value"_a,
+             "show_category_name"_a = false, "show_percent"_a = false);
+
+    py::class_<XLAxis>(m, "XLAxis")
+        .def("set_title", &XLAxis::setTitle)
+        .def("set_min_bounds", &XLAxis::setMinBounds)
+        .def("clear_min_bounds", &XLAxis::clearMinBounds)
+        .def("set_max_bounds", &XLAxis::setMaxBounds)
+        .def("clear_max_bounds", &XLAxis::clearMaxBounds)
+        .def("set_major_unit", &XLAxis::setMajorUnit)
+        .def("set_minor_unit", &XLAxis::setMinorUnit)
+        .def("set_log_scale", &XLAxis::setLogScale)
+        .def("set_date_axis", &XLAxis::setDateAxis)
+        .def("set_orientation", &XLAxis::setOrientation)
+        .def("set_crosses", &XLAxis::setCrosses)
+        .def("set_crosses_at", &XLAxis::setCrossesAt)
+        .def("set_number_format", &XLAxis::setNumberFormat, "format_code"_a, "source_linked"_a = false)
+        .def("set_major_gridlines", &XLAxis::setMajorGridlines)
+        .def("set_minor_gridlines", &XLAxis::setMinorGridlines);
+
+    py::class_<XLChartAnchor>(m, "XLChartAnchor")
+        .def(py::init<std::string_view, uint32_t, uint32_t, XLDistance, XLDistance>())
+        .def_rw("name", &XLChartAnchor::name)
+        .def_rw("row", &XLChartAnchor::row)
+        .def_rw("col", &XLChartAnchor::col)
+        .def_rw("width", &XLChartAnchor::width)
+        .def_rw("height", &XLChartAnchor::height);
+
+    py::class_<XLChart>(m, "XLChart")
+        .def("add_series",
+             py::overload_cast<const XLWorksheet&, const XLCellRange&, std::string_view,
+                               std::optional<XLChartType>, bool>(&XLChart::addSeries),
+             "wks"_a, "values"_a, "title"_a = "",
+             "target_chart_type"_a = py::none(), "use_secondary_axis"_a = false)
+        .def("add_series",
+             py::overload_cast<const XLWorksheet&, const XLCellRange&, const XLCellRange&,
+                               std::string_view, std::optional<XLChartType>, bool>(
+                 &XLChart::addSeries),
+             "wks"_a, "values"_a, "categories"_a, "title"_a = "",
+             "target_chart_type"_a = py::none(), "use_secondary_axis"_a = false)
+        .def("add_series_ref",
+             py::overload_cast<std::string_view, std::string_view, std::string_view,
+                               std::optional<XLChartType>, bool>(&XLChart::addSeries),
+             "values_ref"_a, "title"_a = "", "categories_ref"_a = "",
+             "target_chart_type"_a = py::none(), "use_secondary_axis"_a = false)
+        .def("add_bubble_series",
+             py::overload_cast<std::string_view, std::string_view, std::string_view, std::string_view>(&XLChart::addBubbleSeries),
+             "x_val_ref"_a, "y_val_ref"_a, "size_ref"_a, "title"_a = "")
+        .def("add_bubble_series",
+             py::overload_cast<const XLWorksheet&, const XLCellRange&, const XLCellRange&, const XLCellRange&, std::string_view>(&XLChart::addBubbleSeries),
+             "wks"_a, "x_values"_a, "y_values"_a, "sizes"_a, "title"_a = "")
+        .def("set_title", &XLChart::setTitle)
+        .def("set_style", &XLChart::setStyle)
+        .def("set_legend_position", &XLChart::setLegendPosition)
+        .def("x_axis", &XLChart::xAxis)
+        .def("y_axis", &XLChart::yAxis)
+        .def("axis", &XLChart::axis)
+        .def("set_show_data_labels", &XLChart::setShowDataLabels, "show_value"_a,
+             "show_category"_a = false, "show_percent"_a = false)
+        .def("set_series_smooth", &XLChart::setSeriesSmooth)
+        .def("set_series_marker", &XLChart::setSeriesMarker)
+        .def("set_overlap", &XLChart::setOverlap)
+        .def("set_hole_size", &XLChart::setHoleSize)
+        .def("set_rotation", &XLChart::setRotation, "x"_a, "y"_a, "perspective"_a = 30)
+        .def("set_plot_area_color", &XLChart::setPlotAreaColor);
+}

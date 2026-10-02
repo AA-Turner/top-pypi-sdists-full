@@ -18,11 +18,11 @@ use crate::{
 };
 use tombi_future::Boxable;
 
-impl GetHoverContent for tombi_document_tree_syntax::String {
+impl GetHoverContent for tombi_document_tree_syntax::String<'_> {
     fn get_hover_content<'a: 'b, 'b>(
         &'a self,
-        position: tombi_text::Position,
-        keys: &'a [tombi_document_tree_syntax::Key],
+        offset: tombi_text::Offset,
+        keys: &'a [tombi_document_tree_syntax::Key<'_>],
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext,
@@ -32,7 +32,7 @@ impl GetHoverContent for tombi_document_tree_syntax::String {
                 get_key_table_value_comment_directive_content_and_schema_uri::<
                     StringCommonFormatRules,
                     StringCommonLintRules,
-                >(self.comment_directives(), position, accessors)
+                >(self.comment_directives(), offset, accessors)
                 && let Some(hover_content) =
                     get_value_comment_directive_hover_content(comment_directive_context, schema_uri)
                         .await
@@ -51,7 +51,7 @@ impl GetHoverContent for tombi_document_tree_syntax::String {
 
                         let mut hover_content = string_schema
                             .get_hover_content(
-                                position,
+                                offset,
                                 keys,
                                 accessors,
                                 Some(current_schema),
@@ -62,12 +62,12 @@ impl GetHoverContent for tombi_document_tree_syntax::String {
                         if let Some(HoverContent::Value(hover_value_content)) =
                             hover_content.as_mut()
                         {
-                            hover_value_content.range = Some(self.range());
+                            hover_value_content.span = Some(self.span());
                         }
 
                         merge_adjacent_hover_content(
                             self,
-                            position,
+                            offset,
                             keys,
                             accessors,
                             Some(current_schema),
@@ -84,7 +84,7 @@ impl GetHoverContent for tombi_document_tree_syntax::String {
                     {
                         let mut hover_content = offset_date_time_schema
                             .get_hover_content(
-                                position,
+                                offset,
                                 keys,
                                 accessors,
                                 Some(current_schema),
@@ -95,12 +95,12 @@ impl GetHoverContent for tombi_document_tree_syntax::String {
                         if let Some(HoverContent::Value(hover_value_content)) =
                             hover_content.as_mut()
                         {
-                            hover_value_content.range = Some(self.range());
+                            hover_value_content.span = Some(self.span());
                         }
 
                         merge_adjacent_hover_content(
                             self,
-                            position,
+                            offset,
                             keys,
                             accessors,
                             Some(current_schema),
@@ -117,7 +117,7 @@ impl GetHoverContent for tombi_document_tree_syntax::String {
                     {
                         let mut hover_content = local_date_time_schema
                             .get_hover_content(
-                                position,
+                                offset,
                                 keys,
                                 accessors,
                                 Some(current_schema),
@@ -128,12 +128,12 @@ impl GetHoverContent for tombi_document_tree_syntax::String {
                         if let Some(HoverContent::Value(hover_value_content)) =
                             hover_content.as_mut()
                         {
-                            hover_value_content.range = Some(self.range());
+                            hover_value_content.span = Some(self.span());
                         }
 
                         merge_adjacent_hover_content(
                             self,
-                            position,
+                            offset,
                             keys,
                             accessors,
                             Some(current_schema),
@@ -150,7 +150,7 @@ impl GetHoverContent for tombi_document_tree_syntax::String {
                     {
                         let mut hover_content = local_date_schema
                             .get_hover_content(
-                                position,
+                                offset,
                                 keys,
                                 accessors,
                                 Some(current_schema),
@@ -161,12 +161,12 @@ impl GetHoverContent for tombi_document_tree_syntax::String {
                         if let Some(HoverContent::Value(hover_value_content)) =
                             hover_content.as_mut()
                         {
-                            hover_value_content.range = Some(self.range());
+                            hover_value_content.span = Some(self.span());
                         }
 
                         merge_adjacent_hover_content(
                             self,
-                            position,
+                            offset,
                             keys,
                             accessors,
                             Some(current_schema),
@@ -183,7 +183,7 @@ impl GetHoverContent for tombi_document_tree_syntax::String {
                     {
                         let mut hover_content = local_time_schema
                             .get_hover_content(
-                                position,
+                                offset,
                                 keys,
                                 accessors,
                                 Some(current_schema),
@@ -194,12 +194,12 @@ impl GetHoverContent for tombi_document_tree_syntax::String {
                         if let Some(HoverContent::Value(hover_value_content)) =
                             hover_content.as_mut()
                         {
-                            hover_value_content.range = Some(self.range());
+                            hover_value_content.span = Some(self.span());
                         }
 
                         merge_adjacent_hover_content(
                             self,
-                            position,
+                            offset,
                             keys,
                             accessors,
                             Some(current_schema),
@@ -214,7 +214,7 @@ impl GetHoverContent for tombi_document_tree_syntax::String {
                     SchemaView::OneOf(one_of_schema) => {
                         get_one_of_hover_content(
                             self,
-                            position,
+                            offset,
                             keys,
                             accessors,
                             one_of_schema,
@@ -226,7 +226,7 @@ impl GetHoverContent for tombi_document_tree_syntax::String {
                     SchemaView::AnyOf(any_of_schema) => {
                         get_any_of_hover_content(
                             self,
-                            position,
+                            offset,
                             keys,
                             accessors,
                             any_of_schema,
@@ -238,7 +238,7 @@ impl GetHoverContent for tombi_document_tree_syntax::String {
                     SchemaView::AllOf(all_of_schema) => {
                         get_all_of_hover_content(
                             self,
-                            position,
+                            offset,
                             keys,
                             accessors,
                             all_of_schema,
@@ -268,7 +268,7 @@ impl GetHoverContent for tombi_document_tree_syntax::String {
                         {
                             base_hover = projected
                                 .get_hover_content(
-                                    position,
+                                    offset,
                                     keys,
                                     accessors,
                                     Some(current_schema),
@@ -279,7 +279,7 @@ impl GetHoverContent for tombi_document_tree_syntax::String {
 
                         merge_adjacent_hover_content(
                             self,
-                            position,
+                            offset,
                             keys,
                             accessors,
                             Some(current_schema),
@@ -301,7 +301,7 @@ impl GetHoverContent for tombi_document_tree_syntax::String {
                     value_type: tombi_schema_store::ValueType::String,
                     constraints: None,
                     schema_document_uri: None,
-                    range: Some(self.range()),
+                    span: Some(self.span()),
                     schema_tooltip: None,
                 }))
             }
@@ -313,8 +313,8 @@ impl GetHoverContent for tombi_document_tree_syntax::String {
 impl GetHoverContent for StringSchema {
     fn get_hover_content<'a: 'b, 'b>(
         &'a self,
-        _position: tombi_text::Position,
-        _keys: &'a [tombi_document_tree_syntax::Key],
+        _position: tombi_text::Offset,
+        _keys: &'a [tombi_document_tree_syntax::Key<'_>],
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         _schema_context: &'a tombi_schema_store::SchemaContext,
@@ -346,7 +346,7 @@ impl GetHoverContent for StringSchema {
                     ..Default::default()
                 }),
                 schema_document_uri: super::super::current_schema_link_uri(current_schema),
-                range: None,
+                span: None,
                 schema_tooltip: None,
             }))
         }

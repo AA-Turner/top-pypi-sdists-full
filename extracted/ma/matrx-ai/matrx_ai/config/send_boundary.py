@@ -462,7 +462,8 @@ async def _enforce_document_output_ceiling(prep: SendPrep, config: Any) -> None:
             model_output_maximum,
         )
 
-        if as_int(getattr(config, "max_output_tokens", None)) is None:
+        requested = as_int(getattr(config, "max_output_tokens", None))
+        if requested is None:
             return
         schema = declared_output_schema(config)
         if schema is None:
@@ -488,12 +489,50 @@ async def _enforce_document_output_ceiling(prep: SendPrep, config: Any) -> None:
                 color="yellow",
                 log_level="WARNING",
             )
+        _announce_ceiling_raise(
+            model=model, requested=requested, sent=getattr(config, "max_output_tokens", None),
+            repairs=repairs,
+        )
     except Exception as exc:  # noqa: BLE001 — a guard's lookup never breaks a send
         vcprint(
             "[send_boundary] document output-ceiling floor failed (ignored): "
             f"{type(exc).__name__}: {exc}",
             color="yellow",
         )
+
+
+def _announce_ceiling_raise(*, model: Any, requested: int, sent: Any, repairs: list[str]) -> None:
+    """Law 4: the raise reaches the CALLER, not only the server log.
+
+    The ceiling may have come from an explicit request ``config_overrides`` —
+    live 2026-10-01, ``max_output_tokens: 300`` went out at 65,536 with every
+    sibling override applied and nothing in the stream, which reads as "the
+    override was silently ignored". One warning per request: the repair quiets
+    itself on later iterations because the canonical config now holds the max.
+    """
+    from matrx_connect.context.events import WarningPayload
+
+    from matrx_ai.providers.outbound_params import send_client_warning
+
+    send_client_warning(
+        WarningPayload(
+            code="setting_adjusted",
+            system_message=" ".join(repairs),
+            user_message=(
+                f"Output limit raised from {requested:,} to {sent:,} so the structured "
+                "answer is not cut off."
+            ),
+            level="low",
+            recoverable=True,
+            metadata={
+                "model": str(model),
+                "adjusted": [
+                    {"key": "max_output_tokens", "requested": requested, "sent": sent}
+                ],
+            },
+        ),
+        name="send_boundary_ceiling_warning",
+    )
 
 
 def _set_prompt_cache_key(config: Any, conversation_id: str | None, request_id: str | None) -> None:

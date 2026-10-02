@@ -32,10 +32,14 @@ class ImageSDK:
         client: Optional[AnyscaleClientInterface] = None,
         logger: Optional[BlockLogger] = None,
     ):
-        self._private_sdk = PrivateImageSDK(client=client, logger=logger,)
+        self._private_sdk = PrivateImageSDK(
+            client=client,
+            logger=logger,
+        )
 
     @sdk_docs(
-        doc_py_example=_BUILD_EXAMPLE, arg_docstrings=_BUILD_ARG_DOCSTRINGS,
+        doc_py_example=_BUILD_EXAMPLE,
+        arg_docstrings=_BUILD_ARG_DOCSTRINGS,
     )
     def build(  # noqa: F811
         self,
@@ -50,11 +54,15 @@ class ImageSDK:
         Returns the URI of the image.
         """
         return self._private_sdk.build_image_from_containerfile_with_image_uri(
-            name, containerfile, ray_version=ray_version, cloud_id=cloud_id,
+            name,
+            containerfile,
+            ray_version=ray_version,
+            cloud_id=cloud_id,
         )
 
     @sdk_docs(
-        doc_py_example=_GET_EXAMPLE, arg_docstrings=_GET_ARG_DOCSTRINGS,
+        doc_py_example=_GET_EXAMPLE,
+        arg_docstrings=_GET_ARG_DOCSTRINGS,
     )
     def get(  # noqa: F811
         self, *, name: str, cloud_id: Optional[str] = None
@@ -66,7 +74,8 @@ class ImageSDK:
         return self._private_sdk.get(name, cloud_id=cloud_id)
 
     @sdk_docs(
-        doc_py_example=_LIST_EXAMPLE, arg_docstrings=_LIST_ARG_DOCSTRINGS,
+        doc_py_example=_LIST_EXAMPLE,
+        arg_docstrings=_LIST_ARG_DOCSTRINGS,
     )
     def list(  # noqa: A001, F811, PLR0913
         self,
@@ -97,7 +106,8 @@ class ImageSDK:
         )
 
     @sdk_docs(
-        doc_py_example=_REGISTER_EXAMPLE, arg_docstrings=_REGISTER_ARG_DOCSTRINGS,
+        doc_py_example=_REGISTER_EXAMPLE,
+        arg_docstrings=_REGISTER_ARG_DOCSTRINGS,
     )
     def register(  # noqa: F811
         self,
@@ -120,7 +130,8 @@ class ImageSDK:
         )
 
     @sdk_docs(
-        doc_py_example=_ARCHIVE_EXAMPLE, arg_docstrings=_ARCHIVE_ARG_DOCSTRINGS,
+        doc_py_example=_ARCHIVE_EXAMPLE,
+        arg_docstrings=_ARCHIVE_ARG_DOCSTRINGS,
     )
     def archive(  # noqa: F811
         self, name: str, *, cloud_id: Optional[str] = None

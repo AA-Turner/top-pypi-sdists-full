@@ -17,7 +17,7 @@ MAX_PAGE_SIZE = 50
 class PrivateUserSDK(BaseSDK):
     @staticmethod
     def _normalize_collaborator_type(
-        collaborator_type: Optional[Union[str, CollaboratorType]]
+        collaborator_type: Optional[Union[str, CollaboratorType]],
     ) -> Optional[str]:
         if collaborator_type is None:
             return None
@@ -76,11 +76,11 @@ class PrivateUserSDK(BaseSDK):
             raise ValueError("'max_items' must be greater than 0.")
 
         if page_size is not None and (page_size <= 0 or page_size > MAX_PAGE_SIZE):
-            raise ValueError(
-                f"'page_size' must be between 1 and {MAX_PAGE_SIZE}, inclusive."
-            )
+            raise ValueError(f"'page_size' must be between 1 and {MAX_PAGE_SIZE}, inclusive.")
 
-        def _fetch_page(token: Optional[str],) -> OrganizationcollaboratorListResponse:
+        def _fetch_page(
+            token: Optional[str],
+        ) -> OrganizationcollaboratorListResponse:
             return self.client.list_organization_collaborators(
                 email=email,
                 name=name,

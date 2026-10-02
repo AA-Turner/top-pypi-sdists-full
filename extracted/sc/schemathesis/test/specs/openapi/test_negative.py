@@ -1435,7 +1435,7 @@ def test_query_param_invalid_ecma262_pattern_no_runtime_error(ctx, cli, app_runn
 
 
 def test_negative_data_rejection_array_path_param_no_false_positive(ctx, cli, app_runner):
-    # A string example like "hello,world" violates `type: array` but serializes to a valid comma-joined array.
+    # A plain string violates `type: array` but reaches the server as a valid one-item array.
     app, _ = ctx.openapi.make_flask_app(
         {
             "/get/{projects}": {
@@ -1446,8 +1446,7 @@ def test_negative_data_rejection_array_path_param_no_false_positive(ctx, cli, ap
                         "required": True,
                         "schema": {
                             "type": "array",
-                            "examples": ["hello", "world", "hello,world"],
-                            "items": {"type": "string", "enum": ["hello", "world"]},
+                            "items": {"type": "string"},
                             "minItems": 1,
                             "uniqueItems": True,
                         },
@@ -1466,8 +1465,7 @@ def test_negative_data_rejection_array_path_param_no_false_positive(ctx, cli, ap
     @app.route("/get/<projects>")
     def get_projects(projects):
         items = projects.split(",")
-        valid = {"hello", "world"}
-        if not items or any(i not in valid for i in items) or len(items) != len(set(items)):
+        if len(items) != len(set(items)):
             return jsonify({"error": "invalid"}), 422
         return jsonify({"ok": True}), 200
 
@@ -1475,7 +1473,7 @@ def test_negative_data_rejection_array_path_param_no_false_positive(ctx, cli, ap
         app_runner.openapi_url(app),
         "--checks=negative_data_rejection",
         "--mode=all",
-        "--phases=examples",
+        "--phases=coverage",
         exit_code=ExitCode.OK,
     )
 
@@ -1527,7 +1525,7 @@ def test_negative_data_rejection_array_path_param_hook_rewrite_no_false_positive
             app_runner.openapi_url(app),
             "--checks=negative_data_rejection",
             "--mode=all",
-            "--phases=examples",
+            "--phases=coverage",
             exit_code=ExitCode.OK,
         )
 
@@ -1633,6 +1631,62 @@ def test_unnegatable_path_falls_back_to_positive(ctx):
     test()
     assert modes
     assert all(entry["path"] == "positive" and entry["header"] == "negative" for entry in modes), modes
+
+
+@pytest.mark.parametrize(
+    "header_schema",
+    [
+        {"type": "string", "title": "Authorization"},
+        {"anyOf": [{"type": "string"}, {"type": "null"}], "title": "Authorization"},
+        {"type": ["string", "null"]},
+    ],
+    ids=["annotated", "any-of-null", "type-list-null"],
+)
+def test_optional_plain_header_falls_back_to_positive(ctx, header_schema):
+    # Every header value is a string on the wire, so an optional string header has nothing left to violate.
+    schema = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "get": {
+                    "parameters": [
+                        {"name": "Authorization", "in": "header", "required": False, "schema": header_schema},
+                        {"name": "limit", "in": "query", "required": True, "schema": {"type": "integer"}},
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        version="3.1.0",
+    )
+    modes = []
+
+    @given(case=schema["/items"]["GET"].as_strategy(generation_mode=GenerationMode.NEGATIVE))
+    @settings(max_examples=MAX_EXAMPLES, suppress_health_check=list(HealthCheck), database=None)
+    def test(case):
+        modes.append({location.value: component.mode.value for location, component in case.meta.components.items()})
+
+    test()
+    assert modes
+    assert all(entry["header"] == "positive" and entry["query"] == "negative" for entry in modes), modes
+
+
+@pytest.mark.parametrize(
+    "header_schema",
+    [{"type": "string"}, {"type": "string", "title": "Authorization"}],
+    ids=["plain", "annotated"],
+)
+def test_required_string_header_is_negated_by_omission(ctx, header_schema):
+    header = {"name": "Authorization", "in": "header", "required": True, "schema": header_schema}
+    operation = _operation_with_parameters(ctx, [PLAIN_STRING_PARAMETER, header])
+    cases = []
+
+    @given(case=operation.as_strategy(generation_mode=GenerationMode.NEGATIVE))
+    @settings(max_examples=MAX_EXAMPLES, suppress_health_check=list(HealthCheck), database=None)
+    def test(case):
+        cases.append((case.meta.components[ParameterLocation.HEADER].mode, "Authorization" in (case.headers or {})))
+
+    test()
+    assert set(cases) == {(GenerationMode.NEGATIVE, False)}
 
 
 def test_negative_body_stays_invalid_when_a_sibling_carries_a_format(ctx):

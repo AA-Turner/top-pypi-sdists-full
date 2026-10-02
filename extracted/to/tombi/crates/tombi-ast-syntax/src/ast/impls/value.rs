@@ -1,46 +1,46 @@
-impl crate::Value {
-    pub fn range(&self) -> tombi_text::Range {
+impl<'t> crate::Value<'t> {
+    pub fn span(&self) -> tombi_text::Span {
         match self {
-            Self::Boolean(boolean) => boolean.range(),
-            Self::IntegerBin(integer) => integer.range(),
-            Self::IntegerOct(integer) => integer.range(),
-            Self::IntegerDec(integer) => integer.range(),
-            Self::IntegerHex(integer) => integer.range(),
-            Self::Float(float) => float.range(),
-            Self::BasicString(string) => string.range(),
-            Self::LiteralString(string) => string.range(),
-            Self::MultiLineBasicString(string) => string.range(),
-            Self::MultiLineLiteralString(string) => string.range(),
-            Self::OffsetDateTime(datetime) => datetime.range(),
-            Self::LocalDateTime(datetime) => datetime.range(),
-            Self::LocalDate(date) => date.range(),
-            Self::LocalTime(time) => time.range(),
-            Self::Array(array) => array.range(),
-            Self::InlineTable(table) => table.range(),
+            Self::Boolean(boolean) => boolean.span(),
+            Self::IntegerBin(integer) => integer.span(),
+            Self::IntegerOct(integer) => integer.span(),
+            Self::IntegerDec(integer) => integer.span(),
+            Self::IntegerHex(integer) => integer.span(),
+            Self::Float(float) => float.span(),
+            Self::BasicString(string) => string.span(),
+            Self::LiteralString(string) => string.span(),
+            Self::MultiLineBasicString(string) => string.span(),
+            Self::MultiLineLiteralString(string) => string.span(),
+            Self::OffsetDateTime(datetime) => datetime.span(),
+            Self::LocalDateTime(datetime) => datetime.span(),
+            Self::LocalDate(date) => date.span(),
+            Self::LocalTime(time) => time.span(),
+            Self::Array(array) => array.span(),
+            Self::InlineTable(table) => table.span(),
         }
     }
 
-    pub fn token_range(&self) -> tombi_text::Range {
+    pub fn token_span(&self) -> tombi_text::Span {
         match self {
-            Self::Boolean(boolean) => boolean.token().unwrap().range(),
-            Self::IntegerBin(integer) => integer.token().unwrap().range(),
-            Self::IntegerOct(integer) => integer.token().unwrap().range(),
-            Self::IntegerDec(integer) => integer.token().unwrap().range(),
-            Self::IntegerHex(integer) => integer.token().unwrap().range(),
-            Self::Float(float) => float.token().unwrap().range(),
-            Self::BasicString(string) => string.token().unwrap().range(),
-            Self::LiteralString(string) => string.token().unwrap().range(),
-            Self::MultiLineBasicString(string) => string.token().unwrap().range(),
-            Self::MultiLineLiteralString(string) => string.token().unwrap().range(),
-            Self::OffsetDateTime(datetime) => datetime.token().unwrap().range(),
-            Self::LocalDateTime(datetime) => datetime.token().unwrap().range(),
-            Self::LocalDate(date) => date.token().unwrap().range(),
-            Self::LocalTime(time) => time.token().unwrap().range(),
+            Self::Boolean(boolean) => boolean.token().unwrap().span(),
+            Self::IntegerBin(integer) => integer.token().unwrap().span(),
+            Self::IntegerOct(integer) => integer.token().unwrap().span(),
+            Self::IntegerDec(integer) => integer.token().unwrap().span(),
+            Self::IntegerHex(integer) => integer.token().unwrap().span(),
+            Self::Float(float) => float.token().unwrap().span(),
+            Self::BasicString(string) => string.token().unwrap().span(),
+            Self::LiteralString(string) => string.token().unwrap().span(),
+            Self::MultiLineBasicString(string) => string.token().unwrap().span(),
+            Self::MultiLineLiteralString(string) => string.token().unwrap().span(),
+            Self::OffsetDateTime(datetime) => datetime.token().unwrap().span(),
+            Self::LocalDateTime(datetime) => datetime.token().unwrap().span(),
+            Self::LocalDate(date) => date.token().unwrap().span(),
+            Self::LocalTime(time) => time.token().unwrap().span(),
             Self::Array(array) => {
-                array.bracket_start().unwrap().range() + array.bracket_end().unwrap().range()
+                array.bracket_start().unwrap().span() + array.bracket_end().unwrap().span()
             }
             Self::InlineTable(table) => {
-                table.brace_start().unwrap().range() + table.brace_end().unwrap().range()
+                table.brace_start().unwrap().span() + table.brace_end().unwrap().span()
             }
         }
     }

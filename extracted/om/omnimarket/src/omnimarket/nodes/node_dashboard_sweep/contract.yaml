@@ -1,0 +1,95 @@
+---
+name: dashboard_sweep
+contract_version: {major: 1, minor: 1, patch: 0}
+node_type: effect
+node_version: {major: 2, minor: 0, patch: 0}
+
+description: >
+  Full dashboard audit — Phase 1 (optional): HTTP recon to discover routes and
+  collect raw page metadata from a live dashboard URL. Phase 2: classify pages
+  as HEALTHY, EMPTY, MOCK, BROKEN, or FLAG_GATED. Phase 3: triage into problem
+  domains and assign fix tiers. Skills dispatch with base_url; direct callers
+  may supply pre-classified pages to skip HTTP recon.
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: dashboard_sweep
+      handler:
+        name: NodeDashboardSweep
+        module: omnimarket.nodes.node_dashboard_sweep.handlers.handler_dashboard_sweep
+
+handler:
+  module: omnimarket.nodes.node_dashboard_sweep.handlers.handler_dashboard_sweep
+  class: NodeDashboardSweep
+  input_model: omnimarket.nodes.node_dashboard_sweep.handlers.handler_dashboard_sweep.DashboardSweepRequest
+
+descriptor:
+  node_archetype: effect
+  purity: impure_when_recon
+  runtime_profiles: [effects]
+  idempotent: true
+  timeout_ms: 300000
+
+inputs:
+  base_url:
+    type: str | null
+    description: "Dashboard base URL for HTTP recon (e.g. http://localhost:3000). When set, Phase 1 HTTP recon runs before classification."
+    required: false
+    default: null
+  extra_routes:
+    type: list[str]
+    description: "Additional routes to probe during HTTP recon beyond auto-discovered and known routes"
+    required: false
+    default: []
+  pages:
+    type: list[PageInput]
+    description: "Pre-classified pages to audit (skip HTTP recon). Merged with recon discoveries when base_url is also provided."
+    required: false
+    default: []
+  max_iterations:
+    type: int
+    description: "Maximum fix-reaudit iterations"
+    required: false
+    default: 3
+  dry_run:
+    type: bool
+    description: "If true, report findings without dispatching fix agents"
+    required: false
+    default: false
+
+outputs:
+  page_statuses:
+    type: list[PageStatus]
+    description: "Per-page classification results"
+  domains:
+    type: list[ProblemDomain]
+    description: "Grouped problem domains with fix tiers"
+  recon_results:
+    type: list[ReconResult]
+    description: "Raw HTTP recon results (populated when base_url is set, empty otherwise)"
+  summary:
+    type: object
+    description: "Aggregated counts by page status and fix tier"
+
+terminal_event: onex.evt.omnimarket.dashboard-sweep-completed.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.dashboard-sweep-start.v1
+  publish_topics:
+    - onex.evt.omnimarket.dashboard-sweep-page-classified.v1
+    - onex.evt.omnimarket.dashboard-sweep-completed.v1
+
+metadata:
+  transport_type: kafka
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.dashboard-sweep-start.v1
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.dashboard-sweep-completed.v1
+  - onex.evt.omnimarket.dashboard-sweep-page-classified.v1

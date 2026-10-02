@@ -1,0 +1,875 @@
+"""Coerce caller input into canonical record lists for series bindings."""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from datetime import datetime
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Literal,
+    Protocol,
+    TypeAlias,
+    TypeGuard,
+    TypeVar,
+    cast,
+    runtime_checkable,
+)
+
+from excel_grapher.series_bindings.coerce import coerce_scalar, validate_binding_scalar
+from excel_grapher.series_bindings.types import Record, Records
+
+Layout: TypeAlias = Literal["scalar", "series", "matrix"]
+EmptyMeasure: TypeAlias = Literal["skip", "write", "error"]
+V = TypeVar("V")
+
+if TYPE_CHECKING:
+    import pandas as pd
+    import polars as pl
+
+    DataFrameInput: TypeAlias = pd.DataFrame | pl.DataFrame
+else:
+    DataFrameInput: TypeAlias = object
+
+_Scalar: TypeAlias = str | int | float | bool | datetime | None
+SeriesInput: TypeAlias = Records | Record | Sequence[_Scalar] | DataFrameInput
+SetterInput: TypeAlias = SeriesInput | _Scalar
+
+__all__ = [
+    "EmptyMeasure",
+    "Layout",
+    "SeriesInput",
+    "apply_input_value_map",
+    "coerce_input_measure",
+    "coerce_setter_input",
+    "input_value_map_from_series",
+    "measure_domain_from_series",
+    "require_input_domain",
+]
+
+
+def _is_mapping(value: object) -> TypeGuard[Mapping[str, object]]:
+    return isinstance(value, Mapping) and not isinstance(value, (str, bytes, bytearray))
+
+
+def _is_pandas_dataframe(data: object) -> bool:
+    cls = type(data)
+    module = cls.__module__
+    return cls.__name__ == "DataFrame" and (module == "pandas" or module.startswith("pandas."))
+
+
+def _is_polars_dataframe(data: object) -> bool:
+    cls = type(data)
+    return cls.__module__.startswith("polars.") and cls.__name__ == "DataFrame"
+
+
+def _is_tabular_dataframe(data: object) -> bool:
+    return _is_pandas_dataframe(data) or _is_polars_dataframe(data)
+
+
+def _import_pandas() -> Any:
+    try:
+        import pandas as pd
+    except ImportError as exc:
+        raise ImportError(
+            "DataFrame input requires pandas; install it or pass records / a 1D iterable"
+        ) from exc
+    return pd
+
+
+def _import_polars() -> Any:
+    try:
+        import polars as pl
+    except ImportError as exc:
+        raise ImportError(
+            "DataFrame input requires polars; install it or pass records / a 1D iterable"
+        ) from exc
+    return pl
+
+
+def _coerce_scalar_records(
+    data: object,
+    measure_field: str,
+) -> Records:
+    """Normalize scalar-layout caller input to a record list."""
+    if isinstance(data, list):
+        return cast(Records, data)
+    if _is_mapping(data):
+        return [dict(data)]
+    return [{measure_field: data}]
+
+
+def _is_records_list(data: Sequence[object]) -> TypeGuard[Records]:
+    if not data:
+        return True
+    return all(_is_mapping(item) for item in data)
+
+
+def _coerce_key_value(
+    field: str,
+    raw: object,
+    key_dtypes: Mapping[str, str] | None,
+) -> object:
+    if key_dtypes is None:
+        return raw
+    read_as = key_dtypes.get(field)
+    if read_as is None:
+        return raw
+    return coerce_scalar(raw, read_as)
+
+
+def _dataframe_column_names(data: object) -> list[str]:
+    columns = getattr(data, "columns", None)
+    if columns is None:
+        raise TypeError(f"unsupported DataFrame-like input: {type(data)!r}")
+    return [str(column) for column in columns]
+
+
+def _is_missing_value(value: object) -> bool:
+    """Return whether a normalized cell value counts as missing for empty-measure policy.
+
+    Treats ``None`` and float NaN as missing. Tabular inputs are normalized via
+    pandas/polars record conversion before this check runs.
+    """
+    return value is None or (isinstance(value, float) and value != value)
+
+
+def _validate_nonempty_key_fields(
+    records: Records,
+    *,
+    key_fields: tuple[str, ...],
+) -> None:
+    for index, record in enumerate(records):
+        for field in key_fields:
+            if field in record and _is_missing_value(record[field]):
+                raise ValueError(f"record[{index}]: empty key field {field!r}")
+
+
+def _validate_dataframe_columns(
+    column_names: list[str],
+    *,
+    key_fields: tuple[str, ...],
+    measure_field: str,
+    strict: bool,
+) -> None:
+    required = set(key_fields) | {measure_field}
+    present = set(column_names)
+    missing = sorted(required - present)
+    if missing:
+        msg = f"missing required column(s): {missing!r}"
+        extra = sorted(present - set(key_fields) - {measure_field})
+        if measure_field in missing and extra:
+            tidy_columns = ", ".join([*key_fields, measure_field])
+            msg += (
+                f"; input looks wide (extra columns {extra!r}) — "
+                f"melt or stack to tidy with columns {tidy_columns!r}"
+            )
+        raise ValueError(msg)
+    if strict:
+        unknown = sorted(present - required)
+        if unknown:
+            raise ValueError(f"unknown columns {unknown!r}")
+
+
+def _apply_empty_measure(
+    records: Records,
+    *,
+    key_fields: tuple[str, ...],
+    measure_field: str,
+    empty_measure: EmptyMeasure,
+) -> Records:
+    """Apply empty key/measure policy after input normalization."""
+    _validate_nonempty_key_fields(records, key_fields=key_fields)
+    if empty_measure == "write":
+        return records
+
+    kept: list[dict[str, object]] = []
+    for index, record in enumerate(records):
+        if measure_field not in record:
+            if empty_measure == "error":
+                raise ValueError(f"record[{index}]: missing required field {measure_field!r}")
+            continue
+        if _is_missing_value(record[measure_field]):
+            if empty_measure == "error":
+                raise ValueError(f"record[{index}]: empty measure field {measure_field!r}")
+            continue
+        kept.append(record)
+    return kept
+
+
+def _row_dicts_from_dataframe(data: object) -> list[Record]:
+    if _is_pandas_dataframe(data):
+        pd = _import_pandas()
+        if not isinstance(data, pd.DataFrame):
+            raise ImportError(
+                "DataFrame input requires pandas; install it or pass records / a 1D iterable"
+            )
+        return data.to_dict(orient="records")
+    if _is_polars_dataframe(data):
+        pl = _import_polars()
+        if not isinstance(data, pl.DataFrame):
+            raise ImportError(
+                "DataFrame input requires polars; install it or pass records / a 1D iterable"
+            )
+        return data.to_dicts()
+    raise TypeError(f"unsupported DataFrame-like input: {type(data)!r}")
+
+
+def _apply_key_dtypes(
+    records: Records,
+    *,
+    key_fields: tuple[str, ...],
+    key_dtypes: Mapping[str, str] | None,
+) -> Records:
+    """Coerce key field values on each record using binding read modes."""
+    if not key_dtypes:
+        return records
+    coerced: list[dict[str, object]] = []
+    for record in records:
+        updated = dict(record)
+        for field in key_fields:
+            if field in updated:
+                updated[field] = _coerce_key_value(field, updated[field], key_dtypes)
+        coerced.append(updated)
+    return coerced
+
+
+def _union_enum(domain: Mapping[str, Any] | None) -> object | None:
+    """Return the enum arm when `domain` is an enum unioned with one interval."""
+    if domain is None or not _is_union_measure_domain(domain):
+        return None
+    return domain.get("enum")
+
+
+def _apply_measure_dtype(
+    records: Records,
+    *,
+    measure_field: str,
+    measure_dtype: str | None,
+    measure_domain: Mapping[str, Any] | None = None,
+) -> Records:
+    """Validate and coerce measure values against the binding measure dtype.
+
+    Enum members of a union are kept as passed. Dtype coercion runs only for
+    values that are not already members, so an integer code is not rewritten
+    to `float` before the type-strict enum check.
+    """
+    if measure_dtype is None:
+        return records
+    enum = _union_enum(measure_domain)
+    validated: list[dict[str, object]] = []
+    for index, record in enumerate(records):
+        if measure_field not in record:
+            validated.append(record)
+            continue
+        raw = record[measure_field]
+        if enum is not None and _enum_contains(raw, enum):
+            validated.append(record)
+            continue
+        try:
+            value = validate_binding_scalar(raw, measure_dtype)
+        except TypeError as exc:
+            raise TypeError(
+                f"record[{index}]: {measure_field} must be {measure_dtype}, "
+                f"got {type(raw).__name__}: {raw!r}"
+            ) from exc
+        except ValueError as exc:
+            raise ValueError(f"record[{index}]: {measure_field}: {exc}") from exc
+        if value is raw:
+            validated.append(record)
+            continue
+        updated = dict(record)
+        updated[measure_field] = value
+        validated.append(updated)
+    return validated
+
+
+def _format_measure_domain(domain: Mapping[str, Any]) -> str:
+    """Render a measure domain for error messages."""
+    parts: list[str] = []
+    if "enum" in domain:
+        values = domain["enum"]
+        rendered = ", ".join(repr(value) for value in sorted(values, key=repr))
+        parts.append(f"{{{rendered}}}")
+    if "between" in domain:
+        bounds = domain["between"]
+        parts.append(f"between(min={bounds.get('min')!r}, max={bounds.get('max')!r})")
+    if "real_between" in domain:
+        bounds = domain["real_between"]
+        parts.append(f"real_between(min={bounds.get('min')!r}, max={bounds.get('max')!r})")
+    if not parts:
+        return repr(dict(domain))
+    if len(parts) == 1:
+        return parts[0]
+    return " or ".join(parts)
+
+
+def _is_union_measure_domain(domain: Mapping[str, Any]) -> bool:
+    """Return whether `domain` offers more than one alternative arm."""
+    return sum(key in domain for key in ("enum", "between", "real_between")) > 1
+
+
+def _in_closed_bounds(value: int | float, bounds: Mapping[str, Any]) -> bool:
+    """Return whether `value` lies in an inclusive min/max interval."""
+    lo = bounds.get("min")
+    hi = bounds.get("max")
+    return (lo is None or value >= lo) and (hi is None or value <= hi)
+
+
+def _is_between_int(value: object) -> TypeGuard[int]:
+    """Return whether `value` is a non-bool integer (`between` membership)."""
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _is_real_number(value: object) -> TypeGuard[int | float]:
+    """Return whether `value` is a non-bool int or float (`real_between`)."""
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _value_in_single_arm(value: object, domain: Mapping[str, Any]) -> bool:
+    """Return whether `value` matches one enum or interval arm."""
+    if "enum" in domain:
+        return _enum_contains(value, domain["enum"])
+    if "between" in domain:
+        if not _is_between_int(value):
+            return False
+        return _in_closed_bounds(value, domain["between"])
+    if "real_between" in domain:
+        if not _is_real_number(value):
+            return False
+        return _in_closed_bounds(value, domain["real_between"])
+    return True
+
+
+def _value_in_measure_domain(value: object, domain: Mapping[str, Any]) -> bool:
+    """Return whether `value` is inside a measure domain declaration.
+
+    A union matches when any arm matches. A type that an interval arm rejects
+    can still match the enum arm.
+    """
+    if _is_union_measure_domain(domain):
+        return any(
+            _value_in_single_arm(value, {key: domain[key]})
+            for key in ("enum", "between", "real_between")
+            if key in domain
+        )
+    return _value_in_single_arm(value, domain)
+
+
+def _enum_contains(value: object, allowed: object) -> bool:
+    """Return whether `value` is an enum member without bool/int confusion.
+
+    `1 in {True, False}` is true in Python because `bool` subclasses `int`.
+    Membership requires the same runtime type as the declared member.
+    """
+    if not isinstance(allowed, (set, frozenset, list, tuple)):
+        return False
+    return any(type(value) is type(item) and value == item for item in allowed)
+
+
+def _is_measure_sequence(value: object) -> TypeGuard[Sequence[object]]:
+    return isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray))
+
+
+def _reject_combined_intervals(domain: Mapping[str, Any]) -> None:
+    """Reject a domain that declares both integer and real intervals."""
+    if "between" in domain and "real_between" in domain:
+        raise ValueError("union domain cannot combine between and real_between constraints")
+
+
+def _reject_out_of_domain(
+    value: object,
+    domain: Mapping[str, Any],
+    *,
+    label: str,
+) -> None:
+    """Raise `ValueError` when a non-null `value` is outside `domain`."""
+    _reject_combined_intervals(domain)
+    if value is None:
+        return
+    if not _is_union_measure_domain(domain):
+        if "between" in domain and not _is_between_int(value):
+            raise ValueError(f"{label} has type {type(value).__name__}; between requires int")
+        if "real_between" in domain and not _is_real_number(value):
+            raise ValueError(
+                f"{label} has type {type(value).__name__}; real_between requires int or float"
+            )
+    if not _value_in_measure_domain(value, domain):
+        raise ValueError(
+            f"{label} out of domain: {value!r} not in {_format_measure_domain(domain)}"
+        )
+
+
+def _coerce_one(value: object, dtype: str, enum: object | None = None) -> object:
+    """Rewrite `int` to `float` when `dtype` is `float`, keeping enum members.
+
+    A value that is already a member of `enum` is returned unchanged so a
+    later type-strict domain check still sees the caller's type.
+    """
+    if enum is not None and _enum_contains(value, enum):
+        return value
+    if dtype == "float" and not isinstance(value, bool) and isinstance(value, int):
+        return float(value)
+    return value
+
+
+@runtime_checkable
+class _NamedTensor(Protocol):
+    """A generated `Series`: coordinate-keyed members that rebuild over one domain."""
+
+    def items(self) -> Iterable[tuple[object, object]]: ...
+
+    def with_values(self, values: Sequence[Any], /) -> Any: ...
+
+
+def _is_named_tensor(value: object) -> TypeGuard[_NamedTensor]:
+    return isinstance(value, _NamedTensor) and not _is_mapping(value)
+
+
+def coerce_input_measure(
+    value: V,
+    dtype: str,
+    *,
+    series_id: str,
+    enum: object | None = None,
+) -> V:
+    """Rewrite a public compute input using setter dtype rules.
+
+    `int` becomes `float` when `dtype` is `float`. Sequences and tensors are
+    rewritten memberwise. Other measure values (`str` error codes, bools,
+    `None`) pass through. `float` is never narrowed to `int`.
+
+    When `enum` is the literal arm of a union, members are returned unchanged.
+    A value that is not a member is coerced, then the domain check can still
+    accept it through the interval or through an enum member of the coerced type.
+
+    Args:
+        value: One measure, a catalog-order sequence, or a named tensor.
+        dtype: Binding measure dtype (`float`, `int`, `number`, ...).
+        series_id: Binding series id; reserved for type-error messages.
+        enum: Optional union enum. Members keep the caller's runtime type.
+
+    Returns:
+        The value in the same shape and container type, possibly after a safe
+        `int` -> `float` coercion of its members.
+    """
+    return cast(V, _coerce_measure(value, dtype, enum))
+
+
+def _coerce_measure(value: object, dtype: str, enum: object | None) -> object:
+    if _is_named_tensor(value):
+        return value.with_values(
+            tuple(_coerce_one(member, dtype, enum) for _coord, member in value.items())
+        )
+    if _is_measure_sequence(value):
+        members = [_coerce_one(member, dtype, enum) for member in value]
+        if isinstance(value, tuple):
+            return tuple(members)
+        if isinstance(value, list):
+            return members
+        rebuild = cast("Callable[[list[object]], object]", type(value))
+        return rebuild(members)
+    return _coerce_one(value, dtype, enum)
+
+
+def apply_input_value_map(
+    value: object,
+    mapping: Mapping[Any, Any],
+    *,
+    series_id: str,
+) -> object:
+    """Rewrite a public scalar input to its workbook needle.
+
+    Args:
+        value: Caller-facing measure (`input.value_map` key).
+        mapping: Public value to workbook cell value.
+        series_id: Binding series id used in the error message.
+
+    Returns:
+        The mapped workbook value.
+
+    Raises:
+        ValueError: When `value` is not a key of `mapping`.
+    """
+    try:
+        return mapping[value]
+    except (KeyError, TypeError):
+        keys = ", ".join(repr(key) for key in sorted(mapping, key=repr))
+        raise ValueError(
+            f"{series_id} value {value!r} is not in value_map; expected one of {{{keys}}}"
+        ) from None
+
+
+def require_input_domain(
+    value: object,
+    domain: Mapping[str, Any],
+    *,
+    series_id: str,
+) -> None:
+    """Reject a scalar or sequence argument outside `input.domain`.
+
+    Args:
+        value: One measure, or a catalog-order sequence of measures.
+        domain: Normalized `enum` / `between` / `real_between` declaration.
+            A mapping with `enum` and exactly one interval is a union: a value
+            matches when it is an enum member or lies in the interval.
+        series_id: Binding series id used in the error message.
+
+    Raises:
+        ValueError: When `domain` combines `between` and `real_between`, when
+            any non-`None` member is outside `domain`, or when a value has a
+            type the domain kind does not accept (`between` requires `int`).
+            Union mismatches name the whole domain, not the first failing arm.
+    """
+    _reject_combined_intervals(domain)
+    if _is_measure_sequence(value):
+        for index, member in enumerate(value):
+            _reject_out_of_domain(member, domain, label=f"{series_id}[{index}]")
+        return
+    _reject_out_of_domain(value, domain, label=series_id)
+
+
+def input_value_map_from_series(series: Mapping[str, Any]) -> dict[Any, Any] | None:
+    """Return `input.value_map` as a dict, or `None` when absent."""
+    input_block = series.get("input")
+    if not isinstance(input_block, dict):
+        return None
+    raw = input_block.get("value_map")
+    if not isinstance(raw, dict) or not raw:
+        return None
+    return dict(raw)
+
+
+def measure_domain_from_series(series: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Normalize series-level or `input.domain` for codegen and runtime checks.
+
+    `from_workbook` is a cell-env pin, not a `compute_*` argument domain.
+    When `input.value_map` is present and `domain` is omitted, the domain
+    is the map keys so callers are checked against public values.
+    An `enum` combined with `between` or `real_between` is preserved as a
+    union. Both interval kinds together are rejected.
+    """
+    domain = series.get("domain")
+    if not isinstance(domain, dict):
+        input_block = series.get("input")
+        domain = input_block.get("domain") if isinstance(input_block, dict) else None
+    if isinstance(domain, dict):
+        if "from_workbook" in domain:
+            return None
+        compiled: dict[str, Any] = {}
+        if "enum" in domain:
+            values = domain["enum"]
+            if not isinstance(values, (list, tuple, set, frozenset)):
+                return None
+            compiled["enum"] = frozenset(values)
+        if "between" in domain:
+            bounds = domain["between"]
+            if not isinstance(bounds, dict):
+                return None
+            compiled["between"] = dict(bounds)
+        if "real_between" in domain:
+            bounds = domain["real_between"]
+            if not isinstance(bounds, dict):
+                return None
+            compiled["real_between"] = dict(bounds)
+        if "between" in compiled and "real_between" in compiled:
+            raise ValueError("union domain cannot combine between and real_between constraints")
+        return compiled or None
+    mapping = input_value_map_from_series(series)
+    if mapping is not None:
+        return {"enum": frozenset(mapping)}
+    return None
+
+
+def _apply_measure_domain(
+    records: Records,
+    *,
+    measure_field: str,
+    measure_domain: Mapping[str, Any] | None,
+) -> Records:
+    """Reject measure values outside an optional `input.domain` declaration."""
+    if measure_domain is None:
+        return records
+    for index, record in enumerate(records):
+        if measure_field not in record:
+            continue
+        _reject_out_of_domain(
+            record[measure_field],
+            measure_domain,
+            label=f"record[{index}]: {measure_field}",
+        )
+    return records
+
+
+def _apply_measure_value_map(
+    records: Records,
+    *,
+    measure_field: str,
+    value_map: Mapping[Any, Any] | None,
+    series_id: str,
+) -> Records:
+    """Rewrite measure values through `input.value_map` after the domain check."""
+    if value_map is None:
+        return records
+    mapped: list[dict[str, object]] = []
+    for index, record in enumerate(records):
+        if measure_field not in record:
+            mapped.append(record)
+            continue
+        updated = dict(record)
+        updated[measure_field] = apply_input_value_map(
+            record[measure_field],
+            value_map,
+            series_id=f"{series_id}[{index}]" if series_id else f"record[{index}]",
+        )
+        mapped.append(updated)
+    return mapped
+
+
+def _coerce_dataframe_records(
+    data: object,
+    *,
+    key_fields: tuple[str, ...],
+    measure_field: str,
+    strict: bool,
+) -> Records:
+    column_names = _dataframe_column_names(data)
+    _validate_dataframe_columns(
+        column_names,
+        key_fields=key_fields,
+        measure_field=measure_field,
+        strict=strict,
+    )
+    records: list[dict[str, object]] = []
+    for row in _row_dicts_from_dataframe(data):
+        record: dict[str, object] = {field: row[field] for field in key_fields}
+        record[measure_field] = row[measure_field]
+        records.append(record)
+    return records
+
+
+def _non_scalar_input_hint(
+    *,
+    layout: Layout,
+    key_fields: tuple[str, ...],
+    measure_field: str,
+) -> str:
+    if layout == "matrix":
+        columns = ", ".join([*key_fields, measure_field])
+        return f"pass records or a tidy DataFrame with columns {columns!r}"
+    return "pass records, a 1D iterable of measure values, or a tidy DataFrame"
+
+
+def _unsupported_non_scalar_input_type_error(
+    data: object,
+    *,
+    layout: Layout,
+    key_fields: tuple[str, ...],
+    measure_field: str,
+) -> TypeError:
+    hint = _non_scalar_input_hint(
+        layout=layout,
+        key_fields=key_fields,
+        measure_field=measure_field,
+    )
+    return TypeError(f"unsupported {layout} setter input type {type(data)!r}; {hint}")
+
+
+def _coerce_positional_records(
+    data: Iterable[object],
+    *,
+    layout: Layout,
+    key_fields: tuple[str, ...],
+    measure_field: str,
+    key_order: tuple[object, ...],
+) -> Records:
+    if len(key_fields) != 1:
+        if layout == "matrix":
+            raise ValueError(
+                "positional measure values are not supported for matrix setters; "
+                "pass records or a tidy DataFrame"
+            )
+        raise ValueError(
+            "positional measure values require a single-key series binding; "
+            f"got key_fields={list(key_fields)!r}"
+        )
+    values = list(data)
+    if len(values) != len(key_order):
+        raise ValueError(
+            f"expected {len(key_order)} values for positional input, got {len(values)}"
+        )
+    key_field = key_fields[0]
+    return [
+        {key_field: key, measure_field: value} for key, value in zip(key_order, values, strict=True)
+    ]
+
+
+def _coerce_non_scalar_records(
+    data: SetterInput,
+    *,
+    layout: Layout,
+    key_fields: tuple[str, ...],
+    measure_field: str,
+    key_order: tuple[object, ...] | None,
+    strict: bool,
+) -> Records:
+    """Normalize series/matrix caller input to records before key coercion."""
+    if _is_tabular_dataframe(data):
+        return _coerce_dataframe_records(
+            data,
+            key_fields=key_fields,
+            measure_field=measure_field,
+            strict=strict,
+        )
+
+    if _is_mapping(data):
+        return [dict(data)]
+
+    if isinstance(data, list):
+        if _is_records_list(data):
+            return data
+        if key_order is None:
+            raise ValueError("positional input requires key_order")
+        return _coerce_positional_records(
+            data,
+            layout=layout,
+            key_fields=key_fields,
+            measure_field=measure_field,
+            key_order=key_order,
+        )
+
+    if isinstance(data, (str, bytes, bytearray)):
+        raise _unsupported_non_scalar_input_type_error(
+            data,
+            layout=layout,
+            key_fields=key_fields,
+            measure_field=measure_field,
+        )
+
+    if isinstance(data, Iterable):
+        if key_order is None:
+            raise ValueError("positional input requires key_order")
+        return _coerce_positional_records(
+            data,
+            layout=layout,
+            key_fields=key_fields,
+            measure_field=measure_field,
+            key_order=key_order,
+        )
+
+    raise _unsupported_non_scalar_input_type_error(
+        data,
+        layout=layout,
+        key_fields=key_fields,
+        measure_field=measure_field,
+    )
+
+
+def coerce_setter_input(
+    data: SetterInput,
+    *,
+    layout: Layout,
+    key_fields: tuple[str, ...],
+    measure_field: str,
+    key_order: tuple[object, ...] | None,
+    strict: bool,
+    key_dtypes: Mapping[str, str] | None = None,
+    measure_dtype: str | None = None,
+    measure_domain: Mapping[str, Any] | None = None,
+    value_map: Mapping[Any, Any] | None = None,
+    empty_measure: EmptyMeasure = "write",
+    requires_address: bool = False,
+    series_id: str = "",
+) -> Records:
+    """Normalize caller input into canonical record dicts.
+
+    Args:
+        data: `_Scalar`, record(s), 1D measure values, or tidy DataFrame.
+        layout: Binding layout (`scalar`, `series`, or `matrix`).
+        key_fields: Key column names from the binding manifest.
+        measure_field: Measure concept name (e.g. `OBS_VALUE`).
+        key_order: Canonical key values for positional measure iterables.
+        strict: When true, reject unknown DataFrame columns.
+        key_dtypes: Optional read modes per key field applied to all input shapes.
+        measure_dtype: Optional binding dtype enforced for `measure_field` values.
+        measure_domain: Optional `input.domain` (`enum` / `between` / `real_between`).
+            Union enum members are kept as passed; other values are checked
+            after dtype coercion.
+        value_map: Optional `input.value_map` applied after the domain check.
+        empty_measure: How to treat rows with missing/NaN measure values.
+        requires_address: When true, reject DataFrame input (records must carry addresses).
+        series_id: Binding series id used in `value_map` error messages.
+
+    Returns:
+        List of record dicts ready for leaf resolution.
+
+    Raises:
+        ImportError: When a DataFrame-like value is passed but pandas/polars is missing.
+        TypeError: When the input shape is unsupported for the layout, or a measure
+            value does not match `measure_dtype`.
+        ValueError: When columns, keys, positional lengths, or domains are invalid.
+    """
+    if layout == "scalar":
+        if _is_tabular_dataframe(data):
+            raise TypeError("scalar setters do not accept DataFrame input")
+        records = _coerce_scalar_records(data, measure_field)
+        records = _apply_measure_dtype(
+            records,
+            measure_field=measure_field,
+            measure_dtype=measure_dtype,
+            measure_domain=measure_domain,
+        )
+        records = _apply_measure_domain(
+            records,
+            measure_field=measure_field,
+            measure_domain=measure_domain,
+        )
+        return _apply_measure_value_map(
+            records,
+            measure_field=measure_field,
+            value_map=value_map,
+            series_id=series_id or measure_field,
+        )
+
+    if requires_address and _is_tabular_dataframe(data):
+        raise TypeError(
+            "DataFrame input is not supported when the binding requires address "
+            "disambiguation; pass records with 'address' or 'cell_address'"
+        )
+
+    records = _coerce_non_scalar_records(
+        data,
+        layout=layout,
+        key_fields=key_fields,
+        measure_field=measure_field,
+        key_order=key_order,
+        strict=strict,
+    )
+    records = _apply_key_dtypes(
+        records,
+        key_fields=key_fields,
+        key_dtypes=key_dtypes,
+    )
+    records = _apply_measure_dtype(
+        records,
+        measure_field=measure_field,
+        measure_dtype=measure_dtype,
+        measure_domain=measure_domain,
+    )
+    records = _apply_measure_domain(
+        records,
+        measure_field=measure_field,
+        measure_domain=measure_domain,
+    )
+    records = _apply_measure_value_map(
+        records,
+        measure_field=measure_field,
+        value_map=value_map,
+        series_id=series_id or measure_field,
+    )
+    return _apply_empty_measure(
+        records,
+        key_fields=key_fields,
+        measure_field=measure_field,
+        empty_measure=empty_measure,
+    )

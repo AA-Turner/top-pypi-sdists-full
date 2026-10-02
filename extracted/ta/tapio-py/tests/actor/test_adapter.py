@@ -1,0 +1,582 @@
+"""Tests for message adapters."""
+
+import asyncio
+from typing import Any
+
+import pytest
+from pydantic import ValidationError
+
+from tapio import (
+    ActorSystem,
+    Behavior,
+    Behaviors,
+    DeadLetter,
+    DeadLetterReason,
+    MailboxConfig,
+    Message,
+    MessageTypeError,
+    OverflowStrategy,
+    SupervisorStrategy,
+)
+from tapio.actor import ActorContext, ActorRef, LocalActorRef
+from tapio.actor.adapter import AdaptedMessage, AdapterRef, AdapterRegistry
+from tapio.actor.path import ActorPath
+from tapio.errors import BehaviorTypeError
+from tapio.remote.registry import RefRegistry
+from tests.failures import BoomError, eventually
+
+
+class Price(Message):
+    """What the pricing service replies with. Not our protocol."""
+
+    cents: int
+
+
+class Quote(Message):
+    """What the pricing service accepts."""
+
+    reply_to: ActorRef[Price]
+
+
+class Quoted(Message):
+    """What we translate a `Price` into, which is our protocol."""
+
+    cents: int
+
+
+class Ask(Message):
+    """Tell the shop to go and get a price."""
+
+
+class Boom(Message):
+    """Tell the shop to fail, so a restart can be observed."""
+
+
+Shop = Ask | Quoted
+Restarting = Boom | Quoted
+
+
+def pricing(cents: int = 100) -> Behavior[Quote]:
+    """A service that answers in its own vocabulary."""
+
+    async def on_quote(message: Quote) -> Behavior[Quote]:
+        message.reply_to.tell(Price(cents=cents))
+        return Behaviors.same()
+
+    return Behaviors.receive_message(on_quote)
+
+
+def shop(
+    seen: list[str],
+    service: ActorRef[Quote],
+    *,
+    translate: str = "plain",
+    strategy: SupervisorStrategy | None = None,
+) -> Behavior[Shop]:
+    """An actor that talks to `pricing` without admitting `Price` to its protocol."""
+
+    def build(ctx: ActorContext[Shop]) -> Behavior[Shop]:
+        seen.append("ready")
+
+        def as_quoted(price: Price) -> Quoted:
+            match translate:
+                case "raises":
+                    raise BoomError("the translation itself failed")
+                case "wrong-type":
+                    # A translation that produces something this actor never
+                    # declared. The cell has to catch it, because an adapter
+                    # is the one path onto the lane that skipped that check.
+                    return Price(cents=price.cents)  # type: ignore[return-value]
+                case _:
+                    return Quoted(cents=price.cents)
+
+        replies = ctx.message_adapter(as_quoted)
+
+        async def on_message(message: Shop) -> Behavior[Shop]:
+            match message:
+                case Ask():
+                    service.tell(Quote(reply_to=replies))
+                case Quoted(cents=cents):
+                    seen.append(f"quoted {cents}")
+            return Behaviors.same()
+
+        return Behaviors.receive_message(on_message)
+
+    behavior: Behavior[Shop] = Behaviors.setup(build)
+    if strategy is None:
+        return behavior
+    return Behaviors.supervise(behavior).on_failure(strategy, on=Exception)
+
+
+async def test_a_reply_in_another_protocol_arrives_translated(system: ActorSystem):
+    seen: list[str] = []
+    service = system.spawn(pricing(), name="pricing")
+    ref = system.spawn(shop(seen, service), name="shop")
+
+    ref.tell(Ask())
+    await eventually(lambda: "quoted 100" in seen)
+
+
+async def test_the_adapter_refuses_what_it_does_not_accept(system: ActorSystem):
+    """The check belongs to the sender, exactly as it does for any `tell`."""
+    adapters: list[ActorRef[Price]] = []
+
+    def build(ctx: ActorContext[Shop]) -> Behavior[Shop]:
+        adapters.append(ctx.message_adapter(lambda p: Quoted(cents=p.cents), Price))
+        return Behaviors.receive_message(_ignore)
+
+    system.spawn(Behaviors.setup(build), name="shop")
+    await eventually(lambda: len(adapters) == 1)
+
+    with pytest.raises(MessageTypeError, match="Ask"):
+        adapters[0].tell(Ask())  # type: ignore[arg-type]
+
+
+async def test_a_failing_translation_is_the_owners_failure(system: ActorSystem):
+    """And never the sender's, which has not heard of the adapter.
+
+    This is why the translation travels with the message instead of running at
+    the send site. It is the owner's code, so it fails where the owner's code
+    fails, and the owner's strategy governs it.
+    """
+    seen: list[str] = []
+    service = system.spawn(pricing(), name="pricing")
+    ref = system.spawn(
+        shop(seen, service, translate="raises", strategy=SupervisorStrategy.restart()),
+        name="shop",
+    )
+
+    ref.tell(Ask())
+    await eventually(lambda: seen.count("ready") == 2)
+
+
+async def test_a_translation_to_the_wrong_type_is_caught(system: ActorSystem):
+    """An adapter is the one way onto the lane that skipped the declared type."""
+    seen: list[str] = []
+    service = system.spawn(pricing(), name="pricing")
+    ref = system.spawn(
+        shop(
+            seen,
+            service,
+            translate="wrong-type",
+            strategy=SupervisorStrategy.restart(),
+        ),
+        name="shop",
+    )
+
+    ref.tell(Ask())
+    await eventually(lambda: seen.count("ready") == 2)
+
+
+async def test_a_translated_message_keeps_its_place_in_the_queue(system: ActorSystem):
+    """It rides the user lane, so it is ordinary traffic and nothing more."""
+    seen: list[str] = []
+    order: list[str] = []
+
+    def build(ctx: ActorContext[Shop]) -> Behavior[Shop]:
+        replies: ActorRef[Price] = ctx.message_adapter(
+            lambda p: Quoted(cents=p.cents), Price
+        )
+        # Sent before the two below, so it is handled before them.
+        replies.tell(Price(cents=1))
+
+        async def on_message(message: Shop) -> Behavior[Shop]:
+            order.append(type(message).__name__)
+            return Behaviors.same()
+
+        return Behaviors.receive_message(on_message)
+
+    ref = system.spawn(Behaviors.setup(build), name="shop")
+    ref.tell(Ask())
+    ref.tell(Ask())
+    await eventually(lambda: len(order) == 3)
+
+    assert order == ["Quoted", "Ask", "Ask"]
+    assert seen == []
+
+
+async def test_an_adapter_outlives_a_restart(system: ActorSystem):
+    """A ref somebody else is holding must not become a dead letter.
+
+    An adapter addresses the actor, not the incarnation that handed it out, so
+    a service still holding one from before a restart keeps being heard.
+    """
+    seen: list[str] = []
+    handed_out: list[ActorRef[Price]] = []
+
+    def build(ctx: ActorContext[Restarting]) -> Behavior[Restarting]:
+        seen.append("ready")
+        handed_out.append(ctx.message_adapter(lambda p: Quoted(cents=p.cents), Price))
+
+        async def on_message(message: Restarting) -> Behavior[Restarting]:
+            if isinstance(message, Boom):
+                raise BoomError("boom")
+            seen.append(f"quoted {message.cents}")
+            return Behaviors.same()
+
+        return Behaviors.receive_message(on_message)
+
+    ref = system.spawn(
+        Behaviors.supervise(Behaviors.setup(build)).on_failure(
+            SupervisorStrategy.restart(), on=BoomError
+        ),
+        name="shop",
+    )
+    await eventually(lambda: len(handed_out) == 1)
+    first = handed_out[0]
+
+    ref.tell(Boom())
+    await eventually(lambda: seen.count("ready") == 2)
+
+    first.tell(Price(cents=7))
+    await eventually(lambda: "quoted 7" in seen)
+
+
+async def test_what_an_adapter_cannot_deliver_is_reported_as_it_was_sent():
+    """The wrapper is how it travelled, not what was sent."""
+    letters: list[DeadLetter] = []
+    handed_out: list[ActorRef[Price]] = []
+
+    async with ActorSystem("adapter-dead-letters") as system:
+        system.dead_letters.subscribe(letters.append)
+
+        stopped = asyncio.Event()
+
+        def build(ctx: ActorContext[Shop]) -> Behavior[Shop]:
+            handed_out.append(
+                ctx.message_adapter(lambda p: Quoted(cents=p.cents), Price)
+            )
+
+            async def on_message(message: Shop) -> Behavior[Shop]:
+                stopped.set()
+                return Behaviors.stopped()
+
+            return Behaviors.receive_message(on_message)
+
+        ref = system.spawn(Behaviors.setup(build), name="shop")
+        await eventually(lambda: len(handed_out) == 1)
+        ref.tell(Ask())
+        await stopped.wait()
+        await eventually(lambda: not _alive(ref))
+
+        handed_out[0].tell(Price(cents=3))
+        await eventually(lambda: len(letters) == 1)
+
+    assert letters[0].message == Price(cents=3)
+    assert letters[0].reason == DeadLetterReason.RECIPIENT_TERMINATED
+
+
+async def test_an_adapter_offers_into_the_owners_mailbox(system: ActorSystem):
+    """`offer` waits for the owner's capacity, as it does through any ref."""
+    handled = asyncio.Event()
+    handed_out: list[ActorRef[Price]] = []
+
+    def build(ctx: ActorContext[Shop]) -> Behavior[Shop]:
+        handed_out.append(ctx.message_adapter(lambda p: Quoted(cents=p.cents), Price))
+
+        async def on_message(message: Shop) -> Behavior[Shop]:
+            handled.set()
+            return Behaviors.same()
+
+        return Behaviors.receive_message(on_message)
+
+    system.spawn(
+        Behaviors.setup(build),
+        name="shop",
+        mailbox=MailboxConfig(capacity=1, on_overflow=OverflowStrategy.FAIL),
+    )
+    await eventually(lambda: len(handed_out) == 1)
+
+    await handed_out[0].offer(Price(cents=5))
+    await handled.wait()
+
+
+async def test_an_adapter_needs_to_know_what_it_accepts(system: ActorSystem):
+    """A lambda carries no annotation, so it has to be told."""
+    failures: list[Exception] = []
+
+    def build(ctx: ActorContext[Shop]) -> Behavior[Shop]:
+        try:
+            ctx.message_adapter(lambda p: Quoted(cents=p.cents))
+        except BehaviorTypeError as error:
+            failures.append(error)
+        return Behaviors.receive_message(_ignore)
+
+    system.spawn(Behaviors.setup(build), name="shop")
+    await eventually(lambda: len(failures) == 1)
+
+    assert "msg_type" in str(failures[0])
+
+
+async def test_every_adapter_gets_its_own_address(system: ActorSystem):
+    """They are addressed under their owner, and no two collide."""
+    handed_out: list[ActorRef[Price]] = []
+
+    def build(ctx: ActorContext[Shop]) -> Behavior[Shop]:
+        for _ in range(2):
+            handed_out.append(
+                ctx.message_adapter(lambda p: Quoted(cents=p.cents), Price)
+            )
+        return Behaviors.receive_message(_ignore)
+
+    ref = system.spawn(Behaviors.setup(build), name="shop")
+    await eventually(lambda: len(handed_out) == 2)
+
+    first, second = handed_out
+    assert first != second
+    assert first.path.parent == ref.path.parent.child("shop")
+    assert first.path.name.startswith("$adapter-")
+
+
+async def _ignore(message: Shop) -> Behavior[Shop]:
+    """Take a message and do nothing with it."""
+    return Behaviors.same()
+
+
+def _alive(ref: ActorRef[Shop]) -> bool:
+    """Whether the cell behind a ref is still reading its mailbox.
+
+    Only a test asks this. Application code watches instead, because the
+    answer is out of date by the time the caller reads it.
+    """
+    return isinstance(ref, LocalActorRef) and ref.cell.is_alive
+
+
+async def test_an_adapter_is_safe_from_another_thread(system: ActorSystem):
+    """Like every `tell`: validate on the calling thread, then hop."""
+    seen: list[str] = []
+    handed_out: list[ActorRef[Price]] = []
+
+    def build(ctx: ActorContext[Shop]) -> Behavior[Shop]:
+        handed_out.append(ctx.message_adapter(lambda p: Quoted(cents=p.cents), Price))
+
+        async def on_message(message: Shop) -> Behavior[Shop]:
+            seen.append(type(message).__name__)
+            return Behaviors.same()
+
+        return Behaviors.receive_message(on_message)
+
+    system.spawn(Behaviors.setup(build), name="shop")
+    await eventually(lambda: len(handed_out) == 1)
+    adapter = handed_out[0]
+
+    await asyncio.to_thread(lambda: adapter.tell(Price(cents=9)))
+    await eventually(lambda: seen == ["Quoted"])
+
+
+async def test_offering_to_an_adapter_off_the_loop_is_refused(system: ActorSystem):
+    """Awaiting capacity across a thread boundary is a bridge too far."""
+    handed_out: list[ActorRef[Price]] = []
+
+    def build(ctx: ActorContext[Shop]) -> Behavior[Shop]:
+        handed_out.append(ctx.message_adapter(lambda p: Quoted(cents=p.cents), Price))
+        return Behaviors.receive_message(_ignore)
+
+    system.spawn(Behaviors.setup(build), name="shop")
+    await eventually(lambda: len(handed_out) == 1)
+    adapter = handed_out[0]
+
+    def off_the_loop() -> None:
+        asyncio.run(adapter.offer(Price(cents=1)))
+
+    with pytest.raises(RuntimeError, match="must run on the system's loop"):
+        await asyncio.to_thread(off_the_loop)
+
+
+def test_an_adapted_message_carries_a_callable():
+    """The one thing the wrapper's own validation is there to say."""
+    with pytest.raises(ValidationError, match="carries a callable"):
+        AdaptedMessage(payload=Price(cents=1), adapt=4)  # type: ignore[arg-type]
+
+
+def test_the_wrapper_and_the_adapter_render_what_they_are():
+    def as_quoted(price: Price) -> Quoted:
+        return Quoted(cents=price.cents)
+
+    wrapper = AdaptedMessage(payload=Price(cents=1), adapt=as_quoted)
+
+    assert "as_quoted" in repr(wrapper)
+    assert "Price(cents=1)" in repr(wrapper)
+    # A dump renders the function by name rather than raising, which is all
+    # anyone needs from one.
+    assert wrapper.model_dump()["adapt"].endswith("as_quoted")
+
+
+async def test_a_released_adapter_leaves_the_registry_and_stops_delivering(
+    system: ActorSystem,
+):
+    # An adapter is bound to the actor, so nothing releases one on its own.
+    # That is right for the adapter-per-protocol case and wrong for an actor
+    # that hands one out per request, which would otherwise leave an entry in
+    # the registry for every request it ever served.
+    seen: list[str] = []
+    handed_out: list[ActorRef[Price]] = []
+
+    def build(ctx: ActorContext[Shop]) -> Behavior[Shop]:
+        handed_out.append(ctx.message_adapter(lambda p: Quoted(cents=p.cents), Price))
+
+        async def on_message(message: Shop) -> Behavior[Shop]:
+            if isinstance(message, Quoted):
+                seen.append(f"quoted {message.cents}")
+            return Behaviors.same()
+
+        return Behaviors.receive_message(on_message)
+
+    system.spawn(Behaviors.setup(build), name="shop")
+    await eventually(lambda: len(handed_out) == 1)
+    adapter = handed_out[0]
+
+    # It works, and it is addressable, exactly as before.
+    assert system.refs.lookup(adapter.path) is adapter
+    adapter.tell(Price(cents=100))
+    await eventually(lambda: seen == ["quoted 100"])
+
+    letters: list[DeadLetter] = []
+    system.dead_letters.subscribe(letters.append)
+    assert isinstance(adapter, AdapterRef)
+    adapter.release()
+
+    # The registry entry is gone, so a ref that crossed a link resolves to
+    # nothing rather than to whoever holds that path next.
+    assert system.refs.lookup(adapter.path) is None
+    assert adapter.is_released
+
+    # And what is told to it is accounted for rather than delivered, even
+    # though the actor behind it is still running.
+    adapter.tell(Price(cents=200))
+    await eventually(lambda: bool(letters))
+    assert letters[0].reason == DeadLetterReason.ADAPTER_RELEASED
+    assert letters[0].message == Price(cents=200)
+
+    # `offer` goes the same way. There is no capacity to wait for once the
+    # translation is gone, so it accounts for the message rather than parking.
+    await adapter.offer(Price(cents=300))
+    await eventually(lambda: len(letters) == 2)
+    assert letters[1].reason == DeadLetterReason.ADAPTER_RELEASED
+    assert seen == ["quoted 100"]
+
+
+async def test_releasing_an_adapter_twice_is_harmless(system: ActorSystem):
+    handed_out: list[ActorRef[Price]] = []
+
+    def build(ctx: ActorContext[Shop]) -> Behavior[Shop]:
+        handed_out.append(ctx.message_adapter(lambda p: Quoted(cents=p.cents), Price))
+
+        async def on_message(message: Shop) -> Behavior[Shop]:
+            return Behaviors.same()
+
+        return Behaviors.receive_message(on_message)
+
+    system.spawn(Behaviors.setup(build), name="shop")
+    await eventually(lambda: len(handed_out) == 1)
+
+    adapter = handed_out[0]
+    assert isinstance(adapter, AdapterRef)
+    adapter.release()
+    adapter.release()
+
+    assert system.refs.lookup(adapter.path) is None
+
+
+async def test_an_actor_that_stops_still_releases_the_adapters_it_kept(
+    system: ActorSystem,
+):
+    # Releasing is for the per-request case. The ordinary one, an adapter made
+    # in setup and never released, must still leave nothing behind.
+    handed_out: list[ActorRef[Price]] = []
+
+    def build(ctx: ActorContext[Shop]) -> Behavior[Shop]:
+        handed_out.append(ctx.message_adapter(lambda p: Quoted(cents=p.cents), Price))
+
+        async def on_message(message: Shop) -> Behavior[Shop]:
+            return Behaviors.stopped()
+
+        return Behaviors.receive_message(on_message)
+
+    ref = system.spawn(Behaviors.setup(build), name="shop")
+    await eventually(lambda: len(handed_out) == 1)
+    ref.tell(Ask())
+
+    await eventually(lambda: system.refs.lookup(handed_out[0].path) is None)
+
+
+def stand_in(path: ActorPath) -> ActorRef[Any]:
+    """A registrable ref with no cell behind it.
+
+    A bare `ActorRef` is exactly that: it carries the path a registry keys it
+    by, and refuses to deliver. These tests are about the bookkeeping, so
+    nothing here ever sends to one.
+    """
+    return ActorRef(path)
+
+
+def registry_pair() -> tuple[RefRegistry, AdapterRegistry]:
+    """A ref registry and an adapter registry writing into it."""
+    refs = RefRegistry()
+    return refs, AdapterRegistry(refs)
+
+
+def test_each_adapter_gets_its_own_name():
+    _, adapters = registry_pair()
+
+    names = [adapters.next_name() for _ in range(3)]
+
+    # Unique within the actor, so two adapters never share a path.
+    assert names == ["$adapter-1", "$adapter-2", "$adapter-3"]
+
+
+def test_a_registered_adapter_is_reachable_and_remembered():
+    refs, adapters = registry_pair()
+    path = ActorPath.root("test").child("worker").child("$adapter-1", uid=7)
+
+    adapters.register(stand_in(path))
+
+    assert refs.lookup(path) is not None
+    assert adapters.paths == (path,)
+
+
+def test_releasing_an_adapter_takes_it_out_of_the_refs():
+    refs, adapters = registry_pair()
+    path = ActorPath.root("test").child("worker").child("$adapter-1", uid=7)
+    adapters.register(stand_in(path))
+
+    adapters.release(path)
+
+    # An entry left behind would let a stale ref address whoever holds that
+    # path next.
+    assert refs.lookup(path) is None
+    assert adapters.paths == ()
+
+
+def test_releasing_an_adapter_twice_or_a_stranger_does_nothing():
+    refs, adapters = registry_pair()
+    mine = ActorPath.root("test").child("worker").child("$adapter-1", uid=7)
+    theirs = ActorPath.root("test").child("other").child("$adapter-1", uid=9)
+    adapters.register(stand_in(mine))
+    adapters.register(stand_in(theirs))
+    # Registered through a different actor's registry, as far as this one
+    # is concerned.
+    other = AdapterRegistry(refs)
+
+    other.release(mine)
+    adapters.release(mine)
+    adapters.release(mine)
+
+    # Only its own release took effect, and only once.
+    assert refs.lookup(mine) is None
+    assert refs.lookup(theirs) is not None
+
+
+def test_stopping_releases_every_adapter_at_once():
+    refs, adapters = registry_pair()
+    paths = [
+        ActorPath.root("test").child("worker").child(adapters.next_name(), uid=uid)
+        for uid in (1, 2, 3)
+    ]
+    for path in paths:
+        adapters.register(stand_in(path))
+
+    adapters.release_all()
+
+    assert [refs.lookup(path) for path in paths] == [None, None, None]
+    assert adapters.paths == ()

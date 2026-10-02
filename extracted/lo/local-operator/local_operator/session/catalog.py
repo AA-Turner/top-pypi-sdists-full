@@ -1,0 +1,2251 @@
+"""Immutable sidebar summaries; never prepare a transcript from a paint or click.
+
+Names and runtime marks use the same sources as /resume. Attention is supplied
+by the shared completion authority, not inferred from transcript timestamps.
+The catalog has no acknowledgement path: listing a conversation is not reading it.
+"""
+
+from __future__ import annotations
+
+import base64
+import json
+import logging
+import os
+import sqlite3
+from collections.abc import Collection, Mapping, Sequence
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from local_operator.info.model import format_duration
+from local_operator.resume import UNTITLED_CONVERSATION, SessionRow
+from local_operator.session.archived import archived_ids
+from local_operator.session.creation import (
+    CREATED_AT_NAME,
+    _stored,
+    session_category,
+    session_created_at,
+)
+
+logger = logging.getLogger(__name__)
+
+#: The words for a row whose owner has stopped reporting (``live_state ==
+#: "wedged"``), optionally followed by the measured age.
+#:
+#: A constant rather than a literal in :meth:`CatalogEntry.status` because a
+#: SECOND home for it already exists: the sidebar's glyph/description pairing
+#: tests name every phrase the glyphs may carry, and a copy of this string there
+#: is a copy that drifts. ``/info`` and the wake surfaces paraphrase the same
+#: fact in their own sentences — those are sentences, not labels, and they are
+#: asserted where they are built.
+WEDGED_STATUS = "Not answering · process alive"
+
+
+@dataclass(frozen=True)
+class CatalogEntry:
+    row: SessionRow
+    unseen: bool = False
+    completion_kind: str = ""
+    #: The token and anchor of this row's latest completion, straight from the
+    #: attention store. Carried because `unseen` alone is a LEVEL — true on
+    #: every poll until the session is read — and an observer that wants to
+    #: announce a background session's completion needs the identity of the
+    #: specific event to arbitrate on (`AttentionStore.claim_delivery`).
+    #: Defaulted so every existing construction site, and the sidebar tests
+    #: that build entries positionally, keep working unchanged.
+    completion_token: str = ""
+    anchor_id: str = ""
+    #: WHY the outcome is an error, when the store carries a reason — the
+    #: harness-authored cause sentence for a cut-off, or the provider's own
+    #: message for a provider error. Appended to the sidebar's two error
+    #: spellings so a row reports a cause instead of only a class. Additive and
+    #: defaulted, so every existing construction site (including the positional
+    #: ones in the sidebar tests) keeps working unchanged.
+    completion_reason: str = ""
+    #: Set ONLY on rows from the hidden subagent population.
+    #:
+    #: Load-bearing for SECTIONING, not decoration: `active` is
+    #: `pending or unseen or live_state`, and 45% of subagent directories carry
+    #: an unseen attention receipt, so without this flag they sort into ACTIVE
+    #: SESSIONS above the user's own work.
+    subagent: bool = False
+    #: `origin.json`'s `agent` (role) and `label` (task label), read only for
+    #: the capped page. Empty for every main row.
+    agent: str = ""
+    label: str = ""
+    #: §14: whether this row's completion may notify — the observer's gate,
+    #: straight off the attention state. Additive and defaulted True so every
+    #: existing construction site (including the positional sidebar tests)
+    #: keeps announcing exactly as before, and a pre-field store state reads
+    #: the same way.
+    completion_notify: bool = True
+
+    @property
+    def id(self) -> str:
+        return self.row.id
+
+    @property
+    def sub_title(self) -> str:
+        """`label · role`, degrading to whichever half exists, else the name."""
+        if self.label and self.agent:
+            return f"{self.label} · {self.agent}"
+        return self.label or self.agent or self.row.name
+
+    @property
+    def rank(self) -> tuple[int, int, float, str]:
+        """``(tier, wake_rank, -birth, id)`` — a wake or monitor orders the PREVIOUS group only.
+
+        ``wake_rank`` is scoped to cold rows (``not self.active``): inside
+        Previous an armed wake — or an armed monitor — leads, then a dormant
+        one of either family, then everything else. Every ACTIVE row gets the
+        same constant, so the key cannot reorder anything the user is
+        currently working with.
+
+        **Why scoped rather than uniform.** The first cut applied the key in
+        every tier, on the reasoning that it "only breaks ties within one
+        category" and so was free. That premise is empirically false, and three
+        reviewers independently reproduced the consequences: rows inside a tier
+        are NOT interchangeable, because a tier mixes states that
+        :func:`~local_operator.tui.widgets.session_picker.row_state_mark`
+        deliberately ranks against each other.
+
+        * tier 5 mixes ``attached`` with ``idle``, so an idle session owning a
+          timer sorted above the user's own ATTACHED current session — order
+          contradicting the glyph ladder, where ``○`` means *a terminal is
+          watching this session* and answers "where am I?".
+        * tier 4 mixes ``busy`` with ``wedged``, so a WEDGED (broken) session
+          needing a person sank below a merely-busy neighbour with a wake.
+        * tier 0 mixes the approval and answer gates, so an armed pending row
+          displaced an OLDER pending one — and note this third case defeats a
+          guard written as "presence outranks a wake", because a pending row can
+          carry an empty ``live_state``.
+
+        Scoping to Previous removes all three at the root instead of enumerating
+        the states to dodge. That distinction is the real lesson: an enumerated
+        guard has to be updated every time the ``live_state`` vocabulary grows,
+        and the tier-0 case above is exactly what such a guard silently misses.
+
+        It is also what the operator actually asked for, which was scoped from
+        the start — "under Previous Sessions ... sorted to the top". Tiers 0/4/5
+        were never in scope, and reordering them is unrequested behaviour change.
+
+        **Glyph/order parity, stated precisely.** In Active, order defers
+        entirely to the existing precedence in ``row_state_mark``; this key
+        abstains. In Previous every row is cold, so ``row_state_mark`` paints
+        only the wake glyph or nothing at all — the wake is the sole
+        forward-looking fact a row can carry, so it leads.
+
+        **Dormant ranks below armed, not nowhere.** ``wakes_dormant`` means the
+        session was deliberately stopped and the schedule will never fire, so it
+        stays under every armed row: floating it would advertise a future that is
+        not coming. It still gets its own band so that every clock glyph in the
+        group is CONTIGUOUS. The dim-vs-muted separation between an armed ``◷``
+        and a dormant one measures 1.77:1 at the 8x17px cell this UI renders —
+        below any discrimination threshold — so a dormant row stranded among the
+        plain rows reads as a broken sort rather than as a distinct state.
+        Banding it directly under the armed rows puts the block boundary where
+        the glyph changes, and costs no row and no chrome.
+
+        **Monitors ride the same bands (design §12).** An armed monitor leads
+        the cold group exactly like an armed wake, and a dormant monitor bands
+        with the dormant wakes: the two families are the same promise (work
+        will happen without a keystroke), so the rank VALUE widens while the
+        tuple SHAPE — and every persisted cursor's parse — stays put. The
+        picker's glyph vocabulary is deliberately untouched by this slice; the
+        ordering half is what the catalogue owns.
+
+        The key lives HERE rather than in :func:`session_category` because that
+        function is shared with the mobile daemon, whose summaries carry no wake
+        data at all (durable rows come from ``recent_session_rows``, not
+        ``decorate_rows``, so ``wakes`` is always 0 there). Moving the key into
+        the shared categoriser would either be a no-op on mobile or force wake
+        plumbing into the daemon; keeping it in the catalog leaves both surfaces
+        agreeing on the tier, which is the partition they actually share.
+
+        Stability: a wake is as durable a fact as ``live_state`` and ``pending``,
+        and shares their best-effort read — ``decorate_rows`` zeroes ``wakes``
+        for a poll whose wake-index read raises, exactly as it empties the live
+        map when the registry scan raises, so a transient failure can bounce a
+        row for one poll and put it back on the next. That tolerance is
+        deliberate (a picker that cannot read either source still lists every
+        session), and this key inherits it rather than adding a new fragility.
+        What IS new is an asymmetry worth naming: a cold Previous row previously
+        had no poll-varying ordering input at all, and now has one. When a wake
+        genuinely fires the session becomes live and changes tier, which is a
+        real state change rather than churn.
+
+        One consequence reaches MEMBERSHIP, not just order: :func:`load_catalog`
+        ranks before applying ``[:limit]``, so at the ``CATALOG_SCAN_LIMIT``
+        boundary an ancient session carrying a wake — armed or dormant, since
+        both bands outrank a plain row — can now enter the window and displace
+        a newer row that would otherwise have made it (measured at 251
+        sessions). That is arguably the point of the feature — a scheduled
+        session is usually an old one, and being unfindable is the report — but
+        it is a real behaviour change beyond reordering, so it is recorded here.
+        """
+        tier = session_category(
+            pending=bool(self.row.pending),
+            busy=self.row.live_state in ("busy", "wedged"),
+            unseen=self.unseen,
+            kind=self.completion_kind,
+            live=bool(self.row.live_state),
+        )
+        # Cold rows only. An active row takes the constant, which is what makes
+        # the key structurally unable to reorder Active rather than merely
+        # declining to today.
+        wakes_armed = bool(self.row.wakes) and not self.row.wakes_dormant
+        wakes_dormant = bool(self.row.wakes) and self.row.wakes_dormant
+        monitors_armed = bool(self.row.monitors) and not self.row.monitors_dormant
+        monitors_dormant = bool(self.row.monitors) and self.row.monitors_dormant
+        armed = not self.active and (wakes_armed or monitors_armed)
+        dormant = not self.active and (wakes_dormant or monitors_dormant)
+        wake_rank = 0 if armed else 1 if dormant else 2
+        # Activity may update ages and badges, but must not move a click target.
+        return tier, wake_rank, -self.row.created_at, self.id
+
+    @property
+    def active(self) -> bool:
+        """Section membership is independent of the number of ordering categories."""
+        return bool(self.row.pending or self.unseen or self.row.live_state)
+
+    @property
+    def status_code(self) -> str:
+        """Stable transport spelling of the same precedence used by ``status``."""
+        if self.row.pending:
+            return "approval" if self.row.pending == "approval" else "answer"
+        if self.row.live_state in {"wedged", "busy"}:
+            return self.row.live_state
+        if self.shows_completion_mark:
+            # ``retired`` normalizes to the ``interrupted`` treatment, mirroring
+            # ``transcript_index``'s rail: the sidebar's glyph vocabulary has no
+            # separate warning-cut word, and the two alternatives are both
+            # wrong — "complete" claims a cut turn finished, "error" wears the
+            # failure framing the retire-for-build arm exists to remove
+            # (2026-09-29).
+            return {
+                "error": "error",
+                "interrupted": "interrupted",
+                "retired": "interrupted",
+            }.get(self.completion_kind, "complete")
+        if self.row.live_state == "attached":
+            return "attached"
+        # THE ``delegating`` RUNG, below ``attached`` and above the armed wake,
+        # mirroring ``row_state_mark``'s order exactly so the glyph and the words
+        # cannot disagree. It sits here because the rungs above it are all
+        # LOUDER facts about the row rather than about its children: a parked
+        # gate, a wedged or busy runtime, an unread outcome and "a terminal is
+        # watching this" each outrank "work is running one layer down".
+        #
+        # WHY A CODE AND NOT JUST A LABEL. The desktop renderer derives BOTH the
+        # glyph and its ink from this string alone, so a label-only change is
+        # invisible on exactly the surface that was complained about. The count
+        # still rides inside ``status`` (see :meth:`status`), which is what makes
+        # the edge channel publish when a count changes: the dedupe key is
+        # ``(code, label)`` with the clock term removed, so ``0 -> 2`` and
+        # ``2 -> 1`` each publish one ``session_status`` frame while a 15 s
+        # heartbeat rewrite publishes none.
+        #
+        # The predicate is the ROW's (:attr:`resume.SessionRow.delegating`), the
+        # same one ``row_state_mark`` reads — one fact, two renderings.
+        if self.row.delegating is not None:
+            return "delegating"
+        if self.row.wakes and not self.row.wakes_dormant:
+            return "scheduled"
+        if self.row.live_state == "idle":
+            return "idle"
+        if self.row.wakes:
+            return "dormant"
+        # A receipt is evidence of an outcome even after viewing; no receipt is
+        # not evidence of success. Never turn an old unknown transcript green.
+        if self.completion_token:
+            return {
+                "error": "error",
+                "interrupted": "interrupted",
+                "retired": "interrupted",
+            }.get(self.completion_kind, "complete")
+        return "recent"
+
+    @property
+    def shows_completion_mark(self) -> bool:
+        """Does an unread completion win the glyph, or does live state?
+
+        THE single arbiter for that question: the sidebar reads it to decide
+        whether to override :func:`row_state_mark`, and :attr:`status` reads it
+        to decide whether to say "Unseen …". They used to make the decision
+        separately, in matching order, held together by a comment asking the
+        next author to keep them in step. That is what broke — and the pairing
+        invariant this file already treats as load-bearing deserves a predicate
+        rather than a promise.
+
+        ``unseen`` is a LEVEL, not an edge: it is true from the moment a turn
+        completes until somebody READS that session, and resuming a session
+        does not acknowledge it. So the mark alone cannot be allowed to win —
+        it says what the session did LAST, and the states below say what it is
+        doing NOW:
+
+        * ``pending`` — a parked gate. Already outranked unseen, and still
+          does: a person is blocked on this row right now.
+        * ``wedged`` — not answering NOW. A stale mark from a turn that did
+          finish must not hide a runtime that has since stopped reporting, and
+          a stale beat must not be read as death either: the words below say
+          what was measured (``heartbeat_age_s``) rather than what it might
+          mean.
+        * ``busy`` — the reported bug. The session is working; painting the
+          previous turn's outcome over its own spinner made seven resumed,
+          healthy sessions read as seven failures.
+
+        THE COST OF THE ``busy`` RULE, stated plainly because it is a real
+        trade and not a free win: it suppresses an unread ``error`` exactly as
+        it suppresses an unread ``interrupted``. A turn that FAILED, was
+        resumed without being read, and is now running shows a spinner and a
+        :attr:`status` of "Working" — the failure has no residue anywhere on
+        the row, and the only route back to it is opening the session.
+
+        That is accepted here, deliberately, on three grounds:
+
+        1. Nothing is destroyed. This is a pure function of CURRENT state, not
+           a latch: the instant the row stops being ``busy`` the ``✗`` and
+           "Unseen error" come back, because ``unseen`` stays true until
+           somebody actually reads the session.
+        2. The row stays in "Active Sessions": membership is independent of
+           ranking. While busy or wedged it uses the in-progress category, below
+           unviewed completed outcomes; when it stops, its unread outcome earns
+           that outcome's category again. Creation time orders each category.
+        3. The alternative IS the reported bug, one class down. Painting an
+           error mark over a running session's spinner is the same lie about
+           the same row — "this is broken" over a session that is working.
+
+        So the failure mode being accepted (a genuine error is quiet while its
+        session runs, and returns when it stops) is strictly milder and strictly
+        shorter-lived than the one being fixed (every resumed session claims to
+        have failed, indefinitely, until read). If that trade ever needs
+        revisiting, the cheap remedy is INK rather than shape — keep the
+        spinner, tint it ``danger`` when ``completion_kind == "error"``, or
+        widen the tooltip to "Working (last turn failed, unread)". Both are new
+        design surface and belong in a round of their own, not here.
+
+        Everything BELOW stays outranked by the mark, deliberately. ``attached``,
+        an armed wake and ``idle`` are all facts about residency — true of a
+        session that is merely sitting there — while "this finished and you
+        have not read it" is a fact about work that is waiting for the
+        operator. An unseen completion on a now-idle session is exactly the
+        information the sidebar exists to keep, so it is kept.
+
+        Ranking also suppresses stale completions while busy or wedged, so
+        a row's category agrees with the live state its glyph communicates.
+        """
+        return (
+            self.unseen and not self.row.pending and self.row.live_state not in ("wedged", "busy")
+        )
+
+    @property
+    def status(self) -> str:
+        if self.row.pending:
+            return "Approval needed" if self.row.pending == "approval" else "Answer needed"
+        # BEFORE the unseen branch, and mirrored by `shows_completion_mark`,
+        # which is what the sidebar suppresses the mark on. A row that is
+        # wedged or busy describes itself by what it is doing now.
+        #
+        # "Not answering", NOT "Not responding": the first is what the evidence
+        # supports (a beat the owner's own loop stopped writing for longer than
+        # ``HEARTBEAT_TIMEOUT_S``) and the second reads as a verdict on the
+        # process. The qualifier carries the two facts that stop a reader
+        # inferring death — the pid is still there, and here is the measured
+        # age — because ``registry.classify`` is explicit that a stale beat
+        # does not establish that the process stopped executing. This is also
+        # the desktop catalogue's ``status.label``, so the same sentence
+        # travels to the app unchanged.
+        if self.row.live_state == "wedged":
+            age = self.row.heartbeat_age_s
+            measured = f" (last heartbeat {format_duration(age)} ago)" if age is not None else ""
+            return f"{WEDGED_STATUS}{measured}"
+        # THE DRAIN OUTRANKS "Working", and says it in the record's own words.
+        # A draining runtime IS working, so "Working" was true and useless: the
+        # one thing a reader needs off this row is that the runtime has already
+        # committed to leaving and is finishing the turn first — the state that
+        # makes a plain stop destructive. The phrase is the same one `lop
+        # sessions` prints and `/info` shows, and the same commit that sends the
+        # ``draining`` flag to the app writes it (``announce_retiring``), so the
+        # catalogue and the app cannot disagree about whether this row is
+        # draining (UX round 2, U8; PR #1108 reconciliation).
+        if self.row.leaving:
+            return self.row.leaving
+        if self.row.live_state == "busy":
+            return "Working"
+        if self.shows_completion_mark:
+            if self.completion_kind == "error":
+                return self._error_label("Unseen error")
+            if self.completion_kind in {"interrupted", "retired"}:
+                return self._stop_label("Unseen interruption")
+            return {"interrupted": "Unseen interruption"}.get(
+                self.completion_kind, "Unseen completion"
+            )
+        # Follows ``row_state_mark``'s precedence EXACTLY, so the tooltip can
+        # never name a different state from the glyph beside it. The glyph is a
+        # single character and the description is where a user finds out what it
+        # meant, so the two disagreeing is worse than either being terse.
+        #
+        # Every branch below mirrors one in ``row_state_mark``, in its order:
+        # attached outranks an armed wake, which outranks idle, and a DORMANT
+        # wake falls through to the cold case — where it is still the glyph, so
+        # it must still be the words (round 1, D1: a cold row with a stopped
+        # schedule drew the wake mark while the tooltip said "Recent").
+        if self.row.live_state == "attached":
+            return "Open"
+        # The rung's words. Same position as the arm in :attr:`status_code`, and
+        # the same predicate: the COUNT is spelled into the label because that is
+        # what the transport already carries — no new payload field is needed for
+        # a client to show it, and the ``(code, label)`` dedupe key then moves
+        # whenever the count does.
+        #
+        # The noun is "subagent" and not "agent" on purpose, and it is the word
+        # the rest of the product already uses: this row's own record field is
+        # ``subagents_running``, ``/info`` tallies in it (``info/render.py:435``,
+        # ``plural(n, "subagent")``), and the TUI's own stop notice says
+        # "N subagent(s) still running" (``tui/app.py:20950``). "Agent" alone is
+        # ambiguous in this product, which has an "Agents" page of reusable
+        # PROFILES — a different thing entirely. The
+        # label also never leads with "Delegating": that would imply the parent
+        # is acting, and "the parent's own turn is not running" is the one fact
+        # this state asserts.
+        if self.row.delegating is not None:
+            return delegating_label(*self.row.delegating)
+        if self.row.wakes and not self.row.wakes_dormant:
+            count = self.row.wakes
+            return f"Scheduled ({count} wake{'s' if count != 1 else ''})"
+        if self.row.live_state == "idle":
+            # An exec run is named by what it IS rather than by "Ready", which
+            # invites the user to treat a supervisor's one-shot as their own
+            # idle conversation. Only at THIS rung: a busy or needs-you exec run
+            # says so above, because what it is doing outranks what kind it is —
+            # the same precedence ``row_state_mark`` follows, so the words and
+            # the glyph still cannot disagree.
+            return "Running headless (exec)" if self.row.kind == "exec" else "Ready"
+        if self.row.wakes:
+            # Dormant: the schedule exists but the session was stopped, so it is
+            # not going to fire. Named rather than hidden — a user who sees the
+            # glyph needs to know why it is not going to act.
+            #
+            # "dormant" rather than a fresh adjective, because the stop receipt
+            # this state comes FROM already says "N wakes dormant until you
+            # reopen it" (``control.py`` / ``app.py``). Design review round 2
+            # (D5) flagged that an earlier draft here said "paused" and split
+            # the vocabulary for one fact across two surfaces; the receipt's
+            # word is the established one, so this follows it rather than
+            # asking the receipt to move.
+            count = self.row.wakes
+            return f"Stopped ({count} wake{'s' if count != 1 else ''} dormant)"
+        if self.completion_token:
+            if self.completion_kind == "error":
+                return self._error_label("Error")
+            if self.completion_kind in {"interrupted", "retired"}:
+                return self._stop_label("Interrupted")
+            return {"interrupted": "Interrupted"}.get(self.completion_kind, "Complete")
+        return "Recent"
+
+    def _stop_label(self, base: str) -> str:
+        """``Interrupted``/``Unseen interruption`` plus the rung, when it escalated.
+
+        The half of design round 1's D1 that the classification change left
+        open. The kind was already right — a stop the operator asked for paints
+        ``⊘`` in the interrupted ink rather than ``✗`` — but the reason reached
+        no surface, so a rung-3 SIGKILL and a rung-1 request produced
+        byte-identical rows and the tooltip said nothing the operator could act
+        on. :func:`incidents.stop_rung_phrase` is the phrase and it is empty for
+        the plain request rung, deliberately: this row's own word already says
+        the user stopped it, and ``/stop`` is exactly what rung 1 is.
+
+        The same budget rule as :meth:`_error_label` — one logical line, no
+        parenthetical stack — and the same tolerance: an empty reason returns
+        the spelling BYTE-IDENTICAL to today's, so every pre-taxonomy record and
+        every plain stop renders exactly as it always has.
+
+        THE RETIRED ARM (design round 2, D3) suffixes with the cause that
+        actually produced the row, not a stop rung: in this app ``Interrupted``
+        means the OPERATOR stopped the thing (the rung phrases read "killed by
+        /stop"), and a build drain has no operator act behind it — the label
+        must not misattribute agency. Same suffix pattern, same warning ink and
+        status code; only the words gain the cause.
+        """
+        from local_operator.incidents import stop_rung_phrase
+
+        if self.completion_kind == "retired":
+            return f"{base} — retired for an update"
+        phrase = stop_rung_phrase(self.completion_reason or "")
+        return f"{base} — {phrase}" if phrase else base
+
+    def _error_label(self, base: str) -> str:
+        """``Error``/``Unseen error`` plus the reason, when there is one.
+
+        The ONE-LINE BUDGET IS THE ROW, not the tooltip, and the earlier wording
+        here said the opposite (design round 1, D6, which measured it): the
+        ``Tooltip`` widget WRAPS — an error row renders 36×5 and 36×6 cells and
+        the longest sentence winds over four rows above the id line — so a
+        claim that the tooltip truncates was the justification for dropping a
+        parenthetical that would in fact fit. What the sidebar cannot afford is
+        the ROW's single description cell, and what the reason is trimmed to is
+        therefore its first SENTENCE: the parenthetical DETAIL
+        (``runtime-retired`` carries a build pair — ``(0.54.11@b133eba →
+        0.54.12@402af7f)`` — which is useful in the incident card the model
+        reads and noise in a list of sessions) is dropped for brevity, not for
+        clipping. An empty reason leaves the spelling BYTE-IDENTICAL to today's,
+        which is what keeps every pre-taxonomy record and every completion
+        unchanged.
+        """
+        reason = (
+            self.completion_reason.strip().splitlines()[0].strip()
+            if self.completion_reason.strip()
+            else ""
+        )
+        if not reason:
+            return base
+        sentence = reason.split(" (", 1)[0].rstrip()
+        if len(sentence) > 160:
+            # A provider's own message can be a paragraph; the tooltip cannot
+            # grow a second line for it.
+            sentence = sentence[:157].rstrip() + "…"
+        return f"{base} — {sentence}"
+
+
+def delegating_label(running: int, queued: int) -> str:
+    """The ``delegating`` row's words, from the two counts the record reported.
+
+    Three shapes, because the two counts answer different questions and either
+    can be the whole of the answer:
+
+    * ``{N} subagent(s) running`` — the complaint's own case, and what the rung
+      reads as when nothing is parked;
+    * ``{N} subagent(s) running · {M} queued`` — the ``·`` addend shape
+      ``/info``'s fleet line already uses (``info/render.py:443``), so a parent
+      at capacity is distinguishable from one that is merely busy;
+    * ``{M} subagent(s) queued`` — children parked with nothing yet spending, a
+      state that must NOT read as idle (the capacity gate parks a child with
+      ``queued=True``: ``harness/subagent.py:663``, ``harness/jobs.py:648``).
+
+    SINGULAR AT ONE (``1 subagent running``), matching ``Scheduled (1 wake)``:
+    a plural here is the kind of small wrongness a reader notices before they
+    notice the state.
+
+    ZERO IS NEVER PRINTED FOR A COUNT THAT WAS NOT REPORTED. The caller passes
+    the normalised pair, so a record that reported only one of the two counts
+    simply does not get that addend — the alternative, printing ``0 queued``,
+    would assert a measurement nobody made. A queued count is also never
+    mentioned at zero even when it WAS reported: "0 queued" is noise on a row
+    whose news is the running children.
+
+    Public rather than private because the words are the wire's: the string this
+    returns lands in ``CatalogEntry.status``, which the desktop row's ``title``
+    and ``sr-only`` carry verbatim, and naming it lets any surface that wants the
+    same sentence ask for it instead of assembling a second vocabulary (U11).
+    """
+    noun = "subagent" if running == 1 else "subagents"
+    if running < 1:
+        queued_noun = "subagent" if queued == 1 else "subagents"
+        return f"{queued} {queued_noun} queued"
+    head = f"{running} {noun} running"
+    if queued >= 1:
+        return f"{head} · {queued} queued"
+    return head
+
+
+def entry_for(row: SessionRow, attention: Mapping[str, Any] | None) -> CatalogEntry:
+    """Build one row's :class:`CatalogEntry` from the attention state beside it.
+
+    THE ONE CONSTRUCTION SITE, and that is the point of the function. Every
+    feature of the entry above ``status_code`` — the precedence itself, the
+    ``shows_completion_mark`` predicate, the reason sentences, the ranking — is
+    derived state, and a second place that assembled an entry from the same two
+    inputs would be free to derive it differently while every existing test
+    stayed green. So the list (``load_catalog``) and the desktop feed (which
+    publishes the derived pair as a frame) both come through here.
+
+    ``attention`` is ONE session's state as ``AttentionStore.state_many``
+    returns it (``unseen``/``kind``/``completion_token``/``anchor_id``/
+    ``reason``/``notify``), or ``None``/``{}`` for a session with no state yet.
+    Read defensively by key: an absent store contributes the empty state, which
+    is
+    exactly what ``state_many`` hands back for an unknown conversation.
+    """
+    state = attention or {}
+    return CatalogEntry(
+        row,
+        bool(state.get("unseen", False)),
+        str(state.get("kind") or ""),
+        str(state.get("completion_token") or ""),
+        str(state.get("anchor_id") or ""),
+        str(state.get("reason") or ""),
+        completion_notify=bool(state.get("notify", True)),
+    )
+
+
+def status_dedupe_key(row: SessionRow, attention: Mapping[str, Any] | None) -> tuple[str, str]:
+    """``status_of``'s pair with the CLOCK term removed — the edge channel's key.
+
+    WHY THE PAIR IS NOT ENOUGH (review round 1, MINOR 2). One label carries a
+    live clock: the ``wedged`` arm embeds ``format_duration(heartbeat_age_s)``
+    (``46s`` -> ``47s`` -> ``1m``), so a wedged session's pair changes with the
+    clock alone, with no write and no event behind it — roughly one change per
+    second for the 45-59 s window after the beat crosses
+    ``HEARTBEAT_TIMEOUT_S``, then one a minute, for every wedged session. A
+    channel whose whole promise is "a frame per EVENT" cannot treat that as an
+    edge, so it dedupes on this key and still PUBLISHES the pair.
+
+    The key is the same derivation on the same row with the age cleared, which
+    is a no-op for every arm but ``wedged`` (that arm is the only reader of
+    ``heartbeat_age_s``). So it rides :func:`status_of` rather than restating the
+    precedence, and the dedupe cannot drift from what the row says.
+
+    The cost of the rule, stated because it is real: a client that keeps a
+    wedged row's frame therefore keeps the label it was published with, and the
+    age in that sentence stops advancing until the row's next real edge (or the
+    client's own 30 s safety poll) refreshes it. A tooltip's age is not worth a
+    frame a second per wedged session, which is the same trade the 15 s
+    heartbeat rewrite already makes.
+    """
+    if row.heartbeat_age_s is None:
+        return status_of(row, attention)
+    return status_of(row._replace(heartbeat_age_s=None), attention)
+
+
+def order_key_of(
+    row: SessionRow, attention: Mapping[str, Any] | None
+) -> tuple[int, int, float, str]:
+    """``CatalogEntry.rank`` for one row — WHERE the sidebar files it, not only which section.
+
+    A second CALLER of the same home, for the same reason :func:`status_of` is
+    one: the order key is derived state (tier from ``session_category``, wake band
+    from ``wakes``, then birth and id), and a caller that restated it would be free
+    to move a row the list does not move. The desktop feed asks this beside
+    ``status_of`` because a row can need to change position while its pair changes
+    too — a busy session that finishes is 4 -> 1 and STAYS in "Active chats" — and
+    placement travels on a LIST read, so the feed owes its client an invalidation
+    for that (finding 8).
+
+    WHICH SECTION A ROW IS FILED IN IS THE KEY'S OWN FIRST TERM, so this single
+    comparison subsumes the section rule the feed used to make beside it: a
+    section move always changes the first term, while the converse is false (the
+    intra-section reorder above is the reported bug). ``CatalogEntry.active`` is
+    the boolean the sidebar collapses "Previous chats" by, and it is still built
+    from the same home (``entry_for``) — but nothing derives it for an EDGE, so
+    there is no second entry point to keep in step:
+    :func:`~local_operator.session.catalog.load_catalog` reads it off the entry.
+
+    The full key, including ``wake_rank``, and not just the category: the two are
+    equivalent for every ACTIVE row (``wake_rank`` is the constant there) and the
+    full key is the key the sort actually uses, so "changed" cannot drift from
+    "the client's next list read places it differently".
+    """
+    return entry_for(row, attention).rank
+
+
+def status_and_order_keys(
+    row: SessionRow, attention: Mapping[str, Any] | None
+) -> tuple[tuple[str, str], tuple[int, int, float, str]]:
+    """The TWO channel keys ONE ``entry_for`` build derives — dedupe pair first, placement second.
+
+    The desktop feed asks for both keys for every candidate it primes or
+    diffs: the dedupe pair (:func:`status_dedupe_key`) decides whether a
+    ``session_status`` frame is owed, and the order key (:func:`order_key_of`)
+    decides whether a catalogue invalidation is owed. Each of those helpers
+    builds the entry, so asking them separately built it TWICE per candidate —
+    measured 16,394 ``entry_for`` calls for 8,197 rows on a 15,441-directory
+    store, plus the counted-delegation recompute inside each build. This is
+    the same two derivations from a single construction, so the pair cannot
+    drift from the order key: both read the one :func:`entry_for` this module
+    treats as the only construction site, and the feed's published pair still
+    comes from :func:`status_of` (never restated here).
+
+    The dedupe pair carries the age-cleared spelling for a row that HAS an
+    age — the wedged label's live clock is the only reader of the heartbeat
+    term, and :func:`status_dedupe_key` documents why the pair the channel
+    dedupes on must ignore it. A row without an age is the common case, and
+    for it the dedupe pair is the entry's own pair.
+    """
+    entry = entry_for(row, attention)
+    if row.heartbeat_age_s is None:
+        return (entry.status_code, entry.status), entry.rank
+    return status_of(row._replace(heartbeat_age_s=None), attention), entry.rank
+
+
+def status_of(row: SessionRow, attention: Mapping[str, Any] | None) -> tuple[str, str]:
+    """``(status_code, status)`` for one row — the transport spelling and the label.
+
+    A second CALLER of the precedence, never a second home: it builds the same
+    :class:`CatalogEntry` :func:`entry_for` builds — the same one
+    ``load_catalog`` builds — and returns the same two properties from it. The
+    desktop feed publishes this pair as a ``session_status`` frame; the list
+    ships it on every row. If the two ever disagree, one of them is not calling
+    this function.
+
+    Present because the feed has a ``SessionRow`` and an attention state and
+    nothing else: it must not read ``CatalogEntry``, re-order the branches, or
+    name a code itself. See :func:`entry_for`.
+    """
+    entry = entry_for(row, attention)
+    return entry.status_code, entry.status
+
+
+def rank_entries(entries: Sequence[CatalogEntry]) -> tuple[CatalogEntry, ...]:
+    """Stable identities survive refreshes, including deterministic recency ties."""
+    return tuple(sorted(entries, key=lambda entry: entry.rank))
+
+
+# -- scoped, cursor-paged listings -------------------------------------------
+#
+# WHY THIS EXISTS. The chats sidebar used to read the WHOLE catalogue
+# (``limit=500``) on every ``catalogue`` frame, which on the operator's store is
+# a 2.1-4.5 s answer re-fired at the fleet's own churn cadence and held "no chats
+# are showing up" for the duration. A client that paints one group at a time
+# needs three things this module did not expose: a page OF A SCOPE, a position to
+# resume a walk from, and the group counts the collapsed rows badge.
+#
+# WHY A KEY CURSOR AND NOT AN OFFSET. ``load_catalog`` re-derives the ranking on
+# every call, so there is no stable "row 501": with an offset, a session created,
+# hidden, archived or deleted above the offset between two pages skips exactly as
+# many rows -- a certainty on a store this size, not a race. A cursor carrying the
+# ranking KEY of the page's last row says "everything ranked after this
+# position", so a deletion moves nothing.
+#
+# WHAT IT CANNOT PROMISE, stated rather than implied: the cursor is not a
+# snapshot. ``CatalogEntry.rank``'s first two terms (the category and the wake
+# band) move under a poll, so a row whose tier changes between two page reads can
+# be SKIPPED (it moved above the cursor) or SERVED TWICE (it moved below it). A
+# duplicate collapses in the client's id-keyed merge; a skipped tail row is
+# recovered by re-expanding the group, which discards its rows and re-reads the
+# scope from its head. The alternative -- a server-side materialised page set --
+# is per-client server state to invalidate and a second authority for what
+# exists, which is the trade this deliberately declines.
+
+#: The token's shape version. An unknown ``v`` is answered as
+#: ``cursor_missing: true`` (the scope's first page) rather than as an error, so
+#: the key can change shape later without a wire break.
+CURSOR_VERSION = 1
+
+#: The route refuses a longer token by name; stated here too, where it is minted.
+CURSOR_MAX_LENGTH = 256
+
+#: The two bindings a listing can be scoped to -- ``attachment.json``'s two
+#: halves, which is also the pair the renderer groups by.
+SCOPE_KINDS = ("team", "agent")
+
+#: The same bound the profile and team registries use
+#: (``desktop_profiles``' ``max_length=64``). Not a database limit: it is a
+#: refusal against a client that has concatenated something, and every name the
+#: registries will store fits under it.
+SCOPE_NAME_MAX_LENGTH = 64
+
+
+@dataclass(frozen=True)
+class CatalogueScope:
+    """The one binding a page is filtered to.
+
+    ``kind`` is ``"team"`` or ``"agent"``; ``name`` is the display name stored in
+    ``attachment.json``, NEVER validated against the live team/profile registry.
+    That is deliberate: the registries are renamed and pruned while a session's
+    attachment keeps the name it was attached under (``read_session_attachment``'s
+    docstring calls the stored name a historical fact), so a session stays
+    findable under the name it carries rather than under a name the registry
+    would now accept.
+    """
+
+    kind: str
+    name: str
+
+
+@dataclass(frozen=True)
+class CatalogueCursor:
+    """A decoded position: the scope it was minted for, and the rank tuple.
+
+    ``key`` is in the SAME shape as :attr:`CatalogEntry.rank` -- ``(tier,
+    wake_rank, -created_at, id)`` -- because the resume predicate is a plain
+    ``entry.rank > key`` and a restated comparison would be free to drift from
+    the sort. The wire carries ``created_at`` POSITIVE (it is the immutable
+    ordering fact, #800, and a readable token is worth one negation here).
+    """
+
+    scope: CatalogueScope | None
+    key: tuple[int, int, float, str]
+
+
+def encode_cursor(scope: CatalogueScope | None, key: tuple[int, int, float, str]) -> str:
+    """The position of a page's LAST row, opaque to the client.
+
+    ``scope`` is ``None`` for the unscoped head listing, which is a scope of its
+    own: a cursor minted for a team must not resume the head, and vice versa.
+
+    Opaque and NOT signed, deliberately: the token carries no authority -- it is
+    a position in a listing the client is already authenticated to read -- so a
+    forged one can only ask for a page it could ask for anyway. Anything
+    unparseable is answered as a first page, which is the same answer a client
+    gets with no cursor at all.
+    """
+    tier, wake_rank, negative_birth, session_id = key
+    payload = {
+        "v": CURSOR_VERSION,
+        "s": None if scope is None else [scope.kind, scope.name],
+        "k": [tier, wake_rank, -negative_birth, session_id],
+    }
+    raw = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+
+
+def decode_cursor(token: str) -> CatalogueCursor | None:
+    """Decode a token, or ``None`` when it cannot be used.
+
+    ``None`` IS NOT AN ERROR. The caller answers the scope's FIRST page with
+    ``cursor_missing: true``, exactly as ``HistoryPage.cursor_missing`` /
+    ``_absent_child_page`` do for the transcript tail: the remedy for an
+    unreadable, foreign or absent cursor is the same -- re-read from the top --
+    so every rejection resolves to that one answer rather than to a status code a
+    client would have to special-case. That is also what makes a token minted by
+    a newer build age into a first page instead of into a 500.
+    """
+    if not isinstance(token, str) or not token or len(token) > CURSOR_MAX_LENGTH:
+        return None
+    try:
+        padding = "=" * (-len(token) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(token + padding).decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        # ``binascii.Error`` is a ``ValueError``; so is a JSON parse failure.
+        return None
+    if not isinstance(payload, dict) or payload.get("v") != CURSOR_VERSION:
+        return None
+    raw_scope = payload.get("s")
+    if raw_scope is None:
+        scope: CatalogueScope | None = None
+    elif (
+        isinstance(raw_scope, list)
+        and len(raw_scope) == 2
+        and all(isinstance(part, str) for part in raw_scope)
+    ):
+        scope = CatalogueScope(raw_scope[0], raw_scope[1])
+    else:
+        return None
+    raw_key = payload.get("k")
+    if not isinstance(raw_key, list) or len(raw_key) != 4:
+        return None
+    tier, wake_rank, birth, session_id = raw_key
+    # ``bool`` is an ``int`` in Python, so a JSON ``true`` would otherwise pass as
+    # a tier and compare as 0 or 1 against the sort's own integers.
+    if (
+        isinstance(tier, bool)
+        or not isinstance(tier, int)
+        or isinstance(wake_rank, bool)
+        or not isinstance(wake_rank, int)
+        or isinstance(birth, bool)
+        or not isinstance(birth, (int, float))
+        or not isinstance(session_id, str)
+    ):
+        return None
+    return CatalogueCursor(scope, (tier, wake_rank, -float(birth), session_id))
+
+
+def in_scope(binding: tuple[str, str], scope: CatalogueScope) -> bool:
+    """Whether one session's ``(team, agent)`` binding belongs to ``scope``.
+
+    THE RENDERER'S RULE, not a parallel one: ``chat-sidebar.tsx``'s ``children()``
+    groups a row by ``binding.team`` when it has one and by ``binding.agent``
+    otherwise. The ``not team`` half is load-bearing and must not be dropped -- a
+    session attached to a team AND carrying an agent name would otherwise appear
+    under an agent group the sidebar never draws it in.
+    """
+    team, agent = binding
+    if scope.kind == "team":
+        return team == scope.name
+    return not team and agent == scope.name
+
+
+@dataclass(frozen=True)
+class ScopeTally:
+    """One group's counts: what it holds, and how much of that is active."""
+
+    kind: str
+    name: str
+    total: int
+    active: int
+
+
+@dataclass(frozen=True)
+class ScopeCensus:
+    """How many conversations the listing holds, and in which groups.
+
+    Computed from rows the catalogue has ALREADY decorated and ranked (see
+    :func:`_census`), so the only cost it adds is the binding read the filter
+    needs anyway -- there is no second walk of the store and no second answer to
+    "which conversations exist".
+
+    ``unbound`` is the population the renderer has no group for: visible
+    sessions with no attachment at all.
+    """
+
+    total: int
+    active: int
+    unbound: int
+    scopes: tuple[ScopeTally, ...]
+
+
+@dataclass(frozen=True)
+class CatalogPage:
+    """One page of a scope, where to resume it, and the census when asked for.
+
+    ``entries`` is the PAGE followed by any off-page pinned rows, in that order --
+    the same concatenation :func:`load_catalog` returns, and the same shape the
+    desktop route already splits on ``limit``. ``next_cursor`` is minted from the
+    page's LAST row and never from an appended extra: an extra ranks below the
+    page by construction, so a cursor taken from one would re-serve the page.
+    The extras themselves are a FIRST-PAGE promise, appended only on the head
+    answer that carries no usable position -- see :func:`catalogue_page`.
+
+    THERE IS NO SEPARATE TRUNCATION FLAG, deliberately: ``next_cursor`` IS the
+    answer to "did this scope hold more than the page" (non-null exactly when it
+    did), so a boolean beside it would state one fact in two fields and let them
+    be stated two ways. ``truncated`` on the wire is derived from this field, and
+    the invariant ``(next_cursor is not None) == truncated`` is what the route's
+    tests pin.
+    """
+
+    entries: list[CatalogEntry]
+    next_cursor: str | None
+    cursor_missing: bool
+    counts: ScopeCensus | None
+
+
+def session_directory_name(session_id: str) -> bool:
+    """Discovery metadata cannot redirect a catalog read outside sessions/."""
+    return (
+        isinstance(session_id, str)
+        and bool(session_id)
+        and session_id not in {".", ".."}
+        and not any(
+            character in "/\\\\" or ord(character) < 32 or ord(character) == 127
+            for character in session_id
+        )
+    )
+
+
+def live_state_from_flags(source: object) -> str:
+    """The row state a RUNNING session's own two flags imply — one reading, two halves.
+
+    ``SessionRecord.detached`` is stamped ``True`` at a runtime's construction and
+    cleared when a terminal attaches (``session/runtime/server.py``), so the field
+    means NOBODY IS WATCHING. It is not the ``attached`` state token and never
+    implies one — the two are inverses, and reading it the other way painted every
+    stored or unwatched peer session ``○`` "Open" (``session/peer_rows.py``),
+    including rows with no runtime behind them at all: the relay stamps its stored
+    half ``detached: True`` because nothing can be watching a session that is not
+    running. ONE HOME for the reading is what stops that happening twice, the same
+    way :func:`status_of` is one home for the precedence — a second expression
+    beside this one is an expression free to drift.
+
+    ``getattr`` with defaults, like the live-state fields around it, because this
+    runs on the poll loop behind ``/resume``: both producers of these rows publish
+    the field (a registry record, and the relay's live and stored halves of a
+    federated row), so an absent one is a record from a build that predates it, and
+    the default it lands on is the one every caller has always used.
+
+    ``wedged`` is NOT decided here: that word is the registry's verdict for "the
+    owner stopped reporting" rather than a reading of these flags, and each caller
+    asks for it first. Nor is "does this row have a runtime at all" — the local
+    half answers that with "a record for this id exists" and the peer half with the
+    peer's own ``stored`` word, one level up from here.
+    """
+    if bool(getattr(source, "busy", False)):
+        return "busy"
+    if not bool(getattr(source, "detached", False)):
+        return "attached"
+    return "idle"
+
+
+#: The live-decoration reads whose failure leaves a row's defaults UNKNOWN
+#: rather than FALSE, and the one spelling each of them rides the wire under.
+#:
+#: Gathered here, and sent as data rather than as three booleans, because three
+#: readers have to agree on the words: ``SessionRow.degraded`` carries them, the
+#: desktop list lifts them onto its response, and a renderer checks them to
+#: decide whether it may say "nothing is running". A renderer that spelled its
+#: own constants would silently never match, and the failure mode of that is the
+#: one this change exists to remove.
+#:
+#: Adding a source is one word here plus the ``degraded += (...)`` at the
+#: read that can fail; nothing else changes shape.
+DECORATION_LIVENESS = "liveness"
+DECORATION_WAKES = "wakes"
+DECORATION_MONITORS = "monitors"
+DECORATION_ATTENTION = "attention"
+DECORATION_SOURCES = (
+    DECORATION_LIVENESS,
+    DECORATION_WAKES,
+    DECORATION_MONITORS,
+    DECORATION_ATTENTION,
+)
+
+
+def decorate_rows(
+    directory: Path,
+    rows: list[SessionRow],
+    *,
+    include_live: bool = False,
+    include_archived: bool = False,
+) -> list[SessionRow]:
+    """Fill in each row's runtime state, and float the ones needing a person.
+
+    ``include_archived`` is the archive predicate for the rows this function
+    ADDS: a live record the scan did not carry is skipped when the archive store
+    holds its id, unless the caller asked for archived rows — and when it is
+    added it carries the store's own ``archived`` answer. It is not a filter over
+    ``rows``, which the caller has already filtered; this is the site the
+    REGISTRY path reaches, and the caller's own filters (the scan's predicate,
+    the desktop-marker loop, the hidden layer) are the others — the registry
+    knows nothing about archives, which is why one predicate in the scan was not
+    enough (QA round 1, Q1; see the ``if include_live`` block).
+
+    Two reads for the whole list: the discovery records say which sessions
+    are running, working, attached or not answering, the wake index says
+    which have reminders armed, and the monitor index says which have
+    standing watches armed. Best-effort — a picker that cannot read any of
+    them still lists every session exactly as it did before, because the
+    fields are defaulted and the markers simply do not appear.
+
+    BEST-EFFORT IS NOT SILENT, and this is the correction. The fields above are
+    DEFAULTS, and a defaulted ``live_state=""`` is indistinguishable from a
+    measured "this session is cold" — so when ``registry.scan`` was swallowed,
+    ``CatalogEntry.active`` came out ``False`` for every row and the wire said
+    ``active: false`` about a store with a running turn in it. The sidebar
+    renders exactly that as the expanded "Active chats" section reading
+    "Nothing running right now" while the collapsed section holds the rest: a
+    swallowed read failure presented to the operator as "all my active chats
+    disappeared".
+
+    So a failed read now says so: the affected source is named on every row's
+    :attr:`SessionRow.degraded`, the incident is logged at WARNING (``debug`` is
+    invisible at the default level, which is why an incident could not be
+    reconstructed from the logs afterwards), and the defaults keep their old
+    values so nothing that renders today changes shape. A client that ignores
+    the new field renders exactly as before; a client that reads it can say
+    "I could not tell" instead of asserting a negative it does not know.
+
+    THE STATE IS TAKEN, NOT DERIVED. ``registry.scan`` owns the vocabulary
+    (its ``classify`` is the one place ``live``/``wedged``/``stale`` is
+    decided) and the mapping below is total over those three words and nothing
+    else. The heartbeat AGE comes from that same owner rather than from a
+    second subtraction here, so the tooltip cannot disagree with the verdict
+    about what a future-dated stamp means; the zombie probe is skipped because
+    the verdict has already been reached and a second ``ps`` fork per row per
+    poll would buy nothing.
+    """
+    from local_operator.session.runtime import registry
+
+    #: This poll's failed sources, as a tuple so each row can carry the verdict
+    #: by reference rather than being rebuilt per row.
+    degraded: tuple[str, ...] = ()
+    try:
+        scanned = registry.scan(directory)
+    except Exception:  # noqa: BLE001 — markers are an enhancement, never a gate
+        logger.warning("session catalogue could not read the live records", exc_info=True)
+        scanned = []
+        degraded += (DECORATION_LIVENESS,)
+    try:
+        from local_operator.wakes.store import read_index
+
+        wake_index = read_index(directory)
+    except Exception:  # noqa: BLE001
+        logger.warning("session catalogue could not read the wake index", exc_info=True)
+        wake_index = {}
+        degraded += (DECORATION_WAKES,)
+    try:
+        from local_operator.monitors.store import read_index as read_monitor_index
+
+        monitor_index = read_monitor_index(directory)
+    except Exception:  # noqa: BLE001
+        logger.warning("session catalogue could not read the monitor index", exc_info=True)
+        monitor_index = {}
+        degraded += (DECORATION_MONITORS,)
+
+    live: dict[str, tuple[Any, str]] = {}
+    for record, state in scanned:
+        session_id = getattr(record, "session_id", "")
+        # A ``stale`` VERDICT IS NO RECORD (review round 1, MINOR 1). The pid is
+        # gone, so nothing the record says about work in progress is true any
+        # more — which is the rule the desktop feed already applies
+        # (``DesktopFeed._row_for``) and the reason a dead record's row must not
+        # read as busy/attached. Without this the two surfaces disagreed for
+        # exactly the poll that reaps the record, and they disagreed on the
+        # feed's OWN verdict: the list painted the corpse's ``busy`` while the
+        # frame said ``complete``, and because both writers read the same
+        # revision counter the client's strictly-greater guard kept the list's
+        # wrong value until the next 30 s poll. Taking the rule at BOTH readers
+        # removes the divergence rather than documenting it, and the sweep this
+        # function's own ``scan`` performs is unaffected: the record is still
+        # moved aside, and the row simply stops describing it.
+        if session_id and state != "stale":
+            live[session_id] = (record, state)
+
+    if include_live:
+        from local_operator.resume import is_user_session
+        from local_operator.session.archived import archived_ids
+        from local_operator.session.retention import (
+            DESKTOP_MARKER_NAME,
+            session_activity,
+        )
+
+        # THE ARCHIVE PREDICATE APPLIES TO THE LIVE ROWS TOO, and this is one of
+        # the places it has to be asked — not the one place it is documented
+        # (QA round 1, Q1). A live record the scan did not carry is
+        # appended from the REGISTRY, which knows nothing about archives — so an
+        # archived conversation that happens to be running was re-added here with
+        # `archived` left at the dataclass default, and both listings that go
+        # through this function (the TUI sidebar and the desktop catalogue)
+        # then offered it while reporting `archived: false`. That is the flow the
+        # command exists for — `/archive` acts on the CURRENT conversation, and
+        # the desktop archives the conversation being viewed — so the receipt's
+        # promise was broken in the only state a user reaches it from, and the
+        # wire contradicted its own always-present-with-the-true-value contract.
+        #
+        # Read LAZILY, on the first live row that is actually about to be
+        # appended: a store with no live records (or none missing from the scan)
+        # pays nothing, which is the same rule the scan follows.
+        #
+        # AND A LIVE ROW NEEDS A DIRECTORY THAT HOLDS A SESSION (round-2 review
+        # C2): the registry knows an id is RUNNING, not that it is LISTABLE. A
+        # SPECULATIVE engage — a new-chat draft's warm, or a TUI WarmErrand under
+        # ``LOP_RUNTIME_DEFER_MATERIALISE`` — leaves, from its runtime boot,
+        # exactly the bookkeeping files (``.execution-lease`` + ``.session.pid``;
+        # measured) and nothing else, and without this the branch painted such a
+        # directory as "Untitled conversation" under Active in EVERY consumer of
+        # this function (the TUI sidebar, the desktop catalogue, any other
+        # process) while the id's own doors called it unknown (spec §1.6). The
+        # three facts are the same shape the desktop door applies on resolution,
+        # plus the BIRTH SIDECAR that keeps a legitimately transcript-less
+        # session visible: the normal ``Transcript`` construction publishes
+        # ``created_at.json`` (measured: 99.6% of the store's visible
+        # directories carry one) while a speculative engage writes none until
+        # its first real write. The marker document is asked by EXISTENCE, not
+        # readability (#1110 R3), and activity is ``session_activity`` — the
+        # transcript + mail spool clock, never the directory mtime.
+        archived: frozenset[str] | None = None
+        known = {row.id for row in rows}
+        rows = list(rows)
+        for session_id, (record, _state) in live.items():
+            if not session_directory_name(session_id):
+                continue
+            session_dir = directory / "sessions" / session_id
+            if (
+                session_id not in known
+                and session_dir.is_dir()
+                and is_user_session(session_dir)
+                and (
+                    (session_dir / DESKTOP_MARKER_NAME).exists()
+                    or (session_dir / CREATED_AT_NAME).exists()
+                    or session_activity(session_dir) is not None
+                )
+            ):
+                if archived is None:
+                    archived = archived_ids(directory)
+                is_archived = session_id in archived
+                if is_archived and not include_archived:
+                    continue
+                rows.append(
+                    SessionRow(
+                        session_id,
+                        float(getattr(record, "started_at", 0.0) or 0.0),
+                        str(getattr(record, "conversation_name", "") or UNTITLED_CONVERSATION),
+                        created_at=session_created_at(session_dir),
+                        degraded=degraded,
+                        # Stamped from the store's own answer, never the
+                        # default: this row is revealed by `include_archived`
+                        # only when it IS archived, and a renderer paints the
+                        # mark from this flag.
+                        archived=is_archived,
+                    )
+                )
+    updated: list[SessionRow] = []
+    for row in rows:
+        record_state = live.get(row.id)
+        live_state = ""
+        pending: str | None = None
+        leaving = ""
+        kind = ""
+        # Relaxed from the record, never defaulted to zero: a row with no record
+        # (a cold or already-reaped session) has NO count to report, and the
+        # difference between that and "zero children" is what keeps a renderer
+        # from asserting "no subagents" about a session it could not ask. Only
+        # the live branch below can set them, exactly like ``leaving``.
+        subagents_running: int | None = None
+        subagents_queued: int | None = None
+        if record_state is not None:
+            record, state = record_state
+            # ``wedged`` here means the owner has stopped reporting, which is a
+            # fact about its RECORD and not a diagnosis of its process: a long
+            # turn on an in-process runtime produces it while the session is
+            # working. The tooltip says exactly that, with the age beside it.
+            if state == "wedged":
+                live_state = "wedged"
+            else:
+                # The flags decide, through the ONE home for that reading: the peer
+                # half of this same list asks the same question of the row the
+                # relay federated, and the two must not answer it differently.
+                live_state = live_state_from_flags(record)
+            pending = getattr(record, "pending", None) or None
+            # Only a LIVE record has a kind. A cold row keeps "" so the picker
+            # says nothing rather than claiming a session is still an exec run
+            # after the process that made it that has gone.
+            kind = str(getattr(record, "kind", "") or "")
+            # THE DRAIN, carried as the record's own phrase rather than folded
+            # into ``live_state``. A signalled runtime IS busy, so the token is
+            # not wrong — it is just not the fact a reader needs, and the token
+            # is what consumers branch on (``status_code`` is a transport
+            # spelling, ``session_category`` ranks on it). A third value there
+            # would be a contract change to say something the row can say in a
+            # field of its own, which is the same call the CLI's LEAVING COLUMN
+            # made instead of adding a token to STATE (design round 2, D3).
+            # Defaulted through getattr like the neighbouring live fields: a
+            # record written by an OLDER runtime has no such field, and this
+            # runs on the poll loop behind ``/resume``.
+            leaving = str(getattr(record, "leaving", "") or "")
+            # THE COUNTS THE READER ALREADY HOLDS. `registry.scan` handed this
+            # function the whole record and the two fields were simply dropped;
+            # they are what makes a parent whose own turn ended while its
+            # children still run distinguishable from an idle one, since
+            # ``live_state`` is deliberately the parent's own lane
+            # (``ServingSessionHandle.is_conversationally_active`` excludes
+            # children from it). Read through ``getattr`` like ``leaving``
+            # above and for the same reason: a record written by an OLDER
+            # runtime has no such field, and this runs on the poll loop behind
+            # ``/resume``.
+            subagents_running = getattr(record, "subagents_running", None)
+            subagents_queued = getattr(record, "subagents_queued", None)
+        entry = wake_index.get(row.id) or {}
+        schedules = entry.get("schedules") or () if isinstance(entry, dict) else ()
+        monitor_entry = monitor_index.get(row.id) or {}
+        monitors = (monitor_entry.get("monitors") or ()) if isinstance(monitor_entry, dict) else ()
+        # SCHEDULED rows only: patience waits are hidden internal timers, and
+        # this count drives the picker's armed-wake glyph — a session with one
+        # hidden timer and no user-visible wake must not read as "armed"
+        # (design §8.2.2 item 5). Shared helper so every index-count consumer
+        # makes one call rather than filtering a shape the next reader cannot
+        # see (``wakes.store.scheduled_rows`` is stdlib-only, so it rides this
+        # stdlib-only module's import path for free).
+        from local_operator.wakes.store import scheduled_rows
+
+        schedules = scheduled_rows(schedules)
+        age: float | None = None
+        if record_state is not None:
+            age = registry.classify(record_state[0], check_zombie=False).heartbeat_age_s
+        updated.append(
+            row._replace(
+                live_state=live_state,
+                pending=pending,
+                leaving=leaving,
+                subagents_running=subagents_running,
+                subagents_queued=subagents_queued,
+                wakes=len(schedules),
+                wakes_dormant=bool(
+                    isinstance(entry, dict) and (entry.get("stopped_at") or entry.get("held_at"))
+                ),
+                monitors=len(monitors),
+                monitors_dormant=bool(
+                    isinstance(monitor_entry, dict) and monitor_entry.get("stopped_at")
+                ),
+                kind=kind,
+                heartbeat_age_s=age,
+                # THIS poll's verdict, not an accumulation: a value inherited
+                # from an earlier decoration of the same row would outlive the
+                # failure it described.
+                degraded=degraded,
+                # AND WHERE IT LIVES, which for everything this function can see
+                # is HERE. The local scan reads this machine's own store, so
+                # "local" is a fact the READ proves rather than a default being
+                # restated — and it is stamped at the one join point the design
+                # names (``mesh-ui.md`` §1.3) so a future peer-projection pass
+                # that APPENDS remote rows marks them in the same breath. A row
+                # already carrying a locality is left alone: this decorator reads
+                # one source and must not overwrite what another one established.
+                locality=row.locality or "local",
+            )
+        )
+    return sorted(updated, key=lambda row: 0 if row.pending else 1)
+
+
+#: Rows the poll materialises. The sidebar paints a fixed window (~38 rows at a
+#: usual height) and pages within what it holds, so the untruncated answer
+#: `/resume` wants is waste here: on a 665-directory store the poll built 56
+#: rows every 2 s and spent 92-99% of itself doing it. Headroom well past the
+#: viewport keeps paging and ranking honest without materialising the tail.
+CATALOG_SCAN_LIMIT = 200
+
+#: Newest subagent runs the sidebar's ⌥ layer lists when it is switched on.
+#: One screenful of headroom past the ~38-row window, matching the reasoning
+#: behind CATALOG_SCAN_LIMIT. No paging: the layer answers "what just ran".
+#:
+#: WHAT THIS CAP DOES AND DOES NOT BOUND. The cap bounds the PAGE, not the
+#: selection. The per-row reads on the capped page — `origin.json` and
+#: `session_created_at` — are O(cap): measured flat at 85 `origin.json` reads
+#: with the hidden population at 50, 100, 400 and 800. What is NOT capped is
+#: the step-2 selection sweep in `load_catalog`, which stats every hidden
+#: directory to find the newest CAP of them: that is O(hidden population),
+#: linear at a stable ~6.0 µs/dir measured from 250 to 4000 dirs, and it is
+#: the term that scales.
+#:
+#: So the ON-path delta grows with the store, not with this constant. The
+#: +6.6 ms measured today was ruled ACCEPTED-with-documentation rather than a
+#: regression because the original +2.7 ms budget was set on a 462-hidden
+#: store and the store outgrew it — the sweep is the prescribed algorithm
+#: costing what it costs at a larger population, not a leak of the capped
+#: reads into the population. Memoizing the sweep is the follow-up, and it
+#: becomes worth its own invalidation surface at roughly 2,000 hidden
+#: directories (~12 ms, 0.6% of the 2 s poll), not before.
+#:
+#: The ruling, with the measurements: `BRIEF-sidebar-slice-b.md`,
+#: "## Lead check — round 1".
+SUBAGENT_LAYER_CAP = 40
+
+#: `session_id -> ((activity_mtime, transcript_size), SessionRow)`. A row's
+#: name and fork mark change only when its transcript does, and the scan
+#: already stats that file to rank the session, so the key is free. Only the
+#: DURABLE fields are cached: `live_state`, `pending`, `wakes` and `unseen` are
+#: layered on afterwards by `decorate_rows`/attention on every poll, because
+#: caching a live fact would freeze the list.
+_ROW_CACHE: dict[Path, tuple[tuple[float, int], SessionRow]] = {}
+
+#: ``sessions root -> {session_id: ((st_ino, st_mtime_ns, st_size), birth)}`` for
+#: ``created_at.json``. WHY: ``load_catalog`` must stamp EVERY candidate's birth
+#: before ranking (the rank key is ``-created_at``, and no cheaper bound on it is
+#: sound: activity can precede a hand-edited, restored or ``st_birthtime``
+#: fallback birth, and a bounded selection then drops the row from the page --
+#: PR #1470 review round 1, F1/Q-1). The open+read+parse per candidate was
+#: 0.80 s of a 1.47 s desktop list at 9,400 directories (D-F7). The sidecar is
+#: write-once by contract (#800), so a birth read on one poll is still true on
+#: the next unless the file itself changed -- and one ``stat`` says whether it
+#: did. The value served is always ``session_created_at``'s own answer.
+#:
+#: THE KEY is the sidecar's inode, nanosecond mtime and size. The one writer
+#: (``creation.ensure_session_created_at``) publishes through a hard link of a
+#: fresh temp file, so every rewrite is a new inode; a hand edit or replacement
+#: moves mtime (and usually size and inode); a deleted-and-recreated directory
+#: gets a new inode; a renamed directory is a different id. The accepted blind
+#: spot is an in-place rewrite that keeps the same inode, the same size AND
+#: restores the same nanosecond mtime (``touch -r`` after editing) -- served
+#: stale until the process restarts or the file changes again.
+#:
+#: NOT CACHED: a directory with no readable sidecar -- absent, OR present but
+#: unparseable (``null``, a bare string, ``true``, torn JSON). Its birth then
+#: comes from ``origin.json`` or ``st_birthtime`` (``creation.session_created_at``),
+#: files this key does not watch, so it is read every time -- the same cost as
+#: before, for the ~0.4% of directories measured without one (39 of 9,725).
+#: Only a value parsed FROM the watched file is ever cached (PR #1470 review
+#: round 2, F2: caching the fallback served a stale ``origin.json`` birth, and
+#: missed a corrupt sidecar repaired in place to the same inode/size/mtime).
+#:
+#: BOUNDED: each ``load_catalog`` call prunes its root's map to that call's
+#: candidates, so a map holds at most one entry per visible session of the
+#: store (648 on the reporting store; 10,000 on a 10k store of visible
+#: sessions), and deleted or newly hidden sessions drop out on the next call.
+#: At most :data:`_BIRTH_MEMO_ROOTS` roots are kept, oldest evicted first, so a
+#: process that lists many stores (the test suite) cannot grow it without limit.
+_BIRTH_MEMO: dict[str, dict[str, tuple[tuple[int, int, int], float]]] = {}
+_BIRTH_MEMO_ROOTS = 4
+
+
+def _memo_root(sessions: Path) -> dict[str, tuple[tuple[int, int, int], float]]:
+    """This store's birth memo, created (and the oldest root evicted) on first use."""
+    return _memo_for(_BIRTH_MEMO, sessions)
+
+
+def _memoized_birth(sessions: Path, session_id: str) -> float:
+    """``session_created_at`` for one candidate, re-read only when its sidecar changed.
+
+    STAT BEFORE READ, deliberately: a sidecar replaced between the two lands its
+    NEW value under the OLD key, so the next call's stat misses and re-reads --
+    the race resolves toward a re-read, never toward serving a stale birth.
+    """
+    memo = _memo_root(sessions)
+    session_dir = os.path.join(sessions, session_id)
+    try:
+        info = os.stat(os.path.join(session_dir, CREATED_AT_NAME))
+    except OSError:
+        memo.pop(session_id, None)
+        return session_created_at(Path(session_dir))
+    key = (info.st_ino, info.st_mtime_ns, info.st_size)
+    cached = memo.get(session_id)
+    if cached is not None and cached[0] == key:
+        return cached[1]
+    # ``_stored`` is the sidecar half of ``session_created_at``'s own rule, so
+    # a parsed value is exactly what that function would have returned. When
+    # it does not parse, the answer is the fallback's, which is not cached.
+    born = _stored(Path(session_dir))
+    if born is None:
+        memo.pop(session_id, None)
+        return session_created_at(Path(session_dir))
+    memo[session_id] = (key, born)
+    return born
+
+
+#: ``sessions root -> {session_id: ((st_ino, st_mtime_ns, st_size), (team, agent))}``
+#: for ``attachment.json``.
+#:
+#: WHY A MEMO AND NOT A PER-REQUEST READ. Every row's GROUP is a column of the
+#: chats sidebar, and the only source of a session's group is its attachment
+#: sidecar. Told to compute the per-group counts, or to answer one group's page,
+#: a listing must know every visible session's binding: the same 757 stats (warm)
+#: that a cold read of 217 sidecars measured at 367 ms, i.e. ~1.3 s on the
+#: operator's store -- unacceptable per request, fine as a first read.
+#:
+#: IDENTICAL IN MECHANISM TO :data:`_BIRTH_MEMO`, deliberately, down to the
+#: stat-before-read race resolution and the blind spot: the key is
+#: ``(st_ino, st_mtime_ns, st_size)`` of the sidecar, and the ONE writer is
+#: ``resume.write_session_attachment``, which is called on CHANGE (attach,
+#: detach, goal set) and never per turn. The publish is atomic (pid-named temp +
+#: ``replace``), so a replaced document lands a NEW inode under the old key and
+#: the next call re-reads rather than serving the previous attachment.
+#:
+#: NOT CACHED: a session with no readable sidecar -- absent, or present but
+#: unparseable. Its binding is ``("", "")``, which is also what
+#: ``read_session_attachment`` answers, so the same value is computed again next
+#: call. Caching it would freeze a session as unbound for the process's life on
+#: the strength of one torn read.
+#:
+#: BOUNDED exactly as the birth memo is: pruned to this call's candidates, at
+#: most :data:`_BIRTH_MEMO_ROOTS` roots.
+#:
+#: THE SHAPE BOTH MEMOS SHARE: ``{session_id: ((ino, mtime_ns, size), value)}``
+#: with ``value`` deliberately UNTYPED here. ``_BIRTH_MEMO``, declared once with
+#: its own docstring above, has the identical shape.
+#:
+#: A type variable was the first spelling and the type gate refused it: the two
+#: memos carry different value types (a birth float, a ``(team, agent)`` pair),
+#: and a variable made this helper's own ``setdefault`` un-inferable. The value
+#: type is annotated at the two CALL SITES (``_memo_root``, ``_memoized_binding``),
+#: which is where it actually matters; the shared part is the bound and the
+#: eviction order, and neither depends on what is stored.
+_BINDING_MEMO: dict[str, dict[str, tuple[tuple[int, int, int], tuple[str, str]]]] = {}
+
+
+def _memo_for(memo: dict[str, dict[str, Any]], sessions: Path) -> dict[str, Any]:
+    """One memo's map for this store, created (and the oldest root evicted) on first use.
+
+    The one implementation of "which map answers for this store, and how many
+    stores may be remembered" -- shared by the birth memo and the binding memo so
+    the two cannot disagree about the bound or about the eviction order.
+    """
+    key = str(sessions)
+    entry = memo.get(key)
+    if entry is None:
+        # ``pop(..., None)``: the desktop lists from worker threads, so two
+        # calls can evict the same root; losing a memo only costs a re-read.
+        while len(memo) >= _BIRTH_MEMO_ROOTS:
+            memo.pop(next(iter(memo), ""), None)
+        entry = memo.setdefault(key, {})
+    return entry
+
+
+def _memoized_binding(sessions: Path, session_id: str) -> tuple[str, str]:
+    """``(team, agent)`` for one candidate, re-read only when its sidecar changed.
+
+    STAT BEFORE READ for the reason :func:`_memoized_birth` states: a sidecar
+    replaced between the two lands its NEW value under the OLD key, so the next
+    call's stat misses and re-reads -- the race resolves toward a re-read, never
+    toward serving a stale attachment.
+    """
+    from local_operator.resume import ATTACHMENT_SIDECAR_NAME, read_session_attachment
+
+    memo = _memo_for(_BINDING_MEMO, sessions)
+    session_dir = os.path.join(sessions, session_id)
+    try:
+        info = os.stat(os.path.join(session_dir, ATTACHMENT_SIDECAR_NAME))
+    except OSError:
+        memo.pop(session_id, None)
+        return ("", "")
+    key = (info.st_ino, info.st_mtime_ns, info.st_size)
+    cached = memo.get(session_id)
+    if cached is not None and cached[0] == key:
+        return cached[1]
+    stored = read_session_attachment(Path(session_dir))
+    if stored is None:
+        memo.pop(session_id, None)
+        return ("", "")
+    value = (stored.team, stored.agent)
+    memo[session_id] = (key, value)
+    return value
+
+
+def _row_stat_key(session_dir: Path) -> tuple[float, int] | None:
+    """``(activity_mtime, size)`` for the transcript, or ``None`` if unreadable.
+
+    Deliberately the same file :func:`session.retention.session_activity`
+    ranks by, so a row whose key is unchanged is a row whose transcript has not
+    been appended to — which is exactly the condition under which its name and
+    fork mark cannot have changed. Size is carried alongside mtime because a
+    coarse filesystem timestamp can hide an append inside the same second.
+    """
+    from local_operator.session.retention import TRANSCRIPT_FILENAME
+
+    try:
+        stat = (session_dir / TRANSCRIPT_FILENAME).stat()
+    except OSError:
+        return None
+    return (stat.st_mtime, stat.st_size)
+
+
+def cached_session_rows(
+    directory: Path,
+    limit: int = CATALOG_SCAN_LIMIT,
+    *,
+    candidates: list[tuple[str, float, str, bool]] | None = None,
+    include_archived: bool = False,
+) -> list[SessionRow]:
+    """:func:`recent_session_rows` for the poll, memoized on transcript stat.
+
+    The ``O(directories)`` scan underneath is NOT what this avoids — it still
+    runs, and bounding it is what ``limit`` does. What this avoids is the
+    per-row work above the scan: the bounded head read that builds the name,
+    and the fork-title probe, on rows whose transcript has not been appended to
+    since the last poll two seconds ago.
+
+    Deliberately reimplements ``recent_session_rows``'s loop instead of calling
+    it, because the saving is inside that loop; the scan it calls is the shared
+    one, so ranking and visibility stay identical to ``/resume``. Rows absent
+    from the current answer are dropped, keeping the cache bounded by the live
+    store rather than by every session ever listed.
+    """
+    from local_operator.resume import (
+        ORIGIN_AGENT_WORKSTREAM,
+        ORIGIN_FORK,
+        _recent_sessions_with_origin,
+        session_name,
+        wears_inherited_title,
+        workstream_opened_by,
+    )
+
+    rows: list[SessionRow] = []
+    fresh: dict[Path, tuple[tuple[float, int], SessionRow]] = {}
+    selected = (
+        candidates
+        if candidates is not None
+        else _recent_sessions_with_origin(directory, limit, include_archived=include_archived)
+    )
+    # Resolved ONCE for the store, not per row. ``Path.resolve()`` is a
+    # ``realpath`` — an ``lstat`` per path component — and the loop below called
+    # it twice for every row, which measured 2,880 realpath calls and 1,440
+    # lstats per poll on a 144-row listing: 21% of the poll's profile spent
+    # building a dictionary key. The variable part of that path is the session
+    # id, which is a single directory name, so resolving the parent captures
+    # everything a symlinked store could redirect.
+    #
+    # Safe even for the exotic case of an individual session directory being
+    # itself a symlink: this key is only ever an in-process memo key, never an
+    # I/O path, so a key that differs from the fully-resolved one can only cost
+    # a cache MISS (a row rebuilt from disk, which is correct by construction),
+    # never a wrong or stale row.
+    root = (directory / "sessions").resolve()
+    for session_id, mtime, origin, archived in selected:
+        session_dir = directory / "sessions" / session_id
+        key = _row_stat_key(session_dir)
+        cached = _ROW_CACHE.get(root / session_id)
+        if key is not None and cached is not None and cached[0] == key:
+            # Same transcript bytes as last poll: the name and the fork mark
+            # cannot have changed, so neither read is repeated. `mtime` is
+            # taken fresh from the scan regardless — it also tracks the inbox
+            # spool. It updates displayed age, never immutable creation order.
+            #
+            # ``archived`` is re-stamped from THIS scan's row for the same
+            # reason ``mtime`` is: the cache key is the transcript's stat, and
+            # archiving a conversation writes nothing to the transcript — so a
+            # row built before the archive would otherwise serve
+            # ``archived=False`` for as long as the conversation is not
+            # appended to, which for the picker's reveal toggle is precisely
+            # the row it exists to reveal.
+            row = cached[1]._replace(mtime=mtime, archived=archived)
+        else:
+            row = SessionRow(
+                session_id,
+                mtime,
+                session_name(session_dir),
+                forked=origin == ORIGIN_FORK and wears_inherited_title(session_dir),
+                # Through the memo ``load_catalog`` has just filled, so hydrating
+                # a page row does not read its birth a second time on a cold call.
+                created_at=_memoized_birth(directory / "sessions", session_id),
+                archived=archived,
+                # Gated on the origin the scan already parsed, like the fork
+                # probe above. The `_replace` on the cache-hit path carries the
+                # field through untouched, which is the right answer rather
+                # than a lucky one: the marker is written once, at creation,
+                # and the cache key is the transcript's stat — the same
+                # immutability argument `_ROW_CACHE` and the marker both rest
+                # on.
+                opened_by=(
+                    workstream_opened_by(session_dir) if origin == ORIGIN_AGENT_WORKSTREAM else None
+                ),
+            )
+        rows.append(row)
+        if key is not None:
+            fresh[root / session_id] = (key, row)
+    _ROW_CACHE.clear()
+    _ROW_CACHE.update(fresh)
+    return rows
+
+
+def _subagent_marker(session_dir: Path) -> tuple[str, str]:
+    """``(agent, label)`` from a subagent's ``origin.json``; ``("", "")`` if unreadable.
+
+    Best-effort by contract, like every other marker read on this path: a
+    missing, truncated or non-object marker costs the row its role and task
+    label, never the row itself.
+    """
+    try:
+        payload = json.loads((session_dir / "origin.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return ("", "")
+    if not isinstance(payload, dict):
+        return ("", "")
+    values = []
+    for key in ("agent", "label"):
+        value = payload.get(key)
+        values.append(value if isinstance(value, str) and value else "")
+    return (values[0], values[1])
+
+
+def subagent_population(directory: Path) -> int:
+    """How many hidden subagent runs the store holds — the footer chip's count.
+
+    A full second scan of the store: ``_scan_sessions`` is not memoized, so
+    this costs about as much as ``load_catalog`` itself (+2.36 ms measured on a
+    156-visible/462-hidden store). Call it on a slow cadence — the sidebar
+    reads it on open and then every fifteenth poll — never once per poll.
+    """
+    from local_operator.resume import _scan_sessions
+
+    return len(_scan_sessions(directory)[1])
+
+
+def _ranked_candidates(
+    directory: Path,
+    *,
+    include_subagents: bool = False,
+    include_archived: bool = False,
+    pinned_hidden_ids: Sequence[str] = (),
+) -> tuple[list[CatalogEntry], dict[str, tuple[str, float, str, bool]], set[str]]:
+    """Scan, decorate and rank: the catalogue's MIDDLE, and its only implementation.
+
+    Extracted from :func:`load_catalog` WITHOUT a behaviour change -- the proof is
+    that every existing ``load_catalog`` test passes unchanged, in particular the
+    syscall model in ``tests/unit/session/test_catalog_scan_cost.py`` and the
+    byte-identical listing it pins -- because the scoped page
+    (:func:`catalogue_page`) needs this work and must not have a second
+    implementation of it. The ranking, the categories and the decoration stay one
+    authority each: another caller may SLICE the result differently and FILTER it,
+    never re-derive it.
+
+    Returns the ranked entries (the order is TOTAL and UNIQUE -- the id term
+    breaks every tie -- which is what makes a rank-key cursor a position rather
+    than a guess), the ``source`` mapping the caller hydrates its page through,
+    and the scan's own set of hidden (subagent) names.
+
+    STRICT ABOUT THE STORE, TOLERANT ABOUT THE DECORATION, exactly as
+    :func:`load_catalog` documents: a store that exists but cannot be walked
+    raises, while a decoration that could not be read is named on each row.
+    """
+    from local_operator.resume import (
+        _scan_sessions,
+        _scanned_entries,
+        _store_error_detail,
+    )
+    from local_operator.session.attention import AttentionStore, conversation_identity
+    from local_operator.session.errors import SessionStoreUnavailable
+    from local_operator.session.retention import (
+        DESKTOP_MARKER_NAME,
+        TRANSCRIPT_FILENAME,
+    )
+
+    # The scan's second return value is every directory it established is not
+    # the user's own session. Taken here rather than recomputed because it is
+    # what removes this function's own O(store) stat; see the desktop-probe loop
+    # below for why a hidden directory cannot carry a desktop marker.
+    #
+    # ``strict=True`` is this function's own declaration, not a global policy:
+    # see the docstring above, and ``_scan_sessions`` for the boundary it draws
+    # between a store that is not there (an empty listing, still) and a store
+    # that cannot be read (an unavailable one).
+    candidates, hidden = _scan_sessions(directory, strict=True, include_archived=include_archived)
+    source = {
+        session_id: (session_id, mtime, origin, archived)
+        for session_id, mtime, origin, archived in candidates
+    }
+    # -- the opt-in subagent layer (PROPOSAL 5a) ----------------------------
+    #
+    # Every syscall this layer costs is inside this branch: with both keyword
+    # arguments at their defaults nothing below runs, and the poll is byte-for-
+    # byte the scan it was. `hidden` is already in hand from the scan above, so
+    # the OFF path does not even pay a directory read to learn it is off.
+    #
+    # THESE ROWS DELIBERATELY BYPASS `decorate_rows` AND THE ATTENTION LOOKUP
+    # BELOW. `CatalogEntry.active` is `pending or unseen or live_state`, and the
+    # attention store keys on conversation identity -- which answers for
+    # subagent ids too, 45% of them carrying an unseen receipt. A sub row placed
+    # in `rows` therefore comes out `active=True` and sections into Active
+    # Sessions, above the user's own work. No filter inside that path avoids it;
+    # the only fix is not to be on the path. So these are built by hand, in
+    # their own list, with the quiet fields left at their empty defaults, and
+    # they rejoin the main flow at exactly one point: the `rank_entries` call.
+    subagent_entries: list[CatalogEntry] = []
+    if include_subagents or pinned_hidden_ids:
+        pinned = [session_id for session_id in pinned_hidden_ids if session_id in hidden]
+        wanted = set(hidden) if include_subagents else set()
+        wanted.update(pinned)
+        # THE HIDDEN LAYER IS THE SAME LISTING, so it answers the archive
+        # question the same way. The index is read only inside this branch,
+        # which is off in every default poll: an archived subagent run is a row
+        # the user archived on purpose, and offering it here would put it back
+        # on screen through the one section a reveal toggle cannot reach.
+        archived_hidden = archived_ids(directory)
+        if not include_archived:
+            wanted = {session_id for session_id in wanted if session_id not in archived_hidden}
+        stamped: list[tuple[float, str]] = []
+        for session_id in wanted:
+            transcript = directory / "sessions" / session_id / TRANSCRIPT_FILENAME
+            try:
+                stamped.append((transcript.stat().st_mtime, session_id))
+            except OSError:
+                # No readable transcript: nothing to hydrate a row from, and
+                # `_row_stat_key` would decline to cache it anyway.
+                continue
+        stamped.sort(key=lambda item: (-item[0], item[1]))
+        mtimes = {session_id: mtime for mtime, session_id in stamped}
+        # Pinned ids are exempt from the cap -- a pin to the 300th-oldest run
+        # must still resolve, or the pin renders as nothing at all.
+        selected = list(
+            dict.fromkeys(
+                [session_id for _, session_id in stamped[:SUBAGENT_LAYER_CAP]]
+                + [session_id for session_id in pinned if session_id in mtimes]
+            )
+        )
+        for session_id in selected:
+            session_dir = directory / "sessions" / session_id
+            agent, label = _subagent_marker(session_dir)
+            # Added to `source` ONLY -- never to `candidates`, never to `rows`.
+            # `source` is what the single `cached_session_rows` call below looks
+            # rows up in, so this alone is what buys these rows their real name.
+            source[session_id] = (
+                session_id,
+                mtimes[session_id],
+                "subagent",
+                session_id in archived_hidden,
+            )
+            subagent_entries.append(
+                CatalogEntry(
+                    SessionRow(
+                        session_id,
+                        mtimes[session_id],
+                        "",
+                        # Stamped, never left at the 0.0 default: rows that all
+                        # tie there fall through to the id tie-break, which
+                        # silently reverses newest-first order.
+                        created_at=session_created_at(session_dir),
+                    ),
+                    subagent=True,
+                    agent=agent,
+                    label=label,
+                )
+            )
+    # Creation time is the immutable ordering key (#800), so every construction
+    # site must stamp it. Rows left at the 0.0 default all tie and fall through
+    # to the session-id tie-break, which silently reverses newest-first order.
+    # EVERY candidate, before ranking: see `_BIRTH_MEMO` for why no cheaper
+    # bound is sound, and why a warm call pays one stat here instead of a read.
+    sessions_root = directory / "sessions"
+    birth_memo = _memo_root(sessions_root)
+    for stale in birth_memo.keys() - {candidate[0] for candidate in candidates}:
+        birth_memo.pop(stale, None)
+    rows = [
+        SessionRow(
+            session_id,
+            mtime,
+            "",
+            created_at=_memoized_birth(sessions_root, session_id),
+            # Stamped from the scan's own read so a row that never reaches
+            # ``cached_session_rows`` below (nothing here guarantees every
+            # candidate is hydrated) still states its archive state honestly.
+            archived=archived,
+        )
+        for session_id, mtime, _origin, archived in candidates
+    ]
+    # One directory read plus a stat per unlisted candidate, NOT
+    # ``glob("*/desktop.json")``. The glob looks equivalent and is not: a
+    # pattern whose wildcard is a DIRECTORY component makes pathlib open and
+    # enumerate every session directory to learn one filename, so this line
+    # alone issued 1,946 ``scandir`` calls per poll on the reporting machine
+    # — 1.20 s of a 6.47 s profile, the single largest term in it — to find
+    # the ONE marker that store actually contains. Asking about the file
+    # directly answers the same question with a stat.
+    #
+    # Cheaper still, the ``in source`` test now runs BEFORE the filesystem is
+    # touched rather than after the glob has already paid for the directory:
+    # every session that is already listed costs nothing here at all.
+    try:
+        entries = os.scandir(directory / "sessions")
+    except FileNotFoundError:
+        # No store to probe, which the scan above has already answered as an
+        # empty listing. NOT a failure, for the same reason a failed OPEN is
+        # not: a fresh install must list its (zero) conversations, not 503.
+        entries = None
+    except OSError as error:
+        # Same boundary as the scan's own open, and a sharper reason to surface
+        # it than "the store is unreadable": the rows this loop contributes are
+        # the desktop-created sessions that have no transcript YET — the newest
+        # thing in the store, and the row a person is most likely to be looking
+        # for. Answering "those rows do not exist" for a directory that could
+        # not be read is the defect this whole change is about, one layer down.
+        #
+        # The per-entry ``except OSError`` INSIDE the loop is a different
+        # question and keeps its answer: "no desktop.json here" is the common
+        # expected reply to that stat, not a broken read.
+        logger.warning("session catalogue could not probe for desktop records", exc_info=True)
+        raise SessionStoreUnavailable(_store_error_detail(error)) from error
+    #: Did the desktop-marker loop contribute any row? Only that loop can
+    #: produce a row the scan's archive predicate never saw (see the filter
+    #: below it), and it runs only when the directory walk succeeded.
+    marker_rows_added = False
+    #: The archive index, read LAZILY by that loop — only when it actually
+    #: appends a row — and used for BOTH halves of the answer: which marker rows
+    #: to drop, and what flag to stamp on the ones that stay. A store with no
+    #: desktop drafts therefore pays nothing for a case it does not have, and the
+    #: one read serves the filter and the flag so the two cannot disagree.
+    archived_marker_rows: frozenset[str] | None = None
+    if entries is not None:
+        with entries:
+            for entry in _scanned_entries(entries):
+                if entry.name in source:
+                    continue
+                # A directory the scan established is a subagent/hidden session
+                # cannot carry a desktop marker, so the stat below asks a
+                # question whose answer is already known. ``desktop.json`` has
+                # exactly ONE WRITER FUNCTION — ``write_desktop_marker`` in
+                # ``server/utils/desktop_sessions.py`` — reached by two CALLERS:
+                # ``DesktopSessions.create``, which mints a fresh ``uuid4``
+                # directory, and the move route, which rewrites the marker of an
+                # EXISTING user session. Neither ever adds a marker to a
+                # directory that is hidden or a child of one, which is the
+                # property this skip relies on: a move can only touch a
+                # directory the catalogue already shows as a session.
+                # Skipping these is HALF the saving of the inode-qualified scan,
+                # because the hidden population is ~91% of the store and every
+                # one of them landed here.
+                if entry.name in hidden:
+                    continue
+                try:
+                    # No ``is_dir()`` guard: a successful stat of a file INSIDE
+                    # the entry already proves it is a directory, so asking
+                    # first would spend a stat per entry to learn what this one
+                    # tells us for free. The common answer here is ENOENT.
+                    marker_mtime = os.stat(os.path.join(entry.path, DESKTOP_MARKER_NAME)).st_mtime
+                    # A marker is a draft fallback, never a competing source of
+                    # historical title/mtime for a transcript that fell beyond a
+                    # previous page bound.
+                    if os.path.exists(os.path.join(entry.path, TRANSCRIPT_FILENAME)):
+                        continue
+                except OSError:
+                    # Includes the common case: no ``desktop.json`` here, which
+                    # the glob expressed as a non-match rather than an error.
+                    continue
+                # Checked only for an entry that actually carries a marker.
+                # It is a containment guard on names that may come from
+                # discovery metadata, not a filter this loop needs per entry,
+                # and it is pure-Python per-character work worth keeping off
+                # the path taken by every directory in the store.
+                if not session_directory_name(entry.name):
+                    continue
+                if archived_marker_rows is None:
+                    archived_marker_rows = archived_ids(directory)
+                rows.append(
+                    SessionRow(
+                        entry.name,
+                        marker_mtime,
+                        "",
+                        created_at=session_created_at(Path(entry.path)),
+                        # Stamped from THIS listing's read, the same one the
+                        # filter below uses. Without it an archived draft would
+                        # be revealed by ``include_archived`` while claiming to
+                        # be unarchived — the flag is what the renderer paints
+                        # the mark from, so the row would be indistinguishable
+                        # from an ordinary one.
+                        archived=entry.name in archived_marker_rows,
+                    )
+                )
+                marker_rows_added = True
+    # A TRANSCRIPT-LESS DRAFT IS THE ONE POPULATION THE SCAN CANNOT HAVE
+    # FILTERED, and this is why the filter is repeated for it rather than
+    # assumed: these directories have no activity, so ``_scan_sessions`` never
+    # ranks them as candidates and its archive predicate never saw them.
+    if marker_rows_added and not include_archived:
+        rows = [row for row in rows if row.id not in (archived_marker_rows or frozenset())]
+    rows = decorate_rows(directory, rows, include_live=True, include_archived=include_archived)
+    # The namespace is a property of the PARENT directory, and every row here
+    # shares one, so `conversation_identity` is asked once and its answer reused.
+    # Building a `Path` per row just to ask it was 0.56 s of a 1.9 s list at
+    # 10,000 visible sessions (pure `pathlib` construction). Still the one rule's
+    # own answer, never a second spelling of it.
+    namespace = conversation_identity(directory / "sessions" / "_").partition("/")[0]
+    identities = {row.id: f"{namespace}/{row.id}" for row in rows}
+    attention: dict[str, dict[str, Any]] = {}
+    try:
+        attention = AttentionStore(directory / "attention.db").state_many(identities.values())
+    except (sqlite3.Error, OSError):
+        # The third read whose failure used to be published as a confident
+        # negative: the defaults this leaves behind are ``unseen=False`` and an
+        # empty completion kind, so an unread completion would render as an
+        # ordinary read one — and ``unseen`` is part of ``CatalogEntry.active``,
+        # so the row would leave the Active section on the strength of a read
+        # that did not happen.
+        #
+        # Named ON THE ROWS rather than carried alongside them because the
+        # catalogue's return type is a list of entries and every consumer walks
+        # it: a sibling value would be a second channel every caller has to know
+        # about, and a caller that forgot it would be back to the silent
+        # negative. Stamped here rather than in ``decorate_rows`` because this
+        # is the only read of that store, and it happens after the decoration.
+        logger.warning("session catalogue could not read attention state", exc_info=True)
+        rows = [row._replace(degraded=row.degraded + (DECORATION_ATTENTION,)) for row in rows]
+    ranked = list(
+        rank_entries(
+            [entry_for(row, attention.get(identities[row.id])) for row in rows]
+            # The ONE join point. Sub entries are concatenated here rather than
+            # being members of `rows`, so they never pass through the
+            # decoration and attention work above -- and this stays a single
+            # `rank_entries` call over a single list.
+            + subagent_entries
+        )
+    )
+    return ranked, source, hidden
+
+
+def load_catalog(
+    directory: Path,
+    limit: int = CATALOG_SCAN_LIMIT,
+    *,
+    include_subagents: bool = False,
+    include_archived: bool = False,
+    pinned_hidden_ids: Sequence[str] = (),
+    pinned_off_page: Sequence[str] = (),
+) -> list[CatalogEntry]:
+    """Rank a shared lightweight candidate snapshot before materializing a page.
+
+    Discovery already stats the whole namespace. Applying a recency cap before
+    attention lost old unread work; reading names for the entire store would
+    undo the sidebar's bounded I/O. Rank cheap rows first, then hydrate only the
+    requested prefix through the existing transcript-stat cache.
+
+    STRICT ABOUT THE STORE, TOLERANT ABOUT THE DECORATION, and the difference is
+    deliberate. This is the listing a UI ADOPTS AS MEMBERSHIP — the desktop
+    sidebar replaces the rows it is showing with this answer, and the TUI's sets
+    its entries from it — so a store that exists but cannot be walked raises
+    (:class:`SessionStoreUnavailable`, which the desktop route answers as a
+    retryable 503) rather than being reported as "you have no conversations".
+    Decorations are the opposite case: they never change WHICH rows are
+    returned, only what is claimed about them, so a read that fails here is
+    named on each row's ``degraded`` and the listing still stands.
+
+    ``include_subagents`` adds a capped page of the hidden subagent population
+    as a SEPARATE layer, and ``pinned_hidden_ids`` keeps individually pinned
+    hidden sessions resolvable while that layer is off. Both are keyword-only
+    and default to the behaviour every existing caller already has: with the
+    layer off this function issues exactly the syscalls it did before.
+
+    ``include_archived`` asks the same question of the OTHER visibility axis,
+    and it is off by default because this listing IS a default listing: an
+    archived conversation is hidden everywhere a user browses and is still
+    resumable by explicit id. The filter itself lives in ``_scan_sessions``,
+    which every listing surface reaches through, so the sidebar, the picker,
+    the desktop catalogue and the search cannot disagree about which
+    conversations exist to be offered.
+
+    THE PINS FOLLOW THE SAME RULE, which is the case worth stating because it is
+    the one a reader will look for: an archived session that is PINNED is not
+    offered here, so it cannot appear in a sidebar's pinned section — and it
+    also does not become a PHANTOM there, because ``pinned_off_page`` resolves
+    ids out of the ranked list this function already filtered. The pin store is
+    untouched, so un-archiving restores the row to its section.
+    ``pinned_off_page`` keeps individually pinned sessions resolvable when the
+    PAGE does not carry them — the same promise ``pinned_hidden_ids`` makes on
+    the other axis, and a different one: a hidden id is absent because the
+    catalogue never built it, while an off-page id IS built here and is dropped
+    by the ``limit`` slice below. A caller that renders a pinned section must
+    have both, because a pin is a durable statement by the user and a recency
+    window is a property of the listing. The extras come back APPENDED, after
+    the page and in the ranking's own order (every extra ranks below every page
+    row by construction, so the concatenation IS rank order).
+    """
+    # A THIN SHELL OVER THE SHARED MIDDLE, and a refactor rather than a change of
+    # promise: the scan-to-ranking half is ``_ranked_candidates`` and the
+    # page-to-row half is ``_hydrate``, so the scoped listing reuses both without a
+    # second spelling of either. Signature, return type and behaviour are
+    # unchanged, so every caller that does not want a scope keeps getting exactly
+    # the listing it got before.
+
+    ranked, source, _hidden = _ranked_candidates(
+        directory,
+        include_subagents=include_subagents,
+        include_archived=include_archived,
+        pinned_hidden_ids=pinned_hidden_ids,
+    )
+    entries = ranked[:limit]
+    if pinned_off_page:
+        # The window is the caller's own page bound, so a pinned row sitting
+        # exactly AT that bound is carried too — it is a row the caller's page
+        # does not carry, which is the whole condition. Order is preserved: the
+        # extras rank below every page row by construction, so appending them
+        # keeps the result in rank order.
+        wanted = set(pinned_off_page)
+        entries += [entry for entry in ranked[limit:] if entry.id in wanted]
+    # KNOWN LIMITATION, decided rather than missed. This slice applies to the
+    # COMBINED list, so a store with more than ~160 visible sessions cannot fit
+    # both populations in CATALOG_SCAN_LIMIT. Sub rows do not lose that race:
+    # their `session_category` inputs are all falsy by construction, giving them
+    # the same tier as a cold visible row, where the tie-break is `-created_at`
+    # and subagent runs are recent. So what is pushed past the slice is the
+    # user's OLDEST COLD sessions, never an active row. Raising the limit would
+    # restore the per-poll row-building cost the comment on CATALOG_SCAN_LIMIT
+    # exists to document removing, so it is deliberately not raised.
+    #
+    # A PINNED ID AMONG THEM IS NO LONGER PUSHED OUT, and that is the one thing
+    # `pinned_off_page` changes about this sentence: the row is still sliced off
+    # the page, and it comes back appended, which is cheaper than raising the
+    # limit for everyone to serve the few rows a user pinned.
+    # Pinned by `test_the_layer_competes_for_the_page_on_a_full_store`.
+    return _hydrate(directory, source, entries)
+
+
+def _hydrate(
+    directory: Path,
+    source: dict[str, tuple[str, float, str, bool]],
+    entries: list[CatalogEntry],
+) -> list[CatalogEntry]:
+    """Give the chosen page its real name, fork mark, archive flag and opener.
+
+    The LAST step and the only per-row cost that scales with the page rather than
+    with the store: ``cached_session_rows`` is stat-validated by the transcript,
+    and a row it declines to hydrate (no readable transcript) keeps the scan's own
+    name rather than disappearing.
+    """
+    from dataclasses import replace
+
+    named = {
+        row.id: row
+        for row in cached_session_rows(
+            directory, candidates=[source[entry.id] for entry in entries if entry.id in source]
+        )
+    }
+    return [
+        (
+            replace(
+                entry,
+                row=entry.row._replace(
+                    name=named[entry.id].name,
+                    forked=named[entry.id].forked,
+                    # From the hydrating row, which stamped it from the scan
+                    # rather than from the row cache; see
+                    # ``cached_session_rows``.
+                    archived=named[entry.id].archived,
+                    # WHO opened this row, for a workstream only (``None``
+                    # otherwise). Hydration is an allow-list of fields, so
+                    # leaving it out here would drop the attribution on the one
+                    # path every desktop sidebar row travels — the rows would
+                    # be listed and read as the operator's own, which is
+                    # exactly the confusion the field exists to remove.
+                    opened_by=named[entry.id].opened_by,
+                ),
+            )
+            if entry.id in named
+            else entry
+        )
+        for entry in entries
+    ]
+
+
+def _census(ranked: Sequence[CatalogEntry], bindings: Mapping[str, tuple[str, str]]) -> ScopeCensus:
+    """Per-group totals from rows already ranked, and bindings already read.
+
+    NO EXTRA PER-ROW WORK, which is the fact that makes the counts affordable at
+    all: ``load_catalog`` decorates, ranks and reads attention for EVERY candidate
+    and then discards all but a page (``CatalogEntry.active`` is already computed
+    on every one of them), so ``total`` is a count over the bindings and
+    ``active`` a sum over ``entry.active`` -- the counts' own cost is zero.
+
+    THE POPULATION IS THE ONE THE PANEL CAN DRAW: visible sessions that are NOT
+    ARCHIVED. Every default list in the app hides archived conversations, and the
+    bug this whole change answers was a number that disagreed with the rows -- a
+    badge inflated by rows no default list can show is a badge that invites a
+    person into an empty group. The archive flag is stamped by the SCAN, so this
+    is a predicate over rows that are already here rather than a second walk; the
+    listing's own ``include_archived`` still governs which ROWS come back, which
+    is why a request may carry archived rows while the census does not count them.
+
+    Subagent rows are excluded. They are not conversations offered in the
+    listing; they are the opt-in hidden layer, they carry no attachment of their
+    own, and counting them would put the hidden population's size into a badge
+    drawn beside the user's own work.
+    """
+    totals: dict[tuple[str, str], int] = {}
+    actives: dict[tuple[str, str], int] = {}
+    total = active = unbound = 0
+    for entry in ranked:
+        if entry.subagent or entry.row.archived:
+            continue
+        total += 1
+        if entry.active:
+            active += 1
+        team, agent = bindings[entry.id]
+        if not team and not agent:
+            unbound += 1
+            continue
+        # A session attached to a team AND carrying an agent name belongs to the
+        # TEAM group -- the same rule ``in_scope`` applies, spelled once here
+        # because the census is what the badge is drawn from.
+        key = ("team", team) if team else ("agent", agent)
+        totals[key] = totals.get(key, 0) + 1
+        if entry.active:
+            actives[key] = actives.get(key, 0) + 1
+    scopes = tuple(
+        ScopeTally(kind, name, count, actives.get((kind, name), 0))
+        # ``-total`` then kind then name: the descending-size order a badge list
+        # is read in, with the sort's own tie-break so two reads of one store
+        # cannot disagree.
+        for (kind, name), count in sorted(
+            totals.items(), key=lambda item: (-item[1], item[0][0], item[0][1])
+        )
+    )
+    return ScopeCensus(total=total, active=active, unbound=unbound, scopes=scopes)
+
+
+def catalogue_page(
+    directory: Path,
+    *,
+    scope: CatalogueScope | None = None,
+    cursor: str | None = None,
+    limit: int = CATALOG_SCAN_LIMIT,
+    include_archived: bool = False,
+    with_counts: bool = False,
+    pinned_off_page: Sequence[str] = (),
+    pinned_hidden_ids: Sequence[str] = (),
+    exclude_ids: Collection[str] = (),
+) -> CatalogPage:
+    """One scope's page, its resume position, and (opt-in) the group census.
+
+    ``limit`` bounds the PAGE WITHIN THE SCOPE, so a client can ask for 25 of one
+    team's 434 conversations and get that team's top 25 -- not the head page
+    filtered to whatever happened to survive it, which is the defect this exists
+    to remove on a store where 151 of ``team:lopdev``'s rows are past a 500-row
+    page. ``limit`` must be at least 1, which the route bounds with FastAPI's own
+    ``ge=1, le=500`` on a parameter this change did NOT introduce -- an out-of-range
+    ``limit`` is answered by the framework's generic validation detail, exactly as
+    it is on ``main`` -- because a zero-length page has no last row to mint a
+    resume position from.
+
+    THE FILTER SITS AFTER RANKING AND BEFORE THE SLICE, and that is the only
+    correct place for it: filtering the LISTING first would re-derive the ordering
+    (the rank is computed over all candidates, and a scope's top row is not the
+    head page's top row), and filtering the page would answer "this team's chats"
+    with whatever of them the global page carried.
+
+    A CURSOR IS A POSITION, NOT AN IDENTITY: the resume is ``entry.rank >
+    cursor.key``, so the row the cursor was minted from may be deleted between
+    pages without breaking the walk. See this section's header for the
+    duplicate/skip exposure that comes with a key that moves under a poll.
+
+    AN UNUSABLE OR FOREIGN CURSOR IS NOT AN ERROR: the answer is the scope's first
+    page with ``cursor_missing: true``. An empty scope is not an error either --
+    it is a 200 with an empty page and a census entry of 0 -- because a team with
+    no conversations yet is a legitimate state and the name is deliberately not
+    validated against the registry.
+
+    ``next_cursor`` is non-null exactly when ``truncated`` is true, which is the
+    invariant the route's model documents and its tests pin.
+    """
+    ranked, source, _hidden = _ranked_candidates(
+        directory,
+        include_archived=include_archived,
+        pinned_hidden_ids=pinned_hidden_ids,
+    )
+    if exclude_ids:
+        # BEFORE THE WINDOW ARITHMETIC, and that is the whole point (round-2
+        # review C1): the window, the truncation verdict, ``next_cursor`` and the
+        # census below are all computed over this list, so filtering HERE refills
+        # a page from the rows behind the excluded ones. Filtering the assembled
+        # page instead — where this replace started — left the caller one row
+        # short and answered ``limit=1`` with an EMPTY page on a store with a
+        # ranked row to spare. Callers that pass nothing are byte-for-byte
+        # unchanged.
+        ranked = [entry for entry in ranked if entry.id not in exclude_ids]
+    # THE BINDING READ, once, and only when the answer needs it: a scoped page
+    # cannot be filtered without every candidate's binding and the census is a
+    # counter over the same rows, so one read serves both. That is what makes a
+    # scoped page cost what the head answer the client already asks for costs
+    # (`with_counts=true`) rather than a new term on top of it.
+    bindings: dict[str, tuple[str, str]] = {}
+    counts: ScopeCensus | None = None
+    if scope is not None or with_counts:
+        sessions_root = directory / "sessions"
+        bindings = {entry.id: _memoized_binding(sessions_root, entry.id) for entry in ranked}
+        # Pruned to THIS call's candidates, exactly as the birth memo is: a bound
+        # on the map rather than a cache that grows with the store's history.
+        memo = _memo_for(_BINDING_MEMO, sessions_root)
+        for stale in memo.keys() - set(bindings):
+            memo.pop(stale, None)
+        if with_counts:
+            # BEFORE the scope and cursor filters: the census describes the whole
+            # listing, which is what a collapsed group's badge is drawn from.
+            counts = _census(ranked, bindings)
+    if scope is not None:
+        ranked = [entry for entry in ranked if in_scope(bindings[entry.id], scope)]
+    position = decode_cursor(cursor) if cursor else None
+    # A FOREIGN cursor is refused the same way an unreadable one is: the scope is
+    # part of the token, so a page resumed with another scope's position would
+    # otherwise silently answer a filtered list from an unfiltered position.
+    cursor_missing = bool(cursor) and (position is None or position.scope != scope)
+    if position is not None and not cursor_missing:
+        ranked = [entry for entry in ranked if entry.rank > position.key]
+    # ``limit + 1`` is the truncation probe and nothing else -- one row beyond the
+    # page answers "did the scope hold more", and nothing in the scan is bounded
+    # by the number (it is limit-independent), so the extra row costs one rank
+    # position.
+    window = ranked[: limit + 1]
+    entries = window[:limit]
+    truncated = len(window) > limit
+    # Minted EXACTLY when ``truncated`` on every answer the route can produce
+    # (the invariant its model documents), and always from the page's last row.
+    # ``entries`` is therefore non-empty whenever ``truncated`` is -- ``limit`` is
+    # at least 1 on the route, which is why it refuses ``limit=0`` by name -- and
+    # the emptiness check is here so a direct caller that ignored that
+    # precondition gets no cursor rather than an ``IndexError``.
+    next_cursor = encode_cursor(scope, entries[-1].rank) if entries and truncated else None
+    if pinned_off_page and scope is None and (position is None or cursor_missing):
+        # FIRST PAGE OF THE HEAD ONLY, and the position clause is the half QA's
+        # walk found missing: the extras are appended from ``ranked[limit:]``,
+        # and a later page's ``ranked`` is already filtered past its cursor -- so
+        # EVERY such page appended every pin still below it, and a walk served
+        # the same pinned row twice (once as an extra, once as a page row). The
+        # promise this list exists for is the one the pin store makes: the whole
+        # pinned set rides the page the client paints first, and each later page
+        # is only the scope's continuation.
+        #
+        # GATED ON ``cursor_missing``, which is exactly the sentence "this answer
+        # IS the scope's first page" -- and that predicate has TWO halves: no
+        # usable position at all, and a position that decoded but is not usable
+        # HERE (unreadable, minted for another scope, or minted for the other
+        # request shape). ``position is None`` alone covers only the first half:
+        # a FOREIGN token decodes, so the resume filter is skipped and the page
+        # really is the first page, while the extras were omitted from it -- and
+        # because that same answer is what settles the client's pin facts, the
+        # Pinned section could lose the rows this list exists to keep. Reading
+        # the flag rather than re-deriving the disjunction is also why the two
+        # can never drift apart again.
+        #
+        # HEAD SCOPE ONLY. A scoped answer cannot speak for the pinned set -- the
+        # client gates its pin facts on the head answer for exactly this reason --
+        # and an extra here would be a row outside the scope it asked for.
+        wanted = set(pinned_off_page)
+        entries += [entry for entry in ranked[limit:] if entry.id in wanted]
+    return CatalogPage(
+        entries=_hydrate(directory, source, entries),
+        next_cursor=next_cursor,
+        cursor_missing=cursor_missing,
+        counts=counts,
+    )

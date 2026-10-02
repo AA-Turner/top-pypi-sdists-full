@@ -1,0 +1,147 @@
+Metadata-Version: 2.4
+Name: squidpy
+Version: 1.8.3
+Summary: Spatial Single Cell Analysis in Python
+Project-URL: Bug Tracker, https://github.com/scverse/squidpy/issues
+Project-URL: Documentation, https://squidpy.readthedocs.io
+Project-URL: Home-page, https://github.com/scverse/squidpy
+Project-URL: Source, https://github.com/scverse/squidpy
+Author: scverse
+Maintainer-email: Selman Ozleyen <selman.ozleyen@helmholtz-munich.de>, Tim Treis <tim.treis@scverse.org>
+License-Expression: BSD-3-Clause
+License-File: LICENSE
+Keywords: bio-informatics,image analysis,single-cell,spatial data analysis,spatial transcriptomics
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Framework :: Jupyter
+Classifier: Intended Audience :: Science/Research
+Classifier: Natural Language :: English
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
+Classifier: Topic :: Scientific/Engineering :: Visualization
+Classifier: Typing :: Typed
+Requires-Python: >=3.12
+Requires-Dist: aiohttp>=3.8.1
+Requires-Dist: anndata>=0.9
+Requires-Dist: cycler>=0.11
+Requires-Dist: dask-image>=0.5
+Requires-Dist: dask[array]>=2021.2
+Requires-Dist: docrep>=0.3.1
+Requires-Dist: fast-array-utils
+Requires-Dist: fsspec>=2021.11
+Requires-Dist: imagecodecs<2026,>=2025.8.2
+Requires-Dist: matplotlib-scalebar>=0.8
+Requires-Dist: matplotlib>=3.3
+Requires-Dist: networkx>=2.6
+Requires-Dist: numba>=0.56.4
+Requires-Dist: numpy>=1.23
+Requires-Dist: omnipath>=1.0.7
+Requires-Dist: pandas>=2.1
+Requires-Dist: pillow>=8
+Requires-Dist: pooch>=1.6
+Requires-Dist: pyyaml>=6
+Requires-Dist: scanpy>=1.9.3
+Requires-Dist: scikit-image>=0.25
+Requires-Dist: scikit-learn>=0.24
+Requires-Dist: spatialdata-plot>=0.3.3
+Requires-Dist: spatialdata>=0.7.2
+Requires-Dist: statsmodels>=0.12
+Requires-Dist: tifffile!=2022.4.22
+Requires-Dist: tqdm>=4.50.2
+Requires-Dist: validators>=0.18.2
+Requires-Dist: xarray>=2024.10
+Requires-Dist: zarr>=3
+Provides-Extra: leiden
+Requires-Dist: leidenalg; extra == 'leiden'
+Requires-Dist: spatialleiden>=0.4; extra == 'leiden'
+Description-Content-Type: text/markdown
+
+[![Build](https://github.com/scverse/squidpy/actions/workflows/build.yaml/badge.svg)](https://github.com/scverse/squidpy/actions/workflows/build.yaml)
+[![Test](https://github.com/scverse/squidpy/actions/workflows/test.yaml/badge.svg)](https://github.com/scverse/squidpy/actions/workflows/test.yaml)
+[![codecov](https://codecov.io/gh/scverse/squidpy/graph/badge.svg)](https://codecov.io/gh/scverse/squidpy)
+[![License](https://img.shields.io/github/license/scverse/squidpy)](https://opensource.org/licenses/BSD-3-Clause)
+[![PyPI](https://img.shields.io/pypi/v/squidpy.svg)](https://pypi.org/project/squidpy/)
+[![Python Version](https://img.shields.io/pypi/pyversions/squidpy)](https://pypi.org/project/squidpy/)
+[![Read the Docs](https://img.shields.io/readthedocs/squidpy/latest.svg?label=Read%20the%20Docs)](https://squidpy.readthedocs.io/en/stable)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
+
+# Squidpy - Spatial Single Cell Analysis in Python
+
+Squidpy is the scverse toolkit for scalable analysis and visualization of spatial molecular data.
+It builds on [scanpy](https://scanpy.readthedocs.io/en/stable/) and [anndata](https://anndata.readthedocs.io/en/stable/), providing streamlined APIs for feature extraction, spatial statistics, and interactive exploration of tissue sections together with microscopy images.
+
+![Squidpy overview](https://raw.githubusercontent.com/scverse/squidpy/main/docs/_static/img/figure1.png)
+
+## Documentation
+
+Head over to the [documentation](https://squidpy.readthedocs.io/en/stable/) for installation instructions, tutorials, how-to guides, and reference material.
+
+## Installation
+
+We recommend running Squidpy on a recent Linux or macOS system with Python ≥3.12, but it also works on Windows via WSL.
+
+Install from [PyPI](https://pypi.org/project/squidpy) with:
+
+```console
+pip install squidpy
+```
+
+or from [conda-forge](https://anaconda.org/conda-forge/squidpy):
+
+```console
+conda install -c conda-forge squidpy
+```
+
+### Interactive visualization
+
+For interactive visualization with napari, please use [napari-spatialdata](https://github.com/scverse/napari-spatialdata).
+The original napari plugin from Squidpy has been deprecated and replaced by napari-spatialdata, which offers
+improved functionality and support for the SpatialData ecosystem.
+
+## Key capabilities
+
+- Build and analyze spatial neighbor graphs directly from Visium, Slide-seq, Xenium, and other spatial omics assays.
+- Compute spatial statistics for cell types and genes, including neighborhood enrichment, co-occurrence, and Moran's I.
+- Efficiently store, featurize, and visualize high-resolution tissue microscopy images via [scikit-image](https://scikit-image.org/).
+- Explore annotated datasets interactively with [napari-spatialdata](https://github.com/scverse/napari-spatialdata).
+
+## Contributing
+
+Contributions are welcome! Please read the [contributing guide](CONTRIBUTING.rst) for instructions on setting up your environment, running tests, and submitting pull requests.
+
+## Citation
+
+If you use Squidpy in your research, cite the original publication:
+
+```bibtex
+@article{palla:22,
+    author = {Palla, Giovanni and Spitzer, Hannah and Klein, Michal and Fischer, David and Schaar, Anna Christina
+              and Kuemmerle, Louis Benedikt and Rybakov, Sergei and Ibarra, Ignacio L. and Holmberg, Olle
+              and Virshup, Isaac and Lotfollahi, Mohammad and Richter, Sabrina and Theis, Fabian J.},
+    title = {Squidpy: a scalable framework for spatial omics analysis},
+    journal = {Nature Methods},
+    year = {2022},
+    month = {Feb},
+    volume = {19},
+    number = {2},
+    pages = {171--178},
+    issn = {1548-7105},
+    doi = {10.1038/s41592-021-01358-2},
+}
+```
+
+---
+
+Squidpy is part of the scverse® project ([website](https://scverse.org/), [governance](https://scverse.org/about/roles/)) and is fiscally sponsored by [NumFOCUS](https://numfocus.org/).
+Please consider making a tax-deductible [donation](https://numfocus.org/donate-to-scverse/) to help the project pay for developer time, professional services, travel, workshops, and a variety of other needs.
+
+<div align="center">
+  <a href="https://numfocus.org/project/scverse">
+    <img src="https://raw.githubusercontent.com/numfocus/templates/master/images/numfocus-logo.png" width="200" alt="NumFOCUS">
+  </a>
+</div>

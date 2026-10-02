@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import enum
 from functools import lru_cache
 
 from schemathesis.core.text import to_pascal_case
@@ -34,6 +35,40 @@ def strip_version_prefix(path: str) -> str:
         else:
             break
     return "/" + "/".join(segments[start:])
+
+
+class KeyKind(enum.Enum):
+    """How a parameter refers to a resource."""
+
+    # `name`, `DomainName`, `username`, `title`
+    NAME = enum.auto()
+    # `id`, `user_id`, `DomainSid`, `clusterArn`, `role-id`
+    IDENTIFIER = enum.auto()
+
+
+_IDENTIFIER_SUFFIXES = ("id", "ids", "uuid", "uuids", "guid", "guids", "sid", "arn", "arns")
+
+
+@lru_cache(maxsize=2048)
+def key_kind(parameter: str) -> KeyKind | None:
+    lower = parameter.lower()
+    if lower.endswith("name") or lower == "title":
+        return KeyKind.NAME
+    for suffix in _IDENTIFIER_SUFFIXES:
+        if lower == suffix:
+            return KeyKind.IDENTIFIER
+        start = len(parameter) - len(suffix)
+        # The suffix must be a separate word: `user_id`, `userId`, `UserID`, but not `paid`.
+        if start > 0 and lower.endswith(suffix) and (parameter[start - 1] in "_-" or parameter[start].isupper()):
+            return KeyKind.IDENTIFIER
+    return None
+
+
+def trailing_path_parameter(path: str) -> str | None:
+    last = path.rstrip("/").rsplit("/", 1)[-1]
+    if last.startswith("{") and last.endswith("}"):
+        return last[1:-1]
+    return None
 
 
 @lru_cache(maxsize=2048)
@@ -144,16 +179,9 @@ def from_path(path: str, parameter_name: str | None = None) -> str | None:
 
     # If parameter name provided, find the resource it refers to
     if parameter_name:
-        placeholder = f"{{{parameter_name}}}"
-        try:
-            param_index = segments.index(placeholder)
-            if param_index > 0:
-                resource_segment = segments[param_index - 1]
-                if "{" not in resource_segment:
-                    singular = to_singular(resource_segment)
-                    return to_pascal_case(singular)
-        except ValueError:
-            pass  # Parameter not found in path
+        owner = _owning_segment_resource(segments, parameter_name)
+        if owner is not None:
+            return owner
 
     # Fallback to last non-parameter segment
     non_param_segments = [s for s in segments if "{" not in s]
@@ -167,6 +195,22 @@ def from_path(path: str, parameter_name: str | None = None) -> str | None:
         return to_pascal_case(singular)
 
     return None
+
+
+@lru_cache(maxsize=512)
+def owning_resource(parameter: str, path: str) -> str | None:
+    """Resource named by the static segment right before `{parameter}` (`/api/projects/{code}` -> `Project`)."""
+    return _owning_segment_resource([s for s in strip_version_prefix(path).split("/") if s], parameter)
+
+
+def _owning_segment_resource(segments: list[str], parameter: str) -> str | None:
+    placeholder = f"{{{parameter}}}"
+    if placeholder not in segments:
+        return None
+    index = segments.index(placeholder)
+    if index == 0 or "{" in segments[index - 1]:
+        return None
+    return to_pascal_case(to_singular(segments[index - 1]))
 
 
 IRREGULAR_TO_PLURAL = {

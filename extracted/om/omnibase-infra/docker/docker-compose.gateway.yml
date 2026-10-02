@@ -1,0 +1,240 @@
+# Standalone operator-edge gateway overlay. This process connects outbound to
+# staging MSK and to the .201 local Redpanda listener; it opens no inbound port.
+services:
+  # OMN-16449: scoped MSK-bastion DNS-override sidecar. Operator ruling
+  # (2026-08-24, verbatim): "the gateway on the cloud should be configurable
+  # to point at whatever env we want. we can use the forwarder to accelerate
+  # moving our work to the cloud, but it should be replaced with the https
+  # doors as soon as possible." This makes the forwarder's direct-MSK leg a
+  # SANCTIONED INTERIM BRIDGE, not a permanent fixture -- see
+  # gateway/dns-bastion/dnsmasq.conf for the full rationale. Referenced by
+  # ONLY the gateway-forwarder service's `dns:` key below; no other container
+  # on `gateway-runtime` is repointed at it, and the host's own DNS is
+  # untouched. Sunset: delete this service + gateway-forwarder's `dns:` key
+  # together once the HTTPS-ingest replacement (tracked separately, linked
+  # from OMN-15692) lands.
+  gateway-dns-bastion:
+    build:
+      context: ./gateway/dns-bastion
+    container_name: omninode-gateway-dns-bastion
+    environment:
+      # Operator-supplied; never a literal in this repo (OMN-15743's own
+      # guard forbids the bastion IP appearing in a tracked compose/config
+      # file). Sourced from gateway.env alongside GATEWAY_BROKER_REF_MAP_FILE.
+      GATEWAY_BASTION_IP: "${GATEWAY_BASTION_IP:?GATEWAY_BASTION_IP is required}"
+    networks:
+      gateway-runtime:
+        # Static IP so gateway-forwarder's `dns:` key (which requires a
+        # literal address, not a resolvable service name) has a fixed target.
+        # Chosen well clear of the network's live-assigned range at the time
+        # of writing (highest observed: .19) to avoid future collision with
+        # Docker's sequential auto-assignment.
+        ipv4_address: 172.19.0.250
+      # OMN-17034: the bastion MUST join every lane network the forwarder
+      # resolves names on. gateway-forwarder's `dns:` key sends ALL of its
+      # queries here, and this sidecar's dnsmasq forwards everything
+      # non-overridden to `server=127.0.0.11` -- Docker's embedded resolver
+      # *in this container's* network namespace, which only answers for
+      # containers on the networks THIS container is attached to. Joining
+      # gateway-forwarder to the stability lane is therefore not sufficient
+      # on its own: the name would still fail to resolve here.
+      #
+      # MEASURED, not inferred (.201, 2026-09-04):
+      #   docker exec omninode-gateway-dns-bastion getent hosts \
+      #     omnibase-infra-stability-test-redpanda   -> no result
+      #   docker exec omninode-gateway-dns-bastion getent hosts \
+      #     omnibase-infra-redpanda                  -> 172.19.0.7
+      # Without this attachment the lane-mirror leg would have deployed and
+      # silently failed to connect -- the exact "declared but unreachable"
+      # failure class this ticket exists to close. No static IP here: nothing
+      # dials the bastion on the stability network, it only needs to be able
+      # to ask about it.
+      gateway-lane-mirror-source: {}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "dig", "+short", "+time=2", "@127.0.0.1", "b-1.omninodedevmsk.7ozyd3.c14.kafka.us-east-1.amazonaws.com"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    labels:
+      - "com.omninode.service=gateway-dns-bastion"
+      - "com.omninode.layer=gateway"
+      - "com.omninode.ticket=OMN-16449"
+  gateway-forwarder:
+    image: "${GATEWAY_IMAGE:?GATEWAY_IMAGE is required}"
+    pull_policy: never
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.runtime
+      args:
+        BUILD_SOURCE: "${BUILD_SOURCE:-release}"
+        EXPECTED_BUILD_SOURCE: "${EXPECTED_BUILD_SOURCE:-release}"
+    container_name: omninode-gateway-forwarder
+    # Starting as the image's non-root runtime user avoids the generic
+    # entrypoint's root-to-user transition dropping the TPM supplemental group.
+    user: "${GATEWAY_CONTAINER_UID:?GATEWAY_CONTAINER_UID is required}:${GATEWAY_CONTAINER_GID:?GATEWAY_CONTAINER_GID is required}"
+    group_add:
+      - "${GATEWAY_TPM_GROUP_ID:?GATEWAY_TPM_GROUP_ID is required}"
+    command:
+      - onex-gateway-forwarder
+      - --config
+      - /app/config/gateway-forwarder.yaml
+      - --ready-file
+      - /tmp/gateway-forwarder-ready
+      - --broker-ref-map
+      - /run/gateway/broker-ref-map.yaml
+      # OMN-18120: the dev-lane legs (local_bus, lane_mirror_buses.dev) name a
+      # sasl_credential_ref; this map is where it resolves. Operator-supplied
+      # and outside this repo, exactly like the broker-ref map above -- a
+      # credential in a tracked file would be a credential in git, and an env
+      # var would be readable from `docker inspect` for the life of the
+      # container.
+      - --lane-credential-map
+      - /run/gateway/lane-credentials.yaml
+      # OMN-17201: the egress denial/delivery counters the healthcheck below
+      # reads. Both sides name the same path explicitly rather than relying on
+      # the shared default, so a change to either is visible here.
+      - --egress-health-file
+      - /tmp/gateway-egress-health.json
+      # OMN-17201: the lane-mirror delivery-verification counters. Same
+      # both-sides-name-the-path discipline as the egress file above -- the
+      # healthcheck below reads exactly this path.
+      - --lane-mirror-health-file
+      - /tmp/gateway-lane-mirror-health.json
+    environment:
+      AWS_PROFILE: "${GATEWAY_AWS_PROFILE:-gateway}"
+      AWS_CONFIG_FILE: "/run/aws/config"
+      AWS_REGION: "us-east-1"
+      AWS_DEFAULT_REGION: "us-east-1"
+      AWS_SDK_LOAD_CONFIG: "1"
+      ONEX_TOPIC_ENFORCEMENT_MODE: "reject"
+    volumes:
+      - ./gateway/beta-gateway-canary.yaml:/app/config/gateway-forwarder.yaml:ro
+      # /app/data is created in the runtime image as omniinfra:omniinfra. A
+      # fresh named volume inherits that ownership, which matters because this
+      # service deliberately starts as the non-root runtime user.
+      - gateway-delivery-state:/app/data
+      # IAM Roles Anywhere supplies short-lived session credentials through
+      # credential_process. No AWS access key is stored on the edge host.
+      - ${GATEWAY_AWS_CONFIG_FILE:?GATEWAY_AWS_CONFIG_FILE is required}:/run/aws/config:ro
+      - ${GATEWAY_AWS_CERTIFICATE_FILE:?GATEWAY_AWS_CERTIFICATE_FILE is required}:/run/aws/certificate.pem:ro
+      - ${GATEWAY_AWS_PRIVATE_KEY_FILE:?GATEWAY_AWS_PRIVATE_KEY_FILE is required}:/run/aws/private-key.tss:ro
+      - ${GATEWAY_AWS_SIGNING_HELPER_FILE:?GATEWAY_AWS_SIGNING_HELPER_FILE is required}:/usr/local/bin/aws_signing_helper:ro
+      # OMN-15743: the cloud broker endpoint is resolved from the node
+      # contract's cloud_broker_ref at the effect boundary (see
+      # gateway_forwarder._materialize_cloud_broker_ref), not hardcoded into
+      # this compose file. This map is an operator-supplied artifact --
+      # today it carries the bastion-IP-derived FQDN mapping; once the
+      # OMN-15739 §6.2 Route53 private-hosted-zone migration lands, this
+      # same ref resolves to a plain DNS-resolvable bootstrap_servers value
+      # and no per-host IP override is needed at all. No broker
+      # address/IP is committed to this repo.
+      - ${GATEWAY_BROKER_REF_MAP_FILE:?GATEWAY_BROKER_REF_MAP_FILE is required}:/run/gateway/broker-ref-map.yaml:ro
+      # OMN-18120: `:?` and not `:-`, for the same reason
+      # x-dev-lane-broker-auth-env uses it -- a forwarder that starts with no
+      # credential produces a leg that connects to nothing while still logging
+      # a delivery per republish, which is precisely the silent four-day outage
+      # this ticket closes. NOT A ROTATION (Operating Rule 22): the map binds
+      # the principal OMN-18012 phase A provisioned.
+      - ${GATEWAY_LANE_CREDENTIAL_MAP_FILE:?GATEWAY_LANE_CREDENTIAL_MAP_FILE is required - the gateway forwarder authenticates to the dev lane broker as the synthetic SCRAM principal provisioned by redpanda-scram-user (OMN-18012); operator-supplied, never inlined here}:/run/gateway/lane-credentials.yaml:ro
+      # HTTPS ingest is contract-selected. The directory stays empty for the
+      # direct-MSK default; the process reads its strict artifacts only on opt-in.
+      - ${GATEWAY_INFISICAL_SECRET_DIR:-/etc/omninode/gateway/secrets}:/run/gateway/secrets:ro
+    devices:
+      # The wrapped private key is usable only through the .201 TPM. The raw
+      # signing key never exists in a host file or inside the container.
+      - ${GATEWAY_TPM_DEVICE:?GATEWAY_TPM_DEVICE is required}:/dev/tpmrm0
+    networks:
+      - gateway-runtime
+      # OMN-17034: the source lane. The hook edge publishes to the
+      # stability-test lane (omniclaude hook_edge_lane.yaml, OMN-17204) and a
+      # container cannot see a record on a lane network it is not joined to --
+      # which is why 16,616 hook rows sat on stability while this forwarder,
+      # attached only to `gateway-runtime` (dev), moved 0 of them. Joining the
+      # second network is what makes the contract-declared lane_mirror leg
+      # physically possible; the leg itself addresses each broker by unique
+      # container name, never the bare `redpanda` alias, which now resolves on
+      # BOTH of these networks (see docker/gateway/beta-gateway-canary.yaml).
+      - gateway-lane-mirror-source
+    # OMN-16449: per-container DNS override so the MSK broker hostnames
+    # (unroutable private VPC IPs from .201's public DNS view) resolve
+    # through the live SNI-routing bastion instead. Deliberately scoped to
+    # THIS service only, not network-wide -- see gateway-dns-bastion above
+    # and gateway/dns-bastion/dnsmasq.conf for the full rationale + sunset
+    # condition. The sidecar itself forwards every other query to Docker's
+    # embedded resolver, so this does not change resolution for
+    # `redpanda:9092` (the local leg) or anything else this container needs.
+    dns:
+      - 172.19.0.250
+    depends_on:
+      gateway-dns-bastion:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 30s
+    healthcheck:
+      # OMN-15741 (G1): path-verifying probe, not a sentinel-file check. Dials
+      # both broker legs directly with the same transport/credentials as real
+      # traffic and produces+reads-back a dedicated canary record; exits
+      # non-zero when either leg's path is dead even though the process is
+      # still up and `test -f` would have reported healthy (the exact failure
+      # mode of the 2026-08-04 outage -- ready-file present, forwarding 0%
+      # for 4 days). Real checks are cadence-bound (contract
+      # `gateway_forwarder.canary.cadence_seconds`, default 30s) via
+      # --state-file so this does not hit the brokers on every 15s tick.
+      # --broker-ref-map (OMN-15743): the probe resolves cloud_bus.bootstrap_servers
+      # the same fail-closed way the main process does, from the operator-supplied
+      # map already mounted at /run/gateway/broker-ref-map.yaml above -- it does not
+      # re-derive or hardcode a broker endpoint of its own.
+      # OMN-16557: timeout was 25s -- BELOW the probe's own achievable
+      # worst-case single-leg budget even with no broker-side breakage
+      # (check_canary_leg() spends the contract-declared
+      # canary.produce_deadline_seconds TWICE in sequence -- connect, then
+      # produce -- before the separate readback wait: see
+      # ModelGatewayCanaryConfig.total_deadline_seconds). A live manual run
+      # on .201 (2026-08-25) reproduced this exactly: 24s elapsed against a
+      # 25s timeout with AWS behaving normally. 45s stays safely above the
+      # new contract-declared total (2*15 + 12 = 42s); keep this value >=
+      # that total_deadline_seconds if canary.produce_deadline_seconds or
+      # canary.readback_deadline_seconds change in contract.yaml (manual
+      # sync -- the compose file cannot reference the contract at build
+      # time, see OMN-15762).
+      # OMN-17201: --egress-health-file adds a third, broker-free leg that
+      # reads the forwarder's own denial counters. Both broker legs produce to
+      # the CANARY topic, which is authorized, so neither can see a forwarder
+      # whose real traffic topics are all denied -- it quarantines every
+      # record, drains its lag into the DLQ, and passes both broker legs.
+      # OMN-18120 follow-up: --lane-credential-map is passed here for the same
+      # reason it is passed to the process above, and it must name the SAME
+      # file. This probe calls the SAME load_gateway_forwarder_runtime_config,
+      # which fails closed once a bus leg names a sasl_credential_ref. Without
+      # it the probe died in configuration load on every 15s tick and reported
+      # the traffic path dead while the forwarder beside it was authenticated
+      # and delivering -- the inverse of the 2026-08-04 outage this probe was
+      # built to catch, and just as misleading. A whole-file substring check
+      # could not see the omission, because the flag was already present on
+      # the process command; the pinning test asserts each argv separately.
+      test: ["CMD", "onex-gateway-canary-probe", "--config", "/app/config/gateway-forwarder.yaml", "--state-file", "/tmp/gateway-canary-probe-state.json", "--broker-ref-map", "/run/gateway/broker-ref-map.yaml", "--lane-credential-map", "/run/gateway/lane-credentials.yaml", "--egress-health-file", "/tmp/gateway-egress-health.json", "--lane-mirror-health-file", "/tmp/gateway-lane-mirror-health.json"]
+      interval: 15s
+      timeout: 45s
+      retries: 4
+      start_period: 90s
+    labels:
+      - "com.omninode.service=gateway-forwarder"
+      - "com.omninode.layer=gateway"
+      - "com.omninode.ticket=OMN-12912"
+networks:
+  gateway-runtime:
+    external: true
+    name: omnibase-infra-network
+  # OMN-17034: the lane the Claude Code hook edge actually publishes to.
+  # External + pre-existing: this compose project does not own the lane and
+  # must never create it -- `external: true` makes a missing stability lane a
+  # loud compose failure rather than a silently-created empty network with no
+  # broker on it.
+  gateway-lane-mirror-source:
+    external: true
+    name: omnibase-infra-stability-test-network
+volumes:
+  gateway-delivery-state:
+    name: omninode-gateway-delivery-state

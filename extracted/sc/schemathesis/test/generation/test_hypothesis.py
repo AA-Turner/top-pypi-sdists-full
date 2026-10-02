@@ -98,6 +98,72 @@ def test_fuzzing_phase_uses_its_generation_config(ctx):
     assert [case.meta.generation.mode for case in generated] == [GenerationMode.NEGATIVE]
 
 
+def test_negative_case_can_negate_the_body_alone(ctx):
+    # A server may check the path before the body, so negating every location at once hides body handling.
+    schema = ctx.openapi.load_schema(
+        {
+            "/items/{kind}": {
+                "post": {
+                    "parameters": [
+                        {
+                            "name": "kind",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string", "enum": ["a", "b"]},
+                        }
+                    ],
+                    "requestBody": {"required": True, "content": {"application/json": {"schema": {"type": "string"}}}},
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    strategy = schema["/items/{kind}"]["POST"].as_strategy(generation_mode=GenerationMode.NEGATIVE)
+
+    find(
+        strategy,
+        lambda case: case.path_parameters["kind"] in ("a", "b") and not isinstance(case.body, str),
+        settings=settings(max_examples=100, database=None),
+    )
+
+
+@pytest.mark.parametrize("version", ["3.0.2", "2.0"], ids=["openapi-3.0", "swagger-2"])
+def test_positive_bodies_ignore_keywords_next_to_root_ref(ctx, version):
+    prefix = "#/definitions" if version == "2.0" else "#/components/schemas"
+    base = {"type": "object", "properties": {"id": {"type": "integer"}}}
+    container = {"definitions": {"Base": base}} if version == "2.0" else {"components": {"schemas": {"Base": base}}}
+    body = {"$ref": f"{prefix}/Base", "required": ["extra"]}
+    schema = ctx.openapi.load_schema(
+        {
+            "/data": {
+                "post": {
+                    "parameters": [{"in": "body", "name": "body", "required": True, "schema": body}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+        if version == "2.0"
+        else {
+            "/data": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": body}},
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        version=version,
+        **container,
+    )
+    find(
+        schema["/data"]["POST"].as_strategy(),
+        lambda case: "extra" not in case.body,
+        settings=settings(max_examples=10, database=None),
+    )
+
+
 def test_ref_with_sibling_anyof_against_anyof_target(ctx):
     body = {
         "type": "object",
@@ -429,7 +495,7 @@ def test_default_strategies_binary(swagger_20):
     case = examples.generate_one(operation.as_strategy())
     assert isinstance(case.body["upfile"], Binary)
     kwargs = case.as_transport_kwargs(base_url="http://127.0.0.1")
-    assert kwargs["files"] == [("upfile", case.body["upfile"])]
+    assert kwargs["files"] == [("upfile", case.body["upfile"].data)]
 
 
 def test_merge_length_into_pattern(ctx):

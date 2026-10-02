@@ -1,0 +1,23 @@
+from mindee.v2.parsing.search.search_model import SearchModel
+
+
+class SearchModels(list[SearchModel]):
+    """List of search models."""
+
+    def __init__(self, raw_response: list[dict]) -> None:
+        super().__init__([SearchModel(item) for item in raw_response])
+
+    def __str__(self) -> str:
+        """
+        Default string representation.
+        """
+        if len(self) == 0:
+            return "\n"
+
+        lines = []
+        for model in self:
+            lines.append(f"* :Name: {model.name}")
+            lines.append(f"  :ID: {model.id}")
+            lines.append(f"  :Model Type: {model.model_type}")
+
+        return "\n".join(lines) + "\n"

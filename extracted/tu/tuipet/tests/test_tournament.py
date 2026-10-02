@@ -1,0 +1,710 @@
+"""Tournament vs DVPet Tournament.java: the hourly schedule, isEligible gates,
+the 8-entrant dex bracket, and the calcBits purse (sum over the field, with
+partial payouts for a semi/final elimination).
+
+Eligibility tests monkeypatch data.load_tournies() with synthetic cups to
+isolate the gating logic from whatever ships in the CSV.  Season is controlled
+via world_seconds (day 0 = Spring, day 1 = Summer, ...).
+"""
+import random
+
+from tuipet import data, tournament
+from tuipet.tournament import (Tournament, TOURNEY_BITS, TOURNEY_MAX_BITS,
+                               TOURNEY_AGES, HOME_LIMIT)
+from tuipet.pet import Pet, DAY_LENGTH
+
+
+def _trophy(id=1, season="Spring", field_req="", attr_req="", age_limit="",
+            bit_mod=1.0, item=-1, food_id=-1, food_amt=0, prelim=0,
+            reset_season=False, same_day_retry=True,
+            enemy_stage="", enemy_attr="", enemy_elem="", enemy_field=""):
+    return {"id": id, "sprite": 0, "season": season, "field_req": field_req,
+            "attr_req": attr_req, "age_limit": age_limit, "bit_mod": bit_mod,
+            "item": item, "food_id": food_id, "food_amt": food_amt, "prelim": prelim,
+            "reset_season": reset_season, "same_day_retry": same_day_retry,
+            "enemy_stage": enemy_stage, "enemy_attr": enemy_attr,
+            "enemy_elem": enemy_elem, "enemy_field": enemy_field}
+
+
+def _patch(monkeypatch, trophies):
+    monkeypatch.setattr(data, "load_tournies", lambda: trophies)
+
+
+def _pet(stage="Rookie", season_day=0, **kw):
+    p = Pet(num=-1, stage=stage, world_seconds=season_day * DAY_LENGTH, **kw)
+    p.age_seconds = 1 * DAY_LENGTH             # a 1-day-old: inside every age tier
+    if "bits" not in kw:
+        p.bits = 10_000                        # cover any stake (the stake has its own tests)
+    return p
+
+
+# ---- the schedule -----------------------------------------------------------
+
+def test_schedule_is_24_hourly_slots_no_dupes():
+    p = _pet("Rookie")
+    sched = tournament.schedule(p)
+    assert len(sched) == HOME_LIMIT == 24
+    real = [t for t in sched if t >= 0]
+    assert len(real) == len(set(real))          # picks remove from the bucket
+    # (the same-season pool check left with the calendar -- BASIC VPET
+    # 2026-07-17: all cups share one pool; Season survives as flavor text)
+    assert all(tournament.trophy_by_id(t) for t in real)
+
+
+def test_schedule_rerolls_each_game_day():
+    p = _pet("Rookie")
+    s1 = list(tournament.schedule(p))
+    p.fought_today = [s1[0]]
+    p.world_seconds += DAY_LENGTH               # dailyChange
+    s2 = tournament.schedule(p)
+    assert p.fought_today == []                 # foughtTrophiesToday cleared
+    assert len(s2) == 24
+
+
+def test_only_the_current_hour_is_open():
+    p = _pet("Rookie")
+    p.world_seconds = 5 * (DAY_LENGTH / 24)     # 05:00
+    tr = tournament.open_now(p)
+    assert tr is not None
+    assert tr["id"] == tournament.schedule(p)[5]
+
+
+# ---- isEligible -------------------------------------------------------------
+
+def test_too_young_and_asleep_gates(monkeypatch):
+    _patch(monkeypatch, [_trophy()])
+    # an Egg refuses with the shared _guard line (tidy audit 2026-07-18:
+    # the cup's gate single-sources dead/egg instead of hand-rolling them)
+    assert "egg" in tournament.can_enter(Pet(num=-1, stage="Egg")).lower()
+    for st in ("Fresh", "InTraining"):
+        assert "young" in tournament.can_enter(Pet(num=-1, stage=st)).lower()
+    p = _pet("Rookie")
+    p.asleep = True
+    # a player poke DISTURBS the sleeper like every care key (Joel 2026-07-06)
+    assert "grumbles" in tournament.can_enter(p)
+    assert not p.asleep and p.disturb == 1
+
+
+def test_field_and_attribute_restrictions():
+    p = _pet("Rookie", attribute="Vaccine")
+    p.field = "Nature Spirits"
+    assert tournament.eligibility(p, _trophy(field_req="Metal Empire"))
+    assert tournament.eligibility(p, _trophy(attr_req="Virus"))
+    assert tournament.eligibility(p, _trophy(field_req="Nature Spirits")) is None
+    assert tournament.eligibility(p, _trophy(attr_req="Vaccine")) is None
+
+
+def test_tier_gate_blocks_the_overgrown():
+    # STAGE is the tier truth (2026-07-04: the pacing rebuild broke age-days --
+    # a compressed-clock Champion pub-stomped Rookie cups as a "1.4-day-old")
+    rook = _pet("Rookie")
+    rook.age_seconds = (TOURNEY_AGES["Rookie"] + 1) * DAY_LENGTH   # age is irrelevant now
+    assert tournament.eligibility(rook, _trophy(age_limit="Rookie")) is None
+    champ = _pet("Champion")
+    assert "old" in tournament.eligibility(champ, _trophy(age_limit="Rookie")).lower()
+    assert tournament.eligibility(champ, _trophy(age_limit="Champion")) is None
+    assert tournament.eligibility(champ, _trophy(age_limit="Ultimate")) is None
+
+
+def test_fought_today_blocks_unless_same_day_retry():
+    p = _pet("Rookie")
+    p.fought_today = [5]
+    assert tournament.eligibility(p, _trophy(id=5, same_day_retry=False))
+    assert tournament.eligibility(p, _trophy(id=5, same_day_retry=True)) is None
+
+
+def test_prelim_chain(monkeypatch):
+    q = _trophy(id=3)
+    _patch(monkeypatch, [q, _trophy(id=4, prelim=3)])
+    p = _pet("Rookie")
+    assert "first" in tournament.eligibility(p, _trophy(id=4, prelim=3))
+    p.trophies_won = {3: "day 1"}               # qualifier beaten
+    assert tournament.eligibility(p, _trophy(id=4, prelim=3)) is None
+
+
+def test_prelim_qualification_never_expires(monkeypatch):
+    """seasonBeat is set once and never reset -- every cup in tournies.csv
+    has ResetWonOnSeasonChange=FALSE.  The grand chain crosses seasons
+    (Spring 14 -> Summer 92 -> Fall 170 -> Winter 248), so a beaten-THIS-
+    season check would lock those qualifiers forever (audit 2026-07)."""
+    _patch(monkeypatch, [_trophy(id=3), _trophy(id=4, prelim=3)])
+    p = _pet("Rookie")
+    for past in ("Spring", "Summer", "Fall", "Winter"):
+        p.trophies_won = {3: past}              # beaten in ANY season, ever
+        assert tournament.eligibility(p, _trophy(id=4, prelim=3)) is None
+
+
+def test_cross_season_grand_chain_is_reachable():
+    """The real data: cups 92/170/248 must accept a prelim beaten in the
+    prior season (their prelims live in a different season by design)."""
+    from tuipet import data
+    by = {t["id"]: t for t in data.load_tournies()}
+    for qid, pid in ((92, 14), (170, 92), (248, 170)):
+        assert by[qid]["season"] != by[pid]["season"]   # the data really crosses
+        p = _pet("Rookie")
+        p.field = by[qid].get("field_req") or p.field
+        p.attribute = by[qid].get("attr_req") or p.attribute
+        p.trophies_won = {pid: by[pid]["season"]}
+        r = tournament.eligibility(p, by[qid])
+        assert r is None or "first" not in r            # never blocked on the prelim
+
+
+# ---- the bracket ------------------------------------------------------------
+
+def test_bracket_is_player_plus_seven_dex_entrants():
+    random.seed(4)
+    p = _pet("Rookie")
+    tm = Tournament(p, _trophy())
+    assert len(tm.bracket) == 8 and tm.bracket.count("YOU") == 1
+    for e in tm.entrants:
+        assert e["stage"] == "Rookie"           # stage_by_age(1d) = Rookie tier
+        assert e["bits"] == (0, 0)              # the cup pays via calcBits
+        # (the power-band stats left with the classic battle -- 0.5 entrants
+        # are plain species cards at ideal condition, 2026-07-17)
+        assert "num" in e and "attribute" in e
+
+
+def test_purse_is_the_sum_over_the_field():
+    random.seed(4)
+    p = _pet("Rookie")
+    tm = Tournament(p, _trophy(bit_mod=1.0))
+    assert tm._calc_bits() == 7 * TOURNEY_BITS["Rookie"]    # 875, NOT capped at 225
+    for _ in range(3):
+        tm.record(True)
+    assert tm.over and tm.champion and tm.reward_bits == 875
+    assert p.trophies == 1
+
+
+def test_partial_payouts_on_elimination():
+    random.seed(4)
+    p = _pet("Rookie")
+    purse = 7 * TOURNEY_BITS["Rookie"]
+    tm = Tournament(p, _trophy())
+    tm.record(False)                            # out in the quarterfinal
+    assert tm.over and tm.reward_bits == 0
+    tm2 = Tournament(p, _trophy())
+    tm2.record(True); tm2.record(False)         # out in the semi
+    assert tm2.reward_bits == purse // 3
+    tm3 = Tournament(p, _trophy())
+    tm3.record(True); tm3.record(True); tm3.record(False)   # out in the final
+    assert tm3.reward_bits == purse // 2
+
+
+def test_mega_entrants_pay_max_bits_past_mega_age():
+    random.seed(4)
+    p = _pet("Mega")
+    p.age_seconds = (TOURNEY_AGES["Mega"] + 1) * DAY_LENGTH
+    tm = Tournament(p, _trophy(enemy_stage="Mega"))
+    assert tm._calc_bits() == 7 * TOURNEY_MAX_BITS
+
+
+def test_npc_rounds_shrink_the_bracket():
+    random.seed(4)
+    p = _pet("Rookie")
+    tm = Tournament(p, _trophy())
+    tm.record(True)
+    assert len(tm.bracket) == 4 and "YOU" in tm.bracket
+    tm.record(True)
+    assert len(tm.bracket) == 2 and "YOU" in tm.bracket
+
+
+def test_champion_feeds_egg_unlock_progress():
+    from tuipet import persistence
+    random.seed(4)
+    p = _pet("Rookie")
+    tm = Tournament(p, _trophy(id=7))
+    for _ in range(3):
+        tm.record(True)
+    # the trophy room shows the DAY it fell (seasons left, 2026-07-17)
+    assert p.trophies_won.get(7) == "day 1"
+    assert 7 in persistence.get_progress()["tourneys"]
+
+
+# ---- the tournament alarm (CurrentTime.setSeconds / onTourneyAlarm) ----------
+
+def test_alarm_rings_at_the_cup_hour():
+    p = _pet("Rookie")
+    p.world_seconds = 8.9 * (DAY_LENGTH / 24)   # just before 09:00
+    sched = tournament.schedule(p)
+    p.tourney_alarm = sched[9]                  # alarm the 09:00 cup
+    p.tick(0.2 * (DAY_LENGTH / 24))             # cross the hour line
+    assert p.tourney_alert is True
+    assert p.tourney_alarm == -1                # setTourneyAlarm(-1) on ring
+
+
+def test_alarm_only_rings_on_its_own_hour():
+    p = _pet("Rookie")
+    p.world_seconds = 3.9 * (DAY_LENGTH / 24)
+    sched = tournament.schedule(p)
+    p.tourney_alarm = sched[9]
+    p.tick(0.2 * (DAY_LENGTH / 24))             # 04:00, not the alarm hour
+    assert p.tourney_alert is False and p.tourney_alarm == sched[9]
+
+
+def test_ring_expires_next_hour_and_daily_reset_clears():
+    p = _pet("Rookie")
+    tournament.schedule(p)
+    p.tourney_alert = True
+    p.world_seconds = 9.99 * (DAY_LENGTH / 24)
+    p.tick(0.02 * (DAY_LENGTH / 24))            # hour rolls -> stale ring clears
+    assert p.tourney_alert is False
+    p.tourney_alarm = 42
+    p.world_seconds += DAY_LENGTH               # dailyChange
+    tournament.schedule(p)
+    assert p.tourney_alarm == -1
+
+
+def test_bracket_tree_records_every_round():
+    random.seed(4)
+    p = _pet("Rookie")
+    tm = Tournament(p, _trophy())
+    assert [len(r) for r in tm.tree] == [8]
+    tm.record(True)
+    assert [len(r) for r in tm.tree] == [8, 4]
+    tm.record(True)
+    assert [len(r) for r in tm.tree] == [8, 4, 2]
+    tm.record(True)
+    assert [len(r) for r in tm.tree] == [8, 4, 2, 1] and tm.tree[3] == ["YOU"]
+
+
+def test_bracket_page_renders_and_toggles():
+    from tuipet.tournamentscreen import TournamentPanel
+    random.seed(4)
+    p = _pet("Rookie")
+    p.name = "Rookling"
+    pan = TournamentPanel(p)
+    pan.tourney = Tournament(p, _trophy())
+    pan.phase, pan.tree_view = "bracket", True
+    txt = pan.text().plain
+    assert "BRACKET" in txt and "Rookling" in txt   # the field of eight, you included
+    # SUPERSEDED FLOW (dead-stop fix 2026-07-25): space used to park on the
+    # empty faceoff until a second press; it now starts the walk-in at once,
+    # and the show plays out (no skips) -- B is locked until it ends.
+    pan.key("space")
+    assert not pan.tree_view and pan._intro is not None
+    pan.key("b")                                    # locked mid-show
+    assert not pan.tree_view
+    pan._intro = None                               # show over (fallback state):
+    pan.key("b")                                    # ...B recalls the tree
+    assert pan.tree_view
+
+
+def test_bracket_preview_bobs_at_the_walk_beat():
+    """The bracket faceoff/result idle bob runs at the standard ~2Hz WALK_BEAT
+    (frame_i // 5) like every other scene -- this screen alone flipped poses
+    every fast-tick, a 10Hz flutter calmed on Joel's call (2026-07-05)."""
+    from tuipet.tournamentscreen import TournamentPanel
+    from tuipet import data
+    p = _pet()
+    num = next(n for n in sorted(data.load_sprites()[1])
+               if n >= 0 and not data.is_placeholder(n))
+    pan = TournamentPanel(p)
+    pan.frame_i = 0
+    f0 = pan._frames(num)
+    assert f0 is not None
+    pan.frame_i = 1                       # inside the same beat: no flip
+    assert pan._frames(num) == f0
+    pan.frame_i = 5                       # next beat: the pose flips
+    assert pan._frames(num) != f0
+
+
+def test_mid_bracket_contracts():
+    """Mid-bracket audit (2026-07-06), all CLEAN -- pin the semantics:
+    forfeit-from-tree and mid-bout FLEE both record the elimination exactly
+    once (escape after `over` never double-records); same-hour re-entry is
+    CANON (Tourney_Registration gates only checkTourneyClosed + isEligible --
+    no entered flag; the hour window is the throttle)."""
+    import random
+    from tuipet import data
+    from tuipet.tournamentscreen import TournamentPanel
+
+    def champ():
+        rec = data.load_sprites()[1][100]
+        p = Pet(num=100, name=rec["name"], stage="Champion",
+                attribute="Vaccine", obedience=500, bits=10_000)
+        p.world_seconds = 10 * 3600.0
+        p.energy = p.max_energy
+        return p
+
+    random.seed(11)
+    p = champ()
+    # the one pool holds every cup now (2026-07-17): entry only opens at the
+    # CURRENT hour, so move the clock to a slot whose cup will actually take
+    # this champ instead of trusting seed-luck
+    from tuipet.pet import DAY_LENGTH
+    p.world_seconds = DAY_LENGTH / 48                # hour 0, day 0
+    sched = tournament.schedule(p)
+    slot = next(i for i, tid in enumerate(sched) if tid >= 0
+                and tournament.eligibility(p, tournament.trophy_by_id(tid)) is None)
+    p.world_seconds = (slot + 0.5) * DAY_LENGTH / 24
+    pan = TournamentPanel(p)
+    pan.cursor = slot
+    pan.key("enter")
+    assert pan.tourney is not None
+    r1 = pan.key("escape")                     # forfeit from the opening tree
+    assert pan.tourney.over and r1[0] == "done"
+    last = pan.tourney.last
+    assert pan.key("escape") == ("done", (last, False))  # no double record
+    # THE CUP-HOUR GATE (Joel 2026-07-13, economy audit -- supersedes the old
+    # "the hour is the throttle" reading): every shipped trophy is
+    # SameDayRetry=TRUE, so re-entry was UNLIMITED -- forfeit, re-roll the
+    # bracket, bank the purse again.  The cup now RUNS once per hour.
+    pan2 = TournamentPanel(p)
+    pan2.cursor = tournament._hour(p)
+    pan2.key("enter")
+    assert pan2.tourney is None, "a spent cup-hour must not re-run"
+    assert "has run" in pan2.msg
+
+    random.seed(11)
+    p3 = champ()
+    p3.world_seconds = (slot + 0.5) * DAY_LENGTH / 24   # the proven-eligible slot
+    pan3 = TournamentPanel(p3)
+    pan3.cursor = slot
+    pan3.key("enter")
+    pan3.key("space"); pan3.key("space")        # into the round-one bout
+    # the MATCH INTRODUCTIONS play first (cup theater 2026-07-21): the
+    # walk-ins hold the stage, then the bell opens the fight itself
+    from tuipet.tournamentscreen import INTRO_OPP_T, INTRO_PET_T, INTRO_HOLD_T
+    assert pan3._intro is not None and pan3.sub is None
+    for _ in range(INTRO_OPP_T + INTRO_PET_T + INTRO_HOLD_T + 1):
+        pan3.anim()
+    assert pan3.sub is not None
+    for _ in range(3):
+        pan3.anim()
+    # skip_intro (double-intro fix 2026-07-24): the walk-in WAS the entrance,
+    # so the fight opens STRAIGHT on the timing bar -- no battle banner/reveal
+    # left to skip through (a single ESC now backs out).
+    assert pan3.sub.phase == "ready"
+    pan3.key("escape")                          # back out before the bell
+    # H6 (gameplay audit 2026-07-19, supersedes the 2026-07-06 pin): ESC at
+    # the bar is a BACK-OUT to the bracket, not a silent elimination -- the
+    # strip said "back out" while the cup recorded a stake-losing loss; the
+    # raid always treated the same signal as "the attempt keeps".  Walking
+    # out of the CUP remains the labeled forfeit on the bracket page's ESC.
+    assert pan3.sub is None and not pan3.tourney.over
+    assert "back out" in pan3.tourney.last      # the tree page says so
+    pan3.key("space"); pan3.key("space")        # the match still waits
+    for _ in range(INTRO_OPP_T + INTRO_PET_T + INTRO_HOLD_T + 1):
+        pan3.anim()                             # the re-entry replays the intro
+    assert pan3.sub is not None
+    assert pan3.sub.phase == "ready"            # straight to the bar again
+    pan3.key("escape")                          # back out a second time
+    assert pan3.sub is None and not pan3.tourney.over
+    assert pan3.key("escape")[0] == "done"      # the tree ESC: the REAL forfeit
+    assert pan3.tourney.over
+
+
+def test_champion_wins_the_cup_prizes():
+    """Trophy.ItemWon / FoodWonqAmount: the AUTHORED prize table is live
+    (item expansion 2026-07-26) -- and it stays live through the refactor:
+    ItemID 26 WAS the Bubble Bath, retired 2026-07-27, so the prize now
+    pays its HEIR (the Ball) through key_for_icon's RETIRED fallback.  A
+    champion is never stiffed, even by a catalog cut."""
+    random.seed(4)
+    p = _pet("Rookie")
+    tm = Tournament(p, _trophy(item=26, food_id=3, food_amt=2))
+    tm.record(True); tm.record(True); tm.record(True)
+    assert tm.champion
+    assert p.inventory.get("ball", 0) >= 1        # the heir arrives
+    assert p.inventory.get("vegetable", 0) >= 2
+    assert "Ball" in tm.last and "Vegetable" in tm.last   # the banner names the heir
+
+
+def test_the_purse_truncates_per_entrant():
+    """calcBits casts the RUNNING total to int each step ((int)(bits + term)) --
+    a 1.1-modifier all-Rookie field pays 959, not the float-sum's 962."""
+    random.seed(4)
+    p = _pet("Rookie")
+    tm = Tournament(p, _trophy(bit_mod=1.1))
+    total = 0
+    for _ in range(7):
+        total = int(total + TOURNEY_BITS["Rookie"] * 1.1)
+    assert tm._calc_bits() == total == 959
+
+
+def test_the_cup_renders_in_the_arena(monkeypatch):
+    """The tournament screen's LCD scenes pull the tourneyBack sheet, not the
+    home scene (BackgroundAnim checkBack; theme/rendering audit 2026-07-06)."""
+    from tuipet import tournamentscreen
+    random.seed(4)
+    p = _pet("Rookie")
+    seen = []
+    orig = Pet.background
+    monkeypatch.setattr(Pet, "background",
+                        lambda self, file=None:
+                        (seen.append(file), orig(self, file))[1])
+    pan = tournamentscreen.TournamentPanel(p)
+    pan.tourney = Tournament(p, _trophy())
+    pan.phase = "bracket"
+    pan.tree_view = False
+    pan.text()
+    assert seen and seen[-1] == "tourneyBack"
+
+
+def test_next_winnable_points_at_an_enterable_cup():
+    """The home-cup hint (Joel 2026-07-09) returns the next hour today whose cup
+    the pet can actually enter -- eligibility passes and the hour is not behind us."""
+    import tuipet.tournament as T
+    p = Pet(num=100, stage="Champion", attribute="Vaccine", obedience=500, bits=999)
+    p.world_seconds = 10 * 60.0
+    nw = T.next_winnable(p)
+    if nw is not None:
+        hour, tr = nw
+        assert hour >= T._hour(p)                 # never points into the past
+        assert T.eligibility(p, tr) is None       # genuinely enterable
+        assert T.trophy_by_id(T.schedule(p)[hour]) == tr
+
+
+# ---- the cup-hour gate (Joel 2026-07-13, economy audit) ----------------------
+
+def test_a_cup_runs_once_per_hour():
+    """Every shipped trophy carries SameDayRetry=TRUE, so canon's per-trophy
+    daily lock never fires -- the open cup could be re-entered without limit,
+    re-rolling its bracket for the full purse each time (~1,500b/minute, an
+    order of magnitude past an adventure).  tuipet's rule: the cup RUNS once
+    per hour.  Entering spends the slot; the next hour brings a fresh cup;
+    the day roll clears the ledger."""
+    import random
+    from tuipet.pet import Pet
+    from tuipet import tournament as tm
+    random.seed(3)
+    p = Pet(num=964, stage="Mega", attribute="Vaccine", obedience=900, bits=10_000)
+    p.world_seconds = 600.0
+    p.age_seconds = 13 * 1440.0
+    # the one pool holds every cup now (2026-07-17): this hour's cup may be
+    # field-locked, so pick any cup this Mega can enter -- the once-per-hour
+    # ledger is what's under test, not the pick
+    tr = tm.open_now(p) or tm.trophy_by_id(0)
+    if tm.eligibility(p, tr) is not None:
+        tr = next(t for t in (tm.trophy_by_id(i) for i in range(300))
+                  if t and tm.eligibility(p, t) is None)
+    tm.Tournament(p, tr)                       # entering spends this hour
+    assert tm._hour(p) in p.fought_hours
+    assert "has run" in (tm.eligibility(p, tr) or ""), "the cup must not re-run"
+
+    # ...and an ABANDONED bracket does not hand back a free re-roll
+    p.world_seconds += 60.0                    # the next game hour
+    assert tm._hour(p) not in p.fought_hours
+    tr2 = tm.open_now(p) or tm.trophy_by_id(1)
+    if tm.eligibility(p, tr2) is not None:
+        tr2 = next(t for t in (tm.trophy_by_id(i) for i in range(300))
+                   if t and tm.eligibility(p, t) is None)
+    t2 = tm.Tournament(p, tr2)
+    t2.record(False)                           # walked out / eliminated
+    assert "has run" in (tm.eligibility(p, tr2) or "")
+
+    p.world_seconds += 1440.0                  # a new day: every hour fresh again
+    tm.schedule(p)
+    assert p.fought_hours == []
+
+
+def test_next_winnable_skips_hours_already_run():
+    import random
+    from tuipet.pet import Pet
+    from tuipet import tournament as tm
+    random.seed(5)
+    p = Pet(num=100, stage="Champion", attribute="Vaccine", obedience=800)
+    p.world_seconds = 600.0
+    tm.schedule(p)
+    p.fought_hours = [tm._hour(p)]             # this hour has run
+    nxt = tm.next_winnable(p)
+    if nxt:                                    # a later cup, never this hour
+        assert nxt[0] != tm._hour(p)
+
+
+# ---- the stake (bit-sink design 2026-07-14) ----------------------------------
+
+def test_the_stake_is_a_quarter_of_the_expected_purse():
+    p = _pet("Rookie")
+    assert tournament.entry_fee(p, _trophy(bit_mod=1.0)) == 7 * TOURNEY_BITS["Rookie"] // 4
+    # an age-limited cup stakes ITS tier, whoever enters
+    assert tournament.entry_fee(p, _trophy(age_limit="Mega", bit_mod=1.0)) \
+        == 7 * TOURNEY_BITS["Mega"] // 4
+    # a Mega in an open cup stakes the open-field MaxBits rate it also wins by
+    mega = _pet("Mega")
+    assert tournament.entry_fee(mega, _trophy(bit_mod=1.0)) == 7 * TOURNEY_MAX_BITS // 4
+    # the BitModifier scales the stake exactly like the purse it fronts
+    assert tournament.entry_fee(p, _trophy(bit_mod=1.6)) == int(7 * 125 * 1.6) // 4
+
+
+def test_entry_spends_the_stake_and_a_quarterfinal_exit_eats_it():
+    random.seed(4)
+    p = _pet("Rookie", bits=1000)
+    fee = tournament.entry_fee(p, _trophy(bit_mod=1.0))
+    tm = Tournament(p, _trophy(bit_mod=1.0))
+    assert tm.stake == fee and p.bits == 1000 - fee     # paid AT ENTRY
+    tm.record(False)                                    # out in the quarterfinal
+    assert p.bits == 1000 - fee                         # nothing comes back
+
+
+def test_the_champion_banks_the_purse_on_top_of_the_stake():
+    random.seed(4)
+    p = _pet("Rookie", bits=1000)
+    tm = Tournament(p, _trophy(bit_mod=1.0))
+    for _ in range(3):
+        tm.record(True)
+    assert tm.champion
+    assert p.bits == 1000 - tm.stake + 875              # net +75% of the purse
+
+
+def test_eligibility_blocks_an_unaffordable_stake():
+    p = _pet("Rookie", bits=0)
+    err = tournament.eligibility(p, _trophy(bit_mod=1.0))
+    assert err and "stake" in err.lower()
+    # a covered stake clears the gate
+    p.bits = 10_000
+    assert tournament.eligibility(p, _trophy(bit_mod=1.0)) is None
+
+
+def test_a_broke_direct_entry_stakes_nothing_rather_than_owing():
+    random.seed(4)
+    p = _pet("Rookie", bits=0)
+    tm = Tournament(p, _trophy(bit_mod=1.0))            # bypasses eligibility (tests do)
+    assert tm.stake == 0 and p.bits == 0
+
+
+def test_a_dead_pet_is_never_crowned_mid_bracket():
+    """Cup review 2026-07-18: entry checks dead, but a pet that starved
+    DURING the bracket could still be recorded champion and paid.  The
+    record path now ends the bracket -- stake stays spent, no purse, no
+    trophy."""
+    p = _pet()
+    p.bits = 10_000
+    t = tournament.Tournament(p, _trophy())
+    bits0, trophies0 = p.bits, p.trophies
+    p.dead = True
+    out = t.record(True)
+    assert "fallen" in out.lower()
+    assert t.over and not t.champion
+    assert p.bits == bits0 and p.trophies == trophies0
+
+
+def test_eligibility_is_one_gate_not_two():
+    """Cup review 2026-07-18: eligibility() was a hand-copy of the rules the
+    live paths (eligibility_at/eligibility_featured) run -- the copies could
+    drift silently.  It must now delegate to the shared chain."""
+    import inspect
+    src = inspect.getsource(tournament.eligibility)
+    assert "_eligibility_rest" in src and "_stake_check" in src
+    for dup in ('t["age_limit"]', 't["field_req"]', 't["attr_req"]'):
+        assert dup not in src, "a hand-copied rule crept back into eligibility()"
+
+
+def test_esc_at_the_bar_backs_out_never_forfeits():
+    """H6 (gameplay audit 2026-07-19): ESC in the bout's ready phase returns
+    ("done", None) -- recording that as a LOSS made the strip's "back out" a
+    silent stake-losing forfeit (the raid treats the same signal as "the
+    attempt keeps").  It returns to the bracket now, match still owed; the
+    bracket page's own ESC stays the labeled forfeit."""
+    from tuipet import tournamentscreen
+
+    class _Sub:                       # a bout reporting ESC-before-the-bell
+        def key(self, k):
+            return ("done", None)
+
+    class _Tourney:
+        over = False
+        champion = False
+        last = "8 enter, one leaves."
+        def __init__(self):
+            self.recorded = []
+        def record(self, won):
+            self.recorded.append(won)
+        def current_opponent(self):
+            # the real interface: the panel reads the foe before recording
+            # (the rival capture, 2026-07-21)
+            return {"num": 0, "name": "Stub"}
+
+    pan = tournamentscreen.TournamentPanel.__new__(tournamentscreen.TournamentPanel)
+    pan.sub = _Sub()
+    pan.phase = "run"
+    pan.tourney = _Tourney()
+    pan.tree_view = False
+    assert pan.key("escape") is None
+    assert pan.tourney.recorded == [], "backing out must not record a loss"
+    assert pan.sub is None and pan.tree_view
+    assert "back out" in pan.tourney.last
+
+    class _WonSub:                    # a finished bout still records normally
+        def key(self, k):
+            class _B: won = True
+            return ("done", _B())
+
+    pan.sub = _WonSub()
+    pan.key("space")
+    assert pan.tourney.recorded == [True]
+
+
+def test_cup_entry_honors_the_battle_condition_gates():
+    """M5 (gameplay audit 2026-07-19): eligibility checked rest+stake only --
+    a pet too starved/sick/drained to SEND a lobby challenge could still
+    grind three recorded cup battles per cup.  All three entry points run
+    pet.battle_condition() now (the pure half of can_battle)."""
+    p = _pet("Champion", bits=10_000)
+    tr = _trophy()
+    assert tournament.eligibility(p, tr) is None       # healthy: fine
+    p.hunger = 0
+    assert "hungry" in tournament.eligibility(p, tr)
+    p.hunger = 4
+    p.poop = 2
+    assert "Clean up" in tournament.eligibility_featured(p, tr)
+
+
+def test_cup_rows_wear_one_whole_tag(monkeypatch):
+    """The board's 10-cell tag slot hard-cut every two-tag combo ("+item
+    » OPEN" shipped as "» O" -- menu polish 2026-07-22): ONE tag
+    per row now, dominant state first (OPEN > alarm > +item), and every
+    row fits the 38-cell budget whole."""
+    from rich.cells import cell_len
+    from tuipet import tournament
+    from tuipet.tournamentscreen import TournamentPanel
+    p = _pet("Rookie")
+    pan = TournamentPanel(p)
+    pan.phase = "select"
+    # force an ITEMED trophy into every slot, the alarm onto hour 1
+    from tuipet import data as _data
+    tr = next(t for t in _data.load_tournies() if t["item"] >= 0)
+    monkeypatch.setattr(tournament, "trophy_by_id",
+                        lambda tid: dict(tr, id=tid))   # distinct ids, all itemed
+    monkeypatch.setattr(tournament, "_hour", lambda pet: 0)
+    # text() re-rolls the schedule live (day-rollover guard) -- patch the roll
+    monkeypatch.setattr(tournament, "schedule", lambda pet: list(range(100, 124)))
+    p.tourney_alarm = 101                               # the 01h slot's cup
+    pan.cursor = 0
+    lines = pan.text().plain.split("\n")
+    open_row = next(ln for ln in lines if ln.startswith("▸ 00h"))
+    alarm_row = next(ln for ln in lines if ln.lstrip().startswith("01h"))
+    item_row = next(ln for ln in lines if ln.lstrip().startswith("02h"))
+    assert "» OPEN" in open_row and "+item" not in open_row
+    assert "♦alarm" in alarm_row and "+item" not in alarm_row
+    assert "+item" in item_row
+    for ln in (open_row, alarm_row, item_row):
+        assert cell_len(ln.rstrip()) <= 38
+
+
+def test_the_bracket_ramps_toward_the_final():
+    """Gameplay polish #4 (2026-07-22): QF fights the fresh wild, the semi
+    part-trained, the final near-veteran -- and a title DEFENSE's veteran
+    field (attached at init) stays strictly harder than the ramp."""
+    from tuipet import adventure
+    random.seed(4)
+    p = _pet("Rookie")
+    tm = Tournament(p, _trophy())
+    assert "side" not in tm.current_opponent()          # QF: the fresh wild
+    tm.round = 1
+    s = tm.current_opponent()["side"]
+    assert (s.trainings_cur, s.trainings_total) == (250, 2500)
+    tm.round = 2
+    s = tm.current_opponent()["side"]
+    assert (s.trainings_cur, s.trainings_total) == (500, 5000)
+    assert (s.battles, s.wins) < adventure.VETERAN_RECORD   # defense stays peak
+    # a defense's pre-attached veteran side is never re-statted by the ramp
+    random.seed(4)
+    q = _pet("Rookie")
+    troph = _trophy()
+    q.trophies_won = {troph["id"]: troph["season"]}
+    dm = Tournament(q, troph)
+    dm.round = 2
+    s = dm.current_opponent()["side"]
+    assert (s.trainings_cur, s.trainings_total) == adventure.VETERAN_TRAININGS
+    assert (s.battles, s.wins) == adventure.VETERAN_RECORD

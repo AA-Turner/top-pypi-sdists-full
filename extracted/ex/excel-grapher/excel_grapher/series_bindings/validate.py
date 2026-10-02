@@ -1,0 +1,1296 @@
+from __future__ import annotations
+
+import keyword
+import re
+from collections.abc import Sequence
+from pathlib import Path
+from typing import Any, Literal
+
+from excel_grapher.grapher.graph import DependencyGraph
+from excel_grapher.series_bindings.domains import compile_domain_spec, declared_domain
+from excel_grapher.series_bindings.graph_predicates import is_graph_formula_node, is_graph_leaf
+from excel_grapher.series_bindings.normalize import (
+    effective_dimension_id,
+    effective_validation,
+    has_constant_direction,
+    has_input_direction,
+    has_internal_direction,
+    has_output_direction,
+    input_mode,
+    is_cataloged_series,
+    is_override_input,
+)
+from excel_grapher.series_bindings.occupancy import (
+    BoundLeafPair,
+    CellOccupancyError,
+    binding_direction,
+    occupancy_addresses,
+    resolve_occupants,
+)
+from excel_grapher.series_bindings.ranges import (
+    expand_bound_series_addresses_for_graph,
+    format_series_data_range,
+    series_data_ranges,
+    series_sheets,
+    sheet_from_data_range,
+)
+from excel_grapher.series_bindings.relations import (
+    authored_measure_dtype,
+    relation_alignment_issues,
+    relation_declaration_issues,
+)
+from excel_grapher.series_bindings.types import (
+    ValidationIssue,
+    ValidationReport,
+    WorkbookSeriesBindings,
+    make_issue,
+)
+from excel_grapher.series_bindings.versions import IMPLEMENTED_BIND_KINDS, IMPLEMENTED_LAYOUTS
+
+_KNOWN_BIND_KINDS = IMPLEMENTED_BIND_KINDS
+_A1_RECTANGLE_RE = re.compile(r"_[a-z]{1,3}\d+_[a-z]{1,3}\d+")
+_A1_TRAILING_CELL_RE = re.compile(r"_[a-z]{1,3}\d+$")
+_INTEGER_MEASURE_DTYPES = frozenset({"int", "integer"})
+_REAL_MEASURE_DTYPES = frozenset({"float", "number"})
+
+
+def _issue(
+    level: Literal["error", "warning"],
+    code: str,
+    message: str,
+    *,
+    series_id: str | None = None,
+    address: str | None = None,
+) -> ValidationIssue:
+    return make_issue(
+        level,
+        code,
+        message,
+        series_id=series_id,
+        address=address,
+    )
+
+
+def _contains_a1_geometry(text: str) -> bool:
+    """Return True when `text` embeds an A1 cell or rectangle slug."""
+    return (
+        _A1_RECTANGLE_RE.search(text) is not None or _A1_TRAILING_CELL_RE.search(text) is not None
+    )
+
+
+def _is_valid_python_id(name: str) -> bool:
+    return name.isidentifier() and not keyword.iskeyword(name)
+
+
+def _geometry_issue_level(series: dict[str, Any]) -> Literal["error", "warning"]:
+    """Public input/output ids are errors; internal/constant ids are warnings."""
+    if has_input_direction(series) or has_output_direction(series):
+        return "error"
+    if has_internal_direction(series) or has_constant_direction(series):
+        return "warning"
+    return "error"
+
+
+def _validate_series_identity(series: dict[str, Any]) -> list[ValidationIssue]:
+    """Lint series ids and `series_context` values for Python and A1 geometry."""
+    issues: list[ValidationIssue] = []
+    series_id = str(series.get("id") or "")
+    issue_series_id = series_id or None
+    if not _is_valid_python_id(series_id):
+        issues.append(
+            _issue(
+                "error",
+                "invalid_python_id",
+                f"series id {series_id!r} is not a valid Python identifier",
+                series_id=issue_series_id,
+            )
+        )
+    if _contains_a1_geometry(series_id):
+        issues.append(
+            _issue(
+                _geometry_issue_level(series),
+                "geometry_in_id",
+                f"series id {series_id!r} contains an A1 cell or rectangle token",
+                series_id=issue_series_id,
+            )
+        )
+    context = series.get("series_context")
+    if isinstance(context, dict):
+        for field, value in context.items():
+            if isinstance(value, str) and _contains_a1_geometry(value):
+                issues.append(
+                    _issue(
+                        "warning",
+                        "geometry_in_id",
+                        f"series_context[{field!r}] value {value!r} contains an A1 "
+                        "cell or rectangle token",
+                        series_id=issue_series_id,
+                    )
+                )
+    return issues
+
+
+def _validate_axis_labels(series: dict[str, Any]) -> list[ValidationIssue]:
+    """Validate the local shape and scalar type of an axis labeller."""
+    axis = series.get("axis_labels")
+    if axis is None:
+        return []
+    series_id = str(series.get("id") or "") or None
+    key = series.get("key") or []
+    issues: list[ValidationIssue] = []
+    if key != [axis]:
+        issues.append(
+            _issue(
+                "error",
+                "invalid_axis_labels_key",
+                f"axis_labels {axis!r} must be the series' only key",
+                series_id=series_id,
+            )
+        )
+        return issues
+    structure = series.get("structure") or {}
+    dimensions = structure.get("dimensions") or []
+    dimension = next(
+        (
+            item
+            for item in dimensions
+            if isinstance(item, dict) and effective_dimension_id(item) == axis
+        ),
+        None,
+    )
+    if dimension is None:
+        issues.append(
+            _issue(
+                "error",
+                "invalid_axis_labels_axis",
+                f"axis_labels {axis!r} does not name a series dimension",
+                series_id=series_id,
+            )
+        )
+        return issues
+    measure = structure.get("measure") or {}
+    measure_dtype = measure.get("dtype") or (measure.get("bind") or {}).get("read")
+    dimension_dtype = dimension.get("dtype") or (dimension.get("bind") or {}).get("read")
+    aliases = {"integer": "int", "str": "string"}
+    measure_dtype = aliases.get(measure_dtype, measure_dtype)
+    dimension_dtype = aliases.get(dimension_dtype, dimension_dtype)
+    if measure_dtype not in {"int", "string"} or (
+        dimension_dtype not in {None, "auto"} and measure_dtype != dimension_dtype
+    ):
+        issues.append(
+            _issue(
+                "error",
+                "invalid_axis_labels_dtype",
+                "labeller measure dtype must match its string or integer axis key type",
+                series_id=series_id,
+            )
+        )
+    return issues
+
+
+def _series_validation_flags(series: dict[str, Any]) -> tuple[bool, bool]:
+    validation = effective_validation(series)
+    intersect = validation.get("intersect_graph_leaves", True)
+    unique_key = validation.get("require_unique_key", True)
+    return bool(intersect), bool(unique_key)
+
+
+def _input_binding_addresses(
+    graph: DependencyGraph,
+    series: dict[str, Any],
+    addresses: list[str],
+) -> list[str]:
+    """Return addresses that participate in input binding resolution."""
+    if is_override_input(series):
+        return [address for address in addresses if address in graph]
+    validation = effective_validation(series)
+    if not validation.get("intersect_graph_leaves", True):
+        return list(addresses)
+    return [address for address in addresses if is_graph_leaf(graph, address)]
+
+
+def _validate_input_mode(series: dict[str, Any]) -> list[ValidationIssue]:
+    input_block = series.get("input")
+    if not isinstance(input_block, dict):
+        return []
+    mode = input_block.get("mode")
+    if mode is None or mode in ("leaf", "override"):
+        return []
+    series_id = str(series.get("id", ""))
+    return [
+        _issue(
+            "error",
+            "invalid_input_mode",
+            f"input.mode must be 'leaf' or 'override', got {mode!r}",
+            series_id=series_id,
+        )
+    ]
+
+
+def _validate_input_value_map(series: dict[str, Any]) -> list[ValidationIssue]:
+    """Reject `input.value_map` on non-scalar series and domain/key mismatches."""
+    input_block = series.get("input")
+    if not isinstance(input_block, dict):
+        return []
+    mapping = input_block.get("value_map")
+    if mapping is None:
+        return []
+    series_id = str(series.get("id", ""))
+    issues: list[ValidationIssue] = []
+    if not isinstance(mapping, dict) or not mapping:
+        issues.append(
+            _issue(
+                "error",
+                "invalid_input_value_map",
+                "input.value_map must be a non-empty mapping",
+                series_id=series_id,
+            )
+        )
+        return issues
+    if series.get("layout") != "scalar":
+        issues.append(
+            _issue(
+                "error",
+                "invalid_input_value_map",
+                "input.value_map is only allowed on scalar input series",
+                series_id=series_id,
+            )
+        )
+    domain = declared_domain(series)
+    if (
+        isinstance(domain, dict)
+        and "enum" in domain
+        and ("between" in domain or "real_between" in domain)
+    ):
+        issues.append(
+            _issue(
+                "error",
+                "invalid_input_value_map",
+                "input.value_map cannot be combined with an enum and interval union domain",
+                series_id=series_id,
+            )
+        )
+    elif isinstance(domain, dict) and "enum" in domain:
+        values = domain["enum"]
+        if isinstance(values, (list, tuple, set, frozenset)):
+            missing = [value for value in values if value not in mapping]
+            if missing:
+                issues.append(
+                    _issue(
+                        "error",
+                        "invalid_input_value_map",
+                        f"input.domain enum values must be keys of input.value_map: {missing!r}",
+                        series_id=series_id,
+                    )
+                )
+    elif isinstance(domain, dict) and ("between" in domain or "real_between" in domain):
+        issues.append(
+            _issue(
+                "error",
+                "invalid_input_value_map",
+                "input.value_map cannot be combined with a between/real_between domain",
+                series_id=series_id,
+            )
+        )
+    return issues
+
+
+def _dimension_field_ids(series: dict[str, Any]) -> set[str]:
+    """Effective dimension ids (declared id, else concept) for key matching."""
+    structure = series.get("structure") or {}
+    dims = structure.get("dimensions") or []
+    return {
+        effective_dimension_id(d) for d in dims if isinstance(d, dict) and effective_dimension_id(d)
+    }
+
+
+def _validate_input_binding_overlap(
+    graph: DependencyGraph,
+    series: dict[str, Any],
+    addresses: list[str],
+) -> list[ValidationIssue]:
+    """Validate leaf vs override semantics for input binding data ranges."""
+    issues: list[ValidationIssue] = []
+    if not has_input_direction(series):
+        return issues
+
+    series_id = str(series.get("id", ""))
+    mode = input_mode(series)
+    graph_addresses = [address for address in addresses if address in graph]
+    non_leaf_graph_addresses = [
+        address for address in graph_addresses if not is_graph_leaf(graph, address)
+    ]
+    formula_graph_addresses = [
+        address for address in graph_addresses if is_graph_formula_node(graph, address)
+    ]
+
+    if mode == "leaf" and non_leaf_graph_addresses:
+        issues.append(
+            _issue(
+                "error",
+                "non_leaf_input_overlap",
+                "data_range includes non-leaf graph cells; declare input.mode: override "
+                "for user-editable formula cells",
+                series_id=series_id,
+            )
+        )
+    elif mode == "override" and not formula_graph_addresses:
+        issues.append(
+            _issue(
+                "error",
+                "no_formula_override_targets",
+                "input.mode override requires at least one formula cell in data_range",
+                series_id=series_id,
+            )
+        )
+    return issues
+
+
+def _internal_binding_addresses(
+    graph: DependencyGraph,
+    series: dict[str, Any],
+    addresses: list[str],
+) -> list[str]:
+    """Return addresses that participate in internal binding resolution."""
+    validation = effective_validation(series)
+    if not validation.get("intersect_graph_formulas", True):
+        return list(addresses)
+    return [address for address in addresses if is_graph_formula_node(graph, address)]
+
+
+def _validate_internal_binding_overlap(
+    graph: DependencyGraph,
+    series: dict[str, Any],
+    addresses: list[str],
+) -> list[ValidationIssue]:
+    """Validate formula-cell semantics for internal binding data ranges."""
+    issues: list[ValidationIssue] = []
+    if not has_internal_direction(series):
+        return issues
+
+    series_id = str(series.get("id", ""))
+    validation = effective_validation(series)
+    if not validation.get("intersect_graph_formulas", True):
+        return issues
+
+    formula_graph_addresses = [
+        address for address in addresses if is_graph_formula_node(graph, address)
+    ]
+    if not formula_graph_addresses:
+        issues.append(
+            _issue(
+                "error",
+                "no_formula_internal_targets",
+                "internal binding requires at least one formula cell in data_range",
+                series_id=series_id,
+            )
+        )
+    return issues
+
+
+def _constant_binding_addresses(
+    graph: DependencyGraph,
+    series: dict[str, Any],
+    addresses: list[str],
+) -> list[str]:
+    """Return addresses that participate in constant binding resolution."""
+    validation = effective_validation(series)
+    if not validation.get("intersect_graph_leaves", True):
+        return list(addresses)
+    return [address for address in addresses if is_graph_leaf(graph, address)]
+
+
+def _validate_constant_binding_overlap(
+    graph: DependencyGraph,
+    series: dict[str, Any],
+    addresses: list[str],
+) -> list[ValidationIssue]:
+    """Validate leaf-only semantics for constant binding data ranges."""
+    issues: list[ValidationIssue] = []
+    if not has_constant_direction(series):
+        return issues
+
+    series_id = str(series.get("id", ""))
+    validation = effective_validation(series)
+    graph_addresses = [address for address in addresses if address in graph]
+    non_leaf_graph_addresses = [
+        address for address in graph_addresses if not is_graph_leaf(graph, address)
+    ]
+    leaf_graph_addresses = [address for address in graph_addresses if is_graph_leaf(graph, address)]
+
+    if validation.get("intersect_graph_leaves", True) and non_leaf_graph_addresses:
+        issues.append(
+            _issue(
+                "error",
+                "non_leaf_constant_overlap",
+                "constant binding data_range includes non-leaf graph cells; "
+                "use input.mode: override for editable formula cells or internal for "
+                "formula-cell triangulation",
+                series_id=series_id,
+            )
+        )
+    if validation.get("intersect_graph_leaves", True) and not leaf_graph_addresses:
+        issues.append(
+            _issue(
+                "error",
+                "no_leaf_constant_targets",
+                "constant binding requires at least one graph leaf in data_range",
+                series_id=series_id,
+            )
+        )
+    return issues
+
+
+def _validate_cell_occupancy(
+    graph: DependencyGraph,
+    occupancy_rows: Sequence[tuple[dict[str, Any], list[str]]],
+) -> list[ValidationIssue]:
+    """Reject illegal cell overlap; allow one graph-leaf input/constant pairing."""
+    occupants: dict[str, list[tuple[str, str]]] = {}
+    for series, addresses in occupancy_rows:
+        series_id = str(series.get("id") or "")
+        direction = binding_direction(series)
+        if not series_id or direction is None:
+            continue
+        for address in occupancy_addresses(graph, series, addresses):
+            occupants.setdefault(address, []).append((series_id, direction))
+    issues: list[ValidationIssue] = []
+    seen: set[tuple[str, str, str]] = set()
+    for address, claimed in occupants.items():
+        unique_ids = {series_id for series_id, _direction in claimed}
+        if len(unique_ids) < 2:
+            continue
+        directions = {direction for _series_id, direction in claimed}
+        has_formula = bool(directions & {"internal", "output"})
+        has_claimant = bool(directions & {"input", "constant"})
+        if not has_formula or not has_claimant:
+            continue
+        try:
+            resolve_occupants(
+                claimed,
+                address=address,
+                is_graph_leaf=is_graph_leaf(graph, address),
+            )
+        except CellOccupancyError as exc:
+            key = (exc.address, exc.first_id, exc.second_id)
+            if key in seen:
+                continue
+            seen.add(key)
+            issues.append(
+                _issue(
+                    "error",
+                    "double_bound_cell",
+                    str(exc),
+                    series_id=exc.second_id,
+                    address=address,
+                )
+            )
+    return issues
+
+
+def _bound_leaf_addresses(
+    graph: DependencyGraph,
+    occupancy_rows: Sequence[tuple[dict[str, Any], list[str]]],
+) -> dict[str, set[str]]:
+    """Map formula-series ids to graph-leaf cells claimed by an input/constant."""
+    occupants: dict[str, list[tuple[str, str]]] = {}
+    for series, addresses in occupancy_rows:
+        series_id = str(series.get("id") or "")
+        direction = binding_direction(series)
+        if not series_id or direction is None:
+            continue
+        for address in occupancy_addresses(graph, series, addresses):
+            occupants.setdefault(address, []).append((series_id, direction))
+    bound: dict[str, set[str]] = {}
+    for address, claimed in occupants.items():
+        if len({series_id for series_id, _direction in claimed}) < 2:
+            continue
+        try:
+            resolved = resolve_occupants(
+                claimed,
+                address=address,
+                is_graph_leaf=is_graph_leaf(graph, address),
+            )
+        except CellOccupancyError:
+            continue
+        if isinstance(resolved, BoundLeafPair):
+            bound.setdefault(resolved.owner_id, set()).add(address)
+    return bound
+
+
+def _downgrade_bound_leaf_notices(
+    graph: DependencyGraph,
+    occupancy_rows: Sequence[tuple[dict[str, Any], list[str]]],
+    issues: list[ValidationIssue],
+) -> list[ValidationIssue]:
+    """Drop or shrink `leaf_in_formula_series` when those leaves are double-bound."""
+    bound = _bound_leaf_addresses(graph, occupancy_rows)
+    if not bound:
+        return issues
+    remaining_by_series: dict[str, int] = {}
+    for series, addresses in occupancy_rows:
+        series_id = str(series.get("id") or "")
+        if series_id not in bound:
+            continue
+        unbound = [
+            address
+            for address in occupancy_addresses(graph, series, addresses)
+            if is_graph_leaf(graph, address)
+            and not is_graph_formula_node(graph, address)
+            and address not in bound[series_id]
+        ]
+        remaining_by_series[series_id] = len(unbound)
+    result: list[ValidationIssue] = []
+    for issue in issues:
+        if issue["code"] != "leaf_in_formula_series":
+            result.append(issue)
+            continue
+        series_id = issue["series_id"]
+        if series_id is None or series_id not in remaining_by_series:
+            result.append(issue)
+            continue
+        remaining = remaining_by_series[series_id]
+        if remaining == 0:
+            continue
+        result.append(
+            _issue(
+                "warning",
+                "leaf_in_formula_series",
+                f"Retained {remaining} graph leaf cell(s) in formula series as cached literals",
+                series_id=series_id,
+            )
+        )
+    return result
+
+
+def _validate_bind_smoke(bind: Any, *, series_id: str, context: str) -> list[ValidationIssue]:
+    if not isinstance(bind, dict):
+        return [
+            _issue(
+                "error",
+                "invalid_bind",
+                f"{context}: bind must be a mapping",
+                series_id=series_id,
+            )
+        ]
+    kind = bind.get("kind")
+    if kind not in _KNOWN_BIND_KINDS:
+        return [
+            _issue(
+                "error",
+                "unknown_bind_kind",
+                f"{context}: unknown bind kind {kind!r}",
+                series_id=series_id,
+            )
+        ]
+    return _validate_bind_geometry(bind, series_id=series_id, context=context)
+
+
+def _validate_bind_geometry(
+    bind: dict[str, Any], *, series_id: str, context: str
+) -> list[ValidationIssue]:
+    """Statically check skip/include specs and value_map axis and overlap rules."""
+    from excel_grapher.series_bindings.geometry import (
+        expand_column_specs,
+        expand_row_specs,
+        parse_value_map,
+    )
+
+    issues: list[ValidationIssue] = []
+    kind = bind.get("kind")
+
+    if bind.get("skip") is not None and bind.get("include") is not None:
+        issues.append(
+            _issue(
+                "error",
+                "invalid_bind_geometry",
+                f"{context}: skip and include are mutually exclusive",
+                series_id=series_id,
+            )
+        )
+
+    expand = expand_row_specs if kind == "row_label" else expand_column_specs
+    if kind in {"row_label", "column_header"}:
+        for field in ("skip", "include"):
+            specs = bind.get(field)
+            if specs is None:
+                continue
+            try:
+                expand(specs)
+            except ValueError as exc:
+                issues.append(
+                    _issue(
+                        "error",
+                        "invalid_bind_geometry",
+                        f"{context}: {exc}",
+                        series_id=series_id,
+                    )
+                )
+
+    if kind == "value_map":
+        values = bind.get("values")
+        key_types = {type(key) for key in values} if isinstance(values, dict) else set()
+        if len(key_types) > 1:
+            issues.append(
+                _issue(
+                    "error",
+                    "invalid_bind_geometry",
+                    f"{context}: value_map keys must share one scalar type",
+                    series_id=series_id,
+                )
+            )
+        try:
+            parse_value_map(values or {})
+        except (ValueError, TypeError) as exc:
+            issues.append(
+                _issue(
+                    "error",
+                    "invalid_bind_geometry",
+                    f"{context}: {exc}",
+                    series_id=series_id,
+                )
+            )
+
+    return issues
+
+
+def _validate_series_structure(series: dict[str, Any]) -> list[ValidationIssue]:
+    issues: list[ValidationIssue] = []
+    series_id = str(series.get("id", ""))
+    sheets = series_sheets(series)
+    for data_range in series_data_ranges(series):
+        range_sheet = sheet_from_data_range(data_range)
+        if range_sheet is None:
+            continue
+        if range_sheet not in sheets:
+            issues.append(
+                _issue(
+                    "error",
+                    "sheet_mismatch",
+                    f"series sheet {series.get('sheet')!r} does not match data_range sheet "
+                    f"{range_sheet!r}",
+                    series_id=series_id,
+                )
+            )
+
+    exclude_rows = series.get("exclude_rows")
+    if exclude_rows is not None:
+        from excel_grapher.series_bindings.geometry import expand_row_specs
+
+        try:
+            expand_row_specs(exclude_rows)
+        except ValueError as exc:
+            issues.append(
+                _issue(
+                    "error",
+                    "invalid_bind_geometry",
+                    f"exclude_rows: {exc}",
+                    series_id=series_id,
+                )
+            )
+
+    exclude_columns = series.get("exclude_columns")
+    if exclude_columns is not None:
+        from excel_grapher.series_bindings.geometry import expand_column_specs
+
+        try:
+            expand_column_specs(exclude_columns)
+        except ValueError as exc:
+            issues.append(
+                _issue(
+                    "error",
+                    "invalid_bind_geometry",
+                    f"exclude_columns: {exc}",
+                    series_id=series_id,
+                )
+            )
+
+    structure = series.get("structure")
+    if not isinstance(structure, dict):
+        return issues
+
+    measure = structure.get("measure")
+    if isinstance(measure, dict):
+        issues.extend(
+            _validate_bind_smoke(measure.get("bind"), series_id=series_id, context="measure")
+        )
+
+    for index, dim in enumerate(structure.get("dimensions") or []):
+        if not isinstance(dim, dict):
+            continue
+        bind = dim.get("bind")
+        concept = dim.get("concept", f"dimensions[{index}]")
+        issues.extend(
+            _validate_bind_smoke(
+                bind,
+                series_id=series_id,
+                context=f"dimension {concept!r}",
+            )
+        )
+
+    for index, attr in enumerate(structure.get("attributes") or []):
+        if not isinstance(attr, dict):
+            continue
+        if "bind" in attr:
+            concept = attr.get("concept", f"attributes[{index}]")
+            issues.extend(
+                _validate_bind_smoke(
+                    attr.get("bind"),
+                    series_id=series_id,
+                    context=f"attribute {concept!r}",
+                )
+            )
+
+    issues.extend(_validate_unique_dimension_ids(series))
+
+    key = series.get("key")
+    if isinstance(key, list):
+        field_ids = _dimension_field_ids(series)
+        for entry in key:
+            if entry not in field_ids:
+                issues.append(
+                    _issue(
+                        "error",
+                        "key_not_in_dimensions",
+                        f"key entry {entry!r} does not match any dimension id in "
+                        "structure.dimensions (dimension ids default to concept)",
+                        series_id=series_id,
+                    )
+                )
+
+    return issues
+
+
+def _validate_unique_dimension_ids(series: dict[str, Any]) -> list[ValidationIssue]:
+    """Effective ids must be unique across dimensions and attributes of one series."""
+    issues: list[ValidationIssue] = []
+    series_id = str(series.get("id", ""))
+    structure = series.get("structure")
+    if not isinstance(structure, dict):
+        return issues
+
+    seen: dict[str, str] = {}
+    components = [
+        *(
+            (f"dimensions[{i}]", dim)
+            for i, dim in enumerate(structure.get("dimensions") or [])
+            if isinstance(dim, dict)
+        ),
+        *(
+            (f"attributes[{i}]", attr)
+            for i, attr in enumerate(structure.get("attributes") or [])
+            if isinstance(attr, dict)
+        ),
+    ]
+    for label, component in components:
+        field_id = effective_dimension_id(component)
+        if not field_id:
+            continue
+        if field_id in seen:
+            issues.append(
+                _issue(
+                    "error",
+                    "duplicate_dimension_id",
+                    f"{label} effective id {field_id!r} duplicates {seen[field_id]}; "
+                    "declare a distinct id to disambiguate components sharing a concept",
+                    series_id=series_id,
+                )
+            )
+        else:
+            seen[field_id] = label
+    return issues
+
+
+def _cell_scoped_dimension_count(series: dict[str, Any]) -> int:
+    structure = series.get("structure") or {}
+    dimensions = structure.get("dimensions") or []
+    return sum(1 for dim in dimensions if isinstance(dim, dict) and dim.get("scope") == "cell")
+
+
+def _validate_layout_intent(series: dict[str, Any]) -> list[ValidationIssue]:
+    """Validate layout-specific structural intent when ``layout`` is declared."""
+    issues: list[ValidationIssue] = []
+    series_id = str(series.get("id", ""))
+    layout = series.get("layout")
+    if not isinstance(layout, str):
+        return issues
+
+    structure = series.get("structure") or {}
+    dimensions = structure.get("dimensions") or []
+    dimension_count = len([dim for dim in dimensions if isinstance(dim, dict)])
+    cell_scoped_count = _cell_scoped_dimension_count(series)
+
+    if layout == "matrix":
+        if dimension_count < 2:
+            issues.append(
+                _issue(
+                    "error",
+                    "layout_constraint_violation",
+                    "layout 'matrix' requires at least two structure.dimensions entries",
+                    series_id=series_id,
+                )
+            )
+        if cell_scoped_count < 1:
+            issues.append(
+                _issue(
+                    "error",
+                    "layout_constraint_violation",
+                    "layout 'matrix' requires at least one cell-scoped dimension",
+                    series_id=series_id,
+                )
+            )
+    elif layout == "series" and cell_scoped_count < 1:
+        issues.append(
+            _issue(
+                "error",
+                "layout_constraint_violation",
+                "layout 'series' requires at least one cell-scoped dimension",
+                series_id=series_id,
+            )
+        )
+
+    return issues
+
+
+def _validate_implementation_support(series: dict[str, Any]) -> list[ValidationIssue]:
+    issues: list[ValidationIssue] = []
+    series_id = str(series.get("id", ""))
+    layout = series.get("layout")
+    if isinstance(layout, str) and layout not in IMPLEMENTED_LAYOUTS:
+        issues.append(
+            _issue(
+                "error",
+                "unknown_layout",
+                f"unknown layout {layout!r}",
+                series_id=series_id,
+            )
+        )
+    return issues
+
+
+def _validate_keyed_catalog_unique_key(series: dict[str, Any]) -> list[ValidationIssue]:
+    """Refuse `require_unique_key: false` on keyed series inverted-tree will catalog."""
+    if not is_cataloged_series(series):
+        return []
+    if not (series.get("key") or []):
+        return []
+    _, require_unique_key = _series_validation_flags(series)
+    if require_unique_key:
+        return []
+    return [
+        _issue(
+            "error",
+            "require_unique_key_incompatible",
+            "validation.require_unique_key: false is incompatible with a keyed catalog series",
+            series_id=str(series.get("id") or "") or None,
+        )
+    ]
+
+
+def _validate_catalog_skipped_formula_owner(
+    graph: DependencyGraph,
+    occupancy_rows: Sequence[tuple[dict[str, Any], list[str]]],
+    skipped_rows: Sequence[tuple[dict[str, Any], list[str]]],
+) -> list[ValidationIssue]:
+    """Refuse catalog skip when the series uniquely owns an on-graph formula cell."""
+    cataloged_formulas: set[str] = set()
+    for series, addresses in occupancy_rows:
+        for address in occupancy_addresses(graph, series, addresses):
+            if is_graph_formula_node(graph, address):
+                cataloged_formulas.add(address)
+    issues: list[ValidationIssue] = []
+    for series, addresses in skipped_rows:
+        series_id = str(series.get("id") or "") or None
+        for address in addresses:
+            if is_graph_formula_node(graph, address) and address not in cataloged_formulas:
+                issues.append(
+                    _issue(
+                        "error",
+                        "catalog_skipped_formula_owner",
+                        "validation.catalog: false uniquely owns on-graph formula cell "
+                        f"{address}; catalog skip is only for extract-time domain pins",
+                        series_id=series_id,
+                        address=address,
+                    )
+                )
+                break
+    return issues
+
+
+def _concept_dtype_map(bindings: WorkbookSeriesBindings) -> dict[str, str]:
+    scheme = bindings.get("concept_scheme") or {}
+    concepts = scheme.get("concepts") or []
+    result: dict[str, str] = {}
+    for concept in concepts:
+        if isinstance(concept, dict) and concept.get("id") and concept.get("dtype") is not None:
+            result[str(concept["id"])] = str(concept["dtype"])
+    return result
+
+
+def _validate_input_domain_dtype(series: dict[str, Any]) -> list[ValidationIssue]:
+    """Reject `between` / `real_between` when the kind does not match measure dtype."""
+    domain = declared_domain(series)
+    if not isinstance(domain, dict):
+        return []
+    series_id = str(series.get("id", "")) or None
+    dtype = authored_measure_dtype(series)
+    if "between" in domain and "real_between" in domain:
+        return [
+            _issue(
+                "error",
+                "domain_dtype_mismatch",
+                "domain cannot combine between and real_between",
+                series_id=series_id,
+            )
+        ]
+    if "between" in domain:
+        if dtype in _INTEGER_MEASURE_DTYPES:
+            return []
+        got = repr(dtype) if dtype is not None else "omitted (export defaults to float)"
+        return [
+            _issue(
+                "error",
+                "domain_dtype_mismatch",
+                "domain between requires integer measure dtype 'int'; "
+                f"got {got} (use real_between for float/number)",
+                series_id=series_id,
+            )
+        ]
+    if "real_between" in domain:
+        if dtype is None or dtype in _REAL_MEASURE_DTYPES:
+            return []
+        return [
+            _issue(
+                "error",
+                "domain_dtype_mismatch",
+                "domain real_between requires measure dtype 'float' or "
+                f"'number'; got {dtype!r} (use between for int)",
+                series_id=series_id,
+            )
+        ]
+    return []
+
+
+def _validate_conflicting_domain(series: dict[str, Any]) -> list[ValidationIssue]:
+    """Reject series-level `domain` that disagrees with `input.domain`."""
+    top = series.get("domain")
+    input_block = series.get("input")
+    nested = input_block.get("domain") if isinstance(input_block, dict) else None
+    if isinstance(top, dict) and isinstance(nested, dict) and top != nested:
+        return [
+            _issue(
+                "error",
+                "conflicting_domain",
+                "series-level domain disagrees with input.domain",
+                series_id=str(series.get("id", "")) or None,
+            )
+        ]
+    return []
+
+
+def _validate_compiled_domain(
+    graph: DependencyGraph,
+    series: dict[str, Any],
+    addresses: list[str],
+) -> list[ValidationIssue]:
+    """Warn when a domain cell is missing from the graph; error on empty pins."""
+    spec = compile_domain_spec(series)
+    if spec is None and not series.get("relations"):
+        return []
+    series_id = str(series.get("id", "")) or None
+    issues: list[ValidationIssue] = []
+    missing_graph = [address for address in addresses if address not in graph]
+    if spec is not None and missing_graph:
+        issues.append(
+            _issue(
+                "warning",
+                "domain_cell_not_in_graph",
+                "domain names cells that are not in the extracted graph: "
+                + ", ".join(missing_graph[:8]),
+                series_id=series_id,
+                address=missing_graph[0],
+            )
+        )
+    if not isinstance(spec, dict) or spec.get("from_workbook") is not True:
+        return issues
+    for address in addresses:
+        if address not in graph:
+            continue
+        node = graph.get_node(address)
+        if node is None or node.value is None:
+            issues.append(
+                _issue(
+                    "error",
+                    "from_workbook_missing_value",
+                    "from_workbook cell has no cached workbook value",
+                    series_id=series_id,
+                    address=address,
+                )
+            )
+    return issues
+
+
+def _read_matches_dtype(read: str, dtype: str) -> bool:
+    if read == "auto":
+        return True
+    if read == dtype:
+        return True
+    return read == "number" and dtype in {"int", "float", "number"}
+
+
+def _validate_dtype_read_consistency(
+    series: dict[str, Any],
+    *,
+    concept_dtypes: dict[str, str],
+) -> list[ValidationIssue]:
+    issues: list[ValidationIssue] = []
+    series_id = str(series.get("id", ""))
+    structure = series.get("structure") or {}
+    measure = structure.get("measure")
+    if isinstance(measure, dict):
+        measure_dtype = measure.get("dtype")
+        bind = measure.get("bind")
+        if isinstance(bind, dict) and measure_dtype is not None:
+            read = str(bind.get("read", "auto"))
+            dtype = str(measure_dtype)
+            if not _read_matches_dtype(read, dtype):
+                issues.append(
+                    _issue(
+                        "warning",
+                        "dtype_read_mismatch",
+                        f"measure dtype {dtype!r} does not match bind read {read!r}",
+                        series_id=series_id,
+                    )
+                )
+
+    for index, dim in enumerate(structure.get("dimensions") or []):
+        if not isinstance(dim, dict):
+            continue
+        field_id = effective_dimension_id(dim) or f"dimensions[{index}]"
+        declared_dtype = dim.get("dtype")
+        dtype = (
+            str(declared_dtype)
+            if declared_dtype is not None
+            else concept_dtypes.get(str(dim.get("concept", "")))
+        )
+        bind = dim.get("bind")
+        if not isinstance(bind, dict) or dtype is None:
+            continue
+        read = str(bind.get("read", "auto"))
+        if not _read_matches_dtype(read, dtype):
+            hint = (
+                ""
+                if declared_dtype is not None
+                else (
+                    "; declare a per-dimension dtype if this dimension's storage type "
+                    "intentionally differs from the concept, or use a separate concept"
+                )
+            )
+            issues.append(
+                _issue(
+                    "warning",
+                    "dtype_read_mismatch",
+                    f"dimension {field_id!r} dtype {dtype!r} does not match bind read "
+                    f"{read!r}{hint}",
+                    series_id=series_id,
+                )
+            )
+
+    for index, attr in enumerate(structure.get("attributes") or []):
+        if not isinstance(attr, dict):
+            continue
+        concept = str(attr.get("concept", f"attributes[{index}]"))
+        dtype = concept_dtypes.get(concept)
+        bind = attr.get("bind")
+        if not isinstance(bind, dict) or dtype is None:
+            continue
+        read = str(bind.get("read", "auto"))
+        if not _read_matches_dtype(read, dtype):
+            issues.append(
+                _issue(
+                    "warning",
+                    "dtype_read_mismatch",
+                    f"attribute {concept!r} dtype {dtype!r} does not match bind read {read!r}",
+                    series_id=series_id,
+                )
+            )
+    return issues
+
+
+def validate_series_bindings(
+    graph: DependencyGraph,
+    bindings: WorkbookSeriesBindings,
+    *,
+    workbook: Path | str | None = None,
+) -> ValidationReport:
+    """Validate binding manifests against an extracted dependency graph.
+
+    Document-level checks include `duplicate_series_id`, `invalid_python_id`,
+    `geometry_in_id` (A1 cell or rectangle tokens in series ids and
+    `series_context` values), `require_unique_key_incompatible` (keyed series
+    may not set `validation.require_unique_key: false`),
+    `catalog_skipped_formula_owner` (`validation.catalog: false` uniquely owns
+    an on-graph formula cell), and series-relation
+    codes (`unknown_relation_partner`, `incomparable_relation_dtype`,
+    `incompatible_relation_key`, `reflexive_relation`, `cyclic_relation`,
+    `unresolved_relation_key`, `ambiguous_relation_partner_key`,
+    `missing_relation_partner_key`).
+    """
+    from excel_grapher.series_bindings.resolve import (
+        _WorkbookValues,
+        labeller_evaluate_addresses,
+        resolve_series_binding,
+    )
+
+    issues: list[ValidationIssue] = []
+    issues.extend(relation_declaration_issues(bindings))
+    concept_dtypes = _concept_dtype_map(bindings)
+    shared_reader: _WorkbookValues | None = None
+    seen_ranges: dict[str, str] = {}
+    occupancy_rows: list[tuple[dict[str, Any], list[str]]] = []
+    skipped_rows: list[tuple[dict[str, Any], list[str]]] = []
+    evaluate_addresses = (
+        labeller_evaluate_addresses(bindings, workbook) if workbook is not None else set()
+    )
+    evaluators: dict[int, Any] = {}
+
+    try:
+        for series in bindings.get("series", []):
+            if not isinstance(series, dict):
+                continue
+            series_id = str(series.get("id") or "")
+            issues.extend(_validate_series_identity(series))
+            issues.extend(_validate_axis_labels(series))
+            data_range_text = format_series_data_range(series)
+            if series_id and series_id in seen_ranges:
+                issues.append(
+                    _issue(
+                        "error",
+                        "duplicate_series_id",
+                        f"series id {series_id!r} is bound to both "
+                        f"{seen_ranges[series_id]} and {data_range_text}",
+                        series_id=series_id,
+                    )
+                )
+            elif series_id:
+                seen_ranges[series_id] = data_range_text
+            issues.extend(_validate_series_structure(series))
+            issues.extend(_validate_layout_intent(series))
+            issues.extend(_validate_keyed_catalog_unique_key(series))
+            issues.extend(_validate_input_value_map(series))
+            issues.extend(_validate_implementation_support(series))
+            issues.extend(_validate_dtype_read_consistency(series, concept_dtypes=concept_dtypes))
+            issues.extend(_validate_input_domain_dtype(series))
+            issues.extend(_validate_conflicting_domain(series))
+
+            if not series_data_ranges(series):
+                continue
+
+            _, require_unique_key = _series_validation_flags(series)
+            try:
+                addresses = expand_bound_series_addresses_for_graph(
+                    graph,
+                    series,
+                    workbook=workbook,
+                )
+            except (ValueError, TypeError) as exc:
+                issues.append(
+                    _issue(
+                        "error",
+                        "invalid_data_range",
+                        str(exc),
+                        series_id=series_id,
+                    )
+                )
+                continue
+
+            if not addresses:
+                issues.append(
+                    _issue(
+                        "error",
+                        "empty_data_range",
+                        "data_range expands to zero cells",
+                        series_id=series_id,
+                    )
+                )
+                continue
+
+            if is_cataloged_series(series):
+                occupancy_rows.append((series, addresses))
+            else:
+                skipped_rows.append((series, addresses))
+            issues.extend(_validate_input_mode(series))
+            issues.extend(_validate_input_binding_overlap(graph, series, addresses))
+            issues.extend(_validate_internal_binding_overlap(graph, series, addresses))
+            issues.extend(_validate_constant_binding_overlap(graph, series, addresses))
+            issues.extend(_validate_compiled_domain(graph, series, addresses))
+
+            graph_input_addresses = _input_binding_addresses(graph, series, addresses)
+            graph_internal_addresses = _internal_binding_addresses(graph, series, addresses)
+            graph_constant_addresses = _constant_binding_addresses(graph, series, addresses)
+
+            if require_unique_key:
+                cell_scoped_keys = [
+                    str(c)
+                    for c in (series.get("key") or [])
+                    if any(
+                        isinstance(d, dict)
+                        and effective_dimension_id(d) == str(c)
+                        and d.get("scope") == "cell"
+                        for d in (series.get("structure") or {}).get("dimensions") or []
+                    )
+                ]
+                if has_internal_direction(series):
+                    binding_addresses = graph_internal_addresses
+                    direction: Literal["input", "output", "internal", "constant"] = "internal"
+                elif has_constant_direction(series):
+                    binding_addresses = graph_constant_addresses
+                    direction = "constant"
+                else:
+                    binding_addresses = graph_input_addresses
+                    direction = "input"
+                if not binding_addresses:
+                    continue
+                if cell_scoped_keys and workbook is None:
+                    issues.append(
+                        _issue(
+                            "warning",
+                            "unique_key_deferred",
+                            "require_unique_key is set but coordinate resolution is not implemented yet "
+                            f"(cell-scoped key dimensions: {cell_scoped_keys})",
+                            series_id=series_id,
+                        )
+                    )
+                elif workbook is not None:
+                    if shared_reader is None:
+                        shared_reader = _WorkbookValues(workbook)
+                    resolved = resolve_series_binding(
+                        graph,
+                        workbook,
+                        series,
+                        direction=direction,
+                        reader=shared_reader,
+                        evaluate_addresses=evaluate_addresses,
+                        evaluators=evaluators,
+                    )
+                    issues.extend(resolved["issues"])
+                    if resolved["requires_address"]:
+                        issues.append(
+                            _issue(
+                                "warning",
+                                "requires_address",
+                                "Duplicate or ambiguous record keys require address disambiguation",
+                                series_id=series_id,
+                            )
+                        )
+    finally:
+        if shared_reader is not None:
+            shared_reader.close()
+
+    issues.extend(_validate_cell_occupancy(graph, occupancy_rows))
+    issues.extend(_validate_catalog_skipped_formula_owner(graph, occupancy_rows, skipped_rows))
+    issues = _downgrade_bound_leaf_notices(graph, occupancy_rows, issues)
+    if workbook is not None:
+        issues.extend(relation_alignment_issues(bindings, workbook=workbook))
+    ok = not any(i["level"] == "error" for i in issues)
+    return {"ok": ok, "issues": issues}

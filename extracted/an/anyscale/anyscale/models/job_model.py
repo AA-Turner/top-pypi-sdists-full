@@ -55,9 +55,7 @@ def _validate_conda_option(conda_option: Union[str, Dict]) -> Union[str, Dict]:
             try:
                 result = yaml.safe_load(yaml_file.read_text())
             except Exception as e:  # noqa: BLE001
-                raise click.ClickException(
-                    f"Failed to read conda file {yaml_file}: {e}."
-                )
+                raise click.ClickException(f"Failed to read conda file {yaml_file}: {e}.")
         else:
             # Assume it's a pre-existing conda environment name.
             result = conda_option
@@ -82,9 +80,7 @@ def _validate_pip_option(pip_option: Union[str, List[str]]) -> Optional[List[str
         if not pip_file.is_file():
             raise click.ClickException(f"{pip_file} is not a valid file.")
         result = pip_file.read_text().strip().split("\n")
-    elif isinstance(pip_option, list) and all(
-        isinstance(dep, str) for dep in pip_option
-    ):
+    elif isinstance(pip_option, list) and all(isinstance(dep, str) for dep in pip_option):
         result = None if len(pip_option) == 0 else pip_option
 
     return result
@@ -120,19 +116,13 @@ def _validate_working_dir(working_dir_option: str) -> str:
     return working_dir_option
 
 
-def _validate_working_dir_and_upload_path(
-    working_dir: Optional[str], upload_path: Optional[str]
-):
+def _validate_working_dir_and_upload_path(working_dir: Optional[str], upload_path: Optional[str]):
     """Check that the combination of working_dir and upload_path is valid.
 
     Exception should be thrown if both working dir is a remote uri and upload path is defined
     Otherwise, all other permutations are valid
     """
-    if (
-        upload_path is not None
-        and working_dir
-        and _working_dir_is_remote_uri(working_dir)
-    ):
+    if upload_path is not None and working_dir and _working_dir_is_remote_uri(working_dir):
         raise click.ClickException(
             f"`upload_path` was specified, but `working_dir` is not a local directory.  Recieved `upload_path`: {upload_path} and `working_dir`: {working_dir}."
         )
@@ -286,7 +276,8 @@ class BaseHAJobConfig(BaseModel):
         description="The id of the project you want to use. If not specified, and no project is inferred from the directory, no project will be used.",
     )
     workspace_id: Optional[str] = Field(
-        None, description="The id of the workspace that this job is submitted from.",
+        None,
+        description="The id of the workspace that this job is submitted from.",
     )
     project: Optional[str] = Field(
         None,
@@ -417,27 +408,21 @@ class BaseHAJobConfig(BaseModel):
             compute_config_id = register_compute_template(compute_config).id
         elif cloud:
             # Get default cluster compute for the specified cloud.
-            compute_config_id = get_default_cluster_compute(
-                cloud_name=cloud, project_id=None
-            ).id
+            compute_config_id = get_default_cluster_compute(cloud_name=cloud, project_id=None).id
             log.info(
                 f"Using default compute config for specified cloud {cloud}: {compute_config_id}."
             )
         elif not compute_config_id:
             parent_cloud_name = None
             if project_id:
-                parent_cloud_id_and_name = get_parent_cloud_id_and_name_of_project(
-                    project_id
-                )
+                parent_cloud_id_and_name = get_parent_cloud_id_and_name_of_project(project_id)
                 if parent_cloud_id_and_name:
                     _, parent_cloud_name = parent_cloud_id_and_name
             # Get default cluster compute for the parent cloud if it exists or the default cloud default cloud.
             compute_config_id = get_default_cluster_compute(
                 cloud_name=parent_cloud_name, project_id=None
             ).id
-            msg_about_cloud = (
-                f" for cloud {parent_cloud_name}" if parent_cloud_name else ""
-            )
+            msg_about_cloud = f" for cloud {parent_cloud_name}" if parent_cloud_name else ""
             log.info(
                 f"No cloud or compute config specified, using the default{msg_about_cloud}: {compute_config_id}."
             )

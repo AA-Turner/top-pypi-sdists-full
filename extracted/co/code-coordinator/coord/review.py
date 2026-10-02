@@ -45,7 +45,7 @@ import re
 import time
 import uuid
 from typing import Iterable, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import httpx
@@ -59,9 +59,11 @@ from coord.models import (
     WORK_LIKE_TYPES,
     Assignment,
     Board,
+    IssueResolution,
     Machine,
     Repo,
     coordinator_owned_docs,
+    parse_issue_resolution,
     trust_issue_closed_for,
 )
 from coord.refine_chat import MAX_CLAUDE_MD_CHARS
@@ -87,6 +89,13 @@ class ReviewFindings:
     """Structured review output extracted from a reviewer worker log."""
     verdict: str  # "approve" or "request-changes"
     body: str
+    # #3502: the reviewer's own `ISSUE_RESOLUTION:` judgment, parsed out of
+    # `body` with the exact same marker `coord.models.parse_issue_resolution`
+    # also reads off a worker's `completion_summary` — one parser, two
+    # callers, so the two can never disagree about what the marker means.
+    # Defaults to "resolved" (unset) when the reviewer didn't emit one,
+    # mirroring every other verdict marker's absent-means-default posture.
+    issue_resolution: IssueResolution = field(default_factory=IssueResolution)
 
 
 # Matches the structured block the reviewer is instructed to emit at end of session.
@@ -744,7 +753,9 @@ def _parse_review_text(text: str) -> ReviewFindings | None:
     body = m.group(2).strip()
     if verdict not in ("approve", "request-changes"):
         return None
-    return ReviewFindings(verdict=verdict, body=body)
+    return ReviewFindings(
+        verdict=verdict, body=body, issue_resolution=parse_issue_resolution(body)
+    )
 
 
 def _parse_review_from_lines(
@@ -891,7 +902,11 @@ def fetch_review_findings_from_github(
         hit = extract_findings_block(c.get("body", ""), assignment_id)
         if hit is not None:
             verdict, body = hit
-            return ReviewFindings(verdict=verdict or "request-changes", body=body)
+            return ReviewFindings(
+                verdict=verdict or "request-changes",
+                body=body,
+                issue_resolution=parse_issue_resolution(body),
+            )
     return None
 
 
@@ -1475,6 +1490,108 @@ def _diff_paths_outside_sealed(diff_text: str, sealed_paths: list[str]) -> list[
     )
 
 
+_DIFF_GIT_HEADER_RE = re.compile(r"^diff --git a/(.*) b/(.*)$")
+
+
+def _diff_removed_content_lines(diff_text: str, path: str) -> list[str]:
+    """Removed (``-``) content lines touching *path* in *diff_text* (#3509).
+
+    Scoped to the ``diff --git`` block(s) whose ``a/``/``b/`` side names
+    *path* exactly, so an unrelated file's deletions elsewhere in a
+    multi-file diff never leak in — mirrors
+    :func:`_sealed_to_sealed_rename_exemptions`'s per-block scoping, just
+    walking line-by-line instead of regex-splitting the whole diff, since
+    callers here want ordered content, not just a yes/no per sealed prefix.
+    Excludes diff/hunk header noise (``--- a/X``, ``+++ b/X``, ``@@ ... @@``)
+    — only a line starting with a single ``-`` is a real removed line.
+
+    A wholly new file has no removed lines by construction: a ``+++
+    b/path`` hunk against ``/dev/null`` is 100% ``+`` lines. A pure rename
+    with no content change has none either (nothing in the renamed block is
+    a ``-``/``+`` content line at all). So this returns ``[]`` for both —
+    exactly the cases #3509 calls "unrestricted growth", never flagged.
+    """
+    removed: list[str] = []
+    in_block = False
+    for line in diff_text.splitlines():
+        header = _DIFF_GIT_HEADER_RE.match(line)
+        if header is not None:
+            in_block = path in (header.group(1), header.group(2))
+            continue
+        if not in_block:
+            continue
+        if line.startswith("-") and not line.startswith("---"):
+            removed.append(line[1:])
+    return removed
+
+
+def _lane_entrypoint_violation_lines(
+    diff_text: str | None,
+    additive_only_entrypoints: list[str] | None,
+) -> tuple[list[str] | None, list[str]]:
+    """(#3509) Detect a MANDATORY violation of a Tier-2 lane-kind
+    (``tui-pty``/``win-native``/``mac-native``/``gtk-native``) smoke-spec
+    entry point's additive-only rule.
+
+    Unlike ``tests/acceptance/`` and the ``tui-tuidriver``/``cli-pytest``
+    entry points, *additive_only_entrypoints*
+    (:meth:`coord.config.AcceptanceConfig.additive_only_entrypoints` —
+    deliberately excluded from :meth:`coord.config.AcceptanceConfig.
+    sealed_paths` by #3509) is not sealed: a diff may add new steps, or
+    whole new spec files beside it, freely. What it must never do is remove
+    or rewrite a line that already existed — ``coord bugbash``'s whole
+    ratchet (#3487) depends on every fix GROWING the smoke spec, never
+    shrinking it, so a fix that "passes" by deleting the step it should
+    have made pass instead (or loosening an ``expect_*`` field, raising a
+    latency budget, shortening an idle window — all of which read,
+    textually, as a removed line) must be rejected exactly as hard as an
+    outright deletion.
+
+    Detection is deliberately conservative and line-based, not
+    YAML-semantic: ANY removed content line inside one of these files
+    (:func:`_diff_removed_content_lines`) is treated as a violation — the
+    same "anything beyond pure addition is suspect" shape the existing
+    test-author entry-point "additive registration only" guidance already
+    uses (see ``build_review_briefing``'s ``sealed_entrypoints`` branch).
+    The difference here is this one is MANDATORY and applies to every
+    assignment type, not just advisory text for a browsing reviewer: there
+    is no independent author ever expected to revisit this file, so a
+    false negative here is permanent, not caught at a later authoring step.
+
+    Returns ``(touched_paths, banner_lines)`` the moment a removal is found
+    in any entry, else ``(None, [])`` — including when
+    *additive_only_entrypoints* is empty, *diff_text* is empty, or every
+    touch is purely additive (a brand-new file, or only ``+`` lines
+    appended to an existing one).
+    """
+    if not additive_only_entrypoints or not diff_text:
+        return None, []
+    touched = [
+        p for p in additive_only_entrypoints
+        if _diff_removed_content_lines(diff_text, p)
+    ]
+    if not touched:
+        return None, []
+    lines = [
+        "## \U0001f6a8 SMOKE-SPEC ENTRY POINT WEAKENED",
+        "",
+        (
+            "The diff removes or rewrites existing line(s) in this repo's "
+            "Tier-2 lane smoke-spec entry point: "
+            + ", ".join(f"`{p}`" for p in touched)
+            + " (#3509). This file is additive-only: new steps and new spec "
+            "files beside it are expected and welcome, but deleting or "
+            "weakening an existing step — a removed step, a removed or "
+            "loosened `expect_*` field, a raised latency budget, a "
+            "shortened idle window — defeats the whole point of `coord "
+            "bugbash`'s regression ratchet (#3487): every fix is expected "
+            "to grow this spec, never shrink it. **request-changes is "
+            "mandatory here**, regardless of anything else in this diff."
+        ),
+    ]
+    return touched, lines
+
+
 # ── #3180: mandatory-verdict detection, shared by the briefing text AND the
 # dispatch-time mechanical short-circuit ────────────────────────────────────
 #
@@ -1597,17 +1714,24 @@ def _mechanical_mandatory_verdict(
     sealed_paths: list[str] | None,
     sealed_entrypoints: list[str] | None,
     coordinator_doc_paths: list[str] | None,
+    additive_only_entrypoints: list[str] | None = None,
 ) -> tuple[str, list[str], list[str]] | None:
     """(#3180) The single check `dispatch_review` runs BEFORE spending a
     review leg: does this diff already, mechanically, trip a MANDATORY
     request-changes rule?
 
     Checks the coordinator-doc rule first (it never inverts by assignment
-    type, per `build_review_briefing`'s docstring) and only then the sealed-
-    path rule (which does invert for `SEALED_PATH_AUTHOR_TYPES`). Returns
-    ``(kind, touched_paths, banner_lines)`` — *kind* is ``"coordinator_doc"``
-    or ``"sealed_path"``, used only to label the mechanical verdict's own
-    ``verdict_source_reason`` — the instant either fires, else ``None``.
+    type, per `build_review_briefing`'s docstring), then the sealed-path
+    rule (which does invert for `SEALED_PATH_AUTHOR_TYPES`), then (#3509)
+    the Tier-2 lane-kind additive-only rule — a `*additive_only_entrypoints*`
+    path is never in `sealed_paths`, so a diff confined to one never trips
+    the sealed-path check above; this is the only check standing between it
+    and a worker silently deleting the smoke-spec step its own fix should
+    have made pass. Returns ``(kind, touched_paths, banner_lines)`` — *kind*
+    is ``"coordinator_doc"``, ``"sealed_path"``, or
+    ``"lane_entrypoint_weakened"``, used only to label the mechanical
+    verdict's own ``verdict_source_reason`` — the instant any of the three
+    fires, else ``None``.
     """
     touched_docs, doc_lines = _coordinator_doc_violation_lines(
         diff_text, coordinator_doc_paths
@@ -1619,6 +1743,11 @@ def _mechanical_mandatory_verdict(
     )
     if touched_sealed:
         return "sealed_path", touched_sealed, sealed_lines
+    touched_lane, lane_lines = _lane_entrypoint_violation_lines(
+        diff_text, additive_only_entrypoints
+    )
+    if touched_lane:
+        return "lane_entrypoint_weakened", touched_lane, lane_lines
     return None
 
 
@@ -1920,6 +2049,7 @@ def build_review_briefing(
     diff_text: str | None = None,
     sealed_paths: list[str] | None = None,
     sealed_entrypoints: list[str] | None = None,
+    additive_only_entrypoints: list[str] | None = None,
     coordinator_doc_paths: list[str] | None = None,
     assignment_type: str = "work",
     provider_same_as_worker: bool = False,
@@ -2000,6 +2130,19 @@ def build_review_briefing(
     is expected and non-blocking. Every other type (default ``"work"``) keeps
     the original rule unchanged: any touch to *sealed_paths* is mandatory
     ``request-changes``.
+
+    *additive_only_entrypoints* (#3509) is the Tier-2 lane-kind subset
+    (``tui-pty``/``win-native``/``mac-native``/``gtk-native``,
+    :meth:`coord.config.AcceptanceConfig.additive_only_entrypoints`) that is
+    deliberately NOT part of *sealed_paths* at all — a work diff may add new
+    steps, or whole new spec files beside one, freely. Unlike
+    *sealed_entrypoints*'s advisory-only guidance above, this one IS
+    mechanically enforced (:func:`_lane_entrypoint_violation_lines`, applied
+    for every assignment type, not just non-authors): a diff that removes or
+    rewrites a pre-existing line in one of these files gets the same
+    mandatory ``request-changes`` banner a sealed-path tamper would,
+    regardless of *assignment_type* — see that function's docstring for why
+    there is no "the author's job is to write here" inversion for this one.
 
     *coordinator_doc_paths* (#2966) is the repo's coordinator-owned doc set —
     :func:`coord.models.coordinator_owned_docs`, the repo's own CLAUDE.md plus
@@ -2192,6 +2335,24 @@ def build_review_briefing(
             lines.append("### Completion summary")
             lines.append("")
             lines.append(_summary)
+            _worker_resolution = parse_issue_resolution(_summary)
+            if _worker_resolution.value != "resolved":
+                # #3502: the worker itself said this PR does NOT resolve
+                # issue #{issue_number} — surface it explicitly rather than
+                # leaving it buried in prose, and ask the reviewer to
+                # confirm or correct it in their own ISSUE_RESOLUTION line
+                # below (see the FORMAT CONTRACT section).
+                lines.append("")
+                lines.append(
+                    f"⚠️ The worker marked this `ISSUE_RESOLUTION: "
+                    f"{_worker_resolution.value}` — it does NOT believe this "
+                    f"PR fully resolves issue #{issue_number}"
+                    + (f" ({_worker_resolution.reason})" if _worker_resolution.reason else "")
+                    + ". Confirm or correct this with your own "
+                    "`ISSUE_RESOLUTION:` line (see below) — your judgment "
+                    "can only make it MORE cautious, never silently reopen "
+                    "it as fully resolved without saying why."
+                )
         if _commits:
             lines.append("")
             lines.append("### Commit messages")
@@ -2318,6 +2479,43 @@ def build_review_briefing(
                     + ". If the diff modifies any of them, **request-changes** — "
                     "this is a hard rule, not a suggestion (docs/ORACLE_LOOP.md)."
                 )
+
+    if additive_only_entrypoints:
+        # #3509: unlike sealed_paths above, this one applies to EVERY
+        # assignment type the same way — there is no "the author's job is
+        # to write here" inversion, since no assignment type's job is ever
+        # editing an existing step. Computed via the same helper
+        # `dispatch_review`'s mechanical short-circuit uses — see
+        # `_lane_entrypoint_violation_lines`'s docstring.
+        lines.append("")
+        _weakened_paths, _weakened_lines = _lane_entrypoint_violation_lines(
+            diff_text, additive_only_entrypoints
+        )
+        if _weakened_paths:
+            lines.extend(_weakened_lines)
+        else:
+            lines.append("## Smoke-spec entry point — additive only, not sealed")
+            lines.append("")
+            lines.append(
+                ", ".join(f"`{p}`" for p in additive_only_entrypoints)
+                + " is this repo's Tier-2 lane-kind acceptance driver entry "
+                "point (#3509) — a `coord bugbash` (#3487) smoke spec every "
+                "fix is expected to grow, not a sealed oracle. Do **not** "
+                "request-changes solely because this diff adds new steps or "
+                "new spec files beside it — that is expected and welcome."
+            )
+            lines.append("")
+            lines.append(
+                "- **Expected, do NOT flag:** new steps, or new spec files "
+                "beside this entry point."
+            )
+            lines.append(
+                "- **request-changes:** the diff removes or rewrites an "
+                "existing step, loosens an `expect_*` field, raises a "
+                "latency budget, or shortens an idle window — any of which "
+                "weakens a regression check `coord bugbash` already "
+                "depends on."
+            )
 
     if coordinator_doc_paths:
         # #2966: "only the coordinator writes docs" was prose-only — nothing
@@ -2473,11 +2671,51 @@ def build_review_briefing(
     lines.append("```")
     lines.append("REVIEW_VERDICT: approve")
     lines.append("REVIEW_BODY:")
+    lines.append("ISSUE_RESOLUTION: resolved")
     lines.append("<your full review text in markdown>")
     lines.append("END_REVIEW")
     lines.append("```")
     lines.append("")
     lines.append("Use `REVIEW_VERDICT: request-changes` if changes are needed.")
+    # #3502: ISSUE_RESOLUTION is a SEPARATE judgment from REVIEW_VERDICT —
+    # code quality and "does this actually fix the reported bug" are
+    # different questions. A PR can be well-written, pass review, AND still
+    # not resolve the issue (root cause lives elsewhere, this is
+    # investigation-only, only one hypothesis was ruled out). Merging it
+    # auto-closes the issue unless you say otherwise HERE.
+    lines.append("")
+    lines.append(
+        "ALSO include an `ISSUE_RESOLUTION:` line inside `REVIEW_BODY:` "
+        "(shown above, defaulting to `resolved`) — one of `resolved` | "
+        "`partial` | `investigation`:"
+    )
+    lines.append(
+        "- `resolved` — merging this PR fully fixes issue "
+        f"#{issue_number}. The default; say nothing extra if this is true."
+    )
+    lines.append(
+        "- `partial` — this PR makes real progress but issue "
+        f"#{issue_number}'s own problem is NOT fixed yet (e.g. the root "
+        "cause is in another repo and only a dependent half of the fix "
+        "landed here). Add `— <what remains>` after the value, e.g. "
+        "`ISSUE_RESOLUTION: partial — root cause is a quadraui gap, "
+        "quadraui#NNN now FILED (not just drafted in a docs file — an "
+        "actual GitHub issue) and must land before this can close`."
+    )
+    lines.append(
+        "- `investigation` — this PR is investigation-only (no production "
+        "change, or only one hypothesis ruled out) — the bug is exactly "
+        "as unresolved as before. Say what remains after the dash, same "
+        "as `partial`."
+    )
+    lines.append(
+        "A drafted-but-unfiled upstream issue (e.g. a bullet in a design "
+        "doc, a TODO comment) is NOT \"filed\" — only a real GitHub issue "
+        "number counts. If the worker's own completion summary above "
+        "already flagged `partial`/`investigation`, your own line can "
+        "only confirm it or make it MORE cautious, never silently revert "
+        "it to `resolved` without saying why that worker claim was wrong."
+    )
     # #1456: the coordinator's #476 gate (an advisory-only request-changes must
     # not burn another fix round) counts bullets under the body's section
     # headings, and since #1456 it fails CLOSED — an unparseable body keeps the
@@ -2534,6 +2772,7 @@ def _find_or_open_pr(
     issue_number: int,
     issue_title: str,
     assignment_type: str = "work",
+    completion_summary: str | None = None,
 ) -> dict | None:
     """Return {number, url, existed} for a PR on `branch`, opening one if needed.
 
@@ -2549,6 +2788,18 @@ def _find_or_open_pr(
     PR resolves — the body uses the non-closing ``Refs #N`` so the tracking
     issue still gets a discoverable backlink but does not flip to closed
     when the contract PR merges.
+
+    #3502: *completion_summary* — the worker's own final message, already
+    captured on ``Assignment.completion_summary`` by the time a PR opens —
+    is scanned for an ``ISSUE_RESOLUTION:`` marker via
+    :func:`coord.models.parse_issue_resolution`. Even for an otherwise
+    ``CLOSES_ISSUE_TYPES`` type, a worker who marked the issue
+    "partial"/"investigation" gets ``Refs #N`` here too, so the PR body
+    GitHub reads at merge time never carries a closing keyword this
+    worker's own final message said was wrong. This is the EARLY half of
+    the decision (only the worker's claim exists yet — review hasn't run);
+    `coord.merge_queue.process` re-derives the FINAL keyword at actual
+    merge time with the reviewer's judgment folded in too (#3502).
     """
     try:
         existing = github_ops.find_pr_for_branch(repo_github, branch)
@@ -2560,7 +2811,12 @@ def _find_or_open_pr(
             "url": existing.get("url"),
             "existed": True,
         }
-    keyword = "Closes" if assignment_type in CLOSES_ISSUE_TYPES else "Refs"
+    resolution = parse_issue_resolution(completion_summary)
+    keyword = (
+        "Closes"
+        if assignment_type in CLOSES_ISSUE_TYPES and resolution.value == "resolved"
+        else "Refs"
+    )
     try:
         return github_ops.create_pr(
             repo_github,
@@ -2732,6 +2988,7 @@ def open_pr_for_completed_work(
             issue_number=completed.issue_number,
             issue_title=completed.issue_title,
             assignment_type=completed.type,
+            completion_summary=completed.completion_summary,
         )
     except Exception:  # noqa: BLE001 — best-effort; dispatch_review retries later
         log.warning(
@@ -2949,6 +3206,7 @@ def _record_mechanical_review_verdict(
     kind_label = {
         "coordinator_doc": "coordinator-owned doc(s) edited",
         "sealed_path": "sealed path(s) violated",
+        "lane_entrypoint_weakened": "Tier-2 lane smoke-spec entry point weakened",
     }.get(kind, kind)
     touched_str = ", ".join(touched_paths)
     reason = f"{kind_label}: {touched_str}"
@@ -3379,6 +3637,7 @@ def dispatch_review(
             issue_number=completed.issue_number,
             issue_title=completed.issue_title,
             assignment_type=completed.type,
+            completion_summary=completed.completion_summary,
         )
 
         # #904 (fix #1): build a ranked list of ALL eligible reviewer machines so
@@ -3642,7 +3901,16 @@ def dispatch_review(
         # bounced, or leave it unwired and ship dead code. Each route now
         # declares its own `entrypoint:`.
         sealed_paths = config.acceptance.sealed_paths(completed.repo_name)
-        sealed_entrypoints = config.acceptance.entrypoints(completed.repo_name)
+        sealed_entrypoints = [
+            ep for ep in config.acceptance.entrypoints(completed.repo_name)
+            if ep in sealed_paths
+        ]
+        # #3509: the Tier-2 lane-kind entrypoints EXCLUDED from sealed_paths
+        # above — additive-only, mechanically enforced by
+        # `_lane_entrypoint_violation_lines` instead of the sealed-path rule.
+        additive_only_entrypoints = config.acceptance.additive_only_entrypoints(
+            completed.repo_name
+        )
 
         # #2966: coordinator-owned docs (repo's own CLAUDE.md plus anything it
         # additionally lists under coordinator_only_files) — see
@@ -3713,6 +3981,7 @@ def dispatch_review(
             sealed_paths=sealed_paths,
             sealed_entrypoints=sealed_entrypoints,
             coordinator_doc_paths=coordinator_doc_paths,
+            additive_only_entrypoints=additive_only_entrypoints,
         )
         if _mechanical is not None:
             mech_kind, mech_touched, mech_lines = _mechanical
@@ -3814,6 +4083,7 @@ def dispatch_review(
                 diff_text=diff_text,
                 sealed_paths=sealed_paths,
                 sealed_entrypoints=sealed_entrypoints,
+                additive_only_entrypoints=additive_only_entrypoints,
                 coordinator_doc_paths=coordinator_doc_paths,
                 assignment_type=completed.type,
                 completion_summary=completed.completion_summary,

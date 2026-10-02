@@ -1,0 +1,328 @@
+from __future__ import annotations
+
+from types import MappingProxyType
+from typing import TYPE_CHECKING
+
+from sarj_python_lint.rules.async_cleanup_registered_synchronously import AsyncCleanupRegisteredSynchronously
+from sarj_python_lint.rules.async_mock_call_without_await_assertion import AsyncMockCallWithoutAwaitAssertion
+from sarj_python_lint.rules.complex_postgres_query_requires_architecture_review import (
+    ComplexPostgresQueryRequiresArchitectureReview,
+)
+from sarj_python_lint.rules.defect_xfail_requires_explicit_strict import DefectXfailRequiresExplicitStrict
+from sarj_python_lint.rules.discourage_nullable_constructor_parameters import DiscourageNullableConstructorParameters
+from sarj_python_lint.rules.docstring_args_restate_signature import (
+    DocstringArgsRestateSignature,
+)
+from sarj_python_lint.rules.docstring_returns_restate_signature import (
+    DocstringReturnsRestateSignature,
+)
+from sarj_python_lint.rules.excessive_commentary import ExcessiveCommentary
+from sarj_python_lint.rules.fakes_in_shared_location import FakesInSharedLocation
+from sarj_python_lint.rules.fastapi_class_router_contract import FastapiClassRouterContract
+from sarj_python_lint.rules.fastapi_explicit_openapi_contract import FastapiExplicitOpenapiContract
+from sarj_python_lint.rules.iac_source_coupled_test import IacSourceCoupledTest
+from sarj_python_lint.rules.invalid_pydantic_field_default import (
+    InvalidPydanticFieldDefault,
+)
+from sarj_python_lint.rules.mock_without_spec import MockWithoutSpec
+from sarj_python_lint.rules.named_record_at_boundaries import NamedRecordAtBoundaries
+from sarj_python_lint.rules.negative_only_http_status_assertion import (
+    NegativeOnlyHttpStatusAssertion,
+)
+from sarj_python_lint.rules.no_analytical_aggregation_in_postgres_store import (
+    NoAnalyticalAggregationInPostgresStore,
+)
+from sarj_python_lint.rules.no_any_mapping_types import NoAnyMappingTypes
+from sarj_python_lint.rules.no_comment_cruft import NoCommentCruft
+from sarj_python_lint.rules.no_conftest_test_module_import import NoConftestTestModuleImport
+from sarj_python_lint.rules.no_copied_inherited_docstring import NoCopiedInheritedDocstring
+from sarj_python_lint.rules.no_cors_wildcard_with_credentials import (
+    NoCorsWildcardWithCredentials,
+)
+from sarj_python_lint.rules.no_database_programmability import NoDatabaseProgrammability
+from sarj_python_lint.rules.no_delete_statement import NoDeleteStatement
+from sarj_python_lint.rules.no_dunder_all import NoDunderAll
+from sarj_python_lint.rules.no_duplicate_dunder_all_entry import NoDuplicateDunderAllEntry
+from sarj_python_lint.rules.no_excessive_cognitive_complexity import NoExcessiveCognitiveComplexity
+from sarj_python_lint.rules.no_fastapi_on_event import NoFastapiOnEvent
+from sarj_python_lint.rules.no_file_level_escape_hatch_suppression import (
+    NoFileLevelEscapeHatchSuppression,
+)
+from sarj_python_lint.rules.no_first_party_private_import import (
+    NoFirstPartyPrivateImport,
+)
+from sarj_python_lint.rules.no_fixed_sleep_before_assert import NoFixedSleepBeforeAssert
+from sarj_python_lint.rules.no_frozen_after_validator_field_write import (
+    NoFrozenAfterValidatorFieldWrite,
+)
+from sarj_python_lint.rules.no_generic_single_export_module import NoGenericSingleExportModule
+from sarj_python_lint.rules.no_hidden_constructor_fallback import (
+    NoHiddenConstructorFallback,
+)
+from sarj_python_lint.rules.no_injected_module_loader import NoInjectedModuleLoader
+from sarj_python_lint.rules.no_invalid_argument_name_suppression import NoInvalidArgumentNameSuppression
+from sarj_python_lint.rules.no_nested_pydantic_field_validator import NoNestedPydanticFieldValidator
+from sarj_python_lint.rules.no_nullable_dependency_fallback import NoNullableDependencyFallback
+from sarj_python_lint.rules.no_offset_pagination import NoOffsetPagination
+from sarj_python_lint.rules.no_positional_psycopg_row_escape import NoPositionalPsycopgRowEscape
+from sarj_python_lint.rules.no_psycopg_execution_outside_injected_owner import (
+    NoPsycopgExecutionOutsideInjectedOwner,
+)
+from sarj_python_lint.rules.no_random_uuid_in_sql import NoRandomUuidInSql
+from sarj_python_lint.rules.no_raw_connection_in_tests import NoRawConnectionInTests
+from sarj_python_lint.rules.no_raw_source_text_test_oracle import NoRawSourceTextTestOracle
+from sarj_python_lint.rules.no_redundant_literal_description import NoRedundantLiteralDescription
+from sarj_python_lint.rules.no_redundant_module_alias_exports import NoRedundantModuleAliasExports
+from sarj_python_lint.rules.no_repeated_string_literal import NoRepeatedStringLiteral
+from sarj_python_lint.rules.no_repeated_test_body import NoRepeatedTestBody
+from sarj_python_lint.rules.no_restated_comment import NoRestatedComment
+from sarj_python_lint.rules.no_secret_in_log import NoSecretInLog
+from sarj_python_lint.rules.no_select_star import NoSelectStar
+from sarj_python_lint.rules.no_service_behavior_in_settings import NoServiceBehaviorInSettings
+from sarj_python_lint.rules.no_shallow_container_type_guard import NoShallowContainerTypeGuard
+from sarj_python_lint.rules.no_string_concat_in_loop import NoStringConcatInLoop
+from sarj_python_lint.rules.no_swallowed_asyncio_cancellation import NoSwallowedAsyncioCancellation
+from sarj_python_lint.rules.no_tautological_expect import NoTautologicalExpect
+from sarj_python_lint.rules.no_typed_doc_sections import NoTypedDocSections
+from sarj_python_lint.rules.no_unique_violation_message_match import (
+    NoUniqueViolationMessageMatch,
+)
+from sarj_python_lint.rules.no_unnecessary_docstring import NoUnnecessaryDocstring
+from sarj_python_lint.rules.no_unused_value_marker import NoUnusedValueMarker
+from sarj_python_lint.rules.no_vague_suppression_description import (
+    NoVagueSuppressionDescription,
+)
+from sarj_python_lint.rules.no_whole_request_response_payload_in_log import (
+    NoWholeRequestResponsePayloadInLog,
+)
+from sarj_python_lint.rules.opaque_parametrize_case_needs_id import OpaqueParametrizeCaseNeedsId
+from sarj_python_lint.rules.over_mocked_test import OverMockedTest
+from sarj_python_lint.rules.phase_label_comment import TestPhaseLabelComment
+from sarj_python_lint.rules.prefer_autospec_for_callable_mock import PreferAutospecForCallableMock
+from sarj_python_lint.rules.prefer_class_row import PreferClassRow
+from sarj_python_lint.rules.prefer_collection_comprehension import PreferCollectionComprehension
+from sarj_python_lint.rules.prefer_constant_time_secret_compare import (
+    PreferConstantTimeSecretCompare,
+)
+from sarj_python_lint.rules.prefer_fstring_over_concat import PreferFstringOverConcat
+from sarj_python_lint.rules.prefer_immutable_module_constant import (
+    PreferImmutableModuleConstant,
+)
+from sarj_python_lint.rules.prefer_injected_dependency_over_monkeypatch import (
+    PreferInjectedDependencyOverMonkeypatch,
+)
+from sarj_python_lint.rules.prefer_library_fake import PreferLibraryFake
+from sarj_python_lint.rules.prefer_match_assert_never import PreferMatchAssertNever
+from sarj_python_lint.rules.prefer_match_exception_dispatch import PreferMatchExceptionDispatch
+from sarj_python_lint.rules.prefer_match_type_dispatch import PreferMatchTypeDispatch
+from sarj_python_lint.rules.prefer_match_value_dispatch import PreferMatchValueDispatch
+from sarj_python_lint.rules.prefer_module_level_constant import (
+    PreferModuleLevelConstant,
+)
+from sarj_python_lint.rules.prefer_monkeypatch_for_process_state_in_test import (
+    PreferMonkeypatchForProcessStateInTest,
+)
+from sarj_python_lint.rules.prefer_monotonic_for_elapsed_time import PreferMonotonicForElapsedTime
+from sarj_python_lint.rules.prefer_namedtuple_over_tuple_return import (
+    PreferNamedtupleOverTupleReturn,
+)
+from sarj_python_lint.rules.prefer_nominal_id_types import PreferNominalIdTypes
+from sarj_python_lint.rules.prefer_non_nullable_collection import (
+    PreferNonNullableCollection,
+)
+from sarj_python_lint.rules.prefer_or_pattern import PreferOrPattern
+from sarj_python_lint.rules.prefer_pydantic_json_value import PreferPydanticJsonValue
+from sarj_python_lint.rules.prefer_regex_fullmatch import PreferRegexFullmatch
+from sarj_python_lint.rules.prefer_self_documenting_constant import (
+    PreferSelfDocumentingConstant,
+)
+from sarj_python_lint.rules.prefer_self_type_annotation import PreferSelfTypeAnnotation
+from sarj_python_lint.rules.prefer_set_isdisjoint import PreferSetIsdisjoint
+from sarj_python_lint.rules.prefer_str_enum import PreferStrEnum
+from sarj_python_lint.rules.prefer_struct_over_namedtuple import (
+    PreferStructOverNamedtuple,
+)
+from sarj_python_lint.rules.prefer_walrus_awaited_none_guard import PreferWalrusAwaitedNoneGuard
+from sarj_python_lint.rules.prefer_walrus_comprehension_filter import (
+    PreferWalrusComprehensionFilter,
+)
+from sarj_python_lint.rules.prefer_walrus_regex_match import PreferWalrusRegexMatch
+from sarj_python_lint.rules.prefer_walrus_stream_loop import PreferWalrusStreamLoop
+from sarj_python_lint.rules.production_derived_test_cases import ProductionDerivedTestCases
+from sarj_python_lint.rules.pytest_fixture_returns_bare_tuple import PytestFixtureReturnsBareTuple
+from sarj_python_lint.rules.redundant_class_docstring import RedundantClassDocstring
+from sarj_python_lint.rules.redundant_docstring import RedundantDocstring
+from sarj_python_lint.rules.redundant_module_docstring import RedundantModuleDocstring
+from sarj_python_lint.rules.repeated_kwarg_heavy_call_in_test import RepeatedKwargHeavyCallInTest
+from sarj_python_lint.rules.repeated_static_call_cases import RepeatedStaticCallCases
+from sarj_python_lint.rules.repeated_test_composition import RepeatedTestComposition
+from sarj_python_lint.rules.require_explicit_contract_implementation import RequireExplicitContractImplementation
+from sarj_python_lint.rules.require_explicit_psycopg_transaction import RequireExplicitPsycopgTransaction
+from sarj_python_lint.rules.require_explicit_service_contract import RequireExplicitServiceContract
+from sarj_python_lint.rules.require_keyword_only_swap_prone_params import (
+    RequireKeywordOnlySwapProneParams,
+)
+from sarj_python_lint.rules.require_nodecode_for_splitting_settings_field import (
+    RequireNoDecodeForSplittingSettingsField,
+)
+from sarj_python_lint.rules.require_port_for_service import RequirePortForService
+from sarj_python_lint.rules.require_precise_factory_signature import RequirePreciseFactorySignature
+from sarj_python_lint.rules.require_public_dependency_contract import RequirePublicDependencyContract
+from sarj_python_lint.rules.require_pydantic_for_external_json import (
+    RequirePydanticForExternalJson,
+)
+from sarj_python_lint.rules.require_pydantic_for_structured_payload import RequirePydanticForStructuredPayload
+from sarj_python_lint.rules.require_pydantic_ordinal_lower_bound import (
+    RequirePydanticOrdinalLowerBound,
+)
+from sarj_python_lint.rules.restated_test_docstring import RestatedTestDocstring
+from sarj_python_lint.rules.shared_mutable_pydantic_factory import SharedMutablePydanticFactory
+from sarj_python_lint.rules.stepdown import Stepdown
+from sarj_python_lint.rules.store_get_delegates_to_bulk_read import StoreGetDelegatesToBulkRead
+from sarj_python_lint.rules.store_insert_requires_on_conflict import (
+    StoreInsertRequiresOnConflict,
+)
+from sarj_python_lint.rules.subprocess_kill_without_reap import SubprocessKillWithoutReap
+from sarj_python_lint.rules.timestamp_order_requires_tiebreaker import TimestampOrderRequiresTiebreaker
+from sarj_python_lint.rules.trailing_value_narration import TrailingValueNarration
+from sarj_python_lint.rules.typed_error_reasons import TypedErrorReasons
+from sarj_python_lint.rules.uncontrolled_randomness_in_test import UncontrolledRandomnessInTest
+from sarj_python_lint.rules.unused_mock_setup import UnusedMockSetup
+from sarj_python_lint.rules.unused_test_factory_option import UnusedTestFactoryOption
+
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from sarj_python_lint.rule_base import Rule
+
+REGISTRY: Mapping[str, type[Rule]] = MappingProxyType(
+    {
+        NoDatabaseProgrammability.id: NoDatabaseProgrammability,
+        RequireExplicitContractImplementation.id: RequireExplicitContractImplementation,
+        DiscourageNullableConstructorParameters.id: DiscourageNullableConstructorParameters,
+        RequirePublicDependencyContract.id: RequirePublicDependencyContract,
+        RequirePreciseFactorySignature.id: RequirePreciseFactorySignature,
+        RequireExplicitServiceContract.id: RequireExplicitServiceContract,
+        AsyncCleanupRegisteredSynchronously.id: AsyncCleanupRegisteredSynchronously,
+        SubprocessKillWithoutReap.id: SubprocessKillWithoutReap,
+        NoSwallowedAsyncioCancellation.id: NoSwallowedAsyncioCancellation,
+        RequireExplicitPsycopgTransaction.id: RequireExplicitPsycopgTransaction,
+        AsyncMockCallWithoutAwaitAssertion.id: AsyncMockCallWithoutAwaitAssertion,
+        ComplexPostgresQueryRequiresArchitectureReview.id: ComplexPostgresQueryRequiresArchitectureReview,
+        ExcessiveCommentary.id: ExcessiveCommentary,
+        PreferWalrusAwaitedNoneGuard.id: PreferWalrusAwaitedNoneGuard,
+        TimestampOrderRequiresTiebreaker.id: TimestampOrderRequiresTiebreaker,
+        NoStringConcatInLoop.id: NoStringConcatInLoop,
+        PreferClassRow.id: PreferClassRow,
+        PreferCollectionComprehension.id: PreferCollectionComprehension,
+        PreferStrEnum.id: PreferStrEnum,
+        NoOffsetPagination.id: NoOffsetPagination,
+        NoExcessiveCognitiveComplexity.id: NoExcessiveCognitiveComplexity,
+        PreferNamedtupleOverTupleReturn.id: PreferNamedtupleOverTupleReturn,
+        NoCorsWildcardWithCredentials.id: NoCorsWildcardWithCredentials,
+        NamedRecordAtBoundaries.id: NamedRecordAtBoundaries,
+        FastapiExplicitOpenapiContract.id: FastapiExplicitOpenapiContract,
+        FastapiClassRouterContract.id: FastapiClassRouterContract,
+        FakesInSharedLocation.id: FakesInSharedLocation,
+        PreferConstantTimeSecretCompare.id: PreferConstantTimeSecretCompare,
+        NoSecretInLog.id: NoSecretInLog,
+        PreferStructOverNamedtuple.id: PreferStructOverNamedtuple,
+        NoCommentCruft.id: NoCommentCruft,
+        NoConftestTestModuleImport.id: NoConftestTestModuleImport,
+        StoreInsertRequiresOnConflict.id: StoreInsertRequiresOnConflict,
+        NoRawSourceTextTestOracle.id: NoRawSourceTextTestOracle,
+        IacSourceCoupledTest.id: IacSourceCoupledTest,
+        NoRawConnectionInTests.id: NoRawConnectionInTests,
+        NoFixedSleepBeforeAssert.id: NoFixedSleepBeforeAssert,
+        NoAnalyticalAggregationInPostgresStore.id: NoAnalyticalAggregationInPostgresStore,
+        NoSelectStar.id: NoSelectStar,
+        NoServiceBehaviorInSettings.id: NoServiceBehaviorInSettings,
+        NoGenericSingleExportModule.id: NoGenericSingleExportModule,
+        Stepdown.id: Stepdown,
+        NoRepeatedStringLiteral.id: NoRepeatedStringLiteral,
+        PreferMatchAssertNever.id: PreferMatchAssertNever,
+        RequireKeywordOnlySwapProneParams.id: RequireKeywordOnlySwapProneParams,
+        RequirePydanticForExternalJson.id: RequirePydanticForExternalJson,
+        PreferModuleLevelConstant.id: PreferModuleLevelConstant,
+        PreferImmutableModuleConstant.id: PreferImmutableModuleConstant,
+        PreferInjectedDependencyOverMonkeypatch.id: PreferInjectedDependencyOverMonkeypatch,
+        PreferMonkeypatchForProcessStateInTest.id: PreferMonkeypatchForProcessStateInTest,
+        MockWithoutSpec.id: MockWithoutSpec,
+        PreferAutospecForCallableMock.id: PreferAutospecForCallableMock,
+        OpaqueParametrizeCaseNeedsId.id: OpaqueParametrizeCaseNeedsId,
+        PytestFixtureReturnsBareTuple.id: PytestFixtureReturnsBareTuple,
+        StoreGetDelegatesToBulkRead.id: StoreGetDelegatesToBulkRead,
+        RepeatedKwargHeavyCallInTest.id: RepeatedKwargHeavyCallInTest,
+        RepeatedTestComposition.id: RepeatedTestComposition,
+        DefectXfailRequiresExplicitStrict.id: DefectXfailRequiresExplicitStrict,
+        NoFirstPartyPrivateImport.id: NoFirstPartyPrivateImport,
+        NoRestatedComment.id: NoRestatedComment,
+        RedundantDocstring.id: RedundantDocstring,
+        TrailingValueNarration.id: TrailingValueNarration,
+        NoRandomUuidInSql.id: NoRandomUuidInSql,
+        NoRedundantModuleAliasExports.id: NoRedundantModuleAliasExports,
+        NoHiddenConstructorFallback.id: NoHiddenConstructorFallback,
+        NoInjectedModuleLoader.id: NoInjectedModuleLoader,
+        NoNullableDependencyFallback.id: NoNullableDependencyFallback,
+        NoShallowContainerTypeGuard.id: NoShallowContainerTypeGuard,
+        NoFileLevelEscapeHatchSuppression.id: NoFileLevelEscapeHatchSuppression,
+        NoInvalidArgumentNameSuppression.id: NoInvalidArgumentNameSuppression,
+        NoFastapiOnEvent.id: NoFastapiOnEvent,
+        NoTautologicalExpect.id: NoTautologicalExpect,
+        PreferLibraryFake.id: PreferLibraryFake,
+        OverMockedTest.id: OverMockedTest,
+        InvalidPydanticFieldDefault.id: InvalidPydanticFieldDefault,
+        NoFrozenAfterValidatorFieldWrite.id: NoFrozenAfterValidatorFieldWrite,
+        NoRepeatedTestBody.id: NoRepeatedTestBody,
+        UnusedMockSetup.id: UnusedMockSetup,
+        UnusedTestFactoryOption.id: UnusedTestFactoryOption,
+        PreferFstringOverConcat.id: PreferFstringOverConcat,
+        PreferOrPattern.id: PreferOrPattern,
+        PreferPydanticJsonValue.id: PreferPydanticJsonValue,
+        RequirePortForService.id: RequirePortForService,
+        PreferNonNullableCollection.id: PreferNonNullableCollection,
+        PreferMatchExceptionDispatch.id: PreferMatchExceptionDispatch,
+        PreferMatchTypeDispatch.id: PreferMatchTypeDispatch,
+        PreferMatchValueDispatch.id: PreferMatchValueDispatch,
+        PreferWalrusRegexMatch.id: PreferWalrusRegexMatch,
+        PreferWalrusComprehensionFilter.id: PreferWalrusComprehensionFilter,
+        PreferWalrusStreamLoop.id: PreferWalrusStreamLoop,
+        PreferSelfTypeAnnotation.id: PreferSelfTypeAnnotation,
+        PreferSetIsdisjoint.id: PreferSetIsdisjoint,
+        PreferSelfDocumentingConstant.id: PreferSelfDocumentingConstant,
+        NoDuplicateDunderAllEntry.id: NoDuplicateDunderAllEntry,
+        NoDunderAll.id: NoDunderAll,
+        NoDeleteStatement.id: NoDeleteStatement,
+        NoCopiedInheritedDocstring.id: NoCopiedInheritedDocstring,
+        RedundantClassDocstring.id: RedundantClassDocstring,
+        RedundantModuleDocstring.id: RedundantModuleDocstring,
+        DocstringArgsRestateSignature.id: DocstringArgsRestateSignature,
+        DocstringReturnsRestateSignature.id: DocstringReturnsRestateSignature,
+        RestatedTestDocstring.id: RestatedTestDocstring,
+        TestPhaseLabelComment.id: TestPhaseLabelComment,
+        NoNestedPydanticFieldValidator.id: NoNestedPydanticFieldValidator,
+        NoRedundantLiteralDescription.id: NoRedundantLiteralDescription,
+        NoTypedDocSections.id: NoTypedDocSections,
+        NoUnnecessaryDocstring.id: NoUnnecessaryDocstring,
+        NoUnusedValueMarker.id: NoUnusedValueMarker,
+        PreferNominalIdTypes.id: PreferNominalIdTypes,
+        NoAnyMappingTypes.id: NoAnyMappingTypes,
+        NoUniqueViolationMessageMatch.id: NoUniqueViolationMessageMatch,
+        NegativeOnlyHttpStatusAssertion.id: NegativeOnlyHttpStatusAssertion,
+        ProductionDerivedTestCases.id: ProductionDerivedTestCases,
+        UncontrolledRandomnessInTest.id: UncontrolledRandomnessInTest,
+        RepeatedStaticCallCases.id: RepeatedStaticCallCases,
+        NoPositionalPsycopgRowEscape.id: NoPositionalPsycopgRowEscape,
+        NoPsycopgExecutionOutsideInjectedOwner.id: NoPsycopgExecutionOutsideInjectedOwner,
+        RequirePydanticOrdinalLowerBound.id: RequirePydanticOrdinalLowerBound,
+        RequirePydanticForStructuredPayload.id: RequirePydanticForStructuredPayload,
+        RequireNoDecodeForSplittingSettingsField.id: RequireNoDecodeForSplittingSettingsField,
+        NoVagueSuppressionDescription.id: NoVagueSuppressionDescription,
+        NoWholeRequestResponsePayloadInLog.id: NoWholeRequestResponsePayloadInLog,
+        SharedMutablePydanticFactory.id: SharedMutablePydanticFactory,
+        PreferRegexFullmatch.id: PreferRegexFullmatch,
+        PreferMonotonicForElapsedTime.id: PreferMonotonicForElapsedTime,
+        TypedErrorReasons.id: TypedErrorReasons,
+    }
+)

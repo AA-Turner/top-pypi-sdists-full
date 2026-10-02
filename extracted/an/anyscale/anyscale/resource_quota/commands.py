@@ -90,10 +90,9 @@ _DISABLE_DOCSTRINGS = {
 def create(
     create_resource_quota: CreateResourceQuota,
     *,
-    _private_sdk: Optional[PrivateResourceQuotaSDK] = None
+    _private_sdk: Optional[PrivateResourceQuotaSDK] = None,
 ) -> ResourceQuota:
-    """Create a resource quota.
-    """
+    """Create a resource quota."""
     return _private_sdk.create(create_resource_quota)  # type: ignore
 
 
@@ -110,10 +109,16 @@ def list(  # noqa: A001
     is_enabled: Optional[bool] = None,
     max_items: int = 20,
     *,
-    _private_sdk: Optional[PrivateResourceQuotaSDK] = None
+    _private_sdk: Optional[PrivateResourceQuotaSDK] = None,
 ) -> List[ResourceQuota]:
-    """List resource quotas. """
-    return _private_sdk.list(name, cloud, creator_id, is_enabled, max_items,)  # type: ignore
+    """List resource quotas."""
+    return _private_sdk.list(  # type: ignore
+        name,
+        cloud,
+        creator_id,
+        is_enabled,
+        max_items,
+    )
 
 
 @sdk_command(
@@ -122,11 +127,8 @@ def list(  # noqa: A001
     doc_py_example=_DELETE_EXAMPLE,
     arg_docstrings=_DELETE_DOCSTRINGS,
 )
-def delete(
-    resource_quota_id: str, *, _private_sdk: Optional[PrivateResourceQuotaSDK] = None
-):
-    """Delete a resource quota.
-    """
+def delete(resource_quota_id: str, *, _private_sdk: Optional[PrivateResourceQuotaSDK] = None):
+    """Delete a resource quota."""
     return _private_sdk.delete(resource_quota_id)  # type: ignore
 
 
@@ -136,11 +138,8 @@ def delete(
     doc_py_example=_ENABLE_EXAMPLE,
     arg_docstrings=_ENABLE_DOCSTRINGS,
 )
-def enable(
-    resource_quota_id: str, *, _private_sdk: Optional[PrivateResourceQuotaSDK] = None
-):
-    """Enable a resource quota.
-    """
+def enable(resource_quota_id: str, *, _private_sdk: Optional[PrivateResourceQuotaSDK] = None):
+    """Enable a resource quota."""
     return _private_sdk.set_status(resource_quota_id, True)  # type: ignore
 
 
@@ -150,9 +149,6 @@ def enable(
     doc_py_example=_DISABLE_EXAMPLE,
     arg_docstrings=_DISABLE_DOCSTRINGS,
 )
-def disable(
-    resource_quota_id: str, *, _private_sdk: Optional[PrivateResourceQuotaSDK] = None
-):
-    """Disable a resource quota.
-    """
+def disable(resource_quota_id: str, *, _private_sdk: Optional[PrivateResourceQuotaSDK] = None):
+    """Disable a resource quota."""
     return _private_sdk.set_status(resource_quota_id, False)  # type: ignore

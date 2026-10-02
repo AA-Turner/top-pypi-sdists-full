@@ -1,0 +1,15 @@
+[package]
+name = "jsonata-py"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Python bindings (PyO3) for the jsonata Rust port"
+readme = "README.md"
+
+[lib]
+name = "jsonata"
+crate-type = ["cdylib"]
+
+[dependencies]
+jsonata_core = { package = "jsonata", path = "../jsonata" }
+pyo3 = { version = "0.29", features = ["extension-module", "abi3-py311"] }

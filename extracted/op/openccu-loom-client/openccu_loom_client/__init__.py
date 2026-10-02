@@ -18,14 +18,16 @@ domain-wrapper layers on top.
 from __future__ import annotations
 
 from openccu_loom_client._version import __version__
-from openccu_loom_client.auth import BasicAuth, BearerAuth, SessionAuth
+from openccu_loom_client.auth import BasicAuth, BearerAuth, NoAuth, SessionAuth
 from openccu_loom_client.capabilities import ALWAYS_ON, Capability
 from openccu_loom_client.client import LoomClient
-from openccu_loom_client.config import LoomConfig
+from openccu_loom_client.config import BoxIngressConfig, LoomConfig
 from openccu_loom_client.exceptions import (
     BaseLoomException,
     LoomAuthError,
     LoomBadRequestError,
+    LoomBoxGateError,
+    LoomBoxLoginError,
     LoomConflictError,
     LoomFeatureUnavailableError,
     LoomForbiddenError,
@@ -53,9 +55,12 @@ __all__ = [
     "BaseLoomException",
     "BasicAuth",
     "BearerAuth",
+    "BoxIngressConfig",
     "Capability",
     "LoomAuthError",
     "LoomBadRequestError",
+    "LoomBoxGateError",
+    "LoomBoxLoginError",
     "LoomClient",
     "LoomConfig",
     "LoomConflictError",
@@ -76,6 +81,7 @@ __all__ = [
     "LoomUnsupportedOperationError",
     "LoomUpstreamUnavailableError",
     "LoomValidationError",
+    "NoAuth",
     "PairingFingerprintMismatchError",
     "PairingSession",
     "SessionAuth",

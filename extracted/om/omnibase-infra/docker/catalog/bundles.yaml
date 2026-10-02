@@ -1,0 +1,347 @@
+# Bundle definitions for ONEX infrastructure catalog.
+# Each bundle groups entries that are deployed together.
+# "includes" pulls in all entries from another bundle (transitive).
+core:
+  description: "Core infrastructure — always deployed"
+  services:
+    - postgres
+    - redpanda
+    - valkey
+    - infisical
+    - keycloak
+  includes: []
+  inject_env:
+    INFISICAL_ADDR: "http://infisical:8080"
+    # Allow a process-local dev override while keeping the default owned by
+    # the rendered runtime policy contract (DEV_TOPIC_PROVISIONER_MAX_PARTITIONS).
+    ONEX_TOPIC_PROVISIONER_MAX_PARTITIONS: "${ONEX_TOPIC_PROVISIONER_MAX_PARTITIONS:-${DEV_TOPIC_PROVISIONER_MAX_PARTITIONS:?runtime policy contract must set DEV_TOPIC_PROVISIONER_MAX_PARTITIONS}}"
+  # Only vars an operator can supply BEFORE the first bring-up belong here
+  # (OMN-16187). The Infisical machine identity is minted by
+  # scripts/setup-infisical-identity.sh at step 4 of bootstrap-infisical.sh,
+  # against the Infisical container these very services start — requiring it
+  # here made local bring-up impossible for a self-hosting operator. It now
+  # gates the runtime bundle, where its only consumer lives.
+  inject_required_env:
+    - INFISICAL_ENCRYPTION_KEY
+    - INFISICAL_AUTH_SECRET
+runtime-core:
+  # OMN-19496: the "no env requirements" claim this description used to make was
+  # false -- the resolved bundle requires 15 vars, lab model URLs among them.
+  # The laptop profile is the `local` bundle below.
+  description: "ONEX runtime core — 7 runtime services plus their infrastructure dependencies (OMN-9332). Requires the operator env (POSTGRES_PASSWORD, VALKEY_PASSWORD, Keycloak and service-client secrets, model URLs); for a laptop use the `local` bundle."
+  services:
+    - omninode-runtime
+    - runtime-effects
+    - agent-actions-consumer
+    - skill-lifecycle-consumer
+    - context-audit-consumer
+    - omninode-contract-resolver
+    - intelligence-api
+  includes: []
+  inject_env: {}
+  inject_required_env: []
+# OMN-19496: the LAPTOP profile. One command (`make up-local`) boots postgres,
+# redpanda, valkey, the migrations and the migration gate, and the runtime main
+# and effects kernels built from docker/Dockerfile.runtime (which installs
+# omnimarket, so the delegate-skill command topic has a consumer). It renders
+# under its own compose project, so every container, network, volume and the
+# runtime image tag are prefixed `omnibase-infra-local-` and it can run beside
+# any other project on the same Docker host.
+#
+# Its env comes from ONE file, named with --env-file (template:
+# docker/local.env.example; `make local-env` writes it). The only operator
+# values are the two local passwords and the path of the model overlay. Every
+# lab and ops integration -- the deploy agent, GitHub, Linear, Slack, CI relays,
+# Keycloak, the Infisical identity -- is off: its variable is bound empty here,
+# never required. The model endpoint is the typed Bifrost lane overlay the file
+# ONEX_LOCAL_BIFROST_OVERLAY names (template:
+# docker/lane-overlays/local.bifrost.example.yaml); the renderer never reads an
+# endpoint from env, by design.
+local:
+  description: "Laptop profile — the ONEX stack plus your own runtime (main + effects) in containers, no lab or ops secrets (OMN-19496). `make up-local`."
+  project: omnibase-infra-local
+  # OMN-19972: a laptop's database, broker and kernels are for that laptop.
+  # Every published port binds loopback, so nothing is exposed to the network
+  # the developer happens to be on. The lab lanes render the same manifests
+  # without this and stay reachable.
+  publish_host: 127.0.0.1
+  # OMN-19972: the shared Redpanda manifest defaults its advertised address to
+  # the lab's LAN IP, which the dev lane on .201 relies on. The laptop render
+  # must name no lab host, so its default is localhost; the env file can still
+  # set REDPANDA_ADVERTISE_HOST.
+  env_default_overrides:
+    REDPANDA_ADVERTISE_HOST: localhost
+  services:
+    - postgres
+    - redpanda
+    - redpanda-partition-cap
+    - valkey
+    - forward-migration
+    - migration-gate
+    - omninode-runtime
+    - runtime-effects
+    # The delegation_events writer. It is a standalone projection runner, not
+    # a kernel handler, on every lane that projects delegations.
+    - omnimarket-projection-delegation
+    # Projects registered credential references into the tenant routing overlay.
+    - omnimarket-projection-tenant-credentials
+    # OMN-19972 (plan T4.1, demo half): the six local pages read served
+    # exposures, so the laptop runs its own projection API, the LLM call and
+    # cost writer behind the Usage page, and the consumer-health projection.
+    - projection-api
+    - omnimarket-projection-llm-cost
+    - consumer-health-projection
+  # OMN-19972: 3002 is the lab lanes' projection API port. The laptop's own API
+  # answers on 3102 (loopback, by publish_host above).
+  port_overrides:
+    projection-api: 3102
+  # OMN-19972: the projection API refuses to start while any bus-backed
+  # exposure's topic is missing, and on a laptop the kernel's boot is what
+  # creates them (TopicProvisioner, from every installed contract). Measured on
+  # the lakshman lane 2026-09-30: started first, it waited 300 s, exited with
+  # "no partition metadata" and looped.
+  extra_depends_on:
+    projection-api:
+      omninode-runtime: service_healthy
+  includes: []
+  inject_env:
+    ONEX_ENVIRONMENT: local
+    # Non-secret lane identity; empty means this runtime has no lane tenant.
+    ONEX_TENANT_ID: "${ONEX_TENANT_ID:-}"
+    # OMN-19408: a lane-scoped node contract (omnimarket's lab projections and
+    # PR-landing nodes) fails closed on a runtime that cannot name its lane, and
+    # each such refusal is a discovery error that holds /health at `degraded`.
+    # A laptop is the dogfood shape (the lab's dogfood lane runs on laptops), a
+    # registered non-lab lane: the lab-scoped nodes are excluded without error.
+    ONEX_RUNTIME_LANE: dogfood
+    ONEX_TOPIC_PROVISIONER_MAX_PARTITIONS: "1"
+    ONEX_RUNTIME_CONTRACTS_DIR: /app/contracts/runtime
+    # Wiring strictness is the dev lane's: unset, so a handler the resolver
+    # cannot construct is quarantined and reported, not fatal. Measured on the
+    # first laptop boot (.105, 2026-09-24): with "1" the main kernel exits on
+    # HandlerSavingsCorrelation's unresolvable pool parameter.
+    # Delegation routing: the rendered Bifrost contract, this profile's own
+    # typed lane overlay (mounted by inject_volumes), and the routing tiers the
+    # runtime image bakes from the installed omnimarket package.
+    BIFROST_CONTRACT_PATH: /app/data/delegation/bifrost_delegation.yaml
+    BIFROST_LANE_OVERLAY_PATH: /app/config/delegation/local.bifrost.yaml
+    BIFROST_VERIFY_ENDPOINTS: "0"
+    DELEGATION_ROUTING_TIERS_PATH: /app/config/delegation/routing_tiers.yaml
+    # Database principals. The tenant and internal bindings connect as the same
+    # non-superuser principals the lab runtimes use (docker-compose.infra.yml
+    # x-runtime-env): omnimarket's standalone projection writers attest the
+    # connected principal per binding (OMN-17454) and refuse the superuser.
+    # forward-migration asserts both LOGIN credentials from the env file.
+    # Laptop limit, stated: the dashboard binding still connects as the
+    # postgres superuser, so role_omnidash and its RLS are NOT exercised.
+    ONEX_DATABASE_TOPOLOGY_PROFILE: local
+    OMNIDASH_ANALYTICS_DB_URL: "postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}@postgres:5432/omnidash_analytics"
+    ONEX_TENANT_DB_URL: "postgresql://tenant_projection_writer:${TENANT_PROJECTION_WRITER_PASSWORD:?TENANT_PROJECTION_WRITER_PASSWORD required}@postgres:5432/omnidash_analytics"
+    OMNINODE_INTERNAL_DB_URL: "postgresql://omninode_runtime:${OMNINODE_RUNTIME_PASSWORD:?OMNINODE_RUNTIME_PASSWORD required}@postgres:5432/omnidash_analytics"
+    OMNIMEMORY_ENABLED: "false"
+    # Legacy PluginLlm URLs. Delegation routes through the overlay above; these
+    # only need to be well-formed. Override in the env file if you use them.
+    LLM_CODER_URL: "${LLM_CODER_URL:-http://host.docker.internal:8000}"
+    LLM_CODER_FAST_URL: "${LLM_CODER_FAST_URL:-http://host.docker.internal:8000}"
+    LLM_EMBEDDING_URL: "${LLM_EMBEDDING_URL:-http://host.docker.internal:8002}"
+    LLM_DEEPSEEK_R1_URL: "${LLM_DEEPSEEK_R1_URL:-http://host.docker.internal:8000}"
+    # Local model egress: private ranges by default, so a model on your own
+    # machine or your own network is reachable.
+    LLM_ENDPOINT_CIDR_ALLOWLIST: "${LLM_ENDPOINT_CIDR_ALLOWLIST:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}"
+    LLM_CLOUD_ENDPOINT_HOST_ALLOWLIST: "${LLM_CLOUD_ENDPOINT_HOST_ALLOWLIST:?runtime policy contract must set LLM_CLOUD_ENDPOINT_HOST_ALLOWLIST}"
+    LOCAL_LLM_SHARED_SECRET: "${LOCAL_LLM_SHARED_SECRET:-}"
+    # Lab and ops integrations: off.
+    ONEX_REGISTRATION_AUTO_ACK: "false"
+    KEYCLOAK_ADMIN_URL: ""
+    KEYCLOAK_REALM: ""
+    KEYCLOAK_ADMIN_CLIENT_ID: ""
+    KEYCLOAK_ADMIN_CLIENT_SECRET: ""
+    KEYCLOAK_ISSUER: ""
+    ONEX_SERVICE_CLIENT_ID: ""
+    ONEX_SERVICE_CLIENT_SECRET: ""
+    INFISICAL_ADDR: ""
+    INFISICAL_CLIENT_ID: ""
+    INFISICAL_CLIENT_SECRET: ""
+    INFISICAL_PROJECT_ID: ""
+    GITHUB_TOKEN: ""
+    GH_TOKEN: ""
+    LINEAR_API_KEY: ""
+    DEPLOY_AGENT_HMAC_SECRET: ""
+  inject_volumes:
+    - "${ONEX_LOCAL_BIFROST_OVERLAY:?ONEX_LOCAL_BIFROST_OVERLAY must name your model overlay file (template: docker/lane-overlays/local.bifrost.example.yaml)}:/app/config/delegation/local.bifrost.yaml:ro"
+  inject_required_env:
+    - ONEX_LOCAL_BIFROST_OVERLAY
+    - OMNINODE_RUNTIME_PASSWORD
+    - TENANT_PROJECTION_WRITER_PASSWORD
+runtime-integrations:
+  description: "Runtime external-integration services — Linear, CI, Slack webhooks (OMN-9332)"
+  services:
+    - ci-relay
+    - linear-relay
+    - waitlist-signup-notifier
+  includes: []
+  inject_env: {}
+  inject_required_env:
+    - CI_CALLBACK_TOKEN
+    - LINEAR_WEBHOOK_SECRET
+    - WAITLIST_NOTIFIER_SLACK_BOT_TOKEN
+    - WAITLIST_NOTIFIER_SLACK_CHANNEL_ID
+runtime-observability-projections:
+  description: "Runtime projection/observability consumers — postgres projections, cost aggregation, health projection, decision store (OMN-9332)"
+  services:
+    - injection-effectiveness-consumer
+    - savings-estimation-consumer
+    - llm-cost-aggregation-consumer
+    - consumer-health-projection
+    - decision-store-consumer
+    - omnimarket-projection-delegation
+    # OMN-18114: the TENANT-domain projection CARRIER. Not a BaseProjectionRunner
+    # like the entry above -- it is the runtime kernel under
+    # RUNTIME_PROFILE=tenant-projection, the only process that owns the eight
+    # contracts pinned to that profile. Listed here so the catalog render carries
+    # the same service the base compose declares; the lane overlays decide which
+    # lanes actually START it.
+    - tenant-projection-writer
+    - infra-routing-decisions-consumer
+    - projection-api
+  includes: []
+  inject_env: {}
+  inject_required_env:
+    - OMNIBASE_INFRA_INJECTION_EFFECTIVENESS_POSTGRES_DSN
+runtime-infrastructure:
+  description: "Runtime infrastructure glue — migrations, workers, autoheal, DLQ replay (OMN-9332, OMN-12619)"
+  services:
+    - forward-migration
+    - migration-gate
+    - intelligence-migration
+    - runtime-worker
+    - retry-worker
+    - autoheal
+    - dlq-replay-consumer
+  includes: []
+  inject_env: {}
+  inject_required_env: []
+runtime:
+  description: "ONEX runtime platform — composed of runtime-core, runtime-integrations, runtime-observability-projections, runtime-infrastructure (OMN-9332). Preserves the `onex up runtime` operator contract."
+  services: []
+  includes:
+    - core
+    - tracing # OMN-8697: always wire Phoenix OTLP tracing with the runtime
+    - runtime-core
+    - runtime-integrations
+    - runtime-observability-projections
+    - runtime-infrastructure
+  inject_env: {}
+  # OMN-16187: the Infisical machine identity gates the runtime lane, not core.
+  # runtime_host_process is its only consumer (config prefetch); requiring it
+  # here keeps the operator contract that the runtime never starts with prefetch
+  # silently skipped, while leaving `onex up core` bringable with local secrets.
+  inject_required_env:
+    - INFISICAL_CLIENT_ID
+    - INFISICAL_CLIENT_SECRET
+    - INFISICAL_PROJECT_ID
+observability:
+  description: "LLM observability — Phoenix traces and evals"
+  services:
+    - phoenix
+  includes: []
+memgraph:
+  description: "Graph memory database for OmniMemory"
+  services:
+    - omnibase-infra-memgraph
+  includes: []
+  inject_env:
+    OMNIMEMORY_ENABLED: "true"
+    OMNIMEMORY_MEMGRAPH_HOST: "omnibase-infra-memgraph"
+    OMNIMEMORY_MEMGRAPH_PORT: "7687"
+  inject_required_env:
+    - OMNIMEMORY_DB_URL
+secrets:
+  description: "Infisical secrets management (DEPRECATED — Infisical is now in core bundle)"
+  services: []
+  includes:
+    - core
+  inject_env: {}
+  inject_required_env: []
+auth:
+  description: "Keycloak local OIDC/auth"
+  services:
+    - keycloak
+  includes: []
+  inject_required_env:
+    - KEYCLOAK_ADMIN_PASSWORD
+tracing:
+  description: "OpenTelemetry tracing to Phoenix"
+  services: []
+  includes:
+    - observability
+  inject_env:
+    OTEL_EXPORTER_OTLP_ENDPOINT: "http://phoenix:6006"
+    OTEL_TRACES_EXPORTER: "otlp"
+omnimemory:
+  description: "OmniMemory data layer — Qdrant, Memgraph, Valkey, Kreuzberg (OMN-8738)"
+  services:
+    - omnimemory-qdrant
+    - omnimemory-memgraph
+    - omnimemory-valkey
+    - omnimemory-kreuzberg
+  includes: []
+  inject_env: {}
+  inject_required_env: []
+omnimarket-projections:
+  description: "OmniMarket Kafka-to-DB projection consumers (OMN-7610 / OMN-8738)"
+  services:
+    - omnimarket-projection-session-outcome
+    - omnimarket-projection-llm-cost
+    - omnimarket-projection-cost-by-repo
+    - omnimarket-projection-savings
+    - omnimarket-projection-delegation
+    - omnimarket-projection-baselines
+    - omnimarket-projection-registration
+    - omnimarket-projection-live-events
+  includes:
+    - core
+  inject_required_env:
+    - OMNIDASH_ANALYTICS_DB_URL
+    # OMN-15425: the tenant-domain projection identity. Separate from the line
+    # above because it resolves a DIFFERENT principal (tenant_projection_writer)
+    # on the same database — see docker-compose.infra.yml's ONEX_TENANT_DB_URL.
+    - ONEX_TENANT_DB_URL
+omnidash:
+  description: "OmniDash Next.js analytics dashboard (OMN-8738)"
+  services:
+    - omnidash
+  includes:
+    - core
+  inject_required_env:
+    - OMNIDASH_ANALYTICS_DB_URL
+canary:
+  description: "ONEX canary runtime — loads contracts with runtime_profiles=[canary] for ADR canary orchestrator demo path (OMN-10729). Use `onex up canary` to bring up alongside core."
+  services:
+    - runtime-canary
+  includes:
+    - core
+  inject_env: {}
+  inject_required_env: []
+fault-injection:
+  description: >
+    Permanent DLQ fault-injection fixture (OMN-16265, OMN-14498 follow-on). Deliberately NOT included in the `runtime` bundle — this is an opt-in, on-demand deployment for driving primary-publish + DLQ-leg failures against node_fault_inject_fixture_compute's own private topics, never part of the always-on runtime surface. The service depends_on omninode-runtime + redpanda, which this bundle does not itself provide (only `core`) — bring it up alongside the `runtime` bundle (e.g. `onex up runtime fault-injection`) only when actively running a boundary-behavior regression check; see knowledge-base:runbooks/fault-inject-fixture-dlq-offset-withholding.md.
+
+  services:
+    - fault-inject-fixture
+  includes:
+    - core
+  inject_env: {}
+  inject_required_env: []
+tenant-path:
+  description: >-
+    The tenant-scoped control plane on the dev/lab lane (OMN-17530) — onex-api plus the omninode_cloud corpus one-shots it depends on. Deliberately its own bundle and NOT a member of `runtime`: every other lane merges docker-compose.infra.yml and would inherit anything added there, and this plane carries eleven fail-closed secrets that only the dev lane provisions. The dev lane is the lab of record (operator ruling 2026-09-08), and this is the plane that makes a tenant-scoped request resolvable on it — without it the lane can prove the runtime family boots and the projection writers are deployed, and nothing at all about the seam OMN-15583 and OMN-17519 sit in.
+  services:
+    - cloud-migration-files
+    - cloud-migration
+    - onex-api
+  includes:
+    - core
+  inject_env: {}
+  inject_required_env:
+    - ROLE_OMNINODE_PASSWORD

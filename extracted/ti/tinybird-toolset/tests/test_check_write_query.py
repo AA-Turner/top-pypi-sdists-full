@@ -436,3 +436,32 @@ class TestCreateTable(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Cannot parse input: expected 'eof' before: 'aaaa'"):
             q = "CREATE TABLE big_table (number Int64) ENGINE = MergeTree Order by tuple() Settings min_bytes_for_wide_part = 'aaaa'"
             query.check_valid_write_query(q)
+
+    def test_replicated_deduplication_window_up_to_default_is_ok(self):
+        for value in (0, 1000, 10000):
+            q = 'CREATE TABLE big_table (number Int64) ENGINE = MergeTree Order by tuple() ' \
+                f'SETTINGS replicated_deduplication_window = {value}'
+            self.assertEqual(query.format(query.check_valid_write_query(q)), query.format(q))
+
+    def test_replicated_deduplication_window_above_default_is_forbidden(self):
+        q = 'CREATE TABLE big_table (number Int64) ENGINE = MergeTree Order by tuple() ' \
+            'SETTINGS replicated_deduplication_window = 10001'
+        error = "The value for 'replicated_deduplication_window' is too big \\(10001 > 10000\\). Contact .*"
+        with self.assertRaisesRegex(ValueError, error):
+            query.check_valid_write_query(q)
+
+        expected = 'CREATE TABLE big_table (number Int64) ENGINE = MergeTree Order by tuple()'
+        result = query.check_valid_write_query(q, clean_table_settings=True)
+        self.assertEqual(query.format(result), query.format(expected))
+
+        with self.assertRaisesRegex(ValueError, "Cannot parse input: expected 'eof' before: 'aaaa'"):
+            q = 'CREATE TABLE big_table (number Int64) ENGINE = MergeTree Order by tuple() ' \
+                "SETTINGS replicated_deduplication_window = 'aaaa'"
+            query.check_valid_write_query(q)
+
+    def test_replicated_deduplication_window_seconds_is_still_forbidden(self):
+        q = 'CREATE TABLE big_table (number Int64) ENGINE = MergeTree Order by tuple() ' \
+            'SETTINGS replicated_deduplication_window_seconds = 60'
+        error = "Usage of setting 'replicated_deduplication_window_seconds' is restricted"
+        with self.assertRaisesRegex(ValueError, error):
+            query.check_valid_write_query(q)

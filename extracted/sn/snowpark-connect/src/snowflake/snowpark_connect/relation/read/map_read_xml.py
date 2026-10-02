@@ -191,7 +191,6 @@ def _nss_read_xml(
         _nss_column_name,
         as_all_string_columns,
         cache_if_corrupt_record_present,
-        columns_from_spark_schema,
         filter_reader_options,
         normalize_stage_paths,
         nss_empty_schema_dummy_columns,
@@ -249,26 +248,35 @@ def _nss_read_xml(
         elif not options._get_config_setting("inferschema"):
             nss_columns = as_all_string_columns(nss_columns)
     else:
+        from snowflake.snowpark_connect.nss.nss_infer_schema import (
+            columns_for_explicit_schema,
+        )
         from snowflake.snowpark_connect.relation.read.map_read import (
             parse_data_source_schema_to_spark,
         )
 
-        # TODO(SNOW-3717231): call the with-schema INFER_STAGE_FILE_SCHEMA TVF here too,
-        # so the backend returns the same per-column response format as the schema-less
-        # case (matching the CSV/JSON branches). Pending backend support -- for now use
-        # the client's Spark schema directly.
+        # SNOW-3853392: an explicit schema is routed through INFER_STAGE_FILE_SCHEMA's
+        # schema-adapt mode so both schema paths produce DATA_SCHEMA columns the same way.
+        # Adapt mode reads no file and runs no inference -- GS validates the JSON and emits
+        # the caller's own fields back as the TVF's standard rows -- so this keeps Spark's
+        # "explicit schema means no inference" contract. ``columns_for_explicit_schema``
+        # falls back to the client-side conversion on any backend refusal.
         parsed_spark_schema = parse_data_source_schema_to_spark(rel)
         if parsed_spark_schema is None:
             # Fail clearly rather than crash on ``None.fields`` inside
-            # columns_from_spark_schema.
+            # columns_for_explicit_schema.
             exception = ValueError(
                 "NSS XML read: an explicit schema was provided but the request "
                 "carried no parseable schema string."
             )
             attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
             raise exception
-        nss_columns = columns_from_spark_schema(
-            py_schema_as_nullable(parsed_spark_schema)
+        nss_columns = columns_for_explicit_schema(
+            session,
+            stage_path,
+            format_name,
+            py_schema_as_nullable(parsed_spark_schema),
+            get_string_session_config_param(NSS_INFER_STAGE_FILE_SCHEMA_FQN_CONFIG),
         )
         if not parsed_spark_schema.fields:
             nss_columns = nss_empty_schema_dummy_columns()

@@ -4,17 +4,16 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "tempora"
-version = "5.12.0"
+version = "5.13.0"
 description = ""
 readme = "README.md"
 requires-python = ">= 3.10"
-dependencies = ["pytest-freezer; extra == \"test\"", "backports.zoneinfo; python_version < \"3.9\" and extra == \"test\"", "tzdata; platform_system == \"Windows\" and extra == \"test\"", "types-python-dateutil; extra == \"test\"", "python-dateutil", "jaraco.collections", "jaraco.context", "jaraco.functools", "typing_extensions", "freezegun; extra==\"test\"", "pytest; extra==\"test\""]
+dependencies = ["pytest-freezer; extra == \"test\"", "backports.zoneinfo; python_version < \"3.9\" and extra == \"test\"", "tzdata; platform_system == \"Windows\" and extra == \"test\"", "types-python-dateutil; extra == \"test\"", "python-dateutil", "jaraco.collections", "jaraco.functools", "jaraco.context", "typing_extensions", "freezegun; extra==\"test\"", "pytest; extra==\"test\""]
 classifiers = ["Development Status :: 5 - Production/Stable", "Intended Audience :: Developers", "Programming Language :: Python :: 3", "Programming Language :: Python :: 3 :: Only"]
-license = "Apache-2.0"
 
 [[project.authors]]
-name = "Jason R. Coombs"
-email = "jaraco@jaraco.com"
+name = "Sreekant Baheti"
+email = "60787859+Sreekant13@users.noreply.github.com"
 
 [project.urls]
 Source = "https://github.com/jaraco/tempora"

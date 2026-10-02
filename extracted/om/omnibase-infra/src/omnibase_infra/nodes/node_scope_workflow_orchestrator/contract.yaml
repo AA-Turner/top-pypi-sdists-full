@@ -1,0 +1,111 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# OMN-8735: handler constructor compliance refactor (2026-04-15)
+# ONEX Node Contract - Scope Workflow Orchestrator
+#
+# Canary: skill-to-node migration proof of concept.
+# Converts the scope-check Claude Code skill to an event-driven ONEX workflow.
+#
+name: "node_scope_workflow_orchestrator"
+node_type: "ORCHESTRATOR_GENERIC"
+runtime_profiles: [main]
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version: "1.0.0"
+description: >
+  Orchestrates the scope-check workflow: receive command, dispatch file read, dispatch scope extraction, dispatch manifest write, emit completion event.
+
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  subscribe_topics:
+    - "onex.cmd.skill.scope-check.v1"
+    # OMN-17427: `onex.evt.skill.scope-file-read.v1` DELETED from subscribe_topics. No contract and no
+    # runtime path anywhere in the fleet publishes it (grep of every omni_home
+    # clone, 2026-10-01), so the subscription only minted a permanently empty
+    # consumer group (OMN-16795). Re-add it with its publisher and its handler
+    # entry, in one diff (OMN-7897).
+    # OMN-17427: `onex.evt.skill.scope-extracted.v1` DELETED from subscribe_topics. No contract and no
+    # runtime path anywhere in the fleet publishes it (grep of every omni_home
+    # clone, 2026-10-01), so the subscription only minted a permanently empty
+    # consumer group (OMN-16795). Re-add it with its publisher and its handler
+    # entry, in one diff (OMN-7897).
+    # OMN-17427: `onex.evt.skill.scope-manifest-written.v1` DELETED from subscribe_topics. No contract and no
+    # runtime path anywhere in the fleet publishes it (grep of every omni_home
+    # clone, 2026-10-01), so the subscription only minted a permanently empty
+    # consumer group (OMN-16795). Re-add it with its publisher and its handler
+    # entry, in one diff (OMN-7897).
+  publish_topics:
+    - "onex.evt.skill.scope-check-complete.v1"
+    - "onex.evt.skill.scope-check-failed.v1"
+  # OMN-13852: DLQ destination for unroutable inbound messages; matches the
+  # engine-derived NO_DISPATCHER topic for the "skill" event_type domain so
+  # the dead-letter escape hatch targets a provisioned topic.
+  dlq_topics:
+    - "onex.dlq.omnibase-infra.skill.v1"
+input_model:
+  name: "ModelScopeCheckCommand"
+  module: "omnibase_infra.nodes.node_scope_workflow_orchestrator.models.model_scope_check_command"
+  description: "Command to initiate scope-check workflow."
+output_model:
+  name: "ModelScopeCheckResult"
+  module: "omnibase_infra.nodes.node_scope_workflow_orchestrator.models.model_scope_check_result"
+  description: "Final scope-check result with manifest path and summary."
+handler_routing:
+  routing_strategy: "payload_type_match"
+  handlers:
+    - event_model:
+        name: "ModelScopeCheckCommand"
+        module: "omnibase_infra.nodes.node_scope_workflow_orchestrator.models.model_scope_check_command"
+      # OMN-13852: per-handler event_type disambiguates the owned subscribe topic
+      # so routes register (previously the multi-handler ambiguity guard registered
+      # zero routes and every inbound message fell through to NO_DISPATCHER).
+      event_type: "skill.scope-check"
+      message_category: "COMMAND"
+      handler:
+        name: "HandlerScopeCheckInitiate"
+        module: "omnibase_infra.nodes.node_scope_workflow_orchestrator.handlers.handler_scope_check_initiate"
+      output_events:
+        - "ModelScopeFileReadRequest"
+workflow_coordination:
+  workflow_definition:
+    workflow_metadata:
+      workflow_name: "scope_check_workflow"
+      workflow_version:
+        major: 1
+        minor: 0
+        patch: 0
+      description: "Scope extraction and manifest generation workflow"
+    execution_graph:
+      nodes:
+        - node_id: "read_file"
+          node_type: EFFECT_GENERIC
+          description: "Read plan file from filesystem"
+        - node_id: "extract_scope"
+          node_type: COMPUTE_GENERIC
+          description: "Parse plan content and extract scope items"
+          depends_on: ["read_file"]
+        - node_id: "write_manifest"
+          node_type: EFFECT_GENERIC
+          description: "Write scope manifest JSON to disk"
+          depends_on: ["extract_scope"]
+    coordination_rules:
+      execution_mode: sequential
+      parallel_execution_allowed: false
+      max_parallel_branches: 1
+      failure_recovery_strategy: fail_fast
+      max_retries: 0
+      timeout_ms: 15000
+metadata:
+  description: "Scope-check workflow orchestrator (skill-to-node canary)"
+  author: "OmniNode Team"
+  created: "2026-04-01"
+  tags:
+    - "orchestrator"
+    - "scope-check"
+    - "canary"
+    - "skill-migration"

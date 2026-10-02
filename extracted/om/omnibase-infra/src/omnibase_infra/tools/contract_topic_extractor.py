@@ -1,0 +1,1284 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+# Copyright (c) 2026 OmniNode Team
+#
+# ContractTopicExtractor — single source of topic parsing and validation.
+#
+# Scans all contract.yaml files under a contracts root directory and returns
+# a validated list of ModelContractTopicEntry objects.  All downstream components
+# (generator, scripts) consume its output without re-validating.
+#
+# Also supports extracting topics from Python source files containing
+# hardcoded topic constants (e.g., topic_constants.py) to close the
+# CONTRACT_DRIFT gap (OMN-3254).
+#
+# Ticket: OMN-2963, OMN-3254
+
+from __future__ import annotations
+
+import ast
+import importlib.metadata
+import importlib.resources
+import logging
+import re
+import sys
+from collections.abc import Mapping
+from dataclasses import dataclass
+from pathlib import Path
+from types import MappingProxyType
+from typing import Literal, cast
+
+import yaml
+from pydantic import BaseModel, field_validator
+
+from omnibase_infra.utils.util_runtime_packages import (
+    get_active_runtime_packages,
+    normalize_runtime_package_name,
+)
+
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+# OMN-15832: "snapshot" is a first-class kind, not a local addition — it
+# mirrors omnibase_core.constants.constants_topic_taxonomy's canonical
+# token-to-type mapping (get_valid_topic_suffix_kinds() already returns
+# {"cmd", "dlq", "evt", "intent", "snapshot"}). This extractor's set had
+# drifted behind that source of truth: every onex.snapshot.projection.*
+# topic (declared under a contract's projection_api section, see
+# _extract_raw_topics_from_contract below) was silently rejected here as an
+# "invalid kind", which is why those topics were never in the provisioner's
+# create-set despite auto-create being off on managed MSK.
+_VALID_KINDS: frozenset[str] = frozenset({"evt", "cmd", "intent", "dlq", "snapshot"})
+_VALID_DLQ_CATEGORIES: frozenset[str] = frozenset({"intents", "events", "commands"})
+_RE_VERSION = re.compile(r"^v\d+$")
+_RE_EVENT_NAME = re.compile(r"^[a-z0-9._-]+$")
+_RE_PRODUCER = re.compile(r"^[a-z0-9-]+$")  # no underscores allowed
+
+# Regex to identify ONEX topic string literals in Python source code.
+# Matches either:
+#   - 5-segment standard topics: onex.<kind>.<producer>.<event-name>.<version>
+#   - 5-segment DLQ topics: onex.dlq.<producer>.<category>.<version>
+#   - 4-segment legacy DLQ topics: onex.dlq.<category>.<version>
+_RE_ONEX_TOPIC_LITERAL = re.compile(
+    r"^onex\.(?:"
+    r"(?:evt|cmd|intent|dlq)\.[a-z0-9-]+\.[a-z0-9._-]+\.v\d+"
+    r"|dlq\.[a-z0-9._-]+\.v\d+"
+    r")$"
+)
+
+# YAML keys to inspect — ordered by spec; always check ALL, no early break.
+# Each entry is (top-level-key, sub-key-for-topic, sub-key-for-name).
+_EVENT_SECTION_KEYS: tuple[str, ...] = (
+    "consumed_events",
+    "published_events",
+    "produced_events",
+)
+_EVENT_BUS_SECTION_KEYS: tuple[str, ...] = (
+    "subscribe_topics",
+    "publish_topics",
+    # OMN-13548: contract-declared DLQ destinations for malformed inbound
+    # events. Projection handlers (delegation, savings, future) declare their
+    # dead-letter topic under ``event_bus.dlq_topics``; the wiring routes to it
+    # on handler error. Those topics must be provisioned on the broker just like
+    # publish/subscribe topics — otherwise the handler cannot route and the
+    # row is silently dropped (the failure mode that motivated this ticket).
+    "dlq_topics",
+)
+
+
+# ---------------------------------------------------------------------------
+# Data model
+# ---------------------------------------------------------------------------
+
+
+class ModelContractTopicEntry(BaseModel):
+    """A single validated topic extracted from one or more contract.yaml files.
+
+    Per-topic provisioning config (``partitions``, ``replication_factor``,
+    ``kafka_config``) is carried from a contract's optional ``topic_config``
+    block (OMN-13238). When a contract does not declare ``topic_config`` for a
+    topic, these fields stay ``None`` and the provisioner falls back to the
+    ``ModelTopicSpec`` defaults.
+    """
+
+    topic: str
+    kind: Literal["evt", "cmd", "intent", "dlq", "snapshot"]
+    producer: str
+    event_name: str
+    version: str  # e.g. "v1"
+    source_contracts: tuple[Path, ...]
+    provisioning_priority: int = 100
+    partitions: int | None = None
+    replication_factor: int | None = None
+    kafka_config: Mapping[str, str] | None = None
+
+    model_config = {"frozen": True, "arbitrary_types_allowed": True}
+
+    @field_validator("kafka_config", mode="before")
+    @classmethod
+    def _freeze_kafka_config(
+        cls, v: Mapping[str, str] | None
+    ) -> Mapping[str, str] | None:
+        """Freeze a mutable dict supplied at construction time."""
+        if isinstance(v, dict):
+            return MappingProxyType(dict(v))
+        return v
+
+    def merge_sources(self, other: ModelContractTopicEntry) -> ModelContractTopicEntry:
+        """Return a new entry with source_contracts merged (deduped, sorted).
+
+        Per-topic config is merged by taking the first non-``None`` value for
+        each field, so a topic declared in two contracts (one carrying
+        ``topic_config``, one not) keeps the declared config. When BOTH carry
+        conflicting config, ``self`` wins (deterministic by topic-string sort
+        order in the caller).
+        """
+        combined = tuple(
+            sorted(set(self.source_contracts) | set(other.source_contracts))
+        )
+        return self.model_copy(
+            update={
+                "source_contracts": combined,
+                "provisioning_priority": min(
+                    self.provisioning_priority,
+                    other.provisioning_priority,
+                ),
+                "partitions": (
+                    self.partitions if self.partitions is not None else other.partitions
+                ),
+                "replication_factor": (
+                    self.replication_factor
+                    if self.replication_factor is not None
+                    else other.replication_factor
+                ),
+                "kafka_config": (
+                    self.kafka_config
+                    if self.kafka_config is not None
+                    else other.kafka_config
+                ),
+            }
+        )
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+
+def _warn(msg: str) -> None:
+    """Emit a warning to stderr (never causes exit != 0 for callers)."""
+    print(f"WARNING: {msg}", file=sys.stderr)
+
+
+def _error(msg: str) -> None:
+    """Emit an error message and raise RuntimeError (hard-stop)."""
+    print(f"ERROR: {msg}", file=sys.stderr)
+    raise RuntimeError(msg)
+
+
+def _parse_topic(raw: str, source: Path) -> ModelContractTopicEntry | None:
+    """
+    Parse a raw topic string into a ModelContractTopicEntry.
+
+    Returns None (with a warning) if the topic is malformed.
+    Raises RuntimeError if a parser bug (inconsistency) is detected — but
+    that check happens at a higher level (deduplication); here we only parse.
+    """
+    parts = raw.split(".")
+    if len(parts) == 4:
+        prefix, kind, category, version = parts
+        if prefix == "onex" and kind == "dlq":
+            if category not in _VALID_DLQ_CATEGORIES:
+                _warn(
+                    "Skipping malformed DLQ topic "
+                    f"(invalid category {category!r}, must be one of "
+                    f"{sorted(_VALID_DLQ_CATEGORIES)}): {raw!r} in {source}"
+                )
+                return None
+            if not _RE_VERSION.match(version):
+                _warn(
+                    f"Skipping malformed DLQ topic (invalid version {version!r}, "
+                    f"must match ^v\\d+$): {raw!r} in {source}"
+                )
+                return None
+            return ModelContractTopicEntry(
+                topic=raw,
+                kind="dlq",
+                producer="dlq",
+                event_name=category,
+                version=version,
+                source_contracts=(source,),
+            )
+
+    if len(parts) < 5:
+        _warn(
+            f"Skipping malformed topic (expected at least 5 segments, got "
+            f"{len(parts)}): {raw!r} in {source}"
+        )
+        return None
+
+    # OMN-17557. The grammar is onex.<kind>.<producer>.<event_name>.<version>
+    # and ``_RE_EVENT_NAME`` has ALWAYS admitted a dot inside the event name --
+    # under a fixed 5-way unpack that branch was unreachable by construction,
+    # so every dotted event name was rejected as "malformed" instead. The four
+    # fixed positions are the first three segments and the last one; everything
+    # between them is the event name, joined back exactly as declared. A
+    # 5-segment topic is unaffected: ``parts[3:-1]`` is a single element and
+    # the join is the identity.
+    #
+    # Measured on the live onex-dev omnimarket-tenant-projection-writer pod
+    # (2026-09-08, RUNTIME_PROFILE=tenant-projection): EIGHTEEN distinct
+    # snapshot topics were being skipped here, including
+    # onex.snapshot.projection.delegation.quality-gate.v1 and
+    # onex.snapshot.projection.delegation.inference-response-text.v1. A skipped
+    # topic never reaches the contract-first provisioner's create-set, so on a
+    # managed broker with auto-create off it is never created -- the same
+    # failure mode OMN-15832 fixed for the `snapshot` KIND, recurring on ARITY.
+    #
+    # Renaming those topics instead was rejected: they are live wire names
+    # consumed by the projection API and omnidash widgets, and renaming would
+    # break every existing consumer to work around a parser that was already
+    # documented to accept them.
+    prefix, kind, producer = parts[0], parts[1], parts[2]
+    event_name = ".".join(parts[3:-1])
+    version = parts[-1]
+
+    if prefix != "onex":
+        _warn(
+            f"Skipping malformed topic (first segment must be 'onex', got {prefix!r}): "
+            f"{raw!r} in {source}"
+        )
+        return None
+
+    if kind not in _VALID_KINDS:
+        _warn(
+            f"Skipping malformed topic (invalid kind {kind!r}, "
+            f"must be one of {sorted(_VALID_KINDS)}): {raw!r} in {source}"
+        )
+        return None
+
+    if not _RE_VERSION.match(version):
+        _warn(
+            f"Skipping malformed topic (invalid version {version!r}, "
+            f"must match ^v\\d+$): {raw!r} in {source}"
+        )
+        return None
+
+    if not _RE_EVENT_NAME.match(event_name):
+        _warn(
+            f"Skipping malformed topic (invalid event-name {event_name!r}, "
+            f"must match ^[a-z0-9._-]+$): {raw!r} in {source}"
+        )
+        return None
+
+    if not _RE_PRODUCER.match(producer):
+        _warn(
+            f"Skipping malformed topic (invalid producer {producer!r}, "
+            f"must match ^[a-z0-9-]+$ — no underscores): {raw!r} in {source}"
+        )
+        return None
+
+    return ModelContractTopicEntry(
+        topic=raw,
+        kind=cast("Literal['evt', 'cmd', 'intent', 'dlq', 'snapshot']", kind),
+        producer=producer,
+        event_name=event_name,
+        version=version,
+        source_contracts=(source,),
+    )
+
+
+def _topic_priority(item: dict[object, object]) -> int:
+    raw_priority = item.get("provisioning_priority", item.get("priority", 100))
+    if isinstance(raw_priority, int) and not isinstance(raw_priority, bool):
+        return raw_priority
+    return 100
+
+
+@dataclass(frozen=True)  # internal-dataclass-ok: topic-parse-intermediate
+class RawTopicDecl:
+    """Internal parse intermediate: a raw topic string plus its declared config.
+
+    Not a domain model — it carries the per-topic provisioning attributes pulled
+    from a contract's optional ``topic_config`` block (OMN-13238) before they are
+    validated onto :class:`ModelContractTopicEntry`.
+    """
+
+    topic: str
+    provisioning_priority: int = 100
+    partitions: int | None = None
+    replication_factor: int | None = None
+    kafka_config: Mapping[str, str] | None = None
+
+
+def _parse_topic_config(
+    item: dict[object, object], source: Path
+) -> tuple[int | None, int | None, Mapping[str, str] | None]:
+    """Parse an optional ``topic_config`` block from a structured topic item.
+
+    Returns ``(partitions, replication_factor, kafka_config)``. Any field that
+    is absent or malformed is returned as ``None`` (falls back to defaults at
+    spec-build time). ``kafka_config`` values are coerced to strings (Kafka
+    topic configs are always string-valued).
+    """
+    raw = item.get("topic_config")
+    if not isinstance(raw, dict):
+        return (None, None, None)
+
+    partitions: int | None = None
+    partitions_raw = raw.get("partitions")
+    if isinstance(partitions_raw, int) and not isinstance(partitions_raw, bool):
+        partitions = partitions_raw
+    elif partitions_raw is not None:
+        _warn(
+            f"Ignoring non-integer topic_config.partitions={partitions_raw!r} "
+            f"for topic {item.get('topic')!r} in {source}"
+        )
+
+    replication_factor: int | None = None
+    rf_raw = raw.get("replication_factor")
+    if isinstance(rf_raw, int) and not isinstance(rf_raw, bool):
+        replication_factor = rf_raw
+    elif rf_raw is not None:
+        _warn(
+            f"Ignoring non-integer topic_config.replication_factor={rf_raw!r} "
+            f"for topic {item.get('topic')!r} in {source}"
+        )
+
+    kafka_config: Mapping[str, str] | None = None
+    kc_raw = raw.get("kafka_config")
+    if isinstance(kc_raw, dict):
+        kafka_config = {str(k): str(v) for k, v in kc_raw.items()}
+    elif kc_raw is not None:
+        _warn(
+            f"Ignoring non-mapping topic_config.kafka_config={kc_raw!r} "
+            f"for topic {item.get('topic')!r} in {source}"
+        )
+
+    return (partitions, replication_factor, kafka_config)
+
+
+def _extract_raw_topics_from_contract(
+    data: dict[str, object], source: Path
+) -> list[RawTopicDecl]:
+    """
+    Extract all raw topic declarations from a parsed contract YAML dict.
+
+    Checks ALL applicable keys — no early break on first match.
+    If a field has both 'topic' and 'name' values, extracts both.
+    Structured (dict) topic items may carry an optional ``topic_config`` block
+    (``partitions`` / ``replication_factor`` / ``kafka_config``) which is
+    threaded onto the resulting declaration (OMN-13238).
+    """
+    raw_topics: list[RawTopicDecl] = []
+
+    # --- event_bus.subscribe_topics / event_bus.publish_topics (new-style) ---
+    event_bus = data.get("event_bus")
+    if isinstance(event_bus, dict):
+        for key in _EVENT_BUS_SECTION_KEYS:
+            topics_list = event_bus.get(key)
+            if isinstance(topics_list, list):
+                for item in topics_list:
+                    if isinstance(item, str) and item:
+                        raw_topics.append(RawTopicDecl(topic=item))
+                    elif isinstance(item, dict):
+                        # topic: "..." format inside subscribe/publish list
+                        topic_val = item.get("topic")
+                        if isinstance(topic_val, str) and topic_val:
+                            partitions, rf, kc = _parse_topic_config(item, source)
+                            raw_topics.append(
+                                RawTopicDecl(
+                                    topic=topic_val,
+                                    provisioning_priority=_topic_priority(item),
+                                    partitions=partitions,
+                                    replication_factor=rf,
+                                    kafka_config=kc,
+                                )
+                            )
+
+    # --- consumed_events / published_events / produced_events ---
+    for section_key in _EVENT_SECTION_KEYS:
+        section = data.get(section_key)
+        if not isinstance(section, list):
+            continue
+        for item in section:
+            if not isinstance(item, dict):
+                continue
+            partitions, rf, kc = _parse_topic_config(item, source)
+            # new-style: topic key
+            topic_val = item.get("topic")
+            if isinstance(topic_val, str) and topic_val:
+                raw_topics.append(
+                    RawTopicDecl(
+                        topic=topic_val,
+                        provisioning_priority=_topic_priority(item),
+                        partitions=partitions,
+                        replication_factor=rf,
+                        kafka_config=kc,
+                    )
+                )
+            # old-style: name key — extract both if both present
+            name_val = item.get("name")
+            if isinstance(name_val, str) and name_val:
+                raw_topics.append(
+                    RawTopicDecl(
+                        topic=name_val,
+                        provisioning_priority=_topic_priority(item),
+                        partitions=partitions,
+                        replication_factor=rf,
+                        kafka_config=kc,
+                    )
+                )
+
+    # --- projection_api.topic / projection_api.exposures[].topic (OMN-15832) ---
+    # onex.snapshot.projection.* topics are declared under `projection_api`,
+    # not under `event_bus.*` or the consumed/published/produced_events
+    # sections above — the only topic family with its own top-level contract
+    # key. Scoped to `expose: true` AND `bus_backed: true` exposures only:
+    #
+    # - `expose` is a SECTION-LEVEL gate (declared once under `projection_api`,
+    #   never repeated per-exposure — see node_projection_delegation's
+    #   contract.yaml for the exposures-list shape). It must be checked BEFORE
+    #   iterating exposures, matching
+    #   omnimarket.projection.discovery.build_projection_topic_map's own gate
+    #   (`if not section.get("expose", False): continue`, checked before any
+    #   bus_backed logic). Without this check, an `expose: false` +
+    #   `bus_backed: true` contract would be provisioned here while
+    #   build_projection_topic_map never serves it — a topic created but never
+    #   read.
+    # - `bus_backed: true` is exactly the per-exposure set omnimarket's
+    #   SnapshotCache blocks projection-api startup on (snapshot_cache.py's
+    #   _wait_topics reads cfg.bus_backed the same way), so provisioning
+    #   tracks the genuinely required set instead of eagerly creating topics
+    #   for exposures nothing publishes to yet.
+    for proj_item in _projection_api_served_exposures(data.get("projection_api")):
+        topic_val = proj_item.get("topic")
+        if isinstance(topic_val, str) and topic_val:
+            partitions, rf, kc = _parse_topic_config(proj_item, source)
+            raw_topics.append(
+                RawTopicDecl(
+                    topic=topic_val,
+                    provisioning_priority=_topic_priority(proj_item),
+                    partitions=partitions,
+                    replication_factor=rf,
+                    kafka_config=kc,
+                )
+            )
+
+    return raw_topics
+
+
+def _projection_api_served_exposures(
+    projection_api: object,
+) -> list[dict[object, object]]:
+    """Return the ``projection_api`` exposure dicts that are actually served.
+
+    Single source of parsing truth for "is this projection_api exposure
+    genuinely reachable" — reused by both the contract.yaml scan above and
+    ``handler_wiring._contract_provision_topics`` (OMN-15832 Phase B
+    provisioning) via :func:`read_projection_api_topics`, so the boot-time
+    provision set and the extractor's static scan can never diverge.
+
+    An exposure is served iff:
+    - the section itself declares ``expose: true`` (section-level gate,
+      never per-exposure — mirrors
+      ``omnimarket.projection.discovery.build_projection_topic_map``), AND
+    - the individual exposure declares ``bus_backed: true`` (the predicate
+      omnimarket's ``SnapshotCache`` gates startup on).
+    """
+    if not isinstance(projection_api, dict):
+        return []
+    if projection_api.get("expose") is not True:
+        return []
+    return [
+        item
+        for item in _iter_projection_api_exposures(projection_api)
+        if item.get("bus_backed") is True
+    ]
+
+
+def _iter_projection_api_exposures(
+    section: dict[object, object],
+) -> list[dict[object, object]]:
+    """Yield each exposure dict under a contract's ``projection_api`` section.
+
+    Mirrors omnimarket.projection.discovery._parse_projection_api_sections's
+    legacy-singular vs. exposures-list duality: a contract declaring a single
+    ``projection_api.topic`` key (no ``exposures`` list) is one implicit
+    exposure; a contract declaring ``projection_api.exposures: [...]`` has one
+    exposure per list entry. A non-list, non-dict, or empty ``exposures``
+    value yields nothing rather than falling back to the legacy shape — the
+    same ambiguity omnimarket's own parser treats as contract-invalid.
+    """
+    exposures = section.get("exposures")
+    if exposures is not None:
+        if isinstance(exposures, list):
+            return [item for item in exposures if isinstance(item, dict)]
+        return []
+    return [section]
+
+
+def _extract_topics_from_python_ast(source_path: Path) -> list[str]:
+    """Extract ONEX topic string literals from a Python source file using AST.
+
+    Parses the file's AST and collects all string constants that match the
+    ONEX topic naming convention (onex.<kind>.<producer>.<event-name>.<version>).
+
+    Only extracts from module-level assignments (Final[str] constants),
+    not from docstrings, comments, or function bodies.
+
+    Args:
+        source_path: Path to a Python source file.
+
+    Returns:
+        Deduplicated list of raw topic strings found in the file.
+    """
+    try:
+        source_text = source_path.read_text(encoding="utf-8")
+        tree = ast.parse(source_text, filename=str(source_path))
+    except (SyntaxError, OSError) as exc:
+        _warn(f"Could not parse Python source {source_path}: {exc} — skipping")
+        return []
+
+    topics: list[str] = []
+    seen: set[str] = set()
+
+    for node in ast.iter_child_nodes(tree):
+        # Only look at module-level assignments (not inside functions/classes)
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+
+        # Walk all string constants in the assignment value
+        if isinstance(node, ast.AnnAssign):
+            if node.value is None:
+                continue
+            value_node = node.value
+        else:
+            # ast.Assign.value is always present (not Optional)
+            value_node = node.value
+
+        for child in ast.walk(value_node):
+            if isinstance(child, ast.Constant) and isinstance(child.value, str):
+                val = child.value.strip()
+                if _RE_ONEX_TOPIC_LITERAL.match(val) and val not in seen:
+                    topics.append(val)
+                    seen.add(val)
+
+    return topics
+
+
+# ---------------------------------------------------------------------------
+# Installed-package discovery helpers
+# ---------------------------------------------------------------------------
+
+
+def _collect_contracts_from_traversable(
+    nodes_ref: importlib.resources.abc.Traversable,
+) -> list[Path]:
+    """Recursively collect contract.yaml files from an importlib Traversable.
+
+    Args:
+        nodes_ref: A Traversable pointing to ``<package>.nodes``.
+
+    Returns:
+        List of concrete Path objects for each discovered contract.yaml.
+    """
+    results: list[Path] = []
+    try:
+        for child in nodes_ref.iterdir():
+            if child.is_dir():
+                contract = child.joinpath("contract.yaml")
+                # Traversable.is_file() is available in Python 3.12+
+                try:
+                    if contract.is_file():
+                        # Convert Traversable to Path for downstream compat
+                        # importlib.resources.as_file() is the safe way, but
+                        # for editable installs the Traversable IS a Path already
+                        concrete = Path(str(contract))
+                        if concrete.exists():
+                            results.append(concrete)
+                except (TypeError, AttributeError):
+                    pass
+                # Also recurse into subdirectories (nested node structures)
+                results.extend(_collect_contracts_from_traversable(child))
+    except (OSError, TypeError):
+        pass
+    return results
+
+
+def _find_package_root(
+    dist: importlib.metadata.Distribution, pkg_name: str
+) -> Path | None:
+    """Locate the on-disk root directory for a package.
+
+    For editable installs this resolves to the ``src/<pkg_name>`` directory.
+    For normal installs it resolves to the ``site-packages/<pkg_name>`` directory.
+
+    Args:
+        dist: The importlib.metadata Distribution for the package.
+        pkg_name: The package name (used to build the expected subpath).
+
+    Returns:
+        Path to the package root directory, or None if not found.
+    """
+    # Try direct_url.json for editable installs (PEP 610)
+    direct_url = dist.read_text("direct_url.json")
+    if direct_url is not None:
+        import json
+
+        try:
+            url_data = json.loads(direct_url)
+            url_str: str = url_data.get("url", "")
+            if url_str.startswith("file://"):
+                base = Path(url_str.removeprefix("file://"))
+                # Editable installs: base is the repo root, package is under src/
+                candidate = base / "src" / pkg_name
+                if candidate.is_dir():
+                    return candidate
+                # Some packages have flat layout (package at repo root)
+                candidate = base / pkg_name
+                if candidate.is_dir():
+                    return candidate
+        except (json.JSONDecodeError, KeyError, TypeError):
+            pass
+
+    # Fallback: use dist.locate_file() to find the package directory
+    # This works for normal pip installs in site-packages
+    located = Path(str(dist.locate_file(pkg_name)))
+    if located.is_dir():
+        return located
+
+    return None
+
+
+def _entry_point_package_name(value: str) -> str | None:
+    """Return the top-level package name from an entry-point value."""
+
+    module_path = value.split(":", 1)[0].strip()
+    if not module_path:
+        return None
+    return module_path.split(".", 1)[0]
+
+
+def _discover_installed_topic_packages() -> tuple[str, ...]:
+    """Discover installed packages that can own contract-declared topics."""
+
+    active_packages = get_active_runtime_packages()
+    if active_packages is not None:
+        return tuple(sorted(active_packages))
+
+    candidates: set[str] = set()
+
+    for ep in importlib.metadata.entry_points(group="onex.node_package"):
+        candidates.add(normalize_runtime_package_name(ep.name))
+
+    for ep in importlib.metadata.entry_points(group="onex.nodes"):
+        package_name = _entry_point_package_name(ep.value)
+        if package_name is not None:
+            candidates.add(normalize_runtime_package_name(package_name))
+
+    return tuple(sorted(candidates))
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+
+def read_projection_api_topics(contract_path: Path) -> tuple[str, ...]:
+    """Read one contract.yaml's served ``projection_api`` topics (OMN-15832).
+
+    Single source of parsing truth for a contract's ``projection_api`` topics
+    — used by :meth:`ContractTopicExtractor.extract` (global scan, via
+    :func:`_projection_api_served_exposures`) AND by
+    ``handler_wiring._contract_provision_topics`` (per-contract Phase B boot
+    provisioning), so the two call sites can never disagree about which
+    ``projection_api`` topics are provisioned.
+
+    Returns the raw topic strings (unvalidated — callers that need
+    :class:`ModelContractTopicEntry` validation should go through
+    :meth:`ContractTopicExtractor.extract`) for exposures where the section
+    declares ``expose: true`` AND the individual exposure declares
+    ``bus_backed: true``. Returns ``()`` if the file cannot be read, is not a
+    mapping, or has no served exposures — mirrors the degrade-not-abort
+    contract of ``_read_dlq_topics``.
+    """
+    try:
+        with contract_path.open(encoding="utf-8") as fh:
+            raw_yaml = yaml.safe_load(fh)
+    except Exception:  # noqa: BLE001 — boundary: degrade to no topics, never raise
+        return ()
+
+    if not isinstance(raw_yaml, dict):
+        return ()
+
+    topics: list[str] = []
+    for item in _projection_api_served_exposures(raw_yaml.get("projection_api")):
+        topic_val = item.get("topic")
+        if isinstance(topic_val, str) and topic_val:
+            topics.append(topic_val)
+    return tuple(dict.fromkeys(topics))
+
+
+class ContractTopicExtractor:
+    """
+    Scan contract.yaml files and return validated ModelContractTopicEntry objects.
+
+    This is the *sole* validator in the codebase.  Downstream consumers
+    (TopicEnumGenerator, Kafka topic creator script) must not re-validate.
+
+    Args:
+        include_installed_packages: When True, ``extract_all()`` will also
+            discover contracts from installed ONEX runtime packages via
+            importlib metadata.
+    """
+
+    def __init__(self, *, include_installed_packages: bool = False) -> None:
+        self._include_installed_packages = include_installed_packages
+
+    def extract(self, contracts_root: Path) -> list[ModelContractTopicEntry]:
+        """
+        Recursively scan *contracts_root* for contract.yaml files, parse every
+        topic string, validate each, and return a deduplicated list.
+
+        Malformed topics are warned and excluded; extraction continues.
+        Inconsistent parsed components for the same raw topic string are a
+        hard error (RuntimeError).
+
+        Args:
+            contracts_root: Directory to scan recursively for contract.yaml files.
+
+        Returns:
+            Sorted (by topic string) list of ModelContractTopicEntry objects.
+
+        Raises:
+            RuntimeError: If the same raw topic string yields inconsistent
+                parsed components across contracts (implies a parser bug).
+        """
+        # accumulated: topic_string -> ModelContractTopicEntry
+        accumulated: dict[str, ModelContractTopicEntry] = {}
+
+        contract_files = sorted(contracts_root.rglob("contract.yaml"))
+
+        for contract_path in contract_files:
+            try:
+                with contract_path.open(encoding="utf-8") as fh:
+                    raw_yaml = yaml.safe_load(fh)
+            except Exception as exc:  # noqa: BLE001 — boundary: catch-all for resilience
+                _warn(f"Could not parse {contract_path}: {exc} — skipping")
+                continue
+
+            if not isinstance(raw_yaml, dict):
+                _warn(f"contract.yaml is not a mapping: {contract_path} — skipping")
+                continue
+
+            raw_topics = _extract_raw_topics_from_contract(raw_yaml, contract_path)
+
+            for decl in raw_topics:
+                raw = decl.topic
+                entry = _parse_topic(raw, contract_path)
+                if entry is None:
+                    # Warned inside _parse_topic; skip
+                    continue
+                entry = entry.model_copy(
+                    update={
+                        "provisioning_priority": decl.provisioning_priority,
+                        "partitions": decl.partitions,
+                        "replication_factor": decl.replication_factor,
+                        "kafka_config": decl.kafka_config,
+                    }
+                )
+
+                if raw in accumulated:
+                    existing = accumulated[raw]
+                    # Consistency check — same raw string must yield identical fields.
+                    if (
+                        existing.kind != entry.kind
+                        or existing.producer != entry.producer
+                        or existing.event_name != entry.event_name
+                        or existing.version != entry.version
+                    ):
+                        _error(
+                            f"Inconsistent parsed components for topic {raw!r}: "
+                            f"first seen as kind={existing.kind!r} producer={existing.producer!r} "
+                            f"event_name={existing.event_name!r} version={existing.version!r} "
+                            f"(from {existing.source_contracts[0]}), "
+                            f"but now parsed as kind={entry.kind!r} producer={entry.producer!r} "
+                            f"event_name={entry.event_name!r} version={entry.version!r} "
+                            f"(from {contract_path}). This implies a parser bug."
+                        )
+                    # Merge source_contracts (dedup)
+                    accumulated[raw] = existing.merge_sources(entry)
+                else:
+                    accumulated[raw] = entry
+
+        return sorted(accumulated.values(), key=lambda e: e.topic)
+
+    def extract_from_python_sources(
+        self, source_paths: list[Path]
+    ) -> list[ModelContractTopicEntry]:
+        """Extract and validate ONEX topics from Python source files.
+
+        Parses each file's AST, collects string literals matching the ONEX
+        topic naming convention, validates them, and returns deduplicated
+        entries. This is used to capture topics defined as hardcoded constants
+        (e.g., in topic_constants.py) that are not declared in contract.yaml.
+
+        Args:
+            source_paths: List of Python source file paths to scan.
+
+        Returns:
+            Sorted (by topic string) list of ModelContractTopicEntry objects.
+
+        Raises:
+            RuntimeError: If the same topic string yields inconsistent
+                parsed components across files (implies a parser bug).
+        """
+        accumulated: dict[str, ModelContractTopicEntry] = {}
+
+        for source_path in sorted(source_paths):
+            raw_topics = _extract_topics_from_python_ast(source_path)
+
+            for raw in raw_topics:
+                entry = _parse_topic(raw, source_path)
+                if entry is None:
+                    continue
+
+                if raw in accumulated:
+                    existing = accumulated[raw]
+                    if (
+                        existing.kind != entry.kind
+                        or existing.producer != entry.producer
+                        or existing.event_name != entry.event_name
+                        or existing.version != entry.version
+                    ):
+                        _error(
+                            f"Inconsistent parsed components for topic {raw!r}: "
+                            f"first seen in {existing.source_contracts[0]}, "
+                            f"now in {source_path}. This implies a parser bug."
+                        )
+                    accumulated[raw] = existing.merge_sources(entry)
+                else:
+                    accumulated[raw] = entry
+
+        return sorted(accumulated.values(), key=lambda e: e.topic)
+
+    def extract_from_skill_manifests(
+        self, skills_root: Path
+    ) -> list[ModelContractTopicEntry]:
+        """Extract topics from omniclaude skill topics.yaml manifests.
+
+        Recursively scans *skills_root* for ``topics.yaml`` files in direct
+        child directories (one level deep). Skip directories whose names start
+        with ``_`` or ``__`` (e.g. ``_lib``, ``_shared``, ``__pycache__``).
+
+        Each ``topics.yaml`` is expected to contain a ``topics:`` list of
+        ONEX topic strings. Malformed topics are warned and skipped (no crash).
+        Duplicate topics across multiple manifests are deduplicated (sources
+        merged).
+
+        Args:
+            skills_root: Path to the omniclaude ``plugins/onex/skills/`` directory.
+
+        Returns:
+            Sorted (by topic string), deduplicated list of
+            :class:`ModelContractTopicEntry` objects.
+
+        Raises:
+            RuntimeError: If the same topic string yields inconsistent parsed
+                components across files (implies a parser bug).
+
+        Ticket: OMN-4593
+        """
+        accumulated: dict[str, ModelContractTopicEntry] = {}
+
+        if not skills_root.is_dir():
+            _warn(
+                f"skills_root {skills_root} is not a directory — "
+                "extract_from_skill_manifests returns empty list"
+            )
+            return []
+
+        # Also check for a root-level topics.yaml (for standalone manifests
+        # like cli/topics.yaml or services/topics.yaml where the directory
+        # itself IS the producer, not a parent of skill subdirectories).
+        root_topics_yaml = skills_root / "topics.yaml"
+        if root_topics_yaml.exists():
+            self._extract_manifest_file(root_topics_yaml, skills_root.name, accumulated)
+
+        for skill_dir in sorted(skills_root.iterdir()):
+            # Only process direct child directories; skip _ / __ prefixes
+            if not skill_dir.is_dir():
+                continue
+            if skill_dir.name.startswith("_") or skill_dir.name.startswith("__"):
+                continue
+
+            topics_yaml = skill_dir / "topics.yaml"
+            if not topics_yaml.exists():
+                continue
+            self._extract_manifest_file(topics_yaml, skill_dir.name, accumulated)
+
+        return sorted(accumulated.values(), key=lambda e: e.topic)
+
+    @staticmethod
+    def _extract_manifest_file(
+        topics_yaml: Path,
+        _producer_name: str,
+        accumulated: dict[str, ModelContractTopicEntry],
+    ) -> None:
+        """Parse a single topics.yaml manifest and merge into accumulated dict."""
+        try:
+            with topics_yaml.open(encoding="utf-8") as fh:
+                data = yaml.safe_load(fh)
+        except Exception as exc:  # noqa: BLE001 — boundary: returns degraded response
+            _warn(f"Could not parse {topics_yaml}: {exc} — skipping")
+            return
+
+        if not isinstance(data, dict):
+            _warn(f"topics.yaml is not a mapping: {topics_yaml} — skipping")
+            return
+
+        raw_topics = data.get("topics")
+        if not isinstance(raw_topics, list):
+            _warn(f"topics.yaml missing 'topics' list: {topics_yaml} — skipping")
+            return
+
+        for raw in raw_topics:
+            if not isinstance(raw, str) or not raw.strip():
+                _warn(f"Skipping non-string or empty topic entry in {topics_yaml}")
+                continue
+
+            entry = _parse_topic(raw.strip(), topics_yaml)
+            if entry is None:
+                # Malformed — warned inside _parse_topic
+                continue
+
+            if raw in accumulated:
+                existing = accumulated[raw]
+                if (
+                    existing.kind != entry.kind
+                    or existing.producer != entry.producer
+                    or existing.event_name != entry.event_name
+                    or existing.version != entry.version
+                ):
+                    _error(
+                        f"Inconsistent parsed components for topic {raw!r}: "
+                        f"first seen in {existing.source_contracts[0]}, "
+                        f"now in {topics_yaml}. This implies a parser bug."
+                    )
+                accumulated[raw] = existing.merge_sources(entry)
+            else:
+                accumulated[raw] = entry
+
+    def extract_from_installed_packages(
+        self,
+        packages: tuple[str, ...] | None = None,
+    ) -> list[ModelContractTopicEntry]:
+        """Extract topics from contract.yaml files in installed ONEX packages.
+
+        Uses ``importlib.metadata`` and ``importlib.resources`` to discover
+        contract YAML files bundled inside runtime packages.  Works with both
+        editable installs (``pip install -e .``) and normal installs.
+
+        The discovery strategy for each package:
+
+        1. Use ``importlib.resources`` to traverse ``<package>.nodes`` for
+           ``contract.yaml`` files (works for properly packaged resources).
+        2. Fall back to resolving the package install path via
+           ``importlib.metadata.Distribution.locate_file()`` and scanning
+           ``<install_root>/nodes/**/contract.yaml`` on the filesystem.
+
+        Args:
+            packages: Optional tuple of package names to scan. When omitted,
+                package names are discovered from ``ONEX_ACTIVE_RUNTIME_PACKAGES``
+                or installed ``onex.node_package`` / ``onex.nodes`` entry points.
+
+        Returns:
+            Sorted, deduplicated list of ``ModelContractTopicEntry`` objects.
+
+        Raises:
+            ValueError: If the same logical package is discovered via multiple
+                install paths (duplicate discovery).
+
+        Ticket: OMN-5132, OMN-12917
+        """
+        accumulated: dict[str, ModelContractTopicEntry] = {}
+        seen_package_roots: dict[str, Path] = {}
+        active_packages = get_active_runtime_packages()
+        candidate_packages = (
+            tuple(normalize_runtime_package_name(pkg) for pkg in packages)
+            if packages is not None
+            else _discover_installed_topic_packages()
+        )
+        if active_packages is not None:
+            candidate_packages = tuple(
+                pkg
+                for pkg in candidate_packages
+                if normalize_runtime_package_name(pkg) in active_packages
+            )
+
+        for pkg_name in candidate_packages:
+            contract_paths = self._discover_package_contracts(pkg_name)
+            if contract_paths is None:
+                # Package not installed or has no contracts — non-fatal
+                continue
+
+            # Check for duplicate discovery (same package from multiple paths)
+            pkg_root = contract_paths[0].parent if contract_paths else None
+            if pkg_root is not None:
+                # Normalize: walk up to the package-level directory
+                # Contract paths look like .../nodes/<node>/contract.yaml
+                # We want the top-level package dir
+                normalized = self._package_root_from_contract(
+                    contract_paths[0], pkg_name
+                )
+                if normalized is not None:
+                    if pkg_name in seen_package_roots:
+                        existing_root = seen_package_roots[pkg_name]
+                        if existing_root != normalized:
+                            raise ValueError(
+                                f"Duplicate discovery for package {pkg_name!r}: "
+                                f"found at {existing_root} and {normalized}. "
+                                f"Only one install of each approved package is "
+                                f"allowed."
+                            )
+                    seen_package_roots[pkg_name] = normalized
+
+            for contract_path in contract_paths:
+                try:
+                    with contract_path.open(encoding="utf-8") as fh:
+                        raw_yaml = yaml.safe_load(fh)
+                except Exception as exc:  # noqa: BLE001 — boundary: catch-all for resilience
+                    _warn(
+                        f"Could not parse {contract_path} from package "
+                        f"{pkg_name}: {exc} — skipping"
+                    )
+                    continue
+
+                if not isinstance(raw_yaml, dict):
+                    _warn(
+                        f"contract.yaml is not a mapping: {contract_path} "
+                        f"(package {pkg_name}) — skipping"
+                    )
+                    continue
+
+                raw_topics = _extract_raw_topics_from_contract(raw_yaml, contract_path)
+
+                for decl in raw_topics:
+                    raw = decl.topic
+                    entry = _parse_topic(raw, contract_path)
+                    if entry is None:
+                        continue
+                    entry = entry.model_copy(
+                        update={
+                            "provisioning_priority": decl.provisioning_priority,
+                            "partitions": decl.partitions,
+                            "replication_factor": decl.replication_factor,
+                            "kafka_config": decl.kafka_config,
+                        }
+                    )
+
+                    if raw in accumulated:
+                        existing = accumulated[raw]
+                        if (
+                            existing.kind != entry.kind
+                            or existing.producer != entry.producer
+                            or existing.event_name != entry.event_name
+                            or existing.version != entry.version
+                        ):
+                            _error(
+                                f"Inconsistent parsed components for topic "
+                                f"{raw!r} across installed packages: "
+                                f"first seen in "
+                                f"{existing.source_contracts[0]}, "
+                                f"now in {contract_path}."
+                            )
+                        accumulated[raw] = existing.merge_sources(entry)
+                    else:
+                        accumulated[raw] = entry
+
+        return sorted(accumulated.values(), key=lambda e: e.topic)
+
+    @staticmethod
+    def _package_root_from_contract(contract_path: Path, pkg_name: str) -> Path | None:
+        """Resolve the top-level package directory from a contract path.
+
+        Given a contract at ``<root>/<pkg>/nodes/<node>/contract.yaml``,
+        return ``<root>/<pkg>``.  Returns None if the path structure does
+        not match expectations.
+        """
+        # Walk up looking for a directory matching the package name
+        for parent in contract_path.parents:
+            if parent.name == pkg_name:
+                return parent
+        return None
+
+    @staticmethod
+    def _discover_package_contracts(pkg_name: str) -> list[Path] | None:
+        """Discover contract.yaml files inside an installed package.
+
+        Tries ``importlib.resources`` traversal first, then falls back to
+        filesystem discovery via ``importlib.metadata``.
+
+        Args:
+            pkg_name: The Python package name (e.g., ``omnibase_infra``).
+
+        Returns:
+            Sorted list of contract.yaml Paths, or None if the package is
+            not installed or contains no contracts.
+        """
+        # Strategy 1: importlib.resources traversal of <package>.nodes
+        try:
+            nodes_pkg = f"{pkg_name}.nodes"
+            nodes_ref = importlib.resources.files(nodes_pkg)
+            contracts = _collect_contracts_from_traversable(nodes_ref)
+            if contracts:
+                logger.debug(
+                    "Discovered %d contract(s) in %s via importlib.resources",
+                    len(contracts),
+                    nodes_pkg,
+                )
+                return sorted(contracts)
+        except (ModuleNotFoundError, TypeError, ValueError):
+            # Package or sub-package not found via resources — try fallback
+            pass
+
+        # Strategy 2: filesystem discovery via importlib.metadata
+        try:
+            dist = importlib.metadata.distribution(pkg_name)
+        except importlib.metadata.PackageNotFoundError:
+            logger.debug(
+                "Package %s not installed — skipping installed-package "
+                "contract discovery",
+                pkg_name,
+            )
+            return None
+
+        # Locate the package source directory
+        # For editable installs, dist.locate_file("") returns the repo src dir
+        # For normal installs, it returns the site-packages dir
+        pkg_root = _find_package_root(dist, pkg_name)
+        if pkg_root is None:
+            logger.debug(
+                "Could not locate source root for package %s — skipping",
+                pkg_name,
+            )
+            return None
+
+        nodes_dir = pkg_root / "nodes"
+        if not nodes_dir.is_dir():
+            logger.debug(
+                "No nodes/ directory in package %s at %s — skipping",
+                pkg_name,
+                pkg_root,
+            )
+            return None
+
+        contracts = sorted(nodes_dir.rglob("contract.yaml"))
+        if not contracts:
+            logger.debug(
+                "No contract.yaml files found in %s/nodes/ — skipping",
+                pkg_name,
+            )
+            return None
+
+        logger.debug(
+            "Discovered %d contract(s) in %s via filesystem at %s",
+            len(contracts),
+            pkg_name,
+            nodes_dir,
+        )
+        return contracts
+
+    def extract_all(
+        self,
+        contracts_root: Path,
+        supplementary_sources: list[Path] | None = None,
+        skill_manifests_root: Path | None = None,
+        skill_manifests_roots: list[Path] | None = None,
+    ) -> list[ModelContractTopicEntry]:
+        """Extract topics from all sources: contracts, Python, skills, and installed packages.
+
+        Combines results from contract.yaml scanning, Python source file
+        scanning, omniclaude skill manifest scanning, and installed-package
+        contract discovery into a single deduplicated list.  Topics appearing
+        in multiple sources are merged (source_contracts combined).
+
+        This is the single owner of topic-entry merge/dedup logic. All callers
+        (TopicProvisioner, CLI scripts, validation) should use this method
+        rather than combining individual extract methods manually.
+
+        Args:
+            contracts_root: Directory to scan for contract.yaml files.
+            supplementary_sources: Optional list of Python files to scan
+                for additional topic constants.
+            skill_manifests_root: Optional single path to a skill manifests
+                directory. Kept for backwards compatibility with existing
+                callers. When set, equivalent to passing it as the first
+                element of ``skill_manifests_roots``.
+            skill_manifests_roots: Optional list of paths to scan for
+                ``topics.yaml`` flat-list manifests. Supports multiple roots
+                (e.g., omniclaude skills, infra CLI relays, infra services).
+                When both ``skill_manifests_root`` and ``skill_manifests_roots``
+                are set, the single root is prepended to the list.
+
+        Returns:
+            Sorted, deduplicated list of ModelContractTopicEntry objects.
+
+        Raises:
+            RuntimeError: On inconsistent parsed components.
+            ValueError: If duplicate package discovery is detected (when
+                ``include_installed_packages`` was set at construction).
+
+        Ticket: OMN-4593, OMN-4622, OMN-5132
+        """
+        # Start with contract-derived topics
+        contract_entries = self.extract(contracts_root)
+        accumulated: dict[str, ModelContractTopicEntry] = {
+            e.topic: e for e in contract_entries
+        }
+
+        # Merge supplementary Python sources (legacy path, OMN-3254)
+        if supplementary_sources:
+            supplementary_entries = self.extract_from_python_sources(
+                supplementary_sources
+            )
+            for entry in supplementary_entries:
+                if entry.topic in accumulated:
+                    existing = accumulated[entry.topic]
+                    accumulated[entry.topic] = existing.merge_sources(entry)
+                else:
+                    accumulated[entry.topic] = entry
+
+        # Merge skill manifest topics (OMN-4593, OMN-4622)
+        # Combine singular root (backwards compat) with plural roots list
+        all_roots: list[Path] = []
+        if skill_manifests_root is not None:
+            all_roots.append(skill_manifests_root)
+        if skill_manifests_roots:
+            all_roots.extend(skill_manifests_roots)
+
+        for root in all_roots:
+            skill_entries = self.extract_from_skill_manifests(root)
+            for entry in skill_entries:
+                if entry.topic in accumulated:
+                    existing = accumulated[entry.topic]
+                    accumulated[entry.topic] = existing.merge_sources(entry)
+                else:
+                    accumulated[entry.topic] = entry
+
+        # Merge installed-package contract topics (OMN-5132)
+        if self._include_installed_packages:
+            pkg_entries = self.extract_from_installed_packages()
+            for entry in pkg_entries:
+                if entry.topic in accumulated:
+                    existing = accumulated[entry.topic]
+                    accumulated[entry.topic] = existing.merge_sources(entry)
+                else:
+                    accumulated[entry.topic] = entry
+
+        return sorted(accumulated.values(), key=lambda e: e.topic)

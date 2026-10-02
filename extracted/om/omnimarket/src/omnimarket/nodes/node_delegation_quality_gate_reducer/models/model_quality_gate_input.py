@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+# Copyright (c) 2026 OmniNode Team
+"""Compatibility import for the canonical quality gate input DTO."""
+
+from omnibase_core.models.delegation.wire import ModelQualityGateInput
+
+__all__: list[str] = ["ModelQualityGateInput"]

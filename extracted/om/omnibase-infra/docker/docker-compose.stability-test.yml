@@ -1,0 +1,1025 @@
+# docker-compose.stability-test.yml
+# OMN-10281: non-production stability-test runtime lane overlay.
+#
+# This file is a prep surface only. It defines isolated names and runtime
+# environment for a stability-test lane, but it does not install launch hooks,
+# cron jobs, systemd units, or deploy automation.
+#
+# Intended validation command:
+#   docker compose -f docker/docker-compose.infra.yml \
+#     -f docker/docker-compose.stability-test.yml \
+#     config
+#
+# Starting this lane is intentionally outside this PR's proof scope and requires
+# explicit operator approval.
+#
+# Requires Docker Compose v2.24.4 or later for !override merge semantics.
+name: omnibase-infra-stability-test
+x-omninode-contract-overlay:
+  stability-test-redpanda:
+    # OMN-12832: Kafka clients reconnect to the broker address returned in
+    # metadata. This is lane contract data, not host environment. Do not move
+    # it back to deploy-time interpolation.
+    advertised_kafka_addr: &stability_test_redpanda_advertised_kafka_addr "internal://redpanda:9092,external://100.109.203.94:39092"
+    advertised_pandaproxy_addr: &stability_test_redpanda_advertised_pandaproxy_addr "internal://redpanda:8082,external://100.109.203.94:28082"
+    kafka_port_publish: &stability_test_redpanda_kafka_port_publish "39092:19092"
+    admin_port_publish: &stability_test_redpanda_admin_port_publish "29644:9644"
+# =============================================================================
+# STRICT AUTO-WIRING (OMN-17531)
+# =============================================================================
+# `ONEX_WIRING_STRICT_MODE` is `${ONEX_WIRING_STRICT_MODE:-0}` in
+# docker-compose.infra.yml, and until OMN-17531 NO lane overlay bound it. At `0`
+# a handler the resolver cannot construct is quarantined and the runtime still
+# reports healthy; at `1` it re-raises and kills boot. onex-dev (staging) binds
+# `"1"` on all three runtime Deployments, so every lab lane was running the
+# weaker of the two semantics and could not reproduce a staging boot failure.
+#
+# Three defects of exactly one class reached staging before anyone saw them for
+# that reason -- OMN-15623, OMN-17502, OMN-17510 -- each then diagnosed from pod
+# logs over an SSM port-forward, serialized on the one staging cluster.
+#
+# Literal `"1"`, NOT `${ONEX_WIRING_STRICT_MODE:-1}`: same reason as
+# BIFROST_CONTRACT_PATH (OMN-12864). An interpolated form lets an operator who
+# exported the variable in their shell silently return this lane to the
+# quarantining semantics, which is the failure mode this binding exists to
+# remove. Downgrading the flag, allowlisting a contract or widening a
+# quarantine branch to make a lane green is explicitly forbidden by
+# OMN-17531 AC-4 -- a lane that fails here has found a real defect and the
+# failure is filed as its own ticket.
+#
+# Bound on the runtime services only (main/effects/worker), mirroring onex-dev.
+# projection-api and omninode-contract-resolver are uvicorn servers that never
+# run the auto-wiring kernel, so the flag would be inert there.
+x-stability-test-strict-wiring-env: &stability_test_strict_wiring_env
+  ONEX_WIRING_STRICT_MODE: "1"
+# =============================================================================
+# RUNTIME LANE IDENTITY (OMN-19408)
+# =============================================================================
+# The deployment names its own lane, as the dev lane's main runtime does
+# (docker-compose.dev-lane.yml, OMN-19144). Until OMN-19408 this lane declared
+# nothing, so the lab lane-health projection -- a node whose scope holds the
+# three lab lanes only (OMN-18769 AC6) -- attached on this runtime, consumed
+# every health event, keyed none of them and wrote zero rows, and the
+# projection_apply_divergence detector held omninode-stability-test-runtime
+# Docker-unhealthy from about 05:40Z on 2026-09-24. The node's contract now
+# declares `runtime_lanes`, and the auto-wiring ownership filter attaches it
+# only where the declared lane is in scope; a runtime that declares NO lane
+# fails closed with a discovery error.
+#
+# `stability-test` is a registered lane (omnibase_core constants_runtime_lanes)
+# and NOT a lab lane, so declaring it changes nothing about health keying: the
+# health emitter still publishes this runtime's verdict with no lane, which is
+# OMN-18769 AC6 unchanged. It changes only what may attach here.
+#
+# On the main runtime only, the one that owns the lab projection by profile,
+# mirroring the dev lane. Literal, not interpolated: an exported shell value
+# must not be able to rename the lane.
+x-stability-test-lane-identity-env: &stability_test_lane_identity_env
+  ONEX_RUNTIME_LANE: "stability-test"
+# =============================================================================
+# STANDALONE PROJECTION WRITER CONFIG (OMN-17562)
+# =============================================================================
+# YAML anchors do NOT cross compose files, so the writer services at the bottom
+# of this file cannot reference `x-logging-defaults` or `x-runtime-env` in
+# docker-compose.infra.yml. Same values, declared locally -- the same reason
+# docker-compose.dev-lane.yml carries its own pair.
+#
+# The unsplit writers retain this lane's legacy analytics DSN. The three
+# OMN-17454 split writers additionally receive the two principal-specific
+# carriers below. Both passwords are already required by the base runtime env;
+# an unset value fails Compose rendering, before a consumer starts.
+x-stability-test-logging: &stability_test_logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+x-stability-test-analytics-env: &stability_test_analytics_env
+  OMNIDASH_ANALYTICS_DB_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}@postgres:5432/omnidash_analytics"
+x-stability-test-tenant-projection-env: &stability_test_tenant_projection_env
+  ONEX_TENANT_DB_URL: "postgresql://tenant_projection_writer:${TENANT_PROJECTION_WRITER_PASSWORD:?TENANT_PROJECTION_WRITER_PASSWORD must be set for the stability-test tenant projection binding}@postgres:5432/omnidash_analytics"
+x-stability-test-internal-projection-env: &stability_test_internal_projection_env
+  OMNINODE_INTERNAL_DB_URL: "postgresql://omninode_runtime:${OMNINODE_RUNTIME_PASSWORD:?OMNINODE_RUNTIME_PASSWORD must be set for the stability-test internal projection binding}@postgres:5432/omnidash_analytics"
+services:
+  postgres:
+    container_name: omnibase-infra-stability-test-postgres
+    ports: !override
+      - "${STABILITY_TEST_POSTGRES_EXTERNAL_PORT:-15436}:5432"
+  redpanda:
+    container_name: omnibase-infra-stability-test-redpanda
+    command: !override
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp
+      - "1"
+      - --memory
+      # OMN-19077 (operator consent ROLLING_WORK_LEDGER.md:3220): the
+      # stability-test lane reads its OWN dial, the OMN-19085 pattern already
+      # applied to the dev lane (DEV_REDPANDA_MEMORY in docker-compose.infra.yml).
+      # It used to read the shared REDPANDA_MEMORY, whose live value (24G) comes
+      # from the host-global operator env file and is in no tracked file, so the
+      # stability broker reserved a 24G seastar arena on a 91 GB host that also
+      # carries the dev, judge and collaborator brokers and the CI runner pool.
+      # With --lock-memory unset the kernel pages the untouched arena out onto
+      # the docker-data NVMe: measured 2026-09-24, 6.5 h after its last
+      # recreate, this broker already held 1.9 GB resident plus 4.0 GB swapped
+      # and was still growing, while the dev broker, 26 h after its cut to 12G,
+      # had touched its whole 12G (1.9 GB resident + 10.5 GB swapped).
+      #
+      # 12G is the level the dev broker runs at. Sized against the judge broker
+      # on the same host, which serves 1537 partitions on 2G (1.3 MB per
+      # partition); this broker holds about 7200 partitions, so 12G is 1.7 MB
+      # per partition, more headroom per partition than a configuration already
+      # proven here. The value is a Compose DEFAULT, so it needs no host env
+      # edit, and it takes effect at this lane's next governed recreate of the
+      # broker (deploy-runtime.sh's broker warmup runs `up -d --no-deps redpanda`,
+      # which recreates it when its rendered config changes). Raise it back by
+      # setting STABILITY_TEST_REDPANDA_MEMORY.
+      - ${STABILITY_TEST_REDPANDA_MEMORY:-12G}
+      - --reserve-memory
+      - "0M"
+      - --node-id
+      - "0"
+      - --check=false
+      - --kafka-addr
+      - internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr
+      - *stability_test_redpanda_advertised_kafka_addr
+      - --pandaproxy-addr
+      - internal://0.0.0.0:8082,external://0.0.0.0:18082
+      - --advertise-pandaproxy-addr
+      - *stability_test_redpanda_advertised_pandaproxy_addr
+      - --schema-registry-addr
+      - internal://0.0.0.0:8081,external://0.0.0.0:18081
+      - --rpc-addr
+      - redpanda:33145
+      - --advertise-rpc-addr
+      - redpanda:33145
+      # OMN-14013: this lane's `command:` fully replaces the base redpanda.yaml
+      # command (Compose Docker merge semantics for a scalar-list key), which
+      # silently dropped the base's `--set topic_partitions_per_shard=7000`
+      # startup flag for this lane -- belt #2 of the base's documented 3-belt
+      # partition-cap design (redpanda/.bootstrap.yaml) was never actually
+      # applied here. Restore it explicitly, pinned to the lane's raised cap so
+      # a cold start (fresh volume, before redpanda-partition-cap's post-start
+      # rpk call completes) never bootstraps at the un-raised 7000 default.
+      - --set
+      - topic_partitions_per_shard=15000
+    ports: !override
+      - *stability_test_redpanda_kafka_port_publish
+      - *stability_test_redpanda_admin_port_publish
+  redpanda-partition-cap:
+    image: redpandadata/redpanda:v24.2.7
+    container_name: omnibase-infra-stability-test-redpanda-partition-cap
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        # OMN-14013: this is the belt that ACTUALLY governs the durable cap for
+        # this lane. warm_broker_topic_provisioning() in deploy-runtime.sh
+        # force-recreates this one-shot service on EVERY redeploy of the lane
+        # (refresh_stability_lane.sh -> deploy-runtime.sh --restart), including
+        # a restart-only deploy that never touches the volume. A raised cap
+        # applied only via a live `rpk cluster config set` (not committed here)
+        # is therefore NOT durable -- the next redeploy silently resets it back
+        # to whatever literal value is hardcoded on this line. Confirmed live
+        # regression: 2026-07-06 raised to 15000 dynamically -> reset to 7000
+        # by a later redeploy -> re-raised to 8000 dynamically on 2026-07-26 as
+        # a stopgap (see OMN-14013 ticket comments). Pin the value HERE so it
+        # survives every redeploy; edit this value (and the --set flag on the
+        # `redpanda` service's command above) together if it must change again.
+        /usr/bin/rpk -X brokers=redpanda:9092 -X admin.hosts=redpanda:9644 cluster config set topic_partitions_per_shard 15000
+        /usr/bin/rpk -X brokers=redpanda:9092 -X admin.hosts=redpanda:9644 cluster config set topic_memory_per_partition 1048576
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    networks:
+      - omnibase-infra-network
+    restart: "no"
+  valkey:
+    container_name: omnibase-infra-stability-test-valkey
+    ports: !override
+      - "${STABILITY_TEST_VALKEY_EXTERNAL_PORT:-26379}:6379"
+  keycloak:
+    container_name: omnibase-infra-stability-test-keycloak
+    ports: !override
+      - "${STABILITY_TEST_KEYCLOAK_EXTERNAL_PORT:-38080}:8080"
+  infisical:
+    profiles: !override ["stability-test-disabled"]
+  forward-migration:
+    container_name: omnibase-infra-stability-test-forward-migration
+    restart: "no"
+  migration-gate:
+    container_name: omnibase-infra-stability-test-migration-gate
+    restart: "no"
+  intelligence-migration:
+    container_name: omnibase-infra-stability-test-intelligence-migration
+  omninode-runtime:
+    container_name: omninode-stability-test-runtime
+    restart: unless-stopped
+    depends_on:
+      migration-gate:
+        condition: service_healthy
+      intelligence-migration:
+        condition: service_completed_successfully
+      redpanda-partition-cap:
+        condition: service_completed_successfully
+    environment:
+      !!merge <<: [*stability_test_strict_wiring_env, *stability_test_lane_identity_env]
+      OMNIMEMORY_ENABLED: ${STABILITY_TEST_RUNTIME_MAIN_OMNIMEMORY_ENABLED:?runtime policy contract must set STABILITY_TEST_RUNTIME_MAIN_OMNIMEMORY_ENABLED}
+      OMNIMEMORY_MEMGRAPH_HOST: ${STABILITY_TEST_RUNTIME_MAIN_OMNIMEMORY_MEMGRAPH_HOST?runtime policy contract must set STABILITY_TEST_RUNTIME_MAIN_OMNIMEMORY_MEMGRAPH_HOST}
+      ONEX_ENVIRONMENT: stability-test
+      KAFKA_ENVIRONMENT: stability-test
+      ONEX_DATABASE_TOPOLOGY_PROFILE: stability-test
+      ONEX_TOPIC_PROVISIONER_MAX_PARTITIONS: ${STABILITY_TEST_TOPIC_PROVISIONER_MAX_PARTITIONS:?runtime policy contract must set STABILITY_TEST_TOPIC_PROVISIONER_MAX_PARTITIONS}
+      ONEX_STATE_ROOT: /app/data/.onex_state_stability_test
+      ONEX_STATE_DIR: /app/data/.onex_state_stability_test
+      ONEX_BOX_ID: omninode-pc
+      ONEX_RUNTIME_ID: stability-test-main
+      ONEX_RUNTIME_ADDRESS: runtime://omninode-pc/stability-test/main
+      ONEX_RUNTIME_CAPABILITIES: ${STABILITY_TEST_RUNTIME_MAIN_CAPABILITIES:?runtime policy contract must set STABILITY_TEST_RUNTIME_MAIN_CAPABILITIES}
+      ONEX_GROUP_ID: onex-stability-test-runtime-main
+      ONEX_INFRA_HOST: ${ONEX_INFRA_HOST:?ONEX_INFRA_HOST required for stability session health probes}
+      ONEX_INFRA_USER: ${ONEX_INFRA_USER:?ONEX_INFRA_USER required for stability session health probes}
+      OMNI_HOME: ${OMNI_HOME:?OMNI_HOME required for stability session health probes}
+      SSH_STRICT_HOST_KEY_CHECKING: ${SSH_STRICT_HOST_KEY_CHECKING:-accept-new}
+      KAFKA_INSTANCE_ID: stability-test-main
+      KAFKA_MAX_POLL_INTERVAL_MS: "1800000"
+      BIFROST_VERIFY_ENDPOINTS: ${STABILITY_TEST_RUNTIME_MAIN_BIFROST_VERIFY_ENDPOINTS:?runtime policy contract must set STABILITY_TEST_RUNTIME_MAIN_BIFROST_VERIFY_ENDPOINTS}
+      ONEX_SECRET_RESOLVER_CONFIG_PATH: ${STABILITY_TEST_RUNTIME_MAIN_SECRET_RESOLVER_CONFIG_PATH:?runtime policy contract must set STABILITY_TEST_RUNTIME_MAIN_SECRET_RESOLVER_CONFIG_PATH}
+      ONEX_SECRET_RESOLVER_CONFIG_JSON: ${STABILITY_TEST_RUNTIME_MAIN_SECRET_RESOLVER_CONFIG_JSON:?runtime policy contract must set STABILITY_TEST_RUNTIME_MAIN_SECRET_RESOLVER_CONFIG_JSON}
+      OMNIINTELLIGENCE_PUBLISH_INTROSPECTION: ${STABILITY_TEST_RUNTIME_MAIN_PUBLISH_INTROSPECTION:?runtime policy contract must set STABILITY_TEST_RUNTIME_MAIN_PUBLISH_INTROSPECTION}
+      OTEL_SERVICE_NAME: omninode-stability-test-runtime-main
+      # OMN-14551 G6: flip the auto-wired consume boundary's DLQ routing ON
+      # for this lane's live-proof, sourced from the ledgered contract value
+      # (docker/runtime-policy.env), fail-fast if the policy env is missing.
+      ONEX_BOUNDARY_DLQ_ENABLED: ${STABILITY_TEST_BOUNDARY_DLQ_ENABLED:?runtime policy contract must set STABILITY_TEST_BOUNDARY_DLQ_ENABLED}
+    ports: !override
+      - "${STABILITY_TEST_RUNTIME_MAIN_PORT:?runtime policy contract must set STABILITY_TEST_RUNTIME_MAIN_PORT}:8085"
+    volumes: !override
+      - runtime_logs:/app/logs
+      - runtime_data:/app/data
+      - ./lane-overlays/dev.bifrost.yaml:/app/config/delegation/dev.bifrost.yaml:ro
+      - ${OMNICLAUDE_SKILLS_DIR:-./skills}:/app/skills:ro
+      - "${OMNI_HOME:?OMNI_HOME required for stability session health probes}:${OMNI_HOME:?OMNI_HOME required for stability session health probes}:ro"
+    # OMN-15217: strict semantic healthcheck — this lane's green is cited as
+    # stability-proof for prod promotion (OMN-13418), so it must not be able to
+    # report healthy while the runtime reports DEGRADED. Verified mask on
+    # 2026-07-27T12:58Z: `Up 3 hours (healthy)` alongside
+    # `Runtime health check: status=DEGRADED contracts=296 errors=4`.
+    #
+    # --degraded-policy fail flips Docker health when the runtime's own monitor
+    # reports DEGRADED/CRITICAL. Timings are inherited from the base service
+    # (interval 30s / timeout 10s / retries 5 / start_period 1800s) and restated
+    # here so the flap budget is readable at the strict call site: the monitor's
+    # first verdict lands ~one RUNTIME_HEALTH_CHECK_INTERVAL (300s) after boot
+    # and an absent verdict passes, so startup cannot flap on it.
+    #
+    # Fail-closed on image skew is intentional: if the container runs an image
+    # built before this check existed, the interpreter exits non-zero and the
+    # container reads unhealthy. A stability lane whose image predates the
+    # honest check must not be citable as proof.
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - /usr/local/bin/onex-container-healthcheck
+        - --degraded-policy
+        - fail
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 1800s
+    # OMN-15217: autoheal is deliberately NOT enabled on this lane's runtime
+    # containers. Compose appends label sequences, so the base service's
+    # `autoheal=true` would survive this block without `!override`. With the
+    # strict healthcheck above, "unhealthy" now means "semantically degraded",
+    # and semantic degradation is usually restart-immune — four contracts that
+    # fail to import will fail to import again — so leaving autoheal armed would
+    # convert an honest signal into a restart loop and destroy the forensic
+    # state this lane exists to preserve. Restore by removing `!override`.
+    labels: !override
+      - "com.omninode.lane=stability-test"
+      - "com.omninode.ticket=OMN-10281"
+      - "com.omninode.runtime.address=runtime://omninode-pc/stability-test/main"
+      - "com.omninode.runtime.id=stability-test-main"
+  runtime-effects:
+    container_name: omninode-stability-test-runtime-effects
+    restart: unless-stopped
+    depends_on:
+      migration-gate:
+        condition: service_healthy
+    environment:
+      !!merge <<: *stability_test_strict_wiring_env
+      OMNIMEMORY_ENABLED: ${STABILITY_TEST_RUNTIME_EFFECTS_OMNIMEMORY_ENABLED:?runtime policy contract must set STABILITY_TEST_RUNTIME_EFFECTS_OMNIMEMORY_ENABLED}
+      OMNIMEMORY_MEMGRAPH_HOST: ${STABILITY_TEST_RUNTIME_EFFECTS_OMNIMEMORY_MEMGRAPH_HOST?runtime policy contract must set STABILITY_TEST_RUNTIME_EFFECTS_OMNIMEMORY_MEMGRAPH_HOST}
+      ONEX_ENVIRONMENT: stability-test
+      KAFKA_ENVIRONMENT: stability-test
+      ONEX_DATABASE_TOPOLOGY_PROFILE: stability-test
+      ONEX_TOPIC_PROVISIONER_MAX_PARTITIONS: ${STABILITY_TEST_TOPIC_PROVISIONER_MAX_PARTITIONS:?runtime policy contract must set STABILITY_TEST_TOPIC_PROVISIONER_MAX_PARTITIONS}
+      ONEX_STATE_ROOT: /app/data/.onex_state_stability_test
+      ONEX_STATE_DIR: /app/data/.onex_state_stability_test
+      ONEX_BOX_ID: omninode-pc
+      ONEX_RUNTIME_ID: stability-test-effects
+      ONEX_RUNTIME_ADDRESS: runtime://omninode-pc/stability-test/effects
+      ONEX_RUNTIME_CAPABILITIES: ${STABILITY_TEST_RUNTIME_EFFECTS_CAPABILITIES:?runtime policy contract must set STABILITY_TEST_RUNTIME_EFFECTS_CAPABILITIES}
+      ONEX_GROUP_ID: onex-stability-test-runtime-effects
+      ONEX_INFRA_HOST: ${ONEX_INFRA_HOST:?ONEX_INFRA_HOST required for stability session health probes}
+      ONEX_INFRA_USER: ${ONEX_INFRA_USER:?ONEX_INFRA_USER required for stability session health probes}
+      OMNI_HOME: ${OMNI_HOME:?OMNI_HOME required for stability session health probes}
+      SSH_STRICT_HOST_KEY_CHECKING: ${SSH_STRICT_HOST_KEY_CHECKING:-accept-new}
+      KAFKA_INSTANCE_ID: stability-test-effects
+      KAFKA_MAX_POLL_INTERVAL_MS: "1800000"
+      BIFROST_VERIFY_ENDPOINTS: ${STABILITY_TEST_RUNTIME_EFFECTS_BIFROST_VERIFY_ENDPOINTS:?runtime policy contract must set STABILITY_TEST_RUNTIME_EFFECTS_BIFROST_VERIFY_ENDPOINTS}
+      ONEX_SECRET_RESOLVER_CONFIG_PATH: ${STABILITY_TEST_RUNTIME_EFFECTS_SECRET_RESOLVER_CONFIG_PATH:?runtime policy contract must set STABILITY_TEST_RUNTIME_EFFECTS_SECRET_RESOLVER_CONFIG_PATH}
+      ONEX_SECRET_RESOLVER_CONFIG_JSON: ${STABILITY_TEST_RUNTIME_EFFECTS_SECRET_RESOLVER_CONFIG_JSON:?runtime policy contract must set STABILITY_TEST_RUNTIME_EFFECTS_SECRET_RESOLVER_CONFIG_JSON}
+      OTEL_SERVICE_NAME: omninode-stability-test-runtime-effects
+      # OMN-14551 G6: see omninode-runtime's ONEX_BOUNDARY_DLQ_ENABLED comment.
+      ONEX_BOUNDARY_DLQ_ENABLED: ${STABILITY_TEST_BOUNDARY_DLQ_ENABLED:?runtime policy contract must set STABILITY_TEST_BOUNDARY_DLQ_ENABLED}
+    ports: !override
+      - "${STABILITY_TEST_RUNTIME_EFFECTS_PORT:?runtime policy contract must set STABILITY_TEST_RUNTIME_EFFECTS_PORT}:8085"
+    volumes: !override
+      - effects_logs:/app/logs
+      - effects_data:/app/data
+      - ./lane-overlays/dev.bifrost.yaml:/app/config/delegation/dev.bifrost.yaml:ro
+      - ${OMNICLAUDE_SKILLS_DIR:-./skills}:/app/skills:ro
+      - "${OMNI_HOME:?OMNI_HOME required for stability session health probes}:${OMNI_HOME:?OMNI_HOME required for stability session health probes}:ro"
+    # OMN-15217: strict semantic healthcheck — this lane's green is cited as
+    # stability-proof for prod promotion (OMN-13418), so it must not be able to
+    # report healthy while the runtime reports DEGRADED. Verified mask on
+    # 2026-07-27T12:58Z: `Up 3 hours (healthy)` alongside
+    # `Runtime health check: status=DEGRADED contracts=296 errors=4`.
+    #
+    # --degraded-policy fail flips Docker health when the runtime's own monitor
+    # reports DEGRADED/CRITICAL. Timings are inherited from the base service
+    # (interval 30s / timeout 10s / retries 5 / start_period 1800s) and restated
+    # here so the flap budget is readable at the strict call site: the monitor's
+    # first verdict lands ~one RUNTIME_HEALTH_CHECK_INTERVAL (300s) after boot
+    # and an absent verdict passes, so startup cannot flap on it.
+    #
+    # Fail-closed on image skew is intentional: if the container runs an image
+    # built before this check existed, the interpreter exits non-zero and the
+    # container reads unhealthy. A stability lane whose image predates the
+    # honest check must not be citable as proof.
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - /usr/local/bin/onex-container-healthcheck
+        - --degraded-policy
+        - fail
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 1800s
+    # OMN-15217: autoheal is deliberately NOT enabled on this lane's runtime
+    # containers. Compose appends label sequences, so the base service's
+    # `autoheal=true` would survive this block without `!override`. With the
+    # strict healthcheck above, "unhealthy" now means "semantically degraded",
+    # and semantic degradation is usually restart-immune — four contracts that
+    # fail to import will fail to import again — so leaving autoheal armed would
+    # convert an honest signal into a restart loop and destroy the forensic
+    # state this lane exists to preserve. Restore by removing `!override`.
+    labels: !override
+      - "com.omninode.lane=stability-test"
+      - "com.omninode.ticket=OMN-10281"
+      - "com.omninode.runtime.address=runtime://omninode-pc/stability-test/effects"
+      - "com.omninode.runtime.id=stability-test-effects"
+  projection-api:
+    container_name: omnimarket-stability-test-projection-api
+    restart: unless-stopped
+    environment:
+      ONEX_ENVIRONMENT: stability-test
+      KAFKA_ENVIRONMENT: stability-test
+      ONEX_DATABASE_TOPOLOGY_PROFILE: stability-test
+      OTEL_SERVICE_NAME: omnimarket-stability-test-projection-api
+    ports: !override
+      - "${STABILITY_TEST_PROJECTION_API_PORT:-13002}:3002"
+    labels:
+      - "com.omninode.lane=stability-test"
+      - "com.omninode.ticket=OMN-11542"
+      - "com.omninode.service=projection-api"
+  runtime-worker:
+    container_name: omninode-stability-test-runtime-worker
+    restart: unless-stopped
+    depends_on:
+      migration-gate:
+        condition: service_healthy
+    environment:
+      !!merge <<: *stability_test_strict_wiring_env
+      OMNIMEMORY_ENABLED: ${STABILITY_TEST_RUNTIME_WORKER_OMNIMEMORY_ENABLED:?runtime policy contract must set STABILITY_TEST_RUNTIME_WORKER_OMNIMEMORY_ENABLED}
+      OMNIMEMORY_MEMGRAPH_HOST: ${STABILITY_TEST_RUNTIME_WORKER_OMNIMEMORY_MEMGRAPH_HOST?runtime policy contract must set STABILITY_TEST_RUNTIME_WORKER_OMNIMEMORY_MEMGRAPH_HOST}
+      ONEX_ENVIRONMENT: stability-test
+      KAFKA_ENVIRONMENT: stability-test
+      ONEX_TOPIC_PROVISIONER_MAX_PARTITIONS: ${STABILITY_TEST_TOPIC_PROVISIONER_MAX_PARTITIONS:?runtime policy contract must set STABILITY_TEST_TOPIC_PROVISIONER_MAX_PARTITIONS}
+      ONEX_STATE_ROOT: /app/data/.onex_state_stability_test
+      ONEX_STATE_DIR: /app/data/.onex_state_stability_test
+      ONEX_BOX_ID: omninode-pc
+      ONEX_RUNTIME_ID: stability-test-worker
+      ONEX_RUNTIME_ADDRESS: runtime://omninode-pc/stability-test/worker
+      ONEX_RUNTIME_CAPABILITIES: ${STABILITY_TEST_RUNTIME_WORKER_CAPABILITIES:?runtime policy contract must set STABILITY_TEST_RUNTIME_WORKER_CAPABILITIES}
+      ONEX_GROUP_ID: onex-stability-test-runtime-workers
+      ONEX_INFRA_HOST: ${ONEX_INFRA_HOST:?ONEX_INFRA_HOST required for stability session health probes}
+      ONEX_INFRA_USER: ${ONEX_INFRA_USER:?ONEX_INFRA_USER required for stability session health probes}
+      OMNI_HOME: ${OMNI_HOME:?OMNI_HOME required for stability session health probes}
+      SSH_STRICT_HOST_KEY_CHECKING: ${SSH_STRICT_HOST_KEY_CHECKING:-accept-new}
+      KAFKA_INSTANCE_ID: stability-test-worker
+      KAFKA_MAX_POLL_INTERVAL_MS: "1800000"
+      BIFROST_VERIFY_ENDPOINTS: ${STABILITY_TEST_RUNTIME_WORKER_BIFROST_VERIFY_ENDPOINTS:?runtime policy contract must set STABILITY_TEST_RUNTIME_WORKER_BIFROST_VERIFY_ENDPOINTS}
+      ONEX_SECRET_RESOLVER_CONFIG_PATH: ${STABILITY_TEST_RUNTIME_WORKER_SECRET_RESOLVER_CONFIG_PATH:?runtime policy contract must set STABILITY_TEST_RUNTIME_WORKER_SECRET_RESOLVER_CONFIG_PATH}
+      ONEX_SECRET_RESOLVER_CONFIG_JSON: ${STABILITY_TEST_RUNTIME_WORKER_SECRET_RESOLVER_CONFIG_JSON:?runtime policy contract must set STABILITY_TEST_RUNTIME_WORKER_SECRET_RESOLVER_CONFIG_JSON}
+      OTEL_SERVICE_NAME: omninode-stability-test-runtime-worker
+      # OMN-14551 G6: see omninode-runtime's ONEX_BOUNDARY_DLQ_ENABLED comment.
+      ONEX_BOUNDARY_DLQ_ENABLED: ${STABILITY_TEST_BOUNDARY_DLQ_ENABLED:?runtime policy contract must set STABILITY_TEST_BOUNDARY_DLQ_ENABLED}
+    volumes: !override
+      - worker_logs:/app/logs
+      - stability_test_worker_data:/app/data
+      - ./lane-overlays/dev.bifrost.yaml:/app/config/delegation/dev.bifrost.yaml:ro
+      - ${OMNICLAUDE_SKILLS_DIR:-./skills}:/app/skills:ro
+      - "${OMNI_HOME:?OMNI_HOME required for stability session health probes}:${OMNI_HOME:?OMNI_HOME required for stability session health probes}:ro"
+    # OMN-15217: strict semantic healthcheck — see omninode-runtime above for the
+    # full rationale. The worker is not an afterthought here: it reproduces the
+    # masking defect independently. Verified live 2026-07-27T14:18Z on this lane,
+    # `omninode-stability-test-runtime-worker`: `Up 4 hours (healthy)` with
+    # healthcheck `["CMD","curl","-sf","http://localhost:8085/health"]` while its
+    # own monitor logged `Runtime health check: status=DEGRADED contracts=5
+    # errors=4`. Leaving one of the lane's three runtime containers on the
+    # shallow probe would leave the lane able to lie by exactly the mechanism
+    # this ticket closes.
+    #
+    # Base runtime-worker inherits interval 30s / timeout 10s / retries 5, but
+    # start_period 1200s (not 1800s) — restated here so the flap budget is
+    # readable at the strict call site rather than inferred from the base.
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - /usr/local/bin/onex-container-healthcheck
+        - --degraded-policy
+        - fail
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 1200s
+    # OMN-15217: autoheal off for the same reason as the other two runtime
+    # containers. `autoheal=true` was confirmed live on this container's
+    # resolved label set (docker inspect, 2026-07-27T14:18Z), so a plain
+    # `labels:` block here would keep it armed — compose appends label
+    # sequences. Restore by removing `!override`.
+    labels: !override
+      - "com.omninode.lane=stability-test"
+      - "com.omninode.ticket=OMN-10281"
+      - "com.omninode.runtime.address=runtime://omninode-pc/stability-test/worker"
+      - "com.omninode.runtime.id=stability-test-worker"
+    deploy:
+      # OMN-12990: fail-fast on the ledgered config value, NOT a soft :-1
+      # default (the base compose kept a bare ${WORKER_REPLICAS:-0} until
+      # OMN-14968 made it lane-prefixed and fail-closed too); a plain recreate
+      # that omits the policy env would silently drop the worker. Sourcing
+      # docker/runtime-policy.env (rendered from runtime_policy.contract.yaml)
+      # supplies STABILITY_TEST_WORKER_REPLICAS=1; a recreate without it now
+      # fails loudly here instead of scaling the worker to zero with no signal.
+      replicas: ${STABILITY_TEST_WORKER_REPLICAS:?runtime policy contract must set STABILITY_TEST_WORKER_REPLICAS (source docker/runtime-policy.env)}
+  # OMN-13815: agent-actions-consumer, skill-lifecycle-consumer, intelligence-api
+  # and omninode-contract-resolver are disabled-by-profile for the --profile
+  # runtime cold path, but deploy-runtime.sh's RUNTIME_SERVICES warm-restart path
+  # starts them explicitly by name (`up -d --no-deps --force-recreate <service>`),
+  # which bypasses the profile gate. Without a lane-scoped container_name they
+  # inherit the bare base name and collide with the dev lane's bring-up (live
+  # repro on .201 2026-07-02). Pin lane-scoped names so the explicit start is
+  # host-name-isolated. These four are the only currently-disabled services the
+  # deploy path actually instantiates; context-audit-consumer / phoenix / autoheal
+  # / infisical are neither in RUNTIME_SERVICES nor otherwise started here, so they
+  # never occupy a host name in this lane and keep the base disable untouched.
+  agent-actions-consumer:
+    container_name: omninode-stability-test-agent-actions-consumer
+    profiles: !override ["stability-test-disabled"]
+  skill-lifecycle-consumer:
+    container_name: omninode-stability-test-skill-lifecycle-consumer
+    profiles: !override ["stability-test-disabled"]
+  context-audit-consumer:
+    profiles: !override ["stability-test-disabled"]
+  intelligence-api:
+    container_name: omnibase-stability-test-intelligence-api
+    profiles: !override ["stability-test-disabled"]
+  omninode-contract-resolver:
+    container_name: omninode-stability-test-contract-resolver
+    profiles: !override ["stability-test-disabled"]
+  phoenix:
+    profiles: !override ["stability-test-disabled"]
+  autoheal:
+    profiles: !override ["stability-test-disabled"]
+  # ===========================================================================
+  # STANDALONE PROJECTION WRITERS (OMN-17562)
+  # ===========================================================================
+  # The proof lane's write path. Until this change the stability lane ran ZERO
+  # standalone writers while the throwaway dev lane ran two -- the lane that
+  # `stability-proven` is resolved from for every live prod-promotion grant
+  # (OMN-15243) was the weaker of the two, which inverts what the lanes are for.
+  #
+  # THE DEFECT
+  # ----------
+  # A handler with the `BaseProjectionRunner` shape is deliberately NOT
+  # dispatched by the shared kernel (OMN-15905 / OMN-16874): a runner owns its
+  # own pool and its own consume loop, so the sanctioned way to run it is a
+  # dedicated process. The kernel still SUBSCRIBES its topics, so on a lane with
+  # no writer the consumer joins, takes every message, and commits every offset
+  # while the callback returns before any handler runs: consume -> ack ->
+  # nothing written -> no DLQ record -> no terminal event -> no ERROR log.
+  # A committed offset on a topic no process re-reads cannot be backfilled by
+  # deploying the writer later, which is why these land now.
+  #
+  # Measured on this lane 2026-09-03T01:08Z, before this change:
+  #   projection_write_path | DEGRADED | 15/37 declared projection(s) are
+  #   subscribed here but dispatch NOTHING in this process
+  # byte-identical to the dev lane's own detail string.
+  #
+  # SIX, AND WHICH SIX
+  # ------------------
+  # Exactly the contracts with a checked-in writer Deployment under
+  # `omninode_infra` `k8s/onex-dev/runtime/` on origin/dev -- a runner already
+  # proven to run as its own process. `projection_pattern_learning` and
+  # `projection_routing_decision` are deliberately absent: omninode_infra#1147
+  # removed their Deployments on 2026-09-02 as a prohibited rollout direction,
+  # and their real blocker is a store-resolved credential (OMN-17557 /
+  # OMN-17556), not a missing container. Four further runner-shaped contracts
+  # were ruled out of the served set entirely and the kernel stops subscribing
+  # them instead (omnibase_infra#3156).
+  # tests/ci/test_lane_projection_writer_coverage_omn17562.py holds both sets
+  # frozen and fails if this file drifts from either.
+  #
+  # NO `autoheal=true` LABEL, UNLIKE THE DEV LANE'S COPIES
+  # -----------------------------------------------------
+  # `autoheal` is `profiles: !override ["stability-test-disabled"]` on this lane
+  # -- there is no autoheal container here to act on the label. Carrying it
+  # would be a claim this lane does not honour.
+  #
+  # MINIMAL BY CONSTRUCTION
+  # -----------------------
+  # A `BaseProjectionRunner` subclass is a bare Kafka consumer with a DB pool.
+  # No HTTP surface beyond its own readiness server, no Bifrost rendering, no
+  # delegation routing, no contract discovery, no secret resolver -- so none of
+  # the runtime kernel's env is wired here, and `ONEX_WIRING_STRICT_MODE` is
+  # deliberately NOT bound: these processes never run the auto-wiring kernel, so
+  # the flag would be inert, exactly as it is on projection-api.
+  #
+  # `KAFKA_ENVIRONMENT` is omitted here for the same reason, even though every
+  # other service on this lane carries it. It is read by
+  # `service_kernel.py` as the event-bus environment/topic-prefix authority, and
+  # a `BaseProjectionRunner` never reaches that code: `run()` constructs an
+  # `AIOKafkaConsumer(*self.topics, ...)` on the contract's topic names verbatim.
+  # Setting it would be an inert variable that reads as configuration, and the
+  # dev lane's writers -- the pattern these copy -- do not carry it either. The
+  # OMN-17562 ruling is explicit that these services copy the existing writer
+  # shape and add no new variable; `ONEX_ENVIRONMENT` is kept because the dev
+  # writers do carry it (as `${ONEX_ENVIRONMENT:-local}`), pinned to the lane
+  # value here rather than left to a host default.
+  projection-tenant-registry-writer:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.runtime
+      args:
+        BUILD_SOURCE: "${BUILD_SOURCE:-release}"
+        EXPECTED_BUILD_SOURCE: "${EXPECTED_BUILD_SOURCE:-release}"
+    container_name: omnimarket-stability-test-projection-tenant-registry-writer
+    profiles: ["runtime", "full"]
+    networks:
+      - omnibase-infra-network
+    restart: unless-stopped
+    depends_on:
+      migration-gate:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    command:
+      - python
+      - -m
+      - omnimarket.nodes.node_projection_tenant_registry.handlers.handler_tenant_registry_projection
+    environment:
+      !!merge <<: *stability_test_analytics_env
+      KAFKA_BROKERS: "redpanda:9092"
+      KAFKA_BOOTSTRAP_SERVERS: "redpanda:9092"
+      # Its OWN consumer group, distinct from the shared kernel's subscription
+      # to the same topic and from every sibling writer's. Two processes reading
+      # one topic under one group would split the partitions between a writer
+      # and a no-op consumer, so half the events would silently never land -- a
+      # worse failure than the one this service fixes, because it would look
+      # like it worked. Canonical {env}.{service}.{node}.{purpose}.{version}
+      # shape, lane-scoped so this lane's writer and another lane's can never
+      # answer to the same identity.
+      KAFKA_CONSUMER_GROUP: "stability-test.omnimarket-projections.tenant-registry-writer.consume.v1"
+      # Opt-in readiness/liveness HTTP server. Container-internal only: the
+      # healthcheck below curls localhost, and publishing a host port would put
+      # this service into the lane port map for no reader.
+      PROJECTION_RUNNER_HEALTH_PORT: "8098"
+      ONEX_LOG_LEVEL: ${ONEX_LOG_LEVEL:-INFO}
+      ONEX_ENVIRONMENT: stability-test
+      PYTHONUNBUFFERED: "1"
+    stop_grace_period: 60s
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8098/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging: *stability_test_logging
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    labels:
+      - "com.omninode.service=projection-tenant-registry-writer"
+      - "com.omninode.layer=runtime"
+      - "com.omninode.lane=stability-test"
+      - "com.omninode.ticket=OMN-17562"
+  projection-delegation-writer:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.runtime
+      args:
+        BUILD_SOURCE: "${BUILD_SOURCE:-release}"
+        EXPECTED_BUILD_SOURCE: "${EXPECTED_BUILD_SOURCE:-release}"
+    container_name: omnimarket-stability-test-projection-delegation-writer
+    profiles: ["runtime", "full"]
+    networks:
+      - omnibase-infra-network
+    restart: unless-stopped
+    depends_on:
+      migration-gate:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    command:
+      - python
+      - -m
+      - omnimarket.nodes.node_projection_delegation.handlers.handler_delegation
+    environment:
+      !!merge <<: [*stability_test_analytics_env, *stability_test_tenant_projection_env, *stability_test_internal_projection_env]
+      ONEX_DATABASE_TOPOLOGY_PROFILE: stability-test
+      KAFKA_BROKERS: "redpanda:9092"
+      KAFKA_BOOTSTRAP_SERVERS: "redpanda:9092"
+      KAFKA_CONSUMER_GROUP: "stability-test.omnimarket-projections.delegation-writer.consume.v1"
+      PROJECTION_RUNNER_HEALTH_PORT: "8099"
+      ONEX_LOG_LEVEL: ${ONEX_LOG_LEVEL:-INFO}
+      ONEX_ENVIRONMENT: stability-test
+      PYTHONUNBUFFERED: "1"
+    stop_grace_period: 60s
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8099/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging: *stability_test_logging
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1024M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    labels:
+      - "com.omninode.service=projection-delegation-writer"
+      - "com.omninode.layer=runtime"
+      - "com.omninode.lane=stability-test"
+      - "com.omninode.ticket=OMN-17562"
+  projection-registration-writer:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.runtime
+      args:
+        BUILD_SOURCE: "${BUILD_SOURCE:-release}"
+        EXPECTED_BUILD_SOURCE: "${EXPECTED_BUILD_SOURCE:-release}"
+    container_name: omnimarket-stability-test-projection-registration-writer
+    profiles: ["runtime", "full"]
+    networks:
+      - omnibase-infra-network
+    restart: unless-stopped
+    depends_on:
+      migration-gate:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    command:
+      - python
+      - -m
+      - omnimarket.nodes.node_projection_registration.handlers.handler_registration
+    environment:
+      !!merge <<: *stability_test_analytics_env
+      KAFKA_BROKERS: "redpanda:9092"
+      KAFKA_BOOTSTRAP_SERVERS: "redpanda:9092"
+      KAFKA_CONSUMER_GROUP: "stability-test.omnimarket-projections.registration-writer.consume.v1"
+      PROJECTION_RUNNER_HEALTH_PORT: "8100"
+      ONEX_LOG_LEVEL: ${ONEX_LOG_LEVEL:-INFO}
+      ONEX_ENVIRONMENT: stability-test
+      PYTHONUNBUFFERED: "1"
+    stop_grace_period: 60s
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8100/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging: *stability_test_logging
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    labels:
+      - "com.omninode.service=projection-registration-writer"
+      - "com.omninode.layer=runtime"
+      - "com.omninode.lane=stability-test"
+      - "com.omninode.ticket=OMN-17562"
+  projection-savings-writer:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.runtime
+      args:
+        BUILD_SOURCE: "${BUILD_SOURCE:-release}"
+        EXPECTED_BUILD_SOURCE: "${EXPECTED_BUILD_SOURCE:-release}"
+    container_name: omnimarket-stability-test-projection-savings-writer
+    profiles: ["runtime", "full"]
+    networks:
+      - omnibase-infra-network
+    restart: unless-stopped
+    depends_on:
+      migration-gate:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    command:
+      - python
+      - -m
+      - omnimarket.nodes.node_projection_savings.handlers.handler_savings
+    environment:
+      !!merge <<: [*stability_test_analytics_env, *stability_test_tenant_projection_env, *stability_test_internal_projection_env]
+      ONEX_DATABASE_TOPOLOGY_PROFILE: stability-test
+      KAFKA_BROKERS: "redpanda:9092"
+      KAFKA_BOOTSTRAP_SERVERS: "redpanda:9092"
+      KAFKA_CONSUMER_GROUP: "stability-test.omnimarket-projections.savings-writer.consume.v1"
+      PROJECTION_RUNNER_HEALTH_PORT: "8101"
+      ONEX_LOG_LEVEL: ${ONEX_LOG_LEVEL:-INFO}
+      ONEX_ENVIRONMENT: stability-test
+      PYTHONUNBUFFERED: "1"
+    stop_grace_period: 60s
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8101/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging: *stability_test_logging
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    labels:
+      - "com.omninode.service=projection-savings-writer"
+      - "com.omninode.layer=runtime"
+      - "com.omninode.lane=stability-test"
+      - "com.omninode.ticket=OMN-17562"
+  projection-tenant-credentials-writer:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.runtime
+      args:
+        BUILD_SOURCE: "${BUILD_SOURCE:-release}"
+        EXPECTED_BUILD_SOURCE: "${EXPECTED_BUILD_SOURCE:-release}"
+    container_name: omnimarket-stability-test-projection-tenant-credentials-writer
+    profiles: ["runtime", "full"]
+    networks:
+      - omnibase-infra-network
+    restart: unless-stopped
+    depends_on:
+      migration-gate:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    command:
+      - python
+      - -m
+      - omnimarket.nodes.node_projection_tenant_credentials.handlers.handler_tenant_credentials_projection
+    environment:
+      !!merge <<: [*stability_test_analytics_env, *stability_test_tenant_projection_env, *stability_test_internal_projection_env]
+      ONEX_DATABASE_TOPOLOGY_PROFILE: stability-test
+      KAFKA_BROKERS: "redpanda:9092"
+      KAFKA_BOOTSTRAP_SERVERS: "redpanda:9092"
+      KAFKA_CONSUMER_GROUP: "stability-test.omnimarket-projections.tenant-credentials-writer.consume.v1"
+      PROJECTION_RUNNER_HEALTH_PORT: "8102"
+      ONEX_LOG_LEVEL: ${ONEX_LOG_LEVEL:-INFO}
+      ONEX_ENVIRONMENT: stability-test
+      PYTHONUNBUFFERED: "1"
+    stop_grace_period: 60s
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8102/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging: *stability_test_logging
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    labels:
+      - "com.omninode.service=projection-tenant-credentials-writer"
+      - "com.omninode.layer=runtime"
+      - "com.omninode.lane=stability-test"
+      - "com.omninode.ticket=OMN-17562"
+  projection-live-events-writer:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.runtime
+      args:
+        BUILD_SOURCE: "${BUILD_SOURCE:-release}"
+        EXPECTED_BUILD_SOURCE: "${EXPECTED_BUILD_SOURCE:-release}"
+    container_name: omnimarket-stability-test-projection-live-events-writer
+    profiles: ["runtime", "full"]
+    networks:
+      - omnibase-infra-network
+    restart: unless-stopped
+    depends_on:
+      migration-gate:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    command:
+      - python
+      - -m
+      - omnimarket.nodes.node_projection_live_events.handlers.handler_live_events
+    environment:
+      !!merge <<: *stability_test_analytics_env
+      KAFKA_BROKERS: "redpanda:9092"
+      KAFKA_BOOTSTRAP_SERVERS: "redpanda:9092"
+      KAFKA_CONSUMER_GROUP: "stability-test.omnimarket-projections.live-events-writer.consume.v1"
+      PROJECTION_RUNNER_HEALTH_PORT: "8103"
+      ONEX_LOG_LEVEL: ${ONEX_LOG_LEVEL:-INFO}
+      ONEX_ENVIRONMENT: stability-test
+      PYTHONUNBUFFERED: "1"
+    stop_grace_period: 60s
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8103/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging: *stability_test_logging
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1024M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    labels:
+      - "com.omninode.service=projection-live-events-writer"
+      - "com.omninode.layer=runtime"
+      - "com.omninode.lane=stability-test"
+      - "com.omninode.ticket=OMN-17562"
+  # ===========================================================================
+  # OMN-18114: opt the TENANT-domain projection carrier into the PROOF lane
+  # ===========================================================================
+  # Mirrors the dev lane's opt-in, and it is not optional decoration: the
+  # `stability-proven` premise of the prod-promotion gate is resolved from this
+  # lane, so a proof lane that carries fewer contracts than the mutable dev lane
+  # proves less than the lane it is meant to certify. That asymmetry is what
+  # OMN-17562 closed for the six standalone writers; this closes it for the
+  # profile carrier. tests/ci/test_lane_runtime_profile_carriage_omn18114.py
+  # fails if either lane loses it.
+  #
+  # The lane-scoped container_name is mandatory, not cosmetic: the base declares
+  # `omnimarket-tenant-projection-writer`, and deploy-runtime.sh's warm restart
+  # path starts lane services explicitly by name, which bypasses the compose
+  # profile gate. Without a lane-prefixed name this container would collide with
+  # the dev lane's on the same host -- the live OMN-13815 repro.
+  #
+  # Every value below is the STABILITY_TEST_ spelling of what the base resolves
+  # as DEV_. The base service is the declaration; this stanza is this lane's
+  # policy, the same split the three shared kernels above already use.
+  tenant-projection-writer:
+    container_name: omnimarket-stability-test-tenant-projection-writer
+    profiles: !override ["runtime", "full"]
+    restart: unless-stopped
+    environment:
+      !!merge <<: [*stability_test_analytics_env, *stability_test_strict_wiring_env]
+      ONEX_ENVIRONMENT: stability-test
+      KAFKA_ENVIRONMENT: stability-test
+      ONEX_TOPIC_PROVISIONER_MAX_PARTITIONS: ${STABILITY_TEST_TOPIC_PROVISIONER_MAX_PARTITIONS:?runtime policy contract must set STABILITY_TEST_TOPIC_PROVISIONER_MAX_PARTITIONS}
+      ONEX_STATE_ROOT: /app/data/.onex_state_stability_test
+      ONEX_STATE_DIR: /app/data/.onex_state_stability_test
+      ONEX_BOX_ID: omninode-pc
+      ONEX_RUNTIME_ID: stability-test-tenant-projection
+      ONEX_RUNTIME_ADDRESS: runtime://omninode-pc/stability-test/tenant-projection
+      ONEX_RUNTIME_CAPABILITIES: ${STABILITY_TEST_RUNTIME_TENANT_PROJECTION_CAPABILITIES:?runtime policy contract must set STABILITY_TEST_RUNTIME_TENANT_PROJECTION_CAPABILITIES}
+      OMNIMEMORY_ENABLED: ${STABILITY_TEST_RUNTIME_TENANT_PROJECTION_OMNIMEMORY_ENABLED:?runtime policy contract must set STABILITY_TEST_RUNTIME_TENANT_PROJECTION_OMNIMEMORY_ENABLED}
+      OMNIMEMORY_MEMGRAPH_HOST: ${STABILITY_TEST_RUNTIME_TENANT_PROJECTION_OMNIMEMORY_MEMGRAPH_HOST?runtime policy contract must set STABILITY_TEST_RUNTIME_TENANT_PROJECTION_OMNIMEMORY_MEMGRAPH_HOST}
+      BIFROST_VERIFY_ENDPOINTS: ${STABILITY_TEST_RUNTIME_TENANT_PROJECTION_BIFROST_VERIFY_ENDPOINTS:?runtime policy contract must set STABILITY_TEST_RUNTIME_TENANT_PROJECTION_BIFROST_VERIFY_ENDPOINTS}
+      ONEX_SECRET_RESOLVER_CONFIG_PATH: ${STABILITY_TEST_RUNTIME_TENANT_PROJECTION_SECRET_RESOLVER_CONFIG_PATH:?runtime policy contract must set STABILITY_TEST_RUNTIME_TENANT_PROJECTION_SECRET_RESOLVER_CONFIG_PATH}
+      ONEX_SECRET_RESOLVER_CONFIG_JSON: ${STABILITY_TEST_RUNTIME_TENANT_PROJECTION_SECRET_RESOLVER_CONFIG_JSON:?runtime policy contract must set STABILITY_TEST_RUNTIME_TENANT_PROJECTION_SECRET_RESOLVER_CONFIG_JSON}
+      ONEX_GROUP_ID: onex-stability-test-runtime-tenant-projection
+      KAFKA_INSTANCE_ID: stability-test-tenant-projection
+      OTEL_SERVICE_NAME: omnimarket-stability-test-tenant-projection-writer
+      # OMN-14551 G6: see omninode-runtime's ONEX_BOUNDARY_DLQ_ENABLED comment.
+      ONEX_BOUNDARY_DLQ_ENABLED: ${STABILITY_TEST_BOUNDARY_DLQ_ENABLED:?runtime policy contract must set STABILITY_TEST_BOUNDARY_DLQ_ENABLED}
+    volumes: !override
+      - stability_test_tenant_projection_logs:/app/logs
+      - stability_test_tenant_projection_data:/app/data
+      - ../contracts:/app/contracts:ro
+      - ./lane-overlays/dev.bifrost.yaml:/app/config/delegation/dev.bifrost.yaml:ro
+      - ${OMNICLAUDE_SKILLS_DIR:-./skills}:/app/skills:ro
+    # OMN-15217: the strict semantic probe, for the same reason the three shared
+    # kernels on this lane carry it -- `curl -sf /health` returns 200 on a body
+    # that says "degraded", so the shallow probe is exactly how a lane lies.
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - /usr/local/bin/onex-container-healthcheck
+        - --degraded-policy
+        - fail
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 1200s
+    logging: *stability_test_logging
+    # OMN-15217: autoheal off, as on this lane's other runtime containers.
+    # Compose APPENDS label sequences, so a plain `labels:` here would keep the
+    # base's `autoheal=true` armed.
+    labels: !override
+      - "com.omninode.service=tenant-projection-writer"
+      - "com.omninode.layer=runtime"
+      - "com.omninode.lane=stability-test"
+      - "com.omninode.ticket=OMN-18114"
+      - "com.omninode.runtime.address=runtime://omninode-pc/stability-test/tenant-projection"
+      - "com.omninode.runtime.id=stability-test-tenant-projection"
+volumes:
+  postgres_data:
+    name: omnibase-infra-stability-test-postgres-data
+  redpanda_data:
+    name: omnibase-infra-stability-test-redpanda-data
+  valkey_data:
+    name: omnibase-infra-stability-test-valkey-data
+  keycloak_data:
+    name: omnibase-infra-stability-test-keycloak-data
+  runtime_data:
+    name: omninode-stability-test-runtime-data
+  runtime_logs:
+    name: omninode-stability-test-runtime-logs
+  effects_logs:
+    name: omninode-stability-test-effects-logs
+  effects_data:
+    name: omninode-stability-test-effects-data
+  worker_logs:
+    name: omninode-stability-test-worker-logs
+  # OMN-18114: the carrier's volumes. BOTH are lane-scoped, unlike worker_logs /
+  # effects_logs above which reuse the base's concrete names: this lane's own
+  # test_stability_lane_volumes_do_not_reuse_production_names requires every
+  # volume declared HERE to carry `stability-test` in its concrete name, and a
+  # log volume shared with the dev lane's carrier would put two processes'
+  # output in one place with no way to attribute a line. Declared in this
+  # overlay rather than inherited so it is also valid when the overlay is merged
+  # over the CATALOG render in the deploy agent's validation step.
+  stability_test_tenant_projection_logs:
+    name: omnimarket-stability-test-tenant-projection-logs
+  stability_test_tenant_projection_data:
+    name: omnimarket-stability-test-tenant-projection-data
+  stability_test_worker_data:
+    name: omninode-stability-test-worker-data
+networks:
+  omnibase-infra-network:
+    name: omnibase-infra-stability-test-network
+    driver: bridge
+  omnimemory-network:
+    name: omnibase-infra-stability-test-omnimemory-network
+    driver: bridge
+    external: false

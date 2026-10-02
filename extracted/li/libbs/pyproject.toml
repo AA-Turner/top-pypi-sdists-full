@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "libbs"
+classifiers = [
+    "Development Status :: 7 - Inactive",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.12",
+]
+license = {text = "BSD 2 Clause"}
+description = "Deprecated: 'libbs' has been renamed to 'declib'. Install 'declib' instead."
+urls = {Homepage = "https://github.com/binsync/declib"}
+requires-python = ">= 3.10"
+dependencies = [
+    "declib",
+]
+dynamic = ["version"]
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[tool.setuptools]
+include-package-data = true
+license-files = ["LICENSE"]
+
+[tool.setuptools.packages]
+find = {namespaces = false}
+
+[tool.setuptools.dynamic]
+version = {attr = "libbs.__version__"}

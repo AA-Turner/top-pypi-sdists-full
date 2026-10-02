@@ -1,0 +1,72 @@
+/* bench_dll_core.c — the DLL early/prompt/late code-tracking loop.
+ *
+ *   steps — end-to-end throughput (MSa/s) of the per-sample E/P/L correlate
+ *           + per-period discriminator + loop update over a 64k burst.
+ */
+#include "doppler/dll/dll_core.h"
+#include "doppler/dp_complex.h"
+#include "jm_bench.h"
+#include <stdlib.h>
+#include <time.h>
+
+#define BENCH_N 65536
+#define ITERATIONS 200
+#define SF 63
+#define SPS 4
+
+int
+main (void)
+{
+  /* deterministic code + a carrier-free spread burst */
+  uint8_t  code[SF];
+  uint32_t st = 1u;
+  for (int i = 0; i < SF; i++)
+    {
+      st ^= st << 13;
+      st ^= st >> 17;
+      st ^= st << 5;
+      code[i] = (st & 1u);
+    }
+  float _Complex *rx  = malloc (BENCH_N * sizeof (*rx));
+  float _Complex *out = malloc (BENCH_N * sizeof (*out));
+  if (!rx || !out)
+    return 1;
+  double cph = 0.0;
+  for (int k = 0; k < BENCH_N; k++)
+    {
+      size_t idx = (size_t)cph % SF;
+      rx[k]      = (code[idx] & 1u) ? -1.0f : 1.0f;
+      cph += 1.0 / SPS;
+    }
+
+  uint64_t   t0, t1;
+  jm_bench_t _bench = { 0 };
+
+  printf ("=== dll benchmark ===\n");
+  printf ("block = %d samples,  %d iterations\n\n", BENCH_N, ITERATIONS);
+
+  dp_dll_state_t *d = dp_dll_create (code, SF, SPS, 0.0, 0.005, 0.707, 0.5, 1);
+  dp_dll_steps (d, rx, SF * SPS * 2, out, BENCH_N); /* warmup */
+
+  double times[ITERATIONS];
+  for (int r = 0; r < ITERATIONS; r++)
+    {
+      dp_dll_reset (d);
+      t0 = jm_bench_now_ns ();
+      dp_dll_steps (d, rx, BENCH_N, out, BENCH_N);
+      t1       = jm_bench_now_ns ();
+      times[r] = jm_bench_elapsed_sec (t0, t1);
+    }
+  jm_bench_add (&_bench, "steps", times, ITERATIONS, BENCH_N);
+  double sum = 0.0;
+  for (int r = 0; r < ITERATIONS; r++)
+    sum += times[r];
+  printf ("  steps    %8.1f MSa/s\n",
+          (double)BENCH_N / (sum / ITERATIONS) / 1e6);
+
+  jm_bench_write_json (&_bench, "dll");
+  dp_dll_destroy (d);
+  free (rx);
+  free (out);
+  return 0;
+}

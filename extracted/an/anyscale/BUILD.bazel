@@ -44,7 +44,6 @@ py_library(
         requirement("certifi"),
         requirement("click"),
         requirement("colorama"),
-        requirement("expiringdict"),
         requirement("jsonpatch"),
         requirement("jsonschema"),
         requirement("kubernetes"),

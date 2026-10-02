@@ -1,0 +1,67 @@
+Metadata-Version: 2.5
+Name: sbxloop
+Version: 2.1.36
+Summary: Agentic loop orchestration on Docker Sandboxes (sbx) with isolated credential domains
+Project-URL: Homepage, https://github.com/brettbergin/lantern-backend
+Project-URL: Repository, https://github.com/brettbergin/lantern-backend
+Project-URL: Issues, https://github.com/brettbergin/lantern-backend/issues
+Author: Brett Bergin
+License-Expression: MIT
+Keywords: agents,copilot,docker,orchestration,sandbox
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Typing :: Typed
+Requires-Python: >=3.13
+Requires-Dist: alembic>=1.13
+Requires-Dist: gitpython>=3.1.62
+Requires-Dist: httpx>=0.27
+Requires-Dist: packaging>=26.3
+Requires-Dist: pydantic>=2.7
+Requires-Dist: pypdf==6.19.0
+Requires-Dist: python-dotenv>=1.2.3
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: rich>=13.7
+Requires-Dist: sbxloop-worker
+Requires-Dist: sentry-sdk<3,>=2.69.1
+Requires-Dist: sqlalchemy>=2.0
+Requires-Dist: structlog>=24.1
+Requires-Dist: textual-plotext>=1.0.1
+Requires-Dist: textual>=8.2
+Requires-Dist: tomlkit>=0.13
+Requires-Dist: typer>=0.27.2
+Requires-Dist: tzdata; sys_platform == 'win32'
+Provides-Extra: api
+Requires-Dist: fastapi>=0.115; extra == 'api'
+Requires-Dist: pyjwt[crypto]>=2.9; extra == 'api'
+Requires-Dist: uvicorn[standard]>=0.30; extra == 'api'
+Provides-Extra: codex
+Requires-Dist: openai-codex==0.147.0; extra == 'codex'
+Provides-Extra: copilot
+Requires-Dist: github-copilot-sdk>=1.0.13; extra == 'copilot'
+Provides-Extra: discord
+Requires-Dist: discord-py>=2.3; extra == 'discord'
+Provides-Extra: mattermost
+Requires-Dist: aiohttp>=3.9; extra == 'mattermost'
+Provides-Extra: slack
+Requires-Dist: aiohttp>=3.9; extra == 'slack'
+Requires-Dist: slack-sdk>=3.44.1; extra == 'slack'
+Description-Content-Type: text/markdown
+
+# sbxloop
+
+> **sbxloop is now Lantern.** This project continues as **Lantern backend** at
+> <https://github.com/brettbergin/lantern-backend>. This is the final release
+> published to PyPI under this name: Lantern installs from its GitHub Releases,
+> with the `lantern` CLI, `LANTERN_*` environment and `~/.lantern` home.
+
+Agentic loop orchestration on Docker Sandboxes (`sbx`) with isolated credential
+domains. This is the host-side orchestrator package: sandbox provisioning, the
+loop engine, and the `sbxloop` CLI.
+
+See the [project README](https://github.com/brettbergin/lantern-backend) for full
+documentation.

@@ -1,0 +1,176 @@
+Metadata-Version: 2.4
+Name: vmodal
+Version: 1.0.0
+Summary: Thin Python SDK for the VMX external API
+Author: v-modal
+Maintainer: v-modal
+License-Expression: MIT
+Project-URL: Repository, https://github.com/v-modal/vmodal_sdk
+Project-URL: Documentation, https://github.com/v-modal/vmodal_sdk/tree/main/sdk_python/docs/docs_ref
+Project-URL: Issues, https://github.com/v-modal/vmodal_sdk/issues
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: httpx<1,>=0.27.0
+Requires-Dist: pydantic<3,>=2.7.0
+Requires-Dist: fire<1,>=0.6.0
+Requires-Dist: cryptography<50,>=42.0.0
+Provides-Extra: dev
+Requires-Dist: build<2,>=1.2.1; extra == "dev"
+Requires-Dist: twine<7,>=5.1.0; extra == "dev"
+Dynamic: license-file
+
+# vmodal Python SDK
+
+Async-first Python SDK for the VMX external API. The SDK is published on
+[PyPI](https://pypi.org/project/vmodal/) under the [MIT License](LICENSE).
+
+## Install
+
+```bash
+pip install vmodal
+```
+
+Upgrade or uninstall:
+
+```bash
+pip install --upgrade vmodal
+pip uninstall vmodal
+```
+
+## Configure authentication
+
+Obtain an API key through your v-modal account administrator. API keys are
+Bearer credentials: keep them out of source control, rotate them in the account
+administration surface, and replace `VMODAL_API_KEY` after a rotation.
+
+```bash
+export VMODAL_API_KEY=ak_xxx
+```
+
+`Client.from_env()` and `SyncClient.from_env()` select the hosted public service
+and resolve the account identity associated with the key.
+
+An invalid or expired token raises `AuthError` with status `401`. A valid token
+without the required permission raises `ApiError` with status `403`. Rotate a
+token by replacing the environment value. Cached identity information is
+encrypted and stored in the operating system's user-cache directory.
+
+## Verify authentication
+
+```python
+from vmodal import SyncClient
+
+client = SyncClient.from_env()
+print(client.auth())
+```
+
+Successful output:
+
+```text
+VMODAL_API_KEY is valid, authenticated correctly (user_id=user_abc)
+```
+
+## Simple usage examples
+
+Check authentication and API health:
+
+```python
+from vmodal import SyncClient
+
+client = SyncClient.from_env()
+print(client.auth())
+print(client.health())
+```
+
+Search videos:
+
+```python
+from vmodal import SyncClient
+
+client = SyncClient.from_env()
+result = client.searches.search_video(
+    query_text="alien",
+    mode="vid_file",
+    group_name="newsalien2",
+    stream_name="astream",
+    search_sources=["image"],
+    search_combine_mode="union",
+    limit=10,
+    image_emb_score_min=1.5,
+    tracking_id="readme_search",
+)
+print(result)
+```
+
+Upload a video:
+
+```python
+from vmodal import SyncClient
+
+client = SyncClient.from_env()
+result = client.collections.video_upload(
+    filepath_local="/path/to/video.mp4",
+    collection_name="newsalien2",
+    sub_collection_name="astream",
+    mode="vid_file",
+    modality="vid_raw",
+)
+print(result)
+```
+
+Files of 100 MiB or more automatically use resumable multipart upload (64 MiB
+parts, four concurrent part uploads). To force it for a smaller file or tune the
+part size:
+
+```python
+result = client.collections.video_upload(
+    "/path/to/video.mp4",
+    "newsalien2",
+    "astream",
+    multipart=True,
+    part_size_bytes=64 * 1024 * 1024,
+)
+```
+
+## More examples
+
+- [Authentication check](https://github.com/v-modal/vmodal_sdk/blob/main/sdk_python/examples/auth_check.py)
+- [Full SDK usage](https://github.com/v-modal/vmodal_sdk/blob/main/sdk_python/examples/app_full_usage.py)
+- [Video upload, indexation, and color search](https://github.com/v-modal/vmodal_sdk/blob/main/sdk_python/examples/index_example.py)
+- [Search examples](https://github.com/v-modal/vmodal_sdk/blob/main/sdk_python/examples/search_ex.py)
+
+## Async usage
+
+```python
+import asyncio
+from vmodal import Client
+
+async def main():
+    async with Client.from_env() as client:
+        return await client.searches.search_video(
+            query_text="example",
+            mode="vid_file",
+            group_name="agroup",
+        )
+
+asyncio.run(main())
+```
+
+## CLI
+
+```bash
+vmodal health
+vmodal search_video --query_text=example --group_name=agroup --mode=vid_file
+python -m vmodal.cli video_upload --filepath_local=/path/to/video.mp4 --collection_name=agroup --sub_collection_name=astream
+```
+
+See the [endpoint map](https://github.com/v-modal/vmodal_sdk/blob/main/sdk_python/docs/docs_ref/endpoints.md),
+[configuration reference](https://github.com/v-modal/vmodal_sdk/blob/main/sdk_python/docs/docs_ref/sdk_env_vars.md),
+and [support policy](SUPPORT.md).

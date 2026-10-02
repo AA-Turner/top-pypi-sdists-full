@@ -1,0 +1,512 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""Async Unix socket server for the emit daemon.
+
+Accepts newline-delimited JSON over Unix domain socket, validates events
+via EventRegistry, and enqueues to BoundedEventQueue. Does NOT include
+the Kafka publisher loop -- that is a separate component.
+
+Protocol:
+    Emit:  {"event_type": "...", "payload": {...}}\\n
+    Reply: {"status": "queued", "event_id": "..."}\\n
+    Reply: {"status": "error", "reason": "..."}\\n
+
+    Ping:  {"command": "ping"}\\n
+    Reply: {"status": "ok", "queue_size": N, "spool_size": N}\\n
+
+Emit ACK semantics (OMN-16599)
+------------------------------
+``{"status": "queued"}`` means EVERY fan-out leg declared for the event type was
+accepted by the queue. If any leg was discarded -- unserializable payload,
+payload over ``max_payload_bytes``, or the queue refusing the event -- the reply
+is ``{"status": "error", ...}`` whose reason names the topics that landed and
+the topics that did not.
+
+This is not cosmetic. ``emit_client.send_event`` returns True on, and only on,
+``status == "queued"``. The previous code derived the reply from the last
+SUCCESSFUL leg, so a two-topic event ACKed True while one leg was thrown away
+with nothing but a warning in the daemon log -- reported as
+``onex.cmd.omniintelligence.*`` topics sitting at zero while their sibling
+``onex.evt.*`` topics from the same emit received traffic. Acknowledging a
+discarded publish violates fail-fast doctrine whether or not the drop itself is
+policy-correct.
+
+``queued`` remains an acceptance ACK, not a delivery receipt: it says the event
+is durable in the queue, not that Kafka has it. Post-queue publish outcomes are
+the publisher loop's ledger (``events_published`` / ``events_dropped`` /
+``events_unconfirmed`` on the health response).
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+from collections.abc import Callable
+from datetime import UTC, datetime
+from typing import cast
+from uuid import UUID, uuid4
+
+from pydantic import ValidationError
+
+from omnimarket.nodes.node_emit_daemon.event_queue import (
+    BoundedEventQueue,
+    ModelQueuedEvent,
+)
+from omnimarket.nodes.node_emit_daemon.event_registry import EventRegistry
+from omnimarket.nodes.node_emit_daemon.models.model_durability import (
+    DurableOutboxFullError,
+)
+from omnimarket.nodes.node_emit_daemon.models.model_emit_daemon_config import (
+    EnumCircuitBreakerState,
+)
+from omnimarket.nodes.node_emit_daemon.models.model_emit_daemon_health import (
+    ModelEmitDaemonHealth,
+)
+from omnimarket.nodes.node_emit_daemon.models.model_protocol import (
+    JsonType,
+    ModelDaemonEmitRequest,
+    ModelDaemonErrorResponse,
+    ModelDaemonHealthRequest,
+    ModelDaemonPingRequest,
+    ModelDaemonPingResponse,
+    ModelDaemonQueuedResponse,
+    parse_daemon_request,
+)
+
+logger = logging.getLogger(__name__)
+
+
+def _json_default(obj: object) -> str:
+    if isinstance(obj, UUID):
+        return str(obj)
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+
+class EmitSocketServer:
+    """Async Unix domain socket server for event emission.
+
+    Binds to a socket path, accepts newline-delimited JSON, validates
+    against the EventRegistry, and enqueues to BoundedEventQueue.
+
+    Args:
+        socket_path: Path to the Unix domain socket.
+        queue: BoundedEventQueue for accepted events.
+        registry: EventRegistry for event validation and fan-out.
+        socket_timeout_seconds: Timeout for client read operations.
+        socket_permissions: Unix permissions for the socket file.
+        max_payload_bytes: Maximum payload size in bytes.
+        publisher_loop: Optional publisher loop, read for health snapshots.
+        clock: Optional UTC clock for ``emitted_at`` injection. Defaults to
+            ``datetime.now(UTC)`` -- see the OMN-16048 note in ``__init__``.
+        correlation_id_factory: Optional ID source for generated
+            ``correlation_id`` values. Defaults to ``str(uuid4())``.
+    """
+
+    def __init__(
+        self,
+        socket_path: str,
+        queue: BoundedEventQueue,
+        registry: EventRegistry,
+        socket_timeout_seconds: float = 5.0,
+        socket_permissions: int = 0o660,
+        max_payload_bytes: int = 1_048_576,
+        publisher_loop: object | None = None,
+        clock: Callable[[], datetime] | None = None,
+        correlation_id_factory: Callable[[], str] | None = None,
+    ) -> None:
+        # OMN-16048 determinism seam. ``_inject_metadata`` generates two
+        # fields inline (``emitted_at`` from the wall clock, ``correlation_id``
+        # from ``uuid4()`` when the payload carries none), which makes them
+        # trivially unequal between any two runs. Exposing them as injectable
+        # callables -- with these exact expressions as the defaults, so
+        # runtime behavior is unchanged -- lets the shadow-mode parity harness
+        # drive this daemon and node_event_emit_effect from ONE shared clock
+        # and ID source, and so compare the generation POLICY byte-for-byte
+        # instead of waiving the two fields.
+        self._clock: Callable[[], datetime] = (
+            clock if clock is not None else (lambda: datetime.now(UTC))
+        )
+        self._correlation_id_factory: Callable[[], str] = (
+            correlation_id_factory
+            if correlation_id_factory is not None
+            else (lambda: str(uuid4()))
+        )
+        self._socket_path = socket_path
+        self._queue = queue
+        self._registry = registry
+        self._socket_timeout_seconds = socket_timeout_seconds
+        self._socket_permissions = socket_permissions
+        self._max_payload_bytes = max_payload_bytes
+        # Typed as object to avoid circular import; duck-typed access via attributes.
+        self._publisher_loop = publisher_loop
+
+        self._server: asyncio.Server | None = None
+        self._shutdown_event = asyncio.Event()
+
+    @property
+    def is_running(self) -> bool:
+        return self._server is not None and self._server.is_serving()
+
+    async def start(self) -> None:
+        """Bind and start serving on the Unix socket."""
+        from pathlib import Path
+
+        socket_path = Path(self._socket_path)
+        socket_path.parent.mkdir(parents=True, exist_ok=True)
+        socket_path.unlink(missing_ok=True)
+
+        stream_limit = self._max_payload_bytes + 4096
+        try:
+            self._server = await asyncio.start_unix_server(
+                self._handle_client,
+                path=self._socket_path,
+                limit=stream_limit,
+            )
+        except FileExistsError:
+            logger.warning(
+                "FileExistsError on first bind attempt; removing socket and retrying"
+            )
+            socket_path.unlink(missing_ok=True)
+            self._server = await asyncio.start_unix_server(
+                self._handle_client,
+                path=self._socket_path,
+                limit=stream_limit,
+            )
+        socket_path.chmod(self._socket_permissions)
+        self._shutdown_event.clear()
+        logger.info(f"EmitSocketServer listening on {self._socket_path}")
+
+    async def stop(self) -> None:
+        """Stop the socket server."""
+        self._shutdown_event.set()
+        if self._server is not None:
+            self._server.close()
+            await self._server.wait_closed()
+            self._server = None
+
+        from pathlib import Path
+
+        socket_path = Path(self._socket_path)
+        if socket_path.exists():
+            try:
+                socket_path.unlink()
+            except OSError as e:
+                logger.warning(f"Failed to remove socket file: {e}")
+
+        logger.info("EmitSocketServer stopped")
+
+    async def _handle_client(
+        self,
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
+    ) -> None:
+        """Handle a single client connection (newline-delimited JSON)."""
+        try:
+            while not self._shutdown_event.is_set():
+                try:
+                    line = await asyncio.wait_for(
+                        reader.readline(),
+                        timeout=self._socket_timeout_seconds,
+                    )
+                except TimeoutError:
+                    break
+
+                if not line:
+                    break
+
+                response = await self._process_request(line)
+                writer.write(response.encode("utf-8") + b"\n")
+                await writer.drain()
+
+        except ConnectionResetError:
+            pass
+        except Exception:
+            logger.exception("Error handling client")
+        finally:
+            try:
+                writer.close()
+                await writer.wait_closed()
+            except Exception:
+                logger.debug("Error closing client writer", exc_info=True)
+
+    async def _process_request(self, line: bytes) -> str:
+        try:
+            raw_request = json.loads(line.decode("utf-8").strip())
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            return ModelDaemonErrorResponse(
+                reason=f"Invalid JSON: {e}"
+            ).model_dump_json()
+
+        if not isinstance(raw_request, dict):
+            return ModelDaemonErrorResponse(
+                reason="Request must be a JSON object"
+            ).model_dump_json()
+
+        try:
+            request = parse_daemon_request(raw_request)
+        except (ValueError, ValidationError) as e:
+            return ModelDaemonErrorResponse(reason=str(e)).model_dump_json()
+
+        if isinstance(request, ModelDaemonHealthRequest):
+            return self._handle_health()
+        if isinstance(request, ModelDaemonPingRequest):
+            return self._handle_ping()
+        return await self._handle_emit(request)
+
+    def _handle_ping(self) -> str:
+        return ModelDaemonPingResponse(
+            queue_size=self._queue.memory_size(),
+            spool_size=self._queue.spool_size(),
+        ).model_dump_json()
+
+    def _handle_health(self) -> str:
+        """Return detailed health snapshot. Never blocks on I/O."""
+        loop = self._publisher_loop
+        now = datetime.now(UTC)
+
+        # Extract circuit breaker state from publisher loop if available
+        circuit_state = EnumCircuitBreakerState.CLOSED
+        consecutive_failures = 0
+        events_published = 0
+        events_dropped = 0
+        events_buffered = 0
+        events_unconfirmed = 0
+        last_publish_at = None
+        last_failure_at = None
+        circuit_opened_at = None
+        kafka_connected = False
+        uptime_seconds = 0.0
+
+        if loop is not None:
+            circuit_state = getattr(
+                loop, "circuit_state", EnumCircuitBreakerState.CLOSED
+            )
+            consecutive_failures = getattr(loop, "consecutive_failures", 0)
+            events_published = getattr(loop, "events_published", 0)
+            events_dropped = getattr(loop, "events_dropped", 0)
+            events_buffered = getattr(loop, "events_buffered", 0)
+            events_unconfirmed = getattr(loop, "events_unconfirmed", 0)
+            last_publish_at = getattr(loop, "last_publish_at", None)
+            last_failure_at = getattr(loop, "last_failure_at", None)
+            circuit_opened_at = getattr(loop, "circuit_opened_at", None)
+            kafka_connected = getattr(loop, "kafka_connected", False)
+            started_at = getattr(loop, "started_at", None)
+            if started_at is not None:
+                uptime_seconds = (now - started_at).total_seconds()
+
+        healthy = self.is_running and circuit_state != EnumCircuitBreakerState.OPEN
+
+        health = ModelEmitDaemonHealth(
+            healthy=healthy,
+            circuit_state=circuit_state,
+            consecutive_failures=consecutive_failures,
+            memory_queue_size=self._queue.memory_size(),
+            spool_queue_size=self._queue.spool_size(),
+            events_published=events_published,
+            events_dropped=events_dropped,
+            events_buffered=events_buffered,
+            events_unconfirmed=events_unconfirmed,
+            last_publish_at=last_publish_at,
+            last_failure_at=last_failure_at,
+            circuit_opened_at=circuit_opened_at,
+            uptime_seconds=uptime_seconds,
+            kafka_connected=kafka_connected,
+        )
+        return health.model_dump_json()
+
+    def _inject_metadata(
+        self,
+        payload: dict[str, object],
+        correlation_id: str | None,
+    ) -> dict[str, object]:
+        """Add standard metadata fields to payload."""
+        import os
+
+        result = dict(payload)
+        if "correlation_id" not in result or result["correlation_id"] is None:
+            result["correlation_id"] = correlation_id or self._correlation_id_factory()
+        if "causation_id" not in result:
+            result["causation_id"] = None
+        if "emitted_at" not in result:
+            result["emitted_at"] = self._clock().isoformat()
+        # session_id: preserve payload value; fall back to CLAUDE_CODE_SESSION_ID env var.
+        # Clients (Option B) are the canonical source — daemon is session-agnostic.
+        if "session_id" not in result or not result["session_id"]:
+            env_session_id = os.environ.get("CLAUDE_CODE_SESSION_ID", "")
+            if env_session_id:
+                result["session_id"] = env_session_id
+        # Derive entity_id from session_id when absent
+        if "entity_id" not in result:
+            session_id = result.get("session_id")
+            if isinstance(session_id, str) and session_id:
+                try:
+                    UUID(session_id)
+                    result["entity_id"] = session_id
+                except ValueError:
+                    import hashlib
+
+                    h = hashlib.sha256(session_id.encode()).hexdigest()[:32]
+                    result["entity_id"] = str(UUID(h))
+        result["schema_version"] = "1.0.0"
+        return result
+
+    async def _handle_emit(self, request: ModelDaemonEmitRequest) -> str:
+        event_type = request.event_type
+
+        raw_payload = request.payload
+        if raw_payload is None:
+            raw_payload = {}
+        if not isinstance(raw_payload, dict):
+            return ModelDaemonErrorResponse(
+                reason="'payload' must be a JSON object"
+            ).model_dump_json()
+
+        payload: dict[str, object] = raw_payload
+
+        # Look up registration from registry
+        registration = self._registry.get_registration(event_type)
+        if registration is None:
+            return ModelDaemonErrorResponse(
+                reason=f"Unknown event type: {event_type}"
+            ).model_dump_json()
+
+        # Validate required fields
+        try:
+            missing = self._registry.validate_payload(event_type, payload)
+            if missing:
+                return ModelDaemonErrorResponse(
+                    reason=f"Missing required fields for {event_type}: {missing}"
+                ).model_dump_json()
+        except KeyError as e:
+            return ModelDaemonErrorResponse(reason=str(e)).model_dump_json()
+
+        # Inject metadata
+        correlation_id = payload.get("correlation_id")
+        if not isinstance(correlation_id, str):
+            correlation_id = None
+        enriched_payload = self._inject_metadata(payload, correlation_id)
+
+        # Fan-out: enqueue one event per fan-out rule.
+        #
+        # OMN-16599: every declared leg must be queued, or the reply must be an
+        # error naming the legs that were not. The loop used to `continue` past
+        # a discarded leg and derive the reply from `last_event_id` -- set only
+        # by a SUCCESSFUL leg -- so a two-topic event replied "queued" (which
+        # `emit_client.send_event` maps to True) as long as one leg made it.
+        # The loss was biased toward the `cmd` leg, because the registries give
+        # `cmd` the full passthrough payload while `evt` gets a `strip_prompt`
+        # reduction, so the size check below can only ever fire on `cmd`.
+        # Acknowledging a discarded publish is a fail-fast violation whether or
+        # not the drop itself is policy-correct.
+        last_event_id: str | None = None
+        dropped_legs: list[str] = []
+        queued_topics: list[str] = []
+
+        for rule in registration.fan_out:
+            transformed = rule.apply_transform(enriched_payload)
+            topic = rule.topic
+
+            # Serialize and check size
+            try:
+                transformed_json = json.dumps(transformed)
+            except (TypeError, ValueError) as e:
+                logger.warning(
+                    f"Payload serialization failed for {event_type} -> {topic}: {e}"
+                )
+                dropped_legs.append(f"{topic} (payload not serializable: {e})")
+                continue
+
+            payload_bytes = len(transformed_json.encode("utf-8"))
+            if payload_bytes > self._max_payload_bytes:
+                logger.warning(
+                    f"Payload exceeds max size for {event_type} -> {topic}, skipping"
+                )
+                dropped_legs.append(
+                    f"{topic} (payload {payload_bytes} bytes exceeds "
+                    f"max_payload_bytes {self._max_payload_bytes})"
+                )
+                continue
+
+            # Get partition key
+            try:
+                partition_key = self._registry.get_partition_key(
+                    event_type, transformed
+                )
+            except KeyError:
+                partition_key = None
+
+            event_id = str(uuid4())
+            queued_event = ModelQueuedEvent(
+                event_id=event_id,
+                event_type=event_type,
+                topic=topic,
+                payload=cast("JsonType", transformed),
+                partition_key=partition_key,
+                queued_at=datetime.now(UTC),
+                tier=rule.tier,
+            )
+
+            try:
+                success = await self._queue.enqueue(queued_event)
+            except DurableOutboxFullError as exc:
+                # Duty-critical event could not be persisted and must never be
+                # dropped. Surface explicit backpressure / degraded mode to the
+                # caller instead of silently losing the command.
+                logger.error(
+                    "Durable outbox full for duty-critical %s -> %s: %s",
+                    event_type,
+                    topic,
+                    exc,
+                )
+                return ModelDaemonErrorResponse(
+                    reason=(
+                        f"degraded: durable outbox full, cannot accept "
+                        f"duty-critical event {event_type} -> {topic}: {exc}"
+                    )
+                ).model_dump_json()
+            if success:
+                logger.debug(
+                    f"Event queued: {event_id}",
+                    extra={"event_type": event_type, "topic": topic},
+                )
+                last_event_id = event_id
+                queued_topics.append(topic)
+            else:
+                logger.warning(f"Failed to queue event for {event_type} -> {topic}")
+                dropped_legs.append(f"{topic} (queue refused the event)")
+
+        if last_event_id is None:
+            return ModelDaemonErrorResponse(
+                reason=f"Failed to queue any events for {event_type}"
+            ).model_dump_json()
+
+        if dropped_legs:
+            # Partial fan-out. The queued legs are NOT rolled back -- they are
+            # already durable -- so the reason states exactly which topics
+            # landed and which did not, rather than implying a total rejection.
+            # The caller sees a non-"queued" status and therefore a False from
+            # `send_event`: never True over a discarded leg.
+            logger.error(
+                "Partial fan-out for %s: %d of %d legs discarded (%s)",
+                event_type,
+                len(dropped_legs),
+                len(registration.fan_out),
+                "; ".join(dropped_legs),
+                extra={"event_type": event_type},
+            )
+            return ModelDaemonErrorResponse(
+                reason=(
+                    f"partial fan-out for {event_type}: "
+                    f"queued [{', '.join(queued_topics)}]; "
+                    f"discarded [{'; '.join(dropped_legs)}]"
+                )
+            ).model_dump_json()
+
+        return ModelDaemonQueuedResponse(event_id=last_event_id).model_dump_json()
+
+
+__all__: list[str] = ["EmitSocketServer"]

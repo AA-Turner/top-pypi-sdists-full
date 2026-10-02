@@ -58,7 +58,8 @@ class PrivateJobQueueSDK(WorkloadSDK):
                     metadata = ListResponseMetadata(total=0, next_paging_token=None)
 
                 return DecoratedjobqueueListResponse(
-                    results=results, metadata=metadata,
+                    results=results,
+                    metadata=metadata,
                 )
 
             return ResultIterator(
@@ -194,9 +195,7 @@ class PrivateJobQueueSDK(WorkloadSDK):
                 raise RuntimeError(f"Job queue with name '{name}' has no ID.")
             resource_id = jq.id
 
-        self.client.upsert_resource_tags(
-            ResourceTagResourceType.JOB_QUEUE, resource_id, tags
-        )
+        self.client.upsert_resource_tags(ResourceTagResourceType.JOB_QUEUE, resource_id, tags)
 
     def remove_tags(
         self,
@@ -218,9 +217,7 @@ class PrivateJobQueueSDK(WorkloadSDK):
                 raise RuntimeError(f"Job queue with name '{name}' has no ID.")
             resource_id = jq.id
 
-        self.client.delete_resource_tags(
-            ResourceTagResourceType.JOB_QUEUE, resource_id, keys
-        )
+        self.client.delete_resource_tags(ResourceTagResourceType.JOB_QUEUE, resource_id, keys)
 
     def _resolve_to_job_queue_model(
         self,
@@ -255,13 +252,9 @@ class PrivateJobQueueSDK(WorkloadSDK):
         else:
             if require_project_and_cloud_with_name:
                 if project is None:
-                    raise ValueError(
-                        "'project' is required when using 'name' for this operation."
-                    )
+                    raise ValueError("'project' is required when using 'name' for this operation.")
                 if cloud is None:
-                    raise ValueError(
-                        "'cloud' is required when using 'name' for this operation."
-                    )
+                    raise ValueError("'cloud' is required when using 'name' for this operation.")
             job_queues_response = self.client.list_job_queues(
                 name=name,
                 project=project,
@@ -283,7 +276,10 @@ class PrivateJobQueueSDK(WorkloadSDK):
             return job_queues_response.results[0]
 
     def list_tags(
-        self, *, job_queue_id: Optional[str] = None, name: Optional[str] = None,
+        self,
+        *,
+        job_queue_id: Optional[str] = None,
+        name: Optional[str] = None,
     ) -> Dict[str, str]:
         """List tags for a job queue as a key/value mapping."""
         if job_queue_id is not None:
@@ -293,9 +289,7 @@ class PrivateJobQueueSDK(WorkloadSDK):
             if jq.id is None:
                 raise RuntimeError(f"Job queue with name '{name}' has no ID.")
             resource_id = jq.id
-        records = self.client.list_resource_tags(
-            ResourceTagResourceType.JOB_QUEUE, resource_id
-        )
+        records = self.client.list_resource_tags(ResourceTagResourceType.JOB_QUEUE, resource_id)
         return {r.key: r.value for r in records if r and r.key is not None}
 
     def archive(
@@ -371,9 +365,7 @@ class PrivateJobQueueSDK(WorkloadSDK):
         assert jq.id is not None
 
         self.client.terminate_job_queue(jq.id)
-        self.logger.info(
-            f"Job queue '{jq.name}' (ID: {jq.id}) has been marked for termination."
-        )
+        self.logger.info(f"Job queue '{jq.name}' (ID: {jq.id}) has been marked for termination.")
         return jq.id
 
     def delete(

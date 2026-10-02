@@ -100,9 +100,7 @@ class PropertyDifference(BaseModel):
 
 
 class AWSCloudformationHandler:
-    def __init__(
-        self, aws_cloudformation_stack_id: str, region: str, logger: CloudSetupLogger
-    ):
+    def __init__(self, aws_cloudformation_stack_id: str, region: str, logger: CloudSetupLogger):
         self.aws_cloudformation_stack_id = aws_cloudformation_stack_id
         self.region = region
         self.logger = logger
@@ -160,13 +158,11 @@ class AWSCloudformationHandler:
         with self.logger.spinner("Detecting drift on cloudformation stack..."):
             # Init drift detection
             try:
-                drift_detection_id = self.cfn_client.detect_stack_drift(
-                    StackName=stack_name
-                )["StackDriftDetectionId"]
+                drift_detection_id = self.cfn_client.detect_stack_drift(StackName=stack_name)[
+                    "StackDriftDetectionId"
+                ]
             except ClientError as e:
-                raise ClickException(
-                    f"Failed to detect drift on stack {stack_name}: {e}"
-                )
+                raise ClickException(f"Failed to detect drift on stack {stack_name}: {e}")
 
             # Polling drift detection status
             end_time = time.time() + DETECT_DRIFT_TIMEOUT_SECONDS
@@ -194,7 +190,7 @@ class AWSCloudformationHandler:
                     return drifts
                 elif response["DetectionStatus"] == "DETECTION_FAILED":
                     raise ClickException(
-                        f'Drift detection failed. Error: {response["DetectionStatusReason"]}'
+                        f"Drift detection failed. Error: {response['DetectionStatusReason']}"
                     )
         raise ClickException("Drift detection timeout. Please try again later.")
 
@@ -218,9 +214,7 @@ class AWSCloudformationHandler:
                 self.logger.info("No drifted statements found.")
                 return True
             role_name = drift["PhysicalResourceId"]
-            append_statements_to_customer_drifts_policy(
-                self.region, role_name, drifted_statements
-            )
+            append_statements_to_customer_drifts_policy(self.region, role_name, drifted_statements)
             self.logger.info(
                 f"Drifted statements have been appended to the policy {CUSTOMER_DRIFTS_POLICY_NAME} of the role {role_name}."
             )
@@ -339,9 +333,7 @@ def validate_stack_version(stack_parameters: List[Dict]) -> bool:
     # 1) cfn_stack_version is None
     # 2) cfn_stack_version is the different with the CLI version
     # 3) cfn_stack_version is the same as the CLI version but the CLI version is dev version
-    return not (
-        cfn_stack_version == anyscale_version and anyscale_version != "0.0.0-dev"
-    )
+    return not (cfn_stack_version == anyscale_version and anyscale_version != "0.0.0-dev")
 
 
 def is_template_policy_documents_up_to_date(stack_parameters: List[Dict]) -> bool:
@@ -361,20 +353,20 @@ def format_drifts(drifts: List[Dict]) -> str:
     padding_size = 40
     outputs: List[str] = []
     outputs.append(
-        f'{pad_string("Resource Type", padding_size)}'
-        f'{pad_string("Resource Id", padding_size)}'
-        f'{pad_string("Drift status", padding_size)}'
+        f"{pad_string('Resource Type', padding_size)}"
+        f"{pad_string('Resource Id', padding_size)}"
+        f"{pad_string('Drift status', padding_size)}"
     )
     outputs.append(
-        f'{pad_string("-------------", padding_size)}'
-        f'{pad_string("-----------", padding_size)}'
-        f'{pad_string("------------", padding_size)}'
+        f"{pad_string('-------------', padding_size)}"
+        f"{pad_string('-----------', padding_size)}"
+        f"{pad_string('------------', padding_size)}"
     )
     for drift in drifts:
         outputs.append(
-            f'{pad_string(drift["ResourceType"], padding_size)}'
-            f'{pad_string(drift["PhysicalResourceId"], padding_size)}'
-            f'{pad_string(drift["StackResourceDriftStatus"], padding_size)}'
+            f"{pad_string(drift['ResourceType'], padding_size)}"
+            f"{pad_string(drift['PhysicalResourceId'], padding_size)}"
+            f"{pad_string(drift['StackResourceDriftStatus'], padding_size)}"
         )
     return "\n".join(outputs)
 
@@ -412,7 +404,8 @@ def get_all_sids_from_policy(policy: Dict) -> List[str]:
 
 
 def get_sids_to_remove(
-    diffs: List[Dict], expected_policies: List[Dict],
+    diffs: List[Dict],
+    expected_policies: List[Dict],
 ) -> Dict[str, Set[str]]:
     """
     Get the SIDs from the drifted statements to remove from the expected policies.
@@ -444,16 +437,12 @@ def get_sids_to_remove(
         # Drift detected on a maintained policy
         statement_number = diff.get_statement_number()
         if statement_number is None:
-            raise ClickException(
-                f"Drift {diff} in policy {policy_name} cannot be resolved."
-            )
+            raise ClickException(f"Drift {diff} in policy {policy_name} cannot be resolved.")
         if diff.is_add_or_remove_statement():
             # Policy statement added or removed
             # No need to append to the drifted policy
             continue
-        expected_statements = expected_policies[policy_number]["PolicyDocument"][
-            "Statement"
-        ]
+        expected_statements = expected_policies[policy_number]["PolicyDocument"]["Statement"]
         try:
             sid = expected_statements[statement_number]["Sid"]
             if policy_name not in sids_to_remove:
@@ -548,9 +537,7 @@ def extract_drifted_statements(drift: Dict) -> List[Dict]:  # noqa: PLR0912
 
     # Get drifted statements
     actual_policies = json.loads(drift["ActualProperties"])["Policies"]
-    drifted_statements = generate_drifted_statements_to_append(
-        actual_policies, undrifted_sid
-    )
+    drifted_statements = generate_drifted_statements_to_append(actual_policies, undrifted_sid)
 
     return drifted_statements
 
@@ -566,7 +553,8 @@ def append_statements_to_customer_drifts_policy(
     policy_document = None
     try:
         policy = iam.get_role_policy(
-            RoleName=role_name, PolicyName=CUSTOMER_DRIFTS_POLICY_NAME,
+            RoleName=role_name,
+            PolicyName=CUSTOMER_DRIFTS_POLICY_NAME,
         )
         policy_document = policy["PolicyDocument"]
     except ClientError as e:
@@ -589,9 +577,7 @@ def append_statements_to_customer_drifts_policy(
             PolicyDocument=json.dumps(policy_document),
         )
     except ClientError as e:
-        raise ClickException(
-            f"Failed to append statements to the drifted policy. Error: {e}"
-        )
+        raise ClickException(f"Failed to append statements to the drifted policy. Error: {e}")
 
 
 def merge_parameters(
@@ -608,9 +594,7 @@ def merge_parameters(
     }
     for p in parameters_to_update:
         returned_parameters[p["ParameterKey"]] = p["ParameterValue"]
-    return [
-        {"ParameterKey": k, "ParameterValue": v} for k, v in returned_parameters.items()
-    ]
+    return [{"ParameterKey": k, "ParameterValue": v} for k, v in returned_parameters.items()]
 
 
 def add_missing_parameters_to_template_body(
@@ -643,36 +627,30 @@ def add_missing_parameters_to_template_body(
             )
         else:
             policy = policy_dict[parameter_key]
-            parameter_substitutions.append(
-                generate_inline_policy_parameter(policy) + "\n"
-            )
-            resource_substitutions.append(
-                generate_inline_policy_resource(policy) + "\n"
-            )
+            parameter_substitutions.append(generate_inline_policy_parameter(policy) + "\n")
+            resource_substitutions.append(generate_inline_policy_resource(policy) + "\n")
 
     template_body = template_body.replace(
-        "Parameters:", "\n".join(parameter_substitutions),
+        "Parameters:",
+        "\n".join(parameter_substitutions),
     )
 
     template_body = template_body.replace(
-        "Resources:", "\n".join(resource_substitutions),
+        "Resources:",
+        "\n".join(resource_substitutions),
     )
     return template_body
 
 
 def try_delete_customer_drifts_policy(cloud, cloud_resource=None):
-    iam_client = _client(
-        "iam", cloud_resource.region if cloud_resource else cloud.region
-    )
+    iam_client = _client("iam", cloud_resource.region if cloud_resource else cloud.region)
     role_name = (
         cloud_resource.aws_config.anyscale_iam_role_id.split("/")[-1]
         if cloud_resource
         else cloud.credentials.split("/")[-1]
     )
     try:
-        iam_client.delete_role_policy(
-            RoleName=role_name, PolicyName=CUSTOMER_DRIFTS_POLICY_NAME
-        )
+        iam_client.delete_role_policy(RoleName=role_name, PolicyName=CUSTOMER_DRIFTS_POLICY_NAME)
     except ClientError as e:
         if e.response["Error"]["Code"] != "NoSuchEntity":
             raise ClickException(
@@ -699,8 +677,7 @@ def update_template_with_memorydb(
 
     # Generate the subnet list
     subnet_list = [
-        f"        - !Ref {subnet_logical_id}"
-        for subnet_logical_id in subnet_logical_ids
+        f"        - !Ref {subnet_logical_id}" for subnet_logical_id in subnet_logical_ids
     ]
     memory_db_resource_str = MEMORY_DB_RESOURCE.format("\n".join(subnet_list))
 
@@ -776,7 +753,8 @@ def update_iam_role(
             )
         )
         confirm(
-            "Proceed to resolve the drift?", yes,
+            "Proceed to resolve the drift?",
+            yes,
         )
         resolved_result = cfn_handler.resolve_drift(role_drift)
         if not resolved_result:
@@ -806,7 +784,9 @@ def update_iam_role(
     )
 
     cfn_handler.update_cloudformation_stack(
-        updated_template_body, updated_parameters, yes,
+        updated_template_body,
+        updated_parameters,
+        yes,
     )
 
 
@@ -860,9 +840,7 @@ def get_or_create_memorydb(
         timeout_seconds=CLOUDFORMATION_TIMEOUT_SECONDS_LONG,
     )
     memorydb_parameter_group = cfn_handler.get_resource("MemoryDBParameterGroup")
-    modify_memorydb_parameter_group(
-        memorydb_parameter_group["PhysicalResourceId"], region
-    )
+    modify_memorydb_parameter_group(memorydb_parameter_group["PhysicalResourceId"], region)
 
     memorydb = cfn_handler.get_resource("MemoryDB")
     return memorydb["PhysicalResourceId"]

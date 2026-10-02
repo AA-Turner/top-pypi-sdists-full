@@ -1,0 +1,771 @@
+"""OpenAI-compatible language model implementation."""
+
+from dataclasses import dataclass, field
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    AsyncGenerator,
+    Dict,
+    Generator,
+    List,
+    Optional,
+    Union,
+)
+
+from esperanto.common_types import ChatCompletion, ChatCompletionChunk, Model, Tool
+from esperanto.common_types.validation import (
+    validate_tool_calls as _validate_tool_calls,
+)
+from esperanto.providers.llm.openai import OpenAILanguageModel
+from esperanto.providers.llm.profiles import OpenAICompatibleProfile
+from esperanto.providers.llm.structured_output import (
+    ResolvedStructuredOutput,
+    apply_structured_output,
+    is_json_schema_unsupported_error,
+    resolve_structured_output,
+)
+from esperanto.providers.profile_mixin import ProfileAwareMixin
+from esperanto.utils.logging import logger
+
+if TYPE_CHECKING:
+    from langchain_openai import ChatOpenAI
+
+# Error message indicating json_object mode isn't accepted and endpoint expects json_schema.
+_JSON_OBJECT_RESPONSE_FORMAT_ERROR = "'response_format.type' must be 'json_schema'"
+
+
+@dataclass
+class OpenAICompatibleLanguageModel(ProfileAwareMixin, OpenAILanguageModel):
+    """OpenAI-compatible language model implementation for custom endpoints."""
+
+    base_url: Optional[str] = None
+    api_key: Optional[str] = field(default=None, repr=False)
+
+    def __post_init__(self):
+        """Initialize OpenAI-compatible configuration."""
+        # Initialize _config first (from base class)
+        if not hasattr(self, '_config'):
+            self._config = {}
+
+        # Update with any provided config
+        if hasattr(self, "config") and self.config:
+            self._config.update(self.config)
+
+        # Resolve provider profile (None when not profile-driven) and configuration
+        # via the shared precedence chain (ProfileAwareMixin).
+        self._profile: Optional[OpenAICompatibleProfile] = self._resolve_profile(
+            self._config, "language"
+        )
+        self.base_url = self._resolve_base_url(
+            "language", self._profile, self.base_url, self._config
+        )
+        self.api_key = self._resolve_api_key(
+            "language", self._profile, self.api_key, self._config
+        )
+
+        if self._profile:
+            self.api_key = self._finalize_profile_credentials(
+                self._profile, self.base_url, self.api_key
+            )
+        else:
+            # Validation
+            if not self.base_url:
+                raise ValueError(
+                    "OpenAI-compatible base URL is required. "
+                    "Set OPENAI_COMPATIBLE_BASE_URL_LLM or OPENAI_COMPATIBLE_BASE_URL "
+                    "environment variable or provide base_url in config."
+                )
+            # Use a default API key if none is provided (some endpoints don't require authentication)
+            if not self.api_key:
+                self.api_key = "not-required"
+
+        # Ensure base_url doesn't end with trailing slash for consistency
+        if self.base_url and self.base_url.endswith("/"):
+            self.base_url = self.base_url.rstrip("/")
+
+        # Call parent's post_init to set up HTTP clients and normalized response handling
+        super().__post_init__()
+
+        # Track if we've detected that this endpoint doesn't support json_object
+        self._response_format_unsupported = False
+        # Apply profile feature flags after parent init
+        if self._profile and not self._profile.supports_response_format:
+            self._response_format_unsupported = True
+        self._instance_extra_body: Dict[str, Any] = self._config.get("extra_body") or {}
+
+    def _is_likely_lmstudio(self) -> bool:
+        """Check if this endpoint is likely LM Studio based on port.
+
+        LM Studio uses port 1234 by default. This is a heuristic to avoid
+        sending unsupported response_format parameter.
+
+        Known issue: If you use another OpenAI-compatible provider on port 1234,
+        structured output with json_object may not work. Use a different port.
+        """
+        if not self.base_url:
+            return False
+        # Check for exact port 1234 (not 12345, 12346, etc.)
+        # Port is followed by "/" or end of host portion
+        return ":1234/" in self.base_url or self.base_url.rstrip("/").endswith(":1234")
+
+    def _handle_error(self, response) -> None:
+        """Handle HTTP error responses with graceful degradation."""
+        if response.status_code >= 400:
+            # Log original response for debugging
+            logger.debug(f"OpenAI-compatible endpoint error: {response.text}")
+            
+            # Try to parse OpenAI-format error
+            try:
+                error_data = response.json()
+                error_message = error_data.get("error", {}).get("message", f"HTTP {response.status_code}")
+            except Exception:
+                # Fall back to HTTP status code
+                error_message = f"HTTP {response.status_code}: {response.text}"
+            
+            raise RuntimeError(f"OpenAI-compatible endpoint error: {error_message}")
+    
+    def _normalize_response(self, response_data: Dict[str, Any]) -> "ChatCompletion":
+        """Normalize OpenAI-compatible response to our format with graceful fallback."""
+        from esperanto.common_types import (
+            ChatCompletion,
+            Choice,
+            FunctionCall,
+            Message,
+            ToolCall,
+            Usage,
+        )
+
+        # Handle missing or incomplete response fields gracefully
+        response_id = response_data.get("id", "chatcmpl-unknown")
+        created = response_data.get("created", 0)
+        model = response_data.get("model", self.get_model_name())
+
+        # Handle choices array
+        choices = response_data.get("choices", [])
+        normalized_choices = []
+
+        for choice in choices:
+            message = choice.get("message", {})
+
+            # Extract tool_calls if present
+            tool_calls = None
+            if "tool_calls" in message and message["tool_calls"]:
+                tool_calls = [
+                    ToolCall(
+                        id=tc.get("id", ""),
+                        type=tc.get("type", "function"),
+                        function=FunctionCall(
+                            name=tc.get("function", {}).get("name", ""),
+                            arguments=tc.get("function", {}).get("arguments", "{}"),
+                        ),
+                    )
+                    for tc in message["tool_calls"]
+                ]
+
+            normalized_choice = Choice(
+                index=choice.get("index", 0),
+                message=Message(
+                    content=message.get("content", "") if not tool_calls else message.get("content"),
+                    role=message.get("role", "assistant"),
+                    tool_calls=tool_calls,
+                ),
+                finish_reason=choice.get("finish_reason", "stop"),
+            )
+            normalized_choices.append(normalized_choice)
+        
+        # If no choices, create a default one
+        if not normalized_choices:
+            normalized_choices = [Choice(
+                index=0,
+                message=Message(content="", role="assistant"),
+                finish_reason="stop"
+            )]
+        
+        # Handle usage information
+        usage_data = response_data.get("usage", {})
+        usage = Usage(
+            completion_tokens=usage_data.get("completion_tokens", 0),
+            prompt_tokens=usage_data.get("prompt_tokens", 0),
+            total_tokens=usage_data.get("total_tokens", 0),
+        )
+        
+        return ChatCompletion(
+            id=response_id,
+            choices=normalized_choices,
+            created=created,
+            model=model,
+            provider=self.provider,
+            usage=usage,
+        )
+
+    def _normalize_chunk(self, chunk_data: Dict[str, Any]) -> "ChatCompletionChunk":
+        """Normalize OpenAI-compatible stream chunk to our format with graceful fallback."""
+        from esperanto.common_types import (
+            ChatCompletionChunk,
+            DeltaMessage,
+            StreamChoice,
+        )
+        
+        # Handle missing or incomplete chunk fields gracefully
+        chunk_id = chunk_data.get("id", "chatcmpl-unknown")
+        created = chunk_data.get("created", 0)
+        model = chunk_data.get("model", self.get_model_name())
+        
+        # Handle choices array
+        choices = chunk_data.get("choices", [])
+        normalized_choices = []
+        
+        for choice in choices:
+            delta = choice.get("delta", {})
+            normalized_choice = StreamChoice(
+                index=choice.get("index", 0),
+                delta=DeltaMessage(
+                    content=delta.get("content", ""),
+                    role=delta.get("role", "assistant"),
+                    function_call=delta.get("function_call"),
+                    tool_calls=delta.get("tool_calls"),
+                ),
+                finish_reason=choice.get("finish_reason"),
+            )
+            normalized_choices.append(normalized_choice)
+        
+        # If no choices, create a default one
+        if not normalized_choices:
+            normalized_choices = [StreamChoice(
+                index=0,
+                delta=DeltaMessage(content="", role="assistant"),
+                finish_reason=None
+            )]
+        
+        return ChatCompletionChunk(
+            id=chunk_id,
+            choices=normalized_choices,
+            created=created,
+            model=model,
+        )
+
+    def _get_api_kwargs(
+        self,
+        exclude_stream: bool = False,
+        resolved_structured: Optional[ResolvedStructuredOutput] = None,
+        max_tokens: Optional[int] = None,
+        temperature: Optional[float] = None,
+        top_p: Optional[float] = None,
+        exclude_response_format: bool = False,
+    ) -> Dict[str, Any]:
+        """Get API kwargs with graceful feature fallback.
+
+        Args:
+            exclude_stream: If True, excludes streaming-related parameters.
+            exclude_response_format: If True, excludes response_format parameter.
+            max_tokens: Per-call override for max_tokens.
+            temperature: Per-call override for temperature.
+            top_p: Per-call override for top_p.
+
+        Returns:
+            Dict containing API parameters for the request.
+        """
+        # Get base kwargs from parent
+        kwargs = super()._get_api_kwargs(
+            exclude_stream,
+            resolved_structured=resolved_structured,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+        )
+
+        # Remove response_format if:
+        # 1. Explicitly requested (for retry logic)
+        # 2. Endpoint is likely LM Studio (port 1234 heuristic)
+        # 3. We've previously detected this endpoint doesn't support it
+        if resolved_structured is None:
+            resolved_structured = resolve_structured_output(
+                self.structured,
+                allow_string_json_alias=True,
+            )
+        schema_mode = bool(resolved_structured and resolved_structured.is_schema_mode)
+        should_skip_response_format = (
+            exclude_response_format
+            or (
+                not schema_mode
+                and (self._is_likely_lmstudio() or self._response_format_unsupported)
+            )
+        )
+
+        if should_skip_response_format and "response_format" in kwargs:
+            logger.debug(
+                "Removing response_format parameter for OpenAI-compatible endpoint"
+            )
+            kwargs.pop("response_format")
+
+        return kwargs
+
+    def _is_response_format_error(self, error: Exception) -> bool:
+        """Check if the error indicates json_object response_format mismatch."""
+        error_str = str(error)
+        return _JSON_OBJECT_RESPONSE_FORMAT_ERROR in error_str
+
+    def _is_json_schema_unsupported_error(self, error: Exception) -> bool:
+        """Check whether an error clearly indicates json_schema is unsupported."""
+        return is_json_schema_unsupported_error(error)
+
+    # Keys in extra_body that we silently strip before merging into the payload.
+    # These collide with first-class Esperanto behaviour and would desync state
+    # between the wire request and Python-side bookkeeping:
+    #   - `stream` selects the response-parsing branch (Python-side `should_stream`).
+    #   - `tools`/`tool_choice`/`parallel_tool_calls` are resolved up-front via the
+    #     dedicated kwargs and used by the response-time validator, so overriding
+    #     them via extra_body would make validation check against a stale tool set.
+    # Everything else (e.g. `model`, `messages`) is left as-is — power-user override.
+    _RESERVED_EXTRA_BODY_KEYS = frozenset(
+        {"stream", "tools", "tool_choice", "parallel_tool_calls"}
+    )
+
+    def _strip_reserved_extras(
+        self, merged_extra_body: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Drop reserved keys from extra_body with a debug log per dropped key."""
+        reserved_hits = self._RESERVED_EXTRA_BODY_KEYS.intersection(merged_extra_body)
+        if not reserved_hits:
+            return merged_extra_body
+        for key in reserved_hits:
+            logger.debug(
+                "Dropping reserved key %r from extra_body; use the dedicated argument instead",
+                key,
+            )
+        return {k: v for k, v in merged_extra_body.items() if k not in reserved_hits}
+
+    def _make_chat_request(
+        self,
+        messages: List[Dict[str, Any]],
+        should_stream: bool,
+        resolved_tools: Optional[List[Tool]],
+        resolved_tool_choice: Optional[Union[str, Dict[str, Any]]],
+        resolved_parallel: Optional[bool],
+        do_validate_tool_calls: bool,
+        max_tokens: Optional[int],
+        temperature: Optional[float],
+        top_p: Optional[float],
+        merged_extra_body: Dict[str, Any],
+    ) -> Union[ChatCompletion, Generator[ChatCompletionChunk, None, None]]:
+        payload: Dict[str, Any] = {
+            "model": self.get_model_name(),
+            "messages": messages,
+            "stream": should_stream,
+            **self._get_api_kwargs(
+                exclude_stream=True,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                top_p=top_p,
+            ),
+        }
+        if resolved_tools:
+            payload["tools"] = self._convert_tools_to_openai(resolved_tools)
+        if resolved_tool_choice is not None:
+            payload["tool_choice"] = resolved_tool_choice
+        if resolved_parallel is not None:
+            payload["parallel_tool_calls"] = resolved_parallel
+        # Per-call extras shallow-merge over instance-level extras; per-call wins on
+        # collision. payload.update runs after the core payload is built, so extra_body
+        # keys override anything already set (e.g. model, messages) — intentional power-
+        # user escape hatch. Reserved keys (stream + tool-related) are stripped first;
+        # see _RESERVED_EXTRA_BODY_KEYS for the rationale.
+        payload.update(self._strip_reserved_extras(merged_extra_body))
+
+        response = self.client.post(
+            f"{self.base_url}/chat/completions",
+            headers=self._get_headers(),
+            json=payload,
+        )
+        self._handle_error(response)
+
+        if should_stream:
+            return (
+                self._normalize_chunk(chunk_data)
+                for chunk_data in self._parse_sse_stream(response)
+            )
+
+        result = self._normalize_response(response.json())
+        if do_validate_tool_calls and resolved_tools:
+            for choice in result.choices:
+                if choice.message.tool_calls:
+                    _validate_tool_calls(choice.message.tool_calls, resolved_tools)
+        resolved_structured = resolve_structured_output(
+            self.structured,
+            allow_string_json_alias=True,
+        )
+        result = apply_structured_output(result, resolved_structured)
+        return result
+
+    def chat_complete(
+        self,
+        messages: List[Dict[str, Any]],
+        stream: Optional[bool] = None,
+        tools: Optional[List[Tool]] = None,
+        tool_choice: Optional[Union[str, Dict[str, Any]]] = None,
+        parallel_tool_calls: Optional[bool] = None,
+        validate_tool_calls: bool = False,
+        max_tokens: Optional[int] = None,
+        temperature: Optional[float] = None,
+        top_p: Optional[float] = None,
+        *,
+        extra_body: Optional[Dict[str, Any]] = None,
+    ) -> Union[ChatCompletion, Generator[ChatCompletionChunk, None, None]]:
+        """Send a chat completion request with retry for unsupported response_format.
+
+        Args:
+            messages: List of messages in the conversation. Messages can include
+                tool call results with role="tool" and tool_call_id.
+            stream: Whether to stream the response. If None, uses the instance's
+                streaming setting.
+            tools: List of tools the model can call. If None, uses instance tools.
+                Note: Tool support depends on the specific OpenAI-compatible endpoint.
+            tool_choice: Controls tool usage. Values:
+                - "auto": Model decides whether to call tools (default)
+                - "required": Model must call at least one tool
+                - "none": Model cannot call tools
+                - {"type": "function", "function": {"name": "..."}}: Force specific tool
+            parallel_tool_calls: Whether to allow multiple tool calls in one response.
+                None uses provider default (usually True). Set False to force single
+                tool call per response.
+            validate_tool_calls: If True, validate tool call arguments against the
+                tool's JSON schema. Raises ToolCallValidationError on validation
+                failure. Requires jsonschema package.
+            max_tokens: Per-call override for max_tokens. If None, uses instance value.
+            temperature: Per-call override for temperature. If None, uses instance value.
+            top_p: Per-call override for top_p. If None, uses instance value.
+            extra_body: Additional top-level keys to merge into the request payload.
+                Per-call extras shallow-merge over instance-level extras from
+                config={'extra_body': {...}}; per-call wins on key collision.
+
+        Returns:
+            Either a ChatCompletion or a Generator yielding ChatCompletionChunks
+            if streaming. When the model calls tools, the response message will
+            have tool_calls populated.
+        """
+        self._warn_if_validate_with_streaming(validate_tool_calls, stream)
+        should_stream = stream if stream is not None else self.streaming
+        is_reasoning_model = self._is_reasoning_model()
+
+        resolved_tools = self._resolve_tools(tools)
+        resolved_tool_choice = self._resolve_tool_choice(tool_choice)
+        resolved_parallel = self._resolve_parallel_tool_calls(parallel_tool_calls)
+
+        if is_reasoning_model:
+            messages = self._transform_messages_for_o1([{**msg} for msg in messages])
+
+        merged_extra_body = {**self._instance_extra_body, **(extra_body or {})}
+
+        resolved_structured = resolve_structured_output(
+            self.structured,
+            allow_string_json_alias=True,
+        )
+        schema_mode = bool(resolved_structured and resolved_structured.is_schema_mode)
+
+        if schema_mode and should_stream:
+            raise ValueError(
+                "structured type 'json_schema' is not supported with streaming. "
+                "Set stream=False."
+            )
+
+        try:
+            return self._make_chat_request(
+                messages, should_stream, resolved_tools, resolved_tool_choice, resolved_parallel,
+                validate_tool_calls, max_tokens, temperature, top_p, merged_extra_body,
+            )
+        except RuntimeError as e:
+            if schema_mode:
+                if self._is_json_schema_unsupported_error(e):
+                    raise RuntimeError(
+                        "OpenAI-compatible endpoint does not support "
+                        "schema-driven structured output (response_format=json_schema). "
+                        f"Original error: {e}"
+                    ) from e
+                raise
+            # Check if it's a response_format error and we haven't already disabled it
+            if self._is_response_format_error(e) and not self._response_format_unsupported:
+                logger.debug(
+                    "Endpoint doesn't support json_object response_format, retrying without it"
+                )
+                self._response_format_unsupported = True
+                return self._make_chat_request(
+                    messages, should_stream, resolved_tools, resolved_tool_choice, resolved_parallel,
+                    validate_tool_calls, max_tokens, temperature, top_p, merged_extra_body,
+                )
+            raise
+
+    async def _amake_chat_request(
+        self,
+        messages: List[Dict[str, Any]],
+        should_stream: bool,
+        resolved_tools: Optional[List[Tool]],
+        resolved_tool_choice: Optional[Union[str, Dict[str, Any]]],
+        resolved_parallel: Optional[bool],
+        do_validate_tool_calls: bool,
+        max_tokens: Optional[int],
+        temperature: Optional[float],
+        top_p: Optional[float],
+        merged_extra_body: Dict[str, Any],
+    ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
+        payload: Dict[str, Any] = {
+            "model": self.get_model_name(),
+            "messages": messages,
+            "stream": should_stream,
+            **self._get_api_kwargs(
+                exclude_stream=True,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                top_p=top_p,
+            ),
+        }
+        if resolved_tools:
+            payload["tools"] = self._convert_tools_to_openai(resolved_tools)
+        if resolved_tool_choice is not None:
+            payload["tool_choice"] = resolved_tool_choice
+        if resolved_parallel is not None:
+            payload["parallel_tool_calls"] = resolved_parallel
+        # Per-call extras shallow-merge over instance-level extras; per-call wins on
+        # collision. payload.update runs after the core payload is built, so extra_body
+        # keys override anything already set (e.g. model, messages) — intentional power-
+        # user escape hatch. Reserved keys (stream + tool-related) are stripped first;
+        # see _RESERVED_EXTRA_BODY_KEYS for the rationale.
+        payload.update(self._strip_reserved_extras(merged_extra_body))
+
+        response = await self.async_client.post(
+            f"{self.base_url}/chat/completions",
+            headers=self._get_headers(),
+            json=payload,
+        )
+        self._handle_error(response)
+
+        if should_stream:
+            async def generate():
+                async for chunk_data in self._parse_sse_stream_async(response):
+                    yield self._normalize_chunk(chunk_data)
+            return generate()
+
+        result = self._normalize_response(response.json())
+        if do_validate_tool_calls and resolved_tools:
+            for choice in result.choices:
+                if choice.message.tool_calls:
+                    _validate_tool_calls(choice.message.tool_calls, resolved_tools)
+        resolved_structured = resolve_structured_output(
+            self.structured,
+            allow_string_json_alias=True,
+        )
+        result = apply_structured_output(result, resolved_structured)
+        return result
+
+    async def achat_complete(
+        self,
+        messages: List[Dict[str, Any]],
+        stream: Optional[bool] = None,
+        tools: Optional[List[Tool]] = None,
+        tool_choice: Optional[Union[str, Dict[str, Any]]] = None,
+        parallel_tool_calls: Optional[bool] = None,
+        validate_tool_calls: bool = False,
+        max_tokens: Optional[int] = None,
+        temperature: Optional[float] = None,
+        top_p: Optional[float] = None,
+        *,
+        extra_body: Optional[Dict[str, Any]] = None,
+    ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
+        """Send an async chat completion request with retry for unsupported response_format.
+
+        Args:
+            messages: List of messages in the conversation. Messages can include
+                tool call results with role="tool" and tool_call_id.
+            stream: Whether to stream the response. If None, uses the instance's
+                streaming setting.
+            tools: List of tools the model can call. If None, uses instance tools.
+                Note: Tool support depends on the specific OpenAI-compatible endpoint.
+            tool_choice: Controls tool usage. Values:
+                - "auto": Model decides whether to call tools (default)
+                - "required": Model must call at least one tool
+                - "none": Model cannot call tools
+                - {"type": "function", "function": {"name": "..."}}: Force specific tool
+            parallel_tool_calls: Whether to allow multiple tool calls in one response.
+                None uses provider default (usually True). Set False to force single
+                tool call per response.
+            validate_tool_calls: If True, validate tool call arguments against the
+                tool's JSON schema. Raises ToolCallValidationError on validation
+                failure. Requires jsonschema package.
+            max_tokens: Per-call override for max_tokens. If None, uses instance value.
+            temperature: Per-call override for temperature. If None, uses instance value.
+            top_p: Per-call override for top_p. If None, uses instance value.
+            extra_body: Additional top-level keys to merge into the request payload.
+                Per-call extras shallow-merge over instance-level extras from
+                config={'extra_body': {...}}; per-call wins on key collision.
+
+        Returns:
+            Either a ChatCompletion or an AsyncGenerator yielding ChatCompletionChunks
+            if streaming. When the model calls tools, the response message will
+            have tool_calls populated.
+        """
+        self._warn_if_validate_with_streaming(validate_tool_calls, stream)
+        should_stream = stream if stream is not None else self.streaming
+        is_reasoning_model = self._is_reasoning_model()
+
+        resolved_tools = self._resolve_tools(tools)
+        resolved_tool_choice = self._resolve_tool_choice(tool_choice)
+        resolved_parallel = self._resolve_parallel_tool_calls(parallel_tool_calls)
+
+        if is_reasoning_model:
+            messages = self._transform_messages_for_o1([{**msg} for msg in messages])
+
+        merged_extra_body = {**self._instance_extra_body, **(extra_body or {})}
+
+        resolved_structured = resolve_structured_output(
+            self.structured,
+            allow_string_json_alias=True,
+        )
+        schema_mode = bool(resolved_structured and resolved_structured.is_schema_mode)
+
+        if schema_mode and should_stream:
+            raise ValueError(
+                "structured type 'json_schema' is not supported with streaming. "
+                "Set stream=False."
+            )
+
+        try:
+            return await self._amake_chat_request(
+                messages, should_stream, resolved_tools, resolved_tool_choice, resolved_parallel,
+                validate_tool_calls, max_tokens, temperature, top_p, merged_extra_body,
+            )
+        except RuntimeError as e:
+            if schema_mode:
+                if self._is_json_schema_unsupported_error(e):
+                    raise RuntimeError(
+                        "OpenAI-compatible endpoint does not support "
+                        "schema-driven structured output (response_format=json_schema). "
+                        f"Original error: {e}"
+                    ) from e
+                raise
+            # Check if it's a response_format error and we haven't already disabled it
+            if self._is_response_format_error(e) and not self._response_format_unsupported:
+                logger.debug(
+                    "Endpoint doesn't support json_object response_format, retrying without it"
+                )
+                self._response_format_unsupported = True
+                return await self._amake_chat_request(
+                    messages, should_stream, resolved_tools, resolved_tool_choice, resolved_parallel,
+                    validate_tool_calls, max_tokens, temperature, top_p, merged_extra_body,
+                )
+            raise
+
+    def _get_models(self) -> List[Model]:
+        """List all available models for this provider.
+
+        Note: This attempts to fetch models from the /models endpoint.
+        If the endpoint doesn't support this, it will return an empty list.
+        When a profile is active, results are filtered by model_prefix_filter
+        and owned_by is overridden if configured.
+        """
+        try:
+            response = self.client.get(
+                f"{self.base_url}/models",
+                headers=self._get_headers()
+            )
+            self._handle_error(response)
+
+            models_data = response.json()
+            owned_by_default = (
+                self._profile.owned_by if self._profile and self._profile.owned_by else "custom"
+            )
+            models = [
+                Model(
+                    id=model["id"],
+                    owned_by=owned_by_default if self._profile and self._profile.owned_by else model.get("owned_by", "custom"),
+                    context_window=model.get("context_window", None),
+                )
+                for model in models_data.get("data", [])
+            ]
+
+            # Apply profile-based model filtering
+            if self._profile and self._profile.model_prefix_filter:
+                prefix = self._profile.model_prefix_filter
+                models = [m for m in models if m.id.startswith(prefix)]
+
+            return models
+        except Exception as e:
+            # Log the error but don't fail completely
+            logger.debug(f"Could not fetch models from OpenAI-compatible endpoint: {e}")
+            return []
+
+    def _get_default_model(self) -> str:
+        """Get the default model name.
+
+        Returns the profile's language default if a profile is active,
+        otherwise a generic default.
+        """
+        return self._resolve_default_model("language", self._profile, "gpt-3.5-turbo")
+
+    @property
+    def provider(self) -> str:
+        """Get the provider name."""
+        if self._profile:
+            return self._profile.name
+        return "openai-compatible"
+
+    def to_langchain(self) -> "ChatOpenAI":
+        """Convert to a LangChain chat model.
+
+        Raises:
+            ImportError: If langchain_openai is not installed.
+        """
+        try:
+            from langchain_openai import ChatOpenAI
+        except ImportError as e:
+            raise ImportError(
+                "Langchain integration requires langchain_openai. "
+                "Install with: uv add langchain_openai or pip install langchain_openai"
+            ) from e
+
+        model_kwargs: Dict[str, Any] = {}
+        resolved_structured = resolve_structured_output(
+            self.structured,
+            allow_string_json_alias=True,
+        )
+        schema_mode = bool(resolved_structured and resolved_structured.is_schema_mode)
+        # Only set response_format if endpoint is likely to support it. Schema mode
+        # is passed through fail-fast, mirroring _get_api_kwargs.
+        should_skip_response_format = (
+            not schema_mode
+            and (self._is_likely_lmstudio() or self._response_format_unsupported)
+        )
+        if resolved_structured and not should_skip_response_format:
+            model_kwargs["response_format"] = resolved_structured.response_format
+
+        langchain_kwargs: Dict[str, Any] = {
+            "max_tokens": self.max_tokens,
+            "temperature": self.temperature,
+            "top_p": self.top_p,
+            "streaming": self.streaming,
+            "api_key": self.api_key,
+            "base_url": self.base_url,
+            "model": self.get_model_name(),
+            "model_kwargs": model_kwargs,
+        }
+
+        # Create new HTTP clients for LangChain with same SSL/timeout/proxy config
+        # We create fresh clients instead of sharing ours because when this Esperanto
+        # model is garbage collected, __del__ closes our clients - which would break
+        # LangChain if it was sharing them. Fresh clients give LangChain ownership.
+        try:
+            sync_client, async_client = self._create_langchain_http_clients()
+            langchain_kwargs["http_client"] = sync_client
+            langchain_kwargs["http_async_client"] = async_client
+        except (TypeError, AttributeError):
+            # httpx types might be mocked in tests, skip passing clients
+            pass
+
+        # Handle reasoning models (o1, o3, o4)
+        is_reasoning_model = self._is_reasoning_model()
+        if is_reasoning_model:
+            # Replace max_tokens with max_completion_tokens
+            if "max_tokens" in langchain_kwargs:
+                langchain_kwargs["max_completion_tokens"] = langchain_kwargs.pop("max_tokens")
+            langchain_kwargs["temperature"] = 1
+            langchain_kwargs["top_p"] = None
+
+        return ChatOpenAI(**self._clean_config(langchain_kwargs))

@@ -16,7 +16,7 @@ from pydantic import validate_call, Field, StrictFloat, StrictStr, StrictInt
 from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
-from pydantic import Field, StrictStr
+from pydantic import Field, StrictBool, StrictStr
 from typing import Optional
 from typing_extensions import Annotated
 from arthur_client.api_bindings.models.patch_project import PatchProject
@@ -594,6 +594,7 @@ class ProjectsV1Api:
         sort: Annotated[Optional[ProjectSort], Field(description="Override the field used for sorting the returned list. Optional.")] = None,
         order: Annotated[Optional[SortOrder], Field(description="Override the sort order used. Optional.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Search term to filter workspaces by name.")] = None,
+        system_project: Annotated[Optional[StrictBool], Field(description="Return only the workspace's system project (true) or only user-created projects (false). Optional.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -621,6 +622,8 @@ class ProjectsV1Api:
         :type order: SortOrder
         :param name: Search term to filter workspaces by name.
         :type name: str
+        :param system_project: Return only the workspace's system project (true) or only user-created projects (false). Optional.
+        :type system_project: bool
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -652,6 +655,7 @@ class ProjectsV1Api:
             sort=sort,
             order=order,
             name=name,
+            system_project=system_project,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -684,6 +688,7 @@ class ProjectsV1Api:
         sort: Annotated[Optional[ProjectSort], Field(description="Override the field used for sorting the returned list. Optional.")] = None,
         order: Annotated[Optional[SortOrder], Field(description="Override the sort order used. Optional.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Search term to filter workspaces by name.")] = None,
+        system_project: Annotated[Optional[StrictBool], Field(description="Return only the workspace's system project (true) or only user-created projects (false). Optional.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -711,6 +716,8 @@ class ProjectsV1Api:
         :type order: SortOrder
         :param name: Search term to filter workspaces by name.
         :type name: str
+        :param system_project: Return only the workspace's system project (true) or only user-created projects (false). Optional.
+        :type system_project: bool
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -742,6 +749,7 @@ class ProjectsV1Api:
             sort=sort,
             order=order,
             name=name,
+            system_project=system_project,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -774,6 +782,7 @@ class ProjectsV1Api:
         sort: Annotated[Optional[ProjectSort], Field(description="Override the field used for sorting the returned list. Optional.")] = None,
         order: Annotated[Optional[SortOrder], Field(description="Override the sort order used. Optional.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Search term to filter workspaces by name.")] = None,
+        system_project: Annotated[Optional[StrictBool], Field(description="Return only the workspace's system project (true) or only user-created projects (false). Optional.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -801,6 +810,8 @@ class ProjectsV1Api:
         :type order: SortOrder
         :param name: Search term to filter workspaces by name.
         :type name: str
+        :param system_project: Return only the workspace's system project (true) or only user-created projects (false). Optional.
+        :type system_project: bool
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -832,6 +843,7 @@ class ProjectsV1Api:
             sort=sort,
             order=order,
             name=name,
+            system_project=system_project,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -859,6 +871,7 @@ class ProjectsV1Api:
         sort,
         order,
         name,
+        system_project,
         page,
         page_size,
         _request_auth,
@@ -896,6 +909,10 @@ class ProjectsV1Api:
         if name is not None:
             
             _query_params.append(('name', name))
+            
+        if system_project is not None:
+            
+            _query_params.append(('system_project', system_project))
             
         if page is not None:
             

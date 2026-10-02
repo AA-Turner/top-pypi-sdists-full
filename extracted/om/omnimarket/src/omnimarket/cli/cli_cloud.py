@@ -1,0 +1,970 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""``onex cloud`` — delegate to the OmniNode platform from a terminal (OMN-16967).
+
+    onex cloud login --base-url https://<gateway> --tenant-slug <slug> \
+        --api-key-stdin
+    onex cloud delegate "<prompt>" --task-type summarization
+    onex cloud receipt <workflow-id>
+    onex cloud status
+    onex cloud logout
+
+HOW THIS COMMAND REACHES THE CLI — AND WHY IT LIVES IN THIS REPO
+    It is NOT wired into the CLI by hand anywhere. ``omnimarket``'s
+    ``pyproject.toml`` advertises it in the ``onex.cli`` entry-point group, and
+    ``omnibase_core.cli.cli_commands`` discovers that group over the installed
+    distributions at import time. Installing the delegate market package is
+    therefore what makes ``onex cloud`` exist, and uninstalling it is what makes
+    the command disappear — the 2026-08-29 operator ruling, made mechanical.
+
+    The ratchet that keeps it that way is
+    ``tests/unit/cli/test_cloud_cli_entry_point_registration_omn16967.py``: it
+    fails if the declaration is dropped, if the name is claimed by a second
+    distribution, or if anything in this repo starts calling ``add_command``
+    with this group.
+
+WHY THIS IS A SIBLING OF ``onex delegate``, NOT A FLAG ON IT
+    ``onex delegate`` is the INTERNAL path: it publishes a typed command to the
+    event bus (or runs the orchestrator in-process), resolves an
+    omnimarket-provided node contract, and refuses to dispatch when the local
+    ``omnimarket`` co-install has drifted from ``$OMNI_HOME/omnimarket``. Every
+    one of those is a dev-workstation prerequisite, and none of them is
+    reachable by a customer: customer credentials are minted deliberately
+    without broker authorization.
+
+    This command is the EXTERNAL/tenant path: HTTPS to the gateway, one
+    credential, no checkout, no broker, no ``$OMNI_HOME``. Bolting an
+    ``--api-key`` mode onto ``onex delegate`` would put two transports, two
+    credential kinds and two prerequisite sets behind one command, and would
+    make the internal tool a cloud client — the shape the 2026-08-03 OMN-15680
+    ruling voided. Keeping them apart is what lets the internal path stay
+    bus-only and the tenant path stay gateway-only.
+
+    It is a ``click.Group`` because every other credential-bearing surface in
+    this CLI is one (``auth``, ``kafka``, ``occ``); ``delegate`` is the lone
+    bare command, and it is bare precisely because it carries no credential.
+
+    The group is named ``cloud`` rather than ``delegate`` because
+    ``omnibase_infra`` already advertises ``delegate`` in the same entry-point
+    group. Two distributions claiming one name is not an override — the loader
+    walks the group in iteration order — so a same-name registration would be a
+    nondeterministic shadow of the local command.
+
+WHERE THE CREDENTIAL COMES FROM
+    Exactly three sources, in this order, and none of them is argv:
+
+    1. ``--api-key-file`` (or ``$ONEX_API_KEY_FILE``) — a 0600 file holding the
+       key. This is the CI / non-interactive form.
+    2. the stored ``~/.onex`` ``cloud:`` block written by ``login``.
+    3. nothing — a refusal naming ``onex cloud login``.
+
+    There is no ``--api-key <value>`` option and there will not be one: a flag
+    value lands in the process table, the shell history, and every exec log —
+    three durable copies of a live customer credential that outlive the
+    session. ``login`` reads it from stdin for the same reason.
+
+WHERE THE BASE URL COMES FROM
+    ``--base-url`` / ``$ONEX_API_BASE_URL`` / the stored block — and otherwise
+    a REFUSAL. This module contains no gateway hostname at all. A default
+    origin is not a convenience here; it is a live customer key sent to
+    whatever host the release happened to ship with.
+
+WHY THE FILES ARE THE POINT
+    The operator's stated reason for preferring the terminal over a browser
+    demo is that a browser cannot keep what it generates. So the saved files
+    are first-class, not a side effect: every run writes ``result.txt``,
+    ``receipt.json`` and ``run.json`` under
+    ``<output-dir>/<workflow_id>/`` and the command prints those paths. A run
+    that produced no content still writes its receipt — a failed run's receipt
+    is exactly the evidence needed to say why.
+"""
+
+from __future__ import annotations
+
+import json
+import socket
+import sys
+import uuid
+from pathlib import Path
+from typing import Any, Final
+
+import click
+from omnibase_core.errors.model_onex_error import ModelOnexError
+from omnibase_infra.gateway.client.store_gateway_credential import (
+    StoreGatewayCredential,
+)
+from omnibase_infra.gateway.models.model_gateway_api_key import (
+    ModelGatewayApiKeyCredential,
+)
+from pydantic import SecretStr
+
+from omnimarket.cli.choice_from_authority import ChoiceFromAuthority
+from omnimarket.cloud.completion_bound import read_declared_completion_bound
+from omnimarket.cloud.migrate_legacy_cloud_block import (
+    migrate_legacy_cloud_block,
+)
+from omnimarket.cloud.model_cloud_delegation import (
+    ModelCloudDelegationAck,
+    ModelCloudDelegationReceipt,
+    ModelCloudDelegationStatus,
+)
+from omnimarket.cloud.transport_cloud_delegation import (
+    CLOUD_DELEGATION_WORKFLOW_TYPE,
+    DEFAULT_MAX_POLL_INTERVAL_SECONDS,
+    DEFAULT_POLL_INTERVAL_SECONDS,
+    TransportCloudDelegation,
+)
+from omnimarket.inference.task_class_authority import load_task_class_authority
+
+__all__ = ["cloud_group"]
+
+
+def _public_task_classes() -> frozenset[str]:
+    """Return the task classes the public Gateway admits, from the Market authority.
+
+    OMN-19407: this used to be a tuple "transcribed from" the gateway's
+    contract. The gateway's admission set IS the authority's public projection,
+    so it is read from there when the command runs.
+    """
+    return load_task_class_authority().public_task_classes
+
+
+_DEFAULT_OUTPUT_DIR: Final[str] = "onex-delegations"
+_LOGIN_HINT: Final[str] = (
+    "run 'onex cloud login --base-url <gateway origin> --api-key-stdin' with a "
+    "key created in the dashboard"
+)
+
+
+#: The customer-facing way to create the credential this command reads. Spelled
+#: once so every refusal names the same command (OMN-18422).
+_CLOUD_LOGIN_REMEDIATION: Final[str] = (
+    "Run 'onex cloud login --base-url <gateway origin> --tenant-slug <slug> "
+    "--api-key-stdin' and paste the onxk_ key you created in the dashboard."
+)
+
+
+def _fail(message: str) -> click.ClickException:
+    """Build the one exception shape this module raises for operator errors."""
+    return click.ClickException(message)
+
+
+def _assert_binds_to_submission(
+    document: ModelCloudDelegationReceipt | ModelCloudDelegationStatus,
+    *,
+    kind: str,
+    ack: ModelCloudDelegationAck,
+) -> None:
+    """Refuse a gateway answer that is not about the submission just made.
+
+    The run directory is named from the ack; every field written into it comes
+    from the response. Nothing else compares the two, so without this an answer
+    about another workflow is saved under this run's id and its
+    ``terminal_model_used`` is printed as the route that answered this prompt —
+    a relabelled stale answer, indistinguishable on disk from a real one.
+
+    Equality is the correct assertion against a correct server, not a guess:
+    the gateway mints one ``correlation_id`` per submission
+    (``routers/workflows.py`` — ``submission.correlation_id or uuid.uuid4()``),
+    writes it on the ``gateway_workflows`` row, returns it on the 202, and the
+    receipt renderer reads both ids back off that same row. An inequality is
+    therefore always a defect somewhere, never a legitimate shape.
+
+    Raised BEFORE anything is written. A mislabelled receipt on disk outlives
+    the session that could have explained it, and reads later as evidence.
+    """
+    if (
+        document.workflow_id == ack.workflow_id
+        and document.correlation_id == ack.correlation_id
+    ):
+        return
+    raise _fail(
+        f"the gateway answered with a {kind} for a different submission. "
+        f"Submitted workflow {ack.workflow_id} (correlation "
+        f"{ack.correlation_id}); the {kind} names workflow "
+        f"{document.workflow_id} (correlation {document.correlation_id}). "
+        "Nothing was written — a receipt filed under another run's id is not "
+        "evidence about this one. Re-run the delegation, or fetch that other "
+        f"workflow deliberately with 'onex cloud receipt {document.workflow_id}'."
+    )
+
+
+def _assert_receipt_is_for(
+    receipt: ModelCloudDelegationReceipt, *, requested: uuid.UUID
+) -> None:
+    """Refuse a fetched receipt that is not about the workflow that was asked for.
+
+    The same rule as ``_assert_binds_to_submission``, for the path that has no
+    ack to bind to. ``cloud receipt`` is handed one id on the command line and
+    nothing else, so that id IS the submission here: the run directory is named
+    from it while every field written inside comes from the response. Without
+    this comparison a gateway answering about another workflow is filed under
+    the requested id, and its ``terminal_model_used`` is printed as the route
+    that ran this workflow — a relabelled answer, indistinguishable on disk
+    from a real one once the session that could explain it is gone.
+
+    Only ``workflow_id`` is compared, and that is not an omission. A bare fetch
+    carries no correlation id of its own to compare against; the one on the
+    body is the correct one for the workflow it names, so asserting it would
+    refuse every legitimate fetch. ``requested`` is the PARSED ``uuid.UUID``,
+    not the argument string, so a braced or upper-case spelling of the same
+    workflow compares equal rather than being refused.
+
+    Raised BEFORE the run directory is created and before anything is written.
+    """
+    if receipt.workflow_id == requested:
+        return
+    raise _fail(
+        f"the gateway returned a receipt for a different workflow. Asked for "
+        f"{requested}; the receipt names {receipt.workflow_id}. Nothing was "
+        "written — a receipt filed under another run's id is not evidence "
+        "about this one. Fetch that workflow deliberately with 'onex cloud "
+        f"receipt {receipt.workflow_id}'."
+    )
+
+
+def _failure_attribution_lines(
+    receipt: ModelCloudDelegationReceipt,
+) -> tuple[str, ...]:
+    """The gateway's typed explanation of a failed run, as printable lines.
+
+    OMN-17372. A keyless customer's delegation is refused by name, with a
+    stable code, before any provider is contacted; a provider outage is a
+    different situation with a different correct response. Until the gateway
+    carried the attribution both rendered here as the same two words, so this
+    prints whichever of the four fields the gateway actually supplied and
+    invents nothing for the ones it did not. ``code`` leads because it is the
+    field a script routes on.
+    """
+    labelled = (
+        ("code", receipt.terminal_failure_code),
+        ("class", receipt.terminal_failure_class),
+        ("reason", receipt.terminal_failure_reason),
+        ("do", receipt.terminal_remediation),
+    )
+    return tuple(
+        f"{label:>8}: {value}" for label, value in labelled if value is not None
+    )
+
+
+def _rule_evaluation_lines(
+    receipt: ModelCloudDelegationReceipt,
+) -> tuple[str, ...]:
+    """The per-rule quality record, as printable lines (OMN-18295).
+
+    Printed on EVERY terminal run, not only a failed one. That is the point of
+    the record: ``deciding_rules=`` inside the failure reason names the
+    blocking rules that rejected a run and is absent on a run that completed,
+    so before this a customer whose delegation passed could not see which
+    rules had been applied to it at all, and one whose delegation failed could
+    not see which rules had passed.
+
+    Each line names the rule, its own verdict, the authority it held, and the
+    threshold it applied where it declares one -- the 250-word limit that
+    rejected delegation ca144d1a-ea03-475f-bc81-650ccfa0495e was a literal
+    inside the gate and appeared on no receipt. A failed rule prints its
+    detail; a passed one has none to print and says nothing extra, rather than
+    being padded to look symmetrical.
+    """
+    lines: list[str] = []
+    for evaluation in receipt.rule_evaluations:
+        verdict = "pass" if evaluation.passed else "FAIL"
+        bound = (
+            f" (>{evaluation.threshold} {evaluation.threshold_unit or 'units'})"
+            if evaluation.threshold is not None
+            else ""
+        )
+        detail = f" -- {evaluation.detail}" if evaluation.detail else ""
+        lines.append(
+            f"{evaluation.rule:>24}: {verdict} [{evaluation.enforcement}]"
+            f"{bound}{detail}"
+        )
+    return tuple(lines)
+
+
+def _store(onex_home: Path | None) -> StoreGatewayCredential:
+    """Bind the ONE canonical credential store for this machine (OMN-18422).
+
+    ``onex cloud login`` and ``onex auth login --api-key-stdin`` used to write
+    the same credential kind into two different blocks of the same file, so a
+    machine onboarded through one was told by the other that it held no key at
+    all. Both now write, and both now read, this one store.
+    """
+    return StoreGatewayCredential(onex_home=_onex_root(onex_home))
+
+
+def _onex_root(onex_home: Path | None) -> Path:
+    return onex_home or (Path.home() / ".onex")
+
+
+def _migrate_once(onex_home: Path | None) -> None:
+    """Carry a machine still on the retired block across, once, before a read.
+
+    A machine that never held that block pays one ``stat()``. This is not a
+    reader that accepts both names: the migration REMOVES the retired block,
+    so the second call has nothing to do.
+    """
+    migrate_legacy_cloud_block(onex_home=_onex_root(onex_home))
+
+
+def _read_key_file(path: Path) -> str:
+    """Read a key from a file, refusing a group- or world-readable one.
+
+    The permission check is not ceremony: this is the CI form, and a key file
+    committed or copied at 0644 is the most common way a live credential
+    becomes readable by every process on a shared runner.
+    """
+    if not path.exists():
+        raise _fail(f"no API key file at {path}.")
+    mode = path.stat().st_mode & 0o777
+    if mode & 0o077:
+        raise _fail(
+            f"{path} is mode {mode:04o}; it must be 0600 (owner-only). "
+            f"Fix with: chmod 600 {path}"
+        )
+    key = path.read_text().strip()
+    if not key:
+        raise _fail(f"{path} is empty — it must contain the onxk_ API key.")
+    return key
+
+
+def _resolve_credential(
+    *,
+    onex_home: Path | None,
+    base_url: str | None,
+    api_key_file: Path | None,
+) -> tuple[str, SecretStr]:
+    """Resolve (base_url, api_key) from explicit config, or refuse.
+
+    Explicit flags/env beat the stored block; nothing beats "unset". Both
+    halves must resolve — a base URL with no key, or a key with no base URL,
+    is a half-configured client, which is the state that produces a request
+    nobody meant to send.
+    """
+    if api_key_file is not None:
+        if base_url is None:
+            raise _fail(
+                "--api-key-file was given but no base URL. Pass --base-url "
+                "(or set $ONEX_API_BASE_URL) — there is no default gateway "
+                "origin."
+            )
+        return base_url, SecretStr(_read_key_file(api_key_file))
+
+    try:
+        _migrate_once(onex_home)
+        credential = _store(onex_home).load_read_credential()
+    except ModelOnexError as exc:
+        # The canonical store's own remediation names 'onex auth login', which
+        # is the operator's entry point. A customer on this command needs the
+        # command they were given, so the customer form leads and the store's
+        # own detail is kept rather than paraphrased away.
+        raise _fail(f"{exc} ({_CLOUD_LOGIN_REMEDIATION})") from exc
+
+    if not isinstance(credential, ModelGatewayApiKeyCredential):
+        raise _fail(
+            "this machine holds a client-credential pair, not the dashboard "
+            f"API key this command presents. {_CLOUD_LOGIN_REMEDIATION}"
+        )
+
+    # An explicit --base-url still wins over the stored one, so a customer can
+    # point a stored key at a second environment without re-running login.
+    return base_url or credential.base_url, credential.api_key
+
+
+def _transport_factory_from_context(ctx: click.Context) -> Any:
+    """Return the client constructor, honouring a test-injected seam.
+
+    The real path constructs :class:`TransportCloudDelegation`; a test passes
+    ``obj={"transport_factory": ...}`` and drives the command with no socket. The
+    seam is the constructor, not a patched module attribute, so what the tests
+    exercise is the command's real wiring.
+    """
+    if isinstance(ctx.obj, dict) and "transport_factory" in ctx.obj:
+        return ctx.obj["transport_factory"]
+    return TransportCloudDelegation
+
+
+@click.group("cloud")
+def cloud_group() -> None:  # stub-ok
+    """Delegate to the OmniNode platform with a dashboard API key."""
+
+
+# --------------------------------------------------------------------------
+# login / status / logout
+# --------------------------------------------------------------------------
+
+
+@cloud_group.command("login")
+@click.option(
+    "--base-url",
+    required=True,
+    envvar="ONEX_API_BASE_URL",
+    help=(
+        "Gateway origin the key belongs to, e.g. https://dev.api.omninode.ai. "
+        "Required — no default origin exists, because a wrong default sends a "
+        "live key to the wrong host."
+    ),
+)
+@click.option(
+    "--api-key-stdin",
+    "api_key_stdin",
+    is_flag=True,
+    required=True,
+    help=(
+        "Read the onxk_ API key from stdin. The only accepted form — a flag "
+        "value would leak into the process table and shell history."
+    ),
+)
+@click.option(
+    "--tenant-slug",
+    required=True,
+    help=(
+        "The tenant this key belongs to. Required, and no longer a free-text "
+        "label: it is the same field 'onex auth login' verifies against the "
+        "gateway, because both commands now write one block."
+    ),
+)
+@click.option(
+    "--onex-home",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Override the ~/.onex root (test use).",
+)
+def cloud_login(
+    base_url: str, api_key_stdin: bool, tenant_slug: str, onex_home: Path | None
+) -> None:
+    """Store a dashboard API key by reference under ~/.onex.
+
+    It writes the same block ``onex auth login --api-key-stdin`` writes. Before
+    OMN-18422 the two commands owned two different blocks of this one file, so a
+    machine onboarded through either was told by the other that it held no key.
+
+    \b
+    Example:
+        read -rs ONXK && printf '%s' "$ONXK" | \\
+          onex cloud login --base-url https://dev.api.omninode.ai \\
+            --tenant-slug acme --api-key-stdin
+    """
+    if not api_key_stdin:  # pragma: no cover - click marks the flag required
+        raise _fail("--api-key-stdin is required; the key is never taken from argv.")
+
+    api_key = sys.stdin.read().strip()
+    if not api_key:
+        raise _fail(
+            "no API key on stdin. Pipe it, e.g.: "
+            "printf '%s' \"$ONXK\" | onex cloud login ... --api-key-stdin"
+        )
+
+    try:
+        _store(onex_home).save_api_key(
+            tenant_slug=tenant_slug, api_key=api_key, base_url=base_url
+        )
+    except ModelOnexError as exc:
+        raise _fail(str(exc)) from exc
+
+    click.echo(f"Stored the OmniNode API key for {base_url} (tenant '{tenant_slug}').")
+    click.echo("Key written by reference to ~/.onex/credentials.json (mode 0600).")
+
+
+@cloud_group.command("status")
+@click.option(
+    "--onex-home",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Override the ~/.onex root.",
+)
+def cloud_status(onex_home: Path | None) -> None:
+    """Print which key is configured, without printing the key.
+
+    This is the command a customer pastes into a support thread, so it prints
+    identity and endpoints only.
+    """
+    try:
+        _migrate_once(onex_home)
+        credential = _store(onex_home).load_read_credential()
+    except ModelOnexError as exc:
+        raise _fail(str(exc)) from exc
+    click.echo(f"gateway base_url: {credential.base_url}")
+    click.echo(f"tenant_slug:      {credential.tenant_slug}")
+    click.echo("api_key:          stored by reference (not shown)")
+
+
+@cloud_group.command("logout")
+@click.option(
+    "--onex-home",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Override the ~/.onex root.",
+)
+def cloud_logout(onex_home: Path | None) -> None:
+    """Remove the stored API key and the config block that references it."""
+    try:
+        _store(onex_home).clear()
+    except ModelOnexError as exc:
+        raise _fail(str(exc)) from exc
+    click.echo("Removed the OmniNode API key from ~/.onex.")
+
+
+# --------------------------------------------------------------------------
+# delegate
+# --------------------------------------------------------------------------
+
+
+def _write_run_files(
+    *,
+    output_dir: Path,
+    workflow_id: str,
+    prompt: str,
+    task_type: str,
+    max_tokens: int | None,
+    base_url: str,
+    terminal_status: str,
+    receipt: ModelCloudDelegationReceipt,
+) -> dict[str, Path]:
+    """Persist the run to disk and return what was written.
+
+    Three files, split by what each is for:
+
+    * ``result.txt`` — the generated output, verbatim, so it can be piped,
+      diffed and edited like any other file. Written ONLY when there is
+      content; an empty file would misrepresent a contentless run as an empty
+      answer.
+    * ``receipt.json`` — the server's receipt, unmodified, hashes included.
+    * ``run.json`` — what was asked and where, so the receipt can be tied back
+      to its request months later without the shell history.
+    """
+    run_dir = output_dir / workflow_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    written: dict[str, Path] = {}
+
+    if receipt.result_content is not None:
+        result_path = run_dir / "result.txt"
+        result_path.write_text(receipt.result_content, encoding="utf-8")
+        written["result"] = result_path
+
+    receipt_path = run_dir / "receipt.json"
+    receipt_path.write_text(
+        json.dumps(receipt.model_dump(mode="json"), indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    written["receipt"] = receipt_path
+
+    run_path = run_dir / "run.json"
+    run_path.write_text(
+        json.dumps(
+            {
+                "workflow_id": workflow_id,
+                "workflow_type": CLOUD_DELEGATION_WORKFLOW_TYPE,
+                "base_url": base_url,
+                "prompt": prompt,
+                "task_type": task_type,
+                "max_tokens": max_tokens,
+                "terminal_status": terminal_status,
+                "model_used": receipt.terminal_model_used,
+                "total_tokens": receipt.terminal_total_tokens,
+                "latency_ms": receipt.terminal_latency_ms,
+                "projection_row_hash": receipt.projection_row_hash,
+                "terminal_event_hash": receipt.terminal_event_hash,
+                # OMN-17372: why a failed run failed, in the file that ties a
+                # receipt back to its request. None on a success, and None on a
+                # failure whose gateway carried no attribution.
+                "failure_code": receipt.terminal_failure_code,
+                "failure_class": receipt.terminal_failure_class,
+                "failure_reason": receipt.terminal_failure_reason,
+                "remediation": receipt.terminal_remediation,
+                # OMN-18295: the per-rule quality record, in the file that
+                # ties a receipt back to its request. An empty list means the
+                # gateway carried none -- no quality gate ran, or it predates
+                # the field -- which is a different fact from a rule failing.
+                "rule_evaluations": [
+                    evaluation.model_dump(mode="json")
+                    for evaluation in receipt.rule_evaluations
+                ],
+            },
+            indent=2,
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    written["run"] = run_path
+
+    return written
+
+
+@cloud_group.command("delegate")
+@click.argument("prompt")
+@click.option(
+    "--task-type",
+    "task_type",
+    type=ChoiceFromAuthority(
+        "the Market task-class authority (onex.contracts:task_class_authority)",
+        _public_task_classes,
+    ),
+    required=True,
+    help=(
+        "Task classification the platform routes on. Required — the gateway "
+        "contract requires it, and guessing it for a paying customer would "
+        "silently change which model answers."
+    ),
+)
+@click.option(
+    "--max-tokens",
+    "max_tokens",
+    type=click.IntRange(min=1),
+    default=None,
+    help=(
+        "Optional response budget. Omit to let the platform resolve it "
+        "per-backend from its routing contract (no client-side default)."
+    ),
+)
+@click.option(
+    "--output-dir",
+    "output_dir",
+    type=click.Path(path_type=Path),
+    default=_DEFAULT_OUTPUT_DIR,
+    show_default=True,
+    help=(
+        "Directory the run's files are written under, as <output-dir>/<workflow_id>/."
+    ),
+)
+@click.option(
+    "--base-url",
+    default=None,
+    envvar="ONEX_API_BASE_URL",
+    help=(
+        "Gateway origin. Defaults to the one stored by 'onex cloud login'. "
+        "There is no built-in default."
+    ),
+)
+@click.option(
+    "--api-key-file",
+    "api_key_file",
+    type=click.Path(path_type=Path),
+    default=None,
+    envvar="ONEX_API_KEY_FILE",
+    help=(
+        "Path to a 0600 file holding the onxk_ key, for CI and non-interactive "
+        "use. Omit to use the key stored by 'onex cloud login'. There is no "
+        "option that takes the key as a value."
+    ),
+)
+@click.option(
+    "--onex-home",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Override the ~/.onex root.",
+)
+@click.option(
+    "--timeout",
+    type=click.IntRange(min=1),
+    default=None,
+    help=(
+        "Total wall-clock budget for the delegation to reach a terminal state. "
+        "Defaults to the completion bound the delegation contract declares and "
+        "the runtime enforces, so the client stops asking at the moment the "
+        "platform stops trying rather than at a number of its own (OMN-18296). "
+        "Waits forced by the gateway's rate limit are spent from this budget; "
+        "they never end the run early."
+    ),
+)
+@click.option(
+    "--poll-interval",
+    "poll_interval",
+    type=click.FloatRange(min=0.5),
+    default=DEFAULT_POLL_INTERVAL_SECONDS,
+    show_default=True,
+    help=(
+        "Seconds before the first status poll. The cadence then backs off "
+        "toward --max-poll-interval, so polling never spends the whole "
+        "per-minute request budget of your plan."
+    ),
+)
+@click.option(
+    "--max-poll-interval",
+    "max_poll_interval",
+    type=click.FloatRange(min=0.5),
+    default=DEFAULT_MAX_POLL_INTERVAL_SECONDS,
+    show_default=True,
+    help="Ceiling the poll cadence backs off toward.",
+)
+@click.option(
+    "--runner-identity",
+    "runner_identity",
+    default=None,
+    help=(
+        "Identity stamped into the receipt's verifier field. Defaults to "
+        "onex-cloud-delegate@<hostname>."
+    ),
+)
+@click.pass_context
+def cloud_delegate(
+    ctx: click.Context,
+    prompt: str,
+    task_type: str,
+    max_tokens: int | None,
+    output_dir: Path,
+    base_url: str | None,
+    api_key_file: Path | None,
+    onex_home: Path | None,
+    timeout: int | None,
+    poll_interval: float,
+    max_poll_interval: float,
+    runner_identity: str | None,
+) -> None:
+    """Delegate PROMPT to the platform, print the result, and save it locally.
+
+    Submits the delegation, polls it to a terminal state, fetches the signed
+    receipt, prints the generated output on stdout, and writes the run to
+    ``<output-dir>/<workflow_id>/``. Exits non-zero when the run reaches a
+    terminal ``failed`` state — with the receipt still saved, because a failed
+    run's receipt is the evidence for why.
+
+    \b
+    Examples:
+        onex cloud delegate "summarize this changelog" --task-type summarization
+        onex cloud delegate "write a retry helper" --task-type code_generation --max-tokens 2048
+    """
+    resolved_base_url, api_key = _resolve_credential(
+        onex_home=onex_home, base_url=base_url, api_key_file=api_key_file
+    )
+    identity = runner_identity or f"onex-cloud-delegate@{socket.gethostname()}"
+    if max_poll_interval < poll_interval:
+        raise _fail(
+            f"--max-poll-interval ({max_poll_interval:g}s) is below "
+            f"--poll-interval ({poll_interval:g}s). The cadence backs OFF from "
+            f"the first toward the second, so a ceiling under the floor "
+            f"describes no schedule."
+        )
+
+    transport_factory = _transport_factory_from_context(ctx)
+
+    # OMN-18296: an unset --timeout resolves to the contract-declared bound the
+    # runtime itself enforces. Passing a value still wins, and the error the
+    # poll raises names which of the two it spent.
+    if timeout is None:
+        declared_bound = read_declared_completion_bound()
+        budget_seconds = declared_bound.max_wall_seconds
+        budget_source = (
+            "the completion bound declared by node_delegation_orchestrator and "
+            "enforced by the runtime"
+        )
+    else:
+        budget_seconds = timeout
+        budget_source = None
+
+    try:
+        with transport_factory(
+            base_url=resolved_base_url,
+            api_key=api_key,
+            timeout_seconds=float(budget_seconds),
+        ) as client:
+            ack = client.submit(
+                prompt=prompt, task_type=task_type, max_tokens=max_tokens
+            )
+            workflow_id = str(ack.workflow_id)
+            click.echo(f"submitted delegation {workflow_id}", err=True)
+
+            status = client.poll_until_terminal(
+                workflow_id,
+                deadline_seconds=float(budget_seconds),
+                deadline_source=budget_source,
+                interval_seconds=poll_interval,
+                max_interval_seconds=max_poll_interval,
+            )
+            receipt = client.receipt(workflow_id, runner_identity=identity)
+    except ModelOnexError as exc:
+        raise _fail(str(exc)) from exc
+
+    # Both envelopes, before the first byte is written: the status carries the
+    # terminal disposition that lands in run.json, the receipt carries the
+    # route and the hashes.
+    _assert_binds_to_submission(status, kind="terminal status", ack=ack)
+    _assert_binds_to_submission(receipt, kind="receipt", ack=ack)
+
+    written = _write_run_files(
+        output_dir=output_dir,
+        workflow_id=workflow_id,
+        prompt=prompt,
+        task_type=task_type,
+        max_tokens=max_tokens,
+        base_url=resolved_base_url,
+        terminal_status=status.status,
+        receipt=receipt,
+    )
+
+    if receipt.result_content is not None:
+        click.echo(receipt.result_content)
+
+    click.echo("", err=True)
+    for label, path in written.items():
+        click.echo(f"{label:>8}: {path}", err=True)
+    click.echo(
+        f"   model: {receipt.terminal_model_used} "
+        f"({receipt.terminal_total_tokens} tokens, "
+        f"{receipt.terminal_latency_ms} ms)",
+        err=True,
+    )
+
+    # OMN-18295: which declared quality rules were applied and what each one
+    # decided, on a completed run as well as a failed one.
+    for line in _rule_evaluation_lines(receipt):
+        click.echo(line, err=True)
+
+    if status.status != "completed":
+        # OMN-17372: the gateway's own attribution, printed before the exit
+        # message so the operator sees the code and what to do about it even
+        # when the message itself scrolls past.
+        for line in _failure_attribution_lines(receipt):
+            click.echo(line, err=True)
+
+        # A terminal failure with no content used to be reported as the
+        # quota-dead shape unconditionally: the submit was accepted, the
+        # runtime could not answer. That is still the honest reading when the
+        # gateway named no cause -- but when it DID, the remediation is the
+        # detail, because "returned no content" is true of our pipeline and
+        # false of the customer's problem.
+        detail = (
+            receipt.terminal_remediation
+            if receipt.terminal_remediation is not None
+            else (
+                "the runtime returned no content"
+                if receipt.result_content is None
+                else "the runtime returned partial content"
+            )
+        )
+        # The remediation arrives already terminated; the two fallback phrases
+        # do not. One sentence either way, never "retry.." and never "content
+        # The receipt".
+        if not detail.endswith("."):
+            detail = f"{detail}."
+        named_code = (
+            f" [{receipt.terminal_failure_code}]"
+            if receipt.terminal_failure_code is not None
+            else ""
+        )
+        raise _fail(
+            f"delegation {workflow_id} reached terminal status "
+            f"'{status.status}'{named_code} — {detail} The receipt above "
+            f"records what the platform did; it was NOT retried."
+        )
+
+
+# --------------------------------------------------------------------------
+# receipt
+# --------------------------------------------------------------------------
+
+
+@cloud_group.command("receipt")
+@click.argument("workflow_id", type=click.UUID)
+@click.option(
+    "--output-dir",
+    "output_dir",
+    type=click.Path(path_type=Path),
+    default=_DEFAULT_OUTPUT_DIR,
+    show_default=True,
+    help="Directory the receipt is written under, as <output-dir>/<workflow_id>/.",
+)
+@click.option(
+    "--base-url",
+    default=None,
+    envvar="ONEX_API_BASE_URL",
+    help="Gateway origin. Defaults to the one stored by 'onex cloud login'.",
+)
+@click.option(
+    "--api-key-file",
+    "api_key_file",
+    type=click.Path(path_type=Path),
+    default=None,
+    envvar="ONEX_API_KEY_FILE",
+    help="Path to a 0600 file holding the onxk_ key, for CI and non-interactive use.",
+)
+@click.option(
+    "--onex-home",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Override the ~/.onex root.",
+)
+@click.option(
+    "--runner-identity",
+    "runner_identity",
+    default=None,
+    help=(
+        "Identity stamped into the receipt's verifier field. Defaults to "
+        "onex-cloud-delegate@<hostname>."
+    ),
+)
+@click.pass_context
+def cloud_receipt(
+    ctx: click.Context,
+    workflow_id: uuid.UUID,
+    output_dir: Path,
+    base_url: str | None,
+    api_key_file: Path | None,
+    onex_home: Path | None,
+    runner_identity: str | None,
+) -> None:
+    """Fetch and save the receipt for an existing delegation.
+
+    This is how a run is retrieved after the fact — a delegation that outlived
+    ``delegate``'s poll budget is still running on the platform, and its
+    workflow id is all that is needed to collect it later. It is also the
+    command for re-downloading a receipt whose local copy was lost.
+
+    Writes ``receipt.json`` (and ``result.txt`` when the run produced content)
+    under ``<output-dir>/<workflow_id>/`` and prints the generated output.
+
+    WHY THE ARGUMENT IS TYPED ``click.UUID`` AND NOT LEFT A STRING
+        This id is not just looked up — it is interpolated into the gateway URL
+        path by ``TransportCloudDelegation.receipt`` and joined onto the
+        operator's ``--output-dir`` here, where the result is ``mkdir``'d and
+        written to. An unvalidated string is therefore URL path structure and a
+        filesystem path at once, and ``../`` in it escapes the directory the
+        operator named. Typing it closes both, in the one place both start.
+
+        It also makes the CLI agree with the contract: all three models in
+        ``omnimarket.cloud.model_cloud_delegation`` already type this field
+        ``uuid.UUID``, so the string form was the CLI widening its own models.
+
+        Normalising through ``str(uuid.UUID)`` is the half that matters as much
+        as rejecting: a braced or upper-case spelling is legal and denotes the
+        same workflow, so it must reach the gateway and the disk in the single
+        canonical hyphenated lower-case form rather than minting a second
+        directory for the same run.
+    """
+    canonical_workflow_id = str(workflow_id)
+    resolved_base_url, api_key = _resolve_credential(
+        onex_home=onex_home, base_url=base_url, api_key_file=api_key_file
+    )
+    identity = runner_identity or f"onex-cloud-delegate@{socket.gethostname()}"
+    transport_factory = _transport_factory_from_context(ctx)
+
+    try:
+        with transport_factory(base_url=resolved_base_url, api_key=api_key) as client:
+            receipt = client.receipt(canonical_workflow_id, runner_identity=identity)
+    except ModelOnexError as exc:
+        raise _fail(str(exc)) from exc
+
+    _assert_receipt_is_for(receipt, requested=workflow_id)
+
+    run_dir = output_dir / canonical_workflow_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    receipt_path = run_dir / "receipt.json"
+    receipt_path.write_text(
+        json.dumps(receipt.model_dump(mode="json"), indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+
+    if receipt.result_content is not None:
+        result_path = run_dir / "result.txt"
+        result_path.write_text(receipt.result_content, encoding="utf-8")
+        click.echo(receipt.result_content)
+        click.echo(f"  result: {result_path}", err=True)
+
+    click.echo(f" receipt: {receipt_path}", err=True)
+    click.echo(
+        f"   model: {receipt.terminal_model_used} "
+        f"({receipt.terminal_total_tokens} tokens, "
+        f"{receipt.terminal_latency_ms} ms)",
+        err=True,
+    )

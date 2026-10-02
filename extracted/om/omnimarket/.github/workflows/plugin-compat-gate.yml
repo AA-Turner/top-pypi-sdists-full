@@ -1,0 +1,212 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# plugin-compat-gate.yml — CI gate: runtime version handshake tests
+#
+# DoD gate for OMN-8789 SD-02:
+#   1. Runs version_handshake unit tests (match + mismatch detection).
+#   2. Hard-fails if handshake module is broken or tests regress.
+#
+# When this fails:
+#   - Test failure: fix omnimarket.runtime.version_handshake logic.
+#   - Import error: check packaging dependency is present in pyproject.toml.
+
+name: Plugin Compat Handshake Gate
+
+on:
+  push:
+    branches: [main, develop, 'hotfix/**']
+    paths:
+      - 'src/omnimarket/runtime/**'
+      - 'tests/test_plugin_compat_handshake.py'
+      - '.github/workflows/plugin-compat-gate.yml'
+  pull_request:
+    branches: [main, dev, develop]
+    paths:
+      - 'src/omnimarket/runtime/**'
+      - 'tests/test_plugin_compat_handshake.py'
+      - '.github/workflows/plugin-compat-gate.yml'
+  workflow_dispatch:
+
+# OMN-19643: cancel only superseded pull request runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+
+env:
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  occ-preflight:
+    name: OCC Preflight Dependency
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      checks: read
+      contents: read
+    steps:
+      - name: Wait for required OCC preflight
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -uo pipefail
+
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "OCC preflight dependency is enforced by the pull_request gate; continuing for ${GITHUB_EVENT_NAME}."
+            exit 0
+          fi
+
+          # OMN-14343: desynchronize the ~33 same-PR pollers (one per workflow file
+          # -- GH Actions `needs:` can't cross workflow-file boundaries) so they
+          # don't all hit the Checks API in the same instant every 10s and exhaust
+          # the shared per-repo GitHub App installation rate-limit bucket.
+          sleep "$(( RANDOM % 15 ))"
+
+          backoff=5
+          elapsed=0
+          # The eligibility check bounds its own wait for the cited OCC companion at
+          # 1500 s, so this poller waits that long plus 180 s of scheduling slack.
+          # At 720 s it gave up on an eligibility run that was still waiting on its
+          # companion, failed, and skipped the test shards behind it.
+          deadline=1680
+
+          while [ "$elapsed" -lt "$deadline" ]; do
+            # NOTE(OMN-14343): GH Actions runs run: steps under `bash -e {0}` by
+            # default -- that -e is already active before this script's own
+            # `set -uo pipefail` runs, and `set -uo pipefail` does NOT clear an
+            # inherited -e. A bare `response="$(gh api ...)"; status=$?` would
+            # therefore abort the whole step on ANY gh api failure before status
+            # is ever checked, silently defeating the retry logic below. Using
+            # the command substitution as the condition of this `if` is the
+            # errexit-safe form -- bash does not trigger -e for a command that is
+            # part of an if/while/until condition, regardless of ambient -e state.
+            response=""
+            status=0
+            if response="$(
+              gh api "repos/${REPO}/commits/${HEAD_SHA}/check-runs?filter=latest&check_name=occ-preflight%20%2F%20eligibility&per_page=1" \
+                --jq 'first(.check_runs[] | .conclusion) // ""' \
+                2>&1
+            )"; then
+              status=0
+            else
+              status=$?
+            fi
+
+            if [ "$status" -ne 0 ]; then
+              if echo "$response" | grep -qi "rate limit"; then
+                echo "::warning::gh api rate-limited waiting for occ-preflight; backing off ${backoff}s."
+                sleep "$backoff"
+                elapsed=$((elapsed + backoff))
+                backoff=$(( backoff * 2 < 60 ? backoff * 2 : 60 ))
+                continue
+              fi
+              echo "::error::gh api call failed (non-rate-limit): ${response}"
+              exit 1
+            fi
+            backoff=5
+
+            conclusion="$response"
+
+            case "$conclusion" in
+              success)
+                echo "OCC preflight passed for ${HEAD_SHA}."
+                exit 0
+                ;;
+              cancelled)
+                # OMN-20038: a cancelled preflight that a newer run for this head is
+                # replacing is pending, not refused. With no run queued or in progress the
+                # cancel is final and refuses exactly as before (fail closed on any read error).
+                in_flight="$(gh api "repos/${REPO}/actions/workflows/call-occ-preflight.yml/runs?head_sha=${HEAD_SHA}&per_page=30" --jq '[.workflow_runs[] | select(.status != "completed")] | length')" || in_flight=0
+                if [ "$in_flight" -gt 0 ] 2>/dev/null; then
+                  echo "OCC preflight was cancelled but ${in_flight} newer run(s) are pending for ${HEAD_SHA}; waiting."
+                else
+                  echo "::error::OCC preflight concluded cancelled with no newer run pending; refusing to start this workflow."
+                  exit 1
+                fi
+                ;;
+              failure|timed_out|action_required|startup_failure)
+                echo "::error::OCC preflight concluded ${conclusion}; refusing to start this workflow."
+                exit 1
+                ;;
+              "")
+                echo "Waiting for occ-preflight / eligibility to post for ${HEAD_SHA}..."
+                ;;
+              *)
+                echo "OCC preflight is ${conclusion}; waiting."
+                ;;
+            esac
+
+            sleep 10
+            elapsed=$((elapsed + 10))
+          done
+
+          echo "::error::Timed out waiting for occ-preflight / eligibility on ${HEAD_SHA}."
+          exit 1
+  plugin-compat-handshake:
+    needs: occ-preflight
+    name: Runtime version handshake tests
+    runs-on: >-
+      ${{
+        github.event_name == 'pull_request'
+        && github.event.pull_request.head.repo.full_name != github.repository
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["ubuntu-latest"]')
+      }}
+    timeout-minutes: 10
+    if: needs.occ-preflight.result == 'success' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Clean stale dependency clones
+        run: rm -rf ../omnibase_core ../omnibase_compat ../omnimemory
+
+      - name: Clone omnibase_core
+        run: git clone --depth=1 https://github.com/OmniNode-ai/omnibase_core.git ../omnibase_core
+
+      - name: Clone omnibase_compat
+        run: git clone --depth=1 https://github.com/OmniNode-ai/omnibase_compat.git ../omnibase_compat
+
+      - name: Clone omnimemory
+        run: git clone --depth=1 https://github.com/OmniNode-ai/omnimemory.git ../omnimemory
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.6.1"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Load cached venv
+        uses: actions/cache@v5
+        with:
+          path: .venv
+          key: uv-plugin-compat-handshake-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Run version handshake tests
+        run: |
+          uv run pytest tests/test_plugin_compat_handshake.py -v \
+            --tb=short \
+            -p no:warnings
+
+      - name: Verify handshake module imports cleanly
+        run: |
+          uv run python -c "
+          from omnimarket.runtime.version_handshake import (
+              check_plugin_compat,
+              load_compat_matrix,
+              ModelPluginCompatResult,
+              ModelPluginCompatMatrix,
+          )
+          print('OK: version_handshake module imports clean')
+          "

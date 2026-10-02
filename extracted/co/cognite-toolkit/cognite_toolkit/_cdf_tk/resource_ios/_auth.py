@@ -63,7 +63,7 @@ from cognite_toolkit._cdf_tk.yaml_classes.capabilities import UnknownCapability
 
 
 @dataclass
-class _ReplaceMethod:
+class ReplaceMethod:
     """This is a small helper class used in the
     lookup and replace in the ACL scoped ids"""
 
@@ -142,11 +142,11 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
         from ._classic import AssetIO
         from ._data_organization import DataSetsIO
         from ._data_product import DataProductIO
-        from ._datamodel import SpaceCRUD
+        from ._datamodel import SpaceIO
         from ._extraction_pipeline import ExtractionPipelineIO
         from ._location import LocationFilterIO
-        from ._raw import RawDatabaseCRUD, RawTableCRUD
-        from ._timeseries import TimeSeriesCRUD
+        from ._raw import RawDatabaseIO, RawTableIO
+        from ._timeseries import TimeSeriesIO
 
         for capability in resource.capabilities or []:
             if isinstance(capability, UnknownCapability) and isinstance(
@@ -157,7 +157,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
             scope = capability.scope
             if isinstance(scope, yaml_cap.SpaceIDScope):
                 for space_id in scope.space_ids:
-                    yield SpaceCRUD, SpaceId(space=space_id)
+                    yield SpaceIO, SpaceId(space=space_id)
             elif isinstance(scope, yaml_cap.DataProductScope):
                 for data_product_external_id in scope.external_ids:
                     yield DataProductIO, ExternalId(external_id=data_product_external_id)
@@ -166,9 +166,9 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
                     yield DataSetsIO, ExternalId(external_id=data_set_id)
             elif isinstance(scope, yaml_cap.TableScope):
                 for db_name, tables in scope.dbs_to_tables.items():
-                    yield RawDatabaseCRUD, RawDatabaseId(name=db_name)
+                    yield RawDatabaseIO, RawDatabaseId(name=db_name)
                     for table in tables:
-                        yield RawTableCRUD, RawTableId(db_name=db_name, name=table)
+                        yield RawTableIO, RawTableId(db_name=db_name, name=table)
             elif isinstance(scope, yaml_cap.ExtractionPipelineScope):
                 for extraction_pipeline_id in scope.ids:
                     yield ExtractionPipelineIO, ExternalId(external_id=extraction_pipeline_id)
@@ -182,20 +182,20 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
                 elif isinstance(capability, yaml_cap.ExtractionPipelinesAcl):
                     loader = ExtractionPipelineIO
                 elif isinstance(capability, yaml_cap.TimeSeriesAcl):
-                    loader = TimeSeriesCRUD
+                    loader = TimeSeriesIO
                 elif isinstance(capability, yaml_cap.SecurityCategoriesAcl):
                     loader = SecurityCategoryIO
                 elif isinstance(capability, yaml_cap.LocationFiltersAcl):
                     loader = LocationFilterIO
                 if loader is not None:
                     for id_ in scope.ids:
-                        if loader in {TimeSeriesCRUD, LocationFilterIO, DataSetsIO, ExtractionPipelineIO}:
+                        if loader in {TimeSeriesIO, LocationFilterIO, DataSetsIO, ExtractionPipelineIO}:
                             yield loader, ExternalId(external_id=id_)
                         elif loader is SecurityCategoryIO:
                             yield loader, NameId(name=id_)
 
     def _substitute_scope_ids(self, group: dict[str, Any], is_dry_run: bool, reverse: bool = False) -> dict[str, Any]:
-        replace_method_by_acl = self._create_replace_method_by_acl_and_scope()
+        replace_method_by_acl = self.create_replace_method_by_acl_and_scope()
 
         for capability in group.get("capabilities", []):
             for acl, values in capability.items():
@@ -227,44 +227,44 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
                         ]
         return group
 
-    def _create_replace_method_by_acl_and_scope(self) -> dict[tuple[str, str] | str, _ReplaceMethod]:
+    def create_replace_method_by_acl_and_scope(self) -> dict[tuple[str, str] | str, ReplaceMethod]:
         source = {
-            (cap.DataSetsAcl, cap.DataSetsAcl.Scope.ID): _ReplaceMethod(
+            (cap.DataSetsAcl, cap.DataSetsAcl.Scope.ID): ReplaceMethod(
                 self.client.lookup.data_sets.id,
                 self.client.lookup.data_sets.external_id,
                 id_name="ids",
             ),
-            (cap.ExtractionPipelinesAcl, cap.ExtractionPipelinesAcl.Scope.ID): _ReplaceMethod(
+            (cap.ExtractionPipelinesAcl, cap.ExtractionPipelinesAcl.Scope.ID): ReplaceMethod(
                 self.client.lookup.extraction_pipelines.id,
                 self.client.lookup.extraction_pipelines.external_id,
                 id_name="ids",
             ),
-            (cap.LocationFiltersAcl, cap.LocationFiltersAcl.Scope.ID): _ReplaceMethod(
+            (cap.LocationFiltersAcl, cap.LocationFiltersAcl.Scope.ID): ReplaceMethod(
                 self.client.lookup.location_filters.id,
                 self.client.lookup.location_filters.external_id,
                 id_name="ids",
             ),
-            (cap.SecurityCategoriesAcl, cap.SecurityCategoriesAcl.Scope.ID): _ReplaceMethod(
+            (cap.SecurityCategoriesAcl, cap.SecurityCategoriesAcl.Scope.ID): ReplaceMethod(
                 self.client.lookup.security_categories.id,
                 self.client.lookup.security_categories.external_id,
                 id_name="ids",
             ),
-            (cap.TimeSeriesAcl, cap.TimeSeriesAcl.Scope.ID): _ReplaceMethod(
+            (cap.TimeSeriesAcl, cap.TimeSeriesAcl.Scope.ID): ReplaceMethod(
                 self.client.lookup.time_series.id,
                 self.client.lookup.time_series.external_id,
                 id_name="ids",
             ),
-            cap.DataSetScope: _ReplaceMethod(
+            cap.DataSetScope: ReplaceMethod(
                 self.client.lookup.data_sets.id,
                 self.client.lookup.data_sets.external_id,
                 id_name="ids",
             ),
-            cap.ExtractionPipelineScope: _ReplaceMethod(
+            cap.ExtractionPipelineScope: ReplaceMethod(
                 self.client.lookup.extraction_pipelines.id,
                 self.client.lookup.extraction_pipelines.external_id,
                 id_name="ids",
             ),
-            cap.AssetRootIDScope: _ReplaceMethod(
+            cap.AssetRootIDScope: ReplaceMethod(
                 self.client.lookup.assets.id,
                 self.client.lookup.assets.external_id,
                 id_name="rootIds",
@@ -452,7 +452,7 @@ class GroupIO(ResourceIO[NameId, GroupRequest, GroupResponse, GroupYAML]):
 
 
 @final
-class GroupAllScopedCRUD(GroupIO):
+class GroupAllScopedIO(GroupIO):
     def __init__(self, client: ToolkitClient):
         super().__init__(client, "all_scoped_only")
 
@@ -468,7 +468,7 @@ class SecurityCategoryIO(ResourceIO[NameId, SecurityCategoryRequest, SecurityCat
     kind = "SecurityCategory"
     yaml_cls = SecurityCategoriesYAML
     folder_name = "auth"
-    dependencies = frozenset({GroupAllScopedCRUD})
+    dependencies = frozenset({GroupAllScopedIO})
     _doc_url = "Security-categories/operation/createSecurityCategories"
     support_update = False
 

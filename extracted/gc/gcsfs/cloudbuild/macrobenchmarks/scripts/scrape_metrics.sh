@@ -29,17 +29,36 @@ if [ -n "${_CHECKPOINT_LOAD_PATH}" ] || [ "${_SEED_CHECKPOINT}" = "true" ]; then
   MIN_RESTORE_DATAPOINTS=1
   RESUME_ARGS=(--resume-run)
 fi
+case "${_WORKLOAD}" in
+  ray-data-ray-train-pytorch)
+    WORKLOAD_ID="${_WORKLOAD}"
+    PARSER_MODULE=metrics.parsers.ray_train
+    PROFILE_ARGS=(--require-ray-metrics)
+    # The strict profile derives exact write/restore sets from the observed
+    # schedule and topology. Disable the legacy approximate minimums so short
+    # and full-pass Ray runs are not forced to invent a checkpoint.
+    MIN_WRITE_DATAPOINTS=0
+    MIN_RESTORE_DATAPOINTS=0
+    ;;
+  *)
+    # Preserve 'hf-pytorch-lightning-cpu' as the stable workload_name ID in
+    # BigQuery so historical time-series queries remain contiguous across the
+    # directory rename to hf-datasets-pytorch-lightning.
+    WORKLOAD_ID="hf-pytorch-lightning-cpu"
+    PARSER_MODULE=metrics.parsers.hf
+    PROFILE_ARGS=(--require-data-loading-metrics --require-data-wait-metrics)
+    ;;
+esac
 # Run the calculator over the current raw metrics into the summary file $1.
 run_calculate() {
   python3 -m metrics.calculate \
-      --run-id "$RUN_ID" --workload-name "${_WORKLOAD}" \
+      --run-id "$RUN_ID" --workload-name "$WORKLOAD_ID" \
       --requirements "${_REQUIREMENTS}" --in-dir "$RAW_DIR" --out-file "$1" \
       --expected-steps "${_STEPS}" \
       --min-write-datapoints "$MIN_WRITE_DATAPOINTS" \
       --min-restore-datapoints "$MIN_RESTORE_DATAPOINTS" \
       "${RESUME_ARGS[@]}" \
-      --require-data-loading-metrics \
-      --require-data-wait-metrics \
+      "${PROFILE_ARGS[@]}" \
       --bucket-type "${_BUCKET_TYPE}" --zone "${_ZONE}" --region "$REGION" \
       --machine-type "${_MACHINE_TYPE}" \
       --nodes "${_NODES}" --ranks-per-node "${_RANKS_PER_NODE}" \
@@ -61,26 +80,29 @@ run_calculate() {
 # Cloud Logging ingestion lags pod termination by seconds-to-minutes, and the
 # last logs emitted (the final checkpoint write and the profiler summary that
 # carries the data-loading metric) are the most likely to still be in flight
-# when the JobSet reports Completed. Settle once, then re-scrape at a fixed 60s
-# interval until the required metrics validate (or attempts are exhausted).
+# when the JobSet reports Completed. Settle once, then re-scrape every
+# SCRAPE_RETRY_SLEEP_SECONDS (default 90s) until the required metrics validate
+# (or SCRAPE_MAX_ATTEMPTS attempts are exhausted).
 # run_calculate exits non-zero when metrics are incomplete; running it as an
 # `if` condition keeps `set -e`/the ERR trap from aborting the step on a
 # not-yet-complete attempt.
+SCRAPE_MAX_ATTEMPTS="${SCRAPE_MAX_ATTEMPTS:-10}"
+SCRAPE_RETRY_SLEEP_SECONDS="${SCRAPE_RETRY_SLEEP_SECONDS:-90}"
 sleep 60
 SCRAPE_OK=false
-for attempt in $(seq 1 5); do
-  echo "Scrape attempt $attempt of 5..."
+for ((attempt = 1; attempt <= SCRAPE_MAX_ATTEMPTS; attempt++)); do
+  echo "Scrape attempt $attempt of $SCRAPE_MAX_ATTEMPTS..."
   rm -rf "$RAW_DIR"
   # The parser hits the Cloud Logging API; a transient API error should fall
   # through to the backoff like the ingestion-lag case, not abort the step via
   # set -e / the ERR trap. Guard it in a condition so a failure retries.
-  if ! python3 -m metrics.parsers.hf \
+  if ! python3 -m "${PARSER_MODULE}" \
       --run-id "$RUN_ID" --project "${PROJECT_ID}" \
       --start-time "$START_TIME" --end-time "$END_TIME" \
       --checkpoint-location "gs://$CHECKPOINT_BUCKET/checkpoints" \
       --out-dir "$RAW_DIR"; then
     echo "Scrape failed (transient?); waiting before retry..."
-    sleep 60
+    sleep "$SCRAPE_RETRY_SLEEP_SECONDS"
     continue
   fi
   if run_calculate "$SUMMARY"; then
@@ -88,7 +110,7 @@ for attempt in $(seq 1 5); do
     break
   fi
   echo "Required metrics incomplete; waiting for Cloud Logging ingestion..."
-  sleep 60
+  sleep "$SCRAPE_RETRY_SLEEP_SECONDS"
 done
 if [ "$SCRAPE_OK" != "true" ]; then
   echo "Metrics still incomplete after retries."
@@ -102,7 +124,7 @@ fi
 # (not per attempt, to avoid re-du'ing the dataset bucket). Settle for GCS
 # metric lag, then fold into the summary; a failure here must not lose the
 # metrics-complete summary already written above, so it's `|| true`/warn-only.
-sleep "${SYSTEM_METRICS_SETTLE_SECONDS:-600}"
+sleep "${SYSTEM_METRICS_SETTLE_SECONDS:-900}"
 python3 -m metrics.monitoring \
   --project "${PROJECT_ID}" --run-id "$RUN_ID" \
   --start-time "$START_TIME" --end-time "$END_TIME" \

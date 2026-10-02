@@ -63,7 +63,8 @@ pub use crate::options::SessionOptions;
 /// loop {
 ///     if let Ok(ev) = sess.next_event(Some(5000)) {
 ///         if ev.event_type() == EventType::Response {
-///             for msg in ev.messages() {
+///             let mut messages = ev.messages();
+///             while let Some(msg) = messages.next() {
 ///                 // Extract data...
 ///             }
 ///             break;
@@ -160,7 +161,8 @@ impl Session {
             let poll_timeout = poll_timeout.max(1);
             let event = self.next_event(Some(poll_timeout))?;
             let mut saw_session_started = false;
-            for msg in event.messages() {
+            let mut messages = event.messages();
+            while let Some(msg) = messages.next() {
                 match msg.message_type().as_str() {
                     "SessionStarted" => saw_session_started = true,
                     "SessionStartupFailure" => {
@@ -467,6 +469,37 @@ impl Session {
         if rc != 0 {
             return Err(BlpError::Internal {
                 detail: format!("blpapi_Session_subscribe failed with rc={}", rc),
+            });
+        }
+
+        Ok(())
+    }
+
+    /// Update existing subscriptions, matched by their correlation IDs.
+    ///
+    /// Each entry in `subs` supplies the replacement field list and options.
+    /// Use the complete desired list, not only newly added fields.
+    /// `label` is an optional diagnostic label, as in [`Session::subscribe`].
+    pub fn resubscribe(&self, subs: &SubscriptionList, label: Option<&str>) -> Result<()> {
+        let (label_ptr, label_len, _label_cstring) = match label {
+            Some(l) => {
+                let cs = CString::new(l).map_err(|e| BlpError::InvalidArgument {
+                    detail: format!("invalid label: {}", e),
+                })?;
+                (cs.as_ptr(), l.len() as i32, Some(cs))
+            }
+            None => (std::ptr::null(), 0, None),
+        };
+
+        // SAFETY: valid session/list pointers; the optional label remains alive
+        // for the duration of the SDK call.
+        let rc = unsafe {
+            crate::ffi::blpapi_Session_resubscribe(self.ptr, subs.as_ptr(), label_ptr, label_len)
+        };
+
+        if rc != 0 {
+            return Err(BlpError::Internal {
+                detail: format!("blpapi_Session_resubscribe failed with rc={}", rc),
             });
         }
 

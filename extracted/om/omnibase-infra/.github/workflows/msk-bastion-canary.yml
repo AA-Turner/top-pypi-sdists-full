@@ -1,0 +1,183 @@
+---
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+# msk-bastion-canary.yml — OMN-15744
+#
+# WHY THIS EXISTS
+#   On 2026-08-06 MSK `omninode-dev-msk` ran INCREASE_BROKER_COUNT 2 -> 6. The
+#   SNI bastion's nginx stream map still described the 2-broker cluster and
+#   carried `default b1`, so SNI for b-3..b-6 fell through onto broker 1.
+#   Nothing detected it for a MONTH.
+#
+#   The reason nothing detected it is the important part: bootstrap and
+#   metadata are served by ANY broker, so every liveness surface stayed green.
+#   Only leader-routed requests failed, with NotLeaderForPartition, which reads
+#   as transient Kafka noise. Eight of 21 tenant topic-partitions were silently
+#   unwritable, including delegation-request/completed/failed.
+#
+#   It was found by hand, during an unrelated diagnosis. This job is what
+#   replaces that luck.
+#
+# WHY SELF-HOSTED omnibase-deploy
+#   Same fate boundary as chain-canary.yml and dev-lane-liveness.yml. The
+#   bastion is reachable from the .201 tailnet and from nowhere on
+#   GitHub-hosted compute, so an ubuntu-latest job could only ever assert
+#   "I cannot see it."
+#
+# THE AWS IDENTITY — half provisioned, and which half is which (OMN-18168)
+#   This job was landed knowingly-red because the `omnibase-deploy` runner had
+#   no AWS identity at all. It now has one, and only one. Read this before
+#   "fixing" a failure of the golden step.
+#
+#   CONTROL PLANE — PROVISIONED. All three tests call the MSK control plane to
+#   enumerate live brokers, and that is now covered by the IAM role
+#   `msk-bastion-canary-control-plane` (omninode_infra
+#   aws/cluster-dev/msk_bastion_canary_iam.tf), assumed below through GitHub
+#   OIDC. It carries exactly kafka:ListClustersV2 and kafka:ListNodes on
+#   omninode-dev-msk and nothing else — verified with simulate-custom-policy
+#   negative controls, not asserted.
+#
+#   DATA PLANE — NOT PROVISIONED, BY DECISION. Only the golden test speaks the
+#   Kafka protocol, and it needs an MSK IAM identity that can reach the data
+#   plane. The .201 host ALREADY has a working one — the gateway's IAM Roles
+#   Anywhere profile at /etc/omninode/gateway/aws/config (profile `gateway`,
+#   role omninode-dev-msk-edge-gateway-201, via aws_signing_helper).
+#   Referencing that existing profile from the runner is configuration, not a
+#   new credential; minting a second identity would be the wrong move, so the
+#   role above deliberately carries no kafka-cluster:* grant.
+#
+#   So the honest expected state until that profile is wired into the runner:
+#   the two cheap legs (resize detector + error chain) go GREEN, the golden leg
+#   stays RED on missing data-plane credentials, and the job is RED overall.
+#   That is a narrower red than the one this workflow landed with, and it is
+#   still a real one — do not paper over it with continue-on-error, and do not
+#   close it by adding data-plane actions to the control-plane role.
+#   Precedent for landing a knowingly-red canary rather than a silently-skipped
+#   one: chain-canary.yml (OMN-16773), same repo, same reasoning.
+#
+# WHY NOT continue-on-error
+#   A canary that cannot fail is a status badge. If this job is ever made
+#   non-failing, tests/ci/test_msk_bastion_canary_workflow.py goes red.
+#
+# LANE SCOPE
+#   Reads only. This job performs NO produce and NO topic creation against MSK
+#   or any tenant topic — unlike chain-canary.yml, which publishes a real
+#   delegation command. It opens connections and reads offsets. It must stay
+#   that way: producing to a tenant topic on a schedule is a customer-visible
+#   side effect.
+
+name: MSK Bastion Canary
+
+"on":
+  schedule:
+    # Twice an hour offset from chain-canary.yml (:41) so the two do not
+    # contend for the single omnibase-deploy runner.
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # OMN-18168: the OIDC subject token the runner exchanges for the MSK
+  # control-plane role. Without it configure-aws-credentials has nothing to
+  # present and the job fails with a missing-token error rather than an
+  # honest "no identity" one.
+  id-token: write
+
+concurrency:
+  group: msk-bastion-canary
+  cancel-in-progress: false
+
+jobs:
+  bastion-canary:
+    name: MSK bastion routing canary
+    # OMN-18408: `omnibase-verify`, not `omnibase-deploy`. Same lab host,
+    # same docker socket and same `host.docker.internal` gateway -- the
+    # reason the job is self-hosted at all is unchanged. What changed is
+    # WHICH container serves it: `omnibase-deploy` has exactly one member,
+    # which also runs the release-train deploy, so every scheduled probe
+    # queued behind it (12 queued + 1 in progress at 2026-09-15T20:00Z).
+    # This job writes nothing and needs no private OMNI_HOME clone, so it
+    # belongs on the read-only verify runner. Do not move it back.
+    # OMN-18408: `host-201` is REQUIRED alongside `omnibase-verify`, and is not
+    # decoration. `omnibase-verify` names a runner CLASS (read-only probe
+    # runner); it does not name a HOST. On 2026-09-16 a second verify-class
+    # runner, omninode-mini-runner-1, came online on another lab host carrying
+    # `self-hosted,omnibase-verify,arch-arm64` -- which makes it a legal match
+    # for a bare `[self-hosted, omnibase-verify]`. This job probes the .201
+    # lane's own docker daemon through that host's gateway alias, so a run
+    # placed anywhere else cannot see the lane and reports it unreachable: a
+    # permanently-red check is a disabled check. `host-201` is carried only by
+    # the .201 verify runner, so the pair fails SAFE -- if that runner is down
+    # the job queues rather than running somewhere it cannot observe anything.
+    runs-on: [self-hosted, omnibase-verify, host-201]
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen --all-extras
+
+      # OMN-18168. Control plane only — see the header. No `continue-on-error`:
+      # if the assume fails the job must go red here, naming the role, rather
+      # than falling through to a boto3 NoCredentialsError three steps later
+      # that reads as a broken test.
+      - name: Assume the MSK control-plane role
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6 (pinned, matching omninode_infra)
+        with:
+          aws-region: us-east-1
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/msk-bastion-canary-control-plane
+          role-session-name: gha-msk-bastion-canary
+
+      # Same shape omninode_infra's AWS-assuming workflows carry, but through
+      # boto3 rather than the AWS CLI: the omnibase-deploy runner image has no
+      # `aws` binary (checked on the live container, not assumed), and a verify
+      # step that failed on a missing CLI would look exactly like a failed
+      # assume. An assume that silently produced the wrong principal would
+      # otherwise surface two steps later as an AccessDenied inside the tests,
+      # which reads as a broken test rather than a broken credential.
+      - name: Verify AWS caller identity
+        run: |
+          uv run python -c "import boto3; print(boto3.client('sts').get_caller_identity()['Arn'])"
+
+      - name: Resize detector and error chain (no data-plane credentials)
+        id: cheap
+        env:
+          AWS_REGION: us-east-1
+          MSK_CLUSTER_NAME: omninode-dev-msk
+        run: |
+          uv run pytest tests/integration/bastion \
+            -k "error_chain or covers_every_live_broker" \
+            -v -s -m "integration and bastion"
+
+      - name: Golden chain — every broker answers as itself
+        env:
+          AWS_REGION: us-east-1
+          MSK_CLUSTER_NAME: omninode-dev-msk
+        run: |
+          uv run pytest tests/integration/bastion \
+            -k "golden_every_broker" \
+            -v -s -m "integration and bastion"
+
+      - name: Record outcome
+        if: always()
+        run: |
+          {
+            echo "### MSK bastion canary"
+            echo ""
+            echo "Cheap legs (resize + error chain): ${{ steps.cheap.outcome }}"
+            echo ""
+            echo "A red run means the bastion broker map no longer"
+            echo "matches the live MSK cluster, or the fail-closed"
+            echo "default is gone. Regenerate and apply, from the"
+            echo "omninode_infra repo, the two scripts under"
+            echo "aws/cluster-dev/msk-sni-bastion/ :"
+            echo "  render-nginx-conf.sh --write"
+            echo "  apply-nginx-conf.sh --execute"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,100 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Contract: filesystem_crawler_effect
+# Walks requested filesystem paths and emits market content discovery events.
+
+name: node_filesystem_crawler_effect
+contract_version: {major: 0, minor: 1, patch: 0}
+node_version: {major: 0, minor: 1, patch: 0}
+uuid: "cb6d3224-5f18-4da1-be8c-e5a15a1c659e"
+node_type: effect
+input_model: "ModelCrawlFilesystemRequest"
+output_model: "ModelCrawlFilesystemResult"
+handler:
+  module: omnimarket.nodes.node_filesystem_crawler_effect.handlers.handler_crawl_filesystem
+  class: HandlerCrawlFilesystem
+  input_model: ModelCrawlFilesystemRequest
+description: |
+  FilesystemCrawlerEffect is the market-owned content-type-aware crawler. It
+  walks explicit request paths and emits one content-discovered event per file.
+  The omnimemory-backed lifecycle crawler remains available in code, but it is
+  not the runtime auto-wire entry for this market node because it requires
+  crawl-state repository dependencies.
+
+# =============================================================================
+# PUBLISHED EVENTS (Kafka) - Documentation Layer
+# =============================================================================
+published_events:
+  - topic_suffix: "onex.evt.omnimarket.content-discovered.v1"
+    full_topic_pattern: "{env}.onex.evt.omnimarket.content-discovered.v1"
+    event_type: "ContentDiscovered"
+    trigger: "File discovered during content-type-aware crawl"
+    description: "Emitted per file found by HandlerCrawlFilesystem with content_type, SHA-256, and metadata."
+
+# === EVENT TYPE CONFIGURATION ===
+event_type:
+  version: {major: 1, minor: 0, patch: 0}
+  primary_events:
+    - "content_discovered"
+  event_categories: ["crawl", "document", "filesystem", "effect"]
+  publish_events: true
+  subscribe_events: true
+  event_routing: "crawl"
+  invocation_mode: "subscription"
+
+# =============================================================================
+# EVENT BUS SUBCONTRACT - Runtime Routing Layer
+# =============================================================================
+descriptor:
+  runtime_profiles:
+    - effects
+
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+
+  subscribe_topics:
+    - "onex.cmd.omnimarket.filesystem-crawl-start.v1"
+
+  publish_topics:
+    - "onex.evt.omnimarket.content-discovered.v1"
+    # Omnimemory-backed lifecycle crawler topics (available in code, configurable)
+    - "onex.evt.omnimemory.document-removed.v1"
+    - "onex.evt.omnimemory.document-changed.v1"
+    - "onex.evt.omnimemory.document-discovered.v1"
+    - "onex.evt.omnimemory.document-indexed.v1"
+
+  subscribe_topic_metadata:
+    "onex.cmd.omnimarket.filesystem-crawl-start.v1":
+      schema_ref: "omnimarket.nodes.node_filesystem_crawler_effect.models.model_crawl_filesystem_request.ModelCrawlFilesystemRequest"
+      description: "Market filesystem crawl command with explicit root paths or file list."
+
+  publish_topic_metadata:
+    "onex.evt.omnimarket.content-discovered.v1":
+      schema_ref: "omnimarket.nodes.node_filesystem_crawler_effect.models.model_content_discovered_event.ModelContentDiscoveredEvent"
+      description: "Content discovered event from content-type-aware crawl."
+
+# === HANDLER ROUTING ===
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "crawl_filesystem"
+      handler:
+        name: "HandlerCrawlFilesystem"
+        module: "omnimarket.nodes.node_filesystem_crawler_effect.handlers.handler_crawl_filesystem"
+
+metadata:
+  transport_type: kafka
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.filesystem-crawl-start.v1
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  # referenced outside the node graph at omnibase_infra/src/omnibase_infra/topics/platform_topic_suffixes.py
+  - onex.evt.omnimemory.document-removed.v1

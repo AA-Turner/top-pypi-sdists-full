@@ -1,0 +1,24 @@
+name: node_data_verification
+version: "1.0.0"
+description: "Post-pipeline data verification — deterministic data quality checks"
+omnibase_core_compat: ">=0.39.0,<1.0.0"
+entry_points:
+  onex.nodes:
+    node_data_verification: "omnimarket.nodes.node_data_verification"
+capabilities:
+  standalone: true
+  full_runtime: true
+  requires_network: false
+  requires_repo: false
+  requires_secrets: false
+  requires_docker: false
+  side_effect_class: read_only
+dependencies:
+  - "omnibase_core>=0.39.0"
+  - "psycopg2-binary>=2.9.10"
+authors: ["OmniNode Platform Team"]
+license: "MIT"
+tags: ["data", "verification", "quality", "pipeline", "testing"]
+pack: "diagnostics"
+display_name: "Data Verification"
+node_role: "probe"

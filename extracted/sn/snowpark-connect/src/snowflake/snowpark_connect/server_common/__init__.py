@@ -68,6 +68,28 @@ def clear_terminal_op() -> None:
     _client_telemetry_context.terminal_op = None
 
 
+def store_rpc_type(rpc_type: Optional[str]) -> None:
+    """Cache the Spark Connect request type for the current request.
+
+    ``ExecutePlan`` vs ``AnalyzePlan``. Cached alongside the terminal op so
+    query-tag enrichment can record the RPC under which each query ran. This is
+    the enclosing RPC, not a real-work-vs-metadata flag: a single ExecutePlan may
+    emit the action query plus nested describe/metadata queries, all tagged
+    ``ExecutePlan``.
+    """
+    _client_telemetry_context.rpc_type = rpc_type
+
+
+def get_rpc_type() -> Optional[str]:
+    """Return the request type cached for the current request, if any."""
+    return getattr(_client_telemetry_context, "rpc_type", None)
+
+
+def clear_rpc_type() -> None:
+    """Clear the cached request type at the end of a request."""
+    _client_telemetry_context.rpc_type = None
+
+
 _server_running: threading.Event = threading.Event()
 _server_error: bool = False
 _server_url: Optional[str] = None

@@ -1,3 +1,6 @@
+import shutil
+import subprocess
+
 import pytest
 
 from schemathesis.core.shell import (
@@ -53,8 +56,8 @@ def test_has_non_printable(input_value, expected):
         ("a\x7fb", "a\\x7fb"),
         ("it's", "it\\'s"),
         ("a\\b", "a\\\\b"),
-        ("$VAR", "\\$VAR"),
-        ("`cmd`", "\\`cmd\\`"),
+        ("$VAR", "$VAR"),
+        ("`cmd`", "`cmd`"),
         ("0\x1f", "0\\x1f"),
     ],
     ids=[
@@ -67,8 +70,8 @@ def test_has_non_printable(input_value, expected):
         "with-del",
         "escapes-single-quote",
         "escapes-backslash",
-        "escapes-dollar",
-        "escapes-backtick",
+        "keeps-dollar",
+        "keeps-backtick",
         "complex-case",
     ],
 )
@@ -79,13 +82,15 @@ def test_escape_with_ansi_c(input_value, expected):
 @pytest.mark.parametrize(
     ("input_value", "expected"),
     [
-        ("hello", "hello"),
-        ("a\tb", "a\\tb"),
-        ("a\nb", "a\\nb"),
-        ("a\x00b", "a\\x00b"),
-        ("a\x1fb", "a\\x1fb"),
-        ("it's", "it\\'s"),
-        ("a\\b", "a\\\\b"),
+        ("hello", "'hello'"),
+        ("a\tb", "'a'\\t'b'"),
+        ("a\nb", "'a'\\n'b'"),
+        ("a\x00b", "'a'\\x00'b'"),
+        ("a\x1fb", "'a'\\x1f'b'"),
+        ("it's", "'it\\'s'"),
+        ("a\\b", "'a\\\\b'"),
+        ("\x1f", "\\x1f"),
+        ("", "''"),
     ],
     ids=[
         "printable-string",
@@ -95,6 +100,8 @@ def test_escape_with_ansi_c(input_value, expected):
         "with-control-char",
         "escapes-single-quote",
         "escapes-backslash",
+        "only-escapes",
+        "empty",
     ],
 )
 def test_escape_with_hex(input_value, expected):
@@ -107,7 +114,7 @@ def test_escape_with_hex(input_value, expected):
         ("hello", ShellType.BASH, "hello", False, ShellType.BASH),
         ("0\x1f", ShellType.BASH, "$'0\\x1f'", False, ShellType.BASH),
         ("0\x1f", ShellType.ZSH, "$'0\\x1f'", False, ShellType.ZSH),
-        ("0\x1f", ShellType.FISH, "'0\\x1f'", False, ShellType.FISH),
+        ("0\x1f", ShellType.FISH, "'0'\\x1f", False, ShellType.FISH),
         ("0\x1f", ShellType.UNKNOWN, "$'0\\x1f'", True, ShellType.BASH),
         # autodetect
         ("hello", None, "hello", False, None),
@@ -135,29 +142,6 @@ def test_detect_shell_caches_result():
     shell1 = detect_shell()
     shell2 = detect_shell()
     assert shell1 == shell2
-
-
-@pytest.mark.parametrize(
-    ("input_value", "expected_bash", "expected_fish"),
-    [
-        ("hello", "hello", "hello"),
-        ("a\tb", "a\\tb", "a\\tb"),
-        ("a\nb", "a\\nb", "a\\nb"),
-        ("a\rb", "a\\rb", "a\\rb"),
-        ("a\x00b", "a\\x00b", "a\\x00b"),
-        ("a\x01b", "a\\x01b", "a\\x01b"),
-        ("a\x1fb", "a\\x1fb", "a\\x1fb"),
-        ("a\x7fb", "a\\x7fb", "a\\x7fb"),
-        ("it's", "it\\'s", "it\\'s"),
-        ("a\\b", "a\\\\b", "a\\\\b"),
-        ("$VAR", "\\$VAR", "$VAR"),
-        ("`cmd`", "\\`cmd\\`", "`cmd`"),
-        ("0\x1f", "0\\x1f", "0\\x1f"),
-    ],
-)
-def test_escape_consistency(input_value, expected_bash, expected_fish):
-    assert _escape_with_ansi_c(input_value) == expected_bash
-    assert _escape_with_hex(input_value) == expected_fish
 
 
 @pytest.mark.parametrize(
@@ -228,6 +212,11 @@ def test_has_non_printable_short_circuits_above_scan_cap():
     assert has_non_printable(huge) is True
 
 
+def test_has_non_printable_short_circuits_above_utf8_byte_cap():
+    huge = "😀" * (MAX_SHELL_SCAN_BYTES // 4 + 1)
+    assert has_non_printable(huge) is True
+
+
 def test_escape_for_shell_truncates_above_cap():
     huge = "x" * (MAX_SHELL_SCAN_BYTES * 4)
     result = escape_for_shell(huge, ShellType.BASH)
@@ -237,8 +226,50 @@ def test_escape_for_shell_truncates_above_cap():
     assert len(result.escaped_value) < MAX_SHELL_SCAN_BYTES + 100
 
 
+def test_escape_for_shell_truncates_unicode_by_utf8_bytes():
+    value = "😀" * (MAX_SHELL_SCAN_BYTES + 1)
+    result = escape_for_shell(value, ShellType.BASH)
+    total_bytes = len(value.encode("utf-8"))
+    assert result.needs_warning is True
+    assert result.escaped_value == ("😀" * (MAX_SHELL_SCAN_BYTES // 4) + f" <...truncated, {total_bytes} bytes total>")
+
+
+def test_escape_for_shell_truncates_lone_surrogates_by_utf8_bytes():
+    value = "\ud800" * (MAX_SHELL_SCAN_BYTES // 3 + 1)
+    result = escape_for_shell(value, ShellType.BASH)
+    total_bytes = len(value.encode("utf-8", "surrogatepass"))
+    assert result.needs_warning is True
+    assert result.escaped_value.endswith(f"<...truncated, {total_bytes} bytes total>")
+
+
 def test_escape_for_shell_below_cap_unchanged():
     value = "hello world"
     result = escape_for_shell(value, ShellType.BASH)
     assert result.needs_warning is False
     assert "<...truncated" not in result.escaped_value
+
+
+SHELL_EXECUTABLES = {ShellType.BASH: "bash", ShellType.ZSH: "zsh", ShellType.FISH: "fish"}
+
+
+@pytest.mark.parametrize("shell", list(SHELL_EXECUTABLES), ids=lambda shell: shell.value)
+@pytest.mark.parametrize(
+    "value",
+    [
+        "0\x1f",
+        "line\nnext\ttab\rreturn",
+        "a\xa0b\u200bc\x85d",
+        "it's \\ $HOME `id` \x01",
+        "\ud800",
+        "x\udcffy\x1c",
+    ],
+    ids=["ascii-control", "readable-escapes", "unicode-non-printable", "shell-specials", "lone-surrogate", "mixed"],
+)
+def test_escaped_value_round_trips_through_shell(shell, value):
+    executable = shutil.which(SHELL_EXECUTABLES[shell])
+    if executable is None:
+        pytest.skip(f"{shell.value} is not installed")
+    escaped = escape_for_shell(value, shell).escaped_value
+    printed = subprocess.run([executable, "-c", f"printf %s {escaped}"], capture_output=True, check=False)
+    assert printed.stderr == b""
+    assert printed.stdout == value.encode("utf-8", "surrogatepass")

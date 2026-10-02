@@ -80,6 +80,11 @@ class FileCollectionError(CycodeError):
         return self.error_message
 
 
+class PrePushInputNotFoundError(CycodeError):
+    def __str__(self) -> str:
+        return 'Neither git pre-push input nor pre-commit framework push details were found'
+
+
 class AuthProcessError(CycodeError):
     def __init__(self, error_message: str) -> None:
         self.error_message = error_message
@@ -96,6 +101,25 @@ class TfplanKeyError(CycodeError):
 
     def __str__(self) -> str:
         return f'Error occurred while parsing terraform plan file. Path: {self.file_path}'
+
+
+class ScanPathOutsideRepositoryError(CycodeError):
+    def __init__(self, path: str, repo_path: str) -> None:
+        self.path = path
+        self.repo_path = repo_path
+        super().__init__()
+
+    def __str__(self) -> str:
+        return f'The path {self.path!r} is outside the repository {self.repo_path!r}'
+
+
+class UnresolvedGitRefError(CycodeError):
+    def __init__(self, ref: str) -> None:
+        self.ref = ref
+        super().__init__()
+
+    def __str__(self) -> str:
+        return f'Could not resolve git ref: {self.ref!r}'
 
 
 _SSL_ERROR_CA_BUNDLE_HINT = (

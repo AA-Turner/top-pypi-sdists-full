@@ -1,0 +1,1039 @@
+---
+name: projection_delegation
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: reducer
+node_version: {major: 1, minor: 0, patch: 0}
+input_model: omnimarket.nodes.node_projection_delegation.handlers.handler_projection_delegation.ModelProjectionTaskDelegatedEvent
+description: >
+  Projects delegation terminal events into the delegation_events table.
+  Dedup by correlation_id. Sources are the canonical delegation terminal pair
+  (delegation-completed/failed.v1), shadow comparisons, node generation
+  completions, and delegate-skill terminal events. (OMN-13629: the legacy compat
+  task-delegated.v1 secondary path was dropped; the canonical terminal is
+  converted internally.)
+
+handler:
+  module: omnimarket.nodes.node_projection_delegation.handlers.handler_projection_delegation
+  class: HandlerProjectionDelegation
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    # OMN-18159 Phase 2. The DelegationProjectionRunner entry is gone. One
+    # contract had two handlers for one subscription set, and the surviving one
+    # is the only one the runtime can reach: HandlerProjectionDelegation already
+    # branches on every source this node names -- the judge verdict, the
+    # quality-gate result, both node-generation terminals, both delegate-skill
+    # terminals, both delegation terminals, and the shadow comparison as the
+    # fallthrough. The runner was reachable only because a standalone Deployment
+    # ran its module directly as its command, bypassing routing altogether.
+    - operation: projection_delegation
+      handler:
+        name: HandlerProjectionDelegation
+        module: omnimarket.nodes.node_projection_delegation.handlers.handler_projection_delegation
+      handler_module: omnimarket.nodes.node_projection_delegation.handlers.handler_projection_delegation
+      event_model: omnimarket.nodes.node_projection_delegation.handlers.handler_projection_delegation.ModelProjectionTaskDelegatedEvent
+
+descriptor:
+  node_archetype: reducer
+  purity: effectful
+  idempotent: true
+  timeout_ms: 30000
+  # OMN-18159 AC3, correcting Phase 2, which this block used to argue for.
+  #
+  # Phase 2 moved this contract to the consolidated tenant-projection writer and
+  # retired the standalone Deployment. The ticket had refused that consolidation
+  # ON MEASUREMENT, and the measurement came back against it: on onex-dev the
+  # consolidated writer reported projection_delegation unattached, row
+  # attribution vanished, zero of four correlations landed rows, and
+  # delegation_events stayed at 0. So the premise this block asserted -- that
+  # the consolidated pod would carry the contract -- was simply false, and the
+  # argument built on it is removed rather than softened.
+  #
+  # WHAT WAS ACTUALLY TRUE IN IT, and still is: delegation_events is a
+  # TENANT-domain relation, this contract resolves the tenant_projection
+  # topology binding whose principal is tenant_projection_writer, and on
+  # onex-dev that binding has no dsn_env -- it declares secret_ref
+  # database.tenant_projection.dsn (OMN-17556) and is resolved at the binding
+  # boundary at connect time. The standalone RUNNER could not do that: it
+  # carried OMNIDASH_ANALYTICS_DB_URL and connected as role_omnidash, a member
+  # of the table's owner role, which is why every row it wrote recorded that
+  # identity and why the repin leg failed on it. Nothing here restores that
+  # runner.
+  #
+  # WHAT WAS FALSE: that the consolidated pod is therefore the only home. This
+  # node is MIXED-DOMAIN -- its db_tables below name generation_events and
+  # tenant_registry_mirror in schema omninode_internal alongside eight tenant
+  # relations -- and the consolidated writer holds no credential for the
+  # internal half, so it cannot resolve every binding this contract needs. That
+  # is the mechanical reason it attached nothing.
+  #
+  # WHERE IT RUNS NOW. Its own pod again, but NOT the process that was retired.
+  # omnimarket-projection-delegation-writer is a runtime-KERNEL pod: the ONEX
+  # runtime booted under this profile, no `command:` override, no
+  # BaseProjectionRunner, deriving its consumer group instead of being handed
+  # one, holding the store identity for the tenant binding AND
+  # OMNINODE_INTERNAL_DB_URL for the internal half. So the registry-entry
+  # objection this block used to raise -- that the name names a `python -m`
+  # process and booting the runtime under it would subscribe to nothing -- no
+  # longer describes anything that exists. Under a kernel pod the name is
+  # exactly what wires the subscriptions, because
+  # filter_manifest_for_runtime_profile is name-based; that is why a pod on this
+  # profile reported owned=0 skipped=493 while this line still said
+  # tenant-projection.
+  #
+  # COST, stated because Phase 2 counted it the other way: this is one 100m
+  # writer on a node at ~87% CPU requests. It is the price of a projection that
+  # writes rows at all, measured against a consolidation that wrote none.
+  #
+  # The OMN-17985 reasoning is kept because it still holds: naming ONE profile
+  # is what makes ownership single-valued. filter_manifest_for_runtime_profile
+  # drops this contract from main, effects and tenant-projection outright, so no
+  # shared pod resolves a binding it holds no credential for.
+  runtime_profiles: [projection-writer-delegation]
+
+terminal_event: onex.evt.omnimarket.projection-delegation-applied.v1
+
+# Golden path: delegation chain (terminal event -> delegation_events table)
+golden_path:
+  - "Consume delegation terminal event from a contract-declared topic"
+  - "Projection handler upserts row into delegation_events table"
+  - "Dedup by correlation_id (UPSERT semantics)"
+  - "Emit projection-applied event to onex.evt.omnimarket.projection-delegation-applied.v1"
+  - "Verify row exists with correlation_id, task_type, delegated_to fields"
+  - "Golden chain test: omnimarket/tests/test_golden_chain_projection_delegation.py"
+
+db_io:
+  db_tables:
+    - name: delegation_events
+      database_ref: application
+      schema: public
+      migration: "0020_delegation_context_pack_hash.sql"
+      # OMN-16690: this handler QUERIES this table (idempotency / lookup)
+      # before writing. `access: write` is refused fail-closed at the
+      # runtime read seam (ProjectionTableOperation._assert_read_declared),
+      # which quarantines every event while the caller still sees a 202.
+      # The declaration must cover what the handler actually does.
+      access: read_write
+      role: events
+    - name: delegation_shadow_comparisons
+      database_ref: application
+      schema: public
+      migration: "0044_restore_delegation_shadow_comparisons.sql"
+      access: write
+      role: shadow_comparisons
+    - name: generation_events
+      database_ref: application
+      schema: omninode_internal
+      migration: "0027_generation_events_tenant_rls.sql"
+      access: write
+      role: generation_events
+    - name: delegation_judge_verdict_events
+      # OMN-15423 planted `schema: unresolved` here deliberately, pending the
+      # product decision on who owns a judge verdict. OPERATOR RULING
+      # 2026-08-02 settled it: judge verdicts are workload-attributable, so
+      # they are TENANT data, and platform-own verdicts are the house tenant's
+      # rows. This relation already carries a tenant_id column (migration 0025)
+      # and a tenant_isolation RLS policy (0026), so the declaration now simply
+      # matches what the table has enforced since OMN-14894 tranche 2.
+      #
+      # This is the ONLY boot-fatal member of the OMN-15655 residual set that
+      # this repo owns: the node declares `runtime_profiles: ["effects"]`, so
+      # `unresolved` hard-failed strict-mode auto-wiring on the effects pod.
+      database_ref: application
+      schema: public
+      migration: "0016_delegation_judge_verdict_events.sql"
+      access: write
+      role: judge_verdict_events
+    # OMN-13235: per-tenant ceiling budget state (cap + consumption), event-sourced
+    # from delegation source events for budgeted tiers.
+    - name: delegation_budget_state
+      database_ref: application
+      schema: public
+      migration: "0019_delegation_budget_state.sql"
+      # OMN-16690: this handler QUERIES this table (idempotency / lookup)
+      # before writing. `access: write` is refused fail-closed at the
+      # runtime read seam (ProjectionTableOperation._assert_read_declared),
+      # which quarantines every event while the caller still sees a 202.
+      # The declaration must cover what the handler actually does.
+      access: read_write
+      role: budget_state
+    # OMN-16804: the slug -> canonical-UUID lookup this handler performs before
+    # every delegation write. READ ONLY -- node_projection_tenant_registry owns
+    # the relation and is the only writer; this node asks it a question and
+    # never answers one. Declared here because the runtime's read seam
+    # (ProjectionTableOperation._assert_read_declared) refuses an undeclared
+    # table fail-closed and quarantines the event, which is exactly how the
+    # undeclared read surfaced: `Projection table 'tenant_registry_mirror' is
+    # not declared by the typed db_io contract`.
+    #
+    # NOT `tenant`, and that is load-bearing. The mirror is a cross-tenant
+    # registry index -- it holds no tenant's business rows, only the public
+    # slug<->uuid correspondence the platform already exposes at signup.
+    # Classified `tenant` it would sit behind RLS and be invisible to a reader
+    # whose app.tenant_id is not yet known, which is precisely the reader here:
+    # resolving the tenant IS the thing it is trying to do.
+    #
+    # This read accessor now matches node_projection_tenant_registry's owner
+    # declaration: logical schema `omninode_internal`, with access `read` here
+    # and `write` on the owning projection. The table remains physically bare
+    # until the OMN-15359 schema cutover, but the contract domain must be the
+    # same on both reader and writer so topology grants and relation inventory
+    # derive one relation instead of conflicting public/internal declarations.
+    - name: tenant_registry_mirror
+      database_ref: application
+      schema: omninode_internal
+      migration: "0000_create_tenant_registry_mirror.sql"
+      access: read
+      role: tenant_registry_mirror
+    # OMN-18159 Phase 1b(ii). A SQL VIEW over delegation_events, not a table:
+    # the whole-projection totals the morning page renders.
+    # Declared here because the runtime kernel refuses any relation the typed
+    # contract does not name, so an undeclared view is unreachable from the
+    # in-process publisher no matter what the exposure says. `schema: public`
+    # is the TENANT domain (OMN-17887) of what it reads -- the view inherits
+    # delegation_events' row-level security, so a reader sees exactly the
+    # tenants that table would show it.
+    - name: projection_delegation_summary
+      database_ref: application
+      schema: public
+      migration: "0039_delegation_aggregate_views_per_tenant.sql"
+      access: read
+      role: aggregate_summary
+    # OMN-18159 Phase 1b(ii). A SQL VIEW over delegation_events, not a table:
+    # per-model routing shares and the recent decision traces.
+    # Declared here because the runtime kernel refuses any relation the typed
+    # contract does not name, so an undeclared view is unreachable from the
+    # in-process publisher no matter what the exposure says. `schema: public`
+    # is the TENANT domain (OMN-17887) of what it reads -- the view inherits
+    # delegation_events' row-level security, so a reader sees exactly the
+    # tenants that table would show it.
+    - name: projection_delegation_model_routing
+      database_ref: application
+      schema: public
+      migration: "0039_delegation_aggregate_views_per_tenant.sql"
+      access: read
+      role: aggregate_model_routing
+    # OMN-18159 Phase 1b(ii). A SQL VIEW over delegation_events, not a table:
+    # gate pass rates, failure categories and tokens-to-compliance.
+    # Declared here because the runtime kernel refuses any relation the typed
+    # contract does not name, so an undeclared view is unreachable from the
+    # in-process publisher no matter what the exposure says. `schema: public`
+    # is the TENANT domain (OMN-17887) of what it reads -- the view inherits
+    # delegation_events' row-level security, so a reader sees exactly the
+    # tenants that table would show it.
+    - name: projection_delegation_quality_gate
+      database_ref: application
+      schema: public
+      migration: "0039_delegation_aggregate_views_per_tenant.sql"
+      access: read
+      role: aggregate_quality_gate
+    # OMN-18159 Phase 1b(ii). A SQL VIEW over delegation_events, not a table:
+    # token and cost totals with their provenance breakdown.
+    # Declared here because the runtime kernel refuses any relation the typed
+    # contract does not name, so an undeclared view is unreachable from the
+    # in-process publisher no matter what the exposure says. `schema: public`
+    # is the TENANT domain (OMN-17887) of what it reads -- the view inherits
+    # delegation_events' row-level security, so a reader sees exactly the
+    # tenants that table would show it.
+    - name: projection_delegation_token_usage
+      database_ref: application
+      schema: public
+      migration: "0039_delegation_aggregate_views_per_tenant.sql"
+      access: read
+      role: aggregate_token_usage
+
+event_bus:
+  subscribe_topics:
+    # OMN-13629 (WS-F Phase 1): dropped the legacy compat
+    # onex.evt.omniclaude.task-delegated.v1 secondary path. The orchestrator now
+    # emits a SINGLE canonical terminal; the canonical
+    # delegation-{completed,failed}.v1 pair below is converted internally via
+    # _canonical_result_to_task_delegated_payload, so the legacy co-writer that
+    # caused the OMN-13408/13475 divergence is gone.
+    - onex.evt.omniclaude.delegation-shadow-comparison.v1
+    - onex.evt.omnimarket.node-generation-completed.v1
+    # OMN-13468: the failure terminal was absent, making failed runs invisible
+    # at GET /projection/onex.evt.omnimarket.node-generation-failed.v1 (404
+    # unknown_topic). Both terminals share the same payload shape and write to
+    # the same generation_events table; only contract_passed differs in value.
+    - onex.evt.omnimarket.node-generation-failed.v1
+    - onex.evt.omnimarket.delegate-skill-completed.v1
+    - onex.evt.omnimarket.delegate-skill-failed.v1
+    - onex.evt.omnibase-infra.delegation-completed.v1
+    - onex.evt.omnibase-infra.delegation-failed.v1
+    - onex.evt.omnibase-infra.delegation-judge-verdict.v1
+    # OMN-15850: the deterministic-scoring path (no LLM judge -- the default
+    # path absent a judge-combinable task class) publishes ONLY this topic;
+    # delegation-judge-verdict.v1 above is never emitted for it
+    # (handler_quality_gate_intent.py:198-200: judge_verdict is None unless the
+    # task class is judge-combinable AND carries no explicit response_contract).
+    # Without this subscription the quality verdict for every deterministic-path
+    # delegation had no route into delegation_events, and the business-proof
+    # quality_gate check (which reads that table) failed FAIL "no delegation
+    # projection row" rather than a passed/failed verdict.
+    - onex.evt.omnibase-infra.quality-gate-result.v1
+  publish_topics:
+    - onex.evt.omnimarket.projection-delegation-applied.v1
+    # Projection-API snapshot topics: this reducer materializes each exposure
+    # into the projection table; the projection-API serves reads from those tables.
+    # Declared here so the OMN-12777 topic gate can verify widget_topics have a producer.
+    - onex.snapshot.projection.delegation.correlation-trace.v1  # onex-topic-allow: projection snapshot topic
+    - onex.snapshot.projection.delegation.decisions.v1  # onex-topic-allow: projection snapshot topic
+    - onex.snapshot.projection.delegation.summary.v1  # onex-topic-allow: projection snapshot topic
+    - onex.snapshot.projection.delegation.quality-gate.v1  # onex-topic-allow: projection snapshot topic
+    - onex.snapshot.projection.delegation.token-usage.v1  # onex-topic-allow: projection snapshot topic
+    - onex.snapshot.projection.delegation.model-routing.v1  # onex-topic-allow: projection snapshot topic
+    - onex.snapshot.projection.delegation.judge-verdicts.v1  # onex-topic-allow: projection snapshot topic
+    - onex.snapshot.projection.delegation.budget-state.v1  # onex-topic-allow: projection snapshot topic
+  # OMN-13548 (D-03): malformed inbound events (ValidationError / missing required
+  # fields) are routed here as a DURABLE failure signal carrying the offending
+  # envelope + correlation_id, instead of being logged + dropped silently.
+  dlq_topics:
+    - onex.dlq.omnimarket.projection-delegation-malformed.v1
+
+externally_consumed_topics:
+  # Projection snapshot topics are served through projection_api/dashboard reads
+  # rather than consumed by another Kafka node.
+  - onex.snapshot.projection.delegation.correlation-trace.v1  # onex-topic-allow: projection snapshot topic
+  - onex.snapshot.projection.delegation.decisions.v1  # onex-topic-allow: projection snapshot topic
+  - onex.snapshot.projection.delegation.summary.v1  # onex-topic-allow: projection snapshot topic
+  - onex.snapshot.projection.delegation.quality-gate.v1  # onex-topic-allow: projection snapshot topic
+  - onex.snapshot.projection.delegation.token-usage.v1  # onex-topic-allow: projection snapshot topic
+  - onex.snapshot.projection.delegation.model-routing.v1  # onex-topic-allow: projection snapshot topic
+  - onex.snapshot.projection.delegation.judge-verdicts.v1  # onex-topic-allow: projection snapshot topic
+  - onex.snapshot.projection.delegation.budget-state.v1  # onex-topic-allow: projection snapshot topic
+  - onex.evt.omnimarket.projection-delegation-applied.v1
+
+projection_api:
+  expose: true
+  exposures:
+    - topic: delegation
+      key_grain: "mutable"
+      table: delegation_events
+      schema: public
+      columns:
+        - id
+        - correlation_id
+        - session_id
+        - task_type
+        - delegated_to
+        - model_name
+        - quality_gate_passed
+        - quality_gate_detail
+        - latency_ms
+        - delegation_latency_ms
+        - tokens_input
+        - tokens_output
+        - context_pack_hash
+        - tokens_to_compliance
+        - compliance_attempts
+        - required_bar
+        - actual_score
+        - escalation_count
+        - authority_source
+        - score_source
+        - request_override_applied
+        - override_within_bounds
+        - cost_usd
+        - cost_savings_usd
+        - pricing_manifest_version
+        - timestamp
+        - created_at
+      order_by: created_at DESC
+      freshness_column: created_at
+      limit: 500
+    - topic: onex.evt.omnimarket.projection-delegation-events.v1
+      key_grain: "mutable"
+      table: delegation_events
+      schema: public
+      columns:
+        - correlation_id
+        - timestamp
+        - task_type
+        - delegated_to
+        - model_name
+        - quality_gate_passed
+        - cost_usd
+        - cost_savings_usd
+        - delegation_latency_ms
+        - tokens_input
+        - tokens_output
+        - context_pack_hash
+        - tokens_to_compliance
+        - compliance_attempts
+        - required_bar
+        - actual_score
+        - escalation_count
+        - authority_source
+        - pricing_manifest_version
+      order_by: timestamp DESC
+      freshness_column: timestamp
+      limit: 100
+    - topic: onex.snapshot.projection.delegation.decisions.v1 # onex-topic-allow: projection snapshot topics use onex.snapshot.* prefix by convention
+      key_grain: "mutable"
+      table: delegation_events
+      schema: public
+      columns:
+        - id
+        - correlation_id
+        - session_id
+        - task_type
+        - delegated_to
+        - model_name
+        - quality_gate_passed
+        - quality_gate_detail
+        - latency_ms
+        - tokens_input
+        - tokens_output
+        - context_pack_hash
+        - tokens_to_compliance
+        - required_bar
+        - actual_score
+        - escalation_count
+        - authority_source
+        - score_source
+        # OMN-13649: the authoritative routing/cost tier (local | cheap_cloud |
+        # cheap_frontier | claude) + its typed cost regime. Carried from the
+        # delegation terminal, persisted on the row, exposed here so the dashboard
+        # Tier Distribution reads tier from the projection (deletes modelTier.ts).
+        - cost_tier_name
+        - cost_tier_type
+        - created_at
+        # OMN-19970: provenance, so a page labels seeded rows (migration 0049).
+        - data_source
+        # OMN-18140: the tenant identity this row belongs to, and the durable
+        # writer attestation stamped by the database itself (migration 0038).
+        # `tenant_id` is the declared `tenant_column` below, so the model
+        # refuses the exposure outright if it is missing from this list --
+        # a scoped exposure that cannot serve its own scoping column would
+        # filter on a value it never returns.
+        - tenant_id
+        - writer_identity
+        - written_at
+      order_by: written_at DESC
+      freshness_column: written_at
+      limit: 500
+      # OMN-18140. THE FLAG AND ITS WRITER LAND IN THE SAME CHANGE.
+      #
+      # `bus_backed` without a publish site turns an honest
+      # `not_yet_bus_backed` refusal into a confident empty page, which is the
+      # defect OMN-15864 exists to prevent. The publish site for this exposure
+      # is the delegation_events upsert itself: `_write_delegation_row` ->
+      # `_publish_row_snapshot` in handler_delegation.py, through which BOTH
+      # full-row write paths in that runner now go, so a row can never be
+      # durable on one path and invisible on the other.
+      #
+      # THE SYNC HANDLER NOW PUBLISHES TOO (OMN-18159). The paragraph here
+      # used to say it could not, because it wrote through the shared
+      # `DatabaseAdapter.upsert` protocol, which returns a bool and never sees
+      # the stored row -- and it named the fix as "its own change with three
+      # adapter implementations in scope". That change landed:
+      # `ProtocolProjectionAttestedWrite.upsert_returning` carries the
+      # attestation expressions and a RETURNING clause, and
+      # `handler_projection_delegation._write_delegation_row` is the single
+      # site all THREE of its delegation-table write paths go through, so a row
+      # cannot be durable on one and invisible on another.
+      #
+      # Both producers key this exposure on `correlation_id`, so a reader sees
+      # one cache entry per delegation whichever writer produced it. The sync
+      # path's ordering token is `written_at` -- the database's own write
+      # stamp -- because this key is MUTABLE and a fixed offset would make the
+      # cache drop every write after the first, freezing the page on a row
+      # that is real but stale.
+      #
+      # The runner remains the writer for this contract on the onex-dev plane
+      # until OMN-18159 phase 2 drops its routing entry; adding a producer is
+      # not removing one.
+      bus_backed: true
+      # One row per delegation, keyed the same way the table is: the upsert's
+      # own conflict key. A snapshot key that disagreed with the table's
+      # uniqueness would collapse distinct rows onto one cache entry or leave
+      # superseded rows unreclaimable by compaction.
+      key_columns:
+        - correlation_id
+      # OMN-18140. THIS IS WHAT MAKES THE EXPOSURE TENANT-SCOPED.
+      # `ProjectionTableConfig.tenant_scoped` is derived (`tenant_column is not
+      # None`), so declaring the column here is the opt-in, and the serving
+      # path then refuses to answer this topic without a resolved tenant
+      # (OMN-15797) instead of returning a page whose scoping the caller
+      # cannot verify. The other two exposures over this table stay unscoped
+      # and `not_yet_bus_backed`: this is the one per-row delegation surface
+      # that can be served safely, and widening the others is a separate
+      # decision with its own publish sites.
+      tenant_column: tenant_id
+    # OMN-12748: per-correlation detail surface. Read by the dashboard via
+    # /projection/<topic>?correlation_id=<id> to render the actual delegated
+    # work — prompt_text + response_text — for a selected run. Dedicated detail
+    # topic so the high-frequency decisions.v1 list poll stays lean.
+    - topic: onex.snapshot.projection.delegation.correlation-trace.v1 # onex-topic-allow: projection snapshot topics use onex.snapshot.* prefix by convention
+      key_grain: "mutable"
+      table: delegation_events
+      schema: public
+      columns:
+        - id
+        - correlation_id
+        - session_id
+        - task_type
+        - delegated_to
+        - delegated_by
+        - model_name
+        - quality_gate_passed
+        - quality_gate_detail
+        - quality_gates_checked
+        - quality_gates_failed
+        - latency_ms
+        - delegation_latency_ms
+        - tokens_input
+        - tokens_output
+        - context_pack_hash
+        - tokens_to_compliance
+        - compliance_attempts
+        - required_bar
+        - actual_score
+        - escalation_count
+        - authority_source
+        - score_source
+        - request_override_applied
+        - override_within_bounds
+        - cost_usd
+        - cost_savings_usd
+        # OMN-13649: authoritative serving tier + typed cost regime on the
+        # per-correlation detail surface.
+        - cost_tier_name
+        - cost_tier_type
+        - pricing_manifest_version
+        - prompt_text
+        - response_text
+        - timestamp
+        - created_at
+      order_by: created_at ASC
+      freshness_column: created_at
+      limit: 100
+    - topic: onex.snapshot.projection.delegation.summary.v1 # onex-topic-allow: projection snapshot topics use onex.snapshot.* prefix by convention
+      key_grain: "mutable"
+      table: projection_delegation_summary
+      schema: public
+      columns:
+        # OMN-18159 Phase 1b(ii). The view is grouped on tenant_id as of
+        # migration 0039, so the published row carries the tenant the numbers
+        # belong to instead of the writer binding it as a literal beside them.
+        #
+        # DECLARED AS `tenant_column` at the foot of this exposure, which
+        # reverses the Phase 1b(ii) omission. That omission traded the leak
+        # fix away to keep four operator panels rendering; the trade is gone
+        # because the page no longer resolves NO tenant -- it resolves an
+        # explicit one. Operator ruling, 2026-09-11T10:06:28Z: declare the
+        # column AND make the operator page authenticate or resolve an
+        # explicit house tenant in the SAME change, because an
+        # unauthenticated internal page serving tenant aggregates is the
+        # leak, not an acceptable reader.
+        - tenant_id
+        - '"totalDelegations"'
+        - '"qualityGatePassRate"'
+        - '"qualityGatePassed"'
+        - '"qualityGateTotal"'
+        - '"totalSavingsUsd"'
+        - '"avgLatencyMs"'
+        - '"latestEventAt"'
+        - total_events
+        - quality_passed_count
+        - quality_failed_count
+        - avg_latency_ms
+        - latest_event_at
+        - '"byTaskType"'
+        - '"byModel"'
+        - latest_projection_updated_at
+        # OMN-19970: fixture figures beside the measured total (migration 0050).
+        - '"fixtureSavingsUsd"'
+        - '"fixtureDelegations"'
+      json_columns:
+        - byTaskType
+        - byModel
+      freshness_column: latest_projection_updated_at
+      limit: 1
+      # OMN-17773 (GOAL row 0 leg b, epic OMN-16776): bus-backed as a
+      # SINGLETON AGGREGATE. This exposure is a limit-1 SQL view, so
+      # publish_snapshot_delta has no per-row upsert to hook -- the writer
+      # (DelegationProjectionRunner, deployed on the dev lane as
+      # omnimarket-projection-delegation-writer since OMN-17448) re-reads the
+      # whole view after every successful apply and republishes it.
+      #
+      # The compaction key is `snapshot_grain`, a constant this exposure's own
+      # re-read query produces (`SELECT $1::text AS snapshot_grain, agg.*`),
+      # bound to the topic name. It is deliberately NOT a column of the view:
+      # the view's grain IS "the whole projection", and every column it does
+      # have changes on every write. Keying on any of them would mint a new
+      # compaction key per apply -- the exact unbounded-log defect OMN-17345
+      # records on consumer-flow, whose key includes window_start and which
+      # has grown to 9.09M records with log-start still 0. One constant key
+      # means this topic holds exactly one live record forever.
+      #
+      # Flag and writer land together, per OMN-15864: the runner refuses to
+      # construct if a bus_backed exposure on this contract is keyed on
+      # anything but the grain column, because it would have no publish site
+      # and would serve a confident empty page instead of an honest refusal.
+      #
+      # The aggregate is one tenant's view of the projection, never the
+      # platform's: the runner re-reads this view under the tenant of the
+      # delegation write that changed it, because under FORCE ROW LEVEL
+      # SECURITY a NOBYPASSRLS writer cannot see across tenants at all. Since
+      # OMN-18139 the tenant is half the compaction key, so this topic holds
+      # one live record per tenant. `tenant_column` below is what makes the
+      # SERVING half agree with that: without it SnapshotCache.get_rows
+      # applies no filter and hands a caller every tenant's record under one
+      # topic -- the live-proven leak node_projection_savings refused to ship
+      # for savings.v1. The PER-ROW exposures over delegation_events
+      # deliberately stay not_yet_bus_backed; they have their own publish
+      # sites and are a separate decision.
+      bus_backed: true
+      key_columns:
+        - snapshot_grain
+        # OMN-18139: the tenant is half the compaction key. The republish reads
+        # this view under ONE tenant's scope, so a key of grain alone would
+        # compact every tenant's aggregate onto a single record and serve
+        # whichever tenant wrote last to all of them. With the tenant in the
+        # key the topic holds one live record per tenant per aggregate --
+        # still bounded, never one per apply.
+        - tenant_id
+      # OMN-18159, operator ruling 2026-09-11T10:06:28Z. THIS IS WHAT MAKES
+      # THE EXPOSURE TENANT-SCOPED. `ProjectionTableConfig.tenant_scoped` is
+      # derived (`tenant_column is not None`), so this line is the opt-in:
+      # the serving path now refuses to answer this topic without a resolved
+      # tenant (OMN-15797) rather than returning one tenant's aggregate to
+      # whoever asked, or every tenant's records under one topic. It is the
+      # serving-side counterpart of the tenant already in the key above --
+      # the writer publishes per tenant, and this is what makes the reader
+      # read per tenant.
+      tenant_column: tenant_id
+    - topic: onex.snapshot.projection.delegation.model-routing.v1 # onex-topic-allow: projection snapshot topics use onex.snapshot.* prefix by convention
+      key_grain: "mutable"
+      table: projection_delegation_model_routing
+      schema: public
+      columns:
+        # OMN-18159 Phase 1b(ii). The view is grouped on tenant_id as of
+        # migration 0039, so the published row carries the tenant the numbers
+        # belong to instead of the writer binding it as a literal beside them.
+        #
+        # DECLARED AS `tenant_column` at the foot of this exposure, which
+        # reverses the Phase 1b(ii) omission. That omission traded the leak
+        # fix away to keep four operator panels rendering; the trade is gone
+        # because the page no longer resolves NO tenant -- it resolves an
+        # explicit one. Operator ruling, 2026-09-11T10:06:28Z: declare the
+        # column AND make the operator page authenticate or resolve an
+        # explicit house tenant in the SAME change, because an
+        # unauthenticated internal page serving tenant aggregates is the
+        # leak, not an acceptable reader.
+        - tenant_id
+        - total_delegations
+        - rows
+        - by_model
+        - decision_traces
+        - captured_at
+        - provisioned
+        - latest_projection_updated_at
+        # OMN-13662: tier distribution with explicit not_tier_routed
+        # classification. Maps empty cost_tier_name (delegate-skill terminals)
+        # to 'not_tier_routed', excludes those rows from the tier-% denominator
+        # (tier_routed_total), and surfaces total_tasks + not_tier_routed_count
+        # so the dashboard reads the classification instead of re-deriving it.
+        - by_tier
+      json_columns:
+        - rows
+        - by_model
+        - decision_traces
+        - by_tier
+      freshness_column: latest_projection_updated_at
+      limit: 1
+      # OMN-17773 (GOAL row 0 leg b, epic OMN-16776): bus-backed as a
+      # SINGLETON AGGREGATE. This exposure is a limit-1 SQL view, so
+      # publish_snapshot_delta has no per-row upsert to hook -- the writer
+      # (DelegationProjectionRunner, deployed on the dev lane as
+      # omnimarket-projection-delegation-writer since OMN-17448) re-reads the
+      # whole view after every successful apply and republishes it.
+      #
+      # The compaction key is `snapshot_grain`, a constant this exposure's own
+      # re-read query produces (`SELECT $1::text AS snapshot_grain, agg.*`),
+      # bound to the topic name. It is deliberately NOT a column of the view:
+      # the view's grain IS "the whole projection", and every column it does
+      # have changes on every write. Keying on any of them would mint a new
+      # compaction key per apply -- the exact unbounded-log defect OMN-17345
+      # records on consumer-flow, whose key includes window_start and which
+      # has grown to 9.09M records with log-start still 0. One constant key
+      # means this topic holds exactly one live record forever.
+      #
+      # Flag and writer land together, per OMN-15864: the runner refuses to
+      # construct if a bus_backed exposure on this contract is keyed on
+      # anything but the grain column, because it would have no publish site
+      # and would serve a confident empty page instead of an honest refusal.
+      #
+      # The aggregate is one tenant's view of the projection, never the
+      # platform's: the runner re-reads this view under the tenant of the
+      # delegation write that changed it, because under FORCE ROW LEVEL
+      # SECURITY a NOBYPASSRLS writer cannot see across tenants at all. Since
+      # OMN-18139 the tenant is half the compaction key, so this topic holds
+      # one live record per tenant. `tenant_column` below is what makes the
+      # SERVING half agree with that: without it SnapshotCache.get_rows
+      # applies no filter and hands a caller every tenant's record under one
+      # topic -- the live-proven leak node_projection_savings refused to ship
+      # for savings.v1. The PER-ROW exposures over delegation_events
+      # deliberately stay not_yet_bus_backed; they have their own publish
+      # sites and are a separate decision.
+      bus_backed: true
+      key_columns:
+        - snapshot_grain
+        # OMN-18139: the tenant is half the compaction key. The republish reads
+        # this view under ONE tenant's scope, so a key of grain alone would
+        # compact every tenant's aggregate onto a single record and serve
+        # whichever tenant wrote last to all of them. With the tenant in the
+        # key the topic holds one live record per tenant per aggregate --
+        # still bounded, never one per apply.
+        - tenant_id
+      # OMN-18159, operator ruling 2026-09-11T10:06:28Z. THIS IS WHAT MAKES
+      # THE EXPOSURE TENANT-SCOPED. `ProjectionTableConfig.tenant_scoped` is
+      # derived (`tenant_column is not None`), so this line is the opt-in:
+      # the serving path now refuses to answer this topic without a resolved
+      # tenant (OMN-15797) rather than returning one tenant's aggregate to
+      # whoever asked, or every tenant's records under one topic. It is the
+      # serving-side counterpart of the tenant already in the key above --
+      # the writer publishes per tenant, and this is what makes the reader
+      # read per tenant.
+      tenant_column: tenant_id
+    - topic: onex.snapshot.projection.delegation.quality-gate.v1 # onex-topic-allow: projection snapshot topics use onex.snapshot.* prefix by convention
+      key_grain: "mutable"
+      table: projection_delegation_quality_gate
+      schema: public
+      columns:
+        # OMN-18159 Phase 1b(ii). The view is grouped on tenant_id as of
+        # migration 0039, so the published row carries the tenant the numbers
+        # belong to instead of the writer binding it as a literal beside them.
+        #
+        # DECLARED AS `tenant_column` at the foot of this exposure, which
+        # reverses the Phase 1b(ii) omission. That omission traded the leak
+        # fix away to keep four operator panels rendering; the trade is gone
+        # because the page no longer resolves NO tenant -- it resolves an
+        # explicit one. Operator ruling, 2026-09-11T10:06:28Z: declare the
+        # column AND make the operator page authenticate or resolve an
+        # explicit house tenant in the SAME change, because an
+        # unauthenticated internal page serving tenant aggregates is the
+        # leak, not an acceptable reader.
+        - tenant_id
+        - overall_pass_rate
+        - total_passed
+        - total_failed
+        - total_checks
+        - escalation_count
+        - escalation_rate
+        - avg_actual_score
+        - avg_required_bar
+        - by_check_type
+        - failure_categories
+        - avg_tokens_to_compliance
+        - median_tokens_to_compliance
+        - avg_compliance_attempts
+        - tokens_to_compliance_by_model
+        - captured_at
+        - provisioned
+        - latest_projection_updated_at
+      json_columns:
+        - by_check_type
+        - failure_categories
+        - tokens_to_compliance_by_model
+      freshness_column: latest_projection_updated_at
+      limit: 1
+      # OMN-17773 (GOAL row 0 leg b, epic OMN-16776): bus-backed as a
+      # SINGLETON AGGREGATE. This exposure is a limit-1 SQL view, so
+      # publish_snapshot_delta has no per-row upsert to hook -- the writer
+      # (DelegationProjectionRunner, deployed on the dev lane as
+      # omnimarket-projection-delegation-writer since OMN-17448) re-reads the
+      # whole view after every successful apply and republishes it.
+      #
+      # The compaction key is `snapshot_grain`, a constant this exposure's own
+      # re-read query produces (`SELECT $1::text AS snapshot_grain, agg.*`),
+      # bound to the topic name. It is deliberately NOT a column of the view:
+      # the view's grain IS "the whole projection", and every column it does
+      # have changes on every write. Keying on any of them would mint a new
+      # compaction key per apply -- the exact unbounded-log defect OMN-17345
+      # records on consumer-flow, whose key includes window_start and which
+      # has grown to 9.09M records with log-start still 0. One constant key
+      # means this topic holds exactly one live record forever.
+      #
+      # Flag and writer land together, per OMN-15864: the runner refuses to
+      # construct if a bus_backed exposure on this contract is keyed on
+      # anything but the grain column, because it would have no publish site
+      # and would serve a confident empty page instead of an honest refusal.
+      #
+      # The aggregate is one tenant's view of the projection, never the
+      # platform's: the runner re-reads this view under the tenant of the
+      # delegation write that changed it, because under FORCE ROW LEVEL
+      # SECURITY a NOBYPASSRLS writer cannot see across tenants at all. Since
+      # OMN-18139 the tenant is half the compaction key, so this topic holds
+      # one live record per tenant. `tenant_column` below is what makes the
+      # SERVING half agree with that: without it SnapshotCache.get_rows
+      # applies no filter and hands a caller every tenant's record under one
+      # topic -- the live-proven leak node_projection_savings refused to ship
+      # for savings.v1. The PER-ROW exposures over delegation_events
+      # deliberately stay not_yet_bus_backed; they have their own publish
+      # sites and are a separate decision.
+      bus_backed: true
+      key_columns:
+        - snapshot_grain
+        # OMN-18139: the tenant is half the compaction key. The republish reads
+        # this view under ONE tenant's scope, so a key of grain alone would
+        # compact every tenant's aggregate onto a single record and serve
+        # whichever tenant wrote last to all of them. With the tenant in the
+        # key the topic holds one live record per tenant per aggregate --
+        # still bounded, never one per apply.
+        - tenant_id
+      # OMN-18159, operator ruling 2026-09-11T10:06:28Z. THIS IS WHAT MAKES
+      # THE EXPOSURE TENANT-SCOPED. `ProjectionTableConfig.tenant_scoped` is
+      # derived (`tenant_column is not None`), so this line is the opt-in:
+      # the serving path now refuses to answer this topic without a resolved
+      # tenant (OMN-15797) rather than returning one tenant's aggregate to
+      # whoever asked, or every tenant's records under one topic. It is the
+      # serving-side counterpart of the tenant already in the key above --
+      # the writer publishes per tenant, and this is what makes the reader
+      # read per tenant.
+      tenant_column: tenant_id
+    - topic: onex.snapshot.projection.delegation.judge-verdicts.v1 # onex-topic-allow: projection snapshot topics use onex.snapshot.* prefix by convention
+      key_grain: "mutable"
+      table: delegation_judge_verdict_events
+      schema: public
+      columns:
+        - id
+        - event_hash
+        - correlation_id
+        - tenant_id
+        - task_type
+        - score_source
+        - judge_model
+        - judge_model_version
+        - judge_provider
+        - rubric_id
+        - rubric_hash
+        - prompt_hash
+        - input_hash
+        - temperature
+        - judge_node_version
+        - reasoning_hash
+        - verdict
+        - actual_score
+        - failure_kind
+        - failure_message
+        - created_at
+      order_by: created_at DESC
+      freshness_column: created_at
+      limit: 500
+    - topic: onex.snapshot.projection.delegation.token-usage.v1 # onex-topic-allow: projection snapshot topics use onex.snapshot.* prefix by convention
+      key_grain: "mutable"
+      table: projection_delegation_token_usage
+      schema: public
+      columns:
+        # OMN-18159 Phase 1b(ii). The view is grouped on tenant_id as of
+        # migration 0039, so the published row carries the tenant the numbers
+        # belong to instead of the writer binding it as a literal beside them.
+        #
+        # DECLARED AS `tenant_column` at the foot of this exposure, which
+        # reverses the Phase 1b(ii) omission. That omission traded the leak
+        # fix away to keep four operator panels rendering; the trade is gone
+        # because the page no longer resolves NO tenant -- it resolves an
+        # explicit one. Operator ruling, 2026-09-11T10:06:28Z: declare the
+        # column AND make the operator page authenticate or resolve an
+        # explicit house tenant in the SAME change, because an
+        # unauthenticated internal page serving tenant aggregates is the
+        # leak, not an acceptable reader.
+        - tenant_id
+        - total_prompt_tokens
+        - total_completion_tokens
+        - total_tokens
+        - total_estimated_cost_usd
+        - provenance_summary
+        - by_model
+        - captured_at
+        - provisioned
+        - latest_projection_updated_at
+      json_columns:
+        - provenance_summary
+        - by_model
+      freshness_column: latest_projection_updated_at
+      limit: 1
+      # OMN-17773 (GOAL row 0 leg b, epic OMN-16776): bus-backed as a
+      # SINGLETON AGGREGATE. This exposure is a limit-1 SQL view, so
+      # publish_snapshot_delta has no per-row upsert to hook -- the writer
+      # (DelegationProjectionRunner, deployed on the dev lane as
+      # omnimarket-projection-delegation-writer since OMN-17448) re-reads the
+      # whole view after every successful apply and republishes it.
+      #
+      # The compaction key is `snapshot_grain`, a constant this exposure's own
+      # re-read query produces (`SELECT $1::text AS snapshot_grain, agg.*`),
+      # bound to the topic name. It is deliberately NOT a column of the view:
+      # the view's grain IS "the whole projection", and every column it does
+      # have changes on every write. Keying on any of them would mint a new
+      # compaction key per apply -- the exact unbounded-log defect OMN-17345
+      # records on consumer-flow, whose key includes window_start and which
+      # has grown to 9.09M records with log-start still 0. One constant key
+      # means this topic holds exactly one live record forever.
+      #
+      # Flag and writer land together, per OMN-15864: the runner refuses to
+      # construct if a bus_backed exposure on this contract is keyed on
+      # anything but the grain column, because it would have no publish site
+      # and would serve a confident empty page instead of an honest refusal.
+      #
+      # The aggregate is one tenant's view of the projection, never the
+      # platform's: the runner re-reads this view under the tenant of the
+      # delegation write that changed it, because under FORCE ROW LEVEL
+      # SECURITY a NOBYPASSRLS writer cannot see across tenants at all. Since
+      # OMN-18139 the tenant is half the compaction key, so this topic holds
+      # one live record per tenant. `tenant_column` below is what makes the
+      # SERVING half agree with that: without it SnapshotCache.get_rows
+      # applies no filter and hands a caller every tenant's record under one
+      # topic -- the live-proven leak node_projection_savings refused to ship
+      # for savings.v1. The PER-ROW exposures over delegation_events
+      # deliberately stay not_yet_bus_backed; they have their own publish
+      # sites and are a separate decision.
+      bus_backed: true
+      key_columns:
+        - snapshot_grain
+        # OMN-18139: the tenant is half the compaction key. The republish reads
+        # this view under ONE tenant's scope, so a key of grain alone would
+        # compact every tenant's aggregate onto a single record and serve
+        # whichever tenant wrote last to all of them. With the tenant in the
+        # key the topic holds one live record per tenant per aggregate --
+        # still bounded, never one per apply.
+        - tenant_id
+      # OMN-18159, operator ruling 2026-09-11T10:06:28Z. THIS IS WHAT MAKES
+      # THE EXPOSURE TENANT-SCOPED. `ProjectionTableConfig.tenant_scoped` is
+      # derived (`tenant_column is not None`), so this line is the opt-in:
+      # the serving path now refuses to answer this topic without a resolved
+      # tenant (OMN-15797) rather than returning one tenant's aggregate to
+      # whoever asked, or every tenant's records under one topic. It is the
+      # serving-side counterpart of the tenant already in the key above --
+      # the writer publishes per tenant, and this is what makes the reader
+      # read per tenant.
+      tenant_column: tenant_id
+    # OMN-12780 (Wave 1C): expose the full generated output via projection-API.
+    # Projection-API is the ONLY valid read path — no raw DB reads, no express reader.
+    # contract_yaml + handler_source are the full generated artifacts, never truncated.
+    # SHA256 verification: encode(sha256(contract_yaml::bytea), 'hex') at query time.
+    - topic: onex.evt.omnimarket.node-generation-completed.v1
+      key_grain: "mutable"
+      table: generation_events
+      schema: public
+      columns:
+        - id
+        - correlation_id
+        - task_description
+        - provider
+        - model_id
+        - endpoint_class
+        - attempt_count
+        - total_latency_e2e_ms
+        - contract_passed
+        # OMN-13166: behavioral verdict, surfaced separately from contract_passed
+        # so the dashboard can show a shape-valid-but-behaviorally-wrong
+        # generation (the gate-zero false-green) as NOT a task-behavior pass.
+        - semantic_checked
+        - semantic_passed
+        # OMN-13289 (G0) / OMN-13350: validator-acceptance (corpus) verdict,
+        # surfaced so the dashboard can show a shape-valid validator that does NOT
+        # actually enforce its rule (corpus_checked=true, corpus_passed=false).
+        - corpus_checked
+        - corpus_passed
+        - corpus_errors
+        - cost_inference_usd
+        - contract_yaml
+        - handler_source
+        # OMN-12775 (close-the-loop A3): proof fields populated by the write path.
+        # The canonical projection API returns these so the dashboard renders the
+        # real evidence (SHA256 digests of the full payload, the routing decision,
+        # and the owning projection node) instead of NULLs.
+        - output_payload_sha256
+        - contract_sha256
+        - handler_sha256
+        - routing_source
+        - resolved_endpoint
+        - projection_owner
+        - timestamp
+        - created_at
+      order_by: created_at DESC
+      freshness_column: created_at
+      limit: 500
+    # OMN-13468: expose the failure terminal via the projection-API so failed runs
+    # are observable at GET /projection/onex.evt.omnimarket.node-generation-failed.v1.
+    # Same table + columns as the completed exposure — contract_passed will be False
+    # for every row returned here. Rows are written by the same
+    # _project_generation_completed handler that processes the completed terminal.
+    - topic: onex.evt.omnimarket.node-generation-failed.v1
+      key_grain: "mutable"
+      table: generation_events
+      schema: public
+      columns:
+        - id
+        - correlation_id
+        - task_description
+        - provider
+        - model_id
+        - endpoint_class
+        - attempt_count
+        - total_latency_e2e_ms
+        - contract_passed
+        - semantic_checked
+        - semantic_passed
+        - corpus_checked
+        - corpus_passed
+        - corpus_errors
+        - cost_inference_usd
+        - contract_yaml
+        - handler_source
+        - output_payload_sha256
+        - contract_sha256
+        - handler_sha256
+        - routing_source
+        - resolved_endpoint
+        - projection_owner
+        - timestamp
+        - created_at
+      order_by: created_at DESC
+      freshness_column: created_at
+      limit: 500
+    # OMN-13235: per-tenant ceiling budget-state surface — cap, period
+    # consumption, and remaining headroom for budgeted ceiling tiers. Readable so
+    # the dashboard / API can show how much of a tenant's monthly ceiling budget
+    # is consumed and confirm consumption rising after a ceiling escalation probe.
+    - topic: onex.snapshot.projection.delegation.budget-state.v1 # onex-topic-allow: projection snapshot topics use onex.snapshot.* prefix by convention
+      key_grain: "mutable"
+      table: delegation_budget_state
+      schema: public
+      columns:
+        - id
+        - tenant_id
+        - cost_tier_name
+        - budget_period
+        - monthly_cap_usd
+        - consumed_usd
+        - overage_usd
+        - headroom_remaining_usd
+        - delegation_count
+        - first_event_at
+        - last_event_at
+        - created_at
+        - updated_at
+      order_by: updated_at DESC
+      freshness_column: updated_at
+      limit: 500
+
+metadata:
+  transport_type: kafka
+  demo_path: true  # OMN-12777: demo-path topic coherence gate scope marker
+  # Projection-API exposure topics declared here so the topic gate can verify
+  # each widget topic has a producing node. These snapshot topics are written
+  # by this reducer's projection_api exposures.
+  widget_topics:
+    - onex.snapshot.projection.delegation.correlation-trace.v1  # onex-topic-allow: projection snapshot topic
+    - onex.snapshot.projection.delegation.decisions.v1  # onex-topic-allow: projection snapshot topic
+    - onex.snapshot.projection.delegation.summary.v1  # onex-topic-allow: projection snapshot topic
+    - onex.snapshot.projection.delegation.quality-gate.v1  # onex-topic-allow: projection snapshot topic
+    - onex.snapshot.projection.delegation.token-usage.v1  # onex-topic-allow: projection snapshot topic
+    - onex.snapshot.projection.delegation.model-routing.v1  # onex-topic-allow: projection snapshot topic
+    - onex.snapshot.projection.delegation.judge-verdicts.v1  # onex-topic-allow: projection snapshot topic
+    - onex.snapshot.projection.delegation.budget-state.v1  # onex-topic-allow: projection snapshot topic

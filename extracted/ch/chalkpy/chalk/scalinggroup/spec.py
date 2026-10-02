@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Optional, Sequence
 
 
 @dataclass
@@ -24,6 +24,42 @@ class ScalingGroupResourceRequest:
     gpu: Optional[str] = None
 
 
+@dataclass(frozen=True)
+class CronScalingWindow:
+    """A recurring window during which a scaling group keeps a minimum replica count.
+
+    Parameters
+    ----------
+    start
+        Cron expression for when the window opens (e.g. "0 8 * * 1-5").
+    end
+        Cron expression for when the window closes (e.g. "0 18 * * 1-5").
+    desired_replicas
+        Replica floor while the window is open. Must not exceed ``max_replicas``;
+        0 allows scale-to-zero.
+    """
+
+    start: str
+    end: str
+    desired_replicas: int
+
+
+@dataclass(frozen=True)
+class CronScalingSchedule:
+    """Time-of-day replica floors for a scaling group.
+
+    Parameters
+    ----------
+    timezone
+        IANA timezone the cron expressions are evaluated in (e.g. "America/New_York").
+    windows
+        The windows; outside every window the usual autoscaling applies.
+    """
+
+    timezone: str
+    windows: Sequence[CronScalingWindow] = ()
+
+
 @dataclass
 class AutoScalingSpec:
     """Autoscaling configuration for a scaling group.
@@ -36,11 +72,28 @@ class AutoScalingSpec:
         Maximum number of replicas for autoscaling.
     target_cpu_utilization_percentage
         Target CPU utilization for autoscaling.
+    queue_depth_target
+        Scale on queued ``.defer()`` calls, targeting this many pending calls per
+        replica. The server fills in which queue to watch.
+    gpu_utilization_target
+        Scale to hold this average GPU utilization percentage (1-100) per replica.
+        Requires ``min_replicas >= 1``.
+    cron
+        Time-of-day replica floors.
+    shutdown_delay_seconds
+        Graceful termination period for a replica (server default: 30).
+    window_seconds
+        Time window over which scaling triggers are evaluated (server default: 60).
     """
 
     min_replicas: int = 1
     max_replicas: int = 1
     target_cpu_utilization_percentage: Optional[int] = None
+    queue_depth_target: Optional[int] = None
+    gpu_utilization_target: Optional[int] = None
+    cron: Optional[CronScalingSchedule] = None
+    shutdown_delay_seconds: Optional[int] = None
+    window_seconds: Optional[int] = None
 
 
 @dataclass
@@ -240,6 +293,65 @@ class DeleteScalingGroupResponse:
     """
 
     scalingGroup: Optional[ScalingGroup] = None
+
+
+def auto_scaling_spec_to_proto(spec: AutoScalingSpec) -> Any:
+    """Convert to a ``ScalingSpec`` proto. Unset options are omitted, so the server applies its defaults."""
+    from chalk._gen.chalk.scalinggroup.v1 import service_pb2 as sg_pb
+
+    pb = sg_pb.ScalingSpec(
+        min_replicas=spec.min_replicas,
+        max_replicas=spec.max_replicas,
+        target_cpu_utilization_percentage=spec.target_cpu_utilization_percentage,
+        shutdown_delay_seconds=spec.shutdown_delay_seconds,
+        window_seconds=spec.window_seconds,
+    )
+    if spec.queue_depth_target is not None:
+        pb.function_queue_depth_trigger.target_queue_depth = spec.queue_depth_target
+    if spec.gpu_utilization_target is not None:
+        pb.gpu_utilization_trigger.target_utilization_percentage = spec.gpu_utilization_target
+    if spec.cron is not None:
+        pb.cron_scaling_trigger.CopyFrom(
+            sg_pb.CronScalingTrigger(
+                timezone=spec.cron.timezone,
+                windows=[
+                    sg_pb.CronScalingWindow(start=w.start, end=w.end, desired_replicas=w.desired_replicas)
+                    for w in spec.cron.windows
+                ],
+            )
+        )
+    return pb
+
+
+def auto_scaling_spec_from_proto(pb: Any) -> AutoScalingSpec:
+    """Convert a ``ScalingSpec`` proto."""
+
+    def optional(name: str) -> Optional[int]:
+        return getattr(pb, name) if pb.HasField(name) else None
+
+    cron = None
+    if pb.HasField("cron_scaling_trigger"):
+        cron = CronScalingSchedule(
+            timezone=pb.cron_scaling_trigger.timezone,
+            windows=tuple(
+                CronScalingWindow(start=w.start, end=w.end, desired_replicas=w.desired_replicas)
+                for w in pb.cron_scaling_trigger.windows
+            ),
+        )
+    return AutoScalingSpec(
+        min_replicas=pb.min_replicas,
+        max_replicas=pb.max_replicas,
+        target_cpu_utilization_percentage=optional("target_cpu_utilization_percentage"),
+        queue_depth_target=(
+            pb.function_queue_depth_trigger.target_queue_depth if pb.HasField("function_queue_depth_trigger") else None
+        ),
+        gpu_utilization_target=(
+            pb.gpu_utilization_trigger.target_utilization_percentage if pb.HasField("gpu_utilization_trigger") else None
+        ),
+        cron=cron,
+        shutdown_delay_seconds=optional("shutdown_delay_seconds"),
+        window_seconds=optional("window_seconds"),
+    )
 
 
 def proto_to_scaling_group(pb: Any) -> ScalingGroup:

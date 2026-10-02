@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: surrogate
+Version: 0.1
+Summary: A Python micro-lib to create stubs for non-existing modules.
+Home-page: http://github.com/JASchilz/surrogate
+Author: Kostia Balitsky
+Author-email: UNKNOWN
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN

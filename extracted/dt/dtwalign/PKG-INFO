@@ -1,0 +1,40 @@
+Metadata-Version: 2.1
+Name: dtwalign
+Version: 0.1.1
+Summary: Comprehensive DTW package which enables partial mathing and has various constraint options
+Home-page: https://github.com/statefb/dtwalign
+Author: Takehiro Suzuki
+Author-email: 
+License: MIT
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Topic :: Scientific/Engineering
+License-File: LICENSE.txt
+
+DTW (Dynamic Time Warping)
+==========================
+
+Comprehensive dynamic time warping module for python.
+
+Features
+--------
+
+* Fast computation by [Numba](https://numba.pydata.org)
+* Local constraint (step pattern)
+* Global constraint (windowing)
+* Alignment path visualization
+
+Reference
+---------
+
+1.  Sakoe, H.; Chiba, S., Dynamic programming algorithm optimization for
+    spoken word recognition, Acoustics, Speech, and Signal Processing
+
+2.  Paolo Tormene, Toni Giorgino, Silvana Quaglini, Mario Stefanelli
+    (2008). Matching Incomplete Time Series with Dynamic Time Warping:
+    An Algorithm and an Application to Post-Stroke Rehabilitation.
+    Artificial Intelligence in Medicine, 45(1), 11-34.
+
+3.  Toni Giorgino (2009). Computing and Visualizing Dynamic Time Warping
+    Alignments in R: The dtw Package. Journal of Statistical Software,
+    31(7), 1-24.

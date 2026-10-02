@@ -1,15 +1,20 @@
 import asyncio
 import json
+import os
+import sys
 import warnings
+from collections.abc import Awaitable
 from collections.abc import Callable
 from collections.abc import Collection
+from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import wraps
-from typing import Concatenate
-from typing import ParamSpec
+from typing import Any
+from typing import Protocol
 from typing import TypeVar
 from typing import Union
 from typing import cast
+from typing import overload
 from urllib.parse import quote
 from urllib.parse import urlsplit
 
@@ -30,6 +35,8 @@ from scim2_models import Resource
 from scim2_models import ResourceType
 from scim2_models import ResponseParameters
 from scim2_models import Schema
+from scim2_models import SCIMException
+from scim2_models import ScimObject
 from scim2_models import ScimProvider
 from scim2_models import ScimProviderError
 from scim2_models import SearchRequest
@@ -37,7 +44,9 @@ from scim2_models import ServiceProviderConfig
 from scim2_models import get_model_by_payload
 
 from scim2_client.errors import InvalidServiceDescriptionException
+from scim2_client.errors import RequestNetworkException
 from scim2_client.errors import ResponsePayloadValidationException
+from scim2_client.errors import SCIMClientException
 from scim2_client.errors import SCIMResponseException
 from scim2_client.errors import UnexpectedContentFormatException
 from scim2_client.errors import UnexpectedContentTypeException
@@ -45,9 +54,10 @@ from scim2_client.errors import UnexpectedStatusCodeException
 from scim2_client.errors import request_validation_exception
 from scim2_client.errors import server_error_exception
 
-ResourceT = TypeVar("ResourceT", bound=Resource)
-ReturnT = TypeVar("ReturnT")
-P = ParamSpec("P")
+ResourceT = TypeVar("ResourceT", bound=Resource[Any])
+MethodT = TypeVar("MethodT", bound=Callable[..., Any])
+PublishedT = TypeVar("PublishedT")
+ScimObjectT = TypeVar("ScimObjectT", bound=ScimObject)
 
 NOT_MODIFIED = 304
 
@@ -61,11 +71,36 @@ CONFIG_RESOURCES = (ResourceType, Schema, ServiceProviderConfig)
 _PATH_SEGMENT_SAFE = "!$&'()*+,;=:@"
 
 # Discovery cannot build the models from an Error object or a raw payload.
-DISCOVERY_OPTIONS = {"raise_scim_errors": True, "check_response_payload": True}
+DISCOVERY_OPTIONS: dict[str, Any] = {
+    "raise_scim_errors": True,
+    "check_response_payload": True,
+}
+
+
+class ResponseHeaders(Protocol):
+    """The headers of a response, looked up by case-insensitive names."""
+
+    def get(self, key: str, /) -> str | None: ...
+
+
+class RawResponse(Protocol):
+    """A response as returned by the HTTP library of an engine."""
+
+    @property
+    def status_code(self) -> int:
+        """The HTTP status code."""
+
+    @property
+    def headers(self) -> ResponseHeaders:
+        """The HTTP headers."""
+
+    @property
+    def text(self) -> str:
+        """The body, decoded as text."""
 
 
 def describe_resource_models(
-    resource_models: Collection[type[Resource]],
+    resource_models: Collection[type[Resource[Any]]],
 ) -> tuple[tuple[DescribedModel, ...], tuple[ResourceType, ...]]:
     """Split composed models into the bare models and the resource types binding them.
 
@@ -92,9 +127,7 @@ def describe_resource_models(
     return tuple(models.values()), tuple(resource_types)
 
 
-def _under_provider(
-    method: "Callable[Concatenate[SCIMClient, P], ReturnT]",
-) -> "Callable[Concatenate[SCIMClient, P], ReturnT]":
+def _under_provider(method: MethodT) -> MethodT:
     """Lend the description of the server to the payloads a method reads and writes.
 
     The policy the description carries then rules how much a payload may depart
@@ -102,11 +135,30 @@ def _under_provider(
     """
 
     @wraps(method)
-    def wrapper(self: "SCIMClient", *args: P.args, **kwargs: P.kwargs) -> ReturnT:
+    def wrapper(self: "SCIMClient", /, *args: Any, **kwargs: Any) -> Any:
         with self.provider:
             return method(self, *args, **kwargs)
 
-    return wrapper
+    return cast(MethodT, wrapper)
+
+
+def _deprecation(message: str) -> None:
+    """Emit a deprecation warning for the first caller outside of scim2-client."""
+    package = os.path.dirname(__file__)
+    frame = sys._getframe(0)
+    level = 1
+    while frame.f_back is not None and frame.f_code.co_filename.startswith(package):
+        frame = frame.f_back
+        level += 1
+
+    warnings.warn(message, DeprecationWarning, stacklevel=level)
+
+
+def _parametrize(
+    generic: type[ScimObjectT], models: Sequence[type[Resource[Any]]]
+) -> type[ScimObjectT]:
+    """Parametrize a generic message with the union of models, known at runtime."""
+    return cast("type[ScimObjectT]", cast(Any, generic)[Union[tuple(models)]])  # noqa: UP007
 
 
 def _resource_url(endpoint: str, id: str) -> str:
@@ -125,12 +177,12 @@ def _resource_url(endpoint: str, id: str) -> str:
 
 @dataclass
 class RequestPayload:
-    request_kwargs: dict
-    url: str | None = None
-    payload: dict | None = None
-    expected_types: list[type[Resource]] | None = None
+    request_kwargs: dict[str, Any]
+    url: str = ""
+    payload: Any = None
+    expected_types: list[type[ScimObject]] | None = None
     expected_status_codes: list[int] | None = None
-    target: Resource | None = None
+    target: Resource[Any] | None = None
 
 
 class SCIMClient:
@@ -311,7 +363,7 @@ class SCIMClient:
         self,
         *,
         provider: ScimProvider | None = None,
-        resource_models: Collection[type[Resource]] | None = None,
+        resource_models: Collection[type[Resource[Any]]] | None = None,
         resource_types: Collection[ResourceType] | None = None,
         service_provider_config: ServiceProviderConfig | None = None,
         check_request_payload: bool = True,
@@ -392,11 +444,11 @@ class SCIMClient:
         )
 
     @property
-    def _composed_models(self) -> tuple[type[Resource], ...]:
+    def _composed_models(self) -> tuple[type[Resource[Any]], ...]:
         """The models the server endpoints serve, extensions included."""
         provider = self.provider
         return tuple(
-            cast("type[Resource]", provider.model_for(resource_type.name))
+            cast("type[Resource[Any]]", provider.model_for(resource_type))
             for resource_type in provider.resource_types
         )
 
@@ -409,13 +461,13 @@ class SCIMClient:
         )
 
     @property
-    def resource_models(self) -> tuple[type[Resource], ...]:
+    def resource_models(self) -> tuple[type[Resource[Any]], ...]:
         """Deprecated, read :attr:`provider` instead."""
         self._warn_description_deprecation("resource_models")
         return self._composed_models
 
     @resource_models.setter
-    def resource_models(self, resource_models: Collection[type[Resource]]) -> None:
+    def resource_models(self, resource_models: Collection[type[Resource[Any]]]) -> None:
         self._warn_description_deprecation("resource_models")
         models, derived = describe_resource_models(resource_models or ())
         self._models = models
@@ -450,7 +502,7 @@ class SCIMClient:
         self._config = service_provider_config
         self._provider = None
 
-    def get_resource_model(self, name: str) -> type[Resource] | None:
+    def get_resource_model(self, name: str) -> type[Resource[Any]] | None:
         """Get a registered model by its name or its schema."""
         model = self.provider.model_for(name)
         if model is None or issubclass(model, Extension):
@@ -458,7 +510,7 @@ class SCIMClient:
 
         composed_models = self._composed_models
         if model in composed_models:
-            return cast("type[Resource]", model)
+            return model
 
         # 'model_for' answers the bare resource for a schema URI, where the client
         # hands out the model an endpoint serves, extensions included.
@@ -466,9 +518,9 @@ class SCIMClient:
             if composed.__schema__ == model.__schema__:
                 return composed
 
-        return cast("type[Resource]", model)
+        return cast("type[Resource[Any]]", model)
 
-    def _check_resource_model(self, resource_model: type[Resource]) -> None:
+    def _check_resource_model(self, resource_model: type[Resource[Any]]) -> None:
         if self.provider.model_for(str(resource_model.__schema__)) is None:
             raise InvalidValueException(
                 detail=f"Unknown resource type: '{resource_model}'"
@@ -480,7 +532,9 @@ class SCIMClient:
         return bool(spc and spc.etag and spc.etag.supported)
 
     @staticmethod
-    def _resource_version(resource: Resource | dict | None) -> str | None:
+    def _resource_version(
+        resource: Resource[Any] | dict[str, Any] | None,
+    ) -> str | None:
         """Read the ETag a resource was read with."""
         if isinstance(resource, Resource):
             return resource.meta.version if resource.meta else None
@@ -490,7 +544,9 @@ class SCIMClient:
 
         return None
 
-    def _set_if_match(self, req: RequestPayload, resource: Resource | dict | None):
+    def _set_if_match(
+        self, req: RequestPayload, resource: Resource[Any] | dict[str, Any] | None
+    ) -> None:
         """Make a write request conditional on the resource not having changed."""
         version = self._resource_version(resource)
         if not version or not self._etag_supported:
@@ -499,7 +555,7 @@ class SCIMClient:
         headers = req.request_kwargs.setdefault("headers", {})
         headers.setdefault("If-Match", version)
 
-    def _set_if_none_match(self, req: RequestPayload, resource: Resource):
+    def _set_if_none_match(self, req: RequestPayload, resource: Resource[Any]) -> None:
         """Make a read request conditional on the resource having changed."""
         version = self._resource_version(resource)
         if not version or not self._etag_supported:
@@ -510,7 +566,7 @@ class SCIMClient:
         headers.setdefault("If-None-Match", version)
 
     @staticmethod
-    def _set_version_from_etag(result, headers: dict):
+    def _set_version_from_etag(result: object, headers: ResponseHeaders) -> None:
         """Fill an empty resource version with the ETag header of the response.
 
         RFC7644 3.14 makes the ETag header mandatory when versioning is
@@ -527,68 +583,316 @@ class SCIMClient:
             result.meta.version = etag
 
     @staticmethod
-    def _resolve_patch_arguments(
-        patch_op: PatchOp | dict | str | None, id: str | None
-    ) -> tuple[PatchOp | dict | None, str | None]:
-        """Tell ``modify(resource, id, patch_op)`` apart from ``modify(resource, patch_op)``.
+    def _unchecked_url(req: RequestPayload) -> str:
+        """Read the url of a request whose payload is sent without being read."""
+        url = req.request_kwargs.pop("url", None)
+        if url is None:
+            raise InvalidValueException(
+                detail="A url is required when the request payload is not checked"
+            )
 
-        An id is never a valid patch operation, so the second parameter is
-        enough to know which call style is used.
-        """
-        if not isinstance(patch_op, str):
-            return patch_op, id
+        return cast(str, url)
 
-        # The id landed in 'patch_op' and the patch operation in 'id'.
-        return cast("PatchOp | dict | None", id), patch_op
+    @staticmethod
+    def _renamed_target(target: Any, resource: Any) -> Any:
+        """Read the target passed under the deprecated 'resource' name."""
+        if resource is None:
+            return target
+
+        if target is not None:
+            raise InvalidValueException(
+                detail="Cannot pass both 'target' and 'resource'"
+            )
+
+        _deprecation(
+            "The 'resource' parameter is renamed 'target'. Will be removed in 0.12."
+        )
+        return resource
 
     @staticmethod
     def _resolve_target(
-        target: type[Resource] | Resource | None, id: str | None
-    ) -> tuple[type[Resource] | None, str | None, Resource | None]:
-        """Read a resource type and an id, from either a resource object or a resource type and an id."""
-        if not isinstance(target, Resource):
-            return target, id, None
+        target: type[Resource[Any]] | Resource[Any] | ResourceType | str | None,
+        id: str | Resource[Any] | None,
+    ) -> tuple[
+        type[Resource[Any]] | None,
+        ResourceType | str | None,
+        Resource[Any] | None,
+        str | None,
+    ]:
+        """Read the model, the resource type, the resource object and the id a request is about.
 
-        if id is not None:
+        The target is a model, a resource type or its name, or a resource
+        object standing for both the resource type and the id. The id is a
+        string, or a resource object carrying it.
+        """
+        resource_type: ResourceType | str | None = None
+        resource_model: type[Resource[Any]] | None = None
+        if isinstance(target, ResourceType | str):
+            resource_type = target
+
+        elif isinstance(target, Resource):
+            if id is not None:
+                raise InvalidValueException(
+                    detail="Cannot pass both a resource object and an id"
+                )
+            id = target
+
+        else:
+            resource_model = target
+
+        if not isinstance(id, Resource):
+            return resource_model, resource_type, None, id
+
+        if resource_model is not None and not isinstance(id, resource_model):
             raise InvalidValueException(
-                detail="Cannot pass both a resource object and an id"
+                detail=f"Expected a {resource_model.__name__} resource, "
+                f"got {type(id).__name__}"
             )
 
-        if not target.id:
+        if not id.id:
             raise InvalidValueException(detail="Resource must have an id")
 
-        return type(target), target.id, target
+        return type(id), resource_type, id, id.id
 
-    def resource_endpoint(self, resource_model: type[Resource] | None) -> str:
-        """Find the :attr:`~scim2_models.ResourceType.endpoint` associated with a given :class:`~scim2_models.Resource`.
+    @staticmethod
+    def _resolve_payload_target(
+        target: Any, resource: Any
+    ) -> tuple[
+        type[Resource[Any]] | ResourceType | str | None,
+        Resource[Any] | dict[str, Any],
+    ]:
+        """Tell the target of a creation or a replacement from its payload."""
+        if (
+            resource is None
+            and isinstance(target, Resource | dict)
+            and not isinstance(target, ResourceType)
+        ):
+            return None, target
 
-        The endpoint serving the model is looked up first, then any endpoint
-        serving its schema, so that two resource types built upon a same schema
-        are told apart.
+        if not isinstance(target, ResourceType | str | type | None):
+            raise InvalidValueException(detail="Cannot pass two resources")
+
+        if resource is None:
+            raise InvalidValueException(detail="Missing resource")
+
+        if not isinstance(resource, Resource | dict):
+            raise InvalidValueException(
+                detail="The resource must be a resource object or a payload"
+            )
+
+        return target, resource
+
+    def _validate_payload_target(
+        self,
+        target: type[Resource[Any]] | ResourceType | str | None,
+        resource: Resource[Any] | dict[str, Any],
+        scim_ctx: Context,
+    ) -> tuple[Resource[Any], ResourceType]:
+        """Build the resource a creation or a replacement sends, and find its resource type."""
+        resource_model = target if isinstance(target, type) else None
+        resource_type = None if isinstance(target, type) else target
+        if isinstance(resource, dict):
+            if resource_model is None:
+                guessed = get_model_by_payload(self._composed_models, resource)
+                if guessed is None or not issubclass(guessed, Resource):
+                    raise InvalidValueException(
+                        detail="Cannot guess resource type from the payload"
+                    )
+                resource_model = guessed
+
+            try:
+                resource = resource_model.model_validate(resource)
+            except ValidationError as exc:
+                raise request_validation_exception(exc, scim_ctx) from exc
+
+        elif resource_model is not None and not isinstance(resource, resource_model):
+            raise InvalidValueException(
+                detail=f"Expected a {resource_model.__name__} resource, "
+                f"got {type(resource).__name__}"
+            )
+
+        resource_model = type(resource)
+        self._check_resource_model(resource_model)
+        found = self._resolve_resource_type(resource_model, resource, resource_type)
+        return resource, found
+
+    def resource_endpoint(
+        self,
+        target: type[Resource[Any]] | Resource[Any] | ResourceType | str | None,
+    ) -> str:
+        """Find the :attr:`~scim2_models.ResourceType.endpoint` a request is sent to.
+
+        :param target: A :class:`~scim2_models.ResourceType`, or its name or id.
+            A :class:`~scim2_models.Resource` model goes to the resource type
+            named after its schema. A :class:`~scim2_models.Resource` object goes
+            to the resource type of its ``meta.resourceType``.
         """
+        resource_model, resource_type, resource, _ = self._resolve_target(target, None)
+        return self._resolve_endpoint(resource_model, resource, resource_type)[0]
+
+    def _resolve_endpoint(
+        self,
+        resource_model: type[Resource[Any]] | None,
+        resource: Resource[Any] | None,
+        resource_type: ResourceType | str | None,
+    ) -> tuple[str, type[Resource[Any]] | None]:
+        """Find the endpoint a request is sent to, and the model this endpoint serves."""
+        if resource_type is None:
+            if resource_model is None:
+                return "/", None
+
+            if resource_model in (ResourceType, Schema):
+                return f"/{resource_model.__name__}s", resource_model
+
+            # This one takes no final 's'
+            if resource_model is ServiceProviderConfig:
+                return "/ServiceProviderConfig", resource_model
+
+        found = self._resolve_resource_type(resource_model, resource, resource_type)
+        served = cast("type[Resource[Any]]", self.provider.model_for(found))
+        return self._check_endpoint(found.endpoint), served
+
+    def _find_resource_type(self, key: ResourceType | str) -> ResourceType | None:
+        """Find a resource type of the provider by its name, or else by its id."""
+        name = str(key.name if isinstance(key, ResourceType) else key).casefold()
+        resource_types = self.provider.resource_types
+        for attribute in ("name", "id"):
+            for resource_type in resource_types:
+                if str(getattr(resource_type, attribute)).casefold() == name:
+                    return resource_type
+
+        return None
+
+    @staticmethod
+    def _serves(
+        resource_type: ResourceType, resource_model: type[Resource[Any]] | None
+    ) -> bool:
+        """Tell whether a resource type serves the schema and the extensions of a model."""
         if resource_model is None:
-            return "/"
+            return True
 
-        if resource_model in (ResourceType, Schema):
-            return f"/{resource_model.__name__}s"
+        if (
+            str(resource_type.schema_).casefold()
+            != str(resource_model.__schema__).casefold()
+        ):
+            return False
 
-        # This one takes no final 's'
-        if resource_model is ServiceProviderConfig:
-            return "/ServiceProviderConfig"
+        declared = {
+            str(extension.schema_).casefold()
+            for extension in resource_type.schema_extensions or []
+        }
+        carried = {
+            str(extension.__schema__).casefold()
+            for extension in getattr(resource_model, "__scim_extension_metadata__", ())
+        }
+        return carried <= declared
 
+    def _resolve_resource_type(
+        self,
+        resource_model: type[Resource[Any]] | None,
+        resource: Resource[Any] | None,
+        resource_type: ResourceType | str | None,
+    ) -> ResourceType:
+        """Find the resource type a request is about.
+
+        The resource type is the one passed, or else the one in the
+        ``meta.resourceType`` of the resource, or else the one named after the
+        schema of the model.
+        """
+        declared = resource.meta.resource_type if resource and resource.meta else None
+        if resource_type is not None:
+            return self._explicit_resource_type(resource_model, declared, resource_type)
+
+        if declared:
+            found = self._find_resource_type(declared)
+            if found and self._serves(found, resource_model):
+                return found
+
+            _deprecation(
+                f"The resource type '{declared}' of the resource is unknown "
+                f"or does not serve it. This will raise an error in 0.12."
+            )
+
+        model = cast("type[Resource[Any]]", resource_model)
+        found = self._find_resource_type(str(model.__schema__).split(":")[-1])
+        if found and self._serves(found, model):
+            return found
+
+        return self._guess_resource_type(model)
+
+    def _explicit_resource_type(
+        self,
+        resource_model: type[Resource[Any]] | None,
+        declared: str | None,
+        resource_type: ResourceType | str,
+    ) -> ResourceType:
+        """Check that a resource type passed by the caller can serve the request."""
+        found = self._find_resource_type(resource_type)
+        if found is None:
+            name = (
+                resource_type.name
+                if isinstance(resource_type, ResourceType)
+                else resource_type
+            )
+            raise InvalidValueException(detail=f"Unknown resource type: '{name}'")
+
+        if declared and self._find_resource_type(declared) is not found:
+            raise InvalidValueException(
+                detail=f"The resource belongs to the resource type '{declared}', "
+                f"not '{found.name}'"
+            )
+
+        if not self._serves(found, resource_model):
+            model_name = cast("type[Resource[Any]]", resource_model).__name__
+            raise InvalidValueException(
+                detail=f"The resource type '{found.name}' does not serve {model_name}"
+            )
+
+        return found
+
+    def _guess_resource_type(self, resource_model: type[Resource[Any]]) -> ResourceType:
+        """Find a resource type serving a model, the way versions before 0.11 did."""
         provider = self.provider
-        for resource_type in provider.resource_types:
-            if provider.model_for(resource_type.name) is resource_model:
-                return self._check_endpoint(resource_type.endpoint)
-
-        schema = resource_model.__schema__
-        for resource_type in provider.resource_types:
-            if schema == resource_type.schema_:
-                return self._check_endpoint(resource_type.endpoint)
-
-        raise InvalidValueException(
-            detail=f"No ResourceType is matching the schema: {schema}"
+        schema = str(resource_model.__schema__)
+        guessed = next(
+            (
+                resource_type
+                for resource_type in provider.resource_types
+                if provider.model_for(resource_type) is resource_model
+            ),
+            None,
+        ) or next(
+            (
+                resource_type
+                for resource_type in provider.resource_types
+                if str(resource_type.schema_) == schema
+            ),
+            None,
         )
+        if guessed is None:
+            raise InvalidValueException(
+                detail=f"No ResourceType is matching the schema: {schema}"
+            )
+
+        _deprecation(
+            f"No resource type named after the schema '{schema}' serves "
+            f"{resource_model.__name__}. Guessing the resource type is deprecated, "
+            f"pass the resource type instead. Will be removed in 0.12."
+        )
+        return guessed
+
+    @staticmethod
+    def _check_required_extensions(
+        resource_type: ResourceType, payload: dict[str, Any]
+    ) -> None:
+        """Refuse a payload missing an extension the resource type requires."""
+        keys = {key.casefold() for key in payload}
+        for extension in resource_type.schema_extensions or []:
+            if extension.required and str(extension.schema_).casefold() not in keys:
+                raise InvalidValueException(
+                    detail=f"The resource type '{resource_type.name}' requires "
+                    f"the extension '{extension.schema_}'"
+                )
 
     def _check_endpoint(self, endpoint: str | None) -> str:
         """Refuse a resource type endpoint that would lead a request away from the server.
@@ -624,7 +928,7 @@ class SCIMClient:
         segments = set(parts.path.split("/"))
         return not (parts.scheme or parts.netloc or segments & {".", ".."})
 
-    def register_naive_resource_types(self):
+    def register_naive_resource_types(self) -> None:
         """Register a *naive* :class:`~scim2_models.ResourceType` for each model the :attr:`provider` describes.
 
         This fills the :class:`~scim2_models.ResourceType` with generic values.
@@ -654,7 +958,7 @@ class SCIMClient:
 
     def _check_status_codes(
         self, status_code: int, expected_status_codes: list[int] | None
-    ):
+    ) -> None:
         if (
             self.check_response_status_codes
             and expected_status_codes
@@ -662,14 +966,14 @@ class SCIMClient:
         ):
             raise UnexpectedStatusCodeException(status_code)
 
-    def _check_content_types(self, headers: dict):
+    def _check_content_types(self, headers: ResponseHeaders) -> None:
         # Interoperability considerations:  The "application/scim+json" media
         # type is intended to identify JSON structure data that conforms to
         # the SCIM protocol and schema specifications.  Older versions of
         # SCIM are known to informally use "application/json".
         # https://datatracker.ietf.org/doc/html/rfc7644.html#section-8.1
 
-        actual_content_type = headers.get("content-type", "").split(";").pop(0)
+        actual_content_type = (headers.get("content-type") or "").split(";").pop(0)
         expected_response_content_types = ("application/scim+json", "application/json")
         if (
             self.check_response_content_type
@@ -680,16 +984,16 @@ class SCIMClient:
     @_under_provider
     def check_response(
         self,
-        payload: dict | None,
+        payload: dict[str, Any] | None,
         status_code: int,
-        headers: dict,
+        headers: ResponseHeaders,
         expected_status_codes: list[int] | None = None,
-        expected_types: list[type[Resource]] | None = None,
+        expected_types: Sequence[type[ScimObject]] | None = None,
         check_response_payload: bool | None = None,
         raise_scim_errors: bool | None = None,
         scim_ctx: Context | None = None,
-        target: Resource | None = None,
-    ) -> Error | None | dict | type[Resource]:
+        target: Resource[Any] | None = None,
+    ) -> ScimObject | dict[str, Any] | None:
         """Build the object a server response describes, and check it on the way.
 
         This is what an engine calls once it has performed a request. The content type,
@@ -788,8 +1092,65 @@ class SCIMClient:
         self._set_version_from_etag(result, headers)
         return result
 
+    def _query_kwargs(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Pass the query parameters to :meth:`request` as the HTTP library of the engine takes them."""
+        return {"params": payload}
+
+    def _request_kwargs(self, method: str, req: RequestPayload) -> dict[str, Any]:
+        """Build the arguments a prepared request is sent with."""
+        body: dict[str, Any] = {}
+        if method == "GET" and req.payload:
+            body = self._query_kwargs(req.payload)
+
+        elif method not in ("GET", "DELETE"):
+            body = {"json": req.payload}
+
+        return {**body, **req.request_kwargs}
+
+    def _parse_json(self, response: RawResponse) -> Any:
+        """Parse the body of a response as the HTTP library of the engine does."""
+        return json.loads(response.text)
+
+    def _decode_payload(self, response: RawResponse) -> Any:
+        """Decode the JSON body of a response, or return None when it has no body.
+
+        A body too deeply nested for the decoder, or holding an integer too long for
+        Python to convert, is reported as any other body that is not valid JSON.
+        """
+        try:
+            return self._parse_json(response) if response.text else None
+        except (ValueError, RecursionError) as exc:
+            raise UnexpectedContentFormatException(source=response) from exc
+
+    def _read_response(
+        self,
+        response: RawResponse,
+        req: RequestPayload,
+        check_response_payload: bool | None,
+        raise_scim_errors: bool | None,
+        scim_ctx: Context | None = None,
+    ) -> ScimObject | dict[str, Any] | None:
+        """Build the object the response to a prepared request describes."""
+        try:
+            return self.check_response(
+                payload=self._decode_payload(response),
+                status_code=response.status_code,
+                headers=response.headers,
+                expected_status_codes=req.expected_status_codes,
+                expected_types=req.expected_types,
+                check_response_payload=check_response_payload,
+                raise_scim_errors=raise_scim_errors,
+                scim_ctx=scim_ctx,
+                target=req.target,
+            )
+
+        except (SCIMClientException, SCIMException) as exc:
+            # SCIMException comes from scim2-models and has no 'source' attribute.
+            exc.source = response  # type: ignore[union-attr]
+            raise
+
     @staticmethod
-    def _check_payload_shape(payload) -> None:
+    def _check_payload_shape(payload: object) -> None:
         """Refuse a payload that cannot be a SCIM message.
 
         A SCIM message is a JSON object, and its 'schemas', when present, is a list
@@ -812,7 +1173,7 @@ class SCIMClient:
             )
 
     @staticmethod
-    def _published(result):
+    def _published(result: PublishedT | None) -> PublishedT:
         """Return what a discovery endpoint published, refusing an empty response."""
         if result is None:
             raise InvalidServiceDescriptionException(
@@ -824,11 +1185,13 @@ class SCIMClient:
     @_under_provider
     def _prepare_create_request(
         self,
-        resource: Resource | dict,
+        target: Any = None,
+        resource: Resource[Any] | dict[str, Any] | None = None,
         check_request_payload: bool | None = None,
         expected_status_codes: list[int] | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> RequestPayload:
+        target, resource = self._resolve_payload_target(target, resource)
         req = RequestPayload(
             expected_status_codes=expected_status_codes,
             request_kwargs=kwargs,
@@ -838,48 +1201,41 @@ class SCIMClient:
 
         if not check_request_payload:
             req.payload = resource
-            req.url = req.request_kwargs.pop("url", None)
+            req.url = self._unchecked_url(req)
+            return req
 
-        else:
-            if isinstance(resource, Resource):
-                resource_model = resource.__class__
-
-            else:
-                resource_model = get_model_by_payload(self._composed_models, resource)
-                if not resource_model:
-                    raise InvalidValueException(
-                        detail="Cannot guess resource type from the payload"
-                    )
-
-                try:
-                    resource = resource_model.model_validate(resource)
-                except ValidationError as exc:
-                    raise request_validation_exception(
-                        exc, Context.RESOURCE_CREATION_REQUEST
-                    ) from exc
-
-            self._check_resource_model(resource_model)
-            req.expected_types = [resource.__class__]
-            req.url = req.request_kwargs.pop(
-                "url", self.resource_endpoint(resource_model)
-            )
-            req.payload = resource.model_dump(
-                scim_ctx=Context.RESOURCE_CREATION_REQUEST
-            )
-
+        resource, found = self._validate_payload_target(
+            target, resource, Context.RESOURCE_CREATION_REQUEST
+        )
+        req.expected_types = [
+            cast("type[Resource[Any]]", self.provider.model_for(found))
+        ]
+        req.payload = resource.model_dump(scim_ctx=Context.RESOURCE_CREATION_REQUEST)
+        self._check_required_extensions(found, req.payload)
+        req.url = req.request_kwargs.pop("url", self._check_endpoint(found.endpoint))
         return req
 
     @_under_provider
     def _prepare_query_request(
         self,
-        target: type[Resource] | Resource | None = None,
-        id: str | None = None,
-        query_parameters: ResponseParameters | dict | None = None,
+        target: type[Resource[Any]] | Resource[Any] | ResourceType | str | None = None,
+        id: str
+        | Resource[Any]
+        | ResponseParameters[Any]
+        | dict[str, Any]
+        | None = None,
+        query_parameters: ResponseParameters[Any] | dict[str, Any] | None = None,
         check_request_payload: bool | None = None,
         expected_status_codes: list[int] | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> RequestPayload:
-        resource_model, id, resource = self._resolve_target(target, id)
+        # The id is optional, so the query parameters may take its place.
+        if not isinstance(id, str | Resource | None):
+            if query_parameters is not None:
+                raise InvalidValueException(detail="Cannot pass query parameters twice")
+            id, query_parameters = None, id
+
+        resource_model, resource_type, resource, id = self._resolve_target(target, id)
         req = RequestPayload(
             expected_status_codes=expected_status_codes,
             request_kwargs=kwargs,
@@ -891,7 +1247,17 @@ class SCIMClient:
         if resource_model and check_request_payload:
             self._check_resource_model(resource_model)
 
-        payload: ResponseParameters | None
+        if check_request_payload and isinstance(query_parameters, dict):
+            try:
+                query_parameters = SearchRequest.model_validate(
+                    query_parameters, scim_ctx=Context.RESOURCE_QUERY_REQUEST
+                )
+            except ValidationError as exc:
+                raise request_validation_exception(
+                    exc, Context.RESOURCE_QUERY_REQUEST
+                ) from exc
+
+        payload: Any
         if not check_request_payload:
             payload = query_parameters
 
@@ -912,12 +1278,15 @@ class SCIMClient:
             payload = None
 
         req.payload = payload
-        req.url = req.request_kwargs.pop("url", self.resource_endpoint(resource_model))
+        endpoint, resource_model = self._resolve_endpoint(
+            resource_model, resource, resource_type
+        )
+        req.url = req.request_kwargs.pop("url", endpoint)
 
         if resource_model is None:
             req.expected_types = [
                 *self._composed_models,
-                ListResponse[Union[self._composed_models]],  # noqa: UP007
+                _parametrize(ListResponse, self._composed_models),
             ]
 
         elif resource_model == ServiceProviderConfig:
@@ -936,18 +1305,22 @@ class SCIMClient:
                 self._set_if_none_match(req, resource)
 
         else:
-            req.expected_types = [ListResponse[resource_model]]
+            req.expected_types = [_parametrize(ListResponse, [resource_model])]
 
         return req
 
     @_under_provider
     def _prepare_search_request(
         self,
-        search_request: SearchRequest | None = None,
+        target: Any = None,
+        search_request: SearchRequest[Any] | dict[str, Any] | None = None,
         check_request_payload: bool | None = None,
         expected_status_codes: list[int] | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> RequestPayload:
+        if search_request is None and isinstance(target, SearchRequest | dict):
+            target, search_request = None, target
+
         req = RequestPayload(
             expected_status_codes=expected_status_codes,
             request_kwargs=kwargs,
@@ -961,15 +1334,26 @@ class SCIMClient:
 
         else:
             req.payload = (
-                search_request.model_dump(
-                    exclude_unset=True, scim_ctx=Context.RESOURCE_QUERY_RESPONSE
+                cast("SearchRequest[Any]", search_request).model_dump(
+                    exclude_unset=True, scim_ctx=Context.SEARCH_REQUEST
                 )
                 if search_request
                 else None
             )
 
-        req.url = req.request_kwargs.pop("url", "/.search")
-        req.expected_types = [ListResponse[Union[self._composed_models]]]  # noqa: UP007
+        if target is None:
+            req.url = req.request_kwargs.pop("url", "/.search")
+            req.expected_types = [_parametrize(ListResponse, self._composed_models)]
+            return req
+
+        resource_model, resource_type, resource, _ = self._resolve_target(target, None)
+        endpoint, resource_model = self._resolve_endpoint(
+            resource_model, resource, resource_type
+        )
+        req.url = req.request_kwargs.pop("url", f"{endpoint}/.search")
+        req.expected_types = [
+            _parametrize(ListResponse, [cast("type[Resource[Any]]", resource_model)])
+        ]
         return req
 
     @property
@@ -986,7 +1370,9 @@ class SCIMClient:
                 detail="The server does not support bulk requests"
             )
 
-    def _check_bulk_limits(self, bulk_request: BulkRequest, payload: dict) -> None:
+    def _check_bulk_limits(
+        self, bulk_request: BulkRequest[Resource[Any]], payload: dict[str, Any]
+    ) -> None:
         """Refuse a bulk request exceeding the limits the server advertises.
 
         Those limits are defined at :rfc:`RFC7644 §3.7.4 <7644#section-3.7.4>`.
@@ -1009,31 +1395,35 @@ class SCIMClient:
                 detail=f"Bulk request payloads are limited to {bulk.max_payload_size} bytes by the server"
             )
 
-    def _check_bulk_resource_models(self, bulk_request: BulkRequest) -> None:
+    def _check_bulk_resource_models(
+        self, bulk_request: BulkRequest[Resource[Any]]
+    ) -> None:
         """Check that every operation carries a resource the client handles."""
         for operation in bulk_request.operations or []:
             if isinstance(operation.data, Resource):
                 self._check_resource_model(operation.data.__class__)
 
-    def _validate_bulk_request(self, bulk_request: BulkRequest | dict) -> BulkRequest:
+    def _validate_bulk_request(
+        self, bulk_request: BulkRequest[Resource[Any]] | dict[str, Any]
+    ) -> BulkRequest[Resource[Any]]:
         """Build the bulk request message a raw payload describes."""
         if not isinstance(bulk_request, dict):
             return bulk_request
 
         try:
-            return BulkRequest[
-                Union[self._composed_models]  # noqa: UP007
-            ].model_validate(bulk_request)
+            return _parametrize(BulkRequest, self._composed_models).model_validate(
+                bulk_request
+            )
         except ValidationError as exc:
             raise request_validation_exception(exc, Context.BULK_REQUEST) from exc
 
     @_under_provider
     def _prepare_bulk_request(
         self,
-        bulk_request: BulkRequest | dict | None = None,
+        bulk_request: BulkRequest[Resource[Any]] | dict[str, Any] | None = None,
         check_request_payload: bool | None = None,
         expected_status_codes: list[int] | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> RequestPayload:
         req = RequestPayload(
             expected_status_codes=expected_status_codes,
@@ -1054,47 +1444,55 @@ class SCIMClient:
         else:
             message = self._validate_bulk_request(bulk_request)
             self._check_bulk_resource_models(message)
-            req.payload = message.model_dump(scim_ctx=Context.BULK_REQUEST)
-            self._check_bulk_limits(message, req.payload)
+            payload = message.model_dump(scim_ctx=Context.BULK_REQUEST)
+            self._check_bulk_limits(message, payload)
+            req.payload = payload
 
         req.url = req.request_kwargs.pop("url", "/Bulk")
-        req.expected_types = [BulkResponse[Union[self._composed_models]]]  # noqa: UP007
+        req.expected_types = [_parametrize(BulkResponse, self._composed_models)]
         return req
 
     @_under_provider
     def _prepare_delete_request(
         self,
-        resource: Resource | type[Resource] | None = None,
-        id: str | None = None,
+        target: Resource[Any] | type[Resource[Any]] | ResourceType | str | None = None,
+        id: str | Resource[Any] | None = None,
         expected_status_codes: list[int] | None = None,
-        **kwargs,
+        *,
+        resource: Resource[Any] | type[Resource[Any]] | None = None,
+        **kwargs: Any,
     ) -> RequestPayload:
-        resource_model, id, _instance = self._resolve_target(resource, id)
+        target = self._renamed_target(target, resource)
+        resource_model, resource_type, instance, id = self._resolve_target(target, id)
         req = RequestPayload(
             expected_status_codes=expected_status_codes,
             request_kwargs=kwargs,
         )
 
-        if resource_model is None:
+        if resource_model is None and resource_type is None:
             raise InvalidValueException(detail="No resource type to delete")
 
-        self._check_resource_model(resource_model)
+        if resource_model is not None:
+            self._check_resource_model(resource_model)
+
         if not id:
             raise InvalidValueException(detail="Resource must have an id")
 
-        delete_url = _resource_url(self.resource_endpoint(resource_model), id)
-        req.url = req.request_kwargs.pop("url", delete_url)
-        self._set_if_match(req, _instance)
+        endpoint, _ = self._resolve_endpoint(resource_model, instance, resource_type)
+        req.url = req.request_kwargs.pop("url", _resource_url(endpoint, id))
+        self._set_if_match(req, instance)
         return req
 
     @_under_provider
     def _prepare_replace_request(
         self,
-        resource: Resource | dict,
+        target: Any = None,
+        resource: Resource[Any] | dict[str, Any] | None = None,
         check_request_payload: bool | None = None,
         expected_status_codes: list[int] | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> RequestPayload:
+        target, resource = self._resolve_payload_target(target, resource)
         req = RequestPayload(
             expected_status_codes=expected_status_codes,
             request_kwargs=kwargs,
@@ -1105,56 +1503,57 @@ class SCIMClient:
 
         if not check_request_payload:
             req.payload = resource
-            req.url = kwargs.pop("url", None)
+            req.url = self._unchecked_url(req)
+            self._set_if_match(req, resource)
+            return req
 
-        else:
-            if isinstance(resource, Resource):
-                resource_model = resource.__class__
+        resource, found = self._validate_payload_target(
+            target, resource, Context.RESOURCE_REPLACEMENT_REQUEST
+        )
+        if not resource.id:
+            raise InvalidValueException(detail="Resource must have an id")
 
-            else:
-                resource_model = get_model_by_payload(self._composed_models, resource)
-                if not resource_model:
-                    raise InvalidValueException(
-                        detail="Cannot guess resource type from the payload"
-                    )
-
-                try:
-                    resource = resource_model.model_validate(resource)
-                except ValidationError as exc:
-                    raise request_validation_exception(
-                        exc, Context.RESOURCE_REPLACEMENT_REQUEST
-                    ) from exc
-
-            self._check_resource_model(resource_model)
-
-            if not resource.id:
-                raise InvalidValueException(detail="Resource must have an id")
-
-            req.expected_types = [resource.__class__]
-            req.payload = resource.model_dump(
-                scim_ctx=Context.RESOURCE_REPLACEMENT_REQUEST
-            )
-            req.url = req.request_kwargs.pop(
-                "url",
-                _resource_url(self.resource_endpoint(resource.__class__), resource.id),
-            )
-
+        req.expected_types = [
+            cast("type[Resource[Any]]", self.provider.model_for(found))
+        ]
+        req.payload = resource.model_dump(scim_ctx=Context.RESOURCE_REPLACEMENT_REQUEST)
+        self._check_required_extensions(found, req.payload)
+        req.url = req.request_kwargs.pop(
+            "url", _resource_url(self._check_endpoint(found.endpoint), resource.id)
+        )
         self._set_if_match(req, resource)
         return req
 
     @_under_provider
     def _prepare_patch_request(
         self,
-        resource: ResourceT | type[ResourceT] | None = None,
-        patch_op: PatchOp[ResourceT] | dict | str | None = None,
-        id: str | None = None,
+        target: ResourceT | type[ResourceT] | ResourceType | str | None = None,
+        id: str | ResourceT | PatchOp[ResourceT] | dict[str, Any] | None = None,
+        patch_op: PatchOp[ResourceT] | dict[str, Any] | str | None = None,
         check_request_payload: bool | None = None,
         expected_status_codes: list[int] | None = None,
-        **kwargs,
+        *,
+        resource: ResourceT | type[ResourceT] | None = None,
+        **kwargs: Any,
     ) -> RequestPayload:
         """Prepare a PATCH request payload."""
-        patch_op, id = self._resolve_patch_arguments(patch_op, id)
-        resource_model, id, _instance = self._resolve_target(resource, id)
+        target = self._renamed_target(target, resource)
+        # The id is optional, so the patch operation may take its place.
+        if not isinstance(id, str | Resource | None):
+            if isinstance(patch_op, str):
+                _deprecation(
+                    "Passing the patch operation before the id is deprecated, "
+                    "pass the id first. Will be removed in 0.12."
+                )
+            elif patch_op is not None:
+                raise InvalidValueException(
+                    detail="Cannot pass the patch operation twice"
+                )
+            id, patch_op = patch_op, id
+
+        resource_model, resource_type, instance, id = self._resolve_target(
+            target, cast("str | Resource[Any] | None", id)
+        )
         req = RequestPayload(
             expected_status_codes=expected_status_codes,
             request_kwargs=kwargs,
@@ -1163,55 +1562,42 @@ class SCIMClient:
         if check_request_payload is None:
             check_request_payload = self.check_request_payload
 
-        if resource_model is None:
+        if resource_model is None and resource_type is None:
             raise InvalidValueException(detail="No resource type to modify")
 
-        self._check_resource_model(resource_model)
+        if resource_model is not None:
+            self._check_resource_model(resource_model)
+
         if not id:
             raise InvalidValueException(detail="Resource must have an id")
 
         if patch_op is None:
             raise InvalidValueException(detail="Missing patch operation")
 
-        if not check_request_payload:
+        endpoint, served = self._resolve_endpoint(
+            resource_model, instance, resource_type
+        )
+        req.url = req.request_kwargs.pop("url", _resource_url(endpoint, id))
+        if not check_request_payload or isinstance(patch_op, dict):
             req.payload = patch_op
-            req.url = req.request_kwargs.pop(
-                "url", _resource_url(self.resource_endpoint(resource_model), id)
-            )
 
         else:
-            if isinstance(patch_op, dict):
-                req.payload = patch_op
-            else:
-                try:
-                    req.payload = patch_op.model_dump(
-                        scim_ctx=Context.RESOURCE_PATCH_REQUEST
-                    )
-                except ValidationError as exc:
-                    raise request_validation_exception(
-                        exc, Context.RESOURCE_PATCH_REQUEST
-                    ) from exc
+            try:
+                req.payload = cast("PatchOp[Any]", patch_op).model_dump(
+                    scim_ctx=Context.RESOURCE_PATCH_REQUEST
+                )
+            except ValidationError as exc:
+                raise request_validation_exception(
+                    exc, Context.RESOURCE_PATCH_REQUEST
+                ) from exc
 
-            req.url = req.request_kwargs.pop(
-                "url", _resource_url(self.resource_endpoint(resource_model), id)
-            )
-
-        req.expected_types = [resource_model]
-        self._set_if_match(req, _instance)
+        req.expected_types = [cast("type[Resource[Any]]", served)]
+        self._set_if_match(req, instance)
         return req
-
-    def modify(
-        self,
-        resource: ResourceT | type[ResourceT] | None = None,
-        patch_op: PatchOp[ResourceT] | dict | None = None,
-        id: str | None = None,
-        **kwargs,
-    ) -> ResourceT | Error | dict | None:
-        raise NotImplementedError()
 
     def build_resource_models(
         self, resource_types: Collection[ResourceType], schemas: Collection[Schema]
-    ) -> tuple[type[Resource], ...]:
+    ) -> tuple[type[Resource[Any]], ...]:
         """Build models from server objects.
 
         .. deprecated:: 0.9
@@ -1229,7 +1615,7 @@ class SCIMClient:
         )
         provider = ScimProvider.from_discovery(schemas, resource_types)
         return tuple(
-            cast("type[Resource]", provider.model_for(resource_type.name))
+            cast("type[Resource[Any]]", provider.model_for(resource_type))
             for resource_type in provider.resource_types
         )
 
@@ -1260,20 +1646,97 @@ class SCIMClient:
 class BaseSyncSCIMClient(SCIMClient):
     """Base class for synchronous request clients."""
 
+    def _send(self, method: str, req: RequestPayload) -> RawResponse:
+        try:
+            return self.request(method, req.url, **self._request_kwargs(method, req))
+        except RequestNetworkException as exc:
+            exc.source = req.payload
+            raise
+
+    @overload
     def create(
         self,
-        resource: AnyResource | dict,
+        target: ResourceT,
+        resource: None = None,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> ResourceT | Error | dict[str, Any]: ...
+
+    @overload
+    def create(
+        self,
+        target: type[ResourceT],
+        resource: ResourceT | dict[str, Any],
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> ResourceT | Error | dict[str, Any]: ...
+
+    @overload
+    def create(
+        self,
+        target: ResourceType | str | None,
+        resource: ResourceT,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> ResourceT | Error | dict[str, Any]: ...
+
+    @overload
+    def create(
+        self,
+        *,
+        resource: ResourceT,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> ResourceT | Error | dict[str, Any]: ...
+
+    @overload
+    def create(
+        self,
+        target: dict[str, Any] | ResourceType | str | None = None,
+        resource: dict[str, Any] | None = None,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> Resource[Any] | Error | dict[str, Any]: ...
+
+    def create(
+        self,
+        target: AnyResource
+        | dict[str, Any]
+        | type[Resource[Any]]
+        | ResourceType
+        | str
+        | None = None,
+        resource: AnyResource | dict[str, Any] | None = None,
         check_request_payload: bool | None = None,
         check_response_payload: bool | None = None,
         expected_status_codes: list[int]
         | None = SCIMClient.CREATION_RESPONSE_STATUS_CODES,
         raise_scim_errors: bool | None = None,
-        **kwargs,
-    ) -> AnyResource | Error | dict:
+        **kwargs: Any,
+    ) -> AnyResource | Error | dict[str, Any]:
         """Perform a POST request to create, as defined in :rfc:`RFC7644 §3.3 <7644#section-3.3>`.
 
-        :param resource: The resource to create
-            If is a :class:`dict`, the resource type will be guessed from the schema.
+        :param target: The :class:`~scim2_models.ResourceType` to create the resource in, or its name or id, or a
+            :class:`~scim2_models.Resource` model. When omitted, it is the one named after the schema of the resource.
+            The resource itself may be passed here instead of :paramref:`resource`.
+        :param resource: The resource to create.
+            If it is a :class:`dict`, it is read with the model passed as :paramref:`target`,
+            or else with the model guessed from its schemas.
         :param check_request_payload: If set, overwrites :paramref:`~scim2_client.SCIMClient.check_request_payload`.
         :param check_response_payload: If set, overwrites :paramref:`~scim2_client.SCIMClient.check_response_payload`.
         :param expected_status_codes: The list of expected status codes form the response.
@@ -1303,40 +1766,138 @@ class BaseSyncSCIMClient(SCIMClient):
             which value will excluded from the request payload, and which values are expected in
             the response payload.
         """
-        raise NotImplementedError()
+        req = self._prepare_create_request(
+            target=target,
+            resource=resource,
+            check_request_payload=check_request_payload,
+            expected_status_codes=expected_status_codes,
+            **kwargs,
+        )
+        response = self._send("POST", req)
+        return cast(
+            "AnyResource | Error | dict[str, Any]",
+            self._read_response(
+                response,
+                req,
+                check_response_payload,
+                raise_scim_errors,
+                Context.RESOURCE_CREATION_RESPONSE,
+            ),
+        )
+
+    @overload
+    def query(
+        self,
+        target: type[ServiceProviderConfig],
+        id: ResponseParameters[Any] | dict[str, Any] | None = None,
+        query_parameters: ResponseParameters[Any] | dict[str, Any] | None = None,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> ServiceProviderConfig | Error | dict[str, Any]: ...
+
+    @overload
+    def query(
+        self,
+        target: ResourceType | str,
+        id: str | Resource[Any],
+        query_parameters: ResponseParameters[Any] | dict[str, Any] | None = None,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> Resource[Any] | Error | dict[str, Any]: ...
+
+    @overload
+    def query(
+        self,
+        target: ResourceType | str | None = None,
+        id: ResponseParameters[Any] | dict[str, Any] | None = None,
+        query_parameters: ResponseParameters[Any] | dict[str, Any] | None = None,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> ListResponse[Resource[Any]] | Error | dict[str, Any]: ...
+
+    @overload
+    def query(
+        self,
+        target: type[ResourceT],
+        id: str | ResourceT,
+        query_parameters: ResponseParameters[Any] | dict[str, Any] | None = None,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> ResourceT | Error | dict[str, Any]: ...
+
+    @overload
+    def query(
+        self,
+        target: ResourceT,
+        id: ResponseParameters[Any] | dict[str, Any] | None = None,
+        query_parameters: ResponseParameters[Any] | dict[str, Any] | None = None,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> ResourceT | Error | dict[str, Any]: ...
+
+    @overload
+    def query(
+        self,
+        target: type[ResourceT],
+        id: ResponseParameters[Any] | dict[str, Any] | None = None,
+        query_parameters: ResponseParameters[Any] | dict[str, Any] | None = None,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> ListResponse[ResourceT] | Error | dict[str, Any]: ...
 
     def query(
         self,
-        target: type[Resource] | Resource | None = None,
-        id: str | None = None,
-        query_parameters: ResponseParameters | dict | None = None,
+        target: type[Resource[Any]] | Resource[Any] | ResourceType | str | None = None,
+        id: str
+        | Resource[Any]
+        | ResponseParameters[Any]
+        | dict[str, Any]
+        | None = None,
+        query_parameters: ResponseParameters[Any] | dict[str, Any] | None = None,
         check_request_payload: bool | None = None,
         check_response_payload: bool | None = None,
         expected_status_codes: list[int]
         | None = SCIMClient.QUERY_RESPONSE_STATUS_CODES,
         raise_scim_errors: bool | None = None,
-        **kwargs,
-    ) -> Resource | ListResponse[Resource] | Error | dict:
+        **kwargs: Any,
+    ) -> "Resource[Any] | ListResponse[Any] | Error | dict[str, Any]":
         """Perform a GET request to read resources, as defined in :rfc:`RFC7644 §3.4.2 <7644#section-3.4.2>`.
 
-        The resource to read can be designated either by a
-        :class:`~scim2_models.Resource` object, or by a
-        :class:`~scim2_models.Resource` subtype and an id.
+        The resource type is designated by :paramref:`target`.
 
-        - If ``target`` is a :class:`~scim2_models.Resource` object, the resource
-          with the same id will be reached. The object must have an id. When the
-          server supports ETags and the object carries a version, the read is
-          conditional, and the object itself is returned when the server answers
-          with a ``304 Not Modified``.
-        - If ``id`` is not :data:`None`, the resource with the exact id will be reached.
-        - If ``target`` is a :class:`~scim2_models.Resource` subtype and ``id`` is
-          :data:`None`, all the resources with the given type will be reached.
-        - If ``target`` is :data:`None`, all the available resources will be reached.
+        - If :paramref:`id` is not :data:`None`, the resource with this id is read.
+        - If :paramref:`id` is :data:`None`, all the resources of the resource type are listed.
+        - If :paramref:`target` is :data:`None`, all the available resources are listed.
 
-        :param target: A :class:`~scim2_models.Resource` object, a
-            :class:`~scim2_models.Resource` subtype, or :data:`None`
-        :param id: The SCIM id of an object to get, or :data:`None`.
-            It cannot be used together with a :class:`~scim2_models.Resource` object.
+        When the server supports ETags and a :class:`~scim2_models.Resource` object carrying
+        a version is passed, the read is conditional, and the object itself is returned when
+        the server answers with a ``304 Not Modified``.
+
+        :param target: A :class:`~scim2_models.ResourceType`, or its name or id, or a
+            :class:`~scim2_models.Resource` model, which goes to the resource type named after
+            its schema. A :class:`~scim2_models.Resource` object stands for both the resource
+            type, read from its ``meta.resourceType``, and the id.
+        :param id: The id of the resource to read, or a :class:`~scim2_models.Resource` object
+            carrying it. When :paramref:`target` is a :class:`~scim2_models.Resource` object,
+            the query parameters may be passed here.
         :param query_parameters: A :class:`~scim2_models.ResponseParameters` or
             :class:`~scim2_models.SearchRequest` detailing the query parameters.
             Use :class:`~scim2_models.ResponseParameters` when querying a single
@@ -1345,6 +1906,10 @@ class BaseSyncSCIMClient(SCIMClient):
             Use :class:`~scim2_models.SearchRequest` when listing resources, to
             also pass ``filter``, ``sortBy``, ``sortOrder``, ``startIndex`` and
             ``count`` (:rfc:`RFC 7644 §3.4.2 <7644#section-3.4.2>`).
+            Pass ``cursor`` instead of ``startIndex`` for cursor-based pagination
+            (:rfc:`RFC 9865 §2 <9865#section-2>`). An empty cursor requests the
+            first page. The response gives the cursor of the next page in
+            :attr:`~scim2_models.ListResponse.next_cursor`.
         :param check_request_payload: If set, overwrites :paramref:`scim2_client.SCIMClient.check_request_payload`.
         :param check_response_payload: If set, overwrites :paramref:`scim2_client.SCIMClient.check_response_payload`.
         :param expected_status_codes: The list of expected status codes form the response.
@@ -1372,6 +1937,7 @@ class BaseSyncSCIMClient(SCIMClient):
 
             response = scim.query(User, "my-user-id")
             response = scim.query(User(id="my-user-id"))
+            response = scim.query("Employee", "my-user-id")
             # 'response' may be a User or an Error object
 
         .. code-block:: python
@@ -1398,22 +1964,71 @@ class BaseSyncSCIMClient(SCIMClient):
             which value will excluded from the request payload, and which values are expected in
             the response payload.
         """
-        raise NotImplementedError()
+        req = self._prepare_query_request(
+            target=target,
+            id=id,
+            query_parameters=query_parameters,
+            check_request_payload=check_request_payload,
+            expected_status_codes=expected_status_codes,
+            **kwargs,
+        )
+        response = self._send("GET", req)
+        return cast(
+            "Resource[Any] | ListResponse[Any] | Error | dict[str, Any]",
+            self._read_response(
+                response,
+                req,
+                check_response_payload,
+                raise_scim_errors,
+                Context.RESOURCE_QUERY_RESPONSE,
+            ),
+        )
+
+    @overload
+    def search(
+        self,
+        target: type[ResourceT],
+        search_request: SearchRequest[Any] | None = None,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> ListResponse[ResourceT] | Error | dict[str, Any]: ...
+
+    @overload
+    def search(
+        self,
+        target: SearchRequest[Any] | ResourceType | str | None = None,
+        search_request: SearchRequest[Any] | None = None,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> ListResponse[Resource[Any]] | Error | dict[str, Any]: ...
 
     def search(
         self,
-        search_request: SearchRequest | None = None,
+        target: SearchRequest[Any]
+        | type[Resource[Any]]
+        | ResourceType
+        | str
+        | None = None,
+        search_request: SearchRequest[Any] | None = None,
         check_request_payload: bool | None = None,
         check_response_payload: bool | None = None,
         expected_status_codes: list[int]
         | None = SCIMClient.SEARCH_RESPONSE_STATUS_CODES,
         raise_scim_errors: bool | None = None,
-        **kwargs,
-    ) -> Resource | ListResponse[Resource] | Error | dict:
+        **kwargs: Any,
+    ) -> "ListResponse[Any] | Error | dict[str, Any]":
         """Perform a POST search request to read all available resources, as defined in :rfc:`RFC7644 §3.4.3 <7644#section-3.4.3>`.
 
-        :param resource_models: Resource type or union of types expected
-            to be read from the response.
+        :param target: The :class:`~scim2_models.ResourceType` to search, or its name or id, or a
+            :class:`~scim2_models.Resource` model. When omitted, the search covers all the
+            resource types. The search request may be passed here instead of
+            :paramref:`search_request`.
         :param search_request: An object detailing the search query parameters.
         :param check_request_payload: If set, overwrites :paramref:`scim2_client.SCIMClient.check_request_payload`.
         :param check_response_payload: If set, overwrites :paramref:`scim2_client.SCIMClient.check_response_payload`.
@@ -1445,17 +2060,34 @@ class BaseSyncSCIMClient(SCIMClient):
             which value will excluded from the request payload, and which values are expected in
             the response payload.
         """
-        raise NotImplementedError()
+        req = self._prepare_search_request(
+            target=target,
+            search_request=search_request,
+            check_request_payload=check_request_payload,
+            expected_status_codes=expected_status_codes,
+            **kwargs,
+        )
+        response = self._send("POST", req)
+        return cast(
+            "ListResponse[Any] | Error | dict[str, Any]",
+            self._read_response(
+                response,
+                req,
+                check_response_payload,
+                raise_scim_errors,
+                Context.RESOURCE_QUERY_RESPONSE,
+            ),
+        )
 
     def bulk(
         self,
-        bulk_request: BulkRequest | dict | None = None,
+        bulk_request: BulkRequest[Resource[Any]] | dict[str, Any] | None = None,
         check_request_payload: bool | None = None,
         check_response_payload: bool | None = None,
         expected_status_codes: list[int] | None = SCIMClient.BULK_RESPONSE_STATUS_CODES,
         raise_scim_errors: bool | None = None,
-        **kwargs,
-    ) -> BulkResponse | Error | dict:
+        **kwargs: Any,
+    ) -> BulkResponse[Resource[Any]] | Error | dict[str, Any]:
         """Perform a POST bulk request to execute bulk operations, as defined in :rfc:`RFC7644 §3.7 <7644#section-3.7>`.
 
         :param bulk_request: An object detailing the bulk request.
@@ -1532,27 +2164,48 @@ class BaseSyncSCIMClient(SCIMClient):
             checked against the bulk capabilities the server advertises, and a request the
             server would answer with a ``413`` is not sent.
         """
-        raise NotImplementedError()
+        req = self._prepare_bulk_request(
+            bulk_request=bulk_request,
+            check_request_payload=check_request_payload,
+            expected_status_codes=expected_status_codes,
+            **kwargs,
+        )
+        response = self._send("POST", req)
+        return cast(
+            "BulkResponse[Resource[Any]] | Error | dict[str, Any]",
+            self._read_response(
+                response,
+                req,
+                check_response_payload,
+                raise_scim_errors,
+                Context.BULK_RESPONSE,
+            ),
+        )
 
     def delete(
         self,
-        resource: Resource | type[Resource] | None = None,
-        id: str | None = None,
+        target: Resource[Any] | type[Resource[Any]] | ResourceType | str | None = None,
+        id: str | Resource[Any] | None = None,
         check_response_payload: bool | None = None,
         expected_status_codes: list[int]
         | None = SCIMClient.DELETION_RESPONSE_STATUS_CODES,
         raise_scim_errors: bool | None = None,
-        **kwargs,
-    ) -> Error | dict | None:
+        *,
+        resource: Resource[Any] | type[Resource[Any]] | None = None,
+        **kwargs: Any,
+    ) -> Error | dict[str, Any] | None:
         """Perform a DELETE request, as defined in :rfc:`RFC7644 §3.6 <7644#section-3.6>`.
 
-        The resource to delete can be designated either by a
-        :class:`~scim2_models.Resource` object, or by a
-        :class:`~scim2_models.Resource` subtype and an id.
+        The resource to delete is designated by a resource type and an id, or by a
+        :class:`~scim2_models.Resource` object.
 
-        :param resource: The resource to delete, or its type.
-        :param id: The id of the resource to delete, when a type is passed.
-            It cannot be used together with a :class:`~scim2_models.Resource` object.
+        :param target: A :class:`~scim2_models.ResourceType`, or its name or id, or a
+            :class:`~scim2_models.Resource` model, which goes to the resource type named after
+            its schema. A :class:`~scim2_models.Resource` object stands for both the resource
+            type, read from its ``meta.resourceType``, and the id.
+        :param id: The id of the resource to delete, or a :class:`~scim2_models.Resource`
+            object carrying it.
+        :param resource: Deprecated, pass :paramref:`target` instead.
         :param check_response_payload: If set, overwrites :paramref:`scim2_client.SCIMClient.check_response_payload`.
         :param expected_status_codes: The list of expected status codes form the response.
             If :data:`None` any status code is accepted.
@@ -1577,22 +2230,106 @@ class BaseSyncSCIMClient(SCIMClient):
             response = scim.delete(user)
             # 'response' may be None, or an Error object
         """
-        raise NotImplementedError()
+        req = self._prepare_delete_request(
+            target=target,
+            resource=resource,
+            id=id,
+            expected_status_codes=expected_status_codes,
+            **kwargs,
+        )
+        response = self._send("DELETE", req)
+        return cast(
+            "Error | dict[str, Any] | None",
+            self._read_response(
+                response, req, check_response_payload, raise_scim_errors
+            ),
+        )
+
+    @overload
+    def replace(
+        self,
+        target: ResourceT,
+        resource: None = None,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> ResourceT | Error | dict[str, Any]: ...
+
+    @overload
+    def replace(
+        self,
+        target: type[ResourceT],
+        resource: ResourceT | dict[str, Any],
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> ResourceT | Error | dict[str, Any]: ...
+
+    @overload
+    def replace(
+        self,
+        target: ResourceType | str | None,
+        resource: ResourceT,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> ResourceT | Error | dict[str, Any]: ...
+
+    @overload
+    def replace(
+        self,
+        *,
+        resource: ResourceT,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> ResourceT | Error | dict[str, Any]: ...
+
+    @overload
+    def replace(
+        self,
+        target: dict[str, Any] | ResourceType | str | None = None,
+        resource: dict[str, Any] | None = None,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> Resource[Any] | Error | dict[str, Any]: ...
 
     def replace(
         self,
-        resource: AnyResource | dict,
+        target: AnyResource
+        | dict[str, Any]
+        | type[Resource[Any]]
+        | ResourceType
+        | str
+        | None = None,
+        resource: AnyResource | dict[str, Any] | None = None,
         check_request_payload: bool | None = None,
         check_response_payload: bool | None = None,
         expected_status_codes: list[int]
         | None = SCIMClient.REPLACEMENT_RESPONSE_STATUS_CODES,
         raise_scim_errors: bool | None = None,
-        **kwargs,
-    ) -> AnyResource | Error | dict:
+        **kwargs: Any,
+    ) -> AnyResource | Error | dict[str, Any]:
         """Perform a PUT request to replace a resource, as defined in :rfc:`RFC7644 §3.5.1 <7644#section-3.5.1>`.
 
-        :param resource: The new resource to replace.
-            If is a :class:`dict`, the resource type will be guessed from the schema.
+        :param target: The :class:`~scim2_models.ResourceType` of the resource, or its name or id, or a
+            :class:`~scim2_models.Resource` model. When omitted, it is the one in the ``meta.resourceType`` of
+            the resource, or else the one named after its schema.
+            The resource itself may be passed here instead of :paramref:`resource`.
+        :param resource: The new resource. It must have an id.
+            If it is a :class:`dict`, it is read with the model passed as :paramref:`target`,
+            or else with the model guessed from its schemas.
         :param check_request_payload: If set, overwrites :paramref:`scim2_client.SCIMClient.check_request_payload`.
         :param check_response_payload: If set, overwrites :paramref:`scim2_client.SCIMClient.check_response_payload`.
         :param expected_status_codes: The list of expected status codes form the response.
@@ -1623,32 +2360,55 @@ class BaseSyncSCIMClient(SCIMClient):
             which value will excluded from the request payload, and which values are expected in
             the response payload.
         """
-        raise NotImplementedError()
+        req = self._prepare_replace_request(
+            target=target,
+            resource=resource,
+            check_request_payload=check_request_payload,
+            expected_status_codes=expected_status_codes,
+            **kwargs,
+        )
+        response = self._send("PUT", req)
+        return cast(
+            "AnyResource | Error | dict[str, Any]",
+            self._read_response(
+                response,
+                req,
+                check_response_payload,
+                raise_scim_errors,
+                Context.RESOURCE_REPLACEMENT_RESPONSE,
+            ),
+        )
 
     def modify(
         self,
-        resource: ResourceT | type[ResourceT] | None = None,
-        patch_op: PatchOp[ResourceT] | dict | None = None,
-        id: str | None = None,
+        target: ResourceT | type[ResourceT] | ResourceType | str | None = None,
+        id: str | ResourceT | PatchOp[ResourceT] | dict[str, Any] | None = None,
+        patch_op: PatchOp[ResourceT] | dict[str, Any] | str | None = None,
         check_request_payload: bool | None = None,
         check_response_payload: bool | None = None,
         expected_status_codes: list[int]
         | None = SCIMClient.PATCH_RESPONSE_STATUS_CODES,
         raise_scim_errors: bool | None = None,
-        **kwargs,
-    ) -> ResourceT | Error | dict | None:
+        *,
+        resource: ResourceT | type[ResourceT] | None = None,
+        **kwargs: Any,
+    ) -> ResourceT | Error | dict[str, Any] | None:
         """Perform a PATCH request to modify a resource, as defined in :rfc:`RFC7644 §3.5.2 <7644#section-3.5.2>`.
 
-        The resource to modify can be designated either by a
-        :class:`~scim2_models.Resource` object, or by a
-        :class:`~scim2_models.Resource` subtype and an id.
+        The resource to modify is designated by a resource type and an id, or by a
+        :class:`~scim2_models.Resource` object.
 
-        :param resource: The resource to modify, or its type.
+        :param target: A :class:`~scim2_models.ResourceType`, or its name or id, or a
+            :class:`~scim2_models.Resource` model, which goes to the resource type named after
+            its schema. A :class:`~scim2_models.Resource` object stands for both the resource
+            type, read from its ``meta.resourceType``, and the id.
+        :param id: The id of the resource to modify, or a :class:`~scim2_models.Resource`
+            object carrying it. When :paramref:`target` is a :class:`~scim2_models.Resource`
+            object, the patch operation may be passed here.
         :param patch_op: The :class:`~scim2_models.PatchOp` object describing the modifications.
-            Must be parameterized with the same resource type as ``resource``
-            (e.g., :code:`PatchOp[User]` when ``resource`` is :code:`User`).
-        :param id: The id of the resource to modify, when a type is passed.
-            It cannot be used together with a :class:`~scim2_models.Resource` object.
+            Must be parameterized with the model of the resource
+            (e.g., :code:`PatchOp[User]` for a :code:`User`).
+        :param resource: Deprecated, pass :paramref:`target` instead.
         :param check_request_payload: If set, overwrites :paramref:`scim2_client.SCIMClient.check_request_payload`.
         :param check_response_payload: If set, overwrites :paramref:`scim2_client.SCIMClient.check_response_payload`.
         :param expected_status_codes: The list of expected status codes form the response.
@@ -1686,9 +2446,33 @@ class BaseSyncSCIMClient(SCIMClient):
             which value will excluded from the request payload, and which values are expected in
             the response payload.
         """
-        raise NotImplementedError()
+        req = self._prepare_patch_request(
+            target=target,
+            resource=resource,
+            patch_op=patch_op,
+            id=id,
+            check_request_payload=check_request_payload,
+            expected_status_codes=expected_status_codes,
+            **kwargs,
+        )
+        response = self._send("PATCH", req)
+        return cast(
+            "ResourceT | Error | dict[str, Any] | None",
+            self._read_response(
+                response,
+                req,
+                check_response_payload,
+                raise_scim_errors,
+                Context.RESOURCE_PATCH_RESPONSE,
+            ),
+        )
 
-    def discover(self, schemas=True, resource_types=True, service_provider_config=True):
+    def discover(
+        self,
+        schemas: bool = True,
+        resource_types: bool = True,
+        service_provider_config: bool = True,
+    ) -> None:
         """Dynamically discover the server configuration objects.
 
         Only what the :attr:`~scim2_client.SCIMClient.provider` does not describe
@@ -1701,47 +2485,157 @@ class BaseSyncSCIMClient(SCIMClient):
         :raises ~scim2_client.InvalidServiceDescriptionException: When the objects
             the server publishes do not describe a coherent service.
         """
-        discovered_resource_types = self._resource_types
+        discovered_resource_types: Collection[ResourceType] = self._resource_types
         if resource_types and not discovered_resource_types:
+            resource_types_response = self.query(ResourceType, **DISCOVERY_OPTIONS)
             discovered_resource_types = (
-                self._published(self.query(ResourceType, **DISCOVERY_OPTIONS)).resources
+                self._published(
+                    cast("ListResponse[ResourceType] | None", resource_types_response)
+                ).resources
                 or []
             )
 
         discovered_schemas = None
         if schemas and not self._models:
+            schemas_response = self.query(Schema, **DISCOVERY_OPTIONS)
             discovered_schemas = (
-                self._published(self.query(Schema, **DISCOVERY_OPTIONS)).resources or []
+                self._published(
+                    cast("ListResponse[Schema] | None", schemas_response)
+                ).resources
+                or []
             )
 
         config = self._config
         if service_provider_config and not config:
+            config_response = self.query(ServiceProviderConfig, **DISCOVERY_OPTIONS)
             config = self._published(
-                self.query(ServiceProviderConfig, **DISCOVERY_OPTIONS)
+                cast("ServiceProviderConfig | None", config_response)
             )
 
         self.provider = self._describe_service(
             discovered_schemas, discovered_resource_types, config
         )
 
+    def request(self, method: str, url: str, **kwargs: Any) -> RawResponse:
+        """Send a request to the server, without any SCIM processing.
+
+        Neither the request nor the response is checked, so this is fitted to
+        observe how the server behaves, for instance with an unsupported HTTP method.
+
+        :param method: The HTTP method.
+        :param url: The URL, relative to the SCIM server base URL.
+        :param kwargs: Additional parameters passed to the underlying
+            HTTP request library.
+        :return: The response of the underlying HTTP request library.
+        :raises ~scim2_client.RequestNetworkException: When the request cannot be sent.
+
+        :usage:
+
+        .. code-block:: python
+            :caption: Checking that the ``/Schemas`` endpoint refuses ``DELETE``
+
+            response = scim.request("DELETE", "/Schemas")
+            assert response.status_code == 405
+        """
+        raise NotImplementedError()
+
 
 class BaseAsyncSCIMClient(SCIMClient):
     """Base class for asynchronous request clients."""
 
+    async def _send(self, method: str, req: RequestPayload) -> RawResponse:
+        try:
+            return await self.request(
+                method, req.url, **self._request_kwargs(method, req)
+            )
+        except RequestNetworkException as exc:
+            exc.source = req.payload
+            raise
+
+    @overload
     async def create(
         self,
-        resource: AnyResource | dict,
+        target: ResourceT,
+        resource: None = None,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> ResourceT | Error | dict[str, Any]: ...
+
+    @overload
+    async def create(
+        self,
+        target: type[ResourceT],
+        resource: ResourceT | dict[str, Any],
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> ResourceT | Error | dict[str, Any]: ...
+
+    @overload
+    async def create(
+        self,
+        target: ResourceType | str | None,
+        resource: ResourceT,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> ResourceT | Error | dict[str, Any]: ...
+
+    @overload
+    async def create(
+        self,
+        *,
+        resource: ResourceT,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> ResourceT | Error | dict[str, Any]: ...
+
+    @overload
+    async def create(
+        self,
+        target: dict[str, Any] | ResourceType | str | None = None,
+        resource: dict[str, Any] | None = None,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> Resource[Any] | Error | dict[str, Any]: ...
+
+    async def create(
+        self,
+        target: AnyResource
+        | dict[str, Any]
+        | type[Resource[Any]]
+        | ResourceType
+        | str
+        | None = None,
+        resource: AnyResource | dict[str, Any] | None = None,
         check_request_payload: bool | None = None,
         check_response_payload: bool | None = None,
         expected_status_codes: list[int]
         | None = SCIMClient.CREATION_RESPONSE_STATUS_CODES,
         raise_scim_errors: bool | None = None,
-        **kwargs,
-    ) -> AnyResource | Error | dict:
+        **kwargs: Any,
+    ) -> AnyResource | Error | dict[str, Any]:
         """Perform a POST request to create, as defined in :rfc:`RFC7644 §3.3 <7644#section-3.3>`.
 
-        :param resource: The resource to create
-            If is a :class:`dict`, the resource type will be guessed from the schema.
+        :param target: The :class:`~scim2_models.ResourceType` to create the resource in, or its name or id, or a
+            :class:`~scim2_models.Resource` model. When omitted, it is the one named after the schema of the resource.
+            The resource itself may be passed here instead of :paramref:`resource`.
+        :param resource: The resource to create.
+            If it is a :class:`dict`, it is read with the model passed as :paramref:`target`,
+            or else with the model guessed from its schemas.
         :param check_request_payload: If set, overwrites :paramref:`scim2_client.SCIMClient.check_request_payload`.
         :param check_response_payload: If set, overwrites :paramref:`scim2_client.SCIMClient.check_response_payload`.
         :param expected_status_codes: The list of expected status codes form the response.
@@ -1771,40 +2665,138 @@ class BaseAsyncSCIMClient(SCIMClient):
             which value will excluded from the request payload, and which values are expected in
             the response payload.
         """
-        raise NotImplementedError()
+        req = self._prepare_create_request(
+            target=target,
+            resource=resource,
+            check_request_payload=check_request_payload,
+            expected_status_codes=expected_status_codes,
+            **kwargs,
+        )
+        response = await self._send("POST", req)
+        return cast(
+            "AnyResource | Error | dict[str, Any]",
+            self._read_response(
+                response,
+                req,
+                check_response_payload,
+                raise_scim_errors,
+                Context.RESOURCE_CREATION_RESPONSE,
+            ),
+        )
+
+    @overload
+    async def query(
+        self,
+        target: type[ServiceProviderConfig],
+        id: ResponseParameters[Any] | dict[str, Any] | None = None,
+        query_parameters: ResponseParameters[Any] | dict[str, Any] | None = None,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> ServiceProviderConfig | Error | dict[str, Any]: ...
+
+    @overload
+    async def query(
+        self,
+        target: ResourceType | str,
+        id: str | Resource[Any],
+        query_parameters: ResponseParameters[Any] | dict[str, Any] | None = None,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> Resource[Any] | Error | dict[str, Any]: ...
+
+    @overload
+    async def query(
+        self,
+        target: ResourceType | str | None = None,
+        id: ResponseParameters[Any] | dict[str, Any] | None = None,
+        query_parameters: ResponseParameters[Any] | dict[str, Any] | None = None,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> ListResponse[Resource[Any]] | Error | dict[str, Any]: ...
+
+    @overload
+    async def query(
+        self,
+        target: type[ResourceT],
+        id: str | ResourceT,
+        query_parameters: ResponseParameters[Any] | dict[str, Any] | None = None,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> ResourceT | Error | dict[str, Any]: ...
+
+    @overload
+    async def query(
+        self,
+        target: ResourceT,
+        id: ResponseParameters[Any] | dict[str, Any] | None = None,
+        query_parameters: ResponseParameters[Any] | dict[str, Any] | None = None,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> ResourceT | Error | dict[str, Any]: ...
+
+    @overload
+    async def query(
+        self,
+        target: type[ResourceT],
+        id: ResponseParameters[Any] | dict[str, Any] | None = None,
+        query_parameters: ResponseParameters[Any] | dict[str, Any] | None = None,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> ListResponse[ResourceT] | Error | dict[str, Any]: ...
 
     async def query(
         self,
-        target: type[Resource] | Resource | None = None,
-        id: str | None = None,
-        query_parameters: ResponseParameters | dict | None = None,
+        target: type[Resource[Any]] | Resource[Any] | ResourceType | str | None = None,
+        id: str
+        | Resource[Any]
+        | ResponseParameters[Any]
+        | dict[str, Any]
+        | None = None,
+        query_parameters: ResponseParameters[Any] | dict[str, Any] | None = None,
         check_request_payload: bool | None = None,
         check_response_payload: bool | None = None,
         expected_status_codes: list[int]
         | None = SCIMClient.QUERY_RESPONSE_STATUS_CODES,
         raise_scim_errors: bool | None = None,
-        **kwargs,
-    ) -> Resource | ListResponse[Resource] | Error | dict:
+        **kwargs: Any,
+    ) -> "Resource[Any] | ListResponse[Any] | Error | dict[str, Any]":
         """Perform a GET request to read resources, as defined in :rfc:`RFC7644 §3.4.2 <7644#section-3.4.2>`.
 
-        The resource to read can be designated either by a
-        :class:`~scim2_models.Resource` object, or by a
-        :class:`~scim2_models.Resource` subtype and an id.
+        The resource type is designated by :paramref:`target`.
 
-        - If ``target`` is a :class:`~scim2_models.Resource` object, the resource
-          with the same id will be reached. The object must have an id. When the
-          server supports ETags and the object carries a version, the read is
-          conditional, and the object itself is returned when the server answers
-          with a ``304 Not Modified``.
-        - If ``id`` is not :data:`None`, the resource with the exact id will be reached.
-        - If ``target`` is a :class:`~scim2_models.Resource` subtype and ``id`` is
-          :data:`None`, all the resources with the given type will be reached.
-        - If ``target`` is :data:`None`, all the available resources will be reached.
+        - If :paramref:`id` is not :data:`None`, the resource with this id is read.
+        - If :paramref:`id` is :data:`None`, all the resources of the resource type are listed.
+        - If :paramref:`target` is :data:`None`, all the available resources are listed.
 
-        :param target: A :class:`~scim2_models.Resource` object, a
-            :class:`~scim2_models.Resource` subtype, or :data:`None`
-        :param id: The SCIM id of an object to get, or :data:`None`.
-            It cannot be used together with a :class:`~scim2_models.Resource` object.
+        When the server supports ETags and a :class:`~scim2_models.Resource` object carrying
+        a version is passed, the read is conditional, and the object itself is returned when
+        the server answers with a ``304 Not Modified``.
+
+        :param target: A :class:`~scim2_models.ResourceType`, or its name or id, or a
+            :class:`~scim2_models.Resource` model, which goes to the resource type named after
+            its schema. A :class:`~scim2_models.Resource` object stands for both the resource
+            type, read from its ``meta.resourceType``, and the id.
+        :param id: The id of the resource to read, or a :class:`~scim2_models.Resource` object
+            carrying it. When :paramref:`target` is a :class:`~scim2_models.Resource` object,
+            the query parameters may be passed here.
         :param query_parameters: A :class:`~scim2_models.ResponseParameters` or
             :class:`~scim2_models.SearchRequest` detailing the query parameters.
             Use :class:`~scim2_models.ResponseParameters` when querying a single
@@ -1813,6 +2805,10 @@ class BaseAsyncSCIMClient(SCIMClient):
             Use :class:`~scim2_models.SearchRequest` when listing resources, to
             also pass ``filter``, ``sortBy``, ``sortOrder``, ``startIndex`` and
             ``count`` (:rfc:`RFC 7644 §3.4.2 <7644#section-3.4.2>`).
+            Pass ``cursor`` instead of ``startIndex`` for cursor-based pagination
+            (:rfc:`RFC 9865 §2 <9865#section-2>`). An empty cursor requests the
+            first page. The response gives the cursor of the next page in
+            :attr:`~scim2_models.ListResponse.next_cursor`.
         :param check_request_payload: If set, overwrites :paramref:`scim2_client.SCIMClient.check_request_payload`.
         :param check_response_payload: If set, overwrites :paramref:`scim2_client.SCIMClient.check_response_payload`.
         :param expected_status_codes: The list of expected status codes form the response.
@@ -1840,6 +2836,7 @@ class BaseAsyncSCIMClient(SCIMClient):
 
             response = scim.query(User, "my-user-id")
             response = scim.query(User(id="my-user-id"))
+            response = scim.query("Employee", "my-user-id")
             # 'response' may be a User or an Error object
 
         .. code-block:: python
@@ -1866,22 +2863,71 @@ class BaseAsyncSCIMClient(SCIMClient):
             which value will excluded from the request payload, and which values are expected in
             the response payload.
         """
-        raise NotImplementedError()
+        req = self._prepare_query_request(
+            target=target,
+            id=id,
+            query_parameters=query_parameters,
+            check_request_payload=check_request_payload,
+            expected_status_codes=expected_status_codes,
+            **kwargs,
+        )
+        response = await self._send("GET", req)
+        return cast(
+            "Resource[Any] | ListResponse[Any] | Error | dict[str, Any]",
+            self._read_response(
+                response,
+                req,
+                check_response_payload,
+                raise_scim_errors,
+                Context.RESOURCE_QUERY_RESPONSE,
+            ),
+        )
+
+    @overload
+    async def search(
+        self,
+        target: type[ResourceT],
+        search_request: SearchRequest[Any] | None = None,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> ListResponse[ResourceT] | Error | dict[str, Any]: ...
+
+    @overload
+    async def search(
+        self,
+        target: SearchRequest[Any] | ResourceType | str | None = None,
+        search_request: SearchRequest[Any] | None = None,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> ListResponse[Resource[Any]] | Error | dict[str, Any]: ...
 
     async def search(
         self,
-        search_request: SearchRequest | None = None,
+        target: SearchRequest[Any]
+        | type[Resource[Any]]
+        | ResourceType
+        | str
+        | None = None,
+        search_request: SearchRequest[Any] | None = None,
         check_request_payload: bool | None = None,
         check_response_payload: bool | None = None,
         expected_status_codes: list[int]
         | None = SCIMClient.SEARCH_RESPONSE_STATUS_CODES,
         raise_scim_errors: bool | None = None,
-        **kwargs,
-    ) -> Resource | ListResponse[Resource] | Error | dict:
+        **kwargs: Any,
+    ) -> "ListResponse[Any] | Error | dict[str, Any]":
         """Perform a POST search request to read all available resources, as defined in :rfc:`RFC7644 §3.4.3 <7644#section-3.4.3>`.
 
-        :param resource_models: Resource type or union of types expected
-            to be read from the response.
+        :param target: The :class:`~scim2_models.ResourceType` to search, or its name or id, or a
+            :class:`~scim2_models.Resource` model. When omitted, the search covers all the
+            resource types. The search request may be passed here instead of
+            :paramref:`search_request`.
         :param search_request: An object detailing the search query parameters.
         :param check_request_payload: If set, overwrites :paramref:`scim2_client.SCIMClient.check_request_payload`.
         :param check_response_payload: If set, overwrites :paramref:`scim2_client.SCIMClient.check_response_payload`.
@@ -1913,17 +2959,34 @@ class BaseAsyncSCIMClient(SCIMClient):
             which value will excluded from the request payload, and which values are expected in
             the response payload.
         """
-        raise NotImplementedError()
+        req = self._prepare_search_request(
+            target=target,
+            search_request=search_request,
+            check_request_payload=check_request_payload,
+            expected_status_codes=expected_status_codes,
+            **kwargs,
+        )
+        response = await self._send("POST", req)
+        return cast(
+            "ListResponse[Any] | Error | dict[str, Any]",
+            self._read_response(
+                response,
+                req,
+                check_response_payload,
+                raise_scim_errors,
+                Context.RESOURCE_QUERY_RESPONSE,
+            ),
+        )
 
     async def bulk(
         self,
-        bulk_request: BulkRequest | dict | None = None,
+        bulk_request: BulkRequest[Resource[Any]] | dict[str, Any] | None = None,
         check_request_payload: bool | None = None,
         check_response_payload: bool | None = None,
         expected_status_codes: list[int] | None = SCIMClient.BULK_RESPONSE_STATUS_CODES,
         raise_scim_errors: bool | None = None,
-        **kwargs,
-    ) -> BulkResponse | Error | dict:
+        **kwargs: Any,
+    ) -> BulkResponse[Resource[Any]] | Error | dict[str, Any]:
         """Perform a POST bulk request to execute bulk operations, as defined in :rfc:`RFC7644 §3.7 <7644#section-3.7>`.
 
         :param bulk_request: An object detailing the bulk request.
@@ -2000,27 +3063,48 @@ class BaseAsyncSCIMClient(SCIMClient):
             checked against the bulk capabilities the server advertises, and a request the
             server would answer with a ``413`` is not sent.
         """
-        raise NotImplementedError()
+        req = self._prepare_bulk_request(
+            bulk_request=bulk_request,
+            check_request_payload=check_request_payload,
+            expected_status_codes=expected_status_codes,
+            **kwargs,
+        )
+        response = await self._send("POST", req)
+        return cast(
+            "BulkResponse[Resource[Any]] | Error | dict[str, Any]",
+            self._read_response(
+                response,
+                req,
+                check_response_payload,
+                raise_scim_errors,
+                Context.BULK_RESPONSE,
+            ),
+        )
 
     async def delete(
         self,
-        resource: Resource | type[Resource] | None = None,
-        id: str | None = None,
+        target: Resource[Any] | type[Resource[Any]] | ResourceType | str | None = None,
+        id: str | Resource[Any] | None = None,
         check_response_payload: bool | None = None,
         expected_status_codes: list[int]
         | None = SCIMClient.DELETION_RESPONSE_STATUS_CODES,
         raise_scim_errors: bool | None = None,
-        **kwargs,
-    ) -> Error | dict | None:
+        *,
+        resource: Resource[Any] | type[Resource[Any]] | None = None,
+        **kwargs: Any,
+    ) -> Error | dict[str, Any] | None:
         """Perform a DELETE request, as defined in :rfc:`RFC7644 §3.6 <7644#section-3.6>`.
 
-        The resource to delete can be designated either by a
-        :class:`~scim2_models.Resource` object, or by a
-        :class:`~scim2_models.Resource` subtype and an id.
+        The resource to delete is designated by a resource type and an id, or by a
+        :class:`~scim2_models.Resource` object.
 
-        :param resource: The resource to delete, or its type.
-        :param id: The id of the resource to delete, when a type is passed.
-            It cannot be used together with a :class:`~scim2_models.Resource` object.
+        :param target: A :class:`~scim2_models.ResourceType`, or its name or id, or a
+            :class:`~scim2_models.Resource` model, which goes to the resource type named after
+            its schema. A :class:`~scim2_models.Resource` object stands for both the resource
+            type, read from its ``meta.resourceType``, and the id.
+        :param id: The id of the resource to delete, or a :class:`~scim2_models.Resource`
+            object carrying it.
+        :param resource: Deprecated, pass :paramref:`target` instead.
         :param check_response_payload: If set, overwrites :paramref:`scim2_client.SCIMClient.check_response_payload`.
         :param expected_status_codes: The list of expected status codes form the response.
             If :data:`None` any status code is accepted.
@@ -2045,22 +3129,106 @@ class BaseAsyncSCIMClient(SCIMClient):
             response = await scim.delete(user)
             # 'response' may be None, or an Error object
         """
-        raise NotImplementedError()
+        req = self._prepare_delete_request(
+            target=target,
+            resource=resource,
+            id=id,
+            expected_status_codes=expected_status_codes,
+            **kwargs,
+        )
+        response = await self._send("DELETE", req)
+        return cast(
+            "Error | dict[str, Any] | None",
+            self._read_response(
+                response, req, check_response_payload, raise_scim_errors
+            ),
+        )
+
+    @overload
+    async def replace(
+        self,
+        target: ResourceT,
+        resource: None = None,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> ResourceT | Error | dict[str, Any]: ...
+
+    @overload
+    async def replace(
+        self,
+        target: type[ResourceT],
+        resource: ResourceT | dict[str, Any],
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> ResourceT | Error | dict[str, Any]: ...
+
+    @overload
+    async def replace(
+        self,
+        target: ResourceType | str | None,
+        resource: ResourceT,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> ResourceT | Error | dict[str, Any]: ...
+
+    @overload
+    async def replace(
+        self,
+        *,
+        resource: ResourceT,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> ResourceT | Error | dict[str, Any]: ...
+
+    @overload
+    async def replace(
+        self,
+        target: dict[str, Any] | ResourceType | str | None = None,
+        resource: dict[str, Any] | None = None,
+        check_request_payload: bool | None = None,
+        check_response_payload: bool | None = None,
+        expected_status_codes: list[int] | None = ...,
+        raise_scim_errors: bool | None = None,
+        **kwargs: Any,
+    ) -> Resource[Any] | Error | dict[str, Any]: ...
 
     async def replace(
         self,
-        resource: AnyResource | dict,
+        target: AnyResource
+        | dict[str, Any]
+        | type[Resource[Any]]
+        | ResourceType
+        | str
+        | None = None,
+        resource: AnyResource | dict[str, Any] | None = None,
         check_request_payload: bool | None = None,
         check_response_payload: bool | None = None,
         expected_status_codes: list[int]
         | None = SCIMClient.REPLACEMENT_RESPONSE_STATUS_CODES,
         raise_scim_errors: bool | None = None,
-        **kwargs,
-    ) -> AnyResource | Error | dict:
+        **kwargs: Any,
+    ) -> AnyResource | Error | dict[str, Any]:
         """Perform a PUT request to replace a resource, as defined in :rfc:`RFC7644 §3.5.1 <7644#section-3.5.1>`.
 
-        :param resource: The new resource to replace.
-            If is a :class:`dict`, the resource type will be guessed from the schema.
+        :param target: The :class:`~scim2_models.ResourceType` of the resource, or its name or id, or a
+            :class:`~scim2_models.Resource` model. When omitted, it is the one in the ``meta.resourceType`` of
+            the resource, or else the one named after its schema.
+            The resource itself may be passed here instead of :paramref:`resource`.
+        :param resource: The new resource. It must have an id.
+            If it is a :class:`dict`, it is read with the model passed as :paramref:`target`,
+            or else with the model guessed from its schemas.
         :param check_request_payload: If set, overwrites :paramref:`scim2_client.SCIMClient.check_request_payload`.
         :param check_response_payload: If set, overwrites :paramref:`scim2_client.SCIMClient.check_response_payload`.
         :param expected_status_codes: The list of expected status codes form the response.
@@ -2091,32 +3259,55 @@ class BaseAsyncSCIMClient(SCIMClient):
             which value will excluded from the request payload, and which values are expected in
             the response payload.
         """
-        raise NotImplementedError()
+        req = self._prepare_replace_request(
+            target=target,
+            resource=resource,
+            check_request_payload=check_request_payload,
+            expected_status_codes=expected_status_codes,
+            **kwargs,
+        )
+        response = await self._send("PUT", req)
+        return cast(
+            "AnyResource | Error | dict[str, Any]",
+            self._read_response(
+                response,
+                req,
+                check_response_payload,
+                raise_scim_errors,
+                Context.RESOURCE_REPLACEMENT_RESPONSE,
+            ),
+        )
 
     async def modify(
         self,
-        resource: ResourceT | type[ResourceT] | None = None,
-        patch_op: PatchOp[ResourceT] | dict | None = None,
-        id: str | None = None,
+        target: ResourceT | type[ResourceT] | ResourceType | str | None = None,
+        id: str | ResourceT | PatchOp[ResourceT] | dict[str, Any] | None = None,
+        patch_op: PatchOp[ResourceT] | dict[str, Any] | str | None = None,
         check_request_payload: bool | None = None,
         check_response_payload: bool | None = None,
         expected_status_codes: list[int]
         | None = SCIMClient.PATCH_RESPONSE_STATUS_CODES,
         raise_scim_errors: bool | None = None,
-        **kwargs,
-    ) -> ResourceT | Error | dict | None:
+        *,
+        resource: ResourceT | type[ResourceT] | None = None,
+        **kwargs: Any,
+    ) -> ResourceT | Error | dict[str, Any] | None:
         """Perform a PATCH request to modify a resource, as defined in :rfc:`RFC7644 §3.5.2 <7644#section-3.5.2>`.
 
-        The resource to modify can be designated either by a
-        :class:`~scim2_models.Resource` object, or by a
-        :class:`~scim2_models.Resource` subtype and an id.
+        The resource to modify is designated by a resource type and an id, or by a
+        :class:`~scim2_models.Resource` object.
 
-        :param resource: The resource to modify, or its type.
+        :param target: A :class:`~scim2_models.ResourceType`, or its name or id, or a
+            :class:`~scim2_models.Resource` model, which goes to the resource type named after
+            its schema. A :class:`~scim2_models.Resource` object stands for both the resource
+            type, read from its ``meta.resourceType``, and the id.
+        :param id: The id of the resource to modify, or a :class:`~scim2_models.Resource`
+            object carrying it. When :paramref:`target` is a :class:`~scim2_models.Resource`
+            object, the patch operation may be passed here.
         :param patch_op: The :class:`~scim2_models.PatchOp` object describing the modifications.
-            Must be parameterized with the same resource type as ``resource``
-            (e.g., :code:`PatchOp[User]` when ``resource`` is :code:`User`).
-        :param id: The id of the resource to modify, when a type is passed.
-            It cannot be used together with a :class:`~scim2_models.Resource` object.
+            Must be parameterized with the model of the resource
+            (e.g., :code:`PatchOp[User]` for a :code:`User`).
+        :param resource: Deprecated, pass :paramref:`target` instead.
         :param check_request_payload: If set, overwrites :paramref:`scim2_client.SCIMClient.check_request_payload`.
         :param check_response_payload: If set, overwrites :paramref:`scim2_client.SCIMClient.check_response_payload`.
         :param expected_status_codes: The list of expected status codes form the response.
@@ -2154,11 +3345,33 @@ class BaseAsyncSCIMClient(SCIMClient):
             which value will excluded from the request payload, and which values are expected in
             the response payload.
         """
-        raise NotImplementedError()
+        req = self._prepare_patch_request(
+            target=target,
+            resource=resource,
+            patch_op=patch_op,
+            id=id,
+            check_request_payload=check_request_payload,
+            expected_status_codes=expected_status_codes,
+            **kwargs,
+        )
+        response = await self._send("PATCH", req)
+        return cast(
+            "ResourceT | Error | dict[str, Any] | None",
+            self._read_response(
+                response,
+                req,
+                check_response_payload,
+                raise_scim_errors,
+                Context.RESOURCE_PATCH_RESPONSE,
+            ),
+        )
 
     async def discover(
-        self, schemas=True, resource_types=True, service_provider_config=True
-    ):
+        self,
+        schemas: bool = True,
+        resource_types: bool = True,
+        service_provider_config: bool = True,
+    ) -> None:
         """Dynamically discover the server configuration objects.
 
         Only what the :attr:`~scim2_client.SCIMClient.provider` does not describe
@@ -2171,7 +3384,7 @@ class BaseAsyncSCIMClient(SCIMClient):
         :raises ~scim2_client.InvalidServiceDescriptionException: When the objects
             the server publishes do not describe a coherent service.
         """
-        queries = {}
+        queries: dict[type[ScimObject], Awaitable[object]] = {}
         if resource_types and not self._resource_types:
             queries[ResourceType] = self.query(ResourceType, **DISCOVERY_OPTIONS)
 
@@ -2192,20 +3405,50 @@ class BaseAsyncSCIMClient(SCIMClient):
 
         published = dict(zip(queries, results, strict=True))
 
-        discovered_resource_types = self._resource_types
+        discovered_resource_types: Collection[ResourceType] = self._resource_types
         if ResourceType in published:
+            resource_types_response = cast(
+                "ListResponse[ResourceType] | None", published[ResourceType]
+            )
             discovered_resource_types = (
-                self._published(published[ResourceType]).resources or []
+                self._published(resource_types_response).resources or []
             )
 
         discovered_schemas = None
         if Schema in published:
-            discovered_schemas = self._published(published[Schema]).resources or []
+            schemas_response = cast("ListResponse[Schema] | None", published[Schema])
+            discovered_schemas = self._published(schemas_response).resources or []
 
         config = self._config
         if ServiceProviderConfig in published:
-            config = self._published(published[ServiceProviderConfig])
+            config_response = cast(
+                "ServiceProviderConfig | None", published[ServiceProviderConfig]
+            )
+            config = self._published(config_response)
 
         self.provider = self._describe_service(
             discovered_schemas, discovered_resource_types, config
         )
+
+    async def request(self, method: str, url: str, **kwargs: Any) -> RawResponse:
+        """Send a request to the server, without any SCIM processing.
+
+        Neither the request nor the response is checked, so this is fitted to
+        observe how the server behaves, for instance with an unsupported HTTP method.
+
+        :param method: The HTTP method.
+        :param url: The URL, relative to the SCIM server base URL.
+        :param kwargs: Additional parameters passed to the underlying
+            HTTP request library.
+        :return: The response of the underlying HTTP request library.
+        :raises ~scim2_client.RequestNetworkException: When the request cannot be sent.
+
+        :usage:
+
+        .. code-block:: python
+            :caption: Checking that the ``/Schemas`` endpoint refuses ``DELETE``
+
+            response = await scim.request("DELETE", "/Schemas")
+            assert response.status_code == 405
+        """
+        raise NotImplementedError()

@@ -1,0 +1,471 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel", "pybind11"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "momwire"
+version = "0.69.0"
+authors = [
+  { name="Steven M. Burns", email="smburns47@gmail.com" },
+]
+description = "A pure-Python method-of-moments antenna simulator with optional C++ accelerators"
+readme = "README.md"
+requires-python = ">=3.10"  # matches the wheel floor (cp310+); module-level
+# PEP 585 generics (bspline._V_UNIT_INV) break import below 3.9 anyway (#221)
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    # Accelerated wheels are built for these three; other platforms fall back to
+    # the pure-Python solver (the C++ extension is an optional build). Not "OS
+    # Independent" — that connotes a pure-Python package, which this isn't.
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+]
+# Core runtime deps: the solver and its helpers import these unconditionally
+# (numpy/scipy throughout src/momwire). The C++ _accelerators extension is an
+# optional speedup, not required for import.
+dependencies = [
+    "numpy>=1.21",
+    "scipy>=1.7",
+    # Pins the BLAS pool to one thread around the near-interface column
+    # fill (momwire#898); pure Python, the same package scikit-learn uses.
+    "threadpoolctl>=3",
+]
+
+[project.optional-dependencies]
+# Test/dev flow: `pip install -e .[test]` reproduces the suite. numpy/scipy are
+# core deps; these are the extra imports the tests use (matplotlib for the
+# figure scripts, scikit-rf for the network tests) plus the runner. The
+# PyNEC cross-check (tests/test_pynec_backend.py) additionally needs PyNEC,
+# installed separately from the python-necpp fork's wheel — see README — and
+# those tests skip cleanly without it, so it stays out of this list (it's a
+# platform-specific --find-links wheel, not a PyPI package a name could pin).
+test = [
+    "pytest",
+    # xdist is the DEFAULT lane since #403 closed (see the addopts note).
+    # History, because both halves were hard-won: #400's first evaluation
+    # measured `-n auto` at 486 s against the serial 280 s — each worker
+    # spawned a full-width OpenMP pool (the accelerator is built -fopenmp)
+    # and the BLAS/OMP-heavy tests serialized behind thread contention.
+    # tests/conftest.py fixed that with a per-worker OMP/OpenBLAS pin plus
+    # portal/memgate xdist groups (the group markers need tryfirst, see
+    # conftest). Then #403 fixed the four order-sensitive portal exactness
+    # failures (the pattern table printed the magnitude-and-angle of
+    # numerical zero, which moved with process history under load; the
+    # components are floored at NEC's own _FIELD_FLOOR2 since). Measured
+    # after both: ~2m00s, 3710 green.
+    "pytest-xdist",
+    "matplotlib",
+    "scikit-rf",
+    # tests/test_makefile_lanes.py YAML-parses ci.yml (the #716 review: its
+    # structural claim needs real parsing where test_release_notes' literal
+    # one-line claim can grep). Pure-python, tiny.
+    "pyyaml",
+    # `make build` runs setup.py in THIS venv, so the [build-system] requires
+    # have to be installed here too, not only in pip's isolated build env
+    # (momwire#1051; tests/test_build_requires_1051.py keeps the lists together).
+    "setuptools>=61.0",
+    "wheel",
+    "pybind11",
+]
+# Optional third-party MoM solvers used by the comparator scripts in
+# scripts/. (PyNEC is installed separately from the python-necpp fork's
+# release wheel — see README — not from PyPI.)
+validation = [
+    "pymininec>=1.2",
+]
+
+# Console scripts.
+#
+# `momwire-nec2c` is the SimNEC portal daemon (momwire.portal, issue #846
+# phase III) — momwire standing in for the nec2c binary SimNEC shells out to,
+# and momwire's only executable front door. The NAME IS PART OF THE CONTRACT
+# and must not be "prettified": `nec2/NEC2PortalDialog` accepts a configured
+# engine only if the executable's FILENAME, lowercased, CONTAINS the substring
+# "nec2c" (the same check picks NEC5/NEC4.2 dialects off "nec5"/"nec42", so a
+# name containing one of those instead would select the wrong column layout).
+# A user points the portal dialog at `<venv>/bin/momwire-nec2c`; renaming it
+# to, say, `momwire-portal` makes SimNEC silently refuse the engine with
+# "NO NEC Command Available".
+#
+# SimNEC then probes `<cmd> -version` and matches the first line against
+# `nec2c\.ae6ty\.(.*)` — see momwire.portal PROBE_VERSION for why that tail
+# has to be a bare one-dot number — and afterwards runs the command through
+# `sh -c` with cwd=$HOME, so the entry point must never depend on the working
+# directory. Both properties are pinned in tests/test_portal.py.
+#
+# `momwire-nec2c-shared` (issue #379) is the OPT-IN sibling: a thin, stdlib-only
+# forwarder to one long-lived server process, for a session where SimNEC's
+# spawn-per-evaluation-burst behaviour makes the cold start (Python + NumPy +
+# parse + mesh + first fill) the dominant cost. It must NOT resolve into
+# `momwire.portal` — importing the package is the ~680 ms it exists to delete —
+# so it lives in its own top-level module with no momwire import in it, and the
+# `py_modules` entry in setup.py is what ships it. The name obeys the same two
+# filename rules as its stock sibling: it CONTAINS `nec2c` and it contains no
+# `out`, `nec5` or `nec42`. Both entries are pinned in tests/test_portal.py.
+[project.scripts]
+momwire-nec2c = "momwire.portal:main"
+momwire-nec2c-shared = "momwire_nec2c_client:main"
+# The EZNEC leg's thin client (momwire#532 / #718 phase 2): same argv contract
+# as the engine (two positional paths), forwards to the resident
+# `python -m momwire.eznec --serve` daemon; the basis rides on a copy's own
+# filename past the `eznec-` marker, exactly as the frozen twins spell it.
+momwire-eznec-client = "momwire_eznec_client:main"
+# The NEC-5 family (momwire#1239): the same thin client under names carrying
+# `nec5`, which is what SimNEC reads to write NEC-5 decks. The basis rides on
+# the name past `nec5-`; plain `momwire-nec5` is the default basis, and
+# `momwire-nec5-razor-2p` is NEC-5's own formulation twin. No `sinusoidal` or
+# `pulse`: NEC-5 drives its sources at KNOTS, and those two bases feed only
+# at segment centres, so they refuse every NEC-5 deck (measured on SimNEC's
+# own decks; the refusal names the basis).
+momwire-nec5 = "momwire_eznec_client:main"
+momwire-nec5-razor-2p = "momwire_eznec_client:main"
+momwire-nec5-bspline = "momwire_eznec_client:main"
+momwire-nec5-bspline-d1 = "momwire_eznec_client:main"
+momwire-nec5-sinusoidal-galerkin = "momwire_eznec_client:main"
+momwire-nec5-hmatrix = "momwire_eznec_client:main"
+momwire-nec5-arrayblock = "momwire_eznec_client:main"
+# The named engines (momwire#528): every basis as its own command, so a
+# filename-only host dialog (SimNEC's, and Windows generally — no symlinks
+# needed) selects the solver by pointing at the right name. No code behind
+# these beyond portal:main — argv[0]'s "nec2c-<suffix>" does the selection.
+momwire-nec2c-bspline = "momwire.portal:main"
+momwire-nec2c-bspline-d1 = "momwire.portal:main"
+momwire-nec2c-hmatrix = "momwire.portal:main"
+momwire-nec2c-arrayblock = "momwire.portal:main"
+momwire-nec2c-sinusoidal = "momwire.portal:main"
+momwire-nec2c-sinusoidal-galerkin = "momwire.portal:main"
+# No razor name here (momwire#821): the nec2 dialect addresses segment
+# centres and razor places gaps at knots, so `deck.build_solver` refuses every
+# nec2 deck under it. `momwire-nec2c-razor-2p` / `-razor-nec5` shipped from
+# v0.36.1 to v0.46.0 and are retired; razor is served by the NEC-5 dialect's
+# launchers (`momwire-eznec-razor-2p`, and the deprecated `-razor-nec5`).
+momwire-nec2c-pulse = "momwire.portal:main"
+
+[project.urls]
+Homepage = "https://github.com/stevenmburns/momwire"
+Issues = "https://github.com/stevenmburns/momwire/issues"
+
+[tool.pytest.ini_options]
+# Only collect the project's own tests.
+testpaths = ["tests"]
+# momwire#845's far-mesh advisory is UNCONDITIONAL by measurement — it fires
+# once per `RazorSolver` construction, on both lanes, because no solve-free
+# property of a deck predicts the error it reports (corr(lambda/delta, |dZ|) =
+# +0.021 over the antennaknobs catalog). That is right for a user and useless
+# repeated across a suite that builds razor solvers hundreds of times: it took
+# the default lane from 3 warnings to 606, which does not weaken a gate but
+# does bury every other warning, and a warnings summary nobody can read is a
+# warnings summary nobody reads.
+#
+# Scoped to THIS advisory, never a blanket ignore. Everything else still
+# surfaces: measured before and after, the non-advisory categories come back
+# identical (CoarseCrossingNode 2, RuntimeWarning 1, IntegrationWarning 1) and
+# the total falls 606 -> 6.
+#
+# MATCHED BY MESSAGE, NOT BY CATEGORY, and that is not a style choice.
+# `ignore::momwire._razor_class.RazorFarMeshClass` makes pytest IMPORT momwire
+# while parsing filters, which lands before `conftest.pytest_configure` sets
+# `OMP_NUM_THREADS=1` on each xdist worker. The accelerator is built -fopenmp
+# and reads that variable at its first parallel region, so the early import
+# lets every worker open a full-width OpenMP pool: measured 681 s and 683 s on
+# two runs of this lane against 189 s without it, with 12 tests over the
+# Makefile's 20 s hard ceiling. That is the same contention this conftest's
+# docstring records at 486 s. The message form resolves no class, imports
+# nothing, and measures 189.4 s — indistinguishable from no filter.
+#
+# The cost is that this is coupled to the advisory's opening words: reword the
+# first line of `_razor_class.far_mesh_class_message` and it silently stops
+# matching. There is a comment there saying so. Note also that Python compiles
+# this regex with `re.I`, so a mutation check that only changes case proves
+# nothing — change a word.
+#
+# The nine tests in tests/test_razor_far_mesh_advisory_845.py are unaffected:
+# they assert inside `warnings.catch_warnings()` with their own
+# `simplefilter`, which overrides this for the duration, so the advisory stays
+# gated here even though it is silent everywhere else. Verified, not assumed.
+filterwarnings = [
+    "ignore:razor-2p is first order in the far mesh",
+    # momwire#865's low-stand-off advisory, silenced the same way and for the
+    # same reason: by its OPENING WORDS, never by category. Matching a category
+    # makes pytest import momwire while parsing filters, ahead of the conftest's
+    # per-worker OMP_NUM_THREADS pin. The tests that assert this advisory catch
+    # it explicitly with `pytest.warns`, which a filter here does not block.
+    "ignore:a conductor lies within a few radii of the ground",
+]
+markers = [
+    "slow: tests that take more than a couple seconds (deselect with -m 'not slow')",
+    # Crosses a process, a socket, a CLI, or the deck->printout seam
+    # (momwire#692). NATURE, not duration: a socket test that runs in 0.2 s
+    # is still an integration test and still belongs off the edit loop —
+    # 306 of the 335 marked run under 3 s and together cost only 80 s. The
+    # PR lane is edit-loop guards; this lane runs once on push to main.
+    "integration: crosses a process/socket/CLI/printout seam (push-to-main lane)",
+    # Crossing-serve certification solves (momwire#524): the eps1-collapse
+    # adjudicator gates, each a multi-minute designed-evaluator solve. Like
+    # memgate they earn their keep on merge to main, not per PR iteration —
+    # the PR slow lane keeps the soil-A anchor pin (test_g524_4) and the
+    # fast scope/refusal rows. UNLIKE memgate these are also marked `slow`,
+    # so every existing `not slow` spelling (fast lanes, wheel smoke)
+    # excludes them without edits; the test-slow lane subtracts them
+    # explicitly and the crossgate lane selects them with `-m crossgate`.
+    "crossgate: crossing-serve eps1 certification solves (merge-to-main lane)",
+    # Certification gates on memory residency/budget — tracemalloc peaks and
+    # byte-budget arithmetic checked against a live allocation (issue #400).
+    # These earn their keep on merge to main, not on every PR iteration or
+    # local edit-test loop: `-m memgate` in ci.yml's push-to-main-only job,
+    # `pytest -m memgate` locally. Disjoint from `slow` — a memgate test is
+    # never also marked slow, so `-m "slow and not memgate"` (the CI
+    # test-slow lane) and `-m memgate` partition cleanly.
+    "memgate: residency/budget certification gates (tracemalloc, byte budgets) — run on merge-to-main CI and via -m memgate, not in the default run",
+    # Tests that shell out to the NEC-2 oracle binary SimNEC ships
+    # (nec2c-ubuntu-x86, under ~/.SimNEC/<major>/<minor>/Examples/). CI has no
+    # such binary — that is exactly why tests/fixtures/nec_portal/ is
+    # committed. The marked tests also carry a skipif keyed on the binary
+    # actually existing (not on CI detection), so a developer who has SimNEC
+    # installed runs them by default and everyone else skips cleanly.
+    # Deselect explicitly with `-m "not oracle_binary"`.
+    "oracle_binary: shells out to SimNEC's nec2c oracle; skipped when it is not installed",
+]
+# Default local run: skip the slow convergence ladders/oracle sweeps and the
+# memgate certification gates, and run PARALLEL — `-n auto --dist loadgroup`
+# is the default since #403 closed (maintainer decision 2026-08-19,
+# reversing #400's serial default now that its premise — four
+# order-sensitive portal failures — is fixed). Measured ~2m00s against the
+# serial lane's 4m41-5m45s on 8 cores. tests/conftest.py pins OMP/OpenBLAS
+# to 1 per worker automatically (nothing to export) and groups the
+# portal/memgate files onto one worker; the default run is thereby also a
+# continuous order fuzzer, and MOMWIRE_403_DUMP=<dir> captures any byte-
+# oracle mismatch it ever surfaces.
+#
+# Escape hatches: `-n0` on the CLI turns xdist off (single-test loops,
+# `--pdb`, precise `-x`); serial runs keep full threading, which is what
+# the perf lanes were certified with. A CLI `-m` REPLACES the default `-m`
+# rather than ANDing with it (verified: `pytest tests -m ""` runs
+# everything, `pytest tests -m memgate` runs only memgate), so
+# `pytest tests -m ""` is the full-suite spelling for humans, and CI lanes
+# spell their own `-m` explicitly. The `-n` is NOT replaced by a CLI `-m`,
+# so CI's test/test-slow lanes inherit the parallelism; the memgate lane
+# opts out with an explicit `-n0` (memory certification cannot share a
+# box), and the wheel-smoke jobs install pytest-xdist so the addopts parse.
+addopts = ["-m", "not slow and not memgate and not integration",
+           "-n", "auto", "--dist", "loadgroup"]
+# Put the project root on sys.path so the `validation` harness package (which
+# lives next to `tests/`, not under src/) is importable from the backend tests.
+pythonpath = ["."]
+
+[tool.cibuildwheel]
+# Modern CPython only. requires-python is >=3.10, and 3.8/3.9 would predate
+# the AVX2-baseline target anyway; 3.10+ matches the "modern Linux/Windows"
+# goal.
+#
+# cp315 builds against the CPython 3.15.0rc1 that cibuildwheel 4.2.0 bundles.
+# The rc is ABI-frozen against the October final, so a wheel built now keeps
+# loading once 3.15.0 ships. The stack was ready before the interpreter:
+# pybind11 3.1.0 classifies 3.15, and numpy 2.5.2 / scipy 1.18.1 both publish
+# cp315, so nothing here waits on a dependency.
+#
+# One judgement call is baked in. PEP 831 turns frame pointers ON by default
+# in 3.15, and the flags live in BASECFLAGS specifically so they reach
+# third-party extensions through sysconfig -- this one included. So the cp315
+# wheel's codegen is not the cp314 wheel's: one general-purpose register
+# fewer on x86-64. CPython measures 1.5-1.9% geomean there (0.1-0.5% on
+# Apple silicon), but that is an INTERPRETER benchmark and says little about
+# these kernels, where the vector work sits in ymm registers that losing rbp
+# does not touch. Unmeasured here, deliberately shipped anyway: the profiling
+# it buys across the Python/C++ boundary is worth more than a sub-2% ceiling.
+# If a measurement ever says otherwise, setup.py can opt this extension out
+# with a trailing -fomit-frame-pointer (last flag wins under gcc and clang).
+build = "cp310-* cp311-* cp312-* cp313-* cp314-* cp315-*"
+# 64-bit glibc Linux + 64-bit Windows only. Skip musllinux (Alpine/musl has no
+# libmvec, and the -lmvec link in setup.py would fail), 32-bit, and PyPy.
+skip = "*-musllinux_* *_i686 *-win32 pp*"
+# pytest-xdist because addopts injects the default lane (-n auto --dist
+# loadgroup, momwire#403/#457) into every pytest invocation, including this
+# one — without the plugin installed the wheel test dies on "unrecognized
+# arguments: -n --dist" before running a single test.
+test-requires = "pytest pytest-xdist"
+# First assert the compiled C++ accelerator actually loads in the wheel: a
+# failed import would otherwise be swallowed by the solvers' pure-Python
+# fallback, so the tests below would pass on a silently-degraded wheel. The
+# direct import + _HAVE_* flags make that a hard failure instead.
+#
+# Then run only the three core solver modules — they exercise the accelerator
+# without the PyNEC cross-check backend (a separately-built wheel, test-only).
+# -m skips slow and memgate (#400: certification gates run on merge-to-main
+# CI, not in a wheel smoke test). cibuildwheel runs this from a temp dir
+# against the installed wheel, so `import momwire` resolves to the wheel, not
+# src/.
+#
+# `test_glibc_floor.py` reads the installed extensions' dynamic symbol table.
+# On Linux this runs INSIDE the manylinux_2_28 image, which is the one place
+# its strict rule (every glibc symbol <= 2.28) means anything; elsewhere it
+# skips. Its libmvec rule is what catches a vector function newer than the
+# floor, which links fine and then fails to import (Design D4).
+test-command = 'python -c "import momwire._accelerators; import momwire._near_interface_accel; from momwire import bspline as b; assert b._HAVE_BSPLINE_ASSEMBLE_ACCEL and b._HAVE_BSPLINE_SWEPT_ASSEMBLE_ACCEL; from momwire import _near_interface as ni; assert ni._HAVE_NEAR_INTERFACE_ACCEL" && pytest {project}/tests/test_momwire.py {project}/tests/test_hmatrix.py {project}/tests/test_array_block.py {project}/tests/test_glibc_floor.py -m "not slow and not memgate"'
+
+[tool.cibuildwheel.linux]
+# glibc >= 2.28 ships libmvec; manylinux2014 (glibc 2.17) does NOT, so the
+# -lmvec link in setup.py would fail. _2_28 is the right "modern Linux" floor.
+# (It is also cibuildwheel 3.x+'s default, but pin it explicitly so a future
+# default change can't silently drop libmvec.)
+manylinux-x86_64-image = "manylinux_2_28"
+# Do NOT vendor libgomp (`--exclude libgomp.so.1`): auditwheel would otherwise
+# bundle a private copy (momwire.libs/libgomp-<hash>.so) that uses initial-exec
+# TLS. When another OpenMP extension (e.g. pynec-accel) loads the system libgomp
+# first, momwire's vendored copy then fails to dlopen with "cannot allocate
+# memory in static TLS block" and the accelerator silently drops to the slow
+# pure-Python path. Excluding it makes momwire link the SYSTEM libgomp, so both
+# engines share one runtime — the Linux mirror of the macOS `--exclude libomp`,
+# and matching what pynec-accel already does. Needs a system libgomp at runtime
+# (the GCC OpenMP runtime, universal on glibc Linux; `apt install libgomp1` if
+# absent — manylinux images already have it for the build).
+repair-wheel-command = "auditwheel repair --exclude libgomp.so.1 -w {dest_dir} {wheel}"
+# Strip the extensions in the PUBLISHED wheel (momwire#1030). setup.py compiles
+# with `-g` on purpose (it pairs with -fno-omit-frame-pointer so profiles walk
+# the Python/C++ boundary), which made the released Linux wheel 48 MB — 38 MB of
+# it DWARF that no user can use, since the wheel ships no source. Stripped it is
+# ~10 MB, and `_accelerators.so` lands at 1.9 MB, which is what the Windows wheel
+# already ships. A wheel built without this variable keeps its symbols; that is
+# the escape hatch if crash triage ever needs them.
+environment = { MOMWIRE_STRIP_SYMBOLS = "1" }
+
+[tool.cibuildwheel.macos]
+# Native Apple Silicon only for this first cut (the macos-14 runner is arm64).
+# Intel macOS (x86_64) is intentionally out of scope.
+archs = ["arm64"]
+# libomp is provided by `brew install libomp` — at build AND at runtime (the
+# wheel no longer bundles it, see --exclude below). Point setup.py's darwin
+# branch at it and pin the deployment target to the runner's floor.
+environment = { LIBOMP_PREFIX = "/opt/homebrew/opt/libomp", MACOSX_DEPLOYMENT_TARGET = "14.0" }
+# Do NOT vendor libomp (`--exclude libomp`): leave the extension referencing
+# Homebrew's libomp by its absolute install-name
+# (/opt/homebrew/opt/libomp/lib/libomp.dylib). pynec-accel's macOS wheel excludes
+# it too, so when both load in one process they share ONE libomp image instead of
+# each loading a private copy. Two private copies is what triggered the OMP
+# "Error #15" duplicate-runtime abort + the join-barrier deadlock, forcing the
+# KMP_DUPLICATE_LIB_OK / OMP_NUM_THREADS=1 stopgap; one shared runtime keeps both
+# backends fully multithreaded with no env vars. This mirrors the Linux wheels,
+# where neither side vendors libgomp (glibc's is shared) — macOS has no system
+# libomp, so the shared copy is Homebrew's, hence `brew install libomp` is a
+# runtime requirement of the macOS wheel. DYLD_LIBRARY_PATH lets delocate resolve
+# the (now-external) libomp during repair.
+repair-wheel-command = "DYLD_LIBRARY_PATH=$(brew --prefix libomp)/lib delocate-wheel --exclude libomp --require-archs {delocate_archs} -w {dest_dir} -v {wheel}"
+
+[tool.ruff.format]
+# The chapter-figure scripts keep their hand-wrapped compact matplotlib style
+# on purpose — the formatter would roughly double their line counts by
+# exploding calls to one argument per line. Lint (ruff check) still covers
+# them; only the FORMATTER skips them.
+exclude = ["site/figures/*.py"]
+
+[tool.ruff.lint]
+# `select` is pinned EXPLICITLY, and the value is exactly ruff's default at
+# the currently pinned version — verified rule-by-rule, so setting it changes
+# nothing today.
+#
+# It is here because the default is not a constant. Between ruff 0.15.21 and
+# 0.16.5 the implicit default grew from 59 enabled rules to 414, which turned
+# ~900 pre-existing lines in this repo into errors with no code change. That is
+# the mechanism behind every "a new ruff release turned CI red" note in
+# .github/workflows/ruff.yml. With `select` written down, a ruff upgrade can
+# change how a rule behaves but can no longer change WHICH rules run.
+#
+# Adding a rule is now a deliberate edit here (see extend-select below), not a
+# side effect of a version bump.
+select = ["E4", "E7", "E9", "F"]
+ignore = ["E741"]
+# B023 (function-uses-loop-variable) is opted into EXPLICITLY, not inherited:
+# it is not in ruff's default set at the pinned version, and adopting it by
+# upgrading ruff would drag in ~400 other rules at the same time.
+#
+# It is a MAY-escape warning, not a bug detector -- it fires whenever a
+# closure reads a loop variable, because it cannot prove the closure does not
+# outlive the iteration. Audited 2026-08-29 across all 26 findings then
+# present: every one was a closure consumed inside its own iteration, i.e.
+# zero real bugs. It is kept on anyway for the case it exists to catch --
+# closures stashed in a loop and called after it ends, where the loop variable
+# has moved on -- which no gate here would otherwise notice.
+extend-select = [
+  # B023 (function-uses-loop-variable) was the first entry here and is opted
+  # into EXPLICITLY, not inherited: it is not in ruff's default set at the
+  # pinned version. It is a MAY-escape warning, not a bug detector -- it fires
+  # whenever a closure reads a loop variable, because it cannot prove the
+  # closure does not outlive the iteration. Audited 2026-08-29 across all 26
+  # findings then present: every one was consumed inside its own iteration,
+  # i.e. zero real bugs. Kept for the case it exists to catch -- a closure
+  # stashed in a loop and called after it ends -- which no other gate here
+  # would notice.
+  "B023",
+  # Everything below arrived together (momwire#761 follow-up). The set is
+  # antennaknobs' `extend-select`, measured against THIS tree rather than
+  # copied: of its 74 codes, 66 report ZERO violations here and are armed as
+  # a group, plus BLE001 (8 sites, annotated in the same commit).
+  #
+  # Arming a zero-violation rule costs nothing today and converts a future
+  # regression from a review catch into a CI catch. It is also the cheap half
+  # of momwire#761: six of that issue's seven "must survive" keepers are
+  # BLE001 directives, dead ONLY because the rule was unselected. Selecting it
+  # makes them live suppressions and drops the reported dead count 24 -> 18
+  # with no edits to them at all.
+  #
+  # Seven of antennaknobs' 74 are deliberately NOT here, each needing real
+  # edits rather than a config line (counts measured at 3dfafc1):
+  #   B905   zip-strict            242   -- wants the runtime census AK ran
+  #   TID252 parent-relative       101 (40 sites) -- an architectural call,
+  #                                      not a latent bug; decide separately
+  #   RUF007 zip-instead-of-pairwise 49 -- rides with B905
+  #   DTZ005 datetime.now w/o tz      3
+  #   FLY002 static-join-to-f-string  3
+  #   SLOT001 no-slots-in-tuple-subclass 2
+  #   A002   builtin-argument-shadow    1
+  "BLE001",
+  "S310",
+  "FAST001", "FAST002", "FAST003",
+  "YTT101", "YTT102", "YTT103",
+  "YTT201", "YTT202", "YTT203", "YTT204",
+  "YTT301", "YTT302", "YTT303",
+  "A001", "A003", "A004", "A005", "A006",
+  "DTZ001", "DTZ002", "DTZ003", "DTZ004",
+  "DTZ006", "DTZ007", "DTZ011", "DTZ012", "DTZ901",
+  "T100",
+  "FA100", "FA102",
+  "INT001", "INT002", "INT003",
+  "LOG001", "LOG002", "LOG004", "LOG007", "LOG009", "LOG014", "LOG015",
+  "G001", "G002", "G003", "G004", "G010", "G101", "G201", "G202",
+  "Q000", "Q001", "Q002", "Q003", "Q004",
+  "SLOT000", "SLOT002",
+  "TID251", "TID253",
+  "TD001", "TD002", "TD003", "TD004", "TD005", "TD006", "TD007",
+]
+# Keep "imported but unused" as a warning instead of auto-stripping.
+# Without this, multi-pass edits (add imports first, then add code that
+# uses them) can have the import deleted between edits — by the editor's
+# format-on-save, the project's auto-fix hook, or a pre-commit run —
+# producing a broken next edit. Manual cleanup of unused imports is fine.
+#
+# RUF100 for a sharper version of the same reason. Its fix deletes the WHOLE
+# comment, prose included, so `# noqa: B023 — consumed in this iteration`
+# loses the justification along with the suppression. Worse, it reads a
+# directive as dead whenever the rule it names is not CURRENTLY selected --
+# so a `--fix` run taken while auditing which rules to adopt deletes exactly
+# the annotations that are the argument for adopting them.
+#
+# That is not hypothetical here: 22 directives in this tree are reported
+# unused today (they name rules this repo has not selected), and every one is
+# marked `[*] fixable`. Listing RUF100 changes nothing about which rules run
+# -- it is not in `select` -- it only stops one `--fix` from erasing 22
+# explanations. antennaknobs carries the same pair for the same reason.
+unfixable = ["F401", "RUF100"]
+
+[tool.ruff.lint.per-file-ignores]
+# Bench and figure scripts build throwaway closures over sweep variables and
+# consume them on the next line; B023 there is pure noise. src/ and tests/ keep
+# the rule -- shipped code and the gates over it are where a late-binding
+# capture would actually cost something.
+"scripts/**" = ["B023"]
+# The package's imports follow its thread-pool env block on purpose: the block
+# must run before NumPy / the OpenMP runtime load (see the top of the file).
+"src/momwire/__init__.py" = ["E402"]
+"site/figures/**" = ["B023"]

@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: e2b-code-interpreter
-Version: 2.10.0
+Version: 2.10.1
 Summary: E2B Code Interpreter - Stateful code execution
 Author: e2b
 Author-email: e2b <hello@e2b.dev>
 License-Expression: MIT
 Requires-Dist: httpx>=0.20.0,<1.0.0
 Requires-Dist: attrs>=21.3.0
-Requires-Dist: e2b>=2.44.0,<3.0.0
+Requires-Dist: e2b>=2.52.0,<3.0.0
 Requires-Python: >=3.10
 Project-URL: Homepage, https://e2b.dev/?utm_source=pypi&utm_medium=referral&utm_campaign=package_homepage&utm_content=e2b-code-interpreter
 Project-URL: Repository, https://github.com/e2b-dev/e2b/tree/main/packages/code-interpreter-python

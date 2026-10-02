@@ -137,6 +137,10 @@ class AgentRunResult(BaseModel, Generic[ParsedT]):
     metadata: dict[str, Any] = Field(default_factory=dict)
     error: str | None = None
     error_kind: ErrorKind = None
+    # The exception that failed the run, traceback intact — so a caller that
+    # turns this into a tool failure (agent_call) hands the operator the real
+    # type, message and stack instead of a sentence. In memory only.
+    exception: BaseException | None = Field(default=None, exclude=True, repr=False)
 
     parsed: ParsedT | None = None
     parse_error: str | None = None
@@ -356,6 +360,7 @@ async def run_agent(
     require_complete_output: bool = False,
     max_iterations: int | None = None,
     metadata: dict[str, Any] | None = None,
+    stream_data_types: frozenset[str] | None = None,
 ) -> AgentRunResult[ParsedT]:
     """Execute an already-prepared ``Agent`` inside ``child_agent_context``.
 
@@ -604,7 +609,12 @@ async def run_agent(
                 # returns via AgentRunResult; persistence is unaffected.
                 from matrx_connect.emitters import SilentEmitter
 
-                overrides["emitter"] = SilentEmitter()
+                # ``stream_data_types``: the few typed data events a muted child
+                # still delivers live to the parent (a TTS stage's audio chunks).
+                overrides["emitter"] = SilentEmitter(
+                    forward_to=child_ctx.emitter if stream_data_types else None,
+                    forward_data_types=stream_data_types,
+                )
             set_app_context(child_ctx.with_overrides(**overrides))
             # Surface the child's conversation identity on the result — the
             # completion metadata does not reliably carry it for programmatic
@@ -691,6 +701,7 @@ async def run_agent(
             success=False,
             error=str(exc),
             error_kind="execution",
+            exception=exc,
         )
 
     usage_dict: dict[str, Any] = {}
@@ -783,6 +794,7 @@ async def run_agent(
         model_id=model_id,
         metadata=dict(execute_result.metadata or {}),
         error=execution_error,
+        exception=getattr(execute_result, "exception", None) if execution_failed else None,
         error_kind=(
             "candidate_stopped"
             if candidate_stopped

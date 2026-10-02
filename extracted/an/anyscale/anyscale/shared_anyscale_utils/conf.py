@@ -68,7 +68,5 @@ def _get_default_anyscale_host() -> str:
 
 
 ANYSCALE_HOST = os.environ.get("ANYSCALE_HOST") or _get_default_anyscale_host()
-ANYSCALE_CORS_ORIGIN = ANYSCALE_CORS_ORIGINS.get(
-    ANYSCALE_HOST, "https://*.anyscale-dev.dev"
-)
+ANYSCALE_CORS_ORIGIN = ANYSCALE_CORS_ORIGINS.get(ANYSCALE_HOST, "https://*.anyscale-dev.dev")
 ANYSCALE_API_HOST = ANYSCALE_EXTERNAL_API_ENDPOINTS[ANYSCALE_ENV]

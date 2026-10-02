@@ -7,7 +7,7 @@ use crate::Validate;
 pub enum BranchApplicability {
     Applicable,
     Rejected {
-        diagnostic_ranges: Vec<tombi_text::Range>,
+        diagnostic_spans: Vec<tombi_text::Span>,
     },
 }
 
@@ -16,14 +16,14 @@ impl BranchApplicability {
         matches!(self, Self::Applicable)
     }
 
-    pub fn is_recoverable_at(&self, position: tombi_text::Position) -> bool {
+    pub fn is_recoverable_at(&self, offset: tombi_text::Offset) -> bool {
         match self {
             Self::Applicable => true,
-            Self::Rejected { diagnostic_ranges } => {
-                !diagnostic_ranges.is_empty()
-                    && diagnostic_ranges
+            Self::Rejected { diagnostic_spans } => {
+                !diagnostic_spans.is_empty()
+                    && diagnostic_spans
                         .iter()
-                        .all(|range| range.contains(position))
+                        .all(|span| span.contains_inclusive(offset))
             }
         }
     }
@@ -80,10 +80,10 @@ where
                 Ok(_) => BranchApplicability::Applicable,
                 Err(invalid) if !invalid.assertion_failed => BranchApplicability::Applicable,
                 Err(invalid) => BranchApplicability::Rejected {
-                    diagnostic_ranges: invalid
+                    diagnostic_spans: invalid
                         .diagnostics
                         .into_iter()
-                        .map(|diagnostic| diagnostic.range())
+                        .map(|diagnostic| diagnostic.span())
                         .collect(),
                 },
             };
@@ -124,11 +124,11 @@ mod tests {
             applicator: Applicator::OneOf,
             branches: vec![
                 BranchApplicability::Rejected {
-                    diagnostic_ranges: Vec::new(),
+                    diagnostic_spans: Vec::new(),
                 },
                 BranchApplicability::Applicable,
                 BranchApplicability::Rejected {
-                    diagnostic_ranges: Vec::new(),
+                    diagnostic_spans: Vec::new(),
                 },
             ],
         };
@@ -145,7 +145,7 @@ mod tests {
             branches: vec![
                 BranchApplicability::Applicable,
                 BranchApplicability::Rejected {
-                    diagnostic_ranges: Vec::new(),
+                    diagnostic_spans: Vec::new(),
                 },
                 BranchApplicability::Applicable,
             ],
@@ -159,7 +159,7 @@ mod tests {
     #[test]
     fn rejected_branch_without_diagnostics_is_not_recoverable() {
         let applicability = BranchApplicability::Rejected {
-            diagnostic_ranges: Vec::new(),
+            diagnostic_spans: Vec::new(),
         };
         assert!(!applicability.is_recoverable_at(Default::default()));
     }

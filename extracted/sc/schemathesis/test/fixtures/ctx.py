@@ -73,8 +73,14 @@ class OpenAPIApps:
     def multiple_failures(self) -> OpenAPIServer:
         return _start(self.parent, openapi_basic.multiple_failures())
 
+    def crash_closes_connection(self) -> OpenAPIServer:
+        return _start(self.parent, openapi_basic.crash_closes_connection())
+
     def custom_format(self) -> OpenAPIServer:
         return _start(self.parent, openapi_basic.custom_format())
+
+    def identical_query_parameters(self) -> OpenAPIServer:
+        return _start(self.parent, openapi_basic.identical_query_parameters())
 
     def flaky(self) -> OpenAPIServer:
         return _start(self.parent, openapi_basic.flaky())
@@ -205,6 +211,9 @@ class OpenAPIApps:
     def basic(self) -> OpenAPIServer:
         return _start(self.parent, openapi_basic.basic())
 
+    def basic_with_query(self) -> OpenAPIServer:
+        return _start(self.parent, openapi_basic.basic_with_query())
+
     def success_and_basic(self) -> OpenAPIServer:
         return _start(self.parent, openapi_basic.success_and_basic())
 
@@ -275,6 +284,9 @@ class OpenAPIApps:
 
     def wfc_credentials_rejected(self) -> OpenAPIServer:
         return _start(self.parent, openapi_wfc.wfc_credentials_rejected())
+
+    def wfc_accounts_seeded_later(self) -> OpenAPIServer:
+        return _start(self.parent, openapi_wfc.wfc_accounts_seeded_later())
 
     def planted_bug(self) -> OpenAPIServer:
         return _start(self.parent, openapi_error_feedback.planted_bug())
@@ -467,6 +479,9 @@ class OpenAPIApps:
 
     def additional_properties_bug(self) -> OpenAPIServer:
         return _start(self.parent, openapi_nested.additional_properties_bug())
+
+    def languages_with_codes(self) -> OpenAPIServer:
+        return _start(self.parent, openapi_nested.languages_with_codes())
 
 
 @dataclass(slots=True)

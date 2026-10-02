@@ -1,0 +1,145 @@
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Callable, TypeAlias
+
+JsonPrimitive: TypeAlias = str | int | float | bool | None
+OptionValue: TypeAlias = JsonPrimitive | list["OptionValue"] | dict[str, "OptionValue"]
+
+def init(
+    on_propagation: Callable[[str, float], None] | None = None,
+    refresh_threshold: float | None = 5.0,
+    additional_schemas: dict[str, str] | None = None,
+) -> None: ...
+"""
+Initialize the options extension with schema and
+values defined in environment variables or production paths.
+
+Parameters
+----------
+on_propagation : callable, optional
+    Callback invoked when values are refreshed with a new ``generated_at``
+    timestamp. Receives ``(namespace: str, delay_secs: float)``.
+refresh_threshold : float | None
+    Staleness threshold in seconds for refresh-on-read (default: 5.0).
+    Pass ``None`` to disable refresh-on-read entirely; values then only
+    change via ``refresh()``.
+additional_schemas : dict[str, str] | None
+    Namespace schemas from memory, added alongside those read from
+    ``{dir}/schemas/``, for schemas only known at runtime. Errors on a namespace
+    already on disk. Values still load from disk.
+"""
+
+def condition_operators() -> list[str]: ...
+"""Condition operators the feature evaluator understands."""
+
+def feature_property() -> dict[str, str]: ...
+"""
+Return the value a namespace schema pairs with each ``feature.<name>`` key,
+i.e. ``{"$ref": "#/definitions/Feature"}``, for assembling a schema in memory.
+"""
+
+def refresh() -> bool: ...
+"""
+Refresh values from disk, ignoring the staleness threshold.
+
+Returns whether a new snapshot was published, i.e. the files changed on disk
+and reloaded successfully. On error the previous snapshot is retained and
+served. Calling this more often than the threshold guarantees reads never
+refresh inline.
+
+Raises NotInitializedError if ``init()`` has not been called.
+"""
+
+def fetch_schemas(config: str | Path, output: str | Path) -> None: ...
+"""
+Fetch schema snapshots from the repositories listed in ``repos.json``.
+
+This is an explicit tooling operation. It does not affect the runtime options
+store or make schema loading network-dependent.
+"""
+
+def options(namespace: str) -> NamespaceOptions: ...
+"""Create NamespaceOptions for a given options namespace"""
+
+def features(namespace: str) -> FeatureChecker: ...
+"""Create a FeatureChecker for a given options namespace"""
+
+class NamespaceOptions:
+    def get(self, key: str) -> OptionValue: ...
+    """Get the value for a named option. If no value is defined the default will be returned"""
+
+    def get_forced(self, key: str) -> OptionValue: ...
+    """Like get, but always refreshes. Refresh incurs a cost so this should only be used in testing."""
+
+    def isset(self, key: str) -> bool: ...
+    """See if an option is defined and has a value set."""
+
+    def __repr__(self) -> str: ...
+
+
+class SchemaRegistry:
+    """A standalone, immutable registry loaded from a schema snapshot."""
+    @staticmethod
+    def from_directory(schemas_dir: str | Path) -> SchemaRegistry: ...
+    """
+    Load and validate schemas below ``schemas_dir``.
+
+    The directory must contain ``{namespace}/schema.json`` directories, for example
+    ``/path/to/getsentry/sentry-options/schemas``. This does not read option values
+    and does not require :func:`init`.
+    """
+
+    def validate_option(self, namespace: str, key: str, value: OptionValue) -> None: ...
+    """Ensure ``key`` exists and ``value`` matches it in ``namespace``."""
+
+    def __repr__(self) -> str: ...
+
+
+class FeatureChecker:
+    """
+    Interface for checking features flags against a context object.
+    """
+    def has(self, feature_name: str, context: FeatureContext) -> bool:
+        """Check if a feature flag with `feature_name` is available to `context`"""
+    def try_has(self, feature_name: str, context: FeatureContext) -> bool | None:
+        """
+        Same as ``has``, but will return ``None`` if the feature has no value
+        set, or one of ``NotInitializedError``, ``UnknownNamespaceError``,
+        or ``SchemaError`` during a failure.
+
+        The latter return values would all have been swallowed into ``false`` in ``has``.
+        """
+    def __repr__(self) -> str: ...
+
+
+class FeatureContext:
+    """
+    A container of context data used to check feature flags.
+    """
+    def __init__(self, data: dict[str, OptionValue], *, identity_fields: list[str] | None = None) -> None: ...
+    """
+    Constructor
+
+    Parameters
+    ----------
+
+    data: dict[str, OptionValue]
+        The context data dictionary
+    identity_fields: list[str] | None
+        The fields that should be used to compute the 'identity' of a context object.
+        The calculated identity will be used to determine rollout groups and typically
+        contains the identifiers for a specific user/organization
+    """
+
+    def __repr__(self) -> str: ...
+
+class OptionsError(Exception): ...
+class SchemaError(OptionsError): ...
+class UnknownNamespaceError(OptionsError): ...
+class UnknownOptionError(OptionsError): ...
+class NotInitializedError(OptionsError): ...
+
+def _set_override(namespace: str, key: str, value: OptionValue) -> OptionValue | None: ...
+def _clear_override(namespace: str, key: str) -> None: ...
+def _validate_option(namespace: str, key: str, value: OptionValue) -> None: ...

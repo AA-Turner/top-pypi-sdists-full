@@ -62,9 +62,7 @@ def placeholder_credential_problems(cloud_resource: CloudDeployment) -> List[str
         else None
     )
     bucket_name = (
-        cloud_resource.object_storage.bucket_name
-        if cloud_resource.object_storage
-        else None
+        cloud_resource.object_storage.bucket_name if cloud_resource.object_storage else None
     )
     problems: List[str] = []
     if iam_identity and _arn_account_id(iam_identity) == PLACEHOLDER_AWS_ACCOUNT_ID:
@@ -79,6 +77,28 @@ def placeholder_credential_problems(cloud_resource: CloudDeployment) -> List[str
             "value. Replace it with your own bucket."
         )
     return problems
+
+
+MISSING_OBJECT_STORAGE_PROBLEM = (
+    "Object storage is required for Kubernetes cloud deployments. Set the object "
+    "storage bucket name, prefixed with its storage scheme: s3://<bucket>, "
+    "gs://<bucket>, or abfss://<container>@<account>.dfs.core.windows.net."
+)
+
+
+def missing_object_storage_problem(cloud_resource: CloudDeployment) -> Optional[str]:
+    """Describe the problem when a cloud resource has no object storage bucket.
+
+    Mirrors the server-side check so the CLI can fail before the API call. Presence
+    is all that is checked: the storage scheme parser downstream owns format
+    validation.
+    """
+    bucket_name = (
+        cloud_resource.object_storage.bucket_name if cloud_resource.object_storage else None
+    )
+    if bucket_name and bucket_name.strip():
+        return None
+    return MISSING_OBJECT_STORAGE_PROBLEM
 
 
 def _resolve_cloud_provider(cloud_resource: CloudDeployment) -> str:
@@ -102,12 +122,12 @@ def _resolve_cloud_provider(cloud_resource: CloudDeployment) -> str:
 
 def get_organization_default_cloud(api_client: DefaultApi) -> Optional[str]:
     """Return default cloud name for organization if it exists and
-        if user has correct permissions for it.
+    if user has correct permissions for it.
 
-        Returns:
-            Name of default cloud name for organization if it exists and
-            if user has correct permissions for it.
-        """
+    Returns:
+        Name of default cloud name for organization if it exists and
+        if user has correct permissions for it.
+    """
     user = api_client.get_user_info_api_v2_userinfo_get().result
     organization = user.organizations[0]  # Each user only has one org
     if organization.default_cloud_id:
@@ -122,9 +142,7 @@ def get_organization_default_cloud(api_client: DefaultApi) -> Optional[str]:
     return None
 
 
-def get_default_cloud(
-    api_client: DefaultApi, cloud_name: Optional[str]
-) -> Tuple[str, str]:
+def get_default_cloud(api_client: DefaultApi, cloud_name: Optional[str]) -> Tuple[str, str]:
     """Returns the cloud id from cloud name.
     If cloud name is not provided, returns the default cloud name if exists in organization.
     If default cloud name does not exist returns last used cloud.
@@ -182,7 +200,10 @@ def modify_memorydb_parameter_group(
         memorydb_client.update_parameter_group(
             ParameterGroupName=parameter_group_name,
             ParameterNameValues=[
-                {"ParameterName": "maxmemory-policy", "ParameterValue": "allkeys-lru",}
+                {
+                    "ParameterName": "maxmemory-policy",
+                    "ParameterValue": "allkeys-lru",
+                }
             ],
         )
     except ClientError as e:
@@ -319,30 +340,22 @@ def validate_aws_credentials(
         return False
 
 
-def get_errored_resources_and_reasons(
-    cfn_client: Any, stack_name: str
-) -> Dict[str, str]:
+def get_errored_resources_and_reasons(cfn_client: Any, stack_name: str) -> Dict[str, str]:
     """
     Describes the CloudFormation stack events and extracts the failure reasons.
     """
     error_details: Dict[str, str] = {}
     response = cfn_client.describe_stack_events(StackName=stack_name)
-    error_details.update(
-        extract_cloudformation_failure_reasons(response["StackEvents"])
-    )
+    error_details.update(extract_cloudformation_failure_reasons(response["StackEvents"]))
     while response.get("NextToken") is not None:
         response = cfn_client.describe_stack_events(
             StackName=stack_name, NextToken=response["NextToken"]
         )
-        error_details.update(
-            extract_cloudformation_failure_reasons(response["StackEvents"])
-        )
+        error_details.update(extract_cloudformation_failure_reasons(response["StackEvents"]))
     return error_details
 
 
-def extract_cloudformation_failure_reasons(
-    events: List[Dict[str, Any]]
-) -> Dict[str, str]:
+def extract_cloudformation_failure_reasons(events: List[Dict[str, Any]]) -> Dict[str, str]:
     """
     Extracts the failure reasons from the CloudFormation events.
     """
@@ -377,7 +390,8 @@ def _unroll_resources_for_aws_list_call(aws_list_function: Callable, list_key: s
 
 
 def unroll_pagination(
-    paginated_method: Callable, next_token_extractor: Callable,
+    paginated_method: Callable,
+    next_token_extractor: Callable,
 ):
     """Handles paginated method's invocation by
     - Repeatedly invoking the method (injecting the token from its previous response)

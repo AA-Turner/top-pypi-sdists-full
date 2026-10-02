@@ -158,6 +158,9 @@ pub enum MessageOutcome {
     Closed,
 }
 
+/// Handles from one sparse message, sorted by requested index. `None` is projected metadata.
+type RequestedFieldSelection<'a> = SmallVec<[(FieldIndex, Option<xbbg_core::Element<'a>>); 8]>;
+
 /// State for a single subscription, owned by PumpA.
 pub struct SubscriptionState {
     /// Topic string (e.g., "IBM US Equity")
@@ -169,13 +172,18 @@ pub struct SubscriptionState {
     field_names: Vec<Name>,
     /// Fast dynamic-field lookup keyed by Bloomberg's interned Name pointer.
     field_name_keys: HashMap<usize, FieldIndex>,
-    /// Initial requested/metadata fields, excluding all-fields discoveries.
-    requested_fields: usize,
+    /// Explicit requests and projected metadata, excluding all-fields discoveries.
+    requested_fields: Vec<bool>,
     /// Per-position allFields cache for stable Bloomberg subscription schemas.
     all_field_slots: Vec<Option<AllFieldSlot>>,
     field_kinds: Vec<FieldKind>,
+    provisional_kinds: Vec<bool>,
     layout_version: u32,
     layout: Arc<FieldLayout>,
+    /// Cached source-index to consumer-index projection, invalidated by field growth.
+    projection_source: Option<Arc<FieldLayout>>,
+    projection_version: u32,
+    projection_indices: Vec<Option<FieldIndex>>,
     /// Stream to send native updates (or errors for subscription failures).
     pub stream: SubscriptionSender,
     /// Session-scoped off-callback forwarding for `OverflowPolicy::Block`.
@@ -195,6 +203,8 @@ pub struct SubscriptionState {
     suppress_closed_warning: bool,
     /// Whether to append all top-level scalar fields Bloomberg exposes.
     capture_all_fields: bool,
+    /// Only mktdata has last-value semantics and suppresses filtered metadata-only rows.
+    mktdata_service: bool,
     /// Optional projected field for Bloomberg mktbar message kind (MarketBarStart/Update/End).
     subscription_data_index: Option<FieldIndex>,
     event_type_index: FieldIndex,
@@ -306,9 +316,13 @@ impl SubscriptionState {
             last_message_us: Arc::new(AtomicU64::new(0)),
             last_data_loss_us: Arc::new(AtomicU64::new(0)),
         });
-        let layout = Self::build_layout(1, &field_strings, &field_kinds);
+        let provisional_kinds = vec![false; field_strings.len()];
+        let layout = Self::build_layout(1, &field_strings, &field_kinds, &provisional_kinds);
         let string_value_cache = vec![None; field_strings.len()];
-        let requested_fields = field_names.len();
+        let requested_fields = vec![true; field_names.len()];
+        let mktdata_service = !topic.starts_with("//")
+            || topic == "//blp/mktdata"
+            || topic.starts_with("//blp/mktdata/");
 
         Self {
             topic: Arc::from(topic),
@@ -319,8 +333,12 @@ impl SubscriptionState {
             requested_fields,
             all_field_slots: Vec::new(),
             field_kinds,
+            provisional_kinds,
             layout_version: 1,
             layout,
+            projection_source: None,
+            projection_version: 0,
+            projection_indices: Vec::new(),
             stream,
             forwarder,
             flush_threshold,
@@ -331,6 +349,7 @@ impl SubscriptionState {
             has_received_data: false,
             suppress_closed_warning: false,
             capture_all_fields,
+            mktdata_service,
             subscription_data_index,
             event_type_index,
             event_subtype_index,
@@ -341,6 +360,180 @@ impl SubscriptionState {
 
     pub fn set_topic_id(&mut self, topic_id: TopicId) {
         self.topic_id = topic_id;
+    }
+    /// Replace the consumer-facing topic without changing service-specific projections.
+    pub(crate) fn set_label(&mut self, label: Arc<str>) {
+        self.topic = label;
+    }
+
+    /// Set the service for topics that do not include a fully qualified service prefix.
+    pub(crate) fn set_service(&mut self, service: &str) {
+        self.mktdata_service = service.trim() == "//blp/mktdata";
+    }
+
+    pub(crate) fn enable_all_fields(&mut self) {
+        self.capture_all_fields = true;
+        self.projection_source = None;
+    }
+
+    /// Append explicit fields without changing existing field indices or observed kinds.
+    pub(crate) fn add_fields(&mut self, fields: &[String]) {
+        for field in fields {
+            let name = Name::get_or_intern(field);
+            let idx = match self.field_name_keys.get(&(name.as_ptr() as usize)) {
+                Some(&idx) => idx,
+                None => {
+                    let idx = self.append_field(Arc::from(field.as_str()), name);
+                    self.projection_source = None;
+                    idx
+                }
+            };
+            self.requested_fields[idx as usize] = true;
+        }
+        self.refresh_layout();
+    }
+
+    /// Seed unresolved fields from metadata without replacing observed kinds.
+    ///
+    /// Metadata never adds fields or changes their indices. The first observed
+    /// kind replaces its provisional hint; later observations merge normally.
+    pub(crate) fn seed_kinds(&mut self, kinds: &HashMap<String, FieldKind>) {
+        for idx in 0..self.field_strings.len() {
+            if self.field_kinds[idx] == FieldKind::Unknown {
+                if let Some(&kind) = kinds.get(self.field_strings[idx].as_ref()) {
+                    self.seed_kind(idx as FieldIndex, kind);
+                }
+            }
+        }
+        self.refresh_layout();
+    }
+
+    /// Current immutable layout, including scalar discoveries and observed types.
+    pub(crate) fn layout(&self) -> Arc<FieldLayout> {
+        Arc::clone(&self.layout)
+    }
+
+    /// Project one decoded feed delta and deliver it through this consumer's queue.
+    ///
+    /// Filtered mktdata callers suppress rows without requested data, but still
+    /// observe message metrics and terminal DATALOSS metadata. Other services pass
+    /// `false` to retain their original event semantics.
+    pub(crate) fn project_update(
+        &mut self,
+        source: &SubscriptionUpdate,
+        suppress_empty: bool,
+    ) -> MessageOutcome {
+        if self.stream.is_closed() {
+            return MessageOutcome::Closed;
+        }
+        let update = self.project_image(source);
+        if self.is_dataloss_update(&update.values) {
+            self.on_dataloss(Some(source.timestamp_us));
+            return MessageOutcome::DataLoss;
+        }
+        self.deliver_update(update, suppress_empty)
+    }
+
+    /// Observe an image-only consumer's delta without allocating projected values
+    /// or using queue capacity. The feed sink handles DATALOSS before this call.
+    pub(crate) fn observe_update(&mut self, source: &SubscriptionUpdate) -> MessageOutcome {
+        if self.stream.is_closed() {
+            return MessageOutcome::Closed;
+        }
+        self.visit_projected_fields(source, |_, _| {});
+        let first_message = self.record_received(source.timestamp_us);
+        MessageOutcome::Normal { first_message }
+    }
+
+    /// Project known image entries without emitting or changing delivery metrics.
+    ///
+    /// Missing entries remain absent and explicit clears remain present nulls.
+    /// Source names and string values are shared; stable layouts reuse the index
+    /// mapping and an inline sparse delta allocates nothing.
+    pub(crate) fn project_image(&mut self, source: &SubscriptionUpdate) -> SubscriptionUpdate {
+        let mut values: SmallVec<[UpdateField; 8]> = SmallVec::new();
+        self.visit_projected_fields(source, |index, value| {
+            values.push(UpdateField {
+                index,
+                value: value.clone(),
+            });
+        });
+        if !self.capture_all_fields {
+            // The shared decoder visits schema order; filtered consumers retain
+            // the requested-field order used by their standalone decoder.
+            values.sort_unstable_by_key(|field| field.index);
+        }
+        SubscriptionUpdate {
+            timestamp_us: source.timestamp_us,
+            topic_id: self.topic_id,
+            topic: Arc::clone(&self.topic),
+            layout: Arc::clone(&self.layout),
+            values,
+        }
+    }
+
+    fn visit_projected_fields(
+        &mut self,
+        source: &SubscriptionUpdate,
+        mut visit: impl FnMut(FieldIndex, &UpdateValue),
+    ) {
+        self.cache_projection(&source.layout);
+        for field in &source.values {
+            let source_idx = field.index as usize;
+            let Some(meta) = source.layout.fields.get(source_idx) else {
+                continue;
+            };
+            let idx = match self.projection_indices[source_idx] {
+                Some(idx) => idx,
+                None if self.capture_all_fields => {
+                    let name = Name::get_or_intern(&meta.name);
+                    let idx = self.append_field(Arc::clone(&meta.name), name);
+                    self.projection_indices[source_idx] = Some(idx);
+                    idx
+                }
+                None => continue,
+            };
+            if meta.provisional {
+                self.seed_kind(idx, meta.kind);
+            } else {
+                self.observe_field_kind(idx, meta.kind);
+            }
+            self.observe_kind(idx, &field.value);
+            visit(idx, &field.value);
+        }
+        self.refresh_layout();
+    }
+
+    fn cache_projection(&mut self, source: &Arc<FieldLayout>) {
+        if self.projection_version == source.version
+            && self
+                .projection_source
+                .as_ref()
+                .is_some_and(|cached| Arc::ptr_eq(cached, source))
+        {
+            return;
+        }
+        self.projection_indices.clear();
+        self.projection_indices
+            .extend(source.fields.iter().map(|meta| {
+                self.field_strings
+                    .iter()
+                    .position(|name| name == &meta.name)
+                    .map(|idx| idx as FieldIndex)
+            }));
+        self.projection_source = Some(Arc::clone(source));
+        self.projection_version = source.version;
+    }
+
+    fn refresh_layout(&mut self) {
+        if self.layout.version != self.layout_version {
+            self.layout = Self::build_layout(
+                self.layout_version,
+                &self.field_strings,
+                &self.field_kinds,
+                &self.provisional_kinds,
+            );
+        }
     }
 
     fn push_field_if_new(
@@ -363,14 +556,23 @@ impl SubscriptionState {
         idx
     }
 
-    fn build_layout(version: u32, names: &[Arc<str>], kinds: &[FieldKind]) -> Arc<FieldLayout> {
+    fn build_layout(
+        version: u32,
+        names: &[Arc<str>],
+        kinds: &[FieldKind],
+        provisional: &[bool],
+    ) -> Arc<FieldLayout> {
         Arc::new(FieldLayout::new(
             version,
             names
                 .iter()
                 .zip(kinds.iter())
                 .enumerate()
-                .map(|(idx, (name, kind))| FieldMeta::new(name.clone(), idx as FieldIndex, *kind))
+                .map(|(idx, (name, kind))| {
+                    let mut field = FieldMeta::new(name.clone(), idx as FieldIndex, *kind);
+                    field.provisional = provisional[idx];
+                    field
+                })
                 .collect(),
         ))
     }
@@ -380,6 +582,7 @@ impl SubscriptionState {
     /// Timestamps use Bloomberg SDK receive time when available (requires
     /// `setRecordSubscriptionDataReceiveTimes(true)`), falling back to
     /// `SystemTime::now()` if not enabled.
+    /// Filtered mktdata metadata-only rows are intentionally not emitted.
     pub fn on_message(&mut self, msg: &Message) -> MessageOutcome {
         if self.stream.is_closed() {
             return MessageOutcome::Closed;
@@ -392,6 +595,9 @@ impl SubscriptionState {
         } else {
             self.extract_requested_fields(&elem, subscription_data.as_ref())
         };
+        // Keep every historical version increment, but materialize only this
+        // message's final schema, including partial progress before an error.
+        self.refresh_layout();
         let values = match values {
             Ok(values) => values,
             Err(error) => {
@@ -405,16 +611,6 @@ impl SubscriptionState {
             return MessageOutcome::DataLoss;
         }
 
-        self.metrics
-            .messages_received
-            .fetch_add(1, Ordering::Relaxed);
-        self.metrics
-            .last_message_us
-            .store(timestamp as u64, Ordering::Relaxed);
-
-        let first_message = !self.has_received_data;
-        self.has_received_data = true;
-
         let update = SubscriptionUpdate {
             timestamp_us: timestamp,
             topic_id: self.topic_id,
@@ -422,11 +618,40 @@ impl SubscriptionState {
             layout: self.layout.clone(),
             values,
         };
+        self.deliver_update(update, self.mktdata_service && !self.stream.is_callback())
+    }
+
+    fn deliver_update(
+        &mut self,
+        update: SubscriptionUpdate,
+        suppress_empty: bool,
+    ) -> MessageOutcome {
+        let first_message = self.record_received(update.timestamp_us);
+        if suppress_empty
+            && !self.capture_all_fields
+            && !update.values.iter().any(|field| {
+                field.index != self.event_type_index && field.index != self.event_subtype_index
+            })
+        {
+            return MessageOutcome::Normal { first_message };
+        }
         if self.send_update(update) {
             MessageOutcome::Normal { first_message }
         } else {
             MessageOutcome::Closed
         }
+    }
+
+    fn record_received(&mut self, timestamp_us: i64) -> bool {
+        self.metrics
+            .messages_received
+            .fetch_add(1, Ordering::Relaxed);
+        self.metrics
+            .last_message_us
+            .store(timestamp_us as u64, Ordering::Relaxed);
+        let first_message = !self.has_received_data;
+        self.has_received_data = true;
+        first_message
     }
 
     fn subscription_data_arc(&mut self, msg: &Message) -> Option<Arc<str>> {
@@ -470,23 +695,47 @@ impl SubscriptionState {
         elem: &xbbg_core::Element<'_>,
         subscription_data: Option<&Arc<str>>,
     ) -> Result<SmallVec<[UpdateField; 8]>, BlpError> {
+        let selected = self.select_present_requested_fields(elem, subscription_data.is_some());
+        let field_count = selected
+            .as_ref()
+            .map_or(self.field_names.len(), |fields| fields.len());
         let mut values = SmallVec::new();
-        for idx in 0..self.field_names.len() {
+        for position in 0..field_count {
+            let (idx, selected_field) = selected.as_ref().map_or((position, None), |fields| {
+                let (idx, field) = &fields[position];
+                (usize::from(*idx), field.as_ref())
+            });
             let value = if Some(idx as FieldIndex) == self.subscription_data_index {
                 let Some(value) = subscription_data else {
                     continue;
                 };
                 UpdateValue::Str(Arc::clone(value))
             } else {
-                let Some(field) = elem.get(&self.field_names[idx]) else {
-                    // Missing is not a clear: leave it out of this delta.
-                    continue;
+                let named_field;
+                let field = match selected_field {
+                    Some(field) => field,
+                    None => {
+                        let Some(field) = elem.get(&self.field_names[idx]) else {
+                            // Missing is not a clear: leave it out of this delta.
+                            continue;
+                        };
+                        named_field = field;
+                        &named_field
+                    }
                 };
                 let datatype = field.datatype();
                 if field.is_array() || !Self::should_capture_datatype(datatype) {
-                    return Err(Self::unsupported_shape(&field));
+                    let error = Self::unsupported_shape(field);
+                    if self.stream.report_field_error(&error, false) {
+                        continue;
+                    }
+                    return Err(error);
                 }
-                self.update_value_for_field(idx, &field, datatype)?
+                match self.update_value_for_field(idx, field, datatype) {
+                    Ok(value) => value,
+                    Err(error) if self.stream.report_field_error(&error, true) => continue,
+                    Err(error) => return Err(error),
+                }
             };
             self.observe_kind(idx as FieldIndex, &value);
             values.push(UpdateField {
@@ -495,6 +744,45 @@ impl SubscriptionState {
             });
         }
         Ok(values)
+    }
+
+    fn select_present_requested_fields<'a>(
+        &self,
+        elem: &xbbg_core::Element<'a>,
+        has_subscription_data: bool,
+    ) -> Option<RequestedFieldSelection<'a>> {
+        // Keep narrow and dense subscriptions on the existing name-lookup path.
+        // The scan is bounded by inline capacity, including projected metadata.
+        if self.field_names.len() <= 8 || self.field_names.len() > usize::from(FieldIndex::MAX) + 1
+        {
+            return None;
+        }
+        let projected = self
+            .subscription_data_index
+            .filter(|_| has_subscription_data);
+        let children = elem.num_children();
+        if children > 8 - usize::from(projected.is_some()) || children * 2 > self.field_names.len()
+        {
+            return None;
+        }
+        let mut selected = RequestedFieldSelection::new();
+        if let Some(idx) = projected {
+            selected.push((idx, None));
+        }
+        for child_idx in 0..children {
+            // Fall back before changing state if indexed access is unavailable.
+            let child = elem.get_at(child_idx)?;
+            let Some(&idx) = self.field_name_keys.get(&child.name_key()) else {
+                continue;
+            };
+            if Some(idx) != self.subscription_data_index {
+                selected.push((idx, Some(child)));
+            }
+        }
+        // Decode in requested order, not schema order: error precedence and
+        // field-kind/version observation must match the name-lookup path.
+        selected.sort_unstable_by_key(|(idx, _)| *idx);
+        Some(selected)
     }
 
     fn extract_all_fields(
@@ -520,7 +808,10 @@ impl SubscriptionState {
             let key = child.name_key();
             if child.is_array() {
                 if self.is_requested_field(key) {
-                    return Err(Self::unsupported_shape(&child));
+                    let error = Self::unsupported_shape(&child);
+                    if !self.stream.report_field_error(&error, false) {
+                        return Err(error);
+                    }
                 }
                 // all_fields promises scalars. Do not cache this shape: another
                 // message can expose a scalar at the same name and ordinal.
@@ -535,7 +826,14 @@ impl SubscriptionState {
                         idx,
                         datatype: cached_datatype,
                     } if cached_key == key && cached_datatype == datatype => {
-                        let value = self.update_value_for_field(idx as usize, &child, datatype)?;
+                        let value =
+                            match self.update_value_for_field(idx as usize, &child, datatype) {
+                                Ok(value) => value,
+                                Err(error) if self.stream.report_field_error(&error, true) => {
+                                    continue
+                                }
+                                Err(error) => return Err(error),
+                            };
                         self.observe_kind(idx, &value);
                         values.push(UpdateField { index: idx, value });
                         continue;
@@ -545,7 +843,10 @@ impl SubscriptionState {
                         datatype: cached_datatype,
                     } if cached_key == key && cached_datatype == datatype => {
                         if self.is_requested_field(key) {
-                            return Err(Self::unsupported_shape(&child));
+                            let error = Self::unsupported_shape(&child);
+                            if !self.stream.report_field_error(&error, false) {
+                                return Err(error);
+                            }
                         }
                         continue;
                     }
@@ -555,7 +856,10 @@ impl SubscriptionState {
 
             if !Self::should_capture_datatype(datatype) {
                 if self.is_requested_field(key) {
-                    return Err(Self::unsupported_shape(&child));
+                    let error = Self::unsupported_shape(&child);
+                    if !self.stream.report_field_error(&error, false) {
+                        return Err(error);
+                    }
                 }
                 self.cache_all_field_slot(child_idx, AllFieldSlot::Skipped { key, datatype });
                 continue;
@@ -563,7 +867,11 @@ impl SubscriptionState {
 
             let idx = self.ensure_field_for_child(&child, key);
             self.cache_all_field_slot(child_idx, AllFieldSlot::Captured { key, idx, datatype });
-            let value = self.update_value_for_field(idx as usize, &child, datatype)?;
+            let value = match self.update_value_for_field(idx as usize, &child, datatype) {
+                Ok(value) => value,
+                Err(error) if self.stream.report_field_error(&error, true) => continue,
+                Err(error) => return Err(error),
+            };
             self.observe_kind(idx, &value);
             values.push(UpdateField { index: idx, value });
         }
@@ -621,21 +929,37 @@ impl SubscriptionState {
         self.observe_field_kind(idx, FieldKind::from_value(value));
     }
 
-    fn observe_field_kind(&mut self, idx: FieldIndex, observed: FieldKind) {
+    fn seed_kind(&mut self, idx: FieldIndex, kind: FieldKind) {
         let idx = idx as usize;
-        let merged = self.field_kinds[idx].merge_observed(observed);
-        if merged != self.field_kinds[idx] {
-            self.field_kinds[idx] = merged;
+        if self.field_kinds[idx] == FieldKind::Unknown && kind != FieldKind::Unknown {
+            self.field_kinds[idx] = kind;
+            self.provisional_kinds[idx] = true;
             self.layout_version = self.layout_version.wrapping_add(1).max(1);
-            self.layout =
-                Self::build_layout(self.layout_version, &self.field_strings, &self.field_kinds);
+        }
+    }
+
+    fn observe_field_kind(&mut self, idx: FieldIndex, observed: FieldKind) {
+        if observed == FieldKind::Unknown {
+            return;
+        }
+        let idx = idx as usize;
+        let provisional = self.provisional_kinds[idx];
+        let merged = if provisional {
+            observed
+        } else {
+            self.field_kinds[idx].merge_observed(observed)
+        };
+        if merged != self.field_kinds[idx] || provisional {
+            self.field_kinds[idx] = merged;
+            self.provisional_kinds[idx] = false;
+            self.layout_version = self.layout_version.wrapping_add(1).max(1);
         }
     }
 
     fn is_requested_field(&self, key: usize) -> bool {
         self.field_name_keys
             .get(&key)
-            .is_some_and(|idx| (*idx as usize) < self.requested_fields)
+            .is_some_and(|idx| self.requested_fields[*idx as usize])
     }
 
     fn should_capture_datatype(datatype: BlpDataType) -> bool {
@@ -665,21 +989,26 @@ impl SubscriptionState {
         }
 
         let field_name = Arc::<str>::from(field.name_str());
-        let idx = self.field_strings.len() as FieldIndex;
         let name = Name::get_or_intern(&field_name);
-        self.field_strings.push(field_name.clone());
+        self.projection_source = None;
+        self.append_field(field_name, name)
+    }
+
+    fn append_field(&mut self, field_name: Arc<str>, name: Name) -> FieldIndex {
+        let idx = self.field_strings.len() as FieldIndex;
+        self.field_strings.push(field_name);
+        self.field_name_keys.insert(name.as_ptr() as usize, idx);
         self.field_names.push(name);
-        self.field_name_keys.insert(field_key, idx);
+        self.requested_fields.push(false);
         self.field_kinds.push(FieldKind::Unknown);
+        self.provisional_kinds.push(false);
         self.string_value_cache.push(None);
         self.layout_version = self.layout_version.wrapping_add(1).max(1);
-        self.layout =
-            Self::build_layout(self.layout_version, &self.field_strings, &self.field_kinds);
         idx
     }
 
-    /// Handle DATALOSS indicator.
-    pub fn on_dataloss(&mut self, timestamp_us: Option<i64>) {
+    /// Record DATALOSS for a recovering consumer without failing its stream.
+    pub(crate) fn record_dataloss(&mut self, timestamp_us: Option<i64>) {
         self.slow_consumer = true;
         self.metrics.slow_consumer.store(true, Ordering::Relaxed);
         self.metrics
@@ -689,11 +1018,16 @@ impl SubscriptionState {
             timestamp_us.unwrap_or_default().max(0) as u64,
             Ordering::Relaxed,
         );
+    }
+
+    /// Handle DATALOSS, failing streams unless their callback sink owns recovery.
+    pub fn on_dataloss(&mut self, timestamp_us: Option<i64>) {
+        self.record_dataloss(timestamp_us);
         self.stream.fail(BlpError::SubscriptionDataLoss {
             topic: self.topic.to_string(),
             detail: "Bloomberg reported DATALOSS; resubscribe for a fresh image".into(),
         });
-        xbbg_log::warn!(topic = %self.topic, "DATALOSS detected - subscription closed");
+        xbbg_log::warn!(topic = %self.topic, "DATALOSS detected");
     }
 
     pub fn clear_slow_consumer(&mut self) {
@@ -840,6 +1174,765 @@ mod tests {
 
     fn deliver(state: &mut SubscriptionState, event: &TestEvent) -> MessageOutcome {
         state.on_message(&event.event().messages().next().expect("fixture message"))
+    }
+
+    fn decoded_layout(version: u32, fields: &[(&str, FieldKind)]) -> Arc<FieldLayout> {
+        Arc::new(FieldLayout::new(
+            version,
+            fields
+                .iter()
+                .enumerate()
+                .map(|(idx, (name, kind))| FieldMeta::new(*name, idx as FieldIndex, *kind))
+                .collect(),
+        ))
+    }
+
+    fn decoded_update(
+        layout: Arc<FieldLayout>,
+        values: impl IntoIterator<Item = (FieldIndex, UpdateValue)>,
+    ) -> SubscriptionUpdate {
+        SubscriptionUpdate {
+            timestamp_us: 42,
+            topic_id: 100,
+            topic: Arc::from("TEST"),
+            layout,
+            values: values
+                .into_iter()
+                .map(|(index, value)| UpdateField { index, value })
+                .collect(),
+        }
+    }
+
+    fn value_names(update: &SubscriptionUpdate) -> Vec<&str> {
+        update
+            .values
+            .iter()
+            .map(|field| update.layout.fields[field.index as usize].name.as_ref())
+            .collect()
+    }
+
+    #[test]
+    fn metadata_seeding_preserves_observed_kinds_promotions_and_field_order() {
+        let (tx, _rx) = subscription_channel(1);
+        let mut state = SubscriptionState::new(
+            "TEST".into(),
+            ["OBSERVED", "COUNT", "TIME", "UNRESOLVED"]
+                .into_iter()
+                .map(str::to_owned)
+                .collect(),
+            tx,
+            1,
+            false,
+        );
+        state.project_image(&decoded_update(
+            decoded_layout(1, &[("OBSERVED", FieldKind::F64)]),
+            [(0, UpdateValue::F64(1.5))],
+        ));
+        let unseeded = state.layout();
+        let kinds = HashMap::from([
+            ("OBSERVED".into(), FieldKind::I32),
+            ("COUNT".into(), FieldKind::I32),
+            ("TIME".into(), FieldKind::Time64Micros),
+            ("UNRESOLVED".into(), FieldKind::Unknown),
+            ("DATE".into(), FieldKind::Date32),
+        ]);
+        state.seed_kinds(&kinds);
+        let seeded = state.layout();
+        assert_eq!(
+            seeded
+                .fields
+                .iter()
+                .map(|field| (field.name.as_ref(), field.kind))
+                .collect::<Vec<_>>(),
+            vec![
+                ("OBSERVED", FieldKind::F64),
+                ("COUNT", FieldKind::I32),
+                ("TIME", FieldKind::Time64Micros),
+                ("UNRESOLVED", FieldKind::Unknown),
+                ("MKTDATA_EVENT_TYPE", FieldKind::Unknown),
+                ("MKTDATA_EVENT_SUBTYPE", FieldKind::Unknown),
+            ]
+        );
+        assert_eq!(unseeded.fields[1].kind, FieldKind::Unknown);
+        assert_eq!(unseeded.fields[2].kind, FieldKind::Unknown);
+        state.seed_kinds(&kinds);
+        assert!(Arc::ptr_eq(&seeded, &state.layout()));
+
+        let promoted = state.project_image(&decoded_update(
+            decoded_layout(2, &[("COUNT", FieldKind::I64)]),
+            [(0, UpdateValue::I64(1_234_567_890_123))],
+        ));
+        assert_eq!(promoted.layout.fields[1].kind, FieldKind::I64);
+        let changed = state.project_image(&decoded_update(
+            decoded_layout(3, &[("COUNT", FieldKind::I32)]),
+            [(0, UpdateValue::I32(7))],
+        ));
+        assert_eq!(changed.layout.fields[1].kind, FieldKind::Str);
+        state.add_fields(&["DATE".into(), "TIME".into()]);
+        state.seed_kinds(&kinds);
+        let grown = state.layout();
+        assert_eq!(
+            grown
+                .fields
+                .iter()
+                .map(|field| (field.name.as_ref(), field.index, field.kind))
+                .collect::<Vec<_>>(),
+            vec![
+                ("OBSERVED", 0, FieldKind::F64),
+                ("COUNT", 1, FieldKind::Str),
+                ("TIME", 2, FieldKind::Time64Micros),
+                ("UNRESOLVED", 3, FieldKind::Unknown),
+                ("MKTDATA_EVENT_TYPE", 4, FieldKind::Unknown),
+                ("MKTDATA_EVENT_SUBTYPE", 5, FieldKind::Unknown),
+                ("DATE", 6, FieldKind::Date32),
+            ]
+        );
+        assert_eq!(seeded.fields[1].kind, FieldKind::I32);
+        assert_eq!(seeded.fields.len(), 6);
+    }
+
+    #[test]
+    fn seeded_decoder_preserves_temporal_kinds_on_untyped_datetime_clears() {
+        let event = fixture(
+            r#"<element name="VALUE" type="Datetime" minOccurs="0"/>"#,
+            "MarketDataEvents",
+            |formatter| formatter.json(r#"{"VALUE":null}"#),
+        );
+        for kind in [
+            FieldKind::Date32,
+            FieldKind::Time64Micros,
+            FieldKind::TimestampMicros,
+        ] {
+            let (tx, mut rx) = subscription_channel(1);
+            let mut state =
+                SubscriptionState::new("TEST".into(), vec!["VALUE".into()], tx, 1, false);
+            state.seed_kinds(&HashMap::from([("VALUE".into(), kind)]));
+            let seeded = state.layout();
+            assert_eq!(seeded.fields[0].kind, kind);
+            assert_eq!(
+                deliver(&mut state, &event),
+                MessageOutcome::Normal {
+                    first_message: true
+                }
+            );
+            let update = rx.try_recv().unwrap().unwrap();
+            assert_eq!(value_names(&update), vec!["VALUE"]);
+            assert!(matches!(update.values[0].value, UpdateValue::Null));
+            assert_eq!(update.layout.fields[0].kind, kind);
+            assert!(Arc::ptr_eq(&seeded, &update.layout));
+        }
+    }
+
+    #[test]
+    fn image_only_observation_never_uses_queue_capacity_while_layouts_grow() {
+        for all_fields in [false, true] {
+            for policy in [OverflowPolicy::Block, OverflowPolicy::DropNewest] {
+                let (tx, mut rx) = subscription_channel(1);
+                let mut state = SubscriptionState::with_policy(
+                    "TEST".into(),
+                    vec!["FIELD_00".into(), "FIELD_19".into()],
+                    tx,
+                    1,
+                    policy,
+                    all_fields,
+                );
+                let mut received = 0_u64;
+                for width in [4_u16, 12, 20] {
+                    let mut fields: Vec<_> = (0..width)
+                        .map(|index| {
+                            FieldMeta::new(format!("FIELD_{index:02}"), index, FieldKind::F64)
+                        })
+                        .collect();
+                    fields.push(FieldMeta::new("ABSENT", width, FieldKind::F64));
+                    let mut source = decoded_update(
+                        Arc::new(FieldLayout::new(u32::from(width), fields)),
+                        (0..width).map(|index| {
+                            let value = if index == 19 {
+                                UpdateValue::Null
+                            } else {
+                                UpdateValue::F64(f64::from(index))
+                            };
+                            (index, value)
+                        }),
+                    );
+                    for _ in 0..1024 {
+                        let first_message = received == 0;
+                        received += 1;
+                        source.timestamp_us = received as i64;
+                        assert_eq!(
+                            state.observe_update(&source),
+                            MessageOutcome::Normal { first_message }
+                        );
+                    }
+                }
+
+                let layout = state.layout();
+                let mut expected_names = vec![
+                    "FIELD_00".to_owned(),
+                    "FIELD_19".to_owned(),
+                    "MKTDATA_EVENT_TYPE".to_owned(),
+                    "MKTDATA_EVENT_SUBTYPE".to_owned(),
+                ];
+                if all_fields {
+                    expected_names.extend((1..19).map(|index| format!("FIELD_{index:02}")));
+                }
+                assert_eq!(
+                    layout
+                        .fields
+                        .iter()
+                        .map(|field| field.name.to_string())
+                        .collect::<Vec<_>>(),
+                    expected_names
+                );
+                assert_eq!(layout.fields[0].kind, FieldKind::F64);
+                assert_eq!(layout.fields[1].kind, FieldKind::F64);
+                assert_eq!(
+                    state.metrics.messages_received.load(Ordering::Relaxed),
+                    3072
+                );
+                assert_eq!(state.metrics.last_message_us.load(Ordering::Relaxed), 3072);
+                assert_eq!(state.metrics.batches_sent.load(Ordering::Relaxed), 0);
+                assert_eq!(state.metrics.dropped_batches.load(Ordering::Relaxed), 0);
+                assert_eq!(state.metrics.data_loss_events.load(Ordering::Relaxed), 0);
+                assert_eq!(state.dropped_batches, 0);
+                assert!(!state.metrics.slow_consumer.load(Ordering::Relaxed));
+                assert!(!state.stream.is_closed());
+                assert!(matches!(
+                    rx.try_recv(),
+                    Err(mpsc::error::TryRecvError::Empty)
+                ));
+            }
+        }
+    }
+
+    #[test]
+    fn image_only_observation_remaps_added_fields_and_reordered_typed_clears() {
+        let source = decoded_update(
+            decoded_layout(
+                1,
+                &[
+                    ("UNREQUESTED", FieldKind::Str),
+                    ("TIME", FieldKind::Time64Micros),
+                    ("DATE", FieldKind::Date32),
+                    ("STAMP", FieldKind::TimestampMicros),
+                ],
+            ),
+            [
+                (0, UpdateValue::Str(Arc::from("ignored"))),
+                (1, UpdateValue::Null),
+                (2, UpdateValue::Null),
+                (3, UpdateValue::Null),
+            ],
+        );
+        let (tx, mut rx) = subscription_channel(1);
+        let mut state = SubscriptionState::new("TEST".into(), vec!["TIME".into()], tx, 1, false);
+        let unrequested = decoded_update(
+            Arc::clone(&source.layout),
+            [(0, UpdateValue::Str(Arc::from("ignored")))],
+        );
+        assert_eq!(
+            state.observe_update(&unrequested),
+            MessageOutcome::Normal {
+                first_message: true
+            }
+        );
+        assert_eq!(state.layout().fields[0].kind, FieldKind::Unknown);
+        assert_eq!(
+            state.observe_update(&source),
+            MessageOutcome::Normal {
+                first_message: false
+            }
+        );
+        let initial = state.layout();
+        state.add_fields(&["STAMP".into(), "DATE".into()]);
+        assert_eq!(
+            state.observe_update(&source),
+            MessageOutcome::Normal {
+                first_message: false
+            }
+        );
+        let reordered = decoded_update(
+            decoded_layout(
+                1,
+                &[
+                    ("STAMP", FieldKind::TimestampMicros),
+                    ("DATE", FieldKind::Date32),
+                    ("TIME", FieldKind::Time64Micros),
+                ],
+            ),
+            [
+                (0, UpdateValue::Null),
+                (1, UpdateValue::Null),
+                (2, UpdateValue::Null),
+            ],
+        );
+        assert_eq!(
+            state.observe_update(&reordered),
+            MessageOutcome::Normal {
+                first_message: false
+            }
+        );
+        let layout = state.layout();
+        assert_eq!(
+            layout
+                .fields
+                .iter()
+                .map(|field| (field.name.as_ref(), field.kind))
+                .collect::<Vec<_>>(),
+            vec![
+                ("TIME", FieldKind::Time64Micros),
+                ("MKTDATA_EVENT_TYPE", FieldKind::Unknown),
+                ("MKTDATA_EVENT_SUBTYPE", FieldKind::Unknown),
+                ("STAMP", FieldKind::TimestampMicros),
+                ("DATE", FieldKind::Date32),
+            ]
+        );
+        assert_eq!(initial.fields.len(), 3);
+        assert_eq!(initial.fields[0].kind, FieldKind::Time64Micros);
+        assert_eq!(state.metrics.messages_received.load(Ordering::Relaxed), 4);
+        assert_eq!(state.metrics.last_message_us.load(Ordering::Relaxed), 42);
+        assert!(matches!(
+            rx.try_recv(),
+            Err(mpsc::error::TryRecvError::Empty)
+        ));
+    }
+
+    #[test]
+    fn recorded_dataloss_keeps_observation_open_until_an_explicit_failure() {
+        let (tx, mut rx) = subscription_channel(1);
+        let mut state = SubscriptionState::new("TEST".into(), vec!["BID".into()], tx, 1, false);
+        for (index, (timestamp, expected)) in [(Some(17), 17), (None, 0), (Some(-1), 0)]
+            .into_iter()
+            .enumerate()
+        {
+            state.record_dataloss(timestamp);
+            assert!(state.slow_consumer);
+            assert!(state.metrics.slow_consumer.load(Ordering::Relaxed));
+            assert_eq!(
+                state.metrics.data_loss_events.load(Ordering::Relaxed),
+                index as u64 + 1
+            );
+            assert_eq!(
+                state.metrics.last_data_loss_us.load(Ordering::Relaxed),
+                expected
+            );
+            assert!(!state.stream.is_closed());
+        }
+        assert_eq!(state.metrics.messages_received.load(Ordering::Relaxed), 0);
+        assert_eq!(state.metrics.last_message_us.load(Ordering::Relaxed), 0);
+        let source = decoded_update(
+            decoded_layout(1, &[("BID", FieldKind::F64)]),
+            [(0, UpdateValue::F64(10.0))],
+        );
+        assert_eq!(
+            state.observe_update(&source),
+            MessageOutcome::Normal {
+                first_message: true
+            }
+        );
+        assert_eq!(state.metrics.messages_received.load(Ordering::Relaxed), 1);
+        assert_eq!(state.metrics.last_message_us.load(Ordering::Relaxed), 42);
+        assert!(state.slow_consumer);
+        state.clear_slow_consumer();
+        assert!(!state.slow_consumer);
+        assert!(!state.metrics.slow_consumer.load(Ordering::Relaxed));
+        assert_eq!(state.metrics.data_loss_events.load(Ordering::Relaxed), 3);
+        assert_eq!(state.metrics.batches_sent.load(Ordering::Relaxed), 0);
+        assert_eq!(state.metrics.dropped_batches.load(Ordering::Relaxed), 0);
+        assert!(matches!(
+            rx.try_recv(),
+            Err(mpsc::error::TryRecvError::Empty)
+        ));
+
+        state.on_dataloss(Some(99));
+        assert_eq!(state.observe_update(&source), MessageOutcome::Closed);
+        assert_eq!(state.metrics.messages_received.load(Ordering::Relaxed), 1);
+        assert_eq!(state.metrics.last_message_us.load(Ordering::Relaxed), 42);
+        assert_eq!(state.metrics.data_loss_events.load(Ordering::Relaxed), 4);
+        assert_eq!(state.metrics.last_data_loss_us.load(Ordering::Relaxed), 99);
+        assert!(matches!(
+            rx.try_recv().unwrap(),
+            Err(BlpError::SubscriptionDataLoss { topic, .. }) if topic == "TEST"
+        ));
+        assert!(matches!(
+            rx.try_recv(),
+            Err(mpsc::error::TryRecvError::Disconnected)
+        ));
+    }
+
+    #[test]
+    fn closed_image_only_consumers_do_not_observe_new_kinds_or_messages() {
+        for terminal_error in [false, true] {
+            let (tx, mut rx) = subscription_channel(1);
+            let mut state = SubscriptionState::new("TEST".into(), vec!["BID".into()], tx, 1, true);
+            let layout = state.layout();
+            if terminal_error {
+                state.fail(BlpError::Timeout);
+            } else {
+                rx.close();
+            }
+            let source = decoded_update(
+                decoded_layout(1, &[("BID", FieldKind::F64), ("ASK", FieldKind::F64)]),
+                [(0, UpdateValue::F64(10.0)), (1, UpdateValue::F64(12.0))],
+            );
+            assert_eq!(state.observe_update(&source), MessageOutcome::Closed);
+            assert!(Arc::ptr_eq(&layout, &state.layout()));
+            assert_eq!(state.metrics.messages_received.load(Ordering::Relaxed), 0);
+            assert_eq!(state.metrics.last_message_us.load(Ordering::Relaxed), 0);
+            if terminal_error {
+                assert!(matches!(rx.try_recv().unwrap(), Err(BlpError::Timeout)));
+            }
+            assert!(matches!(
+                rx.try_recv(),
+                Err(mpsc::error::TryRecvError::Disconnected)
+            ));
+        }
+    }
+
+    #[test]
+    fn filtered_mktdata_suppresses_metadata_and_unrequested_fields_but_not_clears() {
+        let metadata = fixture(
+            r#"<element name="MKTDATA_EVENT_TYPE" type="String"/>
+            <element name="MKTDATA_EVENT_SUBTYPE" type="String"/>"#,
+            "MarketDataEvents",
+            |formatter| {
+                formatter
+                    .json(r#"{"MKTDATA_EVENT_TYPE":"SUMMARY","MKTDATA_EVENT_SUBTYPE":"INITPAINT"}"#)
+            },
+        );
+        let unrequested = fixture(
+            r#"<element name="ASK" type="Float64"/>
+            <element name="MKTDATA_EVENT_TYPE" type="String"/>"#,
+            "MarketDataEvents",
+            |formatter| formatter.json(r#"{"ASK":12.0,"MKTDATA_EVENT_TYPE":"QUOTE"}"#),
+        );
+        let clear = fixture(
+            r#"<element name="BID" type="Float64" minOccurs="0"/>"#,
+            "MarketDataEvents",
+            |formatter| formatter.json(r#"{"BID":null}"#),
+        );
+        let (tx, mut rx) = subscription_channel(1);
+        let mut state = SubscriptionState::new("TEST".into(), vec!["BID".into()], tx, 1, false);
+
+        assert_eq!(
+            deliver(&mut state, &metadata),
+            MessageOutcome::Normal {
+                first_message: true
+            }
+        );
+        assert!(matches!(
+            rx.try_recv(),
+            Err(mpsc::error::TryRecvError::Empty)
+        ));
+        deliver(&mut state, &unrequested);
+        assert!(matches!(
+            rx.try_recv(),
+            Err(mpsc::error::TryRecvError::Empty)
+        ));
+        assert_eq!(
+            deliver(&mut state, &clear),
+            MessageOutcome::Normal {
+                first_message: false
+            }
+        );
+        let update = rx.try_recv().unwrap().unwrap();
+        assert_eq!(value_names(&update), vec!["BID"]);
+        assert!(matches!(update.values[0].value, UpdateValue::Null));
+        assert_eq!(update.layout.fields[0].kind, FieldKind::F64);
+        assert_eq!(state.metrics.messages_received.load(Ordering::Relaxed), 3);
+        assert_eq!(state.metrics.batches_sent.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn non_mktdata_and_all_fields_preserve_metadata_only_messages() {
+        let event = fixture(
+            r#"<element name="MKTDATA_EVENT_TYPE" type="String"/>"#,
+            "MarketDataEvents",
+            |formatter| formatter.json(r#"{"MKTDATA_EVENT_TYPE":"SUMMARY"}"#),
+        );
+        for (topic, service, all_fields) in [
+            ("TEST", "//blp/mktvwap", false),
+            ("//blp/mktdepth/ticker/TEST", "//blp/mktdepth", false),
+            ("TEST", "//blp/mktdata", true),
+        ] {
+            let (tx, mut rx) = subscription_channel(1);
+            let mut state =
+                SubscriptionState::new(topic.into(), vec!["BID".into()], tx, 1, all_fields);
+            state.set_service(service);
+            state.set_label(Arc::from("LABEL"));
+            deliver(&mut state, &event);
+            let update = rx.try_recv().unwrap().unwrap();
+            assert_eq!(update.topic.as_ref(), "LABEL");
+            assert_eq!(value_names(&update), vec!["MKTDATA_EVENT_TYPE"]);
+
+            state.project_update(&update, false);
+            assert_eq!(
+                value_names(&rx.try_recv().unwrap().unwrap()),
+                vec!["MKTDATA_EVENT_TYPE"]
+            );
+        }
+    }
+
+    #[test]
+    fn decoded_projection_keeps_consumer_fields_labels_and_delivery_independent() {
+        let layout = decoded_layout(
+            1,
+            &[
+                ("ASK", FieldKind::F64),
+                ("BID", FieldKind::F64),
+                ("MKTDATA_EVENT_TYPE", FieldKind::Str),
+            ],
+        );
+        let (bid_tx, mut bid_rx) = subscription_channel(1);
+        let (ask_tx, mut ask_rx) = subscription_channel(1);
+        let mut bid = SubscriptionState::new("TEST".into(), vec!["BID".into()], bid_tx, 1, false);
+        let mut ask = SubscriptionState::new("TEST".into(), vec!["ASK".into()], ask_tx, 1, false);
+        bid.set_label(Arc::from("BID_LABEL"));
+        ask.set_label(Arc::from("ASK_LABEL"));
+        bid.set_topic_id(11);
+        ask.set_topic_id(22);
+
+        let bid_delta = decoded_update(
+            Arc::clone(&layout),
+            [
+                (2, UpdateValue::Str(Arc::from("QUOTE"))),
+                (1, UpdateValue::F64(10.0)),
+            ],
+        );
+        bid.project_update(&bid_delta, true);
+        ask.project_update(&bid_delta, true);
+        let update = bid_rx.try_recv().unwrap().unwrap();
+        assert_eq!(value_names(&update), vec!["BID", "MKTDATA_EVENT_TYPE"]);
+        assert_eq!(update.topic.as_ref(), "BID_LABEL");
+        assert_eq!(update.topic_id, 11);
+        assert_eq!(update.timestamp_us, 42);
+        assert!(matches!(update.values[0].value, UpdateValue::F64(10.0)));
+        assert!(matches!(
+            ask_rx.try_recv(),
+            Err(mpsc::error::TryRecvError::Empty)
+        ));
+
+        let ask_delta = decoded_update(layout, [(0, UpdateValue::F64(12.0))]);
+        bid.project_update(&ask_delta, true);
+        ask.project_update(&ask_delta, true);
+        assert!(matches!(
+            bid_rx.try_recv(),
+            Err(mpsc::error::TryRecvError::Empty)
+        ));
+        let update = ask_rx.try_recv().unwrap().unwrap();
+        assert_eq!(value_names(&update), vec!["ASK"]);
+        assert_eq!(update.topic.as_ref(), "ASK_LABEL");
+        assert_eq!(update.topic_id, 22);
+        assert!(matches!(update.values[0].value, UpdateValue::F64(12.0)));
+        assert_eq!(bid.metrics.batches_sent.load(Ordering::Relaxed), 1);
+        assert_eq!(ask.metrics.batches_sent.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn projection_growth_remaps_source_layouts_and_preserves_typed_clears() {
+        let layout = decoded_layout(1, &[("ASK", FieldKind::F64), ("BID", FieldKind::F64)]);
+        let (tx, mut rx) = subscription_channel(1);
+        let mut state = SubscriptionState::new("TEST".into(), vec!["BID".into()], tx, 1, false);
+        let initial = state.project_image(&decoded_update(
+            Arc::clone(&layout),
+            [(1, UpdateValue::F64(10.0))],
+        ));
+        assert_eq!(value_names(&initial), vec!["BID"]);
+        assert!(matches!(
+            rx.try_recv(),
+            Err(mpsc::error::TryRecvError::Empty)
+        ));
+        assert_eq!(state.metrics.messages_received.load(Ordering::Relaxed), 0);
+
+        state.add_fields(&["ASK".into(), "BID".into(), "ASK".into()]);
+        let grown = state.layout();
+        assert_eq!(
+            grown
+                .fields
+                .iter()
+                .map(|field| field.name.as_ref())
+                .collect::<Vec<_>>(),
+            vec!["BID", "MKTDATA_EVENT_TYPE", "MKTDATA_EVENT_SUBTYPE", "ASK"]
+        );
+        assert_eq!(initial.layout.fields.len(), 3);
+        let clear = state.project_image(&decoded_update(layout, [(0, UpdateValue::Null)]));
+        assert_eq!(value_names(&clear), vec!["ASK"]);
+        assert_eq!(clear.values[0].index, 3);
+        assert!(matches!(clear.values[0].value, UpdateValue::Null));
+        assert_eq!(clear.layout.fields[3].kind, FieldKind::F64);
+        assert_eq!(grown.fields[3].kind, FieldKind::Unknown);
+
+        // A new source with the same version must not reuse the old index mapping.
+        let reordered = decoded_layout(1, &[("BID", FieldKind::F64), ("ASK", FieldKind::F64)]);
+        let projected = state.project_image(&decoded_update(
+            reordered,
+            [(1, UpdateValue::F64(21.0)), (0, UpdateValue::F64(19.0))],
+        ));
+        assert_eq!(value_names(&projected), vec!["BID", "ASK"]);
+        assert!(matches!(projected.values[0].value, UpdateValue::F64(19.0)));
+        assert!(matches!(projected.values[1].value, UpdateValue::F64(21.0)));
+
+        let promoted = decoded_layout(2, &[("BID", FieldKind::F64), ("ASK", FieldKind::Str)]);
+        let clear = state.project_image(&decoded_update(promoted, [(1, UpdateValue::Null)]));
+        assert_eq!(clear.layout.fields[3].kind, FieldKind::Str);
+        assert!(matches!(clear.values[0].value, UpdateValue::Null));
+        assert!(matches!(
+            rx.try_recv(),
+            Err(mpsc::error::TryRecvError::Empty)
+        ));
+    }
+
+    #[test]
+    fn all_fields_projection_discovers_present_scalars_and_reuses_shared_strings() {
+        let layout = decoded_layout(1, &[("TEXT", FieldKind::Str), ("FUTURE", FieldKind::F64)]);
+        let text = Arc::<str>::from("synthetic");
+        let source = decoded_update(
+            Arc::clone(&layout),
+            [(0, UpdateValue::Str(Arc::clone(&text)))],
+        );
+        let (tx, _rx) = subscription_channel(1);
+        let mut state = SubscriptionState::new("TEST".into(), Vec::new(), tx, 1, true);
+        let first = state.project_image(&source);
+        assert_eq!(value_names(&first), vec!["TEXT"]);
+        assert!(!first
+            .layout
+            .fields
+            .iter()
+            .any(|field| field.name.as_ref() == "FUTURE"));
+        assert!(Arc::ptr_eq(
+            &first.layout.fields[2].name,
+            &layout.fields[0].name
+        ));
+        assert!(
+            matches!(&first.values[0].value, UpdateValue::Str(value) if Arc::ptr_eq(value, &text))
+        );
+
+        let repeated = state.project_image(&source);
+        assert!(Arc::ptr_eq(&first.layout, &repeated.layout));
+        assert!(!repeated.values.spilled());
+        let clear = state.project_image(&decoded_update(layout, [(1, UpdateValue::Null)]));
+        assert_eq!(value_names(&clear), vec!["FUTURE"]);
+        assert_eq!(clear.layout.fields[3].kind, FieldKind::F64);
+        assert!(matches!(clear.values[0].value, UpdateValue::Null));
+        assert_eq!(first.layout.fields.len(), 3);
+    }
+
+    #[test]
+    fn projected_dataloss_is_terminal_even_without_requested_data() {
+        let layout = decoded_layout(
+            1,
+            &[
+                ("MKTDATA_EVENT_TYPE", FieldKind::Str),
+                ("MKTDATA_EVENT_SUBTYPE", FieldKind::Str),
+            ],
+        );
+        let source = decoded_update(
+            layout,
+            [
+                (0, UpdateValue::Str(Arc::from("SUMMARY"))),
+                (1, UpdateValue::Str(Arc::from("DATALOSS"))),
+            ],
+        );
+        let (tx, mut rx) = subscription_channel(1);
+        let mut state = SubscriptionState::new("TEST".into(), vec!["BID".into()], tx, 1, false);
+        assert_eq!(
+            state.project_update(&source, true),
+            MessageOutcome::DataLoss
+        );
+        assert!(matches!(
+            rx.try_recv().unwrap(),
+            Err(BlpError::SubscriptionDataLoss { .. })
+        ));
+        assert_eq!(state.project_update(&source, true), MessageOutcome::Closed);
+        assert_eq!(state.metrics.data_loss_events.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn projected_overflow_closes_only_the_full_consumer_queue() {
+        let source = decoded_update(
+            decoded_layout(1, &[("BID", FieldKind::F64)]),
+            [(0, UpdateValue::F64(10.0))],
+        );
+        let (slow_tx, mut slow_rx) = subscription_channel(1);
+        let (fast_tx, mut fast_rx) = subscription_channel(2);
+        let mut slow = SubscriptionState::new("TEST".into(), vec!["BID".into()], slow_tx, 1, false);
+        let mut fast = SubscriptionState::new("TEST".into(), vec!["BID".into()], fast_tx, 1, false);
+        slow.project_update(&source, true);
+        fast.project_update(&source, true);
+        assert_eq!(slow.project_update(&source, true), MessageOutcome::Closed);
+        assert_eq!(
+            fast.project_update(&source, true),
+            MessageOutcome::Normal {
+                first_message: false
+            }
+        );
+        assert!(matches!(
+            slow_rx.try_recv().unwrap().unwrap().values[0].value,
+            UpdateValue::F64(10.0)
+        ));
+        assert!(matches!(
+            slow_rx.try_recv().unwrap(),
+            Err(BlpError::SubscriptionDataLoss { .. })
+        ));
+        for _ in 0..2 {
+            assert!(matches!(
+                fast_rx.try_recv().unwrap().unwrap().values[0].value,
+                UpdateValue::F64(10.0)
+            ));
+        }
+        assert!(!fast.stream.is_closed());
+        assert_eq!(fast.metrics.dropped_batches.load(Ordering::Relaxed), 0);
+    }
+
+    #[test]
+    fn mktbar_synthetic_message_kind_counts_as_data_after_label_projection() {
+        let event = fixture("", "MarketBarEnd", |formatter| formatter.json("{}"));
+        let (source_tx, mut source_rx) = subscription_channel(1);
+        let mut decoder = SubscriptionState::new(
+            "//blp/mktbar/ticker/TEST".into(),
+            Vec::new(),
+            source_tx,
+            1,
+            false,
+        );
+        deliver(&mut decoder, &event);
+        let source = source_rx.try_recv().unwrap().unwrap();
+        let (tx, mut rx) = subscription_channel(1);
+        let mut consumer =
+            SubscriptionState::new("//blp/mktbar/ticker/TEST".into(), Vec::new(), tx, 1, false);
+        consumer.set_label(Arc::from("LABEL"));
+        consumer.project_update(&source, true);
+        let update = rx.try_recv().unwrap().unwrap();
+        assert_eq!(update.topic.as_ref(), "LABEL");
+        assert_eq!(value_names(&update), vec!["SUBSCRIPTION_DATA"]);
+        assert!(
+            matches!(&update.values[0].value, UpdateValue::Str(value) if value.as_ref() == "MarketBarEnd")
+        );
+    }
+
+    #[test]
+    fn add_fields_promotes_prior_scalar_discoveries_to_explicit_requests() {
+        let scalar = fixture(
+            r#"<element name="LEVELS" type="Float64"/>"#,
+            "MarketDataEvents",
+            |formatter| formatter.json(r#"{"LEVELS":3.5}"#),
+        );
+        let array = fixture(
+            r#"<element name="LEVELS" type="Float64" maxOccurs="unbounded"/>"#,
+            "MarketDataEvents",
+            |formatter| formatter.json(r#"{"LEVELS":[1.25,2.5]}"#),
+        );
+        let (tx, mut rx) = subscription_channel(1);
+        let mut state = SubscriptionState::new("TEST".into(), Vec::new(), tx, 1, true);
+        deliver(&mut state, &scalar);
+        let update = rx.try_recv().unwrap().unwrap();
+        assert_eq!(value_names(&update), vec!["LEVELS"]);
+        state.add_fields(&["LEVELS".into(), "NEW_FIELD".into()]);
+        assert_eq!(deliver(&mut state, &array), MessageOutcome::Closed);
+        assert!(matches!(
+            rx.try_recv().unwrap(),
+            Err(BlpError::SchemaUnsupported { element, .. }) if element == "LEVELS"
+        ));
     }
 
     #[test]
@@ -1322,5 +2415,476 @@ mod tests {
         ));
         drop(forwarder);
         handle.await.unwrap();
+    }
+    #[test]
+    fn wide_sparse_reverse_schema_preserves_i64_null_absence_and_requested_order() {
+        let requested = [
+            "FIELD_00",
+            "EXACT_I64",
+            "FIELD_02",
+            "EXPLICIT_NULL",
+            "FIELD_04",
+            "ABSENT_AFTER_IMAGE",
+            "FIELD_06",
+            "TEXT",
+            "FIELD_08",
+            "FIELD_09",
+            "FIELD_10",
+            "FIELD_11",
+            "FIELD_12",
+            "FIELD_13",
+            "FIELD_14",
+            "FIELD_15",
+        ];
+        let image = fixture(
+            r#"<element name="TEXT" type="String"/>
+        <element name="ABSENT_AFTER_IMAGE" type="Int32"/>
+        <element name="EXPLICIT_NULL" type="Int32"/>
+        <element name="EXACT_I64" type="Int64"/>"#,
+            "MarketDataEvents",
+            |formatter| {
+                formatter.json(
+                r#"{"TEXT":"initial","ABSENT_AFTER_IMAGE":77,"EXPLICIT_NULL":88,"EXACT_I64":-9007199254740993}"#,
+            )
+            },
+        );
+        let delta = fixture(
+            r#"<element name="TEXT" type="String"/>
+        <element name="EXPLICIT_NULL" type="Int32" minOccurs="0"/>
+        <element name="EXACT_I64" type="Int64"/>"#,
+            "MarketDataEvents",
+            |formatter| {
+                formatter
+                    .json(r#"{"TEXT":"changed","EXPLICIT_NULL":null,"EXACT_I64":9007199254740993}"#)
+            },
+        );
+        let (tx, mut rx) = subscription_channel(1);
+        let mut state = SubscriptionState::new(
+            "TEST".into(),
+            requested.iter().map(|field| (*field).to_owned()).collect(),
+            tx,
+            5,
+            false,
+        );
+
+        assert_eq!(
+            deliver(&mut state, &image),
+            MessageOutcome::Normal {
+                first_message: true
+            }
+        );
+        let image_update = rx
+            .try_recv()
+            .expect("image delivered immediately")
+            .expect("image update");
+        let image_names: Vec<_> = image_update
+            .values
+            .iter()
+            .map(|field| {
+                image_update.layout.fields[field.index as usize]
+                    .name
+                    .as_ref()
+            })
+            .collect();
+        assert_eq!(
+            image_names,
+            vec!["EXACT_I64", "EXPLICIT_NULL", "ABSENT_AFTER_IMAGE", "TEXT"]
+        );
+        assert!(matches!(
+            image_update.values[0].value,
+            UpdateValue::I64(-9_007_199_254_740_993)
+        ));
+        assert!(matches!(image_update.values[1].value, UpdateValue::I32(88)));
+        assert!(matches!(image_update.values[2].value, UpdateValue::I32(77)));
+        assert!(matches!(
+            &image_update.values[3].value,
+            UpdateValue::Str(value) if value.as_ref() == "initial"
+        ));
+
+        assert_eq!(
+            deliver(&mut state, &delta),
+            MessageOutcome::Normal {
+                first_message: false
+            }
+        );
+        let delta_update = rx
+            .try_recv()
+            .expect("delta delivered immediately")
+            .expect("delta update");
+        let delta_names: Vec<_> = delta_update
+            .values
+            .iter()
+            .map(|field| {
+                delta_update.layout.fields[field.index as usize]
+                    .name
+                    .as_ref()
+            })
+            .collect();
+        assert_eq!(delta_names, vec!["EXACT_I64", "EXPLICIT_NULL", "TEXT"]);
+        assert!(matches!(
+            delta_update.values[0].value,
+            UpdateValue::I64(9_007_199_254_740_993)
+        ));
+        assert!(matches!(delta_update.values[1].value, UpdateValue::Null));
+        assert!(matches!(
+            &delta_update.values[2].value,
+            UpdateValue::Str(value) if value.as_ref() == "changed"
+        ));
+    }
+
+    #[test]
+    fn wide_sparse_reverse_schema_reports_first_requested_unsupported_field() {
+        let requested = [
+            "SUPPORTED",
+            "FIRST_UNSUPPORTED",
+            "FIELD_02",
+            "FIELD_03",
+            "FIELD_04",
+            "FIELD_05",
+            "FIELD_06",
+            "FIELD_07",
+            "FIELD_08",
+            "FIELD_09",
+            "FIELD_10",
+            "FIELD_11",
+            "FIELD_12",
+            "FIELD_13",
+            "SECOND_UNSUPPORTED",
+            "FIELD_15",
+        ];
+        let event = fixture_with_types(
+            r#"<element name="SECOND_UNSUPPORTED" type="SecondValue"/>
+        <element name="FIRST_UNSUPPORTED" type="FirstValue"/>
+        <element name="SUPPORTED" type="Int32"/>"#,
+            r#"<sequenceType name="FirstValue">
+            <element name="INNER" type="String"/>
+        </sequenceType>
+        <sequenceType name="SecondValue">
+            <element name="INNER" type="String"/>
+        </sequenceType>"#,
+            "MarketDataEvents",
+            |formatter| {
+                formatter.json(
+                r#"{"SECOND_UNSUPPORTED":{"INNER":"second"},"FIRST_UNSUPPORTED":{"INNER":"first"},"SUPPORTED":7}"#,
+            )
+            },
+        );
+        let (tx, mut rx) = subscription_channel(1);
+        let mut state = SubscriptionState::new(
+            "TEST".into(),
+            requested.iter().map(|field| (*field).to_owned()).collect(),
+            tx,
+            6,
+            false,
+        );
+
+        assert_eq!(deliver(&mut state, &event), MessageOutcome::Closed);
+        assert!(matches!(
+            rx.try_recv().expect("terminal schema error"),
+            Err(BlpError::SchemaUnsupported { element, .. }) if element == "FIRST_UNSUPPORTED"
+        ));
+    }
+
+    #[test]
+    fn one_message_keeps_exact_layout_version_and_retained_layouts_immutable() {
+        let requested = [
+            "ANCHOR",
+            "PROMOTED_I64",
+            "FIELD_02",
+            "PROMOTED_TEXT",
+            "FIELD_04",
+            "FIELD_05",
+            "FIELD_06",
+            "FIELD_07",
+            "FIELD_08",
+            "FIELD_09",
+            "FIELD_10",
+            "FIELD_11",
+            "FIELD_12",
+            "FIELD_13",
+            "FIELD_14",
+            "FIELD_15",
+        ];
+        let first_event = fixture(
+            r#"<element name="ANCHOR" type="Float64"/>
+        <element name="PROMOTED_I64" type="Int32"/>
+        <element name="PROMOTED_TEXT" type="Float64"/>"#,
+            "MarketDataEvents",
+            |formatter| formatter.json(r#"{"ANCHOR":1.25,"PROMOTED_I64":7,"PROMOTED_TEXT":8.5}"#),
+        );
+        let multi_change = fixture(
+            r#"<element name="ANCHOR" type="Float64"/>
+        <element name="PROMOTED_I64" type="Int64"/>
+        <element name="PROMOTED_TEXT" type="String"/>
+        <element name="DISCOVERED_I32" type="Int32"/>
+        <element name="DISCOVERED_F64" type="Float64"/>"#,
+            "MarketDataEvents",
+            |formatter| {
+                formatter.json(
+                r#"{"ANCHOR":2.5,"PROMOTED_I64":1234567890123,"PROMOTED_TEXT":"ready","DISCOVERED_I32":7,"DISCOVERED_F64":4.5}"#,
+            )
+            },
+        );
+        let initial_names: Vec<_> = requested
+            .iter()
+            .copied()
+            .chain(["MKTDATA_EVENT_TYPE", "MKTDATA_EVENT_SUBTYPE"])
+            .collect();
+        let (tx, mut rx) = subscription_channel(1);
+        let mut state = SubscriptionState::new(
+            "TEST".into(),
+            requested.iter().map(|field| (*field).to_owned()).collect(),
+            tx,
+            7,
+            true,
+        );
+
+        assert_eq!(
+            deliver(&mut state, &first_event),
+            MessageOutcome::Normal {
+                first_message: true
+            }
+        );
+        let first = rx
+            .try_recv()
+            .expect("first update delivered immediately")
+            .expect("first update");
+        let first_version = first.layout.version;
+        assert_eq!(first.values.len(), 3);
+        assert!(matches!(first.values[0].value, UpdateValue::F64(1.25)));
+        let retained_layout = first.layout.clone();
+
+        assert_eq!(
+            deliver(&mut state, &multi_change),
+            MessageOutcome::Normal {
+                first_message: false
+            }
+        );
+        let second = rx
+            .try_recv()
+            .expect("multi-change update delivered immediately")
+            .expect("multi-change update");
+        // Two kind promotions, plus discovery and kind observation for each new field.
+        assert_eq!(second.layout.version, first_version + 6);
+        let mut expected_names = initial_names.clone();
+        expected_names.extend(["DISCOVERED_I32", "DISCOVERED_F64"]);
+        let second_names: Vec<_> = second
+            .layout
+            .fields
+            .iter()
+            .map(|field| field.name.as_ref())
+            .collect();
+        assert_eq!(second_names, expected_names);
+        for (index, field) in second.layout.fields.iter().enumerate() {
+            assert_eq!(field.index as usize, index);
+        }
+        assert_eq!(second.layout.fields[0].kind, FieldKind::F64);
+        assert_eq!(second.layout.fields[1].kind, FieldKind::Str);
+        assert_eq!(second.layout.fields[3].kind, FieldKind::Str);
+        assert_eq!(second.layout.fields[18].kind, FieldKind::I32);
+        assert_eq!(second.layout.fields[19].kind, FieldKind::F64);
+        let second_value_names: Vec<_> = second
+            .values
+            .iter()
+            .map(|field| second.layout.fields[field.index as usize].name.as_ref())
+            .collect();
+        assert_eq!(
+            second_value_names,
+            vec![
+                "ANCHOR",
+                "PROMOTED_I64",
+                "PROMOTED_TEXT",
+                "DISCOVERED_I32",
+                "DISCOVERED_F64"
+            ]
+        );
+        assert!(matches!(second.values[0].value, UpdateValue::F64(2.5)));
+        assert!(matches!(
+            second.values[1].value,
+            UpdateValue::I64(1_234_567_890_123)
+        ));
+        assert!(matches!(
+            &second.values[2].value,
+            UpdateValue::Str(value) if value.as_ref() == "ready"
+        ));
+        assert!(matches!(second.values[3].value, UpdateValue::I32(7)));
+        assert!(matches!(second.values[4].value, UpdateValue::F64(4.5)));
+
+        assert_eq!(retained_layout.version, first_version);
+        let retained_names: Vec<_> = retained_layout
+            .fields
+            .iter()
+            .map(|field| field.name.as_ref())
+            .collect();
+        assert_eq!(retained_names, initial_names);
+        assert_eq!(retained_layout.fields[0].kind, FieldKind::F64);
+        assert_eq!(retained_layout.fields[1].kind, FieldKind::I32);
+        assert_eq!(retained_layout.fields[3].kind, FieldKind::F64);
+
+        let second_signature: Vec<_> = second
+            .layout
+            .fields
+            .iter()
+            .map(|field| (field.name.to_string(), field.index, field.kind))
+            .collect();
+        assert_eq!(
+            deliver(&mut state, &multi_change),
+            MessageOutcome::Normal {
+                first_message: false
+            }
+        );
+        let third = rx
+            .try_recv()
+            .expect("same-kind update delivered immediately")
+            .expect("same-kind update");
+        assert_eq!(third.layout.version, second.layout.version);
+        let third_signature: Vec<_> = third
+            .layout
+            .fields
+            .iter()
+            .map(|field| (field.name.to_string(), field.index, field.kind))
+            .collect();
+        assert_eq!(third_signature, second_signature);
+    }
+
+    #[test]
+    fn mktbar_projection_overrides_sdk_field_at_requested_position() {
+        let requested = [
+            "FIELD_00",
+            "VOLUME",
+            "FIELD_02",
+            "SUBSCRIPTION_DATA",
+            "FIELD_04",
+            "LAST_PRICE",
+            "FIELD_06",
+            "FIELD_07",
+            "FIELD_08",
+            "FIELD_09",
+            "FIELD_10",
+            "FIELD_11",
+            "FIELD_12",
+            "FIELD_13",
+            "FIELD_14",
+            "FIELD_15",
+        ];
+        let event = fixture(
+            r#"<element name="LAST_PRICE" type="Float64"/>
+        <element name="SUBSCRIPTION_DATA" type="String"/>
+        <element name="VOLUME" type="Int32"/>"#,
+            "MarketBarUpdate",
+            |formatter| {
+                formatter.json(
+                    r#"{"LAST_PRICE":101.5,"SUBSCRIPTION_DATA":"SDK_FIELD_VALUE","VOLUME":42}"#,
+                )
+            },
+        );
+        let (tx, mut rx) = subscription_channel(1);
+        let mut state = SubscriptionState::new(
+            "//blp/mktbar/ticker/TEST".into(),
+            requested.iter().map(|field| (*field).to_owned()).collect(),
+            tx,
+            9,
+            false,
+        );
+
+        assert_eq!(
+            deliver(&mut state, &event),
+            MessageOutcome::Normal {
+                first_message: true
+            }
+        );
+        let update = rx
+            .try_recv()
+            .expect("mktbar update delivered immediately")
+            .expect("mktbar update");
+        let names: Vec<_> = update
+            .values
+            .iter()
+            .map(|field| update.layout.fields[field.index as usize].name.as_ref())
+            .collect();
+        assert_eq!(names, vec!["VOLUME", "SUBSCRIPTION_DATA", "LAST_PRICE"]);
+        assert_eq!(update.values[0].index, 1);
+        assert_eq!(update.values[1].index, 3);
+        assert_eq!(update.values[2].index, 5);
+        assert!(matches!(update.values[0].value, UpdateValue::I32(42)));
+        assert!(matches!(
+            &update.values[1].value,
+            UpdateValue::Str(value) if value.as_ref() == "MarketBarUpdate"
+        ));
+        assert!(matches!(update.values[2].value, UpdateValue::F64(101.5)));
+    }
+
+    #[test]
+    fn wide_sparse_dataloss_is_terminal_after_an_accepted_update() {
+        let requested = [
+            "LAST_PRICE",
+            "FIELD_01",
+            "FIELD_02",
+            "FIELD_03",
+            "FIELD_04",
+            "FIELD_05",
+            "FIELD_06",
+            "FIELD_07",
+            "FIELD_08",
+            "FIELD_09",
+            "FIELD_10",
+            "FIELD_11",
+            "FIELD_12",
+            "FIELD_13",
+            "FIELD_14",
+            "FIELD_15",
+        ];
+        let data = fixture(
+            r#"<element name="LAST_PRICE" type="Float64"/>"#,
+            "MarketDataEvents",
+            |formatter| formatter.json(r#"{"LAST_PRICE":99.25}"#),
+        );
+        let dataloss = fixture(
+            r#"<element name="MKTDATA_EVENT_SUBTYPE" type="String"/>
+        <element name="MKTDATA_EVENT_TYPE" type="String"/>"#,
+            "MarketDataEvents",
+            |formatter| {
+                formatter
+                    .json(r#"{"MKTDATA_EVENT_SUBTYPE":"DATALOSS","MKTDATA_EVENT_TYPE":"SUMMARY"}"#)
+            },
+        );
+        let (tx, mut rx) = subscription_channel(1);
+        let mut state = SubscriptionState::new(
+            "TEST".into(),
+            requested.iter().map(|field| (*field).to_owned()).collect(),
+            tx,
+            11,
+            false,
+        );
+
+        assert_eq!(
+            deliver(&mut state, &data),
+            MessageOutcome::Normal {
+                first_message: true
+            }
+        );
+        let accepted = rx
+            .try_recv()
+            .expect("data update delivered immediately")
+            .expect("accepted data update");
+        assert_eq!(accepted.values.len(), 1);
+        assert_eq!(
+            accepted.layout.fields[accepted.values[0].index as usize]
+                .name
+                .as_ref(),
+            "LAST_PRICE"
+        );
+        assert!(matches!(accepted.values[0].value, UpdateValue::F64(99.25)));
+
+        assert_eq!(deliver(&mut state, &dataloss), MessageOutcome::DataLoss);
+        assert!(matches!(
+            rx.try_recv().expect("terminal DATALOSS error"),
+            Err(BlpError::SubscriptionDataLoss { topic, .. }) if topic == "TEST"
+        ));
+        assert_eq!(deliver(&mut state, &data), MessageOutcome::Closed);
+        assert!(matches!(
+            rx.try_recv(),
+            Err(mpsc::error::TryRecvError::Disconnected)
+        ));
     }
 }

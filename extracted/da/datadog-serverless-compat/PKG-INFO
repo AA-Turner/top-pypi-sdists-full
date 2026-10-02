@@ -1,0 +1,30 @@
+Metadata-Version: 2.1
+Name: datadog-serverless-compat
+Version: 0.18.0
+Summary: Datadog Serverless Compatibility Layer for Python
+Home-page: https://www.datadoghq.com
+License: Apache-2.0
+Keywords: datadog,azure,google,functions
+Author: Datadog, Inc.
+Author-email: package@datadoghq.com
+Requires-Python: >=3.10,<4.0
+Classifier: Development Status :: 4 - Beta
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Project-URL: Repository, https://github.com/DataDog/datadog-serverless-compat-py
+Description-Content-Type: text/markdown
+
+# Datadog Serverless Compatibility Layer for Python
+
+Datadog library for Python to enable tracing and custom metric submission from [Azure Functions](https://azure.microsoft.com/en-us/products/functions) and [Google Cloud Run Functions (1st gen)](https://cloud.google.com/functions/1stgendocs/concepts/overview).
+
+# Getting Started
+
+- [Install Serverless Monitoring for Azure Functions](https://docs.datadoghq.com/serverless/azure_functions/?code-lang=python)
+- [Install Serverless Monitoring for Google Cloud Run Functions (1st gen)](https://docs.datadoghq.com/serverless/google_cloud_run/functions_1st_gen/?tab=python)
+
+

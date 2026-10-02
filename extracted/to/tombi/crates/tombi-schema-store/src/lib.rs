@@ -23,6 +23,13 @@ pub use store::{AssociateSchemaOptions, SchemaStore};
 pub use tombi_accessor::{Accessor, AccessorContext, AccessorKeyKind, Accessors, KeyContext};
 pub use value_type::ValueType;
 
+/// A line index of an empty text, for a schema whose document is unknown.
+pub(crate) fn empty_line_index() -> std::sync::Arc<tombi_text::OwnedLineIndex> {
+    static EMPTY_LINE_INDEX: std::sync::LazyLock<std::sync::Arc<tombi_text::OwnedLineIndex>> =
+        std::sync::LazyLock::new(|| std::sync::Arc::new(tombi_text::OwnedLineIndex::new("")));
+    EMPTY_LINE_INDEX.clone()
+}
+
 pub fn get_schema_name(schema_uri: &tombi_uri::Uri) -> Option<&str> {
     if let Some(path) = schema_uri.path().split('/').next_back()
         && !path.is_empty()
@@ -255,12 +262,12 @@ pub fn build_accessor_contexts(
 
 #[cfg(feature = "ast-syntax")]
 pub async fn lint_source_schema_from_ast(
-    root: &tombi_ast_syntax::Root,
+    root: &tombi_ast_syntax::Root<'_>,
     source_uri_or_path: Option<Either<&tombi_uri::Uri, &std::path::Path>>,
     schema_store: &SchemaStore,
 ) -> (
     Option<SourceSchema>,
-    Option<(crate::Error, tombi_text::Range)>,
+    Option<(crate::Error, tombi_text::Span)>,
 ) {
     match schema_store
         .resolve_source_schema_from_ast(root, source_uri_or_path)
@@ -268,7 +275,7 @@ pub async fn lint_source_schema_from_ast(
     {
         Ok(Some(source_schema)) => (Some(source_schema), None),
         Ok(None) => (None, None),
-        Err(error_with_range) => {
+        Err(error_with_span) => {
             let source_schema = if let Some(source_uri_or_path) = source_uri_or_path {
                 schema_store
                     .resolve_source_schema(source_uri_or_path)
@@ -278,7 +285,7 @@ pub async fn lint_source_schema_from_ast(
             } else {
                 None
             };
-            (source_schema, Some(error_with_range))
+            (source_schema, Some(error_with_span))
         }
     }
 }

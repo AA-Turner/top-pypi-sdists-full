@@ -1,0 +1,104 @@
+Metadata-Version: 2.4
+Name: istari-digital-client
+Version: 13.1.9
+Summary: Python client for the Istari Digital platform
+License: MIT License
+         
+         Copyright (c) 2025 Istari Digital, Inc.
+         
+         Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+         
+         THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+         
+         No license is hereby implied or granted to any patent or patent application relating to the Istari Digital platform itself. The list of patents applicable to the Istari Digital platform may be found at istaridigital.com/patent-list.
+License-File: LICENSE
+Author: Istari Digital Developers
+Requires-Python: >=3.10,<4.0
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Provides-Extra: fips
+Provides-Extra: s3
+Provides-Extra: s3-crt
+Requires-Dist: awscrt (>=0.19.0) ; extra == "s3-crt"
+Requires-Dist: boto3 (>=1.26.0) ; extra == "s3" or extra == "s3-crt"
+Requires-Dist: cryptography (>=49.0.0)
+Requires-Dist: deprecation (>=2.1.0,<3.0.0)
+Requires-Dist: inflection (>=0.5.1,<0.6.0)
+Requires-Dist: istari-digital-core (==7.3.2)
+Requires-Dist: istari-digital-core-fips (==7.3.2) ; extra == "fips"
+Requires-Dist: pydantic (>=2.9.0,<3.0.0)
+Requires-Dist: pyjwt (>=2.13.0,<3.0.0)
+Requires-Dist: python-dateutil (>=2.9.0.post0,<3.0.0)
+Requires-Dist: python-dotenv (>=1.0.1,<2.0.0)
+Requires-Dist: types-python-dateutil (>=2.9.0.20240906,<3.0.0.0)
+Requires-Dist: typing-extensions (>=4.12.2,<5.0.0)
+Requires-Dist: urllib3 (>=2.6.0,<3.0.0)
+Project-URL: Documentation, https://docs.istaridigital.com
+Project-URL: Homepage, https://istaridigital.com
+Description-Content-Type: text/markdown
+
+# Istari Digital Client
+
+The `istari-digital-client` library is a client SDK for interacting with the [Istari Digital platform](https://www.istaridigital.com).
+
+- **Install:** `pip install istari-digital-client`
+- **Documentation and Usage:** Please see [docs.istaridigital.com](https://docs.istaridigital.com).
+- **Supported Versions:** This library supports Python 3.10, 3.11, 3.12, and 3.14
+- **License:** This library is released under an MIT license with the following clarification:
+
+> No license is hereby implied or granted to any patent or patent application relating to the Istari Digital platform itself. The list of patents applicable to the Istari Digital platform may be found at istaridigital.com/patent-list.
+
+## Direct S3 Upload
+
+For environments with direct access to the backing S3 bucket, the client can bypass presigned URLs and upload via `boto3` instead. This can improve throughput and simplifies large-file handling (boto3 manages multipart automatically).
+
+Install the optional dependency:
+
+```bash
+# S3-compatible storage (minio, AWS, etc.)
+pip install istari-digital-client[s3]
+
+# AWS with high-speed CRT transfers (recommended for EC2 containers in same s3 environment as the data plane buckets)
+pip install istari-digital-client[s3-crt]
+```
+
+Then configure via environment variables or constructor arguments:
+
+| Environment Variable | Constructor Arg | Description |
+|---|---|---|
+| `ISTARI_CLIENT_S3_DIRECT_UPLOAD` | `s3_direct_upload_enabled` | Set to `true` to enable direct S3 uploads |
+| `ISTARI_CLIENT_S3_BUCKET_NAME` | `s3_bucket_name` | Target S3 bucket name (required when enabled) |
+
+Standard AWS credentials (environment variables, profile, or instance role) must be available for `boto3` to authenticate.
+
+## Proxy Support
+
+The client honors the conventional proxy environment variables — `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, and `NO_PROXY` (upper or lower case; lowercase wins) — for all of its HTTP traffic, including presigned object-store downloads. No configuration is needed on a host that already has these set.
+
+There are two common proxy shapes:
+
+- **CONNECT tunneling** (the proxy passes TLS through untouched): proxy settings alone are enough.
+- **TLS termination** (the proxy re-signs TLS with its own certificate authority): additionally provide the CA bundle that trusts the proxy's CA, via `REQUESTS_CA_BUNDLE` or `SSL_CERT_FILE`, or the `ca_bundle` setting. Certificate verification is always required — there is no insecure mode.
+
+| Environment Variable | Constructor Arg | Description |
+|---|---|---|
+| `ISTARI_CLIENT_PROXY_URL` | `proxy_url` | Explicit proxy for HTTP(S) traffic; overrides `HTTP_PROXY`/`HTTPS_PROXY`/`ALL_PROXY`. Credentials may be embedded (`http://<user>:<password>@proxy:8080`) and are sent as a `Proxy-Authorization` header. |
+| `ISTARI_CLIENT_CA_BUNDLE` | `ca_bundle` | PEM CA bundle for TLS verification; overrides `REQUESTS_CA_BUNDLE`/`SSL_CERT_FILE`. |
+| `ISTARI_CLIENT_TRUST_ENV` | `trust_env` | Set to `false` to ignore the proxy and CA environment variables entirely (explicit settings above still apply). Defaults to `true`. |
+
+`NO_PROXY` is honored with exact and dot-boundary suffix matching (`NO_PROXY=internal.example` bypasses the proxy for `registry.internal.example`), including when `proxy_url` is set explicitly. When the Istari control plane is reached over a direct route (for example a site-to-site VPN) while object storage requires the proxy, list the control-plane host in `NO_PROXY`.
+
+SOCKS proxies are not supported: an explicit SOCKS `proxy_url` is rejected with an error, while a SOCKS URL arriving via environment variables (for example `ALL_PROXY=socks5://...`) is ignored with a warning and the client connects directly — it does **not** route traffic through the SOCKS proxy.
+
+## Contributing
+
+See the [contributing doc](./CONTRIBUTING.md) for additional info.
+

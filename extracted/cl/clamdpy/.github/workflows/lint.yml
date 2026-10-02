@@ -1,0 +1,25 @@
+name: lint
+
+on: [push]
+
+jobs:
+  lint:
+    name: Lint the codebase
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Run Ruff formatter
+        run: uv run ruff format src/ --diff
+
+      - name: Run Ruff linter
+        run: uv run ruff check src/ --output-format=github
+
+      - name: Run Pyright
+        run: uv run pyright src/

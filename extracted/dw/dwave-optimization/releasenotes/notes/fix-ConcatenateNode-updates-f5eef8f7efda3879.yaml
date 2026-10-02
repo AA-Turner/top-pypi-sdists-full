@@ -1,5 +1,0 @@
----
-fixes:
-  - |
-    Fix ``ConcatenateNode`` propagation.
-    Previously in some cases it would record the wrong update index.

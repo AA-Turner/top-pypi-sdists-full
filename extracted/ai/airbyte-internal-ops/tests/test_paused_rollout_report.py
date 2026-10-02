@@ -19,17 +19,18 @@ SESSION_URL = f"https://app.devin.ai/sessions/{SESSION_ID}"
 GATE_REASON = "30 of 584 connectors failing (5.1% >= 5%, floor=2)"
 THREAD = SlackPostResult(channel_id="C0HITL", ts="1789000000.123456")
 ROLLOUT_ID = "rollout-1"
+RELEASE_PR_URL = "https://github.com/airbytehq/airbyte/pull/12345"
 EXPECTED_TAGS = ["rollout-autopilot", "paused-rollout-report", f"rollout:{ROLLOUT_ID}"]
 
 
-def _rollout() -> ConnectorRolloutRecord:
+def _rollout(connector: str = "source-test") -> ConnectorRolloutRecord:
     return ConnectorRolloutRecord(
         rollout_id=ROLLOUT_ID,
         actor_definition_id="actor-def-1",
         state="in_progress",
         current_target_rollout_pct=50,
         rc_docker_image_tag="1.2.3",
-        rc_docker_repository="airbyte/source-test",
+        rc_docker_repository=f"airbyte/{connector}",
         initial_docker_image_tag="1.2.2",
         tier="TIER_2",
     )
@@ -141,6 +142,39 @@ def test_build_investigation_prompt_with_thread() -> None:
     assert "absence alone tells you" in prompt
 
 
+def test_build_investigation_prompt_leads_with_decision() -> None:
+    prompt = paused_report.build_investigation_prompt(
+        _rollout(), "1.2.3", _gate(), THREAD, RELEASE_PR_URL
+    )
+    assert f"- Release PR: {RELEASE_PR_URL}" in prompt
+    write_up = prompt[prompt.index("## Write-up") : prompt.index("## When done")]
+    sections = ["*Summary*", "*Release*", "*Evidence*", "*Alternatives*"]
+    positions = [write_up.index(section) for section in sections]
+    assert positions == sorted(positions)
+    assert "representative\n   error" in write_up
+
+
+@pytest.mark.parametrize(
+    "connector,kind,other_kind",
+    [
+        pytest.param("source-test", "source", "destination", id="source"),
+        pytest.param("destination-test", "destination", "source", id="destination"),
+    ],
+)
+def test_build_investigation_prompt_is_origin_aware(
+    connector: str, kind: str, other_kind: str
+) -> None:
+    prompt = paused_report.build_investigation_prompt(
+        _rollout(connector), "1.2.3", _gate(), THREAD
+    )
+    assert f"`{kind}_definition_id` `actor-def-1`" in prompt
+    assert f"`{other_kind}_definition_id`" not in prompt
+    assert f"`failureOrigin={kind}` failures are the ones that can implicate" in prompt
+    assert f"`failureOrigin={other_kind}` failures as a judgment call" in prompt
+    assert "- Release PR: not resolved by AutoPilot" in prompt
+    assert "`normalization` and `dbt` origins as\n   `platform`" in prompt
+
+
 def test_build_investigation_prompt_without_thread() -> None:
     prompt = paused_report.build_investigation_prompt(
         _rollout(), "1.2.3", _gate(), None
@@ -150,8 +184,12 @@ def test_build_investigation_prompt_without_thread() -> None:
 
 
 def test_build_repause_message() -> None:
-    message = paused_report.build_repause_message(_rollout(), "1.2.3", _gate(), THREAD)
+    message = paused_report.build_repause_message(
+        _rollout(), "1.2.3", _gate(), THREAD, RELEASE_PR_URL
+    )
     assert "paused again" in message
+    assert f"Release PR: {RELEASE_PR_URL}" in message
+    assert "`source_definition_id` `actor-def-1`" in message
     assert GATE_REASON in message
     assert f"thread_ts `{THREAD.ts}`" in message
     assert "provide_structured_output" in message
@@ -162,7 +200,7 @@ def _run() -> devin_api.DevinSessionRef | None:
     """Mirror AutoPilot: look the session up, then start or continue it."""
     lookup = paused_report.lookup_investigation_session(ROLLOUT_ID)
     return paused_report.start_investigation_session(
-        _rollout(), "1.2.3", _gate(), THREAD, lookup
+        _rollout(), "1.2.3", _gate(), THREAD, lookup, release_pr_url=RELEASE_PR_URL
     )
 
 
@@ -179,6 +217,7 @@ def test_start_investigation_session_creates_when_none_tagged(
     assert created["structured_output_schema"] is paused_report.STRUCTURED_OUTPUT_SCHEMA
     assert "source-test 1.2.3" in str(created["title"])
     assert THREAD.ts in str(created["prompt"])
+    assert RELEASE_PR_URL in str(created["prompt"])
     assert fake_api.messages == []
     assert fake_api.unarchive_calls == []
 
@@ -203,6 +242,7 @@ def test_start_investigation_session_reuses_tagged_session(
     assert session_id == SESSION_ID
     assert "paused again" in message
     assert THREAD.ts in message
+    assert RELEASE_PR_URL in message
 
 
 def test_start_investigation_session_ignores_sessions_without_rollout_tag(

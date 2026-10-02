@@ -3,48 +3,45 @@ use tombi_toml_version::TomlVersion;
 
 use crate::AstNode;
 
-impl crate::KeyValue {
-    /// Source range of this inline-table or array item, extended through its
+impl<'t> crate::KeyValue<'t> {
+    /// Source span of this inline-table or array item, extended through its
     /// comma when one is present.
-    pub fn item_range_with_comma(
-        &self,
-        position: tombi_text::Position,
-    ) -> Option<tombi_text::Range> {
+    pub fn item_span_with_comma(&self, offset: tombi_text::Offset) -> Option<tombi_text::Span> {
         for syntax_node in self.syntax().ancestors() {
-            if let Some(group) = crate::KeyValueWithCommaGroup::cast(syntax_node.clone()) {
+            if let Some(group) = crate::KeyValueWithCommaGroup::cast(syntax_node) {
                 for (item, comma) in group.key_values_with_comma() {
                     if item.syntax() == self.syntax() {
                         let start = item
                             .leading_comments()
                             .next()
-                            .map(|comment| comment.syntax().range().start)
-                            .or_else(|| item.keys().map(|keys| keys.range().start))?;
+                            .map(|comment| comment.syntax().span().start)
+                            .or_else(|| item.keys().map(|keys| keys.span().start))?;
                         let end = item
                             .value()
-                            .map(|value| value.range().end)
-                            .unwrap_or(item.range().end);
-                        let range = tombi_text::Range::new(start, end);
-                        return Some(comma.map_or(range, |comma| range + comma.range()));
+                            .map(|value| value.span().end)
+                            .unwrap_or(item.span().end);
+                        let span = tombi_text::Span::new(start, end);
+                        return Some(comma.map_or(span, |comma| span + comma.span()));
                     }
                 }
 
-                if let Some(range) = range_containing_position(
+                if let Some(span) = span_containing_offset(
                     group
                         .key_values_with_comma()
-                        .map(|(item, comma)| (item.range(), comma.map(|comma| comma.range()))),
-                    position,
+                        .map(|(item, comma)| (item.span(), comma.map(|comma| comma.span()))),
+                    offset,
                 ) {
-                    return Some(range);
+                    return Some(span);
                 }
             } else if let Some(group) = crate::ValueWithCommaGroup::cast(syntax_node)
-                && let Some(range) = range_containing_position(
+                && let Some(span) = span_containing_offset(
                     group
                         .value_or_key_values_with_comma()
-                        .map(|(item, comma)| (item.range(), comma.map(|comma| comma.range()))),
-                    position,
+                        .map(|(item, comma)| (item.span(), comma.map(|comma| comma.span()))),
+                    offset,
                 )
             {
-                return Some(range);
+                return Some(span);
             }
         }
 
@@ -68,12 +65,12 @@ impl crate::KeyValue {
     }
 }
 
-fn range_containing_position(
-    items: impl IntoIterator<Item = (tombi_text::Range, Option<tombi_text::Range>)>,
-    position: tombi_text::Position,
-) -> Option<tombi_text::Range> {
+fn span_containing_offset(
+    items: impl IntoIterator<Item = (tombi_text::Span, Option<tombi_text::Span>)>,
+    offset: tombi_text::Offset,
+) -> Option<tombi_text::Span> {
     items.into_iter().find_map(|(item, comma)| {
-        let range = comma.map_or(item, |comma| item + comma);
-        range.contains(position).then_some(range)
+        let span = comma.map_or(item, |comma| item + comma);
+        span.contains_inclusive(offset).then_some(span)
     })
 }

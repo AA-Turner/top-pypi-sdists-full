@@ -1,0 +1,3 @@
+wit_directory = "wit"
+bindings = "wit"
+full_names = true

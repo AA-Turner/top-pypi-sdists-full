@@ -1,0 +1,579 @@
+---
+name: pr_lifecycle_orchestrator
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: orchestrator
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  FSM orchestrator composing 5 pr_lifecycle sub-handlers via a state reducer.
+  Single entry point that replaces the merge_sweep orchestration logic.
+
+  Sub-handlers (injected via protocol-based DI):
+    - ProtocolInventoryHandler     (node_pr_lifecycle_inventory_compute)
+    - ProtocolTriageHandler        (node_pr_lifecycle_triage_compute)
+    - ProtocolMergeHandler         (node_pr_lifecycle_merge_effect)
+    - ProtocolFixHandler           (node_pr_lifecycle_fix_effect)
+    - ProtocolStateReducerHandler  (node_pr_lifecycle_state_reducer)
+
+  FSM: IDLE -> INVENTORYING -> TRIAGING -> [VERIFYING|MERGING|FIXING|SKIPPED] -> COMPLETE
+  Entry flags control which transitions are enabled:
+    dry_run, inventory_only, fix_only, merge_only, repos (CSV filter)
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: pr_lifecycle
+      handler:
+        name: HandlerPrLifecycleOrchestrator
+        module: omnimarket.nodes.node_pr_lifecycle_orchestrator.handlers.handler_pr_lifecycle_orchestrator
+      event_model:
+        name: ModelPrLifecycleStartCommand
+        module: omnimarket.nodes.node_pr_lifecycle_orchestrator.handlers.handler_pr_lifecycle_orchestrator
+      # OMN-9215: wire-level event_type alias. ModelEventEnvelope[object] erases
+      # the concrete payload type to dict on inbound validation, so dispatcher
+      # lookup cannot match ModelPrLifecycleStartCommand via the class-name
+      # fallback. This alias indexes the handler under the contract-canonical
+      # dot-path that publishers emit on ModelEventEnvelope.event_type.
+      event_type: omnimarket.pr-lifecycle-orchestrator-start
+
+descriptor:
+  node_archetype: orchestrator
+  purity: effectful
+  idempotent: false
+  timeout_ms: 300000
+  runtime_profiles:
+    - effects
+
+inputs:
+  correlation_id:
+    type: uuid
+    description: "Unique sweep run ID"
+    required: true
+  run_id:
+    type: str
+    description: >
+      Human-readable sweep run identifier used as the result.json directory name
+      under $ONEX_STATE_DIR/merge-sweep/{run_id}/. Restricted to [A-Za-z0-9._-].
+    required: true
+  dry_run:
+    type: bool
+    description: "Run without side effects"
+    required: false
+    default: false
+  inventory_only:
+    type: bool
+    description: "Stop after inventory; no triage, merge, or fix"
+    required: false
+    default: false
+  fix_only:
+    type: bool
+    description: "Only fix non-green PRs; skip merge"
+    required: false
+    default: false
+  merge_only:
+    type: bool
+    description: "Only merge green PRs; skip fix"
+    required: false
+    default: false
+  repos:
+    type: str
+    description: "Comma-separated repo slugs to filter (empty = all)"
+    required: false
+    default: ""
+  max_parallel_polish:
+    type: int
+    description: "Maximum concurrent pr-polish agents dispatched during FIXING"
+    required: false
+    default: 20
+    minimum: 1
+  enable_auto_rebase:
+    type: bool
+    description: >
+      Auto-rebase stale (Track A-update) PR branches before merge.
+      RESERVED / CURRENTLY A NO-OP (OMN-13806): the orchestrator handler does
+      not consume this flag and has no REBASING FSM state or reducer intent
+      that wires it to HandlerAutoRebase (node_pr_lifecycle_fix_effect). The
+      declared REBASING state/transitions were removed from this contract's
+      fsm section as dead/unreachable drift; this field is kept for API
+      compatibility pending the OMN-13806 decision (wire it for real or
+      retire the field).
+    required: false
+    default: true
+  use_dag_ordering:
+    type: bool
+    description: "Merge PRs in repo dependency order"
+    required: false
+    default: true
+  enable_trivial_comment_resolution:
+    type: bool
+    description: "Auto-resolve trivial CodeRabbit or bot review threads before merge"
+    required: false
+    default: true
+  verify:
+    type: bool
+    description: "Run verification_sweep per-PR as pre-merge gate (OMN-7742)"
+    required: false
+    default: false
+  verify_timeout_seconds:
+    type: int
+    description: "Hard per-PR verification timeout in seconds"
+    required: false
+    default: 30
+    minimum: 1
+  loop_until_done:
+    type: bool
+    description: "Continue sweep passes while the result remains NOT_DONE"
+    required: false
+    default: true
+  max_sweep_passes:
+    type: int
+    description: "Maximum sweep passes when loop_until_done is enabled"
+    required: false
+    default: 17520
+    minimum: 1
+  sweep_sleep_seconds:
+    type: int
+    description: "Seconds to sleep between NOT_DONE sweep passes"
+    required: false
+    default: 1800
+    minimum: 0
+  action_mode:
+    type: str
+    description: >
+      Merge-queue governor action mode. Defaults to report_only for zero
+      mutation; callers must explicitly select enforce before any PR can arm.
+    required: false
+    default: report_only
+  merge_queue_mutation_kill_switch:
+    type: bool
+    description: >
+      Emergency stop for merge-queue mutation, engaged by default. Must be
+      explicitly set false in addition to action_mode=enforce before any PR can
+      arm.
+    required: false
+    default: true
+  merge_wave_cap:
+    type: int
+    description: >
+      Maximum PRs armed in one enforce pass. A value of 0 arms nothing
+      regardless of action_mode.
+    required: false
+    default: 3
+    minimum: 0
+  enable_stall_remediation:
+    type: bool
+    description: >
+      Opt-in flag for re-minting a stuck merge-group SHA on an already-armed PR
+      by dequeueing and re-enqueueing it. Still requires action_mode=enforce and
+      a disengaged kill switch.
+    required: false
+    default: false
+  # OMN-18429: the F-07 outage circuit breaker's trip threshold and observation
+  # window, declared HERE and nowhere else. The first revision (OMN-14774)
+  # opened the breaker on a single GITHUB_API_OUTAGE anywhere in the sweep, with
+  # no declared threshold: on run_id 20260916-090453-b82ab4 one unreliable fetch
+  # among 56 org-wide PRs withheld every merge, enqueue and rerun for the pass,
+  # including the one PR that pass's own triage had classified green.
+  #
+  # Two verdicts, deliberately separated. A PR carrying the signature is UNKNOWN
+  # and is never mutated — that is unconditional and needs no threshold. Opening
+  # the breaker is a claim that the CODE HOST is degraded, withholding every
+  # mutation org-wide, so it needs the floor AND the fraction below, measured
+  # over this pass's own inventory. The window is that inventory, not a
+  # wall-clock interval: it is the exact population the evidence was drawn from
+  # and it is deterministic in a test.
+  #
+  # No environment variable reads any of these. A breaker whose threshold could
+  # come from an unset variable has an undeclared blast radius.
+  outage_breaker_min_outage_prs:
+    type: int
+    description: >
+      Distinct PRs that must carry GITHUB_API_OUTAGE before a pass-level trip is
+      considered at all. Below this the affected PRs are individually UNKNOWN
+      and withheld one by one, and every other PR proceeds normally.
+    required: false
+    default: 3
+    minimum: 1
+  outage_breaker_min_outage_fraction:
+    type: float
+    description: >
+      Share of this pass's inventory that must carry GITHUB_API_OUTAGE before
+      the breaker opens. Evaluated together with the floor, never instead of it.
+      0.0 disables the fraction and leaves the floor as the sole condition,
+      which is how a caller asks for the OMN-14774 behaviour back explicitly.
+    required: false
+    default: 0.25
+    minimum: 0.0
+    maximum: 1.0
+  outage_breaker_min_window_observations:
+    type: int
+    description: >
+      Smallest inventory over which the fraction is treated as a measurement
+      rather than noise. Below it the fraction is not evaluated and the floor
+      decides alone, which is the conservative direction.
+    required: false
+    default: 8
+    minimum: 1
+  # OMN-18429: placement of the INVENTORYING reads, not a second collection
+  # path. The measured pass spent 5m34s on 56 PRs because every code-host read
+  # was a blocking subprocess issued one PR at a time. Bounded in both
+  # directions on purpose: an unbounded fan-out manufactures the rate-limit
+  # responses the outage breaker above then has to judge.
+  inventory_max_parallel_fetches:
+    type: int
+    description: >
+      Upper bound on concurrently collected PRs during INVENTORYING. 1 restores
+      strictly sequential collection.
+    required: false
+    default: 8
+    minimum: 1
+    maximum: 32
+
+outputs:
+  prs_inventoried:
+    type: int
+    description: "Total PRs collected by inventory handler"
+  prs_merged:
+    type: int
+    description: "PRs successfully merged"
+  prs_fixed:
+    type: int
+    description: "PRs where fix was dispatched"
+  prs_skipped:
+    type: int
+    description: "PRs skipped (not green, not fixable)"
+  outage_active:
+    type: bool
+    description: >
+      True when the pass-level outage circuit breaker was OPEN and REST-dependent
+      mutations were withheld sweep-wide (F-07 fail-closed backoff).
+  outage_mutations_withheld:
+    type: int
+    description: >
+      PRs whose REST-dependent mutation this pass would have issued and did not,
+      because the pass-level breaker was OPEN or because the PR's own state was
+      UNKNOWN. Counted from the reducer's intents before the dry-run
+      short-circuit (OMN-18429), so a dry run reports the same number the live
+      pass would have withheld.
+  outage_prs_unknown:
+    type: int
+    description: >
+      PRs whose inventory carried GITHUB_API_OUTAGE, so their state could not be
+      read reliably. Never mutated, whether or not the breaker opened.
+  outage_prs_observed:
+    type: int
+    description: >
+      Size of the observation window the pass-level decision was made over —
+      this pass's own inventory. Recorded beside outage_prs_unknown so a
+      withheld pass can be told apart from one flaky fetch.
+
+sub_handler_dependencies:
+  - name: inventory
+    protocol: omnimarket.nodes.node_pr_lifecycle_orchestrator.protocols.protocol_sub_handlers.ProtocolInventoryHandler
+    default_impl: omnimarket.nodes.node_pr_lifecycle_inventory_compute.handlers.handler_pr_lifecycle_inventory.HandlerPrLifecycleInventory
+    optional: true
+  - name: triage
+    protocol: omnimarket.nodes.node_pr_lifecycle_orchestrator.protocols.protocol_sub_handlers.ProtocolTriageHandler
+    default_impl: omnimarket.nodes.node_pr_lifecycle_triage_compute.handlers.handler_pr_lifecycle_triage.HandlerPrLifecycleTriage
+    optional: true
+  - name: merge
+    protocol: omnimarket.nodes.node_pr_lifecycle_orchestrator.protocols.protocol_sub_handlers.ProtocolMergeHandler
+    default_impl: omnimarket.nodes.node_pr_lifecycle_merge_effect.handlers.handler_pr_lifecycle_merge.HandlerPrLifecycleMerge
+    optional: true
+  - name: fix
+    protocol: omnimarket.nodes.node_pr_lifecycle_orchestrator.protocols.protocol_sub_handlers.ProtocolFixHandler
+    default_impl: omnimarket.nodes.node_pr_lifecycle_fix_effect.handlers.handler_pr_lifecycle_fix.HandlerPrLifecycleFix
+    optional: true
+  - name: reducer
+    protocol: omnimarket.nodes.node_pr_lifecycle_orchestrator.protocols.protocol_sub_handlers.ProtocolStateReducerHandler
+    default_impl: omnimarket.nodes.node_pr_lifecycle_state_reducer.handlers.handler_pr_lifecycle_state_reducer.HandlerPrLifecycleStateReducer
+    optional: true
+
+terminal_event: onex.evt.omnimarket.pr-lifecycle-orchestrator-completed.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.pr-lifecycle-orchestrator-start.v1
+  publish_topics:
+    - onex.evt.omnimarket.pr-lifecycle-orchestrator-phase-transition.v1
+    - onex.evt.omnimarket.pr-lifecycle-orchestrator-completed.v1
+    - onex.evt.omnimarket.pr-lifecycle-orchestrator-failed.v1
+    - onex.evt.omnimarket.pr-lifecycle-inventory-collected.v1
+    - onex.evt.omnimarket.pr-lifecycle-triage-classified.v1
+    - onex.evt.omnimarket.pr-lifecycle-merge-executed.v1
+    - onex.evt.omnimarket.pr-lifecycle-verification-completed.v1
+    - onex.evt.omnimarket.pr-lifecycle-fix-dispatched.v1
+    - onex.evt.omnimarket.pr-lifecycle-ledger-entry-projected.v1
+    - onex.cmd.omnimarket.fixer-dispatch-start.v1
+    # OMN-13586 RH-4: repo-health classify/repair fan-out.
+    - onex.cmd.omnimarket.repo-health-classify.v1
+    - onex.cmd.omnimarket.repo-health-repair-start.v1
+
+# OMN-12569: durable, reconstructable PR-ledger projection.
+# The ledger is a DERIVED projection (not authoritative truth) materialized
+# from source events (inventory, workflow-run observations, merge-group SHAs,
+# rerun attempts, final conclusions). Authoritative truth = GitHub state +
+# durable orchestrator receipts. The projection lands in a control-plane
+# durable store (the projection database), not a repo artifact, and is
+# reconstructable from its recorded source events.
+projection:
+  name: pr_lifecycle_ledger
+  provenance_kind: derived_projection           # DT-005 provenance declaration
+  freshness_sla_seconds: 900                     # DT-003 freshness SLA
+  durable_store: projection_database
+  conflict_key: run_id,repo,pr_number
+  source_events:
+    - pr_inventoried
+    - workflow_run_observed
+    - merge_group_sha_minted
+    - rerun_attempted
+    - final_conclusion
+  entry_fields:
+    - run_id
+    - head_sha
+    - merge_group_shas
+    - rerun_attempts
+    - conclusion
+    - last_phase                                 # OMN-12570: phase the entry's last event was recorded in
+    - provenance                                 # workflow run, merge-group SHA, branch SHA, phase, action, timestamp
+
+# OMN-12570: branch checks, merge-group checks, and post-merge CI tails are
+# DISTINCT verification phases. Every source event and every ledger entry is
+# attributed to the phase it was produced in, and each phase transition is
+# recorded explicitly (at transition time, not inferred from logs) so a
+# post-merge-tail failure is distinguishable from a branch-check failure.
+phases:
+  vocabulary:
+    - inventory
+    - triage
+    - branch_checks                              # PR-branch CI (verify / fix remediation)
+    - merge_group                                # merge-queue checks
+    - post_merge_tail                            # CI on the merge target branch after a PR lands
+    - terminal                                   # COMPLETE / FAILED sink
+  transitions_recorded: true                     # recorded in pr_lifecycle_ledger_transitions
+  durable_store: projection_database
+  transition_table: pr_lifecycle_ledger_transitions
+  conflict_key: run_id,from_phase,to_phase,recorded_at
+
+# OMN-13806: REBASING was declared here but never implemented by the handler
+# (no EnumOrchestratorState.REBASING, no REBASE reducer intent, enable_auto_rebase
+# never read) — dead/unreachable state removed to match shipped reality. See
+# OMN-13806 for the wire-it-or-retire-it decision on enable_auto_rebase /
+# HandlerAutoRebase.
+state_machine:
+  version: {major: 1, minor: 0, patch: 0}
+  state_machine_name: pr_lifecycle_orchestrator
+  state_machine_version: {major: 1, minor: 0, patch: 0}
+  description: "PR lifecycle sweep as driven by HandlerPrLifecycleOrchestrator._transition_phase, the one method that changes phase (OMN-12570). Any exception inside the sweep ends in FAILED from the current phase."
+  initial_state: IDLE
+  terminal_states: [COMPLETE, FAILED]
+  error_states: [FAILED]
+  states:
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: IDLE
+      state_type: operational
+      description: "No sweep started."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: INVENTORYING
+      state_type: operational
+      description: "Inventory of open PRs."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: TRIAGING
+      state_type: operational
+      description: "Triage of the inventory into merge and fix sets."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: VERIFYING
+      state_type: operational
+      description: "Verification of green PRs before merge."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: MERGING
+      state_type: operational
+      description: "Merge of eligible PRs."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: POST_MERGE_TAIL
+      state_type: operational
+      description: "CI on the merge target branch after merges (OMN-12570)."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: FIXING
+      state_type: operational
+      description: "Fix dispatch for PRs with failing checks."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: COMPLETE
+      state_type: terminal
+      description: "Sweep finished."
+      is_terminal: true
+      is_recoverable: false
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: FAILED
+      state_type: terminal
+      description: "The sweep raised."
+      is_terminal: true
+      is_recoverable: false
+  transitions:
+    # start command received
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: idle_to_inventorying
+      from_state: IDLE
+      to_state: INVENTORYING
+      trigger: start_received
+    # inventory completed
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: inventorying_to_triaging
+      from_state: INVENTORYING
+      to_state: TRIAGING
+      trigger: inventory_completed
+    # inventory_only flag set
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: inventorying_to_complete
+      from_state: INVENTORYING
+      to_state: COMPLETE
+      trigger: inventory_only
+    # triage completed, merge not skipped
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: triaging_to_merging
+      from_state: TRIAGING
+      to_state: MERGING
+      trigger: triage_merge_ready
+    # triage completed, fix_only flag set, or no merge set
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: triaging_to_fixing
+      from_state: TRIAGING
+      to_state: FIXING
+      trigger: triage_fix_ready
+    # triage completed, dry_run or no actionable PRs
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: triaging_to_complete
+      from_state: TRIAGING
+      to_state: COMPLETE
+      trigger: triage_nothing_actionable
+    # verify flag set and green PRs exist
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: triaging_to_verifying
+      from_state: TRIAGING
+      to_state: VERIFYING
+      trigger: verify_requested
+    # verification completed
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: verifying_to_merging
+      from_state: VERIFYING
+      to_state: MERGING
+      trigger: verification_completed
+    # error
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: verifying_to_failed
+      from_state: VERIFYING
+      to_state: FAILED
+      trigger: error
+    # merge completed; tail CI runs on the merge target branch
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: merging_to_post_merge_tail
+      from_state: MERGING
+      to_state: POST_MERGE_TAIL
+      trigger: merge_completed
+    # post-merge tail recorded, not merge_only, fix PRs remain
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: post_merge_tail_to_fixing
+      from_state: POST_MERGE_TAIL
+      to_state: FIXING
+      trigger: tail_recorded_fix_pending
+    # post-merge tail recorded, merge_only or no fix PRs
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: post_merge_tail_to_complete
+      from_state: POST_MERGE_TAIL
+      to_state: COMPLETE
+      trigger: tail_recorded_done
+    # error
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: post_merge_tail_to_failed
+      from_state: POST_MERGE_TAIL
+      to_state: FAILED
+      trigger: error
+    # fix completed
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: fixing_to_complete
+      from_state: FIXING
+      to_state: COMPLETE
+      trigger: fix_completed
+    # error
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: inventorying_to_failed
+      from_state: INVENTORYING
+      to_state: FAILED
+      trigger: error
+    # error
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: triaging_to_failed
+      from_state: TRIAGING
+      to_state: FAILED
+      trigger: error
+    # error
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: merging_to_failed
+      from_state: MERGING
+      to_state: FAILED
+      trigger: error
+    # error
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: fixing_to_failed
+      from_state: FIXING
+      to_state: FAILED
+      trigger: error
+    # OMN-19548: taken by the handler but not declared before: dry_run after
+    # VERIFYING returns COMPLETE, and with merge and fix both withheld the
+    # sweep's final transition is VERIFYING -> COMPLETE.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: verifying_to_complete
+      from_state: VERIFYING
+      to_state: COMPLETE
+      trigger: verification_done_no_merge
+    # OMN-19548: taken by the handler but not declared before: with the
+    # merge withheld (outage breaker open) and fix PRs present, FIXING follows
+    # VERIFYING.
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: verifying_to_fixing
+      from_state: VERIFYING
+      to_state: FIXING
+      trigger: verification_done_fix_pending
+
+metadata:
+  transport_type: kafka
+  description: "PR Lifecycle orchestrator — FSM wiring 5 sub-handlers"
+  author: "OmniNode Platform Team"
+  created: "2026-04-09"
+  tags:
+    - "orchestrator"
+    - "pr-lifecycle"
+    - "fsm"
+    - "merge-sweep"
+    - "OMN-8087"
+  related_tickets:
+    - "OMN-8087"
+    - "OMN-8082"
+    - "OMN-8083"
+    - "OMN-8084"
+    - "OMN-8085"
+    - "OMN-8086"
+    - "OMN-8070"
+    - "OMN-12569"
+    - "OMN-14774"
+    - "OMN-18429"
+
+config:
+  ONEX_OCC_MERGE_SHA:
+    description: "Git SHA of the merge commit for OCC post-merge verification."
+    required: false
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.pr-lifecycle-fix-dispatched.v1
+  - onex.evt.omnimarket.pr-lifecycle-inventory-collected.v1
+  - onex.evt.omnimarket.pr-lifecycle-ledger-entry-projected.v1
+  - onex.evt.omnimarket.pr-lifecycle-merge-executed.v1
+  # referenced outside the node graph at omnimarket/src/omnimarket/nodes/node_pr_lifecycle_orchestrator/handlers/handler_pr_lifecycle_orchestrator.py
+  - onex.evt.omnimarket.pr-lifecycle-orchestrator-failed.v1
+  # referenced outside the node graph at omnimarket/src/omnimarket/nodes/node_pr_lifecycle_orchestrator/handlers/handler_pr_lifecycle_orchestrator.py
+  - onex.evt.omnimarket.pr-lifecycle-orchestrator-phase-transition.v1
+  - onex.evt.omnimarket.pr-lifecycle-triage-classified.v1
+  # referenced outside the node graph at omnimarket/src/omnimarket/nodes/node_pr_lifecycle_orchestrator/handlers/handler_pr_lifecycle_orchestrator.py
+  - onex.evt.omnimarket.pr-lifecycle-verification-completed.v1

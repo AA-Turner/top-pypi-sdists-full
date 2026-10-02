@@ -8,7 +8,7 @@ import os
 import shutil
 import tarfile
 import tempfile
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, overload, Tuple, Union
 
 import requests
 
@@ -37,6 +37,10 @@ INSTALLED_METADATA_FILE = "installed.json"
 
 _MANAGED_BY_TAG = "anyscale-skills"
 
+# A platform's "hooks" value: Kiro's flat list of hook objects, or the event-keyed
+# mapping every other platform uses.
+HooksConfig = Union[List[Any], Dict[str, Any]]
+
 _SKILLS_PREFIX = "skills" + os.sep
 
 
@@ -62,13 +66,24 @@ def _catalog_entry_key(entry: CatalogEntry) -> Tuple[str, str]:
     return (entry.type, entry.name)
 
 
+def _entry_changed(old: CatalogEntry, new: CatalogEntry) -> bool:
+    """Whether an entry's content changed between two versions.
+
+    Prefers content_hash, which catches body edits that leave the description
+    untouched. Falls back to description when either side predates the field --
+    droppable once no supported install can be that old.
+    """
+    if old.content_hash is not None and new.content_hash is not None:
+        return old.content_hash != new.content_hash
+    return old.description != new.description
+
+
 def _catalog_diff(
     old: List[CatalogEntry], new: List[CatalogEntry]
 ) -> Tuple[List[CatalogEntry], List[CatalogEntry], List[CatalogEntry]]:
     """Return (added, removed, updated) catalog entries between two versions.
 
-    `updated` holds entries present under the same key in both versions whose
-    description changed. A platforms-only change is not counted, so a pure
+    A platforms-only change is not counted as updated, so a pure
     supported-platform broadening reads as a benign version bump rather than
     churn.
     """
@@ -79,7 +94,7 @@ def _catalog_diff(
     updated = [
         new_map[key]
         for key in new_map
-        if key in old_map and new_map[key].description != old_map[key].description
+        if key in old_map and _entry_changed(old_map[key], new_map[key])
     ]
     return added, removed, updated
 
@@ -149,9 +164,7 @@ def _skills_filter(member: tarfile.TarInfo, dest_path: str) -> tarfile.TarInfo:
     if member.issym() or member.islnk():
         raise ValueError(f"Skills bundle contains link: {member.name}")
     if not (member.isfile() or member.isdir()):
-        raise ValueError(
-            f"Skills bundle contains unsupported entry type: {member.name}"
-        )
+        raise ValueError(f"Skills bundle contains unsupported entry type: {member.name}")
     data_filter = getattr(tarfile, "data_filter", None)
     if data_filter is not None:
         try:
@@ -166,13 +179,30 @@ def _skills_filter(member: tarfile.TarInfo, dest_path: str) -> tarfile.TarInfo:
     return member
 
 
-def _strip_managed_hooks(hooks: dict) -> dict:
-    """Remove all hook groups tagged with _managed_by from a hooks dict."""
+def _drop_managed(entries: List[Any]) -> List[Any]:
+    """Drop the hook entries a previous install of ours wrote."""
+    return [
+        entry
+        for entry in entries
+        if not (isinstance(entry, dict) and entry.get("_managed_by") == _MANAGED_BY_TAG)
+    ]
+
+
+@overload
+def _strip_managed_hooks(hooks: List[Any]) -> List[Any]: ...
+
+
+@overload
+def _strip_managed_hooks(hooks: Dict[str, Any]) -> Dict[str, Any]: ...
+
+
+def _strip_managed_hooks(hooks: HooksConfig) -> HooksConfig:
+    """Remove hook entries tagged with _managed_by, preserving the config's shape."""
+    if isinstance(hooks, list):
+        return _drop_managed(hooks)
     return {
-        event: [
-            group for group in groups if group.get("_managed_by") != _MANAGED_BY_TAG
-        ]
-        for event, groups in hooks.items()
+        event: _drop_managed(entries) if isinstance(entries, list) else entries
+        for event, entries in hooks.items()
     }
 
 
@@ -180,12 +210,35 @@ def _merge_hooks_config(existing_path: str, bundle_path: str) -> None:
     """Merge hooks from the bundle config into an existing config file."""
     existing = _load_json(existing_path)
     bundle = _load_json(bundle_path, strict=True)
+    bundle_hooks = bundle.get("hooks", {})
 
-    merged_hooks = _strip_managed_hooks(existing.get("hooks", {}))
-    for event, groups in bundle.get("hooks", {}).items():
-        merged_hooks.setdefault(event, []).extend(groups)
+    current = existing.get("hooks")
+
+    if isinstance(bundle_hooks, list):
+        kept = _strip_managed_hooks(current) if isinstance(current, list) else []
+        merged_hooks: HooksConfig = [*kept, *bundle_hooks]
+    else:
+        by_event = _strip_managed_hooks(current) if isinstance(current, dict) else {}
+        for event, entries in bundle_hooks.items():
+            by_event.setdefault(event, []).extend(entries)
+        merged_hooks = by_event
 
     existing["hooks"] = merged_hooks
+    _save_json(existing_path, existing)
+
+
+def _copy_bundle_schema_keys(existing_path: str, bundle_path: str) -> None:
+    """Copy the bundle's non-"hooks" top-level keys into a config file we install outright.
+
+    Kiro requires a top-level "version" in its hooks file and rejects it otherwise. Kiro
+    only: its config is a file we install outright, not a section of the user's own.
+    """
+    bundle = _load_json(bundle_path, strict=True)
+    schema_keys = {key: value for key, value in bundle.items() if key != "hooks"}
+    if not schema_keys:
+        return
+    existing = _load_json(existing_path)
+    existing.update(schema_keys)
     _save_json(existing_path, existing)
 
 
@@ -266,9 +319,7 @@ class _InstallPlan:
 
     def __post_init__(self):
         if (self.bundle is None) == (self.bundle_url is None):
-            raise ValueError(
-                "_InstallPlan requires exactly one of bundle or bundle_url."
-            )
+            raise ValueError("_InstallPlan requires exactly one of bundle or bundle_url.")
         if self.bundle_url is not None and self.bundle_checksum is None:
             raise ValueError("_InstallPlan with bundle_url requires bundle_checksum.")
 
@@ -348,7 +399,9 @@ class PrivateSkillsSDK(BaseSDK):
         """
         version = _normalize_version(version)
         plan = self._resolve_install_source(
-            version=version, accept_terms=accept_terms, from_file=from_file,
+            version=version,
+            accept_terms=accept_terms,
+            from_file=from_file,
         )
         existing_metadata = self._load_metadata()
         target_platforms = self._resolve_target_platforms(
@@ -361,7 +414,9 @@ class PrivateSkillsSDK(BaseSDK):
             return plan.version
 
         self._install_from_plan(
-            plan, target_platforms, existing_metadata=existing_metadata,
+            plan,
+            target_platforms,
+            existing_metadata=existing_metadata,
         )
         return plan.version
 
@@ -372,9 +427,7 @@ class PrivateSkillsSDK(BaseSDK):
         """
         metadata = self._load_metadata()
         if metadata is None:
-            raise ValueError(
-                "No skills installed. Run 'anyscale skills install' first."
-            )
+            raise ValueError("No skills installed. Run 'anyscale skills install' first.")
 
         terms = self._fetch_terms()
         if terms.version == metadata.version and not force:
@@ -391,17 +444,20 @@ class PrivateSkillsSDK(BaseSDK):
         )
 
         self._install_from_plan(
-            plan, list(metadata.platforms), existing_metadata=metadata,
+            plan,
+            list(metadata.platforms),
+            existing_metadata=metadata,
         )
 
         if metadata.license_hash != plan.license_hash:
-            self._logger.info(
-                f"License terms have been updated: {SKILLS_TERMS_DOC_URL}"
-            )
+            self._logger.info(f"License terms have been updated: {SKILLS_TERMS_DOC_URL}")
         return plan.version
 
     def _fetch_manifest(
-        self, version: Optional[str] = None, *, include_bundle_url: bool = True,
+        self,
+        version: Optional[str] = None,
+        *,
+        include_bundle_url: bool = True,
     ) -> SkillsManifest:
         """Fetch the skills manifest from the API.
 
@@ -410,7 +466,8 @@ class PrivateSkillsSDK(BaseSDK):
         not require terms acceptance.
         """
         response = self.client.get_skills_manifest(
-            version=version, include_bundle_url=include_bundle_url,
+            version=version,
+            include_bundle_url=include_bundle_url,
         )
         return SkillsManifest(
             version=response.version,
@@ -420,6 +477,7 @@ class PrivateSkillsSDK(BaseSDK):
                     type=entry.type,
                     description=entry.description,
                     platforms=entry.platforms or [],
+                    content_hash=entry.content_hash,
                 )
                 for entry in response.catalog
             ],
@@ -461,9 +519,7 @@ class PrivateSkillsSDK(BaseSDK):
 
     def _verify_checksum(self, data: bytes, expected: str) -> None:
         """Verify the downloaded bundle matches the manifest's SHA256."""
-        expected_hex = (
-            expected[len("sha256:") :] if expected.startswith("sha256:") else expected
-        )
+        expected_hex = expected[len("sha256:") :] if expected.startswith("sha256:") else expected
         actual_hex = hashlib.sha256(data).hexdigest()
         if actual_hex.lower() != expected_hex.lower():
             raise ValueError(
@@ -472,7 +528,11 @@ class PrivateSkillsSDK(BaseSDK):
             )
 
     def _resolve_install_source(
-        self, *, version: Optional[str], accept_terms: bool, from_file: Optional[str],
+        self,
+        *,
+        version: Optional[str],
+        accept_terms: bool,
+        from_file: Optional[str],
     ) -> _InstallPlan:
         """Pick the install source (local file or API) and return a plan."""
         if from_file is not None:
@@ -485,7 +545,10 @@ class PrivateSkillsSDK(BaseSDK):
         return self._load_plan_from_api(version=version, accept_terms=accept_terms)
 
     def _load_plan_from_api(
-        self, *, version: Optional[str], accept_terms: bool,
+        self,
+        *,
+        version: Optional[str],
+        accept_terms: bool,
     ) -> _InstallPlan:
         """Fetch terms + manifest from the API; license acceptance happens here."""
         terms = self._fetch_terms(version)
@@ -534,9 +597,7 @@ class PrivateSkillsSDK(BaseSDK):
                 bundle=bundle_bytes,
             )
         except (KeyError, TypeError) as e:
-            raise ValueError(
-                f"Bundle manifest.json is missing required field {e}."
-            ) from e
+            raise ValueError(f"Bundle manifest.json is missing required field {e}.") from e
 
     def _resolve_target_platforms(
         self,
@@ -591,7 +652,10 @@ class PrivateSkillsSDK(BaseSDK):
         if plan.bundle_checksum is not None:
             self._verify_checksum(bundle, plan.bundle_checksum)
         self._install_platforms(
-            bundle, plan, target_platforms, existing_metadata=existing_metadata,
+            bundle,
+            plan,
+            target_platforms,
+            existing_metadata=existing_metadata,
         )
         self._warn_about_unsupported_skills(plan.catalog)
 
@@ -607,13 +671,10 @@ class PrivateSkillsSDK(BaseSDK):
             return
         self._logger.info("")
         self._logger.info(
-            f"  {len(skipped)} skill(s) require a newer anyscale CLI; "
-            "upgrade to enable:"
+            f"  {len(skipped)} skill(s) require a newer anyscale CLI; upgrade to enable:"
         )
         for entry in skipped:
-            self._logger.info(
-                f"    /{entry.name} (requires: {', '.join(entry.platforms)})"
-            )
+            self._logger.info(f"    /{entry.name} (requires: {', '.join(entry.platforms)})")
 
     def _check_existing_install(
         self,
@@ -664,9 +725,7 @@ class PrivateSkillsSDK(BaseSDK):
     ) -> None:
         """Install bundle for each platform, saving metadata after each for crash safety."""
         if existing_metadata is not None:
-            platforms_info: Dict[Platform, PlatformInstallInfo] = dict(
-                existing_metadata.platforms
-            )
+            platforms_info: Dict[Platform, PlatformInstallInfo] = dict(existing_metadata.platforms)
         else:
             platforms_info = {}
 
@@ -685,7 +744,10 @@ class PrivateSkillsSDK(BaseSDK):
                 if other != platform:
                     protected_paths |= paths
             skills_files, hooks_files = self._install_for_platform(
-                bundle, platform, previous, protected_paths,
+                bundle,
+                platform,
+                previous,
+                protected_paths,
             )
             info = PlatformInstallInfo(
                 skills_dir=platform_config.skills_dir.resolve(),
@@ -707,9 +769,7 @@ class PrivateSkillsSDK(BaseSDK):
                 )
             )
             total = len(skills_files) + len(hooks_files)
-            self._logger.info(
-                f"  [{platform_config.display}] {total} file(s) installed"
-            )
+            self._logger.info(f"  [{platform_config.display}] {total} file(s) installed")
 
     def _install_for_platform(
         self,
@@ -728,7 +788,7 @@ class PrivateSkillsSDK(BaseSDK):
         platform_config = self._platform_configs[platform]
         skills_dir = platform_config.skills_dir.resolve()
         hooks_dir = platform_config.hooks_dir.resolve()
-        hooks_config_name = platform_config.hooks_config
+        hooks_config_name = platform_config.hooks_config_rel
         hooks_config_path = os.path.join(hooks_dir, hooks_config_name)
 
         skills_files: List[str] = []
@@ -761,6 +821,8 @@ class PrivateSkillsSDK(BaseSDK):
 
                         if rel_path == hooks_config_name:
                             _merge_hooks_config(hooks_config_path, source_path)
+                            if platform is Platform.KIRO:
+                                _copy_bundle_schema_keys(hooks_config_path, source_path)
                             hooks_files.append(rel_path)
                         elif rel_path.startswith(_SKILLS_PREFIX):
                             skills_rel = rel_path[len(_SKILLS_PREFIX) :]
@@ -793,13 +855,19 @@ class PrivateSkillsSDK(BaseSDK):
 
         if previous is not None:
             self._cleanup_orphaned_files(
-                platform, previous, skills_files, hooks_files,
+                platform,
+                previous,
+                skills_files,
+                hooks_files,
             )
 
         return skills_files, hooks_files
 
     def _pre_write_validate(
-        self, skills_dir: str, hooks_dir: str, hooks_config_path: str,
+        self,
+        skills_dir: str,
+        hooks_dir: str,
+        hooks_config_path: str,
     ) -> None:
         """Check both target dirs are writable and any existing hooks config is valid JSON."""
         for target_dir in (skills_dir, hooks_dir):
@@ -813,23 +881,27 @@ class PrivateSkillsSDK(BaseSDK):
                 try:
                     os.makedirs(target_dir, exist_ok=True)
                 except OSError as e:
-                    raise ValueError(
-                        f"Cannot create target directory '{target_dir}': {e}"
-                    ) from e
+                    raise ValueError(f"Cannot create target directory '{target_dir}': {e}") from e
 
         if os.path.exists(hooks_config_path):
             try:
                 with open(hooks_config_path) as f:
-                    json.load(f)
+                    existing_config = json.load(f)
             except json.JSONDecodeError as e:
                 raise ValueError(
                     f"Existing hooks config '{hooks_config_path}' is not valid JSON: {e}.\n"
                     "  Fix or delete the file before retrying."
                 ) from e
             except OSError as e:
+                raise ValueError(f"Cannot read hooks config '{hooks_config_path}': {e}") from e
+            if "hooks" in existing_config and not isinstance(
+                existing_config["hooks"], (list, dict)
+            ):
                 raise ValueError(
-                    f"Cannot read hooks config '{hooks_config_path}': {e}"
-                ) from e
+                    f"Existing hooks config '{hooks_config_path}' has a 'hooks' value that "
+                    "is neither a list nor an object.\n"
+                    "  Fix or delete the file before retrying."
+                )
 
     def _rollback_platform_install(
         self,
@@ -881,22 +953,33 @@ class PrivateSkillsSDK(BaseSDK):
         platform_config = self._platform_configs[platform]
         skills_dir = os.path.expanduser(previous.skills_dir)
         hooks_dir = os.path.expanduser(previous.hooks_dir)
-        hooks_config_name = platform_config.hooks_config
+        hooks_config_name = platform_config.hooks_config_rel
 
         skills_orphans = set(previous.skills_files) - set(skills_files)
-        hooks_orphans = (
-            set(previous.hooks_files) - set(hooks_files) - {hooks_config_name}
-        )
+        hooks_orphans = set(previous.hooks_files) - set(hooks_files) - {hooks_config_name}
 
-        cleaned_any_skills = self._remove_orphans(platform, skills_dir, skills_orphans,)
-        cleaned_any_hooks = self._remove_orphans(platform, hooks_dir, hooks_orphans,)
+        cleaned_any_skills = self._remove_orphans(
+            platform,
+            skills_dir,
+            skills_orphans,
+        )
+        cleaned_any_hooks = self._remove_orphans(
+            platform,
+            hooks_dir,
+            hooks_orphans,
+        )
 
         if cleaned_any_skills:
             self._cleanup_empty_dirs(skills_dir)
         if cleaned_any_hooks:
             self._cleanup_empty_dirs(hooks_dir)
 
-    def _remove_orphans(self, platform: Platform, base_dir: str, orphans: set,) -> bool:
+    def _remove_orphans(
+        self,
+        platform: Platform,
+        base_dir: str,
+        orphans: set,
+    ) -> bool:
         """Remove orphan files under base_dir. Returns True if any were removed."""
         display = self._platform_configs[platform].display
         removed_any = False
@@ -943,12 +1026,8 @@ class PrivateSkillsSDK(BaseSDK):
                 {
                     **data,
                     "platforms": {
-                        Platform(platform_key): PlatformInstallInfo.from_dict(
-                            platform_info_dict
-                        )
-                        for platform_key, platform_info_dict in data[
-                            "platforms"
-                        ].items()
+                        Platform(platform_key): PlatformInstallInfo.from_dict(platform_info_dict)
+                        for platform_key, platform_info_dict in data["platforms"].items()
                     },
                     "catalog": [
                         CatalogEntry.from_dict(catalog_dict)

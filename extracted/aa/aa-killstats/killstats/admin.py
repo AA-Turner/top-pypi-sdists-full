@@ -25,6 +25,7 @@ class CorporationsAuditAdmin(admin.ModelAdmin):
         "_entity_pic",
         "_corporation__corporation_id",
         "_last_update",
+        "_last_missing_check",
     )
 
     list_display_links = (
@@ -56,6 +57,10 @@ class CorporationsAuditAdmin(admin.ModelAdmin):
     def _last_update(self, obj: CorporationsAudit):
         return obj.last_update
 
+    @admin.display(description="Last Missing Check", ordering="last_missing_check")
+    def _last_missing_check(self, obj: CorporationsAudit):
+        return obj.last_missing_check
+
     # pylint: disable=unused-argument
     def has_add_permission(self, request):
         return False
@@ -80,6 +85,7 @@ class AlliancesAuditAdmin(admin.ModelAdmin):
         "_entity_pic",
         "_alliance__alliance_id",
         "_last_update",
+        "_last_missing_check",
     )
 
     list_display_links = (
@@ -110,6 +116,10 @@ class AlliancesAuditAdmin(admin.ModelAdmin):
     @admin.display(description="Last Update", ordering="last_update")
     def _last_update(self, obj: AlliancesAudit):
         return obj.last_update
+
+    @admin.display(description="Last Missing Check", ordering="last_missing_check")
+    def _last_missing_check(self, obj: AlliancesAudit):
+        return obj.last_missing_check
 
     # pylint: disable=unused-argument
     def has_add_permission(self, request):

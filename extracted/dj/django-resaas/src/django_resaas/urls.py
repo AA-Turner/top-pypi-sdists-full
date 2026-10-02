@@ -1,0 +1,264 @@
+"""
+URL configuration for dev project.
+
+The `urlpatterns` list routes URLs to views. For more information please see:
+    https://docs.djangoproject.com/en/5.2/topics/http/urls/
+Examples:
+Function views
+    1. Add an import:  from my_app import views
+    2. Add a URL to urlpatterns:  path('', views.home, name='home')
+Class-based views
+    1. Add an import:  from other_app.views import Home
+    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
+Including another URLconf
+    1. Import the include() function: from django.urls import include, path
+    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
+"""
+
+from django.urls import include
+from django.urls import path
+
+from rest_framework import routers
+
+from rest_framework_simplejwt.views import TokenRefreshView
+
+
+
+
+# ─────────────────────────────
+# User / Auth views
+# ─────────────────────────────
+from django_resaas.saas.data.user.views.login import LoginAPIView
+from django_resaas.saas.data.user.views.logins import LoginsAPIView
+from django_resaas.saas.data.user.views.logout import LogoutAPIView
+from django_resaas.saas.data.user.views.me import MeAPIView
+from django_resaas.saas.data.user.views.verify_email import VerifyEmail
+from django_resaas.saas.data.user.views.change_password_email import ChangePasswordEmailAPIView
+from django_resaas.saas.data.user.views.change_password_mobile import ChangePasswordMobileAPIView
+from django_resaas.saas.data.user.views.change_temporary_password import ChangeTemporaryPasswordAPIView
+from django_resaas.saas.data.user.views.two_factor import (
+    LoginTwoFactorAPIView, LoginTwoFactorSetupAPIView, LoginTwoFactorSetupConfirmAPIView,
+    TwoFactorConfirmAPIView, TwoFactorDisableAPIView, TwoFactorRecoveryAPIView,
+    TwoFactorSetupAPIView, TwoFactorStatusAPIView,
+)
+from django_resaas.saas.data.user.views.account_security import (
+    SecurityActivityAPIView,
+    SessionsAPIView,
+    TerminateOtherSessionsAPIView,
+    TerminateSessionAPIView,
+)
+from django_resaas.saas.data.user.views.request_password_reset_email import RequestPasswordResetEmailAPIView
+from django_resaas.saas.data.user.views.password_token_check import PasswordTokenCheckAPIView
+from django_resaas.saas.data.user.views.set_new_password import SetNewPasswordAPIView
+from django_resaas.saas.data.user.views.mail import MailAPIView
+from django_resaas.saas.data.user.views.register import RegisterAPIView
+from django_resaas.saas.data.user.views.register_otp import RequestRegisterOTPView
+from django_resaas.saas.data.user.views.profile_contact_otp import (
+    RequestProfileContactOTPView,
+    ConfirmProfileContactOTPView,
+)
+
+# ─────────────────────────────
+# Data / API views
+# ─────────────────────────────
+from django_resaas.saas.data.entity.views.entity import EntityAPIView
+from django_resaas.saas.data.entity.views.site import SiteAPIView
+from django_resaas.saas.data.entity_type.views.entity_type import EntityTypeAPIView
+from django_resaas.saas.data.group.views.group import GroupAPIView
+from django_resaas.saas.data.branch.views.branch import BranchAPIView
+from django_resaas.saas.data.branch_user.views.branch_user import BranchUserAPIView
+from django_resaas.saas.data.branch_user_group.views.branch_user_group import BranchUserGroupAPIView
+from django_resaas.saas.data.document.views.document import DocumentAPIView
+from django_resaas.saas.data.document_type.views.document_type import DocumentTypeAPIView
+
+
+
+from django_resaas.saas.data.translation.views.translation import TranslationAPIView
+from django_resaas.saas.data.language.views.language import LanguageAPIView
+from django_resaas.saas.data.file.views.file import FileAPIView
+from django_resaas.saas.data.permission.views.permission import PermissionAPIView
+from django_resaas.saas.data.model.views.model import ModelAPIView
+from django_resaas.saas.data.app.views.app import AppAPIView
+from django_resaas.saas.data.user.views.user import UserAPIView
+from django_resaas.saas.data.person.views.person import PersonAPIView
+from django_resaas.saas.data.person_contact.views.person_contact import PersonContactAPIView
+from django_resaas.saas.data.site_contact_message.views.site_contact_message import (
+    SiteBranchesAPIView,
+    SiteContactAPIView,
+    SiteContactMessageAPIView,
+)
+from django_resaas.saas.data.theme.views.theme import ThemeAPIView
+from django_resaas.saas.data.layout_setting.views.layout_setting import LayoutSettingAPIView
+from django_resaas.saas.management.apicommands.view.scaffold import ScaffoldAPIView
+from django_resaas.saas.management.apicommands.view.ide import IDEWorkspaceAPIView
+from django_resaas.saas.management.apicommands.view.app_schema import AppSchemaAPIView, RelationsAPIView
+
+# Importing this package runs every @register_view in it (VIEW_REGISTRY
+# population), exactly like the direct view imports above - must happen
+# before build_saas_urls() runs below.
+import django_resaas.notifications.views  # noqa: F401
+
+
+from django_resaas.saas.data.pdf.views.invoice import invoice_pdf
+
+from django_resaas.view import home
+from django_resaas.view import deploy_github, deploy_status, deploy_releases, deploy_logs, deploy_rollback
+from django_resaas.saas.core.utils.autoload_urls import build_saas_urls
+
+from django_resaas.saas.data.context.views.context import ResaasContextAPIView
+
+from django_resaas.saas.core.dashboards.views import (
+    DashboardDetailAPIView,
+    DashboardListAPIView,
+    DashboardWidgetDataAPIView,
+    DashboardWidgetFilterOptionsAPIView,
+)
+
+
+
+
+# ─────────────────────────────
+# Router
+# ─────────────────────────────
+routerdjango_resaas = routers.DefaultRouter()
+routerauth = routers.DefaultRouter()
+
+routerdjango_resaas.register("files", FileAPIView, basename="files")
+routerdjango_resaas.register("languages", LanguageAPIView, basename="languages")
+routerdjango_resaas.register("translations", TranslationAPIView, basename="translations")
+routerdjango_resaas.register("themes", ThemeAPIView, basename="themes")
+routerdjango_resaas.register("layoutsettings", LayoutSettingAPIView, basename="layoutsettings")
+routerdjango_resaas.register("documenttypes", DocumentTypeAPIView, basename="documenttypes")
+routerdjango_resaas.register("documents", DocumentAPIView, basename="documents")
+
+
+routerdjango_resaas.register("branchusergroups", BranchUserGroupAPIView, basename="branchusergroups")
+routerdjango_resaas.register("branchusers", BranchUserAPIView, basename="branchusers")
+
+routerdjango_resaas.register("entitytypes", EntityTypeAPIView, basename="entitytypes")
+routerdjango_resaas.register("entitys", EntityAPIView, basename="entitys")
+routerdjango_resaas.register("branchs", BranchAPIView, basename="sucursais")
+routerdjango_resaas.register("users", UserAPIView, basename="users")
+routerdjango_resaas.register("persons", PersonAPIView, basename="persons")
+routerdjango_resaas.register("personcontacts", PersonContactAPIView, basename="personcontacts")
+
+
+routerauth.register("groups", GroupAPIView, basename="groups")
+routerauth.register("permissions", PermissionAPIView, basename="permissions")
+
+routerdjango_resaas.register("models", ModelAPIView, basename="models")
+routerdjango_resaas.register("apps", AppAPIView, basename="apps")
+routerdjango_resaas.register("resaasapps", AppSchemaAPIView, basename="resaasapps")
+routerdjango_resaas.register("scaffolds", ScaffoldAPIView, basename="scaffolds")
+routerdjango_resaas.register("ide", IDEWorkspaceAPIView, basename="ide")
+
+
+
+
+
+
+urlpatterns = [
+
+    path('', home, name='home'),
+    path(  "resaas/context/", ResaasContextAPIView.as_view(), name="resaas_context" ),
+    
+
+    path("deploy/github/", deploy_github),
+    path("deploy/status/", deploy_status),
+    path("deploy/releases/", deploy_releases),
+    path("deploy/logs/", deploy_logs),
+    path("deploy/rollback/", deploy_rollback),
+    
+
+    path("django_resaas/", include(routerdjango_resaas.urls)),
+    path("auth/", include(routerauth.urls)),
+    path("django_resaas/relations/", RelationsAPIView.as_view()),
+
+    path("django_resaas/dashboards/", DashboardListAPIView.as_view(), name="dashboard_list"),
+    
+    path(
+        "django_resaas/dashboard/<str:app_name>/",
+        DashboardDetailAPIView.as_view(),
+        name="dashboard_detail",
+    ),
+    path(
+        "django_resaas/dashboard/<str:app_name>/widget/<str:widget_name>/",
+        DashboardWidgetDataAPIView.as_view(),
+        name="dashboard_widget_data",
+    ),
+    path(
+        "django_resaas/dashboard/<str:app_name>/widget/<str:widget_name>/filters/<str:filter_name>/options/",
+        DashboardWidgetFilterOptionsAPIView.as_view(),
+        name="dashboard_widget_filter_options",
+    ),
+
+
+    path("site/", SiteAPIView.as_view(), name="site"),
+    # PUBLIC contact form of an Entity's site (Entity from the Origin, throttled)
+    path("site/contact/", SiteContactAPIView.as_view(), name="site_contact"),
+    # PUBLIC branches (name + main address) of the site's Entity, for its map
+    path("site/branches/", SiteBranchesAPIView.as_view(), name="site_branches"),
+
+    path("login/", LoginAPIView.as_view(), name="login"),
+    path("logout/", LogoutAPIView.as_view(), name="logout"),
+    path("me/", MeAPIView.as_view(), name="me"),
+
+    path("email/verify/", VerifyEmail.as_view(), name="email_verify"),
+    path("refresh_token/", TokenRefreshView.as_view(), name="token_refresh"),
+
+    path("logins/", LoginsAPIView.as_view(), name="logins"),
+
+    path("register/", RegisterAPIView.as_view(), name="register"),
+    path("register/otp/request/", RequestRegisterOTPView.as_view(), name="register_otp_request"),
+
+    path(
+        "profile/contact/otp/request/",
+        RequestProfileContactOTPView.as_view(),
+        name="profile_contact_otp_request",
+    ),
+    path(
+        "profile/contact/otp/confirm/",
+        ConfirmProfileContactOTPView.as_view(),
+        name="profile_contact_otp_confirm",
+    ),
+
+    path("password/change/email/", ChangePasswordEmailAPIView.as_view(), name="change_password_email"),
+    path("password/change/mobile/", ChangePasswordMobileAPIView.as_view(), name="change_password_mobile"),
+    path("password/change/temporary/", ChangeTemporaryPasswordAPIView.as_view(), name="change_temporary_password"),
+    path("two_factor/", TwoFactorStatusAPIView.as_view(), name="two_factor"),
+    path("two_factor/setup/", TwoFactorSetupAPIView.as_view(), name="two_factor_setup"),
+    path("two_factor/confirm/", TwoFactorConfirmAPIView.as_view(), name="two_factor_confirm"),
+    path("two_factor/disable/", TwoFactorDisableAPIView.as_view(), name="two_factor_disable"),
+    path("two_factor/recovery/", TwoFactorRecoveryAPIView.as_view(), name="two_factor_recovery"),
+    path("login/two_factor/", LoginTwoFactorAPIView.as_view(), name="login_two_factor"),
+    path("login/two_factor/setup/", LoginTwoFactorSetupAPIView.as_view(), name="login_two_factor_setup"),
+    path("login/two_factor/setup/confirm/", LoginTwoFactorSetupConfirmAPIView.as_view(), name="login_two_factor_setup_confirm"),
+    path("sessions/", SessionsAPIView.as_view(), name="sessions"),
+    path("sessions/terminate_others/", TerminateOtherSessionsAPIView.as_view(), name="sessions_terminate_others"),
+    path("sessions/<str:jti>/terminate/", TerminateSessionAPIView.as_view(), name="session_terminate"),
+    path("security/activity/", SecurityActivityAPIView.as_view(), name="security_activity"),
+    path("password/reset/email/", RequestPasswordResetEmailAPIView.as_view(), name="request_password_reset_email"),
+    path("password/reset/<uidb64>/<token>/", PasswordTokenCheckAPIView.as_view(), name="password_reset_confirm"),
+    path("password/reset/complete/", SetNewPasswordAPIView.as_view(), name="password_reset_complete"),
+
+    path("mail/", MailAPIView.as_view(), name="mail"),
+    path("pdf/invoice/<int:invoice_id>/", invoice_pdf, name="invoice_pdf"),
+
+]
+
+# ─────────────────────────────
+# Autoloaded resources (VIEW_REGISTRY)
+# ─────────────────────────────
+# Must run after urlpatterns above has imported every app's views and run
+# their @registerView decorators. Any app's views decorated with
+# @registerView only get routed
+# here - dev/urls.py already did this, but an app that installs
+# django_resaas and includes only this urls.py did not, so its registered
+# resources never appeared there.
+saas_router, saas_extra_patterns = build_saas_urls()
+urlpatterns += saas_router.urls
+urlpatterns += saas_extra_patterns
+
+
+
+

@@ -1,0 +1,191 @@
+---
+name: projection_tenant_credentials
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: reducer
+# OMN-17985: this contract is owned by its OWN standalone writer Deployment
+# (RUNTIME_PROFILE=projection-writer-tenant-credentials on onex-dev), not by the shared main runtime it
+# fell to while it declared nothing. The name became declarable when
+# omnibase_core 0.47.5 registered it in REGISTERED_RUNTIME_PROFILES and
+# CONSUMER_ATTACHED_RUNTIME_PROFILES; the writer is consumer-attached as
+# measured fact -- it joined its group and the coordinator issued it
+# partitions. Declaring it here is what makes ownership single-valued.
+runtime_profiles:
+  - projection-writer-tenant-credentials
+node_version: {major: 1, minor: 0, patch: 0}
+input_model: omnimarket.projection.credential_publisher.ModelCredentialRegisteredEvent
+description: >
+  Ingress+projection for BYOK inference-credential refs (OMN-16316). Consumes
+  credential-registered / credential-revoked events published by the gateway
+  value->ref thin-publisher (omnimarket.projection.credential_publisher) and
+  materializes TWO read models from that one event stream:
+  tenant_inference_credentials (the ref catalog the customer sees) and
+  delegation_routing_tenant_overlay (the route that actually selects the
+  customer's key -- OMN-17372). The gateway handler never writes either table
+  directly (OMN-15800) -- only this projection touches the database.
+  OMN-17372 blocker b3: before this node wrote the overlay row, registering a
+  key and EXECUTING on it were two disjoint tables joined by nothing --
+  delegation_routing_tenant_overlay had a creating migration, a GRANT, and no
+  writer of any kind, so a customer could register an OpenRouter key and still
+  have no route that selects it. The overlay row is derived from the same
+  event, in the same consumer, rather than from a second imperative API call:
+  a registration that is durable in the ref catalog and absent from the route
+  is the exact split this closes.
+
+handler:
+  module: omnimarket.nodes.node_projection_tenant_credentials.handlers.handler_tenant_credentials_projection
+  class: HandlerTenantCredentialsProjectionRunner
+
+# OMN-18013 / OMN-16939: one entry per topic, each declaring its own message_category.
+handler_routing:
+  routing_strategy: topic_match
+  handlers:
+    - operation: credential_registered
+      topic: onex.evt.omnimarket.credential-registered.v1
+      message_category: event
+      handler:
+        name: HandlerTenantCredentialsProjectionRunner
+        module: omnimarket.nodes.node_projection_tenant_credentials.handlers.handler_tenant_credentials_projection
+      handler_module: omnimarket.nodes.node_projection_tenant_credentials.handlers.handler_tenant_credentials_projection
+      event_model: omnimarket.projection.credential_publisher.ModelCredentialRegisteredEvent
+    - operation: credential_revoked
+      topic: onex.evt.omnimarket.credential-revoked.v1
+      message_category: event
+      handler:
+        name: HandlerTenantCredentialsProjectionRunner
+        module: omnimarket.nodes.node_projection_tenant_credentials.handlers.handler_tenant_credentials_projection
+      handler_module: omnimarket.nodes.node_projection_tenant_credentials.handlers.handler_tenant_credentials_projection
+      event_model: omnimarket.projection.credential_publisher.ModelCredentialRevokedEvent
+
+terminal_event: onex.evt.omnimarket.tenant-credential-projection-applied.v1
+
+golden_path:
+  - "Gateway value->ref exchange calls ProtocolSecretStore.set_secret, then publishes credential-registered to onex.evt.omnimarket.credential-registered.v1"
+  - "This node consumes credential-registered, INSERTs into tenant_inference_credentials"
+  - "OMN-17372: the same consume resolves the declared BYOK backend for the event's provider (configs/byok_provider_backends.v1.yaml) and UPSERTs one delegation_routing_tenant_overlay row for (tenant_id, '*') carrying the tenant's own api_key_ref as secret_ref -- an undeclared provider mints no row"
+  - "A delegation for that tenant now resolves via tenant_overlay_resolver -> delta() -> cost_tier tenant_byok, on the customer's own key"
+  - "Gateway revoke publishes credential-revoked to onex.evt.omnimarket.credential-revoked.v1"
+  - "This node consumes credential-revoked, sets revoked_at on the matching row"
+  - "OMN-17372: the same consume NULLs secret_ref on any overlay row of that tenant pointing at the revoked ref -- the row is kept, so a revoked tenant does NOT fall back to the platform house ladder"
+  - "GET /v1/tenants/me/inference-credentials renders from this table's bus-backed snapshot, excluding revoked_at IS NOT NULL rows by default"
+
+dod_evidence:
+  - test: tests/test_omn16316_tenant_credentials_projection.py::test_credential_registered_inserts_row
+    description: credential-registered event upserts a tenant_inference_credentials row with no value/key_value field
+  - test: tests/test_omn16316_tenant_credentials_projection.py::test_credential_revoked_sets_revoked_at
+    description: credential-revoked event sets revoked_at on the matching api_key_ref, does not delete the row
+  - test: tests/test_omn16316_tenant_credentials_projection.py::test_revoke_of_unknown_ref_inserts_a_tombstone_row
+    description: revoking a ref this projection never saw persists a tombstone row instead of silently doing nothing
+  - test: tests/test_omn16316_real_postgres_tenant_credentials_write_path.py::TestRealPostgresWritePath::test_revoke_before_register_out_of_order_keeps_credential_revoked
+    description: "OMN-16324 -- real-Postgres proof that a credential-revoked event landing before its matching credential-registered event (two separate Kafka topics, no cross-topic ordering guarantee) leaves the credential revoked instead of being silently un-revoked"
+  - test: tests/test_omn17372_byok_routing_overlay_bridge.py::TestOverlayWrite::test_credential_registered_upserts_the_routing_overlay_row
+    description: "OMN-17372 b3 -- a credential-registered event for a declared provider UPSERTs one tenant-scoped delegation_routing_tenant_overlay row carrying the tenant's own api_key_ref as secret_ref"
+  - test: tests/test_omn17372_byok_routing_overlay_bridge.py::TestOverlayWrite::test_undeclared_provider_mints_no_route
+    description: "OMN-17372 ruling 3 -- a provider absent from the BYOK catalog catalogues the credential but writes NO overlay row, so it can never inherit a platform backend's house secret_ref"
+  - test: tests/test_omn17372_byok_routing_overlay_bridge.py::TestRoutingResolvesTenantByok::test_registered_key_routes_a_delegation_at_cost_tier_tenant_byok
+    description: "OMN-17372 b3 end-to-end over the real reducer -- the row this projection writes resolves through resolve_tenant_overlay into delta() and yields cost_tier tenant_byok on the tenant's own ref"
+  - test: tests/test_omn17372_byok_routing_overlay_bridge.py::TestRevocation::test_revocation_nulls_the_overlay_secret_ref_and_keeps_the_row
+    description: "OMN-17372 -- revoking the credential NULLs the overlay row's secret_ref and KEEPS the row, so a revoked tenant does not silently fall back to the platform house ladder"
+
+db_io:
+  db_tables:
+    - name: tenant_inference_credentials
+      database_ref: application
+      schema: public
+      migration: "0000_create_tenant_inference_credentials.sql"
+      access: write
+      role: credentials
+    # OMN-17372 blocker b3. Created and owned by node_delegation_routing_reducer
+    # (migrations/0001) and already granted SELECT, INSERT, UPDATE to
+    # tenant_projection_writer by node_projection_delegation_inference_response's
+    # 0004 grant migration -- this declaration adds a WRITER, not a relation, so
+    # it ships no new SQL and needs no vendored migration companion.
+    #
+    # Why this node and not a new one: the overlay row is a second read model
+    # derived from the SAME credential-registered/-revoked stream this consumer
+    # already subscribes to, in a process already deployed on onex-dev
+    # (deployment-omnimarket-projection-tenant-credentials-writer.yaml) with the
+    # same OMNIDASH_ANALYTICS_DB_URL binding. A separate node would need its own
+    # Deployment, its own consumer group, and its own re-solution of the
+    # OMN-16324 cross-topic ordering problem this handler already solves -- and
+    # an undeployed consumer is exactly the failure mode that kept BYOK intake
+    # silently broken (see that manifest's own header).
+    #
+    # No DELETE is declared or used: revocation NULLs secret_ref rather than
+    # dropping the row, both because DELETE is not in the grant and because
+    # dropping the row would return a revoked tenant to the platform house
+    # ladder, which OMN-17372 ruling 3 forbids.
+    - name: delegation_routing_tenant_overlay
+      database_ref: application
+      schema: public
+      migration: "../node_delegation_routing_reducer/migrations/0001_create_delegation_routing_tenant_overlay.sql"
+      access: write
+      role: routing_overlay
+
+event_bus:
+  subscribe_topics:
+    - onex.evt.omnimarket.credential-registered.v1
+    - onex.evt.omnimarket.credential-revoked.v1
+  publish_topics:
+    - onex.evt.omnimarket.tenant-credential-projection-applied.v1
+  dlq_topics:
+    - onex.dlq.omnimarket.tenant-credential-projection-malformed.v1
+
+externally_consumed_topics:
+  - onex.evt.omnimarket.tenant-credential-projection-applied.v1
+
+projection_api:
+  expose: true
+  topic: "onex.snapshot.projection.tenant-credentials.v1" # onex-topic-allow: projection snapshot topics use onex.snapshot.* prefix by convention
+  key_grain: "mutable"
+  table: "tenant_inference_credentials"
+  schema: "public"
+  columns:
+    - "api_key_ref"
+    - "tenant_id"
+    - "name"
+    - "provider"
+    - "created_at"
+    - "revoked_at"
+  order_by: "created_at DESC"
+  freshness_column: "created_at"
+  limit: 200
+  # OMN-15800: served from the bus-fed SnapshotCache, never from Postgres
+  # directly -- same posture as node_projection_registration.
+  bus_backed: true
+  key_columns:
+    - "api_key_ref"
+  # OMN-15797 AC2: every row in this exposure belongs to exactly one tenant
+  # (tenant_id is NOT NULL, stamped by credential_publisher from the gateway's
+  # verified tenant identity), and the rows are BYOK credential references.
+  # Before this declaration the serving path returned every tenant's rows to
+  # any unscoped caller with a plain 200 -- this table carries no RLS in v1
+  # (see migration 0000), so nothing else was scoping it either. Declaring the
+  # tenant column makes the serving path refuse rather than answer unscoped.
+  tenant_column: "tenant_id"
+  # OMN-17199 — the reader end. This exposure is `bus_backed: true` and has no
+  # rendering consumer, and that is CORRECT rather than an oversight, so it says
+  # so here instead of failing the exposure-reader gate silently. The rows are
+  # tenant-scoped BYOK inference-credential REFERENCES (`api_key_ref`, never a
+  # value): they are served to the owning tenant's own API client through the
+  # tenant-scoped serving path above, and a dashboard widget rendering another
+  # tenant's credential refs is the outcome `tenant_column` exists to prevent.
+  # If a per-tenant surface ever renders these, delete both keys — the gate
+  # fails on an opt-out left standing over a live reader.
+  consumers: none
+  consumers_reason: >-
+    Tenant-scoped BYOK credential references served to the owning tenant's own
+    API client, never to a shared dashboard surface; a rendered widget here
+    would be the cross-tenant leak the tenant_column declaration exists to
+    refuse (OMN-15797).
+
+metadata:
+  transport_type: kafka
+
+# OMN-18013 -- explicit external PRODUCER declaration (contract topic graph closure).
+# Replaces the deleted contract_topic_graph_baseline.yaml external_producers map:
+# the declaration now lives beside the subscription it explains.
+externally_produced_topics:
+  - topic: onex.evt.omnimarket.credential-registered.v1
+    producer: "the gateway value->ref exchange (omnimarket.projection.credential_publisher.register_inference_credential), not a node contract"
+  - topic: onex.evt.omnimarket.credential-revoked.v1
+    producer: "the gateway value->ref exchange (omnimarket.projection.credential_publisher.revoke_inference_credential), not a node contract"

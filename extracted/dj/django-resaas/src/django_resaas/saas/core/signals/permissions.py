@@ -1,0 +1,372 @@
+# ==========================================================
+# IMPORTS
+# ==========================================================
+from django.apps import apps
+from django.conf import settings
+from django.contrib.auth.models import Permission
+from django_resaas.saas.models.group import Group
+from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import FieldDoesNotExist
+from django.db.models.signals import post_migrate, post_save
+from django.dispatch import receiver
+
+from django_resaas.saas.core.base.field_access import get_field_permissions
+
+# 🔹 Models do sistema
+from django_resaas.saas.models.person import Person
+from django_resaas.saas.models.entity_type import EntityType
+from django_resaas.saas.models.entity import Entity
+from django_resaas.saas.models.theme import Theme
+from django_resaas.saas.models.typography import Typography
+from django_resaas.saas.models.layout_setting import LayoutSetting
+from django_resaas.saas.models.animation_setting import AnimationSetting
+from django_resaas.saas.models.user import User
+
+
+# ==========================================================
+# POST MIGRATE - CRIAÇÃO DE PERMISSÕES
+# ==========================================================
+
+
+MODULE_PERMISSIONS = {
+    "django_resaas": [
+        # sensitive User security operations (see UserAPIView.viewTemporaryPassword
+        # / regenerateTemporaryPassword) - granted explicitly, never implied by
+        # view_user/change_user
+        {
+            "codename": "view_temporary_password",
+            "name": "Can view a user's temporary password",
+        },
+        {
+            "codename": "regenerate_temporary_password",
+            "name": "Can regenerate a user's temporary password",
+        },
+        {
+            "codename": "view_django_resaas_dashboard",
+            "name": "Can view Django RESAAS dashboard",
+        },
+        {
+            "codename": "view_core_dashboard",
+            "name": "Can view Access Control dashboard",
+        },
+    ],
+
+
+    "notifications": [
+        {
+            "codename": "view_notifications_dashboard",
+            "name": "Can view Notifications dashboard",
+        },
+    ],
+}
+
+
+def ensure_module_permissions(app_label, permissions):
+    """Creates (idempotently) a module's own permissions that are not model
+    CRUD - e.g. `view_<module>_dashboard` - on one of the module's models.
+    Public: a module calls it from its AppConfig (post_migrate) with
+    [{"codename", "name"}, ...]. An app that is not installed is skipped."""
+
+    try:
+        app_config = apps.get_app_config(app_label)
+    except LookupError:
+        return
+
+    Model = next(iter(app_config.get_models()), None)
+    if not Model:
+        return
+
+    content_type = ContentType.objects.get_for_model(Model)
+
+    for item in permissions:
+        Permission.objects.update_or_create(
+            codename=item["codename"],
+            content_type=content_type,
+            defaults={"name": item["name"]},
+        )
+
+
+def create_module_permissions():
+    """The core's own module permissions (MODULE_PERMISSIONS). Modules create
+    theirs with ensure_module_permissions()."""
+
+    for app_label, permissions in MODULE_PERMISSIONS.items():
+        ensure_module_permissions(app_label, permissions)
+
+
+@receiver(post_migrate)
+def create_model_permissions(sender, **kwargs):
+    """
+    Cria permissões automaticamente por model e garante que
+    o group root está sempre atualizado.
+
+    ✔ list_<model>
+    ✔ pdf_<model>
+    ✔ restore_<model>
+    ✔ hard_delete_<model>
+
+    ✔ scaffold permissions
+
+    ✔ Seguro para múltiplas execuções (idempotente)
+    """
+
+    # ------------------------------------------------------
+    # EXECUTA APENAS NO APP PRINCIPAL
+    # ------------------------------------------------------
+    if kwargs.get("app_config").label != "django_resaas":
+        return
+
+    # ------------------------------------------------------
+    # 🔥 FIX CRÍTICO: GARANTE CONTEXTO ANTES DE EXECUTAR
+    # Evita erro: entity_type_id = NULL
+    # ------------------------------------------------------
+    if not EntityType.objects.exists():
+        return
+
+    # ------------------------------------------------------
+    # APPS PERMITIDAS
+    # ------------------------------------------------------
+
+    MY_APPS = (
+        getattr(settings, "MY_APPS", [])
+        + ["django.contrib.auth"]
+    )
+
+    allowed_apps = set()
+
+    for app_name in MY_APPS:
+
+        app_config = None
+
+        # tenta pelo label
+        try:
+            app_config = apps.get_app_config(
+                app_name
+            )
+        except LookupError:
+            pass
+
+        # tenta pelo Python path completo
+        if not app_config:
+            app_config = next(
+                (
+                    config
+                    for config in apps.get_app_configs()
+                    if config.name == app_name
+                ),
+                None
+            )
+
+        if app_config:
+            allowed_apps.add(
+                app_config.label
+            )
+
+    # ------------------------------------------------------
+    # GROUP ROOT
+    # ------------------------------------------------------
+    admin_group, _ = Group.objects.get_or_create(name="Root")
+
+    created_perms = []
+
+    # ======================================================
+    # MODEL EXTRA PERMISSIONS
+    # ======================================================
+    for model in apps.get_models():
+
+        # 🔹 filtrar apenas apps permitidas
+        if model._meta.app_label not in allowed_apps:
+            continue
+
+        ct = ContentType.objects.get_for_model(model)
+
+        for codename, label in [
+            ("view", "Can view"),       # Nativo
+            ("add", "Can add"),         # Nativo
+            ("change", "Can change"),   # Nativo
+            ("delete", "Can delete"),   # Nativo
+
+            
+            ("list", "Can list"),
+            ("pdf", "Can pdf"),
+            ("pdf_list", "Can pdf list"),
+            ("restore", "Can restore"),
+            ("hard_delete", "Can hard delete"),
+        ]:
+            perm, _ = Permission.objects.get_or_create(
+                codename=f"{codename}_{model._meta.model_name}",
+                content_type=ct,
+                defaults={
+                    "name": f"{label} {model._meta.verbose_name}"
+                },
+            )
+
+            created_perms.append(perm)
+
+        # --------------------------------------------------
+        # FIELD PERMISSIONS (RESAAS.fields[<name>]["permissions"],
+        # see core/base/field_access.py)
+        # --------------------------------------------------
+        for field_name, perms in get_field_permissions(model).items():
+            try:
+                field_label = model._meta.get_field(field_name).verbose_name
+            except FieldDoesNotExist:
+                field_label = field_name.replace("_", " ")
+
+            for operation, label in (("view", "Can view"), ("change", "Can change")):
+                perm, _ = Permission.objects.get_or_create(
+                    codename=perms[operation],
+                    content_type=ct,
+                    defaults={
+                        "name": f"{label} {model._meta.verbose_name} {field_label}"
+                    },
+                )
+
+                created_perms.append(perm)
+
+    # ======================================================
+    # SCAFFOLD PERMISSIONS
+    # ======================================================
+    ct, _ = ContentType.objects.get_or_create(
+        app_label="django_resaas",
+        model="command",
+    )
+
+    for codename, name in [
+        ("add_app", "Can add app"),
+        ("change_app", "Can change app"),
+        ("view_dev", "Can view dev"),
+        ("view_scaffold", "Can view scaffold"),
+        ("view_crud", "Can view crud"),
+        ("add_scaffold", "Can add scaffold"),
+        ("change_scaffold", "Can change scaffold"),
+        ("delete_scaffold", "Can delete scaffold"),
+    ]:
+        perm, _ = Permission.objects.get_or_create(
+            codename=codename,
+            content_type=ct,
+            defaults={"name": name},
+        )
+
+        created_perms.append(perm)
+
+    # ======================================================
+    # ATUALIZAR GROUP ROOT
+    # ======================================================
+    admin_group.permissions.add(*created_perms)
+
+    create_module_permissions()
+
+    # Root (the platform owners' group) holds the sensitive User-security
+    # permissions from the start; every other group gets them only by an
+    # explicit grant.
+    admin_group.permissions.add(*Permission.objects.filter(
+        codename__in=("view_temporary_password", "regenerate_temporary_password")
+    ))
+
+
+
+
+
+# ==========================================================
+# USER → PESSOA (AUTO CREATE)
+# ==========================================================
+@receiver(post_save, sender=User, dispatch_uid="criar_person_user")
+def criar_person_automaticamente(sender, instance, created, **kwargs):
+    """
+    Cria automaticamente um registo Person quando um User é criado.
+    """
+    if created and not getattr(instance, "_skip_person_autocreate", False):
+        Person.objects.get_or_create(
+            user=instance,
+            defaults={
+                "name": instance.first_name or "",
+                "surname": instance.last_name or "",
+                # None, never "": email is unique and nullable - two "" collide
+                "email": instance.email or None,
+                "state": "Active"
+            }
+        )
+
+
+# ==========================================================
+# PESSOA → USER (AUTO CREATE, ONLY ON CREATE)
+# ==========================================================
+@receiver(post_save, sender=Person, dispatch_uid="criar_user_person")
+def criar_user_automaticamente(sender, instance, created, raw=False, **kwargs):
+    """
+    A NEW Person gets its User (username from the first name only - see
+    core/services/person_user_service.py). An UPDATE never creates a User
+    or touches a username, even for an old Person without a User; a Person
+    that already has one (created by the User -> Person signal above) is
+    left alone.
+    """
+    if not created or raw or instance.user_id:
+        return
+
+    from django_resaas.saas.core.services.person_user_service import create_user_for_person
+
+    create_user_for_person(instance)
+
+
+# ==========================================================
+# USER → PESSOA (SYNC)
+# ==========================================================
+@receiver(post_save, sender=User, dispatch_uid="sync_person_user")
+def sync_person(sender, instance, **kwargs):
+    if getattr(instance, "_skip_sync", False):
+        return
+
+    person = getattr(instance, "person", None)
+
+    if person:
+        person._skip_sync = True
+
+        person.name = instance.first_name or ""
+        person.surname = instance.last_name or ""
+        person.email = instance.email or None  # unique + nullable: "" would collide
+        person.state = instance.state or "Active"
+
+        person.save()
+
+
+
+@receiver(post_save, sender=Person, dispatch_uid="sync_user_person")
+def sync_user(sender, instance, **kwargs):
+    if getattr(instance, "_skip_sync", False):
+        return
+
+    if instance.user:
+        user = instance.user
+
+        user._skip_sync = True
+
+        user.first_name = instance.name or ""
+        user.last_name = instance.surname or ""
+        user.email = instance.email or None  # unique + nullable: "" would collide
+        user.state =   instance.state or "Active"
+        user.save()
+
+
+# ==========================================================
+# TIPO ENTIDADE → CONFIGURAÇÕES INICIAIS
+# ==========================================================
+@receiver(post_save, sender=EntityType)
+def criar_thema(sender, instance, created, **kwargs):
+    """
+    Cria automaticamente configurações iniciais quando
+    uma EntityType é criada.
+    """
+    if created and not instance.theme:
+
+        instance.theme = Theme.objects.create(state="Active", name=instance.name)
+        instance.layout_settings = LayoutSetting.objects.create(state="Active", name=instance.name)
+        instance.animation_settings = AnimationSetting.objects.create(state="Active", name=instance.name)
+        instance.typography = Typography.objects.create(state="Active", name=instance.name)
+
+        instance.save(update_fields=[
+            "theme",
+            "layout_settings",
+            "animation_settings",
+            "typography"
+        ])

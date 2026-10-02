@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: google-cloud-ndb
-Version: 2.7.0
+Version: 2.7.1
 Summary: NDB library for Google Cloud Datastore
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-ndb
 Author: Google LLC
 Author-email: googleapis-packages@google.com
 License: Apache 2.0
 Project-URL: Documentation, https://googleapis.dev/python/python-ndb/latest
-Project-URL: Issue Tracker, https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-ndb/issues
+Project-URL: Issue Tracker, https://github.com/googleapis/google-cloud-python/issues
 Platform: Posix; MacOS X; Windows
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers

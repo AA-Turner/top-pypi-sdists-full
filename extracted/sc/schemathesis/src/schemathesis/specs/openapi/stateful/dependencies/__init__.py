@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 from schemathesis.core import NOT_SET
 from schemathesis.core.errors import InvalidSchema, OperationNotFound, RefResolutionError
+from schemathesis.core.jsonschema.types import JsonSchema, get_type
 from schemathesis.core.result import Ok
 from schemathesis.specs.openapi.adapter.parameters import ParameterLocation
 from schemathesis.specs.openapi.adapter.references import maybe_resolve_with_resolver
@@ -19,16 +20,20 @@ from schemathesis.specs.openapi.stateful.dependencies.inputs import (
     disambiguate_path_suffix_matches,
     extract_inputs,
     merge_related_resources,
+    rebind_inherited_suffix_matches,
     rebind_orphan_synthetics,
     update_input_field_bindings,
 )
 from schemathesis.specs.openapi.stateful.dependencies.models import (
     CanonicalizationCache,
+    Cardinality,
+    DefinitionSource,
     DependencyGraph,
     InputSlot,
     NormalizedLink,
     OperationMap,
     OperationNode,
+    ResourceDefinition,
     ResourceMap,
 )
 from schemathesis.specs.openapi.stateful.dependencies.outputs import extract_outputs
@@ -65,7 +70,8 @@ def analyze(schema: OpenApiSchema) -> DependencyGraph:
     # Nested-body FK lookups whose target resource wasn't yet registered when the consumer
     # was scanned. Keyed by operation label so we can land the slot in the right OperationNode.
     deferred_nested_fks: dict[str, list[tuple[str, str, str]]] = {}
-    deferred_named_scalars: dict[str, list[tuple[str, str]]] = {}
+    deferred_named_scalars: dict[str, list[tuple[str, str, JsonSchema]]] = {}
+    deferred_field_named_path_parameters: dict[str, list[tuple[str, str]]] = {}
 
     # Backs the body-FK gate so `<word>_name` fields without a real target don't spawn ghosts.
     candidate_resource_names = naming.collect_candidate_resource_names(schema.raw_schema)
@@ -73,45 +79,44 @@ def analyze(schema: OpenApiSchema) -> DependencyGraph:
     for result in schema.get_all_operations():
         if isinstance(result, Ok):
             operation = result.ok()
-            try:
-                pending: list[tuple[str, str, str]] = []
-                pending_named_scalars: list[tuple[str, str]] = []
-                inputs = list(
-                    extract_inputs(
-                        operation=operation,
-                        resources=resources,
-                        updated_resources=updated_resources,
-                        resolver=schema.root_resolver,
-                        canonicalization_cache=canonicalization_cache,
-                        response_resource_cache=response_resource_cache,
-                        deferred_nested_fks=pending,
-                        deferred_named_scalars=pending_named_scalars,
-                        candidate_resource_names=candidate_resource_names,
-                    )
-                )
-                outputs = extract_outputs(
+            pending: list[tuple[str, str, str]] = []
+            pending_named_scalars: list[tuple[str, str, JsonSchema]] = []
+            pending_field_named_path_parameters: list[tuple[str, str]] = []
+            inputs = list(
+                extract_inputs(
                     operation=operation,
-                    inputs=inputs,
                     resources=resources,
                     updated_resources=updated_resources,
                     resolver=schema.root_resolver,
                     canonicalization_cache=canonicalization_cache,
                     response_resource_cache=response_resource_cache,
+                    deferred_nested_fks=pending,
+                    deferred_named_scalars=pending_named_scalars,
+                    deferred_field_named_path_parameters=pending_field_named_path_parameters,
+                    candidate_resource_names=candidate_resource_names,
                 )
-                operations[operation.label] = OperationNode(
-                    method=operation.method,
-                    path=operation.path,
-                    inputs=inputs,
-                    outputs=list(outputs),
-                )
-                if pending:
-                    deferred_nested_fks[operation.label] = pending
-                if pending_named_scalars:
-                    deferred_named_scalars[operation.label] = pending_named_scalars
-            except RefResolutionError:
-                # Skip operations with unresolvable $refs (e.g., unavailable external references or references with typos)
-                # These won't participate in dependency detection
-                continue
+            )
+            outputs = extract_outputs(
+                operation=operation,
+                inputs=inputs,
+                resources=resources,
+                updated_resources=updated_resources,
+                resolver=schema.root_resolver,
+                canonicalization_cache=canonicalization_cache,
+                response_resource_cache=response_resource_cache,
+            )
+            operations[operation.label] = OperationNode(
+                method=operation.method,
+                path=operation.path,
+                inputs=inputs,
+                outputs=list(outputs),
+            )
+            if pending:
+                deferred_nested_fks[operation.label] = pending
+            if pending_named_scalars:
+                deferred_named_scalars[operation.label] = pending_named_scalars
+            if pending_field_named_path_parameters:
+                deferred_field_named_path_parameters[operation.label] = pending_field_named_path_parameters
 
     # Replay nested-FK lookups whose target resource was registered later in the scan -
     # producer paths can sort after their consumers (e.g. /departments alphabetises before
@@ -130,32 +135,64 @@ def analyze(schema: OpenApiSchema) -> DependencyGraph:
                 )
             )
 
+    # Bind path parameters named after a field of the resource owning the path (`/projects/{code}` -> `Project.code`).
+    # Deferred to here so the resource's fields are known regardless of declaration order.
+    for label, bindings in deferred_field_named_path_parameters.items():
+        for resource_name, parameter_name in bindings:
+            owner = resources.get(resource_name)
+            if (
+                owner is None
+                or owner.source < DefinitionSource.SCHEMA_WITH_PROPERTIES
+                or parameter_name not in owner.fields
+            ):
+                continue
+            operations[label].inputs.append(
+                InputSlot(
+                    resource=owner,
+                    resource_field=parameter_name,
+                    parameter_name=parameter_name,
+                    parameter_location=ParameterLocation.PATH,
+                )
+            )
+
     # Bind body fields named after a collection whose responses list the values they accept
     # (`country` <- `GET /countries`). Deferred to here so the producer is known.
-    primitive_producers = {
-        output.resource.name
-        for node in operations.values()
-        for output in node.outputs
-        if output.is_primitive_identifier
-    }
+    primitive_producers = set()
+    object_collection_producers = set()
+    for node in operations.values():
+        for output in node.outputs:
+            if output.is_primitive_identifier:
+                primitive_producers.add(output.resource.name)
+            elif output.cardinality == Cardinality.MANY:
+                object_collection_producers.add(output.resource.name)
     for label, named_scalars in deferred_named_scalars.items():
         node = operations[label]
         bound = {slot.parameter_name for slot in node.inputs}
-        for resource_name, property_name in named_scalars:
-            if property_name in bound or resource_name not in primitive_producers:
+        for resource_name, property_name, property_schema in named_scalars:
+            if property_name in bound or (
+                resource_name not in primitive_producers and resource_name not in object_collection_producers
+            ):
                 continue
             target = resources[resource_name]
             if any(output.resource.name == resource_name for output in node.outputs):
                 continue
+            if resource_name in primitive_producers:
+                field = target.fields[0] if target.fields else "id"
+            elif _accepts_code(property_schema, target):
+                field = "code"
+            else:
+                continue
             node.inputs.append(
                 InputSlot(
                     resource=target,
-                    resource_field=target.fields[0] if target.fields else "id",
+                    resource_field=field,
                     parameter_name=property_name,
                     parameter_location=ParameterLocation.BODY,
                 )
             )
             bound.add(property_name)
+
+    rebind_inherited_suffix_matches(operations, resources)
 
     # Update input slots with improved resource definitions discovered during extraction
     #
@@ -181,6 +218,12 @@ def analyze(schema: OpenApiSchema) -> DependencyGraph:
     remove_unused_resources(operations, resources)
 
     return DependencyGraph(operations=operations, resources=resources)
+
+
+def _accepts_code(schema: JsonSchema, resource: ResourceDefinition) -> bool:
+    # Listed objects are passed around by their plain `code` (`language` <- `GET /languages[*].code`). Ids, slugs
+    # and formatted strings are not: fields named after a collection often take URLs or unrelated enums instead.
+    return isinstance(schema, dict) and "format" not in schema and resource.types.get("code") == set(get_type(schema))
 
 
 def inject_links(schema: OpenApiSchema) -> int:

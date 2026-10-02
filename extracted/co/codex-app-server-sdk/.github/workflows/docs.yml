@@ -1,0 +1,91 @@
+name: docs
+
+on:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  docs-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Setup Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: "0.11.18"
+
+      - name: Install dependencies
+        run: uv sync --locked --group dev
+
+      - name: Check method links
+        run: uv run --locked python scripts/check_chat_method_links.py
+
+      - name: Build docs
+        run: uv run --locked zensical build
+
+      - name: Link check
+        uses: lycheeverse/lychee-action@v2
+        with:
+          fail: true
+          args: >-
+            --verbose
+            --no-progress
+            --accept 200,429
+            --max-retries 2
+            --retry-wait-time 2
+            --exclude emsi.github.io/codex-app-server-sdk
+            ./README.md
+            ./docs/**/*.md
+
+  docs-deploy:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    needs: docs-check
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Setup Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: "0.11.18"
+
+      - name: Install dependencies
+        run: uv sync --locked --group dev
+
+      - name: Build docs
+        run: uv run --locked zensical build
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

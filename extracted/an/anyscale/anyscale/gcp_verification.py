@@ -89,17 +89,13 @@ def verify_gcp_networking(  # noqa: PLR0911, PLR0913
         return False
 
     try:
-        vpc = factory.compute_v1.NetworksClient().get(
-            project=project_id, network=vpc_name
-        )
+        vpc = factory.compute_v1.NetworksClient().get(project=project_id, network=vpc_name)
     except NotFound:
         logger.log_resource_not_found_error("VPC", vpc_name, project_id)
         return False
 
     if not subnet_ids:
-        logger.internal.warning(
-            "No subnets provided. Please provide at least one subnet."
-        )
+        logger.internal.warning("No subnets provided. Please provide at least one subnet.")
         return False
 
     subnet_name = subnet_ids[0]  # TODO (congding): multiple subnets provided
@@ -111,7 +107,9 @@ def verify_gcp_networking(  # noqa: PLR0911, PLR0913
             return False
     try:
         subnet = factory.compute_v1.SubnetworksClient().get(
-            project=project_id, subnetwork=subnet_name, region=cloud_region,
+            project=project_id,
+            subnetwork=subnet_name,
+            region=cloud_region,
         )
     except NotFound:
         logger.log_resource_not_found_error("Subnet", subnet_name, project_id)
@@ -134,9 +132,7 @@ def verify_gcp_networking(  # noqa: PLR0911, PLR0913
         if strict:
             return False
 
-    return _gcp_subnet_has_enough_capacity(
-        subnet, logger.internal, ignore_capacity_errors
-    )
+    return _gcp_subnet_has_enough_capacity(subnet, logger.internal, ignore_capacity_errors)
 
 
 def _gcp_subnet_has_enough_capacity(
@@ -161,9 +157,7 @@ def _get_proxy_only_subnet_in_vpc(
     vpc_name: str,
 ) -> Optional[compute_v1.types.compute.Subnetwork]:
     # Check if there exists a subnet in the VPC and region with purpose `REGIONAL_MANAGED_PROXY`
-    subnets = factory.compute_v1.SubnetworksClient().list(
-        project=project_id, region=cloud_region
-    )
+    subnets = factory.compute_v1.SubnetworksClient().list(project=project_id, region=cloud_region)
     for subnet in subnets:
         subnet_vpc = subnet.network.split("/")[-1]
         if vpc_name == subnet_vpc and subnet.purpose == PROXY_ONLY_SUBNET_PURPOSE:
@@ -193,9 +187,7 @@ def verify_gcp_project(  # noqa: PLR0911
             CloudAnalyticsEventCloudResource.GCP_PROJECT,
             CloudSetupError.PROJECT_NOT_ACTIVE,
         )
-        logger.internal.error(
-            f"Project {project_id} is in state: {project.state}, not active"
-        )
+        logger.internal.error(f"Project {project_id} is in state: {project.state}, not active")
         return False
 
     iam_policies = project_client.get_iam_policy(resource=f"projects/{project_id}")
@@ -255,9 +247,7 @@ def verify_gcp_project(  # noqa: PLR0911
 
     # enable all required apis, the operation is idompotent
     try:
-        enable_project_apis(
-            factory, project_id, logger.internal, enable_memorystore_api
-        )
+        enable_project_apis(factory, project_id, logger.internal, enable_memorystore_api)
     except ClickException as e:
         logger.internal.error(e.message)
         logger.spinner.text = spinner_text
@@ -339,9 +329,7 @@ def verify_gcp_dataplane_service_account(
         ).execute()
     except HttpError as e:
         if e.status_code == 404:
-            logger.log_resource_not_found_error(
-                "Dataplane Service Account", service_account
-            )
+            logger.log_resource_not_found_error("Dataplane Service Account", service_account)
         else:
             logger.internal.log_resource_exception(
                 CloudAnalyticsEventCloudResource.GCP_SERVICE_ACCOUNT, e
@@ -360,9 +348,7 @@ def verify_gcp_dataplane_service_account(
             return False
 
     project_client = factory.resourcemanager_v3.ProjectsClient()
-    project_iam_bindings = project_client.get_iam_policy(
-        resource=f"projects/{project_id}"
-    )
+    project_iam_bindings = project_client.get_iam_policy(resource=f"projects/{project_id}")
     if not check_policy_bindings(
         project_iam_bindings.bindings,
         f"serviceAccount:{service_account}",
@@ -397,9 +383,7 @@ def verify_firewall_policy(  # noqa: PLR0911, PLR0912, C901, PLR0913
         )
         return False
 
-    firewall_policy = firewall_policy_ids[
-        0
-    ]  # TODO (congding): multiple firewall ids provided
+    firewall_policy = firewall_policy_ids[0]  # TODO (congding): multiple firewall ids provided
     if len(firewall_policy_ids) > 1:
         logger.internal.warning(
             "Multiple firewall policies provided. Only taking the first firewall policy and ignoring the rest."
@@ -422,9 +406,7 @@ def verify_firewall_policy(  # noqa: PLR0911, PLR0912, C901, PLR0913
                 project=project_id, firewall_policy=firewall_policy, region=cloud_region
             )
         except NotFound:
-            logger.log_resource_not_found_error(
-                "Firewall Policy", firewall_policy, project_id
-            )
+            logger.log_resource_not_found_error("Firewall Policy", firewall_policy, project_id)
             return False
 
     if not any(
@@ -443,9 +425,7 @@ def verify_firewall_policy(  # noqa: PLR0911, PLR0912, C901, PLR0913
         return False
 
     if not subnet_ids:
-        logger.internal.warning(
-            "No subnets provided. Please provide at least one subnet."
-        )
+        logger.internal.warning("No subnets provided. Please provide at least one subnet.")
         return False
 
     subnet_obj = factory.compute_v1.SubnetworksClient().get(
@@ -555,11 +535,7 @@ def _firewall_rules_from_proto_resp(
         for addr in rule.match.src_ip_ranges
         for l4config in (
             rule.match.layer4_configs
-            or [
-                compute_v1.types.compute.FirewallPolicyRuleMatcherLayer4Config(
-                    ip_protocol="all"
-                )
-            ]
+            or [compute_v1.types.compute.FirewallPolicyRuleMatcherLayer4Config(ip_protocol="all")]
         )
     ]
 
@@ -708,15 +684,17 @@ def verify_cloud_storage(  # noqa: PLR0911, PLR0912, PLR0913
     return True
 
 
-def _verify_service_account_on_bucket(
-    service_account: str, iam_bindings: List[Binding]
-) -> bool:
+def _verify_service_account_on_bucket(service_account: str, iam_bindings: List[Binding]) -> bool:
     """Verifies that the given service account has roles that ensure the following list of permissions:
     * storage.buckets.get: Get bucket info
     * storage.objects.[ get | list | create ]
     * storage.multipartUploads.[ abort | create | listParts ]
     """
-    if check_policy_bindings(iam_bindings, service_account, {"roles/storage.admin"},):
+    if check_policy_bindings(
+        iam_bindings,
+        service_account,
+        {"roles/storage.admin"},
+    ):
         return True
     return any(
         check_required_policy_bindings(iam_bindings, service_account, combination)

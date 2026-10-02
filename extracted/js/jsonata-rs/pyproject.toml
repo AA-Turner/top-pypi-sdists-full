@@ -1,0 +1,27 @@
+[build-system]
+requires = ["maturin>=1.5,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "jsonata-rs"
+# Version is not pinned here. maturin reads it from the Cargo workspace
+# (`[workspace.package] version` in the root Cargo.toml), which CI stamps from
+# the git tag (see scripts/set-version-from-git.sh). This keeps the Python wheel
+# version, the Rust crate version, and `jsonata.__version__` (which is
+# `env!("CARGO_PKG_VERSION")`) all identical and tag-derived.
+dynamic = ["version"]
+description = "JSONata for Python — Rust port of the jsonata-java reference implementation"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+]
+
+[tool.maturin]
+# Distribution name on PyPI is `jsonata-rs`, but the importable module stays
+# `jsonata` (i.e. `import jsonata`), matching the cdylib's [lib] name.
+module-name = "jsonata"
+features = ["pyo3/extension-module"]
+manifest-path = "crates/jsonata-py/Cargo.toml"

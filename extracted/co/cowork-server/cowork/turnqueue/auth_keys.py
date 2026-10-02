@@ -1,0 +1,104 @@
+"""Mint a short-TTL, org/user-scoped MindsHub 'turn' key for one turn.
+
+The key never persists: it is used for a single turn, expires within minutes,
+and keeps the long-lived tenant key out of the worker pod.
+"""
+from __future__ import annotations
+
+import logging
+from datetime import datetime, timedelta, timezone
+from typing import Literal
+
+import httpx
+
+from cowork.services.hub_workspaces import forget_stale_hub_workspace
+from cowork.services.product_permissions import ProductPermissionDenied, ProductPermissionUnavailable
+
+logger = logging.getLogger(__name__)
+
+
+def _error_code(resp: httpx.Response) -> str | None:
+    """The ``code`` field of an error body, or None if it has none."""
+    try:
+        error = resp.json()
+    except ValueError:
+        return None
+    return error.get("code") if isinstance(error, dict) else None
+
+
+async def mint_turn_key(*, user_id: str, org_id: str, correlation_id: str,
+                        ttl_seconds: int, settings, purpose: Literal["execution", "artifact_publish"] = "execution",
+                        workspace_id: str | None = None) -> str:
+    expiry = (datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)).isoformat()
+    # Cluster-only route: turn-key mint is secret-only (no Bearer factor), so
+    # auth serves it under the top-level /internal/ prefix the public LB never
+    # routes, NOT /v1/internal/. Reached here over ClusterIP (auth_internal_base_url).
+    url = f"{settings.auth_internal_base_url.rstrip('/')}/internal/turn-keys/"
+    headers = {"X-Internal-Auth": settings.auth_internal_secret}
+    body = {"user_id": user_id, "organization_id": org_id,
+            "instance_id": correlation_id, "expiry_date": expiry, "rotate": False, "purpose": purpose}
+    # Omitted rather than sent empty: auth treats a missing/null workspace_id as
+    # "use the organization's Default", which is also what an unselected
+    # (empty-string) hub_workspace_id means here.
+    if workspace_id:
+        body["workspace_id"] = workspace_id
+    if not settings.auth_internal_base_url or not settings.auth_internal_secret:
+        raise ProductPermissionUnavailable()
+    try:
+        async with httpx.AsyncClient(timeout=5.0, follow_redirects=False) as client:
+            resp = await client.post(url, json=body, headers=headers)
+            if resp.status_code == 404 and workspace_id and _error_code(resp) == "workspace_not_found":
+                # The stored pick names a workspace this person can no longer
+                # use (grant removed, or deleted). The menu has already fallen
+                # back to the default; do the same here instead of failing
+                # every turn, and clear the pick so the next turn skips this.
+                logger.info(
+                    "turn key mint: workspace %s refused for user %s; retrying on the default",
+                    workspace_id, user_id,
+                )
+                forget_stale_hub_workspace(org_id=org_id, user_id=user_id, workspace_id=workspace_id)
+                del body["workspace_id"]
+                resp = await client.post(url, json=body, headers=headers)
+            if resp.status_code == 403 and _error_code(resp) == "permission_denied":
+                raise ProductPermissionDenied()
+            resp.raise_for_status()
+            result = resp.json()
+            if not isinstance(result, dict) or not isinstance(result.get("key"), str) or not result["key"].strip():
+                raise ProductPermissionUnavailable()
+            return result["key"]
+    except (httpx.HTTPError, TimeoutError, ValueError) as exc:
+        raise ProductPermissionUnavailable() from exc
+
+
+
+async def list_active_connections(*, org_id: str, user_id: str, settings) -> list[dict]:
+    """Org's active OAuth-builtin connections, for the turn-key `oauth` block
+    (Turn-Key Token Handoff). Internal/service-authenticated, same mechanism
+    as mint_turn_key — not the caller's own Bearer credential: by the time
+    the remote producer builds this block it only has the gateway-verified
+    Principal (org_id/user_id), never the original request's raw
+    Authorization header (ResponsesHandler is constructed from a Principal,
+    not a Request). Returns each connection as {"engine": ..., "name": ...}.
+    """
+    url = f"{settings.auth_internal_base_url.rstrip('/')}/internal/oauth/connections/"
+    headers = {"X-Internal-Auth": settings.auth_internal_secret}
+    params = {"organization_id": org_id, "user_id": user_id}
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        resp = await client.get(url, params=params, headers=headers)
+        resp.raise_for_status()
+        return resp.json().get("items", [])
+
+
+async def revoke_turn_key(*, instance_id: str, settings) -> None:
+    """Revoke every active turn key for `instance_id`.
+
+    Idempotent on the auth side: the endpoint answers 204 even when no key
+    exists, so callers do not need to know whether a mint happened. Like mint,
+    revoke uses auth's ClusterIP-only top-level ``/internal/`` route; the public
+    edge deliberately has no turn-key surface.
+    """
+    url = f"{settings.auth_internal_base_url.rstrip('/')}/internal/turn-keys/{instance_id}/"
+    headers = {"X-Internal-Auth": settings.auth_internal_secret}
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        resp = await client.delete(url, headers=headers)
+        resp.raise_for_status()

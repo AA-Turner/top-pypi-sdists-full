@@ -49,7 +49,7 @@ class ScheduleFreeSGD(BaseOptimizer):
         **kwargs,
     ):
         self.validate_learning_rate(lr)
-        self.validate_range(momentum, 'momentum', 0.0, 1.0, range_type='[]')
+        self.validate_range(momentum, 'momentum', 0.0, 1.0, range_type='()')
         self.validate_non_negative(weight_decay, 'weight_decay')
         self.validate_non_negative(eps, 'eps')
 
@@ -203,6 +203,7 @@ class ScheduleFreeAdamW(BaseOptimizer):
     ):
         self.validate_learning_rate(lr)
         self.validate_betas(betas)
+        self.validate_range(betas[0], 'beta1', 0.0, 1.0, range_type='()')
         self.validate_non_negative(decoupling_c, 'decoupling_c')
         self.validate_non_negative(weight_decay, 'weight_decay')
         self.validate_non_negative(eps, 'eps')
@@ -374,6 +375,7 @@ class ScheduleFreeRAdam(BaseOptimizer):
     ):
         self.validate_learning_rate(lr)
         self.validate_betas(betas)
+        self.validate_range(betas[0], 'beta1', 0.0, 1.0, range_type='()')
         self.validate_non_negative(weight_decay, 'weight_decay')
         self.validate_non_negative(eps, 'eps')
 
@@ -543,7 +545,7 @@ class ScheduleFreeWrapper(BaseOptimizer):
         maximize: bool = False,
         **kwargs,
     ):
-        self.validate_range(momentum, 'momentum', 0.0, 1.0, '[)')
+        self.validate_range(momentum, 'momentum', 0.0, 1.0, '()')
         self.validate_non_negative(weight_decay, 'weight_decay')
 
         self.momentum = momentum
@@ -575,12 +577,36 @@ class ScheduleFreeWrapper(BaseOptimizer):
         return self.optimizer.add_param_group(param_group)
 
     def state_dict(self) -> State:
-        return {'schedulefree_state': self.state, 'base_optimizer': self.optimizer.state_dict()}
+        schedulefree_state: State = {
+            (group_index, parameter_index): dict(self.state[p])
+            for group_index, group in enumerate(self.param_groups)
+            for parameter_index, p in enumerate(group['params'])
+            if p in self.state
+        }
+        return {
+            'schedulefree_state': schedulefree_state,
+            'base_optimizer': self.optimizer.state_dict(),
+            'train_mode': self.train_mode,
+        }
 
     def load_state_dict(self, state: State) -> None:
         r"""Load state."""
-        self.state = state['schedulefree_state']
+        saved_state = state['schedulefree_state']
+        restored_state: State = {}
+        for group_index, group in enumerate(self.param_groups):
+            for parameter_index, p in enumerate(group['params']):
+                key = (group_index, parameter_index)
+                if key in saved_state:
+                    restored_state[p] = dict(saved_state[key])
+                elif p in saved_state:
+                    restored_state[p] = dict(saved_state[p])
+
+        if len(restored_state) != len(saved_state):
+            raise ValueError('schedule-free state does not match the current parameters')
+
         self.optimizer.load_state_dict(state['base_optimizer'])
+        self.state = defaultdict(dict, restored_state)
+        self.train_mode = state.get('train_mode', self.train_mode)
 
     def zero_grad(self, set_to_none: bool = True) -> None:
         self.optimizer.zero_grad(set_to_none)
@@ -689,7 +715,7 @@ class ScheduleFreeWrapper(BaseOptimizer):
             lr: float = group['lr'] * group.get('d', 1.0)
             lr_max = group['lr_max'] = max(lr, group.get('lr_max', 0))
 
-            weight: float = (group['step'] ** group['lr']) * (lr_max ** self.weight_lr_power)  # fmt: skip
+            weight: float = (group['step'] ** self.r) * (lr_max ** self.weight_lr_power)
             weight_sum = group['weight_sum'] = group.get('weight_sum', 0.0) + weight
 
             checkpoint: float = weight / weight_sum if weight_sum != 0.0 else 0.0

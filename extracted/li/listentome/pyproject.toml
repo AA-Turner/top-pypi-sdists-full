@@ -1,0 +1,65 @@
+[project]
+name = "listentome"
+version = "0.1.0"
+description = "Async-first audio I/O for Python, built on PortAudio."
+readme = "README.md"
+authors = [
+    { name = "Marcelo Trylesinski", email = "marcelotryle@gmail.com" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "anyio>=4",
+    "cffi>=1.17",
+    "typing_extensions>=4.12",
+]
+
+[dependency-groups]
+dev = [
+    "coverage>=7",
+    "mypy>=1.14",
+    "pytest>=8",
+    "ruff>=0.9",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/listentome"]
+
+[tool.ruff]
+line-length = 120
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "FA", "UP", "RUF100"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+
+[tool.mypy]
+strict = true
+
+[[tool.mypy.overrides]]
+module = ["cffi.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = "--strict-config --strict-markers -m 'not hardware'"
+xfail_strict = true
+filterwarnings = ["error"]
+markers = ["hardware: requires a real audio device"]
+
+[tool.coverage.run]
+source_pkgs = ["listentome", "tests"]
+omit = ["*/_portaudio.py", "*/test_hardware.py"]
+
+[tool.coverage.report]
+fail_under = 100
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@overload",
+]

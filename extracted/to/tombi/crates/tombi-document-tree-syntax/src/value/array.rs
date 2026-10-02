@@ -6,28 +6,28 @@ use crate::{DocumentTreeAndErrors, IntoDocumentTreeWithContext, Value, ValueImpl
 use tombi_document_tree::ArrayKind;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Array {
+pub struct Array<'t> {
     kind: ArrayKind,
-    range: tombi_text::Range,
-    symbol_range: tombi_text::Range,
-    values: Vec<Value>,
+    span: tombi_text::Span,
+    symbol_span: tombi_text::Span,
+    values: Vec<Value<'t>>,
     pub(crate) header_comment_directives: Option<Vec<TombiValueCommentDirective>>,
     pub(crate) body_comment_directives: Option<Vec<TombiValueCommentDirective>>,
     pub(crate) group_boundary_comment_directives: Option<Vec<TombiValueCommentDirective>>,
 }
 
-impl Array {
+impl<'t> Array<'t> {
     #[inline]
-    pub(crate) fn new_array(node: &tombi_ast_syntax::Array) -> Self {
+    pub(crate) fn new_array(node: &tombi_ast_syntax::Array<'t>) -> Self {
         Self {
             kind: ArrayKind::Array,
             values: vec![],
-            range: node.range(),
-            symbol_range: match (node.bracket_start(), node.bracket_end()) {
+            span: node.span(),
+            symbol_span: match (node.bracket_start(), node.bracket_end()) {
                 (Some(start), Some(end)) => {
-                    tombi_text::Range::new(start.range().start, end.range().end)
+                    tombi_text::Span::new(start.span().start, end.span().end)
                 }
-                _ => node.range(),
+                _ => node.span(),
             },
             header_comment_directives: None,
             body_comment_directives: None,
@@ -36,12 +36,12 @@ impl Array {
     }
 
     #[inline]
-    pub(crate) fn new_array_of_tables(table: &crate::Table) -> Self {
+    pub(crate) fn new_array_of_tables(table: &crate::Table<'t>) -> Self {
         Self {
             kind: ArrayKind::ArrayOfTable,
             values: vec![],
-            range: table.range(),
-            symbol_range: table.symbol_range(),
+            span: table.span(),
+            symbol_span: table.symbol_span(),
             header_comment_directives: None,
             body_comment_directives: None,
             group_boundary_comment_directives: None,
@@ -49,12 +49,12 @@ impl Array {
     }
 
     #[inline]
-    pub(crate) fn new_parent_array_of_tables(table: &crate::Table) -> Self {
+    pub(crate) fn new_parent_array_of_tables(table: &crate::Table<'t>) -> Self {
         Self {
             kind: ArrayKind::ParentArrayOfTable,
             values: vec![],
-            range: table.range(),
-            symbol_range: table.symbol_range(),
+            span: table.span(),
+            symbol_span: table.symbol_span(),
             header_comment_directives: None,
             body_comment_directives: None,
             group_boundary_comment_directives: None,
@@ -62,35 +62,35 @@ impl Array {
     }
 
     #[inline]
-    pub fn get(&self, index: usize) -> Option<&Value> {
+    pub fn get(&self, index: usize) -> Option<&Value<'t>> {
         self.values.get(index)
     }
 
     #[inline]
-    pub fn get_mut(&mut self, index: usize) -> Option<&mut Value> {
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut Value<'t>> {
         self.values.get_mut(index)
     }
 
     #[inline]
-    pub fn first(&self) -> Option<&Value> {
+    pub fn first(&self) -> Option<&Value<'t>> {
         self.values.first()
     }
 
     #[inline]
-    pub fn last(&self) -> Option<&Value> {
+    pub fn last(&self) -> Option<&Value<'t>> {
         self.values.last()
     }
 
     #[inline]
-    pub fn push(&mut self, value: Value) {
-        self.range += value.range();
-        self.symbol_range += value.symbol_range();
+    pub fn push(&mut self, value: Value<'t>) {
+        self.span += value.span();
+        self.symbol_span += value.symbol_span();
 
         self.values.push(value);
     }
 
     #[inline]
-    pub fn extend(&mut self, values: Vec<Value>) {
+    pub fn extend(&mut self, values: Vec<Value<'t>>) {
         for value in values {
             self.push(value);
         }
@@ -119,8 +119,8 @@ impl Array {
             }
             (Array, _) | (_, Array) => {
                 errors.push(crate::Error::ConflictArray {
-                    range1: self.symbol_range,
-                    range2: other.symbol_range,
+                    range1: self.symbol_span,
+                    range2: other.symbol_span,
                 });
             }
         }
@@ -138,23 +138,23 @@ impl Array {
     }
 
     #[inline]
-    pub fn values(&self) -> &[Value] {
+    pub fn values(&self) -> &[Value<'t>] {
         &self.values
     }
 
     #[inline]
-    pub fn values_mut(&mut self) -> &mut Vec<Value> {
+    pub fn values_mut(&mut self) -> &mut Vec<Value<'t>> {
         &mut self.values
     }
 
     #[inline]
-    pub fn range(&self) -> tombi_text::Range {
-        self.range
+    pub fn span(&self) -> tombi_text::Span {
+        self.span
     }
 
     #[inline]
-    pub fn symbol_range(&self) -> tombi_text::Range {
-        self.symbol_range
+    pub fn symbol_span(&self) -> tombi_text::Span {
+        self.symbol_span
     }
 
     #[inline]
@@ -195,7 +195,7 @@ impl Array {
     }
 
     #[inline]
-    pub fn iter(&self) -> std::slice::Iter<'_, Value> {
+    pub fn iter(&self) -> std::slice::Iter<'_, Value<'t>> {
         self.values.iter()
     }
 
@@ -210,7 +210,7 @@ impl Array {
     }
 }
 
-impl std::fmt::Display for Array {
+impl<'t> std::fmt::Display for Array<'t> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -227,21 +227,21 @@ impl std::fmt::Display for Array {
     }
 }
 
-impl ValueImpl for Array {
+impl<'t> ValueImpl for Array<'t> {
     fn value_type(&self) -> ValueType {
         ValueType::Array
     }
 
-    fn range(&self) -> tombi_text::Range {
-        self.range
+    fn span(&self) -> tombi_text::Span {
+        self.span
     }
 }
 
-impl IntoDocumentTreeWithContext<crate::Value> for tombi_ast_syntax::Array {
+impl<'t> IntoDocumentTreeWithContext<'t, crate::Value<'t>> for tombi_ast_syntax::Array<'t> {
     fn into_document_tree_with_context(
         self,
-        context: &crate::DocumentTreeContext,
-    ) -> crate::DocumentTreeAndErrors<crate::Value> {
+        context: &crate::DocumentTreeContext<'t>,
+    ) -> crate::DocumentTreeAndErrors<crate::Value<'t>> {
         let mut array = Array::new_array(&self);
         let mut errors = Vec::new();
 
@@ -398,9 +398,9 @@ impl IntoDocumentTreeWithContext<crate::Value> for tombi_ast_syntax::Array {
     }
 }
 
-impl IntoIterator for Array {
-    type Item = Value;
-    type IntoIter = std::vec::IntoIter<Value>;
+impl<'t> IntoIterator for Array<'t> {
+    type Item = Value<'t>;
+    type IntoIter = std::vec::IntoIter<Value<'t>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.values.into_iter()

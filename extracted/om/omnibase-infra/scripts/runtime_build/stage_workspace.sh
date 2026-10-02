@@ -1,0 +1,504 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# Stage sibling repos from OMNI_HOME into the Docker build context before
+# a workspace-mode build.  Must be called from the repo root (build context).
+#
+# Usage:
+#   OMNI_HOME=/data/omninode/omni_home \
+#     bash docker/runtime_build/stage_workspace.sh
+#   Or pin each staged sibling independently using owned, clean disposable clones:
+#   OMNI_HOME=<disposable-clone-root> bash scripts/runtime_build/stage_workspace.sh \
+#     --repo-ref omnibase_core=<40-character-SHA> \
+#     --repo-ref omnibase_compat=<40-character-SHA> \
+#     --repo-ref omnimarket=<40-character-SHA>
+#   This mode requires every staged sibling and forbids global-ref/hotpatch/
+#   unpinned selectors. It resolves all pins before any non-forcing checkout.
+#
+# On success, creates:
+#   workspace/sibling-repos/<repo-name>/  (staged working tree copy)
+#   workspace/sibling-pin-comparison.json (expected-vs-actual pin proof)
+#
+# The RT-1 expected-refs manifest is deliberately NOT one of these: it is written
+# outside the build context (see EXPECTED_REFS_OUT below, OMN-16442).
+#
+# Sibling-pin preflight (OMN-12977, OMN-13403):
+#   Before staging, the consuming repo's uv.lock is the pin authority. The
+#   build vendors the canonical OMNI_HOME clones of omnibase_infra / omnibase_core
+#   / siblings; if any clone's version mismatches the lock, or the clone is BEHIND
+#   the locked SHA (stale), the build ABORTS rather than silently vendoring a
+#   stale sibling. This is the recurrence guard for the 2026-06-11 stability crash
+#   where a 13-day-stale infra 0.37.0-dev (pre-OMN-12501 guard) was vendored
+#   against an omnimarket dev lock pinning infra 0.38.1.
+#   OMN-13403 exception: a clone whose version EXACTLY matches the lock and whose
+#   HEAD is a strict git DESCENDANT of the locked SHA (clone strictly AHEAD) is
+#   recorded as a non-fatal clone-ahead note and does NOT abort -- this is the
+#   unavoidable steady state for a real runtime sibling like onex_change_control
+#   whose dev branch advances on every receipt PR, so an exact lock pin can never
+#   durably converge. Set CONSUMER_LOCK to the consuming repo's uv.lock (default:
+#   ${OMNI_HOME}/omnimarket/uv.lock). Set ALLOW_SIBLING_PIN_DRIFT=1 ONLY with an
+#   explicit operator decision (e.g. an intentional forward rebuild ahead of a
+#   lock bump); the override is recorded in the provenance artifact, never silent.
+#
+# Clean-ref deploy source (RT-1, OMN-14438):
+#   Before staging, when DEPLOY_REF is set (or DEPLOY_HOTPATCH=1) each sibling
+#   clone under OMNI_HOME is brought to a CLEAN CHECKOUT of that ref via
+#   deploy_source_ref.py, and AFTER staging the vendored-SHA manifest is
+#   HARD-ASSERTED to equal that ref for every sibling. This kills the
+#   unreliable-narrator build (rsync of an ambient detached/behind/dirty tree).
+#   Unset DEPLOY_REF => REFUSED (OMN-17291). It used to print a warning and build
+#   the ambient tree anyway; a warning in a 4000-line deploy log is not a gate,
+#   and that path is one of the two routes that let a stale .201 clone bake a
+#   stale lane image with nothing failing. Set DEPLOY_REF, or opt in explicitly
+#   with ALLOW_UNPINNED_DEPLOY_SOURCE=1 (loud, named, never the default).
+#   DEPLOY_HOTPATCH=1 deploys the dirty tree deliberately (labelled, not laundered).
+#
+# Per-sibling ref (OMN-17135):
+#   DEPLOY_REF pins ONE repository. The CI rebuild path publishes an
+#   omnibase_infra commit SHA there, and that commit exists in no sibling, so
+#   RT-1 used to abort on the first one (`ERROR: omnibase_core: cannot resolve
+#   ref '<infra sha>'`, exit 4) and every CI-triggered agent rebuild failed by
+#   construction. Each sibling now falls back to a ref of its own --
+#   DEPLOY_SIBLING_FALLBACK_REF, default `origin/dev` -- resolved at staging
+#   time, with the primary it stood in for recorded per repo as `fallback_from`
+#   in the expected-refs manifest. The fallback engages ONLY where the primary
+#   names no commit in that repository; a DEPLOY_REF that resolves everywhere is
+#   unaffected. A fallback that does not resolve either still exits 4.
+#
+# Exit codes:
+#   0  all sibling repos staged successfully
+#   1  OMNI_HOME not set
+#   2  one or more sibling repos missing from OMNI_HOME
+#   3  sibling pin drift from the consuming lock (preflight abort)
+#   4  RT-1 clean-ref checkout failed, or the vendored-SHA manifest did not equal
+#      the intended ref for every sibling (deploy-source assertion abort)
+#   5  DEPLOY_REF unset and no explicit opt-in -- refusing an unasserted build
+set -euo pipefail
+
+if [[ -z "${OMNI_HOME:-}" ]]; then
+    echo "ERROR: OMNI_HOME must be set for workspace-mode build" >&2
+    exit 1
+fi
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# The sibling sets come from sibling_clone_manifest.sh, the single place they
+# are spelled (OMN-15137, OMN-19072): SIBLING_VENDORED_REPOS below, and
+# SIBLING_CLONE_MANIFEST for the pin preflight further down.
+# shellcheck source=./sibling_clone_manifest.sh
+source "${SCRIPT_DIR}/sibling_clone_manifest.sh"
+
+# OMN-13405: omnibase_core is staged FIRST so the Dockerfile workspace branch can
+# install the dev-HEAD core (which carries enum modules not yet in the released
+# 0.45.0 wheel pinned by omnibase_infra/uv.lock, e.g. enum_correction_failure_axis
+# added by OMN-13234/OMN-12846). Without this, `uv sync` installs the lock-pinned
+# enum-LESS core wheel and omnimarket (installed --no-deps) imports a missing enum,
+# crash-looping projection-api + the runtime kernel. Order matters: core must be
+# staged/installed before compat/omnimarket so it is the resolved core for all.
+# SIBLING_VENDORED_REPOS carries that order; the parity test pins core first.
+SIBLING_REPOS=("${SIBLING_VENDORED_REPOS[@]}")
+
+# Keep selectors as separate argv entries; never evaluate or word-split pins.
+REPO_REF_ARGS=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --repo-ref)
+            if [[ $# -lt 2 ]]; then
+                echo "ERROR: --repo-ref requires NAME=<40-character-SHA>" >&2
+                exit 2
+            fi
+            REPO_REF_ARGS+=(--repo-ref "$2")
+            shift 2
+            ;;
+        *)
+            echo "ERROR: unknown staging argument: $1" >&2
+            exit 2
+            ;;
+    esac
+done
+if [[ ${#REPO_REF_ARGS[@]} -gt 0 ]]; then
+    if [[ -n "${DEPLOY_REF:-}" || "${DEPLOY_HOTPATCH:-0}" == "1" || "${ALLOW_UNPINNED_DEPLOY_SOURCE:-0}" == "1" ]]; then
+        echo "ERROR: per-repo pins cannot be combined with DEPLOY_REF, DEPLOY_HOTPATCH=1, or ALLOW_UNPINNED_DEPLOY_SOURCE=1" >&2
+        exit 2
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# RT-1 (OMN-14438): clean-ref checkout of every sibling BEFORE staging.
+#
+# The disease this fixes: the staging below rsyncs each sibling from the AMBIENT
+# ${OMNI_HOME}/<repo> working copy on the .201 host -- routinely detached, behind,
+# and dirty -- so merging a PR does not change what gets built and every
+# "deployed" claim is unfalsifiable. When DEPLOY_REF is set (the cut-lab-ref
+# wrapper always sets it), bring each sibling to a clean checkout of that ref
+# (fetch --prune + checkout + reset --hard + clean -ffdx) so the tree that gets
+# rsync'd is provably the intended commit. The expected-refs manifest emitted
+# here is asserted against the vendored-SHA manifest at the end of staging.
+#
+# DEPLOY_HOTPATCH=1 deploys the current (possibly dirty) tree deliberately: no
+# reset/clean (that would destroy the patch), labelled hotpatch in the manifest.
+#
+# OMN-17291: unset DEPLOY_REF is now a REFUSAL, not a warning. The warn-and-build
+# path was proven live on 2026-08-31 -- the dev lane baked an omnimarket 11
+# commits behind origin/dev from an ambient .201 clone, and nothing failed. A
+# build whose source ref is unasserted must not be able to produce a "deployed"
+# claim, so the ambient-tree build now requires ALLOW_UNPINNED_DEPLOY_SOURCE=1:
+# still reachable, never silent, and recorded in the log by name.
+# ---------------------------------------------------------------------------
+DEPLOY_SOURCE_REF_SCRIPT="${SCRIPT_DIR}/deploy_source_ref.py"
+
+# OMN-16442: the expected-refs manifest lives OUTSIDE the build context.
+#
+# It used to be written to `workspace/deploy-source-refs.json`, i.e. RELATIVE to
+# this script's cwd -- which is always a git clone's root (the build context).
+# The file is untracked and not gitignored, so every clone a deploy ever ran
+# from was left permanently dirty. That is not cosmetic: the deploy agent's
+# self-update gate reads `git status --porcelain` on its own code clone, and one
+# such leftover made the agent skip every self-update, so a merged fix to the
+# agent could never reach it.
+#
+# Nothing needs this file inside the build context. It is a purely intra-run
+# intermediate between the `checkout` step above and the `assert` step at the
+# end of staging; the Dockerfile COPYs `sibling-vcs-provenance.json` and
+# `sibling-pin-comparison.json`, never this. So it goes to a state directory,
+# following the `${HOME}/.omnibase/state/...` convention refresh_dev_lane.sh and
+# refresh_stability_lane.sh already use in this same directory. Overridable by
+# DEPLOY_SOURCE_REFS_OUT for tests and for callers with their own run directory;
+# fail-closed on an unset HOME rather than writing to `/.omnibase`.
+#
+# The default path is keyed on the build context so two lanes staging
+# concurrently from different repo roots cannot clobber each other's manifest --
+# the same isolation the in-context path had for free, kept deterministic and
+# inspectable rather than swapped for a per-run temp dir that vanishes on the
+# failure you most want to read. Resolved lazily inside the RT-1 branch below:
+# the explicitly-unpinned path never writes or reads this manifest, and must not
+# fail on an unset HOME it does not need.
+resolve_expected_refs_out() {
+    if [[ -n "${DEPLOY_SOURCE_REFS_OUT:-}" ]]; then
+        printf '%s\n' "${DEPLOY_SOURCE_REFS_OUT}"
+        return 0
+    fi
+    local home build_ctx ctx_slug
+    home="${HOME:?HOME must be set to resolve the default expected-refs manifest path; set DEPLOY_SOURCE_REFS_OUT to choose one explicitly}"
+    build_ctx="$(pwd -P)"
+    ctx_slug="${build_ctx//[!A-Za-z0-9._-]/_}"
+    printf '%s\n' "${home}/.omnibase/state/deploy_source_refs/${ctx_slug}.json"
+}
+EXPECTED_REFS_OUT=""
+DEPLOY_REF="${DEPLOY_REF:-}"
+DEPLOY_HOTPATCH="${DEPLOY_HOTPATCH:-0}"
+# Explicit "did RT-1 run THIS invocation" flag so the end-of-staging assertion
+# never fires on a stale expected-refs manifest left by a prior pinned run.
+RT1_ENGAGED=false
+
+if [[ ${#REPO_REF_ARGS[@]} -gt 0 || -n "${DEPLOY_REF}" || "${DEPLOY_HOTPATCH}" == "1" ]]; then
+    RT1_ENGAGED=true
+    EXPECTED_REFS_OUT="$(resolve_expected_refs_out)"
+    echo "RT-1: expected-refs manifest -> ${EXPECTED_REFS_OUT} (outside the build context, OMN-16442)" >&2
+    mkdir -p "$(dirname "${EXPECTED_REFS_OUT}")"
+    checkout_args=(checkout --output "${EXPECTED_REFS_OUT}")
+    for repo in "${SIBLING_REPOS[@]}"; do
+        checkout_args+=(--repo "${repo}=${OMNI_HOME}/${repo}")
+    done
+    if [[ ${#REPO_REF_ARGS[@]} -gt 0 ]]; then
+        checkout_args+=(--require-immutable-refs "${REPO_REF_ARGS[@]}")
+    fi
+    if [[ -n "${DEPLOY_REF}" ]]; then
+        checkout_args+=(--ref "${DEPLOY_REF}")
+        # OMN-17135: DEPLOY_REF is a pin on ONE repository, and the CI rebuild
+        # path makes that literal -- the producer model constrains the published
+        # git_ref to a lowercase hex commit SHA of omnibase_infra. A commit of
+        # omnibase_infra is not a ref of omnibase_core, so RT-1 checking every
+        # sibling out at it fails for every sibling, every time. Give each
+        # sibling a ref of its OWN to fall back to: its declared tracking head,
+        # resolved here at staging time and recorded per repo in the manifest
+        # the end-of-staging assertion is resolved against. The fallback only
+        # engages where the primary names no commit, so a DEPLOY_REF that
+        # resolves everywhere (origin/dev) behaves exactly as before.
+        checkout_args+=(--fallback-ref "${DEPLOY_SIBLING_FALLBACK_REF:-origin/dev}")
+    fi
+    if [[ "${DEPLOY_HOTPATCH}" == "1" ]]; then
+        checkout_args+=(--hotpatch)
+    fi
+    if [[ ${#REPO_REF_ARGS[@]} -gt 0 ]]; then
+        echo "RT-1: resolve all immutable per-repo pins before non-forcing checkout" >&2
+    else
+        echo "RT-1: clean-checkout siblings to ref '${DEPLOY_REF:-<hotpatch:HEAD>}' before staging (OMN-14438)" >&2
+    fi
+    if ! python3 "${DEPLOY_SOURCE_REF_SCRIPT}" "${checkout_args[@]}"; then
+        echo "ERROR: RT-1 clean-ref checkout failed; refusing to build from an unpinned tree (OMN-14438)" >&2
+        exit 4
+    fi
+elif [[ "${ALLOW_UNPINNED_DEPLOY_SOURCE:-0}" == "1" ]]; then
+    echo "WARNING: ALLOW_UNPINNED_DEPLOY_SOURCE=1 -- staging the AMBIENT host tree." >&2
+    echo "         The vendored SHA is NOT asserted against any intended ref (OMN-14438)." >&2
+    echo "         This build cannot support a verified 'deployed' claim (OMN-17291)." >&2
+else
+    echo "ERROR: DEPLOY_REF unset -- refusing to stage the AMBIENT host tree (OMN-17291)." >&2
+    echo "       The .201 deploy-source clones are routinely detached, behind, or dirty," >&2
+    echo "       so an unpinned build's vendored SHA is asserted against nothing and its" >&2
+    echo "       'deployed' claim is unfalsifiable. This exact path baked an omnimarket" >&2
+    echo "       11 commits behind origin/dev into the dev lane on 2026-08-31." >&2
+    echo "       Fix: set DEPLOY_REF=<branch|tag|sha> (e.g. DEPLOY_REF=origin/dev), or use" >&2
+    echo "            scripts/runtime_build/cut-lab-ref.sh, for a pinned, asserted build." >&2
+    echo "       Deliberate ambient build: re-run with ALLOW_UNPINNED_DEPLOY_SOURCE=1." >&2
+    exit 5
+fi
+
+# ---------------------------------------------------------------------------
+# Sibling-pin preflight (OMN-12977): the consuming repo's uv.lock is authority.
+# ---------------------------------------------------------------------------
+CONSUMER_LOCK="${CONSUMER_LOCK:-${OMNI_HOME}/omnimarket/uv.lock}"
+PIN_COMPARISON_OUT="workspace/sibling-pin-comparison.json"
+
+# Foundation + sibling packages the build vendors, mapped to OMNI_HOME clone
+# dirs. OMN-15137: built from sibling_clone_manifest.sh -- the single source
+# of truth shared with ensure_runner_clones.sh's RUNNER_CLONE_REPOS -- instead
+# of a second independently hardcoded list, so the two can never drift apart
+# again (the omnibase_spi gap this ticket fixes was exactly that drift: this
+# list already named omnibase-spi, but ensure_runner_clones.sh never
+# provisioned OMNI_HOME/omnibase_spi for it to find). The manifest was sourced
+# at the top of this script.
+PREFLIGHT_REPO_ARGS=()
+for i in "${!SIBLING_CLONE_MANIFEST[@]}"; do
+    PREFLIGHT_REPO_ARGS+=(
+        --repo "${SIBLING_CLONE_MANIFEST_DIST_NAMES[$i]}=${OMNI_HOME}/${SIBLING_CLONE_MANIFEST[$i]}"
+    )
+done
+
+preflight_extra=()
+if [[ "${ALLOW_SIBLING_PIN_DRIFT:-0}" == "1" ]]; then
+    preflight_extra+=(--allow-drift)
+    echo "WARNING: ALLOW_SIBLING_PIN_DRIFT=1 -- pin drift will be recorded, not fatal" >&2
+fi
+
+# Interpreter resolution for check_sibling_lock_pins.py (OMN-15131).
+#
+# check_sibling_lock_pins.py imports pydantic (a runtime dependency of this
+# repo, installed into this repo's own venv/uv environment) but this script
+# was invoking it with the bare `python3` resolved off PATH. On the
+# omninode-deploy-runner container, that bare python3 is a system
+# interpreter with NO packages installed at all -- not even pydantic --
+# so the preflight crashed with ModuleNotFoundError one step after the
+# OMN-15122 fix, before it ever compared a single pin. This is NOT a lock-
+# drift condition; the check never ran far enough to do the comparison.
+#
+# Verified live on the deploy runner (2026-07-25): the repo's own
+# .venv/bin/python (built by deploy-runtime.sh's own `uv sync` earlier in
+# the same job) and `uv run python` both have pydantic installed; bare
+# python3 does not. This script runs with cwd == repo_root (deploy-runtime.sh
+# invokes it via `cd "${repo_root}" && bash stage_workspace.sh`), so
+# ".venv/bin/python" resolves to the same venv deploy-runtime.sh's own
+# check_sibling_lock_pins() bash function already prefers for this exact
+# script (see resolve logic there) -- this mirrors that precedence order
+# instead of duplicating a second, divergent one.
+#
+# Rejected alternatives:
+#   (b) install pydantic into the runner image's system python3 -- rejected:
+#       would require a runner-image rebuild for a dependency the repo
+#       already vendors in its own venv/uv environment one directory over;
+#       adds a second place pydantic's version has to be kept in sync.
+#   (c) drop the pydantic import from check_sibling_lock_pins.py -- rejected:
+#       the models it defines are load-bearing for the JSON provenance
+#       output (--output) other steps (compute_workspace_provenance.py)
+#       consume; downgrading to hand-rolled dict validation trades a real
+#       type-checked contract for an untyped one to work around an
+#       invocation bug, not a real constraint.
+resolve_sibling_lock_pins_python() {
+    if [[ -x "${PWD}/.venv/bin/python" ]]; then
+        printf '%s\n' "${PWD}/.venv/bin/python"
+    elif command -v uv &>/dev/null; then
+        printf '%s\n' "uv-run"
+    elif command -v python3 &>/dev/null; then
+        printf '%s\n' "python3"
+    else
+        echo "ERROR: no Python interpreter available to run check_sibling_lock_pins.py" >&2
+        exit 3
+    fi
+}
+
+if [[ -f "${CONSUMER_LOCK}" ]]; then
+    mkdir -p "$(dirname "${PIN_COMPARISON_OUT}")"
+    # --build-source workspace: this IS the workspace staging step, so a registry-
+    # sourced sibling whose clone is FORWARD of the lock (the OMN-13929 disarm-bump
+    # steady state) is non-fatal (OMN-13902). Backward / git-sourced drift stays
+    # fatal.
+    PREFLIGHT_PYTHON="$(resolve_sibling_lock_pins_python)"
+    if [[ "${PREFLIGHT_PYTHON}" == "uv-run" ]]; then
+        preflight_status=0
+        uv run python "${SCRIPT_DIR}/check_sibling_lock_pins.py" \
+            --lock "${CONSUMER_LOCK}" \
+            "${PREFLIGHT_REPO_ARGS[@]}" \
+            --output "${PIN_COMPARISON_OUT}" \
+            --build-source workspace \
+            ${preflight_extra[@]+"${preflight_extra[@]}"} || preflight_status=$?
+    else
+        preflight_status=0
+        "${PREFLIGHT_PYTHON}" "${SCRIPT_DIR}/check_sibling_lock_pins.py" \
+            --lock "${CONSUMER_LOCK}" \
+            "${PREFLIGHT_REPO_ARGS[@]}" \
+            --output "${PIN_COMPARISON_OUT}" \
+            --build-source workspace \
+            ${preflight_extra[@]+"${preflight_extra[@]}"} || preflight_status=$?
+    fi
+    if [[ "${preflight_status}" != "0" ]]; then
+        echo "ERROR: sibling-pin preflight failed against ${CONSUMER_LOCK}" >&2
+        echo "       canonical clones drift from the lock; sync clones to the" >&2
+        echo "       locked SHAs (or set ALLOW_SIBLING_PIN_DRIFT=1 with an" >&2
+        echo "       explicit operator decision) before rebuilding (OMN-12977)." >&2
+        exit 3
+    fi
+else
+    echo "ERROR: consuming lock not found: ${CONSUMER_LOCK}" >&2
+    echo "       set CONSUMER_LOCK to the consuming repo's uv.lock (OMN-12977)." >&2
+    exit 3
+fi
+
+STAGING_DIR="workspace/sibling-repos"
+mkdir -p "${STAGING_DIR}"
+
+stage_repo_tree() {
+    local src="$1"
+    local dst="$2"
+
+    if command -v rsync >/dev/null 2>&1; then
+        rsync -a --delete \
+            --exclude='.git' \
+            --exclude='__pycache__' \
+            --exclude='*.pyc' \
+            --exclude='.venv' \
+            --exclude='*.egg-info' \
+            "${src}/" "${dst}/"
+        return
+    fi
+
+    SRC="${src}" DST="${dst}" python3 - <<'PY'
+from __future__ import annotations
+
+import fnmatch
+import os
+import shutil
+from pathlib import Path
+
+src = Path(os.environ["SRC"])
+dst = Path(os.environ["DST"])
+
+if dst.exists():
+    shutil.rmtree(dst)
+
+
+def ignore(_directory: str, names: list[str]) -> set[str]:
+    ignored: set[str] = set()
+    for name in names:
+        if name in {".git", "__pycache__", ".venv"}:
+            ignored.add(name)
+        elif fnmatch.fnmatch(name, "*.pyc") or fnmatch.fnmatch(name, "*.egg-info"):
+            ignored.add(name)
+    return ignored
+
+
+shutil.copytree(src, dst, ignore=ignore)
+PY
+}
+
+# ---------------------------------------------------------------------------
+# Per-repo VCS provenance (OMN-13030): record {vcs_ref, vcs_dirty, vcs_branch}
+# for every sibling at staging time. rsync drops .git, so the staged tree has
+# no recoverable VCS identity inside the image — this is the only point in the
+# build where the source clone's git history is reachable. The manifest is
+# folded into /app/build-provenance.json by compute_workspace_provenance.py so a
+# deploy verifier can prove EXACTLY which commit (and clean/dirty state) of each
+# sibling was vendored. A sibling whose git history cannot be read is an
+# unverifiable build and ABORTS (no silent "unknown" stamp).
+# ---------------------------------------------------------------------------
+VCS_PROVENANCE_OUT="workspace/sibling-vcs-provenance.json"
+
+missing=()
+for repo in "${SIBLING_REPOS[@]}"; do
+    src="${OMNI_HOME}/${repo}"
+    if [[ ! -d "${src}" ]]; then
+        missing+=("${src}")
+    fi
+done
+
+if [[ ${#missing[@]} -gt 0 ]]; then
+    echo "ERROR: missing sibling repos required for workspace mode:" >&2
+    for m in "${missing[@]}"; do
+        echo "  ${m}" >&2
+    done
+    exit 2
+fi
+
+vcs_entries=()
+for repo in "${SIBLING_REPOS[@]}"; do
+    src="${OMNI_HOME}/${repo}"
+    dst="${STAGING_DIR}/${repo}"
+    echo "staging: ${src} -> ${dst}"
+    stage_repo_tree "${src}" "${dst}"
+    # Record the source HEAD SHA so the lock-pin preflight and provenance can
+    # identify exactly which commit was vendored. rsync drops .git, so without
+    # this marker the staged tree has no recoverable SHA (OMN-12987).
+    # OMN-14900: scope every probe with safe.directory so a uid-mismatched
+    # invoker (the deploy runner) is never rejected with "dubious ownership".
+    if ! vcs_ref="$(git -c "safe.directory=${src}" -C "${src}" rev-parse HEAD 2>/dev/null)"; then
+        echo "ERROR: cannot resolve HEAD SHA for ${src}; refusing to stage an unverifiable tree" >&2
+        exit 3
+    fi
+    echo "${vcs_ref}" > "${dst}/.build-sha"
+
+    # OMN-13030: capture full per-repo VCS provenance at staging time. A repo
+    # whose git history is unreadable for the branch/status probes is just as
+    # unverifiable as one missing a HEAD SHA — abort rather than stamp "unknown".
+    if ! vcs_branch="$(git -c "safe.directory=${src}" -C "${src}" rev-parse --abbrev-ref HEAD 2>/dev/null)"; then
+        echo "ERROR: cannot resolve branch for ${src}; refusing to stage an unverifiable tree (OMN-13030)" >&2
+        exit 3
+    fi
+    if ! status_out="$(git -c "safe.directory=${src}" -C "${src}" status --porcelain 2>/dev/null)"; then
+        echo "ERROR: cannot resolve working-tree status for ${src}; refusing to stage an unverifiable tree (OMN-13030)" >&2
+        exit 3
+    fi
+    if [[ -n "${status_out}" ]]; then
+        vcs_dirty="true"
+    else
+        vcs_dirty="false"
+    fi
+    vcs_entries+=("$(printf '    "%s": {"vcs_ref": "%s", "vcs_dirty": %s, "vcs_branch": "%s"}' \
+        "${repo}" "${vcs_ref}" "${vcs_dirty}" "${vcs_branch}")")
+done
+
+# Emit the per-repo VCS provenance manifest. compute_workspace_provenance.py
+# folds this into /app/build-provenance.json under "per_repo_vcs_provenance".
+{
+    printf '{\n  "siblings": {\n'
+    for i in "${!vcs_entries[@]}"; do
+        if [[ "${i}" -lt $((${#vcs_entries[@]} - 1)) ]]; then
+            printf '%s,\n' "${vcs_entries[$i]}"
+        else
+            printf '%s\n' "${vcs_entries[$i]}"
+        fi
+    done
+    printf '  }\n}\n'
+} > "${VCS_PROVENANCE_OUT}"
+
+echo "workspace staging complete: ${#SIBLING_REPOS[@]} repos staged to ${STAGING_DIR}"
+echo "per-repo VCS provenance written to ${VCS_PROVENANCE_OUT}"
+
+# ---------------------------------------------------------------------------
+# RT-1 (OMN-14438): HARD-ASSERT the vendored-SHA manifest equals the intended ref
+# for every sibling. This is the load-bearing gate: a behind/dirty clone that
+# leaked a stale SHA into the staged tree fails the build here (exit 4), never a
+# silent pass. Only runs when RT-1 was engaged this run (expected-refs manifest
+# present); the unpinned ambient path skips it (and is warned above).
+# ---------------------------------------------------------------------------
+if [[ "${RT1_ENGAGED}" == true ]]; then
+    echo "RT-1: asserting vendored SHAs == intended ref for every sibling (OMN-14438)" >&2
+    if ! python3 "${DEPLOY_SOURCE_REF_SCRIPT}" assert \
+        --vcs-provenance "${VCS_PROVENANCE_OUT}" \
+        --expected-refs "${EXPECTED_REFS_OUT}"; then
+        echo "ERROR: RT-1 manifest assertion FAILED -- vendored siblings do not match the intended ref (OMN-14438)." >&2
+        echo "       This build would ship a tree that is NOT the ref you asked for. Refusing." >&2
+        exit 4
+    fi
+    echo "RT-1: manifest assertion passed -- every sibling vendored at its intended ref." >&2
+fi

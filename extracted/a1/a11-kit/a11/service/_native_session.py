@@ -1,0 +1,162 @@
+# Copyright 2026 The A11 Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""The Python-facing protocol for the native `Session`.
+
+A `Session` is A11's connection-scoped runtime: it multiplexes one or
+more [WireStream][a11.net.wire_stream.WireStream] transports, dispatches
+incoming
+[Action][a11.actions.action.Action] calls against a registry, and tracks their
+lifetimes so the connection can be drained and closed cleanly. It is the object
+you build a server or client agent around -- add a stream, and the session
+routes messages to and from action handlers for you.
+
+The class exported here is the native ``a11._native.Session``; this module
+attaches the asyncio-shaped completion and receive conveniences via
+[attach_protocol][a11._native_protocol.attach_protocol].
+"""
+
+from __future__ import annotations
+
+import asyncio
+import inspect
+from collections.abc import Awaitable, Callable
+from typing import Any
+
+from a11 import _native
+from a11._native_protocol import attach_protocol
+
+from a11._native import Session
+from a11._native import SessionWithRecv
+
+# Native descriptors captured before ``attach_protocol`` overwrites them.
+_native_wait_done = Session.wait_done
+_native_receive = SessionWithRecv.receive
+_native_receive_with_stream_id = SessionWithRecv.receive_with_stream_id
+
+
+class _SessionDoneEvent:
+    """Stable asyncio.Event-shaped view of a native completion future."""
+
+    __slots__ = ("_future", "_session")
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+        self._future = _native_wait_done(session)
+
+    def is_set(self) -> bool:
+        return self._session.is_done()
+
+    async def wait(self) -> bool:
+        # One cancelled Python waiter must not cancel the Session-wide native
+        # completion future shared by every caller.
+        await asyncio.shield(self._future)
+        return True
+
+
+def _done(session: Session) -> _SessionDoneEvent:
+    event = session.__dict__.get("_a11_done_event")
+    if event is None:
+        event = _SessionDoneEvent(session)
+        session.__dict__["_a11_done_event"] = event
+    return event
+
+
+class _SessionProtocol:
+    """Completion protocol shared by every native Session."""
+
+    @property
+    def done(self) -> _SessionDoneEvent:
+        """An `asyncio.Event`-shaped view of full session completion.
+
+        `Session.is_closed` can become true as soon as shutdown starts. Await
+        this event (or ``wait_done``) when streams and actions must all have
+        released their runtime state.
+        """
+        return _done(self)
+
+    def add_done_callback(
+        self, callback: Callable[["Session"], Any | Awaitable[Any]]
+    ) -> asyncio.Task:
+        """Invoke ``callback(session)`` once this session fully completes.
+
+        The callback fires exactly once when the session finishes -- whether it
+        drained and closed cleanly, its deadline elapsed, or it was aborted
+        ("dies") -- because every one of those paths resolves the completion
+        view exposed by ``done``. If the session is already done, the callback
+        still runs on the next event-loop iteration.
+
+        A synchronous callback runs to completion; one returning an awaitable is
+        awaited. This is the hook connection-scoped resources should register on
+        so they are released when the session ends regardless of outcome (e.g.
+        reaping the shells started within a session).
+
+        Returns the scheduled ``asyncio.Task``. Must be called from within a
+        running event loop.
+        """
+
+        async def _run() -> None:
+            await self.done.wait()
+            result = callback(self)
+            if inspect.isawaitable(result):
+                await result
+
+        return asyncio.ensure_future(_run())
+
+
+class _SessionWithRecvProtocol:
+    """Adds coroutine ``receive`` methods for pull-style session reads."""
+
+    async def receive(self, deadline=None):
+        """Await the next inbound message, or ``None`` when the session ends.
+
+        Use this when one receive loop handles every attached stream. Choose
+        `receive_with_stream_id` when replies or diagnostics must retain their
+        transport identity. The optional absolute deadline limits only this
+        wait; it does not change the session deadline.
+
+        Examples:
+            Route messages from a session with one attached transport:
+
+            ```python
+            while message := await session.receive():
+                await route_message(message)
+            ```
+        """
+        return await _native_receive(self, deadline)
+
+    async def receive_with_stream_id(self, deadline=None):
+        """Await ``(message, stream_id)``, or ``None`` after completion.
+
+        This is the pull-style counterpart to ``OnSessionStreamMessage`` and
+        is useful when an agent multiplexes several transports in one loop.
+
+        Examples:
+            Preserve the source while routing gateway traffic:
+
+            ```python
+            while item := await session.receive_with_stream_id():
+                message, stream_id = item
+                await route_message(message, source=stream_id)
+            ```
+        """
+        return await _native_receive_with_stream_id(self, deadline)
+
+
+attach_protocol(Session, _SessionProtocol)
+attach_protocol(SessionWithRecv, _SessionWithRecvProtocol)
+Session.__module__ = "a11.service.session"
+SessionWithRecv.__module__ = "a11.service.session"
+
+__all__ = ["Session", "SessionWithRecv"]

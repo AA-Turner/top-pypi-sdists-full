@@ -127,11 +127,13 @@ def store(db_path, experiment_id, df, model, model_name, *, save_model_blobs=Fal
     # Convert all columns to string
     df['Best Hyperparameters'] = df['Best Hyperparameters'].apply(make_serializable)
 
-    # Output results to database
+    # Output results to database. A write failure is re-raised (it used to be
+    # printed and ignored, leaving the run "complete" with missing rows).
     try:
         utils.to_db(db_path, experiment_id, df)
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error storing {len(df)} rows for {experiment_id}: {e}")
+        raise
 
     if not save_model_blobs:
         return

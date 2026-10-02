@@ -1,0 +1,97 @@
+Metadata-Version: 2.4
+Name: pysnptools
+Version: 0.5.15
+Summary: PySnpTools
+Keywords: gwas,bioinformatics,sets,intervals,ranges,regions,plink,genomics,file-format,reader,genotype,bed-format,writer,python,snps
+Author: FaST-LMM Team
+Author-email: FaST-LMM Team <fastlmm-dev@python.org>
+License-Expression: Apache-2.0
+License-File: LICENSE.md
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: scipy>=1.7.0
+Requires-Dist: numpy>=1.22.0 ; python_full_version < '3.14'
+Requires-Dist: numpy>=2.3.5 ; python_full_version >= '3.14'
+Requires-Dist: psutil>=6.1.0
+Requires-Dist: pandas>=1.3.0
+Requires-Dist: h5py>=3.12.1
+Requires-Dist: cloudpickle>=3.1.0
+Requires-Dist: bed-reader[samples]>=1.0.6
+Requires-Dist: more-itertools>=10.5.0
+Requires-Dist: cbgen>=1.0.6 ; extra == 'bgen'
+Requires-Dist: bgen-reader>=4.0.9 ; extra == 'bgen'
+Requires-Dist: pytest ; extra == 'dev'
+Requires-Dist: pytest-cov ; extra == 'dev'
+Requires-Dist: pytest-doctestplus ; extra == 'dev'
+Requires-Dist: pytest-datadir ; extra == 'dev'
+Requires-Dist: limix-sphinx-theme>=0.0.4 ; extra == 'dev'
+Requires-Dist: pytest-sphinx>=0.2.2 ; extra == 'dev'
+Requires-Dist: sphinx>=6.2.1 ; extra == 'dev'
+Requires-Dist: sphinx-rtd-theme>=3.0.1 ; extra == 'dev'
+Requires-Dist: ruff>=0.7.2 ; extra == 'dev'
+Requires-Python: >=3.10
+Project-URL: homepage, https://fastlmm.github.io/
+Project-URL: bug-tracker, https://github.com/fastlmm/PySnpTools/issues
+Project-URL: documentation, http://fastlmm.github.io/PySnpTools
+Project-URL: source-code, https://github.com/fastlmm/PySnpTools
+Provides-Extra: bgen
+Provides-Extra: dev
+Description-Content-Type: text/markdown
+
+PySnpTools
+====================
+
+PySnpTools is a library for reading and manipulating genetic data.
+
+Main Features:
+
+* [SnpReader](http://fastlmm.github.io/PySnpTools): Efficiently read genetic PLINK formats including \*.bed/bim/fam files.
+          Also, efficiently read parts of files, read kernel data, and standardize data.
+          New features include multi-threaded BED reading, cluster-ready BED data, on-the-fly SNP generation,
+          and larger in-memory data.
+
+* [DistReader](https://fastlmm.github.io/PySnpTools/#module-pysnptools.distreader): Efficiently work with
+         unphased BGEN format and other diploid, biallelic distribution data.
+          Also, efficiently read parts of files. See [Distribution IPython Notebook](https://nbviewer.jupyter.org/github/fastlmm/PySnpTools/blob/master/doc/ipynb/Dist.ipynb).
+
+* [util](https://fastlmm.github.io/PySnpTools/#module-pysnptools.util): In one line, intersect and re-order IIDs from snpreader and other sources.
+          Also, efficiently extract a submatrix from an ndarray.
+
+* [IntRangeSet](https://fastlmm.github.io/PySnpTools/#util-intrangeset): Efficiently manipulate ranges of integers - for example, genetic position - with set operators including union, intersection, and set difference.
+
+* [mapreduce1](https://fastlmm.github.io/PySnpTools/#module-pysnptools.util.mapreduce1): Run loops locally, on multiple processors, or on any cluster.
+
+* [filecache](https://fastlmm.github.io/PySnpTools/#module-pysnptools.util.filecache):  Read and write files locally or from/to any remote storage.
+
+Install
+-------
+
+    pip install pysnptools
+
+*If you need support for BGEN files, instead do:*
+
+    pip install pysnptools[bgen]
+
+Documentation
+-------------
+
+* [Main Documentation](http://fastlmm.github.io/PySnpTools/) with examples. It includes links to tutorial slides, notebooks, and video.
+* [Project Home and Full Annotated Bibliography](https://fastlmm.github.io/)
+
+Code
+----
+
+* [PyPi](https://pypi.org/project/pysnptools/)
+* [GitHub](https://github.com/fastlmm/PySnpTools)
+* [Change Log](https://github.com/fastlmm/PySnpTools/blob/master/CHANGELOG.md)
+
+Contacts
+--------
+
+* Email the developers at <fastlmm-dev@python.org>.
+* [Join](mailto:fastlmm-user-join@python.org?subject=Subscribe) the user discussion and announcement list (or use [web sign up](https://mail.python.org/mailman3/lists/fastlmm-user.python.org)).
+* [Open an issue](https://github.com/fastlmm/PySnpTools/issues) on GitHub.

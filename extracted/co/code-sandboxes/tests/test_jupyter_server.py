@@ -1,0 +1,631 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+#
+# BSD 3-Clause License
+
+"""jupyter sandbox tests."""
+
+import os
+import sys
+import threading
+import time
+import types
+import uuid
+from pathlib import Path
+
+import pytest
+
+from code_sandboxes.client import CodeSandboxClient
+from code_sandboxes.exceptions import SandboxConfigurationError
+from code_sandboxes.models import SandboxConfig
+from code_sandboxes.sandboxes.jupyter_server import JupyterServerSandbox
+
+#: Where the Jupyter Server sandbox posts, patched by the tests below.
+_POST = "code_sandboxes.sandboxes.jupyter_server.jupyter_server.requests.post"
+
+
+def test_explicit_kernel_id_wins_over_reuse(monkeypatch):
+    """Explicit kernel_id takes precedence even when reuse is enabled."""
+
+    captured: dict[str, object] = {}
+
+    class _KernelClientStub:
+        def __init__(self, server_url, token, kernel_id, client_kwargs=None):
+            self.id = kernel_id or "started-kernel"
+            captured["server_url"] = server_url
+            captured["token"] = token
+            captured["kernel_id"] = kernel_id
+            captured["client_kwargs"] = client_kwargs
+
+        def start(self, path=None):
+            captured["path"] = path
+
+        def stop(self):
+            return None
+
+    monkeypatch.setitem(
+        sys.modules,
+        "jupyter_kernel_client",
+        types.SimpleNamespace(JupyterKernelClient=_KernelClientStub),
+    )
+
+    sandbox = JupyterServerSandbox(
+        server_url="http://localhost:8888",
+        kernel_id="explicit-kernel",
+        reuse_kernel=True,
+    )
+
+    monkeypatch.setattr(sandbox, "_wait_for_server", lambda timeout=None: None)
+
+    def _should_not_be_called():
+        raise AssertionError("_find_existing_kernel should not be called with explicit kernel_id")
+
+    monkeypatch.setattr(sandbox, "_find_existing_kernel", _should_not_be_called)
+
+    sandbox.start()
+    try:
+        assert captured["kernel_id"] == "explicit-kernel"
+    finally:
+        sandbox.stop()
+
+
+def test_reuse_kernel_false_forces_new_kernel(monkeypatch):
+    """When reuse_kernel is False and no kernel_id is provided, connect with kernel_id=None."""
+
+    captured: dict[str, object] = {}
+
+    class _KernelClientStub:
+        def __init__(self, server_url, token, kernel_id, client_kwargs=None):
+            self.id = kernel_id or "started-kernel"
+            captured["kernel_id"] = kernel_id
+
+        def start(self, path=None):
+            return None
+
+        def stop(self):
+            return None
+
+    monkeypatch.setitem(
+        sys.modules,
+        "jupyter_kernel_client",
+        types.SimpleNamespace(JupyterKernelClient=_KernelClientStub),
+    )
+
+    sandbox = JupyterServerSandbox(
+        server_url="http://localhost:8888",
+        kernel_id=None,
+        reuse_kernel=False,
+    )
+
+    monkeypatch.setattr(sandbox, "_wait_for_server", lambda timeout=None: None)
+
+    def _should_not_be_called():
+        raise AssertionError("_find_existing_kernel should not be called when reuse_kernel=False")
+
+    monkeypatch.setattr(sandbox, "_find_existing_kernel", _should_not_be_called)
+
+    sandbox.start()
+    try:
+        assert captured["kernel_id"] is None
+    finally:
+        sandbox.stop()
+
+
+def test_kernel_client_forwards_client_kwargs(monkeypatch, tmp_path: Path):
+    """JupyterServerSandbox forwards client_kwargs to JupyterKernelClient."""
+
+    captured: dict[str, object] = {}
+
+    class _KernelClientStub:
+        def __init__(self, server_url, token, kernel_id, client_kwargs=None):
+            self.id = kernel_id or "started-kernel"
+            captured["server_url"] = server_url
+            captured["token"] = token
+            captured["kernel_id"] = kernel_id
+            captured["client_kwargs"] = client_kwargs
+
+        def start(self, path=None):
+            captured["start_path"] = path
+
+        def stop(self):
+            return None
+
+    monkeypatch.setitem(
+        sys.modules,
+        "jupyter_kernel_client",
+        types.SimpleNamespace(JupyterKernelClient=_KernelClientStub),
+    )
+
+    notebook_path = str(tmp_path / "notebook.ipynb")
+
+    sandbox = JupyterServerSandbox(
+        server_url="http://localhost:8888",
+        kernel_id="kernel-1",
+        kernel_path=notebook_path,
+        client_kwargs={"reconnect_interval": 5},
+        reuse_kernel=False,
+    )
+
+    monkeypatch.setattr(sandbox, "_wait_for_server", lambda timeout=None: None)
+
+    sandbox.start()
+    try:
+        assert captured["kernel_id"] == "kernel-1"
+        assert captured.get("client_kwargs") == {"reconnect_interval": 5}
+        assert captured.get("start_path") == notebook_path
+    finally:
+        sandbox.stop()
+
+
+def test_a_kernel_the_server_no_longer_has_is_not_alive(monkeypatch):
+    """The server is asked, so a kernel culled or shut down by anyone else is
+    reported as gone even though this process still holds a started sandbox."""
+
+    captured: dict[str, object] = {}
+    sandbox = _started_sandbox(monkeypatch, kernel_id="kernel-1")
+    _stub_server_client(monkeypatch, captured, kernels={"kernel-2"})
+
+    try:
+        assert sandbox.is_started is True
+        assert sandbox.is_alive() is False
+        assert captured["asked_for"] == "kernel-1"
+    finally:
+        sandbox.stop()
+
+
+def test_a_kernel_the_server_still_has_is_alive(monkeypatch):
+    """The liveness probe does not report a healthy kernel as gone."""
+
+    captured: dict[str, object] = {}
+    sandbox = _started_sandbox(monkeypatch, kernel_id="kernel-1")
+    _stub_server_client(monkeypatch, captured, kernels={"kernel-1"})
+
+    try:
+        assert sandbox.is_alive() is True
+    finally:
+        sandbox.stop()
+
+
+def test_a_server_that_cannot_be_reached_is_not_alive(monkeypatch):
+    """Nothing can be executed on a server we cannot reach, so the answer is the
+    same as for a missing kernel rather than an optimistic True."""
+
+    captured: dict[str, object] = {}
+    sandbox = _started_sandbox(monkeypatch, kernel_id="kernel-1")
+    _stub_server_client(monkeypatch, captured, kernels=set(), unreachable=True)
+
+    try:
+        assert sandbox.is_alive() is False
+    finally:
+        sandbox.stop()
+
+
+def test_a_sandbox_whose_client_holds_no_kernel_id_is_not_alive(monkeypatch):
+    """There is no kernel to ask the server about, the same guard
+    :meth:`_do_interrupt` already makes before it builds a request."""
+
+    sandbox = _started_sandbox(monkeypatch, kernel_id=None)
+
+    def _should_not_be_called(*args, **kwargs):
+        raise AssertionError("the server must not be asked without a kernel id")
+
+    monkeypatch.setitem(
+        sys.modules,
+        "jupyter_server_client",
+        types.SimpleNamespace(JupyterServerClient=_should_not_be_called),
+    )
+
+    try:
+        assert sandbox.is_alive() is False
+    finally:
+        sandbox.stop()
+
+
+def test_a_sandbox_that_was_never_started_is_not_alive(monkeypatch):
+    """No kernel has been claimed yet, so there is nothing to ask the server about."""
+
+    sandbox = JupyterServerSandbox(server_url="http://localhost:8888", kernel_id="kernel-1")
+
+    def _should_not_be_called(*args, **kwargs):
+        raise AssertionError("the server must not be asked about an unstarted sandbox")
+
+    monkeypatch.setitem(
+        sys.modules,
+        "jupyter_server_client",
+        types.SimpleNamespace(JupyterServerClient=_should_not_be_called),
+    )
+
+    assert sandbox.is_alive() is False
+
+
+def test_a_client_over_this_sandbox_reports_the_kernel_as_gone(monkeypatch):
+    """The whole path a caller uses: CodeSandboxClient asks the sandbox, which
+    asks the server."""
+
+    captured: dict[str, object] = {}
+    sandbox = _started_sandbox(monkeypatch, kernel_id="kernel-1")
+    _stub_server_client(monkeypatch, captured, kernels=set())
+    client = CodeSandboxClient(sandbox)
+
+    try:
+        assert client.is_started is True
+        assert client.is_alive() is False
+    finally:
+        sandbox.stop()
+
+
+def _started_sandbox(monkeypatch, kernel_id: str) -> JupyterServerSandbox:
+    """A JupyterServerSandbox started against a stubbed kernel client."""
+
+    class _KernelClientStub:
+        def __init__(self, server_url, token, kernel_id, client_kwargs=None, **kwargs):
+            self.id = kernel_id
+
+        def start(self, path=None):
+            return None
+
+        def stop(self):
+            return None
+
+    monkeypatch.setitem(
+        sys.modules,
+        "jupyter_kernel_client",
+        types.SimpleNamespace(JupyterKernelClient=_KernelClientStub),
+    )
+
+    sandbox = JupyterServerSandbox(
+        server_url="http://localhost:8888",
+        kernel_id=kernel_id,
+        reuse_kernel=False,
+    )
+    monkeypatch.setattr(sandbox, "_wait_for_server", lambda timeout=None: None)
+    sandbox.start()
+    return sandbox
+
+
+def _stub_server_client(monkeypatch, captured: dict, kernels: set, unreachable: bool = False):
+    """Stand in for jupyter-server-client with a fixed set of running kernels."""
+
+    class _ServerClientStub:
+        def __init__(self, base_url, token=None, headers=None):
+            if unreachable:
+                raise OSError("connection refused")
+            self.kernels = self
+
+        def get_kernel(self, kernel_id):
+            captured["asked_for"] = kernel_id
+            if kernel_id not in kernels:
+                raise RuntimeError(f"Kernel not found: {kernel_id}")
+            return types.SimpleNamespace(id=kernel_id, execution_state="idle")
+
+    monkeypatch.setitem(
+        sys.modules,
+        "jupyter_server_client",
+        types.SimpleNamespace(JupyterServerClient=_ServerClientStub),
+    )
+
+
+class TestJupyterServerSandbox:
+    """Tests for JupyterServerSandbox."""
+
+    def test_local_jupyter_persistence(self, tmp_path: Path):
+        """Test persistence across requests in jupyter sandbox."""
+        if os.environ.get("RUN_JUPYTER_TESTS") != "1":
+            pytest.skip("Set RUN_JUPYTER_TESTS=1 to enable jupyter tests")
+        try:
+            import jupyter_server  # noqa: F401
+        except Exception:
+            pytest.skip("jupyter_server is not available")
+
+        sandbox = JupyterServerSandbox(config=SandboxConfig(working_dir=str(tmp_path)))
+        try:
+            sandbox.start()
+        except Exception as exc:
+            pytest.skip(f"jupyter sandbox not available: {exc}")
+
+        try:
+            sandbox.run_code("x = 7")
+            execution = sandbox.run_code("x + 1")
+            assert "8" in execution.results[0].data.get("text/plain", "")
+        finally:
+            sandbox.stop()
+
+    def test_iopub_outputs_are_forwarded_while_execution_is_running(self):
+        events: list[str] = []
+
+        class StreamingClient:
+            def execute_interactive(self, code, timeout, output_hook):
+                assert code == "print('first'); print('second')"
+                output_hook(
+                    {
+                        "header": {"msg_type": "stream"},
+                        "content": {"name": "stdout", "text": "first\n"},
+                    }
+                )
+                assert events == ["first"]
+                output_hook(
+                    {
+                        "header": {"msg_type": "stream"},
+                        "content": {"name": "stdout", "text": "second\n"},
+                    }
+                )
+                return {"content": {"status": "ok", "execution_count": 7}}
+
+        sandbox = JupyterServerSandbox.__new__(JupyterServerSandbox)
+        sandbox._started = True
+        sandbox._client = StreamingClient()
+        sandbox._interrupt_requested = threading.Event()
+        sandbox._executing_event = threading.Event()
+        sandbox.config = SandboxConfig(timeout=60)
+
+        result = sandbox.run_code(
+            "print('first'); print('second')",
+            on_stdout=lambda message: events.append(message.line),
+        )
+
+        assert events == ["first", "second"]
+        assert result.stdout == "first\nsecond"
+        assert result.execution_count == 7
+
+
+def _kernel_client_stub(captured: dict):
+    """Build a JupyterKernelClient stub that records the kwargs it was built with."""
+
+    class _KernelClientStub:
+        def __init__(self, server_url, token, kernel_id, client_kwargs=None, **kwargs):
+            self.id = kernel_id or "started-kernel"
+            captured["server_url"] = server_url
+            captured["token"] = token
+            captured["kernel_id"] = kernel_id
+            captured["client_kwargs"] = client_kwargs
+            captured["headers"] = kwargs.get("headers")
+
+        def start(self, path=None):
+            captured["start_path"] = path
+
+        def stop(self):
+            return None
+
+    return _KernelClientStub
+
+
+def test_headers_are_forwarded_to_the_kernel_client(monkeypatch):
+    """Extra headers reach the kernel client, for cookie/XSRF authenticated servers."""
+
+    captured: dict[str, object] = {}
+    monkeypatch.setitem(
+        sys.modules,
+        "jupyter_kernel_client",
+        types.SimpleNamespace(JupyterKernelClient=_kernel_client_stub(captured)),
+    )
+
+    auth_headers = {"Cookie": "username-localhost=abc; _xsrf=tok", "X-XSRFToken": "tok"}
+    sandbox = JupyterServerSandbox(
+        server_url="http://localhost:8888",
+        token=None,
+        kernel_id="kernel-1",
+        reuse_kernel=False,
+        headers=auth_headers,
+    )
+
+    monkeypatch.setattr(sandbox, "_wait_for_server", lambda timeout=None: None)
+
+    sandbox.start()
+    try:
+        assert captured["headers"] == auth_headers
+    finally:
+        sandbox.stop()
+
+
+def test_no_headers_kwarg_when_none_supplied(monkeypatch):
+    """Without headers the kernel client is built exactly as before."""
+
+    captured: dict[str, object] = {}
+    monkeypatch.setitem(
+        sys.modules,
+        "jupyter_kernel_client",
+        types.SimpleNamespace(JupyterKernelClient=_kernel_client_stub(captured)),
+    )
+
+    credential = uuid.uuid4().hex
+    sandbox = JupyterServerSandbox(
+        server_url="http://localhost:8888",
+        token=credential,
+        kernel_id="kernel-1",
+        reuse_kernel=False,
+    )
+
+    monkeypatch.setattr(sandbox, "_wait_for_server", lambda timeout=None: None)
+
+    sandbox.start()
+    try:
+        assert captured["headers"] is None
+        assert captured["token"] == credential
+    finally:
+        sandbox.stop()
+
+
+def test_external_server_keeps_token_none():
+    """An external server with no token must not get a fabricated one.
+
+    Password-authenticated deployments have no token to send; generating one
+    would put a credential the server never issued on every request.
+    """
+
+    sandbox = JupyterServerSandbox(server_url="http://localhost:8888", token=None)
+
+    assert sandbox._token is None
+
+
+def test_owned_server_still_generates_a_token():
+    """A sandbox that starts its own server still needs a token to secure it."""
+
+    sandbox = JupyterServerSandbox()
+
+    assert sandbox._token
+
+
+class TestAServerThatWillNotStart:
+    """What the user is told when the Jupyter Server never comes up.
+
+    Both streams went to `DEVNULL`, so a server that died on the way up —
+    a module not installed, a port already taken — explained itself into
+    nothing, and the caller waited out the whole timeout to be told
+    "Timed out waiting for Jupyter Server". The reason was there all along.
+    """
+
+    def _sandbox(self, returncode, said):
+        from collections import deque
+
+        sandbox = JupyterServerSandbox.__new__(JupyterServerSandbox)
+        sandbox._server_url = "http://127.0.0.1:1"
+        sandbox._token = "not-a-secret"
+        sandbox._headers = {}
+        sandbox._server_output = deque(said)
+        sandbox._server_process = type(
+            "P", (), {"poll": lambda self: returncode, "returncode": returncode}
+        )()
+        return sandbox
+
+    def test_a_dead_server_is_reported_at_once_with_what_it_said(self):
+        sandbox = self._sandbox(1, ["ModuleNotFoundError: No module named 'jupyter_server'"])
+
+        started = time.time()
+        with pytest.raises(SandboxConfigurationError) as raised:
+            sandbox._wait_for_server(timeout=30)
+
+        assert time.time() - started < 5, "it waited out the timeout"
+        assert "exited with code 1" in str(raised.value)
+        assert "No module named 'jupyter_server'" in str(raised.value)
+
+    def test_a_server_still_running_is_waited_for_and_then_quoted(self):
+        sandbox = self._sandbox(None, ["[W] something looked wrong"])
+
+        with pytest.raises(SandboxConfigurationError) as raised:
+            sandbox._wait_for_server(timeout=1)
+
+        assert "Timed out" in str(raised.value)
+        assert "something looked wrong" in str(raised.value)
+
+
+def test_stop_forgets_the_temporary_workdir_it_removed(tmp_path: Path, monkeypatch):
+    """A stopped sandbox does not point its next start at a directory it deleted."""
+    import tempfile
+
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    sandbox = JupyterServerSandbox(config=SandboxConfig())
+
+    first = Path(sandbox._resolve_workdir())
+    assert first.is_dir()
+    assert sandbox._workdir_tmp == str(first)
+
+    # As after a run: started, nothing else to tear down.
+    sandbox._started = True
+    sandbox.stop()
+
+    assert not first.exists()
+    assert sandbox._workdir is None
+    assert sandbox._workdir_tmp is None
+
+    second = Path(sandbox._resolve_workdir())
+    assert second.is_dir()
+    assert second != first
+
+
+class TestRestartingTheKernelRatherThanTheConnection:
+    """Appendix B check 7, against a server this process does not own.
+
+    `stop()` then `start()` is this client's lifecycle: when the Jupyter
+    server belongs to somebody else — a Datalayer runtime pod, which is every
+    attached sandbox — it drops the websocket and leaves the kernel process
+    running, so the next execution lands in the same interpreter with every
+    global still set. Found live on r1, 2026-09-16: the smoke test read
+    `state survived the restart`.
+    """
+
+    def test_the_kernel_is_restarted_through_the_server_s_own_api(self, monkeypatch):
+        sandbox = _started_sandbox(monkeypatch, kernel_id="kernel-1")
+        asked: dict = {}
+
+        class _Response:
+            ok = True
+            status_code = 200
+
+        def _post(url, params=None, headers=None, timeout=None):
+            asked["url"] = url
+            asked["params"] = params
+            return _Response()
+
+        monkeypatch.setattr(_POST, _post)
+        try:
+            assert sandbox.restart_kernel() is True
+            assert asked["url"].endswith("/api/kernels/kernel-1/restart")
+        finally:
+            sandbox.stop()
+
+    def test_the_connection_is_kept_across_the_restart(self, monkeypatch):
+        """jupyter-server moves a kernel's websocket onto the restarted kernel.
+
+        Reconnecting broke it: `jupyter_kernel_client`'s channels stay bound
+        to the socket they were built with, so after a `stop()` and `start()`
+        every execution answered `ok` with no output (r1, 2026-09-18).
+        """
+        sandbox = _started_sandbox(monkeypatch, kernel_id="kernel-1")
+        lifecycle: list[str] = []
+        client = sandbox._client
+        monkeypatch.setattr(client, "stop", lambda *a, **k: lifecycle.append("stop"))
+        monkeypatch.setattr(client, "start", lambda *a, **k: lifecycle.append("start"))
+
+        class _Response:
+            ok = True
+            status_code = 200
+
+        monkeypatch.setattr(
+            _POST,
+            lambda *args, **kwargs: _Response(),
+        )
+        try:
+            assert sandbox.restart_kernel() is True
+            assert lifecycle == []
+            assert sandbox._client is client
+        finally:
+            sandbox.stop()
+
+    def test_a_server_that_refuses_the_restart_is_reported_not_raised(self, monkeypatch):
+        sandbox = _started_sandbox(monkeypatch, kernel_id="kernel-1")
+
+        class _Response:
+            ok = False
+            status_code = 503
+
+        monkeypatch.setattr(
+            _POST,
+            lambda *args, **kwargs: _Response(),
+        )
+        try:
+            assert sandbox.restart_kernel() is False
+        finally:
+            sandbox.stop()
+
+    def test_a_server_that_cannot_be_reached_is_reported_not_raised(self, monkeypatch):
+        sandbox = _started_sandbox(monkeypatch, kernel_id="kernel-1")
+
+        def _explode(*args, **kwargs):
+            raise OSError("no route to host")
+
+        monkeypatch.setattr(_POST, _explode)
+        try:
+            assert sandbox.restart_kernel() is False
+        finally:
+            sandbox.stop()
+
+    def test_a_sandbox_with_no_kernel_id_asks_nothing(self, monkeypatch):
+        sandbox = _started_sandbox(monkeypatch, kernel_id=None)
+
+        def _should_not_be_called(*args, **kwargs):
+            raise AssertionError("the server must not be asked without a kernel id")
+
+        monkeypatch.setattr(_POST, _should_not_be_called)
+        try:
+            assert sandbox.restart_kernel() is False
+        finally:
+            sandbox.stop()

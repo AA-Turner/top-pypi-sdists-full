@@ -1,0 +1,2002 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 OmniNode Team
+#
+# task_class_contracts.v1.yaml — Task-class routing contracts.
+#
+# Loaded by node_delegation_routing_reducer to augment tier routing with
+# per-task-class pricing ceilings, cloud routing policies, and escalation order.
+#
+# cloud_routing_policy values:
+#   opt_in   — cloud routing requires explicit caller opt-in
+#   allowed  — cloud routing is permitted when local tiers are unavailable
+#   blocked  — cloud routing is never permitted for this task class
+#
+# pricing_ceiling_per_1k_tokens: maximum acceptable cost per 1000 tokens (USD).
+#   local tier ≈ $0.000, cheap_cloud ≈ $0.002, claude ≈ $0.015
+#
+# escalation_policy.tier_order: the COMPLETE, CLOSED, ORDERED set of tiers
+#   eligible for this task class. Only the tiers named here are tried, in this
+#   order. Tiers NOT listed are excluded for this task class (they are not
+#   appended after the declared order) — the listed ceiling tier is the final
+#   tier tried. When tier_order is absent, the routing_tiers.yaml declaration
+#   order is used instead; that file is the source of truth for fallback order.
+#
+# default_task_model_ref: model ID used when no per-task override is declared.
+#   Maps to the model `id` field in routing_tiers.yaml (e.g. "qwen3-coder-30b").
+#
+# task_model_overrides: per-task-type model ID overrides. The routing reducer
+#   prioritizes the declared model over tier-order selection when the model is
+#   available in the tier with a configured bifrost endpoint (OMN-10942).
+#
+# gateway_exposure: closed public/internal admission policy. The Gateway may
+#   project only entries declared public; internal entries remain valid Market
+#   task classes but are not admitted at the public Gateway boundary.
+#
+# selection: how a PROMPT selects this task class (OMN-18305). Required on
+#   every class. `phrases` are matched on WORD BOUNDARIES and by PRESENCE ONLY
+#   — never counted, so the bulk of a document cannot outvote its purpose, and
+#   "latest" can no longer match "test". `min_words`/`max_words` gate which
+#   prompt SHAPES the class is eligible for at all and are evaluated before any
+#   phrase, which is what keeps a 7,000-word coordination ledger structurally
+#   ineligible for `test`. `priority` ranks eligible classes (higher wins; ties
+#   broken by class name, so resolution is total and deterministic) and puts
+#   the prose classes above the keyword classes. An empty `phrases` list means
+#   the class is never resolved from a prompt — the internal classes. This
+#   replaces the hardcoded keyword table the `onex delegate` CLI used to carry;
+#   see ModelTaskClassSelection in inference/task_class_authority.py.
+#
+# response_contract_ref: OPTIONAL dotted "module.path.AttrName" naming a pydantic
+#   model (or a discriminated Union type alias) whose JSON Schema
+#   (resolve_task_class_response_contract, node_delegation_routing_reducer)
+#   becomes the DEFAULT response_contract for a local dispatch of this task
+#   class when the caller supplies none of its own (OMN-15196). This is a
+#   structural REPLACEMENT for that class's dod_heuristic keyword checks (the
+#   quality gate validates the response against the schema instead of
+#   substring-matching) — a migrated class's dod_heuristic keyword entries for
+#   the retired checks are deleted, not merely superseded, per the
+#   net-negative-surface rule. A caller-declared response_contract (e.g. a
+#   per-request schema) always takes precedence over this default. Absent —
+#   the pre-OMN-15196 DoD-heuristic-only behavior — for every class not listed
+#   here.
+#
+# Related Tickets:
+#   - OMN-10615: Wire routing reducer to read task-class contracts
+#   - OMN-10942: Task routing policy from contract with model defaults
+#   - OMN-15161: Per-role dispatch report contracts ported into omnibase_core
+#   - OMN-15193: Contract-declared response validation replaces keyword heuristics
+#   - OMN-15196: Migrate task classes to declared response contracts; retire
+#     the keyword heuristics those classes made obsolete
+version: "1.0"
+# OMN-16419: default_task_model_ref and every "Qwen3.6-35B-A3B" task_model_overrides
+# entry below were repointed to "Qwen3.6-35B-A3B" — the live-verified SGLang served id at
+# .201:8000 (the stale label was never running post-reboot; see bifrost_delegation.yaml
+# local-coder/local-heavy-reasoning and routing_tiers.yaml for the matching backend
+# model ids this id-match escape hatch resolves against).
+default_task_model_ref: "Qwen3.8-27B"
+task_model_overrides:
+  # OMN-17427 / RULING 2026-10-01T15:49:37Z: ordinary code tasks start on
+  # the local served model. Gemini remains declared for backend-id tests only.
+  code_generation: "Qwen3.8-27B"
+  test: "Qwen3.8-27B"
+  refactor: "Qwen3.8-27B"
+  reasoning: "Qwen3.8-27B"
+  complex_reasoning: "Qwen3.8-27B"
+  planning: "Qwen3.8-27B"
+  review: "Qwen3.8-27B"
+  # OMN-15961: the OMN-15503 agent_delegation override REMOVED. It pinned
+  # agent_delegation to local-reasoner via this EXPLICIT override map, which
+  # (per _select_model_for_task's id-match escape hatch) bypasses use_for
+  # capability checks entirely — so even after routing_tiers.yaml's
+  # agent_delegation use_for entries were stripped (same ticket), this pin
+  # alone would have silently kept resolving agent_delegation to
+  # local-reasoner's plain HTTP completion, restoring the exact false
+  # capability claim (real agent_orchestration, not just text completion)
+  # the routing_tiers.yaml fix was meant to remove. agent_delegation now
+  # correctly has no model ref anywhere and fails closed
+  # (no_routable_backend_for_task) until the real coding-agent producer is
+  # wired (WS-4/C6).
+  # OMN-13541: code_review is its own task class (distinct from the generic
+  # `review`); the local Qwen coder serves it, with cheap_cloud fallback.
+  code_review: "Qwen3.8-27B"
+  research: "Qwen3.8-27B"
+# ── OMN-16932: request-scoped response shape ──────────────────────────────────
+#
+# A task class's definition_of_done describes the CLASS, not the request. When a
+# prompt explicitly constrains its own answer ("Reply with exactly the word:
+# alive"), the class rubric is a category error: on 2026-08-30 the dev lane
+# scored that obedient one-word answer 0.7 against `research`'s prose rubric
+# (cites_sources + methodical_analysis + semantic_adequacy), rejected it three
+# times on the FREE local rung, and climbed into two metered 429s looking for a
+# longer wrong answer.
+#
+# `response_shape_directives` are the CLOSED set of prompt directives that
+# declare a shape. Each pattern is a Python `re` pattern matched case-
+# insensitively against the prompt. A prompt matching none of them resolves to
+# `unconstrained` and the class DoD applies unchanged — the default path is
+# byte-for-byte the prior behaviour.
+#
+# `definition_of_done.shape_overrides.<shape>` replaces the HEURISTIC band for
+# that shape. A class that declares no override for the resolved shape falls
+# back to `default_shape_overrides` below.
+#
+# OMN-16932 also said the deterministic band is never overridden, because a
+# structural floor is a property of the artifact rather than of how long the
+# caller asked the answer to be. That general principle stands. What OMN-17765
+# narrows is the pair of examples this comment used to give for it:
+# `compiles_without_errors` is a property of a CODE artifact and
+# `uses_pytest_mark_unit` of a TEST artifact, so neither is artifact-agnostic in
+# the way the sentence implied. `response_non_empty` is the one that genuinely
+# holds for any artifact.
+#
+# So a class MAY now declare `shape_overrides.<shape>.deterministic`, and where
+# it does, that tuple IS the deterministic band for the request -- no merge with
+# the class band, no union, no stricter-of-the-two. A class that declares no
+# `deterministic` key keeps its class band untouched: a missing key means NOT
+# DECLARED and never "drop the floor".
+#
+# Two hard limits, both enforced in `_shape_override_deterministic`:
+#   - Per task class ONLY. `default_shape_overrides` has no `deterministic` key
+#     and must not gain one -- it applies to every class at once, so a
+#     deterministic sibling there is a caller-controlled bypass of the
+#     deterministic proof surface.
+#   - Never empty. An empty or non-list `deterministic` is a contract error, not
+#     "no floor" -- an empty band presents a degraded verdict as complete truth.
+response_shape_directives:
+  exact_literal:
+    - "reply with exactly the word"
+    - "respond with exactly the word"
+    - "reply with exactly:"
+    - "respond with exactly:"
+    - "answer with exactly:"
+    - "output exactly:"
+    # OMN-13967: a prompt that is nothing but `say <word>` names the literal
+    # its answer must be, exactly as "reply with exactly the word" does. Dev-lane
+    # run 1aeccaa6 asked `say ok`, got `ok` in 310 ms, and was refused as a
+    # single-word fragment because no directive declared the shape. The pattern
+    # is anchored to the WHOLE prompt (`^` ... `\s*$`) so that a request that
+    # only mentions saying something ("say what the gate does", "say ok if the
+    # tests pass, otherwise explain") declares nothing and keeps its prose
+    # rubric. This declaration, not the provider's finish_reason, is what lets
+    # a one-word answer pass: finish_reason=stop also fires on a configured stop
+    # sequence and the gate never sees the prompt.
+    - "^\\s*(?:just\\s+)?say\\s+[\"'`]?[\\w-]+[\"'`]?\\s*[.!]?\\s*$"
+  single_word:
+    - "in (?:exactly )?one word"
+    - "in a single word"
+    - "one[- ]word (?:answer|response|reply)"
+    - "single[- ]word (?:answer|response|reply)"
+    # The determiner is open on purpose: the live dev-lane probes used BOTH
+    # "reply with the single word: ok" (2026-08-30T14:42Z) and "Reply with
+    # exactly the word: alive" (14:47Z). An `(?:a )?`-only alternation matched
+    # the second and missed the first, so the operator's own row-1 probe still
+    # resolved `unconstrained` and still climbed the paid ladder.
+    - "(?:answer|reply|respond) with (?:only )?(?:the |a |one )?single word"
+    # OMN-19016: `exactly` belongs in the same optional adverb run as `only`
+    # and `just`. Without it "Reply with exactly one word and nothing else:
+    # READY" resolved `unconstrained`, was graded against the `document` prose
+    # rubric, and was refused four times for being one word -- on correlations
+    # f037b9be-b242-4b83-9912-3e6a5af83e82 and
+    # ebfce7f3-873a-40f9-bb10-19be64ca602b, the READY probe the chain canary
+    # uses to prove itself. The adjacent `in (?:exactly )?one word` pattern
+    # already accepted the adverb, so a prompt saying the same thing with
+    # `answer in` resolved correctly while one saying `reply with` did not.
+    - "(?:answer|reply|respond) with (?:only )?(?:just )?(?:exactly )?one word"
+  length_constrained:
+    - "in one sentence"
+    - "in a sentence or two"
+    - "in \\d+ words or fewer"
+    - "^Briefly,? "
+
+# Applied when a task class declares no shape_overrides entry of its own for the
+# resolved shape. `short_form_adequacy` is the adequacy authority here: it keeps
+# every non-length failure mode of `semantic_adequacy` (empty, truncated
+# mid-token, truncated mid-clause) and drops only the bare-single-word-fragment
+# rule, which is precisely the rule the prompt overrode. `no_refusal` is kept
+# because a constrained shape never licenses a refusal.
+default_shape_overrides:
+  exact_literal:
+    heuristic:
+      - no_refusal
+      - short_form_adequacy
+  single_word:
+    heuristic:
+      - no_refusal
+      - short_form_adequacy
+  length_constrained:
+    heuristic:
+      - no_refusal
+      - short_form_adequacy
+
+# Every quality rule a task class may declare, with its threshold and — the
+# load-bearing half — WHO IT ANSWERS TO (OMN-18295).
+#
+# THE DEFECT THIS SECTION CLOSES. Cloud delegation
+# ca144d1a-ea03-475f-bc81-650ccfa0495e (summarization, 2026-09-13) was
+# terminalised `failed` carrying its own contradiction:
+#
+#     acceptance_criteria_failed: actual_score=0.900 required_bar=0.800
+#     score_vs_bar=at_or_above_bar ...; failures=WEAK_OUTPUT: response is not
+#     concise
+#
+# 0.900 is exactly (0.6 x 1/1) + (0.4 x 3/4): everything passed except
+# `concise`. The concise miss was already priced into the score, the 0.800 bar
+# forgave it — the receipt says so — and then the same miss was charged again
+# as an absolute veto no bar can forgive. A usable ~400-word ticket body ended
+# up under a `failed` status that a human had to know to look past.
+#
+# THE RULE NOW. Each check declares which authority it answers to, HERE, in
+# the contract, instead of in a Python frozenset nothing outside the reducer
+# can read:
+#
+#   scored    Contributes to the graded quality score and does NOT veto. The
+#             task class's `required_bar` is the single authority on the
+#             verdict. For a quality GRADIENT — a response can be less concise
+#             and still be worth returning.
+#
+#   blocking  Vetoes acceptance outright, whatever the score. For FLOORS and
+#             for the adequacy AUTHORITY: conditions under which the output is
+#             not a worse answer but not an answer.
+#
+# WHY ALMOST EVERYTHING IS STILL BLOCKING, stated rather than implied. The
+# reject-only design is settled and proven: OMN-13370 (a marker or length
+# prefilter may reject but may never promote), OMN-13354 (an unattributed
+# research answer fails), OMN-14220 (a bad planning output fails), OMN-13479
+# (an inadequate research answer is not `completed`). Reclassifying those
+# rules wholesale was tried while writing this ticket and broke eleven of
+# those proofs — an inadequate research answer scored exactly 0.800 against an
+# 0.800 bar and passed. Their veto is the property, not the bug.
+#
+# `concise` is the one rule this ticket has live evidence about, and it is the
+# one rule that moves. What every other entry gains is DECLARATION: its class
+# is now readable, attributed, and changeable by a one-token contract edit
+# with a stated reason, instead of being implicit in code.
+#
+# A blocking rule's failure still lowers the graded score as well as vetoing.
+# That is not the double-charge above: for a blocking rule the score is openly
+# telemetry and the veto is openly the verdict, and `rule_evaluations` on the
+# receipt now names the deciding rule and its enforcement, so a reader can
+# never again meet 0.900-and-failed without being told which rule decided.
+#
+# Deterministic checks are blocking by construction (the OMN-13470 hard floor)
+# and are not listed here. A check absent from this section is treated as
+# blocking — fail-closed, so forgetting to declare one cannot silently strip
+# its veto.
+#
+# Thresholds live HERE, not in handler code. `concise`'s 250 was a literal in
+# `_check_concise`: a number a customer was held to that appeared in no
+# contract and on no receipt.
+quality_rules:
+  # -- the one gradient (scored) -----------------------------------------
+  concise:
+    enforcement: scored
+    threshold: 250
+    threshold_unit: words
+    rationale: >-
+      Length above a rule of thumb is a gradient, not a floor. The delegation
+      this section exists for returned a ~400-word ticket body that was
+      accurate, grounded and immediately usable; the only thing wrong with it
+      was that it was long. That belongs in the score, where the bar weighs it
+      against everything the response got right. A summary that is ALSO
+      unattributed, inadequate or a refusal still fails — on those rules,
+      which are blocking.
+
+  # -- floors and authorities (blocking) ---------------------------------
+  no_refusal:
+    enforcement: blocking
+    rationale: >-
+      A refusal is not a low-quality answer, it is the absence of one. No
+      score can make it usable, so no bar gets to forgive it.
+  accurate:
+    enforcement: blocking
+    rationale: >-
+      Fires only on an EXPLICIT self-disclaimer ("this may be inaccurate",
+      "do not rely on this"). A response that tells the reader not to trust it
+      cannot be handed on regardless of how it scores elsewhere.
+  semantic_adequacy:
+    enforcement: blocking
+    rationale: >-
+      The adequacy authority for the unconstrained shape. It decides whether
+      the content does the task at all, so its verdict IS the verdict — it can
+      never be outvoted by a weighted average that includes it.
+  short_form_adequacy:
+    enforcement: blocking
+    rationale: >-
+      The adequacy authority for a contract-declared constrained shape
+      (OMN-16932). Same standing as semantic_adequacy, for the shape it owns.
+  # OMN-18349: `model_directive` is what the model is asked to do so its answer
+  # meets the rule. It is stated at the end of the user turn of every request
+  # graded against the rule, so the rule the gate vetoes on and the rule the
+  # model is told are one value. Measured 2026-09-23 on the lab endpoint
+  # (Qwen3.8-27B, thinking off): with no directive, 0 of 8 research answers
+  # passed cites_sources and 0 of 4 code reviews passed cites_specific_lines;
+  # with these directives, 8 of 8 each.
+  cites_sources:
+    enforcement: blocking
+    model_directive: >-
+      Attribute its claims to named sources: say where each one comes from
+      (for example 'according to the PostgreSQL documentation') and end with
+      a References line naming them.
+    rationale: >-
+      OMN-13354: an unattributed research answer fails. Attribution is the
+      thing that makes a research answer checkable, so its absence is a floor
+      rather than a gradient.
+  cites_specific_lines:
+    enforcement: blocking
+    model_directive: >-
+      Cite the exact line of the provided code each finding refers to (for
+      example `line 1`).
+    # OMN-19432: a `review`-classed prompt is often a classification that
+    # prescribes its own layout ("Answer with only one JSON object", "Answer one
+    # word then one sentence", "Answer one line per item"). Measured 2026-09-30
+    # (GLM lineup audit correction): the four glm-5.3 answers that asked for the
+    # code, and the JSON classifications the gate refused for "missing specific
+    # line citations", were the model obeying the task while this rule demanded
+    # a citation of code the prompt never supplied. A code review ("Reply in 5
+    # lines max", "List each bug with the line") sets a length, not a layout that
+    # excludes the citation, and matches none of these.
+    waived_when_prompt_matches:
+      - "\\bonly (?:one |a )?json\\b"
+      - "\\banswer one word then\\b"
+      - "\\bone line per\\b"
+    rationale: >-
+      The code-review counterpart of cites_sources. A review that points at
+      nothing specific cannot be acted on.
+  methodical_analysis:
+    enforcement: blocking
+    model_directive: >-
+      Give the reasoning behind each point, saying why it holds (because ...,
+      therefore ...) and what risk or tradeoff it carries.
+    rationale: >-
+      OMN-14220: the reject-only filter that keeps a bad planning or review
+      output from terminalising as adequate.
+  covers_args_returns_raises:
+    enforcement: blocking
+    rationale: A docstring missing its contract sections is incomplete, not merely terse.
+  covers_edge_cases:
+    enforcement: blocking
+    rationale: A declared coverage floor for the classes that require it.
+  covers_error_paths:
+    enforcement: blocking
+    rationale: A declared coverage floor for the classes that require it.
+  covers_dependencies:
+    enforcement: blocking
+    rationale: A declared coverage floor for the classes that require it.
+  follows_codebase_conventions:
+    enforcement: blocking
+    rationale: A declared marker floor; reject-only, never promoting (OMN-13370).
+  follows_google_style:
+    enforcement: blocking
+    rationale: A declared marker floor; reject-only, never promoting (OMN-13370).
+  no_obvious_regressions:
+    enforcement: blocking
+    rationale: A declared marker floor; reject-only, never promoting (OMN-13370).
+  # OMN-19400: the directive was missing, and complex_reasoning had never
+  # completed. Dev-lane run d2893ea5 (2026-09-24): three local answers
+  # refused on this rule alone, then a 429 at the ceiling. The only instruction
+  # the model received about reasoning was the Markdown one, "do not include
+  # analysis or reasoning before the deliverable", so it gave none.
+  step_by_step_explanation:
+    enforcement: blocking
+    model_directive: >-
+      Show how the answer is reached as numbered steps (1., 2., ...), then
+      state the conclusion.
+    # OMN-19432: nine of the sixty "wrong" glm-5.3 answers in the 2026-09-30
+    # lineup audit were the model obeying THIS directive on a task whose own
+    # prompt said "one line per item", "under 90 words, plain prose, no list" or
+    # "output only the lines", and the gate holds the same rule as a veto, so an
+    # answer that obeyed the task's layout was refused for lacking numbered
+    # steps. A prompt that prescribes its own layout waives the rule; an open
+    # question ("explain why", "compare") matches none of these and keeps it.
+    waived_when_prompt_matches:
+      - "\\bone line per\\b"
+      - "\\bunder \\d+ words\\b"
+      - "\\b(?:no|without) (?:bullet )?lists?\\b"
+      - "\\bplain prose\\b"
+      - "\\b(?:answer|reply|respond|output)(?: with)? only\\b"
+      - "\\banswer one word then\\b"
+      - "\\bone (?:short |plain )?sentence\\b"
+    rationale: A declared marker floor; reject-only, never promoting (OMN-13370).
+  structured_output:
+    enforcement: blocking
+    rationale: A declared marker floor; reject-only, never promoting (OMN-13370).
+  # OMN-19199: a state the input does not hold is an invented fact about a
+  # real identifier, so it vetoes like identifiers_grounded does.
+  claims_grounded:
+    enforcement: blocking
+    model_directive: >-
+      State only what the input says about each ticket, lane or pull request.
+      Do not add priorities, blockers or outcomes the input does not give; if a
+      state is essential and not given, write (unverified) right after it.
+    rationale: >-
+      Reject-only grounding. A state the input does not hold is fabricated
+      content that no score can make usable; it can fail a response and never
+      promote one.
+  # OMN-19529: a number the input does not hold is an invented fact, not a
+  # weaker answer, so it vetoes like identifiers_grounded does. The directive
+  # states the rule to the model; the capability matrix of 2026-09-25 recorded
+  # a summary adding a derived count the prompt had already forbidden.
+  numbers_grounded:
+    enforcement: blocking
+    model_directive: >-
+      Use only numbers that appear in the input. Do not count, add up or
+      derive new numbers; if a derived number is essential, write (derived)
+      right after it.
+    rationale: >-
+      Reject-only grounding. A number absent from the input is fabricated
+      content that no score can make usable; it can fail a response and
+      never promote one.
+
+# ===========================================================================
+# reasoning_preamble — where a leaked scratchpad ends and the answer begins
+# ===========================================================================
+#
+# OMN-18379. A local model asked to answer a question sometimes answers it and
+# ALSO ships the scratchpad it used to get there, ahead of the answer, as plain
+# text. On 2026-09-14 run 43d269f5 that scratchpad opened "Here's a thinking
+# process:", ran 123 lines, and closed with a trace terminator that had no
+# matching opener — so the ordinary paired-tag strip left every line of it in
+# place. Two things then went wrong that have nothing to do with the answer:
+#
+#   1. The blocking rule `accurate` scans the response for hedging phrases and
+#      found the word "unverified" in line 31 of the SCRATCHPAD, where the model
+#      was reasoning about which asks it could verify. The answer hedged
+#      nothing. A correct response was vetoed for text the model was talking to
+#      itself with.
+#   2. The scratchpad reached the caller: `result.txt` began with "Here's a
+#      thinking process:", and a downstream renderer read that as a failed
+#      render, twice in one day.
+#
+# THE RULE. The boundary is found DETERMINISTICALLY, in the order below, and
+# the search is declared here rather than inferred in Python:
+#
+#   1. unpaired_closing_tag  A closing trace tag from `closing_trace_tags` with
+#                            no matching opener before it. The tag is the
+#                            model's own statement that its reasoning ended, so
+#                            it needs no other corroboration.
+#   2. answer_marker         A line equal to one of `answer_markers`, when a
+#                            lead-in is present. This is the boundary a prompt
+#                            can ASK for and then rely on.
+#   3. markdown_header       The first ATX header at line start, when a lead-in
+#                            is present.
+#   4. fenced_block          The first fence opener at line start, when a
+#                            lead-in is present.
+#
+# Rules 2-4 require a declared `lead_in_phrases` match at the START of the
+# response. Without that requirement the segmenter would cut the opening
+# paragraph off every well-formed document that happens to have a header — a
+# far worse failure than the one it is fixing. Rule 1 does not, because an
+# unpaired terminator is unambiguous.
+#
+# NO BOUNDARY FOUND IS A REAL ANSWER. When none of the four resolves, the WHOLE
+# response is verified and returned exactly as today, and the receipt records
+# `no_boundary_found` so a reader can tell "there was nothing to strip" from
+# "the segmenter was never run". Text is never dropped on a guess.
+reasoning_preamble:
+  lead_in_phrases:
+    - "here's a thinking process"
+    - "here is a thinking process"
+    - "here's my thinking process"
+    - "here is my thinking process"
+    - "thinking process:"
+    - "here's my reasoning"
+    - "here is my reasoning"
+    - "let me think through"
+    - "let me think about"
+    - "first, let me analyze"
+    - "okay, let me"
+    - "okay, the user"
+    # OMN-18967: measured openings from the lab's local tier, which none of the
+    # phrases above matched. Both were captured 2026-09-21 on Qwen3.8-27B:
+    # "We need to respond to user: ..." and "We need answer user's request.
+    # Need output only body text ...". The second scored quality 1.0 with the
+    # boundary rule recording that nothing matched (correlation
+    # ae8cd09b-628a-4466-b2c0-6f8174c244bd).
+    #
+    # Each entry names the REQUEST or the USER as a meta-object the model is
+    # reasoning ABOUT. That specificity is deliberate and load-bearing: a bare
+    # "we need to" would match a legitimate document opening "We need to reduce
+    # tail latency", and under the OMN-18967 AC3 rule an unresolved lead-in is
+    # a refusal — so an over-broad phrase here does not merely mis-strip, it
+    # rejects a correct answer. Add a phrase only with a captured response
+    # behind it, and only in a form a deliverable would not use.
+    - "we need to respond to user"
+    - "we need to respond to the user"
+    - "we need answer user"
+    - "we need to answer the user"
+    - "the user is asking me to"
+    - "the user wants me to"
+    - "we need to produce"
+  answer_markers:
+    - "=== ANSWER ==="
+    - "### ANSWER"
+    - "<answer>"
+  closing_trace_tags:
+    - "</think>"
+    - "</thinking>"
+    - "</reasoning>"
+  # OMN-18278 criteria 2 and 3: an answer still containing one of these after
+  # segmentation is refused at the deterministic floor, because whatever
+  # surrounds a stray tag is reasoning the model did not finish separating
+  # from the deliverable.
+  residual_trace_tags: ["<think>", "</think>"]
+  rationale: >-
+    Declared here, beside the quality rules that read the segmented answer, so
+    the phrase list a response is judged against is a contract a customer can
+    read rather than a frozenset inside a reducer. OMN-18379.
+
+# ===========================================================================
+# output_only_acceptance — the D1 release bar (OMN-18932, K5 of OMN-18925)
+# ===========================================================================
+#
+# D1, accepted: a response that needs extraction before it is usable is a
+# release-acceptance failure, even when the extracted text is correct. The
+# runtime still extracts (so a correct answer is not thrown away at run time);
+# this bar is read only by omnimarket.delegation.output_only_acceptance, which
+# judges the raw provider bytes against the bytes the caller received and
+# changes no runtime verdict.
+#
+# Leading planning prose and reasoning-trace terminators are matched with the
+# `reasoning_preamble` lists above. The list below covers the other end: a
+# FINAL paragraph that is the model talking about its answer. It is matched at
+# the START of the final paragraph only, so a document that merely contains
+# one of these words elsewhere is unaffected. Add an entry only with a captured
+# response behind it. The current entries were captured on the lab's local
+# tier: "Let me know which direction is useful to you, ..." (run
+# 2c74b5b9-54ee-4e5a-bae0-6476662dc556), "Let me know what you'd like to do
+# with it." (run d408f945-ce3a-41e1-b0e7-334341643ef1), "Just let me know your
+# specific request, ..." (run 06c18e0a-119e-413d-b402-956f1da7ac7a), and "Once
+# I have the content or context, I'll provide ..." (runs
+# 66bf5abb-0d82-422f-9d2b-7e2d8deb1ef0 and 832a6fb1-bece-49a1-84b4-2a79cc2d03fb).
+output_only_acceptance:
+  trailing_self_review_openers:
+    - "let me know"
+    - "just let me know"
+    - "once i have the content"
+  rationale: >-
+    Declared beside the reasoning_preamble lists so every phrase a release is
+    refused on is a contract a reader can check, not a literal in Python.
+    OMN-18932.
+
+# Contract-owned extraction and handler budget authority (OMN-18278/OMN-15504).
+delegation_output:
+  min_deliverable_share: 0.5
+  markdown_markers:
+    - "### ANSWER"
+    - "=== ANSWER ==="
+  plain_text_markers:
+    - "=== ANSWER ==="
+    - "FINAL:"
+execution_budgets:
+  code_generation: {task_class_timeout_ceiling_seconds: 240, terminal_delivery_margin_seconds: 60}
+  refactor: {task_class_timeout_ceiling_seconds: 240, terminal_delivery_margin_seconds: 60}
+  documentation: {task_class_timeout_ceiling_seconds: 240, terminal_delivery_margin_seconds: 60}
+  document: {task_class_timeout_ceiling_seconds: 240, terminal_delivery_margin_seconds: 60}
+  research: {task_class_timeout_ceiling_seconds: 240, terminal_delivery_margin_seconds: 60}
+  test: {task_class_timeout_ceiling_seconds: 240, terminal_delivery_margin_seconds: 60}
+  validator_generation: {task_class_timeout_ceiling_seconds: 240, terminal_delivery_margin_seconds: 60}
+  reasoning: {task_class_timeout_ceiling_seconds: 240, terminal_delivery_margin_seconds: 60}
+  complex_reasoning: {task_class_timeout_ceiling_seconds: 240, terminal_delivery_margin_seconds: 60}
+  planning: {task_class_timeout_ceiling_seconds: 240, terminal_delivery_margin_seconds: 60}
+  review: {task_class_timeout_ceiling_seconds: 240, terminal_delivery_margin_seconds: 60}
+  code_review: {task_class_timeout_ceiling_seconds: 240, terminal_delivery_margin_seconds: 60}
+  summarization: {task_class_timeout_ceiling_seconds: 240, terminal_delivery_margin_seconds: 60}
+  agent_delegation: {task_class_timeout_ceiling_seconds: 240, terminal_delivery_margin_seconds: 60}
+  escalation: {task_class_timeout_ceiling_seconds: 240, terminal_delivery_margin_seconds: 60}
+
+# OMN-19407: the class a prompt resolves to when no class's `selection`
+# predicate claims it. This is a GRADING decision, so the contract owns it: it
+# used to be a constant inside the `onex delegate` CLI, which no contract
+# reader could see. It must satisfy two properties, and the loader refuses a
+# fallback that is not public:
+#   1. Its blocking floors are shape-agnostic. An unclaimed prompt is by
+#      construction one whose SHAPE no predicate recognised, so a shape floor
+#      refuses correct answers for not being something nobody asked for.
+#      `research` (the original choice) carries cites_sources and
+#      methodical_analysis, and refused a 170-word drafting prompt on every
+#      rung on 2026-09-15.
+#   2. It still arms the prose checks, identifiers_grounded included
+#      (OMN-18297), so an unrecognised prompt never lands somewhere ungraded.
+selection_fallback:
+  task_class: document
+  rationale: >-
+    document's floors are no_refusal, accurate and semantic_adequacy, which any
+    well-formed prose answer can meet whatever its shape, and it arms the prose
+    checks including identifiers_grounded.
+
+task_classes:
+  code_generation:
+    gateway_exposure: public
+    output_contract: {output_shape: markdown, start_marker: "### ANSWER"}
+    selection:
+      priority: 30
+      max_words: 600
+      phrases:
+        - "implement"
+        - "scaffold"
+        - "port the"
+      # OMN-18831. "write a" / "create a" / "build a" / "generate" are ordinary
+      # English before they are code requests. A 388-word prose request opening
+      # "Write a GitHub PR body in markdown" was claimed here on the two-word
+      # match, and `test`'s `compiles_without_errors` floor then refused five
+      # correct English answers in a row. These phrases now claim a prompt only
+      # when one of the declared code artifacts sits within `within_words` words
+      # of the phrase -- "write a parser" is a code request, "write a PR body"
+      # is not. The qualifier list is the word sense, so it is contract data.
+      qualified_phrases:
+        within_words: 6
+        phrases:
+          # OMN-19523. A bare "write" opens requests such as "Write three
+          # Pydantic v2 model modules" and "Write three small Python files",
+          # which "write a" never matched, so the capability matrix of
+          # 2026-09-25 saw them routed by a noun further down (runs ea0b2d12,
+          # 15fffef6). Gated like its siblings: it claims only with a code
+          # artifact within `within_words` words.
+          - "write"
+          - "write a"
+          - "write an"
+          - "create a"
+          - "create an"
+          - "build a"
+          - "build an"
+          - "generate"
+        qualifiers:
+          - "adapter"
+          - "algorithm"
+          - "api"
+          - "bash"
+          - "class"
+          - "classes"
+          - "cli"
+          - "client"
+          - "command"
+          - "component"
+          - "daemon"
+          - "dataclass"
+          - "decorator"
+          - "dockerfile"
+          - "endpoint"
+          - "enum"
+          - "fixture"
+          - "function"
+          - "functions"
+          - "handler"
+          - "helper"
+          - "hook"
+          - "interface"
+          - "javascript"
+          - "job"
+          - "makefile"
+          - "method"
+          - "methods"
+          - "middleware"
+          - "migration"
+          - "model"
+          - "module"
+          - "node"
+          - "parser"
+          - "patch"
+          - "plugin"
+          - "program"
+          - "protocol"
+          - "python"
+          - "query"
+          - "regex"
+          - "route"
+          - "rust"
+          - "schema"
+          - "script"
+          - "server"
+          - "service"
+          - "shell"
+          - "snippet"
+          - "sql"
+          - "subcommand"
+          - "test"
+          - "tests"
+          - "type"
+          - "typescript"
+          - "util"
+          - "utility"
+          - "validator"
+          - "worker"
+          - "workflow"
+          - "wrapper"
+          - "yaml"
+      # OMN-18831, the residual its 2026-09-20 comment recorded. The
+      # qualifier gate above settles an ambiguous VERB; it cannot help an
+      # unambiguous phrase that appears because the prompt DESCRIBES code
+      # work. Run 1a67961a-664e-4a98-8680-378e8c393921 asked for "a markdown
+      # table ... for a pull request description. Output only the table, no
+      # prose" whose numbers were "collectable pytest modules", and `test`
+      # claimed it on "pytest"; three local rungs returned the table and
+      # were refused on the compilation floor at 0.333 before a cloud 429
+      # ended the run. Correlation 03953fba-18a9-4c85-a77b-bcc3bb860a01 is the
+      # same shape on "unit tests" inside a PR body. `vetoed_by` names the
+      # REQUESTED OUTPUT, which the prompt states outright: where a prose
+      # artifact or a no-code instruction is named, this class does not claim
+      # the prompt. It is declared once here and aliased onto every public
+      # class graded by `deterministic_acceptance`, so the three cannot drift
+      # apart. It fails toward the prose fallback, never toward a compilation
+      # floor, and an explicit --task-type still selects the class. A code
+      # request that happens to NAME one of these artifacts as its subject
+      # ("a pytest test for the PR body parser") is vetoed too; that residual
+      # is pinned by a test in omnibase_infra rather than left latent.
+      vetoed_by: &prose_output_vetoes
+        - "pr body"
+        - "pr description"
+        - "pr comment"
+        - "pull request body"
+        - "pull request description"
+        - "pull request comment"
+        - "github comment"
+        - "linear comment"
+        - "ticket comment"
+        - "ticket description"
+        - "closing comment"
+        - "close comment"
+        - "commit message"
+        - "release notes"
+        - "changelog entry"
+        - "status update"
+        - "slack message"
+        - "problem statement"
+        - "in prose"
+        - "as prose"
+        - "plain prose"
+        - "in plain english"
+        - "no code blocks"
+        - "do not write code"
+    score_source: deterministic_acceptance
+    acceptance_authority:
+      type: deterministic_acceptance
+      acceptance_version: delegation-deterministic-acceptance.v1
+      evidence_fields:
+        - acceptance_version
+        - corpus_hash
+        - validator_or_artifact_hash
+        - acceptance_command
+        - actual_score
+        - pass
+        - failure_cases
+    required_capabilities:
+      - code_completion
+      - context_window_large
+    pricing_ceiling_per_1k_tokens: 0.015
+    latency_sla_p99_ms: 30000
+    cloud_routing_policy: allowed
+    definition_of_done:
+      deterministic:
+        - compiles_without_errors
+        # OMN-12717: parsing is not artifact evidence -- a bare name such as
+        # `Done` is valid Python. Require a structured edit, a prompt-requested
+        # symbol definition, or a non-trivial Python/JSON/YAML artifact even
+        # when repository grounding is unavailable.
+        - code_artifact_present
+        # OMN-19529: static name resolution, the non-executing half of
+        # "imports in isolation". Declared in the gate node's contract.yaml
+        # (name_resolution); reject-only, skipped without a grounding source.
+        - names_resolve
+        - final_artifact_only
+        - passes_existing_tests
+      heuristic:
+        - no_refusal
+        - follows_codebase_conventions
+        - no_obvious_regressions
+    quality_gate:
+      score_source: quality_gate_graded_score
+      required_bar: 0.85
+      request_override_bounds:
+        min: 0.6
+        max: 1.0
+    escalation_policy:
+      # OMN-13943: bumped 2 -> 3 so the ladder can actually reach `claude` now
+      # that `cheap_frontier` sits between `cheap_cloud` and it — 3 escalations
+      # are required to walk local -> cheap_cloud -> cheap_frontier -> claude.
+      max_escalations: 3
+      # OMN-13599: local AI-PC coder is primary when the Tailscale hostname overlay
+      # supplies a complete endpoint. Direct z.ai GLM-5.2 remains the metered
+      # cloud fallback/ceiling; Gemini is not in the code-generation first-hop path.
+      # OMN-13943: `cheap_frontier` (OpenRouter Qwen3-Coder-480B, free tier) is
+      # now reachable via escalation — previously declared in routing_tiers.yaml
+      # but absent from every task class's tier_order, so a `cheap_cloud`
+      # RATE_LIMITED (GLM 429) had nowhere retryable to escalate to before
+      # `claude`. Inserted between `cheap_cloud` and `claude` so a GLM 429
+      # transparently falls through to OpenRouter before exhausting the ladder.
+      tier_order:
+        # OMN-14225: free before paid. cheap_frontier (OpenRouter Qwen3-Coder-480B,
+        # free_local) precedes cheap_cloud (z.ai glm-5.2, metered/PAID) so a task that
+        # must escalate off local tries the FREE frontier tier before any paid tier.
+        - local
+        - cheap_frontier
+        - cheap_cloud
+        - claude
+  # OMN-14218: `refactor` is accepted at the delegation surface (allowed_task_types,
+  # the CLI --task-type enum, task_model_overrides, and routing_tiers.yaml `use_for`)
+  # but had NO task-class contract here. Consequence: with no acceptance_authority
+  # and no adequacy_authority the quality gate returned _NO_ADEQUACY_AUTHORITY_REASON
+  # ("TASK_MISMATCH: no deterministic acceptance or judge adequacy authority") on
+  # every tier, so a valid LOCAL code artifact could never PASS and the workflow
+  # force-escalated local -> cheap_cloud (PAID glm-5.2, real spend) -> cheap_frontier
+  # (OpenRouter 429) -> failed. This mirrors the OMN-13541 fix that gave `code_review`
+  # a contract for the same "accepted at surface, no contract" gap. `refactor` is a
+  # code-writing task, so its contract mirrors `code_generation`: a deterministic
+  # acceptance authority + code DoD with the same closed tier_order, which lets local
+  # output PASS at $0 exactly like code_generation. (A minimal-diff / precision DoD
+  # for surgical edits to large files is tracked separately under OMN-14214.)
+  refactor:
+    gateway_exposure: public
+    output_contract: {output_shape: markdown, start_marker: "### ANSWER"}
+    selection:
+      priority: 45
+      max_words: 600
+      phrases:
+        - "refactor"
+        - "clean up"
+        - "cleanup"
+        - "simplify"
+        - "extract the"
+        - "rename"
+        - "de-duplicate"
+        - "deduplicate"
+      # OMN-18831: the prose-output veto declared on code_generation.
+      vetoed_by: *prose_output_vetoes
+    score_source: deterministic_acceptance
+    acceptance_authority:
+      type: deterministic_acceptance
+      acceptance_version: delegation-deterministic-acceptance.v1
+      evidence_fields:
+        - acceptance_version
+        - corpus_hash
+        - validator_or_artifact_hash
+        - acceptance_command
+        - actual_score
+        - pass
+        - failure_cases
+    required_capabilities:
+      - code_completion
+      - context_window_large
+    pricing_ceiling_per_1k_tokens: 0.015
+    latency_sla_p99_ms: 30000
+    cloud_routing_policy: allowed
+    definition_of_done:
+      deterministic:
+        - compiles_without_errors
+        # OMN-19529: static name resolution, the non-executing half of
+        # "imports in isolation". Declared in the gate node's contract.yaml
+        # (name_resolution); reject-only, skipped without a grounding source.
+        - names_resolve
+        - final_artifact_only
+      heuristic:
+        - no_refusal
+        - follows_codebase_conventions
+        - no_obvious_regressions
+    quality_gate:
+      score_source: quality_gate_graded_score
+      required_bar: 0.85
+      request_override_bounds:
+        min: 0.6
+        max: 1.0
+    escalation_policy:
+      # Same closed ladder as code_generation (OMN-13943): local -> cheap_cloud ->
+      # cheap_frontier -> claude. With a working local acceptance authority the
+      # common path terminates at local ($0) and never escalates.
+      max_escalations: 3
+      tier_order:
+        # OMN-14225: free before paid. cheap_frontier (OpenRouter Qwen3-Coder-480B,
+        # free_local) precedes cheap_cloud (z.ai glm-5.2, metered/PAID) so a task that
+        # must escalate off local tries the FREE frontier tier before any paid tier.
+        - local
+        - cheap_frontier
+        - cheap_cloud
+        - claude
+  documentation:
+    gateway_exposure: internal
+    output_contract: {output_shape: markdown, start_marker: "### ANSWER"}
+    selection:
+      priority: 0
+      phrases: []
+    required_capabilities:
+      - natural_language_generation
+    pricing_ceiling_per_1k_tokens: 0.002
+    latency_sla_p99_ms: 20000
+    cloud_routing_policy: allowed
+    definition_of_done:
+      deterministic:
+        - docstring_present
+      heuristic:
+        - no_refusal
+        - follows_google_style
+        - covers_args_returns_raises
+        # OMN-13218: semantic_adequacy replaces the blunt min_length_chars_50 floor.
+        # A complete docstring passes; an empty/truncated stub fails. A correct
+        # short docstring is no longer rejected on character count, while the
+        # bad docstring cases still fail on real defects (google-style /
+        # covers_args_returns_raises) so the per-class margin holds.
+        - semantic_adequacy
+        # OMN-18297: identifier grounding. Every repo#NNN / OMN-NNNN / sha /
+        # run-id / UUID the response emits must occur in the input it was
+        # derived from, or be marked unverified. The classes, the lookup form
+        # and the failure policy are declared in the gate node's contract.yaml
+        # (identifier_grounding). Reject-only: it can fail a response, never
+        # promote one. Armed on the prose classes only -- a code artifact
+        # legitimately contains hex-shaped tokens its prompt never mentioned.
+        - identifiers_grounded
+    quality_gate:
+      score_source: quality_gate_graded_score
+      required_bar: 0.8
+      request_override_bounds:
+        min: 0.6
+        max: 1.0
+    # OMN-13640: the PROSE ladder now tries the genuinely-FREE cloud rung before
+    # it spends, and the flat-rate rung before the metered one.
+    #
+    # RED-before, measured 2026-09-14: this class declared
+    # `tier_order: [local, cheap_cloud]`, so `cheap_frontier` -- the ONLY tier
+    # whose `cost.cost_type` is `free_local` (OpenRouter) -- appeared in no prose
+    # class's tier_order at all. Every prose escalation therefore landed on the
+    # metered `cheap_cloud` tier and was answered by `gemini-2.5-flash-lite`
+    # (backend `cloud-gemini-flash`): 4 of 4 accepted drafts from the hourly
+    # Linear sweep (`--task-type document`), $0.001809 mean, free rungs
+    # contributing nothing.
+    #
+    # `max_escalations` is raised 1 -> 2 IN THE SAME EDIT, and that is not
+    # cosmetic. It bounds TRANSITIONS, not tiers visited -- the gate is
+    # `workflow.escalation_count < max_escalation_attempts`
+    # (node_delegation_orchestrator/handlers/handler_delegation_workflow.py), so
+    # reaching the Nth entry of tier_order costs N-1 transitions. A 3-entry
+    # tier_order left at `max_escalations: 1` makes its LAST entry unreachable
+    # and the whole added rung decorative. Pinned by
+    # tests/unit/delegation/test_prose_free_tier_ladder_omn13640.py::
+    # test_every_declared_class_can_reach_the_last_entry_of_its_tier_order,
+    # which asserts `max_escalations >= len(tier_order) - 1` for EVERY declared
+    # class, not only these three.
+    #
+    # Within `cheap_cloud` the order is unchanged and already correct:
+    # `glm-5.3-flash` (backend `cloud-glm`) is declared BEFORE `gemini-flash`,
+    # and declaration order is the tiebreaker in `_select_model_for_task`, so
+    # adding this class to GLM's `use_for` puts the flat-rate rung ahead of the
+    # metered Gemini rung without reordering anything.
+    #
+    # QUOTA HONESTY, recorded rather than implied: `cloud-glm` is a flat-rate
+    # z.ai Coding Plan with a HARD PERIODIC CEILING (5-hour, weekly and MCP
+    # quotas), NOT a per-token meter. Pointing these three prose classes at it
+    # spends the SAME plan quota the operator's own GLM coding usage draws on.
+    # That is why it sits BELOW the free OpenRouter rung and is never an
+    # unconditional primary (the standing OMN-6790 discipline). When the cap
+    # trips, `bifrost_delegation.yaml`'s `provider_quota_policy` classifies
+    # z.ai 1310 as `disable_until_reset` (parsed from the provider's own stated
+    # reset) and 1113 as a WRONG-ENDPOINT alert that is NEVER a billing action;
+    # `_backend_routable` then skips the backend by quota domain, so a trip
+    # falls through to the next model in the SAME tier rather than stranding the
+    # class.
+    #
+    # The `claude` ceiling tier is deliberately NOT added. Its only model
+    # resolves to backend `cloud-gemini-pro`, which carries the SAME provider
+    # and the SAME `llm.gemini.api_key` secret_ref as `cheap_cloud`'s Gemini
+    # rung (`cloud-gemini-flash`) -- verified in bifrost_delegation.yaml this
+    # ticket. A fourth rung would therefore buy a fourth attempt and ~20s of
+    # added latency against the identical quota domain, with zero
+    # quota-domain independence. Reopen that only if the ceiling is repointed
+    # to a genuinely separate provider.
+    escalation_policy:
+      max_escalations: 2
+      tier_order:
+        - local
+        - cheap_frontier
+        - cheap_cloud
+  # OMN-12964: `document` is a PROSE natural-language task (write/explain), not a
+  # code-docstring task. Its DoD must not require docstring syntax — that defect
+  # forced every prose output to fail `docstring_present` / `follows_google_style`
+  # / `covers_args_returns_raises` (code-docstring markers `args:`/`returns:`/
+  # `raises:`) and score 0.000 on both tiers (live CID a604cd40). The docstring
+  # DoD lives on the `documentation` task class below, which is the correct home.
+  document:
+    gateway_exposure: public
+    output_contract: {output_shape: markdown, start_marker: "### ANSWER"}
+    selection:
+      priority: 62
+      phrases:
+        - "document"
+        - "documentation"
+        - "docstring"
+        - "readme"
+        - "explain how"
+        - "write the docs"
+        - "write docs"
+    required_capabilities:
+      - natural_language_generation
+    pricing_ceiling_per_1k_tokens: 0.002
+    latency_sla_p99_ms: 20000
+    cloud_routing_policy: allowed
+    definition_of_done:
+      deterministic:
+        - response_non_empty
+      heuristic:
+        - no_refusal
+        - accurate
+        # OMN-13218: semantic_adequacy replaces the blunt min_length_chars_200 floor.
+        # A complete prose answer passes at any length; an empty/truncated stub
+        # fails. A correct short document is no longer rejected on character
+        # count. The bad prose cases still fail on real defects (refusal /
+        # accuracy disclaimer) so the per-class margin holds.
+        - semantic_adequacy
+        # OMN-18297: identifier grounding. Every repo#NNN / OMN-NNNN / sha /
+        # run-id / UUID the response emits must occur in the input it was
+        # derived from, or be marked unverified. The classes, the lookup form
+        # and the failure policy are declared in the gate node's contract.yaml
+        # (identifier_grounding). Reject-only: it can fail a response, never
+        # promote one. Armed on the prose classes only -- a code artifact
+        # legitimately contains hex-shaped tokens its prompt never mentioned.
+        - identifiers_grounded
+        # OMN-19529: number grounding. Every number the response states, in
+        # digits or spelled out, must occur in the input it was derived from,
+        # or be marked unverified or derived. Declared in the gate node's
+        # contract.yaml (numeric_grounding); reject-only, never promoting.
+        - numbers_grounded
+    quality_gate:
+      score_source: quality_gate_graded_score
+      required_bar: 0.8
+      request_override_bounds:
+        min: 0.6
+        max: 1.0
+    adequacy_authority:
+      score_source: reproducible_judge
+      rubric_id: delegation_non_verifiable_v1
+      rubric_hash: "sha256:321240472e3b52d21fd8cb9b9b7639bb73161a2945adf580948e86275ce20681"
+      event_topic_ref: delegation_judge_verdict_v1
+      terminology: controlled_reproducible_auditable
+    # OMN-13640: the PROSE ladder now tries the genuinely-FREE cloud rung before
+    # it spends, and the flat-rate rung before the metered one.
+    #
+    # RED-before, measured 2026-09-14: this class declared
+    # `tier_order: [local, cheap_cloud]`, so `cheap_frontier` -- the ONLY tier
+    # whose `cost.cost_type` is `free_local` (OpenRouter) -- appeared in no prose
+    # class's tier_order at all. Every prose escalation therefore landed on the
+    # metered `cheap_cloud` tier and was answered by `gemini-2.5-flash-lite`
+    # (backend `cloud-gemini-flash`): 4 of 4 accepted drafts from the hourly
+    # Linear sweep (`--task-type document`), $0.001809 mean, free rungs
+    # contributing nothing.
+    #
+    # `max_escalations` is raised 1 -> 2 IN THE SAME EDIT, and that is not
+    # cosmetic. It bounds TRANSITIONS, not tiers visited -- the gate is
+    # `workflow.escalation_count < max_escalation_attempts`
+    # (node_delegation_orchestrator/handlers/handler_delegation_workflow.py), so
+    # reaching the Nth entry of tier_order costs N-1 transitions. A 3-entry
+    # tier_order left at `max_escalations: 1` makes its LAST entry unreachable
+    # and the whole added rung decorative. Pinned by
+    # tests/unit/delegation/test_prose_free_tier_ladder_omn13640.py::
+    # test_every_declared_class_can_reach_the_last_entry_of_its_tier_order,
+    # which asserts `max_escalations >= len(tier_order) - 1` for EVERY declared
+    # class, not only these three.
+    #
+    # Within `cheap_cloud` the order is unchanged and already correct:
+    # `glm-5.3-flash` (backend `cloud-glm`) is declared BEFORE `gemini-flash`,
+    # and declaration order is the tiebreaker in `_select_model_for_task`, so
+    # adding this class to GLM's `use_for` puts the flat-rate rung ahead of the
+    # metered Gemini rung without reordering anything.
+    #
+    # QUOTA HONESTY, recorded rather than implied: `cloud-glm` is a flat-rate
+    # z.ai Coding Plan with a HARD PERIODIC CEILING (5-hour, weekly and MCP
+    # quotas), NOT a per-token meter. Pointing these three prose classes at it
+    # spends the SAME plan quota the operator's own GLM coding usage draws on.
+    # That is why it sits BELOW the free OpenRouter rung and is never an
+    # unconditional primary (the standing OMN-6790 discipline). When the cap
+    # trips, `bifrost_delegation.yaml`'s `provider_quota_policy` classifies
+    # z.ai 1310 as `disable_until_reset` (parsed from the provider's own stated
+    # reset) and 1113 as a WRONG-ENDPOINT alert that is NEVER a billing action;
+    # `_backend_routable` then skips the backend by quota domain, so a trip
+    # falls through to the next model in the SAME tier rather than stranding the
+    # class.
+    #
+    # The `claude` ceiling tier is deliberately NOT added. Its only model
+    # resolves to backend `cloud-gemini-pro`, which carries the SAME provider
+    # and the SAME `llm.gemini.api_key` secret_ref as `cheap_cloud`'s Gemini
+    # rung (`cloud-gemini-flash`) -- verified in bifrost_delegation.yaml this
+    # ticket. A fourth rung would therefore buy a fourth attempt and ~20s of
+    # added latency against the identical quota domain, with zero
+    # quota-domain independence. Reopen that only if the ceiling is repointed
+    # to a genuinely separate provider.
+    escalation_policy:
+      max_escalations: 2
+      tier_order:
+        - local
+        - cheap_frontier
+        - cheap_cloud
+  research:
+    gateway_exposure: public
+    output_contract: {output_shape: markdown, start_marker: "### ANSWER"}
+    selection:
+      priority: 50
+      phrases:
+        - "research"
+        - "investigate"
+        - "look into"
+        - "find out"
+        - "what does"
+        - "what is"
+        - "survey"
+    required_capabilities:
+      - context_window_large
+      - reasoning
+    # OMN-13215: research declares ``claude`` as its escalation ceiling tier, which
+    # is the HTTP frontier ceiling backend. OMN-13351 repointed that backend off the
+    # dead Anthropic cloud-sonnet to the resolvable Gemini cloud-gemini-pro
+    # (gemini-2.5-flash, served on the AI Studio free-tier key → ceiling tier cost
+    # 0.0). This 0.015 cap stays as a generous ceiling-cap headroom (the 0.0 ceiling
+    # tier is well under it); the prior $0.002 ceiling contradicted the tier_order —
+    # it only "worked" while the ceiling was the free codex-cli OAuth tier.
+    pricing_ceiling_per_1k_tokens: 0.015
+    latency_sla_p99_ms: 60000
+    cloud_routing_policy: allowed
+    definition_of_done:
+      deterministic:
+        - response_non_empty
+      heuristic:
+        - no_refusal
+        # OMN-13354: research is a PROSE research task (cites theorems / papers /
+        # sections), NOT a code review. The prior `cites_specific_lines` +
+        # `explains_tradeoffs` pair was a catch-22: `cites_specific_lines` is a
+        # CODE-line-citation regex (`line N` / `Lnn` / `:nn`) that a legitimate
+        # research answer cannot satisfy, so every research output failed the gate
+        # at every tier with `TASK_MISMATCH: missing specific line citations`
+        # (live 2026-06-19 reprove, score 0.733). `cites_sources` is the
+        # research-appropriate citation check (references / theorem N / [12] /
+        # (Author, 2020) / URL / DOI); `methodical_analysis` replaces the narrow
+        # `explains_tradeoffs` keyword form with a reasoning-structure check
+        # (because / therefore / evidence / risk). A substantive, attributed
+        # research answer passes; a thin/empty answer still fails. The
+        # `cites_specific_lines` / `explains_tradeoffs` code-review checks stay on
+        # the `review` task class below.
+        - cites_sources
+        - methodical_analysis
+        - semantic_adequacy
+        # OMN-18297: identifier grounding. Every repo#NNN / OMN-NNNN / sha /
+        # run-id / UUID the response emits must occur in the input it was
+        # derived from, or be marked unverified. The classes, the lookup form
+        # and the failure policy are declared in the gate node's contract.yaml
+        # (identifier_grounding). Reject-only: it can fail a response, never
+        # promote one. Armed on the prose classes only -- a code artifact
+        # legitimately contains hex-shaped tokens its prompt never mentioned.
+        - identifiers_grounded
+    quality_gate:
+      score_source: quality_gate_graded_score
+      required_bar: 0.8
+      request_override_bounds:
+        min: 0.6
+        max: 1.0
+    adequacy_authority:
+      score_source: reproducible_judge
+      rubric_id: delegation_non_verifiable_v1
+      rubric_hash: "sha256:321240472e3b52d21fd8cb9b9b7639bb73161a2945adf580948e86275ce20681"
+      event_topic_ref: delegation_judge_verdict_v1
+      terminology: controlled_reproducible_auditable
+    escalation_policy:
+      max_escalations: 2
+      tier_order:
+        - local
+        - cheap_cloud
+        - claude
+  test:
+    gateway_exposure: public
+    output_contract: {output_shape: markdown, start_marker: "### ANSWER"}
+    selection:
+      priority: 40
+      max_words: 1500
+      phrases:
+        - "write a test"
+        - "write tests"
+        - "unit test"
+        - "unit tests"
+        - "pytest"
+        - "add a test"
+        - "add tests"
+        - "assertionerror"
+        - "failing test"
+        - "test failure"
+        - "traceback"
+      # OMN-18831. "assertion"/"assertions" is ordinary English for a claim
+      # long before it is an `assert` statement, so a prose request to weigh a
+      # report's assertions was routed to a class whose acceptance is Python
+      # compilation. The word now claims a prompt only with testing or code
+      # vocabulary within `within_words` words of it, which keeps "add
+      # assertions to the auth tests" here and lets the prose go to prose.
+      # "assertionerror" stays unqualified: it is never ordinary English.
+      #
+      # OMN-19017 adds "test case"/"test cases" for the same reason, and the
+      # cost of leaving them unqualified was measured across FOUR lanes in one
+      # hour. A prompt opening "Enumerate test cases for one rule..." asks for
+      # a list described IN WORDS, but the bare phrase claimed it at priority
+      # 40 for a class graded by `deterministic_acceptance`, so every local
+      # rung was refused for prose outside a code block or for not compiling,
+      # deterministically and identically. Correlations
+      # 04ac362b-8d9d-4208-b251-73a9a090d2a7,
+      # e811f3e5-1ccf-42be-9d88-707ed1923430, 4392a792 and
+      # 72593bc3-7dd5-4491-9d1f-f3bfe6ccf8a9. The isolating control is
+      # dd58507f-892a-418a-b8fe-f887495e4120: the same task shape, same model,
+      # same hour, accepted on the FIRST rung at 1.0, differing only by an
+      # explicit `--task-type document`.
+      #
+      # A positive qualifier vocabulary rather than a list of prose
+      # disqualifiers, matching the choice OMN-18831 already made here and for
+      # the reason recorded on `ModelQualifiedPhrases`. Deleting the phrases
+      # was rejected for the same reason it was rejected there: "add test
+      # cases to the pytest module" is a real code request and must keep
+      # arriving at this class.
+      qualified_phrases:
+        within_words: 6
+        phrases:
+          - "assertion"
+          - "assertions"
+          - "test case"
+          - "test cases"
+        qualifiers:
+          - "assert"
+          - "asserts"
+          - "class"
+          - "code"
+          - "coverage"
+          - "fixture"
+          - "fixtures"
+          - "function"
+          - "method"
+          - "mock"
+          - "mocks"
+          - "module"
+          - "pytest"
+          - "spec"
+          - "specs"
+          - "suite"
+          # OMN-19017 removed the bare singular "test" from this list. With
+          # "test case" gated above, a qualifier of "test" would sit INSIDE
+          # the phrase it qualifies, and a phrase carrying its own qualifier
+          # can never be refused -- the condition
+          # `test_every_gated_phrase_has_a_qualifier_that_is_not_itself`
+          # exists to catch exactly that and did catch it here. It is also
+          # redundant: every genuine code use is already reached by "tests",
+          # "testing", "unittest", "pytest", "suite", "fixture" or one of the
+          # other code terms below, and "unit test" and "failing test" are
+          # unqualified phrases of this class in their own right. Keeping it
+          # would have let an incidental nearby "test" qualify a prose
+          # request, which is the defect being removed rather than a
+          # different one.
+          - "testing"
+          - "tests"
+          - "unittest"
+      # OMN-18831: the prose-output veto declared on code_generation.
+      vetoed_by: *prose_output_vetoes
+    score_source: deterministic_acceptance
+    acceptance_authority:
+      type: deterministic_acceptance
+      acceptance_version: delegation-deterministic-acceptance.v1
+      evidence_fields:
+        - acceptance_version
+        - corpus_hash
+        - validator_or_artifact_hash
+        - acceptance_command
+        - actual_score
+        - pass
+        - failure_cases
+    required_capabilities:
+      - code_completion
+    pricing_ceiling_per_1k_tokens: 0.015
+    latency_sla_p99_ms: 30000
+    cloud_routing_policy: allowed
+    definition_of_done:
+      deterministic:
+        - compiles_without_errors
+        # OMN-19529: static name resolution, the non-executing half of
+        # "imports in isolation". Declared in the gate node's contract.yaml
+        # (name_resolution); reject-only, skipped without a grounding source.
+        - names_resolve
+        - final_artifact_only
+        - uses_pytest_mark_unit
+      heuristic:
+        - no_refusal
+        - covers_edge_cases
+        - covers_error_paths
+      # OMN-17765: `test` names two different things -- the routing/pricing
+      # class, which the caller cannot touch, and the artifact kind, which a
+      # prompt can and does declare otherwise. A prompt resolving `single_word`
+      # or `exact_literal` has declared the answer is not a test artifact, so
+      # `uses_pytest_mark_unit` and `compiles_without_errors` cannot apply to
+      # it: the gate returned "TASK_MISMATCH: missing @pytest.mark.unit" for 28
+      # liveness probes on the dev lane, which is not merely strict but false --
+      # a one-word reply to a one-word request does not mismatch its task.
+      #
+      # Declared HERE and never in `default_shape_overrides`: that key applies
+      # to every class at once, so a deterministic sibling there would let any
+      # caller drop `compiles_without_errors` from `code_generation` by
+      # prefixing a shape directive. The floor is narrowed for the classes that
+      # declare it, never made caller-controllable.
+      #
+      # `heuristic` is deliberately absent from these entries. A class block
+      # with no `heuristic` key falls through to `default_shape_overrides`
+      # below, so OMN-16932's short-form heuristic band is unchanged.
+      shape_overrides:
+        single_word:
+          deterministic:
+            - response_non_empty
+            - final_artifact_only
+        exact_literal:
+          deterministic:
+            - response_non_empty
+            - final_artifact_only
+    quality_gate:
+      score_source: quality_gate_graded_score
+      required_bar: 0.8
+      request_override_bounds:
+        min: 0.6
+        max: 1.0
+    escalation_policy:
+      max_escalations: 3
+      # OMN-16891: `cheap_frontier` INSERTED ahead of every metered tier, per
+      # the operator directive "openrouter can also do work for ... code".
+      # tier_order is a CLOSED set — `_tier_order_from_contract` excludes any
+      # tier absent from it — so this class could not reach the free coder rung
+      # at all before, no matter what routing_tiers.yaml `use_for` declared.
+      # Placement mirrors code_generation/refactor, which have carried this
+      # exact ladder since OMN-13943/OMN-14225 (free before paid: a task that
+      # must escalate off local tries the ZERO-COST frontier rung before any
+      # tier that spends money). max_escalations is raised by one so the ladder
+      # can still be walked to its ceiling now that it is one rung longer —
+      # the same adjustment OMN-13943 made for code_generation.
+      tier_order:
+        - local
+        - cheap_frontier
+        - cheap_cloud
+        - claude
+  validator_generation:
+    gateway_exposure: internal
+    output_contract: {output_shape: markdown, start_marker: "### ANSWER"}
+    selection:
+      priority: 0
+      phrases: []
+    score_source: deterministic_acceptance
+    acceptance_authority:
+      type: deterministic_acceptance
+      acceptance_version: node_generation_consumer.corpus_acceptance.v1
+      evidence_fields:
+        - acceptance_version
+        - corpus_hash
+        - validator_or_artifact_hash
+        - acceptance_command
+        - actual_score
+        - pass
+        - failure_cases
+    required_capabilities:
+      - code_completion
+    pricing_ceiling_per_1k_tokens: 0.015
+    latency_sla_p99_ms: 30000
+    cloud_routing_policy: allowed
+    definition_of_done:
+      deterministic:
+        - compiles_without_errors
+        # OMN-19529: static name resolution, the non-executing half of
+        # "imports in isolation". Declared in the gate node's contract.yaml
+        # (name_resolution); reject-only, skipped without a grounding source.
+        - names_resolve
+        - final_artifact_only
+        - passes_existing_tests
+      heuristic:
+        - no_refusal
+    # OMN-19406: this was the ONLY declared class with no quality_gate, so the
+    # bus orchestrator's required-bar authority raised `required_bar_missing`
+    # on every run -- dev-lane run 07dc0c4a (2026-09-24) was refused with a
+    # local answer scored 1.0. The block is code_generation's, value for value:
+    # same acceptance authority (deterministic_acceptance), same deterministic
+    # DoD floor, so the same bar and the same caller override bounds.
+    quality_gate:
+      score_source: quality_gate_graded_score
+      required_bar: 0.85
+      request_override_bounds:
+        min: 0.6
+        max: 1.0
+    escalation_policy:
+      max_escalations: 3
+      # OMN-16891: `cheap_frontier` INSERTED ahead of every metered tier, per
+      # the operator directive "openrouter can also do work for ... code".
+      # tier_order is a CLOSED set — `_tier_order_from_contract` excludes any
+      # tier absent from it — so this class could not reach the free coder rung
+      # at all before, no matter what routing_tiers.yaml `use_for` declared.
+      # Placement mirrors code_generation/refactor, which have carried this
+      # exact ladder since OMN-13943/OMN-14225 (free before paid: a task that
+      # must escalate off local tries the ZERO-COST frontier rung before any
+      # tier that spends money). max_escalations is raised by one so the ladder
+      # can still be walked to its ceiling now that it is one rung longer —
+      # the same adjustment OMN-13943 made for code_generation.
+      tier_order:
+        - local
+        - cheap_frontier
+        - cheap_cloud
+        - claude
+  reasoning:
+    gateway_exposure: public
+    output_contract: {output_shape: markdown, start_marker: "### ANSWER"}
+    selection:
+      priority: 55
+      min_words: 20
+      phrases:
+        - "reason about"
+        - "explain why"
+        - "compare"
+        - "contrast"
+        - "why does"
+        - "why is"
+        - "how come"
+    required_capabilities:
+      - reasoning
+    pricing_ceiling_per_1k_tokens: 0.002
+    latency_sla_p99_ms: 60000
+    cloud_routing_policy: allowed
+    definition_of_done:
+      deterministic:
+        - response_non_empty
+      heuristic:
+        # OMN-13963: `semantic_adequacy` is the LOCAL acceptance authority. Without
+        # a non-reject-only check the quality gate had NO adequacy authority for
+        # `reasoning` (response_non_empty / no_refusal / step_by_step_explanation
+        # are all reject-only), so a valid LOCAL Qwen answer could never PASS —
+        # the gate returned TASK_MISMATCH:no-adequacy-authority, force-escalated
+        # local→cheap_cloud, and hit the throttled GLM (429), killing the whole
+        # class during a cloud outage. `semantic_adequacy` (a real completeness
+        # check) is the SAME local authority the sibling reproducible_judge classes
+        # `document`/`research`/`summarization` already carry and complete on local
+        # with; it accepts a complete answer while a refusal/empty still fails.
+        - no_refusal
+        - step_by_step_explanation
+        - semantic_adequacy
+        # OMN-18297: identifier grounding. Every repo#NNN / OMN-NNNN / sha /
+        # run-id / UUID the response emits must occur in the input it was
+        # derived from, or be marked unverified. The classes, the lookup form
+        # and the failure policy are declared in the gate node's contract.yaml
+        # (identifier_grounding). Reject-only: it can fail a response, never
+        # promote one. Armed on the prose classes only -- a code artifact
+        # legitimately contains hex-shaped tokens its prompt never mentioned.
+        - identifiers_grounded
+    quality_gate:
+      score_source: quality_gate_graded_score
+      required_bar: 0.8
+      request_override_bounds:
+        min: 0.6
+        max: 1.0
+    adequacy_authority:
+      score_source: reproducible_judge
+      rubric_id: delegation_non_verifiable_v1
+      rubric_hash: "sha256:321240472e3b52d21fd8cb9b9b7639bb73161a2945adf580948e86275ce20681"
+      event_topic_ref: delegation_judge_verdict_v1
+      terminology: controlled_reproducible_auditable
+    escalation_policy:
+      # OMN-19432 (RULING 2026-09-30T15:09:11Z: every model used as much as its
+      # measurement earns): `cheap_frontier` (OpenRouter free models) INSERTED
+      # ahead of the metered GLM tier, the OMN-16891 pattern. On the 30
+      # delegated tasks of 2026-09-30, judge off, the delegate's own gate passed
+      # nemotron-3-ultra 5 of 5 `review` and 3 of 3 `reasoning` tasks and
+      # nemotron-3-super 4 of 5 and 3 of 3, while the local Qwen hosts passed 1
+      # of 5 `review`. Before this the class had no path to a free frontier rung
+      # at all (tier_order is a CLOSED set), so every local miss went straight
+      # to the metered tier. max_escalations rises by one so the ladder can
+      # still be walked to its last entry.
+      max_escalations: 2
+      tier_order:
+        - local
+        - cheap_frontier
+        - cheap_cloud
+  complex_reasoning:
+    gateway_exposure: public
+    output_contract: {output_shape: markdown, start_marker: "### ANSWER"}
+    selection:
+      priority: 70
+      min_words: 40
+      phrases:
+        - "reason through"
+        - "think through"
+        - "trade-offs"
+        - "tradeoffs"
+        - "weigh the options"
+        - "decide between"
+        - "argue for"
+        - "argue against"
+    required_capabilities:
+      - reasoning
+      - context_window_large
+    pricing_ceiling_per_1k_tokens: 0.015
+    latency_sla_p99_ms: 120000
+    cloud_routing_policy: allowed
+    definition_of_done:
+      deterministic:
+        - response_non_empty
+      heuristic:
+        # OMN-13963: LOCAL acceptance authority (see `reasoning` above). Without a
+        # non-reject-only check `complex_reasoning` had no adequacy authority and
+        # force-escalated valid local output to the throttled cloud judge.
+        - step_by_step_explanation
+        - methodical_analysis
+        - semantic_adequacy
+        # OMN-18297: identifier grounding. Every repo#NNN / OMN-NNNN / sha /
+        # run-id / UUID the response emits must occur in the input it was
+        # derived from, or be marked unverified. The classes, the lookup form
+        # and the failure policy are declared in the gate node's contract.yaml
+        # (identifier_grounding). Reject-only: it can fail a response, never
+        # promote one. Armed on the prose classes only -- a code artifact
+        # legitimately contains hex-shaped tokens its prompt never mentioned.
+        - identifiers_grounded
+    quality_gate:
+      score_source: quality_gate_graded_score
+      required_bar: 0.8
+      request_override_bounds:
+        min: 0.6
+        max: 1.0
+    adequacy_authority:
+      score_source: reproducible_judge
+      rubric_id: delegation_non_verifiable_v1
+      rubric_hash: "sha256:321240472e3b52d21fd8cb9b9b7639bb73161a2945adf580948e86275ce20681"
+      event_topic_ref: delegation_judge_verdict_v1
+      terminology: controlled_reproducible_auditable
+    escalation_policy:
+      max_escalations: 2
+      tier_order:
+        - local
+        - claude
+  planning:
+    gateway_exposure: public
+    output_contract: {output_shape: markdown, start_marker: "### ANSWER"}
+    selection:
+      priority: 75
+      min_words: 40
+      phrases:
+        - "plan"
+        - "roadmap"
+        - "milestones"
+        - "sequence the work"
+        - "break down the work"
+        - "next steps"
+        - "prioritise"
+        - "prioritize"
+        - "backlog"
+    required_capabilities:
+      - reasoning
+      - natural_language_generation
+    pricing_ceiling_per_1k_tokens: 0.002
+    latency_sla_p99_ms: 60000
+    cloud_routing_policy: allowed
+    definition_of_done:
+      deterministic:
+        - response_non_empty
+      heuristic:
+        - structured_output
+        - covers_dependencies
+        # OMN-14220: local acceptance authority. structured_output/covers_dependencies
+        # are reject-only markers; without a non-reject-only check a valid LOCAL plan
+        # could never PASS and force-escalated to paid cloud. semantic_adequacy is the
+        # same local authority the reproducible_judge siblings use.
+        - semantic_adequacy
+        # OMN-18297: identifier grounding. Every repo#NNN / OMN-NNNN / sha /
+        # run-id / UUID the response emits must occur in the input it was
+        # derived from, or be marked unverified. The classes, the lookup form
+        # and the failure policy are declared in the gate node's contract.yaml
+        # (identifier_grounding). Reject-only: it can fail a response, never
+        # promote one. Armed on the prose classes only -- a code artifact
+        # legitimately contains hex-shaped tokens its prompt never mentioned.
+        - identifiers_grounded
+    quality_gate:
+      score_source: quality_gate_graded_score
+      required_bar: 0.8
+      request_override_bounds:
+        min: 0.6
+        max: 1.0
+    adequacy_authority:
+      score_source: reproducible_judge
+      rubric_id: delegation_non_verifiable_v1
+      rubric_hash: "sha256:321240472e3b52d21fd8cb9b9b7639bb73161a2945adf580948e86275ce20681"
+      event_topic_ref: delegation_judge_verdict_v1
+      terminology: controlled_reproducible_auditable
+    escalation_policy:
+      max_escalations: 1
+      tier_order:
+        - local
+        - cheap_cloud
+  review:
+    gateway_exposure: public
+    output_contract: {output_shape: markdown, start_marker: "### ANSWER"}
+    selection:
+      priority: 60
+      phrases:
+        - "review"
+        - "audit"
+        - "critique"
+        - "assess"
+        - "evaluate"
+    required_capabilities:
+      - reasoning
+      - code_completion
+    pricing_ceiling_per_1k_tokens: 0.002
+    latency_sla_p99_ms: 60000
+    cloud_routing_policy: allowed
+    definition_of_done:
+      deterministic:
+        - response_non_empty
+      heuristic:
+        - cites_specific_lines
+        # OMN-14220: `explains_tradeoffs` removed — it was a reject-only catch-22
+        # (identical to the OMN-13354 research fix): a valid bug-focused review cites
+        # lines but need not discuss tradeoffs, so requiring tradeoff language
+        # false-rejected correct reviews (live: a line-cited review scored 0.867 but
+        # failed `explains_tradeoffs`). `cites_specific_lines` stays as the genuine
+        # "is this a code review" reject-only filter; `semantic_adequacy` is the local
+        # acceptance authority so a complete review PASSES locally.
+        - semantic_adequacy
+        # OMN-18297: identifier grounding. Every repo#NNN / OMN-NNNN / sha /
+        # run-id / UUID the response emits must occur in the input it was
+        # derived from, or be marked unverified. The classes, the lookup form
+        # and the failure policy are declared in the gate node's contract.yaml
+        # (identifier_grounding). Reject-only: it can fail a response, never
+        # promote one. Armed on the prose classes only -- a code artifact
+        # legitimately contains hex-shaped tokens its prompt never mentioned.
+        - identifiers_grounded
+    quality_gate:
+      score_source: quality_gate_graded_score
+      required_bar: 0.8
+      request_override_bounds:
+        min: 0.6
+        max: 1.0
+    escalation_policy:
+      # OMN-19432 (RULING 2026-09-30T15:09:11Z: every model used as much as its
+      # measurement earns): `cheap_frontier` (OpenRouter free models) INSERTED
+      # ahead of the metered GLM tier, the OMN-16891 pattern. On the 30
+      # delegated tasks of 2026-09-30, judge off, the delegate's own gate passed
+      # nemotron-3-ultra 5 of 5 `review` and 3 of 3 `reasoning` tasks and
+      # nemotron-3-super 4 of 5 and 3 of 3, while the local Qwen hosts passed 1
+      # of 5 `review`. Before this the class had no path to a free frontier rung
+      # at all (tier_order is a CLOSED set), so every local miss went straight
+      # to the metered tier. max_escalations rises by one so the ladder can
+      # still be walked to its last entry.
+      max_escalations: 2
+      tier_order:
+        - local
+        - cheap_frontier
+        - cheap_cloud
+  # OMN-13541: code_review is a first-class task class. It was accepted at the
+  # consumer-facing delegation surface (allowed_task_types + the claude/codex
+  # adapter) but had no task-class contract here and only the local-coder tier in
+  # routing_tiers.yaml `use_for`, so a missing local backend stranded it and the
+  # quality gate's required-bar authority had nothing to resolve. Mirrors `review`
+  # but with code-review-specific DoD heuristics and a cloud fallback ladder.
+  code_review:
+    gateway_exposure: public
+    output_contract: {output_shape: markdown, start_marker: "### ANSWER"}
+    selection:
+      priority: 72
+      phrases:
+        - "review this pr"
+        - "review the pr"
+        # OMN-19523. The spelled-out form: "Review this pull request diff"
+        # (run a8219faf) matched none of the abbreviations above.
+        - "review this pull request"
+        - "review the pull request"
+        - "review this diff"
+        - "review the diff"
+        - "code review"
+        - "review this patch"
+        - "review the patch"
+    required_capabilities:
+      - reasoning
+      - code_completion
+    pricing_ceiling_per_1k_tokens: 0.002
+    latency_sla_p99_ms: 60000
+    cloud_routing_policy: allowed
+    definition_of_done:
+      deterministic:
+        - response_non_empty
+      heuristic:
+        - cites_specific_lines
+        # OMN-14220: `no_obvious_regressions` removed — same reject-only catch-22 as
+        # `review` above: a valid code review that finds bugs need not use
+        # regression/backward-compat language, so requiring it false-rejected correct
+        # reviews. `cites_specific_lines` stays as the reject-only filter;
+        # `semantic_adequacy` is the local acceptance authority.
+        - semantic_adequacy
+        # OMN-18297: identifier grounding. Every repo#NNN / OMN-NNNN / sha /
+        # run-id / UUID the response emits must occur in the input it was
+        # derived from, or be marked unverified. The classes, the lookup form
+        # and the failure policy are declared in the gate node's contract.yaml
+        # (identifier_grounding). Reject-only: it can fail a response, never
+        # promote one. Armed on the prose classes only -- a code artifact
+        # legitimately contains hex-shaped tokens its prompt never mentioned.
+        - identifiers_grounded
+    quality_gate:
+      score_source: quality_gate_graded_score
+      required_bar: 0.8
+      request_override_bounds:
+        min: 0.6
+        max: 1.0
+    escalation_policy:
+      max_escalations: 2
+      # OMN-16891: `cheap_frontier` INSERTED ahead of every metered tier, per
+      # the operator directive "openrouter can also do work for ... code".
+      # tier_order is a CLOSED set — `_tier_order_from_contract` excludes any
+      # tier absent from it — so this class could not reach the free coder rung
+      # at all before, no matter what routing_tiers.yaml `use_for` declared.
+      # Placement mirrors code_generation/refactor, which have carried this
+      # exact ladder since OMN-13943/OMN-14225 (free before paid: a task that
+      # must escalate off local tries the ZERO-COST frontier rung before any
+      # tier that spends money). max_escalations is raised by one so the ladder
+      # can still be walked to its ceiling now that it is one rung longer —
+      # the same adjustment OMN-13943 made for code_generation.
+      tier_order:
+        - local
+        - cheap_frontier
+        - cheap_cloud
+  summarization:
+    gateway_exposure: public
+    output_contract: {output_shape: markdown, start_marker: "### ANSWER"}
+    selection:
+      priority: 80
+      # OMN-19140: the 120-word floor stays. Measured over every recorded
+      # delegation prompt, removing it moved 48 prompts here: the 44 claimed on
+      # the verb all opened with it and asked for a summary, and the 4 claimed on
+      # the noun "summary" asked for something else. So the floor keeps the
+      # ordinary nouns below (summary, digest, what happened, write up, stand
+      # up) from claiming short prompts that only mention them. `short_prompt`
+      # admits a shorter request only when it OPENS with the imperative, so
+      # "Summarize in one sentence: ..." lands here instead of on the fallback
+      # (15 of 19 OMN-19136 shadow disagreements). Its own floor of 6 words keeps
+      # out a request with nothing in it to summarise ("Summarize this.").
+      min_words: 120
+      short_prompt:
+        min_words: 6
+        opening_phrases:
+          - "summarise"
+          - "summarize"
+      phrases:
+        - "summarise"
+        - "summarize"
+        - "summary"
+        - "standup"
+        - "stand-up"
+        - "stand up"
+        - "digest"
+        - "recap"
+        - "tl;dr"
+        - "what happened"
+        - "write up"
+        - "write-up"
+    required_capabilities:
+      - natural_language_generation
+    pricing_ceiling_per_1k_tokens: 0.002
+    latency_sla_p99_ms: 10000
+    cloud_routing_policy: allowed
+    definition_of_done:
+      deterministic:
+        - response_non_empty
+      heuristic:
+        - no_refusal
+        - concise
+        - accurate
+        # OMN-13218: semantic_adequacy replaces the blunt min_length_chars_100 floor.
+        # A correct short summary (one complete sentence) passes at tier 1 instead
+        # of escalating on a length floor; an empty/truncated stub still fails.
+        # The bad summary cases fail on real defects (refusal / accuracy disclaimer /
+        # truncation) so the per-class margin (min_good - max_bad >= 0.3) holds.
+        - semantic_adequacy
+        # OMN-18297: identifier grounding. Every repo#NNN / OMN-NNNN / sha /
+        # run-id / UUID the response emits must occur in the input it was
+        # derived from, or be marked unverified. The classes, the lookup form
+        # and the failure policy are declared in the gate node's contract.yaml
+        # (identifier_grounding). Reject-only: it can fail a response, never
+        # promote one. Armed on the prose classes only -- a code artifact
+        # legitimately contains hex-shaped tokens its prompt never mentioned.
+        - identifiers_grounded
+        # OMN-19529: number grounding. Every number the response states, in
+        # digits or spelled out, must occur in the input it was derived from,
+        # or be marked unverified or derived. Declared in the gate node's
+        # contract.yaml (numeric_grounding); reject-only, never promoting.
+        - numbers_grounded
+        # OMN-19199: claim grounding. A state the response asserts (completed,
+        # blocked, deprioritized, ...) must occur in the input rows that hold
+        # the identifier it is about. Declared in the gate node's contract.yaml
+        # (claim_grounding); reject-only, never promoting.
+        - claims_grounded
+    quality_gate:
+      score_source: quality_gate_graded_score
+      required_bar: 0.8
+      request_override_bounds:
+        min: 0.6
+        max: 1.0
+    adequacy_authority:
+      score_source: reproducible_judge
+      rubric_id: delegation_non_verifiable_v1
+      rubric_hash: "sha256:321240472e3b52d21fd8cb9b9b7639bb73161a2945adf580948e86275ce20681"
+      event_topic_ref: delegation_judge_verdict_v1
+      terminology: controlled_reproducible_auditable
+    # OMN-13640: the PROSE ladder now tries the genuinely-FREE cloud rung before
+    # it spends, and the flat-rate rung before the metered one.
+    #
+    # RED-before, measured 2026-09-14: this class declared
+    # `tier_order: [local, cheap_cloud]`, so `cheap_frontier` -- the ONLY tier
+    # whose `cost.cost_type` is `free_local` (OpenRouter) -- appeared in no prose
+    # class's tier_order at all. Every prose escalation therefore landed on the
+    # metered `cheap_cloud` tier and was answered by `gemini-2.5-flash-lite`
+    # (backend `cloud-gemini-flash`): 4 of 4 accepted drafts from the hourly
+    # Linear sweep (`--task-type document`), $0.001809 mean, free rungs
+    # contributing nothing.
+    #
+    # `max_escalations` is raised 1 -> 2 IN THE SAME EDIT, and that is not
+    # cosmetic. It bounds TRANSITIONS, not tiers visited -- the gate is
+    # `workflow.escalation_count < max_escalation_attempts`
+    # (node_delegation_orchestrator/handlers/handler_delegation_workflow.py), so
+    # reaching the Nth entry of tier_order costs N-1 transitions. A 3-entry
+    # tier_order left at `max_escalations: 1` makes its LAST entry unreachable
+    # and the whole added rung decorative. Pinned by
+    # tests/unit/delegation/test_prose_free_tier_ladder_omn13640.py::
+    # test_every_declared_class_can_reach_the_last_entry_of_its_tier_order,
+    # which asserts `max_escalations >= len(tier_order) - 1` for EVERY declared
+    # class, not only these three.
+    #
+    # Within `cheap_cloud` the order is unchanged and already correct:
+    # `glm-5.3-flash` (backend `cloud-glm`) is declared BEFORE `gemini-flash`,
+    # and declaration order is the tiebreaker in `_select_model_for_task`, so
+    # adding this class to GLM's `use_for` puts the flat-rate rung ahead of the
+    # metered Gemini rung without reordering anything.
+    #
+    # QUOTA HONESTY, recorded rather than implied: `cloud-glm` is a flat-rate
+    # z.ai Coding Plan with a HARD PERIODIC CEILING (5-hour, weekly and MCP
+    # quotas), NOT a per-token meter. Pointing these three prose classes at it
+    # spends the SAME plan quota the operator's own GLM coding usage draws on.
+    # That is why it sits BELOW the free OpenRouter rung and is never an
+    # unconditional primary (the standing OMN-6790 discipline). When the cap
+    # trips, `bifrost_delegation.yaml`'s `provider_quota_policy` classifies
+    # z.ai 1310 as `disable_until_reset` (parsed from the provider's own stated
+    # reset) and 1113 as a WRONG-ENDPOINT alert that is NEVER a billing action;
+    # `_backend_routable` then skips the backend by quota domain, so a trip
+    # falls through to the next model in the SAME tier rather than stranding the
+    # class.
+    #
+    # The `claude` ceiling tier is deliberately NOT added. Its only model
+    # resolves to backend `cloud-gemini-pro`, which carries the SAME provider
+    # and the SAME `llm.gemini.api_key` secret_ref as `cheap_cloud`'s Gemini
+    # rung (`cloud-gemini-flash`) -- verified in bifrost_delegation.yaml this
+    # ticket. A fourth rung would therefore buy a fourth attempt and ~20s of
+    # added latency against the identical quota domain, with zero
+    # quota-domain independence. Reopen that only if the ceiling is repointed
+    # to a genuinely separate provider.
+    escalation_policy:
+      max_escalations: 2
+      tier_order:
+        - local
+        - cheap_frontier
+        - cheap_cloud
+  agent_delegation:
+    gateway_exposure: internal
+    output_contract: {output_shape: markdown, start_marker: "### ANSWER"}
+    selection:
+      priority: 0
+      phrases: []
+    required_capabilities:
+      - agent_orchestration
+    # OMN-16811: the OMN-15961 fail-closed decision, promoted from a test-local
+    # exception dict to a contract-declared, machine-readable fact. No tier in
+    # routing_tiers.yaml is anything but a plain HTTP chat-completion backend,
+    # so none can satisfy ``agent_orchestration``; wiring this class onto one
+    # would be the false capability claim OMN-15961 removed and
+    # ``test_no_use_for_entry_claims_a_capability_its_tier_cannot_serve``
+    # mechanically forbids. Until the real coding-agent producer lands the
+    # class resolves NO backend on any of its declared tiers and a live
+    # delegation raises ONEX_CORE_041_INVALID_CONFIGURATION. Declaring it here
+    # is what lets a consumer (dashboard menu, gateway admission) refuse the
+    # class up front instead of offering it and hanging for the full ingress
+    # budget, and what lets the OMN-16811 drift gate fail in BOTH directions —
+    # an undeclared class that stops routing, and a stale declaration on a
+    # class that has become routable. Delete this block in the same change
+    # that wires the producer.
+    routing_availability:
+      status: pending_capability
+      missing_capability: agent_orchestration
+      tracking: "OMN-15961 WS-4/C6"
+      reason: >-
+        No routing tier can execute agentic/tool-using work; every tier is an
+        HTTP chat-completion backend. A text completion returned for this class
+        would be a dispatch report nobody executed.
+    pricing_ceiling_per_1k_tokens: 0.015
+    latency_sla_p99_ms: 120000
+    cloud_routing_policy: opt_in
+    # OMN-15196: declared response contract replaces the retired
+    # sub_tasks_verified/no_refusal keyword heuristics below (OMN-15193 gave the
+    # quality gate the ability to validate structurally against a declared JSON
+    # Schema instead of substring-matching). DispatchReport is the per-role
+    # (implementer/verifier/lander/scout) closed report contract ported from
+    # steel_onslaught PR #213 into omnibase_core (OMN-15161). The routing
+    # authority (resolve_task_class_response_contract) resolves this ref to a
+    # JSON Schema and threads it as the default response_contract for any local
+    # dispatch that does not supply its own (e.g. steel's per-request tactical
+    # decision schema still takes precedence when a caller declares one).
+    response_contract_ref: "omnibase_core.models.dispatch.report.DispatchReport"
+    definition_of_done:
+      deterministic:
+        - task_completed
+      heuristic:
+        # OMN-15196: sub_tasks_verified (substring match on "verified"/"passed"/
+        # "evidence"/"check") and no_refusal (phrase match) are RETIRED for this
+        # class -- response_contract_ref above is now the sole acceptance
+        # authority for any request that reaches the quality gate without its
+        # own caller-declared response_contract. This DoD block is retained ONLY
+        # as the fallback for a request that somehow reaches the gate with
+        # response_contract_ref unresolved (defensive; not expected in normal
+        # operation) and for the bus-intent path, which does not yet thread a
+        # response_contract at all (wire-model gap, OMN-15193 note) -- semantic_adequacy
+        # stays as that path's local acceptance authority.
+        - semantic_adequacy
+    quality_gate:
+      score_source: quality_gate_graded_score
+      required_bar: 0.8
+      request_override_bounds:
+        min: 0.6
+        max: 1.0
+    # OMN-13215: the former shelled ``cli_agents`` tier was removed. Agent
+    # delegation now escalates local → cheap_cloud → the canonical HTTP ceiling
+    # (claude), all of which execute over the bus/inference-effect HTTP path.
+    escalation_policy:
+      max_escalations: 2
+      tier_order:
+        - local
+        - cheap_cloud
+        - claude
+  escalation:
+    gateway_exposure: internal
+    output_contract: {output_shape: markdown, start_marker: "### ANSWER"}
+    selection:
+      priority: 0
+      phrases: []
+    required_capabilities:
+      - reasoning
+      - context_window_large
+    pricing_ceiling_per_1k_tokens: 0.015
+    latency_sla_p99_ms: 120000
+    cloud_routing_policy: allowed
+    definition_of_done:
+      deterministic:
+        - response_non_empty
+      heuristic:
+        - no_refusal
+        - methodical_analysis
+        # OMN-19406: `semantic_adequacy` is the LOCAL acceptance authority, the
+        # same one `reasoning` and `complex_reasoning` carry (OMN-13963), and
+        # this class is served on the same local rung as `complex_reasoning`
+        # (routing_tiers.yaml, OMN-16811). `no_refusal` and
+        # `methodical_analysis` are reject-only, so without it the gate
+        # returned "no deterministic acceptance or judge adequacy authority"
+        # for every answer: dev-lane run 0249bf01 (2026-09-24) refused three
+        # local answers scored 1.0 and climbed to a 429 at the ceiling slot.
+        # The refusal and reasoning floors are unchanged and still veto.
+        - semantic_adequacy
+        # OMN-18297 identifier grounding, as on every other prose class. An
+        # escalation names the tickets, runs and PRs it escalates, so an
+        # identifier absent from its input is exactly what must not pass.
+        - identifiers_grounded
+    quality_gate:
+      score_source: quality_gate_graded_score
+      required_bar: 0.8
+      request_override_bounds:
+        min: 0.6
+        max: 1.0
+    adequacy_authority:
+      score_source: reproducible_judge
+      rubric_id: delegation_non_verifiable_v1
+      rubric_hash: "sha256:321240472e3b52d21fd8cb9b9b7639bb73161a2945adf580948e86275ce20681"
+      event_topic_ref: delegation_judge_verdict_v1
+      terminology: controlled_reproducible_auditable
+    # OMN-16811: ``local`` prepended. This class's tier_order was ``[claude]``
+    # alone — the ONLY admitted task class whose entire ladder was a single
+    # credentialed cloud backend (``cloud-gemini-pro``). A read-only probe run
+    # inside the dev-lane runtime container resolved escalation to exactly
+    # ``[('claude', 'cloud-gemini-pro')]`` while all eleven terminating classes
+    # kept a free local rung, which is why a quota-exhausted / unreachable
+    # Gemini stranded this class specifically. Cheapest-first doctrine: the
+    # zero-cost owned-GPU tier is tried first and the metered ceiling stays the
+    # ceiling. max_escalations is unchanged at 1 — local -> claude is exactly
+    # one escalation.
+    escalation_policy:
+      max_escalations: 1
+      tier_order:
+        - local
+        - claude

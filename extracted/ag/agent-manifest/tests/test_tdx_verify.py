@@ -1,0 +1,796 @@
+"""Tests for Intel TDX DCAP quote parsing and verification.
+
+The synthetic tests build a self-consistent TDX v4 quote (P-256 attestation key,
+QE report binding, a PCK leaf->intermediate->root chain) and drive all four
+verification steps, plus tamper/pinning rejection — no real platform identifiers.
+
+The full four-step verification is also driven against the genuine TDX quotes
+captured from a GCP C3 confidential VM and committed under
+``tests/fixtures/hardware/gcp-tdx-2026-07-21/``. Those run unconditionally, so a
+change that breaks real-quote verification cannot pass CI green on synthetic
+vectors alone. Set ``AGENT_MANIFEST_TDX_QUOTE`` to point at a different real
+quote to exercise one that is not committed here.
+"""
+import hashlib
+import os
+import struct
+
+import pytest
+from agent_manifest._tdx_verify import (
+    _OFF_MRTD,
+    _QUOTE_HEADER_LEN,
+    TdxVerificationError,
+    parse_tdx_quote,
+    parse_tdx_quote_signature,
+    verify_tdx_quote,
+)
+
+crypto = pytest.importorskip("cryptography")
+
+from cryptography import x509  # noqa: E402
+from cryptography.hazmat.primitives import hashes  # noqa: E402
+from cryptography.hazmat.primitives.asymmetric import ec, utils  # noqa: E402
+from cryptography.hazmat.primitives.serialization import Encoding  # noqa: E402
+from cryptography.x509.oid import NameOID  # noqa: E402
+
+_HDR = 48
+_BODY = 584
+
+
+def _raw_sig(key, msg: bytes) -> bytes:
+    der = key.sign(msg, ec.ECDSA(hashes.SHA256()))
+    r, s = utils.decode_dss_signature(der)
+    return r.to_bytes(32, "big") + s.to_bytes(32, "big")
+
+
+def _cert(subject, pub, issuer_name, issuer_key, ca=False):
+    from datetime import datetime, timedelta, timezone
+
+    t0 = datetime(2020, 1, 1, tzinfo=timezone.utc)
+    b = (
+        x509.CertificateBuilder()
+        .subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, subject)]))
+        .issuer_name(issuer_name)
+        .public_key(pub)
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(t0)
+        .not_valid_after(t0 + timedelta(days=3650))
+    )
+    if ca:
+        b = b.add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+    return b.sign(issuer_key, hashes.SHA256())
+
+
+def _build_quote(
+    report_data_digest: bytes,
+    mrtd: bytes = b"\x11" * 48,
+    *,
+    version: int = 4,
+    att_key_type: int = 2,
+    tee_type: int = 0x81,
+    td_attributes: int = 0,
+):
+    """Return a self-consistent quote whose signed header is caller-controlled."""
+    # Header (48): caller-selected signed profile + 40 bytes padding.
+    header = struct.pack("<HHI", version, att_key_type, tee_type) + bytes(40)
+    body = bytearray(_BODY)
+    body[120:128] = td_attributes.to_bytes(8, "little")  # TDATTRIBUTES
+    body[136:136 + 48] = mrtd
+    body[520:520 + 32] = report_data_digest  # REPORTDATA[:32]
+    signed = header + bytes(body)
+
+    att_key = ec.generate_private_key(ec.SECP256R1())
+    att_pub_nums = att_key.public_key().public_numbers()
+    att_pub = att_pub_nums.x.to_bytes(32, "big") + att_pub_nums.y.to_bytes(32, "big")
+    sig = _raw_sig(att_key, signed)  # step 1
+
+    # QE report (384): report_data[320:352] = sha256(att_pub || qe_auth); qe_auth empty.
+    qe_auth = b""
+    qe_report = bytearray(384)
+    qe_report[320:352] = hashlib.sha256(att_pub + qe_auth).digest()
+
+    # PCK chain: leaf (signs QE report) <- intermediate <- root (self-signed test root).
+    root_key = ec.generate_private_key(ec.SECP256R1())
+    root_name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Test SGX Root CA")])
+    root = _cert("Test SGX Root CA", root_key.public_key(), root_name, root_key, ca=True)
+    int_key = ec.generate_private_key(ec.SECP256R1())
+    int_name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Test PCK Platform CA")])
+    intermediate = _cert("Test PCK Platform CA", int_key.public_key(), root_name, root_key, ca=True)
+    pck_key = ec.generate_private_key(ec.SECP256R1())
+    pck = _cert("Test PCK Cert", pck_key.public_key(), int_name, int_key)
+    qe_report_sig = _raw_sig(pck_key, bytes(qe_report))  # step 3
+
+    pem = pck.public_bytes(Encoding.PEM) + intermediate.public_bytes(Encoding.PEM) + root.public_bytes(Encoding.PEM)
+
+    cert_data = (
+        bytes(qe_report)
+        + qe_report_sig
+        + struct.pack("<H", len(qe_auth)) + qe_auth
+        + struct.pack("<HI", 5, len(pem)) + pem
+    )
+    auth = sig + att_pub + struct.pack("<HI", 6, len(cert_data)) + cert_data
+    quote = signed + struct.pack("<I", len(auth)) + auth
+    return quote, root.public_bytes(Encoding.PEM)
+
+
+def test_parse_quote_fields():
+    digest = hashlib.sha256(b"pre-image").digest()
+    quote, _ = _build_quote(digest, mrtd=b"\xab" * 48)
+    q = parse_tdx_quote(quote)
+    assert q.version == 4
+    assert q.tee_type == 0x81
+    assert q.mrtd == b"\xab" * 48
+    assert q.report_data[:32] == digest
+    assert len(q.rtmrs) == 4
+
+
+def test_parse_rejects_short():
+    with pytest.raises(TdxVerificationError, match="too short"):
+        parse_tdx_quote(bytes(100))
+
+
+def test_parse_rejects_wrong_tee_type():
+    quote, _ = _build_quote(hashlib.sha256(b"x").digest(), tee_type=0x00)
+    with pytest.raises(TdxVerificationError, match="not a TDX quote"):
+        parse_tdx_quote(quote)
+
+
+def test_parse_rejects_wrong_attestation_key_type():
+    quote, _ = _build_quote(hashlib.sha256(b"keytype").digest(), att_key_type=3)
+    with pytest.raises(TdxVerificationError, match="attestation key type 3"):
+        parse_tdx_quote(quote)
+
+
+def test_parse_non_strict_is_diagnostic_only():
+    quote, _ = _build_quote(
+        hashlib.sha256(b"diagnostic").digest(),
+        version=5,
+        att_key_type=3,
+        tee_type=0x00,
+    )
+    parsed = parse_tdx_quote(quote, strict=False)
+    assert parsed.version == 5
+    assert parsed.tee_type == 0x00
+
+
+def test_verify_full_chain_ok():
+    quote, root_pem = _build_quote(hashlib.sha256(b"pre").digest())
+    assert verify_tdx_quote(quote, trusted_root_pem=root_pem) is True
+
+
+@pytest.mark.parametrize(
+    ("header_overrides", "message"),
+    [
+        ({"version": 5}, "unsupported TDX quote version 5"),
+        ({"att_key_type": 3}, "attestation key type 3"),
+        ({"tee_type": 0x00}, "not a TDX quote"),
+    ],
+)
+def test_verify_rejects_self_consistent_signed_unsupported_header(
+    header_overrides: dict[str, int], message: str
+):
+    """The header mutation is included in signed_body and re-signed by the same builder."""
+    quote, root_pem = _build_quote(
+        hashlib.sha256(b"profile-binding").digest(),
+        **header_overrides,
+    )
+    with pytest.raises(TdxVerificationError, match=message):
+        verify_tdx_quote(quote, trusted_root_pem=root_pem)
+
+
+# ---------------------------------------------------------------------------
+# CERT-011: every certificate in the PCK chain must be within its validity
+# period. verify_tdx_quote used to check signatures only; a PCK leaf,
+# intermediate, or root whose validity window had already expired still
+# verified successfully.
+# ---------------------------------------------------------------------------
+
+
+def _build_quote_at(report_data_digest, not_before, not_after, mrtd: bytes = b"\x11" * 48):
+    """Like ``_build_quote`` but the PCK chain gets a caller-chosen validity window."""
+    def _cert_at(subject, pub, issuer_name, issuer_key, ca=False):
+        b = (
+            x509.CertificateBuilder()
+            .subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, subject)]))
+            .issuer_name(issuer_name)
+            .public_key(pub)
+            .serial_number(x509.random_serial_number())
+            .not_valid_before(not_before)
+            .not_valid_after(not_after)
+        )
+        if ca:
+            b = b.add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+        return b.sign(issuer_key, hashes.SHA256())
+
+    header = struct.pack("<HHI", 4, 2, 0x81) + bytes(40)
+    body = bytearray(_BODY)
+    body[136:136 + 48] = mrtd
+    body[520:520 + 32] = report_data_digest
+    signed = header + bytes(body)
+
+    att_key = ec.generate_private_key(ec.SECP256R1())
+    att_pub_nums = att_key.public_key().public_numbers()
+    att_pub = att_pub_nums.x.to_bytes(32, "big") + att_pub_nums.y.to_bytes(32, "big")
+    sig = _raw_sig(att_key, signed)
+
+    qe_auth = b""
+    qe_report = bytearray(384)
+    qe_report[320:352] = hashlib.sha256(att_pub + qe_auth).digest()
+
+    root_key = ec.generate_private_key(ec.SECP256R1())
+    root_name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Test SGX Root CA")])
+    root = _cert_at("Test SGX Root CA", root_key.public_key(), root_name, root_key, ca=True)
+    int_key = ec.generate_private_key(ec.SECP256R1())
+    int_name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Test PCK Platform CA")])
+    intermediate = _cert_at("Test PCK Platform CA", int_key.public_key(), root_name, root_key, ca=True)
+    pck_key = ec.generate_private_key(ec.SECP256R1())
+    pck = _cert_at("Test PCK Cert", pck_key.public_key(), int_name, int_key)
+    qe_report_sig = _raw_sig(pck_key, bytes(qe_report))
+
+    pem = pck.public_bytes(Encoding.PEM) + intermediate.public_bytes(Encoding.PEM) + root.public_bytes(Encoding.PEM)
+    cert_data = (
+        bytes(qe_report)
+        + qe_report_sig
+        + struct.pack("<H", len(qe_auth)) + qe_auth
+        + struct.pack("<HI", 5, len(pem)) + pem
+    )
+    auth = sig + att_pub + struct.pack("<HI", 6, len(cert_data)) + cert_data
+    quote = signed + struct.pack("<I", len(auth)) + auth
+    return quote, root.public_bytes(Encoding.PEM)
+
+
+def test_verify_rejects_expired_pck_chain():
+    from datetime import datetime, timezone
+
+    quote, root_pem = _build_quote_at(
+        hashlib.sha256(b"pre").digest(),
+        datetime(2010, 1, 1, tzinfo=timezone.utc),
+        datetime(2011, 1, 1, tzinfo=timezone.utc),  # expired a decade+ ago
+    )
+    with pytest.raises(TdxVerificationError, match="outside its validity period"):
+        verify_tdx_quote(quote, trusted_root_pem=root_pem)
+
+
+def test_verify_accepts_within_pinned_verification_time():
+    from datetime import datetime, timezone
+
+    not_before = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    not_after = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    quote, root_pem = _build_quote_at(hashlib.sha256(b"pre").digest(), not_before, not_after)
+    assert verify_tdx_quote(
+        quote, trusted_root_pem=root_pem,
+        verification_time=datetime(2024, 6, 1, tzinfo=timezone.utc),
+    ) is True
+
+
+def test_verify_rejects_tampered_body():
+    quote, root_pem = _build_quote(hashlib.sha256(b"pre").digest())
+    bad = bytearray(quote)
+    bad[520] ^= 0x01  # flip a REPORTDATA bit in the signed body
+    assert verify_tdx_quote(bytes(bad), trusted_root_pem=root_pem) is False
+
+
+def test_verify_rejects_bad_pck_signature_over_qe_report():
+    """A bad PCK signature over the QE report is still a False verdict."""
+    quote, root_pem = _build_quote(hashlib.sha256(b"pre").digest())
+    tampered = bytearray(quote)
+    sig_off = _QUOTE_HEADER_LEN + 584 + 4 + 134 + 384  # PCK signature over the QE report
+    tampered[sig_off + 10] ^= 0x01
+    assert verify_tdx_quote(bytes(tampered), trusted_root_pem=root_pem) is False
+
+
+def test_verify_rejects_wrong_pinned_root():
+    quote, _ = _build_quote(hashlib.sha256(b"pre").digest())
+    _, other_root = _build_quote(hashlib.sha256(b"other").digest())
+    with pytest.raises(TdxVerificationError, match="pinned Intel SGX Root CA"):
+        verify_tdx_quote(quote, trusted_root_pem=other_root)
+
+
+def test_verify_default_root_is_intel():
+    # A synthetic quote must NOT verify against the embedded real Intel root.
+    quote, _ = _build_quote(hashlib.sha256(b"pre").digest())
+    with pytest.raises(TdxVerificationError, match="pinned Intel SGX Root CA"):
+        verify_tdx_quote(quote)  # no trusted_root_pem -> embedded Intel root
+
+
+@pytest.mark.skipif(
+    not os.environ.get("AGENT_MANIFEST_TDX_QUOTE"),
+    reason="set AGENT_MANIFEST_TDX_QUOTE to a real quote file to verify against the Intel root",
+)
+def test_real_tdx_quote_against_intel_root():
+    quote = open(os.environ["AGENT_MANIFEST_TDX_QUOTE"], "rb").read()
+    assert verify_tdx_quote(quote) is True
+
+
+def test_signature_section_is_nested_under_a_qe_report_header():
+    """Lock in the nested type-6 layout a flat parse gets wrong.
+
+    A flat parse reads the QE report at ``auth[128]``, six bytes early, and
+    rejects every genuine quote. Assert the de-nested fields line up instead.
+    """
+    quote, _ = _build_quote(hashlib.sha256(b"nested").digest())
+    parsed = parse_tdx_quote_signature(quote)
+    auth = quote[48 + 584 + 4:]
+    cert_type, _cert_size = struct.unpack_from("<HI", auth, 128)
+    assert cert_type == 6  # QE_REPORT_CERTIFICATION_DATA, not the QE report itself
+    assert parsed.attestation_key == auth[64:128]
+    assert parsed.qe_report == auth[134:134 + 384]  # after the 6-byte header
+    assert len(parsed.qe_report) == 384
+    assert parsed.pck_chain_pem.startswith(b"-----BEGIN CERTIFICATE-----")
+    # the QE report binds the attestation key over the de-nested auth data
+    bind = hashlib.sha256(parsed.attestation_key + parsed.qe_auth_data).digest()
+    assert parsed.qe_report[320:352] == bind
+
+
+def test_parse_signature_rejects_wrong_certification_type():
+    quote, _ = _build_quote(hashlib.sha256(b"badtype").digest())
+    off = 48 + 584 + 4 + 128
+    tampered = bytearray(quote)
+    tampered[off:off + 2] = (5).to_bytes(2, "little")  # PCK chain where a QE report belongs
+    with pytest.raises(TdxVerificationError, match="certification data type"):
+        parse_tdx_quote_signature(bytes(tampered))
+
+
+def test_parse_signature_rejects_overstated_cert_size():
+    """A declared length longer than the buffer must fail, not silently shorten.
+
+    Python slicing clamps rather than overreading, so an inflated `cert_size`
+    used to yield a short `cert_data` and parsing continued against whatever
+    fit. A fail-closed parser rejects the mismatch: verifying 300 bytes where
+    the quote declared 400 is verifying something other than what the producer
+    said it signed.
+    """
+    quote, _ = _build_quote(hashlib.sha256(b"certsize").digest())
+    off = 48 + 584 + 4 + 130  # cert_size, just after the 2-byte cert_type
+    tampered = bytearray(quote)
+    tampered[off:off + 4] = (0xFFFF).to_bytes(4, "little")
+    with pytest.raises(TdxVerificationError, match="QE certification data"):
+        parse_tdx_quote_signature(bytes(tampered))
+
+
+def test_parse_signature_rejects_overstated_auth_size():
+    quote, _ = _build_quote(hashlib.sha256(b"authsize").digest())
+    off = 48 + 584  # the uint32 signature-data length
+    tampered = bytearray(quote)
+    tampered[off:off + 4] = (0xFFFFF).to_bytes(4, "little")
+    with pytest.raises(TdxVerificationError, match="signature data"):
+        parse_tdx_quote_signature(bytes(tampered))
+
+
+def test_parse_signature_rejects_overstated_qe_auth_size():
+    quote, _ = _build_quote(hashlib.sha256(b"qeauth").digest())
+    off = 48 + 584 + 4 + 134 + 384 + 64  # qe_auth_size, inside the cert data
+    tampered = bytearray(quote)
+    tampered[off:off + 2] = (0xFFFF).to_bytes(2, "little")
+    with pytest.raises(TdxVerificationError, match="QE auth data"):
+        parse_tdx_quote_signature(bytes(tampered))
+
+
+# --- Committed real-hardware capture ------------------------------------------
+# GCP C3 confidential VM, non-paravisor TDX, captured 2026-07-21 (#305). These
+# ran nowhere until now: the only real-quote test was gated on an environment
+# variable nothing sets, so the committed capture was inert and CI proved
+# verification only against vectors this file mints itself. A synthetic quote
+# cannot catch an offset or chain-walk regression that a genuine one would,
+# which is the entire reason the capture was committed.
+
+_HARDWARE = os.path.join(
+    os.path.dirname(__file__), "fixtures", "hardware", "gcp-tdx-2026-07-21"
+)
+
+# Pinned so a swapped or re-captured file fails loudly rather than silently
+# changing what "verified on real hardware" refers to.
+_CAPTURE_SHA256 = {
+    "tdx_quote.bin":
+        "f9efbac112efe510aa8ccd20703b063591b8c2c54c474d0ff1d6500299bae0ba",
+    "tdx_quote_manifest.bin":
+        "1ae04c74b564ef8795d4c4e4ffd1835d080d9dad4f8879e5cd1e8249503828b2",
+}
+
+# One TD, so one launch measurement across both captures.
+_CAPTURE_MRTD = (
+    "9bf86e6280ec4282b8b5822d8166410a456cdb720109aa799f0011fa63df1de3"
+    "ee5e35e293fc410c061433163acb03a6"
+)
+
+
+def _capture(name):
+    with open(os.path.join(_HARDWARE, name), "rb") as fh:
+        return fh.read()
+
+
+@pytest.mark.parametrize("name", sorted(_CAPTURE_SHA256))
+def test_committed_capture_is_the_one_the_hardware_produced(name):
+    assert hashlib.sha256(_capture(name)).hexdigest() == _CAPTURE_SHA256[name]
+
+
+@pytest.mark.parametrize("name", sorted(_CAPTURE_SHA256))
+def test_real_quote_verifies_against_the_pinned_intel_root(name):
+    """The default root is the embedded Intel SGX Root CA, not a test root."""
+    assert verify_tdx_quote(_capture(name)) is True
+
+
+@pytest.mark.parametrize("name", sorted(_CAPTURE_SHA256))
+def test_real_quote_carries_its_own_pck_chain(name):
+    """Offline verification depends on the chain travelling inside the quote."""
+    parsed = parse_tdx_quote_signature(_capture(name))
+    assert parsed.pck_chain_pem.count(b"-----BEGIN CERTIFICATE-----") == 3
+
+
+@pytest.mark.parametrize("name", sorted(_CAPTURE_SHA256))
+def test_real_quote_binds_a_32_byte_digest_in_report_data(name):
+    """The guest-controlled half carries the digest; the rest stays zero."""
+    parsed = parse_tdx_quote(_capture(name))
+    assert parsed.report_data[:32] != b"\x00" * 32
+    assert parsed.report_data[32:] == b"\x00" * 32
+
+
+def test_both_captures_share_one_mrtd_but_bind_different_digests():
+    """Same TD, two bindings. Guards against a copy of one file under two names."""
+    plain = parse_tdx_quote(_capture("tdx_quote.bin"))
+    manifest = parse_tdx_quote(_capture("tdx_quote_manifest.bin"))
+    assert plain.mrtd.hex() == manifest.mrtd.hex() == _CAPTURE_MRTD
+    assert plain.report_data[:32] != manifest.report_data[:32]
+
+
+def test_a_tampered_real_quote_is_rejected():
+    """Flip a byte of MRTD, inside the region the attestation key signs.
+
+    The quote stays well formed, so this is the False branch and not the raising
+    one: a broken signature over a parseable quote is a verdict, not a parse
+    error. Asserting ``is False`` rather than "falsy" keeps a future early
+    return of None from counting as a rejection.
+    """
+    tampered = bytearray(_capture("tdx_quote.bin"))
+    tampered[_QUOTE_HEADER_LEN + _OFF_MRTD] ^= 0xFF
+    assert verify_tdx_quote(bytes(tampered)) is False
+
+
+# ---------------------------------------------------------------------------
+# PCK chain appraisal: verify_tdx_quote must apply the same path rules as
+# verify_cert_chain. Each quote below is otherwise valid, so a failure can only
+# come from the chain.
+# ---------------------------------------------------------------------------
+
+def _ext_cert(subject, pub, issuer_name, issuer_key, *, bc=None, key_cert_sign=None):
+    """A cert with explicit extensions: ``bc=(ca, path_length)`` or ``None``."""
+    from datetime import datetime, timedelta, timezone
+
+    t0 = datetime(2020, 1, 1, tzinfo=timezone.utc)
+    b = (
+        x509.CertificateBuilder()
+        .subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, subject)]))
+        .issuer_name(issuer_name)
+        .public_key(pub)
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(t0)
+        .not_valid_after(t0 + timedelta(days=3650))
+    )
+    if bc is not None:
+        b = b.add_extension(x509.BasicConstraints(ca=bc[0], path_length=bc[1]), critical=True)
+    if key_cert_sign is not None:
+        b = b.add_extension(
+            x509.KeyUsage(
+                digital_signature=not key_cert_sign,
+                content_commitment=False,
+                key_encipherment=False,
+                data_encipherment=False,
+                key_agreement=False,
+                key_cert_sign=key_cert_sign,
+                crl_sign=key_cert_sign,
+                encipher_only=False,
+                decipher_only=False,
+            ),
+            critical=True,
+        )
+    return b.sign(issuer_key, hashes.SHA256())
+
+
+def _quote_around_chain(chain, pck_key, digest=b"\x42" * 32):
+    """Wrap a leaf-first ``chain`` in an otherwise valid quote.
+
+    ``pck_key`` is the leaf's private key. Returns the quote and the PEM of the root.
+    """
+    header = struct.pack("<HHI", 4, 2, 0x81) + bytes(40)
+    body = bytearray(_BODY)
+    body[520:520 + 32] = digest
+    signed = header + bytes(body)
+
+    att_key = ec.generate_private_key(ec.SECP256R1())
+    n = att_key.public_key().public_numbers()
+    att_pub = n.x.to_bytes(32, "big") + n.y.to_bytes(32, "big")
+    qe_report = bytearray(384)
+    qe_report[320:352] = hashlib.sha256(att_pub).digest()  # qe_auth is empty
+
+    pem = b"".join(c.public_bytes(Encoding.PEM) for c in chain)
+    cert_data = (
+        bytes(qe_report)
+        + _raw_sig(pck_key, bytes(qe_report))
+        + struct.pack("<H", 0)
+        + struct.pack("<HI", 5, len(pem)) + pem
+    )
+    auth = _raw_sig(att_key, signed) + att_pub + struct.pack("<HI", 6, len(cert_data)) + cert_data
+    quote = signed + struct.pack("<I", len(auth)) + auth
+    return quote, chain[-1].public_bytes(Encoding.PEM)
+
+
+def _intel_shaped_chain(
+    *,
+    root_bc=(True, 1),
+    root_key_cert_sign=True,
+    int_bc=(True, 0),
+    int_key_cert_sign=True,
+    leaf_issuer="Test PCK Platform CA",
+):
+    """Root (pathLen=1) <- Platform CA (pathLen=0) <- PCK leaf, like Intel's."""
+    def name(cn):
+        return x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, cn)])
+
+    rk, ik, pk = (ec.generate_private_key(ec.SECP256R1()) for _ in range(3))
+    root = _ext_cert("Test SGX Root CA", rk.public_key(), name("Test SGX Root CA"), rk,
+                     bc=root_bc, key_cert_sign=root_key_cert_sign)
+    inter = _ext_cert("Test PCK Platform CA", ik.public_key(), name("Test SGX Root CA"), rk,
+                      bc=int_bc, key_cert_sign=int_key_cert_sign)
+    leaf = _ext_cert("Test PCK Cert", pk.public_key(), name(leaf_issuer), ik,
+                     bc=(False, None), key_cert_sign=False)
+    return [leaf, inter, root], pk
+
+
+def test_intel_shaped_chain_baseline_verifies():
+    """Control: the same shape, built correctly, verifies."""
+    chain, pck_key = _intel_shaped_chain()
+    quote, root_pem = _quote_around_chain(chain, pck_key)
+    assert verify_tdx_quote(quote, trusted_root_pem=root_pem) is True
+
+
+def test_verify_rejects_non_ca_intermediate():
+    chain, pck_key = _intel_shaped_chain(int_bc=(False, None))
+    quote, root_pem = _quote_around_chain(chain, pck_key)
+    with pytest.raises(TdxVerificationError, match="is not a CA"):
+        verify_tdx_quote(quote, trusted_root_pem=root_pem)
+
+
+def test_verify_rejects_intermediate_without_basic_constraints():
+    chain, pck_key = _intel_shaped_chain(int_bc=None)
+    quote, root_pem = _quote_around_chain(chain, pck_key)
+    with pytest.raises(TdxVerificationError, match="no BasicConstraints"):
+        verify_tdx_quote(quote, trusted_root_pem=root_pem)
+
+
+def test_verify_rejects_intermediate_whose_key_usage_forbids_cert_signing():
+    chain, pck_key = _intel_shaped_chain(int_key_cert_sign=False)
+    quote, root_pem = _quote_around_chain(chain, pck_key)
+    with pytest.raises(TdxVerificationError, match="cannot sign certificates"):
+        verify_tdx_quote(quote, trusted_root_pem=root_pem)
+
+
+def test_verify_rejects_violated_path_length_constraint():
+    """The root allows no CA below it, but the chain has a Platform CA."""
+    chain, pck_key = _intel_shaped_chain(root_bc=(True, 0))
+    quote, root_pem = _quote_around_chain(chain, pck_key)
+    with pytest.raises(TdxVerificationError, match="path_length"):
+        verify_tdx_quote(quote, trusted_root_pem=root_pem)
+
+
+def test_verify_rejects_broken_issuer_subject_name_chaining():
+    """The signature is valid but the leaf names a different issuer."""
+    chain, pck_key = _intel_shaped_chain(leaf_issuer="Some Other CA")
+    quote, root_pem = _quote_around_chain(chain, pck_key)
+    with pytest.raises(TdxVerificationError, match="not validly issued by the next"):
+        verify_tdx_quote(quote, trusted_root_pem=root_pem)
+
+
+def test_verify_rejects_end_entity_certificate_used_as_issuer():
+    """A non-CA cert under the pinned root must not be usable to issue a "PCK"."""
+    def name(cn):
+        return x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, cn)])
+
+    rk, ik, ee_key, forged_key = (ec.generate_private_key(ec.SECP256R1()) for _ in range(4))
+    root = _ext_cert("Test SGX Root CA", rk.public_key(), name("Test SGX Root CA"), rk,
+                     bc=(True, 1), key_cert_sign=True)
+    inter = _ext_cert("Test PCK Platform CA", ik.public_key(), name("Test SGX Root CA"), rk,
+                      bc=(True, 0), key_cert_sign=True)
+    end_entity = _ext_cert("Legit PCK", ee_key.public_key(), name("Test PCK Platform CA"), ik,
+                           bc=(False, None), key_cert_sign=False)
+    forged = _ext_cert("Forged PCK", forged_key.public_key(), name("Legit PCK"), ee_key,
+                       bc=(False, None), key_cert_sign=False)
+    quote, root_pem = _quote_around_chain([forged, end_entity, inter, root], forged_key)
+    with pytest.raises(TdxVerificationError, match="is not a CA"):
+        verify_tdx_quote(quote, trusted_root_pem=root_pem)
+
+
+def test_verify_rejects_pinned_root_that_is_not_a_ca():
+    """The pinned root is checked too: a root without CA=TRUE is rejected."""
+    chain, pck_key = _intel_shaped_chain(root_bc=(False, None))
+    quote, root_pem = _quote_around_chain(chain, pck_key)
+    with pytest.raises(TdxVerificationError, match="is not a CA"):
+        verify_tdx_quote(quote, trusted_root_pem=root_pem)
+
+
+def test_verify_rejects_pinned_root_without_basic_constraints():
+    """A custom root minted without BasicConstraints is no longer accepted."""
+    chain, pck_key = _intel_shaped_chain(root_bc=None)
+    quote, root_pem = _quote_around_chain(chain, pck_key)
+    with pytest.raises(TdxVerificationError, match="no BasicConstraints"):
+        verify_tdx_quote(quote, trusted_root_pem=root_pem)
+
+
+def test_verify_rejects_pinned_root_whose_key_usage_forbids_cert_signing():
+    chain, pck_key = _intel_shaped_chain(root_key_cert_sign=False)
+    quote, root_pem = _quote_around_chain(chain, pck_key)
+    with pytest.raises(TdxVerificationError, match="cannot sign certificates"):
+        verify_tdx_quote(quote, trusted_root_pem=root_pem)
+
+
+def _with_changed_byte(cert, marker: bytes, delta: int, new_byte: int):
+    """Reload ``cert`` with one DER byte changed, at ``delta`` from where ``marker`` starts."""
+    der = bytearray(cert.public_bytes(Encoding.DER))
+    at = bytes(der).find(marker)
+    assert at != -1
+    der[at + delta] = new_byte
+    return x509.load_der_x509_certificate(bytes(der))
+
+
+# (marker, offset from marker, new byte) against the root built by _intel_shaped_chain
+_ROOT_EXTENSION_BREAKS = {
+    "basic-constraints": ("3006 0101ff 020101", 2, 0x05),  # BOOLEAN tag -> NULL
+    "key-usage": ("0404 03020106", 2, 0x04),  # BIT STRING tag -> OCTET STRING
+    "duplicate-extension": ("551d0f", 2, 0x13),  # KeyUsage OID -> BasicConstraints OID
+}
+
+
+@pytest.mark.parametrize("marker,delta,new_byte", _ROOT_EXTENSION_BREAKS.values(),
+                         ids=_ROOT_EXTENSION_BREAKS.keys())
+def test_verify_rejects_pinned_root_with_malformed_extensions(marker, delta, new_byte):
+    """The root's own extensions are read too; the pin matches, so only they can fail."""
+    chain, pck_key = _intel_shaped_chain()
+    broken = _with_changed_byte(chain[2], bytes.fromhex(marker.replace(" ", "")), delta, new_byte)
+    quote, root_pem = _quote_around_chain([chain[0], chain[1], broken], pck_key)
+    with pytest.raises(TdxVerificationError, match="malformed extensions"):
+        verify_tdx_quote(quote, trusted_root_pem=root_pem)
+
+
+# --- malformed chain material must raise TdxVerificationError, not ValueError ---
+
+
+def _splice_pck_chain(quote: bytes, new_pem: bytes) -> bytes:
+    """Swap the quote's PCK chain PEM for same-length ``new_pem``."""
+    old = parse_tdx_quote_signature(quote).pck_chain_pem
+    assert len(old) == len(new_pem)
+    assert quote.count(old) == 1
+    return quote.replace(old, new_pem)
+
+
+def _corrupt_pem_body(quote: bytes) -> bytes:
+    """Put non-base64 bytes in the first certificate's PEM body."""
+    pem = parse_tdx_quote_signature(quote).pck_chain_pem
+    start = pem.index(b"-----BEGIN CERTIFICATE-----\n") + len(b"-----BEGIN CERTIFICATE-----\n")
+    return _splice_pck_chain(quote, pem[:start + 4] + b"!!!!" + pem[start + 8:])
+
+
+def test_verify_rejects_pck_chain_with_corrupt_pem_as_verification_error():
+    quote, root_pem = _build_quote(hashlib.sha256(b"corrupt-pem").digest())
+    with pytest.raises(TdxVerificationError, match="not valid PEM"):
+        verify_tdx_quote(_corrupt_pem_body(quote), trusted_root_pem=root_pem)
+
+
+def test_verify_rejects_attestation_key_off_the_curve_as_verification_error():
+    quote, root_pem = _build_quote(hashlib.sha256(b"off-curve").digest())
+    tampered = bytearray(quote)
+    key_off = _QUOTE_HEADER_LEN + 584 + 4 + 64  # attestation key follows the 64-byte signature
+    tampered[key_off:key_off + 64] = b"\x01" * 64
+    with pytest.raises(TdxVerificationError, match="not a valid P-256 point"):
+        verify_tdx_quote(bytes(tampered), trusted_root_pem=root_pem)
+
+
+def test_verify_rejects_malformed_trusted_root_as_verification_error():
+    quote, _ = _build_quote(hashlib.sha256(b"bad-root").digest())
+    with pytest.raises(TdxVerificationError, match="not valid PEM"):
+        verify_tdx_quote(quote, trusted_root_pem=b"not a certificate")
+
+
+# --- the genuine Intel chain must satisfy the stricter appraisal -----------------
+
+
+@pytest.mark.parametrize("name", sorted(_CAPTURE_SHA256))
+def test_genuine_intel_pck_chain_passes_the_shared_chain_verifier(name):
+    """Real Intel chains must satisfy the shared verifier's constraints."""
+    from agent_manifest import verify_cert_chain
+    from agent_manifest._tdx_verify import INTEL_SGX_ROOT_CA_PEM
+
+    certs = x509.load_pem_x509_certificates(parse_tdx_quote_signature(_capture(name)).pck_chain_pem)
+    root = x509.load_pem_x509_certificate(INTEL_SGX_ROOT_CA_PEM)
+    assert verify_cert_chain(certs, [root]) is True
+
+
+def _chain_pem_blocks(quote: bytes) -> list[bytes]:
+    """The three PEM certificates (leaf, Platform CA, root) inside the quote."""
+    import re
+
+    pem = parse_tdx_quote_signature(quote).pck_chain_pem
+    blocks = re.findall(rb"-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----", pem, re.DOTALL)
+    assert len(blocks) == 3
+    return blocks
+
+
+def _mutate_real_chain_cert(
+    quote: bytes, index: int, marker: bytes, delta: int, new_byte: int
+) -> bytes:
+    """Change one byte of chain certificate ``index``, keeping all lengths.
+
+    The certificate still loads; only using the changed part fails.
+    """
+    import base64
+
+    block = _chain_pem_blocks(quote)[index]
+    der = bytearray(base64.b64decode(b"".join(block.splitlines()[1:-1])))
+    at = bytes(der).find(marker)
+    assert at != -1
+    der[at + delta] = new_byte
+    b64 = base64.b64encode(bytes(der))
+    lines = [b64[i:i + 64] for i in range(0, len(b64), 64)]
+    forged = b"\n".join([b"-----BEGIN CERTIFICATE-----", *lines, b"-----END CERTIFICATE-----"])
+    assert len(forged) == len(block)
+    x509.load_pem_x509_certificate(forged)  # the mutated certificate must still load
+    return quote.replace(block, forged)
+
+
+def _corrupt_intermediate_basic_constraints(quote: bytes) -> bytes:
+    marker = bytes.fromhex("3006 0101ff 020100".replace(" ", ""))  # CA=TRUE, pathLen=0
+    return _mutate_real_chain_cert(quote, 1, marker, 2, 0x05)  # BOOLEAN tag -> NULL tag
+
+
+def _corrupt_intermediate_curve(quote: bytes) -> bytes:
+    """Point the Platform CA's key at a curve that does not exist."""
+    prime256v1 = bytes.fromhex("06082a8648ce3d030107")
+    return _mutate_real_chain_cert(quote, 1, prime256v1, len(prime256v1) - 1, 0x09)
+
+
+def test_verify_rejects_chain_certificate_with_malformed_extension_as_verification_error():
+    tampered = _corrupt_intermediate_basic_constraints(_capture("tdx_quote.bin"))
+    with pytest.raises(TdxVerificationError, match="malformed extensions"):
+        verify_tdx_quote(tampered)
+
+
+@pytest.mark.parametrize(
+    "pin_mutated_root,match",
+    [(False, None), (True, "malformed extensions")],
+    ids=["embedded-root", "mutated-root-pinned"],
+)
+def test_verify_rejects_real_root_with_malformed_extension_as_verification_error(
+    pin_mutated_root, match
+):
+    """Same, on the genuine Intel root. Pinning the mutated root makes the pin match."""
+    marker = bytes.fromhex("3006 0101ff 020101".replace(" ", ""))  # CA=TRUE, pathLen=1
+    tampered = _mutate_real_chain_cert(_capture("tdx_quote.bin"), 2, marker, 2, 0x05)
+    root_pem = _chain_pem_blocks(tampered)[2] if pin_mutated_root else None
+    with pytest.raises(TdxVerificationError, match=match):
+        verify_tdx_quote(tampered, trusted_root_pem=root_pem)
+
+
+def test_verify_rejects_intermediate_with_unsupported_key_curve_as_verification_error():
+    """An intermediate with an unusable key must be a TdxVerificationError."""
+    tampered = _corrupt_intermediate_curve(_capture("tdx_quote.bin"))
+    with pytest.raises(TdxVerificationError, match="not validly issued by the next"):
+        verify_tdx_quote(tampered)
+
+
+@pytest.mark.parametrize(
+    "corrupt",
+    [_corrupt_intermediate_basic_constraints, _corrupt_intermediate_curve, _corrupt_pem_body],
+    ids=["malformed-extension", "unsupported-curve", "corrupt-pem"],
+)
+def test_verify_attestation_chain_reports_failed_rather_than_raising_on_malformed_chain(corrupt):
+    """Corrupted chain bytes must yield FAILED, not an exception."""
+    from agent_manifest import SignatureStatus, verify_attestation_chain
+    from agent_manifest._providers import AttestationReport
+
+    manifest_hash = "sha256:" + "00" * 32
+    result = verify_attestation_chain(
+        AttestationReport(
+            platform="intel-tdx", manifest_hash=manifest_hash, quote=corrupt(_capture("tdx_quote.bin"))
+        ),
+        expected_manifest_hash=manifest_hash,
+    )
+    assert result.signature is SignatureStatus.FAILED
+    assert result.passed is False

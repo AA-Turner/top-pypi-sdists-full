@@ -14,7 +14,7 @@ use pyo3::types::{
 };
 use pyo3::{IntoPyObjectExt, Py, PyAny, intern, pyclass};
 use std::collections::HashMap;
-use std::mem::swap;
+use std::mem::{swap, take};
 
 type EncoderFn = fn(&Bound<CBOREncoder>, &Bound<PyAny>) -> PyResult<()>;
 type EncoderLookupVec = Vec<(Py<PyType>, EncoderFn)>;
@@ -656,17 +656,23 @@ impl CBOREncoder {
     pub fn encode(slf: &Bound<'_, Self>, obj: &Bound<'_, PyAny>) -> PyResult<()> {
         slf.borrow_mut().encode_depth += 1;
 
-        Self::encode_value(slf, obj)?;
+        let result = Self::encode_value(slf, obj);
 
         let mut this = slf.borrow_mut();
         this.encode_depth -= 1;
         if this.encode_depth == 0 {
-            this.flush(slf.py())?;
             this.shared_containers.clear();
             this.string_references.clear();
             this.bytes_references.clear();
+            if result.is_ok() {
+                this.flush(slf.py())?;
+            } else {
+                // Drop the partial output of the failed item so it does not end up in front of
+                // the next item written to the stream
+                this.buffer.clear();
+            }
         }
-        Ok(())
+        result
     }
 
     /// Encode the given object to a byte buffer and return its value as bytes.
@@ -705,10 +711,12 @@ impl CBOREncoder {
         slf: &Bound<'py, Self>,
         key: &Bound<'py, PyAny>,
     ) -> PyResult<(usize, Bound<'py, PyAny>)> {
-        Self::disable_string_referencing(slf, || {
-            let encoded = Self::encode_to_bytes(slf, key)?;
-            let py_bytes = PyBytes::new(slf.py(), encoded.as_slice());
-            Ok((encoded.len(), py_bytes.into_any()))
+        Self::disable_value_sharing(slf, || {
+            Self::disable_string_referencing(slf, || {
+                let encoded = Self::encode_to_bytes(slf, key)?;
+                let py_bytes = PyBytes::new(slf.py(), encoded.as_slice());
+                Ok((encoded.len(), py_bytes.into_any()))
+            })
         })
     }
 
@@ -914,18 +922,30 @@ impl CBOREncoder {
     /// :param value: the object to be encoded
     fn encode_semantic(slf: &Bound<'_, Self>, tag: u64, value: &Bound<'_, PyAny>) -> PyResult<()> {
         let old_string_referencing = slf.borrow().string_referencing;
-        if tag == 256 {
+        // A nested stringref-namespace (tag 256) starts its own index space, so the outer
+        // namespace has to be set aside for the duration of the tagged value and restored
+        // afterwards -- otherwise the emitted references index the outer namespace while the
+        // decoder resolves them against the inner one.
+        let mut outer_references = if tag == 256 {
             let mut this = slf.borrow_mut();
             this.string_referencing = true;
-
-            // TODO: move the string/bytestring references here temporarily
-        }
+            Some((
+                take(&mut this.string_references),
+                take(&mut this.bytes_references),
+            ))
+        } else {
+            None
+        };
         let mut result = slf.borrow_mut().encode_length(slf.py(), 6, Some(tag));
         if result.is_ok() {
             result = Self::encode(slf, value);
         }
-        slf.borrow_mut().string_referencing = old_string_referencing;
-        // TODO: restore the string/bytestring references to the instance
+        let mut this = slf.borrow_mut();
+        this.string_referencing = old_string_referencing;
+        if let Some((strings, bytes)) = outer_references.take() {
+            this.string_references = strings;
+            this.bytes_references = bytes;
+        }
         result
     }
 

@@ -6,12 +6,15 @@ import json
 import os
 import time
 from collections.abc import Mapping, MutableMapping
+from http.client import RemoteDisconnected
 from io import BytesIO
 from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import urlencode, urlparse
 
 import requests
+from requests.adapters import HTTPAdapter
 from typing_extensions import override
+from urllib3.exceptions import ProtocolError
 
 from schemathesis.core import Body, NotSet, media_types
 from schemathesis.core.errors import IncorrectUsage, SerializationNotPossible
@@ -70,6 +73,9 @@ class RequestsTransport(BaseTransport["requests.Session"]):
         serializer = None
         if not isinstance(case.body, NotSet) and media_type is not None:
             media_type, serializer = self._resolve_serializer(media_type)
+            # The multipart encoder picks the boundary; a header naming the bare media type leaves the body unparsable.
+            if media_type.startswith("multipart/") and final_headers.get("Content-Type") == case.media_type:
+                del final_headers["Content-Type"]
 
         # Set content type header if needed
         if (
@@ -235,12 +241,53 @@ def _request_with_retries(session: requests.Session, data: dict[str, Any], retri
     attempt = 0
     while True:
         try:
-            return session.request(**data)
+            return _request_resending_on_dropped_connection(session, data)
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
             if attempt >= retries:
                 raise
             time.sleep(min(2**attempt, 10))
             attempt += 1
+
+
+def _request_resending_on_dropped_connection(session: requests.Session, data: dict[str, Any]) -> requests.Response:
+    # A server may close a keep-alive connection after a response without `Connection: close`, leaving a request
+    # already sent on it unread. Like browsers and curl, send such a request once more on a fresh connection.
+    opened = _count_opened_connections(session)
+    try:
+        return session.request(**data)
+    except requests.exceptions.ConnectionError as exc:
+        if not _is_dropped_before_response(exc) or _count_opened_connections(session) != opened:
+            raise
+        dropped = exc
+    try:
+        return session.request(**data)
+    except requests.exceptions.RequestException:
+        # The fresh connection failing too means the server itself is broken; report what the original request saw.
+        pass
+    raise dropped
+
+
+def _count_opened_connections(session: requests.Session) -> int:
+    total = 0
+    for adapter in session.adapters.values():
+        if not isinstance(adapter, HTTPAdapter):
+            continue
+        for manager in (adapter.poolmanager, *adapter.proxy_manager.values()):
+            # The pool container refuses direct iteration; its key snapshot is thread-safe.
+            for key in manager.pools.keys():  # noqa: SIM118
+                pool = manager.pools.get(key)
+                if pool is not None:
+                    total += pool.num_connections
+    return total
+
+
+def _is_dropped_before_response(exc: requests.exceptions.ConnectionError) -> bool:
+    reason = exc.args[0] if exc.args else None
+    return (
+        isinstance(reason, ProtocolError)
+        and len(reason.args) == 2
+        and isinstance(reason.args[1], RemoteDisconnected | ConnectionResetError | BrokenPipeError)
+    )
 
 
 def validate_vanilla_requests_kwargs(data: dict[str, Any], declared_base_url: str | None = None) -> None:
@@ -328,11 +375,19 @@ def _encode_multipart(value: Any, boundary: str) -> bytes:
     return body.getvalue()
 
 
-def _is_structured_schema(schema: dict[str, Any]) -> bool:
-    # Arrays of binary parts (e.g. `items.format: binary`) are file uploads, not JSON payloads.
+def _resolve_property(schema: dict[str, Any], root_schema: dict[str, Any]) -> dict[str, Any]:
+    return maybe_resolve_bundled(cast("dict[str, Any]", schema_with_bundle(schema, root_schema)))
+
+
+def _is_structured_schema(schema: dict[str, Any], root_schema: dict[str, Any]) -> bool:
+    # An array part takes the default of its items: JSON for nested structures, plain text for primitives and files.
     items = schema.get("items")
-    if isinstance(items, dict) and items.get("format") in {"binary", "base64"}:
-        return False
+    if isinstance(items, dict) and items:
+        return _declares_structure(_resolve_property(items, root_schema))
+    return _declares_structure(schema)
+
+
+def _declares_structure(schema: dict[str, Any]) -> bool:
     declared = schema.get("type")
     if isinstance(declared, str):
         return declared in {"object", "array"}
@@ -364,8 +419,7 @@ def _collect_encoded_fields(ctx: SerializationContext) -> dict[str, str]:
                         continue
                     # Resolve a property-level `$ref` against the body schema's bundle so
                     # a referent like `{type: string}` is left alone and `{type: object}` triggers JSON.
-                    spliced = cast("dict[str, Any]", schema_with_bundle(prop, schema_node))
-                    if _is_structured_schema(maybe_resolve_bundled(spliced)):
+                    if _is_structured_schema(_resolve_property(prop, schema_node), schema_node):
                         result[name] = "application/json"
         break
     return result
@@ -400,6 +454,8 @@ def prepare_multipart_parts(
     ctx: SerializationContext, value: dict[str, Any]
 ) -> tuple[list | None, dict[str, Any] | None]:
     """Split a form payload into file parts and plain form fields."""
+    # Fields are replaced with their wire form; the case body must keep its generated values.
+    value = dict(value)
     encoded_fields = _collect_encoded_fields(ctx)
     for name, content_type in encoded_fields.items():
         if name in value:

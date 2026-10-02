@@ -1,0 +1,251 @@
+"""Tests for DependencyGraph pickle serialization performance (issue #87).
+
+Covers:
+  - Round-trip correctness: nodes, edges, guards, extra attrs survive pickle
+  - String interning: NodeKey references share identity after deserialization
+  - Unpickle builds one key-index map for all guards (not O(guards × nodes) rebuilds)
+"""
+
+from __future__ import annotations
+
+import pickle
+from pathlib import Path
+
+import pytest
+
+from excel_grapher.grapher.graph import DependencyGraph
+from excel_grapher.grapher.guard import CellRef, Compare, Literal
+from excel_grapher.grapher.node import Node
+
+
+def _make_test_graph() -> DependencyGraph:
+    """Build a small graph with a mix of guarded/unguarded edges and extra attrs."""
+    g = DependencyGraph()
+
+    g.add_node(Node("Sheet1", "A", 1, value=1))
+    g.add_node(Node("Sheet1", "B", 1, value=2))
+    g.add_node(Node("Sheet1", "C", 1, value=0))
+    g.add_node(
+        Node(
+            "Sheet1",
+            "D",
+            1,
+            "=IF(C1,A1,B1)",
+            is_leaf=False,
+            normalized_formula="=IF(Sheet1!C1,Sheet1!A1,Sheet1!B1)",
+        )
+    )
+
+    guard_true = Compare(CellRef("Sheet1!C1"), "=", Literal(True))
+    guard_false = Compare(CellRef("Sheet1!C1"), "=", Literal(False))
+
+    g.add_edge("Sheet1!D1", "Sheet1!C1")  # unguarded
+    g.add_edge("Sheet1!D1", "Sheet1!A1", guard=guard_true)
+    g.add_edge("Sheet1!D1", "Sheet1!B1", guard=guard_false)
+
+    return g
+
+
+# -------------------------------------------------------------------
+# Round-trip correctness
+# -------------------------------------------------------------------
+
+
+def test_pickle_round_trip_preserves_nodes() -> None:
+    original = _make_test_graph()
+    restored: DependencyGraph = pickle.loads(pickle.dumps(original))
+
+    assert len(restored) == len(original)
+    for key in original:
+        node_orig = original.get_node(key)
+        node_rest = restored.get_node(key)
+        assert node_orig is not None
+        assert node_rest is not None
+        assert node_rest.sheet == node_orig.sheet
+        assert node_rest.column == node_orig.column
+        assert node_rest.row == node_orig.row
+        assert node_rest.formula == node_orig.formula
+        assert node_rest.normalized_formula == node_orig.normalized_formula
+        assert node_rest.value == node_orig.value
+        assert node_rest.is_leaf == node_orig.is_leaf
+
+
+def test_pickle_round_trip_preserves_edges() -> None:
+    original = _make_test_graph()
+    restored: DependencyGraph = pickle.loads(pickle.dumps(original))
+
+    for key in original:
+        assert restored.get_dependencies(key) == original.get_dependencies(key)
+        assert restored.get_dependents(key) == original.get_dependents(key)
+
+
+def test_pickle_round_trip_preserves_guards() -> None:
+    original = _make_test_graph()
+    restored: DependencyGraph = pickle.loads(pickle.dumps(original))
+
+    # Unguarded edge
+    assert restored.get_edge_guard("Sheet1!D1", "Sheet1!C1") is None
+
+    # Guarded edges
+    guard_a = restored.get_edge_guard("Sheet1!D1", "Sheet1!A1")
+    assert guard_a is not None
+    assert isinstance(guard_a, Compare)
+    assert guard_a.op == "="
+
+    guard_b = restored.get_edge_guard("Sheet1!D1", "Sheet1!B1")
+    assert guard_b is not None
+    assert isinstance(guard_b, Compare)
+
+
+def test_pickle_round_trip_many_guarded_edges() -> None:
+    """Regression: unpickle must not rebuild a full key→index map per guarded edge."""
+    g = DependencyGraph()
+    g.add_node(Node("Sheet1", "A", 1, value=1))
+    g.add_node(
+        Node("Sheet1", "D", 1, "=1", is_leaf=False, normalized_formula="=1"),
+    )
+    guard = Compare(CellRef("Sheet1!A1"), "=", Literal(True))
+    n_extra = 800
+    for i in range(2, 2 + n_extra):
+        g.add_node(Node("Sheet1", "B", i, value=1))
+        g.add_edge("Sheet1!D1", f"Sheet1!B{i}", guard=guard)
+
+    blob = pickle.dumps(g)
+    restored: DependencyGraph = pickle.loads(blob)
+    for i in range(2, 2 + n_extra):
+        g_edge = restored.get_edge_guard("Sheet1!D1", f"Sheet1!B{i}")
+        assert g_edge is not None
+        assert isinstance(g_edge, Compare)
+
+
+def test_pickle_round_trip_preserves_edge_provenance() -> None:
+    """Typed edge provenance must survive pickle round-trip."""
+    from excel_grapher.grapher.dependency_provenance import DependencyCause, EdgeProvenance
+
+    g = DependencyGraph()
+    g.add_node(Node("Sheet1", "A", 1, value=1))
+    g.add_node(Node("Sheet1", "B", 1, "=A1", is_leaf=False, normalized_formula="=Sheet1!A1"))
+
+    prov = EdgeProvenance(
+        causes=DependencyCause.direct_ref,
+        direct_sites_normalized=((1, 11),),
+    )
+    g.add_edge("Sheet1!B1", "Sheet1!A1", provenance=prov)
+
+    restored: DependencyGraph = pickle.loads(pickle.dumps(g))
+    attrs = restored.get_edge_attrs("Sheet1!B1", "Sheet1!A1")
+    assert attrs.provenance == prov
+
+
+def test_pickle_round_trip_preserves_leaf_classification() -> None:
+    g = _make_test_graph()
+    g.leaf_classification = {"Sheet1!A1": "input", "Sheet1!B1": "constant"}
+
+    restored: DependencyGraph = pickle.loads(pickle.dumps(g))
+    assert restored.leaf_classification == {"Sheet1!A1": "input", "Sheet1!B1": "constant"}
+
+
+def test_pickle_round_trip_preserves_sheet_order() -> None:
+    g = _make_test_graph()
+    g.sheet_order = ["Sheet2", "Sheet1"]
+
+    restored: DependencyGraph = pickle.loads(pickle.dumps(g))
+    assert restored.sheet_order == ["Sheet2", "Sheet1"]
+
+
+def test_pickle_round_trip_preserves_named_range_maps() -> None:
+    g = _make_test_graph()
+    g.named_ranges = {"OneCell": ("Sheet1", "A1")}
+    g.named_range_ranges = {"BeeCol": ("Sheet1", "B1", "B3")}
+
+    restored: DependencyGraph = pickle.loads(pickle.dumps(g))
+    assert restored.named_ranges == {"OneCell": ("Sheet1", "A1")}
+    assert restored.named_range_ranges == {"BeeCol": ("Sheet1", "B1", "B3")}
+
+
+# -------------------------------------------------------------------
+# String interning: NodeKeys share identity after deserialization
+# -------------------------------------------------------------------
+
+
+def test_deserialized_nodekeys_share_identity() -> None:
+    """Intern deserialized NodeKey strings across graph structures.
+
+    After deserialization, the same NodeKey string should share object identity
+    across iteration, `get_dependencies`, and `get_dependents`.
+
+    This reduces memory and speeds up dict operations.
+    """
+    g = _make_test_graph()
+    restored: DependencyGraph = pickle.loads(pickle.dumps(g))
+
+    node_key_ids = {k: id(k) for k in restored}
+
+    for key in restored:
+        for dep in restored.get_dependencies(key):
+            if dep in node_key_ids:
+                assert id(dep) == node_key_ids[dep], (
+                    f"dependency {dep!r} is a different object than the graph key"
+                )
+        for dependent in restored.get_dependents(key):
+            if dependent in node_key_ids:
+                assert id(dependent) == node_key_ids[dependent], (
+                    f"dependent {dependent!r} is a different object than the graph key"
+                )
+
+
+# -------------------------------------------------------------------
+# Multipart unpickle (issue #513)
+# -------------------------------------------------------------------
+
+
+def test_unpickle_reads_two_frames(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Unpickling must load nodes then edges as separate frames (issue #513).
+
+    A single state-dict pickle would keep indexed adjacency in the memo while
+    live string-keyed maps are rebuilt (~2.4x peak). Two `pickle.load` calls
+    let the first frame drop before the second is reconstructed.
+    """
+    from excel_grapher.grapher import graph_pickle
+    from excel_grapher.grapher.graph_pickle import dump_graph, load_graph
+
+    graph = _make_test_graph()
+    payload = pickle.dumps(graph, protocol=pickle.HIGHEST_PROTOCOL)
+    load_ops = {"n": 0}
+    original = graph_pickle.pickle.load
+
+    def counting(file: object, *args: object, **kwargs: object) -> object:
+        load_ops["n"] += 1
+        return original(file, *args, **kwargs)
+
+    monkeypatch.setattr(graph_pickle.pickle, "load", counting)
+
+    restored_pickle: DependencyGraph = pickle.loads(payload)
+    assert load_ops["n"] == 2
+    assert len(restored_pickle) == len(graph)
+    assert restored_pickle.get_dependencies("Sheet1!D1") == graph.get_dependencies("Sheet1!D1")
+
+    load_ops["n"] = 0
+    path = tmp_path / "graph.pkl.gz"
+    dump_graph(graph, path)
+    restored_file: DependencyGraph = load_graph(path)
+    assert load_ops["n"] == 2
+    assert len(restored_file) == len(graph)
+
+
+def test_dump_graph_load_graph_round_trip(tmp_path: Path) -> None:
+    """Public dump/load API preserves edges, guards, and named ranges."""
+    from excel_grapher.grapher.graph_pickle import dump_graph, load_graph
+
+    original = _make_test_graph()
+    original.named_ranges = {"OneCell": ("Sheet1", "A1")}
+    path = tmp_path / "graph.pkl"
+    dump_graph(original, path)
+    restored: DependencyGraph = load_graph(path)
+
+    assert len(restored) == len(original)
+    for key in original:
+        assert restored.get_dependencies(key) == original.get_dependencies(key)
+        assert restored.get_dependents(key) == original.get_dependents(key)
+    assert restored.get_edge_guard("Sheet1!D1", "Sheet1!A1") is not None
+    assert restored.named_ranges == {"OneCell": ("Sheet1", "A1")}

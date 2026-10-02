@@ -1,0 +1,256 @@
+---
+name: pypi-install
+
+# the sentinel on what users actually install. Every other workflow here
+# tests artifacts built in the same run, from the tree that triggered it:
+# nothing tells us whether the wheels already on PyPI still install and
+# still work. What breaks them is not a change in this repository — it is a
+# new runner image, a new interpreter, a yanked dependency, a cffi ABI
+# change — so nothing here has to move for this to start failing, which is
+# exactly why it runs on a schedule rather than on a pull request.
+#
+# The check is deliberately version-independent: it uses only what this
+# package has exposed since 0.4.0 (dsa.sign, dsa.verify, ssa.verify), so
+# the sentinel keeps working across releases instead of needing an edit
+# after each one. It verifies BIP340 test vector 0, whose values are fixed
+# forever, and round trips a signature this build makes. What is pinned
+# per cell instead is the kind of artifact pip must select: the wheel
+# layout — a static cpNN wheel for every CPython, free-threaded included,
+# and the one py3-none dynamic wheel that PyPy on Windows falls back to —
+# is the packaging strategy of this repository rather than a property of
+# one release, and which artifact a platform and an interpreter select is
+# exactly what this matrix samples. That is also why every wheel cell
+# installs with --only-binary: without it a yanked or missing wheel
+# demotes the cell to a second sdist test, and the loss it exists to
+# notice keeps the run green.
+#
+# It was red until 0.7.1 was published, every cell of it, and that red was
+# the point rather than a defect to hide. PyPI carried 0.4.0, whose wheels
+# are x86_64 only and stop at CPython 3.12, so on every arm64 runner and on
+# 3.13 or later the wheel cells could not resolve at all, while a user's
+# unconstrained pip fell back to that sdist — which builds the vendored
+# library with autotools (scripts/cffi_build.py of 0.4.0 runs autogen.sh),
+# not with the CMake path of today. Measured by hand on 30 July 2026, on
+# Apple Silicon with 3.13, that install failed: hatchling's force-include
+# could not find the extension the build was supposed to produce. A user on
+# a current Mac could not install this package at all, which was worth a
+# red mark rather than a matrix narrowed to the cells that passed.
+#
+# 0.7.1, published on 4 August 2026, ships arm64 wheels and CPython 3.14
+# support, and this workflow went green on it the same day: nineteen cells
+# out of nineteen, against nineteen out of nineteen red on the scheduled
+# run the day before. That inversion is what the sentinel is for, and
+# release.yml now calls it rather than leaving it to be remembered
+
+on:
+  # after a release, which is the one moment this workflow's answer can
+  # change: RELEASING.md documented dispatching it by hand right here, and a
+  # call does not forget. Called by release.yml rather than triggered by
+  # workflow_run, which zizmor rates a dangerous trigger and rightly -- it
+  # runs the default branch's copy of a workflow with the token of a push
+  # nobody reviewed -- where a call runs inside the release that gated it, in
+  # its graph and in its log. The caller passes the tag, and only the caller
+  # does: the weekly run and a dispatch have no particular version in mind,
+  # which is the point of them
+  workflow_call:
+    inputs:
+      version:
+        description: >
+          The tag whose version the index must serve before the matrix
+          installs anything, empty on a run with no release behind it.
+        type: string
+        default: ""
+  schedule:
+    # Wednesday, the hour after deps-latest.yml, and the pair is why this is
+    # weekly: deps-latest.yml upgrades every dependency and runs the suite from
+    # the tree, this asks what the index actually serves, and read
+    # together they separate a break this repository caused from one that
+    # arrived. What it watches is external rot -- a new runner image, a
+    # new interpreter, a yanked dependency, a cffi ABI change -- which a
+    # week samples as well as anything longer, and after a release the
+    # trigger above answers immediately regardless.
+    # The time is the organization grid -- section 10 of
+    # btclib-org/.github's README.md -- and not this file's to restate.
+    # Only the default branch schedules workflows, so on any other branch
+    # this is reachable through the dispatch below alone.
+    # One caveat has no fix inside this file: GitHub suspends a schedule
+    # after sixty days without repository activity, which is precisely the
+    # quiet period a sentinel exists to cover, and announces it only by
+    # email. A silence from this workflow is worth a look at the Actions
+    # tab before it is read as green
+    - cron: "8 5 * * 3"
+  workflow_dispatch:
+
+# least privilege for the GITHUB_TOKEN: everything running in a job
+# (actions, pip dependencies) can read the token, so it must not be able to
+# write to the repository
+permissions:
+  contents: read
+
+# never cancel a sentinel, unlike every other workflow here: the run a
+# release calls, the weekly one and a dispatch share this group, each is a
+# sample worth keeping, and none supersedes the others. A concurrent run
+# queues instead
+concurrency:
+  group: pypi-install-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # one question about the index, asked once, ahead of every cell that
+  # would otherwise ask it. The index does not serve a new file the
+  # instant the upload returns, and every cell below installs whatever the
+  # resolver picks: a cell that starts too early tests the *previous*
+  # version and reports a pass for it, which is worse than reporting
+  # nothing. What this decides when the wait runs out is a verdict no
+  # trigger produces -- what is waited on is somebody else's upload, so
+  # neither a release nor a rehearsal can arrange for the index to be
+  # late -- so it is a script with a test rather than a loop in a run:
+  # block, which is what section 10 of btclib-org/.github's README.md
+  # asks of a wait (btclib-org/.github#509). The budget is the script's own
+  # deadline, stated there as one number; timeout-minutes bounds the job
+  # rather than the wait, and is the callee's own (btclib-org/.github#35).
+  #
+  # The job runs on every trigger and waits on almost none of them: the
+  # input is empty wherever no release is calling, and an empty tag is
+  # nothing to wait for. An `if:` here would make a tag the only thing
+  # that ever runs it, and a job a release is the first to run is a job
+  # whose defect ships with that release -- which has already happened to
+  # this wait, in more than one of these repositories
+  #
+  # The job itself -- the checkout, the uv setup and the script run -- is
+  # btclib-org/.github's reusable-wait-for-index.yml, called at @main so a
+  # fix there reaches this tree in one landing (btclib-org/.github#35).
+  # package is this workflow's own distribution name, read off the
+  # script's own argument rather than derived from the repository's;
+  # version is forwarded from this workflow's own workflow_call input
+  wait-for-index:
+    uses: btclib-org/.github/.github/workflows/reusable-wait-for-index.yml@main
+    with:
+      package: btclib-secp256k1
+      version: ${{ inputs.version }}
+
+  install-published:
+    name: >-
+      ${{ matrix.no-binary && 'Build' || 'Install' }}
+      ${{ matrix.python-version }} from PyPI on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    # nothing here installs until the index serves what a release just
+    # published. On every other trigger the wait job returns at once,
+    # having had no version to wait for
+    needs: wait-for-index
+    # the sdist entry below compiles libsecp256k1 from source, which the
+    # others do not; one timeout covers both
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # narrower than the build matrices, and for a different reason:
+        # nothing is compiled here (except in the one entry that is), and
+        # what varies is which published wheel a platform and an
+        # interpreter select. The oldest interpreter and the two newest,
+        # plus the free-threaded build of each of those two, which must
+        # select its own static cp3XXt wheel and not fall through to the
+        # py3-none dynamic one
+        os:
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+          - macos-26-intel
+          - macos-latest
+          - windows-latest
+          - windows-11-arm
+        python-version: ["3.11", "3.14", "3.14t", "3.15", "3.15t"]
+        include:
+          # the path a platform with no wheel takes: compile the published
+          # sdist. Only this package is forced from source, not its
+          # dependencies, which would drag cffi's own build in. The
+          # interpreter is one the base matrix does not use, so that this
+          # adds a job rather than a property to an existing one
+          - os: ubuntu-latest
+            python-version: "3.13"
+            no-binary: true
+          # the one artifact PyPI serves as a dynamic wheel: PyPy on
+          # Windows, where no static pp3 wheel exists by design (see the
+          # skip in [tool.cibuildwheel]) and pip falls back to py3-none.
+          # PyPy anywhere else selects a static pp3 wheel of its own, so
+          # without this cell no published dynamic wheel is ever watched
+          - os: windows-latest
+            python-version: "pypy-3.11"
+            kind: dynamic
+
+    steps:
+      # no checkout on purpose: nothing from this repository takes part,
+      # which is also what guarantees that the import below resolves to
+      # what pip installed and not to a source tree
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          # section 1 of the organization standard counts a release
+          # candidate as released, and setup-python matches one only under
+          # this flag, which leaves a version with a final release on that
+          # final
+          allow-prereleases: true
+
+      # --only-binary on every cell but the sdist one: see the header. In
+      # both directions only this package is constrained, never its
+      # dependencies. An environment variable and a shell conditional
+      # rather than a ${{ }} expression inside run, as everywhere else in
+      # these workflows: matrix values are not attacker-controlled, but
+      # the pattern is worth keeping uniform
+      - name: Install the published package
+        shell: bash
+        env:
+          NO_BINARY: ${{ matrix.no-binary || false }}
+        run: |
+          python -m pip install -U pip
+          if [ "$NO_BINARY" = "true" ]; then
+            python -m pip install --verbose --no-binary btclib-secp256k1 btclib-secp256k1
+          else
+            python -m pip install --verbose --only-binary btclib-secp256k1 btclib-secp256k1
+          fi
+
+      # asserted rather than printed: which kind of artifact pip selected
+      # is the property this matrix samples. Cells expect static unless
+      # they say otherwise — the sdist build included, a source build
+      # being cffi API mode by default
+      - name: Check that pip selected the expected kind of artifact
+        shell: bash
+        env:
+          KIND: ${{ matrix.kind || 'static' }}
+        run: |
+          python -m pip show btclib-secp256k1
+          python - <<'PY'
+          import os
+          import sys
+
+          import _btclib_secp256k1 as m
+
+          actual = "static" if hasattr(m, "lib") else "dynamic"
+          print(m.__file__, actual)
+          if actual != os.environ["KIND"]:
+              sys.exit(f"expected a {os.environ['KIND']} install, got a {actual} one")
+          PY
+
+      - name: Verify BIP340 vector 0, and round trip a signature
+        shell: bash
+        run: |
+          python - <<'PY'
+          from btclib_secp256k1 import __version__, dsa, ssa
+
+          SECKEY = bytes.fromhex("00" * 31 + "03")
+          XONLY = bytes.fromhex(
+              "F9308A019258C31049344F85F89D5229B531C845836F99B08601F113BCE036F9"
+          )
+          MSG = bytes(32)
+          SIG340 = bytes.fromhex(
+              "E907831F80848D1069A5371B402410364BDF1C5F8307B0084C55F1CE2DCA8215"
+              "25F66A4A85EA8B71E482A74F382D2CE5EBEEE8FDB2172F477DF4900D310536C0"
+          )
+
+          print("installed version:", __version__)
+          if not ssa.verify(MSG, XONLY, SIG340):
+              raise SystemExit("BIP340 test vector 0 does not verify")
+          if not dsa.verify(MSG, b"\x02" + XONLY, dsa.sign(MSG, SECKEY)):
+              raise SystemExit("a signature this build made does not verify")
+          print("ok")
+          PY

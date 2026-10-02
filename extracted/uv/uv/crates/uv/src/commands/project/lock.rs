@@ -6,7 +6,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use owo_colors::OwoColorize;
-use rustc_hash::{FxBuildHasher, FxHashMap};
+use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
 use tracing::debug;
 
 use uv_cache::{Cache, Refresh};
@@ -23,14 +23,14 @@ use uv_distribution_types::{
 };
 use uv_git::ResolvedRepositoryReference;
 use uv_git_types::GitOid;
-use uv_lock::{Lock, Package, ResolverManifest, SatisfiesResult};
-use uv_normalize::{GroupName, PackageName};
+use uv_lock::{GroupMetadata, Lock, Package, ResolverManifest, SatisfiesResult};
+use uv_normalize::{DefaultGroups, GroupName, PackageName};
 use uv_pep440::Version;
 use uv_preview::{Preview, PreviewFeature};
 use uv_pypi_types::{ConflictKind, Conflicts, SupportedEnvironments};
 use uv_python::{
-    ConfigDiscovery, Interpreter, PythonDownloads, PythonEnvironment, PythonPreference,
-    PythonRequest,
+    ConfigDiscovery, Interpreter, PythonArchitecture, PythonDownloads, PythonEnvironment,
+    PythonPreference, PythonRequest,
 };
 use uv_requirements::ExtrasResolver;
 use uv_resolver::{
@@ -99,6 +99,7 @@ pub(crate) async fn lock(
     client_builder: BaseClientBuilder<'_>,
     script: Option<ScriptPath>,
     python_preference: PythonPreference,
+    python_arch: Option<PythonArchitecture>,
     python_downloads: PythonDownloads,
     concurrency: Concurrency,
     config_discovery: ConfigDiscovery,
@@ -117,6 +118,7 @@ pub(crate) async fn lock(
                 project_dir,
                 false,
                 python_preference,
+                python_arch,
                 python_downloads,
                 config_discovery,
                 &client_builder,
@@ -168,6 +170,7 @@ pub(crate) async fn lock(
                     workspace_python,
                     &client_builder,
                     python_preference,
+                    python_arch,
                     python_downloads,
                     &install_mirrors,
                     ProjectEnvironmentPolicy::Optional,
@@ -183,6 +186,7 @@ pub(crate) async fn lock(
                 python.as_deref().map(PythonRequest::parse),
                 &client_builder,
                 python_preference,
+                python_arch,
                 python_downloads,
                 &install_mirrors,
                 false,
@@ -542,6 +546,23 @@ async fn do_lock(
     let members = target.members();
     let packages = target.packages();
     let required_members = target.required_members();
+    let workspace_default_groups = match target {
+        LockTarget::Workspace(workspace) => {
+            if workspace.is_non_project() {
+                Some(workspace.default_groups()?)
+            } else {
+                None
+            }
+        }
+        LockTarget::Script(_) => None,
+    };
+
+    // Validate explicit defaults before omitting `["dev"]` from the lockfile. Unlike the
+    // implicit default, an explicit `["dev"]` requires the `dev` group to exist.
+    for member in packages.values() {
+        member.default_groups()?;
+    }
+
     let first_party_packages = match target {
         LockTarget::Workspace(workspace) => {
             FirstPartyPackages::from_workspace(workspace, &first_party_exclusions)
@@ -553,6 +574,19 @@ async fn do_lock(
     let excludes = target.exclude_dependencies();
     let constraints = target.constraints();
     let dependency_groups = target.dependency_groups()?;
+    let workspace_group_metadata = dependency_groups
+        .iter()
+        .filter_map(|(name, group)| {
+            group.requires_python.clone().map(|requires_python| {
+                (
+                    name.clone(),
+                    GroupMetadata {
+                        requires_python: Some(requires_python),
+                    },
+                )
+            })
+        })
+        .collect::<BTreeMap<_, _>>();
     let source_trees = vec![];
 
     // If necessary, lower the overrides and constraints.
@@ -839,7 +873,8 @@ async fn do_lock(
     // Checking an existing lockfile may build metadata and install build dependencies. Verify any
     // artifacts recorded in that lockfile, including for an ordinary unlocked command.
     let (locked_hasher, locked_build_hasher) = if let Some(existing_lock) = existing_lock.as_ref() {
-        let locked_hasher = existing_lock.hash_strategy(target.install_path())?;
+        let locked_hasher =
+            existing_lock.hash_strategy(target.install_path(), &FxHashSet::default())?;
         let build_hasher = HashStrategy::from_constraints(
             &existing_lock.build_constraints(target.install_path()),
             Some(&interpreter.to_resolver_marker_environment()),
@@ -852,12 +887,21 @@ async fn do_lock(
     } else {
         (HashStrategy::default(), HashStrategy::default())
     };
-    // A fresh resolution retains those hashes under `--locked`, but an explicitly unlocked update
-    // must be able to replace them. Build dependencies follow the same choice without generating
-    // hashes for artifacts absent from the lockfile.
-    let resolution_hasher = match mode {
-        LockMode::Locked(..) => &locked_hasher,
-        LockMode::Write(_) | LockMode::DryRun(_) | LockMode::Frozen(_) => &HashStrategy::default(),
+    // Re-resolving an outdated lock does not authorize replacing known artifacts. Only an
+    // explicit unlocked upgrade releases the selected packages' hashes.
+    let hash_upgrade = match mode {
+        LockMode::Locked(..) => &Upgrade::default(),
+        LockMode::Write(_) | LockMode::DryRun(_) | LockMode::Frozen(_) => upgrade,
+    };
+    let resolution_hasher = if hash_upgrade.is_none() {
+        locked_hasher.clone()
+    } else if let Some(existing_lock) = existing_lock.as_ref() {
+        // An explicit upgrade allows replacing the selected packages' files, so do not require
+        // them to match the hashes recorded in the lockfile.
+        let upgrade_packages = existing_lock.upgrade_packages(hash_upgrade);
+        existing_lock.hash_strategy(target.install_path(), &upgrade_packages)?
+    } else {
+        HashStrategy::default()
     };
     let hasher = HashStrategy::collect(HashCollection::Url)
         .with_verification(resolution_hasher.verification().clone());
@@ -953,6 +997,8 @@ async fn do_lock(
             required_members,
             &requirements,
             &dependency_groups,
+            &workspace_group_metadata,
+            workspace_default_groups.as_ref(),
             &constraints,
             &overrides,
             &excludes,
@@ -1160,7 +1206,22 @@ async fn do_lock(
                 preview.is_enabled(PreviewFeature::LockWithoutMetadata),
             )?
             .with_conflicts(conflicts)
-            .with_required_environments(lock_required_environments.into_markers());
+            .with_required_environments(lock_required_environments.into_markers())
+            .with_member_default_groups(
+                packages
+                    .iter()
+                    .filter_map(|(name, member)| {
+                        member
+                            .pyproject_toml()
+                            .configured_default_groups()
+                            .cloned()
+                            .map(|groups| (name.clone(), groups))
+                    })
+                    .collect(),
+            )
+            .with_workspace_default_groups(workspace_default_groups)
+            .with_member_group_metadata(packages)?
+            .with_workspace_group_metadata(workspace_group_metadata);
 
             let lock = if let Some(recorder) = recorder {
                 lock.prune_unused(recorder.take())
@@ -1209,6 +1270,8 @@ impl ValidatedLock {
         required_members: &BTreeMap<PackageName, Editability>,
         requirements: &[Requirement],
         dependency_groups: &BTreeMap<GroupName, Vec<Requirement>>,
+        workspace_group_metadata: &BTreeMap<GroupName, GroupMetadata>,
+        workspace_default_groups: Option<&DefaultGroups>,
         constraints: &[Requirement],
         overrides: &[Override<Requirement>],
         excludes: &[ExcludeDependency],
@@ -1443,6 +1506,8 @@ impl ValidatedLock {
                 excludes,
                 build_constraints,
                 dependency_groups,
+                workspace_group_metadata,
+                workspace_default_groups,
                 dependency_metadata,
                 indexes,
                 interpreter.tags()?,
@@ -1462,6 +1527,34 @@ impl ValidatedLock {
             SatisfiesResult::MismatchedMembers(expected, actual) => {
                 debug!(
                     "Resolving despite existing lockfile due to mismatched members:\n  Requested: {:?}\n  Existing: {:?}",
+                    expected, actual
+                );
+                Ok(Self::Preferable(lock))
+            }
+            SatisfiesResult::MismatchedMemberDefaultGroups(expected, actual) => {
+                debug!(
+                    "Resolving despite existing lockfile due to mismatched member default groups:\n  Requested: {:?}\n  Existing: {:?}",
+                    expected, actual
+                );
+                Ok(Self::Preferable(lock))
+            }
+            SatisfiesResult::MismatchedWorkspaceGroupMetadata(expected, actual) => {
+                debug!(
+                    "Resolving despite existing lockfile due to mismatched workspace group metadata:\n  Requested: {:?}\n  Existing: {:?}",
+                    expected, actual
+                );
+                Ok(Self::Preferable(lock))
+            }
+            SatisfiesResult::MismatchedWorkspaceDefaultGroups(expected, actual) => {
+                debug!(
+                    "Resolving despite existing lockfile due to mismatched workspace default groups:\n  Requested: {:?}\n  Existing: {:?}",
+                    expected, actual
+                );
+                Ok(Self::Preferable(lock))
+            }
+            SatisfiesResult::MismatchedMemberGroupMetadata(expected, actual) => {
+                debug!(
+                    "Resolving despite existing lockfile due to mismatched group metadata:\n  Requested: {:?}\n  Existing: {:?}",
                     expected, actual
                 );
                 Ok(Self::Preferable(lock))

@@ -1,0 +1,168 @@
+"""Layer A8 — `layout: matrix` is a 1-D sequence in canonical cell order (#599)."""
+
+from __future__ import annotations
+
+import inspect
+from pathlib import Path
+
+import pytest
+
+from excel_grapher.evaluator import FormulaEvaluator
+from excel_grapher.exporter.inverted_tree.catalog import _layout_of, build_catalog
+from excel_grapher.exporter.inverted_tree.errors import InvertedTreeExportError
+from excel_grapher.grapher import create_dependency_graph
+from excel_grapher.series_bindings import validate_bindings_document
+from tests.unit.exporter.inverted_tree.helpers import (
+    bindings_document,
+    generate_inverted,
+    input_field_names,
+    invoke_public_compute,
+    load_package,
+    series_entry,
+    write_workbook,
+)
+
+
+def _profile_workbook(tmp_path: Path) -> Path:
+    return write_workbook(
+        tmp_path / "a8_profile.xlsx",
+        {
+            "Profile": {
+                "B1": 2020,
+                "C1": 2021,
+                "A2": "France",
+                "B2": 10.0,
+                "C2": 11.0,
+                "A3": "Kenya",
+                "B3": 20.0,
+                "C3": 21.0,
+            },
+            "Outputs": {
+                "A1": "=Profile!B2",
+            },
+        },
+    )
+
+
+def _profile_table_series() -> dict:
+    return {
+        "id": "profile_table",
+        "sheet": "Profile",
+        "data_range": "Profile!B2:C3",
+        "layout": "matrix",
+        "constant": {},
+        "structure": {
+            "measure": {
+                "concept": "OBS_VALUE",
+                "dtype": "float",
+                "bind": {"kind": "data_cell", "read": "float"},
+            },
+            "dimensions": [
+                {
+                    "id": "COUNTRY",
+                    "concept": "COUNTRY",
+                    "role": "key",
+                    "scope": "cell",
+                    "bind": {
+                        "kind": "row_label",
+                        "label_column": "A",
+                        "read": "string",
+                    },
+                },
+                {
+                    "id": "TIME_PERIOD",
+                    "concept": "TIME_PERIOD",
+                    "role": "key",
+                    "scope": "cell",
+                    "bind": {
+                        "kind": "column_header",
+                        "header_row": 1,
+                        "read": "int",
+                    },
+                },
+            ],
+        },
+        "key": ["COUNTRY", "TIME_PERIOD"],
+    }
+
+
+def _profile_bindings() -> dict:
+    return bindings_document(
+        _profile_table_series(),
+        series_entry(
+            "output_cell",
+            "Outputs!A1",
+            layout="scalar",
+            direction="output",
+        ),
+    )
+
+
+def _measure(value: object) -> object:
+    if isinstance(value, tuple):
+        assert len(value) == 1
+        return value[0]
+    return value
+
+
+def test_catalog_resolves_matrix_as_named_domain(tmp_path: Path) -> None:
+    workbook = _profile_workbook(tmp_path)
+    catalog = build_catalog(validate_bindings_document(_profile_bindings()), workbook=workbook)
+    series = catalog.get("profile_table")
+    assert series.layout == "matrix"
+    assert series.cells == ("Profile!B2", "Profile!C2", "Profile!B3", "Profile!C3")
+    assert series.is_sequence
+    assert not series.is_scalar
+    assert series.key_fields == ("COUNTRY", "TIME_PERIOD")
+    assert tuple(axis.name for axis in series.tensor_domain.axes) == ("COUNTRY", "TIME_PERIOD")
+    assert tuple(series.tensor_domain) == (
+        ("France", 2020),
+        ("France", 2021),
+        ("Kenya", 2020),
+        ("Kenya", 2021),
+    )
+    assert series.coordinate_cells[("Kenya", 2021)] == "Profile!C3"
+
+
+def test_named_axes_use_declared_concept_types_without_redundant_read(tmp_path: Path) -> None:
+    workbook = _profile_workbook(tmp_path)
+    entry = _profile_table_series()
+    time = entry["structure"]["dimensions"][1]
+    del time["bind"]["read"]
+    time["dtype"] = "int"
+    catalog = build_catalog(validate_bindings_document(bindings_document(entry)), workbook=workbook)
+    assert catalog.get("profile_table").tensor_domain.axes[1].key_type is int
+
+
+def test_matrix_constant_is_imported_not_passed(tmp_path: Path) -> None:
+    workbook = _profile_workbook(tmp_path)
+    modules = generate_inverted(workbook, _profile_bindings())
+    assert "EvalContext" not in modules["api.py"]
+    assert "ctx" not in modules["api.py"]
+    assert "from .data import PROFILE_TABLE" not in modules["api.py"]
+    assert "PROFILE_TABLE" in modules["data.py"]
+    pkg = load_package(modules, tmp_path, name="a8_kw")
+    params = inspect.signature(pkg.compute_output_cell).parameters
+    assert list(params) == ["inputs"]
+    assert input_field_names(pkg, pkg.compute_output_cell) == ()
+    assert "profile_table" not in input_field_names(pkg, pkg.compute_output_cell)
+    assert pkg.compute_output_cell.__constants__ == ("profile_table",)
+    assert "ctx" not in input_field_names(pkg, pkg.compute_output_cell)
+    assert _measure(invoke_public_compute(pkg, pkg.compute_output_cell, {})) == pytest.approx(10.0)
+    replacement = pkg.data.PROFILE_TABLE.with_nested(((99.0, 11.0), (20.0, 21.0)))
+    with pkg.data.overrides(PROFILE_TABLE=replacement):
+        assert _measure(invoke_public_compute(pkg, pkg.compute_output_cell, {})) == pytest.approx(
+            99.0
+        )
+    assert _measure(invoke_public_compute(pkg, pkg.compute_output_cell, {})) == pytest.approx(10.0)
+    expected = FormulaEvaluator(
+        create_dependency_graph(workbook, ["Outputs!A1"], load_values=True)
+    ).evaluate(["Outputs!A1"])
+    assert _measure(invoke_public_compute(pkg, pkg.compute_output_cell, {})) == pytest.approx(
+        expected["Outputs!A1"]
+    )
+
+
+def test_unknown_layout_still_fail_closed() -> None:
+    with pytest.raises(InvertedTreeExportError, match="unsupported layout"):
+        _layout_of({"id": "x", "layout": "grid"})

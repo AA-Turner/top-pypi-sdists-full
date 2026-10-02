@@ -59,10 +59,6 @@ def validate_exactly_one_name_or_id(
     """
     provided = int(name is not None) + int(entity_id is not None)
     if provided == 0:
-        raise click.ClickException(
-            f"One of '{name_flag}' and '{id_flag}' must be provided."
-        )
+        raise click.ClickException(f"One of '{name_flag}' and '{id_flag}' must be provided.")
     if provided > 1:
-        raise click.ClickException(
-            f"Only one of '{name_flag}' and '{id_flag}' can be provided."
-        )
+        raise click.ClickException(f"Only one of '{name_flag}' and '{id_flag}' can be provided.")

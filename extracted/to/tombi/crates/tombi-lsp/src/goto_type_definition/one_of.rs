@@ -8,8 +8,8 @@ use super::{GetTypeDefinition, TypeDefinition, schema_type_definition};
 
 pub fn get_one_of_type_definition<'a: 'b, 'b, T>(
     value: &'a T,
-    position: tombi_text::Position,
-    keys: &'a [tombi_document_tree_syntax::Key],
+    cursor: crate::CursorPosition<'a>,
+    keys: &'a [tombi_document_tree_syntax::Key<'_>],
     accessors: &'a [tombi_schema_store::Accessor],
     one_of_schema: &'a tombi_schema_store::OneOfSchema,
     current_schema: &'a CurrentSchema<'a>,
@@ -23,6 +23,7 @@ where
         + Send
         + std::fmt::Debug,
 {
+    let offset = cursor.offset();
     log::trace!("value: {:?}", value);
     log::trace!("keys: {:?}", keys);
     log::trace!("accessors: {:?}", accessors);
@@ -54,7 +55,7 @@ where
         .await;
         let applicable_count = evaluation.applicable_count();
         let is_property_key = keys.first().is_some_and(|key| {
-            tombi_document_tree_syntax::ValueImpl::range(key).contains(position)
+            tombi_document_tree_syntax::ValueImpl::span(key).contains_inclusive(offset)
         });
         let mut result = Vec::new();
 
@@ -71,7 +72,7 @@ where
 
             let type_definitions = value
                 .get_type_definition(
-                    position,
+                    cursor,
                     keys,
                     accessors,
                     Some(navigation_schema),
@@ -86,12 +87,15 @@ where
         }
 
         let mut schema_base_uri = current_schema.schema_base_uri.as_ref().clone();
-        schema_base_uri.set_fragment(Some(&format!("L{}", one_of_schema.range.start.line + 1)));
+        schema_base_uri.set_fragment(Some(&super::schema_line_fragment(
+            &current_schema.line_index,
+            one_of_schema.span,
+        )));
 
         vec![TypeDefinition {
             schema_base_uri,
             schema_accessors: accessors.iter().map(Into::into).collect_vec(),
-            range: tombi_text::Range::default(),
+            span: None,
         }]
     }
     .boxed()
@@ -100,8 +104,8 @@ where
 impl GetTypeDefinition for tombi_schema_store::OneOfSchema {
     fn get_type_definition<'a: 'b, 'b>(
         &'a self,
-        _position: tombi_text::Position,
-        _keys: &'a [tombi_document_tree_syntax::Key],
+        _cursor: crate::CursorPosition<'a>,
+        _keys: &'a [tombi_document_tree_syntax::Key<'_>],
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         _schema_context: &'a tombi_schema_store::SchemaContext,
@@ -111,11 +115,7 @@ impl GetTypeDefinition for tombi_schema_store::OneOfSchema {
                 unreachable!("schema must be provided");
             };
 
-            vec![schema_type_definition(
-                current_schema.schema_base_uri.as_ref(),
-                accessors,
-                self.range,
-            )]
+            vec![schema_type_definition(current_schema, accessors, self.span)]
         }
         .boxed()
     }

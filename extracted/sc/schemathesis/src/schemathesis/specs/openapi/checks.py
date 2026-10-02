@@ -19,9 +19,16 @@ from schemathesis.core.mutations import OperatorKind, render_mutations
 from schemathesis.core.parameters import ParameterLocation, plain_str_values
 from schemathesis.core.transport import HTTP_METHODS_SCHEMA, Response, expand_status_code
 from schemathesis.generation.case import Case
-from schemathesis.generation.meta import CoveragePhaseData, CoverageScenario, FuzzingPhaseData
+from schemathesis.generation.meta import (
+    REQUEST_SHAPE_PROBES,
+    CoveragePhaseData,
+    CoverageScenario,
+    FuzzingPhaseData,
+    coverage_scenario,
+)
 from schemathesis.openapi.checks import (
     AllowHeaderMismatch,
+    AuthScenario,
     EnsureResourceAvailability,
     IgnoredAuth,
     JsonSchemaError,
@@ -53,12 +60,8 @@ if TYPE_CHECKING:
 
 
 def is_unexpected_http_status_case(case: Case) -> bool:
-    # Skip checks for requests using HTTP methods not defined in the API spec
-    return bool(
-        case.meta
-        and isinstance(case.meta.phase.data, CoveragePhaseData)
-        and case.meta.phase.data.scenario == CoverageScenario.UNSPECIFIED_HTTP_METHOD
-    )
+    # Skip checks for request-shape probes whose response conformance is irrelevant.
+    return coverage_scenario(case) in REQUEST_SHAPE_PROBES
 
 
 def requires_openapi_schema(func: CheckFunction) -> CheckFunction:
@@ -76,7 +79,7 @@ def requires_openapi_schema(func: CheckFunction) -> CheckFunction:
 
 
 def skips_on_unexpected_http_status(func: CheckFunction) -> CheckFunction:
-    """Skip the check when the scenario targets undefined HTTP methods (coverage mode)."""
+    """Skip the check when a coverage request-shape probe targets the server."""
 
     @wraps(func)
     def wrapper(ctx: CheckContext, response: Response, case: Case) -> bool | None:
@@ -616,7 +619,13 @@ def _path_array_becomes_valid_after_serialization(case: Case) -> bool:
             return True
         # `unquote` keeps `str` subclasses intact, and splitting an empty string keeps the input
         # object; the validator rejects anything but a plain `str`.
-        if validator.is_valid(unquote(str(value)).split(",")):
+        items = unquote(str(value)).split(",")
+        if validator.is_valid(items):
+            return True
+        # Items arrive as text, so `18` is the wire form of `[18]` for an integer array.
+        item_types = get_type(schema.get("items", {}))
+        coerced = [_coerce_string_to_numeric(item, item_types) for item in items]
+        if None not in coerced and validator.is_valid(coerced):
             return True
 
     return False
@@ -1158,6 +1167,17 @@ def _created_a_resource(*, parent: Case, parent_response: Response, case: Case) 
     return parent_response.status_code == 201 or "Location" in parent_response.headers
 
 
+def _stale_cache_hint(response: Response) -> str:
+    # A shared cache can keep serving the pre-write state, so the failure may belong to the intermediary, not the API.
+    age = response.headers.get("age", [""])[0]
+    if age.isdigit() and int(age) > 0:
+        return f"\n\nThe response came from a cache (`Age: {age}`) and may be stale"
+    x_cache = response.headers.get("x-cache", [""])[0]
+    if "HIT" in x_cache.upper():
+        return f"\n\nThe response came from a cache (`X-Cache: {x_cache}`) and may be stale"
+    return ""
+
+
 @schemathesis.check
 @requires_openapi_schema
 @skips_on_unexpected_http_status
@@ -1218,6 +1238,7 @@ def use_after_free(ctx: CheckContext, response: Response, case: Case) -> bool | 
                     message=(
                         "The API did not return a `HTTP 404 Not Found` response "
                         f"(got `HTTP {response.status_code} {reason}`) for a resource that was previously deleted.\n\nThe resource was deleted with `{free}`"
+                        f"{_stale_cache_hint(response)}"
                     ),
                     free=free,
                     usage=usage,
@@ -1287,16 +1308,11 @@ def ensure_resource_availability(ctx: CheckContext, response: Response, case: Ca
             f"The API returned `{response.status_code} {reason}` for a resource that was just created.\n\n"
             f"Created with      : `{created_with}`\n"
             f"Not available with: `{not_available_with}`"
+            f"{_stale_cache_hint(response)}"
         ),
         created_with=created_with,
         not_available_with=not_available_with,
     )
-
-
-class AuthScenario(str, enum.Enum):
-    NO_AUTH = "no_auth"
-    INVALID_AUTH = "invalid_auth"
-    GENERATED_AUTH = "generated_auth"
 
 
 class AuthKind(str, enum.Enum):
@@ -1322,8 +1338,15 @@ def ignored_auth(ctx: CheckContext, response: Response, case: Case) -> bool | No
     security_parameters = get_security_parameters(case.operation)
     # Authentication is required for this API operation and response is successful
     if security_parameters and 200 <= response.status_code < 300:
+        # Probes can't remove credentials the schema doesn't declare, so their outcome proves nothing
+        if _has_undeclared_explicit_authorization(ctx, response, security_parameters):
+            return None
         auth = _contains_auth(ctx, case, response, security_parameters)
         if auth == AuthKind.EXPLICIT:
+            enforced = ctx.auth_enforced_operations
+            # Enforcement is a property of the operation, so one confirmation per run is enough.
+            if enforced is not None and case.operation.label in enforced:
+                return None
             # Auth is explicitly set, it is expected to be valid
             # Check if invalid auth will give an error
             no_auth_case = remove_auth(case, security_parameters)
@@ -1333,7 +1356,7 @@ def ignored_auth(ctx: CheckContext, response: Response, case: Case) -> bool | No
             ctx._record_case(parent_id=case.id, case=no_auth_case)
             no_auth_response = case.operation.schema.transport.send(no_auth_case, **kwargs)
             ctx._record_response(case_id=no_auth_case.id, response=no_auth_response)
-            if no_auth_response.status_code not in AUTH_ENFORCED_STATUSES:
+            if not _enforces_auth(no_auth_response, response):
                 _raise_no_auth_error(no_auth_response, no_auth_case, AuthScenario.NO_AUTH)
             # Try to set invalid auth and check if it succeeds
             for parameter in security_parameters:
@@ -1342,8 +1365,10 @@ def ignored_auth(ctx: CheckContext, response: Response, case: Case) -> bool | No
                 ctx._record_case(parent_id=case.id, case=invalid_auth_case)
                 invalid_auth_response = case.operation.schema.transport.send(invalid_auth_case, **kwargs)
                 ctx._record_response(case_id=invalid_auth_case.id, response=invalid_auth_response)
-                if invalid_auth_response.status_code not in AUTH_ENFORCED_STATUSES:
+                if not _enforces_auth(invalid_auth_response, response):
                     _raise_no_auth_error(invalid_auth_response, invalid_auth_case, AuthScenario.INVALID_AUTH)
+            if enforced is not None:
+                enforced.add(case.operation.label)
         elif auth == AuthKind.GENERATED:
             # If this auth is generated which means it is likely invalid, then
             # this request should have been an error
@@ -1352,6 +1377,26 @@ def ignored_auth(ctx: CheckContext, response: Response, case: Case) -> bool | No
             # Successful response when there is no auth
             _raise_no_auth_error(response, case, AuthScenario.NO_AUTH)
     return None
+
+
+def _has_undeclared_explicit_authorization(
+    ctx: CheckContext, response: Response, security_parameters: list[Mapping[str, Any]]
+) -> bool:
+    if any(p["in"] == "header" and p["name"].lower() == "authorization" for p in security_parameters):
+        return False
+    sources = [
+        ctx._headers,
+        ctx._override.headers if ctx._override else None,
+        response._override.headers if response._override else None,
+    ]
+    return any(headers is not None and any(name.lower() == "authorization" for name in headers) for headers in sources)
+
+
+def _enforces_auth(response: Response, authenticated: Response) -> bool:
+    if response.status_code in AUTH_ENFORCED_STATUSES or 300 <= response.status_code < 400:
+        return True
+    # Session-based auth redirects to a sign-in page; a followed redirect ends on a different path.
+    return urlparse(response.request.url).path != urlparse(authenticated.request.url).path
 
 
 def _raise_no_auth_error(response: Response, case: Case, auth: AuthScenario) -> NoReturn:
@@ -1379,6 +1424,7 @@ def _raise_no_auth_error(response: Response, case: Case, auth: AuthScenario) -> 
     raise IgnoredAuth(
         operation=case.operation.label,
         message=message,
+        scenario=auth,
         title=title,
         case_id=case.id,
     )

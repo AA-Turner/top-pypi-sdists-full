@@ -1,0 +1,188 @@
+from __future__ import annotations
+
+import numpy as np
+import pytest
+
+from mechbench_compute import ops, trees
+from mechbench_compute.ops.geometry.span import (
+    build_span_trees,
+    grow_minimum_spanning_tree,
+    measure_tree,
+)
+
+
+def similarity_of(points: np.ndarray) -> dict:
+    from mechbench_compute import geometry
+    from mechbench_compute.lexicon import kinds as K
+
+    unit = points / np.linalg.norm(points, axis=1, keepdims=True)
+    return K.collection("geometry/similarity", [{
+        "layer": 0, "ids": [f"i{i}" for i in range(len(points))],
+        "labels": [None] * len(points),
+        "matrix": geometry.cosine_matrix(unit.astype(np.float32)).tolist()}],
+        metric="cosine", metric_kind="similarity", symmetric=True, options={})
+
+
+def corpus(kind: str, n: int = 30, seed: int = 0) -> np.ndarray:
+    rng = np.random.default_rng(seed)
+    if kind == "collapsed":
+        return np.array([1.0, 0.0, 0.0]) + rng.normal(0, 0.01, (n, 3))
+    if kind == "clustered":
+        centres = np.array([[1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0]])
+        return np.concatenate([c + rng.normal(0, 0.03, (n // 3, 3))
+                               for c in centres])
+    return rng.normal(0, 1.0, (n, 3))
+
+
+class TestTheTreeItself:
+    def test_prims_finds_the_known_tree(self):
+        d = np.array([[0, 1, 9, 9], [1, 0, 1, 9], [9, 1, 0, 1], [9, 9, 1, 0]],
+                     dtype=float)
+        edges = grow_minimum_spanning_tree(d)
+        assert [(i, j) for i, j, _ in edges] == [(0, 1), (1, 2), (2, 3)]
+        assert sum(w for _, _, w in edges) == 3.0
+
+    def test_ties_break_toward_the_lower_index_so_the_tree_reproduces(self):
+        d = np.ones((5, 5)) - np.eye(5)
+        once = grow_minimum_spanning_tree(d)
+        twice = grow_minimum_spanning_tree(d)
+        assert once == twice
+        assert [j for _, j, _ in once] == [1, 2, 3, 4]
+
+    def test_a_single_item_has_no_tree(self):
+        assert grow_minimum_spanning_tree(np.zeros((1, 1))) == []
+        assert measure_tree([]) == {"n_edges": 0}
+
+
+class TestTheMeasure:
+    def stats(self, kind, **params):
+        out = ops.run_standalone("geometry/span", 
+            {"similarity": similarity_of(corpus(kind))}, params)
+        return out["items"][0]
+
+    def test_collapse_and_evenness_both_have_low_variance(self):
+        collapsed = self.stats("collapsed")
+        even = self.stats("even")
+        assert collapsed["variance"] < 0.01
+        assert even["variance"] < 0.5
+        assert collapsed["mean"] < even["mean"] / 5
+
+    def test_clusters_show_up_as_variance_and_bridges(self):
+        clustered = self.stats("clustered")
+        even = self.stats("even")
+        assert clustered["cv"] > even["cv"]
+        assert clustered["components_after_cut"] == 3
+
+    def test_the_scale_free_number_survives_a_rescale(self):
+        base = similarity_of(corpus("clustered"))
+        cv1 = ops.run_standalone("geometry/span", 
+            {"similarity": base}, {})["items"][0]["cv"]
+        scaled = {**base, "items": [{**base["items"][0], "matrix": [
+            [1 - (1 - v) * 0.5 for v in row]
+            for row in base["items"][0]["matrix"]]}]}
+        cv2 = ops.run_standalone("geometry/span", 
+            {"similarity": scaled}, {})["items"][0]["cv"]
+        assert cv1 == pytest.approx(cv2, abs=0.02)
+
+
+class TestTheBlock:
+    def test_it_follows_a_similarity_over_vectors(self):
+        rows = [{"id": f"r{i}", "layer": 3, "head": None, "label": None,
+                 "vector": v.tolist()} for i, v in enumerate(corpus("clustered"))]
+        sim = ops.run_standalone("geometry/compare", 
+            {"items": {"kind": "residual_vectors", "rows": rows}}, {})
+        out = ops.run_standalone("geometry/span", {"similarity": sim}, {})
+        assert out["items"][0]["layer"] == 3 and out["items"][0]["group"] == "layer=3"
+        assert out["items"][0]["n"] == len(rows)
+        assert out["metric"] == "cosine" and out["over"] == "activations/vector"
+
+    def test_a_table_reads_the_items_directly(self):
+        out = ops.run_standalone("geometry/span", 
+            {"similarity": similarity_of(corpus("even"))}, {})
+        item = out["items"][0]
+        assert {"layer", "n", "mean", "variance", "cv", "bridges"} <= set(item)
+        table = ops.run_standalone("records/tabulate", {"records": out}, {})
+        assert table["kind"] == "records/table"
+        assert [r["n"] for r in table["rows"]] == [item["n"]]
+
+    def test_a_wrong_input_says_what_it_wanted(self):
+        with pytest.raises(ValueError, match="geometry/similarity"):
+            ops.run_standalone("geometry/span", {"similarity": [1, 2]}, {})
+
+
+class TestCentering:
+    def _cone(self, n=40, d=16, spread=0.05, seed=0):
+        rng = np.random.default_rng(seed)
+        common = np.ones(d, dtype=np.float32) * 10.0
+        return common + rng.normal(0, spread, size=(n, d)).astype(np.float32)
+
+    def _mean_edge(self, rows, **options):
+        sim = ops.run_standalone("geometry/compare", 
+            {"items": {"kind": "residual_vectors", "rows": rows}},
+            {"metric": "cosine", "options": options})
+        out = build_span_trees({"similarity": sim}, {})
+        return out["items"][0]["mean"], out
+
+    def _rows(self, V):
+        return [{"id": f"r{i}", "layer": 23, "vector": v.tolist()}
+                for i, v in enumerate(V)]
+
+    def test_centering_expands_a_cone(self):
+        rows = self._rows(self._cone())
+        raw, _ = self._mean_edge(rows)
+        centered, _ = self._mean_edge(rows, center=True)
+        assert centered > raw * 10
+
+    def test_the_record_says_it_was_centered(self):
+        _, out = self._mean_edge(self._rows(self._cone()), center=True)
+        assert out["metric"] == "cosine" and out["options"] == {"center": True}
+
+    def test_uncentered_is_unchanged(self):
+        _, out = self._mean_edge(self._rows(self._cone()))
+        assert out["metric"] == "cosine" and out["options"] == {"center": False}
+
+    def test_centering_reproduces_the_direct_path_bit_for_bit(self):
+        from mechbench_compute import geometry
+
+        V = self._cone()
+        rows = self._rows(V)
+        centred = trees.center_rows(np.array(V, dtype=np.float32))
+        direct = trees._distance_from_similarity(geometry.cosine_matrix(centred))
+        edges = grow_minimum_spanning_tree(direct)
+        want = measure_tree(edges)
+        _, out = self._mean_edge(rows, center=True)
+        got = {k: out["items"][0][k] for k in want}
+        assert got == want
+
+
+class TestParamChecking:
+    def test_an_unknown_param_is_refused_by_name(self):
+        from mechbench_compute.block_params import check_params
+        with pytest.raises(ValueError, match="does not accept 'centre'"):
+            check_params("geometry/span",
+                         {"bridge_sigma": 2.0, "centre": True})
+
+    def test_the_message_points_at_the_runner(self):
+        from mechbench_compute.block_params import check_params
+        with pytest.raises(ValueError, match="predates the parameter"):
+            check_params("geometry/span", {"center_rows": True})
+
+    def test_accepted_params_pass(self):
+        from mechbench_compute.block_params import check_params
+        check_params("geometry/span",
+                     {"bridge_sigma": 2.0, "name": "v", "keep_edges": False})
+
+    def test_a_port_given_as_a_param_is_refused_with_directions(self):
+        from mechbench_compute.block_params import check_params
+        with pytest.raises(ValueError, match="input port"):
+            check_params("geometry/span", {"similarity": {}})
+
+    def test_an_unregistered_block_is_unchecked(self):
+        from mechbench_compute.block_params import check_params
+        check_params("~someone/ops/custom/1", {"anything": 1})
+
+    def test_pooling_params_are_accepted_on_residual_vectors(self):
+        from mechbench_compute.block_params import check_params
+        check_params("activations/capture",
+                     {"layers": [23], "pool": {"reduce": "mean", "over": {"after": 1}},
+                      "skip_empty": True})

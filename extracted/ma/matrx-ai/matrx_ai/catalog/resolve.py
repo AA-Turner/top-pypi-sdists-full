@@ -38,6 +38,14 @@ def _match_endpoint_hint(
     return matched
 
 
+def _class_name(manager: AiCatalogManager, endpoint_id: str) -> str:
+    """The person-facing name of a model's CLASS — its serving endpoint."""
+    endpoint = manager.endpoint(endpoint_id)
+    if endpoint is None:
+        return f"endpoint {endpoint_id}"
+    return endpoint.display_name or endpoint.internal_name or endpoint.id
+
+
 def _resolve_pinned_offering(
     offerings: list[CatalogOffering],
     manager: AiCatalogManager,
@@ -46,20 +54,23 @@ def _resolve_pinned_offering(
     model_id: str,
     model_name: str,
 ) -> CatalogOffering:
-    """Resolve a PINNED offering exactly — or RAISE loudly, never fall back.
+    """Resolve a PINNED offering — its exact row, else its CLASS, else RAISE.
 
-    The pin is the owner's doctrine made executable: "when we list a model,
-    we're not listing the model, we're listing the exact call." A pin that is
-    unavailable or belongs to another model is a caller/config bug and must
-    scream — silently substituting the preferred offering would defeat the
-    entire point of pinning.
+    A pin carries the person's chosen CLASS of the model: the serving endpoint
+    ("Matrx Fast", "Matrx Lightning"…). Different classes are separate
+    products, so a pin never crosses to another endpoint. Within ONE class the
+    offerings are equivalent, so when the pinned row is merely unavailable (an
+    operator parked it, its api was quarantined) the best available offering
+    on the SAME endpoint runs instead — announced loudly. It RAISES when the
+    class itself has nothing available (named), and when the pin does not
+    exist or belongs to another model (a caller/config bug).
     """
     pin = str(offering_id)
     for offering in offerings:
         if offering.id == pin:
             return offering
 
-    # Not routable — diagnose WHY, loudly.
+    # Not routable as pinned — diagnose WHY, loudly.
     known = manager.offering(pin)
     if known is None:
         detail = (
@@ -72,24 +83,38 @@ def _resolve_pinned_offering(
             f"requested model '{model_name}' ({model_id}). The pin must be cleared "
             f"or re-selected when the model changes."
         )
-    elif not known.is_available:
-        detail = f"offering '{pin}' exists for this model but is_available=false."
     else:
-        endpoint = manager.endpoint(known.endpoint_id)
-        if endpoint is None or not endpoint.is_active:
-            detail = (
-                f"offering '{pin}' exists and is available, but its endpoint "
-                f"'{known.endpoint_id}' is missing or inactive."
+        # A real offering OF THIS MODEL that cannot run right now: run its class.
+        class_name = _class_name(manager, known.endpoint_id)
+        same_class = [o for o in offerings if str(o.endpoint_id) == str(known.endpoint_id)]
+        if same_class:
+            chosen = same_class[0]  # offerings_for is priority-ordered
+            vcprint(
+                f"Pinned offering '{pin}' for model '{model_name}' ({model_id}) is "
+                f"unavailable; class '{class_name}' now runs its preferred available "
+                f"offering '{chosen.id}' (priority {chosen.priority}). The class's "
+                f"preferred offering CHANGED — re-pin to '{chosen.id}' or restore '{pin}'.",
+                title="⚠️ AI CATALOG CLASS OFFERING SUBSTITUTED",
+                color="yellow",
             )
+            return chosen
+        if not known.is_available:
+            why = "is_available=false"
         else:
-            detail = (
-                f"offering '{pin}' exists but its api '{known.api_id}' is missing "
-                f"or quarantined."
-            )
+            endpoint = manager.endpoint(known.endpoint_id)
+            if endpoint is None or not endpoint.is_active:
+                why = f"its endpoint '{known.endpoint_id}' is missing or inactive"
+            else:
+                why = f"its api '{known.api_id}' is missing or quarantined"
+        detail = (
+            f"offering '{pin}' ({why}) is in class '{class_name}', and class "
+            f"'{class_name}' has NO available offering for this model. Another "
+            f"class is a different product — it is never substituted."
+        )
     vcprint(
         f"PINNED offering for model '{model_name}' ({model_id}) cannot be routed: "
-        f"{detail} A pinned offering NEVER silently falls back to the preferred "
-        f"one — fix the pin or unset it.",
+        f"{detail} A pinned offering NEVER silently falls back to another class — "
+        f"fix the pin or unset it.",
         title="🚨 AI CATALOG PINNED-OFFERING FAILURE",
         color="red",
     )
@@ -203,7 +228,8 @@ async def resolve_call_profile(
                 f"on endpoint '{endpoint_hint}'"
             )
 
-    if not offerings:
+    if not offerings and offering_id is None:
+        # (A pinned call diagnoses an empty list itself, naming the class.)
         vcprint(
             f"Model '{model.name}' ({model_id}) exists in ai.model_definition but has "
             f"ZERO available ai.offering rows (or every offering's endpoint is inactive/"
@@ -282,7 +308,9 @@ async def resolve_call_profile(
         auth_ref=endpoint.auth_ref,
         byok_secret_key=endpoint.byok_secret_key,
         capabilities=capabilities,
-        controls=manager.compiled_controls(api.id, offering.id),
+        controls=manager.compiled_controls(api.id, offering.id).with_output_maximum(
+            getattr(model, "max_tokens", None)
+        ),
         request_defaults=api.request_defaults,
         pricing=offering.pricing if offering.pricing else getattr(model, "pricing", None),
         usage_basis=offering.usage_basis,

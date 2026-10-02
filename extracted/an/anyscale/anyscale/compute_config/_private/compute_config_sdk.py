@@ -78,9 +78,7 @@ def _validate_free_pod_labels_on_vm_stack(
         return
 
     # Find labels that won't affect instance selection
-    unused_labels = [
-        key for key in labels_to_check if key not in VM_SCHEDULING_RELEVANT_LABELS
-    ]
+    unused_labels = [key for key in labels_to_check if key not in VM_SCHEDULING_RELEVANT_LABELS]
 
     if unused_labels:
         warning_msg = (
@@ -155,12 +153,17 @@ class PrivateComputeConfigSDK(BaseSDK):
             gpu=resource_dict.pop("GPU", None),
             memory=resource_dict.pop("memory", None),
             object_store_memory=resource_dict.pop("object_store_memory", None),
+            # System reservations are typed API fields, not node resources: they resolve
+            # into `ray start --system-reserved-cpu/-memory` in the Admin Zone. They must be
+            # popped here for the same reason `memory` is -- anything left in the dict lands
+            # in custom_resources, where the reservation is silently ignored and Ray instead
+            # registers a same-named node resource.
+            system_reserved_cpu_millicpu=resource_dict.pop("system_reserved_cpu_millicpu", None),
+            system_reserved_memory_bytes=resource_dict.pop("system_reserved_memory_bytes", None),
             custom_resources=resource_dict or None,
         )
 
-    def _validate_free_pod_on_vm_stack(
-        self, cloud_id: str, compute_config: ComputeConfig
-    ) -> None:
+    def _validate_free_pod_on_vm_stack(self, cloud_id: str, compute_config: ComputeConfig) -> None:
         """Validate free pod shape configurations on VM stacks.
 
         This performs early validation before making backend API calls:
@@ -189,9 +192,7 @@ class PrivateComputeConfigSDK(BaseSDK):
 
         # Validate head node
         if compute_config.head_node:
-            _validate_no_tpu_on_vm_stack(
-                compute_config.head_node, compute_stack, "head_node"
-            )
+            _validate_no_tpu_on_vm_stack(compute_config.head_node, compute_stack, "head_node")
             _validate_free_pod_labels_on_vm_stack(
                 compute_config.head_node, compute_stack, "head_node", self.logger
             )
@@ -224,7 +225,8 @@ class PrivateComputeConfigSDK(BaseSDK):
 
             # If no head node config is provided, use the cloud/cloud resource default.
             default: ClusterComputeConfig = self._client.get_default_compute_config(
-                cloud_id=cloud_id, cloud_resource_id=cloud_resource_id,
+                cloud_id=cloud_id,
+                cloud_resource_id=cloud_resource_id,
             ).config
 
             api_model = ComputeNodeType(
@@ -284,7 +286,8 @@ class PrivateComputeConfigSDK(BaseSDK):
         return api_model
 
     def _convert_worker_node_group_configs_to_api_models(
-        self, configs: Optional[List[Union[Dict, WorkerNodeGroupConfig]]],
+        self,
+        configs: Optional[List[Union[Dict, WorkerNodeGroupConfig]]],
     ) -> Optional[List[WorkerNodeType]]:
         if configs is None:
             return None
@@ -332,8 +335,7 @@ class PrivateComputeConfigSDK(BaseSDK):
                 required_labels=config.required_labels,
                 min_workers=config.min_nodes,
                 max_workers=config.max_nodes,
-                use_spot=config.market_type
-                in {MarketType.SPOT, MarketType.PREFER_SPOT},
+                use_spot=config.market_type in {MarketType.SPOT, MarketType.PREFER_SPOT},
                 fallback_to_ondemand=config.market_type == MarketType.PREFER_SPOT,
                 flags=flags or None,
                 advanced_configurations_json=config.advanced_instance_config or None,
@@ -380,8 +382,7 @@ class PrivateComputeConfigSDK(BaseSDK):
             ),
             auto_select_worker_config=compute_config.auto_select_worker_config,
             flags=flags,
-            advanced_configurations_json=compute_config.advanced_instance_config
-            or None,
+            advanced_configurations_json=compute_config.advanced_instance_config or None,
         )
 
     def create_compute_config(
@@ -398,17 +399,16 @@ class PrivateComputeConfigSDK(BaseSDK):
                 )
 
         if isinstance(compute_config, MultiResourceComputeConfig):
-            return self.create_multi_deployment_compute_config(
-                compute_config, name=name
-            )
+            return self.create_multi_deployment_compute_config(compute_config, name=name)
         else:
             assert isinstance(compute_config, ComputeConfig)
-            return self.create_single_deployment_compute_config(
-                compute_config, name=name
-            )
+            return self.create_single_deployment_compute_config(compute_config, name=name)
 
     def create_single_deployment_compute_config(
-        self, compute_config: ComputeConfig, *, name: Optional[str] = None,
+        self,
+        compute_config: ComputeConfig,
+        *,
+        name: Optional[str] = None,
     ) -> Tuple[str, str]:
         """Register the provided single-deployment compute config and return its internal ID."""
 
@@ -431,22 +431,22 @@ class PrivateComputeConfigSDK(BaseSDK):
             worker_node_types=deployment_config.worker_node_types,
             auto_select_worker_config=deployment_config.auto_select_worker_config,
             flags=deployment_config.flags,
-            advanced_configurations_json=deployment_config.advanced_configurations_json
-            or None,
+            advanced_configurations_json=deployment_config.advanced_configurations_json or None,
         )
 
         full_name, compute_config_id = self.client.create_compute_config(
             compute_config_api_model, name=name
         )
         self.logger.info(f"Created compute config: '{full_name}'")
-        ui_url = self.client.get_compute_config_ui_url(
-            compute_config_id, cloud_id=cloud_id
-        )
+        ui_url = self.client.get_compute_config_ui_url(compute_config_id, cloud_id=cloud_id)
         self.logger.info(f"View the compute config in the UI: '{ui_url}'")
         return full_name, compute_config_id
 
     def create_multi_deployment_compute_config(
-        self, compute_config: MultiResourceComputeConfig, *, name: Optional[str] = None,
+        self,
+        compute_config: MultiResourceComputeConfig,
+        *,
+        name: Optional[str] = None,
     ) -> Tuple[str, str]:
         """Register the provided multi-deployment compute config and return its internal ID."""
         # Returns the default cloud if user-provided cloud is not specified (`None`).
@@ -478,26 +478,21 @@ class PrivateComputeConfigSDK(BaseSDK):
             worker_node_types=default_config.worker_node_types,
             auto_select_worker_config=default_config.auto_select_worker_config,
             flags=default_config.flags,
-            advanced_configurations_json=default_config.advanced_configurations_json
-            or None,
+            advanced_configurations_json=default_config.advanced_configurations_json or None,
         )
         full_name, compute_config_id = self.client.create_compute_config(
             compute_config_api_model, name=name
         )
         self.logger.info(f"Created compute config: '{full_name}'")
 
-        ui_url = self.client.get_compute_config_ui_url(
-            compute_config_id, cloud_id=cloud_id
-        )
+        ui_url = self.client.get_compute_config_ui_url(compute_config_id, cloud_id=cloud_id)
         self.logger.info(f"View the compute config in the UI: '{ui_url}'")
 
         return full_name, compute_config_id
 
     def _convert_api_model_to_advanced_instance_config(
         self,
-        api_model: Union[
-            DecoratedComputeTemplateConfig, ComputeNodeType, WorkerNodeType
-        ],
+        api_model: Union[DecoratedComputeTemplateConfig, ComputeNodeType, WorkerNodeType],
     ) -> Optional[Dict]:
         if api_model.advanced_configurations_json:
             return api_model.advanced_configurations_json
@@ -524,21 +519,19 @@ class PrivateComputeConfigSDK(BaseSDK):
                 "GPU": resources.gpu,
                 "memory": resources.memory,
                 "object_store_memory": resources.object_store_memory,
+                "system_reserved_cpu_millicpu": resources.system_reserved_cpu_millicpu,
+                "system_reserved_memory_bytes": resources.system_reserved_memory_bytes,
                 **(resources.custom_resources or {}),
             }.items()
             if v is not None
         }
 
-    def _convert_api_model_to_head_node_config(
-        self, api_model: ComputeNodeType
-    ) -> HeadNodeConfig:
+    def _convert_api_model_to_head_node_config(self, api_model: ComputeNodeType) -> HeadNodeConfig:
         flags: Dict[str, Any] = deepcopy(api_model.flags) or {}
 
         cloud_deployment_dict = flags.pop("cloud_deployment", None)
         cloud_deployment = (
-            CloudDeployment.from_dict(cloud_deployment_dict)
-            if cloud_deployment_dict
-            else None
+            CloudDeployment.from_dict(cloud_deployment_dict) if cloud_deployment_dict else None
         )
 
         # Convert required_resources from API model to user-facing model
@@ -597,9 +590,7 @@ class PrivateComputeConfigSDK(BaseSDK):
 
             cloud_deployment_dict = flags.pop("cloud_deployment", None)
             cloud_deployment = (
-                CloudDeployment.from_dict(cloud_deployment_dict)
-                if cloud_deployment_dict
-                else None
+                CloudDeployment.from_dict(cloud_deployment_dict) if cloud_deployment_dict else None
             )
 
             # Convert required_resources from API model to user-facing model
@@ -613,9 +604,7 @@ class PrivateComputeConfigSDK(BaseSDK):
                 WorkerNodeGroupConfig(
                     name=api_model.name,
                     instance_type=api_model.instance_type,
-                    resources=self._convert_api_model_to_resource_dict(
-                        api_model.resources
-                    ),
+                    resources=self._convert_api_model_to_resource_dict(api_model.resources),
                     required_resources=required_resources,
                     labels=api_model.labels,
                     required_labels=api_model.required_labels,
@@ -633,7 +622,9 @@ class PrivateComputeConfigSDK(BaseSDK):
         return configs
 
     def _convert_cloud_deployment_compute_config_api_model_to_single_resource_compute_config(
-        self, cloud_name: str, api_model: CloudDeploymentComputeConfig,
+        self,
+        cloud_name: str,
+        api_model: CloudDeploymentComputeConfig,
     ) -> ComputeConfig:
         worker_nodes = None
         if not api_model.auto_select_worker_config:
@@ -671,9 +662,7 @@ class PrivateComputeConfigSDK(BaseSDK):
             zones=zones,
             advanced_instance_config=api_model.advanced_configurations_json or None,
             enable_cross_zone_scaling=enable_cross_zone_scaling,
-            head_node=self._convert_api_model_to_head_node_config(
-                api_model.head_node_type
-            ),
+            head_node=self._convert_api_model_to_head_node_config(api_model.head_node_type),
             worker_nodes=worker_nodes,
             min_resources=min_resources,
             max_resources=max_resources or None,
@@ -682,7 +671,8 @@ class PrivateComputeConfigSDK(BaseSDK):
         )
 
     def _convert_api_model_to_compute_config_version(
-        self, api_model: DecoratedComputeTemplate  # noqa: ARG002
+        self,
+        api_model: DecoratedComputeTemplate,  # noqa: ARG002
     ) -> ComputeConfigVersion:
         api_model_config: DecoratedComputeTemplateConfig = api_model.config
         cloud = self.client.get_cloud(cloud_id=api_model_config.cloud_id)
@@ -805,9 +795,7 @@ class PrivateComputeConfigSDK(BaseSDK):
         )
         compute_config = self.client.get_compute_config(compute_config_id)
         if compute_config is None:
-            raise RuntimeError(
-                f"Compute config with ID '{compute_config_id}' not found.'"
-            )
+            raise RuntimeError(f"Compute config with ID '{compute_config_id}' not found.'")
         return self._convert_api_model_to_compute_config_version(compute_config)
 
     def archive_compute_config(
@@ -822,7 +810,10 @@ class PrivateComputeConfigSDK(BaseSDK):
         self.logger.info("Compute config is successfully archived.")
 
     def get_default_compute_config(
-        self, *, cloud: Optional[str] = None, cloud_resource: Optional[str] = None,
+        self,
+        *,
+        cloud: Optional[str] = None,
+        cloud_resource: Optional[str] = None,
     ) -> ComputeConfigVersion:
         """Get the default compute config for the specified cloud.
 
@@ -892,9 +883,7 @@ class PrivateComputeConfigSDK(BaseSDK):
             compute_config = self.client.get_compute_config(id)
             if compute_config is None:
                 raise RuntimeError(f"Compute config with ID '{id}' not found.")
-            return ComputeConfigListResult(
-                results=[compute_config], next_token=None, count=1
-            )
+            return ComputeConfigListResult(results=[compute_config], next_token=None, count=1)
 
         # Resolve cloud_name to cloud_id if provided
         resolved_cloud_id = cloud_id
@@ -940,9 +929,7 @@ class PrivateComputeConfigSDK(BaseSDK):
         response = self.client.search_cluster_computes(query)  # type: ignore
 
         # Return structured result
-        pagination_token = (
-            response.metadata.next_paging_token if response.metadata else None
-        )
+        pagination_token = response.metadata.next_paging_token if response.metadata else None
         return ComputeConfigListResult(
             results=response.results,
             next_token=pagination_token,

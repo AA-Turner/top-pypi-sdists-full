@@ -1,0 +1,677 @@
+#include "openscad_cpp_evaluator/value.hpp"
+
+#include "test_helpers.hpp"
+
+#include <cmath>
+#include <gtest/gtest.h>
+#include <limits>
+
+using namespace oscadeval;
+
+namespace {
+
+Value list(std::vector<Value> items) {
+    return Value{std::make_shared<const ValueList>(ValueList{std::move(items)})};
+}
+
+Value num(double d) { return Value{d}; }
+
+double asNum(const Value& v) {
+    return std::get<double>(v);
+}
+
+} // namespace
+
+// -- oscTypeName --------------------------------------------------------
+
+TEST(OscTypeName, CoversEveryDistinguishedAlternative) {
+    EXPECT_EQ(oscTypeName(Value{}), "undefined");
+    EXPECT_EQ(oscTypeName(Value{true}), "bool");
+    EXPECT_EQ(oscTypeName(Value{1.0}), "number");
+    EXPECT_EQ(oscTypeName(Value{std::string("x")}), "string");
+    EXPECT_EQ(oscTypeName(list({})), "vector");
+    EXPECT_EQ(oscTypeName(Value{std::make_shared<const ValueObject>()}), "object");
+    EXPECT_EQ(oscTypeName(Value{OscRange{0, 1, 5}}), "range");
+}
+
+// -- oscEqual -------------------------------------------------------------
+
+TEST(OscEqual, RangeComparesComponentwise) {
+    // OscRange::operator== -- oscEqual falls through to the variant's own
+    // operator== when neither side is a list/object, which for two
+    // OscRange values invokes this.
+    EXPECT_TRUE(oscEqual(Value{OscRange{1, 2, 5}}, Value{OscRange{1, 2, 5}}));
+    EXPECT_FALSE(oscEqual(Value{OscRange{1, 2, 5}}, Value{OscRange{1, 2, 6}}));
+}
+
+TEST(OscEqual, BoolIsDistinctFromNumber) {
+    EXPECT_FALSE(oscEqual(Value{true}, Value{1.0}));
+    EXPECT_FALSE(oscEqual(Value{false}, Value{0.0}));
+    EXPECT_TRUE(oscEqual(Value{true}, Value{true}));
+}
+
+TEST(OscEqual, NumbersAndStrings) {
+    EXPECT_TRUE(oscEqual(num(1.0), num(1.0)));
+    EXPECT_FALSE(oscEqual(num(1.0), num(2.0)));
+    EXPECT_TRUE(oscEqual(Value{std::string("a")}, Value{std::string("a")}));
+    EXPECT_FALSE(oscEqual(Value{std::string("a")}, Value{std::string("b")}));
+}
+
+TEST(OscEqual, UndefEqualsUndef) {
+    EXPECT_TRUE(oscEqual(Value{}, Value{}));
+}
+
+TEST(OscEqual, ListsRecurseElementwiseAndRejectMismatchedType) {
+    EXPECT_TRUE(oscEqual(list({num(1), num(2)}), list({num(1), num(2)})));
+    EXPECT_FALSE(oscEqual(list({num(1), num(2)}), list({num(1), num(3)})));
+    EXPECT_FALSE(oscEqual(list({num(1), Value{true}}), list({num(1), num(1)})));
+    EXPECT_FALSE(oscEqual(list({num(1)}), list({num(1), num(2)}))); // mismatched length
+    EXPECT_FALSE(oscEqual(list({}), num(0))); // one list, one not
+}
+
+TEST(OscEqual, ObjectEqualityIsOrderSensitive) {
+    auto a = std::make_shared<const ValueObject>(ValueObject{{{"a", num(1)}, {"b", num(2)}}});
+    auto sameOrder = std::make_shared<const ValueObject>(ValueObject{{{"a", num(1)}, {"b", num(2)}}});
+    auto differentOrder = std::make_shared<const ValueObject>(ValueObject{{{"b", num(2)}, {"a", num(1)}}});
+    EXPECT_TRUE(oscEqual(Value{a}, Value{sameOrder}));
+    EXPECT_FALSE(oscEqual(Value{a}, Value{differentOrder}));
+}
+
+// -- oscComparable ----------------------------------------------------------
+
+TEST(OscComparable, SameTypePairsOnly) {
+    EXPECT_TRUE(oscComparable(num(1), num(2)));
+    EXPECT_TRUE(oscComparable(Value{std::string("a")}, Value{std::string("b")}));
+    EXPECT_TRUE(oscComparable(list({}), list({})));
+    EXPECT_TRUE(oscComparable(Value{true}, Value{false}));
+}
+
+TEST(OscComparable, MismatchedTypesAreNotComparable) {
+    EXPECT_FALSE(oscComparable(Value{true}, num(0)));
+    EXPECT_FALSE(oscComparable(Value{std::string("a")}, num(1)));
+    EXPECT_FALSE(oscComparable(list({}), num(1)));
+    EXPECT_FALSE(oscComparable(Value{}, num(1)));
+}
+
+// -- scale / divScale -------------------------------------------------------
+
+TEST(Scale, MultipliesFlatAndNestedLists) {
+    Value v = scale(2.0, list({num(1), num(2), num(3)}));
+    auto items = std::get<ListPtr>(v)->items;
+    ASSERT_EQ(items.size(), 3u);
+    EXPECT_DOUBLE_EQ(asNum(items[0]), 2.0);
+    EXPECT_DOUBLE_EQ(asNum(items[2]), 6.0);
+
+    Value nested = scale(2.0, list({list({num(1), num(1)}), num(5)}));
+    auto outer = std::get<ListPtr>(nested)->items;
+    auto inner = std::get<ListPtr>(outer[0])->items;
+    EXPECT_DOUBLE_EQ(asNum(inner[0]), 2.0);
+    EXPECT_DOUBLE_EQ(asNum(outer[1]), 10.0);
+}
+
+TEST(Scale, BoolElementIsUndef) {
+    Value v = scale(2.0, Value{true});
+    EXPECT_TRUE(std::holds_alternative<std::monostate>(v));
+}
+
+TEST(DivScale, DivisionByZeroFollowsIeee754) {
+    Value posInf = divScale(num(1.0), 0.0);
+    EXPECT_TRUE(std::isinf(asNum(posInf)) && asNum(posInf) > 0);
+
+    Value negInf = divScale(num(-1.0), 0.0);
+    EXPECT_TRUE(std::isinf(asNum(negInf)) && asNum(negInf) < 0);
+
+    Value nan = divScale(num(0.0), 0.0);
+    EXPECT_TRUE(std::isnan(asNum(nan)));
+}
+
+TEST(DivScale, OrdinaryDivision) {
+    Value v = divScale(list({num(2), num(4), num(6)}), 2.0);
+    auto items = std::get<ListPtr>(v)->items;
+    EXPECT_DOUBLE_EQ(asNum(items[0]), 1.0);
+    EXPECT_DOUBLE_EQ(asNum(items[2]), 3.0);
+}
+
+// -- vecAdd / vecSub ----------------------------------------------------
+
+TEST(VecAdd, ElementwiseListAdditionZipsToShorterLength) {
+    Value v = vecAdd(list({num(1), num(2), num(3)}), list({num(10), num(20)}));
+    auto items = std::get<ListPtr>(v)->items;
+    ASSERT_EQ(items.size(), 2u);
+    EXPECT_DOUBLE_EQ(asNum(items[0]), 11.0);
+    EXPECT_DOUBLE_EQ(asNum(items[1]), 22.0);
+}
+
+TEST(VecAdd, NestedListsRecurse) {
+    Value v = vecAdd(list({list({num(0), num(0)})}), list({list({num(1), num(2)})}));
+    auto outer = std::get<ListPtr>(v)->items;
+    auto inner = std::get<ListPtr>(outer[0])->items;
+    EXPECT_DOUBLE_EQ(asNum(inner[0]), 1.0);
+    EXPECT_DOUBLE_EQ(asNum(inner[1]), 2.0);
+}
+
+TEST(VecAdd, RejectsStringsUnlikePythonConcatenation) {
+    Value v = vecAdd(Value{std::string("ab")}, Value{std::string("cd")});
+    EXPECT_TRUE(std::holds_alternative<std::monostate>(v));
+}
+
+TEST(VecAdd, RejectsBoolOperands) {
+    EXPECT_TRUE(std::holds_alternative<std::monostate>(vecAdd(Value{true}, num(1))));
+}
+
+TEST(VecAdd, PlainNumberFallback) {
+    Value v = vecAdd(num(1), num(2));
+    EXPECT_DOUBLE_EQ(asNum(v), 3.0);
+}
+
+TEST(VecSub, PlainNumberFallback) {
+    Value v = vecSub(num(5), num(2));
+    EXPECT_DOUBLE_EQ(asNum(v), 3.0);
+}
+
+TEST(VecSub, MismatchedTypesAreUndef) {
+    EXPECT_TRUE(std::holds_alternative<std::monostate>(vecSub(list({num(1)}), num(1))));
+}
+
+// -- matmul -------------------------------------------------------------
+
+TEST(Matmul, VectorDotVectorIsScalar) {
+    Value v = matmul(list({num(1), num(2), num(3)}), list({num(4), num(5), num(6)}));
+    EXPECT_DOUBLE_EQ(asNum(v), 32.0); // 1*4 + 2*5 + 3*6
+}
+
+TEST(Matmul, MatrixTimesVector) {
+    // [[1,0],[0,1]] * [3,4] = [3,4]
+    Value m = list({list({num(1), num(0)}), list({num(0), num(1)})});
+    Value v = matmul(m, list({num(3), num(4)}));
+    auto items = std::get<ListPtr>(v)->items;
+    EXPECT_DOUBLE_EQ(asNum(items[0]), 3.0);
+    EXPECT_DOUBLE_EQ(asNum(items[1]), 4.0);
+}
+
+TEST(Matmul, VectorTimesMatrix) {
+    Value m = list({list({num(1), num(2)}), list({num(3), num(4)})});
+    Value v = matmul(list({num(1), num(1)}), m);
+    auto items = std::get<ListPtr>(v)->items;
+    EXPECT_DOUBLE_EQ(asNum(items[0]), 4.0); // 1*1 + 1*3
+    EXPECT_DOUBLE_EQ(asNum(items[1]), 6.0); // 1*2 + 1*4
+}
+
+TEST(Matmul, MatrixTimesMatrix) {
+    Value a = list({list({num(1), num(2)}), list({num(3), num(4)})});
+    Value b = list({list({num(5), num(6)}), list({num(7), num(8)})});
+    Value r = matmul(a, b);
+    auto rows = std::get<ListPtr>(r)->items;
+    auto row0 = std::get<ListPtr>(rows[0])->items;
+    auto row1 = std::get<ListPtr>(rows[1])->items;
+    EXPECT_DOUBLE_EQ(asNum(row0[0]), 19.0); // 1*5+2*7
+    EXPECT_DOUBLE_EQ(asNum(row0[1]), 22.0); // 1*6+2*8
+    EXPECT_DOUBLE_EQ(asNum(row1[0]), 43.0); // 3*5+4*7
+    EXPECT_DOUBLE_EQ(asNum(row1[1]), 50.0); // 3*6+4*8
+}
+
+TEST(Matmul, DimensionMismatchIsUndef) {
+    Value v = matmul(list({num(1), num(2)}), list({num(1), num(2), num(3)}));
+    EXPECT_TRUE(std::holds_alternative<std::monostate>(v));
+}
+
+// -- formatNumber ---------------------------------------------------------
+
+TEST(FormatNumber, SpecialValues) {
+    EXPECT_EQ(formatNumber(std::numeric_limits<double>::quiet_NaN()), "nan");
+    EXPECT_EQ(formatNumber(std::numeric_limits<double>::infinity()), "inf");
+    EXPECT_EQ(formatNumber(-std::numeric_limits<double>::infinity()), "-inf");
+    EXPECT_EQ(formatNumber(0.0), "0");
+    EXPECT_EQ(formatNumber(-0.0), "0");
+}
+
+TEST(FormatNumber, FixedPointWithinExponentRange) {
+    EXPECT_EQ(formatNumber(1.0), "1");
+    EXPECT_EQ(formatNumber(-1.0), "-1");
+    EXPECT_EQ(formatNumber(0.00001), "0.00001"); // exp == -5, doc-pinned
+    EXPECT_EQ(formatNumber(3.14159), "3.14159");
+}
+
+TEST(FormatNumber, ScientificNotationDropsLeadingExponentZero) {
+    EXPECT_EQ(formatNumber(1000000.0), "1e+6"); // doc-pinned, not "1e+06"
+    EXPECT_EQ(formatNumber(1.23456789e-7), "1.23457e-7"); // doc-pinned
+}
+
+TEST(FormatNumber, MantissaRoundingCarryBumpsExponent) {
+    // 9.99999999e13's mantissa rounds to exactly 10.00000 at 5-decimal
+    // precision -- the carry-fixup branch (mantissa /= 10, ++exp) corrects
+    // this to "1e+14" instead of the malformed "10.00000e+13".
+    EXPECT_EQ(formatNumber(9.99999999e13), "1e+14");
+}
+
+// -- fmtValue ---------------------------------------------------------------
+
+TEST(FmtValue, Scalars) {
+    EXPECT_EQ(fmtValue(Value{}), "undef");
+    EXPECT_EQ(fmtValue(Value{true}), "true");
+    EXPECT_EQ(fmtValue(Value{false}), "false");
+    EXPECT_EQ(fmtValue(Value{42.0}), "42");
+    EXPECT_EQ(fmtValue(Value{std::string("hi")}), "\"hi\"");
+}
+
+TEST(FmtValue, Range) {
+    EXPECT_EQ(fmtValue(Value{OscRange{2, 1, 10}}), "[2 : 1 : 10]");
+}
+
+TEST(FmtValue, List) {
+    EXPECT_EQ(fmtValue(list({num(1), num(2), num(3)})), "[1, 2, 3]");
+    EXPECT_EQ(fmtValue(Value{ListPtr{}}), "[]"); // null list pointer
+}
+
+TEST(FmtValue, Object) {
+    auto obj = std::make_shared<const ValueObject>(ValueObject{{{"a", num(1)}, {"b", num(2)}}});
+    EXPECT_EQ(fmtValue(Value{obj}), "{ a = 1; b = 2; }");
+    EXPECT_EQ(fmtValue(Value{std::make_shared<const ValueObject>()}), "{ }");
+}
+
+// -- toDoubleLenient --------------------------------------------------------
+
+TEST(ToDoubleLenient, BoolAndFallback) {
+    EXPECT_DOUBLE_EQ(toDoubleLenient(Value{true}), 1.0);
+    EXPECT_DOUBLE_EQ(toDoubleLenient(Value{false}), 0.0);
+    EXPECT_DOUBLE_EQ(toDoubleLenient(Value{std::string("x")}), 0.0); // non-numeric fallback
+}
+
+// -- truthy -------------------------------------------------------------
+
+TEST(Truthy, RangeAndFunctionLiteralAreAlwaysTrue) {
+    EXPECT_TRUE(truthy(Value{OscRange{0, 1, 5}}));
+}
+
+// -- scale / divScale: non-numeric list-element fallbacks --------------------
+
+TEST(Scale, NonNumericListElementIsUndef) {
+    Value v = scale(2.0, list({num(1), Value{std::string("x")}, num(3)}));
+    auto items = std::get<ListPtr>(v)->items;
+    EXPECT_DOUBLE_EQ(asNum(items[0]), 2.0);
+    EXPECT_TRUE(std::holds_alternative<std::monostate>(items[1]));
+}
+
+TEST(DivScale, NonNumericListElementIsUndef) {
+    Value v = divScale(list({num(4), Value{std::string("x")}}), 2.0);
+    auto items = std::get<ListPtr>(v)->items;
+    EXPECT_DOUBLE_EQ(asNum(items[0]), 2.0);
+    EXPECT_TRUE(std::holds_alternative<std::monostate>(items[1]));
+}
+
+// -- expandIterable -----------------------------------------------------
+
+TEST(ExpandIterable, ObjectExpandsToItsKeys) {
+    auto obj = std::make_shared<const ValueObject>(ValueObject{{{"a", num(1)}, {"b", num(2)}}});
+    auto items = expandIterable(Value{obj});
+    ASSERT_EQ(items.size(), 2u);
+    EXPECT_EQ(std::get<std::string>(items[0]), "a");
+    EXPECT_EQ(std::get<std::string>(items[1]), "b");
+}
+
+TEST(ExpandIterable, StringExpandsToItsCharacters) {
+    auto items = expandIterable(Value{std::string("ab")});
+    ASSERT_EQ(items.size(), 2u);
+    EXPECT_EQ(std::get<std::string>(items[0]), "a");
+    EXPECT_EQ(std::get<std::string>(items[1]), "b");
+}
+
+TEST(ExpandIterable, BareScalarWrapsToSingleElementList) {
+    auto items = expandIterable(num(5));
+    ASSERT_EQ(items.size(), 1u);
+    EXPECT_DOUBLE_EQ(asNum(items[0]), 5.0);
+}
+
+TEST(ExpandIterable, DescendingRangeStepsDown) {
+    auto items = expandIterable(Value{OscRange{5, -1, 2}});
+    ASSERT_EQ(items.size(), 4u);
+    EXPECT_DOUBLE_EQ(asNum(items[0]), 5.0);
+    EXPECT_DOUBLE_EQ(asNum(items[3]), 2.0);
+}
+
+TEST(ExpandIterable, ZeroStepRangeIsEmpty) {
+    auto items = expandIterable(Value{OscRange{0, 0, 10}});
+    EXPECT_EQ(items.size(), 0u);
+    EXPECT_FALSE(items.begin() != items.end());
+}
+
+TEST(ExpandIterable, FractionalStepRangeViaRangeForMatchesAccumulation) {
+    // Values must match repeated `x += step` accumulation exactly (not a
+    // recomputed start + i*step, which can round differently) -- ranges
+    // are lazy now (see IterableValues), so this exercises that the
+    // on-demand path reproduces the same sequence the old eager
+    // expansion always produced.
+    auto items = expandIterable(Value{OscRange{0.0, 0.1, 0.5}});
+    double expected = 0.0;
+    size_t count = 0;
+    for (const Value& v : items) {
+        EXPECT_DOUBLE_EQ(asNum(v), expected);
+        expected += 0.1;
+        ++count;
+    }
+    EXPECT_EQ(count, 6u); // 0.0, 0.1, 0.2, 0.3, 0.4, 0.5
+}
+
+TEST(ExpandIterable, OutOfOrderIndexAccessStillReturnsCorrectValue) {
+    // Nothing in this codebase reads a range's expansion out of
+    // sequence (see IterableValues's own doc comment for why the
+    // sequential path is what's optimized), but an out-of-order
+    // operator[] call must still be CORRECT, just slower -- confirms the
+    // cursor's "restart from start" fallback rather than silently
+    // returning a stale/wrong value.
+    auto items = expandIterable(Value{OscRange{0, 1, 9}});
+    EXPECT_DOUBLE_EQ(asNum(items[7]), 7.0);
+    EXPECT_DOUBLE_EQ(asNum(items[2]), 2.0); // rewinds behind the cursor's last position
+    EXPECT_DOUBLE_EQ(asNum(items[5]), 5.0);
+}
+
+TEST(ExpandIterable, LargeRangePartialIterationStaysLazy) {
+    // A huge (but under the 1,000,000-element "too many" limit -- see the
+    // TooManyElements tests below) range must not eagerly materialize a
+    // vector: constructing expandIterable() and reading only the first few
+    // elements has to stay instant regardless of the range's nominal size
+    // (999,999 elements here, the largest value that doesn't trigger
+    // rejection). If this regresses to eager expansion, this test times
+    // out/OOMs instead of merely failing an assertion.
+    auto items = expandIterable(Value{OscRange{0, 1, 999'998.0}});
+    auto it = items.begin();
+    EXPECT_DOUBLE_EQ(asNum(*it), 0.0);
+    ++it;
+    EXPECT_DOUBLE_EQ(asNum(*it), 1.0);
+    ++it;
+    EXPECT_DOUBLE_EQ(asNum(*it), 2.0);
+}
+
+TEST(ExpandIterable, RangeUnderOneMillionElementsIteratesNormally) {
+    // 999,999 elements (indices 0..999998) -- the largest range that must
+    // NOT be rejected. Verified against real OpenSCAD.app: this exact size
+    // iterates fine, one more element does not (see the next two tests).
+    bool warned = false;
+    auto items = expandIterable(Value{OscRange{0, 1, 999'998.0}}, [&](size_t) { warned = true; });
+    EXPECT_FALSE(warned);
+    EXPECT_EQ(items.size(), 999'999u);
+}
+
+TEST(ExpandIterable, RangeOfExactlyOneMillionElementsIsRejected) {
+    // 1,000,000 elements (indices 0..999999) -- real OpenSCAD.app rejects
+    // the whole range at exactly this size (WARNING + zero iterations, not
+    // a truncation to 999,999) -- a different mechanism from the C-style
+    // for loop's own _MAX_CFOR_ITERATIONS, which instead ALLOWS exactly
+    // 1,000,000 iterations and only errors past it. Verified empirically:
+    // these are genuinely different thresholds in real OpenSCAD, not a
+    // copy-paste of the same constant.
+    size_t warnedCount = 0;
+    auto items = expandIterable(Value{OscRange{0, 1, 999'999.0}}, [&](size_t count) { warnedCount = count; });
+    EXPECT_EQ(warnedCount, 1'000'000u);
+    EXPECT_EQ(items.size(), 0u);
+}
+
+TEST(ExpandIterable, HugeRangeIsRejectedInConstantTime) {
+    // The rejection check itself must be O(1) (closed-form), not a lazy
+    // walk to find out the count -- a billion-element range must reject
+    // instantly, not time out. This is exactly the case
+    // LargeRangePartialIterationStaysLazy used to (wrongly) exercise as
+    // "still iterable"; real OpenSCAD.app rejects it outright.
+    size_t warnedCount = 0;
+    auto items = expandIterable(Value{OscRange{0, 1, 1'000'000'000.0}}, [&](size_t count) { warnedCount = count; });
+    EXPECT_EQ(warnedCount, 1'000'000'001u);
+    EXPECT_EQ(items.size(), 0u);
+}
+
+TEST(ExpandIterable, NegativeStepRangeTooManyElementsIsRejectedToo) {
+    // Verified against real OpenSCAD.app: the too-many-elements check
+    // applies symmetrically to a descending range, with the correct count.
+    size_t warnedCount = 0;
+    auto items = expandIterable(Value{OscRange{1'099'999.0, -1, 0}}, [&](size_t count) { warnedCount = count; });
+    EXPECT_EQ(warnedCount, 1'100'000u);
+    EXPECT_EQ(items.size(), 0u);
+}
+
+TEST(ExpandIterable, ZeroStepRangeIsNaturallyEmptyNotTooMany) {
+    // A zero step never terminates by walking, but must not be
+    // misclassified as "too many" either -- it's naturally empty (0
+    // elements), no warning.
+    bool warned = false;
+    auto items = expandIterable(Value{OscRange{0, 0, 10}}, [&](size_t) { warned = true; });
+    EXPECT_FALSE(warned);
+    EXPECT_EQ(items.size(), 0u);
+}
+
+// -- String literal escapes ----------------------------------------------
+
+// The parser hands back a literal's source text with its backslashes
+// intact, so that a StringLiteral still reproduces the source and
+// pretty-printing round-trips. Nothing resolved them, so every escape
+// reached scripts raw: "a\nb" was four characters, a backslash and an 'n'
+// among them.
+TEST(StringEscapes, EachSequenceResolvesToTheCharacterItNames) {
+    struct Case { const char* raw; const char* want; const char* what; };
+    const Case cases[] = {
+        {R"(a\\b)",  "a\\b",  "backslash"},
+        {R"(a\nb)",  "a\nb",  "newline"},
+        {R"(a\tb)",  "a\tb",  "tab"},
+        {R"(a\rb)",  "a\rb",  "carriage return"},
+        {R"(a\"b)",  "a\"b",  "quote"},
+        {R"(a\qb)",  "aqb",   "unknown escape keeps the character, drops the backslash"},
+        {"plain",    "plain", "no escape at all"},
+        {"",         "",      "empty"},
+        {R"(\\)",    "\\",    "nothing but an escape"},
+        {"a\\",      "a\\",   "trailing lone backslash stands for itself"},
+    };
+    for (const Case& c : cases)
+        EXPECT_EQ(unescapeStringLiteral(c.raw), c.want) << c.what;
+}
+
+// A backslash escaping the end of a line continues the string with no
+// break in it -- the newline contributes nothing.
+TEST(StringEscapes, BackslashNewlineContributesNothing) {
+    EXPECT_EQ(unescapeStringLiteral("a \\\nb"), "a b") << "LF";
+    EXPECT_EQ(unescapeStringLiteral("a \\\r\nb"), "a b") << "CRLF goes whole";
+    // Deliberately unlike the reference implementation, which drops only
+    // the LF and leaves the CR in the value -- a stray control character
+    // in any string continued in a file written on Windows.
+    EXPECT_EQ(unescapeStringLiteral("a \\\rb"), "a b")
+        << "a lone CR is a line ending too (pre-OSX Mac)";
+}
+
+// Both evaluation paths build the Value, and only one of them was reached
+// by a first attempt at this.
+TEST(StringEscapes, BothEvaluationPathsCookTheLiteral) {
+    // Tree-walking path: a literal at top level.
+    std::vector<std::string> echoed;
+    auto sink = [&echoed](const std::string& m) { echoed.push_back(m); };
+    oscadeval::test::evaluateSrc("echo(len(\"a\\nb\"));", sink);
+    ASSERT_EQ(echoed.size(), 1u);
+    EXPECT_EQ(echoed[0], "ECHO: 3") << "tree-walking path";
+
+    // Compiled path: inside a function body, which is what gets compiled
+    // to bytecode.
+    echoed.clear();
+    oscadeval::test::evaluateSrc("function f() = len(\"a\\nb\");\necho(f());", sink);
+    ASSERT_EQ(echoed.size(), 1u);
+    EXPECT_EQ(echoed[0], "ECHO: 3") << "compiled path";
+
+    echoed.clear();
+    oscadeval::test::evaluateSrc("function g() = len(\"a \\\nb\");\necho(g());", sink);
+    ASSERT_EQ(echoed.size(), 1u);
+    EXPECT_EQ(echoed[0], "ECHO: 3") << "line continuation, compiled path";
+}
+
+// Every expectation below was read off OpenSCAD 2026.02.01 rather than a
+// spec, because the rules are narrow and not guessable:
+//
+//   \xNN     two hex digits, ASCII ONLY -- \x80..\xff are REFUSED, since a
+//            raw high byte is not valid UTF-8 and the rest of the string is
+//   \uXXXX   exactly four hex digits; there is no \u{...} form
+//   an unencodable code point (zero, or a lone surrogate) becomes a SPACE
+//   anything else after a backslash is an "undefined escape": the
+//   backslash is dropped and the rest stands for itself
+//
+// The reference also emits "WARNING: Undefined escape sequence" for that
+// last case, at PARSE time (once per literal, not once per evaluation --
+// checked with a literal inside a for loop). This port has no parse-time
+// warning channel, so it produces the same STRING without the warning.
+TEST(StringEscapes, DecodesFourDigitUnicodeEscapes) {
+    EXPECT_EQ(unescapeStringLiteral("\\u03a9"), "Ω");   // len() of this is 1, not 5
+    EXPECT_EQ(unescapeStringLiteral("a\\u03a9b"), "aΩb");
+    EXPECT_EQ(unescapeStringLiteral("\\u0041"), "A");
+    EXPECT_EQ(unescapeStringLiteral("\\u00a9"), "©");
+    EXPECT_EQ(unescapeStringLiteral("\\uffff"), "￿");
+    EXPECT_EQ(unescapeStringLiteral("\\uFFFF"), "￿");   // hex digits are case-insensitive
+}
+
+TEST(StringEscapes, DecodesAsciiHexEscapesOnly) {
+    EXPECT_EQ(unescapeStringLiteral("\\x41"), "A");
+    EXPECT_EQ(unescapeStringLiteral("\\x7e"), "~");
+    EXPECT_EQ(unescapeStringLiteral("\\x7f"), "\x7f");
+    // Above 0x7F the reference refuses and the text stands for itself.
+    EXPECT_EQ(unescapeStringLiteral("\\x80"), "x80");
+    EXPECT_EQ(unescapeStringLiteral("\\xa9"), "xa9");
+    EXPECT_EQ(unescapeStringLiteral("\\xff"), "xff");
+}
+
+TEST(StringEscapes, AnUnencodableCodePointBecomesASpace) {
+    // Confirmed by equality on the reference, since the bytes are hard to
+    // read back: " " == " ", "\ud83d" == " " and "\x00" == " "
+    // are all true there. chr() does NOT agree -- chr(55357) is the empty
+    // string -- so the two paths differ deliberately.
+    EXPECT_EQ(unescapeStringLiteral("\\u0000"), " ");
+    EXPECT_EQ(unescapeStringLiteral("\\x00"), " ");
+    EXPECT_EQ(unescapeStringLiteral("\\ud83d"), " ");   // lone high surrogate
+    EXPECT_EQ(unescapeStringLiteral("\\udfff"), " ");   // lone low surrogate
+}
+
+TEST(StringEscapes, AnUndefinedEscapeDropsOnlyItsBackslash) {
+    EXPECT_EQ(unescapeStringLiteral("\\q"), "q");
+    EXPECT_EQ(unescapeStringLiteral("\\u12"), "u12");       // too few digits
+    EXPECT_EQ(unescapeStringLiteral("\\uZZZZ"), "uZZZZ");   // not hex
+    EXPECT_EQ(unescapeStringLiteral("\\u{41}"), "u{41}");   // no brace form
+    EXPECT_EQ(unescapeStringLiteral("\\x4"), "x4");
+    EXPECT_EQ(unescapeStringLiteral("\\xg1"), "xg1");
+}
+
+TEST(StringEscapes, LeavesTheAlreadyHandledEscapesAlone) {
+    EXPECT_EQ(unescapeStringLiteral("\\n"), "\n");
+    EXPECT_EQ(unescapeStringLiteral("\\t"), "\t");
+    EXPECT_EQ(unescapeStringLiteral("\\r"), "\r");
+    EXPECT_EQ(unescapeStringLiteral("\\\\"), "\\");
+    EXPECT_EQ(unescapeStringLiteral("\\\""), "\"");
+    EXPECT_EQ(unescapeStringLiteral("plain"), "plain");
+}
+
+TEST(StringEscapes, ATruncatedEscapeDoesNotReadPastTheEnd) {
+    // \u and \x look ahead four and two characters; one cut short at the
+    // end of the literal must stop rather than run off the buffer.
+    EXPECT_EQ(unescapeStringLiteral("\\u"), "u");
+    EXPECT_EQ(unescapeStringLiteral("\\u0"), "u0");
+    EXPECT_EQ(unescapeStringLiteral("\\u03a"), "u03a");
+    EXPECT_EQ(unescapeStringLiteral("\\x"), "x");
+    EXPECT_EQ(unescapeStringLiteral("\\x4"), "x4");
+    EXPECT_EQ(unescapeStringLiteral("\\"), "\\");
+}
+
+TEST(StringEscapes, ARawNewlineInsideALiteralContributesNothing) {
+    // Writing a string across two source lines joins them, keeping the
+    // second line's indentation -- this is how OpenSCAD lets a long string
+    // be wrapped, and it is NOT a backslash continuation.
+    //
+    //     s = "abcd
+    //         efgh";       // -> "abcd    efgh", 12 characters
+    EXPECT_EQ(unescapeStringLiteral("abcd\n    efgh"), "abcd    efgh");
+    EXPECT_EQ(unescapeStringLiteral("x\ny"), "xy");
+    EXPECT_EQ(unescapeStringLiteral("x\n\ny"), "xy");
+    EXPECT_EQ(unescapeStringLiteral("x\n  \n  y"), "x    y");
+}
+
+TEST(StringEscapes, ARawCarriageReturnIsALineEndingToo) {
+    // The reference treats only the LF as special, so a string wrapped in
+    // a CRLF file keeps a stray CR there ("x<CR><LF>y" is three characters
+    // on 2026.02.01). Deliberately not reproduced: a raw CR in source is a
+    // line ending in every real file -- CRLF on Windows, a lone CR on a
+    // pre-OSX Mac -- and a script wanting a real CR writes \r.
+    EXPECT_EQ(unescapeStringLiteral("x\r\ny"), "xy");
+    EXPECT_EQ(unescapeStringLiteral("x\ry"), "xy");
+    EXPECT_EQ(unescapeStringLiteral("x\r\n  y"), "x  y") << "indentation is kept";
+    EXPECT_EQ(unescapeStringLiteral("x\\ry"), "x\ry") << "an escaped CR still works";
+}
+
+TEST(StringEscapes, ABackslashBeforeANewlineTakesTheWholeLineEnding) {
+    // The reference has no line-continuation escape at all: it calls the
+    // backslash an undefined escape, drops only it, then applies the
+    // ordinary newline rules -- so "x\\<CR><LF>y" is 3 characters there,
+    // the CR surviving. This port takes the whole line ending instead, on
+    // purpose, so a string wrapped in a Windows-line-ending file does not
+    // pick up a stray CR. Same reasoning as
+    // BackslashNewlineContributesNothing above.
+    EXPECT_EQ(unescapeStringLiteral("x\\\ny"), "xy");
+    EXPECT_EQ(unescapeStringLiteral("x\\\r\ny"), "xy");   // reference keeps the CR
+    EXPECT_EQ(unescapeStringLiteral("x\\\ry"), "xy");
+}
+
+// --- listAppend: lists that are prefixes of one another share a buffer ---
+
+namespace {
+ListPtr numsList(std::initializer_list<double> xs) {
+    std::vector<Value> v;
+    for (double x : xs) v.push_back(Value{x});
+    return std::make_shared<const ValueList>(ValueList{std::move(v)});
+}
+std::vector<double> nums(const ListPtr& l) {
+    std::vector<double> out;
+    for (const Value& v : l->items) out.push_back(std::get<double>(v));
+    return out;
+}
+std::vector<Value> one(double x) { return {Value{x}}; }
+} // namespace
+
+TEST(ListAppend, LeavesTheBaseListAsItWas) {
+    const ListPtr base = numsList({1, 2});
+    const ListPtr longer = listAppend(base, one(3));
+    EXPECT_EQ(nums(base), (std::vector<double>{1, 2}));
+    EXPECT_EQ(nums(longer), (std::vector<double>{1, 2, 3}));
+}
+
+TEST(ListAppend, AnAccumulatorCopiesOnlyLogarithmicallyOften) {
+    // Appends extend the same storage in place, copying only when it fills
+    // and then into double the room: 10,000 appends, a handful of copies --
+    // where copying every time (the old concat) made the loop quadratic.
+    ListPtr acc = numsList({0});
+    int copies = 0;
+    for (int i = 1; i < 10000; ++i) {
+        const ListPtr next = listAppend(acc, one(i));
+        if (next->items.data() != acc->items.data()) ++copies;
+        acc = next;   // the previous list is still alive here, as in a call chain
+    }
+    EXPECT_LE(copies, 12);
+    ASSERT_EQ(acc->items.size(), 10000u);
+    for (size_t i = 0; i < 10000; ++i) EXPECT_EQ(std::get<double>(acc->items[i]), double(i));
+}
+
+TEST(ListAppend, TwoBranchesFromOnePrefixStayApart) {
+    // Only the list ending at the buffer's frontier may extend it; a second
+    // extension of the same prefix must copy rather than overwrite the
+    // first one's element.
+    const ListPtr base = listAppend(listAppend(numsList({0}), one(1)), one(2));   // has spare capacity
+    const ListPtr a = listAppend(base, one(10));
+    const ListPtr b = listAppend(base, one(20));
+    EXPECT_EQ(nums(a), (std::vector<double>{0, 1, 2, 10}));
+    EXPECT_EQ(nums(b), (std::vector<double>{0, 1, 2, 20}));
+    EXPECT_EQ(nums(base), (std::vector<double>{0, 1, 2}));
+    // ...and each branch can go on growing independently.
+    EXPECT_EQ(nums(listAppend(a, one(11))), (std::vector<double>{0, 1, 2, 10, 11}));
+    EXPECT_EQ(nums(listAppend(b, one(21))), (std::vector<double>{0, 1, 2, 20, 21}));
+}
+
+TEST(ListAppend, AOneOffConcatIsAllocatedExactly) {
+    // Only a list that has been appended to grows geometrically, so a plain
+    // concat(a, b) costs no spare memory.
+    const ListPtr r = listAppend(numsList({1, 2, 3}), one(4));
+    EXPECT_EQ(r->items.size(), 4u);
+    EXPECT_EQ(nums(r), (std::vector<double>{1, 2, 3, 4}));
+}
+
+TEST(ListAppend, EmptyExtraAndNullBase) {
+    const ListPtr base = numsList({1});
+    EXPECT_EQ(listAppend(base, {}), base);
+    EXPECT_EQ(nums(listAppend(nullptr, one(5))), (std::vector<double>{5}));
+}

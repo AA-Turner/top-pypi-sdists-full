@@ -16,7 +16,7 @@ from matrx_ai.config import (
     UnifiedResponse,
 )
 from matrx_ai.context.emitter_protocol import Emitter
-from matrx_ai.providers.keys import keyed_provider_client
+from matrx_ai.providers.keys import NO_SDK_RETRIES, keyed_provider_client
 from matrx_ai.providers.outbound_capture import (
     make_capture_http_client,
     stamp_call_meta,
@@ -45,6 +45,7 @@ class CerebrasChat:
         "CEREBRAS_API_KEY",
         factory=lambda api_key: AsyncCerebras(
             api_key=api_key,
+            max_retries=NO_SDK_RETRIES,
             http_client=make_capture_http_client(sdk=cerebras_sdk),
             warm_tcp_connection=False,
         ),

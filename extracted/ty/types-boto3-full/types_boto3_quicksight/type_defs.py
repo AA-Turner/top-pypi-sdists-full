@@ -138,6 +138,7 @@ from .literals import (
     GeospatialLayerTypeType,
     GeospatialMapNavigationType,
     GeospatialSelectedPointStyleType,
+    HierarchyFilterMatchOperatorType,
     HistogramBinTypeType,
     HorizontalTextAlignmentType,
     IconType,
@@ -916,6 +917,10 @@ __all__ = (
     "DefaultFormattingTypeDef",
     "DefaultFreeFormLayoutConfigurationTypeDef",
     "DefaultGridLayoutConfigurationTypeDef",
+    "DefaultHierarchyFilterDropDownControlOptionsOutputTypeDef",
+    "DefaultHierarchyFilterDropDownControlOptionsTypeDef",
+    "DefaultHierarchyFilterListControlOptionsOutputTypeDef",
+    "DefaultHierarchyFilterListControlOptionsTypeDef",
     "DefaultInteractiveLayoutConfigurationTypeDef",
     "DefaultNewSheetConfigurationTypeDef",
     "DefaultPaginatedLayoutConfigurationTypeDef",
@@ -1423,6 +1428,18 @@ __all__ = (
     "HeatMapSortConfigurationTypeDef",
     "HeatMapVisualOutputTypeDef",
     "HeatMapVisualTypeDef",
+    "HierarchyFilterDropDownControlDisplayOptionsTypeDef",
+    "HierarchyFilterDropDownControlOutputTypeDef",
+    "HierarchyFilterDropDownControlTypeDef",
+    "HierarchyFilterLevelTypeDef",
+    "HierarchyFilterListControlDisplayOptionsTypeDef",
+    "HierarchyFilterListControlOutputTypeDef",
+    "HierarchyFilterListControlSearchOptionsTypeDef",
+    "HierarchyFilterListControlTypeDef",
+    "HierarchyFilterNodeOutputTypeDef",
+    "HierarchyFilterNodeTypeDef",
+    "HierarchyFilterOutputTypeDef",
+    "HierarchyFilterTypeDef",
     "HistogramAggregatedFieldWellsOutputTypeDef",
     "HistogramAggregatedFieldWellsTypeDef",
     "HistogramBinOptionsTypeDef",
@@ -4387,12 +4404,6 @@ DataSourceErrorInfoTypeDef = TypedDict(
 )
 
 
-class DatabricksParametersTypeDef(TypedDict):
-    Host: str
-    Port: int
-    SqlEndpointPath: str
-
-
 class ExasolParametersTypeDef(TypedDict):
     Host: str
     Port: int
@@ -5675,6 +5686,10 @@ class GroupSearchFilterTypeDef(TypedDict):
 
 class GutterStyleTypeDef(TypedDict):
     Show: NotRequired[bool]
+
+
+class HierarchyFilterListControlSearchOptionsTypeDef(TypedDict):
+    Visibility: NotRequired[VisibilityType]
 
 
 class IAMPolicyAssignmentSummaryTypeDef(TypedDict):
@@ -7189,6 +7204,24 @@ class FilterOperationSelectedFieldsConfigurationTypeDef(TypedDict):
     SelectedFields: NotRequired[Sequence[str]]
     SelectedFieldOptions: NotRequired[Literal["ALL_FIELDS"]]
     SelectedColumns: NotRequired[Sequence[ColumnIdentifierTypeDef]]
+
+
+class HierarchyFilterLevelTypeDef(TypedDict):
+    Column: ColumnIdentifierTypeDef
+
+
+class HierarchyFilterNodeOutputTypeDef(TypedDict):
+    Column: ColumnIdentifierTypeDef
+    ParentValue: NotRequired[str]
+    HierarchyValues: NotRequired[list[str]]
+    Children: NotRequired[list[dict[str, Any]]]
+
+
+class HierarchyFilterNodeTypeDef(TypedDict):
+    Column: ColumnIdentifierTypeDef
+    ParentValue: NotRequired[str]
+    HierarchyValues: NotRequired[Sequence[str]]
+    Children: NotRequired[Sequence[Mapping[str, Any]]]
 
 
 class NumericEqualityDrillDownFilterTypeDef(TypedDict):
@@ -11374,6 +11407,14 @@ class DescribeOAuthClientApplicationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DatabricksParametersTypeDef(TypedDict):
+    Host: str
+    Port: int
+    SqlEndpointPath: str
+    AuthenticationType: NotRequired[AuthenticationTypeType]
+    OAuthParameters: NotRequired[OAuthParametersTypeDef]
+
+
 class SnowflakeParametersTypeDef(TypedDict):
     Host: str
     Database: str
@@ -13303,6 +13344,17 @@ class DropDownControlDisplayOptionsTypeDef(TypedDict):
     InfoIconLabelOptions: NotRequired[SheetControlInfoIconLabelOptionsTypeDef]
 
 
+class HierarchyFilterDropDownControlDisplayOptionsTypeDef(TypedDict):
+    TitleOptions: NotRequired[LabelOptionsTypeDef]
+    InfoIconLabelOptions: NotRequired[SheetControlInfoIconLabelOptionsTypeDef]
+
+
+class HierarchyFilterListControlDisplayOptionsTypeDef(TypedDict):
+    TitleOptions: NotRequired[LabelOptionsTypeDef]
+    InfoIconLabelOptions: NotRequired[SheetControlInfoIconLabelOptionsTypeDef]
+    SearchOptions: NotRequired[HierarchyFilterListControlSearchOptionsTypeDef]
+
+
 class LegendOptionsTypeDef(TypedDict):
     Visibility: NotRequired[VisibilityType]
     Title: NotRequired[LabelOptionsTypeDef]
@@ -14972,6 +15024,46 @@ DefaultFilterListControlOptionsTypeDef = TypedDict(
         "ControlSortConfigurations": NotRequired[Sequence[ControlSortConfigurationTypeDef]],
     },
 )
+DefaultHierarchyFilterDropDownControlOptionsOutputTypeDef = TypedDict(
+    "DefaultHierarchyFilterDropDownControlOptionsOutputTypeDef",
+    {
+        "DisplayOptions": NotRequired[HierarchyFilterDropDownControlDisplayOptionsTypeDef],
+        "Type": NotRequired[SheetControlListTypeType],
+        "CommitMode": NotRequired[CommitModeType],
+        "ControlSortConfigurations": NotRequired[list[ControlSortConfigurationTypeDef]],
+        "ControlTitleFormatText": NotRequired[ControlTitleFormatTextTypeDef],
+    },
+)
+DefaultHierarchyFilterDropDownControlOptionsTypeDef = TypedDict(
+    "DefaultHierarchyFilterDropDownControlOptionsTypeDef",
+    {
+        "DisplayOptions": NotRequired[HierarchyFilterDropDownControlDisplayOptionsTypeDef],
+        "Type": NotRequired[SheetControlListTypeType],
+        "CommitMode": NotRequired[CommitModeType],
+        "ControlSortConfigurations": NotRequired[Sequence[ControlSortConfigurationTypeDef]],
+        "ControlTitleFormatText": NotRequired[ControlTitleFormatTextTypeDef],
+    },
+)
+DefaultHierarchyFilterListControlOptionsOutputTypeDef = TypedDict(
+    "DefaultHierarchyFilterListControlOptionsOutputTypeDef",
+    {
+        "DisplayOptions": NotRequired[HierarchyFilterListControlDisplayOptionsTypeDef],
+        "Type": NotRequired[SheetControlListTypeType],
+        "CommitMode": NotRequired[CommitModeType],
+        "ControlSortConfigurations": NotRequired[list[ControlSortConfigurationTypeDef]],
+        "ControlTitleFormatText": NotRequired[ControlTitleFormatTextTypeDef],
+    },
+)
+DefaultHierarchyFilterListControlOptionsTypeDef = TypedDict(
+    "DefaultHierarchyFilterListControlOptionsTypeDef",
+    {
+        "DisplayOptions": NotRequired[HierarchyFilterListControlDisplayOptionsTypeDef],
+        "Type": NotRequired[SheetControlListTypeType],
+        "CommitMode": NotRequired[CommitModeType],
+        "ControlSortConfigurations": NotRequired[Sequence[ControlSortConfigurationTypeDef]],
+        "ControlTitleFormatText": NotRequired[ControlTitleFormatTextTypeDef],
+    },
+)
 FilterDropDownControlOutputTypeDef = TypedDict(
     "FilterDropDownControlOutputTypeDef",
     {
@@ -15026,6 +15118,58 @@ FilterListControlTypeDef = TypedDict(
         "Type": NotRequired[SheetControlListTypeType],
         "SelectableValues": NotRequired[FilterSelectableValuesTypeDef],
         "CascadingControlConfiguration": NotRequired[CascadingControlConfigurationTypeDef],
+        "ControlSortConfigurations": NotRequired[Sequence[ControlSortConfigurationTypeDef]],
+        "ControlTitleFormatText": NotRequired[ControlTitleFormatTextTypeDef],
+    },
+)
+HierarchyFilterDropDownControlOutputTypeDef = TypedDict(
+    "HierarchyFilterDropDownControlOutputTypeDef",
+    {
+        "FilterControlId": str,
+        "SourceFilterId": str,
+        "Title": NotRequired[str],
+        "DisplayOptions": NotRequired[HierarchyFilterDropDownControlDisplayOptionsTypeDef],
+        "Type": NotRequired[SheetControlListTypeType],
+        "CommitMode": NotRequired[CommitModeType],
+        "ControlSortConfigurations": NotRequired[list[ControlSortConfigurationTypeDef]],
+        "ControlTitleFormatText": NotRequired[ControlTitleFormatTextTypeDef],
+    },
+)
+HierarchyFilterDropDownControlTypeDef = TypedDict(
+    "HierarchyFilterDropDownControlTypeDef",
+    {
+        "FilterControlId": str,
+        "SourceFilterId": str,
+        "Title": NotRequired[str],
+        "DisplayOptions": NotRequired[HierarchyFilterDropDownControlDisplayOptionsTypeDef],
+        "Type": NotRequired[SheetControlListTypeType],
+        "CommitMode": NotRequired[CommitModeType],
+        "ControlSortConfigurations": NotRequired[Sequence[ControlSortConfigurationTypeDef]],
+        "ControlTitleFormatText": NotRequired[ControlTitleFormatTextTypeDef],
+    },
+)
+HierarchyFilterListControlOutputTypeDef = TypedDict(
+    "HierarchyFilterListControlOutputTypeDef",
+    {
+        "FilterControlId": str,
+        "SourceFilterId": str,
+        "Title": NotRequired[str],
+        "DisplayOptions": NotRequired[HierarchyFilterListControlDisplayOptionsTypeDef],
+        "Type": NotRequired[SheetControlListTypeType],
+        "CommitMode": NotRequired[CommitModeType],
+        "ControlSortConfigurations": NotRequired[list[ControlSortConfigurationTypeDef]],
+        "ControlTitleFormatText": NotRequired[ControlTitleFormatTextTypeDef],
+    },
+)
+HierarchyFilterListControlTypeDef = TypedDict(
+    "HierarchyFilterListControlTypeDef",
+    {
+        "FilterControlId": str,
+        "SourceFilterId": str,
+        "Title": NotRequired[str],
+        "DisplayOptions": NotRequired[HierarchyFilterListControlDisplayOptionsTypeDef],
+        "Type": NotRequired[SheetControlListTypeType],
+        "CommitMode": NotRequired[CommitModeType],
         "ControlSortConfigurations": NotRequired[Sequence[ControlSortConfigurationTypeDef]],
         "ControlTitleFormatText": NotRequired[ControlTitleFormatTextTypeDef],
     },
@@ -15698,6 +15842,8 @@ class DefaultFilterControlOptionsOutputTypeDef(TypedDict):
     DefaultTextAreaOptions: NotRequired[DefaultTextAreaControlOptionsTypeDef]
     DefaultSliderOptions: NotRequired[DefaultSliderControlOptionsTypeDef]
     DefaultRelativeDateTimeOptions: NotRequired[DefaultRelativeDateTimeControlOptionsTypeDef]
+    DefaultHierarchyList: NotRequired[DefaultHierarchyFilterListControlOptionsOutputTypeDef]
+    DefaultHierarchyDropdown: NotRequired[DefaultHierarchyFilterDropDownControlOptionsOutputTypeDef]
 
 
 class DefaultFilterControlOptionsTypeDef(TypedDict):
@@ -15708,6 +15854,8 @@ class DefaultFilterControlOptionsTypeDef(TypedDict):
     DefaultTextAreaOptions: NotRequired[DefaultTextAreaControlOptionsTypeDef]
     DefaultSliderOptions: NotRequired[DefaultSliderControlOptionsTypeDef]
     DefaultRelativeDateTimeOptions: NotRequired[DefaultRelativeDateTimeControlOptionsTypeDef]
+    DefaultHierarchyList: NotRequired[DefaultHierarchyFilterListControlOptionsTypeDef]
+    DefaultHierarchyDropdown: NotRequired[DefaultHierarchyFilterDropDownControlOptionsTypeDef]
 
 
 FilterControlOutputTypeDef = TypedDict(
@@ -15721,6 +15869,8 @@ FilterControlOutputTypeDef = TypedDict(
         "Slider": NotRequired[FilterSliderControlTypeDef],
         "RelativeDateTime": NotRequired[FilterRelativeDateTimeControlTypeDef],
         "CrossSheet": NotRequired[FilterCrossSheetControlOutputTypeDef],
+        "HierarchyList": NotRequired[HierarchyFilterListControlOutputTypeDef],
+        "HierarchyDropdown": NotRequired[HierarchyFilterDropDownControlOutputTypeDef],
     },
 )
 FilterControlTypeDef = TypedDict(
@@ -15734,6 +15884,8 @@ FilterControlTypeDef = TypedDict(
         "Slider": NotRequired[FilterSliderControlTypeDef],
         "RelativeDateTime": NotRequired[FilterRelativeDateTimeControlTypeDef],
         "CrossSheet": NotRequired[FilterCrossSheetControlTypeDef],
+        "HierarchyList": NotRequired[HierarchyFilterListControlTypeDef],
+        "HierarchyDropdown": NotRequired[HierarchyFilterDropDownControlTypeDef],
     },
 )
 ParameterControlOutputTypeDef = TypedDict(
@@ -16777,6 +16929,16 @@ class CategoryInnerFilterOutputTypeDef(TypedDict):
     DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationOutputTypeDef]
 
 
+class HierarchyFilterOutputTypeDef(TypedDict):
+    FilterId: str
+    Column: ColumnIdentifierTypeDef
+    HierarchyLevels: list[HierarchyFilterLevelTypeDef]
+    NullOption: FilterNullOptionType
+    MatchOperator: HierarchyFilterMatchOperatorType
+    HierarchyTree: NotRequired[HierarchyFilterNodeOutputTypeDef]
+    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationOutputTypeDef]
+
+
 class NumericEqualityFilterOutputTypeDef(TypedDict):
     FilterId: str
     Column: ColumnIdentifierTypeDef
@@ -16859,6 +17021,16 @@ class CategoryFilterTypeDef(TypedDict):
 class CategoryInnerFilterTypeDef(TypedDict):
     Column: ColumnIdentifierTypeDef
     Configuration: CategoryFilterConfigurationTypeDef
+    DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationTypeDef]
+
+
+class HierarchyFilterTypeDef(TypedDict):
+    FilterId: str
+    Column: ColumnIdentifierTypeDef
+    HierarchyLevels: Sequence[HierarchyFilterLevelTypeDef]
+    NullOption: FilterNullOptionType
+    MatchOperator: HierarchyFilterMatchOperatorType
+    HierarchyTree: NotRequired[HierarchyFilterNodeTypeDef]
     DefaultFilterControlConfiguration: NotRequired[DefaultFilterControlConfigurationTypeDef]
 
 
@@ -18228,6 +18400,7 @@ class FilterOutputTypeDef(TypedDict):
     RelativeDatesFilter: NotRequired[RelativeDatesFilterOutputTypeDef]
     TopBottomFilter: NotRequired[TopBottomFilterOutputTypeDef]
     NestedFilter: NotRequired[NestedFilterOutputTypeDef]
+    HierarchyFilter: NotRequired[HierarchyFilterOutputTypeDef]
 
 
 class FilterTypeDef(TypedDict):
@@ -18239,6 +18412,7 @@ class FilterTypeDef(TypedDict):
     RelativeDatesFilter: NotRequired[RelativeDatesFilterTypeDef]
     TopBottomFilter: NotRequired[TopBottomFilterTypeDef]
     NestedFilter: NotRequired[NestedFilterTypeDef]
+    HierarchyFilter: NotRequired[HierarchyFilterTypeDef]
 
 
 LogicalTableUnionTypeDef = Union[LogicalTableTypeDef, LogicalTableOutputTypeDef]

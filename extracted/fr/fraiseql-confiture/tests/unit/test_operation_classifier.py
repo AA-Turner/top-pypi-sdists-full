@@ -1,0 +1,93 @@
+"""Tests for the replica-safety DDL classifier (issue #139)."""
+
+from __future__ import annotations
+
+import pytest
+
+from confiture.core.replica.classifier import (
+    AddColumn,
+    AddConstraint,
+    ChangeColumnType,
+    CreateIndex,
+    CreateTable,
+    DropColumn,
+    OperationClassifier,
+    RenameColumn,
+)
+
+_COLUMN_CASES = [
+    (
+        "ALTER TABLE t ADD COLUMN c int;",
+        AddColumn(table="t", column="c", nullable=True, has_default=False, type_sql="integer"),
+    ),
+    (
+        "ALTER TABLE t ADD COLUMN c int NOT NULL DEFAULT 0;",
+        AddColumn(
+            table="t",
+            column="c",
+            nullable=False,
+            has_default=True,
+            type_sql="integer",
+            default_sql="0",
+        ),
+    ),
+    ("ALTER TABLE t DROP COLUMN c;", DropColumn(table="t", column="c")),
+    ("ALTER TABLE t RENAME COLUMN a TO b;", RenameColumn(table="t", old="a", new="b")),
+    (
+        "ALTER TABLE t ALTER COLUMN c TYPE bigint;",
+        # `new_type` is canonicalised so pglast's `int8` and the regex backend's
+        # `bigint` compare equal (#199); `old_type` is never in the SQL.
+        ChangeColumnType(table="t", column="c", new_type="bigint"),
+    ),
+]
+
+_OTHER_CASES = [
+    ("CREATE INDEX idx ON t (c);", CreateIndex(table="t", concurrently=False)),
+    ("CREATE INDEX CONCURRENTLY idx ON t (c);", CreateIndex(table="t", concurrently=True)),
+    (
+        "ALTER TABLE t ADD CONSTRAINT ck CHECK (c > 0);",
+        AddConstraint(
+            table="t", kind="check", not_valid=False, name="ck", definition="CHECK (c > 0)"
+        ),
+    ),
+    (
+        "ALTER TABLE t ADD CONSTRAINT ck CHECK (c > 0) NOT VALID;",
+        AddConstraint(
+            table="t", kind="check", not_valid=True, name="ck", definition="CHECK (c > 0)"
+        ),
+    ),
+    (
+        # The plan re-adds the key NOT VALID from this text: its actions come with it (#511).
+        "ALTER TABLE t ADD CONSTRAINT fk FOREIGN KEY (a) REFERENCES p ON DELETE CASCADE NOT VALID;",
+        AddConstraint(
+            table="t",
+            kind="foreign_key",
+            not_valid=True,
+            name="fk",
+            definition="FOREIGN KEY (a) REFERENCES p ON DELETE CASCADE",
+        ),
+    ),
+    ("CREATE TABLE t (id int);", CreateTable(table="t")),
+]
+
+
+@pytest.mark.parametrize(("sql", "expected"), _COLUMN_CASES + _OTHER_CASES)
+def test_classify(sql: str, expected) -> None:
+    assert OperationClassifier().classify(sql) == [expected]
+
+
+def test_multi_statement_preserves_order() -> None:
+    sql = "ALTER TABLE t ADD COLUMN c int; ALTER TABLE t DROP COLUMN d;"
+    ops = OperationClassifier().classify(sql)
+    assert [type(o).__name__ for o in ops] == ["AddColumn", "DropColumn"]
+
+
+def test_add_column_nullable_with_default_is_nullable() -> None:
+    [op] = OperationClassifier().classify("ALTER TABLE t ADD COLUMN c int DEFAULT 5;")
+    assert isinstance(op, AddColumn)
+    assert op.nullable is True and op.has_default is True
+
+
+def test_schema_qualified_table() -> None:
+    [op] = OperationClassifier().classify("ALTER TABLE public.t DROP COLUMN c;")
+    assert op.table == "public.t"

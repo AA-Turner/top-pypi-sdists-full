@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import schemathesis
-from schemathesis.config._output import DEFAULT_REPLACEMENT
 from schemathesis.core import NOT_SET
 from schemathesis.core.failures import Failure, is_reproducible_failure
 from schemathesis.core.output.sanitization import sanitize_url, sanitize_value
@@ -138,7 +137,7 @@ class CrashStep:
             },
             "link": self.link.to_dict() if self.link is not None else None,
             "checks": [asdict(c) for c in self.checks],
-            "meta": self.meta,
+            "meta": to_json_safe(self.meta),
             "path": self.path,
             "path_parameters": to_json_safe(self.path_parameters),
             "query": to_json_safe(self.query),
@@ -162,7 +161,7 @@ class CrashStep:
             response_body=response["body"],
             link=CrashLink.from_dict(data["link"]) if data.get("link") is not None else None,
             checks=[CrashCheck.from_dict(c) for c in data["checks"]],
-            meta=data.get("meta"),
+            meta=from_json_safe(data.get("meta")),
             path=data.get("path", ""),
             path_parameters=from_json_safe(data.get("path_parameters", {})),
             query=from_json_safe(data.get("query", {})),
@@ -185,15 +184,6 @@ class CrashFile:
     case_id: str
     code_sample: str
     sequence: list[CrashStep]
-
-    def has_sanitized_values(self) -> bool:
-        """Whether a stored request lost values to sanitization, so a replay cannot be faithful."""
-        return any(
-            DEFAULT_REPLACEMENT in str(value)
-            for step in self.sequence
-            for container in (step.request_headers, step.query, step.case_headers, step.path_parameters)
-            for value in container.values()
-        )
 
     def filename(self) -> str:
         terminal = self.sequence[-1]

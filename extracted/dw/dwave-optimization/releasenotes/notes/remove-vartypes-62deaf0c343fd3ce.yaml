@@ -1,3 +1,0 @@
----
-upgrade:
-  - Remove ``vartypes.hpp``. The ``Vartype`` enum was not used by any other classes or functions.

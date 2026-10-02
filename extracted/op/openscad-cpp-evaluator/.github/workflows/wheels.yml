@@ -1,0 +1,210 @@
+name: Wheels
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Build sdist
+        run: pipx run build --sdist
+
+      - name: Check metadata
+        run: pipx run twine check dist/*
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+
+  build_wheels:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            name: manylinux-x86_64
+          - runner: ubuntu-24.04-arm
+            name: manylinux-aarch64
+          - runner: macos-latest
+            name: macos-arm64
+          - runner: macos-15-intel
+            name: macos-x86_64
+          # Two Windows jobs, one per architecture, both on the x86_64 runner
+          # (ARM64 is cross-compiled; see CIBW_ARCHS_WINDOWS). As one job they
+          # built one after the other -- 7 min each, 14.5 min for the job,
+          # the slowest in the release -- when neither needs the other.
+          - runner: windows-latest
+            name: windows-x86_64
+            archs: AMD64
+          - runner: windows-latest
+            name: windows-arm64
+            archs: ARM64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Build wheel
+        uses: pypa/cibuildwheel@v4.1.1
+        env:
+          # STABLE_ABI (bindings/CMakeLists.txt) needs CPython >=3.12; build
+          # once against cp312 and the resulting abi3 wheel covers every
+          # later 3.x. Skip musllinux -- Manifold/Boost.Polygon are untested
+          # against musl.
+          CIBW_BUILD: "cp312-*"
+          CIBW_SKIP: "*-musllinux*"
+          # cibuildwheel builds win32 in addition to win_amd64 by default;
+          # this project only targets 64-bit Windows.
+          # ARM64 is cross-compiled here on the x86_64 runner rather than
+          # built on a windows-11-arm one, because bison and flex are host
+          # build tools: they generate C++ that MSVC then cross-compiles for
+          # ARM64. MSYS2 -- which is where this build gets a bison new enough
+          # for the grammar (3.8+, winflexbison3 ships 3.7.4) -- has no native
+          # ARM64 build at all, so building on an ARM runner would have to
+          # emulate it. cibuildwheel skips CIBW_TEST_COMMAND for the
+          # cross-compiled wheel, since an x86_64 host cannot run it.
+          CIBW_ARCHS_WINDOWS: ${{ matrix.archs }}
+          # delvewheel vendors the MSVC runtime into the wheel, but on an
+          # x86_64 host it can only find the x86_64 copy -- repairing the
+          # cross-built ARM64 wheel died with "Unable to find library:
+          # msvcp140.dll". The ARM64 wheel therefore leaves the runtime to
+          # the system, which is what every Python extension on Windows
+          # already assumes (CPython itself needs the redistributable).
+          # AMD64 keeps vendoring it, unchanged.
+          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >-
+            cmd /c "echo {wheel} | findstr /C:win_arm64 >nul &&
+            (delvewheel repair --exclude msvcp140.dll --exclude vcruntime140.dll
+            --exclude vcruntime140_1.dll -w {dest_dir} {wheel}) ||
+            (delvewheel repair -w {dest_dir} {wheel})"
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
+          CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28
+          # manylinux_2_28 (AlmaLinux 8) uses dnf, not apt -- but its default
+          # AppStream repo only has bison 3.0.4, and the parser submodule's
+          # grammar requires %require "3.8". No newer bison package is
+          # available via dnf on this base image, so build one from source
+          # (fast: a few seconds) rather than switching manylinux images.
+          # Mirrors first, ftp.gnu.org last: ftp.gnu.org went unreachable
+          # (curl 7, connection timed out on 443) on both architectures for
+          # two consecutive runs of the v0.51.3 release, and it is a single
+          # point of failure for every Linux wheel we ship.
+          # ftpmirror.gnu.org is GNU's own redirector to a nearby mirror.
+          # Every line stays at THIS indent on purpose -- a more-indented
+          # line in a `>-` folded scalar keeps its newline instead of
+          # folding to a space, which would split a URL from its curl.
+          # CURL FLAG CEILING: this runs against AlmaLinux 8's curl 7.61,
+          # NOT the host's. --retry (7.12.3), --retry-connrefused (7.52)
+          # and --connect-timeout (7.7) are fine; --retry-all-errors is
+          # 7.71 and made every Linux wheel fail with
+          # "option --retry-all-errors: is unknown". Check `Added:` in
+          # curl/docs/cmdline-opts/<opt>.md before adding a flag here --
+          # testing the command on a Mac proves nothing about this curl.
+          CIBW_BEFORE_ALL_LINUX: >-
+            dnf install -y flex &&
+            { curl -fsSL --retry 3 --retry-connrefused --connect-timeout 20 https://ftpmirror.gnu.org/bison/bison-3.8.2.tar.gz -o /tmp/bison.tar.gz ||
+            curl -fsSL --retry 3 --retry-connrefused --connect-timeout 20 https://mirrors.kernel.org/gnu/bison/bison-3.8.2.tar.gz -o /tmp/bison.tar.gz ||
+            curl -fsSL --retry 3 --retry-connrefused --connect-timeout 20 https://ftp.gnu.org/gnu/bison/bison-3.8.2.tar.gz -o /tmp/bison.tar.gz ; } &&
+            cd /tmp && tar xzf bison.tar.gz && cd bison-3.8.2 &&
+            ./configure --prefix=/usr/local && make -j$(nproc) && make install
+          # Mirrors ci.yml's macOS step: the hosted runner image ships an
+          # untrusted aws/tap pre-tapped; untap before installing.
+          CIBW_BEFORE_ALL_MACOS: "brew untap aws/tap || true; brew install bison flex"
+          # openscad_cpp_parser's expression.cpp uses std::to_chars for
+          # floats, which Apple's libc++ marks unavailable below macOS 13.3
+          # (independent of SDK/compiler version) -- cibuildwheel's default
+          # deployment target (11.0) trips this. Bump it for both macOS archs.
+          CIBW_ENVIRONMENT_MACOS: "MACOSX_DEPLOYMENT_TARGET=13.3"
+          # Mirrors ci.yml's Windows step: windows-latest ships MSYS2 at
+          # C:\msys64 (not on PATH); its bison/flex satisfy the parser
+          # submodule's grammar version requirement.
+          CIBW_BEFORE_ALL_WINDOWS: 'C:\msys64\usr\bin\bash.exe -lc "pacman -Sy --noconfirm bison flex"'
+          # The binding tests run under pytest (the file's own entry point
+          # hands over to it): most of them take tmp_path or use pytest.raises.
+          CIBW_TEST_REQUIRES: "pytest"
+          CIBW_TEST_COMMAND: "python {package}/tests/test_python_bindings.py"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wheel-${{ matrix.name }}
+          path: wheelhouse/*.whl
+
+  publish-testpypi:
+    needs: [sdist, build_wheels]
+    # Tags only: a manual dispatch builds and tests every wheel, and must
+    # never publish whatever branch it was run on.
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment: testpypi
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          pattern: sdist
+          merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          pattern: wheel-*
+          merge-multiple: true
+
+      # Token auth, not OIDC trusted publishing: GitHub's newer "immutable
+      # subject claims" format (any repo created after 2026-07-15, no
+      # opt-out -- this repo was created 2026-07-24) isn't yet recognized by
+      # PyPI/TestPyPI's trusted-publisher matcher ("invalid-publisher: valid
+      # token, but no corresponding publisher" on every attempt). Switch back
+      # to trusted publishing once that's resolved on PyPI's end.
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: dist
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          # TestPyPI is a dry-run index we iterate against under the same
+          # version while fixing build issues; a filename already uploaded
+          # from an earlier attempt (e.g. the sdist, which is unaffected by
+          # wheel-only fixes) isn't a real problem, just re-upload noise.
+          # Never set this on publish-pypi below -- a real PyPI collision
+          # should fail loudly, not skip silently.
+          skip-existing: true
+
+  publish-pypi:
+    needs: [publish-testpypi]
+    # Tags only: a manual dispatch builds and tests every wheel, and must
+    # never publish whatever branch it was run on.
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    # The "pypi" environment carries no protection rules, so a tag runs
+    # straight through TestPyPI to PyPI with nothing to stop it -- and a
+    # PyPI upload cannot be undone or replaced at the same version. Adding
+    # a required reviewer to the environment reinstates that brake; GitHub
+    # permits approving your own deployment unless "Prevent self-review"
+    # is ticked. Kept regardless of rules: token auth aside, the
+    # environment is where a publishing credential would be scoped.
+    environment: pypi
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          pattern: sdist
+          merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          pattern: wheel-*
+          merge-multiple: true
+
+      # Token auth -- see the comment on publish-testpypi above.
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+          password: ${{ secrets.PYPI_API_TOKEN }}

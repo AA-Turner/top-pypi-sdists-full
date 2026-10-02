@@ -6,6 +6,9 @@ edition.workspace = true
 license.workspace = true
 readme = "README.md"
 
+[package.metadata.cargo-shear]
+ignored = ["tombi-diagnostic"]  # Only enables its `lsp` feature, which converts diagnostics
+
 [dependencies]
 chrono.workspace = true
 futures.workspace = true
@@ -23,6 +26,7 @@ tombi-comment-directive-store.workspace = true
 tombi-config.workspace = true
 tombi-date-time.workspace = true
 tombi-diagnostic = { workspace = true, features = ["lsp"] }
+tombi-document-snapshot.workspace = true
 tombi-document-tree-syntax.workspace = true
 tombi-extension.workspace = true
 tombi-extension-cargo.workspace = true

@@ -804,25 +804,28 @@ class GoogleChat:
         data: bytes,
         raw_mime: str,
     ) -> int:
-        """Forward one raw-PCM segment to the client; return the next seq."""
+        """Forward one raw-PCM segment to the client in journal-sized frames; return the next seq."""
         from matrx_connect.context.data_types import AudioStreamChunkData
 
         from matrx_ai.media.media_persistence import AIMediaHandler
+        from matrx_ai.providers.audio_stream import split_audio_frames
 
         bits, rate = AIMediaHandler._parse_pcm_mime_params(raw_mime)
-        await emitter.send_data(
-            AudioStreamChunkData(
-                stream_id=stream_id,
-                seq=seq,
-                audio_base64=base64.b64encode(data).decode("ascii"),
-                mime_type=raw_mime or "audio/L16",
-                sample_rate=rate,
-                bits_per_sample=bits,
-                channels=1,
+        for piece in split_audio_frames(data, align=max(1, bits // 8)):
+            await emitter.send_data(
+                AudioStreamChunkData(
+                    stream_id=stream_id,
+                    seq=seq,
+                    audio_base64=base64.b64encode(piece).decode("ascii"),
+                    mime_type=raw_mime or "audio/L16",
+                    sample_rate=rate,
+                    bits_per_sample=bits,
+                    channels=1,
+                )
             )
-        )
-        await asyncio.sleep(0)
-        return seq + 1
+            seq += 1
+            await asyncio.sleep(0)
+        return seq
 
     async def _raise_tts_abort(
         self,
@@ -925,26 +928,31 @@ class GoogleChat:
             for content_item in msg.content:
                 if isinstance(content_item, AudioContent) and content_item.url:
                     if content_item.file_id:
-                        block = cloud_file_to_media_block(
+                        from matrx_ai.providers.media_frames import fitted_media_block
+
+                        # The persisted part's metadata (generation, speech_script)
+                        # — live and reload render alike; the script is shed from
+                        # the LIVE event only if it would outgrow the journal frame.
+                        event = fitted_media_block(
                             {
                                 "id": content_item.file_id,
                                 "storage_uri": content_item.file_uri,
                                 "mime_type": content_item.mime_type,
                                 "size_bytes": content_item.file_size,
                                 "duration_ms": content_item.duration_ms,
-                                # EXACTLY the persisted part's metadata (generation,
-                                # speech_script) — live and reload render alike.
                                 "metadata": dict(content_item.metadata or {}),
                             },
                             kind_override="audio",
                         )
                     else:
-                        block = external_url_to_media_block(
-                            content_item.url,
-                            kind="audio",
-                            mime_type=content_item.mime_type,
+                        event = MediaBlockData(
+                            block=external_url_to_media_block(
+                                content_item.url,
+                                kind="audio",
+                                mime_type=content_item.mime_type,
+                            )
                         )
-                    await emitter.send_data(MediaBlockData(block=block))
+                    await emitter.send_data(event)
                     await asyncio.sleep(0)
                 elif isinstance(content_item, ImageContent) and content_item.url:
                     if content_item.file_id:

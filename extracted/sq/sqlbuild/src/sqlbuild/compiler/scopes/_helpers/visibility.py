@@ -1,0 +1,217 @@
+"""Canonical record-level declaration visibility resolution."""
+
+from __future__ import annotations
+
+from functools import lru_cache
+from pathlib import PurePath
+
+from sqlbuild.compiler.scopes._helpers.identities import parse_identity
+from sqlbuild.compiler.scopes._helpers.paths import normalize_path
+from sqlbuild.compiler.scopes.constants import (
+    CURRENT_PATH_COMPONENT,
+    PATH_SEPARATOR,
+    QUALIFIED_IDENTITY_SEPARATOR,
+)
+from sqlbuild.compiler.scopes.models import (
+    DeclarationIdentity,
+    DeclarationRecord,
+    GrantRecord,
+    InaccessibleRecord,
+    OwnershipRoot,
+    ResourceIdentity,
+    ResourceRecord,
+    ScopeLookup,
+    ScopeTargetQuery,
+    VisibilityRecord,
+    VisibilityResolution,
+)
+from sqlbuild.compiler.scopes.types import (
+    GrantKind,
+    InaccessibleReason,
+    OwnershipRootKind,
+    ResourceKind,
+    ScopeKind,
+    VisibilityReason,
+)
+
+_DECLARATION_STEM: str = "__declaration__.sql"
+
+
+def query_target(
+    *, lookup: ScopeLookup, target: ResourceIdentity | DeclarationIdentity | str | PurePath
+) -> ScopeTargetQuery:
+    if isinstance(target, ResourceIdentity):
+        return ScopeTargetQuery(target, lookup.resources.get(target, ()))
+    if isinstance(target, DeclarationIdentity):
+        return ScopeTargetQuery(
+            target,
+            declaration_matches=lookup.declarations.get(target, ()),
+        )
+    raw: str = str(target)
+    if QUALIFIED_IDENTITY_SEPARATOR in raw:
+        identity: ResourceIdentity | DeclarationIdentity = parse_identity(value=raw)
+        if isinstance(identity, ResourceIdentity):
+            return ScopeTargetQuery(raw, lookup.resources.get(identity, ()))
+        return ScopeTargetQuery(
+            raw,
+            declaration_matches=lookup.declarations.get(identity, ()),
+        )
+    return ScopeTargetQuery(raw, lookup.resources_by_path.get(normalize_path(path=raw), ()))
+
+
+def resolve_visibility(
+    *, lookup: ScopeLookup, target: ResourceIdentity | str | PurePath
+) -> VisibilityResolution:
+    query: ScopeTargetQuery = query_target(lookup=lookup, target=target)
+    if query.unknown:
+        return VisibilityResolution(target=query)
+    visible: list[VisibilityRecord] = []
+    inaccessible: list[InaccessibleRecord] = []
+    resource: ResourceRecord
+    for resource in query.matches:
+        grants_by_declaration: dict[DeclarationIdentity, list[GrantRecord]] = {}
+        for grant in lookup.grants_by_resource.get(resource.identity, ()):
+            grants_by_declaration.setdefault(grant.declaration, []).append(grant)
+        declaration: DeclarationRecord
+        for declaration in lookup.index.declarations:
+            positive: VisibilityReason | None = _visibility_reason(
+                resource=resource, declaration=declaration
+            )
+            if positive is not None:
+                visible.append(VisibilityRecord(resource.identity, declaration.identity, positive))
+            declaration_grants: list[GrantRecord] | None = grants_by_declaration.get(
+                declaration.identity
+            )
+            if declaration_grants is not None:
+                visible.extend(
+                    VisibilityRecord(
+                        resource.identity,
+                        declaration.identity,
+                        (
+                            VisibilityReason.TESTED_MACRO
+                            if grant.kind is GrantKind.TESTED_MACRO
+                            else VisibilityReason.EXPECTED_MODEL
+                        ),
+                        grant.through,
+                    )
+                    for grant in declaration_grants
+                )
+            elif positive is None:
+                inaccessible.append(
+                    InaccessibleRecord(
+                        resource.identity,
+                        declaration.identity,
+                        _inaccessible_reason(resource=resource, declaration=declaration),
+                    )
+                )
+    return VisibilityResolution(query, tuple(visible), tuple(inaccessible))
+
+
+def resolve_path_visibility(
+    *, lookup: ScopeLookup, path: str | PurePath
+) -> tuple[tuple[DeclarationRecord, ...], tuple[DeclarationRecord, ...]]:
+    """Classify declarations for an authored path, including declaration definition files."""
+
+    normalized_path: str = normalize_path(path=path)
+    resource: ResourceRecord = ResourceRecord(
+        identity=ResourceIdentity(ResourceKind.MODEL, f"<path:{normalized_path}>"),
+        path=normalized_path,
+        ownership_root=OwnershipRoot(
+            path=CURRENT_PATH_COMPONENT,
+            kind=OwnershipRootKind.RESOURCE,
+            resource_kind=ResourceKind.MODEL,
+        ),
+    )
+    visible: list[DeclarationRecord] = []
+    inaccessible: list[DeclarationRecord] = []
+    for declaration in lookup.index.declarations:
+        target: list[DeclarationRecord] = (
+            visible
+            if _visibility_reason(resource=resource, declaration=declaration) is not None
+            else inaccessible
+        )
+        target.append(declaration)
+    return tuple(visible), tuple(inaccessible)
+
+
+def declaration_lexical_path(*, record: DeclarationRecord) -> str:
+    """Return the authored path whose folder controls what a declaration file can use."""
+
+    return f"{record.owning_path or CURRENT_PATH_COMPONENT}{PATH_SEPARATOR}{_DECLARATION_STEM}"
+
+
+def path_visibility_reason(
+    *, declaration: DeclarationRecord, path: str | PurePath
+) -> VisibilityReason | None:
+    """Return why a public declaration is visible from an authored path, if it is."""
+
+    normalized_path: str = normalize_path(path=path)
+    return _visibility_reason(
+        resource=ResourceRecord(
+            identity=ResourceIdentity(ResourceKind.MODEL, f"<path:{normalized_path}>"),
+            path=normalized_path,
+            ownership_root=OwnershipRoot(path=CURRENT_PATH_COMPONENT),
+        ),
+        declaration=declaration,
+    )
+
+
+def _visibility_reason(
+    *, resource: ResourceRecord, declaration: DeclarationRecord
+) -> VisibilityReason | None:
+    if declaration.scope is ScopeKind.GLOBAL:
+        return VisibilityReason.GLOBAL
+    if declaration.scope is ScopeKind.PRIVATE:
+        return (
+            VisibilityReason.PRIVATE_OWNER
+            if declaration.identity.owner == resource.identity
+            else None
+        )
+    owner: str = _canonical_owner(declaration.owning_path or CURRENT_PATH_COMPONENT)
+    parent: str = _parent(resource.path)
+    if declaration.scope is ScopeKind.LOCAL:
+        return VisibilityReason.LOCAL_OWNER if parent == owner else None
+    if declaration.scope is ScopeKind.INHERITED and _is_canonical_descendant(
+        path=parent, ancestor=owner
+    ):
+        return VisibilityReason.INHERITED_ANCESTOR
+    return None
+
+
+def _inaccessible_reason(
+    *, resource: ResourceRecord, declaration: DeclarationRecord
+) -> InaccessibleReason:
+    if declaration.scope is ScopeKind.PRIVATE:
+        return InaccessibleReason.PRIVATE_OWNER
+    if declaration.scope is ScopeKind.LOCAL:
+        return InaccessibleReason.LOCAL_BOUNDARY
+    owner: str = _canonical_owner(declaration.owning_path or CURRENT_PATH_COMPONENT)
+    parent: str = _parent(resource.path)
+    if _is_canonical_descendant(path=owner, ancestor=parent):
+        return InaccessibleReason.DESCENDANT_SCOPE
+    if declaration.ownership_root.path == resource.ownership_root.path:
+        return InaccessibleReason.SIBLING_SCOPE
+    return InaccessibleReason.UNRELATED_SCOPE
+
+
+@lru_cache(maxsize=65_536)
+def _parent(path: str) -> str:
+    normalized: str = normalize_path(path=path)
+    return (
+        normalized.rsplit(PATH_SEPARATOR, maxsplit=1)[0]
+        if PATH_SEPARATOR in normalized
+        else CURRENT_PATH_COMPONENT
+    )
+
+
+def _is_canonical_descendant(*, path: str, ancestor: str) -> bool:
+    return (
+        ancestor == CURRENT_PATH_COMPONENT
+        or path == ancestor
+        or path.startswith(f"{ancestor}{PATH_SEPARATOR}")
+    )
+
+
+@lru_cache(maxsize=65_536)
+def _canonical_owner(path: str) -> str:
+    return normalize_path(path=path)

@@ -198,9 +198,12 @@ async def test_lazy_source_summary_without_descriptor_falls_back_and_announces_i
     )
 
     assert result.success is True
-    assert calls == [
-        {"source_id": "file-2", "mode": "page", "offset": 0, "chars": 4000, "user_id": "u"}
-    ]
+    # The first page is asked for at the default page size; a short slice is
+    # then continued at next_offset to fill that page (ctx._materialize_window),
+    # and this fake — which ignores offset — ends the fill.
+    assert calls[0] == {
+        "source_id": "file-2", "mode": "page", "offset": 0, "chars": 4000, "user_id": "u"
+    }
     assert result.output.content == "Page one of the scan."
     assert result.output.mode == "page"
     assert result.output.fell_back_from == "summary"

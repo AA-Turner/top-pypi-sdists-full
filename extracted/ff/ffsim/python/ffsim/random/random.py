@@ -1,0 +1,1070 @@
+# (C) Copyright IBM 2023.
+#
+# This code is licensed under the Apache License, Version 2.0. You may
+# obtain a copy of this license in the LICENSE.txt file in the root directory
+# of this source tree or at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# Any modifications or derivative works of this code must retain this
+# copyright notice, and modified files need to carry a notice indicating
+# that they have been altered from the originals.
+
+from __future__ import annotations
+
+import itertools
+import math
+from collections import defaultdict
+
+import numpy as np
+
+from ffsim import hamiltonians, operators, variational
+from ffsim.linalg.util import rotate_two_body_tensor
+from ffsim.variational.util import validate_interaction_pairs
+
+
+def random_state_vector(dim: int, *, seed=None, dtype=complex) -> np.ndarray:
+    """Return a random state vector sampled from the uniform distribution.
+
+    Args:
+        dim: The dimension of the state vector.
+        seed: A seed to initialize the pseudorandom number generator.
+            Should be a valid input to ``np.random.default_rng``.
+        dtype: The data type to use for the result.
+
+    Returns:
+        The sampled state vector.
+
+    Raises:
+        ValueError: Dimension must be at least one.
+    """
+    if dim < 1:
+        raise ValueError("Dimension must be at least one.")
+
+    rng = np.random.default_rng(seed)
+    vec = rng.standard_normal(dim).astype(dtype, copy=False)
+    if np.issubdtype(dtype, np.complexfloating):
+        vec += 1j * rng.standard_normal(dim).astype(dtype, copy=False)
+    vec /= np.linalg.norm(vec)
+    return vec
+
+
+def random_density_matrix(dim: int, *, seed=None, dtype=complex) -> np.ndarray:
+    """Returns a random density matrix distributed with Hilbert-Schmidt measure.
+
+    A density matrix is positive semi-definite and has trace equal to one.
+
+    Args:
+        dim: The width and height of the matrix.
+        seed: A seed to initialize the pseudorandom number generator.
+            Should be a valid input to ``np.random.default_rng``.
+
+    Returns:
+        The sampled density matrix.
+
+    Raises:
+        ValueError: Dimension must be at least one.
+
+    References:
+        - `Osipov, Sommers, and Zyczkowski, "Random Bures mixed states and the distribution of their purity" (2010)`_
+
+    .. _Osipov, Sommers, and Zyczkowski, "Random Bures mixed states and the distribution of their purity" (2010): https://arxiv.org/abs/0909.5094
+    """  # noqa: E501
+    if dim < 1:
+        raise ValueError("Dimension must be at least one.")
+
+    rng = np.random.default_rng(seed)
+
+    mat = rng.standard_normal((dim, dim)).astype(dtype, copy=False)
+    if np.issubdtype(dtype, np.complexfloating):
+        mat += 1j * rng.standard_normal((dim, dim))
+    mat @= mat.T.conj()
+    mat /= np.trace(mat)
+    return mat
+
+
+def random_unitary(dim: int, *, seed=None, dtype=complex) -> np.ndarray:
+    """Return a random unitary matrix distributed with Haar measure.
+
+    Args:
+        dim: The width and height of the matrix.
+        seed: A seed to initialize the pseudorandom number generator.
+            Should be a valid input to ``np.random.default_rng``.
+        dtype: The data type to use for the result.
+
+    Returns:
+        The sampled unitary matrix.
+
+    References:
+        - `Mezzadri, "How to generate random matrices from the classical compact groups" (2007)`_
+
+    .. _Mezzadri, "How to generate random matrices from the classical compact groups" (2007): https://arxiv.org/abs/math-ph/0609050
+    """  # noqa: E501
+    rng = np.random.default_rng(seed)
+    z = rng.standard_normal((dim, dim)).astype(dtype, copy=False)
+    z += 1j * rng.standard_normal((dim, dim)).astype(dtype, copy=False)
+    q, r = np.linalg.qr(z)
+    d = np.diagonal(r)
+    return q * (d / np.abs(d))
+
+
+def random_orthogonal(dim: int, seed=None, dtype=float) -> np.ndarray:
+    """Return a random orthogonal matrix distributed with Haar measure.
+
+    Args:
+        dim: The width and height of the matrix.
+        seed: The pseudorandom number generator or seed. Should be an
+            instance of ``np.random.Generator`` or else a valid input to
+            ``np.random.default_rng``.
+
+    Returns:
+        The sampled orthogonal matrix.
+
+    References:
+        - `Mezzadri, "How to generate random matrices from the classical compact groups" (2007)`_
+
+    .. _Mezzadri, "How to generate random matrices from the classical compact groups" (2007): https://arxiv.org/abs/math-ph/0609050
+    """  # noqa: E501
+    rng = np.random.default_rng(seed)
+    m = rng.standard_normal((dim, dim)).astype(dtype, copy=False)
+    q, r = np.linalg.qr(m)
+    d = np.diagonal(r)
+    return q * (d / np.abs(d))
+
+
+def random_special_orthogonal(dim: int, seed=None, dtype=float) -> np.ndarray:
+    """Return a random special orthogonal matrix distributed with Haar measure.
+
+    Args:
+        dim: The width and height of the matrix.
+        seed: The pseudorandom number generator or seed. Should be an
+            instance of ``np.random.Generator`` or else a valid input to
+            ``np.random.default_rng``.
+
+    Returns:
+        The sampled special orthogonal matrix.
+    """
+    mat = random_orthogonal(dim, seed=seed, dtype=dtype)
+    if np.linalg.det(mat) < 0:
+        mat[0] *= -1
+    return mat
+
+
+def random_hermitian(dim: int, *, seed=None, dtype=complex) -> np.ndarray:
+    """Return a random Hermitian matrix.
+
+    Args:
+        dim: The width and height of the matrix.
+        rank: The rank of the matrix. If ``None``, the maximum rank is used.
+        seed: A seed to initialize the pseudorandom number generator.
+            Should be a valid input to ``np.random.default_rng``.
+        dtype: The data type to use for the result.
+
+    Returns:
+        The sampled Hermitian matrix.
+    """
+    rng = np.random.default_rng(seed)
+    mat = rng.standard_normal((dim, dim)).astype(dtype, copy=False)
+    mat += 1j * rng.standard_normal((dim, dim)).astype(dtype, copy=False)
+    return mat + mat.T.conj()
+
+
+def random_real_symmetric_matrix(
+    dim: int, *, rank: int | None = None, seed=None, dtype=float
+) -> np.ndarray:
+    """Return a random real symmetric matrix.
+
+    Args:
+        dim: The width and height of the matrix.
+        rank: The rank of the matrix. If ``None``, the maximum rank is used.
+        seed: The pseudorandom number generator or seed. Should be an
+            instance of ``np.random.Generator`` or else a valid input to
+            ``np.random.default_rng``.
+
+    Returns:
+        The sampled real symmetric matrix.
+    """
+    rng = np.random.default_rng(seed)
+    if rank is None:
+        rank = dim
+    mat = rng.standard_normal((dim, rank)).astype(dtype, copy=False)
+    return mat @ mat.T
+
+
+def random_antihermitian(dim: int, *, seed=None, dtype=complex) -> np.ndarray:
+    """Return a random anti-Hermitian matrix.
+
+    Args:
+        dim: The width and height of the matrix.
+        rank: The rank of the matrix. If ``None``, the maximum rank is used.
+        seed: A seed to initialize the pseudorandom number generator.
+            Should be a valid input to ``np.random.default_rng``.
+        dtype: The data type to use for the result.
+
+    Returns:
+        The sampled anti-Hermitian matrix.
+    """
+    rng = np.random.default_rng(seed)
+    mat = rng.standard_normal((dim, dim)).astype(dtype, copy=False)
+    mat += 1j * rng.standard_normal((dim, dim)).astype(dtype, copy=False)
+    return mat - mat.T.conj()
+
+
+def random_two_body_tensor(
+    dim: int, *, rank: int | None = None, seed=None, dtype=complex
+) -> np.ndarray:
+    """Sample a random two-body tensor.
+
+    Args:
+        dim: The dimension of the tensor. The shape of the returned tensor will be
+            (dim, dim, dim, dim).
+        rank: Rank of the sampled tensor. The default behavior is to use the maximum
+            rank, which is ``dim**2`` if ``dtype`` is a complex type, and
+            ``dim * (dim + 1) // 2`` if it is a real type.
+        seed: A seed to initialize the pseudorandom number generator.
+            Should be a valid input to ``np.random.default_rng``.
+        dtype: The data type to use for the result.
+
+    Returns:
+        The sampled two-body tensor.
+    """
+    rng = np.random.default_rng(seed)
+    is_complex = np.issubdtype(dtype, np.complexfloating)
+    if rank is None:
+        rank = dim**2 if is_complex else dim * (dim + 1) // 2
+    mats = rng.standard_normal((rank, dim, dim)).astype(dtype, copy=False)
+    if is_complex:
+        mats += 1j * rng.standard_normal((rank, dim, dim))
+    mats += mats.transpose(0, 2, 1).conj()
+    return np.tensordot(mats, mats, axes=(0, 0))
+
+
+def random_t2_amplitudes(
+    norb: int, nocc: int, *, seed=None, dtype=complex
+) -> np.ndarray:
+    """Sample a random t2 amplitudes tensor.
+
+    Args:
+        norb: The number of orbitals.
+        nocc: The number of orbitals that are occupied by an electron.
+        seed: A seed to initialize the pseudorandom number generator.
+            Should be a valid input to ``np.random.default_rng``.
+        dtype: The data type to use for the result.
+
+    Returns:
+        The sampled t2 amplitudes tensor.
+    """
+    rng = np.random.default_rng(seed)
+    nvrt = norb - nocc
+    t2 = np.zeros((nocc, nocc, nvrt, nvrt), dtype=dtype)
+    pairs = itertools.product(range(nocc), range(nocc, norb))
+    for (i, a), (j, b) in itertools.combinations_with_replacement(pairs, 2):
+        val = rng.standard_normal()
+        t2[i, j, a - nocc, b - nocc] = val
+        t2[j, i, b - nocc, a - nocc] = val
+    if np.issubdtype(dtype, np.complexfloating):
+        t2_large = np.zeros((norb, norb, norb, norb), dtype=dtype)
+        t2_large[:nocc, :nocc, nocc:, nocc:] = t2
+        orbital_rotation = random_unitary(norb, seed=rng)
+        t2_large = np.einsum(
+            "ijab,iI,jJ,aA,bB->IJAB",
+            t2_large,
+            orbital_rotation.conj(),
+            orbital_rotation.conj(),
+            orbital_rotation,
+            orbital_rotation,
+        )
+        t2 = t2_large[:nocc, :nocc, nocc:, nocc:]
+    return t2
+
+
+def random_molecular_hamiltonian(
+    norb: int, seed=None, dtype=complex
+) -> hamiltonians.MolecularHamiltonian:
+    """Sample a random molecular Hamiltonian.
+
+    Args:
+        norb: The number of spatial orbitals.
+        seed: A seed to initialize the pseudorandom number generator.
+            Should be a valid input to ``np.random.default_rng``.
+        dtype: The data type to use for the one- and two-body tensors. The constant
+            term will always be of type ``float``.
+
+    Returns:
+        The sampled molecular Hamiltonian.
+    """
+    rng = np.random.default_rng(seed)
+    if np.issubdtype(dtype, np.complexfloating):
+        one_body_tensor = random_hermitian(norb, seed=rng, dtype=dtype)
+    else:
+        one_body_tensor = random_real_symmetric_matrix(norb, seed=rng, dtype=dtype)
+    two_body_tensor = random_two_body_tensor(norb, seed=rng, dtype=dtype)
+    constant = rng.standard_normal()
+    return hamiltonians.MolecularHamiltonian(
+        one_body_tensor=one_body_tensor,
+        two_body_tensor=two_body_tensor,
+        constant=constant,
+    )
+
+
+def random_molecular_hamiltonian_spinless(
+    norb: int, seed=None, dtype=complex
+) -> hamiltonians.MolecularHamiltonianSpinless:
+    """Sample a random spinless molecular Hamiltonian.
+
+    Args:
+        norb: The number of orbitals.
+        seed: A seed to initialize the pseudorandom number generator.
+            Should be a valid input to ``np.random.default_rng``.
+        dtype: The data type to use for the one- and two-body tensors. The constant
+            term will always be of type ``float``.
+
+    Returns:
+        The sampled spinless molecular Hamiltonian.
+    """
+    rng = np.random.default_rng(seed)
+    if np.issubdtype(dtype, np.complexfloating):
+        one_body_tensor = random_hermitian(norb, seed=rng, dtype=dtype)
+    else:
+        one_body_tensor = random_real_symmetric_matrix(norb, seed=rng, dtype=dtype)
+    two_body_tensor = random_two_body_tensor(norb, seed=rng, dtype=dtype)
+    constant = rng.standard_normal()
+    return hamiltonians.MolecularHamiltonianSpinless(
+        one_body_tensor=one_body_tensor,
+        two_body_tensor=two_body_tensor,
+        constant=constant,
+    )
+
+
+def random_molecular_hamiltonian_unrestricted(
+    norb: int, seed=None, dtype=complex
+) -> hamiltonians.MolecularHamiltonianUnrestricted:
+    """Sample a random spin-unrestricted molecular Hamiltonian.
+
+    The one- and two-body tensors of each spin sector are sampled independently, so the
+    resulting Hamiltonian is not invariant under exchanging the spin alpha and spin beta
+    orbitals.
+
+    The alpha-beta two-body tensor is sampled without imposing the symmetry under
+    exchanging its two index pairs that the same-spin tensors possess. This symmetry is
+    not required of the alpha-beta tensor, because the beta-alpha term of the
+    Hamiltonian supplies the transposed contribution. See
+    :class:`~ffsim.MolecularHamiltonianUnrestricted`.
+
+    Args:
+        norb: The number of spatial orbitals.
+        seed: A seed to initialize the pseudorandom number generator.
+            Should be a valid input to ``np.random.default_rng``.
+        dtype: The data type to use for the one- and two-body tensors. The constant
+            term will always be of type ``float``.
+
+    Returns:
+        The sampled spin-unrestricted molecular Hamiltonian.
+    """
+    rng = np.random.default_rng(seed)
+    ham_a, ham_b, ham_ab = (
+        random_molecular_hamiltonian(norb, seed=rng, dtype=dtype) for _ in range(3)
+    )
+    # Break the symmetry of the alpha-beta tensor under exchanging its two index pairs
+    # by rotating only its first pair of indices. This preserves the symmetry within
+    # each index pair, which is what the Hamiltonian requires in order to be Hermitian.
+    if np.issubdtype(dtype, np.complexfloating):
+        orbital_rotation = random_unitary(norb, seed=rng)
+    else:
+        orbital_rotation = random_orthogonal(norb, seed=rng, dtype=dtype)
+    two_body_tensor_ab = rotate_two_body_tensor(
+        ham_ab.two_body_tensor, orbital_rotation, None
+    )
+    return hamiltonians.MolecularHamiltonianUnrestricted(
+        one_body_tensors=np.stack([ham_a.one_body_tensor, ham_b.one_body_tensor]),
+        two_body_tensors=np.stack(
+            [ham_a.two_body_tensor, two_body_tensor_ab, ham_b.two_body_tensor]
+        ),
+        constant=ham_a.constant,
+    )
+
+
+def random_uccsd_op_restricted_real(
+    norb: int,
+    nocc: int,
+    *,
+    with_final_orbital_rotation: bool = False,
+    seed=None,
+) -> variational.UCCSDOpRestrictedReal:
+    """Sample a random real-valued UCCSD operator.
+
+    Args:
+        norb: The number of spatial orbitals.
+        nocc: The number of spatial orbitals that are occupied by electrons.
+        with_final_orbital_rotation: Whether to include a final orbital rotation
+            in the operator.
+        seed: A seed to initialize the pseudorandom number generator.
+            Should be a valid input to ``np.random.default_rng``.
+
+    Returns:
+        The sampled UCCSD operator.
+    """
+    rng = np.random.default_rng(seed)
+    nvrt = norb - nocc
+    t1 = rng.standard_normal((nocc, nvrt))
+    t2 = random_t2_amplitudes(norb, nocc, seed=rng, dtype=float)
+    final_orbital_rotation = None
+    if with_final_orbital_rotation:
+        final_orbital_rotation = random_unitary(norb, seed=rng)
+    return variational.UCCSDOpRestrictedReal(
+        t1=t1, t2=t2, final_orbital_rotation=final_orbital_rotation
+    )
+
+
+def random_uccsd_op_restricted(
+    norb: int,
+    nocc: int,
+    *,
+    with_final_orbital_rotation: bool = False,
+    seed=None,
+) -> variational.UCCSDOpRestricted:
+    """Sample a random UCCSD operator.
+
+    Args:
+        norb: The number of spatial orbitals.
+        nocc: The number of spatial orbitals that are occupied by electrons.
+        with_final_orbital_rotation: Whether to include a final orbital rotation
+            in the operator.
+        seed: A seed to initialize the pseudorandom number generator.
+            Should be a valid input to ``np.random.default_rng``.
+
+    Returns:
+        The sampled UCCSD operator.
+    """
+    rng = np.random.default_rng(seed)
+    nvrt = norb - nocc
+    t1 = rng.standard_normal((nocc, nvrt)).astype(complex)
+    t1 += 1j * rng.standard_normal((nocc, nvrt))
+    t2 = random_t2_amplitudes(norb, nocc, seed=rng, dtype=complex)
+    final_orbital_rotation = None
+    if with_final_orbital_rotation:
+        final_orbital_rotation = random_unitary(norb, seed=rng)
+    return variational.UCCSDOpRestricted(
+        t1=t1, t2=t2, final_orbital_rotation=final_orbital_rotation
+    )
+
+
+def random_uccsd_op_unrestricted_real(
+    norb: int,
+    nelec: tuple[int, int],
+    *,
+    with_final_orbital_rotation: bool = False,
+    seed=None,
+) -> variational.UCCSDOpUnrestrictedReal:
+    """Sample a random real-valued UCCSD operator.
+
+    Args:
+        norb: The number of spatial orbitals.
+        nocc: The number of spatial orbitals that are occupied by electrons.
+        with_final_orbital_rotation: Whether to include a final orbital rotation
+            in the operator.
+        seed: A seed to initialize the pseudorandom number generator.
+            Should be a valid input to ``np.random.default_rng``.
+
+    Returns:
+        The sampled UCCSD operator.
+    """
+    rng = np.random.default_rng(seed)
+    nocc_a, nocc_b = nelec
+    nvrt_a = norb - nocc_a
+    nvrt_b = norb - nocc_b
+    t1_a = rng.standard_normal((nocc_a, nvrt_a))
+    t1_b = rng.standard_normal((nocc_b, nvrt_b))
+    t2_aa = random_t2_amplitudes(norb, nocc_a, seed=rng, dtype=float)
+    t2_ab = rng.standard_normal((nocc_a, nocc_b, nvrt_a, nvrt_b))
+    t2_bb = random_t2_amplitudes(norb, nocc_b, seed=rng, dtype=float)
+    final_orbital_rotation = None
+    if with_final_orbital_rotation:
+        final_orbital_rotation = np.stack(
+            [random_unitary(norb, seed=rng), random_unitary(norb, seed=rng)]
+        )
+    return variational.UCCSDOpUnrestrictedReal(
+        t1=(t1_a, t1_b),
+        t2=(t2_aa, t2_ab, t2_bb),
+        final_orbital_rotation=final_orbital_rotation,
+    )
+
+
+def random_uccsd_op_unrestricted(
+    norb: int,
+    nelec: tuple[int, int],
+    *,
+    with_final_orbital_rotation: bool = False,
+    seed=None,
+) -> variational.UCCSDOpUnrestricted:
+    """Sample a random UCCSD operator.
+
+    Args:
+        norb: The number of spatial orbitals.
+        nelec: The numbers of spin alpha and spin beta fermions.
+        with_final_orbital_rotation: Whether to include a final orbital rotation
+            in the operator.
+        seed: A seed to initialize the pseudorandom number generator.
+            Should be a valid input to ``np.random.default_rng``.
+
+    Returns:
+        The sampled UCCSD operator.
+    """
+    rng = np.random.default_rng(seed)
+    nocc_a, nocc_b = nelec
+    nvrt_a = norb - nocc_a
+    nvrt_b = norb - nocc_b
+    t1_a = rng.standard_normal((nocc_a, nvrt_a)).astype(complex)
+    t1_a += 1j * rng.standard_normal((nocc_a, nvrt_a))
+    t1_b = rng.standard_normal((nocc_b, nvrt_b)).astype(complex)
+    t1_b += 1j * rng.standard_normal((nocc_b, nvrt_b))
+    t2_aa = random_t2_amplitudes(norb, nocc_a, seed=rng, dtype=complex)
+    t2_ab = rng.standard_normal((nocc_a, nocc_b, nvrt_a, nvrt_b)).astype(complex)
+    t2_ab += 1j * rng.standard_normal((nocc_a, nocc_b, nvrt_a, nvrt_b))
+    t2_bb = random_t2_amplitudes(norb, nocc_b, seed=rng, dtype=complex)
+    final_orbital_rotation = None
+    if with_final_orbital_rotation:
+        final_orbital_rotation = np.stack(
+            [random_unitary(norb, seed=rng), random_unitary(norb, seed=rng)]
+        )
+    return variational.UCCSDOpUnrestricted(
+        t1=(t1_a, t1_b),
+        t2=(t2_aa, t2_ab, t2_bb),
+        final_orbital_rotation=final_orbital_rotation,
+    )
+
+
+def _random_symmetric_matrix_uniform(
+    dim: int, *, mean: float, scale: float, seed=None
+) -> np.ndarray:
+    """Random real symmetric matrix with entries drawn from a uniform distribution."""
+    rng = np.random.default_rng(seed)
+    n_vals = dim * (dim + 1) // 2
+    vals = mean + rng.uniform(-0.5 * scale, 0.5 * scale, size=n_vals)
+    mat = np.zeros((dim, dim))
+    rows, cols = np.triu_indices(dim)
+    mat[rows, cols] = vals
+    mat[cols, rows] = vals
+    return mat
+
+
+def _random_symmetric_matrix_normal(
+    dim: int, *, mean: float, scale: float, seed=None
+) -> np.ndarray:
+    """Random real symmetric matrix with entries drawn from a normal distribution."""
+    rng = np.random.default_rng(seed)
+    n_vals = dim * (dim + 1) // 2
+    vals = rng.normal(loc=mean, scale=scale, size=n_vals)
+    mat = np.zeros((dim, dim))
+    rows, cols = np.triu_indices(dim)
+    mat[rows, cols] = vals
+    mat[cols, rows] = vals
+    return mat
+
+
+def random_ucj_op_spin_balanced(
+    norb: int,
+    *,
+    n_reps: int = 1,
+    interaction_pairs: tuple[list[tuple[int, int]] | None, list[tuple[int, int]] | None]
+    | None = None,
+    with_final_orbital_rotation: bool = False,
+    diag_coulomb_mean: float = 0.0,
+    diag_coulomb_scale: float = 2 * math.pi,
+    diag_coulomb_normal: bool = False,
+    seed=None,
+) -> variational.UCJOpSpinBalanced:
+    r"""Sample a random spin-balanced unitary cluster Jastrow (UCJ) operator.
+
+    Args:
+        norb: The number of spatial orbitals.
+        n_reps: The number of ansatz repetitions.
+        interaction_pairs: Optional restrictions on allowed orbital interactions
+            for the diagonal Coulomb operators.
+            If specified, ``interaction_pairs`` should be a pair of lists,
+            for alpha-alpha and alpha-beta interactions, in that order.
+            Either list can be substituted with ``None`` to indicate no restrictions
+            on interactions.
+            Each list should contain pairs of integers representing the orbitals
+            that are allowed to interact. These pairs can also be interpreted as
+            indices of diagonal Coulomb matrix entries that are allowed to be
+            nonzero.
+            Each integer pair must be upper triangular, that is, of the form
+            :math:`(i, j)` where :math:`i \leq j`.
+        with_final_orbital_rotation: Whether to include a final orbital rotation
+            in the operator.
+        diag_coulomb_mean: Mean of the entries of the diagonal Coulomb matrices.
+            Defaults to ``0``.
+        diag_coulomb_scale: Scale of the entries of the diagonal Coulomb matrices.
+            Defaults to ``2 * pi``.
+        diag_coulomb_normal: Whether to draw the entries of the diagonal Coulomb
+            matrices from a normal distribution, rather than a uniform distribution.
+            If True, then the entries are drawn by calling
+            ``rng.normal(loc=diag_coulomb_mean, scale=diag_coulomb_scale)``. If False,
+            then the entries are drawn by calling
+            ``diag_coulomb_mean +
+            rng.uniform(-0.5 * diag_coulomb_scale, 0.5 * diag_coulomb_scale)``.
+        seed: A seed to initialize the pseudorandom number generator.
+            Should be a valid input to ``np.random.default_rng``.
+
+    Returns:
+        The sampled UCJ operator.
+    """
+    if interaction_pairs is None:
+        interaction_pairs = (None, None)
+    pairs_aa, pairs_ab = interaction_pairs
+    validate_interaction_pairs(pairs_aa, ordered=False)
+    validate_interaction_pairs(pairs_ab, ordered=False)
+
+    rng = np.random.default_rng(seed)
+    _symmetric_matrix_generator = (
+        _random_symmetric_matrix_normal
+        if diag_coulomb_normal
+        else _random_symmetric_matrix_uniform
+    )
+    diag_coulomb_mats = np.stack(
+        [
+            np.stack(
+                [
+                    _symmetric_matrix_generator(
+                        norb, mean=diag_coulomb_mean, scale=diag_coulomb_scale, seed=rng
+                    ),
+                    _symmetric_matrix_generator(
+                        norb, mean=diag_coulomb_mean, scale=diag_coulomb_scale, seed=rng
+                    ),
+                ]
+            )
+            for _ in range(n_reps)
+        ]
+    )
+    orbital_rotations = np.stack(
+        [random_unitary(norb, seed=rng) for _ in range(n_reps)]
+    )
+    final_orbital_rotation = None
+    if with_final_orbital_rotation:
+        final_orbital_rotation = random_unitary(norb, seed=rng)
+
+    # Zero out diagonal coulomb matrix entries if requested
+    if pairs_aa is not None:
+        mask = np.zeros((norb, norb), dtype=bool)
+        if pairs_aa:
+            rows, cols = zip(*pairs_aa)
+            mask[rows, cols] = True
+            mask[cols, rows] = True
+        diag_coulomb_mats[:, 0] *= mask
+    if pairs_ab is not None:
+        mask = np.zeros((norb, norb), dtype=bool)
+        if pairs_ab:
+            rows, cols = zip(*pairs_ab)
+            mask[rows, cols] = True
+            mask[cols, rows] = True
+        diag_coulomb_mats[:, 1] *= mask
+
+    return variational.UCJOpSpinBalanced(
+        diag_coulomb_mats=diag_coulomb_mats,
+        orbital_rotations=orbital_rotations,
+        final_orbital_rotation=final_orbital_rotation,
+    )
+
+
+def random_ucj_op_spin_unbalanced(
+    norb: int,
+    *,
+    n_reps: int = 1,
+    interaction_pairs: tuple[
+        list[tuple[int, int]] | None,
+        list[tuple[int, int]] | None,
+        list[tuple[int, int]] | None,
+    ]
+    | None = None,
+    with_final_orbital_rotation: bool = False,
+    diag_coulomb_mean: float = 0.0,
+    diag_coulomb_scale: float = 2 * math.pi,
+    diag_coulomb_normal: bool = False,
+    seed=None,
+) -> variational.UCJOpSpinUnbalanced:
+    r"""Sample a random spin-unbalanced unitary cluster Jastrow (UCJ) operator.
+
+    Args:
+        norb: The number of orbitals.
+        n_reps: The number of ansatz repetitions.
+        interaction_pairs: Optional restrictions on allowed orbital interactions
+            for the diagonal Coulomb operators.
+            If specified, ``interaction_pairs`` should be a tuple of 3 lists,
+            for alpha-alpha, alpha-beta, and beta-beta interactions, in that order.
+            Any list can be substituted with ``None`` to indicate no restrictions
+            on interactions.
+            Each list should contain pairs of integers representing the orbitals
+            that are allowed to interact. These pairs can also be interpreted as
+            indices of diagonal Coulomb matrix entries that are allowed to be
+            nonzero.
+            For the alpha-alpha and beta-beta interactions, each integer
+            pair must be upper triangular, that is, of the form :math:`(i, j)` where
+            :math:`i \leq j`.
+        with_final_orbital_rotation: Whether to include a final orbital rotation
+            in the operator.
+        diag_coulomb_mean: Mean of the entries of the diagonal Coulomb matrices.
+            Defaults to ``0``.
+        diag_coulomb_scale: Scale of the entries of the diagonal Coulomb matrices.
+            Defaults to ``2 * pi``.
+        diag_coulomb_normal: Whether to draw the entries of the diagonal Coulomb
+            matrices from a normal distribution, rather than a uniform distribution.
+            If True, then the entries are drawn by calling
+            ``rng.normal(loc=diag_coulomb_mean, scale=diag_coulomb_scale)``. If False,
+            then the entries are drawn by calling
+            ``diag_coulomb_mean +
+            rng.uniform(-0.5 * diag_coulomb_scale, 0.5 * diag_coulomb_scale)``.
+        seed: A seed to initialize the pseudorandom number generator.
+            Should be a valid input to ``np.random.default_rng``.
+
+    Returns:
+        The sampled UCJ operator.
+    """
+    if interaction_pairs is None:
+        interaction_pairs = (None, None, None)
+    pairs_aa, pairs_ab, pairs_bb = interaction_pairs
+    validate_interaction_pairs(pairs_aa, ordered=False)
+    validate_interaction_pairs(pairs_bb, ordered=True)
+    validate_interaction_pairs(pairs_bb, ordered=False)
+
+    rng = np.random.default_rng(seed)
+    _symmetric_matrix_generator = (
+        _random_symmetric_matrix_normal
+        if diag_coulomb_normal
+        else _random_symmetric_matrix_uniform
+    )
+    diag_coulomb_mats = np.stack(
+        [
+            np.stack(
+                [
+                    _symmetric_matrix_generator(
+                        norb, mean=diag_coulomb_mean, scale=diag_coulomb_scale, seed=rng
+                    ),
+                    rng.normal(
+                        loc=diag_coulomb_mean,
+                        scale=diag_coulomb_scale,
+                        size=(norb, norb),
+                    )
+                    if diag_coulomb_normal
+                    else diag_coulomb_mean
+                    + rng.uniform(
+                        -0.5 * diag_coulomb_scale,
+                        0.5 * diag_coulomb_scale,
+                        size=(norb, norb),
+                    ),
+                    _symmetric_matrix_generator(
+                        norb, mean=diag_coulomb_mean, scale=diag_coulomb_scale, seed=rng
+                    ),
+                ]
+            )
+            for _ in range(n_reps)
+        ]
+    )
+    orbital_rotations = np.stack(
+        [
+            np.stack([random_unitary(norb, seed=rng), random_unitary(norb, seed=rng)])
+            for _ in range(n_reps)
+        ]
+    )
+    final_orbital_rotation = None
+    if with_final_orbital_rotation:
+        final_orbital_rotation = np.stack(
+            [random_unitary(norb, seed=rng), random_unitary(norb, seed=rng)]
+        )
+
+    # Zero out diagonal coulomb matrix entries if requested
+    if pairs_aa is not None:
+        mask = np.zeros((norb, norb), dtype=bool)
+        if pairs_aa:
+            rows, cols = zip(*pairs_aa)
+            mask[rows, cols] = True
+            mask[cols, rows] = True
+        diag_coulomb_mats[:, 0] *= mask
+    if pairs_ab is not None:
+        mask = np.zeros((norb, norb), dtype=bool)
+        if pairs_ab:
+            rows, cols = zip(*pairs_ab)
+            mask[rows, cols] = True
+        diag_coulomb_mats[:, 1] *= mask
+    if pairs_bb is not None:
+        mask = np.zeros((norb, norb), dtype=bool)
+        if pairs_bb:
+            rows, cols = zip(*pairs_bb)
+            mask[rows, cols] = True
+            mask[cols, rows] = True
+        diag_coulomb_mats[:, 2] *= mask
+
+    return variational.UCJOpSpinUnbalanced(
+        diag_coulomb_mats=diag_coulomb_mats,
+        orbital_rotations=orbital_rotations,
+        final_orbital_rotation=final_orbital_rotation,
+    )
+
+
+def random_ucj_op_spinless(
+    norb: int,
+    *,
+    n_reps: int = 1,
+    interaction_pairs: list[tuple[int, int]] | None = None,
+    with_final_orbital_rotation: bool = False,
+    diag_coulomb_mean: float = 0.0,
+    diag_coulomb_scale: float = 2 * math.pi,
+    diag_coulomb_normal: bool = False,
+    seed=None,
+) -> variational.UCJOpSpinless:
+    r"""Sample a random spinless unitary cluster Jastrow (UCJ) operator.
+
+    Args:
+        norb: The number of orbitals.
+        n_reps: The number of ansatz repetitions.
+        interaction_pairs: Optional restrictions on allowed orbital interactions
+            for the diagonal Coulomb operators.
+            If specified, ``interaction_pairs`` should be a list of integer pairs
+            representing the orbitals that are allowed to interact. These pairs
+            can also be interpreted as indices of diagonal Coulomb matrix entries
+            that are allowed to be nonzero.
+            Each integer pair must be upper triangular, that is, of the form
+            :math:`(i, j)` where :math:`i \leq j`.
+        with_final_orbital_rotation: Whether to include a final orbital rotation
+            in the operator.
+        diag_coulomb_mean: Mean of the entries of the diagonal Coulomb matrices.
+            Defaults to ``0``.
+        diag_coulomb_scale: Scale of the entries of the diagonal Coulomb matrices.
+            Defaults to ``2 * pi``.
+        diag_coulomb_normal: Whether to draw the entries of the diagonal Coulomb
+            matrices from a normal distribution, rather than a uniform distribution.
+            If True, then the entries are drawn by calling
+            ``rng.normal(loc=diag_coulomb_mean, scale=diag_coulomb_scale)``. If False,
+            then the entries are drawn by calling
+            ``diag_coulomb_mean +
+            rng.uniform(-0.5 * diag_coulomb_scale, 0.5 * diag_coulomb_scale)``.
+        seed: A seed to initialize the pseudorandom number generator.
+            Should be a valid input to ``np.random.default_rng``.
+
+    Returns:
+        The sampled UCJ operator.
+    """
+    validate_interaction_pairs(interaction_pairs, ordered=False)
+
+    rng = np.random.default_rng(seed)
+    _symmetric_matrix_generator = (
+        _random_symmetric_matrix_normal
+        if diag_coulomb_normal
+        else _random_symmetric_matrix_uniform
+    )
+    diag_coulomb_mats = np.stack(
+        [
+            _symmetric_matrix_generator(
+                norb, mean=diag_coulomb_mean, scale=diag_coulomb_scale, seed=rng
+            )
+            for _ in range(n_reps)
+        ]
+    )
+    orbital_rotations = np.stack(
+        [random_unitary(norb, seed=rng) for _ in range(n_reps)]
+    )
+    final_orbital_rotation = None
+    if with_final_orbital_rotation:
+        final_orbital_rotation = random_unitary(norb, seed=rng)
+
+    # Zero out diagonal coulomb matrix entries if requested
+    if interaction_pairs is not None:
+        mask = np.zeros((norb, norb), dtype=bool)
+        rows, cols = zip(*interaction_pairs)
+        mask[rows, cols] = True
+        mask[cols, rows] = True
+        diag_coulomb_mats *= mask
+
+    return variational.UCJOpSpinless(
+        diag_coulomb_mats=diag_coulomb_mats,
+        orbital_rotations=orbital_rotations,
+        final_orbital_rotation=final_orbital_rotation,
+    )
+
+
+def random_diagonal_coulomb_hamiltonian(
+    norb: int, *, real: bool = False, seed=None
+) -> hamiltonians.DiagonalCoulombHamiltonian:
+    """Sample a random diagonal Coulomb Hamiltonian.
+
+    Args:
+        norb: The number of spatial orbitals.
+        real: Whether to sample a real-valued object rather than a complex-valued one.
+        seed: A seed to initialize the pseudorandom number generator.
+            Should be a valid input to ``np.random.default_rng``.
+
+    Returns:
+        The sampled diagonal Coulomb Hamiltonian.
+    """
+    rng = np.random.default_rng(seed)
+    if real:
+        one_body_tensor = random_real_symmetric_matrix(norb, seed=rng)
+    else:
+        one_body_tensor = random_hermitian(norb, seed=rng)
+    mat_aa = random_real_symmetric_matrix(norb, seed=rng)
+    mat_ab = random_real_symmetric_matrix(norb, seed=rng)
+    diag_coulomb_mats = np.stack([mat_aa, mat_ab])
+    constant = rng.standard_normal()
+    return hamiltonians.DiagonalCoulombHamiltonian(
+        one_body_tensor, diag_coulomb_mats, constant=constant
+    )
+
+
+def random_double_factorized_hamiltonian(
+    norb: int,
+    *,
+    rank: int | None = None,
+    z_representation: bool = False,
+    real: bool = False,
+    seed=None,
+) -> hamiltonians.DoubleFactorizedHamiltonian:
+    """Sample a random double-factorized Hamiltonian.
+
+    Args:
+        norb: The number of spatial orbitals.
+        rank: The desired number of terms in the two-body part of the Hamiltonian.
+            If not specified, it will be set to ``norb * (norb + 1) // 2``.
+        z_representation: Whether to return a Hamiltonian in the "Z" representation.
+        real: Whether to sample a real-valued object rather than a complex-valued one.
+        seed: A seed to initialize the pseudorandom number generator.
+            Should be a valid input to ``np.random.default_rng``.
+
+    Returns:
+        The sampled double-factorized Hamiltonian.
+    """
+    if rank is None:
+        rank = norb * (norb + 1) // 2
+    rng = np.random.default_rng(seed)
+    if real:
+        one_body_tensor = random_real_symmetric_matrix(norb, seed=rng)
+        orbital_rotations = np.stack(
+            [random_orthogonal(norb, seed=rng) for _ in range(rank)]
+        )
+    else:
+        one_body_tensor = random_hermitian(norb, seed=rng)
+        orbital_rotations = np.stack(
+            [random_unitary(norb, seed=rng) for _ in range(rank)]
+        )
+    diag_coulomb_mats = np.stack(
+        [random_real_symmetric_matrix(norb, seed=rng) for _ in range(rank)]
+    )
+    constant = rng.standard_normal()
+    return hamiltonians.DoubleFactorizedHamiltonian(
+        one_body_tensor=one_body_tensor,
+        diag_coulomb_mats=diag_coulomb_mats,
+        orbital_rotations=orbital_rotations,
+        constant=constant,
+        z_representation=z_representation,
+    )
+
+
+def random_fermion_operator(
+    norb: int,
+    n_terms: int | None = None,
+    max_term_length: int | None = None,
+    num_and_spin_conserving: bool = False,
+    seed=None,
+) -> operators.FermionOperator:
+    """Sample a random fermion operator.
+
+    Args:
+        norb: The number of spatial orbitals.
+        n_terms: The number of terms to include in the operator. If not specified,
+            ``norb`` is used.
+        max_term_length: The maximum length of a term. If not specified, ``2 * norb``
+            is used.
+        num_and_spin_conserving: Whether to sample an operator that conserves particle
+            number and the z component of spin.
+        seed: A seed to initialize the pseudorandom number generator.
+            Should be a valid input to ``np.random.default_rng``.
+
+    Returns:
+        The sampled fermion operator.
+    """
+    if num_and_spin_conserving:
+        return _random_fermion_operator_num_and_spin_z_conserving(
+            norb, n_terms=n_terms, max_term_length=max_term_length, seed=seed
+        )
+    return _random_fermion_operator_generic(
+        norb, n_terms=n_terms, max_term_length=max_term_length, seed=seed
+    )
+
+
+def _random_fermion_operator_generic(
+    norb: int, n_terms: int | None = None, max_term_length: int | None = None, seed=None
+) -> operators.FermionOperator:
+    rng = np.random.default_rng(seed)
+    if n_terms is None:
+        n_terms = norb
+    if max_term_length is None:
+        max_term_length = 2 * norb
+    coeffs: defaultdict[tuple[tuple[bool, bool, int], ...], complex] = defaultdict(
+        complex
+    )
+    for _ in range(n_terms):
+        term_length = int(rng.integers(1, max_term_length + 1))
+        actions = [bool(i) for i in rng.integers(2, size=term_length)]
+        spins = [bool(i) for i in rng.integers(2, size=term_length)]
+        indices = [int(i) for i in rng.integers(norb, size=term_length)]
+        coeff = rng.standard_normal() + 1j * rng.standard_normal()
+        term = tuple(zip(actions, spins, indices))
+        coeffs[term] += coeff
+    return operators.FermionOperator(coeffs)
+
+
+def _random_fermion_operator_num_and_spin_z_conserving(
+    norb: int, n_terms: int | None = None, max_term_length: int | None = None, seed=None
+) -> operators.FermionOperator:
+    rng = np.random.default_rng(seed)
+    if n_terms is None:
+        n_terms = norb
+    if max_term_length is None:
+        max_term_length = 2 * norb
+    coeffs: defaultdict[tuple[tuple[bool, bool, int], ...], complex] = defaultdict(
+        complex
+    )
+    max_excitations = max(1, max_term_length // 2)
+    for _ in range(n_terms):
+        n_excitations = int(rng.integers(1, max_excitations + 1))
+        term = _random_num_and_spin_z_conserving_term(norb, n_excitations, seed=rng)
+        coeff = rng.standard_normal() + 1j * rng.standard_normal()
+        coeffs[term] += coeff
+    return operators.FermionOperator(coeffs)
+
+
+def random_fermion_hamiltonian(
+    norb: int, n_terms: int | None = None, seed=None
+) -> operators.FermionOperator:
+    """Sample a random fermion Hamiltonian.
+
+    A fermion Hamiltonian is hermitian and conserves particle number and spin :math:`z`.
+
+    Args:
+        norb: The number of spatial orbitals.
+        n_terms: The number of terms to include in the operator. If not specified,
+            ``norb`` is used.
+        seed: A seed to initialize the pseudorandom number generator.
+            Should be a valid input to ``np.random.default_rng``.
+
+    Returns:
+        The sampled fermion Hamiltonian.
+    """
+    op = random_fermion_operator(
+        norb, n_terms=n_terms, num_and_spin_conserving=True, seed=seed
+    )
+    return op + op.adjoint()
+
+
+def _random_num_and_spin_z_conserving_term(
+    norb: int, n_excitations: int, seed=None
+) -> tuple[tuple[bool, bool, int], ...]:
+    rng = np.random.default_rng(seed)
+    term = []
+    for _ in range(n_excitations):
+        spin = bool(rng.integers(2))
+        orb_1, orb_2 = [int(x) for x in rng.integers(norb, size=2)]
+        action_1, action_2 = [
+            bool(x) for x in rng.choice([True, False], size=2, replace=False)
+        ]
+        term.append(operators.FermionAction(action_1, spin, orb_1))
+        term.append(operators.FermionAction(action_2, spin, orb_2))
+    rng.shuffle(term)
+    return tuple(term)

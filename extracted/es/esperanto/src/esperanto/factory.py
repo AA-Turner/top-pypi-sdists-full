@@ -1,0 +1,567 @@
+"""Factory module for creating AI service instances."""
+
+import importlib
+import warnings
+from typing import Any, Dict, List, Optional, Type
+
+from esperanto.common_types import Model
+from esperanto.providers.embedding.base import EmbeddingModel
+from esperanto.providers.llm.base import LanguageModel
+from esperanto.providers.reranker.base import RerankerModel
+from esperanto.providers.stt.base import SpeechToTextModel
+from esperanto.providers.tts.base import TextToSpeechModel
+
+
+class AIFactory:
+    """Factory class for creating AI service instances."""
+
+    # Provider module mappings
+    _provider_modules = {
+        "language": {
+            "openai": "esperanto.providers.llm.openai:OpenAILanguageModel",
+            "openai-compatible": "esperanto.providers.llm.openai_compatible:OpenAICompatibleLanguageModel",
+            "anthropic": "esperanto.providers.llm.anthropic:AnthropicLanguageModel",
+            "google": "esperanto.providers.llm.google:GoogleLanguageModel",
+            "groq": "esperanto.providers.llm.groq:GroqLanguageModel",
+            "ollama": "esperanto.providers.llm.ollama:OllamaLanguageModel",
+            "openrouter": "esperanto.providers.llm.openrouter:OpenRouterLanguageModel",
+            # xai: handled via OpenAICompatibleProfile (see profiles.py)
+            "perplexity": "esperanto.providers.llm.perplexity:PerplexityLanguageModel",
+            "azure": "esperanto.providers.llm.azure:AzureLanguageModel",
+            "mistral": "esperanto.providers.llm.mistral:MistralLanguageModel",
+            # deepseek: handled via OpenAICompatibleProfile (see profiles.py)
+            "vertex": "esperanto.providers.llm.vertex:VertexLanguageModel",
+            "cohere": "esperanto.providers.llm.cohere:CohereLanguageModel",
+        },
+        "embedding": {
+            "openai": "esperanto.providers.embedding.openai:OpenAIEmbeddingModel",
+            "openai-compatible": "esperanto.providers.embedding.openai_compatible:OpenAICompatibleEmbeddingModel",
+            "google": "esperanto.providers.embedding.google:GoogleEmbeddingModel",
+            "ollama": "esperanto.providers.embedding.ollama:OllamaEmbeddingModel",
+            "vertex": "esperanto.providers.embedding.vertex:VertexEmbeddingModel",
+            "transformers": "esperanto.providers.embedding.transformers:TransformersEmbeddingModel",
+            "voyage": "esperanto.providers.embedding.voyage:VoyageEmbeddingModel",
+            "mistral": "esperanto.providers.embedding.mistral:MistralEmbeddingModel",
+            "azure": "esperanto.providers.embedding.azure:AzureEmbeddingModel",
+            "jina": "esperanto.providers.embedding.jina:JinaEmbeddingModel",
+            "openrouter": "esperanto.providers.embedding.openrouter:OpenRouterEmbeddingModel",
+            "cohere": "esperanto.providers.embedding.cohere:CohereEmbeddingModel",
+        },
+        "speech_to_text": {
+            "openai": "esperanto.providers.stt.openai:OpenAISpeechToTextModel",
+            "groq": "esperanto.providers.stt.groq:GroqSpeechToTextModel",
+            "elevenlabs": "esperanto.providers.stt.elevenlabs:ElevenLabsSpeechToTextModel",
+            "openai-compatible": "esperanto.providers.stt.openai_compatible:OpenAICompatibleSpeechToTextModel",
+            "azure": "esperanto.providers.stt.azure:AzureSpeechToTextModel",
+            "google": "esperanto.providers.stt.google:GoogleSpeechToTextModel",
+            "mistral": "esperanto.providers.stt.mistral:MistralSpeechToTextModel",
+            "deepgram": "esperanto.providers.stt.deepgram:DeepgramSpeechToTextModel",
+            "openrouter": "esperanto.providers.stt.openrouter:OpenRouterSpeechToTextModel",
+        },
+        "text_to_speech": {
+            "openai": "esperanto.providers.tts.openai:OpenAITextToSpeechModel",
+            "elevenlabs": "esperanto.providers.tts.elevenlabs:ElevenLabsTextToSpeechModel",
+            "google": "esperanto.providers.tts.google:GoogleTextToSpeechModel",
+            "vertex": "esperanto.providers.tts.vertex:VertexTextToSpeechModel",
+            "openai-compatible": "esperanto.providers.tts.openai_compatible:OpenAICompatibleTextToSpeechModel",
+            "azure": "esperanto.providers.tts.azure:AzureTextToSpeechModel",
+            "xai": "esperanto.providers.tts.xai:XAITextToSpeechModel",
+            "mistral": "esperanto.providers.tts.mistral:MistralTextToSpeechModel",
+            "deepgram": "esperanto.providers.tts.deepgram:DeepgramTextToSpeechModel",
+            "openrouter": "esperanto.providers.tts.openrouter:OpenRouterTextToSpeechModel",
+            "minimax": "esperanto.providers.tts.minimax:MiniMaxTextToSpeechModel",
+        },
+        "reranker": {
+            "jina": "esperanto.providers.reranker.jina:JinaRerankerModel",
+            "voyage": "esperanto.providers.reranker.voyage:VoyageRerankerModel",
+            "transformers": "esperanto.providers.reranker.transformers:TransformersRerankerModel",
+            "cohere": "esperanto.providers.reranker.cohere:CohereRerankerModel",
+        },
+    }
+
+    @classmethod
+    def _import_provider_class(cls, service_type: str, provider: str) -> Type:
+        """Dynamically import provider class.
+
+        Args:
+            service_type: Type of service (language, embedding, speech_to_text, text_to_speech)
+            provider: Provider name
+
+        Returns:
+            Provider class
+
+        Raises:
+            ValueError: If provider is not supported
+            ImportError: If provider module is not installed
+        """
+        if service_type not in cls._provider_modules:
+            raise ValueError(f"Invalid service type: {service_type}")
+
+        provider = provider.lower().replace("_", "-")
+        if provider not in cls._provider_modules[service_type]:
+            # Include profile names in the error for language providers
+            supported = list(cls._provider_modules[service_type].keys())
+            if service_type == "language":
+                from esperanto.providers.llm.profiles import get_all_profile_names
+
+                supported = sorted(set(supported) | get_all_profile_names())
+            raise ValueError(
+                f"Provider '{provider}' not supported for {service_type}. "
+                f"Supported providers: {supported}"
+            )
+
+        module_path = cls._provider_modules[service_type][provider]
+        module_name, class_name = module_path.split(":")
+
+        try:
+            module = importlib.import_module(module_name)
+            return getattr(module, class_name)
+        except ImportError as e:
+            # Extract the missing package from the ImportError
+            missing_package = str(e).split("'")[1] if "'" in str(e) else None
+
+            error_msg = f"Provider '{provider}' requires additional dependencies."
+            if missing_package:
+                error_msg += f" Missing package: {missing_package}."
+            error_msg += (
+                f"\nInstall with: uv add {missing_package} "
+                f"or pip install {missing_package}"
+            )
+            raise ImportError(error_msg) from e
+
+    @classmethod
+    def get_available_providers(cls) -> Dict[str, List[str]]:
+        """Get a dictionary of available providers for each model type.
+
+        Returns:
+            Dict[str, List[str]]: A dictionary where keys are model types (language, embedding, speech_to_text, text_to_speech)
+                and values are lists of available provider names.
+        """
+        from esperanto.providers.llm.profiles import get_profile_capabilities
+
+        result = {
+            model_type: list(providers.keys())
+            for model_type, providers in cls._provider_modules.items()
+        }
+        # Merge each profile into every modality it declares (language-only by default)
+        for name, modalities in get_profile_capabilities().items():
+            for modality in modalities:
+                result[modality] = sorted(set(result.get(modality, [])) | {name})
+        return result
+
+    @classmethod
+    def register_openai_compatible_profile(cls, profile) -> None:
+        """Register an OpenAI-compatible provider profile.
+
+        Once registered, the profile's name can be used as the provider argument
+        in create_language().
+
+        Args:
+            profile: An OpenAICompatibleProfile instance.
+
+        Example:
+            >>> from esperanto.providers.llm.profiles import OpenAICompatibleProfile
+            >>> AIFactory.register_openai_compatible_profile(
+            ...     OpenAICompatibleProfile(
+            ...         name="together",
+            ...         base_url="https://api.together.xyz/v1",
+            ...         api_key_env="TOGETHER_API_KEY",
+            ...         default_models={"language": "meta-llama/Llama-3-70b-chat-hf"},
+            ...     )
+            ... )
+            >>> model = AIFactory.create_language("together", "meta-llama/Llama-3-70b-chat-hf")
+        """
+        from esperanto.providers.llm.profiles import register_profile
+
+        # Warn when a declared capability shadows an existing first-class provider
+        # of the same name+modality. The profile wins (create_* checks profiles
+        # first), so surface the shadowing rather than let it happen silently.
+        normalized = profile.name.lower().replace("_", "-")
+        for modality in profile.capabilities:
+            if normalized in cls._provider_modules.get(modality, {}):
+                warnings.warn(
+                    f"Profile '{normalized}' declares capability '{modality}', "
+                    f"which shadows the existing first-class {modality} provider "
+                    f"of the same name. The profile will take precedence.",
+                    stacklevel=2,
+                )
+
+        register_profile(profile)
+
+    @classmethod
+    def get_provider_models(
+        cls,
+        provider: str,
+        model_type: Optional[str] = None,
+        **config
+    ) -> List[Model]:
+        """Get available models from a provider without creating an instance.
+
+        This method uses static discovery functions to list models from providers
+        without needing to instantiate provider classes. Results are cached for
+        1 hour by default.
+
+        Args:
+            provider: Provider name (e.g., 'openai', 'anthropic', 'google')
+            model_type: Optional filter for model type. For providers that support
+                       multiple types (like OpenAI), you can filter to:
+                       - 'language' for LLM models
+                       - 'embedding' for embedding models
+                       - 'speech_to_text' for STT models
+                       - 'text_to_speech' for TTS models
+                       - None to get all models
+            **config: Provider-specific configuration:
+                     - api_key: API key for authentication
+                     - base_url: Custom base URL
+                     - project_id: For Vertex AI
+                     - azure_endpoint: For Azure
+                     - etc.
+
+        Returns:
+            List[Model]: List of available models from the provider
+
+        Raises:
+            ValueError: If provider is not supported
+            RuntimeError: If API request fails
+
+        Examples:
+            >>> # Get all OpenAI models
+            >>> models = AIFactory.get_provider_models('openai', api_key='sk-...')
+
+            >>> # Get only OpenAI language models
+            >>> llms = AIFactory.get_provider_models('openai', model_type='language', api_key='sk-...')
+
+            >>> # Get Anthropic models (no API key needed, returns hardcoded list)
+            >>> models = AIFactory.get_provider_models('anthropic')
+
+            >>> # Get Google models
+            >>> models = AIFactory.get_provider_models('google', api_key='...')
+        """
+        # Import here to avoid circular imports
+        from esperanto.model_discovery import PROVIDER_MODELS_REGISTRY
+
+        missing_config = object()
+        nested_config = config.pop("config", missing_config)
+        if nested_config is not missing_config and nested_config is not None:
+            if not isinstance(nested_config, dict):
+                raise TypeError("config must be a dictionary when provided")
+            config = {**nested_config, **config}
+
+        # Normalize provider name to lowercase
+        provider = provider.lower().replace("_", "-")
+
+        # Check if provider is supported
+        if provider not in PROVIDER_MODELS_REGISTRY:
+            available = list(PROVIDER_MODELS_REGISTRY.keys())
+            raise ValueError(
+                f"Provider '{provider}' not supported for model discovery. "
+                f"Supported providers: {available}"
+            )
+
+        # Get the discovery function for this provider
+        discovery_func = PROVIDER_MODELS_REGISTRY[provider]
+
+        # Providers with multi-modality discovery use model_type for filtering.
+        if provider in {"openai", "minimax"} and model_type is not None:
+            config["model_type"] = model_type
+
+        # Call the discovery function with config
+        try:
+            models = discovery_func(**config)
+        except TypeError as e:
+            # If we passed an unexpected parameter, try without it
+            if "unexpected keyword argument" in str(e):
+                # Retry without the problematic parameter
+                models = discovery_func(**{k: v for k, v in config.items() if k != "model_type"})
+            else:
+                raise
+
+        # If model_type filter is specified and provider doesn't support it natively,
+        # we return all models since we can't reliably determine type
+        # (This is a known limitation documented in the spec)
+        return models
+
+    @classmethod
+    def _profile_for_modality(cls, normalized: str, modality: str):
+        """Resolve the profile to use for (provider, modality), or None.
+
+        Returns the profile when it declares ``modality`` (profile wins). Returns
+        None to fall through to the first-class class registry — either because no
+        profile exists, or because a profile exists for a different modality but a
+        first-class class covers this one (hybrid providers, e.g. xAI is a
+        language profile and a first-class TTS class). Raises
+        ``ProviderCapabilityError`` when a profile exists, does not declare this
+        modality, and no first-class class can serve it either.
+        """
+        from esperanto.common_types import ProviderCapabilityError
+        from esperanto.providers.llm.profiles import get_profile
+
+        profile = get_profile(normalized)
+        if profile is None:
+            return None
+        if modality in profile.capabilities:
+            return profile
+        if normalized in cls._provider_modules.get(modality, {}):
+            return None  # hybrid provider: fall through to the first-class class
+        display = profile.display_name or profile.name
+        raise ProviderCapabilityError(
+            f"Provider '{normalized}' ({display}) does not support {modality}. "
+            f"Declared capabilities: {sorted(profile.capabilities)}."
+        )
+
+    @classmethod
+    def _create_instance(
+        cls,
+        service_type: str,
+        provider: str,
+        model_name: Optional[str] = None,
+        **kwargs,
+    ):
+        provider_class = cls._import_provider_class(service_type, provider)
+        return provider_class(model_name=model_name, **kwargs)
+    
+    @classmethod
+    def create_language(
+        cls, provider: str, model_name: str, config: Optional[Dict[str, Any]] = None
+    ) -> LanguageModel:
+        """Create a language model instance.
+
+        Args:
+            provider: Provider name (supports class-based providers and
+                OpenAI-compatible profiles registered via register_openai_compatible_profile)
+            model_name: Name of the model to use
+            config: Optional configuration for the model
+
+        Returns:
+            Language model instance
+        """
+        normalized = provider.lower().replace("_", "-")
+        if cls._profile_for_modality(normalized, "language"):
+            from esperanto.providers.llm.openai_compatible import (
+                OpenAICompatibleLanguageModel,
+            )
+
+            merged_config = dict(config or {})
+            merged_config["_profile_name"] = normalized
+            return OpenAICompatibleLanguageModel(
+                model_name=model_name, config=merged_config
+            )
+
+        provider_class = cls._import_provider_class("language", provider)
+        return provider_class(model_name=model_name, config=config or {})
+
+    @classmethod
+    def create_embedding(
+        cls, provider: str, model_name: str, config: Optional[Dict[str, Any]] = None
+    ) -> EmbeddingModel:
+        """Create an embedding model instance.
+
+        Args:
+            provider: Provider name
+            model_name: Name of the model to use
+            config: Optional configuration for the model
+
+        Returns:
+            Embedding model instance
+        """
+        normalized = provider.lower().replace("_", "-")
+        if cls._profile_for_modality(normalized, "embedding"):
+            from esperanto.providers.embedding.openai_compatible import (
+                OpenAICompatibleEmbeddingModel,
+            )
+
+            merged_config = dict(config or {})
+            merged_config["_profile_name"] = normalized
+            return OpenAICompatibleEmbeddingModel(
+                model_name=model_name, config=merged_config
+            )
+
+        provider_class = cls._import_provider_class("embedding", provider)
+        return provider_class(model_name=model_name, config=config or {})
+
+    @classmethod
+    def create_reranker(
+        cls, provider: str, model_name: Optional[str] = None, config: Optional[Dict[str, Any]] = None
+    ) -> RerankerModel:
+        """Create a reranker model instance.
+
+        Args:
+            provider: Provider name
+            model_name: Optional name of the model to use
+            config: Optional configuration for the model
+
+        Returns:
+            Reranker model instance
+        """
+        provider_class = cls._import_provider_class("reranker", provider)
+        return provider_class(model_name=model_name, config=config or {})
+
+    @classmethod
+    def create_speech_to_text(
+        cls,
+        provider: str,
+        model_name: Optional[str] = None,
+        config: Optional[Dict[str, Any]] = None,
+    ) -> SpeechToTextModel:
+        """Create a speech-to-text model instance.
+
+        Args:
+            provider: Provider name
+            model_name: Optional name of the model to use
+            config: Optional configuration for the model
+
+        Returns:
+            Speech-to-text model instance
+        """
+        config = config or {}
+        normalized = provider.lower().replace("_", "-")
+        if cls._profile_for_modality(normalized, "speech_to_text"):
+            from esperanto.providers.stt.openai_compatible import (
+                OpenAICompatibleSpeechToTextModel,
+            )
+
+            merged_config = dict(config)
+            merged_config["_profile_name"] = normalized
+            return OpenAICompatibleSpeechToTextModel(
+                model_name=model_name, config=merged_config
+            )
+
+        return cls._create_instance(
+            "speech_to_text", provider, model_name=model_name, **config
+        )
+
+    @classmethod
+    def create_text_to_speech(
+        cls,
+        provider: str,
+        model_name: Optional[str] = None,
+        config: Optional[Dict[str, Any]] = None,
+        api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
+        **kwargs,
+    ) -> TextToSpeechModel:
+        """Create a text-to-speech model instance.
+
+        Args:
+            provider: Provider name (openai, elevenlabs, google)
+            model_name: Name of the model to use
+            config: Optional configuration dict for the model
+            api_key: Deprecated. Use config={"api_key": "..."} instead.
+            base_url: Deprecated. Use config={"base_url": "..."} instead.
+            **kwargs: Additional provider-specific configuration
+
+        Returns:
+            TextToSpeechModel instance
+
+        Raises:
+            ValueError: If provider is not supported
+            ImportError: If provider module is not installed
+        """
+        config = config or {}
+
+        if api_key is not None:
+            warnings.warn(
+                "Passing api_key directly to create_text_to_speech() is deprecated. "
+                'Use config={"api_key": "..."} instead.',
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            config["api_key"] = api_key
+
+        if base_url is not None:
+            warnings.warn(
+                "Passing base_url directly to create_text_to_speech() is deprecated. "
+                'Use config={"base_url": "..."} instead.',
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            config["base_url"] = base_url
+
+        normalized = provider.lower().replace("_", "-")
+        if cls._profile_for_modality(normalized, "text_to_speech"):
+            from esperanto.providers.tts.openai_compatible import (
+                OpenAICompatibleTextToSpeechModel,
+            )
+
+            merged_config = {**config, **kwargs, "_profile_name": normalized}
+            return OpenAICompatibleTextToSpeechModel(
+                model_name=model_name, config=merged_config
+            )
+
+        return cls._create_instance(
+            "text_to_speech", provider, model_name=model_name, **config, **kwargs
+        )
+
+    @classmethod
+    def create_stt(
+        cls,
+        provider: str,
+        model_name: Optional[str] = None,
+        config: Optional[Dict[str, Any]] = None,
+    ) -> SpeechToTextModel:
+        """Create a speech-to-text model instance (alias for create_speech_to_text).
+
+        Args:
+            provider: Provider name
+            model_name: Optional name of the model to use
+            config: Optional configuration for the model
+
+        Returns:
+            Speech-to-text model instance
+        """
+        warnings.warn(
+            "create_stt() is deprecated and will be removed in a future version. "
+            "Use create_speech_to_text() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return cls.create_speech_to_text(provider, model_name=model_name, config=config)
+
+    @classmethod
+    def create_tts(
+        cls,
+        provider: str,
+        model_name: Optional[str] = None,
+        config: Optional[Dict[str, Any]] = None,
+    ) -> TextToSpeechModel:
+        """Create a text-to-speech model instance (alias for create_text_to_speech).
+
+        Args:
+            provider: Provider name
+            model_name: Optional name of the model to use
+            config: Optional configuration for the model
+
+        Returns:
+            Text-to-speech model instance
+        """
+        warnings.warn(
+            "create_tts() is deprecated and will be removed in a future version. "
+            "Use create_text_to_speech() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return cls.create_text_to_speech(
+            provider, model_name=model_name, config=config
+        )
+
+    @classmethod
+    def create_llm(
+        cls, provider: str, model_name: str, config: Optional[Dict[str, Any]] = None
+    ) -> LanguageModel:
+        """Create a language model instance (alias for create_language).
+
+        Args:
+            provider: Provider name
+            model_name: Name of the model to use
+            config: Optional configuration for the model
+
+        Returns:
+            Language model instance
+        """
+        warnings.warn(
+            "create_llm() is deprecated and will be removed in a future version. "
+            "Use create_language() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return cls.create_language(provider, model_name=model_name, config=config)

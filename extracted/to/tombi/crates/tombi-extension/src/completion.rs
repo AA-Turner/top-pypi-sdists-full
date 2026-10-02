@@ -242,7 +242,7 @@ impl CompletionContent {
     }
 
     pub fn new_type_hint_inline_table(
-        position: tombi_text::Position,
+        offset: tombi_text::Offset,
         schema_base_uri: Option<&SchemaUri>,
         completion_hint: Option<CompletionHint>,
     ) -> Self {
@@ -255,7 +255,7 @@ impl CompletionContent {
             documentation: None,
             filter_text: None,
             schema_base_uri: schema_base_uri.cloned(),
-            edit: CompletionEdit::new_inline_table(position, completion_hint),
+            edit: CompletionEdit::new_inline_table(offset, completion_hint),
             deprecated: None,
             preselect: None,
             in_comment: false,
@@ -264,11 +264,11 @@ impl CompletionContent {
 
     pub fn new_type_hint_key(
         key_name: &str,
-        key_range: tombi_text::Range,
+        key_span: tombi_text::Span,
         schema_base_uri: Option<&SchemaUri>,
         completion_hint: Option<CompletionHint>,
     ) -> Self {
-        let edit = CompletionEdit::new_key(key_name, key_range, completion_hint);
+        let edit = CompletionEdit::new_key(key_name, key_span, completion_hint);
 
         Self {
             label: "$key".to_string(),
@@ -287,7 +287,7 @@ impl CompletionContent {
     }
 
     pub fn new_type_hint_empty_key(
-        position: tombi_text::Position,
+        offset: tombi_text::Offset,
         schema_base_uri: Option<&SchemaUri>,
         completion_hint: Option<CompletionHint>,
     ) -> Self {
@@ -301,7 +301,7 @@ impl CompletionContent {
             filter_text: None,
             edit: CompletionEdit::new_additional_key(
                 "key",
-                tombi_text::Range::at(position),
+                tombi_text::Span::empty(offset),
                 completion_hint,
             ),
             schema_base_uri: schema_base_uri.cloned(),
@@ -313,8 +313,8 @@ impl CompletionContent {
 
     pub fn new_key(
         key_name: &str,
-        position: tombi_text::Position,
-        replace_range: Option<tombi_text::Range>,
+        offset: tombi_text::Offset,
+        replace_span: Option<tombi_text::Span>,
         detail: Option<String>,
         documentation: Option<String>,
         required_keys: Option<&Vec<String>>,
@@ -331,12 +331,11 @@ impl CompletionContent {
             })
             .unwrap_or_default();
 
-        let key_range = match completion_hint {
+        let key_span = match completion_hint {
             Some(
-                CompletionHint::DotTrigger { range, .. }
-                | CompletionHint::EqualTrigger { range, .. },
-            ) => tombi_text::Range::new(range.end, position),
-            _ => replace_range.unwrap_or_else(|| tombi_text::Range::at(position)),
+                CompletionHint::DotTrigger { span, .. } | CompletionHint::EqualTrigger { span, .. },
+            ) => tombi_text::Span::new(span.end, offset),
+            _ => replace_span.unwrap_or_else(|| tombi_text::Span::empty(offset)),
         };
 
         let escaped_key_name = tombi_toml_text::to_key_string(key_name);
@@ -349,13 +348,13 @@ impl CompletionContent {
         let edit = if let Some(value_label) = singleton_value_label {
             CompletionEdit::new_key_with_literal(
                 &escaped_key_name,
-                key_range,
+                key_span,
                 &value_label,
                 completion_hint,
             )
-            .or_else(|| CompletionEdit::new_key(&escaped_key_name, key_range, completion_hint))
+            .or_else(|| CompletionEdit::new_key(&escaped_key_name, key_span, completion_hint))
         } else {
-            CompletionEdit::new_key(&escaped_key_name, key_range, completion_hint)
+            CompletionEdit::new_key(&escaped_key_name, key_span, completion_hint)
         };
 
         Self {
@@ -381,7 +380,7 @@ impl CompletionContent {
     pub fn new_pattern_key(
         key_label: Option<&str>,
         patterns: &[String],
-        position: tombi_text::Position,
+        offset: tombi_text::Offset,
         schema_base_uri: Option<&SchemaUri>,
         completion_hint: Option<CompletionHint>,
     ) -> Self {
@@ -404,7 +403,7 @@ impl CompletionContent {
             filter_text: None,
             edit: CompletionEdit::new_additional_key(
                 key_label,
-                tombi_text::Range::at(position),
+                tombi_text::Span::empty(offset),
                 completion_hint,
             ),
             schema_base_uri: schema_base_uri.cloned(),
@@ -416,7 +415,7 @@ impl CompletionContent {
 
     pub fn new_additional_key(
         key_label: Option<&str>,
-        position: tombi_text::Position,
+        offset: tombi_text::Offset,
         schema_base_uri: Option<&SchemaUri>,
         deprecated: Option<bool>,
         completion_hint: Option<CompletionHint>,
@@ -432,7 +431,7 @@ impl CompletionContent {
             filter_text: None,
             edit: CompletionEdit::new_additional_key(
                 key_label,
-                tombi_text::Range::at(position),
+                tombi_text::Span::empty(offset),
                 completion_hint,
             ),
             schema_base_uri: schema_base_uri.cloned(),
@@ -444,7 +443,7 @@ impl CompletionContent {
 
     pub fn new_magic_triggers(
         key: &str,
-        position: tombi_text::Position,
+        offset: tombi_text::Offset,
         schema_base_uri: Option<&SchemaUri>,
     ) -> Vec<Self> {
         [(".", "Dot Trigger"), ("=", "Equal Trigger")]
@@ -457,7 +456,7 @@ impl CompletionContent {
                 detail: Some(detail.to_string()),
                 documentation: None,
                 filter_text: Some(format!("{key}{trigger}")),
-                edit: CompletionEdit::new_magic_trigger(trigger, position),
+                edit: CompletionEdit::new_magic_trigger(trigger, offset),
                 schema_base_uri: schema_base_uri.cloned(),
                 deprecated: None,
                 preselect: None,
@@ -498,8 +497,8 @@ impl CompletionContent {
         }
     }
 
-    pub fn with_position(mut self, position: tombi_text::Position) -> Self {
-        self.edit = self.edit.map(|edit| edit.with_position(position));
+    pub fn with_offset(mut self, offset: tombi_text::Offset) -> Self {
+        self.edit = self.edit.map(|edit| edit.with_offset(offset));
         self
     }
 }
@@ -518,7 +517,7 @@ impl CompletionContent {
 pub fn completion_file_path_from_uri<D>(
     text_document_uri: &tombi_uri::Uri,
     document_tree: &D,
-    position: tombi_text::Position,
+    offset: tombi_text::Offset,
     accessors: &[Accessor],
     allowed_extensions: Option<&[&str]>,
 ) -> Option<Vec<CompletionContent>>
@@ -535,7 +534,7 @@ where
     completion_file_path_from_base_dir(
         base_dir,
         document_tree,
-        position,
+        offset,
         accessors,
         allowed_extensions,
     )
@@ -544,7 +543,7 @@ where
 pub fn completion_file_path_from_base_dir<D>(
     base_dir: &std::path::Path,
     document_tree: &D,
-    position: tombi_text::Position,
+    offset: tombi_text::Offset,
     accessors: &[Accessor],
     allowed_extensions: Option<&[&str]>,
 ) -> Option<Vec<CompletionContent>>
@@ -558,14 +557,14 @@ where
         return None;
     };
 
-    if !string.range().contains(position) {
+    if !string.span().contains_inclusive(offset) {
         return None;
     }
 
     let completions = get_file_path_completions(
         base_dir,
         string.content(),
-        string.unquoted_range(),
+        string.unquoted_span(),
         allowed_extensions,
     );
 
@@ -589,7 +588,7 @@ where
 pub fn completion_directory_path<D>(
     text_document_uri: &tombi_uri::Uri,
     document_tree: &D,
-    position: tombi_text::Position,
+    offset: tombi_text::Offset,
     accessors: &[Accessor],
 ) -> Option<Vec<CompletionContent>>
 where
@@ -600,7 +599,7 @@ where
     completion_file_path_from_uri(
         text_document_uri,
         document_tree,
-        position,
+        offset,
         accessors,
         Some(&[]),
     )
@@ -609,7 +608,7 @@ where
 pub fn get_file_path_completions(
     base_dir: &Path,
     path_text: &str,
-    path_range: tombi_text::Range,
+    path_span: tombi_text::Span,
     allowed_extensions: Option<&[&str]>,
 ) -> Vec<CompletionContent> {
     let mut completions = Vec::new();
@@ -677,7 +676,7 @@ pub fn get_file_path_completions(
         };
 
         let completion_edit =
-            CompletionEdit::new_string_literal_while_editing(&relative_path, path_range);
+            CompletionEdit::new_string_literal_while_editing(&relative_path, path_span);
 
         if let Some(edit) = completion_edit {
             completions.push(CompletionContent {

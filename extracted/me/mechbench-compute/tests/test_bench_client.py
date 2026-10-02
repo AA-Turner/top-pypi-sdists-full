@@ -1,0 +1,490 @@
+from __future__ import annotations
+
+import mechbench_schema as ms
+import pytest
+
+from mechbench_compute import bench
+
+
+class Seq(list):
+    pass
+
+
+class FakeReq:
+    def __init__(self) -> None:
+        self.calls: list[dict] = []
+        self.script: dict[tuple[str, str], object] = {}
+
+    def add(self, method: str, sub: str, value: object) -> FakeReq:
+        self.script[(method, sub)] = value
+        return self
+
+    def __call__(self, method, url, key, body=None, headers=None,
+                 return_headers=False, timeout=60, attempts=None):
+        self.calls.append({"method": method, "url": url, "body": body,
+                           "headers": headers, "timeout": timeout})
+        for (m, sub), val in self.script.items():
+            if m == method and sub in url:
+                if isinstance(val, Seq):
+                    val = val.pop(0) if len(val) > 1 else val[0]
+                if isinstance(val, BaseException):
+                    raise val
+                return val
+        raise AssertionError(f"unscripted {method} {url}")
+
+
+@pytest.fixture
+def fake(monkeypatch):
+    fr = FakeReq()
+    monkeypatch.setattr(bench, "_request", fr)
+    monkeypatch.setattr(bench, "_config", lambda u, k: ("https://api.test", "K"))
+    return fr
+
+
+def _envelope(payload):
+    return ms.dump_canonical({"payload": payload,
+                              "provenance": {"created_at": "now"}})
+
+
+class TestFetchUnwraps:
+    def test_fetch_returns_the_payload(self, fake):
+        fake.add("GET", "/objects/", _envelope({"kind": "ladder", "n": 3}))
+        assert bench.fetch("o/p/x") == {"kind": "ladder", "n": 3}
+
+    def test_fetch_envelope_keeps_the_provenance(self, fake):
+        fake.add("GET", "/objects/", _envelope({"kind": "ladder"}))
+        env = bench.fetch_envelope("o/p/x")
+        assert env["payload"] == {"kind": "ladder"} and "provenance" in env
+
+    def test_a_typed_record_is_not_unwrapped(self, fake):
+        rec = {"kind": "decision_expansion", "provenance": {"created_at": "t"}}
+        fake.add("GET", "/objects/", ms.dump_canonical(rec))
+        assert bench.fetch("o/p/x") == rec
+
+    def test_with_meta_still_carries_the_hash(self, monkeypatch):
+        monkeypatch.setattr(bench, "_config", lambda u, k: ("https://api.test", "K"))
+
+        def req(method, url, key, return_headers=False, **kw):
+            assert return_headers is True
+            return _envelope({"n": 1}), {"x-content-hash": "sha256:abc"}
+        monkeypatch.setattr(bench, "_request", req)
+        payload, meta = bench.fetch("o/p/x", with_meta=True)
+        assert payload == {"n": 1} and meta["content_hash"] == "sha256:abc"
+
+
+class TestLaunch:
+    def test_it_posts_params_and_budget_and_returns_the_bare_run(self, fake):
+        fake.add("POST", "/protocols/owner~p~proto/runs",
+                 {"id": "r1", "jobId": "j1"})
+        out = bench.launch("owner~p~proto", params={"model": "gemma"}, budget=2.5)
+        assert out == {"id": "r1", "jobId": "j1"}
+        call = fake.calls[-1]
+        assert call["method"] == "POST" and call["url"].endswith("/runs")
+        import json
+        assert json.loads(call["body"]) == {"params": {"model": "gemma"},
+                                            "budgetUsd": 2.5}
+        assert call["timeout"] == 90
+
+    def test_no_budget_sends_no_cap(self, fake):
+        fake.add("POST", "/runs", {"id": "r", "jobId": "j"})
+        bench.launch("p")
+        import json
+        assert json.loads(fake.calls[-1]["body"]) == {"params": {}}
+
+    def test_a_positional_binding_is_refused(self, fake):
+        import pytest
+        with pytest.raises(TypeError):
+            bench.launch("p", {"a": "b"})
+
+    def test_it_binds_params_and_inputs_by_name_and_asks_to_keep(self, fake):
+        fake.add("POST", "/runs", {"id": "r", "jobId": "j"})
+        bench.launch("p", params={"model": "gemma", "n": 12},
+                     inputs={"prompts": "lab/p/prompts", "given": [{"id": "1"}]},
+                     keep="outputs")
+        import json
+        assert json.loads(fake.calls[-1]["body"]) == {
+            "params": {"model": "gemma", "n": 12},
+            "inputs": {"prompts": {"$ref": {"bench": "lab/p/prompts"}}, "given": [{"id": "1"}]},
+            "keep": "outputs"}
+
+    def test_keep_takes_two_words(self, fake):
+        import pytest
+        with pytest.raises(ValueError, match="keep is 'all' or 'outputs'"):
+            bench.launch("p", params={}, keep="some")
+
+
+class TestCreateProtocol:
+    def test_it_posts_the_graph_and_returns_the_bare_protocol(self, fake):
+        fake.add("POST", "/protocols", {"protocol": {"id": "prt_1", "version": 1,
+                                                     "name": "018-axes"}})
+        out = bench.create_protocol("benji", "lab", "018-axes",
+                                    graph={"nodes": [], "edges": []},
+                                    description="d")
+        assert out == {"id": "prt_1", "version": 1, "name": "018-axes"}
+
+        import json
+        body = json.loads(fake.calls[-1]["body"])
+        assert body["ownerHandle"] == "benji" and body["projectSlug"] == "lab"
+        assert body["graph"] == {"dataflow": 2, "nodes": [], "edges": []}
+        assert body["signature"] == {"params": [], "inputs": [], "outputs": []}
+        assert fake.calls[-1]["url"].endswith("/protocols")
+
+    def test_a_bare_reply_passes_through(self, fake):
+        fake.add("POST", "/protocols", {"id": "prt_2", "version": 1})
+        assert bench.create_protocol("o", "p", "n", graph={})["id"] == "prt_2"
+
+    def test_params_inputs_and_outputs_make_the_declared_signature(self, fake):
+        fake.add("POST", "/protocols", {"protocol": {"id": "prt_2", "version": 1, "name": "p"}})
+        bench.create_protocol("benji", "lab", "p",
+                              graph={"nodes": [], "edges": []},
+                              params=[{"name": "n", "type": "int", "default": 4}],
+                              outputs=[{"name": "said", "from": {"node": "said"}}])
+        import json
+        body = json.loads(fake.calls[-1]["body"])
+        assert body["signature"] == {"params": [{"name": "n", "type": "int", "default": 4}],
+                                     "inputs": [],
+                                     "outputs": [{"name": "said", "from": {"node": "said"}}]}
+        assert body["graph"]["dataflow"] == 2
+
+    def test_a_graph_in_the_legacy_form_is_refused_before_anything_is_sent(self, fake):
+        import pytest
+        with pytest.raises(ValueError, match=r'legacy dataflow form \(a "\$model" string hole at g.params.model\)'):
+            bench.create_protocol("benji", "lab", "p", graph={
+                "nodes": [{"id": "g", "block": "text/generate", "params": {"model": "$model"}}],
+                "edges": []})
+        assert fake.calls == []
+
+class TestRunningAnAuthorTwice:
+    @staticmethod
+    def _taken(pid="prt_1", version=1):
+        return bench.BenchError(
+            "a protocol called 'x' already exists", status=409,
+            body={"code": "NAME_TAKEN", "protocolId": pid, "version": version})
+
+    def test_a_taken_name_becomes_a_patch(self, fake):
+        fake.add("POST", "/protocols", self._taken())
+        fake.add("PATCH", "/protocols/prt_1",
+                 {"protocol": {"id": "prt_1", "version": 2, "name": "018-axes"}})
+        out = bench.create_protocol("benji", "lab", "018-axes",
+                                    graph={"nodes": [{"id": "n"}], "edges": []})
+        assert out == {"id": "prt_1", "version": 2, "name": "018-axes"}
+        patch = fake.calls[-1]
+        assert patch["method"] == "PATCH"
+        assert patch["url"].endswith("/protocols/prt_1")
+        import json
+        sent = json.loads(patch["body"])
+        assert sent["graph"] == {"dataflow": 2, "nodes": [{"id": "n"}], "edges": []}
+        assert sent["signature"] == {"params": [], "inputs": [], "outputs": []}
+        assert "name" not in sent and "projectSlug" not in sent
+
+    def test_exists_error_raises_instead(self, fake):
+        fake.add("POST", "/protocols", self._taken())
+        with pytest.raises(bench.BenchError, match="already exists"):
+            bench.create_protocol("o", "p", "n", graph={}, exists="error")
+
+    def test_any_other_refusal_still_raises(self, fake):
+        fake.add("POST", "/protocols", bench.BenchError(
+            "project does not exist", status=404,
+            body={"code": "PROJECT_NOT_FOUND"}))
+        with pytest.raises(bench.BenchError, match="project does not exist"):
+            bench.create_protocol("o", "p", "n", graph={})
+
+    def test_an_unknown_policy_is_refused(self, fake):
+        with pytest.raises(ValueError, match="exists is"):
+            bench.create_protocol("o", "p", "n", graph={}, exists="overwrite")
+
+
+PUBLISHED_VERSION = {"protocolId": "prt_1", "version": 2, "ownerHandle": "benji",
+                     "projectSlug": "lab", "name": "018-axes"}
+
+
+class TestPublishing:
+    def test_publish_answers_the_public_page_and_the_unpublished_includes(self, fake):
+        fake.add("POST", "/versions/2/publish",
+                 {"version": PUBLISHED_VERSION, "unpublishedIncludes": [{"name": "leaf"}]})
+        out = bench.publish_protocol_version("prt_1", 2)
+        assert fake.calls[-1]["url"] == "https://api.test/protocols/prt_1/versions/2/publish"
+        assert out["publicPath"] == "/benji/lab/protocols/prt_1/v/2"
+        assert out["unpublishedIncludes"] == [{"name": "leaf"}]
+
+    def test_create_protocol_can_publish_what_it_leaves_at_the_head(self, fake):
+        fake.add("POST", "/versions/2/publish", {"version": PUBLISHED_VERSION, "unpublishedIncludes": []})
+        fake.add("POST", "/protocols", bench.BenchError(
+            "taken", status=409, body={"code": "NAME_TAKEN", "protocolId": "prt_1"}))
+        fake.add("PATCH", "/protocols/prt_1", {"protocol": {"id": "prt_1", "version": 2}})
+        out = bench.create_protocol("benji", "lab", "018-axes", graph={}, publish=True)
+        assert out["version"] == 2
+        assert out["published"]["publicPath"] == "/benji/lab/protocols/prt_1/v/2"
+        assert fake.calls[-1]["url"].endswith("/protocols/prt_1/versions/2/publish")
+
+    def test_unpublish_names_the_citing_articles(self, fake):
+        fake.add("POST", "/unpublish", {"version": 2, "published": False,
+                                        "citedBy": [{"title": "Lighthouse"}], "unreadable": 0})
+        assert bench.unpublish_protocol_version("prt_1", 2)["citedBy"] == [{"title": "Lighthouse"}]
+
+
+class TestCopy:
+    def test_it_posts_the_destination_and_can_dry_run(self, fake):
+        fake.add("POST", "/copy", {"name": "top-2", "copied": [], "reused": []})
+        out = bench.copy_protocol_version("prt_1", 3, "me", "bench", name="top", dry_run=True)
+        assert out["name"] == "top-2"
+        call = fake.calls[-1]
+        assert call["url"] == "https://api.test/protocols/prt_1/versions/3/copy?dryRun=1"
+        import json
+        assert json.loads(call["body"]) == {"ownerKind": "user", "ownerHandle": "me",
+                                            "projectSlug": "bench", "name": "top"}
+
+
+class TestDelete:
+    def test_an_id_names_its_route_and_a_path_is_an_object(self, fake):
+        fake.add("DELETE", "https://api.test/", {"ok": True})
+        bench.delete("prt_abc")
+        bench.delete("j_abc")
+        bench.delete("art_abc")
+        bench.delete("ds_abc")
+        bench.delete("proj_abc")
+        bench.delete("benji/lab/results/j_abc", prefix=True)
+        assert [c["url"] for c in fake.calls] == [
+            "https://api.test/protocols/prt_abc",
+            "https://api.test/jobs/j_abc",
+            "https://api.test/articles/art_abc",
+            "https://api.test/datasets/ds_abc",
+            "https://api.test/projects/proj_abc",
+            "https://api.test/objects/benji/lab/results/j_abc?prefix=1",
+        ]
+
+    def test_dry_run_and_acknowledgement_travel_as_query(self, fake):
+        fake.add("DELETE", "https://api.test/", {"dryRun": True, "deletes": {"objects": 2}})
+        assert bench.delete("benji/lab/notes", prefix=True, dry_run=True)["deletes"] == {"objects": 2}
+        bench.delete("prt_abc", acknowledge_citations=True)
+        assert fake.calls[0]["url"].endswith("/objects/benji/lab/notes?prefix=1&dryRun=1")
+        assert fake.calls[1]["url"].endswith("/protocols/prt_abc?acknowledge=citations")
+
+    def test_a_refusal_carries_its_code(self, fake):
+        fake.add("DELETE", "https://api.test/", bench.BenchError(
+            "cited", status=409, body={"code": "CITED", "citedBy": [{"title": "t"}]}))
+        with pytest.raises(bench.BenchError) as e:
+            bench.delete("prt_abc")
+        assert e.value.code() == "CITED"
+
+    def test_something_that_is_neither_is_refused_locally(self, fake):
+        with pytest.raises(ValueError, match="neither an object path"):
+            bench.delete("nonsense")
+        assert fake.calls == []
+
+
+class TestCancel:
+    def test_it_posts_the_reason_and_returns_the_new_state(self, fake):
+        fake.add("POST", "/jobs/j1/cancel",
+                 {"ok": True, "status": "cancelled", "from": "queued"})
+        out = bench.cancel("j1", reason="duplicate launch")
+        assert out == {"ok": True, "status": "cancelled", "from": "queued"}
+        import json
+        call = fake.calls[-1]
+        assert call["method"] == "POST" and call["url"].endswith("/jobs/j1/cancel")
+        assert json.loads(call["body"]) == {"reason": "duplicate launch"}
+
+    def test_no_reason_sends_an_empty_body(self, fake):
+        fake.add("POST", "/cancel", {"ok": True, "status": "cancelled"})
+        bench.cancel("j2")
+        import json
+        assert json.loads(fake.calls[-1]["body"]) == {}
+
+    def test_a_running_job_surfaces_the_servers_refusal(self, fake):
+        fake.add("POST", "/cancel",
+                 bench.BenchError("POST .../cancel -> 409: a running job cannot "
+                                  "be cancelled"))
+        with pytest.raises(bench.BenchError, match="running job cannot be"):
+            bench.cancel("j3")
+
+
+class TestWatch:
+    def test_it_yields_only_on_change_until_terminal(self, fake):
+        fake.add("GET", "/jobs/j", Seq([
+            {"status": "running", "progressNum": 1, "progressDen": 2},
+            {"status": "running", "progressNum": 1, "progressDen": 2},
+            {"status": "done", "progressNum": 2, "progressDen": 2},
+        ]))
+        seen = list(bench.watch(["j"], interval=0))
+        assert [j["status"] for _, j in seen] == ["running", "done"]
+        assert all(jid == "j" for jid, _ in seen)
+
+    def test_a_transient_error_is_yielded_and_the_poll_continues(self, fake):
+        fake.add("GET", "/jobs/j", Seq([
+            bench.BenchError("GET .../jobs/j -> 502: bad gateway"),
+            {"status": "done"},
+        ]))
+        seen = list(bench.watch(["j"], interval=0))
+        assert seen[0][1]["status"] is None and "502" in seen[0][1]["error"]
+        assert seen[-1][1]["status"] == "done"
+
+    @pytest.mark.parametrize("status", ["done", "done_with_missing", "failed",
+                                        "cancelled", "interrupted"])
+    def test_every_finished_state_the_api_reports_ends_the_watch(self, fake, status):
+        fake.add("GET", "/jobs/j", Seq([
+            {"status": status},
+            RuntimeError("polled again after a finished state"),
+        ]))
+        assert [j["status"] for _, j in bench.watch(["j"], interval=0)] == [status]
+
+    def test_two_jobs_both_run_to_terminal(self, fake):
+        fake.add("GET", "/jobs/a", {"status": "done"})
+        fake.add("GET", "/jobs/b", {"status": "failed", "errorMessage": "boom"})
+        finals = dict(bench.watch(["a", "b"], interval=0))
+        assert finals["a"]["status"] == "done"
+        assert finals["b"]["status"] == "failed"
+
+
+class TestResultsFor:
+    def test_string_and_object_bindings_both_filter(self, fake):
+        fake.add("GET", "/protocols/024/runs",
+                 [{"id": "r", "jobId": "j", "resultPath": "o/p/results/j"}])
+        out = bench.results_for("024", corpus="benji/c/animals",
+                                ref={"provider": "x", "model": "y"})
+        assert out and out[0]["jobId"] == "j"
+        url = fake.calls[-1]["url"]
+        assert "binding.corpus=benji" in url
+        assert "binding.ref=" in url and "provider" in url
+
+    def test_no_bindings_lists_the_runs(self, fake):
+        fake.add("GET", "/protocols/p/runs", [{"id": "r"}])
+        assert bench.results_for("p") == [{"id": "r"}]
+        assert "?" not in fake.calls[-1]["url"]
+
+
+class TestResult:
+    def test_it_reads_a_node_through_the_job_and_unwraps(self, fake):
+        fake.add("GET", "/jobs/j", {"resultPath": "o/p/results/j",
+                                    "status": "done"})
+        fake.add("GET", "/objects/o/p/results/j/grade",
+                 _envelope({"kind": "metric_table", "rows": [{"n": 3}]}))
+        out = bench.result("j", "grade")
+        assert out == {"kind": "metric_table", "rows": [{"n": 3}]}
+
+    def test_a_row_with_a_result_path_skips_the_job_fetch(self, fake):
+        fake.add("GET", "/objects/o/p/results/j/n", _envelope({"v": 1}))
+        out = bench.result({"resultPath": "o/p/results/j"}, "n")
+        assert out == {"v": 1}
+        assert not any("/jobs/" in c["url"] for c in fake.calls)
+
+    def test_no_result_yet_is_an_error(self, fake):
+        fake.add("GET", "/jobs/j", {"status": "running", "resultPath": None})
+        with pytest.raises(bench.BenchError, match="no result yet"):
+            bench.result("j", "grade")
+
+
+class TestCredentialDiscovery:
+    @pytest.fixture(autouse=True)
+    def clean(self, monkeypatch, tmp_path):
+        monkeypatch.delenv("MECHBENCH_API_KEY", raising=False)
+        monkeypatch.delenv("MECHBENCH_API_URL", raising=False)
+        bench._DEFAULTS.clear()
+        cfg = tmp_path / "config.toml"
+        monkeypatch.setattr(bench, "_config_file", lambda: cfg)
+        return cfg
+
+    def test_stored_login_is_used_when_nothing_else_is_set(self, clean):
+        clean.write_text('[runner]\napi_url = "https://api.stored"\n'
+                         'api_key = "mbk_stored"\n')
+        assert bench._config(None, None) == ("https://api.stored", "mbk_stored")
+
+    def test_env_key_owns_the_pair_and_ignores_the_file(self, clean, monkeypatch):
+        clean.write_text('[runner]\napi_url = "https://api.stored"\n'
+                         'api_key = "mbk_stored"\n')
+        monkeypatch.setenv("MECHBENCH_API_KEY", "mbk_env")
+        monkeypatch.setenv("MECHBENCH_API_URL", "https://api.env")
+        assert bench._config(None, None) == ("https://api.env", "mbk_env")
+
+    def test_an_explicit_argument_wins(self, clean):
+        clean.write_text('[runner]\napi_url = "https://api.stored"\n'
+                         'api_key = "mbk_stored"\n')
+        assert bench._config("https://api.arg", "mbk_arg") == (
+            "https://api.arg", "mbk_arg")
+
+    def test_a_missing_login_is_a_clear_error(self, clean):
+        with pytest.raises(bench.BenchError, match="mechbench login"):
+            bench._config(None, None)
+
+
+class TestProtocolFiles:
+    FILE = {"name": "draws", "description": "d", "params": [], "inputs": [],
+            "outputs": [{"name": "a", "from": {"node": "a"}}],
+            "graph": {"dataflow": 2, "nodes": [], "edges": []}}
+
+    def test_push_reads_the_file_and_names_the_project(self, fake, tmp_path):
+        import json
+        f = tmp_path / "draws.json"
+        f.write_text(json.dumps(self.FILE))
+        fake.add("POST", "/protocols/push", {"action": "unchanged", "protocol": {"id": "prt_1"}})
+        out = bench.push_protocol(f, "benji/lab")
+        assert out["action"] == "unchanged"
+        body = json.loads(fake.calls[-1]["body"])
+        assert body == {"ownerKind": "user", "ownerHandle": "benji", "projectSlug": "lab",
+                        "protocol": self.FILE}
+
+    def test_push_takes_a_parsed_file_and_an_org(self, fake):
+        import json
+        fake.add("POST", "/protocols/push", {"action": "created"})
+        bench.push_protocol(self.FILE, "acme/lab", owner_kind="org")
+        assert json.loads(fake.calls[-1]["body"])["ownerKind"] == "org"
+
+    def test_push_refuses_a_project_that_is_not_owner_slash_project(self, fake):
+        import pytest
+        with pytest.raises(ValueError, match="owner/project"):
+            bench.push_protocol(self.FILE, "lab")
+
+    def test_push_refuses_a_file_that_is_not_json(self, fake, tmp_path):
+        import pytest
+        f = tmp_path / "x.json"
+        f.write_text("name: draws")
+        with pytest.raises(bench.BenchError, match="not a JSON protocol file"):
+            bench.push_protocol(f, "benji/lab")
+
+    def test_a_refusal_carries_its_code_and_findings(self, fake):
+        import pytest
+        fake.add("POST", "/protocols/push", bench.BenchError(
+            "400", status=400, body={"code": "WIRING", "findings": [{"code": "UNKNOWN_PARAM"}]}))
+        with pytest.raises(bench.BenchError) as e:
+            bench.push_protocol(self.FILE, "benji/lab")
+        assert e.value.code() == "WIRING"
+
+    def test_export_writes_the_text_exactly(self, fake, tmp_path):
+        text = '{\n  "name": "draws"\n}\n'
+        fake.add("GET", "/protocols/prt_1/export?version=2",
+                 {"protocolId": "prt_1", "version": 2, "text": text})
+        f = tmp_path / "out.json"
+        out = bench.export_protocol("prt_1", version=2, path=f)
+        assert out["version"] == 2
+        assert f.read_text() == text
+
+    def test_export_of_the_head_names_no_version(self, fake):
+        fake.add("GET", "/protocols/prt_1/export", {"text": "{}\n", "version": 5})
+        bench.export_protocol("prt_1")
+        assert fake.calls[-1]["url"].endswith("/protocols/prt_1/export")
+
+
+class TestRunLabels:
+    def test_launch_sends_the_label(self, fake):
+        import json
+        fake.add("POST", "/runs", {"id": "r", "jobId": "j", "label": "P0"})
+        bench.launch("p", params={}, label="P0")
+        assert json.loads(fake.calls[-1]["body"]) == {"params": {}, "label": "P0"}
+
+    def test_runs_filters_on_the_server(self, fake):
+        fake.add("GET", "/runs", [{"id": "r1", "label": "P0 on"}])
+        out = bench.runs(label_contains="P0", project="benji/lab", limit=5)
+        assert out == [{"id": "r1", "label": "P0 on"}]
+        url = fake.calls[-1]["url"]
+        assert "labelContains=P0" in url and "project=benji%2Flab" in url and "limit=5" in url
+
+    def test_runs_with_no_filter_asks_for_your_own(self, fake):
+        fake.add("GET", "/runs", [])
+        bench.runs()
+        assert fake.calls[-1]["url"] == "https://api.test/runs"
+
+    def test_label_run_patches_and_can_clear(self, fake):
+        import json
+        fake.add("PATCH", "/runs/j_1", {"id": "run_1", "label": None, "changed": True})
+        out = bench.label_run("j_1", None)
+        assert out["changed"] is True
+        assert json.loads(fake.calls[-1]["body"]) == {"label": None}

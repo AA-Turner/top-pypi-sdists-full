@@ -1,0 +1,25 @@
+name: unit tests
+
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  push-pr-unit-tests:
+    name: unit tests
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
+    uses: ./.github/workflows/reusable-unit-tests.yml
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+    with:
+      python-version: ${{ matrix.python-version }}
+  push-pr-unit-tests-docker:
+    name: Docker Unit Tests
+    uses: ./.github/workflows/reusable-unit-tests-docker.yml
+  build-and-release:
+    name: Release to Pypi
+    needs: push-pr-unit-tests
+    if: github.event_name == 'push' && github.repository == 'labgrid-project/labgrid'
+    uses: ./.github/workflows/build-and-release.yml
+    secrets: inherit

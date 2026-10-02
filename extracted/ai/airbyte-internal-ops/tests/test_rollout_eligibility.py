@@ -485,6 +485,7 @@ class _FakeHealthGate:
     should_rollback: bool = False
 
 
+_RELEASE_PR_URL = "https://github.com/airbytehq/airbyte/pull/1"
 _HITL_THREAD = SlackPostResult(channel_id="C0HITL", ts="1789000000.000001")
 _SESSION = DevinSessionRef(
     session_id="0123456789abcdef0123456789abcdef",
@@ -527,6 +528,11 @@ def _patch_threshold_triage(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, o
                 },
             }
         },
+    )
+    monkeypatch.setattr(
+        autopilot,
+        "_release_context",
+        lambda *_a, **_k: autopilot.ReleaseContext(pr_url=_RELEASE_PR_URL),
     )
     paused: list[dict[str, object]] = []
     monkeypatch.setattr(
@@ -631,9 +637,11 @@ def test_run_auto_triage_pause_alerts_before_investigation(
         _gate: object,
         thread: SlackPostResult | None,
         seen: SessionLookup,
+        release_pr_url: str | None = None,
     ) -> DevinSessionRef:
         calls.append(("start", thread))
         assert seen is lookup
+        assert release_pr_url == _RELEASE_PR_URL
         return existing_session or _SESSION
 
     def fake_link(thread: SlackPostResult, url: str) -> None:

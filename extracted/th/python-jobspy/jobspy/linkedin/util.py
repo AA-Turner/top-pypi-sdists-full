@@ -36,7 +36,8 @@ def parse_job_type(soup_job_type: BeautifulSoup) -> list[JobType] | None:
             employment_type = employment_type.lower()
             employment_type = employment_type.replace("-", "")
 
-    return [get_enum_from_job_type(employment_type)] if employment_type else []
+    job_type = get_enum_from_job_type(employment_type) if employment_type else None
+    return [job_type] if job_type else []
 
 
 def parse_job_level(soup_job_level: BeautifulSoup) -> str | None:
@@ -57,7 +58,7 @@ def parse_job_level(soup_job_level: BeautifulSoup) -> str | None:
             class_="description__job-criteria-text description__job-criteria-text--criteria",
         )
         if job_level_span:
-            job_level = job_level_span.get_text(strip=True)
+            job_level = job_level_span.get_text(strip=True).lower()
 
     return job_level
 
@@ -85,12 +86,10 @@ def parse_company_industry(soup_industry: BeautifulSoup) -> str | None:
     return industry
 
 
-def is_job_remote(title: dict, description: str, location: Location) -> bool:
+def is_job_remote(title: str, location: Location) -> bool:
     """
-    Searches the title, location, and description to check if job is remote
+    Searches the title and location to check if job is remote
     """
     remote_keywords = ["remote", "work from home", "wfh"]
-    location = location.display_location()
-    full_string = f'{title} {description} {location}'.lower()
-    is_remote = any(keyword in full_string for keyword in remote_keywords)
-    return is_remote
+    full_string = f"{title} {location.display_location()}".lower()
+    return any(keyword in full_string for keyword in remote_keywords)

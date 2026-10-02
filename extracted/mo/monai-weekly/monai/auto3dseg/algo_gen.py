@@ -1,0 +1,124 @@
+# Copyright (c) MONAI Consortium
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#     http://www.apache.org/licenses/LICENSE-2.0
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from __future__ import annotations
+
+from monai.config import PathLike
+from monai.transforms import Randomizable
+
+
+class Algo:
+    """
+    An algorithm in this context is loosely defined as a data processing pipeline consisting of multiple components
+    such as image preprocessing, followed by deep learning model training and evaluation.
+
+    Note:
+        When serialized via ``algo_to_json`` / ``algo_from_json``, subclasses are re-instantiated
+        from their fully-qualified class name through ``monai.bundle.ConfigParser``. This requires
+        the subclass to have a default constructor (no required positional arguments); state is
+        restored afterwards via ``load_state_dict``.
+    """
+
+    template_path: PathLike | None = None
+
+    def set_data_stats(self, *args, **kwargs):
+        """Provide dataset (and summaries) so that the model creation can depend on the input datasets."""
+
+    def train(self, *args, **kwargs):
+        """Read training/validation data and output a model."""
+
+    def predict(self, *args, **kwargs):
+        """Read test data and output model predictions."""
+
+    def get_score(self, *args, **kwargs):
+        """Returns the model quality measurement based on training and validation datasets."""
+
+    def get_output_path(self, *args, **kwargs):
+        """Returns the algo output paths for scripts location"""
+
+    def state_dict(self) -> dict:
+        """
+        Return state for serialization.
+
+        Subclasses should override this method to return a dictionary of
+        attributes that need to be serialized. This follows the PyTorch
+        convention for state management.
+
+        Returns:
+            A dictionary containing the state to serialize.
+        """
+        return {}
+
+    def load_state_dict(self, state: dict) -> None:
+        """
+        Restore state from a dictionary.
+
+        Subclasses should override this method to restore their state
+        from the dictionary returned by state_dict().
+
+        Args:
+            state: A dictionary containing the state to restore.
+        """
+
+
+class AlgoGen(Randomizable):
+    """
+    A data-driven algorithm generator. It optionally takes the following inputs:
+
+        - training dataset properties (such as data statistics from ``monai.auto3dseg.analyzer``),
+        - previous algorithm's scores measuring the model quality,
+        - computational budgets,
+
+    and generates ``Algo`` instances. The generated algos are to be trained with the training datasets::
+
+                                  scores
+                        +------------------------+
+                        |   +---------+          |
+        +-----------+   +-->|         |    +-----+----+
+        | Dataset,  |       | AlgoGen |--->|   Algo   |
+        | summaries |------>|         |    +----------+
+        +-----+-----+       +---------+          ^
+              |                                  |
+              +----------------------------------+
+
+    This class also maintains a history of previously generated Algo and their corresponding validation scores.
+    The Algo generation process may be stochastic (using ``Randomizable.R`` as the source random state).
+    """
+
+    def set_data_stats(self, *args, **kwargs):  # type ignore
+        """Provide dataset summaries/properties so that the generator can be conditioned on the input datasets."""
+
+    def set_budget(self, *args, **kwargs):
+        """Provide computational budget so that the generator outputs algorithms that requires reasonable resources."""
+
+    def set_score(self, *args, **kwargs):
+        """Feedback from the previously generated algo, the score can be used for new Algo generations."""
+
+    def get_data_stats(self, *args, **kwargs):
+        """Get current dataset summaries."""
+
+    def get_budget(self, *args, **kwargs):
+        """Get the current computational budget."""
+
+    def get_history(self, *args, **kwargs):
+        """Get the previously generated algo."""
+
+    def generate(self):
+        """Generate new Algo -- based on data_stats, budget, and history of previous algo generations."""
+
+    def run_algo(self, *args, **kwargs):
+        """
+        Launch the Algos. This is useful for light-weight Algos where there's no need to distribute the training jobs.
+
+        If the generated Algos require significant scheduling of parallel executions, a job scheduler/controller
+        implemented separately is preferred to run them. In this case the controller should also report back the
+        scores and the algo history, so that the future ``AlgoGen.generate`` can leverage the information.
+        """

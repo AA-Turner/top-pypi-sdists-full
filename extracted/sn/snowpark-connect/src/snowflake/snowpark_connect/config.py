@@ -378,10 +378,27 @@ class GlobalConfig:
         "spark.sql.legacy.dataset.nameNonStructGroupingKeyAsValue": "false",
         "snowpark.connect.handleIntegralOverflow": "false",
         # SNOW-4061004: client-side gate for emitting TABLE_PROPERTIES(...) on
-        # CLD CREATE / ALTER ICEBERG TABLE. Global (settable via spark.conf.set),
-        # default off; ENABLE_ICEBERG_TABLE_PROPERTIES_DDL must also be on for GS
-        # to accept the clause.
+        # CLD CREATE / ALTER ICEBERG TABLE. Global (settable via spark.conf.set).
+        # Default OFF: the GS parameter ENABLE_ICEBERG_TABLE_PROPERTIES_DDL must
+        # also be on for GS to accept the clause, and that server-side rollout is
+        # postponed, so keep emission suppressed by default until GS is enabled
+        # (set spark.conf to "true" to opt in on an account where GS supports it).
+        # TODO(SNOW-4061004): flip back to "true" once the GS rollout lands.
         "snowpark.connect.iceberg.enable_table_properties_ddl": "false",
+        # Internal gate (SNOW-3778487): when true (default), an atomic overwrite /
+        # overwrite-partitions on an unmanaged (CLD / external-catalog) Iceberg
+        # table that GS rejects as a multi-statement transaction (091586) raises an
+        # error instead of silently falling back to a non-atomic DELETE + APPEND
+        # (which can leave rows missing if the APPEND fails after the DELETE
+        # commits). Set to "false" to restore the non-atomic fallback.
+        "snowpark.connect.iceberg.error_on_non_atomic_unmanaged_overwrite": "true",
+        # SNOW-3776650: when true, an Iceberg mergeSchema write only evolves the
+        # schema when the target table also carries write.spark.accept-any-schema
+        # = true — matching Spark/Iceberg, which requires BOTH the mergeSchema
+        # write option AND that table property. Default off preserves the current
+        # behavior (mergeSchema option alone drives evolution); flipping this on
+        # tightens merges, so it is opt-in.
+        "snowpark.connect.iceberg.require_accept_any_schema_for_merge": "false",
         "snowpark.connect.scala.version": "2.12",
         # Control whether to convert decimal - to integral types and vice versa: DecimalType(p,0) <-> ByteType/ShortType/IntegerType/LongType
         # Values: "client_default" (behavior based on client type), "enabled", "disabled"
@@ -396,6 +413,14 @@ class GlobalConfig:
         # Test-only configuration: Force UDFs/UDTFs to be created in stored procedures
         # regardless of Python version compatibility. This helps test SPROC code paths in local CI.
         "snowpark.connect.test.force_create_sproc": "false",
+        # Test-only configuration: unified-workload attribution context (SNOW-4183579).
+        # The perf harness sets this once per iteration to a JSON object
+        # ({"uw_workload":..,"uw_scale":..,"uw_iteration":..,"uw_is_warmup":..}).
+        # The server applies it as the session QUERY_TAG (a universal floor every
+        # query inherits, including internal Snowpark queries) via the Snowpark
+        # setter, so it is also readable as the base for per-statement tag merge.
+        # Empty default = no attribution context.
+        "snowpark.connect.test.uw_context": "",
         "spark.sql.iceberg.merge-schema": "false",
         # When true, use the native __SNOWPARK_INTERNAL_SUBSTRING SQL function
         # for string inputs instead of the CASE/WHEN boundary-check emulation.
@@ -540,6 +565,7 @@ class GlobalConfig:
         "snowpark.connect.sql.emulatePartitionOverwritesForSnowflakeTables",
         "snowpark.connect.sql.returnDmlMetadata",
         "spark.sql.iceberg.merge-schema",
+        "snowpark.connect.iceberg.require_accept_any_schema_for_merge",
         "snowpark.connect.enable_native_sql_for_substring",
         "snowpark.connect.enable_aes_raw_functions",
         "snowpark.connect.enable_partition_specs_in_show_tables",
@@ -761,6 +787,7 @@ SESSION_CONFIG_KEY_WHITELIST = {
     "spark.sql.parquet.inferTimestampNTZ.enabled",
     "snowpark.connect.io.validations.mode",
     "spark.sql.iceberg.merge-schema",
+    "snowpark.connect.iceberg.require_accept_any_schema_for_merge",
     "spark.wap.branch",
     "snowpark.connect.read.anchorStagePaths",
     "snowpark.connect.read.hivePartitionPruning",
@@ -1045,6 +1072,7 @@ class SessionConfig:
         # When "strict", enforce Spark-compatible validations (e.g., SPARK-35912)
         "snowpark.connect.io.validations.mode": "lenient",
         "spark.sql.iceberg.merge-schema": "false",
+        "snowpark.connect.iceberg.require_accept_any_schema_for_merge": "false",
         # When true (default), file/glob read paths are anchored at the SQL
         # boundary using PATTERN/trailing-slash so Snowflake stage prefix
         # matching cannot pull in unintended sibling files or directories
@@ -1417,9 +1445,71 @@ def _effective_session_scoped_config(session_id: str, key: str) -> str:
     return str(global_config.global_config[key])
 
 
+# Test-only channel for unified-workload attribution. The perf harness sets this
+# once per iteration; the value (a JSON object) becomes the session QUERY_TAG so
+# every query -- including internal Snowpark queries the per-statement injection
+# never touches -- inherits it, and SCOS's per-statement tag builder reads it
+# back as the merge base. Handled explicitly (not through the general config
+# machinery) so it neither mutates process-global config nor triggers the
+# static-config guards.
+UW_CONTEXT_CONFIG_KEY = "snowpark.connect.test.uw_context"
+
+
+def _apply_uw_context_tag(val: str | None, snowpark_session: snowpark.Session) -> None:
+    """Route the uw_context config to the session QUERY_TAG floor.
+
+    Sets ONLY the session-level base tag, via the Snowpark ``query_tag`` setter
+    (which issues ``ALTER SESSION SET QUERY_TAG`` AND caches the attribute) so the
+    value is both a universal floor every query inherits and the readable base for
+    per-statement tag merge -- that cached attribute IS the source of truth, so
+    nothing is stored in the config overlay (the SessionConfig whitelist would
+    ignore this key anyway).
+
+    Scope is PROCESS-GLOBAL, not per Spark session: ``snowpark_session`` is the
+    one object ``get_or_create_snowpark_session()`` resolves for the whole server
+    (see ``utils/session.py``), so there is deliberately no ``session_id`` here.
+
+    Does NOT override the per-statement enrichment layer: ``build_scos_query_tag_
+    json`` recomputes ``file``/``line``/``fn``/``rpc``/``op`` for every statement
+    and merges them on top of this base, so that layer is never lost. Replacing
+    any prior session tag is intentional and matches existing behavior: Spark's
+    own ``set_query_tags(request.tags)`` runs on every ExecutePlan and likewise
+    sets the session tag (it no-ops when the client has no Spark tags -- the perf
+    harness case -- so this floor survives; if the client DID set Spark tags they
+    would overwrite this base on the next request regardless). Best-effort: a
+    tagging failure must never fail ``conf.set``.
+    """
+    from snowflake.snowpark_connect.utils.scos_query_tag import (
+        DEFAULT_SCOS_QUERY_TAG,
+        _parse_tag_object,
+    )
+
+    normalized = "" if val is None else str(val)
+    if snowpark_session is None:
+        return
+    # The bypass skips _verify_is_valid_config_value, so a malformed value would
+    # otherwise silently lose all uw_* attribution (parses to None -> tag falls
+    # back to the raw string). Warn rather than fail.
+    if normalized and _parse_tag_object(normalized) is None:
+        logger.warning(
+            "uw_context is not a JSON object; uw_* attribution will be lost: %r",
+            normalized[:200],
+        )
+    try:
+        # Unset restores the documented SNOWPARK_CONNECT_QUERY baseline (not a
+        # full UNSET), so internal queries that bypass per-statement injection
+        # stay attributable to SCOS in QUERY_HISTORY.
+        snowpark_session.query_tag = normalized or DEFAULT_SCOS_QUERY_TAG
+    except Exception as e:  # pragma: no cover - environment dependent
+        logger.warning("failed to apply uw_context query tag: %s", e)
+
+
 def set_config_param(
     session_id: str, key, val, snowpark_session: snowpark.Session
 ) -> None:
+    if key == UW_CONTEXT_CONFIG_KEY:
+        _apply_uw_context_tag(val, snowpark_session)
+        return
     if key in SESSION_SCOPED_RUNTIME_CONFIGS:
         _verify_is_not_readonly_config(key)
         normalized_value = (
@@ -1466,6 +1556,9 @@ def set_config_param(
 def unset_config_param(
     session_id: str, key, snowpark_session: snowpark.Session
 ) -> None:
+    if key == UW_CONTEXT_CONFIG_KEY:
+        _apply_uw_context_tag("", snowpark_session)
+        return
     if key in SESSION_SCOPED_RUNTIME_CONFIGS:
         sessions_config[session_id].set(key, "")
         _clear_session_plan_caches(session_id)

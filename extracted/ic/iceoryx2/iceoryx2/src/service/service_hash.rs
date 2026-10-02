@@ -1,0 +1,82 @@
+// Copyright (c) 2023 Contributors to the Eclipse Foundation
+//
+// See the NOTICE file(s) distributed with this work for additional
+// information regarding copyright ownership.
+//
+// This program and the accompanying materials are made available under the
+// terms of the Apache Software License 2.0 which is available at
+// https://www.apache.org/licenses/LICENSE-2.0, or the MIT license
+// which is available at https://opensource.org/licenses/MIT.
+//
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
+use alloc::string::ToString;
+use core::fmt::Display;
+use iceoryx2_bb_container::semantic_string::*;
+use iceoryx2_bb_derive_macros::ZeroCopySend;
+use iceoryx2_bb_elementary_traits::zero_copy_send::ZeroCopySend;
+use iceoryx2_bb_system_types::file_name::RestrictedFileName;
+use iceoryx2_cal::hash::Hash;
+use iceoryx2_log::fatal_panic;
+
+use serde::{Deserialize, Serialize};
+
+use super::{messaging_pattern::MessagingPattern, service_name::ServiceName};
+
+const SERVICE_HASH_CAPACITY: usize = 64;
+
+/// The unique id of a [`Service`](crate::service::Service)
+#[derive(
+    Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Copy, Hash, ZeroCopySend, Serialize, Deserialize,
+)]
+#[repr(C)]
+pub struct ServiceHash(pub(crate) RestrictedFileName<SERVICE_HASH_CAPACITY>);
+
+impl Display for ServiceHash {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl ServiceHash {
+    /// Creates the [`ServiceHash`] which identifies a
+    /// service name and messaging pattern pair used by a
+    /// [`Service`](crate::service::Service).
+    pub fn new<Hasher: Hash>(
+        service_name: &ServiceName,
+        messaging_pattern: MessagingPattern,
+    ) -> Self {
+        let pattern_and_service = (messaging_pattern as u32).to_string() + service_name.as_str();
+        let value = *Hasher::new(pattern_and_service.as_bytes())
+            .value()
+            .as_base64url();
+
+        Self(fatal_panic!(from "ServiceHash::new()",
+                   when RestrictedFileName::new(&value),
+                   "This should never happen! The Hasher used to create the ServiceHash created an illegal value ({value}, len = {}).", value.len()))
+    }
+
+    pub(crate) fn from_bytes(bytes: &[u8]) -> Result<Self, SemanticStringError> {
+        let content = RestrictedFileName::new(bytes)?;
+        Ok(Self(content))
+    }
+
+    /// Returns the maximum string length of a [`ServiceHash`]
+    pub const fn max_number_of_characters() -> usize {
+        SERVICE_HASH_CAPACITY
+    }
+
+    /// Returns a str reference to the [`ServiceHash`]
+    pub fn as_str(&self) -> &str {
+        // SAFETY: a SemanticString is always a valid UTF-8 string
+        unsafe { core::str::from_utf8_unchecked(self.0.as_bytes()) }
+    }
+}
+
+impl core::convert::TryFrom<&str> for ServiceHash {
+    type Error = iceoryx2_bb_container::semantic_string::SemanticStringError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Ok(Self(RestrictedFileName::try_from(value)?))
+    }
+}

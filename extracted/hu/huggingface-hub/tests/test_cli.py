@@ -15,7 +15,7 @@ import httpx2
 import pytest
 from click.testing import CliRunner, Result
 
-from huggingface_hub import HfApi, InferenceEndpointHardware, constants
+from huggingface_hub import HfApi, InferenceCatalogModel, InferenceEndpointHardware, constants
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
 from huggingface_hub._jobs_api import JobInfo, JobOwner, _create_job_spec, _derive_job_volume_name
 from huggingface_hub._space_api import Volume
@@ -1688,6 +1688,7 @@ class TestRepoDuplicateCommand:
             visibility="private",
             token=None,
             exist_ok=False,
+            resource_group_id=None,
             space_hardware=None,
             space_sleep_time=None,
             space_secrets=None,
@@ -1709,6 +1710,8 @@ class TestRepoDuplicateCommand:
                     "--type",
                     "space",
                     "--exist-ok",
+                    "--resource-group-id",
+                    "66670e5163145ca562cb1988",
                     "--token",
                     "my-token",
                 ],
@@ -1722,6 +1725,7 @@ class TestRepoDuplicateCommand:
             visibility=None,
             token="my-token",
             exist_ok=True,
+            resource_group_id="66670e5163145ca562cb1988",
             space_hardware=None,
             space_sleep_time=None,
             space_secrets=None,
@@ -1766,6 +1770,7 @@ class TestRepoDuplicateCommand:
             visibility="private",
             token=None,
             exist_ok=False,
+            resource_group_id=None,
             space_hardware="l4x4",
             space_sleep_time=3600,
             space_secrets=[{"key": "HF_TOKEN", "value": "hf_secret123"}],
@@ -1803,6 +1808,7 @@ class TestRepoDuplicateCommand:
             visibility=None,
             token=None,
             exist_ok=False,
+            resource_group_id=None,
             space_hardware=None,
             space_sleep_time=None,
             space_secrets=[{"key": "MY_SECRET", "value": "env_value"}],
@@ -2060,6 +2066,7 @@ class TestAuthWhoamiCommand:
             result = runner.invoke(app, ["auth", "whoami"])
         assert result.exit_code == 1
         assert "Not logged in" in result.output
+        assert "hf auth login" in result.output
 
     def test_whoami_not_logged_in_json(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.auth.get_token", return_value=None):
@@ -2817,12 +2824,31 @@ class TestInferenceEndpointsCommands:
         api_cls.assert_called_once_with(token=None)
         api.create_inference_endpoint_from_catalog.assert_called_once_with(
             repo_id="catalog/model",
+            recipe_id=None,
             name=None,
             accelerator=None,
+            gguf_file=None,
             namespace=None,
             token=None,
         )
         assert '"name": "catalog"' in result.stdout
+
+    def test_deploy_from_catalog_recipe(self, runner: CliRunner) -> None:
+        endpoint = Mock(raw={"name": "catalog"})
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.create_inference_endpoint_from_catalog.return_value = endpoint
+            result = runner.invoke(app, ["endpoints", "catalog", "deploy", "--recipe", "ebony-pecan-n6tu7fs3"])
+        assert result.exit_code == 0
+        api.create_inference_endpoint_from_catalog.assert_called_once_with(
+            repo_id=None,
+            recipe_id="ebony-pecan-n6tu7fs3",
+            name=None,
+            accelerator=None,
+            gguf_file=None,
+            namespace=None,
+            token=None,
+        )
 
     def test_describe(self, runner: CliRunner) -> None:
         endpoint = Mock(raw={"name": "describe"})
@@ -3010,15 +3036,37 @@ class TestInferenceEndpointsCommands:
         assert '"name": "zero"' in result.stdout
 
     def test_list_catalog(self, runner: CliRunner) -> None:
+        model = InferenceCatalogModel.from_raw(
+            {
+                "repoId": "bartowski/QwQ-32B-Preview-GGUF",
+                "modelName": "QwQ-32B-Preview-GGUF",
+                "authorName": "bartowski",
+                "license": "Apache 2.0",
+                "task": "text-generation",
+                "createdAt": "2025-05-07T12:04:27.463Z",
+                "recipes": [
+                    {
+                        "publicId": "baked-orange-m863gx7d",
+                        "accelerator": "gpu",
+                        "engineType": "llamacpp",
+                        "ggufFile": "QwQ-32B-Preview-Q8_0.gguf",
+                    }
+                ],
+            }
+        )
         with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
             api = api_cls.return_value
-            api.list_inference_catalog.return_value = ["model"]
-            result = runner.invoke(app, ["endpoints", "catalog", "ls"])
+            api.list_inference_catalog.return_value = [model]
+            result = runner.invoke(app, ["endpoints", "catalog", "ls", "--engine", "llamacpp"])
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
-        api.list_inference_catalog.assert_called_once_with(token=None)
-        assert '"models"' in result.stdout
-        assert '"model"' in result.stdout
+        api.list_inference_catalog.assert_called_once_with(
+            accelerator=None, engine="llamacpp", license=None, task=None, search=None, limit=None, token=None
+        )
+        # One row per recipe, with the recipe id to pass to 'catalog deploy --recipe'.
+        assert "bartowski/QwQ-32B-Preview-GGUF" in result.stdout
+        assert "baked-orange-m863gx7d" in result.stdout
+        assert "QwQ-32B-Preview-Q8_0.gguf" in result.stdout
 
 
 IMAGE_URL = "vllm/vllm-openai:v0.23.0"
@@ -3376,7 +3424,9 @@ class TestJobsCommand:
             volumes=None,
             flavor=None,
             timeout=None,
+            attempts=None,
             expose=None,
+            expose_public=None,
             ssh=False,
             network_group=None,
             network_aliases=None,
@@ -3406,7 +3456,9 @@ class TestJobsCommand:
             volumes=None,
             flavor=None,
             timeout=None,
+            attempts=None,
             expose=None,
+            expose_public=None,
             ssh=False,
             network_group=None,
             network_aliases=None,
@@ -3440,7 +3492,9 @@ class TestJobsCommand:
             volumes=None,
             flavor=None,
             timeout=None,
+            attempts=None,
             expose=None,
+            expose_public=None,
             resource_group_id=None,
             namespace=None,
         )
@@ -3467,7 +3521,9 @@ class TestJobsCommand:
             volumes=None,
             flavor=None,
             timeout=None,
+            attempts=None,
             expose=None,
+            expose_public=None,
             ssh=False,
             network_group=None,
             network_aliases=None,
@@ -3500,7 +3556,9 @@ class TestJobsCommand:
             volumes=None,
             flavor=None,
             timeout=None,
+            attempts=None,
             expose=None,
+            expose_public=None,
             ssh=False,
             network_group=None,
             network_aliases=None,
@@ -3564,7 +3622,9 @@ class TestJobsCommand:
             volumes=None,
             flavor=None,
             timeout=None,
+            attempts=None,
             expose=None,
+            expose_public=None,
             ssh=False,
             network_group=None,
             network_aliases=None,
@@ -4455,6 +4515,25 @@ class TestBucketTransport:
         result = runner.invoke(app, ["jobs", "labels", "my-job-id"])
         assert result.exit_code == 1  # at least one label or clear
 
+    def test_update_job_expose(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.update_job_expose.return_value = JobInfo(
+                id="my-job-id",
+                status={"stage": "RUNNING"},
+                owner={"id": "1", "name": "user", "type": "user"},
+                expose={"ports": [8000, 8001, 9000], "portsPublic": [9000]},
+            )
+            result = runner.invoke(app, ["jobs", "expose", "my-job-id", "8000", "8001", "--public", "9000"])
+        assert result.exit_code == 0
+        api.update_job_expose.assert_called_once_with(
+            job_id="my-job-id", expose=[8000, 8001], expose_public=[9000], namespace=None
+        )
+
+    def test_update_job_expose_clear_with_ports_error(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["jobs", "expose", "my-job-id", "8000", "--clear"])
+        assert result.exit_code == 1
+
 
 class TestParseNamespaceFromJobId:
     """Unit tests for _parse_namespace_from_job_id."""
@@ -4683,17 +4762,28 @@ class TestVolume:
         assert spec["volumes"][0]["path"] == "subdir"
 
     @pytest.mark.parametrize(
-        "expose, expected",
+        "expose, expose_public, expected",
         [
-            (None, None),
-            ([], None),
-            ([8000], {"ports": [8000]}),
-            ([8000, 8001], {"ports": [8000, 8001]}),
+            (None, None, None),
+            ([], [], None),
+            ([8000], None, {"ports": [8000], "portsPublic": []}),
+            ([8000, 8001], None, {"ports": [8000, 8001], "portsPublic": []}),
+            # public ports are merged into `ports` (the server requires `portsPublic` to be a subset of `ports`)
+            ([8000, 9000], [9000, 7000], {"ports": [8000, 9000, 7000], "portsPublic": [9000, 7000]}),
         ],
     )
-    def test_serialize_expose(self, expose: list[int] | None, expected: dict | None) -> None:
+    def test_serialize_expose(
+        self, expose: list[int] | None, expose_public: list[int] | None, expected: dict | None
+    ) -> None:
         spec = _create_job_spec(
-            image="python:3.12", command=["echo"], env=None, secrets=None, flavor=None, timeout=None, expose=expose
+            image="python:3.12",
+            command=["echo"],
+            env=None,
+            secrets=None,
+            flavor=None,
+            timeout=None,
+            expose=expose,
+            expose_public=expose_public,
         )
         assert spec.get("expose") == expected
 
@@ -4811,6 +4901,7 @@ class TestWebhooksCommand:
             watched=[WebhookWatchedItem(type="model", name="bert-base-uncased")],
             domains=None,
             secret=None,
+            secrets=None,
         )
 
     def test_create_with_domain_and_secret(self, runner: CliRunner) -> None:
@@ -4841,6 +4932,7 @@ class TestWebhooksCommand:
             watched=[WebhookWatchedItem(type="org", name="HuggingFace")],
             domains=["repo"],
             secret="mysecret",
+            secrets=None,
         )
 
     def test_create_with_job_id(self, runner: CliRunner) -> None:
@@ -4862,7 +4954,38 @@ class TestWebhooksCommand:
             watched=[WebhookWatchedItem(type="user", name="julien-c")],
             domains=None,
             secret=None,
+            secrets=None,
         )
+
+    def test_create_with_job_secrets(self, runner: CliRunner) -> None:
+        webhook = self._make_webhook(url=None)
+        with (
+            patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls,
+            patch.dict(os.environ, {"MY_SECRET": "s3cr3t"}),
+        ):
+            api_cls.return_value.create_webhook.return_value = webhook
+            result = runner.invoke(
+                app,
+                [
+                    "webhooks",
+                    "create",
+                    "--job-id",
+                    "687f911eaea852de79c4a50a",
+                    "--watch",
+                    "bucket:my-org/my-bucket",
+                    "--secrets",
+                    "MY_SECRET",
+                ],
+            )
+        assert result.exit_code == 0, result.output
+        assert api_cls.return_value.create_webhook.call_args.kwargs["secrets"] == {"MY_SECRET": "s3cr3t"}
+
+    def test_create_secrets_require_job_id(self, runner: CliRunner) -> None:
+        result = runner.invoke(
+            app,
+            ["webhooks", "create", "--url", "https://example.com/hook", "--watch", "user:me", "--secrets", "A=b"],
+        )
+        assert result.exit_code != 0
 
     def test_create_url_and_job_id_mutually_exclusive(self, runner: CliRunner) -> None:
         result = runner.invoke(
@@ -4906,10 +5029,29 @@ class TestWebhooksCommand:
         api_cls.return_value.update_webhook.assert_called_once_with(
             "wh-abc123",
             url="https://new.example.com/hook",
+            job_id=None,
             watched=None,
             domains=None,
             secret=None,
+            secrets=None,
         )
+
+    def test_update_with_job_secrets(self, runner: CliRunner) -> None:
+        webhook = self._make_webhook(url=None)
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            api_cls.return_value.update_webhook.return_value = webhook
+            result = runner.invoke(
+                app,
+                ["webhooks", "update", "wh-abc123", "--job-id", "687f911eaea852de79c4a50a", "--secrets", "A=b"],
+            )
+        assert result.exit_code == 0, result.output
+        kwargs = api_cls.return_value.update_webhook.call_args.kwargs
+        assert kwargs["job_id"] == "687f911eaea852de79c4a50a"
+        assert kwargs["secrets"] == {"A": "b"}
+
+    def test_update_secrets_require_job_id(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["webhooks", "update", "wh-abc123", "--secrets", "A=b"])
+        assert result.exit_code != 0
 
     def test_enable(self, runner: CliRunner) -> None:
         webhook = self._make_webhook(disabled=False)
@@ -5202,7 +5344,11 @@ class TestRepoTypePrefix:
             api_cls.return_value.duplicate_repo.return_value = type(
                 "RepoUrl",
                 (),
-                {"repo_id": "user/my-space-copy", "__str__": lambda s: "https://hf.co/user/my-space-copy"},
+                {
+                    "repo_id": "user/my-space-copy",
+                    "files_copy_pending": False,
+                    "__str__": lambda s: "https://hf.co/user/my-space-copy",
+                },
             )()
             result = runner.invoke(app, ["repos", "duplicate", "spaces/user/my-space"])
         assert result.exit_code == 0, result.output
@@ -5308,6 +5454,26 @@ class TestSkillsHfCliCLI:
         skill_file.write_text("stale content")
         runner.invoke(app, ["skills", "update", "--dest", str(dest)])
         assert skill_file.read_text(encoding="utf-8") == build_skill_md()
+
+    def test_local_add_and_update_hint_global(
+        self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(constants, "AGENTS_SKILLS_GLOBAL_PATH", tmp_path / "global/.agents/skills")
+        monkeypatch.setattr(constants, "CLAUDE_SKILLS_GLOBAL_PATH", tmp_path / "global/.claude/skills")
+        monkeypatch.setattr(constants, "AGENTS_SKILLS_LOCAL_PATH", tmp_path / "local/.agents/skills")
+        monkeypatch.setattr(constants, "CLAUDE_SKILLS_LOCAL_PATH", tmp_path / "local/.claude/skills")
+
+        result = runner.invoke(app, ["skills", "add"])
+        assert result.exit_code == 0, result.output
+        assert "hf skills add hf-cli --global" in result.stderr
+
+        result = runner.invoke(app, ["skills", "update"])
+        assert result.exit_code == 0, result.output
+        assert "hf skills update --global" in result.stderr
+
+        result = runner.invoke(app, ["skills", "add", "--global"])
+        assert result.exit_code == 0, result.output
+        assert "--global" not in result.stderr
 
     def test_skills_flag_prints_the_skill(self, runner: CliRunner) -> None:
         """`hf --skills` is a top-level alias for `hf skills preview`."""

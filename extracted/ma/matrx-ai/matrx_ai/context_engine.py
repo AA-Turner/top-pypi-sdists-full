@@ -646,13 +646,16 @@ async def build_agent_context(
     use_cache: bool = True,
     path: str = "chosen",
     system_names: SystemContextNames | None = None,
-    organization_id: str | None = None,
+    organization_id: str | None,
 ) -> AgentContext:
     """Resolve all context variables for ``user_id`` and return an AgentContext.
 
     ``organization_id`` — the organization this RUN is admitted for (carried from the request,
     never a default). Passed through to :func:`agent_context_from_resolved` so the scope names
-    it BEFORE the merge-field producer runs (see there).
+    it BEFORE the merge-field producer runs (see there). REQUIRED, with no default: a caller
+    that forgot it (the context compare's sides, 2026-10-01 — 42 refused turns on
+    ``/ai/context/preview`` in two hours) cannot exist any more; ``None`` is a deliberate answer
+    and the producer then says why it refused.
 
     ``path`` — ``"chosen"`` (default) lets the host's path chooser answer from the record store
     when the turn's organization has chosen the new path; ``"old"`` always asks the current
@@ -797,7 +800,7 @@ async def agent_context_from_resolved(
     entity_type: str,
     entity_id: str,
     system_names: SystemContextNames | None = None,
-    organization_id: str | None = None,
+    organization_id: str | None,
 ) -> AgentContext:
     """Everything that happens to a resolver's answer after it comes back — ONE body.
 

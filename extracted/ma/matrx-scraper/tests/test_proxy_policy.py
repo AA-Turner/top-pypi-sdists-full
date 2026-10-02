@@ -278,6 +278,108 @@ async def test_proxy_pool_exhaustion_capture_rearms_after_recovery(
     # would send the later calls down the direct-first path instead.
     await scraper.fetch_normally_with_proxy("https://first.example/first")
     await scraper.fetch_normally_with_proxy("https://recovery.example/recovery")
+    # A refusal moments after the pool carried a request is ONE destination
+    # being declined, not exhaustion (system_error 586170ad). The pool is only
+    # exhausted again once that carry has aged out of the refusal window.
+    real_monotonic = proxy_health.time.monotonic
+    monkeypatch.setattr(
+        proxy_health.time,
+        "monotonic",
+        lambda: real_monotonic() + proxy_health.REFUSAL_MEMORY_SECONDS + 1,
+    )
     await scraper.fetch_normally_with_proxy("https://second.example/second")
 
     assert len(captures) == 2
+
+
+@pytest.mark.asyncio
+async def test_host_refused_by_a_healthy_pool_is_not_pool_exhaustion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """2026-10-01 system_error 586170ad: the pool had carried 51 of 72 proxied
+    requests, the vendor refused ONE destination (www.arlingtontx.gov), the
+    direct fallback got the site's own bad status — and the row said
+    "Configured proxy pool exhausted". A pool that is carrying other hosts is
+    not exhausted, and the caller must get the site's real answer."""
+    captures: list[tuple[BaseException, str, dict[str, Any]]] = []
+
+    async def fake_fetch(
+        url: str,
+        _request_type: scraper.RequestType,
+        proxy: str | None,
+        *_args: Any,
+        **_kwargs: Any,
+    ) -> SimpleNamespace:
+        if "arlingtontx.gov" not in url:
+            return SimpleNamespace(
+                failed=False, failed_primary_reason=None, failed_reasons=[]
+            )
+        if proxy is not None:
+            return _failed_response(scraper.FailureReason.PROXY_ERROR)
+        return _failed_response(scraper.FailureReason.BAD_STATUS)
+
+    async def fake_capture(exc: BaseException, *, kind: str, **kwargs: Any) -> None:
+        captures.append((exc, kind, kwargs))
+
+    monkeypatch.setenv("DATACENTER_PROXIES", "http://proxy-one,http://proxy-two")
+    monkeypatch.setattr(scraper, "fetch", fake_fetch)
+    monkeypatch.setattr("matrx_utils.capture_error", fake_capture)
+    monkeypatch.setattr("matrx_utils.vcprint", lambda *_a, **_k: None)
+    monkeypatch.setattr(scraper, "_proxy_pool_exhausted", False)
+
+    # The pool is healthy: it carries other destinations fine.
+    for path in range(5):
+        ok = await scraper.fetch_normally_with_proxy(f"https://news.example/{path}")
+        assert ok.failed is False
+
+    response = await scraper.fetch_normally_with_proxy(
+        "https://www.arlingtontx.gov/News-Articles/2026/October/event"
+    )
+
+    # The caller gets the site's own answer, carried directly, and announced.
+    assert response.failed_primary_reason == scraper.FailureReason.BAD_STATUS
+    assert response.proxy_bypassed is True
+    # And nothing claims the pool is exhausted.
+    assert not any(isinstance(exc, scraper.ProxyPoolExhaustedError) for exc, _, _ in captures)
+    snapshot = proxy_health.proxy_health_snapshot()
+    assert snapshot["refused_hosts"] == ["www.arlingtontx.gov"]
+    assert snapshot["direct_fallbacks"] == 1
+
+
+@pytest.mark.asyncio
+async def test_dead_pool_rescued_by_direct_is_still_reported(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The mirror image: a pool that carries NOTHING is a real outage even
+    when every page is rescued directly — rescue must not make it silent."""
+    captures: list[tuple[BaseException, str, dict[str, Any]]] = []
+
+    async def fake_fetch(
+        _url: str,
+        _request_type: scraper.RequestType,
+        proxy: str | None,
+        *_args: Any,
+        **_kwargs: Any,
+    ) -> SimpleNamespace:
+        if proxy is not None:
+            return _failed_response(scraper.FailureReason.PROXY_ERROR)
+        return SimpleNamespace(failed=False, failed_primary_reason=None, failed_reasons=[])
+
+    async def fake_capture(exc: BaseException, *, kind: str, **kwargs: Any) -> None:
+        captures.append((exc, kind, kwargs))
+
+    monkeypatch.setenv("DATACENTER_PROXIES", "http://proxy-one,http://proxy-two")
+    monkeypatch.setattr(scraper, "fetch", fake_fetch)
+    monkeypatch.setattr("matrx_utils.capture_error", fake_capture)
+    monkeypatch.setattr("matrx_utils.vcprint", lambda *_a, **_k: None)
+    monkeypatch.setattr(scraper, "_proxy_pool_exhausted", False)
+
+    response = await scraper.fetch_normally_with_proxy("https://a.example/")
+
+    assert response.failed is False
+    assert response.proxy_bypassed is True
+    assert len(captures) == 1
+    exc, kind, kwargs = captures[0]
+    assert isinstance(exc, scraper.ProxyPoolExhaustedError)
+    assert kind == "scraper_proxy_pool_exhausted"
+    assert kwargs["context"]["direct_rescued"] is True

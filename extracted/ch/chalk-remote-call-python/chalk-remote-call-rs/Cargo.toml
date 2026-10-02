@@ -1,0 +1,3 @@
+[workspace]
+members = ["chalk-remote-call-proto", "chalk-remote-call-server"]
+resolver = "2"

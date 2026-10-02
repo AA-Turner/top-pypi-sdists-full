@@ -5,7 +5,7 @@ import copy
 import hashlib
 import logging
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import tempfile
 from typing import (
     Any,
@@ -40,9 +40,7 @@ logger = logging.getLogger(__name__)
 
 # TODO(austin): refactor to read requirements.txt and .skip_packages_tracking from s3 or gcs directly.
 # Default cluster storage directory.
-CLUSTER_STORAGE_DIR = os.environ.get(
-    "ANYSCALE_CLUSTER_STORAGE_DIR", "/mnt/cluster_storage"
-)
+CLUSTER_STORAGE_DIR = os.environ.get("ANYSCALE_CLUSTER_STORAGE_DIR", "/mnt/cluster_storage")
 
 # Location of the directory containing workspace configurations.
 WORKSPACE_CONF_DIR = os.environ.get(
@@ -54,9 +52,7 @@ WORKSPACE_CONF_DIR = os.environ.get(
 WORKSPACE_REQUIREMENTS_FILE_PATH = os.path.join(WORKSPACE_CONF_DIR, "requirements.txt")
 
 # Feature flags for pip dependency tracking.
-SKIP_PACKAGES_TRACKING_PATH = os.path.join(
-    WORKSPACE_CONF_DIR, ".skip_packages_tracking"
-)
+SKIP_PACKAGES_TRACKING_PATH = os.path.join(WORKSPACE_CONF_DIR, ".skip_packages_tracking")
 
 
 def is_workspace_dependency_tracking_disabled() -> bool:
@@ -69,9 +65,7 @@ def is_workspace_dependency_tracking_disabled() -> bool:
     """
     # NOTE(edoakes): The environment variable is evaluated here instead of in the global scope
     # so it can easily be overwritten for testing.
-    enabled = (
-        os.environ.get("ANYSCALE_WORKSPACE_DYNAMIC_DEPENDENCY_TRACKING", "0") == "1"
-    )
+    enabled = os.environ.get("ANYSCALE_WORKSPACE_DYNAMIC_DEPENDENCY_TRACKING", "0") == "1"
     return (
         not enabled
         or os.environ.get("ANYSCALE_SKIP_PYTHON_DEPENDENCY_TRACKING", "0") == "1"
@@ -114,7 +108,8 @@ def _upload_file_to_s3(file: str, bucket: str, object_key: str):
         s3_client = boto3.client(
             "s3",
             config=botocore.config.Config(
-                signature_version="s3v4", user_agent_extra=AWS_PRM_USER_AGENT_STRING,
+                signature_version="s3v4",
+                user_agent_extra=AWS_PRM_USER_AGENT_STRING,
             ),
         )
         s3_client.upload_file(file, bucket, object_key)
@@ -204,9 +199,12 @@ def _upload_file_to_azure_storage(file: str, upload_path: str, object_name: str)
         ) from e
 
     try:
-        with smart_open.open(
-            final_uploaded_filepath, "wb", transport_params=transport_params
-        ) as fout, builtins.open(file, "rb") as fin:
+        with (
+            smart_open.open(
+                final_uploaded_filepath, "wb", transport_params=transport_params
+            ) as fout,
+            builtins.open(file, "rb") as fin,
+        ):
             fout.write(fin.read())
     except Exception as e:  # noqa: BLE001
         raise click.ClickException(
@@ -223,9 +221,7 @@ def _get_remote_storage_object_name(upload_path, upload_filename):
     return object_name
 
 
-def _upload_file_to_remote_storage(
-    source_file: str, upload_path: str, upload_filename: str
-):
+def _upload_file_to_remote_storage(source_file: str, upload_path: str, upload_filename: str):
     parsed_upload_path = urlparse(upload_path)
     service = parsed_upload_path.scheme
     bucket = parsed_upload_path.netloc
@@ -235,9 +231,7 @@ def _upload_file_to_remote_storage(
     if service == "s3":
         _upload_file_to_s3(source_file, bucket, object_key=object_name)
     if service == "gs":
-        _upload_file_to_google_cloud_storage(
-            source_file, bucket, object_name=object_name
-        )
+        _upload_file_to_google_cloud_storage(source_file, bucket, object_name=object_name)
     final_uploaded_filepath = os.path.join(upload_path, upload_filename)
     try:
         from smart_open import (  # noqa: PLC0415 - codex_reason("gpt5.2", "optional smart_open dependency for remote storage")
@@ -256,6 +250,23 @@ def _upload_file_to_remote_storage(
 def is_dir_remote_uri(target_dir: str) -> bool:
     parsed = urlparse(target_dir)
     return bool(parsed.scheme)
+
+
+def missing_local_dir_error_message(local_dir: str) -> str:
+    """Error message for a directory we were asked to upload that isn't there.
+
+    A relative path that is missing is almost always a typo, so it gets the plain
+    message. An absolute one may be a path inside the image, which is worth
+    pointing at `local://`.
+    """
+    message = f"Path '{local_dir}' is not a valid directory."
+    if not PurePosixPath(local_dir).is_absolute():
+        return message
+    return (
+        f"{message} If this directory exists inside your container image rather than "
+        "on this machine, refer to it in place with a 'local://' URI instead, e.g. "
+        f"working_dir: local://{local_dir}"
+    )
 
 
 @contextmanager
@@ -305,7 +316,9 @@ def upload_and_rewrite_working_dir(
     with zip_local_dir(working_dir, excludes=excludes) as (zip_file_path, _, hash_val):
         uploaded_zip_file_name = f"_anyscale_pkg_{hash_val}.zip"
         final_uploaded_filepath = upload_file_to_remote_storage_fn(
-            zip_file_path, upload_path, uploaded_zip_file_name,
+            zip_file_path,
+            upload_path,
+            uploaded_zip_file_name,
         )
 
     final_runtime_env = runtime_env_json.copy()
@@ -334,9 +347,7 @@ def override_runtime_env_config(
     in the runtime_env, else it will be auto-populated for the cloud.
     """
 
-    existing_runtime_env = autopopulate_runtime_env_for_workspace(
-        runtime_env=runtime_env, log=log
-    )
+    existing_runtime_env = autopopulate_runtime_env_for_workspace(runtime_env=runtime_env, log=log)
 
     if not existing_runtime_env:
         return {}
@@ -356,9 +367,11 @@ def override_runtime_env_config(
             # we back up the current workspace content into S3
             cluster_id = os.environ["ANYSCALE_SESSION_ID"]
 
-            decorated_cluster = api_client.get_decorated_cluster_api_v2_decorated_sessions_cluster_id_get(
-                cluster_id
-            ).result
+            decorated_cluster = (
+                api_client.get_decorated_cluster_api_v2_decorated_sessions_cluster_id_get(
+                    cluster_id
+                ).result
+            )
             cloud_id = decorated_cluster.cloud.id
 
             workspace_id = os.environ["ANYSCALE_EXPERIMENTAL_WORKSPACE_ID"]
@@ -507,9 +520,7 @@ def infer_upload_path_and_rewrite_working_dir(
 
     primary_cloud_resource: DecoratedCloudResource = all_cloud_resources[0]
 
-    bucket_name = _get_cloud_storage_bucket_name_from_cloud_resource(
-        primary_cloud_resource
-    )
+    bucket_name = _get_cloud_storage_bucket_name_from_cloud_resource(primary_cloud_resource)
 
     if primary_cloud_resource.provider == CloudProviders.AWS:
         protocol = "s3"
@@ -553,13 +564,13 @@ def infer_upload_path_and_rewrite_working_dir(
 
     org_id = _get_organization_id(api_client)
     if workspace_id:
-        new_runtime_env[
-            "upload_path"
-        ] = f"{protocol}://{bucket_name}/{org_id}/{cloud_id}/workspace_snapshots/{workspace_id}/{workload_type}"
+        new_runtime_env["upload_path"] = (
+            f"{protocol}://{bucket_name}/{org_id}/{cloud_id}/workspace_snapshots/{workspace_id}/{workload_type}"
+        )
     else:
-        new_runtime_env[
-            "upload_path"
-        ] = f"{protocol}://{bucket_name}/{org_id}/{cloud_id}/{workload_type}"
+        new_runtime_env["upload_path"] = (
+            f"{protocol}://{bucket_name}/{org_id}/{cloud_id}/{workload_type}"
+        )
 
     # For Azure, set AZURE_STORAGE_ACCOUNT environment variable for Ray to download working_dir
     if primary_cloud_resource.provider == CloudProviders.AZURE and storage_account_name:
@@ -575,7 +586,7 @@ def infer_upload_path_and_rewrite_working_dir(
 
 
 def _get_organization_id(api_client: DefaultApi):
-    user_info: UserInfo = (api_client.get_user_info_api_v2_userinfo_get().result)
+    user_info: UserInfo = api_client.get_user_info_api_v2_userinfo_get().result
     orgs = user_info.organizations
     return orgs[0].id
 

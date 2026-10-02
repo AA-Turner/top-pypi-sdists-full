@@ -1,0 +1,1390 @@
+"""
+Base classes for djust components.
+
+Provides Component (stateless) and LiveComponent (stateful) base classes for creating
+reusable, reactive components with automatic performance optimization.
+"""
+
+import html as _html
+import json as _json
+import logging
+import re
+import types
+from typing import Callable, Dict, Any, List, Optional, Tuple, Type, cast
+from abc import ABC
+from django.utils.safestring import mark_safe
+
+from djust._template_guards import TemplateMutatorGuard, alters_data
+from djust.decorators import is_event_handler
+
+from .assigns import (
+    Assign,
+    AssignValidationError,
+    Slot,
+    merge_assign_declarations,
+    validate_assigns,
+)
+
+logger = logging.getLogger(__name__)
+
+
+def _is_debug_mode() -> bool:
+    """Return True when Django DEBUG is on (fail-fast) or settings unavailable.
+
+    Falls back to True when Django settings aren't configured so tests that
+    don't bootstrap Django still raise, matching developer expectations.
+    """
+
+    try:
+        from django.conf import settings
+
+        return bool(getattr(settings, "DEBUG", True))
+    except Exception:
+        return True
+
+
+def _render_template_with_fallback(template_str: str, context: Dict[str, Any]) -> str:
+    """
+    Render a template string with Rust acceleration, falling back to Django templates.
+
+    Tries Rust template rendering first for performance. Falls back to Django's
+    Template engine if Rust is unavailable or encounters an error (e.g., for
+    {% include %} tags that Rust doesn't support).
+
+    Args:
+        template_str: Template string to render
+        context: Context dictionary for template variables
+
+    Returns:
+        Rendered HTML string (not marked as safe - caller should mark_safe if needed)
+    """
+    try:
+        from djust._rust import render_template
+
+        from ..config import template_auto_call_enabled
+        from ..render_env import apply_render_env_once
+
+        # The FOURTH framework render entry, and it was the one missing from
+        # the ambient-settings handoff (#2209 / #2221 / #2539): a component
+        # rendered on a thread that had not already rendered a page got UTC
+        # timestamps, unlocalized numbers and — since ADR-027 — a resolution
+        # flag stuck at its default.
+        #
+        # `_once`, not `apply_render_env`, and the difference is N+1: this
+        # runs once per component INSTANCE, so a parent with N components paid
+        # N pushes at ~12us each inside a render whose own push already set
+        # every thread-local correctly. See that function for what the first
+        # push still buys and what the sentinel deliberately does not cover.
+        apply_render_env_once()
+        # A framework render path, so the project's auto-call setting governs
+        # rather than the Rust entry point's Django-matching default (#2508).
+        return render_template(template_str, context, template_auto_call_enabled())
+    except (ImportError, AttributeError, RuntimeError):
+        # Rust not available or template error, fall back to Django templates
+        from django.template import Context, Template
+
+        template = Template(template_str)
+        django_context = Context(context)
+        return cast(str, template.render(django_context))
+
+
+def _load_template_source(template_name: str) -> Optional[str]:
+    """The source of ``template_name`` as the project's loaders find it, or
+    ``None`` when the configured backend does not expose one (#2530)."""
+    from django.template.loader import get_template
+
+    loaded = get_template(template_name)
+    source = getattr(loaded, "source", None)
+    if source is None:
+        source = getattr(getattr(loaded, "template", None), "source", None)
+    return source if isinstance(source, str) else None
+
+
+_ID_NAMESPACE_ALLOWED = re.compile(r"[^A-Za-z0-9_]")
+
+
+def _dj_if_id_namespace(component_id: Optional[str]) -> str:
+    """A ``[A-Za-z0-9_]*`` namespace for this instance's dj-if marker ids (#2686).
+
+    Marker ids are ``if-<template-source-hash>-<ordinal>``. Two instances of one
+    ``template_name`` component render on separate ``RustLiveView``s over the
+    same source, so both restart the ordinal at 0 and emit ``if-<hash>-0`` into
+    one parent buffer — and the client resolves subtree patches by FIRST match.
+
+    ``component_id`` is the instance identity that is stable across renders,
+    which is what the client needs (it keys DOM subtrees on these ids). The
+    Rust setter REFUSES anything outside the alphabet rather than escaping it
+    (the value is interpolated raw into an HTML comment — #2529), so map the
+    disallowed characters here instead of handing over a value that would be
+    silently dropped.
+    """
+    if not component_id:
+        return ""
+    return _ID_NAMESPACE_ALLOWED.sub("_", component_id)
+
+
+def _render_template_name_with_markers(
+    template_name: str, context: Dict[str, Any]
+) -> Optional[str]:
+    """Render a ``template_name`` component through the LiveView engine entry
+    (``RustLiveView`` — ``<!--dj-if id=…-->`` boundary markers ON) so its
+    ``{% if %}`` blocks keep VDOM identity inside the parent (#2530).
+
+    Returns ``None`` when the source is unavailable or the template uses
+    ``{% extends %}`` (inheritance is resolved by the loader chain, not this
+    entry); the caller then falls back to ``render_to_string``. Context and
+    sidecar handling mirror the LiveView path: JSON-normalized values into
+    state, ``SafeString`` paths marked safe, raw objects (models behind the
+    serialization floor) on the ``set_raw_py_values`` sidecar.
+    """
+    try:
+        from djust._rust import RustLiveView
+    except ImportError:
+        return None
+    try:
+        source = _load_template_source(template_name)
+    except Exception:
+        return None
+    if source is None or "{% extends" in source:
+        return None
+    from ..config import template_auto_call_enabled
+    from ..mixins.rust_bridge import _collect_safe_keys
+    from ..render_env import apply_render_env_once
+    from ..serialization import build_render_sidecar, normalize_django_value
+    from ..utils import get_template_dirs
+
+    apply_render_env_once()
+    rust_view = RustLiveView(source, get_template_dirs())
+    if hasattr(rust_view, "set_template_auto_call"):
+        rust_view.set_template_auto_call(template_auto_call_enabled())
+    # ADR-029 (#2741): snapshot the pushed environment onto this view, beside
+    # the auto-call flag, so every render entry applies it on any thread.
+    if hasattr(rust_view, "capture_render_env"):
+        rust_view.capture_render_env()
+    # #2686: give this instance its own dj-if id namespace, so two instances of
+    # one component class in a parent do not both emit `if-<hash>-0`.
+    namespace = _dj_if_id_namespace(context.get("component_id"))
+    if namespace and hasattr(rust_view, "set_dj_if_id_namespace"):
+        rust_view.set_dj_if_id_namespace(namespace)
+    rust_view.update_state(normalize_django_value(context))
+    safe_keys: List[str] = []
+    for key, value in context.items():
+        safe_keys.extend(_collect_safe_keys(value, key))
+    if safe_keys:
+        rust_view.mark_safe_keys(safe_keys)
+    if hasattr(rust_view, "set_raw_py_values"):
+        rust_view.set_raw_py_values(build_render_sidecar(context))
+    from ..template_libraries import library_render_scope
+
+    with library_render_scope():
+        return cast(str, rust_view.render())
+
+
+_DECLARES_NAME: Dict[type, bool] = {}
+
+
+def _declares_name(cls: type) -> bool:
+    """Does *cls* (or a base below ``Component``) take ``name`` as its own
+    constructor parameter? Then ``name`` is that class's concept — the HTML
+    field name for the form components — not the ADR-033 instance identity."""
+    cached = _DECLARES_NAME.get(cls)
+    if cached is None:
+        import inspect
+
+        cached = False
+        for klass in cls.__mro__:
+            if klass is Component:
+                break
+            init = klass.__dict__.get("__init__")
+            if init is None:
+                continue
+            try:
+                if "name" in inspect.signature(init).parameters:
+                    cached = True
+                    break
+            except (TypeError, ValueError):  # pragma: no cover — C-level init
+                continue
+        _DECLARES_NAME[cls] = cached
+    return cached
+
+
+class Component(TemplateMutatorGuard, ABC):
+    """
+    Base class for stateless presentation components with automatic performance optimization.
+
+    The Component class implements a performance waterfall that automatically selects
+    the fastest available rendering method:
+
+    1. Pure Rust implementation (if available) → ~1μs per render (fastest)
+    2. template with Rust rendering → ~5-10μs per render (fast)
+    3. _render_custom() Python method → ~50-100μs per render (flexible)
+
+    This unified design allows components to start simple (Python) and be optimized
+    incrementally (hybrid → Rust) without changing the API.
+
+    Usage - Hybrid (Recommended):
+        class Badge(Component):
+            # Use Rust template rendering (10x faster than Python)
+            template = '<span class="badge bg-{{ variant }}">{{ text }}</span>'
+
+            def __init__(self, text: str, variant: str = "primary"):
+                super().__init__(text=text, variant=variant)
+                self.text = text
+                self.variant = variant
+
+            def get_context_data(self) -> dict:
+                return {'text': self.text, 'variant': self.variant}
+
+    Usage - Pure Python (Maximum Flexibility):
+        class ComplexCard(Component):
+            def __init__(self, data: dict):
+                super().__init__(data=data)
+                self.data = data
+
+            def _render_custom(self) -> str:
+                # Complex Python logic
+                framework = config.get('css_framework')
+                if framework == 'bootstrap5':
+                    return self._render_bootstrap()
+                elif framework == 'tailwind':
+                    return self._render_tailwind()
+                else:
+                    return self._render_plain()
+
+    Usage - Rust Optimized (Maximum Performance):
+        from djust._rust import RustBadge
+
+        class Badge(Component):
+            # Link to Rust implementation (used if available)
+            _rust_impl_class = RustBadge
+
+            # Fallback to hybrid
+            template = '<span class="badge bg-{{ variant }}">{{ text }}</span>'
+
+            def __init__(self, text: str, variant: str = "primary"):
+                super().__init__(text=text, variant=variant)
+                self.text = text
+                self.variant = variant
+
+    Key Features:
+        - Automatic performance optimization
+        - Graceful degradation (Rust → Hybrid → Python)
+        - Single consistent API
+        - Zero overhead (no runtime detection)
+        - Framework-agnostic
+
+    Attributes:
+        _rust_impl_class: Optional Rust implementation class
+        template: Optional template for hybrid rendering
+    """
+
+    # Class attribute: Optional Rust implementation
+    _rust_impl_class: Optional[Type] = None
+
+    # Class attribute: Optional template string for hybrid rendering
+    template: Optional[str] = None
+
+    # Class-level counter for auto-generating component keys
+    _component_counter = 0
+
+    #: ADR-033 D1: a plain component is compared by its ``state`` in every
+    #: change-detection snapshot (``change_detection.STATE_MARKER``), so a
+    #: handler that writes ``self.rating.value = 5`` re-renders. A subclass
+    #: may set this to ``False`` to be compared by ``id()`` again, with the
+    #: documented consequence: reassign the component to re-render.
+    _djust_fingerprint_state = True
+
+    #: ADR-033 D3: the state keys the snapshots walk structurally. ``None``
+    #: walks all of them (under ``change_detection.DEFAULT_BUDGET``); a tuple
+    #: narrows the walk to those keys, every other key becoming a one-node
+    #: leaf (scalars by value, containers by identity — reassigning ``rows``
+    #: is still seen, appending to it in place is not). Components that hold
+    #: data declare theirs so a click never pays a ten-thousand-row walk.
+    fingerprint_fields: Optional[Tuple[str, ...]] = None
+
+    def _create_rust_instance(self, **props: Any) -> None:
+        """
+        Create a Rust instance with fallback for missing framework parameter.
+
+        Attempts to create a Rust component instance with the configured CSS
+        framework. Falls back to creation without framework if the Rust
+        component doesn't accept that parameter.
+
+        Args:
+            **props: Properties to pass to the Rust constructor
+        """
+        if self._rust_impl_class is None:
+            return
+
+        try:
+            from djust.config import config
+
+            framework = config.get("css_framework", "bootstrap5")
+            try:
+                self._rust_instance = self._rust_impl_class(**props, framework=framework)
+            except TypeError:
+                # Rust component doesn't accept framework parameter
+                self._rust_instance = self._rust_impl_class(**props)
+        except Exception:
+            # Fall back to Python/hybrid implementation
+            self._rust_instance = None
+
+    def __init__(
+        self,
+        _component_key: Optional[str] = None,
+        id: Optional[str] = None,
+        name: Optional[str] = None,
+        **kwargs: Any,
+    ) -> None:
+        """
+        Initialize component.
+
+        If Rust implementation exists (_rust_impl_class), creates Rust instance.
+        Otherwise, stores kwargs for Python/hybrid rendering.
+
+        Args:
+            _component_key: Optional unique key for VDOM matching (like React key)
+            id: Optional explicit ID for the component (used in HTML id attribute)
+            name: Optional instance identity (ADR-033 D5). Every event the
+                component emits through :meth:`event_attrs` carries it as
+                ``dj-value-name``, so one handler can serve several instances:
+                ``def set_rating(self, value, name=None, **kwargs)``. The
+                word HTML forms use for the same thing; ``event=`` stays a
+                rename of the verb.
+            **kwargs: Component properties
+        """
+        self._rust_instance = None
+
+        # ADR-033 D1: the constructor kwargs ARE the component's state — the
+        # dict every snapshot fingerprints and the session persists. Public
+        # attribute writes go through to it (``__setattr__``) so rendering,
+        # which reads attributes, and change detection, which walks state,
+        # never disagree. Set before anything public so the write-through
+        # below sees it.
+        if "state" in kwargs:
+            raise TypeError(
+                f"{type(self).__name__}: 'state' is reserved — it is the component's "
+                "own state dict (ADR-033); name the kwarg something else"
+            )
+        # ``name`` is the instance's identity ONLY for a class that does not
+        # declare a ``name`` parameter of its own: a form-field component
+        # (``DatePicker(name="date")``, 26 of the shipped ones) means the HTML
+        # field name by it and defaults it non-empty, and stamping THAT on
+        # every trigger as ``dj-value-name`` would hand an unexpected param to
+        # every pre-existing handler without ``**kwargs`` (review 🔴1).
+        object.__setattr__(
+            self, "_identity", name if name is not None and not _declares_name(type(self)) else None
+        )
+        if name is not None:
+            kwargs["name"] = name
+        self.state: Dict[str, Any] = dict(kwargs)
+
+        # Store explicit ID if provided (used by id property)
+        self._explicit_id = id
+
+        # Set component key for stable VDOM matching
+        if _component_key is not None:
+            self._component_key = _component_key
+        else:
+            # Auto-generate key based on component type + counter
+            Component._component_counter += 1
+            self._component_key = f"{self.__class__.__name__}_{Component._component_counter}"
+
+        # Try to create Rust instance if implementation exists
+        self._create_rust_instance(**kwargs)
+
+        # Store kwargs as attributes for Python/hybrid rendering
+        if self._rust_instance is None:
+            for key, value in kwargs.items():
+                setattr(self, key, value)
+
+    def event_attrs(self, event: Optional[str], trigger: str = "click", **params: Any) -> str:
+        """The attributes an element emits an event with (ADR-033 D4/D5).
+
+        ``dj-<trigger>="<event>"`` followed by one typed ``dj-value-*`` per
+        keyword: an ``int`` renders ``dj-value-value:int="4"``, a ``bool``
+        ``:bool``, a ``float`` ``:float``, a ``str`` untyped, anything else
+        ``:json``, and any other object (a UUID, a date, a Decimal) its
+        ``str()`` untyped; ``None`` is omitted. The client's typed-param parser
+        (``08-event-parsing.js``) hands the handler a real ``int``/``bool``,
+        so the ``int(value)`` line disappears from handlers. Underscores in a
+        key become hyphens (``item_id`` → ``dj-value-item-id``; the client
+        maps them back). When the instance was given an identity ``name``
+        (a class without a ``name`` parameter of its own — see ``__init__``)
+        it is appended as ``dj-value-name`` unless the caller passed one. A falsy *event*
+        renders nothing, so ``f"<button {self.event_attrs(self.event)}>"``
+        is the whole conditional. Every value is HTML-escaped here; pass raw
+        Python values, not pre-escaped strings.
+        """
+        if not event:
+            return ""
+        parts = [f'dj-{trigger}="{_html.escape(str(event), quote=True)}"']
+        instance_name = self.__dict__.get("_identity")
+        if instance_name and "name" not in params:
+            params["name"] = instance_name
+        for key, value in params.items():
+            if value is None:
+                continue
+            if isinstance(value, bool):
+                suffix, text = ":bool", "true" if value else "false"
+            elif isinstance(value, int):
+                suffix, text = ":int", str(value)
+            elif isinstance(value, float):
+                suffix, text = ":float", repr(value)
+            elif isinstance(value, str):
+                suffix, text = "", value
+            elif isinstance(value, (list, tuple, dict)):
+                suffix, text = ":json", _json.dumps(value, separators=(",", ":"), default=str)
+            else:
+                # A UUID, a date, a Decimal, a model: what ``html.escape(str(x))``
+                # rendered before — untyped, so the handler receives the string
+                # it always did (review 🔴3).
+                suffix, text = "", str(value)
+            attr = "dj-value-" + str(key).replace("_", "-")
+            parts.append(f'{attr}{suffix}="{_html.escape(text, quote=True)}"')
+        return " ".join(parts)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Write a public attribute through to ``state`` (ADR-033 D2).
+
+        Only keys the state already holds — the constructor kwargs — or a
+        declared ``fingerprint_fields`` entry are state; a private attribute,
+        ``state`` itself, ``template``/``template_name`` and anything a
+        subclass computes for itself in ``__init__`` stay plain attributes.
+        A Rust-backed component is rebuilt from the new state so its render
+        agrees with the write, as ``update()`` does.
+        """
+        object.__setattr__(self, name, value)
+        if name[:1] == "_" or name == "state":
+            return
+        state = self.__dict__.get("state")
+        if state is None:
+            return
+        fields = self.fingerprint_fields
+        if name in state or (fields is not None and name in fields):
+            state[name] = value
+            if self.__dict__.get("_rust_instance") is not None:
+                self._create_rust_instance(**state)
+
+    @alters_data
+    def update(self, **kwargs: Any) -> "Component":
+        """
+        Update component properties after initialization.
+
+        For Rust-backed components, creates a new Rust instance with updated properties.
+        For Python/hybrid components, updates instance attributes.
+
+        This allows in-place component updates without recreating the component instance,
+        which is important for VDOM stability.
+
+        Args:
+            **kwargs: Properties to update
+
+        Returns:
+            self (for method chaining)
+
+        Example:
+            # In a LiveView event handler
+            def toggle_switch(self):
+                self.switch_enabled = not self.switch_enabled
+                # Update the component in-place
+                self.switch_component.update(checked=self.switch_enabled)
+        """
+        # Update Rust instance if exists
+        if self._rust_impl_class is not None:
+            # Get current properties by inspecting instance attributes
+            current_props = {}
+            for key, value in self.__dict__.items():
+                if not key.startswith("_"):
+                    current_props[key] = value
+
+            # CRITICAL: Include the 'id' property value (it's a property, not in __dict__)
+            # This ensures Rust instance is created with the correct ID
+            if hasattr(self, "id"):
+                current_props["id"] = self.id
+
+            # Merge with updates
+            current_props.update(kwargs)
+
+            # Recreate Rust instance with updated properties
+            self._create_rust_instance(**current_props)
+
+            # If Rust instance creation failed, fall back to Python/hybrid
+            if self._rust_instance is None:
+                for key, value in kwargs.items():
+                    setattr(self, key, value)
+        else:
+            # Python/hybrid component - update attributes directly
+            for key, value in kwargs.items():
+                setattr(self, key, value)
+
+        return self
+
+    @property
+    def id(self) -> str:
+        """
+        Compute component ID using waterfall approach:
+        1. Explicit id parameter if provided
+        2. _auto_id if set by LiveView (e.g., "navbar_example")
+        3. Class name as default (e.g., "navbar", "tabs")
+
+        This provides stable, deterministic IDs for HTTP-only mode while
+        supporting explicit IDs when needed.
+
+        Returns:
+            Component ID string
+
+        Example:
+            # In LiveView:
+            self.navbar_example = NavBar(...)
+            # → navbar_example.id = "navbar-navbar_example"
+
+            # With explicit ID:
+            NavBar(id="main-nav")
+            # → id = "main-nav"
+        """
+        if self._explicit_id:
+            return self._explicit_id
+        elif hasattr(self, "_auto_id"):
+            return f"{self.__class__.__name__.lower()}-{self._auto_id}"
+        else:
+            return self.__class__.__name__.lower()
+
+    def render(self) -> str:
+        """
+        Render component using fastest available method.
+
+        Performance waterfall:
+        1. Rust implementation (fastest: ~1μs)
+        2. template with Rust rendering (fast: ~5-10μs)
+        3. _render_custom() override (flexible: ~50-100μs)
+
+        Returns:
+            HTML string marked as safe for Django templates
+
+        Raises:
+            NotImplementedError: If no rendering method is available
+
+        Note:
+            When writing template, avoid using {% elif %} due to a known bug
+            in the Rust template engine. Use separate {% if %} blocks instead.
+        """
+        # 1. Try pure Rust implementation (fastest)
+        if self._rust_instance is not None:
+            return cast(str, mark_safe(self._rust_instance.render()))
+
+        # 2. Try hybrid: template with Rust rendering (fast, with Django fallback)
+        if self.template is not None:
+            context = self.get_context_data()
+            # `component_key` is the TEMPLATE spelling; `_component_key` is
+            # kept for any Python-side reader. Django's `Variable.__init__`
+            # refuses a name beginning with `_` at COMPILE time, so
+            # `{{ _component_key }}` never compiled on the Django fallback
+            # path this method falls back to — and since #2418 it does not
+            # compile on the Rust path either. Same value, a name the rule
+            # admits.
+            context["component_key"] = self._component_key
+            context["_component_key"] = self._component_key
+            return cast(str, mark_safe(_render_template_with_fallback(self.template, context)))
+
+        # 3. Fall back to custom Python rendering (flexible)
+        return cast(str, mark_safe(self._render_custom()))
+
+    def get_context_data(self) -> Dict[str, Any]:
+        """
+        Override to provide template context for hybrid rendering.
+
+        Note: The component key is automatically injected by the render() method,
+        so you don't need to include it here. Read it in a template as
+        ``component_key`` (e.g., data-component-key="{{ component_key }}").
+
+        The key is also injected under its old name ``_component_key`` for any
+        Python-side reader, but that spelling is NOT readable from a template:
+        Django's ``Variable.__init__`` refuses a name beginning with ``_`` at
+        compile time, and djust matches it since #2418. The old spelling never
+        worked on the Django fallback path either.
+
+        Returns:
+            Dictionary of template variables
+
+        Example:
+            def get_context_data(self):
+                return {
+                    'text': self.text,
+                    'variant': self.variant,
+                    'size': self.size,
+                }
+        """
+        return {}
+
+    def _render_custom(self) -> str:
+        """
+        Override for custom Python rendering.
+
+        Only called if no Rust implementation and no template.
+
+        Returns:
+            HTML string
+
+        Raises:
+            NotImplementedError: If method not overridden and no other render method
+
+        Example:
+            def _render_custom(self):
+                framework = config.get('css_framework')
+                if framework == 'bootstrap5':
+                    return f'<span class="badge bg-{self.variant}">{self.text}</span>'
+                elif framework == 'tailwind':
+                    return f'<span class="rounded px-2 py-1">{self.text}</span>'
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} must define either:\n"
+            f"  - _rust_impl_class (for pure Rust)\n"
+            f"  - template (for hybrid rendering)\n"
+            f"  - _render_custom() method (for custom Python)"
+        )
+
+    def __str__(self) -> str:
+        """Allow {{ component }} in templates to render automatically"""
+        return self.render()
+
+
+from djust._context_provider import ContextProviderMixin
+
+
+_MISSING = object()
+
+
+class BoundComponent:
+    """A class-level :class:`LiveComponent` bound to one view instance (ADR-031).
+
+    ``LiveComponent.__get__`` returns one of these per view for a descriptor
+    that declares a ``State`` class. It owns three things: the shared
+    descriptor (never mutated), this view's ``State`` (``self.state``) and
+    the attribute name as ``component_id``.
+
+    * Attribute reads and writes forward to the state: ``bound.active`` is
+      ``bound.state["active"]``; ``bound.active = x`` writes through
+      ``TypedState.__setitem__`` so dirty tracking is intact.
+    * Methods the component class defines (below the framework base) resolve
+      with the bound component as ``self``, so an ``@event_handler`` reads
+      per-view state as ``self.state.active``.
+    * ``str(bound)`` renders the component's ``template`` / ``template_name``
+      with the State as the context (D5), cached on the state's hash (D6);
+      without a template it is the state's repr, as ``{{ nav }}`` rendered
+      before ADR-031.
+
+    The object lives only in the view's ``__dict__`` slot and
+    ``view._components``; nothing serializes it — every save path writes
+    ``dict(bound.state)``.
+    """
+
+    _OWN_ATTRS = frozenset({"_descriptor", "_view", "state", "component_id"})
+    #: Every change-detection snapshot fingerprints this object as its State
+    #: (``change_detection.STATE_MARKER``, #2900): the wrapper's id() never
+    #: changes, the State inside it is what a handler mutates.
+    _djust_fingerprint_state = True
+
+    def __init__(
+        self, descriptor: "LiveComponent", view: Any, state: Any, component_id: str
+    ) -> None:
+        object.__setattr__(self, "_descriptor", descriptor)
+        object.__setattr__(self, "_view", view)
+        object.__setattr__(self, "state", state)
+        object.__setattr__(self, "component_id", component_id)
+
+    # -- forwarding ---------------------------------------------------------
+
+    def _component_member(self, name: str) -> Any:
+        """Resolve ``name`` from the component class, below the framework
+        bases, bound to this object: a method binds with the bound component
+        as ``self``, a ``@property`` / ``staticmethod`` / ``classmethod``
+        resolves through its descriptor, a plain class attribute is returned
+        as is. Framework methods (``render``, ``mount``, ``update`` ...) are
+        not forwarded — the walk stops at :class:`LiveComponent` and at any
+        class marked ``_djust_framework_component_base`` (the descriptors'
+        base). Returns :data:`_MISSING` when the class does not define it.
+
+        An ``@event_handler`` is stamped ``alters_data`` so neither template
+        engine calls it from ``{{ nav.set_active }}``.
+        """
+        for cls in type(self._descriptor).__mro__:
+            if cls is LiveComponent or cls.__dict__.get("_djust_framework_component_base"):
+                return _MISSING
+            if name not in cls.__dict__:
+                continue
+            member = cls.__dict__[name]
+            if isinstance(member, types.FunctionType) and is_event_handler(member):
+                member.alters_data = True  # type: ignore[attr-defined]
+            getter = getattr(type(member), "__get__", None)
+            if getter is not None and not isinstance(member, type):
+                return getter(member, self, type(self._descriptor))
+            return member
+        return _MISSING
+
+    def __getattr__(self, name: str) -> Any:
+        # Only reached when normal lookup fails (own attrs, class attrs).
+        state = self.__dict__.get("state")
+        if state is None or name.startswith("_"):
+            raise AttributeError(name)
+        member = self._component_member(name)
+        if member is not _MISSING:
+            return member
+        meta = getattr(type(self._descriptor), "Meta", None)
+        if meta is not None and name == getattr(meta, "event", None):
+            return self._meta_event_handler(name)
+        if name in state:
+            return state[name]
+        raise AttributeError(
+            f"{type(self._descriptor).__name__} component {self.component_id!r} "
+            f"has no state key or method {name!r}"
+        )
+
+    def _meta_event_handler(self, name: str) -> Callable[..., Any]:
+        """``Meta.event`` as a component-level handler: an event carrying this
+        component's ``component_id`` reaches ``_handle_event`` with the State,
+        the same call the view-level alias (``_make_event_handler``) makes."""
+        descriptor = self._descriptor
+        state = self.state
+
+        def handler(value: Any = "", **kwargs: Any) -> None:
+            descriptor._handle_event(state, value=value, **kwargs)
+
+        handler.__name__ = name
+        handler.__qualname__ = name
+        from djust.decorators import event_handler as eh_decorator
+
+        return eh_decorator(handler)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name == "state":
+            state_cls = getattr(type(self._descriptor), "State", None)
+            if (
+                state_cls is not None
+                and isinstance(value, dict)
+                and not isinstance(value, state_cls)
+            ):
+                value = state_cls.from_dict(value)
+            if isinstance(value, dict):
+                value["component_id"] = self.component_id
+            object.__setattr__(self, "state", value)
+        elif name in self._OWN_ATTRS or name.startswith("_"):
+            object.__setattr__(self, name, value)
+        else:
+            self.state[name] = value
+
+    def __getitem__(self, key: str) -> Any:
+        return self.state[key]
+
+    def __contains__(self, key: object) -> bool:
+        return key in self.state
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self.state.get(key, default)
+
+    # ``_dirty`` is what ``rust_bridge._sync_state_to_rust`` reads to decide
+    # whether a context value changed and clears afterwards with
+    # ``object.__setattr__``; a property forwards both to the state.
+    @property
+    def _dirty(self) -> bool:
+        return bool(getattr(self.state, "_dirty", False))
+
+    @_dirty.setter
+    def _dirty(self, value: bool) -> None:
+        object.__setattr__(self.state, "_dirty", value)
+
+    # -- rendering (ADR-031 D5/D6) -----------------------------------------
+
+    @property
+    def template(self) -> Optional[str]:
+        return cast(Optional[str], getattr(self._descriptor, "template", None))
+
+    @property
+    def template_name(self) -> Optional[str]:
+        return cast(Optional[str], getattr(self._descriptor, "template_name", None))
+
+    def _state_hash(self) -> str:
+        import hashlib
+        import json
+
+        # ``dict(...)``: a State field named ``items`` shadows ``dict.items``
+        # (TypedState makes every field a property) and the C encoder would
+        # call it; a plain dict copy sidesteps every such shadow.
+        payload = json.dumps(dict(self.state), sort_keys=True, default=str)
+        return hashlib.sha256(payload.encode()).hexdigest()
+
+    def render(self) -> str:
+        """Render the component's ``template`` / ``template_name`` with this
+        view's State as the context (plus ``component_id``), wrapped in
+        ``<div data-component-id="…">`` so a ``dj-*`` event inside it carries
+        ``component_id``. The State **is** the context: ``get_context_data``
+        is not called on this path.
+
+        A render whose state hash matches the last one returns the cached
+        HTML (``_render_hash`` / ``_cached_html`` on the State). ``_dirty``
+        is never written here — it belongs to change detection.
+
+        Raises ``ValueError`` when the component declares no template; use
+        ``str(bound)`` for the dict repr fallback.
+        """
+        template, template_name = self.template, self.template_name
+        if not template and not template_name:
+            raise ValueError(
+                f"{type(self._descriptor).__name__} declares neither template nor template_name"
+            )
+        from django.utils.html import format_html
+        from django.utils.safestring import mark_safe
+
+        state = self.state
+        digest = self._state_hash()
+        cached = getattr(state, "_cached_html", None)
+        if cached is not None and getattr(state, "_render_hash", None) == digest:
+            return cast(str, cached)
+
+        context = dict(state)
+        context["component_id"] = self.component_id
+        if template:
+            html: Optional[str] = _render_template_with_fallback(template, context)
+        else:
+            assert template_name is not None
+            html = _render_template_name_with_markers(template_name, context)
+            if html is None:
+                from django.template.loader import render_to_string
+
+                html = render_to_string(template_name, context)
+        wrapped = cast(
+            str,
+            format_html('<div data-component-id="{}">{}</div>', self.component_id, mark_safe(html)),
+        )
+        object.__setattr__(state, "_render_hash", digest)
+        object.__setattr__(state, "_cached_html", wrapped)
+        return wrapped
+
+    def __str__(self) -> str:
+        """``{{ nav }}``: the rendered template when one is declared,
+        otherwise the State's dict repr (unchanged from before ADR-031)."""
+        if self.template or self.template_name:
+            return self.render()
+        return str(self.state)
+
+    def __repr__(self) -> str:
+        return (
+            f"<BoundComponent {type(self._descriptor).__name__} "
+            f"component_id={self.component_id!r} state={dict(self.state)!r}>"
+        )
+
+
+class LiveComponent(TemplateMutatorGuard, ContextProviderMixin):
+    """
+    Base class for creating reusable, reactive components.
+
+    Components are self-contained UI elements with their own state and event handlers.
+    They can be declared as class attributes on LiveViews (descriptor pattern) or
+    instantiated in mount().
+
+    Descriptor Pattern (preferred)::
+
+        class Accordion(LiveComponent):
+            class State(TypedState):
+                active: str = ""
+                multiple: bool = False
+
+            class Meta:
+                event = "accordion_toggle"
+
+            def toggle(self, state, value="", **kwargs):
+                state.active = "" if state.active == value else value
+
+        class MyView(LiveView):
+            faq = Accordion(active="q1")
+            settings = Accordion()
+
+            # self.faq.active → "q1" (typed, IDE autocomplete)
+            # accordion_toggle handler auto-registered, routed by component_id
+
+    Legacy Pattern (still supported)::
+
+        class AlertComponent(LiveComponent):
+            template_name = 'components/alert.html'
+
+            def mount(self, **kwargs):
+                self.message = kwargs.get('message', '')
+
+            def get_context_data(self):
+                return {'message': self.message}
+
+        class MyView(LiveView):
+            def mount(self, request):
+                self.alert = AlertComponent(message="Success!")
+
+    Descriptor Protocol:
+        When declared as a class attribute, LiveComponent acts as a Python descriptor:
+        - ``__set_name__``: registers component in ``_component_descriptors`` on the owner class,
+          auto-registers event handlers
+        - ``__get__``: returns this view's :class:`BoundComponent` (its State is ``.state``)
+        - ``__set__``: accepts a plain dict and converts to the State class
+
+        The attribute name becomes the component_id. State is stored in
+        ``obj.__dict__["_component_{name}"]`` (underscore prefix excludes it from
+        djust's context pipeline; the public attribute via ``__get__`` is included).
+
+    Class-level components are bound per view (ADR-031):
+        ``view.nav`` is a :class:`BoundComponent` — this view's ``State`` as
+        ``view.nav.state`` (attribute access forwards to it), the attribute
+        name as ``component_id``, registered in ``view._components`` on first
+        access. ``@event_handler`` methods on the component class run with the
+        bound component as ``self`` when an event carries ``component_id``;
+        ``{{ nav }}`` renders the declared ``template`` with the State as the
+        context. Time-travel and session save/restore see it like any other
+        registered component.
+    """
+
+    # Component configuration
+    template_name: Optional[str] = None
+    template: Optional[str] = None  # Inline template string
+    component_id: Optional[str] = None
+
+    # Declarative assigns/slots (Phoenix.Component parity).
+    # Merged across the MRO by :func:`merge_assign_declarations`.
+    assigns: List[Assign] = []
+    slots: List[Slot] = []
+
+    # Coerced component inputs after declarative-assign validation; populated by
+    # _validate_component_inputs() (legacy path) and the __init__ descriptor path.
+    _validated_assigns: Dict[str, Any] = {}
+
+    # Parent-LiveView wiring; set None at init and populated via set_parent /
+    # _set_parent_callback once the component is mounted under a view.
+    _parent: Optional[Any] = None
+    _parent_callback: Optional[Callable[..., Any]] = None
+    # The parent attribute this component is held under (``self.table``), as
+    # recorded by ``ComponentMixin._register_component`` — the key
+    # ``trigger_update`` hands to ``set_changed_keys`` (#2779).
+    _parent_attr: Optional[str] = None
+
+    # ── Descriptor support ──
+
+    def _validate_component_inputs(self, kwargs: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate & coerce ``kwargs`` against this class's declarative assigns.
+
+        Returns the coerced kwargs dict (with defaults applied). Raises in
+        DEBUG mode; logs a warning otherwise.
+
+        Side effects:
+            Stores the validated dict on ``self._validated_assigns``.
+        """
+
+        declarations = merge_assign_declarations(type(self))
+        if not declarations:
+            self._validated_assigns = dict(kwargs)
+            return kwargs
+
+        try:
+            coerced = validate_assigns(declarations, kwargs)
+        except AssignValidationError as exc:
+            if _is_debug_mode():
+                raise
+            logger.warning(
+                "Component %s assign validation failed: %s",
+                type(self).__name__,
+                exc,
+            )
+            self._validated_assigns = dict(kwargs)
+            return kwargs
+
+        self._validated_assigns = coerced
+        return coerced
+
+    def __init__(self, component_id: Optional[str] = None, **kwargs: Any) -> None:
+        """
+        Initialize component.
+
+        When used as a descriptor (class attribute), kwargs are stored as defaults
+        and state is created lazily on first access. When instantiated directly
+        (legacy pattern), mount() is called immediately.
+
+        Args:
+            component_id: Unique identifier for this component instance
+            **kwargs: Component initialization parameters or state defaults
+        """
+        # Check if this is being used as a descriptor (no owner yet)
+        # vs direct instantiation (legacy pattern)
+        # ``template`` / ``template_name`` passed to a class-level declaration
+        # (``nav = Tabs(template="...")``) configure the component; they are
+        # not State defaults (ADR-031).
+        for _cfg in ("template", "template_name"):
+            if _cfg in kwargs:
+                setattr(self, _cfg, kwargs.pop(_cfg))
+        self._descriptor_defaults = kwargs
+        self._descriptor_attr_name: Optional[str] = None
+        self._descriptor_storage_key: Optional[str] = None
+        self._validated_assigns = {}
+
+        # Determine if this is the new descriptor pattern (has State inner class)
+        # or the legacy direct-instantiation pattern (no State class).
+        has_state_class = hasattr(type(self), "State")
+
+        if component_id is not None or not kwargs or not has_state_class:
+            # Legacy instantiation path — mount immediately.
+            # Validate declarative assigns (if any) before mount() runs so
+            # mount() receives coerced values with defaults applied.
+            coerced = self._validate_component_inputs(kwargs)
+            self.component_id = component_id or self._generate_id()
+            self._mounted = False
+            self._parent = None
+            self._parent_callback = None
+            if hasattr(self, "mount") and callable(self.mount):
+                self.mount(**coerced)
+            self._mounted = True
+        else:
+            # Descriptor path — defer mounting, store defaults
+            self._mounted = False
+            self._parent = None
+            self._parent_callback = None
+
+    def __set_name__(self, owner: type, name: str) -> None:
+        """Called when this component is assigned as a class attribute.
+
+        Registers the component in the owner's ``_component_descriptors`` dict
+        and auto-registers event handlers if defined in ``Meta.event``.
+        """
+        self._descriptor_attr_name = name
+        self._descriptor_storage_key = f"_component_{name}"
+
+        # Build class-level registry. ``_component_descriptors`` is a dynamic
+        # class attribute set by this descriptor protocol, so access it via
+        # getattr/setattr (the static type of ``owner`` is just ``type``).
+        if not hasattr(owner, "_component_descriptors"):
+            setattr(owner, "_component_descriptors", {})
+        # Copy to avoid sharing across subclasses
+        elif "_component_descriptors" not in owner.__dict__:
+            setattr(owner, "_component_descriptors", dict(getattr(owner, "_component_descriptors")))
+        registry: Dict[str, "LiveComponent"] = getattr(owner, "_component_descriptors")
+        registry[name] = self
+
+        # Auto-register event handler on the owner class
+        meta = getattr(self.__class__, "Meta", None)
+        event_name = getattr(meta, "event", None)
+        if event_name and not hasattr(owner, event_name):
+            setattr(owner, event_name, self._make_event_handler(event_name))
+
+    def __get__(self, obj: Any, objtype: Optional[type] = None) -> Any:
+        """Return this view's :class:`BoundComponent` (ADR-031 D1).
+
+        On first access, creates the State with defaults and wraps it. On
+        subsequent access, returns the cached bound component. After djust
+        deserialization (the slot holds a plain dict), rehydrates the State
+        and rebuilds the bound component around it. Each build registers the
+        bound component in ``obj._components`` (D2).
+        """
+        if obj is None:
+            return self  # Class-level access returns the descriptor
+
+        state_cls = getattr(self.__class__, "State", None)
+        if state_cls is None:
+            # No State inner class — legacy component, return self
+            return self
+
+        slot = obj.__dict__.get(self._descriptor_storage_key)
+        if isinstance(slot, BoundComponent):
+            return slot
+        if slot is None:
+            # First access — create State with defaults
+            state = state_cls(**self._descriptor_defaults)
+        elif isinstance(slot, dict):
+            # Rehydrate from plain dict after djust deserialization
+            state = state_cls.from_dict(slot)
+        else:
+            return slot
+        return self._bind(obj, state)
+
+    def _bind(self, obj: Any, state: Any) -> "BoundComponent":
+        """Wrap ``state`` for ``obj``, store it in the slot and register it."""
+        name = self._descriptor_attr_name or "component"
+        state["component_id"] = name
+        bound = BoundComponent(self, obj, state, name)
+        obj.__dict__[self._descriptor_storage_key or f"_component_{name}"] = bound
+        registry = getattr(obj, "_components", None)
+        if isinstance(registry, dict):
+            registry[name] = bound
+        return bound
+
+    def __set__(self, obj: Any, value: Any) -> None:
+        """Accept a plain dict and convert to the component's State class.
+
+        When the view already holds a bound component, its state is replaced
+        in place so ``view._components`` keeps pointing at the same object.
+        """
+        state_cls = getattr(self.__class__, "State", None)
+        if state_cls is not None and isinstance(value, dict) and not isinstance(value, state_cls):
+            value = state_cls.from_dict(value)
+        if state_cls is not None and isinstance(value, dict):
+            slot = (
+                obj.__dict__.get(self._descriptor_storage_key)
+                if self._descriptor_storage_key
+                else None
+            )
+            if isinstance(slot, BoundComponent):
+                slot.state = value
+                return
+            self._bind(obj, value)
+            return
+        if self._descriptor_storage_key:
+            obj.__dict__[self._descriptor_storage_key] = value
+        else:
+            # Legacy path — direct attribute set
+            obj.__dict__[self._descriptor_attr_name or "component"] = value
+
+    def _make_event_handler(self, event_name: str) -> Callable[..., Any]:
+        """Create an event handler that routes to the correct component instance."""
+        component_type = type(self)
+
+        def handler(view_self: Any, value: Any = "", component_id: str = "", **kwargs: Any) -> None:
+            # Auto-resolve if only one instance of this component type
+            if not component_id:
+                descriptors = getattr(type(view_self), "_component_descriptors", {})
+                matches = [n for n, d in descriptors.items() if isinstance(d, component_type)]
+                if len(matches) == 1:
+                    component_id = matches[0]
+            if not component_id:
+                return
+
+            state = getattr(view_self, component_id, None)
+            if isinstance(state, BoundComponent):
+                state = state.state
+            if state is None:
+                return
+
+            # Find the component's action method (e.g., toggle, set, open, close)
+            # Convention: the first non-private, non-dunder method that isn't
+            # mount/render/get_context_data is the action
+            descriptor = getattr(type(view_self), component_id, None)
+            if descriptor and hasattr(descriptor, "_handle_event"):
+                descriptor._handle_event(state, value=value, **kwargs)
+
+        # Preserve the event name for djust dispatch
+        handler.__name__ = event_name
+        handler.__qualname__ = event_name
+
+        # Mark as event_handler if the decorator is available
+        try:
+            from djust.decorators import event_handler as eh_decorator
+
+            handler = eh_decorator(handler)
+        except ImportError:
+            # @event_handler is optional here; skip decoration if decorators module isn't available.
+            pass
+
+        return handler
+
+    def _handle_event(self, state: Any, **kwargs: Any) -> None:
+        """Override in subclasses to handle events.
+
+        Args:
+            state: The TypedState instance for this component
+            **kwargs: Event parameters (value, etc.)
+        """
+        pass
+
+    def _generate_id(self) -> str:
+        """Generate a unique component ID"""
+        import uuid
+
+        return f"{self.__class__.__name__.lower()}_{uuid.uuid4().hex[:8]}"
+
+    @alters_data
+    def mount(self, **kwargs: Any) -> None:
+        """
+        Initialize component state.
+
+        Override to set up initial state. Optional when using the descriptor
+        pattern with a State inner class.
+
+        Args:
+            **kwargs: Initialization parameters
+        """
+        pass
+
+    def get_context_data(self) -> Dict[str, Any]:
+        """
+        Get template context for rendering.
+
+        Returns:
+            Dictionary of context variables.  Optional when using the descriptor
+            pattern — the State dict is used directly.
+        """
+        return {}
+
+    def render(self) -> str:
+        """
+        Render the component to HTML.
+
+        Returns:
+            HTML string (marked as safe for Django templates)
+
+        Raises:
+            ValueError: If template or template_name is not set
+            RuntimeError: If component has been unmounted
+        """
+        if not self._mounted:
+            raise RuntimeError("Cannot render unmounted component")
+
+        from django.utils.safestring import mark_safe
+
+        context = self.get_context_data()
+        context["component_id"] = self.component_id
+
+        # Use inline template if available (with Rust acceleration and Django fallback)
+        if self.template:
+            from django.utils.html import format_html
+
+            html = _render_template_with_fallback(self.template, context)
+            # Wrap with component ID for LiveComponent tracking (html is already safe from template engine)
+            return cast(
+                str,
+                format_html(
+                    '<div data-component-id="{}">{}</div>', self.component_id, mark_safe(html)
+                ),
+            )
+
+        # Fall back to template_name (file-based template)
+        if self.template_name:
+            # #2530: this HTML lands INSIDE the parent LiveView's VDOM, so it
+            # must be rendered through the LiveView engine entry (dj-if
+            # boundary markers ON), not the project's TEMPLATES backend —
+            # which emits none (post-#2519, and never on DjangoTemplates), so
+            # a component `{% if %}` toggle fell back to positional matching.
+            engine_html = _render_template_name_with_markers(self.template_name, context)
+            if engine_html is not None:
+                return cast(str, mark_safe(engine_html))
+            from django.template.loader import render_to_string
+
+            return cast(str, mark_safe(render_to_string(self.template_name, context)))
+
+        raise ValueError(
+            f"{self.__class__.__name__} must define 'template' attribute or set 'template_name'"
+        )
+
+    def set_parent(self, parent: Any) -> None:
+        """
+        Set the parent LiveView for this component.
+
+        Args:
+            parent: Parent LiveView instance
+        """
+        self._parent = parent
+        # Wire the component-context chain (v0.5.1) so ``consume_context``
+        # walks from this component up to the parent view when looking up a
+        # provider. See :meth:`LiveView.provide_context`.
+        self._djust_context_parent = parent
+
+    @alters_data
+    def update(self, **kwargs: Any) -> "LiveComponent":
+        """
+        Update component properties after initialization.
+
+        Sets each supplied prop as an instance attribute. This is the base
+        behavior the parent's
+        :meth:`djust.mixins.components.ComponentMixin.update_component`
+        relies on (#1947); subclasses may override ``update`` to add coercion,
+        validation, or selective-prop logic and that override takes precedence.
+
+        Mirrors the Python/hybrid path of :meth:`Component.update` so the two
+        component hierarchies expose a consistent prop-update API.
+
+        Args:
+            **kwargs: Properties to update.
+
+        Returns:
+            self (for method chaining).
+
+        Example::
+
+            # In a LiveView event handler
+            def toggle_switch(self):
+                self.switch_enabled = not self.switch_enabled
+                self.switch_component.update(checked=self.switch_enabled)
+        """
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+        return self
+
+    @alters_data
+    def trigger_update(self) -> None:
+        """
+        Trigger a re-render of the parent LiveView.
+
+        This notifies the parent that the component state has changed
+        and the view should be re-rendered.
+
+        Load-bearing since #2779: a ``LiveComponent`` held in view state is an
+        opaque object to change detection (``deep_fingerprint`` compares it by
+        ``id()``), so a handler that mutates the component in place — ``sort_by``,
+        ``toggle_row``, ``dismiss`` — left ``{{ table.render }}`` in the parent's
+        template STALE over the WebSocket: the Rust context was never re-synced
+        for that name. This now routes through the parent's sanctioned bypass,
+        ``set_changed_keys(<attr>)`` (the attr name recorded at registration by
+        ``ComponentMixin._register_component``), or the zero-arg force-render
+        when the name is unknown. A parent-defined ``_trigger_update`` hook is
+        still honoured first.
+        """
+        parent = self._parent
+        if parent is None:
+            return
+        if hasattr(parent, "_trigger_update"):
+            parent._trigger_update()
+            return
+        mark = getattr(parent, "set_changed_keys", None)
+        if not callable(mark):
+            return
+        attr = getattr(self, "_parent_attr", None)
+        if attr:
+            mark(attr)
+        else:
+            mark()
+
+    def _set_parent_callback(self, callback: Callable[..., Any]) -> None:
+        """
+        Set the callback function for communicating with parent LiveView.
+
+        Args:
+            callback: Function to call when sending events to parent
+        """
+        self._parent_callback = callback
+
+    def send_parent(self, event: str, data: Optional[Dict[str, Any]] = None) -> None:
+        """
+        Send an event to the parent LiveView.
+
+        Args:
+            event: Event name
+            data: Optional event data dictionary
+        """
+        if self._parent_callback:
+            self._parent_callback(
+                {
+                    "component_id": self.component_id,
+                    "event": event,
+                    "data": data or {},
+                }
+            )
+
+    @alters_data
+    def unmount(self) -> None:
+        """
+        Clean up component when it's being removed.
+
+        Override this method to perform cleanup actions.
+        """
+        self._mounted = False
+        self._parent_callback = None
+
+    def __str__(self) -> str:
+        """Allow {{ component }} in templates and JSON serialization"""
+        return self.render()
+
+
+#: Types the session-save / session-restore component paths accept
+#: (``_save_components_to_session`` and both ``_restore_component_state``
+#: callers). One tuple so the gates cannot drift apart (ADR-031 D7).
+SESSION_COMPONENT_TYPES = (Component, LiveComponent, BoundComponent)

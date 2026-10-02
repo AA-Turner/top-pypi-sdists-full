@@ -60,15 +60,11 @@ class InfrastructureResources:
     region: str
     project_id: Optional[str] = None
     resource_group: Optional[str] = None  # Azure resource group
-    workload_identity_client_id: Optional[
-        str
-    ] = None  # Azure: Client ID (for Helm values)
-    blob_endpoint: Optional[
-        str
-    ] = None  # Azure: Blob endpoint URL (for object_storage.endpoint)
-    deployment_url: Optional[
-        str
-    ] = None  # Cloud provider deployment URL (AWS CloudFormation, Azure ARM)
+    workload_identity_client_id: Optional[str] = None  # Azure: Client ID (for Helm values)
+    blob_endpoint: Optional[str] = None  # Azure: Blob endpoint URL (for object_storage.endpoint)
+    deployment_url: Optional[str] = (
+        None  # Cloud provider deployment URL (AWS CloudFormation, Azure ARM)
+    )
 
 
 class KubernetesCloudSetupCommand:
@@ -123,17 +119,15 @@ class KubernetesCloudSetupCommand:
 
         # Validate cloud_id is provided when adding to existing cloud
         if not create_cloud:
-            assert (
-                cloud_id
-            ), "cloud_id is required when adding a resource to an existing cloud"
+            assert cloud_id, "cloud_id is required when adding a resource to an existing cloud"
 
         # Set up logging message based on mode
         if create_cloud:
-            setup_message = (
-                f"Setting up Kubernetes cloud '{name}' on {provider.upper()}"
-            )
+            setup_message = f"Setting up Kubernetes cloud '{name}' on {provider.upper()}"
         else:
-            setup_message = f"Setting up Kubernetes cloud resource for '{name}' on {provider.upper()}"
+            setup_message = (
+                f"Setting up Kubernetes cloud resource for '{name}' on {provider.upper()}"
+            )
 
         self.log.open_block("Setup", setup_message)
 
@@ -150,9 +144,7 @@ class KubernetesCloudSetupCommand:
 
             # Step 1: Prompt for namespace BEFORE infrastructure setup
             # This is needed because the IAM role trust relationship depends on the namespace
-            final_namespace = self._prompt_for_namespace(
-                namespace, skip_confirmation=yes
-            )
+            final_namespace = self._prompt_for_namespace(namespace, skip_confirmation=yes)
 
             # Step 2: Discover and validate cluster
             cluster_info = self._discover_cluster(
@@ -165,9 +157,7 @@ class KubernetesCloudSetupCommand:
             )
 
             # Step 3: Set up cloud infrastructure
-            infrastructure = self._setup_infrastructure(
-                provider, region, name, cluster_info
-            )
+            infrastructure = self._setup_infrastructure(provider, region, name, cluster_info)
 
             # Step 4: Register cloud OR create cloud resource
             if create_cloud:
@@ -177,19 +167,13 @@ class KubernetesCloudSetupCommand:
                 )
 
                 # Get the cloud resource ID from the newly registered cloud
-                cloud_resources = self.cloud_controller.get_decorated_cloud_resources(
-                    cloud_id
-                )
+                cloud_resources = self.cloud_controller.get_decorated_cloud_resources(cloud_id)
                 if not cloud_resources:
-                    raise click.ClickException(
-                        "No cloud resources found after registration"
-                    )
+                    raise click.ClickException("No cloud resources found after registration")
                 cloud_resource_id = cloud_resources[0].cloud_resource_id
             else:
                 # Should have been validated earlier, but just in case
-                assert (
-                    cloud_id
-                ), "cloud_id is required when adding a resource to an existing cloud"
+                assert cloud_id, "cloud_id is required when adding a resource to an existing cloud"
 
                 # Create cloud resource in existing cloud
                 cloud_resource_id = self._create_cloud_resource(
@@ -221,9 +205,7 @@ class KubernetesCloudSetupCommand:
 
             self.log.close_block("Setup")
             if create_cloud:
-                self.log.info(
-                    f"Kubernetes cloud '{name}' setup completed successfully!"
-                )
+                self.log.info(f"Kubernetes cloud '{name}' setup completed successfully!")
             else:
                 self.log.info(
                     f"Kubernetes cloud resource setup for '{name}' completed successfully!"
@@ -305,23 +287,17 @@ class KubernetesCloudSetupCommand:
                 raise click.ClickException(
                     "GCP project ID is required. Please provide --project-id"
                 )
-            return self._discover_gcp_cluster(
-                cluster_name, namespace, region, project_id
-            )
+            return self._discover_gcp_cluster(cluster_name, namespace, region, project_id)
         elif provider == "azure":
             if not resource_group:
                 raise click.ClickException(
                     "Azure resource group is required. Please provide --resource-group"
                 )
-            return self._discover_azure_cluster(
-                cluster_name, namespace, region, resource_group
-            )
+            return self._discover_azure_cluster(cluster_name, namespace, region, resource_group)
         else:
             raise click.ClickException(f"Unsupported provider: {provider}")
 
-    def _discover_aws_cluster(
-        self, cluster_name: str, namespace: str, region: str
-    ) -> ClusterInfo:
+    def _discover_aws_cluster(self, cluster_name: str, namespace: str, region: str) -> ClusterInfo:
         """Discover AWS EKS cluster details and configure kubeconfig."""
 
         try:
@@ -339,9 +315,7 @@ class KubernetesCloudSetupCommand:
             self._configure_aws_kubeconfig(cluster_name, region)
         except Exception as e:  # noqa: BLE001
             self.log.error(f"Failed to configure kubeconfig: {e}")
-            raise click.ClickException(
-                f"Failed to configure kubeconfig for EKS cluster: {e}"
-            )
+            raise click.ClickException(f"Failed to configure kubeconfig for EKS cluster: {e}")
 
         try:
             self._debug("Verifying kubeconfig configuration...")
@@ -371,9 +345,7 @@ class KubernetesCloudSetupCommand:
             self._configure_gcp_kubeconfig(cluster_name, region, project_id)
         except Exception as e:  # noqa: BLE001
             self.log.error(f"Failed to configure kubeconfig: {e}")
-            raise click.ClickException(
-                f"Failed to configure kubeconfig for GKE cluster: {e}"
-            )
+            raise click.ClickException(f"Failed to configure kubeconfig for GKE cluster: {e}")
 
         try:
             self._debug("Verifying kubeconfig configuration...")
@@ -420,9 +392,7 @@ class KubernetesCloudSetupCommand:
             self._configure_azure_kubeconfig(cluster_name, resource_group)
         except Exception as e:  # noqa: BLE001
             self.log.error(f"Failed to configure kubeconfig: {e}")
-            raise click.ClickException(
-                f"Failed to configure kubeconfig for AKS cluster: {e}"
-            )
+            raise click.ClickException(f"Failed to configure kubeconfig for AKS cluster: {e}")
 
         try:
             self._debug("Verifying kubeconfig configuration...")
@@ -444,12 +414,14 @@ class KubernetesCloudSetupCommand:
         )
 
     def _setup_infrastructure(
-        self, provider: str, region: str, name: str, cluster_info: ClusterInfo,
+        self,
+        provider: str,
+        region: str,
+        name: str,
+        cluster_info: ClusterInfo,
     ) -> InfrastructureResources:
         """Set up cloud infrastructure (S3/GCS bucket, IAM roles, etc.)."""
-        self.log.info(
-            f"Setting up {provider.upper()} infrastructure...", block_label="Setup"
-        )
+        self.log.info(f"Setting up {provider.upper()} infrastructure...", block_label="Setup")
 
         if provider == "aws":
             return self._setup_aws_infrastructure(region, name, cluster_info)
@@ -461,7 +433,10 @@ class KubernetesCloudSetupCommand:
             raise click.ClickException(f"Unsupported provider: {provider}")
 
     def _setup_aws_infrastructure(  # noqa: PLR0912
-        self, region: str, name: str, cluster_info: ClusterInfo,
+        self,
+        region: str,
+        name: str,
+        cluster_info: ClusterInfo,
     ) -> InfrastructureResources:
         """Set up AWS infrastructure for Kubernetes using CloudFormation."""
         try:
@@ -496,14 +471,14 @@ class KubernetesCloudSetupCommand:
                 f"Using namespace: {cluster_info.namespace} with service account: anyscale-operator"
             )
             cfn_template_body = self._generate_aws_cloudformation_template(
-                cloud_id, cluster_info.oidc_provider, cluster_info.namespace,
+                cloud_id,
+                cluster_info.oidc_provider,
+                cluster_info.namespace,
             )
             self._debug("CloudFormation template generated successfully")
         except Exception as e:  # noqa: BLE001
             self.log.error(f"Failed to generate CloudFormation template: {e}")
-            raise click.ClickException(
-                f"Failed to generate CloudFormation template: {e}"
-            )
+            raise click.ClickException(f"Failed to generate CloudFormation template: {e}")
 
         try:
             self._debug("Preparing CloudFormation parameters...")
@@ -511,9 +486,7 @@ class KubernetesCloudSetupCommand:
             self._debug(f"Prepared {len(parameters)} CloudFormation parameters")
         except Exception as e:  # noqa: BLE001
             self.log.error(f"Failed to prepare CloudFormation parameters: {e}")
-            raise click.ClickException(
-                f"Failed to prepare CloudFormation parameters: {e}"
-            )
+            raise click.ClickException(f"Failed to prepare CloudFormation parameters: {e}")
 
         try:
             with self.log.indent():
@@ -541,16 +514,12 @@ class KubernetesCloudSetupCommand:
 
         try:
             self._debug("Retrieving CloudFormation stack outputs...")
-            stack_outputs = cfn_utils.get_stack_outputs(
-                stack_name, region, boto3_session
-            )
+            stack_outputs = cfn_utils.get_stack_outputs(stack_name, region, boto3_session)
             bucket_name = stack_outputs.get("S3BucketName", f"anyscale-{cloud_id}")
             iam_role_arn = stack_outputs.get("AnyscaleCrossAccountIAMRoleArn")
 
             if not iam_role_arn:
-                raise click.ClickException(
-                    "Failed to get IAM role ARN from CloudFormation stack"
-                )
+                raise click.ClickException("Failed to get IAM role ARN from CloudFormation stack")
 
             self._debug(f"S3 Bucket: {bucket_name}")
             self._debug(f"IAM Role ARN: {iam_role_arn}")
@@ -563,16 +532,17 @@ class KubernetesCloudSetupCommand:
         )
 
     def _generate_aws_cloudformation_template(
-        self, cloud_id: str, oidc_provider_arn: str, namespace: str,
+        self,
+        cloud_id: str,
+        oidc_provider_arn: str,
+        namespace: str,
     ) -> str:
         """Generate CloudFormation template for AWS Kubernetes setup."""
         # Extract OIDC provider URL from ARN for the condition
         # ARN format: arn:aws:iam::ACCOUNT:oidc-provider/oidc.eks.REGION.amazonaws.com/id/XXXXXX
         # We need: oidc.eks.REGION.amazonaws.com/id/XXXXXX
         if "oidc-provider/" not in oidc_provider_arn:
-            raise click.ClickException(
-                f"Invalid OIDC provider ARN format: {oidc_provider_arn}"
-            )
+            raise click.ClickException(f"Invalid OIDC provider ARN format: {oidc_provider_arn}")
         oidc_provider_url = oidc_provider_arn.rsplit("oidc-provider/", maxsplit=1)[-1]
 
         service_account_name = "anyscale-operator"
@@ -690,7 +660,10 @@ class KubernetesCloudSetupCommand:
         return json.dumps(template, indent=2)
 
     def _setup_gcp_infrastructure(  # noqa: PLR0912
-        self, region: str, name: str, cluster_info: ClusterInfo,
+        self,
+        region: str,
+        name: str,
+        cluster_info: ClusterInfo,
     ) -> InfrastructureResources:
         """Set up GCP infrastructure for Kubernetes using GCP Python SDK.
 
@@ -770,9 +743,7 @@ class KubernetesCloudSetupCommand:
                 self.log.info(f"Created GCS bucket: {bucket_name}", block_label="Setup")
 
                 # Create service account
-                self._debug(
-                    f"Creating service account: {anyscale_service_account_name}"
-                )
+                self._debug(f"Creating service account: {anyscale_service_account_name}")
                 iam_client = factory.build("iam", "v1")
                 service_account_body = {
                     "accountId": anyscale_service_account_name,
@@ -831,9 +802,7 @@ class KubernetesCloudSetupCommand:
                     body=policy_body,
                 ).execute()
 
-                self.log.info(
-                    "Configured Workload Identity binding", block_label="Setup"
-                )
+                self.log.info("Configured Workload Identity binding", block_label="Setup")
 
                 # Grant storage admin role to service account for the bucket
                 # Note: There's often a propagation delay after service account creation
@@ -845,9 +814,7 @@ class KubernetesCloudSetupCommand:
 
                 for attempt in range(max_retries):
                     try:
-                        bucket_policy = bucket.get_iam_policy(
-                            requested_policy_version=3
-                        )
+                        bucket_policy = bucket.get_iam_policy(requested_policy_version=3)
                         bucket_policy.bindings.append(
                             {
                                 "role": "roles/storage.admin",
@@ -892,7 +859,10 @@ class KubernetesCloudSetupCommand:
         )
 
     def _setup_azure_infrastructure(  # noqa: PLR0912
-        self, region: str, name: str, cluster_info: ClusterInfo,
+        self,
+        region: str,
+        name: str,
+        cluster_info: ClusterInfo,
     ) -> InfrastructureResources:
         """Set up Azure infrastructure for Kubernetes using ARM template."""
         try:
@@ -930,9 +900,7 @@ class KubernetesCloudSetupCommand:
             # Generate ARM template
             self._debug("Generating ARM template...")
             # Validate oidc_provider is set (should be validated earlier in Azure flow)
-            assert (
-                cluster_info.oidc_provider is not None
-            ), "OIDC provider must be set for Azure"
+            assert cluster_info.oidc_provider is not None, "OIDC provider must be set for Azure"
             arm_template_body = self._generate_azure_arm_template(
                 oidc_issuer=cluster_info.oidc_provider,
                 namespace=cluster_info.namespace,
@@ -990,15 +958,11 @@ class KubernetesCloudSetupCommand:
                 or not workload_identity_principal_id
                 or not workload_identity_client_id
             ):
-                raise click.ClickException(
-                    "Failed to get required outputs from ARM deployment"
-                )
+                raise click.ClickException("Failed to get required outputs from ARM deployment")
 
             self._debug(f"ABFSS URL: {abfss_url}")
             self._debug(f"Blob Endpoint: {blob_endpoint}")
-            self._debug(
-                f"Workload Identity Principal ID: {workload_identity_principal_id}"
-            )
+            self._debug(f"Workload Identity Principal ID: {workload_identity_principal_id}")
             self._debug(f"Workload Identity Client ID: {workload_identity_client_id}")
         except Exception as e:  # noqa: BLE001
             self.log.error(f"Failed to get ARM deployment outputs: {e}")
@@ -1062,9 +1026,7 @@ class KubernetesCloudSetupCommand:
         except json.JSONDecodeError as e:
             raise click.ClickException(f"Failed to parse GKE cluster info: {e}")
 
-    def _get_gke_zones(
-        self, cluster_name: str, region: str, project_id: str
-    ) -> List[str]:
+    def _get_gke_zones(self, cluster_name: str, region: str, project_id: str) -> List[str]:
         """Get zones where the GKE cluster's node pools are located."""
         try:
             cluster_info = self._get_gke_cluster_info(cluster_name, region, project_id)
@@ -1096,9 +1058,7 @@ class KubernetesCloudSetupCommand:
             self._debug(f"Failed to get zones: {e}")
             return []
 
-    def _configure_gcp_kubeconfig(
-        self, cluster_name: str, region: str, project_id: str
-    ) -> None:
+    def _configure_gcp_kubeconfig(self, cluster_name: str, region: str, project_id: str) -> None:
         """Configure kubeconfig for GCP GKE cluster."""
         self.log.info(f"Configuring kubeconfig for GKE cluster: {cluster_name}")
 
@@ -1140,9 +1100,7 @@ class KubernetesCloudSetupCommand:
             )
             self.log.info("GKE kubeconfig configured successfully")
         except subprocess.CalledProcessError as e:
-            raise click.ClickException(
-                f"Failed to configure GKE kubeconfig: {e.stderr}"
-            )
+            raise click.ClickException(f"Failed to configure GKE kubeconfig: {e.stderr}")
 
     def _get_eks_cluster_info(self, cluster_name: str, region: str) -> Dict[str, Any]:
         """Get EKS cluster information using AWS CLI."""
@@ -1205,9 +1163,7 @@ class KubernetesCloudSetupCommand:
             if unique_zones:
                 self._debug(f"Discovered availability zones: {', '.join(unique_zones)}")
             else:
-                self._debug(
-                    f"No availability zones found for EKS cluster '{cluster_name}'"
-                )
+                self._debug(f"No availability zones found for EKS cluster '{cluster_name}'")
             return unique_zones
 
         except click.ClickException:
@@ -1236,9 +1192,7 @@ class KubernetesCloudSetupCommand:
             oidc_provider_arn = f"arn:aws:iam::{account_id}:oidc-provider/oidc.eks.{region}.amazonaws.com/id/{oidc_id}"
             return oidc_provider_arn
 
-        raise click.ClickException(
-            f"Could not parse OIDC provider from issuer URL: {oidc_issuer}"
-        )
+        raise click.ClickException(f"Could not parse OIDC provider from issuer URL: {oidc_issuer}")
 
     def _get_aws_account_id(self) -> str:
         """Get AWS account ID."""
@@ -1282,13 +1236,9 @@ class KubernetesCloudSetupCommand:
             )
             self.log.info("EKS kubeconfig configured successfully")
         except subprocess.CalledProcessError as e:
-            raise click.ClickException(
-                f"Failed to configure EKS kubeconfig: {e.stderr}"
-            )
+            raise click.ClickException(f"Failed to configure EKS kubeconfig: {e.stderr}")
 
-    def _configure_azure_kubeconfig(
-        self, cluster_name: str, resource_group: str
-    ) -> None:
+    def _configure_azure_kubeconfig(self, cluster_name: str, resource_group: str) -> None:
         """Configure kubeconfig for Azure AKS cluster."""
         self.log.info(f"Configuring kubeconfig for AKS cluster: {cluster_name}")
 
@@ -1310,13 +1260,9 @@ class KubernetesCloudSetupCommand:
             )
             self.log.info("AKS kubeconfig configured successfully")
         except subprocess.CalledProcessError as e:
-            raise click.ClickException(
-                f"Failed to configure AKS kubeconfig: {e.stderr}"
-            )
+            raise click.ClickException(f"Failed to configure AKS kubeconfig: {e.stderr}")
 
-    def _get_aks_cluster_info(
-        self, cluster_name: str, resource_group: str
-    ) -> Dict[str, Any]:
+    def _get_aks_cluster_info(self, cluster_name: str, resource_group: str) -> Dict[str, Any]:
         """Get AKS cluster information using Azure CLI."""
         try:
             result = subprocess.run(
@@ -1341,9 +1287,7 @@ class KubernetesCloudSetupCommand:
         except json.JSONDecodeError as e:
             raise click.ClickException(f"Failed to parse AKS cluster info: {e}")
 
-    def _get_aks_availability_zones(
-        self, cluster_name: str, resource_group: str
-    ) -> List[str]:
+    def _get_aks_availability_zones(self, cluster_name: str, resource_group: str) -> List[str]:
         """Get availability zones where the AKS cluster's node pools are located."""
         try:
             cluster_info = self._get_aks_cluster_info(cluster_name, resource_group)
@@ -1361,9 +1305,7 @@ class KubernetesCloudSetupCommand:
             if unique_zones:
                 self._debug(f"Discovered zones: {', '.join(unique_zones)}")
             else:
-                self._debug(
-                    f"No availability zones found for AKS cluster '{cluster_name}'"
-                )
+                self._debug(f"No availability zones found for AKS cluster '{cluster_name}'")
             return unique_zones
 
         except click.ClickException:
@@ -1377,22 +1319,36 @@ class KubernetesCloudSetupCommand:
         """Get Azure subscription ID from Azure CLI."""
         try:
             result = subprocess.run(
-                ["az", "account", "show", "--query", "id", "--output", "tsv",],
+                [
+                    "az",
+                    "account",
+                    "show",
+                    "--query",
+                    "id",
+                    "--output",
+                    "tsv",
+                ],
                 capture_output=True,
                 text=True,
                 check=True,
             )
             return result.stdout.strip()
         except subprocess.CalledProcessError as e:
-            raise click.ClickException(
-                f"Failed to get Azure subscription ID: {e.stderr}"
-            )
+            raise click.ClickException(f"Failed to get Azure subscription ID: {e.stderr}")
 
     def _get_azure_tenant_id(self) -> str:
         """Get Azure tenant ID from Azure CLI."""
         try:
             result = subprocess.run(
-                ["az", "account", "show", "--query", "tenantId", "--output", "tsv",],
+                [
+                    "az",
+                    "account",
+                    "show",
+                    "--query",
+                    "tenantId",
+                    "--output",
+                    "tsv",
+                ],
                 capture_output=True,
                 text=True,
                 check=True,
@@ -1402,7 +1358,10 @@ class KubernetesCloudSetupCommand:
             raise click.ClickException(f"Failed to get Azure tenant ID: {e.stderr}")
 
     def _generate_azure_arm_template(
-        self, oidc_issuer: str, namespace: str, cloud_name: str,
+        self,
+        oidc_issuer: str,
+        namespace: str,
+        cloud_name: str,
     ) -> str:
         """
         Generate ARM template for Azure Kubernetes setup.
@@ -1446,9 +1405,7 @@ class KubernetesCloudSetupCommand:
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 128,
-                    "metadata": {
-                        "description": "Name for the managed identity (up to 128 chars)"
-                    },
+                    "metadata": {"description": "Name for the managed identity (up to 128 chars)"},
                 },
                 "tags": {
                     "type": "object",
@@ -1593,9 +1550,7 @@ class KubernetesCloudSetupCommand:
         self.log.info("Verifying kubeconfig configuration...")
 
         try:
-            subprocess.run(
-                ["kubectl", "cluster-info"], capture_output=True, text=True, check=True
-            )
+            subprocess.run(["kubectl", "cluster-info"], capture_output=True, text=True, check=True)
             self.log.info("Kubeconfig verification successful")
         except subprocess.CalledProcessError as e:
             raise click.ClickException(f"Kubeconfig verification failed: {e.stderr}")
@@ -1611,9 +1566,7 @@ class KubernetesCloudSetupCommand:
             )
             return result.stdout.strip()
         except subprocess.CalledProcessError as e:
-            raise click.ClickException(
-                f"Failed to get current kubectl context: {e.stderr}"
-            )
+            raise click.ClickException(f"Failed to get current kubectl context: {e.stderr}")
 
     def _register_cloud(  # noqa: PLR0912
         self,
@@ -1664,7 +1617,9 @@ class KubernetesCloudSetupCommand:
                 object_storage=ObjectStorage(
                     bucket_name=infrastructure.bucket_name, region=region
                 ),
-                gcp_config=GCPConfig(project_id=infrastructure.project_id,),
+                gcp_config=GCPConfig(
+                    project_id=infrastructure.project_id,
+                ),
                 kubernetes_config=OpenAPIKubernetesConfig(
                     anyscale_operator_iam_identity=infrastructure.iam_role_arn,
                     zones=zones,
@@ -1717,9 +1672,7 @@ class KubernetesCloudSetupCommand:
             )
             if cloud_deployment.aws_config:
                 self._debug("  AWS Config:")
-                self._debug(
-                    f"    IAM Role ID: {cloud_deployment.aws_config.anyscale_iam_role_id}"
-                )
+                self._debug(f"    IAM Role ID: {cloud_deployment.aws_config.anyscale_iam_role_id}")
 
             # Temporarily suppress cloud controller logging to avoid Helm command output
             original_log_info = self.cloud_controller.log.info
@@ -1774,9 +1727,7 @@ class KubernetesCloudSetupCommand:
                 raise click.ClickException(f"Failed to find registered cloud: {e}")
 
             if not cloud_id:
-                raise click.ClickException(
-                    "Failed to get cloud ID from registered cloud"
-                )
+                raise click.ClickException("Failed to get cloud ID from registered cloud")
 
             self.log.info(f"Cloud registered with ID: {cloud_id}", block_label="Setup")
 
@@ -1884,14 +1835,10 @@ class KubernetesCloudSetupCommand:
                 text=True,
                 check=True,
             )
-            self.log.info(
-                "Helm repository configured successfully", block_label="Setup"
-            )
+            self.log.info("Helm repository configured successfully", block_label="Setup")
         except subprocess.CalledProcessError as e:
             self.log.error(f"Failed to configure Helm repository: {e.stderr}")
-            raise click.ClickException(
-                f"Failed to configure Helm repository: {e.stderr}"
-            )
+            raise click.ClickException(f"Failed to configure Helm repository: {e.stderr}")
 
     def _extract_set_string_values(self, helm_command: str) -> Dict[str, str]:
         """
@@ -1999,13 +1946,9 @@ class KubernetesCloudSetupCommand:
         )
 
         if response:
-            self.log.info(
-                "nginx ingress subchart will be installed", block_label="Setup"
-            )
+            self.log.info("nginx ingress subchart will be installed", block_label="Setup")
         else:
-            self.log.info(
-                "nginx ingress subchart will NOT be installed", block_label="Setup"
-            )
+            self.log.info("nginx ingress subchart will NOT be installed", block_label="Setup")
 
         return response
 
@@ -2064,9 +2007,7 @@ class KubernetesCloudSetupCommand:
         else:
             # Create filename with random suffix for uniqueness
             random_suffix = random.randint(1000, 9999)
-            filename = (
-                f"anyscale-helm-values-{provider}-{namespace}-{random_suffix}.yaml"
-            )
+            filename = f"anyscale-helm-values-{provider}-{namespace}-{random_suffix}.yaml"
             values_file_path = os.path.join(os.getcwd(), filename)
 
         with open(values_file_path, "w") as f:
@@ -2076,9 +2017,7 @@ class KubernetesCloudSetupCommand:
 
         return values_file_path
 
-    def _set_ingress_nginx_annotations(
-        self, values: Dict[str, Any], provider: str
-    ) -> None:
+    def _set_ingress_nginx_annotations(self, values: Dict[str, Any], provider: str) -> None:
 
         self.log.info("Setting ingress-nginx annotations...")
         self.log.warning(
@@ -2129,9 +2068,7 @@ class KubernetesCloudSetupCommand:
             self.log.info("Helm installation completed successfully")
         except subprocess.CalledProcessError as e:
             self.log.error(f"Helm installation failed: {e.stderr}")
-            raise click.ClickException(
-                f"Failed to install Anyscale operator: {e.stderr}"
-            )
+            raise click.ClickException(f"Failed to install Anyscale operator: {e.stderr}")
 
     def _verify_installation(
         self,
@@ -2165,9 +2102,7 @@ class KubernetesCloudSetupCommand:
             cloud_deployment = cloud_resources[0]
 
         # Use the existing Kubernetes verifier
-        verifier = KubernetesCloudDeploymentVerifier(
-            self.log, self.cloud_controller.api_client
-        )
+        verifier = KubernetesCloudDeploymentVerifier(self.log, self.cloud_controller.api_client)
 
         # Set up kubectl config for verification using the discovered context
         verifier.k8s_config = KubernetesConfig(
@@ -2273,9 +2208,7 @@ class KubernetesCloudSetupCommand:
 
             # Save cloud deployment to a temporary file and use create_cloud_resource
             self._debug("Saving cloud deployment to temporary file...")
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".yaml", delete=False
-            ) as temp_file:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as temp_file:
                 # Convert CloudDeployment to dict for YAML serialization
                 deployment_dict = cloud_deployment.to_dict()
                 yaml.dump(deployment_dict, temp_file, default_flow_style=False)
@@ -2342,9 +2275,7 @@ class KubernetesCloudSetupCommand:
                 "The Kubernetes cloud setup failed, leaving resources in an incomplete state."
             )
 
-        self.log.error(
-            "You must manually clean up the following resources to avoid charges:"
-        )
+        self.log.error("You must manually clean up the following resources to avoid charges:")
         self.log.error("")
 
         if provider == "aws":
@@ -2382,9 +2313,7 @@ class KubernetesCloudSetupCommand:
                 f"   - Find and delete the CloudFormation stack matching pattern: {stack_name_pattern}"
             )
             self.log.error(f"   - Region: {infrastructure.region}")
-            self.log.error(
-                "   - AWS Console: CloudFormation > Stacks > Select stack > Delete"
-            )
+            self.log.error("   - AWS Console: CloudFormation > Stacks > Select stack > Delete")
             self.log.error(
                 f"   - AWS CLI: aws cloudformation delete-stack --stack-name <stack-name> --region {infrastructure.region}"
             )
@@ -2408,16 +2337,12 @@ class KubernetesCloudSetupCommand:
                 )
             else:
                 self.log.error("2. Anyscale Cloud Registration:")
-                self.log.error(
-                    f"   - Delete the cloud '{name}' (ID: {cloud_id}) from Anyscale"
-                )
+                self.log.error(f"   - Delete the cloud '{name}' (ID: {cloud_id}) from Anyscale")
                 self.log.error(f"   - CLI: anyscale cloud delete --name '{name}'")
             self.log.error("")
 
         if not infrastructure:
-            self.log.error(
-                "No infrastructure resources were created before the failure."
-            )
+            self.log.error("No infrastructure resources were created before the failure.")
             self.log.error("")
 
     def _log_gcp_cleanup_instructions(
@@ -2435,12 +2360,8 @@ class KubernetesCloudSetupCommand:
             self.log.error("1. GCS Bucket:")
             self.log.error(f"   - Bucket: {infrastructure.bucket_name}")
             self.log.error(f"   - Project: {infrastructure.project_id}")
-            self.log.error(
-                "   - GCP Console: Cloud Storage > Buckets > Select bucket > Delete"
-            )
-            self.log.error(
-                f"   - gcloud CLI: gsutil rm -r gs://{infrastructure.bucket_name}"
-            )
+            self.log.error("   - GCP Console: Cloud Storage > Buckets > Select bucket > Delete")
+            self.log.error(f"   - gcloud CLI: gsutil rm -r gs://{infrastructure.bucket_name}")
             self.log.error("")
 
             self.log.error("2. Service Account:")
@@ -2466,14 +2387,10 @@ class KubernetesCloudSetupCommand:
                 self.log.error(
                     "   - To find the resource name, run: anyscale cloud get --name '{name}'"
                 )
-                self.log.error(
-                    f"   - Console: {ANYSCALE_HOST}/clouds (if using custom host)"
-                )
+                self.log.error(f"   - Console: {ANYSCALE_HOST}/clouds (if using custom host)")
             else:
                 self.log.error("3. Anyscale Cloud Registration:")
-                self.log.error(
-                    f"   - Delete the cloud '{name}' (ID: {cloud_id}) from Anyscale"
-                )
+                self.log.error(f"   - Delete the cloud '{name}' (ID: {cloud_id}) from Anyscale")
                 self.log.error(f"   - CLI: anyscale cloud delete --name '{name}'")
 
     def _log_azure_cleanup_instructions(
@@ -2514,24 +2431,16 @@ class KubernetesCloudSetupCommand:
                 self.log.error(
                     f"   - To find the resource name, run: anyscale cloud get --name '{name}'"
                 )
-                self.log.error(
-                    f"   - Console: {ANYSCALE_HOST}/clouds (if using custom host)"
-                )
+                self.log.error(f"   - Console: {ANYSCALE_HOST}/clouds (if using custom host)")
             else:
                 self.log.error("2. Anyscale Cloud Registration:")
-                self.log.error(
-                    f"   - Delete the cloud '{name}' (ID: {cloud_id}) from Anyscale"
-                )
+                self.log.error(f"   - Delete the cloud '{name}' (ID: {cloud_id}) from Anyscale")
                 self.log.error(f"   - CLI: anyscale cloud delete --name '{name}'")
-                self.log.error(
-                    f"   - Console: {ANYSCALE_HOST}/clouds (if using custom host)"
-                )
+                self.log.error(f"   - Console: {ANYSCALE_HOST}/clouds (if using custom host)")
             self.log.error("")
 
         if not infrastructure:
-            self.log.error(
-                "No infrastructure resources were created before the failure."
-            )
+            self.log.error("No infrastructure resources were created before the failure.")
             self.log.error("")
 
 

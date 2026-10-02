@@ -1,0 +1,289 @@
+import re
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+# Method ids are free-form per-connector strings (e.g. "personal-api-key",
+# "service-account", "browser_oauth_builtin") — over a hundred distinct
+# values across existing specs, not a fixed vocabulary, so this only
+# catches the typo class of bug (stray case/whitespace/punctuation) rather
+# than restricting to a known set. Existing ids mix hyphens and
+# underscores (browser_oauth_builtin is the one underscore holdout among
+# otherwise-hyphenated ids), so both are allowed.
+_METHOD_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_-]*$")
+
+
+class ConnectorField(BaseModel):
+    name: str
+    label: str
+    type: str
+    required: bool = False
+    secret: bool = False
+    placeholder: str | None = None
+    description: str | None = None
+    default: Any = None
+    options: list[dict[str, Any]] | None = None
+
+
+class OAuthConfig(BaseModel):
+    auth_url: str
+    token_url: str
+    scopes: list[str] = []
+    extra_auth_params: dict[str, str] = {}
+    # Only meaningful when supports_revoke is True — where to POST the
+    # token being revoked (RFC 7009-style: token in the form-encoded body).
+    revoke_url: str | None = None
+    # Some providers (Linear, confirmed 2026-07-16) require an EXACT
+    # redirect_uri match, including port — unlike Google, which accepts
+    # any 127.0.0.1 port. Set this to a fixed port pre-registered on the
+    # provider's OAuth app; the desktop loopback server binds to it
+    # directly instead of a random free port. Omit for providers that
+    # accept any loopback port (the default, matches Google's behavior).
+    redirect_port: int | None = None
+    # The hostname advertised in a desktop loopback redirect URI. Keep this
+    # restricted to loopback names: providers such as Supabase allow HTTP for
+    # `localhost`, while the listener itself remains bound to 127.0.0.1.
+    redirect_host: str = "127.0.0.1"
+
+    @field_validator("redirect_host")
+    @classmethod
+    def _validate_redirect_host(cls, v: str) -> str:
+        if v not in {"127.0.0.1", "localhost", "::1"}:
+            raise ValueError("redirect_host must be a loopback hostname")
+        return v
+
+    # Only set on the `browser_oauth_builtin` method — the service-id slug
+    # (e.g. "google-drive") used in the /connectors/oauth/{service}/... web
+    # fallback routes. The engine name and this slug have already diverged
+    # historically (e.g. engine google_analytics_4 -> service
+    # google-analytics), so it can't be derived by string transform;
+    # renderer code reads this instead of a hardcoded engine->service map.
+    service_id: str | None = None
+    # Capability flags — does this provider issue refresh tokens / support
+    # revoking a grant. Default True matches Google's (and most providers')
+    # behavior; a connector without one or the other declares it explicitly.
+    # False means "skip this behavior silently," never a faked success.
+    supports_refresh: bool = True
+    supports_revoke: bool = True
+    # Client authentication method at the token endpoint. Most providers
+    # accept credentials in the form body; Supabase Management API OAuth uses
+    # HTTP Basic authentication.
+    token_auth_style: str = "body"
+
+
+class ConnectorMethod(BaseModel):
+    id: str
+    label: str
+    description: str | None = None
+    recommended: bool = False
+    hidden: bool = False
+    submit_action: str | None = None
+    oauth: OAuthConfig | None = None
+    how_to: str | None = None
+    help_url: str | None = None
+    fields: list[ConnectorField] = []
+
+    @field_validator("id")
+    @classmethod
+    def _validate_id_format(cls, v: str) -> str:
+        if not _METHOD_ID_PATTERN.match(v):
+            raise ValueError(
+                f"method id {v!r} must be lowercase alphanumeric with hyphens/underscores only"
+            )
+        return v
+
+
+class ConnectorForm(BaseModel):
+    form_id: str
+    title: str
+    subtitle: str | None = None
+    logo: str | None = None
+    logo_color: str | None = None
+    methods: list[ConnectorMethod] | None = None
+    fields: list[ConnectorField] | None = None
+
+
+class ConnectorMetadataResponse(BaseModel):
+    id: str
+    label: str
+    description: str
+    category: str
+    logo: str | None = None
+    logo_url: str | None = None
+    logo_color: str | None = None
+    aliases: list[str] = []
+    featured: bool = False
+    # Org (cloud) mode only: False marks a connector the hosted build can't
+    # run yet, so the directory can list it under a desktop-only group instead
+    # of hiding it. Always True on desktop, where the whole registry works.
+    cloud_available: bool = True
+
+
+class ConnectorSpecResponse(ConnectorMetadataResponse):
+    keywords: list[str] = []
+    form: ConnectorForm
+
+
+class MatchRequest(BaseModel):
+    query: str
+    max_candidates: int = Field(default=3, ge=1, le=5)
+
+
+class MatchCandidate(BaseModel):
+    id: str
+    confidence: float
+
+
+class MatchResponse(BaseModel):
+    candidates: list[MatchCandidate]
+    needs_clarification: bool
+    stage: str
+    question: str | None = None
+
+
+class SubmitFormRequest(BaseModel):
+    connector_id: str | None = None
+    method: str | None = None
+    name: str = ""
+    conversation_id: str | None = None
+    values: dict[str, Any] = Field(default_factory=dict)
+    skipped: list[str] = Field(default_factory=list)
+    # Compat: the current client sends form_id + form_spec instead of
+    # connector_id + method. Derive from these if connector_id is absent.
+    form_id: str | None = None
+    form_spec: dict[str, Any] | None = None
+
+    def resolve_connector_id(self) -> str:
+        if self.connector_id:
+            return self.connector_id
+        if self.form_spec and self.form_spec.get("_connector_id"):
+            return self.form_spec["_connector_id"]
+        if self.form_id:
+            return self.form_id.removesuffix("-connector")
+        raise ValueError("connector_id is required")
+
+    def resolve_method(self) -> str | None:
+        if self.method:
+            return self.method
+        if self.form_spec:
+            return self.form_spec.get("selected_method") or self.form_spec.get("auth_method")
+        return None
+
+
+class SaveConnectionResponse(BaseModel):
+    status: str
+    submission_id: str
+    engine: str
+    name: str
+    method: str | None
+    user_label: str | None = None
+
+
+class ConnectionSummaryResponse(BaseModel):
+    engine: str
+    name: str
+    # Human-facing name for the card (label or derived identity); falls back to
+    # `name` (the slug) client-side when null.
+    display_name: str | None = None
+    created_at: str | None = None
+    label: str | None = None
+    user_label: str | None = None
+    logo: str | None = None
+    logo_color: str | None = None
+    # "needs_reconnect" when the connection's token was lost/revoked; absent
+    # when healthy. Lets the catalogue card show a warning without requiring
+    # the client to fetch each connection's full detail first.
+    status: str | None = None
+
+
+class ConnectionDetailResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    engine: str
+    name: str
+    display_name: str | None = None
+    user_label: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+    connector_id: str | None = None
+    method: str | None = None
+    fields: dict[str, Any] = Field(default_factory=dict)
+    # Names of fields in `fields` that were masked with VAULT_KEEP_SENTINEL —
+    # lets the client show a "saved" indicator instead of the raw sentinel.
+    secure_keys: list[str] = Field(default_factory=list, serialization_alias="secureKeys")
+
+
+class DirectSaveRequest(BaseModel):
+    connector_id: str
+    method: str | None = None
+    name: str = ""
+    replace_existing: bool = False
+    values: dict[str, Any] = Field(default_factory=dict)
+
+
+class DirectSaveResponse(BaseModel):
+    ok: bool
+    name: str
+    label: str
+    user_label: str | None = None
+
+
+class PickedFile(BaseModel):
+    """A Drive file the user explicitly granted access to via the Google
+    Picker — drive.file scope only covers files the app created itself,
+    so this is how existing files become accessible."""
+
+    id: str
+    name: str
+    mime_type: str | None = Field(default=None, alias="mimeType")
+    icon_url: str | None = Field(default=None, alias="iconUrl")
+    url: str | None = None
+    # Required by Drive API alongside `id` for many files not owned by the
+    # connecting account (link-shared docs especially) — without it,
+    # files.get()/files.export() return 404 notFound even with a valid,
+    # correctly-granted token.
+    resource_key: str | None = Field(default=None, alias="resourceKey")
+    # Project names this file has been explicitly added to (via the chat
+    # composer or a project's Project files rail) — empty when the file
+    # was only ever picked from the connection-details "Pick files"
+    # button, which has no project context. Drives per-project scoping
+    # of the Project files display; the underlying Drive grant itself
+    # remains connection-wide regardless of this list.
+    projects: list[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class PatchPickedFilesBody(BaseModel):
+    files: list[PickedFile] = Field(default_factory=list)
+
+
+class PickerTokenResponse(BaseModel):
+    """What the SPA needs to build a Google Picker itself. `api_key` is
+    auth's `picker_api_key` under a different name, so this pins a rename
+    the client would otherwise only assert by hand."""
+
+    access_token: str
+    account_email: str = ""
+    api_key: str
+    app_id: str
+
+
+class OAuthStartRequest(BaseModel):
+    client_id: str = ""
+    client_secret: str = ""
+    extra_fields: dict[str, str] = Field(default_factory=dict)
+
+
+class OAuthStartResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    auth_url: str = Field(serialization_alias="authUrl")
+    redirect_uri: str = Field(serialization_alias="redirectUri")
+    started_at: str = Field(serialization_alias="startedAt")
+    state: str
+
+
+class DisabledConnection(BaseModel):
+    engine: str
+    name: str

@@ -98,9 +98,7 @@ def _read_identifiers_from_config_file(path: str):
         config = yaml.safe_load(f)
 
     if config is None or "job_config" not in config:
-        raise click.ClickException(
-            f"No 'job_config' property found in config file '{path}'."
-        )
+        raise click.ClickException(f"No 'job_config' property found in config file '{path}'.")
 
     job_config = config.get("job_config")
     name = job_config.get("name", None)
@@ -111,13 +109,13 @@ def _read_identifiers_from_config_file(path: str):
 
 
 def _validate_schedule_identifiers(
-    name: Optional[str], id: Optional[str], config_file: Optional[str]  # noqa: A002
+    name: Optional[str],
+    id: Optional[str],  # noqa: A002
+    config_file: Optional[str],
 ):
     num_passed = sum(val is not None for val in [name, id, config_file])
     if num_passed == 0:
-        raise click.ClickException(
-            "One of '--name', '--id', or '--config-file' must be provided."
-        )
+        raise click.ClickException("One of '--name', '--id', or '--config-file' must be provided.")
 
     if num_passed > 1:
         raise click.ClickException(
@@ -138,7 +136,9 @@ def _validate_schedule_identifiers(
     ],
 )
 @schedule_cli.command(
-    name="apply", short_help="Create or update a schedule.", cls=AnyscaleCommand,
+    name="apply",
+    short_help="Create or update a schedule.",
+    cls=AnyscaleCommand,
 )
 @click.option(
     "--config-file",
@@ -147,10 +147,11 @@ def _validate_schedule_identifiers(
     type=str,
     help="Path to a YAML config file to use for this schedule. Command-line flags will overwrite values read from the file.",
 )
-@click.option(
-    "--name", "-n", required=False, default=None, help="Name of the schedule."
-)
-def apply(config_file: str, name: Optional[str],) -> None:
+@click.option("--name", "-n", required=False, default=None, help="Name of the schedule.")
+def apply(
+    config_file: str,
+    name: Optional[str],
+) -> None:
     """Create or update a schedule.
 
     The schedule should be specified in a YAML config file.
@@ -162,7 +163,9 @@ def apply(config_file: str, name: Optional[str],) -> None:
 
     if name is not None:
         assert isinstance(config.job_config, JobConfig)
-        config = config.options(job_config=config.job_config.options(name=name),)
+        config = config.options(
+            job_config=config.job_config.options(name=name),
+        )
 
     log.info(f"Applying schedule with config {config}.")
     anyscale.schedule.apply(config)
@@ -294,7 +297,9 @@ def _print_schedule_list_diagnostics(  # noqa: PLR0913
     ],
 )
 @schedule_cli.command(
-    name="list", short_help="List schedules.", cls=AnyscaleCommand,
+    name="list",
+    short_help="List schedules.",
+    cls=AnyscaleCommand,
 )
 @click.option(
     "--v2",
@@ -521,7 +526,9 @@ def list(  # noqa: A001 PLR0913
     ],
 )
 @schedule_cli.command(
-    name="pause", short_help="Pause a schedule.", cls=AnyscaleCommand,
+    name="pause",
+    short_help="Pause a schedule.",
+    cls=AnyscaleCommand,
 )
 @click.option(
     "--config-file",
@@ -530,9 +537,7 @@ def list(  # noqa: A001 PLR0913
     type=str,
     help="Path to a YAML config file to use for this schedule.",
 )
-@click.option(
-    "--name", "-n", required=False, default=None, help="Name of the schedule."
-)
+@click.option("--name", "-n", required=False, default=None, help="Name of the schedule.")
 @click.option(
     "--schedule-id",
     "--id",
@@ -557,7 +562,11 @@ def list(  # noqa: A001 PLR0913
     help="Named project to use for the schedule. If not provided, the default project for the cloud will be used (or, if running in a workspace, the project of the workspace).",
 )
 def pause(
-    config_file: str, name: str, cloud: str, project: str, id: str  # noqa: A002
+    config_file: str,
+    name: str,
+    cloud: str,
+    project: str,
+    id: str,  # noqa: A002
 ) -> None:
     """Pause a Schedule.
 
@@ -596,7 +605,9 @@ def pause(
     ],
 )
 @schedule_cli.command(
-    name="resume", short_help="Resume a paused schedule.", cls=AnyscaleCommand,
+    name="resume",
+    short_help="Resume a paused schedule.",
+    cls=AnyscaleCommand,
 )
 @click.option(
     "--config-file",
@@ -605,9 +616,7 @@ def pause(
     type=str,
     help="Path to a YAML config file to use for this schedule.",
 )
-@click.option(
-    "--name", "-n", required=False, default=None, help="Name of the schedule."
-)
+@click.option("--name", "-n", required=False, default=None, help="Name of the schedule.")
 @click.option(
     "--schedule-id",
     "--id",
@@ -632,7 +641,11 @@ def pause(
     help="Named project to use for the schedule. If not provided, the default project for the cloud will be used (or, if running in a workspace, the project of the workspace).",
 )
 def resume(
-    config_file: str, name: str, cloud: str, project: str, id: str  # noqa: A002
+    config_file: str,
+    name: str,
+    cloud: str,
+    project: str,
+    id: str,  # noqa: A002
 ) -> None:
     """Resume a schedule.
 
@@ -683,7 +696,9 @@ def resume(
     output_schema=ScheduleStatus,
 )
 @schedule_cli.command(
-    name="status", short_help="Get the status of a schedule.", cls=AnyscaleCommand,
+    name="status",
+    short_help="Get the status of a schedule.",
+    cls=AnyscaleCommand,
 )
 @click.option(
     "--config-file",
@@ -692,9 +707,7 @@ def resume(
     type=str,
     help="Path to a YAML config file to use for this schedule.",
 )
-@click.option(
-    "--name", "-n", required=False, default=None, help="Name of the schedule."
-)
+@click.option("--name", "-n", required=False, default=None, help="Name of the schedule.")
 @click.option(
     "--schedule-id",
     "--id",
@@ -722,9 +735,7 @@ def resume(
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice(
-        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
-    ),
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
     help="Output format for the result.",
@@ -802,7 +813,9 @@ def status(
     ],
 )
 @schedule_cli.command(
-    name="run", short_help="Manually run a schedule now.", cls=AnyscaleCommand,
+    name="run",
+    short_help="Manually run a schedule now.",
+    cls=AnyscaleCommand,
 )
 @click.option(
     "--config-file",
@@ -811,9 +824,7 @@ def status(
     type=str,
     help="Path to a YAML config file to use for this schedule.",
 )
-@click.option(
-    "--name", "-n", required=False, default=None, help="Name of the schedule."
-)
+@click.option("--name", "-n", required=False, default=None, help="Name of the schedule.")
 @click.option(
     "--schedule-id",
     "--id",
@@ -838,7 +849,11 @@ def status(
     help="Named project to use for the schedule. If not provided, the default project for the cloud will be used (or, if running in a workspace, the project of the workspace).",
 )
 def trigger(
-    config_file: str, name: str, id: str, cloud: str, project: str  # noqa: A002
+    config_file: str,
+    name: str,
+    id: str,  # noqa: A002
+    cloud: str,
+    project: str,
 ) -> None:
     """Manually run a schedule now.
 
@@ -859,7 +874,9 @@ def trigger(
             name, cloud, project = _read_identifiers_from_config_file(config_file)
 
         anyscale.schedule.trigger(
-            name=name, cloud=cloud, project=project,
+            name=name,
+            cloud=cloud,
+            project=project,
         )
 
 
@@ -876,12 +893,12 @@ def trigger(
     ],
 )
 @schedule_cli.command(
-    name="url", short_help="Get the console URL of a schedule.", cls=AnyscaleCommand,
+    name="url",
+    short_help="Get the console URL of a schedule.",
+    cls=AnyscaleCommand,
 )
 @click.argument("schedule_config_file", required=False)
-@click.option(
-    "--name", "-n", required=False, default=None, help="Name of the schedule."
-)
+@click.option("--name", "-n", required=False, default=None, help="Name of the schedule.")
 @click.option(
     "--schedule-id",
     "--id",
@@ -909,7 +926,10 @@ def url(
     """
     if v2:
         result_url = anyscale.schedule.url(
-            id=id, name=name, cloud=cloud, project=project,
+            id=id,
+            name=name,
+            cloud=cloud,
+            project=project,
         )
         click.echo(f"View your schedule at {result_url}")
     else:
@@ -939,14 +959,10 @@ def _validate_delete_identifiers(
         raise click.ClickException("Only one of '--name' or '--id' can be provided.")
 
     if id is not None and (cloud is not None or project is not None):
-        raise click.ClickException(
-            "'--cloud' and '--project' cannot be used with '--id'."
-        )
+        raise click.ClickException("'--cloud' and '--project' cannot be used with '--id'.")
 
     if name is not None and (cloud is None or project is None):
-        raise click.ClickException(
-            "'--cloud' and '--project' are required when using '--name'."
-        )
+        raise click.ClickException("'--cloud' and '--project' are required when using '--name'.")
 
 
 @command_metadata(
@@ -962,11 +978,11 @@ def _validate_delete_identifiers(
     ],
 )
 @schedule_cli.command(
-    name="delete", short_help="Delete a schedule.", cls=AnyscaleCommand,
+    name="delete",
+    short_help="Delete a schedule.",
+    cls=AnyscaleCommand,
 )
-@click.option(
-    "--name", "-n", required=False, default=None, help="Name of the schedule."
-)
+@click.option("--name", "-n", required=False, default=None, help="Name of the schedule.")
 @click.option(
     "--schedule-id",
     "--id",

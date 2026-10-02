@@ -8,8 +8,8 @@ use crate::Rule;
 
 pub struct TablesOutOfOrderRule;
 
-impl Rule<tombi_ast_syntax::Root> for TablesOutOfOrderRule {
-    async fn check(node: &tombi_ast_syntax::Root, l: &mut crate::Linter<'_>) {
+impl Rule<tombi_ast_syntax::Root<'_>> for TablesOutOfOrderRule {
+    async fn check(node: &tombi_ast_syntax::Root<'_>, l: &mut crate::Linter<'_>) {
         let comment_directive = get_comment_directive_content::<
             TableCommonFormatRules,
             RootTableCommonLintRules,
@@ -46,16 +46,16 @@ impl Rule<tombi_ast_syntax::Root> for TablesOutOfOrderRule {
         }
 
         let source_text = l.source_text();
-        let mut table_positions: Vec<(usize, Vec<&str>, tombi_text::Range)> = Vec::new();
+        let mut table_positions: Vec<(usize, Vec<&str>, tombi_text::Span)> = Vec::new();
 
         // Collect all table definitions
-        for (position, item) in node.items().enumerate() {
+        for (offset, item) in node.items().enumerate() {
             match item {
                 tombi_ast_syntax::RootItem::Table(table) => {
                     if let Some(header) = table.header() {
                         let key_parts = extract_key_parts(&header, source_text);
                         if !key_parts.is_empty() {
-                            table_positions.push((position, key_parts, table.syntax().range()));
+                            table_positions.push((offset, key_parts, table.syntax().span()));
                         }
                     }
                 }
@@ -63,11 +63,7 @@ impl Rule<tombi_ast_syntax::Root> for TablesOutOfOrderRule {
                     if let Some(header) = array_table.header() {
                         let key_parts = extract_key_parts(&header, source_text);
                         if !key_parts.is_empty() {
-                            table_positions.push((
-                                position,
-                                key_parts,
-                                array_table.syntax().range(),
-                            ));
+                            table_positions.push((offset, key_parts, array_table.syntax().span()));
                         }
                     }
                 }
@@ -76,25 +72,25 @@ impl Rule<tombi_ast_syntax::Root> for TablesOutOfOrderRule {
         }
 
         // Check if tables with same prefix are out of order
-        let mut out_of_order_ranges = Vec::new();
+        let mut out_of_order_spans = Vec::new();
 
         // Group tables by their first key component (prefix)
-        let mut prefix_groups: tombi_hashmap::HashMap<&str, Vec<(usize, tombi_text::Range)>> =
+        let mut prefix_groups: tombi_hashmap::HashMap<&str, Vec<(usize, tombi_text::Span)>> =
             tombi_hashmap::HashMap::new();
-        for (pos, keys, range) in &table_positions {
+        for (pos, keys, span) in &table_positions {
             if !keys.is_empty() {
                 prefix_groups
                     .entry(keys[0])
                     .or_default()
-                    .push((*pos, *range));
+                    .push((*pos, *span));
             }
         }
 
         // For each prefix group with multiple tables, check if they are interrupted
-        for (prefix, positions) in &prefix_groups {
-            if positions.len() > 1 {
-                let min_pos = positions.iter().map(|(pos, _)| *pos).min().unwrap();
-                let max_pos = positions.iter().map(|(pos, _)| *pos).max().unwrap();
+        for (prefix, offsets) in &prefix_groups {
+            if offsets.len() > 1 {
+                let min_pos = offsets.iter().map(|(pos, _)| *pos).min().unwrap();
+                let max_pos = offsets.iter().map(|(pos, _)| *pos).max().unwrap();
 
                 // Check if there are any tables with different prefixes between min and max
                 let has_interrupting_tables = table_positions.iter().any(|(pos, keys, _)| {
@@ -103,18 +99,18 @@ impl Rule<tombi_ast_syntax::Root> for TablesOutOfOrderRule {
 
                 // If there are interrupting tables, mark all tables in this group as out of order
                 if has_interrupting_tables {
-                    out_of_order_ranges.extend(positions.iter().map(|(_, range)| *range));
+                    out_of_order_spans.extend(offsets.iter().map(|(_, span)| *span));
                 }
             }
         }
 
         // Report diagnostics for all out-of-order tables
-        if !out_of_order_ranges.is_empty() {
-            for range in out_of_order_ranges {
+        if !out_of_order_spans.is_empty() {
+            for span in out_of_order_spans {
                 l.extend_diagnostics(crate::Diagnostic {
                     kind: crate::DiagnosticKind::TablesOutOfOrder,
                     level: level.into(),
-                    range,
+                    span,
                 });
             }
         }

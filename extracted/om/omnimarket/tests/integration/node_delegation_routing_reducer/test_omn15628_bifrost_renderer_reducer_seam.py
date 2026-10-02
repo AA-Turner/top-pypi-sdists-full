@@ -1,0 +1,365 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Cross-boundary seam test: omnibase_infra renderer -> omnimarket reducer (OMN-15628).
+
+AC(b): the renderer (``omnibase_infra.runtime.render_bifrost_delegation_contract``)
+writes a rendered contract to a path; the reducer
+(``omnimarket...handler_delegation_routing._load_bifrost_endpoints``) loads from
+that SAME path via the real config_loader code path and resolves the renderer's
+written endpoints. This drives the REAL seam on both sides — not two independent
+unit suites that each assert against their own fixture — and must fail if the two
+are pointed at different paths (the exact OMN-15628 defect: BIFROST_CONTRACT_PATH
+set on the renderer's write side but unset/different on the reducer's read side).
+
+``omnimarket`` already depends on ``omnibase_infra`` (pinned dependency, `compat ->
+core -> spi -> infra` layering; infra does not depend on market) so both real
+modules are importable from this repo's test environment with no cross-repo test
+runner needed.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Generator
+from dataclasses import dataclass
+from pathlib import Path
+
+import pytest
+import yaml
+from omnibase_infra.errors import ProtocolConfigurationError
+from omnibase_infra.runtime.models import (
+    enum_bifrost_lane_locale as _locale,
+)
+from omnibase_infra.runtime.models import (
+    model_bifrost_lane_overlay as _overlay,
+)
+from omnibase_infra.runtime.render_bifrost_delegation_contract import (
+    render_bifrost_delegation_contract,
+)
+
+from omnimarket.nodes.node_delegation_routing_reducer.handlers import (
+    handler_delegation_routing as routing,
+)
+
+pytestmark = pytest.mark.integration
+
+_SEAM_ENDPOINT_ENV = "OMN15628_SEAM_TEST_LOCAL_CODER_ENDPOINT_URL"
+
+# The three lab bindings this seam declares, stated as literal fixture values.
+#
+# History: OMN-16794 / OMN-16997 read these from omnibase_infra's
+# ``model_bifrost_lane_backend_binding`` (``_AUTHORIZED_BINDINGS``,
+# ``ACTIVE_BACKEND_KEYS``, ``_CHAT_COMPLETIONS_PATH``), a hardcoded
+# authorization table the lane-overlay renderer enforced. OMN-17099 (operator
+# ruling 2026-09-22) deletes that table in omnibase_infra and validates the
+# overlay against the contract instead. omnimarket pins a PUBLISHED infra
+# release through uv.lock, so this file must pass against both the pinned
+# release (which still enforces the table) and the release that drops it. The
+# values below equal the committed lab lane overlay, which is what the table
+# held, so the pinned renderer's authorization check accepts them and the
+# contract-validating renderer has nothing to reject. This file's subject is
+# the renderer -> reducer PATH seam; the binding values are fixture data.
+
+
+@dataclass(frozen=True)
+class _LabBinding:
+    endpoint_url: str
+    served_model_id: str
+    parameter_count: str
+    context_window: int
+    serving: bool
+
+
+_LAB_BINDINGS: dict[str, _LabBinding] = {
+    "local-coder": _LabBinding(
+        endpoint_url="http://192.168.86.201:8000/v1/chat/completions",  # onex-allow-internal-ip OMN-17099 reason="test fixture mirroring the committed lab lane overlay"
+        served_model_id="Qwen3.8-27B",
+        parameter_count="27B",
+        context_window=131072,
+        serving=True,
+    ),
+    "local-heavy-reasoning": _LabBinding(
+        endpoint_url="http://192.168.86.201:8000/v1/chat/completions",  # onex-allow-internal-ip OMN-17099 reason="test fixture mirroring the committed lab lane overlay"
+        served_model_id="Qwen3.8-27B",
+        parameter_count="27B",
+        context_window=131072,
+        serving=True,
+    ),
+    "local-ds-v4-flash": _LabBinding(
+        endpoint_url="http://192.168.86.200:8101/v1/chat/completions",  # onex-allow-internal-ip OMN-17099 reason="test fixture mirroring the committed lab lane overlay"
+        served_model_id="deepseek-v4-flash",
+        parameter_count="284B",
+        context_window=131072,
+        serving=False,
+    ),
+}
+_ACTIVE_BACKEND_IDS: tuple[str, ...] = tuple(sorted(_LAB_BINDINGS))
+
+
+def _authorized_endpoint_url(backend_id: str) -> str:
+    """The lab endpoint URL the committed lane overlay binds for a backend."""
+    return _LAB_BINDINGS[backend_id].endpoint_url
+
+
+_SEAM_BACKEND_ID = "local-coder"
+_SEAM_BINDING = _LAB_BINDINGS[_SEAM_BACKEND_ID]
+_SEAM_ENDPOINT_URL = _authorized_endpoint_url(_SEAM_BACKEND_ID)
+_SEAM_SERVED_MODEL_ID = _SEAM_BINDING.served_model_id
+_SEAM_PARAMETER_COUNT = _SEAM_BINDING.parameter_count
+_SEAM_CONTEXT_WINDOW = _SEAM_BINDING.context_window
+
+_SOURCE_BACKENDS_YAML = "\n".join(
+    f"""  - backend_id: {backend_id}
+    provider: local
+    endpoint_url_env: {_SEAM_ENDPOINT_ENV}
+    endpoint_url: null
+    model_name: {_LAB_BINDINGS[backend_id].served_model_id}
+    tier: local
+    timeout_ms: 30000
+    capabilities: [code_generation]"""
+    for backend_id in _ACTIVE_BACKEND_IDS
+)
+
+# OMN-16794/OMN-16997: the v2 lane overlay must declare EXACTLY the active
+# local backends, and the renderer rejects an overlay naming a backend the base
+# does not carry — so the base declares every active backend even though only
+# local-coder is asserted on. The set is the fixture table above (OMN-17099:
+# infra no longer exports a hardcoded active-backend set to read it from).
+_SOURCE_CONTRACT = f"""\
+config_version: "1.0.0"
+schema_version: "bifrost_delegation.v1"
+backends:
+{_SOURCE_BACKENDS_YAML}
+routing_rules:
+  - rule_id: "d4e5f6a7-0001-4000-8000-000000000001"
+    priority: 10
+    task_class: code_generation
+    task_class_contract_version: "1.0.0"
+    backend_policy_version: "1.0.0"
+    match_operation_types: [chat_completion]
+    match_capabilities: [code_generation]
+    backend_ids: [local-coder]
+    fallback_policy:
+      action: escalate_to_next_tier
+      max_retries: 1
+      on_exhaust: return_error
+    shadow_policy_id: "e5f6a7b8-0001-4000-8000-000000000001"
+default_backends:
+  - local-coder
+circuit_breaker:
+  failure_threshold: 5
+  window_seconds: 30
+failover:
+  max_attempts: 3
+  backoff_base_ms: 500
+shadow_mode:
+  enabled: false
+  policy_version: "unknown"
+  log_sample_rate: 1.0
+  comparison_logging_enabled: true
+  max_shadow_latency_ms: 5.0
+"""
+
+
+@pytest.fixture(autouse=True)
+def _clear_module_caches() -> Generator[None, None, None]:
+    routing._load_bifrost_endpoints.cache_clear()
+    yield
+    routing._load_bifrost_endpoints.cache_clear()
+
+
+def _render_source(tmp_path: Path) -> Path:
+    source_path = tmp_path / "source" / "bifrost_delegation.yaml"
+    source_path.parent.mkdir(parents=True, exist_ok=True)
+    source_path.write_text(_SOURCE_CONTRACT)
+    return source_path
+
+
+# OMN-16794: omnibase-infra 0.38.10 reshaped the renderer. It no longer takes
+# `force_reseed`, and it no longer resolves a backend's endpoint from that
+# backend's `endpoint_url_env`. It now renders BASE + a required typed LANE
+# OVERLAY, and the overlay is the sole authority for endpoint, model, and local
+# operational bindings (OMN-15807). With no `overlay_path` it falls back to the
+# DEPLOYED default `/app/config/delegation/dev.bifrost.yaml`, which does not
+# exist in a test environment — so the overlay has to be supplied explicitly.
+#
+# The seam this file guards is unchanged and is still what is asserted: the
+# renderer writes to a path it resolves ITSELF from BIFROST_CONTRACT_PATH, and
+# the reducer reads from that same path. Only the source of the endpoint value
+# moved, from env var to overlay.
+#
+# ModelBifrostLaneOverlay is strict: schema_version is pinned, and `backends`
+# must declare EXACTLY the active local backend ids, so every one appears here
+# even though only local-coder is asserted on.
+#
+# OMN-17556: omnibase-infra 0.38.19 (via OMN-17502) moves the overlay schema
+# v2 -> v3 and makes `locale` a REQUIRED field with no default, so a v2 file is
+# structurally not a v3 file and this fixture's overlay stopped validating. The
+# three fixture values below are adopted, not worked around:
+#
+#   * schema_version is READ from the installed model rather than retyped, the
+#     same idiom the endpoint/model/context values above already use. This
+#     file's subject is the renderer -> reducer PATH seam, not the overlay
+#     version; a pinned literal here breaks the seam proof on every upstream
+#     schema bump for a reason that has nothing to do with the seam, and the
+#     overlay is still validated in full by the renderer on every run, so an
+#     invalid fixture cannot pass silently.
+#   * locale is `lab`: this fixture declares the full active local backend set,
+#     which is exactly what EnumBifrostLaneLocale.LAB requires and what
+#     .CLOUD forbids (a cloud lane must declare ZERO local backends).
+#   * serving is emitted per backend from the fixture table above, matching the
+#     committed lab lane overlay -- local-ds-v4-flash is currently dark, and the
+#     pinned release's binding model rejects an overlay that claims otherwise.
+_OVERLAY_SCHEMA_VERSION = _overlay._SCHEMA_VERSION
+_OVERLAY_LOCALE = _locale.EnumBifrostLaneLocale.LAB.value
+
+
+def _render_overlay(tmp_path: Path, *, coder_endpoint_url: str) -> Path:
+    overlay_path = tmp_path / "overlay" / "dev.bifrost.yaml"
+    overlay_path.parent.mkdir(parents=True, exist_ok=True)
+    overlay_path.write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": _OVERLAY_SCHEMA_VERSION,
+                "lane": "seam-test",
+                "locale": _OVERLAY_LOCALE,
+                "backends": [
+                    {
+                        "backend_id": backend_key,
+                        # Only the backend under test takes the caller-supplied
+                        # URL; every other active backend must carry ITS OWN
+                        # authorized endpoint/model, because the binding is an
+                        # authorization contract per backend (local-ds-v4-flash
+                        # lives on a different host and model than local-coder,
+                        # so reusing the coder URL is rejected outright).
+                        "endpoint_url": (
+                            coder_endpoint_url
+                            if backend_key == _SEAM_BACKEND_ID
+                            else _authorized_endpoint_url(backend_key)
+                        ),
+                        "served_model_id": _LAB_BINDINGS[backend_key].served_model_id,
+                        "parameter_count": _LAB_BINDINGS[backend_key].parameter_count,
+                        "context_window": _LAB_BINDINGS[backend_key].context_window,
+                        "max_tokens": 4096,
+                        "timeout_ms": 30000,
+                        "serving": _LAB_BINDINGS[backend_key].serving,
+                    }
+                    for backend_key in _ACTIVE_BACKEND_IDS
+                ],
+            },
+            sort_keys=False,
+        )
+    )
+    return overlay_path
+
+
+class TestRendererReducerSeamMatched:
+    """The renderer's real output resolves through the reducer's real loader
+    when both sides are bound to the SAME path — the deployed shape after this
+    ticket's k8s manifest fix (AC d)."""
+
+    def test_reducer_resolves_the_renderer_written_endpoint(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        source_path = _render_source(tmp_path)
+        shared_path = tmp_path / "rendered" / "bifrost_delegation.yaml"
+
+        # Producer: the REAL omnibase_infra renderer resolves ITS OWN target
+        # path from BIFROST_CONTRACT_PATH — target_path=None so
+        # _resolve_target_path actually reads the env var, the same way the
+        # entrypoint invokes it in production. (OMN-15628 remediation: an
+        # earlier version of this test passed target_path explicitly, which
+        # bypassed the renderer's own env resolution entirely and could not
+        # detect a producer-side regression in the shared key — only the
+        # consumer side was actually driving the seam.)
+        rendered_path = render_bifrost_delegation_contract(
+            source_path=source_path,
+            overlay_path=_render_overlay(
+                tmp_path, coder_endpoint_url=_SEAM_ENDPOINT_URL
+            ),
+            target_path=None,
+            environ={
+                _SEAM_ENDPOINT_ENV: _SEAM_ENDPOINT_URL,
+                "BIFROST_CONTRACT_PATH": str(shared_path),
+            },
+            verify_endpoints=False,
+        )
+        assert rendered_path == shared_path
+        assert shared_path.exists()
+
+        # Consumer: the REAL reducer loader, pointed at the SAME path via the
+        # SAME env var the k8s manifest binds (BIFROST_CONTRACT_PATH).
+        monkeypatch.setenv("BIFROST_CONTRACT_PATH", str(shared_path))
+        monkeypatch.delenv("BIFROST_OVERLAY_PATH", raising=False)
+        routing._load_bifrost_endpoints.cache_clear()
+
+        endpoints = routing._load_bifrost_endpoints()
+
+        assert "local-coder" in endpoints
+        assert endpoints["local-coder"].endpoint_url == _SEAM_ENDPOINT_URL
+
+        # Content-match proof: what the renderer wrote is what the reducer
+        # resolved from — path identity AND content identity, not two
+        # independently-constructed copies that happen to agree by accident.
+        written = yaml.safe_load(shared_path.read_text())
+        written_backend = next(
+            b for b in written["backends"] if b["backend_id"] == "local-coder"
+        )
+        assert written_backend["endpoint_url"] == endpoints["local-coder"].endpoint_url
+
+
+class TestRendererReducerSeamMismatched:
+    """AC(b): the test must fail (surface an attributable error, not a silent
+    divergence) when the renderer and reducer are pointed at DIFFERENT paths —
+    the exact pre-fix onex-dev defect shape (BIFROST_CONTRACT_PATH set only on
+    projection-api; unset on runtime/effects/worker, which wrote nothing and
+    silently read the packaged default instead)."""
+
+    def test_reducer_pointed_elsewhere_does_not_silently_resolve(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        source_path = _render_source(tmp_path)
+        renderer_target = tmp_path / "renderer_writes_here" / "bifrost_delegation.yaml"
+
+        # Producer: resolves ITS OWN target from its own BIFROST_CONTRACT_PATH
+        # binding (target_path=None — see the matched-seam test above for why
+        # this must drive the real env resolution on both sides).
+        render_bifrost_delegation_contract(
+            source_path=source_path,
+            overlay_path=_render_overlay(
+                tmp_path, coder_endpoint_url=_SEAM_ENDPOINT_URL
+            ),
+            target_path=None,
+            environ={
+                _SEAM_ENDPOINT_ENV: _SEAM_ENDPOINT_URL,
+                "BIFROST_CONTRACT_PATH": str(renderer_target),
+            },
+            verify_endpoints=False,
+        )
+        assert renderer_target.exists()
+
+        # Consumer bound to a DIFFERENT path than the renderer wrote to — the
+        # real onex-dev pre-fix defect shape (the producer pod's
+        # BIFROST_CONTRACT_PATH differs from / is unset relative to the
+        # consumer pod's).
+        reducer_path = tmp_path / "reducer_reads_here" / "bifrost_delegation.yaml"
+        monkeypatch.setenv("BIFROST_CONTRACT_PATH", str(reducer_path))
+        monkeypatch.delenv("BIFROST_OVERLAY_PATH", raising=False)
+        routing._load_bifrost_endpoints.cache_clear()
+
+        # A mismatched seam must surface as an attributable failure (missing
+        # file), never a silent fallback that returns a different-but-plausible
+        # endpoint set.
+        with pytest.raises(ProtocolConfigurationError):
+            routing._load_bifrost_endpoints()
+
+
+# Note (OMN-15628 remediation): the renderer's OWN "BIFROST_CONTRACT_PATH
+# unbound -> refuse" behavior (the write-side twin of the read-side fix
+# proven above) is deliberately NOT re-tested here. omnimarket consumes
+# omnibase_infra via a pinned git rev (see pyproject.toml), not this sibling
+# worktree's live source, so a test in THIS repo cannot observe an in-flight
+# omnibase_infra-side fix until the pin is bumped post-merge — asserting it
+# here would be a false RED against the currently-pinned rev, not a real
+# regression signal. That behavior is proven directly in omnibase_infra's own
+# suite: tests/unit/runtime/test_render_bifrost_delegation_contract.py::
+# test_unbound_contract_path_refuses_naming_the_key.

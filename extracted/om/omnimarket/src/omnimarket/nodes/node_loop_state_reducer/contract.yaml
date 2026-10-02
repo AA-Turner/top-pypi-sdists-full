@@ -1,0 +1,204 @@
+---
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# ONEX Node Contract - Build Loop State Reducer
+#
+# FSM-based state tracking for the autonomous build loop.
+# ONLY authority for phase transitions. Circuit breaker after 3 consecutive failures.
+#
+# Migrated from omnibase_infra [OMN-7577].
+#
+# Related Tickets:
+#   - OMN-7577: Migrate node_loop_state_reducer to omnimarket
+#   - OMN-7313: node_loop_state_reducer
+#   - OMN-5113: Autonomous Build Loop epic
+name: node_loop_state_reducer
+node_type: reducer
+contract_version: {major: 1, minor: 0, patch: 0}
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  FSM-based state tracking for the autonomous build loop with circuit breaker.
+  Pure reducer: delta(state, event) -> (new_state, intents[]).
+
+input_model:
+  name: ModelBuildLoopEvent
+  module: omnimarket.nodes.node_loop_state_reducer.models.model_build_loop_event
+  description: "Event from a completed build loop phase."
+
+output_model:
+  name: ModelBuildLoopState
+  module: omnimarket.nodes.node_loop_state_reducer.models.model_build_loop_state
+  description: "New FSM state after applying the event."
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: reduce_loop_state
+      handler:
+        name: HandlerLoopState
+        module: omnimarket.nodes.node_loop_state_reducer.handlers.handler_loop_state
+
+descriptor:
+  node_archetype: reducer
+  purity: pure
+  idempotent: true
+  timeout_ms: 5000
+
+state_machine:
+  version: {major: 1, minor: 0, patch: 0}
+  state_machine_name: build_loop_fsm
+  state_machine_version: {major: 1, minor: 0, patch: 0}
+  description: "build_loop_fsm"
+  initial_state: idle
+  terminal_states: [complete, failed]
+  error_states: []
+  persistence_enabled: false
+  states:
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: idle
+      state_type: operational
+      description: "Waiting for build loop start command"
+      required_data: []
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: closing_out
+      state_type: operational
+      description: "Closing out pending work (merge-sweep, quality gates)"
+      required_data: ["correlation_id"]
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: verifying
+      state_type: operational
+      description: "Verifying system health (dashboard, runtime, data flow)"
+      required_data: ["correlation_id"]
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: filling
+      state_type: operational
+      description: "Filling sprint backlog via RSD scoring"
+      required_data: ["correlation_id"]
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: classifying
+      state_type: operational
+      description: "Classifying tickets by buildability"
+      required_data: ["correlation_id"]
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: building
+      state_type: operational
+      description: "Dispatching builds for auto-buildable tickets"
+      required_data: ["correlation_id"]
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: complete
+      state_type: terminal
+      description: "Build loop cycle completed successfully"
+      is_terminal: true
+      is_recoverable: false
+      required_data: ["correlation_id", "tickets_dispatched"]
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: failed
+      state_type: terminal
+      description: "Build loop cycle failed"
+      is_terminal: true
+      is_recoverable: false
+      required_data: ["error_message"]
+  transitions:
+    # Build loop command received, start close-out
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: idle_to_closing_out_on_start_received
+      from_state: idle
+      to_state: closing_out
+      trigger: start_received
+    # Build loop started with skip_closeout=true
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: idle_to_verifying_on_start_received_skip_closeout
+      from_state: idle
+      to_state: verifying
+      trigger: start_received_skip_closeout
+    # Close-out done, verify system health
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: closing_out_to_verifying_on_closeout_complete
+      from_state: closing_out
+      to_state: verifying
+      trigger: closeout_complete
+    # Verification passed, fill sprint
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: verifying_to_filling_on_verify_complete
+      from_state: verifying
+      to_state: filling
+      trigger: verify_complete
+    # Sprint filled, classify tickets
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: filling_to_classifying_on_fill_complete
+      from_state: filling
+      to_state: classifying
+      trigger: fill_complete
+    # Classification done, dispatch builds
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: classifying_to_building_on_classify_complete
+      from_state: classifying
+      to_state: building
+      trigger: classify_complete
+    # All builds dispatched
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: building_to_complete_on_build_complete
+      from_state: building
+      to_state: complete
+      trigger: build_complete
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: closing_out_to_failed_on_error
+      from_state: closing_out
+      to_state: failed
+      trigger: error
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: verifying_to_failed_on_error
+      from_state: verifying
+      to_state: failed
+      trigger: error
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: filling_to_failed_on_error
+      from_state: filling
+      to_state: failed
+      trigger: error
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: classifying_to_failed_on_error
+      from_state: classifying
+      to_state: failed
+      trigger: error
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: building_to_failed_on_error
+      from_state: building
+      to_state: failed
+      trigger: error
+
+terminal_event: onex.evt.omnimarket.build-loop-state-reduced.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.evt.omnimarket.build-loop-started.v1
+    - onex.evt.omnimarket.build-loop-closeout-completed.v1
+    - onex.evt.omnimarket.build-loop-verify-completed.v1
+    - onex.evt.omnimarket.build-loop-fill-completed.v1
+    - onex.evt.omnimarket.build-loop-classify-completed.v1
+    - onex.evt.omnimarket.build-loop-build-completed.v1
+    - onex.evt.omnimarket.build-loop-failed.v1
+  publish_topics:
+    - onex.evt.omnimarket.build-loop-state-reduced.v1
+
+metadata:
+  transport_type: kafka
+  description: "Build loop FSM reducer for the autonomous build loop"
+  author: "OmniNode Team"
+  created: "2026-04-02"
+  tags:
+    - reducer
+    - fsm
+    - build-loop
+    - circuit-breaker
+    - OMN-5113
+  related_tickets:
+    - OMN-7577
+    - OMN-7313
+    - OMN-5113
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.build-loop-state-reduced.v1

@@ -1,0 +1,59 @@
+[workspace]
+resolver = "2"
+members = ["kcl", "kcl-python"]
+
+[workspace.package]
+version = "0.1.4"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/awslabs/amazon-kinesis-client"
+description = "Rust port of the Amazon Kinesis Client Library (KCL)"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1.52", features = ["rt-multi-thread", "macros", "sync", "time", "signal", "io-util"] }
+tokio-util = { version = "0.7" }
+futures = "0.3"
+async-trait = "0.1"
+
+# AWS SDK
+aws-config = "1.8"
+aws-sdk-kinesis = "1.109"
+aws-sdk-dynamodb = "1.116"
+aws-sdk-cloudwatch = "1.118"
+aws-smithy-types = "1"
+aws-smithy-runtime-api = "1"
+aws-types = "1"
+
+# Utilities
+bon = "3"
+num-bigint = "0.4"  # 0.4 is what aws-smithy-cbor uses — avoids a duplicate crate
+bytes = "1"
+sha2 = "0.11"  # same digest line as the AWS SDK — avoids duplicate crates
+md-5 = "0.11"  # same digest line as the AWS SDK — avoids duplicate crates
+base64 = "0.22"
+thiserror = "2"
+tracing = "0.1"
+chrono = { version = "0.4", features = ["clock"] }
+uuid = { version = "1", features = ["v4"] }
+rand = "0.10"
+serde_json = "1"
+
+# OpenTelemetry (metrics backend). API-only crate; the application owner wires
+# up the SDK (exporters, resource attributes, batching).
+opentelemetry = { version = "0.32", default-features = false, features = ["metrics"] }
+
+# Test-only
+mockall = "0.15"
+tokio-test = "0.4"
+tracing-subscriber = "0.3"
+# In-memory OTel SDK metrics reader for the OtelMetricsScope behavioral tests.
+opentelemetry_sdk = { version = "0.32", default-features = false, features = ["metrics", "testing"] }
+
+# Size-optimized release profile for the shipped wheel/cdylib. `panic` stays
+# "unwind" — pyo3 needs unwinding to translate Rust panics into Python errors.
+[profile.release]
+opt-level = 3
+strip = true       # no debug info / symbol table in the shipped artifact
+lto = "thin"       # cross-crate DCE; measured identical size to "fat", faster
+codegen-units = 1  # better inlining/DCE at the cost of compile time

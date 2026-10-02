@@ -1,0 +1,5535 @@
+import asyncio
+import copy
+import datetime
+import os
+import re
+import types
+import uuid
+from collections import defaultdict
+from mimetypes import guess_type
+from pathlib import Path
+from typing import Any, Dict, Iterator, List, Optional, Set, Union
+from urllib.parse import quote
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    FastAPI,
+    Form,
+    HTTPException,
+    UploadFile,
+)
+from fastapi import (
+    Query as FastAPIQuery,
+)
+from reqif.models.error_handling import ReqIFXMLParsingError
+from reqif.parser import ReqIFParser
+from reqif.unparser import ReqIFUnparser
+from starlette.background import BackgroundTask
+from starlette.datastructures import FormData
+from starlette.requests import Request
+from starlette.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    RedirectResponse,
+    Response,
+)
+from starlette.websockets import WebSocket, WebSocketDisconnect
+
+from strictdoc.backend.json.json_generator import JSONGenerator
+from strictdoc.backend.markdown.writer import SDMarkdownWriter
+from strictdoc.backend.reqif.p01_sdoc.reqif_to_sdoc_converter import (
+    P01_ReqIFToSDocConverter,
+)
+from strictdoc.backend.reqif.p01_sdoc.sdoc_to_reqif_converter import (
+    P01_SDocToReqIFObjectConverter,
+)
+from strictdoc.backend.sdoc.errors.document_tree_error import DocumentTreeError
+from strictdoc.backend.sdoc.models.document import SDocDocument
+from strictdoc.backend.sdoc.models.document_grammar import (
+    DocumentGrammar,
+)
+from strictdoc.backend.sdoc.models.grammar_element import (
+    GrammarElement,
+    GrammarElementField,
+    RequirementFieldType,
+)
+from strictdoc.backend.sdoc.models.model import (
+    SDocExtendedElementIF,
+    SDocNodeIF,
+)
+from strictdoc.backend.sdoc.models.node import (
+    SDocNode,
+)
+from strictdoc.backend.sdoc.writer import SDWriter
+from strictdoc.backend.sdoc_source_code.models.source_file_info import (
+    SourceFileTraceabilityInfo,
+)
+from strictdoc.core.analyzers.document_stats import DocumentTreeStats
+from strictdoc.core.analyzers.document_uid_analyzer import DocumentUIDAnalyzer
+from strictdoc.core.document_meta import DocumentMeta
+from strictdoc.core.document_tree import DocumentTree
+from strictdoc.core.feature import Feature, FeatureContext
+from strictdoc.core.image_formats import (
+    SUPPORTED_IMAGE_FORMAT_NAMES,
+    SUPPORTED_IMAGE_FORMATS,
+    is_supported_image_format,
+)
+from strictdoc.core.project_config import ProjectConfig
+from strictdoc.core.query_engine.query_object import Query, QueryObject
+from strictdoc.core.query_engine.query_reader import QueryReader
+from strictdoc.core.traceability_index_builder import TraceabilityIndexBuilder
+from strictdoc.core.transforms.constants import NodeCreationOrder
+from strictdoc.core.transforms.delete_requirement import (
+    DeleteRequirementCommand,
+)
+from strictdoc.core.transforms.move_node_across_documents import (
+    MoveNodeAcrossDocumentsCommand,
+)
+from strictdoc.core.transforms.update_document_config import (
+    UpdateDocumentConfigTransform,
+)
+from strictdoc.core.transforms.update_grammar import UpdateGrammarCommand
+from strictdoc.core.transforms.update_grammar_element import (
+    UpdateGrammarElementCommand,
+)
+from strictdoc.core.transforms.update_included_document import (
+    UpdateIncludedDocumentTransform,
+)
+from strictdoc.core.transforms.update_requirement import (
+    CreateNodeInfo,
+    CreateOrUpdateNodeCommand,
+    CreateOrUpdateNodeResult,
+    UpdateNodeInfo,
+)
+from strictdoc.core.transforms.validation_error import (
+    MultipleValidationError,
+    MultipleValidationErrorAsList,
+    SingleValidationError,
+)
+from strictdoc.export.html.document_type import DocumentType
+from strictdoc.export.html.form_objects.document_config_form_object import (
+    DocumentConfigFormObject,
+    DocumentMetadataFormField,
+)
+from strictdoc.export.html.form_objects.grammar_element_form_object import (
+    GrammarElementFormObject,
+)
+from strictdoc.export.html.form_objects.grammar_form_object import (
+    GrammarFormObject,
+)
+from strictdoc.export.html.form_objects.included_document_form_object import (
+    IncludedDocumentFormObject,
+)
+from strictdoc.export.html.form_objects.requirement_form_object import (
+    RequirementFormField,
+    RequirementFormFieldType,
+    RequirementFormObject,
+    RequirementReferenceFormField,
+    deduplicate_comma_separated_value,
+)
+from strictdoc.export.html.generators.view_objects.document_chunks import (
+    CHUNK_SIZE,
+)
+from strictdoc.export.html.generators.view_objects.document_screen_view_object import (
+    DocumentScreenViewObject,
+)
+from strictdoc.export.html.generators.view_objects.server_error_view_object import (
+    ServerErrorViewObject,
+)
+from strictdoc.export.html.html_generator import HTMLGenerator
+from strictdoc.export.html.html_templates import HTMLTemplates, JinjaEnvironment
+from strictdoc.export.html.renderers.link_renderer import LinkRenderer
+from strictdoc.export.html.renderers.markup_renderer import MarkupRenderer
+from strictdoc.features.export.export_action import ExportAction
+from strictdoc.features.html2pdf.generator import (
+    DocumentHTML2PDFGenerator,
+)
+from strictdoc.features.html2pdf.pdf_print_driver import (
+    PDFPrintDriver,
+    PDFPrintDriverException,
+)
+from strictdoc.features.nestor.view_object import (
+    NestorViewObject,
+)
+from strictdoc.features.project_index.view_object import (
+    ProjectTreeViewObject,
+)
+from strictdoc.features.search.view_object import (
+    SearchScreenViewObject,
+)
+from strictdoc.helpers.cast import assert_cast
+from strictdoc.helpers.file_modification_time import (
+    get_file_modification_time,
+    set_file_modification_time,
+)
+from strictdoc.helpers.mid import MID
+from strictdoc.helpers.parallelizer import NullParallelizer
+from strictdoc.helpers.path_filter import PathFilter
+from strictdoc.helpers.paths import SDocRelativePath
+from strictdoc.helpers.string import (
+    create_safe_acronym,
+    is_safe_alphanumeric_string,
+    sanitize_html_form_field,
+)
+from strictdoc.helpers.timing import measure_performance
+from strictdoc.server.document_watcher import (
+    DocumentWatcher,
+    get_watched_document_extensions,
+)
+from strictdoc.server.error_object import ErrorObject
+from strictdoc.server.helpers.hierarchical_rw_lock_manager import (
+    HierarchicalRWLockManager,
+)
+from strictdoc.server.helpers.http import request_is_for_non_modified_file
+from strictdoc.server.helpers.turbo import render_turbo_stream
+
+HTTP_STATUS_BAD_REQUEST = 400
+HTTP_STATUS_NOT_FOUND = 404
+HTTP_STATUS_PRECONDITION_FAILED = 412
+HTTP_STATUS_INTERNAL_SERVER_ERROR = 500
+
+AUTOCOMPLETE_LIMIT = 50
+
+
+def search_query_contains_markers(query: str) -> bool:
+    # Query mode markers are intentionally broad to keep behavior deterministic
+    # for expression-like input.
+    if "node." in query:
+        return True
+    if ("(" in query and ")" in query) or "==" in query or "!=" in query:
+        return True
+    if re.search(r'\[\s*"[^"]+"\s*\]', query):
+        return True
+    return False
+
+
+def parse_plain_text_search_query(
+    query: str,
+) -> tuple[Optional[str], Optional[re.Pattern[str]]]:
+    plain_text_query = query.lower()
+    if (
+        len(plain_text_query) >= 2
+        and plain_text_query.startswith('"')
+        and plain_text_query.endswith('"')
+    ):
+        return plain_text_query[1:-1], None
+
+    query_parts = [part for part in plain_text_query.split() if part]
+    if len(query_parts) == 0:
+        return None, None
+    wildcard_pattern = ".*".join(map(re.escape, query_parts))
+    return None, re.compile(wildcard_pattern)
+
+
+def search_text_matches_plain_text_query(
+    text: str,
+    *,
+    phrase: Optional[str],
+    pattern: Optional[re.Pattern[str]],
+) -> bool:
+    lowered_text = text.lower()
+    if phrase is not None:
+        return phrase in lowered_text
+    if pattern is not None:
+        return pattern.search(lowered_text) is not None
+    return False
+
+
+def search_node_matches_plain_text_query(
+    node: SDocExtendedElementIF,
+    *,
+    phrase: Optional[str],
+    pattern: Optional[re.Pattern[str]],
+) -> bool:
+    if isinstance(node, SDocNode):
+        for requirement_field_ in node.enumerate_fields():
+            field_text = requirement_field_.get_text_value()
+            if search_text_matches_plain_text_query(
+                field_text, phrase=phrase, pattern=pattern
+            ):
+                return True
+        return False
+    if isinstance(node, SourceFileTraceabilityInfo):
+        if node.source_file is None:
+            return False
+        return search_text_matches_plain_text_query(
+            node.source_file.in_doctree_source_file_rel_path,
+            phrase=phrase,
+            pattern=pattern,
+        )
+    return False
+
+
+def resolve_uploaded_asset_subfolder(
+    *,
+    mids_enabled: bool,
+    requirement_mid: str,
+    requirement_exists: bool,
+    requirement_mid_permanent: bool,
+    requirement_uid: Optional[str],
+) -> Optional[str]:
+    """
+    @relation(SDOC-LLR-213, scope=function)
+    """
+    if mids_enabled or requirement_mid_permanent:
+        return requirement_mid
+    # We cannot reliably track an asset for a node that does not exist yet.
+    if not requirement_exists:
+        return None
+    # Fall back to the UID, which is available after the node is created.
+    if requirement_uid:
+        return requirement_uid.replace(" ", "_").replace("/", "_")
+    # Store assets directly in _assets if the node has neither MID nor UID.
+    return ""
+
+
+def create_main_router(
+    project_config: ProjectConfig,
+    *,
+    app: FastAPI,
+    lock_manager: HierarchicalRWLockManager,
+) -> APIRouter:
+    parallelizer = NullParallelizer()
+
+    # This dictionary is used to track conflicts between concurrently edited
+    # versions of the same nodes. If a saved node has a version that is older
+    # than one tracked in this dictionary, StrictDoc raises a validation to a
+    # user.
+    # Type signature: [MID, version number]
+    revisions: Dict[str, int] = defaultdict(int)
+
+    project_config.is_running_on_server = True
+
+    export_action = ExportAction(
+        project_config=project_config,
+        parallelizer=parallelizer,
+    )
+
+    is_small_project = export_action.traceability_index.is_small_project()
+
+    html_templates: HTMLTemplates = HTMLTemplates.create(
+        project_config=project_config,
+        enable_caching=not is_small_project,
+        strictdoc_last_update=export_action.traceability_index.strictdoc_last_update,
+    )
+
+    html_generator = HTMLGenerator(project_config, html_templates)
+
+    # Server screens contributed by built-in Features (e.g.
+    # ProjectStatisticsFeature), keyed by the screen_filename() each one
+    # owns. Built from *all* built-in Features regardless of activation
+    # (not just project_config.get_features(), which only resolves
+    # activated ones) so that a request for a known-but-not-activated
+    # screen can be told apart from an unknown path: the former must
+    # still return 412, the latter 404. Dispatched from within
+    # generate_document() below, so every Feature-contributed screen
+    # still goes through the same shared caching/locking machinery as
+    # every other document.
+    server_features_by_screen_filename: Dict[str, Feature] = {
+        feature_.screen_filename(): feature_
+        for feature_ in ProjectConfig._builtin_features_by_handle().values()
+        if feature_.supports_server()
+    }
+
+    html_generator.export_strictdoc_assets(
+        project_config=project_config,
+        html_templates=html_templates,
+        export_output_html_root=project_config.export_output_html_root,
+    )
+
+    html_generator.export_project_assets(
+        traceability_index=export_action.traceability_index,
+        export_output_html_root=project_config.export_output_html_root,
+    )
+
+    sdoc_writer = SDWriter(project_config)
+
+    def write_document_to_file(document: SDocDocument) -> None:
+        """
+        FIXME: Factorize this into an OOP class.
+
+        FIXME: The writer dispatch below is hardcoded to ".md"/".markdown"
+        vs. everything else, not derived from project_config.formats /
+        Format.supports_edit(). Document creation now accepts any editable
+        format's extension (see ProjectConfig.get_editable_document_extensions()),
+        so a third editable format would pass creation validation but get
+        silently mis-written here.
+        """
+
+        assert isinstance(document, SDocDocument)
+
+        # Inhibit before writing so the watcher's debounce always fires into
+        # an already-suppressed state — no race window between write and hash.
+        if document.meta is not None:
+            document_watcher = getattr(app.state, "document_watcher", None)
+            if document_watcher is not None:
+                document_watcher.inhibit_next_change(
+                    document.meta.input_doc_full_path
+                )
+
+        if (
+            document.meta is not None
+            and document.meta.input_doc_full_path.lower().endswith(
+                (".md", ".markdown")
+            )
+        ):
+            SDMarkdownWriter.write_to_file(
+                document, line_width=project_config.document_line_width
+            )
+        else:
+            sdoc_writer.write_to_file(document)
+
+    def env() -> JinjaEnvironment:
+        return html_templates.jinja_environment()
+
+    @app.exception_handler(404)
+    async def not_found_handler(request: Request, exc: Exception) -> Response:  # noqa: ARG001
+        return _error_response(HTTP_STATUS_NOT_FOUND)
+
+    @app.exception_handler(500)
+    async def internal_error_handler(
+        request: Request,  # noqa: ARG001
+        exc: Exception,  # noqa: ARG001
+    ) -> Response:
+        return _error_response(HTTP_STATUS_INTERNAL_SERVER_ERROR)
+
+    def read_lock() -> Iterator[None]:
+        with lock_manager.acquire_global_read():
+            yield
+
+    def write_lock() -> Iterator[None]:
+        with lock_manager.acquire_global_write():
+            yield
+
+    async def parse_form_data(request: Request) -> FormData:
+        return await request.form()
+
+    router = APIRouter()
+    read_router = APIRouter(dependencies=[Depends(read_lock)])
+    write_router = APIRouter(dependencies=[Depends(write_lock)])
+
+    @router.get("/")
+    def get_root(request: Request) -> Response:
+        return get_incoming_request(request, "index.html")
+
+    @read_router.get("/actions/show_full_node", response_class=Response)
+    def node__show_full(reference_mid: str) -> Response:
+        node: Union[SDocNode] = (
+            export_action.traceability_index.get_node_by_mid(MID(reference_mid))
+        )
+        requirement_document: SDocDocument = assert_cast(
+            node.get_document(), SDocDocument
+        )
+        assert requirement_document.meta is not None
+        link_renderer = LinkRenderer(
+            root_path=requirement_document.meta.get_root_path_prefix(),
+            static_path=project_config.dir_for_sdoc_assets,
+        )
+        markup_renderer = MarkupRenderer.create(
+            markup=requirement_document.config.get_markup(),
+            traceability_index=export_action.traceability_index,
+            link_renderer=link_renderer,
+            html_templates=html_generator.html_templates,
+            config=project_config,
+            context_document=requirement_document,
+        )
+        view_object = DocumentScreenViewObject(
+            document_type=DocumentType.DOCUMENT,
+            document=requirement_document,
+            traceability_index=export_action.traceability_index,
+            project_config=project_config,
+            link_renderer=link_renderer,
+            markup_renderer=markup_renderer,
+            jinja_environment=env(),
+            git_client=html_generator.git_client,
+        )
+        # The modal can open from screens at different directory depths.
+        goto_href = (
+            "/"
+            + requirement_document.meta.get_html_link(DocumentType.DOCUMENT, 0)
+            + "#"
+            + link_renderer.render_local_anchor(node)
+        )
+        output = env().render_template_as_markup(
+            "actions/node/show_full_node/stream_show_full_node.jinja",
+            view_object=view_object,
+            requirement=node,
+            goto_href=goto_href,
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @read_router.get(
+        "/actions/document/new_requirement", response_class=Response
+    )
+    def get_new_requirement(
+        reference_mid: str,
+        whereto: str,
+        element_type: str,
+        context_document_mid: str,
+    ) -> Response:
+        assert isinstance(reference_mid, str), reference_mid
+        assert isinstance(whereto, str), whereto
+        assert isinstance(element_type, str), element_type
+        assert isinstance(context_document_mid, str), context_document_mid
+
+        assert NodeCreationOrder.is_valid(whereto), whereto
+
+        context_document = export_action.traceability_index.get_node_by_mid(
+            MID(context_document_mid)
+        )
+
+        reference_node = export_action.traceability_index.get_node_by_mid(
+            MID(reference_mid)
+        )
+        if not export_action.traceability_index.can_create_node_at(
+            reference_node, whereto
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="Adding nodes is disabled for autogenerated content.",
+            )
+
+        # Which document becomes the new requirement's parent is based on
+        # whether the reference node is a root node of an included document or not.
+        document: SDocDocument
+        if isinstance(reference_node, SDocDocument):
+            if whereto == "child":
+                document = reference_node
+            else:
+                document = context_document
+        else:
+            document = reference_node.get_document()
+
+        next_uid: Optional[str] = None
+        if element_type not in ("TEXT", "SECTION"):
+            document_tree_stats: DocumentTreeStats = (
+                DocumentUIDAnalyzer.analyze_document_tree(
+                    export_action.traceability_index,
+                    project_config=export_action.project_config,
+                )
+            )
+            assert document.grammar is not None
+            grammar_element: GrammarElement = document.grammar.elements_by_type[
+                element_type
+            ]
+            if (
+                node_prefix
+                := export_action.project_config.resolve_custom_node_prefix(
+                    reference_node,
+                    grammar_element,
+                    document,
+                    export_action.traceability_index,
+                )
+                or reference_node.get_prefix_for_new_node(element_type)
+            ) is not None:
+                next_number = (
+                    document_tree_stats.get_next_requirement_uid_number(
+                        node_prefix
+                    )
+                )
+                next_uid = (
+                    export_action.project_config.resolve_custom_node_uid(
+                        node_prefix,
+                        next_number,
+                        node=reference_node,
+                        grammar_element=grammar_element,
+                        document=document,
+                        traceability_index=export_action.traceability_index,
+                    )
+                    or f"{node_prefix}{next_number}"
+                )
+        form_object = RequirementFormObject.create_new(
+            document=document,
+            context_document_mid=context_document_mid,
+            next_uid=next_uid,
+            element_type=element_type,
+        )
+
+        target_node_mid = reference_mid
+
+        if whereto == NodeCreationOrder.CHILD:
+            replace_action = "after"
+        elif whereto == NodeCreationOrder.BEFORE:
+            replace_action = "before"
+        elif whereto == NodeCreationOrder.AFTER:
+            replace_action = "after"
+        else:
+            raise NotImplementedError
+
+        assert document.meta is not None
+        link_renderer = LinkRenderer(
+            root_path=document.meta.get_root_path_prefix(),
+            static_path=project_config.dir_for_sdoc_assets,
+        )
+        markup_renderer = MarkupRenderer.create(
+            markup=document.config.get_markup(),
+            traceability_index=export_action.traceability_index,
+            link_renderer=link_renderer,
+            html_templates=html_generator.html_templates,
+            config=project_config,
+            context_document=document,
+        )
+        output = env().render_template_as_markup(
+            "actions/"
+            "document/"
+            "create_requirement/"
+            "stream_new_requirement.jinja.html",
+            is_new_requirement=True,
+            renderer=markup_renderer,
+            form_object=form_object,
+            reference_mid=reference_mid,
+            target_node_mid=target_node_mid,
+            document_type=DocumentType.DOCUMENT,
+            whereto=whereto,
+            replace_action=replace_action,
+        )
+
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @read_router.get(
+        "/actions/document/clone_requirement", response_class=Response
+    )
+    def get_clone_requirement(
+        reference_mid: str, context_document_mid: str
+    ) -> Response:
+        assert isinstance(reference_mid, str), reference_mid
+
+        reference_node = export_action.traceability_index.get_node_by_mid(
+            MID(reference_mid)
+        )
+        reference_requirement: SDocNode = assert_cast(reference_node, SDocNode)
+        if not export_action.traceability_index.can_clone_node(
+            reference_requirement
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="Cloning is disabled for autogenerated content.",
+            )
+
+        document: Optional[SDocDocument] = (
+            reference_node
+            if isinstance(reference_node, SDocDocument)
+            else reference_node.get_document()
+        )
+        assert document is not None
+        assert document.grammar is not None
+        document_tree_stats: DocumentTreeStats = (
+            DocumentUIDAnalyzer.analyze_document_tree(
+                export_action.traceability_index,
+                project_config=export_action.project_config,
+            )
+        )
+        grammar_element: GrammarElement = document.grammar.elements_by_type[
+            reference_requirement.node_type
+        ]
+        next_uid: str = ""
+        if (
+            node_prefix
+            := export_action.project_config.resolve_custom_node_prefix(
+                reference_node,
+                grammar_element,
+                document,
+                export_action.traceability_index,
+            )
+            or reference_node.get_prefix()
+        ) is not None:
+            next_number = document_tree_stats.get_next_requirement_uid_number(
+                node_prefix
+            )
+            next_uid = (
+                export_action.project_config.resolve_custom_node_uid(
+                    node_prefix,
+                    next_number,
+                    node=reference_node,
+                    grammar_element=grammar_element,
+                    document=document,
+                    traceability_index=export_action.traceability_index,
+                )
+                or f"{node_prefix}{next_number}"
+            )
+
+        form_object: RequirementFormObject = (
+            RequirementFormObject.clone_from_requirement(
+                requirement=reference_requirement,
+                context_document_mid=context_document_mid,
+                clone_uid=next_uid,
+            )
+        )
+
+        target_node_mid = reference_mid
+
+        whereto = NodeCreationOrder.AFTER
+        replace_action = "after"
+
+        assert document.meta is not None
+        link_renderer = LinkRenderer(
+            root_path=document.meta.get_root_path_prefix(),
+            static_path=project_config.dir_for_sdoc_assets,
+        )
+        markup_renderer = MarkupRenderer.create(
+            markup=document.config.get_markup(),
+            traceability_index=export_action.traceability_index,
+            link_renderer=link_renderer,
+            html_templates=html_generator.html_templates,
+            config=project_config,
+            context_document=document,
+        )
+        output = env().render_template_as_markup(
+            "actions/"
+            "document/"
+            "create_requirement/"
+            "stream_new_requirement.jinja.html",
+            is_new_requirement=True,
+            renderer=markup_renderer,
+            form_object=form_object,
+            reference_mid=reference_mid,
+            target_node_mid=target_node_mid,
+            document_type=DocumentType.DOCUMENT,
+            whereto=whereto,
+            replace_action=replace_action,
+        )
+
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @write_router.post(
+        "/actions/document/create_requirement", response_class=Response
+    )
+    def create_requirement(
+        request_form_data: FormData = Depends(parse_form_data),
+    ) -> Response:
+        request_dict: Dict[str, str] = dict(request_form_data)
+        requirement_mid: str = request_dict["requirement_mid"]
+        document_mid: str = request_dict["document_mid"]
+        context_document_mid: str = request_dict["context_document_mid"]
+        reference_mid: str = request_dict["reference_mid"]
+        whereto: str = request_dict["whereto"]
+        document: SDocDocument = (
+            export_action.traceability_index.get_node_by_mid(MID(document_mid))
+        )
+        editing_context_document: SDocDocument = (
+            export_action.traceability_index.get_node_by_mid(
+                MID(context_document_mid)
+            )
+        )
+        reference_node = export_action.traceability_index.get_node_by_mid(
+            MID(reference_mid)
+        )
+        if not export_action.traceability_index.can_create_node_at(
+            reference_node, whereto
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="Adding nodes is disabled for autogenerated content.",
+            )
+
+        form_object: RequirementFormObject = (
+            RequirementFormObject.create_from_request(
+                is_new=True,
+                requirement_mid=requirement_mid,
+                request_form_data=request_form_data,
+                document=document,
+                existing_requirement_uid=None,
+            )
+        )
+        form_object.validate(
+            traceability_index=export_action.traceability_index,
+            context_document=document,
+            config=project_config,
+            existing_revision=0,
+        )
+
+        if not form_object.any_errors():
+            command = CreateOrUpdateNodeCommand(
+                form_object=form_object,
+                node_info=CreateNodeInfo(
+                    whereto=whereto,
+                    requirement_mid=requirement_mid,
+                    reference_mid=reference_mid,
+                ),
+                traceability_index=export_action.traceability_index,
+                project_config=project_config,
+            )
+            command.perform()
+
+        if form_object.any_errors():
+            assert document.meta is not None
+            link_renderer = LinkRenderer(
+                root_path=document.meta.get_root_path_prefix(),
+                static_path=project_config.dir_for_sdoc_assets,
+            )
+            markup_renderer = MarkupRenderer.create(
+                markup=document.config.get_markup(),
+                traceability_index=export_action.traceability_index,
+                link_renderer=link_renderer,
+                html_templates=html_generator.html_templates,
+                config=project_config,
+                context_document=document,
+            )
+            output = env().render_template_as_markup(
+                "actions/"
+                "document/"
+                "create_requirement/"
+                "stream_new_requirement.jinja.html",
+                is_new_requirement=True,
+                renderer=markup_renderer,
+                form_object=form_object,
+                reference_mid=reference_mid,
+                target_node_mid=requirement_mid,
+                document_type=DocumentType.DOCUMENT,
+                whereto=whereto,
+                replace_action="replace",
+            )
+            return HTMLResponse(
+                content=output,
+                status_code=422,
+                headers={
+                    "Content-Type": "text/vnd.turbo-stream.html",
+                },
+            )
+
+        # Saving new content to .SDoc files.
+        write_document_to_file(document)
+        if document != editing_context_document:
+            write_document_to_file(editing_context_document)
+
+        # Exporting the updated document to HTML. Note that this happens after
+        # the traceability index last update marker has been updated. This way
+        # the generated HTML file is newer than the traceability index.
+        html_generator.export_single_document_with_performance(
+            document=document,
+            traceability_index=export_action.traceability_index,
+            specific_documents=(DocumentType.DOCUMENT,),
+        )
+
+        assert document.meta is not None
+        link_renderer = LinkRenderer(
+            root_path=document.meta.get_root_path_prefix(),
+            static_path=project_config.dir_for_sdoc_assets,
+        )
+        markup_renderer = MarkupRenderer.create(
+            markup=document.config.get_markup(),
+            traceability_index=export_action.traceability_index,
+            link_renderer=link_renderer,
+            html_templates=html_generator.html_templates,
+            config=project_config,
+            context_document=document,
+        )
+
+        view_object = DocumentScreenViewObject(
+            document_type=DocumentType.DOCUMENT,
+            document=editing_context_document,
+            traceability_index=export_action.traceability_index,
+            project_config=project_config,
+            link_renderer=link_renderer,
+            markup_renderer=markup_renderer,
+            jinja_environment=env(),
+            git_client=html_generator.git_client,
+        )
+
+        output = view_object.render_updated_screen()
+
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @read_router.get(
+        "/actions/document/edit_requirement", response_class=Response
+    )
+    def get_edit_requirement(
+        node_id: str, context_document_mid: str
+    ) -> Response:
+        """
+        @relation(SDOC-SRS-55, scope=function)
+        """
+
+        requirement: SDocNode = (
+            export_action.traceability_index.get_node_by_mid(MID(node_id))
+        )
+        if not export_action.traceability_index.can_edit_node(requirement):
+            raise HTTPException(
+                status_code=403,
+                detail="Editing is disabled for autogenerated content.",
+            )
+
+        revision = revisions[requirement.reserved_mid.get_string_value()]
+
+        form_object: RequirementFormObject = (
+            RequirementFormObject.create_from_requirement(
+                requirement=requirement,
+                revision=revision,
+                context_document_mid=context_document_mid,
+            )
+        )
+        document: SDocDocument = assert_cast(
+            requirement.get_document(), SDocDocument
+        )
+        assert document.meta is not None
+        link_renderer = LinkRenderer(
+            root_path=document.meta.get_root_path_prefix(),
+            static_path=project_config.dir_for_sdoc_assets,
+        )
+        markup_renderer = MarkupRenderer.create(
+            markup=document.config.get_markup(),
+            traceability_index=export_action.traceability_index,
+            link_renderer=link_renderer,
+            html_templates=html_generator.html_templates,
+            config=project_config,
+            context_document=document,
+        )
+        output = env().render_template_as_markup(
+            "actions/"
+            "document/"
+            "edit_requirement/"
+            "stream_edit_requirement.jinja.html",
+            is_new_requirement=False,
+            renderer=markup_renderer,
+            form_object=form_object,
+            document_type=DocumentType.DOCUMENT,
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @read_router.get(
+        "/reset_uid",
+        response_class=Response,
+    )
+    def reset_uid(reference_mid: str) -> Response:
+        document_tree_stats: DocumentTreeStats = (
+            DocumentUIDAnalyzer.analyze_document_tree(
+                export_action.traceability_index,
+                project_config=export_action.project_config,
+            )
+        )
+        reference_node = export_action.traceability_index.get_node_by_mid_weak(
+            MID(reference_mid)
+        )
+        next_uid: str = ""
+        if (
+            isinstance(reference_node, SDocNode)
+            and reference_node.node_type == "SECTION"
+        ):
+            document: SDocDocument = assert_cast(
+                reference_node.get_document(), SDocDocument
+            )
+            document_acronym = create_safe_acronym(document.title)
+            next_uid = document_tree_stats.get_auto_section_uid(
+                document_acronym, reference_node
+            )
+        elif isinstance(reference_node, SDocNode):
+            if (node_prefix := reference_node.get_prefix()) is not None:
+                next_uid = document_tree_stats.get_next_requirement_uid(
+                    node_prefix
+                )
+        else:
+            raise NotImplementedError(reference_node)  # pragma: no cover
+
+        uid_form_field: RequirementFormField = RequirementFormField(
+            field_mid=MID.create(),
+            field_name="UID",
+            field_type=RequirementFormFieldType.SINGLELINE,
+            field_value=next_uid,
+        )
+        output = env().render_template_as_markup(
+            "components/form/row/row_uid_with_reset/stream.jinja",
+            next_uid=next_uid,
+            reference_mid=reference_mid,
+            uid_form_field=uid_form_field,
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @write_router.post("/actions/document/update_requirement")
+    def document__update_requirement(
+        request_form_data: FormData = Depends(parse_form_data),
+    ) -> Response:
+        """
+        @relation(SDOC-SRS-55, scope=function)
+        """
+
+        request_dict = dict(request_form_data)
+        requirement_mid = request_dict["requirement_mid"]
+        requirement: SDocNode = (
+            export_action.traceability_index.get_node_by_mid(
+                MID(requirement_mid)
+            )
+        )
+        if not export_action.traceability_index.can_edit_node(requirement):
+            raise HTTPException(
+                status_code=403,
+                detail="Editing is disabled for autogenerated content.",
+            )
+
+        document = assert_cast(requirement.get_document(), SDocDocument)
+
+        assert isinstance(requirement_mid, str) and len(requirement_mid) > 0, (
+            f"{requirement_mid}"
+        )
+
+        form_object: RequirementFormObject = (
+            RequirementFormObject.create_from_request(
+                is_new=False,
+                requirement_mid=requirement_mid,
+                request_form_data=request_form_data,
+                document=document,
+                existing_requirement_uid=requirement.reserved_uid,
+            )
+        )
+        existing_revision = revisions[form_object.requirement_mid]
+
+        form_object.validate(
+            traceability_index=export_action.traceability_index,
+            context_document=document,
+            config=project_config,
+            existing_revision=existing_revision,
+        )
+
+        update_requirement_command_result_or_none: Optional[
+            CreateOrUpdateNodeResult
+        ] = None
+        if not form_object.any_errors():
+            update_command = CreateOrUpdateNodeCommand(
+                form_object=form_object,
+                node_info=UpdateNodeInfo(node_to_update=requirement),
+                traceability_index=export_action.traceability_index,
+                project_config=project_config,
+            )
+
+            update_requirement_command_result_or_none = update_command.perform()
+
+        link_renderer: LinkRenderer
+        markup_renderer: MarkupRenderer
+        assert document.meta is not None
+        if form_object.any_errors():
+            link_renderer = LinkRenderer(
+                root_path=document.meta.get_root_path_prefix(),
+                static_path=project_config.dir_for_sdoc_assets,
+            )
+            markup_renderer = MarkupRenderer.create(
+                markup=document.config.get_markup(),
+                traceability_index=export_action.traceability_index,
+                link_renderer=link_renderer,
+                html_templates=html_generator.html_templates,
+                config=project_config,
+                context_document=document,
+            )
+            output = env().render_template_as_markup(
+                "actions/"
+                "document/"
+                "edit_requirement/"
+                "stream_edit_requirement.jinja.html",
+                is_new_requirement=False,
+                renderer=markup_renderer,
+                requirement=requirement,
+                document_type=DocumentType.DOCUMENT,
+                form_object=form_object,
+            )
+            return HTMLResponse(
+                content=output,
+                status_code=422,
+                headers={
+                    "Content-Type": "text/vnd.turbo-stream.html",
+                },
+            )
+
+        update_requirement_command_result: CreateOrUpdateNodeResult = (
+            assert_cast(
+                update_requirement_command_result_or_none,
+                CreateOrUpdateNodeResult,
+            )
+        )
+
+        # Saving new content to .SDoc files.
+        write_document_to_file(document)
+
+        revisions[requirement_mid] += 1
+
+        # Exporting the updated document to HTML. Note that this happens after
+        # the traceability index last update marker has been updated. This way
+        # the generated HTML file is newer than the traceability index.
+        html_generator.export_single_document_with_performance(
+            document=document,
+            traceability_index=export_action.traceability_index,
+            specific_documents=(DocumentType.DOCUMENT,),
+        )
+
+        link_renderer = LinkRenderer(
+            root_path=document.meta.get_root_path_prefix(),
+            static_path=project_config.dir_for_sdoc_assets,
+        )
+        markup_renderer = MarkupRenderer.create(
+            markup=document.config.get_markup(),
+            traceability_index=export_action.traceability_index,
+            link_renderer=link_renderer,
+            html_templates=html_generator.html_templates,
+            config=project_config,
+            context_document=document,
+        )
+        view_object = DocumentScreenViewObject(
+            document_type=DocumentType.DOCUMENT,
+            document=document,
+            traceability_index=export_action.traceability_index,
+            project_config=project_config,
+            link_renderer=link_renderer,
+            markup_renderer=markup_renderer,
+            jinja_environment=env(),
+            git_client=html_generator.git_client,
+        )
+
+        return HTMLResponse(
+            content=view_object.render_updated_nodes_and_toc(
+                update_requirement_command_result.this_document_requirements_to_update,
+                node_updated=True,
+            ),
+            status_code=200,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @write_router.delete("/actions/table/delete_node")
+    def table__delete_node(
+        node_id: str, context_document_mid: str, confirmed: bool = False
+    ) -> Response:
+        node = export_action.traceability_index.get_node_by_mid(MID(node_id))
+        if not isinstance(node, SDocNode):
+            raise HTTPException(status_code=404, detail="Node not found.")
+        if not export_action.traceability_index.can_delete_node(node):
+            raise HTTPException(
+                status_code=403,
+                detail="Deleting is disabled for autogenerated content.",
+            )
+
+        if not confirmed:
+            try:
+                DeleteRequirementCommand(
+                    requirement=node,
+                    traceability_index=export_action.traceability_index,
+                ).validate()
+                errors: List[str] = []
+            except MultipleValidationErrorAsList as error_:
+                errors = error_.errors
+
+            output = env().render_template_as_markup(
+                "actions/table/delete_node/stream_confirm.jinja",
+                node_mid=node_id,
+                context_document_mid=context_document_mid,
+                errors=errors,
+            )
+            return HTMLResponse(
+                content=output,
+                status_code=200 if len(errors) == 0 else 422,
+                headers={"Content-Type": "text/vnd.turbo-stream.html"},
+            )
+
+        document = assert_cast(node.get_document(), SDocDocument)
+        editing_context_document = assert_cast(
+            export_action.traceability_index.get_node_by_mid(
+                MID(context_document_mid)
+            ),
+            SDocDocument,
+        )
+
+        try:
+            DeleteRequirementCommand(
+                requirement=node,
+                traceability_index=export_action.traceability_index,
+            ).perform()
+        except MultipleValidationError:
+            return HTMLResponse(
+                content="",
+                status_code=422,
+                headers={"Content-Type": "text/vnd.turbo-stream.html"},
+            )
+
+        write_document_to_file(document)
+        if document != editing_context_document:
+            write_document_to_file(editing_context_document)
+
+        html_generator.export_single_document_with_performance(
+            document=document,
+            traceability_index=export_action.traceability_index,
+            specific_documents=(DocumentType.DOCUMENT, DocumentType.TABLE),
+        )
+        if document != editing_context_document:
+            html_generator.export_single_document_with_performance(
+                document=editing_context_document,
+                traceability_index=export_action.traceability_index,
+                specific_documents=(DocumentType.DOCUMENT, DocumentType.TABLE),
+            )
+
+        table_view_object = DocumentScreenViewObject.create_for_table_screen(
+            document=editing_context_document,
+            traceability_index=export_action.traceability_index,
+            project_config=project_config,
+            html_templates=html_generator.html_templates,
+            git_client=html_generator.git_client,
+            jinja_environment=env(),
+        )
+        output = render_turbo_stream(
+            content=env().render_template_as_markup(
+                "screens/document/table/body.jinja",
+                view_object=table_view_object,
+                content_entries=list(
+                    table_view_object.document_content_iterator()
+                ),
+            ),
+            action="replace",
+            target="table-content-body",
+        )
+        output += env().render_template_as_markup(
+            "actions/document/_shared/stream_updated_toc.jinja.html",
+            view_object=table_view_object,
+        )
+        output += render_turbo_stream(
+            content="",
+            action="update",
+            target="confirm",
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={"Content-Type": "text/vnd.turbo-stream.html"},
+        )
+
+    @write_router.post("/actions/table/add_node")
+    def table__add_node(
+        request_form_data: FormData = Depends(parse_form_data),
+    ) -> Response:
+        request_dict = dict(request_form_data)
+        context_document_mid = request_dict["context_document_mid"]
+        reference_mid = request_dict["reference_mid"]
+        element_type = request_dict["element_type"]
+        whereto = request_dict["whereto"]
+
+        if not NodeCreationOrder.is_valid(whereto):
+            return HTMLResponse(
+                content="Unknown node placement.", status_code=400
+            )
+
+        reference_node = export_action.traceability_index.get_node_by_mid(
+            MID(reference_mid)
+        )
+        if not export_action.traceability_index.can_create_node_at(
+            reference_node, whereto
+        ):
+            return HTMLResponse(
+                content="Adding nodes is disabled for this location.",
+                status_code=403,
+            )
+
+        editing_context_document = (
+            export_action.traceability_index.get_node_by_mid(
+                MID(context_document_mid)
+            )
+        )
+        if isinstance(reference_node, SDocDocument):
+            if whereto == NodeCreationOrder.CHILD:
+                document = reference_node
+            else:
+                document = editing_context_document
+        else:
+            document = assert_cast(reference_node.get_document(), SDocDocument)
+
+        assert document.grammar is not None
+        if element_type not in document.grammar.elements_by_type:
+            return HTMLResponse(content="Unknown node type.", status_code=400)
+
+        element = document.grammar.elements_by_type[element_type]
+
+        next_uid: Optional[str] = None
+        if element_type not in ("TEXT", "SECTION"):
+            document_tree_stats: DocumentTreeStats = (
+                DocumentUIDAnalyzer.analyze_document_tree(
+                    export_action.traceability_index,
+                    project_config=export_action.project_config,
+                )
+            )
+            if (
+                node_prefix
+                := export_action.project_config.resolve_custom_node_prefix(
+                    reference_node,
+                    element,
+                    document,
+                    export_action.traceability_index,
+                )
+                or reference_node.get_prefix_for_new_node(element_type)
+            ) is not None:
+                next_number = (
+                    document_tree_stats.get_next_requirement_uid_number(
+                        node_prefix
+                    )
+                )
+                next_uid = (
+                    export_action.project_config.resolve_custom_node_uid(
+                        node_prefix,
+                        next_number,
+                        node=reference_node,
+                        grammar_element=element,
+                        document=document,
+                        traceability_index=export_action.traceability_index,
+                    )
+                    or f"{node_prefix}{next_number}"
+                )
+
+        form_object = RequirementFormObject.create_new(
+            document=document,
+            context_document_mid=context_document_mid,
+            next_uid=next_uid,
+            element_type=element_type,
+        )
+
+        for field_name, fields in form_object.fields.items():
+            if field_name in ("UID", "MID"):
+                continue
+            grammar_field = element.fields_map[field_name]
+            if grammar_field.required:
+                for field in fields:
+                    if len(field.field_value) == 0:
+                        field.field_value = "TBD"
+
+        # Fallback: if still no field has a value (including auto-generated
+        # UID/MID), pick the first suitable field by priority so the node is
+        # never completely empty. Mirrors the "at least one non-empty" check in
+        # RequirementFormObject.validate().
+        if not any(
+            len(f.field_value) > 0
+            for fl in form_object.fields.values()
+            for f in fl
+        ):
+            _PRIORITY_NAMES = ("TITLE", "STATEMENT", "RATIONALE")
+            _PRIORITY_TYPES = (
+                RequirementFieldType.STRING,
+                RequirementFieldType.SINGLE_CHOICE,
+                RequirementFieldType.MULTIPLE_CHOICE,
+            )
+            _fallback_field = None
+            for _name in _PRIORITY_NAMES:
+                if _name in form_object.fields:
+                    _fallback_field = form_object.fields[_name][0]
+                    break
+            if _fallback_field is None:
+                for _type in _PRIORITY_TYPES:
+                    for _fn, _fl in form_object.fields.items():
+                        if _fn in ("UID", "MID"):
+                            continue
+                        if element.fields_map[_fn].gef_type == _type:
+                            _fallback_field = _fl[0]
+                            break
+                    if _fallback_field is not None:
+                        break
+            if _fallback_field is not None:
+                _fallback_field.field_value = "TBD"
+
+        form_object.validate(
+            traceability_index=export_action.traceability_index,
+            context_document=document,
+            config=project_config,
+            existing_revision=0,
+        )
+        if form_object.any_errors():
+            error_messages: List[str] = []
+            for field_errors in form_object.errors.values():
+                error_messages.extend(field_errors)
+            for reference_field in form_object.reference_fields:
+                error_messages.extend(reference_field.validation_messages)
+            return HTMLResponse(
+                content=(
+                    error_messages[0]
+                    if len(error_messages) > 0
+                    else "Unable to create this node."
+                ),
+                status_code=422,
+            )
+
+        create_command = CreateOrUpdateNodeCommand(
+            form_object=form_object,
+            node_info=CreateNodeInfo(
+                whereto=whereto,
+                requirement_mid=form_object.requirement_mid,
+                reference_mid=reference_mid,
+            ),
+            traceability_index=export_action.traceability_index,
+            project_config=project_config,
+        )
+        create_command.perform()
+
+        write_document_to_file(document)
+        if document != editing_context_document:
+            write_document_to_file(editing_context_document)
+
+        html_generator.export_single_document_with_performance(
+            document=document,
+            traceability_index=export_action.traceability_index,
+            specific_documents=(DocumentType.DOCUMENT, DocumentType.TABLE),
+        )
+        if document != editing_context_document:
+            html_generator.export_single_document_with_performance(
+                document=editing_context_document,
+                traceability_index=export_action.traceability_index,
+                specific_documents=(DocumentType.DOCUMENT, DocumentType.TABLE),
+            )
+
+        table_view_object = DocumentScreenViewObject.create_for_table_screen(
+            document=editing_context_document,
+            traceability_index=export_action.traceability_index,
+            project_config=project_config,
+            html_templates=html_generator.html_templates,
+            git_client=html_generator.git_client,
+            jinja_environment=env(),
+        )
+        output = render_turbo_stream(
+            content=env().render_template_as_markup(
+                "screens/document/table/body.jinja",
+                view_object=table_view_object,
+                content_entries=list(
+                    table_view_object.document_content_iterator()
+                ),
+            ),
+            action="replace",
+            target="table-content-body",
+        )
+        output += env().render_template_as_markup(
+            "actions/document/_shared/stream_updated_toc.jinja.html",
+            view_object=table_view_object,
+        )
+        output += render_turbo_stream(
+            content=(
+                '<div id="table-add-node-feedback" hidden '
+                f'data-created-node-mid="{form_object.requirement_mid}">'
+                "</div>"
+            ),
+            action="replace",
+            target="table-add-node-feedback",
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={"Content-Type": "text/vnd.turbo-stream.html"},
+        )
+
+    @write_router.post("/actions/table/update_node_field")
+    def table__update_node_field(
+        request_form_data: FormData = Depends(parse_form_data),
+    ) -> Response:
+        request_dict = dict(request_form_data)
+        node_mid_str: str = request_dict["node_mid"]
+        field_name: str = request_dict["field_name"]
+        field_value: str = request_dict.get("field_value", "")
+
+        node: SDocNode = export_action.traceability_index.get_node_by_mid(
+            MID(node_mid_str)
+        )
+        document = assert_cast(node.get_document(), SDocDocument)
+        assert document.grammar is not None
+        grammar: DocumentGrammar = document.grammar
+        element: GrammarElement = grammar.elements_by_type[node.node_type]
+
+        if field_name not in element.fields_map:
+            return HTMLResponse(
+                content=f"Unknown field: {field_name}",
+                status_code=400,
+            )
+        if element.is_field_multiline(field_name):
+            return HTMLResponse(
+                content=f"Field {field_name} is multiline; use the popup editor",
+                status_code=400,
+            )
+
+        sanitized_value: str = sanitize_html_form_field(
+            field_value, multiline=False
+        )
+
+        old_title: Optional[str] = (
+            node.reserved_title if field_name == "TITLE" else None
+        )
+
+        revision: int = revisions[node_mid_str]
+        form_object: RequirementFormObject = (
+            RequirementFormObject.create_from_requirement(
+                requirement=node,
+                revision=revision,
+                context_document_mid=document.reserved_mid.get_string_value(),
+            )
+        )
+
+        if field_name in form_object.fields:
+            form_object.fields[field_name][0].field_value = sanitized_value
+
+        form_object.validate(
+            traceability_index=export_action.traceability_index,
+            context_document=document,
+            config=project_config,
+            existing_revision=revision,
+        )
+        if form_object.any_errors():
+            first_error = next(iter(form_object.errors.values()))
+            return HTMLResponse(
+                content=first_error[0] if first_error else "Validation error",
+                status_code=422,
+            )
+
+        update_command = CreateOrUpdateNodeCommand(
+            form_object=form_object,
+            node_info=UpdateNodeInfo(node_to_update=node),
+            traceability_index=export_action.traceability_index,
+            project_config=project_config,
+        )
+        update_command.perform()
+        write_document_to_file(document)
+        revisions[node_mid_str] += 1
+
+        table_view_object = DocumentScreenViewObject.create_for_table_screen(
+            document=document,
+            traceability_index=export_action.traceability_index,
+            project_config=project_config,
+            html_templates=html_generator.html_templates,
+            git_client=html_generator.git_client,
+            jinja_environment=env(),
+        )
+
+        if field_name == "TITLE":
+            title_presence_changed = bool(old_title) != bool(sanitized_value)
+            content_entries = (
+                list(table_view_object.document_content_iterator())
+                if title_presence_changed
+                else []
+            )
+            output = env().render_template_as_markup(
+                "actions/table/update_node_field/stream_update_title_field.jinja.html",
+                view_object=table_view_object,
+                node=node,
+                field_value=sanitized_value,
+                title_presence_changed=title_presence_changed,
+                content_entries=content_entries,
+            )
+        else:
+            output = env().render_template_as_markup(
+                "actions/table/update_node_field/stream_update_node_field.jinja.html",
+                view_object=table_view_object,
+                node=node,
+                field_name=field_name,
+                field_value=sanitized_value,
+            )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={"Content-Type": "text/vnd.turbo-stream.html"},
+        )
+
+    @read_router.get(
+        "/actions/table/get_node_comments_inline", response_class=Response
+    )
+    def table__get_node_comments_inline(node_mid: str) -> Response:
+        node: SDocNode = export_action.traceability_index.get_node_by_mid(
+            MID(node_mid)
+        )
+        document = assert_cast(node.get_document(), SDocDocument)
+        revision: int = revisions[node_mid]
+        form_object: RequirementFormObject = (
+            RequirementFormObject.create_from_requirement(
+                requirement=node,
+                revision=revision,
+                context_document_mid=document.reserved_mid.get_string_value(),
+            )
+        )
+        output = env().render_template_as_markup(
+            "actions/table/get_node_comments_inline/stream_inline_form.jinja.html",
+            form_object=form_object,
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={"Content-Type": "text/vnd.turbo-stream.html"},
+        )
+
+    @read_router.get(
+        "/actions/table/get_node_relations_inline", response_class=Response
+    )
+    def table__get_node_relations_inline(node_mid: str) -> Response:
+        node: SDocNode = export_action.traceability_index.get_node_by_mid(
+            MID(node_mid)
+        )
+        document = assert_cast(node.get_document(), SDocDocument)
+        revision: int = revisions[node_mid]
+        form_object: RequirementFormObject = (
+            RequirementFormObject.create_from_requirement(
+                requirement=node,
+                revision=revision,
+                context_document_mid=document.reserved_mid.get_string_value(),
+            )
+        )
+        assert document.meta is not None
+        link_renderer = LinkRenderer(
+            root_path=document.meta.get_root_path_prefix(),
+            static_path=project_config.dir_for_sdoc_assets,
+        )
+
+        # UIDs of relations explicitly declared on this node in its .sdoc data.
+        own_relation_uids = {
+            r.ref_uid
+            for r in node.relations
+            if hasattr(r, "ref_uid") and r.ref_uid
+        }
+        # All nodes linked to this node in both directions by the traceability graph.
+        traceability_linked_nodes = (
+            export_action.traceability_index.get_parent_requirements(node)
+            + export_action.traceability_index.get_children_requirements(node)
+        )
+        # Nodes present in traceability but not declared on this node —
+        # derived connections (e.g. other nodes that reference this one as parent).
+        derived_nodes = [
+            req
+            for req in traceability_linked_nodes
+            if req.reserved_uid not in own_relation_uids
+        ]
+
+        view_object_stub = types.SimpleNamespace(
+            render_node_link=lambda req: link_renderer.render_node_link(
+                req, document, DocumentType.DOCUMENT
+            ),
+        )
+        output = env().render_template_as_markup(
+            "actions/table/get_node_relations_inline/stream_inline_form.jinja.html",
+            form_object=form_object,
+            derived_nodes=derived_nodes,
+            view_object=view_object_stub,
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={"Content-Type": "text/vnd.turbo-stream.html"},
+        )
+
+    @read_router.get(
+        "/actions/table/get_node_autocomplete_inline", response_class=Response
+    )
+    def table__get_node_autocomplete_inline(
+        node_mid: str,
+        field_name: str,
+    ) -> Response:
+        node: SDocNode = export_action.traceability_index.get_node_by_mid(
+            MID(node_mid)
+        )
+        document = assert_cast(node.get_document(), SDocDocument)
+        assert document.grammar is not None
+        grammar: DocumentGrammar = document.grammar
+        element: GrammarElement = grammar.elements_by_type[node.node_type]
+
+        if field_name not in element.fields_map:
+            return HTMLResponse(
+                content=f"Unknown field: {field_name}", status_code=400
+            )
+
+        field: GrammarElementField = element.fields_map[field_name]
+        is_multiple_choice: bool = field.gef_type in (
+            RequirementFieldType.MULTIPLE_CHOICE,
+            RequirementFieldType.TAG,
+        )
+
+        current_value: str = ""
+        if field_name in node.ordered_fields_lookup:
+            current_value = node.ordered_fields_lookup[field_name][
+                0
+            ].get_text_value()
+            if is_multiple_choice:
+                # The document may already contain duplicate values (e.g.
+                # hand-edited, or saved before the autocomplete
+                # duplicate-prevention fix). Deduplicate when loading the
+                # value into the table cell's edit mode, same as the
+                # modal requirement-edit form does.
+                current_value = deduplicate_comma_separated_value(current_value)
+
+        output = env().render_template_as_markup(
+            "actions/table/get_node_autocomplete_inline/stream_inline_form.jinja.html",
+            node_mid=node_mid,
+            cell_field_name=field_name,
+            current_value=current_value,
+            document_mid=document.reserved_mid.get_string_value(),
+            element_type=node.node_type,
+            is_multiple_choice=is_multiple_choice,
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={"Content-Type": "text/vnd.turbo-stream.html"},
+        )
+
+    @read_router.get(
+        "/actions/table/get_node_contenteditable_inline",
+        response_class=Response,
+    )
+    def table__get_node_contenteditable_inline(
+        node_mid: str,
+        field_name: str,
+    ) -> Response:
+        node: SDocNode = export_action.traceability_index.get_node_by_mid(
+            MID(node_mid)
+        )
+        document = assert_cast(node.get_document(), SDocDocument)
+        assert document.grammar is not None
+        grammar: DocumentGrammar = document.grammar
+        element: GrammarElement = grammar.elements_by_type[node.node_type]
+
+        if field_name == "TITLE":
+            current_value = node.reserved_title or ""
+        elif field_name in node.ordered_fields_lookup:
+            current_value = node.ordered_fields_lookup[field_name][
+                0
+            ].get_text_value()
+        else:
+            current_value = ""
+
+        if field_name in element.fields_map and element.is_field_multiline(
+            field_name
+        ):
+            field_type = "multiline"
+            form_action = "/actions/table/update_node_field_multiline"
+        else:
+            field_type = "singleline"
+            form_action = "/actions/table/update_node_field"
+
+        output = env().render_template_as_markup(
+            "actions/table/get_node_contenteditable_inline/stream_inline_form.jinja.html",
+            node_mid=node_mid,
+            field_name=field_name,
+            current_value=current_value,
+            field_type=field_type,
+            form_action=form_action,
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={"Content-Type": "text/vnd.turbo-stream.html"},
+        )
+
+    _TABLE_DOC_CONFIG_FIELDS = frozenset(
+        {"TITLE", "UID", "VERSION", "CLASSIFICATION", "PREFIX"}
+    )
+
+    @read_router.get(
+        "/actions/table/get_document_config_field_inline",
+        response_class=Response,
+    )
+    def table__get_document_config_field_inline(
+        document_mid: str,
+        field_name: str,
+    ) -> Response:
+        document: SDocDocument = (
+            export_action.traceability_index.get_node_by_mid(MID(document_mid))
+        )
+        if not export_action.traceability_index.can_edit_document(document):
+            raise HTTPException(
+                status_code=403,
+                detail="Editing is disabled for autogenerated content.",
+            )
+        if field_name not in _TABLE_DOC_CONFIG_FIELDS:
+            raise HTTPException(
+                status_code=400, detail=f"Unknown field: {field_name}"
+            )
+
+        if field_name == "TITLE":
+            current_value = document.title or ""
+        elif field_name == "UID":
+            current_value = document.config.uid or ""
+        elif field_name == "VERSION":
+            current_value = document.config.version or ""
+        elif field_name == "CLASSIFICATION":
+            current_value = document.config.classification or ""
+        else:  # PREFIX
+            current_value = document.config.requirement_prefix or ""
+
+        output = env().render_template_as_markup(
+            "actions/table/get_document_config_field_inline/stream_inline_form.jinja.html",
+            document_mid=document_mid,
+            field_name=field_name,
+            current_value=current_value,
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={"Content-Type": "text/vnd.turbo-stream.html"},
+        )
+
+    @write_router.post(
+        "/actions/table/update_document_config_field",
+        response_class=Response,
+    )
+    def table__update_document_config_field(
+        request_form_data: FormData = Depends(parse_form_data),
+    ) -> Response:
+        request_dict: Dict[str, str] = dict(request_form_data)
+        document_mid: str = request_dict["document_mid"]
+        field_name: str = request_dict["field_name"]
+        field_value: str = request_dict.get("field_value", "")
+
+        document: SDocDocument = (
+            export_action.traceability_index.get_node_by_mid(MID(document_mid))
+        )
+        if not export_action.traceability_index.can_edit_document(document):
+            raise HTTPException(
+                status_code=403,
+                detail="Editing is disabled for autogenerated content.",
+            )
+        if field_name not in _TABLE_DOC_CONFIG_FIELDS:
+            return HTMLResponse(
+                content=f"Unknown field: {field_name}", status_code=400
+            )
+
+        sanitized_value: str = sanitize_html_form_field(
+            field_value, multiline=False
+        )
+
+        form_object: DocumentConfigFormObject = (
+            DocumentConfigFormObject.create_from_document(document=document)
+        )
+        if field_name == "TITLE":
+            form_object.document_title = sanitized_value
+        elif field_name == "UID":
+            form_object.document_uid = sanitized_value
+        elif field_name == "VERSION":
+            form_object.document_version = sanitized_value
+        elif field_name == "CLASSIFICATION":
+            form_object.document_classification = sanitized_value
+        else:  # PREFIX
+            form_object.document_requirement_prefix = sanitized_value
+
+        try:
+            update_command = UpdateDocumentConfigTransform(
+                form_object=form_object,
+                document=document,
+                traceability_index=export_action.traceability_index,
+            )
+            update_command.perform()
+        except MultipleValidationError as validation_error:
+            errors = validation_error.errors.get(field_name, [])
+            error_text = "\n".join(errors) if errors else "Validation error"
+            return HTMLResponse(content=error_text, status_code=422)
+
+        write_document_to_file(document)
+        export_action.traceability_index.update_last_updated()
+
+        if field_name == "TITLE":
+            display_value = document.title or ""
+        elif field_name == "UID":
+            display_value = document.config.uid or ""
+        elif field_name == "VERSION":
+            display_value = document.config.version or ""
+        elif field_name == "CLASSIFICATION":
+            display_value = document.config.classification or ""
+        else:  # PREFIX
+            display_value = document.config.requirement_prefix or ""
+
+        assert document.meta is not None
+        link_renderer = LinkRenderer(
+            root_path=document.meta.get_root_path_prefix(),
+            static_path=project_config.dir_for_sdoc_assets,
+        )
+        view_object_stub = types.SimpleNamespace(
+            document=document,
+            render_local_anchor=link_renderer.render_local_anchor,
+        )
+
+        output = env().render_template_as_markup(
+            "actions/table/update_document_config_field/stream_update.jinja.html",
+            document=document,
+            field_name=field_name,
+            display_value=display_value,
+            view_object=view_object_stub,
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={"Content-Type": "text/vnd.turbo-stream.html"},
+        )
+
+    @read_router.get(
+        "/actions/table/get_document_custom_meta_inline",
+        response_class=Response,
+    )
+    def table__get_document_custom_meta_inline(
+        document_mid: str,
+        form_key: str,
+        field_name: str = "value",
+    ) -> Response:
+        document: SDocDocument = (
+            export_action.traceability_index.get_node_by_mid(MID(document_mid))
+        )
+        if not export_action.traceability_index.can_edit_document(document):
+            raise HTTPException(
+                status_code=403,
+                detail="Editing is disabled for autogenerated content.",
+            )
+
+        form_object = DocumentConfigFormObject.create_from_document(
+            document=document
+        )
+        # form_key is a table-form transport key, not a StrictDoc MID. Nested
+        # form keys use underscores because parse_form_data only accepts
+        # letters, digits, and underscores in bracketed field-name segments.
+        # The numeric suffix identifies the current row position for this render.
+        form_key_match = re.fullmatch(r"custom_meta_(\d+)", form_key)
+        if form_key_match is None:
+            return HTMLResponse(
+                content=f"Invalid custom metadata form key: {form_key}",
+                status_code=400,
+            )
+        metadata_index = int(form_key_match.group(1))
+        if metadata_index >= len(form_object.custom_metadata_fields):
+            return HTMLResponse(
+                content=f"Unknown custom metadata form key: {form_key}",
+                status_code=404,
+            )
+        metadata_field = form_object.custom_metadata_fields[metadata_index]
+        if field_name not in ("name", "value"):
+            return HTMLResponse(
+                content=f"Invalid custom metadata field name: {field_name}",
+                status_code=400,
+            )
+
+        output = env().render_template_as_markup(
+            "actions/table/get_document_custom_meta_inline/stream_inline_form.jinja.html",
+            form_key=form_key,
+            field_name=field_name,
+            field_label=metadata_field.field_name,
+            field_value=metadata_field.field_value,
+            errors=[],
+            name_errors=[],
+            value_errors=[],
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={"Content-Type": "text/vnd.turbo-stream.html"},
+        )
+
+    @read_router.get(
+        "/actions/table/get_document_custom_meta_new_inline",
+        response_class=Response,
+    )
+    def table__get_document_custom_meta_new_inline(
+        document_mid: str,
+    ) -> Response:
+        document: SDocDocument = (
+            export_action.traceability_index.get_node_by_mid(MID(document_mid))
+        )
+        if not export_action.traceability_index.can_edit_document(document):
+            raise HTTPException(
+                status_code=403,
+                detail="Editing is disabled for autogenerated content.",
+            )
+
+        # The new row key is local to the current form render. A separate prefix
+        # lets the POST endpoint distinguish an unsaved Add row from an existing
+        # positional metadata row without introducing a persistent identifier.
+        form_key = (
+            f"new_custom_meta_{len(document.config.get_custom_metadata())}"
+        )
+        output = env().render_template_as_markup(
+            "actions/table/get_document_custom_meta_new_inline/stream_inline_form.jinja.html",
+            form_key=form_key,
+            field_name="",
+            field_value="",
+            errors=[],
+            name_errors=[],
+            value_errors=[],
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={"Content-Type": "text/vnd.turbo-stream.html"},
+        )
+
+    @write_router.post(
+        "/actions/table/update_document_custom_meta",
+        response_class=Response,
+    )
+    def table__update_document_custom_meta(
+        request_form_data: FormData = Depends(parse_form_data),
+    ) -> Response:
+        request_dict: Dict[str, str] = dict(request_form_data)
+        document_mid: str = request_dict["document_mid"]
+        active_form_key: str = request_dict["active_form_key"]
+        active_field_name: str = request_dict.get("active_field_name", "value")
+        action: Optional[str] = request_dict.get("action")
+        document: SDocDocument = (
+            export_action.traceability_index.get_node_by_mid(MID(document_mid))
+        )
+        if not export_action.traceability_index.can_edit_document(document):
+            raise HTTPException(
+                status_code=403,
+                detail="Editing is disabled for autogenerated content.",
+            )
+
+        form_object: DocumentConfigFormObject = (
+            DocumentConfigFormObject.create_from_request(
+                document_mid=document_mid,
+                request_form_data=request_form_data,
+            )
+        )
+        # The custom-metadata grid shares one <form> with hidden TITLE/UID/
+        # VERSION/CLASSIFICATION/PREFIX inputs, snapshotted whenever that
+        # form was last rendered. table__update_document_config_field saves
+        # those fields through a separate request and never refreshes this
+        # form, so a metadata-only action here (edit/add/delete/reorder a
+        # row) would otherwise resubmit that stale snapshot and silently
+        # revert whichever of those fields changed since. This endpoint
+        # owns the metadata fields only; the rest must come from the
+        # document itself, not from the request.
+        current_config_fields = DocumentConfigFormObject.create_from_document(
+            document=document
+        )
+        form_object.document_title = current_config_fields.document_title
+        form_object.document_uid = current_config_fields.document_uid
+        form_object.document_version = current_config_fields.document_version
+        form_object.document_classification = (
+            current_config_fields.document_classification
+        )
+        form_object.document_requirement_prefix = (
+            current_config_fields.document_requirement_prefix
+        )
+        is_block_action = action in ("delete", "reorder")
+        active_metadata_field = None
+        active_metadata_index = -1
+        active_field_is_new = False
+        if not is_block_action:
+            if active_field_name not in ("name", "value", "new"):
+                return HTMLResponse(
+                    content=(
+                        "Invalid active custom metadata field name: "
+                        f"{active_field_name}"
+                    ),
+                    status_code=400,
+                )
+            active_metadata_field = next(
+                (
+                    metadata_field
+                    for metadata_field in form_object.custom_metadata_fields
+                    if metadata_field.field_mid == active_form_key
+                ),
+                None,
+            )
+            if active_metadata_field is None:
+                return HTMLResponse(
+                    content=(
+                        "Unknown active custom metadata form key: "
+                        f"{active_form_key}"
+                    ),
+                    status_code=400,
+                )
+            active_metadata_index = form_object.custom_metadata_fields.index(
+                active_metadata_field
+            )
+            active_field_is_new = active_form_key.startswith("new_custom_meta_")
+            if (
+                active_field_is_new
+                and len(active_metadata_field.field_name) == 0
+                and len(active_metadata_field.field_value) == 0
+            ):
+                # A fully empty Add row is not metadata. Skip it without running
+                # the transform or writing the document; partially filled rows
+                # continue through normal validation.
+                output = env().render_template_as_markup(
+                    "actions/table/update_document_custom_meta/stream_skip_empty_new.jinja.html",
+                    doc_mid=document_mid,
+                )
+                return HTMLResponse(
+                    content=output,
+                    status_code=200,
+                    headers={"Content-Type": "text/vnd.turbo-stream.html"},
+                )
+        try:
+            update_command = UpdateDocumentConfigTransform(
+                form_object=form_object,
+                document=document,
+                traceability_index=export_action.traceability_index,
+            )
+            update_command.perform()
+        except MultipleValidationError as validation_error:
+            if is_block_action:
+                return HTMLResponse(
+                    content="\n".join(
+                        error
+                        for errors in validation_error.errors.values()
+                        for error in errors
+                    ),
+                    status_code=422,
+                )
+            for error_key, errors in validation_error.errors.items():
+                for error in errors:
+                    form_object.add_error(error_key, error)
+            assert active_metadata_field is not None
+            active_field_errors = form_object.get_errors(
+                f"METADATA[{active_form_key}]"
+            )
+            name_errors = [
+                error
+                for error in active_field_errors
+                if error.startswith("Key ")
+            ]
+            value_errors = [
+                error
+                for error in active_field_errors
+                if error.startswith("Value ")
+            ]
+            if active_field_is_new:
+                output = env().render_template_as_markup(
+                    "actions/table/get_document_custom_meta_new_inline/stream_inline_form.jinja.html",
+                    form_key=active_form_key,
+                    field_name=active_metadata_field.field_name,
+                    field_value=active_metadata_field.field_value,
+                    errors=active_field_errors,
+                    name_errors=name_errors,
+                    value_errors=value_errors,
+                )
+                return HTMLResponse(
+                    content=output,
+                    status_code=422,
+                    headers={"Content-Type": "text/vnd.turbo-stream.html"},
+                )
+            output = env().render_template_as_markup(
+                "actions/table/get_document_custom_meta_inline/stream_inline_form.jinja.html",
+                form_key=active_form_key,
+                field_name=active_field_name,
+                field_label=active_metadata_field.field_name,
+                field_value=active_metadata_field.field_value,
+                errors=active_field_errors,
+                name_errors=name_errors,
+                value_errors=value_errors,
+            )
+            return HTMLResponse(
+                content=output,
+                status_code=422,
+                headers={"Content-Type": "text/vnd.turbo-stream.html"},
+            )
+
+        write_document_to_file(document)
+        export_action.traceability_index.update_last_updated()
+
+        assert document.meta is not None
+        link_renderer = LinkRenderer(
+            root_path=document.meta.get_root_path_prefix(),
+            static_path=project_config.dir_for_sdoc_assets,
+        )
+        markup_renderer = MarkupRenderer.create(
+            markup=document.config.get_markup(),
+            traceability_index=export_action.traceability_index,
+            link_renderer=link_renderer,
+            html_templates=html_generator.html_templates,
+            config=project_config,
+            context_document=document,
+        )
+        view_object = DocumentScreenViewObject(
+            document_type=DocumentType.DOCUMENT,
+            document=document,
+            traceability_index=export_action.traceability_index,
+            project_config=project_config,
+            link_renderer=link_renderer,
+            markup_renderer=markup_renderer,
+            jinja_environment=env(),
+            git_client=html_generator.git_client,
+        )
+        if is_block_action:
+            stream_template = (
+                "actions/table/update_document_custom_meta/"
+                f"stream_{action}.jinja.html"
+            )
+            output = env().render_template_as_markup(
+                stream_template,
+                doc_mid=document_mid,
+                document_config=document.config,
+                view_object=view_object,
+            )
+            return HTMLResponse(
+                content=output,
+                status_code=200,
+                headers={"Content-Type": "text/vnd.turbo-stream.html"},
+            )
+        assert active_metadata_field is not None
+        if active_field_is_new:
+            # New rows use a distinct transport key while unsaved. Once saved,
+            # normalize it to the positional key used by existing display rows.
+            form_key = f"custom_meta_{active_metadata_index}"
+            output = env().render_template_as_markup(
+                "actions/table/update_document_custom_meta/stream_add.jinja.html",
+                doc_mid=document_mid,
+                field_content=view_object.render_metadata_value(
+                    active_metadata_field.field_value
+                ),
+                field_label=active_metadata_field.field_name,
+                field_value=active_metadata_field.field_value,
+                form_key=form_key,
+                view_object=view_object,
+            )
+            return HTMLResponse(
+                content=output,
+                status_code=200,
+                headers={"Content-Type": "text/vnd.turbo-stream.html"},
+            )
+        output = env().render_template_as_markup(
+            "actions/table/update_document_custom_meta/stream_update.jinja.html",
+            active_field_name=active_field_name,
+            field_content=view_object.render_metadata_value(
+                active_metadata_field.field_value
+            ),
+            field_label=active_metadata_field.field_name,
+            field_value=active_metadata_field.field_value,
+            form_key=active_form_key,
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={"Content-Type": "text/vnd.turbo-stream.html"},
+        )
+
+    @write_router.post(
+        "/actions/table/update_node_field_multiline", response_class=Response
+    )
+    def table__update_node_field_multiline(
+        request_form_data: FormData = Depends(parse_form_data),
+    ) -> Response:
+        request_dict = dict(request_form_data)
+        node_mid_str: str = request_dict["node_mid"]
+        field_name: str = request_dict["field_name"]
+        field_value: str = request_dict.get("field_value", "")
+
+        node: SDocNode = export_action.traceability_index.get_node_by_mid(
+            MID(node_mid_str)
+        )
+        document = assert_cast(node.get_document(), SDocDocument)
+        assert document.grammar is not None
+        grammar: DocumentGrammar = document.grammar
+        element: GrammarElement = grammar.elements_by_type[node.node_type]
+
+        if field_name not in element.fields_map:
+            return HTMLResponse(
+                content=f"Unknown field: {field_name}", status_code=400
+            )
+        if not element.is_field_multiline(field_name):
+            return HTMLResponse(
+                content=f"Field {field_name} is not multiline", status_code=400
+            )
+
+        sanitized_value: str = sanitize_html_form_field(
+            field_value, multiline=True
+        )
+
+        revision: int = revisions[node_mid_str]
+        form_object: RequirementFormObject = (
+            RequirementFormObject.create_from_requirement(
+                requirement=node,
+                revision=revision,
+                context_document_mid=document.reserved_mid.get_string_value(),
+            )
+        )
+
+        if field_name in form_object.fields:
+            form_object.fields[field_name][0].field_value = sanitized_value
+
+        form_object.validate(
+            traceability_index=export_action.traceability_index,
+            context_document=document,
+            config=project_config,
+            existing_revision=revision,
+        )
+        if form_object.any_errors():
+            # WIP: error text is collected for future inline error display.
+            field_errors: List[str] = []
+            for error_list in form_object.errors.values():
+                field_errors.extend(error_list)
+            return HTMLResponse(
+                content="\n".join(field_errors),
+                status_code=422,
+            )
+
+        update_command = CreateOrUpdateNodeCommand(
+            form_object=form_object,
+            node_info=UpdateNodeInfo(node_to_update=node),
+            traceability_index=export_action.traceability_index,
+            project_config=project_config,
+        )
+        update_command.perform()
+        write_document_to_file(document)
+        revisions[node_mid_str] += 1
+
+        assert document.meta is not None
+        link_renderer = LinkRenderer(
+            root_path=document.meta.get_root_path_prefix(),
+            static_path=project_config.dir_for_sdoc_assets,
+        )
+        markup_renderer = MarkupRenderer.create(
+            markup=document.config.get_markup(),
+            traceability_index=export_action.traceability_index,
+            link_renderer=link_renderer,
+            html_templates=html_generator.html_templates,
+            config=project_config,
+            context_document=document,
+        )
+
+        if field_name == element.content_field[0]:
+            rendered_content = (
+                markup_renderer.render_node_statement(
+                    DocumentType.DOCUMENT, node
+                )
+                if node.has_reserved_statement()
+                else ""
+            )
+        elif field_name == "RATIONALE":
+            rendered_content = (
+                markup_renderer.render_node_rationale(
+                    DocumentType.DOCUMENT, node
+                )
+                if node.rationale
+                else ""
+            )
+        elif field_name in node.ordered_fields_lookup:
+            node_field = node.ordered_fields_lookup[field_name][0]
+            rendered_content = markup_renderer.render_node_field(
+                DocumentType.DOCUMENT, node_field
+            )
+        else:
+            rendered_content = ""
+
+        output = env().render_template_as_markup(
+            "actions/table/update_node_field_multiline/stream_update.jinja.html",
+            node_mid=node_mid_str,
+            field_name=field_name,
+            rendered_content=rendered_content,
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={"Content-Type": "text/vnd.turbo-stream.html"},
+        )
+
+    @write_router.post(
+        "/actions/table/update_node_comments", response_class=Response
+    )
+    def table__update_node_comments(
+        request_form_data: FormData = Depends(parse_form_data),
+    ) -> Response:
+        request_dict = dict(request_form_data)
+        node_mid_str: str = request_dict["requirement_mid"]
+        node: SDocNode = export_action.traceability_index.get_node_by_mid(
+            MID(node_mid_str)
+        )
+        document = assert_cast(node.get_document(), SDocDocument)
+
+        form_object: RequirementFormObject = (
+            RequirementFormObject.create_from_request(
+                is_new=False,
+                requirement_mid=node_mid_str,
+                request_form_data=request_form_data,
+                document=document,
+                existing_requirement_uid=node.reserved_uid,
+            )
+        )
+        existing_revision: int = revisions[node_mid_str]
+
+        form_object.validate(
+            traceability_index=export_action.traceability_index,
+            context_document=document,
+            config=project_config,
+            existing_revision=existing_revision,
+        )
+        if form_object.any_errors():
+            error_output = env().render_template_as_markup(
+                "actions/table/get_node_comments_inline/stream_inline_form.jinja.html",
+                form_object=form_object,
+            )
+            return HTMLResponse(
+                content=error_output,
+                status_code=422,
+                headers={"Content-Type": "text/vnd.turbo-stream.html"},
+            )
+
+        update_command = CreateOrUpdateNodeCommand(
+            form_object=form_object,
+            node_info=UpdateNodeInfo(node_to_update=node),
+            traceability_index=export_action.traceability_index,
+            project_config=project_config,
+        )
+        update_command.perform()
+        write_document_to_file(document)
+        revisions[node_mid_str] += 1
+
+        assert document.meta is not None
+        link_renderer = LinkRenderer(
+            root_path=document.meta.get_root_path_prefix(),
+            static_path=project_config.dir_for_sdoc_assets,
+        )
+        markup_renderer = MarkupRenderer.create(
+            markup=document.config.get_markup(),
+            traceability_index=export_action.traceability_index,
+            link_renderer=link_renderer,
+            html_templates=html_generator.html_templates,
+            config=project_config,
+            context_document=document,
+        )
+
+        rendered_comments: List[str] = []
+        if "COMMENT" in node.ordered_fields_lookup:
+            for comment_field_ in node.ordered_fields_lookup["COMMENT"]:
+                rendered_comments.append(
+                    markup_renderer.render_node_field(
+                        DocumentType.DOCUMENT, comment_field_
+                    )
+                )
+
+        output = env().render_template_as_markup(
+            "actions/table/update_node_comments/stream_update.jinja.html",
+            node_mid=node_mid_str,
+            rendered_comments=rendered_comments,
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={"Content-Type": "text/vnd.turbo-stream.html"},
+        )
+
+    @write_router.post(
+        "/actions/table/update_node_relations", response_class=Response
+    )
+    def table__update_node_relations(
+        request_form_data: FormData = Depends(parse_form_data),
+    ) -> Response:
+        request_dict = dict(request_form_data)
+        node_mid_str: str = request_dict["requirement_mid"]
+        node: SDocNode = export_action.traceability_index.get_node_by_mid(
+            MID(node_mid_str)
+        )
+        document = assert_cast(node.get_document(), SDocDocument)
+
+        form_object: RequirementFormObject = (
+            RequirementFormObject.create_from_request(
+                is_new=False,
+                requirement_mid=node_mid_str,
+                request_form_data=request_form_data,
+                document=document,
+                existing_requirement_uid=node.reserved_uid,
+            )
+        )
+        existing_revision: int = revisions[node_mid_str]
+
+        context_document: SDocDocument = (
+            export_action.traceability_index.get_node_by_mid(
+                MID(form_object.context_document_mid)
+            )
+        )
+
+        form_object.validate(
+            traceability_index=export_action.traceability_index,
+            context_document=document,
+            config=project_config,
+            existing_revision=existing_revision,
+        )
+        if form_object.any_errors():
+            assert document.meta is not None
+            error_link_renderer = LinkRenderer(
+                root_path=document.meta.get_root_path_prefix(),
+                static_path=project_config.dir_for_sdoc_assets,
+            )
+            own_relation_uids = {
+                r.ref_uid
+                for r in node.relations
+                if hasattr(r, "ref_uid") and r.ref_uid
+            }
+            traceability_linked_nodes = (
+                export_action.traceability_index.get_parent_requirements(node)
+                + export_action.traceability_index.get_children_requirements(
+                    node
+                )
+            )
+            derived_nodes = [
+                req
+                for req in traceability_linked_nodes
+                if req.reserved_uid not in own_relation_uids
+            ]
+            view_object_stub = types.SimpleNamespace(
+                render_node_link=lambda req: (
+                    error_link_renderer.render_node_link(
+                        req, document, DocumentType.DOCUMENT
+                    )
+                ),
+            )
+            error_output = env().render_template_as_markup(
+                "actions/table/get_node_relations_inline/stream_inline_form.jinja.html",
+                form_object=form_object,
+                derived_nodes=derived_nodes,
+                view_object=view_object_stub,
+            )
+            return HTMLResponse(
+                content=error_output,
+                status_code=422,
+                headers={"Content-Type": "text/vnd.turbo-stream.html"},
+            )
+
+        old_related_uids = {
+            r.ref_uid
+            for r in node.relations
+            if hasattr(r, "ref_uid") and r.ref_uid
+        }
+
+        update_command = CreateOrUpdateNodeCommand(
+            form_object=form_object,
+            node_info=UpdateNodeInfo(node_to_update=node),
+            traceability_index=export_action.traceability_index,
+            project_config=project_config,
+        )
+        update_command.perform()
+        write_document_to_file(document)
+        revisions[node_mid_str] += 1
+
+        new_related_uids = {
+            r.ref_uid
+            for r in node.relations
+            if hasattr(r, "ref_uid") and r.ref_uid
+        }
+        # Linking/unlinking this node also changes the computed Parent/Child
+        # relations shown on the other side of the link, so those rows need
+        # their RELATIONS cell refreshed too.
+        affected_related_nodes = [
+            related_node
+            for uid in old_related_uids | new_related_uids
+            if isinstance(
+                related_node
+                := export_action.traceability_index.get_node_by_uid_weak(uid),
+                SDocNode,
+            )
+            and related_node.reserved_mid != node.reserved_mid
+        ]
+
+        assert document.meta is not None
+        link_renderer = LinkRenderer(
+            root_path=document.meta.get_root_path_prefix(),
+            static_path=project_config.dir_for_sdoc_assets,
+        )
+
+        view_object_stub = types.SimpleNamespace(
+            traceability_index=export_action.traceability_index,
+            project_config=project_config,
+            link_renderer=link_renderer,
+            render_node_link=lambda req: link_renderer.render_node_link(
+                req, context_document, DocumentType.DOCUMENT
+            ),
+        )
+
+        output = env().render_template_as_markup(
+            "actions/table/update_node_relations/stream_update.jinja.html",
+            node_mid=node_mid_str,
+            requirement=node,
+            affected_related_nodes=affected_related_nodes,
+            view_object=view_object_stub,
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={"Content-Type": "text/vnd.turbo-stream.html"},
+        )
+
+    @read_router.get(
+        "/actions/document/cancel_new_requirement", response_class=Response
+    )
+    def cancel_new_requirement(requirement_mid: str) -> Response:
+        output = env().render_template_as_markup(
+            "actions/"
+            "document/"
+            "create_requirement/"
+            "stream_cancel_new_requirement.jinja.html",
+            requirement_mid=requirement_mid,
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @read_router.get(
+        "/actions/document/cancel_edit_requirement", response_class=Response
+    )
+    def cancel_edit_requirement(requirement_mid: str) -> Response:
+        """
+        @relation(SDOC-SRS-55, scope=function)
+        """
+
+        assert isinstance(requirement_mid, str) and len(requirement_mid) > 0, (
+            f"{requirement_mid}"
+        )
+        requirement: SDocNode = (
+            export_action.traceability_index.get_node_by_mid(
+                MID(requirement_mid)
+            )
+        )
+        document: SDocDocument = assert_cast(
+            requirement.get_document(), SDocDocument
+        )
+        assert document.meta is not None
+        link_renderer = LinkRenderer(
+            root_path=document.meta.get_root_path_prefix(),
+            static_path=project_config.dir_for_sdoc_assets,
+        )
+        markup_renderer = MarkupRenderer.create(
+            markup=document.config.get_markup(),
+            traceability_index=export_action.traceability_index,
+            link_renderer=link_renderer,
+            html_templates=html_generator.html_templates,
+            config=project_config,
+            context_document=document,
+        )
+        view_object = DocumentScreenViewObject(
+            document_type=DocumentType.DOCUMENT,
+            document=document,
+            traceability_index=export_action.traceability_index,
+            project_config=project_config,
+            link_renderer=link_renderer,
+            markup_renderer=markup_renderer,
+            jinja_environment=env(),
+            git_client=html_generator.git_client,
+        )
+        return HTMLResponse(
+            content=view_object.render_updated_nodes_and_toc(
+                [requirement], node_updated=False
+            ),
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @write_router.delete(
+        "/actions/document/delete_requirement",
+        response_class=Response,
+    )
+    def delete_requirement(
+        node_id: str, context_document_mid: str, confirmed: bool = False
+    ) -> Response:
+        requirement: SDocNode = (
+            export_action.traceability_index.get_node_by_mid(MID(node_id))
+        )
+        if not export_action.traceability_index.can_delete_node(requirement):
+            raise HTTPException(
+                status_code=403,
+                detail="Deleting is disabled for autogenerated content.",
+            )
+
+        document: SDocDocument = assert_cast(
+            requirement.get_document(), SDocDocument
+        )
+        if not confirmed:
+            errors: List[str]
+            try:
+                delete_command = DeleteRequirementCommand(
+                    requirement=requirement,
+                    traceability_index=export_action.traceability_index,
+                )
+                delete_command.validate()
+                errors = []
+            except MultipleValidationErrorAsList as error_:
+                errors = error_.errors
+
+            output = env().render_template_as_markup(
+                "actions/document/delete_requirement/"
+                "stream_confirm_delete_requirement.jinja",
+                requirement_mid=node_id,
+                context_document_mid=context_document_mid,
+                errors=errors,
+            )
+            return HTMLResponse(
+                content=output,
+                status_code=200 if len(errors) == 0 else 422,
+                headers={
+                    "Content-Type": "text/vnd.turbo-stream.html",
+                },
+            )
+
+        try:
+            delete_command = DeleteRequirementCommand(
+                requirement=requirement,
+                traceability_index=export_action.traceability_index,
+            )
+            delete_command.perform()
+        except MultipleValidationError:
+            return HTMLResponse(
+                content="",
+                status_code=422,
+                headers={
+                    "Content-Type": "text/vnd.turbo-stream.html",
+                },
+            )
+
+        # Saving new content to .SDoc file.
+        write_document_to_file(document)
+
+        context_document: SDocDocument = (
+            export_action.traceability_index.get_node_by_mid(
+                MID(context_document_mid)
+            )
+        )
+
+        # Rendering back the Turbo template.
+        assert document.meta is not None
+        link_renderer = LinkRenderer(
+            root_path=document.meta.get_root_path_prefix(),
+            static_path=project_config.dir_for_sdoc_assets,
+        )
+        markup_renderer = MarkupRenderer.create(
+            markup=document.config.get_markup(),
+            traceability_index=export_action.traceability_index,
+            link_renderer=link_renderer,
+            html_templates=html_generator.html_templates,
+            config=project_config,
+            context_document=document,
+        )
+        view_object: DocumentScreenViewObject = DocumentScreenViewObject(
+            document_type=DocumentType.DOCUMENT,
+            document=context_document,
+            traceability_index=export_action.traceability_index,
+            project_config=project_config,
+            link_renderer=link_renderer,
+            markup_renderer=markup_renderer,
+            jinja_environment=env(),
+            git_client=html_generator.git_client,
+        )
+        output = env().render_template_as_markup(
+            "actions/document/delete_requirement/"
+            "stream_delete_requirement.jinja.html",
+            view_object=view_object,
+        )
+
+        output += env().render_template_as_markup(
+            "actions/document/_shared/stream_updated_toc.jinja.html",
+            view_object=view_object,
+        )
+
+        output += env().render_template_as_markup(
+            "actions/document/_shared/stream_updated_viewtype_menu.jinja.html",
+            view_object=view_object,
+        )
+
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @write_router.post(
+        "/actions/document/upload_asset", response_class=JSONResponse
+    )
+    async def upload_asset(
+        requirement_mid: str,
+        document_mid: str,
+        uploaded_files: List[UploadFile],
+    ) -> JSONResponse:
+        """
+        Handle upload of assets (images for now).
+
+        @relation(SDOC-LLR-215, scope=function)
+        """
+        document: Optional[SDocDocument] = (
+            export_action.traceability_index.get_node_by_mid_weak(
+                MID(document_mid)
+            )
+        )
+        if not document or not hasattr(document, "meta"):
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "detail": (
+                        f"Active Document with MID {document_mid} not found"
+                    )
+                },
+            )
+
+        requirement_node = (
+            export_action.traceability_index.get_node_by_mid_weak(
+                MID(requirement_mid)
+            )
+        )
+
+        if document.autogen or (requirement_node and requirement_node.autogen):
+            raise HTTPException(
+                status_code=400,
+                detail="Asset upload is disabled for autogenerated (=read-only) nodes.",
+            )
+
+        for uploaded_file in uploaded_files:
+            if uploaded_file.filename is None or not is_supported_image_format(
+                uploaded_file.filename, uploaded_file.content_type
+            ):
+                filename = uploaded_file.filename or "unnamed file"
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Unsupported format: {filename}. "
+                        "You can use "
+                        f"{SUPPORTED_IMAGE_FORMAT_NAMES}."
+                    ),
+                )
+
+        assert document.meta is not None
+        assert project_config.input_paths is not None
+        assert export_action.traceability_index.asset_manager is not None
+        requirement_mid = os.path.normpath(os.path.basename(requirement_mid))
+        if not re.match(r"^[a-fA-F0-9]{32}$", requirement_mid):
+            raise HTTPException(
+                status_code=400, detail="Invalid requirement MID format"
+            )
+        full_input_path = os.path.abspath(project_config.input_paths[0])
+        path_to_doc_root_base = os.path.dirname(full_input_path)
+        doc_assets_rel_path = (
+            document.meta.input_doc_assets_dir_rel_path.relative_path
+        )
+
+        assets_folder_full_path = os.path.normpath(
+            os.path.join(path_to_doc_root_base, doc_assets_rel_path)
+        )
+        asset_manager = export_action.traceability_index.asset_manager
+
+        # @relation(SDOC-LLR-213, scope=range_start)
+        mids_enabled = True
+        if hasattr(document, "config") and document.config is not None:
+            if document.config.enable_mid is not True:
+                mids_enabled = False
+
+        asset_subfolder_name = resolve_uploaded_asset_subfolder(
+            mids_enabled=mids_enabled,
+            requirement_mid=requirement_mid,
+            requirement_exists=requirement_node is not None,
+            requirement_mid_permanent=(
+                requirement_node.mid_permanent
+                if requirement_node is not None
+                else False
+            ),
+            requirement_uid=(
+                requirement_node.reserved_uid
+                if requirement_node is not None
+                else None
+            ),
+        )
+        if asset_subfolder_name is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Please save the requirement first before uploading any images.",
+            )
+        # @relation(SDOC-LLR-213, scope=range_end)
+
+        # Create a node-specific subfolder based on the requirement_mid for assets of this node, in the _assets
+        # folder relative to the document location.
+        # - Subfolder => to avoid asset filename collisions with other nodes/documents.
+        assets_node_specific_subfolder = os.path.join(
+            assets_folder_full_path, asset_subfolder_name
+        )
+        if not assets_node_specific_subfolder.startswith(
+            assets_folder_full_path
+        ):
+            raise HTTPException(status_code=400, detail="not allowed")
+        os.makedirs(assets_node_specific_subfolder, exist_ok=True)
+
+        # And make sure that the asset manager tracks it...
+        rel_assets_path = os.path.relpath(
+            assets_folder_full_path, os.path.dirname(full_input_path)
+        )
+        has_assets_root = any(
+            directory.relative_path.relative_path == rel_assets_path
+            for directory in asset_manager.iterate()
+        )
+        if not has_assets_root:
+            asset_manager.add_asset_dir(
+                full_path=assets_folder_full_path,
+                relative_path=SDocRelativePath(rel_assets_path),
+            )
+
+        # Process each uploaded file
+        uploaded_files_by_stem: dict[str, list[tuple[str, str]]] = defaultdict(
+            list
+        )
+
+        for uploaded_file in uploaded_files:
+            assert uploaded_file.filename is not None
+
+            original_filename = Path(uploaded_file.filename).name
+            rst_safe_filename = original_filename.replace(" ", "_")
+            full_file_save_path = os.path.join(
+                assets_node_specific_subfolder, rst_safe_filename
+            )
+            if not full_file_save_path.startswith(
+                os.path.abspath(assets_node_specific_subfolder)
+            ):
+                raise HTTPException(status_code=400, detail="Invalid filename")
+
+            file_contents = await uploaded_file.read()
+            if len(file_contents) == 0:
+                raise HTTPException(
+                    status_code=400, detail="Image has no content"
+                )
+            with open(full_file_save_path, "wb") as buffer:
+                buffer.write(file_contents)
+
+            # Group uploaded filenames by stem before resolving wildcard pairs.
+            stem, extension = os.path.splitext(rst_safe_filename)
+            uploaded_files_by_stem[stem].append(
+                (rst_safe_filename, extension.lower())
+            )
+
+        # Resolve Sphinx wildcard (.*) paths for the uploaded files.
+        # @relation(SDOC-LLR-216, scope=range_start)
+        existing_image_stems_to_ext_set: dict[str, set[str]] = defaultdict(set)
+        for sibling in os.listdir(assets_node_specific_subfolder):
+            full_path = os.path.join(assets_node_specific_subfolder, sibling)
+            if not os.path.isfile(full_path):
+                continue
+            stem, extension = os.path.splitext(sibling)
+            if extension.lower() in SUPPORTED_IMAGE_FORMATS:
+                existing_image_stems_to_ext_set[stem].add(extension.lower())
+
+        uploaded_image_uris: dict[str, str] = {}
+        for stem, uploaded_stem_files in uploaded_files_by_stem.items():
+            found_extensions = existing_image_stems_to_ext_set.get(stem, set())
+            uri_base = (
+                f"./_assets/{asset_subfolder_name}"
+                if asset_subfolder_name
+                else "./_assets"
+            )
+            has_wildcard_pair = ".svg" in found_extensions and any(
+                extension != ".svg" for extension in found_extensions
+            )
+            if has_wildcard_pair:
+                wildcard_uri = f"{uri_base}/{stem}.*"
+                for filename, _ in uploaded_stem_files:
+                    uploaded_image_uris[filename] = wildcard_uri
+            else:
+                for filename, _ in uploaded_stem_files:
+                    uploaded_image_uris[filename] = f"{uri_base}/{filename}"
+
+        # @relation(SDOC-LLR-216, scope=range_end)
+
+        # We need to re-export the assets to copy the new files to the output folder
+        html_generator.export_project_assets(
+            traceability_index=export_action.traceability_index,
+            export_output_html_root=project_config.export_output_html_root,
+        )
+
+        return JSONResponse(
+            content={"images": uploaded_image_uris},
+            status_code=200,
+        )
+
+    @write_router.post("/actions/document/move_node", response_class=Response)
+    def move_node(
+        request_form_data: FormData = Depends(parse_form_data),
+    ) -> Response:
+        """
+        @relation(SDOC-SRS-92, scope=function)
+        """
+
+        request_dict: Dict[str, str] = dict(request_form_data)
+        moved_node_mid: str = request_dict["moved_node_mid"]
+        target_mid: str = request_dict["target_mid"]
+        whereto: str = request_dict["whereto"]
+
+        assert export_action.traceability_index is not None
+
+        moved_node = export_action.traceability_index.get_node_by_mid(
+            MID(moved_node_mid)
+        )
+        document: SDocDocument = assert_cast(
+            moved_node.get_document(), SDocDocument
+        )
+        target_node = export_action.traceability_index.get_node_by_mid(
+            MID(target_mid)
+        )
+        moved_sdoc_node = assert_cast(moved_node, SDocNode)
+        if not export_action.traceability_index.can_move_node_to(
+            moved_sdoc_node, target_node, whereto
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="Moving is disabled for autogenerated content.",
+            )
+
+        current_parent_node = moved_node.parent
+
+        # Currently UI allows a child-like drag-and-drop on a leaf (non-composite) node.
+        # In that case, we make it add a node **after** the target node
+        # (not as its child because that's not possible).
+        if (
+            whereto == NodeCreationOrder.CHILD
+            and isinstance(target_node, SDocNode)
+            and not target_node.is_composite
+        ):
+            whereto = NodeCreationOrder.AFTER
+
+        if whereto == NodeCreationOrder.CHILD:
+            # Disconnect the moved_node from its parent.
+            current_parent_node.section_contents.remove(moved_node)
+            # Append to the end of child list.
+            target_node.section_contents.append(moved_node)
+            moved_node.parent = target_node
+        elif whereto == NodeCreationOrder.BEFORE:
+            # Disconnect the moved_node from its parent.
+            current_parent_node.section_contents.remove(moved_node)
+            # Append before.
+            insert_to_idx = target_node.parent.section_contents.index(
+                target_node
+            )
+            target_node.parent.section_contents.insert(
+                insert_to_idx, moved_node
+            )
+            moved_node.parent = target_node.parent
+        elif whereto == NodeCreationOrder.AFTER:
+            # Disconnect the moved_node from its parent.
+            current_parent_node.section_contents.remove(moved_node)
+            # Append after.
+            insert_to_idx = target_node.parent.section_contents.index(
+                target_node
+            )
+            target_node.parent.section_contents.insert(
+                insert_to_idx + 1, moved_node
+            )
+            moved_node.parent = target_node.parent
+        else:
+            raise NotImplementedError
+
+        # Saving new content to .SDoc file.
+        write_document_to_file(document)
+
+        # Update the index because other documents might reference this
+        # document's sections. These documents will be regenerated on demand,
+        # when they are opened next time.
+        export_action.traceability_index.update_last_updated()
+
+        assert document.meta is not None
+        link_renderer = LinkRenderer(
+            root_path=document.meta.get_root_path_prefix(),
+            static_path=project_config.dir_for_sdoc_assets,
+        )
+        markup_renderer = MarkupRenderer.create(
+            markup=document.config.get_markup(),
+            traceability_index=export_action.traceability_index,
+            link_renderer=link_renderer,
+            html_templates=html_generator.html_templates,
+            config=project_config,
+            context_document=document,
+        )
+        view_object = DocumentScreenViewObject(
+            document_type=DocumentType.DOCUMENT,
+            document=document,
+            traceability_index=export_action.traceability_index,
+            project_config=project_config,
+            link_renderer=link_renderer,
+            markup_renderer=markup_renderer,
+            jinja_environment=env(),
+            git_client=html_generator.git_client,
+        )
+        return HTMLResponse(
+            content=view_object.render_update_document_content_with_moved_node(
+                moved_node
+            ),
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @read_router.get(
+        "/actions/document/show_move_node", response_class=Response
+    )
+    def get_show_move_node(node_mid: str) -> Response:
+        moved_node = export_action.traceability_index.get_node_by_mid(
+            MID(node_mid)
+        )
+        moved_node = assert_cast(moved_node, SDocNode)
+        source_document: SDocDocument = assert_cast(
+            moved_node.get_document(), SDocDocument
+        )
+        if not export_action.traceability_index.can_move_node_across_documents(
+            moved_node
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="Moving is disabled for this node.",
+            )
+
+        assert source_document.meta is not None
+        link_renderer = LinkRenderer(
+            root_path=source_document.meta.get_root_path_prefix(),
+            static_path=project_config.dir_for_sdoc_assets,
+        )
+        markup_renderer = MarkupRenderer.create(
+            markup=source_document.config.get_markup(),
+            traceability_index=export_action.traceability_index,
+            link_renderer=link_renderer,
+            html_templates=html_generator.html_templates,
+            config=project_config,
+            context_document=source_document,
+        )
+        view_object = DocumentScreenViewObject(
+            document_type=DocumentType.DOCUMENT,
+            document=source_document,
+            traceability_index=export_action.traceability_index,
+            project_config=project_config,
+            link_renderer=link_renderer,
+            markup_renderer=markup_renderer,
+            jinja_environment=env(),
+            git_client=html_generator.git_client,
+        )
+        subtree_mids = export_action.traceability_index.get_subtree_mids(
+            moved_node
+        )
+        initially_expanded_mids: Set[str] = {str(source_document.reserved_mid)}
+        ancestor_node = moved_node.parent
+        while isinstance(ancestor_node, SDocNode):
+            initially_expanded_mids.add(str(ancestor_node.reserved_mid))
+            ancestor_node = ancestor_node.parent
+        incompatible_document_mids: Dict[str, List[str]] = {}
+        for (
+            document_
+        ) in export_action.traceability_index.document_tree.document_list:
+            if document_ is source_document:
+                continue
+            grammar_incompatibilities = export_action.traceability_index.get_move_grammar_incompatibilities(
+                moved_node, document_
+            )
+            if len(grammar_incompatibilities) > 0:
+                incompatible_document_mids[str(document_.reserved_mid)] = (
+                    grammar_incompatibilities
+                )
+        output = env().render_template_as_markup(
+            "actions/document/move_node/stream_show_move_node.jinja",
+            view_object=view_object,
+            moved_node=moved_node,
+            subtree_mids=subtree_mids,
+            initially_expanded_mids=initially_expanded_mids,
+            source_document=source_document,
+            incompatible_document_mids=incompatible_document_mids,
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @write_router.post(
+        "/actions/document/move_node_across_documents",
+        response_class=Response,
+    )
+    def post_move_node_across_documents(
+        moved_node_mid: str,
+        target_mid: str,
+        whereto: str,
+        context_document_mid: str,
+    ) -> Response:
+        moved_node = export_action.traceability_index.get_node_by_mid(
+            MID(moved_node_mid)
+        )
+        moved_node = assert_cast(moved_node, SDocNode)
+        target_node = export_action.traceability_index.get_node_by_mid(
+            MID(target_mid)
+        )
+        target_node = assert_cast(target_node, (SDocDocument, SDocNode))
+
+        command = MoveNodeAcrossDocumentsCommand(
+            moved_node=moved_node,
+            target_node=target_node,
+            whereto=whereto,
+            traceability_index=export_action.traceability_index,
+        )
+        try:
+            command.perform()
+        except SingleValidationError as exception_:
+            error_output = env().render_template_as_markup(
+                "actions/document/move_node/stream_move_node_error.jinja.html",
+                error_message=exception_.args[0],
+            )
+            return HTMLResponse(
+                content=error_output,
+                status_code=422,
+                headers={
+                    "Content-Type": "text/vnd.turbo-stream.html",
+                },
+            )
+
+        if not command.move_was_performed:
+            no_change_output = env().render_template_as_markup(
+                "actions/document/move_node/"
+                "stream_move_node_no_change.jinja.html",
+            )
+            return HTMLResponse(
+                content=no_change_output,
+                headers={
+                    "Content-Type": "text/vnd.turbo-stream.html",
+                },
+            )
+
+        # Saving new content to .SDoc file(s).
+        write_document_to_file(command.source_document)
+        if command.destination_document is not command.source_document:
+            write_document_to_file(command.destination_document)
+
+        context_document = export_action.traceability_index.get_node_by_mid(
+            MID(context_document_mid)
+        )
+        context_document = assert_cast(context_document, SDocDocument)
+
+        assert context_document.meta is not None
+        link_renderer = LinkRenderer(
+            root_path=context_document.meta.get_root_path_prefix(),
+            static_path=project_config.dir_for_sdoc_assets,
+        )
+        markup_renderer = MarkupRenderer.create(
+            markup=context_document.config.get_markup(),
+            traceability_index=export_action.traceability_index,
+            link_renderer=link_renderer,
+            html_templates=html_generator.html_templates,
+            config=project_config,
+            context_document=context_document,
+        )
+        view_object = DocumentScreenViewObject(
+            document_type=DocumentType.DOCUMENT,
+            document=context_document,
+            traceability_index=export_action.traceability_index,
+            project_config=project_config,
+            link_renderer=link_renderer,
+            markup_renderer=markup_renderer,
+            jinja_environment=env(),
+            git_client=html_generator.git_client,
+        )
+        output = env().render_template_as_markup(
+            "actions/document/move_node/"
+            "stream_move_node_across_documents.jinja.html",
+            view_object=view_object,
+            new_location_href=view_object.render_node_link(moved_node),
+        )
+        return HTMLResponse(
+            content=output,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @read_router.get(
+        "/actions/project_index/new_document", response_class=Response
+    )
+    def get_new_document() -> Response:
+        """
+        @relation(SDOC-SRS-107, scope=function)
+        """
+
+        output = env().render_template_as_markup(
+            "actions/project_index/stream_new_document.jinja.html",
+            error_object=ErrorObject(),
+            document_title="",
+            document_path="",
+            include_doc_paths=project_config.include_doc_paths,
+            editable_document_extensions=(
+                project_config.get_editable_document_extensions()
+            ),
+        )
+        return HTMLResponse(
+            content=output,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @read_router.get(
+        "/actions/project_index/edit_project_title_form",
+        response_class=Response,
+    )
+    def get_edit_project_title_form() -> Response:
+        error_object = ErrorObject()
+        output = env().render_template_as_markup(
+            "actions/project_index/edit_project_title/"
+            "stream_form_edit_project_title.jinja.html",
+            error_object=error_object,
+            project_config=project_config,
+        )
+        return HTMLResponse(
+            content=output,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @write_router.post(
+        "/actions/project_index/save_project_title", response_class=Response
+    )
+    def save_project_title(project_title: str = Form("")) -> Response:
+        error_object = ErrorObject()
+
+        new_title = project_title.strip() if project_title is not None else ""
+        if len(new_title) == 0:
+            error_object.add_error(
+                "project_title", "Project title must not be empty."
+            )
+
+        if error_object.any_errors():
+            output = env().render_template_as_markup(
+                "actions/project_index/edit_project_title/"
+                "stream_form_edit_project_title.jinja.html",
+                error_object=error_object,
+                project_config=project_config,
+                new_title=new_title,
+            )
+            return HTMLResponse(
+                content=output,
+                status_code=200,
+                headers={
+                    "Content-Type": "text/vnd.turbo-stream.html",
+                },
+            )
+
+        # Try to persist the new title into the project configuration when available.
+        project_root = project_config.get_project_root_path()
+        config_toml_path: Optional[str] = None
+        config_py_path: Optional[str] = None
+
+        if os.path.isdir(project_root):
+            # Prefer Python config when both exist.
+            candidate_py = os.path.join(project_root, "strictdoc_config.py")
+            candidate_toml = os.path.join(project_root, "strictdoc.toml")
+            if os.path.isfile(candidate_py):
+                config_py_path = candidate_py
+            elif os.path.isfile(candidate_toml):
+                config_toml_path = candidate_toml
+        else:
+            # project_root may point directly to a config file or to an
+            # input path next to the config files.
+            if project_root.endswith("strictdoc.toml"):
+                config_toml_path = project_root
+            elif project_root.endswith("strictdoc_config.py"):
+                config_py_path = project_root
+            else:
+                config_dir = os.path.dirname(project_root)
+                candidate_py = os.path.join(config_dir, "strictdoc_config.py")
+                candidate_toml = os.path.join(config_dir, "strictdoc.toml")
+                if os.path.isfile(candidate_py):
+                    config_py_path = candidate_py
+                elif os.path.isfile(candidate_toml):
+                    config_toml_path = candidate_toml
+
+        # strictdoc.toml is not supported anymore.
+        if config_toml_path is not None:
+            error_object = ErrorObject()
+
+            error_object.add_error(
+                "project_title",
+                "Renaming project title is not supported with TOML config files. Switch from strictdoc.toml to strictdoc_config.py and try again.",
+            )
+
+            output = env().render_template_as_markup(
+                "actions/project_index/edit_project_title/"
+                "stream_form_edit_project_title.jinja.html",
+                error_object=error_object,
+                project_config=project_config,
+                new_title=new_title,
+            )
+            return HTMLResponse(
+                content=output,
+                status_code=400,
+                headers={
+                    "Content-Type": "text/vnd.turbo-stream.html",
+                },
+            )
+
+        # Update strictdoc_config.py by editing its title using regex.
+        # The implementation is pretty hacky but should work for now.
+        if config_py_path is not None:
+            with open(config_py_path, encoding="utf8") as config_file:
+                config_text = config_file.read()
+
+            pattern = re.compile(
+                r"(project_title\s*=\s*)([\"'])(.*?)([\"'])",
+                re.DOTALL,
+            )
+
+            def _replace_title(match: re.Match[str]) -> str:
+                prefix = match.group(1)
+                quote = match.group(2)
+                escaped_title = new_title.replace(quote, "\\" + quote)
+                return f"{prefix}{quote}{escaped_title}{quote}"
+
+            new_text, count = pattern.subn(_replace_title, config_text, count=1)
+
+            if count > 0:
+                with open(config_py_path, "w", encoding="utf8") as config_file:
+                    config_file.write(new_text)
+            else:
+                error_object = ErrorObject()
+
+                error_object.add_error(
+                    "project_title",
+                    (
+                        "Renaming project title is not supported when a title is "
+                        "not already configured to a previous value in"
+                        "strictdoc_config.py."
+                    ),
+                )
+
+                output = env().render_template_as_markup(
+                    "actions/project_index/edit_project_title/"
+                    "stream_form_edit_project_title.jinja.html",
+                    error_object=error_object,
+                    project_config=project_config,
+                    new_title=new_title,
+                )
+                return HTMLResponse(
+                    content=output,
+                    status_code=400,
+                    headers={
+                        "Content-Type": "text/vnd.turbo-stream.html",
+                    },
+                )
+
+        # Update in-memory project configuration after successful validation
+        # of where the title can be stored on disk.
+        project_config.project_title = new_title
+
+        # This ensures that the cached project index HTML page is invalidated.
+        export_action.traceability_index.update_last_updated()
+
+        # Return Turbo Streams to update the header title and close the modal.
+        output = env().render_template_as_markup(
+            "actions/project_index/edit_project_title/"
+            "stream_save_project_title.jinja.html",
+            project_config=project_config,
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @write_router.post(
+        "/actions/project_index/create_document", response_class=Response
+    )
+    def document_tree__create_document(
+        document_title: str = Form(""),
+        document_path: str = Form(""),
+    ) -> Response:
+        """
+        @relation(SDOC-SRS-107, scope=function)
+        """
+
+        error_object = ErrorObject()
+        if document_title is None or len(document_title) == 0:
+            error_object.add_error(
+                "document_title", "Document title must not be empty."
+            )
+        if document_path is None or len(document_path) == 0:
+            error_object.add_error(
+                "document_path", "Document path must not be empty."
+            )
+        else:
+            document_path = document_path.strip().lstrip("/")
+            if not is_safe_alphanumeric_string(document_path):
+                error_object.add_error(
+                    "document_path",
+                    (
+                        "Document path must be relative and only contain "
+                        "slashes, alphanumeric characters, "
+                        "and underscore symbols."
+                    ),
+                )
+
+        if project_config.include_doc_paths is not None:
+            path_filter_includes = PathFilter(
+                project_config.include_doc_paths, positive_or_negative=True
+            )
+            if not path_filter_includes.match(document_path):
+                error_object.add_error(
+                    "document_path",
+                    (
+                        "Document path is not a valid path according to "
+                        "the project config's setting 'include_doc_paths': "
+                        f"{project_config.include_doc_paths}."
+                    ),
+                )
+        if project_config.exclude_doc_paths is not None:
+            path_filter_excludes = PathFilter(
+                project_config.exclude_doc_paths, positive_or_negative=False
+            )
+            if path_filter_excludes.match(document_path):
+                error_object.add_error(
+                    "document_path",
+                    (
+                        "Document path is not a valid path according to "
+                        "the project config's setting 'exclude_doc_paths': "
+                        f"{project_config.exclude_doc_paths}."
+                    ),
+                )
+
+        editable_document_extensions = (
+            project_config.get_editable_document_extensions()
+        )
+        if document_path is not None and len(document_path) > 0:
+            if not document_path.endswith(tuple(editable_document_extensions)):
+                error_object.add_error(
+                    "document_path",
+                    (
+                        "Document path must end with one of the supported "
+                        "document extensions: "
+                        f"{', '.join(editable_document_extensions)}."
+                    ),
+                )
+
+        if error_object.any_errors():
+            output = env().render_template_as_markup(
+                "actions/project_index/stream_new_document.jinja.html",
+                error_object=error_object,
+                document_title=document_title
+                if document_title is not None
+                else "",
+                document_path=document_path
+                if document_path is not None
+                else "",
+                include_doc_paths=project_config.include_doc_paths,
+                editable_document_extensions=editable_document_extensions,
+            )
+            return HTMLResponse(
+                content=output,
+                status_code=200,
+                headers={
+                    "Content-Type": "text/vnd.turbo-stream.html",
+                },
+            )
+
+        assert isinstance(project_config.input_paths, list)
+        full_input_path = os.path.abspath(project_config.input_paths[0])
+        file_tree_mount_folder = os.path.basename(
+            os.path.dirname(full_input_path)
+        )
+        doc_full_path = os.path.join(full_input_path, document_path)
+        doc_full_path_dir = os.path.dirname(doc_full_path)
+        document_file_name = os.path.basename(doc_full_path)
+        input_doc_dir_rel_path = os.path.dirname(document_path)
+        input_doc_assets_dir_rel_path = (
+            "/".join(
+                (
+                    file_tree_mount_folder,
+                    input_doc_dir_rel_path,
+                    "_assets",
+                )
+            )
+            if len(input_doc_dir_rel_path) > 0
+            else "/".join((file_tree_mount_folder, "_assets"))
+        )
+
+        Path(doc_full_path_dir).mkdir(parents=True, exist_ok=True)
+        document = SDocDocument(
+            mid=None,
+            title=document_title,
+            config=None,
+            view=None,
+            grammar=DocumentGrammar.create_default(parent=None),
+            section_contents=[],
+        )
+        # FIXME: Fill in the document meta correctly.
+        document.meta = DocumentMeta(
+            level=0,
+            file_tree_mount_folder="NOT_RELEVANT",
+            document_filename=document_file_name,
+            document_filename_base="NOT_RELEVANT",
+            input_doc_full_path=doc_full_path,
+            input_doc_rel_path=SDocRelativePath(document_path),
+            input_doc_dir_rel_path=SDocRelativePath(input_doc_dir_rel_path),
+            input_doc_assets_dir_rel_path=SDocRelativePath(
+                input_doc_assets_dir_rel_path
+            ),
+            output_document_dir_full_path="NOT_RELEVANT",
+            output_document_dir_rel_path=SDocRelativePath("FIXME"),
+        )
+
+        write_document_to_file(document)
+
+        export_action.build_index()
+        export_action.export()
+
+        view_object = ProjectTreeViewObject(
+            traceability_index=export_action.traceability_index,
+            project_config=project_config,
+        )
+        output = env().render_template_as_markup(
+            "actions/project_index/stream_create_document.jinja.html",
+            view_object=view_object,
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @write_router.delete(
+        "/actions/document/delete_document",
+        response_class=Response,
+    )
+    def delete_document(document_mid: str, confirmed: bool = False) -> Response:
+        """
+        Delete an entire SDOC document from the project.
+
+        This endpoint is intentionally simple: it removes the underlying
+        ``.sdoc`` file from disk, rebuilds the index and redirects back to the
+        project index screen. For now, it is up to the user to ensure that
+        no other documents depend on this one (for example via ``INCLUDE``).
+        """
+
+        document: SDocDocument = assert_cast(
+            export_action.traceability_index.get_node_by_mid(MID(document_mid)),
+            SDocDocument,
+        )
+        if not export_action.traceability_index.can_delete_node(document):
+            raise HTTPException(
+                status_code=403,
+                detail="Deleting is disabled for autogenerated content.",
+            )
+
+        assert document.meta is not None
+
+        errors: List[str] = []
+        try:
+            export_action.traceability_index.validate_can_remove_document(
+                document
+            )
+        except MultipleValidationErrorAsList as error_:
+            errors = error_.errors
+
+        if not confirmed:
+            output = env().render_template_as_markup(
+                "actions/document/delete_document/"
+                "stream_confirm_delete_document.jinja",
+                document_mid=document_mid,
+                errors=errors,
+            )
+            return HTMLResponse(
+                content=output,
+                status_code=200 if len(errors) == 0 else 422,
+                headers={
+                    "Content-Type": "text/vnd.turbo-stream.html",
+                },
+            )
+
+        if len(errors) > 0:
+            output = env().render_template_as_markup(
+                "actions/document/delete_document/"
+                "stream_confirm_delete_document.jinja",
+                document_mid=document_mid,
+                errors=errors,
+            )
+            return HTMLResponse(
+                content=output,
+                status_code=422,
+                headers={
+                    "Content-Type": "text/vnd.turbo-stream.html",
+                },
+            )
+
+        # Remove the underlying SDOC file.
+        path_to_document = document.meta.input_doc_full_path
+        try:
+            if os.path.exists(path_to_document):
+                os.remove(path_to_document)
+        except OSError:
+            # If the file cannot be removed, keep the project index intact and
+            # fall back to a normal redirect; the error can be inspected in
+            # server logs.
+            pass
+
+        # Best-effort cleanup of generated HTML artifacts for this document.
+        # Not all of these files are guaranteed to exist (e.g. PDF export).
+        html_paths = [
+            document.meta.get_html_doc_path(),
+            document.meta.get_html_table_path(),
+            document.meta.get_html_traceability_path(),
+            document.meta.get_html_deep_traceability_path(),
+            document.meta.get_html_pdf_path(),
+        ]
+        for html_path in html_paths:
+            try:
+                if os.path.exists(html_path):
+                    os.remove(html_path)
+            except OSError:
+                # Ignore individual file deletion errors; remaining files can
+                # be cleaned up manually if necessary.
+                continue
+
+        # Rebuild the project index so the removed document disappears from
+        # the project tree and related views.
+        export_action.build_index()
+        export_action.export()
+
+        # Redirect back to the project index page.
+        return RedirectResponse("/", status_code=303)
+
+    @read_router.get("/actions/document/new_comment", response_class=Response)
+    def document__add_comment(
+        requirement_mid: str,
+        document_mid: str,
+        context_document_mid: str,
+        element_type: str,
+        revision: str,
+    ) -> Response:
+        document: SDocDocument = (
+            export_action.traceability_index.get_node_by_mid(MID(document_mid))
+        )
+        assert document.grammar is not None
+        grammar: DocumentGrammar = document.grammar
+        # The data of the form object is ignored. What matters is the comment
+        # form data.
+        output = env().render_template_as_markup(
+            "actions/"
+            "document/"
+            "add_requirement_comment/"
+            "stream_add_requirement_comment.jinja.html",
+            requirement_mid=requirement_mid,
+            form_object=RequirementFormObject(
+                is_new=False,
+                element_type=element_type,
+                revision=int(revision),
+                requirement_mid=requirement_mid,
+                document_mid=document.reserved_mid,
+                context_document_mid=context_document_mid,
+                fields=[],
+                reference_fields=[],
+                existing_requirement_uid=None,
+                grammar=grammar,
+                relation_types=[],
+                document_markup=document.config.get_markup(),
+            ),
+            field=RequirementFormField(
+                field_mid=MID.create(),
+                field_name="COMMENT",
+                field_type=RequirementFormFieldType.MULTILINE,
+                field_value="",
+            ),
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @read_router.get("/actions/document/new_relation", response_class=Response)
+    def document__add_relation(
+        requirement_mid: str,
+        document_mid: str,
+        context_document_mid: str,
+        element_type: str,
+        revision: str,
+    ) -> Response:
+        document: SDocDocument = (
+            export_action.traceability_index.get_node_by_mid(MID(document_mid))
+        )
+        assert document.grammar is not None
+        grammar: DocumentGrammar = document.grammar
+
+        element: GrammarElement = grammar.elements_by_type[element_type]
+        grammar_element_relations = element.get_relation_types()
+
+        # The data of the form object is ignored. What matters is the relation
+        # form data.
+        output = env().render_template_as_markup(
+            "actions/"
+            "document/"
+            "add_requirement_relation/"
+            "stream_add_requirement_relation.jinja.html",
+            requirement_mid=requirement_mid,
+            form_object=RequirementFormObject(
+                is_new=False,
+                element_type=element_type,
+                revision=int(revision),
+                requirement_mid=requirement_mid,
+                document_mid=document_mid,
+                context_document_mid=context_document_mid,
+                fields=[],
+                reference_fields=[],
+                existing_requirement_uid=None,
+                grammar=grammar,
+                relation_types=grammar_element_relations,
+                document_markup=document.config.get_markup(),
+            ),
+            field=RequirementReferenceFormField(
+                field_mid=MID.create(),
+                field_type=RequirementReferenceFormField.FieldType.PARENT,
+                field_value="",
+                field_role="",
+                # Mark as new so that an empty UID is silently discarded on save.
+                is_new=True,
+            ),
+            relation_types=grammar_element_relations,
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @read_router.get("/actions/document/edit_config", response_class=Response)
+    def document__edit_config(document_mid: str) -> Response:
+        """
+        @relation(SDOC-SRS-57, scope=function)
+        """
+
+        document: SDocDocument = (
+            export_action.traceability_index.get_node_by_mid(MID(document_mid))
+        )
+        if not export_action.traceability_index.can_edit_document(document):
+            raise HTTPException(
+                status_code=403,
+                detail="Editing is disabled for autogenerated content.",
+            )
+
+        form_object = DocumentConfigFormObject.create_from_document(
+            document=document
+        )
+
+        output = env().render_template_as_markup(
+            "actions/"
+            "document/"
+            "edit_document_config/"
+            "stream_edit_document_config.jinja.html",
+            form_object=form_object,
+            document=document,
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @read_router.get("/actions/document/new_metadata", response_class=Response)
+    def document__add_metadata(
+        document_mid: str,
+    ) -> Response:
+        document: SDocDocument = (
+            export_action.traceability_index.get_node_by_mid(MID(document_mid))
+        )
+        if not export_action.traceability_index.can_edit_document(document):
+            raise HTTPException(
+                status_code=403,
+                detail="Editing is disabled for autogenerated content.",
+            )
+
+        assert document.grammar is not None
+
+        form_object = DocumentConfigFormObject.create_from_document(
+            document=document
+        )
+
+        output = env().render_template_as_markup(
+            "actions/"
+            "document/"
+            "add_document_metadata/"
+            "stream_add_document_metadata.jinja.html",
+            form_object=form_object,
+            field=DocumentMetadataFormField(
+                field_mid=MID.create(),
+                field_name="",
+                field_value="",
+            ),
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @read_router.get(
+        "/actions/document/edit_included_document", response_class=Response
+    )
+    def document__edit_included_document(
+        document_mid: str, context_document_mid: str
+    ) -> Response:
+        document: SDocDocument = (
+            export_action.traceability_index.get_node_by_mid(MID(document_mid))
+        )
+        form_object = IncludedDocumentFormObject.create_from_document(
+            document=document,
+            context_document_mid=context_document_mid,
+            jinja_environment=env(),
+        )
+        return HTMLResponse(
+            content=form_object.render_edit_form(),
+            status_code=200,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @write_router.post("/actions/document/save_config", response_class=Response)
+    def document__save_edit_config(
+        request_form_data: FormData = Depends(parse_form_data),
+    ) -> Response:
+        """
+        @relation(SDOC-SRS-57, scope=function)
+        """
+
+        request_dict: Dict[str, str] = dict(request_form_data)
+        document_mid: str = request_dict["document_mid"]
+        document: SDocDocument = (
+            export_action.traceability_index.get_node_by_mid(MID(document_mid))
+        )
+        if not export_action.traceability_index.can_edit_document(document):
+            raise HTTPException(
+                status_code=403,
+                detail="Editing is disabled for autogenerated content.",
+            )
+
+        form_object: DocumentConfigFormObject = (
+            DocumentConfigFormObject.create_from_request(
+                document_mid=document_mid,
+                request_form_data=request_form_data,
+            )
+        )
+        try:
+            update_command = UpdateDocumentConfigTransform(
+                form_object=form_object,
+                document=document,
+                traceability_index=export_action.traceability_index,
+            )
+            update_command.perform()
+        except MultipleValidationError as validation_error:
+            for error_key, errors in validation_error.errors.items():
+                for error in errors:
+                    form_object.add_error(error_key, error)
+            html_output = env().render_template_as_markup(
+                "actions/"
+                "document/"
+                "edit_document_config/"
+                "stream_edit_document_config.jinja.html",
+                form_object=form_object,
+                document=document,
+            )
+            return HTMLResponse(
+                content=html_output,
+                status_code=422,
+                headers={
+                    "Content-Type": "text/vnd.turbo-stream.html",
+                },
+            )
+
+        # Re-generate the document's SDOC.
+        write_document_to_file(document)
+
+        # Update the index because other documents might be referenced by this
+        # document's free text. These documents will be regenerated on demand,
+        # when they are opened next time.
+        export_action.traceability_index.update_last_updated()
+
+        assert document.meta is not None
+        link_renderer = LinkRenderer(
+            root_path=document.meta.get_root_path_prefix(),
+            static_path=project_config.dir_for_sdoc_assets,
+        )
+        markup_renderer = MarkupRenderer.create(
+            markup=document.config.get_markup(),
+            traceability_index=export_action.traceability_index,
+            link_renderer=link_renderer,
+            html_templates=html_generator.html_templates,
+            config=project_config,
+            context_document=document,
+        )
+        view_object = DocumentScreenViewObject(
+            document_type=DocumentType.DOCUMENT,
+            document=document,
+            traceability_index=export_action.traceability_index,
+            project_config=project_config,
+            link_renderer=link_renderer,
+            markup_renderer=markup_renderer,
+            jinja_environment=env(),
+            git_client=html_generator.git_client,
+        )
+        html_output = env().render_template_as_markup(
+            "actions/"
+            "document/"
+            "edit_document_config/"
+            "stream_save_document_config.jinja.html",
+            view_object=view_object,
+        )
+        return HTMLResponse(
+            content=html_output,
+            status_code=200,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @write_router.post(
+        "/actions/document/save_included_document", response_class=Response
+    )
+    def document__save_included_document(
+        request_form_data: FormData = Depends(parse_form_data),
+    ) -> Response:
+        request_dict: Dict[str, str] = dict(request_form_data)
+        document_mid: str = request_dict["document_mid"]
+        context_document_mid: str = request_dict["context_document_mid"]
+        document: SDocDocument = (
+            export_action.traceability_index.get_node_by_mid(MID(document_mid))
+        )
+        context_document: SDocDocument = (
+            export_action.traceability_index.get_node_by_mid(
+                MID(context_document_mid)
+            )
+        )
+        form_object: IncludedDocumentFormObject = (
+            IncludedDocumentFormObject.create_from_request(
+                request_form_data=request_form_data, jinja_environment=env()
+            )
+        )
+        try:
+            update_command = UpdateIncludedDocumentTransform(
+                form_object=form_object,
+                document=document,
+                traceability_index=export_action.traceability_index,
+            )
+            update_command.perform()
+        except MultipleValidationError as validation_error:
+            for error_key, errors in validation_error.errors.items():
+                for error in errors:
+                    form_object.add_error(error_key, error)
+            return HTMLResponse(
+                content=form_object.render_edit_form(),
+                status_code=422,
+                headers={
+                    "Content-Type": "text/vnd.turbo-stream.html",
+                },
+            )
+
+        # Re-generate the document's SDOC.
+        write_document_to_file(document)
+
+        # Update the index because other documents might be referenced by this
+        # document's free text. These documents will be regenerated on demand,
+        # when they are opened next time.
+        export_action.traceability_index.update_last_updated()
+
+        assert document.meta is not None
+        link_renderer = LinkRenderer(
+            root_path=document.meta.get_root_path_prefix(),
+            static_path=project_config.dir_for_sdoc_assets,
+        )
+        markup_renderer = MarkupRenderer.create(
+            markup=document.config.get_markup(),
+            traceability_index=export_action.traceability_index,
+            link_renderer=link_renderer,
+            html_templates=html_generator.html_templates,
+            config=project_config,
+            context_document=document,
+        )
+        view_object = DocumentScreenViewObject(
+            document_type=DocumentType.DOCUMENT,
+            document=context_document,
+            traceability_index=export_action.traceability_index,
+            project_config=project_config,
+            link_renderer=link_renderer,
+            markup_renderer=markup_renderer,
+            jinja_environment=env(),
+            git_client=html_generator.git_client,
+        )
+        return HTMLResponse(
+            content=view_object.render_updated_nodes_and_toc(
+                nodes=[document], node_updated=True
+            ),
+            status_code=200,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @read_router.get(
+        "/actions/document/cancel_edit_config", response_class=Response
+    )
+    def document__cancel_edit_config(document_mid: str) -> Response:
+        """
+        @relation(SDOC-SRS-57, scope=function)
+        """
+
+        document: SDocDocument = (
+            export_action.traceability_index.get_node_by_mid(MID(document_mid))
+        )
+        assert document.meta is not None
+        link_renderer = LinkRenderer(
+            root_path=document.meta.get_root_path_prefix(),
+            static_path=project_config.dir_for_sdoc_assets,
+        )
+        markup_renderer = MarkupRenderer.create(
+            markup=document.config.get_markup(),
+            traceability_index=export_action.traceability_index,
+            link_renderer=link_renderer,
+            html_templates=html_generator.html_templates,
+            config=project_config,
+            context_document=document,
+        )
+        view_object = DocumentScreenViewObject(
+            document_type=DocumentType.DOCUMENT,
+            document=document,
+            traceability_index=export_action.traceability_index,
+            project_config=project_config,
+            link_renderer=link_renderer,
+            markup_renderer=markup_renderer,
+            jinja_environment=env(),
+            git_client=html_generator.git_client,
+        )
+        output = env().render_template_as_markup(
+            "actions/"
+            "document/"
+            "edit_document_config/"
+            "stream_cancel_edit_document_config.jinja.html",
+            view_object=view_object,
+            document=document,
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @read_router.get(
+        "/actions/document/cancel_edit_included_document",
+        response_class=Response,
+    )
+    def document__cancel_edit_included_document(document_mid: str) -> Response:
+        document: SDocDocument = (
+            export_action.traceability_index.get_node_by_mid(MID(document_mid))
+        )
+        assert document.meta is not None
+        link_renderer = LinkRenderer(
+            root_path=document.meta.get_root_path_prefix(),
+            static_path=project_config.dir_for_sdoc_assets,
+        )
+        markup_renderer = MarkupRenderer.create(
+            markup=document.config.get_markup(),
+            traceability_index=export_action.traceability_index,
+            link_renderer=link_renderer,
+            html_templates=html_generator.html_templates,
+            config=project_config,
+            context_document=document,
+        )
+        view_object = DocumentScreenViewObject(
+            document_type=DocumentType.DOCUMENT,
+            document=document,
+            traceability_index=export_action.traceability_index,
+            project_config=project_config,
+            link_renderer=link_renderer,
+            markup_renderer=markup_renderer,
+            jinja_environment=env(),
+            git_client=html_generator.git_client,
+        )
+        output = env().render_template_as_markup(
+            "actions/document/edit_section/stream_updated_section.jinja.html",
+            view_object=view_object,
+            document=document,
+            node=document,
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @read_router.get("/actions/document/edit_grammar", response_class=Response)
+    def document__edit_grammar(document_mid: str) -> Response:
+        """
+        @relation(SDOC-SRS-56, scope=function)
+        """
+
+        document: SDocDocument = (
+            export_action.traceability_index.get_node_by_mid(MID(document_mid))
+        )
+        form_object: GrammarFormObject = GrammarFormObject.create_from_document(
+            document=document,
+            project_config=project_config,
+            jinja_environment=env(),
+        )
+        return HTMLResponse(
+            content=form_object.render(),
+            status_code=200,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @write_router.post(
+        "/actions/document/save_grammar", response_class=Response
+    )
+    def document__save_grammar(
+        request_form_data: FormData = Depends(parse_form_data),
+    ) -> Response:
+        """
+        @relation(SDOC-SRS-56, scope=function)
+        """
+
+        request_dict: Dict[str, str] = dict(request_form_data)
+        document_mid: str = request_dict["document_mid"]
+        document: SDocDocument = (
+            export_action.traceability_index.get_node_by_mid(MID(document_mid))
+        )
+        form_object: GrammarFormObject = GrammarFormObject.create_from_request(
+            document_mid=document_mid,
+            request_form_data=request_form_data,
+            project_config=project_config,
+            jinja_environment=env(),
+        )
+        if not form_object.validate():
+            return HTMLResponse(
+                content=form_object.render(),
+                status_code=422,
+                headers={
+                    "Content-Type": "text/vnd.turbo-stream.html",
+                },
+            )
+        # Update the document with new grammar.
+        update_grammar_action = UpdateGrammarCommand(
+            form_object=form_object,
+            document=document,
+            traceability_index=export_action.traceability_index,
+        )
+        update_grammar_action.perform()
+
+        # Re-generate the document's SDOC.
+        write_document_to_file(document)
+
+        # Re-generate the document.
+        html_generator.export_single_document(
+            document=document,
+            traceability_index=export_action.traceability_index,
+        )
+
+        # Re-generate the document tree.
+        html_generator.export_project_tree_screen(
+            traceability_index=export_action.traceability_index,
+        )
+
+        assert document.meta is not None
+        link_renderer = LinkRenderer(
+            root_path=document.meta.get_root_path_prefix(),
+            static_path=project_config.dir_for_sdoc_assets,
+        )
+        markup_renderer = MarkupRenderer.create(
+            markup=document.config.get_markup(),
+            traceability_index=export_action.traceability_index,
+            link_renderer=link_renderer,
+            html_templates=html_generator.html_templates,
+            config=project_config,
+            context_document=document,
+        )
+        view_object = DocumentScreenViewObject(
+            document_type=DocumentType.DOCUMENT,
+            document=document,
+            traceability_index=export_action.traceability_index,
+            project_config=project_config,
+            link_renderer=link_renderer,
+            markup_renderer=markup_renderer,
+            jinja_environment=env(),
+            git_client=html_generator.git_client,
+        )
+        output = (
+            form_object.render_close_form()
+            + env().render_template_as_markup(
+                "actions/document/_shared/stream_refresh_document.jinja.html",
+                view_object=view_object,
+            )
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @read_router.get(
+        "/actions/document/add_grammar_element", response_class=Response
+    )
+    def document__add_grammar_element(document_mid: str) -> Response:
+        """
+        @relation(SDOC-SRS-56, scope=function)
+        """
+
+        form_object: GrammarFormObject = GrammarFormObject(
+            document_mid=document_mid,
+            fields=[],  # Not used in this limited partial template.
+            project_config=project_config,
+            jinja_environment=env(),
+            imported_grammar_file=None,
+        )
+        return HTMLResponse(
+            content=form_object.render_row_with_new_grammar_element(),
+            status_code=200,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @read_router.get(
+        "/actions/document/edit_grammar_element", response_class=Response
+    )
+    def document__edit_grammar_element(
+        document_mid: str, element_mid: str
+    ) -> Response:
+        """
+        @relation(SDOC-SRS-56, scope=function)
+        """
+
+        document: SDocDocument = (
+            export_action.traceability_index.get_node_by_mid(MID(document_mid))
+        )
+        form_object: GrammarElementFormObject = (
+            GrammarElementFormObject.create_from_document(
+                document=document,
+                element_mid=element_mid,
+                project_config=project_config,
+                jinja_environment=env(),
+            )
+        )
+
+        return HTMLResponse(
+            content=form_object.render(),
+            status_code=200,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @write_router.post(
+        "/actions/document/save_grammar_element", response_class=Response
+    )
+    def document__save_grammar_element(
+        request_form_data: FormData = Depends(parse_form_data),
+    ) -> Response:
+        """
+        @relation(SDOC-SRS-56, scope=function)
+        """
+
+        request_dict: Dict[str, str] = dict(request_form_data)
+        document_mid: str = request_dict["document_mid"]
+        document: SDocDocument = (
+            export_action.traceability_index.get_node_by_mid(MID(document_mid))
+        )
+        form_object: GrammarElementFormObject = (
+            GrammarElementFormObject.create_from_request(
+                document=document,
+                request_form_data=request_form_data,
+                project_config=project_config,
+                jinja_environment=env(),
+            )
+        )
+        if not form_object.validate():
+            return HTMLResponse(
+                content=form_object.render_after_validation(),
+                status_code=422,
+                headers={
+                    "Content-Type": "text/vnd.turbo-stream.html",
+                },
+            )
+
+        # Update the document with new grammar.
+        update_grammar_action = UpdateGrammarElementCommand(
+            form_object=form_object,
+            document=document,
+            traceability_index=export_action.traceability_index,
+        )
+        update_grammar_action.perform()
+
+        # Re-generate the document's SDOC.
+        write_document_to_file(document)
+
+        # Re-generate the document.
+        html_generator.export_single_document(
+            document=document,
+            traceability_index=export_action.traceability_index,
+        )
+
+        # Re-generate the document tree.
+        html_generator.export_project_tree_screen(
+            traceability_index=export_action.traceability_index,
+        )
+
+        assert document.meta is not None
+        link_renderer = LinkRenderer(
+            root_path=document.meta.get_root_path_prefix(),
+            static_path=project_config.dir_for_sdoc_assets,
+        )
+        markup_renderer = MarkupRenderer.create(
+            markup=document.config.get_markup(),
+            traceability_index=export_action.traceability_index,
+            link_renderer=link_renderer,
+            html_templates=html_generator.html_templates,
+            config=project_config,
+            context_document=document,
+        )
+        view_object = DocumentScreenViewObject(
+            document_type=DocumentType.DOCUMENT,
+            document=document,
+            traceability_index=export_action.traceability_index,
+            project_config=project_config,
+            link_renderer=link_renderer,
+            markup_renderer=markup_renderer,
+            jinja_environment=env(),
+            git_client=html_generator.git_client,
+        )
+        output = (
+            form_object.render_close_form()
+            + env().render_template_as_markup(
+                "actions/document/_shared/stream_refresh_document.jinja.html",
+                view_object=view_object,
+            )
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @read_router.get(
+        "/actions/document/add_grammar_field", response_class=Response
+    )
+    def document__add_grammar_field(document_mid: str) -> Response:
+        """
+        @relation(SDOC-SRS-56, scope=function)
+        """
+
+        form_object: GrammarElementFormObject = GrammarElementFormObject(
+            document_mid=document_mid,
+            element_mid="NOT_RELEVANT",
+            element_name="NOT_RELEVANT",
+            is_composite=None,  # Not used in this limited partial template.
+            prefix=None,  # Not used in this limited partial template.
+            view_style=None,  # Not used in this limited partial template.
+            fields=[],  # Not used in this limited partial template.
+            relations=[],  # Not used in this limited partial template.
+            project_config=project_config,
+            jinja_environment=env(),
+        )
+        return HTMLResponse(
+            content=form_object.render_row_with_new_field(),
+            status_code=200,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @read_router.get(
+        "/actions/document/add_grammar_relation", response_class=Response
+    )
+    def document__add_grammar_relation(document_mid: str) -> Response:
+        """
+        @relation(SDOC-SRS-56, scope=function)
+        """
+
+        form_object = GrammarElementFormObject(
+            document_mid=document_mid,
+            element_mid="NOT_RELEVANT",
+            element_name="NOT_RELEVANT",
+            is_composite=None,  # Not used in this limited partial template.
+            prefix=None,  # Not used in this limited partial template.
+            view_style=None,  # Not used in this limited partial template.
+            fields=[],  # Not used in this limited partial template.
+            relations=[],  # Not used in this limited partial template.
+            project_config=project_config,
+            jinja_environment=env(),
+        )
+        return HTMLResponse(
+            content=form_object.render_row_with_new_relation(),
+            status_code=200,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @read_router.get(
+        "/actions/project_index/import_reqif_document_form",
+        response_class=Response,
+    )
+    def get_import_reqif_document_form() -> Response:
+        output = env().render_template_as_markup(
+            "actions/project_index/import_reqif_document/"
+            "stream_form_import_reqif_document.jinja.html",
+            error_object=ErrorObject(),
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @write_router.post(
+        "/actions/project_index/import_document_reqif", response_class=Response
+    )
+    def import_document_reqif(reqif_file: UploadFile) -> Response:
+        contents = reqif_file.file.read().decode()
+
+        error_object = ErrorObject()
+        assert isinstance(contents, str)
+
+        try:
+            reqif_bundle = ReqIFParser.parse_from_string(contents)
+            converter: P01_ReqIFToSDocConverter = P01_ReqIFToSDocConverter()
+            documents: List[SDocDocument] = converter.convert_reqif_bundle(
+                reqif_bundle,
+                enable_mid=project_config.reqif_enable_mid,
+                import_markup=project_config.reqif_import_markup,
+            )
+        except ReqIFXMLParsingError as exception:
+            error_object.add_error(
+                "reqif_file", "Cannot parse ReqIF file: " + str(exception)
+            )
+        # Catch unexpected errors but exclude from code coverage, because it is
+        # not clear yet how to write a test that triggers this.
+        except Exception as exception:  # pragma: no cover
+            error_object.add_error("reqif_file", str(exception))
+
+        if error_object.any_errors():
+            output = env().render_template_as_markup(
+                "actions/project_index/import_reqif_document/"
+                "stream_form_import_reqif_document.jinja.html",
+                error_object=error_object,
+            )
+            return HTMLResponse(
+                content=output,
+                status_code=422,
+                headers={
+                    "Content-Type": "text/vnd.turbo-stream.html",
+                },
+            )
+        assert documents is not None
+        assert isinstance(project_config.input_paths, list)
+        for document in documents:
+            document_title = re.sub(r"[^A-Za-z0-9-]", "_", document.title)
+            document_path = f"{document_title}.sdoc"
+
+            full_input_path = os.path.abspath(project_config.input_paths[0])
+            doc_full_path = os.path.join(full_input_path, document_path)
+            doc_full_path_dir = os.path.dirname(doc_full_path)
+            Path(doc_full_path_dir).mkdir(parents=True, exist_ok=True)
+
+            file_tree_mount_folder = os.path.basename(
+                os.path.dirname(full_input_path)
+            )
+
+            input_doc_assets_dir_rel_path = "/".join(
+                (file_tree_mount_folder, "_assets")
+            )
+
+            # FIXME: Fill in the meta information correctly.
+            document.meta = DocumentMeta(
+                level=0,
+                file_tree_mount_folder="NOT_RELEVANT",
+                document_filename=document_path,
+                document_filename_base="NOT_RELEVANT",
+                input_doc_full_path=doc_full_path,
+                input_doc_rel_path=SDocRelativePath(document_path),
+                input_doc_dir_rel_path=SDocRelativePath(""),
+                input_doc_assets_dir_rel_path=SDocRelativePath(
+                    input_doc_assets_dir_rel_path
+                ),
+                output_document_dir_full_path="NOT_RELEVANT",
+                output_document_dir_rel_path=SDocRelativePath("FIXME"),
+            )
+
+            write_document_to_file(document)
+
+        export_action.build_index()
+        export_action.export()
+
+        view_object = ProjectTreeViewObject(
+            traceability_index=export_action.traceability_index,
+            project_config=project_config,
+        )
+        output = env().render_template_as_markup(
+            "actions/project_index/import_reqif_document/"
+            "stream_refresh_with_imported_reqif_document.jinja.html",
+            view_object=view_object,
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={
+                "Content-Type": "text/vnd.turbo-stream.html",
+            },
+        )
+
+    @router.get("/export_html2pdf/{document_mid}", response_class=Response)
+    def get_export_html2pdf(document_mid: str) -> Response:  # noqa: ARG001
+        if not project_config.is_activated_html2pdf():
+            return Response(
+                content="The HTML2PDF feature is not activated in the project config.",
+                status_code=HTTP_STATUS_PRECONDITION_FAILED,
+            )
+
+        with lock_manager.acquire_subset(
+            read_ids={_compute_document_mid_lock_key(document_mid)}
+        ):
+            document = export_action.traceability_index.get_node_by_mid(
+                MID(document_mid)
+            )
+
+            root_path = document.meta.get_root_path_prefix()
+            relative_path = (
+                document.meta.output_document_dir_rel_path.relative_path
+            )
+
+            link_renderer = LinkRenderer(
+                root_path=root_path,
+                static_path=project_config.dir_for_sdoc_assets,
+            )
+            markup_renderer = MarkupRenderer.create(
+                markup=document.config.get_markup(),
+                traceability_index=export_action.traceability_index,
+                link_renderer=link_renderer,
+                html_templates=html_templates,
+                config=project_config,
+                context_document=document,
+            )
+
+            pdf_project_config = copy.deepcopy(project_config)
+            pdf_project_config.is_running_on_server = False
+
+            with measure_performance("Generating printable HTML document"):
+                document_content = DocumentHTML2PDFGenerator.export(
+                    project_config=pdf_project_config,
+                    document=document,
+                    traceability_index=export_action.traceability_index,
+                    markup_renderer=markup_renderer,
+                    link_renderer=link_renderer,
+                    git_client=html_generator.git_client,
+                    html_templates=html_templates,
+                )
+
+            # Copy values needed below so the expensive filesystem and subprocess
+            # phase can run without holding the router's read lock.
+            proposed_basename = "document"
+            if document.title is not None:
+                proposed_basename = document.title
+            if document.uid is not None:
+                proposed_basename = document.uid + " " + proposed_basename
+
+        temp_uid = uuid.uuid4().hex
+        path_to_output_html = os.path.join(
+            project_config.export_output_html_root,
+            relative_path,
+            f"_temp_{temp_uid}.html",
+        )
+        path_to_output_pdf = os.path.join(
+            project_config.export_output_html_root,
+            "html",
+            f"_temp_{temp_uid}.pdf",
+        )
+
+        def cleanup_html2pdf_artifacts() -> None:
+            for path in (path_to_output_html, path_to_output_pdf):
+                if os.path.isfile(path):
+                    os.remove(path)
+
+        Path(path_to_output_html).parent.mkdir(parents=True, exist_ok=True)
+        Path(path_to_output_pdf).parent.mkdir(parents=True, exist_ok=True)
+
+        # FIXME: Add this print driver to a service bus object to make it
+        #        unit-testable.
+        pdf_print_driver = PDFPrintDriver()
+        with open(path_to_output_html, mode="w", encoding="utf8") as temp_file_:
+            temp_file_.write(document_content)
+
+        assert os.path.isfile(path_to_output_html), path_to_output_html
+        try:
+            pdf_print_driver.get_pdf_from_html(
+                project_config,
+                [(path_to_output_html, path_to_output_pdf)],
+                project_config.export_output_html_root,
+            )
+        except PDFPrintDriverException as e_:  # pragma: no cover
+            cleanup_html2pdf_artifacts()
+            return Response(
+                content=e_.get_server_user_message(),
+                status_code=HTTP_STATUS_INTERNAL_SERVER_ERROR,
+            )
+        assert os.path.isfile(path_to_output_pdf), path_to_output_pdf
+
+        # We sanitize the basename, Windows is the most restrictive:
+        # - many forbidden chars.
+        # - not more than 120 chars in total, including the PDF extension
+        forbidden = '<>:"/\\|?*\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f'
+        table = str.maketrans(forbidden, "_" * len(forbidden))
+        sanitized_basename = proposed_basename.translate(table)
+        sanitized_basename = sanitized_basename.strip(" ")[:115]
+        encoded_filename = quote(sanitized_basename + ".pdf")
+
+        return FileResponse(
+            path=path_to_output_pdf,
+            status_code=200,
+            headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}",
+            },
+            media_type="application/octet-stream",
+            background=BackgroundTask(cleanup_html2pdf_artifacts),
+        )
+
+    @read_router.get(
+        "/reqif/export_document/{document_mid}", response_class=Response
+    )
+    def get_reqif_export_document(document_mid: str) -> Response:  # noqa: ARG001
+        # TODO: Export single document, not the whole tree.
+        return get_reqif_export_tree()
+
+    @read_router.get("/reqif/export_tree", response_class=Response)
+    def get_reqif_export_tree() -> Response:
+        reqif_bundle = P01_SDocToReqIFObjectConverter.convert_document_tree(
+            document_tree=export_action.traceability_index.document_tree,
+            multiline_is_xhtml=project_config.reqif_multiline_is_xhtml,
+            enable_mid=project_config.reqif_enable_mid,
+        )
+        reqif_content: str = ReqIFUnparser.unparse(reqif_bundle)
+        return Response(
+            content=reqif_content,
+            status_code=200,
+            media_type="application/octet-stream",
+            headers={
+                "Content-Disposition": 'attachment; filename="export.reqif"',
+            },
+        )
+
+    @read_router.get("/search", response_class=Response)
+    def get_search(q: Optional[str] = None) -> Response:
+        if not project_config.is_activated_search():
+            return Response(
+                content="The Search feature is not activated in the project config.",
+                status_code=HTTP_STATUS_PRECONDITION_FAILED,
+            )
+        search_results = []
+        error = None
+        node_query = None
+        plain_text_query_phrase = None
+        plain_text_query_pattern = None
+
+        if q is not None and len(q) > 0:
+            normalized_query = q.strip()
+            if len(normalized_query) > 0:
+                if search_query_contains_markers(normalized_query):
+                    try:
+                        query: Query = QueryReader.read(normalized_query)
+                        node_query = QueryObject(
+                            query, export_action.traceability_index
+                        )
+                    except Exception as e:
+                        error = f"error: {e}"
+                else:
+                    (
+                        plain_text_query_phrase,
+                        plain_text_query_pattern,
+                    ) = parse_plain_text_search_query(normalized_query)
+
+        if (
+            node_query is not None
+            or plain_text_query_phrase is not None
+            or plain_text_query_pattern is not None
+        ):
+            result: List[SDocExtendedElementIF] = []
+            try:
+                document_tree = assert_cast(
+                    export_action.traceability_index.document_tree, DocumentTree
+                )
+                for document in document_tree.document_list:
+                    document_iterator = (
+                        export_action.traceability_index.get_document_iterator(
+                            document
+                        )
+                    )
+                    for node, _ in document_iterator.all_content(
+                        print_fragments=False
+                    ):
+                        if (
+                            node_query is not None and node_query.evaluate(node)
+                        ) or (
+                            search_node_matches_plain_text_query(
+                                node,
+                                phrase=plain_text_query_phrase,
+                                pattern=plain_text_query_pattern,
+                            )
+                        ):
+                            result.append(node)
+
+                if (
+                    export_action.traceability_index.document_tree.source_tree
+                    is not None
+                ):
+                    for source_file_ in export_action.traceability_index.document_tree.source_tree.source_files:
+                        source_file_info_: SourceFileTraceabilityInfo = export_action.traceability_index.get_file_traceability_index().get_coverage_info(
+                            source_file_.in_doctree_source_file_rel_path_posix
+                        )
+                        if (
+                            node_query is not None
+                            and node_query.evaluate(source_file_info_)
+                        ) or (
+                            search_node_matches_plain_text_query(
+                                source_file_info_,
+                                phrase=plain_text_query_phrase,
+                                pattern=plain_text_query_pattern,
+                            )
+                        ):
+                            result.append(source_file_info_)
+
+                search_results = result
+            # Catch unexpected errors but exclude from code coverage, because
+            # it is not clear yet how to write a test that triggers this.
+            except (
+                AttributeError,
+                NameError,
+                TypeError,
+            ) as attribute_error_:  # pragma: no cover
+                error = attribute_error_.args[0]
+
+        view_object = SearchScreenViewObject(
+            traceability_index=export_action.traceability_index,
+            project_config=project_config,
+            templates=html_templates,
+            search_results=search_results,
+            search_value=q if q is not None else "",
+            error=error,
+        )
+        output = view_object.render_screen(html_templates.jinja_environment())
+
+        return Response(
+            content=output,
+            status_code=200,
+        )
+
+    @read_router.get("/autocomplete/uid", response_class=Response)
+    def get_autocomplete_uid_results(
+        q: Optional[str] = None, exclude_requirement_mid: Optional[str] = None
+    ) -> Response:
+        """
+        Returns matches of possible node UID values when creating a node relation.
+
+        The UID of the node identified by the optional parameter "exclude_requirement_mid" is excluded,
+        so that a node cannot be linked to itself.
+
+        @relation(SDOC-SRS-120, scope=function)
+        """
+        output = ""
+        if q is not None:
+            query_words = q.lower().split()
+            resulting_nodes = []
+            document_tree = assert_cast(
+                export_action.traceability_index.document_tree, DocumentTree
+            )
+            for document in document_tree.document_list:
+                document_iterator = (
+                    export_action.traceability_index.get_document_iterator(
+                        document
+                    )
+                )
+                for node_, _ in document_iterator.all_content(
+                    print_fragments=False
+                ):
+                    if not isinstance(node_, SDocNodeIF):
+                        continue
+
+                    if node_.node_type == "SECTION":
+                        continue
+
+                    if (
+                        node_.reserved_uid is not None
+                        and node_.reserved_mid != exclude_requirement_mid
+                    ):
+                        words_ = node_.reserved_uid.strip().lower()
+                        if node_.reserved_title is not None:
+                            words_ = (
+                                words_
+                                + " "
+                                + node_.reserved_title.strip().lower()
+                            )
+                        if all(word_ in words_ for word_ in query_words):
+                            resulting_nodes.append(node_)
+
+                            # Excluding the following branch from code coverage
+                            # because it is not practical to create a test that
+                            # reproduces going above the limit. The code is
+                            # simple, so it should be safe to exclude this
+                            # branch from coverage.
+                            if (
+                                len(resulting_nodes) >= AUTOCOMPLETE_LIMIT
+                            ):  # pragma: no cover
+                                break
+
+            output = env().render_template_as_markup(
+                "autocomplete/uid/stream_autocomplete_uid.jinja.html",
+                nodes=resulting_nodes,
+            )
+
+        return Response(
+            content=output,
+            status_code=200,
+        )
+
+    @read_router.get("/autocomplete/field", response_class=Response)
+    def get_autocomplete_field_results(
+        q: Optional[str] = None,
+        document_mid: Optional[str] = None,
+        element_type: Optional[str] = None,
+        field_name: Optional[str] = None,
+    ) -> Response:
+        """
+        Returns matches of possible values of a SingleChoice, MultiChoice or Tag field.
+
+        The field is identified by the document_mid, the element_type, and the field_name.
+        """
+        output = ""
+        if (
+            q is not None
+            and document_mid is not None
+            and element_type is not None
+        ):
+            document: SDocDocument = (
+                export_action.traceability_index.get_node_by_mid(
+                    MID(document_mid)
+                )
+            )
+            if document:
+                assert field_name is not None
+                all_options = document.get_options_for_field(
+                    element_type, field_name
+                )
+                field: GrammarElementField = (
+                    document.get_grammar_element_field_for(
+                        element_type, field_name
+                    )
+                )
+
+                if field.gef_type in (
+                    RequirementFieldType.MULTIPLE_CHOICE,
+                    RequirementFieldType.TAG,
+                ):
+                    # MultipleChoice/Tag: We split the query into its parts:
+                    #
+                    # Example User input: "Some Value, Another Value, Yet ano|".
+                    # parts = ['some value', 'another value', 'yet ano']                # noqa: ERA001
+                    parts = q.lower().split(",")
+
+                    # For the lookup, we want to use the only the last, still
+                    # incomplete part, not the full query:
+                    #
+                    # last_part = "yet ano"                                             # noqa: ERA001
+                    # query_words = ['yet', 'ano']                                      # noqa: ERA001
+                    last_part = parts[-1].strip()
+                    query_words = last_part.split()
+
+                    # We also filter the already selected choices from the
+                    # options we are going to be send to the user,
+                    # as MultipleChoices is a Set, so options shall be
+                    # selectable at most once.
+                    #
+                    # In the example, we would remove 'some value' and 'another value'.
+                    already_selected = [
+                        p.strip() for p in parts[:-1] if p.strip()
+                    ]
+                    filtered_options = [
+                        choice
+                        for choice in all_options
+                        if choice.lower() not in already_selected
+                    ]
+                else:
+                    # SingleChoice: we use the full query and all available
+                    # options. There is no notion of an "already selected"
+                    # segment, as a SingleChoice field holds only one value.
+                    query_words = q.lower().split()
+                    filtered_options = all_options
+                    last_part = None
+
+                resulting_values = []
+
+                # Now filter the remaining options for those that match all words in query_words.
+                for option_ in filtered_options:
+                    words_ = option_.strip().lower()
+
+                    if all(word_ in words_ for word_ in query_words):
+                        # A MultipleChoice/Tag option that exactly matches
+                        # the segment currently being typed is, in fact,
+                        # already a complete value of the field (typed in
+                        # full, with or without a trailing comma). It is
+                        # still shown so the user has visual confirmation,
+                        # but marked as already selected so it can't be
+                        # inserted as a duplicate.
+                        is_selected = last_part is not None and (
+                            words_ == last_part
+                        )
+                        resulting_values.append((option_, is_selected))
+                    if len(resulting_values) >= AUTOCOMPLETE_LIMIT:
+                        break
+
+            output = env().render_template_as_markup(
+                "autocomplete/field/stream_autocomplete_field.jinja.html",
+                values=resulting_values,
+            )
+
+        return Response(
+            content=output,
+            status_code=200,
+        )
+
+    @read_router.get("/UID/{uid_or_mid}", response_class=RedirectResponse)
+    def redirect_to_uid(uid_or_mid: str) -> Response:
+        # Resolve UID or MID.
+
+        linkable_node: Optional[Any] = (
+            export_action.traceability_index.get_node_by_mid_weak(
+                MID(uid_or_mid)
+            )
+        )
+        if linkable_node is None:
+            linkable_node = (
+                export_action.traceability_index.get_linkable_node_by_uid_weak(
+                    uid_or_mid
+                )
+            )
+
+        # If found, send a 302 redirect response to guide the user to the
+        # correct URL (page + #anchor)
+        if linkable_node is not None:
+            link_renderer = LinkRenderer(
+                root_path="", static_path=project_config.dir_for_sdoc_assets
+            )
+            # This route has no document of its own, so the link must be
+            # absolute from the server root: a relative link is resolved
+            # against "/UID/{uid_or_mid}" itself, one directory level
+            # deeper than any real document path.
+            href = "/" + link_renderer.render_node_link(
+                linkable_node, None, document_type=DocumentType.DOCUMENT
+            )
+            return RedirectResponse(url=href, status_code=302)
+        # The HTTPException will render our ServerErrorViewObject 404 page
+        # via @app.exception_handler(404).
+        raise HTTPException(status_code=404, detail="UID or MID was not found")
+
+    @read_router.get(
+        "/fragments/document/{document_mid}/chunk", response_class=Response
+    )
+    def get_document_chunk(
+        document_mid: str,
+        from_node: str,
+        count: int = FastAPIQuery(ge=1, le=CHUNK_SIZE),
+        chunk: int = FastAPIQuery(ge=0),
+    ) -> Response:
+        """
+        Serve a single lazily-loaded chunk of a document's content.
+
+        The chunk is addressed with a cursor: from_node is the MID of the
+        first node of the chunk, and count is the number of nodes to render.
+        """
+        document_or_none: Optional[Any] = (
+            export_action.traceability_index.get_node_by_mid_weak(
+                MID(document_mid)
+            )
+        )
+        if not isinstance(document_or_none, SDocDocument):
+            return _error_response(HTTP_STATUS_NOT_FOUND)
+        document: SDocDocument = document_or_none
+
+        assert document.meta is not None
+        link_renderer = LinkRenderer(
+            root_path=document.meta.get_root_path_prefix(),
+            static_path=project_config.dir_for_sdoc_assets,
+        )
+        markup_renderer = MarkupRenderer.create(
+            markup=document.config.get_markup(),
+            traceability_index=export_action.traceability_index,
+            link_renderer=link_renderer,
+            html_templates=html_generator.html_templates,
+            config=project_config,
+            context_document=document,
+        )
+        view_object = DocumentScreenViewObject(
+            document_type=DocumentType.DOCUMENT,
+            document=document,
+            traceability_index=export_action.traceability_index,
+            project_config=project_config,
+            link_renderer=link_renderer,
+            markup_renderer=markup_renderer,
+            jinja_environment=env(),
+            git_client=html_generator.git_client,
+        )
+        # An unknown from_node cursor (e.g., the node was deleted by a
+        # concurrent edit) renders an empty turbo-frame on purpose: HTTP 200
+        # lets Turbo replace the lazy placeholder with the empty frame
+        # instead of leaving the placeholder loading forever.
+        output = env().render_template_as_markup(
+            "screens/document/document/document_chunk.jinja.html",
+            view_object=view_object,
+            chunk_index=chunk,
+            from_node=from_node,
+            count=count,
+        )
+        return HTMLResponse(
+            content=output,
+            status_code=200,
+            headers={"Cache-Control": "no-cache"},
+        )
+
+    # Nestor is a highly experimental feature that is unlikely to make it to the
+    # stable feature set. Excluding it from code coverage.
+    @write_router.get("/__nestor", response_class=Response)  # pragma: no cover
+    def get_nestor() -> Response:  # pragma: no cover
+        output_json_root = os.path.join(project_config.output_dir, "html")
+        Path(output_json_root).mkdir(parents=True, exist_ok=True)
+        JSONGenerator().export_tree(
+            export_action.traceability_index, project_config, output_json_root
+        )
+        path_to_json = os.path.join("index.json")
+        view_object = NestorViewObject(
+            traceability_index=export_action.traceability_index,
+            project_config=project_config,
+            templates=html_templates,
+            path_to_json=path_to_json,
+        )
+        output = view_object.render_screen(html_templates.jinja_environment())
+
+        return Response(
+            content=output,
+            status_code=200,
+        )
+
+    router.include_router(read_router)
+    router.include_router(write_router)
+
+    @router.get(
+        "/{full_path:path}/static_html_search_index.js", response_class=Response
+    )
+    def get_static_search_index(
+        request: Request,
+        full_path: str,  # noqa: ARG001
+    ) -> Response:
+        static_file = os.path.join(
+            project_config.export_output_html_root,
+            project_config.dir_for_sdoc_assets,
+            "static_html_search_index.js",
+        )
+
+        def must_generate() -> bool:
+            if not os.path.isfile(static_file):
+                return True
+            output_file_mtime = get_file_modification_time(static_file)
+            return (
+                export_action.traceability_index.index_last_updated
+                > output_file_mtime
+            )
+
+        with lock_manager.acquire_global_read():
+            if not must_generate() and request_is_for_non_modified_file(
+                request, static_file
+            ):
+                return Response(status_code=304)
+
+        with lock_manager.acquire_global_write():
+            html_generator.export_static_html_search_index(
+                traceability_index=export_action.traceability_index
+            )
+
+        return FileResponse(
+            static_file,
+            media_type="application/javascript",
+            headers={
+                # We don't want the search index to be cached on the server without
+                # revalidation.
+                # The no-cache request directive asks caches to validate the
+                # response with the origin server before reuse.
+                # no-cache allows clients to request the most up-to-date
+                # response even if the cache has a fresh response.
+                # https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control
+                "Cache-Control": "no-cache"
+            },
+        )
+
+    @router.get("/{full_path:path}", response_class=Response)
+    def get_incoming_request(request: Request, full_path: str) -> Response:
+        # FIXME: This seems to be quite un-sanitized.
+        _, file_extension = os.path.splitext(full_path)
+        if file_extension == ".html":
+            return get_document(request, full_path)
+        elif file_extension == "":
+            # No extension: StrictDoc documents always end in .html, so no
+            # extension can ever resolve to a valid document. Return 404
+            # directly without going through get_document().
+            return _error_response(HTTP_STATUS_NOT_FOUND)
+        else:
+            return get_asset(request, full_path)
+
+    def get_document(request: Request, url_to_document: str) -> Response:
+        """
+        @relation(SDOC-SRS-4, scope=function)
+        """
+
+        document_relative_path: SDocRelativePath = SDocRelativePath.from_url(
+            url_to_document
+        )
+        full_path_to_document = os.path.join(
+            project_config.export_output_html_root,
+            document_relative_path.relative_path,
+        )
+
+        def must_generate() -> bool:
+            if not os.path.isfile(full_path_to_document):
+                return True
+            output_file_mtime = get_file_modification_time(
+                full_path_to_document
+            )
+            return (
+                export_action.traceability_index.index_last_updated
+                > output_file_mtime
+            )
+
+        with lock_manager.acquire_global_read():
+            if not must_generate():
+                if request_is_for_non_modified_file(
+                    request, full_path_to_document
+                ):
+                    return Response(status_code=304)
+                return FileResponse(
+                    full_path_to_document,
+                    media_type="text/html",
+                    headers={
+                        # We don't want the documents to be cached on the server without
+                        # revalidation.
+                        # The no-cache request directive asks caches to validate the
+                        # response with the origin server before reuse.
+                        # no-cache allows clients to request the most up-to-date
+                        # response even if the cache has a fresh response.
+                        # https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control
+                        "Cache-Control": "no-cache"
+                    },
+                )
+
+        lock_key = _compute_document_generation_lock_key(
+            document_relative_path.relative_path
+        )
+
+        with lock_manager.acquire_subset(write_ids={lock_key}):
+            if not must_generate():
+                if request_is_for_non_modified_file(
+                    request, full_path_to_document
+                ):
+                    return Response(status_code=304)
+                return FileResponse(
+                    full_path_to_document,
+                    media_type="text/html",
+                    headers={"Cache-Control": "no-cache"},
+                )
+
+            def generate_document() -> Optional[Response]:
+                if document_relative_path.relative_path.startswith(
+                    "_source_files"
+                ):
+                    if document_relative_path.relative_path.endswith(
+                        "source_coverage.html"
+                    ):
+                        html_generator.export_source_coverage_screen(
+                            traceability_index=export_action.traceability_index,
+                        )
+                    else:
+                        try:
+                            html_generator.export_single_source_file_screen(
+                                traceability_index=export_action.traceability_index,
+                                path_to_source_file=document_relative_path.relative_path,
+                            )
+                        except FileNotFoundError:
+                            return _error_response(HTTP_STATUS_NOT_FOUND)
+                elif document_relative_path.relative_path == "index.html":
+                    html_generator.export_project_tree_screen(
+                        traceability_index=export_action.traceability_index,
+                    )
+                elif (
+                    document_relative_path.relative_path
+                    == "traceability_matrix.html"
+                ):
+                    if not project_config.is_activated_requirements_coverage():
+                        return Response(
+                            content="The Requirements Coverage feature is not activated in the project config.",
+                            status_code=HTTP_STATUS_PRECONDITION_FAILED,
+                        )
+                    html_generator.export_requirements_coverage_screen(
+                        traceability_index=export_action.traceability_index,
+                    )
+                elif (
+                    document_relative_path.relative_path
+                    == "source_coverage.html"
+                ):
+                    if not project_config.is_activated_requirements_to_source_traceability():
+                        return Response(
+                            content="The Requirements to Source Files feature is not activated in the project config.",
+                            status_code=HTTP_STATUS_PRECONDITION_FAILED,
+                        )
+                    html_generator.export_source_coverage_screen(
+                        traceability_index=export_action.traceability_index,
+                    )
+                elif (
+                    feature_ := server_features_by_screen_filename.get(
+                        document_relative_path.relative_path
+                    )
+                ) is not None:
+                    if project_config.get_feature(feature_.HANDLE) is None:
+                        return Response(
+                            content=(
+                                f"The {feature_.HANDLE} feature is not "
+                                f"activated in the project config."
+                            ),
+                            status_code=HTTP_STATUS_PRECONDITION_FAILED,
+                        )
+                    feature_.render_screen(
+                        FeatureContext(
+                            project_config=project_config,
+                            traceability_index=export_action.traceability_index,
+                            html_templates=html_templates,
+                        )
+                    )
+                else:
+                    document_type_to_generate: DocumentType
+                    if document_relative_path.relative_path.endswith(
+                        "-TABLE.html"
+                    ):
+                        base_document_url = (
+                            document_relative_path.relative_path.replace(
+                                "-TABLE", ""
+                            )
+                        )
+                        document_type_to_generate = DocumentType.TABLE
+                    elif document_relative_path.relative_path.endswith(
+                        "-DEEP-TRACE.html"
+                    ):
+                        base_document_url = (
+                            document_relative_path.relative_path.replace(
+                                "-DEEP-TRACE", ""
+                            )
+                        )
+                        document_type_to_generate = DocumentType.DEEPTRACE
+                    elif document_relative_path.relative_path.endswith(
+                        "-TRACE.html"
+                    ):
+                        base_document_url = (
+                            document_relative_path.relative_path.replace(
+                                "-TRACE", ""
+                            )
+                        )
+                        document_type_to_generate = DocumentType.TRACE
+                    elif document_relative_path.relative_path.endswith(
+                        "-PDF.html"
+                    ):
+                        if not project_config.is_activated_html2pdf():
+                            return Response(
+                                content="The HTML2PDF feature is not activated in the project config.",
+                                status_code=HTTP_STATUS_PRECONDITION_FAILED,
+                            )
+                        base_document_url = (
+                            document_relative_path.relative_path.replace(
+                                "-PDF", ""
+                            )
+                        )
+                        document_type_to_generate = DocumentType.PDF
+                    else:
+                        # Either this is a normal document, or the path is broken.
+                        base_document_url = document_relative_path.relative_path
+                        document_type_to_generate = DocumentType.DOCUMENT
+
+                    document_tree = assert_cast(
+                        export_action.traceability_index.document_tree,
+                        DocumentTree,
+                    )
+                    document = document_tree.map_docs_by_rel_paths.get(
+                        base_document_url
+                    )
+                    if document is None:
+                        return _error_response(HTTP_STATUS_NOT_FOUND)
+
+                    assert document.meta is not None
+                    set_file_modification_time(
+                        document.meta.input_doc_full_path,
+                        datetime.datetime.today(),
+                    )
+
+                    html_generator.export_single_document_with_performance(
+                        document=document,
+                        traceability_index=export_action.traceability_index,
+                        specific_documents=(document_type_to_generate,),
+                    )
+                return None
+
+            response_or_none = generate_document()
+            if response_or_none is not None:
+                return response_or_none
+            return FileResponse(
+                full_path_to_document,
+                media_type="text/html",
+                headers={"Cache-Control": "no-cache"},
+            )
+
+    def get_asset(request: Request, url_to_asset: str) -> Response:
+        project_output_path = project_config.export_output_html_root
+
+        static_file = os.path.join(project_output_path, url_to_asset)
+        content_type, _ = guess_type(static_file)
+
+        with lock_manager.acquire_global_read():
+            # We keep a global read lock here because this endpoint serves not
+            # only bundled immutable static files, but also generated assets
+            # under export_output_html_root that may be rewritten at runtime.
+            # FIXME: Revisit when asset writes are fully atomic and immutable
+            # from the reader's perspective, so this lock can potentially be
+            # narrowed or removed.
+            if not os.path.isfile(static_file):
+                return _error_response(HTTP_STATUS_NOT_FOUND, path_type="asset")
+
+            if request_is_for_non_modified_file(request, static_file):
+                return Response(status_code=304)
+
+            response = FileResponse(static_file, media_type=content_type)
+            return response
+
+    def _compute_document_mid_lock_key(document_mid: str) -> str:
+        return f"document:{document_mid}"
+
+    def _compute_document_relative_path_lock_key(relative_path: str) -> str:
+        return f"document:{relative_path}"
+
+    def _compute_document_generation_lock_key(relative_path: str) -> str:
+        return _compute_document_relative_path_lock_key(relative_path)
+
+    def _error_response(
+        error_code: int, path_type: str = "document"
+    ) -> Response:
+        view_object = ServerErrorViewObject(
+            project_config=project_config,
+            error_code=error_code,
+            path_type=path_type,
+        )
+        return Response(
+            content=view_object.render_screen(env()),
+            status_code=error_code,
+            media_type="text/html",
+        )
+
+    # Websockets solution based on:
+    # https://fastapi.tiangolo.com/advanced/websockets/
+    class ConnectionManager:
+        def __init__(self) -> None:
+            self.active_connections: List[WebSocket] = []
+            self._lock = asyncio.Lock()
+
+        async def connect(self, websocket: WebSocket) -> None:
+            await websocket.accept()
+            async with self._lock:
+                self.active_connections.append(websocket)
+
+        async def disconnect(self, websocket: WebSocket) -> None:
+            async with self._lock:
+                if websocket in self.active_connections:
+                    self.active_connections.remove(websocket)
+
+        async def broadcast(self, message: str) -> None:
+            async with self._lock:
+                connections = list(self.active_connections)
+            for connection in connections:
+                await connection.send_text(message)
+
+    manager = ConnectionManager()
+
+    def rebuild_index_after_file_change() -> Optional[str]:
+        try:
+            with lock_manager.acquire_global_write():
+                export_action.traceability_index = (
+                    TraceabilityIndexBuilder.create(
+                        project_config=project_config,
+                        parallelizer=parallelizer,
+                    )
+                )
+            return None
+        except DocumentTreeError as document_tree_error:
+            return document_tree_error.to_print_message()
+        except Exception as build_error:  # noqa: BLE001
+            return str(build_error)
+
+    def notify_clients_after_file_change() -> None:
+        build_error = rebuild_index_after_file_change()
+        message = "reload" if build_error is None else f"error:{build_error}"
+        if build_error is not None:
+            print(f"WATCH:    rebuild failed:\n{build_error}")  # noqa: T201
+        event_loop = getattr(app.state, "event_loop", None)
+        if event_loop is not None:
+            asyncio.run_coroutine_threadsafe(
+                manager.broadcast(message), event_loop
+            )
+
+    if project_config.watch_enabled:
+        app.state.document_watcher = DocumentWatcher(
+            watch_paths=project_config.input_paths or [],
+            output_dir_abs_path=project_config.output_dir,
+            on_documents_changed=notify_clients_after_file_change,
+            watched_extensions=get_watched_document_extensions(project_config),
+        )
+
+    @router.websocket("/ws/{client_id}")
+    async def websocket_endpoint(websocket: WebSocket, client_id: int) -> None:
+        await manager.connect(websocket)
+        try:
+            while True:
+                _ = await websocket.receive_text()
+                # Do nothing for now.
+        except WebSocketDisconnect:
+            await manager.disconnect(websocket)
+            await manager.broadcast(
+                f"Websocket: Client #{client_id} disconnected"
+            )
+
+    return router

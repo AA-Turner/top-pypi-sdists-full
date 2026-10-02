@@ -52,7 +52,8 @@ class ProductionServiceV2Model(object):
         'service_observability_urls': 'ServiceObservabilityUrls',
         'base_url': 'str',
         'ended_at': 'datetime',
-        'service_status_checklist': 'ServiceStatusChecklist'
+        'service_status_checklist': 'ServiceStatusChecklist',
+        'traffic_distribution': 'ServiceTrafficDistribution'
     }
 
     attribute_map = {
@@ -75,10 +76,11 @@ class ProductionServiceV2Model(object):
         'service_observability_urls': 'service_observability_urls',
         'base_url': 'base_url',
         'ended_at': 'ended_at',
-        'service_status_checklist': 'service_status_checklist'
+        'service_status_checklist': 'service_status_checklist',
+        'traffic_distribution': 'traffic_distribution'
     }
 
-    def __init__(self, id=None, name=None, description=None, project_id=None, cloud_id=None, creator_id=None, created_at=None, hostname=None, current_state=None, goal_state=None, auth_token=None, secondary_auth_token=None, auto_rollout_enabled=None, versions=None, primary_version=None, canary_version=None, service_observability_urls=None, base_url=None, ended_at=None, service_status_checklist=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, description=None, project_id=None, cloud_id=None, creator_id=None, created_at=None, hostname=None, current_state=None, goal_state=None, auth_token=None, secondary_auth_token=None, auto_rollout_enabled=None, versions=None, primary_version=None, canary_version=None, service_observability_urls=None, base_url=None, ended_at=None, service_status_checklist=None, traffic_distribution=None, local_vars_configuration=None):  # noqa: E501
         """ProductionServiceV2Model - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -104,6 +106,7 @@ class ProductionServiceV2Model(object):
         self._base_url = None
         self._ended_at = None
         self._service_status_checklist = None
+        self._traffic_distribution = None
         self.discriminator = None
 
         self.id = id
@@ -132,6 +135,8 @@ class ProductionServiceV2Model(object):
             self.ended_at = ended_at
         if service_status_checklist is not None:
             self.service_status_checklist = service_status_checklist
+        if traffic_distribution is not None:
+            self.traffic_distribution = traffic_distribution
 
     @property
     def id(self):
@@ -620,6 +625,29 @@ class ProductionServiceV2Model(object):
         """
 
         self._service_status_checklist = service_status_checklist
+
+    @property
+    def traffic_distribution(self):
+        """Gets the traffic_distribution of this ProductionServiceV2Model.  # noqa: E501
+
+        How the service's traffic splits across its cloud resources and versions, from the most recent reconciler snapshot. Null unless the service's DNS spreads it across more than one cloud resource.  # noqa: E501
+
+        :return: The traffic_distribution of this ProductionServiceV2Model.  # noqa: E501
+        :rtype: ServiceTrafficDistribution
+        """
+        return self._traffic_distribution
+
+    @traffic_distribution.setter
+    def traffic_distribution(self, traffic_distribution):
+        """Sets the traffic_distribution of this ProductionServiceV2Model.
+
+        How the service's traffic splits across its cloud resources and versions, from the most recent reconciler snapshot. Null unless the service's DNS spreads it across more than one cloud resource.  # noqa: E501
+
+        :param traffic_distribution: The traffic_distribution of this ProductionServiceV2Model.  # noqa: E501
+        :type: ServiceTrafficDistribution
+        """
+
+        self._traffic_distribution = traffic_distribution
 
     def to_dict(self):
         """Returns the model properties as a dict"""

@@ -94,13 +94,19 @@ pub struct PyProjectToml {
 }
 
 impl PyProjectToml {
+    /// Return explicitly configured default groups without validating the group names.
+    ///
+    /// `None` means the setting is absent, so uv uses `dev`; an empty list disables defaults.
+    pub fn configured_default_groups(&self) -> Option<&DefaultGroups> {
+        self.tool
+            .as_ref()
+            .and_then(|tool| tool.uv.as_ref())
+            .and_then(|uv| uv.default_groups.as_ref())
+    }
+
     /// Return the default dependency groups, validating explicitly configured group names.
     pub(crate) fn default_groups(&self) -> Result<DefaultGroups, DefaultGroupsError> {
-        if let Some(defaults) = self
-            .tool
-            .as_ref()
-            .and_then(|tool| tool.uv.as_ref().and_then(|uv| uv.default_groups.as_ref()))
-        {
+        if let Some(defaults) = self.configured_default_groups() {
             if let DefaultGroups::List(defaults) = defaults {
                 for group in defaults {
                     if !self
@@ -114,7 +120,7 @@ impl PyProjectToml {
             }
             Ok(defaults.clone())
         } else {
-            Ok(DefaultGroups::List(vec![DEV_DEPENDENCIES.clone()]))
+            Ok(DefaultGroups::from_groups(vec![DEV_DEPENDENCIES.clone()]))
         }
     }
 
@@ -1725,7 +1731,7 @@ pub enum SourceError {
     UnusedEditable(String),
     #[error("Failed to resolve absolute path")]
     Absolute(#[from] std::io::Error),
-    #[error("Path contains invalid characters: `{}`", _0.display())]
+    #[error("Path contains invalid characters: {}", _0.display())]
     NonUtf8Path(PathBuf),
     #[error("Source markers must be disjoint, but the following markers overlap: `{0}` and `{1}`.")]
     OverlappingMarkers(String, String, String),

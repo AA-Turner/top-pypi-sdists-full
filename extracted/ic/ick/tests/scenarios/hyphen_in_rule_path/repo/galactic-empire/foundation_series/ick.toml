@@ -1,5 +1,0 @@
-[[rule]]
-name = "foundation_series"
-impl = "python"
-scope = "project"
-project_types = ["python"]

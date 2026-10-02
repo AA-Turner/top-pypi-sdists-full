@@ -9,10 +9,7 @@ use serde::{
     ser::{SerializeMap, SerializeSeq, SerializeStruct},
     Serialize,
 };
-use std::{
-    fmt::{self, Write},
-    sync::Arc,
-};
+use std::{fmt, sync::Arc};
 
 /// Annotations associated with an output unit.
 #[derive(Debug, Clone, PartialEq)]
@@ -232,21 +229,6 @@ impl ChildList {
 
     pub(crate) fn all_valid(self) -> bool {
         self.valid
-    }
-
-    /// Move `other`'s children onto the end of this list.
-    pub(crate) fn append(&mut self, arena: &mut EvaluationArena, other: ChildList) {
-        if other.first == NO_NODE {
-            return;
-        }
-        if self.last == NO_NODE {
-            self.first = other.first;
-        } else {
-            arena.node_mut(self.last).next_sibling = other.first;
-        }
-        self.last = other.last;
-        self.len += other.len;
-        self.valid &= other.valid;
     }
 
     /// A list of nodes that were collected before the arena was reachable.
@@ -845,7 +827,7 @@ pub(crate) fn absorbed_error_node(
     EvaluationNode::invalid(
         crate::paths::evaluation_path(tracker, keyword_location, ctx),
         absolute_location.cloned(),
-        format_schema_location(keyword_location, absolute_location),
+        format_keyword_location(keyword_location, absolute_location),
         location.into(),
         None,
         vec![error],
@@ -853,19 +835,15 @@ pub(crate) fn absorbed_error_node(
     )
 }
 
-pub(crate) fn format_schema_location(
+/// `schemaLocation` of a keyword: its absolute URI when it has one, otherwise its JSON Pointer.
+///
+/// The URI's fragment counts from the root of the keyword's own resource, which a subschema
+/// declaring its own `$id` places below the document root.
+pub(crate) fn format_keyword_location(
     location: &Location,
     absolute: Option<&Arc<Uri<String>>>,
 ) -> Arc<str> {
-    if let Some(uri) = absolute {
-        let base = uri.strip_fragment();
-        let suffix = location.as_str();
-        crate::paths::build_arc_str(suffix.len() + 1, |buffer| {
-            write!(buffer, "{base}#{suffix}").expect("writing to a String cannot fail");
-        })
-    } else {
-        location.as_arc()
-    }
+    absolute.map_or_else(|| location.as_arc(), |uri| Arc::from(uri.as_str()))
 }
 
 struct ListEntry<'a> {
@@ -1863,52 +1841,24 @@ mod tests {
     }
 
     #[test]
-    fn format_schema_location_without_absolute() {
+    fn format_keyword_location_without_absolute() {
         let location = Location::new().join("properties").join("name");
-        let formatted = format_schema_location(&location, None);
+        let formatted = format_keyword_location(&location, None);
         assert_eq!(formatted.as_ref(), "/properties/name");
     }
 
     #[test]
-    fn format_schema_location_with_absolute_no_fragment() {
-        let location = Location::new().join("properties");
+    fn format_keyword_location_keeps_encoded_fragment() {
+        let location = Location::new().join("properties").join("s p");
         let uri = Arc::new(
-            Uri::parse("http://example.com/schema.json")
+            Uri::parse("http://example.com/schema.json#/properties/s%20p")
                 .unwrap()
                 .to_owned(),
         );
-        let formatted = format_schema_location(&location, Some(&uri));
+        let formatted = format_keyword_location(&location, Some(&uri));
         assert_eq!(
             formatted.as_ref(),
-            "http://example.com/schema.json#/properties"
-        );
-    }
-
-    #[test]
-    fn format_schema_location_with_absolute_empty_location() {
-        let location = Location::new();
-        let uri = Arc::new(
-            Uri::parse("http://example.com/schema.json")
-                .unwrap()
-                .to_owned(),
-        );
-        let formatted = format_schema_location(&location, Some(&uri));
-        assert_eq!(formatted.as_ref(), "http://example.com/schema.json#");
-    }
-
-    #[test]
-    fn format_schema_location_with_absolute_existing_fragment() {
-        let location = Location::new().join("properties");
-        let uri = Arc::new(
-            Uri::parse("http://example.com/schema.json#/defs/myDef")
-                .unwrap()
-                .to_owned(),
-        );
-        let formatted = format_schema_location(&location, Some(&uri));
-        // When URI has a fragment, it's replaced with the location
-        assert_eq!(
-            formatted.as_ref(),
-            "http://example.com/schema.json#/properties"
+            "http://example.com/schema.json#/properties/s%20p"
         );
     }
 
@@ -2091,6 +2041,106 @@ mod tests {
                 "\"name\" is a required property".to_string(),
                 "/age: \"oops\" is not of type \"number\"".to_string(),
             ]
+        );
+    }
+
+    fn node(evaluation_path: &str, schema_location: &str) -> Value {
+        json!({
+            "valid": true,
+            "evaluationPath": evaluation_path,
+            "schemaLocation": schema_location,
+            "instanceLocation": ""
+        })
+    }
+
+    fn with_details(mut node: Value, details: Vec<Value>) -> Value {
+        node["details"] = Value::Array(details);
+        node
+    }
+
+    fn outputs(schema: &Value) -> (Value, Value, usize) {
+        let validator = crate::validator_for(schema).expect("valid schema");
+        let evaluation = validator.evaluate(&json!("x"));
+        (
+            serde_json::to_value(evaluation.list()).expect("serialization succeeds"),
+            serde_json::to_value(evaluation.hierarchical()).expect("serialization succeeds"),
+            evaluation.iter_annotations().count(),
+        )
+    }
+
+    // Drafts 4-7 ignore every `$ref` sibling, annotations included
+    #[test_case("http://json-schema.org/draft-04/schema#"; "draft 4")]
+    #[test_case("http://json-schema.org/draft-06/schema#"; "draft 6")]
+    #[test_case("http://json-schema.org/draft-07/schema#"; "draft 7")]
+    fn ref_siblings_produce_no_annotations(dialect: &str) {
+        let schema = json!({
+            "$schema": dialect,
+            "definitions": {"a": {"type": "string"}},
+            "$ref": "#/definitions/a",
+            "type": "integer",
+            "title": "T",
+            "x-unknown": 1
+        });
+        let root = node("", "");
+        let reference = node("/$ref", "/definitions/a");
+        let target_type = node("/$ref/type", "/definitions/a/type");
+        assert_eq!(
+            outputs(&schema),
+            (
+                json!({"valid": true, "details": [root, reference, target_type]}),
+                with_details(root, vec![with_details(reference, vec![target_type])]),
+                0
+            )
+        );
+    }
+
+    #[test]
+    fn draft7_unknown_keywords_without_ref_are_annotations() {
+        let schema = json!({
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "definitions": {"a": {"type": "string"}},
+            "type": "string",
+            "title": "T",
+            "x-unknown": 1
+        });
+        let mut root = node("", "");
+        root["annotations"] = json!({"title": "T", "x-unknown": 1});
+        let target_type = node("/type", "/type");
+        assert_eq!(
+            outputs(&schema),
+            (
+                json!({"valid": true, "details": [root, target_type]}),
+                with_details(root, vec![target_type]),
+                1
+            )
+        );
+    }
+
+    #[test]
+    fn draft2020_ref_siblings_apply() {
+        let schema = json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$defs": {"a": {"type": "string"}},
+            "$ref": "#/$defs/a",
+            "maxLength": 5,
+            "title": "T",
+            "x-unknown": 1
+        });
+        let mut root = node("", "");
+        root["annotations"] = json!({"title": "T", "x-unknown": 1});
+        let max_length = node("/maxLength", "/maxLength");
+        let reference = node("/$ref", "/$defs/a");
+        let target_type = node("/$ref/type", "/$defs/a/type");
+        assert_eq!(
+            outputs(&schema),
+            (
+                json!({"valid": true, "details": [root, max_length, reference, target_type]}),
+                with_details(
+                    root,
+                    vec![max_length, with_details(reference, vec![target_type])]
+                ),
+                1
+            )
         );
     }
 }

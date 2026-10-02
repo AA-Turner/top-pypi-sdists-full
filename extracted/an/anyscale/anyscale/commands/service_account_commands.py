@@ -62,7 +62,12 @@ def _print_service_account_table(service_accounts: List[ServiceAccount]):
         )
     table = tabulate.tabulate(
         table_rows,
-        headers=["NAME", "CREATED AT", "ORGANIZATION PERMISSION LEVEL", "EMAIL",],
+        headers=[
+            "NAME",
+            "CREATED AT",
+            "ORGANIZATION PERMISSION LEVEL",
+            "EMAIL",
+        ],
         tablefmt="plain",
     )
 
@@ -94,16 +99,12 @@ def _print_service_account_table(service_accounts: List[ServiceAccount]):
     ),
     cls=AnyscaleCommand,
 )
-@click.option(
-    "--name", "-n", help="Name for the service account.", type=str, required=True
-)
+@click.option("--name", "-n", help="Name for the service account.", type=str, required=True)
 @click.option(
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice(
-        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
-    ),
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
     help="Output format for the created service account and its API token.",
@@ -119,9 +120,7 @@ def create(name: str, output_format: str) -> None:
         log.info(f"Service account {name} created successfully.")
         _print_new_api_key(api_key)
     except ValueError as e:
-        raise UserError(
-            f"Error creating service account: {e}", legacy_exit_code=0
-        ) from None
+        raise UserError(f"Error creating service account: {e}", legacy_exit_code=0) from None
 
 
 @command_metadata(
@@ -146,9 +145,7 @@ def create(name: str, output_format: str) -> None:
     ),
     cls=AnyscaleCommand,
 )
-@click.option(
-    "--email", help="Email of the service account to create the new key for.", type=str
-)
+@click.option("--email", help="Email of the service account to create the new key for.", type=str)
 @click.option(
     "--name",
     "-n",
@@ -159,16 +156,12 @@ def create(name: str, output_format: str) -> None:
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice(
-        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
-    ),
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
     help="Output format for the new API token.",
 )
-def create_api_key(
-    email: Optional[str], name: Optional[str], output_format: str
-) -> None:
+def create_api_key(email: Optional[str], name: Optional[str], output_format: str) -> None:
     try:
         api_key = anyscale.service_account.create_api_key(email, name)
 
@@ -251,10 +244,7 @@ def list_service_accounts(max_items: int, output_format: str) -> None:
 @service_account_cli.command(
     name="delete",
     short_help="Delete a service account.",
-    help=(
-        "Delete a service account.\n\n"
-        "Specify the service account by --email or --name."
-    ),
+    help=("Delete a service account.\n\nSpecify the service account by --email or --name."),
     cls=AnyscaleCommand,
 )
 @click.option("--email", help="Email of the service account to delete.", type=str)
@@ -264,6 +254,4 @@ def delete(email: Optional[str], name: Optional[str]) -> None:
         anyscale.service_account.delete(email, name)
         log.info(f"Service account {email or name} deleted successfully.")
     except ValueError as e:
-        raise UserError(
-            f"Error deleting service account: {e}", legacy_exit_code=0
-        ) from None
+        raise UserError(f"Error deleting service account: {e}", legacy_exit_code=0) from None

@@ -1,0 +1,184 @@
+---
+name: baseline_capture
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: compute
+runtime_profiles: [main]
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  Captures a named snapshot of system state as a baseline artifact.
+  Runs configurable probes (GitHub PRs, Linear tickets, service health,
+  Kafka topics, git branches, DB row counts) and writes a JSON artifact
+  to .onex_state/baselines/. Used as the "before" measurement in any workflow.
+
+handler:
+  module: omnimarket.nodes.node_baseline_capture.handlers.handler_baseline_capture
+  class: HandlerBaselineCapture
+  input_model: omnimarket.nodes.node_baseline_capture.handlers.handler_baseline_capture.ModelBaselineCaptureRequest
+
+handler_routing:
+  handlers:
+    - operation: baseline_capture
+      handler:
+        name: HandlerBaselineCapture
+        module: omnimarket.nodes.node_baseline_capture.handlers.handler_baseline_capture
+    - operation: db_row_counts
+      handler:
+        name: ProbeDbRowCounts
+        module: omnimarket.nodes.node_baseline_capture.handlers.probes.probe_db_row_counts
+    - operation: git_branches
+      handler:
+        name: ProbeGitBranches
+        module: omnimarket.nodes.node_baseline_capture.handlers.probes.probe_git_branches
+    - operation: github_prs
+      handler:
+        name: ProbeGitHubPRs
+        module: omnimarket.nodes.node_baseline_capture.handlers.probes.probe_github_prs
+    - operation: kafka_topics
+      handler:
+        name: ProbeKafkaTopics
+        module: omnimarket.nodes.node_baseline_capture.handlers.probes.probe_kafka_topics
+    - operation: linear_tickets
+      handler:
+        name: ProbeLinearTickets
+        module: omnimarket.nodes.node_baseline_capture.handlers.probes.probe_linear_tickets
+    - operation: system_health
+      handler:
+        name: ProbeSystemHealth
+        module: omnimarket.nodes.node_baseline_capture.handlers.probes.probe_system_health
+
+metadata:
+  transport_type: httpx
+  additional_transports:
+    - postgres
+
+descriptor:
+  node_archetype: compute
+  purity: impure
+  idempotent: true
+  timeout_ms: 120000
+
+inputs:
+  baseline_id:
+    type: str
+    description: "Unique name for this baseline snapshot"
+    required: true
+  probes:
+    type: list[str]
+    description: "Probe names to run: github_prs, linear_tickets, system_health, kafka_topics, git_branches, db_row_counts"
+    required: false
+    default: ["github_prs", "linear_tickets", "system_health", "git_branches"]
+  label:
+    type: str
+    description: "Human-readable label for this baseline"
+    required: false
+  omni_home:
+    type: str
+    description: "Root path of the omni_home workspace. Defaults to required OMNI_HOME environment variable."
+    required: false
+  dry_run:
+    type: bool
+    description: "If true, capture and return snapshot without writing artifact"
+    required: false
+    default: false
+
+outputs:
+  baseline_id:
+    type: str
+    description: "The baseline ID that was captured"
+  artifact_path:
+    type: str
+    description: "Filesystem path where the baseline JSON was written"
+  probes_run:
+    type: list[str]
+    description: "Probes that completed successfully"
+  probes_failed:
+    type: list[str]
+    description: "Probes that failed (non-fatal)"
+
+env_dependencies:
+  LLM_CODER_URL:
+    required: false
+    description: "vLLM Qwen3-Coder-30B endpoint URL (probed during system_health check)"
+  LLM_CODER_FAST_URL:
+    required: false
+    description: "vLLM fast model endpoint URL (probed during system_health check)"
+  LLM_EMBEDDING_URL:
+    required: false
+    description: "Embedding model endpoint URL (probed during system_health check)"
+  OMNIBASE_INFRA_DB_URL:
+    required: false
+    description: "Postgres DSN for the db_row_counts probe. Probe is skipped when unset."
+  POSTGRES_HOST:
+    required: false
+    description: "Postgres host for the system_health probe connectivity check."
+  POSTGRES_PORT:
+    required: false
+    description: "Postgres port for the system_health probe (typically 5436 externally)."
+  VALKEY_HOST:
+    required: false
+    description: "Valkey host for the system_health probe connectivity check."
+  VALKEY_PORT:
+    required: false
+    description: "Valkey port for the system_health probe."
+  QDRANT_HOST:
+    required: false
+    description: "Qdrant host for the system_health probe connectivity check."
+  QDRANT_PORT:
+    required: false
+    description: "Qdrant port for the system_health probe."
+
+config:
+  LLM_CODER_URL:
+    description: "vLLM Qwen3-Coder-30B endpoint URL (probed during system_health check)"
+    required: false
+  LLM_CODER_FAST_URL:
+    description: "vLLM fast model endpoint URL (probed during system_health check)"
+    required: false
+  LLM_EMBEDDING_URL:
+    description: "Embedding model endpoint URL (probed during system_health check)"
+    required: false
+  OMNIBASE_INFRA_DB_URL:
+    description: "Postgres DSN for the db_row_counts probe. Probe is skipped when unset."
+    required: false
+  POSTGRES_HOST:
+    description: "Postgres host for the system_health probe connectivity check."
+    required: false
+  POSTGRES_PORT:
+    description: "Postgres port for the system_health probe."
+    required: false
+  REDPANDA_ADMIN_HOST:
+    description: "Redpanda admin API host for kafka_topics probe."
+    required: false
+  REDPANDA_ADMIN_PORT:
+    description: "Redpanda admin API port (default 9644)."
+    required: false
+  VALKEY_HOST:
+    description: "Valkey host for system_health probe."
+    required: false
+  VALKEY_PORT:
+    description: "Valkey port for system_health probe."
+    required: false
+  QDRANT_HOST:
+    description: "Qdrant host for system_health probe."
+    required: false
+  QDRANT_PORT:
+    description: "Qdrant port for system_health probe."
+    required: false
+
+terminal_event: onex.evt.omnimarket.baseline-captured.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.baseline-capture-start.v1
+  publish_topics:
+    - onex.evt.omnimarket.baseline-captured.v1
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.baseline-capture-start.v1
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.baseline-captured.v1

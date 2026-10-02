@@ -1,0 +1,158 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# keep-list.yaml — Versioned protect-list for the .201 conservative docker/disk GC.
+#
+# OMN-13008. This file is the single source of truth for what disk-gc.sh must NOT
+# remove. It is read at runtime by disk-gc.sh; nothing is hardcoded in the script.
+#
+# How matching works:
+#   - keep_image_repos:  any docker image whose repository name contains one of
+#                        these substrings is NEVER removed, regardless of age.
+#                        Use this for the live runtime image family and any
+#                        image you may need to roll back to.
+#   - keep_image_tags:   any image whose ":tag" matches one of these (exact tag
+#                        match) is NEVER removed. Use for tagged rollback sets.
+#   - protect_running:   when true (default), images referenced by any container
+#                        (running OR stopped) are always kept even if not listed
+#                        above. This is the backstop that prevents pulling the
+#                        rug out from a lane mid-flight.
+#
+# Maintenance: when promoting a new runtime image generation, add its tag to
+# keep_image_tags so the GC keeps the prior generation as a rollback target for
+# `superseded_image_keep_generations` cycles. Do NOT hardcode tags in the script.
+schema_version: "1.0.0"
+# Image repositories (substring match) that are always retained.
+keep_image_repos:
+  - omninode-runtime
+  - omnibase-infra
+  - omnibase-intelligence
+  - omnimarket
+  - omnidash
+  - projection-api
+  # Core infra base images — removing these forces slow re-pulls and can wedge a
+  # lane restart while /data is already tight.
+  #
+  # OMN-18691 raises the stakes on `redpandadata/redpanda` specifically, and the
+  # entry is recorded here rather than left to be rediscovered. That image is now
+  # also the FLEET'S CI BUS: the dedicated `omninode-ci-bus` compose project
+  # (docker/docker-compose.ci-bus.yml) runs one Redpanda whose whole purpose is to
+  # survive a dev-lane rebuild, so reaping it would wedge every repository's
+  # Receipt Gate and not merely a lane restart. No new key is added for that
+  # project, deliberately — a redundant entry reads as the protection when it is
+  # not. The three mechanisms that already cover it, verified against
+  # scripts/disk_gc_plan.py and scripts/disk-gc.sh on 2026-09-18:
+  #   * its image matches this substring, so it is never removed at any age;
+  #   * `protect_running: true` plus the OMN-15804 fresh `ancestor` re-check keeps
+  #     any image a container references, and the broker container is running;
+  #   * its data volume is out of scope entirely — disk-gc.sh removes no volume
+  #     (`scripts/disk-gc.sh:26`), which is what makes the durability the CI bus
+  #     design rests on actually durable.
+  # Its three one-shots DO sit Exited(0) and the planner removes any stopped
+  # container older than `min_age_days` with no keep-list and no project scoping
+  # (`scripts/disk_gc_plan.py:494-508`). That is harmless and is not worth an
+  # exemption: the lane census treats an absent run-to-completion container as
+  # correct, not as drift (`scripts/lane_census_plan.py:224-227`), exactly as it
+  # already does for every lane's migration and partition-cap one-shots.
+  - postgres
+  - redpandadata/redpanda
+  - valkey
+# Exact image tags (the part after ':') that are always retained — tagged
+# rollback sets. Update on each promotion.
+keep_image_tags:
+  - latest
+  - stable
+  - rollback
+# Keep images referenced by any container (running or stopped). The live lane
+# backstop. Disable only with explicit operator approval.
+protect_running: true
+# How many superseded (untagged-by-keep_image_tags) generations of a kept repo
+# to retain before the oldest become eligible for removal once older than
+# superseded_image_max_age_days. Belt-and-suspenders with age.
+superseded_image_keep_generations: 2
+# Age threshold (days) below which NOTHING is removed, even dangling images.
+# Conservative: a just-built image is never reaped.
+min_age_days: 3
+# OMN-16367 — CEILING on retained BuildKit build cache, as a docker-parseable
+# size string handed to `docker builder prune --max-used-space`.
+#
+# WHY a size cap and not an age filter: on 2026-09-18 `docker buildx du` on .201
+# reported 749.7 GB across 9,183 records, 100% reclaimable, while the hourly GC
+# reclaimed kilobytes. `until=` filters on LAST ACCESSED, and every large record
+# (the 1.47 GB /app/.venv layer, the torch/uv base) is refreshed by the next
+# proof build's cache hit, so the big records were never eligible. An age filter
+# is structurally incapable of bounding this cache.
+#
+# Sized against the lab's working set, NOT against the 3.6 TB volume: BuildKit's
+# own default derives a 341.8 GiB permanent floor from disk size, which is
+# untenable beside 674 GB of volumes and the containerd layer store.
+#
+# The matching daemon-level standing ceiling is the fragment
+# deploy/disk-gc/daemon-builder-gc.json (committed, NOT applied — applying it
+# needs a dockerd reload that bounces every lane, so it is the operator's
+# window). Keep the two numbers in step; a test fails if they drift. The apply
+# procedure and the two flag traps are the knowledge-base-internal runbook
+# runbooks/2026-09-18-buildkit-cache-ceiling-201.md.
+#
+# Lowering this makes the next build colder, never less correct. The deploy
+# agent already models a cold cache (COLD_CACHE_MULTIPLIER in
+# deploy_agent/host_conditions.py) and widens its ceiling accordingly.
+builder_cache_max_size: "100GB"
+# OMN-16367 (DoD item 2) — generation-bounded retention for per-sha image families.
+#
+# WHY: measured on .201 on 2026-09-18, the disk is held by the deploy agent's
+# per-sha tags, rebuilt roughly hourly and never reaped:
+#
+#     60 images   219.3 GB   onex-lab/omninode-runtime
+#    179 images   205.1 GB   ECR omnicloud/core
+#     93 images   106.3 GB   onex-lab/omnicloud-core
+#
+# Two planner defects let that happen, and both are fixed by these three keys:
+#   1. A repo matching no keep_image_repos substring fell through to a
+#      conservative permanent KEEP, so omnicloud/core, omnicloud-core,
+#      omninode-cloud-migrate and omniweb grew without bound (~408 images).
+#   2. Repos that DID match were still gated behind min_age_days: 3, and at an
+#      hourly cadence ~72 generations are always too young for a keep-newest-N
+#      window to bite. Hence the hours-scale floor below.
+#
+# It is NOT the build cache and NOT CI proof images. Three approved builder
+# prunes reclaimed 0B (buildx du reads Shared 723.5GB of Total 750GB — shared
+# with image layers, unreturnable while those images exist), and exactly 3
+# proof-pattern images exist host-wide because the compose teardown's
+# `--rmi local` genuinely works.
+#
+# SAFETY: opt-in twice over. A repo not listed here is untouched, and a tag that
+# is not build-stamped (`dev`, `main`, a release name, anything in
+# keep_image_tags) is untouched. Both failure directions land on KEEP. The
+# governed stability / judge / lakshman lanes are held out of scope structurally
+# — their repo names match nothing below.
+generation_bounded_repos:
+  - onex-lab/
+  - omnicloud/core
+  - omninode-cloud-migrate
+  - omniweb
+# Newest generations retained per family. Never below 2: the deploy agent needs a
+# rollback target, and the current generation is one of the N.
+generation_keep: 3
+# Floor in HOURS. Nothing younger is reaped however superseded. Hours, not days,
+# is the whole point — see defect 2 above.
+generation_min_age_hours: 6
+# Tag shapes that count as a per-build artifact. Every one of these was read off
+# .201 on 2026-09-18, not invented. Anything NOT matching is treated as a
+# meaningful pointer and is never reaped by the generation rule -- `dev`, `main`,
+# a release name, anything in keep_image_tags.
+#
+# These live here rather than in the script so widening what counts as disposable
+# is a config review. Narrow them IN, never out: an unmatched tag means KEEP,
+# which is the safe direction, while an over-broad pattern reaps something that
+# mattered.
+#
+# DELIBERATELY ABSENT: the loose `<word>-<hex>` shape (`main-f3d4029`,
+# `runtime-fc61f41242dcc01b`). Those are per-sha tags too, but a pattern that
+# broad would also match ordinary meaningful tags.
+generation_tag_patterns:
+  - "^\\d{8}T\\d{6}Z?-[0-9a-f]{7,40}$" # 20260918T111918Z-e49dea8f
+  - "^[0-9a-f]{7,40}-\\d{8}T\\d{6}Z?$" # ffd61901-20260918T111918Z
+  - "^sha-[0-9a-f]{6,40}$" # sha-ffd6190
+  - "^[A-Za-z0-9._-]+-sha-[0-9a-f]{6,40}$" # dev-sha-ffd6190
+  - "^[0-9a-f]{40}$" # bare 40-hex content tag

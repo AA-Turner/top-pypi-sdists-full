@@ -1,0 +1,62 @@
+[package]
+name = "vegafusion-python-embed"
+license = "BSD-3-Clause"
+edition = "2021"
+version = "1.6.9"
+description = "vegafusion-python-embed PyO3 Python Package"
+resolver = "2"
+
+[lib]
+name = "vegafusion_embed"
+crate-type = [ "cdylib",]
+
+[features]
+protobuf-src = [ "vegafusion-core/protobuf-src",]
+
+[dependencies]
+log = "0.4.17"
+env_logger = "0.10.0"
+async-trait = "0.1.73"
+uuid = "1.3.0"
+pythonize = { version = "0.20.0" }
+prost = { version = "0.12.1" }
+arrow = { version = "50.0.0", default_features = false , features = [ "pyarrow"] }
+tokio = { version = "1.36.0" , features = [ "macros", "rt-multi-thread"] }
+pyo3 = { version = "0.20.0" , features = [ "extension-module", "abi3-py38"] }
+
+[dependencies.datafusion-proto]
+version = "36.0.0"
+
+[dependencies.deterministic-hash]
+version = "1.0.1"
+
+[dependencies.serde]
+version = "1.0.137"
+features = [ "derive",]
+
+[dependencies.serde_json]
+version = "1.0.79"
+
+[dependencies.vegafusion-common]
+path = "local_dependencies/vegafusion-common"
+features = [ "pyo3", "datafusion-proto", "base64",]
+version = "1.6.9"
+
+[dependencies.vegafusion-core]
+path = "local_dependencies/vegafusion-core"
+features = [ "pyarrow",]
+version = "1.6.9"
+
+[dependencies.vegafusion-runtime]
+path = "local_dependencies/vegafusion-runtime"
+features = [ "pyarrow",]
+version = "1.6.9"
+
+[dependencies.vegafusion-sql]
+path = "local_dependencies/vegafusion-sql"
+version = "1.6.9"
+features = [ "datafusion-conn", "pyarrow",]
+
+[dependencies.vegafusion-dataframe]
+path = "local_dependencies/vegafusion-dataframe"
+version = "1.6.9"

@@ -106,6 +106,7 @@ def _fail(
     suggested_action: str | None = None,
     is_retryable: bool = False,
     exc: BaseException | None = None,
+    traceback_operator_only: bool = False,
 ) -> ToolResult:
     # Pass `exc` whenever this is called from an `except` block — without it the
     # traceback is destroyed and the failure reaches the operator as a bare
@@ -126,6 +127,7 @@ def _fail(
             is_retryable=is_retryable,
         )
     )
+    error.traceback_operator_only = traceback_operator_only
     return ToolResult(
         success=False,
         error=error,
@@ -554,6 +556,23 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     from matrx_connect.context.app_context import set_app_context
 
     child_metadata = {**app_ctx.metadata, _AGENT_CALL_DEPTH_KEY: depth + 1}
+    # Lineage: every chat.tool_call row the child (and its own children) writes
+    # names THIS call's row as its parent_call_id, so a reloaded transcript
+    # nests the sub-agent's work under this card exactly as the live stream
+    # did. Bound on the child's task-local context like the depth — the child's
+    # own agent_call rebinds it for its child, which keeps every level honest.
+    from matrx_ai.tools.logger import PARENT_TOOL_CALL_ROW_KEY, ToolExecutionLogger
+
+    parent_row_id = ToolExecutionLogger().row_id_for_call(ctx)
+    if parent_row_id:
+        child_metadata[PARENT_TOOL_CALL_ROW_KEY] = parent_row_id
+    else:
+        vcprint(
+            f"[agent_call] no chat.tool_call row is registered for call {ctx.call_id!r} "
+            "— the child's tool calls will be written with NO parent_call_id and a "
+            "reloaded transcript cannot nest them under this card.",
+            color="yellow",
+        )
     if time_budget_seconds:
         # A NEW dict every time (never an in-place append): sibling calls in one
         # batch share app_ctx.metadata, and this budget belongs to exactly one
@@ -590,12 +609,24 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         set_app_context(app_ctx)
 
     if not result.success:
+        # The child's own exception rides the result: hand it to ToolError so
+        # the operator gets its real type, message and stack — never only this
+        # sentence (2026-10-01: an OpenAI out-of-credit refusal reached the
+        # tool executor as "the tool swallowed its exception").
+        child_error_type = (result.metadata or {}).get("error_type")
         return _fail(
             ctx,
             started_at,
             error_type="agent_execution",
-            message=f"Agent '{getattr(agent, 'name', agent_id)}' failed: {result.error}",
+            message=(
+                f"Agent '{getattr(agent, 'name', agent_id)}' failed"
+                f"{f' ({child_error_type})' if child_error_type else ''}: {result.error}"
+            ),
             suggested_action="Check the agent's variables and configuration.",
+            exc=result.exception,
+            # The child's stack is for the operator; the calling model gets the
+            # child's own plain sentence above, never a provider billing URL.
+            traceback_operator_only=True,
         )
 
     if require_complete_output:
@@ -768,6 +799,7 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 "agent_id": agent_id,
                 "agent_name": getattr(agent, "name", None) or "",
                 "stored": descriptor,
+                **_child_conversation_extra(result, collab_extras),
                 "model_id": result.model_id,
                 **bounded_extras,
                 **collab_extras,
@@ -818,6 +850,7 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         "agent_id": agent_id,
         "agent_name": getattr(agent, "name", None) or "",
         "result": result_value,
+        **_child_conversation_extra(result, collab_extras),
         "model_id": result.model_id,
         **bounded_extras,
         **collab_extras,
@@ -848,6 +881,26 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         call_id=ctx.call_id,
     )
 
+
+
+def _child_conversation_extra(result: Any, collab_extras: dict[str, Any]) -> dict[str, Any]:
+    """``{"child_conversation_id": …}`` — the conversation the child ran in.
+
+    Every agent_call names it (not only collaboration calls), so the card that
+    ran the child can open that conversation and a reloaded transcript can load
+    the child's own thinking and tool calls beneath it. Collaboration calls
+    already carry it in ``collab_extras``; never stated twice."""
+    if "child_conversation_id" in collab_extras:
+        return {}
+    from matrx_ai.context.app_context import try_get_app_context
+
+    app_ctx = try_get_app_context()
+    if app_ctx is not None and not bool(getattr(app_ctx, "store", True)):
+        # An ephemeral run stores no conversation — naming one would be a door
+        # to nothing.
+        return {}
+    child = str((getattr(result, "metadata", None) or {}).get("conversation_id") or "")
+    return {"child_conversation_id": child} if child else {}
 
 
 __all__ = ["agent_call"]

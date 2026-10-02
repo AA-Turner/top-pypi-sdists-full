@@ -1,0 +1,79 @@
+#
+# This file is part of pysmi software.
+#
+# Copyright (c) 2015-2019, Ilya Etingof <etingof@gmail.com>
+# License: https://github.com/pysnmp/pysmi/blob/main/LICENSE.rst
+#
+"""Passing transformed modules to a user-supplied callable."""
+
+import logging
+from collections.abc import Callable
+from typing import Any
+
+from pysmi import error
+from pysmi._aliases import deprecated_camel_case
+from pysmi.writer.base import AbstractWriter
+
+logger = logging.getLogger(__name__)
+
+
+@deprecated_camel_case
+class CallbackWriter(AbstractWriter):
+    """Invokes user-specified callable and passes transformed
+    MIB module to it.
+
+    Note: user callable object signature must be as follows
+
+    .. function:: cbFun(mibname, contents, cbCtx)
+
+    """
+
+    def __init__(
+        self, cbFun: Callable[[str, str, Any], Any], cbCtx: Any = None
+    ) -> None:
+        """Creates an instance of *CallbackWriter* class.
+
+        Args:
+            cbFun (callable): user-supplied callable
+        Keyword Args:
+            cbCtx: user-supplied object passed intact to user callback
+        """
+        self._cbFun = cbFun
+        self._cbCtx = cbCtx
+
+    def __str__(self) -> str:
+        """Identify this writer by the callback it hands MIBs to."""
+        return f'{self.__class__.__name__}{{"{self._cbFun}"}}'
+
+    def put_data(
+        self,
+        mibname: str,
+        data: str,
+        comments: tuple[str, ...] = (),
+        dryRun: bool = False,
+    ) -> None:
+        """Hand the generated MIB to the user callback.
+
+        Raises:
+            PySmiWriterError: the callback raised.
+        """
+        if dryRun:
+            logger.debug("dry run mode", extra={"mib": mibname})
+            return
+
+        try:
+            self._cbFun(mibname, data, self._cbCtx)
+
+        # The callback is arbitrary user code, so anything it raises is turned
+        # into a writer error rather than escaping as itself.
+        except Exception as exc:
+            raise error.PySmiWriterError(
+                f"user callback {self._cbFun} failure writing {mibname}: {exc}",
+                writer=self,
+            ) from exc
+
+        logger.debug("user callback for %s succeeded", mibname, extra={"mib": mibname})
+
+    def get_data(self, filename: str) -> str:
+        """Return an empty string; a callback writer stores nothing to read back."""
+        return ""

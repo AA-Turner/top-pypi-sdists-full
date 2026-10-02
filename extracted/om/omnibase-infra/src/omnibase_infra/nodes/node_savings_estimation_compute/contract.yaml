@@ -1,0 +1,199 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodeSavingsEstimationCompute
+#
+# Computes token and cost savings from injection effectiveness data
+# and emits savings-estimated events to Kafka for downstream
+# projection into the omnidash savings dashboard.
+#
+# Related Tickets:
+#   - OMN-6964: Token savings emitter
+#   - OMN-7494: Heuristic savings from validator catches, counterfactual model
+#   - OMN-16293: Wire real multi-topic correlation; node_type COMPUTE_GENERIC
+#     -> EFFECT_GENERIC (the node now performs real I/O: Postgres signal
+#     capture/correlation + Kafka publish via HandlerSavingsCorrelation).
+#     The original pure savings.estimate capability (HandlerSavingsEstimation)
+#     is unchanged and is invoked in-process by the correlator.
+#   - OMN-16770: HandlerSavingsCorrelation's asyncpg pool binds the
+#     `application` database (physical omnidash_analytics) via the
+#     `omninode_runtime_service` binding's OMNINODE_INTERNAL_DB_URL, NOT
+#     OMNIBASE_INFRA_DB_URL. That is the database
+#     docker/migrations/forward/nodes/node_savings_estimation_compute/
+#     0001_create_savings_signal_tables.sql actually creates its two signal
+#     relations in, and the database omnimarket's projection nodes write
+#     llm_call_metrics / session_outcomes / savings_estimates into. Reading
+#     the wrong one raised UndefinedTableError on every 60s tick from
+#     2026-08-23 until this fix.
+#   - OMN-16770 (residual, closed here as a seam and NOT as a grant):
+#     re-binding the pool moved the failure from "relation does not exist" to
+#     "permission denied for table savings_estimates". Four of the five
+#     relations the correlation batch joins are INTERNAL-domain and granted to
+#     omninode_runtime; the fifth, savings_estimates, is TENANT-domain under
+#     ENABLE + FORCE ROW LEVEL SECURITY with the policy
+#     tenant_id = current_setting('app.tenant_id', true)
+#     (node_projection_savings/081), and omninode_runtime is NOSUPERUSER /
+#     NOBYPASSRLS / non-owner by design (OMN-16843). A bare GRANT SELECT is
+#     NOT the fix: with the GUC unset the policy filters every row, so
+#     `NOT EXISTS (savings_estimates)` becomes universally true and the batch
+#     re-publishes an estimate for every session on every tick, forever.
+#     HandlerSavingsCorrelation therefore probes the premise on its own
+#     connection immediately before the anti-join and REFUSES with
+#     SavingsCorrelationUnscopedReadError unless the read is either
+#     tenant-scoped or executed by a role row-level security does not apply
+#     to.
+#   - OMN-16770 (durable close, landed): the refusal above was correct and
+#     permanent — this node carries no tenant attribution of its own to bind
+#     (neither signal table has a tenant_id column, and inventing one is what
+#     the OMN-16831 ruling forbids), so the batch refused on every 60s tick
+#     and produced no estimate on any lane (480 refusals in four hours,
+#     measured on the .201 dev lane). The close is to stop reading a TENANT
+#     relation for INTERNAL idempotency at all: 0002_create_savings_
+#     correlation_finalizations.sql adds omninode_internal.
+#     savings_correlation_finalizations, this node writes one row there per
+#     estimate it publishes, and the readiness anti-join reads THAT — a
+#     relation it owns, writes, and can read truthfully under its own binding.
+#     Ownership was declared first in omnimarket's
+#     scripts/application-relation-ownership.yaml, as the OMN-15361 ownership
+#     gate requires. The seam is NOT deleted: it still runs on the same
+#     connection immediately before the candidate query and still refuses if
+#     the relation the anti-join reads ever acquires a policy this node cannot
+#     satisfy. It now passes by construction rather than by grant. The
+#     class-wide static gate is still OMN-17453.
+name: "node_savings_estimation_compute"
+contract_name: "node_savings_estimation_compute"
+node_name: "node_savings_estimation_compute"
+contract_version:
+  major: 0
+  minor: 4
+  patch: 0
+node_version:
+  major: 0
+  minor: 4
+  patch: 3
+node_type: "EFFECT_GENERIC"
+description: >
+  EFFECT node for token savings estimation. HandlerSavingsCorrelation ingests raw injection-effectiveness / validator-catch signals into Postgres (no in-memory buffering), periodically correlates them per session by joining against llm_call_metrics and session_outcomes (owned by omnimarket's projection nodes), and calls the pure HandlerSavingsEstimation (tiered model pricing: Opus $15/M input, Sonnet $3/M input) to produce a ModelSavingsEstimate for Kafka emission to onex.evt.omnibase-infra.savings-estimated.v1.
+
+input_model:
+  name: "ModelSavingsEstimationInput"
+  module: "omnibase_infra.nodes.node_savings_estimation_compute.models"
+  description: "Injection effectiveness data for savings computation."
+output_model:
+  name: "ModelSavingsEstimate"
+  module: "omnibase_infra.nodes.node_savings_estimation_compute.models"
+  description: "Computed savings estimate with cost breakdown and confidence."
+capabilities:
+  - name: "savings.estimate"
+    description: "Compute token and cost savings from injection effectiveness data"
+  - name: "savings.correlation_batch_compute"
+    description: "Periodically correlate raw savings signals into savings estimates"
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "savings.estimate"
+      handler:
+        name: "HandlerSavingsEstimation"
+        module: "omnibase_infra.nodes.node_savings_estimation_compute.handlers.handler_savings_estimation"
+      description: "Compute savings from injection effectiveness metrics"
+      input_model:
+        name: "ModelSavingsEstimationInput"
+        module: "omnibase_infra.nodes.node_savings_estimation_compute.models"
+        description: "Injection effectiveness data for savings computation."
+    - operation: "savings.correlation_batch_compute"
+      handler:
+        name: "HandlerSavingsCorrelation"
+        module: "omnibase_infra.nodes.node_savings_estimation_compute.handlers.handler_savings_correlation"
+      description: >
+        Periodic batch step: finds sessions with unfinalized savings signals that are ready (session-outcome past grace window, or timed out), correlates them, publishes savings-estimated.v1, and records each publication in omninode_internal.savings_correlation_finalizations. Triggered directly by a periodic asyncio task in service_kernel.py (mirrors node_baselines_batch_compute), not by real bus traffic on this self-only command topic. Readiness is decided by an anti-join against that same finalization relation — INTERNAL-domain, owned and written by this node, so the read is answerable under its own binding. It formerly anti-joined savings_estimates, a TENANT relation this node neither owns nor writes, which the batch refused to read on a connection with no app.tenant_id bound because a filtered read would report every session as un-finalized; that refusal (SavingsCorrelationUnscopedReadError) still guards the connection and now passes by construction (OMN-16770). The marker is written AFTER a successful publish, never before: at-least-once with an upserting downstream projection, not at-most-once.
+
+      input_model:
+        name: "ModelSavingsCorrelationBatchCommand"
+        module: "omnibase_infra.nodes.node_savings_estimation_compute.models"
+        description: "Command to trigger one savings-correlation batch tick."
+# OMN-16293: raw ingestion of the three signal topics with no existing
+# Postgres projection (context-injected, validator-catch, pattern-enforcement)
+# is done via HandlerSavingsCorrelation.ingest_injection_event /
+# ingest_validator_catch_event, wired directly by service_kernel.py — NOT
+# through event_bus.subscribe_topics / operation_match auto-wiring. None of
+# those raw domain events carry a matching `operation` field, so declaring
+# them here previously produced a live, real, but permanently-dead consumer
+# group (OMN-16292/OMN-16293 finding) that received traffic and computed
+# nothing. llm-call-completed and session-outcome are NOT ingested here at
+# all — they are already projected by omnimarket's node_projection_llm_cost /
+# node_projection_session_outcome into llm_call_metrics / session_outcomes,
+# read directly by the correlation batch (cross-repo read-only, same pattern
+# node_baselines_batch_compute uses for tables it does not own).
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  subscribe_topics:
+    - "onex.cmd.omnibase-infra.savings-correlation-batch-compute.v1"
+  publish_topics:
+    - "onex.evt.omnibase-infra.savings-estimated.v1"
+topics:
+  produces:
+    - topic: "onex.evt.omnibase-infra.savings-estimated.v1"
+      description: "Token savings estimation events"
+      schema: "ModelSavingsEstimate"
+  consumes:
+    - topic: "onex.evt.omniclaude.context-injected.v1"
+      description: >
+        Hook context injection signals, ingested directly (not auto-wired) into savings_injection_signals by HandlerSavingsCorrelation.
+
+    - topic: "onex.evt.omniclaude.validator-catch.v1"
+      description: >
+        Validator catch events, ingested directly (not auto-wired) into savings_validator_catch_signals by HandlerSavingsCorrelation.
+
+    - topic: "onex.evt.omniclaude.pattern-enforcement.v1"
+      description: >
+        Pattern enforcement events, ingested directly (not auto-wired) into savings_validator_catch_signals by HandlerSavingsCorrelation.
+
+error_handling:
+  retry_policy:
+    max_retries: 0
+    initial_delay_ms: 0
+    max_delay_ms: 0
+    exponential_base: 1
+    retry_on: []
+  error_types:
+    - name: "SavingsEstimationError"
+      description: "Failed to compute savings estimation"
+      recoverable: false
+    - name: "InsufficientDataError"
+      description: "Not enough effectiveness data to compute savings"
+      recoverable: false
+    - name: "SavingsCorrelationUnscopedReadError"
+      description: >
+        The readiness anti-join's idempotency read cannot answer truthfully on this connection — row-level security applies and no app.tenant_id is bound, or the premise could not be read at all. Not recoverable by retry: the next tick reaches the identical connection state. Since the OMN-16770 durable close the relation read is omninode_internal.savings_correlation_finalizations, which this node owns and which carries no row-level security by design, so this refusal is no longer reachable in a correctly migrated lane. Reaching it means a policy was added to that relation: remove the policy. Do NOT bind a tenant scope here (this node has no tenant attribution and inventing one is forbidden by OMN-16831) and never issue a bare GRANT, which is what produces the silent all-sessions answer this refusal exists to prevent (OMN-16770).
+
+      recoverable: false
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+  checks:
+    - name: "savings_handler_loaded"
+      type: "handler"
+      critical: true
+metadata:
+  description: "Estimates token cost savings from injection effectiveness data using tiered model pricing, computing per-session and aggregate ROI metrics"
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-03-29"
+  tags:
+    - compute
+    - savings
+    - tokens
+    - cost
+    - effectiveness
+    - attribution
+  related_tickets:
+    - "OMN-6964"
+    - "OMN-7494"
+    - "OMN-16293"
+    - "OMN-16770"

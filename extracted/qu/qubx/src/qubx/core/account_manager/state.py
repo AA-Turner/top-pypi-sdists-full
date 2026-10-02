@@ -1,0 +1,667 @@
+"""Pure per-exchange financial state.
+
+One instance per exchange, held inside AccountManager's dict[str, AccountState].
+This object is *data + indices only*: it enforces no state-machine legality,
+runs no reconcile rules, fires no callbacks, and depends on no clock. The state
+machine and reconcile orchestration live in AccountManager; AccountState just
+stores orders/positions/balances and keeps its lookup indices consistent.
+
+Threading: single-thread, mutable. All writes happen on the strategy thread
+through AccountManager (the single-mutator invariant). The mutators are
+framework-internal — strategies only see the read API. The read methods hand
+out live element references; callers that stash an Order/Position for off-thread
+use must copy.copy() it first.
+"""
+
+from collections import Counter, OrderedDict, deque
+from dataclasses import dataclass
+
+import numpy as np
+
+from qubx import logger
+from qubx.core.basics import STABLE_CURRENCIES, Balance, Deal, Instrument, Order, OrderStatus, Position
+
+# Bounded per-exchange funding-bucket dedup (insertion order ≈ funding-event time order):
+# old buckets evict once the cap is hit so the set can't grow unbounded over long-running
+# sessions. A re-delivered funding event only needs RECENT buckets to dedup against.
+_FUNDING_BUCKET_CAP: int = 4096
+
+# Snapshot balance-apply log level: a total move above this is real money (fill/funding/
+# transfer) and logs INFO; below it (incl. pure free/locked reshuffles) logs DEBUG.
+_BALANCE_LOG_ABS_TOL: float = 0.01
+
+
+@dataclass
+class VenueAccountFigures:
+    """Account-level figures reported by the exchange. Preferred over derived
+    metrics in live; each is optional since a venue may report only some."""
+
+    as_of: np.datetime64
+    equity: float | None = None
+    available_margin: float | None = None
+    margin_ratio: float | None = None
+    withdrawable: float | None = None
+    total_maint_margin: float | None = None
+    total_initial_margin: float | None = None
+    # equity after the venue's collateral discount (haircut); None where the venue has none
+    collateral_equity: float | None = None
+
+
+def _notional(position: Position) -> float:
+    # NaN for an unmarked position -> 0.0, so one unmarked position can't poison aggregates
+    n = position.notional_value
+    return 0.0 if n != n else float(n)
+
+
+class AccountState:
+    __slots__ = (
+        "exchange",
+        "base_currency",
+        "_active_orders",
+        "_positions",
+        "_balances",
+        "_cash_currencies",
+        "_venue_id_index",
+        "_inflight_index",
+        "_pending_evict_index",
+        "_seen_trade_ids",
+        "_terminal_history",
+        "_pre_pending_status",
+        "_pending_since",
+        "_last_snapshot_as_of",
+        "_transition_counts",
+        "_venue_figures",
+        "_applied_funding_buckets",
+        "_balance_push_as_of",
+        "_position_reconcile_as_of",
+        "_position_deal_booked_at",
+    )
+
+    def __init__(self, exchange: str, base_currency: str, *, terminal_history_size: int = 10_000):
+        self.exchange: str = exchange
+        self.base_currency: str = base_currency.upper()
+
+        # ---- primary data ------------------------------------------------
+        self._active_orders: dict[str, Order] = {}  # client_order_id -> Order
+        self._positions: dict[Instrument, Position] = {}
+        self._balances: dict[str, Balance] = {}  # currency -> Balance
+        # Currencies this venue settles cash in: base plus any settle currency actually booked.
+        # Persisted rather than derived from open positions so leftovers survive a flat book.
+        self._cash_currencies: set[str] = {self.base_currency}
+
+        # ---- lookup / bookkeeping indices (mutator-maintained) -----------
+        # venue_order_id -> client_order_id
+        self._venue_id_index: dict[str, str] = {}
+        # cids in SUBMITTED / PENDING_* — lets the in-flight sweep run O(k)
+        self._inflight_index: set[str] = set()
+        # cid -> terminal-at timestamp; drives O(k) terminal eviction
+        self._pending_evict_index: dict[str, np.datetime64] = {}
+        # cid -> applied venue trade_ids; fill dedup. Created lazily on first
+        # fill (resting/canceled orders never allocate a set), dropped on
+        # eviction so the memory dies with the order.
+        self._seen_trade_ids: dict[str, set[str]] = {}
+        # bounded ring buffer of evicted terminals (FIFO); slow-path lookups
+        self._terminal_history: deque[Order] = deque(maxlen=terminal_history_size)
+        # cid -> status captured on entry to PENDING_*; revert target on reject/give-up
+        self._pre_pending_status: dict[str, OrderStatus] = {}
+        # cid -> local clock at the latest entry into PENDING_*; the reconciler's confirm-window
+        # clock for a pending marker. Kept apart from Order.last_update_time, which is the VENUE
+        # clock: a request loop (arm cancel, venue refuses, revert, repeat) must not make a gone
+        # order look freshly updated to the Differ's grace gate.
+        self._pending_since: dict[str, np.datetime64] = {}
+
+        # ratchet for out-of-order snapshot rejection (written by AM reconcile)
+        self._last_snapshot_as_of: np.datetime64 | None = None
+        # Audit counter: number of status transitions by destination status (status.value ->
+        # count). Read via AccountManager.get_metrics(); never reset within a session.
+        self._transition_counts: Counter = Counter()
+        # exchange-reported account figures; None in sim, set from venue snapshots in live
+        self._venue_figures: VenueAccountFigures | None = None
+        # applied funding buckets ((instrument, bucket-index) keys), FIFO-bounded dedup
+        # side-table — same family as _seen_trade_ids, but keyed per funding interval
+        self._applied_funding_buckets: OrderedDict[tuple, None] = OrderedDict()
+        # venue event time of the last applied WS balance push, per currency (venue
+        # clock — same domain as Deal.time). Drives the stale-push ratchet and the
+        # covered-delta guards. Currency-keyed and tiny, so retained for the state's
+        # lifetime (no eviction).
+        self._balance_push_as_of: dict[str, np.datetime64] = {}
+        # - watermark: snapshot reconciled the size up to this venue time; a deal at/under it is
+        #   already in that size → reducer records but doesn't re-book it
+        self._position_reconcile_as_of: dict[Instrument, np.datetime64] = {}
+        # - local clock of the most recent deal booked into the size, per instrument. A position
+        #   snapshot requested before it cannot contain that deal, so it must not overwrite the
+        #   size. Same domain as AccountSnapshot.as_of, which both connectors stamp before the
+        #   fetch (ccxt connector.py:1708, lighter connector.py:487).
+        self._position_deal_booked_at: dict[Instrument, np.datetime64] = {}
+
+    def __repr__(self) -> str:
+        return (
+            f"AccountState({self.exchange}: {len(self._active_orders)} active orders, "
+            f"{len(self._inflight_index)} in-flight, {len(self._positions)} positions, "
+            f"{len(self._balances)} balances, {len(self._terminal_history)} retained)"
+        )
+
+    def get_orders(self) -> dict[str, Order]:
+        return dict(self._active_orders)
+
+    def get_order(self, client_order_id: str | None) -> Order | None:
+        if client_order_id is None:  # venue-id-only event; caller falls back to get_order_by_venue_id
+            return None
+        order = self._active_orders.get(client_order_id)
+        if order is not None:
+            return order
+        # Slow path: recently-evicted terminals (most-recent first).
+        for o in reversed(self._terminal_history):
+            if o.client_order_id == client_order_id:
+                return o
+        return None
+
+    def get_active_order(self, client_order_id: str | None) -> Order | None:
+        # Active (non-evicted) order only — distinct from get_order, which also searches
+        # the terminal-history ring buffer.
+        return self._active_orders.get(client_order_id)
+
+    def has_active_order(self, client_order_id: str) -> bool:
+        return client_order_id in self._active_orders
+
+    def get_order_by_venue_id(self, venue_order_id: str) -> Order | None:
+        cid = self._venue_id_index.get(venue_order_id)
+        return self._active_orders.get(cid) if cid is not None else None
+
+    def get_inflight_orders(self) -> list[Order]:
+        return [self._active_orders[cid] for cid in self._inflight_index]
+
+    def get_positions(self) -> dict[Instrument, Position]:
+        return dict(self._positions)
+
+    def get_position(self, instrument: Instrument) -> Position | None:
+        return self._positions.get(instrument)
+
+    def get_balance(self, currency: str) -> Balance | None:
+        return self._balances.get(currency)
+
+    def get_balances(self) -> list[Balance]:
+        return list(self._balances.values())
+
+    def get_pre_pending(self, cid: str) -> OrderStatus | None:
+        return self._pre_pending_status.get(cid)
+
+    def get_pending_since(self, cid: str) -> np.datetime64 | None:
+        return self._pending_since.get(cid)
+
+    def get_last_snapshot_as_of(self) -> np.datetime64 | None:
+        return self._last_snapshot_as_of
+
+    def get_position_reconcile_as_of(self, instrument: Instrument) -> np.datetime64 | None:
+        return self._position_reconcile_as_of.get(instrument)
+
+    def get_balance_push_as_of(self, currency: str) -> np.datetime64 | None:
+        return self._balance_push_as_of.get(currency)
+
+    def get_position_deal_booked_at(self, instrument: Instrument) -> np.datetime64 | None:
+        return self._position_deal_booked_at.get(instrument)
+
+    def mark_position_deal_booked(self, instrument: Instrument, at: np.datetime64) -> None:
+        self._position_deal_booked_at[instrument] = at
+
+    def get_transition_counts(self) -> dict[str, int]:
+        """Audit counter snapshot: status.value -> number of transitions into it."""
+        return dict(self._transition_counts)
+
+    def get_venue_figures(self) -> VenueAccountFigures | None:
+        return self._venue_figures
+
+    # ================================================================== #
+    # Derived metrics — single exchange. In live, exchange-reported      #
+    # figures are preferred over the derived value, per metric.          #
+    # ================================================================== #
+
+    def mark_cash_currency(self, currency: str) -> None:
+        """Count `currency` as cash at par from now on — recognized stables only.
+
+        A BTC-settled instrument (BINANCE.UM:ETHBTC) must not turn a BTC balance into capital.
+        The account's own base currency is exempt: it is seeded into the set at construction,
+        so a deliberately coin-margined account keeps being counted.
+        """
+        if currency and currency.upper() in STABLE_CURRENCIES:
+            self._cash_currencies.add(currency.upper())
+
+    def conversion_rate_to_base(self, currency: str) -> float | None:
+        """Rate from `currency` to this account's base currency, or None when unknown.
+
+        Cash currencies are stable-to-stable at 1.0; everything else is unpriced until
+        marks-based conversion lands, and unpriced balances are excluded rather than
+        counted at par — a spot base asset is not capital.
+        """
+        return 1.0 if currency.upper() in self._cash_currencies else None
+
+    def total_capital(self) -> float:
+        venue = self._venue_figures
+        if venue is not None and venue.equity is not None:
+            return venue.equity
+        # list() is a C-atomic snapshot: these aggregates are read from other threads
+        # (fit thread, control server) while the ProcessorThread inserts positions —
+        # a bare generator over the live dict can raise "dict changed size during
+        # iteration". Same pattern for every _balances/_positions iteration here and below.
+        cash = sum(
+            (
+                b.total * rate
+                for c, b in list(self._balances.items())
+                if (rate := self.conversion_rate_to_base(c)) is not None
+            ),
+            0.0,
+        )
+        return cash + sum(p.market_value_funds for p in list(self._positions.values()))
+
+    def collateral_equity(self) -> float:
+        venue = self._venue_figures
+        if venue is not None and venue.collateral_equity is not None:
+            return venue.collateral_equity
+        return self.total_capital()
+
+    def total_initial_margin(self) -> float:
+        """Venue total when reported — it may be scoped differently from a position sum
+        (cross-only on some venues, or including open-order margin), so it is the venue's
+        requirement rather than a re-sum of our positions — else the sum over positions."""
+        venue = self._venue_figures
+        if venue is not None and venue.total_initial_margin is not None:
+            return venue.total_initial_margin
+        return sum(p.initial_margin for p in list(self._positions.values()))
+
+    def total_maint_margin(self) -> float:
+        """Venue total when reported — it may be scoped differently from a position sum
+        (cross-only on some venues, or including open-order margin), so it is the venue's
+        requirement rather than a re-sum of our positions — else the sum over positions."""
+        venue = self._venue_figures
+        if venue is not None and venue.total_maint_margin is not None:
+            return venue.total_maint_margin
+        return sum(p.maint_margin for p in list(self._positions.values()))
+
+    def available_margin(self) -> float:
+        venue = self._venue_figures
+        if venue is not None and venue.available_margin is not None:
+            return venue.available_margin
+        return self.total_capital() - self.total_initial_margin()
+
+    def withdrawable_balance(self) -> float:
+        # Derived fallback equals available_margin (withdrawable <= available conceptually;
+        # equality is the documented sim/no-venue simplification).
+        venue = self._venue_figures
+        if venue is not None and venue.withdrawable is not None:
+            return venue.withdrawable
+        return self.available_margin()
+
+    def margin_ratio(self) -> float:
+        venue = self._venue_figures
+        if venue is not None and venue.margin_ratio is not None:
+            return venue.margin_ratio
+        maint = self.total_maint_margin()
+        return 100.0 if maint == 0 else min(100.0, self.collateral_equity() / maint)
+
+    def leverage(self, instrument: Instrument) -> float:
+        pos = self._positions.get(instrument)
+        if pos is None:
+            return 0.0
+        capital = self.total_capital()
+        return _notional(pos) / capital if capital > 0 else 0.0
+
+    def net_leverage(self) -> float:
+        capital = self.total_capital()
+        if capital <= 0:
+            return 0.0
+        return sum(_notional(p) for p in list(self._positions.values())) / capital
+
+    def gross_leverage(self) -> float:
+        capital = self.total_capital()
+        if capital <= 0:
+            return 0.0
+        return sum(abs(_notional(p)) for p in list(self._positions.values())) / capital
+
+    def conversion_rate(self, instrument: Instrument) -> float:
+        del instrument  # TODO(account-mgmt): convert settle/quote -> base_currency via marks
+        return 1.0
+
+    # ================================================================== #
+    # Mutators — framework-internal; only AccountManager calls these,    #
+    # on the strategy thread. No legality checks here: the transition    #
+    # table is enforced upstream in AccountManager. These setters' only  #
+    # job is to mutate fields and keep every index consistent.           #
+    # ================================================================== #
+
+    def add_order(self, order: Order) -> None:
+        cid = order.client_order_id
+        if cid in self._active_orders:
+            # Silent overwrite orphaned the caller's Order reference and left stale
+            # index entries behind; duplicates indicate a framework bug — fail loudly.
+            raise ValueError(f"[{self.exchange}] duplicate active order cid {cid}; refusing to overwrite")
+        self._active_orders[cid] = order
+        if order.venue_order_id is not None:
+            self._venue_id_index[order.venue_order_id] = cid
+        if order.status.is_inflight:
+            self._inflight_index.add(cid)
+        elif order.status.is_terminal:
+            if order.last_update_time is None:
+                raise ValueError("terminal orders must have last_update_time set for eviction")
+            self._pending_evict_index[cid] = order.last_update_time
+
+    def transition_order(
+        self,
+        cid: str,
+        new_status: OrderStatus,
+        now: np.datetime64,
+        *,
+        update_time: np.datetime64 | None = None,
+        venue_state: bool = True,
+    ) -> Order:
+        """Low-level status setter and the sole maintainer of every status-derived
+        structure: the in-flight and pending-evict indices, the retry counter, the
+        pre-pending status capture and the pending-since clock.
+
+        ``last_update_time`` is the order's VENUE clock: ``update_time`` when the event carries
+        one, else ``now`` for a change the venue drove. A locally driven change — arming
+        PENDING_* on our own request, or reverting it because the venue refused — passes
+        ``venue_state=False`` and leaves that clock alone; its own age lives in ``pending_since``.
+        """
+        order = self._active_orders[cid]
+        old_status = order.status
+        self._transition_counts[new_status.value] += 1
+        order.status = new_status
+        if update_time is not None:
+            order.last_update_time = update_time
+        elif venue_state:
+            order.last_update_time = now
+
+        if new_status.is_inflight:
+            self._inflight_index.add(cid)
+        else:
+            self._inflight_index.discard(cid)
+
+        if new_status.is_terminal:
+            self._pending_evict_index[cid] = now
+        else:
+            self._pending_evict_index.pop(cid, None)
+
+        if new_status.is_pending:
+            # status: capture only on first entry, so PENDING_UPDATE -> PENDING_CANCEL keeps the original
+            if not old_status.is_pending:
+                self._pre_pending_status[cid] = old_status
+            # clock: restamp on every entry — the newest request is the one the confirm window waits on
+            self._pending_since[cid] = now
+        else:
+            self._pre_pending_status.pop(cid, None)
+            self._pending_since.pop(cid, None)
+
+        return order
+
+    def set_venue_id(self, cid: str, venue_order_id: str) -> None:
+        order = self._active_orders[cid]
+        if order.venue_order_id is not None:
+            # drop stale key before re-pointing
+            self._venue_id_index.pop(order.venue_order_id, None)
+        order.venue_order_id = venue_order_id
+        self._venue_id_index[venue_order_id] = cid
+
+    def apply_fill(self, cid: str, fill: Deal, now: np.datetime64, *, update_time: np.datetime64 | None = None) -> bool:
+        """Apply a fill, deduped by trade id. Returns True if newly applied, False if duplicate."""
+        order = self._active_orders[cid]
+        seen = self._seen_trade_ids.setdefault(cid, set())
+        if fill.trade_id in seen:
+            logger.debug(f"duplicate fill {fill.trade_id} on {cid}; skipping")
+            return False
+        seen.add(fill.trade_id)
+        order.record_fill(fill.amount, fill.price)  # filled_quantity + avg-price math lives on Order
+        order.last_update_time = update_time if update_time is not None else now
+        return True
+
+    def is_trade_seen(self, cid: str, trade_id: str) -> bool:
+        seen = self._seen_trade_ids.get(cid)
+        return seen is not None and trade_id in seen
+
+    def record_trade_id(self, cid: str, trade_id: str) -> None:
+        """Mark a trade id as seen WITHOUT booking it. The reducer's shared snapshot
+        guard (_apply_execution — every execution path: DealEvent and embedded fills)
+        calls this when a snapshot already counted the execution, so any later
+        re-delivery on any path dedups via apply_fill."""
+        self._seen_trade_ids.setdefault(cid, set()).add(trade_id)
+
+    def remove_order(self, cid: str) -> None:
+        # Drop an order from state entirely (e.g. a submit that raised before reaching the
+        # venue) — distinct from evict_to_history, which retains it in the ring buffer.
+        order = self._active_orders.pop(cid, None)
+        if order is None:
+            return
+        if order.venue_order_id is not None:
+            self._venue_id_index.pop(order.venue_order_id, None)
+        self._inflight_index.discard(cid)
+        self._pending_evict_index.pop(cid, None)
+        self._seen_trade_ids.pop(cid, None)
+        self._pre_pending_status.pop(cid, None)
+        self._pending_since.pop(cid, None)
+
+    def evict_to_history(self, cid: str) -> None:
+        """Evict a terminal order from active state into the history ring buffer,
+        dropping its index entries. Called by AM's eviction sweep after the
+        terminal grace period elapses.
+        """
+        order = self._active_orders.pop(cid, None)
+        if order is None:
+            return
+        if order.venue_order_id is not None:
+            self._venue_id_index.pop(order.venue_order_id, None)
+        self._inflight_index.discard(cid)
+        self._pending_evict_index.pop(cid, None)
+        self._seen_trade_ids.pop(cid, None)
+        self._pre_pending_status.pop(cid, None)
+        self._pending_since.pop(cid, None)
+        self._terminal_history.append(order)
+
+    def prune_terminal_orders(self, now: np.datetime64, retention: np.timedelta64) -> None:
+        due = [cid for cid, terminal_at in self._pending_evict_index.items() if (now - terminal_at) >= retention]
+        for cid in due:
+            self.evict_to_history(cid)
+
+    def mark_snapshot_applied(self, as_of: np.datetime64) -> None:
+        self._last_snapshot_as_of = as_of
+
+    def set_venue_figures(self, figures: VenueAccountFigures) -> None:
+        self._venue_figures = figures
+
+    def set_position(self, instrument: Instrument, position: Position) -> None:
+        # Identity-preserving: an existing Position is updated in place (callers across
+        # the framework hold references to it), never swapped for a new object.
+        existing = self._positions.get(instrument)
+        if existing is None:
+            self._positions[instrument] = position
+        else:
+            existing.reset_by_position(position)
+
+    def settle_position(self, instrument: Instrument) -> None:
+        # Reconcile a delisted/gone position to flat WITHOUT trading: the exchange has
+        # already cash-settled it, so we zero quantity/market value while preserving the
+        # accumulated accounting (r_pnl, commissions, funding). No-op if not held.
+        pos = self._positions.get(instrument)
+        if pos is not None:
+            if pos.quantity != 0.0:
+                logger.info(
+                    f"[{self.exchange}] reconcile: <r>flattened</r> position <y>{instrument}</y> "
+                    f"(was size={pos.quantity}); venue reports flat"
+                )
+            pos.flatten()
+
+    def update_balance(self, currency: str, balance: Balance) -> None:
+        # Identity-preserving, like set_position.
+        existing = self._balances.get(currency)
+        if existing is None:
+            self._balances[currency] = balance
+        else:
+            existing.reset_by_balance(balance)
+
+    def reconcile_position_from_snapshot(self, snapshot: Position) -> bool:
+        """Reconcile a venue snapshot position into state. The snapshot is authoritative
+        for size/avg-price and venue-reported margin/mark ONLY — locally accumulated
+        accounting (r_pnl, commissions, cumulative_funding) always survives, so this
+        never routes through reset_by_position. Returns True when the position is new
+        or its size/avg-price changed (the caller records it in the reconcile diff);
+        the margin/mark refresh is unconditional and never reported as a change.
+        """
+        existing = self._positions.get(snapshot.instrument)
+        if existing is None:
+            self._positions[snapshot.instrument] = snapshot
+            logger.info(
+                f"[{self.exchange}] reconcile: materialized position <y>{snapshot.instrument}</y> from snapshot "
+                f"-> size=<g>{snapshot.quantity}</g> avg={snapshot.position_avg_price}"
+            )
+            return True
+
+        # half-lot / half-tick like the Differ: n * lot_size is not always the double the
+        # venue's decimal parses to
+        inst = snapshot.instrument
+        changed = (
+            abs(existing.quantity - snapshot.quantity) > inst.lot_size * 0.5
+            or abs(existing.position_avg_price - snapshot.position_avg_price) > inst.tick_size * 0.5
+        )
+        if changed:
+            logger.info(
+                f"[{self.exchange}] reconcile: position <y>{snapshot.instrument}</y> from snapshot -> "
+                f"size {existing.quantity}->{snapshot.quantity} avg {existing.position_avg_price}->{snapshot.position_avg_price}"
+            )
+            existing.reconcile_size(snapshot.quantity, snapshot.position_avg_price, timestamp=snapshot.last_update_time)
+
+        # external margins first, so the mark refresh below skips recalculating them
+        if snapshot._maint_margin_external:
+            existing.set_external_maint_margin(snapshot.maint_margin)
+        if snapshot._initial_margin_external:
+            existing.set_external_initial_margin(snapshot.initial_margin)
+        if not np.isnan(snapshot.last_update_price):
+            existing.update_market_price(
+                snapshot.last_update_time, snapshot.last_update_price, snapshot.last_update_conversion_rate
+            )
+        elif changed and not np.isnan(existing.last_update_price):
+            # size changed but the snapshot carried no mark: re-derive pnl/value at the held mark
+            existing.update_market_price(
+                existing.last_update_time, existing.last_update_price, existing.last_update_conversion_rate
+            )
+        return changed
+
+    def apply_position_settings(self, snapshot: Position) -> None:
+        """Copy the venue-reported per-instrument settings off a snapshot position.
+
+        Only fields the snapshot carries are refreshed, so one that omits a field keeps the
+        last-known value. No-op for an instrument not held.
+        """
+        existing = self._positions.get(snapshot.instrument)
+        if existing is None:
+            return
+        if snapshot.leverage is not None:
+            existing.leverage = snapshot.leverage
+        if snapshot.margin_mode is not None:
+            existing.margin_mode = snapshot.margin_mode
+        if snapshot.max_notional is not None:
+            existing.max_notional = snapshot.max_notional
+        if snapshot.adl_level is not None:
+            existing.adl_level = snapshot.adl_level
+
+    def apply_balance_breakdown(self, snapshot: Balance) -> None:
+        """Copy the snapshot-only wallet split and debt breakdown onto the held balance. No-op
+        for a currency not held."""
+        existing = self._balances.get(snapshot.currency)
+        if existing is None:
+            return
+        existing.wallets = snapshot.wallets
+        existing.liabilities = snapshot.liabilities
+        existing.debt = snapshot.debt
+
+    def clear_balance_breakdown(self, currency: str) -> None:
+        """Drop the wallet split and debt breakdown of a held balance; total/free/locked untouched."""
+        existing = self._balances.get(currency)
+        if existing is None:
+            return
+        existing.wallets = None
+        existing.liabilities = None
+        existing.debt = 0.0
+
+    def mark_position_reconcile(self, instrument: Instrument, as_of: np.datetime64) -> None:
+        """Set the position reconcile watermark (venue time). Dumb setter — the skip-re-book
+        guard lives in the reducer."""
+        self._position_reconcile_as_of[instrument] = as_of
+
+    def apply_balance_push(
+        self, currency: str, total: float, as_of: np.datetime64, *, free: float = np.nan, locked: float = np.nan
+    ) -> bool:
+        """Apply an absolute venue balance push (WS user-data stream).
+
+        Per-currency ratchet: a push strictly older than the last applied one is
+        dropped (returns False; same-time pushes apply — absolute overwrite is
+        idempotent and a later same-ms push is the fresher figure). Futures pushes
+        carry total only (free/locked NaN): total is overwritten and free moves by
+        the same delta, preserving locked. When the venue reports a real split
+        (free AND locked non-NaN), all three fields are overwritten. ``as_of`` is
+        venue event time (Deal.time clock domain).
+        """
+        last = self._balance_push_as_of.get(currency)
+        if last is not None and as_of < last:
+            return False
+        self._balance_push_as_of[currency] = as_of
+        bal = self._balances.get(currency)
+        if bal is None:
+            bal = Balance(exchange=self.exchange, currency=currency)
+            self._balances[currency] = bal
+        if not np.isnan(free) and not np.isnan(locked):
+            bal.free = free
+            bal.locked = locked
+            bal.total = total
+        else:
+            delta = total - bal.total
+            bal.total = total
+            bal.free += delta
+        bal.last_update_time = as_of  # venue event time E (Deal.time clock domain)
+        return True
+
+    def apply_balance_snapshot(self, balance: Balance, as_of: np.datetime64 | None = None) -> bool:
+        existing = self._balances.get(balance.currency)
+        changed = existing is None or (
+            existing.total != balance.total or existing.free != balance.free or existing.locked != balance.locked
+        )
+        if changed:
+            old = "—" if existing is None else f"total={existing.total} free={existing.free} locked={existing.locked}"
+            # - free/locked reshuffle with total unchanged is margin mark-to-market noise
+            #   (every poll on a leveraged book); only a real total move is INFO-worthy
+            material = existing is None or abs(balance.total - existing.total) > _BALANCE_LOG_ABS_TOL
+            log = logger.info if material else logger.debug
+            log(
+                f"[{self.exchange}] reconcile: balance <y>{balance.currency}</y> from snapshot -> "
+                f"total=<g>{balance.total}</g> free={balance.free} locked={balance.locked} (was {old})"
+            )
+        # Timestamp rule: a WS push (venue E) is authoritative — never let the snapshot's local
+        # `as_of` clobber it. Use `as_of` only as a fallback for a currency with no push, and only
+        # when the values actually changed (so an idle balance doesn't ratchet every poll).
+        prior_ts = existing.last_update_time if existing is not None else None
+        has_push = self._balance_push_as_of.get(balance.currency) is not None
+        balance.last_update_time = as_of if (changed and not has_push) else prior_ts
+        self.update_balance(balance.currency, balance)
+        return changed
+
+    def ensure_position(self, instrument: Instrument) -> Position:
+        pos = self._positions.get(instrument)
+        if pos is None:
+            pos = Position(instrument=instrument)
+            self._positions[instrument] = pos
+        return pos
+
+    def adjust_balance(self, currency: str, delta: float) -> None:
+        # free moves with total (free == total - locked stays invariant for any locked),
+        # mutating the held Balance in place so external references stay live.
+        bal = self._balances.get(currency)
+        if bal is None:
+            bal = Balance(exchange=self.exchange, currency=currency)
+            self._balances[currency] = bal
+        bal.total += delta
+        bal.free += delta
+
+    def is_funding_applied(self, bucket: tuple) -> bool:
+        return bucket in self._applied_funding_buckets
+
+    def mark_funding_applied(self, bucket: tuple) -> None:
+        self._applied_funding_buckets[bucket] = None
+        if len(self._applied_funding_buckets) > _FUNDING_BUCKET_CAP:
+            self._applied_funding_buckets.popitem(last=False)  # evict the oldest bucket

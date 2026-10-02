@@ -660,6 +660,12 @@ class HeldCall:
     holder_type: str = "agent"
     #: The live workflow holding (strong ref: it lives as long as this call).
     workflow: Any = None
+    #: The Holder agent's chosen CLASS of its model — an ai.offering of
+    #: ``model`` (one endpoint: "Matrx Fast", "Matrx Lightning"…). ``None`` = the
+    #: model's preferred class. It belongs to ``model`` ONLY: a call that runs
+    #: another model (an explicit request model) never carries it — use
+    #: :meth:`pin_for` / :meth:`pick_offering`, never read it raw.
+    offering_id: str | None = None
 
     # ── THE ONE PRECEDENCE RULE for every held call (2026-09-25) ───────────
     # The Holder's settings apply. A caller's value wins ONLY when it was
@@ -668,6 +674,23 @@ class HeldCall:
 
     def pick_model(self, explicit: str | None = None) -> str:
         return explicit or self.model
+
+    def pick_offering(self, explicit_model: str | None = None) -> str | None:
+        """The class pin for a call whose model is ``pick_model(explicit_model)``.
+
+        The Holder's pin rides only when the call runs the Holder's OWN model;
+        an explicit request model that differs runs its preferred class."""
+        if not self.offering_id:
+            return None
+        if explicit_model and str(explicit_model) != str(self.model):
+            return None
+        return self.offering_id
+
+    def pin_for(self, explicit_model: str | None = None) -> dict[str, Any]:
+        """``{"offering_id": …}`` for a funnel call's kwargs, or ``{}`` — so a
+        call that runs no pin passes exactly the kwargs it always passed."""
+        offering = self.pick_offering(explicit_model)
+        return {"offering_id": offering} if offering else {}
 
     def pick_temperature(self, explicit: float | None = None) -> float | None:
         return explicit if explicit is not None else self.temperature
@@ -1058,6 +1081,7 @@ async def hold_code_call(
         spilled_text=bound.spilled_text or None,
         complete=resolution.complete,
         holder_values=holder_values,
+        offering_id=str(getattr(config, "offering_id", None) or "") or None,
     )
 
 
@@ -1182,6 +1206,9 @@ def held_request_config(
         ],
         "stream": stream,
     }
+    if held.offering_id:
+        # The Holder's chosen class of ITS model (this config runs held.model).
+        cfg["offering_id"] = held.offering_id
     ceiling = max_output_tokens if max_output_tokens is not None else held.max_output_tokens
     if ceiling is not None:
         cfg["max_output_tokens"] = ceiling
@@ -1291,6 +1318,7 @@ async def run_held_pydantic(
     funnel = importlib.import_module("matrx_ai.graph_nodes._strict_json")
     common: dict[str, Any] = {
         "model": held.pick_model(model),
+        **held.pin_for(model),
         "system": held.system if system is None else system,
         "output_cls": output_cls,
         "max_tokens": held.pick_max_tokens(max_tokens, unset=unset_max_tokens),
@@ -1343,6 +1371,7 @@ async def run_held_text(
     try:
         result = await call(
             model=held.pick_model(model),
+            **held.pin_for(model),
             system=held.system if system is None else system,
             user=held.user_text(user),
             max_tokens=held.pick_max_tokens(max_tokens, unset=unset_max_tokens),

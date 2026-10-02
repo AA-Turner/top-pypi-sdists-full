@@ -1,0 +1,1563 @@
+"""momwire#524 phase 2 — the crossing serve (G-524).
+
+A wholly-below wire whose end stands in the ground plane, junction-joined
+there to an above wire, is SERVED: the cross pair is filled with the
+complete designed mixed-potential spelling on graded axes
+(`_crossing_fill`), the self families get their missing by-parts
+bnd + corner content, and continuity of current through the node plus the
+AGARD slope condition emerge from the fill with no constraint row and no
+merged dof (split ≡ merged ≡ V-constrained, measured to the digit).
+
+The serve gate is momwire's OWN evidence, adjudicated 2026-08-26:
+
+* mesh stability — Δ(crossing − mono) moves 0.02 Ω between the g1/g2
+  interface-graded meshes (138.7671−102.9889j → 138.7691−102.9893j).
+  Both prints are at the then-default n_qp_pair=4 and each carries
+  ~0.43 Ω of quadrature error (momwire#760); the claim survives because
+  it is about the DIFFERENCE between two meshes at one quadrature, and
+  the error is common to both. `CROSSING_G1` itself is re-banked at
+  converged quadrature below;
+* the ε̃ = 1 collapse — at ground_eps = 1 the interface vanishes and the
+  crossing deck IS a free-space 12 m wire, reproduced to 0.0124 Ω
+  (0.002 %) through a corner telescoping of magnitude ~204,000;
+* the high-σ collapse — the crossing answer falls onto the shipped
+  contact-mono column exactly as σ → ∞ (|Δ| 86 → 2.8 across
+  σ = 0.005 → 5 S/m), which is the one limit where the contact fiction
+  is physical.
+
+The licensed engine's crossing print (74.761 − 57.730j Ω on the g-class
+deck) is a DIFFERENT EXPERIMENT, not a miss: its own printed junction
+currents violate its AGARD condition divergently (I(0⁻) antiphase, ~√n
+growth, ~2 A KCL deficit into the interface point), so its junction is
+two contact ends plus a point-electrode sink. It is documented here and
+NEVER gated against — the house rule about cross-formulation agreement.
+
+THE FAN WIDENING (session 8) serves 1 above × N below. The composition
+past K = 2 carries a node-mesh convergence class (see `test_g524_7`),
+RESOLVED by the #674 study (scratch/674-study): the slow term is the
+ABOVE tent's interface-adjacent h (first order — rise-only grading
+doesn't move it), matched per-arm node grading restores ~2.6-order
+convergence, and the ε̃ = 1 residual extrapolates to zero (0.0004 Ω,
+two independent rung pairs). Lossy transmitted kernels amplify the
+class ~30× — the base-mesh soil-A prints (fan 143.9327−26.2135j; hub
+spelling 140.9839−43.6025j, a DIFFERENT structure; probe38) stay
+RECORDS, and so does the study's own graded print: every #674 number
+was taken at a FIXED n_qp_pair=4, which momwire#760 measures 6.8 Ω
+from the quadrature limit. `FAN_SOIL_A_N2` is re-banked at converged
+quadrature — twice: first at q=64, then at momwire#760's closing
+q=256 limit, 0.0129 Ω further — and is the only one of them that is a
+gate. The ε̃ = 1
+collapses run in the merge-to-main `crossgate` lane (multi-minute
+certification solves, the memgate reasoning) while the PR slow lane
+keeps `test_g524_4` as the per-PR crossing regression pin. The HUB spelling's collapse is a banked
+record (0.2194 Ω, probe38) with no gate of its own: its only unique
+content — the hub-tent by-parts terms — was measured to contribute
+exactly zero to the digit (probe39), and everything else it would
+exercise, `test_g524_7` already does.
+"""
+
+from __future__ import annotations
+
+import math
+import re
+import warnings
+
+import numpy as np
+import pytest
+
+from momwire import (
+    _below_interface,
+    _bspline_kernels,
+    _crossing_fill,
+    _medium_spec,
+    _near_interface,
+)
+from momwire import SinusoidalGalerkinSolver
+from momwire import razor as _razor
+from momwire.bspline import DEFAULT_N_QP_PAIR, BSplineSolver
+from momwire.razor import RazorSolver
+
+from test_buried_serve_553 import SOIL_A, WL7, contact_deck
+
+A_WIRE = 0.001
+
+# Quadrature order for the ε̃ = 1 COLLAPSE adjudicators, pinned on both sides
+# of every one of them (momwire#760).
+#
+# Those tests compare a buried fill at ε̃ = 1 against a free-space truth, and
+# two of them build the truth by STRIPPING the ground keys off the same build
+# dict -- so before #760 both sides simply inherited one global default and the
+# match was automatic. It is not automatic any more: the buried fill resolves
+# its own, higher default, and stripping `ground_z` flips the truth side back
+# to the free-space one. Left implicit, three of the four adjudicators fail by
+# almost exactly the quadrature gap rather than by anything about the
+# composition (g524_5 missed by 0.0938 ohm, against the 0.0929 ohm this deck
+# moves between q=8 and converged).
+#
+# The collapse is a statement about COMPOSITION -- that the buried machinery
+# telescopes to the free-space answer when the interface vanishes -- and it is
+# only meaningful when both sides integrate the same way. Pinned at the
+# free-space default so the banked envelopes keep the meaning they were
+# measured with; the VALUE does not matter to the identity, the MATCH does.
+_COLLAPSE_N_QP = DEFAULT_N_QP_PAIR
+
+
+# The interface-graded meshes the phase-2 probes banked (probe18 GRADES):
+# vertices walk toward z = 0 so the node segments shrink without the
+# uniform-mesh blow-up the graded ladder measured.
+_GRADES = {
+    1: dict(
+        below=([-2.0, -0.5, -0.1], [3, 2, 2]), above=([0.1, 0.5, 10.0], [2, 2, 19])
+    ),
+    2: dict(
+        below=([-2.0, -0.5, -0.1, -0.025], [3, 2, 3, 2]),
+        above=([0.025, 0.1, 0.5, 10.0], [2, 3, 2, 19]),
+    ),
+}
+
+# The soil-A exact-EM crossing answer, converged in the QUADRATURE axis
+# as well as the mesh axis (momwire#760).
+#
+# probe27 (session 5) banked 138.7671 - 102.9889j here, mesh-stable
+# g1 -> g2, and #692's near-density default reproduced it to 1e-4. Both
+# were taken at the then-default cross-edge quadrature of 4 — which is
+# also why they agree so exactly: the bank IS the q=4 print, and the
+# quadrature axis was never in the 0.05 envelope. Walking it at fixed
+# mesh: q=4 0.4333 / q=8 0.0929 / q=16 0.0087 / q=32 0.0003 ohm from the
+# limit, settled to 4 decimals by q=64 (q=64 -> 96 moves 0.0000).
+#
+# This deck is the mild member of the class #760 documents. It costs
+# ~0.4 ohm rather than the fan anchor's 6.8, and it recovers its rate by
+# q=32 instead of crawling at ~C/q — the crossing node here has no
+# coincident rises, which is the geometry that destroys the rate.
+# Its envelope is the NODE axis (g1<->g2) plus quadrature. The FAR mesh is
+# a third axis this print does not carry: scaling the far mesh moves degree
+# 2 by 0.36 ohm at x3 and 0.61 at x9 (G1-B, test_bspline_pair_g1b), so the
+# 0.05 gate below is a regression gate at the g1 far mesh, not a
+# far-mesh-converged answer.
+# momwire#956 re-pinned this from 138.9619 − 102.6019j: the crossing fill's ẑẑ
+# kernel had −∂zW (the test-side W term by parts, counted again as s_w2) where
+# the exact spelling is k²V + ∂z′W with the TW end term. The +36.9 Ω move is
+# the corrected spelling's own answer on this deck, not an engine comparison;
+# the 524 adjudication (probes 29–34) is to be re-run on it.
+CROSSING_G1 = 169.7754 - 82.2803j
+
+# As FAN_SOIL_A_N2_QP, for the same reason and past the same n_qp <= 8
+# accelerator cap (momwire#762). Costs ~1.4 s on this deck; the shipped
+# default of 8 lands 0.0929 ohm out, outside the 0.05 gate below.
+CROSSING_G1_QP = 64
+# The g2 mesh's q=4 print, kept as the other half of the mesh-movement
+# record above. Not a gate, and deliberately NOT re-banked: its only job
+# is the Δ against CROSSING_G1's q=4 print, which is why the pair has to
+# stay at one quadrature.
+CROSSING_G2 = 138.7691 - 102.9893j
+
+
+def crossing_deck(level=1, **override):
+    g = _GRADES[level]
+    below_pts = np.array([(0.0, 0.0, z) for z in g["below"][0] + [0.0]])
+    above_pts = np.array([(0.0, 0.0, z) for z in [0.0] + g["above"][0]])
+    build = dict(
+        wires=[below_pts, above_pts],
+        n_per_edge_per_wire=[g["below"][1], g["above"][1]],
+        junctions=[[(0, "end"), (1, "start")]],
+        feeds=[(1, 4.3333333333, 1 + 0j)],
+        wavelength=WL7,
+        wire_radius=A_WIRE,
+        ground_z=0.0,
+        ground_eps=SOIL_A,
+        ground_model="sommerfeld",
+    )
+    build.update(override)
+    return build
+
+
+# ----------------------------------------------------------------------
+# G-524-1 — the served spelling labels; everything else refuses by name
+# ----------------------------------------------------------------------
+
+
+def test_g524_1_junction_spelling_is_served():
+    s = BSplineSolver(**crossing_deck())
+    assert s._wire_media() == (_medium_spec.BELOW, _medium_spec.ABOVE)
+    assert s._crossing_junctions() == (0,)
+
+
+def test_g524_1_midspan_crossing_still_refuses_naming_the_spelling():
+    wires = [np.array([(0.0, 0.0, -2.0), (0.0, 0.0, 3.0)])]
+    s = BSplineSolver(
+        wires=wires,
+        n_per_edge_per_wire=[[10]],
+        feeds=[(0, 2.5, 1 + 0j)],
+        wavelength=WL7,
+        wire_radius=A_WIRE,
+        ground_z=0.0,
+        ground_eps=SOIL_A,
+        ground_model="sommerfeld",
+    )
+    with pytest.raises(ValueError) as exc:
+        s._wire_media()
+    msg = str(exc.value)
+    assert "crosses the ground interface mid-span" in msg
+    assert "split the wire AT the interface" in msg
+    assert "declare the junction" in msg
+
+
+def test_g524_1_touching_end_without_a_junction_still_refuses():
+    """The exemption is the JUNCTION's, not the geometry's: a lone below
+    wire with its end in the plane and no partner above it is still the
+    crossing refusal (a bare interface touchdown has no declared
+    continuation). N.B. omitting `junctions` on the two-wire deck does
+    NOT reach this case — coincident wire ends are auto-detected as a
+    junction, and that deck IS the served spelling."""
+    build = crossing_deck()
+    build["wires"] = [build["wires"][0]]
+    build["n_per_edge_per_wire"] = [build["n_per_edge_per_wire"][0]]
+    build.pop("junctions")
+    build["feeds"] = [(0, 1.0, 1 + 0j)]
+    s = BSplineSolver(**build)
+    with pytest.raises(ValueError, match="crosses the ground interface"):
+        s._wire_media()
+
+
+def test_g524_1_detached_buried_screen_is_untouched():
+    """The momwire#553 serve class must not route through the crossing
+    fill: a detached buried wire has no crossing junction."""
+    build = crossing_deck()
+    build["wires"] = [
+        np.array([(0.0, 0.0, -0.5), (5.0, 0.0, -0.5)]),
+        np.array([(0.0, 0.0, 1.0), (0.0, 0.0, 11.0)]),
+    ]
+    build["n_per_edge_per_wire"] = [[5], [10]]
+    build.pop("junctions")
+    s = BSplineSolver(**build)
+    assert s._wire_media() == (_medium_spec.BELOW, _medium_spec.ABOVE)
+    assert s._crossing_junctions() == ()
+
+
+# ----------------------------------------------------------------------
+# G-524-2 — scope refusals, each by name
+# ----------------------------------------------------------------------
+
+
+def _radial_dirs(n_radials):
+    """N evenly spaced radial directions (momwire#924).
+
+    Both fan and hub decks used to slice a fixed 4-tuple,
+    `((1,0),(0,1),(-1,0),(0,-1))[:n_radials]`, while their junction lists were
+    still written for `range(n_radials)`. Above four that built FOUR radials
+    and a junction naming more members than there were radials, so the extra
+    indices silently absorbed the rise and the monopole — and the error that
+    came back was a coincidence complaint naming a distance that was really
+    `depth`, which points away from the cause.
+
+    At n_radials = 4 these ARE the old directions to floating point: cos/sin of
+    0, pi/2, pi, 3pi/2. Gated by `test_g924_the_four_radial_decks_did_not_move`
+    so that is a measurement rather than an expectation.
+    """
+    if n_radials < 1:
+        raise ValueError(f"a radial screen needs at least one radial, got {n_radials}")
+    return [
+        (
+            math.cos(2.0 * math.pi * i / n_radials),
+            math.sin(2.0 * math.pi * i / n_radials),
+        )
+        for i in range(n_radials)
+    ]
+
+
+def fan_rise_deck(n_radials=4, depth=0.15, **override):
+    """The connected radial screen, rise-spelled (momwire#524 fan
+    widening): `contact_deck`'s monopole junction-joined at the node to
+    N radials that each run at depth and RISE to the surface. The N rise
+    segments are geometrically coincident on (0,0,−depth) → (0,0,0) —
+    legal thin-wire geometry (mutual ≡ self at ρ = 0 under the
+    ρ_eff = √(ρ² + a²) regularization), and the spelling the free-space
+    junction machinery solves identically for the ε̃ = 1 adjudicator.
+    Feed = arclength 4.3333 on the 10 → 0 monopole. NOT the engine's
+    `EX 4,1,7` — that card drives the far NODE at arc 4.6667 (momwire#706);
+    these gates are momwire-internal (both sides of every comparison feed
+    at 4.3333), so the banked prints stand. The old trap also stands: an
+    improvised feed at 10 − 4.333 is silently ~50 Ω wrong."""
+    dirs = _radial_dirs(n_radials)
+    wires = [
+        np.array([(5.0 * dx, 5.0 * dy, -depth), (0.0, 0.0, -depth), (0.0, 0.0, 0.0)])
+        for dx, dy in dirs
+    ]
+    npe = [[10, 2] for _ in dirs]
+    mono_i = len(wires)
+    wires.append(np.array([(0.0, 0.0, 10.0), (0.0, 0.0, 0.0)]))
+    npe.append([15])
+    build = dict(
+        wires=wires,
+        n_per_edge_per_wire=npe,
+        junctions=[[(i, "end") for i in range(n_radials)] + [(mono_i, "end")]],
+        feeds=[(mono_i, 4.3333333333, 1 + 0j)],
+        wavelength=WL7,
+        wire_radius=A_WIRE,
+        ground_z=0.0,
+        ground_eps=SOIL_A,
+        ground_model="sommerfeld",
+    )
+    build.update(override)
+    return build
+
+
+def above_side_deck(level=1, **override):
+    """`crossing_deck` with the above wire CUT at a vertex the grading already
+    put there, into two wires meeting at an ordinary ABOVE-side junction
+    (momwire#1133).
+
+    The SAME antenna at the SAME mesh: the cut lands on an existing vertex, so
+    every segment boundary is where it was and the per-edge counts are simply
+    partitioned. The only difference is that z = 0.5 is a JUNCTION rather than
+    an interior knot — which is exactly what the OTHER-junction refusal used
+    to forbid, and what makes the pair an equivalence rather than a
+    convergence study."""
+    g = _GRADES[level]
+    below_pts = np.array([(0.0, 0.0, z) for z in g["below"][0] + [0.0]])
+    zs, ns = g["above"][0], g["above"][1]
+    cut = len(zs) - 1
+    z_cut = zs[cut - 1]
+    build = dict(
+        wires=[
+            below_pts,
+            np.array([(0.0, 0.0, z) for z in [0.0] + zs[:cut]]),
+            np.array([(0.0, 0.0, z) for z in zs[cut - 1 :]]),
+        ],
+        n_per_edge_per_wire=[g["below"][1], ns[:cut], ns[cut:]],
+        junctions=[[(0, "end"), (1, "start")], [(1, "end"), (2, "start")]],
+        feeds=[(2, 4.3333333333 - z_cut, 1 + 0j)],
+        wavelength=WL7,
+        wire_radius=A_WIRE,
+        ground_z=0.0,
+        ground_eps=SOIL_A,
+        ground_model="sommerfeld",
+    )
+    build.update(override)
+    return build
+
+
+def test_g524_2_node_fan_is_served_n4_labeling():
+    """The fan widening's labeling test: one above member, four below
+    members — the crossing junction labels, every member is exempted in
+    `wire_media`, and the scope check passes."""
+    s = BSplineSolver(**fan_rise_deck())
+    media = s._wire_media()
+    assert media == (_medium_spec.BELOW,) * 4 + (_medium_spec.ABOVE,)
+    assert s._crossing_junctions() == (0,)
+    assert s._grounded_junction_ends() == frozenset(
+        [(0, "end"), (1, "end"), (2, "end"), (3, "end"), (4, "end")]
+    )
+
+
+def test_g524_2_two_above_members_refused_by_name():
+    """The widening is 1 above × N below ONLY: a second above member
+    puts an above-tent × above-tent interface corner on the deck, a pair
+    class no adjudicator has measured."""
+    build = crossing_deck()
+    build["wires"] = build["wires"] + [np.array([(0.0, 0.0, 0.0), (3.0, 0.0, 5.0)])]
+    build["n_per_edge_per_wire"] = build["n_per_edge_per_wire"] + [[5]]
+    build["junctions"] = [[(0, "end"), (1, "start"), (2, "start")]]
+    s = BSplineSolver(**build)
+    with pytest.raises(NotImplementedError, match="more than one above member"):
+        s._crossing_junctions()
+
+
+def test_g1133_above_side_other_junction_is_served():
+    """An ordinary above-side junction next to a crossing passes scope
+    (momwire#1133). It used to refuse by name; WA7ARK's bonded ground rod on
+    an EFHW is the report, and that deck has three of these — they are just
+    the antenna's own wire joins, so practically every real model with a rod
+    was outside the envelope."""
+    s = BSplineSolver(**above_side_deck())
+    assert s._wire_media() == (
+        _medium_spec.BELOW,
+        _medium_spec.ABOVE,
+        _medium_spec.ABOVE,
+    )
+    assert s._crossing_junctions() == (0,)
+
+
+def test_g1133_an_in_plane_other_junction_still_refuses_by_name():
+    """The half that is NOT lifted. Unreachable through a solver — a junction
+    standing in the plane strands its contact ends on the earlier
+    contact+buried audit, or trips the mid-span crossing rule first — so it is
+    asked of the scope function directly, which is where the boundary lives.
+    Without this the narrowed predicate has no gate at all on the side it
+    still refuses."""
+    media = (_medium_spec.BELOW, _medium_spec.ABOVE, _medium_spec.ABOVE)
+    groups = [[(0, "end"), (1, "start")], [(1, "end"), (2, "start")]]
+    polylines = [
+        np.array([(0.0, 0.0, -2.0), (0.0, 0.0, 0.0)]),
+        np.array([(0.0, 0.0, 0.0), (0.0, 0.0, 5.0)]),
+        np.array([(0.0, 0.0, 5.0), (0.0, 0.0, 10.0)]),
+    ]
+    radii = [A_WIRE] * 3
+    # Off the plane, wholly above: served, the case momwire#1133 measured.
+    assert _below_interface.crossing_junctions(
+        media, groups, frozenset([0]), polylines, 0.0, radii
+    ) == (0,)
+    # The SAME deck with junction 1 declared in-plane: still refused.
+    with pytest.raises(NotImplementedError, match="OTHER junction"):
+        _below_interface.crossing_junctions(
+            media, groups, frozenset([0, 1]), polylines, 0.0, radii
+        )
+
+
+def test_g1133_the_other_trunks_share_the_above_side_scope(monkeypatch):
+    """The scope function is shared, so the lift must reach the trunks that
+    read it — `sinusoidal-galerkin` is one of the three bases the reporting
+    deck's census left as candidates, and all three sat behind this refusal."""
+    sg = SinusoidalGalerkinSolver
+    assert tuple(sg(**above_side_deck())._crossing_junction_indices()) == (0,)
+    monkeypatch.setattr(_razor, "_SERVE_CROSSING", True)
+    assert RazorSolver(**above_side_deck(), n_qp_path=8)._crossing_junctions() == (0,)
+
+
+def two_node_deck(separation=12.0, **override):
+    """Two copies of `crossing_deck`'s rod `separation` m apart, each over its
+    own crossing junction (antennaknobs#1464). Before momwire#1054 named it,
+    the second node passed the serve plan and died on the bare assert in
+    `_crossing_fill._ends_and_corner`; antennaknobs plan U9 serves it."""
+    one = crossing_deck()
+    shift = np.array([separation, 0.0, 0.0])
+    build = dict(one)
+    build["wires"] = one["wires"] + [w + shift for w in one["wires"]]
+    build["n_per_edge_per_wire"] = one["n_per_edge_per_wire"] + [
+        list(e) for e in one["n_per_edge_per_wire"]
+    ]
+    build["junctions"] = [[(0, "end"), (1, "start")], [(2, "end"), (3, "start")]]
+    build.update(override)
+    return build
+
+
+_CLOSE_NODES = "closer crossing nodes have no measured completion"
+_TWO_RADIUS_NODES = "a two-radius deck with several nodes has no measured completion"
+
+
+@pytest.mark.parametrize(
+    "separation", [_below_interface.MIN_CROSSING_NODE_SEPARATION_M, 12.0]
+)
+def test_g524_2_a_second_crossing_node_is_labelled(separation):
+    """antennaknobs plan U9: two crossing nodes from the gated separation up."""
+    s = BSplineSolver(**two_node_deck(separation))
+    assert s._crossing_junctions() == (0, 1)
+
+
+def test_g524_2_close_crossing_nodes_are_refused_by_name():
+    s = BSplineSolver(**two_node_deck(0.5))
+    with pytest.raises(NotImplementedError, match=_CLOSE_NODES) as exc:
+        s._crossing_junctions()
+    assert "at (0, 0) and (0.5, 0), stand 0.5 m apart" in str(exc.value)
+
+
+def test_g524_2_close_crossing_nodes_refuse_before_the_fill():
+    """The #1464 regression, narrowed: a deck the scope still refuses stops
+    at the scope check with the sentence, never inside the fill."""
+    with pytest.raises(NotImplementedError, match=_CLOSE_NODES):
+        BSplineSolver(**two_node_deck(0.5)).compute_impedance()
+
+
+def test_g524_2_a_two_radius_deck_with_two_nodes_is_refused_by_name():
+    radii = [2.0 * A_WIRE, A_WIRE, 2.0 * A_WIRE, A_WIRE]
+    s = BSplineSolver(**two_node_deck(wire_radius=radii))
+    with pytest.raises(NotImplementedError, match=_TWO_RADIUS_NODES):
+        s._crossing_junctions()
+
+
+def test_g524_2_the_other_trunks_share_the_two_node_scope(monkeypatch):
+    sg = SinusoidalGalerkinSolver
+    assert tuple(sg(**two_node_deck())._crossing_junction_indices()) == (0, 1)
+    with pytest.raises(NotImplementedError, match=_CLOSE_NODES):
+        sg(**two_node_deck(0.5))._crossing_junction_indices()
+    monkeypatch.setattr(_razor, "_SERVE_CROSSING", True)
+    assert RazorSolver(**two_node_deck(), n_qp_path=8)._crossing_junctions() == (0, 1)
+    with pytest.raises(NotImplementedError, match=_CLOSE_NODES):
+        RazorSolver(**two_node_deck(0.5), n_qp_path=8)._crossing_junctions()
+
+
+def test_g524_2_a_two_node_deck_meets_the_grazing_floor_by_name():
+    """Two crossing nodes put their rises' below/below pairs at
+    theta = atan(2 h_node / d): 0.0242 deg at 8 m, which the 0.016667 deg floor
+    serves, and 0.0161 deg at 12 m, which it refuses by name. The plan's own
+    verdict, before any grid is filled (antennaknobs plan U9)."""
+    assert BSplineSolver(**two_node_deck(8.0)).buried_serve_refusal() is None
+    why = BSplineSolver(**two_node_deck(12.0)).buried_serve_refusal()
+    assert why is not None and "grazing floor" in why, why
+
+
+@pytest.mark.slow
+@pytest.mark.crossgate
+@pytest.mark.parametrize("spelling", ["A", "B"])
+def test_g524_8_two_node_eps1_collapse(spelling, record_property):
+    """antennaknobs plan U9 (b), banked on the production path: two
+    `crossing_deck(1)` pairs 8 m apart at eps~ = 1 against the free-space
+    two-wire truth, on the full 2x2 Z. Spelling B reverses both wires of the
+    second pair, which flips the sigma sigma' of every cross-node end pair.
+    The (b) probe (momwire scratch/u9-multi-crossing) read 2.0e-4 ohm at 1 m and
+    12 m; dropping the cross-node corner missed Z12 by 4.70 ohm and an
+    orientation-blind one missed spelling B by 9.39 ohm. At 8 m the rises'
+    shallowest pair is 0.0242 deg, which the grazing floor serves."""
+    g = _GRADES[1]
+    below = np.array([(0.0, 0.0, z) for z in g["below"][0] + [0.0]])
+    above = np.array([(0.0, 0.0, z) for z in [0.0] + g["above"][0]])
+    nb, na = list(g["below"][1]), list(g["above"][1])
+    shift = np.array([8.0, 0.0, 0.0])
+    feed, top = 4.3333333333, 10.0
+    line = np.vstack([below, above[1:]])
+    if spelling == "A":
+        rod2, mono2, nb2, na2 = below + shift, above + shift, nb, na
+        j2, f2 = [(2, "end"), (3, "start")], feed
+        truth2, n2, tf2 = line + shift, nb + na, 2.0 + feed
+    else:
+        rod2, mono2 = below[::-1] + shift, above[::-1] + shift
+        nb2, na2 = nb[::-1], na[::-1]
+        j2, f2 = [(2, "start"), (3, "end")], top - feed
+        truth2, n2, tf2 = line[::-1] + shift, (nb + na)[::-1], top - feed
+    common = dict(wavelength=WL7, wire_radius=A_WIRE, n_qp_pair=_COLLAPSE_N_QP)
+    y = (
+        BSplineSolver(
+            wires=[below, above, rod2, mono2],
+            n_per_edge_per_wire=[nb, na, nb2, na2],
+            junctions=[[(0, "end"), (1, "start")], j2],
+            feeds=[(1, feed, 1 + 0j), (3, f2, 1 + 0j)],
+            ground_z=0.0,
+            ground_eps=(1.0, 0.0),
+            ground_model="sommerfeld",
+            **common,
+        )
+        .compute_port_solution()
+        .y
+    )
+    y_truth = (
+        BSplineSolver(
+            wires=[line, truth2],
+            n_per_edge_per_wire=[nb + na, n2],
+            feeds=[(0, 2.0 + feed, 1 + 0j), (1, tf2, 1 + 0j)],
+            **common,
+        )
+        .compute_port_solution()
+        .y
+    )
+    z = np.linalg.inv(np.asarray(y, dtype=complex))
+    z_truth = np.linalg.inv(np.asarray(y_truth, dtype=complex))
+    worst = float(np.abs(z - z_truth).max())
+    record_property("worst_abs_dz", f"{worst:.3e}")
+    assert worst <= 0.05, (
+        f"spelling {spelling}: the two-node eps~ = 1 Z matrix is {worst:.4f} ohm "
+        f"from the free-space two-wire truth\n{z}\n{z_truth}"
+    )
+
+
+# The #674 study's per-arm node grading (probe18's geometric walk, at
+# the K = 5 node): vertices approach (0,0,0) on the rises from below and
+# the monopole from above, MATCHED across the interface, far mesh at
+# base.
+#
+# THE STUDY'S VERDICT WAS RE-DERIVED IN #760 AND DID NOT SURVIVE. It read:
+# "the K>2 composition error is the ABOVE tent's interface-adjacent h at
+# first order (rise-only grading leaves 0.2214 of the base 0.2269 Ω ε̃ = 1
+# residual; mono-only drops it to 0.0171), and matched grading restores
+# ~2.6-order convergence". Every number there was measured at a fixed
+# n_qp_pair = 4, and on a crossing node the cross-edge quadrature error is
+# first order in that knob. Re-run across it:
+#
+#   - the ε̃ = 1 composition error is 0.0000 Ω at n_qp_pair = 32, on every
+#     rung of probe1's uniform ladder. There is no composition error; the
+#     "clean first order" ladder was measuring quadrature.
+#   - the above/rise asymmetry (0.0171 vs 0.2214) is 0.0002 vs 0.0001 at
+#     n_qp_pair = 32. Neither arm dominates.
+#
+# The GRADING still earns its place here, which is why this deck is
+# unchanged: at the shipped default it is worth ~4.5 Ω on the soil-A fan.
+# What it is not is a mesh convergence class — at n_qp_pair = 64 the same
+# grading is worth 0.08 Ω, less than the 0.12 Ω a far-mesh doubling moves.
+_FAN_GRADES = {
+    # rung: rise (z-vertices −depth → 0, npe), mono (z-vertices 10 → 0, npe)
+    "n2": (
+        ([-0.15, -0.05, -0.0125, 0.0], [2, 2, 2]),
+        ([10.0, 0.5, 0.05, 0.0125, 0.0], [19, 2, 3, 2]),
+    ),
+    "n3": (
+        ([-0.15, -0.05, -0.0125, -0.0031, 0.0], [2, 2, 2, 2]),
+        ([10.0, 0.5, 0.05, 0.0125, 0.0031, 0.0], [19, 2, 3, 2, 2]),
+    ),
+}
+
+# The soil-A 4-rise fan under matched node grading, converged in the
+# QUADRATURE axis as well as the mesh axis (momwire#760).
+#
+# The #674 study banked 142.1923 - 36.4707j here and called it converged
+# on the strength of its dense-near mesh measurements — n2->n3 movement
+# 0.0059 ohm, observed order 3.4, Richardson Z* 142.1918 - 36.4771j,
+# far-mesh doubling 0.022 ohm, dense-vs-split <= 5e-4. Every one of those
+# was taken at a FIXED n_qp_pair=4, so the 0.05 envelope was built from
+# two error axes out of three, and the missing one dominates: walking
+# cross-edge quadrature at fixed mesh puts q=4 **6.808 ohm** from the
+# limit. Mesh convergence at fixed quadrature converges to the wrong
+# limit; that is the whole lesson, and #674's Richardson extrapolated
+# within the wrong one.
+#
+# The ladder (numpy fallback past the accelerator's n_qp <= 8 cap, which
+# reproduces the C++ path BIT-IDENTICALLY at q=4 and q=8, so it is one
+# continuous measurement): q=4 6.808 / q=8 2.556 / q=16 0.698 /
+# q=32 0.105 / q=64 0.005 ohm from the limit, with q=128 -> 160 moving
+# 0.00001. The error falls as ~C/q with C ~ 33 — FIRST order in the
+# number of Gauss points, i.e. Gauss-Legendre has lost its rate on a
+# near-singular transmitted kernel, which is why brute order is needed
+# and why #762 (lift the cap by tiling) and #760 (a singularity-aware
+# rule) both exist.
+#
+# The old 143.9327 - 26.2135j base-mesh print stays a record, never a
+# gate, and now carries the same fixed-q=4 caveat.
+#
+# RE-BANKED at momwire#760's closing measurement. The value above was read
+# at q=64, which is 0.0045 ohm from the quadrature limit -- inside its own
+# 0.05 gate, but not the limit. Walking the flat ladder out to q=256:
+#
+#     q=  96   140.933786 - 43.174773j
+#     q= 128   140.933745 - 43.175002j   step 0.0002329
+#     q= 160   140.933742 - 43.175015j   step 0.0000139
+#     q= 192   140.933742 - 43.175016j   step 0.0000009
+#     q= 256   140.933742 - 43.175016j   step 0.0000001
+#
+# so the limit is 140.93374 - 43.17502j with a bar of ~1e-6, and the old
+# bank sat 0.0129 ohm from it. That is the whole of what this re-pin moves.
+#
+# Path-independent: the numpy fallback this gate runs and the accelerated
+# path (tiled past n_qp <= 8 by momwire#762) agree to 4e-11 at q=64 and
+# 1.1e-10 at q=128, so the limit is not an artefact of either.
+#
+# The #906/#907 PAIR-ORDER LADDER does not move it. Buried decks now default
+# to `BURIED_N_QP_PAIR = 32` with `BURIED_PAIR_ORDER_LADDER`, and the ladder
+# IS live on this deck -- laddered and flat answers differ, so it is plumbed
+# rather than silently dropped -- but they differ at 1e-11. Every pair that
+# matters here is inside the ladder's near tier, so the answer is set by the
+# base order alone. Worth recording because "the ladder changed nothing" and
+# "the ladder never ran" look identical in a result table and are not the
+# same fact (momwire#920).
+#
+# What a USER now gets is a separate number: the shipped buried default of
+# 32 lands 0.092 ohm from this anchor -- outside the 0.05 gate below, which
+# is why the gate names its own q explicitly rather than relying on defaults.
+# momwire#956 re-pinned this from 140.93374 − 43.17502j (the ẑẑ kernel is
+# k²V + ∂z′W with the TW end term; the +15.0 Ω move is the corrected
+# spelling's own converged answer, not an engine comparison).
+FAN_SOIL_A_N2 = 148.56710 - 30.21270j
+
+# Cross-edge quadrature order at which the anchor deck sits 0.0045 ohm
+# from its limit (re-measured at momwire#760's re-pin; the old comment
+# said 0.005 against the old bank and the figure survives) — 11x inside
+# the gate below. Past the accelerated kernel's n_qp <= 8 refusal, so the
+# anchor runs the numpy twin, which is what this gate forces anyway: 5.9 s
+# measured, against 0.4 s accelerated. That is what this lane's
+# multi-minute certification budget is for.
+FAN_SOIL_A_N2_QP = 64
+
+
+def fan_rise_deck_graded(rung="n2", **override):
+    """`fan_rise_deck` with the #674 matched per-arm node grading spliced
+    into the wire polylines. The monopole vertices only subdivide the
+    existing 10 → 0 line, so the EX 4,1,7 feed arclength is untouched."""
+    (rise_pts, rise_npe), (mono_pts, mono_npe) = _FAN_GRADES[rung]
+    build = fan_rise_deck(**override)
+    dirs = ((1, 0), (0, 1), (-1, 0), (0, -1))
+    build["wires"] = [
+        np.array([(5.0 * dx, 5.0 * dy, -0.15)] + [(0.0, 0.0, z) for z in rise_pts])
+        for dx, dy in dirs
+    ] + [np.array([(0.0, 0.0, z) for z in mono_pts])]
+    build["n_per_edge_per_wire"] = [[10] + list(rise_npe) for _ in dirs] + [
+        list(mono_npe)
+    ]
+    return build
+
+
+def hub_deck(n_radials=4, depth=0.15, **override):
+    """The screen's OTHER spelling: one rise carrying the node, N radials
+    junction-joined to it at a buried hub (0, 0, −depth). Topologically
+    `fan_rise_deck`'s twin, ELECTRICALLY a different structure: the fan's
+    N coincident rises are a bundle conductor, not one wire — the two
+    spellings' ε̃ = 1 truths sit ~9 Ω apart (probe38/39), so they are
+    never gated against each other. The hub's by-parts end terms cancel
+    through its own KCL row to the DIGIT (probe39 measured the stripped
+    and unstripped solves identical through production)."""
+    dirs = _radial_dirs(n_radials)
+    wires = [
+        np.array([(5.0 * dx, 5.0 * dy, -depth), (0.0, 0.0, -depth)]) for dx, dy in dirs
+    ]
+    npe = [[10] for _ in dirs]
+    rise_i = len(wires)
+    wires.append(np.array([(0.0, 0.0, -depth), (0.0, 0.0, 0.0)]))
+    npe.append([2])
+    mono_i = rise_i + 1
+    wires.append(np.array([(0.0, 0.0, 10.0), (0.0, 0.0, 0.0)]))
+    npe.append([15])
+    build = dict(
+        wires=wires,
+        n_per_edge_per_wire=npe,
+        junctions=[
+            [(i, "end") for i in range(n_radials)] + [(rise_i, "start")],
+            [(rise_i, "end"), (mono_i, "end")],
+        ],
+        feeds=[(mono_i, 4.3333333333, 1 + 0j)],
+        wavelength=WL7,
+        wire_radius=A_WIRE,
+        ground_z=0.0,
+        ground_eps=SOIL_A,
+        ground_model="sommerfeld",
+    )
+    build.update(override)
+    return build
+
+
+def invl_deck(n_radials=16, x=1, lean=False, **override):
+    """`hub_deck` with an 8-segment, 5 m horizontal top wire junctioned to the
+    monopole's START (its top) — an inverted-L over buried radials. Radial,
+    monopole and top segment counts scale by `x` (the rise stays at 2, as
+    the bench decks scale the hub). The above side is two members, the mast
+    and a horizontal wire whose nodes each have their own (x, y), so the
+    crossing product cannot be one above group. `lean` moves the mast top
+    (and the top wire with it) to x = 1 m, so no two above nodes share an
+    (x, y) at all."""
+    d = hub_deck(n_radials=n_radials)
+    mono_i = n_radials + 1
+    top = (1.0 if lean else 0.0, 0.0, 10.0)
+    d["wires"][mono_i] = np.array([top, (0.0, 0.0, 0.0)])
+    d["wires"].append(np.array([top, (top[0] + 5.0, 0.0, 10.0)]))
+    npe = d["n_per_edge_per_wire"]
+    d["n_per_edge_per_wire"] = [[n * x for n in e] for e in npe[:n_radials]] + [
+        npe[n_radials],
+        [npe[mono_i][0] * x],
+        [8 * x],
+    ]
+    d["junctions"].append([(mono_i, "start"), (mono_i + 1, "start")])
+    d.update(override)
+    return d
+
+
+def test_g524_2_buried_hub_other_junction_is_served():
+    """The below-side interior junction (the buried hub) passes scope:
+    the crossing junction is the rise↔monopole node, the hub is an
+    allowed wholly-below OTHER junction with its own KCL row."""
+    s = BSplineSolver(**hub_deck())
+    media = s._wire_media()
+    assert media == (_medium_spec.BELOW,) * 5 + (_medium_spec.ABOVE,)
+    assert s._crossing_junctions() == (1,)
+    assert s._grounded_junction_ends() == frozenset([(4, "end"), (5, "end")])
+
+
+def test_g524_2_two_radius_node_is_served():
+    """One radius above the interface and another below: served since
+    antennaknobs plan U5 (`tests/test_crossing_two_radius_u5.py` pins the
+    physics). This test used to pin the one-radius refusal it replaces."""
+    s = BSplineSolver(**crossing_deck(wire_radius=[0.001, 0.002]))
+    assert s._crossing_junctions() == (0,)
+    assert s._two_radius_crossing() == (0.002, 0.001)
+
+
+def test_g524_2_radius_spread_within_a_side_refused_by_name():
+    radii = [0.001, 0.001, 0.001, 0.0005, 0.001, 0.002]
+    s = BSplineSolver(**hub_deck(wire_radius=radii))
+    with pytest.raises(NotImplementedError, match="differ within the below wires"):
+        s._crossing_junctions()
+
+
+# ----------------------------------------------------------------------
+# G-524-3 — the designed kernel's own identity pin (cheap, machine class)
+# ----------------------------------------------------------------------
+
+
+# ----------------------------------------------------------------------
+# G-1133 — the above-side junction: an equivalence, not a new term
+# ----------------------------------------------------------------------
+
+
+def test_g1133_above_side_eps1_collapse(record_property):
+    """The adjudicator, on the pattern g524_5 set: at ε̃ = 1 the interface
+    vanishes and the deck IS a free-space 12 m wire, solved independently by
+    the shipped free-space fill. The truth side knows nothing about junctions
+    or interfaces, so this is not agreement-with-itself — it is the composition
+    telescoping to a known answer with an above-side junction standing in it.
+
+    Same 0.05 Ω class as g524_5, and the same quadrature pinned on both sides
+    (momwire#760): the collapse is a statement about COMPOSITION and only means
+    something when both sides integrate the same way."""
+    g = _GRADES[1]
+    pts = [(0.0, 0.0, z) for z in g["below"][0] + [0.0] + g["above"][0]]
+    z_truth, _ = BSplineSolver(
+        wires=[np.array(pts)],
+        n_per_edge_per_wire=[g["below"][1] + g["above"][1]],
+        feeds=[(0, 2.0 + 4.3333333333, 1 + 0j)],
+        wavelength=WL7,
+        wire_radius=A_WIRE,
+        n_qp_pair=_COLLAPSE_N_QP,
+    ).compute_impedance()
+    z, _ = BSplineSolver(
+        **above_side_deck(1, ground_eps=(1.0, 0.0), n_qp_pair=_COLLAPSE_N_QP)
+    ).compute_impedance()
+    record_property("momwire_Z", f"{z:.4f}")
+    record_property("free_space_truth", f"{z_truth:.4f}")
+    assert abs(z - z_truth) <= 0.05, (
+        f"the ε̃ = 1 crossing solve with an above-side junction answers "
+        f"{z:.4f} where the free-space single-wire truth is {z_truth:.4f} — "
+        f"{abs(z - z_truth):.4f} ohm apart; the junction is not telescoping"
+    )
+
+
+@pytest.mark.slow
+def test_g1133_the_two_spellings_are_one_antenna(record_property):
+    """The hub ≡ N-rises gate, one side of the interface over: the crossing
+    deck and the SAME antenna cut at an above-side junction must answer the
+    same over real soil, not just at ε̃ = 1.
+
+    The bar is the measurement, not a wish. At the buried default order the
+    two spellings sit 1.6e-3 Ω apart on 194 Ω (8e-6 relative). 0.05 Ω is the
+    same class the ε̃ = 1 adjudicators are gated at and ~30x the measured gap,
+    so a real term appearing here cannot hide under it — the ladder in
+    `test_g1133_the_residual_is_quadrature` is what says 1.6e-3 is quadrature
+    rather than the floor of something physical."""
+    z_join, _ = BSplineSolver(**above_side_deck()).compute_impedance()
+    z_one, _ = BSplineSolver(**crossing_deck()).compute_impedance()
+    record_property("split_Z", f"{z_join:.6f}")
+    record_property("unsplit_Z", f"{z_one:.6f}")
+    assert abs(z_join - z_one) <= 0.05, (
+        f"the same antenna answers {z_one:.6f} whole and {z_join:.6f} cut at "
+        f"an above-side junction — {abs(z_join - z_one):.4f} ohm apart"
+    )
+
+
+@pytest.mark.slow
+def test_g1133_the_residual_is_quadrature(record_property):
+    """WHY the refusal could be lifted, and the gate that would catch it being
+    wrong. A missing physical term does not care about quadrature order; an
+    integration error does.
+
+    Measured 2026-09-19, the two spellings' gap against `n_qp_pair`:
+
+        4 -> 1.85e-2 ohm,  8 -> 4.74e-3,  16 -> 1.71e-3,
+        32 -> 1.56e-3,    64 -> 1.56e-3
+
+    It falls by an order of magnitude and then STOPS — converged in
+    quadrature, to a floor the mesh then removes in turn (3.3e-7 ohm at the
+    x4 above mesh). That is the signature of an integration error, not of a
+    term nobody wrote down.
+
+    NOTE for whoever revisits this: the scoping comment on momwire#1133
+    argued the same conclusion from a MESH ladder and reported the gap
+    shrinking 1.8e-7 -> 1.2e-8. Re-measured here the mesh ladder is not
+    monotone (5.0e-4 -> 1.6e-3 -> 3.3e-7 over N = 20/40/80 at the buried
+    order), so it is the quadrature axis that carries the argument cleanly,
+    not the mesh axis. Same verdict, different instrument."""
+    gaps = {}
+    for nqp in (4, 32):
+        z_join, _ = BSplineSolver(**above_side_deck(n_qp_pair=nqp)).compute_impedance()
+        z_one, _ = BSplineSolver(**crossing_deck(n_qp_pair=nqp)).compute_impedance()
+        gaps[nqp] = abs(z_join - z_one)
+    record_property("gap_q4", f"{gaps[4]:.3e}")
+    record_property("gap_q32", f"{gaps[32]:.3e}")
+    assert gaps[32] < gaps[4] / 3.0, (
+        f"the above-side gap is {gaps[4]:.3e} ohm at n_qp_pair=4 and "
+        f"{gaps[32]:.3e} at 32 — it is not falling with quadrature order, so "
+        "it is not the integration error this refusal was lifted on"
+    )
+
+
+# ----------------------------------------------------------------------
+# G-1140 — a_above is the NODE MEMBER's radius, not the whole side's
+# ----------------------------------------------------------------------
+
+
+def test_g1140_a_spread_among_the_other_above_wires_is_served():
+    """`a_above` is the radius of the above wire STANDING AT THE NODE, so a
+    different radius further up is ordinary geometry the normal fill already
+    handles (momwire#1140). Measured, not relaxed: the plain oracle ladder
+    caps at S/D 0.68 over 30 geometries because the momwire-vs-engine gap is
+    itself a node-convention difference, but a differential against a control
+    sharing every card at and below the node separates the candidates 52x."""
+    build = above_side_deck(wire_radius=[0.002, 0.001, 0.004])
+    s = BSplineSolver(**build)
+    assert s._wire_media() == (
+        _medium_spec.BELOW,
+        _medium_spec.ABOVE,
+        _medium_spec.ABOVE,
+    )
+    assert s._crossing_junctions() == (0,)
+    # wire 1 is the node's above member; wire 2's 0.004 does not enter.
+    assert s._two_radius_crossing() == (0.001, 0.002)
+
+
+def test_g1140_the_far_wires_radius_does_not_move_a_above():
+    """The sweep's finding as a pin: the optimum did not move when the far
+    radius moved 16x, which rules out every rule where `a_above` is a function
+    of the far wire — a mean, a max, or the far radius itself."""
+    for a_far in (0.0005, 0.002, 0.008):
+        s = BSplineSolver(**above_side_deck(wire_radius=[0.002, 0.001, a_far]))
+        assert s._two_radius_crossing() == (0.001, 0.002), a_far
+
+
+def test_g1140_a_below_spread_is_a_different_question_and_still_refuses():
+    """The half that was NOT measured. `a_below` is the radius the node's
+    POINT tests actually take, and a fan of buried members at different radii
+    all meeting the node is not the mirror of the above case."""
+    radii = [0.001, 0.001, 0.001, 0.0005, 0.001, 0.002]
+    s = BSplineSolver(**hub_deck(wire_radius=radii))
+    with pytest.raises(NotImplementedError, match="differ within the below wires"):
+        s._crossing_junctions()
+
+
+def test_g1140_several_crossing_nodes_keep_the_whole_side_rule():
+    """`a_above` is ONE deck-level scalar, so several crossing nodes could
+    disagree about which member owns it. `crossing_above_member` answers None
+    there and the whole-side rule applies — conservative, and moot in practice
+    because a two-radius deck with several nodes is refused by name anyway."""
+    assert (
+        _below_interface.crossing_above_member(
+            (0, 1), [[(0, "end")], [(1, "end")]], (_medium_spec.ABOVE,) * 2
+        )
+        is None
+    )
+    radii = [2.0 * A_WIRE, A_WIRE, 2.0 * A_WIRE, A_WIRE]
+    s = BSplineSolver(**two_node_deck(wire_radius=radii))
+    with pytest.raises(NotImplementedError, match=_TWO_RADIUS_NODES):
+        s._crossing_junctions()
+
+
+def test_g524_2_node_graded_fan_plans_without_the_cross_grid():
+    """A crossing deck never builds the transmitted grid — its cross pair
+    is the designed DIRECT evaluation — so the θ-floor cost law must not
+    refuse it. The probe38 grading ladder found the g2-rung fan refused
+    at θ = 0.129° for a grid the path never queries (quadrature nodes
+    0.84 mm below the plane)."""
+    build = fan_rise_deck()
+    build["n_per_edge_per_wire"] = [[20, 6] for _ in range(4)] + [[30]]
+    s = BSplineSolver(**build)
+    geom = s._build_geometry()
+    below = s._below_segments(geom)
+    b_idx = np.nonzero(below)[0]
+    a_idx = np.nonzero(~below)[0]
+    _eps_t, _eps_m, k_p, k_m, _c2, _a_m = s._buried_medium()
+    obs_a, _t, _w = s._buried_nodes(geom, a_idx)
+    obs_b, _t, _w = s._buried_nodes(geom, b_idx)
+    plan = s._buried_serve_plan(geom, a_idx, obs_a, obs_b, k_p, k_m, crossing=True)
+    assert "r1_above" in plan and "r1_below" in plan
+    assert "r_cross_max" not in plan
+    with pytest.raises(ValueError, match="COST law"):
+        s._buried_serve_plan(geom, a_idx, obs_a, obs_b, k_p, k_m)
+
+
+def test_g524_3_triple_memo_is_bit_identical_and_dedups(monkeypatch):
+    """momwire#680 U1: `designed_tables` evaluates each exact
+    (ρ, z, z′) triple once per call, and a cache hit is the SAME floats
+    — bit-identical to the unmemoized loop by construction. A symmetric
+    deck's cross mesh repeats triples IEEE-exactly (the 4-radial fan is
+    exactly 4.00× duplicated, probe40), which is what this buys.
+
+    Forced onto the numpy walk of the POINT route: the counting
+    monkeypatch and the bit-equality assertions are statements about the
+    REFERENCE path. The other two routes reach neither — the C++ twin
+    routes around `six_point` entirely (gated at 1e-12 relative, never
+    bit, in test_near_interface_accel_680) and the column route evaluates
+    a whole (ρ, z′) group at once (momwire#895, gated the same way in
+    test_near_interface_columns_895). The dedup this pins is upstream of
+    all three and identical on all three."""
+    monkeypatch.setattr(_near_interface, "_ROUTE", "point")
+    monkeypatch.setattr(_near_interface, "_FORCE_NUMPY", True)
+    k = 2.0 * np.pi / WL7
+    rho = np.array([[0.3, 0.5, 0.3], [0.3, 0.5, 0.3]])
+    z = np.array([[0.2], [0.4]]) * np.ones((1, 3))
+    zp = -0.15
+    calls = []
+    real = _near_interface.six_point
+
+    def counting(eps_t, k2, r, zz, zzp, **kw):
+        calls.append((r, zz, zzp))
+        return real(eps_t, k2, r, zz, zzp, **kw)
+
+    monkeypatch.setattr(_near_interface, "six_point", counting)
+    tables = _near_interface.designed_tables(4.0 - 0.5j, k, rho, z, zp, rtol=1e-8)
+    # 6 mesh cells but 4 unique triples per z-row × 2 rows = 4 evaluations
+    # per row: (0.3, z) and (0.5, z) each once.
+    assert len(calls) == 4
+    assert len(set(calls)) == 4
+    for i, r in ((0, 0.3), (1, 0.5), (2, 0.3)):
+        for row, zz in ((0, 0.2), (1, 0.4)):
+            ref = real(4.0 - 0.5j, k, r, zz, zp, rtol=1e-8)
+            for kk, key_name in enumerate(_near_interface.KEYS):
+                got = tables[key_name][row, i]
+                assert got == ref[kk], (key_name, row, i)
+    # The duplicated columns are the SAME floats, not merely close.
+    for key_name in _near_interface.KEYS:
+        assert np.array_equal(tables[key_name][:, 0], tables[key_name][:, 2])
+
+
+def test_g524_3_eps1_kernel_identity():
+    """At ε̃ = 1: U_T = k²V_T = e^{−jkR}/R exactly and W ≡ ∂zW ≡ 0 —
+    the transmitted family collapses to the free-space kernel (pinned at
+    2.2e-16 by the derivation's probe ledger, gated at 1e-12 here)."""
+    k = 2.0 * np.pi / WL7
+    for rho, z, zp in ((A_WIRE, 0.0, 0.0), (0.3, 0.2, -0.4), (0.0, 1.0, -0.5)):
+        six = _near_interface.six_point(1.0, k, rho, z, zp, rtol=1e-12)
+        R = np.hypot(rho, z - zp)
+        g = np.exp(-1j * k * R) / R
+        assert abs(six[0] - g) <= 1e-12 * abs(g)
+        assert abs(k * k * six[1] - g) <= 1e-12 * abs(g)
+        assert abs(six[2]) <= 1e-12 * abs(g)
+        assert abs(six[3]) <= 1e-12 * abs(g) / max(R, A_WIRE)
+
+
+# ----------------------------------------------------------------------
+# G-524-4 / G-524-5 — the serve gates (slow lane)
+# ----------------------------------------------------------------------
+
+
+@pytest.mark.slow
+def test_g524_4_soil_a_crossing_anchor(record_property, monkeypatch):
+    """The adjudicated soil-A crossing answer, against probe27's number
+    re-derived at converged quadrature (momwire#760). The envelope covers
+    the g1<->g2 mesh movement (0.021 Ω) and the quadrature residual
+    (0.0003 Ω at the order used here), NOT an engine comparison — the
+    engine's 74.761 − 57.730j crossing print is a different experiment
+    (see the module docstring) and is deliberately absent here.
+
+    Runs on the numpy twin to get past the accelerator's n_qp <= 8 cap,
+    as `test_g674_2_soil_a_fan_anchor` does and for the same reason; the
+    two paths are bit-identical where both can run."""
+    for flag in (n for n in dir(_bspline_kernels) if n.startswith("_HAVE_")):
+        monkeypatch.setattr(_bspline_kernels, flag, False)
+    z, _ = BSplineSolver(
+        **crossing_deck(1), n_qp_pair=CROSSING_G1_QP
+    ).compute_impedance()
+    record_property("momwire_Z", f"{z:.4f}")
+    record_property("banked_Z", f"{CROSSING_G1:.4f}")
+    record_property("n_qp_pair", str(CROSSING_G1_QP))
+    assert abs(z - CROSSING_G1) <= 0.05, (
+        f"crossing serve answers {z:.4f} on the g1 adjudication deck at "
+        f"n_qp_pair={CROSSING_G1_QP} where the banked exact-EM answer is "
+        f"{CROSSING_G1:.4f} — {abs(z - CROSSING_G1):.4f} ohm apart (mesh "
+        "envelope 0.021 ohm, quadrature 0.0003; NEVER re-gate this "
+        "against the engine's crossing print)"
+    )
+
+
+@pytest.mark.slow
+@pytest.mark.crossgate
+def test_g524_6_rise_deck_eps1_collapse(record_property):
+    """The P3 rise class through the same adjudicator: an above wire
+    ENDING at the node (σ_aσ_b = +1, the orientation-carried corner
+    sign's other branch) joined to a BENT below wire (15 cm rise + 5 m
+    horizontal radial). At ε̃ = 1 the deck is one bent free-space wire
+    solved independently by the shipped fill (measured 0.0019 Ω apart).
+    This is the gate that catches an orientation-blind corner — that
+    bug wrecked this deck to 10−1007j while leaving every
+    starts-at-node deck untouched."""
+    pts = np.array(
+        [(5.0, 0.0, -0.15), (0.0, 0.0, -0.15), (0.0, 0.0, 0.0), (0.0, 0.0, 10.0)]
+    )
+    z_truth, _ = BSplineSolver(
+        wires=[pts],
+        n_per_edge_per_wire=[[10, 2, 15]],
+        feeds=[(0, 5.0 + 0.15 + 10.0 - 4.3333333333, 1 + 0j)],
+        wavelength=WL7,
+        wire_radius=A_WIRE,
+        n_qp_pair=_COLLAPSE_N_QP,
+    ).compute_impedance()
+    rise = np.array([(5.0, 0.0, -0.15), (0.0, 0.0, -0.15), (0.0, 0.0, 0.0)])
+    mono = np.array([(0.0, 0.0, 10.0), (0.0, 0.0, 0.0)])
+    z, _ = BSplineSolver(
+        wires=[rise, mono],
+        n_per_edge_per_wire=[[10, 2], [15]],
+        junctions=[[(0, "end"), (1, "end")]],
+        feeds=[(1, 4.3333333333, 1 + 0j)],
+        wavelength=WL7,
+        wire_radius=A_WIRE,
+        ground_z=0.0,
+        ground_eps=(1.0, 0.0),
+        ground_model="sommerfeld",
+        n_qp_pair=_COLLAPSE_N_QP,
+    ).compute_impedance()
+    record_property("momwire_Z", f"{z:.4f}")
+    record_property("free_space_truth", f"{z_truth:.4f}")
+    assert abs(z - z_truth) <= 0.05, (
+        f"the rise-deck ε̃ = 1 solve answers {z:.4f} where the free-space "
+        f"bent-wire truth is {z_truth:.4f} — {abs(z - z_truth):.4f} ohm "
+        "apart; check the corner's orientation sign first"
+    )
+
+
+@pytest.mark.slow
+@pytest.mark.crossgate
+def test_g524_5_eps1_collapse_reproduces_free_space(record_property):
+    """probe29's adjudicator through the production path: at ε̃ = 1 the
+    interface vanishes and the crossing deck IS a free-space 12 m wire,
+    solved independently by the shipped free-space fill. The corner the
+    composition must telescope through is ~204,000 in magnitude; passing
+    at the 0.05 Ω class is the arithmetic being RIGHT where truth is
+    known (measured 0.0124 Ω, 0.002 %)."""
+    g = _GRADES[1]
+    pts = [(0.0, 0.0, z) for z in g["below"][0] + [0.0] + g["above"][0]]
+    z_truth, _ = BSplineSolver(
+        wires=[np.array(pts)],
+        n_per_edge_per_wire=[g["below"][1] + g["above"][1]],
+        feeds=[(0, 2.0 + 4.3333333333, 1 + 0j)],
+        wavelength=WL7,
+        wire_radius=A_WIRE,
+        n_qp_pair=_COLLAPSE_N_QP,
+    ).compute_impedance()
+    z, _ = BSplineSolver(
+        **crossing_deck(1, ground_eps=(1.0, 0.0), n_qp_pair=_COLLAPSE_N_QP)
+    ).compute_impedance()
+    record_property("momwire_Z", f"{z:.4f}")
+    record_property("free_space_truth", f"{z_truth:.4f}")
+    assert abs(z - z_truth) <= 0.05, (
+        f"the ε̃ = 1 crossing solve answers {z:.4f} where the free-space "
+        f"single-wire truth is {z_truth:.4f} — {abs(z - z_truth):.4f} ohm "
+        "apart; the complete composition no longer collapses"
+    )
+
+
+@pytest.mark.slow
+@pytest.mark.crossgate
+def test_g524_7_fan_eps1_collapse(record_property):
+    """The fan widening's adjudicator (probe38): at ε̃ = 1 the 4-rise fan
+    deck IS a free-space 5-wire junction deck, solved independently by
+    the native junction machinery (KCL row, shipped free-space fill).
+
+    The composition is NOT ε̃=1-exact past K = 2: the residual is a
+    measured CONVERGENCE class in the node mesh, not bookkeeping —
+    probe38 banked 0.0043 Ω (N=1) → 0.1327 (N=2) → 0.2269 (N=4) on this
+    mesh, shrinking 0.2269 → 0.1487 → 0.1060 down the node-grading
+    ladder with no plateau (a corner-sign error would miss by the ~1e5
+    corner magnitude instead — the −1000j class). The gate holds the
+    measured value with CI headroom; tightening it means GRADING the
+    node, not touching the corner loops — which is exactly what the
+    #674 study did: `test_g674_1` runs this adjudicator on the graded
+    rung at a 60× tighter envelope. This BASE-mesh gate stays as the
+    ungraded pin (the two miss differently: a corner-loop defect moves
+    both, a grading-machinery defect only g674_1)."""
+    build = fan_rise_deck(ground_eps=(1.0, 0.0), n_qp_pair=_COLLAPSE_N_QP)
+    truth = {
+        k: v
+        for k, v in build.items()
+        if k not in ("ground_z", "ground_eps", "ground_model")
+    }
+    z_truth, _ = BSplineSolver(**truth).compute_impedance()
+    z, _ = BSplineSolver(**build).compute_impedance()
+    record_property("momwire_Z", f"{z:.4f}")
+    record_property("free_space_truth", f"{z_truth:.4f}")
+    assert abs(z - z_truth) <= 0.30, (
+        f"the ε̃ = 1 fan solve answers {z:.4f} where the free-space "
+        f"5-wire junction truth is {z_truth:.4f} — {abs(z - z_truth):.4f} "
+        "ohm apart (measured 0.2268 on this mesh through #692's near "
+        "density, a node-mesh convergence class); a jump past this "
+        "envelope is bookkeeping, not convergence"
+    )
+
+
+# ----------------------------------------------------------------------
+# G-674 — the K>2 node's convergence study, banked (momwire#674)
+# ----------------------------------------------------------------------
+
+
+@pytest.mark.slow
+@pytest.mark.crossgate
+def test_g674_1_graded_fan_eps1_collapse(record_property):
+    """The #674 resolution of g524_7's 0.30-Ω caveat: matched per-arm
+    node grading (the n2 rung) collapses the K = 5 composition residual
+    to the MEASUREMENT FLOOR — 0.0001 Ω against the independently-solved
+    free-space truth (the admissibility split itself sits ~2e-4 from
+    dense on this mm-graded deck). The gate's 0.005 envelope is 50× the
+    measured value and still 60× tighter than g524_7 — a miss here with
+    g524_7 green means the grading machinery (vertex splicing, short-
+    segment quadrature), not the corner loops."""
+    build = fan_rise_deck_graded("n2", ground_eps=(1.0, 0.0), n_qp_pair=_COLLAPSE_N_QP)
+    truth = {
+        k: v
+        for k, v in build.items()
+        if k not in ("ground_z", "ground_eps", "ground_model")
+    }
+    z_truth, _ = BSplineSolver(**truth).compute_impedance()
+    z, _ = BSplineSolver(**build).compute_impedance()
+    record_property("momwire_Z", f"{z:.4f}")
+    record_property("free_space_truth", f"{z_truth:.4f}")
+    assert abs(z - z_truth) <= 0.005, (
+        f"the n2-graded ε̃ = 1 fan solve answers {z:.4f} where the "
+        f"free-space truth is {z_truth:.4f} — {abs(z - z_truth):.4f} ohm "
+        "apart (measured 0.0001 on this rung); the graded composition no "
+        "longer collapses"
+    )
+
+
+@pytest.mark.slow
+@pytest.mark.crossgate
+def test_g674_2_soil_a_fan_anchor(record_property, monkeypatch):
+    """The soil-A fan anchor, converged in all three axes: the n2-graded
+    deck's 140.9358 - 43.1622j at cross-edge quadrature 64, where it sits
+    0.005 ohm from its own limit against the 0.05 gate — the node axis
+    (n2->n3 0.0059 ohm) and far-mesh axis (0.022 ohm) the #674 study
+    measured, plus the quadrature axis that study held fixed at 4 and
+    never measured (momwire#760).
+
+    Running at 64 needs the numpy twin: the accelerated kernel refuses
+    n_qp > 8 (momwire#762, a cache-blocking constant rather than a real
+    limit). Bypassing it is the suite's established idiom and is sound
+    here for a reason worth stating — the two paths agree BIT-IDENTICALLY
+    at q=4 and q=8 on this very deck, so the twin is an oracle, not an
+    approximation.
+
+    What this must NOT be re-gated against, both of which are records:
+    #674's own 142.1923 - 36.4707j (6.8 ohm away — it is the q=4 print,
+    not a converged answer), and the engine's detached-stake
+    90.051 - 70.731j (a different experiment, module docstring)."""
+    for flag in (n for n in dir(_bspline_kernels) if n.startswith("_HAVE_")):
+        monkeypatch.setattr(_bspline_kernels, flag, False)
+    z, _ = BSplineSolver(
+        **fan_rise_deck_graded("n2"), n_qp_pair=FAN_SOIL_A_N2_QP
+    ).compute_impedance()
+    record_property("momwire_Z", f"{z:.4f}")
+    record_property("banked_Z", f"{FAN_SOIL_A_N2:.4f}")
+    record_property("n_qp_pair", str(FAN_SOIL_A_N2_QP))
+    assert abs(z - FAN_SOIL_A_N2) <= 0.05, (
+        f"the n2-graded soil-A fan answers {z:.4f} at n_qp_pair="
+        f"{FAN_SOIL_A_N2_QP} where the banked converged answer is "
+        f"{FAN_SOIL_A_N2:.5f} — {abs(z - FAN_SOIL_A_N2):.4f} ohm apart "
+        "(node axis 0.0059, far-mesh 0.022, quadrature 0.0045; NEVER "
+        "re-gate against #674's q=4 print or the engine print)"
+    )
+
+
+# ----------------------------------------------------------------------
+# G-698 — the crossing exemption is EARNED, not granted by geometry
+#
+# `_grounded_junction_ends` silences `_medium_spec.wire_media`'s
+# contact+buried refusal for every junction whose shared point sits in the
+# plane. momwire#698: a junction that does not actually CROSS still got
+# that silence, and `_crossing_junctions` then declined the deck, so it
+# fell through to the OLD field-form transmitted block and was SERVED —
+# the contact basis's O(1) boundary term unaccounted for, which is the one
+# configuration the refusal exists to prevent. Measured on main @ 202e0f6:
+# the one-member spelling answered 86.9322 − 23.8620j, 46.57 Ω from the
+# engine's 92.130 − 70.141j and worse than the refusal prose's then-quoted
+# 13–17 Ω best-consistent-spelling gap. (Both figures predate the
+# momwire#706 feed correction — historical record, direction unaffected:
+# the shipped cell stays ~51 Ω wrong at the matched feed.)
+# ----------------------------------------------------------------------
+
+
+_CONTACT_SENTENCE = re.escape("stands an END in the ground plane (ground CONTACT)")
+
+
+def test_g698_one_member_junction_at_the_contact_end_still_refuses():
+    """The issue's repro: a one-member group declared at the contact end
+    of the lone-radial anchor. One wire end cannot join two media, so it
+    can never be the crossing junction the exemption is for."""
+    build = dict(contact_deck())
+    build["junctions"] = [[(0, "end")]]
+    s = BSplineSolver(**build)
+    with pytest.raises(ValueError, match=_CONTACT_SENTENCE):
+        s.compute_impedance()
+
+
+def test_g698_the_one_member_bypass_refuses_at_the_media_reading():
+    """WHERE it refuses is the fix's design decision: the member-count
+    test is a pure-geometry NECESSARY condition, so it lives in
+    `_grounded_junction_ends` and the deck refuses at exactly the point
+    the undeclared deck does — no fill is planned, no grid is built."""
+    build = dict(contact_deck())
+    build["junctions"] = [[(0, "end")]]
+    s = BSplineSolver(**build)
+    assert s._grounded_junction_ends() == frozenset()
+    with pytest.raises(ValueError, match=_CONTACT_SENTENCE):
+        s._wire_media()
+
+
+@pytest.mark.parametrize("junctions", [None, [[(0, "start")]], [[(0, "end")]]])
+def test_g698_the_controls_all_refuse_the_same_way(junctions):
+    """The repro and the two controls the issue recorded beside it, in one
+    row each and refusing with ONE sentence: the undeclared deck and the
+    one-member group at the deck's OTHER (top, out-of-plane) end were
+    already refused on main, and the contact-end spelling — the bypass —
+    now joins them instead of answering."""
+    build = dict(contact_deck())
+    if junctions is not None:
+        build["junctions"] = junctions
+    with pytest.raises(ValueError, match=_CONTACT_SENTENCE):
+        BSplineSolver(**build)._wire_media()
+
+
+def test_g698_a_one_member_junction_off_the_plane_stays_legal():
+    """momwire#172 is not narrowed: only the crossing-exemption EFFECT of
+    a one-member group changes. A lone group at a free end of an
+    all-above deck still solves (its KCL row pins I_end = 0, which is
+    numerically the free end it already was)."""
+    s = BSplineSolver(
+        wires=[np.array([(0.0, 0.0, 1.0), (0.0, 0.0, 11.0)])],
+        n_per_edge_per_wire=[[15]],
+        junctions=[[(0, "end")]],
+        feeds=[(0, 4.3333333333, 1 + 0j)],
+        wavelength=WL7,
+        wire_radius=A_WIRE,
+        ground_z=0.0,
+        ground_eps=SOIL_A,
+        ground_model="sommerfeld",
+    )
+    assert s._wire_media() == (_medium_spec.ABOVE,)
+    z, _ = s.compute_impedance()
+    assert z.real > 0
+
+
+def _stranded_grounded_junction_deck():
+    """Two ABOVE wires meeting at a shared point IN the plane, plus a
+    detached buried radial: a 2-member grounded junction that cannot
+    cross (both members above), so the geometric exemption is granted and
+    never earned. The whole class momwire#698's belt-and-braces closes —
+    the member count alone would let this one through."""
+    return dict(
+        wires=[
+            np.array([(0.0, 0.0, 0.0), (0.0, 0.0, 10.0)]),
+            np.array([(0.0, 0.0, 0.0), (5.0, 0.0, 3.0)]),
+            np.array([(1.0, 0.0, -0.15), (6.0, 0.0, -0.15)]),
+        ],
+        n_per_edge_per_wire=[[15], [8], [10]],
+        junctions=[[(0, "start"), (1, "start")]],
+        feeds=[(0, 4.3333333333, 1 + 0j)],
+        wavelength=WL7,
+        wire_radius=A_WIRE,
+        ground_z=0.0,
+        ground_eps=SOIL_A,
+        ground_model="sommerfeld",
+    )
+
+
+def test_g698_an_all_above_grounded_junction_does_not_earn_the_exemption():
+    """The belt-and-braces (2): the labels say both members are ABOVE, so
+    `_crossing_junctions` never validates the junction and the contact
+    ends it exempted are stranded on the field-form block. Refused with
+    the contact+buried sentence rather than served.
+
+    This one refuses LATER than the repro above — at the first
+    `_crossing_junctions` call, which the buried fill makes before it
+    plans any grid — because "does this junction cross" is a MEDIA
+    question and the exemption set is built before the labels exist."""
+    s = BSplineSolver(**_stranded_grounded_junction_deck())
+    assert s._grounded_junction_ends() == frozenset([(0, "start"), (1, "start")])
+    assert s._wire_media() == (
+        _medium_spec.ABOVE,
+        _medium_spec.ABOVE,
+        _medium_spec.BELOW,
+    )
+    with pytest.raises(ValueError, match=_CONTACT_SENTENCE):
+        s._crossing_junctions()
+    with pytest.raises(ValueError, match=_CONTACT_SENTENCE):
+        s.compute_impedance()
+
+
+def test_g698_the_served_crossing_decks_still_earn_their_exemption():
+    """The audit must not fire on the decks it shares a function with:
+    every contact end of the served crossing and fan spellings IS a
+    member of a validated crossing junction."""
+    assert BSplineSolver(**crossing_deck())._crossing_junctions() == (0,)
+    assert BSplineSolver(**fan_rise_deck())._crossing_junctions() == (0,)
+    assert BSplineSolver(**hub_deck())._crossing_junctions() == (1,)
+
+
+# ======================================================================
+# G-696 — the node-mesh advisory: say when a crossing node's REGION is
+# unresolved for the #674 class, and stay quiet when it is not
+# ======================================================================
+#
+# The physics is measured in the G-674 gates; what is gated HERE is the
+# reporting. The one design claim worth pinning is the choice of
+# quantity: the advisory reads the FINEST mesh within reach of the node,
+# not the segment touching it, because the touching segment does not
+# predict the error (a feed gap in front of a graded chain is a resolved
+# node). See `_crossing_fill`'s constants for the two-deck calibration.
+#
+# These run without solving: the advisory reads geometry only, and the
+# decks it reads are the ones the G-674 gates solve.
+
+
+def _arms(build):
+    s = BSplineSolver(**build)
+    return s._crossing_node_members(s._crossing_junctions(), s._wire_media())
+
+
+def gap_then_graded_deck(**override):
+    """The shape that broke the first spelling of this advisory: a 50 mm
+    ungraded feed gap at the node, with a chain graded to 6.25 mm right
+    behind it. Transcribed from antennaknobs' buried-radial vertical in
+    its FIXED state, whose soil-A answer moves 0.115 ohm across an 8x
+    sweep of that gap — a resolved node wearing a coarse first segment."""
+    build = fan_rise_deck_graded("n2", **override)
+    mono_i = len(build["wires"]) - 1
+    build["wires"] = list(build["wires"])
+    build["n_per_edge_per_wire"] = [list(n) for n in build["n_per_edge_per_wire"]]
+    # Only the ABOVE arm differs from the banked graded rung: its grading
+    # now sits BEHIND a 50 mm ungraded gap at the node instead of running
+    # all the way in. The rises stay at the n2 rung, as they are on the
+    # antennaknobs deck this is transcribed from.
+    build["wires"][mono_i] = np.array(
+        [(0.0, 0.0, 10.0), (0.0, 0.0, 0.15), (0.0, 0.0, 0.05), (0.0, 0.0, 0.0)]
+    )
+    build["n_per_edge_per_wire"][mono_i] = [15, 16, 1]
+    return build
+
+
+def test_g696_1_the_gated_quantity_is_the_resolved_scale_not_the_touching_segment():
+    """The design claim. On the gap-then-graded arm the touching segment
+    is 50 mm while the node region resolves to 6.25 mm — an 8x spread
+    inside ONE arm. Gating the touching segment would fire here; gating
+    the resolved scale does not."""
+    above = [a for a in _arms(gap_then_graded_deck()) if a.side == "above"]
+    assert len(above) == 1
+    assert above[0].h_adjacent == pytest.approx(0.050, rel=1e-12)
+    assert above[0].h_resolved == pytest.approx(0.00625, rel=1e-12)
+
+
+def test_g696_2_every_crossing_member_is_reported_once():
+    """One above member and N below members, per the fan widening's own
+    scope — the advisory sees the whole node, not just the above arm."""
+    arms = _arms(fan_rise_deck(n_radials=4))
+    assert len(arms) == 5
+    assert sorted(a.side for a in arms) == ["above"] + ["below"] * 4
+
+
+def test_g696_3_the_base_fan_warns_and_names_the_above_arm():
+    """The coarse anchor. Its above arm is a single 667 mm edge that never
+    resolves, so it must warn and name that arm.
+
+    #674 measured this deck at 0.2269 ohm (eps~=1) and 7.48 ohm of soil-A
+    mesh move; #760 re-derived both across the quadrature axis that study
+    held at n_qp_pair=4 and neither survives as a MESH number — the eps~=1
+    residual is 0.0000 ohm at n_qp_pair=32. The deck still warns, and should:
+    at the shipped order the node is worth ~4.5 ohm. What changed is the
+    reason, which is why the message now cites #760 as well."""
+    with pytest.warns(_crossing_fill.CoarseCrossingNode) as rec:
+        worst = _crossing_fill.warn_coarse_node(_arms(fan_rise_deck()))
+    assert worst.h_resolved == pytest.approx(10.0 / 15.0, rel=1e-12)
+    assert worst.side == "above"
+    msg = str(rec[0].message)
+    assert "666.7 mm" in msg and "above member" in msg
+    assert "momwire#674" in msg and "momwire#696" in msg
+    # The re-derivation is part of the claim now, not a footnote to it.
+    assert "momwire#760" in msg
+    # WITHDRAWN by #760: the message must no longer attribute a dominant arm.
+    assert "dominant term" not in msg
+
+
+@pytest.mark.parametrize(
+    "deck,why",
+    [
+        (fan_rise_deck_graded, "the banked FAN_SOIL_A_N2 rung, 0.0001 ohm off"),
+        (gap_then_graded_deck, "a feed gap in front of a graded chain"),
+    ],
+)
+def test_g696_4_resolved_nodes_are_silent(deck, why):
+    """Both converged shapes stay quiet. The second is the regression
+    that the first spelling of this advisory got wrong: it gated the
+    touching segment, fired on a deck measured fine, and needed its bar
+    threaded through a 50-75 mm window to avoid doing so."""
+    build = deck() if deck is gap_then_graded_deck else deck("n2")
+    arms = _arms(build)
+    assert max(a.h_resolved for a in arms) == pytest.approx(0.00625, rel=1e-9)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", _crossing_fill.CoarseCrossingNode)
+        assert _crossing_fill.warn_coarse_node(arms) is not None, why
+
+
+def test_g696_5_the_bar_sits_on_674s_own_graded_rungs():
+    """Not a number split between two anchors: the bar IS #674's coarsest
+    graded rung (25 mm, 0.0036 ohm at eps~=1) and 4x its converged recipe
+    rung (6.25 mm, 0.0001 ohm)."""
+    assert _crossing_fill.NODE_H_BAR == 0.025
+    assert _crossing_fill.NODE_H_BAR == pytest.approx(4 * 0.00625, rel=1e-12)
+
+
+@pytest.mark.parametrize("reach", [0.06, 0.15, 0.5, 1.0])
+def test_g696_6_the_verdict_is_insensitive_to_the_reach(reach, monkeypatch):
+    """The reason for gating the resolved scale rather than threading a
+    needle: over a 17x span of the reach parameter, both calibration
+    decks land on the same side every time. The earlier spelling flipped
+    on a 20% move of its threshold."""
+    monkeypatch.setattr(_crossing_fill, "NODE_REACH", reach)
+    coarse = max(a.h_resolved for a in _arms(fan_rise_deck()))
+    fine = max(a.h_resolved for a in _arms(gap_then_graded_deck()))
+    assert coarse > _crossing_fill.NODE_H_BAR
+    assert fine <= _crossing_fill.NODE_H_BAR
+
+
+def test_g696_7_a_single_coarse_edge_cannot_escape_by_being_longer_than_the_reach():
+    """The first edge always counts however long it is. The base fan's
+    above arm is one 667 mm edge — longer than the reach — and must not
+    read as 'nothing measured' and slip through."""
+    (above,) = [a for a in _arms(fan_rise_deck()) if a.side == "above"]
+    assert above.h_resolved == pytest.approx(10.0 / 15.0, rel=1e-12)
+    assert _crossing_fill.NODE_REACH < 10.0 / 15.0
+
+
+def test_g696_8_the_advisory_never_refuses_and_never_remeshes():
+    """Advisory ONLY: the deck is the deck. A coarse node is a legitimate
+    thing to ask for — every rung of a convergence ladder but the last is
+    one — so this path must not raise, and must not touch the mesh."""
+    s = BSplineSolver(**fan_rise_deck())
+    before = [list(npe) for npe in s.n_per_edge_per_wire]
+    with pytest.warns(_crossing_fill.CoarseCrossingNode):
+        _crossing_fill.warn_coarse_node(
+            s._crossing_node_members(s._crossing_junctions(), s._wire_media())
+        )
+    assert [list(npe) for npe in s.n_per_edge_per_wire] == before
+
+
+def test_g696_9_an_empty_deck_reports_nothing_and_stays_quiet():
+    """No crossing junction, no advice — and `None` back rather than a
+    raise, so a diagnostic caller can read it unconditionally."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert _crossing_fill.warn_coarse_node([]) is None
+
+
+# ---------------------------------------------------------------------------
+# G-924 — the generated radial directions
+# ---------------------------------------------------------------------------
+
+
+def test_g924_the_four_radial_decks_did_not_move():
+    """The four-radial directions are bit-identical to the tuple they replace.
+
+    `_radial_dirs(4)` is cos/sin of 0, pi/2, pi, 3pi/2, which is (1,0), (0,1),
+    (-1,0), (0,-1) — but cos(pi/2) is 6.1e-17, not 0, so "identical" is a claim
+    about the DECK rather than about the angles. This pins the geometry every
+    existing four-radial gate is built on, so momwire#924's change cannot move
+    a banked number without failing here first.
+    """
+    old = ((1, 0), (0, 1), (-1, 0), (0, -1))
+    for builder in (fan_rise_deck, hub_deck):
+        gen = builder(n_radials=4)["wires"]
+        for i, (dx, dy) in enumerate(old):
+            # the radial's FAR end carries the direction, scaled by 5 m
+            far = np.asarray(gen[i][0], dtype=float)
+            assert far[0] == pytest.approx(5.0 * dx, abs=1e-12), (builder, i)
+            assert far[1] == pytest.approx(5.0 * dy, abs=1e-12), (builder, i)
+
+
+def test_g924_more_than_four_radials_builds_that_many():
+    """The argument now means what it says. Before momwire#924 this built four
+    radials whatever was asked and then raised from the junction list."""
+    for n in (1, 2, 3, 4, 6, 12):
+        for builder, extra in ((fan_rise_deck, 1), (hub_deck, 2)):
+            wires = builder(n_radials=n)["wires"]
+            assert len(wires) == n + extra, (builder, n, len(wires))
+        # every junction member indexes a wire that exists
+        for builder in (fan_rise_deck, hub_deck):
+            build = builder(n_radials=n)
+            n_w = len(build["wires"])
+            for j in build["junctions"]:
+                for w, _end in j:
+                    assert 0 <= w < n_w, (builder, n, w, n_w)
+
+
+def test_g924_zero_radials_refuses_by_name():
+    """The one limit left, said plainly rather than as an index error."""
+    for builder in (fan_rise_deck, hub_deck):
+        with pytest.raises(ValueError, match="at least one radial"):
+            builder(n_radials=0)

@@ -13,6 +13,7 @@ from ..core.request_options import RequestOptions
 from ..core.serialization import convert_and_respect_annotation_metadata
 from ..errors.bad_request_error import BadRequestError
 from ..errors.forbidden_error import ForbiddenError
+from ..errors.gone_error import GoneError
 from ..errors.internal_server_error import InternalServerError
 from ..errors.not_found_error import NotFoundError
 from ..errors.service_unavailable_error import ServiceUnavailableError
@@ -246,21 +247,45 @@ class RawAssetsClient:
         self,
         *,
         asset_type: CreatableAssetType,
+        cpu: typing.Optional[int] = OMIT,
+        disk: typing.Optional[int] = OMIT,
+        env_vars: typing.Optional[typing.Dict[str, typing.Optional[str]]] = OMIT,
+        memory: typing.Optional[int] = OMIT,
         parent_folder_id: typing.Optional[str] = OMIT,
+        provider: typing.Optional[str] = OMIT,
+        template: typing.Optional[str] = OMIT,
         title: typing.Optional[str] = OMIT,
         workspace_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[CreateAssetResponseOut]:
         """
-        Create a new asset such as a spreadsheet, document, folder, database, computer, or generic doc (admin-only) in your workspace with your current permissions. Computer assets return 202 after durable submission, which commits the asset and initialization delivery intent together. Runtime provisioning continues asynchronously. Inspect the returned asset ID for progress instead of repeating creation. In capability enforce mode, computer creation requires computer.create and returns 403 when denied.
+        Create a new asset such as a spreadsheet, document, folder, database, computer, or generic doc (admin-only) in your workspace with your current permissions. Computer assets return 202 after durable submission, which commits the asset and initialization delivery intent together. Runtime provisioning continues asynchronously. Inspect the returned asset ID for progress instead of repeating creation. Computers accept the same configuration as the Athena UI's creation dialog: template, provider, cpu, memory (GiB), disk (GiB) and env_vars. Sizes must be offered by the environment's computer resource policy, and only admins may pick a size other than the template default (403 otherwise). In capability enforce mode, computer creation requires computer.create and returns 403 when denied.
 
         Parameters
         ----------
         asset_type : CreatableAssetType
             Type of asset to create. Supported types: 'spreadsheet' (or 'sheet'), 'document' (or 'doc'), 'folder', 'database' (or 'db'), 'computer'
 
+        cpu : typing.Optional[int]
+            Computer only. vCPU count. Defaults to the template's default. Must be a size the environment's computer resource policy offers; sizes other than the template default require an admin.
+
+        disk : typing.Optional[int]
+            Computer only. Disk size in GiB. Defaults to the template's default. Same policy and admin rules as cpu.
+
+        env_vars : typing.Optional[typing.Dict[str, typing.Optional[str]]]
+            Computer only. Environment variables to set on the computer. Must include every key the template or environment requires. Also accepted as 'envVars'.
+
+        memory : typing.Optional[int]
+            Computer only. Memory in GiB. Defaults to the template's default. Same policy and admin rules as cpu.
+
         parent_folder_id : typing.Optional[str]
             ID of the parent folder to create the asset in
+
+        provider : typing.Optional[str]
+            Computer only. Runtime provider for the computer (e.g. 'talos_v2'). Defaults to the environment's configured computer provider.
+
+        template : typing.Optional[str]
+            Computer only. Template key to create the computer from, as picked in the Athena UI's computer creation dialog (e.g. 'default'), or an 'environment:<asset_id>' reference to a saved environment. Defaults to the default template. Also accepted as 'snapshot'.
 
         title : typing.Optional[str]
             Title for the new asset
@@ -281,7 +306,13 @@ class RawAssetsClient:
             method="POST",
             json={
                 "asset_type": asset_type,
+                "cpu": cpu,
+                "disk": disk,
+                "env_vars": env_vars,
+                "memory": memory,
                 "parent_folder_id": parent_folder_id,
+                "provider": provider,
+                "template": template,
                 "title": title,
                 "workspace_id": workspace_id,
             },
@@ -314,6 +345,17 @@ class RawAssetsClient:
                 )
             if _response.status_code == 403:
                 raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 410:
+                raise GoneError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Optional[typing.Any],
@@ -1428,7 +1470,7 @@ class RawAssetsClient:
             Optional personal message to include in the notification email (max 2000 characters)
 
         notify : typing.Optional[bool]
-            Whether to send email notifications to recipients
+            Whether to notify recipients (email, plus a Slack DM when their workspace has Athena for Slack)
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1826,21 +1868,45 @@ class AsyncRawAssetsClient:
         self,
         *,
         asset_type: CreatableAssetType,
+        cpu: typing.Optional[int] = OMIT,
+        disk: typing.Optional[int] = OMIT,
+        env_vars: typing.Optional[typing.Dict[str, typing.Optional[str]]] = OMIT,
+        memory: typing.Optional[int] = OMIT,
         parent_folder_id: typing.Optional[str] = OMIT,
+        provider: typing.Optional[str] = OMIT,
+        template: typing.Optional[str] = OMIT,
         title: typing.Optional[str] = OMIT,
         workspace_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[CreateAssetResponseOut]:
         """
-        Create a new asset such as a spreadsheet, document, folder, database, computer, or generic doc (admin-only) in your workspace with your current permissions. Computer assets return 202 after durable submission, which commits the asset and initialization delivery intent together. Runtime provisioning continues asynchronously. Inspect the returned asset ID for progress instead of repeating creation. In capability enforce mode, computer creation requires computer.create and returns 403 when denied.
+        Create a new asset such as a spreadsheet, document, folder, database, computer, or generic doc (admin-only) in your workspace with your current permissions. Computer assets return 202 after durable submission, which commits the asset and initialization delivery intent together. Runtime provisioning continues asynchronously. Inspect the returned asset ID for progress instead of repeating creation. Computers accept the same configuration as the Athena UI's creation dialog: template, provider, cpu, memory (GiB), disk (GiB) and env_vars. Sizes must be offered by the environment's computer resource policy, and only admins may pick a size other than the template default (403 otherwise). In capability enforce mode, computer creation requires computer.create and returns 403 when denied.
 
         Parameters
         ----------
         asset_type : CreatableAssetType
             Type of asset to create. Supported types: 'spreadsheet' (or 'sheet'), 'document' (or 'doc'), 'folder', 'database' (or 'db'), 'computer'
 
+        cpu : typing.Optional[int]
+            Computer only. vCPU count. Defaults to the template's default. Must be a size the environment's computer resource policy offers; sizes other than the template default require an admin.
+
+        disk : typing.Optional[int]
+            Computer only. Disk size in GiB. Defaults to the template's default. Same policy and admin rules as cpu.
+
+        env_vars : typing.Optional[typing.Dict[str, typing.Optional[str]]]
+            Computer only. Environment variables to set on the computer. Must include every key the template or environment requires. Also accepted as 'envVars'.
+
+        memory : typing.Optional[int]
+            Computer only. Memory in GiB. Defaults to the template's default. Same policy and admin rules as cpu.
+
         parent_folder_id : typing.Optional[str]
             ID of the parent folder to create the asset in
+
+        provider : typing.Optional[str]
+            Computer only. Runtime provider for the computer (e.g. 'talos_v2'). Defaults to the environment's configured computer provider.
+
+        template : typing.Optional[str]
+            Computer only. Template key to create the computer from, as picked in the Athena UI's computer creation dialog (e.g. 'default'), or an 'environment:<asset_id>' reference to a saved environment. Defaults to the default template. Also accepted as 'snapshot'.
 
         title : typing.Optional[str]
             Title for the new asset
@@ -1861,7 +1927,13 @@ class AsyncRawAssetsClient:
             method="POST",
             json={
                 "asset_type": asset_type,
+                "cpu": cpu,
+                "disk": disk,
+                "env_vars": env_vars,
+                "memory": memory,
                 "parent_folder_id": parent_folder_id,
+                "provider": provider,
+                "template": template,
                 "title": title,
                 "workspace_id": workspace_id,
             },
@@ -1894,6 +1966,17 @@ class AsyncRawAssetsClient:
                 )
             if _response.status_code == 403:
                 raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 410:
+                raise GoneError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Optional[typing.Any],
@@ -3009,7 +3092,7 @@ class AsyncRawAssetsClient:
             Optional personal message to include in the notification email (max 2000 characters)
 
         notify : typing.Optional[bool]
-            Whether to send email notifications to recipients
+            Whether to notify recipients (email, plus a Slack DM when their workspace has Athena for Slack)
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.

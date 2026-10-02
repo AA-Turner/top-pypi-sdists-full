@@ -1,6 +1,6 @@
 use itertools::{Either, Itertools};
 use tombi_glob::{MatchResult, matches_file_patterns};
-use tombi_text::{IntoLsp, Position, Range};
+use tombi_text::IntoLsp;
 use tower_lsp::lsp_types::{
     DocumentFormattingParams, PublishDiagnosticsParams, TextEdit, notification::PublishDiagnostics,
 };
@@ -58,21 +58,16 @@ pub async fn handle_formatting(
         }
     }
 
-    let (toml_version, document_text, line_index, version) = {
-        let Ok(document_sources) = backend.document_sources.try_read() else {
-            return Ok(None);
-        };
-        let Some(document_source) = document_sources.get(&text_document_uri) else {
-            return Ok(None);
-        };
-
-        (
-            document_source.toml_version,
-            document_source.text_arc(),
-            document_source.line_index_arc(),
-            document_source.version,
-        )
+    let Some(document_source) = backend.document_source(&text_document_uri) else {
+        return Ok(None);
     };
+    let (toml_version, encoding, version) = (
+        document_source.toml_version,
+        document_source.encoding_kind(),
+        document_source.version,
+    );
+    let line_index = document_source.line_index();
+    let document_text = document_source.text();
 
     // Get format options with override support
     let text_document_path = text_document_uri.to_file_path().ok();
@@ -94,19 +89,18 @@ pub async fn handle_formatting(
         Some(Either::Left(&text_document_uri)),
         &schema_store,
     )
-    .format(document_text.as_ref())
+    .format_parsed(document_source.parsed())
     .await
     {
         Ok(formatted) => {
-            if document_text.as_ref() != formatted {
-                let edits =
-                    compute_text_edits(document_text.as_ref(), &formatted, line_index.as_ref());
+            if document_text != formatted {
+                let edits = compute_text_edits(&formatted, line_index, encoding);
                 log::debug!("edits: {:?}", edits);
                 if let Ok(mut document_sources) = backend.document_sources.try_write()
-                    && let Some(document_source) = document_sources.get_mut(&text_document_uri)
-                    && document_source.text() == document_text.as_ref()
+                    && let Some(stored) = document_sources.get_mut(&text_document_uri)
+                    && stored.text() == document_text
                 {
-                    document_source.set_text(formatted, toml_version);
+                    stored.set_text(formatted.as_str(), toml_version);
                 }
 
                 return Ok(Some(edits));
@@ -130,7 +124,7 @@ pub async fn handle_formatting(
                     uri: text_document_uri.into(),
                     diagnostics: diagnostics
                         .into_iter()
-                        .map(|diagnostic| diagnostic.into_lsp(line_index.as_ref()))
+                        .map(|diagnostic| diagnostic.into_lsp(line_index, encoding))
                         .collect_vec(),
                     version,
                 })
@@ -145,10 +139,11 @@ pub async fn handle_formatting(
 /// Returns a vector of TextEdit objects representing the minimal changes needed
 /// Uses a grapheme-aware prefix/suffix diff so edits stay minimal and on character boundaries
 fn compute_text_edits(
-    old_text: &str,
     new_text: &str,
-    line_index: &tombi_text::LineIndex,
+    line_index: &tombi_text::LineIndex<'_>,
+    encoding: tombi_text::EncodingKind,
 ) -> Vec<TextEdit> {
+    let old_text = line_index.text();
     if old_text == new_text {
         return Vec::new();
     }
@@ -187,57 +182,30 @@ fn compute_text_edits(
         return Vec::new();
     }
 
-    let start_position = position_at_offset(line_index, change_start);
-    let end_position = position_at_offset(line_index, old_change_end);
-
+    let span = tombi_text::Span::new(
+        tombi_text::Offset::new(change_start as u32),
+        tombi_text::Offset::new(old_change_end as u32),
+    );
     let replacement = new_text[change_start..new_change_end].to_string();
 
     vec![TextEdit {
-        range: Range::new(start_position, end_position).into_lsp(line_index),
+        range: span.into_lsp(line_index, encoding),
         new_text: replacement,
     }]
-}
-
-fn position_at_offset(line_index: &tombi_text::LineIndex, offset: usize) -> Position {
-    if line_index.is_empty() {
-        return Position::new(0, 0);
-    }
-
-    let mut last_line = 0u32;
-    let mut last_text = "";
-
-    for (idx, span) in line_index.iter().enumerate() {
-        let line = idx as u32;
-        let line_text = line_index.line_text(line).unwrap_or("");
-
-        last_line = line;
-        last_text = line_text;
-
-        if offset <= usize::from(span.end) {
-            let slice_end = offset
-                .saturating_sub(usize::from(span.start))
-                .min(line_text.len());
-            let column =
-                UnicodeSegmentation::graphemes(&line_text[..slice_end], true).count() as u32;
-            return Position::new(line, column);
-        }
-    }
-
-    let column = UnicodeSegmentation::graphemes(last_text, true).count() as u32;
-    Position::new(last_line, column)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tombi_text::{EncodingKind, LineIndex, Range};
+    use tombi_text::{EncodingKind, LineIndex};
+    use tower_lsp::lsp_types::{Position, Range};
 
     #[test]
     fn test_compute_text_edits_no_changes() {
         let old_text = "hello world";
         let new_text = "hello world";
-        let line_index = LineIndex::new(old_text, EncodingKind::Utf16);
-        let edits = compute_text_edits(old_text, new_text, &line_index);
+        let line_index = LineIndex::new(old_text);
+        let edits = compute_text_edits(new_text, &line_index, EncodingKind::Utf16);
 
         pretty_assertions::assert_eq!(edits, vec![]);
     }
@@ -246,13 +214,13 @@ mod tests {
     fn test_compute_text_edits_append_final_newline() {
         let old_text = "hello world";
         let new_text = "hello world\n";
-        let line_index = LineIndex::new(old_text, EncodingKind::Utf16);
-        let edits = compute_text_edits(old_text, new_text, &line_index);
+        let line_index = LineIndex::new(old_text);
+        let edits = compute_text_edits(new_text, &line_index, EncodingKind::Utf16);
 
         pretty_assertions::assert_eq!(
             edits,
             vec![TextEdit {
-                range: Range::from(((0, 11), (0, 11))).into_lsp(&line_index),
+                range: Range::new(Position::new(0, 11), Position::new(0, 11)),
                 new_text: "\n".to_string(),
             }]
         );
@@ -262,8 +230,8 @@ mod tests {
     fn test_compute_text_edits_no_changes_final_newline() {
         let old_text = "hello world\n";
         let new_text = "hello world\n";
-        let line_index = LineIndex::new(old_text, EncodingKind::Utf16);
-        let edits = compute_text_edits(old_text, new_text, &line_index);
+        let line_index = LineIndex::new(old_text);
+        let edits = compute_text_edits(new_text, &line_index, EncodingKind::Utf16);
 
         pretty_assertions::assert_eq!(edits, vec![]);
     }
@@ -273,13 +241,13 @@ mod tests {
         // Test case: remove any final trailing newlines leaving a single newline
         let old_text = "line1\n\n\n";
         let new_text = "line1\n";
-        let line_index = LineIndex::new(old_text, EncodingKind::Utf16);
-        let edits = compute_text_edits(old_text, new_text, &line_index);
+        let line_index = LineIndex::new(old_text);
+        let edits = compute_text_edits(new_text, &line_index, EncodingKind::Utf16);
 
         pretty_assertions::assert_eq!(
             edits,
             vec![TextEdit {
-                range: Range::from(((1, 0), (3, 0))).into_lsp(&line_index),
+                range: Range::new(Position::new(1, 0), Position::new(3, 0)),
                 new_text: "".to_string(),
             }]
         );
@@ -289,13 +257,13 @@ mod tests {
     fn test_compute_text_edits_simple_replacement() {
         let old_text = "hello world";
         let new_text = "hello universe";
-        let line_index = LineIndex::new(old_text, EncodingKind::Utf16);
-        let edits = compute_text_edits(old_text, new_text, &line_index);
+        let line_index = LineIndex::new(old_text);
+        let edits = compute_text_edits(new_text, &line_index, EncodingKind::Utf16);
 
         pretty_assertions::assert_eq!(
             edits,
             vec![TextEdit {
-                range: Range::from(((0, 6), (0, 11))).into_lsp(&line_index),
+                range: Range::new(Position::new(0, 6), Position::new(0, 11)),
                 new_text: "universe".to_string(),
             }]
         );
@@ -305,13 +273,13 @@ mod tests {
     fn test_compute_text_edits_multiline() {
         let old_text = "line1\nline2\nline3";
         let new_text = "line1\nmodified line2\nline3";
-        let line_index = LineIndex::new(old_text, EncodingKind::Utf16);
-        let edits = compute_text_edits(old_text, new_text, &line_index);
+        let line_index = LineIndex::new(old_text);
+        let edits = compute_text_edits(new_text, &line_index, EncodingKind::Utf16);
 
         pretty_assertions::assert_eq!(
             edits,
             vec![TextEdit {
-                range: Range::from(((1, 0), (1, 0))).into_lsp(&line_index),
+                range: Range::new(Position::new(1, 0), Position::new(1, 0)),
                 new_text: "modified ".to_string(),
             }]
         );

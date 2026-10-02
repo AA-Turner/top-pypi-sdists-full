@@ -1,0 +1,2052 @@
+"""Translate a bound series' Excel AST into a first-level-dep Python helper."""
+
+from __future__ import annotations
+
+from ast import literal_eval
+from collections.abc import Iterator, Mapping, Sequence
+from dataclasses import dataclass, field, replace
+from itertools import product
+from typing import TYPE_CHECKING, Any, cast
+
+from excel_grapher.core.address_keys import CanonicalAddress, as_canonical, parse_cell_coords
+from excel_grapher.core.formula_ast import (
+    AbsoluteAxis,
+    AstNode,
+    BinaryOpNode,
+    BoolNode,
+    CellRef,
+    CellRefNode,
+    EmptyArgNode,
+    ErrorNode,
+    FunctionCallNode,
+    NumberNode,
+    RangeNode,
+    StringNode,
+    UnaryOpNode,
+    WholeColumnNode,
+    WholeRowNode,
+    resolve_cell_ref,
+)
+from excel_grapher.exporter.inverted_tree import excel as inverted_excel
+from excel_grapher.exporter.inverted_tree.access import (
+    indirect_argument_addresses,
+    indirect_target_addresses,
+)
+from excel_grapher.exporter.inverted_tree.catalog import (
+    BoundSeries,
+    KeyPoint,
+    SeriesCatalog,
+    Statement,
+    covering_series,
+    covering_series_of_range,
+    fit_affine_map,
+)
+from excel_grapher.exporter.inverted_tree.deps import (
+    OffsetColumnSpan,
+    PositionalRangeCell,
+    SeriesDeps,
+    _attach_index_label_cells,
+    addresses_outside_blank_ranges,
+    anchor_only_column_target,
+    ast_literal_int,
+    covering_series_for_index_window,
+    current_blank_rects,
+    index_call_is_ref,
+    index_window_corners,
+    iter_range_addresses,
+    iter_ref_addresses,
+    normalize_excel_function_name,
+    offset_cell_destination,
+    offset_index_destination,
+    range_ref_label,
+    resolve_offset_column_span,
+    resolve_offset_destination_series,
+    resolve_positional_range,
+    resolve_positional_rectangle,
+    try_formula_ast,
+)
+from excel_grapher.exporter.inverted_tree.errors import InvertedTreeExportError
+from excel_grapher.exporter.inverted_tree.named_axes import (
+    NamedAxes,
+    is_subsequence,
+    layout_keys_source,
+    python_identifier,
+)
+from excel_grapher.grapher.blank_ranges import (
+    BlankRangeRect,
+    address_in_blank_ranges,
+    range_overlaps_blank_ranges,
+)
+
+if TYPE_CHECKING:
+    from excel_grapher.grapher.graph import DependencyGraph
+
+_ARITHMETIC_HELPERS = {
+    "+": "xl_add",
+    "-": "xl_sub",
+    "*": "xl_mul",
+    "/": "xl_div",
+    "^": "xl_pow",
+}
+_COMPARE_HELPERS = {
+    "=": "xl_eq",
+    "<>": "xl_ne",
+    "<": "xl_lt",
+    ">": "xl_gt",
+    "<=": "xl_le",
+    ">=": "xl_ge",
+}
+_UNARY_HELPERS = {
+    "-": "xl_neg",
+    "+": "xl_pos",
+}
+_RUNTIME_FUNCTIONS = frozenset(
+    name
+    for name, value in vars(inverted_excel).items()
+    if name.startswith("xl_") and callable(value)
+)
+_AGGREGATE_FUNCTIONS = frozenset(
+    {
+        "SUM",
+        "SUMPRODUCT",
+        "AVERAGE",
+        "MAX",
+        "MIN",
+        "NPV",
+        "STDEV",
+        "RANK",
+        "LARGE",
+        "COUNT",
+        "COUNTIF",
+    }
+)
+_RANGE_REDUCE_FUNCTIONS = _AGGREGATE_FUNCTIONS | frozenset({"AND", "OR"})
+_LOOKUP_TABLE_FUNCTIONS = frozenset({"VLOOKUP", "HLOOKUP", "LOOKUP", "XLOOKUP"})
+_PURE_LOOKUP_FUNCTIONS = _LOOKUP_TABLE_FUNCTIONS | frozenset({"INDEX", "MATCH"})
+_ARRAY_IF_VALUE_OPS = frozenset(_ARITHMETIC_HELPERS) | frozenset(_COMPARE_HELPERS)
+_ARRAY_IF_UNSOUND_FNS = frozenset(
+    {
+        "AND",
+        "OR",
+        "IFS",
+        "CHOOSE",
+        "SWITCH",
+        "SUM",
+        "SUMPRODUCT",
+        "AVERAGE",
+        "AGGREGATE",
+    }
+)
+
+
+@dataclass
+class EmitContext:
+    """How to read bound series while lowering one host formula."""
+
+    host: BoundSeries
+    catalog: SeriesCatalog
+    deps: SeriesDeps
+    host_index: int
+    host_cell: CanonicalAddress
+    coordinate_vars: dict[str, str]
+    used_runtime: set[str] = field(default_factory=set)
+    scc_ids: frozenset[str] = field(default_factory=frozenset)
+    graph: DependencyGraph | None = None
+    blank_rects: tuple[BlankRangeRect, ...] = field(default_factory=current_blank_rects)
+    array_context: bool = False
+    named_axes: NamedAxes | None = None
+    key_remaps: dict[str, dict[object, object]] = field(default_factory=dict)
+    restore_lookup_types: bool = False
+
+    def param(self, series_id: str) -> str:
+        return series_id
+
+    def use(self, symbol: str) -> str:
+        self.used_runtime.add(symbol)
+        return symbol
+
+    def runtime_labeller_for(self, axis: Any) -> BoundSeries | None:
+        """Return the non-constant labeller covering `axis`, if any."""
+        return self.catalog.runtime_labeller(axis.name, axis.keys)
+
+    def layout_axis(self, axis: Any) -> Any:
+        """Return the labeller axis used for position indexes, else `axis`."""
+        labeller = self.runtime_labeller_for(axis)
+        if labeller is None:
+            return axis
+        return labeller.tensor_domain.axes[0]
+
+    def host_uses_positions(self, axis: Any) -> bool:
+        """True when the host iterates `axis` by position (it is that axis's labeller)."""
+        return self.host.axis_labels == axis.name and self.host.direction != "constant"
+
+    def axis_source(self, axis: Any) -> str:
+        """Expression for `axis`: a bound runtime axis or a `data` constant."""
+        if self.runtime_labeller_for(axis) is not None:
+            return "_ax_" + python_identifier(axis.name.lower())
+        if self.named_axes is None:
+            raise InvertedTreeExportError(
+                f"series {self.host.series_id!r}: named axis constants are required"
+            )
+        return f"data.{self.named_axes.constant(axis)}"
+
+
+def python_measure_type(series: BoundSeries) -> str:
+    """Return the Python type of one observation (`float | str` for numbers)."""
+    if series.python_dtype == "str" and series.direction in {"internal", "output"}:
+        base = "str | int | float | bool"
+    elif series.python_dtype == "str":
+        base = "str"
+    else:
+        base = f"{series.python_dtype} | str"
+    if series.has_none_holes or series.blank_default or not series.single_valued:
+        return f"{base} | None"
+    return base
+
+
+def _number_literal(value: float) -> str:
+    if value == int(value) and abs(value) < 1e15:
+        as_int = int(value)
+        if float(as_int) == value:
+            return repr(float(as_int)) if value != as_int else repr(as_int)
+    return repr(value)
+
+
+def _range_is_single_cell(node: RangeNode) -> bool:
+    """True when both endpoints name the same worksheet cell."""
+    start, end = node.start_ref, node.end_ref
+    return start.sheet == end.sheet and start.col == end.col and start.row == end.row
+
+
+def emit_expr(node: AstNode, ctx: EmitContext) -> str:
+    """Lower `node` to a Python expression against `ctx` parameters."""
+    match node:
+        case NumberNode(value):
+            return _number_literal(value)
+        case StringNode(value):
+            return repr(value)
+        case BoolNode(value):
+            return "True" if value else "False"
+        case ErrorNode(error):
+            return f"{ctx.use('xl_raise')}({error.value!r})"
+        case EmptyArgNode():
+            return "0"
+        case CellRefNode():
+            return _emit_cell_ref(node, ctx)
+        case RangeNode() if _range_is_single_cell(node):
+            return _emit_cell_ref(CellRefNode(node.start_ref), ctx)
+        case RangeNode():
+            raise InvertedTreeExportError(
+                f"series {ctx.host.series_id!r}: bare range in value position"
+            )
+        case BinaryOpNode():
+            return _emit_binary(node, ctx)
+        case UnaryOpNode():
+            return _emit_unary(node, ctx)
+        case FunctionCallNode():
+            return _emit_function(node, ctx)
+        case _:
+            raise InvertedTreeExportError(
+                f"series {ctx.host.series_id!r}: unsupported AST node {type(node).__name__}"
+            )
+
+
+def _emit_cell_ref(node: CellRefNode, ctx: EmitContext) -> str:
+    return _emit_address(as_canonical(resolve_cell_ref(node, ctx.host_cell)), ctx, ref=node)
+
+
+def _current_statement(ctx: EmitContext) -> Statement | None:
+    """Return the host statement covering `ctx.host_index`."""
+    index = ctx.host_index
+    for stmt in ctx.host.statements:
+        if stmt.start <= index < stmt.stop:
+            return stmt
+    return next(
+        (stmt for stmt in ctx.host.statements if ctx.host_cell in stmt.cells),
+        None,
+    )
+
+
+def _statement_cells(ctx: EmitContext) -> tuple[CanonicalAddress, ...] | None:
+    stmt = _current_statement(ctx)
+    return None if stmt is None else stmt.cells
+
+
+def _emit_address(
+    address: CanonicalAddress, ctx: EmitContext, *, ref: CellRefNode | None = None
+) -> str:
+    """Compile a cell read; bound-series blanks stay named coordinates.
+
+    Unbound `blank_ranges` cells are the literal `None`. A hole that still
+    belongs to a bound series is indexed by coordinate so formula families
+    can fold; the reader returns a blank when that coordinate is absent.
+    A catalog point whose keys are not on the producer axis is `None`
+    rather than a `CoordinateError`. A numeric formula whose whole body is
+    a blank ref becomes `0` at the measure boundary.
+    """
+    if ctx.catalog.series_for(address) is None and address_in_blank_ranges(
+        address, ctx.blank_rects
+    ):
+        return "None"
+    return _emit_named_address(address, ctx, ref=ref)
+
+
+def _emit_named_address(
+    address: CanonicalAddress, ctx: EmitContext, *, ref: CellRefNode | None = None
+) -> str:
+    """Read a producer by semantic coordinate relative to the host coordinate."""
+    owner = ctx.catalog.require_series_for(address)
+    name = ctx.param(owner.series_id)
+    if owner.single_valued:
+        # A scalar member of the recurrence group is a demand-driven reader.
+        return f"{name}[()]" if owner.series_id in ctx.scc_ids else name
+    index = owner.index_of(address)
+    if index is None:
+        raise InvertedTreeExportError(f"series {owner.series_id!r}: no coordinate for {address}")
+    point = owner.domain[index]
+    if not owner.axis_owns_point(point):
+        return "None"
+    return f"{name}[{', '.join(_named_keys(owner, point, ctx, ref=ref))}]"
+
+
+def _iter_cell_refs(node: AstNode | None) -> Iterator[CellRef]:
+    """Yield every cell and range endpoint reference of `node` in formula order."""
+    if node is None:
+        return
+    match node:
+        case CellRefNode(ref):
+            yield ref
+        case RangeNode(start_ref, end_ref):
+            yield start_ref
+            yield end_ref
+        case FunctionCallNode(_name, args):
+            for arg in args:
+                yield from _iter_cell_refs(arg)
+        case BinaryOpNode(_op, left, right):
+            yield from _iter_cell_refs(left)
+            yield from _iter_cell_refs(right)
+        case UnaryOpNode(_op, operand):
+            yield from _iter_cell_refs(operand)
+        case _:
+            return
+
+
+def _neighbor_host_cells(ctx: EmitContext, axis: str) -> tuple[CanonicalAddress, ...]:
+    """Host series cells immediately before and after the host along `axis`."""
+    sheet, row, col = parse_cell_coords(ctx.host_cell)
+    candidates = (
+        [(row, col + 1), (row, col - 1)] if axis == "col" else [(row + 1, col), (row - 1, col)]
+    )
+    cache = ctx.host._emit_cache
+    cells = cache.get("positions")
+    if cells is None:
+        cells = cache["positions"] = {parse_cell_coords(cell): cell for cell in ctx.host.cells}
+    return tuple(
+        cell
+        for candidate_row, candidate_col in candidates
+        if (cell := cells.get((sheet, candidate_row, candidate_col))) is not None
+    )
+
+
+def _cell_refs_of(ctx: EmitContext, cell: CanonicalAddress) -> list[CellRef]:
+    """References of the formula at `cell`, cached on the host series."""
+    assert ctx.graph is not None
+    cache = ctx.host._emit_cache
+    refs = cache.get(("refs", cell))
+    if refs is None:
+        refs = cache[("refs", cell)] = list(_iter_cell_refs(try_formula_ast(ctx.graph, cell)))
+    return refs
+
+
+def _host_neighbors(ctx: EmitContext) -> tuple[CanonicalAddress, ...]:
+    """Host cells one step along each worksheet axis that exist in the series."""
+    return tuple(
+        neighbor for axis in ("row", "col") for neighbor in _neighbor_host_cells(ctx, axis)
+    )
+
+
+def _axis_coord(address: str, axis: str) -> tuple[str, int]:
+    """Sheet plus the row or column index of `address`."""
+    sheet, row, col = parse_cell_coords(address)
+    return sheet, row if axis == "row" else col
+
+
+def _reference_stays_put(ctx: EmitContext, ref: CellRef, axis: str) -> bool:
+    """True when neighbouring host formulas keep `ref` on the same `axis` coord.
+
+    A relative reference copied across years can still stay on one vintage
+    row (or one period column). Compare that axis coordinate, not the full
+    address: the start of an expanding `SUM` slides with `TIME_PERIOD` while
+    the vintage row stays put. Neighbours along either host axis count, so a
+    one-row host can still pin the start vintage.
+    """
+    if ctx.graph is None:
+        return False
+    host_refs = _cell_refs_of(ctx, ctx.host_cell)
+    index = next((i for i, candidate in enumerate(host_refs) if candidate is ref), None)
+    if index is None:
+        return False
+    host_sheet, host_coord = _axis_coord(resolve_cell_ref(ref, ctx.host_cell), axis)
+    saw_neighbor = False
+    for neighbor in _host_neighbors(ctx):
+        neighbor_refs = _cell_refs_of(ctx, neighbor)
+        if len(host_refs) != len(neighbor_refs):
+            return False
+        saw_neighbor = True
+        neighbor_sheet, neighbor_coord = _axis_coord(
+            resolve_cell_ref(neighbor_refs[index], neighbor), axis
+        )
+        if neighbor_sheet != host_sheet or neighbor_coord != host_coord:
+            return False
+    return saw_neighbor
+
+
+def _pinned_axes(ref: CellRefNode | None, ctx: EmitContext) -> set[str]:
+    """Worksheet axes on which `ref` keeps one coordinate that is not the host's."""
+    if ref is None:
+        return set()
+    address = resolve_cell_ref(ref, ctx.host_cell)
+    _host_sheet, host_row, host_col = parse_cell_coords(ctx.host_cell)
+    _sheet, row, col = parse_cell_coords(address)
+    pinned: set[str] = set()
+    for axis, host_position, position, axis_ref in (
+        ("col", host_col, col, ref.ref.col),
+        ("row", host_row, row, ref.ref.row),
+    ):
+        if _reference_stays_put(ctx, ref.ref, axis) or (
+            position != host_position and isinstance(axis_ref, AbsoluteAxis)
+        ):
+            pinned.add(axis)
+    return pinned
+
+
+def _integer_driver(
+    ctx: EmitContext, key_field: str, field_axis: str | None
+) -> tuple[str, int] | None:
+    """The host loop variable an integer key of `key_field` moves with."""
+    from excel_grapher.exporter.inverted_tree.deps import _key_field_axis
+
+    host_point = ctx.host.domain[ctx.host_index].as_mapping()
+    candidates = [
+        (field, variable)
+        for field, variable in ctx.coordinate_vars.items()
+        if type(host_point.get(field)) is int
+    ]
+    if not candidates:
+        return None
+    ranked = sorted(
+        candidates,
+        key=lambda item: (
+            item[0] != key_field,
+            _key_field_axis(ctx.host, item[0]) != field_axis,
+            item[0] != "TIME_PERIOD",
+        ),
+    )
+    field, variable = ranked[0]
+    return variable, cast(int, host_point[field])
+
+
+def _string_driver(
+    ctx: EmitContext, key_field: str, field_axis: str | None, target: str
+) -> str | None:
+    """The host loop variable a string key of `key_field` equals.
+
+    Unlike `_integer_driver`, this only binds when the host coordinate value
+    equals `target`. Field names need not match: a producer key still uses
+    the host variable when both cells hold the same label.
+    """
+    from excel_grapher.exporter.inverted_tree.deps import _key_field_axis
+
+    host_point = ctx.host.domain[ctx.host_index].as_mapping()
+    candidates = [
+        (field, variable)
+        for field, variable in ctx.coordinate_vars.items()
+        if type(value := host_point.get(field)) is str and value == target
+    ]
+    if not candidates:
+        return None
+    ranked = sorted(
+        candidates,
+        key=lambda item: (
+            item[0] != key_field,
+            _key_field_axis(ctx.host, item[0]) != field_axis,
+        ),
+    )
+    return ranked[0][1]
+
+
+_UNSET = object()
+_NON_SLOT_ACCESS = frozenset({"whole", "dynamic"})
+
+
+def _axis_key_position(series: BoundSeries, field: str, catalog_index: int) -> int | None:
+    """Return the axis index of `field` at `catalog_index`, if present."""
+    if catalog_index >= len(series.domain):
+        return None
+    axis = next((item for item in series.tensor_domain.axes if item.name == field), None)
+    if axis is None:
+        return None
+    try:
+        value = series.domain[catalog_index][field]
+    except KeyError:
+        return None
+    if type(value) is not axis.key_type:
+        return None
+    try:
+        return axis.keys.index(value)
+    except ValueError:
+        return None
+
+
+def _shared_axis_lockstep(
+    host: BoundSeries,
+    producer: BoundSeries,
+    slots: Mapping[int, int],
+) -> bool:
+    """Whether each shared key walks `prod_axis = host_axis + offset`.
+
+    A 1-D host that copies one column of a matrix has producer catalog
+    indexes `0, 2, 4, …` (or `0, 3, 6, …`). Flat-index slope is then not
+    1, but the shared axis still is.
+    """
+    shared = [name for name in producer.key_fields if name in host.key_fields]
+    if not shared:
+        return False
+    for name in shared:
+        pairs: list[tuple[int, int]] = []
+        for host_index, producer_index in slots.items():
+            host_pos = _axis_key_position(host, name, host_index)
+            producer_pos = _axis_key_position(producer, name, producer_index)
+            if host_pos is None or producer_pos is None:
+                return False
+            pairs.append((host_pos, producer_pos))
+        fitted = fit_affine_map(pairs)
+        if fitted is None or fitted[0] != 1:
+            return False
+    return True
+
+
+def _lockstep_producer_slots(ctx: EmitContext, producer: BoundSeries) -> dict[int, int] | None:
+    """Host catalog index -> producer index for a lockstep single-slot walk.
+
+    Each host member that reads `producer` must read exactly one slot.
+    Alignment is `prod = host + offset` on flat catalog indexes, or the
+    same slope-1 walk on every shared key axis so a copied matrix column
+    still pairs with the host.
+    """
+    cache = ctx.host._emit_cache
+    cache_key = ("lockstep_slots", producer.series_id)
+    cached = cache.get(cache_key, _UNSET)
+    if cached is not _UNSET:
+        return cached
+    per_host: dict[int, set[int]] = {}
+    for edge in ctx.deps.edges:
+        if edge.producer_id != producer.series_id or edge.consumer_id != ctx.host.series_id:
+            continue
+        if edge.access in _NON_SLOT_ACCESS:
+            continue
+        host_index = ctx.host.index_of(edge.consumer_cell)
+        producer_index = producer.index_of(edge.producer_cell)
+        if host_index is None or producer_index is None:
+            continue
+        per_host.setdefault(host_index, set()).add(producer_index)
+    if not per_host or any(len(indices) != 1 for indices in per_host.values()):
+        cache[cache_key] = None
+        return None
+    slots = {host_index: next(iter(indices)) for host_index, indices in per_host.items()}
+    fitted = fit_affine_map(list(slots.items()))
+    if (fitted is None or fitted[0] != 1) and not _shared_axis_lockstep(ctx.host, producer, slots):
+        cache[cache_key] = None
+        return None
+    cache[cache_key] = slots
+    return slots
+
+
+def _lockstep_string_map(
+    ctx: EmitContext,
+    producer: BoundSeries,
+    producer_field: str,
+    slots: Mapping[int, int],
+    host_field: str,
+) -> dict[object, object] | None:
+    """Return host_field -> producer_field values when that pairing is a function.
+
+    A constant producer field (every host maps to the same label) stays a
+    literal, not a remap through the host key. The result, including `None`,
+    is cached on the host series for the producer, both fields, and this slot
+    map. The slot map is retained so a later map cannot reuse its identity.
+    """
+    cache = ctx.host._emit_cache
+    cache_key = ("lockstep_string_map", producer.series_id, producer_field, host_field, id(slots))
+    cached = cache.get(cache_key, _UNSET)
+    if cached is not _UNSET:
+        return cached[1]
+    mapping = _lockstep_string_pairs(ctx, producer, producer_field, slots, host_field)
+    cache[cache_key] = (slots, mapping)
+    return mapping
+
+
+def _lockstep_string_pairs(
+    ctx: EmitContext,
+    producer: BoundSeries,
+    producer_field: str,
+    slots: Mapping[int, int],
+    host_field: str,
+) -> dict[object, object] | None:
+    """Build one host-field -> producer-field map, or `None` when it is not a function."""
+    mapping: dict[object, object] = {}
+    for host_index in sorted(slots):
+        producer_index = slots[host_index]
+        if host_index >= len(ctx.host.domain) or producer_index >= len(producer.domain):
+            return None
+        try:
+            host_value = ctx.host.domain[host_index][host_field]
+            producer_value = producer.domain[producer_index][producer_field]
+        except KeyError:
+            return None
+        if type(host_value) is not str or type(producer_value) is not str:
+            return None
+        existing = mapping.get(host_value, _UNSET)
+        if existing is not _UNSET and existing != producer_value:
+            return None
+        mapping[host_value] = producer_value
+    if len(mapping) < 2 or len(set(mapping.values())) < 2:
+        return None
+    if all(source == target for source, target in mapping.items()):
+        return None
+    return mapping
+
+
+def _remap_constant_name(host_field: str, producer_id: str, producer_field: str) -> str:
+    """Name a host-key -> producer-key dict for generated formula bodies."""
+    host_part = python_identifier(host_field.upper())
+    producer_part = python_identifier(producer_id.upper())
+    if host_field == producer_field:
+        return f"{host_part}_TO_{producer_part}"
+    return f"{host_part}_TO_{producer_part}_{python_identifier(producer_field.upper())}"
+
+
+def _string_follow_expr(
+    ctx: EmitContext, owner: BoundSeries, key_field: str, target: str
+) -> str | None:
+    """A dict lookup when `target` is a lockstep function of a host string key.
+
+    Equality and templates already cover the same spelling and an embedded
+    host label. A lockstep walk whose producer labels are a different
+    vocabulary of a host key is that pairing as a dict, so formula families
+    collapse instead of branching on the host coordinate. The pairing is a
+    function of the host key, so it still applies when the producer row is
+    pinned against a sliding `TIME_PERIOD` walk.
+    """
+    from excel_grapher.exporter.inverted_tree.deps import _key_field_axis
+
+    if not ctx.coordinate_vars:
+        return None
+    slots = _lockstep_producer_slots(ctx, owner)
+    if slots is None or ctx.host_index not in slots:
+        return None
+    host_point = ctx.host.domain[ctx.host_index].as_mapping()
+    field_axis = _key_field_axis(owner, key_field)
+    ranked: list[tuple[str, str, dict[object, object]]] = []
+    for host_field, variable in ctx.coordinate_vars.items():
+        if type(host_point.get(host_field)) is not str:
+            continue
+        mapping = _lockstep_string_map(ctx, owner, key_field, slots, host_field)
+        if mapping is None or mapping.get(host_point[host_field]) != target:
+            continue
+        ranked.append((host_field, variable, mapping))
+    if not ranked:
+        return None
+    ranked.sort(
+        key=lambda item: (
+            item[0] != key_field,
+            _key_field_axis(ctx.host, item[0]) != field_axis,
+        )
+    )
+    host_field, variable, mapping = ranked[0]
+    host_axis = ctx.host.tensor_domain.axes[ctx.host.key_fields.index(host_field)]
+    if ctx.runtime_labeller_for(host_axis) is not None:
+        raise InvertedTreeExportError(
+            f"series {ctx.host.series_id!r}: host-key remaps over runtime axis "
+            f"{host_axis.name!r} are unsupported"
+        )
+    name = _remap_constant_name(host_field, owner.series_id, key_field)
+    existing = ctx.key_remaps.get(name)
+    if existing is not None and existing != mapping:
+        return None
+    ctx.key_remaps[name] = mapping
+    return f"{name}[{variable}]"
+
+
+def _key_template(target: str, ctx: EmitContext) -> tuple[str, str] | None:
+    """An f-string over a host key embedded in the label `target`."""
+    host_point = ctx.host.domain[ctx.host_index].as_mapping()
+    best: tuple[str, str, str] | None = None
+    for key_field, variable in ctx.coordinate_vars.items():
+        value = host_point.get(key_field)
+        if not isinstance(value, str) or len(value) < 2 or value == target or value not in target:
+            continue
+        if any(char in value for char in "'\\\"{}"):
+            continue
+        if best is None or len(value) > len(best[0]):
+            best = (value, variable, key_field)
+    if best is None:
+        return None
+    value, variable, key_field = best
+    quoted = repr(target)
+    inner = quoted[1:-1].replace("{", "{{").replace("}", "}}")
+    return f"f{quoted[0]}{inner.replace(value, '{' + variable + '}')}{quoted[0]}", key_field
+
+
+def _named_keys(
+    owner: BoundSeries,
+    point: KeyPoint,
+    ctx: EmitContext,
+    *,
+    ref: CellRefNode | None = None,
+) -> list[str]:
+    """Express each key of `point` relative to the host loop variables.
+
+    A key equal to a host coordinate value is the loop variable, including
+    when the producer field name differs from the host's. An integer key
+    reached through a moving reference is the host's period variable plus
+    the authored difference; formula-family grouping then verifies the same
+    difference at every coordinate sharing the expression. A `$` pin onto
+    this vintage's `ISSUANCE_YEAR` is that variable, so opening stock folds
+    across vintages. Other fixed references stay literal. A lockstep walk
+    whose producer string keys are a function of a host key is that
+    function as a dict, including when the producer row is pinned against
+    `TIME_PERIOD`. A label that embeds the host's own key is a template
+    over it; exact string equality is pass-through, not a template.
+    """
+    from excel_grapher.exporter.inverted_tree.deps import _key_field_axis
+
+    assert ctx.coordinate_vars is not None
+    host_point = ctx.host.domain[ctx.host_index].as_mapping()
+    pinned = _pinned_axes(ref, ctx)
+    issuance_var = ctx.coordinate_vars.get("ISSUANCE_YEAR")
+    issuance_key = host_point.get("ISSUANCE_YEAR")
+    keys = []
+    for key_field in owner.key_fields:
+        variable = ctx.coordinate_vars.get(key_field)
+        current = host_point.get(key_field)
+        target = point[key_field]
+        field_axis = _key_field_axis(owner, key_field)
+        # A `$` pin onto this vintage's issuance year is `issuance_year`,
+        # not a per-vintage literal. Relative lags stay `time_period ± n`.
+        if (
+            issuance_var is not None
+            and key_field == "TIME_PERIOD"
+            and issuance_key == target
+            and field_axis in pinned
+        ):
+            keys.append(issuance_var)
+            continue
+        if isinstance(target, str):
+            templated = _key_template(target, ctx)
+            if templated is not None:
+                template, templated_field = templated
+                host_axis = ctx.host.tensor_domain.axes[ctx.host.key_fields.index(templated_field)]
+                if ctx.runtime_labeller_for(host_axis) is not None:
+                    raise InvertedTreeExportError(
+                        f"series {ctx.host.series_id!r}: key templates over a runtime axis "
+                        "are unsupported"
+                    )
+                keys.append(template)
+                continue
+            follow = _string_follow_expr(ctx, owner, key_field, target)
+            if follow is not None:
+                keys.append(follow)
+                continue
+        if field_axis in pinned:
+            keys.append(repr(target))
+            continue
+        owner_axis = owner.tensor_domain.axes[owner.key_fields.index(key_field)]
+        runtime = ctx.runtime_labeller_for(owner_axis)
+        if variable is not None and current == target:
+            keys.append(variable)
+            continue
+        # An unplanned axis has no emitted constant to index.
+        if runtime is not None and (
+            ctx.named_axes is None or not ctx.named_axes.contains(owner_axis)
+        ):
+            keys.append(repr(target))
+            continue
+        layout = ctx.layout_axis(owner_axis)
+        if type(target) is int:
+            driver = _integer_driver(ctx, key_field, field_axis)
+            if driver is not None:
+                variable, current = driver
+                if runtime is not None:
+                    difference = layout.keys.index(target) - layout.keys.index(current)
+                    if ctx.host_uses_positions(owner_axis):
+                        sign = "+" if difference > 0 else "-"
+                        keys.append(
+                            variable if difference == 0 else f"{variable} {sign} {abs(difference)}"
+                        )
+                    elif difference == 0:
+                        keys.append(variable)
+                    else:
+                        keys.append(
+                            f"{ctx.use('axis_step')}({ctx.axis_source(owner_axis)}, {variable}, {difference})"
+                        )
+                    continue
+                difference = target - current
+                sign = "+" if difference > 0 else "-"
+                keys.append(variable if difference == 0 else f"{variable} {sign} {abs(difference)}")
+                continue
+        if isinstance(target, str):
+            driver = _string_driver(ctx, key_field, field_axis, target)
+            if driver is not None:
+                if runtime is not None:
+                    driver_field = next(
+                        field for field, name in ctx.coordinate_vars.items() if name == driver
+                    )
+                    host_axis = ctx.host.tensor_domain.axes[ctx.host.key_fields.index(driver_field)]
+                    host_labeller = ctx.runtime_labeller_for(host_axis)
+                    owner_labeller = ctx.runtime_labeller_for(owner_axis)
+                    if (
+                        host_labeller is None
+                        or owner_labeller is None
+                        or host_labeller.series_id != owner_labeller.series_id
+                    ):
+                        raise InvertedTreeExportError(
+                            f"series {ctx.host.series_id!r}: cross-field key equality between "
+                            f"runtime axis {owner_axis.name!r} and a static axis is unsupported"
+                        )
+                keys.append(driver)
+                continue
+        if runtime is not None:
+            keys.append(f"{ctx.axis_source(owner_axis)}.keys[{layout.keys.index(target)}]")
+            continue
+        keys.append(repr(target))
+    return keys
+
+
+def _emit_value_or_range(node: AstNode, ctx: EmitContext) -> str:
+    """Emit a scalar expression or a positional range table."""
+    if isinstance(node, RangeNode) and _range_is_single_cell(node):
+        return _emit_cell_ref(CellRefNode(node.start_ref), ctx)
+    if isinstance(node, (RangeNode, WholeColumnNode, WholeRowNode)):
+        return _emit_range_table(node, ctx)
+    return emit_expr(node, ctx)
+
+
+def _emit_binary(node: BinaryOpNode, ctx: EmitContext) -> str:
+    op = node.op
+    if op == "&":
+        left = emit_expr(node.left, ctx)
+        right = emit_expr(node.right, ctx)
+        return f"{ctx.use('xl_concat')}({left}, {right})"
+    helper = _ARITHMETIC_HELPERS.get(op) or _COMPARE_HELPERS.get(op)
+    if helper is not None:
+        left = _emit_value_or_range(node.left, ctx)
+        right = _emit_value_or_range(node.right, ctx)
+        return f"{ctx.use(helper)}({left}, {right})"
+    raise InvertedTreeExportError(f"series {ctx.host.series_id!r}: unsupported operator {op!r}")
+
+
+def _emit_unary(node: UnaryOpNode, ctx: EmitContext) -> str:
+    operand = emit_expr(node.operand, ctx)
+    helper = _UNARY_HELPERS.get(node.op)
+    if helper is not None:
+        return f"{ctx.use(helper)}({operand})"
+    if node.op == "%":
+        return f"{ctx.use('xl_div')}({operand}, 100)"
+    raise InvertedTreeExportError(
+        f"series {ctx.host.series_id!r}: unsupported unary operator {node.op!r}"
+    )
+
+
+def _emit_function(node: FunctionCallNode, ctx: EmitContext) -> str:
+    name = normalize_excel_function_name(node.name)
+    if name in {"IFERROR", "IFNA", "ISERROR", "ISNA", "ISBLANK", "ISNUMBER", "ISTEXT"}:
+        required = 2 if name in {"IFERROR", "IFNA"} else 1
+        if len(node.args) != required:
+            return f"{ctx.use('xl_raise')}('#VALUE!')"
+        if name == "ISNUMBER":
+            helper = "xl_isnumber"
+        elif name == "ISTEXT":
+            helper = "xl_istext"
+        else:
+            helper = f"xl_{name.lower()}"
+        lazy = ctx
+        args = ", ".join(f"lambda: {emit_expr(arg, lazy)}" for arg in node.args)
+        return f"{ctx.use(helper)}({args})"
+    if name == "NA":
+        return f"{ctx.use('xl_raise')}('#N/A')"
+    if name == "IF":
+        return _emit_if(node, ctx)
+    if name == "CHOOSE":
+        return _emit_choose(node, ctx)
+    if name == "OFFSET":
+        return _emit_offset(node, ctx)
+    if name == "INDEX":
+        return _emit_index(node, ctx)
+    if name == "ROW":
+        return _emit_row(node, ctx)
+    if name == "COLUMN":
+        return _emit_column(node, ctx)
+    if name in {"COLUMNS", "ROWS"}:
+        return _emit_reference_geometry(node, ctx)
+    if name == "INDIRECT":
+        return _emit_indirect(node, ctx)
+    if name == "MATCH":
+        return _emit_match(node, ctx)
+    if name == "TRUE":
+        return "True"
+    if name == "FALSE":
+        return "False"
+    if name in _RANGE_REDUCE_FUNCTIONS:
+        return _emit_aggregate(node, ctx)
+    if name in _LOOKUP_TABLE_FUNCTIONS:
+        args = ", ".join(_emit_lookup_arg(arg, ctx) for arg in node.args)
+    else:
+        args = ", ".join(emit_expr(arg, ctx) for arg in node.args)
+    func = f"xl_{name.lower()}"
+    if func not in _RUNTIME_FUNCTIONS:
+        raise InvertedTreeExportError(
+            f"series {ctx.host.series_id!r}: Excel function {name} has no "
+            "inverted-tree runtime helper"
+        )
+    ctx.use(func)
+    call = f"{func}({args})"
+    if name in _PURE_LOOKUP_FUNCTIONS:
+        return call
+    return call
+
+
+def _emit_reference_geometry(node: FunctionCallNode, ctx: EmitContext) -> str:
+    """Lower reference metadata without evaluating the referenced cell values."""
+    name = normalize_excel_function_name(node.name)
+    if len(node.args) > 1 or (name in {"COLUMNS", "ROWS"} and not node.args):
+        return f"{ctx.use('xl_raise')}('#VALUE!')"
+    ref = node.args[0] if node.args else None
+    if ref is not None and not isinstance(
+        ref, (CellRefNode, RangeNode, WholeColumnNode, WholeRowNode)
+    ):
+        raise _host_export_error(ctx, f"{name} requires a worksheet reference")
+
+    def coordinate(host_cell: CanonicalAddress) -> int:
+        if ref is None:
+            _sheet, row, col = parse_cell_coords(host_cell)
+            return row if name == "ROW" else col
+        if isinstance(ref, CellRefNode):
+            addresses = (as_canonical(resolve_cell_ref(ref, host_cell)),)
+        elif isinstance(ref, RangeNode):
+            addresses = (
+                as_canonical(resolve_cell_ref(CellRefNode(ref.start_ref), host_cell)),
+                as_canonical(resolve_cell_ref(CellRefNode(ref.end_ref), host_cell)),
+            )
+        else:
+            addresses = tuple(iter_ref_addresses(ref, host_cell, ctx.graph))
+        _sheet, row, col = parse_cell_coords(addresses[0])
+        if name == "COLUMNS":
+            return abs(parse_cell_coords(addresses[-1])[2] - col) + 1
+        if name == "ROWS":
+            return abs(parse_cell_coords(addresses[-1])[1] - row) + 1
+        return row if name == "ROW" else col
+
+    return str(coordinate(ctx.host_cell))
+
+
+def _emit_if(node: FunctionCallNode, ctx: EmitContext) -> str:
+    if len(node.args) < 2:
+        return f"{ctx.use('xl_raise')}('#VALUE!')"
+    if _contains_array_if_operand(node):
+        if not ctx.array_context:
+            raise InvertedTreeExportError(
+                f"series {ctx.host.series_id!r}: bare range in value position"
+            )
+        _assert_array_if_sound(node, ctx)
+        cond = _emit_value_or_range(node.args[0], ctx)
+        then = _emit_value_or_range(node.args[1], ctx)
+        otherwise = _emit_value_or_range(node.args[2], ctx) if len(node.args) > 2 else "False"
+        return f"{ctx.use('xl_if')}({cond}, {then}, {otherwise})"
+    cond = emit_expr(node.args[0], ctx)
+    then = emit_expr(node.args[1], ctx)
+    # Array omitted else is Excel FALSE; empty else is EmptyArgNode -> 0.
+    otherwise = emit_expr(node.args[2], ctx) if len(node.args) > 2 else "False"
+    return f"({then} if {ctx.use('xl_bool')}({cond}) else {otherwise})"
+
+
+def _contains_array_if_operand(node: AstNode) -> bool:
+    """True when `node` has a range in element-wise IF/operator position.
+
+    Ranges consumed by lookups or aggregates (`VLOOKUP`, `INDEX`, `SUM`, â€¦)
+    are not array-`IF` operands; those functions keep their own lowering.
+    """
+    match node:
+        case RangeNode() if _range_is_single_cell(node):
+            return False
+        case RangeNode() | WholeColumnNode() | WholeRowNode():
+            return True
+        case BinaryOpNode(left=left, right=right):
+            return _contains_array_if_operand(left) or _contains_array_if_operand(right)
+        case UnaryOpNode(operand=operand):
+            return _contains_array_if_operand(operand)
+        case FunctionCallNode(name=name, args=args):
+            if normalize_excel_function_name(name) != "IF":
+                return False
+            return any(_contains_array_if_operand(arg) for arg in args)
+        case _:
+            return False
+
+
+def _range_shape(node: RangeNode, ctx: EmitContext) -> tuple[int, int]:
+    start = resolve_cell_ref(node.start_ref, ctx.host_cell)
+    end = resolve_cell_ref(node.end_ref, ctx.host_cell)
+    sheet1, row1, col1 = parse_cell_coords(start)
+    sheet2, row2, col2 = parse_cell_coords(end)
+    if sheet1 != sheet2:
+        raise _host_export_error(ctx, "array IF does not support cross-sheet ranges")
+    return (abs(row2 - row1) + 1, abs(col2 - col1) + 1)
+
+
+def _assert_array_if_sound(node: FunctionCallNode, ctx: EmitContext) -> None:
+    """Fail closed when array `IF` alignment is not element-wise.
+
+    Supported interiors are ranges, cell refs, scalars, nested `IF`, and
+    binary arithmetic/compare. Unary operators, concatenation, and other
+    functions are rejected with an array-`IF`-specific message.
+    """
+    shapes: set[tuple[int, int]] = set()
+
+    def walk(item: AstNode) -> None:
+        if isinstance(item, (WholeColumnNode, WholeRowNode)):
+            kind = "whole-column" if isinstance(item, WholeColumnNode) else "whole-row"
+            raise _host_export_error(ctx, f"array IF does not support {kind} refs")
+        if isinstance(item, RangeNode):
+            shapes.add(_range_shape(item, ctx))
+            return
+        if isinstance(item, BinaryOpNode):
+            if item.op not in _ARRAY_IF_VALUE_OPS:
+                raise _host_export_error(ctx, f"array IF operator {item.op!r} is unsupported")
+            walk(item.left)
+            walk(item.right)
+            return
+        if isinstance(item, UnaryOpNode):
+            raise _host_export_error(ctx, f"array IF unary {item.op!r} is unsupported")
+        if isinstance(item, FunctionCallNode):
+            name = normalize_excel_function_name(item.name)
+            if name in _ARRAY_IF_UNSOUND_FNS:
+                if name in {"AND", "OR"}:
+                    detail = "AND/OR collapse"
+                elif name in {"SUM", "SUMPRODUCT", "AVERAGE", "AGGREGATE"}:
+                    detail = "nested aggregate"
+                else:
+                    detail = name
+                raise _host_export_error(ctx, f"array IF {detail} is unsupported")
+            if name != "IF":
+                raise _host_export_error(ctx, f"array IF interior {name} is unsupported")
+            for arg in item.args:
+                walk(arg)
+
+    for arg in node.args:
+        walk(arg)
+    if len(shapes) > 1:
+        raise _host_export_error(ctx, f"array IF shape mismatch: {sorted(shapes)}")
+
+
+def _emit_choose(node: FunctionCallNode, ctx: EmitContext) -> str:
+    if len(node.args) < 2:
+        return f"{ctx.use('xl_raise')}('#VALUE!')"
+    index = emit_expr(node.args[0], ctx)
+    run = _cell_run(node.args[1:], ctx)
+    if run is not None:
+        view = _named_range_view(run, ctx)
+        if view is not None:
+            return f"{ctx.use('xl_choose_range')}({index}, {view})"
+    lazy = ctx
+    choices = ", ".join(f"lambda: {emit_expr(arg, lazy)}" for arg in node.args[1:])
+    return f"{ctx.use('xl_choose_lazy')}({index}, {choices})"
+
+
+def _cell_run(args: Sequence[AstNode], ctx: EmitContext) -> RangeNode | None:
+    """The range spanned by cell references listed along one worksheet row or column."""
+    if len(args) < 2 or not all(isinstance(arg, CellRefNode) for arg in args):
+        return None
+    refs = [cast(CellRefNode, arg) for arg in args]
+    located = [parse_cell_coords(resolve_cell_ref(ref, ctx.host_cell)) for ref in refs]
+    sheets = {sheet for sheet, _row, _col in located}
+    if len(sheets) != 1:
+        return None
+    rows = [row for _sheet, row, _col in located]
+    cols = [col for _sheet, _row, col in located]
+    across = len(set(rows)) == 1 and cols == list(range(cols[0], cols[0] + len(cols)))
+    down = len(set(cols)) == 1 and rows == list(range(rows[0], rows[0] + len(rows)))
+    if not (across or down):
+        return None
+    return RangeNode(start_ref=refs[0].ref, end_ref=refs[-1].ref)
+
+
+def _emit_aggregate(node: FunctionCallNode, ctx: EmitContext) -> str:
+    """Emit a range-reducing call (`SUM`, `AND`, â€¦) with bound range arguments."""
+    name = normalize_excel_function_name(node.name)
+    func = f"xl_{name.lower()}"
+    if func not in _RUNTIME_FUNCTIONS:
+        raise InvertedTreeExportError(
+            f"series {ctx.host.series_id!r}: Excel function {name} has no "
+            "inverted-tree runtime helper"
+        )
+    array_ctx = replace(ctx, array_context=True)
+    args = ", ".join(_emit_aggregate_arg(arg, array_ctx, name) for arg in node.args)
+    ctx.use(func)
+    return f"{func}({args})"
+
+
+def _emit_aggregate_arg(node: AstNode, ctx: EmitContext, function_name: str) -> str:
+    """Lower one aggregate argument.
+
+    An omitted `COUNT` argument is blank, so it does not add to the count.
+    Other aggregates keep the scalar lowering, where a missing argument is `0`.
+    """
+    if function_name == "COUNT" and isinstance(node, EmptyArgNode):
+        return "None"
+    if isinstance(node, (RangeNode, WholeColumnNode, WholeRowNode)):
+        return _emit_range_values(node, ctx)
+    return emit_expr(node, ctx)
+
+
+def _emit_range_values(node: AstNode, ctx: EmitContext) -> str:
+    addresses = addresses_outside_blank_ranges(
+        iter_ref_addresses(node, ctx.host_cell, ctx.graph),
+        ctx.blank_rects,
+    )
+    if not addresses:
+        return "()"
+    named_view = _named_range_view(node, ctx, addresses)
+    if named_view is not None:
+        return named_view
+    return _python_tuple([_emit_address(address, ctx) for address in addresses])
+
+
+def _with_lookup_types(ctx: EmitContext) -> EmitContext:
+    """Return `ctx` with `restore_lookup_types` set for INDEX/MATCH/VLOOKUP."""
+    return ctx if ctx.restore_lookup_types else replace(ctx, restore_lookup_types=True)
+
+
+def _emit_lookup_arg(node: AstNode, ctx: EmitContext) -> str:
+    lookup_ctx = _with_lookup_types(ctx)
+    if isinstance(node, (RangeNode, WholeColumnNode, WholeRowNode)):
+        return _emit_range_table(node, lookup_ctx)
+    return emit_expr(node, lookup_ctx)
+
+
+def _python_tuple(items: Sequence[str]) -> str:
+    """Emit a Python tuple literal; one-element rows keep a trailing comma."""
+    if len(items) == 1:
+        return f"({items[0]},)"
+    return f"({', '.join(items)})"
+
+
+def _group_positional_rows(
+    cells: Sequence[PositionalRangeCell],
+) -> list[list[PositionalRangeCell]]:
+    """Group positional cells into worksheet rows, preserving column order."""
+    rows: list[list[PositionalRangeCell]] = []
+    current_row: int | None = None
+    current: list[PositionalRangeCell] = []
+    for cell in cells:
+        _sheet, row, _col = parse_cell_coords(cell.address)
+        if current_row is None or row != current_row:
+            if current:
+                rows.append(current)
+            current = [cell]
+            current_row = row
+        else:
+            current.append(cell)
+    if current:
+        rows.append(current)
+    return rows
+
+
+def _positional_table_source(cells: Sequence[PositionalRangeCell], ctx: EmitContext) -> str:
+    """Emit a lookup rectangle as strips of views, else per-cell callbacks.
+
+    Consecutive worksheet rows that share the same series layout collapse
+    into one strip whose parts are views over those blocks. Cells are read
+    by literal coordinate so the table never depends on the host loop
+    variable and can be built once per call.
+    """
+    rows = _group_positional_rows(cells)
+    table_ctx = replace(ctx, coordinate_vars={})
+    part_rows = [_table_row_parts(row, table_ctx) for row in rows]
+    strips = _collapse_table_strips(part_rows, table_ctx)
+    callbacks = _python_tuple([_python_tuple(strip) for strip in strips])
+    return f"{ctx.use('lazy_table')}({callbacks})"
+
+
+@dataclass(frozen=True, slots=True)
+class _TableRowPart:
+    """One lazy_table part: a cell callback or a view of one series run."""
+
+    source: str
+    series_id: str | None
+    start: CanonicalAddress
+    end: CanonicalAddress
+
+
+def _table_row_parts(row: Sequence[PositionalRangeCell], ctx: EmitContext) -> list[_TableRowPart]:
+    """One view per run of a series' cells in a table row, callbacks elsewhere."""
+    parts: list[_TableRowPart] = []
+    index = 0
+    while index < len(row):
+        cell = row[index]
+        end = index
+        while (
+            cell.series_id is not None
+            and end + 1 < len(row)
+            and row[end + 1].series_id == cell.series_id
+            and not row[end + 1].blank
+        ):
+            end += 1
+        view = None
+        if end > index:
+            view = _named_range_view(RangeNode(cell.address, row[end].address), ctx)
+        if view is not None:
+            parts.append(_TableRowPart(view, cell.series_id, cell.address, row[end].address))
+            index = end + 1
+            continue
+        parts.append(
+            _TableRowPart(
+                f"lambda: {_emit_positional_cell(cell, ctx)}",
+                cell.series_id,
+                cell.address,
+                cell.address,
+            )
+        )
+        index += 1
+    return parts
+
+
+def _part_schema(part: _TableRowPart) -> tuple[str | None, str, int, int]:
+    start_sheet, _start_row, start_col = parse_cell_coords(part.start)
+    end_sheet, _end_row, end_col = parse_cell_coords(part.end)
+    sheet = start_sheet if start_sheet == end_sheet else ""
+    return (part.series_id, sheet, start_col, end_col)
+
+
+def _compatible_table_rows(left: Sequence[_TableRowPart], right: Sequence[_TableRowPart]) -> bool:
+    if len(left) != len(right):
+        return False
+    return all(
+        a.series_id is not None and _part_schema(a) == _part_schema(b)
+        for a, b in zip(left, right, strict=True)
+    )
+
+
+def _collapse_compatible_rows(
+    rows: Sequence[Sequence[_TableRowPart]], ctx: EmitContext
+) -> list[str] | None:
+    sources: list[str] = []
+    for column in range(len(rows[0])):
+        view = _named_range_view(RangeNode(rows[0][column].start, rows[-1][column].end), ctx)
+        if view is None:
+            return None
+        sources.append(view)
+    return sources
+
+
+def _collapse_table_strips(
+    part_rows: Sequence[Sequence[_TableRowPart]], ctx: EmitContext
+) -> list[list[str]]:
+    """Collapse consecutive same-layout rows into one strip of block views."""
+    strips: list[list[str]] = []
+    index = 0
+    while index < len(part_rows):
+        end = index
+        while end + 1 < len(part_rows) and _compatible_table_rows(
+            part_rows[index], part_rows[end + 1]
+        ):
+            end += 1
+        group = part_rows[index : end + 1]
+        collapsed = _collapse_compatible_rows(group, ctx) if len(group) > 1 else None
+        if collapsed is not None:
+            strips.append(collapsed)
+        else:
+            strips.extend([[part.source for part in row] for row in group])
+        index = end + 1
+    return strips
+
+
+def _scalar_literal(value: object) -> str:
+    """Python literal for a workbook scalar used beside a bound-series read."""
+    if value is None:
+        return "None"
+    if isinstance(value, bool):
+        return "True" if value else "False"
+    if isinstance(value, int | float | str):
+        return repr(value)
+    raise InvertedTreeExportError(f"cannot emit lookup native {type(value).__name__}")
+
+
+def _natives_tuple(addresses: Sequence[CanonicalAddress], ctx: EmitContext) -> str:
+    """Row-major nested tuple of workbook values for `xl_typed_range`."""
+    rows: list[str] = []
+    current_row: int | None = None
+    current: list[str] = []
+    for address in addresses:
+        _sheet, row, _col = parse_cell_coords(address)
+        if current_row is not None and row != current_row:
+            rows.append(_python_tuple(current))
+            current = []
+        current_row = row
+        node = None if ctx.graph is None else ctx.graph.get_node(address)
+        current.append(_scalar_literal(None if node is None else node.value))
+    if current:
+        rows.append(_python_tuple(current))
+    return _python_tuple(rows)
+
+
+def _view_preserves_excel_types(
+    owner: BoundSeries, addresses: Sequence[CanonicalAddress], ctx: EmitContext
+) -> bool:
+    """False when a series view would stringify numeric workbook cells."""
+    if owner.direction not in {"constant", "input"} or ctx.graph is None:
+        return True
+    string_dtype = owner.dtype in {"string", "str"}
+    int_dtype = owner.dtype in {"int", "integer"}
+    for address in addresses:
+        node = ctx.graph.get_node(address)
+        if node is None or node.has_formula or node.value is None:
+            continue
+        if string_dtype and not isinstance(node.value, str):
+            return False
+        if int_dtype and isinstance(node.value, str):
+            return False
+    return True
+
+
+def _emit_positional_cell(cell: PositionalRangeCell, ctx: EmitContext) -> str:
+    """Emit one MATCH/INDEX window cell by literal coordinate.
+
+    Lookup tables read the bound series so `overrides` still apply, then
+    `xl_lookup_cell` restores workbook types when the measure dtype hid them.
+    Row-label cells outside `data_range` emit the series key.
+    """
+    if cell.blank:
+        return "None"
+    if cell.series_id is None:
+        return _scalar_literal(cell.label_value)
+    measure = _emit_address(cell.address, ctx)
+    if not ctx.restore_lookup_types or ctx.graph is None:
+        return measure
+    owner = ctx.catalog.get(cell.series_id)
+    if not _view_preserves_excel_types(owner, (cell.address,), ctx):
+        node = ctx.graph.get_node(cell.address)
+        if node is not None and not node.has_formula:
+            return f"{ctx.use('xl_lookup_cell')}({measure}, {_scalar_literal(node.value)})"
+    return measure
+
+
+def _named_range_view(
+    node: AstNode,
+    ctx: EmitContext,
+    addresses: Sequence[CanonicalAddress] | None = None,
+) -> str | None:
+    """Emit a lazy `view` when a range enumerates a product of one series' keys.
+
+    Every key field of the owning series selects a run of its axis: the
+    whole axis, a `span` between the corner keys expressed relative to the
+    host coordinate, or one key. Fields that vary down the worksheet form
+    the row product and fields that vary across it the column product; the
+    range lowers only when that product reproduces the cells in worksheet
+    order. Nested layouts select keys per field name. An axis that
+    `NamedAxes.plan` did not register returns `None` so the caller emits
+    per-cell callbacks. Lookup tables whose measure dtype would stringify
+    workbook values wrap the view in
+    `xl_typed_range` so bound-series `overrides` still apply. Other callers
+    skip the view.
+    """
+    from excel_grapher.exporter.inverted_tree.deps import _key_field_axis
+
+    if not isinstance(node, RangeNode) or ctx.coordinate_vars is None or ctx.named_axes is None:
+        return None
+    start = as_canonical(resolve_cell_ref(node.start_ref, ctx.host_cell))
+    end = as_canonical(resolve_cell_ref(node.end_ref, ctx.host_cell))
+    if parse_cell_coords(start)[0] != parse_cell_coords(end)[0]:
+        return None
+    if addresses is None:
+        if range_overlaps_blank_ranges(start, end, ctx.blank_rects):
+            return None
+        addresses = iter_range_addresses(start, end)
+        owner = covering_series_of_range(ctx.catalog, start, end)
+    else:
+        owner = covering_series(ctx.catalog, addresses)
+    if not addresses:
+        return None
+    if owner is None or owner.is_scalar or owner.single_valued:
+        return None
+    indices = [owner.index_of(address) for address in addresses]
+    if any(index is None for index in indices):
+        return None
+    points = [owner.domain[cast(int, index)] for index in indices]
+    first_keys = _named_keys(owner, points[0], ctx, ref=CellRefNode(node.start_ref))
+    last_keys = _named_keys(owner, points[-1], ctx, ref=CellRefNode(node.end_ref))
+    positions = [parse_cell_coords(address)[1:] for address in addresses]
+    domain = owner.tensor_domain
+    selections: dict[str, str] = {}
+    seen_keys: dict[str, tuple[Any, ...]] = {}
+    row_fields: list[str] = []
+    col_fields: list[str] = []
+    for position, key_field in enumerate(owner.key_fields):
+        axis = domain.axes[position]
+        # Lookup rectangles can include a bound series that `plan` skipped
+        # (no graph cells). Per-cell callbacks then keep the worksheet shape.
+        if not ctx.named_axes.contains(axis):
+            return None
+        keys = ctx.named_axes.emitted(axis).keys
+        seen = tuple(dict.fromkeys(point[key_field] for point in points))
+        if not seen or seen[0] not in keys or seen[-1] not in keys:
+            return None
+        first, last = keys.index(seen[0]), keys.index(seen[-1])
+        constant = ctx.named_axes.constant(axis)
+        axis_src = ctx.axis_source(axis)
+        start_key, end_key = first_keys[position], last_keys[position]
+        if ctx.runtime_labeller_for(axis) is not None:
+            if seen != keys[first : last + 1]:
+                return None
+            if first == 0 and last == len(keys) - 1:
+                expr = f"{axis_src}.keys"
+            elif start_key == end_key:
+                expr = f"({start_key},)"
+            else:
+                expr = f"{ctx.use('span')}({axis_src}, {start_key}, {end_key})"
+        elif seen == keys[first : last + 1]:
+            literal_corners = start_key == repr(keys[first]) and end_key == repr(keys[last])
+            if literal_corners and first == 0 and last == len(keys) - 1:
+                expr = f"data.{constant}.keys"
+            elif start_key == end_key:
+                expr = f"({start_key},)"
+            else:
+                expr = f"{ctx.use('span')}(data.{constant}, {start_key}, {end_key})"
+        elif (
+            is_subsequence(seen, keys) and start_key == repr(seen[0]) and end_key == repr(seen[-1])
+        ):
+            expr = repr(seen)
+        else:
+            return None
+        selections[key_field] = expr
+        seen_keys[key_field] = seen
+        by_row: dict[int, set[Any]] = {}
+        by_col: dict[int, set[Any]] = {}
+        for point, (row, col) in zip(points, positions, strict=True):
+            by_row.setdefault(row, set()).add(point[key_field])
+            by_col.setdefault(col, set()).add(point[key_field])
+        varies_in_row = any(len(values) > 1 for values in by_row.values())
+        varies_in_col = any(len(values) > 1 for values in by_col.values())
+        if varies_in_row and not varies_in_col:
+            col_fields.append(key_field)
+        elif varies_in_col and not varies_in_row:
+            row_fields.append(key_field)
+        elif not varies_in_row and not varies_in_col:
+            (row_fields if _key_field_axis(owner, key_field) == "row" else col_fields).append(
+                key_field
+            )
+        else:
+            return None
+
+    def runs(key_field: str) -> int:
+        return sum(
+            1
+            for before, after in zip(points, points[1:], strict=False)
+            if before[key_field] != after[key_field]
+        )
+
+    row_fields.sort(key=runs)
+    col_fields.sort(key=runs)
+    expected = [
+        {
+            **dict(zip(row_fields, row_keys, strict=True)),
+            **dict(zip(col_fields, col_keys, strict=True)),
+        }
+        for row_keys in product(*(seen_keys[field] for field in row_fields))
+        for col_keys in product(*(seen_keys[field] for field in col_fields))
+    ]
+    actual = [{field: point[field] for field in owner.key_fields} for point in points]
+    if expected != actual:
+        return None
+    args = [ctx.param(owner.series_id)]
+    if len(row_fields) <= 1 and len(col_fields) <= 1:
+        if row_fields:
+            args.append(f"rows={selections[row_fields[0]]}")
+        if col_fields:
+            args.append(f"cols={selections[col_fields[0]]}")
+        if row_fields and col_fields and owner.key_fields[0] == col_fields[0]:
+            args.append("cols_first=True")
+    else:
+        if row_fields:
+            args.append(
+                "rows={"
+                + ", ".join(f"{field!r}: {selections[field]}" for field in row_fields)
+                + "}"
+            )
+        if col_fields:
+            args.append(
+                "cols={"
+                + ", ".join(f"{field!r}: {selections[field]}" for field in col_fields)
+                + "}"
+            )
+    view = f"{ctx.use('view')}({', '.join(args)})"
+    if _view_preserves_excel_types(owner, addresses, ctx):
+        return view
+    if not ctx.restore_lookup_types:
+        return None
+    return f"{ctx.use('xl_typed_range')}({view}, {_natives_tuple(addresses, ctx)})"
+
+
+def _emit_range_table(node: AstNode, ctx: EmitContext) -> str:
+    """Emit a nested-tuple grid, filling declared blanks with `None`."""
+    named_view = _named_range_view(node, ctx)
+    if named_view is not None:
+        return named_view
+    if isinstance(node, RangeNode):
+        start = resolve_cell_ref(node.start_ref, ctx.host_cell)
+        end = resolve_cell_ref(node.end_ref, ctx.host_cell)
+        if parse_cell_coords(start)[0] == parse_cell_coords(end)[0]:
+            cells, missing = resolve_positional_rectangle(
+                start, end, ctx.catalog, ctx.blank_rects, ctx.graph
+            )
+            if missing:
+                label = range_ref_label(node, ctx.host_cell)
+                raise _host_export_error(
+                    ctx,
+                    f"range {label} is not a bound series (unbound cells: {list(missing[:8])})",
+                )
+            return _positional_table_source(cells, ctx)
+    addresses = iter_ref_addresses(node, ctx.host_cell, ctx.graph)
+    if not addresses:
+        raise _host_export_error(ctx, "range is empty")
+    cells, missing = resolve_positional_range(addresses, ctx.catalog, ctx.blank_rects, ctx.graph)
+    if missing:
+        label = range_ref_label(node, ctx.host_cell)
+        raise _host_export_error(
+            ctx,
+            f"range {label} is not a bound series (unbound cells: {list(missing[:8])})",
+        )
+    return _positional_table_source(cells, ctx)
+
+
+def _host_export_error(ctx: EmitContext, message: str) -> InvertedTreeExportError:
+    return InvertedTreeExportError(f"series {ctx.host.series_id!r} cell {ctx.host_cell}: {message}")
+
+
+def _ref_anchor_address(node: AstNode, host_cell: CanonicalAddress) -> CanonicalAddress | None:
+    if isinstance(node, CellRefNode):
+        return as_canonical(resolve_cell_ref(node, host_cell))
+    if isinstance(node, RangeNode):
+        return as_canonical(resolve_cell_ref(node.start_ref, host_cell))
+    if isinstance(node, FunctionCallNode):
+        name = normalize_excel_function_name(node.name)
+        if name == "INDEX":
+            window = index_window_corners(node, host_cell)
+            if window is not None:
+                return window[0]
+        if name == "OFFSET":
+            dest = offset_index_destination(node, host_cell)
+            if dest is not None:
+                return dest[0]
+    return None
+
+
+def _emit_offset(node: FunctionCallNode, ctx: EmitContext) -> str:
+    if len(node.args) < 3:
+        raise _host_export_error(ctx, "OFFSET expects anchor, rows, cols")
+    if len(node.args) > 3:
+        raise _host_export_error(
+            ctx,
+            "OFFSET height/width is not supported (bound model is cell-shaped)",
+        )
+    return _emit_named_offset(node, ctx)
+
+
+def _axis_positions_are_worksheet_positions(table: BoundSeries) -> dict[str, str]:
+    """Map each key field of `table` to `"row"` or `"col"` when positions coincide.
+
+    `OFFSET` moves along worksheet rows and columns. The move is expressed on
+    a semantic axis only when the authored cells form a dense row-major block
+    whose row positions enumerate one key field and whose column positions
+    enumerate another, in axis order.
+    """
+    from excel_grapher.exporter.inverted_tree.deps import _key_field_axis
+
+    width = table.block_width
+    cells = table.cells
+    height = max(1, (len(cells) + width - 1) // width)
+    if height * width != len(cells):
+        raise InvertedTreeExportError(
+            f"series {table.series_id!r}: OFFSET requires a dense rectangular block"
+        )
+    axes: dict[str, str] = {}
+    for key_field in table.key_fields:
+        keys = tuple(dict.fromkeys(point[key_field] for point in table.domain))
+        axis = _key_field_axis(table, key_field)
+        if axis == "row" and len(keys) == height:
+            expected = [keys[index // width] for index in range(len(cells))]
+        elif axis == "col" and len(keys) == width:
+            expected = [keys[index % width] for index in range(len(cells))]
+        elif len(keys) == 1:
+            continue
+        else:
+            raise InvertedTreeExportError(
+                f"series {table.series_id!r}: key {key_field!r} does not enumerate a worksheet axis"
+            )
+        if [point[key_field] for point in table.domain] != expected:
+            raise InvertedTreeExportError(
+                f"series {table.series_id!r}: key {key_field!r} order differs from worksheet order"
+            )
+        axes[key_field] = axis
+    return axes
+
+
+def _emit_series_point(
+    series: BoundSeries,
+    point: KeyPoint | None,
+    ctx: EmitContext,
+    *,
+    column_field: str | None = None,
+    column_key: object = None,
+) -> str:
+    """Emit a named read of one bound observation."""
+    name = ctx.param(series.series_id)
+    if not series.key_fields:
+        return name
+    if point is None:
+        raise _host_export_error(ctx, f"{series.series_id} has no key for this cell")
+    keys = _named_keys(series, point, ctx)
+    if column_field is not None and column_field in series.key_fields:
+        keys[series.key_fields.index(column_field)] = repr(column_key)
+    return f"{name}[{', '.join(keys)}]"
+
+
+def _emit_literal_column_landing(
+    node: FunctionCallNode,
+    ctx: EmitContext,
+    anchor_series: BoundSeries,
+) -> str | None:
+    """Emit a constant column `OFFSET` as the landing series' own keys.
+
+    A literal displacement has one destination cell. Indexing that cell folds
+    the step. `None` leaves the dynamic column-span path, or the caller's
+    failure, in charge.
+    """
+    if len(node.args) != 3 or ast_literal_int(node.args[1]) != 0:
+        return None
+    cols = ast_literal_int(node.args[2])
+    if cols is None or cols == 0:
+        return None
+    resolved = resolve_offset_destination_series(
+        node,
+        ctx.host_cell,
+        ctx.catalog,
+        ctx.graph,
+        blank_rects=ctx.blank_rects,
+    )
+    if resolved is None:
+        dest = offset_cell_destination(node, ctx.host_cell)
+        if (
+            dest is not None
+            and not address_in_blank_ranges(dest, ctx.blank_rects)
+            and ctx.catalog.series_for(dest) is None
+        ):
+            raise _host_export_error(
+                ctx,
+                f"OFFSET column offset into series {anchor_series.series_id!r} "
+                f"crosses unbound cell {dest}",
+            )
+        return None
+    series, cell = resolved
+    if series.series_id == anchor_series.series_id:
+        return None
+    return _emit_series_point(series, series.key_point_for(cell), ctx)
+
+
+def _try_cross_series_column_offset(
+    node: FunctionCallNode,
+    ctx: EmitContext,
+    anchor_series: BoundSeries,
+    cols: str,
+) -> str | None:
+    """Lower a pure column `OFFSET` off a series with no column axis.
+
+    A literal step folds to the landing cell. A dynamic step dispatches on
+    the column span, or reads the anchor when the domain never leaves it.
+    An unbound landing, or landing series that do not share one column key,
+    fails closed.
+    """
+    literal = _emit_literal_column_landing(node, ctx, anchor_series)
+    if literal is not None:
+        return literal
+    span = resolve_offset_column_span(
+        node,
+        ctx.host_cell,
+        ctx.catalog,
+        ctx.graph,
+        blank_rects=ctx.blank_rects,
+        host_series_id=ctx.host.series_id,
+    )
+    if span is not None:
+        return _emit_offset_column_span(span, cols, ctx)
+    anchor = anchor_only_column_target(
+        node,
+        ctx.host_cell,
+        ctx.catalog,
+        ctx.graph,
+        blank_rects=ctx.blank_rects,
+    )
+    if anchor is None:
+        return None
+    series, address = anchor
+    return _emit_series_point(series, series.key_point_for(address), ctx)
+
+
+def _emit_offset_column_span(span: OffsetColumnSpan, cols: str, ctx: EmitContext) -> str:
+    """Emit a column span as `axis_step` from the anchor key into a dispatch."""
+    pairs: list[str] = []
+    keys: list[object] = []
+    for member in span.members:
+        point = member.series.key_point_for(member.address)
+        expr = _emit_series_point(
+            member.series,
+            point,
+            ctx,
+            column_field=span.column_field,
+            column_key=member.column_key,
+        )
+        pairs.append(f"{member.column_key!r}: {expr}")
+        keys.append(member.column_key)
+    stepped = f"{ctx.use('axis_step')}({tuple(keys)!r}, {span.anchor_key!r}, {cols})"
+    return f"{{{', '.join(pairs)}}}[{stepped}]"
+
+
+def _emit_named_offset(node: FunctionCallNode, ctx: EmitContext) -> str:
+    """Emit `OFFSET(anchor, rows, cols)` as a step along the producer's axes."""
+    if isinstance(node.args[0], FunctionCallNode):
+        return _emit_named_offset_index(node, ctx)
+    table = _series_for_ref(node.args[0], ctx)
+    rows = emit_expr(node.args[1], ctx)
+    cols = emit_expr(node.args[2], ctx)
+    name = ctx.param(table.series_id)
+    resolved = resolve_offset_destination_series(
+        node,
+        ctx.host_cell,
+        ctx.catalog,
+        ctx.graph,
+        blank_rects=ctx.blank_rects,
+    )
+    if resolved is not None:
+        name = ctx.param(resolved[0].series_id)
+    anchor = _ref_anchor_address(node.args[0], ctx.host_cell)
+    if anchor is None:
+        raise _host_export_error(ctx, "OFFSET anchor must be a cell or range")
+    steps = {"row": rows, "col": cols}
+    static = {axis for axis, step in steps.items() if step in {"0", "0.0"}}
+    if table.single_valued or table.is_scalar:
+        if static == {"row", "col"}:
+            return name
+        # A one-cell anchor has no column of its own. A pure column move can
+        # still land on a neighboring series that enumerates that axis.
+        if "col" not in static and "row" in static:
+            lowered = _try_cross_series_column_offset(node, ctx, table, cols)
+            if lowered is not None:
+                return lowered
+        # The constrained reference set is this one cell; any other
+        # displacement is outside the bound model, as `xl_at` reports.
+        return f"{ctx.use('at_anchor')}({name}, {rows}, {cols})"
+    index = table.index_of(anchor)
+    if index is None:
+        raise _host_export_error(ctx, f"OFFSET anchor {anchor} is not in {table.series_id!r}")
+    field_axes = _axis_positions_are_worksheet_positions(table)
+    moved = {axis for axis in ("row", "col") if axis not in static}
+    if moved - set(field_axes.values()):
+        if moved == {"col"}:
+            lowered = _try_cross_series_column_offset(node, ctx, table, cols)
+            if lowered is not None:
+                return lowered
+        raise _host_export_error(
+            ctx,
+            f"OFFSET row offset into non-matrix series {table.series_id!r} is not supported"
+            if "row" in moved
+            else f"OFFSET column offset into series {table.series_id!r} is not supported",
+        )
+    if ctx.named_axes is None:
+        raise _host_export_error(ctx, "OFFSET needs named axis constants")
+    keys = _named_keys(table, table.domain[index], ctx)
+    domain = table.tensor_domain
+    for position, key_field in enumerate(table.key_fields):
+        axis = field_axes.get(key_field)
+        if axis is None or axis in static:
+            continue
+        owner_axis = domain.axes[position]
+        if ctx.runtime_labeller_for(owner_axis) is not None:
+            axis_src = ctx.axis_source(owner_axis)
+            keys[position] = f"{ctx.use('axis_step')}({axis_src}, {keys[position]}, {steps[axis]})"
+        else:
+            layout = layout_keys_source(owner_axis, ctx.named_axes, module="data.")
+            if layout.startswith("span("):
+                ctx.use("span")
+            keys[position] = f"{ctx.use('axis_step')}({layout}, {keys[position]}, {steps[axis]})"
+    return f"{name}[{', '.join(keys)}]"
+
+
+def _emit_named_offset_index(node: FunctionCallNode, ctx: EmitContext) -> str:
+    """Emit `OFFSET(INDEX(range, row, col), rows, cols)` as INDEX over the moved range.
+
+    Literal row and column displacements move the whole INDEX array; the
+    INDEX selectors then pick from the destination cells. A selector that is
+    `#REF!` on every host cell emits `xl_raise('#REF!')`.
+    """
+    base = node.args[0]
+    if not (
+        isinstance(base, FunctionCallNode)
+        and normalize_excel_function_name(base.name) == "INDEX"
+        and len(base.args) >= 2
+    ):
+        raise _host_export_error(ctx, "OFFSET from a computed reference must wrap INDEX")
+    if _offset_index_provably_ref(base, ctx):
+        return f"{ctx.use('xl_raise')}('#REF!')"
+    destination = offset_index_destination(node, ctx.host_cell)
+    if destination is None:
+        raise _host_export_error(ctx, "OFFSET of INDEX needs literal row and column moves")
+    start, end = destination
+    moved = FunctionCallNode(base.name, (RangeNode(start, end), *base.args[1:]))
+    return _emit_index(moved, ctx)
+
+
+def _offset_index_provably_ref(index_node: FunctionCallNode, ctx: EmitContext) -> bool:
+    """True when every host cell in the current statement yields INDEX `#REF!`."""
+    cells = _statement_cells(ctx) or (ctx.host_cell,)
+    return all(index_call_is_ref(index_node, cell) for cell in cells)
+
+
+def _row_column_args_omitted(node: FunctionCallNode) -> bool:
+    return not node.args or (len(node.args) == 1 and isinstance(node.args[0], EmptyArgNode))
+
+
+def _host_coord_expr(ctx: EmitContext, *, axis: str) -> str:
+    """Return the host cell's worksheet row or column."""
+    _sheet, row, col = parse_cell_coords(ctx.host_cell)
+    return str(row if axis == "row" else col)
+
+
+def _emit_row_or_column_ref(arg: AstNode, ctx: EmitContext, *, axis: str) -> str:
+    if isinstance(arg, CellRefNode):
+        address = as_canonical(resolve_cell_ref(arg, ctx.host_cell))
+        _sheet, row, col = parse_cell_coords(address)
+        return str(row if axis == "row" else col)
+    if isinstance(arg, RangeNode):
+        start = as_canonical(resolve_cell_ref(arg.start_ref, ctx.host_cell))
+        _sheet, row, col = parse_cell_coords(start)
+        return str(row if axis == "row" else col)
+    raise _host_export_error(ctx, f"{axis.upper()} argument cannot be lowered")
+
+
+def _emit_row(node: FunctionCallNode, ctx: EmitContext) -> str:
+    if _row_column_args_omitted(node):
+        return _host_coord_expr(ctx, axis="row")
+    return _emit_row_or_column_ref(node.args[0], ctx, axis="row")
+
+
+def _emit_column(node: FunctionCallNode, ctx: EmitContext) -> str:
+    if _row_column_args_omitted(node):
+        return _host_coord_expr(ctx, axis="col")
+    return _emit_row_or_column_ref(node.args[0], ctx, axis="col")
+
+
+def _emit_indirect(node: FunctionCallNode, ctx: EmitContext) -> str:
+    if ctx.graph is None:
+        raise _host_export_error(ctx, "INDIRECT has no graph to classify")
+    exclude = indirect_argument_addresses(node, ctx.host_cell)
+    targets = indirect_target_addresses(ctx.graph, ctx.host_cell, exclude=tuple(exclude))
+    if not targets:
+        raise _host_export_error(ctx, "INDIRECT has no resolved edges")
+    if len(targets) != 1:
+        raise _host_export_error(ctx, "INDIRECT resolves to more than one cell")
+    return _emit_address(targets[0], ctx)
+
+
+def _static_int_expr(expr: str) -> int | None:
+    """Parse a lowered integer literal (`5`, `5.0`); `None` if not static."""
+    try:
+        number = literal_eval(expr)
+    except (SyntaxError, ValueError):
+        return None
+    if isinstance(number, bool) or not isinstance(number, int | float):
+        return None
+    if isinstance(number, float) and not number.is_integer():
+        return None
+    return int(number)
+
+
+def _emit_index_column_arg(col_arg: AstNode | None, ctx: EmitContext) -> tuple[str, int | None]:
+    if col_arg is None:
+        return "None", None
+    if isinstance(col_arg, EmptyArgNode):
+        # Trailing empty column is Excel's whole-row form, same as 0.
+        return "0", 0
+    try:
+        expr = emit_expr(col_arg, ctx)
+    except InvertedTreeExportError as exc:
+        raise _host_export_error(ctx, f"INDEX column cannot be lowered ({exc})") from exc
+    if isinstance(col_arg, NumberNode):
+        return expr, int(col_arg.value)
+    return expr, _static_int_expr(expr)
+
+
+def _emit_worksheet_column(node: RangeNode, ctx: EmitContext, col_literal: int) -> str | None:
+    """Emit the 1-based worksheet column of `node` that Excel INDEX would select.
+
+    The slice includes the header cell and follows worksheet column order,
+    not the first bound-series measure after a row-label is stripped.
+    """
+    start = as_canonical(resolve_cell_ref(node.start_ref, ctx.host_cell))
+    end = as_canonical(resolve_cell_ref(node.end_ref, ctx.host_cell))
+    _sheet, _row1, col1 = parse_cell_coords(start)
+    _sheet2, _row2, col2 = parse_cell_coords(end)
+    if _sheet != _sheet2:
+        first_col = min(col1, col2)
+        parent = iter_ref_addresses(node, ctx.host_cell, ctx.graph)
+        selected = [
+            address
+            for address in parent
+            if parse_cell_coords(address)[2] == first_col + col_literal - 1
+        ]
+    else:
+        width = abs(col2 - col1) + 1
+        offset = col_literal - 1
+        if offset < 0 or offset >= width:
+            return None
+        parent = iter_range_addresses(start, end)
+        selected = parent[offset::width]
+    if not selected:
+        return None
+    # A proven column selection must not introduce dependencies on
+    # other columns excluded by the extracted graph.
+    column_view = _named_range_view(RangeNode(selected[0], selected[-1]), ctx)
+    if column_view is not None:
+        return column_view
+    if parse_cell_coords(selected[0])[0] == parse_cell_coords(selected[-1])[0]:
+        cells, missing = resolve_positional_rectangle(
+            selected[0], selected[-1], ctx.catalog, ctx.blank_rects, ctx.graph
+        )
+    else:
+        cells, missing = resolve_positional_range(selected, ctx.catalog, ctx.blank_rects, ctx.graph)
+    cells, missing = _attach_index_label_cells(
+        selected, parent, cells, missing, ctx.catalog, ctx.graph
+    )
+    if missing:
+        raise _host_export_error(
+            ctx, f"INDEX selected column has unbound cells: {list(missing[:8])}"
+        )
+    return "(" + ", ".join(f"({_emit_positional_cell(cell, ctx)},)" for cell in cells) + ",)"
+
+
+def _emit_index(node: FunctionCallNode, ctx: EmitContext) -> str:
+    if len(node.args) < 2:
+        raise _host_export_error(ctx, "INDEX expects a range and row")
+    ctx = _with_lookup_types(ctx)
+    row_arg = node.args[1]
+    col_arg = node.args[2] if len(node.args) > 2 else None
+    row_expr = "None" if isinstance(row_arg, EmptyArgNode) else emit_expr(row_arg, ctx)
+    col_expr, col_literal = _emit_index_column_arg(col_arg, ctx)
+    # Worksheet-column slice uses the explicit column argument. Excel's
+    # 1-row INDEX(array, n) column reinterpretation stays in xl_index.
+    if isinstance(node.args[0], RangeNode) and col_literal is not None and col_literal > 0:
+        column = _emit_worksheet_column(node.args[0], ctx, col_literal)
+        if column is not None:
+            return f"{ctx.use('xl_index')}({column}, {row_expr}, 1)"
+    if row_expr in {"None", "0", "0.0"} or col_expr in {"None", "0", "0.0"}:
+        # Omitted and zero selectors request vectors; the lazy table keeps
+        # their shape and Excel's single-row special case.
+        table = (
+            _emit_range_table(node.args[0], ctx)
+            if isinstance(node.args[0], RangeNode)
+            else _emit_value_or_range(node.args[0], ctx)
+        )
+        return f"{ctx.use('xl_index')}({table}, {row_expr}, {col_expr})"
+    table = _emit_value_or_range(node.args[0], ctx)
+    return f"{ctx.use('xl_index')}({table}, {row_expr}, {col_expr})"
+
+
+def _emit_match_array(node: AstNode, ctx: EmitContext) -> str:
+    """Emit a MATCH lookup vector that preserves Excel positions."""
+    return _emit_value_or_range(node, ctx)
+
+
+def _emit_match(node: FunctionCallNode, ctx: EmitContext) -> str:
+    if len(node.args) < 2:
+        raise InvertedTreeExportError(
+            f"series {ctx.host.series_id!r}: MATCH expects lookup and array"
+        )
+    ctx = _with_lookup_types(ctx)
+    lookup = emit_expr(node.args[0], ctx)
+    array = _emit_match_array(node.args[1], ctx)
+    match_type = emit_expr(node.args[2], ctx) if len(node.args) > 2 else "0"
+    return f"{ctx.use('xl_match')}({lookup}, {array}, {match_type})"
+
+
+def _series_for_ref(node: AstNode, ctx: EmitContext) -> BoundSeries:
+    if isinstance(node, CellRefNode):
+        address = as_canonical(resolve_cell_ref(node, ctx.host_cell))
+        if address_in_blank_ranges(address, ctx.blank_rects):
+            raise _host_export_error(ctx, "reference is not a bound series")
+        return ctx.catalog.require_series_for(address)
+    if isinstance(node, (RangeNode, WholeColumnNode, WholeRowNode)):
+        addresses = addresses_outside_blank_ranges(
+            iter_ref_addresses(node, ctx.host_cell, ctx.graph),
+            ctx.blank_rects,
+        )
+        covered = covering_series(ctx.catalog, addresses) if addresses else None
+        if covered is None:
+            raise _host_export_error(ctx, "reference is not a bound series")
+        return covered
+    if isinstance(node, FunctionCallNode):
+        name = normalize_excel_function_name(node.name)
+        if name == "INDEX":
+            covered = covering_series_for_index_window(
+                node, ctx.host_cell, ctx.catalog, blank_rects=ctx.blank_rects
+            )
+            if covered is not None:
+                return covered
+            raise _host_export_error(ctx, "reference is not a bound series")
+        if name == "OFFSET":
+            resolved = resolve_offset_destination_series(
+                node,
+                ctx.host_cell,
+                ctx.catalog,
+                ctx.graph,
+                blank_rects=ctx.blank_rects,
+            )
+            if resolved is not None:
+                return resolved[0]
+            raise _host_export_error(ctx, "reference is not a bound series")
+    raise _host_export_error(ctx, "OFFSET/MATCH base must be a cell or range")
+
+
+def _as_measure_call(expr: str, series: BoundSeries) -> str:
+    """Wrap a formula body as `as_measure`.
+
+    A numeric formula whose emitted body is only a blank ref (`None`) becomes
+    `0`, matching Excel `=blank`. Nested blank refs stay named indexes so
+    families can fold and `ISBLANK` of a producer hole stays true.
+    """
+    if expr == "None" and series.python_dtype in {"float", "int"}:
+        expr = "0"
+    if series.python_dtype == "float":
+        return f"as_measure({expr})"
+    return f"as_measure({expr}, {series.python_dtype!r})"
+
+
+def _is_bare_numeric_blank_copy(node: AstNode, ctx: EmitContext, series: BoundSeries) -> bool:
+    """True when `node` is a numeric whole-body ref to a blank cell."""
+    if series.python_dtype not in {"float", "int"}:
+        return False
+    if not isinstance(node, CellRefNode):
+        return False
+    address = as_canonical(resolve_cell_ref(node, ctx.host_cell))
+    owner = ctx.catalog.series_for(address)
+    if owner is None:
+        return address_in_blank_ranges(address, ctx.blank_rects)
+    index = owner.index_of(address)
+    return index is not None and owner.is_none_hole(index)

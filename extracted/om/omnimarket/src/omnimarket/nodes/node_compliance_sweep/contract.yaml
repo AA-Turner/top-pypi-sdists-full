@@ -1,0 +1,80 @@
+---
+name: compliance_sweep
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: compute
+runtime_profiles: [main]
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  Handler contract compliance sweep — scans repos for imperative handlers that
+  bypass the ONEX contract system, detects hardcoded topics, undeclared transports,
+  missing handler routing, logic-in-node, and wire schema mismatches.
+
+handler:
+  module: omnimarket.nodes.node_compliance_sweep.handlers.handler_compliance_sweep
+  class: NodeComplianceSweep
+  input_model: omnimarket.nodes.node_compliance_sweep.handlers.handler_compliance_sweep.ComplianceSweepRequest
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: sweep
+      handler:
+        name: NodeComplianceSweep
+        module: omnimarket.nodes.node_compliance_sweep.handlers.handler_compliance_sweep
+
+descriptor:
+  node_archetype: compute
+  purity: pure
+  idempotent: true
+  timeout_ms: 180000
+
+inputs:
+  repos:
+    type: list[str]
+    description: >
+      Bare repository names resolved against $OMNI_HOME to absolute scan dirs.
+      Defaults to the canonical handler-repo set when both repos and
+      target_dirs are empty, so a no-arg dispatch scans the real handler
+      universe (OMN-13514).
+    required: false
+  target_dirs:
+    type: list[str]
+    description: "Explicit absolute directory paths to scan (overrides repos)"
+    required: false
+  checks:
+    type: list[str]
+    description: "Specific checks to run (default: all)"
+    required: false
+  dry_run:
+    type: bool
+    description: "If true, report violations without creating tickets"
+    required: false
+    default: false
+
+outputs:
+  violations:
+    type: list[ComplianceViolation]
+    description: "List of detected compliance violations"
+  summary:
+    type: object
+    description: "Aggregated summary with verdicts and violation counts"
+
+terminal_event: onex.evt.omnimarket.compliance-sweep-completed.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.compliance-sweep-start.v1
+  publish_topics:
+    - onex.evt.omnimarket.compliance-sweep-violation.v1
+    - onex.evt.omnimarket.compliance-sweep-completed.v1
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.compliance-sweep-start.v1
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.compliance-sweep-completed.v1
+  - onex.evt.omnimarket.compliance-sweep-violation.v1

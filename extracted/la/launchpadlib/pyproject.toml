@@ -1,3 +1,11 @@
 [tool.black]
 line-length = 79
 target-version = ['py311']
+
+# Ruff configuration
+[tool.ruff]
+line-length = 79
+
+[tool.ruff.lint]
+# Enable security checks but ignore specific false positives
+select = ["S"]

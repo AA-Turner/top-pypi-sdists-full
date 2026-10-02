@@ -1,12 +1,13 @@
 """Auto-generated stub for module: people_counting."""
 from typing import Any, Dict, Optional
 
-from ..Trackers import ConfigDrivenTracker, TrackerProfile
+from ..Trackers import ConfigDrivenTracker, FrameTimestampReader, TrackerInitializationError, TrackerProfile, record_untracked_frame, record_update_failure
 from ..core.base import BaseProcessor, ConfigProtocol, ProcessingContext, ProcessingResult
 from ..core.config import PeopleCountingConfig
 from ..core.config import ZoneConfig
 from ..utils import apply_category_mapping, count_objects_in_zones, filter_by_confidence, get_bbox_bottom_center, match_results_structure, point_in_polygon
-from ..utils.post_processing_config_client import GEOMETRY_RETRY_INTERVAL, PostProcessingConfigClient
+from ..utils.post_processing_config_client import GEOMETRY_RETRY_INTERVAL
+from ..utils.post_processing_config_client import PostProcessingConfigClient
 
 # Classes
 class PeopleCountingUseCase:

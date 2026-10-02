@@ -1,0 +1,180 @@
+"""HTML web-viz output embeds coherent payloads from graph inputs (integration)."""
+
+from __future__ import annotations
+
+from dataclasses import replace
+from pathlib import Path
+
+import pytest
+
+import excel_grapher.grapher.lightweight_viz as lightweight_viz_mod
+from excel_grapher.exporter import to_web_viz_payload
+from excel_grapher.grapher import write_lightweight_viz_data, write_web_viz_html
+from excel_grapher.grapher.graph import DependencyGraph
+from excel_grapher.grapher.lightweight_viz import (
+    VIZ_PAYLOAD_VERSION,
+    VizLimits,
+    assemble_lightweight_viz_payload,
+    build_lightweight_viz_core,
+)
+from excel_grapher.grapher.node import Node
+from tests.viz_marks import requires_numpy
+
+
+def _n(sheet: str, col: str, row: int, *, leaf: bool, formula: str | None) -> Node:
+    return Node(
+        sheet=sheet,
+        column=col,
+        row=row,
+        formula=formula,
+        normalized_formula=formula,
+        value=1 if leaf else None,
+        is_leaf=leaf,
+    )
+
+
+def _chain_graph() -> DependencyGraph:
+    g = DependencyGraph()
+    n1 = _n("S", "A", 1, leaf=True, formula=None)
+    n2 = _n("S", "A", 2, leaf=False, formula="=A1")
+    n3 = _n("S", "A", 3, leaf=False, formula="=A2")
+    for n in (n1, n2, n3):
+        g.add_node(n)
+    g.add_edge(n3.key, n2.key)
+    g.add_edge(n2.key, n1.key)
+    return g
+
+
+def _chain_nx():
+    import networkx as nx
+
+    g = nx.DiGraph()
+    g.add_node("S!A1", formula=None, value=1, is_leaf=True, sheet="S", column="A", row=1)
+    g.add_node("S!A2", formula="=A1", value=None, is_leaf=False, sheet="S", column="A", row=2)
+    g.add_node("S!A3", formula="=A2", value=None, is_leaf=False, sheet="S", column="A", row=3)
+    g.add_edge("S!A3", "S!A2")
+    g.add_edge("S!A2", "S!A1")
+    return g
+
+
+def _payload():
+    return to_web_viz_payload(_chain_nx())
+
+
+@requires_numpy
+def test_write_html_core_only_no_overlays(tmp_path: Path) -> None:
+    g = _chain_graph()
+    core = build_lightweight_viz_core(g, limits=VizLimits(), layout_input=None)
+    payload = assemble_lightweight_viz_payload(core, [])
+    assert payload.version == VIZ_PAYLOAD_VERSION
+    assert payload.overlays == ()
+    out = tmp_path / "core_only.html"
+    write_web_viz_html(payload, out, title="Core only", data_mode="inline")
+    assert out.is_file()
+    text = out.read_text(encoding="utf-8")
+    ver = str(VIZ_PAYLOAD_VERSION)
+    assert f'"version":{ver}' in text or f'"version": {ver}' in text.replace(" ", "")
+    assert "Core only" in text
+
+
+@requires_numpy
+def test_build_core_uses_graph_sheet_order_for_sheet_indices() -> None:
+    g = DependencyGraph(sheet_order=["Z", "A"])
+    g.add_node(_n("A", "A", 1, leaf=True, formula=None))
+    g.add_node(_n("Z", "A", 1, leaf=True, formula=None))
+
+    core = build_lightweight_viz_core(g, limits=VizLimits(), layout_input=None)
+    assert core.sheets == ("Z", "A")
+
+
+@requires_numpy
+def test_inline_embeds_payload_under_budget(tmp_path: Path) -> None:
+    p = _payload()
+    out = tmp_path / "v.html"
+    write_web_viz_html(p, out, data_mode="inline", inline_size_budget_mb=50)
+    text = out.read_text(encoding="utf-8")
+    assert "window.__VIZ_DATA__" in text
+    ver = str(VIZ_PAYLOAD_VERSION)
+    assert f'"version":{ver}' in text or f'"version": {ver}' in text.replace(" ", "")
+    assert '"formula"' in text
+
+
+@requires_numpy
+def test_sidecar_writes_sibling_json(tmp_path: Path) -> None:
+    p = _payload()
+    out = tmp_path / "v.html"
+    write_web_viz_html(p, out, data_mode="sidecar", data_path=tmp_path / "data.viz.json")
+    data = tmp_path / "data.viz.json"
+    assert data.is_file()
+    assert "window.__VIZ_DATA_URL__" in out.read_text(encoding="utf-8")
+
+
+@requires_numpy
+def test_auto_sidecar_when_estimate_large(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    p = _payload()
+    monkeypatch.setattr(
+        lightweight_viz_mod,
+        "estimate_serialized_json_bytes",
+        lambda _payload: 100 * 1024 * 1024,
+    )
+    out = tmp_path / "v.html"
+    write_web_viz_html(p, out, data_mode="auto", inline_size_budget_mb=50)
+    sidecar = tmp_path / "v.viz.json"
+    assert sidecar.is_file()
+    html = out.read_text(encoding="utf-8")
+    assert "__VIZ_DATA_URL__" in html
+
+
+@requires_numpy
+def test_invalid_payload_version_raises(tmp_path: Path) -> None:
+    p = replace(_payload(), version=99)
+    with pytest.raises(ValueError, match="Unsupported"):
+        write_web_viz_html(p, tmp_path / "x.html", data_mode="inline")
+
+
+@requires_numpy
+def test_write_data_roundtrip(tmp_path: Path) -> None:
+    p = _payload()
+    path = tmp_path / "d.json"
+    write_lightweight_viz_data(p, path)
+    assert path.read_text(encoding="utf-8").startswith("{")
+
+
+@requires_numpy
+def test_overview_viewer_embeds_module_edges(tmp_path: Path) -> None:
+    p = _payload()
+    out = tmp_path / "v.html"
+    write_web_viz_html(p, out, data_mode="inline")
+    text = out.read_text(encoding="utf-8")
+    assert "module_edges" in text
+    assert "canvas" in text
+
+
+def test_build_core_takes_positions_and_has_no_rank_band_modes() -> None:
+    import inspect
+
+    params = inspect.signature(build_lightweight_viz_core).parameters
+    assert "layout_mode" not in params
+    assert "bfs_seed_keys" not in params
+    g = _chain_graph()
+    core = build_lightweight_viz_core(
+        g, limits=VizLimits(), positions=((1.0, 2.0), (3.0, 4.0), (5.0, 6.0))
+    )
+    assert core.nodes.x == (1.0, 3.0, 5.0)
+    assert core.nodes.y == (2.0, 4.0, 6.0)
+    # Chain S!A3 -> S!A2 -> S!A1: A1 is the input.
+    assert core.nodes.depth == (0, 1, 2)
+    with pytest.raises(ValueError, match="positions"):
+        build_lightweight_viz_core(g, limits=VizLimits(), positions=((0.0, 0.0),))
+
+
+@requires_numpy
+def test_build_core_without_positions_uses_clustered_force() -> None:
+    from excel_grapher.grapher.viz_layout import clustered_force_layout
+
+    core = build_lightweight_viz_core(_chain_graph(), limits=VizLimits())
+    want = clustered_force_layout(
+        3, [(1, 0), (2, 1)], [0, 0, 0], depths=[0, 1, 2], rank_pull="between"
+    )
+    assert core.nodes.x == pytest.approx(tuple(want[:, 0]))
+    assert core.nodes.y == pytest.approx(tuple(want[:, 1]))

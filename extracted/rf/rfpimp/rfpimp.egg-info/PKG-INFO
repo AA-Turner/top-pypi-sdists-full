@@ -1,0 +1,22 @@
+Metadata-Version: 2.1
+Name: rfpimp
+Version: 1.3.7
+Summary: Permutation and drop-column importance for scikit-learn random forests and other models
+Home-page: https://github.com/parrt/random-forest-importances
+Author: Terence Parr, Kerem Turgutlu
+Author-email: parrt@antlr.org, kcturgutlu@dons.usfca.edu
+License: MIT
+Description: A library that provides feature importances, based upon
+        the permutation importance strategy, for general scikit-learn
+        models and implementations specifically for random forest out-of-bag scores.
+        Built by Terence Parr and Kerem Turgutlu.
+        See <a href="http://explained.ai/rf-importance/index.html">Beware Default
+        Random Forest Importances</a> for a deeper discussion of the issues surrounding
+        feature importances in random forests.
+        
+Keywords: scikit-learn random forest feature permutation importances
+Platform: UNKNOWN
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Intended Audience :: Developers
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown

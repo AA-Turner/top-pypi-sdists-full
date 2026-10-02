@@ -1,0 +1,110 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pypi-attestations"
+dynamic = ["version"]
+description = "A library to convert between Sigstore Bundles and PEP-740 Attestation objects"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Trail of Bits", email = "opensource@trailofbits.com" }]
+maintainers = [{ name = "PyPI Admins", email = "admin@pypi.org" }]
+classifiers = ["Programming Language :: Python :: 3"]
+dependencies = [
+    "cryptography",
+    "packaging",
+    "pyasn1 ~= 0.6",
+    "pydantic >= 2.10.0",
+    "requests",
+    "rfc3986",
+    "sigstore >= 4.5, < 5.0",
+    "sigstore-models",
+]
+requires-python = ">=3.10"
+
+[tool.setuptools.dynamic]
+version = { attr = "pypi_attestations.__version__" }
+
+[project.optional-dependencies]
+doc = ["pdoc"]
+test = ["pytest", "pytest-cov", "pretend", "coverage[toml]"]
+lint = [
+    # NOTE: ruff is under active development, so we pin conservatively here
+    # and let Dependabot periodically perform this update.
+    "ruff ~= 0.9",
+    "mypy >= 1.0",
+    "types-html5lib",
+    "types-requests",
+    "types-toml",
+    "interrogate",
+    # linting relies on test deps, since we also typecheck our test suite
+    "pypi-attestations[test]",
+]
+dev = ["pypi-attestations[doc,test,lint]", "build"]
+
+[project.scripts]
+pypi-attestations = "pypi_attestations._cli:main"
+
+[project.urls]
+Homepage = "https://pypi.org/project/pypi-attestations"
+Documentation = "https://pypi.github.io/pypi-attestations/"
+Issues = "https://github.com/pypi/pypi-attestations/issues"
+Source = "https://github.com/pypi/pypi-attestations"
+
+[tool.flit.module]
+name = "pypi_attestations"
+
+[tool.coverage.run]
+# don't attempt code coverage for the CLI entrypoints
+omit = ["src/pypi_attestations/__main__.py"]
+
+[tool.mypy]
+mypy_path = "src"
+packages = "pypi_attestations"
+plugins = ["pydantic.mypy"]
+python_version = "3.10"
+allow_redefinition = true
+check_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+no_implicit_optional = true
+show_error_codes = true
+sqlite_cache = true
+strict_equality = true
+warn_no_return = true
+warn_redundant_casts = true
+warn_return_any = true
+# https://github.com/python/mypy/issues/21132
+# warn_unreachable = true
+warn_unused_configs = true
+warn_unused_ignores = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "ANN", "D", "COM", "ISC", "TCH", "SLF"]
+# D203 and D213 are incompatible with D211 and D212 respectively.
+# COM812 and ISC001 can cause conflicts when using ruff as a formatter.
+# See https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules.
+ignore = ["D203", "D213", "COM812", "ISC001"]
+
+[tool.ruff.lint.per-file-ignores]
+
+"test/**/*.py" = [
+    "D",      # no docstrings in tests
+    "S101",   # asserts are expected in tests
+    "SLF001", # private APIs are expected in tests
+    "ANN401", # dynamic types are OK in tests
+]
+
+[tool.interrogate]
+# don't enforce documentation coverage for packaging, testing, the virtual
+# environment, or the CLI (which is documented separately).
+exclude = [".venv", "test", "src/pypi_attestations/__main__.py"]
+ignore-semiprivate = true
+fail-under = 100

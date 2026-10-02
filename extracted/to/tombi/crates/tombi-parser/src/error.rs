@@ -73,12 +73,12 @@ pub enum ErrorKind {
 #[derive(thiserror::Error, Debug, Clone)]
 pub struct Error {
     kind: ErrorKind,
-    range: tombi_text::Range,
+    span: tombi_text::Span,
 }
 
 impl Error {
-    pub fn new(kind: ErrorKind, range: tombi_text::Range) -> Self {
-        Self { kind, range }
+    pub fn new(kind: ErrorKind, span: tombi_text::Span) -> Self {
+        Self { kind, span }
     }
 
     pub fn kind(&self) -> ErrorKind {
@@ -117,24 +117,20 @@ impl Error {
         self.kind.to_string()
     }
 
-    pub fn range(&self) -> tombi_text::Range {
-        self.range
+    pub fn span(&self) -> tombi_text::Span {
+        self.span
     }
 }
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{} in {}..{}",
-            self.kind, self.range.start, self.range.end
-        )
+        write!(f, "{} in {}", self.kind, self.span)
     }
 }
 
 impl PartialEq for Error {
     fn eq(&self, other: &Self) -> bool {
-        self.kind == other.kind && self.range == other.range
+        self.kind == other.kind && self.span == other.span
     }
 }
 
@@ -161,7 +157,7 @@ impl From<tombi_lexer::Error> for Error {
             tombi_lexer::ErrorKind::InvalidToken => ErrorKind::InvalidToken,
         };
 
-        Self::new(kind, error.range())
+        Self::new(kind, error.span())
     }
 }
 
@@ -172,7 +168,7 @@ impl tombi_diagnostic::SetDiagnostics for Error {
         diagnostics.push(tombi_diagnostic::Diagnostic::new_error(
             self.to_message(),
             self.code(),
-            self.range(),
+            self.span(),
         ));
     }
 }

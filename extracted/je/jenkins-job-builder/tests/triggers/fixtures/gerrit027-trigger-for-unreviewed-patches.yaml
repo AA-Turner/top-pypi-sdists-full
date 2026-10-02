@@ -1,3 +1,0 @@
-triggers:
-  - gerrit:
-      trigger-for-unreviewed-patches: true

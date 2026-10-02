@@ -4,8 +4,8 @@ use tombi_schema_store::{Accessor, matches_accessors};
 
 pub async fn completion(
     text_document_uri: &tombi_uri::Uri,
-    document_tree: &tombi_document_tree_syntax::DocumentTree,
-    position: tombi_text::Position,
+    document_tree: &tombi_document_tree_syntax::DocumentTree<'_>,
+    offset: tombi_text::Offset,
     accessors: &[Accessor],
     _toml_version: TomlVersion,
     _completion_hint: Option<CompletionHint>,
@@ -58,7 +58,7 @@ pub async fn completion(
             && let Some(completions) = completion_file_path_from_base_dir(
                 base_dir,
                 document_tree,
-                position,
+                offset,
                 accessors,
                 Some(&[]),
             )
@@ -70,7 +70,7 @@ pub async fn completion(
             && let Some(completions) = completion_file_path_from_base_dir(
                 base_dir,
                 document_tree,
-                position,
+                offset,
                 accessors,
                 Some(&["json"]),
             )
@@ -82,7 +82,7 @@ pub async fn completion(
             && let Some(completions) = completion_file_path_from_base_dir(
                 base_dir,
                 document_tree,
-                position,
+                offset,
                 accessors,
                 Some(&["json"]),
             )

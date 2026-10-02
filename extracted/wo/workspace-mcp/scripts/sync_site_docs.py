@@ -466,12 +466,50 @@ def changed_tool_modules(services, previous_tag, tag):
     ]
 
 
+def _reads_env(call):
+    """True for `os.getenv(...)` and `os.environ.get(...)` calls."""
+    func = call.func
+    return isinstance(func, ast.Attribute) and (
+        func.attr == "getenv"
+        or (
+            func.attr == "get"
+            and isinstance(func.value, ast.Attribute)
+            and func.value.attr == "environ"
+        )
+    )
+
+
+def _env_wrappers(tree):
+    """Module functions that read the variable named by one of their parameters.
+
+    Maps each function name to that parameter's position, so a helper such as
+    `_byte_count_from_env(name)` counts as reading whatever its callers pass.
+    """
+    wrappers = {}
+    for func in tree.body:
+        if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        params = [arg.arg for arg in func.args.posonlyargs + func.args.args]
+        for node in ast.walk(func):
+            if (
+                isinstance(node, ast.Call)
+                and node.args
+                and _reads_env(node)
+                and isinstance(node.args[0], ast.Name)
+                and node.args[0].id in params
+            ):
+                wrappers[func.name] = params.index(node.args[0].id)
+    return wrappers
+
+
 def _env_vars_in(text, filename):
     """Environment variables read by one module.
 
     Resolves module-level constants as well as literals, because the settings
     worth documenting tend to be the ones named once and reused —
     `os.getenv(_ALLOW_NULL_ORIGIN_CONSENT_ENV)` is invisible to a text search.
+    Calls to module-local helpers that read the variable they are handed are
+    followed too.
     """
     if not text:
         return set()
@@ -489,22 +527,21 @@ def _env_vars_in(text, filename):
         for target in node.targets
         if isinstance(target, ast.Name)
     }
+    wrappers = _env_wrappers(tree)
 
     found = set()
     for node in ast.walk(tree):
-        if not isinstance(node, ast.Call) or not node.args:
+        if not isinstance(node, ast.Call):
             continue
-        func = node.func
-        if not isinstance(func, ast.Attribute):
+        if _reads_env(node):
+            position = 0
+        elif isinstance(node.func, ast.Name) and node.func.id in wrappers:
+            position = wrappers[node.func.id]
+        else:
             continue
-        reads_env = func.attr == "getenv" or (
-            func.attr == "get"
-            and isinstance(func.value, ast.Attribute)
-            and func.value.attr == "environ"
-        )
-        if not reads_env:
+        if len(node.args) <= position:
             continue
-        arg = node.args[0]
+        arg = node.args[position]
         if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
             found.add(arg.value)
         elif isinstance(arg, ast.Name) and arg.id in constants:

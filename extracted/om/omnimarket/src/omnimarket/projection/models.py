@@ -1,0 +1,461 @@
+"""Pydantic models for the contract-driven projection API.
+
+These models represent the discovered configuration for each exposed projection
+topic. All fields are read from contract.yaml — no convention-based defaults
+for topics, columns, or ordering.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from decimal import Decimal
+from enum import StrEnum
+from typing import Any, Literal
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, model_validator
+
+# The wire schema_version stamped on every snapshot delta message (Seam A,
+# OMN-15800). Bumping this is a breaking change to every SnapshotCache
+# consumer and every compacted onex.snapshot.projection.* topic's contents.
+SNAPSHOT_DELTA_SCHEMA_VERSION = "projection_snapshot.v1"
+
+_LOWER_SNAKE = re.compile(r"^[a-z][a-z0-9_]*$")
+
+
+class ProjectionStatus(StrEnum):
+    """Lifecycle status of a discovered projection topic."""
+
+    OK = "ok"
+    DEGRADED = "degraded"
+
+
+class ModelProjectionBackendReader(BaseModel):
+    """One contract-declared backend surface that reads an exposure.
+
+    A backend reader is an authoritative contract fact. It is deliberately
+    separate from a browser/dashboard reader: the status page is a
+    server-rendered Market surface and must not be rediscovered by parsing
+    source text or represented by a second product UI.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    id: str
+    kind: Literal["projection_status_page"]
+    route: str
+    projection_slot: str
+
+    @model_validator(mode="after")
+    def _has_closed_reader_identity(self) -> ModelProjectionBackendReader:
+        for field_name, value in (
+            ("id", self.id),
+            ("projection_slot", self.projection_slot),
+        ):
+            if not _LOWER_SNAKE.fullmatch(value):
+                raise ValueError(
+                    f"backend_readers.{field_name} must be lower_snake, got {value!r}"
+                )
+        if not self.route or not self.route.startswith("/"):
+            raise ValueError(
+                "backend_readers.route must be a non-empty absolute HTTP path"
+            )
+        return self
+
+
+# An ordering column plus its direction, e.g. ("updated_at", "DESC"). Parsed
+# once at contract-load time from the free-text ``order_by`` string (OMN-15799
+# inheritance) so a multi-column order_by can never silently lose a sort key
+# and an unknown column can never reach a query/sort at request time.
+OrderDirection = Literal["ASC", "DESC"]
+# Explicit NULLS FIRST|LAST placement (OMN-15800 defect A). ``None`` means the
+# clause did not declare a placement — the sort falls back to the pre-existing
+# default (nulls sort last, independent of ASC/DESC) so contracts that predate
+# this field keep their prior behavior unchanged.
+NullsPlacement = Literal["FIRST", "LAST"]
+OrderBySpec = tuple[tuple[str, OrderDirection, NullsPlacement | None], ...]
+
+
+class UnrankedOrderValueError(ValueError):
+    """A row carries a value its exposure's declared ``order_rank`` does not rank.
+
+    Raised at sort time instead of letting the value fall to an implicit
+    position: an unranked value placed last is exactly the row that truncation
+    hides, which is the defect a declared rank exists to prevent.
+    """
+
+    def __init__(self, column: str, value: object) -> None:
+        super().__init__(
+            f"order_rank on column {column!r} declares no rank for value {value!r}"
+        )
+        self.column = column
+        self.value = value
+
+
+class ProjectionOrderRank(BaseModel):
+    """An explicit, contract-declared priority over the values of one column.
+
+    ``tiers`` is ordered: every value in ``tiers[0]`` sorts ahead of every
+    value in ``tiers[1]``, and so on. Values inside one tier tie and fall
+    through to the exposure's ``order_by``. The rank is declared rather than
+    derived from the values' lexical order, because a lexical order is correct
+    only by alphabetical accident and silently breaks on the first new value.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    column: str
+    tiers: tuple[tuple[str, ...], ...]
+
+    @model_validator(mode="after")
+    def _tiers_are_non_empty_and_disjoint(self) -> ProjectionOrderRank:
+        if not self.column:
+            raise ValueError("order_rank.column must be a non-empty string")
+        if not self.tiers:
+            raise ValueError("order_rank.tiers must declare at least one tier")
+        seen: set[str] = set()
+        for index, tier in enumerate(self.tiers):
+            if not tier:
+                raise ValueError(f"order_rank.tiers[{index}] is empty")
+            for value in tier:
+                if not value:
+                    raise ValueError(
+                        f"order_rank.tiers[{index}] contains an empty value"
+                    )
+                if value in seen:
+                    raise ValueError(
+                        f"order_rank value {value!r} is ranked more than once"
+                    )
+                seen.add(value)
+        return self
+
+    @property
+    def ranked_values(self) -> frozenset[str]:
+        return frozenset(value for tier in self.tiers for value in tier)
+
+    def rank_of(self, value: object) -> int:
+        """Return the tier index of ``value``; raise when it has no rank."""
+        for index, tier in enumerate(self.tiers):
+            if value in tier:
+                return index
+        raise UnrankedOrderValueError(self.column, value)
+
+    def sql_order_term(self) -> str:
+        """Render the rank as the SQL ORDER BY term it stands for.
+
+        Derived from the declaration, so the reported ordering can never
+        describe a different rank than the one applied.
+        """
+        column = self.column
+        whens = " ".join(
+            "WHEN {column} IN ({values}) THEN {index}".format(
+                column=column,
+                values=", ".join("'" + v.replace("'", "''") + "'" for v in tier),
+                index=index,
+            )
+            for index, tier in enumerate(self.tiers)
+        )
+        return f"CASE {whens} END ASC"
+
+
+class ProjectionTableConfig(BaseModel):
+    """Configuration for a single projection topic, read from contract.
+
+    All query parameters come from the ``projection_api`` section of the node's
+    contract.yaml. None are inferred from column names, directory names, or
+    database introspection.
+
+    ``table``/``schema_name`` remain on this model because 55 of the 57
+    exposures discovered today are still SQL-served (OMN-15800 converts the
+    first 2 families; the rest strangler-migrate under follow-up tickets) —
+    splitting a writer-side/serving-side model pair now would either force a
+    premature full-fleet conversion or duplicate every other field across two
+    types for a two-family slice. ``bus_backed``/``key_columns`` are additive,
+    per-exposure fields (this model is already exposure/topic-scoped, which is
+    the granularity OMN-15800's design calls for) — not a config split.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    topic: str
+    table: str
+    schema_name: str = "public"
+    # OMN-20152: the PHYSICAL schema of ``table`` in the dashboard database,
+    # which the table read path (``projection/table_reader.py``) reads.
+    # ``schema_name`` is what projection_api declares, and for the exposures
+    # whose relation lives in ``omninode_internal`` it records the DATABASE
+    # (``omnidash_analytics``) instead, because ALLOWED_SCHEMAS admits no
+    # other value (see node_projection_work_events' contract, OMN-17772).
+    # Discovery resolves this from the writer's own db_io declaration of the
+    # same table in that case, and leaves it None when nothing declares one,
+    # which the read path refuses rather than guessing.
+    relation_schema: str | None = None
+    # tuple[str, ...] for declared columns; tuple[Literal["*"]] for SELECT *
+    columns: tuple[str, ...] | tuple[Literal["*"]]
+    json_columns: tuple[str, ...] = ()
+    order_by: str | None = None  # None means ordering is undefined
+    # Parsed form of order_by (OMN-15800 Seam C). Empty tuple when order_by is
+    # None; populated at discovery/contract-load time, never at request time.
+    order_by_spec: OrderBySpec = ()
+    # Optional declared priority over one column's values, applied as the
+    # LEADING presentation sort key ahead of order_by_spec. None (the default,
+    # and the state of every exposure that does not declare one) leaves the
+    # ordering exactly as order_by_spec describes. Never used to select cursor
+    # pages: those stay in ascending cursor_column order.
+    order_rank: ProjectionOrderRank | None = None
+    freshness_column: str | None = None  # None means freshness is unknown
+    # Contract-declared expected cadence between events for this projection
+    # (OMN-13035 / retro B-7). None means the topic is on-demand: it emits only
+    # when triggered, so silence is a normal "idle" state and must never be
+    # reported as "stale". A positive value declares the inter-event interval in
+    # seconds; freshness degrades to "stale" only once the projection is behind
+    # twice that interval.
+    expected_event_interval_seconds: int | None = None
+    # Contract-owned backend surfaces that read this exposure. An absent
+    # declaration remains an empty tuple for existing exposures; a present
+    # declaration is fully validated at discovery, never inferred from source.
+    backend_readers: tuple[ModelProjectionBackendReader, ...] = ()
+
+    cursor_column: str | None = None
+    last_event_id_column: str | None = None
+    last_ingest_sequence_column: str | None = None
+    freshness_state_column: str | None = None
+    degraded_reason_column: str | None = None
+    observed_at_column: str | None = None
+    limit: int = 100
+    source_contract: str = ""  # node name for tracing
+    status: ProjectionStatus = ProjectionStatus.OK
+    degraded_reason: str = ""
+    # OMN-15800: when True, this exposure is served from the bus-fed
+    # SnapshotCache, never from Postgres. key_columns is required (validated
+    # below) whenever bus_backed is True — it is the ordered column tuple the
+    # writer uses to build the Kafka message key and the cache uses to key its
+    # in-memory row map.
+    bus_backed: bool = False
+    key_columns: tuple[str, ...] = ()
+    # OMN-18908: whether this exposure's key grain is immutable or mutable.
+    #
+    # An IMMUTABLE grain is content-addressed: one source event owns exactly
+    # one key for the life of that key, so the serving cache only ever
+    # compares a key against a delta derived from the same source event, and
+    # discarding the repeat is intended idempotence. Only on that grain is a
+    # constant source coordinate correct. A MUTABLE grain is everything else:
+    # a later event legitimately revises the row behind an existing key, and a
+    # constant coordinate there silently produces first-writer-wins for the
+    # life of the key -- the defect class this field exists to make visible.
+    #
+    # ``None`` is UNDECLARED, and it is deliberately not a third grain. The
+    # model keeps it loadable so that adding the field cannot break contract
+    # discovery fleet-wide, and the refusal lives in the
+    # ``key_grain_declared`` validator, which treats an undeclared grain as a
+    # failure rather than defaulting it. A default here is precisely how the
+    # next handler would inherit an exemption nobody chose for it.
+    key_grain: Literal["immutable", "mutable"] | None = None
+    # OMN-19841: how a request WITHOUT ``since`` selects its page.
+    #
+    # ``cursor`` (the default, and the state of every exposure that predates
+    # this field) is the OMN-18043 walk: the page is the lowest
+    # ``limit`` rows in ascending ``cursor_column`` order, sorted for display
+    # afterwards, and ``next_cursor`` continues the walk.
+    #
+    # ``order_by`` is for a RANKED read model, where the declared order is the
+    # product: the page is the top ``limit`` rows by ``order_rank`` plus
+    # ``order_by_spec``. Under ``cursor`` such an exposure serves its OLDEST
+    # rows whenever the cache retains more than ``limit`` of them -- measured
+    # on the .201 dev lane 2026-09-27, the runtime-error fingerprint exposure
+    # served cursors 134..3909 of a table reaching 17545, so no new error ever
+    # reached the Errors panel. A ``since`` request still walks in ascending
+    # cursor order under either value; the two reads are different questions
+    # and neither answers the other's.
+    page_selection: Literal["cursor", "order_by"] = "cursor"
+    # OMN-20327: the column that picks the newest row of a key when the table
+    # keeps every revision of it (consumer_flow_windows holds each window a
+    # consumer-group/topic pair ever had). Absent, the newest row of a key is
+    # the one with the greatest cursor. Naming a column the table's key index
+    # already orders (consumer-flow's ``window_start``, the tail of its primary
+    # key) is what lets the read take one row per key from the index instead of
+    # sorting the revisions.
+    latest_by: str | None = None
+    # OMN-15797 AC2: the ROW column carrying this exposure's per-row tenant
+    # identity. ``None`` (the default, and the state of every exposure that
+    # predates this field) means the exposure is not tenant-scoped and is
+    # served unscoped exactly as before.
+    #
+    # Declaring it is a binding statement with two consequences in the serving
+    # path, both fail-loud: a request whose tenant context cannot be resolved
+    # is REFUSED (never a bare 200 with an empty or unscoped row list), and a
+    # request that does resolve one is scoped inside
+    # ``SnapshotCache.get_rows`` before the limit is applied.
+    #
+    # This is the ROW's own stored tenant value -- the same column the RLS
+    # policy compares ``app.tenant_id`` against on the writer's side -- NOT
+    # ``CachedRow.tenant_id``, which is read off a Kafka header that no
+    # producer sets today and therefore defaults to the house tenant for every
+    # row. Scoping on the header would be theater; scoping on the row column
+    # is the value the reducer actually wrote. Per-envelope tenant identity
+    # (and with it the general case for exposures that carry no tenant column)
+    # remains OMN-14208.
+    tenant_column: str | None = None
+
+    @model_validator(mode="after")
+    def _bus_backed_requires_key_columns(self) -> ProjectionTableConfig:
+        if self.bus_backed and not self.key_columns:
+            raise ValueError(
+                f"projection_api exposure {self.topic!r} declares bus_backed: "
+                "true but no key_columns"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _backend_reader_ids_are_unique(self) -> ProjectionTableConfig:
+        reader_ids = [reader.id for reader in self.backend_readers]
+        if len(reader_ids) != len(set(reader_ids)):
+            raise ValueError(
+                f"projection_api exposure {self.topic!r} declares duplicate "
+                "backend_readers ids"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _order_rank_column_must_be_declared(self) -> ProjectionTableConfig:
+        if self.order_rank is None or self.columns == ("*",):
+            return self
+        if self.order_rank.column not in {c.strip('"') for c in self.columns}:
+            raise ValueError(
+                f"projection_api exposure {self.topic!r} declares order_rank on "
+                f"column {self.order_rank.column!r}, which is not among its "
+                f"declared columns {list(self.columns)!r}"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _order_by_page_selection_needs_an_order(self) -> ProjectionTableConfig:
+        """A page selected by the declared order needs a declared order.
+
+        Without one the "top ``limit`` rows" is dict insertion order, which is
+        a window nobody chose and nothing reports.
+        """
+        if (
+            self.page_selection == "order_by"
+            and not self.order_by_spec
+            and self.order_rank is None
+        ):
+            raise ValueError(
+                f"projection_api exposure {self.topic!r} declares "
+                "page_selection: order_by but no order_by or order_rank"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _tenant_column_must_be_servable(self) -> ProjectionTableConfig:
+        """Reject a tenant_column the serving path could not honour.
+
+        Hard-fails contract load (like ``order_by``, unlike the fields that
+        merely exclude an exposure): a typo'd or unservable tenant_column is a
+        scoping declaration that would either silently not apply or scope on a
+        column that is never present in the row -- returning an empty page the
+        caller reads as "no data". A scoping mistake must never be a quiet one.
+        """
+        if self.tenant_column is None:
+            return self
+        if not self.bus_backed:
+            raise ValueError(
+                f"projection_api exposure {self.topic!r} declares "
+                f"tenant_column {self.tenant_column!r} but is not bus_backed; "
+                "only the bus-fed serving path can scope rows"
+            )
+        if self.columns != ("*",) and self.tenant_column not in {
+            column.strip('"') for column in self.columns
+        }:
+            raise ValueError(
+                f"projection_api exposure {self.topic!r} declares "
+                f"tenant_column {self.tenant_column!r}, which is not among its "
+                f"declared columns {list(self.columns)!r}"
+            )
+        return self
+
+    @property
+    def tenant_scoped(self) -> bool:
+        """True when this exposure must be served under a resolved tenant."""
+        return self.tenant_column is not None
+
+
+class ModelProjectionSnapshotDelta(BaseModel):
+    """One keyed row-delta published onto a projection snapshot topic.
+
+    OMN-15800 Seam A. Published by :meth:`BaseProjectionRunner.publish_snapshot_delta`
+    after a bus_backed exposure's row is durably written to Postgres (the
+    runtime's private materialization, unchanged); consumed by
+    :class:`omnimarket.projection.snapshot_cache.SnapshotCache` (Seam B).
+
+    A ``delete`` is published as a genuine Kafka tombstone: the message VALUE
+    itself is ``None`` (not a JSON body with ``op="delete"``), so compaction
+    can reclaim the key. This model therefore only ever describes the
+    ``upsert`` wire shape; a tombstone is represented at the transport layer,
+    not by constructing an instance with ``op="delete"`` and a null value.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    topic: str
+    key: tuple[str, ...]
+    op: Literal["upsert", "delete"]
+    row: dict[str, Any] | None
+    observed_at: str
+    source_event_id: str
+    # Ordering authority (CodeRabbit, OMN-15800 round 3, discussion
+    # r3745850632): the SOURCE Kafka message's own coordinates, never a
+    # wall-clock token. Per (source_topic, source_partition), the broker
+    # assigns source_offset monotonically -- independent of which replica
+    # (and which replica's clock) does the processing, so neither an NTP
+    # backward step nor a rebalance to a lagging-clock replica can make a
+    # genuinely newer delta look stale. `observed_at` above remains
+    # display-only metadata and is never consulted for staleness.
+    source_topic: str
+    source_partition: int
+    source_offset: int
+    projection_version: str = SNAPSHOT_DELTA_SCHEMA_VERSION
+
+    @model_validator(mode="after")
+    def _row_present_iff_upsert(self) -> ModelProjectionSnapshotDelta:
+        if self.op == "upsert" and self.row is None:
+            raise ValueError("row is required when op == 'upsert'")
+        if self.op == "delete" and self.row is not None:
+            raise ValueError("row must be omitted when op == 'delete'")
+        return self
+
+
+def snapshot_json_value(value: Any, *, decode_json_string: bool = False) -> Any:
+    """Serialize one row value for a snapshot delta / HTTP response.
+
+    Shared by the writer path (:mod:`omnimarket.projection.runner`) and the
+    serving path (:mod:`omnimarket.projection.api_server`) so both produce and
+    consume the identical JSON shape for the same column value.
+    """
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    if isinstance(value, UUID):
+        return str(value)
+    if isinstance(value, Decimal):
+        return str(value)
+    if decode_json_string and isinstance(value, str):
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            return value
+    return value
+
+
+__all__ = [
+    "SNAPSHOT_DELTA_SCHEMA_VERSION",
+    "ModelProjectionSnapshotDelta",
+    "NullsPlacement",
+    "OrderBySpec",
+    "OrderDirection",
+    "ProjectionOrderRank",
+    "ProjectionStatus",
+    "ProjectionTableConfig",
+    "UnrankedOrderValueError",
+    "snapshot_json_value",
+]

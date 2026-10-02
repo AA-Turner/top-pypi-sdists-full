@@ -1,0 +1,127 @@
+"""
+@relation(SDOC-SRS-138, scope=file)
+"""
+
+from typing import Any, List, Optional
+
+from strictdoc.backend.sdoc_source_code.models.requirement_marker import Req
+from strictdoc.helpers.auto_described import auto_described
+
+
+@auto_described
+class RangeMarker:
+    def __init__(
+        self,
+        parent: Any,
+        reqs_objs: List[Req],
+        scope: str = "",
+        role: Optional[str] = None,
+    ) -> None:
+        assert isinstance(reqs_objs, list)
+        self.parent: Any = parent
+
+        assert scope in ("range_start", "range_end")
+        self.begin_or_end: bool = scope == "range_start"
+
+        self.reqs_objs: List[Req] = reqs_objs
+        self.reqs: List[str] = list(map(lambda req: req.uid, reqs_objs))
+        self.role: Optional[str] = (
+            role if role is not None and len(role) > 0 else None
+        )
+
+        # Line number of the marker in the source code.
+        self.ng_source_line_begin: Optional[int] = None
+        self.ng_source_column_begin: Optional[int] = None
+
+        # Line number of the marker range in the source code:
+        # TODO: Improve description.
+        # For Begin ranges:
+        #   ng_range_line_begin == ng_source_line_begin  # noqa: ERA001
+        #   ng_range_line_end == ng_source_line_begin of the End marker  # noqa: ERA001, E501
+        # For End ranges:
+        #   ng_range_line_begin == ng_range_line_begin of the Begin marker  # noqa: ERA001, E501
+        #   ng_range_line_end == ng_source_line_begin  # noqa: ERA001
+        self.ng_range_line_begin: Optional[int] = None
+        self.ng_range_line_end: Optional[int] = None
+
+        self.ng_is_nodoc: bool = "skip" in self.reqs
+
+    def is_begin(self) -> bool:
+        return self.begin_or_end
+
+    def is_end(self) -> bool:
+        return not self.begin_or_end
+
+    def is_range_marker(self) -> bool:
+        return True
+
+    def is_line_marker(self) -> bool:
+        return False
+
+    def is_forward(self) -> bool:
+        return False
+
+    def get_description(self) -> Optional[str]:
+        return "range"
+
+
+@auto_described
+class ForwardRangeMarker:
+    def __init__(
+        self,
+        start_or_end: bool,
+        reqs_objs: List[Req],
+        role: Optional[str] = None,
+    ) -> None:
+        assert len(reqs_objs) > 0
+        self.start_or_end: bool = start_or_end
+
+        self.reqs_objs: List[Req] = reqs_objs
+        self.reqs: List[str] = list(map(lambda req: req.uid, reqs_objs))
+
+        self.role: Optional[str] = (
+            role if role is not None and len(role) > 0 else None
+        )
+
+        # Line number of the marker in the source code.
+        self.ng_source_line_begin: Optional[int] = None
+        # The column number is never used but keeping for compatibility with
+        # the other markers when used for error reporting.
+        self.ng_source_column_begin: Optional[int] = None
+
+        self.ng_range_line_begin: Optional[int] = None
+        self.ng_range_line_end: Optional[int] = None
+
+        self.ng_is_nodoc: bool = False
+
+    def is_begin(self) -> bool:
+        return self.start_or_end
+
+    def is_end(self) -> bool:
+        return not self.start_or_end
+
+    def is_range_marker(self) -> bool:
+        return True
+
+    def is_line_marker(self) -> bool:
+        return False
+
+    def get_description(self) -> Optional[str]:
+        return "range"
+
+    def is_forward(self) -> bool:
+        return True
+
+
+@auto_described
+class ForwardFileMarker(ForwardRangeMarker):
+    def __init__(
+        self, reqs_objs: List[Req], role: Optional[str] = None
+    ) -> None:
+        super().__init__(True, reqs_objs, role)
+
+    def get_description(self) -> Optional[str]:
+        return "entire file"
+
+    def is_forward(self) -> bool:
+        return True

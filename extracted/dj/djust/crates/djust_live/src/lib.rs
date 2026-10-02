@@ -1,0 +1,6496 @@
+//! djust - Reactive server-side rendering for Django
+//!
+//! This is the main crate that ties together templates, virtual DOM, and
+//! provides Python bindings for reactive server-side rendering.
+
+// PyResult type annotations are required by PyO3 API
+#![allow(clippy::useless_conversion)]
+// Parameter only used in recursion for Python value conversion
+#![allow(clippy::only_used_in_recursion)]
+// TODO: Migrate to IntoPyObject when pyo3 stabilizes the new API
+// See: https://pyo3.rs/v0.23.0/migration
+// TEMP REMOVED: #![allow(deprecated)]
+
+// Actor system module
+pub mod actors;
+
+// Fast model serialization for N+1 query prevention
+pub mod model_serializer;
+
+use actors::{ActorSupervisor, SessionActorHandle};
+use dashmap::DashMap;
+use djust_core::html_whitespace::is_html_whitespace_only;
+use djust_core::{Context, RenderEnv, Value};
+use djust_templates::inheritance::FilesystemTemplateLoader;
+use djust_templates::loop_cache::{LoopCacheGuard, LoopRenderCache};
+use djust_templates::render_env::RenderEnvGuard;
+use djust_templates::{CompiledTemplate, Template};
+use djust_vdom::{
+    cache_ignore_subtree_html, diff, find_paths_by_attr, parse_html, parse_html_continue,
+    parse_html_fragment, reset_id_counter, splice_ignore_subtrees, sync_ids,
+    try_text_only_vdom_update_inplace, VNode,
+};
+use once_cell::sync::Lazy;
+use pyo3::prelude::*;
+use pyo3::types::{PyBytes, PyDict, PyList, PyTuple};
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::time::Duration;
+
+/// Run a `_rust` entry point so that a Rust PANIC reaches Python as an
+/// ordinary `Exception` instead of PyO3's `PanicException` (#2343).
+///
+/// # Why this exists at all
+///
+/// djust's error contract, as every `except Exception` in the Python package
+/// assumes it, is: *a bad template gives you an error frame, not a dropped
+/// socket.* `LiveViewConsumer.receive` wraps its dispatch in `except
+/// Exception` → `handle_exception` → `send_json`, which turns a render error
+/// into a message the client can act on while the WebSocket stays open.
+///
+/// That contract held only for values that ARE `Exception`s. Left to itself,
+/// PyO3 catches an unwind at the FFI boundary and raises
+/// `pyo3_runtime.PanicException`, whose MRO is
+/// `['PanicException', 'BaseException', 'object']` — deliberately NOT an
+/// `Exception`, so that a panic propagates like `KeyboardInterrupt` rather
+/// than being swallowed by broad handlers. Correct for a general-purpose
+/// binding; wrong for us, because it means every `except Exception` boundary
+/// in djust is structurally unable to contain a panic. The blast radius of
+/// `{{ x|stringformat:"" }}` was therefore the SESSION, not the render.
+///
+/// Nothing else can enforce this. A filter is free to index, subtract or
+/// `unwrap` its way into an unwind, and no amount of fixing filters
+/// one at a time makes "the engine raises rather than panics" true by
+/// construction. The boundary is the only place that can, so the guarantee
+/// lives here.
+///
+/// # This is a backstop, not a licence
+///
+/// A caught panic is a much worse message than a proper raise — it names an
+/// internal file and line rather than the template construct at fault. Every
+/// panic that reaches here is a djust bug to be fixed at its source; #2343's
+/// own `stringformat` underflow was fixed in `filters.rs` as well as netted
+/// here.
+///
+/// # What it cannot catch
+///
+/// An allocator ABORT is not an unwind, so `catch_unwind` never sees it and
+/// the process dies regardless. That is why the padding filters cap their
+/// width at `MAX_PAD_WIDTH` (#2348) and `parse_s_spec` refuses an
+/// unallocatable one, rather than relying on this. Do not undo those.
+/// `panic = "abort"` in a profile would likewise disable this entirely; the
+/// workspace release profile does not set it, and
+/// `test_panic_boundary_2343.py` fails if that ever changes.
+///
+/// It also does not cover ARGUMENT CONVERSION. PyO3 runs `FromPyObject` on
+/// every parameter — including the recursive Python-to-`Value` converter — in
+/// the generated wrapper, BEFORE the annotated function body runs, so a panic
+/// in there is still a `PanicException`. Stating that plainly rather than
+/// letting "the entry points are guarded" imply otherwise: the guard covers
+/// everything the engine does with the arguments, not the act of receiving
+/// them. Closing that gap would mean moving the conversion inside the closure
+/// (taking `&Bound<'_, PyAny>` and extracting by hand at each site), which is
+/// a much larger change than the panic it would net, and no such panic is
+/// known — the 30,780-cell sweep in `test_panic_boundary_2343.py` reaches
+/// conversion on every cell.
+fn guard_panic<T>(entry: &'static str, f: impl FnOnce() -> PyResult<T>) -> PyResult<T> {
+    // `AssertUnwindSafe` because essentially nothing crossing this boundary is
+    // `UnwindSafe` — `Python<'_>`, `&Bound<'_, PyAny>` and `&mut self` all
+    // carry interior mutability. The assertion is sound here for the reason it
+    // usually is at a process boundary: the closure's state is not observed
+    // again after the unwind. We return an error to Python instead of
+    // resuming, so no half-updated Rust value is read back.
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)) {
+        Ok(result) => result,
+        Err(payload) => {
+            // `panic!("literal")` yields a `&str`; `panic!("{x}")` and every
+            // std-library panic (slice index, integer overflow, `unwrap`)
+            // yield a `String`. Both are read, because the message is the only
+            // diagnostic a caught panic carries — the default panic hook has
+            // already printed the file:line to stderr by the time we get here.
+            let detail = payload
+                .downcast_ref::<&'static str>()
+                .map(|s| (*s).to_string())
+                .or_else(|| payload.downcast_ref::<String>().cloned())
+                .unwrap_or_else(|| "panic with a non-string payload".to_string());
+            Err(pyo3::exceptions::PyRuntimeError::new_err(format!(
+                "djust internal error: the Rust engine panicked in `{entry}`: {detail}. \
+                 This is a bug in djust — please report it with the template that \
+                 triggered it. The render was abandoned; the connection is not."
+            )))
+        }
+    }
+}
+
+/// Global template cache - parse once, reuse for all sessions
+/// Using Arc<Template> for cheap cloning across threads
+type CachedTemplate = (Arc<Template>, u64);
+static TEMPLATE_CACHE: Lazy<DashMap<(u64, String), CachedTemplate>> = Lazy::new(DashMap::new);
+/// Global supervisor for managing actor lifecycle
+/// Created once with 1-hour TTL
+static SUPERVISOR: Lazy<Arc<ActorSupervisor>> =
+    Lazy::new(|| Arc::new(ActorSupervisor::new(Duration::from_secs(3600))));
+
+/// Flag to track if supervisor background tasks have been started
+static SUPERVISOR_STARTED: Lazy<std::sync::atomic::AtomicBool> =
+    Lazy::new(|| std::sync::atomic::AtomicBool::new(false));
+
+/// Ensure supervisor background tasks are started (idempotent)
+fn ensure_supervisor_started() {
+    use tracing::info;
+
+    if !SUPERVISOR_STARTED.swap(true, std::sync::atomic::Ordering::SeqCst) {
+        // First time - start background tasks
+        let ttl_secs = SUPERVISOR.stats().ttl_secs;
+        info!(
+            ttl_secs = ttl_secs,
+            cleanup_interval_secs = 60,
+            health_check_interval_secs = 30,
+            "Starting ActorSupervisor background tasks"
+        );
+        SUPERVISOR.clone().start();
+    }
+}
+
+/// Serializable representation of RustLiveViewBackend for Redis storage
+#[derive(Serialize, Deserialize)]
+struct SerializableViewState {
+    template_source: String,
+    state: HashMap<String, Value>,
+    last_vdom: Option<VNode>,
+    version: u64,
+    timestamp: f64, // Unix timestamp for session age tracking
+}
+
+/// `RenderTiming::fast_path` values (#2532). A float so the whole timing
+/// dict stays `HashMap<String, f64>` for the existing Python consumer
+/// (`LiveView._rust_render_timing`); Python reads `> 0.0` as "taken".
+const FAST_PATH_NONE: f64 = 0.0;
+/// The fragment fast path: every changed template fragment was plain text
+/// with a known VDOM text node (`fragment_text_map`), so the parse + diff
+/// were skipped and `SetText` patches were produced directly from the
+/// template's changed-fragment list. Only `render_with_diff` has that
+/// list; `render_binary_diff` never reports this value.
+const FAST_PATH_FRAGMENT: f64 = 1.0;
+/// The text-region fast path: the whole-HTML byte diff mechanism. No
+/// template fragment is consulted — the OLD and NEW rendered HTML are
+/// compared bytewise and, when every difference lies inside text content,
+/// the old VDOM's text nodes are patched in place. Two sites report it:
+/// `render_with_diff` (`try_text_region_fast_path`, after the fragment path
+/// could not fire — a single text span, resolved through the byte-offset
+/// `text_node_index`) and `render_binary_diff`
+/// (`djust_vdom::try_text_only_vdom_update_inplace`, its only text fast
+/// path — one or more text spans, resolved by walking the tree). A text
+/// change that `render_with_diff` would report as `FAST_PATH_FRAGMENT` is
+/// therefore reported as this value by `render_binary_diff`.
+const FAST_PATH_TEXT_REGION: f64 = 2.0;
+/// ADR-032: no page render at all — one bound component's subtree was
+/// diffed and spliced by `patch_component_subtree`.
+const FAST_PATH_COMPONENT: f64 = 3.0;
+
+/// Per-phase timing from render_with_diff()
+#[derive(Debug, Clone)]
+struct RenderTiming {
+    render_ms: f64,
+    parse_ms: f64,
+    diff_ms: f64,
+    serialize_ms: f64,
+    total_ms: f64,
+    html_len: usize,
+    /// Which parse-skipping path produced the patches — one of the
+    /// `FAST_PATH_*` constants. `FAST_PATH_NONE` means html5ever parse +
+    /// full VDOM diff ran. Instrumentation only (#2532): the model-backed
+    /// benchmark asserts on it so a variant that silently falls through to
+    /// the slow path cannot be reported as the fast one.
+    fast_path: f64,
+}
+
+/// A LiveView component that manages state and rendering (Rust backend)
+#[pyclass(name = "RustLiveView")]
+pub struct RustLiveViewBackend {
+    template_source: String,
+    /// COPY-ON-WRITE, and that is a performance contract (#2737).
+    ///
+    /// Held in exactly the shape a `Context`'s base frame wants, so a render
+    /// is `Context::from_shared(self.state.clone())` — one atomic increment —
+    /// rather than `from_dict(self.state.clone())`, which deep-cloned every
+    /// key and every `Value` and then rebuilt them into a fresh map. That was
+    /// O(entire state) on EVERY render, charged whether or not the template
+    /// read any of it: ~0.63 ms per render for a view holding 5 000 opaque
+    /// objects, and it is the last such charge on the LiveView path after
+    /// #2733 removed the per-loop-entry one.
+    ///
+    /// Every mutation below goes through `Arc::make_mut`, which copies only
+    /// when a render is holding the map at that moment — the same contract
+    /// `ScopeFrame::values` documents, one level up.
+    state: djust_core::SharedValues,
+    last_vdom: Option<VNode>,
+    /// Cached HTML from the last render, used for text-only fast path detection.
+    /// Not serialized — transient cache that's rebuilt on next render.
+    last_html: Option<String>,
+    /// Version number incremented on each render, used for VDOM synchronization
+    version: u64,
+    /// Unix timestamp when this view was last serialized (for session age tracking)
+    timestamp: f64,
+    /// Template directories for {% include %} tag support
+    template_dirs: Vec<PathBuf>,
+    /// Keys whose values should skip auto-escaping (SafeString from Python)
+    safe_keys: HashSet<String>,
+    /// Per-phase timing from the last render_with_diff() call
+    last_render_timing: Option<RenderTiming>,
+    /// Per-node HTML cache for partial template rendering
+    node_html_cache: Vec<String>,
+    /// Context keys that changed since the last render (None = full render)
+    changed_keys: Option<HashSet<String>>,
+    /// Maps template node index → (VDOM path, djust_id) for text-only fragments.
+    /// Built after first render by matching fragment text to VDOM text nodes.
+    fragment_text_map: Option<HashMap<usize, (Vec<usize>, String)>>,
+    /// Flat list of every VDOM text node paired with its byte range in the
+    /// pre-hydration HTML. Sorted by `html_start`. Used by the text-region
+    /// fast path to O(log N) locate which text node owns a given byte
+    /// offset, skipping the per-event linear scan of HTML + VDOM walk.
+    ///
+    /// Built after each full html5ever parse; cleared when the VDOM
+    /// structure is invalidated (update_template, clear_state, full
+    /// re-render where `last_vdom` is replaced). Subsequent fast-path
+    /// renders don't modify the index because they only change text
+    /// content, not text-node positions or count.
+    text_node_index: Option<Vec<TextNodeEntry>>,
+    /// Sidecar map of raw Python objects keyed by top-level context
+    /// name. Populated by Python's `set_raw_py_values` so the Rust
+    /// template engine can fall back to `getattr` for attributes
+    /// that are not JSON-serializable (e.g. Django model instances).
+    /// Not persisted across MessagePack serialize/deserialize —
+    /// Python re-populates it on each sync cycle.
+    raw_py_values: Option<HashMap<String, Py<PyAny>>>,
+    /// Per-item loop render cache (#1967). PERSISTENT across
+    /// `render_with_diff` calls — a content-hash → rendered-fragment map that
+    /// lets a pure reorder of a keyed list reuse every item subtree instead of
+    /// re-rendering from the AST. Default-OFF (split-foundation #1122); enabled
+    /// via `set_loop_render_cache_enabled` wired from the Python
+    /// `LIVEVIEW_CONFIG['loop_render_cache_enabled']` flag. Installed into the
+    /// render thread-local for the duration of each render via `LoopCacheGuard`.
+    /// Transient: not part of `SerializableViewState` (rebuilt across
+    /// serialize/deserialize, like `node_html_cache`).
+    loop_render_cache: LoopRenderCache,
+    /// Django-parity auto-call of callables in the sidecar getattr walk
+    /// (ADR-024). Default ON; wired from
+    /// `LIVEVIEW_CONFIG['template_auto_call']` via `set_template_auto_call`
+    /// (mirrors the #1967 loop-cache flag plumbing). Stamped onto the
+    /// `Context` at every render that attaches `raw_py_values`. Transient:
+    /// not part of `SerializableViewState` — Python re-wires it on each
+    /// view (re)initialization.
+    template_auto_call: bool,
+    /// Per-instance namespace stamped into this view's `<!--dj-if id=...-->`
+    /// marker ids (#2686). Empty by default, so a plain LiveView's ids are
+    /// byte-identical to before. Set by the Python `LiveComponent`
+    /// `template_name` render entry, which renders each component instance on
+    /// its OWN `RustLiveView` over the SAME template source — so without a
+    /// namespace two instances both emit `if-<hash>-0` and the client, which
+    /// resolves subtree patches by first match, patches the wrong instance.
+    /// The `{% for %}` axis of the same problem is `Context::dj_if_loop_path`
+    /// (#1832). Transient, like `template_auto_call`.
+    dj_if_id_namespace: String,
+    /// The render environment as per-view config (ADR-029, #2741): the
+    /// timezone, number formats and ADR-027 flag Python pushed for this
+    /// view, captured on the pushing thread (`capture_render_env`) and
+    /// installed into the thread-local cells by EVERY render entry under a
+    /// `RenderEnvGuard` — so a render on a thread that never pushed (the
+    /// `ViewActor`'s tokio worker) reads the configured values, not the
+    /// compiled defaults. `None` (never captured) leaves the cells alone,
+    /// which is the pre-ADR-029 behaviour. Transient, like
+    /// `template_auto_call`.
+    render_env: Option<RenderEnv>,
+}
+
+#[derive(Clone, Debug)]
+struct TextNodeEntry {
+    /// Byte offset in the pre-hydration HTML where this text node begins.
+    html_start: usize,
+    /// Byte offset where the HTML text run ends (exclusive).
+    html_end: usize,
+    /// VDOM path to this text node.
+    path: Vec<usize>,
+    /// Decoded text content as stored in the VDOM (may differ from the
+    /// raw HTML bytes if the source had entities like `&amp;`).
+    text: String,
+    /// dj-id of the enclosing element (empty for un-ided text nodes).
+    djust_id: String,
+}
+
+#[pymethods]
+impl RustLiveViewBackend {
+    #[new]
+    #[pyo3(signature = (template_source, template_dirs=None))]
+    fn new(template_source: String, template_dirs: Option<Vec<String>>) -> Self {
+        Self {
+            template_source,
+            state: Default::default(),
+            last_vdom: None,
+            last_html: None,
+            version: 0,
+            timestamp: 0.0, // Will be set on first serialization
+            template_dirs: template_dirs
+                .unwrap_or_default()
+                .into_iter()
+                .map(PathBuf::from)
+                .collect(),
+            safe_keys: HashSet::new(),
+            last_render_timing: None,
+            node_html_cache: Vec::new(),
+            changed_keys: None,
+            fragment_text_map: None,
+            text_node_index: None,
+            raw_py_values: None,
+            // Default-OFF (#1967 / split-foundation #1122); flipped by
+            // set_loop_render_cache_enabled from the Python config flag.
+            loop_render_cache: LoopRenderCache::new(false),
+            // Default-ON (ADR-024, Django parity); the Python config
+            // kill-switch flips it via set_template_auto_call.
+            template_auto_call: true,
+            // Empty = no namespace segment in marker ids (#2686). Only the
+            // LiveComponent template_name entry sets one.
+            dj_if_id_namespace: String::new(),
+            // None until Python captures one (ADR-029); a pure-Rust or
+            // direct-API backend reads the thread's cells as before.
+            render_env: None,
+        }
+    }
+
+    /// Tell Rust which context keys changed since the last render.
+    ///
+    /// When set, `render_with_diff` / `render_binary_diff` will only re-render
+    /// template nodes whose dependencies overlap these keys.
+    /// Set or merge changed context keys for the next render cycle.
+    /// Called from Python after _sync_state_to_rust() detects which keys changed.
+    /// Merges with any previously set keys (supports multiple sync calls before render).
+    fn set_changed_keys(&mut self, keys: Vec<String>) {
+        match &mut self.changed_keys {
+            Some(existing) => {
+                existing.extend(keys);
+            }
+            None => {
+                self.changed_keys = Some(keys.into_iter().collect());
+            }
+        }
+    }
+
+    /// Enable or disable the per-item loop render cache (#1967).
+    ///
+    /// Wired from the Python `LIVEVIEW_CONFIG['loop_render_cache_enabled']`
+    /// flag (default False). When disabled (the default), the loop-cache code
+    /// path is never taken and `render_with_diff` is byte-identical to before
+    /// this feature. When enabled, position-INDEPENDENT loop bodies reuse a
+    /// content-hashed fragment across renders (a pure reorder = O(0) re-renders).
+    fn set_loop_render_cache_enabled(&mut self, enabled: bool) {
+        self.loop_render_cache.set_enabled(enabled);
+    }
+
+    /// Whether the loop render cache is currently enabled (introspection).
+    fn loop_render_cache_enabled(&self) -> bool {
+        self.loop_render_cache.is_enabled()
+    }
+
+    /// Enable or disable Django-parity template auto-call (ADR-024).
+    ///
+    /// Wired from the Python `LIVEVIEW_CONFIG['template_auto_call']` flag
+    /// (default True — kill-switch only). When disabled, the sidecar
+    /// getattr walk never invokes callables, restoring pre-ADR behavior.
+    fn set_template_auto_call(&mut self, enabled: bool) {
+        self.template_auto_call = enabled;
+    }
+
+    /// Whether template auto-call is currently enabled (introspection).
+    fn template_auto_call_enabled(&self) -> bool {
+        self.template_auto_call
+    }
+
+    /// Snapshot the CALLING thread's render environment onto this view
+    /// (ADR-029, #2741).
+    ///
+    /// Called by `RustBridgeMixin._apply_render_env` right after
+    /// `djust.render_env.apply_render_env` has pushed the cells, so the
+    /// snapshot is what that push made THIS thread read. Every render entry
+    /// then installs it — on whatever thread the render runs — under a guard
+    /// that restores the previous values afterwards. The per-view twin of
+    /// `set_template_auto_call`, for the same reason: a field on the backend
+    /// reaches every entry on every thread; a thread-local reaches only the
+    /// thread that pushed it.
+    fn capture_render_env(&mut self) {
+        self.render_env = Some(djust_templates::render_env::capture());
+    }
+
+    /// Set (or clear, with `None`) this view's render environment from a
+    /// `RenderEnv` value — `RenderEnv.capture()` or one a test built.
+    #[pyo3(signature = (env))]
+    fn set_render_env(&mut self, env: Option<PyRef<'_, RenderEnvPy>>) {
+        self.render_env = env.map(|e| e.inner.clone());
+    }
+
+    /// This view's captured render environment, or `None` (introspection —
+    /// a setter with no getter cannot be tested end to end, #2017).
+    fn render_env(&self) -> Option<RenderEnvPy> {
+        self.render_env.clone().map(|inner| RenderEnvPy { inner })
+    }
+
+    /// Namespace this view's `<!--dj-if id=...-->` marker ids (#2686).
+    ///
+    /// Marker ids are `if-<template-source-hash>-<ordinal>`, so every render of
+    /// one template source produces the same ids. That is correct while one
+    /// buffer contains one render of that source; it is WRONG when a parent
+    /// composes several. Two `template_name` `LiveComponent` instances of the
+    /// same class each render on their own `RustLiveView` with the ordinal
+    /// restarting at 0, so both emit `if-<hash>-0`, and the client resolves
+    /// `RemoveSubtree` / `InsertSubtree` / `MoveSubtree` by FIRST matching id —
+    /// a toggle inside the second instance lands on the first.
+    ///
+    /// Setting a namespace appends a segment: `if-<hash>-<ordinal>-<namespace>`
+    /// (and any `{% for %}` loop path follows it). The
+    /// caller must pass something STABLE for the instance across renders (the
+    /// component id), because the client keys DOM subtrees on these ids.
+    ///
+    /// Input outside `[A-Za-z0-9_]` is REFUSED (the namespace is left
+    /// unchanged) rather than escaped: the value is interpolated raw into an
+    /// HTML comment, and #2529 is the bug where exactly that let `-->` forge
+    /// live markup.
+    fn set_dj_if_id_namespace(&mut self, namespace: &str) {
+        if namespace
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_')
+        {
+            self.dj_if_id_namespace = namespace.to_string();
+        }
+    }
+
+    /// This view's dj-if id namespace (introspection); empty when unset.
+    fn dj_if_id_namespace(&self) -> String {
+        self.dj_if_id_namespace.clone()
+    }
+
+    /// Number of cache HITS in the most recent render (debug / tests).
+    fn loop_render_cache_hits(&self) -> u64 {
+        self.loop_render_cache.hits()
+    }
+
+    /// Number of cache MISSES (AST renders) in the most recent render
+    /// (debug / tests).
+    fn loop_render_cache_misses(&self) -> u64 {
+        self.loop_render_cache.misses()
+    }
+
+    /// PARSE-cache reuse count for the last render (#1970 probe). The number of
+    /// cached item subtrees spliced in this render. A reorder of N unchanged
+    /// foster-safe keyed items yields ~N parse hits and ~0 item re-parses.
+    fn loop_parse_cache_hits(&self) -> u64 {
+        self.loop_render_cache.parse_hits()
+    }
+
+    /// PARSE-cache miss count for the last render (#1970 probe). The number of
+    /// item subtrees parsed this render (changed/new items). A content-change of
+    /// K items yields ~K parse misses.
+    fn loop_parse_cache_misses(&self) -> u64 {
+        self.loop_render_cache.parse_misses()
+    }
+
+    /// Set template directories for {% include %} tag support
+    fn set_template_dirs(&mut self, dirs: Vec<String>) {
+        self.template_dirs = dirs.into_iter().map(PathBuf::from).collect();
+    }
+
+    /// Set a state variable
+    fn set_state(&mut self, key: String, value: Value) {
+        std::sync::Arc::make_mut(&mut self.state).insert(key, value);
+    }
+
+    /// Update state with a dictionary
+    ///
+    /// Takes `&Bound<PyAny>` rather than `HashMap<String, Value>` directly
+    /// (#2510, round 4): the latter is extracted via PyO3's own blanket
+    /// `HashMap<K, V>: FromPyObject` impl, which holds a live iterator over
+    /// the TOP-LEVEL dict and is exactly the shape this whole bug class is
+    /// about — see `snapshot_context_to_value_hashmap`'s doc comment for the
+    /// full reasoning. `update_state` is the literal call this issue's
+    /// `AuthenticationMiddleware`/`request.user` repro goes through.
+    fn update_state(&mut self, updates: &Bound<'_, PyAny>) -> PyResult<()> {
+        let updates: HashMap<String, Value> =
+            snapshot_context_to_value_hashmap(updates.cast::<PyDict>()?)?;
+        self.apply_state_update(updates);
+        Ok(())
+    }
+
+    /// Drop every state key absent from `keys`, returning the removed keys
+    /// (#2564).
+    ///
+    /// `update_state` MERGES — it is the delta entry for change-detection and
+    /// for the actor crate's partial updates, and must stay that way. But a
+    /// merge has no removal path: a key the Python context stopped carrying
+    /// kept its last `Value`, so `{{ secret }}` kept answering after
+    /// `del self.secret` — the `if self.show: ctx["secret"] = …` content gate
+    /// failed OPEN. With ADR-027's lazy flag ON the class widens from strings
+    /// and dicts to every plain object, because the object then lives IN the
+    /// merged state with a handle instead of only in the per-render sidecar.
+    ///
+    /// This is the truth half: the bridge calls it with the FULL context's
+    /// keys on every sync, before `update_state`. Full-context truth rather
+    /// than tombstones from the Python fingerprint, because that fingerprint
+    /// is emptied by `_force_full_html` on every restore — a key that
+    /// vanished across a restore would never be tombstoned, while the clone
+    /// still carries it.
+    ///
+    /// Removal REVOKES the removed keys' safe grants and their `key.`
+    /// descendants, exactly as `apply_state_update` does for a replaced value
+    /// (#2300): a grant cannot outlive the value it was granted for, and
+    /// `set_state` re-inserts without revoking.
+    ///
+    /// Returns the removed keys so the caller can add them to
+    /// `set_changed_keys` — a removed key is not in the changed context, so
+    /// a partial render would otherwise serve its region from the node cache
+    /// and the OLD text would survive.
+    fn retain_state_keys(&mut self, keys: Vec<String>) -> Vec<String> {
+        let keep: HashSet<String> = keys.into_iter().collect();
+        let removed: Vec<String> = self
+            .state
+            .keys()
+            .filter(|k| !keep.contains(*k))
+            .cloned()
+            .collect();
+        for key in &removed {
+            std::sync::Arc::make_mut(&mut self.state).remove(key);
+            if !self.safe_keys.is_empty() {
+                self.safe_keys.remove(key);
+                let prefix = format!("{key}.");
+                self.safe_keys.retain(|k| !k.starts_with(&prefix));
+            }
+        }
+        removed
+    }
+
+    /// Set the context keys that are safe (skip auto-escaping) for THIS
+    /// render, replacing whatever the previous render set.
+    ///
+    /// Called from Python when `SafeString` values are detected.
+    ///
+    /// **Replaces, never accumulates (#2300).** This used to `extend`, so a
+    /// key marked safe once stayed safe for the lifetime of the view — which
+    /// spans every event on a WebSocket connection. A view that rendered
+    /// trusted markup into `p` and later rendered an attacker-controlled `p`
+    /// emitted it live, with no filter chain and no `|safe` in the template:
+    ///
+    /// ```text
+    /// sync(view, mark_safe("<b>safe</b>"));  view.render()  // '<b>safe</b>'
+    /// sync(view, "<img src=x onerror=alert(1)>");
+    /// view.render()                                          // LIVE
+    /// ```
+    ///
+    /// The caller must invoke this on EVERY render including when the key set
+    /// is empty — that is the case that clears a stale grant, and it is the
+    /// half a replace alone cannot fix. `set_raw_py_values` immediately below
+    /// already had exactly this discipline, and the comment at its call site
+    /// says why; `safe_keys` is the adjacent per-render cache that did not get
+    /// it (#1646).
+    fn mark_safe_keys(&mut self, keys: Vec<String>) {
+        self.safe_keys = keys.into_iter().collect();
+    }
+
+    /// Attach a map of raw Python objects for `getattr`-fallback
+    /// lookups. Called from Python's `_sync_state_to_rust()` for
+    /// context values that are not JSON-serializable (e.g. Django
+    /// model instances). The template engine falls back to
+    /// `getattr(obj, "field")` when a nested key like
+    /// `{{ user.username }}` cannot be resolved via the normal
+    /// value-stack path. An empty dict clears the sidecar.
+    fn set_raw_py_values(&mut self, values: HashMap<String, Py<PyAny>>) {
+        if values.is_empty() {
+            self.raw_py_values = None;
+        } else {
+            self.raw_py_values = Some(values);
+        }
+    }
+
+    /// Drop every ADR-027 live handle carried by this view's state (#2539).
+    ///
+    /// A handle is TRANSIENT by contract, and this is the teardown half of
+    /// that contract for the one place a `Value` outlives a render:
+    /// `RustLiveView.state`. It is the same discipline `set_raw_py_values`
+    /// has — that one is called on EVERY sync including the empty case,
+    /// precisely so a stale sidecar cannot survive a teardown — expressed for
+    /// a value-borne handle instead of a name-keyed map.
+    ///
+    /// **Not called per render, and that is deliberate.** `update_state`
+    /// MERGES, so a key whose value did not change keeps last render's
+    /// `Value` — clearing every handle each render would strip the handle
+    /// from exactly those entries and send their dotted lookups back to an
+    /// empty `attrs` map. Called instead where the view's identity resets: a
+    /// disconnect / re-mount. The msgpack round trip clears them for free
+    /// (`Deserialize` restores `live: None`), so a state entry that came back
+    /// from the state backend never carries one either — and, because a
+    /// handle-bearing value carries an EMPTY `attrs` map, such an entry
+    /// answers nothing for a dotted lookup until the next full sync
+    /// re-converts it (#2570; the Python bridge always syncs before the
+    /// first render of a clone).
+    fn clear_live_handles(&mut self) {
+        for value in std::sync::Arc::make_mut(&mut self.state).values_mut() {
+            clear_live_handles_in(value);
+        }
+    }
+
+    /// Update the template source while preserving VDOM state
+    /// This allows dynamic templates to change without losing diffing capability
+    fn update_template(&mut self, new_template_source: String) {
+        self.template_source = new_template_source;
+        self.node_html_cache = Vec::new(); // Invalidate partial render cache
+        self.last_html = None; // Invalidate text fast path cache
+        self.fragment_text_map = None; // Invalidate fragment→VDOM map
+        self.text_node_index = None; // Invalidate text-region fast-path index
+                                     // The loop-cache fragments AND its body-pointer-keyed position
+                                     // verdicts reference the OLD template AST — clear both (#1967), keeping
+                                     // the enabled flag.
+        self.loop_render_cache.clear();
+    }
+
+    /// Return the canonical 8-hex template-source hash for this view's
+    /// current `template_source`. The same hash drives the
+    /// `<!--dj-if id="if-<prefix>-N"-->` marker IDs used by the keyed-VDOM
+    /// boundary differ (Foundation 1 of #1358) and now the
+    /// per-template slot of the Redis state-backend cache key
+    /// (#1362 section 1). When a template's source changes, the hash
+    /// changes, so a deploy that ships a new template byte-stream gets
+    /// a fresh cache entry on the next reconnect rather than a stale
+    /// diff baseline. Stable across re-renders for the same source.
+    fn template_hash(&self) -> PyResult<String> {
+        guard_panic("template_hash", move || {
+            Ok(djust_templates::parser::template_hash_hex(
+                &self.template_source,
+            ))
+        })
+    }
+
+    /// Return the set of fields bound via static `dj-model="<field>"` in this
+    /// view's CURRENT template source (and any `{% include %}`d templates).
+    ///
+    /// This is the immune source for the dj-model mass-assignment allowlist
+    /// (CWE-915, finding #3). The values are collected from the parsed template
+    /// AST's `Node::Text` literals — developer-authored template text that
+    /// attacker data can NEVER reach (it only ever flows through `{{ }}`
+    /// `Node::Variable` substitution at render time). This replaces the prior
+    /// approach of parsing the RENDERED HTML, which was attacker-influenceable
+    /// (text nodes, unquoted-interpolated attrs, `|safe`).
+    ///
+    /// `{% extends %}` is covered because `template_source` is the
+    /// inheritance-resolved source the renderer uses; `{% include %}` is covered
+    /// by loading included templates from `template_dirs`. A dynamic binding
+    /// `dj-model="{{ field }}"` is NOT captured (fail-closed; opt in via
+    /// `allowed_model_fields`). An unresolvable include or a parse error yields
+    /// no fields for that branch (fail-closed) — it never widens the allowlist.
+    fn dj_model_fields(&self) -> PyResult<Vec<String>> {
+        guard_panic("dj_model_fields", move || {
+            use djust_templates::inheritance::FilesystemTemplateLoader;
+            let loader = FilesystemTemplateLoader::new(self.template_dirs.clone());
+            // Fail-closed: any error (parse failure, etc.) leaves the auto-allowlist
+            // empty rather than over-allowing. The explicit `allowed_model_fields`
+            // path on the Python side still applies.
+            Ok(
+                djust_templates::extract_dj_model_fields(&self.template_source, Some(&loader))
+                    .unwrap_or_default(),
+            )
+        })
+    }
+
+    /// Clear the partial-render fragment cache, forcing the next render to
+    /// do a full collecting render. Keeps `last_vdom` intact so the diff
+    /// baseline is preserved. Used by the partial-render correctness harness
+    /// in tests to produce a control output for byte-equality comparison.
+    fn clear_fragment_cache(&mut self) {
+        self.node_html_cache = Vec::new();
+        self.last_html = None;
+        self.fragment_text_map = None;
+        self.text_node_index = None;
+        // Also drop the loop-item cache so a forced full render is a true
+        // uncached control (#1967) for the byte-equality harness.
+        self.loop_render_cache.clear();
+    }
+
+    /// Get current state
+    fn get_state(&self, py: Python) -> PyResult<Py<PyAny>> {
+        let dict = PyDict::new(py);
+        for (k, v) in self.state.iter() {
+            dict.set_item(k, v.into_pyobject(py)?)?;
+        }
+        Ok(dict.into())
+    }
+
+    /// Render the template and return HTML
+    fn render(&mut self) -> PyResult<String> {
+        guard_panic("render", move || {
+            // Invalidate partial render cache — render() bypasses the diff pipeline
+            // so the cache would be stale for the next render_with_diff() call.
+            self.node_html_cache = Vec::new();
+            self.last_html = None; // Invalidate text fast path cache
+            self.text_node_index = None; // Invalidate text-region fast-path index
+
+            // Get template from cache or parse and cache it (#2669: the ONE
+            // generation-gated entry into `TEMPLATE_CACHE`).
+            let template_arc = cached_template(&self.template_source)?;
+
+            // ADR-029: install this view's render environment into the
+            // thread-local cells for the duration of this render, restoring
+            // the previous values on drop — applied beside `set_auto_call`
+            // at ALL THREE render entries so the paths cannot drift (#1646).
+            let _render_env = self.render_env.as_ref().map(RenderEnvGuard::install);
+
+            let _bridge_memo = djust_core::context::BridgeFrameCacheGuard;
+            let mut context = Context::from_shared(self.state.clone());
+            for key in &self.safe_keys {
+                context.mark_safe(key.clone());
+            }
+            // #2686: namespace this instance's dj-if marker ids. No-op (empty)
+            // for every render that did not opt in. Applied at ALL THREE render
+            // entries, not just the component one, so the paths cannot drift.
+            context.set_dj_if_id_namespace(self.dj_if_id_namespace.as_str());
+            // Attach Py<PyAny> sidecar so `{{ model.attr }}` falls back
+            // to `getattr` when `attr` isn't in the JSON-serialized state.
+            if let Some(raw) = &self.raw_py_values {
+                let cloned: HashMap<String, Py<PyAny>> = Python::attach(|py| {
+                    raw.iter()
+                        .map(|(k, v)| (k.clone(), v.clone_ref(py)))
+                        .collect()
+                });
+                context.set_raw_py_objects(cloned);
+                // ADR-024: stamp the auto-call kill-switch onto this render's
+                // context (only meaningful when a sidecar is attached).
+                context.set_auto_call(self.template_auto_call);
+            }
+
+            // Use template loader for {% include %} support
+            let loader = FilesystemTemplateLoader::new(self.template_dirs.clone());
+            let html = template_arc.render_with_loader(&context, &loader)?;
+            Ok(html)
+        })
+    }
+
+    /// Render and compute diff from last render
+    /// Returns a tuple of (html, patches_json, version)
+    fn render_with_diff(&mut self) -> PyResult<(String, Option<String>, u64)> {
+        guard_panic("render_with_diff", move || {
+            use std::time::Instant;
+
+            let t_start = Instant::now();
+
+            // Get template from cache or parse and cache it (#2669: the ONE
+            // generation-gated entry into `TEMPLATE_CACHE`).
+            let template_arc = cached_template(&self.template_source)?;
+
+            // ADR-029: install this view's render environment into the
+            // thread-local cells for the duration of this render, restoring
+            // the previous values on drop — applied beside `set_auto_call`
+            // at ALL THREE render entries so the paths cannot drift (#1646).
+            let _render_env = self.render_env.as_ref().map(RenderEnvGuard::install);
+
+            let _bridge_memo = djust_core::context::BridgeFrameCacheGuard;
+            let mut context = Context::from_shared(self.state.clone());
+            for key in &self.safe_keys {
+                context.mark_safe(key.clone());
+            }
+            // #2686: namespace this instance's dj-if marker ids. No-op (empty)
+            // for every render that did not opt in. Applied at ALL THREE render
+            // entries, not just the component one, so the paths cannot drift.
+            context.set_dj_if_id_namespace(self.dj_if_id_namespace.as_str());
+            // Attach Py<PyAny> sidecar so `{{ model.attr }}` falls back
+            // to `getattr` when `attr` isn't in the JSON-serialized state.
+            if let Some(raw) = &self.raw_py_values {
+                let cloned: HashMap<String, Py<PyAny>> = Python::attach(|py| {
+                    raw.iter()
+                        .map(|(k, v)| (k.clone(), v.clone_ref(py)))
+                        .collect()
+                });
+                context.set_raw_py_objects(cloned);
+                // ADR-024: stamp the auto-call kill-switch onto this render's
+                // context (only meaningful when a sidecar is attached).
+                context.set_auto_call(self.template_auto_call);
+            }
+
+            // Phase 1: Template render (partial if cache available)
+            let t_render_start = Instant::now();
+            let loader = FilesystemTemplateLoader::new(self.template_dirs.clone());
+
+            // Resolve {% extends %} inheritance once (cached on Template via OnceLock)
+            if template_arc.uses_extends() {
+                template_arc.resolve_inheritance(&loader)?;
+            }
+
+            // Track old fragments for text-fast-path comparison
+            let old_node_cache = self.node_html_cache.clone();
+
+            // Install the persistent per-item loop render cache (#1967) for the
+            // duration of this render. We `mem::take` it out of `self` to a local
+            // so the `LoopCacheGuard` holds a stable `&mut` independent of the
+            // other `self`-field borrows the render path uses, then put it back.
+            // When the cache is disabled the guard + thread-local lookups are
+            // effectively inert (the For-node path checks `is_enabled` and skips),
+            // so this is byte-identical to the pre-#1967 path.
+            let mut loop_cache = std::mem::take(&mut self.loop_render_cache);
+            loop_cache.begin_render();
+            let render_result: Result<(String, Vec<usize>), _> = {
+                let _loop_guard = LoopCacheGuard::install(&mut loop_cache);
+                if !self.node_html_cache.is_empty() && self.changed_keys.is_some() {
+                    // Partial render: only re-render nodes whose deps changed
+                    let changed = self.changed_keys.take().unwrap_or_default();
+                    template_arc
+                        .render_with_loader_partial(
+                            &context,
+                            &loader,
+                            &changed,
+                            &self.node_html_cache,
+                        )
+                        .map(|(html, fragments, changed_indices)| {
+                            self.node_html_cache = fragments;
+                            (html, changed_indices)
+                        })
+                } else {
+                    // Full render: first render or no change info
+                    self.changed_keys = None;
+                    template_arc
+                        .render_with_loader_collecting(&context, &loader)
+                        .map(|(html, fragments)| {
+                            self.node_html_cache = fragments;
+                            (html, vec![])
+                        })
+                }
+            };
+            // Prune stale entries (keep only hashes seen this render). NOTE: we do
+            // NOT put `loop_cache` back on `self` yet — the parse phase below
+            // consumes the #1970 per-render manifest and may populate the parse
+            // cache (`insert_parsed`) for freshly-parsed items, so `loop_cache`
+            // stays a live local through the parse phase and is restored afterwards.
+            loop_cache.prune();
+            // Take the per-render item manifest (#1970). Empty unless the loop
+            // render cache is enabled AND the loop body is cacheable AND items were
+            // foster-safe. Consumed by the parse-cache splice in the full-parse
+            // block below. Taken UNCONDITIONALLY here so a stale manifest can never
+            // leak into the next render regardless of which parse path fires.
+            let loop_parse_manifest = loop_cache.take_manifest();
+            let (reduced_html, changed_indices) = match render_result {
+                Ok(v) => v,
+                Err(e) => {
+                    // Restore the cache before propagating so `self` is never left
+                    // without its loop cache.
+                    self.loop_render_cache = loop_cache;
+                    return Err(e.into());
+                }
+            };
+            let render_ms = t_render_start.elapsed().as_secs_f64() * 1000.0;
+
+            // #1970: when the parse cache emitted `<dj-pc>` placeholders for
+            // cache-HIT items, `reduced_html` is the SHORT form html5ever will
+            // parse cheaply. Reconstruct the FULL html (placeholders expanded to
+            // their item HTML, from the manifest) for every existing consumer
+            // (`last_html`, the fast paths, the full-parse fallback, `html_len`).
+            // When there were no placeholders this is a cheap identity (the reduced
+            // html IS the full html). The parse-cache splice path below is the ONLY
+            // consumer of `reduced_html`.
+            let has_loop_placeholders = loop_parse_manifest.iter().any(|m| m.placeholder);
+            let html = if has_loop_placeholders {
+                // Match ONLY this render's nonce-bearing sentinel tag (#1970).
+                let sentinel_tag = djust_templates::loop_cache::placeholder_tag(loop_cache.nonce());
+                // The per-node fragment cache holds this render's REDUCED
+                // fragments; expand them too. A later PARTIAL render reuses
+                // cached fragments verbatim but has no manifest for them, so a
+                // placeholder left in the cache reached a full parse as a real
+                // `<dj-pc-…>` element (and it skewed the fragment text map's
+                // byte offsets, which assume fragments concatenate to the full
+                // html). Fragments concatenate to `reduced_html`, so their
+                // placeholders are the manifest's, in order.
+                let open = format!("<{sentinel_tag} ");
+                let mut ph_iter = loop_parse_manifest.iter().filter(|m| m.placeholder);
+                for frag in self.node_html_cache.iter_mut() {
+                    if frag.contains(&open) {
+                        *frag = Self::expand_loop_placeholders(frag, &mut ph_iter, &sentinel_tag);
+                    }
+                }
+                Self::reconstruct_full_loop_html(&reduced_html, &loop_parse_manifest, &sentinel_tag)
+            } else {
+                reduced_html.clone()
+            };
+
+            // Phase 2: HTML parse to VDOM
+            // Text-fast-path: if ALL changed fragments are plain text (no HTML tags),
+            // skip html5ever + diff entirely and produce SetText patches directly.
+            let t_parse_start = Instant::now();
+            let text_fast_path = if !changed_indices.is_empty() && self.last_vdom.is_some() {
+                // Check if all changed fragments are plain text
+                let mut all_text = true;
+                let mut text_changes: Vec<(usize, String, String)> = Vec::new();
+                for &idx in &changed_indices {
+                    let old_frag = old_node_cache.get(idx).map(|s| s.as_str()).unwrap_or("");
+                    let new_frag = self
+                        .node_html_cache
+                        .get(idx)
+                        .map(|s| s.as_str())
+                        .unwrap_or("");
+                    if old_frag != new_frag {
+                        // Check if both fragments are plain text (no HTML tags)
+                        if old_frag.contains('<') || new_frag.contains('<') {
+                            all_text = false;
+                            break;
+                        }
+                        text_changes.push((idx, old_frag.to_string(), new_frag.to_string()));
+                    }
+                }
+                if all_text && !text_changes.is_empty() {
+                    // Build the fragment→text-node map lazily (#3013): only a
+                    // text fast path needs it, so it is built here, from the
+                    // PREVIOUS render's fragments and tree, rather than after
+                    // every full parse. `old_node_cache` is exactly the
+                    // fragment list the eager build used to see (it concatenates
+                    // to `last_html`, which `last_vdom` was parsed from), so
+                    // the map is the one the eager build produced.
+                    if self.fragment_text_map.is_none() && !old_node_cache.is_empty() {
+                        if let (Some(ref vdom), Some(ref full_html)) =
+                            (&self.last_vdom, &self.last_html)
+                        {
+                            self.fragment_text_map =
+                                Some(build_fragment_text_map(&old_node_cache, vdom, full_html));
+                        }
+                    }
+                    // Use the fragment text map to produce patches directly.
+                    // First verify all fragments have mappings, then apply.
+                    if let Some(ref frag_map) = self.fragment_text_map {
+                        // #2999: a text node that would become — or was —
+                        // whitespace-only is dropped or collapsed to `" "` by
+                        // a full parse depending on its neighbours, so its
+                        // node may not exist (or may not be where the map
+                        // says); let the full parse handle it. And never emit
+                        // a SetText whose target isn't a text node in the
+                        // current VDOM: the map could be stale, and a patch
+                        // the server's own tree didn't take would leave the
+                        // server rendering old content forever.
+                        //
+                        // A fragment is raw HTML, while the VDOM text node
+                        // (and the client's `textContent`) holds DECODED
+                        // text: `&amp;` must reach the patch as `&` (#2898).
+                        // `text_node_value` decodes (or not, inside
+                        // script/style) and returns None for anything it
+                        // can't decode exactly as the parser would.
+                        let decoded: Option<Vec<String>> = text_changes
+                            .iter()
+                            .map(|(idx, old_raw, new_raw)| {
+                                let (path, _) = frag_map.get(idx)?;
+                                let vdom = self.last_vdom.as_ref()?;
+                                let node = get_vdom_node(vdom, path)?;
+                                if !node.is_text() {
+                                    return None;
+                                }
+                                let old_text = text_node_value(vdom, path, old_raw)?;
+                                let new_text = text_node_value(vdom, path, new_raw)?;
+                                if is_html_whitespace_only(&old_text)
+                                    || is_html_whitespace_only(&new_text)
+                                    || node.text.as_deref() != Some(old_text.as_str())
+                                {
+                                    return None;
+                                }
+                                Some(new_text)
+                            })
+                            .collect();
+                        if let Some(decoded) = decoded {
+                            let mut vdom = self.last_vdom.take().unwrap();
+                            let mut patches = Vec::new();
+                            for ((idx, _old_raw, _new_raw), new_text) in
+                                text_changes.iter().zip(decoded.iter())
+                            {
+                                let (path, djust_id) = frag_map.get(idx).unwrap();
+                                if let Some(node) = get_vdom_node_mut(&mut vdom, path) {
+                                    node.text = Some(new_text.clone());
+                                    node.cached_html = None;
+                                }
+                                let d = if djust_id.is_empty() {
+                                    None
+                                } else {
+                                    Some(djust_id.clone())
+                                };
+                                patches.push(djust_vdom::Patch::SetText {
+                                    path: path.clone(),
+                                    d,
+                                    text: new_text.clone(),
+                                });
+                            }
+                            Some((vdom, patches))
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            // Text-region fast path: if text-fast-path can't fire (because
+            // changed fragments contain tags), maybe the diff between the
+            // FULL old and new HTML is still a single text span. Common for
+            // a value change inside a `{% for %}` loop body — the whole
+            // loop re-renders, but the actual byte diff is tiny.
+            // Borrow-split trick: take the index out so we can pass it mutably
+            // while also borrowing self.last_vdom / self.last_html. Replaced
+            // at the end of this block regardless of hit/miss.
+            let text_region_fast_path: Option<(VNode, Vec<djust_vdom::Patch>)> = if text_fast_path
+                .is_none()
+            {
+                if let (Some(old_vdom), Some(old_html), Some(mut index)) = (
+                    self.last_vdom.as_ref(),
+                    self.last_html.as_ref(),
+                    self.text_node_index.take(),
+                ) {
+                    let result = try_text_region_fast_path(old_html, &html, old_vdom, &mut index);
+                    self.text_node_index = Some(index);
+                    result
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            let mut took_full_parse = false;
+            // Which parse-skipping path fired, for `RenderTiming::fast_path` (#2532).
+            let fast_path: f64;
+            let (mut new_vdom, patches, parse_ms, diff_ms) = if let Some((vdom, text_patches)) =
+                text_fast_path
+            {
+                fast_path = FAST_PATH_FRAGMENT;
+                let parse_ms = t_parse_start.elapsed().as_secs_f64() * 1000.0;
+                let patches_json = if text_patches.is_empty() {
+                    Some("[]".to_string())
+                } else {
+                    Some(serde_json::to_string(&text_patches).map_err(|e| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())
+                    })?)
+                };
+                // The original text-fast-path mutates VDOM text nodes but
+                // doesn't know about our byte-position index — invalidate
+                // it so the NEXT render rebuilds rather than silently
+                // relying on the content-equality safety net in
+                // try_text_region_fast_path to catch stale offsets.
+                self.text_node_index = None;
+                (vdom, patches_json, parse_ms, 0.0)
+            } else if let Some((vdom, text_patches)) = text_region_fast_path {
+                fast_path = FAST_PATH_TEXT_REGION;
+                let parse_ms = t_parse_start.elapsed().as_secs_f64() * 1000.0;
+                let patches_json = if text_patches.is_empty() {
+                    Some("[]".to_string())
+                } else {
+                    Some(serde_json::to_string(&text_patches).map_err(|e| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())
+                    })?)
+                };
+                (vdom, patches_json, parse_ms, 0.0)
+            } else {
+                took_full_parse = true;
+                fast_path = FAST_PATH_NONE;
+                // dj-id collision defense (#1550 / #1552). Before
+                // `parse_html_continue` generates fresh ids for the new
+                // tree, advance the thread-local id counter past the
+                // highest id present in `last_vdom`. Without this, when
+                // the view's `last_vdom` was generated on a different
+                // thread (worker-pool handoff) OR was restored from a
+                // msgpack roundtrip on a thread whose counter is at a
+                // lower value than the saved tree's ids, the new tree's
+                // freshly-generated ids overlap with surviving old-tree
+                // ids. The resulting `InsertSubtree.html` then carries
+                // dj-ids that collide with siblings the diff plans to
+                // remove via `RemoveChild(child_d=...)`, and the
+                // client's `:scope > [dj-id=N]` querySelector returns
+                // the wrong (newer) element — the subtree-doubling
+                // symptom reported in #1552 (and the simpler "branch
+                // doesn't swap" symptom in #1550 when ids 1..k overlap
+                // with sibling counts).
+                if let Some(ref old_vdom) = self.last_vdom {
+                    if let Some(max_id) = djust_vdom::max_djust_id_in(old_vdom) {
+                        djust_vdom::ensure_id_counter_at_least(max_id + 1);
+                    }
+                }
+                // The id-counter base the FULL parse would assign from: 0 for
+                // an initial `parse_html` (which resets), or the current counter
+                // value for a continuing `parse_html_continue` (already advanced
+                // past the old tree's max ids by the #1550/#1552 bump above).
+                // The #1970 splice re-walks the assembled tree from this base so
+                // its dj-ids are byte-identical to the full parse.
+                let is_continue = self.last_vdom.is_some();
+                let counter_base = if is_continue {
+                    djust_vdom::get_id_counter()
+                } else {
+                    0
+                };
+
+                // #1970 parse-cache splice: when the render emitted `<dj-pc>`
+                // placeholders for cache-HIT items, parse the SHORT reduced html
+                // (cheap), then splice the cached parsed subtrees back in and
+                // re-walk dj-ids. A reorder of unchanged items reduces almost
+                // the entire item markup to tiny placeholders, so html5ever
+                // parses a fraction of the bytes. Any anomaly (a cache miss for
+                // a placeholder hash, foster-parenting having relocated a
+                // placeholder so the found-count disagrees, or a residual
+                // placeholder) makes `try_parse_cache_splice` return None and we
+                // fall back to a full parse of the (full) html — always correct.
+                let mut new_vdom = if has_loop_placeholders {
+                    match Self::try_parse_cache_splice(
+                        &reduced_html,
+                        &loop_parse_manifest,
+                        &mut loop_cache,
+                        counter_base,
+                    ) {
+                        Some(v) => v,
+                        None => {
+                            // Fallback: full parse of the full html (correct,
+                            // no parse win for this render). Re-establish the
+                            // counter base the full parse expects.
+                            if is_continue {
+                                djust_vdom::set_id_counter(counter_base);
+                                parse_html_continue(&html).map_err(|e| {
+                                    PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string())
+                                })?
+                            } else {
+                                parse_html(&html).map_err(|e| {
+                                    PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string())
+                                })?
+                            }
+                        }
+                    }
+                } else {
+                    // No placeholders → ordinary full parse (byte-identical to
+                    // pre-#1970). Still populate the parse cache for eligible
+                    // items recorded in the manifest (all parse-MISSes on this
+                    // render) so a FUTURE reorder can hit. Population parses each
+                    // miss item's fragment once (the changed items only).
+                    let v = if is_continue {
+                        parse_html_continue(&html).map_err(|e| {
+                            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string())
+                        })?
+                    } else {
+                        parse_html(&html).map_err(|e| {
+                            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string())
+                        })?
+                    };
+                    Self::populate_parse_cache_from_manifest(&loop_parse_manifest, &mut loop_cache);
+                    v
+                };
+                let parse_ms = t_parse_start.elapsed().as_secs_f64() * 1000.0;
+
+                // Splice ignore subtrees
+                if let Some(old_vdom) = &self.last_vdom {
+                    splice_ignore_subtrees(old_vdom, &mut new_vdom);
+                }
+
+                // VDOM diff
+                let t_diff_start = Instant::now();
+                let patches = if let Some(old_vdom) = &self.last_vdom {
+                    let patches = diff(old_vdom, &new_vdom);
+                    sync_ids(old_vdom, &mut new_vdom);
+                    if !patches.is_empty() {
+                        Some(serde_json::to_string(&patches).map_err(|e| {
+                            PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())
+                        })?)
+                    } else {
+                        Some("[]".to_string())
+                    }
+                } else {
+                    None
+                };
+                let diff_ms = t_diff_start.elapsed().as_secs_f64() * 1000.0;
+                (new_vdom, patches, parse_ms, diff_ms)
+            };
+
+            // #1970: restore the loop render+parse cache to `self` so it persists to
+            // the next render (persistence is what gives a reorder its O(changed)
+            // win). The parse phase above used `loop_cache` as a live local to read
+            // the parse cache (splice) and populate it (miss items); put it back now.
+            self.loop_render_cache = loop_cache;
+
+            // Phase 4: HTML serialization
+            let t_serial_start = Instant::now();
+            let hydrated_html = new_vdom.to_html();
+            let serialize_ms = t_serial_start.elapsed().as_secs_f64() * 1000.0;
+
+            let total_ms = t_start.elapsed().as_secs_f64() * 1000.0;
+
+            // Store timing for Python to read
+            self.last_render_timing = Some(RenderTiming {
+                render_ms,
+                parse_ms,
+                diff_ms,
+                serialize_ms,
+                total_ms,
+                html_len: html.len(),
+                fast_path,
+            });
+
+            // Cache HTML for dj-update="ignore" subtrees so subsequent
+            // to_html() calls skip serialization for those sections.
+            cache_ignore_subtree_html(&mut new_vdom);
+
+            // Cache the rendered HTML for text-only fast path on next render
+            self.last_html = Some(html);
+
+            self.last_vdom = Some(new_vdom);
+            self.version += 1;
+
+            // Fragment→VDOM text node map for the text fast path on later renders.
+            // Each plain-text fragment is matched to a VDOM text node by BYTE
+            // POSITION in the assembled HTML (#1617 — content equality is
+            // insufficient when a variable is adjacent to literal template text).
+            //
+            // #2999: a full parse can change structure (a text node that went
+            // whitespace-only disappears), so the map built against the old
+            // tree is stale — drop it. Before this reset, a fragment that
+            // emptied and refilled kept being patched at a path that no
+            // longer existed.
+            //
+            // #3013: it is NOT rebuilt here. Building it after every full parse
+            // cost ~13% of render_with_diff on a large block list whose renders
+            // never take the text fast path; the fast path builds it on demand.
+            if took_full_parse {
+                self.fragment_text_map = None;
+            }
+
+            // Rebuild the text-region fast-path index whenever we just went
+            // through the full html5ever parse (structure may have changed)
+            // or no index exists yet. Fast-path renders only change text
+            // CONTENT — positions and count stay stable — so the old index
+            // remains valid and we skip the rebuild.
+            if took_full_parse || self.text_node_index.is_none() {
+                if let (Some(ref html_str), Some(ref vdom)) = (&self.last_html, &self.last_vdom) {
+                    let index = build_text_node_index(html_str, vdom);
+                    self.text_node_index = if index.is_empty() { None } else { Some(index) };
+                }
+            }
+
+            Ok((hydrated_html, patches, self.version))
+        })
+    }
+
+    /// Render and return patches as MessagePack bytes
+    fn render_binary_diff(&mut self, py: Python) -> PyResult<(String, Option<Py<PyAny>>, u64)> {
+        guard_panic("render_binary_diff", move || {
+            use std::time::Instant;
+
+            let t_start = Instant::now();
+
+            // Get template from cache or parse and cache it (#2669: the ONE
+            // generation-gated entry into `TEMPLATE_CACHE`).
+            let template_arc = cached_template(&self.template_source)?;
+
+            // ADR-029: install this view's render environment into the
+            // thread-local cells for the duration of this render, restoring
+            // the previous values on drop — applied beside `set_auto_call`
+            // at ALL THREE render entries so the paths cannot drift (#1646).
+            let _render_env = self.render_env.as_ref().map(RenderEnvGuard::install);
+
+            let _bridge_memo = djust_core::context::BridgeFrameCacheGuard;
+            let mut context = Context::from_shared(self.state.clone());
+            for key in &self.safe_keys {
+                context.mark_safe(key.clone());
+            }
+            // #2686: namespace this instance's dj-if marker ids. No-op (empty)
+            // for every render that did not opt in. Applied at ALL THREE render
+            // entries, not just the component one, so the paths cannot drift.
+            context.set_dj_if_id_namespace(self.dj_if_id_namespace.as_str());
+            // Attach Py<PyAny> sidecar so `{{ model.attr }}` falls back
+            // to `getattr` when `attr` isn't in the JSON-serialized state.
+            if let Some(raw) = &self.raw_py_values {
+                let cloned: HashMap<String, Py<PyAny>> = Python::attach(|py| {
+                    raw.iter()
+                        .map(|(k, v)| (k.clone(), v.clone_ref(py)))
+                        .collect()
+                });
+                context.set_raw_py_objects(cloned);
+                // ADR-024: stamp the auto-call kill-switch onto this render's
+                // context (only meaningful when a sidecar is attached).
+                context.set_auto_call(self.template_auto_call);
+            }
+
+            // Phase 1: Template render (partial if cache available)
+            let t_render_start = Instant::now();
+            let loader = FilesystemTemplateLoader::new(self.template_dirs.clone());
+
+            // Install the persistent per-item loop render cache (#1967) for this
+            // render — same pattern as `render_with_diff` (mem::take to a local so
+            // the guard's `&mut` is independent of the other self-field borrows,
+            // prune + restore for persistence). Inert when disabled.
+            let mut loop_cache = std::mem::take(&mut self.loop_render_cache);
+            loop_cache.begin_render();
+            let html_result: Result<String, _> = {
+                let _loop_guard = LoopCacheGuard::install(&mut loop_cache);
+                if !self.node_html_cache.is_empty()
+                    && self.changed_keys.is_some()
+                    && !template_arc.uses_extends()
+                {
+                    let changed = self.changed_keys.take().unwrap_or_default();
+                    template_arc
+                        .render_with_loader_partial(
+                            &context,
+                            &loader,
+                            &changed,
+                            &self.node_html_cache,
+                        )
+                        .map(|(html, fragments, _changed_indices)| {
+                            self.node_html_cache = fragments;
+                            html
+                        })
+                } else {
+                    self.changed_keys = None;
+                    template_arc
+                        .render_with_loader_collecting(&context, &loader)
+                        .map(|(html, fragments)| {
+                            self.node_html_cache = fragments;
+                            html
+                        })
+                }
+            };
+            loop_cache.prune();
+            // #1970: defer the loop-cache putback (the parse phase consumes the
+            // manifest + parse cache, mirroring `render_with_diff`). Take the
+            // manifest unconditionally so it can never leak across renders.
+            let loop_parse_manifest = loop_cache.take_manifest();
+            let reduced_html = match html_result {
+                Ok(h) => h,
+                Err(e) => {
+                    self.loop_render_cache = loop_cache;
+                    return Err(e.into());
+                }
+            };
+            // Reconstruct the full html (placeholders expanded) for every consumer
+            // except the parse-cache splice; identity when no placeholders.
+            let has_loop_placeholders = loop_parse_manifest.iter().any(|m| m.placeholder);
+            let html = if has_loop_placeholders {
+                // Match ONLY this render's nonce-bearing sentinel tag (#1970).
+                let sentinel_tag = djust_templates::loop_cache::placeholder_tag(loop_cache.nonce());
+                // The per-node fragment cache holds this render's REDUCED
+                // fragments; expand them too. A later PARTIAL render reuses
+                // cached fragments verbatim but has no manifest for them, so a
+                // placeholder left in the cache reached a full parse as a real
+                // `<dj-pc-…>` element (and it skewed the fragment text map's
+                // byte offsets, which assume fragments concatenate to the full
+                // html). Fragments concatenate to `reduced_html`, so their
+                // placeholders are the manifest's, in order.
+                let open = format!("<{sentinel_tag} ");
+                let mut ph_iter = loop_parse_manifest.iter().filter(|m| m.placeholder);
+                for frag in self.node_html_cache.iter_mut() {
+                    if frag.contains(&open) {
+                        *frag = Self::expand_loop_placeholders(frag, &mut ph_iter, &sentinel_tag);
+                    }
+                }
+                Self::reconstruct_full_loop_html(&reduced_html, &loop_parse_manifest, &sentinel_tag)
+            } else {
+                reduced_html.clone()
+            };
+            let render_ms = t_render_start.elapsed().as_secs_f64() * 1000.0;
+
+            // Phase 2: HTML parse to VDOM
+            // Try text-only fast path: mutate old VDOM in-place if only text changed.
+            // Falls back to html5ever if structural changes detected.
+            let t_parse_start = Instant::now();
+            // dj-id collision defense (#1550 / #1552). See companion comment
+            // in `render_with_diff` for the full rationale. Same fix:
+            // advance the thread-local id counter past the highest id in
+            // `last_vdom` so the next parse cannot reuse ids that already
+            // appear in the surviving tree.
+            if let Some(ref old_vdom) = self.last_vdom {
+                if let Some(max_id) = djust_vdom::max_djust_id_in(old_vdom) {
+                    djust_vdom::ensure_id_counter_at_least(max_id + 1);
+                }
+            }
+            let is_continue = self.last_vdom.is_some();
+            let counter_base = if is_continue {
+                djust_vdom::get_id_counter()
+            } else {
+                0
+            };
+            // #1970 parse-cache splice on the structural / full-parse paths (the
+            // text-only in-place path never sees placeholders — a reorder is
+            // structural, so it bypasses the in-place update). Helper that parses
+            // the reduced html + splices cached subtrees, with a full-parse
+            // fallback; returns None to mean "fall back".
+            let parse_full = |full_html: &str| -> PyResult<VNode> {
+                if is_continue {
+                    djust_vdom::set_id_counter(counter_base);
+                    parse_html_continue(full_html).map_err(|e| {
+                        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string())
+                    })
+                } else {
+                    parse_html(full_html).map_err(|e| {
+                        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string())
+                    })
+                }
+            };
+            let parse_or_splice =
+                |loop_cache: &mut djust_templates::loop_cache::LoopRenderCache| -> PyResult<VNode> {
+                    if has_loop_placeholders {
+                        match Self::try_parse_cache_splice(
+                            &reduced_html,
+                            &loop_parse_manifest,
+                            loop_cache,
+                            counter_base,
+                        ) {
+                            Some(v) => Ok(v),
+                            None => parse_full(&html),
+                        }
+                    } else {
+                        let v = parse_full(&html)?;
+                        Self::populate_parse_cache_from_manifest(&loop_parse_manifest, loop_cache);
+                        Ok(v)
+                    }
+                };
+            let mut fast_path = FAST_PATH_NONE;
+            let mut new_vdom = if let (Some(ref old_html), Some(_)) =
+                (&self.last_html, &self.last_vdom)
+            {
+                let old_html = old_html.clone();
+                let mut vdom = self.last_vdom.take().unwrap();
+                // Attempt the in-place text fast path on the FULL html FIRST, even
+                // when the loop emitted `<dj-pc>` placeholders (#1970): a pure
+                // content change still emits placeholders for the unchanged items,
+                // but the in-place update compares full old vs full new html and
+                // succeeds for a text-only delta — so we must take this path to stay
+                // byte-identical (same NO-patch result) with the cache-OFF render.
+                // Only a STRUCTURAL change (reorder/insert/remove) fails in-place and
+                // falls through to the parse-cache splice. Still populate the parse
+                // cache from the manifest so a future reorder hits even when this
+                // render took the in-place path.
+                if try_text_only_vdom_update_inplace(&mut vdom, &old_html, &html) {
+                    // The whole-HTML text-only byte diff — the text-REGION
+                    // mechanism, not the fragment one: no changed-fragment
+                    // list or `fragment_text_map` is consulted here (#2532
+                    // review; the first cut mislabelled this site).
+                    fast_path = FAST_PATH_TEXT_REGION;
+                    Self::populate_parse_cache_from_manifest(&loop_parse_manifest, &mut loop_cache);
+                    vdom
+                } else {
+                    // Structural change (or placeholders present) — splice / full parse.
+                    self.last_vdom = Some(vdom);
+                    parse_or_splice(&mut loop_cache)?
+                }
+            } else {
+                parse_or_splice(&mut loop_cache)?
+            };
+            let parse_ms = t_parse_start.elapsed().as_secs_f64() * 1000.0;
+
+            // #1970: restore the loop cache now that the parse phase is done.
+            self.loop_render_cache = loop_cache;
+
+            // Splice old VDOM subtrees for dj-update="ignore" nodes
+            if let Some(old_vdom) = &self.last_vdom {
+                splice_ignore_subtrees(old_vdom, &mut new_vdom);
+            }
+
+            // Phase 3: VDOM diff
+            let t_diff_start = Instant::now();
+            let patches_bytes = if let Some(old_vdom) = &self.last_vdom {
+                let patches = diff(old_vdom, &new_vdom);
+                sync_ids(old_vdom, &mut new_vdom);
+                // `to_vec_named`, NOT `to_vec` (#2130). `Patch` is an internally
+                // tagged enum, and rmp-serde's `to_vec` encodes those as a
+                // POSITIONAL array — so `skip_serializing_if` on the interior `d`
+                // dropped a slot and the bytes could not be read back at all
+                // ("invalid length 2, expected 3 elements"). Every variant was
+                // affected; it went unnoticed because nothing deserializes this
+                // yet. `to_vec_named` emits a map, where an omitted optional is
+                // simply an absent key. See the round-trip pins in
+                // djust_vdom/tests/wire_protocol_snapshot.rs.
+                if !patches.is_empty() {
+                    let bytes = rmp_serde::to_vec_named(&patches).map_err(|e| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())
+                    })?;
+                    Some(PyBytes::new(py, &bytes).into())
+                } else {
+                    let empty: Vec<djust_vdom::Patch> = Vec::new();
+                    let bytes = rmp_serde::to_vec_named(&empty).map_err(|e| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())
+                    })?;
+                    Some(PyBytes::new(py, &bytes).into())
+                }
+            } else {
+                None
+            };
+            let diff_ms = t_diff_start.elapsed().as_secs_f64() * 1000.0;
+
+            // Phase 4: HTML serialization
+            let t_serial_start = Instant::now();
+            let hydrated_html = new_vdom.to_html();
+            let serialize_ms = t_serial_start.elapsed().as_secs_f64() * 1000.0;
+
+            let total_ms = t_start.elapsed().as_secs_f64() * 1000.0;
+
+            self.last_render_timing = Some(RenderTiming {
+                render_ms,
+                parse_ms,
+                diff_ms,
+                serialize_ms,
+                total_ms,
+                html_len: html.len(),
+                fast_path,
+            });
+
+            cache_ignore_subtree_html(&mut new_vdom);
+
+            // Cache the rendered HTML for text-only fast path on next render
+            self.last_html = Some(html);
+
+            self.last_vdom = Some(new_vdom);
+            self.version += 1;
+            // #2999: the tree may have changed shape; the fragment→text-node
+            // map is rebuilt by the next full-parse render_with_diff.
+            self.fragment_text_map = None;
+
+            Ok((hydrated_html, patches_bytes, self.version))
+        })
+    }
+
+    /// ADR-032 D3 — patch ONE bound component's subtree without a page render.
+    ///
+    /// `html` is the component's fresh render: the `<div data-component-id="…">`
+    /// wrapper and its contents (`BoundComponent.render`). The unique element
+    /// of `last_vdom` whose `data-component-id` equals `component_id` is
+    /// diffed against it with every patch path prefixed by the node's path
+    /// from the root, the new subtree is spliced in (ids carried forward by
+    /// `sync_ids`, fresh ones continuing the counter past the tree's
+    /// high-water mark — #1550/#1552), `version` is bumped and
+    /// `state[component_id]` is set to the new HTML as a safe string so a
+    /// later FULL render sees what the page shows. `last_html` is refreshed
+    /// from the spliced tree so the text fast paths keep a true baseline, and
+    /// the partial-render fragment cache is dropped (its `<html>` fragment
+    /// still holds the old component markup).
+    ///
+    /// Returns the `render_with_diff` triple `(html, patches_json, version)`
+    /// so the runtime emits the same `patch` frame it emits today, or `None`
+    /// when the scoped path cannot be exact — no VDOM yet, the node missing
+    /// or duplicated, the fragment not a single root carrying the id — and
+    /// the caller takes the full path (D6: not an error).
+    fn patch_component_subtree(
+        &mut self,
+        component_id: String,
+        html: String,
+    ) -> PyResult<Option<(String, String, u64)>> {
+        guard_panic("patch_component_subtree", move || {
+            use std::time::Instant;
+            let t_start = Instant::now();
+
+            let Some(vdom) = self.last_vdom.as_mut() else {
+                return Ok(None);
+            };
+            let mut paths = find_paths_by_attr(vdom, "data-component-id", &component_id);
+            if paths.len() != 1 {
+                return Ok(None);
+            }
+            let path = paths.pop().expect("one path");
+            // The full path never patches inside a `dj-update="ignore"` region
+            // (the old children are spliced back before the diff) and addresses
+            // a `[dj-virtual]` list's rows by key, not by path. A component
+            // under either would be patched differently here — not exact.
+            {
+                let mut node: &VNode = vdom;
+                let mut ancestors = Vec::with_capacity(path.len() + 1);
+                ancestors.push(node);
+                for &idx in &path {
+                    node = match node.children.get(idx) {
+                        Some(n) => n,
+                        None => return Ok(None),
+                    };
+                    ancestors.push(node);
+                }
+                if ancestors.iter().any(|n| {
+                    n.attrs.get("dj-update").map(String::as_str) == Some("ignore")
+                        || n.attrs.contains_key("dj-virtual")
+                }) {
+                    return Ok(None);
+                }
+            }
+
+            // dj-id continuity: fresh ids for inserted nodes must not collide
+            // with survivors anywhere in the page (#1550 / #1552).
+            if let Some(max_id) = djust_vdom::max_djust_id_in(vdom) {
+                djust_vdom::ensure_id_counter_at_least(max_id + 1);
+            }
+            let parent_tag = match path.split_last() {
+                Some((_, parent)) => get_vdom_node_mut(vdom, parent)
+                    .map(|n| n.tag.clone())
+                    .unwrap_or_else(|| "body".to_string()),
+                None => "body".to_string(),
+            };
+
+            let t_parse = Instant::now();
+            let mut roots = match parse_html_fragment(&html, &parent_tag) {
+                Ok(roots) => roots,
+                Err(_) => return Ok(None),
+            };
+            if roots.len() != 1 {
+                return Ok(None);
+            }
+            let mut new_node = roots.pop().expect("one root");
+            if new_node.attrs.get("data-component-id") != Some(&component_id) {
+                return Ok(None);
+            }
+            // Exactness check (review of #2920 🟡2): the page parse can
+            // relocate part of a component's markup OUTSIDE its wrapper —
+            // foster-parenting of a nested `<table>`, `<option>`/`<input>`
+            // under a `<select>` — and a fragment parse in the same context
+            // does not. Re-parse the markup the page was rendered with and
+            // diff it against the node the page holds: any difference means
+            // the wrapper does not contain what the full path would give it,
+            // so the scoped patch would leave the relocated part stale.
+            let old_html = match self.state.get(&component_id) {
+                Some(Value::String(s)) | Some(Value::SafeString(s)) => s.clone(),
+                _ => return Ok(None),
+            };
+            let mut old_roots = match parse_html_fragment(&old_html, &parent_tag) {
+                Ok(roots) => roots,
+                Err(_) => return Ok(None),
+            };
+            if old_roots.len() != 1 {
+                return Ok(None);
+            }
+            let mut reparsed_old = old_roots.pop().expect("one root");
+            let parse_ms = t_parse.elapsed().as_secs_f64() * 1000.0;
+
+            let Some(old_node) = get_vdom_node_mut(vdom, &path) else {
+                return Ok(None);
+            };
+            splice_ignore_subtrees(old_node, &mut reparsed_old);
+            if !djust_vdom::diff::diff_nodes(old_node, &reparsed_old, &[]).is_empty() {
+                return Ok(None);
+            }
+            let t_diff = Instant::now();
+            splice_ignore_subtrees(old_node, &mut new_node);
+            let patches = djust_vdom::diff::diff_nodes(old_node, &new_node, &path);
+            sync_ids(old_node, &mut new_node);
+            cache_ignore_subtree_html(&mut new_node);
+            *old_node = new_node;
+            let diff_ms = t_diff.elapsed().as_secs_f64() * 1000.0;
+
+            let t_serial = Instant::now();
+            let full_html = vdom.to_html();
+            let patches_json = serde_json::to_string(&patches)
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
+            let serialize_ms = t_serial.elapsed().as_secs_f64() * 1000.0;
+
+            self.version += 1;
+            self.last_html = Some(full_html.clone());
+            self.node_html_cache = Vec::new();
+            self.fragment_text_map = None;
+            self.text_node_index = None; // positions moved; rebuilt by the next full parse
+            self.set_component_html(component_id, html);
+            self.last_render_timing = Some(RenderTiming {
+                render_ms: 0.0,
+                parse_ms,
+                diff_ms,
+                serialize_ms,
+                total_ms: t_start.elapsed().as_secs_f64() * 1000.0,
+                html_len: full_html.len(),
+                fast_path: FAST_PATH_COMPONENT,
+            });
+            Ok(Some((full_html, patches_json, self.version)))
+        })
+    }
+
+    /// Reset the view state
+    fn reset(&mut self) {
+        self.last_vdom = None;
+        self.last_html = None;
+        self.version = 0;
+        self.node_html_cache = Vec::new();
+        self.changed_keys = None;
+        self.fragment_text_map = None;
+        self.text_node_index = None;
+        // Reset ID counter so next render starts fresh
+        reset_id_counter();
+    }
+
+    /// Serialize the RustLiveView state to MessagePack bytes
+    ///
+    /// This enables efficient state persistence to Redis or other storage backends.
+    /// Uses MessagePack for compact binary serialization (~30-40% smaller than JSON).
+    /// Includes current timestamp for session age tracking.
+    ///
+    /// Returns: Python bytes object containing the serialized state with timestamp
+    fn serialize_msgpack(&self, py: Python) -> PyResult<Py<PyAny>> {
+        // Get current timestamp
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs_f64();
+
+        // Convert to serializable struct
+        let serializable = SerializableViewState {
+            template_source: self.template_source.clone(),
+            // Deref THEN clone: the wire carries a plain map, exactly as
+            // before. Paid once per save, not once per render.
+            state: self
+                .state
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect(),
+            last_vdom: self.last_vdom.clone(),
+            version: self.version,
+            timestamp: ts,
+        };
+
+        // Serialize to MessagePack bytes
+        let bytes = rmp_serde::to_vec(&serializable).map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "MessagePack serialization error: {e}"
+            ))
+        })?;
+        Ok(PyBytes::new(py, &bytes).into())
+    }
+
+    /// Deserialize a RustLiveView from MessagePack bytes
+    ///
+    /// Reconstructs a complete RustLiveView instance from bytes previously
+    /// serialized with serialize_msgpack().
+    ///
+    /// Args:
+    ///     bytes: Python bytes object containing MessagePack data
+    ///
+    /// Returns: RustLiveView instance with restored state
+    #[staticmethod]
+    fn deserialize_msgpack(bytes: &[u8]) -> PyResult<Self> {
+        let serializable: SerializableViewState = rmp_serde::from_slice(bytes).map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "MessagePack deserialization error: {e}"
+            ))
+        })?;
+
+        // Convert back to RustLiveViewBackend
+        // Note: template_dirs must be re-set after deserialization via set_template_dirs()
+        Ok(Self {
+            template_source: serializable.template_source,
+            state: std::sync::Arc::new(serializable.state.into_iter().collect()),
+            last_vdom: serializable.last_vdom,
+            last_html: None, // Transient cache — rebuilt on next render
+            version: serializable.version,
+            timestamp: serializable.timestamp,
+            template_dirs: Vec::new(),
+            safe_keys: HashSet::new(),
+            last_render_timing: None,
+            node_html_cache: Vec::new(),
+            changed_keys: None,
+            fragment_text_map: None,
+            text_node_index: None,
+            raw_py_values: None,
+            // Transient cache — not deserialized; rebuilt fresh, default-OFF
+            // until the Python flag re-enables it post-restore (#1967).
+            loop_render_cache: LoopRenderCache::new(false),
+            // Transient (ADR-024): default-ON; the Python flag re-wires it
+            // on view (re)initialization post-restore, like the loop cache.
+            template_auto_call: true,
+            // Transient (#2686): empty post-restore. The component render
+            // entry re-sets it on every render, and a restored view that is
+            // not a component namespaces nothing — same as before this field.
+            dj_if_id_namespace: String::new(),
+            // Transient (ADR-029): `_apply_render_env` re-captures it on the
+            // next framework render post-restore, like `template_auto_call`.
+            render_env: None,
+        })
+    }
+
+    /// Get per-phase timing from the last render_with_diff() call.
+    /// Returns a dict with render_ms, parse_ms, diff_ms, serialize_ms, total_ms,
+    /// html_len, and `fast_path` (#2532: 0.0 = full parse + diff, 1.0 = the
+    /// fragment text fast path, 2.0 = the text-region fast path).
+    fn get_render_timing(&self) -> Option<HashMap<String, f64>> {
+        self.last_render_timing.as_ref().map(|t| {
+            let mut m = HashMap::new();
+            m.insert("render_ms".to_string(), t.render_ms);
+            m.insert("parse_ms".to_string(), t.parse_ms);
+            m.insert("diff_ms".to_string(), t.diff_ms);
+            m.insert("serialize_ms".to_string(), t.serialize_ms);
+            m.insert("total_ms".to_string(), t.total_ms);
+            m.insert("html_len".to_string(), t.html_len as f64);
+            m.insert("fast_path".to_string(), t.fast_path);
+            m
+        })
+    }
+
+    /// Get the timestamp when this view was last serialized
+    ///
+    /// Returns: Unix timestamp (seconds since epoch)
+    fn get_timestamp(&self) -> f64 {
+        self.timestamp
+    }
+}
+
+// Public Rust API (for use by other Rust crates like djust_actors)
+impl RustLiveViewBackend {
+    /// Create a new RustLiveViewBackend (Rust API)
+    pub fn new_rust(template_source: String) -> Self {
+        Self::new(template_source, None)
+    }
+
+    /// Create new LiveView with template directories (Rust API)
+    pub fn new_rust_with_dirs(template_source: String, template_dirs: Vec<String>) -> Self {
+        Self::new(template_source, Some(template_dirs))
+    }
+
+    /// Update state (Rust API)
+    pub fn update_state_rust(&mut self, updates: HashMap<String, Value>) {
+        self.apply_state_update(updates)
+    }
+
+    /// Set this view's render environment (Rust API, ADR-029). The actor
+    /// path calls this with the environment captured on the Python thread
+    /// that mounted the view, so the worker's renders install it.
+    pub fn set_render_env_rust(&mut self, env: Option<RenderEnv>) {
+        self.render_env = env;
+    }
+
+    /// This view's render environment (Rust API), handed down to child
+    /// `ComponentActor`s so a component render applies the same config.
+    pub fn render_env_rust(&self) -> Option<&RenderEnv> {
+        self.render_env.as_ref()
+    }
+
+    /// The ADR-024 auto-call flag (Rust API), for the same hand-down.
+    pub fn template_auto_call_rust(&self) -> bool {
+        self.template_auto_call
+    }
+
+    /// Full-context truth for pure-Rust callers (#2592, the actor twin of
+    /// #2564): drop every state key absent from `keys`, returning the removed
+    /// keys.
+    ///
+    /// Same core as the Python `retain_state_keys` (state removal + safe-grant
+    /// revocation), plus the second half the Python bridge does for itself in
+    /// `rust_bridge.py` — joining the removed keys to the changed set so a
+    /// partial `render_with_diff` re-renders their regions instead of serving
+    /// the OLD text from the node cache. A Rust caller (the `ViewActor`) has
+    /// no Python step after this call, so the join lives here.
+    ///
+    /// The join is into a PENDING changed set only. Creating one from nothing
+    /// would flip the next `render_with_diff` onto the partial path with the
+    /// removed keys as the only "changes", skipping every region the caller
+    /// actually changed; with no pending set the next render is a full one,
+    /// which re-renders the removed regions without any hint.
+    /// ADR-032 D3: after a scoped patch, `state[component_id]` is the
+    /// component's new HTML (safe) so a later page render sees what the page
+    /// shows. A copy-on-write door like `set_state` — a render holding the
+    /// map is never written through.
+    pub fn set_component_html(&mut self, component_id: String, html: String) {
+        std::sync::Arc::make_mut(&mut self.state)
+            .insert(component_id.clone(), Value::SafeString(html));
+        self.safe_keys.insert(component_id);
+    }
+
+    pub fn retain_state_keys_rust(&mut self, keys: Vec<String>) -> Vec<String> {
+        let removed = self.retain_state_keys(keys);
+        if let Some(changed) = &mut self.changed_keys {
+            changed.extend(removed.iter().cloned());
+        }
+        removed
+    }
+
+    /// Shared core of `update_state` (the Python entry point) and
+    /// `update_state_rust` (the pure-Rust entry point, used by other Rust
+    /// crates like djust_actors, which have no Python object at all — the
+    /// `HashMap<String, Value>` they build has no live Python container
+    /// backing it, so it carries no #2510-class reentrancy risk).
+    /// `update_state` does the safe, snapshot-based Python-dict-to-HashMap
+    /// conversion FIRST (#2510, round 4) and then delegates here.
+    fn apply_state_update(&mut self, updates: HashMap<String, Value>) {
+        // Replacing a value REVOKES the safety granted to the old one (#2300).
+        //
+        // Relying on the caller to re-send the full safe-key set every render
+        // is the weaker guarantee: it holds only while every call site
+        // remembers, and the bug this fixes was exactly a call site that did
+        // not. Tying the grant to the value instead makes staleness
+        // structurally impossible — a grant cannot outlive the value it was
+        // granted for, whoever is driving the API.
+        //
+        // Scoped per key rather than wholesale, because `update_state` is a
+        // partial merge: clearing everything would revoke grants for keys this
+        // call never touched. Updating `p` drops `p` and its `p.0` / `p.items`
+        // descendants; a grant on an untouched `q` survives.
+        if !self.safe_keys.is_empty() {
+            for key in updates.keys() {
+                self.safe_keys.remove(key);
+                let prefix = format!("{key}.");
+                self.safe_keys.retain(|k| !k.starts_with(&prefix));
+            }
+        }
+        std::sync::Arc::make_mut(&mut self.state).extend(updates);
+    }
+
+    /// Render the template (Rust API)
+    pub fn render_rust(&mut self) -> Result<String, djust_core::DjangoRustError> {
+        self.render()
+            .map_err(|e| djust_core::DjangoRustError::TemplateError(e.to_string()))
+    }
+
+    /// Render with diff (Rust API)
+    /// Returns (html, patches_json, version)
+    pub fn render_with_diff_rust(
+        &mut self,
+    ) -> Result<(String, Option<Vec<djust_vdom::Patch>>, u64), djust_core::DjangoRustError> {
+        let (html, patches_json, version) = self
+            .render_with_diff()
+            .map_err(|e| djust_core::DjangoRustError::TemplateError(e.to_string()))?;
+
+        let patches = if let Some(json) = patches_json {
+            Some(
+                serde_json::from_str(&json)
+                    .map_err(|e| djust_core::DjangoRustError::TemplateError(e.to_string()))?,
+            )
+        } else {
+            None
+        };
+
+        Ok((html, patches, version))
+    }
+
+    /// Reset the view state (Rust API)
+    pub fn reset_rust(&mut self) {
+        self.reset()
+    }
+
+    // ---------------------------------------------------------------------
+    // #1970 parse-cache helpers (associated fns — no `self` borrow conflict
+    // with the live `loop_cache` local in `render_with_diff`).
+    // ---------------------------------------------------------------------
+
+    /// Reconstruct the FULL rendered HTML from the REDUCED html (with `<dj-pc>`
+    /// placeholders) plus the per-render manifest (which carries every eligible
+    /// item's full `item_html` in document order). Each `<dj-pc h="<hex>">…
+    /// </dj-pc>` occurrence is replaced, in document order, by the manifest's
+    /// next placeholder entry's `item_html`. Used so every existing consumer
+    /// (`last_html`, fast paths, full-parse fallback, `html_len`) sees the full
+    /// html exactly as the cache-OFF path would produce it.
+    fn reconstruct_full_loop_html(
+        reduced_html: &str,
+        manifest: &[djust_templates::loop_cache::ManifestEntry],
+        sentinel_tag: &str,
+    ) -> String {
+        // Match ONLY this render's nonce-bearing sentinel tag (#1970 security):
+        // a `|safe` item rendering a literal `<dj-pc ...>` (no nonce) is NOT
+        // matched, so it is never stripped/dropped here.
+        // Placeholder entries in document order.
+        let mut ph_iter = manifest.iter().filter(|m| m.placeholder);
+        Self::expand_loop_placeholders(reduced_html, &mut ph_iter, sentinel_tag)
+    }
+
+    /// Expand every `<{sentinel_tag} …></{sentinel_tag}>` in `reduced_html`,
+    /// in document order, with the next entries of `ph_iter`.
+    fn expand_loop_placeholders<'m>(
+        reduced_html: &str,
+        ph_iter: &mut impl Iterator<Item = &'m djust_templates::loop_cache::ManifestEntry>,
+        sentinel_tag: &str,
+    ) -> String {
+        let tag = sentinel_tag;
+        let mut out = String::with_capacity(reduced_html.len());
+        let mut rest = reduced_html;
+        let open = format!("<{tag} ");
+        let close = format!("</{tag}>");
+        while let Some(start) = rest.find(&open) {
+            // Find the end of this placeholder element: `</dj-pc>`.
+            match rest[start..].find(&close) {
+                Some(end_rel) => {
+                    let end = start + end_rel + close.len();
+                    out.push_str(&rest[..start]);
+                    if let Some(entry) = ph_iter.next() {
+                        out.push_str(&entry.item_html);
+                    }
+                    rest = &rest[end..];
+                }
+                None => {
+                    // Malformed (no close) — emit the remainder verbatim and stop.
+                    out.push_str(rest);
+                    return out;
+                }
+            }
+        }
+        out.push_str(rest);
+        out
+    }
+
+    /// Attempt the #1970 parse-cache splice. Parse the REDUCED html (cheap),
+    /// build the `hash -> cached subtree` map from the parse cache for every
+    /// placeholder hash, splice + re-walk dj-ids from `counter_base`, and
+    /// validate. Returns `Some(new_vdom)` on success or `None` to signal the
+    /// caller to fall back to a full parse (any cache miss for a placeholder
+    /// hash, a found-count/placeholder-count mismatch — e.g. foster-parenting
+    /// relocated a placeholder — or a residual placeholder). Also populates the
+    /// parse cache for parse-MISS items recorded in the manifest so a future
+    /// reorder hits.
+    fn try_parse_cache_splice(
+        reduced_html: &str,
+        manifest: &[djust_templates::loop_cache::ManifestEntry],
+        loop_cache: &mut djust_templates::loop_cache::LoopRenderCache,
+        counter_base: u64,
+    ) -> Option<VNode> {
+        // Build the subtree map for placeholder (parse-HIT) items.
+        let placeholder_hashes: Vec<u64> = manifest
+            .iter()
+            .filter(|m| m.placeholder)
+            .map(|m| m.hash)
+            .collect();
+        let expected = placeholder_hashes.len();
+        if expected == 0 {
+            return None;
+        }
+        // This render's nonce-bearing sentinel tag (`dj-pc-<nonce>`). 0 nonce
+        // (no render) → bail to full parse.
+        let nonce = loop_cache.nonce();
+        if nonce == 0 {
+            return None;
+        }
+        let sentinel_tag = djust_templates::loop_cache::placeholder_tag(nonce);
+
+        let mut subtrees: std::collections::HashMap<u64, Vec<VNode>> =
+            std::collections::HashMap::with_capacity(expected);
+        for &h in &placeholder_hashes {
+            // get_parsed clones the cached roots (and bumps parse_hits).
+            // `?` is the cache-miss fall-back: a miss for any placeholder means
+            // the reduced-parse path cannot be completed, so bail to a full parse.
+            let roots = loop_cache.get_parsed(h)?;
+            subtrees.entry(h).or_insert(roots);
+        }
+
+        // Parse the reduced html. Use continue (no reset) — the re-walk fixes
+        // all ids from counter_base, so the parse's own ids are irrelevant.
+        let mut tree = parse_html_continue(reduced_html).ok()?;
+
+        // Splice cached subtrees into the nonce-tagged placeholders and re-walk
+        // dj-ids.
+        let found =
+            djust_vdom::splice_loop_placeholders(&mut tree, &subtrees, counter_base, &sentinel_tag)
+                .ok()?;
+        // Validation: every placeholder must have been found and replaced, and
+        // no `dj-pc-*` sentinel may remain (defense-in-depth against foster-
+        // parenting relocation dropping/moving a placeholder so the structure
+        // silently differs). The prefix check also catches a stray sentinel
+        // whose nonce somehow didn't match (it never should).
+        if found != expected
+            || djust_vdom::tree_contains_tag_prefix(&tree, djust_vdom::LOOP_PLACEHOLDER_TAG_PREFIX)
+        {
+            return None;
+        }
+
+        // Populate the parse cache for parse-MISS items (changed/new items that
+        // emitted real HTML this render) so a future reorder hits.
+        Self::populate_parse_cache_from_manifest(manifest, loop_cache);
+
+        Some(tree)
+    }
+
+    /// Parse + cache the subtree for every parse-MISS item (placeholder=false)
+    /// in the manifest that is not already cached. Each item is parsed once via
+    /// a body-context fragment parse (the foster-safe gate guarantees the item
+    /// root is a non-table/non-select element, so body context reproduces the
+    /// full-parse subtree). Ids are stripped is unnecessary — the assembled
+    /// tree is always re-walked — so we cache the raw parsed roots.
+    fn populate_parse_cache_from_manifest(
+        manifest: &[djust_templates::loop_cache::ManifestEntry],
+        loop_cache: &mut djust_templates::loop_cache::LoopRenderCache,
+    ) {
+        // CRITICAL (#1970): the fragment parses below advance the SHARED
+        // thread-local id counter. Their ids are throwaway (the assembled tree
+        // is always re-walked), but if we let them advance the counter we
+        // POLLUTE the id base of the NEXT render's parse — a `parse_html_continue`
+        // continues from wherever the counter sits, so an inflated counter makes
+        // the next render's freshly-inserted items get ids HIGHER than the
+        // cache-OFF path would assign (observed: appended item id `f` vs `c`).
+        // Save + restore the counter around the population parses so they are
+        // counter-NEUTRAL.
+        let saved_counter = djust_vdom::get_id_counter();
+        for m in manifest.iter().filter(|m| !m.placeholder) {
+            if loop_cache.has_parsed(m.hash) {
+                continue;
+            }
+            // Body-context fragment parse: returns the item's root VNodes.
+            if let Ok(roots) = djust_vdom::parse_html_fragment(&m.item_html, "body") {
+                loop_cache.insert_parsed(m.hash, roots);
+            }
+            // On a fragment parse error we simply skip caching this item — the
+            // next render will try again; correctness is unaffected (it just
+            // won't get a parse-cache hit).
+        }
+        djust_vdom::set_id_counter(saved_counter);
+    }
+}
+
+/// Render Markdown to sanitised HTML.
+///
+/// Wraps [`djust_templates::markdown::render_markdown`] for Python. Raw HTML
+/// is always escaped (`Options::ENABLE_HTML` is never set); `javascript:`,
+/// `vbscript:`, and `data:` URL schemes in links/images are neutralised to
+/// `#`. Inputs larger than 10 MiB are returned as an escaped `<pre>` without
+/// hitting the parser.
+///
+/// Args:
+///     src: Markdown source string.
+///     provisional: Split the trailing unfinished line off as escaped text
+///         (streaming-safe rendering). Default `True`.
+///     tables: Enable GFM tables. Default `True`.
+///     strikethrough: Enable `~~strikethrough~~`. Default `True`.
+///     task_lists: Enable `- [ ]` / `- [x]` checkboxes. Default `False`.
+///
+/// Returns:
+///     Sanitised HTML as a Python string.
+#[pyfunction]
+#[pyo3(
+    name = "render_markdown",
+    signature = (src, *, provisional=true, tables=true, strikethrough=true, task_lists=false)
+)]
+fn render_markdown_py(
+    py: Python<'_>,
+    src: String,
+    provisional: bool,
+    tables: bool,
+    strikethrough: bool,
+    task_lists: bool,
+) -> PyResult<String> {
+    guard_panic("render_markdown_py", move || {
+        let opts = djust_templates::markdown::RenderOpts {
+            provisional,
+            tables,
+            strikethrough,
+            task_lists,
+        };
+        Ok(py.detach(|| djust_templates::markdown::render_markdown(&src, opts)))
+    })
+}
+
+/// Fast template rendering
+/// Enable or disable the `[dj-virtual]` keyed splice ops in the VDOM differ
+/// (ADR-026, #2017 items 2-4).
+///
+/// This is a PROCESS-GLOBAL switch (`djust_vdom::diff::VIRTUAL_KEYED_OPS`), not
+/// per-view state, which is why it is a module function rather than a
+/// `RustLiveView` method like `set_loop_render_cache_enabled`. Applying a
+/// process global from a per-view hook would be last-view-wins.
+///
+/// Django wires it once at startup from `LIVEVIEW_CONFIG['virtual_keyed_ops']`
+/// (see `DjustConfig.ready`). The Rust default stays OFF so a non-Django
+/// embedder of this crate is never silently changed; the Python config default
+/// is what carries iteration 3's flip.
+#[pyfunction]
+fn set_virtual_keyed_ops(enabled: bool) {
+    djust_vdom::diff::set_virtual_keyed_ops(enabled);
+}
+
+/// Read the current `[dj-virtual]` keyed-splice-ops setting.
+///
+/// Exposed so the Python side can ASSERT the wiring took effect rather than
+/// assume it — a setter with no getter cannot be tested end to end.
+#[pyfunction]
+fn virtual_keyed_ops_enabled() -> bool {
+    djust_vdom::diff::virtual_keyed_ops_enabled()
+}
+
+/// Django-parity value rendering (#2203).
+///
+/// A process global for the same reason as `set_virtual_keyed_ops` above:
+/// `impl Display for Value` has nowhere to thread per-render config through.
+///
+/// Django wires it once at startup from
+/// `LIVEVIEW_CONFIG['django_value_repr']` (see `DjustConfig.ready`). Unlike
+/// `virtual_keyed_ops`, the RUST default is ON — an embedder of this crate
+/// with no Django settings should get the correct rendering, and the legacy
+/// output is the opt-out rather than the baseline.
+#[pyfunction]
+fn set_django_value_repr(enabled: bool) {
+    djust_core::set_django_value_repr(enabled);
+}
+
+/// Drop the ADR-027 handle on this value and on every value nested inside it
+/// (#2539). The recursion covers the containers a handle can ride in: a list,
+/// a tuple, an object's map, and an `Encoded`'s own `attrs` / `items`.
+fn clear_live_handles_in(value: &mut Value) {
+    match value {
+        Value::Encoded(encoded) => {
+            encoded.live = None;
+            for nested in encoded.attrs.values_mut() {
+                clear_live_handles_in(nested);
+            }
+            if let Some(items) = encoded.items.as_mut() {
+                for nested in items {
+                    clear_live_handles_in(nested);
+                }
+            }
+        }
+        Value::List(items) | Value::Tuple(items) | Value::NamedTuple { items, .. } => {
+            for nested in items {
+                clear_live_handles_in(nested);
+            }
+        }
+        Value::Object(map) => {
+            for nested in map.values_mut() {
+                clear_live_handles_in(nested);
+            }
+        }
+        Value::DictView { items, .. } => {
+            for nested in items {
+                clear_live_handles_in(nested);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Set the active render timezone for the CALLING THREAD (#2209).
+///
+/// `name` is an IANA zone (`"America/New_York"`); `None` disables conversion,
+/// which is what `USE_TZ = False` wants. Returns `false` if the name was not
+/// recognised, leaving the previous value in place — the Python side logs and
+/// carries on unconverted rather than 500ing a page over a settings typo.
+///
+/// Thread-local, not a process global, and deliberately so: djust renders run
+/// in `sync_to_async` worker threads, so two connections whose requests
+/// activated different zones render concurrently. This mirrors Django, whose
+/// own `timezone._active` is a `Local()`.
+#[pyfunction]
+#[pyo3(signature = (name=None))]
+fn set_active_timezone(name: Option<&str>) -> bool {
+    djust_templates::timezone::set_active_timezone(name)
+}
+
+/// Set the CALLING THREAD's number format (#2221).
+///
+/// Django localizes a number on its way into the page; the Rust engine used
+/// Rust's defaults, so `1234567` rendered without separators in every locale —
+/// including the default English one, since `USE_THOUSAND_SEPARATOR` applies
+/// regardless of language.
+///
+/// The parameters come from Python rather than being derived here, which is the
+/// inverse of the timezone fix above and deliberate: locale formatting is
+/// defined by `django/conf/locale/*/formats.py`, and reimplementing that would
+/// be a fork of Django's data rather than a use of it. Pass `None` to disable
+/// localization entirely.
+/// The trailing `raw_*` triple is Django's `use_l10n=False` format (#2266) —
+/// `settings.DECIMAL_SEPARATOR` / `THOUSAND_SEPARATOR` / `NUMBER_GROUPING` read
+/// directly, which is what `floatformat`'s `u` suffix formats through. Optional
+/// and defaulted to `None` so an embedder (or a build that predates #2266's
+/// Python side) keeps the previous four-argument call working and simply gets
+/// no unlocalized format, i.e. the digits verbatim — the behaviour `u` had
+/// before.
+///
+/// There is no `raw_use_grouping`: it is `False` by construction on this half,
+/// per [`djust_core::locale::set_unlocalized_number_format`].
+#[pyfunction]
+#[pyo3(signature = (
+    decimal_sep=None, thousand_sep=None, grouping=None, use_grouping=false,
+    raw_decimal_sep=None, raw_thousand_sep=None, raw_grouping=None,
+))]
+#[allow(clippy::too_many_arguments)]
+fn set_number_format(
+    decimal_sep: Option<String>,
+    thousand_sep: Option<String>,
+    grouping: Option<Vec<usize>>,
+    use_grouping: bool,
+    raw_decimal_sep: Option<String>,
+    raw_thousand_sep: Option<String>,
+    raw_grouping: Option<Vec<usize>>,
+) {
+    match decimal_sep {
+        None => djust_core::locale::set_number_format(None),
+        Some(dec) => {
+            djust_core::locale::set_number_format(Some(djust_core::locale::NumberFormat {
+                decimal_sep: dec,
+                thousand_sep: thousand_sep.unwrap_or_default(),
+                grouping: grouping.unwrap_or_default(),
+                use_grouping,
+            }))
+        }
+    }
+    match raw_decimal_sep {
+        None => djust_core::locale::set_unlocalized_number_format(None),
+        Some(dec) => djust_core::locale::set_unlocalized_number_format(Some(
+            djust_core::locale::NumberFormat {
+                decimal_sep: dec,
+                thousand_sep: raw_thousand_sep.unwrap_or_default(),
+                grouping: raw_grouping.unwrap_or_default(),
+                // Never grouped on its own; `floatformat`'s `g` supplies
+                // `force_grouping` at the call site.
+                use_grouping: false,
+            },
+        )),
+    }
+}
+
+/// The calling thread's number format as `(decimal_sep, thousand_sep, grouping,
+/// use_grouping)`, or `None`.
+///
+/// Exposed so the Python side can ASSERT the wiring took effect rather than
+/// assume it — a setter with no getter cannot be tested end to end (#2017).
+#[pyfunction]
+fn active_number_format() -> Option<(String, String, Vec<usize>, bool)> {
+    djust_core::locale::number_format()
+        .map(|f| (f.decimal_sep, f.thousand_sep, f.grouping, f.use_grouping))
+}
+
+/// The calling thread's `use_l10n=False` number format (#2266), same shape as
+/// [`active_number_format`].
+///
+/// Same reason it exists: the Python side must be able to ASSERT the second
+/// format reached Rust, not assume it (#2017).
+#[pyfunction]
+fn active_unlocalized_number_format() -> Option<(String, String, Vec<usize>, bool)> {
+    djust_core::locale::unlocalized_number_format()
+        .map(|f| (f.decimal_sep, f.thousand_sep, f.grouping, f.use_grouping))
+}
+
+/// The calling thread's active render timezone, or `None`.
+///
+/// Exposed so the Python side can ASSERT the wiring took effect rather than
+/// assume it — a setter with no getter cannot be tested end to end (#2017).
+#[pyfunction]
+fn active_timezone_name() -> Option<String> {
+    djust_templates::timezone::active_timezone_name()
+}
+
+/// Read the current value-rendering mode.
+///
+/// Exposed so the Python side can ASSERT the wiring took effect rather than
+/// assume it — a setter with no getter cannot be tested end to end.
+#[pyfunction]
+fn django_value_repr_enabled() -> bool {
+    djust_core::django_value_repr()
+}
+
+/// Convert a Python dict-shaped context to `HashMap<String, Value>` without
+/// PyO3's own blanket `HashMap<K, V>: FromPyObject` impl (#2510, round 4).
+///
+/// That blanket impl (`pyo3-0.29.2/src/conversions/std/map.rs`) does the
+/// SAME live-iterator-plus-recursive-extraction as every hand-written loop
+/// this bug class was found in — it holds a live `PyDict` iterator over the
+/// TOP-LEVEL context dict and calls `Value::extract()` on each value as it
+/// goes. Fixing every NESTED arm inside `impl FromPyObject for Value`
+/// (the nested-`PyDict` arm; the `__dict__` builder before ADR-027 Step 5
+/// deleted it) does not protect this
+/// outer layer: if converting one TOP-LEVEL value runs Python that adds a
+/// key to the TOP-LEVEL dict itself (not a dict nested inside one of its
+/// values), the blanket impl's iterator still panics — confirmed via
+/// `render_template("{{ other }}", {"trigger": <a value whose __index__
+/// adds "late" to its own parent dict>, "other": "y"})`. Nor could that
+/// panic have been caught by `guard_panic`: it happened in PyO3's own FFI
+/// argument extraction, before any hand-written function body — including
+/// a `guard_panic` closure — ever ran. Snapshotting into an owned `Vec`
+/// first, exactly like every other site this bug class was found in, is
+/// the only fix. Now that the conversion IS a hand-written call, the two
+/// render entry points (`render_template`, `render_template_with_dirs`)
+/// make it INSIDE their `guard_panic` closure, so anything that does panic
+/// in here surfaces as a `RuntimeError` rather than a `PanicException`
+/// (PR #2514 review, finding 4; pinned by
+/// `TestTheSnapshotRunsInsideGuardPanic`).
+///
+/// # The contract the snapshot creates
+///
+/// The dict is read ONCE, before any value is converted, so a conversion
+/// side effect on the dict itself is never observed by this call:
+///
+/// - a key ADDED to the dict during conversion is not seen — it is absent
+///   from the returned map, and `{{ late }}` renders empty;
+/// - a key REMOVED from the dict during conversion is still converted from
+///   the snapshot, and renders its (now-deleted) value.
+///
+/// Both halves are pinned by `TestTheSnapshotContractIsPinned` in
+/// `python/tests/test_dict_mutation_during_iteration_panic_2510.py`.
+fn snapshot_context_to_value_hashmap(
+    context: &Bound<'_, PyDict>,
+) -> PyResult<HashMap<String, Value>> {
+    let pairs: Vec<(Bound<'_, PyAny>, Bound<'_, PyAny>)> = context.iter().collect();
+    let mut map = HashMap::with_capacity(pairs.len());
+    for (key, value) in pairs {
+        let key_str: String = key.extract()?;
+        map.insert(key_str, value.extract::<Value>()?);
+    }
+    Ok(map)
+}
+
+/// Build the raw-Python sidecar for a standalone render entry point (#2501).
+///
+/// The three non-LiveView render paths all take their context as a plain
+/// Python dict, so the live objects are right there at the boundary — they
+/// were simply dropped once `HashMap<String, Value>` had been extracted from
+/// them. Deriving the sidecar from that same dict, HERE, is what makes the fix
+/// reach `_rust.render_template(src, ctx)` itself and not only the callers
+/// that could be taught to pass an extra argument.
+///
+/// `djust.serialization.build_render_sidecar` states which values enter and
+/// applies the serialization floor to each; see its docstring for both. It is
+/// the same module `Context::protect_sidecar` already imports, so this costs
+/// one `sys.modules` hit per render, not an import.
+///
+/// Fail-soft: any error (no Django, `djust.serialization` unimportable — the
+/// embedded-crate case) yields an empty sidecar, which is exactly the
+/// pre-#2501 behaviour. A render must not fail because a lookup fallback
+/// could not be built.
+///
+/// The failure is LOGGED rather than only swallowed. The two expected causes
+/// (no `djust.serialization` on the path) and the unexpected one (a value
+/// whose `_protect_sidecar_value` pass raised) degrade to the same silent
+/// empty sidecar, whose only symptom is `{{ obj.attr }}` rendering empty —
+/// indistinguishable from the bug this function exists to fix. One `debug!`
+/// line is the difference between "diagnosable" and "bisect the renderer".
+///
+/// # What this sidecar holds on each caller's path
+///
+/// `render_template` / `render_template_with_dirs` called DIRECTLY are handed
+/// the caller's own dict, so the objects here are LIVE Python objects and the
+/// walk reaches everything Django's `_resolve_lookup` reaches.
+///
+/// `DjustTemplateBackend` (`python/djust/template/rendering.py`) is different
+/// and the difference is deliberate: it runs `serialize_context()` on the
+/// context BEFORE calling `render_template_with_dirs`, so what arrives here
+/// is the SERIALIZED dict. A Django `Model` is already a dict by then, and
+/// `{{ m.greet }}` (a nullary method) resolves through `render_template` and
+/// does NOT resolve through the backend. Building the sidecar here rather
+/// than pre-serialization is what makes the fix reach `_rust.render_template`
+/// itself — a caller that cannot be taught to pass an extra argument — and
+/// the backend's narrower reach is the accepted cost. Do not assume live
+/// models on that path.
+fn entry_sidecar(context: &Bound<'_, PyAny>) -> HashMap<String, Py<PyAny>> {
+    match context
+        .py()
+        .import("djust.serialization")
+        .and_then(|m| m.getattr("build_render_sidecar"))
+        .and_then(|f| f.call1((context,)))
+        .and_then(|d| d.extract::<HashMap<String, Py<PyAny>>>())
+    {
+        Ok(sidecar) => sidecar,
+        Err(err) => {
+            tracing::debug!(
+                "[djust] raw-Python sidecar unavailable for this render; \
+                 object attribute lookups will resolve as empty: {}",
+                err
+            );
+            HashMap::new()
+        }
+    }
+}
+
+#[pyfunction]
+#[pyo3(signature = (template_source, context, auto_call=None, string_if_invalid=None, *, autoescape=true, render_env=None))]
+fn render_template(
+    template_source: String,
+    context: &Bound<'_, PyAny>,
+    auto_call: Option<bool>,
+    string_if_invalid: Option<String>,
+    autoescape: bool,
+    render_env: Option<PyRef<'_, RenderEnvPy>>,
+) -> PyResult<String> {
+    guard_panic("render_template", move || {
+        // ADR-029: an explicit environment beside `auto_call` /
+        // `string_if_invalid` / `autoescape`. `None` (the default) reads the
+        // calling thread's cells as this entry always has; `Some` installs
+        // the given one for this render only, restored on return — including
+        // the conversion below.
+        let _render_env = render_env
+            .as_ref()
+            .map(|e| RenderEnvGuard::install(&e.inner));
+        // Inside the closure, not before it (PR #2514 review, finding 4):
+        // the conversion runs arbitrary Python through every value's
+        // dunders, and a panic in it must surface as a `RuntimeError`, not
+        // a `PanicException`, exactly like a panic in the render itself.
+        let state: HashMap<String, Value> =
+            snapshot_context_to_value_hashmap(context.cast::<PyDict>()?)?;
+        let sidecar = entry_sidecar(context);
+        // Get template from cache or parse and cache it (#2669).
+        let template_arc = cached_template(&template_source)?;
+
+        let _bridge_memo = djust_core::context::BridgeFrameCacheGuard;
+        let mut ctx = Context::from_dict(state);
+        ctx.set_autoescape(autoescape);
+        // ADR-024 kill-switch. `None` keeps `Context::from_dict`'s default of
+        // ON, which is Django's behaviour and what a caller reaching this
+        // function directly should get; `DjustTemplate.render` passes the
+        // project's `LIVEVIEW_CONFIG['template_auto_call']`.
+        ctx.set_auto_call(auto_call.unwrap_or(true));
+        // Django's `Engine.string_if_invalid` (#2517). `None`/absent keeps the
+        // default empty string, which renders nothing for a missing variable.
+        if let Some(marker) = string_if_invalid.as_deref() {
+            ctx.set_string_if_invalid(marker);
+        }
+        // Plain entry, no VDOM: the `<!--dj-if-->` placeholder (#295) and the
+        // boundary pair (#1358) are framework-internal metadata for LiveView
+        // diffing, not user-visible HTML. Switch them off at render time
+        // rather than stripping them afterwards (#2519): the old post-render
+        // regex here was a second mechanism the sibling
+        // `render_template_with_dirs` never had, so the backend leaked
+        // `<!--dj-if-->` on every false `{% if %}` while this entry was clean.
+        ctx.set_emit_dj_if_markers(false);
+        ctx.set_raw_py_objects(sidecar);
+        Ok(template_arc.render(&ctx)?)
+    })
+}
+
+/// Parse a template without rendering it — the construction-time check
+/// behind `DjustTemplate.__init__` (#2549).
+///
+/// Django's `Engine.from_string` / `get_template` raise `TemplateSyntaxError`
+/// before any render; djust parsed lazily at first render, so the same
+/// defect surfaced one call later and a defect in an untaken branch never
+/// surfaced at all. This goes through `TEMPLATE_CACHE` exactly like the
+/// render entry points: a successful parse is cached, so the render that
+/// follows does not pay for it twice; a failed parse is never cached (same
+/// as today), so a handler registered afterwards is honoured.
+/// The attribute a located parse error carries its `(start, end)` byte span
+/// on (#2557).
+///
+/// Set on the `RuntimeError` instance rather than folded into the message, so
+/// `str(exc)` is byte-identical to what it has always been and a caller that
+/// does not know about the span sees no change at all.
+/// `python/djust/template/rendering.py` reads it with `getattr(..., None)` and
+/// turns it into Django's `template_debug` dict.
+///
+/// EVERY `Template::new` call in this crate goes through `span_aware_pyerr`,
+/// not just the backend's `compile_template`. The first version attached the
+/// span at one of six sites, so `render_template` /
+/// `render_template_with_dirs` — the entry `SimpleLiveView` and the plain
+/// backend render use — raised a span-less `RuntimeError` and got the
+/// pre-#2557 experience. That is the parallel-path-drift shape (#1646); the
+/// cure is one wrapper on all six, pinned by
+/// `every_template_new_is_span_aware` below.
+pub const SPAN_ATTR: &str = "djust_token_span";
+
+#[pyfunction]
+#[pyo3(signature = (template_source, template_name=None, *, return_template=false))]
+fn compile_template(
+    template_source: String,
+    template_name: Option<String>,
+    return_template: bool,
+) -> PyResult<Option<CompiledTemplate>> {
+    guard_panic("compile_template", move || {
+        // Compilation must validate against the calling engine's current
+        // libraries, even when another engine compiled the same source — but
+        // "current libraries" is a registry GENERATION, not a request. A hit
+        // parsed under this generation has already been validated against
+        // exactly this library set; re-parsing it per request re-lexed the
+        // whole source on every HTTP GET (review of #2665, finding 2).
+        let template = cached_template(&template_source)?;
+        // Relative-reference validation is per template NAME, which can differ
+        // for the same source, so it runs on hits too (it is a cheap walk).
+        if let Some(name) = template_name.as_deref() {
+            template
+                .validate_relative_references(name)
+                .map_err(span_aware_pyerr)?;
+        }
+        Ok(return_template.then_some(CompiledTemplate { template }))
+    })
+}
+
+/// The ONE way a parse enters `TEMPLATE_CACHE` (#2669).
+///
+/// A cache hit is reused only when the entry was validated under the CURRENT
+/// tag/filter registry generation; otherwise the source is re-parsed and the template and generation
+/// are published together in one cache entry. The generation is read BEFORE the parse so a registry
+/// mutation racing the parse leaves the entry stale (a re-parse next time),
+/// never falsely current.
+///
+/// Until #2669 only `compile_template` did this; the five render entry points
+/// (`render`, `render_with_diff`, `render_binary_diff`, `render_template`,
+/// `render_template_with_dirs`) inserted straight into `TEMPLATE_CACHE` and a
+/// template first parsed through one of them was served forever, across an
+/// `unregister_custom_filter` — exactly the class the gate exists to prevent,
+/// one path over (#1646). Pinned by `template_cache_insert_has_one_site` in
+/// `crates/djust_templates/tests/registry_generation_pin.rs`.
+fn cached_template(template_source: &str) -> PyResult<Arc<Template>> {
+    let generation = djust_templates::registry::registry_generation();
+    let key = (
+        djust_templates::registry_scope::current(),
+        template_source.to_owned(),
+    );
+    if let Some(entry) = TEMPLATE_CACHE.get(&key) {
+        if entry.1 == generation {
+            return Ok(entry.0.clone());
+        }
+    }
+    let template = Arc::new(Template::new(template_source).map_err(span_aware_pyerr)?);
+    TEMPLATE_CACHE.insert(key, (template.clone(), generation));
+    Ok(template)
+}
+
+/// Convert a template error to a `PyErr`, preserving its source span (#2557).
+///
+/// `From<DjangoRustError> for PyErr` stringifies, which throws the position
+/// away; this keeps the same message and hangs the span off the exception
+/// instance so Python can build `template_debug` from it. A failure to set the
+/// attribute is swallowed on purpose: the ORIGINAL error is what the caller
+/// must see, and a missing span degrades to exactly the pre-#2557 behaviour.
+fn span_aware_pyerr(err: djust_core::DjangoRustError) -> PyErr {
+    let span = err.span();
+    let py_err: PyErr = err.into();
+    if let Some((start, end)) = span {
+        Python::attach(|py| {
+            let _ = py_err.value(py).setattr(SPAN_ATTR, (start, end));
+        });
+    }
+    py_err
+}
+
+/// Whether `TEMPLATE_CACHE` already holds a parse of this exact source.
+///
+/// A test-support probe for the #2549 "one parse, not two" claim: after
+/// `compile_template(src)` the render entry points find the cached
+/// `Template` instead of parsing again. Read-only.
+#[pyfunction]
+fn template_cache_contains(template_source: &str) -> bool {
+    TEMPLATE_CACHE.contains_key(&(
+        djust_templates::registry_scope::current(),
+        template_source.to_owned(),
+    ))
+}
+
+/// Internal bridge probe: a global fallback cannot validate an engine binding.
+#[pyfunction]
+fn registry_entry_is_local(name: &str, kind: &str) -> bool {
+    if kind == "filter" {
+        djust_templates::filter_registry::has_local_filter(name)
+    } else {
+        djust_templates::registry::has_local_handler(name, kind)
+    }
+}
+
+/// Release storage when a Django backend and its compiled wrappers are gone.
+#[pyfunction]
+fn release_registry_namespace(namespace: u64) -> PyResult<()> {
+    if namespace == 0 {
+        return Ok(());
+    }
+    djust_templates::registry::release_namespace(namespace)?;
+    djust_templates::filter_registry::release_namespace(namespace)?;
+    djust_templates::inheritance::release_registry_namespace(namespace);
+    TEMPLATE_CACHE.retain(|(scope, _), _| *scope != namespace);
+    Ok(())
+}
+
+/// Current tag/filter registry generation (test-support probe, #2668).
+#[pyfunction]
+fn registry_generation() -> u64 {
+    djust_templates::registry::registry_generation()
+}
+
+/// Generation a cached parse of this exact source was validated under, or
+/// `None` if `compile_template` has not stored it (test-support probe, #2668).
+/// `== registry_generation()` means the next `compile_template` is a hit.
+#[pyfunction]
+fn template_compiled_at_generation(template_source: &str) -> Option<u64> {
+    TEMPLATE_CACHE
+        .get(&(
+            djust_templates::registry_scope::current(),
+            template_source.to_owned(),
+        ))
+        .map(|entry| entry.1)
+}
+
+/// Fast template rendering with template directories for {% include %} support
+///
+/// This function extends render_template to support {% include %} tags by
+/// providing template directories for the Rust renderer to load included templates.
+///
+/// # Arguments
+/// * `template_source` - The template source string to render
+/// * `context` - Template context variables
+/// * `template_dirs` - List of directories to search for included templates
+///
+/// # Returns
+/// The rendered HTML string
+// Preserve the existing Python positional API while adding an optional
+// original-object sidecar for backend callers.
+#[allow(clippy::too_many_arguments)]
+#[pyfunction]
+#[pyo3(signature = (template_source, context, template_dirs, safe_keys=None, auto_call=None, string_if_invalid=None, template_name=None, raw_context=None, *, autoescape=true, compiled_template=None, assignments=None, uncached_template_dirs=None))]
+fn render_template_with_dirs(
+    template_source: String,
+    context: &Bound<'_, PyAny>,
+    template_dirs: Vec<String>,
+    safe_keys: Option<Vec<String>>,
+    auto_call: Option<bool>,
+    string_if_invalid: Option<String>,
+    template_name: Option<String>,
+    raw_context: Option<&Bound<'_, PyDict>>,
+    autoescape: bool,
+    compiled_template: Option<PyRef<'_, CompiledTemplate>>,
+    assignments: Option<&Bound<'_, PyDict>>,
+    uncached_template_dirs: Option<Vec<String>>,
+) -> PyResult<String> {
+    guard_panic("render_template_with_dirs", move || {
+        use djust_templates::inheritance::FilesystemTemplateLoader;
+
+        // See `render_template` for why this is inside the closure.
+        let state: HashMap<String, Value> =
+            snapshot_context_to_value_hashmap(context.cast::<PyDict>()?)?;
+        // The backend may JIT-serialize models before this call. Preserve
+        // their original identities only through the protected sidecar.
+        let sidecar = entry_sidecar(raw_context.map(|raw| raw.as_any()).unwrap_or(context));
+
+        // Get template from cache or parse and cache it
+        let template_arc = if let Some(compiled) = compiled_template {
+            compiled.template.clone()
+        } else {
+            // #2669: generation-gated like every other entry point.
+            cached_template(&template_source)?
+        };
+
+        let _bridge_memo = djust_core::context::BridgeFrameCacheGuard;
+        let mut ctx = Context::from_dict(state);
+        ctx.set_autoescape(autoescape);
+        // See `render_template` for why `None` means ON.
+        ctx.set_auto_call(auto_call.unwrap_or(true));
+        // Django's `Engine.string_if_invalid` (#2517). `None`/absent keeps the
+        // default empty string, which renders nothing for a missing variable.
+        if let Some(marker) = string_if_invalid.as_deref() {
+            ctx.set_string_if_invalid(marker);
+        }
+        // Plain entry (the `DjustTemplateBackend` and `SimpleLiveView` path):
+        // no `<!--dj-if-->` markers — see `render_template` (#2519).
+        ctx.set_emit_dj_if_markers(false);
+        ctx.set_raw_py_objects(sidecar);
+
+        // Mark keys as safe (skip auto-escaping), like Django's SafeData
+        if let Some(keys) = safe_keys {
+            for key in keys {
+                ctx.mark_safe(key);
+            }
+        }
+
+        // Create filesystem template loader with the provided directories
+        let dirs: Vec<PathBuf> = template_dirs.iter().map(PathBuf::from).collect();
+        let loader = FilesystemTemplateLoader::new(dirs).with_uncached_dirs(
+            uncached_template_dirs
+                .unwrap_or_default()
+                .into_iter()
+                .map(PathBuf::from)
+                .collect(),
+        );
+
+        // Render with the loader to support {% include %} tags
+        // The template's own name is what a relative `{% extends "./x" %}`
+        // resolves against (#2517); `None` leaves such a name unchanged.
+        let rendered =
+            template_arc.render_with_loader_named_mut(&mut ctx, &loader, template_name.as_deref());
+        if let Some(assignments) = assignments {
+            for (name, value) in ctx.root_assignments() {
+                assignments.set_item(name, value.into_pyobject(assignments.py())?)?;
+            }
+        }
+        Ok(rendered?)
+    })
+}
+
+/// The egress normalizer's inter-tag whitespace pass (#2999).
+///
+/// Drops the space between two tags unless both neighbours are inline — the
+/// same rule the VDOM parser applies — so the normalized WS frame and
+/// initial-GET HTML hold exactly the whitespace nodes the server VDOM has.
+/// Called by `TemplateMixin._strip_comments_and_whitespace`; see
+/// `djust_core::html_whitespace::collapse_inter_tag_whitespace`.
+#[pyfunction]
+fn collapse_inter_tag_whitespace(html: &str, block_tags: Vec<String>) -> String {
+    djust_core::html_whitespace::collapse_inter_tag_whitespace(html, &block_tags)
+}
+
+/// Compute diff between two HTML strings
+#[pyfunction]
+fn diff_html(old_html: String, new_html: String) -> PyResult<String> {
+    guard_panic("diff_html", move || {
+        let old = parse_html(&old_html)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+        let new = parse_html(&new_html)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+
+        let patches = diff(&old, &new);
+        serde_json::to_string(&patches)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
+    })
+}
+
+/// Fast JSON serialization for Python objects
+/// Converts Python list/dict to JSON string using Rust's serde_json
+///
+/// Benefits:
+/// - Releases Python GIL during serialization (better for concurrent workloads)
+/// - More memory efficient for large datasets
+/// - Similar performance to Python json.dumps for small datasets
+#[pyfunction]
+fn fast_json_dumps(py: Python, obj: &Bound<'_, PyAny>) -> PyResult<String> {
+    guard_panic("fast_json_dumps", move || {
+        // Convert Python object to serde_json::Value
+        let value = python_to_json_value(py, obj)?;
+
+        // Release GIL and serialize to JSON string
+        py.detach(|| {
+            serde_json::to_string(&value).map_err(|e| {
+                PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                    "JSON serialization error: {e}"
+                ))
+            })
+        })
+    })
+}
+
+/// Helper function to convert Python objects to serde_json::Value
+fn python_to_json_value(py: Python, obj: &Bound<'_, PyAny>) -> PyResult<serde_json::Value> {
+    use serde_json::Value as JsonValue;
+
+    if obj.is_none() {
+        Ok(JsonValue::Null)
+    } else if let Ok(b) = obj.extract::<bool>() {
+        Ok(JsonValue::Bool(b))
+    } else if let Ok(i) = obj.extract::<i64>() {
+        Ok(JsonValue::Number(i.into()))
+    } else if djust_core::is_decimal(obj) {
+        // Before f64, and a JSON *string* — `DjangoJSONEncoder` parity, and the
+        // only JSON shape that carries the digits (#2214).
+        Ok(JsonValue::String(obj.str()?.extract::<String>()?))
+    } else if let Ok(f) = obj.extract::<f64>() {
+        Ok(serde_json::Number::from_f64(f)
+            .map(JsonValue::Number)
+            .unwrap_or(JsonValue::Null))
+    } else if let Ok(s) = obj.extract::<String>() {
+        Ok(JsonValue::String(s))
+    } else if let Ok(list) = obj.cast::<PyList>() {
+        // Snapshotted into an owned `Vec` before recursing, for the same
+        // SHAPE as the dict arm below (#2510 sibling) — but not for the
+        // same reason, and an earlier version of this comment claimed a
+        // panic here that cannot happen (PR #2514 review, finding 2).
+        // PyO3's `BoundListIterator` (`pyo3-0.29.2/src/types/list.rs`,
+        // `next_unsynchronized`) re-clamps to `length.min(list.len())` on
+        // every step, so a list that grows or shrinks under a live
+        // iterator simply ends early or late; only `BoundDictIterator`
+        // checks the size and panics. Kept as a snapshot anyway: it is the
+        // one shape every converter in this bug class now uses, it makes
+        // the set of elements converted independent of what a conversion
+        // side effect does to the list, and it does not lean on a clamp
+        // PyO3 documents nowhere and could change.
+        let items: Vec<Bound<'_, PyAny>> = list.iter().collect();
+        let mut vec = Vec::with_capacity(items.len());
+        for item in items {
+            vec.push(python_to_json_value(py, &item)?);
+        }
+        Ok(JsonValue::Array(vec))
+    } else if let Some(pairs) = djust_core::multi_value_dict_pairs(obj) {
+        // A Django `QueryDict` / `MultiValueDict`: last value per key, the
+        // same rule as the two `Value` converters (#2556, #1646).
+        let mut map = serde_json::Map::with_capacity(pairs.len());
+        for (key, value) in pairs {
+            let key_str = key.extract::<String>()?;
+            map.insert(key_str, python_to_json_value(py, &value)?);
+        }
+        Ok(JsonValue::Object(map))
+    } else if let Ok(dict) = obj.cast::<PyDict>() {
+        // Same snapshot-before-recurse fix, dict side (#2510 sibling).
+        let pairs: Vec<(Bound<'_, PyAny>, Bound<'_, PyAny>)> = dict.iter().collect();
+        let mut map = serde_json::Map::with_capacity(pairs.len());
+        for (key, value) in pairs {
+            let key_str = key.extract::<String>()?;
+            map.insert(key_str, python_to_json_value(py, &value)?);
+        }
+        Ok(JsonValue::Object(map))
+    } else {
+        // Try to convert to string as fallback
+        let s = obj.str()?.extract::<String>()?;
+        Ok(JsonValue::String(s))
+    }
+}
+
+/// Resolve template inheritance
+///
+/// Given a template path and list of template directories, resolves
+/// {% extends %} and {% block %} tags to produce a final merged template string.
+///
+/// # Arguments
+/// * `template_path` - Path to the child template (e.g., "products.html")
+/// * `template_dirs` - List of directories to search for templates
+///
+/// # Returns
+/// The merged template string with all inheritance resolved
+#[pyfunction]
+fn resolve_template_inheritance(
+    template_path: String,
+    template_dirs: Vec<String>,
+) -> PyResult<String> {
+    guard_panic("resolve_template_inheritance", move || {
+        use djust_templates::inheritance::resolve_template_inheritance as resolve;
+
+        // Convert string paths to PathBuf
+        let dirs: Vec<PathBuf> = template_dirs.iter().map(PathBuf::from).collect();
+
+        // Resolve inheritance using AST-based implementation
+        let resolved = resolve(&template_path, &dirs)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+
+        Ok(resolved)
+    })
+}
+
+// ============================================================================
+// Actor System Python Bindings
+// ============================================================================
+
+use pyo3_async_runtimes::tokio::future_into_py;
+
+/// The render environment as a Python-visible value (ADR-029, #2741).
+///
+/// `RenderEnv.capture()` snapshots the calling thread's cells (what
+/// `djust.render_env.apply_render_env` just pushed); the getters exist so a
+/// test can assert what was captured rather than assume it (#2017). Passed to
+/// `RustLiveView.set_render_env` and `render_template(render_env=...)`.
+#[pyclass(frozen, name = "RenderEnv", skip_from_py_object)]
+#[derive(Clone)]
+pub struct RenderEnvPy {
+    inner: RenderEnv,
+}
+
+/// `(decimal_sep, thousand_sep, grouping, use_grouping)` — the
+/// `active_number_format` shape, so tests compare like with like.
+type NumberFormatTuple = (String, String, Vec<usize>, bool);
+
+fn number_format_tuple(f: &djust_core::locale::NumberFormat) -> NumberFormatTuple {
+    (
+        f.decimal_sep.clone(),
+        f.thousand_sep.clone(),
+        f.grouping.clone(),
+        f.use_grouping,
+    )
+}
+
+#[pymethods]
+impl RenderEnvPy {
+    /// Snapshot the calling thread's render cells.
+    #[staticmethod]
+    fn capture() -> Self {
+        RenderEnvPy {
+            inner: djust_templates::render_env::capture(),
+        }
+    }
+
+    /// The captured IANA zone name, or `None`.
+    #[getter]
+    fn timezone(&self) -> Option<String> {
+        self.inner.timezone.clone()
+    }
+
+    /// The captured localized number format, or `None`.
+    #[getter]
+    fn number_format(&self) -> Option<NumberFormatTuple> {
+        self.inner.number_format.as_ref().map(number_format_tuple)
+    }
+
+    /// The captured `use_l10n=False` format (#2266), or `None`.
+    #[getter]
+    fn unlocalized_number_format(&self) -> Option<NumberFormatTuple> {
+        self.inner
+            .unlocalized_number_format
+            .as_ref()
+            .map(number_format_tuple)
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{:?}", self.inner)
+    }
+}
+
+/// Python wrapper for SessionActorHandle
+///
+/// This class provides async methods that can be called from Python's asyncio.
+#[pyclass(frozen, name = "SessionActorHandle")]
+pub struct SessionActorHandlePy {
+    handle: SessionActorHandle,
+}
+
+#[pymethods]
+impl SessionActorHandlePy {
+    /// Mount a view (Phase 6: Now returns view_id for routing)
+    ///
+    /// Creates a ViewActor, initializes its state, and renders the initial HTML.
+    ///
+    /// Args:
+    ///     view_path (str): Python path to the LiveView class (e.g. "app.views.Counter")
+    ///     params (dict): Initial state parameters
+    ///     python_view (Optional[Any]): Python LiveView instance for event handler callbacks
+    ///     template (Optional[str]): The view's template source (#2599). Without
+    ///         it the actor renders an EMPTY document.
+    ///     template_dirs (Optional[list[str]]): Directories for `{% include %}`.
+    ///
+    /// Returns:
+    ///     dict: {"html": str, "session_id": str, "view_id": str}
+    #[pyo3(signature = (view_path, params, python_view=None, template=None, template_dirs=None))]
+    fn mount<'py>(
+        &self,
+        py: Python<'py>,
+        view_path: String,
+        params: &Bound<'py, PyDict>,
+        python_view: Option<Py<PyAny>>,
+        template: Option<String>,
+        template_dirs: Option<Vec<String>>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let handle = self.handle.clone();
+
+        // Convert Python dict to Rust HashMap<String, Value>
+        let params_rust = python_dict_to_hashmap(params)?;
+        // ADR-029 (#2741): snapshot the render environment HERE, on the
+        // Python thread that pushed it, before the mount crosses to the
+        // tokio worker that will do every render for this view.
+        let render_env = djust_templates::render_env::capture();
+
+        future_into_py(py, async move {
+            let result = handle
+                .mount_with_template(
+                    view_path,
+                    params_rust,
+                    python_view,
+                    template,
+                    template_dirs.unwrap_or_default(),
+                    Some(render_env),
+                )
+                .await
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+
+            Python::attach(|py| -> PyResult<Py<PyAny>> {
+                let dict = PyDict::new(py);
+                dict.set_item("html", result.html)?;
+                dict.set_item("session_id", result.session_id)?;
+                dict.set_item("view_id", result.view_id)?; // Phase 6: Return view_id
+                Ok(dict.unbind().into())
+            })
+        })
+    }
+
+    /// Handle an event (Phase 6: Now supports view_id routing)
+    ///
+    /// Routes the event to the appropriate ViewActor and returns the resulting
+    /// VDOM patches or full HTML.
+    ///
+    /// Args:
+    ///     event_name (str): Name of the event (e.g. "increment", "submit_form")
+    ///     params (dict): Event parameters
+    ///     view_id (Optional[str]): View ID for routing. If None, routes to first view (backward compat)
+    ///
+    /// Returns:
+    ///     dict: {"patches": Optional[str], "html": Optional[str], "version": int}
+    #[pyo3(signature = (event_name, params, view_id=None))]
+    fn event<'py>(
+        &self,
+        py: Python<'py>,
+        event_name: String,
+        params: &Bound<'py, PyDict>,
+        view_id: Option<String>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let handle = self.handle.clone();
+
+        // Convert Python dict to Rust HashMap<String, Value>
+        let params_rust = python_dict_to_hashmap(params)?;
+
+        future_into_py(py, async move {
+            let result = handle
+                .event(event_name, params_rust, view_id)
+                .await
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+
+            Python::attach(|py| -> PyResult<Py<PyAny>> {
+                let dict = PyDict::new(py);
+
+                // Add patches if available
+                if let Some(patches) = result.patches {
+                    let patches_json = serde_json::to_string(&patches).map_err(|e| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())
+                    })?;
+                    dict.set_item("patches", patches_json)?;
+                } else {
+                    dict.set_item("patches", py.None())?;
+                }
+
+                // Add html if available
+                if let Some(html) = result.html {
+                    dict.set_item("html", html)?;
+                } else {
+                    dict.set_item("html", py.None())?;
+                }
+
+                dict.set_item("version", result.version)?;
+                Ok(dict.unbind().into())
+            })
+        })
+    }
+
+    /// Unmount a specific view (Phase 6)
+    ///
+    /// Shuts down a specific ViewActor and removes it from the session.
+    ///
+    /// Args:
+    ///     view_id (str): The UUID of the view to unmount
+    ///
+    /// Returns:
+    ///     None
+    fn unmount<'py>(&self, py: Python<'py>, view_id: String) -> PyResult<Bound<'py, PyAny>> {
+        let handle = self.handle.clone();
+
+        future_into_py(py, async move {
+            handle
+                .unmount(view_id)
+                .await
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+            Ok(())
+        })
+    }
+
+    /// Health check ping
+    ///
+    /// Verifies that the session actor is still responsive.
+    ///
+    /// Returns:
+    ///     None
+    fn ping<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let handle = self.handle.clone();
+
+        future_into_py(py, async move {
+            handle
+                .ping()
+                .await
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+            Ok(())
+        })
+    }
+
+    /// Shutdown the session gracefully
+    ///
+    /// Shuts down all child ViewActors and then the SessionActor itself.
+    fn shutdown<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let handle = self.handle.clone();
+
+        future_into_py(py, async move {
+            handle.shutdown().await;
+            Ok(())
+        })
+    }
+
+    // ========================================================================
+    // Phase 8: Component Management Python API
+    // ========================================================================
+
+    /// Create a component in a specific view (Phase 8)
+    ///
+    /// Args:
+    ///     view_id (str): ID of the view to create the component in
+    ///     component_id (str): Unique identifier for the component
+    ///     template_string (str): Template for rendering the component
+    ///     initial_props (dict): Initial component state/props
+    ///     python_component (Optional[Any]): Python component instance for event handlers (Phase 8.2)
+    ///
+    /// Returns:
+    ///     str: Initial rendered HTML of the component
+    #[pyo3(signature = (view_id, component_id, template_string, initial_props, python_component=None))]
+    fn create_component<'py>(
+        &self,
+        py: Python<'py>,
+        view_id: String,
+        component_id: String,
+        template_string: String,
+        initial_props: &Bound<'py, PyDict>,
+        python_component: Option<Py<PyAny>>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let handle = self.handle.clone();
+        let props_rust = python_dict_to_hashmap(initial_props)?;
+
+        future_into_py(py, async move {
+            let html = handle
+                .create_component(
+                    view_id,
+                    component_id,
+                    template_string,
+                    props_rust,
+                    python_component,
+                )
+                .await
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+
+            Ok(html)
+        })
+    }
+
+    /// Route event to a specific component (Phase 8)
+    ///
+    /// Args:
+    ///     view_id (str): ID of the view containing the component
+    ///     component_id (str): ID of the component to send event to
+    ///     event_name (str): Name of the event handler to call
+    ///     params (dict): Event parameters
+    ///
+    /// Returns:
+    ///     str: Rendered HTML after the component handles the event
+    fn component_event<'py>(
+        &self,
+        py: Python<'py>,
+        view_id: String,
+        component_id: String,
+        event_name: String,
+        params: &Bound<'py, PyDict>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let handle = self.handle.clone();
+        let params_rust = python_dict_to_hashmap(params)?;
+
+        future_into_py(py, async move {
+            let html = handle
+                .component_event(view_id, component_id, event_name, params_rust)
+                .await
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+
+            Ok(html)
+        })
+    }
+
+    /// Update props for a specific component (Phase 8)
+    ///
+    /// Args:
+    ///     view_id (str): ID of the view containing the component
+    ///     component_id (str): ID of the component to update
+    ///     props (dict): New props to merge into component state
+    ///
+    /// Returns:
+    ///     str: Rendered HTML after updating props
+    fn update_component_props<'py>(
+        &self,
+        py: Python<'py>,
+        view_id: String,
+        component_id: String,
+        props: &Bound<'py, PyDict>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let handle = self.handle.clone();
+        let props_rust = python_dict_to_hashmap(props)?;
+
+        future_into_py(py, async move {
+            let html = handle
+                .update_component_props(view_id, component_id, props_rust)
+                .await
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+
+            Ok(html)
+        })
+    }
+
+    /// Remove a component (Phase 8)
+    ///
+    /// Args:
+    ///     view_id (str): ID of the view containing the component
+    ///     component_id (str): ID of the component to remove
+    ///
+    /// Returns:
+    ///     None
+    fn remove_component<'py>(
+        &self,
+        py: Python<'py>,
+        view_id: String,
+        component_id: String,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let handle = self.handle.clone();
+
+        future_into_py(py, async move {
+            handle
+                .remove_component(view_id, component_id)
+                .await
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+
+            Ok(())
+        })
+    }
+
+    /// Get the session ID
+    #[getter]
+    fn session_id(&self) -> String {
+        self.handle.session_id().to_string()
+    }
+}
+
+/// Create a new session actor
+///
+/// This function creates a SessionActor, spawns it on the Tokio runtime,
+/// and returns a handle wrapped for Python.
+///
+/// Args:
+///     session_id (str): Unique identifier for this session
+///
+/// Returns:
+///     SessionActorHandle: Handle to send messages to the actor
+#[pyfunction]
+pub fn create_session_actor(py: Python<'_>, session_id: String) -> PyResult<Bound<'_, PyAny>> {
+    future_into_py(py, async move {
+        // Ensure supervisor background tasks are started (idempotent)
+        ensure_supervisor_started();
+
+        // Use global supervisor to get or create session
+        let handle = SUPERVISOR.get_or_create_session(session_id).await;
+
+        Python::attach(|py| -> PyResult<Py<PyAny>> {
+            Ok(Py::new(py, SessionActorHandlePy { handle })?.into_any())
+        })
+    })
+}
+
+/// Supervisor statistics exposed to Python
+#[pyclass(frozen, skip_from_py_object)] // return-only; never extracted from Python (pyo3 0.29 made the Clone auto-FromPyObject opt-in)
+#[derive(Debug, Clone)]
+pub struct SupervisorStatsPy {
+    /// Number of active sessions
+    #[pyo3(get)]
+    pub active_sessions: usize,
+    /// Time-to-live for idle sessions in seconds
+    #[pyo3(get)]
+    pub ttl_secs: u64,
+}
+
+/// Get actor system statistics
+///
+/// Returns statistics about the actor supervisor including active sessions
+/// and configured TTL.
+///
+/// Returns:
+///     SupervisorStats: Object with active_sessions and ttl_secs attributes
+#[pyfunction]
+pub fn get_actor_stats() -> SupervisorStatsPy {
+    let stats = SUPERVISOR.stats();
+    SupervisorStatsPy {
+        active_sessions: stats.active_sessions,
+        ttl_secs: stats.ttl_secs,
+    }
+}
+
+// Helper functions for Python ↔ Rust conversion
+
+/// Convert Python dict to Rust HashMap<String, Value>
+fn python_dict_to_hashmap(dict: &Bound<'_, PyDict>) -> PyResult<HashMap<String, Value>> {
+    // Snapshotted BEFORE any recursive conversion (#2510 sibling — the
+    // actor-dispatch path's own copy of the live-iterator-plus-reentrant-
+    // extraction bug fixed in djust_core's `impl FromPyObject for Value`;
+    // this is the SECOND Python->Value converter #1646 already calls out
+    // above, and it had the identical shape).
+    let pairs: Vec<(Bound<'_, PyAny>, Bound<'_, PyAny>)> = dict.iter().collect();
+    let mut map = HashMap::with_capacity(pairs.len());
+
+    for (key, value) in pairs {
+        let key_str = key.extract::<String>()?;
+        let rust_value = python_to_value(&value)?;
+        map.insert(key_str, rust_value);
+    }
+
+    Ok(map)
+}
+
+/// Convert Python object to Rust Value
+fn python_to_value(obj: &Bound<'_, PyAny>) -> PyResult<Value> {
+    // String
+    if obj.extract::<String>().is_ok() {
+        return obj.extract::<Value>();
+    }
+
+    // Boolean BEFORE Integer (#2203 review). PyO3 0.29 extracts a Python
+    // `True` as i64 `1`, so with the integer arm first the bool arm was DEAD
+    // CODE and a bool arriving through this converter rendered as `1` —
+    // neither `True` nor the legacy `true`. That reaches actor mount/event
+    // params and component props. Mirrors djust_core's `FromPyObject`, which
+    // has always checked bool first; the two converters must agree or the same
+    // object renders differently by path (#1646).
+    if let Ok(b) = obj.extract::<bool>() {
+        return Ok(Value::Bool(b));
+    }
+
+    // Integer
+    if let Ok(i) = obj.extract::<i64>() {
+        return Ok(Value::Integer(i));
+    }
+
+    // BIG INT BEFORE FLOAT, for the same reason as the Decimal arm below
+    // (#2260): `extract::<f64>()` succeeds on any Python `int`, so a value past
+    // `i64` placed after it silently becomes a lossy double. This converter and
+    // `FromPyObject for Value` must agree or the same int renders differently by
+    // path (#1646) — the actor path reaches here.
+    if let Some(digits) = djust_core::big_int_digits(obj) {
+        return Ok(Value::BigInt(digits));
+    }
+
+    // DECIMAL BEFORE FLOAT (#2214). This is the actor path — `dispatch_mount`
+    // passes the whole `get_context_data()` through here, and component props
+    // come this way too — so leaving it on f64 while the other converters were
+    // fixed would make the same Decimal render differently by path, which is
+    // exactly what the comment below warns about.
+    if djust_core::is_decimal(obj) {
+        return Ok(Value::Decimal(obj.str()?.extract::<String>()?));
+    }
+
+    // Float
+    if let Ok(f) = obj.extract::<f64>() {
+        return Ok(Value::Float(f));
+    }
+
+    // None — `Value::None`, NOT `Missing` (#2203). This is a SECOND
+    // Python->Value converter alongside `FromPyObject for Value` in
+    // djust_core; both must agree, or the same Python object renders
+    // differently depending on which path it took (#1646).
+    if obj.is_none() {
+        return Ok(Value::None);
+    }
+
+    // Tuple — before List, since a tuple is also a sequence (#2203).
+    if let Ok(tuple) = obj.cast::<PyTuple>() {
+        // Snapshotted before recursion for uniformity with the dict arm
+        // below (#2510 sibling) — same shape, NOT the same hazard: a tuple
+        // cannot change size, and PyO3's list/tuple iterators clamp rather
+        // than panic (see the list arm of `python_to_json_value`).
+        let items: Vec<Bound<'_, PyAny>> = tuple.iter().collect();
+        let mut vec = Vec::with_capacity(items.len());
+        for item in items {
+            vec.push(python_to_value(&item)?);
+        }
+        if let Ok(fields) = obj
+            .getattr("_fields")
+            .and_then(|f| f.extract::<Vec<String>>())
+        {
+            if fields.len() == vec.len() {
+                return Ok(Value::NamedTuple {
+                    name: obj.get_type().getattr("__name__")?.extract()?,
+                    fields,
+                    items: vec,
+                });
+            }
+        }
+        return Ok(Value::Tuple(vec));
+    }
+
+    // List
+    if let Ok(list) = obj.cast::<PyList>() {
+        let items: Vec<Bound<'_, PyAny>> = list.iter().collect();
+        let mut vec = Vec::with_capacity(items.len());
+        for item in items {
+            vec.push(python_to_value(&item)?);
+        }
+        return Ok(Value::List(vec));
+    }
+
+    // A Django `QueryDict` / `MultiValueDict` BEFORE the dict arm: last value
+    // per key, through the ONE helper `FromPyObject for Value` uses (#2556,
+    // #1646).
+    // #2899: a dict SUBCLASS with its own spelling crosses as the carrier on
+    // THIS converter too, through the one `FromPyObject` arm that builds it —
+    // otherwise `{% if qd == other %}` compared a last-value map while
+    // `{{ qd }}` spelled the object (#1646, two converters, one object).
+    if djust_core::dict_subclass_spells_itself(obj) {
+        return obj.extract::<Value>();
+    }
+
+    if let Some(pairs) = djust_core::multi_value_dict_pairs(obj) {
+        let mut map: indexmap::IndexMap<djust_core::ObjectKey, Value> =
+            indexmap::IndexMap::with_capacity(pairs.len());
+        for (key, value) in pairs {
+            map.insert(djust_core::py_object_key(&key), python_to_value(&value)?);
+        }
+        return Ok(Value::Object(map));
+    }
+
+    // Dict - recursively convert nested values
+    if let Ok(dict) = obj.cast::<PyDict>() {
+        // IndexMap: PyDict iterates in Python's insertion order, and that
+        // order is now observable in rendered output (#2203).
+        // Through djust_core's ONE key extractor, not a second copy of it
+        // (#1646): this converter is the parallel path to
+        // `impl FromPyObject for Value`, and it used to `?` on a non-string
+        // key — so a dict like `{0: 1}` failed the WHOLE conversion here
+        // while the other path dropped it to a repr. Both now keep the key's
+        // type (#2339), and `test_both_python_to_value_paths_share_one_key_extractor`
+        // pins that they share the extractor rather than agreeing by luck.
+        //
+        // Snapshotted into an owned `Vec` BEFORE recursing into
+        // `python_to_value` (#2510 sibling): `dict.iter()` is a LIVE PyO3
+        // iterator, converting one value can run arbitrary Python, and if
+        // that mutates THIS SAME dict the live iterator panics
+        // ("dictionary changed size during iteration") — confirmed via
+        // `handle.mount(..., params)` with a value whose `__index__` adds a
+        // key to its own parent dict.
+        let pairs: Vec<(Bound<'_, PyAny>, Bound<'_, PyAny>)> = dict.iter().collect();
+        let mut map: indexmap::IndexMap<djust_core::ObjectKey, Value> =
+            indexmap::IndexMap::with_capacity(pairs.len());
+        for (key, value) in pairs {
+            map.insert(djust_core::py_object_key(&key), python_to_value(&value)?);
+        }
+        return Ok(Value::Object(map));
+    }
+
+    // Fallback: try to convert to string
+    if let Ok(s) = obj.str() {
+        let s_str: String = s.extract()?;
+        return Ok(Value::String(s_str));
+    }
+
+    Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+        "Cannot convert Python type to Value".to_string(),
+    ))
+}
+
+/// Extract template variables for JIT auto-serialization.
+///
+/// Parses a Django template and returns a dictionary mapping variable names
+/// to lists of their access paths. This enables automatic serialization of
+/// only the required Django ORM fields for efficient Rust template rendering.
+///
+/// # Arguments
+///
+/// * `template` - Template source string
+///
+/// # Returns
+///
+/// Dictionary mapping variable names to lists of attribute paths:
+/// - Root variables map to empty lists
+/// - Nested variables map to their access paths
+/// - Paths are deduplicated and sorted alphabetically
+///
+/// # Raises
+///
+/// * `ValueError` - If template cannot be parsed (malformed syntax)
+///
+/// # Behavior
+///
+/// - **Empty templates**: Returns empty dict `{}`
+/// - **Malformed templates**: Raises `ValueError` with parsing error details
+/// - **Duplicate paths**: Automatically deduplicated
+/// - **Template tags**: Extracts from for/if/with/block tags
+/// - **Filters**: Ignores filters but preserves variable paths
+///
+/// # Example
+///
+/// ```python
+/// from djust._rust import extract_template_variables
+///
+/// # Basic usage
+/// template = "{{ lease.property.name }} {{ lease.tenant.user.email }}"
+/// vars = extract_template_variables(template)
+/// # Returns: {"lease": ["property.name", "tenant.user.email"]}
+///
+/// # Empty template
+/// vars = extract_template_variables("")
+/// # Returns: {}
+///
+/// # Root variable (no path)
+/// vars = extract_template_variables("{{ count }}")
+/// # Returns: {"count": []}
+///
+/// # Malformed template
+/// try:
+///     vars = extract_template_variables("{% if x")
+/// except ValueError as e:
+///     print(f"Parse error: {e}")
+/// ```
+///
+/// # Use Case
+///
+/// ```python
+/// class LeaseView(LiveView):
+///     template_string = '''
+///         {% for lease in expiring_soon %}
+///             {{ lease.property.name }}
+///             {{ lease.tenant.user.email }}
+///         {% endfor %}
+///     '''
+///
+///     def mount(self, request):
+///         # Extract required fields
+///         vars = extract_template_variables(self.template_string)
+///         # vars = {
+///         #   'lease': ['property.name', 'tenant.user.email'],
+///         #   'expiring_soon': []
+///         # }
+///
+///         # Generate optimized query
+///         self.expiring_soon = Lease.objects.select_related(
+///             'property', 'tenant__user'
+///         ).filter(end_date__lte=timezone.now() + timedelta(days=30))
+/// ```
+/// Path node for serializer field tree
+#[derive(Debug, Clone)]
+enum PathNode {
+    Leaf,
+    Object(std::collections::HashMap<String, PathNode>),
+    List(std::collections::HashMap<String, PathNode>),
+}
+
+/// Convert serde_json::Value to Python object using PyO3
+///
+/// This is faster than serializing to JSON string and parsing back!
+fn json_value_to_py(py: Python, value: &serde_json::Value) -> PyResult<Py<PyAny>> {
+    match value {
+        serde_json::Value::Null => Ok(py.None()),
+        serde_json::Value::Bool(b) => Ok((*b).into_pyobject(py)?.to_owned().into_any().unbind()),
+        serde_json::Value::Number(n) => {
+            if let Some(i) = n.as_i64() {
+                Ok(i.into_pyobject(py)?.to_owned().into_any().unbind())
+            } else if let Some(f) = n.as_f64() {
+                Ok(f.into_pyobject(py)?.to_owned().into_any().unbind())
+            } else {
+                Ok(py.None())
+            }
+        }
+        serde_json::Value::String(s) => Ok(s.into_pyobject(py)?.to_owned().into_any().unbind()),
+        serde_json::Value::Array(arr) => {
+            let py_list = PyList::empty(py);
+            for item in arr {
+                py_list.append(json_value_to_py(py, item)?)?;
+            }
+            Ok(py_list.into())
+        }
+        serde_json::Value::Object(obj) => {
+            let py_dict = PyDict::new(py);
+            for (key, val) in obj {
+                py_dict.set_item(key, json_value_to_py(py, val)?)?;
+            }
+            Ok(py_dict.into())
+        }
+    }
+}
+
+/// Serialize a QuerySet/list of Django objects based on field paths - FAST!
+///
+/// This is a Rust-based serializer that extracts only specified fields from Python objects,
+/// bypassing Python's overhead for attribute access and JSON encoding.
+///
+/// Performance: 5-10x faster than Python json.dumps() with DjangoJSONEncoder
+///
+/// # Arguments
+/// * `objects` - List of Python objects (Django model instances)
+/// * `field_paths` - List of dot-separated paths (e.g., ["user.email", "active_leases.0.property.name"])
+///
+/// # Returns
+/// Python list of dictionaries (not JSON string!)
+///
+/// # Example
+/// ```python
+/// from djust._rust import serialize_queryset
+///
+/// tenants = Tenant.objects.select_related('user').prefetch_related('active_leases__property')
+/// paths = ['user.email', 'user.get_full_name', 'active_leases.0.property.name', 'phone']
+/// result_list = serialize_queryset(tenants, paths)  # Returns Python list directly!
+/// ```
+#[pyfunction(name = "serialize_queryset")]
+fn serialize_queryset_py(
+    py: Python,
+    objects: &Bound<'_, PyList>,
+    field_paths: Vec<String>,
+) -> PyResult<Py<PyList>> {
+    guard_panic("serialize_queryset_py", move || {
+        // Parse paths into tree structure for efficient traversal
+        let path_tree = build_field_tree(&field_paths);
+
+        // Create Python list to hold results
+        let result_list = PyList::empty(py);
+
+        // The serialization gate, resolved once for the whole queryset (#2685).
+        let gate = resolve_attr_gate(py)?;
+        let gate = gate.bind(py);
+
+        // Iterate over objects
+        for obj in objects.iter() {
+            let serialized = serialize_object_with_paths(py, &obj, &path_tree, gate)?;
+            result_list.append(serialized)?;
+        }
+
+        Ok(result_list.into())
+    })
+}
+
+/// Serialize entire context dict to JSON-compatible Python dict
+///
+/// Handles all Python types efficiently:
+/// - Simple types (str, int, float, bool, None): pass through
+/// - Lists/tuples: recursively serialize
+/// - Dicts: recursively serialize
+/// - Components: call .render() and wrap in {"render": ...}
+/// - Django types (datetime, UUID): convert to strings
+/// - `Decimal`: **converts to a float, not a string** (#2214). The branch below
+///   intends a string and is dead, because `extract::<f64>()` above it honours
+///   `Decimal.__float__`. So a `DecimalField` reaches the client as a binary
+///   float and `Decimal('12345678901234567890.123456789')` arrives as
+///   `1.2345678901234567e+19`. Documented here rather than fixed because the
+///   one-line move regresses `{{ p|floatformat }}` and `{% if p > 10 %}` —
+///   this value goes back into the TEMPLATE CONTEXT, not only onto the wire,
+///   so it needs numeric semantics as well as precision. Tracked in #2214 and
+///   pinned by `python/tests/test_dead_special_case_converters_2214.py`.
+#[pyfunction(name = "serialize_context")]
+fn serialize_context_py(py: Python, context: &Bound<'_, PyDict>) -> PyResult<Py<PyDict>> {
+    guard_panic("serialize_context_py", move || {
+        let result_dict = PyDict::new(py);
+
+        // Snapshotted before recursing (#2510, round 4) — same shape as
+        // every other site this bug class was found in.
+        let pairs: Vec<(Bound<'_, PyAny>, Bound<'_, PyAny>)> = context.iter().collect();
+        for (key, value) in pairs {
+            let key_str: String = key.extract()?;
+            let serialized_value = serialize_python_value(py, &value)?;
+            result_dict.set_item(key_str, serialized_value)?;
+        }
+
+        Ok(result_dict.into())
+    })
+}
+
+/// Recursively serialize a Python value to JSON-compatible form
+fn serialize_python_value(py: Python, value: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+    // Fast path: None
+    if value.is_none() {
+        return Ok(py.None());
+    }
+
+    // Get type name for special type handling
+    let type_name = value
+        .get_type()
+        .name()
+        .map_or("unknown".to_string(), |s| s.to_string());
+
+    // IMPORTANT: Check compound types (List, Tuple, Dict) BEFORE simple types!
+    // Otherwise extract::<String>() will convert them to string repr
+
+    // Lists and tuples: recursively serialize
+    if let Ok(list) = value.cast::<PyList>() {
+        let raw: Vec<Bound<'_, PyAny>> = list.iter().collect();
+        let result_list = PyList::empty(py);
+        for item in raw {
+            let serialized = serialize_python_value(py, &item)?;
+            result_list.append(serialized)?;
+        }
+        return Ok(result_list.into());
+    }
+
+    if let Ok(tuple) = value.cast::<PyTuple>() {
+        let raw: Vec<Bound<'_, PyAny>> = tuple.iter().collect();
+        let result_list = PyList::empty(py);
+        for item in raw {
+            let serialized = serialize_python_value(py, &item)?;
+            result_list.append(serialized)?;
+        }
+        return Ok(result_list.into());
+    }
+
+    // Dicts: recursively serialize. Snapshotted before recursing (#2510,
+    // round 4) — same shape as every other site this bug class was found in.
+    if let Ok(dict) = value.cast::<PyDict>() {
+        let pairs: Vec<(Bound<'_, PyAny>, Bound<'_, PyAny>)> = dict.iter().collect();
+        let result_dict = PyDict::new(py);
+        for (k, v) in pairs {
+            let key_str: String = k.extract()?;
+            let serialized = serialize_python_value(py, &v)?;
+            result_dict.set_item(key_str, serialized)?;
+        }
+        return Ok(result_dict.into());
+    }
+
+    // Django QuerySet: Convert to list which triggers JIT serialization
+    if type_name == "QuerySet" {
+        // Call list() on the QuerySet to force evaluation
+        if let Ok(list_fn) = py.eval(c"list", None, None) {
+            if let Ok(as_list) = list_fn.call1((value,)) {
+                return serialize_python_value(py, &as_list);
+            }
+        }
+    }
+
+    // Fast path: Simple types (str, int, float, bool)
+    // These must come AFTER compound types to avoid converting them to strings
+    if let Ok(s) = value.extract::<String>() {
+        return Ok(s.into_pyobject(py)?.to_owned().into_any().unbind());
+    }
+    // BOOL BEFORE INT (#2212). PyO3 0.29 extracts a Python `True` as `i64` `1`
+    // (its own `test_i64_bool` asserts this), so with the integer arm first the
+    // bool arm below was DEAD CODE and `serialize_context({"flag": True})`
+    // returned `1`. `serialize_context` is a public `#[pyfunction]` feeding JIT
+    // state serialization, so that reached the client as `1`/`0` — client code
+    // doing `x === true` sees false, and after #2203 a `Value::Integer(1)`
+    // renders `1` where a `Value::Bool(true)` renders `True`.
+    //
+    // SIX functions in this workspace extract both types — not the three
+    // #2212 was filed claiming. The other five already check bool first, but
+    // enumerating them by hand missed half, which is why the guard is
+    // structural: `python/tests/test_bool_before_int_converters_2212.py`
+    // sweeps every `fn` and pins the exact set. One invariant, six
+    // implementations, and a dead `if let` arm is not a compile error — #1646.
+    if let Ok(b) = value.extract::<bool>() {
+        return Ok(b.into_pyobject(py)?.to_owned().into_any().unbind());
+    }
+    if let Ok(i) = value.extract::<i64>() {
+        return Ok(i.into_pyobject(py)?.to_owned().into_any().unbind());
+    }
+    // DECIMAL BEFORE FLOAT (#2214), the same shape as BOOL BEFORE INT above and
+    // the second instance of that class. `extract::<f64>()` goes through
+    // `PyFloat_AsDouble`, which honours `Decimal.__float__`, so the
+    // `type_name == "Decimal"` branch further down was DEAD CODE and every
+    // Decimal reached the client as a binary double —
+    // `Decimal('12345678901234567890.123456789')` as `1.2345678901234567e+19`.
+    // `DecimalField` is Django's money type; a binary double is what it exists
+    // to avoid.
+    //
+    // Emitting `str(value)` matches `DjangoJSONEncoder.default`, so the value
+    // arrives as a JSON string with its digits intact. That is a wire-format
+    // change for clients doing arithmetic on it — a JSON *number* cannot carry
+    // the precision, so there is no version of this fix that keeps both.
+    if djust_core::is_decimal(value) {
+        let str_repr = value.str()?.to_string();
+        return Ok(str_repr.into_pyobject(py)?.to_owned().into_any().unbind());
+    }
+    if let Ok(f) = value.extract::<f64>() {
+        return Ok(f.into_pyobject(py)?.to_owned().into_any().unbind());
+    }
+
+    // Components: Check if object has 'render' method
+    if value.hasattr("render")? {
+        // Call .render() method
+        let render_method = value.getattr("render")?;
+        if render_method.is_callable() {
+            match render_method.call0() {
+                Ok(rendered) => {
+                    // Wrap in {"render": ...} dict
+                    let wrapper = PyDict::new(py);
+                    let rendered_str: String = rendered.extract()?;
+                    wrapper.set_item("render", rendered_str)?;
+                    return Ok(wrapper.into());
+                }
+                Err(_) => {
+                    // Render failed, fallback to str()
+                    let str_repr = value.str()?.to_string();
+                    return Ok(str_repr.into_pyobject(py)?.to_owned().into_any().unbind());
+                }
+            }
+        }
+    }
+
+    // Django date/time types: convert to ISO strings
+    // Check for common Django/Python datetime types
+    if type_name == "datetime" || type_name == "date" || type_name == "time" {
+        if let Ok(isoformat) = value.call_method0("isoformat") {
+            let iso_str: String = isoformat.extract()?;
+            return Ok(iso_str.into_pyobject(py)?.to_owned().into_any().unbind());
+        }
+    }
+
+    // UUID: convert to string. Decimal is handled ABOVE, before the numeric
+    // extracts — leaving it here made it unreachable (#2214). UUID is safe here
+    // only because it is not float-convertible, which is why the same bug did
+    // not affect it.
+    if type_name == "UUID" {
+        let str_repr = value.str()?.to_string();
+        return Ok(str_repr.into_pyobject(py)?.to_owned().into_any().unbind());
+    }
+
+    // Django model instances: serialize to dict using model_to_dict + methods
+    if value.hasattr("_meta")? {
+        // Use Django's model_to_dict to serialize the model fields
+        if let Ok(forms_module) = py.import("django.forms.models") {
+            if let Ok(model_to_dict_fn) = forms_module.getattr("model_to_dict") {
+                if let Ok(model_dict) = model_to_dict_fn.call1((value,)) {
+                    // Convert to PyDict so we can add method results
+                    if let Ok(result_dict) = model_dict.cast::<PyDict>() {
+                        // Call specific, known-safe get_* methods commonly used in templates
+                        // This is safer than calling all get_* methods which can cause infinite recursion
+                        let safe_methods = vec![
+                            "get_full_name",
+                            "get_short_name",
+                            "get_absolute_url",
+                            "get_username",
+                        ];
+
+                        for method_name in safe_methods {
+                            if let Ok(attr) = value.getattr(method_name) {
+                                if attr.is_callable() {
+                                    if let Ok(result) = attr.call0() {
+                                        // Convert result to string to avoid recursive serialization
+                                        if let Ok(result_str) = result.str() {
+                                            let _ = result_dict.set_item(method_name, result_str);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Recursively serialize the enhanced dict
+                        return serialize_python_value(py, result_dict.as_any());
+                    }
+                }
+            }
+        }
+    }
+
+    // Fallback: convert to string representation
+    let str_repr = value.str()?.to_string();
+    Ok(str_repr.into_pyobject(py)?.to_owned().into_any().unbind())
+}
+
+/// Build a tree structure from flat field paths for efficient nested traversal
+fn build_field_tree(paths: &[String]) -> std::collections::HashMap<String, PathNode> {
+    use std::collections::HashMap;
+
+    let mut root: HashMap<String, PathNode> = HashMap::new();
+
+    for path in paths {
+        let parts: Vec<&str> = path.split('.').collect();
+        if parts.is_empty() {
+            continue;
+        }
+
+        let mut current = &mut root;
+        let mut i = 0;
+
+        while i < parts.len() {
+            let part = parts[i];
+
+            // Check if next part is numeric index (list access)
+            if i + 1 < parts.len() && parts[i + 1].parse::<usize>().is_ok() {
+                // This is a list attribute
+                let entry = current
+                    .entry(part.to_string())
+                    .or_insert_with(|| PathNode::List(HashMap::new()));
+
+                match entry {
+                    PathNode::List(nested_map) => {
+                        // Skip the numeric index and continue with remaining parts
+                        i += 2;
+                        if i < parts.len() {
+                            // Process remaining path within list items
+                            let remaining_parts: Vec<&str> = parts[i..].to_vec();
+                            let remaining_path = remaining_parts.join(".");
+
+                            // Recursively add remaining path to nested map
+                            let mut temp_map = std::mem::take(nested_map);
+                            add_path_to_tree(&mut temp_map, &remaining_path);
+                            *nested_map = temp_map;
+                        }
+                        break;
+                    }
+                    PathNode::Leaf => {
+                        // Convert Leaf to List (handles case where 'active_leases' was inserted before 'active_leases.0.property.name')
+                        *entry = PathNode::List(HashMap::new());
+                        if let PathNode::List(nested_map) = entry {
+                            // Skip the numeric index and continue with remaining parts
+                            i += 2;
+                            if i < parts.len() {
+                                // Process remaining path within list items
+                                let remaining_parts: Vec<&str> = parts[i..].to_vec();
+                                let remaining_path = remaining_parts.join(".");
+
+                                // Recursively add remaining path to nested map
+                                let mut temp_map = std::mem::take(nested_map);
+                                add_path_to_tree(&mut temp_map, &remaining_path);
+                                *nested_map = temp_map;
+                            }
+                        }
+                        break;
+                    }
+                    _ => {
+                        // Other type mismatch - skip this path and continue to next
+                        break;
+                    }
+                }
+            } else {
+                // Regular attribute
+                if i == parts.len() - 1 {
+                    // Leaf node
+                    current.entry(part.to_string()).or_insert(PathNode::Leaf);
+                } else {
+                    // Intermediate node
+                    let entry = current
+                        .entry(part.to_string())
+                        .or_insert_with(|| PathNode::Object(HashMap::new()));
+
+                    if matches!(entry, PathNode::Leaf) {
+                        *entry = PathNode::Object(HashMap::new());
+                    }
+                    match entry {
+                        PathNode::Object(nested_map) => {
+                            current = nested_map;
+                        }
+                        _ => {
+                            return root; // Type mismatch
+                        }
+                    }
+                }
+                i += 1;
+            }
+        }
+    }
+
+    root
+}
+
+/// Helper to add a path to an existing tree
+fn add_path_to_tree(tree: &mut std::collections::HashMap<String, PathNode>, path: &str) {
+    use std::collections::HashMap;
+
+    let parts: Vec<&str> = path.split('.').collect();
+    if parts.is_empty() {
+        return;
+    }
+
+    let mut current = tree;
+    for (i, part) in parts.iter().enumerate() {
+        if i == parts.len() - 1 {
+            current.entry(part.to_string()).or_insert(PathNode::Leaf);
+        } else {
+            let entry = current
+                .entry(part.to_string())
+                .or_insert_with(|| PathNode::Object(HashMap::new()));
+            if matches!(entry, PathNode::Leaf) {
+                *entry = PathNode::Object(HashMap::new());
+            }
+            match entry {
+                PathNode::Object(nested_map) => {
+                    current = nested_map;
+                }
+                _ => break,
+            }
+        }
+    }
+}
+
+/// Resolve the serialization gate — `djust.optimization.codegen.emittable_names`,
+/// the ONE per-attribute authority (`DjangoJSONEncoder._attr_is_serializable`)
+/// every other channel calls (#2685 / #2614).
+///
+/// Before #2685 this serializer did a bare `obj.getattr(name)` with no floor at
+/// all, so a QuerySet in the context (`self.users = User.objects.all()` +
+/// `{{ u.password }}`) shipped the password hash on the GET response and in the
+/// WS mount/patch frames — the Python codegen fallback only fires when Rust
+/// returns FEWER keys than expected, which a plain field never trips.
+///
+/// Resolved once per `serialize_queryset` call and threaded through the
+/// recursion; an import failure propagates, so the Python caller falls back to
+/// `normalize_django_value` (itself gated) rather than shipping ungated rows.
+fn resolve_attr_gate(py: Python) -> PyResult<Py<PyAny>> {
+    Ok(py
+        .import("djust.optimization.codegen")?
+        .getattr("emittable_names")?
+        .unbind())
+}
+
+/// The subset of *tree*'s keys the gate permits for *obj*. Set-at-a-time: one
+/// Python call per OBJECT LEVEL, not per attribute, so the per-model denylist /
+/// allowlist / opt-out sets (and the `settings` read behind them) resolve once.
+///
+/// `tree` is a `HashMap`, so these names arrive in an order that differs per
+/// instance. That is fine and deliberately not sorted here: the gate memoizes
+/// on the SET of names (`_GATE_CACHE`), precisely so no caller's iteration
+/// order can thrash it. Sorting as well would be a second mechanism covering
+/// the same half, which no test could then tell apart from the first (#2233).
+fn gated_names(
+    py: Python,
+    obj: &Bound<'_, PyAny>,
+    tree: &std::collections::HashMap<String, PathNode>,
+    gate: &Bound<'_, PyAny>,
+) -> PyResult<std::collections::HashSet<String>> {
+    let names: Vec<&str> = tree.keys().map(|k| k.as_str()).collect();
+    let permitted = gate.call1((obj, PyTuple::new(py, &names)?))?;
+    let mut out = std::collections::HashSet::new();
+    for name in names {
+        if permitted.contains(name)? {
+            out.insert(name.to_string());
+        }
+    }
+    Ok(out)
+}
+
+/// Serialize a single Python object based on path tree
+fn serialize_object_with_paths(
+    py: Python,
+    obj: &Bound<'_, PyAny>,
+    tree: &std::collections::HashMap<String, PathNode>,
+    gate: &Bound<'_, PyAny>,
+) -> PyResult<Py<PyAny>> {
+    let result = PyDict::new(py);
+
+    // Every attribute this function reads is gated by the ONE serialization
+    // chokepoint (#2685). A denied name is omitted from the dict, so the
+    // template renders `string_if_invalid` (empty) — the same outcome as the
+    // eager channel.
+    let permitted = gated_names(py, obj, tree, gate)?;
+
+    for (attr_name, node) in tree {
+        if !permitted.contains(attr_name) {
+            continue;
+        }
+
+        // Try to access attribute
+        let attr_result = obj.getattr(attr_name.as_str());
+
+        if attr_result.is_err() {
+            continue; // Attribute doesn't exist, skip
+        }
+
+        let attr_value = attr_result?;
+
+        // Check if None
+        if attr_value.is_none() {
+            result.set_item(attr_name, py.None())?;
+            continue;
+        }
+
+        match node {
+            PathNode::Leaf => {
+                // Check if it's a callable (method) - try calling it first
+                if attr_value.is_callable() {
+                    // It's a method - try calling it
+                    match attr_value.call0() {
+                        Ok(method_result) => {
+                            // Method call succeeded - use the result
+                            result
+                                .set_item(attr_name, queryset_template_value(&method_result, 0)?)?;
+                        }
+                        Err(_) => {
+                            // Method call failed - skip this attribute (don't insert null)
+                            // This can happen if the method requires arguments
+                            continue;
+                        }
+                    }
+                } else {
+                    // Not callable - it's a direct attribute value
+                    result.set_item(attr_name, queryset_template_value(&attr_value, 0)?)?;
+                }
+            }
+            PathNode::Object(nested_tree) => {
+                // JSONField and computed containers carry data keys, not model
+                // attributes. Preserve them just as the codegen root path does.
+                let nested_result = if attr_value.is_instance_of::<PyDict>()
+                    || attr_value.is_instance_of::<PyList>()
+                    || attr_value.is_instance_of::<PyTuple>()
+                {
+                    queryset_template_value(&attr_value, 0)?
+                } else {
+                    serialize_object_with_paths(py, &attr_value, nested_tree, gate)?
+                };
+                result.set_item(attr_name, nested_result)?;
+            }
+            PathNode::List(nested_tree) => {
+                // Iterate over list and serialize each item
+                let mut list_results = Vec::new();
+
+                // For Django QuerySets/Managers, we need to evaluate them first
+                // Try to call .all() if it exists (for QuerySets/Managers)
+                let iterable = if let Ok(all_method) = attr_value.getattr("all") {
+                    // It has .all() method - call it to get the QuerySet
+                    if let Ok(queryset) = all_method.call0() {
+                        // Convert QuerySet to Python list for iteration
+                        if let Ok(list_func) = py.eval(c"list", None, None) {
+                            if let Ok(py_list) = list_func.call1((queryset,)) {
+                                py_list
+                            } else {
+                                attr_value.clone()
+                            }
+                        } else {
+                            attr_value.clone()
+                        }
+                    } else {
+                        attr_value.clone()
+                    }
+                } else {
+                    attr_value.clone()
+                };
+
+                // Try to iterate
+                if let Ok(iterator) = iterable.try_iter() {
+                    for item_result in iterator {
+                        let item_obj = match item_result {
+                            Ok(obj) => obj,
+                            Err(_) => continue,
+                        };
+                        let item_result =
+                            serialize_object_with_paths(py, &item_obj, nested_tree, gate)?;
+                        list_results.push(item_result);
+                    }
+                }
+
+                result.set_item(attr_name, PyList::new(py, list_results)?)?;
+            }
+        }
+    }
+
+    Ok(result.into_any().unbind())
+}
+
+/// Preserve native temporal values for Django filters; normalize other leaves
+/// using the existing queryset scalar conversion contract.
+fn queryset_template_value(value: &Bound<'_, PyAny>, depth: usize) -> PyResult<Py<PyAny>> {
+    let py = value.py();
+    // Properties can return cyclic containers. Refuse before exhausting the
+    // native stack, matching Python's recursion-error failure mode.
+    if depth >= 64 {
+        return Err(pyo3::exceptions::PyRecursionError::new_err(
+            "queryset property exceeds the container nesting limit",
+        ));
+    }
+    if let Ok(dict) = value.cast::<PyDict>() {
+        let pairs =
+            djust_core::multi_value_dict_pairs(value).unwrap_or_else(|| dict.iter().collect());
+        let result = PyDict::new(py);
+        for (key, item) in pairs {
+            result.set_item(
+                key.extract::<String>()?,
+                queryset_template_value(&item, depth + 1)?,
+            )?;
+        }
+        return Ok(result.into_any().unbind());
+    }
+    let items: Option<Vec<Bound<'_, PyAny>>> = if let Ok(list) = value.cast::<PyList>() {
+        Some(list.iter().collect())
+    } else if let Ok(tuple) = value.cast::<PyTuple>() {
+        Some(tuple.iter().collect())
+    } else {
+        None
+    };
+    if let Some(items) = items {
+        let values = items
+            .iter()
+            .map(|item| queryset_template_value(item, depth + 1))
+            .collect::<PyResult<Vec<_>>>()?;
+        return Ok(PyList::new(py, values)?.into_any().unbind());
+    }
+    // datetime is a date subclass; these checks also preserve user subclasses.
+    if value.is_instance_of::<pyo3::types::PyDate>()
+        || value.is_instance_of::<pyo3::types::PyTime>()
+        || value.is_instance_of::<pyo3::types::PyDelta>()
+    {
+        return Ok(value.clone().unbind());
+    }
+    json_value_to_py(py, &queryset_value_to_json(value)?)
+}
+
+fn queryset_value_to_json(value: &Bound<'_, PyAny>) -> PyResult<serde_json::Value> {
+    // Handle None
+    if value.is_none() {
+        return Ok(serde_json::Value::Null);
+    }
+
+    // Try bool first (before int, since bool is subclass of int in Python)
+    if let Ok(b) = value.extract::<bool>() {
+        return Ok(serde_json::Value::Bool(b));
+    }
+
+    // Try int
+    if let Ok(i) = value.extract::<i64>() {
+        return Ok(serde_json::Value::Number(i.into()));
+    }
+
+    // Decimal before float (#2214): exact digits as a JSON string.
+    if djust_core::is_decimal(value) {
+        return Ok(serde_json::Value::String(value.str()?.extract::<String>()?));
+    }
+
+    // Try float
+    if let Ok(f) = value.extract::<f64>() {
+        if let Some(num) = serde_json::Number::from_f64(f) {
+            return Ok(serde_json::Value::Number(num));
+        }
+    }
+
+    // Try string (covers str, datetime, UUID, etc via __str__)
+    if let Ok(s) = value.extract::<String>() {
+        return Ok(serde_json::Value::String(s));
+    }
+
+    // Fallback: convert to string
+    match value.str() {
+        Ok(s) => Ok(serde_json::Value::String(s.to_string())),
+        Err(_) => Ok(serde_json::Value::Null),
+    }
+}
+
+/// The text a text node at `path` holds for the raw HTML `raw` (#2898):
+/// decoded, except inside the elements html5ever keeps as RAW text — `script`,
+/// `style`, `xmp`, `iframe`, `noembed`, `noframes`, `plaintext`, and
+/// `noscript` (the parser runs with scripting enabled) — whose body is kept
+/// verbatim. Under an `svg`/`math` ancestor those same tag names are foreign
+/// elements whose text IS decoded (and `foreignObject` switches back), so the
+/// fast path does not guess there: `None`, full parse. `None` too when the
+/// text can't be decoded exactly (see [`decode_text_entities`]).
+fn text_node_value(vdom: &VNode, path: &[usize], raw: &str) -> Option<String> {
+    let (_, parent_path) = path.split_last()?;
+    let parent = get_vdom_node(vdom, parent_path)?;
+    // The one raw-text list, shared with the VDOM serializer (#3045).
+    let raw_parent = djust_core::raw_text::is_raw_text_element(&parent.tag);
+    if raw_parent {
+        let foreign = (0..=parent_path.len()).any(|n| {
+            get_vdom_node(vdom, &parent_path[..n]).is_some_and(|a| {
+                a.tag.eq_ignore_ascii_case("svg") || a.tag.eq_ignore_ascii_case("math")
+            })
+        });
+        return if foreign { None } else { Some(raw.to_string()) };
+    }
+    decode_text_entities(raw).map(std::borrow::Cow::into_owned)
+}
+
+/// Decode the character references a text node's raw HTML may carry, the way
+/// the HTML parser would, for the parse-skipping fast paths (#2898).
+///
+/// Handles what Django's escaping (and `escape`/`force_escape`) emits —
+/// `&amp;` `&lt;` `&gt;` `&quot;` `&#x27;` `&#39;` — plus `&apos;` and
+/// `;`-terminated decimal / hex references to ordinary characters. Anything
+/// else containing `&` (other named entities such as `&nbsp;`, references
+/// without `;`, NUL / C1 / surrogate code points the parser remaps) returns
+/// `None`, and the caller falls back to the full parse, which is always right.
+/// Text with no `&` is returned borrowed.
+fn decode_text_entities(raw: &str) -> Option<std::borrow::Cow<'_, str>> {
+    if !raw.contains('&') {
+        return Some(std::borrow::Cow::Borrowed(raw));
+    }
+    let mut out = String::with_capacity(raw.len());
+    let mut rest = raw;
+    while let Some(amp) = rest.find('&') {
+        out.push_str(&rest[..amp]);
+        let tail = &rest[amp + 1..];
+        let semi = tail.find(';')?;
+        // The longest reference we accept is `#x10FFFF` (8 bytes).
+        if semi == 0 || semi > 8 {
+            return None;
+        }
+        let name = &tail[..semi];
+        let ch = match name {
+            "amp" => '&',
+            "lt" => '<',
+            "gt" => '>',
+            "quot" => '"',
+            "apos" => '\'',
+            _ => {
+                let digits = name.strip_prefix('#')?;
+                let code = if let Some(hex) = digits
+                    .strip_prefix('x')
+                    .or_else(|| digits.strip_prefix('X'))
+                {
+                    if hex.is_empty() || !hex.bytes().all(|b| b.is_ascii_hexdigit()) {
+                        return None;
+                    }
+                    u32::from_str_radix(hex, 16).ok()?
+                } else {
+                    if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
+                        return None;
+                    }
+                    digits.parse::<u32>().ok()?
+                };
+                // The parser remaps NUL, C0 controls it rejects and the C1
+                // range (windows-1252 table); leave those to it.
+                if code < 0x20 && !matches!(code, 0x09 | 0x0A | 0x0C) {
+                    return None;
+                }
+                if (0x7F..=0x9F).contains(&code) {
+                    return None;
+                }
+                char::from_u32(code)?
+            }
+        };
+        out.push(ch);
+        rest = &tail[semi + 1..];
+    }
+    out.push_str(rest);
+    Some(std::borrow::Cow::Owned(out))
+}
+
+/// Build a map from template node index to VDOM text node path.
+/// For each fragment that's plain text (no HTML tags), find the matching
+/// text node in the VDOM by walking it depth-first and matching content.
+/// Attempt a text-region fast path: compute common prefix/suffix on the
+/// full pre-hydration HTML and, if the divergence is a single text span,
+/// patch the corresponding VDOM text node in place. Skips html5ever.
+///
+/// Returns `Some((new_vdom, patches))` if the fast path can be taken.
+/// Returns `None` if the diff crosses a tag boundary, spans multiple
+/// text nodes, contains HTML entities that would confuse the offset
+/// math, or any validation fails — in which case the caller falls back
+/// to the full html5ever path.
+fn try_text_region_fast_path(
+    old_html: &str,
+    new_html: &str,
+    old_vdom: &VNode,
+    text_node_index: &mut [TextNodeEntry],
+) -> Option<(VNode, Vec<djust_vdom::Patch>)> {
+    // Without an index we can't resolve pfx → VDOM path cheaply. The
+    // caller should have built one after the previous full-parse render.
+    if text_node_index.is_empty() {
+        return None;
+    }
+    let old_bytes = old_html.as_bytes();
+    let new_bytes = new_html.as_bytes();
+    let old_len = old_bytes.len();
+    let new_len = new_bytes.len();
+    let min_len = old_len.min(new_len);
+
+    // Common prefix (bytewise)
+    let mut pfx = 0;
+    while pfx < min_len && old_bytes[pfx] == new_bytes[pfx] {
+        pfx += 1;
+    }
+
+    // Common suffix (cannot overlap the prefix)
+    let mut sfx = 0;
+    let max_sfx = min_len - pfx;
+    while sfx < max_sfx && old_bytes[old_len - 1 - sfx] == new_bytes[new_len - 1 - sfx] {
+        sfx += 1;
+    }
+
+    // Snap pfx and sfx back to UTF-8 char boundaries. Common prefix can
+    // stop mid-multibyte-char when the diverging char shares leading
+    // bytes (e.g. '↑' vs '↓': both start 0xE2 0x86). Slicing &str on
+    // a non-boundary byte index would panic.
+    while pfx > 0 && !old_html.is_char_boundary(pfx) {
+        pfx -= 1;
+    }
+    while pfx > 0 && !new_html.is_char_boundary(pfx) {
+        pfx -= 1;
+    }
+    // Re-snap sfx for both strings so old_len - sfx and new_len - sfx
+    // are both char boundaries.
+    while sfx > 0
+        && (!old_html.is_char_boundary(old_len - sfx) || !new_html.is_char_boundary(new_len - sfx))
+    {
+        sfx -= 1;
+    }
+
+    // If nothing differs (shouldn't happen when changed_keys is set, but
+    // be defensive), there's no patch to produce.
+    if pfx == old_len && pfx == new_len {
+        return Some((old_vdom.clone(), Vec::new()));
+    }
+
+    // Defensive: ensure slicing ranges are valid after snapping.
+    if pfx > old_len - sfx || pfx > new_len - sfx {
+        return None;
+    }
+
+    let old_mid = &old_html[pfx..old_len - sfx];
+    let new_mid = &new_html[pfx..new_len - sfx];
+
+    // Safety: middle must be tag-free on BOTH sides. Tag chars here mean
+    // the structure actually changed, not just a text value.
+    if old_mid.as_bytes().iter().any(|&b| b == b'<' || b == b'>')
+        || new_mid.as_bytes().iter().any(|&b| b == b'<' || b == b'>')
+    {
+        return None;
+    }
+
+    // After-region boundary: the char right after the diff must be
+    // inside the same text node (not open-tag), otherwise multiple text
+    // nodes are affected. If the byte at `after_idx` is '<', we're
+    // cleanly at the text/tag boundary — valid. If it's something else
+    // (e.g. more text), that's also fine (diff is in the middle).
+    // If it's '>' we've likely misaligned; bail.
+    let after_idx = old_len - sfx;
+    if after_idx < old_len && old_bytes[after_idx] == b'>' {
+        return None;
+    }
+
+    // Binary-search the pre-built text-node index for the entry whose
+    // HTML byte range contains `pfx`. The index is sorted by
+    // `html_start`, so we find the last entry with `html_start <= pfx`
+    // and confirm it covers the position.
+    let entry_idx = {
+        use std::cmp::Ordering;
+        match text_node_index.binary_search_by(|e| {
+            if pfx < e.html_start {
+                Ordering::Greater
+            } else if pfx >= e.html_end {
+                Ordering::Less
+            } else {
+                Ordering::Equal
+            }
+        }) {
+            Ok(i) => i,
+            Err(_) => return None, // pfx falls inside a tag, outside any text node
+        }
+    };
+    let entry = &text_node_index[entry_idx];
+
+    // Compute where in the text node (byte offset within its HTML text)
+    // the diff starts.
+    let offset_in_text = pfx - entry.html_start;
+
+    // Diff span must fit entirely within this text node in HTML terms.
+    if pfx + old_mid.len() > entry.html_end {
+        return None;
+    }
+
+    let path = entry.path.clone();
+    let old_text = entry.text.clone();
+    let djust_id = entry.djust_id.clone();
+    let old_html_end = entry.html_end;
+
+    // The index's byte range is the node's RAW html; the VDOM holds the
+    // DECODED text. Splice in the raw domain, then decode (#2898): splicing
+    // the raw `new_mid` into decoded text turned `a &amp; b` into a SetText
+    // of the literal entity. The old raw text must decode to exactly what the
+    // VDOM holds, or the index is not describing this node — bail.
+    if old_html_end > old_len
+        || !old_html.is_char_boundary(entry.html_start)
+        || !old_html.is_char_boundary(old_html_end)
+    {
+        return None;
+    }
+    let old_raw = &old_html[entry.html_start..old_html_end];
+    if text_node_value(old_vdom, &path, old_raw).as_deref() != Some(old_text.as_str()) {
+        return None;
+    }
+    let end_in_raw = offset_in_text + old_mid.len();
+    if end_in_raw > old_raw.len()
+        || !old_raw.is_char_boundary(offset_in_text)
+        || !old_raw.is_char_boundary(end_in_raw)
+    {
+        return None;
+    }
+    let mut new_raw =
+        String::with_capacity(old_raw.len() + new_mid.len().saturating_sub(old_mid.len()));
+    new_raw.push_str(&old_raw[..offset_in_text]);
+    new_raw.push_str(new_mid);
+    new_raw.push_str(&old_raw[end_in_raw..]);
+    let new_text = text_node_value(old_vdom, &path, &new_raw)?;
+
+    // #2999: whether a whitespace-only text node survives the parse depends on
+    // its neighbours (kept as `" "` between inline siblings, dropped
+    // otherwise). The fast path cannot see neighbours, so leave that to the
+    // full parse.
+    if is_html_whitespace_only(&new_text) {
+        return None;
+    }
+
+    // Clone the old VDOM and apply the edit in place.
+    // Never patch a node the current VDOM doesn't hold as text (#2999).
+    if !get_vdom_node(old_vdom, &path).is_some_and(|n| n.is_text()) {
+        return None;
+    }
+    let mut new_vdom = old_vdom.clone();
+    {
+        let node = get_vdom_node_mut(&mut new_vdom, &path)?;
+        node.text = Some(new_text.clone());
+        node.cached_html = None;
+    }
+
+    // Keep the index in sync for subsequent fast-path renders: the
+    // changed entry grows/shrinks by (new_mid - old_mid) bytes, and
+    // every downstream entry's HTML range shifts by the same amount.
+    let new_html_end = old_html_end + new_mid.len() - old_mid.len();
+    text_node_index[entry_idx].text = new_text.clone();
+    text_node_index[entry_idx].html_end = new_html_end;
+    if new_mid.len() != old_mid.len() {
+        let delta_add = new_mid.len() as isize - old_mid.len() as isize;
+        for e in &mut text_node_index[entry_idx + 1..] {
+            e.html_start = (e.html_start as isize + delta_add) as usize;
+            e.html_end = (e.html_end as isize + delta_add) as usize;
+        }
+    }
+
+    let d = if djust_id.is_empty() {
+        None
+    } else {
+        Some(djust_id)
+    };
+    let patch = djust_vdom::Patch::SetText {
+        path,
+        d,
+        text: new_text,
+    };
+    Some((new_vdom, vec![patch]))
+}
+
+fn starts_with_ci(slice: &[u8], prefix: &[u8]) -> bool {
+    slice.len() >= prefix.len()
+        && slice
+            .iter()
+            .zip(prefix.iter())
+            .all(|(a, b)| a.eq_ignore_ascii_case(b))
+}
+
+/// Case-insensitive `needle` search in `hay` starting at `from`.
+fn find_ci(hay: &[u8], from: usize, needle: &[u8]) -> Option<usize> {
+    if from > hay.len() {
+        return None;
+    }
+    hay[from..]
+        .windows(needle.len())
+        .position(|w| w.eq_ignore_ascii_case(needle))
+        .map(|p| from + p)
+}
+
+/// If `bytes[i]` (a `<`) opens a region the HTML tokenizer treats as RAW
+/// TEXT — an HTML comment (`<!-- … -->`) or a `<script>` / `<style>`
+/// element — return the byte offset just past the END of that region.
+/// Anything tag-shaped inside such a region is text, not markup: a
+/// JavaScript comment reading `<div dj-root>` must neither be selected as
+/// the root nor move the depth counter (#2663). Returns `None` when
+/// `bytes[i]` starts an ordinary tag. An unterminated region runs to EOF.
+fn skip_raw_text_region(bytes: &[u8], i: usize) -> Option<usize> {
+    if bytes[i..].starts_with(b"<!--") {
+        return Some(
+            find_ci(bytes, i + 4, b"-->")
+                .map(|p| p + 3)
+                .unwrap_or(bytes.len()),
+        );
+    }
+    for name in [&b"script"[..], &b"style"[..]] {
+        let after = i + 1 + name.len();
+        if after < bytes.len()
+            && starts_with_ci(&bytes[i + 1..], name)
+            && matches!(bytes[after], b' ' | b'\t' | b'\n' | b'\r' | b'/' | b'>')
+        {
+            let Some(open_end) = bytes[i..]
+                .iter()
+                .position(|&c| c == b'>')
+                .map(|p| i + p + 1)
+            else {
+                return Some(bytes.len());
+            };
+            let mut close = b"</".to_vec();
+            close.extend_from_slice(name);
+            let Some(close_start) = find_ci(bytes, open_end, &close) else {
+                return Some(bytes.len());
+            };
+            return Some(
+                bytes[close_start..]
+                    .iter()
+                    .position(|&c| c == b'>')
+                    .map(|p| close_start + p + 1)
+                    .unwrap_or(bytes.len()),
+            );
+        }
+    }
+    None
+}
+
+/// True when an open tag's body (the bytes between `<` and `>`) carries a
+/// `dj-root` or `dj-view` ATTRIBUTE NAME: preceded by ASCII
+/// whitespace, followed by whitespace, `=`, `/` or the end of the tag, and NOT
+/// inside a quoted attribute value (`value="x dj-root y"` is text). A bare
+/// prefix match also accepted `dj-view-transitions` (a `<body>` attribute) and
+/// `dj-viewport-top`, and missed a tab or newline before the name. This is the
+/// twin of the Python `mixins/template.py::_DJ_ROOT_RE` / `_DJ_VIEW_RE`
+/// (#2892, #2981, #1646).
+fn tag_has_root_marker(tag_body: &[u8]) -> bool {
+    const MARKERS: [&[u8]; 2] = [b"dj-root", b"dj-view"];
+    const N: usize = 7; // both markers are 7 bytes
+    let mut p = 0;
+    while p < tag_body.len() {
+        let c = tag_body[p];
+        if c == b'"' || c == b'\'' {
+            // Skip the whole quoted value (to EOF if unterminated).
+            p = tag_body[p + 1..]
+                .iter()
+                .position(|&q| q == c)
+                .map_or(tag_body.len(), |q| p + 1 + q + 1);
+            continue;
+        }
+        if p > 0
+            && tag_body[p - 1].is_ascii_whitespace()
+            && p + N <= tag_body.len()
+            && MARKERS
+                .iter()
+                .any(|m| tag_body[p..p + N].eq_ignore_ascii_case(m))
+            && tag_body
+                .get(p + N)
+                .is_none_or(|&c| c.is_ascii_whitespace() || c == b'=' || c == b'/')
+        {
+            return true;
+        }
+        p += 1;
+    }
+    false
+}
+
+/// The index of the `>` that ends the open tag starting at `bytes[i]` (a
+/// `<`), skipping quoted attribute values so a `>` inside one does not end
+/// the tag. `Err(k)` when an unquoted `<` at `k` comes first (not a tag —
+/// resume there, as the Python pattern's unquoted units exclude `<`);
+/// `Err(len)` at EOF.
+fn find_open_tag_end(bytes: &[u8], i: usize) -> Result<usize, usize> {
+    let mut j = i + 1;
+    while j < bytes.len() {
+        match bytes[j] {
+            b'>' => return Ok(j),
+            b'<' => return Err(j),
+            q @ (b'"' | b'\'') => {
+                j = bytes[j + 1..]
+                    .iter()
+                    .position(|&c| c == q)
+                    .map_or(bytes.len(), |k| j + 1 + k + 1);
+            }
+            _ => j += 1,
+        }
+    }
+    Err(bytes.len())
+}
+
+/// Locate the byte offset in `html` immediately after the opening tag
+/// of the first element bearing a `dj-root` or `dj-view` attribute, and the
+/// offset of its closing tag. Returns None if no such element is found.
+///
+/// `<script>` / `<style>` bodies and HTML comments are skipped wholesale
+/// in BOTH the locating scan and the balancing walk (#2663) — a tag-like
+/// string inside them is raw text. This mirrors the Python twin
+/// (`mixins/template.py::_mask_for_root_search`), which owns the
+/// initial-GET shell; the two must agree on what counts as markup (#1646).
+///
+/// Used to align the scanner's starting point with `find_root` in the
+/// VDOM parser, which begins the VDOM tree at that same element. Without
+/// this alignment, text nodes inside `<head>` (titles, meta, etc.) from
+/// a base template would be counted by the scanner but not appear in
+/// the VDOM, breaking the 1:1 text-node mapping.
+fn find_dj_root_content_range(html: &str) -> Option<(usize, usize)> {
+    let bytes = html.as_bytes();
+    let (open_end, tag_name) = find_root_open(bytes)?;
+    find_root_close(bytes, open_end, &tag_name).map(|close| (open_end, close))
+}
+
+/// `(offset just past its `>`, lowercased tag name)` of the first open tag
+/// carrying `dj-root` or `dj-view`, walking `bytes` tag by tag.
+///
+/// A tag starts at `<` followed by an ASCII letter, `/` or `!`, as in the
+/// HTML tokenizer; any other `<` is text (#3030 — the Python walker applies
+/// the same rule). Quoted attribute values are skipped whole, so a
+/// `<section dj-root>` inside `data-h="…"` is never a candidate.
+fn find_root_open(bytes: &[u8]) -> Option<(usize, Vec<u8>)> {
+    let mut i = 0;
+    loop {
+        if i >= bytes.len() {
+            return None;
+        }
+        if bytes[i] != b'<' {
+            i += 1;
+            continue;
+        }
+        if let Some(next) = skip_raw_text_region(bytes, i) {
+            i = next;
+            continue;
+        }
+        if !bytes
+            .get(i + 1)
+            .is_some_and(|&c| c.is_ascii_alphabetic() || c == b'/' || c == b'!')
+        {
+            i += 1;
+            continue;
+        }
+        let j = match find_open_tag_end(bytes, i) {
+            Ok(j) => j,
+            Err(k) if k < bytes.len() => {
+                i = k;
+                continue;
+            }
+            Err(_) => return None,
+        };
+        let tag_body = &bytes[i + 1..j];
+        if tag_body.is_empty() || tag_body[0] == b'/' || tag_body[0] == b'!' {
+            i = j + 1;
+            continue;
+        }
+        if !tag_has_root_marker(tag_body) {
+            i = j + 1;
+            continue;
+        }
+        let name_end = tag_body
+            .iter()
+            .position(|&c| c.is_ascii_whitespace() || c == b'/' || c == b'>')
+            .unwrap_or(tag_body.len());
+        let name = tag_body[..name_end].to_ascii_lowercase();
+        // A root on <html>/<head>/<body> is not a root the VDOM's
+        // `find_root` (which searches INSIDE <body>) can agree on; the Python
+        // twin (`mixins/template.py::_DJ_ROOT_RE`) skips them too (#2892).
+        if matches!(name.as_slice(), b"html" | b"head" | b"body") {
+            i = j + 1;
+            continue;
+        }
+        return Some((j + 1, name));
+    }
+}
+
+/// The offset of the `<` of the closing tag that balances the root element
+/// opened just before `open_end`.
+fn find_root_close(bytes: &[u8], open_end: usize, tag_name: &[u8]) -> Option<usize> {
+    // Now walk forward, balancing open/close tags of the same name, to
+    // find the matching closing tag. Returns the byte offset of that
+    // closing tag's `<`.
+    let mut depth: usize = 1;
+    let mut k = open_end;
+    while k < bytes.len() {
+        if bytes[k] != b'<' {
+            k += 1;
+            continue;
+        }
+        if let Some(next) = skip_raw_text_region(bytes, k) {
+            k = next;
+            continue;
+        }
+        // A `<` before anything but a letter, `/` or `!` is text, as in the
+        // open search (#3030): `a < b` must not swallow the next tag.
+        if !bytes
+            .get(k + 1)
+            .is_some_and(|&c| c.is_ascii_alphabetic() || c == b'/' || c == b'!')
+        {
+            k += 1;
+            continue;
+        }
+        let mut m = k + 1;
+        while m < bytes.len() && bytes[m] != b'>' {
+            m += 1;
+        }
+        if m >= bytes.len() {
+            return None;
+        }
+        let tag_body = &bytes[k + 1..m];
+        if tag_body.is_empty() || tag_body[0] == b'!' {
+            k = m + 1;
+            continue;
+        }
+        let is_close = tag_body[0] == b'/';
+        let name_start = if is_close { 1 } else { 0 };
+        let name_end = tag_body[name_start..]
+            .iter()
+            .position(|&c| c.is_ascii_whitespace() || c == b'/' || c == b'>')
+            .map(|n| name_start + n)
+            .unwrap_or(tag_body.len());
+        let this_name = tag_body[name_start..name_end].to_ascii_lowercase();
+        if this_name == tag_name {
+            if is_close {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(k);
+                }
+            } else {
+                depth += 1;
+            }
+        }
+        k = m + 1;
+    }
+    None
+}
+
+/// Scan `html` and return the byte ranges of each text node that would
+/// survive the VDOM parser's whitespace filter, in document order.
+///
+/// The returned vector mirrors the count and order of `collect_vdom_text_nodes`
+/// so the Nth entry here corresponds to the Nth VDOM text node.
+///
+/// Special handling:
+/// - Whitespace-preserving elements (`<pre>`, `<code>`, `<textarea>`):
+///   all text inside them counts, including whitespace-only runs.
+/// - Raw-text elements (`<script>`, `<style>`): the entire body is one
+///   text node, and `<` inside is literal (not a tag). We skip to the
+///   matching close tag as a single unit.
+/// - Comments and doctypes: ignored.
+///
+/// Returns `None` on unterminated tags or other malformed input.
+fn scan_html_text_runs(html: &str) -> Option<Vec<(usize, usize)>> {
+    fn is_preserve_tag(name: &[u8]) -> bool {
+        name.eq_ignore_ascii_case(b"pre")
+            || name.eq_ignore_ascii_case(b"code")
+            || name.eq_ignore_ascii_case(b"textarea")
+    }
+    fn is_raw_text_tag(name: &[u8]) -> bool {
+        name.eq_ignore_ascii_case(b"script") || name.eq_ignore_ascii_case(b"style")
+    }
+
+    let bytes = html.as_bytes();
+    let mut runs = Vec::new();
+    let mut i = 0;
+    let mut preserve_depth: usize = 0;
+    let mut current_start: Option<usize> = None;
+    let mut current_preserve = false;
+
+    while i < bytes.len() {
+        let b = bytes[i];
+        if b == b'<' {
+            // Close any in-progress text run first.
+            if let Some(start) = current_start.take() {
+                let run = &bytes[start..i];
+                let all_ws = run.iter().all(|&c| c.is_ascii_whitespace());
+                if !all_ws || current_preserve {
+                    runs.push((start, i));
+                }
+            }
+
+            let tag_end = {
+                let mut j = i + 1;
+                while j < bytes.len() && bytes[j] != b'>' {
+                    j += 1;
+                }
+                j
+            };
+            if tag_end >= bytes.len() {
+                return None;
+            }
+            let tag_body = &bytes[i + 1..tag_end];
+            if !tag_body.is_empty() && tag_body[0] == b'!' {
+                // Comment / doctype / CDATA — no text-node effect.
+                i = tag_end + 1;
+                continue;
+            }
+            let is_close = !tag_body.is_empty() && tag_body[0] == b'/';
+            let name_start = if is_close { 1 } else { 0 };
+            let name_end = tag_body[name_start..]
+                .iter()
+                .position(|&c| c == b' ' || c == b'\t' || c == b'\n' || c == b'/' || c == b'>')
+                .map(|n| name_start + n)
+                .unwrap_or(tag_body.len());
+            let tag_name = &tag_body[name_start..name_end];
+
+            if !is_close && is_raw_text_tag(tag_name) {
+                // Raw-text element: body is a single text node. Find the
+                // matching close tag and record the range between `>`
+                // and `</tag>` as one run. `<` inside is literal.
+                let body_start = tag_end + 1;
+                let close_needle_upper = {
+                    let mut v = b"</".to_vec();
+                    v.extend(tag_name.iter().map(|c| c.to_ascii_lowercase()));
+                    v
+                };
+                let mut search_pos = body_start;
+                let close_at = loop {
+                    if search_pos >= bytes.len() {
+                        return None; // unterminated raw-text element
+                    }
+                    if bytes[search_pos] == b'<'
+                        && starts_with_ci(&bytes[search_pos..], &close_needle_upper)
+                    {
+                        break search_pos;
+                    }
+                    search_pos += 1;
+                };
+                // Only emit a run if non-empty.
+                if close_at > body_start {
+                    runs.push((body_start, close_at));
+                }
+                // Skip past the close tag: find '>' after close_at.
+                let mut k = close_at;
+                while k < bytes.len() && bytes[k] != b'>' {
+                    k += 1;
+                }
+                i = k.saturating_add(1);
+                continue;
+            }
+
+            if is_preserve_tag(tag_name) {
+                if is_close {
+                    preserve_depth = preserve_depth.saturating_sub(1);
+                } else {
+                    preserve_depth += 1;
+                }
+            }
+            i = tag_end + 1;
+            continue;
+        }
+
+        if current_start.is_none() {
+            current_start = Some(i);
+            current_preserve = preserve_depth > 0;
+        }
+        i += 1;
+    }
+
+    // Trailing run (document ends with text, no closing tag).
+    if let Some(start) = current_start {
+        let run = &bytes[start..i];
+        let all_ws = run.iter().all(|&c| c.is_ascii_whitespace());
+        if !all_ws || current_preserve {
+            runs.push((start, i));
+        }
+    }
+
+    Some(runs)
+}
+
+/// Build the sorted `(html_start, html_end, path, text, djust_id)` index
+/// used by `try_text_region_fast_path`. Returns empty if HTML and VDOM
+/// text-node counts don't agree (e.g. due to `<script>`/`<style>` in
+/// the document, which the scanner refuses to count).
+fn build_text_node_index(html: &str, vdom: &VNode) -> Vec<TextNodeEntry> {
+    // The VDOM is rooted at [dj-root] / [dj-view], so only text nodes
+    // INSIDE that element are in the VDOM. When the template extends a
+    // base, the pre-hydration HTML may include `<html><head><title>…`
+    // before dj-root and `<footer>`/`<script>` siblings after it — all
+    // of which have text the VDOM doesn't. Restrict the scanner's range
+    // to the dj-root element's interior to keep the 1:1 mapping.
+    let (scan_from, scan_to) = find_dj_root_content_range(html).unwrap_or((0, html.len()));
+    let Some(runs) = scan_html_text_runs(&html[scan_from..scan_to]) else {
+        return Vec::new();
+    };
+    let runs: Vec<(usize, usize)> = runs
+        .into_iter()
+        .map(|(s, e)| (s + scan_from, e + scan_from))
+        .collect();
+
+    let mut vdom_nodes: Vec<(Vec<usize>, String, String)> = Vec::new();
+    collect_vdom_text_nodes(vdom, &mut vec![], &mut vdom_nodes);
+
+    if runs.len() != vdom_nodes.len() {
+        // Scanner and VDOM walker disagreed on count — fast-path can't
+        // trust the 1:1 mapping. Fall through to full html5ever parse.
+        return Vec::new();
+    }
+
+    runs.into_iter()
+        .zip(vdom_nodes)
+        .map(
+            |((html_start, html_end), (path, text, djust_id))| TextNodeEntry {
+                html_start,
+                html_end,
+                path,
+                text,
+                djust_id,
+            },
+        )
+        .collect()
+}
+
+fn build_fragment_text_map(
+    fragments: &[String],
+    vdom: &VNode,
+    full_html: &str,
+) -> HashMap<usize, (Vec<usize>, String)> {
+    let mut map = HashMap::new();
+
+    // Collect all text nodes from the VDOM with their paths
+    let mut text_nodes: Vec<(Vec<usize>, String, String)> = Vec::new(); // (path, text, djust_id)
+    collect_vdom_text_nodes(vdom, &mut vec![], &mut text_nodes);
+
+    // Position-aware fragment→text-node matching (#1617).
+    //
+    // Content equality is fundamentally insufficient as a key: a fragment
+    // adjacent to literal template text (e.g. `{{ x }} online`) renders as
+    // `"1"`, but html5ever's parse of `<span>1 online</span>` produces ONE
+    // text node with content `"1 online"`. The fragment `"1"` does not
+    // equal `"1 online"`, so a content-equality loop walks past the chip
+    // and matches an unrelated sibling text node whose content happens to
+    // equal `"1"`. The `SetText` patch then lands on the wrong path.
+    //
+    // The fix maps each fragment by its byte position in the assembled HTML
+    // (`fragments.concat() == full_html` by construction in
+    // render_nodes_collecting) to the text node whose HTML range CONTAINS
+    // the fragment, claiming the map entry only when the fragment IS the
+    // entire text node (full coverage). Partial-overlap fragments
+    // (variable + adjacent literal) intentionally omit the entry; the
+    // caller falls through to the byte-level `text_region_fast_path`,
+    // which is already sound for that scenario.
+    //
+    // The #1529 collapse (two variables with identical baselines mapping
+    // onto the same text node) is also defeated by position-aware lookup
+    // — distinct fragments live at distinct byte positions, so there is
+    // no need for a separate `claimed` tracker.
+
+    // Compute each fragment's byte offset in the assembled HTML.
+    let mut frag_starts: Vec<usize> = Vec::with_capacity(fragments.len());
+    let mut cursor = 0;
+    for f in fragments {
+        frag_starts.push(cursor);
+        cursor += f.len();
+    }
+
+    // Build a text-node byte-range index using the same primitive as
+    // build_text_node_index (above) — scan_html_text_runs restricted to
+    // the dj-root interior.
+    let (root_start, root_end) =
+        find_dj_root_content_range(full_html).unwrap_or((0, full_html.len()));
+    let runs = match scan_html_text_runs(&full_html[root_start..root_end]) {
+        Some(r) => r,
+        // Unparseable — return empty map; caller falls through to the
+        // text_region_fast_path or full html5ever parse.
+        None => return map,
+    };
+    let runs: Vec<(usize, usize)> = runs
+        .into_iter()
+        .map(|(s, e)| (s + root_start, e + root_start))
+        .collect();
+
+    // Defensive: if scanner and VDOM walker disagree on count, the 1:1
+    // mapping isn't trustworthy. Same fallback as build_text_node_index.
+    if runs.len() != text_nodes.len() {
+        return map;
+    }
+
+    for (idx, frag) in fragments.iter().enumerate() {
+        // Only map text-only fragments (no HTML tags).
+        if frag.contains('<') || frag.is_empty() {
+            continue;
+        }
+        let frag_start = frag_starts[idx];
+        let frag_end = frag_start + frag.len();
+        // Locate the text node whose HTML byte range contains this
+        // fragment. Linear scan is fine — text-node counts per render
+        // are O(dozens) in practice, and `runs` is in document order.
+        for (i, &(rs, re)) in runs.iter().enumerate() {
+            if rs <= frag_start && frag_end <= re {
+                // Only claim when the fragment IS the entire text node.
+                // Partial-overlap cases (e.g. `{{ x }} online`) fall
+                // through to text_region_fast_path, which is byte-level
+                // correct for them.
+                if rs == frag_start && re == frag_end {
+                    let (path, _text, djust_id) = &text_nodes[i];
+                    map.insert(idx, (path.clone(), djust_id.clone()));
+                }
+                break;
+            }
+        }
+    }
+
+    map
+}
+
+fn collect_vdom_text_nodes(
+    node: &VNode,
+    current_path: &mut Vec<usize>,
+    entries: &mut Vec<(Vec<usize>, String, String)>,
+) {
+    for (i, child) in node.children.iter().enumerate() {
+        current_path.push(i);
+        // Only collect true text nodes. Comment nodes also have `text` set
+        // (to store the comment body), so filter by `is_text()` to avoid
+        // miscounting — e.g. `<!--dj-if-->` placeholders would otherwise
+        // shift every subsequent text ordinal by one.
+        if child.is_text() {
+            if let Some(ref text) = child.text {
+                // #2999: a whitespace-only text node outside a
+                // whitespace-preserving parent is a kept inter-inline space
+                // (always `" "`). `scan_html_text_runs` never emits a run for
+                // whitespace-only text outside `pre`/`code`/`textarea`, so
+                // counting these here would break the 1:1 run↔node mapping
+                // and disable both text fast paths. Leaving them out also
+                // means no fast path ever targets one — a change to such a
+                // node goes through the full parse, which re-applies the
+                // collapse rule.
+                let preserving_parent = matches!(
+                    node.tag.as_str(),
+                    "pre" | "code" | "textarea" | "script" | "style"
+                );
+                if preserving_parent || !is_html_whitespace_only(text) {
+                    let djust_id = child.djust_id.clone().unwrap_or_default();
+                    entries.push((current_path.clone(), text.clone(), djust_id));
+                }
+            }
+        } else {
+            collect_vdom_text_nodes(child, current_path, entries);
+        }
+        current_path.pop();
+    }
+}
+
+fn get_vdom_node<'a>(vdom: &'a VNode, path: &[usize]) -> Option<&'a VNode> {
+    let mut node = vdom;
+    for &i in path {
+        node = node.children.get(i)?;
+    }
+    Some(node)
+}
+
+fn get_vdom_node_mut<'a>(vdom: &'a mut VNode, path: &[usize]) -> Option<&'a mut VNode> {
+    let mut node = vdom;
+    for &idx in path {
+        node = node.children.get_mut(idx)?;
+    }
+    Some(node)
+}
+
+#[pyfunction(name = "extract_template_variables")]
+fn extract_template_variables_py(py: Python, template: String) -> PyResult<Py<PyAny>> {
+    guard_panic("extract_template_variables_py", move || {
+        // Call Rust template parser
+        let vars_map = djust_templates::extract_template_variables(&template).map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Template parsing error: {e}"))
+        })?;
+
+        // Convert Rust HashMap to Python dict
+        let py_dict = PyDict::new(py);
+        for (key, paths) in vars_map {
+            let py_list = PyList::new(py, paths.iter().map(|s| s.as_str()))?;
+            py_dict.set_item(key, py_list)?;
+        }
+
+        Ok(py_dict.into())
+    })
+}
+
+/// Collect the set of fields bound via static `dj-model="<field>"` from a raw
+/// template source string (and any `{% include %}`d templates resolvable in
+/// `template_dirs`).
+///
+/// This is the module-level companion to [`RustLiveViewBackend::dj_model_fields`]
+/// for callers that have a template source but no live `RustLiveView` — notably
+/// embedded `{% live_render %}` children, whose dj-model allowlist must be
+/// derived from the CHILD's own template source (its events gate against the
+/// child's `_dj_model_fields`).
+///
+/// Security (CWE-915, finding #3): the values come from the parsed template
+/// AST's `Node::Text` literals — developer-authored template text immune to
+/// rendered-output poisoning. A dynamic `dj-model="{{ field }}"` is not captured
+/// (fail-closed). A parse error or unresolvable include yields no fields for
+/// that branch (fail-closed) — it never widens the allowlist.
+#[pyfunction(name = "dj_model_fields_from_template")]
+#[pyo3(signature = (template_source, template_dirs=None))]
+fn dj_model_fields_from_template(
+    template_source: String,
+    template_dirs: Option<Vec<String>>,
+) -> PyResult<Vec<String>> {
+    guard_panic("dj_model_fields_from_template", move || {
+        use djust_templates::inheritance::FilesystemTemplateLoader;
+        let dirs: Vec<PathBuf> = template_dirs
+            .unwrap_or_default()
+            .into_iter()
+            .map(PathBuf::from)
+            .collect();
+        let loader = FilesystemTemplateLoader::new(dirs);
+        // Fail-closed: any error leaves the auto-allowlist empty rather than
+        // over-allowing (the explicit allowed_model_fields path still applies).
+        Ok(
+            djust_templates::extract_dj_model_fields(&template_source, Some(&loader))
+                .unwrap_or_default(),
+        )
+    })
+}
+
+/// Compute the canonical 8-hex template-source hash from a raw source
+/// string, without instantiating a [`RustLiveViewBackend`]. Used by the
+/// Python state-backend cache-key construction in
+/// `python/djust/mixins/rust_bridge.py` — the cache lookup happens
+/// BEFORE a Rust view exists, so we need a module-level entry point.
+///
+/// The same hash powers `<!--dj-if id="if-<prefix>-N"-->` marker IDs
+/// from `parse_with_source` (Foundation 1 of #1358) and the
+/// per-template cache-key slot (#1362 section 1). Both consumers flow
+/// through `djust_templates::parser::template_hash_hex` so they cannot
+/// drift.
+#[pyfunction]
+fn compute_template_hash(source: &str) -> PyResult<String> {
+    guard_panic("compute_template_hash", move || {
+        Ok(djust_templates::parser::template_hash_hex(source))
+    })
+}
+
+/// `_rust.crosses_as_encoded` — the Python export of
+/// [`djust_core::crosses_as_encoded`] (#2477/#2489).
+///
+/// A thin wrapper by design: the question is "does this object cross into the
+/// renderer as a `Value::Encoded`", and it is answered next to the arms that
+/// decide it. `djust.serialization.normalize_django_value` consults it at its
+/// FINAL fallback, so the LiveView path stops stringifying the objects the
+/// conversion carries exactly.
+///
+/// A test-only sibling, `crosses_as_encoded_by_conversion`, runs the REAL
+/// conversion and reports the same bit — the differential between the two is
+/// what keeps the cheap probe from drifting (#1646), and is swept over the
+/// whole shape corpus by
+/// `python/tests/test_opaque_collections_2477_2489.py`.
+#[pyfunction]
+fn crosses_as_encoded(obj: &Bound<'_, PyAny>) -> PyResult<bool> {
+    guard_panic("crosses_as_encoded", move || {
+        Ok(djust_core::crosses_as_encoded(obj))
+    })
+}
+
+/// The same bit, decided by RUNNING `impl FromPyObject for Value` (#2477/#2489).
+///
+/// The reference [`crosses_as_encoded`] is checked against, and NOT what
+/// production calls: converting an object eagerly walks its whole graph —
+/// through a presenter's `__dict__` into a raw `QuerySet` and `Manager` and
+/// down through theirs — which is work the render path never does and which
+/// overflowed the stack when the production predicate was written this way.
+/// Exposed so the differential is a real comparison rather than an assertion
+/// that the probe agrees with itself, and documented so the next author does
+/// not "simplify" production onto it.
+#[pyfunction]
+fn crosses_as_encoded_by_conversion(obj: &Bound<'_, PyAny>) -> PyResult<bool> {
+    guard_panic("crosses_as_encoded_by_conversion", move || {
+        Ok(matches!(
+            obj.extract::<djust_core::Value>(),
+            Ok(djust_core::Value::Encoded(_))
+        ))
+    })
+}
+
+// Declared free-threaded-safe (#1432). A full thread-safety audit of every
+// global (`static`/`Lazy`/`OnceLock`), `#[pyclass]`, cross-thread
+// `Py<T>`/`Py<PyAny>`, the Tokio actor system, the template registries, and
+// the recursive Python<->Rust converters found no shared mutable state
+// reachable through `_rust` that lacks correct synchronization. With
+// `gil_used = false`, CPython will NOT auto-re-enable the GIL on import
+// under free-threaded interpreters (3.13t/3.14t) -- meaning a future PR
+// that introduces unsynchronized shared mutable state silently becomes a
+// data race. `crates/djust_templates/tests/free_threaded_safety.rs` and
+// `crates/djust_vdom/tests/free_threaded_safety.rs` are the regression
+// guards. The audit checklist and findings are recorded on issue #1432.
+#[pymodule(gil_used = false)]
+fn _rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_class::<RustLiveViewBackend>()?;
+    m.add_class::<CompiledTemplate>()?;
+    // #2731: the shape a `Value::Encoded` takes for a bridged Django tag
+    // handler. Registered so its declared `module = "djust._rust"` resolves —
+    // `repr()`, `pickle` and every "what type is this?" tool follow that path,
+    // and an unregistered class makes all of them point at nothing (PR #2734
+    // review). It has no `#[new]`, so registering exposes a NAME, not a
+    // constructor: only `value_into_handler_pyobject` builds one.
+    m.add_class::<djust_core::TemplateObject>()?;
+    m.add_function(wrap_pyfunction!(render_template, m)?)?;
+    m.add_function(wrap_pyfunction!(render_template_with_dirs, m)?)?;
+    m.add_function(wrap_pyfunction!(compile_template, m)?)?;
+    m.add_function(wrap_pyfunction!(template_cache_contains, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        djust_templates::registry_scope::new_registry_namespace,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        djust_templates::registry_scope::set_registry_namespace,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        djust_templates::registry_scope::current,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(registry_entry_is_local, m)?)?;
+    m.add_function(wrap_pyfunction!(release_registry_namespace, m)?)?;
+    m.add_function(wrap_pyfunction!(registry_generation, m)?)?;
+    m.add_function(wrap_pyfunction!(template_compiled_at_generation, m)?)?;
+    m.add_function(wrap_pyfunction!(render_markdown_py, m)?)?;
+    m.add_function(wrap_pyfunction!(diff_html, m)?)?;
+    m.add_function(wrap_pyfunction!(collapse_inter_tag_whitespace, m)?)?;
+    m.add_function(wrap_pyfunction!(fast_json_dumps, m)?)?;
+    m.add_function(wrap_pyfunction!(resolve_template_inheritance, m)?)?;
+    m.add_function(wrap_pyfunction!(compute_template_hash, m)?)?;
+    m.add_function(wrap_pyfunction!(crosses_as_encoded, m)?)?;
+    m.add_function(wrap_pyfunction!(crosses_as_encoded_by_conversion, m)?)?;
+    // The conversion's recursion ceiling (#2624), exported so the test that
+    // pins it against the worker-stack measurement reads the real constant.
+    m.add("MAX_CONVERSION_DEPTH", djust_core::MAX_CONVERSION_DEPTH)?;
+    m.add_function(wrap_pyfunction!(set_virtual_keyed_ops, m)?)?;
+    m.add_function(wrap_pyfunction!(set_django_value_repr, m)?)?;
+    m.add_function(wrap_pyfunction!(django_value_repr_enabled, m)?)?;
+    m.add_function(wrap_pyfunction!(set_active_timezone, m)?)?;
+    m.add_function(wrap_pyfunction!(active_timezone_name, m)?)?;
+    m.add_function(wrap_pyfunction!(set_number_format, m)?)?;
+    m.add_function(wrap_pyfunction!(active_number_format, m)?)?;
+    m.add_function(wrap_pyfunction!(active_unlocalized_number_format, m)?)?;
+    m.add_function(wrap_pyfunction!(virtual_keyed_ops_enabled, m)?)?;
+    m.add_function(wrap_pyfunction!(dj_model_fields_from_template, m)?)?;
+
+    // Actor system exports
+    m.add_class::<SessionActorHandlePy>()?;
+    m.add_class::<RenderEnvPy>()?;
+    m.add_class::<SupervisorStatsPy>()?;
+    m.add_function(wrap_pyfunction!(create_session_actor, m)?)?;
+    m.add_function(wrap_pyfunction!(get_actor_stats, m)?)?;
+
+    // Add pure Rust components (stateless, high-performance ~1μs rendering)
+    m.add_class::<djust_components::RustAlert>()?;
+    m.add_class::<djust_components::RustAvatar>()?;
+    m.add_class::<djust_components::RustBadge>()?;
+    m.add_class::<djust_components::RustButton>()?;
+    m.add_class::<djust_components::RustCard>()?;
+    m.add_class::<djust_components::RustDivider>()?;
+    m.add_class::<djust_components::RustIcon>()?;
+    m.add_class::<djust_components::RustModal>()?;
+    m.add_class::<djust_components::RustProgress>()?;
+    m.add_class::<djust_components::RustRange>()?;
+    m.add_class::<djust_components::RustSpinner>()?;
+    m.add_class::<djust_components::RustSwitch>()?;
+    m.add_class::<djust_components::RustTextArea>()?;
+    m.add_class::<djust_components::RustToast>()?;
+    m.add_class::<djust_components::RustTooltip>()?;
+
+    // JIT auto-serialization
+    m.add_function(wrap_pyfunction!(extract_template_variables_py, m)?)?;
+    m.add_function(wrap_pyfunction!(serialize_queryset_py, m)?)?;
+    m.add_function(wrap_pyfunction!(serialize_context_py, m)?)?;
+
+    // Fast model serialization (N+1 prevention)
+    m.add_function(wrap_pyfunction!(
+        model_serializer::serialize_models_fast,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        model_serializer::serialize_models_to_list,
+        m
+    )?)?;
+
+    // `{% load app_tags %}` library loader hook (#2547)
+    m.add_function(wrap_pyfunction!(
+        djust_templates::registry::register_library_loader,
+        m
+    )?)?;
+    // Raw-block handlers, the `_("…")` translator, and the scope hooks (#2558)
+    m.add_function(wrap_pyfunction!(
+        djust_templates::registry::register_raw_block_tag_handler,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        djust_templates::registry::unregister_raw_block_tag_handler,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        djust_templates::registry::has_raw_block_tag_handler,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        djust_templates::registry::clear_raw_block_tag_handlers,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        djust_templates::registry::register_translator,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        djust_templates::registry::clear_translator,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        djust_templates::registry::arm_scope_tags,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        djust_templates::registry::clear_scope_tags,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        djust_templates::registry::register_language_scope_hooks,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        djust_templates::registry::register_timezone_scope_hooks,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        djust_templates::registry::clear_library_loader,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        djust_templates::registry::has_library_loader,
+        m
+    )?)?;
+
+    // Tag handler registry for custom template tags (url, static, etc.)
+    m.add_function(wrap_pyfunction!(
+        djust_templates::registry::register_tag_handler,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        djust_templates::registry::unregister_tag_handler,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        djust_templates::registry::has_tag_handler,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        djust_templates::registry::get_registered_tags,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        djust_templates::registry::clear_tag_handlers,
+        m
+    )?)?;
+
+    // Block tag handler registry for block tags with children (modal, card, etc.)
+    m.add_function(wrap_pyfunction!(
+        djust_templates::registry::register_block_tag_handler,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        djust_templates::registry::unregister_block_tag_handler,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        djust_templates::registry::has_block_tag_handler,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        djust_templates::registry::clear_block_tag_handlers,
+        m
+    )?)?;
+
+    // Assign tag handler registry (context-mutating tags). Returns a
+    // dict that's merged into the context rather than HTML.
+    m.add_function(wrap_pyfunction!(
+        djust_templates::registry::register_assign_tag_handler,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        djust_templates::registry::unregister_assign_tag_handler,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        djust_templates::registry::has_assign_tag_handler,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        djust_templates::registry::clear_assign_tag_handlers,
+        m
+    )?)?;
+
+    // Custom filter registry (project-defined ``@register.filter`` callables) — #1121.
+    // Bridges Django's per-app filter libraries into the Rust template engine.
+    m.add_function(wrap_pyfunction!(
+        djust_templates::filter_registry::register_custom_filter,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        djust_templates::filter_registry::unregister_custom_filter,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        djust_templates::filter_registry::has_custom_filter,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        djust_templates::filter_registry::clear_custom_filters,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        djust_templates::filter_registry::get_registered_custom_filters,
+        m
+    )?)?;
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod dj_root_content_range_2663 {
+    //! `find_dj_root_content_range` must treat `<script>`/`<style>` bodies
+    //! and HTML comments as raw text (#2663). Before the fix, a JavaScript
+    //! comment reading `<div dj-root>` was found as the root (when before
+    //! the real one) or counted as an open (when inside it), the walk never
+    //! balanced, and the caller's `unwrap_or((0, len))` silently made the
+    //! WHOLE document the root content.
+    use super::find_dj_root_content_range;
+
+    fn inner(html: &str) -> Option<&str> {
+        find_dj_root_content_range(html).map(|(s, e)| &html[s..e])
+    }
+
+    #[test]
+    fn issue_shape_script_comment_before_the_root() {
+        // The djust.org `/examples/` shape: the comment precedes the real
+        // root in document order, so the LOCATING scan hit it first.
+        let html = "<html><head><script>\n  // base.html wraps the content block in <div dj-root>\n</script></head>\
+                    <body><nav></nav><main><div dj-root><p>hello</p></div></main><footer></footer></body></html>";
+        assert_eq!(inner(html), Some("<p>hello</p>"));
+    }
+
+    #[test]
+    fn script_comment_after_the_root_still_balances() {
+        let html = "<body><div dj-root><p>hello</p></div><footer></footer>\
+                    <script>// this comment mentions <div dj-root> and that is enough</script></body>";
+        assert_eq!(inner(html), Some("<p>hello</p>"));
+    }
+
+    #[test]
+    fn div_open_inside_a_script_inside_the_root() {
+        let html =
+            "<div dj-root><script>var s = '<div class=\"x\">';</script><p>a</p></div><b>after</b>";
+        assert_eq!(
+            inner(html),
+            Some("<script>var s = '<div class=\"x\">';</script><p>a</p>")
+        );
+    }
+
+    #[test]
+    fn div_close_inside_a_script_does_not_close_early() {
+        let html = "<div dj-root><script>var s = '</div>';</script><p>a</p></div><b>after</b>";
+        assert_eq!(
+            inner(html),
+            Some("<script>var s = '</div>';</script><p>a</p>")
+        );
+    }
+
+    #[test]
+    fn style_body_is_raw_text() {
+        let html = "<div dj-root><style>/* <div> */ .x{}</style></div><b>after</b>";
+        assert_eq!(inner(html), Some("<style>/* <div> */ .x{}</style>"));
+    }
+
+    #[test]
+    fn html_comment_with_a_phantom_root_before_the_real_one() {
+        // A comment containing `>` used to end the `<!` skip early.
+        let html = "<!-- <div dj-root> --><div dj-root><p>a</p></div>";
+        assert_eq!(inner(html), Some("<p>a</p>"));
+    }
+
+    #[test]
+    fn script_tag_case_and_attributes() {
+        let html = "<div dj-root><SCRIPT type=\"module\">// <div>\n</SCRIPT ></div><b>after</b>";
+        assert_eq!(
+            inner(html),
+            Some("<SCRIPT type=\"module\">// <div>\n</SCRIPT >")
+        );
+    }
+
+    #[test]
+    fn scripted_is_not_script() {
+        // `<scripted>` is an ordinary (unknown) element, not a raw-text one.
+        let html = "<div dj-root><scripted><div>x</div></scripted></div><b>after</b>";
+        assert_eq!(inner(html), Some("<scripted><div>x</div></scripted>"));
+    }
+
+    #[test]
+    fn unterminated_script_runs_to_eof_and_returns_none() {
+        let html = "<div dj-root><script>// <div dj-root>";
+        assert_eq!(find_dj_root_content_range(html), None);
+    }
+
+    #[test]
+    fn non_div_root_is_found_and_balanced_by_its_own_name() {
+        let html =
+            "<body><section dj-root><section>x</section><p>y</p></section><b>after</b></body>";
+        assert_eq!(
+            inner(html),
+            Some("<section>x</section><p>y</p>"),
+            "root may be any element (#2892)"
+        );
+    }
+
+    #[test]
+    fn view_prefixed_attributes_are_not_the_root_marker() {
+        // `<body dj-view-transitions>` precedes the real root; a prefix match
+        // selected <body> and started the text scan in the wrong place.
+        let html = "<html><body dj-view-transitions><nav>N</nav>\
+                    <main dj-view=\"a.B\"><p>x</p></main><div dj-viewport-top=\"t\"></div></body></html>";
+        assert_eq!(inner(html), Some("<p>x</p>"));
+    }
+
+    #[test]
+    fn marker_after_tab_or_newline_is_found() {
+        assert_eq!(inner("<div\tdj-root><p>a</p></div>"), Some("<p>a</p>"));
+        assert_eq!(
+            inner("<div\ndj-view=\"a.B\"><p>a</p></div>"),
+            Some("<p>a</p>")
+        );
+    }
+
+    #[test]
+    fn marker_inside_a_quoted_value_is_text() {
+        // A user value containing ` dj-root ` must not become the root (#2981
+        // review: the Python twin stamped dj-view inside such a value).
+        let html = "<input value=\"x dj-root onfocus=y\"><div title='a dj-view b'>\
+                    </div><main dj-root><p>r</p></main>";
+        assert_eq!(inner(html), Some("<p>r</p>"));
+    }
+
+    #[test]
+    fn gt_inside_a_quoted_value_does_not_end_the_tag() {
+        let html = "<div title=\"a>b\" dj-root><p>r</p></div>";
+        assert_eq!(inner(html), Some("<p>r</p>"));
+    }
+
+    #[test]
+    fn root_on_body_is_not_selected() {
+        assert_eq!(inner("<body dj-root><p>a</p></body>"), None);
+    }
+
+    #[test]
+    fn root_markup_inside_a_quoted_value_is_text_3030() {
+        // The Python twin (`_mask_for_root_search`) masks the `<` inside the
+        // value; both sides pick <main>. Pinned in
+        // `python/djust/tests/test_root_locator_parity_3030.py`.
+        let html = "<div data-h=\"<section dj-root>\"><main dj-root><p>r</p></main></div>";
+        assert_eq!(inner(html), Some("<p>r</p>"));
+    }
+
+    #[test]
+    fn lt_not_followed_by_a_tag_name_is_text_3030() {
+        // `a < b "…"` is text: the quote does not open a value that hides the
+        // real root (the HTML tokenizer's rule, and the Python walker's).
+        let html = "<p>a < b \"<main dj-root><i>r</i></main>\"</p>";
+        assert_eq!(inner(html), Some("<i>r</i>"));
+    }
+
+    #[test]
+    fn lt_that_is_text_does_not_hide_the_close_tag_3030() {
+        let html = "<main dj-root>a < b</main><b>after</b>";
+        assert_eq!(inner(html), Some("a < b"));
+    }
+}
+
+#[cfg(test)]
+mod panic_boundary_tests {
+    //! The empirical half of #2343: `guard_panic` really does convert an
+    //! unwind into a containable Python exception, and PyO3's own conversion
+    //! really does not.
+    //!
+    //! The Python-side companion (`python/tests/test_panic_boundary_2343.py`)
+    //! cannot check the second claim: `pyo3_runtime.PanicException` is created
+    //! lazily by PyO3 on the FIRST panic, and after this fix there is no
+    //! reachable panic left for it to be created by — which is the point, but
+    //! it means the premise has to be falsified from Rust, where the type is
+    //! nameable without one.
+    //!
+    //! Run with `cargo test -p djust_live --no-default-features` (the
+    //! `extension-module` feature drops libpython at link time; see the
+    //! `[features]` note in this crate's Cargo.toml).
+    use super::guard_panic;
+    use pyo3::exceptions::PyException;
+    use pyo3::panic::PanicException;
+    use pyo3::prelude::*;
+    use pyo3::types::PyType;
+
+    #[test]
+    fn pyo3s_panic_exception_is_not_an_exception() {
+        // The whole reason the boundary exists. If this ever goes red, PyO3
+        // reparented `PanicException` and `except Exception` in
+        // `LiveViewConsumer.receive` would contain a panic unaided.
+        Python::initialize();
+        Python::attach(|py| {
+            let panic_ty: Bound<'_, PyType> = py.get_type::<PanicException>();
+            let exception_ty: Bound<'_, PyType> = py.get_type::<PyException>();
+            assert!(
+                !panic_ty.is_subclass(&exception_ty).unwrap(),
+                "PanicException now derives from Exception"
+            );
+        });
+    }
+
+    #[test]
+    fn guard_panic_converts_an_unwind_into_a_containable_exception() {
+        Python::initialize();
+        Python::attach(|py| {
+            // The default hook would print this panic's file:line to stderr
+            // during the test run; silence it so a PASSING test does not look
+            // like a crash in the log.
+            let previous = std::panic::take_hook();
+            std::panic::set_hook(Box::new(|_| {}));
+            let result: PyResult<()> =
+                guard_panic("probe_entry", || panic!("deliberate probe panic"));
+            std::panic::set_hook(previous);
+
+            let err = result.expect_err("the panic should have become an Err");
+            let exception_ty: Bound<'_, PyType> = py.get_type::<PyException>();
+            assert!(
+                err.get_type(py).is_subclass(&exception_ty).unwrap(),
+                "guard_panic produced a type that is not an Exception"
+            );
+            let message = err.value(py).to_string();
+            // The entry-point label and the payload are the only diagnostics a
+            // caught panic carries, so both are part of the contract.
+            assert!(message.contains("probe_entry"), "message: {message}");
+            assert!(
+                message.contains("deliberate probe panic"),
+                "message: {message}"
+            );
+        });
+    }
+
+    #[test]
+    fn guard_panic_is_transparent_when_nothing_panics() {
+        Python::initialize();
+        let ok = guard_panic("probe_entry", || Ok(7u8)).unwrap();
+        assert_eq!(ok, 7);
+        // An ordinary Err passes through as itself rather than being
+        // re-wrapped as an internal error -- a template that fails to render
+        // must keep saying so.
+        let err = guard_panic("probe_entry", || -> PyResult<u8> {
+            Err(pyo3::exceptions::PyValueError::new_err("ordinary failure"))
+        })
+        .unwrap_err();
+        Python::attach(|py| {
+            assert!(err.is_instance_of::<pyo3::exceptions::PyValueError>(py));
+            assert!(err.value(py).to_string().contains("ordinary failure"));
+        });
+    }
+}
+
+#[cfg(test)]
+mod fast_path_flag_tests {
+    //! Pins `RenderTiming::fast_path` (#2532) so the model-backed benchmark's
+    //! "was the text fast path taken?" assertion rests on an instrument that is
+    //! itself tested, not inferred from `diff_ms == 0.0`.
+    //!
+    //! Run with `cargo test -p djust_live --no-default-features` (see the
+    //! `[features]` note in this crate's Cargo.toml).
+    use super::{RustLiveViewBackend, FAST_PATH_FRAGMENT, FAST_PATH_NONE, FAST_PATH_TEXT_REGION};
+    use djust_core::{ObjectKey, Value};
+    use indexmap::IndexMap;
+    use pyo3::prelude::*;
+    use std::collections::HashMap;
+
+    const TEMPLATE: &str = concat!(
+        "<div dj-id=\"0\"><p>{{ label }}</p>",
+        "<table><tbody>{% for row in rows %}",
+        "<tr class=\"{% if row.id == highlight_id %}hl{% endif %}\">",
+        "<td>{{ row.title }}</td><td>{{ row.views }}</td></tr>",
+        "{% endfor %}</tbody></table></div>"
+    );
+
+    fn row(id: i64, views: i64) -> Value {
+        let mut m = IndexMap::new();
+        m.insert(ObjectKey::Str("id".to_string()), Value::Integer(id));
+        m.insert(
+            ObjectKey::Str("title".to_string()),
+            Value::String(format!("Post {id}")),
+        );
+        m.insert(ObjectKey::Str("views".to_string()), Value::Integer(views));
+        Value::Object(m)
+    }
+
+    fn state(label: &str, highlight_id: i64, views7: i64) -> HashMap<String, Value> {
+        let mut s = HashMap::new();
+        s.insert("label".to_string(), Value::String(label.to_string()));
+        s.insert("highlight_id".to_string(), Value::Integer(highlight_id));
+        s.insert(
+            "rows".to_string(),
+            Value::List(
+                (1..=10)
+                    .map(|i| row(i, if i == 7 { views7 } else { 100 + i }))
+                    .collect(),
+            ),
+        );
+        s
+    }
+
+    fn timing(view: &RustLiveViewBackend, key: &str) -> f64 {
+        view.get_render_timing()
+            .and_then(|m| m.get(key).copied())
+            .expect("render_with_diff stores a timing dict")
+    }
+
+    fn mounted() -> RustLiveViewBackend {
+        Python::initialize();
+        let mut view = RustLiveViewBackend::new_rust(TEMPLATE.to_string());
+        view.update_state_rust(state("v0", 0, 107));
+        view.render_with_diff().expect("initial render");
+        view
+    }
+
+    #[test]
+    fn first_render_reports_no_fast_path() {
+        let view = mounted();
+        assert_eq!(timing(&view, "fast_path"), FAST_PATH_NONE);
+    }
+
+    #[test]
+    fn text_only_change_outside_the_loop_takes_the_fragment_fast_path() {
+        let mut view = mounted();
+        view.update_state_rust(state("v1", 0, 107));
+        view.set_changed_keys(vec!["label".to_string()]);
+        let (_html, patches, _v) = view.render_with_diff().expect("re-render");
+        assert_eq!(timing(&view, "fast_path"), FAST_PATH_FRAGMENT);
+        // The flag agrees with the pre-#2532 inference the benchmark cross-checks.
+        assert_eq!(timing(&view, "diff_ms"), 0.0);
+        let patches = patches.expect("a diff render returns patches");
+        assert!(patches.contains("SetText"), "patches: {patches}");
+        assert!(!patches.contains("SetAttr"), "patches: {patches}");
+    }
+
+    // #2898: fragments and the HTML byte diff are RAW html; a SetText carries
+    // the decoded text the client assigns to `textContent`.
+    #[test]
+    fn fragment_fast_path_sends_decoded_text() {
+        let mut view = mounted();
+        view.update_state_rust(state("a & <b>", 0, 107));
+        view.set_changed_keys(vec!["label".to_string()]);
+        let (html, patches, _v) = view.render_with_diff().expect("re-render");
+        assert_eq!(timing(&view, "fast_path"), FAST_PATH_FRAGMENT);
+        let patches = patches.expect("patches");
+        assert!(
+            patches.contains(r#""text":"a & <b>""#),
+            "patches: {patches}"
+        );
+        assert!(html.contains("a &amp; &lt;b&gt;</p>"), "html: {html}");
+    }
+
+    fn one_var_view(template: &str, x: &str) -> RustLiveViewBackend {
+        Python::initialize();
+        let mut view = RustLiveViewBackend::new_rust(template.to_string());
+        let mut s = HashMap::new();
+        s.insert("x".to_string(), Value::String(x.to_string()));
+        view.update_state_rust(s);
+        view.render_with_diff().expect("initial render");
+        view
+    }
+
+    fn set_x(view: &mut RustLiveViewBackend, x: &str) -> String {
+        let mut s = HashMap::new();
+        s.insert("x".to_string(), Value::String(x.to_string()));
+        view.update_state_rust(s);
+        view.set_changed_keys(vec!["x".to_string()]);
+        let (_html, patches, _v) = view.render_with_diff().expect("re-render");
+        patches.expect("patches")
+    }
+
+    #[test]
+    fn text_region_fast_path_sends_decoded_text() {
+        // The first value holds no entity, so the old raw text equals the
+        // VDOM text and the old offset check alone could not catch it.
+        let tpl = r#"<div dj-id="0"><p>{{ x|safe }}</p></div>"#;
+        let mut view = one_var_view(tpl, "<b>overview</b>");
+        let patches = set_x(&mut view, "<b>a &amp; b</b>");
+        assert_eq!(timing(&view, "fast_path"), FAST_PATH_TEXT_REGION);
+        assert!(patches.contains(r#""text":"a & b""#), "patches: {patches}");
+        let patches = set_x(&mut view, "<b>&lt;script&gt; &#233;</b>");
+        assert!(
+            patches.contains("\"text\":\"<script> \u{e9}\""),
+            "patches: {patches}"
+        );
+    }
+
+    #[test]
+    fn undecodable_entity_falls_back_to_the_full_parse() {
+        let tpl = r#"<div dj-id="0"><p>{{ x|safe }}</p></div>"#;
+        let mut view = one_var_view(tpl, "<b>overview</b>");
+        let patches = set_x(&mut view, "<b>a&nbsp;b</b>");
+        assert_eq!(timing(&view, "fast_path"), FAST_PATH_NONE);
+        assert!(patches.contains("a\u{a0}b"), "patches: {patches}");
+    }
+
+    #[test]
+    fn script_body_is_not_decoded() {
+        let tpl = r#"<div dj-id="0"><script>var s = "{{ x|safe }}";</script></div>"#;
+        let mut view = one_var_view(tpl, "one");
+        let patches = set_x(&mut view, "a &amp; b");
+        assert!(
+            patches.contains(r#"var s = \"a &amp; b\";"#),
+            "patches: {patches}"
+        );
+    }
+
+    #[test]
+    fn raw_text_elements_are_not_decoded_and_foreign_ones_fall_back() {
+        // html5ever keeps these bodies verbatim (noscript: scripting is on).
+        for tag in ["noscript", "xmp", "iframe", "noembed", "noframes"] {
+            let tpl = format!(r#"<div dj-id="0"><{tag}>{{{{ x|safe }}}}</{tag}></div>"#);
+            let mut view = one_var_view(&tpl, "Enable JS");
+            let patches = set_x(&mut view, "Tom &amp; Jerry");
+            assert!(
+                patches.contains(r#""text":"Tom &amp; Jerry""#),
+                "{tag}: {patches}"
+            );
+        }
+        // Inside svg/math, style/script are foreign elements whose text IS
+        // decoded — the fast path must not guess: full parse.
+        for tpl in [
+            r#"<div dj-id="0"><svg><style>{{ x|safe }}</style></svg></div>"#,
+            r#"<div dj-id="0"><svg><script>{{ x|safe }}</script></svg></div>"#,
+        ] {
+            let mut view = one_var_view(tpl, "Enable JS");
+            let patches = set_x(&mut view, "Tom &amp; Jerry");
+            assert_eq!(timing(&view, "fast_path"), FAST_PATH_NONE, "{tpl}");
+            assert!(
+                patches.contains(r#""text":"Tom & Jerry""#),
+                "{tpl}: {patches}"
+            );
+        }
+    }
+
+    #[test]
+    fn decode_text_entities_matches_the_parser_or_refuses() {
+        let d = |s: &str| super::decode_text_entities(s).map(|c| c.into_owned());
+        assert_eq!(d("plain").as_deref(), Some("plain"));
+        assert_eq!(
+            d("&amp;&lt;&gt;&quot;&#x27;&#39;&apos;").as_deref(),
+            Some("&<>\"'''")
+        );
+        assert_eq!(
+            d("caf&#233; &#x2014; &#X41;").as_deref(),
+            Some("caf\u{e9} \u{2014} A")
+        );
+        // Refused: anything the fast path can't decode exactly as html5ever.
+        for s in [
+            "&nbsp;",
+            "&amp",
+            "a & b",
+            "&#0;",
+            "&#x80;",
+            "&#xD800;",
+            "&#;",
+            "&#x;",
+            "&#12345678;",
+        ] {
+            assert_eq!(d(s), None, "{s:?}");
+        }
+    }
+
+    // #3013: the fragment text map is built lazily, by the text fast path,
+    // not after every full parse.
+    #[test]
+    fn full_parse_renders_do_not_build_the_fragment_text_map() {
+        let mut view = mounted();
+        assert!(
+            view.fragment_text_map.is_none(),
+            "first render builds no map"
+        );
+        for h in [7, 3, 5] {
+            view.update_state_rust(state("v0", h, 107));
+            view.set_changed_keys(vec!["highlight_id".to_string()]);
+            view.render_with_diff().expect("re-render");
+            assert_eq!(timing(&view, "fast_path"), FAST_PATH_NONE);
+            assert!(
+                view.fragment_text_map.is_none(),
+                "a full parse leaves no map"
+            );
+        }
+    }
+
+    #[test]
+    fn fragment_fast_path_builds_the_map_on_demand_and_keeps_it() {
+        let mut view = mounted();
+        view.update_state_rust(state("v1", 0, 107));
+        view.set_changed_keys(vec!["label".to_string()]);
+        let (html1, patches, _v) = view.render_with_diff().expect("re-render");
+        assert_eq!(timing(&view, "fast_path"), FAST_PATH_FRAGMENT);
+        assert!(patches.expect("patches").contains("SetText"));
+        assert!(html1.contains("v1"));
+        assert!(
+            view.fragment_text_map.is_some(),
+            "the fast path built the map"
+        );
+
+        // A second text change reuses it and still patches the right node.
+        view.update_state_rust(state("v2", 0, 107));
+        view.set_changed_keys(vec!["label".to_string()]);
+        let (_html, patches, _v) = view.render_with_diff().expect("re-render");
+        assert_eq!(timing(&view, "fast_path"), FAST_PATH_FRAGMENT);
+        let patches = patches.expect("patches");
+        assert!(patches.contains("\"v2\""), "patches: {patches}");
+    }
+
+    #[test]
+    fn fast_path_after_a_full_parse_matches_the_new_tree() {
+        // Full parse (attribute change), then a text change: the lazily built
+        // map is built against the post-full-parse tree, so the SetText path
+        // is the same one a full diff would produce.
+        let mut view = mounted();
+        view.update_state_rust(state("v0", 7, 107));
+        view.set_changed_keys(vec!["highlight_id".to_string()]);
+        view.render_with_diff().expect("full parse");
+        view.update_state_rust(state("v9", 7, 107));
+        view.set_changed_keys(vec!["label".to_string()]);
+        let (_html, fast, _v) = view.render_with_diff().expect("fast path");
+        assert_eq!(timing(&view, "fast_path"), FAST_PATH_FRAGMENT);
+
+        let mut slow = mounted();
+        slow.update_state_rust(state("v0", 7, 107));
+        slow.set_changed_keys(vec!["highlight_id".to_string()]);
+        slow.render_with_diff().expect("full parse");
+        slow.update_state_rust(state("v9", 7, 107));
+        slow.set_changed_keys(vec!["label".to_string(), "highlight_id".to_string()]);
+        slow.fragment_text_map = None;
+        slow.node_html_cache = Vec::new(); // force a full render + diff
+        let (_html, full, _v) = slow.render_with_diff().expect("full diff");
+        let (fast, full) = (fast.expect("patches"), full.expect("patches"));
+        let path_of = |p: &str| -> String {
+            let v: serde_json::Value = serde_json::from_str(p).expect("json patches");
+            v.as_array()
+                .and_then(|a| a.iter().find(|x| x["type"] == "SetText"))
+                .map(|x| x["path"].to_string())
+                .unwrap_or_default()
+        };
+        assert!(!path_of(&fast).is_empty(), "fast: {fast}");
+        assert_eq!(path_of(&fast), path_of(&full), "fast: {fast} full: {full}");
+    }
+
+    #[test]
+    fn attribute_change_takes_the_full_parse_and_diff() {
+        let mut view = mounted();
+        view.update_state_rust(state("v0", 7, 107));
+        view.set_changed_keys(vec!["highlight_id".to_string()]);
+        let (_html, patches, _v) = view.render_with_diff().expect("re-render");
+        assert_eq!(timing(&view, "fast_path"), FAST_PATH_NONE);
+        let patches = patches.expect("a diff render returns patches");
+        assert!(patches.contains("SetAttr"), "patches: {patches}");
+    }
+
+    #[test]
+    fn text_change_inside_the_loop_takes_the_text_region_fast_path() {
+        // The changed fragment is the whole `{% for %}` body (it contains
+        // tags), so the fragment path cannot fire; the byte diff of the full
+        // HTML is still one text span inside one `<td>`.
+        let mut view = mounted();
+        view.update_state_rust(state("v0", 0, 108));
+        view.set_changed_keys(vec!["rows".to_string()]);
+        let (_html, patches, _v) = view.render_with_diff().expect("re-render");
+        assert_eq!(timing(&view, "fast_path"), FAST_PATH_TEXT_REGION);
+        assert_eq!(timing(&view, "diff_ms"), 0.0);
+        let patches = patches.expect("a diff render returns patches");
+        assert!(patches.contains("SetText"), "patches: {patches}");
+    }
+
+    // ------------------------------------------------------------------
+    // The second site that sets `fast_path`: `render_binary_diff` (#1104 —
+    // two sites, two sets of tests). Its only text fast path is
+    // `try_text_only_vdom_update_inplace`, the whole-HTML byte diff, so it
+    // reports `FAST_PATH_TEXT_REGION` for EVERY text-only change — including
+    // the outside-the-loop label change `render_with_diff` reports as
+    // `FAST_PATH_FRAGMENT`. The first cut labelled it as the fragment path.
+    // ------------------------------------------------------------------
+
+    /// Drive the binary entry point; returns the hydrated HTML and the
+    /// msgpack patches (`None` is the in-place path's documented no-patch
+    /// result — see the #1970 comment at the call site).
+    fn render_binary(view: &mut RustLiveViewBackend) -> (String, Option<Vec<djust_vdom::Patch>>) {
+        Python::attach(|py| {
+            let (html, patches, _v) = view.render_binary_diff(py).expect("binary render");
+            let decoded = patches.map(|p| {
+                let bytes = p
+                    .bind(py)
+                    .cast::<pyo3::types::PyBytes>()
+                    .expect("patches are bytes")
+                    .as_bytes()
+                    .to_vec();
+                rmp_serde::from_slice::<Vec<djust_vdom::Patch>>(&bytes).expect("msgpack patches")
+            });
+            (html, decoded)
+        })
+    }
+
+    fn mounted_binary() -> RustLiveViewBackend {
+        Python::initialize();
+        let mut view = RustLiveViewBackend::new_rust(TEMPLATE.to_string());
+        view.update_state_rust(state("v0", 0, 107));
+        render_binary(&mut view);
+        view
+    }
+
+    #[test]
+    fn binary_first_render_reports_no_fast_path() {
+        let view = mounted_binary();
+        assert_eq!(timing(&view, "fast_path"), FAST_PATH_NONE);
+    }
+
+    #[test]
+    fn binary_text_only_change_outside_the_loop_is_the_text_region_path_not_fragment() {
+        // The same label change that takes the FRAGMENT path through
+        // `render_with_diff`: the binary path has no changed-fragment list,
+        // so it can only have reached the patched VDOM via the whole-HTML
+        // byte diff — the region mechanism.
+        let mut view = mounted_binary();
+        view.update_state_rust(state("v1", 0, 107));
+        view.set_changed_keys(vec!["label".to_string()]);
+        let (html, patches) = render_binary(&mut view);
+        assert_eq!(timing(&view, "fast_path"), FAST_PATH_TEXT_REGION);
+        assert_ne!(timing(&view, "fast_path"), FAST_PATH_FRAGMENT);
+        assert!(html.contains(">v1</p>"), "html: {html}");
+        // The in-place path patches the old tree and emits no patch list.
+        assert!(patches.is_none(), "patches: {patches:?}");
+    }
+
+    #[test]
+    fn binary_text_change_inside_the_loop_takes_the_text_region_fast_path() {
+        let mut view = mounted_binary();
+        view.update_state_rust(state("v0", 0, 108));
+        view.set_changed_keys(vec!["rows".to_string()]);
+        let (html, patches) = render_binary(&mut view);
+        assert_eq!(timing(&view, "fast_path"), FAST_PATH_TEXT_REGION);
+        assert!(html.contains(">108</td>"), "html: {html}");
+        assert!(patches.is_none(), "patches: {patches:?}");
+    }
+
+    #[test]
+    fn binary_attribute_change_takes_the_full_parse_and_diff() {
+        let mut view = mounted_binary();
+        view.update_state_rust(state("v0", 7, 107));
+        view.set_changed_keys(vec!["highlight_id".to_string()]);
+        let (_html, patches) = render_binary(&mut view);
+        assert_eq!(timing(&view, "fast_path"), FAST_PATH_NONE);
+        let patches = patches.expect("a structural change returns patches");
+        assert!(
+            patches
+                .iter()
+                .any(|p| matches!(p, djust_vdom::Patch::SetAttr { .. })),
+            "patches: {patches:?}"
+        );
+    }
+}
+
+#[cfg(test)]
+mod retain_state_keys_rust_2592 {
+    //! The pure-Rust truth entry (#2592, the actor twin of #2564). The
+    //! `ViewActor` calls this before every merge in `sync_state_from_python`;
+    //! these pin the half the Python bridge does for itself — the removed
+    //! keys joining the changed set — and the landmine the join must not
+    //! step on (creating a changed set from nothing).
+    use super::*;
+
+    const SECRET: &str = "SECRET-A";
+    const TEMPLATE: &str =
+        "<div><span>{{ n }}</span><p>{% if secret %}{{ secret }}{% endif %}</p></div>";
+
+    fn state(n: i64, with_secret: bool) -> HashMap<String, Value> {
+        let mut s = HashMap::new();
+        s.insert("n".to_string(), Value::Integer(n));
+        if with_secret {
+            s.insert("secret".to_string(), Value::String(SECRET.to_string()));
+        }
+        s
+    }
+
+    /// A backend after one diff render, so the node cache is populated and
+    /// a pending changed set would take the PARTIAL path.
+    fn mounted() -> RustLiveViewBackend {
+        Python::initialize();
+        let mut view = RustLiveViewBackend::new_rust(TEMPLATE.to_string());
+        view.update_state_rust(state(0, true));
+        let (html, _, _) = view.render_with_diff().expect("initial render");
+        assert!(html.contains(SECRET), "premise: {html:?}");
+        view
+    }
+
+    #[test]
+    fn joins_the_removed_keys_to_a_pending_changed_set() {
+        let mut view = mounted();
+        view.set_changed_keys(vec!["n".to_string()]);
+        let removed = view.retain_state_keys_rust(vec!["n".to_string()]);
+        assert_eq!(removed, vec!["secret".to_string()]);
+        view.update_state_rust(state(1, false));
+        let (html, patches, _) = view.render_with_diff().expect("re-render");
+        assert!(
+            html.contains(">1</span>"),
+            "premise: the other change rendered: {html:?}"
+        );
+        assert!(
+            !html.contains(SECRET),
+            "the partial render served the removed key's region from the node cache: {html:?}"
+        );
+        let patches = patches.expect("a diff render returns patches");
+        assert!(!patches.contains(SECRET), "patches: {patches}");
+    }
+
+    #[test]
+    fn does_not_create_a_changed_set_from_nothing() {
+        // No pending changed set: the next render must stay a FULL render.
+        // A join that created `Some(["secret"])` would flip it onto the
+        // partial path with the removed key as the only "change", and the
+        // region for `n` — which the caller changed — would be served stale.
+        let mut view = mounted();
+        let removed = view.retain_state_keys_rust(vec!["n".to_string()]);
+        assert_eq!(removed, vec!["secret".to_string()]);
+        assert!(
+            view.changed_keys.is_none(),
+            "a changed set was created from nothing"
+        );
+        view.update_state_rust(state(1, false));
+        let (html, _, _) = view.render_with_diff().expect("re-render");
+        assert!(
+            html.contains(">1</span>"),
+            "the changed key was served stale: {html:?}"
+        );
+        assert!(!html.contains(SECRET), "{html:?}");
+    }
+
+    #[test]
+    fn revokes_the_safe_grant_through_the_rust_entry() {
+        Python::initialize();
+        let mut view = RustLiveViewBackend::new_rust("{{ p }}".to_string());
+        let mut s = HashMap::new();
+        s.insert("p".to_string(), Value::String("<b>x</b>".to_string()));
+        view.update_state_rust(s);
+        view.mark_safe_keys(vec!["p".to_string()]);
+        assert_eq!(view.render().unwrap(), "<b>x</b>");
+        assert_eq!(view.retain_state_keys_rust(vec![]), vec!["p".to_string()]);
+        let mut s = HashMap::new();
+        s.insert(
+            "p".to_string(),
+            Value::String("<img src=x onerror=alert(1)>".to_string()),
+        );
+        view.update_state_rust(s);
+        let out = view.render().unwrap();
+        assert!(
+            !out.contains("<img"),
+            "the grant outlived the removed key: {out:?}"
+        );
+    }
+}
+
+#[cfg(test)]
+mod span_aware_call_sites_2557 {
+    //! Structural pin: EVERY `Template::new` in this crate attaches the
+    //! parse error's source span (#2557).
+    //!
+    //! Not a semantic test — a caller-SET pin (#1125). The first version of
+    //! #2557 wrapped one of six sites, so `render_template` /
+    //! `render_template_with_dirs` still raised a span-less `RuntimeError`
+    //! and the debug page fell back to the pre-#2557 experience. A count
+    //! floor would not have caught that (it was already >= 1); asserting the
+    //! two counts are EQUAL is what makes a future unwrapped call site fail.
+
+    const SRC: &str = include_str!("lib.rs");
+
+    #[test]
+    fn every_template_new_is_span_aware() {
+        let total = SRC.matches("Template::new(").count();
+        let wrapped = SRC.matches(").map_err(span_aware_pyerr)?").count();
+        assert!(total > 0, "the grep found no `Template::new` at all");
+        assert_eq!(
+            total,
+            wrapped,
+            "{} `Template::new` call(s) do not go through `span_aware_pyerr` \
+             — a parse error there reaches Python with no location (#1646)",
+            total - wrapped
+        );
+    }
+}
+
+#[cfg(test)]
+mod state_is_shared_not_copied_2737 {
+    //! The per-render O(entire state) copy, as a mechanical property (#2737).
+    //!
+    //! `RustLiveViewBackend::state` is held as a [`djust_core::SharedValues`],
+    //! so a render ADOPTS it (`Context::from_shared`) instead of deep-cloning
+    //! every key and every `Value` and rebuilding them into a fresh map
+    //! (`Context::from_dict(self.state.clone())`). That copy was charged on
+    //! EVERY render whether or not the template read any of it, and it was the
+    //! last such charge on the LiveView path after #2733 removed the
+    //! per-loop-entry one.
+    //!
+    //! Asserted as identity and isolation, never as a duration: a timing
+    //! threshold is flaky under saturation and proves nothing about which
+    //! mechanism produced the number (#1795).
+    use super::*;
+
+    fn view_with_rows(n: usize) -> RustLiveViewBackend {
+        let mut view = RustLiveViewBackend::new_rust("<p>hello</p>".to_string());
+        let rows: Vec<Value> = (0..n).map(|i| Value::Integer(i as i64)).collect();
+        view.update_state_rust(HashMap::from([("rows".to_string(), Value::List(rows))]));
+        view
+    }
+
+    /// A render leaves the backend's own map in place — it borrows, it does not
+    /// replace.
+    ///
+    /// **This does NOT pin the sharing**, and the gate-off says so: reinstating
+    /// `Context::from_dict((*self.state).clone())` at the render entry leaves
+    /// this green, because the backend's own `Arc` is untouched either way.
+    /// Copy-on-write is invisible by construction — that is the point of it —
+    /// so no behavioural test in this crate can tell "shared" from
+    /// "deep-copied". The render entry is pinned by a PAIR instead:
+    /// `from_shared_adopts_the_callers_map_rather_than_rebuilding_it`
+    /// (behavioural, in `djust_core` — `from_shared` really does adopt) and
+    /// `TestTheRenderEntriesShareTheStateMap` (structural, in
+    /// `python/tests/test_state_shared_2737.py` — the render entries really do
+    /// call it). Recorded here rather than left for the next reader to
+    /// rediscover with a mutation (#1859).
+    #[test]
+    fn a_render_leaves_the_state_map_in_place() {
+        let mut view = view_with_rows(64);
+        let before = view.state.clone();
+        view.render_rust().expect("render");
+        assert!(
+            std::sync::Arc::ptr_eq(&before, &view.state),
+            "the render replaced the backend's state map"
+        );
+    }
+
+    /// The load-bearing one: while something is still holding the map, a write
+    /// MUST copy. That is what makes sharing safe, and it is the property the
+    /// old rebuild-per-render provided for free by never sharing at all.
+    ///
+    /// Gate-off: replacing `Arc::make_mut` with `Arc::get_mut(..).unwrap()` in
+    /// `set_state` panics here rather than passing, which is how this test is
+    /// known to reach the SHARED path and not a uniquely-owned one — the same
+    /// technique #2733 used for `ScopeFrame::values`.
+    #[test]
+    fn a_write_while_a_render_holds_the_map_copies_instead_of_aliasing() {
+        let mut view = view_with_rows(4);
+        let held = djust_core::Context::from_shared(view.state.clone());
+        assert!(held.get("n").is_none());
+
+        view.set_state("n".to_string(), Value::Integer(1));
+
+        assert!(
+            held.get("n").is_none(),
+            "the write aliased into a context that was already holding the map"
+        );
+        assert!(matches!(view.state.get("n"), Some(Value::Integer(1))));
+    }
+
+    /// Every copy-on-write door — every `Arc::make_mut(&mut self.state)` in
+    /// this file — preserves isolation from a held render, not just the one
+    /// the fix was written against (#1104: N similar sites, N tests).
+    ///
+    /// "Every" is derived, not asserted: `python/tests/test_state_shared_2737.py`
+    /// (`test_the_isolation_table_names_every_copy_on_write_door`) reads this
+    /// file, collects the fn enclosing each `make_mut(&mut self.state)`, and
+    /// requires the labels below to be exactly that set. The other two writers
+    /// of `state` — `new` and `deserialize_msgpack` — build a FRESH `Arc`
+    /// rather than mutating one, so no render can be holding it; the
+    /// round-trip test below pins the second of those.
+    ///
+    /// Two assertions per door, because one of them is blind for one door:
+    /// `clear_live_handles` only changes a value carrying an ADR-027 handle,
+    /// which needs a `Py<PyAny>` this interpreter-less test cannot build, so
+    /// "the held map still reads the same" would pass for it whether or not
+    /// the write aliased. The identity check is not blind: `before` is a
+    /// second holder, so `make_mut` MUST leave `view.state` at a different
+    /// pointer — and an in-place write would not.
+    #[test]
+    fn every_copy_on_write_door_preserves_isolation_from_a_held_render() {
+        /// One door, labelled by the fn that holds the `make_mut`, so the
+        /// Python derivation can match labels to sites by name.
+        type Door = (&'static str, Box<dyn Fn(&mut RustLiveViewBackend)>);
+
+        let doors: Vec<Door> = vec![
+            (
+                "set_state",
+                Box::new(|v: &mut RustLiveViewBackend| {
+                    v.set_state("k".to_string(), Value::Integer(9))
+                }),
+            ),
+            (
+                "apply_state_update",
+                Box::new(|v: &mut RustLiveViewBackend| {
+                    v.update_state_rust(HashMap::from([("k".to_string(), Value::Integer(9))]))
+                }),
+            ),
+            (
+                "retain_state_keys",
+                Box::new(|v: &mut RustLiveViewBackend| {
+                    v.retain_state_keys_rust(vec![]);
+                }),
+            ),
+            (
+                "clear_live_handles",
+                Box::new(|v: &mut RustLiveViewBackend| v.clear_live_handles()),
+            ),
+            (
+                "set_component_html",
+                Box::new(|v: &mut RustLiveViewBackend| {
+                    v.set_component_html("k".to_string(), "<i>k</i>".to_string())
+                }),
+            ),
+        ];
+        for (label, mutate) in doors {
+            let mut view = view_with_rows(4);
+            let before = view.state.clone();
+            let held = djust_core::Context::from_shared(view.state.clone());
+            mutate(&mut view);
+            assert!(
+                matches!(held.get("rows"), Some(Value::List(_))),
+                "{label} mutated a map a render was already holding"
+            );
+            assert!(
+                !std::sync::Arc::ptr_eq(&before, &view.state),
+                "{label} wrote in place while another holder had the map"
+            );
+        }
+    }
+
+    /// The msgpack round trip produces an INDEPENDENT view: the `Arc` is
+    /// per-instance, and the wire still carries a plain map. The memory state
+    /// backend round-trips on every cache hit precisely to get this isolation
+    /// (#1410), so it is the property that must not have moved.
+    #[test]
+    fn a_round_tripped_view_does_not_share_the_originals_map() {
+        let view = view_with_rows(4);
+
+        // The bytes are built from `SerializableViewState` directly rather than
+        // through `serialize_msgpack`, which needs a `Python` token: this test
+        // runs under `--no-default-features`, where no interpreter is
+        // initialized. It is the same struct, the same encoder and the same
+        // `deserialize_msgpack` under test — only the token-taking wrapper is
+        // stepped around, and the wrapper's own body is one `PyBytes::new` over
+        // exactly these bytes.
+        let serializable = SerializableViewState {
+            template_source: view.template_source.clone(),
+            state: view
+                .state
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect(),
+            last_vdom: view.last_vdom.clone(),
+            version: view.version,
+            timestamp: view.timestamp,
+        };
+        let bytes = rmp_serde::to_vec(&serializable).expect("serialize");
+
+        let clone = RustLiveViewBackend::deserialize_msgpack(&bytes).expect("deserialize");
+        assert!(
+            !std::sync::Arc::ptr_eq(&view.state, &clone.state),
+            "a round-tripped view aliases the original's state map"
+        );
+        assert!(matches!(clone.state.get("rows"), Some(Value::List(_))));
+    }
+}

@@ -1,0 +1,27 @@
+from typing import ClassVar
+
+from mindee.parsing.common.string_dict import StringDict
+from mindee.v2.parsing.inference.base_inference import BaseInference
+from mindee.v2.product.classification.classification_result import ClassificationResult
+
+
+class ClassificationInference(BaseInference):
+    """The inference result for a classification utility request."""
+
+    result: ClassificationResult
+    """Result of a classification inference."""
+    _slug: ClassVar[str] = "classification"
+    """Slug of the endpoint."""
+
+    def __init__(self, raw_response: StringDict) -> None:
+        super().__init__(raw_response)
+        self.result = ClassificationResult(raw_response["result"])
+
+    def __str__(self) -> str:
+        return (
+            f"Inference\n#########"
+            f"\n{self.job}"
+            f"\n\n{self.model}"
+            f"\n\n{self.file}"
+            f"\n\n{self.result}\n"
+        )

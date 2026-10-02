@@ -1,0 +1,171 @@
+name: Migration Performance Monitoring
+
+# Run nightly performance tests and track regression
+on:
+  schedule:
+    # Run nightly at 2 AM UTC (equivalent to 9 PM previous day PT)
+    - cron: '0 2 * * *'
+  # Also allow manual trigger via workflow_dispatch
+  workflow_dispatch:
+  # Run on main branch pushes to migration testing code
+  push:
+    branches: [ main ]
+    paths:
+      - 'python/confiture/testing/frameworks/performance.py'
+      - 'tests/performance/**'
+      - '.github/workflows/migration-performance.yml'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+concurrency:
+  group: migration-performance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  performance-monitoring:
+    name: Performance Monitoring
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: confiture
+          POSTGRES_PASSWORD: confiture
+          POSTGRES_DB: confiture_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Set up Python and uv
+      uses: ./.github/actions/python-uv
+      with:
+        python-version: '3.11'
+
+    - name: Setup environment and install dependencies
+      run: |
+        # Create virtual environment with uv
+        uv venv
+
+        # Install all dependencies including testing extras
+        # Sync from the committed uv.lock (#191) so the run is a function of
+        # the commit alone. Regenerate with `uv lock` and commit it.
+        uv sync --locked --extra dev --extra testing
+
+    - name: Verify PostgreSQL Connection
+      env:
+        DATABASE_URL: postgresql://confiture:confiture@localhost:5432/confiture_test
+      run: |
+        echo "=== Verifying PostgreSQL 16 Connection ==="
+        pg_isready -h localhost -p 5432 -U confiture && echo '✅ PostgreSQL Ready' || exit 1
+        uv run python -c "import psycopg; conn = psycopg.connect('$DATABASE_URL'); print('✅ DB connection successful'); conn.close()" || exit 1
+
+    - name: Create performance test databases
+      env:
+        PGPASSWORD: confiture
+      # Every database named in the benchmark step's environment is created here, on
+      # the path that always runs. The previous form probed first and created only on
+      # failure — but `psql -d postgres -c "SELECT 1" confiture_source_test` does not
+      # probe `confiture_source_test`: `-d` and `-U` have already taken psql's two
+      # positional slots, so the name was discarded ("extra command-line argument
+      # ignored", into the line's own `>/dev/null 2>&1`) and `SELECT 1` ran against
+      # `postgres`. The probe could not fail, so the `||` never fired and two of the
+      # three databases were never created. DROP-then-CREATE is idempotent; do not
+      # reintroduce a conditional, and spell each name out — the guard in
+      # tests/unit/test_ci_workflows.py reads these lines literally.
+      run: |
+        echo "=== Creating Performance Test Databases ==="
+        psql -h localhost -U confiture -d postgres -c "DROP DATABASE IF EXISTS confiture_perf_test;"
+        psql -h localhost -U confiture -d postgres -c "CREATE DATABASE confiture_perf_test;"
+        psql -h localhost -U confiture -d postgres -c "DROP DATABASE IF EXISTS confiture_source_test;"
+        psql -h localhost -U confiture -d postgres -c "CREATE DATABASE confiture_source_test;"
+        psql -h localhost -U confiture -d postgres -c "DROP DATABASE IF EXISTS confiture_target_test;"
+        psql -h localhost -U confiture -d postgres -c "CREATE DATABASE confiture_target_test;"
+        echo "✅ Performance test databases created"
+
+    - name: Run benchmark-marked tests
+      # Every test asserting an upper bound on a measured duration is marked
+      # `benchmark` and excluded from the default gate (`-m "not benchmark"` in
+      # addopts); this is the leg that runs them.
+      env:
+        CONFITURE_TEST_DB_URL: postgresql://confiture:confiture@localhost:5432/confiture_test
+        CONFITURE_SOURCE_DB_URL: postgresql://confiture:confiture@localhost:5432/confiture_source_test
+        CONFITURE_TARGET_DB_URL: postgresql://confiture:confiture@localhost:5432/confiture_target_test
+        DATABASE_URL: postgresql://confiture:confiture@localhost:5432/confiture_perf_test
+      run: |
+        echo "=== Running benchmark-marked tests ==="
+        uv run pytest tests -m benchmark -v --tb=short --durations=15 -rs
+
+    - name: Create Performance Report
+      if: always()
+      run: |
+        echo "========================================="
+        echo "📊 Performance Monitoring Report"
+        echo "========================================="
+        echo ""
+        echo "Configuration:"
+        echo "  • Database: PostgreSQL 16"
+        echo "  • Test Framework: pytest"
+        echo "  • Timeout: 30 minutes"
+        echo ""
+        echo "Monitored Metrics:"
+        echo "  ✅ every test marked benchmark (pytest tests -m benchmark)"
+        echo ""
+        echo "Regression Thresholds:"
+        echo "  • Individual test: 30 seconds"
+        echo "  • Overall suite: 300 seconds"
+        echo "  • Detection: 20% increase from baseline"
+        echo ""
+        echo "Next Steps:"
+        echo "  1. Review metrics in .performance-metrics/"
+        echo "  2. Compare against baseline metrics"
+        echo "  3. Investigate any significant increases"
+        echo "  4. File performance improvement issues"
+        echo ""
+
+    - name: Upload Performance Artifacts
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: performance-metrics
+        path: .performance-metrics/
+        retention-days: 30
+
+    - name: Comment Performance Results
+      if: github.event_name == 'push' && always()
+      uses: actions/github-script@v9
+      with:
+        script: |
+          const fs = require('fs');
+
+          // Try to read metrics if they exist
+          let metricsComment = "📊 **Performance Monitoring Results**\n\n";
+
+          try {
+            const metrics = JSON.parse(fs.readFileSync('.performance-metrics/latest.json', 'utf8'));
+            metricsComment += `**Run Time**: ${metrics.timestamp}\n\n`;
+            metricsComment += "| Test | Duration | Status |\n";
+            metricsComment += "|------|----------|--------|\n";
+
+            metrics.tests.forEach(test => {
+              const status = test.passed ? "✅" : "❌";
+              metricsComment += `| ${test.name} | ${test.duration_seconds}s | ${status} |\n`;
+            });
+
+            metricsComment += "\n**Regression Thresholds:**\n";
+            metricsComment += "- Individual test: 30s\n";
+            metricsComment += "- Overall suite: 300s\n";
+          } catch (e) {
+            metricsComment += "Unable to read performance metrics.\n";
+          }
+
+          console.log(metricsComment);

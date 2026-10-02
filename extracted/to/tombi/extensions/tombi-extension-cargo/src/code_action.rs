@@ -7,7 +7,7 @@ use tombi_schema_store::{Accessor, AccessorContext, matches_accessors};
 
 use crate::{
     dependency_parent_accessors, fetch_crates_io_crate, find_workspace_cargo_toml,
-    get_workspace_cargo_toml_path, is_any_dependency_accessor,
+    get_workspace_cargo_toml_path, is_any_dependency_accessor, load_cargo_toml_with_root,
 };
 
 pub enum CodeActionRefactorRewriteName {
@@ -142,9 +142,9 @@ impl std::fmt::Display for CodeActionRefactorRewriteName {
 
 pub async fn code_action(
     text_document_uri: &tombi_uri::Uri,
-    line_index: &tombi_text::LineIndex,
-    root: &tombi_ast_syntax::Root,
-    document_tree: &tombi_document_tree_syntax::DocumentTree,
+    converter: tombi_extension::SpanConverter<'_, '_>,
+    root: &tombi_ast_syntax::Root<'_>,
+    document_tree: &tombi_document_tree_syntax::DocumentTree<'_>,
     accessors: &[Accessor],
     contexts: &[AccessorContext],
     toml_version: tombi_config::TomlVersion,
@@ -175,7 +175,7 @@ pub async fn code_action(
         code_actions.extend(
             code_actions_for_workspace_cargo_toml(
                 text_document_uri,
-                line_index,
+                converter,
                 document_tree,
                 accessors,
                 offline,
@@ -188,7 +188,7 @@ pub async fn code_action(
         code_actions.extend(
             code_actions_for_crate_cargo_toml(
                 text_document_uri,
-                line_index,
+                converter,
                 root,
                 document_tree,
                 &cargo_toml_path,
@@ -208,8 +208,8 @@ pub async fn code_action(
 
 async fn code_actions_for_workspace_cargo_toml(
     text_document_uri: &tombi_uri::Uri,
-    line_index: &tombi_text::LineIndex,
-    document_tree: &tombi_document_tree_syntax::DocumentTree,
+    converter: tombi_extension::SpanConverter<'_, '_>,
+    document_tree: &tombi_document_tree_syntax::DocumentTree<'_>,
     accessors: &[Accessor],
     offline: bool,
     cache_options: Option<&tombi_cache::Options>,
@@ -229,7 +229,7 @@ async fn code_actions_for_workspace_cargo_toml(
         .value()
         && let Some(action) = convert_dependency_to_table_format_code_action(
             text_document_uri,
-            line_index,
+            converter,
             document_tree,
             accessors,
         )
@@ -245,7 +245,7 @@ async fn code_actions_for_workspace_cargo_toml(
         .value()
         && let Some(action) = update_dependency_to_latest_version_code_action(
             text_document_uri,
-            line_index,
+            converter,
             document_tree,
             accessors,
             offline,
@@ -261,9 +261,9 @@ async fn code_actions_for_workspace_cargo_toml(
 
 async fn code_actions_for_crate_cargo_toml(
     text_document_uri: &tombi_uri::Uri,
-    line_index: &tombi_text::LineIndex,
-    _root: &tombi_ast_syntax::Root,
-    document_tree: &tombi_document_tree_syntax::DocumentTree,
+    converter: tombi_extension::SpanConverter<'_, '_>,
+    _root: &tombi_ast_syntax::Root<'_>,
+    document_tree: &tombi_document_tree_syntax::DocumentTree<'_>,
     cargo_toml_path: &std::path::Path,
     accessors: &[Accessor],
     contexts: &[AccessorContext],
@@ -278,80 +278,84 @@ async fn code_actions_for_crate_cargo_toml(
         .and_then(|features| features.lsp())
         .and_then(|lsp| lsp.code_action());
 
-    if let Some((workspace_cargo_toml_path, workspace_root, workspace_document_tree)) =
-        find_workspace_cargo_toml(
-            cargo_toml_path,
-            get_workspace_cargo_toml_path(document_tree),
-            toml_version,
-        )
-    {
-        // Load workspace text and create line index for workspace document
-        let Ok(workspace_text) = tombi_fs::read_to_string(&workspace_cargo_toml_path) else {
-            return Ok(code_actions);
-        };
-        let workspace_line_index =
-            tombi_text::LineIndex::new(&workspace_text, line_index.encoding_kind);
+    if let Some(workspace_cargo_toml_path) = find_workspace_cargo_toml(
+        cargo_toml_path,
+        get_workspace_cargo_toml_path(document_tree),
+        toml_version,
+        |workspace_cargo_toml_path, _, _| workspace_cargo_toml_path.to_path_buf(),
+    ) && let Some(workspace_code_actions) = load_cargo_toml_with_root(
+        &workspace_cargo_toml_path,
+        toml_version,
+        |workspace_root, workspace_document_tree, workspace_line_index| {
+            let workspace_converter =
+                tombi_extension::SpanConverter::new(workspace_line_index, converter.encoding());
+            let mut code_actions = Vec::new();
 
-        // Add workspace-specific code actions here
-        if code_action_features
-            .as_ref()
-            .and_then(|code_action| code_action.inherit_from_workspace())
-            .map(|feature| feature.enabled())
-            .unwrap_or_default()
-            .value()
-            && let Some(action) = inherit_from_workspace_code_action(
-                text_document_uri,
-                line_index,
-                document_tree,
-                accessors,
-                contexts,
-                &workspace_document_tree,
-            )
-        {
-            code_actions.push(CodeActionOrCommand::CodeAction(action));
-        }
+            // Add workspace-specific code actions here
+            if code_action_features
+                .as_ref()
+                .and_then(|code_action| code_action.inherit_from_workspace())
+                .map(|feature| feature.enabled())
+                .unwrap_or_default()
+                .value()
+                && let Some(action) = inherit_from_workspace_code_action(
+                    text_document_uri,
+                    converter,
+                    document_tree,
+                    accessors,
+                    contexts,
+                    workspace_document_tree,
+                )
+            {
+                code_actions.push(CodeActionOrCommand::CodeAction(action));
+            }
 
-        if code_action_features
-            .as_ref()
-            .and_then(|code_action| code_action.add_to_workspace_and_inherit_dependency())
-            .map(|feature| feature.enabled())
-            .unwrap_or_default()
-            .value()
-            && let Some(action) = add_to_workspace_and_inherit_dependency_code_action(
-                text_document_uri,
-                line_index,
-                document_tree,
-                accessors,
-                contexts,
-                &workspace_cargo_toml_path,
-                &workspace_line_index,
-                &workspace_root,
-                &workspace_document_tree,
-            )
-        {
-            code_actions.push(CodeActionOrCommand::CodeAction(action));
-        }
+            if code_action_features
+                .as_ref()
+                .and_then(|code_action| code_action.add_to_workspace_and_inherit_dependency())
+                .map(|feature| feature.enabled())
+                .unwrap_or_default()
+                .value()
+                && let Some(action) = add_to_workspace_and_inherit_dependency_code_action(
+                    text_document_uri,
+                    converter,
+                    document_tree,
+                    accessors,
+                    contexts,
+                    &workspace_cargo_toml_path,
+                    workspace_converter,
+                    &workspace_root,
+                    workspace_document_tree,
+                )
+            {
+                code_actions.push(CodeActionOrCommand::CodeAction(action));
+            }
 
-        if code_action_features
-            .as_ref()
-            .and_then(|code_action| code_action.inherit_dependency_from_workspace())
-            .map(|feature| feature.enabled())
-            .unwrap_or_default()
-            .value()
-            && let Some(action) = inherit_dependency_from_workspace_code_action(
-                text_document_uri,
-                line_index,
-                document_tree,
-                cargo_toml_path,
-                accessors,
-                contexts,
-                &workspace_cargo_toml_path,
-                &workspace_document_tree,
-                toml_version,
-            )
-        {
-            code_actions.push(CodeActionOrCommand::CodeAction(action));
-        }
+            if code_action_features
+                .as_ref()
+                .and_then(|code_action| code_action.inherit_dependency_from_workspace())
+                .map(|feature| feature.enabled())
+                .unwrap_or_default()
+                .value()
+                && let Some(action) = inherit_dependency_from_workspace_code_action(
+                    text_document_uri,
+                    converter,
+                    document_tree,
+                    cargo_toml_path,
+                    accessors,
+                    contexts,
+                    &workspace_cargo_toml_path,
+                    workspace_document_tree,
+                    toml_version,
+                )
+            {
+                code_actions.push(CodeActionOrCommand::CodeAction(action));
+            }
+
+            code_actions
+        },
+    ) {
+        code_actions.extend(workspace_code_actions);
     }
 
     // Add crate-specific code actions here
@@ -363,7 +367,7 @@ async fn code_actions_for_crate_cargo_toml(
         .value()
         && let Some(action) = convert_dependency_to_table_format_code_action(
             text_document_uri,
-            line_index,
+            converter,
             document_tree,
             accessors,
         )
@@ -379,7 +383,7 @@ async fn code_actions_for_crate_cargo_toml(
         .value()
         && let Some(action) = update_dependency_to_latest_version_code_action(
             text_document_uri,
-            line_index,
+            converter,
             document_tree,
             accessors,
             offline,
@@ -395,8 +399,8 @@ async fn code_actions_for_crate_cargo_toml(
 
 async fn update_dependency_to_latest_version_code_action(
     text_document_uri: &tombi_uri::Uri,
-    line_index: &tombi_text::LineIndex,
-    document_tree: &tombi_document_tree_syntax::DocumentTree,
+    converter: tombi_extension::SpanConverter<'_, '_>,
+    document_tree: &tombi_document_tree_syntax::DocumentTree<'_>,
     accessors: &[Accessor],
     offline: bool,
     cache_options: Option<&tombi_cache::Options>,
@@ -459,11 +463,10 @@ async fn update_dependency_to_latest_version_code_action(
                     uri: text_document_uri.to_owned(),
                     version: None,
                 },
-                line_index: line_index.clone(),
-                edits: vec![OneOf::Left(TextEdit {
-                    range: version.range(),
+                edits: vec![OneOf::Left(converter.text_edit(TextEdit {
+                    span: version.span(),
                     new_text: format!("\"{latest_version}\""),
-                })],
+                }))],
             }])),
         }),
         disabled: (latest_version == version.value()).then(|| CodeActionDisabled {
@@ -490,11 +493,11 @@ async fn update_dependency_to_latest_version_code_action(
 ///
 fn inherit_from_workspace_code_action(
     text_document_uri: &tombi_uri::Uri,
-    line_index: &tombi_text::LineIndex,
-    document_tree: &tombi_document_tree_syntax::DocumentTree,
+    converter: tombi_extension::SpanConverter<'_, '_>,
+    document_tree: &tombi_document_tree_syntax::DocumentTree<'_>,
     accessors: &[Accessor],
     contexts: &[AccessorContext],
-    workspace_document_tree: &tombi_document_tree_syntax::DocumentTree,
+    workspace_document_tree: &tombi_document_tree_syntax::DocumentTree<'_>,
 ) -> Option<CodeAction> {
     if accessors.len() < 2 {
         return None;
@@ -555,11 +558,10 @@ fn inherit_from_workspace_code_action(
                     uri: text_document_uri.to_owned(),
                     version: None,
                 },
-                line_index: line_index.clone(),
-                edits: vec![OneOf::Left(TextEdit {
-                    range: (parent_key_context.range + value.symbol_range()),
+                edits: vec![OneOf::Left(converter.text_edit(TextEdit {
+                    span: (parent_key_context.span + value.symbol_span()),
                     new_text: format!("{parent_key}.workspace = true"),
-                })],
+                }))],
             }])),
         }),
         ..Default::default()
@@ -568,13 +570,13 @@ fn inherit_from_workspace_code_action(
 
 fn inherit_dependency_from_workspace_code_action(
     text_document_uri: &tombi_uri::Uri,
-    line_index: &tombi_text::LineIndex,
-    crate_document_tree: &tombi_document_tree_syntax::DocumentTree,
+    converter: tombi_extension::SpanConverter<'_, '_>,
+    crate_document_tree: &tombi_document_tree_syntax::DocumentTree<'_>,
     _crate_cargo_toml_path: &std::path::Path,
     accessors: &[Accessor],
     contexts: &[AccessorContext],
     _workspace_cargo_toml_path: &std::path::Path,
-    workspace_document_tree: &tombi_document_tree_syntax::DocumentTree,
+    workspace_document_tree: &tombi_document_tree_syntax::DocumentTree<'_>,
     _toml_version: tombi_config::TomlVersion,
 ) -> Option<CodeAction> {
     if accessors.len() < 2 {
@@ -621,14 +623,13 @@ fn inherit_dependency_from_workspace_code_action(
                             uri: text_document_uri.to_owned(),
                             version: None,
                         },
-                        line_index: line_index.clone(),
-                        edits: vec![OneOf::Left(TextEdit {
-                            range: tombi_text::Range {
-                                start: crate_key_context.range.start,
-                                end: version.range().end,
-                            },
+                        edits: vec![OneOf::Left(converter.text_edit(TextEdit {
+                            span: tombi_text::Span::new(
+                                crate_key_context.span.start,
+                                version.span().end,
+                            ),
                             new_text: format!("{crate_name}.workspace = true"),
-                        })],
+                        }))],
                     }])),
                 }),
                 ..Default::default()
@@ -649,15 +650,15 @@ fn inherit_dependency_from_workspace_code_action(
             };
 
             let edits = if matches!(table.kind(), TableKind::InlineTable { .. }) {
-                vec![OneOf::Left(TextEdit {
-                    range: (crate_key_context.range + table.symbol_range()),
+                vec![OneOf::Left(converter.text_edit(TextEdit {
+                    span: (crate_key_context.span + table.symbol_span()),
                     new_text: render_inherited_dependency_inline_table(crate_name, table),
-                })]
+                }))]
             } else {
-                vec![OneOf::Left(TextEdit {
-                    range: (key.range() + version.range()),
+                vec![OneOf::Left(converter.text_edit(TextEdit {
+                    span: (key.span() + version.span()),
                     new_text: "workspace = true".to_string(),
-                })]
+                }))]
             };
 
             return Some(CodeAction {
@@ -670,7 +671,6 @@ fn inherit_dependency_from_workspace_code_action(
                             uri: text_document_uri.to_owned(),
                             version: None,
                         },
-                        line_index: line_index.clone(),
                         edits,
                     }])),
                 }),
@@ -684,7 +684,7 @@ fn inherit_dependency_from_workspace_code_action(
 }
 fn render_inherited_dependency_inline_table(
     crate_name: &str,
-    dependency_table: &tombi_document_tree_syntax::Table,
+    dependency_table: &tombi_document_tree_syntax::Table<'_>,
 ) -> String {
     let mut entries = vec!["workspace = true".to_string()];
 
@@ -716,8 +716,8 @@ fn render_inherited_dependency_inline_table(
 ///
 fn convert_dependency_to_table_format_code_action(
     text_document_uri: &tombi_uri::Uri,
-    line_index: &tombi_text::LineIndex,
-    document_tree: &tombi_document_tree_syntax::DocumentTree,
+    converter: tombi_extension::SpanConverter<'_, '_>,
+    document_tree: &tombi_document_tree_syntax::DocumentTree<'_>,
     accessors: &[Accessor],
 ) -> Option<CodeAction> {
     if (crate::is_any_dependency_accessor(accessors))
@@ -734,16 +734,15 @@ fn convert_dependency_to_table_format_code_action(
                         uri: text_document_uri.to_owned(),
                         version: None,
                     },
-                    line_index: line_index.clone(),
                     edits: vec![
-                        OneOf::Left(TextEdit {
-                            range: tombi_text::Range::at(version.range().start),
+                        OneOf::Left(converter.text_edit(TextEdit {
+                            span: tombi_text::Span::empty(version.span().start),
                             new_text: "{ version = ".to_string(),
-                        }),
-                        OneOf::Left(TextEdit {
-                            range: tombi_text::Range::at(version.range().end),
+                        })),
+                        OneOf::Left(converter.text_edit(TextEdit {
+                            span: tombi_text::Span::empty(version.span().end),
                             new_text: " }".to_string(),
-                        }),
+                        })),
                     ],
                 }])),
             }),
@@ -767,33 +766,33 @@ fn calculate_insertion_index(existing_crate_names: &[&str], new_crate_name: &str
         .unwrap_or(existing_crate_names.len())
 }
 
-/// Get AST InlineTable from document tree range
-/// First finds the range in document_tree, then locates the corresponding AST node
-fn get_ast_inline_table_from_document_tree(
-    root: &tombi_ast_syntax::Root,
-    document_tree: &tombi_document_tree_syntax::DocumentTree,
+/// Get AST InlineTable from document tree span
+/// First finds the span in document_tree, then locates the corresponding AST node
+fn get_ast_inline_table_from_document_tree<'t>(
+    root: &tombi_ast_syntax::Root<'t>,
+    document_tree: &tombi_document_tree_syntax::DocumentTree<'_>,
     keys: &[&str],
-) -> Option<tombi_ast_syntax::InlineTable> {
-    // Get the value from document tree to find its range
+) -> Option<tombi_ast_syntax::InlineTable<'t>> {
+    // Get the value from document tree to find its span
     let (_, value) = tombi_document_tree_syntax::dig_keys(document_tree, keys)?;
 
     let tombi_document_tree_syntax::Value::Table(doc_table) = value else {
         return None;
     };
 
-    // Get the range of the inline table in the document tree
-    let target_range = doc_table.range();
+    // Get the span of the inline table in the document tree
+    let target_span = doc_table.span();
 
-    root.inline_table_at_range(target_range)
+    root.inline_table_at_span(target_span)
 }
 
 /// Calculate insertion position and text for inline table insertion with comma handling
 /// Uses tombi_ast_syntax API to properly handle commas and formatting
 fn calculate_inline_table_insertion(
-    ast_inline_table: &tombi_ast_syntax::InlineTable,
+    ast_inline_table: &tombi_ast_syntax::InlineTable<'_>,
     insertion_index: usize,
     new_entry_text: &str,
-) -> Option<(tombi_text::Position, String)> {
+) -> Option<(tombi_text::Offset, String)> {
     use tombi_ast_syntax::AstNode;
 
     let key_values_with_comma: Vec<_> = ast_inline_table.key_values_with_comma().collect();
@@ -807,12 +806,12 @@ fn calculate_inline_table_insertion(
             .and_then(|group| group.comments().last())
         {
             Some((
-                dangling_comment.syntax().range().end,
+                dangling_comment.syntax().span().end,
                 format!("\n\n{},\n", new_entry_text),
             ))
         } else {
             Some((
-                ast_inline_table.brace_start()?.range().end,
+                ast_inline_table.brace_start()?.span().end,
                 new_entry_text.to_string(),
             ))
         };
@@ -822,9 +821,9 @@ fn calculate_inline_table_insertion(
         // Insert at the beginning
         // { tokio = "1.0" } -> { serde = "1.0", tokio = "1.0" }
         let (first_key_value, _) = key_values_with_comma.first()?;
-        let insert_pos = first_key_value.syntax().range().start;
+        let insert_offset = first_key_value.syntax().span().start;
         let new_text = format!("{},\n", new_entry_text);
-        return Some((insert_pos, new_text));
+        return Some((insert_offset, new_text));
     }
 
     if insertion_index >= key_values_with_comma.len() {
@@ -832,26 +831,26 @@ fn calculate_inline_table_insertion(
         // { serde = "1.0" } -> { serde = "1.0", tokio = "1.0" }
         let (last_key_value, last_comma) = key_values_with_comma.last()?;
         if let Some(last_comma) = last_comma {
-            let insert_pos = last_comma.range().end;
+            let insert_offset = last_comma.span().end;
             let new_text = format!("\n{}, ", new_entry_text);
-            return Some((insert_pos, new_text));
+            return Some((insert_offset, new_text));
         } else {
-            let insert_pos = last_key_value.syntax().range().end;
+            let insert_offset = last_key_value.syntax().span().end;
             let new_text = format!(", {}", new_entry_text);
-            return Some((insert_pos, new_text));
+            return Some((insert_offset, new_text));
         }
     }
 
     // Insert in the middle
     // { serde = "1.0", tracing = "0.1" } -> { serde = "1.0", tokio = "1.0", tracing = "0.1" }
     let (target_key_value, target_comma) = key_values_with_comma.get(insertion_index)?;
-    let insert_pos = if let Some(target_comma) = target_comma {
-        target_comma.range().end
+    let insert_offset = if let Some(target_comma) = target_comma {
+        target_comma.span().end
     } else {
-        target_key_value.syntax().range().end
+        target_key_value.syntax().span().end
     };
     let new_text = format!("\n{},\n", new_entry_text);
-    Some((insert_pos, new_text))
+    Some((insert_offset, new_text))
 }
 
 /// Add a dependency to workspace.dependencies and convert member's dependency
@@ -881,14 +880,14 @@ fn calculate_inline_table_insertion(
 ///
 fn add_to_workspace_and_inherit_dependency_code_action(
     text_document_uri: &tombi_uri::Uri,
-    line_index: &tombi_text::LineIndex,
-    document_tree: &tombi_document_tree_syntax::DocumentTree,
+    converter: tombi_extension::SpanConverter<'_, '_>,
+    document_tree: &tombi_document_tree_syntax::DocumentTree<'_>,
     accessors: &[Accessor],
     contexts: &[AccessorContext],
     workspace_cargo_toml_path: &std::path::Path,
-    workspace_line_index: &tombi_text::LineIndex,
-    workspace_root: &tombi_ast_syntax::Root,
-    workspace_document_tree: &tombi_document_tree_syntax::DocumentTree,
+    workspace_converter: tombi_extension::SpanConverter<'_, '_>,
+    workspace_root: &tombi_ast_syntax::Root<'_>,
+    workspace_document_tree: &tombi_document_tree_syntax::DocumentTree<'_>,
 ) -> Option<CodeAction> {
     // Check if accessors match dependency patterns
     if accessors.len() < 2 {
@@ -945,7 +944,6 @@ fn add_to_workspace_and_inherit_dependency_code_action(
 
     // Generate workspace edit for workspace.dependencies
     let workspace_edit = generate_workspace_dependencies_edit(
-        workspace_line_index,
         workspace_root,
         workspace_document_tree,
         crate_name,
@@ -953,12 +951,8 @@ fn add_to_workspace_and_inherit_dependency_code_action(
     )?;
 
     // Generate member edit to convert to workspace inheritance.
-    let member_edit = generate_member_workspace_true_edit(
-        line_index,
-        crate_name,
-        crate_value,
-        &contexts[1 + offset],
-    )?;
+    let member_edit =
+        generate_member_workspace_true_edit(crate_name, crate_value, &contexts[1 + offset])?;
 
     // Build WorkspaceEdit with both file changes
     let workspace_edit = WorkspaceEdit {
@@ -969,16 +963,14 @@ fn add_to_workspace_and_inherit_dependency_code_action(
                     uri: workspace_uri,
                     version: None,
                 },
-                line_index: workspace_line_index.clone(),
-                edits: vec![OneOf::Left(workspace_edit)],
+                edits: vec![OneOf::Left(workspace_converter.text_edit(workspace_edit))],
             },
             TextDocumentEdit {
                 text_document: OptionalVersionedTextDocumentIdentifier {
                     uri: text_document_uri.to_owned(),
                     version: None,
                 },
-                line_index: line_index.clone(),
-                edits: vec![OneOf::Left(member_edit)],
+                edits: vec![OneOf::Left(converter.text_edit(member_edit))],
             },
         ])),
     };
@@ -993,11 +985,10 @@ fn add_to_workspace_and_inherit_dependency_code_action(
 
 /// Generate TextEdit for adding dependency to workspace.dependencies
 fn generate_workspace_dependencies_edit(
-    _workspace_line_index: &tombi_text::LineIndex,
-    workspace_root: &tombi_ast_syntax::Root,
-    workspace_document_tree: &tombi_document_tree_syntax::DocumentTree,
+    workspace_root: &tombi_ast_syntax::Root<'_>,
+    workspace_document_tree: &tombi_document_tree_syntax::DocumentTree<'_>,
     crate_name: &str,
-    crate_value: &tombi_document_tree_syntax::Value,
+    crate_value: &tombi_document_tree_syntax::Value<'_>,
 ) -> Option<TextEdit> {
     // Get or prepare workspace.dependencies section
     let workspace_deps = dig_keys(workspace_document_tree, &["workspace", "dependencies"]);
@@ -1018,31 +1009,31 @@ fn generate_workspace_dependencies_edit(
     let crate_value_text = crate_value.to_string();
 
     // Find insertion position in the actual table
-    let (insertion_range, new_text) = if table.kind() == TableKind::Table {
-        let insertion_range = if insertion_index == 0 {
+    let (insertion_span, new_text) = if table.kind() == TableKind::Table {
+        let insertion_span = if insertion_index == 0 {
             if table.is_empty() {
-                tombi_text::Range::at(table.range().end)
+                tombi_text::Span::empty(table.span().end)
             } else {
-                let range = table.keys().next().unwrap().range();
-                tombi_text::Range::at(range.start)
+                let span = table.keys().next().unwrap().span();
+                tombi_text::Span::empty(span.start)
             }
         } else if insertion_index >= existing_crates.len() {
             // Insert at the end of the table
-            let range = table.range();
-            tombi_text::Range::at(range.end)
+            let span = table.span();
+            tombi_text::Span::empty(span.end)
         } else {
             // Insert before the crate at insertion_index
             if let Some((target_key, _)) = table.get_key_value(existing_crates[insertion_index]) {
-                let range = target_key.range();
-                tombi_text::Range::at(range.start)
+                let span = target_key.span();
+                tombi_text::Span::empty(span.start)
             } else {
-                let range = table.range();
-                tombi_text::Range::at(range.end)
+                let span = table.span();
+                tombi_text::Span::empty(span.end)
             }
         };
 
         (
-            insertion_range,
+            insertion_span,
             format!("{crate_name} = {crate_value_text}\n"),
         )
     } else if matches!(table.kind(), TableKind::InlineTable { .. }) {
@@ -1054,25 +1045,24 @@ fn generate_workspace_dependencies_edit(
         )?;
 
         let new_entry_text = format!("{crate_name} = {crate_value_text}");
-        let (insertion_pos, new_text) =
+        let (insertion_offset, new_text) =
             calculate_inline_table_insertion(&ast_inline_table, insertion_index, &new_entry_text)?;
 
-        (tombi_text::Range::at(insertion_pos), new_text)
+        (tombi_text::Span::empty(insertion_offset), new_text)
     } else {
         return None;
     };
 
     Some(TextEdit {
-        range: insertion_range,
+        span: insertion_span,
         new_text,
     })
 }
 
 /// Generate TextEdit for converting member dependency to workspace inheritance.
 fn generate_member_workspace_true_edit(
-    _line_index: &tombi_text::LineIndex,
     crate_name: &str,
-    crate_value: &tombi_document_tree_syntax::Value,
+    crate_value: &tombi_document_tree_syntax::Value<'_>,
     accessor_context: &AccessorContext,
 ) -> Option<TextEdit> {
     let AccessorContext::Key(crate_key_context) = accessor_context else {
@@ -1081,14 +1071,14 @@ fn generate_member_workspace_true_edit(
 
     match crate_value {
         tombi_document_tree_syntax::Value::String(_) => Some(TextEdit {
-            range: (crate_key_context.range + crate_value.symbol_range()),
+            span: (crate_key_context.span + crate_value.symbol_span()),
             new_text: format!("{crate_name}.workspace = true"),
         }),
         tombi_document_tree_syntax::Value::Table(table)
             if matches!(table.kind(), TableKind::InlineTable { .. }) =>
         {
             Some(TextEdit {
-                range: (crate_key_context.range + table.symbol_range()),
+                span: (crate_key_context.span + table.symbol_span()),
                 new_text: render_inherited_dependency_inline_table(crate_name, table),
             })
         }
@@ -1096,7 +1086,7 @@ fn generate_member_workspace_true_edit(
             let (key, version) = table.get_key_value("version")?;
 
             Some(TextEdit {
-                range: (key.range() + version.range()),
+                span: (key.span() + version.span()),
                 new_text: "workspace = true".to_string(),
             })
         }
@@ -1107,9 +1097,10 @@ fn generate_member_workspace_true_edit(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tombi_ast_syntax::AstNode as _;
     use tombi_document_tree_syntax::{TryIntoDocumentTree, dig_keys};
     use tombi_schema_store::{AccessorContext, AccessorKeyKind, KeyContext};
-    use tombi_text::{EncodingKind, LineIndex, Position, Range, RelativePosition};
+    use tombi_text::{Offset, Span};
 
     #[test]
     fn test_code_action_refactor_rewrite_name_display() {
@@ -1168,18 +1159,17 @@ mod tests {
         assert_eq!(result, 1);
     }
 
-    fn parse_dependency_value(
+    fn with_dependency_value(
         source: &str,
         crate_name: &str,
-    ) -> (
-        std::string::String,
-        tombi_document_tree_syntax::Value,
-        AccessorContext,
+        f: impl FnOnce(&str, &tombi_document_tree_syntax::Value<'_>, &AccessorContext),
     ) {
-        let source = source.trim().to_string();
-        let root = tombi_parser::parse(&source).into_root();
+        let source = source.trim();
+        let parsed = tombi_parser::parse(source);
+        let root = parsed.root();
+        let decoded = root.decode_strings(tombi_config::TomlVersion::default());
         let document_tree = root
-            .try_into_document_tree(tombi_config::TomlVersion::default())
+            .try_into_document_tree(tombi_config::TomlVersion::default(), &decoded)
             .expect("expected document tree");
         let (_, value) =
             dig_keys(&document_tree, &["dependencies", crate_name]).expect("expected dependency");
@@ -1187,106 +1177,87 @@ mod tests {
         let end = start + crate_name.len();
         let accessor_context = AccessorContext::Key(KeyContext {
             kind: AccessorKeyKind::KeyValue,
-            range: Range::new(
-                Position::default() + RelativePosition::of(&source[..start]),
-                Position::default() + RelativePosition::of(&source[..end]),
-            ),
+            span: Span::new(Offset::of(&source[..start]), Offset::of(&source[..end])),
         });
 
-        (source, value.clone(), accessor_context)
+        f(source, value, &accessor_context);
     }
 
     fn apply_text_edit(source: &str, edit: &TextEdit) -> String {
-        let mut line_offsets = Vec::new();
-        let mut acc = 0;
-        for line in source.lines() {
-            line_offsets.push(acc);
-            acc += line.len() + 1;
-        }
-
-        let start_line = edit.range.start.line as usize;
-        let start_char = edit.range.start.column as usize;
-        let end_line = edit.range.end.line as usize;
-        let end_char = edit.range.end.column as usize;
-        let start = line_offsets.get(start_line).copied().unwrap_or(0) + start_char;
-        let end = line_offsets.get(end_line).copied().unwrap_or(0) + end_char;
-
         let mut text = source.to_string();
-        text.replace_range(start..end, &edit.new_text);
+        text.replace_range(std::ops::Range::<usize>::from(edit.span), &edit.new_text);
         text
     }
 
     #[test]
     fn generate_member_workspace_true_edit_preserves_inline_table_keys() {
-        let (source, value, accessor_context) = parse_dependency_value(
+        with_dependency_value(
             r#"[dependencies]
 serde = { version = "1.0", features = ["derive"] }"#,
             "serde",
-        );
-        let line_index = LineIndex::new(&source, EncodingKind::Utf16);
+            |source, value, accessor_context| {
+                let edit = generate_member_workspace_true_edit("serde", value, accessor_context)
+                    .expect("expected edit");
 
-        let edit =
-            generate_member_workspace_true_edit(&line_index, "serde", &value, &accessor_context)
-                .expect("expected edit");
-
-        assert_eq!(
-            apply_text_edit(&source, &edit),
-            r#"[dependencies]
+                assert_eq!(
+                    apply_text_edit(source, &edit),
+                    r#"[dependencies]
 serde = { workspace = true, features = ["derive"] }"#
+                );
+            },
         );
     }
 
     #[test]
     fn generate_member_workspace_true_edit_preserves_inline_table_comment() {
-        let (source, value, accessor_context) = parse_dependency_value(
+        with_dependency_value(
             r#"[dependencies]
 serde = { version = "1.0" } # comment"#,
             "serde",
-        );
-        let line_index = LineIndex::new(&source, EncodingKind::Utf16);
+            |source, value, accessor_context| {
+                let edit = generate_member_workspace_true_edit("serde", value, accessor_context)
+                    .expect("expected edit");
 
-        let edit =
-            generate_member_workspace_true_edit(&line_index, "serde", &value, &accessor_context)
-                .expect("expected edit");
-
-        assert_eq!(
-            apply_text_edit(&source, &edit),
-            r#"[dependencies]
+                assert_eq!(
+                    apply_text_edit(source, &edit),
+                    r#"[dependencies]
 serde = { workspace = true } # comment"#
+                );
+            },
         );
     }
 
     #[test]
     fn generate_member_workspace_true_edit_replaces_dotted_version_key() {
-        let (source, value, accessor_context) = parse_dependency_value(
+        with_dependency_value(
             r#"[dependencies]
 serde.version = "1.0"
 serde.features = ["derive"]"#,
             "serde",
-        );
-        let line_index = LineIndex::new(&source, EncodingKind::Utf16);
+            |source, value, accessor_context| {
+                let edit = generate_member_workspace_true_edit("serde", value, accessor_context)
+                    .expect("expected edit");
 
-        let edit =
-            generate_member_workspace_true_edit(&line_index, "serde", &value, &accessor_context)
-                .expect("expected edit");
-
-        assert_eq!(
-            apply_text_edit(&source, &edit),
-            r#"[dependencies]
+                assert_eq!(
+                    apply_text_edit(source, &edit),
+                    r#"[dependencies]
 serde.workspace = true
 serde.features = ["derive"]"#
+                );
+            },
         );
     }
 
     #[test]
     fn generate_member_workspace_true_edit_returns_none_for_non_inline_table_without_version() {
-        let (source, value, accessor_context) =
-            parse_dependency_value("[dependencies]\nserde.features = [\"derive\"]", "serde");
-        let line_index = LineIndex::new(&source, EncodingKind::Utf16);
+        with_dependency_value(
+            "[dependencies]\nserde.features = [\"derive\"]",
+            "serde",
+            |_, value, accessor_context| {
+                let edit = generate_member_workspace_true_edit("serde", value, accessor_context);
 
-        let edit =
-            generate_member_workspace_true_edit(&line_index, "serde", &value, &accessor_context);
-
-        assert!(edit.is_none());
+                assert!(edit.is_none());
+            },
+        );
     }
 }

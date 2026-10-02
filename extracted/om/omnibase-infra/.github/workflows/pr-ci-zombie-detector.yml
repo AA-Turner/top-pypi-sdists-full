@@ -1,0 +1,400 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# Scheduled zombie-run detector for wedged PR CI concurrency groups (OMN-16494).
+#
+# `ready_for_review` (undraft) and a branch refresh (push/update-branch/
+# synchronize) both trigger CI for the same PR. Two independent mechanisms
+# can leave the CURRENT-head run stuck `status=queued` with zero scheduled
+# jobs forever, while an OLDER-head run for the same PR keeps holding the
+# shared concurrency group open: cancel-in-progress leaving 1-2 self-hosted
+# jobs alive past the cancel signal (onex_change_control ci.yml), or a
+# single-flight `cancel-in-progress: false` queue whose stale-head run stalls
+# on a straggler job (omnimarket ci.yml, OMN-14645). This workflow runs
+# `scripts/ci/pr_ci_zombie_detector.py --apply`, which force-cancels the
+# stale-head run once the newer-head run has genuinely wedged (queued, zero
+# jobs, past the staleness threshold) -- see the script's module docstring
+# for the full mechanism writeup and unit-tested decision logic.
+#
+# HARD REQUIREMENT: runs on GitHub-hosted compute (ubuntu-latest), never
+# self-hosted -- same rationale as runner-fleet-canary.yml and
+# runner-broker-dispatch-wedge-rerun.yml: this must not share fate with the
+# self-hosted runner fleet, since a self-hosted-runner cancel-signal survivor
+# is one of the two mechanisms it exists to detect. The script itself is
+# stdlib-only (argparse/json/subprocess/dataclasses) plus the `gh` CLI, both
+# preinstalled on GitHub-hosted runners -- no `uv sync` / venv needed.
+#
+# Token: a minted `onexbot` App installation token (OMN-19258). The target
+# repos (onex_change_control, omnimarket) are NOT this repo, so the default
+# GITHUB_TOKEN cannot read or force-cancel their runs, and force-cancel needs
+# Actions WRITE on the target. The operator granted `onexbot` (app 3342522,
+# installation 123040063) `actions: write` on 2026-09-23 (ruling on
+# OMN-19258); read back live from `gh api /orgs/OmniNode-ai/installations`
+# at 2026-09-23T15:06:01Z. The token is scoped to exactly the two target
+# repos and to `actions: write`, the only permission the script's three calls
+# need (list runs, list a run's jobs, force-cancel a run).
+#
+# WHY IT IS NOT CROSS_REPO_PAT ANY MORE. Until OMN-19258 this job ran on
+# CROSS_REPO_PAT, a personal access token. Its rate limit is its owning
+# account's personal quota, shared with every other consumer of that token
+# (OMN-19101), and measured over the retained history (2,907 runs,
+# 2026-08-25..2026-09-23) 68 of 2,904 reports carried a rate-limit fetch
+# error for BOTH target repos: 68 runs that saw nothing and were green. An
+# App installation token has its own quota. The PAT secret itself still
+# exists for other workflows; its retirement is OMN-16373, not this file.
+#
+# EVERY FAILURE IS RED (OMN-19258). There is no skip path and no fallback:
+#   - a failed or empty token mint fails the job before the detector runs.
+#     There is no fallback to GITHUB_TOKEN (it cannot reach another repo's
+#     runs, so it would read nothing) or to the PAT;
+#   - the detector exits 1 when it could not read a target repo, read zero
+#     runs from one, or failed a force-cancel. It used to exit 0 on every
+#     completed scan, which is how the 68 blind runs above were green;
+#   - the report is uploaded even when the detector exits 1, and its
+#     `scanned` map (runs read per repo) is the positive control that tells a
+#     clean sweep from a blind one.
+#
+# SECOND JOB, OMN-18254: non-required check failure-rate alert.
+#
+# WHY HERE AND NOT IN A NEW WORKFLOW. The plan is explicit -- no new alert
+# channel and no new scheduler. This file is already the repository's scheduled
+# reader of PR CI state: same REST surface (check-runs on pull-request heads),
+# same GitHub-hosted requirement, same cross-repo read problem. Adding a third
+# scheduler to read the same API would be a second thing to keep alive for no
+# new capability.
+#
+# The two jobs mint SEPARATE tokens from the same `onexbot` App, and that is
+# deliberate. The zombie detector WRITES (force-cancel) Actions on two repos;
+# the alerter only READS, but reads a PRIVATE repo's check-runs and a branch's
+# protection -- see the OMN-18254 comment on its mint step below. One token per
+# job keeps each at the narrowest repository list and permission set it needs.
+#
+# The workflow's name still says "Zombie Detector" and now carries a second,
+# adjacent concern. That is named here rather than papered over: both jobs
+# answer "what is wrong with PR CI that nobody is watching", one for wedged
+# concurrency groups and one for checks that fail without blocking.
+#
+# The two jobs are independent -- no `needs` -- so a zombie-detector failure
+# (for example a failed token mint) does not silence the alerter, and an
+# alerter failure does not stop a wedge from being cleared.
+name: PR CI Zombie Detector
+
+on:
+  schedule:
+    # Every 10 minutes -- the observed incidents cost ~35 min of unattended
+    # wedge before manual force-cancel; a 10-min cadence against a 15-min
+    # staleness threshold (script default) catches a wedge within ~25 min
+    # without chasing ordinary queueing latency as a false positive.
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Force-cancel candidates (false = dry-run report only)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  detect:
+    name: Detect and clear wedged PR concurrency groups
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout (script only)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # OMN-19258: the onexbot App token, scoped to exactly the two repos the
+      # detector reads and cancels in, with `actions: write` and nothing
+      # else. The script's only calls are `GET actions/runs`,
+      # `GET actions/runs/{id}/jobs` and `POST actions/runs/{id}/force-cancel`,
+      # all covered by Actions; metadata read is implicit on every
+      # installation token. Same action and pin as the sibling job's mint.
+      - name: Mint the onexbot App token (OMN-19258)
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.ONEXBOT_APP_ID }}
+          private-key: ${{ secrets.ONEXBOT_APP_PRIVATE_KEY }}
+          owner: OmniNode-ai
+          repositories: |
+            onex_change_control
+            omnimarket
+          permission-actions: write
+
+      # The mint action already fails its own step; this catches the one
+      # shape it cannot: an empty token that still exits 0. No fallback to
+      # GITHUB_TOKEN (it cannot reach another repo's runs, so it would read
+      # nothing and report a clean sweep) and no skip.
+      - name: Refuse an empty minted token
+        env:
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APP_TOKEN}" ]; then
+            echo "::error::onexbot App token mint produced an empty token. The zombie detector cannot read or force-cancel runs in onex_change_control/omnimarket without it. Failing closed -- a detector that cannot see must never read as a clean sweep (OMN-19258)."
+            exit 1
+          fi
+          echo "onexbot App token minted."
+
+      - name: Run zombie detector
+        id: detector
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          DO_APPLY: ${{ (github.event_name == 'workflow_dispatch' && inputs.apply == false) && 'false' || 'true' }}
+        run: |
+          set -euo pipefail
+          args=(
+            --owner OmniNode-ai
+            --repo onex_change_control
+            --repo omnimarket
+            --stale-after-seconds 900
+            --report zombie-detector-report.json
+          )
+          if [ "$DO_APPLY" = "true" ]; then
+            args+=(--apply)
+          fi
+          python3 scripts/ci/pr_ci_zombie_detector.py "${args[@]}"
+
+      # Asserted and uploaded under always(), including when the detector
+      # exited 1: the report is written before the exit, and a red run's
+      # receipt is the one an on-call needs. Declared in
+      # config/ci_evidence_policy.yaml (pr-ci-zombie-detector-report).
+      - name: Assert the report is present and non-empty
+        if: always()
+        run: |
+          set -euo pipefail
+          python3 scripts/ci/assert_evidence_artifact.py \
+            --artifact pr-ci-zombie-detector-report \
+            --require zombie-detector-report.json
+
+      - name: Upload receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: pr-ci-zombie-detector-report
+          path: zombie-detector-report.json
+          if-no-files-found: error
+          retention-days: 30
+
+  # OMN-18254 -- a check that is not required can fail indefinitely and nobody
+  # learns. The web repository's companion-effect job failed 9 of 10 recent
+  # pull-request runs on missing broker credentials, and was reported red on
+  # three separate pull requests before anyone asked whether it meant companions
+  # were never publishing.
+  #
+  # OMN-18322 extends the same job (same script, same policy file, same report
+  # artifact, same destinations) to scheduled (event == schedule) runs, which
+  # have no pull-request head and so were invisible to the read above: the
+  # 2026-09-13 friction trend report measured scheduled runs failing at 15.4%
+  # over 9,746 runs against 2.9% on pull requests, with nothing triaging them.
+  #
+  # GitHub-hosted for the same reason the job above is: a monitor must not share
+  # fate with the fleet whose CI it reports on.
+  nonrequired-check-failure-rate:
+    name: Non-required check failure rate (OMN-18254, OMN-18322)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # OMN-18942: the alert dedup reads the previous run's uploaded report. A
+    # run that overlapped a still-running one would read the run before it and
+    # re-post whatever the running one is about to send, so runs of this job on
+    # one ref are serialised. Not cancel-in-progress: a cancelled run uploads no
+    # report, and the next run would fall back to older state.
+    concurrency:
+      group: nonrequired-check-failure-rate-${{ github.ref }}
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout (script and policy)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python and PyYAML
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PyYAML (the policy reader's only dependency)
+        run: python3 -m pip install --quiet pyyaml
+
+      # OMN-18254, 2026-09-18: this job had never succeeded. Every scheduled
+      # run since the earliest retained one (400 of 400, back to
+      # 2026-09-15T05:08:01Z) died here, so neither the above-threshold alert
+      # nor its below-threshold control was ever produced by a live run. The
+      # sibling zombie-detector job was green throughout, which is why the red
+      # read as a known-flaky neighbour rather than as a dead mechanism.
+      #
+      # THE FAILURE, from run 35403376118:
+      #   gh api repos/OmniNode-ai/omniweb/commits/<sha>/check-runs failed:
+      #   Resource not accessible by personal access token (HTTP 403)
+      #
+      # CROSS_REPO_PAT is a fine-grained PAT. `omnibase_infra` and `omnimarket`
+      # are public, so their check-runs read succeeds on public access alone;
+      # `omniweb` is PRIVATE and the token carries no Checks permission there.
+      # The repo loop hits omniweb second, so omnimarket was never reached
+      # either -- one private repo took the whole sweep down.
+      #
+      # WHY onexbot AND NOT onexbot-occ-writer. Read back live from
+      # `gh api /orgs/OmniNode-ai/installations` on 2026-09-18: `onexbot`
+      # (app id 3342522, installation 123040063, repository_selection: all)
+      # carries administration/actions/checks/contents/metadata/pull-requests.
+      # `onexbot-occ-writer` (4361937) carries every one of those EXCEPT
+      # `administration`, and this script reads
+      # `branches/{branch}/protection/required_status_checks` -- a branch-
+      # protection read, which needs Administration. So the two Apps are not
+      # interchangeable here, and nothing is being minted, rotated or widened:
+      # both permission sets already existed. Same step shape as
+      # evidence-autoclose-sweep.yml, which chose the same App under OMN-16832.
+      #
+      # `repositories:` is pinned to exactly the repos the script reads: the
+      # three `--repo` literals and the `--scheduled-repo` share below.
+      # The autoclose sweep uses `owner:` because its repo list is resolved at
+      # run time; this one is a literal in the run step below, so the narrower
+      # scope is available and is the correct one.
+      - name: Mint the onexbot App token (OMN-18254)
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.ONEXBOT_APP_ID }}
+          private-key: ${{ secrets.ONEXBOT_APP_PRIVATE_KEY }}
+          owner: OmniNode-ai
+          repositories: |
+            omnibase_infra
+            omniweb
+            omnimarket
+            omni_home
+          permission-administration: read
+          permission-actions: read
+          permission-checks: read
+          permission-contents: read
+          permission-metadata: read
+          permission-pull-requests: read
+
+      # The mint action already fails its own step, so this is belt-and-braces
+      # for the one shape it cannot catch: an empty token that still exits 0.
+      # It exists because the ONLY wrong answer here is a token that reads
+      # SOME repos -- that is exactly what produced a silent hole for three
+      # days, and a sweep that cannot read must never read as clean.
+      - name: Refuse an empty minted token
+        env:
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APP_TOKEN}" ]; then
+            echo "::error::onexbot App token mint produced an empty token. Failing closed -- this job does NOT fall back to GITHUB_TOKEN, because a partial-visibility token reports a clean sweep over the repos it cannot see."
+            exit 1
+          fi
+          echo "onexbot App token minted."
+
+      # THE SCHEDULED-RUN SWEEP MOVED OFF THIS JOB (OMN-18942).
+      #
+      # `--no-scheduled` leaves this job doing the pull-request check-run half
+      # only. The scheduled-run half it gained in OMN-18322 now runs in exactly
+      # one place, the `.201` system reporter, via
+      # scripts/omninode-fleet-failure-probe.py -- the SAME evaluator and the
+      # SAME policy thresholds, so nothing about what counts as a failing
+      # workflow is duplicated.
+      #
+      # Three measured reasons, not a preference:
+      #
+      #  1. DESTINATION. No chat secret of any name exists at organisation or
+      #     repository scope, so the scheduled findings produced here have been
+      #     delivered to nobody since the day they shipped -- fifteen named
+      #     red workflows every ten minutes into an annotation. The reporter
+      #     holds a working bot token and already posts to the channel.
+      #  2. CADENCE. Fifteen findings every ten minutes is ~2,160 annotations a
+      #     day, which is muted on day one even with a destination. The
+      #     reporter pages a key ONCE when it confirms, re-surfaces a standing
+      #     one every six hours, and posts a resolution when it clears.
+      #  3. COST. The fleet-wide sweep is one API call per active workflow per
+      #     repository and measured 434s over the thirteen-repository fleet on
+      #     2026-09-20. This job's timeout is 10 minutes and its cadence is 10
+      #     minutes; the reporter refreshes it hourly in a detached child.
+      #
+      # WHY THE REPO LIST HERE IS STILL THREE LITERALS AND NOT `fleet_repos`.
+      # The check-run half is BRANCH-scoped -- it reads
+      # `branches/dev/protection/required_status_checks` -- and `omni_home`,
+      # which is in the fleet list, has no `dev` branch at all (default
+      # `main`, read live 2026-09-20). Pointing this half at the fleet list
+      # would 404 on the first such repo and take the whole sweep down, which
+      # is precisely the failure OMN-18254 spent three days on. Per-repo branch
+      # resolution is the fix and is deliberately a separate change. The fleet
+      # list governs the scheduled half, which is branch-agnostic.
+      #
+      # THE REGISTRY REPOSITORY'S SCHEDULED HALF RUNS HERE (OMN-18942, AC-2).
+      # Measured 2026-09-23T17:45Z, the `.201` host token returns HTTP 404 on
+      # omni_home, so the reporter evaluated nothing there and nothing else did
+      # either. `--scheduled-repo` takes the policy's `scheduled_actions_repos`
+      # share, scheduled half only, into this run's report and dedup state; the
+      # host's `--repos-from-policy` selection excludes the same share, so each
+      # fleet repository still has exactly one scheduled evaluator. The onexbot
+      # installation already reads every repository; the mint above requests
+      # one more of them, and nothing is created or widened.
+      #
+      # ALERT DEDUP (OMN-18942, measured 2026-09-23). Once the channel secrets
+      # existed, every run re-posted the same unchanged findings. The evaluator
+      # now reads the prior alert state from the `nonrequired-check-report`
+      # artifact of this workflow's most recent earlier run on this ref, via the
+      # Actions API, and suppresses an unchanged-or-lower finding inside the
+      # policy's `alert_dedup_window_hours`, recording each suppression in the
+      # report and the step summary. The read rides GH_TOKEN, the App token
+      # minted above, which already carries `permission-actions: read` on this
+      # repository -- no new credential, no workflow permission widened, and
+      # the state is the same artifact the next reader audits. An absent or
+      # unreadable prior state suppresses NOTHING: every finding posts, marked.
+      - name: Evaluate non-required check failure rates
+        env:
+          # Cross-repo reads (omniweb is private) need Checks on a private
+          # repo, and the branch-protection read needs Administration; neither
+          # the default GITHUB_TOKEN nor CROSS_REPO_PAT provides both. There is
+          # deliberately NO `|| secrets.GITHUB_TOKEN` fallback: a silent
+          # downgrade reproduces the 403 one repo later instead of failing at
+          # the mint, and an empty result is not evidence of absence.
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          # Same channel the fleet canary and the saturation monitor already
+          # alert to -- inherited, not chosen here.
+          #
+          # OMN-18942 follow-up: an absent token no longer degrades to
+          # annotation plus artifact. Measured 2026-09-21, no chat secret of
+          # any name exists at organisation or repository scope, so that
+          # "degrade" was not a rare outage path but the only path, and every
+          # finding this step raised was delivered to nobody while the step
+          # reported success. The evaluator now exits non-zero with a one-line
+          # reason when it has findings and no destination. A clean sweep is
+          # unaffected, and so is a run where the secrets do resolve.
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+        run: |
+          set -euo pipefail
+          python3 scripts/ci/nonrequired_check_failure_rate.py \
+            --owner OmniNode-ai \
+            --repo omnibase_infra \
+            --repo omniweb \
+            --repo omnimarket \
+            --no-scheduled \
+            --scheduled-repo omni_home \
+            --policy config/runner_routing_policy.yaml \
+            --report nonrequired-check-report.json \
+            --prior-state-workflow pr-ci-zombie-detector.yml
+
+      - name: Assert the report is present and non-empty
+        if: always()
+        run: |
+          set -euo pipefail
+          python3 scripts/ci/assert_evidence_artifact.py \
+            --artifact nonrequired-check-report \
+            --require nonrequired-check-report.json
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nonrequired-check-report
+          path: nonrequired-check-report.json
+          if-no-files-found: error
+          retention-days: 30

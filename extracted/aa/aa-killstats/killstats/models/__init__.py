@@ -1,3 +1,4 @@
-from .general import EveEntity, General
-from .killboard import Attacker, Killmail
-from .killstatsaudit import AlliancesAudit, CorporationsAudit
+# flake8: noqa
+from .general import *
+from .killboard import *
+from .killstatsaudit import *

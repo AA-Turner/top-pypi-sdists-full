@@ -1,26 +1,21 @@
 Metadata-Version: 2.4
 Name: ha-mcp-dev
-Version: 8.6.0.dev2813
+Version: 8.6.0.dev2830
 Summary: Home Assistant MCP Server - Complete control of Home Assistant through MCP
-Author-email: Julien <github@qc-h.net>
-License: MIT
-Project-URL: Homepage, https://github.com/homeassistant-ai/ha-mcp
-Project-URL: Bug Tracker, https://github.com/homeassistant-ai/ha-mcp/issues
-Project-URL: Repository, https://github.com/homeassistant-ai/ha-mcp
 Keywords: mcp,home-assistant,ai,automation,smart-home
+Author: Julien
+Author-email: Julien <github@qc-h.net>
+License-Expression: MIT
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Home Automation
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: <3.15,>=3.13
-Description-Content-Type: text/markdown
-License-File: LICENSE
-Requires-Dist: anyio>=4.10; python_version >= "3.14"
-Requires-Dist: anyio>=4.9; python_version < "3.14"
+Requires-Dist: anyio>=4.10 ; python_full_version >= '3.14'
+Requires-Dist: anyio>=4.9 ; python_full_version < '3.14'
 Requires-Dist: authlib>=1.6.11
 Requires-Dist: cyclopts>=4.0.0
 Requires-Dist: exceptiongroup>=1.2.2
@@ -34,30 +29,34 @@ Requires-Dist: openapi-pydantic>=0.5.1
 Requires-Dist: opentelemetry-api>=1.28.0
 Requires-Dist: platformdirs>=4.0.0
 Requires-Dist: psutil>=7.0.0
-Requires-Dist: py-key-value-aio[filetree,keyring,memory]<0.5.0,>=0.4.4
+Requires-Dist: py-key-value-aio[filetree,keyring,memory]>=0.4.4,<0.5.0
 Requires-Dist: pydantic-settings>=2.0.0
 Requires-Dist: pyjwt[crypto]>=2.10.1
 Requires-Dist: pyperclip>=1.9.0
 Requires-Dist: python-multipart>=0.0.26
-Requires-Dist: pywin32>=311; sys_platform == "win32"
-Requires-Dist: pyyaml<7.0,>=6.0
+Requires-Dist: pywin32>=311 ; sys_platform == 'win32'
+Requires-Dist: pyyaml>=6.0,<7.0
 Requires-Dist: rich>=13.9.4
 Requires-Dist: sse-starlette>=3.0.0
 Requires-Dist: starlette>=1.0.1
 Requires-Dist: typing-extensions>=4.13.0
 Requires-Dist: typing-inspection>=0.4.1
 Requires-Dist: uncalled-for>=0.4.0
-Requires-Dist: uvicorn>=0.35; sys_platform != "emscripten"
+Requires-Dist: uvicorn>=0.35 ; sys_platform != 'emscripten'
 Requires-Dist: watchfiles>=1.0.0
-Requires-Dist: httpx[socks]<0.29,>=0.28.1
-Requires-Dist: pydantic[email]<3,>=2.13.4
+Requires-Dist: httpx[socks]>=0.28.1,<0.29
+Requires-Dist: pydantic[email]>=2.13.4,<3
 Requires-Dist: python-dotenv==1.2.3
 Requires-Dist: truststore==0.10.4
-Requires-Dist: cryptography<51,>=48.0.0
+Requires-Dist: cryptography>=48.0.0,<51
 Requires-Dist: pydantic-monty==0.0.18
 Requires-Dist: tzdata>=2024.1
 Requires-Dist: packaging>=24.0
-Dynamic: license-file
+Requires-Python: >=3.13, <3.15
+Project-URL: Homepage, https://github.com/homeassistant-ai/ha-mcp
+Project-URL: Bug Tracker, https://github.com/homeassistant-ai/ha-mcp/issues
+Project-URL: Repository, https://github.com/homeassistant-ai/ha-mcp
+Description-Content-Type: text/markdown
 
 > **Breaking change (v7.3.0):** `ha_config_set_yaml` has been moved to [beta](docs/beta.md).
 

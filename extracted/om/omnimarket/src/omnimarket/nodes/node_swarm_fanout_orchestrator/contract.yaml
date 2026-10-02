@@ -1,0 +1,194 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+name: node_swarm_fanout_orchestrator
+contract_name: node_swarm_fanout_orchestrator
+node_name: node_swarm_fanout_orchestrator
+contract_version: {major: 2, minor: 0, patch: 0}
+node_version: {major: 2, minor: 0, patch: 0}
+node_type: orchestrator
+description: >
+  Orchestrator node for swarm parallel fan-out dispatch. Publishes N
+  delegation-execute commands (one per subtask) to
+  onex.cmd.omnimarket.delegation-execute.v1, then collects completion
+  events by correlation_id. All inference I/O is handled by
+  node_llm_delegation_call_effect. This node owns only coordination.
+
+input_model:
+  name: ModelSwarmFanoutRequest
+  class: ModelSwarmFanoutRequest
+  module: omnimarket.nodes.node_swarm_fanout_orchestrator.models.model_swarm_fanout_request
+
+output_model:
+  name: ModelSwarmFanoutResult
+  class: ModelSwarmFanoutResult
+  module: omnimarket.nodes.node_swarm_fanout_orchestrator.models.model_swarm_fanout_result
+
+handler:
+  name: HandlerSwarmFanout
+  module: omnimarket.nodes.node_swarm_fanout_orchestrator.handlers.handler_swarm_fanout
+  class: HandlerSwarmFanout
+
+# OMN-18013 / OMN-16939 — routing_strategy is topic_match with ONE entry per topic, each
+# declaring its own message_category. handler_wiring derives an entry's category ONCE
+# (explicit message_category, else _derive_message_category(subscribe_topics[0])) and
+# stamps it on every route that entry registers, so a single entry spanning both a .cmd.
+# and a .evt. topic registers ALL of them under subscribe_topics[0]'s category and every
+# topic of the other category matches zero routes: consumed, DLQ'd and COMMITTED on every
+# message, at LAG 0, forever. Setting `topic:` alone is NOT sufficient — that picks WHICH
+# topic an entry owns; `message_category:` picks which category it registers under.
+handler_routing:
+  routing_strategy: topic_match
+  handlers:
+    - topic: onex.cmd.omnimarket.swarm-fanout.v1
+      message_category: command
+      operation: fanout
+      event_model:
+        name: ModelSwarmFanoutRequest
+        module: omnimarket.nodes.node_swarm_fanout_orchestrator.models.model_swarm_fanout_request
+      handler:
+        name: HandlerSwarmFanout
+        module: omnimarket.nodes.node_swarm_fanout_orchestrator.handlers.handler_swarm_fanout
+      description: "Fanout start command."
+    # OMN-18568 -- the three delegation .evt. topics USED to be declared here as durable
+    # subscriptions routed to this same handler. They are not, and never were, dispatchable
+    # to it. `HandlerSwarmFanout.handle` has one signature, `(request:
+    # ModelSwarmFanoutRequest)`, and there is no event branch behind it: the "collection
+    # branch" those entries' own descriptions cited is the INLINE
+    # `self._queue_subscriber.poll(completion_topics, ...)` reached DURING a fanout run,
+    # not a dispatch path. Because the entries declared no `event_model`, the dispatcher
+    # took its `event_model is None` branch and coerced each event into the handler's own
+    # annotation -- the start-COMMAND model -- so every event failed with `ValidationError:
+    # 14 validation errors for ModelSwarmFanoutRequest` BEFORE the handler was entered, was
+    # dead-lettered, replayed 5x and quarantined: 120 failures in 21 minutes on the .201
+    # stability lane on 2026-09-17, while the two sibling consumers on the same topic read
+    # Stable / LAG 0 and processed the same messages correctly.
+    #
+    # Declaring an `event_model` instead would trade a validation error for an unhandled
+    # one. Giving the handler a real event branch is the OMN-14607 rearchitecture, not this
+    # fix. The topics are still polled inline; see `resolve_completion_topics()` in the
+    # handler, which now reads them from the node that PUBLISHES them rather than from this
+    # contract's `subscribe_topics`.
+
+
+descriptor:
+  node_archetype: orchestrator
+  purity: orchestrating
+  idempotent: false
+  timeout_ms: 600000
+  runtime_profiles: [main]
+
+state_machine:
+  version: {major: 1, minor: 0, patch: 0}
+  state_machine_name: swarm_fanout_orchestrator
+  state_machine_version: {major: 1, minor: 0, patch: 0}
+  description: "Swarm fan-out phases. The handler tracks these phases in a local variable only; COLLECTING and FAILED are never assigned by it and an exception propagates to the caller (recorded on OMN-19548)."
+  initial_state: PLANNING
+  terminal_states: [COMPLETED, FAILED]
+  error_states: [FAILED]
+  states:
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: PLANNING
+      state_type: operational
+      description: "Endpoint map and wave schedule built."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: DISPATCHING
+      state_type: operational
+      description: "Commands published wave by wave."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: COLLECTING
+      state_type: operational
+      description: "Waiting for subtask results."
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: COMPLETED
+      state_type: terminal
+      description: "Every subtask reached a terminal status."
+      is_terminal: true
+      is_recoverable: false
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: FAILED
+      state_type: terminal
+      description: "A fatal error ended the fan-out."
+      is_terminal: true
+      is_recoverable: false
+  transitions:
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: planning_to_dispatching
+      from_state: PLANNING
+      to_state: DISPATCHING
+      trigger: commands_built
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: dispatching_to_collecting
+      from_state: DISPATCHING
+      to_state: COLLECTING
+      trigger: all_commands_published
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: collecting_to_completed
+      from_state: COLLECTING
+      to_state: COMPLETED
+      trigger: all_subtasks_terminal
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: collecting_to_failed
+      from_state: COLLECTING
+      to_state: FAILED
+      trigger: fatal_error
+
+event_bus:
+  version: {major: 2, minor: 0, patch: 0}
+  plugin_managed: false
+  # OMN-18568 -- this node durably subscribes to its start command ONLY. The three
+  # delegation .evt. topics it awaits are polled INLINE during a fanout run and are
+  # resolved from node_llm_delegation_call_effect, which publishes them; they are not
+  # listed here because a topic in this block is a claim that the runtime will deliver it
+  # to a registered dispatcher, and this node has no dispatcher that can accept one.
+  subscribe_topics:
+    - onex.cmd.omnimarket.swarm-fanout.v1
+  publish_topics:
+    - onex.evt.omnimarket.swarm-fanout-completed.v1
+    - onex.cmd.omnimarket.delegation-execute.v1
+
+externally_consumed_topics:
+  - onex.evt.omnimarket.swarm-fanout-completed.v1
+
+terminal_event: onex.evt.omnimarket.swarm-fanout-completed.v1
+
+published_events:
+  - event_type: SwarmFanoutCompleted
+    topic: onex.evt.omnimarket.swarm-fanout-completed.v1
+    description: Swarm fan-out completed; all subtasks terminal.
+  - event_type: DelegationExecute
+    topic: onex.cmd.omnimarket.delegation-execute.v1
+    description: Per-subtask delegation command forwarded to node_llm_delegation_call_effect.
+
+io_operations:
+  - kafka_publish
+  - kafka_subscribe
+
+error_handling:
+  retry_policy:
+    max_retries: 0
+    initial_delay_ms: 0
+    max_delay_ms: 0
+    exponential_base: 1
+    retry_on: []
+  error_types:
+    - name: TimeoutError
+      description: Per-subtask or total run timeout exceeded
+      recoverable: false
+
+timeout_behavior:
+  default_ms: 600000
+  max_ms: 600000
+  terminal_response:
+    status: timeout
+    error_message: "Swarm fan-out timed out"
+
+metadata:
+  transport_type: kafka
+  author: OmniNode Team
+  license: MIT
+  created: "2026-05-25"
+  tags: [orchestrator, swarm, fanout, dispatch, parallel, OMN-12118]
+  related_tickets:
+    - "OMN-12118"
+    - "OMN-11812"

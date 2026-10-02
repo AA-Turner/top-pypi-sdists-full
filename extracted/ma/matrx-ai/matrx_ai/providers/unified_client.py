@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import threading
+from contextvars import ContextVar
 from copy import copy
 from typing import TYPE_CHECKING, Any
 
@@ -732,6 +733,54 @@ def get_generic_openai_instance(name: str) -> Any | None:
 _provider_client_cache: dict[str, Any] = {}
 _provider_client_cache_lock = threading.Lock()
 
+# Admission pools the current TASK is already dispatching inside, as
+# (task, pool) pairs. A nested ``_dispatch_with_billing_net`` on one of them in
+# the SAME task passes straight through instead of taking a second slot (which,
+# at the pool's ceiling, deadlocks every outer holder waiting for an inner slot)
+# and reporting the failure twice. Keyed by task because a ContextVar is copied
+# into every child task: keyed by pool alone, gathered siblings and a task that
+# outlives the outer call skipped admission entirely (review of d022ab9953).
+_ACTIVE_DISPATCH_POOLS: ContextVar[frozenset[tuple[object, str]]] = ContextVar(
+    "matrx_ai_active_dispatch_pools", default=frozenset()
+)
+
+# ── THE transient retry (opt-in, request/response paths only) ──────────────
+# Provider SDKs never retry on their own (``keys.NO_SDK_RETRIES``). A path with
+# no retry loop above it opts in here with ``transient_retries=N``; the chat
+# executor never does (it owns its retries, and a streamed turn cannot be
+# re-sent without re-emitting what already streamed). Retried ONLY: a failure
+# the shared classifier calls retryable, of a kind where the provider refused
+# BEFORE doing the work, with no billed usage attached. Never a billing refusal,
+# never a timeout or an incomplete response (the provider may have finished —
+# and billed — the work we stopped waiting for). Guard:
+# tests/test_transient_retry_at_the_dispatch_seam.py.
+TRANSIENT_RETRY_ERROR_TYPES = frozenset(
+    {"connection_error", "rate_limit", "provider_overloaded", "server_error"}
+)
+#: A server_error with these statuses may mean the work ran upstream.
+_MAYBE_DONE_STATUSES = frozenset({504})
+#: Ceiling on one backoff wait, whatever ``Retry-After`` asks. CAPS.
+TRANSIENT_RETRY_MAX_DELAY_S = 8.0
+
+
+async def _transient_retry_sleep(seconds: float) -> None:
+    await asyncio.sleep(seconds)
+
+
+def transient_unbilled_failure(exc: BaseException, provider: str) -> Any | None:
+    """The classification of ``exc`` when it is safe to send the call again, else None."""
+    from matrx_ai.providers.errors import get_billed_usage
+    from matrx_ai.providers.failure_report import classify_for_report
+
+    if not isinstance(exc, Exception) or get_billed_usage(exc) is not None:
+        return None
+    info = classify_for_report(exc, provider)
+    if info is None or not info.is_retryable or info.error_type not in TRANSIENT_RETRY_ERROR_TYPES:
+        return None
+    if info.error_type == "server_error" and info.status_code in _MAYBE_DONE_STATUSES:
+        return None
+    return info
+
 
 def reset_provider_client_cache() -> None:
     """Drop all cached provider clients (test isolation / forced rebuild)."""
@@ -1326,6 +1375,7 @@ class UnifiedAIClient:
         *,
         profile: Any,
         provider_client: Any | None = None,
+        transient_retries: int = 0,
     ) -> Any:
         """Run one provider dispatch under the LAYER 2 billing net.
 
@@ -1336,12 +1386,61 @@ class UnifiedAIClient:
         adapter from an honest $0: if the wire was engaged and NOTHING ran billing
         capture, it screams. It never swallows or alters the exception.
 
-        Extraction, chat, and media catalog routes all pass through this wrapper.
-        STT, embedding, and realtime use dedicated runtimes and remain outside
-        this chat/media billing net.
+        Every paid request/response provider call passes through this wrapper:
+        chat, media, extraction (Fastino), STT (Groq), Google embeddings,
+        decisions (TypeSafe) and Cohere rerank. ``dispatch`` may return any
+        result type; only a result carrying ``messages`` is judged against a
+        declared answer contract. A nested dispatch on the SAME admission pool
+        (UnifiedAIClient's extraction route → ``extract_spans``) runs straight
+        through: the outer call already holds the slot and owns the reporting.
+        What still remains outside — matrx-batch, the token-broker relay,
+        Google Live/Music websockets, browser-direct realtime sessions and
+        Meet's LiveKit STT — is listed in providers/FEATURE.md.
         """
+        from matrx_ai.providers.admission import admission_key
+
+        pool = admission_key(profile)
+        holder = (asyncio.current_task(), pool)
+        active_pools = _ACTIVE_DISPATCH_POOLS.get()
+        if holder in active_pools:
+            return await dispatch()
+        provider = str(getattr(profile, "vendor", "unknown"))
+        attempt = 0
+        while True:
+            pools_token = _ACTIVE_DISPATCH_POOLS.set(active_pools | {holder})
+            try:
+                # Each attempt is a whole dispatch: its own admission slot, its
+                # own failure report, its own LAYER 2 verdict.
+                return await UnifiedAIClient._dispatch_admitted(
+                    dispatch, profile=profile, provider_client=provider_client
+                )
+            except Exception as exc:
+                info = (
+                    transient_unbilled_failure(exc, provider)
+                    if attempt < transient_retries
+                    else None
+                )
+                if info is None:
+                    raise
+                delay = min(float(info.get_backoff_delay(attempt)), TRANSIENT_RETRY_MAX_DELAY_S)
+                attempt += 1
+                vcprint(
+                    f"[dispatch] {provider} {info.error_type} — retry {attempt}/"
+                    f"{transient_retries} in {delay:.1f}s: {exc}",
+                    color="yellow",
+                )
+            finally:
+                _ACTIVE_DISPATCH_POOLS.reset(pools_token)
+            await _transient_retry_sleep(delay)
+
+    @staticmethod
+    async def _dispatch_admitted(
+        dispatch: Any,
+        *,
+        profile: Any,
+        provider_client: Any | None,
+    ) -> Any:
         from matrx_ai.providers.admission import admit_provider_call
-        from matrx_ai.providers.errors import report_unbilled_provider_failure
         from matrx_ai.providers.keys import prepare_provider_clients
 
         if provider_client is not None:
@@ -1368,6 +1467,11 @@ class UnifiedAIClient:
             try:
                 result = await dispatch()
                 succeeded = True
+                if getattr(result, "messages", None) is None:
+                    # An STT transcript, an embedding vector, decision answers,
+                    # rerank scores: not an answer to a declared contract, so
+                    # nothing is judged and no verdict is claimed.
+                    return result
                 # THE OTHER HALF OF "platform-side validation still enforces it".
                 # Eight docstrings in schema/rules.py and the enforcement_dropped
                 # finding itself excused a provider-side loss with a platform check
@@ -1410,29 +1514,17 @@ class UnifiedAIClient:
                     answer_off_contract = bool(answer_problems)
                 return result
             except BaseException as exc:  # noqa: BLE001 — re-raised untouched below
-                billing_gap = report_unbilled_provider_failure(
+                # THE one door every dispatched provider failure takes to the
+                # operator (out-of-credit alarm), then LAYER 2 — shared with
+                # runtimes that cannot hand their call here. Never raises.
+                from matrx_ai.providers.failure_report import report_dispatch_failure
+
+                await report_dispatch_failure(
                     exc,
                     provider=str(getattr(profile, "vendor", "unknown")),
                     model=getattr(profile, "model_name", None),
+                    route="providers/dispatch",
                 )
-                if billing_gap:
-                    try:
-                        from matrx_connect.streaming.error_capture import capture_error
-
-                        await capture_error(
-                            exc,
-                            kind="provider_billing_capture_missing",
-                            route="providers/dispatch",
-                            error_type=f"{type(exc).__module__}.{type(exc).__qualname__}",
-                            payload={
-                                "provider": str(getattr(profile, "vendor", "unknown")),
-                                "model": getattr(profile, "model_name", None),
-                            },
-                        )
-                    except Exception:
-                        # Accounting alarms and their persistence must never
-                        # swallow or replace the provider exception.
-                        pass
                 raise
             finally:
                 try:

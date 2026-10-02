@@ -57,7 +57,6 @@ class AllureWriter:
     """Accumulates per-operation TestResult objects and writes Allure JSON files on close()."""
 
     __slots__ = (
-        "_api_title",
         "_attachment_bodies",
         "_config",
         "_elapsed",
@@ -67,6 +66,8 @@ class AllureWriter:
         "_results",
         "_seen_curls",
         "_skip_reasons",
+        "_status_messages",
+        "api_title",
     )
 
     def __init__(
@@ -74,12 +75,13 @@ class AllureWriter:
     ) -> None:
         self._output_dir = Path(output_dir)
         self._config = config
-        self._api_title = api_title
+        self.api_title = api_title
         self._results: dict[str, TestResult] = {}
         self._elapsed: dict[str, float] = {}
         self._failures: dict[str, list[GroupedFailures]] = {}
         self._seen_curls: dict[str, set[str]] = {}
         self._skip_reasons: dict[str, str] = {}
+        self._status_messages: dict[str, str] = {}
         self._attachment_bodies: dict[str, bytes] = {}
         self._output_dir.mkdir(parents=True, exist_ok=True)
         self._logger = AllureFileLogger(str(self._output_dir))
@@ -93,8 +95,8 @@ class AllureWriter:
                 Label(name="framework", value="schemathesis"),
                 Label(name="layer", value="API"),
             ]
-            if self._api_title is not None:
-                labels.append(Label(name="epic", value=self._api_title))
+            if self.api_title is not None:
+                labels.append(Label(name="epic", value=self.api_title))
             result = TestResult(
                 uuid=str(uuid4()),
                 name=label,
@@ -157,19 +159,30 @@ class AllureWriter:
             result.labels = [lbl for lbl in result.labels if lbl.name != "severity"]
             result.labels.append(Label(name="severity", value=worst_severity))
 
-    def write(self, recorder: RecordedScenario, elapsed_sec: float = 0.0, tags: list[str] | None = None) -> None:
+    def write(
+        self,
+        recorder: RecordedScenario,
+        elapsed_sec: float = 0.0,
+        tags: list[str] | None = None,
+        *,
+        status: Status | None = None,
+        message: str | None = None,
+    ) -> None:
         assert self._config is not None
 
         grouped = grouped_failures_from_recorder(recorder)
-        status = Status.FAILURE if grouped else Status.SUCCESS
+        if status is None:
+            status = Status.FAILURE if grouped else Status.SUCCESS
         self.record_scenario(
             label=recorder.label,
             elapsed_sec=elapsed_sec,
             status=status,
             failures=grouped,
-            skip_reason=None,
+            skip_reason=message if status == Status.SKIP else None,
             tags=tags,
         )
+        if message is not None and not grouped and status in (Status.FAILURE, Status.ERROR):
+            self._status_messages.setdefault(recorder.label, message)
 
     def record_error(self, label: str, message: str) -> None:
         result = self._get_or_create(label)
@@ -217,6 +230,8 @@ class AllureWriter:
                     result.steps.append(step)
             elif label in self._skip_reasons:
                 result.statusDetails = StatusDetails(message=self._skip_reasons[label])
+            elif label in self._status_messages:
+                result.statusDetails = StatusDetails(message=self._status_messages[label])
 
             for attachment in result.attachments:
                 body = self._attachment_bodies.get(attachment.source)

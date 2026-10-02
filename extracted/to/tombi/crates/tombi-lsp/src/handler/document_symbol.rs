@@ -1,4 +1,3 @@
-use tombi_text::IntoLsp;
 use tower_lsp::lsp_types::{
     DocumentSymbol, DocumentSymbolParams, DocumentSymbolResponse, SymbolKind,
 };
@@ -16,29 +15,28 @@ pub async fn handle_document_symbol(
 
     let text_document_uri = text_document.uri.into();
 
-    let Ok(document_sources) = backend.document_sources.try_read() else {
-        return Ok(None);
-    };
-    let Some(document_source) = document_sources.get(&text_document_uri) else {
+    let Some(document_source) = backend.document_source(&text_document_uri) else {
         return Ok(None);
     };
 
     let document_tree = document_source.document_tree();
-    let line_index = document_source.line_index();
+    let mut cursor = document_source
+        .line_index()
+        .cursor(document_source.encoding_kind());
 
-    let symbols = create_symbols(&document_tree, line_index);
+    let symbols = create_symbols(document_tree, &mut cursor);
 
     Ok(Some(DocumentSymbolResponse::Nested(symbols)))
 }
 
 fn create_symbols(
-    tree: &tombi_document_tree_syntax::DocumentTree,
-    line_index: &tombi_text::LineIndex,
+    tree: &tombi_document_tree_syntax::DocumentTree<'_>,
+    cursor: &mut tombi_text::LineIndexCursor,
 ) -> Vec<DocumentSymbol> {
     let mut symbols: Vec<DocumentSymbol> = vec![];
 
     for (key, value) in tree.key_values() {
-        symbols_for_value(key.to_string(), value, None, line_index, &mut symbols);
+        symbols_for_value(key.to_string(), value, None, cursor, &mut symbols);
     }
 
     symbols
@@ -47,9 +45,9 @@ fn create_symbols(
 #[allow(deprecated)]
 fn symbols_for_value(
     mut name: String,
-    value: &tombi_document_tree_syntax::Value,
-    parent_key_range: Option<tombi_text::Range>,
-    line_index: &tombi_text::LineIndex,
+    value: &tombi_document_tree_syntax::Value<'_>,
+    parent_key_span: Option<tombi_text::Span>,
+    cursor: &mut tombi_text::LineIndexCursor,
     symbols: &mut Vec<DocumentSymbol>,
 ) {
     use tombi_document_tree_syntax::Value::*;
@@ -60,13 +58,15 @@ fn symbols_for_value(
         name = "\"\"".to_string();
     }
 
-    let value_range = value.symbol_range();
-    let range = if let Some(parent_key_range) = parent_key_range {
-        parent_key_range + value_range
+    let value_span = value.symbol_span();
+    let span = if let Some(parent_key_span) = parent_key_span {
+        parent_key_span + value_span
     } else {
-        value_range
+        value_span
     };
 
+    // Converted before the children, so that the cursor mostly moves forward.
+    let range = cursor.lsp_range(span);
     let selection_range = range;
 
     match value {
@@ -74,8 +74,8 @@ fn symbols_for_value(
             symbols.push(DocumentSymbol {
                 name,
                 kind: SymbolKind::BOOLEAN,
-                range: range.into_lsp(line_index),
-                selection_range: selection_range.into_lsp(line_index),
+                range,
+                selection_range,
                 children: None,
                 detail: None,
                 deprecated: None,
@@ -86,8 +86,8 @@ fn symbols_for_value(
             symbols.push(DocumentSymbol {
                 name,
                 kind: SymbolKind::NUMBER,
-                range: range.into_lsp(line_index),
-                selection_range: selection_range.into_lsp(line_index),
+                range,
+                selection_range,
                 children: None,
                 detail: None,
                 deprecated: None,
@@ -98,8 +98,8 @@ fn symbols_for_value(
             symbols.push(DocumentSymbol {
                 name,
                 kind: SymbolKind::STRING,
-                range: range.into_lsp(line_index),
-                selection_range: selection_range.into_lsp(line_index),
+                range,
+                selection_range,
                 children: None,
                 detail: None,
                 deprecated: None,
@@ -110,8 +110,8 @@ fn symbols_for_value(
             symbols.push(DocumentSymbol {
                 name,
                 kind: SymbolKind::STRING,
-                range: range.into_lsp(line_index),
-                selection_range: selection_range.into_lsp(line_index),
+                range,
+                selection_range,
                 children: None,
                 detail: None,
                 deprecated: None,
@@ -124,8 +124,8 @@ fn symbols_for_value(
                 symbols_for_value(
                     format!("[{index}]"),
                     value,
-                    Some(value.symbol_range()),
-                    line_index,
+                    Some(value.symbol_span()),
+                    cursor,
                     &mut children,
                 );
             }
@@ -133,8 +133,8 @@ fn symbols_for_value(
             symbols.push(DocumentSymbol {
                 name,
                 kind: SymbolKind::ARRAY,
-                range: range.into_lsp(line_index),
-                selection_range: selection_range.into_lsp(line_index),
+                range,
+                selection_range,
                 children: Some(children),
                 detail: None,
                 deprecated: None,
@@ -147,8 +147,8 @@ fn symbols_for_value(
                 symbols_for_value(
                     key.to_string(),
                     value,
-                    Some(key.range()),
-                    line_index,
+                    Some(key.span()),
+                    cursor,
                     &mut children,
                 );
             }
@@ -156,8 +156,8 @@ fn symbols_for_value(
             symbols.push(DocumentSymbol {
                 name,
                 kind: SymbolKind::OBJECT,
-                range: range.into_lsp(line_index),
-                selection_range: selection_range.into_lsp(line_index),
+                range,
+                selection_range,
                 children: Some(children),
                 detail: None,
                 deprecated: None,

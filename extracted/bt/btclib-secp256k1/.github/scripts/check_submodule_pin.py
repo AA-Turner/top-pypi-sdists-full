@@ -1,0 +1,401 @@
+# Copyright (c) The btclib developers
+# Distributed under the MIT software license, see the accompanying
+# LICENSE file or https://opensource.org/license/mit for the full text.
+
+"""The vendored libsecp256k1 is the release README.md says it is.
+
+`submodule-pin-release` in .github/workflows/release.yml asks this of
+upstream, over the network, and refuses to publish when the answer is
+no. That is the last gate before publication and it stays. What this is,
+is the same question asked of every commit instead of every release, so
+that a submodule bump and the prose about it cannot disagree for the
+length of a cycle -- which is the window in which CHANGELOG.md,
+RELEASE_NOTES.md and README.md are written about the version nobody has
+confirmed.
+
+Offline is what makes it a hook rather than a workflow step. The tag is
+resolved in the vendored clone, whose refs are already on the machine, so
+nothing here reaches the network and nothing goes red because github.com
+is unreachable. The half only the network can answer -- that the tag is
+upstream's, and that its signature is a maintainer's -- is the job of the
+same name in .github/workflows/vendored-vectors.yml, which is a sentinel
+for exactly that reason.
+
+Two commands, and what they answer:
+
+    git ls-tree HEAD secp256k1          the commit this tree pins
+    git -C secp256k1 rev-parse <tag>^{commit}   what README.md's tag is
+
+Run by the `submodule-pin` hook of .pre-commit-config.yaml, and so by the
+lint workflow, on every commit rather than on the two paths that can
+break the agreement: pre-commit cannot filter on the gitlink, for the
+reason that hook's own comment gives, and two git invocations are cheap
+enough that it does not have to.
+
+README.md is the one declared value, on purpose: btclib-org/btclib-secp256k1#429
+asked whether the wrapped release should live there or in a fourth,
+machine-written place, and the answer is that README.md stays it. The
+submodule pin is already the machine's ground truth -- what this hook and
+`submodule-pin-release` both resolve a tag against -- so a fourth file
+would only be one more thing to move in step with the submodule, not a
+smaller number of places that read it. What README.md's prose gives that
+the pin alone cannot is a human-legible claim of which release that
+commit is, which is what `release.yml` and `vendored-vectors.yml`
+compare it against too, each with its own copy of `_NAMED` (the three
+are named in #429; a fix to the parsing is owed to all of them in one
+campaign).
+
+That leaves one hazard #429 also names: `_NAMED.search` and the two
+workflows' `sed ... | head -1` both take the *first* match in the file,
+not the one under "## Versioning". Today that is the only match README.md
+carries, so first and only coincide; the moment a second matching link
+is added anywhere earlier in the file -- prose about an older release,
+say -- the first-match answer changes to it with nothing going red,
+because a stale claim that still resolves to a real tag is not
+distinguishable from a current one by shape alone. Keeping the
+"## Versioning" link the *only* such link in README.md is what keeps
+first and only the same match; a link added anywhere else in the file
+that also matches `_NAMED` has to stay below it.
+
+secp256k1-zkp (btclib-org/btclib-secp256k1#604) is pinned the same way and
+checked differently, because it has no release to name: zero tags at the
+pin, so there is no `<tag>^{commit}` for the vendored clone to resolve and
+`commit_of`/`why_no_tag` do not apply to it. What README.md declares
+instead is the commit itself, as the url of its GitHub commit page, and
+the check is a direct string comparison against the index's gitlink for
+that submodule -- no resolution, and so no need for the zkp clone to be
+checked out at all for this hook to pass or fail correctly. That also
+means the hazard two paragraphs up does not reach it: `_NAMED_ZKP` and
+`_NAMED` match different, non-overlapping URL shapes (a release tag's
+path against a commit's), so one can never shadow the other's first
+match.
+"""
+
+from __future__ import annotations
+
+import os
+import re
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+# resolved once: a bare "git" in a subprocess list is what S607 is about,
+# the same way .github/scripts/check_vendored_vectors.py resolves gh
+_GIT = shutil.which("git") or "git"
+
+# what git puts in the environment of a hook, and what has to come back
+# out of it before git is run anywhere else. These name *this*
+# repository, and `-C secp256k1` does not override them: with GIT_DIR set
+# the tag is looked for in the wrong repository and is not found. It
+# shows only from the git hook -- a `pre-commit run` in a terminal sets
+# none of them, and passed on the very tree the commit then refused
+_INHERITED = (
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_COMMON_DIR",
+    "GIT_PREFIX",
+    "GIT_NAMESPACE",
+)
+
+_ROOT = Path(__file__).resolve().parents[2]
+_SUBMODULE = "secp256k1"
+_SUBMODULE_ZKP = "secp256k1-zkp"
+
+# the release README.md names, as the url of an upstream release tag. The
+# same expression release.yml reads it with, which is what keeps the two
+# checks about one line of prose rather than two
+_NAMED = re.compile(r"secp256k1/releases/tag/(v[0-9][0-9.]*)")
+
+# the commit README.md names for secp256k1-zkp, as the url of its GitHub
+# commit page -- there is no tag to link instead. 40 hex digits rather
+# than a short prefix, so the comparison in _check_zkp_pin() is exact and
+# needs no clone to disambiguate a prefix against
+_NAMED_ZKP = re.compile(r"secp256k1-zkp/commit/([0-9a-f]{40})")
+
+
+def named_release(readme: str) -> str | None:
+    """Return the libsecp256k1 release README.md names, or None.
+
+    Args:
+        readme: the text of README.md.
+
+    Returns:
+        The first release tag it links to, or None where it links to no
+        upstream release at all -- which is a failure of its own and not
+        a check that passes vacuously. "First" is safe only while the
+        "## Versioning" link is the sole match in the file, per the
+        module docstring's #429 paragraph.
+    """
+    match = _NAMED.search(readme)
+    return match[1] if match else None
+
+
+def named_zkp_commit(readme: str) -> str | None:
+    """Return the secp256k1-zkp commit README.md names, or None.
+
+    Args:
+        readme: the text of README.md.
+
+    Returns:
+        The first commit it links to on secp256k1-zkp's own commit page,
+        or None where it links to none -- a failure of its own, the same
+        way `named_release` returning None is.
+    """
+    match = _NAMED_ZKP.search(readme)
+    return match[1] if match else None
+
+
+def _git(*args: str, cwd: Path | None = None, disown: bool = False) -> str | None:
+    """Run git and return its stdout, or None where it failed.
+
+    A failure is an answer here rather than an exception: an unknown tag
+    and an uninitialized submodule both come back as one, and each is
+    reported by the caller in its own words.
+
+    Args:
+        *args: the git arguments, the executable excluded.
+        cwd: the directory to run in, the repository root by default.
+        disown: whether to drop the repository git names in the
+            environment, which a run against any other one has to.
+
+    Returns:
+        The stripped stdout, or None if git exited non-zero.
+    """
+    env = None
+    if disown:
+        env = {k: v for k, v in os.environ.items() if k not in _INHERITED}
+    result = subprocess.run(  # noqa: S603
+        [_GIT, *args],
+        cwd=cwd or _ROOT,
+        capture_output=True,
+        encoding="utf-8",
+        check=False,
+        env=env,
+    )
+    return result.stdout.strip() if result.returncode == 0 else None
+
+
+def pinned_commit(submodule: str = _SUBMODULE) -> str | None:
+    """Return the commit the index pins a submodule to.
+
+    The index, and not `HEAD`: a hook runs on what is about to be
+    committed, and the commit that moves the submodule is the one this
+    check exists for. `git ls-tree HEAD` would read the pin of the
+    commit *before* it and compare that with a README.md already saying
+    the new release -- failing every bump, and for a reason that is not
+    the one it would report. The two agree in a clean tree, which is
+    every run of the lint workflow.
+
+    Read from the index rather than from the submodule's own HEAD for a
+    second reason: the gitlink is in this repository's tree, and it is
+    there whether or not the submodule has been checked out.
+
+    Args:
+        submodule: the gitlink's path, `_SUBMODULE` by default -- the one
+            argument callers pass is `_SUBMODULE_ZKP`.
+
+    Returns:
+        The 40-hex commit, or None if the index has no such gitlink.
+    """
+    line = _git("ls-files", "--stage", "--", submodule)
+    if not line:
+        return None
+    fields = line.split()
+    # mode, object, stage, path -- and 160000 is the gitlink mode, which
+    # is what tells a submodule from a file that happens to be named so
+    return fields[1] if len(fields) == 4 and fields[0] == "160000" else None
+
+
+def _checked_out(path: Path) -> bool:
+    """Whether a submodule has a `.git` of its own under `path`.
+
+    `-C path` does not stop git from discovering a repository above
+    `path` when `path` has no `.git` -- a fresh `git worktree add` does
+    not initialize submodules, so `path` can exist, empty, with the
+    wrapper repository one directory up being the first `.git` upward
+    discovery finds. Checking for `path/.git` directly, before any git
+    command runs in it, is what keeps that discovery from having
+    anywhere to walk to: a submodule's `.git` is a file pointing at its
+    module elsewhere, a plain clone's is a directory, and `Path.exists`
+    reads either without caring which.
+
+    Args:
+        path: the submodule's working directory.
+
+    Returns:
+        True where `path/.git` exists, False where the submodule was
+        never initialized (or `path` itself does not exist).
+    """
+    return (path / ".git").exists()
+
+
+def commit_of(tag: str) -> str | None:
+    """Return the commit a tag names in the vendored clone.
+
+    Args:
+        tag: the release tag, as README.md names it.
+
+    Returns:
+        The 40-hex commit the tag resolves to, or None where the clone
+        does not have that tag -- an uninitialized submodule, or a
+        shallow checkout carrying no tags.
+    """
+    if not _checked_out(_ROOT / _SUBMODULE):
+        return None
+    return _git(
+        "rev-parse",
+        "--verify",
+        "--quiet",
+        f"{tag}^{{commit}}",
+        cwd=_ROOT / _SUBMODULE,
+        # a different repository, so the hook environment goes
+        disown=True,
+    )
+
+
+def why_no_tag(tag: str) -> str:
+    """Say which of the three states a clone without that tag is in.
+
+    One message for all three is enough for a developer, who has one of
+    them; it is not enough for a checkout somebody else makes, where
+    which state it is *is* the finding. A fresh `git worktree add` is in
+    the first state until `git submodule update --init` runs in it, and
+    a checkout made with a depth is in the second, which is why lint.yml
+    asks for `fetch-depth: 0`.
+
+    Args:
+        tag: the release tag that could not be resolved.
+
+    Returns:
+        A sentence naming the state and what would change it.
+    """
+    if not _checked_out(_ROOT / _SUBMODULE):
+        return (
+            f"the {_SUBMODULE} submodule is not checked out, so nothing here"
+            " can resolve a tag: git submodule update --init"
+        )
+    if (
+        _git(
+            "rev-parse", "--is-shallow-repository", cwd=_ROOT / _SUBMODULE, disown=True
+        )
+        == "true"
+    ):
+        return (
+            f"the vendored clone is shallow and carries no {tag} tag:"
+            " git -C secp256k1 fetch --unshallow --tags, or check the"
+            " submodule out with fetch-depth 0"
+        )
+    return (
+        f"the vendored clone has no {tag} tag, though it is neither absent"
+        " nor shallow: git -C secp256k1 fetch --tags"
+    )
+
+
+def _check_release_pin(readme: str) -> int:
+    """Check the secp256k1 half: a tag, resolved in the vendored clone.
+
+    Args:
+        readme: the text of README.md.
+
+    Returns:
+        0 where the pin and the tag agree, 1 otherwise.
+    """
+    pinned = pinned_commit(_SUBMODULE)
+    if pinned is None:
+        print(f"no {_SUBMODULE} submodule in this tree", file=sys.stderr)
+        return 1
+
+    named = named_release(readme)
+    if named is None:
+        print(
+            "README.md links to no libsecp256k1 release: the version this"
+            " package wraps is named there, and release.yml reads it from"
+            " that same line",
+            file=sys.stderr,
+        )
+        return 1
+
+    tagged = commit_of(named)
+    if tagged is None:
+        print(why_no_tag(named), file=sys.stderr)
+        return 1
+
+    if tagged != pinned:
+        print(
+            f"README.md names {named} ({tagged}), and the submodule is"
+            f" pinned to {pinned}. The submodule moves in a change of"
+            " its own, with the version named in README.md and"
+            " RELEASE_NOTES.md moved with it",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(f"the submodule is pinned to {named} ({pinned[:7]}), as README.md says")
+    return 0
+
+
+def _check_zkp_pin(readme: str) -> int:
+    """Check the secp256k1-zkp half: a commit, no tag naming it.
+
+    Args:
+        readme: the text of README.md.
+
+    Returns:
+        0 where the pin and the declared commit agree, 1 otherwise. No
+        clone is read here at all -- see the module docstring's #604
+        paragraph for why a direct string comparison is enough.
+    """
+    pinned = pinned_commit(_SUBMODULE_ZKP)
+    if pinned is None:
+        print(f"no {_SUBMODULE_ZKP} submodule in this tree", file=sys.stderr)
+        return 1
+
+    named = named_zkp_commit(readme)
+    if named is None:
+        print(
+            f"README.md links to no {_SUBMODULE_ZKP} commit: the pin this"
+            " package builds against is declared there, as the url of its"
+            " GitHub commit page",
+            file=sys.stderr,
+        )
+        return 1
+
+    if named != pinned:
+        print(
+            f"README.md names {_SUBMODULE_ZKP} commit {named}, and the"
+            f" submodule is pinned to {pinned}. The submodule moves in a"
+            " change of its own, with the commit named in README.md moved"
+            " with it",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(
+        f"the {_SUBMODULE_ZKP} submodule is pinned to {pinned[:7]}, as README.md says"
+    )
+    return 0
+
+
+def main() -> int:
+    """Compare each submodule's pin with what README.md declares for it.
+
+    Returns:
+        0 where every submodule's pin and its declared value agree, 1
+        where any pair does not or where a question could not be asked --
+        which is a failure too: a check that cannot read its inputs has
+        not passed. Both halves run regardless of the first's result, so
+        a single failing commit reports every disagreement it has rather
+        than the first one found.
+    """
+    readme = (_ROOT / "README.md").read_text(encoding="utf-8")
+    release_ok = _check_release_pin(readme) == 0
+    zkp_ok = _check_zkp_pin(readme) == 0
+    return 0 if release_ok and zkp_ok else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

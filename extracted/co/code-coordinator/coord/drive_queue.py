@@ -109,10 +109,13 @@ from coord.merge_queue import (
 )
 from coord.milestone_order import TRACKING_ISSUE_LABEL
 from coord.models import (
+    CLOSES_ISSUE_TYPES,
     EPIC_DECOMPOSE_TYPE,
+    DEFAULT_ISSUE_RESOLUTION,
     is_merge_landed_reason,
     is_policy_refusal_reason,
     is_premise_refusal_reason,
+    parse_issue_resolution,
 )
 
 # ── dispatch type selection (#3132) ─────────────────────────────────────────
@@ -174,6 +177,29 @@ STATE_RUNNING = "running"
 STATE_DONE = "done"
 STATE_BLOCKED = "blocked"
 STATE_FAILED = "failed"
+# #3502: the merge witness fired (`facts.merged`, never an `issue_state`
+# close — see `_merge_landed_state`), but the worker's/reviewer's own
+# `ISSUE_RESOLUTION:` marker said this PR does NOT fully resolve the
+# issue. Distinct from `STATE_DONE` so `coord drive-queue list`/the TUI
+# don't render a row that still needs real work as plain "done" — the
+# #3502 incident (vimcode#1559/#1562/#1582/#1634) this closes is exactly
+# that: the queue (and everything reading it) read "finished" while the
+# worker's own final message said otherwise. Still terminal
+# (`TERMINAL_QUEUE_STATES` below) — THIS entry has nothing left to
+# dispatch (the branch is merged); the remaining work belongs to whatever
+# follow-up issue the worker/reviewer named, not to a relaunch of this one.
+STATE_MERGED_PARTIAL = "merged-partial"
+
+# #3502: every scheduling/prereq-satisfaction check in this module that asks
+# "is this row's own work finished" (as opposed to "does `coord drive-queue
+# list` need to call out this row specially") must treat `done` and
+# `merged-partial` identically — the CODE landed either way, which is what
+# unblocks a dependent chained `--after` this entry or stops charging this
+# row an attempt; only the issue's own resolution differs, and that is a
+# property of the dependent's OWN eventual work, not of whether the dep's
+# branch merged. Kept as one frozenset (not a per-call-site `in (...)`) so
+# a future terminal-but-not-fully-done state only needs to be added here.
+STATE_DONE_LIKE: frozenset[str] = frozenset({STATE_DONE, STATE_MERGED_PARTIAL})
 # #1891: a drive that died while ITS OWN issue's merge was refused for
 # nothing stronger than "CI checks have not reported yet" (see
 # `coord.merge_queue.is_ci_pending_reason`) — as opposed to genuinely dead,
@@ -219,7 +245,7 @@ STATE_FAILED = "failed"
 STATE_PARKED = "parked"
 
 TERMINAL_QUEUE_STATES: frozenset[str] = frozenset(
-    {STATE_DONE, STATE_BLOCKED, STATE_FAILED}
+    {STATE_DONE, STATE_MERGED_PARTIAL, STATE_BLOCKED, STATE_FAILED}
 )
 
 # #2158: how long a `parked` entry may hold a CI reading that CANNOT refresh
@@ -303,7 +329,32 @@ PARK_STALE_SECONDS = 45 * 60.0
 # the narrower predicate `coord.commands.drive_queue` uses to also stop its
 # OWN independent auto-dispatch (the stale-rebase conflict-fix revalidation)
 # from re-firing against a row that has already given up this way.
-_PERMANENT_BLOCK_MARKERS: tuple[str, ...] = ("(#1844)", "(#2019)", "(#2972)")
+#
+# #3522: `(#3522)` joined this tuple for a FOURTH shape, distinct from the
+# three above in one way — it IS actively remedied, just never by relaunching
+# a whole drive session. `coord.merge_queue.process()`'s own
+# `issue_resolution_closing_keyword_in_commit` gate refuses to merge a branch
+# whose PR is marked `ISSUE_RESOLUTION: partial`/`investigation` but whose
+# commit message(s) still carry a GitHub closing keyword for that same issue
+# — and, since #3522, dispatches a message-only reword-commit worker
+# (`coord.conflict_fix.dispatch_conflict_fix(..., reword_commit=True)`) the
+# moment it fires. Before that worker existed, a drive that exhausted its
+# merge-attempt budget against this refusal (`_die`'s "merge attempted N
+# times without landing", embedding this module's own diagnostic text
+# verbatim) died into `blocked`, and this sweep's live-gate re-check — which
+# has no way to observe "a commit got reworded on another machine", only
+# whether the merge gate currently reads clear — kept reading the SAME
+# refusal as "unlucky, re-check later" and burned its resume budget
+# relaunching into it (claude-coordinator#3519's exact deadlock: three
+# identical refusals, `resumes=1/3`, `2/3`, `3/3`, then stuck). The actual
+# remedy runs entirely OUTSIDE this relaunch loop — a dedicated worker,
+# dispatched from the merge gate itself, that force-pushes once it has
+# verified the reword changed nothing but wording — so there is nothing for
+# a drive-session relaunch to contribute here either; it can only duplicate
+# spend while the real remedy is already in flight. See
+# `coord.merge_queue.process`'s `issue_resolution_closing_keyword_in_commit`
+# handling for where the marker's text originates.
+_PERMANENT_BLOCK_MARKERS: tuple[str, ...] = ("(#1844)", "(#2019)", "(#2972)", "(#3522)")
 
 
 def is_fix_round_ceiling_reason(reason: str | None) -> bool:
@@ -354,8 +405,13 @@ def is_fix_round_ceiling_blocked(state: str | None, last_reason: str | None) -> 
 
 
 def is_permanent_block_reason(text: str | None) -> bool:
-    """Whether *text* names a PERMANENT cause of `blocked` — #2230's sweep
-    must never re-check these; relaunching cannot change either outcome.
+    """Whether *text* names a cause of `blocked` that #2230's sweep must
+    never re-check — **relaunching the drive session cannot change the
+    outcome**, whether that is because the block is truly permanent
+    (#1844/#2019/#2972) or because, #3522, the real remedy already runs
+    entirely outside this sweep's relaunch loop (a dedicated reword-commit
+    worker dispatched straight from the merge gate) and a resume here could
+    only duplicate that spend, never substitute for it.
 
     Marker-based, the same convention `coord.gate_a.is_gate_a_refusal_reason`
     uses for the analogous Gate-A classification: cheap, and correct even
@@ -1687,7 +1743,7 @@ def remaining_fix_rounds(
 
 def _entry_is_pending(entry: QueueEntry) -> bool:
     """Rows that still have work ahead — `done` entries are history."""
-    return entry.state != STATE_DONE
+    return entry.state not in STATE_DONE_LIKE
 
 
 def _entry_is_holding(entry: QueueEntry) -> bool:
@@ -1711,7 +1767,7 @@ def _after_satisfied(entry: QueueEntry, all_entries: Sequence[QueueEntry]) -> bo
     for key in entry.after:
         unsatisfied = any(
             other.key == key
-            and (other.state != STATE_DONE or _entry_is_holding(other))
+            and (other.state not in STATE_DONE_LIKE or _entry_is_holding(other))
             for other in all_entries
         )
         if unsatisfied:
@@ -1972,6 +2028,21 @@ class IssueFacts:
     # this issue (never dispatched) — reads as "budget untouched", never as a
     # false ceiling trip.
     work_leg_count: int = 0
+    # #3502: the worker's (and reviewer's, when it overrode) own
+    # self-reported `ISSUE_RESOLUTION:` judgment for the merged work-like
+    # assignment behind `merged` — one of
+    # `coord.models.ISSUE_RESOLUTION_VALUES`. Sourced the same way every
+    # other field on this dataclass is (straight off `GET /board`'s own
+    # `completion_summary` column via `coord.models.parse_issue_resolution`
+    # — no extra `gh` call, no second review-findings fetch; the merge
+    # gate's own fuller derivation, which also folds in the reviewer's
+    # judgment via the GitHub message bus, lives in
+    # `coord.merge_queue._issue_resolution_for_entry` and is NOT
+    # re-implemented here). Defaults to
+    # `coord.models.DEFAULT_ISSUE_RESOLUTION` ("resolved") — the pre-#3502
+    # behaviour — for every row with no marker, no `completion_summary` at
+    # all, or predating this field.
+    merge_resolution: str = DEFAULT_ISSUE_RESOLUTION
 
     @property
     def open(self) -> bool:
@@ -2008,6 +2079,53 @@ class IssueFacts:
         if self.reopened:
             return False
         return self.merged
+
+    @property
+    def merged_partial(self) -> bool:
+        """(#3502) True when `merged` is the LANDING witness (never a
+        closed-issue witness — see `landed`'s docstring) AND the worker/
+        reviewer marked this PR as not fully resolving the issue.
+
+        `landed` is unaffected by this (still True — the queue entry has
+        nothing left to dispatch) but a caller recording the terminal
+        queue state should write `STATE_MERGED_PARTIAL`, not `STATE_DONE`,
+        when this is True — see `_merge_landed_state`.
+
+        Deliberately excludes the `closed` case: a human closing the issue
+        (even one carrying a non-default `merge_resolution` from an
+        earlier merge) is its own, stronger "done" signal and should read
+        as plain `done`, not `merged-partial`.
+        """
+        return (
+            self.merged
+            and not self.closed
+            and self.merge_resolution != DEFAULT_ISSUE_RESOLUTION
+        )
+
+
+def _merge_landed_state(facts: "IssueFacts") -> tuple[str, str]:
+    """(state, witness) for a `facts.landed` issue (#3502).
+
+    `STATE_DONE`/`"merged"`|`"issue closed"` is the pre-#3502 pair, used for
+    every landed issue EXCEPT the one new case: `facts.merged_partial` —
+    the merge witness fired but the worker/reviewer said this PR does not
+    fully resolve the issue — which gets `STATE_MERGED_PARTIAL` instead, so
+    a `coord drive-queue list`/TUI read never shows a row that still needs
+    real work as indistinguishable from a clean `done`.
+
+    Centralised so every call site below that folds `facts.landed` (or an
+    equivalent live-confirmed-merge reading) into a terminal write can't
+    drift from each other (#2096: one question, one answer) — three in
+    `_reconcile_running`, plus the `_capacity_for` STATE_PARKED/BLOCKED/
+    FAILED sweep and `_cordon_reason`, five in total.
+    """
+    if facts.merged_partial:
+        return (
+            STATE_MERGED_PARTIAL,
+            f"merged, issue intentionally left open ({facts.merge_resolution})",
+        )
+    witness = "merged" if facts.merged else "issue closed"
+    return STATE_DONE, witness
 
 
 def _issue_cache_stale(facts: IssueFacts, now: float | None) -> bool:
@@ -2090,6 +2208,28 @@ def build_board_view(
         status = row.get("status") or ""
         if status == "merged":
             entry["merged"] = True
+            # #3502: the worker's own `ISSUE_RESOLUTION:` claim, read off
+            # the SAME `completion_summary` column every other
+            # `GET /board` field on this dataclass reads — no extra `gh`
+            # call or review-findings fetch here (that fuller, reviewer-
+            # aware derivation is `coord.merge_queue._issue_resolution_for_
+            # entry`, used at the actual merge decision; this is a
+            # best-effort display-only echo of it).
+            #
+            # Scoped to `CLOSES_ISSUE_TYPES` (today, exactly `{"work"}`),
+            # NOT the broader `WORK_LIKE` this loop otherwise reads rows
+            # for. A `mock-author`/`test-author`/`epic-decompose` row's
+            # `issue_number` was never going to be closed on merge in the
+            # first place (#1077) — plausible as it is for one of those
+            # dispatch types' final message to ALSO carry an
+            # `ISSUE_RESOLUTION:` marker (the instruction text doesn't
+            # exclude them), echoing it here would read as `merged-partial`
+            # for a row `merge_queue.py`'s actual close/comment decision
+            # never treats as partial, a meaningless, confusing state.
+            if (row.get("type") or "") in CLOSES_ISSUE_TYPES:
+                entry["merge_resolution"] = parse_issue_resolution(
+                    row.get("completion_summary")
+                ).value
         if status == "done":
             # #3239: at least one dispatch for this issue definitely reached
             # `coord assign` and ran the work to completion — see
@@ -3118,7 +3258,7 @@ def _resolve_prereqs(
             continue
         dep_state = states.get(dep)
         if dep_state is not None:
-            if dep_state == STATE_DONE:
+            if dep_state in STATE_DONE_LIKE:
                 # #2715: the queue's OWN row for *dep* already knows it
                 # landed — every `STATE_DONE` write in this module
                 # (`_reconcile_running`'s `facts.landed` branch, the
@@ -3300,7 +3440,7 @@ def diagnose_blocked_after(
         dep for dep in entry.after
         if not board.facts(dep).landed
         and not live_terminal.get(dep)
-        and states.get(dep) != STATE_DONE
+        and states.get(dep) not in STATE_DONE_LIKE
     )
     if not entry.after:
         return BlockedAfterDiagnosis(unsatisfied)
@@ -4583,7 +4723,7 @@ def _reconcile_running(
         )
 
     if facts.landed:
-        witness = "merged" if facts.merged else "issue closed"
+        state, witness = _merge_landed_state(facts)
         return (
             Reconcile(
                 entry.key,
@@ -4591,7 +4731,7 @@ def _reconcile_running(
                 f"drive finished ({witness})",
                 occupies=False,
                 updates={
-                    "state": STATE_DONE,
+                    "state": state,
                     "last_reason": f"done ({witness})",
                     "session_name": None,
                 },
@@ -4611,6 +4751,13 @@ def _reconcile_running(
         # that this landed. Mark it done here, before anything below gets a
         # chance to read the absent session / absent active-work as a death
         # and requeue a launch that has nothing left to do.
+        #
+        # #3502: `state` still folds in `facts.merged_partial` — the live
+        # exit-reason check confirms THAT the branch merged, not whether
+        # the worker/reviewer said the issue itself is resolved, so the
+        # cached board's own resolution marker is still the right (and
+        # only available) signal for that half of the question.
+        state, _witness = _merge_landed_state(facts)
         reason = f"{own_reason} — confirmed merged (#2850), not a death"
         return (
             Reconcile(
@@ -4619,7 +4766,7 @@ def _reconcile_running(
                 reason,
                 occupies=False,
                 updates={
-                    "state": STATE_DONE,
+                    "state": state,
                     "last_reason": reason,
                     "session_name": None,
                 },
@@ -4635,6 +4782,11 @@ def _reconcile_running(
         # board `active_work` could ever be on their own — mark done rather
         # than let the death-diagnosis logic below spend an attempt
         # relaunching a drive with nothing left to do.
+        #
+        # #3502: same posture as the `own_reason` branch just above — the
+        # live probe confirms the MERGE, `facts.merge_resolution` is still
+        # what decides `done` vs `merged-partial`.
+        state, _witness = _merge_landed_state(facts)
         reason = (
             "drive finished — a live re-check this tick confirms the issue "
             "is already closed or its PR merged (#2850), independent of "
@@ -4647,7 +4799,7 @@ def _reconcile_running(
                 reason,
                 occupies=False,
                 updates={
-                    "state": STATE_DONE,
+                    "state": state,
                     "last_reason": reason,
                     "session_name": None,
                 },
@@ -5869,7 +6021,7 @@ def _resolve_holds(
         # path, and `waiting`/`running` have not finished anything yet.
         if (
             entry.hold_state == HOLD_ARMED
-            and reconciled_states.get(entry.key) == STATE_DONE
+            and reconciled_states.get(entry.key) in STATE_DONE_LIKE
         ):
             holds.append(
                 Hold(
@@ -6618,6 +6770,12 @@ def plan_tick(
         facts = board.facts(entry.key)
         live_landed = (live_prereq_terminal or {}).get(entry.key, False)
         if facts.landed or live_landed:
+            # #3502: the live-probe branch below only confirms the branch
+            # MERGED — it cannot see the resolution marker a cache miss
+            # would also be missing — so `state`/witness still come from
+            # `facts.merge_resolution` either way (empty default when
+            # `facts` itself has nothing cached yet).
+            state, _witness = _merge_landed_state(facts)
             if facts.landed:
                 witness = "merged" if facts.merged else "closed"
                 reason = f"done — issue already {witness} while {entry.state} (#2055)"
@@ -6641,13 +6799,13 @@ def plan_tick(
                     reason,
                     occupies=False,
                     updates={
-                        "state": STATE_DONE,
+                        "state": state,
                         "last_reason": reason,
                         "session_name": None,
                     },
                 )
             )
-            states[entry.key] = STATE_DONE
+            states[entry.key] = state
             continue
         if entry.state == STATE_FAILED:
             # `failed` is terminal for dispatch: the landed check above is
@@ -7404,7 +7562,7 @@ def plan_tick(
         # board against the entry's own issue until now.
         facts = board.facts(entry.key)
         if facts.landed:
-            witness = "merged" if facts.merged else "closed"
+            state, witness = _merge_landed_state(facts)
             reason = (
                 f"done — issue already {witness}, never launched by this queue"
             )
@@ -7420,12 +7578,12 @@ def plan_tick(
                     # (same reasoning as the BLOCKED branch's "operator's
                     # typo" comment just below).
                     updates={
-                        "state": STATE_DONE,
+                        "state": state,
                         "last_reason": reason,
                     },
                 )
             )
-            states[entry.key] = STATE_DONE
+            states[entry.key] = state
             landed_keys.add(entry.key)
             continue
         verdict = _resolve_prereqs(

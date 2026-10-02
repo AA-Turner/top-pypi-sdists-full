@@ -1,8 +1,0 @@
----
-features:
-  - |
-    Add support for broadcasting array symbols to new shapes. This includes:
-
-    * A ``BroadcastTo`` symbol.
-    * New ``broadcast_to()`` and ``broadcast_symbols()`` functions.
-    * A C++ ``BroadcastToNode``.

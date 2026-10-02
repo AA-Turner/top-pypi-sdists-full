@@ -1,0 +1,157 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Input/output models for node_tech_debt_sweep_orchestrator [OMN-12212].
+
+Contains:
+- ModelTechDebtSweepRequest: input to the orchestrator
+- ModelCategoryResult: per-category scan summary
+- ModelTechDebtSweepResult: output from the orchestrator
+"""
+
+from __future__ import annotations
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+ALL_CATEGORIES = (
+    "type-ignore",
+    "noqa",
+    "todo-fixme",
+    "any-types",
+    "skipped-tests",
+    "stale-ignores",
+)
+
+
+class ModelTechDebtSweepRequest(BaseModel):
+    """Input to the tech debt sweep orchestrator.
+
+    Specifies which repos and categories to scan, and whether to run in dry-run
+    mode (report findings without creating tickets).
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    repos: tuple[str, ...] = Field(
+        default=(),
+        description=(
+            "Repos to scan (bare names, e.g. 'omnibase_infra'). "
+            "Empty tuple means all Python repos discovered under omni_home root."
+        ),
+    )
+    categories: tuple[str, ...] = Field(
+        default=(),
+        description=(
+            "Tech-debt categories to scan. "
+            "Empty tuple means all 6 categories: "
+            "type-ignore, noqa, todo-fixme, any-types, skipped-tests, stale-ignores."
+        ),
+    )
+    dry_run: bool = Field(
+        default=False,
+        description="When true, report findings without creating Linear tickets or epics.",
+    )
+    omni_home: str = Field(
+        default="",
+        description=(
+            "Absolute OmniNode workspace root. Empty string means resolve from "
+            "OMNI_HOME; handler raises if neither is available."
+        ),
+    )
+    linear_team: str = Field(
+        default="Omninode",
+        description="Linear team name to create tickets in.",
+    )
+    linear_project: str = Field(
+        default="",
+        description=(
+            "REFUSED when non-empty: new tickets are created in the Backlog "
+            "with no project (operator ruling 2026-09-30T14:30:05Z, OMN-17427)."
+        ),
+    )
+
+    @field_validator("linear_project")
+    @classmethod
+    def _refuse_project(cls, value: str) -> str:
+        """Operator ruling 2026-09-30T14:30:05Z (OMN-17427): every new ticket is
+        created in the Backlog with NO project. Fail loud, never drop it."""
+        if value.strip():
+            raise ValueError(
+                f"linear_project={value!r} refused: every new ticket is created "
+                "in the Backlog with no project (operator ruling "
+                "2026-09-30T14:30:05Z, OMN-17427). Moving a ticket into a sprint "
+                "is the operator's call."
+            )
+        return value
+
+    @field_validator("categories")
+    @classmethod
+    def validate_categories(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        unknown = tuple(
+            category for category in value if category not in ALL_CATEGORIES
+        )
+        if unknown:
+            known = ", ".join(ALL_CATEGORIES)
+            raise ValueError(
+                f"unknown tech debt categories {unknown}; expected one of {known}"
+            )
+        return value
+
+
+class ModelCategoryResult(BaseModel):
+    """Per-category scan summary produced by the orchestrator."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    category: str = Field(
+        description="Category ID (e.g. 'type-ignore').",
+    )
+    total_findings: int = Field(
+        description="Total findings detected across all scanned repos for this category.",
+    )
+    new_findings: int = Field(
+        description="Net-new findings not already tracked by an open Linear ticket.",
+    )
+    already_tracked: int = Field(
+        description="Findings that matched a dedup key in an existing open ticket.",
+    )
+    tickets_created: int = Field(
+        description="Number of new Linear tickets created for this category.",
+    )
+
+
+class ModelTechDebtSweepResult(BaseModel):
+    """Output from the tech debt sweep orchestrator."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    repos_scanned: tuple[str, ...] = Field(
+        description="Names of repos that were scanned.",
+    )
+    repos_skipped_stale_ignores: tuple[str, ...] = Field(
+        default=(),
+        description=(
+            "Repos skipped for the stale-ignores category because mypy could not run."
+        ),
+    )
+    category_results: tuple[ModelCategoryResult, ...] = Field(
+        description="Per-category scan summaries.",
+    )
+    total_findings: int = Field(
+        description="Sum of all findings across all categories and repos.",
+    )
+    total_new_findings: int = Field(
+        description="Sum of net-new findings across all categories and repos.",
+    )
+    total_tickets_created: int = Field(
+        description="Total number of Linear tickets created in this run.",
+    )
+    skipped_duplicates: int = Field(
+        description="Total findings skipped because they matched existing open tickets.",
+    )
+    dry_run: bool = Field(
+        description="Whether this was a dry run (no tickets actually created).",
+    )
+    summary: str = Field(
+        default="",
+        description="Human-readable sweep summary table.",
+    )

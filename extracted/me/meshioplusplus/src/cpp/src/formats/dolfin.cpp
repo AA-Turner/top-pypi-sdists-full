@@ -1,0 +1,370 @@
+//  ██████   ██████ ██████████  █████████  █████   █████ █████    ███████
+// ░░██████ ██████ ░░███░░░░░█ ███░░░░░███░░███   ░░███ ░░███   ███░░░░░███      ███         ███
+//  ░███░█████░███  ░███  █ ░ ░███    ░░░  ░███    ░███  ░███  ███     ░░███    ░███        ░███
+//  ░███░░███ ░███  ░██████   ░░█████████  ░███████████  ░███ ░███      ░███ ███████████ ███████████
+//  ░███ ░░░  ░███  ░███░░█    ░░░░░░░░███ ░███░░░░░███  ░███ ░███      ░███░░░░░███░░░ ░░░░░███░░░
+//  ░███      ░███  ░███ ░   █ ███    ░███ ░███    ░███  ░███ ░░███     ███     ░███        ░███
+//  █████     █████ ██████████░░█████████  █████   █████ █████ ░░░███████░      ░░░         ░░░
+// ░░░░░     ░░░░░ ░░░░░░░░░░  ░░░░░░░░░  ░░░░░   ░░░░░ ░░░░░    ░░░░░░░
+//
+//
+//  License:         MIT License
+//                   meshio++ default license: LICENSE
+//
+//  Main authors:    Vicente Mataix Ferrandiz
+//
+//
+
+// System includes
+#include <algorithm>
+#include <cstdint>
+#include <cstdio>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <string>
+#include <vector>
+
+// External includes
+#include "pugixml.hpp"
+
+// Project includes
+#include "meshioplusplus/formats/dolfin.hpp"
+#include "meshioplusplus/detail/value_io.hpp"
+#include "meshioplusplus/exceptions.hpp"
+#include "meshioplusplus/log.hpp"
+#include "meshioplusplus/detail/fast_number.hpp"
+#include "meshioplusplus/detail/classic_stream.hpp"
+
+namespace fs = std::filesystem;
+
+namespace meshioplusplus {
+
+namespace {
+
+std::pair<std::string, int> dolfin_to_meshio(const std::string& rCt) {
+    if (rCt == "triangle")
+        return {"triangle", 3};
+    if (rCt == "tetrahedron")
+        return {"tetra", 4};
+    throw ReadError("DOLFIN: unsupported cell type '" + rCt + "'");
+}
+
+const char* meshio_to_dolfin(const std::string& rT) {
+    if (rT == "triangle")
+        return "triangle";
+    if (rT == "tetra")
+        return "tetrahedron";
+    throw WriteError("DOLFIN XML only supports triangles and tetrahedra");
+}
+
+}  // namespace
+
+Mesh read_dolfin(const std::string& rPath) {
+    pugi::xml_document doc;
+    if (!doc.load_file(rPath.c_str()))
+        throw ReadError("DOLFIN: could not parse " + rPath);
+
+    pugi::xml_node dolfin = doc.child("dolfin");
+    if (!dolfin)
+        throw ReadError("DOLFIN: missing <dolfin> root");
+    pugi::xml_node mesh_node = dolfin.child("mesh");
+    if (!mesh_node)
+        throw ReadError("DOLFIN: missing <mesh>");
+
+    int dim = mesh_node.attribute("dim").as_int();
+    if (dim < 1 || dim > 3)
+        throw ReadError("DOLFIN: mesh dim must be 1, 2 or 3");
+    auto [cell_type, npc] = dolfin_to_meshio(mesh_node.attribute("celltype").value());
+
+    Mesh mesh;
+
+    // Vertices (placed by index).
+    pugi::xml_node verts = mesh_node.child("vertices");
+    std::size_t nverts = verts.attribute("size").as_uint();
+    // Placed by index: every index must fall inside `size`, and `size` cannot
+    // exceed the vertices the file actually lists.
+    const auto listed_verts = static_cast<std::size_t>(
+        std::distance(verts.children("vertex").begin(), verts.children("vertex").end()));
+    if (nverts > listed_verts)
+        throw ReadError("DOLFIN: <vertices size> exceeds the vertices listed");
+    NDArray pts(DType::Float64, {nverts, static_cast<std::size_t>(dim)});
+    double* pp = pts.As<double>();
+    const char* coord[3] = {"x", "y", "z"};
+    for (pugi::xml_node v : verts.children("vertex")) {
+        std::size_t k = v.attribute("index").as_uint();
+        if (k >= nverts)
+            throw ReadError("DOLFIN: vertex index out of range");
+        for (int c = 0; c < dim; ++c)
+            pp[k * dim + c] = v.attribute(coord[c]).as_double();
+    }
+    mesh.AssignPoints(std::move(pts));
+
+    // Cells (single block, placed by index).
+    pugi::xml_node cells = mesh_node.child("cells");
+    std::size_t ncells = cells.attribute("size").as_uint();
+    const auto listed_cells =
+        static_cast<std::size_t>(std::distance(cells.children().begin(), cells.children().end()));
+    if (ncells > listed_cells)
+        throw ReadError("DOLFIN: <cells size> exceeds the cells listed");
+    NDArray data(DType::Int64, {ncells, static_cast<std::size_t>(npc)});
+    std::int64_t* dp = data.As<std::int64_t>();
+    for (pugi::xml_node c : cells.children()) {
+        std::size_t k = c.attribute("index").as_uint();
+        if (k >= ncells)
+            throw ReadError("DOLFIN: cell index out of range");
+        for (int j = 0; j < npc; ++j) {
+            char tag[16];  // "v" + up to 11 digits (INT_MIN) + '\0'; GCC's static
+                           // format-truncation analysis cannot prove j is small
+            std::snprintf(tag, sizeof(tag), "v%d", j);
+            dp[k * npc + j] = c.attribute(tag).as_llong();
+            if (dp[k * npc + j] < 0 || static_cast<std::size_t>(dp[k * npc + j]) >= nverts)
+                throw ReadError("DOLFIN: cell references a vertex out of range");
+        }
+    }
+    mesh.AddCellBlock(cell_type, std::move(data));
+
+    // Point/cell data: sibling files "<stem>_<name>.xml". A `mesh_function`'s
+    // `dim` attribute is the topological dimension of the entities it is defined
+    // on, so `dim="0"` means *vertices* and anything else means cells -- that is
+    // the whole discriminator, which is why point data needs no new file
+    // convention. Twin of `_read_mesh_functions` in `_dolfin.py`.
+    fs::path p(rPath);
+    fs::path dir = p.has_parent_path() ? p.parent_path() : fs::path(".");
+    std::string stem = p.stem().string();
+    std::string prefix = stem + "_";
+    if (fs::exists(dir)) {
+        for (const auto& entry : fs::directory_iterator(dir)) {
+            std::string fname = entry.path().filename().string();
+            if (fname.size() <= prefix.size() + 4)
+                continue;
+            if (fname.compare(0, prefix.size(), prefix) != 0)
+                continue;
+            if (fname.compare(fname.size() - 4, 4, ".xml") != 0)
+                continue;
+            std::string name = fname.substr(prefix.size(), fname.size() - prefix.size() - 4);
+            if (name.empty() || name.find('.') != std::string::npos)
+                continue;  // [^.]+
+
+            pugi::xml_document fdoc;
+            if (!fdoc.load_file(entry.path().string().c_str()))
+                continue;
+            pugi::xml_node mf = fdoc.child("dolfin").child("mesh_function");
+            if (!mf)
+                continue;
+            std::string type = mf.attribute("type").value();
+            std::size_t size = mf.attribute("size").as_uint();
+            DType dt = (type == "float") ? DType::Float64 : DType::Int64;
+            NDArray arr(dt, {size});
+            for (pugi::xml_node e : mf.children("entity")) {
+                std::size_t idx = e.attribute("index").as_uint();
+                if (dt == DType::Float64)
+                    arr.As<double>()[idx] = e.attribute("value").as_double();
+                else
+                    arr.As<std::int64_t>()[idx] = e.attribute("value").as_llong();
+            }
+            if (mf.attribute("dim").as_int(-1) == 0) {
+                mesh.AddPointData(name, std::move(arr));
+            } else {
+                std::vector<NDArray> blocks;
+                blocks.push_back(std::move(arr));
+                mesh.AddCellData(name, std::move(blocks));
+            }
+        }
+    }
+
+    return mesh;
+}
+
+void write_dolfin(const std::string& rPath, const Mesh& rMesh) {
+    log::warn("DOLFIN XML is a legacy format. Consider using XDMF instead.");
+
+    // Pick the single supported cell type to write.
+    std::string cell_type;
+    for (const auto cb : rMesh.CellRange())
+        if (cb.Type() == "tetra") {
+            cell_type = "tetra";
+            break;
+        }
+    if (cell_type.empty())
+        for (const auto cb : rMesh.CellRange())
+            if (cb.Type() == "triangle") {
+                cell_type = "triangle";
+                break;
+            }
+    if (cell_type.empty())
+        throw WriteError("DOLFIN XML only supports triangles and tetrahedra");
+
+    // DOLFIN XML can only carry one cell type; name every OTHER type present
+    // so a mixed mesh's discarded cells are a diagnosed choice, not silence.
+    {
+        std::vector<std::string> discarded;
+        for (const auto cb : rMesh.CellRange())
+            if (cb.Type() != cell_type &&
+                std::find(discarded.begin(), discarded.end(), cb.Type()) == discarded.end())
+                discarded.push_back(cb.Type());
+        if (!discarded.empty()) {
+            std::string joined;
+            for (std::size_t i = 0; i < discarded.size(); ++i)
+                joined += (i ? ", " : "") + discarded[i];
+            log::warn(
+                "DOLFIN XML can only handle one cell type at a time. Using '{}', discarding "
+                "'{}'.",
+                cell_type, joined);
+        }
+    }
+
+    const std::size_t dim = rMesh.PointDim();
+    if (dim != 2 && dim != 3)
+        throw WriteError("DOLFIN: can only write dimension 2 or 3");
+
+    auto f = detail::make_classic_ofstream(rPath, std::ios::binary);
+    if (!f)
+        throw WriteError("Could not open file for writing: " + rPath);
+
+    f << "<dolfin nsmap=\"{'dolfin': 'https://fenicsproject.org/'}\">\n";
+    f << "  <mesh celltype=\"" << meshio_to_dolfin(cell_type) << "\" dim=\"" << dim << "\">\n";
+
+    const std::size_t npts = rMesh.NumPoints();
+    const NDArray& points = rMesh.Points();
+    f << "    <vertices size=\"" << npts << "\">\n";
+    char buf[32];
+    const char* coord[3] = {"x", "y", "z"};
+    for (std::size_t i = 0; i < npts; ++i) {
+        f << "      <vertex index=\"" << i << "\"";
+        for (std::size_t c = 0; c < dim; ++c) {
+            detail::snprintf_c(buf, sizeof(buf), "%.17g", detail::read_double(points, i * dim + c));
+            f << " " << coord[c] << "=\"" << buf << "\"";
+        }
+        f << " />\n";
+    }
+    f << "    </vertices>\n";
+
+    std::size_t num_cells = 0;
+    for (const auto cb : rMesh.CellRange())
+        if (cb.Type() == cell_type)
+            num_cells += cb.NumCells();
+
+    f << "    <cells size=\"" << num_cells << "\">\n";
+    const char* ts = meshio_to_dolfin(cell_type);
+    std::size_t idx = 0;
+    for (const auto cb : rMesh.CellRange()) {
+        if (cb.Type() != cell_type)
+            continue;
+        const NDArray& conn = cb.Conn();
+        std::size_t ncols = detail::cols(conn);
+        std::size_t n = cb.NumCells();
+        for (std::size_t r = 0; r < n; ++r) {
+            f << "      <" << ts << " index=\"" << idx << "\"";
+            for (std::size_t j = 0; j < ncols; ++j)
+                f << " v" << j << "=\"" << detail::read_int(conn, r * ncols + j) << "\"";
+            f << " />\n";
+            ++idx;
+        }
+    }
+    f << "    </cells>\n";
+    f << "  </mesh>\n";
+    f << "</dolfin>";
+
+    // Cell data -> sibling files "<stem>_<name>.xml".
+    bool z_all_zero = true;
+    if (dim == 3) {
+        for (std::size_t i = 0; i < npts; ++i)
+            if (detail::read_double(points, i * 3 + 2) != 0.0) {
+                z_all_zero = false;
+                break;
+            }
+    }
+    int data_dim = (dim == 2 || z_all_zero) ? 2 : 3;
+
+    fs::path p(rPath);
+    std::string base = (p.parent_path() / p.stem()).string();
+
+    // One writer for both locations: a mesh function differs only in its
+    // `dim`. `rBlocks` is the list of arrays contributing to this name, in
+    // the same cell order the `<cells>` section above wrote -- the mesh file
+    // concatenates every block of `cell_type`, not just the first, so the
+    // sibling mesh-function file must match row for row.
+    auto write_mesh_function = [&](const std::string& rName,
+                                   const std::vector<const NDArray*>& rBlocks, int Dim) {
+        const std::string fn = base + "_" + rName + ".xml";
+        auto cf = detail::make_classic_ofstream(fn, std::ios::binary);
+        if (!cf)
+            throw WriteError("Could not open file for writing: " + fn);
+        std::size_t sz = 0;
+        for (const NDArray* pArr : rBlocks)
+            sz += pArr->Shape().empty() ? 0 : pArr->Shape()[0];
+        const bool is_float = !rBlocks.empty() && detail::is_float_dtype(rBlocks.front()->Dtype());
+        const char* type = is_float ? "float" : "int";
+        cf << "<dolfin><mesh_function type=\"" << type << "\" dim=\"" << Dim << "\" size=\"" << sz
+           << "\">";
+        std::size_t idx = 0;
+        for (const NDArray* pArr : rBlocks) {
+            const std::size_t n = pArr->Shape().empty() ? 0 : pArr->Shape()[0];
+            for (std::size_t k = 0; k < n; ++k, ++idx) {
+                cf << "<entity index=\"" << idx << "\" value=\"";
+                if (is_float) {
+                    detail::snprintf_c(buf, sizeof(buf), "%.17g", detail::read_double(*pArr, k));
+                    cf << buf;
+                } else {
+                    cf << detail::read_int(*pArr, k);
+                }
+                cf << "\" />";
+            }
+        }
+        cf << "</mesh_function></dolfin>";
+    };
+
+    for (const auto& name : rMesh.CellDataNames()) {
+        const std::size_t nblocks = rMesh.CellDataNumBlocks(name);
+        std::vector<const NDArray*> contributing;
+        bool partial = false;
+        std::size_t bi = 0;
+        for (const auto cb : rMesh.CellRange()) {
+            if (cb.Type() == cell_type) {
+                if (bi >= nblocks) {
+                    partial = true;
+                    break;
+                }
+                contributing.push_back(&rMesh.CellData(name, bi));
+            }
+            ++bi;
+        }
+        if (partial) {
+            log::warn(
+                "DOLFIN: cell_data '{}' does not cover every '{}' cell block written to the "
+                "mesh; not written.",
+                name, cell_type);
+            continue;
+        }
+        if (!contributing.empty())
+            write_mesh_function(name, contributing, data_dim);
+    }
+
+    // Point data, as `dim="0"` mesh functions -- vertices are the topological
+    // entities of dimension 0, so this is the format's own notion rather than a
+    // meshio++ convention. A name used by *both* locations would want the same
+    // sibling file, and cell data has always owned it, so the point array is
+    // skipped with a warning rather than silently clobbering it. Twin of the
+    // identical block in `_dolfin.py`.
+    for (const auto& name : rMesh.PointDataNames()) {
+        if (rMesh.HasCellData(name)) {
+            log::warn(
+                "DOLFIN: point_data '{}' collides with a cell_data array of the same name (both "
+                "want the same sibling file); not written.",
+                name);
+            continue;
+        }
+        const NDArray& arr = rMesh.PointData(name);
+        if (detail::cols(arr) != 1 || arr.Shape().size() != 1) {
+            log::warn(
+                "DOLFIN: point_data '{}' is not scalar; a mesh function is one value per entity, "
+                "so it is not written.",
+                name);
+            continue;
+        }
+        write_mesh_function(name, {&arr}, 0);
+    }
+}
+
+}  // namespace meshioplusplus

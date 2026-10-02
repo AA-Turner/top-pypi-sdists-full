@@ -69,22 +69,28 @@ class ElevenLabsChat:
         stream_id: str,
         seq: int,
         data: bytes,
-    ) -> None:
+    ) -> int:
+        """Forward MP3 bytes in journal-sized frames; return the next seq."""
         from matrx_connect.context.data_types import AudioStreamChunkData
 
-        await emitter.send_data(
-            AudioStreamChunkData(
-                stream_id=stream_id,
-                seq=seq,
-                audio_base64=base64.b64encode(data).decode("ascii"),
-                mime_type="audio/mpeg",
-                encoding="mp3",
-                sample_rate=44100,
-                bits_per_sample=16,
-                channels=1,
+        from matrx_ai.providers.audio_stream import split_audio_frames
+
+        for piece in split_audio_frames(data):
+            await emitter.send_data(
+                AudioStreamChunkData(
+                    stream_id=stream_id,
+                    seq=seq,
+                    audio_base64=base64.b64encode(piece).decode("ascii"),
+                    mime_type="audio/mpeg",
+                    encoding="mp3",
+                    sample_rate=44100,
+                    bits_per_sample=16,
+                    channels=1,
+                )
             )
-        )
-        await asyncio.sleep(0)
+            seq += 1
+            await asyncio.sleep(0)
+        return seq
 
     async def _collect_streaming_bytes(
         self,
@@ -127,13 +133,12 @@ class ElevenLabsChat:
                 break
             assert isinstance(item, bytes)
             if emit_mp3_chunks:
-                await self._emit_audio_stream_chunk(
+                seq = await self._emit_audio_stream_chunk(
                     emitter,
                     stream_id=stream_id,
                     seq=seq,
                     data=item,
                 )
-                seq += 1
 
         await producer
         if producer_state["error"] is not None:
@@ -596,10 +601,9 @@ class ElevenLabsChat:
             all_audio_bytes = b"".join(chunk for chunk, _, _ in segments)
             seq = 0
             if codec == "mp3" and all_audio_bytes:
-                await self._emit_audio_stream_chunk(
+                seq = await self._emit_audio_stream_chunk(
                     emitter, stream_id=stream_id, seq=seq, data=all_audio_bytes
                 )
-                seq = 1
 
             timeline = merge_timelines(
                 [(response, voice_id) for _, response, voice_id in segments]
@@ -792,8 +796,6 @@ class ElevenLabsChat:
         # Emit a canonical matrx-owned AudioBlock so the FE has file_id,
         # durable cdn/download URLs, AND the generation
         # metadata block all on the wire.
-        from matrx_connect.context.data_types import MediaBlockData
-        from matrx_connect.context.media_block import cloud_file_to_media_block
 
         synthetic_record = {
             "id": envelope.file_id,
@@ -815,14 +817,14 @@ class ElevenLabsChat:
             "cdn_url": envelope.cdn_url,
             "download_url": envelope.download_url,
         }
+        from matrx_ai.providers.media_frames import fitted_media_block
+
+        # A long script's per-word alignment (and the script itself) can be
+        # far over the journal's 64 KiB frame floor; the LIVE event sheds them
+        # (named in `live_omitted`), the persisted audio part keeps them.
+        # Guard: tests/test_elevenlabs_media_block_fits_the_journal.py.
         await emitter.send_data(
-            MediaBlockData(
-                block=cloud_file_to_media_block(
-                    synthetic_record,
-                    url_set=url_set,
-                    kind_override="audio",
-                )
-            )
+            fitted_media_block(synthetic_record, url_set=url_set, kind_override="audio")
         )
         from matrx_connect.context.data_types import AudioStreamEndData
 

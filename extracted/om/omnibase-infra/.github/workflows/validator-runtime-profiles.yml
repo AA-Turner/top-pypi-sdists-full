@@ -1,0 +1,93 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# Runtime Profiles — ValidatorRuntimeProfiles gate [OMN-12957]
+#
+# Wires omnibase_core.validation.validator_runtime_profiles as a required
+# status check on omnibase_infra contracts. Enforces three rules:
+#   - runtime_profiles_missing (OMN-9886)
+#   - runtime_profile_unregistered (OMN-12957) — declared profile not in the
+#     canonical REGISTERED_RUNTIME_PROFILES registry
+#   - runtime_profile_no_consumer_lane (OMN-12957) — subscribing REDUCER/EFFECT
+#     names no consumer-attached profile, so its subscriptions are never drained
+#
+# Pre-existing violators are frozen in
+# config/validation/runtime_profiles_allowlist.yaml (drain tracked by OMN-12982); the
+# workflow passes that repo-local path explicitly. The gate blocks NEW orphans.
+#
+# MIGRATED INTO ci.yml (OMN-15108, OMN-14877/OMN-14430 fast-follow pattern):
+# the "Required status check context" comment above was aspirational, not
+# live — verified 2026-07-25 via `gh api .../branches/dev/protection/required_status_checks`
+# that omnibase_infra/dev's ONLY required context is "CI Summary"; this
+# workflow (its own github.run_id) was structurally invisible to that job's
+# poll of `actions/runs/${RUN_ID}/jobs`, so it never gated a merge. Its validate
+# step now runs UNCONDITIONALLY inside ci.yml (job: runtime-profiles-validator)
+# under the required "CI Summary" rollup. This file is retained
+# workflow_dispatch-only for manual/ad-hoc invocation.
+
+name: Runtime Profiles
+
+on:
+  workflow_dispatch: {}
+
+env:
+  PYTHON_VERSION: "3.12"
+  UV_VERSION: "0.8.3"
+  # OMN-14017: this workflow runs a raw `uv sync` (not the hardened
+  # setup-python-uv composite), which otherwise inherits uv's 30s default and
+  # fails HARD on the first PyPI timeout under fleet egress saturation (WS-F).
+  # Match the composite's 600s so downloads ride out contention. Propagates to
+  # every uv invocation in the job.
+  UV_HTTP_TIMEOUT: "600"
+
+concurrency:
+  group: runtime-profiles-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: validate
+    # workflow_dispatch-only: this trusted maintenance lane never executes PR code.
+    runs-on: ${{ fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]') }}
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout omnibase_infra
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          for attempt in 1 2 3; do
+            uv sync --all-extras && break
+            if [ "$attempt" = "3" ]; then
+              exit 1
+            fi
+            sleep "$((attempt * 10))"
+          done
+
+      - name: Validate runtime_profiles on omnibase_infra contracts
+        run: |
+          uv run python - <<'PY'
+          from pathlib import Path
+
+          from omnibase_core.validation.validator_runtime_profiles import (
+              ValidatorRuntimeProfiles,
+          )
+
+          result = ValidatorRuntimeProfiles(
+              allowlist_path=Path("config/validation/runtime_profiles_allowlist.yaml")
+          ).validate(Path("src"))
+          for issue in result.issues:
+              print(f"[{issue.severity.value}] {issue.file_path}:{issue.line_number}: {issue.message}")
+          raise SystemExit(0 if result.is_valid else 1)
+          PY

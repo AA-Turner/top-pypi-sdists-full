@@ -1,0 +1,435 @@
+"""
+PostProcessingMixin - Debug info, React hydration, and client script injection for LiveView.
+"""
+
+import json
+import logging
+import re
+import sys
+from typing import TYPE_CHECKING, Any, Dict
+
+logger = logging.getLogger(__name__)
+
+# #2987: find the document's real <head>/<body> boundaries. Anything tag-shaped
+# inside a raw-text region is text, not markup, so the lookups run on a masked
+# copy: ``_mask_raw_text`` (script/style bodies and comments, #2663) plus the
+# RCDATA elements title/textarea. The masks are length-preserving, so positions
+# found in the masked copy index the original string. An unterminated region
+# runs to the end of the document, as it does in the HTML tokenizer.
+_RCDATA_RE = re.compile(
+    r"<(title|textarea)(?=[\s/>])[^<>]*>.*?(?:</\1[^<>]*>|\Z)",
+    re.DOTALL | re.IGNORECASE,
+)
+# A tag name ends at whitespace, "/" or ">": ``<body-shell>`` is not ``<body>``.
+# End tags may carry junk before ">" (``</head foo>``), as browsers accept.
+# ``[^<>]*`` (not ``[^>]*``) keeps a tag from spanning into the next one, and
+# keeps the scan linear when many tags have no ">" (PR #3017 review).
+_HEAD_CLOSE_RE = re.compile(r"</head(?=[\s/>])[^<>]*>", re.IGNORECASE)
+_BODY_OPEN_RE = re.compile(r"<body(?=[\s/>])", re.IGNORECASE)
+_BODY_CLOSE_TAG_RE = re.compile(r"</body(?=[\s/>])[^<>]*>", re.IGNORECASE)
+_HTML_CLOSE_TAG_RE = re.compile(r"</html(?=[\s/>])[^<>]*>", re.IGNORECASE)
+
+
+def _mask_document_text(html: str) -> str:
+    from .template import _mask_raw_text
+
+    masked = _mask_raw_text(html)
+    return _RCDATA_RE.sub(lambda m: "\x00" * len(m.group(0)), masked)
+
+
+def _find_head_close(masked: str) -> int:
+    """Index of the document's real closing ``</head>`` tag, or ``-1`` (#2987).
+
+    ``masked`` is the page after :func:`_mask_document_text`. A plain
+    ``str.replace("</head>", ...)`` hit the first (or every) ``</head>``
+    *string*, including one inside an inline script or a comment. This returns
+    the first real ``</head>``, provided it comes before ``<body``.
+    """
+    head_close = _HEAD_CLOSE_RE.search(masked)
+    if head_close is None:
+        return -1
+    body_open = _BODY_OPEN_RE.search(masked, 0, head_close.start())
+    return -1 if body_open else head_close.start()
+
+
+def _find_body_close(masked: str) -> int:
+    """Index of the document's last real closing ``</body>`` tag, or ``-1``."""
+    found = -1
+    for match in _BODY_CLOSE_TAG_RE.finditer(masked):
+        found = match.start()
+    return found
+
+
+def _find_html_close(masked: str) -> int:
+    """Index of the document's last real closing ``</html>`` tag, or ``-1``
+    (#3018: the handler-metadata fallback when a page has no ``</body>``)."""
+    found = -1
+    for match in _HTML_CLOSE_TAG_RE.finditer(masked):
+        found = match.start()
+    return found
+
+
+class PostProcessingMixin:
+    """Post-processing: get_debug_info, _hydrate_react_components, _inject_client_script."""
+
+    if TYPE_CHECKING:
+        # Cooperating method supplied by the host class (LiveView via
+        # ContextMixin.get_context_data, mixins/context.py). Declared type-only
+        # so the strict-island mypy run resolves it on the mixin without a
+        # runtime change — this mixin is never instantiated standalone.
+        def get_context_data(self, **kwargs: Any) -> Dict[str, Any]: ...
+
+    def get_debug_info(self) -> Dict[str, Any]:
+        """
+        Get debug information about this LiveView instance.
+
+        Returns:
+            Dict with debug information
+        """
+        from ..validation import get_handler_signature_info
+        from ..decorators import is_event_handler
+
+        handlers = {}
+        variables = {}
+
+        # Match the runtime event_security policy: only @event_handler-decorated
+        # methods are callable.
+
+        for name in dir(self):
+            if name.startswith("_"):
+                continue
+
+            try:
+                attr = getattr(self, name)
+            except AttributeError:
+                continue
+
+            if callable(attr) and hasattr(attr, "__func__"):
+                # Show only handlers that would pass _check_event_security at runtime
+                if is_event_handler(attr):
+                    sig_info = get_handler_signature_info(attr)
+
+                    handlers[name] = {
+                        "name": name,
+                        "params": sig_info["params"],
+                        "description": sig_info["description"],
+                        "accepts_kwargs": sig_info["accepts_kwargs"],
+                        "decorators": getattr(attr, "_djust_decorators", {}),
+                    }
+
+            elif (
+                not callable(attr)
+                and not isinstance(attr, type)
+                and not hasattr(attr, "__module__")
+            ):
+                try:
+                    from django import forms
+
+                    if isinstance(attr, forms.Form):
+                        continue
+
+                    type_name = type(attr).__name__
+
+                    try:
+                        serialized = json.dumps(attr, default=str)
+                        size_bytes = len(serialized.encode("utf-8"))
+                    except (TypeError, ValueError):
+                        size_bytes = sys.getsizeof(attr)
+
+                    value_repr = repr(attr)
+                    if len(value_repr) > 100:
+                        value_repr = value_repr[:100] + "..."
+
+                    variables[name] = {
+                        "name": name,
+                        "type": type_name,
+                        "value": value_repr,
+                        "size_bytes": size_bytes,
+                    }
+                except Exception:
+                    logger.debug("Failed to collect debug panel variable '%s'", name)
+
+        from ..config import config
+
+        max_history = config.get("debug_panel_max_history", 50)
+
+        return {
+            "view_class": self.__class__.__name__,
+            "handlers": handlers,
+            "variables": variables,
+            "state_sizes": self._debug_state_sizes(),
+            "template": self.template_name if hasattr(self, "template_name") else None,
+            "config": {"maxHistory": max_history},
+        }
+
+    def _debug_state_sizes(self) -> Dict[str, Dict[str, Any]]:
+        """Return size breakdown of public state variables for debug toolbar."""
+        # #762: Filter framework-internal attrs from the observability payload
+        # so state_sizes reflects user-owned reactive state, not framework config.
+        from ..live_view import _FRAMEWORK_INTERNAL_ATTRS
+
+        sizes: Dict[str, Dict[str, Any]] = {}
+        for attr_name in sorted(vars(self)):
+            if attr_name.startswith("_"):
+                continue
+            if attr_name in _FRAMEWORK_INTERNAL_ATTRS:
+                continue
+            value = getattr(self, attr_name)
+            if callable(value):
+                continue
+            try:
+                serialized = json.dumps(value, default=str)
+                sizes[attr_name] = {
+                    "memory": sys.getsizeof(value),
+                    "serialized": len(serialized.encode("utf-8")),
+                }
+            except (TypeError, ValueError):
+                sizes[attr_name] = {
+                    "memory": sys.getsizeof(value),
+                    "serialized": None,
+                }
+        return sizes
+
+    def get_debug_update(self) -> Dict[str, Any]:
+        """
+        Get a slim debug payload for event responses (skip static handler metadata).
+
+        Unlike get_debug_info() which includes handler signatures (~20KB+),
+        this returns only the parts that change per event: variables and view class.
+        Handlers are static and only sent on initial mount via get_debug_info().
+        """
+        # #762: Filter framework-internal attrs from the observability payload.
+        from ..live_view import _FRAMEWORK_INTERNAL_ATTRS
+
+        variables = {}
+
+        for name in dir(self):
+            if name.startswith("_"):
+                continue
+            if name in _FRAMEWORK_INTERNAL_ATTRS:
+                continue
+
+            try:
+                attr = getattr(self, name)
+            except AttributeError:
+                continue
+
+            if callable(attr):
+                continue
+            if isinstance(attr, type) or hasattr(attr, "__module__"):
+                continue
+
+            try:
+                from django import forms
+
+                if isinstance(attr, forms.Form):
+                    continue
+
+                type_name = type(attr).__name__
+
+                try:
+                    serialized = json.dumps(attr, default=str)
+                    size_bytes = len(serialized.encode("utf-8"))
+                except (TypeError, ValueError):
+                    size_bytes = sys.getsizeof(attr)
+
+                value_repr = repr(attr)
+                if len(value_repr) > 100:
+                    value_repr = value_repr[:100] + "..."
+
+                variables[name] = {
+                    "name": name,
+                    "type": type_name,
+                    "value": value_repr,
+                    "size_bytes": size_bytes,
+                }
+            except Exception:
+                logger.debug("Failed to collect debug panel variable '%s'", name)
+
+        return {
+            "view_class": self.__class__.__name__,
+            "variables": variables,
+            "state_sizes": self._debug_state_sizes(),
+        }
+
+    def _hydrate_react_components(self, html: str) -> str:
+        """
+        Post-process HTML to hydrate React component placeholders.
+        """
+        from ..react import react_components
+        import html as html_module
+        import json as json_module
+
+        pattern = r'<div data-react-component="([^"]+)" data-react-props=\'([^\']+)\'>(.*?)</div>'
+
+        def replace_component(match: "re.Match[str]") -> str:
+            component_name = match.group(1)
+            # The renderer entity-escapes the attribute value.
+            props_json = html_module.unescape(match.group(2))
+            children = match.group(3)
+
+            try:
+                props = json_module.loads(props_json)
+            except json_module.JSONDecodeError:
+                props = {}
+
+            # The template renderer already resolved `{{ var }}` props from
+            # the view context. Don't resolve again here: a resolved value is
+            # user data, and one that reads `{{ other }}` must stay literal.
+            resolved_props = props
+
+            renderer = react_components.get(component_name)
+
+            if renderer:
+                rendered_content = renderer(resolved_props, children)
+                # Single-quoted attribute: escape `'` too, not only `"`.
+                resolved_props_json = html_module.escape(
+                    json_module.dumps(resolved_props), quote=True
+                )
+                return f"<div data-react-component=\"{component_name}\" data-react-props='{resolved_props_json}'>{rendered_content}</div>"
+            else:
+                return match.group(0)
+
+        html = re.sub(pattern, replace_component, html, flags=re.DOTALL)
+
+        return html
+
+    def _inject_client_script(self, html: str) -> str:
+        """Inject the LiveView client JavaScript into the HTML"""
+        from ..config import config
+        from django.conf import settings
+
+        use_websocket = config.get("use_websocket", True)
+        debug_vdom = config.get("debug_vdom", False)
+        ws_compression = config.get("websocket_compression", True)
+        loading_grouping_classes = config.get(
+            "loading_grouping_classes",
+            ["d-flex", "btn-group", "input-group", "form-group", "btn-toolbar"],
+        )
+
+        loading_classes_js = json.dumps(loading_grouping_classes)
+
+        debug_info_script = ""
+        debug_css_link = ""
+        if settings.DEBUG:
+            from ..security import escape_json_for_script
+
+            debug_info = self.get_debug_info()
+            # get_debug_info() includes repr()s of user-controlled public view
+            # attributes; json.dumps does NOT escape </script>, so a value
+            # containing "</script><script>…" would break out of this inline
+            # block (finding #8, CWE-79). escape_json_for_script() neutralizes
+            # <, >, & (and U+2028/2029).
+            debug_info_json = escape_json_for_script(json.dumps(debug_info))
+            debug_info_script = f"""
+            <script data-turbo-track="reload">
+                window.DJUST_DEBUG_INFO = {debug_info_json};
+            </script>
+            """
+            debug_css_link = '<link rel="stylesheet" href="/static/djust/debug-panel.css" data-turbo-track="reload">'
+
+        config_script = f"""
+        <script data-turbo-track="reload">
+            // djust configuration
+            window.DJUST_USE_WEBSOCKET = {str(use_websocket).lower()};
+            window.DJUST_DEBUG_VDOM = {str(debug_vdom).lower()};
+            window.DJUST_WS_COMPRESSION = {str(ws_compression).lower()};
+            window.DJUST_LOADING_GROUPING_CLASSES = {loading_classes_js};
+            // Enable debug logging for client-dev.js (development only)
+            window.djustDebug = {str(settings.DEBUG).lower()};
+            window.DEBUG_MODE = {str(settings.DEBUG).lower()};
+        </script>
+        {debug_info_script}
+        """
+
+        from django.templatetags.static import static
+
+        # v0.6.0 P1: serve the pre-minified client.min.js in production.
+        # DEBUG=True continues to serve the readable client.js so stack
+        # traces point at meaningful line numbers and contributors can
+        # poke at source directly. An explicit override
+        # ``DJUST_CLIENT_JS_MINIFIED`` in settings (bool) takes precedence
+        # over the DEBUG heuristic if an operator wants to test the
+        # minified file locally.
+        client_js_name = "djust/client.js"
+        use_min = getattr(settings, "DJUST_CLIENT_JS_MINIFIED", not settings.DEBUG)
+        if use_min:
+            client_js_name = "djust/client.min.js"
+        try:
+            client_js_url = static(client_js_name)
+        except (ValueError, AttributeError):
+            client_js_url = f"/static/{client_js_name}"
+
+        script = f'<script src="{client_js_url}" defer data-turbo-track="reload"></script>'
+
+        # Official adapters (ADR-025 milestone C). Opt-in via
+        # DJUST_CONFIG['extensions']; nothing is emitted when unused.
+        # These MUST come after client.js: they register into
+        # window.djust.hooks / window.djust.commands, which client.js
+        # creates. `defer` scripts execute in document order, so appending
+        # here is what guarantees the ordering.
+        from ..extensions import get_extension_static_paths
+
+        for ext_path in get_extension_static_paths():
+            try:
+                ext_url = static(ext_path)
+            except (ValueError, AttributeError):
+                ext_url = f"/static/{ext_path}"
+            script += f'\n        <script src="{ext_url}" defer data-turbo-track="reload"></script>'
+
+        if settings.DEBUG:
+            # debug-panel.js MUST load before client-dev.js so that
+            # DjustDebugPanel is defined when client-dev.js calls
+            # initDebugPanel() (fixes #193 and #196).
+            try:
+                debug_panel_js_url = static("djust/debug-panel.js")
+            except (ValueError, AttributeError):
+                debug_panel_js_url = "/static/djust/debug-panel.js"
+            script += f'\n        <script src="{debug_panel_js_url}" defer data-turbo-track="reload"></script>'
+
+            try:
+                client_dev_js_url = static("djust/client-dev.js")
+            except (ValueError, AttributeError):
+                client_dev_js_url = "/static/djust/client-dev.js"
+            script += f'\n        <script src="{client_dev_js_url}" defer data-turbo-track="reload"></script>'
+
+        full_script = config_script + script
+
+        # The HTTP event fallback and djust.call need the CSRF token even when
+        # the project renames the cookie (CSRF_COOKIE_NAME) or keeps it out of
+        # JavaScript's reach (CSRF_COOKIE_HTTPONLY, CSRF_USE_SESSIONS). The
+        # client reads these via window.djust.csrfToken() (00-namespace.js).
+        csrf_meta = ""
+        request = getattr(self, "request", None)
+        if request is not None:
+            from django.middleware.csrf import get_token
+            from django.utils.html import escape
+
+            csrf_meta = (
+                f'<meta name="djust-csrf-cookie" content="{escape(settings.CSRF_COOKIE_NAME)}">'
+                f'<meta name="djust-csrf-token" content="{escape(get_token(request))}">'
+            )
+        # Both go into the document's real <head>, once (#2987).
+        masked = _mask_document_text(html)
+        head_close = _find_head_close(masked)
+        head_inject = ""
+        if csrf_meta:
+            if head_close >= 0:
+                head_inject += csrf_meta
+            else:
+                full_script = csrf_meta + full_script
+        if debug_css_link and head_close >= 0:
+            head_inject += debug_css_link
+        if head_inject:
+            html = html[:head_close] + head_inject + html[head_close:]
+
+        # Found before the head insertion, so shift it past the inserted text.
+        body_close = _find_body_close(masked)
+        if body_close >= 0 and head_inject and body_close >= head_close:
+            body_close += len(head_inject)
+        if body_close >= 0:
+            html = html[:body_close] + full_script + html[body_close:]
+        else:
+            html += full_script
+
+        return html

@@ -1,0 +1,1057 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""# ai-slop-ok: pre-existingDispatch result applier for processing ModelDispatchResult outputs.
+
+This module provides the DispatchResultApplier, a runtime-level service
+that processes the output of MessageDispatchEngine dispatch operations. It
+handles publishing output events to the event bus and delegating intents to
+the IntentExecutor.
+
+Architecture:
+    The applier sits between the dispatch engine and the event bus:
+
+    EventBusSubcontractWiring -> MessageDispatchEngine -> DispatchResultApplier
+                                                          |-> execute projection (OMN-2510)
+                                                          |-> delegate intents (writes first)
+                                                          |-> publish output events
+
+    This separation keeps the dispatch engine pure (routing only) while the
+    applier handles side effects (publishing, intent execution, projection).
+
+Ordering guarantee (OMN-2363 / OMN-2510):
+    reduce() -> NodeProjectionEffect.execute() -> intent execution -> Kafka publish
+
+    Projection failure BLOCKS Kafka publish entirely.  If the projection write
+    raises, the applier re-raises without touching the event bus, preventing
+    offset commit.  The message is redelivered on the next consumer poll.
+
+Related:
+    - OMN-2050: Wire MessageDispatchEngine as single consumer path
+    - OMN-2363: Projection ordering guarantee epic
+    - OMN-2510: Runtime wires projection before Kafka publish (this ticket)
+    - EventBusSubcontractWiring: Creates subscriptions that feed the engine
+    - MessageDispatchEngine: Routes messages to dispatchers
+    - IntentExecutor: Executes intents from dispatch results
+
+.. versionadded:: 0.7.0
+.. versionchanged:: 0.9.0
+    Added projection phase (OMN-2510): NodeProjectionEffect executes
+    synchronously before Kafka publish to eliminate the projection/publish
+    race condition.
+"""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import TYPE_CHECKING
+from uuid import UUID, uuid4, uuid5
+
+from pydantic import BaseModel
+
+from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
+from omnibase_infra.enums import EnumDispatchStatus, EnumInfraTransportType
+from omnibase_infra.enums.generated.enum_omnibase_infra_topic import (
+    EnumOmnibaseInfraTopic,
+)
+from omnibase_infra.errors import RuntimeHostError
+from omnibase_infra.errors.error_projection import ProjectionError
+from omnibase_infra.models.errors.model_infra_error_context import (
+    ModelInfraErrorContext,
+)
+from omnibase_infra.runtime.contract_terminal_events import (
+    apply_failure_terminal_guard,
+    declared_failure_terminal_topics,
+)
+from omnibase_infra.runtime.dispatch_envelope_context import (
+    current_dispatch_envelope,
+)
+from omnibase_infra.topics import topic_keys
+from omnibase_infra.topics.service_topic_registry import ServiceTopicRegistry
+from omnibase_infra.utils import derive_event_type_from_topic, sanitize_error_message
+
+if TYPE_CHECKING:
+    from omnibase_core.models.projectors.model_projection_intent import (
+        ModelProjectionIntent,
+    )
+    from omnibase_infra.models.dispatch.model_dispatch_result import ModelDispatchResult
+    from omnibase_infra.protocols import ProtocolEventBusLike
+    from omnibase_infra.runtime.protocol_projection_effect import (
+        ProtocolProjectionEffect,
+    )
+    from omnibase_infra.runtime.service_intent_executor import IntentExecutor
+
+logger = logging.getLogger(__name__)
+
+
+def _record_flow_output(resolved_topic: str) -> None:
+    """Record one successfully published output envelope (OMN-16777).
+
+    Imported lazily so this module keeps no import-time dependency on the
+    observability package, and so the counters cannot become a startup-ordering
+    hazard on a path whose only job is publishing.
+
+    OMN-17214: delegates to the shared ``record_flow_output`` seam rather than
+    calling the two halves here. This module was the ONLY publisher that
+    recorded anything, and the two seams inside ``handler_wiring`` recorded
+    neither half — one entry point is what makes "did this publisher attribute
+    its output?" a question a gate can ask.
+    """
+    from omnibase_infra.runtime.observability import record_flow_output
+
+    record_flow_output(resolved_topic)
+
+
+# Delegation intent topics are resolved from the contract-sourced topic registry
+# (ServiceTopicRegistry, OMN-5839) rather than importing the legacy TOPIC_*
+# string constants from event_bus/topic_constants.py. Each resolved string equals
+# the topic declared in the owning node contract.yaml (OMN-12803 / OMN-13191).
+_TOPIC_REGISTRY = ServiceTopicRegistry.from_defaults()
+
+_DELEGATION_INTENT_TOPIC_BY_CLASS: dict[str, str] = {
+    "ModelBaselineIntent": _TOPIC_REGISTRY.resolve(
+        topic_keys.DELEGATION_BASELINE_COMPARISON
+    ),
+    "ModelInferenceIntent": _TOPIC_REGISTRY.resolve(
+        topic_keys.DELEGATION_INFERENCE_REQUEST
+    ),
+    "ModelInvocationCommand": EnumOmnibaseInfraTopic.CMD_REMOTE_AGENT_INVOKE_V1.value,
+    "ModelQualityGateIntent": _TOPIC_REGISTRY.resolve(
+        topic_keys.DELEGATION_QUALITY_GATE_REQUEST
+    ),
+    # OMN-14794: the routing reducer's OUTPUT (ModelRoutingDecision) must resolve
+    # to routing-decision.v1 through ANY applier, not just the reducer's own
+    # auto-wired applier. When the decision is applied through an applier whose
+    # per-node allowed topics do NOT include routing-decision.v1 (e.g. the
+    # delegation orchestrator's plugin-managed applier, whose fallback
+    # ``output_topic`` is the delegation terminal), a ModelRoutingDecision with no
+    # class-name mapping silently fell back to that terminal topic — leaving
+    # routing-decision.v1 with zero records, so the orchestrator's
+    # handle_routing_decision never fired and the FSM stalled at RECEIVED and
+    # redelivered every session-timeout. Mapping the class here routes it to its
+    # canonical topic regardless of which applier publishes it (and adds
+    # routing-decision.v1 to ``_allowed_output_topics``). The reducer's own
+    # applier already resolved it via output_topic_map; this closes the gap for
+    # the generic/plugin-managed path.
+    "ModelRoutingDecision": _TOPIC_REGISTRY.resolve(
+        topic_keys.DELEGATION_ROUTING_DECISION
+    ),
+    "ModelRoutingIntent": _TOPIC_REGISTRY.resolve(
+        topic_keys.DELEGATION_ROUTING_REQUEST
+    ),
+}
+
+
+class DispatchResultApplier:
+    """Processes ModelDispatchResult: runs projection, publishes output events, delegates intents.
+
+    This service is injected into the dispatch callback chain by
+    EventBusSubcontractWiring. After the dispatch engine routes a message
+    to a dispatcher and receives a ModelDispatchResult, this applier:
+
+    1. Executes NodeProjectionEffect synchronously (OMN-2510 — writes first)
+    2. Delegates remaining intents to IntentExecutor
+    3. Publishes output events to the configured output topic
+
+    Ordering guarantee (OMN-2363):
+        Kafka publish is GATED on successful projection execution.  If
+        NodeProjectionEffect.execute() raises, the applier re-raises without
+        calling the event bus, preventing offset commit.
+
+    Partition Key Extraction:
+        When publishing output events, the applier extracts a partition key
+        from the event payload to ensure per-entity ordering in Kafka. The
+        key is resolved from the first available field in precedence order:
+        ``entity_id > node_id > session_id > correlation_id``. If no key
+        field is found, the event is published without a key (round-robin).
+
+    Thread Safety:
+        This class is designed for single-threaded async use. The underlying
+        event bus implementations handle their own thread safety.
+
+    Attributes:
+        _event_bus: Event bus for publishing output events.
+        _output_topic: Topic to publish output events to.
+        _intent_executor: Optional intent executor for delegating intents
+            to effect layer handlers.
+        _projection_effect: Optional synchronous projection effect.  When
+            provided, its ``execute()`` is called with each ModelProjectionIntent
+            in the dispatch result before any Kafka publish occurs.
+
+    Example:
+        ```python
+        applier = DispatchResultApplier(
+            event_bus=event_bus,
+            output_topic="onex.evt.platform.node-registration-result.v1",  # onex-topic-allow: pending contract auto-wiring
+            projection_effect=node_projection_effect,
+        )
+        await applier.apply(dispatch_result)
+        ```
+
+    .. versionadded:: 0.7.0
+    .. versionchanged:: 0.9.0
+        Added ``projection_effect`` parameter (OMN-2510).
+    """
+
+    def __init__(
+        self,
+        event_bus: ProtocolEventBusLike,
+        output_topic: str,
+        intent_executor: IntentExecutor | None = None,
+        clock: Callable[[], datetime] | None = None,
+        projection_effect: ProtocolProjectionEffect | None = None,
+        topic_router: dict[str, str] | None = None,
+        output_topic_map: dict[str, str] | None = None,
+        output_event_handler: Callable[[BaseModel], Awaitable[BaseModel | None]]
+        | None = None,
+        allowed_output_topics: Iterable[str] | None = None,
+        failure_terminal_topics: Iterable[str] | None = None,
+    ) -> None:
+        """Initialize the dispatch result applier.
+
+        Args:
+            event_bus: Event bus for publishing output events.
+            output_topic: Topic to publish output events to.
+            intent_executor: Optional intent executor for delegating intents
+                to effect layer handlers. When provided, intents from dispatch
+                results are forwarded to the executor for effect layer processing.
+            clock: Optional callable returning current UTC datetime. Defaults to
+                ``datetime.now(UTC)``. Inject for deterministic replay/testing.
+            projection_effect: Optional synchronous projection effect
+                (OMN-2510).  When provided, its ``execute()`` is called with
+                each ``ModelProjectionIntent`` in the dispatch result.
+                Kafka publish is skipped if ``execute()`` raises.
+            topic_router: Optional mapping of Python event class names to their
+                declared Kafka topics (e.g. ``{"ModelNodeRegistrationAccepted":
+                "onex.evt.platform.node-registration-accepted.v1"}``).  When  # onex-topic-allow: pending contract auto-wiring
+                provided, each output event is published to its per-type topic
+                instead of the single ``output_topic`` fallback.  Events whose
+                class name is not in the map fall back to ``output_topic``.
+                Build this map with ``build_topic_router_from_contract()``
+                (OMN-4881).
+            output_topic_map: Optional mapping of event_type names (from contract
+                ``published_events``) to their declared Kafka topics. Uses short
+                names (``Model`` prefix stripped) with full class name fallback.
+                Build with ``load_published_events_map()`` (OMN-5132).
+            output_event_handler: Optional async hook for output events that are
+                executed in-process instead of being published. If it returns a
+                non-None model, the original output event is considered handled.
+            allowed_output_topics: Optional contract-derived allowlist of publish
+                topics. This should include ``event_bus.publish_topics`` so
+                per-instance embedded topics can select any declared terminal
+                topic, even when multiple terminal outcomes share one event model.
+            failure_terminal_topics: Optional contract-declared FAILURE terminal
+                topics (``runtime_dispatch.terminal_events.failure`` and the
+                non-success entries of a top-level ``terminal_events`` map).
+                When exactly one is declared, a returned model that resolves to
+                the contract's SUCCESS terminal but declares a failure verdict
+                is re-routed there instead (OMN-15468 AC2). Empty/absent ⇒ the
+                guard cannot fire and routing is byte-for-byte unchanged.
+        """
+        self._event_bus = event_bus
+        self._output_topic = output_topic
+        self._intent_executor = intent_executor
+        self._clock = clock or (lambda: datetime.now(UTC))
+        self._projection_effect = projection_effect
+        self._topic_router: dict[str, str] = topic_router or {}
+        self._output_topic_map: dict[str, str] = output_topic_map or {}
+        self._output_event_handler = output_event_handler
+        self._allowed_output_topic_set: set[str] = {
+            topic.strip()
+            for topic in (allowed_output_topics or ())
+            if isinstance(topic, str) and topic.strip()
+        }
+        self._failure_terminal_topics: tuple[str, ...] = tuple(
+            dict.fromkeys(
+                topic.strip()
+                for topic in (failure_terminal_topics or ())
+                if isinstance(topic, str)
+                and topic.strip()
+                and topic.strip() != output_topic
+            )
+        )
+
+    @property
+    def published_events_map(self) -> dict[str, str]:
+        """Return the published_events topic routing map.
+
+        Exposes the output_topic_map for health check introspection (OMN-5164).
+        Returns the mapping of event_type names to their declared Kafka topics.
+        """
+        return self._output_topic_map
+
+    def _resolve_partition_key(self, event: BaseModel) -> bytes | None:
+        """Extract partition key from event model for per-entity ordering.
+
+        Scans the event model for well-known identity fields and returns the
+        first non-None value encoded as UTF-8 bytes. This key is intended for
+        Kafka partition assignment so that all events for the same entity land
+        on the same partition, preserving per-entity ordering.
+
+        Precedence: ``entity_id > node_id > session_id > correlation_id``.
+
+        Returns ``None`` (round-robin) if no key field is found on the event.
+
+        Args:
+            event: The output event payload (a Pydantic BaseModel).
+
+        Returns:
+            UTF-8 encoded partition key bytes, or ``None`` if no identity
+            field is present on the event model.
+        """
+        for attr in ("entity_id", "node_id", "session_id", "correlation_id"):
+            value = getattr(event, attr, None)
+            if value is not None:
+                return str(value).encode("utf-8")
+        return None
+
+    def _publish_payload_for_output_event(self, event: BaseModel) -> BaseModel:
+        """Return the payload that should be wrapped in the bus envelope.
+
+        Some domain handlers return a topic-bearing domain envelope whose
+        ``payload`` is the actual event payload. The runtime uses the outer model
+        to resolve the topic, but Kafka consumers and projections expect the
+        inner payload as ``ModelEventEnvelope.payload``.
+
+        ORCHESTRATOR and EFFECT handlers express each emit as a
+        ``ModelEventEnvelope`` carried in ``ModelHandlerOutput.events`` — the outer
+        envelope is a transport/routing carrier (its ``event_type`` names the
+        destination topic) and the inner ``payload`` is the actual command/event
+        the bus and downstream consumers expect. Publishing the carrier verbatim
+        would double-nest it (``ModelEventEnvelope(payload=ModelEventEnvelope(...))``),
+        so a ``ModelEventEnvelope`` output event is always unwrapped to its inner
+        payload (OMN-13247).
+
+        OMN-14600: the delegation orchestrator now emits the canonical
+        ``ModelEventEnvelope`` directly rather than the bespoke
+        ``ModelDelegationEventEnvelope`` carrier — but pre-fix in-flight rows
+        and any as-yet-unredeployed producer can still legitimately emit the
+        old shape, and the core class itself has NOT been deleted (a separate
+        cleanup PR owns that, to avoid a cross-repo release-ordering break).
+        KEEPING the special case here is deliberate: dropping it before the
+        old shape is provably gone from every live producer + every stored
+        row is a gratuitous skew risk for zero benefit this PR.
+        """
+        if type(event).__name__ in (
+            "ModelEventEnvelope",
+            "ModelDelegationEventEnvelope",
+        ):
+            inner_payload = getattr(event, "payload", None)
+            if isinstance(inner_payload, BaseModel):
+                return inner_payload
+        return event
+
+    def _resolve_output_topic(self, event: BaseModel) -> str:
+        """Resolve the output topic for an event using the output_topic_map.
+
+        Typed event models may carry an explicit ``topic`` field. When present,
+        that is the most specific contract boundary. Otherwise this tries the
+        short name (class name with ``Model`` prefix removed), then the full
+        class name, and falls back to ``_output_topic``.
+
+        Args:
+            event: The output event payload (a Pydantic BaseModel).
+
+        Returns:
+            The resolved topic string.
+        """
+        embedded_topic = self._resolve_embedded_output_topic(event)
+        resolved = (
+            embedded_topic
+            if embedded_topic is not None
+            else self._resolve_mapped_output_topic(event)
+        )
+        return apply_failure_terminal_guard(
+            event,
+            resolved,
+            success_topic=self._output_topic,
+            failure_terminal_topics=self._failure_terminal_topics,
+        )
+
+    def _resolve_embedded_output_topic(self, event: BaseModel) -> str | None:
+        """Return a declared topic the event itself names, if present.
+
+        Two carriers name a topic directly on the event:
+
+        * a typed domain payload may declare its own ``topic`` field (the most
+          specific contract boundary); and
+        * a canonical multi-step ORCHESTRATOR (e.g. ``node_redeploy_orchestrator``,
+          ``node_coding_agent_orchestrator``) sequences a workflow by emitting, per
+          ``ModelHandlerOutput.events`` entry, a ``ModelEventEnvelope`` whose
+          ``event_type`` is the FULL destination topic of that emit (validate ->
+          validate topic, invoke -> invoke topic, ...). The emitted envelope
+          carries no ``topic`` field and its Python class is always
+          ``ModelEventEnvelope``, so the legacy ``topic``-field / class-name
+          routing fell through to the single ``output_topic`` fallback (the
+          contract terminal_event) and EVERY emit was misrouted to the terminal
+          topic (OMN-13247).
+
+        Either way the named topic is honored only when it is a contract-declared
+        (allowed) publish topic; otherwise this falls through so the class-name
+        ``topic_router`` / ``output_topic_map`` / ``output_topic`` paths decide.
+        """
+        embedded_topic = getattr(event, "topic", None)
+        if not (isinstance(embedded_topic, str) and embedded_topic.strip()):
+            if type(event).__name__ == "ModelEventEnvelope":
+                envelope_event_type = getattr(event, "event_type", None)
+                if isinstance(envelope_event_type, str) and envelope_event_type.strip():
+                    embedded_topic = envelope_event_type
+        if isinstance(embedded_topic, str) and embedded_topic.strip():
+            candidate_topic = embedded_topic.strip()
+            if candidate_topic in self._allowed_output_topics():
+                return candidate_topic
+            logger.warning(
+                "Ignoring undeclared embedded output topic",
+                extra={
+                    "topic": candidate_topic,
+                    "event_type": type(event).__name__,
+                },
+            )
+        return None
+
+    def _resolve_mapped_output_topic(self, event: BaseModel) -> str:
+        """Resolve output topic from configured class maps or fallback topic."""
+        class_name = type(event).__name__
+        delegation_intent_topic = _DELEGATION_INTENT_TOPIC_BY_CLASS.get(class_name)
+        if not self._output_topic_map:
+            return delegation_intent_topic or self._output_topic
+        short_name = class_name.removeprefix("Model")
+        return self._output_topic_map.get(
+            short_name,
+            self._output_topic_map.get(
+                class_name,
+                delegation_intent_topic or self._output_topic,
+            ),
+        )
+
+    def _allowed_output_topics(self) -> set[str]:
+        """Return contract-derived topics the applier may publish to."""
+        return {
+            self._output_topic,
+            *_DELEGATION_INTENT_TOPIC_BY_CLASS.values(),
+            *self._output_topic_map.values(),
+            *self._topic_router.values(),
+            *self._allowed_output_topic_set,
+            *self._failure_terminal_topics,
+        }
+
+    @staticmethod
+    def _derive_event_type_from_topic(topic: str) -> str | None:
+        """Derive the event_type routing key from an ONEX topic name.
+
+        Thin delegation to the shared ``derive_event_type_from_topic`` helper so
+        this applier and the state_io in-row outbox publish path
+        (``_publish_outbox_batch``) stamp ``event_type`` from ONE canonical
+        derivation and cannot diverge (OMN-14743 — the outbox previously omitted
+        the stamp entirely, leaving ``event_type=None`` and stalling delegation).
+
+        .. versionadded:: 0.41.0 (OMN-12116); lifted to shared helper OMN-14743.
+        """
+        return derive_event_type_from_topic(topic)
+
+    def _execute_projection(
+        self,
+        intent: ModelProjectionIntent,
+        correlation_id: UUID,
+        dispatcher_id: str | None,
+    ) -> None:
+        """Execute a single projection intent synchronously.
+
+        Calls NodeProjectionEffect.execute() and blocks until the projection
+        is persisted.  Raises ProjectionError (or re-raises the underlying
+        exception) on failure, which prevents the caller from publishing to
+        Kafka.
+
+        Args:
+            intent: The projection intent to execute.
+            correlation_id: Correlation ID for log context and error tracking.
+            dispatcher_id: Dispatcher identifier for logging context.
+
+        Raises:
+            ProjectionError: When the projection effect raises any exception.
+                Wraps the original exception for structured logging.
+        """
+        assert self._projection_effect is not None  # caller guards this
+        try:
+            result = self._projection_effect.execute(intent)
+            if not result.success:
+                # Explicit failure result — treat like a raised exception.
+                error_msg = (
+                    result.error
+                    or "projection returned success=False without error detail"
+                )
+                context = ModelInfraErrorContext.with_correlation(
+                    correlation_id=correlation_id,
+                    transport_type=EnumInfraTransportType.DATABASE,
+                    operation="dispatch_result_applier.execute_projection",
+                )
+                raise ProjectionError(
+                    f"Projection write failed for {intent.projector_key}: {error_msg}",
+                    context=context,
+                    projection_type=intent.projector_key,
+                )
+            logger.info(
+                "Projection persisted: projector_key=%s event_type=%s artifact_ref=%s "
+                "dispatcher_id=%s correlation_id=%s",
+                intent.projector_key,
+                intent.event_type,
+                result.artifact_ref,
+                dispatcher_id,
+                str(correlation_id),
+            )
+        except ProjectionError:
+            raise
+        except Exception as exc:
+            context = ModelInfraErrorContext.with_correlation(
+                correlation_id=correlation_id,
+                transport_type=EnumInfraTransportType.DATABASE,
+                operation="dispatch_result_applier.execute_projection",
+            )
+            raise ProjectionError(
+                f"Projection write raised exception for {intent.projector_key}: "
+                f"{sanitize_error_message(exc)}",
+                context=context,
+                projection_type=intent.projector_key,
+            ) from exc
+
+    async def apply(
+        self,
+        result: ModelDispatchResult | None,
+        correlation_id: UUID | None = None,
+    ) -> None:
+        """Process a dispatch result: project, execute intents, then publish output events.
+
+        Ordering Contract (OMN-2363 / OMN-2510):
+            1. NodeProjectionEffect.execute() — synchronous, blocks Kafka on failure
+            2. IntentExecutor.execute_all() — remaining effects (writes first)
+            3. EventBus.publish_envelope() — Kafka publish, only if 1 and 2 succeed
+
+        At-Least-Once Semantics:
+            Output events are published sequentially. If event N fails, events
+            1..N-1 are already published with no compensation. The exception
+            propagates to the caller, preventing Kafka offset commit. On
+            redelivery, events 1..N-1 will be published again as duplicates.
+            Downstream consumers must be idempotent.
+
+        Projection Failure Semantics (OMN-2510):
+            If the projection effect raises, the applier re-raises immediately
+            without executing intents or publishing any Kafka messages.  Zero
+            intents are published on projection failure — no partial state
+            emission.
+
+        None-result opt-out (OMN-12151):
+            When ``result`` is ``None``, the applier exits immediately without
+            publishing any terminal event or executing any intents.  This is the
+            canonical opt-out for multi-step FSM orchestrators that publish
+            sub-commands mid-flight and must not emit a terminal event until the
+            FSM reaches its final state.  Handlers that drive their own event
+            publication (e.g. ``handle_async`` flushes sub-commands directly)
+            should return ``None`` for non-terminal FSM states.
+
+        Args:
+            result: The dispatch result from the dispatch engine, or ``None``
+                to suppress terminal-event publication entirely.
+            correlation_id: Optional correlation ID for tracing.
+
+        Raises:
+            ProjectionError: If the projection effect raises.
+            RuntimeHostError: If intent execution misconfiguration is detected.
+            Exception: Re-raised from intent execution or Kafka publish failures.
+        """
+        if result is None:
+            logger.debug(
+                "DispatchResultApplier.apply received None result — "
+                "suppressing terminal event publication (OMN-12151)"
+            )
+            return
+
+        effective_correlation_id = correlation_id or result.correlation_id
+        if effective_correlation_id is None:
+            effective_correlation_id = uuid4()
+            logger.warning(
+                "No correlation_id available — generated uuid4() fallback. "
+                "Deterministic envelope_id deduplication will not work for "
+                "this dispatch result (dispatcher_id=%s).",
+                result.dispatcher_id,
+            )
+
+        # Per-handler result application (OMN-12416): a multi-handler contract
+        # aggregates every matched handler into one ModelDispatchResult, so a
+        # single sibling handler's failure marks the aggregate status as
+        # HANDLER_ERROR even when another handler on the same contract succeeded
+        # and produced output. Gating purely on ``status == SUCCESS`` would then
+        # drop the successful handler's output — letting one handler's outcome
+        # suppress another's. Only HANDLER_ERROR represents that partial-success
+        # shape; cancellation/timeouts and other non-success statuses must not
+        # publish side effects even if they happen to carry output fields.
+        has_applicable_output = bool(
+            result.output_events or result.output_intents or result.projection_intents
+        )
+        is_partial_handler_failure = result.status == EnumDispatchStatus.HANDLER_ERROR
+        if result.status != EnumDispatchStatus.SUCCESS and (
+            not is_partial_handler_failure or not has_applicable_output
+        ):
+            logger.debug(
+                "Skipping result apply for non-success status=%s "
+                "dispatcher_id=%s correlation_id=%s",
+                result.status.value if result.status else "unknown",
+                result.dispatcher_id,
+                str(effective_correlation_id),
+            )
+            return
+        if is_partial_handler_failure and has_applicable_output:
+            logger.info(
+                "Applying partial-success dispatch output despite status=%s — "
+                "a sibling handler failed but %d event(s)/%d intent(s)/%d "
+                "projection(s) from succeeding handler(s) are published "
+                "(dispatcher_id=%s correlation_id=%s)",
+                result.status.value if result.status else "unknown",
+                len(result.output_events),
+                len(result.output_intents),
+                len(result.projection_intents),
+                result.dispatcher_id,
+                str(effective_correlation_id),
+            )
+
+        # Phase 0: Execute projection synchronously (OMN-2510).
+        # Projection MUST complete before any Kafka publish.  If the projection
+        # effect raises, we re-raise immediately — no intents published, no
+        # Kafka messages emitted.
+        projection_intents: list[ModelProjectionIntent] = list(
+            result.projection_intents
+        )
+        if projection_intents and self._projection_effect is None:
+            context = ModelInfraErrorContext.with_correlation(
+                correlation_id=effective_correlation_id,
+                transport_type=EnumInfraTransportType.RUNTIME,
+                operation="dispatch_result_applier.execute_projection",
+            )
+            raise RuntimeHostError(
+                f"Dispatch result contains {len(projection_intents)} projection intent(s) "
+                f"but no ProtocolProjectionEffect is configured — projection would be "
+                f"skipped and Kafka publish would race (dispatcher_id={result.dispatcher_id})",
+                context=context,
+            )
+        if self._projection_effect is not None and projection_intents:
+            for proj_intent in projection_intents:
+                # _execute_projection raises ProjectionError on any failure.
+                # We do NOT catch it here — the caller must see it to skip
+                # Kafka offset commit.
+                try:
+                    self._execute_projection(
+                        proj_intent,
+                        correlation_id=effective_correlation_id,
+                        dispatcher_id=result.dispatcher_id,
+                    )
+                except ProjectionError as proj_err:
+                    logger.exception(
+                        "Projection failed — Kafka publish blocked: "
+                        "projector_key=%s event_type=%s "
+                        "dispatcher_id=%s correlation_id=%s",
+                        proj_intent.projector_key,
+                        proj_intent.event_type,
+                        result.dispatcher_id,
+                        str(effective_correlation_id),
+                        extra={
+                            "error_type": type(proj_err).__name__,
+                            "projector_key": proj_intent.projector_key,
+                            "event_type": proj_intent.event_type,
+                            "dispatcher_id": result.dispatcher_id,
+                        },
+                    )
+                    raise
+
+        # Phase 1: Execute intents (writes) BEFORE publishing output events.
+        # This ensures read models (PostgreSQL projections) are consistent
+        # before downstream consumers can observe the events.
+        output_intents = result.output_intents
+        if output_intents and self._intent_executor is None:
+            context = ModelInfraErrorContext.with_correlation(
+                correlation_id=effective_correlation_id,
+                transport_type=EnumInfraTransportType.RUNTIME,
+                operation="dispatch_result_applier.apply_intents",
+            )
+            raise RuntimeHostError(
+                f"Dispatch result contains {len(output_intents)} intent(s) but no "
+                f"IntentExecutor is configured — intents would be lost "
+                f"(dispatcher_id={result.dispatcher_id})",
+                context=context,
+            )
+        if self._intent_executor is not None and output_intents:
+            try:
+                await self._intent_executor.execute_all(
+                    output_intents,
+                    correlation_id=effective_correlation_id,
+                )
+                logger.info(
+                    "Delegated %d intents from dispatcher=%s (correlation_id=%s)",
+                    len(output_intents),
+                    result.dispatcher_id,
+                    str(effective_correlation_id),
+                )
+            except Exception as intent_err:
+                logger.warning(
+                    "Failed to execute intents: %s (correlation_id=%s)",
+                    sanitize_error_message(intent_err),
+                    str(effective_correlation_id),
+                    extra={
+                        "error_type": type(intent_err).__name__,
+                        "dispatcher_id": result.dispatcher_id,
+                        "intent_count": len(output_intents),
+                    },
+                )
+                # Re-raise so the caller (EventBusSubcontractWiring) can
+                # classify the error and apply retry/DLQ logic. Swallowing
+                # intent errors here would cause Kafka offset commit despite
+                # failed PostgreSQL upserts, leading to data loss.
+                raise
+
+        # Phase 2: Publish output events AFTER projection and intents have committed.
+        if result.output_events:
+            # OMN-18116: THE causal-edge origination site.
+            #
+            # Every event this runtime publishes as a consequence of consuming
+            # another one is built here, and the consumed envelope is already
+            # bound to this dispatch on a contextvar. Until now that parent
+            # identity was in scope at the publish site and discarded, so a
+            # chain read back later was a set of hops sharing a correlation id
+            # with no recorded statement of what caused what -- and a
+            # "replay green" verdict over it could only be a claim.
+            #
+            # No handler sets this. The canonical handler signature is
+            # `handle(request: ModelX) -> ModelY` and never sees an envelope;
+            # origination belongs in the runtime adapter, which is why there is
+            # exactly one site rather than one per node.
+            #
+            # None here is a STATEMENT: nothing was consumed, so every event of
+            # this dispatch is a chain head. A verifier can check that.
+            consumed_envelope = current_dispatch_envelope()
+            parent_envelope_id = (
+                consumed_envelope.envelope_id if consumed_envelope is not None else None
+            )
+            # OMN-16831: the tenant DIMENSION rides the same edge, from the same
+            # consumed envelope, for the same reason.
+            #
+            # `ModelEventEnvelope.tenant_id` is "which tenant this event belongs
+            # to, recorded at write time", and omnimarket's delegation projection
+            # writer reads exactly it -- a writer under FORCE ROW LEVEL SECURITY
+            # cannot discover a row's tenant by reading, so attribution is
+            # producer-recorded or it does not exist. The gateway forwarder DOES
+            # record it on the envelope it synthesizes for inbound customer
+            # traffic, from the deploy-time-bound gateway identity.
+            #
+            # It then died here. This site already carried correlation and
+            # causation off the consumed envelope and dropped the tenant, so
+            # every event published downstream of the gateway arrived
+            # unattributed and was refused, fail-closed, into
+            # onex.dlq.omnimarket.projection-delegation-malformed.v1.
+            #
+            # CARRIED, never SOURCED. `None` stays `None`: nothing consumed, or
+            # a consumed envelope that recorded no tenant, both publish
+            # unattributed and reach that refusal -- which is the designed
+            # behaviour, not a gap to close here. Defaulting one in would stamp
+            # a house tenant onto a row the submitting tenant's reader could
+            # never see, and is forbidden by OMN-16831 AC2 and OMN-16804 AC3.
+            carried_tenant_id = (
+                consumed_envelope.tenant_id if consumed_envelope is not None else None
+            )
+            for idx, output_event in enumerate(result.output_events):
+                try:
+                    publish_payload = self._publish_payload_for_output_event(
+                        output_event
+                    )
+                    # Deterministic envelope_id: uuid5(correlation_id, "type:index")
+                    # ensures redeliveries produce identical IDs, enabling
+                    # downstream consumers to deduplicate at-least-once events.
+                    # NOTE: If correlation_id is a uuid4 fallback (see above),
+                    # each retry generates a new namespace, defeating deduplication.
+                    deterministic_id = uuid5(
+                        effective_correlation_id,
+                        f"{type(output_event).__name__}:{idx}",
+                    )
+                    # A self-edge is refused by the envelope model, and
+                    # refusing it here too keeps a pathological equality from
+                    # taking the publish down. Equality means the deterministic
+                    # uuid5 collided with the consumed envelope's own id, which
+                    # is a real anomaly worth naming rather than a case to
+                    # silently paper over -- so it is logged and the hop is
+                    # recorded as a head, which reads as a broken chain to a
+                    # verifier instead of as a valid self-caused one.
+                    edge = parent_envelope_id
+                    if edge is not None and edge == deterministic_id:
+                        logger.warning(
+                            "Refusing a self-referential causal edge: the consumed "
+                            "envelope id equals this output's deterministic id "
+                            "(correlation_id=%s, envelope_id=%s)",
+                            str(effective_correlation_id),
+                            str(deterministic_id),
+                        )
+                        edge = None
+                    output_envelope: ModelEventEnvelope[BaseModel] = ModelEventEnvelope(
+                        envelope_id=deterministic_id,
+                        payload=publish_payload,
+                        correlation_id=effective_correlation_id,
+                        envelope_timestamp=self._clock(),
+                        parent_envelope_id=edge,
+                        tenant_id=carried_tenant_id,
+                    )
+
+                    # Extract partition key for per-entity ordering.
+                    partition_key = self._resolve_partition_key(publish_payload)
+                    if partition_key is not None:
+                        logger.debug(
+                            "Resolved partition key for output event "
+                            "(type=%s, key=%s, correlation_id=%s)",
+                            type(publish_payload).__name__,
+                            partition_key.decode("utf-8"),
+                            str(effective_correlation_id),
+                        )
+
+                    # Precedence: a topic the event itself names — a typed
+                    # payload's own ``topic`` field, or an ORCHESTRATOR-emitted
+                    # ``ModelEventEnvelope``'s ``event_type`` (the destination
+                    # topic each sequenced emit targets, OMN-13247) — wins; then
+                    # the per-class ``topic_router`` / ``output_topic_map``; finally
+                    # the single ``output_topic`` fallback.
+                    embedded_topic = self._resolve_embedded_output_topic(output_event)
+                    resolved_topic = (
+                        embedded_topic
+                        if embedded_topic is not None
+                        else self._topic_router.get(
+                            type(output_event).__name__,
+                            self._resolve_mapped_output_topic(output_event),
+                        )
+                    )
+                    # OMN-15468 AC2: last stop before publish — a return value
+                    # that declares a failure verdict never leaves on the
+                    # contract's SUCCESS terminal. Applied here rather than only
+                    # inside _resolve_output_topic because this loop resolves
+                    # the topic inline (topic_router is consulted here and
+                    # nowhere else), so guarding only the helper would leave the
+                    # path that actually publishes unguarded.
+                    resolved_topic = apply_failure_terminal_guard(
+                        output_event,
+                        resolved_topic,
+                        success_topic=self._output_topic,
+                        failure_terminal_topics=self._failure_terminal_topics,
+                    )
+
+                    # OMN-12116: Derive event_type from the resolved topic so
+                    # multi-step FSM orchestrators can match the dispatcher
+                    # registration alias (e.g. 'omnimarket.swarm-endpoint-health-completed').
+                    # Without this, the envelope arrives with event_type=None
+                    # and the orchestrator's dispatcher — registered under the
+                    # topic-derived alias — cannot find a matching handler,
+                    # causing the response event to be routed to DLQ.
+                    derived_event_type = self._derive_event_type_from_topic(
+                        resolved_topic
+                    )
+                    if derived_event_type is not None:
+                        output_envelope = output_envelope.model_copy(
+                            update={"event_type": derived_event_type}
+                        )
+
+                    await self._event_bus.publish_envelope(
+                        envelope=output_envelope,
+                        topic=resolved_topic,
+                        key=partition_key,
+                    )
+
+                    # OMN-16777: an output envelope is only "out" once the
+                    # broker has taken it, so this is counted AFTER the publish
+                    # returns and never before. Two facts are recorded from one
+                    # event: this consumer produced something (messages_out,
+                    # against the task-local subscription key the auto-wiring
+                    # boundary bound), and `resolved_topic` received something
+                    # (the upstream-production evidence that lets the projection
+                    # tell STARVED from IDLE without ever polling the broker).
+                    _record_flow_output(resolved_topic)
+
+                    logger.info(
+                        "Published output event to %s (correlation_id=%s)",
+                        resolved_topic,
+                        str(effective_correlation_id),
+                        extra={
+                            "output_event_type": type(output_event).__name__,
+                            "envelope_id": str(output_envelope.envelope_id),
+                            "dispatcher_id": result.dispatcher_id,
+                            "partition_key": (
+                                partition_key.decode("utf-8")
+                                if partition_key is not None
+                                else None
+                            ),
+                        },
+                    )
+                except Exception as pub_err:
+                    logger.warning(
+                        "Failed to publish output event: %s (correlation_id=%s)",
+                        sanitize_error_message(pub_err),
+                        str(effective_correlation_id),
+                        extra={
+                            "error_type": type(pub_err).__name__,
+                            "dispatcher_id": result.dispatcher_id,
+                        },
+                    )
+                    # Re-raise so the caller can classify the error and
+                    # apply retry/DLQ logic. Swallowing publish failures
+                    # causes offset commit despite lost output events.
+                    raise
+
+            logger.debug(
+                "Applied %d output events from dispatcher=%s (correlation_id=%s)",
+                len(result.output_events),
+                result.dispatcher_id,
+                str(effective_correlation_id),
+            )
+
+
+def build_contract_result_applier(
+    *,
+    event_bus: ProtocolEventBusLike,
+    contract_path: Path,
+    publish_topics: Sequence[str],
+    output_topic: str | None = None,
+    terminal_event: str | None = None,
+    intent_executor: IntentExecutor | None = None,
+    clock: Callable[[], datetime] | None = None,
+    projection_effect: ProtocolProjectionEffect | None = None,
+    topic_router: dict[str, str] | None = None,
+    output_topic_map: Mapping[str, str] | None = None,
+    output_event_handler: Callable[[BaseModel], Awaitable[BaseModel | None]]
+    | None = None,
+    allowed_output_topics: Iterable[str] | None = None,
+) -> DispatchResultApplier:
+    """Build an applier whose routing inputs are DERIVED FROM THE CONTRACT.
+
+    OMN-15468. Both mechanisms that keep a failure-verdict return value off the
+    SUCCESS terminal are contract-derived, and both were being lost by every
+    applier built outside ``handler_wiring``:
+
+    * ``output_topic_map`` (from ``published_events``) is what routes a
+      ``…Failed`` return CLASS to the failure topic. An applier built without
+      it resolves EVERY returned class to the single ``output_topic`` fallback,
+      so class-based routing is dead, not merely unused.
+    * ``failure_terminal_topics`` (from the contract's terminal declarations)
+      is what lets :func:`apply_failure_terminal_guard` re-route a payload that
+      STATES a failure. An applier built without it has an inert guard, and the
+      guard is silent about it — an empty tuple takes the
+      ``len(...) != 1`` branch and logs nothing.
+
+    Live proof this mattered: ``service_kernel`` hand-registered an applier for
+    ``node_delegate_skill_orchestrator`` with neither input, and that
+    registration takes precedence over the contract-derived wiring in
+    ``_subscribe_contract_topics``. On the ``.201`` dev lane, 18 of the trailing
+    25 records on ``onex.evt.omnimarket.delegate-skill-completed.v1`` carried
+    ``status="failed"`` with a typed ``terminal_failure_cause``, published by
+    this applier with no re-route and no warning.
+
+    Deriving here — at ONE factory both the kernel and the auto-wiring call —
+    is what makes the two mechanisms impossible to construct away.
+
+    Args:
+        event_bus: Event bus for publishing output events.
+        contract_path: Path to the contract YAML the applier serves. Read for
+            ``published_events`` and the terminal declarations.
+        publish_topics: The contract's declared ``event_bus.publish_topics``.
+        output_topic: Explicit success/fallback topic. Defaults to the
+            contract's ``terminal_event`` when publishable, else the first
+            publish topic — the same precedence ``handler_wiring`` uses.
+        terminal_event: The contract's declared top-level terminal event, used
+            only to resolve ``output_topic`` when it is not passed.
+        output_topic_map: Overrides the ``published_events`` derivation. Pass
+            only when the map is already loaded; ``None`` derives it.
+        allowed_output_topics: Overrides the publish-topic allowlist.
+
+    Returns:
+        A ``DispatchResultApplier`` carrying both contract-derived routing
+        inputs.
+    """
+    from omnibase_infra.runtime.event_bus_subcontract_wiring import (
+        load_published_events_map,
+    )
+
+    topics = tuple(
+        topic.strip()
+        for topic in publish_topics
+        if isinstance(topic, str) and topic.strip()
+    )
+    if not topics:
+        raise RuntimeHostError(
+            "build_contract_result_applier: contract at "
+            f"{contract_path} declares no publish topics; an applier with no "
+            "destination cannot deliver a dispatch result."
+        )
+    resolved_output_topic = output_topic or (
+        terminal_event if terminal_event in topics else topics[0]
+    )
+    derived_map = (
+        dict(output_topic_map)
+        if output_topic_map is not None
+        else load_published_events_map(contract_path, logger)
+    )
+    return DispatchResultApplier(
+        event_bus=event_bus,
+        output_topic=resolved_output_topic,
+        intent_executor=intent_executor,
+        clock=clock,
+        projection_effect=projection_effect,
+        topic_router=topic_router,
+        output_topic_map=derived_map,
+        output_event_handler=output_event_handler,
+        allowed_output_topics=(
+            topics if allowed_output_topics is None else allowed_output_topics
+        ),
+        failure_terminal_topics=declared_failure_terminal_topics(
+            contract_path,
+            success_topic=resolved_output_topic,
+            publishable_topics=topics,
+        ),
+    )
+
+
+def build_static_result_applier(
+    *,
+    event_bus: ProtocolEventBusLike,
+    output_topic: str,
+    failure_terminal_topics: Sequence[str],
+    allowed_output_topics: Iterable[str] | None = None,
+    intent_executor: IntentExecutor | None = None,
+    clock: Callable[[], datetime] | None = None,
+    projection_effect: ProtocolProjectionEffect | None = None,
+    topic_router: dict[str, str] | None = None,
+    output_topic_map: Mapping[str, str] | None = None,
+    output_event_handler: Callable[[BaseModel], Awaitable[BaseModel | None]]
+    | None = None,
+) -> DispatchResultApplier:
+    """Build an applier for a call site that has no contract path to read.
+
+    ``failure_terminal_topics`` is REQUIRED here, with no default. That is the
+    whole point of this entry point: a caller that cannot derive the contract's
+    failure terminal must still state, in the source, which topic a
+    failure-verdict return value belongs on — or state ``()`` deliberately,
+    which is a legible declaration that this contract HAS no failure terminal
+    rather than an omission nobody notices. The empty default on
+    ``DispatchResultApplier.__init__`` is what let three call sites ship an
+    inert guard (OMN-15468).
+    """
+    return DispatchResultApplier(
+        event_bus=event_bus,
+        output_topic=output_topic,
+        intent_executor=intent_executor,
+        clock=clock,
+        projection_effect=projection_effect,
+        topic_router=topic_router,
+        output_topic_map=dict(output_topic_map) if output_topic_map else None,
+        output_event_handler=output_event_handler,
+        allowed_output_topics=allowed_output_topics,
+        failure_terminal_topics=failure_terminal_topics,
+    )
+
+
+__all__: list[str] = [
+    "DispatchResultApplier",
+    "build_contract_result_applier",
+    "build_static_result_applier",
+]

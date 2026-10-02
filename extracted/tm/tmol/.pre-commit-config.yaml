@@ -1,0 +1,34 @@
+repos:
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v22.1.1
+    hooks:
+      - id: clang-format
+        args: ['-i']
+        files: \.(c|cc|cpp|h|hh|cu|cuh)$
+        exclude: >
+            (?x)^(
+                tmol/extern/.* |
+                dev/.* 
+            )$
+  - repo: https://github.com/psf/black
+    rev: 26.3.1
+    hooks:
+      - id: black
+        exclude: >
+            (?x)^(
+                tmol/extern/.* |
+                tmol/ligand/external/.* |
+                dev/.* |
+                \.conda/.*
+            )$
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.1.1  # Use the latest stable version tag
+    hooks:
+      - id: flake8
+        exclude: >
+            (?x)^(
+                tmol/extern/.* |
+                tmol/ligand/external/.* |
+                dev/.* |
+                \.venv/.*
+            )$

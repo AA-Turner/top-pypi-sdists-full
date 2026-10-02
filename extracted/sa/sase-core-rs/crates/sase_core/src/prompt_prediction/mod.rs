@@ -25,13 +25,13 @@ pub use corpus::{
 pub use model::PromptPredictionModel;
 pub use origin::{looks_generated, MARKER_LAND_EPIC, MARKER_WORK_PHASE_BEAD};
 pub use predict::{
-    parse_confidence, ConfidencePreset, DraftCounts, OrderSuffixes,
-    ScoringQuery, MODEL_MAX_CONTEXT_WORDS, PRESET_BALANCED, PRESET_CAUTIOUS,
-    PRESET_EAGER,
+    parse_confidence, score_and_gate, ConfidencePreset, DraftCounts,
+    OrderSuffixes, ScoringQuery, MODEL_MAX_CONTEXT_WORDS, PRESET_BALANCED,
+    PRESET_CAUTIOUS, PRESET_EAGER,
 };
 pub use replay::evaluate_prompt_prediction_replay;
 pub use tokenize::{
-    canonical_surface, classify_word, tokenize_cursor_text,
+    canonical_surface, classify_word, split_partial_word, tokenize_cursor_text,
     tokenize_prompt_text, BLOCKED_FRONTMATTER, BLOCKED_NO_WORD_CONTEXT,
     BLOCKED_STRUCTURAL_TAIL, BLOCKED_UNCLOSED_ALTERNATION,
     BLOCKED_UNCLOSED_CODE_SPAN, BLOCKED_UNCLOSED_FENCE, BLOCKED_UNCLOSED_JINJA,
@@ -41,10 +41,13 @@ pub use wire::{
     PromptPredictionCandidateWire, PromptPredictionCorpusOptionsWire,
     PromptPredictionCorpusStatsWire, PromptPredictionModelConfigWire,
     PromptPredictionReplayCohortWire, PromptPredictionReplayGateMetricsWire,
-    PromptPredictionReplayOptionsWire, PromptPredictionReplayReportWire,
-    PromptPredictionReplaySweepPointWire, PromptPredictionRequestWire,
-    PromptPredictionResultWire, PromptPredictionRowWire,
-    PromptPredictionSourceRole, PromptPredictionSourceSharesWire,
+    PromptPredictionReplayMidwordCohortWire,
+    PromptPredictionReplayMidwordMetricsWire,
+    PromptPredictionReplayMidwordPresetWire, PromptPredictionReplayOptionsWire,
+    PromptPredictionReplayReportWire, PromptPredictionReplaySweepPointWire,
+    PromptPredictionRequestWire, PromptPredictionResultWire,
+    PromptPredictionRowWire, PromptPredictionSourceRole,
+    PromptPredictionSourceSharesWire, PromptPredictionWordCompletionWire,
     PromptPrefixRankMatchWire, PromptPrefixRankRequestWire,
     PromptPrefixRankResultWire, PROMPT_PREDICTION_WIRE_SCHEMA_VERSION,
 };

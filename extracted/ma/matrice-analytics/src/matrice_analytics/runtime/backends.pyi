@@ -10,6 +10,7 @@ from ..engine.routing import resolve_flow_mode, route_app
 from ..engine.routing import route_app
 from ..engine.runtime.session import Session
 from ..engine.runtime.stream_info import resolve_stream_info
+from ..engine.verify import close_all_workers
 from ..post_processing.post_processor import PostProcessor
 from .app_bundle import AppBundleError
 from .app_bundle import POST_PROCESSING_CONFIGS_PATH

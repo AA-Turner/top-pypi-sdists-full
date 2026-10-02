@@ -1,0 +1,374 @@
+---
+name: node_event_emit_effect
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: EFFECT_GENERIC
+node_version: {major: 0, minor: 1, patch: 0}
+node_not_implemented: false
+description: >
+  Thin-publish-to-Kafka EFFECT node with a file-based spool outbox for
+  durability (OMN-15965 R1). Stateless, definition-B handler. Replaces the
+  Unix-socket node_emit_daemon transport for new callers: the hook side
+  appends events to a local spool (fast, never blocks on the network), and
+  this node drains the spool (publish current + backlog) opportunistically
+  on each invocation. Durability is split by declared per-topic tier, read
+  from the shared event registry: duty_critical events are appended
+  never-drop (SpoolFullError signals explicit backpressure on overflow),
+  telemetry events use a bounded spool with drop-oldest-and-count on
+  overflow. At-least-once with stable event_id/correlation_id keys;
+  downstream consumer dedup, not control flow. node_emit_daemon's socket
+  server / publisher loop / IPC surface is untouched here and is deleted
+  separately under R5 (OMN-15974) -- this node must not import it.
+
+handler:
+  module: omnimarket.nodes.node_event_emit_effect.handlers.handler_event_emit_effect
+  class: HandlerEventEmitEffect
+  input_model: omnimarket.nodes.node_event_emit_effect.models.model_emit_request.ModelEmitRequest
+
+handler_routing:
+  handlers:
+    - operation: event_emit
+      handler:
+        name: HandlerEventEmitEffect
+        module: omnimarket.nodes.node_event_emit_effect.handlers.handler_event_emit_effect
+
+input_model:
+  name: ModelEmitRequest
+  module: omnimarket.nodes.node_event_emit_effect.models.model_emit_request
+  description: "Event submitted for publishing: event_type, payload, and optional topic/partition_key/correlation_id overrides."
+output_model:
+  name: ModelEmitResult
+  module: omnimarket.nodes.node_event_emit_effect.models.model_emit_result
+  description: "Publish + opportunistic-drain outcome: topics published, drained/dropped counts."
+
+# A content identity is distinct from the UUID delivery identity.  The latter
+# remains the spool filename/message id so an at-least-once retry has its
+# original local identity; the former lets the gateway prove that the same
+# post-redaction content crossed each trust boundary.
+content_identity:
+  version: 1
+  applies_when: "fan_out.transform == redact_capture"
+  spool_field: content_event_id
+  transport_field: "ModelEventHeaders.idempotency_key"
+  canonical_bytes: >-
+    UTF-8 bytes of canonical_topic + "\\n" +
+    json.dumps(post_redaction_payload, sort_keys=True,
+    separators=(",", ":"), ensure_ascii=True, default=str).
+  algorithm: sha256_hex
+  excludes:
+    - envelope_id
+    - transport_message_id
+    - transport_correlation_id
+    - envelope_metadata
+    - metadata.tags.event_id
+  delivery_identity: "ModelEmitRequest.event_id and ModelEventHeaders.message_id remain UUID delivery identities."
+  legacy_spool_records: >-
+    A row without content_event_id is a pre-v1 record. Replay its stored
+    payload, topic, UUID event_id, and correlation_id unchanged; do not infer
+    redaction provenance or write a new content identity into that row.
+
+descriptor:
+  node_archetype: effect
+  purity: effectful
+  runtime_profiles: [effects]
+  idempotent: true
+  timeout_ms: 10000  # bounded per-invocation drain budget (opportunistic, not a resident daemon)
+
+runtime_dispatch:
+  # Direct def-B CLI / plugin-runtime dispatch, not bus-triggered by any
+  # producer today -- same "no live bus wiring yet, directly-invoked only"
+  # pattern as node_staging_readiness_compute / node_report_validation_compute.
+  # command_topic doubles as this node's own subscribe_topics entry (the
+  # static contract-topic-graph treats a declared command_topic as
+  # self-satisfying: "the CLI's publish target").
+  command_topic: onex.cmd.omnimarket.event-emit.v1
+  terminal_events:
+    success: onex.evt.omnimarket.event-emit-completed.v1
+    failure: onex.evt.omnimarket.event-emit-failed.v1
+  default_timeout_ms: 10000
+  max_timeout_ms: 10000
+
+terminal_event: onex.evt.omnimarket.event-emit-completed.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.event-emit.v1
+  publish_topics:
+    # Generated from registries/topics.yaml's fan_out targets at
+    # contract-authoring time -- do not hand-copy a stale list; regenerate
+    # against the live registry before trusting this set.
+    #
+    # DEVIATION FROM THE FULL ~63-TOPIC MIRROR (documented, not silent): the
+    # static producer/consumer graph (src/omnimarket/validators/
+    # contract_topic_graph.py, wired as the contract-topic-graph pre-commit
+    # hook) enforces a shrink-only ratchet keyed by (defect, NODE NAME,
+    # topic). node_emit_daemon already carries ~35 of these topics as
+    # baselined ORPHANED_PRODUCER debt (real: nothing in the graph consumes
+    # them today). Declaring the same topics again under this node's
+    # different name is a NEW defect key even though the underlying topic
+    # isn't newly orphaned, and the tool's own output is explicit: "Do NOT
+    # add these to the baseline -- the baseline is frozen pre-existing debt
+    # and may only shrink." So this list is scoped to the topics that
+    # already have a live consumer somewhere in the graph (no new orphan
+    # defects) plus this node's own new terminal_event, declared via
+    # externally_consumed_topics below. The remaining ~35 registry topics
+    # this node CAN resolve/publish (topic_resolver.py reads the full
+    # registry, unrestricted by this list) are not yet contract-declared
+    # here; add them to this list in a follow-up once their consumers are
+    # wired, rather than re-introducing accepted orphan debt under a new
+    # node name. onex.evt.diagnostic.daemon-health.v1 is separately
+    # excluded for all producers: non-standard service name 'diagnostic',
+    # fails the topic-naming lint (see node_emit_daemon's
+    # dep_health_allowlist.yaml entry for the same exclusion).
+    - onex.cmd.omnibase-infra.delegation-request.v1
+    - onex.cmd.omniclaude.delegate-task.v1
+    - onex.cmd.omniintelligence.claude-hook-event.v1
+    - onex.cmd.omniintelligence.compliance-evaluate.v1
+    - onex.cmd.omniintelligence.content-captured.v1
+    - onex.cmd.omniintelligence.session-outcome.v1
+    - onex.cmd.omniintelligence.tool-content.v1
+    - onex.cmd.omniintelligence.utilization-scoring.v1
+    - onex.evt.omniclaude.budget-cap-hit.v1
+    - onex.evt.omniclaude.circuit-breaker-tripped.v1
+    - onex.evt.omniclaude.delegation-shadow-comparison.v1
+    - onex.evt.omniclaude.llm-routing-decision.v1
+    - onex.evt.omniclaude.notification-blocked.v1
+    - onex.evt.omniclaude.notification-completed.v1
+    - onex.evt.omniclaude.pattern-enforcement.v1
+    - onex.evt.omniclaude.phase-metrics.v1
+    - onex.evt.omniclaude.prompt-submitted.v1
+    - onex.evt.omniclaude.routing-decision.v1
+    - onex.evt.omniclaude.routing-feedback.v1
+    - onex.evt.omniclaude.session-ended.v1
+    - onex.evt.omniclaude.session-outcome.v1
+    - onex.evt.omniclaude.session-started.v1
+    - onex.evt.omniclaude.skill-completed.v1
+    - onex.evt.omniclaude.skill-started.v1
+    - onex.evt.omniclaude.tool-executed.v1
+    - onex.evt.omniintelligence.llm-call-completed.v1
+    - onex.evt.omnimarket.event-emit-completed.v1
+    - onex.evt.omnimarket.event-emit-failed.v1
+    - onex.evt.omnimarket.tool-output-captured.v1
+
+compatibility_publish_topics:
+  # WHY THIS KEY EXISTS HERE (OMN-15971).
+  #
+  # The runtime's auto-wiring discovery gate
+  # (omnibase_infra/src/omnibase_infra/runtime/auto_wiring/discovery.py,
+  # _contract_targets_active_runtime_packages) skips any contract whose
+  # publish_topics reach into a package domain that is not in
+  # ONEX_ACTIVE_RUNTIME_PACKAGES. On the onex-dev lane that allowlist is
+  # `omnibase_infra,omnimarket`, so this contract was skipped in all three
+  # runtime profiles with the log line:
+  #
+  #   Skipping contract 'node_event_emit_effect' from 'omnimarket' because it
+  #   targets an inactive runtime package domain
+  #
+  # That is correct-by-design for a normal node: publishing into a domain IS
+  # being part of that domain's producer surface. This node is the deliberate
+  # exception -- it is a generic fan-out emitter whose entire job is to
+  # publish events on behalf of OTHER domains (omniclaude, omniintelligence)
+  # that it does not own and does not consume from. Its own domain surface is
+  # only the four omnimarket/omnibase-infra topics below the fold; the 24
+  # topics listed here are pure cross-domain fan-out targets.
+  #
+  # WHY THIS ROUTE, NOT ACTIVATING THE DOMAINS. The alternative -- adding
+  # omniclaude/omniintelligence/omnimemory to ONEX_ACTIVE_RUNTIME_PACKAGES --
+  # was measured in-pod against the deployed image before being rejected: it
+  # newly activates 25 contracts (not 1), 122 topics, and 29 NEW SUBSCRIBE
+  # topics, i.e. 29 consumer groups that all three runtime Deployments would
+  # join at boot, pulling in memory/persona/intent storage + retrieval +
+  # lifecycle handlers whose Postgres/Qdrant dependencies are not provisioned
+  # on that lane. That is a boot-path change to every runtime pod. This key is
+  # the runtime's own purpose-built, per-contract escape hatch for exactly
+  # this shape: it activates 1 contract and adds 0 new subscribe topics.
+  #
+  # INVARIANT (pinned by tests/unit/nodes/node_event_emit_effect/
+  # test_contract_compliance.py): every publish topic whose domain segment is
+  # outside this node's owning packages must appear here, and this list must
+  # contain nothing that is not a declared publish topic. Adding a new
+  # cross-domain publish topic without adding it here silently re-skips the
+  # whole contract at discovery -- the test is what stops that regression.
+  - onex.cmd.omniclaude.delegate-task.v1
+  - onex.cmd.omniintelligence.claude-hook-event.v1
+  - onex.cmd.omniintelligence.compliance-evaluate.v1
+  - onex.cmd.omniintelligence.content-captured.v1
+  - onex.cmd.omniintelligence.session-outcome.v1
+  - onex.cmd.omniintelligence.tool-content.v1
+  - onex.cmd.omniintelligence.utilization-scoring.v1
+  - onex.evt.omniclaude.budget-cap-hit.v1
+  - onex.evt.omniclaude.circuit-breaker-tripped.v1
+  - onex.evt.omniclaude.delegation-shadow-comparison.v1
+  - onex.evt.omniclaude.llm-routing-decision.v1
+  - onex.evt.omniclaude.notification-blocked.v1
+  - onex.evt.omniclaude.notification-completed.v1
+  - onex.evt.omniclaude.pattern-enforcement.v1
+  - onex.evt.omniclaude.phase-metrics.v1
+  - onex.evt.omniclaude.prompt-submitted.v1
+  - onex.evt.omniclaude.routing-decision.v1
+  - onex.evt.omniclaude.routing-feedback.v1
+  - onex.evt.omniclaude.session-ended.v1
+  - onex.evt.omniclaude.session-outcome.v1
+  - onex.evt.omniclaude.session-started.v1
+  - onex.evt.omniclaude.skill-completed.v1
+  - onex.evt.omniclaude.skill-started.v1
+  - onex.evt.omniclaude.tool-executed.v1
+  - onex.evt.omniintelligence.llm-call-completed.v1
+
+externally_consumed_topics:
+  # This node's own terminal events -- genuinely new (verified absent from
+  # both registries/topics.yaml and the omniclaude-generated EVENT_REGISTRY
+  # at PR time). Hook wiring (OMN-14317) and shadow-mode parity (R9,
+  # OMN-15971) are separate, later scope; declared here so the static
+  # producer/consumer graph does not flag them as orphans in the meantime.
+  - onex.evt.omnimarket.event-emit-completed.v1
+  - onex.evt.omnimarket.event-emit-failed.v1
+
+envelope_enrichment:
+  # OMN-16048 ruled REPLICATE: the fields below and the partition-key
+  # computation are WIRE CONTRACT, reproduced byte-for-byte from the legacy
+  # node_emit_daemon (EmitSocketServer._inject_metadata +
+  # EventRegistry.get_partition_key). Declared here, not left implicit in the
+  # handler, so the contract is the authority and drift is detectable --
+  # tests/unit/nodes/node_event_emit_effect/test_contract_compliance.py
+  # asserts this block against enrichment.ENRICHMENT_FIELDS.
+  #
+  # Carrier: the PAYLOAD, not typed ModelEmitRequest fields. These fields are
+  # what downstream consumers read off the wire (they are payload keys in
+  # every registered event's schema today), so hoisting them into request-
+  # level fields would have changed the wire shape -- the one thing the
+  # REPLICATE ruling forbids. ModelEmitRequest.correlation_id remains a seed
+  # for the generate-when-absent branch; the payload always wins.
+  applied_by: omnimarket.nodes.node_event_emit_effect.enrichment.inject_metadata
+  injected_fields:
+    - name: correlation_id
+      policy: preserve_else_generate   # request seed, else correlation_id_factory()
+      generated: true
+    - name: causation_id
+      policy: preserve_else_null
+      generated: false
+    - name: emitted_at
+      policy: preserve_else_clock      # clock().isoformat(), UTC
+      generated: true
+    - name: session_id
+      policy: preserve_else_env
+      env_var: CLAUDE_CODE_SESSION_ID
+      generated: false
+    - name: entity_id
+      policy: derive_from_session_id   # UUID passthrough, else sha256[:32] as UUID
+      generated: false
+    - name: schema_version
+      policy: constant
+      value: "1.0.0"
+      generated: false
+
+  # The two GENERATED fields are injected through callables whose defaults are
+  # the daemon's own inline expressions (datetime.now(UTC) / str(uuid4())).
+  # The seam exists so shadow-mode parity can be MEASURED rather than waived;
+  # it changes nothing at runtime. See enrichment.py's module docstring.
+  determinism_seam:
+    clock: HandlerEventEmitEffect.clock
+    correlation_id: HandlerEventEmitEffect.correlation_id_factory
+
+  per_topic_transform:
+    # Applied PER FAN-OUT RULE to the shared enriched payload, so two topics
+    # of one event legitimately differ on the wire.
+    source: registries/topics.yaml events.<event_type>.fan_out[].transform
+    supported: [passthrough, strip_prompt, strip_body]
+
+    # OMN-17237: the seam fails CLOSED. Three paths previously reached the
+    # wire without entering the transform pipeline, each defaulting to a
+    # verbatim publish -- the failure direction that discloses. Declared here
+    # rather than left implicit in the handler so the posture is contract
+    # -visible and a regression is a contract diff, not a silent code change.
+    #
+    # Every refusal below raises a subclass of
+    # omnimarket.nodes.node_event_emit_effect.errors.EmitRedactionError
+    # (itself a ValueError), carries structured attributes for DLQ routing,
+    # and fires BEFORE anything is spooled -- a refused publish leaves zero
+    # spool records, so the backlog drain cannot re-publish it later.
+    fail_closed:
+      unresolvable_transform_name:
+        # A registry typo, or a transform declared but never implemented.
+        rule: refuse
+        raises: UnknownTransformError
+        note: >-
+          Diverges from the legacy daemon, which logs a warning and falls
+          back to passthrough. Unreachable on the registry as it stands --
+          test_transform_fail_closed asserts every declared fan_out[].
+          transform resolves -- so wire parity is unaffected.
+      topic_override:
+        # ModelEmitRequest.topic publishes to one topic outside the event's
+        # declared fan-out set. It does NOT escape the redaction contract.
+        rule: resolve_or_refuse
+        resolution_order:
+          - the transform declared by fan-out rules targeting that topic
+          - the transform declared by the event_type's own fan-out rules,
+            when they agree on one posture
+        raises: [AmbiguousTransformError, UnresolvableTransformError]
+        note: >-
+          An override may not weaken the redaction its event declares. Rules
+          that disagree (prompt.submitted declares none on its cmd topic and
+          strip_prompt on its evt topic) are ambiguous, not permissive:
+          refuse. A topic declared nowhere under an unregistered or
+          zero-fan-out event has no posture at all: refuse.
+      non_object_payload:
+        # A list/str/number/bool has no field surface for a field-level
+        # transform to act on.
+        rule: refuse
+        raises: NonMappingPayloadError
+        null_payload: coerced_to_empty_object
+        note: >-
+          Narrows this node back to daemon parity rather than adding a
+          restriction: socket_server._handle_emit already rejects these with
+          "'payload' must be a JSON object". Null is coerced to {} first, as
+          the daemon does, since an empty object discloses nothing.
+
+  partition_key:
+    # Derived from the POST-transform payload, matching the daemon's
+    # get_partition_key(event_type, rule.apply_transform(enriched)) ordering.
+    source: registries/topics.yaml events.<event_type>.partition_key_field
+    null_when: [field_undeclared, field_absent_or_null]
+    override: ModelEmitRequest.partition_key
+
+side_effects:
+  reads: [local_spool_read]
+  writes: [local_spool_write, kafka_publish]
+  duplicate_key_fields: [event_id, correlation_id, content_event_id]
+
+env_dependencies:
+  # OMN-16167: KAFKA_BOOTSTRAP_SERVERS is bootstrap-class config (host/overlay
+  # -sourced -- see omnibase_infra/config/overlays/{mac-dev,linux-server,
+  # cloud-k8s}.yaml -- never Infisical, per that mapping's documented
+  # circular-bootstrap-dependency exclusion). The handler no longer reads it
+  # ad hoc to decide behavior: it is resolved through
+  # omnibase_infra.event_bus.models.config.ModelKafkaEventBusConfig, the same
+  # shared, env-override-aware model every other Kafka publisher in this
+  # codebase already builds its connection from. That model's
+  # bootstrap_servers field has no default, so a genuinely missing var now
+  # fails adapter construction loudly (KeyError) instead of the handler
+  # silently choosing spool-only on the operator's behalf.
+  KAFKA_BOOTSTRAP_SERVERS:
+    required: true
+    description: >
+      Kafka bootstrap servers for the publish adapter, resolved via
+      ModelKafkaEventBusConfig. Required unless ONEX_EMIT_EFFECT_SPOOL_ONLY
+      declares this lane intentionally spool-only.
+  ONEX_EMIT_EFFECT_SPOOL_ONLY:
+    required: false
+    description: >
+      Explicit, contract-declared opt-out for a lane intentionally running
+      with no Kafka publish target configured yet (local unit tests, a lane
+      mid-bring-up). One of "1"/"true"/"yes"/"on" (case-insensitive) skips
+      Kafka adapter construction entirely and runs spool-only -- exactly
+      what an absent KAFKA_BOOTSTRAP_SERVERS used to trigger implicitly.
+      Every event is still appended to the spool outbox first regardless of
+      this setting; only the publish attempt is skipped.
+  ONEX_EMIT_EFFECT_SPOOL_DIR:
+    required: false
+    description: "Override the spool directory. Default: $XDG_RUNTIME_DIR/onex/event-emit-effect-spool, else /tmp/onex-event-emit-effect-spool."
+
+metadata:
+  transport_type: kafka
+  durability: file_spool
+  implementation_wave: 1
+  related_tickets: ["OMN-16167", "OMN-16048", "OMN-15965", "OMN-15964", "OMN-13213"]

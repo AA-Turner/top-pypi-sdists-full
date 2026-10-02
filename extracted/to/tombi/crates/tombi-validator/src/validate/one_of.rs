@@ -97,7 +97,7 @@ where
         };
         let has_resolution_errors = !resolution_errors.is_empty();
         total_diagnostics.extend(resolution_errors.into_iter().filter_map(|err| {
-            crate::validate::schema_resolution_diagnostic(&err, value.range(), common_rules)
+            crate::validate::schema_resolution_diagnostic(&err, value.span(), common_rules)
         }));
 
         let total_count = resolved_schemas.len();
@@ -105,7 +105,7 @@ where
             if !has_resolution_errors {
                 crate::Diagnostic {
                     kind: Box::new(crate::DiagnosticKind::OneOfNoMatch { total_count }),
-                    range: value.range(),
+                    span: value.span(),
                 }
                 .push_diagnostic_with_level(
                     SeverityLevelDefaultError::default(),
@@ -180,7 +180,7 @@ where
                         valid_count,
                         total_count,
                     }),
-                    range: value.range(),
+                    span: value.span(),
                 }
                 .push_diagnostic_with_level(
                     common_rules

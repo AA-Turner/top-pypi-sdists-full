@@ -1,0 +1,250 @@
+# coding: utf-8
+# cython: boundscheck=True, wraparound=True
+# cython: c_string_type=unicode, c_string_encoding=ascii
+# cython: freethreading_compatible=True
+# cython: language_level=3
+# pyright: reportGeneralTypeIssues=false
+
+from collections.abc import Callable
+from functools import wraps
+from threading import RLock
+from typing import Concatenate, ParamSpec, TypeVar
+
+import numpy as np
+from numpy.typing import NDArray
+
+cimport numpy as np
+np.import_array()
+
+cimport cython
+from libc.stdlib cimport malloc, free
+
+from .htsengine cimport HTS_Engine
+from .htsengine cimport (
+    HTS_Engine_initialize, HTS_Engine_load, HTS_Engine_clear, HTS_Engine_refresh,
+    HTS_Engine_get_sampling_frequency, HTS_Engine_get_fperiod,
+    HTS_Engine_set_speed, HTS_Engine_add_half_tone,
+    HTS_Engine_synthesize_from_strings,
+    HTS_Engine_get_generated_speech, HTS_Engine_get_nsamples
+)
+
+P = ParamSpec("P")
+R = TypeVar("R")
+Self = TypeVar("Self")
+
+
+def _generate_lock_manager() -> Callable[
+    [Callable[Concatenate[Self, P], R]], Callable[Concatenate[Self, P], R]
+]:
+    """
+    HTSEngine インスタンスごとのリエントラント排他デコレータを返す。
+
+    Returns:
+        Callable: `@_lock_manager` デコレータとして使う排他デコレータ
+    """
+    def decorator(method: Callable[Concatenate[Self, P], R]) -> Callable[Concatenate[Self, P], R]:
+        @wraps(method)
+        def wrapped(self: Self, *args: P.args, **kwargs: P.kwargs) -> R:
+            with self._lock:
+                return method(self, *args, **kwargs)
+
+        return wrapped
+
+    return decorator
+
+
+cdef class HTSEngine:
+    """
+    HTS 音声合成エンジンの Cython 実装。フルコンテキストラベルから波形を生成する。
+    通常は pyopenjtalk モジュール経由で使用するが、低レベル API として直接インスタンス化も可能。
+
+    Args:
+        voice (bytes): htsvoice ファイルのパス。デフォルト: htsvoice/mei_normal.htsvoice
+
+    Raises:
+        RuntimeError: htsvoice の読み込みまたはエンジン初期化に失敗した場合
+    """
+    cdef HTS_Engine* engine
+    cdef readonly object _lock
+    _lock_manager = _generate_lock_manager()
+
+    def __cinit__(self, voice: bytes = b"htsvoice/mei_normal.htsvoice"):
+        # 同一インスタンス内のネストした公開メソッド呼び出しを許可するため RLock を使う
+        self._lock = RLock()
+        self.engine = new HTS_Engine()
+
+        HTS_Engine_initialize(self.engine)
+
+        if self.load(voice) != 1:
+            self.clear()
+            raise RuntimeError("Failed to initialize HTS_Engine")
+
+    @_lock_manager
+    def load(self, voice: bytes) -> int:
+        """
+        htsvoice ファイルを読み込む。
+
+        Args:
+            voice (bytes): htsvoice ファイルのパス
+
+        Returns:
+            int: 成功時 1、失敗時 0
+        """
+        cdef char* voices = voice
+        cdef char ret
+        with nogil:
+            ret = HTS_Engine_load(self.engine, &voices, 1)
+        return ret
+
+    @_lock_manager
+    def get_sampling_frequency(self) -> int:
+        """
+        サンプリング周波数を取得する。
+
+        Returns:
+            int: サンプリング周波数 (Hz)。通常は 48000
+        """
+        return HTS_Engine_get_sampling_frequency(self.engine)
+
+    @_lock_manager
+    def get_fperiod(self) -> int:
+        """
+        フレーム周期を取得する。
+
+        Returns:
+            int: フレーム周期 (サンプル数)
+        """
+        return HTS_Engine_get_fperiod(self.engine)
+
+    @_lock_manager
+    def set_speed(self, speed: float = 1.0) -> None:
+        """
+        話速を設定する。
+
+        Args:
+            speed (float): 話速倍率。1.0 が等倍。デフォルト: 1.0
+        """
+        HTS_Engine_set_speed(self.engine, speed)
+
+    @_lock_manager
+    def add_half_tone(self, half_tone: float = 0.0) -> None:
+        """
+        基本周波数 (F0) に半音を追加する。
+
+        Args:
+            half_tone (float): 追加する半音数。0.0 が無変更。デフォルト: 0.0
+        """
+        HTS_Engine_add_half_tone(self.engine, half_tone)
+
+    @_lock_manager
+    def synthesize(
+        self, labels: list[str] | list[bytes] | list[bytearray]
+    ) -> NDArray[np.float64]:
+        """
+        フルコンテキストラベルから音声波形を合成する。
+        synthesize_from_strings() を呼び出し、生成された波形を返す。
+        内部で refresh() が呼ばれるため、連続合成時は set_speed() / add_half_tone() を毎回設定する必要がある。
+
+        Args:
+            labels (list[str] | list[bytes] | list[bytearray]): フルコンテキストラベル文字列のリスト
+
+        Returns:
+            np.ndarray: 音声波形 (dtype: np.float64)
+        """
+        self.synthesize_from_strings(labels)
+        x = self.get_generated_speech()
+        self.refresh()
+        return x
+
+    @_lock_manager
+    def synthesize_from_strings(
+        self, labels: list[str] | list[bytes] | list[bytearray]
+    ) -> None:
+        """
+        フルコンテキストラベル文字列から波形を合成する。低レベル API。
+        波形は内部バッファに格納され、get_generated_speech() で取得する。
+        失敗時は RuntimeError を送出する。
+
+        Args:
+            labels (list[str] | list[bytes] | list[bytearray]): フルコンテキストラベル文字列のリスト
+
+        Raises:
+            RuntimeError: 合成に失敗した場合
+            MemoryError: ラベルポインタ配列を確保できなかった場合
+        """
+        cdef list immutable_labels = [
+            label.encode("ascii") if isinstance(label, str) else bytes(label)
+            for label in labels
+        ]
+        cdef size_t num_lines = len(immutable_labels)
+        cdef char **lines = <char**> malloc((num_lines + 1) * sizeof(char*))
+        cdef char ret
+        if lines == NULL:
+            raise MemoryError("Failed to allocate label pointer array")
+        try:
+            # GIL 解放中に bytearray の内部バッファが変更されないよう、不変な bytes を保持する
+            for n in range(num_lines):
+                lines[n] = <char*>immutable_labels[n]
+            with nogil:
+                ret = HTS_Engine_synthesize_from_strings(self.engine, lines, num_lines)
+        finally:
+            free(lines)
+        if ret != 1:
+            raise RuntimeError("Failed to run synthesize_from_strings")
+
+    @_lock_manager
+    def get_generated_speech(self) -> NDArray[np.float64]:
+        """
+        合成済み音声波形を取得する。
+        synthesize_from_strings() 実行後に呼び出す。
+        取得後は refresh() で内部バッファをクリアすること。
+
+        Returns:
+            np.ndarray: 音声波形 (dtype: np.float64)
+        """
+        cdef size_t nsamples = HTS_Engine_get_nsamples(self.engine)
+        cdef np.ndarray speech = np.empty([nsamples], dtype=np.float64)
+        cdef double[:] speech_view = speech
+        cdef size_t index
+        with (nogil, cython.boundscheck(False)):
+            for index in range(nsamples):
+                speech_view[index] = HTS_Engine_get_generated_speech(self.engine, index)
+        return speech
+
+    @_lock_manager
+    def get_fullcontext_label_format(self) -> str:
+        """
+        使用中のフルコンテキストラベルフォーマットを取得する。
+
+        Returns:
+            str: ラベルフォーマット名 (UTF-8 デコード済み)
+        """
+        return (<bytes>HTS_Engine_get_fullcontext_label_format(self.engine)).decode("utf-8")
+
+    @_lock_manager
+    def refresh(self) -> None:
+        """
+        内部バッファをクリアする。
+        synthesize_from_strings() 後に get_generated_speech() で波形を取得したら、
+        次回合成前に refresh() を呼ぶ必要がある。
+        """
+        HTS_Engine_refresh(self.engine)
+
+    @_lock_manager
+    def clear(self) -> None:
+        """
+        ロード済みの htsvoice を解放し、エンジンを初期状態に戻す。
+        """
+        HTS_Engine_clear(self.engine)
+
+    def __dealloc__(self) -> None:
+        """
+        HTS Engine の C Wrapper を解放する。
+
+        NOTE:
+            Python 終了処理ではデコレータの参照先が解体済みなので、Python メソッドを経由せず C API で解放する
+        """
+        if self.engine != NULL:
+            HTS_Engine_clear(self.engine)
+            del self.engine
+            self.engine = NULL

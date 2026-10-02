@@ -69,15 +69,11 @@ class PrivateScheduleSDK(BaseSDK):
             compute_config=job_config.compute_config, cloud=job_config.cloud
         )
 
-        project_id = self.client.get_project_id(
-            parent_cloud_id=cloud_id, name=job_config.project
-        )
+        project_id = self.client.get_project_id(parent_cloud_id=cloud_id, name=job_config.project)
 
         job_queue_config = None
         if job_config.job_queue_config is not None:
-            job_queue_config = self._job_sdk.create_job_queue_config(
-                job_config.job_queue_config
-            )
+            job_queue_config = self._job_sdk.create_job_queue_config(job_config.job_queue_config)
 
         # Resolve connection names to IDs
         connection_ids = self._job_sdk.resolve_connection_ids(job_config.connections)
@@ -95,7 +91,8 @@ class PrivateScheduleSDK(BaseSDK):
                 ),
                 job_queue_config=job_queue_config,
                 schedule=BackendScheduleConfig(
-                    cron_expression=config.cron_expression, timezone=config.timezone,
+                    cron_expression=config.cron_expression,
+                    timezone=config.timezone,
                 ),
                 job_tags=job_config.tags,
             )
@@ -123,7 +120,10 @@ class PrivateScheduleSDK(BaseSDK):
             raise ValueError("'cloud' and 'project' should only be used with 'name'.")
 
         model: Optional[DecoratedSchedule] = self.client.get_schedule(
-            name=name, id=id, cloud=cloud, project=project,
+            name=name,
+            id=id,
+            cloud=cloud,
+            project=project,
         )
 
         if model is None:
@@ -190,9 +190,7 @@ class PrivateScheduleSDK(BaseSDK):
             # TODO(praneethkaturi): Analyse whether the alias format
             # ("anyscale/image/{name}:{revision}") or the raw docker_image_name
             # is the correct value to surface to users, and consolidate.
-            if (model.build.application_template_id or "").startswith(
-                "DEFAULT_APP_CONFIG_ID"
-            ):
+            if (model.build.application_template_id or "").startswith("DEFAULT_APP_CONFIG_ID"):
                 image_uri = model.build.docker_image_name
             else:
                 image_uri = f"anyscale/image/{model.build.application_template_name}:{model.build.revision}"
@@ -202,15 +200,14 @@ class PrivateScheduleSDK(BaseSDK):
 
             # Check if compute config is anonymous with full_config available
             is_anonymous = getattr(model.compute_template, "anonymous", False)
-            has_full_config = (
-                getattr(model.compute_template, "full_config", None) is not None
-            )
+            has_full_config = getattr(model.compute_template, "full_config", None) is not None
 
             if is_anonymous and has_full_config:
                 # Convert full_config to ComputeConfig object (no API call needed)
                 compute_config: Union[str, ComputeConfig] = (
                     self._convert_full_config_to_compute_config(
-                        model.compute_template.full_config, cloud_name=cloud,
+                        model.compute_template.full_config,
+                        cloud_name=cloud,
                     )
                 )
             else:
@@ -221,15 +218,11 @@ class PrivateScheduleSDK(BaseSDK):
                 compute_config = compute_config_name
 
             # Extract runtime_env fields (same as old path in job_sdk.py)
-            runtime_env_config = (
-                prod_job_config.runtime_env if prod_job_config else None
-            )
+            runtime_env_config = prod_job_config.runtime_env if prod_job_config else None
 
             # Resolve connections from IDs if present
             connections = (
-                self._job_sdk.resolve_connection_ids_to_configs(
-                    prod_job_config.connection_ids
-                )
+                self._job_sdk.resolve_connection_ids_to_configs(prod_job_config.connection_ids)
                 if prod_job_config and prod_job_config.connection_ids
                 else None
             )
@@ -241,13 +234,9 @@ class PrivateScheduleSDK(BaseSDK):
                 cloud=cloud,
                 entrypoint=prod_job_config.entrypoint if prod_job_config else None,
                 requirements=runtime_env_config.pip if runtime_env_config else None,
-                working_dir=runtime_env_config.working_dir
-                if runtime_env_config
-                else None,
+                working_dir=runtime_env_config.working_dir if runtime_env_config else None,
                 env_vars=runtime_env_config.env_vars if runtime_env_config else None,
-                py_executable=runtime_env_config.py_executable
-                if runtime_env_config
-                else None,
+                py_executable=runtime_env_config.py_executable if runtime_env_config else None,
                 max_retries=prod_job_config.max_retries
                 if prod_job_config
                 and prod_job_config.max_retries is not None
@@ -273,16 +262,12 @@ class PrivateScheduleSDK(BaseSDK):
         )
 
         state = (
-            ScheduleState.ENABLED
-            if model.next_trigger_at is not None
-            else ScheduleState.DISABLED
+            ScheduleState.ENABLED if model.next_trigger_at is not None else ScheduleState.DISABLED
         )
 
         return ScheduleStatus(id=model.id, name=model.name, config=config, state=state)
 
-    def _convert_api_model_to_advanced_instance_config(
-        self, api_model: Any
-    ) -> Optional[Dict]:
+    def _convert_api_model_to_advanced_instance_config(self, api_model: Any) -> Optional[Dict]:
         """Convert API model's advanced instance config fields.
 
         Checks advanced_configurations_json, then aws/gcp variants.
@@ -299,10 +284,12 @@ class PrivateScheduleSDK(BaseSDK):
 
         return None
 
-    def _convert_api_model_to_resource_dict(
-        self, resources: Any
-    ) -> Optional[Dict[str, float]]:
-        """Convert API Resources model to dict."""
+    def _convert_api_model_to_resource_dict(self, resources: Any) -> Optional[Dict[str, float]]:
+        """Convert API Resources model to dict.
+
+        Must stay field-for-field in sync with
+        compute_config_sdk.py::_convert_api_model_to_resource_dict
+        """
         if resources is None:
             return None
 
@@ -313,6 +300,12 @@ class PrivateScheduleSDK(BaseSDK):
                 "GPU": getattr(resources, "gpu", None),
                 "memory": getattr(resources, "memory", None),
                 "object_store_memory": getattr(resources, "object_store_memory", None),
+                "system_reserved_cpu_millicpu": getattr(
+                    resources, "system_reserved_cpu_millicpu", None
+                ),
+                "system_reserved_memory_bytes": getattr(
+                    resources, "system_reserved_memory_bytes", None
+                ),
                 **(getattr(resources, "custom_resources", None) or {}),
             }.items()
             if v is not None
@@ -325,9 +318,7 @@ class PrivateScheduleSDK(BaseSDK):
 
         cloud_deployment_dict = flags.pop("cloud_deployment", None)
         cloud_deployment = (
-            CloudDeployment.from_dict(cloud_deployment_dict)
-            if cloud_deployment_dict
-            else None
+            CloudDeployment.from_dict(cloud_deployment_dict) if cloud_deployment_dict else None
         )
 
         # Convert required_resources from API model to user-facing model
@@ -380,9 +371,7 @@ class PrivateScheduleSDK(BaseSDK):
 
             cloud_deployment_dict = flags.pop("cloud_deployment", None)
             cloud_deployment = (
-                CloudDeployment.from_dict(cloud_deployment_dict)
-                if cloud_deployment_dict
-                else None
+                CloudDeployment.from_dict(cloud_deployment_dict) if cloud_deployment_dict else None
             )
 
             # Convert required_resources from API model to user-facing model
@@ -458,16 +447,14 @@ class PrivateScheduleSDK(BaseSDK):
             cloud=cloud_name,
             cloud_resource=getattr(dc, "cloud_deployment", None),
             zones=zones,
-            advanced_instance_config=getattr(dc, "advanced_configurations_json", None)
-            or None,
+            advanced_instance_config=getattr(dc, "advanced_configurations_json", None) or None,
             enable_cross_zone_scaling=enable_cross_zone_scaling,
             head_node=self._convert_api_model_to_head_node_config(dc.head_node_type),
             worker_nodes=worker_nodes,
             min_resources=min_resources,
             max_resources=max_resources or None,
             flags=flags,
-            auto_select_worker_config=getattr(dc, "auto_select_worker_config", False)
-            or False,
+            auto_select_worker_config=getattr(dc, "auto_select_worker_config", False) or False,
         )
 
     def _convert_full_config_to_compute_config(
@@ -522,9 +509,7 @@ class PrivateScheduleSDK(BaseSDK):
                 max_resources["GPU"] = max_gpus
 
         # Get advanced instance config
-        advanced_instance_config = getattr(
-            full_config, "advanced_configurations_json", None
-        )
+        advanced_instance_config = getattr(full_config, "advanced_configurations_json", None)
         if not advanced_instance_config:
             advanced_instance_config = getattr(
                 full_config, "aws_advanced_configurations_json", None
@@ -540,15 +525,11 @@ class PrivateScheduleSDK(BaseSDK):
             zones=zones,
             advanced_instance_config=advanced_instance_config,
             enable_cross_zone_scaling=enable_cross_zone_scaling,
-            head_node=self._convert_api_model_to_head_node_config(
-                full_config.head_node_type
-            ),
+            head_node=self._convert_api_model_to_head_node_config(full_config.head_node_type),
             worker_nodes=worker_nodes,
             min_resources=min_resources,
             max_resources=max_resources or None,
-            auto_select_worker_config=getattr(
-                full_config, "auto_select_worker_config", False
-            ),
+            auto_select_worker_config=getattr(full_config, "auto_select_worker_config", False),
             flags=flags,
         )
 
@@ -690,9 +671,7 @@ class PrivateScheduleSDK(BaseSDK):
         cloud_id = self.client.get_cloud_id(cloud_name=cloud) if cloud else None
         project_id = None
         if project:
-            project_id = self.client.get_project_id(
-                parent_cloud_id=cloud_id, name=project
-            )
+            project_id = self.client.get_project_id(parent_cloud_id=cloud_id, name=project)
 
         # Auto-populate creator_id if not include_all_users and creator_id not specified
         resolved_creator_id = creator_id

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: lib_layered_config
-Version: 6.0.0
+Version: 6.1.1
 Summary: Cross-platform layered configuration loader for Python
 Project-URL: Homepage, https://github.com/bitranox/lib_layered_config
 Project-URL: Repository, https://github.com/bitranox/lib_layered_config.git

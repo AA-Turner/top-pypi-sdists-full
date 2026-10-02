@@ -1,0 +1,473 @@
+import pytest
+
+from mechbench_compute.ops.eval.expect import check_expectations
+from mechbench_compute.ops.records.cross import cross_factors
+
+WORDS = ["alpha", "bravo", "charlie", "delta", "echo"]
+
+
+def test_factor_cross_is_the_full_cartesian_product():
+    recs = cross_factors({"factors": [
+        {"name": "gender", "levels": [{"key": "m"}, {"key": "f"}]},
+        {"name": "prompt", "levels": [{"key": "plain", "value": "Say hi."},
+                                       {"key": "fancy", "value": "Declaim!"}]},
+    ]})
+    assert len(recs) == 4
+    ids = {r["id"] for r in recs}
+    assert ids == {"m-plain", "m-fancy", "f-plain", "f-fancy"}
+    one = next(r for r in recs if r["id"] == "f-fancy")
+    assert one["coords"] == {"gender": "f", "prompt": "fancy"}
+    assert one["values"] == {"gender": "f", "prompt": "Declaim!"}
+
+
+def test_factor_cross_accepts_legacy_axes_spelling():
+    legacy = cross_factors({"axes": [{"name": "x", "levels": [{"key": "1"}]}]})
+    modern = cross_factors({"factors": [{"name": "x", "levels": [{"key": "1"}]}]})
+    assert legacy == modern
+
+
+def test_sampled_values_are_deterministic_in_seed_and_index_alone():
+    gen = {"kind": "words", "size": 3, "count": 4, "seed": 42,
+           "word_list": WORDS, "key_prefix": "w"}
+    a = cross_factors({"factors": [{"name": "seed", "sampled": gen}]})
+    b = cross_factors({"factors": [{"name": "seed", "sampled": gen}]})
+    assert a == b
+    other_seed = dict(gen, seed=43)
+    c = cross_factors({"factors": [{"name": "seed", "sampled": other_seed}]})
+    assert [r["values"]["seed"] for r in c] != [r["values"]["seed"] for r in a]
+
+
+def test_growing_a_sampled_factor_preserves_the_original_membership():
+    small = {"kind": "words", "size": 3, "count": 5, "seed": 7,
+             "word_list": WORDS, "key_prefix": "w"}
+    big = dict(small, count=12)
+    first = cross_factors({"factors": [{"name": "s", "sampled": small}]})
+    grown = cross_factors({"factors": [{"name": "s", "sampled": big}]})
+    assert grown[: len(first)] == first
+    assert len(grown) == 12
+
+
+def test_generators_stamp_a_kind_coordinate():
+    recs = cross_factors({"factors": [{
+        "name": "seed",
+        "sampled": {"kind": "noise", "size": 8, "count": 2, "seed": 1},
+    }]})
+    assert all(r["coords"]["seed_kind"] == "noise-8" for r in recs)
+
+
+def test_template_reads_the_designs_values():
+    from mechbench_compute.ops.records.derive import derive
+
+    recs = cross_factors({"factors": [
+        {"name": "gender", "levels": [{"key": "m", "value": "his"}]},
+        {"name": "opening", "levels": [{"key": "plain", "value": "Marcus adjusted the coat."}]},
+    ]})
+    out = derive(recs, {"templates": {"user": "Continue: {values.opening}", "system": "No placeholders here."},
+                        "keep": ["coords", "user", "system"]}, {})["items"]
+    assert out[0]["user"] == "Continue: Marcus adjusted the coat."
+    assert out[0]["system"] == "No placeholders here."
+    assert out[0]["coords"]["gender"] == "m"
+
+
+def test_eval_expectation_judges_and_aggregates():
+    results = [
+        {"id": "die", "outcome_mass": {"1": 1 / 6, "2": 1 / 6, "3": 1 / 6,
+                                        "4": 1 / 6, "5": 1 / 6, "6": 1 / 6},
+         "entropy_bits": 2.58},
+        {"id": "capital", "top_tokens": [{"token": "Paris", "p": 0.999}],
+         "entropy_bits": 0.01},
+        {"id": "loaded", "outcome_mass": {"1": 0.9, "2": 0.02, "3": 0.02,
+                                           "4": 0.02, "5": 0.02, "6": 0.02},
+         "entropy_bits": 0.7},
+    ]
+    expectations = [
+        {"id": "die", "expect": {"kind": "uniform",
+                                  "over": ["1", "2", "3", "4", "5", "6"],
+                                  "max_kl_bits": 0.05}},
+        {"id": "capital", "expect": {"kind": "answer", "value": "Paris",
+                                      "min_p": 0.99}},
+        {"id": "loaded", "expect": {"kind": "uniform",
+                                     "over": ["1", "2", "3", "4", "5", "6"],
+                                     "max_kl_bits": 0.05}},
+    ]
+    out = check_expectations(
+        {"results": results, "expectations": expectations}, {})
+    assert out["item_kind"] == "eval/verdict"
+    by_id = {r["id"]: r for r in out["items"]}
+    assert by_id["die"]["pass"] is True
+    assert by_id["capital"]["pass"] is True
+    assert by_id["loaded"]["pass"] is False
+    assert out["summary"]["n_judged"] == 3
+    assert abs(out["summary"]["pass_rate"] - 2 / 3) < 1e-3
+    assert "ALL" not in by_id
+
+
+def test_eval_expectation_reads_a_current_decision_collection():
+    from mechbench_compute.lexicon import kinds as K
+
+    def tok(t, p):
+        import math
+        return {"token": {"id": sum(map(ord, t)), "text": t}, "p": p, "logp": math.log(p)}
+    reads = K.collection("logits/decision", [
+        {"id": "die", "entropy_bits": 2.58,
+         "top": [tok(str(i), 1 / 6) for i in range(1, 7)],
+         "tracked": {str(i): tok(str(i), 1 / 6) for i in range(1, 7)}},
+        {"id": "capital", "entropy_bits": 0.01, "top": [tok("Paris", 0.999)]},
+    ])
+    out = check_expectations({"results": reads, "expectations": [
+        {"id": "die", "expect": {"type": "uniform", "over": ["1", "2", "3", "4", "5", "6"]}},
+        {"id": "capital", "expect": {"type": "answer", "value": "Paris"}},
+    ]}, {})
+    by_id = {r["id"]: r for r in out["items"]}
+    assert by_id["die"]["pass"] is True and by_id["die"]["mass"] == pytest.approx(1.0, abs=1e-3)
+    assert by_id["capital"]["pass"] is True and by_id["capital"]["p_expected"] == 0.999
+
+
+def test_eval_expectation_reads_its_ports_only():
+    with pytest.raises(KeyError):
+        check_expectations({}, {
+            "results": [{"id": "a", "entropy_bits": 3.0}],
+            "expectations": [{"id": "a", "expect": {"kind": "min_entropy", "bits": 2.0}}],
+        })
+
+
+def test_suite_metric_records_shapes_lm_eval_results():
+    from mechbench_compute.ops.eval.benchmark import build_metric_records
+    results = {"arc_easy": {"alias": "arc_easy",
+                             "acc,none": 0.74, "acc_stderr,none": 0.02,
+                             "acc_norm,none": 0.70,
+                             "acc_norm_stderr,none": 0.021}}
+    recs = build_metric_records(results, {"arc_easy": {"effective": 50}},
+                                variant="adapted")
+    assert [r["id"] for r in recs] == ["arc_easy:acc:adapted",
+                                        "arc_easy:acc_norm:adapted"]
+    acc = recs[0]
+    assert acc["coords"] == {"task": "arc_easy", "metric": "acc",
+                              "variant": "adapted"}
+    assert acc["value"] == 0.74 and acc["stderr"] == 0.02 and acc["n"] == 50
+
+
+class TestMovingAField:
+    def test_derive_moves_fields_into_and_out_of_a_nested_object(self):
+        from mechbench_compute.ops.records.derive import derive
+
+        doc = {"id": "s0", "text": "…", "hit": 1, "metadata": {"coords": {"prompt": "flash"}}}
+        out = derive([doc], {"fields": {"coords": "metadata.coords", "coords.hit": "hit"},
+                             "drop": ["metadata.coords", "hit"]}, {})["items"]
+        assert out[0] == {"id": "s0", "text": "…", "metadata": {}, "coords": {"prompt": "flash", "hit": 1}}
+        assert doc["hit"] == 1 and doc["metadata"]["coords"] == {"prompt": "flash"}
+
+
+def test_every_records_block_reads_a_collection_on_its_port():
+    from mechbench_compute import ops
+    from mechbench_compute.lexicon import kinds as K
+
+    design = K.collection("records/record", [
+        {"id": "a", "coords": {"g": "x"}, "values": {"g": "noir"}, "v": 1.0},
+    ])
+    out = ops.run_standalone("records/derive", {"records": design},
+                             {"templates": {"user": "a {values.g} story"}, "keep": ["coords", "user"]})
+    assert out["items"] == [{"id": "a", "coords": {"g": "x"}, "user": "a noir story"}]
+    for ref, params in (("records/filter", {"where": 'coords.g == "x"'}),
+                        ("records/derive", {"fields": {"value": "v"}, "drop": ["v"]}),
+                        ("records/tabulate", {}),
+                        ("records/sort", {"by": ["-v"], "limit": 1}),
+                        ("records/group", {"by": {"g": "coords.g"}, "aggregates": {"n": "count()", "s": "sum(v)"}})):
+        ops.run_standalone(ref, {"records": design}, params)
+
+
+def test_table_from_records_flattens_coords_and_types_columns():
+    from mechbench_compute.ops.records.tabulate import tabulate_records
+    table = tabulate_records([
+        {"id": "a", "coords": {"task": "arc_easy", "metric": "acc"},
+         "value": 0.7, "delta": 0.01},
+        {"id": "b", "coords": {"task": "arc_easy", "metric": "acc_norm"},
+         "value": 0.68, "delta": -0.02},
+    ], {"name": "deltas"})
+    assert table["kind"] == "records/table"
+    names = [c["name"] for c in table["columns"]]
+    assert names == ["id", "task", "metric", "value", "delta"]
+    dt = {c["name"]: c["dtype"] for c in table["columns"]}
+    assert dt["delta"] == "number" and dt["task"] == "string"
+    assert table["rows"][1]["delta"] == -0.02
+
+
+def test_suite_records_flow_through_union_and_a_baseline_join():
+    from mechbench_compute.ops.eval.benchmark import build_metric_records
+    from mechbench_compute.ops.records.derive import derive
+    from mechbench_compute.ops.records.filter import filter_records
+    from mechbench_compute.ops.records.join import join_records
+    from mechbench_compute.ops.records.union import union
+    base = build_metric_records({"arc_easy": {"acc,none": 0.70}}, {}, "base")
+    adapted = build_metric_records({"arc_easy": {"acc,none": 0.73}}, {}, "adapted")
+    merged = union({"a_base": base, "b_adapted": adapted}, {})
+    baseline = filter_records(merged, {"where": 'coords.variant == "base"'}, {})
+    treated = filter_records(merged, {"where": 'coords.variant != "base"'}, {})
+    matched = join_records(treated, baseline, {"on": "[coords.task, coords.metric]", "as": "baseline"}, {})
+    deltas = derive(matched, {"fields": {"delta": "value - baseline.value"}}, {})["items"]
+    assert len(deltas) == 1
+    assert abs(deltas[0]["delta"] - 0.03) < 1e-9
+
+
+def test_viz_spec_references_its_source_or_inlines_rows():
+    from mechbench_compute.ops.records.plot import build_chart
+    table = {"kind": "metric_table", "rows": [{"id": "a", "model": "e2b", "v": 1.0}]}
+    ref = build_chart(table, {"mark": "bar", "encoding": {"x": "model", "y": "v"}},
+                     source_label="benji/marcus/metrics/t")
+    assert ref["kind"] == "records/chart" and ref["source"] == "benji/marcus/metrics/t"
+    assert "data" not in ref
+    inline = build_chart(table, {"encoding": {"x": "model", "y": "v"}})
+    assert inline["data"]["rows"] == [{"id": "a", "model": "e2b", "v": 1.0}]
+    recs = [{"id": "r", "coords": {"task": "arc"}, "value": 0.8}]
+    flat = build_chart(recs, {"encoding": {"x": "task", "y": "value"}})
+    assert flat["data"]["rows"] == [{"id": "r", "value": 0.8, "task": "arc"}]
+
+
+class TestAFigureCarriesItsVocabulary:
+    ROWS = [{"id": f"L{i}", "layer": i, "mean": -float(i) / 10, "kind": "local"} for i in range(4)]
+    ARCH = {"n_layers": 4, "global_layers": [1, 3], "first_kv_shared_layer": 2}
+
+    def _spec(self, params, records=None):
+        from mechbench_compute.ops.records.plot import build_chart
+        return build_chart(records if records is not None else self.ROWS,
+                        {"encoding": {"x": "layer", "y": "mean"}, **params})
+
+    def test_labels_and_colour_and_focus_ride_on_the_spec(self):
+        spec = self._spec({"labels": {"y": "what removing the layer costs"},
+                           "encoding": {"x": "layer", "y": "mean", "color": "kind"},
+                           "focus": "layer", "facet": "kind"})
+        assert spec["labels"] == {"y": "what removing the layer costs"}
+        assert spec["encoding"]["color"] == "kind"
+        assert spec["focus"] == "layer"
+        assert spec["facet"] == "kind"
+
+    def test_a_label_for_a_field_the_figure_does_not_have_is_refused(self):
+        with pytest.raises(ValueError, match="labels names"):
+            self._spec({"labels": {"z": "nothing"}})
+
+    def test_landmarks_are_read_from_the_inputs_header(self):
+        coll = {"kind": "collection", "item_kind": "intervene/ablation",
+                "items": self.ROWS, "arch": self.ARCH}
+        spec = self._spec({}, records=coll)
+        assert spec["axes"] == {"layer": {"n": 4, "global": [1, 3], "kv_shared_from": 2}}
+
+    def test_a_chart_that_plots_no_layer_takes_no_landmarks_from_its_input(self):
+        coll = {"kind": "collection", "item_kind": "intervene/ablation",
+                "items": self.ROWS, "arch": self.ARCH}
+        spec = self._spec({"encoding": {"x": "kind", "y": "mean"}}, records=coll)
+        assert "axes" not in spec
+
+    def test_layer_off_the_depth_channel_takes_no_landmarks(self):
+        coll = {"kind": "collection", "item_kind": "intervene/ablation",
+                "items": self.ROWS, "arch": self.ARCH}
+        spec = self._spec({"encoding": {"x": "kind", "y": "layer"}}, records=coll)
+        assert "axes" not in spec
+
+    def test_given_landmarks_win_and_are_checked(self):
+        spec = self._spec({"axes": {"layer": {"n": 4, "global": [3]}}})
+        assert spec["axes"]["layer"] == {"n": 4, "global": [3]}
+        with pytest.raises(ValueError, match="outside 0..3"):
+            self._spec({"axes": {"layer": {"n": 4, "global": [9]}}})
+        with pytest.raises(ValueError, match="needs `n`"):
+            self._spec({"axes": {"layer": {"global": [1]}}})
+
+    def test_a_summary_of_a_sweep_still_knows_the_model(self):
+        from mechbench_compute.protocol import ProtocolExecutor, ProtocolSpec
+        coll = {"kind": "collection", "item_kind": "intervene/ablation",
+                "items": [{**r, "coords": {"layer": r["layer"]}} for r in self.ROWS],
+                "arch": self.ARCH}
+        graph = {"dataflow": 2, "nodes": [
+            {"id": "by-layer", "block": "records/group",
+             "params": {"by": {"layer": "coords.layer"}, "aggregates": {"mean": "mean(mean)"}},
+             "inputs": {"records": coll}},
+            {"id": "figure", "block": "records/plot",
+             "params": {"encoding": {"x": "layer", "y": "mean"}}},
+        ], "edges": [{"from": {"node": "by-layer"}, "to": {"node": "figure", "port": "records"}}]}
+        out = ProtocolExecutor().run(ProtocolSpec(kind="pipeline", prompt="", model_id=None,
+                                                  extra={"graph": graph}))
+        payload = out.payload if hasattr(out, "payload") else out
+        figure = payload["outputs"]["figure"]
+        assert figure["axes"] == {"layer": {"n": 4, "global": [1, 3], "kv_shared_from": 2}}
+        assert figure["arch"] == self.ARCH
+
+    def test_every_model_block_result_carries_the_landmarks(self, monkeypatch):
+        from types import SimpleNamespace
+
+        from mechbench_compute.protocol import ProtocolExecutor
+        ex = ProtocolExecutor()
+        arch = SimpleNamespace(n_layers=4, global_layers=(1, 3), first_kv_shared_layer=2)
+        monkeypatch.setattr(ex, "_model_loaded", lambda _m: SimpleNamespace(arch=arch))
+        monkeypatch.setattr(ex, "_adapter_fused", lambda *a, **k: __import__("contextlib").nullcontext())
+        out = ex._run_model_block(lambda inputs, params: {"kind": "collection", "items": []}, {}, {"model": "fake/m"})
+        assert out["arch"] == self.ARCH
+        kept = ex._run_model_block(lambda i, p: {"arch": {"n_layers": 99}}, {}, {"model": "fake/m"})
+        assert kept["arch"] == {"n_layers": 99}
+        plain = SimpleNamespace(n_layers=12)
+        monkeypatch.setattr(ex, "_model_loaded", lambda _m: SimpleNamespace(arch=plain))
+        assert ex._run_model_block(lambda i, p: {}, {}, {"model": "fake/m"})["arch"] == {"n_layers": 12}
+
+    def test_a_map_keeps_the_landmarks_its_body_found(self, monkeypatch):
+        from mechbench_compute.lexicon import kinds as K
+
+        body_out = K.collection("records/record", [{"id": "r", "silhouette": 0.3}],
+                                arch=dict(self.ARCH))
+
+        class Host:
+            def run_sub(self, target, inputs, params, **kw):
+                return {"separation": body_out}
+
+        from mechbench_compute import ops
+        from mechbench_compute.ops.records import map as map_op
+
+        out = map_op.run(
+            ops.Context(executor=Host()),
+            {"records": K.collection("records/record", [{"id": "l0", "layer": 0}])},
+            {"body": {"nodes": [{"id": "separation", "block": "records/filter"}], "edges": []},
+             "bind": {"layer": "layer"}},
+        )
+        assert out["arch"] == self.ARCH
+        assert [i["id"] for i in out["items"]] == ["l0:r"]
+
+    def test_annotations_name_a_row_and_say_something(self):
+        spec = self._spec({"annotate": [{"at": {"layer": 3}, "text": "the last global layer"}]})
+        assert spec["annotate"] == [{"at": {"layer": 3}, "text": "the last global layer"}]
+        with pytest.raises(ValueError, match=r"annotate\[0\] needs"):
+            self._spec({"annotate": [{"text": "where?"}]})
+
+
+def test_uniform_masses_derive_from_top_tokens():
+    results = [{"id": "c1", "entropy_bits": 1.99, "top_tokens": [
+        {"token": "3", "p": 0.2997}, {"token": "1", "p": 0.2334},
+        {"token": "2", "p": 0.2334}, {"token": "4", "p": 0.2334},
+        {"token": "0", "p": 0.0001}]}]
+    expectations = [{"id": "c1", "expect": {
+        "kind": "uniform", "over": ["1", "2", "3", "4"], "max_kl_bits": 0.1}}]
+    table = check_expectations(
+        {"results": results, "expectations": expectations}, {})
+    row = table["items"][0]
+    assert row["pass"] is True
+    assert row["kl_bits"] < 0.02
+    assert row["mass"] > 0.99
+
+
+def test_uniform_without_any_distribution_is_unjudgeable_not_false():
+    results = [{"id": "c1", "entropy_bits": 0.5}]
+    expectations = [{"id": "c1", "expect": {
+        "kind": "uniform", "over": ["1", "2"], "max_kl_bits": 0.1}}]
+    table = check_expectations(
+        {"results": results, "expectations": expectations}, {})
+    row = table["items"][0]
+    assert row["pass"] is None and "unjudgeable" in row["note"]
+    assert table["summary"]["n_judged"] == 0 and table["summary"]["n_unjudgeable"] == 1
+
+
+class TestAFigureIsReadAgainstALine:
+    ROWS = {"kind": "collection", "items": [
+        {"id": "1", "face": "1", "p": 0.1808}, {"id": "2", "face": "2", "p": 0.1595},
+    ]}
+
+    def test_a_reference_rides_on_the_spec(self):
+        from mechbench_compute.ops.records.plot import build_chart
+
+        spec = build_chart(self.ROWS, {
+            "mark": "bar", "encoding": {"x": "face", "y": "p"},
+            "reference": [{"y": 1 / 6, "text": "a fair die"}],
+        })
+        assert spec["reference"] == [{"y": pytest.approx(0.16667, abs=1e-4), "text": "a fair die"}]
+
+    def test_a_line_on_neither_axis_is_refused(self):
+        from mechbench_compute.ops.records.plot import build_chart
+
+        with pytest.raises(ValueError, match=r"reference\[0\] needs `y`"):
+            build_chart(self.ROWS, {"mark": "bar", "encoding": {"x": "face", "y": "p"},
+                                    "reference": [{"text": "a fair die"}]})
+
+    def test_a_figure_without_one_says_nothing_about_it(self):
+        from mechbench_compute.ops.records.plot import build_chart
+
+        spec = build_chart(self.ROWS, {"mark": "bar", "encoding": {"x": "face", "y": "p"}})
+        assert "reference" not in spec
+
+
+class TestASummaryOverAGrid:
+    TRACE = {"kind": "collection", "item_kind": "intervene/trace", "items": [
+        {"id": "p1", "axes": ["layer", "position"], "tokens": ["The", "capital"],
+         "coords": {"country": "France"},
+         "measures": {"share": [[1.0, 0.0], [0.9, 0.1], [0.0, 1.0]]}},
+        {"id": "p2", "axes": ["layer", "position"], "tokens": ["The", "capital"],
+         "coords": {"country": "Italy"},
+         "measures": {"share": [[0.8, 0.0], [0.7, 0.2], [0.0, 0.6]]}},
+    ]}
+
+    def test_one_row_per_position_with_the_best_cell_as_max(self):
+        from mechbench_compute.ops.records.group import group_records
+        from mechbench_compute.ops.records.unnest import unnest
+
+        cells = unnest(self.TRACE, {"field": "measures"})
+        out = group_records(cells, {"by": {"position": "coords.position"},
+                                    "aggregates": {"n": "count()", "max": "max(share)"}}, {})
+        by_pos = {r["position"]: r for r in out["items"]}
+        assert by_pos[0]["max"] == 1.0 and by_pos[1]["max"] == 1.0
+        assert by_pos[0]["n"] == 6
+
+
+A_CORPUS = {"kind": "document_collection", "items": [
+    {"id": "a", "text": "one", "metadata": {"coords": {"p": "x"}}}]}
+
+
+class TestRecordCoercion:
+    def test_items_are_records(self):
+        from mechbench_compute.blocks import read_items
+
+        assert read_items(A_CORPUS) == A_CORPUS["items"]
+
+    def test_the_older_conventions_still_win_first(self):
+        from mechbench_compute.blocks import read_items
+
+        both = {"records": [{"id": "r"}], "items": [{"id": "i"}]}
+        assert read_items(both) == [{"id": "r"}]
+
+    def test_a_document_can_be_embedded_by_its_text(self):
+        from mechbench_compute.distill import render
+
+        class Tok:
+            def encode(self, text, add_special_tokens=True):
+                return [len(w) for w in text.split()]
+
+            def apply_chat_template(self, messages, tokenize=False, add_generation_prompt=True, **kw):
+                return "<chat>" + messages[-1]["content"]
+
+        class M:
+            tokenizer = Tok()
+
+        assert render(M(), {"id": "a", "text": "a story"}).text == "a story"
+        r = render(M(), {"id": "a", "user": "u", "text": "t", "prefill": "{"})
+        assert r.text == "<chat>u{" and r.chat
+        assert render(M(), {"id": "a", "user": "u", "template": False}).text == "u"
+        assert render(M(), {"id": "a", "text": "t", "template": "chat"}).text == "<chat>t"
+        with pytest.raises(ValueError, match="no prompt"):
+            render(M(), {"id": "a", "text": "   "})
+
+
+def test_eval_expectation_absent_judges_the_mass_on_outcomes_already_said():
+    import math
+
+    def entry(p):
+        return {"text": "x", "tokens": 2, "p": p, "logp": math.log(p)}
+    reads = [
+        {"id": "clean", "entropy_bits": 5.0,
+         "tracked": {"Mystery": entry(0.004), "Humor": entry(0.002), "Witches": entry(0.2)}},
+        {"id": "repeats", "entropy_bits": 5.0,
+         "tracked": {"Mystery": entry(0.05), "Humor": entry(0.01)}},
+        {"id": "unread", "entropy_bits": 5.0, "tracked": {"Mystery": entry(0.001)}},
+    ]
+    already = {"type": "absent", "over": ["Mystery", "Humor"], "max_p": 0.01}
+    out = check_expectations({"results": reads, "expectations": [
+        {"id": "clean", "expect": already},
+        {"id": "repeats", "expect": already},
+        {"id": "unread", "expect": already}]}, {})
+    by_id = {r["id"]: r for r in out["items"]}
+    assert by_id["clean"]["pass"] is True and by_id["clean"]["mass"] == 0.006
+    assert by_id["repeats"]["pass"] is False and by_id["repeats"]["mass"] == 0.06
+    assert by_id["unread"]["pass"] is None and "Humor" in by_id["unread"]["note"]
+    assert out["summary"]["n_judged"] == 2 and out["summary"]["n_unjudgeable"] == 1

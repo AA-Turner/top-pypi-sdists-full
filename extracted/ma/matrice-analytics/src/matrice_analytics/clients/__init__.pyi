@@ -15,7 +15,7 @@ from .models import ActionRecord, RedisServer
 from .models import Application
 from .models import ApplicationDeployment, Camera, CameraLocation, PostProcessingConfig
 from .models import CreateDetectionRequest, Detection, LprServer
-from .models import FacialRecognitionServer, HealthStatus, PeopleActivityRequest, RedisDetails, ServiceShutdownRequest, ServiceShutdownResult, SimilarFaceMatch, SimilarFaceSearchRequest, StaffDetails, StaffEmbedding, StaffEnrollRequest, StaffEnrollResult, StaffImageUpdateRequest, StaffImageUpdateResult, UnknownPersonEnrollRequest, UnknownPersonEnrollResult
+from .models import FacialRecognitionServer, HealthStatus, PeopleActivityRequest, ServiceShutdownRequest, ServiceShutdownResult, SimilarFaceMatch, SimilarFaceSearchRequest, StaffDetails, StaffEmbedding, StaffEnrollRequest, StaffEnrollResult, StaffImageUpdateRequest, StaffImageUpdateResult, UnknownPersonEnrollRequest, UnknownPersonEnrollResult
 from .response import CallFailure
 from .response import CallFailure, ConnectionLost, MalformedReply, RateLimited
 from .response import CallFailure, unwrap_fr_sidecar, unwrap_platform
@@ -1003,7 +1003,6 @@ class FRClient:
     ENROLL_UNKNOWN: str
     HEALTH: str
     PEOPLE_ACTIVITY: str
-    REDIS_DETAILS: str
     SEARCH_SIMILAR: str
     SERVER: str
     SHUTDOWN: str
@@ -1149,21 +1148,6 @@ class FRClient:
         
                 Returns:
                     The status, or ``None`` when the sidecar answers with no payload.
-        
-                Raises:
-                    CallFailure: There is no session or no sidecar address, or the call failed.
-        """
-        ...
-
-    async def fetch_redis_details(self: Any) -> Optional[Any]:
-        """
-        The Redis the sidecar publishes its matches to.
-        
-                **The one sidecar route with no query string at all.** There is one Redis per sidecar,
-                so neither the project nor the server id narrows the answer.
-        
-                Returns:
-                    The details, or ``None`` when the sidecar answers with no payload.
         
                 Raises:
                     CallFailure: There is no session or no sidecar address, or the call failed.
@@ -1867,20 +1851,6 @@ class PostProcessingConfig:
     #
     #     ``post_processing`` stays an untyped dict -- it carries per-usecase settings,
     #     including the zone geometry, and has no fixed shape.
-
-    ...
-
-# From models
-class RedisDetails:
-    # Endpoint 23 -- the reply to ``GET /v1/facial_recognition/get_redis_details``.
-    #
-    #     Where the sidecar publishes recognition events. UNVERIFIED, but all three fields
-    #     are read by the caller, which builds a Redis connection from them.
-    #
-    #     The wire names are SCREAMING_CASE, unlike every other payload here; that is how
-    #     the sidecar sends them. ``port`` arrives as a string on at least one deployment
-    #     and is converted by the caller, so it is declared ``int`` and tolerates both. An
-    #     empty ``password`` means no password rather than an empty one.
 
     ...
 

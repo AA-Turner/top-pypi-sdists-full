@@ -1,5 +1,0 @@
----
-fixes:
-  - |
-    Update buffer access to ``Constant`` and to ``ArraySymbol`` states to raise a ``BufferError``
-    when requesting unsupported flags.

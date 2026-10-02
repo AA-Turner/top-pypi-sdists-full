@@ -83,14 +83,14 @@ def apply(
     except yaml.YAMLError as e:
         raise click.ClickException(f"'{file}' is not valid YAML: {e}")
     if not isinstance(spec, dict):
-        raise click.ClickException(
-            f"'{file}' must contain a single KubeRay CR (a YAML mapping)."
-        )
+        raise click.ClickException(f"'{file}' must contain a single KubeRay CR (a YAML mapping).")
 
     controller = KuberayWorkloadController()
     if cloud or cloud_id:
         resolved_cloud_id, _ = get_cloud_id_and_name(
-            controller.api_client, cloud_id=cloud_id, cloud_name=cloud,
+            controller.api_client,
+            cloud_id=cloud_id,
+            cloud_name=cloud,
         )
     else:
         # No cloud flag: fall back to the organization's default cloud
@@ -103,12 +103,16 @@ def apply(
                 "`anyscale cloud set-default <cloud>`."
             )
         resolved_cloud_id, _ = get_cloud_id_and_name(
-            controller.api_client, cloud_name=default_cloud_name,
+            controller.api_client,
+            cloud_name=default_cloud_name,
         )
         log.info(f"Using organization default cloud '{default_cloud_name}'.")
 
     response = controller.apply(
-        spec=spec, cloud_id=resolved_cloud_id, project_id=project_id, name=name,
+        spec=spec,
+        cloud_id=resolved_cloud_id,
+        project_id=project_id,
+        name=name,
     )
     log.info(
         f"Submitted {response.workload_type} '{response.name}' "

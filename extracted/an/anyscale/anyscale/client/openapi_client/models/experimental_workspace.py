@@ -47,6 +47,7 @@ class ExperimentalWorkspace(object):
         'organization_id': 'str',
         'is_deleted': 'bool',
         'cluster_id': 'str',
+        'kuberay_cr_id': 'str',
         'environment_id': 'str',
         'cluster_environment_build_id': 'str',
         'current_state': 'str',
@@ -57,8 +58,12 @@ class ExperimentalWorkspace(object):
         'latest_started_at': 'datetime',
         'restart_on_env_var_change': 'bool',
         'priority': 'int',
+        'is_imported': 'bool',
         'state': 'SessionState',
-        'integration_details': 'IntegrationDetails'
+        'integration_details': 'IntegrationDetails',
+        'ray_dashboard_url': 'str',
+        'vscode_url': 'str',
+        'kuberay_details': 'KubeRayWorkspaceDetails'
     }
 
     attribute_map = {
@@ -76,6 +81,7 @@ class ExperimentalWorkspace(object):
         'organization_id': 'organization_id',
         'is_deleted': 'is_deleted',
         'cluster_id': 'cluster_id',
+        'kuberay_cr_id': 'kuberay_cr_id',
         'environment_id': 'environment_id',
         'cluster_environment_build_id': 'cluster_environment_build_id',
         'current_state': 'current_state',
@@ -86,11 +92,15 @@ class ExperimentalWorkspace(object):
         'latest_started_at': 'latest_started_at',
         'restart_on_env_var_change': 'restart_on_env_var_change',
         'priority': 'priority',
+        'is_imported': 'is_imported',
         'state': 'state',
-        'integration_details': 'integration_details'
+        'integration_details': 'integration_details',
+        'ray_dashboard_url': 'ray_dashboard_url',
+        'vscode_url': 'vscode_url',
+        'kuberay_details': 'kuberay_details'
     }
 
-    def __init__(self, name=None, description=None, project_id=None, cloud_id=None, compute_config_id=None, base_snapshot=None, id=None, created_at=None, creator_id=None, creator_email=None, creator_deleted_at=None, organization_id=None, is_deleted=None, cluster_id=None, environment_id=None, cluster_environment_build_id=None, current_state=None, integration_execution_details_id=None, template_url=None, snapshot_error_at=None, snapshot_state=None, latest_started_at=None, restart_on_env_var_change=True, priority=None, state=None, integration_details=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, description=None, project_id=None, cloud_id=None, compute_config_id=None, base_snapshot=None, id=None, created_at=None, creator_id=None, creator_email=None, creator_deleted_at=None, organization_id=None, is_deleted=None, cluster_id=None, kuberay_cr_id=None, environment_id=None, cluster_environment_build_id=None, current_state=None, integration_execution_details_id=None, template_url=None, snapshot_error_at=None, snapshot_state=None, latest_started_at=None, restart_on_env_var_change=True, priority=None, is_imported=False, state=None, integration_details=None, ray_dashboard_url=None, vscode_url=None, kuberay_details=None, local_vars_configuration=None):  # noqa: E501
         """ExperimentalWorkspace - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -110,6 +120,7 @@ class ExperimentalWorkspace(object):
         self._organization_id = None
         self._is_deleted = None
         self._cluster_id = None
+        self._kuberay_cr_id = None
         self._environment_id = None
         self._cluster_environment_build_id = None
         self._current_state = None
@@ -120,8 +131,12 @@ class ExperimentalWorkspace(object):
         self._latest_started_at = None
         self._restart_on_env_var_change = None
         self._priority = None
+        self._is_imported = None
         self._state = None
         self._integration_details = None
+        self._ray_dashboard_url = None
+        self._vscode_url = None
+        self._kuberay_details = None
         self.discriminator = None
 
         self.name = name
@@ -129,7 +144,8 @@ class ExperimentalWorkspace(object):
             self.description = description
         self.project_id = project_id
         self.cloud_id = cloud_id
-        self.compute_config_id = compute_config_id
+        if compute_config_id is not None:
+            self.compute_config_id = compute_config_id
         if base_snapshot is not None:
             self.base_snapshot = base_snapshot
         self.id = id
@@ -142,6 +158,8 @@ class ExperimentalWorkspace(object):
         if is_deleted is not None:
             self.is_deleted = is_deleted
         self.cluster_id = cluster_id
+        if kuberay_cr_id is not None:
+            self.kuberay_cr_id = kuberay_cr_id
         if environment_id is not None:
             self.environment_id = environment_id
         if cluster_environment_build_id is not None:
@@ -162,10 +180,18 @@ class ExperimentalWorkspace(object):
             self.restart_on_env_var_change = restart_on_env_var_change
         if priority is not None:
             self.priority = priority
+        if is_imported is not None:
+            self.is_imported = is_imported
         if state is not None:
             self.state = state
         if integration_details is not None:
             self.integration_details = integration_details
+        if ray_dashboard_url is not None:
+            self.ray_dashboard_url = ray_dashboard_url
+        if vscode_url is not None:
+            self.vscode_url = vscode_url
+        if kuberay_details is not None:
+            self.kuberay_details = kuberay_details
 
     @property
     def name(self):
@@ -285,8 +311,6 @@ class ExperimentalWorkspace(object):
         :param compute_config_id: The compute_config_id of this ExperimentalWorkspace.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and compute_config_id is None:  # noqa: E501
-            raise ValueError("Invalid value for `compute_config_id`, must not be `None`")  # noqa: E501
 
         self._compute_config_id = compute_config_id
 
@@ -508,6 +532,29 @@ class ExperimentalWorkspace(object):
             raise ValueError("Invalid value for `cluster_id`, must not be `None`")  # noqa: E501
 
         self._cluster_id = cluster_id
+
+    @property
+    def kuberay_cr_id(self):
+        """Gets the kuberay_cr_id of this ExperimentalWorkspace.  # noqa: E501
+
+        The KubeRay CR backing this workspace. Set only for KubeRay workspaces.  # noqa: E501
+
+        :return: The kuberay_cr_id of this ExperimentalWorkspace.  # noqa: E501
+        :rtype: str
+        """
+        return self._kuberay_cr_id
+
+    @kuberay_cr_id.setter
+    def kuberay_cr_id(self, kuberay_cr_id):
+        """Sets the kuberay_cr_id of this ExperimentalWorkspace.
+
+        The KubeRay CR backing this workspace. Set only for KubeRay workspaces.  # noqa: E501
+
+        :param kuberay_cr_id: The kuberay_cr_id of this ExperimentalWorkspace.  # noqa: E501
+        :type: str
+        """
+
+        self._kuberay_cr_id = kuberay_cr_id
 
     @property
     def environment_id(self):
@@ -740,6 +787,29 @@ class ExperimentalWorkspace(object):
         self._priority = priority
 
     @property
+    def is_imported(self):
+        """Gets the is_imported of this ExperimentalWorkspace.  # noqa: E501
+
+        Whether this workspace was imported from a CR the customer created, rather than submitted through Anyscale. An imported workload is attributed to the cloud's creator, so the console names the origin instead of that user. False for a workspace predating the source column: unknown provenance must not read as imported.  # noqa: E501
+
+        :return: The is_imported of this ExperimentalWorkspace.  # noqa: E501
+        :rtype: bool
+        """
+        return self._is_imported
+
+    @is_imported.setter
+    def is_imported(self, is_imported):
+        """Sets the is_imported of this ExperimentalWorkspace.
+
+        Whether this workspace was imported from a CR the customer created, rather than submitted through Anyscale. An imported workload is attributed to the cloud's creator, so the console names the origin instead of that user. False for a workspace predating the source column: unknown provenance must not read as imported.  # noqa: E501
+
+        :param is_imported: The is_imported of this ExperimentalWorkspace.  # noqa: E501
+        :type: bool
+        """
+
+        self._is_imported = is_imported
+
+    @property
     def state(self):
         """Gets the state of this ExperimentalWorkspace.  # noqa: E501
 
@@ -784,6 +854,75 @@ class ExperimentalWorkspace(object):
         """
 
         self._integration_details = integration_details
+
+    @property
+    def ray_dashboard_url(self):
+        """Gets the ray_dashboard_url of this ExperimentalWorkspace.  # noqa: E501
+
+        Ray dashboard URL. Set only for KubeRay workspaces.  # noqa: E501
+
+        :return: The ray_dashboard_url of this ExperimentalWorkspace.  # noqa: E501
+        :rtype: str
+        """
+        return self._ray_dashboard_url
+
+    @ray_dashboard_url.setter
+    def ray_dashboard_url(self, ray_dashboard_url):
+        """Sets the ray_dashboard_url of this ExperimentalWorkspace.
+
+        Ray dashboard URL. Set only for KubeRay workspaces.  # noqa: E501
+
+        :param ray_dashboard_url: The ray_dashboard_url of this ExperimentalWorkspace.  # noqa: E501
+        :type: str
+        """
+
+        self._ray_dashboard_url = ray_dashboard_url
+
+    @property
+    def vscode_url(self):
+        """Gets the vscode_url of this ExperimentalWorkspace.  # noqa: E501
+
+        Editor URL. Set only for KubeRay workspaces.  # noqa: E501
+
+        :return: The vscode_url of this ExperimentalWorkspace.  # noqa: E501
+        :rtype: str
+        """
+        return self._vscode_url
+
+    @vscode_url.setter
+    def vscode_url(self, vscode_url):
+        """Sets the vscode_url of this ExperimentalWorkspace.
+
+        Editor URL. Set only for KubeRay workspaces.  # noqa: E501
+
+        :param vscode_url: The vscode_url of this ExperimentalWorkspace.  # noqa: E501
+        :type: str
+        """
+
+        self._vscode_url = vscode_url
+
+    @property
+    def kuberay_details(self):
+        """Gets the kuberay_details of this ExperimentalWorkspace.  # noqa: E501
+
+        The backing RayCluster. Set only for KubeRay workspaces.  # noqa: E501
+
+        :return: The kuberay_details of this ExperimentalWorkspace.  # noqa: E501
+        :rtype: KubeRayWorkspaceDetails
+        """
+        return self._kuberay_details
+
+    @kuberay_details.setter
+    def kuberay_details(self, kuberay_details):
+        """Sets the kuberay_details of this ExperimentalWorkspace.
+
+        The backing RayCluster. Set only for KubeRay workspaces.  # noqa: E501
+
+        :param kuberay_details: The kuberay_details of this ExperimentalWorkspace.  # noqa: E501
+        :type: KubeRayWorkspaceDetails
+        """
+
+        self._kuberay_details = kuberay_details
 
     def to_dict(self):
         """Returns the model properties as a dict"""

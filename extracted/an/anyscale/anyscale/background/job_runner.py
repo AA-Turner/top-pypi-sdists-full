@@ -6,11 +6,13 @@ import subprocess
 # that we can expect to be available on product clusters, migrate all
 # use of _run_kill_child to this function.
 def run_kill_child(
-    *popenargs, input=None, timeout=None, check=False, **kwargs  # noqa: A002
+    *popenargs,
+    input=None,  # noqa: A002
+    timeout=None,
+    check=False,
+    **kwargs,  # noqa: A002
 ) -> subprocess.CompletedProcess:
-    return _run_kill_child(
-        *popenargs, input=input, timeout=timeout, check=check, **kwargs
-    )
+    return _run_kill_child(*popenargs, input=input, timeout=timeout, check=check, **kwargs)
 
 
 # TODO(mattweber): This is a public function despite the underscore.
@@ -18,7 +20,11 @@ def run_kill_child(
 # config_controller because it needs to import this function
 # for use in a remote function.
 def _run_kill_child(
-    *popenargs, input=None, timeout=None, check=False, **kwargs  # noqa: A002
+    *popenargs,
+    input=None,  # noqa: A002
+    timeout=None,
+    check=False,
+    **kwargs,  # noqa: A002
 ) -> subprocess.CompletedProcess:
     """
     This function is a fork of subprocess.run with fewer args.

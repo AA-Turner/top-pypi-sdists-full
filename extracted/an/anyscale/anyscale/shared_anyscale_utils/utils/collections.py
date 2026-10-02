@@ -6,12 +6,10 @@ from typing import Callable, List, Optional, Tuple, TypeVar
 T = TypeVar("T")
 
 
-def partition(
-    items: List[T], predicate: Callable[[T], bool]
-) -> Tuple[List[T], List[T]]:
+def partition(items: List[T], predicate: Callable[[T], bool]) -> Tuple[List[T], List[T]]:
     """Partitions provided list into 2 based on the value of the predicate, where:
-        - First element is the list of elements for which value of the predicate is truthful
-        - Second element are remaining elements
+    - First element is the list of elements for which value of the predicate is truthful
+    - Second element are remaining elements
     """
     first = []
     second = []

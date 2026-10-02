@@ -1,0 +1,288 @@
+"""Golden chain test for node_compliance_sweep.
+
+Verifies the handler can scan handler files, detect contract compliance
+violations, and emit completion events via EventBusInmemory.
+"""
+
+from __future__ import annotations
+
+import json
+import tempfile
+from pathlib import Path
+
+import pytest
+from omnibase_core.event_bus.event_bus_inmemory import EventBusInmemory
+
+from omnimarket.nodes.node_compliance_sweep.handlers.handler_compliance_sweep import (
+    ComplianceSweepRequest,
+    NodeComplianceSweep,
+)
+from tests.sweep_corpus_fixture import init_fixture_repo
+
+CMD_TOPIC = "onex.cmd.omnimarket.compliance-sweep-start.v1"
+EVT_TOPIC = "onex.evt.omnimarket.compliance-sweep-completed.v1"
+
+
+@pytest.mark.unit
+class TestComplianceSweepGoldenChain:
+    """Golden chain: command -> handler -> completion event."""
+
+    async def test_compliant_handler(self, event_bus: EventBusInmemory) -> None:
+        """A handler with no violations should produce status=compliant."""
+        handler = NodeComplianceSweep()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            handlers_dir = Path(tmpdir) / "src" / "nodes" / "node_test" / "handlers"
+            handlers_dir.mkdir(parents=True)
+            (handlers_dir / "handler_test.py").write_text(
+                "from pydantic import BaseModel\n\ndef handle():\n    return 42\n"
+            )
+
+            request = ComplianceSweepRequest(target_dirs=[tmpdir])
+            init_fixture_repo(tmpdir)
+            result = handler.handle(request)
+
+        assert result.status == "compliant"
+        assert result.total_violations == 0
+        assert result.handlers_scanned >= 1
+
+    async def test_hardcoded_topic_detected(self, event_bus: EventBusInmemory) -> None:
+        """Hardcoded topic strings in handlers should be flagged."""
+        handler = NodeComplianceSweep()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            handlers_dir = Path(tmpdir) / "src" / "nodes" / "node_test" / "handlers"
+            handlers_dir.mkdir(parents=True)
+            (handlers_dir / "handler_bad.py").write_text(
+                'TOPIC = "onex.evt.core.something.v1"\n'
+            )
+
+            request = ComplianceSweepRequest(
+                target_dirs=[tmpdir], checks=["hardcoded-topics"]
+            )
+            init_fixture_repo(tmpdir)
+            result = handler.handle(request)
+
+        assert result.status == "violations_found"
+        assert result.by_type.get("HARDCODED_TOPIC", 0) >= 1
+
+    async def test_transport_import_detected(self, event_bus: EventBusInmemory) -> None:
+        """Transport library imports in handlers should be flagged."""
+        handler = NodeComplianceSweep()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            handlers_dir = Path(tmpdir) / "src" / "nodes" / "node_test" / "handlers"
+            handlers_dir.mkdir(parents=True)
+            (handlers_dir / "handler_db.py").write_text("import psycopg2\n\nx = 1\n")
+
+            request = ComplianceSweepRequest(
+                target_dirs=[tmpdir], checks=["undeclared-transport"]
+            )
+            init_fixture_repo(tmpdir)
+            result = handler.handle(request)
+
+        assert result.status == "violations_found"
+        assert result.by_type.get("UNDECLARED_TRANSPORT", 0) >= 1
+
+    async def test_transport_import_not_flagged_when_contract_declares_it(
+        self, event_bus: EventBusInmemory
+    ) -> None:
+        """OMN-15126: a handler's DB import is not flagged when the node's own
+        contract.yaml declares metadata.transport_type: database -- this is
+        exactly the shape a real EFFECT node uses (e.g.
+        node_liveness_demand_query_effect), and the scanner should not
+        penalize a correctly-declared transport it can trivially verify
+        against the sibling contract."""
+        handler = NodeComplianceSweep()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            node_dir = Path(tmpdir) / "src" / "nodes" / "node_test_db_effect"
+            handlers_dir = node_dir / "handlers"
+            handlers_dir.mkdir(parents=True)
+            (handlers_dir / "handler_db.py").write_text("import psycopg2\n\nx = 1\n")
+            (node_dir / "contract.yaml").write_text(
+                "metadata:\n  transport_type: database\n"
+            )
+
+            request = ComplianceSweepRequest(
+                target_dirs=[tmpdir], checks=["undeclared-transport"]
+            )
+            init_fixture_repo(tmpdir)
+            result = handler.handle(request)
+
+        assert result.status == "compliant"
+        assert result.by_type.get("UNDECLARED_TRANSPORT", 0) == 0
+
+    async def test_http_transport_import_not_flagged_when_contract_declares_endpoint(
+        self, event_bus: EventBusInmemory
+    ) -> None:
+        """A handler may import an HTTP client when the sibling contract
+        declares the endpoint it calls."""
+        handler = NodeComplianceSweep()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            node_dir = Path(tmpdir) / "src" / "nodes" / "node_test_http_effect"
+            handlers_dir = node_dir / "handlers"
+            handlers_dir.mkdir(parents=True)
+            (handlers_dir / "handler_http.py").write_text("import aiohttp\n\nx = 1\n")
+            (node_dir / "contract.yaml").write_text(
+                "endpoints:\n"
+                "  slack_chat_post_message:\n"
+                "    url: https://slack.com/api/chat.postMessage\n"
+                "    method: POST\n"
+                "metadata:\n"
+                "  transport_type: kafka\n"
+            )
+
+            request = ComplianceSweepRequest(
+                target_dirs=[tmpdir], checks=["undeclared-transport"]
+            )
+            init_fixture_repo(tmpdir)
+            result = handler.handle(request)
+
+        assert result.status == "compliant"
+        assert result.by_type.get("UNDECLARED_TRANSPORT", 0) == 0
+
+    async def test_database_transport_import_not_flagged_when_contract_declares_db_io(
+        self, event_bus: EventBusInmemory
+    ) -> None:
+        """A handler may import a DB client when the sibling contract declares
+        governed database access."""
+        handler = NodeComplianceSweep()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            node_dir = Path(tmpdir) / "src" / "nodes" / "node_test_db_effect"
+            handlers_dir = node_dir / "handlers"
+            handlers_dir.mkdir(parents=True)
+            (handlers_dir / "handler_db.py").write_text("import psycopg2\n\nx = 1\n")
+            (node_dir / "contract.yaml").write_text(
+                "db_io:\n"
+                "  db_tables:\n"
+                "    - name: consumer_flow_windows\n"
+                "      database_ref: application\n"
+                "      schema: omninode_internal\n"
+                "      access: read\n"
+                "metadata:\n"
+                "  transport_type: kafka\n"
+            )
+
+            request = ComplianceSweepRequest(
+                target_dirs=[tmpdir], checks=["undeclared-transport"]
+            )
+            init_fixture_repo(tmpdir)
+            result = handler.handle(request)
+
+        assert result.status == "compliant"
+        assert result.by_type.get("UNDECLARED_TRANSPORT", 0) == 0
+
+    async def test_selective_checks(self, event_bus: EventBusInmemory) -> None:
+        """Only specified checks should run."""
+        handler = NodeComplianceSweep()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            handlers_dir = Path(tmpdir) / "src" / "nodes" / "node_test" / "handlers"
+            handlers_dir.mkdir(parents=True)
+            (handlers_dir / "handler_mixed.py").write_text(
+                'import httpx\nTOPIC = "onex.evt.core.foo.v1"\n'
+            )
+
+            request = ComplianceSweepRequest(
+                target_dirs=[tmpdir], checks=["hardcoded-topics"]
+            )
+            init_fixture_repo(tmpdir)
+            result = handler.handle(request)
+
+        assert "UNDECLARED_TRANSPORT" not in result.by_type
+        assert result.by_type.get("HARDCODED_TOPIC", 0) >= 1
+
+    async def test_event_bus_wiring(self, event_bus: EventBusInmemory) -> None:
+        """Handler can be wired to event bus and process command events."""
+        handler = NodeComplianceSweep()
+        results_captured: list[dict[str, object]] = []
+
+        async def on_command(message: object) -> None:
+            payload = json.loads(message.value)  # type: ignore[union-attr]
+            request = ComplianceSweepRequest(
+                target_dirs=payload.get("target_dirs", []),
+                checks=payload.get("checks"),
+            )
+            result = handler.handle(request)
+            result_payload = {
+                "status": result.status,
+                "total_violations": result.total_violations,
+                "handlers_scanned": result.handlers_scanned,
+            }
+            results_captured.append(result_payload)
+            await event_bus.publish(
+                EVT_TOPIC,
+                key=None,
+                value=json.dumps(result_payload).encode(),
+            )
+
+        await event_bus.start()
+        await event_bus.subscribe(
+            CMD_TOPIC, on_message=on_command, group_id="test-compliance"
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            handlers_dir = Path(tmpdir) / "src" / "nodes" / "node_ok" / "handlers"
+            handlers_dir.mkdir(parents=True)
+            (handlers_dir / "handler_ok.py").write_text("x = 1\n")
+            init_fixture_repo(tmpdir)
+            cmd_payload = json.dumps({"target_dirs": [tmpdir]}).encode()
+            await event_bus.publish(CMD_TOPIC, key=None, value=cmd_payload)
+
+        assert len(results_captured) == 1
+        history = await event_bus.get_event_history(topic=EVT_TOPIC)
+        assert len(history) == 1
+
+        await event_bus.close()
+
+    async def test_dry_run_flag(self, event_bus: EventBusInmemory) -> None:
+        """dry_run flag should propagate from request to result."""
+        handler = NodeComplianceSweep()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            request = ComplianceSweepRequest(target_dirs=[tmpdir], dry_run=True)
+            init_fixture_repo(tmpdir)
+            result = handler.handle(request)
+
+        assert result.dry_run is True
+
+    async def test_compliant_vs_imperative_counts(
+        self, event_bus: EventBusInmemory
+    ) -> None:
+        """Compliant and imperative counts should sum to handlers_scanned."""
+        handler = NodeComplianceSweep()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            handlers_dir = Path(tmpdir) / "src" / "nodes" / "node_test" / "handlers"
+            handlers_dir.mkdir(parents=True)
+            (handlers_dir / "handler_clean.py").write_text("x = 1\n")
+            (handlers_dir / "handler_dirty.py").write_text(
+                'TOPIC = "onex.evt.core.bar.v1"\n'
+            )
+
+            request = ComplianceSweepRequest(target_dirs=[tmpdir])
+            init_fixture_repo(tmpdir)
+            result = handler.handle(request)
+
+        assert result.compliant + result.imperative == result.handlers_scanned
+
+    async def test_by_severity_counts(self, event_bus: EventBusInmemory) -> None:
+        """Severity counts should match total violations."""
+        handler = NodeComplianceSweep()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            handlers_dir = Path(tmpdir) / "src" / "nodes" / "node_test" / "handlers"
+            handlers_dir.mkdir(parents=True)
+            (handlers_dir / "handler_bad.py").write_text(
+                'import httpx\nTOPIC = "onex.evt.core.x.v1"\n'
+            )
+
+            request = ComplianceSweepRequest(target_dirs=[tmpdir])
+            init_fixture_repo(tmpdir)
+            result = handler.handle(request)
+
+        total_severity = sum(result.by_severity.values())
+        assert total_severity == result.total_violations

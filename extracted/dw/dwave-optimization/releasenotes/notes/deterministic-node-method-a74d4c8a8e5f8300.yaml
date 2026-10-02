@@ -1,6 +1,0 @@
----
-features:
-  - |
-    Add virtual ``Node::deterministic_state()`` C++ method. This method allows
-    nodes to communicate whether or not their state is uniquely derived from its
-    predecessors.

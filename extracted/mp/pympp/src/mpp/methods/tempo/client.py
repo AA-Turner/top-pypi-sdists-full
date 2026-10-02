@@ -1,0 +1,536 @@
+"""Tempo payment methods for client-side credential creation.
+
+Implements the charge (TempoMethod) client method.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import time
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, cast
+
+from mpp import Challenge, Credential
+from mpp.methods import CanOfferFn, PaymentSuccessHandler
+from mpp.methods.tempo._attribution import encode as encode_attribution
+from mpp.methods.tempo._defaults import (
+    CHAIN_ID,
+    MACH,
+    RPC_URL,
+    default_currency_for_chain,
+    fee_tokens_for_chain,
+    rpc_url_for_chain,
+)
+from mpp.methods.tempo._rpc import _rpc_call, _tip20_balance, estimate_gas
+from mpp.methods.tempo.fee_payer_policy import get_policy
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from mpp.methods.tempo.account import TempoAccount
+    from mpp.methods.tempo.relay import Relay
+    from mpp.server.intent import Intent, VerifiableIntent
+
+
+# Tempo AA (type-0x76) transactions have higher intrinsic gas than legacy txs
+# (~270k for a single TIP-20 transfer). A safe static limit avoids the need for
+# AA-aware eth_estimateGas calls, matching the approach used by mpp-rs.
+DEFAULT_GAS_LIMIT = 1_000_000
+EXPIRING_NONCE_KEY = (1 << 256) - 1  # U256::MAX
+FEE_PAYER_VALID_BEFORE_SECS = 25
+# Tempo gas prices use attodollars (10^-18 USD) while TIP-20 fee tokens use
+# microdollars (10^-6 USD).
+ATTODOLLARS_PER_MICRODOLLAR = 10**12
+_CHAIN_ID_UNSET = object()
+
+
+class TransactionError(Exception):
+    """Transaction building or submission failed.
+
+    Error messages are sanitized to avoid leaking sensitive transaction data.
+    """
+
+
+# ──────────────────────────────────────────────────────────────────
+# Charge client method
+# ──────────────────────────────────────────────────────────────────
+
+
+@dataclass
+class TempoMethod:
+    """Tempo payment method implementation.
+
+    Handles client-side credential creation for Tempo payments.
+
+    Example:
+        from mpp.methods.tempo import tempo, TempoAccount
+
+        account = TempoAccount.from_key("0x...")
+        method = tempo(account=account, rpc_url="https://rpc.tempo.xyz")
+
+        # Use with client
+        from mpp.client import get
+        response = await get("https://api.example.com", methods=[method])
+    """
+
+    name: str = "tempo"
+    account: TempoAccount | None = None
+    fee_payer: TempoAccount | None = None
+    root_account: str | None = None
+    rpc_url: str = RPC_URL
+    chain_id: int | None = None
+    currency: str | None = None
+    recipient: str | None = None
+    decimals: int = 6
+    client_id: str | None = None
+    _intents: dict[str, Intent | VerifiableIntent] = field(default_factory=dict)
+    can_offer: CanOfferFn | None = field(default=None, kw_only=True)
+    on_payment_success: PaymentSuccessHandler | None = field(default=None, kw_only=True)
+    _cached_chain_ids: dict[str, int] = field(default_factory=dict, init=False, repr=False)
+    _chain_id_explicit: bool = field(default=False, init=False, repr=False)
+    _currency_explicit: bool = field(default=True, init=False, repr=False)
+    _chain_id_lock: asyncio.Lock | None = field(default=None, init=False, repr=False)
+    _rpc_url_explicit: bool = field(default=False, init=False, repr=False)
+
+    @property
+    def intents(self) -> dict[str, Intent | VerifiableIntent]:
+        """Available intents for this method."""
+        return self._intents
+
+    async def _get_chain_id(self, rpc_url: str) -> int:
+        """Fetch the chain ID once per RPC URL and reuse it for later requests."""
+        cached = self._cached_chain_ids.get(rpc_url)
+        if cached is not None:
+            return cached
+
+        if self._chain_id_lock is None:
+            self._chain_id_lock = asyncio.Lock()
+
+        async with self._chain_id_lock:
+            cached = self._cached_chain_ids.get(rpc_url)
+            if cached is not None:
+                return cached
+
+            chain_id_hex = await _rpc_call(rpc_url, "eth_chainId", [])
+            chain_id = int(chain_id_hex, 16)
+            self._cached_chain_ids[rpc_url] = chain_id
+            return chain_id
+
+    async def _resolve_expected_chain_id(self) -> int | None:
+        """Return the chain ID pinned by local client configuration.
+
+        A client may pin the chain explicitly via ``chain_id`` or implicitly by
+        supplying a custom ``rpc_url``. In the latter case, trust the chain
+        reported by that RPC instead of the server challenge.
+        """
+        if self._rpc_url_explicit and not self._chain_id_explicit:
+            return await self._get_chain_id(self.rpc_url)
+        if self.chain_id is not None:
+            return self.chain_id
+        if self.rpc_url:
+            return await self._get_chain_id(self.rpc_url)
+        return None
+
+    async def _resolve_mach_fee_token(
+        self,
+        *,
+        account: str,
+        chain_id: int,
+        rpc_url: str,
+        required_balance: int,
+    ) -> str:
+        """Return a stablecoin that can cover the MACH transaction fee."""
+        for token in fee_tokens_for_chain(chain_id):
+            try:
+                if await _tip20_balance(rpc_url, token, account) >= required_balance:
+                    return token
+            except Exception:
+                continue
+        raise TransactionError(
+            "MACH charges require a funded supported stablecoin for transaction fees"
+        )
+
+    async def create_credential(self, challenge: Challenge) -> Credential:
+        """Create a credential to satisfy the given challenge.
+
+        For the charge intent, this builds and signs a TempoTransaction (type 0x76)
+        with a fee payer placeholder. The server will forward this to a fee payer
+        service which adds its signature and broadcasts.
+
+        Args:
+            challenge: The payment challenge from the server.
+
+        Returns:
+            A credential with the signed transaction.
+
+        Raises:
+            ValueError: If no account is configured or intent is unsupported.
+            TransactionError: If transaction building fails.
+        """
+        if self.account is None:
+            raise ValueError("No account configured for signing")
+
+        if challenge.intent != "charge":
+            raise ValueError(f"Unsupported intent: {challenge.intent}")
+
+        request = challenge.request
+        method_details = request.get("methodDetails", {})
+        use_fee_payer = (
+            method_details.get("feePayer", False) if isinstance(method_details, dict) else False
+        )
+
+        nonce_key = request.get("nonce_key", 0)
+        if isinstance(nonce_key, str):
+            if nonce_key.startswith("0x"):
+                nonce_key = int(nonce_key, 16)
+            else:
+                nonce_key = int(nonce_key)
+
+        memo = method_details.get("memo") if isinstance(method_details, dict) else None
+        if memo == "":
+            memo = None
+        if memo is None:
+            memo = encode_attribution(
+                challenge_id=challenge.id,
+                server_id=challenge.realm,
+                client_id=self.client_id,
+            )
+
+        splits = method_details.get("splits") if isinstance(method_details, dict) else None
+
+        rpc_url = self.rpc_url
+        expected_chain_id = await self._resolve_expected_chain_id()
+        challenge_chain_id = (
+            method_details.get("chainId") if isinstance(method_details, dict) else None
+        )
+        if challenge_chain_id is not None:
+            try:
+                parsed_chain_id = int(challenge_chain_id)
+            except (TypeError, ValueError):
+                pass
+            else:
+                if expected_chain_id is not None and parsed_chain_id != expected_chain_id:
+                    raise ValueError(
+                        f"Challenge requests chain ID {parsed_chain_id}, "
+                        f"but client is restricted to {expected_chain_id}"
+                    )
+                if expected_chain_id is None:
+                    expected_chain_id = parsed_chain_id
+
+        raw_tx, chain_id = await self._build_tempo_transfer(
+            amount=request["amount"],
+            currency=request["currency"],
+            recipient=request["recipient"],
+            nonce_key=nonce_key,
+            memo=memo,
+            rpc_url=rpc_url,
+            expected_chain_id=expected_chain_id,
+            awaiting_fee_payer=use_fee_payer,
+            splits=splits,
+        )
+
+        # When signing with an access key, the credential source is the
+        # root account (the smart wallet), not the access key.
+        source_address = self.root_account if self.root_account else self.account.address
+
+        return Credential(
+            challenge=challenge.to_echo(),
+            payload={"type": "transaction", "signature": raw_tx},
+            source=f"did:pkh:eip155:{chain_id}:{source_address}",
+        )
+
+    async def _build_tempo_transfer(
+        self,
+        amount: str,
+        currency: str,
+        recipient: str,
+        nonce_key: int = 0,
+        memo: str | None = None,
+        rpc_url: str | None = None,
+        expected_chain_id: int | None = None,
+        awaiting_fee_payer: bool = False,
+        splits: list[dict] | None = None,
+    ) -> tuple[str, int]:
+        """Build a client-signed Tempo transaction.
+
+        Creates a TempoTransaction (type 0x76) with a supported fee token.
+        Ordinary charges use the transfer currency; MACH charges select a
+        funded supported stablecoin because MACH cannot pay transaction fees.
+
+        When ``awaiting_fee_payer`` is True, the transaction is built with
+        a fee payer placeholder so a sponsoring service can co-sign it
+        before broadcast. Uses expiring nonces (nonce_key=U256::MAX,
+        nonce=0) with a ``valid_before`` window for replay protection.
+
+        Args:
+            amount: Transfer amount as string.
+            currency: TIP-20 token contract address.
+            recipient: Recipient address.
+            nonce_key: 2D nonce key for parallel transaction streams.
+            memo: Optional 32-byte memo (hex string) for transferWithMemo.
+            rpc_url: RPC URL to use. Defaults to ``self.rpc_url``.
+            expected_chain_id: If set, verify the RPC reports this chain ID.
+            awaiting_fee_payer: If True, build for fee payer sponsorship.
+
+        Returns:
+            Tuple of (raw signed transaction hex, chain ID).
+
+        Raises:
+            TransactionError: If the RPC's chain ID doesn't match expected.
+        """
+        from pytempo import Call, TempoTransaction
+
+        if self.account is None:
+            raise ValueError("No account configured")
+
+        resolved_rpc = rpc_url or self.rpc_url
+
+        gas_estimate_data: str | None = None
+
+        if splits:
+            from mpp.methods.tempo.intents import get_transfers
+            from mpp.methods.tempo.schemas import Split as SplitModel
+
+            parsed_splits = [SplitModel(**s) for s in splits]
+            transfer_list = get_transfers(int(amount), recipient, memo, parsed_splits)
+            call_list = []
+            for t in transfer_list:
+                if t.memo is not None:
+                    td = self._encode_transfer_with_memo(t.recipient, t.amount, "0x" + t.memo.hex())
+                else:
+                    td = self._encode_transfer(t.recipient, t.amount)
+                call_list.append(Call.create(to=currency, value=0, data=td))
+            calls_tuple = tuple(call_list)
+        else:
+            if memo:
+                transfer_data = self._encode_transfer_with_memo(recipient, int(amount), memo)
+            else:
+                transfer_data = self._encode_transfer(recipient, int(amount))
+            calls_tuple = (Call.create(to=currency, value=0, data=transfer_data),)
+            gas_estimate_data = transfer_data
+
+        # When using an access key, fetch nonce from the root account
+        # (smart wallet), not the access key address.
+        nonce_address = self.root_account if self.root_account else self.account.address
+
+        chain_id = await self._get_chain_id(resolved_rpc)
+        nonce_hex, gas_price_hex = await asyncio.gather(
+            _rpc_call(resolved_rpc, "eth_getTransactionCount", [nonce_address, "pending"]),
+            _rpc_call(resolved_rpc, "eth_gasPrice", []),
+        )
+        on_chain_nonce = int(nonce_hex, 16)
+        gas_price = int(gas_price_hex, 16)
+        max_priority_fee_per_gas = gas_price
+
+        if expected_chain_id is not None and chain_id != expected_chain_id:
+            raise TransactionError(
+                f"Chain ID mismatch: RPC returned {chain_id}, "
+                f"expected {expected_chain_id} from client policy"
+            )
+
+        if awaiting_fee_payer:
+            resolved_nonce_key = EXPIRING_NONCE_KEY
+            resolved_nonce = 0
+            valid_before = int(time.time()) + FEE_PAYER_VALID_BEFORE_SECS
+            # Keep sponsored envelopes inside the server's default policy.
+            max_priority_fee_per_gas = min(gas_price, get_policy(chain_id).max_priority_fee_per_gas)
+        else:
+            resolved_nonce_key = nonce_key
+            resolved_nonce = on_chain_nonce
+            valid_before = None
+
+        gas_limit = DEFAULT_GAS_LIMIT
+        try:
+            if splits:
+                total_estimated = 0
+                for c in calls_tuple:
+                    total_estimated += await estimate_gas(
+                        resolved_rpc, nonce_address, currency, c.data.hex()
+                    )
+                gas_limit = max(gas_limit, total_estimated + 5_000 * len(calls_tuple))
+            elif gas_estimate_data is not None:
+                estimated = await estimate_gas(
+                    resolved_rpc, nonce_address, currency, gas_estimate_data
+                )
+                gas_limit = max(gas_limit, estimated + 5_000)
+        except Exception:
+            pass
+
+        fee_token: str | None = None
+        if not awaiting_fee_payer:
+            fee_token = currency
+            if currency.lower() == MACH.lower():
+                required_balance = max(
+                    1,
+                    (gas_limit * gas_price + ATTODOLLARS_PER_MICRODOLLAR - 1)
+                    // ATTODOLLARS_PER_MICRODOLLAR,
+                )
+                fee_token = await self._resolve_mach_fee_token(
+                    account=nonce_address,
+                    chain_id=chain_id,
+                    rpc_url=resolved_rpc,
+                    required_balance=required_balance,
+                )
+
+        tx = TempoTransaction.create(
+            chain_id=chain_id,
+            gas_limit=gas_limit,
+            max_fee_per_gas=gas_price,
+            max_priority_fee_per_gas=max_priority_fee_per_gas,
+            nonce=resolved_nonce,
+            nonce_key=resolved_nonce_key,
+            fee_token=fee_token,
+            awaiting_fee_payer=awaiting_fee_payer,
+            valid_before=valid_before,
+            calls=calls_tuple,
+        )
+
+        if self.root_account:
+            from pytempo import sign_tx_access_key
+
+            signed_tx = sign_tx_access_key(tx, self.account.private_key, self.root_account)
+        else:
+            signed_tx = tx.sign(self.account.private_key)
+
+        if awaiting_fee_payer:
+            from mpp.methods.tempo.fee_payer_envelope import encode_fee_payer_envelope
+
+            return "0x" + encode_fee_payer_envelope(signed_tx).hex(), chain_id
+
+        return "0x" + signed_tx.encode().hex(), chain_id
+
+    def _encode_transfer(self, to: str, amount: int) -> str:
+        """Encode a TIP-20 transfer call.
+
+        Selector: 0xa9059cbb = keccak256("transfer(address,uint256)")[:4]
+        """
+        selector = "a9059cbb"
+        to_padded = to[2:].lower().zfill(64)
+        amount_padded = hex(amount)[2:].zfill(64)
+        return f"0x{selector}{to_padded}{amount_padded}"
+
+    def _encode_transfer_with_memo(self, to: str, amount: int, memo: str) -> str:
+        """Encode a TIP-20 transferWithMemo call.
+
+        Selector: 0x95777d59 = keccak256(
+            "transferWithMemo(address,uint256,bytes32)"
+        )[:4]
+        """
+        selector = "95777d59"
+        to_padded = to[2:].lower().zfill(64)
+        amount_padded = hex(amount)[2:].zfill(64)
+        memo_clean = memo[2:] if memo.startswith("0x") else memo
+        if len(memo_clean) != 64:
+            raise ValueError(f"memo must be exactly 32 bytes (64 hex chars), got {len(memo_clean)}")
+        return f"0x{selector}{to_padded}{amount_padded}{memo_clean.lower()}"
+
+
+# ──────────────────────────────────────────────────────────────────
+# Factory
+# ──────────────────────────────────────────────────────────────────
+
+
+def tempo(
+    intents: Mapping[str, Intent | VerifiableIntent],
+    account: TempoAccount | None = None,
+    fee_payer: TempoAccount | None = None,
+    chain_id: int | None | object = _CHAIN_ID_UNSET,
+    rpc_url: str | None = None,
+    root_account: str | None = None,
+    currency: str | None = None,
+    recipient: str | None = None,
+    decimals: int = 6,
+    client_id: str | None = None,
+    relay: Relay | None = None,
+    can_offer: CanOfferFn | None = None,
+    on_payment_success: PaymentSuccessHandler | None = None,
+) -> TempoMethod:
+    """Create a Tempo payment method.
+
+    Args:
+        intents: Intents to register (e.g. charge).
+        account: Account for signing transactions (client-side).
+        fee_payer: Account for co-signing sponsored transactions
+            (server-side). When set, the server signs with domain
+            ``0x78`` and broadcasts directly — no external fee payer
+            service needed.
+        chain_id: Tempo chain ID (default: 4217 for mainnet, use 42431
+            for testnet). Resolves the RPC URL automatically from known chains.
+        rpc_url: Tempo RPC endpoint URL. Overrides the URL resolved
+            from ``chain_id``. When provided without ``chain_id``, the client
+            pins itself to whatever chain that RPC reports. Defaults to mainnet
+            if neither is set.
+        root_account: Root account address for access key signing.
+        currency: Default currency address for charges.
+        recipient: Default recipient address for charges.
+        decimals: Token decimal places for amount conversion (default: 6).
+        client_id: Optional client identity for attribution memos.
+        relay: Optional server-side Tempo API relay for the charge intent.
+        can_offer: Optional callback that filters this method's composed offers.
+        on_payment_success: Optional callback invoked after successful verification.
+
+    Returns:
+        A configured TempoMethod instance.
+
+    Example:
+        from mpp.methods.tempo import ChargeIntent, TempoAccount
+
+        # Server with fee payer — sponsors gas for clients
+        method = tempo(
+            chain_id=42431,
+            fee_payer=TempoAccount.from_env("FEE_PAYER_KEY"),
+            intents={"charge": ChargeIntent()},
+        )
+
+        # Client
+        method = tempo(
+            account=TempoAccount.from_key("0x..."),
+            intents={"charge": ChargeIntent()},
+        )
+    """
+    chain_id_explicit = chain_id is not _CHAIN_ID_UNSET
+    resolved_chain_id: int | None
+    if chain_id is _CHAIN_ID_UNSET:
+        resolved_chain_id = CHAIN_ID
+    else:
+        resolved_chain_id = cast("int | None", chain_id)
+
+    rpc_url_explicit = rpc_url is not None
+    if rpc_url is None:
+        if resolved_chain_id is None:
+            raise ValueError("chain_id or rpc_url is required")
+        rpc_url = rpc_url_for_chain(resolved_chain_id)
+
+    currency_explicit = currency is not None
+    if currency is None:
+        currency = default_currency_for_chain(resolved_chain_id)
+
+    method = TempoMethod(
+        account=account,
+        fee_payer=fee_payer,
+        rpc_url=rpc_url,
+        chain_id=resolved_chain_id,
+        root_account=root_account,
+        currency=currency,
+        recipient=recipient,
+        decimals=decimals,
+        client_id=client_id,
+        can_offer=can_offer,
+        on_payment_success=on_payment_success,
+    )
+    method._chain_id_explicit = chain_id_explicit
+    method._currency_explicit = currency_explicit
+    method._rpc_url_explicit = rpc_url_explicit
+    for intent in intents.values():
+        if hasattr(intent, "rpc_url") and intent.rpc_url is None:  # type: ignore[union-attr]
+            intent.rpc_url = rpc_url  # type: ignore[union-attr]
+        if hasattr(intent, "_method"):
+            intent._method = method  # type: ignore[union-attr]
+    configured_intents = dict(intents)
+    if relay is not None:
+        charge = configured_intents.get("charge")
+        if charge is None:
+            raise ValueError("relay requires a charge intent")
+        configured_intents["charge"] = relay.configure(charge)
+    method._intents = configured_intents
+    return method

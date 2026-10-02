@@ -40,7 +40,8 @@ class OrganizationCollaborator(object):
         'name': 'str',
         'created_at': 'datetime',
         'email': 'str',
-        'user_id': 'str'
+        'user_id': 'str',
+        'is_service_account': 'bool'
     }
 
     attribute_map = {
@@ -51,10 +52,11 @@ class OrganizationCollaborator(object):
         'name': 'name',
         'created_at': 'created_at',
         'email': 'email',
-        'user_id': 'user_id'
+        'user_id': 'user_id',
+        'is_service_account': 'is_service_account'
     }
 
-    def __init__(self, base_role=None, additional_roles=None, permission_level=None, id=None, name=None, created_at=None, email=None, user_id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, base_role=None, additional_roles=None, permission_level=None, id=None, name=None, created_at=None, email=None, user_id=None, is_service_account=False, local_vars_configuration=None):  # noqa: E501
         """OrganizationCollaborator - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -68,6 +70,7 @@ class OrganizationCollaborator(object):
         self._created_at = None
         self._email = None
         self._user_id = None
+        self._is_service_account = None
         self.discriminator = None
 
         self.base_role = base_role
@@ -79,6 +82,8 @@ class OrganizationCollaborator(object):
         self.email = email
         if user_id is not None:
             self.user_id = user_id
+        if is_service_account is not None:
+            self.is_service_account = is_service_account
 
     @property
     def base_role(self):
@@ -269,6 +274,29 @@ class OrganizationCollaborator(object):
         """
 
         self._user_id = user_id
+
+    @property
+    def is_service_account(self):
+        """Gets the is_service_account of this OrganizationCollaborator.  # noqa: E501
+
+        Whether the collaborator is a service account rather than a person.  # noqa: E501
+
+        :return: The is_service_account of this OrganizationCollaborator.  # noqa: E501
+        :rtype: bool
+        """
+        return self._is_service_account
+
+    @is_service_account.setter
+    def is_service_account(self, is_service_account):
+        """Sets the is_service_account of this OrganizationCollaborator.
+
+        Whether the collaborator is a service account rather than a person.  # noqa: E501
+
+        :param is_service_account: The is_service_account of this OrganizationCollaborator.  # noqa: E501
+        :type: bool
+        """
+
+        self._is_service_account = is_service_account
 
     def to_dict(self):
         """Returns the model properties as a dict"""

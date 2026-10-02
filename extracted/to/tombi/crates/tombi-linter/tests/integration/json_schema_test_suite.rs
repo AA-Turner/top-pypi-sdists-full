@@ -55,6 +55,14 @@ async fn validate_test_suite(
     linter.lint(toml_text).await
 }
 
+/// An expected diagnostic, whose range counts grapheme clusters as an editor shows them.
+fn expected_diagnostic(
+    kind: tombi_validator::DiagnosticKind,
+    range: impl Into<tombi_text::Range>,
+) -> (tombi_validator::DiagnosticKind, tombi_text::Range) {
+    (kind, range.into())
+}
+
 macro_rules! suite_test {
     (#[tokio::test] async fn $name:ident(
         $data:expr,
@@ -88,9 +96,14 @@ macro_rules! suite_test {
             match validate_test_suite($schema, &toml_text).await {
                 Ok(_) => panic!("expected error but got success"),
                 Err(errs) => {
+                    let line_index = tombi_text::LineIndex::new(toml_text.as_str());
                     let mut expected = Vec::new();
-                    for diagnostic in $errors {
-                        diagnostic.push_diagnostic_with_level(SeverityLevel::Error, &mut expected);
+                    for (kind, range) in $errors {
+                        tombi_validator::Diagnostic::new(
+                            kind,
+                            line_index.span(range, tombi_text::EncodingKind::GraphemeCluster),
+                        )
+                        .push_diagnostic_with_level(SeverityLevel::Error, &mut expected);
                     }
                     pretty_assertions::assert_eq!(errs, expected);
                 }
@@ -135,7 +148,7 @@ mod compound_resource_pointer_locations {
             "value = \"x\"",
             JsonSchema(nested_ids_under_escaped_keys_schema()),
         ) -> Err([
-            tombi_validator::Diagnostic::new(
+            expected_diagnostic(
                 tombi_validator::DiagnosticKind::TypeMismatch {
                     expected: tombi_schema_store::ValueType::Integer,
                     actual: tombi_document_tree_syntax::ValueType::String,
@@ -178,7 +191,7 @@ mod schema_resource_load_context {
             "value = \"x\"",
             JsonSchema(deeply_nested_anchor_schema()),
         ) -> Err([
-            tombi_validator::Diagnostic::new(
+            expected_diagnostic(
                 tombi_validator::DiagnosticKind::TypeMismatch {
                     expected: tombi_schema_store::ValueType::Integer,
                     actual: tombi_document_tree_syntax::ValueType::String,
@@ -277,7 +290,7 @@ mod issue_2190_reference_annotations {
             "#,
             JsonSchema(dynamic_ref_schema()),
         ) -> Err([
-            tombi_validator::Diagnostic::new(
+            expected_diagnostic(
                 tombi_validator::DiagnosticKind::UnevaluatedPropertyNotAllowed {
                     key: "baz".to_string(),
                 },
@@ -316,7 +329,7 @@ mod issue_2190_reference_annotations {
             "#,
             JsonSchema(dynamic_ref_with_existing_all_of_schema()),
         ) -> Err([
-            tombi_validator::Diagnostic::new(
+            expected_diagnostic(
                 tombi_validator::DiagnosticKind::TypeMismatch {
                     expected: tombi_schema_store::ValueType::String,
                     actual: tombi_document_tree_syntax::ValueType::Integer,
@@ -371,7 +384,7 @@ mod issue_2190_reference_annotations {
             "#,
             JsonSchema(scalar_dynamic_ref_schema()),
         ) -> Err([
-            tombi_validator::Diagnostic::new(
+            expected_diagnostic(
                 tombi_validator::DiagnosticKind::Nothing,
                 ((0, 8), (0, 21)),
             ),
@@ -418,7 +431,7 @@ mod issue_2190_reference_annotations {
             "#,
             JsonSchema(scalar_recursive_ref_schema()),
         ) -> Err([
-            tombi_validator::Diagnostic::new(
+            expected_diagnostic(
                 tombi_validator::DiagnosticKind::Nothing,
                 ((0, 8), (0, 21)),
             ),
@@ -476,7 +489,7 @@ mod issue_2190_reference_annotations {
             "#,
             JsonSchema(recursive_ref_schema()),
         ) -> Err([
-            tombi_validator::Diagnostic::new(
+            expected_diagnostic(
                 tombi_validator::DiagnosticKind::UnevaluatedPropertyNotAllowed {
                     key: "foo".to_string(),
                 },
@@ -534,7 +547,7 @@ mod draft7_dependencies {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::TableDependencyRequired {
                         dependent_key: "bar".to_string(),
                         required_key: "foo".to_string()
@@ -616,7 +629,7 @@ mod draft7_dependencies {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::TableDependencyRequired {
                         dependent_key: "quux".to_string(),
                         required_key: "bar".to_string()
@@ -634,7 +647,7 @@ mod draft7_dependencies {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::TableDependencyRequired {
                         dependent_key: "quux".to_string(),
                         required_key: "foo".to_string()
@@ -651,14 +664,14 @@ mod draft7_dependencies {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::TableDependencyRequired {
                         dependent_key: "quux".to_string(),
                         required_key: "foo".to_string()
                     },
                     ((0, 0), (1, 0))
                 ),
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::TableDependencyRequired {
                         dependent_key: "quux".to_string(),
                         required_key: "bar".to_string()
@@ -712,7 +725,7 @@ mod draft7_dependencies {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::TypeMismatch {
                         expected: tombi_schema_store::ValueType::Integer,
                         actual: tombi_document_tree_syntax::ValueType::String
@@ -730,7 +743,7 @@ mod draft7_dependencies {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::TypeMismatch {
                         expected: tombi_schema_store::ValueType::Integer,
                         actual: tombi_document_tree_syntax::ValueType::String
@@ -748,14 +761,14 @@ mod draft7_dependencies {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::TypeMismatch {
                         expected: tombi_schema_store::ValueType::Integer,
                         actual: tombi_document_tree_syntax::ValueType::String
                     },
                     ((0, 6), (0, 12))
                 ),
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::TypeMismatch {
                         expected: tombi_schema_store::ValueType::Integer,
                         actual: tombi_document_tree_syntax::ValueType::String
@@ -789,7 +802,7 @@ mod draft7_dependencies {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::Nothing,
                     ((0, 0), (1, 0))
                 ),
@@ -804,7 +817,7 @@ mod draft7_dependencies {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::Nothing,
                     ((0, 0), (2, 0))
                 ),
@@ -875,7 +888,7 @@ mod draft7_dependencies {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::TableDependencyRequired {
                         dependent_key: "foo\nbar".to_string(),
                         required_key: "foo\rbar".to_string()
@@ -893,7 +906,7 @@ mod draft7_dependencies {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::TableMinKeys {
                         min_keys: 4,
                         actual: 2
@@ -910,7 +923,7 @@ mod draft7_dependencies {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::TableKeyRequired {
                         key: "foo\"bar".to_string()
                     },
@@ -926,7 +939,7 @@ mod draft7_dependencies {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::TableDependencyRequired {
                         dependent_key: "foo\"bar".to_string(),
                         required_key: "foo'bar".to_string()
@@ -959,7 +972,7 @@ mod draft7_dependencies {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::KeyNotAllowed {
                         key: "foo".to_string()
                     },
@@ -986,7 +999,7 @@ mod draft7_dependencies {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::KeyNotAllowed {
                         key: "foo".to_string()
                     },
@@ -1037,7 +1050,7 @@ mod draft7_property_names {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::StringMaxLength {
                         maximum: 3,
                         actual: 6
@@ -1082,7 +1095,7 @@ mod draft7_property_names {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::StringPattern {
                         pattern: "^a+$".to_string(),
                         actual: "aaA".to_string()
@@ -1142,7 +1155,7 @@ mod draft7_property_names {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::Nothing,
                     ((0, 0), (0, 3))
                 ),
@@ -1182,7 +1195,7 @@ mod draft7_property_names {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::Const {
                         expected: "\"foo\"".to_string(),
                         actual: "bar".to_string()
@@ -1235,7 +1248,7 @@ mod draft7_property_names {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::Enum {
                         expected: vec!["\"foo\"".to_string(), "\"bar\"".to_string()],
                         actual: "baz".to_string()
@@ -1287,7 +1300,7 @@ mod draft2019_09_unevaluated_properties {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::UnevaluatedPropertyNotAllowed {
                         key: "foo".to_string()
                     },
@@ -1326,7 +1339,7 @@ mod draft2019_09_unevaluated_properties {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::UnevaluatedPropertyNotAllowed {
                         key: "bar".to_string()
                     },
@@ -1368,7 +1381,7 @@ mod draft2019_09_unevaluated_properties {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::UnevaluatedPropertyNotAllowed {
                         key: "baz".to_string()
                     },
@@ -1405,7 +1418,7 @@ mod draft2019_09_unevaluated_properties {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::UnevaluatedPropertyNotAllowed {
                         key: "bar".to_string()
                     },
@@ -1464,7 +1477,7 @@ mod draft2019_09_unevaluated_properties {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::UnevaluatedPropertyNotAllowed {
                         key: "baz".to_string()
                     },
@@ -1539,7 +1552,7 @@ mod draft2019_09_unevaluated_properties {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::UnevaluatedPropertyNotAllowed {
                         key: "baz".to_string()
                     },
@@ -1555,7 +1568,7 @@ mod draft2019_09_unevaluated_properties {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::UnevaluatedPropertyNotAllowed {
                         key: "bar".to_string()
                     },
@@ -1586,7 +1599,7 @@ mod draft2019_09_unevaluated_properties {
                 "#,
                 JsonSchema(trigger_key_only_schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::UnevaluatedPropertyNotAllowed {
                         key: "foo".to_string()
                     },
@@ -1619,19 +1632,19 @@ mod draft2019_09_unevaluated_properties {
                 "#,
                 JsonSchema(failing_schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::UnevaluatedPropertyNotAllowed {
                         key: "foo".to_string()
                     },
                     ((0, 0), (0, 15))
                 ),
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::UnevaluatedPropertyNotAllowed {
                         key: "bar".to_string()
                     },
                     ((1, 0), (1, 10))
                 ),
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::TableMaxKeys {
                         max_keys: 1,
                         actual: 2,
@@ -1659,13 +1672,13 @@ mod draft2019_09_unevaluated_properties {
                 "#,
                 JsonSchema(dependent_required_schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::UnevaluatedPropertyNotAllowed {
                         key: "foo".to_string()
                     },
                     ((0, 0), (0, 15))
                 ),
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::UnevaluatedPropertyNotAllowed {
                         key: "bar".to_string()
                     },
@@ -1760,7 +1773,7 @@ mod draft2020_12_dependent_required {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::TableDependencyRequired {
                         dependent_key: "bar".to_string(),
                         required_key: "foo".to_string()
@@ -1848,7 +1861,7 @@ mod draft2020_12_dependent_required {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::TableDependencyRequired {
                         dependent_key: "quux".to_string(),
                         required_key: "bar".to_string()
@@ -1866,7 +1879,7 @@ mod draft2020_12_dependent_required {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::TableDependencyRequired {
                         dependent_key: "quux".to_string(),
                         required_key: "foo".to_string()
@@ -1883,14 +1896,14 @@ mod draft2020_12_dependent_required {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::TableDependencyRequired {
                         dependent_key: "quux".to_string(),
                         required_key: "foo".to_string()
                     },
                     ((0, 0), (1, 0))
                 ),
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::TableDependencyRequired {
                         dependent_key: "quux".to_string(),
                         required_key: "bar".to_string()
@@ -1942,7 +1955,7 @@ mod draft2020_12_dependent_required {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::TableDependencyRequired {
                         dependent_key: "foo\nbar".to_string(),
                         required_key: "foo\rbar".to_string()
@@ -1959,7 +1972,7 @@ mod draft2020_12_dependent_required {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::TableDependencyRequired {
                         dependent_key: "foo\"bar".to_string(),
                         required_key: "foo'bar".to_string()
@@ -2021,7 +2034,7 @@ mod draft2020_12_dependent_schemas {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::TypeMismatch {
                         expected: tombi_schema_store::ValueType::Integer,
                         actual: tombi_document_tree_syntax::ValueType::String
@@ -2039,7 +2052,7 @@ mod draft2020_12_dependent_schemas {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::TypeMismatch {
                         expected: tombi_schema_store::ValueType::Integer,
                         actual: tombi_document_tree_syntax::ValueType::String
@@ -2057,14 +2070,14 @@ mod draft2020_12_dependent_schemas {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::TypeMismatch {
                         expected: tombi_schema_store::ValueType::Integer,
                         actual: tombi_document_tree_syntax::ValueType::String
                     },
                     ((0, 6), (0, 12))
                 ),
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::TypeMismatch {
                         expected: tombi_schema_store::ValueType::Integer,
                         actual: tombi_document_tree_syntax::ValueType::String
@@ -2101,7 +2114,7 @@ mod draft2020_12_dependent_schemas {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::Nothing,
                     ((0, 0), (1, 0))
                 ),
@@ -2116,7 +2129,7 @@ mod draft2020_12_dependent_schemas {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::Nothing,
                     ((0, 0), (2, 0))
                 ),
@@ -2165,7 +2178,7 @@ mod draft2020_12_dependent_schemas {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::TableKeyRequired {
                         key: "foo\"bar".to_string()
                     },
@@ -2182,7 +2195,7 @@ mod draft2020_12_dependent_schemas {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::TableMinKeys {
                         min_keys: 4,
                         actual: 2
@@ -2199,7 +2212,7 @@ mod draft2020_12_dependent_schemas {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::TableKeyRequired {
                         key: "foo\"bar".to_string()
                     },
@@ -2232,7 +2245,7 @@ mod draft2020_12_dependent_schemas {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::KeyNotAllowed {
                         key: "foo".to_string()
                     },
@@ -2259,7 +2272,7 @@ mod draft2020_12_dependent_schemas {
                 "#,
                 JsonSchema(schema()),
             ) -> Err([
-                tombi_validator::Diagnostic::new(
+                expected_diagnostic(
                     tombi_validator::DiagnosticKind::KeyNotAllowed {
                         key: "foo".to_string()
                     },

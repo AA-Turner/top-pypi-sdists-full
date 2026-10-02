@@ -78,11 +78,75 @@ def get_top_client_stack_frame() -> dict[str, Any] | None:
     return stack[0]
 
 
+def _parse_tag_object(base: str | None) -> dict[str, Any] | None:
+    """Return *base* as a dict when it is a JSON object, else ``None``.
+
+    The session-level base tag may itself be a JSON object (e.g. the unified-
+    workload ``{"uw_workload":..,"uw_iteration":..}`` context set on the session
+    by the ``snowpark.connect.test.uw_context`` config). When it is, its keys are
+    merged into the per-statement tag rather than nested under ``"tag"`` as an
+    opaque string, so ``uw_*`` attribution survives alongside the caller frame.
+    """
+    if not base:
+        return None
+    try:
+        parsed = json.loads(base)
+    except (TypeError, ValueError):
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
+def _add_rpc_context(payload: dict[str, Any]) -> None:
+    """Fold server-intrinsic RPC facts into the tag (best-effort).
+
+    ``rpc`` is the Spark Connect request type (``ExecutePlan`` vs ``AnalyzePlan``)
+    and ``op`` is the terminal operation verb (``collect``, ``aggregate``, ...) of
+    the RPC under which this query ran. Both are cached per-request on the
+    telemetry thread-local by the server RPC handler. They identify the ENCLOSING
+    RPC, not real-work-vs-metadata on their own: a single ExecutePlan can emit
+    several Snowflake queries (the action plus nested describe/metadata queries),
+    and they all inherit the same ``rpc``/``op``. Server facts are authoritative
+    for the statement, so they overwrite any value already on the payload.
+    """
+    try:
+        from snowflake.snowpark_connect.server_common import (
+            get_rpc_type,
+            get_terminal_op,
+        )
+    except Exception:  # pragma: no cover - defensive import guard
+        return
+    rpc = get_rpc_type()
+    if rpc:
+        payload["rpc"] = str(rpc)
+    op = get_terminal_op()
+    if op:
+        payload["op"] = str(op)
+
+
 def build_scos_query_tag_json(
     session: snowpark.Session | None,
     frame: dict[str, Any] | None = None,
 ) -> str:
-    payload: dict[str, Any] = {"tag": get_effective_base_tag(session)}
+    # Merge the effective base tag with the caller frame. Lift ONLY the uw_*
+    # attribution keys to top level (that is our unified-workload context); any
+    # other base tag -- including a user's structured JSON QUERY_TAG -- is kept
+    # verbatim under ``tag`` so it is never silently clobbered. Always emit JSON,
+    # never the bare ``SNOWPARK_CONNECT_QUERY`` string. (SNOW-4183579)
+    base = get_effective_base_tag(session)
+    parsed = _parse_tag_object(base)
+    payload: dict[str, Any]
+    if parsed is not None:
+        uw_keys = {k: v for k, v in parsed.items() if str(k).startswith("uw_")}
+        if uw_keys:
+            non_uw = {k: v for k, v in parsed.items() if not str(k).startswith("uw_")}
+            payload = {**non_uw, **uw_keys}
+            payload.setdefault("tag", DEFAULT_SCOS_QUERY_TAG)
+        else:
+            # Foreign JSON tag with no uw_* context: preserve it verbatim.
+            payload = {"tag": base}
+    else:
+        payload = {"tag": base or DEFAULT_SCOS_QUERY_TAG}
+
     if frame is None:
         frame = get_top_client_stack_frame()
     if frame:
@@ -95,6 +159,7 @@ def build_scos_query_tag_json(
         if method_name:
             payload["fn"] = str(method_name)
 
+    _add_rpc_context(payload)
     return _fit_query_tag_json(payload)
 
 
@@ -105,11 +170,17 @@ def _fit_query_tag_json(payload: dict[str, Any]) -> str:
     if len(encoded) <= SNOWFLAKE_QUERY_TAG_MAX_LENGTH:
         return encoded
 
-    if "fn" in trimmed:
-        trimmed.pop("fn")
-        encoded = json.dumps(trimmed, separators=(",", ":"))
-        if len(encoded) <= SNOWFLAKE_QUERY_TAG_MAX_LENGTH:
-            return encoded
+    # ``uw_*`` attribution keys are the highest priority (the whole point of the
+    # tag) and are preserved through every step below. Drop the RPC facts and the
+    # function name first, then truncate the (possibly user-supplied) ``tag``
+    # value, then drop the caller frame -- so a non-UW user's debug frame outlives
+    # the truncation of a large tag they already have.
+    for droppable in ("fn", "op", "rpc"):
+        if droppable in trimmed:
+            trimmed.pop(droppable)
+            encoded = json.dumps(trimmed, separators=(",", ":"))
+            if len(encoded) <= SNOWFLAKE_QUERY_TAG_MAX_LENGTH:
+                return encoded
 
     tag = str(trimmed.get("tag", DEFAULT_SCOS_QUERY_TAG))
     if len(tag) > 1:
@@ -119,8 +190,31 @@ def _fit_query_tag_json(payload: dict[str, Any]) -> str:
         if len(encoded) <= SNOWFLAKE_QUERY_TAG_MAX_LENGTH:
             return encoded
 
-    encoded = json.dumps({"tag": DEFAULT_SCOS_QUERY_TAG}, separators=(",", ":"))
-    return encoded[:SNOWFLAKE_QUERY_TAG_MAX_LENGTH]
+    # Drop the caller frame as a pair (``file`` without ``line`` is awkward for
+    # consumers that render ``file:line``).
+    if "line" in trimmed or "file" in trimmed:
+        trimmed.pop("line", None)
+        trimmed.pop("file", None)
+        encoded = json.dumps(trimmed, separators=(",", ":"))
+        if len(encoded) <= SNOWFLAKE_QUERY_TAG_MAX_LENGTH:
+            return encoded
+
+    # Last resort: keep whatever ``uw_*`` attribution fits plus a tag marker.
+    # Re-encode a shrinking dict rather than byte-slicing the JSON string, so the
+    # result is always valid JSON (a truncated string would make downstream
+    # parsers drop ALL attribution). If the uw_* values themselves overflow the
+    # cap, drop them one at a time; ``{"tag": DEFAULT}`` is short and always fits.
+    protected = {k: v for k, v in trimmed.items() if k.startswith("uw_")}
+    protected["tag"] = DEFAULT_SCOS_QUERY_TAG
+    encoded = json.dumps(protected, separators=(",", ":"))
+    if len(encoded) <= SNOWFLAKE_QUERY_TAG_MAX_LENGTH:
+        return encoded
+    for key in [k for k in protected if k != "tag"]:
+        protected.pop(key)
+        encoded = json.dumps(protected, separators=(",", ":"))
+        if len(encoded) <= SNOWFLAKE_QUERY_TAG_MAX_LENGTH:
+            return encoded
+    return encoded
 
 
 def enrich_statement_params(

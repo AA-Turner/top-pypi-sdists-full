@@ -6,15 +6,15 @@
 
 use std::borrow::Cow;
 
-use tombi_text::Range;
+use tombi_text::Span;
 use tombi_toml_version::TomlVersion;
 
 pub use tombi_date_time::{LocalDate, LocalDateTime, LocalTime, OffsetDateTime};
 
 /// Common operations available on every public TOML AST value.
 pub trait Node: Clone + std::fmt::Debug {
-    /// The node's range in the parsed source.
-    fn range(&self) -> Range;
+    /// The node's span in the parsed source.
+    fn span(&self) -> Span;
 
     /// The exact, lossless source text covered by the node.
     fn text(&self) -> &str;

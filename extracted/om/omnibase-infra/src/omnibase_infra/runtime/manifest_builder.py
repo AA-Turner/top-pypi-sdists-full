@@ -1,0 +1,291 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Build and publish the runtime manifest snapshot (OMN-11196 / OMN-15512).
+
+Called once at the end of the bootstrap sequence, after all startup phases:
+contract discovery, ownership validation, handler registration, and topic
+ownership. Produces a deterministic, hash-stable snapshot of the runtime
+topology for observability and drift detection.
+
+OMN-15512: the snapshot also carries the boot attach-readiness aggregate, so
+the NOT-READY blocker set (contract name + the topics whose readiness confirm
+failed) reaches the ``runtime_manifests`` projection instead of dying in the
+log stream. :func:`publish_runtime_manifest` is the seam a test can drive with
+a recording bus — the kernel calls exactly this function, so a test that
+asserts on the captured envelope is asserting on the artifact that runs.
+
+OMN-18709: the per-contract hash on the snapshot is a hash of the contract
+file's canonical bytes, computed by
+:func:`omnibase_infra.runtime.util_contract_content_hash.contract_content_hash`.
+It was previously a hash of the contract's name and version, which meant a
+contract whose body was rewritten kept its hash -- so the field could not detect
+the drift class it exists for. The canonical form is declared in that module so
+a consumer outside this repository reproduces it without importing anything.
+The name and version stay on the manifest as their own fields; this changed what
+the hash means, not what the manifest carries.
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
+from uuid import UUID
+
+from omnibase_infra.errors.error_contract_content_hash import ContractContentHashError
+from omnibase_infra.event_bus.topic_constants import derive_event_type_alias_for_topic
+from omnibase_infra.runtime.auto_wiring.models.model_auto_wiring_manifest import (
+    ModelAutoWiringManifest,
+)
+from omnibase_infra.runtime.auto_wiring.report import (
+    EnumWiringOutcome,
+    ModelAutoWiringReport,
+    ModelContractWiringResult,
+)
+from omnibase_infra.runtime.util_contract_content_hash import contract_content_hash
+
+if TYPE_CHECKING:
+    from omnibase_infra.event_bus.model_runtime_attach_readiness import (
+        ModelRuntimeAttachReadiness,
+    )
+    from omnibase_infra.protocols import ProtocolEventBusLike
+    from omnibase_infra.runtime.models.model_runtime_manifest_published import (
+        ModelRuntimeManifestPublished,
+    )
+
+
+def build_runtime_manifest(
+    report: ModelAutoWiringReport,
+    manifest: ModelAutoWiringManifest,
+    runtime_profile: str,
+    image_digest: str | None = None,
+    attach_readiness: ModelRuntimeAttachReadiness | None = None,
+) -> object:
+    """Build the published runtime manifest from auto-wiring results.
+
+    Extracts wired/skipped/failed contracts, topics, and handlers from the
+    wiring report and discovered manifest, then returns a frozen
+    ModelRuntimeManifestPublished ready for publication on the event bus.
+
+    The import of the core manifest models is deferred so that this module can
+    be imported before omnibase_core PR #1098 lands (the model is gated behind
+    a try/import in service_kernel.py as well).
+
+    Args:
+        report: The wiring report produced by wire_from_manifest().
+        manifest: The filtered auto-wiring manifest (post-quarantine).
+        runtime_profile: The RUNTIME_PROFILE value (e.g. "main").
+        image_digest: Optional OCI image digest for the running container.
+        attach_readiness: Boot attach-readiness aggregate (OMN-15512). Narrowed
+            to the blocker set before publication — see
+            ``ModelRuntimeAttachReadiness.blockers_only``. ``None`` when the
+            per-contract interleave did not run at all.
+
+    Returns:
+        A ModelRuntimeManifestPublished instance (typed as object to allow
+        graceful fallback when the base model is not available in
+        omnibase_core).
+
+    Raises:
+        ImportError: If omnibase_core.models.runtime_manifest is not installed.
+        ContractContentHashError: A contract file could not be read for hashing,
+            or a wiring result names a contract the manifest does not carry
+            (OMN-18709). The kernel's manifest-emission boundary degrades this
+            to a logged warning and an unemitted manifest, which is a visible
+            gap rather than a manifest carrying a hash that is not a content
+            hash.
+    """
+    from omnibase_core.models.runtime_manifest.model_manifest_contract import (
+        ModelManifestContract,
+    )
+    from omnibase_core.models.runtime_manifest.model_manifest_handler import (
+        ModelManifestHandler,
+    )
+    from omnibase_infra.runtime.models.model_runtime_manifest_published import (
+        ModelRuntimeManifestPublished,
+    )
+
+    results_by_outcome: dict[str, list[ModelContractWiringResult]] = {
+        EnumWiringOutcome.WIRED: [],
+        EnumWiringOutcome.SKIPPED: [],
+        EnumWiringOutcome.FAILED: [],
+    }
+    for result in report.results:
+        results_by_outcome[result.outcome].append(result)
+
+    # Build a lookup from contract name → discovered contract for metadata
+    contract_by_name = {c.name: c for c in manifest.contracts}
+
+    def _to_manifest_contract(
+        result: ModelContractWiringResult,
+    ) -> ModelManifestContract:
+        discovered = contract_by_name.get(result.contract_name)
+        if discovered is None:
+            # The report is produced by wire_from_manifest() over the same
+            # filtered manifest this function is handed, so every result name
+            # resolves on the path that runs. If one does not, the contract's
+            # file is unknown and no content hash exists for it -- which is
+            # exactly the case that must not be papered over with a hash of the
+            # name, because that is the value this ticket removed.
+            raise ContractContentHashError(
+                "Wiring result has no discovered contract in the manifest, so "
+                f"its contract file is unknown: {result.contract_name}",
+                contract_name=result.contract_name,
+            )
+        # OMN-18709: the hash is over the contract file's canonical bytes, not
+        # over its name and version. The canonical form is declared in
+        # util_contract_content_hash so a consumer outside this repository --
+        # an image label, a board resolver -- reproduces it without importing
+        # this module. name and version remain their own fields below; this
+        # replaced what the hash means, not what the manifest carries.
+        return ModelManifestContract(
+            name=result.contract_name,
+            version=str(discovered.contract_version),
+            node_type=discovered.node_type,
+            contract_hash=contract_content_hash(discovered.contract_path),
+        )
+
+    wired_results = sorted(
+        results_by_outcome[EnumWiringOutcome.WIRED],
+        key=lambda r: (r.contract_name, r.package_name),
+    )
+    skipped_results = sorted(
+        results_by_outcome[EnumWiringOutcome.SKIPPED],
+        key=lambda r: (r.contract_name, r.package_name),
+    )
+    failed_results = sorted(
+        results_by_outcome[EnumWiringOutcome.FAILED],
+        key=lambda r: (r.contract_name, r.package_name),
+    )
+
+    wired_contracts = tuple(_to_manifest_contract(r) for r in wired_results)
+    skipped_contracts = tuple(_to_manifest_contract(r) for r in skipped_results)
+    failed_contracts = tuple(_to_manifest_contract(r) for r in failed_results)
+
+    owned_command_topics: set[str] = set()
+    for result in wired_results:
+        discovered = contract_by_name.get(result.contract_name)
+        if discovered and discovered.event_bus:
+            owned_command_topics.update(discovered.event_bus.publish_topics)
+
+    subscribed_event_topics: set[str] = set()
+    for result in wired_results:
+        subscribed_event_topics.update(result.topics_subscribed)
+
+    handlers: list[ModelManifestHandler] = []
+    for result in wired_results:
+        discovered = contract_by_name.get(result.contract_name)
+        if not discovered or not discovered.handler_routing:
+            continue
+        routing_strategy = discovered.handler_routing.routing_strategy or "unknown"
+        for wiring_outcome in result.wirings:
+            handlers.append(
+                ModelManifestHandler(
+                    name=wiring_outcome.handler_name,
+                    module_path=result.contract_name,
+                    routing_strategy=routing_strategy,
+                )
+            )
+
+    return ModelRuntimeManifestPublished(
+        runtime_profile=runtime_profile,
+        contracts=wired_contracts,
+        owned_command_topics=frozenset(owned_command_topics),
+        subscribed_event_topics=frozenset(subscribed_event_topics),
+        handlers=tuple(handlers),
+        skipped_contracts=skipped_contracts,
+        failed_contracts=failed_contracts,
+        ownership_violations=(),
+        image_digest=image_digest,
+        started_at=datetime.now(tz=UTC),
+        attach_readiness=(
+            attach_readiness.blockers_only() if attach_readiness is not None else None
+        ),
+    )
+
+
+async def publish_runtime_manifest(
+    *,
+    event_bus: ProtocolEventBusLike,
+    report: ModelAutoWiringReport,
+    manifest: ModelAutoWiringManifest,
+    runtime_profile: str,
+    topic: str,
+    correlation_id: UUID,
+    image_digest: str | None = None,
+    attach_readiness: ModelRuntimeAttachReadiness | None = None,
+) -> ModelRuntimeManifestPublished:
+    """Build the boot snapshot and publish it on the runtime-manifest topic.
+
+    Extracted from ``service_kernel`` step 9.8 (OMN-15512) so the publish seam
+    is drivable by a test with a recording bus. The kernel calls this exact
+    function, so a test that asserts on the captured envelope payload asserts
+    on the artifact that runs — not on a surrogate.
+
+    Args:
+        event_bus: The runtime event bus (``publish_envelope``).
+        report: The wiring report produced by wire_from_manifest().
+        manifest: The filtered auto-wiring manifest (post-quarantine).
+        runtime_profile: The RUNTIME_PROFILE value (e.g. "main").
+        topic: Resolved topic for SUFFIX_RUNTIME_MANIFEST_PUBLISHED.
+        correlation_id: The boot correlation id, propagated onto the envelope.
+        image_digest: Optional OCI image digest for the running container.
+        attach_readiness: Boot attach-readiness aggregate (OMN-15512).
+
+    Returns:
+        The published payload, so callers and tests can assert on exactly what
+        went onto the bus.
+
+    Raises:
+        ImportError: If omnibase_core.models.runtime_manifest is not installed.
+        ContractContentHashError: A contract file could not be read for hashing,
+            or a wiring result names a contract the manifest does not carry
+            (OMN-18709). The kernel's manifest-emission boundary degrades this
+            to a logged warning and an unemitted manifest, which is a visible
+            gap rather than a manifest carrying a hash that is not a content
+            hash.
+    """
+    from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
+    from omnibase_infra.runtime.models.model_runtime_manifest_published import (
+        ModelRuntimeManifestPublished,
+    )
+
+    payload = build_runtime_manifest(
+        report=report,
+        manifest=manifest,
+        runtime_profile=runtime_profile,
+        image_digest=image_digest,
+        attach_readiness=attach_readiness,
+    )
+    if not isinstance(payload, ModelRuntimeManifestPublished):  # pragma: no cover
+        raise TypeError(
+            "build_runtime_manifest must return ModelRuntimeManifestPublished, "
+            f"got {type(payload).__name__}"
+        )
+
+    # OMN-17296: the envelope event_type MUST be the topic-derived
+    # ``<producer>.<event-name>`` alias, because that is the key
+    # ``derive_entry_message_types`` registers the subscriber's dispatcher under and
+    # ``MessageDispatchEngine.dispatch`` matches ``envelope.event_type`` against it
+    # verbatim. This was hard-coded to the bare ``"runtime-manifest-published"`` (producer
+    # segment missing), so ``node_runtime_manifest_reducer`` consumed, DLQ-routed
+    # (failure_class=no_dispatcher) and COMMITTED every manifest event at LAG 0 — 189
+    # dropped events per runtime start on the dev lane, and the OMN-15512
+    # attach-readiness blocker set never reached ``runtime_manifests``. Derived here, not
+    # spelled out, so publisher and dispatch index cannot drift again.
+    event_type = derive_event_type_alias_for_topic(topic)
+    if event_type is None:
+        raise ValueError(
+            "Cannot derive an event_type alias for the runtime-manifest topic "
+            f"{topic!r}: it is not a 5-segment onex.<kind>.<producer>.<name>.v<n> topic. "
+            "Publishing with an underivable alias would be unroutable and DLQ every "
+            "manifest event (OMN-17296)."
+        )
+    envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+        payload=payload,
+        correlation_id=correlation_id,
+        event_type=event_type,
+        source_tool="service_kernel",
+        tenant_id=None,
+    )
+    await event_bus.publish_envelope(envelope=envelope, topic=topic)
+    return payload

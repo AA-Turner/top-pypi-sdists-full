@@ -1,3 +1,0 @@
-# Builder macro with no 'builders' element defined.
-- builder:
-    name: sample-builder

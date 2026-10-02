@@ -1,0 +1,103 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# connect_cloud — authenticate this machine to the ONEX cloud gateway
+# (OMN-16038, corrected by OMN-17028).
+#
+# WHICH CREDENTIAL THIS COLLECTS, AND WHY IT CHANGED
+#   The beta delegation surface authenticates on `POST /v1/workflows` with a
+#   dashboard-minted `onxk_` API key presented in `x-api-key`, against a
+#   gateway origin. That is the whole customer credential: a key and a web
+#   address. This policy now collects exactly those.
+#
+#   It previously collected the tenant's MACHINE client_credentials — client
+#   id, realm token endpoint, client secret. Those are ATTACH-plane inputs
+#   (`POST /v1/gateway/attach|heartbeat|detach`, which validate a Keycloak
+#   bearer whose `aud` is exactly `{gateway-attach}` and which an `onxk_` key
+#   cannot satisfy at all). The attach plane is the control plane of the
+#   runtime-connectivity relay, a different leg with a different credential,
+#   and it keeps its own entry point: `onex auth login --client-secret-stdin`.
+#   Asking a beta customer for a machine-client secret asked them for
+#   something the delegation path never presents — and something a customer
+#   cannot obtain without calling a rotate endpoint that is not on their path.
+#
+# WHERE THE VALUES GO — ONE WRITER, WHICH IS THE READER'S OWN
+#   `credential_store_output` hands the collected values to
+#   `StoreGatewayCredential.save_api_key`, the store that owns BOTH ~/.onex
+#   files. It writes the reference-only `gateway:` block of config.yaml and the
+#   0600 credentials.json entry in one call, so what onboarding writes is by
+#   construction what `onex auth status` reads back.
+#
+#   This is the OMN-17028 fix. Before it this policy declared `env_output` +
+#   `credentials_output`: a .env/overlay plus a flat credentials.json, and
+#   NOTHING wrote config.yaml. The reader opens config.yaml first, so a run
+#   that reported success left a machine whose very next command failed with
+#   "no ONEX config at ~/.onex/config.yaml". `env_output` remains for the
+#   overlay/receipt surface — it carries the non-secret coordinates and the key
+#   REF (a name), never the key value.
+#
+# THERE IS NO DEFAULT GATEWAY ORIGIN, HERE OR ANYWHERE ON THIS PATH
+#   The prompt names an example rather than pre-filling one. A default origin
+#   is not a convenience: it sends a live customer key to whatever host the
+#   release happened to ship with.
+policy_name: "connect_cloud"
+description: "Authenticate this machine to the ONEX cloud gateway with a dashboard API key (~2 min)"
+version: {major: 2, minor: 0, patch: 0}
+policy_type: "interactive"
+target_capabilities:
+  - "gateway_credential_written"
+max_estimated_minutes: 2
+steps:
+  - id: gateway_base_url
+    prompt: "ONEX cloud gateway base URL (e.g. https://dev.api.omninode.ai)"
+    type: text
+    required: true
+  - id: tenant_slug
+    prompt: "Tenant slug (e.g. acme) — the tenant this key belongs to"
+    type: text
+    required: true
+  - id: gateway_api_key
+    prompt: "API key from the dashboard (starts with onxk_)"
+    type: text
+    # Routes to the adapter's masked path: getpass on a terminal, and a
+    # `<redacted>` placeholder in the step-result receipt.
+    secret: true
+    required: true
+  - id: write_credentials
+    prompt: "Storing the gateway credential under ~/.onex (config.yaml + credentials.json, mode 0600)"
+    type: action
+    action: "write_credentials"
+    produces_capabilities: ["gateway_credential_written"]
+# Straight line — every prompt is required, so there is nothing to branch on.
+transitions:
+  - from: gateway_base_url
+    on_submit:
+      - next: tenant_slug
+        set_state:
+          gateway_base_url: "{response}"
+  - from: tenant_slug
+    on_submit:
+      - next: gateway_api_key
+        set_state:
+          tenant_slug: "{response}"
+  - from: gateway_api_key
+    on_submit:
+      - next: write_credentials
+        set_state:
+          gateway_api_key: "{response}"
+  - from: write_credentials
+    terminal: true
+# Non-secret coordinates for the overlay and the receipt. The key REF is a
+# name, not a value — it is what config.yaml points at, and it is safe to
+# render. The ref template matches `save_api_key`'s own, so the two agree.
+env_output:
+  write_credentials:
+    ONEX_GATEWAY_BASE_URL: "{state.gateway_base_url}"
+    ONEX_GATEWAY_TENANT_SLUG: "{state.tenant_slug}"
+    ONEX_GATEWAY_API_KEY_REF: "{state.tenant_slug}-api-key"
+# The credential itself, handed to the store rather than to a file writer.
+credential_store_output:
+  write_credentials:
+    tenant_slug: "{state.tenant_slug}"
+    base_url: "{state.gateway_base_url}"
+    api_key: "{state.gateway_api_key}"

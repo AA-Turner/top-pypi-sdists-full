@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "gravitasml"
+version = "0.1.4"
+description = ""
+authors = ["Nicholas Tindle <nicholas.tindle@agpt.co>"]
+readme = "README.md"
+homepage = "https://github.com/significant-gravitas/"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Framework :: Pydantic :: 2",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Topic :: Text Processing :: Markup",
+    "Typing :: Typed"
+]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<4.0"
+pytest = "^8.2.1"
+pydantic = "^2.9.2"
+black = "^24.10.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

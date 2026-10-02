@@ -1,0 +1,24 @@
+name: node_aislop_sweep
+version: "1.0.0"
+description: "Detect AI-generated quality anti-patterns across repos"
+omnibase_core_compat: ">=0.39.0,<1.0.0"
+entry_points:
+  onex.nodes:
+    node_aislop_sweep: "omnimarket.nodes.node_aislop_sweep"
+capabilities:
+  standalone: true
+  full_runtime: true
+  requires_network: false
+  requires_repo: true
+  requires_secrets: false
+  requires_docker: false
+  side_effect_class: read_only
+dependencies:
+  - "omnibase_core>=0.39.0"
+  - "omnibase-compat>=0.3.1"
+authors: ["OmniNode Platform Team"]
+license: "MIT"
+tags: ["sweep", "quality", "analysis", "anti-patterns"]
+pack: "review"
+display_name: "AI Slop Sweep"
+node_role: "inventory"

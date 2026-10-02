@@ -1,0 +1,138 @@
+---
+name: projection_registration
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: reducer
+# OMN-17985: this contract is owned by its OWN standalone writer Deployment
+# (RUNTIME_PROFILE=projection-writer-registration on onex-dev), not by the shared main runtime it
+# fell to while it declared nothing. The name became declarable when
+# omnibase_core 0.47.5 registered it in REGISTERED_RUNTIME_PROFILES and
+# CONSUMER_ATTACHED_RUNTIME_PROFILES; the writer is consumer-attached as
+# measured fact -- it joined its group and the coordinator issued it
+# partitions. Declaring it here is what makes ownership single-valued.
+runtime_profiles:
+  - projection-writer-registration
+node_version: {major: 1, minor: 0, patch: 0}
+input_model: omnibase_infra.models.registration.model_node_introspection_event.ModelNodeIntrospectionEvent
+description: >
+  Projects node introspection and heartbeat events into
+  the node_service_registry table. Source topics:
+  onex.evt.platform.node-introspection.v1 and
+  onex.evt.platform.node-heartbeat.v1.
+  PeriodicHeartbeatEmitter emits heartbeat events every 60s per active node.
+  Nodes not seen for >5 min are transitioned to health_status='stale'.
+
+handler:
+  module: omnimarket.nodes.node_projection_registration.handlers.handler_projection_registration
+  class: HandlerProjectionRegistration
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: projection_registration
+      handler:
+        name: HandlerProjectionRegistration
+        module: omnimarket.nodes.node_projection_registration.handlers.handler_projection_registration
+      handler_module: omnimarket.nodes.node_projection_registration.handlers.handler_projection_registration
+      event_model: omnibase_infra.models.registration.model_node_introspection_event.ModelNodeIntrospectionEvent
+    - operation: registration_projection_runner
+      handler:
+        name: RegistrationProjectionRunner
+        module: omnimarket.nodes.node_projection_registration.handlers.handler_registration
+      handler_module: omnimarket.nodes.node_projection_registration.handlers.handler_registration
+
+terminal_event: onex.evt.omnimarket.projection-registration-applied.v1
+
+# Golden path: registration chain (node introspection -> node_service_registry table)
+golden_path:
+  - "Consume node-introspection event from onex.evt.platform.node-introspection.v1"
+  - "Consume node-heartbeat event from onex.evt.platform.node-heartbeat.v1"
+  - "Projection handler upserts row into node_service_registry table"
+  - "Heartbeat projection sets last_heartbeat_at and uptime_seconds"
+  - "PeriodicHeartbeatEmitter emits heartbeats every 60s for all active nodes"
+  - "mark_stale() transitions nodes with last_heartbeat_at >5 min to health_status=stale"
+  - "Emit projection-applied event to onex.evt.omnimarket.projection-registration-applied.v1"
+  - "Verify row exists with service_name, health_status, last_heartbeat_at, uptime_seconds"
+  - "Golden chain test: omnimarket/tests/test_golden_chain_projection_registration.py"
+  - "Heartbeat tests: omnimarket/tests/test_omn8693_node_heartbeat_mechanism.py"
+
+dod_evidence:
+  - test: tests/test_omn8693_node_heartbeat_mechanism.py::TestHeartbeatUpdatesLastHeartbeatAt
+    description: Heartbeat event updates last_heartbeat_at column
+  - test: tests/test_omn8693_node_heartbeat_mechanism.py::TestNodeBecomesStaleAfter5MinNoHeartbeat
+    description: Node transitions to STALE if no heartbeat >5 min
+  - test: tests/test_omn8693_node_heartbeat_mechanism.py::TestUptimeSecondsIncrements
+    description: uptime_seconds is stored and updated on heartbeat
+  - test: tests/test_omn8693_node_heartbeat_mechanism.py::TestPeriodicHeartbeatEmitter
+    description: PeriodicHeartbeatEmitter emits one event per active node
+
+db_io:
+  db_tables:
+    - name: node_service_registry
+      database_ref: application
+      schema: omninode_internal
+      migration: "0000_create_node_service_registry.sql"
+      # OMN-16690: this handler QUERIES this table (idempotency / lookup)
+      # before writing. `access: write` is refused fail-closed at the
+      # runtime read seam (ProjectionTableOperation._assert_read_declared),
+      # which quarantines every event while the caller still sees a 202.
+      # The declaration must cover what the handler actually does.
+      access: read_write
+      role: registry
+    - name: projection_watermarks
+      database_ref: application
+      schema: omninode_internal
+      migration: "0005_create_projection_watermarks.sql"
+      access: write
+      role: watermark_tracking
+
+event_bus:
+  subscribe_topics:
+    - onex.evt.platform.node-introspection.v1
+    - onex.evt.platform.node-heartbeat.v1
+    - onex.evt.platform.node-state-change.v1
+  publish_topics:
+    - onex.evt.omnimarket.projection-registration-applied.v1
+  # OMN-14593 (OMN-13548 D-03 pattern): malformed/erroring events -- including
+  # the shared-dispatch-engine cross-contamination this ticket root-caused and
+  # recovers from in the handler -- are routed here as a durable, recoverable
+  # failure signal instead of being logged + dropped forever.
+  dlq_topics:
+    - onex.dlq.omnimarket.projection-registration-malformed.v1
+
+externally_consumed_topics:
+  - onex.evt.omnimarket.projection-registration-applied.v1
+
+projection_api:
+  expose: true
+  topic: "onex.snapshot.projection.registration.v1" # onex-topic-allow: projection snapshot topics use onex.snapshot.* prefix by convention
+  key_grain: "mutable"
+  table: "node_service_registry"
+  schema: "public"
+  columns:
+    - "service_name"
+    - "service_type"
+    - "health_status"
+    - "is_active"
+    - "last_health_check"
+    - "updated_at"
+    - "projected_at"
+  order_by: "updated_at DESC"
+  freshness_column: "updated_at"
+  limit: 100
+  # OMN-15800 (2026-08-09 operator ruling): served from the bus-fed
+  # SnapshotCache, never from Postgres. table/schema above stay for the
+  # writer-side / pre-conversion record; the serving path reads bus_backed
+  # + key_columns only.
+  bus_backed: true
+  key_columns:
+    - "service_name"
+
+metadata:
+  transport_type: kafka
+
+# OMN-18013 -- explicit external PRODUCER declaration (contract topic graph closure).
+# Replaces the deleted contract_topic_graph_baseline.yaml external_producers map:
+# the declaration now lives beside the subscription it explains.
+externally_produced_topics:
+  - topic: onex.evt.platform.node-state-change.v1
+    producer: "the runtime host's node registration/heartbeat emitter in omnibase_infra, not a node contract"

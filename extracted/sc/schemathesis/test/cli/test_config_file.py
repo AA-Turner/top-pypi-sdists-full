@@ -76,11 +76,84 @@ from flask import jsonify
             ),
             id="null_byte",
         ),
+        pytest.param(
+            textwrap.dedent(
+                """
+                [generation]
+                mode = true
+                """
+            ),
+            id="enum_non_string_value",
+        ),
+        pytest.param("warnings = 42", id="warnings_wrong_type"),
+        pytest.param(
+            textwrap.dedent(
+                """
+                [auth.openapi.ApiKeyAuth]
+                api_key = 42
+                """
+            ),
+            id="auth_openapi_wrong_value_type",
+        ),
+        pytest.param('base-url = "not-a-url"', id="invalid_base_url"),
+        pytest.param('origin = "http://127.0.0.1/api"', id="origin_with_path"),
+        pytest.param(
+            textwrap.dedent(
+                """
+                [[operations]]
+                include-path = "/users"
+                rate-limit = "fast"
+                """
+            ),
+            id="operation_invalid_rate_limit",
+        ),
+        pytest.param(
+            textwrap.dedent(
+                """
+                [auth.basic]
+                username = "пользователь"
+                password = "secret"
+                """
+            ),
+            id="basic_auth_username_not_latin1",
+        ),
+        pytest.param(
+            textwrap.dedent(
+                """
+                [auth.openapi.ApiKeyAuth]
+                api_key = "secret"
+
+                [auth.wfc]
+                path = "auth.yaml"
+                """
+            ),
+            id="openapi_and_wfc_auth",
+        ),
+        pytest.param(
+            textwrap.dedent(
+                """
+                [auth.openapi.ApiKeyAuth]
+                api_key = "secret"
+                bearer = "token"
+                """
+            ),
+            id="openapi_auth_mixed_schemes",
+        ),
+        pytest.param('suppress-health-check = ["all", "all"]', id="duplicate_health_checks"),
+        pytest.param("[generation]\nmax-examples = true", id="max_examples_boolean"),
+        pytest.param('[generation]\nmax-examples = "ten"', id="max_examples_string"),
+        pytest.param("[generation]\nmax-examples = 1979-05-27", id="max_examples_date"),
+        pytest.param("[generation]\nmax-examples = 1979-05-27T07:32:00Z", id="max_examples_offset_datetime"),
+        pytest.param("[generation]\nmax-examples = 1979-05-27T07:32:00", id="max_examples_local_datetime"),
+        pytest.param("[generation]\nmax-examples = 07:32:00", id="max_examples_time"),
+        pytest.param("base-url = 1979-05-27", id="base_url_date"),
+        pytest.param("[auth.openapi.ApiKeyAuth]\napi_key = 1979-05-27", id="auth_openapi_date"),
+        pytest.param("[parameters]\nid = 1979-05-27", id="parameters_date"),
     ],
 )
 def test_incorrect_config(cli, snapshot_cli, tmp_path, config_content):
     config_file = tmp_path / "config.toml"
-    config_file.write_text(textwrap.dedent(config_content))
+    config_file.write_text(textwrap.dedent(config_content), encoding="utf-8")
     result = cli.main(f"--config-file={config_file}", "run", "http://127.0.0.1")
     if result.exception and not isinstance(result.exception, SystemExit):
         raise result.exception
@@ -183,3 +256,13 @@ def test_cli_check_selection_re_enables_check_disabled_in_config(
         "--phases=fuzzing",
         exit_code=ExitCode.TESTS_FAILED,
     )
+
+
+def test_continue_on_failure_from_config(cli, ctx):
+    api = ctx.openapi.apps.multiple_failures()
+
+    result = cli.run(
+        api.schema_url, "--phases=fuzzing", "--max-examples=20", "--seed=1", config={"continue-on-failure": True}
+    )
+
+    assert "  20 generated," in result.stdout, result.stdout

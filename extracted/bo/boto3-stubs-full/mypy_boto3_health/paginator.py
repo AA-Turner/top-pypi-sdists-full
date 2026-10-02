@@ -19,6 +19,7 @@ Usage::
         DescribeEventTypesPaginator,
         DescribeEventsForOrganizationPaginator,
         DescribeEventsPaginator,
+        DescribeServiceLifecyclePaginator,
     )
 
     session = Session()
@@ -31,6 +32,7 @@ Usage::
     describe_event_types_paginator: DescribeEventTypesPaginator = client.get_paginator("describe_event_types")
     describe_events_for_organization_paginator: DescribeEventsForOrganizationPaginator = client.get_paginator("describe_events_for_organization")
     describe_events_paginator: DescribeEventsPaginator = client.get_paginator("describe_events")
+    describe_service_lifecycle_paginator: DescribeServiceLifecyclePaginator = client.get_paginator("describe_service_lifecycle")
     ```
 """
 
@@ -56,6 +58,8 @@ from .type_defs import (
     DescribeEventsResponseTypeDef,
     DescribeEventTypesRequestPaginateTypeDef,
     DescribeEventTypesResponseTypeDef,
+    DescribeServiceLifecycleRequestPaginateTypeDef,
+    DescribeServiceLifecycleResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -72,6 +76,7 @@ __all__ = (
     "DescribeEventTypesPaginator",
     "DescribeEventsForOrganizationPaginator",
     "DescribeEventsPaginator",
+    "DescribeServiceLifecyclePaginator",
 )
 
 
@@ -229,4 +234,25 @@ class DescribeEventsPaginator(_DescribeEventsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/health/paginator/DescribeEvents.html#Health.Paginator.DescribeEvents.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_health/paginators/#describeeventspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _DescribeServiceLifecyclePaginatorBase = Paginator[DescribeServiceLifecycleResponseTypeDef]
+else:
+    _DescribeServiceLifecyclePaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class DescribeServiceLifecyclePaginator(_DescribeServiceLifecyclePaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/health/paginator/DescribeServiceLifecycle.html#Health.Paginator.DescribeServiceLifecycle)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_health/paginators/#describeservicelifecyclepaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeServiceLifecycleRequestPaginateTypeDef]
+    ) -> PageIterator[DescribeServiceLifecycleResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/health/paginator/DescribeServiceLifecycle.html#Health.Paginator.DescribeServiceLifecycle.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_health/paginators/#describeservicelifecyclepaginator)
         """

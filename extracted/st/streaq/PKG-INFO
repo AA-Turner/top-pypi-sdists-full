@@ -1,0 +1,173 @@
+Metadata-Version: 2.5
+Name: streaq
+Version: 7.2.0
+Summary: Fast, async, fully-typed distributed task queue via Redis streams
+Project-URL: Homepage, https://github.com/tastyware/streaq
+Project-URL: Documentation, https://streaq.rtfd.io
+Project-URL: Funding, https://github.com/sponsors/tastyware
+Project-URL: Source, https://github.com/tastyware/streaq
+Project-URL: Changelog, https://github.com/tastyware/streaq/releases
+Author-email: Graeme Holliday <graeme@tastyware.dev>
+License: MIT License
+        
+        Copyright (c) 2025 tastyware
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+License-File: LICENSE
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Framework :: AnyIO
+Classifier: Framework :: AsyncIO
+Classifier: Framework :: Django
+Classifier: Framework :: FastAPI
+Classifier: Framework :: Flask
+Classifier: Framework :: Trio
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: Unix
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: System :: Clustering
+Classifier: Topic :: System :: Distributed Computing
+Classifier: Topic :: System :: Monitoring
+Classifier: Topic :: System :: Systems Administration
+Classifier: Typing :: Typed
+Requires-Python: >=3.11
+Requires-Dist: anyio>=4.15.0
+Requires-Dist: coredis>=6.9.0
+Requires-Dist: crontab>=1.0.5
+Requires-Dist: typer>=0.19.2
+Requires-Dist: watchfiles>=1.1.0
+Provides-Extra: web
+Requires-Dist: fastapi>=0.117.1; extra == 'web'
+Requires-Dist: jinja2>=3.1.6; extra == 'web'
+Requires-Dist: pydantic>=2.12.0; extra == 'web'
+Requires-Dist: python-multipart>=0.0.32; extra == 'web'
+Requires-Dist: uvicorn>=0.37.0; extra == 'web'
+Description-Content-Type: text/markdown
+
+[![Docs](https://readthedocs.org/projects/streaq/badge/?version=latest)](https://streaq.readthedocs.io/en/latest/?badge=latest)
+[![PyPI](https://img.shields.io/pypi/v/streaq)](https://pypi.org/project/streaq)
+[![Downloads](https://static.pepy.tech/badge/streaq)](https://pepy.tech/project/streaq)
+[![Release](https://img.shields.io/github/v/release/tastyware/streaq?label=release%20notes)](https://github.com/tastyware/streaq/releases)
+![Coverage](https://raw.githubusercontent.com/tastyware/streaq/master/coverage.svg)
+
+# streaQ
+
+Fast, async, fully-typed distributed task queue via Redis streams
+
+## Features
+
+- Up to [14x faster](https://github.com/tastyware/streaq/tree/master/benchmarks) than `arq`
+- Fully typed
+- Comprehensive documentation
+- Support for delayed/scheduled tasks
+- Cron jobs
+- Task middleware
+- Task dependency graph
+- Pipelining
+- Priority queues
+- Support for synchronous tasks (run in separate threads)
+- Redis Sentinel & Cluster support for production
+- Built-in web UI for monitoring tasks
+- Built with structured concurrency on `anyio`, supports both `asyncio` and `trio`
+
+> [!TIP]
+> Sick of `redis-py`? Check out [coredis](https://coredis.readthedocs.io/en/latest/), a fast, fully-typed Redis client that supports Trio!
+
+## Installation
+
+```console
+$ pip install streaq
+```
+
+## Getting started
+
+To start, you'll need to create a `Worker` object:
+
+```python
+from streaq import Worker
+
+worker = Worker(redis_url="redis://localhost:6379", anyio_backend="trio")
+```
+
+You can then register async tasks with the worker like this:
+
+```python
+import trio
+
+@worker.task
+async def sleeper(time: int) -> int:
+    await trio.sleep(time)
+    return time
+
+@worker.cron("* * * * mon-fri")  # every minute on weekdays
+async def cronjob() -> None:
+    print("Nobody respects the spammish repetition!")
+```
+
+Finally, let's use the worker's async context manager to queue up some tasks:
+
+```python
+async with worker:
+    await sleeper.enqueue(3)
+    # enqueue returns a task object that can be used to get results/info
+    task = await sleeper.enqueue(1).start(delay=3)
+    print(await task.info())
+    print(await task.result(timeout=5))
+```
+
+Putting this all together gives us [example.py](https://github.com/tastyware/streaq/blob/master/example.py). Let's spin up a worker:
+```
+$ streaq run example:worker
+```
+and queue up some tasks like so:
+```
+$ python example.py
+```
+
+Let's see what the output looks like:
+
+```
+[INFO] 2025-09-23 02:14:30: starting worker 3265311d for 2 functions
+[INFO] 2025-09-23 02:14:35: task sleeper □ cf0c55387a214320bd23e8987283a562 → worker 3265311d
+[INFO] 2025-09-23 02:14:38: task sleeper ■ cf0c55387a214320bd23e8987283a562 ← 3
+[INFO] 2025-09-23 02:14:40: task sleeper □ 1de3f192ee4a40d4884ebf303874681c → worker 3265311d
+[INFO] 2025-09-23 02:14:41: task sleeper ■ 1de3f192ee4a40d4884ebf303874681c ← 1
+[INFO] 2025-09-23 02:15:00: task cronjob □ 2a4b864e5ecd4fc99979a92f5db3a6e0 → worker 3265311d
+Nobody respects the spammish repetition!
+[INFO] 2025-09-23 02:15:00: task cronjob ■ 2a4b864e5ecd4fc99979a92f5db3a6e0 ← None
+```
+```python
+TaskInfo(fn_name='sleeper', enqueue_time=1751508876961, tries=0, scheduled=datetime.datetime(2025, 7, 3, 2, 14, 39, 961000, tzinfo=datetime.timezone.utc), dependencies=set(), dependents=set())
+TaskResult(fn_name='sleeper', enqueue_time=1751508876961, success=True, start_time=1751508880500, finish_time=1751508881503, tries=1, worker_id='ca5bd9eb', _result=1)
+```
+
+For more examples, check out the [documentation](https://streaq.readthedocs.io/en/latest/).

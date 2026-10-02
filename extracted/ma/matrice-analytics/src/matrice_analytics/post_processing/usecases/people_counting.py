@@ -11,7 +11,14 @@ from ..core.base import (
     ProcessingResult,
 )
 from ..core.config import PeopleCountingConfig
-from ..Trackers import ConfigDrivenTracker, TrackerProfile
+from ..Trackers import (
+    ConfigDrivenTracker,
+    FrameTimestampReader,
+    TrackerInitializationError,
+    TrackerProfile,
+    record_untracked_frame,
+    record_update_failure,
+)
 from ..utils import (
     apply_category_mapping,
     count_objects_in_zones,
@@ -22,8 +29,25 @@ from ..utils import (
 )
 from ..utils.post_processing_config_client import (
     GEOMETRY_RETRY_INTERVAL as _GEOMETRY_RETRY_INTERVAL,
+)
+from ..utils.post_processing_config_client import (
     PostProcessingConfigClient,
 )
+
+
+def _alert_settings(config: Any) -> Dict[Any, Any]:
+    """Pair ``alert_type`` with ``alert_value`` from an alert config.
+
+    Spelled out identically at four call sites before; ``strict=False`` keeps the
+    historical shortest-sequence behaviour rather than raising on a length mismatch.
+    """
+    return dict(
+        zip(
+            getattr(config.alert_config, "alert_type", ["Default"]),
+            getattr(config.alert_config, "alert_value", ["JSON"]),
+            strict=False,
+        )
+    )
 
 
 class PeopleCountingUseCase(BaseProcessor):
@@ -42,10 +66,14 @@ class PeopleCountingUseCase(BaseProcessor):
         self.category = "general"
         self.CASE_TYPE: Optional[str] = "people_counting"
         self.CASE_VERSION: Optional[str] = "1.4"
-        self.target_categories = ["person"]  # ['person', 'people','human','man','woman','male','female']
+        self.target_categories = [
+            "person"
+        ]  # ['person', 'people','human','man','woman','male','female']
         self.smoothing_tracker = None
         self.tracker = None
         self._tracker_seam = ConfigDrivenTracker()
+        #: Reads the frame's stamp off stream_info for the shared tracker (F26 S6.3).
+        self._frame_timestamps = FrameTimestampReader()
         self._total_frame_counter = 0
         self._global_frame_offset = 0
         self._tracking_start_time = None
@@ -89,6 +117,39 @@ class PeopleCountingUseCase(BaseProcessor):
         self._zone_total_track_ids: Dict[str, Set[Any]] = {}
         self._zone_current_counts: Dict[str, int] = {}
         self._zone_total_counts: Dict[str, int] = {}
+        # Insertion order per zone, so the cumulative set can evict its oldest
+        # entries instead of growing for the life of the process. See
+        # _remember_zone_tracks.
+        self._zone_track_id_order: Dict[str, List[Any]] = {}
+
+    #: Cumulative per-zone track ids are capped here. Chosen so eviction is
+    #: effectively unreachable in a real session -- a busy site sees order
+    #: 10k unique people a day -- while still bounding a process that runs
+    #: for weeks. Above the cap the oldest-seen id is dropped; if that person
+    #: ever returns they are counted again, which is the explicit trade for
+    #: not growing without limit (py_analytics-01).
+    _MAX_ZONE_TRACK_IDS = 100_000
+
+    def _remember_zone_tracks(self, zone_name: str, track_ids: Set[Any]) -> Set[Any]:
+        """Add ``track_ids`` to the zone's cumulative set, bounded.
+
+        Returns the (possibly evicted) set so callers can read its length.
+        The set itself keeps no order, so insertion order is tracked
+        alongside it and only consulted when the cap is actually exceeded --
+        the common path is one ``set.update`` and a length check.
+        """
+        seen = self._zone_total_track_ids.setdefault(zone_name, set())
+        order = self._zone_track_id_order.setdefault(zone_name, [])
+        for tid in track_ids:
+            if tid not in seen:
+                seen.add(tid)
+                order.append(tid)
+        excess = len(seen) - self._MAX_ZONE_TRACK_IDS
+        if excess > 0:
+            for tid in order[:excess]:
+                seen.discard(tid)
+            del order[:excess]
+        return seen
 
     # ------------------------------------------------------------------ #
     # Public API — zone geometry injection                                #
@@ -130,20 +191,16 @@ class PeopleCountingUseCase(BaseProcessor):
                         "PeopleCountingUseCase: API returned no zone config, retrying in %ds",
                         _GEOMETRY_RETRY_INTERVAL,
                     )
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - pre-existing handler, outside SG-25 scope
                     self.logger.warning(
                         "PeopleCountingUseCase: background geometry resolve error: %s", exc
                     )
                 time.sleep(_GEOMETRY_RETRY_INTERVAL)
 
-        t = threading.Thread(
-            target=_resolver, daemon=True, name="pc-zone-geometry-resolver"
-        )
+        t = threading.Thread(target=_resolver, daemon=True, name="pc-zone-geometry-resolver")
         self._geometry_thread = t
         t.start()
-        self.logger.info(
-            "PeopleCountingUseCase: started background zone geometry resolver thread"
-        )
+        self.logger.info("PeopleCountingUseCase: started background zone geometry resolver thread")
 
     def _resolve_geometry_from_api(
         self,
@@ -162,9 +219,7 @@ class PeopleCountingUseCase(BaseProcessor):
         Returns a new ``PeopleCountingConfig`` with ``zone_config`` populated,
         or ``None`` when zones cannot be resolved.
         """
-        client = self._config_client or (
-            stream_info.get("config_client") if stream_info else None
-        )
+        client = self._config_client or (stream_info.get("config_client") if stream_info else None)
         if not client and stream_info:
             try:
                 client = PostProcessingConfigClient(logger=self.logger)
@@ -176,7 +231,7 @@ class PeopleCountingUseCase(BaseProcessor):
                     )
                     return None
                 self._config_client = client
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - pre-existing handler, outside SG-25 scope
                 self.logger.warning(
                     "PeopleCountingUseCase: cannot create PostProcessingConfigClient: %s", exc
                 )
@@ -200,9 +255,7 @@ class PeopleCountingUseCase(BaseProcessor):
             )
             return None
 
-        configs, err, _ = client.get_post_processing_configs_by_app_deployment(
-            app_deployment_id
-        )
+        configs, err, _ = client.get_post_processing_configs_by_app_deployment(app_deployment_id)
         if err or not configs:
             self.logger.info(
                 "PeopleCountingUseCase: _resolve_geometry_from_api — fetch failed "
@@ -242,9 +295,7 @@ class PeopleCountingUseCase(BaseProcessor):
             )
             return None
 
-        zones_dict = {
-            name: [list(pt) for pt in points] for name, points in zones_px.items()
-        }
+        zones_dict = {name: [list(pt) for pt in points] for name, points in zones_px.items()}
         self.logger.info(
             "PeopleCountingUseCase: resolved %d zone(s) from API: %s",
             len(zones_dict),
@@ -270,6 +321,7 @@ class PeopleCountingUseCase(BaseProcessor):
             )
 
         from dataclasses import replace as _replace
+
         from ..core.config import ZoneConfig
 
         new_zone_config = ZoneConfig(zones=zones_dict)
@@ -350,34 +402,25 @@ class PeopleCountingUseCase(BaseProcessor):
             if not bbox:
                 continue
             zone_name = self._get_zone_for_bbox(bbox, zones)
-            if (
-                zone_name
-                and zone_name != "__global__"
-                and zone_name in current_frame_zone_tracks
-            ):
+            if zone_name and zone_name != "__global__" and zone_name in current_frame_zone_tracks:
                 current_frame_zone_tracks[zone_name].add(track_id)
 
         for zone_name, zone_counts in zone_analysis.items():
             current_tracks = current_frame_zone_tracks.get(zone_name, set())
             self._zone_current_track_ids[zone_name] = current_tracks
-            self._zone_total_track_ids[zone_name].update(current_tracks)
+            seen = self._remember_zone_tracks(zone_name, current_tracks)
             self._zone_current_counts[zone_name] = len(current_tracks)
-            self._zone_total_counts[zone_name] = len(
-                self._zone_total_track_ids[zone_name]
-            )
+            self._zone_total_counts[zone_name] = len(seen)
             enhanced[zone_name] = {
                 "current_count": self._zone_current_counts[zone_name],
                 "total_count": self._zone_total_counts[zone_name],
                 "current_track_ids": list(current_tracks),
-                "total_track_ids": list(self._zone_total_track_ids[zone_name]),
                 "original_counts": zone_counts,
             }
 
         return enhanced
 
-    def _compute_global_zone_analysis(
-        self, detections: List[Dict]
-    ) -> Dict[str, Any]:
+    def _compute_global_zone_analysis(self, detections: List[Dict]) -> Dict[str, Any]:
         """Compute zone_analysis for the ``__global__`` fallback (no zones configured).
 
         When no zones are drawn in the Matrice UI, all tracked persons in the
@@ -394,18 +437,15 @@ class PeopleCountingUseCase(BaseProcessor):
         self._zone_total_track_ids.setdefault("__global__", set())
 
         self._zone_current_track_ids["__global__"] = current_tracks
-        self._zone_total_track_ids["__global__"].update(current_tracks)
+        seen = self._remember_zone_tracks("__global__", current_tracks)
         self._zone_current_counts["__global__"] = len(current_tracks)
-        self._zone_total_counts["__global__"] = len(
-            self._zone_total_track_ids["__global__"]
-        )
+        self._zone_total_counts["__global__"] = len(seen)
 
         return {
             "__global__": {
                 "current_count": self._zone_current_counts["__global__"],
                 "total_count": self._zone_total_counts["__global__"],
                 "current_track_ids": list(current_tracks),
-                "total_track_ids": list(self._zone_total_track_ids["__global__"]),
             }
         }
 
@@ -468,7 +508,9 @@ class PeopleCountingUseCase(BaseProcessor):
         * The existing overall counting logic (total_counts, current_counts,
           new_counts) is **not modified** — zone_analysis is additive output.
         """
-        processing_start = time.time()
+        # SG-25: monotonic, not wall clock -- this value is only ever used as a
+        # duration below, and time.time() steps when NTP corrects the clock.
+        processing_start = time.monotonic()
 
         if not isinstance(config, PeopleCountingConfig):
             return self.create_error_result(
@@ -495,9 +537,7 @@ class PeopleCountingUseCase(BaseProcessor):
                     if resolved is not None:
                         with self._geometry_lock:
                             self._resolved_geometry_cache = resolved
-                        self.logger.info(
-                            "PeopleCountingUseCase: zone geometry resolved and cached"
-                        )
+                        self.logger.info("PeopleCountingUseCase: zone geometry resolved and cached")
                     else:
                         self.logger.info(
                             "PeopleCountingUseCase: API returned no zones on first frame; "
@@ -506,7 +546,7 @@ class PeopleCountingUseCase(BaseProcessor):
                             _GEOMETRY_RETRY_INTERVAL,
                         )
                         self._start_geometry_resolver(config, stream_info)
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - pre-existing handler, outside SG-25 scope
                     self.logger.warning(
                         "PeopleCountingUseCase: zone geometry resolution raised on first frame (%s); "
                         "starting background retry.",
@@ -539,9 +579,7 @@ class PeopleCountingUseCase(BaseProcessor):
             )
         else:
             processed_data = data
-            self.logger.debug(
-                "Did not apply confidence filtering since no threshold provided"
-            )
+            self.logger.debug("Did not apply confidence filtering since no threshold provided")
 
         if config.index_to_category:
             processed_data = apply_category_mapping(processed_data, config.index_to_category)
@@ -574,26 +612,14 @@ class PeopleCountingUseCase(BaseProcessor):
 
         # Tracker selection - uses AdvancedTracker with optimized defaults for count accuracy
         if getattr(config, "enable_advanced_tracker", True):
-            try:
-                if self.tracker is None:
-                    self.tracker = self._tracker_seam.get_shared_tracker(
-                        stream_info=stream_info,
-                        profile=TrackerProfile.LEGACY_40,
-                        namespace=True,
-                        restore=True,
-                        max_time_lost=int(1200),
-                        frame_rate=25,
-                    )
-                processed_data = self.tracker.update(processed_data)
-            except Exception as e:
-                self.logger.warning(f"AdvancedTracker failed: {e}")
+            processed_data = self._track_or_refuse(processed_data, stream_info)
         elif getattr(config, "enable_simple_tracker", False):
             processed_data = self._simple_tracker_update(processed_data)
 
         # Minimum consecutive frames before a track is counted as "new"
         try:
             self._min_confirm_frames = max(1, int(getattr(config, "min_hits_for_new_track", 5)))
-        except Exception:
+        except Exception:  # noqa: BLE001 - pre-existing handler, outside SG-25 scope
             self._min_confirm_frames = 3
         self._update_tracking_state(processed_data)
         self._total_frame_counter += 1
@@ -678,7 +704,7 @@ class PeopleCountingUseCase(BaseProcessor):
             category=self.category,
             context=context,
         )
-        proc_time = time.time() - processing_start
+        proc_time = time.monotonic() - processing_start
         processing_latency_ms = proc_time * 1000.0
         processing_fps = (1.0 / proc_time) if proc_time > 0 else None
         self._dbg and print(
@@ -716,7 +742,10 @@ class PeopleCountingUseCase(BaseProcessor):
         if not config.alert_config:
             return alerts
 
-        if hasattr(config.alert_config, "count_thresholds") and config.alert_config.count_thresholds:
+        if (
+            hasattr(config.alert_config, "count_thresholds")
+            and config.alert_config.count_thresholds
+        ):
             for category, threshold in config.alert_config.count_thresholds.items():
                 if category == "all" and total_detections > threshold:
                     alerts.append(
@@ -728,13 +757,7 @@ class PeopleCountingUseCase(BaseProcessor):
                             "ascending": get_trend(
                                 self._ascending_alert_list, lookback=900, threshold=0.8
                             ),
-                            "settings": {
-                                t: v
-                                for t, v in zip(
-                                    getattr(config.alert_config, "alert_type", ["Default"]),
-                                    getattr(config.alert_config, "alert_value", ["JSON"]),
-                                )
-                            },
+                            "settings": _alert_settings(config),
                         }
                     )
                 elif category in per_category_count and per_category_count[category] > threshold:
@@ -747,13 +770,7 @@ class PeopleCountingUseCase(BaseProcessor):
                             "ascending": get_trend(
                                 self._ascending_alert_list, lookback=900, threshold=0.8
                             ),
-                            "settings": {
-                                t: v
-                                for t, v in zip(
-                                    getattr(config.alert_config, "alert_type", ["Default"]),
-                                    getattr(config.alert_config, "alert_value", ["JSON"]),
-                                )
-                            },
+                            "settings": _alert_settings(config),
                         }
                     )
         return alerts
@@ -856,13 +873,7 @@ class PeopleCountingUseCase(BaseProcessor):
                             else {}
                         ),
                         "ascending": True,
-                        "settings": {
-                            t: v
-                            for t, v in zip(
-                                getattr(config.alert_config, "alert_type", ["Default"]),
-                                getattr(config.alert_config, "alert_value", ["JSON"]),
-                            )
-                        },
+                        "settings": _alert_settings(config),
                     }
                 )
 
@@ -908,9 +919,7 @@ class PeopleCountingUseCase(BaseProcessor):
         high_precision_start_timestamp = self._get_current_timestamp_str(
             stream_info, precision=True
         )
-        high_precision_reset_timestamp = self._get_start_timestamp_str(
-            stream_info, precision=True
-        )
+        high_precision_reset_timestamp = self._get_start_timestamp_str(stream_info, precision=True)
 
         # Get new track IDs count (people who appeared for FIRST TIME - requires tracker)
         new_counts_dict = self.get_new_counts_this_frame()
@@ -929,14 +938,12 @@ class PeopleCountingUseCase(BaseProcessor):
         ]
         # current_counts: ALL people currently detected in frame
         current_counts = [
-            {"category": cat, "count": count}
-            for cat, count in detection_count_by_category.items()
+            {"category": cat, "count": count} for cat, count in detection_count_by_category.items()
         ]
         # Fallback: if detection_count_by_category is empty but we have total_detections
         if not current_counts and total_detections > 0:
             current_counts = [
-                {"category": cat, "count": count}
-                for cat, count in per_category_count.items()
+                {"category": cat, "count": count} for cat, count in per_category_count.items()
             ]
         # current_new_counts: Only NEW people who appeared for the first time
         current_new_counts = [
@@ -991,13 +998,7 @@ class PeopleCountingUseCase(BaseProcessor):
                         else {}
                     ),
                     "ascending": True,
-                    "settings": {
-                        t: v
-                        for t, v in zip(
-                            getattr(config.alert_config, "alert_type", ["Default"]),
-                            getattr(config.alert_config, "alert_value", ["JSON"]),
-                        )
-                    },
+                    "settings": _alert_settings(config),
                 }
             )
 
@@ -1097,11 +1098,7 @@ class PeopleCountingUseCase(BaseProcessor):
                 + f"\t{business_analytics[0].get('human_text', 'No business analytics detected')}"
             )
 
-        if (
-            len(incidents) == 0
-            and len(tracking_stats) == 0
-            and len(business_analytics) == 0
-        ):
+        if len(incidents) == 0 and len(tracking_stats) == 0 and len(business_analytics) == 0:
             lines.append("Summary: " + "No Summary Data")
 
         return ["\n".join(lines)]
@@ -1127,6 +1124,46 @@ class PeopleCountingUseCase(BaseProcessor):
             "last_update_time": time.time(),
             "total_frames_processed": getattr(self, "_total_frame_counter", 0),
         }
+
+    def _track_or_refuse(self, processed_data: Any, stream_info: Optional[Dict]) -> Any:
+        """Attach track IDs, refusing at startup if the tracker cannot be built.
+
+        SG-25: construction is a startup-shaped fault, so TrackerInitializationError
+        propagates rather than degrading to untracked counting -- an untracked run
+        reports zero unique people, which is indistinguishable from an empty scene.
+        A per-frame ``update()`` failure is a runtime fault, so it fails open, but it
+        is recorded and logged at ERROR instead of being swallowed as a warning.
+        """
+        if self.tracker is None:
+            self.tracker = self._tracker_seam.get_shared_tracker(
+                stream_info=stream_info,
+                profile=TrackerProfile.LEGACY_40,
+                namespace=True,
+                restore=True,
+                max_time_lost=int(1200),
+                frame_rate=25,
+            )
+            if self.tracker is None:
+                raise TrackerInitializationError(
+                    "enable_advanced_tracker is set but no tracker was created; "
+                    "refusing to count untracked (would report zero people)."
+                )
+        try:
+            # The frame's own stamp, not the wall-clock spacing between update() calls
+            # (F26 S6 item 3). That per-frame time base IS SG-24; without it the tracker
+            # ages tracks against the interval between arrivals, which sampling makes
+            # wrong by the sampling factor. `get_shared_tracker` hands back a bare
+            # AdvancedTracker, so nothing was reading stream_info on this path and the
+            # mechanism was unreachable in production for this use case -- the seam had
+            # the stamp in hand and dropped it.
+            return self.tracker.update(
+                processed_data, timestamp=self._frame_timestamps.read(stream_info)
+            )
+        except TrackerInitializationError:
+            raise
+        except Exception as e:  # noqa: BLE001 - fail-open is the point; recorded at ERROR
+            record_update_failure(e, log=self.logger)
+            return processed_data
 
     def _update_tracking_state(self, detections: list):
         # Initialize tracking sets if needed (guards for legacy instances
@@ -1163,9 +1200,13 @@ class PeopleCountingUseCase(BaseProcessor):
             self._current_frame_track_ids[cat].add(canonical_tid)
 
         if missing_track_ids > 0:
-            self._dbg and print(
-                f"[WARN_TRACKING] F{self._total_frame_counter} | "
-                f"{missing_track_ids}/{len(detections)} detections missing track_id!"
+            # SG-25: this used to be a debug-gated print, so a run where every
+            # detection lacked a track_id counted zero people in total silence.
+            record_untracked_frame(
+                missing_track_ids,
+                len(detections),
+                log=self.logger,
+                frame=self._total_frame_counter,
             )
 
         # ------------------------------------------------------------------
@@ -1218,7 +1259,9 @@ class PeopleCountingUseCase(BaseProcessor):
         )
 
     def get_total_counts(self):
-        return {cat: len(ids) for cat, ids in getattr(self, "_per_category_total_track_ids", {}).items()}
+        return {
+            cat: len(ids) for cat, ids in getattr(self, "_per_category_total_track_ids", {}).items()
+        }
 
     def get_new_counts_this_frame(self) -> Dict[str, int]:
         """Get count of CONFIRMED new track IDs reported for the first time this frame.
@@ -1237,7 +1280,9 @@ class PeopleCountingUseCase(BaseProcessor):
         visible.  This makes downstream aggregation (summing over N seconds)
         produce the correct total of genuinely new people.
         """
-        return {cat: len(ids) for cat, ids in getattr(self, "_new_track_ids_this_frame", {}).items()}
+        return {
+            cat: len(ids) for cat, ids in getattr(self, "_new_track_ids_this_frame", {}).items()
+        }
 
     def get_current_frame_counts(self) -> Dict[str, int]:
         """Get count of ALL track IDs currently in this frame (existing + new)."""
@@ -1298,7 +1343,7 @@ class PeopleCountingUseCase(BaseProcessor):
                     # parts = ['2025', '10', '27', '19:31:20']
                     formatted = f"{parts[0]}:{parts[1]}:{parts[2]} {'-'.join(parts[3:])}"
                     return formatted
-        except Exception:
+        except Exception:  # noqa: BLE001, S110 - pre-existing handler, outside SG-25 scope
             # Non-fatal: exception ignored here; execution continues per surrounding logic.
             pass
 
@@ -1351,9 +1396,7 @@ class PeopleCountingUseCase(BaseProcessor):
             )
         else:
             stream_time_str = (
-                stream_info.get("input_settings", {})
-                .get("stream_info", {})
-                .get("stream_time", "")
+                stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
             )
             if stream_time_str:
                 try:
@@ -1361,7 +1404,7 @@ class PeopleCountingUseCase(BaseProcessor):
                     dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                     timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
                     return self._format_timestamp_for_stream(timestamp)
-                except Exception:
+                except Exception:  # noqa: BLE001 - pre-existing handler, outside SG-25 scope
                     return self._format_timestamp_for_stream(time.time())
             else:
                 return self._format_timestamp_for_stream(time.time())
@@ -1377,17 +1420,13 @@ class PeopleCountingUseCase(BaseProcessor):
             if self.start_timer is None:
                 candidate = stream_info.get("input_settings", {}).get("stream_time")
                 if not candidate or candidate == "NA":
-                    candidate = datetime.now(timezone.utc).strftime(
-                        "%Y-%m-%d-%H:%M:%S.%f UTC"
-                    )
+                    candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
                 self.start_timer = candidate
                 return self._format_timestamp(self.start_timer)
             elif stream_info.get("input_settings", {}).get("start_frame", "na") == 1:
                 candidate = stream_info.get("input_settings", {}).get("stream_time")
                 if not candidate or candidate == "NA":
-                    candidate = datetime.now(timezone.utc).strftime(
-                        "%Y-%m-%d-%H:%M:%S.%f UTC"
-                    )
+                    candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
                 self.start_timer = candidate
                 return self._format_timestamp(self.start_timer)
             else:
@@ -1411,14 +1450,10 @@ class PeopleCountingUseCase(BaseProcessor):
                         candidate = datetime.fromtimestamp(
                             self._tracking_start_time, timezone.utc
                         ).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
-                    except Exception:
-                        candidate = datetime.now(timezone.utc).strftime(
-                            "%Y-%m-%d-%H:%M:%S.%f UTC"
-                        )
+                    except Exception:  # noqa: BLE001 - pre-existing handler, outside SG-25 scope
+                        candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
                 else:
-                    candidate = datetime.now(timezone.utc).strftime(
-                        "%Y-%m-%d-%H:%M:%S.%f UTC"
-                    )
+                    candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
             self.start_timer = candidate
             return self._format_timestamp(self.start_timer)
         elif stream_info.get("input_settings", {}).get("start_frame", "na") == 1:
@@ -1437,14 +1472,10 @@ class PeopleCountingUseCase(BaseProcessor):
                         candidate = datetime.fromtimestamp(ts, timezone.utc).strftime(
                             "%Y-%m-%d-%H:%M:%S.%f UTC"
                         )
-                    except Exception:
-                        candidate = datetime.now(timezone.utc).strftime(
-                            "%Y-%m-%d-%H:%M:%S.%f UTC"
-                        )
+                    except Exception:  # noqa: BLE001 - pre-existing handler, outside SG-25 scope
+                        candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
                 else:
-                    candidate = datetime.now(timezone.utc).strftime(
-                        "%Y-%m-%d-%H:%M:%S.%f UTC"
-                    )
+                    candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
             self.start_timer = candidate
             return self._format_timestamp(self.start_timer)
 
@@ -1463,7 +1494,7 @@ class PeopleCountingUseCase(BaseProcessor):
                         timestamp_str = stream_time_str.replace(" UTC", "")
                         dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                         self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
-                    except Exception:
+                    except Exception:  # noqa: BLE001 - pre-existing handler, outside SG-25 scope
                         self._tracking_start_time = time.time()
                 else:
                     self._tracking_start_time = time.time()
@@ -1596,9 +1627,7 @@ class PeopleCountingUseCase(BaseProcessor):
                 prev_bbox["ymax"] - prev_bbox["ymin"]
             )
             area2 = (bbox["xmax"] - bbox["xmin"]) * (bbox["ymax"] - bbox["ymin"])
-            size_ratio = (
-                min(area1, area2) / max(area1, area2) if max(area1, area2) > 0 else 0
-            )
+            size_ratio = min(area1, area2) / max(area1, area2) if max(area1, area2) > 0 else 0
 
             if iou >= 0.28 or (center_dist < 35 and size_ratio > 0.6):
                 self._track_aliases[raw_id] = canonical_id

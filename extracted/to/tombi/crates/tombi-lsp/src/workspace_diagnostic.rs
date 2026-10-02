@@ -5,7 +5,7 @@ use tombi_glob::search_pattern_matched_paths;
 use crate::{
     Backend,
     diagnostic::{DiagnosticsResult, get_diagnostics_result},
-    document::DocumentSource,
+    document::{DocumentSource, ParsedText},
     workspace_config::get_workspace_configs,
 };
 pub use cache::WorkspaceDiagnosticsCache;
@@ -150,8 +150,9 @@ pub async fn upsert_document_source(backend: &Backend, text_document_uri: tombi_
         return false;
     };
 
+    let parsed = ParsedText::parse(content);
     let toml_version = backend
-        .text_document_toml_version(&text_document_uri, &content)
+        .text_document_toml_version(&text_document_uri, &parsed.root())
         .await;
     let encoding_kind = backend.capabilities.read().await.encoding_kind;
 
@@ -163,11 +164,11 @@ pub async fn upsert_document_source(backend: &Backend, text_document_uri: tombi_
                 return true;
             }
 
-            source.set_text(content, toml_version);
+            *source = DocumentSource::new(parsed, None, toml_version, encoding_kind);
         } else {
             document_sources.insert(
                 text_document_uri.clone(),
-                DocumentSource::new(content, None, toml_version, encoding_kind),
+                DocumentSource::new(parsed, None, toml_version, encoding_kind),
             );
         }
     }

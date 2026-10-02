@@ -1,0 +1,151 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Projection liveness verdict for the runtime health surface (OMN-16994).
+
+Two facts about contract-declared projections that every pre-existing liveness
+signal missed, because each of them measures *connectedness* rather than
+*persistence*:
+
+* **unattached** — the contract declares a projection but no consumer for its
+  topics exists on this runtime's bus registry, so nothing is consumed at all.
+* **DLQ-saturated** — a consumer IS attached and IS consuming, and routes 100%
+  of what it takes to a DLQ/quarantine sink. Offsets commit on the DLQ route, so
+  consumer lag reads 0 and every lag-based check reads green over a total loss.
+* **non-writing** (OMN-17448) — every handler entry the kernel wired for the
+  contract has a deliberate no-op dispatch, because each has the standalone-
+  runner shape (OMN-15905) or was assigned zero routes (OMN-17519). Nothing
+  raises and nothing is DLQ'd, so both fields above read green through it by
+  construction, and the rows exist only if a dedicated writer process is
+  deployed elsewhere.
+* **non-writing AND still attached** (OMN-17562) — the same contract, still
+  consuming. Offsets commit over a total loss: the events are destroyed, not
+  merely unwritten, so deploying the writer later cannot backfill them. This is
+  the half that is a runtime defect; the half above is a deployment fact a
+  kernel process cannot observe.
+
+The projection unit itself lives in
+:mod:`omnibase_infra.models.health.model_projection_contract_ref`.
+
+The verdict is raw counts plus names. It carries no HTTP status and no
+``HEALTHY``/``DEGRADED`` word: the mapping from these facts to a health
+dimension belongs to the health surface that renders them
+(:mod:`omnibase_infra.runtime.health.projection_liveness`), not to the model.
+
+The two ``*_evaluated`` flags are load-bearing and must not be collapsed into
+"empty list means fine". An empty attached-topic registry means "this process
+cannot tell", which is a different fact from "nothing attached" — reading
+absence as evidence is the exact failure this ticket exists to close.
+
+Related Tickets:
+    - OMN-16994: this model (OMN-16843 AC6, deferred)
+    - OMN-16777: the consumer-flow windows the saturation half is derived from
+"""
+
+from __future__ import annotations
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from omnibase_infra.models.health.model_flow_attribution import ModelFlowAttribution
+
+
+class ModelProjectionLivenessVerdict(BaseModel):
+    """Per-cycle projection liveness facts for one runtime process."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    projection_count: int = Field(
+        ..., ge=0, description="Contract-declared projections in scope this cycle"
+    )
+    attachment_evaluated: bool = Field(
+        ...,
+        description=(
+            "True when a live subscription registry was readable. False means "
+            "UNKNOWN — never that every projection attached."
+        ),
+    )
+    unattached_projections: tuple[str, ...] = Field(
+        default_factory=tuple,
+        description="Projections with at least one topic that has no live consumer",
+    )
+    saturation_evaluated: bool = Field(
+        ...,
+        description=(
+            "True when at least one closed flow window was observable. False "
+            "means UNKNOWN — never that nothing is DLQ-saturated."
+        ),
+    )
+    dlq_saturated_projections: tuple[str, ...] = Field(
+        default_factory=tuple,
+        description="Projections routing 100% of observed traffic to a DLQ sink",
+    )
+    observed_window_count: int = Field(
+        default=0, ge=0, description="Closed flow windows the ratio was taken over"
+    )
+    unattributable_flow_topics: tuple[str, ...] = Field(
+        default_factory=tuple,
+        description=(
+            "OMN-16753. Declared projection topics that carried observed flow "
+            "this cycle which no single projection can be shown to have taken "
+            "-- several in-scope projections declare the topic and the delta's "
+            "consumer group matched none of their contract-derived group "
+            "suffixes. These topics are excluded from every ratio above, so an "
+            "empty ``dlq_saturated_projections`` alongside a non-empty list "
+            "here is NOT an all-clear -- and is not published as one: "
+            "``dlq_saturation_status`` reads this field, so a non-empty list "
+            "DEGRADES the projection_dlq_saturation dimension and the overall "
+            "verdict with it. Naming the alphabetically last declarer "
+            "instead is what published a healthy projection "
+            "(``projection_work_events``) as the site of a peer's total loss "
+            "on the .201 stability lane at 2026-09-08T17:31:44Z."
+        ),
+    )
+    excluded_nonprojection_flow: tuple[ModelFlowAttribution, ...] = Field(
+        default_factory=tuple,
+        description=(
+            "OMN-16753 round 3. Consumer groups that carried flow on a "
+            "declared projection topic and were dropped from the arithmetic "
+            "because they are provably NOT a projection's: the group's "
+            "``{package}.{node}.consume.`` infix belongs to a contract that "
+            "declares no ``db_io.db_tables`` projection target, so it is a "
+            "reducer, an effect or a forwarder that happens to share the "
+            "topic. Flow a non-projection consumer took was never a "
+            "projection's to take and says nothing about projection liveness, "
+            "so unlike ``unattributable_flow_topics`` this list does NOT "
+            "degrade the dimension. It is carried and rendered so the "
+            "exclusion is visible: an invisible exclusion would be the same "
+            "false all-clear a misattribution is. One entry per consumer "
+            "group, not per delta. Recording ``node_session_phase_reducer``'s "
+            "two session-topic groups as unattributable instead is what failed "
+            "stability refresh attempt 3 of 3 at 915a10446 and rolled the lane "
+            "back with every other gate leg passing."
+        ),
+    )
+    nonwriting_projections: tuple[str, ...] = Field(
+        default_factory=tuple,
+        description=(
+            "OMN-17448. Declared projections EVERY handler entry of which this "
+            "process wires with a no-op dispatch: the standalone-runner branch "
+            "returns None before any handler runs. Not a defect on its own -- "
+            "the rows depend on a dedicated writer process this one cannot see "
+            "-- and invisible to both fields above, because nothing raises so "
+            "nothing reaches a DLQ. A contract with a live sibling entry is NOT "
+            "listed here (OMN-17562): it dispatches and writes, and naming it "
+            "was six of the fifteen names the .201 lanes reported."
+        ),
+    )
+    nonwriting_attached_projections: tuple[str, ...] = Field(
+        default_factory=tuple,
+        description=(
+            "OMN-17562. The subset of ``nonwriting_projections`` whose topics "
+            "are STILL attached on this runtime's bus registry -- the silent-"
+            "loss state itself: the consumer takes every message and commits "
+            "every offset while no handler runs, so the events are destroyed "
+            "rather than merely unwritten, and deploying the writer later "
+            "cannot backfill a committed offset. Empty is the fixed state (the "
+            "kernel withholds the subscription), and is only meaningful when "
+            "``attachment_evaluated`` is True."
+        ),
+    )
+
+
+__all__: list[str] = ["ModelProjectionLivenessVerdict"]

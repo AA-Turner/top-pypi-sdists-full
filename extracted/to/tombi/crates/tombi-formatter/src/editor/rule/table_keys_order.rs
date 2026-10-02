@@ -16,10 +16,13 @@ use tombi_x_keyword::{TableKeysOrder, TableKeysOrderGroupKind};
 use crate::editor::change::SourcePart;
 use tombi_schema_store::TableOrderOverrides;
 
-pub(in crate::editor) async fn table_keys_order<'a>(
-    value: &'a tombi_document_tree_syntax::Value,
+pub(in crate::editor) async fn table_keys_order<'a, 't, 'd>(
+    value: &'a tombi_document_tree_syntax::Value<'d>,
     accessors: &'a [Accessor],
-    key_values_with_comma: Vec<(tombi_ast_syntax::KeyValue, Option<tombi_ast_syntax::Comma>)>,
+    key_values_with_comma: Vec<(
+        tombi_ast_syntax::KeyValue<'t>,
+        Option<tombi_ast_syntax::Comma<'t>>,
+    )>,
     current_schema: Option<&'a CurrentSchema<'a>>,
     schema_context: &'a SchemaContext<'a>,
     comment_directive: Option<
@@ -55,14 +58,13 @@ pub(in crate::editor) async fn table_keys_order<'a>(
 
     let old_order = key_values_with_comma
         .iter()
-        .map(|(key_value, _)| key_value.syntax().range())
+        .map(|(key_value, _)| key_value.syntax().span())
         .collect_vec();
-    let old_first = key_values_with_comma.first().unwrap().0.syntax().clone();
+    let old_first = *key_values_with_comma.first().unwrap().0.syntax();
     let (last_key_value, last_comma) = key_values_with_comma.last().unwrap();
-    let old_last = last_comma.as_ref().map_or_else(
-        || last_key_value.syntax().clone(),
-        |comma| comma.syntax().clone(),
-    );
+    let old_last = last_comma
+        .as_ref()
+        .map_or_else(|| *last_key_value.syntax(), |comma| *comma.syntax());
 
     let Some(sorted_key_values_with_comma) = get_sorted_accessors(
         value,
@@ -89,7 +91,7 @@ pub(in crate::editor) async fn table_keys_order<'a>(
 
     if old_order.into_iter().eq(sorted_key_values_with_comma
         .iter()
-        .map(|(key_value, _)| key_value.syntax().range()))
+        .map(|(key_value, _)| key_value.syntax().span()))
     {
         return Vec::new();
     }
@@ -102,13 +104,13 @@ pub(in crate::editor) async fn table_keys_order<'a>(
         }
     }
 
-    vec![crate::editor::Change::replace_range(
+    vec![crate::editor::Change::replace_span(
         &old_first, &old_last, new,
     )]
 }
 
-pub(super) fn get_sorted_accessors<'a: 'b, 'b, T>(
-    value: &'a tombi_document_tree_syntax::Value,
+pub(super) fn get_sorted_accessors<'a: 'b, 'b, 'd, T>(
+    value: &'a tombi_document_tree_syntax::Value<'d>,
     accessors: &'a [tombi_schema_store::Accessor],
     targets: Vec<(Vec<tombi_schema_store::Accessor>, T)>,
     current_schema: Option<&'a CurrentSchema<'a>>,
@@ -609,7 +611,7 @@ async fn sort_table_targets<T>(
             let mut sorted_specified_iter = sorted_specified_targets.into_iter();
             let mut unspecified_iter = unspecified_targets.into_iter();
 
-            // Keep keys in unspecified groups at their original positions.
+            // Keep keys in unspecified groups at their original offsets.
             for is_specified_slot in original_slots {
                 let next = if is_specified_slot {
                     sorted_specified_iter.next()

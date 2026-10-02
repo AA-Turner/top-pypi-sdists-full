@@ -1,0 +1,28 @@
+name: node_overnight
+version: "1.0.0"
+description: "Overnight session orchestrator — sequences build_loop -> merge_sweep -> ci_watch -> platform_readiness"
+omnibase_core_compat: ">=0.39.0,<1.0.0"
+entry_points:
+  onex.nodes:
+    node_overnight: "omnimarket.nodes.node_overnight"
+capabilities:
+  standalone: true
+  full_runtime: true
+  requires_network: true
+  requires_repo: true
+  requires_secrets: true
+  requires_docker: false
+  side_effect_class: mutating
+dependencies:
+  - "omnibase_core>=0.39.0"
+  - "omnibase-infra>=0.32.0"
+  - "confluent-kafka"
+  - "onex-change-control>=0.5.0"
+  - "typing-extensions"
+  - "aiokafka>=0.10.0"
+authors: ["OmniNode Platform Team"]
+license: "MIT"
+tags: ["overnight", "orchestrator", "autonomous", "pipeline", "session"]
+pack: "overnight_pipeline"
+display_name: "Overnight Session"
+node_role: "orchestrator"

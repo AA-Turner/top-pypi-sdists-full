@@ -7,11 +7,9 @@ license.workspace = true
 
 [dependencies]
 nu-ansi-term.workspace = true
-pyo3 = { workspace = true, optional = true }
 serde.workspace = true
 tombi-text.workspace = true
 tower-lsp = { workspace = true, optional = true }
-wasm-bindgen = { workspace = true, optional = true }
 
 [dev-dependencies]
 clap.workspace = true
@@ -20,8 +18,6 @@ env_logger.workspace = true
 [features]
 default = ["lsp"]
 lsp = ["dep:tower-lsp", "tombi-text/lsp"]
-python = ["dep:pyo3"]
-wasm = ["dep:wasm-bindgen", "tombi-text/wasm"]
 
 [lints]
 workspace = true

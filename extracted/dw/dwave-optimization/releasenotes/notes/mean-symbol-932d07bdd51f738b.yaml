@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Added ``Mean`` symbol/node which returns the mean of its predecessor.

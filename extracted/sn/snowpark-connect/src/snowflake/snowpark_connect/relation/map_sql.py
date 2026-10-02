@@ -3,7 +3,9 @@
 #
 
 import copy
+import json
 import math
+import os
 import re
 import typing
 from collections.abc import MutableMapping, MutableSequence
@@ -196,7 +198,10 @@ from snowflake.snowpark_connect.utils.schema_utils import force_nullable_schema
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.spark_session_cache import get_spark_session_cache
-from snowflake.snowpark_connect.utils.sql_quoting import escape_sql_comment
+from snowflake.snowpark_connect.utils.sql_quoting import (
+    escape_sql_comment,
+    quote_single,
+)
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
     iceberg_wap_unsupported_proc_detail,
@@ -218,6 +223,7 @@ from ..expression.map_sql_expression import (
 )
 from ..type_support import emulate_decimal_type, is_integral_types_conversion_enabled
 from ..typed_column import TypedColumn
+from ..utils.cld_context import catalog_kind as resolve_catalog_kind
 from ..utils.identifiers import (
     UNQUOTED_SPARK_IDENTIFIER,
     is_backtick_quoted,
@@ -239,6 +245,7 @@ from ..utils.io_utils import (
 )
 from ..utils.temporary_view_helper import (
     create_snowflake_temporary_view,
+    create_temporary_view_from_dataframe,
     get_temp_view,
     register_temp_view,
     snowflake_materialized_view_column_name,
@@ -345,9 +352,7 @@ def _report_iceberg_ddl_if_iceberg(op: str, is_iceberg: bool) -> None:
     gate/derivation don't drift.
     """
     if is_iceberg:
-        telemetry.report_iceberg_ddl(
-            op, catalog_kind="cld" if is_in_cld_context() else "managed"
-        )
+        telemetry.report_iceberg_ddl(op, catalog_kind=resolve_catalog_kind())
 
 
 def _build_set_table_properties_sql(
@@ -375,6 +380,255 @@ def _build_unset_table_properties_sql(table_name: str, keys: list[str]) -> str |
         return None
     key_list = ", ".join(f"'{escape_sql_comment(k)}'" for k in keys)
     return f"ALTER TABLE {table_name} UNSET TABLE_PROPERTIES({key_list})"
+
+
+# Snowflake stamps internal bookkeeping keys into the Iceberg property map
+# (e.g. ``snowflake.operation.<n>.<id>``). They are not user-visible Spark table
+# properties, so ``SHOW TBLPROPERTIES`` filters out anything under this prefix.
+_INTERNAL_ICEBERG_PROPERTY_PREFIX = "snowflake."
+
+# Spark's SHOW TBLPROPERTIES result schema (two string columns). Pinned
+# explicitly for the empty case: a 0-row pandas frame with an inferred schema is
+# dropped by map_execution_command ("LocalRelation without data & schema is not
+# supported"), so an Iceberg table with no user properties would crash instead of
+# returning Spark's empty key/value frame.
+_SHOW_TBLPROPERTIES_SCHEMA_JSON = (
+    '{"type": "struct", "fields": ['
+    '{"name": "key", "type": "string", "nullable": true, "metadata": {}}, '
+    '{"name": "value", "type": "string", "nullable": true, "metadata": {}}]}'
+)
+
+
+def _read_iceberg_table_properties(
+    session: Session, table_name: str
+) -> dict[str, str] | None:
+    """Read current Iceberg table properties via ``SYSTEM$READ_ICEBERG_TABLE_PROPERTY``.
+
+    The one-argument form returns a JSON map of every persisted property and
+    works for both managed and CLD/unmanaged Iceberg tables. Returns a
+    ``{key: value}`` dict with Snowflake-internal keys removed, or ``None`` when
+    the properties can't be read — an older GS build without the function, or a
+    table with no committed Iceberg metadata yet. Callers degrade to an empty
+    result so ``SHOW TBLPROPERTIES`` stays non-fatal for those cases.
+
+    A missing table (2003/2043) or a permission error is a real failure the user
+    must see (Spark raises ``TABLE_OR_VIEW_NOT_FOUND``), so it is re-raised rather
+    than masked as an empty result.
+    """
+    try:
+        rows = session.sql(
+            f"SELECT SYSTEM$READ_ICEBERG_TABLE_PROPERTY({quote_single(table_name)})"
+        ).collect()
+    except SnowparkSQLException as e:
+        # Only degrade for the expected non-fatal cases; re-raise everything else
+        # (missing table, permissions) so it surfaces instead of looking empty.
+        msg = str(e).lower()
+        if "unknown function" in msg or "no iceberg metadata file found" in msg:
+            logger.warning(
+                "SYSTEM$READ_ICEBERG_TABLE_PROPERTY unavailable for %s: %s",
+                table_name,
+                e,
+            )
+            return None
+        raise
+    raw = rows[0][0] if rows else None
+    if not raw:
+        return {}
+    # SYSTEM$ Iceberg helpers return VARIANT; Snowpark may hand back an
+    # already-parsed dict, or the JSON as a string. Anything else is unexpected.
+    if isinstance(raw, dict):
+        parsed = raw
+    elif isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+        except (ValueError, TypeError):
+            logger.warning(
+                "Unparseable Iceberg property payload for %s: %r", table_name, raw
+            )
+            return None
+    else:
+        logger.warning(
+            "Unexpected Iceberg property payload type for %s: %r", table_name, raw
+        )
+        return None
+    # json.loads succeeds for null / arrays / scalars; only a JSON object has the
+    # key/value shape SHOW TBLPROPERTIES expects.
+    if not isinstance(parsed, dict):
+        logger.warning(
+            "Iceberg property payload is not a JSON object for %s: %r",
+            table_name,
+            parsed,
+        )
+        return None
+    return {
+        str(k): str(v)
+        for k, v in parsed.items()
+        if not str(k).startswith(_INTERNAL_ICEBERG_PROPERTY_PREFIX)
+    }
+
+
+def _build_show_table_properties_df(
+    properties: dict[str, str], property_key: str | None, table_name: str
+) -> pandas.DataFrame:
+    """Shape Iceberg properties into Spark's ``SHOW TBLPROPERTIES`` result.
+
+    Spark always returns two non-null string columns ``key``/``value``: all
+    properties sorted by key when no key is requested, or a single row for the
+    requested key (with Spark's ``Table <name> does not have property: <key>``
+    placeholder when it is absent).
+    """
+    if property_key is not None:
+        if property_key in properties:
+            keys = [property_key]
+            values = [properties[property_key]]
+        else:
+            keys = [property_key]
+            values = [f"Table {table_name} does not have property: {property_key}"]
+    else:
+        keys = sorted(properties)
+        values = [properties[k] for k in keys]
+    return pandas.DataFrame(
+        {
+            "key": pandas.Series(keys, dtype=str),
+            "value": pandas.Series(values, dtype=str),
+        }
+    )
+
+
+def _raise_if_table_missing(session: Session, sf_name: str, display_name: str) -> None:
+    """Raise Spark's ``TABLE_OR_VIEW_NOT_FOUND`` when a ``SHOW TBLPROPERTIES``
+    target does not exist.
+
+    A non-Iceberg target returns the historical empty result, but only when the
+    table actually exists — a missing table must surface ``TABLE_OR_VIEW_NOT_FOUND``
+    the way Spark does, not a silent empty frame (Ilesh review). The caller can't
+    rely on :func:`_alter_target_is_iceberg` here because ``get_table_type``
+    swallows the lookup failure and returns ``"TABLE"`` for a missing table, so
+    probe existence explicitly with ``DESCRIBE TABLE`` (works for tables and views;
+    raises 2003/2043 for a missing object). Any non-"missing" error degrades to a
+    no-op so a transient catalog hiccup keeps the prior lenient behavior instead of
+    being masked as not-found.
+    """
+    try:
+        session.sql(f"DESCRIBE TABLE {sf_name}").collect()
+    except SnowparkSQLException as e:
+        if getattr(e, "sql_error_code", None) in (2003, 2043):
+            exception = AnalysisException(
+                "[TABLE_OR_VIEW_NOT_FOUND] The table or view cannot "
+                f"be found. {display_name}"
+            )
+            attach_custom_error_code(exception, ErrorCodes.INTERNAL_ERROR)
+            raise exception from e
+        logger.warning(
+            "Could not verify existence of %s for SHOW TBLPROPERTIES: %s",
+            sf_name,
+            e,
+        )
+
+
+def _handle_show_tblproperties(
+    session: Session,
+    sf_name: str,
+    display_name: str,
+    property_key: str | None,
+) -> tuple[pandas.DataFrame, str]:
+    """Shared ``SHOW TBLPROPERTIES`` logic for both the post-parse
+    ``ShowTableProperties`` plan node and the pre-parse interception of
+    qualified/backticked identifiers (which the base Spark parser does not
+    resolve). Non-Iceberg targets keep the historical empty result; Iceberg
+    targets read live properties and shape them into Spark's key/value frame.
+    """
+    if not _alter_target_is_iceberg(session, sf_name):
+        # Managed non-Iceberg: a real FDN table/view yields the historical empty
+        # result, but a missing table must raise TABLE_OR_VIEW_NOT_FOUND like
+        # Spark — get_table_type swallows the lookup miss, so probe explicitly.
+        # (CLD never reaches here: is_in_cld_context() makes _alter_target_is_iceberg
+        # return True, so the reader below raises on a missing CLD table instead.)
+        _raise_if_table_missing(session, sf_name, display_name)
+        return pandas.DataFrame({"": [""]}), ""
+    properties = _read_iceberg_table_properties(session, sf_name) or {}
+    show_df = _build_show_table_properties_df(properties, property_key, display_name)
+    if show_df.empty:
+        # An Iceberg table with no user properties yields a 0-row frame; return it
+        # with an explicit key/value schema so map_execution_command doesn't drop
+        # it as a schemaless LocalRelation (which crashes). SNOW-3866902.
+        return pandas.DataFrame(), _SHOW_TBLPROPERTIES_SCHEMA_JSON
+    return show_df, ""
+
+
+class _ShowTblPropertiesMatch(typing.NamedTuple):
+    table_sql: str
+    property_key: str | None
+    is_qualified: bool
+
+
+# ``SHOW TBLPROPERTIES <table> [('<key>')]``. The base Spark parser only resolves
+# this for a single-part (current-schema) table name; a qualified or backticked
+# multipart identifier is rejected and falls back to a generic Command, bypassing
+# the ShowTableProperties handler (SNOW-3866902 follow-up). We detect the
+# statement here and route it to the handler directly, mirroring
+# ``match_create_tag_as_of_timestamp_sql``.
+_SHOW_TBLPROPERTIES_RE = re.compile(
+    r"^\s*SHOW\s+TBLPROPERTIES\s+(?P<table>[^()]+?)\s*"
+    r"(?:\(\s*(?P<key>[^()]+?)\s*\))?\s*;?\s*$",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _strip_property_key_quotes(key: str) -> str:
+    key = key.strip()
+    if len(key) >= 2 and key[0] == key[-1] and key[0] in ("'", '"', "`"):
+        return key[1:-1]
+    return key
+
+
+def _show_tblproperties_identifier_is_valid(table_sql: str) -> bool:
+    """Reject a captured table token that folded trailing junk past the identifier.
+
+    ``[^()]+`` in the pattern is wider than a Spark identifier, so
+    ``SHOW TBLPROPERTIES db.schema.t extra`` would capture ``t extra`` and a
+    trailing comment would be swallowed too (Ilesh review). Outside a
+    backtick-quoted segment an identifier has no whitespace or comment markers, so
+    treat those as a parse error and fall back to the base Spark parser (which
+    reports it). Whitespace inside backticks (``\\`my table\\```) stays valid.
+    """
+    in_backtick = False
+    n = len(table_sql)
+    for i, ch in enumerate(table_sql):
+        if ch == "`":
+            in_backtick = not in_backtick
+            continue
+        if in_backtick:
+            continue
+        if ch.isspace():
+            return False
+        nxt = table_sql[i + 1] if i + 1 < n else ""
+        if (ch, nxt) in (("-", "-"), ("/", "*"), ("/", "/")):
+            return False
+    return True
+
+
+def match_show_tblproperties_sql(sql_string: str) -> _ShowTblPropertiesMatch | None:
+    """Parse ``SHOW TBLPROPERTIES <table> [('<key>')]`` from raw SQL. Returns the
+    raw Spark identifier text, the optional property key, and whether the
+    identifier is qualified (multipart). ``None`` when the statement isn't a
+    ``SHOW TBLPROPERTIES`` or the table token carries trailing junk (let the base
+    Spark parser report the parse error).
+    """
+    m = _SHOW_TBLPROPERTIES_RE.match(sql_string)
+    if m is None:
+        return None
+    table_sql = m.group("table").strip()
+    if not table_sql or not _show_tblproperties_identifier_is_valid(table_sql):
+        return None
+    raw_key = m.group("key")
+    return _ShowTblPropertiesMatch(
+        table_sql=table_sql,
+        property_key=(
+            _strip_property_key_quotes(raw_key) if raw_key is not None else None
+        ),
+        is_qualified=len(split_fully_qualified_spark_name(table_sql)) > 1,
+    )
 
 
 def _translate_and_execute_alter_via_sqlglot(session: Session, sql_string: str) -> None:
@@ -413,7 +667,7 @@ def _dispatch_set_table_properties(
         props[str(pair._1())] = str(pair._2())
     # Session-level CLD hint; "managed" here means "non-CLD session" (ALTER has no
     # per-table catalog kind to read), so query 4 gets a value instead of NULL.
-    catalog_kind = "cld" if is_in_cld_context() else "managed"
+    catalog_kind = resolve_catalog_kind()
     if not _alter_target_is_iceberg(session, table_name):
         telemetry.report_iceberg_table_properties(
             "alter_set",
@@ -453,7 +707,7 @@ def _dispatch_unset_table_properties(
     table_name = get_relation_identifier_name(logical_plan.table(), True)
     keys = [str(k) for k in as_java_list(logical_plan.propertyKeys())]
     # Session-level CLD hint; see _dispatch_set_table_properties.
-    catalog_kind = "cld" if is_in_cld_context() else "managed"
+    catalog_kind = resolve_catalog_kind()
     if not _alter_target_is_iceberg(session, table_name):
         telemetry.report_iceberg_table_properties(
             "alter_unset",
@@ -479,6 +733,77 @@ def _dispatch_unset_table_properties(
             "alter_unset", keys, outcome="emitted", catalog_kind=catalog_kind
         )
         _execute_alter(session, snowflake_sql, table_name, known_iceberg=True)
+
+
+def _dispatch_set_identifier_fields(session: Session, logical_plan) -> None:
+    """Route ``ALTER TABLE ... SET IDENTIFIER FIELDS (col, ...)``.
+
+    Iceberg Spark emits a ``SetIdentifierFields`` logical plan with
+    ``table()`` (multi-part Seq<String>) and ``fields()`` (Seq<String>
+    of column names). Snowflake has no ``SET IDENTIFIER FIELDS`` syntax;
+    the equivalent is ``ALTER ICEBERG TABLE <t> ADD PRIMARY KEY (<cols>)``
+    which writes ``identifier-field-ids`` to the Iceberg catalog.
+
+    Iceberg SET IDENTIFIER FIELDS **replaces** the entire set, so an
+    existing PK must be dropped first — Snowflake rejects a second
+    ``ADD PRIMARY KEY``. An empty field list clears identifier fields
+    (equivalent to ``DROP PRIMARY KEY``). SNOW-3968101.
+    """
+    table_name = _spark_to_snowflake(logical_plan.table())
+    cols = [
+        spark_to_sf_single_id(str(f), is_column=True)
+        for f in as_java_list(logical_plan.fields())
+    ]
+    # Drop any existing PK first — Snowflake rejects ADD when one exists.
+    rows = session.sql(f"SHOW PRIMARY KEYS IN {table_name}").collect()
+    if rows:
+        _execute_alter(
+            session,
+            f"ALTER TABLE {table_name} DROP PRIMARY KEY",
+            table_name,
+            known_iceberg=True,
+        )
+    if not cols:
+        return
+    snowflake_sql = f"ALTER TABLE {table_name} ADD PRIMARY KEY ({', '.join(cols)})"
+    _execute_alter(session, snowflake_sql, table_name, known_iceberg=True)
+
+
+def _dispatch_drop_identifier_fields(session: Session, logical_plan) -> None:
+    """Route ``ALTER TABLE ... DROP IDENTIFIER FIELDS (col, ...)``.
+
+    Spark's ``DropIdentifierFields`` removes specific columns from the
+    identifier-field set. Snowflake has no partial PK drop, so we query
+    the current PK columns (sorted by ``key_sequence``), subtract the
+    dropped ones, drop the existing PK, and re-add the survivors.
+    SNOW-3968152.
+    """
+    table_name = _spark_to_snowflake(logical_plan.table())
+    dropped = {str(f).upper() for f in as_java_list(logical_plan.fields())}
+    # Query current PK columns sorted by key_sequence to preserve order.
+    rows = session.sql(f"SHOW PRIMARY KEYS IN {table_name}").collect()
+    current_pk = [
+        str(r["column_name"])
+        for r in sorted(rows, key=lambda r: int(r["key_sequence"]))
+    ]
+    if not current_pk:
+        return
+    remaining = [c for c in current_pk if c.upper() not in dropped]
+    # Always drop first — Snowflake rejects ADD when a PK already exists.
+    _execute_alter(
+        session,
+        f"ALTER TABLE {table_name} DROP PRIMARY KEY",
+        table_name,
+        known_iceberg=True,
+    )
+    if remaining:
+        cols = ", ".join(spark_to_sf_single_id(c, is_column=True) for c in remaining)
+        _execute_alter(
+            session,
+            f"ALTER TABLE {table_name} ADD PRIMARY KEY ({cols})",
+            table_name,
+            known_iceberg=True,
+        )
 
 
 def _drop_table_should_use_cld_iceberg_purge(purge: bool) -> bool:
@@ -3001,6 +3326,127 @@ def _require_iceberg_sql_extensions_for_tag_ddl() -> None:
         raise _iceberg_tag_ddl_extensions_disabled_exception()
 
 
+_FILE_FORMAT_TEMP_VIEW_PROVIDERS = frozenset({"xml", "csv", "json", "parquet", "text"})
+
+
+def _file_format_from_temp_view_provider(provider: str) -> str | None:
+    """Return a supported file format, including class-name aliases like xml."""
+    fmt = provider.rsplit(".", 1)[-1].lower()
+    if fmt in _FILE_FORMAT_TEMP_VIEW_PROVIDERS:
+        return fmt
+    return None
+
+
+def _temp_view_using_options(logical_plan: typing.Any) -> dict[str, str]:
+    return {str(k): str(v) for k, v in as_java_map(logical_plan.options()).items()}
+
+
+def _temp_view_using_is_global(logical_plan: typing.Any) -> bool:
+    """JPype exposes Scala ``global`` as ``global_`` (Python reserved word)."""
+    getter = getattr(logical_plan, "global_", None)
+    if callable(getter):
+        return bool(getter())
+    return False
+
+
+def _temp_view_using_schema_json(logical_plan: typing.Any) -> str:
+    schema_opt = logical_plan.userSpecifiedSchema()
+    if schema_opt is None or schema_opt.isEmpty():
+        return ""
+    return str(schema_opt.get().json())
+
+
+def _raise_if_local_input_path_missing(paths: list[str]) -> None:
+    """Fail CREATE VIEW the way spark-xml 0.17 / Hadoop FileInputFormat do."""
+    from snowflake.snowpark_connect.relation.io_utils import (
+        convert_file_prefix_path,
+        is_cloud_path,
+    )
+    from snowflake.snowpark_connect.relation.read.path_anchoring import (
+        classify_source_path,
+    )
+
+    for path in paths:
+        if is_cloud_path(path) or path.lstrip().startswith("@"):
+            continue
+        if classify_source_path(path).kind == "glob":
+            continue
+        local = convert_file_prefix_path(path)
+        if not os.path.exists(local):
+            exception = AnalysisException(f"Input path does not exist: {path}")
+            attach_custom_error_code(exception, ErrorCodes.INVALID_CONFIG_VALUE)
+            raise exception
+
+
+def _try_create_temp_view_using_file_source(logical_plan: typing.Any) -> bool:
+    """Read a file-format CreateTempViewUsing and register it as a temp view.
+
+    Returns True when the provider is a format SCOS already reads, so the
+    caller must not emit ``USING <format>`` to Snowflake.
+    """
+    read_format = _file_format_from_temp_view_provider(str(logical_plan.provider()))
+    if read_format is None:
+        return False
+
+    from snowflake.snowpark_connect.relation.read.map_read import (
+        _paths_from_read_options,
+        map_read,
+    )
+
+    options = _temp_view_using_options(logical_plan)
+    source_paths = _paths_from_read_options(options)
+    # ``USING parquet`` with a schema and no PATH is the empty-relation form
+    # (SNOW-2309826). Fall through to sqlglot so we do not call map_read with
+    # zero paths (4001 UNSUPPORTED FORMAT parquet WITH NO PATH).
+    if not source_paths:
+        return False
+    options_without_path = {
+        k: v for k, v in options.items() if k.lower() not in ("path", "paths")
+    }
+    _raise_if_local_input_path_missing(source_paths)
+
+    proto = relation_proto.Relation(
+        read=relation_proto.Read(
+            data_source=relation_proto.Read.DataSource(
+                format=read_format,
+                paths=source_paths,
+                options=options_without_path,
+                schema=_temp_view_using_schema_json(logical_plan),
+            )
+        )
+    )
+    # map_read caches on (session_id, plan_id). An unset proto int64 is 0, which
+    # is also the first Spark client plan id, so two USING views or a later
+    # spark.read would share a cache entry. Use a server-generated id, then
+    # drop it: gen_sql_plan_id() resets to 0x80000000 on every RPC.
+    from snowflake.snowpark_connect.utils.cache import df_cache_map_pop
+
+    plan_id = gen_sql_plan_id()
+    proto.common.plan_id = plan_id
+    df_container = map_read(proto)
+    df_cache_map_pop((get_spark_session_id(), plan_id))
+
+    # Spark rejects a database prefix on TEMPORARY VIEW at analysis time, so
+    # tableIdent().table() is the view name (same as CreateViewCommand.identifier).
+    spark_view_name = str(logical_plan.tableIdent().table())
+    session = get_or_create_snowpark_session()
+    tmp_views = _get_current_temp_objects()
+    tmp_views.add(
+        (
+            CURRENT_CATALOG_NAME,
+            session.connection.schema,
+            spark_view_name,
+        )
+    )
+    create_temporary_view_from_dataframe(
+        df_container,
+        spark_view_name,
+        _temp_view_using_is_global(logical_plan),
+        bool(logical_plan.replace()),
+    )
+    return True
+
+
 def map_sql_to_pandas_df(
     sql_string: str,
     named_args: MutableMapping[str, expressions_proto.Expression.Literal],
@@ -3028,6 +3474,25 @@ def map_sql_to_pandas_df(
                 )
                 session.sql(snowflake_sql).collect()
                 return pandas.DataFrame(), '{"type": "struct", "fields": []}'
+        show_tblproperties_match = match_show_tblproperties_sql(sql_string)
+        if (
+            show_tblproperties_match is not None
+            and show_tblproperties_match.is_qualified
+        ):
+            # The base Spark parser only resolves SHOW TBLPROPERTIES for a bare
+            # (current-schema) name; a qualified/backticked identifier falls back
+            # to a generic Command and bypasses the ShowTableProperties handler
+            # (empty result on managed, raw 093678 on CLD). Route it directly to
+            # the handler so managed and CLD qualified names both work. Bare names
+            # keep flowing through parsePlan -> the ShowTableProperties case.
+            session = get_or_create_snowpark_session()
+            sf_name = _spark_table_sql_to_snowflake(show_tblproperties_match.table_sql)
+            return _handle_show_tblproperties(
+                session,
+                sf_name,
+                show_tblproperties_match.table_sql,
+                show_tblproperties_match.property_key,
+            )
         if is_cld_unified_identifier_rules_enabled():
             sql_string = _preprocess_sql_for_cld_rules(sql_string)
         logical_plan = sql_parser().parsePlan(sql_string)
@@ -3250,7 +3715,9 @@ def map_sql_to_pandas_df(
                 # Namespace DDL is Iceberg-meaningful only in a CLD (external
                 # catalog) session; managed CREATE SCHEMA is a plain Snowflake schema.
                 if is_in_cld_context():
-                    telemetry.report_iceberg_ddl("create_namespace", catalog_kind="cld")
+                    telemetry.report_iceberg_ddl(
+                        "create_namespace", catalog_kind=resolve_catalog_kind()
+                    )
                 _execute_create_namespace(session, name, logical_plan.ifNotExists())
             case "CreateOrReplaceTag":
                 # Iceberg Spark SQL Extension DDL:
@@ -3362,65 +3829,70 @@ def map_sql_to_pandas_df(
                     f"CREATE TABLE {if_not_exists}{name} LIKE {source}"
                 ).collect()
             case "CreateTempViewUsing":
-                parsed_sql = sqlglot.parse_one(sql_string, dialect="spark")
+                if not _try_create_temp_view_using_file_source(logical_plan):
+                    parsed_sql = sqlglot.parse_one(sql_string, dialect="spark")
 
-                spark_view_name = next(parsed_sql.find_all(sqlglot.exp.Table)).name
+                    spark_view_name = next(parsed_sql.find_all(sqlglot.exp.Table)).name
 
-                # extract ONLY top-level column definitions (not nested struct fields)
-                column_defs = []
-                schema_node = next(parsed_sql.find_all(sqlglot.exp.Schema), None)
-                if schema_node:
-                    for expr in schema_node.expressions:
-                        if isinstance(expr, sqlglot.exp.ColumnDef):
-                            column_defs.append(expr)
+                    # extract ONLY top-level column definitions (not nested struct fields)
+                    column_defs = []
+                    schema_node = next(parsed_sql.find_all(sqlglot.exp.Schema), None)
+                    if schema_node:
+                        for expr in schema_node.expressions:
+                            if isinstance(expr, sqlglot.exp.ColumnDef):
+                                column_defs.append(expr)
 
-                num_columns = len(column_defs)
-                if num_columns > 0:
-                    null_list_parts = []
-                    for col_def in column_defs:
-                        col_name = spark_to_sf_single_id(col_def.name, is_column=True)
-                        col_type = col_def.kind
-                        if col_type:
-                            null_list_parts.append(
-                                f"CAST(NULL AS {col_type.sql(dialect='snowflake')}) AS {col_name}"
+                    num_columns = len(column_defs)
+                    if num_columns > 0:
+                        null_list_parts = []
+                        for col_def in column_defs:
+                            col_name = spark_to_sf_single_id(
+                                col_def.name, is_column=True
                             )
-                        else:
-                            null_list_parts.append(f"NULL AS {col_name}")
-                    null_list = ", ".join(null_list_parts)
-                else:
-                    null_list = "*"
+                            col_type = col_def.kind
+                            if col_type:
+                                null_list_parts.append(
+                                    f"CAST(NULL AS {col_type.sql(dialect='snowflake')}) AS {col_name}"
+                                )
+                            else:
+                                null_list_parts.append(f"NULL AS {col_name}")
+                        null_list = ", ".join(null_list_parts)
+                    else:
+                        null_list = "*"
 
-                empty_select = (
-                    f" AS SELECT {null_list} WHERE 1 = 0"
-                    if logical_plan.options().isEmpty()
-                    and logical_plan.children().isEmpty()
-                    else ""
-                )
+                    empty_select = (
+                        f" AS SELECT {null_list} WHERE 1 = 0"
+                        if logical_plan.options().isEmpty()
+                        and logical_plan.children().isEmpty()
+                        else ""
+                    )
 
-                transformed_sql = (
-                    parsed_sql.transform(_normalize_identifiers)
-                    .transform(_remove_column_data_type)
-                    .transform(_remove_file_format_property)
-                )
-                snowflake_sql = transformed_sql.sql(dialect="snowflake")
-                session.sql(f"{snowflake_sql}{empty_select}").collect()
-                snowflake_view_name = spark_to_sf_single_id_with_unquoting(
-                    spark_view_name
-                )
-                temp_view = get_temp_view(snowflake_view_name)
-                if temp_view is not None and not logical_plan.replace():
-                    exception = AnalysisException(
-                        f"[TEMP_TABLE_OR_VIEW_ALREADY_EXISTS] Cannot create the temporary view `{spark_view_name}` because it already exists."
+                    transformed_sql = (
+                        parsed_sql.transform(_normalize_identifiers)
+                        .transform(_remove_column_data_type)
+                        .transform(_remove_file_format_property)
                     )
-                    attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
-                    raise exception
-                else:
-                    register_temp_view(
-                        spark_to_sf_single_id_with_unquoting(spark_view_name),
-                        True,
-                        None,
-                        logical_plan.replace(),
+                    snowflake_sql = transformed_sql.sql(dialect="snowflake")
+                    session.sql(f"{snowflake_sql}{empty_select}").collect()
+                    snowflake_view_name = spark_to_sf_single_id_with_unquoting(
+                        spark_view_name
                     )
+                    temp_view = get_temp_view(snowflake_view_name)
+                    if temp_view is not None and not logical_plan.replace():
+                        exception = AnalysisException(
+                            f"[TEMP_TABLE_OR_VIEW_ALREADY_EXISTS] Cannot create the temporary view `{spark_view_name}` because it already exists."
+                        )
+                        attach_custom_error_code(
+                            exception, ErrorCodes.INVALID_OPERATION
+                        )
+                        raise exception
+                    else:
+                        register_temp_view(
+                            spark_to_sf_single_id_with_unquoting(spark_view_name),
+                            True,
+                            None,
+                            logical_plan.replace(),
+                        )
             case "CreateView":
                 current_schema = session.connection.schema
                 if (
@@ -3764,7 +4236,9 @@ def map_sql_to_pandas_df(
                 # Namespace DDL is Iceberg-meaningful only in a CLD (external
                 # catalog) session; managed DROP SCHEMA is a plain Snowflake schema.
                 if is_in_cld_context():
-                    telemetry.report_iceberg_ddl("drop_namespace", catalog_kind="cld")
+                    telemetry.report_iceberg_ddl(
+                        "drop_namespace", catalog_kind=resolve_catalog_kind()
+                    )
                 session.sql(f"DROP SCHEMA {if_exists}{name}").collect()
             case "DropTable":
                 # Spark resolves DROP TABLE to a shadowing temp view before the
@@ -4203,6 +4677,10 @@ def map_sql_to_pandas_df(
                 _dispatch_set_table_properties(session, logical_plan, sql_string)
             case "UnsetTableProperties":
                 _dispatch_unset_table_properties(session, logical_plan, sql_string)
+            case "SetIdentifierFields":
+                _dispatch_set_identifier_fields(session, logical_plan)
+            case "DropIdentifierFields":
+                _dispatch_drop_identifier_fields(session, logical_plan)
             case "RenameTable":
                 name = get_relation_identifier_name(logical_plan.child(), True)
                 new_name = _spark_to_snowflake(logical_plan.newName())
@@ -4455,6 +4933,34 @@ def map_sql_to_pandas_df(
                 or command.startswith("AddColumns")
             ):
                 _translate_and_execute_alter_via_sqlglot(session, sql_string)
+            case "ShowTableProperties":
+                # Spark's SHOW TBLPROPERTIES (SNOW-3866902). For Iceberg targets
+                # (managed or CLD) read the live properties back via
+                # SYSTEM$READ_ICEBERG_TABLE_PROPERTY and shape them into Spark's
+                # key/value result. Non-Iceberg tables have no Snowflake
+                # equivalent, so preserve the historical empty result.
+                table_relation = logical_plan.child()
+                sf_name = get_relation_identifier_name(table_relation, True)
+                # spark_name is used only for the "does not have property"
+                # placeholder text (display); resolution and the read-back use
+                # sf_name. Fall back to sf_name only if the Spark multipart
+                # identifier isn't available, so at worst the placeholder shows a
+                # Snowflake-formatted name — never a resolution error.
+                try:
+                    spark_name = ".".join(
+                        str(part)
+                        for part in as_java_list(table_relation.multipartIdentifier())
+                    )
+                except AttributeError:
+                    spark_name = sf_name
+                property_key = (
+                    str(logical_plan.propertyKey().get())
+                    if logical_plan.propertyKey().isDefined()
+                    else None
+                )
+                return _handle_show_tblproperties(
+                    session, sf_name, spark_name, property_key
+                )
             case command if command.startswith("Describe") or command.startswith(
                 "Show"
             ):
@@ -4462,11 +4968,6 @@ def map_sql_to_pandas_df(
                     _normalize_identifiers
                 )
                 snowflake_sql = parsed_sql.sql(dialect="snowflake")
-                if command.startswith("Show"):
-                    if snowflake_sql.startswith("SHOW TBLPROPERTIES"):
-                        # Snowflake doesn't support TBLPROPERTIES, EXTENDED.
-                        return pandas.DataFrame({"": [""]}), ""
-
                 rows = session.sql(snowflake_sql).collect()
             case "RefreshTable":
                 table_name_unquoted = ".".join(
@@ -6339,7 +6840,7 @@ def _build_create_iceberg_table_clauses(
     # GS hard-rejects the whole CREATE. GS additionally requires
     # ENABLE_ICEBERG_TABLE_PROPERTIES_ON_MANAGED_TABLES to accept it on a managed target.
     leftover_keys = _leftover_table_property_keys(properties)
-    catalog_kind = "cld" if is_cld else "managed"
+    catalog_kind = resolve_catalog_kind()
     if _iceberg_table_properties_ddl_enabled():
         table_properties_clause = _build_table_properties_clause(properties)
         if table_properties_clause:

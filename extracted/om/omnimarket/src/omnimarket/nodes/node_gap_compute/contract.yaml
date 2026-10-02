@@ -1,0 +1,108 @@
+---
+name: node_gap_compute
+contract_version: {major: 1, minor: 1, patch: 0}
+node_type: compute
+runtime_profiles: [main]
+node_version: {major: 1, minor: 1, patch: 0}
+description: >
+  Computes deterministic integration gaps from repo-local contracts and typed
+  report artifacts. Live service probes and destructive fixes are explicit
+  follow-on effect surfaces, not silent fallbacks.
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: gap
+      handler:
+        name: HandlerGapCompute
+        module: omnimarket.nodes.node_gap_compute.handlers.handler_gap_compute
+
+handler:
+  module: omnimarket.nodes.node_gap_compute.handlers.handler_gap_compute
+  class: HandlerGapCompute
+  input_model: omnimarket.nodes.node_gap_compute.models.model_gap_compute_request.ModelGapComputeRequest
+
+descriptor:
+  node_archetype: compute
+  purity: pure
+  idempotent: true
+  timeout_ms: 30000
+
+inputs:
+  subcommand:
+    type: str
+    enum: [detect, fix, cycle, reconcile]
+    required: false
+    default: detect
+  scope:
+    type: str
+    required: false
+    default: local
+  epic:
+    type: str
+    required: false
+  report:
+    type: str
+    required: false
+  repo:
+    type: str
+    required: false
+  repo_roots:
+    type: list
+    required: false
+  dry_run:
+    type: bool
+    required: false
+    default: false
+
+outputs:
+  status:
+    type: str
+    enum: [clean, findings, blocked, error]
+  run_id:
+    type: str
+  message:
+    type: str
+  subcommand:
+    type: str
+    enum: [detect, fix, cycle, reconcile]
+  scope:
+    type: str
+  dry_run:
+    type: bool
+  repos_in_scope:
+    type: list
+  contracts_checked:
+    type: int
+  findings:
+    type: list
+  best_effort_findings:
+    type: list
+  skipped_probes:
+    type: list
+  report_path:
+    type: str
+    required: false
+    nullable: true
+  dispatch_class_counts:
+    type: map
+
+terminal_event: onex.evt.omnimarket.gap-compute-completed.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.gap-compute-start.v1
+  publish_topics:
+    - onex.evt.omnimarket.gap-compute-completed.v1
+
+metadata:
+  transport_type: kafka
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.gap-compute-start.v1
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.gap-compute-completed.v1

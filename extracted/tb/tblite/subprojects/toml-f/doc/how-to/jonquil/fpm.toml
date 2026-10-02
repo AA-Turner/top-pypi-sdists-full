@@ -1,5 +1,0 @@
-name = "demo"
-
-[dependencies]
-toml-f.path = "../../.."
-jonquil.git = "https://github.com/toml-f/jonquil.git"

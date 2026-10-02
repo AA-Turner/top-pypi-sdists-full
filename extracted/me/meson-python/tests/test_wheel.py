@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import stat
+import subprocess
 import sys
 import textwrap
 
@@ -269,6 +270,22 @@ def test_link_against_local_lib_rpath(package_link_against_local_lib, tmp_path):
 
 
 @pytest.mark.skipif(sys.platform in {'win32', 'cygwin'}, reason='requires RPATH support')
+@pytest.mark.skipif(shutil.which('pkg-config') is None, reason='requires pkg-config')
+def test_link_against_external_lib_rpath(package_link_against_external_lib, tmp_path, venv):
+    if subprocess.run(['pkg-config', '--exists', 'geos']).returncode:
+        pytest.skip('requires GEOS')
+    version = subprocess.check_output(['pkg-config', '--modversion', 'geos'], text=True).strip()
+
+    # Use an installed dependency without supplying an explicit RPATH.
+    # Check its version too, to detect fallback to a different system copy.
+    filename = mesonpy.build_wheel(tmp_path)
+    venv.pip('install', tmp_path / filename)
+    output = venv.python('-c', 'import external; print(external.version())')
+    # GEOSversion() appends the C API version after "-CAPI-".
+    assert output.strip().split('-CAPI-')[0] == version
+
+
+@pytest.mark.skipif(sys.platform in {'win32', 'cygwin'}, reason='requires RPATH support')
 def test_link_against_local_lib_rpath_ldflags(package_link_against_local_lib, tmp_path, monkeypatch):
     origin = '@loader_path' if sys.platform == 'darwin' else '$ORIGIN'
     extra_rpath = {f'{origin}/test-ldflags', '/usr/lib/test-ldflags'}
@@ -290,8 +307,10 @@ def test_uneeded_rpath(wheel_purelib_and_platlib, tmp_path):
 
     origin = '@loader_path' if sys.platform == 'darwin' else '$ORIGIN'
     rpath = mesonpy._rpath.get_rpath(tmp_path / f'plat{EXT_SUFFIX}')
-    for path in rpath:
-        assert origin not in path
+
+    assert not any(path.startswith(origin) for path in rpath)
+    assert '/usr/local/lib' in rpath
+    assert not any(path.endswith('private') for path in rpath) or not BUILD_RPATH_SUPPORT
 
 
 @pytest.mark.skipif(sys.platform in {'win32', 'cygwin'}, reason='requires RPATH support')

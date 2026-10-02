@@ -1,0 +1,1170 @@
+interactions:
+- request:
+    body: password=1234&display_name=J%C3%A9r%C3%B4me&email=jeremy%40example.com
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      content-type: [application/x-www-form-urlencoded]
+      user-agent: [GNU Mailman REST client v3.1.2a1]
+    method: POST
+    uri: http://localhost:9001/3.1/users
+  response:
+    body: {string: ''}
+    headers:
+      content-length: ['0']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Sun, 25 Feb 2018 03:57:25 GMT']
+      location: ['http://localhost:9001/3.1/users/00000000000000000000000000000031']
+      server: [WSGIServer/0.2 CPython/3.5.2]
+    status: {code: 201, message: Created}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.1.2a1]
+    method: GET
+    uri: http://localhost:9001/3.1/users/00000000000000000000000000000031
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"1ac9d69fe4daa044fdaf497d109418d76d887427\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$35RkPXZXZC1DdVEJ$Y3lrLT8wqiUuGSod2llvqV2QhRKR90v.I0KuK7u8iK69SofOR5AgmrR6MFxvRN6xvWGOuADZL6OvSHq0iVwiB.",
+        "self_link": "http://localhost:9001/3.1/users/00000000000000000000000000000031",
+        "user_id": "00000000000000000000000000000031"}'}
+    headers:
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Sun, 25 Feb 2018 03:57:25 GMT']
+      server: [WSGIServer/0.2 CPython/3.5.2]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.1.2a1]
+    method: GET
+    uri: http://localhost:9001/3.1/users/jeremy@example.com
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"1ac9d69fe4daa044fdaf497d109418d76d887427\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$35RkPXZXZC1DdVEJ$Y3lrLT8wqiUuGSod2llvqV2QhRKR90v.I0KuK7u8iK69SofOR5AgmrR6MFxvRN6xvWGOuADZL6OvSHq0iVwiB.",
+        "self_link": "http://localhost:9001/3.1/users/00000000000000000000000000000031",
+        "user_id": "00000000000000000000000000000031"}'}
+    headers:
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Sun, 25 Feb 2018 03:57:25 GMT']
+      server: [WSGIServer/0.2 CPython/3.5.2]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.1.2a1]
+    method: DELETE
+    uri: http://localhost:9001/3.1/users/00000000000000000000000000000031
+  response:
+    body: {string: ''}
+    headers:
+      content-length: ['0']
+      date: ['Sun, 25 Feb 2018 03:57:25 GMT']
+      server: [WSGIServer/0.2 CPython/3.5.2]
+    status: {code: 204, message: No Content}
+- request:
+    body: password=1234&display_name=J%C3%A9r%C3%B4me&email=jeremy%40example.com
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      content-type: [application/x-www-form-urlencoded]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: POST
+    uri: http://localhost:9001/3.1/users
+  response:
+    body: {string: ''}
+    headers:
+      content-length: ['0']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:12:32 GMT']
+      location: ['http://localhost:9001/3.1/users/00000000000000000000000000000011']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 201, message: Created}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/users/00000000000000000000000000000011
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"b85ec39ae7a2a343ab4401291dad8e4b25bc035b\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$OS3s7C7HQI0ump.8$6j2ya0ClBW4EArzxgKCQV2AOy3Zp9tQiluXh6Abd6k16343XIwHCzwbrvzR8SZsnpnRqtSbZx/ZyplGyt56zr.",
+        "self_link": "http://localhost:9001/3.1/users/00000000000000000000000000000011",
+        "user_id": "00000000000000000000000000000011"}'}
+    headers:
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:12:32 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/users/jeremy@example.com
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"b85ec39ae7a2a343ab4401291dad8e4b25bc035b\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$OS3s7C7HQI0ump.8$6j2ya0ClBW4EArzxgKCQV2AOy3Zp9tQiluXh6Abd6k16343XIwHCzwbrvzR8SZsnpnRqtSbZx/ZyplGyt56zr.",
+        "self_link": "http://localhost:9001/3.1/users/00000000000000000000000000000011",
+        "user_id": "00000000000000000000000000000011"}'}
+    headers:
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:12:32 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: DELETE
+    uri: http://localhost:9001/3.1/users/00000000000000000000000000000011
+  response:
+    body: {string: ''}
+    headers:
+      content-length: ['0']
+      date: ['Wed, 16 May 2018 00:12:32 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 204, message: No Content}
+- request:
+    body: password=1234&display_name=J%C3%A9r%C3%B4me&email=jeremy%40example.com
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      content-type: [application/x-www-form-urlencoded]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: POST
+    uri: http://localhost:9001/3.1/users
+  response:
+    body: {string: ''}
+    headers:
+      content-length: ['0']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:13:03 GMT']
+      location: ['http://localhost:9001/3.1/users/00000000000000000000000000000016']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 201, message: Created}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/users/00000000000000000000000000000016
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"15110bd500ebe81bcf15c8414aa4e97de9496fbb\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$Pc5iYh5Oz.o05CPV$eWk5km6guPepPxOVBFESkZFQ7visOilWlPizFDwF9d6Cw/VWXZNW1Y4QwVD1JBJhgxxEHSvUjtN6BL1Yn.xmm0",
+        "self_link": "http://localhost:9001/3.1/users/00000000000000000000000000000016",
+        "user_id": "00000000000000000000000000000016"}'}
+    headers:
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:13:03 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/users/jeremy@example.com
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"15110bd500ebe81bcf15c8414aa4e97de9496fbb\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$Pc5iYh5Oz.o05CPV$eWk5km6guPepPxOVBFESkZFQ7visOilWlPizFDwF9d6Cw/VWXZNW1Y4QwVD1JBJhgxxEHSvUjtN6BL1Yn.xmm0",
+        "self_link": "http://localhost:9001/3.1/users/00000000000000000000000000000016",
+        "user_id": "00000000000000000000000000000016"}'}
+    headers:
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:13:03 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: DELETE
+    uri: http://localhost:9001/3.1/users/00000000000000000000000000000016
+  response:
+    body: {string: ''}
+    headers:
+      content-length: ['0']
+      date: ['Wed, 16 May 2018 00:13:03 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 204, message: No Content}
+- request:
+    body: password=1234&display_name=J%C3%A9r%C3%B4me&email=jeremy%40example.com
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      content-type: [application/x-www-form-urlencoded]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: POST
+    uri: http://localhost:9001/3.1/users
+  response:
+    body: {string: ''}
+    headers:
+      content-length: ['0']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:13:36 GMT']
+      location: ['http://localhost:9001/3.1/users/00000000000000000000000000000018']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 201, message: Created}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/users/00000000000000000000000000000018
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"741415188015346c7d6a81e98b59c90a544c7d33\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$/VOJQeHWwOfG1XZX$JgzvRHcZ3/Zeqd2bnLJg.jU2gysP6KdazJZOZpA3bYCWJnIx4Q0l0GUS5ZVuOEItZ3pln33eFm/QYv2RqZJyu0",
+        "self_link": "http://localhost:9001/3.1/users/00000000000000000000000000000018",
+        "user_id": "00000000000000000000000000000018"}'}
+    headers:
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:13:36 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/users/jeremy@example.com
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"741415188015346c7d6a81e98b59c90a544c7d33\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$/VOJQeHWwOfG1XZX$JgzvRHcZ3/Zeqd2bnLJg.jU2gysP6KdazJZOZpA3bYCWJnIx4Q0l0GUS5ZVuOEItZ3pln33eFm/QYv2RqZJyu0",
+        "self_link": "http://localhost:9001/3.1/users/00000000000000000000000000000018",
+        "user_id": "00000000000000000000000000000018"}'}
+    headers:
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:13:36 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: DELETE
+    uri: http://localhost:9001/3.1/users/00000000000000000000000000000018
+  response:
+    body: {string: ''}
+    headers:
+      content-length: ['0']
+      date: ['Wed, 16 May 2018 00:13:36 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 204, message: No Content}
+- request:
+    body: password=1234&display_name=J%C3%A9r%C3%B4me&email=jeremy%40example.com
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      content-type: [application/x-www-form-urlencoded]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: POST
+    uri: http://localhost:9001/3.1/users
+  response:
+    body: {string: ''}
+    headers:
+      content-length: ['0']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:14:11 GMT']
+      location: ['http://localhost:9001/3.1/users/0000000000000000000000000000001f']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 201, message: Created}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/users/0000000000000000000000000000001f
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"3fc9d2c98714109a54fdf87275227bbf3080a7b5\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$MczXRwOI7pyPFVPD$shbRmqsVCYh8o9K8bXdz.KkfarB0PJu2i1aHenk83ynnm3iK2Is8g6U8CYlXVMjpz6G6XWZOK.OQkSfbNG8nL/",
+        "self_link": "http://localhost:9001/3.1/users/0000000000000000000000000000001f",
+        "user_id": "0000000000000000000000000000001f"}'}
+    headers:
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:14:11 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/users/jeremy@example.com
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"3fc9d2c98714109a54fdf87275227bbf3080a7b5\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$MczXRwOI7pyPFVPD$shbRmqsVCYh8o9K8bXdz.KkfarB0PJu2i1aHenk83ynnm3iK2Is8g6U8CYlXVMjpz6G6XWZOK.OQkSfbNG8nL/",
+        "self_link": "http://localhost:9001/3.1/users/0000000000000000000000000000001f",
+        "user_id": "0000000000000000000000000000001f"}'}
+    headers:
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:14:11 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: DELETE
+    uri: http://localhost:9001/3.1/users/0000000000000000000000000000001f
+  response:
+    body: {string: ''}
+    headers:
+      content-length: ['0']
+      date: ['Wed, 16 May 2018 00:14:11 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 204, message: No Content}
+- request:
+    body: password=1234&display_name=J%C3%A9r%C3%B4me&email=jeremy%40example.com
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      content-type: [application/x-www-form-urlencoded]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: POST
+    uri: http://localhost:9001/3.1/users
+  response:
+    body: {string: ''}
+    headers:
+      content-length: ['0']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:15:58 GMT']
+      location: ['http://localhost:9001/3.1/users/00000000000000000000000000000021']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 201, message: Created}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/users/00000000000000000000000000000021
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"f33be8e74f1657242c63962e4759993bb82db1ef\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$guM86nG6ulYvX.6B$mVjfDgqqKIpigVS78sRRpCps9fVoXYn9dvXZ.PwZ14OgStujBfYFd6Z199eRt0hZb4r7ewVK0nuY9URW.I7v91",
+        "self_link": "http://localhost:9001/3.1/users/00000000000000000000000000000021",
+        "user_id": "00000000000000000000000000000021"}'}
+    headers:
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:15:58 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/users/jeremy@example.com
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"f33be8e74f1657242c63962e4759993bb82db1ef\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$guM86nG6ulYvX.6B$mVjfDgqqKIpigVS78sRRpCps9fVoXYn9dvXZ.PwZ14OgStujBfYFd6Z199eRt0hZb4r7ewVK0nuY9URW.I7v91",
+        "self_link": "http://localhost:9001/3.1/users/00000000000000000000000000000021",
+        "user_id": "00000000000000000000000000000021"}'}
+    headers:
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:15:58 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: DELETE
+    uri: http://localhost:9001/3.1/users/00000000000000000000000000000021
+  response:
+    body: {string: ''}
+    headers:
+      content-length: ['0']
+      date: ['Wed, 16 May 2018 00:15:58 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 204, message: No Content}
+- request:
+    body: password=1234&display_name=J%C3%A9r%C3%B4me&email=jeremy%40example.com
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      content-type: [application/x-www-form-urlencoded]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: POST
+    uri: http://localhost:9001/3.1/users
+  response:
+    body: {string: ''}
+    headers:
+      content-length: ['0']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:17:53 GMT']
+      location: ['http://localhost:9001/3.1/users/00000000000000000000000000000023']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 201, message: Created}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/users/00000000000000000000000000000023
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"c881c16134daf5ce63d1d5b6116e364b83e520ba\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$vUTQJg4UP2RH.uHO$1e9wt5faB/pn1HAHgYMpdiISeEAvNP/4BRyanH7Z7eXyhN.qdHyFrcU6wBckEdkUCnVi1g6Mx3lQS02G4tU3g.",
+        "self_link": "http://localhost:9001/3.1/users/00000000000000000000000000000023",
+        "user_id": "00000000000000000000000000000023"}'}
+    headers:
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:17:53 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/users/jeremy@example.com
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"c881c16134daf5ce63d1d5b6116e364b83e520ba\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$vUTQJg4UP2RH.uHO$1e9wt5faB/pn1HAHgYMpdiISeEAvNP/4BRyanH7Z7eXyhN.qdHyFrcU6wBckEdkUCnVi1g6Mx3lQS02G4tU3g.",
+        "self_link": "http://localhost:9001/3.1/users/00000000000000000000000000000023",
+        "user_id": "00000000000000000000000000000023"}'}
+    headers:
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:17:53 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: DELETE
+    uri: http://localhost:9001/3.1/users/00000000000000000000000000000023
+  response:
+    body: {string: ''}
+    headers:
+      content-length: ['0']
+      date: ['Wed, 16 May 2018 00:17:53 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 204, message: No Content}
+- request:
+    body: password=1234&display_name=J%C3%A9r%C3%B4me&email=jeremy%40example.com
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      content-type: [application/x-www-form-urlencoded]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: POST
+    uri: http://localhost:9001/3.1/users
+  response:
+    body: {string: ''}
+    headers:
+      content-length: ['0']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:18:57 GMT']
+      location: ['http://localhost:9001/3.1/users/00000000000000000000000000000025']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 201, message: Created}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/users/00000000000000000000000000000025
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"d9a36ede7f5f2183c0d1a510401f3bcb08279454\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$cFfKUo0mXou50rRR$2nL51KFe5voKczXmQ3Qpfql5ZaTU/B5On8KZZD/8ACGnDSIVvXhyr/yHy.omXBTaT2DBv83BZQk4I0gCfBs5X.",
+        "self_link": "http://localhost:9001/3.1/users/00000000000000000000000000000025",
+        "user_id": "00000000000000000000000000000025"}'}
+    headers:
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:18:57 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/users/jeremy@example.com
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"d9a36ede7f5f2183c0d1a510401f3bcb08279454\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$cFfKUo0mXou50rRR$2nL51KFe5voKczXmQ3Qpfql5ZaTU/B5On8KZZD/8ACGnDSIVvXhyr/yHy.omXBTaT2DBv83BZQk4I0gCfBs5X.",
+        "self_link": "http://localhost:9001/3.1/users/00000000000000000000000000000025",
+        "user_id": "00000000000000000000000000000025"}'}
+    headers:
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:18:57 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: DELETE
+    uri: http://localhost:9001/3.1/users/00000000000000000000000000000025
+  response:
+    body: {string: ''}
+    headers:
+      content-length: ['0']
+      date: ['Wed, 16 May 2018 00:18:57 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 204, message: No Content}
+- request:
+    body: password=1234&display_name=J%C3%A9r%C3%B4me&email=jeremy%40example.com
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      content-type: [application/x-www-form-urlencoded]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: POST
+    uri: http://localhost:9001/3.1/users
+  response:
+    body: {string: ''}
+    headers:
+      content-length: ['0']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:19:57 GMT']
+      location: ['http://localhost:9001/3.1/users/00000000000000000000000000000027']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 201, message: Created}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/users/00000000000000000000000000000027
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"d14fd3575a691d1ccd6cf00d9989ec425bf8fbb7\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$ln7ZL4N70yK3G.pY$ia0XYnU4N8y0A0rRY/bE6O7saQJiHmAffN/zNXcPkk0aTMSb1ztLgP3bI/9wuNBGncvFTW.CMctNJIQOfiN1n.",
+        "self_link": "http://localhost:9001/3.1/users/00000000000000000000000000000027",
+        "user_id": "00000000000000000000000000000027"}'}
+    headers:
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:19:57 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/users/jeremy@example.com
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"d14fd3575a691d1ccd6cf00d9989ec425bf8fbb7\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$ln7ZL4N70yK3G.pY$ia0XYnU4N8y0A0rRY/bE6O7saQJiHmAffN/zNXcPkk0aTMSb1ztLgP3bI/9wuNBGncvFTW.CMctNJIQOfiN1n.",
+        "self_link": "http://localhost:9001/3.1/users/00000000000000000000000000000027",
+        "user_id": "00000000000000000000000000000027"}'}
+    headers:
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:19:57 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: DELETE
+    uri: http://localhost:9001/3.1/users/00000000000000000000000000000027
+  response:
+    body: {string: ''}
+    headers:
+      content-length: ['0']
+      date: ['Wed, 16 May 2018 00:19:57 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 204, message: No Content}
+- request:
+    body: password=1234&display_name=J%C3%A9r%C3%B4me&email=jeremy%40example.com
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      content-type: [application/x-www-form-urlencoded]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: POST
+    uri: http://localhost:9001/3.1/users
+  response:
+    body: {string: ''}
+    headers:
+      content-length: ['0']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:20:32 GMT']
+      location: ['http://localhost:9001/3.1/users/00000000000000000000000000000029']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 201, message: Created}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/users/00000000000000000000000000000029
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"200a8f8b9dd8a8b681eab396df5c2afeb24ee6b6\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$OVcLabKthiTTwaFc$yp8JijnhOlIFTo58IPTdULt5rr3O4UcT3id3XKQLVoA3KFw3xutTZ1VOk4MUpSvJcef6yBMQh8f45LesfktHk/",
+        "self_link": "http://localhost:9001/3.1/users/00000000000000000000000000000029",
+        "user_id": "00000000000000000000000000000029"}'}
+    headers:
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:20:32 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/users/jeremy@example.com
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"200a8f8b9dd8a8b681eab396df5c2afeb24ee6b6\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$OVcLabKthiTTwaFc$yp8JijnhOlIFTo58IPTdULt5rr3O4UcT3id3XKQLVoA3KFw3xutTZ1VOk4MUpSvJcef6yBMQh8f45LesfktHk/",
+        "self_link": "http://localhost:9001/3.1/users/00000000000000000000000000000029",
+        "user_id": "00000000000000000000000000000029"}'}
+    headers:
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:20:32 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: DELETE
+    uri: http://localhost:9001/3.1/users/00000000000000000000000000000029
+  response:
+    body: {string: ''}
+    headers:
+      content-length: ['0']
+      date: ['Wed, 16 May 2018 00:20:32 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 204, message: No Content}
+- request:
+    body: password=1234&display_name=J%C3%A9r%C3%B4me&email=jeremy%40example.com
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      content-type: [application/x-www-form-urlencoded]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: POST
+    uri: http://localhost:9001/3.1/users
+  response:
+    body: {string: ''}
+    headers:
+      content-length: ['0']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:22:12 GMT']
+      location: ['http://localhost:9001/3.1/users/0000000000000000000000000000002b']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 201, message: Created}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/users/0000000000000000000000000000002b
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"6316e86d357f5f165cec1fa1a127b5c9207c71f6\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$jnVXu71zWVSVIQ3h$AEC145er1VvSIv8K7r2mIZObrT6CBeFpaMm8ezCoydGh9R9Ug6MWitFX1igSi0vMSTr0H3p4xFzVam.NLLkDU1",
+        "self_link": "http://localhost:9001/3.1/users/0000000000000000000000000000002b",
+        "user_id": "0000000000000000000000000000002b"}'}
+    headers:
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:22:12 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/users/jeremy@example.com
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"6316e86d357f5f165cec1fa1a127b5c9207c71f6\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$jnVXu71zWVSVIQ3h$AEC145er1VvSIv8K7r2mIZObrT6CBeFpaMm8ezCoydGh9R9Ug6MWitFX1igSi0vMSTr0H3p4xFzVam.NLLkDU1",
+        "self_link": "http://localhost:9001/3.1/users/0000000000000000000000000000002b",
+        "user_id": "0000000000000000000000000000002b"}'}
+    headers:
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:22:12 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: DELETE
+    uri: http://localhost:9001/3.1/users/0000000000000000000000000000002b
+  response:
+    body: {string: ''}
+    headers:
+      content-length: ['0']
+      date: ['Wed, 16 May 2018 00:22:12 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 204, message: No Content}
+- request:
+    body: password=1234&display_name=J%C3%A9r%C3%B4me&email=jeremy%40example.com
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      content-type: [application/x-www-form-urlencoded]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: POST
+    uri: http://localhost:9001/3.1/users
+  response:
+    body: {string: ''}
+    headers:
+      content-length: ['0']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:28:15 GMT']
+      location: ['http://localhost:9001/3.1/users/0000000000000000000000000000002d']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 201, message: Created}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/users/0000000000000000000000000000002d
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"ad10cde4d76ca2c5033164a7cade2432ea8ea34c\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$KC6jFScnZ0RUdZZl$XelD1FMjITCDu8Tswt8/xI9BzsUE2JZUXF/7H9ylC6DMy3fo0mXF/JTrlVwzjeiNIp4g9C69KI/3HxycwSr23/",
+        "self_link": "http://localhost:9001/3.1/users/0000000000000000000000000000002d",
+        "user_id": "0000000000000000000000000000002d"}'}
+    headers:
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:28:15 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/users/jeremy@example.com
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"ad10cde4d76ca2c5033164a7cade2432ea8ea34c\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$KC6jFScnZ0RUdZZl$XelD1FMjITCDu8Tswt8/xI9BzsUE2JZUXF/7H9ylC6DMy3fo0mXF/JTrlVwzjeiNIp4g9C69KI/3HxycwSr23/",
+        "self_link": "http://localhost:9001/3.1/users/0000000000000000000000000000002d",
+        "user_id": "0000000000000000000000000000002d"}'}
+    headers:
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:28:15 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: DELETE
+    uri: http://localhost:9001/3.1/users/0000000000000000000000000000002d
+  response:
+    body: {string: ''}
+    headers:
+      content-length: ['0']
+      date: ['Wed, 16 May 2018 00:28:15 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 204, message: No Content}
+- request:
+    body: password=1234&display_name=J%C3%A9r%C3%B4me&email=jeremy%40example.com
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      content-type: [application/x-www-form-urlencoded]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: POST
+    uri: http://localhost:9001/3.1/users
+  response:
+    body: {string: ''}
+    headers:
+      content-length: ['0']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:46:23 GMT']
+      location: ['http://localhost:9001/3.1/users/00000000000000000000000000000051']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 201, message: Created}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/users/00000000000000000000000000000051
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"512f500d5ba75a0efd58a1d772073bca6258cf27\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$Pj4n4pJbTHg0R0Yu$3BgGB4xsXxIPSgkypI5WyDCxjdYjMq8OPc0Uc4HtF/qL.qFjbonjdhjWjr8rKY3O8cmVroW82PN1OgzU4GFPn/",
+        "self_link": "http://localhost:9001/3.1/users/00000000000000000000000000000051",
+        "user_id": "00000000000000000000000000000051"}'}
+    headers:
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:46:23 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/users/jeremy@example.com
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"512f500d5ba75a0efd58a1d772073bca6258cf27\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$Pj4n4pJbTHg0R0Yu$3BgGB4xsXxIPSgkypI5WyDCxjdYjMq8OPc0Uc4HtF/qL.qFjbonjdhjWjr8rKY3O8cmVroW82PN1OgzU4GFPn/",
+        "self_link": "http://localhost:9001/3.1/users/00000000000000000000000000000051",
+        "user_id": "00000000000000000000000000000051"}'}
+    headers:
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:46:23 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: DELETE
+    uri: http://localhost:9001/3.1/users/00000000000000000000000000000051
+  response:
+    body: {string: ''}
+    headers:
+      content-length: ['0']
+      date: ['Wed, 16 May 2018 00:46:23 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 204, message: No Content}
+- request:
+    body: password=1234&display_name=J%C3%A9r%C3%B4me&email=jeremy%40example.com
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      content-type: [application/x-www-form-urlencoded]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: POST
+    uri: http://localhost:9001/3.1/users
+  response:
+    body: {string: ''}
+    headers:
+      content-length: ['0']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:47:07 GMT']
+      location: ['http://localhost:9001/3.1/users/00000000000000000000000000000053']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 201, message: Created}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/users/00000000000000000000000000000053
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"03dcbbba258bf5348d76063d90ef10c723ec3a4b\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$wmLyZpLhDBZEuowe$WiG5Aj/E/IH2vDC85TH8HJedn5mF4f7bf87Cnw8qdbhT/YIC02U4CK7TeVPUNwV6grOLCZi6W83wCHjbFBAzu.",
+        "self_link": "http://localhost:9001/3.1/users/00000000000000000000000000000053",
+        "user_id": "00000000000000000000000000000053"}'}
+    headers:
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:47:07 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/users/jeremy@example.com
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"03dcbbba258bf5348d76063d90ef10c723ec3a4b\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$wmLyZpLhDBZEuowe$WiG5Aj/E/IH2vDC85TH8HJedn5mF4f7bf87Cnw8qdbhT/YIC02U4CK7TeVPUNwV6grOLCZi6W83wCHjbFBAzu.",
+        "self_link": "http://localhost:9001/3.1/users/00000000000000000000000000000053",
+        "user_id": "00000000000000000000000000000053"}'}
+    headers:
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:47:07 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: DELETE
+    uri: http://localhost:9001/3.1/users/00000000000000000000000000000053
+  response:
+    body: {string: ''}
+    headers:
+      content-length: ['0']
+      date: ['Wed, 16 May 2018 00:47:07 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 204, message: No Content}
+- request:
+    body: password=1234&display_name=J%C3%A9r%C3%B4me&email=jeremy%40example.com
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      content-type: [application/x-www-form-urlencoded]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: POST
+    uri: http://localhost:9001/3.1/users
+  response:
+    body: {string: ''}
+    headers:
+      content-length: ['0']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:48:14 GMT']
+      location: ['http://localhost:9001/3.1/users/00000000000000000000000000000055']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 201, message: Created}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/users/00000000000000000000000000000055
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"7222e6c0e930c8870d60f77c4b19ebf5b76501c8\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$wpLWuj5GnvRM66kU$0YcPUkyKPt9W2rpVqgSsFC0chQSeCniLNm4JiylQsrX3tyari4W77fhFMeCO2wxYbGKcsW6UqJuOvZq8by3b0.",
+        "self_link": "http://localhost:9001/3.1/users/00000000000000000000000000000055",
+        "user_id": "00000000000000000000000000000055"}'}
+    headers:
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:48:14 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/users/jeremy@example.com
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"7222e6c0e930c8870d60f77c4b19ebf5b76501c8\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$wpLWuj5GnvRM66kU$0YcPUkyKPt9W2rpVqgSsFC0chQSeCniLNm4JiylQsrX3tyari4W77fhFMeCO2wxYbGKcsW6UqJuOvZq8by3b0.",
+        "self_link": "http://localhost:9001/3.1/users/00000000000000000000000000000055",
+        "user_id": "00000000000000000000000000000055"}'}
+    headers:
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+      date: ['Wed, 16 May 2018 00:48:14 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: DELETE
+    uri: http://localhost:9001/3.1/users/00000000000000000000000000000055
+  response:
+    body: {string: ''}
+    headers:
+      content-length: ['0']
+      date: ['Wed, 16 May 2018 00:48:14 GMT']
+      server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 204, message: No Content}
+- request:
+    body: email=jeremy%40example.com&password=1234&display_name=J%C3%A9r%C3%B4me
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      content-type: [application/x-www-form-urlencoded]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: POST
+    uri: http://localhost:9001/3.1/users
+  response:
+    body: {string: ''}
+    headers:
+      Date: ['Wed, 16 May 2018 00:50:27 GMT']
+      Server: [WSGIServer/0.2 CPython/3.6.4+]
+      content-length: ['0']
+      content-type: [application/json; charset=UTF-8]
+      location: ['http://localhost:9001/3.1/users/0000000000000000000000000000005c']
+    status: {code: 201, message: Created}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/users/0000000000000000000000000000005c
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"9ea3078d166f739ed1b65d8fa92ae9478dae239b\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$/2NlkXTyb7BdXm4B$hzfDw/Aw/dGRN7fWaig4vyFN5H/8PYU/OYGnY3beOZD5q1P0fkEi253KrJ4Mx72rS544O2kvS9z.NXUj1X./s.",
+        "self_link": "http://localhost:9001/3.1/users/0000000000000000000000000000005c",
+        "user_id": "0000000000000000000000000000005c"}'}
+    headers:
+      Date: ['Wed, 16 May 2018 00:50:27 GMT']
+      Server: [WSGIServer/0.2 CPython/3.6.4+]
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: GET
+    uri: http://localhost:9001/3.1/users/jeremy@example.com
+  response:
+    body: {string: '{"created_on": "2005-08-01T07:49:23", "display_name": "J\u00e9r\u00f4me",
+        "http_etag": "\"9ea3078d166f739ed1b65d8fa92ae9478dae239b\"", "is_server_owner":
+        false, "password": "$6$rounds=656000$/2NlkXTyb7BdXm4B$hzfDw/Aw/dGRN7fWaig4vyFN5H/8PYU/OYGnY3beOZD5q1P0fkEi253KrJ4Mx72rS544O2kvS9z.NXUj1X./s.",
+        "self_link": "http://localhost:9001/3.1/users/0000000000000000000000000000005c",
+        "user_id": "0000000000000000000000000000005c"}'}
+    headers:
+      Date: ['Wed, 16 May 2018 00:50:27 GMT']
+      Server: [WSGIServer/0.2 CPython/3.6.4+]
+      content-length: ['424']
+      content-type: [application/json; charset=UTF-8]
+    status: {code: 200, message: OK}
+- request:
+    body: null
+    headers:
+      accept-encoding: ['gzip, deflate']
+      authorization: [Basic cmVzdGFkbWluOnJlc3RwYXNz]
+      user-agent: [GNU Mailman REST client v3.2.0b3]
+    method: DELETE
+    uri: http://localhost:9001/3.1/users/0000000000000000000000000000005c
+  response:
+    body: {string: ''}
+    headers:
+      Content-Length: ['0']
+      Date: ['Wed, 16 May 2018 00:50:27 GMT']
+      Server: [WSGIServer/0.2 CPython/3.6.4+]
+    status: {code: 204, message: No Content}
+version: 1

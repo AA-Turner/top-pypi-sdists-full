@@ -726,10 +726,13 @@ def add_statistics(
         #     groupby used the dropna=True default); surviving rows keep
         #     their input order (legacy emitted them sorted by group key —
         #     the one deliberate difference, callers are order-agnostic);
-        #   * the stats table is filtered on the PS whitelist + product +
-        #     the per-Season season_name filter — deliberately NOT on
-        #     country, because the legacy per-group mask never filtered on
-        #     country either (admin names shared across countries pool);
+        #   * the stats table is filtered on country + the PS whitelist +
+        #     product + the per-Season season_name filter. The legacy
+        #     per-group mask never filtered on country, so admin names
+        #     shared across countries (Malawi/Ghana/Zambia "Northern",
+        #     "Central", "Southern" ...) pooled their yields: 49 of 121
+        #     Malawi maize region-years were off by up to 42 % (2026-09-30
+        #     audit). Fixed in 0.4.1063;
         #   * region matching is case-insensitive with underscores
         #     normalized to spaces (shared _norm_region_* rule), NaN admin
         #     names normalize to the string "nan" exactly as before;
@@ -749,7 +752,8 @@ def add_statistics(
 
         if len(df):
             base_mask = (
-                df_fewsnet["crop_production_system"].isin(STANDARD_PRODUCTION_SYSTEMS)
+                (df_fewsnet["country"] == country)
+                & df_fewsnet["crop_production_system"].isin(STANDARD_PRODUCTION_SYSTEMS)
                 & (df_fewsnet["product"] == crop)
             )
             df_stats = df_fewsnet.loc[

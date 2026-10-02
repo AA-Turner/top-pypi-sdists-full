@@ -1,0 +1,54 @@
+[project]
+# PyPI has no scopes, so the npm `@labelbox/recursion-sdk` convention flattens to a
+# `labelbox-` prefix here. On a public index the provenance is worth more than
+# the brevity: an unprefixed `recursion-sdk` says nothing about who ships it.
+name = "labelbox-recursion-sdk"
+# Placeholder, like the TypeScript packages: the released version comes from the
+# highest `python-sdk-v*` git tag at publish time, stamped in the runner only.
+# The Python SDK releases on its own tag line, independent of `sdk-v*` (TypeScript)
+# and `cli-v*`.
+version = "0.0.131"
+description = "Python SDK for the Recursion Platform API"
+readme = "README.md"
+# 3.11, not 3.10: the generated `client.py` imports `typing.Self`, which does not
+# exist before 3.11. Claiming 3.10 let pip install the wheel and then fail at
+# import. `openapi-python-client` itself also requires >=3.11.
+requires-python = ">=3.11"
+# Runtime deps of the generated client only. `openapi-python-client` itself is a
+# build-time tool, pinned and installed into a throwaway venv by
+# `yarn generate python-sdk` — it is deliberately not a dependency of the wheel.
+dependencies = [
+  "httpx>=0.23,<0.29",
+  "attrs>=22.2",
+  "python-dateutil>=2.8",
+]
+
+[dependency-groups]
+dev = ["pytest>=8", "pytest-asyncio>=0.24"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+# `src/recursion_sdk/` is gitignored — it is regenerated from `openapi.json` by
+# `yarn generate python-sdk` and never committed — but it is the whole point
+# of the distribution. `artifacts` is hatchling's override for exactly that:
+# without it both the sdist and the wheel ship the hand-written entry point and
+# nothing for it to import. The pattern is `.py` only, so the projection JSON and
+# the generator's own metadata stay out of the package.
+artifacts = ["src/recursion_sdk/**/*.py"]
+
+[tool.hatch.build.targets.wheel]
+# Two packages: `recursion` is the hand-written entry point (auth + base URL),
+# `recursion_sdk` is the generator output (including the generated namespace
+# facade). Both ship; only the first is edited.
+packages = ["src/recursion", "src/recursion_sdk"]
+
+[tool.pytest.ini_options]
+# No `pythonpath`: `yarn ci check python-sdk:all` installs the built distribution into a
+# clean virtualenv and runs the suite against *that*, so packaging problems (a
+# generated module missing from the wheel) fail the tests rather than hiding
+# behind a source-tree import path.
+testpaths = ["tests"]
+asyncio_mode = "auto"

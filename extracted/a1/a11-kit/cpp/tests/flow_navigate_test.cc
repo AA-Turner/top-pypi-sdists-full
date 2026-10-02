@@ -1,0 +1,475 @@
+// Copyright 2026 The A11 Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include <algorithm>
+#include <string>
+#include <string_view>
+#include <vector>
+
+#include <absl/strings/str_join.h>
+#include <gtest/gtest.h>
+#include <nlohmann/json.hpp>
+
+#include "a11/flow/catalogue.h"
+#include "a11/flow/complete.h"
+#include "a11/flow/navigate.h"
+
+namespace a11::flow {
+namespace {
+
+constexpr std::string_view kSource = R"(struct Source {
+  describe "Where an answer came from."
+
+  id:  string required "Stable id."
+  url: string required
+}
+
+flow research {
+  describe "Look something up."
+
+  in  question: string required
+  out answer:   string
+  out found:    Source stream
+
+  pages = node()
+  hits = run web-search(query: question)
+  hits.results | map Source{"id": it.id, "url": it.url} -> found
+  hits.results | map it.title -> pages
+  pages | join ", " -> answer
+}
+)";
+
+/// A catalogue with one action and one type, as a frontend would send.
+catalogue::Catalogue Known() {
+  return catalogue::Catalogue::FromJson(nlohmann::json::parse(R"({
+    "actions": [{
+      "name": "web-search",
+      "description": "Search the web. Returns a page of results.",
+      "inputs": [{"name": "query", "type": "str", "required": true,
+                  "description": "What to look for."}],
+      "outputs": [{"name": "results", "type": "dict", "unary": false}]
+    }],
+    "types": [{
+      "tag": "a11.sdk.AudioBuffer",
+      "description": "A block of samples.",
+      "fields": [{"name": "rate", "type": "integer", "required": true},
+                 {"name": "samples", "type": "bytes"}]
+    }]
+  })"));
+}
+
+size_t At(std::string_view needle) {
+  return kSource.find(needle);
+}
+
+/// Every symbol's selection is inside its range, however deep.
+void CheckContained(const std::vector<DocumentSymbol>& symbols,
+                    std::string_view where) {
+  for (const DocumentSymbol& symbol : symbols) {
+    EXPECT_LE(symbol.range.start.offset, symbol.selection.start.offset)
+        << where << ": " << symbol.name << " begins before its range";
+    EXPECT_LE(symbol.selection.end.offset, symbol.range.end.offset)
+        << where << ": " << symbol.name << " ends after its range";
+    CheckContained(symbol.children, where);
+  }
+}
+
+TEST(FlowNavigate, EverySymbolsSelectionIsInsideItsRange) {
+  // The one invariant a document symbol has to satisfy, and the reason it is
+  // worth a test of its own: LSP refuses the *whole* answer when one entry
+  // breaks it -- "selectionRange must be contained in fullRange" -- so a.
+  CheckContained(Symbols(kSource), "the two-declaration source");
+
+  // A range is the whole construct, which is the other half of what the format
+  // promises: "select symbol" takes the block.
+  const std::vector<DocumentSymbol> symbols = Symbols(kSource);
+  ASSERT_GE(symbols.size(), 2u);
+  const DocumentSymbol& flow = symbols[1];
+  EXPECT_EQ(kSource.substr(flow.range.start.offset, 4), "flow");
+  EXPECT_EQ(kSource[flow.range.end.offset - 1], '}')
+      << "a flow's range should end on the brace that closes it";
+  EXPECT_EQ(
+      kSource.substr(flow.selection.start.offset,
+                     flow.selection.end.offset - flow.selection.start.offset),
+      "research");
+
+  // And it holds for text somebody is part-way through typing, which is where a
+  // range that stopped at the keyword would otherwise still be produced: there
+  // is no closing brace to find.
+  for (const std::string_view unfinished :
+       {"flow half {\n  in q: string\n", "flow\n", "struct S {\n  a: string\n",
+        "flow a { }\nflow b {\n", ""}) {
+    CheckContained(Symbols(unfinished), unfinished);
+  }
+}
+
+TEST(FlowNavigate, ListsWhatADocumentDeclaresNestedAsItIsWritten) {
+  const std::vector<DocumentSymbol> symbols = Symbols(kSource);
+  ASSERT_EQ(symbols.size(), 2u);
+
+  EXPECT_EQ(symbols[0].name, "Source");
+  EXPECT_EQ(symbols[0].kind, SymbolClass::kDto);
+  EXPECT_EQ(symbols[0].detail, "Where an answer came from.");
+  std::vector<std::string> fields;
+  for (const DocumentSymbol& child : symbols[0].children) {
+    EXPECT_EQ(child.kind, SymbolClass::kField);
+    fields.push_back(child.name);
+  }
+  EXPECT_EQ(absl::StrJoin(fields, ","), "id,url");
+
+  EXPECT_EQ(symbols[1].name, "research");
+  EXPECT_EQ(symbols[1].kind, SymbolClass::kFlow);
+  // The ports first, with the type they declared, then everything else the flow
+  // bound -- which is what a reader jumping around a flow wants to see.
+  std::vector<std::string> named;
+  for (const DocumentSymbol& child : symbols[1].children) {
+    named.push_back(absl::StrCat(SymbolClassName(child.kind), ":", child.name));
+  }
+  EXPECT_EQ(absl::StrJoin(named, " "),
+            "port:question port:answer port:found node:pages call:hits");
+  const DocumentSymbol& question = symbols[1].children[0];
+  EXPECT_EQ(question.port_direction, "in");
+  EXPECT_EQ(question.port_type, "string");
+  EXPECT_FALSE(question.port_stream);
+  EXPECT_TRUE(question.port_required);
+  const DocumentSymbol& found = symbols[1].children[2];
+  EXPECT_EQ(found.port_direction, "out");
+  EXPECT_EQ(found.port_type, "Source");
+  EXPECT_TRUE(found.port_stream);
+  EXPECT_FALSE(found.port_required);
+
+  // The selection is the name and the range is the whole construct, so
+  // "go to symbol" puts the caret on the word and "select symbol" takes the
+  // block.
+  EXPECT_LT(symbols[1].selection.start.offset, symbols[1].selection.end.offset);
+  EXPECT_LE(symbols[1].range.start.offset, symbols[1].selection.start.offset);
+}
+
+TEST(FlowNavigate, SaysWhatIsUnderTheCaretAndWhereItCameFrom) {
+  const Description port = Describe(kSource, At("question: string"));
+  EXPECT_TRUE(port.found);
+  EXPECT_EQ(port.kind, SymbolClass::kPort);
+  EXPECT_NE(port.summary.find("input-port"), std::string::npos) << port.summary;
+  EXPECT_TRUE(port.has_definition);
+
+  // A node used far from where it was made: the definition is where it was.
+  const Description node = Describe(kSource, At("pages | join"));
+  EXPECT_TRUE(node.has_definition);
+  EXPECT_EQ(node.definition.start.offset, At("pages = node()"));
+
+  // Whitespace describes nothing, and saying so is not a failure.
+  EXPECT_FALSE(Describe(kSource, kSource.find("\n\n")).found);
+}
+
+TEST(FlowNavigate, AShapeHoversAsItsFields) {
+  const Description about = Describe(kSource, At("Source{"));
+  ASSERT_TRUE(about.found);
+  EXPECT_EQ(about.kind, SymbolClass::kDto);
+  EXPECT_NE(about.markdown.find("**Fields**"), std::string::npos);
+  EXPECT_NE(about.markdown.find("`id`: string *(required)* — Stable id."),
+            std::string::npos)
+      << about.markdown;
+  // Declared here, so there is somewhere to go.
+  EXPECT_TRUE(about.has_definition);
+}
+
+TEST(FlowNavigate, ANameIsReadInTheFlowItIsWrittenIn) {
+  // Two flows may each declare `in q`, and they are two different ports.
+  constexpr std::string_view kTwo = R"(flow one {
+  in  q: string required "The first one's."
+  out a: string
+  q -> a
+}
+
+flow two {
+  in  q: string required "The second one's."
+  out a: string
+  q -> a
+}
+)";
+  const size_t second = kTwo.find("flow two");
+  const Description here = Describe(kTwo, kTwo.find("q -> a", second));
+  ASSERT_TRUE(here.found);
+  EXPECT_NE(here.summary.find("of `two`"), std::string::npos) << here.summary;
+  EXPECT_GT(here.definition.start.offset, second);
+  EXPECT_EQ(here.detail, "The second one's.");
+}
+
+TEST(FlowNavigate, ADefinitionIsTheNameAndNotTheWordThatDeclaresIt) {
+  // Check the target used by navigation and hover origin metadata.
+  const Description shape = Describe(kSource, At("Source{"));
+  ASSERT_TRUE(shape.has_definition);
+  EXPECT_EQ(shape.definition.start.offset, At("Source {"));
+
+  const Description flow = Describe(kSource, At("research"));
+  ASSERT_TRUE(flow.found);
+  EXPECT_EQ(flow.kind, SymbolClass::kFlow);
+  ASSERT_TRUE(flow.has_definition);
+  EXPECT_EQ(flow.definition.start.offset, At("research"));
+}
+
+TEST(FlowNavigate, AnActionHoversAsItsDescriptionAndItsPorts) {
+  // The thing a flow author most often has to leave the file to find out. With
+  // nothing to go on the answer is only what the word is; with a catalogue it
+  // is the action.
+  const Description bare =
+      Describe(kSource, At("web-search"), catalogue::Catalogue());
+  EXPECT_TRUE(bare.found);
+  EXPECT_EQ(bare.markdown.find("**Inputs**"), std::string::npos);
+
+  const Description about = Describe(kSource, At("web-search"), Known());
+  ASSERT_TRUE(about.found);
+  EXPECT_NE(about.markdown.find("Search the web."), std::string::npos);
+  EXPECT_NE(about.markdown.find("**Inputs**"), std::string::npos);
+  EXPECT_NE(
+      about.markdown.find("`query`: str *(required)* — What to look for."),
+      std::string::npos)
+      << about.markdown;
+  EXPECT_NE(about.markdown.find("`results`: dict stream"), std::string::npos);
+  // An action is not in this document, so there is nowhere in it to go.
+  EXPECT_FALSE(about.has_definition);
+}
+
+TEST(FlowNavigate, EveryFormOfTheLanguageHoversAsWhatItDoes) {
+  // The regression this exists for: a hover on a mark or a keyword
+  struct Case {
+    std::string_view at;     ///< The text to put the caret in.
+    std::string_view label;  ///< What the summary calls it.
+    std::string_view says;   ///< What the summary goes on to say.
+  };
+
+  const Case kCases[] = {
+      {"| join", "flow operator", "Puts a stream through a stage."},
+      {"-> found", "flow operator",
+       "Writes a stream into one or more destinations."},
+      {"= node()", "operator", "Binds a name to a step, a node, or a value."},
+      {"in  question", "a declaration",
+       "Declares an input port: what a caller sends."},
+      {"out answer", "a declaration",
+       "Declares an output port: what a caller reads back."},
+      {"struct Source", "a declaration",
+       "Declares a shape: a record with named, typed, constrained fields."},
+      {"stream", "a port modifier",
+       "Says the port carries many values rather than one."},
+      {"required \"Stable id.\"", "a port modifier",
+       "Says the port or field has to be there."},
+      {"run web-search", "a statement",
+       "Dispatches an action where this flow is running."},
+      {"node()", "a declaration", "Makes a stream of the flow's own."},
+      {"map Source", "a pipeline stage",
+       "Replaces each value with what the expression makes of it."},
+  };
+  for (const Case& one : kCases) {
+    const size_t offset = kSource.find(one.at);
+    ASSERT_NE(offset, std::string_view::npos) << one.at;
+    const Description about = Describe(kSource, offset);
+    ASSERT_TRUE(about.found) << one.at;
+    EXPECT_NE(about.summary.find(one.label), std::string::npos)
+        << one.at << ": " << about.summary;
+    EXPECT_NE(about.summary.find(one.says), std::string::npos)
+        << one.at << ": " << about.summary;
+    // The whole of it, which is what an editor shows: the summary, then what
+    // the form takes, then how it behaves, then a line of Flow using it.
+    EXPECT_NE(about.markdown.find("**Example:**"), std::string::npos)
+        << one.at << ": " << about.markdown;
+    EXPECT_FALSE(about.detail.empty()) << one.at;
+  }
+}
+
+TEST(FlowNavigate, ADurationHoversAsItsUnit) {
+  const std::string one =
+      "flow f {\n  in a: string\n  out b: string\n"
+      "  x = run act(q: a) timeout 250ms\n  x.r -> b\n}\n";
+  const Description ms = Describe(one, one.find("250ms"));
+  ASSERT_TRUE(ms.found);
+  EXPECT_EQ(ms.text, "250ms");
+  EXPECT_NE(ms.summary.find("Milliseconds."), std::string::npos) << ms.summary;
+
+  // A compound duration is two tokens to the lexer and added by the parser, so
+  // a caret is always in a duration of one unit -- there is no whole `1m30s`
+  // for a hover to be about.
+  const std::string many =
+      "flow f {\n  in a: string\n  out b: string\n"
+      "  x = run act(q: a) timeout 1m30s\n  x.r -> b\n}\n";
+  const Description minutes = Describe(many, many.find("1m30s"));
+  ASSERT_TRUE(minutes.found);
+  EXPECT_EQ(minutes.text, "1m");
+  EXPECT_NE(minutes.summary.find("Minutes."), std::string::npos)
+      << minutes.summary;
+  const Description seconds = Describe(many, many.find("30s"));
+  ASSERT_TRUE(seconds.found);
+  EXPECT_EQ(seconds.text, "30s");
+  EXPECT_NE(seconds.summary.find("Seconds."), std::string::npos)
+      << seconds.summary;
+}
+
+TEST(FlowNavigate, ARegisteredTypeReadsTheWayAShapeDoes) {
+  // Both are records with described fields, and the catalogue records them the
+  // same way -- so hover, completion and everything else is one code path.
+  const std::string source =
+      "flow f {\n  in a: a11.sdk.AudioBuffer required\n  out b: string\n"
+      "  a.rate | text -> b\n}\n";
+  const Description about =
+      Describe(source, source.find("a11.sdk.AudioBuffer"), Known());
+  ASSERT_TRUE(about.found);
+  EXPECT_EQ(about.text, "a11.sdk.AudioBuffer");
+  EXPECT_NE(about.markdown.find("A block of samples."), std::string::npos);
+  EXPECT_NE(about.markdown.find("`rate`: integer *(required)*"),
+            std::string::npos)
+      << about.markdown;
+  // A caret anywhere in the dotted name describes the whole type, not the one
+  // word it happens to be in.
+  EXPECT_EQ(Describe(source, source.find("AudioBuffer"), Known()).text,
+            "a11.sdk.AudioBuffer");
+}
+
+TEST(FlowCatalogue, MergesWhatAFrontendSentOverWhatIsEmbedded) {
+  const catalogue::Catalogue mine = Known();
+  const catalogue::Catalogue theirs =
+      catalogue::Catalogue::FromJson(nlohmann::json::parse(R"({
+        "actions": [{"name": "web-search", "description": "Theirs."},
+                    {"name": "other", "description": "New."}]
+      })"));
+  const catalogue::Catalogue merged = mine.MergedWith(theirs);
+
+  // A name given twice takes the later description, whole: half a description
+  // from each side would be a third thing that is true of neither.
+  ASSERT_NE(merged.Action("web-search"), nullptr);
+  EXPECT_EQ(merged.Action("web-search")->description, "Theirs.");
+  EXPECT_TRUE(merged.Action("web-search")->inputs.empty());
+  // A name only one side has stays.
+  EXPECT_NE(merged.Action("other"), nullptr);
+  EXPECT_NE(merged.Type("a11.sdk.AudioBuffer"), nullptr);
+}
+
+TEST(FlowCatalogue, ReadsWhatItWritesAndToleratesRubbish) {
+  const catalogue::Catalogue mine = Known();
+  const catalogue::Catalogue again =
+      catalogue::Catalogue::FromJson(mine.ToJson());
+  ASSERT_NE(again.Action("web-search"), nullptr);
+  EXPECT_EQ(again.Action("web-search")->inputs.size(), 1u);
+  EXPECT_TRUE(again.Action("web-search")->inputs[0].required);
+  EXPECT_FALSE(again.Action("web-search")->outputs[0].unary);
+  ASSERT_NE(again.Type("a11.sdk.AudioBuffer"), nullptr);
+  EXPECT_EQ(again.Type("a11.sdk.AudioBuffer")->shape.fields.size(), 2u);
+  // The shape holds bytes, which is what stops `| json` on a value of it.
+  EXPECT_TRUE(again.Type("a11.sdk.AudioBuffer")->shape.binary);
+
+  // This arrives from a frontend that may be older or newer than the tool
+  // reading it, so a bad entry is skipped rather than refusing the lot.
+  const catalogue::Catalogue rubbish =
+      catalogue::Catalogue::FromJson(nlohmann::json::parse(
+          R"({"actions": [7, {"description": "no name"}, {"name": "ok"}],
+              "types": "not a list"})"));
+  EXPECT_EQ(rubbish.actions().size(), 1u);
+  EXPECT_TRUE(rubbish.types().empty());
+  EXPECT_TRUE(catalogue::Catalogue::FromJson(nlohmann::json(7)).Empty());
+}
+
+TEST(FlowCatalogue, TheEmbeddedSnapshotIsThereAndUsable) {
+  // What a standalone tool knows with nothing configured. Generated from the
+  // live registries by `scripts/generate_flow_catalogue.py`; the check that
+  // regenerates it, keeping the fixture synchronized.
+  const catalogue::Catalogue& builtin = catalogue::Catalogue::Builtin();
+  EXPECT_FALSE(builtin.Empty());
+  ASSERT_NE(builtin.Action("make_http_request"), nullptr);
+  const catalogue::ActionInfo& http = *builtin.Action("make_http_request");
+  EXPECT_FALSE(http.description.empty());
+  EXPECT_NE(http.Port("url", syntax::PortDirection::kInput), nullptr);
+  EXPECT_NE(http.Port("body", syntax::PortDirection::kOutput), nullptr);
+  EXPECT_TRUE(http.Port("url", syntax::PortDirection::kInput)->required);
+}
+
+TEST(FlowCatalogue, CompletionOffersAnActionsPortsAndItsName) {
+  const std::string source =
+      "flow f {\n  in u: string required\n  out t: string\n"
+      "  page = run web-search()\n}\n";
+  std::vector<std::string> names;
+  for (const Proposal& proposal :
+       CompleteAt(source, source.find("web-search()") + 11, Known())
+           .proposals) {
+    names.push_back(proposal.name);
+  }
+  EXPECT_EQ(absl::StrJoin(names, ","), "query");
+
+  // And with what the port is *for*, which is the whole reason a catalogue
+  // carries descriptions: the same treatment a sibling flow's ports get, since
+  // both go through one place.
+  const CompleteResult inside =
+      CompleteAt(source, source.find("web-search()") + 11, Known());
+  ASSERT_FALSE(inside.proposals.empty());
+  const Proposal& query = inside.proposals.front();
+  EXPECT_EQ(query.insert, "query: ");
+  EXPECT_EQ(query.tail, " (required) — What to look for.");
+  EXPECT_EQ(query.type, "str");
+  EXPECT_NE(query.documentation.find("What to look for."), std::string::npos);
+
+  names.clear();
+  for (const Proposal& proposal :
+       CompleteAt(source, source.find("run ") + 4, Known()).proposals) {
+    names.push_back(proposal.name);
+  }
+  EXPECT_NE(std::find(names.begin(), names.end(), "web-search"), names.end());
+}
+
+TEST(FlowNavigate, AStageHoversAsReference) {
+  const Description about = Describe(kSource, At("| map Source") + 2, Known());
+  ASSERT_TRUE(about.found);
+  EXPECT_NE(about.summary.find("a pipeline stage"), std::string::npos)
+      << about.summary;
+  EXPECT_NE(about.markdown.find("**Takes:** an expression"), std::string::npos)
+      << about.markdown;
+  EXPECT_NE(about.markdown.find("**Example:**"), std::string::npos);
+  // Reference, not a gloss: what it does with a shape is the thing worth
+  // saying.
+  EXPECT_NE(about.markdown.find("map Shape"), std::string::npos)
+      << about.markdown;
+  // A stage that takes nothing prints no "Takes" line at all.
+  const std::string collected = StageMarkdown("collect");
+  EXPECT_EQ(collected.find("**Takes:**"), std::string::npos) << collected;
+  // Either case, as the language allows, shown as it was written.
+  EXPECT_NE(StageMarkdown("TRUNCATE").find("`TRUNCATE`"), std::string::npos);
+}
+
+TEST(FlowNavigate, AWordThatIsBothAStageAndAFunctionAnswersForWhereItStands) {
+  // `| text` re-writes every value of a stream; `text(x)` re-writes one value.
+  // Which one a hover is about is the position, and the highlighter has already
+  // decided that -- so this is the one place the two must not be confused.
+  constexpr std::string_view kBoth = R"(flow f {
+  in  q: string stream
+  out a: string
+  q | text -> a
+  let one = text(q)
+}
+)";
+  const Description staged = Describe(kBoth, kBoth.find("| text") + 2);
+  ASSERT_TRUE(staged.found);
+  EXPECT_NE(staged.summary.find("a pipeline stage"), std::string::npos)
+      << staged.summary;
+  EXPECT_NE(staged.summary.find("stream"), std::string::npos) << staged.summary;
+
+  const Description called = Describe(kBoth, kBoth.find("text(q)"));
+  ASSERT_TRUE(called.found);
+  EXPECT_NE(called.summary.find("a built-in function"), std::string::npos)
+      << called.summary;
+
+  // And neither of them writes `--` at a reader.
+  for (const std::string& text :
+       {staged.summary, staged.markdown, called.summary, called.markdown}) {
+    EXPECT_EQ(text.find("--"), std::string::npos) << text;
+  }
+}
+
+}  // namespace
+}  // namespace a11::flow

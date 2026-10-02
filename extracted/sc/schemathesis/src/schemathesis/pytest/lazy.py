@@ -11,9 +11,10 @@ from hypothesis.core import HypothesisHandle
 
 from schemathesis.auths import AuthStorage
 from schemathesis.core.errors import InvalidSchema
-from schemathesis.core.result import Ok, Result
+from schemathesis.core.failures import FailureGroup, as_reported_failure
+from schemathesis.core.result import Err, Ok, Result
 from schemathesis.filters import FilterSet, FilterValue, MatcherFunc, RegexValue, is_deprecated
-from schemathesis.generation import overrides
+from schemathesis.generation import derive_operation_seed, overrides
 from schemathesis.generation.feedback import FeedbackSources
 from schemathesis.generation.hypothesis.builder import HypothesisTestConfig, HypothesisTestMode, create_test
 from schemathesis.generation.hypothesis.given import (
@@ -72,20 +73,25 @@ def get_all_tests(
 
             # Use fuzzing phase settings if fuzzing is enabled, since only fuzzing uses max_examples
             phase = "fuzzing" if HypothesisTestMode.FUZZING in modes else None
-            test = create_test(
-                operation=operation,
-                test_func=test_func,
-                config=HypothesisTestConfig(
-                    settings=schema.config.get_hypothesis_settings(operation=operation, phase=phase),
-                    explicit_settings=settings,
-                    modes=modes,
-                    seed=seed,
-                    project=schema.config,
-                    as_strategy_kwargs=_as_strategy_kwargs,
-                    given_kwargs=given_kwargs or {},
-                    feedback=feedback,
-                ),
-            )
+            try:
+                test = create_test(
+                    operation=operation,
+                    test_func=test_func,
+                    config=HypothesisTestConfig(
+                        settings=schema.config.get_hypothesis_settings(operation=operation, phase=phase),
+                        explicit_settings=settings,
+                        modes=modes,
+                        seed=derive_operation_seed(seed, operation.label),
+                        project=schema.config,
+                        as_strategy_kwargs=_as_strategy_kwargs,
+                        given_kwargs=given_kwargs or {},
+                        feedback=feedback,
+                    ),
+                )
+            except InvalidSchema as exc:
+                # Coverage cases are built with the test, so a malformed definition surfaces here.
+                yield Err(exc)
+                continue
             yield Ok((operation, test))
         else:
             yield result
@@ -272,13 +278,18 @@ class LazySchema:
                     fail_on_no_matches(node_id)
                 request.session.testscollected += len(tests)
                 subtests = make_subtests(request)
+                from schemathesis.pytest.plugin import report_subtest
+
                 for result in tests:
                     if isinstance(result, Ok):
                         operation, sub_test = result.ok()
                         request.node._nodeid = f"{node_id}[{operation.method.upper()} {operation.path}]"
-                        run_subtest(operation, fixtures, sub_test, subtests)
+                        with report_subtest(request.node, schema, operation.label, operation.tags):
+                            run_subtest(operation, fixtures, sub_test, subtests)
                     else:
-                        _schema_error(subtests, result.err(), node_id, request.node)
+                        error = result.err()
+                        with report_subtest(request.node, schema, error.label, None):
+                            _schema_error(subtests, error, node_id, request.node)
                 request.node._nodeid = node_id
 
             sig = signature(test_func)
@@ -324,6 +335,8 @@ def run_subtest(
     with subtests.test(label=operation.label):
         try:
             sub_test(**fixtures)
+        except FailureGroup as exc:
+            raise as_reported_failure(exc) from None
         except SkipTest as exc:
             raise pytest.skip.Exception(str(exc)).with_traceback(exc.__traceback__) from None
 

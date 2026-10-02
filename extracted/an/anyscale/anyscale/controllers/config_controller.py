@@ -84,9 +84,7 @@ class ConfigController(BaseController):
     cluster environments for compute configs.
     """
 
-    def __init__(
-        self, log: Optional[BlockLogger] = None, initialize_auth_api_client: bool = True
-    ):
+    def __init__(self, log: Optional[BlockLogger] = None, initialize_auth_api_client: bool = True):
         if log is None:
             log = BlockLogger()
 
@@ -111,9 +109,7 @@ class ConfigController(BaseController):
 
     def create_cluster_env(self, name: str, cluster_env_config: Dict[str, Any]) -> None:
         config = AppConfigConfigSchema(**cluster_env_config)
-        self.sdk_client.create_cluster_environment(
-            {"name": name, "config_json": config.to_dict()}
-        )
+        self.sdk_client.create_cluster_environment({"name": name, "config_json": config.to_dict()})
 
     def create_compute_config(
         self, name: str, compute_config: Dict[str, Any], anonymous: bool
@@ -152,7 +148,10 @@ class ConfigController(BaseController):
         )
 
     def _convert_node_config_aws(
-        self, name: str, node_type_config: Dict[str, Any], is_head_node: bool = False,
+        self,
+        name: str,
+        node_type_config: Dict[str, Any],
+        is_head_node: bool = False,
     ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """
         Returns a tuple
@@ -192,9 +191,7 @@ class ConfigController(BaseController):
         ]
 
         aws_options = {
-            key: value
-            for key, value in node_config.items()
-            if key in supported_option_keys
+            key: value for key, value in node_config.items() if key in supported_option_keys
         }
 
         return output_node_config, aws_options
@@ -270,11 +267,12 @@ class ConfigController(BaseController):
         )
 
     def _convert_cluster_env(
-        self, cluster_yaml: Dict[str, Any], ml: bool, gpu: bool,
+        self,
+        cluster_yaml: Dict[str, Any],
+        ml: bool,
+        gpu: bool,
     ) -> AppConfigConfigSchema:
-        self.log.info(
-            "Generating cluster environment based on local python and ray versions"
-        )
+        self.log.info("Generating cluster environment based on local python and ray versions")
 
         base_image = self._select_base_image(ml, gpu)
 
@@ -348,9 +346,7 @@ class ConfigController(BaseController):
             )
         )
 
-    def _find_enum_name(
-        self, python_version: str, ray_version: str, ml: bool, gpu: bool
-    ) -> str:
+    def _find_enum_name(self, python_version: str, ray_version: str, ml: bool, gpu: bool) -> str:
         enum_name = "ANYSCALE_RAY"
         if ml:
             enum_name += "_ML"
@@ -378,7 +374,11 @@ class ConfigController(BaseController):
 
 # TODO(tchordia) once this function is in prod, remove last dependency from anyscale.background
 def run_kill_child(
-    *popenargs, input=None, timeout=None, check=False, **kwargs  # noqa: A002
+    *popenargs,
+    input=None,  # noqa: A002
+    timeout=None,
+    check=False,
+    **kwargs,  # noqa: A002
 ) -> subprocess.CompletedProcess:
     """
     This function is a fork of subprocess.run with fewer args.

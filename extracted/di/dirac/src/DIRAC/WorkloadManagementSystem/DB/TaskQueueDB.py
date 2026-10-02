@@ -1,0 +1,1596 @@
+"""TaskQueueDB class is a front-end to the task queues db"""
+
+import hashlib
+import random
+import string
+from collections import defaultdict
+from contextlib import contextmanager
+from typing import Any
+
+from DIRAC import S_ERROR, S_OK, gConfig
+from DIRAC.ConfigurationSystem.Client.Helpers import Registry
+from DIRAC.ConfigurationSystem.Client.Helpers.Operations import Operations
+from DIRAC.Core.Base.DB import DB
+from DIRAC.Core.Security import Properties
+from DIRAC.Core.Utilities import List
+from DIRAC.Core.Utilities.DictCache import DictCache
+from DIRAC.Core.Utilities.PrettyPrint import printDict
+from DIRAC.FrameworkSystem.Client.Logger import contextLogger
+from DIRAC.WorkloadManagementSystem.private.SharesCorrector import SharesCorrector
+
+DEFAULT_GROUP_SHARE = 1000
+TQ_MIN_SHARE = 0.001
+
+# For checks at insertion time, and not only
+singleValueDefFields = ("Owner", "OwnerGroup", "CPUTime")
+multiValueDefFields = ("Sites", "GridCEs", "BannedSites", "Platforms", "JobTypes", "Tags")
+rangeValueDefFields = ("MinRAM", "MaxRAM")
+
+# Used for matching
+multiValueMatchFields = ("GridCE", "Site", "Platform", "JobType", "Tag")
+bannedJobMatchFields = ("Site",)
+mandatoryMatchFields = ("CPUTime",)
+priorityIgnoredFields = ("Sites", "BannedSites", "MinRAM", "MaxRAM")
+
+
+class _TQTransactionAbort(Exception):
+    """Internal: abort a TaskQueueDB transaction, carrying the S_OK/S_ERROR to return"""
+
+    def __init__(self, result):
+        super().__init__(result.get("Message", ""))
+        self.result = result
+
+
+def _lowerAndRemovePunctuation(s):
+    table = str.maketrans("", "", string.punctuation)
+    return s.lower().translate(table)
+
+
+class TaskQueueDB(DB):
+    """MySQL DB of "Task Queues" """
+
+    def __init__(self, parentLogger=None):
+        DB.__init__(self, "TaskQueueDB", "WorkloadManagement/TaskQueueDB", parentLogger=parentLogger)
+        self._defaultLogger = self.log
+        self.__maxJobsInTQ = 5000
+        self.__defaultCPUSegments = [
+            6 * 60,
+            30 * 60,
+            1 * 3600,
+            6 * 3600,
+            12 * 3600,
+            1 * 86400,
+            2 * 86400,
+            3 * 86400,
+            4 * 86400,
+            6 * 86400,
+            8 * 86400,
+            10 * 86400,
+            int(12.5 * 86400),
+        ]
+        self.__maxMatchRetry = 3
+        self.__maxInsertRetries = 10
+        self.__tqCreationLockTimeout = 10
+        self.__jobPriorityBoundaries = (0.001, 10)
+        self.__groupShares = {}
+        self.__deleteTQWithDelay = DictCache(self.__deleteTQIfEmpty)
+        self.__opsHelper = Operations()
+        self.__sharesCorrector = SharesCorrector(self.__opsHelper)
+        result = self.__initializeDB()
+        if not result["OK"]:
+            raise Exception(f"Can't create tables: {result['Message']}")
+
+    @property
+    def log(self):
+        return contextLogger.get() or self._defaultLogger
+
+    @log.setter
+    def log(self, value):
+        self._defaultLogger = value
+
+    def enableAllTaskQueues(self):
+        """Enable all Task queues"""
+        return self.updateFields("tq_TaskQueues", updateDict={"Enabled": "1"})
+
+    @contextmanager
+    def __transaction(self, connObj):
+        """Run the enclosed statements in an explicit transaction on ``connObj``.
+
+        Connections are cached per thread and run with ``AUTOCOMMIT=1``, so a transaction
+        left open would silently swallow every later statement issued by this thread.
+        The block must therefore always end with COMMIT or ROLLBACK: it is rolled back
+        on any exception, and the caller signals an S_ERROR/abort by raising
+        :class:`_TQTransactionAbort` (the return value is carried in the exception).
+        """
+        result = self._update("START TRANSACTION", conn=connObj)
+        if not result["OK"]:
+            raise _TQTransactionAbort(result)
+        try:
+            yield
+        except BaseException:
+            self._update("ROLLBACK", conn=connObj)
+            raise
+        result = self._update("COMMIT", conn=connObj)
+        if not result["OK"]:
+            self._update("ROLLBACK", conn=connObj)
+            raise _TQTransactionAbort(result)
+
+    def __deleteTaskQueueIfEmptyLocked(self, tqId, connObj):
+        """Atomically delete a task queue and its requirement rows if it holds no job.
+
+        The TQ row is locked FOR UPDATE first. Inserting a job into ``tq_Jobs`` needs a
+        shared lock on the parent TQ row (explicitly in :meth:`insertJob`, and implicitly
+        through the foreign key check), so once we hold the exclusive lock no job can be
+        added until we commit or roll back. Everything happens in one transaction: if any
+        step fails the requirement rows are restored. Previously the ``tq_TQTo*`` rows were
+        deleted in autocommit mode *before* the parent row, so a job inserted in between
+        left a TQ that still had jobs but no Sites/Platforms/... restrictions, which could
+        then be matched by any pilot.
+
+        :returns: S_OK(True) if deleted, S_OK(False) if not (non-empty, gone, or disabled)
+        """
+        try:
+            with self.__transaction(connObj):
+                req = "SELECT TQId FROM tq_TaskQueues WHERE TQId = %s AND Enabled >= 1 FOR UPDATE"
+                result = self._query(req, args=(tqId,), conn=connObj)
+                if not result["OK"]:
+                    raise _TQTransactionAbort(result)
+                if not result["Value"]:
+                    raise _TQTransactionAbort(S_OK(False))
+                # Current (locking) read: must see jobs committed after our snapshot
+                req = "SELECT JobId FROM tq_Jobs WHERE TQId = %s LIMIT 1 LOCK IN SHARE MODE"
+                result = self._query(req, args=(tqId,), conn=connObj)
+                if not result["OK"]:
+                    raise _TQTransactionAbort(result)
+                if result["Value"]:
+                    raise _TQTransactionAbort(S_OK(False))
+                for table in [f"tq_TQTo{mvField}" for mvField in multiValueDefFields] + [
+                    "tq_RAM_requirements",
+                    "tq_TaskQueues",
+                ]:
+                    req = f"DELETE FROM {table} WHERE TQId = %s"  # nosec B608: table names are constants
+                    result = self._update(req, args=(tqId,), conn=connObj)
+                    if not result["OK"]:
+                        raise _TQTransactionAbort(result)
+        except _TQTransactionAbort as abort:
+            return abort.result
+        return S_OK(True)
+
+    def findOrphanJobs(self):
+        """Find jobs that are not in any task queue"""
+        result = self._query("select JobID from tq_Jobs WHERE TQId not in (SELECT TQId from tq_TaskQueues)")
+        if not result["OK"]:
+            return result
+        return S_OK([row[0] for row in result["Value"]])
+
+    def isSharesCorrectionEnabled(self):
+        return self.__getCSOption("EnableSharesCorrection", False)
+
+    def __getCSOption(self, optionName, defValue):
+        return self.__opsHelper.getValue(f"JobScheduling/{optionName}", defValue)
+
+    def __initializeDB(self):
+        """
+        Create the tables
+        """
+        result = self._query("show tables")
+        if not result["OK"]:
+            return result
+
+        tablesInDB = [t[0] for t in result["Value"]]
+        self.__tablesDesc = {}
+
+        self.__tablesDesc["tq_TaskQueues"] = {
+            "Fields": {
+                "TQId": "INTEGER(11) UNSIGNED AUTO_INCREMENT NOT NULL",
+                "Owner": "VARCHAR(255) NOT NULL",
+                "OwnerGroup": "VARCHAR(32) NOT NULL",
+                "VO": "VARCHAR(32) NOT NULL",
+                "CPUTime": "BIGINT(20) UNSIGNED NOT NULL",
+                "Priority": "FLOAT NOT NULL",
+                "Enabled": "TINYINT(1) NOT NULL DEFAULT 0",
+            },
+            "PrimaryKey": "TQId",
+            "Indexes": {"TQOwner": ["Owner", "OwnerGroup", "CPUTime"]},
+        }
+
+        self.__tablesDesc["tq_Jobs"] = {
+            "Fields": {
+                "TQId": "INTEGER(11) UNSIGNED NOT NULL",
+                "JobId": "INTEGER(11) UNSIGNED NOT NULL",
+                "Priority": "INTEGER UNSIGNED NOT NULL",
+                "RealPriority": "FLOAT NOT NULL",
+            },
+            "PrimaryKey": "JobId",
+            "Indexes": {"TaskIndex": ["TQId"]},
+            "ForeignKeys": {"TQId": "tq_TaskQueues.TQId"},
+        }
+
+        self.__tablesDesc["tq_RAM_requirements"] = {
+            "Fields": {
+                "TQId": "INTEGER(11) UNSIGNED NOT NULL",
+                "MinRAM": "INTEGER UNSIGNED NOT NULL DEFAULT 0",
+                "MaxRAM": "INTEGER UNSIGNED NOT NULL DEFAULT 0",
+            },
+            "PrimaryKey": "TQId",
+            "ForeignKeys": {"TQId": "tq_TaskQueues.TQId"},
+        }
+
+        for multiField in multiValueDefFields:
+            tableName = f"tq_TQTo{multiField}"
+            self.__tablesDesc[tableName] = {
+                "Fields": {"TQId": "INTEGER(11) UNSIGNED NOT NULL", "Value": "VARCHAR(64) NOT NULL"},
+                "PrimaryKey": ["TQId", "Value"],
+                "Indexes": {"TaskIndex": ["TQId", "Value"], f"{multiField}Index": ["Value"]},
+                "ForeignKeys": {"TQId": "tq_TaskQueues.TQId"},
+            }
+
+        tablesToCreate = {}
+        for tableName, tableDef in self.__tablesDesc.items():
+            if tableName not in tablesInDB:
+                tablesToCreate[tableName] = tableDef
+
+        return self._createTables(tablesToCreate)
+
+    def getGroupsInTQs(self):
+        req = "SELECT DISTINCT(OwnerGroup) FROM tq_TaskQueues"
+        result = self._query(req)
+        if not result["OK"]:
+            return result
+        return S_OK([row[0] for row in result["Value"]])
+
+    def fitCPUTimeToSegments(self, cpuTime):
+        """
+        Fit the CPU time to the valid segments
+        """
+        maxCPUSegments = self.__getCSOption("taskQueueCPUTimeIntervals", self.__defaultCPUSegments)
+        try:
+            maxCPUSegments = [int(seg) for seg in maxCPUSegments]
+            # Check segments in the CS
+            last = 0
+            for cpuS in maxCPUSegments:
+                if cpuS <= last:
+                    maxCPUSegments = self.__defaultCPUSegments
+                    break
+                last = cpuS
+        except Exception:
+            maxCPUSegments = self.__defaultCPUSegments
+        # Map to a segment
+        for cpuSegment in maxCPUSegments:
+            if cpuTime <= cpuSegment:
+                return cpuSegment
+        return maxCPUSegments[-1]
+
+    def _checkTaskQueueDefinition(self, tqDefDict):
+        """
+        Check a task queue definition dict is valid
+        """
+
+        if "OwnerGroup" in tqDefDict:
+            tqDefDict["VO"] = Registry.getVOForGroup(tqDefDict["OwnerGroup"])
+
+        for field in singleValueDefFields:
+            if field == "CPUTime":
+                if not isinstance(tqDefDict[field], int):
+                    return S_ERROR(f"Mandatory field 'CPUTime' value type is not valid: {type(tqDefDict['CPUTime'])}")
+            else:
+                if not isinstance(tqDefDict[field], str):
+                    return S_ERROR(f"Mandatory field {field} value type is not valid: {type(tqDefDict[field])}")
+        for field in multiValueDefFields:
+            if field not in tqDefDict:
+                continue
+            if not isinstance(tqDefDict[field], (list, tuple)):
+                return S_ERROR(f"Multi value field {field} value type is not valid: {type(tqDefDict[field])}")
+
+        # Check range value fields (RAM requirements)
+        for field in rangeValueDefFields:
+            if field not in tqDefDict:
+                continue
+            if not isinstance(tqDefDict[field], int):
+                return S_ERROR(f"Range value field {field} value type is not valid: {type(tqDefDict[field])}")
+            if tqDefDict[field] < 0:
+                return S_ERROR(f"Range value field {field} must be non-negative: {tqDefDict[field]}")
+
+        # Validate that MinRAM <= MaxRAM if both are specified
+        if "MinRAM" in tqDefDict and "MaxRAM" in tqDefDict:
+            if tqDefDict["MaxRAM"] > 0 and tqDefDict["MinRAM"] > tqDefDict["MaxRAM"]:
+                return S_ERROR(f"MinRAM ({tqDefDict['MinRAM']}) cannot be greater than MaxRAM ({tqDefDict['MaxRAM']})")
+
+        return S_OK(tqDefDict)
+
+    def _checkMatchDefinition(self, tqMatchDict):
+        """
+        Check a task queue match dict is valid
+        """
+
+        def travelAndCheckType(value, validTypes):
+            if isinstance(value, (list, tuple)):
+                for subValue in value:
+                    if not isinstance(subValue, validTypes):
+                        return S_ERROR(f"List contained type {type(subValue)} is not valid -> {validTypes}")
+                return S_OK(value)
+            else:
+                if not isinstance(value, validTypes):
+                    return S_ERROR(f"Type {type(value)} is not valid -> {validTypes}")
+                return S_OK(value)
+
+        for field in singleValueDefFields:
+            if field not in tqMatchDict:
+                if field in mandatoryMatchFields:
+                    return S_ERROR(f"Missing mandatory field '{field}' in match request definition")
+                continue
+            fieldValue = tqMatchDict[field]
+            if field in ["CPUTime"]:
+                result = travelAndCheckType(fieldValue, int)
+            else:
+                result = travelAndCheckType(fieldValue, str)
+            if not result["OK"]:
+                return S_ERROR(f"Match definition field {field} failed : {result['Message']}")
+            tqMatchDict[field] = result["Value"]
+        # Check multivalue
+        for multiField in multiValueMatchFields:
+            for field in (multiField, f"Banned{multiField}", f"Required{multiField}"):
+                if field in tqMatchDict:
+                    fieldValue = tqMatchDict[field]
+                    result = travelAndCheckType(fieldValue, str)
+                    if not result["OK"]:
+                        return S_ERROR(f"Match definition field {field} failed : {result['Message']}")
+                    tqMatchDict[field] = result["Value"]
+
+        # Check range value fields (RAM requirements for matching)
+        if "MaxRAM" in tqMatchDict:
+            result = travelAndCheckType(tqMatchDict["MaxRAM"], int)
+            if not result["OK"]:
+                return S_ERROR(f"Match definition field RAM failed : {result['Message']}")
+            tqMatchDict["MaxRAM"] = result["Value"]
+
+        return S_OK(tqMatchDict)
+
+    def __createTaskQueue(self, tqDefDict, priority=1, connObj=False):
+        """
+        Create a task queue
+          :returns: S_OK( tqId ) / S_ERROR
+        """
+        if not connObj:
+            result = self._getConnection()
+            if not result["OK"]:
+                return S_ERROR(f"Can't create task queue: {result['Message']}")
+            connObj = result["Value"]
+        tqDefDict["CPUTime"] = self.fitCPUTimeToSegments(tqDefDict["CPUTime"])
+        sqlSingleFields = ["TQId", "Priority"]
+        sqlValues = ["0", str(priority)]
+        for field in singleValueDefFields:
+            sqlSingleFields.append(field)
+            sqlValues.append(tqDefDict[field])
+        sqlSingleFields.append("VO")
+        sqlValues.append(tqDefDict["VO"])
+        # Insert the TQ Disabled
+        sqlSingleFields.append("Enabled")
+        sqlValues.append("0")
+        # The TQ row and its requirement rows must become visible together: matching
+        # treats a TQ without tq_TQTo<Field> rows as "no restriction", so a TQ seen before
+        # its Sites/Platforms/... rows are committed could be matched by any pilot.
+        try:
+            with self.__transaction(connObj):
+                req = "INSERT INTO tq_TaskQueues ("
+                req += ",".join(sqlSingleFields)
+                req += ") VALUES ("
+                req += ",".join(["%s"] * len(sqlValues))
+                req += ")"
+                result = self._update(req, args=sqlValues, conn=connObj)
+                if not result["OK"]:
+                    self.log.error("Can't insert TQ in DB", result["Message"])
+                    raise _TQTransactionAbort(result)
+                if "lastRowId" in result:
+                    tqId = result["lastRowId"]
+                else:
+                    result = self._query("SELECT LAST_INSERT_ID()", conn=connObj)
+                    if not result["OK"]:
+                        raise _TQTransactionAbort(S_ERROR("Can't determine task queue id after insertion"))
+                    tqId = result["Value"][0][0]
+                for field in multiValueDefFields:
+                    if field not in tqDefDict:
+                        continue
+                    values = {x.strip() for x in tqDefDict[field] if x.strip()}
+                    if not values:
+                        continue
+                    req = "INSERT INTO "
+                    req += f"tq_TQTo{field} "
+                    req += "(TQId, Value) VALUES "
+                    req += ",".join(["(%s,%s)"] * len(values))
+                    args = []
+                    for val in values:
+                        args.append(tqId)
+                        args.append(val)
+                    result = self._update(req, args=args, conn=connObj)
+                    if not result["OK"]:
+                        self.log.error("Failed to insert condition", f"{field} : {result['Message']}")
+                        raise _TQTransactionAbort(
+                            S_ERROR(f"Can't insert values {values} for field {field}: {result['Message']}")
+                        )
+
+                # Insert RAM requirements if specified and not both zero
+                if "MinRAM" in tqDefDict or "MaxRAM" in tqDefDict:
+                    minRAM = tqDefDict.get("MinRAM", 0)
+                    maxRAM = tqDefDict.get("MaxRAM", 0)
+                    # Only insert if at least one value is non-zero (optimization: avoid unnecessary rows)
+                    if minRAM > 0 or maxRAM > 0:
+                        req = "INSERT INTO tq_RAM_requirements "
+                        req += "(TQId, MinRAM, MaxRAM) VALUES (%s,%s,%s)"
+                        args = (tqId, minRAM, maxRAM)
+                        result = self._update(req, args=args, conn=connObj)
+                        if not result["OK"]:
+                            self.log.error("Failed to insert RAM requirements", result["Message"])
+                            raise _TQTransactionAbort(S_ERROR(f"Can't insert RAM requirements: {result['Message']}"))
+        except _TQTransactionAbort as abort:
+            # Rolled back: no partial TQ is left behind, nothing to clean up
+            return abort.result
+
+        self.log.info("Created TQ", tqId)
+        return S_OK(tqId)
+
+    def cleanOrphanedTaskQueues(self, connObj=False):
+        """
+        Delete all empty task queues
+        """
+        self.log.info("Cleaning orphaned TQs")
+        if not connObj:
+            result = self._getConnection()
+            if not result["OK"]:
+                return result
+            connObj = result["Value"]
+        req = "SELECT TQId FROM tq_TaskQueues WHERE Enabled >= 1 AND TQId NOT IN (SELECT DISTINCT TQId FROM tq_Jobs)"
+        result = self._query(req, conn=connObj)
+        if not result["OK"]:
+            return result
+        # The selection above is only a hint: each candidate is re-checked under lock
+        for (tqId,) in result["Value"]:
+            result = self.__deleteTaskQueueIfEmptyLocked(tqId, connObj)
+            if not result["OK"]:
+                return result
+        return S_OK()
+
+    def __hackJobPriority(self, jobPriority):
+        jobPriority = min(max(int(jobPriority), self.__jobPriorityBoundaries[0]), self.__jobPriorityBoundaries[1])
+        if jobPriority == self.__jobPriorityBoundaries[0]:
+            return 10 ** (-5)
+        if jobPriority == self.__jobPriorityBoundaries[1]:
+            return 10**6
+        return jobPriority
+
+    def insertJob(self, jobId, tqDefDict, jobPriority, skipTQDefCheck=False):
+        """Insert a job in a task queue (creating one if it doesn't exit)
+
+        :param int jobId: job ID
+        :param dict tqDefDict: dict for TQ definition
+        :param int jobPriority: integer that defines the job priority
+
+        :returns: S_OK() / S_ERROR
+        """
+        try:
+            int(jobId)
+        except ValueError:
+            return S_ERROR("JobId is not a number!")
+        retVal = self._getConnection()
+        if not retVal["OK"]:
+            return S_ERROR(f"Can't insert job: {retVal['Message']}")
+        connObj = retVal["Value"]
+        if not skipTQDefCheck:
+            tqDefDict = dict(tqDefDict)
+            retVal = self._checkTaskQueueDefinition(tqDefDict)
+            if not retVal["OK"]:
+                self.log.error("TQ definition check failed", retVal["Message"])
+                return retVal
+            tqDefDict = retVal["Value"]
+        tqDefDict["CPUTime"] = self.fitCPUTimeToSegments(tqDefDict["CPUTime"])
+        self.log.info("Inserting job with requirements", f"({jobId} : {printDict(tqDefDict)})")
+        # A TQ found (or created) here may be deleted by a concurrent cleanup before the
+        # job lands in it; __insertJobInTaskQueue then reports it gone and we look again.
+        for _ in range(self.__maxInsertRetries):
+            creationLock = None
+            try:
+                retVal = self.__findSmallestTaskQueue(tqDefDict, connObj=connObj)
+                if not retVal["OK"]:
+                    return retVal
+                tqInfo = retVal["Value"]
+                if not tqInfo["found"]:
+                    # Serialise creation for this requirement set: without this, every
+                    # thread inserting such a job before the first one commits creates
+                    # its own duplicate TQ (each triggering a share recalculation).
+                    creationLock = self.__acquireTQCreationLock(tqDefDict, connObj)
+                    if creationLock:
+                        retVal = self.__findSmallestTaskQueue(tqDefDict, connObj=connObj)
+                        if not retVal["OK"]:
+                            return retVal
+                        tqInfo = retVal["Value"]
+                newTQ = not tqInfo["found"]
+                if newTQ:
+                    self.log.info("Creating a TQ for job", jobId)
+                    retVal = self.__createTaskQueue(tqDefDict, 1, connObj=connObj)
+                    if not retVal["OK"]:
+                        return retVal
+                    tqId = retVal["Value"]
+                else:
+                    tqId = tqInfo["tqId"]
+                    self.log.info("Found TQ for job requirements", f"({tqId} : {jobId})")
+                result = self.__insertJobInTaskQueue(jobId, tqId, int(jobPriority), newTQ=newTQ, connObj=connObj)
+            finally:
+                # Only released once the job is committed, so that waiters can find the TQ
+                if creationLock:
+                    self._query("SELECT RELEASE_LOCK(%s)", args=(creationLock,), conn=connObj)
+            if not result["OK"]:
+                self.log.error("Error inserting job in TQ", f"Job {jobId} TQ {tqId}: {result['Message']}")
+                if newTQ:
+                    # Make the (still empty) new TQ visible to the cleanup again
+                    self._update("UPDATE tq_TaskQueues SET Enabled=1 WHERE TQId=%s", args=(tqId,), conn=connObj)
+                return result
+            if result["Value"]:
+                break
+            self.log.verbose("TQ vanished before job could be inserted, retrying", f"TQ {tqId} Job {jobId}")
+        else:
+            return S_ERROR(f"Could not insert job {jobId}: task queues kept disappearing")
+        if newTQ:
+            self.recalculateTQSharesForEntity(tqDefDict["Owner"], tqDefDict["OwnerGroup"], connObj=connObj)
+        return S_OK()
+
+    def __acquireTQCreationLock(self, tqDefDict, connObj):
+        """Take a MySQL named lock specific to this set of TQ requirements.
+
+        Best effort: if the lock cannot be obtained in time (or GET_LOCK is unavailable),
+        return None and let the caller create the TQ anyway, as before.
+
+        :returns: the lock name if acquired, None otherwise
+        """
+        canonical = []
+        for key in sorted(tqDefDict):
+            value = tqDefDict[key]
+            if isinstance(value, (list, tuple, set)):
+                value = sorted(str(v).strip() for v in value)
+            canonical.append((key, value))
+        digest = hashlib.sha1(repr(canonical).encode(), usedforsecurity=False).hexdigest()
+        # MySQL lock names are limited to 64 characters
+        lockName = f"TaskQueueDB.newTQ.{digest}"
+        result = self._query("SELECT GET_LOCK(%s, %s)", args=(lockName, self.__tqCreationLockTimeout), conn=connObj)
+        if result["OK"] and result["Value"] and result["Value"][0][0] == 1:
+            return lockName
+        self.log.warn("Could not get TQ creation lock, a duplicate TQ may be created", lockName)
+        return None
+
+    def __insertJobInTaskQueue(self, jobId, tqId, jobPriority, newTQ=False, connObj=False):
+        """Insert a job in a given task queue
+
+        The TQ row is read with a *shared* lock in the same transaction as the insert.
+        Any number of inserters can hold it at once, but it blocks the exclusive lock
+        taken by :meth:`__deleteTaskQueueIfEmptyLocked`, so the TQ cannot be deleted
+        between finding it and adding the job. This replaces the former Enabled-1 /
+        Enabled+1 bracketing, which took two exclusive locks on the same row per job and
+        serialised every concurrent insertion into a popular TQ.
+
+        :param int jobId: job ID
+        :param int tqId: task queue ID
+        :param int jobPriority: integer that defines the job priority
+        :param bool newTQ: the TQ was just created (Enabled=0) by the caller: publish it
+        :returns: S_OK(True) if inserted, S_OK(False) if the TQ no longer exists, or S_ERROR
+        """
+        self.log.info("Inserting job in TQ with priority", f"({jobId} : {tqId} : {jobPriority})")
+        if not connObj:
+            result = self._getConnection()
+            if not result["OK"]:
+                return S_ERROR(f"Can't insert job: {result['Message']}")
+            connObj = result["Value"]
+        hackedPriority = self.__hackJobPriority(jobPriority)
+        try:
+            with self.__transaction(connObj):
+                req = "SELECT TQId FROM tq_TaskQueues WHERE TQId = %s LOCK IN SHARE MODE"
+                result = self._query(req, args=(tqId,), conn=connObj)
+                if not result["OK"]:
+                    raise _TQTransactionAbort(result)
+                if not result["Value"]:
+                    raise _TQTransactionAbort(S_OK(False))
+                req = "INSERT INTO tq_Jobs (TQId, JobId, Priority, RealPriority) "
+                req += "VALUES (%s,%s,%s,%s) ON DUPLICATE KEY "
+                req += "UPDATE TQId=%s, Priority=%s, RealPriority=%s"
+                args = (tqId, jobId, jobPriority, hackedPriority, tqId, jobPriority, hackedPriority)
+                result = self._update(req, args=args, conn=connObj)
+                if not result["OK"]:
+                    raise _TQTransactionAbort(result)
+                if newTQ:
+                    # Nobody else can see this TQ yet (it had no job), so this is uncontended
+                    req = "UPDATE tq_TaskQueues SET Enabled=1 WHERE TQId = %s"
+                    result = self._update(req, args=(tqId,), conn=connObj)
+                    if not result["OK"]:
+                        raise _TQTransactionAbort(result)
+        except _TQTransactionAbort as abort:
+            return abort.result
+        return S_OK(True)
+
+    def __generateTQFindSQL(
+        self,
+        tqDefDict,
+    ):
+        """
+        Generate the SQL to find a task queue that has exactly the given requirements
+        Returns a tuple of the SQL string + an args list
+
+        :param dict tqDefDict: dict for TQ definition
+        :returns: S_OK() / S_ERROR
+        """
+        sqlCondList = []
+        condArgs = []
+        for field in singleValueDefFields:
+            sqlCondList.append(f"tq_TaskQueues.{field} = %s")
+            condArgs.append(tqDefDict[field])
+        # MAGIC SUBQUERIES TO ENSURE STRICT MATCH
+        for field in multiValueDefFields:
+            tableName = f"tq_TQTo{field}"
+            if field in tqDefDict and tqDefDict[field]:
+                valuesList = List.uniqueElements([value.strip() for value in tqDefDict[field] if value.strip()])
+                numValues = len(valuesList)
+                # Exact count match: TQ must have exactly numValues entries
+                req = "(SELECT COUNT("
+                req += f"{tableName}.Value) "
+                req += f"FROM {tableName} "
+                req += f"WHERE {tableName}.TQId = tq_TaskQueues.TQId) = %s"
+                sqlCondList.append(req)
+                condArgs.append(len(valuesList))
+                # All values must be in the TQ
+                req = "NOT EXISTS (SELECT 1 FROM "
+                req += tableName
+                req += f" WHERE {tableName}.TQId = tq_TaskQueues.TQId "
+                req += f"AND {tableName}.Value NOT IN ("
+                req += ",".join(["%s"] * len(valuesList))
+                req += "))"
+                sqlCondList.append(req)
+                condArgs.extend(valuesList)
+            else:
+                req = "NOT EXISTS (SELECT 1 FROM "
+                req += tableName
+                req += f" WHERE {tableName}.TQId = tq_TaskQueues.TQId)"
+                sqlCondList.append(req)
+
+        # Handle RAM requirements matching
+        hasRAMRequirements = "MinRAM" in tqDefDict or "MaxRAM" in tqDefDict
+        if hasRAMRequirements:
+            minRAM = tqDefDict.get("MinRAM", 0)
+            maxRAM = tqDefDict.get("MaxRAM", 0)
+            # Only match TQs with the same RAM requirements if at least one is non-zero
+            if minRAM > 0 or maxRAM > 0:
+                # Match TQs that have the exact same RAM requirements
+                req = "tq_TaskQueues.TQId IN ("
+                req += "SELECT TQId FROM tq_RAM_requirements "
+                req += "WHERE MinRAM=%s AND MaxRAM=%s)"
+                sqlCondList.append(req)
+                condArgs.extend((minRAM, maxRAM))
+            else:
+                # Both are 0, so match TQs with no RAM requirements row
+                sqlCondList.append("tq_TaskQueues.TQId NOT IN (SELECT DISTINCT TQId FROM tq_RAM_requirements)")
+        else:
+            # Match TQs that have no RAM requirements
+            sqlCondList.append("tq_TaskQueues.TQId NOT IN (SELECT DISTINCT TQId FROM tq_RAM_requirements)")
+
+        # END MAGIC: That was easy ;)
+        whereSql = " AND ".join(sqlCondList)
+        return S_OK((whereSql, condArgs))
+
+    def __findSmallestTaskQueue(self, tqDefDict, connObj=False):
+        """
+        Find a task queue that has at least the given requirements
+
+        :param dict tqDefDict: dict for TQ definition
+        :returns: S_OK() / S_ERROR
+        """
+        result = self.__generateTQFindSQL(tqDefDict)
+        if not result["OK"]:
+            return result
+        whereSql, whereArgs = result["Value"]
+
+        req = "SELECT COUNT(tq_Jobs.JobID), tq_TaskQueues.TQId, tq_TaskQueues.Enabled "
+        req += "FROM tq_TaskQueues, tq_Jobs "
+        req += "WHERE tq_TaskQueues.TQId = tq_Jobs.TQId "
+        req += f"AND {whereSql} "
+        req += "GROUP BY tq_Jobs.TQId "
+        req += "ORDER BY COUNT(tq_Jobs.JobID) ASC"
+        result = self._query(req, args=whereArgs, conn=connObj)
+        if not result["OK"]:
+            self.log.error("Can't find task queue", result["Message"])
+            return result
+        data = result["Value"]
+        if not data or data[0][0] >= self.__maxJobsInTQ:
+            return S_OK({"found": False})
+        return S_OK({"found": True, "tqId": data[0][1], "enabled": data[0][2], "jobs": data[0][0]})
+
+    def matchAndGetJob(self, tqMatchDict, numJobsPerTry=50, numQueuesPerTry=10, negativeCond=None):
+        """Match a job based on requirements
+
+        :param dict tqDefDict: dict for TQ definition
+        :returns: S_OK() / S_ERROR
+        """
+        if negativeCond is None:
+            negativeCond = {}
+        # Make a copy to avoid modification of original if escaping needs to be done
+        tqMatchDict = dict(tqMatchDict)
+        retVal = self._checkMatchDefinition(tqMatchDict)
+        if not retVal["OK"]:
+            self.log.error("TQ match request check failed", retVal["Message"])
+            return retVal
+        retVal = self._getConnection()
+        if not retVal["OK"]:
+            return S_ERROR(f"Can't connect to DB: {retVal['Message']}")
+        connObj = retVal["Value"]
+        preJobSQL = "SELECT tq_Jobs.JobId, tq_Jobs.TQId "
+        preJobSQL += "FROM tq_Jobs "
+        preJobSQL += "WHERE tq_Jobs.TQId = %s AND tq_Jobs.Priority = %s"
+        postJobSQL = f" ORDER BY tq_Jobs.JobId ASC LIMIT {int(numJobsPerTry)}"
+        # preJobExtArgs are for the extra strings added in the next loop!
+        # the two other parameters are set just before execution
+        preJobExtArgs = []
+
+        prioSQL = "SELECT tq_Jobs.Priority FROM tq_Jobs "
+        prioSQL += "WHERE tq_Jobs.TQId = %s "
+        prioSQL += "ORDER BY RAND() / tq_Jobs.RealPriority ASC LIMIT 1"
+        # prioSQL has 1 parameter, which is only known just before execution
+
+        for _ in range(self.__maxMatchRetry):
+            noJobsFound = False
+            if "JobID" in tqMatchDict:
+                # A certain JobID is required by the resource, so all TQ are to be considered
+                retVal = self.matchAndGetTaskQueue(
+                    tqMatchDict, numQueuesToGet=0, skipMatchDictDef=True, connObj=connObj
+                )
+                preJobSQL += " AND tq_Jobs.JobId = %s "
+                preJobExtArgs.append(tqMatchDict["JobID"])
+            else:
+                retVal = self.matchAndGetTaskQueue(
+                    tqMatchDict,
+                    numQueuesToGet=numQueuesPerTry,
+                    skipMatchDictDef=True,
+                    negativeCond=negativeCond,
+                    connObj=connObj,
+                )
+            if not retVal["OK"]:
+                return retVal
+            tqList = retVal["Value"]
+            if not tqList:
+                self.log.info("No TQ matches requirements")
+                return S_OK({"matchFound": False, "tqMatch": tqMatchDict})
+            for tqId, tqOwner, tqOwnerGroup in tqList:
+                self.log.verbose("Trying to extract jobs from TQ", tqId)
+                retVal = self._query(prioSQL, args=(tqId,), conn=connObj)
+                if not retVal["OK"]:
+                    return S_ERROR(f"Can't retrieve winning priority for matching job: {retVal['Message']}")
+                if not retVal["Value"]:
+                    noJobsFound = True
+                    continue
+                prio = retVal["Value"][0][0]
+                req = f"{preJobSQL} {postJobSQL}"
+                args = [tqId, prio] + preJobExtArgs
+                retVal = self._query(req, args=args, conn=connObj)
+                if not retVal["OK"]:
+                    return S_ERROR(f"Can't begin transaction for matching job: {retVal['Message']}")
+                jobTQList = [(row[0], row[1]) for row in retVal["Value"]]
+                if not jobTQList:
+                    self.log.info("Task queue seems to be empty, triggering a cleaning of", tqId)
+                    self.__deleteTQWithDelay.add(tqId, 300, (tqId, tqOwner, tqOwnerGroup))
+                while jobTQList:
+                    jobId, tqId = jobTQList.pop(random.randint(0, len(jobTQList) - 1))  # nosec B311
+                    self.log.verbose("Trying to extract job from TQ", f"{jobId} : {tqId}")
+                    retVal = self.deleteJob(jobId, connObj=connObj)
+                    if not retVal["OK"]:
+                        msgFix = "Could not take job"
+                        msgVar = f" {jobId} out from the TQ {tqId}: {retVal['Message']}"
+                        self.log.error(msgFix, msgVar)
+                        return S_ERROR(msgFix + msgVar)
+                    if retVal["Value"]:
+                        self.log.info("Extracted job with prio from TQ", f"({jobId} : {prio} : {tqId})")
+                        return S_OK({"matchFound": True, "jobId": jobId, "taskQueueId": tqId, "tqMatch": tqMatchDict})
+                self.log.info("No jobs could be extracted from TQ", tqId)
+        if noJobsFound:
+            return S_OK({"matchFound": False, "tqMatch": tqMatchDict})
+
+        self.log.info(f"Could not find a match after {self.__maxMatchRetry} match retries")
+        return S_ERROR(f"Could not find a match after {self.__maxMatchRetry} match retries")
+
+    def matchAndGetTaskQueue(
+        self, tqMatchDict, numQueuesToGet=1, skipMatchDictDef=False, negativeCond=None, connObj=False
+    ):
+        """Get a queue that matches the requirements"""
+        if negativeCond is None:
+            negativeCond = {}
+        # Make a copy to avoid modification of original if escaping needs to be done
+        tqMatchDict = dict(tqMatchDict)
+        if not skipMatchDictDef:
+            retVal = self._checkMatchDefinition(tqMatchDict)
+            if not retVal["OK"]:
+                return retVal
+        retVal = self.__generateTQMatchSQL(tqMatchDict, numQueuesToGet=numQueuesToGet, negativeCond=negativeCond)
+        if not retVal["OK"]:
+            return retVal
+        matchSQL, matchArgs = retVal["Value"]
+        retVal = self._query(matchSQL, args=matchArgs, conn=connObj)
+        if not retVal["OK"]:
+            return retVal
+        return S_OK([(row[0], row[1], row[2]) for row in retVal["Value"]])
+
+    @staticmethod
+    def __generateSQLSubCond(sqlString, value, boolOp="OR"):
+        """Creates a condition string given the sqlString and value
+        For example given 'a = %s' if value is a list, it will become
+        (a = %s) OR (a = %s) OR (a = %s) ... for each item.
+        Returns sql, args
+        """
+        if not isinstance(value, (list, tuple)):
+            return (sqlString, [value])
+        req = "(("
+        req += f") {boolOp} (".join([sqlString] * len(value))
+        req += "))"
+        return (req, list(value))
+
+    def __generateNotSQL(self, negativeCond):
+        """Generate negative conditions
+        Can be a list of dicts or a dict:
+         - list of dicts will be  OR of conditional dicts
+         - dicts will be normal conditional dict ( kay1 in ( v1, v2, ... ) AND key2 in ( v3, v4, ... ) )
+        """
+        if isinstance(negativeCond, (list, tuple)):
+            sqlCond = []
+            condArgs = []
+            for cD in negativeCond:
+                sql, args = self.__generateNotDictSQL(cD)
+                sqlCond.append(sql)
+                condArgs.extend(args)
+            req = "("
+            req += " OR ".join(sqlCond)
+            req += ")"
+            return (req, condArgs)
+        elif isinstance(negativeCond, dict):
+            return self.__generateNotDictSQL(negativeCond)
+        raise RuntimeError(f"negativeCond has to be either a list or a dict or a tuple, and it's {type(negativeCond)}")
+
+    def __generateNotDictSQL(self, negativeCond):
+        """Generate the negative sql condition from a standard condition dict
+        not ( cond1 and cond2 ) = ( not cond1 or not cond 2 )
+        For instance: { 'Site': 'S1', 'JobType': [ 'T1', 'T2' ] }
+          ( not 'S1' in Sites or ( not 'T1' in JobType and not 'T2' in JobType ) )
+          S2 T1 -> not False or ( not True and not False ) -> True or ... -> True -> Eligible
+          S1 T3 -> not True or ( not False and not False ) -> False or (True and True ) -> True -> Eligible
+          S1 T1 -> not True or ( not True and not False ) -> False or ( False and True ) -> False -> Nop
+        """
+        condList = []
+        condArgs = []
+        for field in negativeCond:
+            if field in multiValueMatchFields:
+                fullTableN = f"tq_TQTo{field}s"
+                valList = negativeCond[field]
+                if not isinstance(valList, (list, tuple)):
+                    valList = (valList,)
+                subList = []
+                subArgs = []
+                for value in valList:
+                    sub = "%s NOT IN (SELECT "
+                    sub += f"{fullTableN}.Value FROM {fullTableN} "
+                    sub += f"WHERE {fullTableN}.TQId = tq.TQId)"
+                    subList.append(sub)
+                    subArgs.append(value)
+                req = "("
+                req += " AND ".join(subList)
+                req += ")"
+                condList.append(req)
+                condArgs.extend(subArgs)
+            elif field in singleValueDefFields:
+                for value in negativeCond[field]:
+                    condList.append(f"tq.{field} != %s")
+                    condArgs.append(value)
+        req = "("
+        req += " OR ".join(condList)
+        req += ")"
+        return (req, condArgs)
+
+    @staticmethod
+    def __generateTablesName(sqlTables, field):
+        fullTableName = f"tq_TQTo{field}s"
+        if fullTableName not in sqlTables:
+            tableN = field.lower()
+            sqlTables[fullTableName] = tableN
+            return (
+                tableN,
+                f"{fullTableName}",
+            )
+        return sqlTables[fullTableName], f"{fullTableName}"
+
+    def __generateTQMatchSQL(self, tqMatchDict, numQueuesToGet=1, negativeCond=None):
+        """
+        Generate the SQL needed to match a task queue
+        Returns (sql-string, args-list) tuple with S_OK
+        """
+        self.log.debug(tqMatchDict)
+
+        if negativeCond is None:
+            negativeCond = {}
+        # Only enabled TQs
+        sqlCondList = []
+        condArgs = []
+        sqlTables = {"tq_TaskQueues": "tq"}
+        # If Owner and OwnerGroup are defined only use those combinations that make sense
+        if "Owner" in tqMatchDict and "OwnerGroup" in tqMatchDict:
+            groups = tqMatchDict["OwnerGroup"]
+            if not isinstance(groups, (list, tuple)):
+                groups = [groups]
+            owner = tqMatchDict["Owner"]
+            ownerConds = []
+            ownerArgs = []
+            for group in groups:
+                if Properties.JOB_SHARING in Registry.getPropertiesForGroup(group.replace('"', "")):
+                    ownerConds.append("tq.OwnerGroup = %s")
+                    ownerArgs.append(group)
+                else:
+                    ownerConds.append("(tq.Owner = %s AND tq.OwnerGroup = %s)")
+                    ownerArgs.extend((owner, group))
+            sqlCondList.append(" OR ".join(ownerConds))
+            condArgs.extend(ownerArgs)
+        else:
+            # If not both are defined, just add the ones that are defined
+            for field in ("OwnerGroup", "Owner"):
+                if field in tqMatchDict:
+                    cond = f"tq.{field} = %s"
+                    sql, args = self.__generateSQLSubCond(cond, tqMatchDict[field])
+                    sqlCondList.append(sql)
+                    condArgs.extend(args)
+        # Type of single value conditions
+        if "CPUTime" in tqMatchDict:
+            cond = "tq.CPUTime <= %s"
+            sql, args = self.__generateSQLSubCond(cond, tqMatchDict["CPUTime"])
+            sqlCondList.append(sql)
+            condArgs.extend(args)
+
+        # RAM matching logic
+        if "MaxRAM" in tqMatchDict:
+            ram = tqMatchDict["MaxRAM"]
+            # Join with tq_RAM_requirements table
+            sqlTables["tq_RAM_requirements"] = "ram_req"
+            # Match if:
+            # 1. No RAM requirement exists for this TQ (LEFT JOIN will give NULL)
+            # 2. OR the resource has at least MinRAM
+            # Note: MinRAM is used for matching, MaxRAM is informational for post-match scheduling
+            #       A job requiring MinRAM=2GB can run on any machine with 2GB or more
+            ramCond = "( ram_req.TQId IS NULL OR %s >= ram_req.MinRAM )"
+            sqlCondList.append(ramCond)
+            condArgs.append(ram)
+
+        tag_fv = []
+
+        # Match multi value fields
+        for field in multiValueMatchFields:
+            self.log.debug(f"Evaluating field {field}")
+            # It has to be %ss , with an 's' at the end because the columns names
+            # are plural and match options are singular
+
+            # Just treating the (not so) special case of no Tag, No RequiredTag
+            if "Tag" not in tqMatchDict and "RequiredTag" not in tqMatchDict:
+                tqMatchDict["Tag"] = []
+
+            if field in tqMatchDict:
+                self.log.debug(f"Evaluating {field} with value {tqMatchDict[field]}")
+
+                _, fullTableN = self.__generateTablesName(sqlTables, field)
+
+                sqlMultiCondList = []
+                multiArgs = []
+                csql = None
+
+                # Now evaluating Tags
+                if field == "Tag":
+                    tag_fv = tqMatchDict.get("Tag")
+                    self.log.debug(f"Evaluating tag {tag_fv} of type {type(tag_fv)}")
+                    if isinstance(tag_fv, str):
+                        tag_fv = [tag_fv]
+
+                    # Is there something to consider?
+                    if any(_lowerAndRemovePunctuation(fvx) == "any" for fvx in tag_fv):
+                        continue
+                    else:
+                        sql, args = self.__generateTagSQLSubCond(fullTableN, tag_fv)
+                        sqlMultiCondList.append(sql)
+                        multiArgs.extend(args)
+
+                # Now evaluating everything that is not tags
+                else:
+                    fv = tqMatchDict.get(field)
+                    self.log.debug(f"Evaluating field {field} of type {type(fv)}")
+
+                    # Is there something to consider?
+                    if not fv:
+                        continue
+                    if isinstance(fv, str) and _lowerAndRemovePunctuation(fv) == "any":
+                        continue
+                    if isinstance(fv, list) and any(_lowerAndRemovePunctuation(fvx) == "any" for fvx in fv):
+                        continue
+                    # if field != 'GridCE' or 'Site' in tqMatchDict:
+                    # Jobs for masked sites can be matched if they specified a GridCE
+                    # Site is removed from tqMatchDict if the Site is mask. In this case we want
+                    # that the GridCE matches explicitly so the COUNT can not be 0. In this case we skip this
+                    # condition
+                    req = "NOT EXISTS (SELECT 1 FROM "
+                    req += fullTableN
+                    req += f" WHERE {fullTableN}.TQId = tq.TQId)"
+                    sqlMultiCondList.append(req)
+                    req = "EXISTS (SELECT 1 FROM "
+                    req += fullTableN
+                    req += f" WHERE {fullTableN}.TQId = tq.TQId "
+                    req += f"AND {fullTableN}.Value = %s)"
+                    sql, args = self.__generateSQLSubCond(req, tqMatchDict.get(field))
+                    sqlMultiCondList.append(sql)
+                    multiArgs.extend(args)
+
+                req = "("
+                req += " OR ".join(sqlMultiCondList)
+                req += ")"
+                sqlCondList.append(req)
+                condArgs.extend(multiArgs)
+
+                # In case of Site, check it's not in job banned sites
+                if field in bannedJobMatchFields:
+                    fullTableN = f"tq_TQToBanned{field}s"
+                    cond = "NOT EXISTS (SELECT 1 FROM "
+                    cond += fullTableN
+                    cond += f" WHERE {fullTableN}.TQId = tq.TQId "
+                    cond += f"AND {fullTableN}.Value = %s)"
+                    sql, args = self.__generateSQLSubCond(cond, tqMatchDict[field])
+                    sqlCondList.append(sql)
+                    condArgs.extend(args)
+
+        # Add possibly RequiredTag conditions
+        rtag_fv = tqMatchDict.get("RequiredTag", [])
+        if isinstance(rtag_fv, str):
+            rtag_fv = [rtag_fv]
+
+        # Is there something to consider?
+        if not rtag_fv or any(_lowerAndRemovePunctuation(fv) == "any" for fv in rtag_fv):
+            pass
+        elif not set(rtag_fv).issubset(set(tag_fv)):
+            return S_ERROR("Wrong conditions")
+        else:
+            self.log.debug(f"Evaluating RequiredTag {rtag_fv}")
+            sql, args = self.__generateRequiredTagSQLSubCond("tq_TQToTags", rtag_fv)
+            sqlCondList.append(sql)
+            condArgs.extend(args)
+
+        # Add possibly Resource banning conditions
+        for field in multiValueMatchFields:
+            bannedField = f"Banned{field}"
+
+            # Is there something to consider?
+            b_fv = tqMatchDict.get(bannedField)
+            if (
+                not b_fv
+                or isinstance(b_fv, str)
+                and _lowerAndRemovePunctuation(b_fv) == "any"
+                or isinstance(b_fv, list)
+                and any(_lowerAndRemovePunctuation(fvx) == "any" for fvx in b_fv)
+            ):
+                continue
+
+            fullTableN = f"tq_TQTo{field}s"
+            cond = "NOT EXISTS (SELECT 1 FROM "
+            cond += fullTableN
+            cond += f" WHERE {fullTableN}.TQId = tq.TQId "
+            cond += f"AND {fullTableN}.Value = %s)"
+            sql, args = self.__generateSQLSubCond(cond, b_fv)
+            sqlCondList.append(sql)
+            condArgs.extend(args)
+
+        # Add extra negative conditions
+        if negativeCond:
+            sql, args = self.__generateNotSQL(negativeCond)
+            sqlCondList.append(sql)
+            condArgs.extend(args)
+
+        # Generate the final query string with proper JOINs
+        fromClause = "tq_TaskQueues tq"
+
+        # Add LEFT JOIN for RAM requirements if needed
+        if "tq_RAM_requirements" in sqlTables:
+            fromClause += " LEFT JOIN tq_RAM_requirements ram_req ON tq.TQId = ram_req.TQId"
+
+        req = "SELECT tq.TQId, tq.Owner, tq.OwnerGroup "
+        req += f"FROM {fromClause} WHERE ("
+        req += " AND ".join(sqlCondList)
+        req += ")"
+        # Apply priorities
+        req += " ORDER BY RAND() / tq.Priority ASC"
+        # Do we want a limit?
+        if numQueuesToGet:
+            req += f" LIMIT {int(numQueuesToGet)}"
+        return S_OK((req, condArgs))
+
+    @staticmethod
+    def __generateTagSQLSubCond(tableName, tagMatchList):
+        """Generate SQL condition where ALL the specified multiValue requirements must be
+        present in the matching resource list
+        tableName should be static/trusted.
+        Returns a tuple of (sql-str, arg-list)
+        """
+        args = []
+        if not tagMatchList:
+            req = "NOT EXISTS (SELECT 1 FROM "
+            req += tableName
+            req += f" WHERE {tableName}.TQId=tq.TQId "
+            req += f"AND {tableName}.Value != '')"
+        else:
+            if isinstance(tagMatchList, (list, tuple)):
+                valueLst = tagMatchList
+            else:
+                valueLst = [tagMatchList]
+            req = "NOT EXISTS ( SELECT 1 FROM "
+            req += tableName
+            req += f" WHERE {tableName}.TQId=tq.TQId "
+            req += f"AND {tableName}.Value NOT IN ("
+            req += ",".join(["%s"] * len(valueLst))
+            req += "))"
+            args.extend(valueLst)
+        return (req, args)
+
+    @staticmethod
+    def __generateRequiredTagSQLSubCond(tableName, tagMatchList):
+        """Generate SQL condition where the TQ corresponds to the requirements
+        of the resource
+        tableName should be static/trusted.
+        Returns a tuple of (sql-str, arg-list)
+        """
+        req = "SELECT "
+        req += f"COUNT({tableName}.Value) FROM "
+        req += tableName
+        req += f" WHERE {tableName}.TQId=tq.TQId"
+        args = []
+        if isinstance(tagMatchList, (list, tuple)):
+            req += f" AND {tableName}.Value IN ("
+            req += ",".join(["%s"] * len(tagMatchList))
+            req += ")"
+            args.extend(tagMatchList)
+        else:
+            req += f" AND {tableName}.Value=%s"
+            args.append(tagMatchList)
+        req = f"({req}) = %s"
+        args.append(len(args))
+        return (req, args)
+
+    def deleteJob(self, jobId, connObj=False):
+        """
+        Delete a job from the task queues
+        Return S_OK( True/False ) / S_ERROR
+        """
+        if not connObj:
+            retVal = self._getConnection()
+            if not retVal["OK"]:
+                return S_ERROR(f"Can't delete job: {retVal['Message']}")
+            connObj = retVal["Value"]
+        req = "SELECT t.TQId, t.Owner, t.OwnerGroup "
+        req += "FROM tq_TaskQueues t, tq_Jobs j "
+        req += "WHERE j.JobId = %s AND t.TQId = j.TQId"
+        retVal = self._query(req, args=(jobId,), conn=connObj)
+        if not retVal["OK"]:
+            return S_ERROR(f"Could not get job from task queue {jobId}: {retVal['Message']}")
+        data = retVal["Value"]
+        if not data:
+            return S_OK(False)
+        tqId, tqOwner, tqOwnerGroup = data[0]
+        self.log.verbose("Deleting job", jobId)
+        req = "DELETE FROM tq_Jobs WHERE JobId = %s"
+        retVal = self._update(req, args=(jobId,), conn=connObj)
+        if not retVal["OK"]:
+            return S_ERROR(f"Could not delete job from task queue {jobId}: {retVal['Message']}")
+        if retVal["Value"] == 0:
+            # No job deleted
+            return S_OK(False)
+        # Always return S_OK() because job has already been taken out from the TQ
+        self.__deleteTQWithDelay.add(tqId, 300, (tqId, tqOwner, tqOwnerGroup))
+        return S_OK(True)
+
+    def getTaskQueueForJob(self, jobId, connObj=False):
+        """
+        Return TaskQueue for a given Job
+        Return S_OK( [TaskQueueID] ) / S_ERROR
+        """
+        if not connObj:
+            retVal = self._getConnection()
+            if not retVal["OK"]:
+                return S_ERROR(f"Can't get TQ for job: {retVal['Message']}")
+            connObj = retVal["Value"]
+
+        req = "SELECT TQId FROM tq_Jobs WHERE JobId = %s"
+        retVal = self._query(req, args=(jobId,), conn=connObj)
+
+        if not retVal["OK"]:
+            return retVal
+
+        if not retVal["Value"]:
+            return S_ERROR("Not in TaskQueues")
+
+        return S_OK(retVal["Value"][0][0])
+
+    def __getOwnerForTaskQueue(self, tqId, connObj=False):
+        req = "SELECT Owner, OwnerGroup FROM tq_TaskQueues WHERE TQId = %s"
+        retVal = self._query(req, args=(tqId,), conn=connObj)
+        if not retVal["OK"]:
+            return retVal
+        data = retVal["Value"]
+        if not data:
+            return S_OK(False)
+        return S_OK(retVal["Value"][0])
+
+    def __deleteTQIfEmpty(self, args):
+        (tqId, tqOwner, tqOwnerGroup) = args
+        retries = 3
+        while retries:
+            retries -= 1
+            result = self.deleteTaskQueueIfEmpty(tqId, tqOwner, tqOwnerGroup)
+            if result["OK"]:
+                return
+        self.log.error("Could not delete TQ", f"{tqId}: {result['Message']}")
+
+    def deleteTaskQueueIfEmpty(self, tqId, tqOwner=False, tqOwnerGroup=False, connObj=False):
+        """
+        Try to delete a task queue if its empty
+        """
+        if not connObj:
+            retVal = self._getConnection()
+            if not retVal["OK"]:
+                self.log.error("Can't insert job", retVal["Message"])
+                return retVal
+            connObj = retVal["Value"]
+        if not tqOwner or not tqOwnerGroup:
+            retVal = self.__getOwnerForTaskQueue(tqId, connObj=connObj)
+            if not retVal["OK"]:
+                return retVal
+            data = retVal["Value"]
+            if not data:
+                return S_OK(False)
+            tqOwner, tqOwnerGroup = data
+
+        req = "SELECT TQId FROM tq_TaskQueues "
+        req += "WHERE Enabled >= 1 AND tq_TaskQueues.TQId = %s "
+        req += "AND tq_TaskQueues.TQId NOT IN (SELECT DISTINCT TQId FROM tq_Jobs)"
+        retVal = self._query(req, args=(tqId,), conn=connObj)
+        if not retVal["OK"]:
+            self.log.error("Could not select task queue", "%s : %s" % tqId, retVal["Message"])
+            return retVal
+        tqToDel = retVal["Value"]
+
+        if tqToDel:
+            # The query above is a cheap, non-locking pre-check so that busy TQs are not
+            # X-locked on every job deletion; the real decision is taken under lock.
+            retVal = self.__deleteTaskQueueIfEmptyLocked(tqId, connObj)
+            if not retVal["OK"]:
+                return retVal
+            if retVal["Value"]:
+                self.recalculateTQSharesForEntity(tqOwner, tqOwnerGroup, connObj=connObj)
+                self.log.info("Deleted empty and enabled TQ", tqId)
+                return S_OK()
+        return S_OK(False)
+
+    def getMatchingTaskQueues(self, tqMatchDict, negativeCond=False):
+        """Get the info of the task queues that match a resource"""
+        result = self.matchAndGetTaskQueue(tqMatchDict, numQueuesToGet=0, negativeCond=negativeCond)
+        if not result["OK"]:
+            return result
+        return self.retrieveTaskQueues([tqTuple[0] for tqTuple in result["Value"]])
+
+    def retrieveTaskQueues(self, tqIdList=None):
+        """
+        Get all the task queues
+        """
+        # Counting the jobs and reading the task queue definitions used to be a single
+        # join with a GROUP BY on the tq_TaskQueues columns. MySQL cannot satisfy that
+        # grouping from an index, so it materialises every joined tq_Jobs row in a
+        # temporary table: with ~1M jobs that costs seconds once a resource matches a few
+        # dozen task queues. Counting on tq_Jobs alone is a covering index range scan.
+        req = "SELECT TQId, COUNT(*) FROM tq_Jobs"
+        args = []
+        if tqIdList is not None:
+            if not tqIdList:
+                # Empty list => Fast-track no matches
+                return S_OK({})
+            req += " WHERE TQId IN ("
+            req += ",".join(["%s"] * len(tqIdList))
+            req += ")"
+            args.extend(tqIdList)
+        req += " GROUP BY TQId"
+        retVal = self._query(req, args=args)
+        if not retVal["OK"]:
+            self.log.error("Can't retrieve task queue job counts", retVal["Message"])
+            return retVal
+        jobCounts = dict(retVal["Value"])
+        if not jobCounts:
+            # As with the previous inner join, task queues without jobs are not returned
+            return S_OK({})
+
+        sqlSelectEntries = ["TQId", "Priority"]
+        for field in singleValueDefFields:
+            sqlSelectEntries.append(field)
+        req = "SELECT "
+        req += ",".join(sqlSelectEntries)
+        req += " FROM tq_TaskQueues WHERE TQId IN ("
+        req += ",".join(["%s"] * len(jobCounts))
+        req += ")"
+        retVal = self._query(req, args=list(jobCounts))
+        if not retVal["OK"]:
+            self.log.error("Can't retrieve task queues info", retVal["Message"])
+            return retVal
+        tqData = {}
+        for record in retVal["Value"]:
+            tqId = record[0]
+            tqData[tqId] = {"Priority": record[1], "Jobs": jobCounts[tqId]}
+            record = record[2:]
+            for iP, _ in enumerate(singleValueDefFields):
+                tqData[tqId][singleValueDefFields[iP]] = record[iP]
+
+        tqNeedCleaning = False
+        for field in multiValueDefFields:
+            req = "SELECT TQId, Value FROM "
+            req += f"tq_TQTo{field}"
+            args = []
+            if tqIdList is not None:
+                # As for the RAM requirements below: only the requested task queues are
+                # needed, there is no point in reading the whole table and filtering here
+                req += " WHERE TQId IN ("
+                req += ",".join(["%s"] * len(tqIdList))
+                req += ")"
+                args.extend(tqIdList)
+            retVal = self._query(req, args=args)
+            if not retVal["OK"]:
+                self.log.error("Can't retrieve task queues field", f"{field} info: {retVal['Message']}")
+                return retVal
+            for record in retVal["Value"]:
+                tqId = record[0]
+                value = record[1]
+                if tqId not in tqData:
+                    if tqIdList is None or tqId in tqIdList:
+                        self.log.verbose(
+                            "Task Queue is defined for a field, but does not exist: triggering a cleaning",
+                            f"TQID: {tqId}, field: {field}",
+                        )
+                        tqNeedCleaning = True
+                else:
+                    if field not in tqData[tqId]:
+                        tqData[tqId][field] = []
+                    tqData[tqId][field].append(value)
+
+        # Retrieve RAM requirements (if table exists)
+        # Note: The table should be auto-created by __initializeDB, but we check for safety
+        req = "SELECT TQId, MinRAM, MaxRAM FROM tq_RAM_requirements"
+        args = []
+        if tqIdList is not None:
+            if tqIdList:
+                # Only retrieve RAM requirements for specific TQIds
+                req += " WHERE TQId IN ("
+                req += ",".join(["%s"] * len(tqIdList))
+                req += ")"
+                args.extend(tqIdList)
+            # else: empty list was already handled earlier with fast-track return
+        retVal = self._query(req, args=args)
+        if not retVal["OK"]:
+            # If table doesn't exist (e.g., old installation), log a warning but continue
+            # This provides backward compatibility
+            if "doesn't exist" in retVal["Message"] or "Table" in retVal["Message"]:
+                self.log.warn("RAM requirements table not found, skipping RAM data retrieval", retVal["Message"])
+            else:
+                self.log.error("Can't retrieve RAM requirements", retVal["Message"])
+                return retVal
+        else:
+            for record in retVal["Value"]:
+                tqId = record[0]
+                minRAM = record[1]
+                maxRAM = record[2]
+                if tqId not in tqData:
+                    if tqIdList is None or tqId in tqIdList:
+                        self.log.verbose(
+                            "Task Queue has RAM requirements but does not exist: triggering a cleaning",
+                            f"TQID: {tqId}",
+                        )
+                        tqNeedCleaning = True
+                else:
+                    tqData[tqId]["MinRAM"] = minRAM
+                    tqData[tqId]["MaxRAM"] = maxRAM
+
+        if tqNeedCleaning:
+            self.cleanOrphanedTaskQueues()
+        return S_OK(tqData)
+
+    def __updateGlobalShares(self):
+        """
+        Update internal structure for shares
+        """
+        # Update group shares
+        self.__groupShares = self.getGroupShares()
+        # Apply corrections if enabled
+        if self.isSharesCorrectionEnabled():
+            result = self.getGroupsInTQs()
+            if not result["OK"]:
+                self.log.error("Could not get groups in the TQs", result["Message"])
+            activeGroups = result["Value"]
+            newShares = {}
+            for group in activeGroups:
+                if group in self.__groupShares:
+                    newShares[group] = self.__groupShares[group]
+            newShares = self.__sharesCorrector.correctShares(newShares)
+            for group in self.__groupShares:
+                if group in newShares:
+                    self.__groupShares[group] = newShares[group]
+
+    def recalculateTQSharesForAll(self):
+        """
+        Recalculate all priorities for TQ's
+        """
+        if self.isSharesCorrectionEnabled():
+            self.log.info("Updating correctors state")
+            self.__sharesCorrector.update()
+        self.__updateGlobalShares()
+        self.log.info("Recalculating shares for all TQs")
+        retVal = self._getConnection()
+        if not retVal["OK"]:
+            return S_ERROR(f"Can't insert job: {retVal['Message']}")
+        result = self._query("SELECT DISTINCT(OwnerGroup) FROM tq_TaskQueues")
+        if not result["OK"]:
+            return result
+        for group in [r[0] for r in result["Value"]]:
+            self.recalculateTQSharesForEntity("all", group)
+        return S_OK()
+
+    def recalculateTQSharesForEntity(self, user, userGroup, connObj=False):
+        """
+        Recalculate the shares for a user/userGroup combo
+        """
+        self.log.info("Recalculating shares", f"for {user}@{userGroup} TQs")
+        if userGroup in self.__groupShares:
+            share = self.__groupShares[userGroup]
+        else:
+            share = float(DEFAULT_GROUP_SHARE)
+        if Properties.JOB_SHARING in Registry.getPropertiesForGroup(userGroup):
+            # If group has JobSharing just set prio for that entry, user is irrelevant
+            return self.__setPrioritiesForEntity(user, userGroup, share, connObj=connObj)
+
+        req = "SELECT Owner, COUNT(Owner) FROM tq_TaskQueues "
+        req += "WHERE OwnerGroup=%s GROUP BY Owner"
+        result = self._query(req, args=(userGroup,), conn=connObj)
+        if not result["OK"]:
+            return result
+        # Get owners in this group and the amount of times they appear
+        data = [(r[0], r[1]) for r in result["Value"] if r]
+        numOwners = len(data)
+        # If there are no owners do now
+        if numOwners == 0:
+            return S_OK()
+        # Split the share amongst the number of owners
+        share /= numOwners
+        entitiesShares = {row[0]: share for row in data}
+        # If corrector is enabled let it work it's magic
+        if self.isSharesCorrectionEnabled():
+            entitiesShares = self.__sharesCorrector.correctShares(entitiesShares, group=userGroup)
+        # Keep updating
+        owners = dict(data)
+        # IF the user is already known and has more than 1 tq, the rest of the users don't need to be modified
+        # (The number of owners didn't change)
+        if user in owners and owners[user] > 1:
+            return self.__setPrioritiesForEntity(user, userGroup, entitiesShares[user], connObj=connObj)
+        # Oops the number of owners may have changed so we recalculate the prio for all owners in the group
+        for user in owners:
+            self.__setPrioritiesForEntity(user, userGroup, entitiesShares[user], connObj=connObj)
+        return S_OK()
+
+    def __setPrioritiesForEntity(self, user, userGroup, share, connObj=False, consolidationFunc="AVG"):
+        """
+        Set the priority for a user/userGroup combo given a splitted share
+        """
+        self.log.info("Setting priorities", f"to {user}@{userGroup} TQs")
+        tqCond = ["t.OwnerGroup=%s"]
+        tqArgs = [userGroup]
+        allowBgTQs = gConfig.getValue(f"/Registry/Groups/{userGroup}/AllowBackgroundTQs", False)
+        if Properties.JOB_SHARING not in Registry.getPropertiesForGroup(userGroup):
+            tqCond.append("t.Owner=%s")
+            tqArgs.append(user)
+        tqCond.append("t.TQId = j.TQId")
+        if consolidationFunc == "AVG":
+            req = "SELECT j.TQId, SUM(j.RealPriority)/COUNT(j.RealPriority) "
+            req += "FROM tq_TaskQueues t, tq_Jobs j WHERE "
+        elif consolidationFunc == "SUM":
+            req = "SELECT j.TQId, SUM(j.RealPriority) "
+            req += "FROM tq_TaskQueues t, tq_Jobs j WHERE "
+        else:
+            return S_ERROR(f"Unknown consolidation func {consolidationFunc} for setting priorities")
+        req += " AND ".join(tqCond)
+        req += " GROUP BY t.TQId"
+        result = self._query(req, args=tqArgs, conn=connObj)
+        if not result["OK"]:
+            return result
+
+        tqDict = dict(result["Value"])
+        if not tqDict:
+            return S_OK()
+
+        result = self.retrieveTaskQueues(list(tqDict))
+        if not result["OK"]:
+            return result
+        allTQsData = result["Value"]
+
+        prioDict = calculate_priority(tqDict, allTQsData, share, allowBgTQs)
+
+        # Execute updates
+        for prio, tqs in prioDict.items():
+            req = "UPDATE tq_TaskQueues SET Priority=%s WHERE TQId in ("
+            req += ",".join(["%s"] * len(tqs))
+            req += ")"
+            args = [f"{prio:.4f}"] + tqs
+            self._update(req, args=args, conn=connObj)
+        return S_OK()
+
+    @staticmethod
+    def getGroupShares():
+        """
+        Get all the shares as a DICT
+        """
+        result = gConfig.getSections("/Registry/Groups")
+        if result["OK"]:
+            groups = result["Value"]
+        else:
+            groups = []
+        shares = {}
+        for group in groups:
+            shares[group] = gConfig.getValue(f"/Registry/Groups/{group}/JobShare", DEFAULT_GROUP_SHARE)
+        return shares
+
+
+def calculate_priority(
+    tq_dict: dict[int, float], all_tqs_data: dict[int, dict[str, Any]], share: float, allow_bg_tqs: bool
+) -> dict[float, list[int]]:
+    """
+    Calculate the priority for each TQ given a share
+
+    :param tq_dict: dict of {tq_id: prio}
+    :param all_tqs_data: dict of {tq_id: {tq_data}}, where tq_data is a dict of {field: value}
+    :param share: share to be distributed among TQs
+    :param allow_bg_tqs: allow background TQs to be used
+    :return: dict of {priority: [tq_ids]}
+    """
+
+    def is_background(tq_priority: float, allow_bg_tqs: bool) -> bool:
+        """
+        A TQ is background if its priority is below a threshold and background TQs are allowed
+        """
+        return tq_priority <= 0.1 and allow_bg_tqs
+
+    # Calculate Sum of priorities of non background TQs
+    total_prio = sum([prio for prio in tq_dict.values() if not is_background(prio, allow_bg_tqs)])
+
+    # Update prio for each TQ
+    for tq_id, tq_priority in tq_dict.items():
+        if is_background(tq_priority, allow_bg_tqs):
+            prio = TQ_MIN_SHARE
+        else:
+            prio = max((share / total_prio) * tq_priority, TQ_MIN_SHARE)
+        tq_dict[tq_id] = prio
+
+    # Generate groups of TQs that will have the same prio=sum(prios) maomenos
+    tq_groups: dict[str, list[int]] = defaultdict(list)
+    for tq_id, tq_data in all_tqs_data.items():
+        for field in ("Jobs", "Priority") + priorityIgnoredFields:
+            if field in tq_data:
+                tq_data.pop(field)
+        tq_hash = []
+        for f in sorted(tq_data):
+            tq_hash.append(f"{f}:{tq_data[f]}")
+        tq_hash = "|".join(tq_hash)
+        # if tq_hash not in tq_groups:
+        #     tq_groups[tq_hash] = []
+        tq_groups[tq_hash].append(tq_id)
+
+    # Do the grouping
+    for tq_group in tq_groups.values():
+        total_prio = sum(tq_dict[tq_id] for tq_id in tq_group)
+        for tq_id in tq_group:
+            tq_dict[tq_id] = total_prio
+
+    # Group by priorities
+    result: dict[float, list[int]] = defaultdict(list)
+    for tq_id, tq_priority in tq_dict.items():
+        result[tq_priority].append(tq_id)
+
+    return result

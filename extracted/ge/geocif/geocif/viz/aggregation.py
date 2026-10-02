@@ -8,8 +8,10 @@ model-performance outputs at every HIGHER admin level:
 * an ``admin_1`` (state) run gets a ``national`` aggregation.
 
 Aggregation is an area-weighted mean of observed / predicted yields per
-(parent, Harvest Year) — groups with missing or zero weights fall back to a
-plain unweighted mean (logged once per call). The county -> state mapping
+(parent, Harvest Year) over ONE child set (the scored pairs where any child
+is observed); children with missing or zero weights are left out of the
+weighted mean, and a group falls back to a plain unweighted mean only when no
+child has a usable weight (logged once per call). The county -> state mapping
 reuses :func:`geocif.ml.stats.admin1_lookup`, which shares file resolution and
 name normalization with the yield join, so the two can never disagree.
 
@@ -43,6 +45,8 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+from geocif.ml.stage_labels import latest_stage_rows
 
 logger = logging.getLogger(__name__)
 
@@ -133,12 +137,20 @@ def aggregate_predictions(df, level_map, weight_col="Area (ha)"):
     """Aggregate child-region predictions to parent units.
 
     Per (parent, Harvest Year[, Model]) group, observed and predicted yields
-    are area-weighted means ``sum(y * w) / sum(w)``. A group falls back to the
-    plain unweighted mean when ``weight_col`` is absent or any row in the
-    group has a missing/zero/negative weight (logged once per call, not per
-    group). Observed-NaN rows are excluded from the observed aggregate (and
-    therefore from metric computation downstream) while predictions are
-    aggregated over ALL child rows that have a prediction.
+    are area-weighted means ``sum(y * w) / sum(w)`` over the SAME child set:
+    when any child of the group has an observed yield, BOTH aggregates use
+    the children that have an observation and a prediction, so the scored
+    pair describes one set of units (a national observed over the reporting
+    counties against a national predicted over all counties is a
+    composition artefact, not model error). A group with no observed child
+    at all (the live forecast year) aggregates predictions over every child
+    that has one and leaves the observed aggregate NaN.
+
+    Children whose weight is missing/zero/negative are left out of a weighted
+    aggregate (counted in ``N No Weight``) instead of flipping the whole
+    group to an unweighted mean; a group falls back to the plain unweighted
+    mean only when ``weight_col`` is absent or no child in the aggregate has
+    a usable weight (logged once per call, not per group).
 
     Args:
         df: predictions frame with columns Region, Harvest Year,
@@ -151,8 +163,9 @@ def aggregate_predictions(df, level_map, weight_col="Area (ha)"):
     Returns:
         DataFrame with columns: Region (the PARENT name), Harvest Year,
         [Model], ``OBS_COL``, ``PRED_COL``, ``Area (ha)`` (summed weights of
-        the predicted rows; NaN for unweighted groups), ``N Units`` (child
-        regions contributing a prediction), ``Aggregation``
+        the aggregated rows; NaN for unweighted groups), ``N Units`` (child
+        regions in the aggregate), ``N No Weight`` (children dropped from a
+        weighted aggregate for lack of a usable weight), ``Aggregation``
         ("area-weighted" | "unweighted") and ``Unmapped Parent`` (bool).
     """
     from geocif.ml import stats as ml_stats
@@ -171,6 +184,12 @@ def aggregate_predictions(df, level_map, weight_col="Area (ha)"):
     has_model = "Model" in work.columns
     if has_model:
         group_keys.append("Model")
+    # A multi-season country aggregates each season separately: Gu and Deyr
+    # rows of one region are not two children of one parent-year
+    # (2026-10-01 review).
+    has_season = "Season" in work.columns
+    if has_season:
+        group_keys.append("Season")
 
     has_weight_col = weight_col in work.columns
     n_fallback_groups = 0
@@ -178,43 +197,48 @@ def aggregate_predictions(df, level_map, weight_col="Area (ha)"):
     for keys, g in work.groupby(group_keys, dropna=False, sort=True):
         if not isinstance(keys, tuple):
             keys = (keys,)
+        pred = pd.to_numeric(g[PRED_COL], errors="coerce")
+        obs = pd.to_numeric(g[OBS_COL], errors="coerce")
         if has_weight_col:
             w = pd.to_numeric(g[weight_col], errors="coerce")
-            weights_ok = bool(w.notna().all() and (w > 0).all())
+            w_ok = w.notna() & (w > 0)
         else:
             w = pd.Series(np.nan, index=g.index)
-            weights_ok = False
-        if not weights_ok:
+            w_ok = pd.Series(False, index=g.index)
+
+        # One child set for both aggregates: the scored pairs when the group
+        # has any observation, else (forecast year) every predicted child.
+        paired = pred.notna() & obs.notna()
+        use = paired if paired.any() else pred.notna()
+        weighted = bool((use & w_ok).any())
+        if use.any() and not weighted:
             n_fallback_groups += 1
+        agg_mask = (use & w_ok) if weighted else use
 
-        def _agg(col):
-            """(weighted-or-unweighted mean, n contributing rows, sum of
-            weights) over the non-NaN rows of ``col``."""
-            vals = pd.to_numeric(g[col], errors="coerce")
-            mask = vals.notna()
-            if not mask.any():
-                return np.nan, 0, np.nan
-            if weights_ok:
-                ww = w[mask]
-                return (
-                    float((vals[mask] * ww).sum() / ww.sum()),
-                    int(mask.sum()),
-                    float(ww.sum()),
-                )
-            return float(vals[mask].mean()), int(mask.sum()), np.nan
+        def _agg(vals):
+            if not agg_mask.any():
+                return np.nan
+            if weighted:
+                ww = w[agg_mask]
+                return float((vals[agg_mask] * ww).sum() / ww.sum())
+            return float(vals[agg_mask].mean())
 
-        pred_val, n_pred, area_sum = _agg(PRED_COL)
-        obs_val, _, _ = _agg(OBS_COL)
+        pred_val = _agg(pred)
+        obs_val = _agg(obs) if paired.any() else np.nan
+        area_sum = float(w[agg_mask].sum()) if weighted else np.nan
 
         row = {"Region": keys[0], "Harvest Year": keys[1]}
         if has_model:
             row["Model"] = keys[2]
+        if has_season:
+            row["Season"] = keys[-1]
         row.update({
             OBS_COL: obs_val,
             PRED_COL: pred_val,
             "Area (ha)": area_sum,
-            "N Units": n_pred,
-            "Aggregation": "area-weighted" if weights_ok else "unweighted",
+            "N Units": int(agg_mask.sum()),
+            "N No Weight": int((use & ~w_ok).sum()) if weighted else 0,
+            "Aggregation": "area-weighted" if weighted else "unweighted",
             "Unmapped Parent": keys[0] == UNKNOWN_PARENT,
         })
         rows.append(row)
@@ -513,10 +537,10 @@ def render_parent_aggregations(df, country, crop, model, dir_outlook,
 
     d = df.copy()
     if "Stage Name" in d.columns and d["Stage Name"].dropna().nunique() > 1:
-        d = (
-            d.sort_values("Stage Name")
-            .groupby(["Region", "Harvest Year"], as_index=False)
-            .last()
+        # Chronologically latest stage per region-year (A7): "Stage Name"
+        # does not sort chronologically as text (May > Jul, Sep > Oct).
+        d = latest_stage_rows(
+            d, by=["Model", "Region", "Season", "Harvest Year"], keep="last"
         )
 
     country_display = _display_name(country)

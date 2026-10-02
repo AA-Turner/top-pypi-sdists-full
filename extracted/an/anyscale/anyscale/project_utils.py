@@ -80,8 +80,9 @@ def get_project_id(project_dir: str) -> str:
         # TODO(pcm): Consider doing this for the user and retrying the command
         # they were trying to run.
         raise ClickException(
-            "Ray project in {} not registered yet. "
-            "Did you run 'anyscale project init'?".format(project_dir)
+            "Ray project in {} not registered yet. Did you run 'anyscale project init'?".format(
+                project_dir
+            )
         )
     try:
         result = str(project_id)
@@ -154,14 +155,11 @@ def get_project_session(
     sessions = get_project_sessions(project_id, session_name, api_client)
     if is_workspace:
         # TODO(https://github.com/anyscale/product/issues/11585): We need a more robust way to find workspaces.
-        sessions = [
-            session for session in sessions if session.name.startswith("workspace-")
-        ]
+        sessions = [session for session in sessions if session.name.startswith("workspace-")]
 
     if len(sessions) > 1:
         raise ClickException(
-            "Multiple active clusters: {}\n"
-            "Please specify the one you want to refer to.".format(
+            "Multiple active clusters: {}\nPlease specify the one you want to refer to.".format(
                 [session.name for session in sessions]
             )
         )
@@ -173,8 +171,7 @@ def _get_project_session(project_id: str, session_name: Optional[str]) -> Any:
     sessions = get_project_sessions(project_id, session_name)
     if len(sessions) > 1:
         raise ClickException(
-            "Multiple active clusters: {}\n"
-            "Please specify the one you want to refer to.".format(
+            "Multiple active clusters: {}\nPlease specify the one you want to refer to.".format(
                 [session["name"] for session in sessions]
             )
         )
@@ -266,7 +263,8 @@ def get_project_id_for_cloud_from_name(
 
 
 def get_parent_cloud_id_and_name_of_project(
-    project_id: str, api_client: Optional[DefaultApi] = None,
+    project_id: str,
+    api_client: Optional[DefaultApi] = None,
 ) -> Optional[Tuple[str, str]]:
     """
     Returns tuple (parent_cloud_id, parent_cloud_name) of project if cloud isolation is enabled.
@@ -275,9 +273,7 @@ def get_parent_cloud_id_and_name_of_project(
     if api_client is None:
         api_client = get_auth_api_client().api_client
 
-    project = api_client.get_project_api_v2_projects_project_id_get(
-        project_id=project_id
-    ).result
+    project = api_client.get_project_api_v2_projects_project_id_get(project_id=project_id).result
     if project:
         parent_cloud_id, parent_cloud_name = get_cloud_id_and_name(
             api_client, cloud_id=project.parent_cloud_id
@@ -292,7 +288,8 @@ def write_project_file_to_disk(project_id: str, directory: str) -> None:
 
 
 def create_new_proj_def(
-    name: str, api_client: DefaultApi = None,  # noqa: ARG001
+    name: str,
+    api_client: DefaultApi = None,  # noqa: ARG001
 ) -> Tuple[str, ProjectDefinition]:
     if slugify(name) != name:
         name = slugify(name)
@@ -306,7 +303,8 @@ def create_new_proj_def(
 def _do_attach(project_id: str, is_create_project: bool) -> None:
     with open(ANYSCALE_PROJECT_FILE, "w") as f:
         yaml.dump(
-            {"project_id": project_id}, f,
+            {"project_id": project_id},
+            f,
         )
 
     # Print success message

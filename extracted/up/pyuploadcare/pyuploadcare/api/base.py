@@ -1,0 +1,375 @@
+import re
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Dict,
+    Iterator,
+    Optional,
+    Pattern,
+    Tuple,
+    Type,
+    Union,
+    cast,
+)
+from urllib.parse import urlencode, urljoin, urlsplit
+from uuid import UUID
+
+from pydantic import TypeAdapter
+from typing_extensions import Protocol, TypeVar
+
+from pyuploadcare.api._httpx import RequestFiles
+from pyuploadcare.api.client import Client
+from pyuploadcare.api.entities import Entity, UUIDEntity
+from pyuploadcare.api.responses import PaginatedResponse, Response
+from pyuploadcare.exceptions import (
+    DefaultResponseClassNotDefined,
+    InvalidParamError,
+    InvalidRequestError,
+)
+
+
+ResponseOrEntity = TypeVar("ResponseOrEntity", bound=Union[Response, Entity])
+
+UUID_PATTERN = r"[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}"
+
+RE_UUID_RESOURCE_ID: Pattern[str] = re.compile(
+    UUID_PATTERN + r"\Z", re.IGNORECASE
+)
+RE_GROUP_RESOURCE_ID: Pattern[str] = re.compile(
+    UUID_PATTERN + r"~[0-9]+\Z", re.IGNORECASE
+)
+RE_NUMERIC_RESOURCE_ID: Pattern[str] = re.compile(r"[0-9]+\Z")
+
+# One opaque path segment: anything that could splice extra path components,
+# a query, or a whole new origin into the request URL is out.
+RE_SAFE_RESOURCE_ID: Pattern[str] = re.compile(r"[a-zA-Z0-9~_-]+\Z")
+
+
+class API:
+    resource_type: str
+    response_classes: Dict[str, Union[Type[Response], Type[Entity]]]
+    # The shape of a valid resource id for this endpoint; subclasses narrow
+    # it (file UUID, group id, numeric webhook id, etc).
+    resource_id_pattern: ClassVar[Pattern[str]] = RE_SAFE_RESOURCE_ID
+    _client: Client
+
+    def __init__(
+        self,
+        client: Client,
+        public_key: str,
+        secret_key: Optional[str] = None,
+        signed_uploads_ttl: int = 60,
+    ) -> None:
+        self.public_key = public_key
+        self.secret_key = secret_key
+        self.signed_uploads_ttl = signed_uploads_ttl
+        self._client = client
+
+    def _parse_response(
+        self,
+        raw_resource: Dict[str, Any],
+        response_class: Type[ResponseOrEntity],
+    ) -> ResponseOrEntity:
+        return TypeAdapter(response_class).validate_python(raw_resource)
+
+    def _validate_resource_id(self, resource_id: str) -> None:
+        """Reject a resource id that does not match this endpoint's shape."""
+        if not self.resource_id_pattern.match(resource_id):
+            label = f"{self.resource_type} " if self.resource_type else ""
+            raise InvalidParamError(
+                f"Invalid {label}resource id: {resource_id}"
+            )
+
+    def _build_url(  # noqa: C901
+        self,
+        resource_uuid: Optional[Union[UUID, str, UUIDEntity]] = None,
+        base: Optional[str] = None,
+        suffix: Optional[str] = None,
+        query_parameters: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        if base is not None:
+            url = urljoin(str(self._client.base_url), base) + "/"
+        else:
+            url = urljoin(str(self._client.base_url), self.resource_type) + "/"
+        if resource_uuid is not None:
+            if isinstance(resource_uuid, UUIDEntity):
+                resource_uuid = resource_uuid.uuid
+            resource_id = str(resource_uuid)
+            self._validate_resource_id(resource_id)
+            url = urljoin(url, resource_id) + "/"
+        if suffix:
+            url = urljoin(url, suffix) + "/"
+        if query_parameters:
+            url += "?" + urlencode(query_parameters)
+        return url
+
+    def _get_response_class(
+        self, action: str
+    ) -> Union[Type[Response], Type[Entity]]:
+        response_class = self.response_classes.get(
+            action, self.response_classes.get("default")
+        )
+        if response_class is None:
+            raise DefaultResponseClassNotDefined
+        return response_class
+
+    def _post(
+        self, data: Optional[Dict] = None, files: Optional[RequestFiles] = None
+    ) -> Dict[str, Any]:
+        url = self._build_url()
+        document = self._client.post(url, data=data, files=files)
+        return document.json()
+
+    def _get(
+        self,
+        resource_uuid: Optional[Union[UUID, str, UUIDEntity]] = None,
+        **query_parameters,
+    ) -> Dict[str, Any]:
+        url = self._build_url(resource_uuid, query_parameters=query_parameters)
+        document = self._client.get(url)
+        return document.json()
+
+    def _put(
+        self,
+        resource_uuid: Optional[Union[UUID, str, UUIDEntity]] = None,
+        data: Optional[Dict] = None,
+    ) -> Dict[str, Any]:
+        url = self._build_url(resource_uuid)
+        document = self._client.put(url, json=data)
+        return document.json()
+
+    def _delete(
+        self, resource_uuid: Optional[Union[UUID, str, UUIDEntity]] = None
+    ) -> None:
+        url = self._build_url(resource_uuid)
+        self._client.delete(url)
+
+    def _delete_with_response(
+        self, resource_uuid: Optional[Union[UUID, str, UUIDEntity]] = None
+    ) -> Dict[str, Any]:
+        url = self._build_url(resource_uuid, suffix="storage")
+        document = self._client.delete(url)
+        return document.json()
+
+
+class APIProtocol(Protocol):
+    resource_type: str
+    response_classes: Dict[str, Union[Type[Response], Type[Entity]]]
+    _client: Client
+
+    def _parse_response(
+        self,
+        raw_resource: Dict[str, Any],
+        response_class: Type[ResponseOrEntity],
+    ) -> ResponseOrEntity: ...
+
+    def _build_url(
+        self,
+        resource_uuid: Optional[Union[UUID, str, UUIDEntity]] = None,
+        base: Optional[str] = None,
+        suffix: Optional[str] = None,
+        query_parameters: Optional[Dict[str, Any]] = None,
+    ) -> str: ...
+
+    def _get_response_class(
+        self, action: str
+    ) -> Union[Type[Response], Type[Entity]]: ...
+
+    def _post(self, data: Optional[Dict] = None) -> Dict[str, Any]: ...
+
+    def _get(
+        self,
+        resource_uuid: Optional[Union[UUID, str, UUIDEntity]] = None,
+        **query_parameters,
+    ) -> Dict[str, Any]: ...
+
+    def _put(
+        self,
+        resource_uuid: Optional[Union[UUID, str, UUIDEntity]] = None,
+        data: Optional[Dict] = None,
+    ) -> Dict[str, Any]: ...
+
+    def _delete(
+        self, resource_uuid: Optional[Union[UUID, str, UUIDEntity]] = None
+    ) -> None: ...
+
+    def _delete_with_response(
+        self, resource_uuid: Optional[Union[UUID, str, UUIDEntity]] = None
+    ) -> Dict[str, Any]: ...
+
+
+class RetrieveMixin(APIProtocol):
+    def retrieve(
+        self,
+        resource_uuid: Optional[Union[UUID, str, UUIDEntity]] = None,
+        include_appdata: bool = False,
+    ):
+        response_class = self._get_response_class("retrieve")
+
+        if isinstance(resource_uuid, UUIDEntity):
+            resource_uuid = resource_uuid.uuid
+
+        query_params = {}
+        if include_appdata:
+            query_params["include"] = "appdata"
+
+        json_response = self._get(resource_uuid, **query_params)
+        return self._parse_response(json_response, response_class)
+
+
+_DEFAULT_PORTS = {"http": 80, "https": 443}
+
+
+def _origin(url: str) -> Tuple[str, str, Optional[int]]:
+    """The (scheme, host, port) origin of ``url``, normalized for comparison.
+
+    Scheme and host are case-insensitive, and an explicit default port is the
+    same origin as no port at all.
+    """
+    split = urlsplit(url)
+    scheme = split.scheme.lower()
+
+    try:
+        port = split.port
+    except ValueError:
+        # An unparsable port matches nothing but its own verbatim netloc.
+        return scheme, split.netloc.lower(), None
+
+    if port == _DEFAULT_PORTS.get(scheme):
+        port = None
+
+    return scheme, (split.hostname or "").lower(), port
+
+
+def _iterate_pages(  # noqa: C901
+    first_url: str,
+    fetch_page: Callable[[str], Dict[str, Any]],
+    parse: Callable[[Dict[str, Any]], Any],
+    limit: Optional[int] = None,
+) -> Iterator[Any]:
+    """Walk a paginated endpoint, yielding up to ``limit`` results.
+
+    Fetching is delegated to ``fetch_page`` so that endpoints paged with a
+    ``GET`` and endpoints paged by re-sending a ``POST`` body share the same
+    engine: the loop only decides *which* URL to request, following the
+    response's ``next`` URL until it runs out.
+
+    ``next`` is only followed within the origin of ``first_url``: the HTTP
+    client attaches credentials to whatever URL it is given, so a foreign
+    ``next`` (a compromised or misbehaving server) fails loudly instead of
+    leaking them. A relative ``next`` is resolved against the page that
+    supplied it.
+    """
+    origin = _origin(first_url)
+    next_: Optional[str] = first_url
+
+    while next_:
+        page_url = next_
+        response = parse(fetch_page(next_))
+        results = getattr(response, "results", response)
+
+        for item in results:
+            if limit is not None and limit <= 0:
+                break
+
+            yield item
+
+            if limit is not None:
+                limit -= 1
+
+        if limit is not None and limit <= 0:
+            break
+
+        # An empty page cannot get any fuller further on; stop even if the
+        # server claims there is more.
+        if not results:
+            break
+
+        next_ = getattr(response, "next", None)
+        if next_:
+            # A relative `next` resolves against the page that supplied it,
+            # so it is same-origin by construction.
+            next_ = urljoin(page_url, next_)
+            if _origin(next_) != origin:
+                raise InvalidRequestError(
+                    f"refusing to follow `next` outside {origin[1]}: {next_}"
+                )
+
+
+class ListMixin(APIProtocol):
+    def list(
+        self,
+        limit=None,
+        request_limit=None,
+        **query_parameters,
+    ):
+        response_class = self._get_response_class("list")
+
+        if request_limit is not None:
+            query_parameters["limit"] = request_limit
+
+        first_url = self._build_url(query_parameters=query_parameters)
+
+        return _iterate_pages(
+            first_url,
+            lambda url: self._client.get(url).json(),
+            lambda raw: self._parse_response(raw, response_class),
+            limit=limit,
+        )
+
+
+class CountMixin(APIProtocol):
+    def count(
+        self,
+        request_limit=None,
+        **query_parameters,
+    ) -> int:
+        if request_limit is not None:
+            query_parameters["limit"] = request_limit
+
+        response_class = self._get_response_class("list")
+        json_response = self._get(query_parameters=query_parameters)
+        response = self._parse_response(json_response, response_class)
+        response = cast(PaginatedResponse, response)
+        return response.total
+
+
+class CreateMixin(APIProtocol):
+    def create(
+        self,
+        data: Optional[Dict] = None,
+    ):
+        response_class = self._get_response_class("create")
+
+        json_response = self._post(data)
+        return self._parse_response(json_response, response_class)
+
+
+class UpdateMixin(APIProtocol):
+    def update(
+        self,
+        resource_uuid: Union[UUID, str, UUIDEntity],
+        data: Optional[Dict] = None,
+    ):
+        response_class = self._get_response_class("update")
+
+        json_response = self._put(resource_uuid, data)
+        return self._parse_response(json_response, response_class)
+
+
+class DeleteMixin(APIProtocol):
+    def delete(self, resource_uuid: Union[UUID, str, UUIDEntity]):
+        self._delete(resource_uuid)
+
+
+class DeleteWithResponseMixin(APIProtocol):
+    def delete(self, resource_uuid: Union[UUID, str, UUIDEntity]):
+        response_class = self._get_response_class("delete")
+
+        json_response = self._delete_with_response(resource_uuid)
+        return self._parse_response(json_response, response_class)
+
+
+class ListCountMixin(ListMixin, CountMixin):
+    pass

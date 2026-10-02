@@ -71,7 +71,10 @@ def config_convert(
 @click.argument("cluster-env-yaml-file", type=click.File("rb"), required=True)
 @click.argument("compute-config-yaml-file", type=click.File("rb"), required=True)
 @click.option(
-    "--name", "-n", help="Name for both configs", required=True,
+    "--name",
+    "-n",
+    help="Name for both configs",
+    required=True,
 )
 def upload_configs(
     cluster_env_yaml_file: IO[bytes], compute_config_yaml_file: IO[bytes], name: str
@@ -96,7 +99,10 @@ def upload_configs(
 )
 @click.argument("cluster-env-yaml-file", type=click.File("rb"), required=True)
 @click.option(
-    "--name", "-n", help="Name of the cluster environment", required=True,
+    "--name",
+    "-n",
+    help="Name of the cluster environment",
+    required=True,
 )
 def create_cluster_env(cluster_env_yaml_file: IO[bytes], name: str) -> None:
     cluster_env_yaml = yaml.load(cluster_env_yaml_file, Loader=SafeLoader)
@@ -114,7 +120,10 @@ def create_cluster_env(cluster_env_yaml_file: IO[bytes], name: str) -> None:
 )
 @click.argument("compute-config-yaml-file", type=click.File("rb"), required=True)
 @click.option(
-    "--name", "-n", help="Name of the compute config", required=True,
+    "--name",
+    "-n",
+    help="Name of the compute config",
+    required=True,
 )
 @click.option(
     "--anonymous",
@@ -124,7 +133,9 @@ def create_cluster_env(cluster_env_yaml_file: IO[bytes], name: str) -> None:
     default=False,
 )
 def create_compute_config(
-    compute_config_yaml_file: IO[bytes], name: str, anonymous: bool,
+    compute_config_yaml_file: IO[bytes],
+    name: str,
+    anonymous: bool,
 ) -> None:
     """
     TODO(mattweber): This function is deprecated for create_cluster_compute

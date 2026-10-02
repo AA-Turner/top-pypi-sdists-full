@@ -1,0 +1,649 @@
+#!/bin/bash
+# create-multiple-databases.sh
+# PostgreSQL initialization script to create multiple databases and per-service roles.
+#
+# This script is executed during PostgreSQL container initialization
+# (only when the data directory is empty, i.e., first startup).
+# It is idempotent — safe to re-run via manual invocation.
+#
+# Databases provisioned (DB-SPLIT-05 / OMN-2056):
+#   omnibase_infra, omniintelligence, omniclaude,
+#   omnimemory, omninode_cloud, omnidash_analytics
+#
+# Additional databases (infrastructure):
+#   infisical_db  (Infisical secrets management)
+#   omniweb       (OmniWeb landing page — OMN-5324)
+#
+# Per-service roles:
+#   role_omnibase, role_omniintelligence, role_omniclaude,
+#   role_omnimemory, role_omninode, role_omnidash
+#
+# Each role can ONLY access its own database. Cross-DB access is revoked.
+
+set -e
+set -u
+# Note: set -u with ${!password_var:-} (indirect expansion + default) means
+# typos in SERVICE_DB_MAP password_var fields will silently default to empty
+# rather than erroring. This is intentional — empty means "skip this role".
+# Verify env var names match docker-compose.infra.yml when editing SERVICE_DB_MAP.
+
+: "${POSTGRES_USER:?POSTGRES_USER must be set}"
+: "${POSTGRES_DB:?POSTGRES_DB must be set}"
+
+# ---- BEGIN pre-PR verify slot fence (OMN-18892) ----
+# THIS SCRIPT PROVISIONS THE DEV LANE'S SET, AND ONLY EVER THAT.
+#
+# Every database and role name below is an UNSUFFIXED LITERAL, and both
+# role-creating helpers end their existing-role branch in an unconditional
+# `ALTER ROLE <literal> WITH LOGIN PASSWORD` (create_role, and
+# create_login_only_role). Roles are CLUSTER-WIDE objects. Running this script
+# against a SHARED server while intending to provision something other than the
+# dev set therefore does not provision that other thing -- it rewrites the dev
+# lane's role passwords for the whole cluster, and the dev lane's containers,
+# holding the old values in their environment, begin failing authentication at
+# their next reconnect. That is the hazard epic OMN-18888 named as a live sharp
+# edge for ANY second consumer of the shared server, verify slot or not.
+#
+# A caller that has set ONEX_DB_SLOT has said, in the only way this script can
+# read, that it means a slot and not the dev lane. So it is refused here rather
+# than allowed to do the opposite of what it was asked. There is no suffixing
+# path in this file on purpose: a slot's set is provisioned by
+# scripts/provision_db_slot.sh, which creates only suffixed objects and refuses
+# to alter a role that is not a member of the slot's own group role.
+#
+# In practice this refusal fires only on a HAND invocation. Postgres runs this
+# script from /docker-entrypoint-initdb.d only when the data directory is empty,
+# and a slot shares a warm volume -- so the seam a slot really reaches is
+# scripts/run-forward-migrations.sh, which carries its own fence of the same
+# name. The plan named this file as the hazard; both carry it, and only that one
+# is on a slot's path. This refusal is the defence-in-depth half.
+#
+# UNSET IS BYTE-IDENTICAL: every lane running today sets nothing and the block
+# is inert. Pinned by tests/unit/infra/test_db_slot_provisioner_omn18892.py.
+if [ -n "${ONEX_DB_SLOT:-}" ]; then
+    echo "ERROR: slot_fence_refusal: ONEX_DB_SLOT='${ONEX_DB_SLOT}' is set." >&2
+    echo "       This script provisions the UNSUFFIXED dev-lane set, and every role" >&2
+    echo "       name in it is a cluster-wide literal whose password it resets" >&2
+    echo "       unconditionally on the existing-role branch. Running it under a slot" >&2
+    echo "       token would reset the dev lane's credentials rather than provision" >&2
+    echo "       the slot. Use scripts/provision_db_slot.sh --apply instead." >&2
+    exit 3
+fi
+# ---- END pre-PR verify slot fence (OMN-18892) ----
+
+# =============================================================================
+# Configuration: database → role mapping
+# =============================================================================
+# Format: "database:role:password_env_var"
+# The password_env_var names the environment variable holding the role password.
+SERVICE_DB_MAP=(
+    "omnibase_infra:role_omnibase:ROLE_OMNIBASE_PASSWORD"
+    "omniintelligence:role_omniintelligence:ROLE_OMNIINTELLIGENCE_PASSWORD"
+    "omniclaude:role_omniclaude:ROLE_OMNICLAUDE_PASSWORD"
+    "omnimemory:role_omnimemory:ROLE_OMNIMEMORY_PASSWORD"
+    "omninode_cloud:role_omninode:ROLE_OMNINODE_PASSWORD"
+    "omnidash_analytics:role_omnidash:ROLE_OMNIDASH_PASSWORD"
+)
+
+# Additional databases without dedicated roles (managed by superuser)
+INFRA_DATABASES=("infisical_db" "omniweb")
+
+# =============================================================================
+# Configuration: login-only roles (OMN-16843, epic OMN-15426)
+# =============================================================================
+# Format: "role:password_env_var"  — NOTE: no database field, deliberately.
+#
+# These roles get a LOGIN credential and NOTHING ELSE. They are NOT run through
+# grant_role_to_database() or revoke_cross_db_access(), because their
+# AUTHORIZATION is owned elsewhere: the topology instance
+# (src/omnibase_infra/topology/instances/local.yaml) declares each principal's
+# grants, and the topology-derived migrations issue them.
+#
+# WHY NOT JUST ADD THEM TO SERVICE_DB_MAP
+# ---------------------------------------
+# That path calls grant_role_to_database(), which issues
+#   GRANT USAGE, CREATE ON SCHEMA public
+#   ALTER DEFAULT PRIVILEGES ... GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES
+# CREATE on the schema lets the role OWN tables, and Postgres exempts a table's
+# owner from row-level security UNCONDITIONALLY — FORCE included. For
+# omninode_runtime that would silently undo the isolation the whole
+# omninode_internal cutover exists to establish, and hand it DELETE and DDL it
+# is never supposed to have. The topology declares a narrow per-table
+# INSERT/SELECT/UPDATE set; this seam must not widen it.
+#
+# WHY THE CREDENTIAL IS MINTED HERE AND NOT IN A MIGRATION
+# --------------------------------------------------------
+# 094's invariant, restated by 099: no credential material ever lives in a
+# migration, and the LOGIN + password attach is a deployment-owned step
+# (AWS Secrets Manager on managed instances; this init script on compose
+# lanes). 099 therefore creates omninode_runtime NOLOGIN on purpose. Without
+# this seam a fresh compose volume has the role but no way to authenticate as
+# it, so OMNINODE_INTERNAL_DB_URL would resolve and then fail at connect.
+#
+# Empty password = skip, exactly like SERVICE_DB_MAP: a lane that has not
+# provisioned the credential must not get a half-configured role.
+# tenant_projection_writer (OMN-15425) is the TENANT-domain half of the same
+# split: 102 creates it NOLOGIN with NOSUPERUSER/NOBYPASSRLS pinned, the
+# topology declares its narrow per-table INSERT/SELECT/UPDATE grant set, and
+# docker-compose.infra.yml renders ONEX_TENANT_DB_URL from the variable named
+# here with the fail-closed ${VAR:?} form. It goes in this map and NOT in
+# SERVICE_DB_MAP for exactly the reason above, only more sharply: this is the
+# role the OMN-14894 tenant_isolation policies are enforced against, so CREATE
+# on schema public — and the table ownership it enables — would exempt every
+# tenant projection write from the isolation P5 exists to establish.
+# chain_canary_reader (OMN-18060) is the third and narrowest member: a READ-ONLY
+# instrument identity for node_chain_canary_effect's OMN-16025 link-2 readback.
+# It belongs here for the same reason as the two above -- grant_role_to_database()
+# would hand it CREATE on schema public, and a role that can own a table is
+# exempt from that table's RLS unconditionally, which is precisely what the
+# canary probes pg_roles to refuse.
+#
+# Its GRANTS are issued by a DIFFERENT seam and deliberately not by this one:
+# scripts/run-forward-migrations.sh's LOGIN_ONLY_ROLE_GRANT_MAP (OMN-18060)
+# re-asserts CONNECT, USAGE on schema public, and column-scoped SELECT
+# (correlation_id, state) on delegation_workflow_state on every compose up --
+# nothing else, and nothing writable -- and reads the outcome back, because a
+# GRANT issued without grant option on the object warns and returns success
+# rather than raising. This map mints the LOGIN credential and issues no
+# grants at all; keeping credential and authorization in separate seams is the
+# invariant, not an accident of where the code landed.
+#
+# OMN-18115: this comment previously credited a numbered migration for those
+# grants. None issues them, and the ordinal it named is BURNED -- OMN-17923
+# retired 104_create_validator_ro_role.sql and its record forbids reuse. A
+# reader who follows a comment to a file that does not exist concludes the
+# authorization was applied by hand; that is what OMN-18115 was filed against.
+#
+# TWO LANES, AND THE MANAGED ONE HAS NEITHER SEAM. chain_canary_reader is a
+# compose-lane instrument: this script mints it on a fresh volume and
+# run-forward-migrations.sh's credential seam re-asserts it on a warm one, both
+# compose-only. The k8s migrate Job applies the flat SQL corpus and never runs
+# that script, so on the managed (RDS) lane the role has no pg_roles row, holds
+# nothing, and needs nothing. That asymmetry is why its GRANTS live in the
+# runner rather than in the flat stream -- a flat file would deliver only on the
+# lanes that already run the runner, and skip on the one lane that would
+# otherwise apply it.
+LOGIN_ONLY_ROLE_MAP=(
+    "omninode_runtime:OMNINODE_RUNTIME_PASSWORD"
+    "tenant_projection_writer:TENANT_PROJECTION_WRITER_PASSWORD"
+    "chain_canary_reader:CHAIN_CANARY_READER_PASSWORD"
+)
+
+# =============================================================================
+# Helper functions
+# =============================================================================
+
+validate_identifier() {
+    local name="$1"
+    local context="${2:-Identifier}"
+    if [ ${#name} -gt 63 ]; then
+        echo "ERROR: $context '$name' exceeds 63-character limit" >&2
+        return 1
+    fi
+    if ! echo "$name" | grep -qE '^[a-zA-Z_][a-zA-Z0-9_-]*$'; then
+        echo "ERROR: Invalid $context '$name' - must match ^[a-zA-Z_][a-zA-Z0-9_-]*$" >&2
+        return 1
+    fi
+}
+
+validate_password() {
+    local password="$1"
+    local context="$2"
+    if [ -z "$password" ]; then
+        echo "ERROR: Empty password for $context" >&2
+        return 1
+    fi
+    if echo "$password" | grep -qE '^__REPLACE_WITH_.*__$'; then
+        echo "ERROR: Password for $context is still a placeholder." >&2
+        echo "       Replace with: openssl rand -hex 32" >&2
+        return 1
+    fi
+    if ! echo "$password" | grep -qE '^[0-9a-fA-F]+$'; then
+        echo "ERROR: Password for $context contains non-hex characters." >&2
+        echo "       Generate with: openssl rand -hex 32" >&2
+        return 1
+    fi
+}
+
+create_database() {
+    local database="$1"
+    validate_identifier "$database" "Database name" || return 1
+    echo "  Creating database: $database"
+    # Safety: $database is used in two SQL contexts below:
+    #   - Double-quoted identifier ("$database") for CREATE DATABASE
+    #   - Single-quoted string literal ('$database') for the pg_database lookup
+    # Both are safe because validate_identifier restricts to [a-zA-Z_][a-zA-Z0-9_-]*
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+        SELECT 'CREATE DATABASE "$database"'
+        WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$database')\gexec
+EOSQL
+    echo "  Database '$database' ready."
+}
+
+create_role() {
+    local role_name="$1"
+    local role_password="$2"
+    validate_identifier "$role_name" "Role name" || return 1
+    validate_password "$role_password" "$role_name" || return 1
+    # Escape single quotes for safe SQL interpolation (' → '')
+    # Note: validate_password enforces hex-only ([0-9a-fA-F]+) so single quotes
+    # cannot appear in practice, but the escaping is retained for defense-in-depth.
+    local escaped_password="${role_password//\'/\'\'}"
+    echo "  Creating role: $role_name"
+    # Safety: $role_name is used in dual SQL contexts below (double-quoted identifier
+    # and single-quoted string literal), safe because validate_identifier restricts
+    # to [a-zA-Z_][a-zA-Z0-9_-]*. Same rationale as create_database().
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+        DO \$\$
+        BEGIN
+            IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$role_name') THEN
+                CREATE ROLE "$role_name" WITH LOGIN PASSWORD '$escaped_password';
+                RAISE NOTICE 'Created role: $role_name';
+            ELSE
+                -- Update password on re-run to ensure it stays in sync with env
+                ALTER ROLE "$role_name" WITH LOGIN PASSWORD '$escaped_password';
+                RAISE NOTICE 'Role $role_name already exists, password updated';
+            END IF;
+        END
+        \$\$;
+EOSQL
+}
+
+create_login_only_role() {
+    # Mint a LOGIN credential for a role whose grants are owned by the topology
+    # (OMN-16843). Issues NO grants and NO revokes — see LOGIN_ONLY_ROLE_MAP.
+    local role_name="$1"
+    local role_password="$2"
+    validate_identifier "$role_name" "Role name" || return 1
+    validate_password "$role_password" "$role_name" || return 1
+    # Escape single quotes for safe SQL interpolation (' → ''). validate_password
+    # enforces hex-only, so quotes cannot appear; retained for defense-in-depth.
+    local escaped_password="${role_password//\'/\'\'}"
+    echo "  Provisioning login credential: $role_name"
+    # Safety: $role_name is used as a double-quoted identifier and a
+    # single-quoted string literal; validate_identifier restricts it to
+    # [a-zA-Z_][a-zA-Z0-9_-]*. Same rationale as create_database().
+    #
+    # On CREATE the RLS-relevant attributes are pinned explicitly rather than
+    # left to cluster defaults. On a PRE-EXISTING role only LOGIN + PASSWORD are
+    # touched: the role's other attributes are asserted by the topology-derived
+    # migrations, and re-asserting them here would make this script demand
+    # role-administration privileges it does not need (094's reasoning).
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+        DO \$\$
+        BEGIN
+            IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$role_name') THEN
+                CREATE ROLE "$role_name" WITH
+                    LOGIN
+                    NOSUPERUSER
+                    NOBYPASSRLS
+                    NOCREATEDB
+                    NOCREATEROLE
+                    NOREPLICATION
+                    PASSWORD '$escaped_password';
+                RAISE NOTICE 'Created login-only role: $role_name';
+            ELSE
+                ALTER ROLE "$role_name" WITH LOGIN PASSWORD '$escaped_password';
+                RAISE NOTICE 'Role $role_name already exists, login credential updated';
+            END IF;
+        END
+        \$\$;
+EOSQL
+}
+
+grant_role_to_database() {
+    local role_name="$1"
+    local database="$2"
+    validate_identifier "$role_name" "Role name" || return 1
+    validate_identifier "$database" "Database name" || return 1
+    echo "  Granting $role_name full access to $database"
+    # CONNECT privilege
+    # Note: explicit || return 1 because set -e is disabled when caller uses ||
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL || return 1
+        GRANT CONNECT ON DATABASE "$database" TO "$role_name";
+EOSQL
+    # Schema and table privileges (must run against the target database)
+    # NOTE: ALTER DEFAULT PRIVILEGES only applies to objects created by the
+    # CURRENT user (postgres superuser). If migrations run as the service role,
+    # you must run ALTER DEFAULT PRIVILEGES as that role too (or run migrations
+    # as the superuser and grant to the service role).
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$database" <<-EOSQL || return 1
+        GRANT USAGE, CREATE ON SCHEMA public TO "$role_name";
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public
+            GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "$role_name";
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public
+            GRANT USAGE, SELECT ON SEQUENCES TO "$role_name";
+        -- Grant on any existing tables/sequences
+        GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO "$role_name";
+        GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "$role_name";
+EOSQL
+}
+
+revoke_cross_db_access() {
+    local role_name="$1"
+    local own_database="$2"
+    validate_identifier "$role_name" "Role name" || return 1
+    validate_identifier "$own_database" "Database name" || return 1
+    echo "  Revoking cross-DB access for $role_name (allowed: $own_database only)"
+    # Note: explicit || return 1 because set -e is disabled when caller uses ||
+    for entry in "${SERVICE_DB_MAP[@]}"; do
+        IFS=':' read -r db _ _ <<< "$entry"
+        if [ "$db" != "$own_database" ]; then
+            psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL || return 1
+                REVOKE CONNECT ON DATABASE "$db" FROM "$role_name";
+EOSQL
+        fi
+    done
+    # Also revoke from infrastructure databases
+    for db in "${INFRA_DATABASES[@]}"; do
+        psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL || return 1
+            REVOKE CONNECT ON DATABASE "$db" FROM "$role_name";
+EOSQL
+    done
+    # Also revoke from the default database (if different from own_database)
+    if [ "$POSTGRES_DB" != "$own_database" ]; then
+        psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL || return 1
+            REVOKE CONNECT ON DATABASE "$POSTGRES_DB" FROM "$role_name";
+EOSQL
+    fi
+}
+
+# =============================================================================
+# Phase 1: Create all databases
+# =============================================================================
+echo "============================================="
+echo "Phase 1: Creating databases"
+echo "============================================="
+
+# Service databases
+for entry in "${SERVICE_DB_MAP[@]}"; do
+    IFS=':' read -r db _ _ <<< "$entry"
+    create_database "$db" || { echo "FATAL: Failed to create database '$db'" >&2; exit 1; }
+done
+
+# Infrastructure databases
+for db in "${INFRA_DATABASES[@]}"; do
+    create_database "$db" || { echo "FATAL: Failed to create database '$db'" >&2; exit 1; }
+done
+
+echo ""
+
+# =============================================================================
+# Phase 2: Create per-service roles
+# =============================================================================
+echo "============================================="
+echo "Phase 2: Creating per-service roles"
+echo "============================================="
+
+ROLES_CREATED=0
+ROLES_SKIPPED=0
+
+for entry in "${SERVICE_DB_MAP[@]}"; do
+    IFS=':' read -r db role_name password_var <<< "$entry"
+    role_password="${!password_var:-}"
+
+    if [ -z "$role_password" ]; then
+        echo "  SKIP: $role_name — $password_var not set"
+        ROLES_SKIPPED=$((ROLES_SKIPPED + 1))
+        continue
+    fi
+
+    # Pre-check: validate here for user-facing SKIP message.
+    # create_role() also validates internally as its own safety guard.
+    validate_password "$role_password" "$role_name" || {
+        echo "  SKIP: $role_name — invalid password"
+        ROLES_SKIPPED=$((ROLES_SKIPPED + 1))
+        continue
+    }
+
+    create_role "$role_name" "$role_password" || {
+        echo "  FAIL: $role_name — create_role failed" >&2
+        ROLES_SKIPPED=$((ROLES_SKIPPED + 1))
+        continue
+    }
+    ROLES_CREATED=$((ROLES_CREATED + 1))
+done
+
+echo ""
+echo "  Roles created/updated: $ROLES_CREATED, skipped: $ROLES_SKIPPED"
+echo ""
+
+# =============================================================================
+# Phase 2b: Mint login credentials for topology-governed roles (OMN-16843)
+# =============================================================================
+# Deliberately its own phase, run BEFORE the grant/revoke phases and never
+# joined into them. See LOGIN_ONLY_ROLE_MAP for why these roles must not pass
+# through grant_role_to_database().
+echo "============================================="
+echo "Phase 2b: Provisioning login-only role credentials"
+echo "============================================="
+
+LOGIN_ROLES_CREATED=0
+LOGIN_ROLES_SKIPPED=0
+
+for entry in "${LOGIN_ONLY_ROLE_MAP[@]}"; do
+    IFS=':' read -r role_name password_var <<< "$entry"
+    role_password="${!password_var:-}"
+
+    if [ -z "$role_password" ]; then
+        echo "  SKIP: $role_name — $password_var not set"
+        LOGIN_ROLES_SKIPPED=$((LOGIN_ROLES_SKIPPED + 1))
+        continue
+    fi
+
+    # Pre-check for a user-facing SKIP message; create_login_only_role()
+    # validates again as its own guard.
+    validate_password "$role_password" "$role_name" || {
+        echo "  SKIP: $role_name — invalid password"
+        LOGIN_ROLES_SKIPPED=$((LOGIN_ROLES_SKIPPED + 1))
+        continue
+    }
+
+    create_login_only_role "$role_name" "$role_password" || {
+        echo "  FAIL: $role_name — create_login_only_role failed" >&2
+        LOGIN_ROLES_SKIPPED=$((LOGIN_ROLES_SKIPPED + 1))
+        continue
+    }
+    LOGIN_ROLES_CREATED=$((LOGIN_ROLES_CREATED + 1))
+done
+
+echo ""
+echo "  Login-only roles provisioned: $LOGIN_ROLES_CREATED, skipped: $LOGIN_ROLES_SKIPPED"
+echo ""
+
+# =============================================================================
+# Phase 3: Grant per-service access
+# =============================================================================
+echo "============================================="
+echo "Phase 3: Granting per-service access"
+echo "============================================="
+
+for entry in "${SERVICE_DB_MAP[@]}"; do
+    IFS=':' read -r db role_name password_var <<< "$entry"
+    role_password="${!password_var:-}"
+
+    # Skip roles that weren't created (empty or invalid password)
+    if [ -z "$role_password" ] || ! validate_password "$role_password" "$role_name" 2>/dev/null; then
+        continue
+    fi
+
+    grant_role_to_database "$role_name" "$db" || {
+        echo "  WARNING: grant failed for $role_name on $db" >&2
+    }
+done
+
+echo ""
+
+# ---- BEGIN corpus-applier database CREATE seam (OMN-18508) ----
+# =============================================================================
+# Phase 3b: CREATE on the DATABASE for principals that APPLY their own corpus
+# =============================================================================
+# Format: "database:role"  — NOTE: database first, so the map reads as a
+# statement about the database rather than about the role.
+#
+# WHAT THIS IS FOR
+# ----------------
+# Phase 3 grants USAGE, CREATE on SCHEMA public. That is a different privilege
+# from CREATE on the DATABASE, and a trusted extension needs the latter:
+# `CREATE EXTENSION` installs a database-level object, and `trusted = t` waives
+# only the SUPERUSER requirement, never the privilege requirement. The
+# omninode_cloud corpus opens with `CREATE EXTENSION IF NOT EXISTS pgcrypto`
+# (omninode_infra db/migrations/scripts/00_baseline_schema.sql, and again in
+# 20251207_tenants_uuid_pk.sql), so without this phase the apply dies on its
+# first statement with `permission denied to create extension "pgcrypto"`.
+#
+# WHY A SEPARATE MAP AND NOT A LINE IN grant_role_to_database()
+# -------------------------------------------------------------
+# That helper runs for every SERVICE_DB_MAP entry. Five of the six databases
+# have their corpus applied by the POSTGRES_USER superuser (the forward- and
+# intelligence-migration one-shots), so widening the shared helper would hand
+# database-level CREATE — and with it the right to create schemas and install
+# extensions — to five principals that need none of it. This map names only the
+# principals whose one-shot declares them as its own DB_USER.
+#
+# WHY NOT `CREATE DATABASE ... OWNER role_omninode` INSTEAD
+# ---------------------------------------------------------
+# Ownership would also grant CREATE, and it would make the compose comments
+# that call this role "the owning login" literally true. It is not taken:
+# ownership additionally confers DROP DATABASE on a principal pinned
+# NOSUPERUSER NOBYPASSRLS NOCREATEDB that onex-api itself connects as, and it
+# would make omninode_cloud the single role-owned database in a cluster where
+# every other one — measured on the .201 dev lane, 2026-09-16 — is owned by
+# postgres. The comments were corrected instead (OMN-18508 AC4). Ownership has
+# no bearing on RLS either way: exemption follows TABLE ownership, and the
+# corpus's tables are owned by whichever role applies it in both designs.
+#
+# ON A WARM VOLUME THIS PHASE NEVER RUNS. Postgres runs this script from
+# /docker-entrypoint-initdb.d only when the data directory is empty. The
+# warm-volume counterpart is the seam of the same name in
+# scripts/run-forward-migrations.sh, which the forward-migration one-shot runs
+# on every compose up; the two maps are pinned equal by
+# tests/unit/infra/test_corpus_applier_database_create_omn18508.py.
+CORPUS_APPLIER_DB_CREATE_MAP=(
+    "omninode_cloud:role_omninode"
+)
+
+grant_database_create_to_corpus_applier() {
+    local database="$1"
+    local role_name="$2"
+    validate_identifier "$database" "Database name" || return 1
+    validate_identifier "$role_name" "Role name" || return 1
+
+    # A lane that skipped the role (Phase 2 saw no password) is a legitimate
+    # state, not a failure: name the skip. Failing here would abort a fresh
+    # volume's whole init over a credential the lane deliberately does not have.
+    local role_present
+    role_present=$(psql -tAc \
+        "SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = '$role_name'" \
+        --username "$POSTGRES_USER" --dbname "$POSTGRES_DB")
+    if [ "$role_present" != "1" ]; then
+        echo "  skip: $role_name absent — no CREATE on $database to grant"
+        return 0
+    fi
+
+    echo "  Granting $role_name CREATE on database $database (applies its corpus)"
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL || return 1
+        GRANT CREATE ON DATABASE "$database" TO "$role_name";
+EOSQL
+
+    # READ IT BACK. A GRANT issued without grant option on the object warns and
+    # returns success rather than raising — the trap the OMN-18060 and OMN-18438
+    # seams both document. Without this, a phase that granted nothing logs ok.
+    local create_ok
+    create_ok=$(psql -tAc \
+        "SELECT has_database_privilege('$role_name', '$database', 'CREATE')" \
+        --username "$POSTGRES_USER" --dbname "$POSTGRES_DB")
+    if [ "$create_ok" != "t" ]; then
+        echo "  ERROR: $role_name still lacks CREATE on $database after the grant" >&2
+        return 1
+    fi
+    echo "  $role_name holds CREATE on $database."
+}
+
+echo "============================================="
+echo "Phase 3b: Granting database CREATE to corpus appliers"
+echo "============================================="
+
+for entry in "${CORPUS_APPLIER_DB_CREATE_MAP[@]}"; do
+    IFS=':' read -r db role_name <<< "$entry"
+    grant_database_create_to_corpus_applier "$db" "$role_name" || {
+        echo "FATAL: $role_name cannot be granted CREATE on $db — its corpus would fail to apply" >&2
+        exit 1
+    }
+done
+
+echo ""
+# ---- END corpus-applier database CREATE seam (OMN-18508) ----
+
+# =============================================================================
+# Phase 4: Revoke cross-database access
+# =============================================================================
+echo "============================================="
+echo "Phase 4: Revoking cross-database access"
+echo "============================================="
+
+# Collect ALL managed databases for comprehensive PUBLIC revocation.
+# This covers: service DBs, infrastructure DBs, and the default POSTGRES_DB.
+ALL_MANAGED_DBS=()
+for entry in "${SERVICE_DB_MAP[@]}"; do
+    IFS=':' read -r db _ _ <<< "$entry"
+    ALL_MANAGED_DBS+=("$db")
+done
+for db in "${INFRA_DATABASES[@]}"; do
+    ALL_MANAGED_DBS+=("$db")
+done
+# Include POSTGRES_DB if not already in the list (avoids double-revoke, though REVOKE is idempotent)
+_pg_db_found=0
+for db in "${ALL_MANAGED_DBS[@]}"; do
+    if [ "$db" = "$POSTGRES_DB" ]; then _pg_db_found=1; break; fi
+done
+if [ "$_pg_db_found" -eq 0 ]; then
+    ALL_MANAGED_DBS+=("$POSTGRES_DB")
+fi
+
+# Revoke PUBLIC connect on every managed database (default PostgreSQL allows everyone).
+# Superusers bypass all permission checks, so this is safe for the postgres user.
+for db in "${ALL_MANAGED_DBS[@]}"; do
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL || { echo "  WARNING: Failed to revoke PUBLIC connect on $db" >&2; }
+        REVOKE CONNECT ON DATABASE "$db" FROM PUBLIC;
+EOSQL
+done
+
+# Then revoke cross-DB access per role
+for entry in "${SERVICE_DB_MAP[@]}"; do
+    IFS=':' read -r db role_name password_var <<< "$entry"
+    role_password="${!password_var:-}"
+
+    # Skip roles that weren't created (empty or invalid password)
+    if [ -z "$role_password" ] || ! validate_password "$role_password" "$role_name" 2>/dev/null; then
+        continue
+    fi
+
+    revoke_cross_db_access "$role_name" "$db" || {
+        echo "  WARNING: revoke_cross_db_access failed for $role_name" >&2
+    }
+done
+
+echo ""
+
+# =============================================================================
+# Verification
+# =============================================================================
+echo "============================================="
+echo "Verification"
+echo "============================================="
+
+echo ""
+echo "Databases:"
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
+    -c "SELECT datname FROM pg_database WHERE datname NOT IN ('template0','template1') ORDER BY datname;"
+
+echo ""
+echo "Roles:"
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
+    -c "SELECT rolname, rolcanlogin FROM pg_roles WHERE rolname LIKE 'role_%' ORDER BY rolname;"
+
+echo ""
+echo "============================================="
+echo "Database provisioning complete."
+echo "============================================="

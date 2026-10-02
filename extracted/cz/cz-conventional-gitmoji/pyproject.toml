@@ -1,0 +1,149 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cz_gitmoji", "src/gitmojify", "src/shared"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "pyproject.toml", "README.md"]
+
+[project]
+name = "cz-conventional-gitmoji"
+version = "0.7.0"
+description = "A commitizen plugin that combines gitmoji and conventional."
+authors = [{ name = "ljnsn", email = "info@ljnsn.com" }]
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.8"
+dependencies = ["attrs>=23.1.0", "commitizen>=3.9.1"]
+
+[project.entry-points."commitizen.plugin"]
+cz_gitmoji = "cz_gitmoji.main:CommitizenGitmojiCz"
+
+[project.scripts]
+gitmojify = "gitmojify.mojify:run"
+
+[tool.uv]
+dev-dependencies = [
+  "coverage[toml]>=7.2.7",
+  "ipdb>=0.13.13",
+  "ipython>=7.16.1,!=8.18.0",
+  "mypy>=1.4.1",
+  "pre-commit>=2.0",
+  "pytest-cov>=4.1.0",
+  "pytest>=7.4.4",
+  "ruff>=0.2.2",
+]
+
+[tool.commitizen]
+name = "cz_gitmoji"
+version_provider = "pep621"
+tag_format = "v$version"
+bump_message = "🔖 bump(release): v$current_version → v$new_version"
+update_changelog_on_bump = true
+major_version_zero = true
+allowed_prefixes = ["Squash", "Merge", "Revert"]
+annotated_tag = true
+pre_bump_hooks = ["uv lock --upgrade-package cz-conventional-gitmoji"]
+
+[tool.ruff]
+fix = true
+target-version = "py38"
+line-length = 88
+src = ["src", "tests"]
+
+[tool.ruff.format]
+line-ending = "lf"
+indent-style = "space"
+
+[tool.ruff.lint]
+extend-select = [
+  # pydocstyle
+  "D",
+  # isort
+  "I",
+  # pep8-naming
+  "N",
+  # pygrep hooks (formerly done by pre-commit)
+  "PGH",
+  # tidy imports
+  "TID",
+]
+ignore = [
+  # Line too long
+  "E501",
+  # Missing docstring in public module
+  "D100",
+  # Missing docstring in `__init__`
+  "D107",
+  # Multi-line docstring summary should start at the first line
+  "D212",
+]
+unfixable = ["F401", "F841"]
+
+[tool.ruff.lint.per-file-ignores]
+"test_*.py" = [
+  # The use of `datetime.datetime()` without `tzinfo` argument is not allowed
+  "DTZ001",
+  # positional boolean args
+  "FBT001",
+  # part of an implicit namespace package
+  "INP001",
+  # usage of `assert` in tests
+  "S101",
+  # suspicious non-cryptographic random usage
+  "S311",
+  # magic value used in comarison
+  "PLR2004",
+  # private member accessed
+  "SLF001",
+]
+"scripts/**/*.py" = [
+  # part of implicit namespace package
+  "INP001",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["tests"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.pep8-naming]
+classmethod-decorators = ["classmethod"]
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = """--color=yes --doctest-modules --exitfirst --failed-first \
+  --strict-markers --strict-config --verbosity=2 \
+  --junitxml=reports/pytest.xml"""
+filterwarnings = ["error"]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+parallel = true
+command_line = "--module pytest"
+data_file = "reports/.coverage"
+source = ["src"]
+
+[tool.coverage.report]
+fail_under = 80
+precision = 1
+show_missing = true
+skip_covered = true
+exclude_lines = [
+  "pragma: no cover",
+  "@overload",
+  'if __name__ == "__main__":',
+  "if TYPE_CHECKING:",
+]
+
+[tool.coverage.xml]
+output = "reports/coverage.xml"

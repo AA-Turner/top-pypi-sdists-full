@@ -2,17 +2,16 @@ from __future__ import annotations
 
 import math
 import random
+import re
 import time
 from datetime import datetime
 from typing import Optional
-from urllib.parse import urlparse, urlunparse, unquote
+from urllib.parse import urlparse, urlunparse
 
-import regex as re
 from bs4 import BeautifulSoup
 from bs4.element import Tag
 
-from jobspy.exception import LinkedInException
-from jobspy.linkedin.constant import headers
+from jobspy.linkedin.constant import currencies, headers, pay_intervals
 from jobspy.linkedin.util import (
     is_job_remote,
     job_type_code,
@@ -33,8 +32,8 @@ from jobspy.model import (
 )
 from jobspy.util import (
     extract_emails_from_text,
-    currency_parser,
     markdown_converter,
+    plain_converter,
     create_session,
     remove_attributes,
     create_logger,
@@ -60,14 +59,11 @@ class LinkedIn(Scraper):
             proxies=self.proxies,
             ca_cert=ca_cert,
             is_tls=False,
-            has_retry=True,
-            delay=5,
             clear_cookies=True,
         )
         self.session.headers.update(headers)
         self.scraper_input = None
         self.country = "worldwide"
-        self.job_url_direct_regex = re.compile(r'(?<=\?url=)[^"]+')
 
     def scrape(self, scraper_input: ScraperInput) -> JobResponse:
         """
@@ -118,29 +114,18 @@ class LinkedIn(Scraper):
                 response = self.session.get(
                     f"{self.base_url}/jobs-guest/jobs/api/seeMoreJobPostings/search?",
                     params=params,
-                    timeout=10,
                 )
-                if response.status_code not in range(200, 400):
-                    if response.status_code == 429:
-                        err = (
-                            f"429 Response - Blocked by LinkedIn for too many requests"
-                        )
-                    else:
-                        err = f"LinkedIn response status code {response.status_code}"
-                        err += f" - {response.text}"
-                    log.error(err)
-                    return JobResponse(jobs=job_list)
+                if response.status_code != 200:
+                    log.error(f"LinkedIn response status code {response.status_code}")
+                    break
             except Exception as e:
-                if "Proxy responded with" in str(e):
-                    log.error(f"LinkedIn: Bad proxy")
-                else:
-                    log.error(f"LinkedIn: {str(e)}")
-                return JobResponse(jobs=job_list)
+                log.error(f"LinkedIn: {e}")
+                break
 
             soup = BeautifulSoup(response.text, "html.parser")
             job_cards = soup.find_all("div", class_="base-search-card")
             if len(job_cards) == 0:
-                return JobResponse(jobs=job_list)
+                break
 
             for job_card in job_cards:
                 href_tag = job_card.find("a", class_="base-card__full-link")
@@ -153,18 +138,18 @@ class LinkedIn(Scraper):
                     seen_ids.add(job_id)
 
                     try:
-                        fetch_desc = scraper_input.linkedin_fetch_description
+                        fetch_desc = scraper_input.fetch_description
                         job_post = self._process_job(job_card, job_id, fetch_desc)
                         if job_post:
                             job_list.append(job_post)
                         if not continue_search():
                             break
                     except Exception as e:
-                        raise LinkedInException(str(e))
+                        log.warning(f"skipping job: {e}")
 
             if continue_search():
                 time.sleep(random.uniform(self.delay, self.delay + self.band_delay))
-                start += len(job_list)
+                start += len(job_cards)
 
         job_list = job_list[: scraper_input.results_wanted]
         return JobResponse(jobs=job_list)
@@ -172,22 +157,6 @@ class LinkedIn(Scraper):
     def _process_job(
         self, job_card: Tag, job_id: str, full_descr: bool
     ) -> Optional[JobPost]:
-        salary_tag = job_card.find("span", class_="job-search-card__salary-info")
-
-        compensation = description = None
-        if salary_tag:
-            salary_text = salary_tag.get_text(separator=" ").strip()
-            salary_values = [currency_parser(value) for value in salary_text.split("-")]
-            salary_min = salary_values[0]
-            salary_max = salary_values[1]
-            currency = salary_text[0] if salary_text[0] != "$" else "USD"
-
-            compensation = Compensation(
-                min_amount=int(salary_min),
-                max_amount=int(salary_max),
-                currency=currency,
-            )
-
         title_tag = job_card.find("span", class_="sr-only")
         title = title_tag.get_text(strip=True) if title_tag else "N/A"
 
@@ -208,18 +177,20 @@ class LinkedIn(Scraper):
             if metadata_card
             else None
         )
+        if not datetime_tag and metadata_card:
+            datetime_tag = metadata_card.find(
+                "time", class_="job-search-card__listdate--new"
+            )
         date_posted = None
         if datetime_tag and "datetime" in datetime_tag.attrs:
             datetime_str = datetime_tag["datetime"]
             try:
                 date_posted = datetime.strptime(datetime_str, "%Y-%m-%d")
-            except:
+            except Exception:
                 date_posted = None
         job_details = {}
         if full_descr:
             job_details = self._get_job_details(job_id)
-            description = job_details.get("description")
-        is_remote = is_job_remote(title, description, location)
 
         return JobPost(
             id=f"li-{job_id}",
@@ -227,18 +198,34 @@ class LinkedIn(Scraper):
             company_name=company,
             company_url=company_url,
             location=location,
-            is_remote=is_remote,
+            is_remote=is_job_remote(title, location),
             date_posted=date_posted,
             job_url=f"{self.base_url}/jobs/view/{job_id}",
-            compensation=compensation,
+            compensation=job_details.get("compensation"),
             job_type=job_details.get("job_type"),
-            job_level=job_details.get("job_level", "").lower(),
+            job_level=job_details.get("job_level"),
             company_industry=job_details.get("company_industry"),
             description=job_details.get("description"),
-            job_url_direct=job_details.get("job_url_direct"),
-            emails=extract_emails_from_text(description),
+            emails=extract_emails_from_text(job_details.get("description")),
             company_logo=job_details.get("company_logo"),
             job_function=job_details.get("job_function"),
+        )
+
+    @staticmethod
+    def _parse_salary(text: str) -> Compensation | None:
+        """ "$117,000.00/yr - $234,000.00/yr" """
+        match = re.fullmatch(
+            r"([^\d\s]+) ?([\d,]+\.\d\d)(/\w+) - [^\d\s]+ ?([\d,]+\.\d\d)/\w+",
+            " ".join(text.split()),
+        )
+        if not match:
+            return None
+        currency, low, interval, high = match.groups()
+        return Compensation(
+            interval=pay_intervals.get(interval),
+            min_amount=float(low.replace(",", "")),
+            max_amount=float(high.replace(",", "")),
+            currency=currencies.get(currency, currency),
         )
 
     def _get_job_details(self, job_id: str) -> dict:
@@ -248,11 +235,9 @@ class LinkedIn(Scraper):
         :return: dict
         """
         try:
-            response = self.session.get(
-                f"{self.base_url}/jobs/view/{job_id}", timeout=5
-            )
+            response = self.session.get(f"{self.base_url}/jobs/view/{job_id}")
             response.raise_for_status()
-        except:
+        except Exception:
             return {}
         if "linkedin.com/signup" in response.url:
             return {}
@@ -267,9 +252,10 @@ class LinkedIn(Scraper):
             description = div_content.prettify(formatter="html")
             if self.scraper_input.description_format == DescriptionFormat.MARKDOWN:
                 description = markdown_converter(description)
-
+            elif self.scraper_input.description_format == DescriptionFormat.PLAIN:
+                description = plain_converter(description)
         h3_tag = soup.find(
-            "h3", text=lambda text: text and "Job function" in text.strip()
+            "h3", string=lambda text: text and "Job function" in text.strip()
         )
 
         job_function = None
@@ -285,12 +271,14 @@ class LinkedIn(Scraper):
             if (logo_image := soup.find("img", {"class": "artdeco-entity-image"}))
             else None
         )
+        salary_tag = soup.find("div", class_="compensation__salary")
+        compensation = self._parse_salary(salary_tag.get_text()) if salary_tag else None
         return {
             "description": description,
+            "compensation": compensation,
             "job_level": parse_job_level(soup),
             "company_industry": parse_company_industry(soup),
             "job_type": parse_job_type(soup),
-            "job_url_direct": self._parse_job_url_direct(soup),
             "company_logo": company_logo,
             "job_function": job_function,
         }
@@ -308,7 +296,11 @@ class LinkedIn(Scraper):
             )
             location_string = location_tag.text.strip() if location_tag else "N/A"
             parts = location_string.split(", ")
-            if len(parts) == 2:
+            if len(parts) == 1 and location_tag:
+                location = Location(
+                    city=location_string, country=Country.from_string(self.country)
+                )
+            elif len(parts) == 2:
                 city, state = parts
                 location = Location(
                     city=city,
@@ -317,23 +309,5 @@ class LinkedIn(Scraper):
                 )
             elif len(parts) == 3:
                 city, state, country = parts
-                country = Country.from_string(country)
                 location = Location(city=city, state=state, country=country)
         return location
-
-    def _parse_job_url_direct(self, soup: BeautifulSoup) -> str | None:
-        """
-        Gets the job url direct from job page
-        :param soup:
-        :return: str
-        """
-        job_url_direct = None
-        job_url_direct_content = soup.find("code", id="applyUrl")
-        if job_url_direct_content:
-            job_url_direct_match = self.job_url_direct_regex.search(
-                job_url_direct_content.decode_contents().strip()
-            )
-            if job_url_direct_match:
-                job_url_direct = unquote(job_url_direct_match.group())
-
-        return job_url_direct

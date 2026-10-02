@@ -1,0 +1,353 @@
+---
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# ONEX Node Contract - PR Lifecycle State Reducer
+#
+# Pure FSM reducer: (state, event) -> (new_state, intents[]).
+# Entry flags control which transitions are enabled:
+#   dry_run: all transitions allowed, no side-effect intents emitted
+#   inventory_only: only IDLE -> INVENTORYING allowed
+#   fix_only: only TRIAGED -> FIXING allowed
+#
+# Related Tickets:
+#   - OMN-8086: Create pr_lifecycle_state_reducer Node
+#   - OMN-8070: PR Lifecycle Domain epic
+name: node_pr_lifecycle_state_reducer
+node_type: reducer
+runtime_profiles: [main]
+contract_version: {major: 1, minor: 0, patch: 0}
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  Pure FSM reducer for the PR lifecycle domain.
+  delta(state, event) -> (new_state, intents[]).
+  Entry flags (dry_run, inventory_only, fix_only) control which transitions are enabled.
+  No side effects — only computes state transitions and emits intent events.
+
+handler:
+  module: omnimarket.nodes.node_pr_lifecycle_state_reducer.handlers.handler_pr_lifecycle_state_reducer
+  class: HandlerPrLifecycleStateReducer
+  input_model: omnimarket.nodes.node_pr_lifecycle_state_reducer.models.model_pr_lifecycle_event.ModelPrLifecycleEvent
+
+input_model:
+  name: ModelPrLifecycleEvent
+  module: omnimarket.nodes.node_pr_lifecycle_state_reducer.models.model_pr_lifecycle_event
+  description: "Event from a completed PR lifecycle phase."
+
+output_model:
+  name: ModelPrLifecycleState
+  module: omnimarket.nodes.node_pr_lifecycle_state_reducer.models.model_pr_lifecycle_state
+  description: "New FSM state after applying the event."
+
+# OMN-16939: per-topic `topic_match` entries, each carrying its OWN explicit
+# `message_category`. This was a single `operation_match` entry, which made
+# `_prepare_handler_wiring` derive ONE category for the whole entry — falling back to
+# `subscribe_topics[0]` (`onex.cmd.…pr-lifecycle-sweep-start.v1`, i.e. `command`) and
+# stamping `command` on the routes for all seven `.evt.` topics as well.
+# `MessageDispatchEngine` filters candidate routes by the message's REAL category before
+# any handler runs, so every event was permanently NO_DISPATCHER: consumed, DLQ'd, and
+# COMMITTED (174 in / 174 DLQ over 6h on the .201 dev lane, group Stable / LAG 0).
+#
+# `topic:` alone would NOT have fixed it — the category still falls back to
+# `subscribe_topics[0]`. The explicit `message_category` on each entry is the load-bearing
+# half. Distinct dispatcher IDs are safe because OMN-14580 folds `topic` into
+# `_derive_handler_entry_key`'s digest, so same-operation/same-handler entries do not
+# collide. This is the OMN-14605 fix pattern, applied to a contract that ticket named as
+# affected but never fixed.
+handler_routing:
+  routing_strategy: topic_match
+  handlers:
+    - operation: reduce_pr_state
+      topic: onex.cmd.omnimarket.pr-lifecycle-sweep-start.v1
+      message_category: command
+      handler:
+        name: HandlerPrLifecycleStateReducer
+        module: omnimarket.nodes.node_pr_lifecycle_state_reducer.handlers.handler_pr_lifecycle_state_reducer
+    - operation: reduce_pr_state
+      topic: onex.evt.omnimarket.pr-lifecycle-inventory-completed.v1
+      message_category: event
+      handler:
+        name: HandlerPrLifecycleStateReducer
+        module: omnimarket.nodes.node_pr_lifecycle_state_reducer.handlers.handler_pr_lifecycle_state_reducer
+    - operation: reduce_pr_state
+      topic: onex.evt.omnimarket.pr-lifecycle-triage-completed.v1
+      message_category: event
+      handler:
+        name: HandlerPrLifecycleStateReducer
+        module: omnimarket.nodes.node_pr_lifecycle_state_reducer.handlers.handler_pr_lifecycle_state_reducer
+    - operation: reduce_pr_state
+      topic: onex.evt.omnimarket.pr-lifecycle-fix-completed.v1
+      message_category: event
+      handler:
+        name: HandlerPrLifecycleStateReducer
+        module: omnimarket.nodes.node_pr_lifecycle_state_reducer.handlers.handler_pr_lifecycle_state_reducer
+    - operation: reduce_pr_state
+      topic: onex.evt.omnimarket.pr-lifecycle-merge-completed.v1
+      message_category: event
+      handler:
+        name: HandlerPrLifecycleStateReducer
+        module: omnimarket.nodes.node_pr_lifecycle_state_reducer.handlers.handler_pr_lifecycle_state_reducer
+    - operation: reduce_pr_state
+      topic: onex.evt.omnimarket.pr-lifecycle-failed.v1
+      message_category: event
+      handler:
+        name: HandlerPrLifecycleStateReducer
+        module: omnimarket.nodes.node_pr_lifecycle_state_reducer.handlers.handler_pr_lifecycle_state_reducer
+    - operation: reduce_pr_state
+      topic: onex.evt.omnimarket.repo-health-classified.v1
+      message_category: event
+      handler:
+        name: HandlerPrLifecycleStateReducer
+        module: omnimarket.nodes.node_pr_lifecycle_state_reducer.handlers.handler_pr_lifecycle_state_reducer
+    - operation: reduce_pr_state
+      topic: onex.evt.omnimarket.repo-health-repair-emitted.v1
+      message_category: event
+      handler:
+        name: HandlerPrLifecycleStateReducer
+        module: omnimarket.nodes.node_pr_lifecycle_state_reducer.handlers.handler_pr_lifecycle_state_reducer
+
+descriptor:
+  node_archetype: reducer
+  purity: pure
+  idempotent: true
+  timeout_ms: 5000
+
+state_machine:
+  version: {major: 1, minor: 0, patch: 0}
+  state_machine_name: pr_lifecycle_fsm
+  state_machine_version: {major: 1, minor: 0, patch: 0}
+  description: "pr_lifecycle_fsm"
+  initial_state: idle
+  terminal_states: [complete, failed]
+  error_states: []
+  persistence_enabled: false
+  states:
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: idle
+      state_type: operational
+      description: "Waiting for PR lifecycle sweep command"
+      required_data: []
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: inventorying
+      state_type: operational
+      description: "Collecting PR state via gh CLI (status, checks, reviews, conflicts)"
+      required_data: ["correlation_id"]
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: triaged
+      state_type: operational
+      description: "PRs classified by block reason, awaiting action routing"
+      required_data: ["correlation_id"]
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: fixing
+      state_type: operational
+      description: "Dispatching fix actions for blocked PRs"
+      required_data: ["correlation_id"]
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: merging
+      state_type: operational
+      description: "Triggering auto-merge for eligible PRs"
+      required_data: ["correlation_id"]
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: complete
+      state_type: terminal
+      description: "PR lifecycle sweep completed successfully"
+      is_terminal: true
+      is_recoverable: false
+      required_data: ["correlation_id", "prs_processed"]
+    - version: {major: 1, minor: 0, patch: 0}
+      state_name: failed
+      state_type: terminal
+      description: "PR lifecycle sweep failed"
+      is_terminal: true
+      is_recoverable: false
+      required_data: ["error_message"]
+  transitions:
+    # Sweep command received, begin inventory
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: idle_to_inventorying_on_start_received
+      from_state: idle
+      to_state: inventorying
+      trigger: start_received
+    # Inventory done, classify PRs by block reason
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: inventorying_to_triaged_on_inventory_complete
+      from_state: inventorying
+      to_state: triaged
+      trigger: inventory_complete
+    # Blocked PRs found, dispatch fix actions
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: triaged_to_fixing_on_fixes_pending
+      from_state: triaged
+      to_state: fixing
+      trigger: fixes_pending
+    # No blocked PRs, proceed to merge eligible
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: triaged_to_merging_on_no_fixes_needed
+      from_state: triaged
+      to_state: merging
+      trigger: no_fixes_needed
+    # Fix actions dispatched, proceed to merge
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: fixing_to_merging_on_fixes_complete
+      from_state: fixing
+      to_state: merging
+      trigger: fixes_complete
+    # Merge actions dispatched, sweep complete
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: merging_to_complete_on_merge_complete
+      from_state: merging
+      to_state: complete
+      trigger: merge_complete
+    # Inventory error
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: inventorying_to_failed_on_error
+      from_state: inventorying
+      to_state: failed
+      trigger: error
+    # Triage error
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: triaged_to_failed_on_error
+      from_state: triaged
+      to_state: failed
+      trigger: error
+    # Fix dispatch error
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: fixing_to_failed_on_error
+      from_state: fixing
+      to_state: failed
+      trigger: error
+    # Merge dispatch error
+    - version: {major: 1, minor: 0, patch: 0}
+      transition_name: merging_to_failed_on_error
+      from_state: merging
+      to_state: failed
+      trigger: error
+
+terminal_event: onex.evt.omnimarket.pr-lifecycle-state-reduced.v1
+
+event_bus:
+  # OMN-17810 measurement, .201 dev lane 2026-09-07: of these eight topics
+  # exactly ONE has ever carried a record --
+  # pr-lifecycle-fix-completed.v1 at HIGH-WATERMARK 5064. The other seven,
+  # including the sweep-start command topic below, sit at HIGH-WATERMARK 0.
+  # Only the topics named in
+  # models/model_pr_lifecycle_bus_observation.PROJECTABLE_BUS_TOPICS carry a
+  # PR-scoped observation this node can project into
+  # pr_lifecycle_ledger_entries; a record arriving on any of the others is
+  # REFUSED by that model with a reason naming the topic, and lands on the
+  # node-owned dlq_topic below rather than being folded into a wrong row.
+  subscribe_topics:
+    - onex.cmd.omnimarket.pr-lifecycle-sweep-start.v1
+    # OMN-16939 / AC6: two owners on this topic is CORRECT, not drift. The boot-time
+    # "Duplicate topic ownership detected ... owners=('node_pr_lifecycle_state_reducer',
+    # 'node_pr_lifecycle_triage_compute') level=intra-package" warning describes ordinary
+    # pub/sub fan-out: node_pr_lifecycle_triage_compute (COMPUTE) classifies the inventory
+    # and emits pr-lifecycle-triage-completed, while this REDUCER independently folds the
+    # same event into the FSM (inventorying -> triaged). They consume under separate
+    # consumer groups (each derived from its own node name), so both receive every message
+    # — neither starves the other. Collapsing to one owner would delete a real consumer.
+    - onex.evt.omnimarket.pr-lifecycle-inventory-completed.v1
+    - onex.evt.omnimarket.pr-lifecycle-triage-completed.v1
+    - onex.evt.omnimarket.pr-lifecycle-fix-completed.v1
+    - onex.evt.omnimarket.pr-lifecycle-merge-completed.v1
+    - onex.evt.omnimarket.pr-lifecycle-failed.v1
+    # Repo-health lane (OMN-13585): additive fold only — does not drive FSM transitions
+    - onex.evt.omnimarket.repo-health-classified.v1
+    - onex.evt.omnimarket.repo-health-repair-emitted.v1
+  publish_topics:
+    - onex.evt.omnimarket.pr-lifecycle-state-reduced.v1
+    # OMN-13321 / F5: per-iteration durable PR ledger projection snapshot.
+    - onex.snapshot.projection.pr-lifecycle-ledger.v1  # onex-topic-allow: projection snapshot topics use onex.snapshot.* prefix by convention
+  # OMN-17810 / AC4: this contract declared NO dlq_topics, so every projection
+  # failure fell back to the shared platform quarantine sink
+  # (onex.dlq.omnibase-infra.quarantine.v1, HIGH-WATERMARK ~8.9M) with no
+  # per-node attribution -- which is why 100% loss on this leg sat unnoticed
+  # from 2026-08-29 until it was read out of the container log by hand. A
+  # node-owned DLQ topic makes this node's rejected records countable on their
+  # own topic.
+  dlq_topics:
+    - onex.dlq.omnimarket.pr-lifecycle-state-reducer.v1
+
+externally_consumed_topics:
+  # Exposed through the generic projection API instead of consumed by another
+  # Kafka node.
+  - onex.snapshot.projection.pr-lifecycle-ledger.v1  # onex-topic-allow: projection snapshot topic
+
+# OMN-13321 / F5 (hardens OMN-12569): durable, user-readable per-PR ledger
+# row emitted EVERY sweep iteration -- not only at sweep end. One row per PR
+# per iteration, keyed by (sweep_id, repo, pr_number, iteration). Answers the
+# operator question "what does the ledger say right now?" with a clean line:
+#   found_at . repo/pr . initial_state . action_taken . evidence .
+#   final_state . next_check_at
+# DoD probe:
+#   select count(*) from pr_lifecycle_ledger_entries where sweep_id='<id>';
+  - onex.evt.omnimarket.pr-lifecycle-state-reduced.v1
+db_io:
+  db_tables:
+    - name: pr_lifecycle_ledger_entries
+      database_ref: application
+      schema: omninode_internal
+      migration: "0001_create_pr_lifecycle_ledger_entries.sql"
+      access: write
+      role: pr_lifecycle_ledger_entries
+
+projection:
+  name: pr_lifecycle_ledger_entries
+  provenance_kind: derived_projection            # DT-005 provenance declaration
+  freshness_sla_seconds: 900                      # DT-003 freshness SLA (== next_check_at window)
+  durable_store: projection_database
+  conflict_key: sweep_id,repo,pr_number,iteration
+  entry_fields:
+    - sweep_id
+    - iteration
+    - found_at
+    - repo
+    - pr_number
+    - initial_state
+    - action_taken
+    - evidence
+    - final_state
+    - next_check_at
+
+projection_api:
+  expose: true
+  exposures:
+    # Read path for the operator ledger view. The generic projection API
+    # serves GET /projection/onex.snapshot.projection.pr-lifecycle-ledger.v1.
+    - topic: onex.snapshot.projection.pr-lifecycle-ledger.v1  # onex-topic-allow: projection snapshot topics use onex.snapshot.* prefix by convention
+      key_grain: "mutable"
+      table: pr_lifecycle_ledger_entries
+      schema: public
+      columns:
+        - sweep_id
+        - iteration
+        - found_at
+        - repo
+        - pr_number
+        - initial_state
+        - action_taken
+        - evidence
+        - final_state
+        - next_check_at
+      order_by: found_at DESC
+      freshness_column: found_at
+      limit: 500
+
+metadata:
+  transport_type: kafka
+  description: "PR lifecycle FSM reducer"
+  author: "OmniNode Team"
+  created: "2026-04-09"
+  tags:
+    - reducer
+    - fsm
+    - pr-lifecycle
+    - OMN-8086
+  related_tickets:
+    - OMN-8086
+    - OMN-8070
+    - OMN-13585
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.pr-lifecycle-sweep-start.v1

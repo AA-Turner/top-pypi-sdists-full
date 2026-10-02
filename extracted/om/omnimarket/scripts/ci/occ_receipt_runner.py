@@ -1,0 +1,1148 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""OMN-16859 AC3b — the product-repo OCC receipt runner.
+
+Why this file exists
+--------------------
+For months, automatic OCC receipt generation has been blocked by a structural
+gap, not a bug:
+
+1. **The minting producers cannot execute.** Both ``OccCompanionEmitter`` (born
+   path) and ``node_occ_companion_compute`` run in the .201 dev-lane effects
+   runtime, which holds no product-repo checkout — the declared ``cwd`` is
+   ``${OMNI_HOME}/<repo>``, a path absent there. OCC's own hosted compliance
+   runner DECLINES for the same reason.
+2. **Eligibility demands PASS before merge.** ``validator_occ_merge_eligibility``
+   treats every non-PASS status as ineligible, and the companion must merge
+   before the product PR.
+3. **The one surface that CAN execute honestly — the product repo's own CI —
+   has never had a write path into the open companion.**
+
+So the receipt had to be PASS at a moment when nothing had run the check. Every
+previous attempt collapsed into a hand-authored receipt (four in one day on
+2026-08-28) or a ``status: PASS`` minted behind a ``gh pr view`` probe. This
+module is the missing surface: it runs *in the product checkout*, executes the
+declared check for real, and writes the result into the open companion.
+
+The mechanical fact that makes it work
+--------------------------------------
+``omnibase_core/.github/workflows/occ-preflight.yml`` resolves an **open**
+companion to ``headRefOid`` — the companion BRANCH TIP, not OCC main. A receipt
+pushed to that branch is therefore visible to the product PR's very next
+preflight evaluation. There is no merge-ordering deadlock: the receipt does not
+need the companion to merge first.
+
+Invariants this module holds
+----------------------------
+* **Append-only is absolute.** A born or merged receipt is never edited. An
+  executed result for a key that already has a base receipt arrives as a
+  net-new ``<check_type>.supersede.<pr>.yaml`` record — the primitive
+  ``resolve_supersession`` already exists to serve. Only a key with *no* base
+  receipt gets a net-new base written directly.
+* **A record must actually resolve.** ``resolve_supersession`` key-validates a
+  record's own ``check_type`` against the key it is filed under; the emitter's
+  supersede renderer got this wrong and its rebinds silently never applied
+  (live: OCC#7465 filed ``command.supersede.2192.yaml`` for a ``test_passes``
+  item). The record written here derives every key field from the contract
+  entry, so the two cannot disagree.
+* **Only what it can honestly execute.** ``EXECUTABLE_CHECK_TYPES`` is the
+  whole surface. A ``command`` item whose check is a GitHub API read is not
+  this runner's business; taking it over would make this a second, competing
+  producer.
+* **A failing check produces FAIL.** The status is derived from a real exit
+  status. There is no path here that reports an outcome nothing produced.
+* **No machine-specific path escapes.** The runner executes in a CI workspace
+  whose absolute path is unreproducible. The contract's declared
+  ``check_value`` is carried through verbatim (prefixed only by the
+  product-repo reference for the receipt's own ``commit_sha`` — OMN-17794) and
+  ``working_dir`` is left None, so OCC's Receipt Honesty Gate (ABS_PATH) cannot
+  fire on the very receipt meant to unblock the PR.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import subprocess
+import sys
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+
+import yaml
+from omnibase_core.enums.ticket.enum_receipt_status import EnumReceiptStatus
+from omnibase_core.validation.validator_receipt_gate import (
+    compute_contract_entry_sha256,
+)
+from omnibase_core.validation.validator_receipt_supersession import (
+    resolve_supersession,
+)
+
+from omnimarket.nodes.node_pr_lifecycle_fix_effect.handlers.occ_evidence_stamp import (
+    ADMISSIBILITY_VALIDATOR_EVIDENCE_ID,
+    BEHAVIOR_PROOF_EVIDENCE_ID,
+)
+
+# The check types this runner can execute honestly in a product checkout.
+#
+# Deliberately a set of one. `test_passes` is an executed alias of `command`
+# (OMN-16824) whose declared `check_value` is a pytest invocation against
+# targets derived from the PR's own diff -- exactly what a product checkout has
+# and the effects runtime does not. Widening this set is a decision about what
+# the product CI can *honestly* run, not a convenience knob.
+EXECUTABLE_CHECK_TYPES: frozenset[str] = frozenset({"test_passes"})
+
+# Identity recorded on receipts this runner mints. `RUNNER` and `VERIFIER` MUST
+# differ: ModelDodReceipt's Centralized Transition Policy silently downgrades a
+# PASS to ADVISORY when `verifier == runner`, and ADVISORY is non-PASS -- a
+# self-attested receipt would leave the companion blocked while *looking* like
+# the runner had done its job.
+RUNNER = "omnimarket-ci occ-receipt-runner"
+VERIFIER = "github-actions product-repo test execution"
+
+RECEIPT_SCHEMA_VERSION = "1.0.0"
+SUPERSESSION_SCHEMA_VERSION = "1.0.0"
+
+# Same grammar occ-preflight.yml uses to resolve Evidence-Source, so the runner
+# and the gate always agree on WHICH companion is under evaluation. A parser
+# that disagreed would write a perfectly good receipt into a branch nothing
+# reads.
+_EVIDENCE_SOURCE_RE = re.compile(
+    r"^Evidence-Source:[ \t]+OCC#(\d+)[ \t]*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+# Executed checks are bounded. A hung pytest target must fail the runner
+# loudly rather than burn the job's whole budget and report nothing.
+DEFAULT_TIMEOUT_SECONDS = 1800
+
+_PR_SCOPED_BASE_ID_RE = re.compile(
+    r"^dod-(?P<repo_slug>.+)-pr-(?P<pr_number>\d+)(?:-ci)?$"
+)
+_PR_SCOPED_SLOT_ID_RE = re.compile(
+    rf"^(?:{re.escape(BEHAVIOR_PROOF_EVIDENCE_ID)}|"
+    rf"{re.escape(ADMISSIBILITY_VALIDATOR_EVIDENCE_ID)})-pr-(?P<pr_number>\d+)$"
+)
+
+
+@dataclass(frozen=True)
+class ExecutedCheck:
+    """One real execution of a declared check."""
+
+    ticket_id: str
+    evidence_item_id: str
+    check_type: str
+    check_value: str
+    stdout: str
+    exit_code: int
+    duration_ms: int
+
+    @property
+    def status(self) -> EnumReceiptStatus:
+        return EnumReceiptStatus.PASS if self.exit_code == 0 else EnumReceiptStatus.FAIL
+
+
+@dataclass
+class RunnerOutcome:
+    """What one runner pass did, in terms a CI log and a test can both read."""
+
+    executed: int = 0
+    skipped_already_pass: int = 0
+    skipped_unexecutable: int = 0
+    # OMN-19050: checks whose declared cwd names another repository. They
+    # cannot be observed in this checkout, so nothing is recorded for them.
+    skipped_other_repo: int = 0
+    skipped_other_member: int = 0
+    wrote: tuple[Path, ...] = ()
+    tickets_without_contract: tuple[str, ...] = ()
+    failures: tuple[str, ...] = field(default=())
+    # OMN-19050: a key the runner could not record an observation for at all.
+    # This is NOT a failed check. A failed check is recorded in a FAIL receipt
+    # and the evidence chain carries it; a refusal to write leaves NOTHING
+    # downstream carrying the fact, so the only surface that can report it is
+    # this run's exit status. Collapsing the two into `failures` is what let a
+    # refusal ride out under a green job on omnimarket#2751.
+    write_refusals: tuple[str, ...] = field(default=())
+
+    @property
+    def wrote_anything(self) -> bool:
+        return bool(self.wrote)
+
+    @property
+    def recorded_everything_executed(self) -> bool:
+        """Every executed check produced a receipt. False means evidence is missing."""
+        return not self.write_refusals
+
+
+def parse_evidence_source(body: str | None) -> int | None:
+    """Return the OCC companion PR number stamped in a product PR body.
+
+    Returns None for the bare-SHA form on purpose: a SHA names an immutable
+    commit, not a branch, so there is nothing for this runner to push to. It
+    reports that rather than guessing a branch.
+    """
+    if not body:
+        return None
+    match = _EVIDENCE_SOURCE_RE.search(body)
+    if match is None:
+        return None
+    return int(match.group(1))
+
+
+def _load_yaml(path: Path) -> Any:
+    with path.open(encoding="utf-8") as handle:
+        return yaml.safe_load(handle)
+
+
+def _iter_executable_items(
+    contract_data: Any,
+) -> Iterable[tuple[str, str, str, str | None]]:
+    """Yield ``(evidence_item_id, check_type, check_value, cwd)`` this runner covers.
+
+    ``cwd`` is the check's declared working directory, or None when it
+    declares none.
+    """
+    if not isinstance(contract_data, dict):
+        return
+    items = contract_data.get("dod_evidence", [])
+    if not isinstance(items, list):
+        return
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        item_id = item.get("id")
+        checks = item.get("checks", [])
+        if not isinstance(item_id, str) or not isinstance(checks, list):
+            continue
+        for check in checks:
+            if not isinstance(check, dict):
+                continue
+            check_type = check.get("check_type")
+            check_value = check.get("check_value")
+            cwd = check.get("cwd")
+            if isinstance(check_type, str) and isinstance(check_value, str):
+                yield (
+                    item_id,
+                    check_type,
+                    check_value,
+                    (cwd if isinstance(cwd, str) else None),
+                )
+
+
+# A declared cwd is ``${OMNI_HOME}/<repo>[/...]`` or
+# ``${OMNI_HOME}/omni_worktrees/<dir>/<repo>[/...]``.
+_OMNI_HOME_PREFIX_RE = re.compile(r"^(?:\$\{OMNI_HOME\}|\$OMNI_HOME)(?:/|$)")
+
+
+def declared_repo(cwd: str) -> str | None:
+    """The repository name a declared cwd places the check in, or None.
+
+    None means the cwd names no repository under ``${OMNI_HOME}``: the bare
+    root, or a path somewhere else entirely.
+    """
+    match = _OMNI_HOME_PREFIX_RE.match(cwd.strip())
+    if match is None:
+        return None
+    parts = [part for part in cwd.strip()[match.end() :].split("/") if part]
+    if parts[:1] == ["omni_worktrees"]:
+        return parts[2] if len(parts) >= 3 else None
+    return parts[0] if parts else None
+
+
+def runs_in_this_checkout(cwd: str | None, *, repo: str) -> bool:
+    """True when a check declared at ``cwd`` can be observed in ``repo``'s checkout.
+
+    OMN-19050. The runner executes every check in the product checkout. A
+    check declared for another repository names a test target that is not in
+    this tree, so executing it here records a FAIL about code it never ran
+    (omnimarket#2767 and #2846 filed exactly that against an omnibase_core
+    check). A check with no declared cwd keeps the behaviour it always had.
+    """
+    if cwd is None:
+        return True
+    return declared_repo(cwd) == repo.rsplit("/", 1)[-1]
+
+
+@dataclass(frozen=True)
+class Observation:
+    """What the receipt currently active for a key says was observed.
+
+    OMN-19050. The already-passes shortcut and the reason a re-execution
+    records both need more than the status: where the check ran, on which
+    code, and against which check definition.
+    """
+
+    status: EnumReceiptStatus
+    commit_sha: str | None
+    tree_sha: str | None
+    contract_entry_sha256: str | None
+    # True when this came from a record the runner filed after executing the
+    # check, False for the minted base receipt it would supersede.
+    executed: bool
+
+
+def _observation_from(receipt: Any, *, executed: bool) -> Observation | None:
+    """Read an observation from a receipt mapping, or None when it has no status."""
+    if not isinstance(receipt, dict):
+        return None
+    raw_status = receipt.get("status")
+    if not isinstance(raw_status, str):
+        return None
+    try:
+        status = EnumReceiptStatus(raw_status)
+    except ValueError:
+        return None
+
+    def text(key: str) -> str | None:
+        value = receipt.get(key)
+        return value if isinstance(value, str) else None
+
+    return Observation(
+        status=status,
+        commit_sha=text("commit_sha"),
+        tree_sha=text("tree_sha"),
+        contract_entry_sha256=text("contract_entry_sha256"),
+        executed=executed,
+    )
+
+
+def _latest_attempt_observation(
+    receipts_dir: Path,
+    ticket_id: str,
+    evidence_item_id: str,
+    check_type: str,
+    pr_number: int,
+) -> Observation | None:
+    """What this consumer's newest attempt record observed, if any.
+
+    OMN-19050. Reads only the shapes this module writes, the first attempt
+    ``<check>.supersede.<pr>.yaml`` and later attempts
+    ``<check>.supersede.<pr>.<NNNN>.yaml``, ordered by attempt number. The
+    records are read as plain mappings, not through ``omnibase_core``, so a
+    field an older installed core does not know (``tree_sha``) cannot make the
+    runner lose track of its own last observation. Returns None when no
+    attempt record exists or the newest is unreadable; the caller then falls
+    through to the shared resolver rather than guessing.
+    """
+    key_dir = receipts_dir / ticket_id / evidence_item_id
+    if not key_dir.is_dir():
+        return None
+    attempts: list[tuple[int, Path]] = []
+    first = key_dir / f"{check_type}.supersede.{pr_number}.yaml"
+    if first.is_file():
+        attempts.append((1, first))
+    for candidate in key_dir.glob(f"{check_type}.supersede.{pr_number}.*.yaml"):
+        token = candidate.name[: -len(".yaml")].rsplit(".", 1)[-1]
+        if token.isdigit():
+            attempts.append((int(token), candidate))
+    if not attempts:
+        return None
+    _, newest = max(attempts, key=lambda item: item[0])
+    raw = _load_yaml(newest)
+    if not isinstance(raw, dict):
+        return None
+    return _observation_from(raw.get("replacement"), executed=True)
+
+
+def _latest_attempt_status(
+    receipts_dir: Path,
+    ticket_id: str,
+    evidence_item_id: str,
+    check_type: str,
+    pr_number: int,
+) -> EnumReceiptStatus | None:
+    """Status recorded by this consumer's newest attempt record, if any."""
+    observation = _latest_attempt_observation(
+        receipts_dir, ticket_id, evidence_item_id, check_type, pr_number
+    )
+    return None if observation is None else observation.status
+
+
+def _active_observation(
+    receipts_dir: Path,
+    ticket_id: str,
+    evidence_item_id: str,
+    check_type: str,
+    pr_number: int,
+) -> Observation | None:
+    """What the receipt currently ACTIVE for a key observed, or None when absent.
+
+    Resolution goes through the supersession chain first, exactly as
+    ``validator_occ_merge_eligibility`` does, so this runner's idea of "already
+    satisfied" is the gate's idea of it. Reading only the base file would make
+    the runner re-execute (and re-append) a key another record already rebound.
+
+    OMN-19050: this module's OWN attempt-scoped records are read first. This
+    runner writes the ``<check>.supersede.<pr>.<NNNN>.yaml`` shape, so it must
+    be able to read it back without waiting on a released ``omnibase_core``
+    that can. It pins ``omnibase-core`` from the registry, and an older
+    installed copy does not see a dotted suffix at all -- under it the runner
+    would keep reading the FAIL it already corrected, re-execute on every run
+    and append a further attempt each time. Bounded and self-healing, but
+    noise produced by a version skew inside one module's own filename
+    convention, which is the module's to own rather than the gate's.
+
+    The question here is narrower than the gate's: "must this check run
+    again?", not "is this key eligible?". So the latest attempt's raw
+    observation is the right answer, and no independent-observation guard
+    applies -- when in doubt this re-executes, which is never harmful.
+    """
+    attempt = _latest_attempt_observation(
+        receipts_dir, ticket_id, evidence_item_id, check_type, pr_number
+    )
+    if attempt is not None:
+        return attempt
+
+    resolution = resolve_supersession(
+        receipts_dir,
+        ticket_id,
+        evidence_item_id,
+        check_type,
+        current_pr_number=pr_number,
+    )
+    if resolution is not None:
+        if resolution.error is not None or resolution.tombstoned:
+            return None
+        if resolution.receipt is not None:
+            return _observation_from(
+                resolution.receipt.model_dump(mode="json"), executed=True
+            )
+    base = receipts_dir / ticket_id / evidence_item_id / f"{check_type}.yaml"
+    if not base.is_file():
+        return None
+    raw = _load_yaml(base)
+    if not isinstance(raw, dict):
+        return None
+    # A base receipt this runner wrote itself (a key with no mint) is an
+    # executed observation; a minted one is the placeholder it corrects.
+    return _observation_from(raw, executed=raw.get("runner") == RUNNER)
+
+
+def covers_this_run(
+    observation: Observation | None,
+    *,
+    head_sha: str,
+    tree_sha: str | None,
+    contract_entry_sha256: str,
+) -> bool:
+    """Whether an active PASS already answers the check this run would execute.
+
+    OMN-19050. The status alone used to decide it, so a PASS recorded at any
+    earlier head, against any earlier check definition, counted forever. A
+    fresh head could then never get a fresh receipt without someone deleting
+    the old record, which is what happened on the omnimarket#2839 companion.
+
+    Covered means PASS, bound to the current contract entry, and observed on
+    the same code. The code is the tree when both sides carry one, which is
+    also what the eligibility guard compares, so an empty commit over a
+    passing tree is still covered. Otherwise it is the commit.
+    """
+    if observation is None or observation.status is not EnumReceiptStatus.PASS:
+        return False
+    if observation.contract_entry_sha256 != contract_entry_sha256:
+        return False
+    if observation.tree_sha is not None and tree_sha is not None:
+        return observation.tree_sha == tree_sha
+    return observation.commit_sha == head_sha
+
+
+# OMN-19050: how many executed attempts one consumer PR may record for one
+# key. The bound exists so a wedged loop cannot append without end; it is not
+# a policy about how many times a check may be re-run. Nothing observed has
+# come close -- the measured incident needed exactly two.
+MAX_ATTEMPTS_PER_CONSUMER = 99
+
+
+def _next_record_path(base_path: Path, check_type: str, pr_number: int) -> Path | None:
+    """The path for this consumer's next executed record, or None when full.
+
+    OMN-19050. The record used to be named for the consumer PR alone, so one
+    pull request got exactly one executed attempt, ever: a check that failed
+    for ANY reason, an environment one included, blocked that PR through the
+    evidence chain permanently, because the second execution had nowhere to be
+    filed and the first kept resolving FAIL. Measured on omnimarket#2751.
+
+    The FIRST attempt keeps the historical name, ``<check>.supersede.<pr>.yaml``,
+    so every record already on a companion branch and every existing test is
+    byte-identical. A SECOND and later attempt takes
+    ``<check>.supersede.<pr>.<NNNN>.yaml`` from 0002 up. Both readers order
+    those by dotted-numeric sequence -- ``"2751"`` to ``(2751,)`` and
+    ``"2751.0002"`` to ``(2751, 2)`` -- so a correction outranks the record it
+    corrects by construction rather than by filesystem order.
+
+    Nothing is ever overwritten: this returns a path that does not exist.
+    """
+    first = base_path.with_name(f"{check_type}.supersede.{pr_number}.yaml")
+    if not first.exists():
+        return first
+    for attempt in range(2, MAX_ATTEMPTS_PER_CONSUMER + 1):
+        candidate = base_path.with_name(
+            f"{check_type}.supersede.{pr_number}.{attempt:04d}.yaml"
+        )
+        if not candidate.exists():
+            return candidate
+    return None
+
+
+def execute_check(
+    *,
+    ticket_id: str,
+    evidence_item_id: str,
+    check_type: str,
+    check_value: str,
+    product_root: Path,
+    timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS,
+) -> ExecutedCheck:
+    """Run one declared check for real and capture what actually happened.
+
+    ``bash -o pipefail -c`` mirrors how OCC's own contract-compliance runner
+    executes a ``command``/``test_passes`` check, so a check that passes here
+    passes there for the same reason. stdout and stderr are merged because the
+    receipt records ONE observation of the run, and pytest writes its summary
+    to stdout while a collection error goes to stderr -- splitting them would
+    let a receipt record "no output" for a run that failed loudly.
+    """
+    started = datetime.now(tz=UTC)
+    try:
+        completed = subprocess.run(
+            ["bash", "-o", "pipefail", "-c", check_value],
+            cwd=str(product_root),
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+            check=False,
+        )
+        stdout = (completed.stdout or "") + (completed.stderr or "")
+        exit_code = completed.returncode
+    except subprocess.TimeoutExpired:
+        # A timeout is a FAIL, never a silent skip: the declared bar was not
+        # met within the budget, and reporting anything else would be the
+        # false-evidence class this ticket exists to close.
+        stdout = f"TIMEOUT: declared check exceeded {timeout_seconds}s and was killed."
+        exit_code = 124
+    duration_ms = int(
+        (datetime.now(tz=UTC) - started).total_seconds() * 1000,
+    )
+    return ExecutedCheck(
+        ticket_id=ticket_id,
+        evidence_item_id=evidence_item_id,
+        check_type=check_type,
+        check_value=check_value,
+        stdout=stdout,
+        exit_code=exit_code,
+        duration_ms=duration_ms,
+    )
+
+
+# stdout is truncated because a full pytest run can be megabytes and the
+# receipt is durable evidence a human reads, not a log store. The TAIL is kept:
+# pytest's verdict line and its failure summary are at the end.
+_MAX_STDOUT_CHARS = 8000
+
+
+def _receipt_stdout(executed: ExecutedCheck) -> str:
+    text = executed.stdout.strip()
+    if len(text) <= _MAX_STDOUT_CHARS:
+        return text or f"(no output; exit status {executed.exit_code})"
+    keep = text[-_MAX_STDOUT_CHARS:]
+    return f"[truncated to last {_MAX_STDOUT_CHARS} chars]\n{keep}"
+
+
+# OMN-17794 — the receipt must say WHICH repository its commit_sha lives in.
+#
+# ``commit_sha`` carries no repo attribution of its own. OCC's Receipt
+# Hardening Gate therefore resolves it against
+# ``_DEFAULT_COMMIT_SHA_REPO = "OmniNode-ai/onex_change_control"`` unless the
+# receipt names another repository in a *contract-bound* field. This runner
+# always executes in a PRODUCT repo checkout and always stamps that product
+# repo's head, so without an explicit citation the gate looks for a product
+# commit inside OCC, does not find it, and reports the commit as fabricated:
+#
+#   replacement [COMMIT_SHA_EXISTS] commit_sha '138956373a…' does not resolve
+#   to a real, remote-reachable commit
+#
+# Measured live on OCC#8145 (this change's own companion). The gate's own
+# message names the remedy — "embed a 'repos/<owner>/<repo>/...' reference in
+# check_value/probe_command so the gate can resolve it there" — and its
+# ``_REPO_HINT_RE`` accepts exactly the ``repos/<owner>/<repo>/`` path form.
+#
+# The ``commits/<sha>`` suffix is not decoration: it is the gate's TIER-1
+# disambiguator. When a receipt cites more than one trusted repository the
+# authority is the one whose own command segment binds the receipt's
+# ``commit_sha`` via ``repos/<owner>/<repo>/commits/<sha>``. Emitting that
+# exact form means a contract whose check text already names some other repo
+# resolves to the product repo anyway, instead of refusing as ambiguous.
+#
+# Both ``check_value`` and ``probe_command`` receive the SAME prefix, so their
+# equality — the property OMN-15459 S2 family-binding relies on — is preserved,
+# and the contract's declared check text is carried through unchanged on the
+# following line rather than rewritten. S1 (no byte-identical
+# ``replacement.check_value`` across items in a cohort) is likewise unharmed:
+# the prefix makes values more distinct, never less.
+def bind_command_to_product_repo(check_value: str, *, repo: str, head_sha: str) -> str:
+    """Prefix a declared check with the product-repo reference for its commit.
+
+    The declared text is preserved verbatim on the line after the reference —
+    the receipt still attests to the contract's bar, it just also says where
+    that bar was executed.
+    """
+    return f"repos/{repo}/commits/{head_sha}\n{check_value}"
+
+
+def build_receipt(
+    executed: ExecutedCheck,
+    *,
+    contract_data: Any,
+    pr_number: int,
+    repo: str,
+    head_sha: str,
+    branch: str,
+    run_url: str,
+    run_timestamp: datetime | None = None,
+    tree_sha: str | None = None,
+) -> dict[str, Any]:
+    """Render the receipt body for one executed check.
+
+    ``probe_command`` IS ``check_value``. That equality is the whole point: the
+    receipt attests to the declared bar, not to a re-derived approximation of
+    it. Re-deriving would reopen the OCC#5534 laundering channel where one
+    probe became the authoritative proof of N distinct bars, and it would break
+    the OMN-15459 S2 family-binding rule that this construction satisfies for
+    free.
+
+    Both carry the contract's declared check text verbatim, prefixed by the
+    product-repo reference for this receipt's ``commit_sha`` (OMN-17794 — see
+    ``bind_command_to_product_repo``). The prefix is applied identically to
+    both fields, so the equality above is preserved exactly; the declared bar
+    itself is never rewritten.
+    """
+    stamped = run_timestamp or datetime.now(tz=UTC)
+    bound_command = bind_command_to_product_repo(
+        executed.check_value, repo=repo, head_sha=head_sha
+    )
+    body: dict[str, Any] = {
+        "schema_version": RECEIPT_SCHEMA_VERSION,
+        "ticket_id": executed.ticket_id,
+        "evidence_item_id": executed.evidence_item_id,
+        "check_type": executed.check_type,
+        "check_value": bound_command,
+        "status": executed.status.value,
+        "run_timestamp": stamped.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "commit_sha": head_sha,
+        "runner": RUNNER,
+        "verifier": VERIFIER,
+        "probe_command": bound_command,
+        "probe_stdout": _receipt_stdout(executed),
+        "actual_output": (
+            f"{executed.status.value}: declared check executed in the "
+            f"{repo} checkout at PR #{pr_number} head; exit status "
+            f"{executed.exit_code}. Run: {run_url}"
+        ),
+        "exit_code": executed.exit_code,
+        "duration_ms": executed.duration_ms,
+        "pr_number": pr_number,
+        "contract_entry_sha256": compute_contract_entry_sha256(
+            contract_data, executed.evidence_item_id
+        ),
+        "branch": branch,
+        # Left None deliberately: the CI workspace path is machine-specific and
+        # unreproducible, and OCC's Receipt Honesty Gate rejects one.
+        "working_dir": None,
+    }
+    # OMN-19050: written only when the caller supplies it. ModelDodReceipt is
+    # extra="forbid", so every reader still on an omnibase_core without the
+    # field rejects a record that carries it.
+    if tree_sha is not None:
+        body["tree_sha"] = tree_sha
+    return body
+
+
+def build_supersession_record(
+    receipt_body: dict[str, Any],
+    *,
+    ticket_id: str,
+    evidence_item_id: str,
+    check_type: str,
+    pr_number: int,
+    superseded: Observation | None,
+    created_at: datetime | None = None,
+) -> dict[str, Any]:
+    """Wrap an executed receipt as a net-new correction record.
+
+    Every key field is taken from the same three variables the file path is
+    built from, so the record cannot declare a key it is not filed under --
+    the exact defect that made the emitter's rebinds silently inert.
+    """
+    return {
+        "schema_version": SUPERSESSION_SCHEMA_VERSION,
+        "ticket_id": ticket_id,
+        "evidence_item_id": evidence_item_id,
+        "check_type": check_type,
+        "supersedes": (
+            f"drift/dod_receipts/{ticket_id}/{evidence_item_id}/{check_type}.yaml"
+        ),
+        "reason": _supersession_reason(receipt_body, superseded, pr_number),
+        "superseder": RUNNER,
+        "created_at": (created_at or datetime.now(tz=UTC)).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        ),
+        "tombstone": False,
+        "replacement": receipt_body,
+    }
+
+
+def _supersession_reason(
+    receipt_body: dict[str, Any],
+    superseded: Observation | None,
+    pr_number: int,
+) -> str:
+    """Why this record exists, stated from what the runner actually knows.
+
+    OMN-19050. Every record used to say the base receipt was "declared but not
+    executed", including a second attempt filed over a FAIL the runner had
+    executed itself. A re-execution now names the attempt it supersedes and
+    what changed since: the head, the code, the check definition.
+    """
+    if superseded is None or not superseded.executed:
+        prior = superseded.status.value if superseded is not None else "PENDING"
+        return (
+            f"The base receipt records status {prior}: the check was declared "
+            "but not executed, because the minting producer runs in the effects "
+            "runtime with no product-repo checkout (OMN-16859). This record "
+            "rebinds the key to a receipt produced by executing the declared "
+            f"check for real in the product checkout at PR #{pr_number} head."
+        )
+    head = receipt_body["commit_sha"]
+    changes: list[str] = []
+    if superseded.commit_sha != head:
+        changes.append(f"the head moved from {superseded.commit_sha} to {head}")
+    tree = receipt_body.get("tree_sha")
+    if superseded.tree_sha is not None and tree is not None:
+        if superseded.tree_sha != tree:
+            changes.append(f"the tree changed from {superseded.tree_sha} to {tree}")
+        else:
+            changes.append(f"the tree is unchanged at {tree}")
+    entry = receipt_body["contract_entry_sha256"]
+    if superseded.contract_entry_sha256 != entry:
+        changes.append(
+            "the check definition changed: contract_entry_sha256 "
+            f"{superseded.contract_entry_sha256} -> {entry}"
+        )
+    if not changes:
+        changes.append("nothing changed; the prior attempt did not record PASS")
+    return (
+        f"Re-executed for PR #{pr_number} at head {head}. The prior executed "
+        f"attempt recorded {superseded.status.value} at "
+        f"{superseded.commit_sha}; since then " + "; ".join(changes) + ". "
+        "This record supersedes that attempt and does not edit it."
+    )
+
+
+# OMN-17794 — the receipt bytes must be a shape no formatter can falsify.
+#
+# ``onex_change_control``'s own Pre-commit job runs ``yamlfmt`` v0.21.0 over
+# every file this runner writes, resolved against that repo's ``.yamlfmt``
+# (``max_line_length: 100``, ``indent: 2``, ``include_document_start: true``).
+# Two rewrites were MEASURED against the real binary, and both change a
+# receipt's parsed VALUE rather than only its layout:
+#
+#   1. A multi-line scalar written PLAIN or SINGLE-QUOTED carries its newlines
+#      as blank lines. go-yaml round-trips those through an internal line
+#      marker and writes the marker back as literal text, destroying the
+#      newline. Live on OCC#8132: ``replacement.probe_stdout`` went from
+#      ``'... [100%]\n31 passed in 13.14s'`` to ``'... [100%] <marker> 31
+#      passed in 13.14s'`` — a fabricated token inside captured stdout.
+#   2. A literal block scalar carrying the KEEP chomping indicator (``|+``,
+#      which PyYAML reaches for when a value ends in more than one line break)
+#      loses the ``+``, silently deleting the trailing blank lines.
+#
+# So neither "always block" nor "always quoted" is safe on its own. Each
+# multi-line string is written as a literal block scalar when PyYAML can do so
+# without the keep indicator, and double-quoted otherwise — double-quoted
+# escapes newlines, so there is no real newline for a line marker to replace.
+# ``width``/``explicit_start`` match the OCC config so the emitted file is also
+# a yamlfmt FIXPOINT and the hosted hook does not report "files were modified".
+# (The sibling producer ``occ_evidence_stamp`` already emits the same document
+# shape; this runner, added later by OMN-16859, never got it.)
+_OCC_YAMLFMT_MAX_LINE_LENGTH = 100
+
+# Every character YAML treats as a line break. A value containing any of them
+# is multi-line for the purposes of the rules above.
+_YAML_LINE_BREAKS = "\n\x85\u2028\u2029"
+
+
+class _ForcedStyleDumper(yaml.SafeDumper):
+    """Emit one scalar in one requested style, to measure what PyYAML does."""
+
+
+def _block_scalar_is_safe(value: str) -> bool:
+    """True iff a literal block scalar represents ``value`` formatter-safely.
+
+    Measured, not assumed: PyYAML is asked to emit the value as ``|`` and the
+    result is inspected. The answer is False when PyYAML had to reach for the
+    keep indicator (rule 2 above) or when the block form does not reload to the
+    same string at all — the two cases where a block scalar would either be
+    rewritten by yamlfmt or be lossy on its own.
+    """
+    forced = yaml.dump(
+        value,
+        Dumper=_ForcedStyleDumper,
+        default_style="|",
+        default_flow_style=False,
+        width=_OCC_YAMLFMT_MAX_LINE_LENGTH,
+        allow_unicode=True,
+    )
+    header = forced.split("\n", 1)[0]
+    if not header.startswith("|") or "+" in header:
+        return False
+    reloaded: object = yaml.safe_load(forced)
+    return reloaded == value
+
+
+def _receipt_scalar_style(value: str) -> str | None:
+    """The style to write ``value`` in; ``None`` lets PyYAML choose."""
+    if not any(char in value for char in _YAML_LINE_BREAKS):
+        return None
+    return "|" if _block_scalar_is_safe(value) else '"'
+
+
+class _ReceiptDumper(yaml.SafeDumper):
+    """SafeDumper that never emits a formatter-rewritable multi-line scalar.
+
+    OMN-20139: a value that cannot be a block scalar is double-quoted, and
+    yamlfmt (go-yaml) re-wraps every double-quoted scalar its own way, so
+    PyYAML's wrap is never a fixpoint. ``write_double_quoted`` therefore ports
+    go-yaml's ``yaml_emitter_write_double_quoted_scalar`` break rule instead of
+    PyYAML's: a line breaks only at a single space, only once the column is
+    already past the width, and there is no trailing backslash before the
+    break. When the next character is a space, a ``\\`` opens the
+    continuation line so the space survives folding. Escapes are PyYAML's,
+    which match go-yaml's.
+    """
+
+    def write_double_quoted(self, text: str, split: bool = True) -> None:
+        self.write_indicator('"', True)
+        after_space = False
+        last = len(text) - 1
+        for index, ch in enumerate(text):
+            if ch in '"\\\x85\u2028\u2029\ufeff' or not (
+                "\x20" <= ch <= "\x7e"
+                or (
+                    self.allow_unicode
+                    and ("\xa0" <= ch <= "\ud7ff" or "\ue000" <= ch <= "\ufffd")
+                )
+            ):
+                if ch in self.ESCAPE_REPLACEMENTS:
+                    data = "\\" + self.ESCAPE_REPLACEMENTS[ch]
+                elif ch <= "\xff":
+                    data = f"\\x{ord(ch):02X}"
+                elif ch <= "\uffff":
+                    data = f"\\u{ord(ch):04X}"
+                else:
+                    data = f"\\U{ord(ch):08X}"
+                self.column += len(data)
+                self.stream.write(data)
+                after_space = False
+            elif ch == " ":
+                if (
+                    split
+                    and not after_space
+                    and self.column > self.best_width
+                    and 0 < index < last
+                ):
+                    self.write_indent()
+                    self.whitespace = False
+                    self.indention = False
+                    if text[index + 1] == " ":
+                        self.column += 1
+                        self.stream.write("\\")
+                else:
+                    self.column += 1
+                    self.stream.write(ch)
+                after_space = True
+            else:
+                self.column += 1
+                self.stream.write(ch)
+                after_space = False
+        self.write_indicator('"', False)
+
+
+def _represent_receipt_str(dumper: yaml.SafeDumper, data: str) -> yaml.nodes.ScalarNode:
+    return dumper.represent_scalar(
+        "tag:yaml.org,2002:str", data, style=_receipt_scalar_style(data)
+    )
+
+
+_ReceiptDumper.add_representer(str, _represent_receipt_str)
+
+
+def render_receipt_yaml(body: dict[str, Any]) -> str:
+    """Serialize a receipt body to yamlfmt-stable, value-faithful YAML.
+
+    Fails closed. A receipt is durable evidence, so bytes that do not reload to
+    the object they were built from are never returned: an unrepresentable body
+    raises instead of writing a document that says something else.
+    """
+    text = yaml.dump(
+        body,
+        Dumper=_ReceiptDumper,
+        sort_keys=True,
+        default_flow_style=False,
+        width=_OCC_YAMLFMT_MAX_LINE_LENGTH,
+        explicit_start=True,
+        allow_unicode=True,
+    )
+    reloaded = yaml.safe_load(text)
+    if reloaded != body:
+        raise ValueError(
+            "receipt YAML round-trip failed: the rendered document does not "
+            "reload to the receipt it was built from, so writing it would "
+            "record something that was never observed."
+        )
+    return text
+
+
+def _dump(path: Path, body: dict[str, Any]) -> None:
+    # Render BEFORE mkdir/write: a body that cannot be represented faithfully
+    # must leave no file behind at all.
+    text = render_receipt_yaml(body)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
+def _is_scoped_to_other_product_pr(item_id: str, *, repo: str, pr_number: int) -> bool:
+    """Return whether ``item_id`` explicitly belongs to another product PR."""
+    slot_match = _PR_SCOPED_SLOT_ID_RE.fullmatch(item_id)
+    if slot_match is not None:
+        return int(slot_match.group("pr_number")) != pr_number
+
+    base_match = _PR_SCOPED_BASE_ID_RE.fullmatch(item_id)
+    if base_match is None:
+        return False
+    return (
+        base_match.group("repo_slug").casefold() != repo.replace("/", "-").casefold()
+        or int(base_match.group("pr_number")) != pr_number
+    )
+
+
+def run(
+    *,
+    occ_root: Path,
+    product_root: Path,
+    ticket_ids: Sequence[str],
+    pr_number: int,
+    repo: str,
+    head_sha: str,
+    branch: str,
+    run_url: str,
+    tree_sha: str | None = None,
+    contracts_dir: str = "contracts",
+    receipts_dir: str = "drift/dod_receipts",
+    timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS,
+) -> RunnerOutcome:
+    """Execute every runner-covered declared check and write honest receipts.
+
+    ``occ_root`` is a checkout of the companion BRANCH (not OCC main): the
+    receipts written here are pushed back to that branch, where the product
+    PR's next preflight resolves them via ``headRefOid``.
+    """
+    contracts_root = occ_root / contracts_dir
+    receipts_root = occ_root / receipts_dir
+
+    outcome = RunnerOutcome()
+    wrote: list[Path] = []
+    missing_contracts: list[str] = []
+    failures: list[str] = []
+    write_refusals: list[str] = []
+
+    for ticket_id in ticket_ids:
+        contract_path = contracts_root / f"{ticket_id}.yaml"
+        if not contract_path.is_file():
+            # Fail-soft on absence, never fabricate. A cited ticket whose
+            # contract is not in this companion is not this runner's to
+            # invent; preflight already reports MISSING_CONTRACT for it.
+            missing_contracts.append(ticket_id)
+            continue
+        contract_data = _load_yaml(contract_path)
+
+        for item_id, check_type, check_value, cwd in _iter_executable_items(
+            contract_data
+        ):
+            if _is_scoped_to_other_product_pr(item_id, repo=repo, pr_number=pr_number):
+                outcome.skipped_other_member += 1
+                continue
+            if check_type not in EXECUTABLE_CHECK_TYPES:
+                outcome.skipped_unexecutable += 1
+                continue
+            if not runs_in_this_checkout(cwd, repo=repo):
+                # Not this runner's to observe. Whatever receipt is active for
+                # the key stays active; nothing is filed on its behalf.
+                outcome.skipped_other_repo += 1
+                continue
+
+            current = _active_observation(
+                receipts_root, ticket_id, item_id, check_type, pr_number
+            )
+            if covers_this_run(
+                current,
+                head_sha=head_sha,
+                tree_sha=tree_sha,
+                contract_entry_sha256=compute_contract_entry_sha256(
+                    contract_data, item_id
+                ),
+            ):
+                outcome.skipped_already_pass += 1
+                continue
+
+            executed = execute_check(
+                ticket_id=ticket_id,
+                evidence_item_id=item_id,
+                check_type=check_type,
+                check_value=check_value,
+                product_root=product_root,
+                timeout_seconds=timeout_seconds,
+            )
+            outcome.executed += 1
+            if executed.status is EnumReceiptStatus.FAIL:
+                failures.append(f"{ticket_id}:{item_id}:{check_type}")
+
+            receipt_body = build_receipt(
+                executed,
+                contract_data=contract_data,
+                pr_number=pr_number,
+                repo=repo,
+                head_sha=head_sha,
+                branch=branch,
+                run_url=run_url,
+                tree_sha=tree_sha,
+            )
+
+            base_path = receipts_root / ticket_id / item_id / f"{check_type}.yaml"
+            if base_path.is_file():
+                # Append-only: the base receipt is born or merged evidence and
+                # is never opened for write. The executed result arrives as a
+                # net-new record beside it.
+                record_path = _next_record_path(base_path, check_type, pr_number)
+                if record_path is None:
+                    # A refusal, not a failed check: nothing downstream will
+                    # carry this fact, so it must reach the exit status.
+                    write_refusals.append(
+                        f"{ticket_id}:{item_id}:{check_type} "
+                        f"(no free attempt slot for PR #{pr_number})"
+                    )
+                    continue
+                _dump(
+                    record_path,
+                    build_supersession_record(
+                        receipt_body,
+                        ticket_id=ticket_id,
+                        evidence_item_id=item_id,
+                        check_type=check_type,
+                        pr_number=pr_number,
+                        superseded=current,
+                    ),
+                )
+                wrote.append(record_path)
+            else:
+                _dump(base_path, receipt_body)
+                wrote.append(base_path)
+
+    outcome.wrote = tuple(wrote)
+    outcome.tickets_without_contract = tuple(missing_contracts)
+    outcome.failures = tuple(failures)
+    outcome.write_refusals = tuple(write_refusals)
+    return outcome
+
+
+def _tickets_from(text: str) -> tuple[str, ...]:
+    """Cited tickets, in first-seen order, deduplicated."""
+    seen: dict[str, None] = {}
+    for match in re.finditer(r"OMN-\d+", text or ""):
+        seen.setdefault(match.group(0), None)
+    return tuple(seen)
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--occ-root", required=True, type=Path)
+    parser.add_argument("--product-root", required=True, type=Path)
+    parser.add_argument("--pr-number", required=True, type=int)
+    parser.add_argument("--repo", required=True)
+    parser.add_argument("--head-sha", required=True)
+    parser.add_argument(
+        "--tree-sha",
+        default=None,
+        help=(
+            "Tree object id of --head-sha (git rev-parse <sha>^{tree}). When "
+            "given it is recorded on every receipt and the already-passes "
+            "check compares trees. Do not pass it until every receipt reader "
+            "runs an omnibase_core whose ModelDodReceipt declares tree_sha."
+        ),
+    )
+    parser.add_argument("--branch", required=True)
+    parser.add_argument("--run-url", required=True)
+    parser.add_argument(
+        "--tickets",
+        required=True,
+        help="Space- or comma-separated OMN-#### ids cited by the product PR.",
+    )
+    parser.add_argument("--timeout-seconds", type=int, default=DEFAULT_TIMEOUT_SECONDS)
+    parser.add_argument("--json-out", type=Path, default=None)
+    args = parser.parse_args(argv)
+
+    outcome = run(
+        occ_root=args.occ_root,
+        product_root=args.product_root,
+        ticket_ids=_tickets_from(args.tickets),
+        pr_number=args.pr_number,
+        repo=args.repo,
+        head_sha=args.head_sha,
+        tree_sha=args.tree_sha,
+        branch=args.branch,
+        run_url=args.run_url,
+        timeout_seconds=args.timeout_seconds,
+    )
+
+    summary = {
+        "executed": outcome.executed,
+        "skipped_already_pass": outcome.skipped_already_pass,
+        "skipped_unexecutable": outcome.skipped_unexecutable,
+        "skipped_other_repo": outcome.skipped_other_repo,
+        "skipped_other_member": outcome.skipped_other_member,
+        "wrote": [str(p) for p in outcome.wrote],
+        "tickets_without_contract": list(outcome.tickets_without_contract),
+        "failures": list(outcome.failures),
+        "write_refusals": list(outcome.write_refusals),
+        "recorded_everything_executed": outcome.recorded_everything_executed,
+    }
+    print(json.dumps(summary, indent=2))
+    if args.json_out is not None:
+        args.json_out.write_text(json.dumps(summary), encoding="utf-8")
+
+    # Exit 0 even when a declared check FAILED. The runner's job is to record
+    # what happened; a red check is reported by the FAIL receipt, which keeps
+    # the companion ineligible exactly as it should. Failing the job here would
+    # report the same fact twice and obscure which surface actually broke.
+    #
+    # A WRITE REFUSAL is the opposite case and exits non-zero (OMN-19050). The
+    # reasoning above depends entirely on a receipt existing to carry the fact.
+    # When the runner could not record an observation at all, no receipt
+    # carries anything, so a green job asserts that everything was recorded
+    # when nothing was. That is the silent-gate shape, and it is what let the
+    # omnimarket#2751 refusal ride out under a successful job.
+    if outcome.write_refusals:
+        for refusal in outcome.write_refusals:
+            print(
+                f"::error::the runner could not record an executed check: {refusal}",
+                file=sys.stderr,
+            )
+        return 1
+    return 0
+
+
+if __name__ == "__main__":  # pragma: no cover - CLI entry
+    sys.exit(main())

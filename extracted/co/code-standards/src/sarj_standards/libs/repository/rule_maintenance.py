@@ -1,0 +1,274 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from importlib import import_module
+import json
+from operator import itemgetter
+import re
+from typing import TYPE_CHECKING, Final, NamedTuple, Protocol, TypeIs
+
+from sarj_standards.libs.adoption.manifest import as_table, list_field
+from sarj_standards.libs.json_boundary import parse_json
+from sarj_standards.libs.linting import textlint
+from sarj_standards.libs.linting.text_rules._registry import REGISTRY as TEXT_RULES
+from sarj_standards.libs.typed_containers import is_object_mapping_view
+
+from . import ledger, repository
+
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping
+    from pathlib import Path
+
+
+_FAMILIES: Final = (
+    ("python", "sarj_python_lint.rules", "packages/python"),
+    ("sql", "sarj_sql_lint.rules", "packages/sql"),
+    ("iac", "sarj_iac_lint.rules", "packages/iac"),
+)
+_RENAME_ENTRY: Final = re.compile(r'^\s*"(?P<old>[a-z0-9-]+)": "(?P<new>[a-z0-9-]+)",', re.MULTILINE)
+_PLACEHOLDER: Final = "TODO: say why it went, in one line a consumer can act on"
+
+
+class Rule(Protocol):
+    code: str
+    __module__: str
+    documentation: RuleDocumentation | None
+
+
+class RuleDocumentation(Protocol):
+    aliases: tuple[str, ...]
+
+
+class _NativeLedgerState(NamedTuple):
+    rules: dict[str, list[str]]
+    codes: dict[str, list[str]]
+    renames: dict[tuple[str, str], str]
+
+
+@dataclass(frozen=True, slots=True)
+class SyncResult:
+    status: int
+    message: str
+
+
+def inventory(root: Path) -> list[dict[str, str]]:
+    items: list[dict[str, str]] = []
+    for family, module_name, package in _FAMILIES:
+        registry = _registry(module_name)
+        for rule_id, rule in sorted(registry.items()):
+            module = rule.__module__.replace(".", "/")
+            source_name = module.rsplit("/", 1)[-1]
+            items.append(
+                {
+                    "family": family,
+                    "id": rule_id,
+                    "code": str(rule.code),
+                    "source": f"{package}/src/{module}.py",
+                    "test": f"{package}/tests/rules/test_{source_name}.py",
+                }
+            )
+    for rule_id, meta in sorted(textlint.REGISTRY.items()):
+        authored = TEXT_RULES.get(rule_id)
+        module = None if authored is None else authored.__module__.replace(".", "/")
+        items.append(
+            {
+                "family": "text",
+                "id": rule_id,
+                "code": meta.code,
+                "source": "packages/standards/src/sarj_standards/libs/linting/textlint.py"
+                if module is None
+                else f"packages/standards/src/{module}.py",
+                "test": "packages/standards/tests/test_textlint.py"
+                if module is None
+                else f"packages/standards/tests/text_rules/test_{module.rsplit('/', 1)[-1]}.py",
+            }
+        )
+    eslint_rules = (
+        repository.eslint_rule_names(root)
+        if (root / "packages/typescript/src/index.ts").is_file()
+        else list(ledger.load().rules.get(ledger.ESLINT, ()))
+    )
+    items.extend(
+        {
+            "family": "typescript",
+            "id": rule_id,
+            "code": f"@sarj/{rule_id}",
+            "source": f"packages/typescript/src/rules/{rule_id}.ts",
+            "test": f"packages/typescript/tests/rules/{rule_id}.test.ts",
+        }
+        for rule_id in eslint_rules
+    )
+    return sorted(items, key=itemgetter("family", "id"))
+
+
+def sync_ledger(root: Path, *, check: bool, writer: Callable[[Path, str], None] | None = None) -> SyncResult:
+    path = root / "packages/standards/src/sarj_standards/configs/rule-ledger.json"
+    previous = _load_ledger(path)
+    rules, codes, source_renames = _native_ledger_state()
+    rules["eslint"] = repository.eslint_rule_names(root)
+    rules["text"] = sorted(textlint.REGISTRY)
+    codes["text"] = sorted(meta.code for meta in textlint.REGISTRY.values())
+    for rule_id, meta in textlint.REGISTRY.items():
+        for old_id in meta.aliases:
+            source_renames["text", old_id] = rule_id
+    retired = _retired(previous, root, source_renames)
+    known = {str(entry.get("id")) for entry in retired}
+    old_rules = repository_table(previous.get("rules"))
+    old_codes = repository_table(previous.get("codes"))
+    _append_removed_entries(old_rules, old_codes, rules, codes, retired=retired, known=known)
+    updated = {
+        "$comment": previous.get("$comment", "Rule compatibility ledger."),
+        "rules": rules,
+        "codes": codes,
+        "retired": sorted(retired, key=lambda entry: str(entry.get("id"))),
+    }
+    rendered = json.dumps(updated, indent=2) + "\n"
+    current = path.read_text(encoding="utf-8")
+    if rendered == current:
+        return SyncResult(0, f"ok: {path.name} matches the registries")
+    if check:
+        return SyncResult(1, f"drift: {path}")
+    if writer is None:
+        path.write_text(rendered, encoding="utf-8")
+    else:
+        writer(path, rendered)
+    status = 1 if any(entry.get("note") == _PLACEHOLDER for entry in retired) else 0
+    return SyncResult(status, f"wrote: {path}")
+
+
+def _append_removed_entries(
+    old_rules: dict[str, object],
+    old_codes: dict[str, object],
+    rules: dict[str, list[str]],
+    codes: dict[str, list[str]],
+    *,
+    retired: list[dict[str, object]],
+    known: set[str],
+) -> None:
+    for family, raw_names in old_rules.items():
+        prefix = "@sarj/" if family == "eslint" else ""
+        for name in _string_list(raw_names):
+            identifier = f"{prefix}{name}"
+            if name not in rules.get(family, []) and identifier not in known:
+                retired.append(_retired_entry(identifier, family))
+                known.add(identifier)
+    for family, raw_codes in old_codes.items():
+        for code in _string_list(raw_codes):
+            if code not in codes.get(family, []) and code not in known:
+                retired.append(_retired_entry(code, "code"))
+                known.add(code)
+
+
+def _native_ledger_state() -> _NativeLedgerState:
+    rules: dict[str, list[str]] = {}
+    codes: dict[str, list[str]] = {}
+    renames: dict[tuple[str, str], str] = {}
+    for family, module_name, _package in _FAMILIES:
+        registry = _registry(module_name)
+        rules[family] = sorted(registry)
+        codes[family] = sorted(str(rule.code) for rule in registry.values())
+        for rule_id, rule in registry.items():
+            if rule.documentation is None:
+                continue
+            for old_id in rule.documentation.aliases:
+                renames[family, old_id] = rule_id
+    return _NativeLedgerState(rules, codes, renames)
+
+
+def repository_table(value: object) -> dict[str, object]:
+    return as_table(value)
+
+
+def _load_ledger(path: Path) -> dict[str, object]:
+    value: object = parse_json(path.read_text(encoding="utf-8"))
+    return repository_table(value)
+
+
+def _registry(module_name: str) -> Mapping[str, type[Rule]]:
+    module = import_module(module_name)
+    value: object = getattr(module, "REGISTRY", None)
+    if not is_object_mapping_view(value):
+        msg = f"{module_name} has no registry"
+        raise TypeError(msg)
+    registry: dict[str, object] = {}
+    for rule_id, rule in value.items():
+        if not isinstance(rule_id, str):
+            msg = f"{module_name} registry keys must be rule IDs"
+            raise TypeError(msg)
+        registry[rule_id] = rule
+    if not all(_is_rule_class(rule) for rule in registry.values()):
+        msg = f"{module_name} registry must map rule IDs to rule classes"
+        raise TypeError(msg)
+    return {rule_id: rule for rule_id, rule in registry.items() if _is_rule_class(rule)}
+
+
+def _is_rule_class(value: object) -> TypeIs[type[Rule]]:
+    return (
+        isinstance(value, type)
+        and isinstance(getattr(value, "code", None), str)
+        and isinstance(getattr(value, "__module__", None), str)
+        and hasattr(value, "documentation")
+    )
+
+
+def _retired(
+    previous: Mapping[str, object],
+    root: Path,
+    source_renames: Mapping[tuple[str, str], str],
+) -> list[dict[str, object]]:
+    entries = [repository_table(item) for item in _object_list(previous.get("retired"))]
+    derived_renames = set(source_renames)
+    kept = [
+        entry
+        for entry in entries
+        if not (
+            entry.get("status") == "renamed"
+            and (entry.get("kind") == "eslint" or (str(entry.get("kind")), str(entry.get("id"))) in derived_renames)
+        )
+    ]
+    existing = {str(entry.get("id")): entry for entry in entries}
+    for (kind, old), new in sorted(source_renames.items()):
+        prior = existing.get(old)
+        kept.append(
+            prior
+            if prior is not None and prior.get("replacement") == new
+            else {
+                "id": old,
+                "kind": kind,
+                "status": "renamed",
+                "replacement": new,
+                "note": f"Replace sarj-{old} with sarj-{new} before upgrading.",
+            }
+        )
+    renames_path = root / "packages/typescript/src/rules/_renamed-rules.ts"
+    for match in _RENAME_ENTRY.finditer(renames_path.read_text(encoding="utf-8")):
+        old = match.group("old")
+        new = match.group("new")
+        identifier = f"@sarj/{old}"
+        replacement = f"@sarj/{new}"
+        prior = existing.get(identifier)
+        kept.append(
+            prior
+            if prior is not None and prior.get("replacement") == replacement
+            else {
+                "id": identifier,
+                "kind": "eslint",
+                "status": "renamed",
+                "replacement": replacement,
+                "note": f"Replace @sarj/{old} with @sarj/{new} before upgrading.",
+            }
+        )
+    return kept
+
+
+def _retired_entry(identifier: str, kind: str) -> dict[str, object]:
+    return {"id": identifier, "kind": kind, "status": "removed", "replacement": None, "note": _PLACEHOLDER}
+
+
+def _object_list(value: object) -> list[object]:
+    return list_field({"value": value}, "value")
+
+
+def _string_list(value: object) -> list[str]:
+    return [item for item in _object_list(value) if isinstance(item, str)]

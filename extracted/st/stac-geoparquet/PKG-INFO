@@ -1,0 +1,102 @@
+Metadata-Version: 2.5
+Name: stac-geoparquet
+Version: 0.8.2
+Dynamic: Summary
+Project-URL: Home, https://github.com/stac-utils/stac-geoparquet
+Author-email: Tom Augspurger <taugspurger@microsoft.com>
+License: The MIT License (MIT)
+        
+        Copyright (c) 2022 Tom Augspurger
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in
+        all copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+        THE SOFTWARE.
+License-File: LICENSE
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
+Requires-Dist: ciso8601
+Requires-Dist: geopandas
+Requires-Dist: orjson
+Requires-Dist: packaging
+Requires-Dist: pandas
+Requires-Dist: psutil>=7.0.0
+Requires-Dist: pyarrow!=19.0.0,>=16
+Requires-Dist: pyproj
+Requires-Dist: pystac
+Requires-Dist: shapely
+Requires-Dist: types-psutil>=7.0.0.20250601
+Requires-Dist: typing-extensions; python_version < '3.11'
+Provides-Extra: deltalake
+Requires-Dist: deltalake<1; extra == 'deltalake'
+Provides-Extra: pgstac
+Requires-Dist: psycopg-pool; extra == 'pgstac'
+Requires-Dist: psycopg[binary]; extra == 'pgstac'
+Requires-Dist: pypgstac; extra == 'pgstac'
+Description-Content-Type: text/markdown
+
+# STAC-GeoParquet
+
+Convert [STAC](https://stacspec.org/en) items between JSON, [GeoParquet](https://geoparquet.org/), [pgstac](https://github.com/stac-utils/pgstac), and [Delta Lake](https://delta.io/).
+
+## Purpose
+
+The STAC spec defines a JSON-based schema.
+But it can be hard to manage and search through many millions of STAC items in JSON format.
+For one, JSON is very large on disk.
+And you need to parse the entire JSON data into memory to extract just a small piece of information, say the `datetime` and one `asset` of an Item.
+
+GeoParquet can be a good complement to JSON for many bulk-access and analytic use cases.
+While STAC Items are commonly distributed as individual JSON files on object storage or through a [STAC API](https://github.com/radiantearth/stac-api-spec), STAC GeoParquet allows users to access a large number of STAC items in bulk without making repeated HTTP requests.
+
+For analytic questions like "find the items in the Sentinel-2 collection in June 2024 over New York City with cloud cover of less than 20%" it can be much, much faster to find the relevant data from a GeoParquet source than from JSON, because GeoParquet needs to load only the relevant columns for that query, not the full data.
+
+See the [STAC-GeoParquet specification](https://radiantearth.github.io/stac-geoparquet-spec/) for details on the exact schema of the written Parquet files.
+
+## Installation
+
+Install via `pip` or `conda`:
+
+* `pip install stac-geoparquet`
+* `conda install conda-forge::stac-geoparquet`
+
+## Documentation
+
+[Documentation website](https://stac-utils.github.io/stac-geoparquet/)
+
+## Development
+
+Get [uv](https://docs.astral.sh/uv/getting-started/installation/), then:
+
+```shell
+git clone git@github.com:stac-utils/stac-geoparquet.git
+cd stac-geoparquet
+uv sync
+uv run pre-commit install
+uv run pytest
+scripts/lint
+```
+
+## Releasing
+
+We use [release-please](https://github.com/googleapis/release-please) to manage releases.
+To create a new release, look for a [release PR](https://github.com/stac-utils/stac-geoparquet/pulls), approve it, and merge it.
+**release-please** will create a tag and a release, which will trigger a new release on PyPI.

@@ -1,0 +1,99 @@
+/* bench_costas_core.c — the Costas carrier-tracking loop.
+ *
+ * Two numbers:
+ *   steps   — end-to-end throughput (MSa/s) of the per-sample wipe-off +
+ *             per-symbol integrate-and-dump + loop update over a 64k burst.
+ *   acq     — acquisition time: samples until the lock metric first crosses
+ *             0.9 from a cold start on a fixed carrier residual.
+ */
+#include "doppler/costas/costas_core.h"
+#include "doppler/dp_complex.h"
+#include "jm_bench.h"
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+#define BENCH_N 65536
+#define ITERATIONS 200
+#define TSAMPS 16
+
+int
+main (void)
+{
+  /* Build a 64k BPSK-at-symbol-rate burst with a carrier residual. */
+  float _Complex *rx  = malloc (BENCH_N * sizeof (*rx));
+  float _Complex *out = malloc (BENCH_N * sizeof (*out));
+  if (!rx || !out)
+    {
+      fprintf (stderr, "OOM\n");
+      return 1;
+    }
+  uint32_t bst   = 1u;
+  double   phase = 0.0, w = 0.002 * 2.0 * M_PI;
+  for (int s = 0; s < BENCH_N / TSAMPS; s++)
+    {
+      bst ^= bst << 13;
+      bst ^= bst >> 17;
+      bst ^= bst << 5;
+      float b = (bst & 1u) ? -1.0f : 1.0f;
+      for (int i = 0; i < TSAMPS; i++)
+        {
+          int k = s * TSAMPS + i;
+          rx[k] = b * cexpf ((float)phase * I);
+          phase += w;
+        }
+    }
+
+  uint64_t   t0, t1;
+  jm_bench_t _bench = { 0 };
+
+  printf ("=== costas benchmark ===\n");
+  printf ("block = %d samples,  %d iterations\n\n", BENCH_N, ITERATIONS);
+
+  /* --- steps throughput --- */
+  {
+    dp_costas_state_t *c = dp_costas_create (0.05, 0.707, 0.0, TSAMPS, 0.0);
+    dp_costas_steps (c, rx, TSAMPS * 4, out, BENCH_N); /* warmup */
+
+    double times[ITERATIONS];
+    for (int r = 0; r < ITERATIONS; r++)
+      {
+        dp_costas_reset (c);
+        t0 = jm_bench_now_ns ();
+        dp_costas_steps (c, rx, BENCH_N, out, BENCH_N);
+        t1       = jm_bench_now_ns ();
+        times[r] = jm_bench_elapsed_sec (t0, t1);
+      }
+    jm_bench_add (&_bench, "steps", times, ITERATIONS, BENCH_N);
+    double sum = 0.0;
+    for (int r = 0; r < ITERATIONS; r++)
+      sum += times[r];
+    printf ("  steps    %8.1f MSa/s\n",
+            (double)BENCH_N / (sum / ITERATIONS) / 1e6);
+    dp_costas_destroy (c);
+  }
+
+  /* --- acquisition time: samples to lock_metric > 0.9 --- */
+  {
+    dp_costas_state_t *c = dp_costas_create (0.05, 0.707, 0.0, TSAMPS, 0.0);
+    long               acq_smp = -1;
+    for (int s = 0; s < BENCH_N / TSAMPS; s++)
+      {
+        dp_costas_steps (c, rx + s * TSAMPS, TSAMPS, out, 1);
+        if (dp_costas_get_lock_metric (c) > 0.9)
+          {
+            acq_smp = (long)(s + 1) * TSAMPS;
+            break;
+          }
+      }
+    printf ("  acq      %ld samples to lock (%.1f symbols)\n", acq_smp,
+            (double)acq_smp / TSAMPS);
+    dp_costas_destroy (c);
+  }
+
+  jm_bench_write_json (&_bench, "costas");
+  free (rx);
+  free (out);
+  return 0;
+}

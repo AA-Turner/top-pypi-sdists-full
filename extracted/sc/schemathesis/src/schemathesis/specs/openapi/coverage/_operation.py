@@ -12,9 +12,11 @@ from enum import Enum, auto
 from itertools import combinations
 from typing import TYPE_CHECKING, Any, TypeGuard, cast
 
+import jsonschema_rs
+
 from schemathesis.core import NOT_SET, NotSet, media_types
 from schemathesis.core.errors import InvalidSchema, MalformedMediaType
-from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY, make_validator
+from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY, make_validator, schema_with_bundle
 from schemathesis.core.jsonschema.types import JsonSchemaObject, as_object_schema
 from schemathesis.core.media_types import FORM_MEDIA_TYPES, find_media_type_strategy
 from schemathesis.core.parameters import CONTAINER_TO_LOCATION, ParameterLocation
@@ -34,12 +36,17 @@ from schemathesis.generation.meta import (
     PhaseInfo,
 )
 from schemathesis.specs.openapi.adapter.parameters import OpenApiParameterSet, filter_schema_valid_examples
-from schemathesis.specs.openapi.coverage._schema import CoverageContext, GeneratedValue, HashSet, cover_schema_iter
+from schemathesis.specs.openapi.coverage._schema import (
+    CoverageContext,
+    GeneratedValue,
+    HashSet,
+    cover_schema_iter,
+    drop_negatives_any_draft_admits,
+)
 from schemathesis.specs.openapi.error_feedback import apply_adjustments
 from schemathesis.transport.serialization import quote_all
 
 if TYPE_CHECKING:
-    import jsonschema_rs
     from hypothesis.strategies import SearchStrategy
 
     from schemathesis.config import GenerationConfig
@@ -47,13 +54,15 @@ if TYPE_CHECKING:
     from schemathesis.core.parameters import ContainerName
     from schemathesis.core.transport import HttpMethod, HttpMethodSchema
     from schemathesis.resources import PoolDraw, ResourcePool
-    from schemathesis.schemas import APIOperation, ParameterSet, PayloadAlternatives
+    from schemathesis.schemas import APIOperation, ParameterSet
     from schemathesis.specs.openapi.adapter.parameters import OpenApiBody, OpenApiParameter
 
 
 class Template:
     __slots__ = (
         "_components",
+        "_content_type_header",
+        "_json_encoded",
         "_optional_query",
         "_parameter_modes",
         "_serializers",
@@ -65,12 +74,20 @@ class Template:
         "unsatisfiable_required_parameter",
     )
 
-    def __init__(self, serializers: dict[str, Callable], optional_query: frozenset[str]) -> None:
+    def __init__(
+        self,
+        serializers: dict[str, Callable],
+        optional_query: frozenset[str],
+        json_encoded: frozenset[tuple[str, str]],
+    ) -> None:
         self._components: dict[ParameterLocation, ComponentInfo] = {}
         self._parameter_modes: dict[ParameterLocation, dict[str, GenerationMode]] = {}
         self._template: dict[str, Any] = {}
         self._serializers = serializers
         self._optional_query = optional_query
+        self._json_encoded = json_encoded
+        # Declared `Content-Type` header name and the body media types its schema admits.
+        self._content_type_header: tuple[str, frozenset[str]] | None = None
         # A required body that never produced a value, or a required parameter without a positive
         # value, leaves no valid positive request; a fallback-negative body forbids stacking a
         # second negative on top.
@@ -110,23 +127,43 @@ class Template:
             return GenerationMode.NEGATIVE
         return GenerationMode.POSITIVE
 
+    def pin_content_type(self, name: str, admitted: frozenset[str]) -> None:
+        self._content_type_header = (name, admitted)
+
+    def _headers_for(self, media_type: str) -> dict[str, Any] | None:
+        """Headers whose pinned `Content-Type` names `media_type`, or `None` when they stay as they are."""
+        if self._content_type_header is None:
+            return None
+        name, admitted = self._content_type_header
+        headers = self._template.get("headers")
+        if media_type not in admitted or not isinstance(headers, dict) or name not in headers:
+            return None
+        return {**headers, name: media_type}
+
     def set_body(self, body: GeneratedValue, media_type: str) -> None:
         self._template["body"] = body.value
         self._template["media_type"] = media_type
         self._components[ParameterLocation.BODY] = ComponentInfo(mode=body.generation_mode)
+        headers = self._headers_for(media_type)
+        if headers is not None:
+            self._template["headers"] = headers
 
     def _serialize(self, kwargs: dict[str, Any], components: dict[ParameterLocation, ComponentInfo]) -> dict[str, Any]:
         output = {}
         for container_name, value in kwargs.items():
             serializer = self._serializers.get(container_name)
             if container_name in ("headers", "cookies") and isinstance(value, dict):
-                value = _stringify_value(value, container_name)
+                # A JSON-encoded parameter keeps its nested types until the serializer writes it as JSON text.
+                value = {
+                    name: item
+                    if (container_name, name) in self._json_encoded
+                    else _stringify_value(item, container_name)
+                    for name, item in value.items()
+                }
             if serializer is not None:
                 # Shallow-copy dict containers before serializing to avoid mutating
                 # self._template through shared references in shallow-copy kwargs
-                if isinstance(value, dict):
-                    value = dict(value)
-                value = serializer(value)
+                value = serializer(dict(value))
             if container_name == "query" and isinstance(value, dict):
                 query_component = components.get(ParameterLocation.QUERY)
                 if query_component is None or query_component.mode == GenerationMode.POSITIVE:
@@ -152,6 +189,9 @@ class Template:
 
     def with_body(self, *, media_type: str, value: GeneratedValue) -> TemplateValue:
         raw = {**self._template, "media_type": media_type, "body": value.value}
+        headers = self._headers_for(media_type)
+        if headers is not None:
+            raw["headers"] = headers
         components = {**self._components, ParameterLocation.BODY: ComponentInfo(mode=value.generation_mode)}
         kwargs = self._serialize(raw, components)
         return TemplateValue(kwargs=kwargs, raw=raw, components=components)
@@ -164,10 +204,7 @@ class Template:
         if isinstance(headers, dict):
             headers = {name: value for name, value in headers.items() if name.lower() != "content-type"}
             raw["headers"] = headers
-            if ParameterLocation.HEADER in components:
-                components[ParameterLocation.HEADER] = ComponentInfo(
-                    mode=self._mode_for(ParameterLocation.HEADER, headers)
-                )
+            components[ParameterLocation.HEADER] = ComponentInfo(mode=self._mode_for(ParameterLocation.HEADER, headers))
         kwargs = self._serialize(raw, components)
         return TemplateValue(kwargs=kwargs, raw=raw, components=components)
 
@@ -392,8 +429,6 @@ def _body_pool_overlays(
     validator_cls: type,
 ) -> dict[str, Any]:
     """Return pool overlay values for body properties valid against the destination schema."""
-    if not isinstance(body_schema, dict):
-        return {}
     properties = body_schema.get("properties")
     if not isinstance(properties, dict):
         return {}
@@ -403,7 +438,7 @@ def _body_pool_overlays(
             value = correlated.get((ParameterLocation.BODY, prop_name))
             if value is not None:
                 try:
-                    if make_validator(prop_schema, validator_cls).is_valid(value):
+                    if make_validator(schema_with_bundle(prop_schema, body_schema), validator_cls).is_valid(value):
                         overlays[prop_name] = value
                         continue
                 except Exception:
@@ -412,7 +447,11 @@ def _body_pool_overlays(
         # an object-typed property is pool-eligible but its overlay key lives one level deeper.
         if isinstance(prop_schema, dict) and isinstance(prop_schema.get("properties"), dict):
             nested = _nested_body_pool_overlay(
-                correlated=correlated, outer_name=prop_name, inner_schema=prop_schema, validator_cls=validator_cls
+                correlated=correlated,
+                outer_name=prop_name,
+                inner_schema=prop_schema,
+                body_schema=body_schema,
+                validator_cls=validator_cls,
             )
             if nested:
                 overlays[prop_name] = _NestedOverlay(nested)
@@ -424,6 +463,7 @@ def _nested_body_pool_overlay(
     correlated: dict[tuple[ParameterLocation, str], Any],
     outer_name: str,
     inner_schema: dict[str, Any],
+    body_schema: dict[str, Any],
     validator_cls: type,
 ) -> dict[str, Any]:
     inner_props = inner_schema.get("properties")
@@ -436,7 +476,7 @@ def _nested_body_pool_overlay(
         if value is None:
             continue
         try:
-            if not make_validator(sub_schema, validator_cls).is_valid(value):
+            if not make_validator(schema_with_bundle(sub_schema, body_schema), validator_cls).is_valid(value):
                 continue
         except Exception:
             continue
@@ -514,13 +554,8 @@ def _filter_draws_for_case(
         return ()
     result: list[PoolDraw] = []
     for draw in draws:
-        try:
-            location = ParameterLocation(draw.location)
-        except ValueError:
-            continue
-        expected = correlated.get((location, draw.parameter_name))
-        if expected is None:
-            continue
+        location = ParameterLocation(draw.location)
+        expected = correlated[(location, draw.parameter_name)]
         actual = _case_slot_value(raw, location, draw.parameter_name)
         if actual is _SENTINEL_ABSENT:
             continue
@@ -543,10 +578,7 @@ def _filter_misses_for_case(
         return ()
     result: list[tuple[str, str]] = []
     for miss in misses:
-        try:
-            location = ParameterLocation(miss[0])
-        except ValueError:
-            continue
+        location = ParameterLocation(miss[0])
         if _case_slot_value(raw, location, miss[1]) is not _SENTINEL_ABSENT:
             result.append(miss)
     return tuple(result)
@@ -598,6 +630,13 @@ class CoverageRun:
     correlated: dict[tuple[ParameterLocation, str], Any]
 
 
+def _json_media_type(parameter: OpenApiParameter) -> tuple[str, str] | None:
+    """The media type of a parameter that travels as JSON text rather than in its location's own style."""
+    if next(iter(parameter.definition.get("content", {})), None) == "application/json":
+        return ("application", "json")
+    return None
+
+
 def _positive_fallback(run: CoverageRun, parameter: OpenApiParameter, schema: dict[str, Any]) -> GeneratedValue | None:
     """The value a positive run would seed for this parameter, if any."""
     generator = cover_schema_iter(
@@ -616,6 +655,21 @@ def _positive_fallback(run: CoverageRun, parameter: OpenApiParameter, schema: di
         schema,
     )
     return next(generator, None)
+
+
+def _reject_malformed_definition(
+    operation: APIOperation, schema: JsonSchemaObject, validator_cls: type[jsonschema_rs.Validator]
+) -> None:
+    """Report a definition its own draft rejects as fuzzing does, instead of walking keywords of the wrong type."""
+    try:
+        make_validator(schema, validator_cls)
+    except jsonschema_rs.ValidationError as exc:
+        raise InvalidSchema.from_jsonschema_error(
+            exc, path=operation.path, method=operation.method, config=operation.schema.config.output
+        ) from None
+    except ValueError:
+        # Not a draft violation: a value JSON cannot hold, e.g. YAML `!!binary` bytes, which the walk handles itself.
+        return
 
 
 def _seed_parameters(run: CoverageRun) -> None:
@@ -639,22 +693,18 @@ def _seed_parameters(run: CoverageRun) -> None:
             return inferred_properties_per_location[target_location]
         # Caller guards with `error_feedback is not None`; the narrowing is invisible inside the closure.
         assert error_feedback is not None
-        container = getattr(operation, target_location.container_name, None)
+        base = getattr(operation, target_location.container_name).schema
+        adjusted = apply_adjustments(
+            operation=operation,
+            location=target_location,
+            schema=base,
+            store=error_feedback,
+        )
         result: dict[str, Any] | None = None
-        if isinstance(container, OpenApiParameterSet):
-            base = container.schema
-            adjusted = apply_adjustments(
-                operation=operation,
-                location=target_location,
-                schema=base,
-                store=error_feedback,
-            )
-            # `apply_adjustments` returns the input unchanged when there are no observations;
-            # only splice when something was actually inferred.
-            if adjusted is not base and isinstance(adjusted, dict):
-                properties = adjusted.get("properties")
-                if isinstance(properties, dict):
-                    result = properties
+        # `apply_adjustments` returns the input unchanged when there are no observations;
+        # only splice when something was actually inferred.
+        if adjusted is not base and isinstance(adjusted, dict):
+            result = adjusted["properties"]
         inferred_properties_per_location[target_location] = result
         return result
 
@@ -697,7 +747,7 @@ def _seed_parameters(run: CoverageRun) -> None:
                 session=session,
                 root_schema=schema,
                 location=location,
-                media_type=None,
+                media_type=_json_media_type(parameter),
                 generation_modes=generation_modes,
                 is_required=parameter.is_required,
                 custom_formats=custom_formats,
@@ -714,10 +764,15 @@ def _seed_parameters(run: CoverageRun) -> None:
         # header parameter — otherwise body cases inherit a fuzzed CT (often empty) and ship bodies
         # that downstream tools can't dispatch. CT-mutation variants still flow through the iterator.
         if location == ParameterLocation.HEADER and name.lower() == "content-type" and operation.body:
-            media_type = _media_type_the_header_admits(parameter, operation.body, validator_cls)
-            if media_type is not None:
+            admitted = [
+                alternative.media_type
+                for alternative in operation.body
+                if parameter.admits(alternative.media_type, validator_cls)
+            ]
+            if admitted:
+                template.pin_content_type(name, frozenset(admitted))
                 value = GeneratedValue.with_positive(
-                    value=media_type,
+                    value=admitted[0],
                     scenario=CoverageScenario.VALID_STRING,
                     description="Valid Content-Type pinned to body media type",
                 )
@@ -783,28 +838,6 @@ def _container_without_wire_bounds(
     return {**schema, "properties": {**properties, **declared}}
 
 
-def _media_type_the_header_admits(
-    parameter: OpenApiParameter,
-    body: PayloadAlternatives[OpenApiBody],
-    validator_cls: type[jsonschema_rs.Validator],
-) -> str | None:
-    """First declared body media type the header's own contract accepts, or `None` when it accepts none."""
-    declared = parameter.validation_schema
-    validator = None
-    if isinstance(declared, dict):
-        try:
-            validator = make_validator(declared, validator_cls)
-        except Exception:
-            # Schema rejected by `jsonschema_rs` — validity is unknown, so keep the body's media type.
-            pass
-    if validator is None:
-        return body[0].media_type
-    for alternative in body:
-        if validator.is_valid(alternative.media_type):
-            return alternative.media_type
-    return None
-
-
 def _drop_negatives_the_schema_admits(
     values: Generator[GeneratedValue, None, None],
     schema: JsonSchemaObject,
@@ -839,22 +872,15 @@ def _body_cases(run: CoverageRun) -> Generator[Case, None, None]:
         instant = Instant()
 
         multipart_body = _generate_multipart_body_from_custom_strategies(body)
+        first_custom_value: GeneratedValue | None
         if multipart_body is not None:
-            if body.is_required:
-                template.has_generated_required_body = True
-            if "body" not in template:
-                template.set_body(
-                    GeneratedValue.with_positive(
-                        value=multipart_body,
-                        scenario=CoverageScenario.EXAMPLE_VALUE,
-                        description="Multipart body with custom encoding",
-                    ),
-                    body.media_type,
-                )
-            continue
-
-        custom_gen = _generate_coverage_values_from_custom_strategy(body.media_type)
-        first_custom_value = next(custom_gen, None)
+            first_custom_value = GeneratedValue.with_positive(
+                value=multipart_body,
+                scenario=CoverageScenario.EXAMPLE_VALUE,
+                description="Multipart body with custom encoding",
+            )
+        else:
+            first_custom_value = next(_generate_coverage_values_from_custom_strategy(body.media_type), None)
 
         if first_custom_value is not None:
             if body.is_required:
@@ -863,7 +889,7 @@ def _body_cases(run: CoverageRun) -> Generator[Case, None, None]:
             if "body" not in template:
                 template.seed_time += elapsed
                 template.set_body(first_custom_value, body.media_type)
-            if not _is_invalid_positive(template, first_custom_value):
+            if GenerationMode.POSITIVE in generation_modes and not _is_invalid_positive(template, first_custom_value):
                 data = template.with_body(value=first_custom_value, media_type=body.media_type)
                 yield emitter.build(
                     data,
@@ -878,6 +904,7 @@ def _body_cases(run: CoverageRun) -> Generator[Case, None, None]:
             continue
 
         schema = as_object_schema(body.unoptimized_schema)
+        _reject_malformed_definition(operation, schema, validator_cls)
         schema_is_clone = False
         if error_feedback is not None:
             adjusted = apply_adjustments(
@@ -923,21 +950,19 @@ def _body_cases(run: CoverageRun) -> Generator[Case, None, None]:
             raise InvalidSchema.from_malformed_media_type(
                 exc, body.media_type, path=operation.path, method=operation.method
             ) from exc
-        gen = cover_schema_iter(
-            CoverageContext(
-                session=session,
-                root_schema=schema,
-                location=ParameterLocation.BODY,
-                media_type=media_type,
-                generation_modes=generation_modes,
-                is_required=body.is_required,
-                custom_formats=custom_formats,
-                validator_cls=validator_cls,
-                update_pattern=update_pattern,
-                allow_extra_parameters=generation_config.allow_extra_parameters,
-            ),
-            schema,
+        body_ctx = CoverageContext(
+            session=session,
+            root_schema=schema,
+            location=ParameterLocation.BODY,
+            media_type=media_type,
+            generation_modes=generation_modes,
+            is_required=body.is_required,
+            custom_formats=custom_formats,
+            validator_cls=validator_cls,
+            update_pattern=update_pattern,
+            allow_extra_parameters=generation_config.allow_extra_parameters,
         )
+        gen = drop_negatives_any_draft_admits(body_ctx, schema, cover_schema_iter(body_ctx, schema))
         value = next(gen, NOT_SET)
         if isinstance(value, NotSet):
             continue
@@ -1027,8 +1052,9 @@ def _default_positive(run: CoverageRun) -> Generator[Case, None, None]:
         scenario=CoverageScenario.DEFAULT_POSITIVE_TEST,
         description="Default positive test case",
     )
-    if case is not None:
-        yield case
+    # The first request of a run, so nothing sent earlier can repeat it.
+    assert case is not None
+    yield case
 
 
 def _parameter_mutations(run: CoverageRun) -> Generator[Case, None, None]:
@@ -1058,7 +1084,7 @@ def _parameter_mutations(run: CoverageRun) -> Generator[Case, None, None]:
                 if not template.can_emit(GenerationMode.NEGATIVE):
                     # Skip: would emit a case with NEGATIVE body + NEGATIVE param.
                     continue
-            elif value.generation_mode == GenerationMode.POSITIVE:
+            else:
                 if (
                     template.has_required_body
                     and not template.has_generated_required_body
@@ -1112,6 +1138,66 @@ def _unexpected_methods(
             scenario=CoverageScenario.UNSPECIFIED_HTTP_METHOD,
             description=f"Unspecified HTTP method: {method.upper()}",
             method=cast("HttpMethod", method.upper()),
+        )
+
+
+def _content_type_probes(run: CoverageRun) -> Generator[Case, None, None]:
+    operation = run.operation
+    transport = operation.schema.transport
+    # An operation with no serializable body is reported as untestable; a probe would hide that.
+    if operation.body and all(
+        transport.get_first_matching_media_type(body.media_type) is None for body in operation.body
+    ):
+        return
+    template = run.template
+    emitter = run.emitter
+    data = template.unmodified()
+    data = TemplateValue(
+        kwargs=data.kwargs,
+        raw=data.raw,
+        components={**data.components, ParameterLocation.HEADER: ComponentInfo(mode=GenerationMode.NEGATIVE)},
+    )
+    for scenario, content_type, description in (
+        (
+            CoverageScenario.MALFORMED_CONTENT_TYPE,
+            "multipart/form-data",
+            "Malformed Content-Type: multipart/form-data without boundary",
+        ),
+        (
+            CoverageScenario.UNSUPPORTED_CONTENT_TYPE,
+            "application/xml" if any(body.media_type == "text/plain" for body in run.operation.body) else "text/plain",
+            None,
+        ),
+    ):
+        if scenario == CoverageScenario.UNSUPPORTED_CONTENT_TYPE and not run.operation.body:
+            continue
+        headers = {
+            name: value for name, value in data.kwargs.get("headers", {}).items() if name.lower() != "content-type"
+        }
+        headers["Content-Type"] = content_type
+        kwargs = {**data.kwargs, "headers": headers}
+        raw_headers = {
+            name: value for name, value in data.raw.get("headers", {}).items() if name.lower() != "content-type"
+        }
+        raw_headers["Content-Type"] = content_type
+        raw = {**data.raw, "headers": raw_headers}
+        if (
+            scenario == CoverageScenario.MALFORMED_CONTENT_TYPE
+            and data.kwargs.get("media_type") == "multipart/form-data"
+        ):
+            kwargs = {key: value for key, value in kwargs.items() if key not in ("body", "media_type")}
+            raw = {key: value for key, value in raw.items() if key not in ("body", "media_type")}
+        yield emitter.build(
+            data,
+            mode=GenerationMode.NEGATIVE,
+            elapsed=Instant().elapsed,
+            scenario=scenario,
+            description=description or f"Unsupported Content-Type: {content_type}",
+            location="/",
+            parameter="Content-Type",
+            parameter_location=ParameterLocation.HEADER,
+            kwargs=kwargs,
+            raw=raw,
         )
 
 
@@ -1261,7 +1347,7 @@ def _container_combinations(run: CoverageRun) -> Generator[Case, None, None]:
             combination: dict[str, Any], _required: set[str], _parameter_set: ParameterSet
         ) -> dict[str, Any]:
             properties = {
-                parameter.name: parameter.optimized_schema
+                parameter.name: parameter.unoptimized_schema
                 for parameter in _parameter_set
                 if parameter.name in combination
             }
@@ -1350,23 +1436,24 @@ def _container_combinations(run: CoverageRun) -> Generator[Case, None, None]:
         # 2. Generate combinations with required properties and one optional property
         for opt_param in optional:
             combo = {k: v for k, v in base_container.items() if k in required or k == opt_param}
-            if combo != base_container and GenerationMode.POSITIVE in generation_modes:
-                if template.can_emit(GenerationMode.POSITIVE):
-                    case = make_case(
-                        combo,
-                        CoverageScenario.OBJECT_REQUIRED_AND_OPTIONAL,
-                        f"All required properties and optional '{opt_param}'",
-                        location,
-                        None,
-                        GenerationMode.POSITIVE,
-                        Instant(),
-                    )
-                    if case is not None:
-                        yield case
-                if GenerationMode.NEGATIVE in generation_modes:
-                    subschema = _combination_schema(combo, required, parameter_set)
-                    declared = _container_without_wire_bounds(subschema, parameter_set)
-                    yield from _yield_negative(subschema, location, bool(required), Dedup.WIRE_REQUEST, declared)
+            if combo == base_container:
+                continue
+            if GenerationMode.POSITIVE in generation_modes and template.can_emit(GenerationMode.POSITIVE):
+                case = make_case(
+                    combo,
+                    CoverageScenario.OBJECT_REQUIRED_AND_OPTIONAL,
+                    f"All required properties and optional '{opt_param}'",
+                    location,
+                    None,
+                    GenerationMode.POSITIVE,
+                    Instant(),
+                )
+                if case is not None:
+                    yield case
+            if GenerationMode.NEGATIVE in generation_modes:
+                subschema = _combination_schema(combo, required, parameter_set)
+                declared = _container_without_wire_bounds(subschema, parameter_set)
+                yield from _yield_negative(subschema, location, bool(required), Dedup.WIRE_REQUEST, declared)
 
         # 3. Generate one combination for each size from 2 to N-1 of optional parameters
         if (
@@ -1409,6 +1496,11 @@ def iter_coverage_cases(
     template = Template(
         serializers,
         optional_query=frozenset(parameter.name for parameter in operation.query if not parameter.is_required),
+        json_encoded=frozenset(
+            (parameter.location.container_name, parameter.name)
+            for parameter in (*operation.headers, *operation.cookies)
+            if _json_media_type(parameter) is not None
+        ),
     )
 
     responses = list(operation.responses.iter_examples())
@@ -1455,6 +1547,9 @@ def iter_coverage_cases(
         responses=responses,
         correlated=correlated,
     )
+    for parameter_set in (operation.path_parameters, operation.headers, operation.cookies, operation.query):
+        if parameter_set:
+            _reject_malformed_definition(operation, cast(OpenApiParameterSet, parameter_set).schema, validator_cls)
     _seed_parameters(run)
     if operation.has_skipped_required_body:
         # No body can be built, so every request is body-less; omitting the required body is the
@@ -1474,6 +1569,7 @@ def iter_coverage_cases(
         return
     if GenerationMode.NEGATIVE in generation_modes:
         yield from _unexpected_methods(run, unexpected_methods, unexpected_methods_seen)
+        yield from _content_type_probes(run)
         yield from _duplicate_query(run, generate_duplicate_query_parameters)
         yield from _missing_required(run)
     yield from _container_combinations(run)

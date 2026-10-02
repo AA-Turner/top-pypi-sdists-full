@@ -1,0 +1,27 @@
+name: node_projection_live_events
+version: "1.2.0"
+description: "Projects platform lifecycle, delegation, and node-generation events into the OmniDash System Event Stream"
+omnibase_core_compat: ">=0.39.0,<1.0.0"
+entry_points:
+  onex.nodes:
+    node_projection_live_events: "omnimarket.nodes.node_projection_live_events"
+capabilities:
+  standalone: true
+  full_runtime: true
+  # OMN-15800: HandlerLiveEventsProjectionRunner additionally publishes a
+  # bus-fed snapshot delta (own Kafka producer) alongside its own DB
+  # connection, matching node_projection_registration's requires_network/
+  # requires_secrets: true.
+  requires_network: true
+  requires_repo: false
+  requires_secrets: true
+  requires_docker: false
+  side_effect_class: write
+dependencies:
+  - "omnibase_core>=0.39.0"
+authors: ["OmniNode Platform Team"]
+license: "MIT"
+tags: ["live-events", "projection", "reducer", "observability", "dashboard"]
+pack: "data"
+display_name: "Live Events Projection"
+node_role: "reducer"

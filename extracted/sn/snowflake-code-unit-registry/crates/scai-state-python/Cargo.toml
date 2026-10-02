@@ -1,0 +1,21 @@
+[package]
+name = "scai-state-python"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Python bindings for SCAI state management"
+readme = "README.md"
+
+[lib]
+# Must differ from scai-state-csharp's lib name ("scai_state") to avoid
+# overwriting artifacts and keep C#/Python native state isolated in-process.
+name = "scai_state_py"
+crate-type = ["cdylib"]
+
+[dependencies]
+scai-state-core = { path = "../scai-state-core" }
+scai-log = { path = "../scai-log" }
+pyo3 = { version = "0.28", features = ["extension-module", "abi3-py39", "generate-import-lib"] }
+serde.workspace = true
+serde_json.workspace = true
+pythonize = "0.28"

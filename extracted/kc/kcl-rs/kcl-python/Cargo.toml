@@ -1,0 +1,42 @@
+[package]
+name = "kcl-python"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Python (PyO3) bindings for the Rust port of the Amazon Kinesis Client Library"
+
+[lib]
+name = "kcl_rs"
+# cdylib for the Python extension module; rlib so it can also be tested as a Rust lib.
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# `extension-module` tells PyO3 not to link libpython (correct for the shipped
+# Python extension). maturin enables this via `pyproject.toml`
+# (`features = ["pyo3/extension-module"]`). It is deliberately NOT a default so
+# that `cargo test -p kcl-python` can link against libpython (via the
+# `auto-initialize` dev-feature) and run the in-process GIL-bridge tests.
+extension-module = ["pyo3/extension-module"]
+
+[dependencies]
+kcl = { path = "../kcl" }
+pyo3 = { version = "0.29", features = ["abi3-py311", "chrono"] }
+tokio = { workspace = true }
+futures = { workspace = true }
+tracing = { workspace = true }
+# Installs a default (WARN, stderr, RUST_LOG-overridable) subscriber at module
+# init so core `tracing::` logs (otherwise invisible to Python users -- the
+# core never installs one itself) are visible out of the box. See `lib.rs`.
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+chrono = { workspace = true }
+bytes = { workspace = true }
+aws-config = { workspace = true }
+aws-sdk-kinesis = { workspace = true }
+aws-sdk-dynamodb = { workspace = true }
+aws-sdk-cloudwatch = { workspace = true }
+aws-types = { workspace = true }
+
+[dev-dependencies]
+# `auto-initialize` lets Rust `#[test]`s spin up a Python interpreter in-process.
+# `chrono` gives us DateTime<->PyDateTime conversions.
+pyo3 = { version = "0.29", features = ["auto-initialize", "chrono"] }

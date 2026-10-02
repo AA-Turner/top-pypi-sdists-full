@@ -1,3 +1,0 @@
----
-features:
-  - Add C++ ``ARangeNode`` and Python `ARange` symbol and `arange()` function.

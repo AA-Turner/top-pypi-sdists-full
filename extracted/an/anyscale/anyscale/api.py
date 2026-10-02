@@ -45,22 +45,16 @@ _SOCKET_OPTIONS = (
     # [A] Bug: https://bugs.python.org/issue34932
     # [B] Resolution: https://github.com/python/cpython/pull/25079
     # [C] Darwin Source: https://github.com/apple/darwin-xnu/blob/main/bsd/netinet/tcp.h
-    + (
-        [(6, getattr(socket, "TCP_KEEPALIVE", 16), 15)]
-        if sys.platform == "darwin"
-        else []
-    )
+    + ([(6, getattr(socket, "TCP_KEEPALIVE", 16), 15)] if sys.platform == "darwin" else [])
 )
 
 
 # client is of type APIClient, which is auto-generated
 def configure_tcp_keepalive(client: Any) -> None:
-    assert hasattr(
-        client, "rest_client"
-    ), f"Incorrect object of type: {type(client)}\nThis object does not have a `rest_client` property."
-    client.rest_client.pool_manager.connection_pool_kw[
-        "socket_options"
-    ] = _SOCKET_OPTIONS
+    assert hasattr(client, "rest_client"), (
+        f"Incorrect object of type: {type(client)}\nThis object does not have a `rest_client` property."
+    )
+    client.rest_client.pool_manager.connection_pool_kw["socket_options"] = _SOCKET_OPTIONS
 
 
 # client is of type APIClient, which is auto-generated
@@ -75,7 +69,10 @@ class _ApiClient:
 
 
 def format_api_exception(
-    e, method: str, resource_path: str, raise_structured_exception: bool = False,
+    e,
+    method: str,
+    resource_path: str,
+    raise_structured_exception: bool = False,
 ) -> None:
     if os.environ.get("ANYSCALE_DEBUG") == "1" or raise_structured_exception:
         raise e
@@ -155,9 +152,7 @@ class ApiClientWrapperInternal(openapi_client.ApiClient):
                 _host,
             )
         except ApiExceptionInternal as e:
-            format_api_exception(
-                e, method, resource_path, self.raise_structured_exception
-            )
+            format_api_exception(e, method, resource_path, self.raise_structured_exception)
 
 
 class ApiClientWrapperExternal(anyscale_client.ApiClient):
@@ -222,9 +217,7 @@ class ApiClientWrapperExternal(anyscale_client.ApiClient):
                 _host,
             )
         except ApiExceptionExternal as e:
-            format_api_exception(
-                e, method, resource_path, self.raise_structured_exception
-            )
+            format_api_exception(e, method, resource_path, self.raise_structured_exception)
 
 
 @wrapt.decorator

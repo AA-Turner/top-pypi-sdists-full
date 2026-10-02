@@ -1,0 +1,582 @@
+"""Tests for automatic router provider reservations."""
+
+from __future__ import annotations
+
+import math
+from datetime import UTC, datetime
+
+import pytest
+
+from exp.common.core.artifacts import (
+    ArtifactInput,
+    SourceIdentity,
+    canonical_json_bytes,
+    sha256_json,
+)
+from exp.common.models import (
+    BillingSource,
+    ConnectionConfig,
+    EmbeddingCostReservation,
+    ModelCapabilities,
+    ModelCatalog,
+    ModelRecord,
+    ModelSnapshot,
+    RouterCandidateSelection,
+    completion_cost_reservation,
+)
+from exp.common.tasks import TaskCase
+from exp.common.traces import Trace, TraceSource, TraceSpan
+from exp.optimize.router.automatic.reservations import (
+    AutomaticRouterOptions,
+    completion_reservation_from_catalog,
+    median_trace_token_estimate,
+    plan_automatic_router_cost,
+    retrieval_query_input_limit,
+    simulation_input_token_estimate,
+)
+from exp.optimize.router.automatic.service_test import _catalog as _service_catalog
+from exp.runtime.models import RuntimeModelCatalog
+from exp.simulation.engines.text.grounding import episode_reservation_failure
+from exp.simulation.specs import (
+    CandidateCompletionReservation,
+    SimulationCompletionContract,
+    WorldModelSettings,
+)
+
+
+def test_cost_plan_reserves_exact_small_schedule_without_io() -> None:
+    """The pure planner reuses six cells and reserves the remaining 18 episodes."""
+    catalog = _service_catalog()
+    original = catalog.model_dump(mode="json")
+    plan = plan_automatic_router_cost(
+        _tasks(12),
+        catalog,
+        RouterCandidateSelection(
+            candidates=("candidate-a", "candidate-b"),
+            incumbent="candidate-a",
+        ),
+        world_model_alias="world",
+        judge_alias="judge",
+        embedder_alias="embedder",
+        judge_response_shape="scalar",
+        judge_audit=None,
+        provisional_judge=True,
+        observed_candidate_aliases=("candidate-a",) * 3 + ("candidate-b",) * 3,
+        estimated_input_tokens=32_768,
+        options=AutomaticRouterOptions(),
+    )
+
+    assert plan.maximum_judgments == 24
+    assert plan.maximum_judge_provider_calls == 24
+    assert plan.simulated_episode_count == 18
+    assert tuple(item.episode_count for item in plan.candidate_episodes) == (9, 9)
+    assert plan.required_provider_cost_usd == math.fsum(
+        (plan.router_embedding_cost_usd, plan.judgment_cost_usd, plan.simulation_cost_usd)
+    )
+    assert catalog.model_dump(mode="json") == original
+
+
+def test_cost_plan_reserves_full_default_corpus_and_pairwise_calls() -> None:
+    """The 50/20 corpus reuses ten cells and reserves 130 fresh episodes."""
+    catalog = _service_catalog()
+    plan = plan_automatic_router_cost(
+        _tasks(70),
+        catalog,
+        RouterCandidateSelection(
+            candidates=("candidate-a", "candidate-b"),
+            incumbent="candidate-a",
+        ),
+        world_model_alias="world",
+        judge_alias="judge",
+        embedder_alias="embedder",
+        judge_response_shape="pairwise",
+        judge_audit=None,
+        provisional_judge=True,
+        observed_candidate_aliases=("candidate-a",) * 5 + ("candidate-b",) * 5,
+        estimated_input_tokens=32_768,
+        options=AutomaticRouterOptions(),
+    )
+
+    assert plan.maximum_judgments == 140
+    assert plan.maximum_judge_provider_calls == 280
+    assert plan.simulated_episode_count == 130
+    assert plan.judge_calls_per_judgment == 2
+
+
+def test_cost_plan_digest_changes_with_the_full_schedule() -> None:
+    """A task-count change produces a distinct immutable reservation digest."""
+    catalog = _service_catalog()
+    selection = RouterCandidateSelection(
+        candidates=("candidate-a", "candidate-b"),
+        incumbent="candidate-a",
+    )
+
+    first = plan_automatic_router_cost(
+        _tasks(12),
+        catalog,
+        selection,
+        world_model_alias="world",
+        judge_alias="judge",
+        embedder_alias="embedder",
+        judge_response_shape="scalar",
+        judge_audit=None,
+        provisional_judge=True,
+        observed_candidate_aliases=(),
+        estimated_input_tokens=32_768,
+        options=AutomaticRouterOptions(),
+    )
+    second = plan_automatic_router_cost(
+        _tasks(13),
+        catalog,
+        selection,
+        world_model_alias="world",
+        judge_alias="judge",
+        embedder_alias="embedder",
+        judge_response_shape="scalar",
+        judge_audit=None,
+        provisional_judge=True,
+        observed_candidate_aliases=(),
+        estimated_input_tokens=32_768,
+        options=AutomaticRouterOptions(),
+    )
+
+    assert first.cost_plan_sha256 != second.cost_plan_sha256
+
+
+def _tasks(count: int) -> tuple[TaskCase, ...]:
+    """Return a deterministic mixed-partition schedule for cost planning.
+
+    Args:
+        count: Positive number of representative tasks.
+
+    Returns:
+        Exact unique task contracts with distinct leakage lineages.
+    """
+    return tuple(
+        TaskCase(
+            task_id=f"task-{index}",
+            lineage_group_id=f"lineage-{index}",
+            partition="fit" if index < max(1, count - 2) else "held_out",
+            instruction=f"Resolve request {index}",
+            workload_weight=1.0,
+            source_trace_ids=(f"trace-{index}",),
+        )
+        for index in range(count)
+    )
+
+
+_LARGE_CONTEXT_TOKENS = 1_050_000
+_OUTPUT_TOKENS = 16_000
+_QUERY_TOKENS = 32_768
+
+
+def _trace(trace_id: str, task: str) -> Trace:
+    """Build one minimal normalized trace whose serialized size tracks its task text.
+
+    Args:
+        trace_id: Unique trace identifier.
+        task: Task text controlling the canonical serialized length.
+
+    Returns:
+        One single-span normalized trace.
+    """
+    moment = datetime(2026, 1, 1, tzinfo=UTC)
+    return Trace(
+        trace_id=trace_id,
+        task=task,
+        spans=(
+            TraceSpan(
+                span_id=f"{trace_id}-span",
+                name="turn",
+                started_at=moment,
+                ended_at=moment,
+            ),
+        ),
+        source=TraceSource(
+            identity=SourceIdentity(kind="otlp", source_id="fixture"),
+            semantic_convention_version="1",
+        ),
+    )
+
+
+def _catalog() -> ModelCatalog:
+    """Return one large-context world model, one candidate, and one embedder."""
+    world = ModelCapabilities(
+        supports_completions=True,
+        context_window_tokens=_LARGE_CONTEXT_TOKENS,
+        maximum_output_tokens=128_000,
+        input_cost_per_million_tokens_usd=1.25,
+        output_cost_per_million_tokens_usd=6.0,
+        cached_input_cost_per_million_tokens_usd=0.125,
+        cache_write_cost_per_million_tokens_usd=1.25,
+    )
+    candidate = ModelCapabilities(
+        supports_completions=True,
+        context_window_tokens=400_000,
+        maximum_output_tokens=128_000,
+        input_cost_per_million_tokens_usd=0.25,
+        output_cost_per_million_tokens_usd=2.0,
+        cached_input_cost_per_million_tokens_usd=0.025,
+        cache_write_cost_per_million_tokens_usd=0.25,
+    )
+    embedder = ModelCapabilities(
+        supports_embeddings=True,
+        input_cost_per_million_tokens_usd=0.02,
+    )
+    return ModelCatalog(
+        connections={"openai": ConnectionConfig(provider="openai", api_key_env="OPENAI_API_KEY")},
+        models={
+            "world": ModelRecord(
+                billing_source=BillingSource.CUSTOMER_MANAGED,
+                connection="openai",
+                model="world",
+                capabilities=world,
+            ),
+            "candidate": ModelRecord(
+                billing_source=BillingSource.CUSTOMER_MANAGED,
+                connection="openai",
+                model="candidate",
+                capabilities=candidate,
+            ),
+            "candidate-b": ModelRecord(
+                billing_source=BillingSource.CUSTOMER_MANAGED,
+                connection="openai",
+                model="candidate-b",
+                capabilities=candidate,
+            ),
+            "embedder": ModelRecord(
+                billing_source=BillingSource.CUSTOMER_MANAGED,
+                connection="openai",
+                model="embedder",
+                capabilities=embedder,
+            ),
+        },
+    )
+
+
+def _snapshot(alias: str) -> ModelSnapshot:
+    """Return one exact credential-free snapshot from the fixture catalog.
+
+    Args:
+        alias: Fixture catalog alias to resolve.
+
+    Returns:
+        Frozen model identity.
+    """
+    return RuntimeModelCatalog(_catalog(), environment={}).snapshot(alias)[0]
+
+
+def test_median_trace_token_estimate_is_lower_median_of_canonical_bytes() -> None:
+    """The estimate is the deterministic lower median of canonical serialized lengths."""
+    traces = (
+        _trace("t-long", "x" * 9_000),
+        _trace("t-short", "x" * 10),
+        _trace("t-mid", "x" * 500),
+    )
+
+    estimate = median_trace_token_estimate(traces)
+
+    assert estimate == len(canonical_json_bytes(_trace("t-mid", "x" * 500)))
+    assert median_trace_token_estimate(()) is None
+
+
+def test_simulation_input_estimate_sums_explicit_deterministic_components() -> None:
+    """The per-call input reservation adds transcript, retrieval, echo, and framing budgets."""
+    traces = (_trace("t-a", "x" * 100), _trace("t-b", "x" * 100), _trace("t-c", "x" * 100))
+    median = median_trace_token_estimate(traces)
+    assert median is not None
+
+    estimate = simulation_input_token_estimate(
+        traces,
+        retrieved_transition_count=5,
+        maximum_retrieval_query_tokens=_QUERY_TOKENS,
+        maximum_output_tokens=_OUTPUT_TOKENS,
+    )
+
+    assert _QUERY_TOKENS > median
+    assert estimate == 6 * median + _QUERY_TOKENS + _OUTPUT_TOKENS + 4_096
+    assert (
+        simulation_input_token_estimate(
+            (),
+            retrieved_transition_count=5,
+            maximum_retrieval_query_tokens=_QUERY_TOKENS,
+            maximum_output_tokens=_OUTPUT_TOKENS,
+        )
+        is None
+    )
+    with pytest.raises(ValueError, match="retrieved transition count"):
+        simulation_input_token_estimate(
+            traces,
+            retrieved_transition_count=0,
+            maximum_retrieval_query_tokens=_QUERY_TOKENS,
+            maximum_output_tokens=_OUTPUT_TOKENS,
+        )
+
+
+def test_completion_reservation_prices_from_trace_estimate_and_admits_to_context() -> None:
+    """The trace estimate prices the reservation while context capacity bounds admission."""
+    traces = tuple(_trace(f"t-{index}", "x" * 2_000) for index in range(5))
+    estimate = simulation_input_token_estimate(
+        traces,
+        retrieved_transition_count=5,
+        maximum_retrieval_query_tokens=_QUERY_TOKENS,
+        maximum_output_tokens=_OUTPUT_TOKENS,
+    )
+    assert estimate is not None
+    problems: list[str] = []
+
+    reservation = completion_reservation_from_catalog(
+        problems,
+        catalog=_catalog(),
+        alias="world",
+        model=_snapshot("world"),
+        label="world model",
+        maximum_attempts=3,
+        estimated_input_tokens=estimate,
+        maximum_output_tokens=_OUTPUT_TOKENS,
+    )
+
+    assert problems == []
+    assert reservation is not None
+    assert reservation.estimated_input_tokens == estimate
+    assert reservation.maximum_input_tokens == _LARGE_CONTEXT_TOKENS - _OUTPUT_TOKENS
+    assert reservation.planning_input_tokens() == estimate
+    assert reservation.planning_input_tokens() < _LARGE_CONTEXT_TOKENS // 10
+    assert (
+        reservation.estimated_maximum_call_cost_usd
+        < reservation.absolute_maximum_call_cost_usd() / 5
+    )
+
+
+@pytest.mark.parametrize("configured_limit", [None, 32_768, 900_000])
+@pytest.mark.parametrize("published_output", [None, 393_216])
+def test_query_capacity_derivation_preserves_explicit_limits(
+    configured_limit: int | None, published_output: int | None
+) -> None:
+    """Aggregate query admission follows world capacity only when the user omits a ceiling."""
+    catalog = _catalog()
+    record = catalog.models["world"]
+    assert record.capabilities is not None
+    catalog.models["world"] = record.model_copy(
+        update={
+            "capabilities": record.capabilities.model_copy(
+                update={
+                    "context_window_tokens": 1_048_576,
+                    "maximum_output_tokens": published_output,
+                }
+            )
+        }
+    )
+    problems: list[str] = []
+    derived = retrieval_query_input_limit(
+        problems,
+        catalog=catalog,
+        world_alias="world",
+        maximum_output_tokens=1_000_000,
+        configured_limit=configured_limit,
+    )
+    assert derived == (
+        configured_limit if configured_limit is not None else 1_048_576 - (published_output or 0)
+    )
+    assert not problems
+
+
+def test_completion_reservation_bounds_episode_estimates_to_request_capacity() -> None:
+    """A large historical episode cannot reject a model before seeing its actual requests."""
+    problems: list[str] = []
+
+    reservation = completion_reservation_from_catalog(
+        problems,
+        catalog=_catalog(),
+        alias="world",
+        model=_snapshot("world"),
+        label="world model",
+        maximum_attempts=3,
+        estimated_input_tokens=_LARGE_CONTEXT_TOKENS * 100,
+        maximum_output_tokens=_OUTPUT_TOKENS,
+    )
+
+    assert problems == []
+    assert reservation is not None
+    assert reservation.maximum_input_tokens == _LARGE_CONTEXT_TOKENS - _OUTPUT_TOKENS
+    assert reservation.estimated_input_tokens == reservation.maximum_input_tokens
+    assert reservation.maximum_output_tokens == _OUTPUT_TOKENS
+    assert (
+        reservation.estimated_maximum_call_cost_usd == reservation.absolute_maximum_call_cost_usd()
+    )
+
+
+def test_completion_reservation_identifies_missing_prices() -> None:
+    """A partial catalog reports the missing rate and recovery command instead of a blank error."""
+    catalog = _catalog()
+    capabilities = catalog.models["world"].capabilities
+    assert capabilities is not None
+    catalog.models["world"] = catalog.models["world"].model_copy(
+        update={
+            "capabilities": capabilities.model_copy(
+                update={"cache_write_cost_per_million_tokens_usd": None}
+            )
+        }
+    )
+    problems: list[str] = []
+    reservation = completion_reservation_from_catalog(
+        problems,
+        catalog=catalog,
+        alias="world",
+        model=_snapshot("world"),
+        label="world model",
+        maximum_attempts=3,
+        estimated_input_tokens=1000,
+        maximum_output_tokens=_OUTPUT_TOKENS,
+    )
+    assert reservation is None
+    assert len(problems) == 1
+    assert "world model alias 'world' is missing cache write prices" in problems[0]
+    assert "exp login" in problems[0]
+
+
+@pytest.mark.parametrize("estimate", [0, -1])
+def test_completion_reservation_rejects_nonpositive_estimates(estimate: int) -> None:
+    """Bounding positive planning inputs must not hide malformed estimates."""
+    problems: list[str] = []
+    reservation = completion_reservation_from_catalog(
+        problems,
+        catalog=_catalog(),
+        alias="world",
+        model=_snapshot("world"),
+        label="world model",
+        maximum_attempts=3,
+        estimated_input_tokens=estimate,
+        maximum_output_tokens=_OUTPUT_TOKENS,
+    )
+    assert reservation is None
+    assert problems == [
+        f"world model alias 'world' requires a positive input estimate; got {estimate}"
+    ]
+
+
+def _completion_contract(estimated_input_tokens: int) -> SimulationCompletionContract:
+    """Build one immutable completion contract for the fixture world and candidate.
+
+    Args:
+        estimated_input_tokens: Realistic per-call input planning size for both models.
+
+    Returns:
+        Frozen candidate and world reservations under retry ceiling three.
+    """
+    problems: list[str] = []
+    world = completion_reservation_from_catalog(
+        problems,
+        catalog=_catalog(),
+        alias="world",
+        model=_snapshot("world"),
+        label="world model",
+        maximum_attempts=3,
+        estimated_input_tokens=estimated_input_tokens,
+        maximum_output_tokens=_OUTPUT_TOKENS,
+    )
+    candidate = completion_reservation_from_catalog(
+        problems,
+        catalog=_catalog(),
+        alias="candidate",
+        model=_snapshot("candidate"),
+        label="candidate",
+        maximum_attempts=3,
+        estimated_input_tokens=estimated_input_tokens,
+        maximum_output_tokens=_OUTPUT_TOKENS,
+    )
+    candidate_b = completion_reservation_from_catalog(
+        problems,
+        catalog=_catalog(),
+        alias="candidate-b",
+        model=_snapshot("candidate-b"),
+        label="candidate",
+        maximum_attempts=3,
+        estimated_input_tokens=estimated_input_tokens,
+        maximum_output_tokens=_OUTPUT_TOKENS,
+    )
+    assert problems == []
+    assert world is not None and candidate is not None and candidate_b is not None
+    return SimulationCompletionContract(
+        schema_version=1,
+        created_at=datetime(2026, 1, 1, tzinfo=UTC),
+        inputs=(),
+        code_revision="f" * 40,
+        completion_contract_id="simulation-completion-fixture",
+        candidate_requests=(
+            CandidateCompletionReservation(candidate_alias="candidate", request=candidate),
+            CandidateCompletionReservation(candidate_alias="candidate-b", request=candidate_b),
+        ),
+        world_model_alias="world",
+        world_model_request=world,
+        maximum_attempts=3,
+    )
+
+
+def _world_settings() -> WorldModelSettings:
+    """Return grounded world settings with an explicit query-embedding reservation."""
+    return WorldModelSettings(
+        world_model_alias="world",
+        grounded_world_model_input=ArtifactInput(
+            artifact_id="grounded-world-model-fixture",
+            sha256=sha256_json({"fixture": "grounded"}),
+        ),
+        prompt_version="v1",
+        query_embedding=EmbeddingCostReservation(
+            model=_snapshot("embedder"),
+            input_usd_per_million_tokens=0.02,
+            maximum_attempts=3,
+            maximum_input_tokens=_QUERY_TOKENS,
+        ),
+        maximum_output_tokens=_OUTPUT_TOKENS,
+    )
+
+
+def test_episode_admission_ignores_estimates_and_gates_on_actual_spend() -> None:
+    """An oversized planning estimate never rejects an episode with real spend remaining."""
+    traces = tuple(_trace(f"t-{index}", "x" * 4_000) for index in range(5))
+    estimate = simulation_input_token_estimate(
+        traces,
+        retrieved_transition_count=5,
+        maximum_retrieval_query_tokens=_QUERY_TOKENS,
+        maximum_output_tokens=_OUTPUT_TOKENS,
+    )
+    assert estimate is not None
+
+    admitted = episode_reservation_failure(
+        _world_settings(),
+        completion_contract=_completion_contract(estimate),
+        remaining_cost_usd=30.0,
+    )
+
+    assert admitted is None
+
+    full_context_world = completion_cost_reservation(
+        model=_snapshot("world"),
+        input_usd_per_million_tokens=1.25,
+        output_usd_per_million_tokens=6.0,
+        cached_input_usd_per_million_tokens=0.125,
+        cache_write_usd_per_million_tokens=1.25,
+        maximum_attempts=3,
+        maximum_input_tokens=_LARGE_CONTEXT_TOKENS - _OUTPUT_TOKENS,
+        maximum_output_tokens=_OUTPUT_TOKENS,
+    )
+    expensive_estimate = episode_reservation_failure(
+        _world_settings(),
+        completion_contract=_completion_contract(estimate).model_copy(
+            update={"world_model_request": full_context_world}
+        ),
+        remaining_cost_usd=0.01,
+    )
+
+    assert expensive_estimate is None
+
+    exhausted = episode_reservation_failure(
+        _world_settings(),
+        completion_contract=_completion_contract(estimate),
+        remaining_cost_usd=0.0,
+    )
+
+    assert exhausted is not None
+    assert exhausted.details is not None
+    assert exhausted.details["phase"] == "episode_provider_spend"

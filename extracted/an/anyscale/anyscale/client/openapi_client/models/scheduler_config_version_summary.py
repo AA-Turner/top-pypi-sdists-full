@@ -35,16 +35,20 @@ class SchedulerConfigVersionSummary(object):
     openapi_types = {
         'version': 'int',
         'created_at': 'datetime',
-        'creator_id': 'str'
+        'creator_id': 'str',
+        'creator_email': 'str',
+        'creator_name': 'str'
     }
 
     attribute_map = {
         'version': 'version',
         'created_at': 'created_at',
-        'creator_id': 'creator_id'
+        'creator_id': 'creator_id',
+        'creator_email': 'creator_email',
+        'creator_name': 'creator_name'
     }
 
-    def __init__(self, version=None, created_at=None, creator_id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, version=None, created_at=None, creator_id=None, creator_email=None, creator_name=None, local_vars_configuration=None):  # noqa: E501
         """SchedulerConfigVersionSummary - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -53,11 +57,17 @@ class SchedulerConfigVersionSummary(object):
         self._version = None
         self._created_at = None
         self._creator_id = None
+        self._creator_email = None
+        self._creator_name = None
         self.discriminator = None
 
         self.version = version
         self.created_at = created_at
         self.creator_id = creator_id
+        if creator_email is not None:
+            self.creator_email = creator_email
+        if creator_name is not None:
+            self.creator_name = creator_name
 
     @property
     def version(self):
@@ -127,6 +137,52 @@ class SchedulerConfigVersionSummary(object):
             raise ValueError("Invalid value for `creator_id`, must not be `None`")  # noqa: E501
 
         self._creator_id = creator_id
+
+    @property
+    def creator_email(self):
+        """Gets the creator_email of this SchedulerConfigVersionSummary.  # noqa: E501
+
+        Email of the user who applied this version. Null when that user is no longer resolvable, for example a service account or a purged account.  # noqa: E501
+
+        :return: The creator_email of this SchedulerConfigVersionSummary.  # noqa: E501
+        :rtype: str
+        """
+        return self._creator_email
+
+    @creator_email.setter
+    def creator_email(self, creator_email):
+        """Sets the creator_email of this SchedulerConfigVersionSummary.
+
+        Email of the user who applied this version. Null when that user is no longer resolvable, for example a service account or a purged account.  # noqa: E501
+
+        :param creator_email: The creator_email of this SchedulerConfigVersionSummary.  # noqa: E501
+        :type: str
+        """
+
+        self._creator_email = creator_email
+
+    @property
+    def creator_name(self):
+        """Gets the creator_name of this SchedulerConfigVersionSummary.  # noqa: E501
+
+        Display name of the user who applied this version, falling back to their email when they have no name on record. Null under the same conditions as creator_email.  # noqa: E501
+
+        :return: The creator_name of this SchedulerConfigVersionSummary.  # noqa: E501
+        :rtype: str
+        """
+        return self._creator_name
+
+    @creator_name.setter
+    def creator_name(self, creator_name):
+        """Sets the creator_name of this SchedulerConfigVersionSummary.
+
+        Display name of the user who applied this version, falling back to their email when they have no name on record. Null under the same conditions as creator_email.  # noqa: E501
+
+        :param creator_name: The creator_name of this SchedulerConfigVersionSummary.  # noqa: E501
+        :type: str
+        """
+
+        self._creator_name = creator_name
 
     def to_dict(self):
         """Returns the model properties as a dict"""

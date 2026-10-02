@@ -3,7 +3,10 @@ use tombi_config::{LintOptions, TomlVersion};
 use tombi_diagnostic::{Diagnostic, Print};
 use tombi_glob::{FileInputType, FileSearch, FileSearchEntry};
 
-use crate::app::CommonArgs;
+use crate::app::{
+    CommonArgs,
+    diagnostics::{DiagnosticsArgs, DiagnosticsReporter, FileReport, InputContext},
+};
 
 /// Lint TOML files.
 #[derive(clap::Args, Debug)]
@@ -34,6 +37,9 @@ pub struct Args {
     quiet: bool,
 
     #[command(flatten)]
+    diagnostics: DiagnosticsArgs,
+
+    #[command(flatten)]
     common: CommonArgs,
 }
 
@@ -44,22 +50,49 @@ struct LintRunSummary {
     error_num: usize,
 }
 
-fn record_task_result<P>(
-    result: Result<Result<bool, crate::Error>, tokio::task::JoinError>,
+struct LintedFile {
+    /// `true` if the file has no errors (or no warnings with `--error-on-warnings`).
+    result: Result<bool, crate::Error>,
+    report: FileReport,
+}
+
+impl LintedFile {
+    fn failed(source_path: Option<&std::path::Path>, error: crate::Error) -> Self {
+        Self {
+            result: Err(error),
+            report: FileReport::new(source_path.map(ToOwned::to_owned), None, Vec::new()),
+        }
+    }
+}
+
+fn record_lint_result<P>(
+    LintedFile { result, report }: LintedFile,
     summary: &mut LintRunSummary,
-    printer: &mut P,
+    printer: &P,
+    diagnostics_reporter: &mut DiagnosticsReporter,
+) where
+    crate::Error: Print<P>,
+{
+    diagnostics_reporter.record(report, result.as_ref().err(), printer);
+    match result {
+        Ok(true) => summary.success_num += 1,
+        Ok(false) | Err(_) => summary.error_num += 1,
+    }
+}
+
+fn record_task_result<P>(
+    result: Result<LintedFile, tokio::task::JoinError>,
+    summary: &mut LintRunSummary,
+    printer: &P,
+    diagnostics_reporter: &mut DiagnosticsReporter,
 ) where
     crate::Error: Print<P>,
 {
     match result {
-        Ok(Ok(true)) => summary.success_num += 1,
-        Ok(Ok(false)) => summary.error_num += 1,
-        Ok(Err(error)) => {
-            error.print(printer);
-            summary.error_num += 1;
-        }
+        Ok(result) => record_lint_result(result, summary, printer, diagnostics_reporter),
         Err(err) => {
             log::error!("task failed {err}");
+            diagnostics_reporter.record_runtime_error();
             summary.error_num += 1;
         }
     }
@@ -67,17 +100,35 @@ fn record_task_result<P>(
 
 pub fn run(args: Args) -> Result<(), crate::Error> {
     let quiet = args.quiet;
-    let LintRunSummary {
-        success_num,
-        skipped_num,
-        error_num,
-    } = match inner_run(args, crate::app::printer()) {
-        Ok(summary) => summary,
+    let is_stdin = FileInputType::from(args.files.as_ref()) == FileInputType::Stdin;
+    let mut diagnostics_reporter = match DiagnosticsReporter::open(
+        &args.diagnostics,
+        InputContext {
+            command: <Args as clap::Args>::augment_args(clap::Command::new("tombi lint")),
+            stdin_without_filename: is_stdin && args.stdin_filename.is_none(),
+            stdout_in_use: false,
+        },
+    ) {
+        Ok(diagnostics_reporter) => diagnostics_reporter,
         Err(error) => {
             log::error!("{}", error);
             std::process::exit(1);
         }
     };
+
+    let LintRunSummary {
+        success_num,
+        skipped_num,
+        error_num,
+    } = match inner_run(args, crate::app::printer(), &mut diagnostics_reporter) {
+        Ok(summary) => summary,
+        Err(error) => diagnostics_reporter.exit_with_error(&error),
+    };
+
+    if let Err(error) = diagnostics_reporter.finish() {
+        log::error!("failed to write diagnostics: {}", error);
+        std::process::exit(1);
+    }
 
     if !quiet {
         match success_num {
@@ -110,11 +161,13 @@ pub fn run(args: Args) -> Result<(), crate::Error> {
     Ok(())
 }
 
-fn inner_run<P>(args: Args, mut printer: P) -> Result<LintRunSummary, Box<dyn std::error::Error>>
+fn inner_run<P>(
+    args: Args,
+    printer: P,
+    diagnostics_reporter: &mut DiagnosticsReporter,
+) -> Result<LintRunSummary, Box<dyn std::error::Error>>
 where
-    Diagnostic: Print<P>,
     crate::Error: Print<P>,
-    P: Clone + Send + 'static,
 {
     let (config, config_path, config_level) =
         serde_tombi::config::load_with_path_and_level(std::env::current_dir().ok())?;
@@ -131,12 +184,11 @@ where
             }),
         });
 
-    let Ok(runtime) =
-        super::runtime(FileInputType::from(args.files.as_ref()) == FileInputType::Stdin)
-    else {
-        log::error!("failed to create tokio runtime");
-        std::process::exit(1);
-    };
+    let runtime = super::runtime(FileInputType::from(args.files.as_ref()) == FileInputType::Stdin)
+        .map_err(|error| format!("failed to create tokio runtime: {error}"))?;
+
+    // The tasks convert the spans of the diagnostics before their sources are dropped.
+    let encoding = diagnostics_reporter.encoding();
 
     runtime.block_on(async {
         // Run schema loading and file discovery concurrently
@@ -145,6 +197,9 @@ where
             tombi_glob::FileSearch::new(&args.files, &config, config_path.as_deref(), config_level)
         );
 
+        // Before `schema_result?`, so that an error does not write to an input file.
+        diagnostics_reporter
+            .reject_input_conflict(super::input_paths(&input, config_path.as_deref()));
         schema_result?;
         let total_num = input.len();
         let mut summary = LintRunSummary::default();
@@ -163,21 +218,17 @@ where
                     return Ok(summary);
                 };
 
-                if lint_file(
+                let result = lint_file(
                     tokio::io::stdin(),
-                    printer,
                     stdin_path,
                     toml_version,
                     &lint_options,
                     &schema_store,
                     args.error_on_warnings,
+                    encoding,
                 )
-                .await
-                {
-                    summary.success_num += 1;
-                } else {
-                    summary.error_num += 1;
-                }
+                .await;
+                record_lint_result(result, &mut summary, &printer, diagnostics_reporter);
             }
             FileSearch::Files(files) => {
                 let mut tasks = tokio::task::JoinSet::new();
@@ -201,43 +252,51 @@ where
 
                             while tasks.len() >= concurrency {
                                 if let Some(result) = tasks.join_next().await {
-                                    record_task_result(result, &mut summary, &mut printer);
+                                    record_task_result(
+                                        result,
+                                        &mut summary,
+                                        &printer,
+                                        diagnostics_reporter,
+                                    );
                                 }
                             }
 
-                            let printer = printer.clone();
                             let schema_store = schema_store.clone();
 
                             tasks.spawn(async move {
-                                let file =
-                                    tokio::fs::File::open(&source_path).await.map_err(|error| {
-                                        super::file_open_error(source_path.clone(), error)
-                                    })?;
-
-                                Ok(lint_file(
-                                    file,
-                                    printer,
-                                    Some(source_path.as_ref()),
-                                    toml_version,
-                                    &lint_options,
-                                    &schema_store,
-                                    args.error_on_warnings,
-                                )
-                                .await)
+                                match tokio::fs::File::open(&source_path).await {
+                                    Ok(file) => {
+                                        lint_file(
+                                            file,
+                                            Some(source_path.as_ref()),
+                                            toml_version,
+                                            &lint_options,
+                                            &schema_store,
+                                            args.error_on_warnings,
+                                            encoding,
+                                        )
+                                        .await
+                                    }
+                                    Err(error) => LintedFile::failed(
+                                        Some(source_path.as_ref()),
+                                        super::file_open_error(source_path.clone(), error),
+                                    ),
+                                }
                             });
                         }
                         FileSearchEntry::Skipped(_) => {
                             summary.skipped_num += 1;
                         }
                         FileSearchEntry::Error(err) => {
-                            crate::Error::TombiGlob(err).print(&mut printer);
+                            diagnostics_reporter
+                                .record_error(&crate::Error::TombiGlob(err), &printer);
                             summary.error_num += 1;
                         }
                     }
                 }
 
                 while let Some(result) = tasks.join_next().await {
-                    record_task_result(result, &mut summary, &mut printer);
+                    record_task_result(result, &mut summary, &printer, diagnostics_reporter);
                 }
             }
         }
@@ -251,51 +310,47 @@ where
     })
 }
 
-async fn lint_file<R, P>(
+async fn lint_file<R>(
     mut reader: R,
-    mut printer: P,
     source_path: Option<&std::path::Path>,
     toml_version: TomlVersion,
     lint_options: &LintOptions,
     schema_store: &tombi_schema_store::SchemaStore,
     error_on_warnings: bool,
-) -> bool
+    encoding: tombi_text::EncodingKind,
+) -> LintedFile
 where
-    Diagnostic: Print<P>,
-    crate::Error: Print<P>,
-    P: Send,
     R: AsyncReadExt + Unpin + Send,
 {
     let mut source = String::new();
-    if reader.read_to_string(&mut source).await.is_err() {
-        return false;
+    if let Err(error) = reader.read_to_string(&mut source).await {
+        return LintedFile::failed(source_path, crate::Error::read_failed(source_path, error));
     }
-    let Err(diagnostics) = tombi_linter::Linter::new(
+
+    let parsed = tombi_parser::parse(&source);
+    let diagnostics = tombi_linter::Linter::new(
         toml_version,
         lint_options,
         source_path.map(itertools::Either::Right),
         schema_store,
     )
-    .lint(&source)
+    .lint_parsed(&parsed)
     .await
-    else {
-        return true;
-    };
+    .err()
+    .unwrap_or_default();
 
-    let diagnostics = if let Some(source_path) = source_path {
-        diagnostics
-            .into_iter()
-            .map(|diagnostic| diagnostic.with_source_file(source_path))
-            .collect()
-    } else {
-        diagnostics
-    };
-
-    diagnostics.print(&mut printer);
-
-    if error_on_warnings {
+    let success = if error_on_warnings {
         diagnostics.is_empty()
     } else {
         diagnostics.iter().all(Diagnostic::is_warning)
+    };
+
+    LintedFile {
+        result: Ok(success),
+        report: FileReport::new(
+            source_path.map(ToOwned::to_owned),
+            Some((parsed.line_index(), encoding)),
+            diagnostics,
+        ),
     }
 }

@@ -28,9 +28,12 @@ class AggregatedInstanceUsageSDK:
         )
 
     @sdk_docs(
-        doc_py_example=_DOWNLOAD_CSV_EXAMPLE, arg_docstrings=_DOWNLOAD_ARG_DOCSTRINGS,
+        doc_py_example=_DOWNLOAD_CSV_EXAMPLE,
+        arg_docstrings=_DOWNLOAD_ARG_DOCSTRINGS,
     )
-    def download_csv(self, filters: DownloadCSVFilters,) -> str:  # noqa: F811
-        """Download an aggregated instance usage report as a zipped CSV to the provided directory.
-        """
+    def download_csv(
+        self,
+        filters: DownloadCSVFilters,
+    ) -> str:  # noqa: F811
+        """Download an aggregated instance usage report as a zipped CSV to the provided directory."""
         return self._private_sdk.download_csv(filters=filters)

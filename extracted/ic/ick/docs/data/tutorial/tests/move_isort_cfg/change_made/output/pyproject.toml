@@ -1,6 +1,0 @@
-[project]
-name = "foo"
-
-[tool.isort]
-line_length = "88"
-multi_line_output = "3"

@@ -1,0 +1,348 @@
+from ._util import LazyContentsMapping, LazyFileMapping  # noqa: F401
+
+import pytest
+import os
+import torch
+import biotite.structure.io
+from pathlib import Path
+
+from . import pdb  # noqa: E402
+
+_CIF_DATA_DIR = os.path.join(os.path.dirname(__file__), "cif")
+
+
+def data_path(*parts: str) -> Path:
+    """Absolute path to a file/dir under ``tmol/tests/data``.
+
+    Anchored to this package's own location, so it is robust to test modules
+    moving between directories (unlike ``Path(__file__).parent.parent / ...``
+    in a test file, which breaks if the file's depth changes).
+    """
+    return Path(__file__).parent.joinpath(*parts)
+
+
+def load_cif(pdb_code):
+    """Load a CIF from the bundled test data directory."""
+    path = os.path.join(_CIF_DATA_DIR, f"{pdb_code}.cif")
+    return biotite.structure.io.load_structure(
+        path, extra_fields=["occupancy", "b_factor"]
+    )
+
+
+@pytest.fixture(scope="session")
+def min_pdb():
+    return pdb.data["bysize_015_res_1lu6"]
+
+
+@pytest.fixture(scope="session")
+def big_pdb():
+    return pdb.data["bysize_600_res_5m4a"]
+
+
+@pytest.fixture(scope="session")
+def ubq_pdb():
+    return pdb.data["1ubq"]
+
+
+@pytest.fixture(scope="session")
+def kin_minimized_ubq_pdb():
+    return pdb.data["kin_minimized_1ubq"]
+
+
+@pytest.fixture(scope="session")
+def pdb_1r21():
+    return pdb.data["1R21"]
+
+
+@pytest.fixture(scope="session")
+def pdb_10VB():
+    return pdb.data["10VB"]
+
+
+@pytest.fixture(scope="session")
+def disulfide_pdb():
+    return pdb.data["3plc"]
+
+
+@pytest.fixture(scope="session")
+def pdb_6DMZ():
+    return pdb.data["6DMZ_A"]
+
+
+@pytest.fixture()
+def water_box_pdb():
+    return pdb.data["water_box"]
+
+
+@pytest.fixture()
+def dna_pdb():
+    # 1BNA, the Dickerson dodecamer: two DNA chains, no protein.
+    # Waters stripped and hydrogens added by Rosetta.
+    return pdb.data["1BNA"]
+
+
+@pytest.fixture()
+def rna_pdb():
+    # 3ZP8, the full-length hammerhead ribozyme: chain A residues 2-43, a
+    # single 42-nt RNA strand. The 5' GDP cap, the sodium ions, waters, and
+    # chain B (which carries a 2'-O-methyl C and a deoxy C) are stripped.
+    # Hydrogens added by Rosetta.
+    return pdb.data["3ZP8"]
+
+
+@pytest.fixture()
+def protein_dna_pdb():
+    # 1YSA, the GCN4 bZIP dimer bound to DNA: two DNA chains and two protein
+    # chains. Waters stripped and hydrogens added by Rosetta.
+    return pdb.data["1YSA"]
+
+
+def _load_pdb_structure(name):
+    fname = os.path.join(__file__.rpartition("/")[0], "pdb", name)
+    return biotite.structure.io.load_structure(
+        fname, extra_fields=["occupancy", "b_factor"]
+    )
+
+
+@pytest.fixture()
+def biotite_dna():
+    return _load_pdb_structure("1bna.pdb")
+
+
+@pytest.fixture()
+def biotite_protein_dna():
+    return _load_pdb_structure("1ysa.pdb")
+
+
+@pytest.fixture(scope="session")
+def systems_bysize():
+    return {
+        40: pdb.data["bysize_040_res_5uoi.pdb"],
+        75: pdb.data["bysize_075_res_2mtq.pdb"],
+        150: pdb.data["bysize_150_res_5yzf.pdb"],
+        300: pdb.data["bysize_300_res_6f8b.pdb"],
+        600: pdb.data["bysize_600_res_5m4a.pdb"],
+    }
+
+
+@pytest.fixture()
+def pertuzumab_pdb():
+    # Pertuzumab is an antibody that binds to a protein
+    # called "ERBB2." The co-crystal struction is 1s78.
+    # This (truncated) PDB consists of chains A, C, and
+    # D where chains C and D are the antibody (pertuzumab)
+    # and chain A is the antigen (Erbb2). To retrieve
+    # only the pertuzumab sequence, return the subset
+    # of the PDB file starting at line 4278 (with 81
+    # characters per line)
+    return pdb.data["1s78.pdb"][4278 * 81 :]
+
+
+@pytest.fixture()
+def erbb2_and_pertuzumab_pdb():
+    return pdb.data["1s78.pdb"]
+
+
+@pytest.fixture()
+def pertuzumab_and_nearby_erbb2_pdb_and_segments():
+    # Return two things that are needed for construction of a special
+    # kind of Pose that contains two complete chains (the pertuzumab
+    # antibody) and then a subset of the residues in the antigen chain
+    # (the ERBB2 protein) that are in close proximity to pertuzumab.
+    # 1. the lines from the 1s78 PDB containing the necessary atom
+    # records for the two chains and the 8 segments of ERBB2, and
+    # 2. a numpy array indicating which residues should not be treated
+    # as forming a chemical bond to their i-1 or i+1 neighbors; this
+    # array will need to be converted to a torch tensor before being
+    # given to the "pose_stack_from_canonical_form" function.
+    import numpy
+
+    # res-res     line-line
+    # 127-129 3    924- 945
+    # 154-156 3   1151-1176
+    # 234-236 3   1724-1753
+    # 244-258 15  1804-1924
+    # 267-273 7   1984-2035
+    # 283-290 8   2107-2158
+    # 293-298 6   2173-2221
+    # 309-317 9   2297-2360
+
+    pert_lines = pdb.data["1s78.pdb"]
+
+    def line_range(s, e):
+        return pert_lines[(s - 1) * 81 : (e - 1) * 81]
+
+    # first, give pertuzumab and
+    pert_and_erbb2_lines = "".join(
+        [
+            pert_lines[4278 * 81 :],
+            line_range(924, 945),
+            line_range(1151, 1176),
+            line_range(1724, 1753),
+            line_range(1804, 1924),
+            line_range(1984, 2035),
+            line_range(2107, 2158),
+            line_range(2173, 2221),
+            line_range(2297, 2360),
+        ]
+    )
+
+    segment_lengths = (214, 222, 3, 3, 3, 15, 7, 8, 6, 9)
+
+    seg_range_end = numpy.cumsum(numpy.array(segment_lengths, dtype=numpy.int32))
+    seg_range_start = numpy.concatenate(
+        (numpy.zeros((1,), dtype=numpy.int32), seg_range_end[:-1])
+    )
+    n_res_tot = seg_range_end[-1]
+    res_not_connected = numpy.zeros((1, n_res_tot, 2), dtype=bool)
+    # do not make any of the ERBB2 residues n- or c-termini,
+    # and also do not connect residues that are both part of that chain
+    # that span gaps
+    res_not_connected[0, seg_range_start[2:], 0] = True
+    res_not_connected[0, seg_range_end[2:] - 1, 1] = True
+
+    return (pert_and_erbb2_lines, res_not_connected)
+
+
+@pytest.fixture()
+def openfold_ubq_and_sumo_pred(torch_device):
+    fname = os.path.join(
+        __file__.rpartition("/")[0], "openfold", "openfold_ubq_and_sumo.pt"
+    )
+    return torch.load(fname, map_location=torch_device)
+
+
+@pytest.fixture()
+def rosettafold2_ubq_pred(torch_device):
+    fname = os.path.join(__file__.rpartition("/")[0], "rosettafold2", "ubiquitin.pt")
+    return torch.load(fname, map_location=torch_device)
+
+
+@pytest.fixture()
+def rosettafold2_sumo_pred(torch_device):
+    fname = os.path.join(__file__.rpartition("/")[0], "rosettafold2", "sumo.pt")
+    return torch.load(fname, map_location=torch_device)
+
+
+@pytest.fixture()
+def biotite_1ubq():
+    fname = os.path.join(__file__.rpartition("/")[0], "pdb", "1ubq.pdb")
+    return biotite.structure.io.load_structure(
+        fname, extra_fields=["occupancy", "b_factor"]
+    )
+
+
+@pytest.fixture()
+def biotite_1ubq_err():
+    fname = os.path.join(__file__.rpartition("/")[0], "pdb", "1ubq_err.pdb")
+    if not os.path.exists(fname):
+        pytest.skip(f"Test data file not found: {fname}")
+    return biotite.structure.io.load_structure(
+        fname, extra_fields=["occupancy", "b_factor"]
+    )
+
+
+@pytest.fixture()
+def biotite_1ubq_cif():
+    fname = os.path.join(__file__.rpartition("/")[0], "cif", "1UBQ.cif")
+    if not os.path.exists(fname):
+        pytest.skip(f"Test data file not found: {fname}")
+    return biotite.structure.io.load_structure(
+        fname, extra_fields=["occupancy", "b_factor"]
+    )
+
+
+@pytest.fixture()
+def biotite_1r21():
+    fname = os.path.join(__file__.rpartition("/")[0], "pdb", "1R21.pdb")
+    return biotite.structure.io.load_structure(
+        fname, extra_fields=["occupancy", "b_factor"]
+    )
+
+
+@pytest.fixture()
+def biotite_1bl8():
+    fname = os.path.join(__file__.rpartition("/")[0], "pdb", "1BL8.pdb")
+    return biotite.structure.io.load_structure(
+        fname, extra_fields=["occupancy", "b_factor"]
+    )
+
+
+@pytest.fixture()
+def cif_184l_with_i4b():
+    """Lysozyme 184L with I4B ligand."""
+    import biotite.structure.io.pdbx
+
+    fname = os.path.join(__file__.rpartition("/")[0], "cif", "184l__1__1.A__1.E.cif")
+    pdbx_file = biotite.structure.io.pdbx.CIFFile.read(fname)
+    return biotite.structure.io.pdbx.get_structure(
+        pdbx_file, model=1, include_bonds=True
+    )
+
+
+@pytest.fixture()
+def cif_155c_with_hem():
+    """Cytochrome c 155C with HEM ligand."""
+    import biotite.structure.io.pdbx
+
+    fname = os.path.join(__file__.rpartition("/")[0], "cif", "155c__1__1.A__1.B.cif")
+    pdbx_file = biotite.structure.io.pdbx.CIFFile.read(fname)
+    return biotite.structure.io.pdbx.get_structure(
+        pdbx_file, model=1, include_bonds=True
+    )
+
+
+@pytest.fixture()
+def cif_1a25_with_pse():
+    """1A25 with PSE ligand (partial occupancy)."""
+    import biotite.structure.io.pdbx
+
+    fname = os.path.join(__file__.rpartition("/")[0], "cif", "1a25__1__1.B__1.I.cif")
+    pdbx_file = biotite.structure.io.pdbx.CIFFile.read(fname)
+    return biotite.structure.io.pdbx.get_structure(
+        pdbx_file, model=1, include_bonds=True
+    )
+
+
+@pytest.fixture()
+def cif_1a0i_with_atp():
+    """1A0I with ATP ligand (>32-atom tile edge case)."""
+    import biotite.structure.io.pdbx
+
+    fname = os.path.join(__file__.rpartition("/")[0], "cif", "1A0I.cif")
+    pdbx_file = biotite.structure.io.pdbx.CIFFile.read(fname)
+    return biotite.structure.io.pdbx.get_structure(
+        pdbx_file, model=1, include_bonds=True
+    )
+
+
+@pytest.fixture()
+def pdb_1a0i_with_atp():
+    """1A0I (PDB format) with ATP ligand."""
+    import biotite.structure.io.pdb
+
+    fname = os.path.join(__file__.rpartition("/")[0], "pdb", "1A0I.pdb")
+    pdb_file = biotite.structure.io.pdb.PDBFile.read(fname)
+    return pdb_file.get_structure(
+        model=1,
+        include_bonds=True,
+        extra_fields=["occupancy", "b_factor"],
+    )
+
+
+def no_termini_pose_stack_from_pdb(pdb, torch_device, residue_start, residue_end):
+    from tmol.io import pose_stack_from_pdb
+
+    n_res = residue_end - residue_start
+    res_not_connected = torch.zeros(
+        (1, n_res, 2), dtype=torch.bool, device=torch_device
+    )
+    res_not_connected[0, 0, 0] = True
+    res_not_connected[0, n_res - 1, 1] = True
+    return pose_stack_from_pdb(
+        pdb,
+        torch_device,
+        residue_start=residue_start,
+        residue_end=residue_end,
+        res_not_connected=res_not_connected,
+    )

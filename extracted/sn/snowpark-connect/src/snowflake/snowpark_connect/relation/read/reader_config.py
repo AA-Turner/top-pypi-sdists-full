@@ -36,8 +36,9 @@ def validate_charset_name(encoding: str) -> str:
     read-only multiLine denyList — that restriction applies only when Spark
     is parsing files line-by-line and is meaningless on the write path.
 
-    Used by :meth:`CsvReaderConfig._validate_encoding` and
-    :meth:`JsonReaderConfig._validate_encoding` for reads, and by the JSON
+    Used by :meth:`CsvReaderConfig._validate_encoding`,
+    :meth:`JsonReaderConfig._validate_encoding`, and
+    :meth:`XmlReaderConfig._validate_encoding` for reads, and by the JSON
     write-options path in
     :mod:`snowflake.snowpark_connect.relation.write.map_write`.
 
@@ -1135,6 +1136,11 @@ class XmlReaderConfig(ReaderWriterConfig):
                     "rowValidationXSDPath",
                     "ignoreNamespace",
                     # "timeZone",
+                    # date/timestamp formats: NSS forwards them via
+                    # ``filter_reader_options`` / ``_SPARK_XML_READ_OPTIONS``.
+                    # Leave them out of supported_options so the UDTF path
+                    # still warns "not supported and will be ignored"
+                    # (Snowpark XML has no Java→Snowflake token translation).
                     # "timestampFormat",
                     # "timestampNTZFormat",
                     # "dateFormat",
@@ -1163,6 +1169,26 @@ class XmlReaderConfig(ReaderWriterConfig):
             ),
             options,
         )
+        self._validate_encoding()
+
+    def _validate_encoding(self) -> None:
+        """Reject unknown charset names for every XML read (SNOW-3853389).
+
+        spark-xml's ``XmlOptions`` calls ``Charset.forName``, which throws
+        ``UnsupportedCharsetException``. Validate here so the Connect client
+        sees Spark's illegal-argument error without a sandbox round-trip.
+        NSS unwrap of that FQCN is only a fallback if a name still reaches
+        ``STAGE_FILE_READER``.
+        """
+        if "charset" in self.user_option_keys:
+            encoding = self.config.get("charset")
+        elif "encoding" in self.user_option_keys:
+            encoding = self.config.get("encoding")
+        else:
+            return
+        if encoding is None:
+            return
+        validate_charset_name(encoding)
 
     def convert_to_snowpark_args(self) -> dict[str, Any]:
         snowpark_config = super().convert_to_snowpark_args()

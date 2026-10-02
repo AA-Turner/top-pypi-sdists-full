@@ -955,7 +955,11 @@ class CxManagers:
         config_dict = dict(conversation.config)
 
         if conversation.last_model_id is not None:
-            config_dict["model"] = conversation.last_model_id
+            # THE one override merge: a last model that differs from the stored
+            # config's model drops that model's class pin (offering_id).
+            from matrx_ai.config.llm_params import merge_llm_overrides
+
+            config_dict = merge_llm_overrides(config_dict, {"model": conversation.last_model_id})
         if conversation.system_instruction is not None:
             config_dict["system_instruction"] = conversation.system_instruction
             config_dict["system_prompt_frozen"] = True

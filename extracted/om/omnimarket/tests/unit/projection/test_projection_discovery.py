@@ -1,0 +1,1152 @@
+"""Unit tests for ProjectionTopicDiscovery (OMN-10490).
+
+Tests:
+- expose: true required; expose: false is excluded
+- db_io-only contracts are not exposed
+- missing topic, table, or columns fields → contract excluded with logged error
+- columns: ["*"] is valid
+- absent order_by → order_by = None (not "updated_at DESC")
+- absent freshness_column → freshness_column = None
+- schema whitelist enforced
+- no topic derivation from directory name
+- no information_schema calls anywhere in discovery module
+- _read_db_io_tables is never imported or called
+"""
+
+from __future__ import annotations
+
+import logging
+import textwrap
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+import yaml
+
+from omnimarket.projection.discovery import (
+    ALLOWED_SCHEMAS,
+    MalformedBackendReadersError,
+    MalformedOrderBySpecError,
+    _load_projection_api_section,
+    _parse_order_by_spec,
+    _parse_projection_api_section,
+    _parse_projection_api_sections,
+    build_projection_topic_map,
+)
+from omnimarket.projection.models import ProjectionStatus, ProjectionTableConfig
+
+# ---------------------------------------------------------------------------
+# Helpers — build minimal ModelAutoWiringManifest stubs for testing
+# ---------------------------------------------------------------------------
+
+
+def _make_manifest(contracts: list[MagicMock]) -> MagicMock:
+    """Stub ModelAutoWiringManifest with given contract list."""
+    m = MagicMock()
+    m.contracts = contracts
+    return m
+
+
+def _make_contract_stub(contract_path: Path, name: str = "node_test") -> MagicMock:
+    """Stub ModelDiscoveredContract pointing at a real contract path."""
+    stub = MagicMock()
+    stub.contract_path = contract_path
+    stub.name = name
+    return stub
+
+
+def _write_contract(tmp_path: Path, content: str) -> Path:
+    """Write a contract.yaml under tmp_path and return the path."""
+    p = tmp_path / "contract.yaml"
+    p.write_text(textwrap.dedent(content))
+    return p
+
+
+# ---------------------------------------------------------------------------
+# _load_projection_api_section
+# ---------------------------------------------------------------------------
+
+
+class TestLoadProjectionApiSection:
+    def test_returns_none_when_section_absent(self, tmp_path: Path) -> None:
+        p = _write_contract(tmp_path, "name: node_x\nnode_type: COMPUTE\n")
+        assert _load_projection_api_section(p) is None
+
+    def test_returns_section_when_present(self, tmp_path: Path) -> None:
+        p = _write_contract(
+            tmp_path,
+            """
+            name: node_x
+            projection_api:
+              expose: true
+              topic: "t.v1"
+              table: "my_table"
+              columns: ["col_a"]
+            """,
+        )
+        section = _load_projection_api_section(p)
+        assert section is not None
+        assert section["topic"] == "t.v1"
+
+    def test_returns_none_for_missing_file(self, tmp_path: Path) -> None:
+        result = _load_projection_api_section(tmp_path / "nonexistent.yaml")
+        assert result is None
+
+    def test_returns_none_for_non_dict_yaml(self, tmp_path: Path) -> None:
+        p = tmp_path / "contract.yaml"
+        p.write_text("- item1\n- item2\n")
+        assert _load_projection_api_section(p) is None
+
+
+# ---------------------------------------------------------------------------
+# _parse_projection_api_section
+# ---------------------------------------------------------------------------
+
+
+class TestParseProjectionApiSection:
+    def _valid_section(self) -> dict:
+        return {
+            "expose": True,
+            "topic": "onex.snapshot.projection.test.v1",
+            "table": "test_table",
+            "columns": ["col_a", "col_b"],
+            "order_by": "col_a DESC",
+            "freshness_column": "col_a",
+            "limit": 50,
+        }
+
+    def test_parses_valid_section(self, tmp_path: Path) -> None:
+        p = tmp_path / "contract.yaml"
+        cfg = _parse_projection_api_section(self._valid_section(), "node_test", p)
+        assert cfg is not None
+        assert cfg.topic == "onex.snapshot.projection.test.v1"
+        assert cfg.table == "test_table"
+        assert cfg.columns == ("col_a", "col_b")
+        assert cfg.order_by == "col_a DESC"
+        assert cfg.freshness_column == "col_a"
+        assert cfg.limit == 50
+        assert cfg.source_contract == "node_test"
+        assert cfg.status == ProjectionStatus.OK
+
+    def test_projection_metadata_columns_are_parsed(self, tmp_path: Path) -> None:
+        section = self._valid_section()
+        section.update(
+            {
+                "cursor_column": "projection_cursor",
+                "last_event_id_column": "last_event_id",
+                "last_ingest_sequence_column": "last_ingest_sequence",
+                "freshness_state_column": "freshness_state",
+                "degraded_reason_column": "degraded_reason",
+                "observed_at_column": "observed_at",
+            }
+        )
+        p = tmp_path / "contract.yaml"
+        cfg = _parse_projection_api_section(section, "node_test", p)
+
+        assert cfg is not None
+        assert cfg.cursor_column == "projection_cursor"
+        assert cfg.last_event_id_column == "last_event_id"
+        assert cfg.last_ingest_sequence_column == "last_ingest_sequence"
+        assert cfg.freshness_state_column == "freshness_state"
+        assert cfg.degraded_reason_column == "degraded_reason"
+        assert cfg.observed_at_column == "observed_at"
+
+    def test_explicit_topic_required(self, tmp_path: Path) -> None:
+        section = self._valid_section()
+        del section["topic"]
+        p = tmp_path / "contract.yaml"
+        cfg = _parse_projection_api_section(section, "node_test", p)
+        assert cfg is None
+
+    def test_explicit_table_required(self, tmp_path: Path) -> None:
+        section = self._valid_section()
+        del section["table"]
+        p = tmp_path / "contract.yaml"
+        cfg = _parse_projection_api_section(section, "node_test", p)
+        assert cfg is None
+
+    def test_explicit_columns_required(self, tmp_path: Path) -> None:
+        section = self._valid_section()
+        del section["columns"]
+        p = tmp_path / "contract.yaml"
+        cfg = _parse_projection_api_section(section, "node_test", p)
+        assert cfg is None
+
+    def test_empty_columns_rejected(self, tmp_path: Path) -> None:
+        section = self._valid_section()
+        section["columns"] = []
+        p = tmp_path / "contract.yaml"
+        cfg = _parse_projection_api_section(section, "node_test", p)
+        assert cfg is None
+
+    def test_non_string_columns_rejected(self, tmp_path: Path) -> None:
+        section = self._valid_section()
+        section["columns"] = ["col_a", 123]
+        p = tmp_path / "contract.yaml"
+        cfg = _parse_projection_api_section(section, "node_test", p)
+        assert cfg is None
+
+    def test_wildcard_columns_valid(self, tmp_path: Path) -> None:
+        section = self._valid_section()
+        section["columns"] = ["*"]
+        p = tmp_path / "contract.yaml"
+        cfg = _parse_projection_api_section(section, "node_test", p)
+        assert cfg is not None
+        assert cfg.columns == ("*",)
+
+    def test_absent_order_by_yields_none_not_updated_at(self, tmp_path: Path) -> None:
+        """Absent order_by must produce order_by=None, never default to updated_at."""
+        section = self._valid_section()
+        del section["order_by"]
+        p = tmp_path / "contract.yaml"
+        cfg = _parse_projection_api_section(section, "node_test", p)
+        assert cfg is not None
+        assert cfg.order_by is None
+        # Explicitly verify it was not silently defaulted to updated_at
+        assert cfg.order_by != "updated_at DESC"
+
+    def test_absent_freshness_column_yields_none(self, tmp_path: Path) -> None:
+        """Absent freshness_column must produce freshness_column=None."""
+        section = self._valid_section()
+        del section["freshness_column"]
+        p = tmp_path / "contract.yaml"
+        cfg = _parse_projection_api_section(section, "node_test", p)
+        assert cfg is not None
+        assert cfg.freshness_column is None
+
+    def test_absent_cadence_is_on_demand_none(self, tmp_path: Path) -> None:
+        """Absent expected_event_interval_seconds => on-demand (None) (OMN-13035)."""
+        section = self._valid_section()
+        assert "expected_event_interval_seconds" not in section
+        p = tmp_path / "contract.yaml"
+        cfg = _parse_projection_api_section(section, "node_test", p)
+        assert cfg is not None
+        assert cfg.expected_event_interval_seconds is None
+
+    def test_declared_cadence_is_parsed(self, tmp_path: Path) -> None:
+        """A positive expected_event_interval_seconds is carried verbatim."""
+        section = self._valid_section()
+        section["expected_event_interval_seconds"] = 300
+        p = tmp_path / "contract.yaml"
+        cfg = _parse_projection_api_section(section, "node_test", p)
+        assert cfg is not None
+        assert cfg.expected_event_interval_seconds == 300
+
+    def test_non_positive_cadence_excludes_contract(self, tmp_path: Path) -> None:
+        """A zero/negative/non-int cadence is invalid and excludes the contract."""
+        for bad in (0, -1, "fast"):
+            section = self._valid_section()
+            section["expected_event_interval_seconds"] = bad
+            p = tmp_path / "contract.yaml"
+            cfg = _parse_projection_api_section(section, "node_test", p)
+            assert cfg is None, f"cadence={bad!r} should be rejected"
+
+    def test_schema_whitelist_enforced(self, tmp_path: Path) -> None:
+        """A non-whitelisted schema must cause the contract to be excluded."""
+        section = self._valid_section()
+        section["schema"] = "private_schema"
+        p = tmp_path / "contract.yaml"
+        cfg = _parse_projection_api_section(section, "node_test", p)
+        assert cfg is None
+
+    def test_non_string_schema_rejected(self, tmp_path: Path) -> None:
+        section = self._valid_section()
+        section["schema"] = 123
+        p = tmp_path / "contract.yaml"
+        cfg = _parse_projection_api_section(section, "node_test", p)
+        assert cfg is None
+
+    def test_allowed_schemas_accepted(self, tmp_path: Path) -> None:
+        for schema in ALLOWED_SCHEMAS:
+            section = self._valid_section()
+            section["schema"] = schema
+            p = tmp_path / "contract.yaml"
+            cfg = _parse_projection_api_section(section, "node_test", p)
+            assert cfg is not None, f"Schema {schema!r} should be allowed"
+            assert cfg.schema_name == schema
+
+    def test_default_schema_is_public(self, tmp_path: Path) -> None:
+        section = self._valid_section()
+        # no "schema" key
+        p = tmp_path / "contract.yaml"
+        cfg = _parse_projection_api_section(section, "node_test", p)
+        assert cfg is not None
+        assert cfg.schema_name == "public"
+
+    def test_default_limit_is_100(self, tmp_path: Path) -> None:
+        section = self._valid_section()
+        del section["limit"]
+        p = tmp_path / "contract.yaml"
+        cfg = _parse_projection_api_section(section, "node_test", p)
+        assert cfg is not None
+        assert cfg.limit == 100
+
+    def test_optional_string_fields_reject_non_strings(self, tmp_path: Path) -> None:
+        for field in ("order_by", "freshness_column"):
+            section = self._valid_section()
+            section[field] = 123
+            p = tmp_path / "contract.yaml"
+            cfg = _parse_projection_api_section(section, "node_test", p)
+            assert cfg is None
+
+    def test_optional_projection_metadata_fields_reject_non_strings(
+        self, tmp_path: Path
+    ) -> None:
+        for field in (
+            "cursor_column",
+            "last_event_id_column",
+            "last_ingest_sequence_column",
+            "freshness_state_column",
+            "degraded_reason_column",
+            "observed_at_column",
+        ):
+            section = self._valid_section()
+            section[field] = 123
+            p = tmp_path / "contract.yaml"
+            cfg = _parse_projection_api_section(section, "node_test", p)
+            assert cfg is None
+
+    def test_limit_must_be_positive_integer(self, tmp_path: Path) -> None:
+        for raw_limit in (0, -1, "100", True):
+            section = self._valid_section()
+            section["limit"] = raw_limit
+            p = tmp_path / "contract.yaml"
+            cfg = _parse_projection_api_section(section, "node_test", p)
+            assert cfg is None
+
+
+# ---------------------------------------------------------------------------
+# build_projection_topic_map
+# ---------------------------------------------------------------------------
+
+
+class TestBuildProjectionTopicMap:
+    def test_ab_compare_reducer_contract_exposes_real_llm_metrics_projection(
+        self,
+        real_topic_map: dict[str, ProjectionTableConfig],
+    ) -> None:
+        topic_map = real_topic_map
+        cfg = topic_map["onex.snapshot.projection.ab-compare.v1"]
+        assert cfg.source_contract == "ab_compare_reducer"
+        assert cfg.schema_name == "public"
+        assert cfg.table == "llm_call_metrics"
+        assert cfg.columns == (
+            "correlation_id",
+            "model_id",
+            "prompt_tokens",
+            "completion_tokens",
+            "total_tokens",
+            "estimated_cost_usd",
+            "latency_ms",
+            "usage_source",
+            "created_at",
+        )
+        assert cfg.order_by == "created_at DESC"
+        assert cfg.freshness_column == "created_at"
+        assert "*" not in cfg.columns
+
+    def test_delegation_contract_exposes_dashboard_projection_topics(
+        self, real_topic_map: dict[str, ProjectionTableConfig]
+    ) -> None:
+        topic_map = real_topic_map
+
+        expected_topics = {
+            "delegation",
+            "onex.snapshot.projection.delegation.decisions.v1",
+            "onex.snapshot.projection.delegation.summary.v1",
+            "onex.snapshot.projection.delegation.savings.v1",
+            "onex.snapshot.projection.delegation.model-routing.v1",
+            "onex.snapshot.projection.delegation.quality-gate.v1",
+            "onex.snapshot.projection.delegation.token-usage.v1",
+        }
+
+        assert expected_topics.issubset(topic_map)
+        assert topic_map["delegation"].table == "delegation_events"
+        assert (
+            topic_map["onex.snapshot.projection.delegation.savings.v1"].table
+            == "projection_delegation_savings"
+        )
+        # OMN-13662: by_tier added — tier distribution with explicit
+        # not_tier_routed classification (delegate-skill terminals excluded from
+        # the tier-% denominator, included in totals).
+        assert topic_map[
+            "onex.snapshot.projection.delegation.model-routing.v1"
+        ].json_columns == ("rows", "by_model", "decision_traces", "by_tier")
+
+    def test_savings_reducer_exposes_cost_savings_overview_snapshot(
+        self, real_topic_map: dict[str, ProjectionTableConfig]
+    ) -> None:
+        topic_map = real_topic_map
+
+        cfg = topic_map["onex.snapshot.projection.cost.savings-overview.v1"]
+
+        assert cfg.source_contract == "projection_savings"
+        assert cfg.schema_name == "public"
+        assert cfg.table == "projection_cost_savings_overview"
+        assert cfg.columns == (
+            "window",
+            "total_cost_usd",
+            "total_baseline_cost_usd",
+            "total_savings_usd",
+            "savings_rate",
+            "tokens_total",
+            "tokens_to_compliance",
+            "local_token_pct",
+            "captured_at",
+            "rows",
+            "recent_runs",
+            "measured_run_count",
+            "zero_token_run_count",
+            "warnings",
+            "provisioned",
+            "latest_projection_updated_at",
+            # OMN-17426: appended when migration 089 re-grouped the view per
+            # tenant. It is the exposure's declared `tenant_column`, so the
+            # serving path refuses this topic without a resolved tenant.
+            "tenant_id",
+        )
+        assert cfg.json_columns == ("rows", "recent_runs", "warnings")
+        assert cfg.freshness_column == "latest_projection_updated_at"
+        assert cfg.limit == 1
+        assert cfg.bus_backed is True
+        assert cfg.tenant_column == "tenant_id"
+
+    def test_overnight_reducer_exposes_readiness_snapshot(
+        self, real_topic_map: dict[str, ProjectionTableConfig]
+    ) -> None:
+        topic_map = real_topic_map
+
+        cfg = topic_map["onex.snapshot.projection.overnight.v1"]
+
+        assert cfg.source_contract == "projection_overnight"
+        assert cfg.schema_name == "public"
+        assert cfg.table == "projection_overnight_readiness"
+        assert cfg.columns == (
+            "dimensions",
+            "overallStatus",
+            "lastCheckedAt",
+            "latest_projection_updated_at",
+        )
+        assert cfg.json_columns == ("dimensions",)
+        assert cfg.freshness_column == "latest_projection_updated_at"
+        assert cfg.limit == 1
+
+    def test_delegation_reducer_subscribes_to_canonical_terminal_events(self) -> None:
+        contract_path = (
+            Path(__file__).parents[3]
+            / "src/omnimarket/nodes/node_projection_delegation/contract.yaml"
+        )
+        contract = yaml.safe_load(contract_path.read_text())
+        topics = set(contract["event_bus"]["subscribe_topics"])
+
+        assert "onex.evt.omnibase-infra.delegation-completed.v1" in topics
+        assert "onex.evt.omnibase-infra.delegation-failed.v1" in topics
+
+    def test_routing_reducer_exposes_dashboard_snapshot_view(
+        self, real_topic_map: dict[str, ProjectionTableConfig]
+    ) -> None:
+        topic_map = real_topic_map
+
+        cfg = topic_map["onex.snapshot.projection.routing-decision.v1"]
+
+        assert cfg.source_contract == "projection_llm_routing"
+        assert cfg.schema_name == "public"
+        assert cfg.table == "projection_routing_decision"
+        assert cfg.columns == (
+            "models",
+            "intents",
+            "task_presets",
+            "routing_rules",
+            "captured_at",
+            "provisioned",
+            "latest_projection_updated_at",
+        )
+        assert cfg.json_columns == (
+            "models",
+            "intents",
+            "task_presets",
+            "routing_rules",
+        )
+        assert cfg.freshness_column == "latest_projection_updated_at"
+        assert cfg.limit == 1
+
+    def test_multiple_projection_api_exposures_are_registered(
+        self, tmp_path: Path
+    ) -> None:
+        p = _write_contract(
+            tmp_path,
+            """
+            name: node_multi_projection
+            projection_api:
+              expose: true
+              exposures:
+                - topic: "onex.snapshot.projection.one.v1"
+                  table: "projection_one"
+                  columns: ["projection_cursor", "last_event_id"]
+                  cursor_column: "projection_cursor"
+                  last_event_id_column: "last_event_id"
+                - topic: "onex.snapshot.projection.two.v1"
+                  table: "projection_two"
+                  columns: ["projection_cursor", "last_event_id"]
+                  cursor_column: "projection_cursor"
+                  last_event_id_column: "last_event_id"
+            """,
+        )
+        manifest = _make_manifest([_make_contract_stub(p, "node_multi_projection")])
+        result = build_projection_topic_map(manifest)
+
+        assert set(result) == {
+            "onex.snapshot.projection.one.v1",
+            "onex.snapshot.projection.two.v1",
+        }
+        assert result["onex.snapshot.projection.one.v1"].cursor_column == (
+            "projection_cursor"
+        )
+
+    def test_parse_projection_api_sections_accepts_legacy_single_section(
+        self, tmp_path: Path
+    ) -> None:
+        p = tmp_path / "contract.yaml"
+        section = {
+            "expose": True,
+            "topic": "onex.snapshot.projection.legacy.v1",
+            "table": "legacy_projection",
+            "columns": ["projection_cursor"],
+        }
+
+        configs = _parse_projection_api_sections(section, "node_legacy", p)
+
+        assert len(configs) == 1
+        assert configs[0].topic == "onex.snapshot.projection.legacy.v1"
+
+    def test_expose_true_required(self, tmp_path: Path) -> None:
+        """Contracts with projection_api.expose: false are excluded."""
+        p = _write_contract(
+            tmp_path,
+            """
+            name: node_x
+            projection_api:
+              expose: false
+              topic: "t.v1"
+              table: "my_table"
+              columns: ["col_a"]
+            """,
+        )
+        manifest = _make_manifest([_make_contract_stub(p, "node_x")])
+        result = build_projection_topic_map(manifest)
+        assert len(result) == 0
+
+    def test_expose_absent_is_excluded(self, tmp_path: Path) -> None:
+        """Contracts with projection_api section but no expose field are excluded."""
+        p = _write_contract(
+            tmp_path,
+            """
+            name: node_x
+            projection_api:
+              topic: "t.v1"
+              table: "my_table"
+              columns: ["col_a"]
+            """,
+        )
+        manifest = _make_manifest([_make_contract_stub(p, "node_x")])
+        result = build_projection_topic_map(manifest)
+        assert len(result) == 0
+
+    def test_db_io_only_not_exposed(self, tmp_path: Path) -> None:
+        """Contracts with db_io.db_tables but no projection_api are excluded."""
+        p = _write_contract(
+            tmp_path,
+            """
+            name: node_x
+            db_io:
+              db_tables:
+                - name: some_table
+                  database_ref: application
+                  schema: omninode_internal
+                  migration: 0001_create_some_table.sql
+                  access: write
+                  role: projection
+            """,
+        )
+        manifest = _make_manifest([_make_contract_stub(p, "node_x")])
+        result = build_projection_topic_map(manifest)
+        assert len(result) == 0
+
+    def test_valid_contract_registered(self, tmp_path: Path) -> None:
+        """A valid expose: true contract is registered with the declared topic."""
+        p = _write_contract(
+            tmp_path,
+            """
+            name: node_x
+            projection_api:
+              expose: true
+              topic: "onex.snapshot.projection.test.v1"
+              table: "test_table"
+              columns: ["col_a", "col_b"]
+              order_by: "col_a DESC"
+              freshness_column: "col_a"
+              limit: 100
+            """,
+        )
+        manifest = _make_manifest([_make_contract_stub(p, "node_x")])
+        result = build_projection_topic_map(manifest)
+        assert "onex.snapshot.projection.test.v1" in result
+        cfg = result["onex.snapshot.projection.test.v1"]
+        assert cfg.table == "test_table"
+        assert cfg.source_contract == "node_x"
+        assert cfg.status == ProjectionStatus.OK
+
+    def test_no_topic_derivation_from_directory(self, tmp_path: Path) -> None:
+        """Topic name is taken from contract, never derived from directory name."""
+        node_dir = tmp_path / "node_my_special_projection"
+        node_dir.mkdir()
+        p = node_dir / "contract.yaml"
+        p.write_text(
+            textwrap.dedent(
+                """
+                name: node_my_special_projection
+                projection_api:
+                  expose: true
+                  topic: "onex.snapshot.projection.explicit-name.v1"
+                  table: "test_table"
+                  columns: ["col_a"]
+                """
+            )
+        )
+        stub = _make_contract_stub(p, "node_my_special_projection")
+        manifest = _make_manifest([stub])
+        result = build_projection_topic_map(manifest)
+        # The topic must be the explicitly declared one — not derived from dir name.
+        assert "onex.snapshot.projection.explicit-name.v1" in result
+        # The directory name as a topic must NOT appear.
+        assert "node_my_special_projection" not in result
+
+    def test_missing_topic_field_excludes_contract(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        p = _write_contract(
+            tmp_path,
+            """
+            name: node_x
+            projection_api:
+              expose: true
+              table: "test_table"
+              columns: ["col_a"]
+            """,
+        )
+        manifest = _make_manifest([_make_contract_stub(p, "node_x")])
+        with caplog.at_level(logging.ERROR, logger="omnimarket.projection.discovery"):
+            result = build_projection_topic_map(manifest)
+        assert len(result) == 0
+        assert any("topic" in msg for msg in caplog.messages)
+
+    def test_missing_columns_field_excludes_contract(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        p = _write_contract(
+            tmp_path,
+            """
+            name: node_x
+            projection_api:
+              expose: true
+              topic: "t.v1"
+              table: "test_table"
+            """,
+        )
+        manifest = _make_manifest([_make_contract_stub(p, "node_x")])
+        with caplog.at_level(logging.ERROR, logger="omnimarket.projection.discovery"):
+            result = build_projection_topic_map(manifest)
+        assert len(result) == 0
+        assert any("columns" in msg for msg in caplog.messages)
+
+    def test_missing_table_field_excludes_contract(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        p = _write_contract(
+            tmp_path,
+            """
+            name: node_x
+            projection_api:
+              expose: true
+              topic: "t.v1"
+              columns: ["col_a"]
+            """,
+        )
+        manifest = _make_manifest([_make_contract_stub(p, "node_x")])
+        with caplog.at_level(logging.ERROR, logger="omnimarket.projection.discovery"):
+            result = build_projection_topic_map(manifest)
+        assert len(result) == 0
+        assert any("table" in msg for msg in caplog.messages)
+
+    def test_schema_whitelist_enforced_at_build(self, tmp_path: Path) -> None:
+        p = _write_contract(
+            tmp_path,
+            """
+            name: node_x
+            projection_api:
+              expose: true
+              topic: "t.v1"
+              table: "test_table"
+              schema: "secret_internal"
+              columns: ["col_a"]
+            """,
+        )
+        manifest = _make_manifest([_make_contract_stub(p, "node_x")])
+        result = build_projection_topic_map(manifest)
+        assert len(result) == 0
+
+    def test_duplicate_topic_second_ignored(self, tmp_path: Path) -> None:
+        """If two contracts declare the same topic, the first wins."""
+        p1 = tmp_path / "c1.yaml"
+        p1.write_text(
+            textwrap.dedent(
+                """
+                name: node_a
+                projection_api:
+                  expose: true
+                  topic: "shared.topic.v1"
+                  table: "table_a"
+                  columns: ["col_a"]
+                """
+            )
+        )
+        p2 = tmp_path / "c2.yaml"
+        p2.write_text(
+            textwrap.dedent(
+                """
+                name: node_b
+                projection_api:
+                  expose: true
+                  topic: "shared.topic.v1"
+                  table: "table_b"
+                  columns: ["col_b"]
+                """
+            )
+        )
+        stubs = [
+            _make_contract_stub(p1, "node_a"),
+            _make_contract_stub(p2, "node_b"),
+        ]
+        manifest = _make_manifest(stubs)
+        result = build_projection_topic_map(manifest)
+        assert len(result) == 1
+        assert result["shared.topic.v1"].source_contract == "node_a"
+
+    def test_no_column_introspection(self) -> None:
+        """Discovery never touches information_schema."""
+        import omnimarket.projection.discovery as disc_module
+
+        source = Path(disc_module.__file__).read_text()
+        assert "information_schema" not in source, (
+            "discovery.py must not reference information_schema"
+        )
+
+    def test_private_function_not_called(self) -> None:
+        """_read_db_io_tables from omnibase_infra is never imported or called."""
+        import omnimarket.projection.discovery as disc_module
+
+        source = Path(disc_module.__file__).read_text()
+        assert "_read_db_io_tables" not in source, (
+            "discovery.py must not call _read_db_io_tables (private API)"
+        )
+
+    def test_no_topic_derivation_from_name_field(self, tmp_path: Path) -> None:
+        """Topic is always the projection_api.topic field, never the contract name."""
+        p = _write_contract(
+            tmp_path,
+            """
+            name: this_is_not_the_topic
+            projection_api:
+              expose: true
+              topic: "the.real.topic.v1"
+              table: "test_table"
+              columns: ["col_a"]
+            """,
+        )
+        manifest = _make_manifest([_make_contract_stub(p, "this_is_not_the_topic")])
+        result = build_projection_topic_map(manifest)
+        assert "the.real.topic.v1" in result
+        assert "this_is_not_the_topic" not in result
+
+    def test_calls_discover_contracts_when_no_manifest(self) -> None:
+        """When manifest=None, discover_contracts() is called exactly once."""
+        fake_manifest = _make_manifest([])
+        with patch(
+            "omnimarket.projection.discovery.discover_contracts",
+            return_value=fake_manifest,
+        ) as mock_discover:
+            build_projection_topic_map(manifest=None)
+        mock_discover.assert_called_once_with()
+
+
+# ---------------------------------------------------------------------------
+# OMN-15800 corrective round -- Defect A: order_by NULLS FIRST|LAST support
+# and the order_by hard-fail (never log-and-drop for THIS field specifically).
+# ---------------------------------------------------------------------------
+
+
+class TestOrderByNullsPlacement:
+    def test_bare_column_defaults_asc_no_nulls(self) -> None:
+        spec = _parse_order_by_spec(
+            "updated_at", ("updated_at",), "node_x", Path("contract.yaml")
+        )
+        assert spec == (("updated_at", "ASC", None),)
+
+    def test_direction_only(self) -> None:
+        spec = _parse_order_by_spec(
+            "updated_at DESC", ("updated_at",), "node_x", Path("contract.yaml")
+        )
+        assert spec == (("updated_at", "DESC", None),)
+
+    def test_direction_plus_nulls_last(self) -> None:
+        spec = _parse_order_by_spec(
+            "ingest_sequence ASC NULLS LAST",
+            ("ingest_sequence",),
+            "node_x",
+            Path("contract.yaml"),
+        )
+        assert spec == (("ingest_sequence", "ASC", "LAST"),)
+
+    def test_direction_plus_nulls_first(self) -> None:
+        spec = _parse_order_by_spec(
+            "ingest_sequence DESC NULLS FIRST",
+            ("ingest_sequence",),
+            "node_x",
+            Path("contract.yaml"),
+        )
+        assert spec == (("ingest_sequence", "DESC", "FIRST"),)
+
+    def test_nulls_without_direction(self) -> None:
+        spec = _parse_order_by_spec(
+            "ingest_sequence NULLS LAST",
+            ("ingest_sequence",),
+            "node_x",
+            Path("contract.yaml"),
+        )
+        assert spec == (("ingest_sequence", "ASC", "LAST"),)
+
+    def test_nulls_case_insensitive(self) -> None:
+        spec = _parse_order_by_spec(
+            "ingest_sequence asc nulls last",
+            ("ingest_sequence",),
+            "node_x",
+            Path("contract.yaml"),
+        )
+        assert spec == (("ingest_sequence", "ASC", "LAST"),)
+
+    def test_multi_column_with_nulls_on_one_clause(self) -> None:
+        """The exact live clause from node_evidence_dashboard_reducer/contract.yaml."""
+        spec = _parse_order_by_spec(
+            "ingest_sequence ASC NULLS LAST, observed_at ASC, projection_cursor ASC",
+            ("ingest_sequence", "observed_at", "projection_cursor"),
+            "node_evidence_dashboard_reducer",
+            Path("contract.yaml"),
+        )
+        assert spec == (
+            ("ingest_sequence", "ASC", "LAST"),
+            ("observed_at", "ASC", None),
+            ("projection_cursor", "ASC", None),
+        )
+
+    def test_nulls_not_followed_by_first_or_last_raises(self) -> None:
+        with pytest.raises(MalformedOrderBySpecError):
+            _parse_order_by_spec(
+                "col NULLS SIDEWAYS", ("col",), "node_x", Path("contract.yaml")
+            )
+
+    def test_trailing_garbage_after_nulls_clause_raises(self) -> None:
+        with pytest.raises(MalformedOrderBySpecError):
+            _parse_order_by_spec(
+                "col ASC NULLS LAST EXTRA",
+                ("col",),
+                "node_x",
+                Path("contract.yaml"),
+            )
+
+    def test_unknown_direction_token_raises(self) -> None:
+        with pytest.raises(MalformedOrderBySpecError):
+            _parse_order_by_spec(
+                "col SIDEWAYS", ("col",), "node_x", Path("contract.yaml")
+            )
+
+    def test_unknown_column_raises(self) -> None:
+        with pytest.raises(MalformedOrderBySpecError):
+            _parse_order_by_spec(
+                "not_a_column ASC", ("col",), "node_x", Path("contract.yaml")
+            )
+
+    def test_absent_order_by_returns_empty_tuple(self) -> None:
+        assert _parse_order_by_spec(None, ("col",), "node_x", Path("x")) == ()
+
+
+class TestOrderByHardFailAtBuild:
+    """OMN-15800 defect A: a malformed order_by must crash contract discovery,
+    never silently exclude the exposure. Every OTHER validation failure in
+    this module (missing topic/table/columns, bad schema, ...) keeps its
+    prior "log + exclude" behavior — see TestBuildProjectionTopicMap above.
+    order_by is deliberately different (see MalformedOrderBySpecError's
+    docstring)."""
+
+    def test_malformed_order_by_raises_at_build_not_silently_excluded(
+        self, tmp_path: Path
+    ) -> None:
+        p = _write_contract(
+            tmp_path,
+            """
+            name: node_x
+            projection_api:
+              expose: true
+              topic: "t.v1"
+              table: "test_table"
+              columns: ["col_a"]
+              order_by: "col_a GARBAGE TOKENS HERE"
+            """,
+        )
+        manifest = _make_manifest([_make_contract_stub(p, "node_x")])
+        with pytest.raises(MalformedOrderBySpecError):
+            build_projection_topic_map(manifest)
+
+    def test_unknown_order_by_column_raises_at_build(self, tmp_path: Path) -> None:
+        p = _write_contract(
+            tmp_path,
+            """
+            name: node_x
+            projection_api:
+              expose: true
+              topic: "t.v1"
+              table: "test_table"
+              columns: ["col_a"]
+              order_by: "col_b DESC"
+            """,
+        )
+        manifest = _make_manifest([_make_contract_stub(p, "node_x")])
+        with pytest.raises(MalformedOrderBySpecError):
+            build_projection_topic_map(manifest)
+
+
+class TestOmn15800ExposureParity:
+    """Live-contract regression: the exact defect that dropped 57 -> 55.
+
+    node_evidence_dashboard_reducer declares 4 exposures; 2 of them use
+    'NULLS LAST' in order_by. Before the fix, _parse_order_by_spec rejected
+    that clause and the whole exposure (not just the malformed field) was
+    silently excluded from build_projection_topic_map's result -- correlations.v1
+    and live_events.v1 vanished with only a logger.error line as evidence.
+    """
+
+    def test_live_topic_count_is_67(
+        self, real_topic_map: dict[str, ProjectionTableConfig]
+    ) -> None:
+        # 62 as of OMN-18768: +1 for node_projection_runner_fleet's
+        # onex.snapshot.projection.runner-fleet.v1 -- the first runner, lane,
+        # fleet or host exposure in the whole catalog. A sweep before this
+        # ticket returned 60+ projection topics and not one of them; "what
+        # runners are running" had no producer at all. Declared
+        # bus_backed: true WITH its writer in the same change.
+        # 63 as of OMN-18770: +1 for node_projection_runtime_error_fingerprints'
+        # onex.snapshot.projection.runtime-error-fingerprints.v1 -- the ranked
+        # runtime-error read model behind the Lab Errors widget (C3 of epic
+        # OMN-18767). Unlike the two entries below it, this one is
+        # bus_backed: true from its first commit: the exposure ships with its
+        # producing writer, so it is never served as not_yet_bus_backed.
+        # 64 as of OMN-18769: +1 for node_projection_lab_lane_health's
+        # onex.snapshot.projection.lab.lane-health.v1 -- the C2 lab lane-health
+        # fold (lane-census drift + runtime health dimensions + lab-pass
+        # verdicts as one per-lane row). bus_backed: true from the first
+        # commit, with its publish call site in the same change.
+        #
+        # 61 as of OMN-17201: +1 for node_projection_hook_ledger's
+        # onex.snapshot.projection.hook.ledger.v1 -- the cloud-side hook-event
+        # ledger (leg 5 of the hook->cloud chain), a NEW exposure over
+        # public.hook_events. It is bus_backed: false and declares no
+        # tenant_column, deliberately: the pair is illegal together, and that
+        # table is FORCE ROW LEVEL SECURITY, so the database is its scoping
+        # surface rather than the exposure layer.
+        #
+        # 60 as of OMN-17772: +1 for node_projection_work_events'
+        # onex.snapshot.projection.work.events.v1. That contract had declared a
+        # full projection_api section since OMN-16180 and was EXCLUDED on every
+        # load for declaring `schema: omninode_internal`, which is not in
+        # ALLOWED_SCHEMAS -- so the exposure appeared nowhere at all, not even
+        # as a refusal. This ratchet is precisely what caught the count moving,
+        # which is what it is for.
+        #
+        # 59 as of OMN-16777: +1 for node_projection_consumer_flow's
+        # onex.snapshot.projection.consumer-flow.v1 exposure. 58 as of
+        # OMN-16316 (+1 for tenant-credentials.v1); 57 as of the
+        # evidence-pipeline exposure fix documented above.
+        #
+        # The count is asserted rather than derived on purpose: the defect this
+        # class guards silently EXCLUDED exposures, so a computed expectation
+        # would have moved with the bug and proven nothing.
+        # 65 as of OMN-18999: +1 for node_projection_prod_promotion_gate's
+        # onex.snapshot.projection.prod-promotion-gate.v1 -- the durable
+        # prod-promotion-gate decision, read back by the status page's
+        # promotion-gate panel. Its `schema` records the DATABASE
+        # (omnidash_analytics) while the physical relation is
+        # omninode_internal.prod_promotion_gate_decisions, the same form
+        # consumer-flow.v1 uses and for the same reason.
+        # 66 as of OMN-19716: +1 for the bus-backed current topic-activity
+        # projection used by the Lab Topic Activity widget.
+        # 67 as of OMN-19937: +1 for the bus-backed board probe-results
+        # projection, carrying one row per exact probe execution.
+        # 68 as of OMN-19978: +1 for bus-backed usage totals per model/UTC day.
+        # 69 as of OMN-19793: +1 for the bus-backed delegation acceptance-eval
+        # results (false-pass and false-refusal rates per class, stratum, arm).
+        topic_map = real_topic_map
+        assert len(topic_map) == 69
+        assert "onex.snapshot.projection.work.events.v1" in topic_map
+        assert "onex.snapshot.projection.delegation.acceptance-eval.v1" in topic_map
+        # Named as well as counted. This class guards a defect that SILENTLY
+        # excluded exposures, and a count alone cannot tell "the new one landed"
+        # apart from "the new one was dropped and something else appeared".
+        assert "onex.snapshot.projection.runtime-error-fingerprints.v1" in topic_map
+        assert "onex.snapshot.projection.runner-fleet.v1" in topic_map
+        assert "onex.snapshot.projection.topic-activity.v1" in topic_map
+        assert "onex.snapshot.projection.board-probe-results.v1" in topic_map
+        # Still excluded for the identical reason, and deliberately left so:
+        # node_projection_open_obligations declares `schema: omninode_internal`
+        # too. Its conversion is not in OMN-17772's scope; recording it here
+        # keeps the remaining instance visible instead of forgotten.
+        assert "onex.snapshot.projection.work.open-obligations.v1" not in topic_map
+
+    def test_all_four_evidence_pipeline_exposures_present(
+        self, real_topic_map: dict[str, ProjectionTableConfig]
+    ) -> None:
+        topic_map = real_topic_map
+        expected = {
+            "onex.snapshot.projection.evidence_pipeline.stages.v1",
+            "onex.snapshot.projection.evidence_pipeline.correlations.v1",
+            "onex.snapshot.projection.evidence_pipeline.readiness.v1",
+            "onex.snapshot.projection.evidence_pipeline.live_events.v1",
+        }
+        assert expected.issubset(topic_map)
+        for topic in expected:
+            assert topic_map[topic].source_contract == "node_evidence_dashboard_reducer"
+
+    def test_nulls_last_exposures_parsed_with_full_multi_column_spec(
+        self, real_topic_map: dict[str, ProjectionTableConfig]
+    ) -> None:
+        topic_map = real_topic_map
+        cfg = topic_map["onex.snapshot.projection.evidence_pipeline.correlations.v1"]
+        assert cfg.order_by_spec == (
+            ("ingest_sequence", "ASC", "LAST"),
+            ("observed_at", "ASC", None),
+            ("projection_cursor", "ASC", None),
+        )
+
+
+# ---------------------------------------------------------------------------
+# OMN-15800 corrective round -- Defect B: tenant scoping. Real tenant
+# scoping needs a per-event tenant identity this reducer can read (verified
+# absent: omnibase_core.ModelEventEnvelope carries no tenant_id anywhere in
+# its schema, and OMN-14208/OMN-15425's tenant-authority path has zero
+# non-test call sites per test_house_tenant_default_ratchet.py). The
+# honest-fallback path was taken: savings.v1 stays OFF bus_backed so the
+# proven cross-tenant SnapshotCache defect (get_rows never filters by
+# tenant) is unreachable via the real contract.
+# ---------------------------------------------------------------------------
+
+
+class TestOmn15800TenantScopingFallback:
+    def test_savings_v1_is_not_bus_backed(
+        self, real_topic_map: dict[str, ProjectionTableConfig]
+    ) -> None:
+        """Pin the fallback: savings.v1 must stay SQL/not_yet_bus_backed
+        (HTTP 503) until real per-event tenant identity exists. Flipping
+        this back to True without also fixing SnapshotCache tenant
+        filtering reopens the proven cross-tenant exposure."""
+        topic_map = real_topic_map
+        cfg = topic_map["onex.snapshot.projection.savings.v1"]
+        assert cfg.bus_backed is False
+
+    def test_registration_v1_stays_bus_backed(
+        self, real_topic_map: dict[str, ProjectionTableConfig]
+    ) -> None:
+        """The one family this ticket proves live end-to-end; single
+        implicit tenant, no cross-tenant surface today."""
+        topic_map = real_topic_map
+        cfg = topic_map["onex.snapshot.projection.registration.v1"]
+        assert cfg.bus_backed is True
+
+
+class TestBackendReaders:
+    """Backend reader declarations are typed contract data, never source guesses."""
+
+    @staticmethod
+    def _valid_section() -> dict[str, object]:
+        return {
+            "expose": True,
+            "topic": "onex.snapshot.projection.test.v1",
+            "table": "test_table",
+            "columns": ["projection_cursor"],
+            "bus_backed": True,
+            "key_columns": ["projection_cursor"],
+            "backend_readers": [
+                {
+                    "id": "onex_status_page",
+                    "kind": "projection_status_page",
+                    "route": "/",
+                    "projection_slot": "promotion_gate",
+                }
+            ],
+        }
+
+    def test_contract_reader_round_trips_to_typed_config(self, tmp_path: Path) -> None:
+        cfg = _parse_projection_api_section(
+            self._valid_section(), "node_test", tmp_path / "contract.yaml"
+        )
+
+        assert cfg is not None
+        assert cfg.backend_readers[0].id == "onex_status_page"
+        assert cfg.backend_readers[0].kind == "projection_status_page"
+        assert cfg.backend_readers[0].route == "/"
+        assert cfg.backend_readers[0].projection_slot == "promotion_gate"
+
+    @pytest.mark.parametrize(
+        "backend_readers",
+        [
+            "not-a-list",
+            [{"id": "onex_status_page"}],
+            [
+                {
+                    "id": "onex_status_page",
+                    "kind": "unknown_reader",
+                    "route": "/",
+                    "projection_slot": "promotion_gate",
+                }
+            ],
+            [
+                {
+                    "id": "onex_status_page",
+                    "kind": "projection_status_page",
+                    "route": "not-absolute",
+                    "projection_slot": "promotion_gate",
+                }
+            ],
+            [
+                {
+                    "id": "onex_status_page",
+                    "kind": "projection_status_page",
+                    "route": "/",
+                    "projection_slot": "promotion_gate",
+                },
+                {
+                    "id": "onex_status_page",
+                    "kind": "projection_status_page",
+                    "route": "/morning",
+                    "projection_slot": "other_panel",
+                },
+            ],
+        ],
+    )
+    def test_malformed_backend_readers_hard_fail(
+        self, tmp_path: Path, backend_readers: object
+    ) -> None:
+        section = self._valid_section()
+        section["backend_readers"] = backend_readers
+
+        with pytest.raises(MalformedBackendReadersError):
+            _parse_projection_api_section(
+                section, "node_test", tmp_path / "contract.yaml"
+            )

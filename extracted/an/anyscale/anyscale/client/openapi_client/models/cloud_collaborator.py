@@ -35,16 +35,18 @@ class CloudCollaborator(object):
     openapi_types = {
         'id': 'str',
         'value': 'CloudCollaboratorValue',
-        'permission_level': 'PermissionLevel'
+        'permission_level': 'PermissionLevel',
+        'permission_levels': 'list[PermissionLevel]'
     }
 
     attribute_map = {
         'id': 'id',
         'value': 'value',
-        'permission_level': 'permission_level'
+        'permission_level': 'permission_level',
+        'permission_levels': 'permission_levels'
     }
 
-    def __init__(self, id=None, value=None, permission_level=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, value=None, permission_level=None, permission_levels=None, local_vars_configuration=None):  # noqa: E501
         """CloudCollaborator - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -53,11 +55,14 @@ class CloudCollaborator(object):
         self._id = None
         self._value = None
         self._permission_level = None
+        self._permission_levels = None
         self.discriminator = None
 
         self.id = id
         self.value = value
         self.permission_level = permission_level
+        if permission_levels is not None:
+            self.permission_levels = permission_levels
 
     @property
     def id(self):
@@ -127,6 +132,29 @@ class CloudCollaborator(object):
             raise ValueError("Invalid value for `permission_level`, must not be `None`")  # noqa: E501
 
         self._permission_level = permission_level
+
+    @property
+    def permission_levels(self):
+        """Gets the permission_levels of this CloudCollaborator.  # noqa: E501
+
+        Every role this user holds on the cloud, ordered from most to least access. `permission_level` reports only the highest-ranked one, so a user who is both an owner and readonly-restricted appears here with both.  # noqa: E501
+
+        :return: The permission_levels of this CloudCollaborator.  # noqa: E501
+        :rtype: list[PermissionLevel]
+        """
+        return self._permission_levels
+
+    @permission_levels.setter
+    def permission_levels(self, permission_levels):
+        """Sets the permission_levels of this CloudCollaborator.
+
+        Every role this user holds on the cloud, ordered from most to least access. `permission_level` reports only the highest-ranked one, so a user who is both an owner and readonly-restricted appears here with both.  # noqa: E501
+
+        :param permission_levels: The permission_levels of this CloudCollaborator.  # noqa: E501
+        :type: list[PermissionLevel]
+        """
+
+        self._permission_levels = permission_levels
 
     def to_dict(self):
         """Returns the model properties as a dict"""

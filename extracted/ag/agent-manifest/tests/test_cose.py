@@ -1,0 +1,2120 @@
+"""COSE_Sign1 / COSE_Sign envelope tests - issue #243 phase 2.
+
+Normative reference: spec/agent-manifest-cose-envelope-v0.2.md (ADR-0011).
+
+The negative cases here are deliberately the ones only this envelope can
+express - a tampered protected header, an alg substitution, a typ mismatch,
+an unprotected header injected before verification - because those are what
+phase 3 turns into portable AM-VEC vectors.
+"""
+import hashlib
+import json
+from datetime import datetime, timedelta, timezone
+
+import cbor2
+import pytest
+from cryptography.exceptions import InvalidSignature
+
+from agent_manifest._delegation import HitlApprovalSigner
+
+from agent_manifest._cose import (
+    ALG_ED25519,
+    ALG_EDDSA,
+    ALG_ML_DSA_65,
+    COSE_SIGN1_TAG,
+    COSE_SIGN_TAG,
+    HDR_ALG,
+    HDR_CONTENT_TYPE,
+    HDR_CRIT,
+    HDR_KID,
+    HDR_TYP,
+    HDR_RECEIPTS,
+    LABEL_APPROVALS,
+    LABEL_ATTESTATION,
+    MEDIA_TYPE_MANIFEST_COSE,
+    MEDIA_TYPE_MANIFEST_JSON,
+    CoseDowngradeError,
+    CoseError,
+    CoseKeyError,
+    CoseStructureError,
+    CoseVersionError,
+    attach_approvals,
+    attach_attestation,
+    attach_receipt,
+    attach_unprotected,
+    cose_payload,
+    decode_cose_manifest,
+    payload_hash,
+    sign_cose_sign1,
+    sign_cose_sign_hybrid,
+    sign_manifest_cose,
+    verify_cose_manifest,
+)
+from agent_manifest._signing import (
+    AlgorithmUnavailableError,
+    _b64url_encode,
+    generate_ed25519,
+    generate_hybrid,
+    generate_ml_dsa65,
+)
+from agent_manifest._verify import (
+    HitlResult,
+    OverallResult,
+    RevocationStore,
+    VerificationContext,
+    verify_manifest,
+)
+
+from agent_manifest._signing import ml_dsa65_available
+
+# ML-DSA-65 is provided by the SDK itself now - cryptography >= 47, or the
+# liboqs bindings where a deployment still carries them - so the post-quantum
+# half of this envelope is exercised with real FIPS 204 signatures rather
+# than skipped.
+require_pq = pytest.mark.skipif(
+    not ml_dsa65_available(), reason="no ML-DSA-65 backend available"
+)
+
+try:
+    from cryptography.hazmat.primitives.asymmetric import mldsa as _mldsa
+
+    CRYPTOGRAPHY_MLDSA = True
+except ImportError:
+    CRYPTOGRAPHY_MLDSA = False
+
+
+@pytest.fixture
+def pq_backend():
+    """Kept as an explicit marker that a test needs a real ML-DSA-65 backend."""
+    if not ml_dsa65_available():
+        pytest.skip("no ML-DSA-65 backend available")
+    return "sdk"
+
+NOW = datetime.now(timezone.utc)
+FUTURE = (NOW + timedelta(days=90)).isoformat().replace("+00:00", "Z")
+SHA = "sha256:" + "a" * 64
+SHA_B = "sha256:" + "b" * 64
+
+KP = generate_ed25519()
+TRUSTED_KEYS = {KP.key_id: KP.public_b64url()}
+APPROVER_KP = generate_ed25519()
+APPROVER_ID = "mailto:alice@example.com"
+BOB_KP = generate_ed25519()
+BOB_ID = "mailto:bob@example.com"
+
+
+def base_manifest(**overrides):
+    m = {
+        "manifest_id": "018f4a3b-2c1d-7e5f-a8b9-0d1e2f3a4b5c",
+        "agent_id": "spiffe://trust.example/agent/kyc/prod",
+        "version": "0.2",
+        "issuer": "spiffe://trust.example/issuer/default",
+        "issued_at": NOW.isoformat().replace("+00:00", "Z"),
+        "expires_at": FUTURE,
+        "crypto_profile": "standard",
+        "artifacts": {
+            "system_prompt": {"hash": SHA},
+            "policy_bundle": {"hash": SHA_B},
+            "model_identity": {
+                "model_hash": None,
+                "version": "claude-3",
+                "deployment_type": "api",
+            },
+        },
+    }
+    m.update(overrides)
+    return m
+
+
+def base_context(**overrides):
+    ctx = VerificationContext(
+        system_prompt_hash=SHA,
+        policy_bundle_hash=SHA_B,
+        model_version="claude-3",
+        trusted_keys=dict(TRUSTED_KEYS),
+        approver_public_keys={APPROVER_ID: APPROVER_KP.public_b64url()},
+    )
+    for k, v in overrides.items():
+        setattr(ctx, k, v)
+    return ctx
+
+
+def store():
+    return RevocationStore()
+
+
+def approval(**overrides):
+    """A schema-valid HITL approval, authenticated by its own signature."""
+    a = {
+        "approval_id": "018f4a3b-2c1d-7e5f-a8b9-0d1e2f3a4b60",
+        "approver_id": APPROVER_ID,
+        "approver_identity_type": "email",
+        "approver_role": "ciso",
+        "approved_at": NOW.isoformat().replace("+00:00", "Z"),
+        "approved_scope": {
+            "artifacts": ["system_prompt"],
+            "risk_tier": "high",
+            "approval_duration_seconds": 3600,
+        },
+        "approval_method": "hardware-key",
+        "evidence_uri": "https://evidence.example/approvals/1",
+    }
+    a.update(overrides)
+    if "approval_signature" not in overrides:
+        a["approval_signature"] = HitlApprovalSigner(APPROVER_KP).sign_approval(
+            manifest_id=overrides.get("manifest_id", base_manifest()["manifest_id"]),
+            approved_at=a["approved_at"],
+            approved_scope=a["approved_scope"],
+            approver_id=a["approver_id"],
+            approval_method=a.get("approval_method"),
+        )
+    a.pop("manifest_id", None)
+    return a
+
+
+def approval_by(approver_id, keypair, **overrides):
+    """A valid approval from the given approver, signed with their key."""
+    a = approval(approver_id=approver_id, approval_signature="placeholder", **overrides)
+    a["approval_signature"] = HitlApprovalSigner(keypair).sign_approval(
+        manifest_id=base_manifest()["manifest_id"],
+        approved_at=a["approved_at"],
+        approved_scope=a["approved_scope"],
+        approver_id=approver_id,
+        approval_method=a.get("approval_method"),
+    )
+    return a
+
+
+def parts(cose_bytes):
+    """Return the decoded (tag, [protected_bytes, unprotected, payload, sig])."""
+    tagged = cbor2.loads(cose_bytes)
+    return tagged.tag, list(tagged.value)
+
+
+def rebuild(tag, body):
+    return cbor2.dumps(cbor2.CBORTag(tag, body), canonical=True)
+
+
+# ---------------------------------------------------------------------------
+# Structure (envelope spec sections 2 and 3)
+# ---------------------------------------------------------------------------
+
+
+def test_sign1_is_a_tagged_four_element_array():
+    tag, body = parts(sign_cose_sign1(base_manifest(), KP))
+    assert tag == COSE_SIGN1_TAG
+    assert len(body) == 4
+    protected, unprotected, payload, signature = body
+    assert isinstance(protected, bytes)
+    assert isinstance(payload, bytes)
+    assert isinstance(signature, bytes)
+    # Pinned encoding (ADR-0013): the unprotected header is a zero-length map,
+    # never omitted. A three-element array is not a COSE_Sign1.
+    assert unprotected == {}
+
+
+def test_protected_header_carries_alg_kid_content_type_and_typ():
+    _, body = parts(sign_cose_sign1(base_manifest(), KP))
+    header = cbor2.loads(body[0])
+    assert header[HDR_ALG] == ALG_ED25519
+    assert header[HDR_KID] == hashlib.sha256(KP.public_bytes).digest()
+    assert header[HDR_CONTENT_TYPE] == MEDIA_TYPE_MANIFEST_JSON
+    assert header[HDR_TYP] == MEDIA_TYPE_MANIFEST_COSE
+
+
+def test_kid_is_the_v01_key_id_as_bytes():
+    """A key registered for v0.1 keeps its identity across the migration."""
+    _, body = parts(sign_cose_sign1(base_manifest(), KP))
+    assert cbor2.loads(body[0])[HDR_KID].hex() == KP.key_id
+
+
+def test_payload_is_the_canonical_json_of_the_manifest():
+    manifest = base_manifest()
+    _, body = parts(sign_cose_sign1(manifest, KP))
+    assert body[2] == cose_payload(manifest)
+    payload = json.loads(body[2].decode())
+    assert payload["manifest_id"] == manifest["manifest_id"]
+    assert payload["artifacts"]["system_prompt"] == {"hash": SHA}
+    # Keys are in code-point order and null-valued optionals are excluded
+    # (RFC 8785 and spec 4.3), which is what makes the bytes reproducible.
+    assert body[2].index(b'"agent_id"') < body[2].index(b'"manifest_id"')
+    assert "model_hash" not in payload["artifacts"]["model_identity"]
+
+
+def test_payload_drops_fields_that_attach_after_signing():
+    manifest = base_manifest(
+        signature={"algorithm": "Ed25519"},
+        attestation={"platform": "amd-sev-snp"},
+        transparency_log_entry={"log_id": "x"},
+        hitl_record={"required": True, "approvals": [{"approver_id": "a"}]},
+    )
+    payload = json.loads(cose_payload(manifest).decode())
+    assert "signature" not in payload
+    assert "attestation" not in payload
+    assert "transparency_log_entry" not in payload
+    # The HITL requirement stays signed; the approvals do not.
+    assert payload["hitl_record"] == {"required": True}
+
+
+def test_signing_is_deterministic_for_the_same_manifest_and_key():
+    manifest = base_manifest()
+    assert sign_cose_sign1(manifest, KP) == sign_cose_sign1(manifest, KP)
+
+
+def test_signing_a_v01_manifest_is_refused():
+    with pytest.raises(CoseVersionError):
+        sign_cose_sign1(base_manifest(version="0.1"), KP)
+
+
+# ---------------------------------------------------------------------------
+# Verification, happy path
+# ---------------------------------------------------------------------------
+
+
+def test_roundtrip_verifies():
+    result = verify_cose_manifest(sign_cose_sign1(base_manifest(), KP), TRUSTED_KEYS)
+    assert result.verified is True
+    assert result.algorithms == (ALG_ED25519,)
+    assert result.signatures[0].key_id == KP.key_id
+    assert result.signatures[0].algorithm_name == "Ed25519"
+    assert result.manifest["agent_id"] == "spiffe://trust.example/agent/kyc/prod"
+
+
+def test_manifest_hash_is_sha256_of_the_payload_bytes():
+    """Envelope spec 5: hardware binds the payload bytes, with no subset rule."""
+    manifest = base_manifest()
+    signed = sign_cose_sign1(manifest, KP)
+    result = verify_cose_manifest(signed, TRUSTED_KEYS)
+    assert result.manifest_hash == payload_hash(cose_payload(manifest))
+    assert result.manifest_hash == (
+        "sha256:" + hashlib.sha256(result.payload).hexdigest()
+    )
+
+
+def test_no_trusted_keys_is_unverifiable_not_invalid():
+    result = verify_cose_manifest(sign_cose_sign1(base_manifest(), KP), {})
+    assert result.verified is False
+    assert result.signatures[0].verified is False
+
+
+def test_decode_never_reports_verified():
+    result = decode_cose_manifest(sign_cose_sign1(base_manifest(), KP))
+    assert result.verified is False
+    assert result.manifest["manifest_id"] == base_manifest()["manifest_id"]
+
+
+def test_sign_manifest_cose_dispatches_on_key_type():
+    tag, _ = parts(sign_manifest_cose(base_manifest(), KP))
+    assert tag == COSE_SIGN1_TAG
+
+
+@require_pq
+def test_ml_dsa_sign1_roundtrip(pq_backend):
+    kp = generate_ml_dsa65()
+    signed = sign_cose_sign1(base_manifest(crypto_profile="post-quantum"), kp)
+    result = verify_cose_manifest(signed, {kp.key_id: kp.public_b64url()})
+    assert result.verified is True
+    assert result.algorithms == (ALG_ML_DSA_65,)
+
+
+@require_pq
+def test_ml_dsa_sign1_wrong_length_trusted_key_is_rejected(pq_backend):
+    """A trusted_keys entry that is the wrong length for ML-DSA-65 (e.g. a
+    truncated or misconfigured key) must be rejected with a clear error,
+    not passed straight into the crypto backend (regression: _ml_dsa_verify
+    used to call the raw backend directly, unlike _ed25519_verify, which
+    already went through Ed25519Verifier's length check)."""
+    kp = generate_ml_dsa65()
+    signed = sign_cose_sign1(base_manifest(crypto_profile="post-quantum"), kp)
+    truncated_pub = _b64url_encode(kp.public_key_bytes[:100])
+    with pytest.raises(ValueError, match="1952"):
+        verify_cose_manifest(signed, {kp.key_id: truncated_pub})
+
+
+# ---------------------------------------------------------------------------
+# Post-signing attachment (unprotected header)
+# ---------------------------------------------------------------------------
+
+
+def test_attaching_a_receipt_does_not_disturb_the_signature():
+    signed = sign_cose_sign1(base_manifest(), KP)
+    with_receipt = attach_receipt(signed, b"\xd2\x84fake-receipt")
+    result = verify_cose_manifest(with_receipt, TRUSTED_KEYS)
+    assert result.verified is True
+    assert result.receipts == [b"\xd2\x84fake-receipt"]
+    # The signed bytes are carried through untouched.
+    assert parts(with_receipt)[1][0] == parts(signed)[1][0]
+    assert parts(with_receipt)[1][2] == parts(signed)[1][2]
+    assert parts(with_receipt)[1][3] == parts(signed)[1][3]
+
+
+def test_receipts_accumulate():
+    signed = attach_receipt(sign_cose_sign1(base_manifest(), KP), b"one")
+    signed = attach_receipt(signed, b"two")
+    assert verify_cose_manifest(signed, TRUSTED_KEYS).receipts == [b"one", b"two"]
+
+
+def test_receipts_accumulate_in_order_and_do_not_mutate_earlier_envelopes():
+    base = attach_receipt(sign_cose_sign1(base_manifest(), KP), b"one")
+    left = attach_receipt(base, b"left")
+    right = attach_receipt(attach_receipt(base, b"right"), b"right-2")
+    assert verify_cose_manifest(base, TRUSTED_KEYS).receipts == [b"one"]
+    assert verify_cose_manifest(left, TRUSTED_KEYS).receipts == [b"one", b"left"]
+    assert verify_cose_manifest(right, TRUSTED_KEYS).receipts == [
+        b"one",
+        b"right",
+        b"right-2",
+    ]
+
+
+def test_attaching_a_receipt_to_an_empty_receipts_array():
+    signed = attach_unprotected(
+        sign_cose_sign1(base_manifest(), KP), HDR_RECEIPTS, []
+    )
+    attached = attach_receipt(signed, b"one")
+    assert verify_cose_manifest(attached, TRUSTED_KEYS).receipts == [b"one"]
+
+
+def test_attach_receipt_leaves_other_unprotected_parameters_alone():
+    signed = attach_attestation(
+        sign_cose_sign1(base_manifest(), KP), {"platform": "x"}
+    )
+    signed = attach_approvals(signed, [{"approver_id": "a"}])
+    signed = attach_receipt(signed, b"one")
+    signed = attach_receipt(signed, b"two")
+    result = verify_cose_manifest(signed, TRUSTED_KEYS)
+    assert result.receipts == [b"one", b"two"]
+    assert result.attestation == {"platform": "x"}
+    assert result.approvals == [{"approver_id": "a"}]
+
+
+@pytest.mark.parametrize(
+    "malformed",
+    [
+        {"x": 1},
+        b"abc",
+        "abc",
+        None,
+        0,
+        False,
+        "",
+        b"",
+        7,
+        True,
+        {b"old"},
+    ],
+    ids=[
+        "map", "bytes", "text", "null", "zero", "false",
+        "empty-text", "empty-bytes", "int", "true", "set",
+    ],
+)
+def test_attach_receipt_refuses_to_overwrite_a_malformed_existing_value(malformed):
+    """A non-array ``receipts`` value is refused, never coerced or replaced."""
+    signed = attach_unprotected(
+        sign_cose_sign1(base_manifest(), KP), HDR_RECEIPTS, malformed
+    )
+    with pytest.raises(CoseStructureError, match="must be an array, got"):
+        attach_receipt(signed, b"new")
+    # The envelope is untouched, and attach_unprotected(), named in the
+    # error, can replace the value.
+    assert parts(signed)[1][1][HDR_RECEIPTS] == malformed
+    repaired = attach_unprotected(signed, HDR_RECEIPTS, [b"new"])
+    assert verify_cose_manifest(repaired, TRUSTED_KEYS).receipts == [b"new"]
+
+
+def test_a_missing_receipts_label_is_not_the_same_as_a_null_one():
+    """A missing label means empty; a null label is malformed and refused."""
+    signed = sign_cose_sign1(base_manifest(), KP)
+    assert HDR_RECEIPTS not in parts(signed)[1][1]
+    attached = attach_receipt(signed, b"new")
+    assert verify_cose_manifest(attached, TRUSTED_KEYS).receipts == [b"new"]
+
+    with_null = attach_unprotected(signed, HDR_RECEIPTS, None)
+    assert HDR_RECEIPTS in parts(with_null)[1][1]
+    with pytest.raises(CoseStructureError, match="must be an array, got NoneType"):
+        attach_receipt(with_null, b"new")
+
+
+def test_attach_receipt_accepts_an_existing_tuple_array():
+    """cbor2 6.x decodes arrays as tuples; that still counts as an array."""
+    signed = attach_unprotected(
+        sign_cose_sign1(base_manifest(), KP), HDR_RECEIPTS, (b"old",)
+    )
+    attached = attach_receipt(signed, b"new")
+    assert verify_cose_manifest(attached, TRUSTED_KEYS).receipts == [b"old", b"new"]
+
+
+@pytest.mark.parametrize(
+    "not_bytes",
+    ["receipt", None, 7, {"r": 1}, [b"r"], ("r",)],
+    ids=["str", "none", "int", "dict", "list", "tuple"],
+)
+def test_attach_receipt_rejects_anything_but_a_byte_string(not_bytes):
+    """RFC 9942 receipts are byte strings."""
+    signed = sign_cose_sign1(base_manifest(), KP)
+    with pytest.raises(CoseStructureError, match="receipt must be a byte string"):
+        attach_receipt(signed, not_bytes)
+
+
+def test_attach_receipt_accepts_a_bytearray_and_stores_bytes():
+    signed = attach_receipt(sign_cose_sign1(base_manifest(), KP), bytearray(b"one"))
+    receipts = verify_cose_manifest(signed, TRUSTED_KEYS).receipts
+    assert receipts == [b"one"]
+    assert type(receipts[0]) is bytes
+
+
+@require_pq
+def test_receipts_accumulate_on_a_cose_sign_envelope(pq_backend):
+    """A hybrid COSE_Sign envelope accumulates receipts too."""
+    kp = generate_hybrid()
+    signed = sign_cose_sign_hybrid(base_manifest(crypto_profile="post-quantum"), kp)
+    signed = attach_receipt(signed, b"one")
+    signed = attach_receipt(signed, b"two")
+    result = verify_cose_manifest(signed, hybrid_trusted(kp))
+    assert result.tag == COSE_SIGN_TAG
+    assert result.verified is True
+    assert result.receipts == [b"one", b"two"]
+
+
+def test_attestation_and_approvals_land_in_the_unprotected_header():
+    signed = sign_cose_sign1(base_manifest(), KP)
+    signed = attach_attestation(signed, {"platform": "amd-sev-snp"})
+    signed = attach_approvals(signed, [{"approver_id": "a"}])
+    result = verify_cose_manifest(signed, TRUSTED_KEYS)
+    assert result.verified is True
+    assert result.attestation == {"platform": "amd-sev-snp"}
+    assert result.approvals == [{"approver_id": "a"}]
+    assert set(result.unprotected) == {LABEL_ATTESTATION, LABEL_APPROVALS}
+
+
+def test_approvals_accumulate():
+    """A later attach must not drop earlier approvals (same as receipts)."""
+    alice = approval(approval_id="018f4a3b-2c1d-7e5f-a8b9-0d1e2f3a4b61")
+    bob = approval_by(
+        BOB_ID, BOB_KP, approval_id="018f4a3b-2c1d-7e5f-a8b9-0d1e2f3a4b62"
+    )
+    signed = sign_cose_sign1(base_manifest(hitl_record={"required": True}), KP)
+
+    first = attach_approvals(signed, [alice])
+    second = attach_approvals(first, [bob])
+
+    result = verify_cose_manifest(second, TRUSTED_KEYS)
+    assert result.verified is True
+    assert result.approvals == [alice, bob]
+    # The signed parts are unchanged.
+    for envelope in (first, second):
+        assert parts(envelope)[1][0] == parts(signed)[1][0]
+        assert parts(envelope)[1][2] == parts(signed)[1][2]
+        assert parts(envelope)[1][3] == parts(signed)[1][3]
+
+
+def test_approvals_accumulate_within_and_across_calls_preserving_order():
+    signed = sign_cose_sign1(base_manifest(), KP)
+    signed = attach_approvals(signed, [{"approver_id": "a"}, {"approver_id": "b"}])
+    signed = attach_approvals(signed, [{"approver_id": "c"}])
+    signed = attach_approvals(signed, [{"approver_id": "d"}, {"approver_id": "e"}])
+    assert verify_cose_manifest(signed, TRUSTED_KEYS).approvals == [
+        {"approver_id": name} for name in "abcde"
+    ]
+
+
+def test_attaching_no_approvals_keeps_the_existing_ones():
+    signed = attach_approvals(sign_cose_sign1(base_manifest(), KP), [{"approver_id": "a"}])
+    signed = attach_approvals(signed, [])
+    assert verify_cose_manifest(signed, TRUSTED_KEYS).approvals == [{"approver_id": "a"}]
+
+
+def test_attaching_approvals_to_a_fresh_envelope_still_sets_the_label():
+    """An empty attach on a fresh envelope still creates the (empty) array."""
+    signed = attach_approvals(sign_cose_sign1(base_manifest(), KP), [])
+    result = verify_cose_manifest(signed, TRUSTED_KEYS)
+    assert result.approvals == []
+    assert set(result.unprotected) == {LABEL_APPROVALS}
+
+
+def test_attach_approvals_leaves_other_unprotected_parameters_alone():
+    signed = sign_cose_sign1(base_manifest(), KP)
+    signed = attach_receipt(signed, b"receipt")
+    signed = attach_attestation(signed, {"platform": "amd-sev-snp"})
+    signed = attach_approvals(signed, [{"approver_id": "a"}])
+    signed = attach_approvals(signed, [{"approver_id": "b"}])
+    result = verify_cose_manifest(signed, TRUSTED_KEYS)
+    assert result.receipts == [b"receipt"]
+    assert result.attestation == {"platform": "amd-sev-snp"}
+    assert result.approvals == [{"approver_id": "a"}, {"approver_id": "b"}]
+
+
+def test_attach_approvals_does_not_mutate_the_callers_list():
+    mine = [{"approver_id": "a"}]
+    signed = attach_approvals(sign_cose_sign1(base_manifest(), KP), mine)
+    attach_approvals(signed, mine)
+    assert mine == [{"approver_id": "a"}]
+
+
+def test_attach_approvals_is_a_pure_function_of_its_inputs():
+    """Two attaches from the same envelope don't affect each other."""
+    base = attach_approvals(sign_cose_sign1(base_manifest(), KP), [{"approver_id": "a"}])
+    left = attach_approvals(base, [{"approver_id": "left"}])
+    right = attach_approvals(base, [{"approver_id": "right"}])
+    assert verify_cose_manifest(base, TRUSTED_KEYS).approvals == [{"approver_id": "a"}]
+    assert verify_cose_manifest(left, TRUSTED_KEYS).approvals == [
+        {"approver_id": "a"},
+        {"approver_id": "left"},
+    ]
+    assert verify_cose_manifest(right, TRUSTED_KEYS).approvals == [
+        {"approver_id": "a"},
+        {"approver_id": "right"},
+    ]
+
+
+def test_attach_unprotected_is_still_the_way_to_replace_the_approvals():
+    """To replace the approvals, use attach_unprotected()."""
+    signed = attach_approvals(sign_cose_sign1(base_manifest(), KP), [{"approver_id": "a"}])
+    replaced = attach_unprotected(signed, LABEL_APPROVALS, [{"approver_id": "b"}])
+    assert verify_cose_manifest(replaced, TRUSTED_KEYS).approvals == [{"approver_id": "b"}]
+
+
+def test_a_missing_approvals_label_is_not_the_same_as_a_null_one():
+    """A missing label means empty; a null label is malformed and refused."""
+    signed = sign_cose_sign1(base_manifest(), KP)
+    assert LABEL_APPROVALS not in parts(signed)[1][1]
+    attached = attach_approvals(signed, [{"approver_id": "a"}])
+    assert verify_cose_manifest(attached, TRUSTED_KEYS).approvals == [{"approver_id": "a"}]
+
+    with_null = attach_unprotected(signed, LABEL_APPROVALS, None)
+    assert LABEL_APPROVALS in parts(with_null)[1][1]
+    with pytest.raises(CoseStructureError, match="must be an array, got NoneType"):
+        attach_approvals(with_null, [{"approver_id": "a"}])
+
+
+@pytest.mark.parametrize(
+    "not_a_list",
+    [{"approver_id": "a"}, ({"approver_id": "a"},), "a", b"a", None, 7],
+    ids=["dict", "tuple", "str", "bytes", "none", "int"],
+)
+def test_attach_approvals_rejects_anything_but_a_list_of_records(not_a_list):
+    """A single record passed by mistake must not be split into its keys."""
+    signed = sign_cose_sign1(base_manifest(), KP)
+    with pytest.raises(CoseStructureError, match="approvals must be a list"):
+        attach_approvals(signed, not_a_list)
+
+
+@pytest.mark.parametrize(
+    "malformed",
+    [{"approver_id": "a"}, b"abc", "abc", None, 0, False],
+    ids=["map", "bytes", "text", "null", "zero", "false"],
+)
+def test_attach_approvals_refuses_to_overwrite_a_malformed_existing_value(malformed):
+    """A non-array approvals value is refused, not overwritten."""
+    signed = attach_unprotected(
+        sign_cose_sign1(base_manifest(), KP), LABEL_APPROVALS, malformed
+    )
+    with pytest.raises(CoseStructureError, match="must be an array"):
+        attach_approvals(signed, [{"approver_id": "a"}])
+    # attach_unprotected(), named in the error, can replace it.
+    repaired = attach_unprotected(signed, LABEL_APPROVALS, [{"approver_id": "a"}])
+    assert verify_cose_manifest(repaired, TRUSTED_KEYS).approvals == [{"approver_id": "a"}]
+
+
+@require_pq
+def test_approvals_accumulate_on_a_cose_sign_envelope(pq_backend):
+    """A hybrid COSE_Sign envelope accumulates approvals too."""
+    kp = generate_hybrid()
+    signed = sign_cose_sign_hybrid(base_manifest(crypto_profile="post-quantum"), kp)
+    signed = attach_approvals(signed, [{"approver_id": "a"}])
+    signed = attach_approvals(signed, [{"approver_id": "b"}])
+    result = verify_cose_manifest(signed, hybrid_trusted(kp))
+    assert result.tag == COSE_SIGN_TAG
+    assert result.verified is True
+    assert result.approvals == [{"approver_id": "a"}, {"approver_id": "b"}]
+
+
+# ---------------------------------------------------------------------------
+# Negative cases the v0.1 envelope cannot express
+# ---------------------------------------------------------------------------
+
+
+def test_untagged_structure_is_rejected():
+    _, body = parts(sign_cose_sign1(base_manifest(), KP))
+    with pytest.raises(CoseStructureError, match="untagged"):
+        verify_cose_manifest(cbor2.dumps(body, canonical=True), TRUSTED_KEYS)
+
+
+def test_unexpected_tag_is_rejected():
+    _, body = parts(sign_cose_sign1(base_manifest(), KP))
+    with pytest.raises(CoseStructureError, match="unexpected CBOR tag"):
+        verify_cose_manifest(rebuild(17, body), TRUSTED_KEYS)
+
+
+def test_tampered_protected_header_fails_the_signature():
+    """alg is covered by the signature - the 0.6.0 class of bug is absent."""
+    tag, body = parts(sign_cose_sign1(base_manifest(), KP))
+    header = cbor2.loads(body[0])
+    header[HDR_ALG] = ALG_EDDSA  # same value, re-encoded map
+    header["injected"] = "x"
+    body[0] = cbor2.dumps(header, canonical=True)
+    with pytest.raises(InvalidSignature):
+        verify_cose_manifest(rebuild(tag, body), TRUSTED_KEYS)
+
+
+def test_alg_substitution_in_the_protected_header_fails_the_signature():
+    tag, body = parts(sign_cose_sign1(base_manifest(), KP))
+    header = cbor2.loads(body[0])
+    header[HDR_ALG] = ALG_ML_DSA_65
+    # kid must point at a correctly-sized (1952-byte) ML-DSA-65 key too -
+    # otherwise this test would only prove the key-length check works, not
+    # that alg substitution itself fails.
+    pq_pub = b"\x05" * 1952
+    pq_kid = hashlib.sha256(pq_pub).digest()
+    header[HDR_KID] = pq_kid
+    body[0] = cbor2.dumps(header, canonical=True)
+    trusted = {**TRUSTED_KEYS, pq_kid.hex(): _b64url_encode(pq_pub)}
+    # Never accepted, either way. A build with an ML-DSA backend reaches real
+    # signature verification and fails it, because the bytes carried as the
+    # signature are still the Ed25519 signature, not a valid ML-DSA-65 one.
+    # A build without one cannot perform ML-DSA-65 at all and says so, which
+    # is UNVERIFIABLE (envelope spec 6 step 6) and still not a fallback to
+    # the classical algorithm the manifest was actually signed with.
+    with pytest.raises((InvalidSignature, AlgorithmUnavailableError)):
+        verify_cose_manifest(rebuild(tag, body), trusted)
+
+
+def test_alg_in_the_unprotected_header_is_rejected():
+    tag, body = parts(sign_cose_sign1(base_manifest(), KP))
+    body[1] = {HDR_ALG: ALG_EDDSA}
+    with pytest.raises(CoseStructureError, match="unprotected header"):
+        verify_cose_manifest(rebuild(tag, body), TRUSTED_KEYS)
+
+
+def test_absent_typ_is_rejected():
+    tag, body = parts(sign_cose_sign1(base_manifest(), KP))
+    header = cbor2.loads(body[0])
+    del header[HDR_TYP]
+    body[0] = cbor2.dumps(header, canonical=True)
+    with pytest.raises(CoseStructureError, match="typ"):
+        verify_cose_manifest(rebuild(tag, body), TRUSTED_KEYS)
+
+
+def test_vendor_tree_typ_alias_is_rejected():
+    tag, body = parts(sign_cose_sign1(base_manifest(), KP))
+    header = cbor2.loads(body[0])
+    header[HDR_TYP] = "application/vnd.agent-manifest+cose"
+    body[0] = cbor2.dumps(header, canonical=True)
+    with pytest.raises(CoseStructureError, match="vendor-tree"):
+        verify_cose_manifest(rebuild(tag, body), TRUSTED_KEYS)
+
+
+def test_wrong_content_type_is_rejected():
+    tag, body = parts(sign_cose_sign1(base_manifest(), KP))
+    header = cbor2.loads(body[0])
+    header[HDR_CONTENT_TYPE] = "application/json"
+    body[0] = cbor2.dumps(header, canonical=True)
+    with pytest.raises(CoseStructureError, match="content type"):
+        verify_cose_manifest(rebuild(tag, body), TRUSTED_KEYS)
+
+
+def test_unknown_crit_entry_is_rejected():
+    tag, body = parts(sign_cose_sign1(base_manifest(), KP))
+    header = cbor2.loads(body[0])
+    header[HDR_CRIT] = [HDR_ALG]
+    body[0] = cbor2.dumps(header, canonical=True)
+    with pytest.raises(CoseStructureError, match="critical"):
+        verify_cose_manifest(rebuild(tag, body), TRUSTED_KEYS)
+
+
+def test_tampered_payload_fails_the_signature():
+    tag, body = parts(sign_cose_sign1(base_manifest(), KP))
+    manifest = json.loads(body[2].decode())
+    manifest["agent_id"] = "spiffe://trust.example/agent/attacker"
+    body[2] = json.dumps(manifest).encode()
+    with pytest.raises(InvalidSignature):
+        verify_cose_manifest(rebuild(tag, body), TRUSTED_KEYS)
+
+
+def test_detached_payload_is_rejected():
+    tag, body = parts(sign_cose_sign1(base_manifest(), KP))
+    body[2] = None
+    with pytest.raises(CoseStructureError, match="inline not detached"):
+        verify_cose_manifest(rebuild(tag, body), TRUSTED_KEYS)
+
+
+def test_trailing_bytes_are_rejected():
+    signed = sign_cose_sign1(base_manifest(), KP)
+    with pytest.raises(CoseStructureError, match="trailing bytes"):
+        verify_cose_manifest(signed + b"\x00", TRUSTED_KEYS)
+
+
+def test_empty_protected_header_is_rejected():
+    tag, body = parts(sign_cose_sign1(base_manifest(), KP))
+    body[0] = b""
+    with pytest.raises(CoseStructureError, match="empty"):
+        verify_cose_manifest(rebuild(tag, body), TRUSTED_KEYS)
+
+
+def test_unknown_alg_code_point_is_rejected():
+    tag, body = parts(sign_cose_sign1(base_manifest(), KP))
+    header = cbor2.loads(body[0])
+    header[HDR_ALG] = -7  # ES256, not registered by this profile
+    body[0] = cbor2.dumps(header, canonical=True)
+    with pytest.raises(CoseStructureError, match="unknown alg"):
+        verify_cose_manifest(rebuild(tag, body), TRUSTED_KEYS)
+
+
+def test_unknown_kid_is_rejected():
+    other = generate_ed25519()
+    signed = sign_cose_sign1(base_manifest(), other)
+    with pytest.raises(CoseKeyError, match="not in trusted_keys"):
+        verify_cose_manifest(signed, TRUSTED_KEYS)
+
+
+def test_post_quantum_profile_with_a_classical_signature_is_a_downgrade():
+    """The bug shipped in v0.1 and fixed in 0.6.0, now unrepresentable."""
+    signed = sign_cose_sign1(base_manifest(crypto_profile="post-quantum"), KP)
+    with pytest.raises(CoseDowngradeError, match="post-quantum"):
+        verify_cose_manifest(signed, TRUSTED_KEYS)
+
+
+def test_downgrade_is_caught_without_any_trusted_keys():
+    """Profile posture is checked whether or not this party holds the key."""
+    signed = sign_cose_sign1(base_manifest(crypto_profile="post-quantum"), KP)
+    with pytest.raises(CoseDowngradeError):
+        verify_cose_manifest(signed, {})
+
+
+def test_a_v01_payload_is_routed_away_from_this_envelope():
+    tag, body = parts(sign_cose_sign1(base_manifest(), KP))
+    manifest = json.loads(body[2].decode())
+    manifest["version"] = "0.1"
+    body[2] = json.dumps(manifest).encode()
+    with pytest.raises(CoseVersionError, match="0.1"):
+        verify_cose_manifest(rebuild(tag, body), TRUSTED_KEYS)
+
+
+def test_payload_that_is_not_json_is_rejected():
+    tag, body = parts(sign_cose_sign1(base_manifest(), KP))
+    body[2] = b"\xff\xfe not json"
+    with pytest.raises(CoseStructureError, match="JSON"):
+        verify_cose_manifest(rebuild(tag, body), TRUSTED_KEYS)
+
+
+def test_duplicate_algorithm_entries_in_cose_sign_are_rejected():
+    """Two entries for one algorithm cannot make a hybrid signature stronger."""
+    tag, body = parts(sign_cose_sign1(base_manifest(), KP))
+    body_protected = cbor2.dumps(
+        {HDR_CONTENT_TYPE: MEDIA_TYPE_MANIFEST_JSON, HDR_TYP: MEDIA_TYPE_MANIFEST_COSE},
+        canonical=True,
+    )
+    entry_protected = cbor2.dumps(
+        {HDR_ALG: ALG_EDDSA, HDR_KID: hashlib.sha256(KP.public_bytes).digest()},
+        canonical=True,
+    )
+    forged = rebuild(
+        COSE_SIGN_TAG,
+        [
+            body_protected,
+            {},
+            body[2],
+            [[entry_protected, {}, body[3]], [entry_protected, {}, body[3]]],
+        ],
+    )
+    with pytest.raises(CoseStructureError, match="more than one"):
+        verify_cose_manifest(forged, TRUSTED_KEYS)
+
+
+def test_cose_sign_with_no_signature_entries_is_rejected():
+    _, body = parts(sign_cose_sign1(base_manifest(), KP))
+    body_protected = cbor2.dumps(
+        {HDR_CONTENT_TYPE: MEDIA_TYPE_MANIFEST_JSON, HDR_TYP: MEDIA_TYPE_MANIFEST_COSE},
+        canonical=True,
+    )
+    forged = rebuild(COSE_SIGN_TAG, [body_protected, {}, body[2], []])
+    with pytest.raises(CoseStructureError, match="no signature entries"):
+        verify_cose_manifest(forged, TRUSTED_KEYS)
+
+
+# ---------------------------------------------------------------------------
+# COSE_Sign structure
+#
+# The Sig_structure with a body header and a per-signature header, entry
+# ordering, and the rule that every entry must verify. Real ML-DSA-65
+# throughout, through whichever backend the SDK found.
+# ---------------------------------------------------------------------------
+
+
+def hybrid_trusted(kp):
+    return {
+        kp.ed25519.key_id: kp.ed25519.public_b64url(),
+        kp.ml_dsa65.key_id: kp.ml_dsa65.public_b64url(),
+    }
+
+
+@require_pq
+def test_cose_sign_carries_typ_in_the_body_and_alg_per_signature(pq_backend):
+    kp = generate_hybrid()
+    signed = sign_cose_sign_hybrid(
+        base_manifest(crypto_profile="post-quantum"), kp
+    )
+    tag, body = parts(signed)
+    assert tag == COSE_SIGN_TAG
+    body_header = cbor2.loads(body[0])
+    assert body_header[HDR_TYP] == MEDIA_TYPE_MANIFEST_COSE
+    assert body_header[HDR_CONTENT_TYPE] == MEDIA_TYPE_MANIFEST_JSON
+    assert HDR_ALG not in body_header
+    assert [cbor2.loads(e[0])[HDR_ALG] for e in body[3]] == [ALG_ED25519, ALG_ML_DSA_65]
+    assert [cbor2.loads(e[0])[HDR_KID] for e in body[3]] == [
+        hashlib.sha256(kp.ed25519.public_bytes).digest(),
+        hashlib.sha256(kp.ml_dsa65.public_key_bytes).digest(),
+    ]
+
+
+@require_pq
+def test_cose_sign_verifies_every_entry(pq_backend):
+    kp = generate_hybrid()
+    signed = sign_cose_sign_hybrid(
+        base_manifest(crypto_profile="post-quantum"), kp
+    )
+    result = verify_cose_manifest(signed, hybrid_trusted(kp))
+    assert result.verified is True
+    assert result.algorithms == (ALG_ED25519, ALG_ML_DSA_65)
+
+
+@require_pq
+def test_cose_sign_entries_cover_the_same_payload(pq_backend):
+    kp = generate_hybrid()
+    """The structure guarantees it - there is one payload, not two objects."""
+    _, body = parts(
+        sign_cose_sign_hybrid(base_manifest(crypto_profile="post-quantum"), kp)
+    )
+    assert body[2] == cose_payload(base_manifest(crypto_profile="post-quantum"))
+    assert len(body[3]) == 2
+
+
+@require_pq
+def test_cose_sign_rejects_a_tampered_entry(pq_backend):
+    kp = generate_hybrid()
+    signed = sign_cose_sign_hybrid(
+        base_manifest(crypto_profile="post-quantum"), kp
+    )
+    tag, body = parts(signed)
+    entries = [list(e) for e in body[3]]
+    entries[1][2] = b"\x00" * len(entries[1][2])
+    body[3] = entries
+    with pytest.raises(InvalidSignature):
+        verify_cose_manifest(rebuild(tag, body), hybrid_trusted(kp))
+
+
+@require_pq
+def test_cose_sign_requires_a_trusted_key_for_every_entry(pq_backend):
+    kp = generate_hybrid()
+    """No falling back to the entry whose key happens to be held."""
+    signed = sign_cose_sign_hybrid(
+        base_manifest(crypto_profile="post-quantum"), kp
+    )
+    classical_only = {kp.ed25519.key_id: kp.ed25519.public_b64url()}
+    with pytest.raises(CoseKeyError):
+        verify_cose_manifest(signed, classical_only)
+
+
+@require_pq
+def test_cose_sign_signature_does_not_transplant_between_entries(pq_backend):
+    kp = generate_hybrid()
+    """Each entry's own protected header is inside its Sig_structure."""
+    signed = sign_cose_sign_hybrid(
+        base_manifest(crypto_profile="post-quantum"), kp
+    )
+    tag, body = parts(signed)
+    entries = [list(e) for e in body[3]]
+    # Give the PQ entry the classical entry's protected header bytes.
+    entries[1][0] = entries[0][0]
+    body[3] = entries
+    with pytest.raises((InvalidSignature, CoseStructureError)):
+        verify_cose_manifest(rebuild(tag, body), hybrid_trusted(kp))
+
+
+# ---------------------------------------------------------------------------
+# Hybrid (COSE_Sign with two signers), against a real ML-DSA-65
+# ---------------------------------------------------------------------------
+
+
+@require_pq
+def test_hybrid_is_one_cose_sign_with_two_signers(pq_backend):
+    kp = generate_hybrid()
+    signed = sign_cose_sign_hybrid(
+        base_manifest(crypto_profile="post-quantum"), kp
+    )
+    tag, body = parts(signed)
+    assert tag == COSE_SIGN_TAG
+    assert len(body[3]) == 2
+    # typ and content type in the body header, alg and kid per signature.
+    body_header = cbor2.loads(body[0])
+    assert body_header[HDR_TYP] == MEDIA_TYPE_MANIFEST_COSE
+    assert HDR_ALG not in body_header
+    assert [cbor2.loads(e[0])[HDR_ALG] for e in body[3]] == [ALG_ED25519, ALG_ML_DSA_65]
+
+
+@require_pq
+def test_hybrid_verifies_both_entries_against_component_keys(pq_backend):
+    kp = generate_hybrid()
+    signed = sign_cose_sign_hybrid(
+        base_manifest(crypto_profile="post-quantum"), kp
+    )
+    trusted = {
+        kp.ed25519.key_id: kp.ed25519.public_b64url(),
+        kp.ml_dsa65.key_id: kp.ml_dsa65.public_b64url(),
+    }
+    result = verify_cose_manifest(signed, trusted)
+    assert result.verified is True
+    assert result.algorithms == (ALG_ED25519, ALG_ML_DSA_65)
+
+
+@require_pq
+def test_ml_dsa_signature_verifies_under_an_independent_implementation(pq_backend):
+    """The Sig_structure is right, checked without this module's verifier.
+
+    Rebuilds RFC 9052 section 4.4 by hand from the object as parsed, then
+    verifies the raw signature with cryptography's ML-DSA-65 directly. If
+    ``_cose`` built the wrong bytes, this fails even though its own
+    round-trip would pass.
+    """
+    if not CRYPTOGRAPHY_MLDSA:
+        pytest.skip("cryptography has no ML-DSA")
+    kp = generate_ml_dsa65()
+    signed = sign_cose_sign1(base_manifest(crypto_profile="post-quantum"), kp)
+    _, body = parts(signed)
+    protected, _, payload, signature = body
+
+    to_be_signed = cbor2.dumps(["Signature1", protected, b"", payload], canonical=True)
+    _mldsa.MLDSA65PublicKey.from_public_bytes(kp.public_key_bytes).verify(
+        signature, to_be_signed
+    )  # raises on failure
+
+    # And the same bytes must not verify over anything else.
+    with pytest.raises(Exception):
+        _mldsa.MLDSA65PublicKey.from_public_bytes(kp.public_key_bytes).verify(
+            signature, payload
+        )
+
+
+def test_ed25519_signature_verifies_under_an_independent_implementation():
+    """Same check for the classical entry, straight through cryptography."""
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
+    signed = sign_cose_sign1(base_manifest(), KP)
+    _, body = parts(signed)
+    protected, _, payload, signature = body
+    to_be_signed = cbor2.dumps(["Signature1", protected, b"", payload], canonical=True)
+    Ed25519PublicKey.from_public_bytes(KP.public_bytes).verify(signature, to_be_signed)
+
+    with pytest.raises(InvalidSignature):
+        Ed25519PublicKey.from_public_bytes(KP.public_bytes).verify(signature, payload)
+
+
+@require_pq
+def test_hybrid_entries_verify_under_independent_implementations(pq_backend):
+    """Both COSE_Sign entries, each over its own Sig_structure, checked raw."""
+    if not CRYPTOGRAPHY_MLDSA:
+        pytest.skip("cryptography has no ML-DSA")
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
+    kp = generate_hybrid()
+    signed = sign_cose_sign_hybrid(
+        base_manifest(crypto_profile="post-quantum"), kp
+    )
+    _, body = parts(signed)
+    body_protected, _, payload, entries = body
+
+    ed_protected, _, ed_sig = entries[0]
+    Ed25519PublicKey.from_public_bytes(kp.ed25519.public_bytes).verify(
+        ed_sig,
+        cbor2.dumps(
+            ["Signature", body_protected, ed_protected, b"", payload], canonical=True
+        ),
+    )
+
+    pq_protected, _, pq_sig = entries[1]
+    _mldsa.MLDSA65PublicKey.from_public_bytes(kp.ml_dsa65.public_key_bytes).verify(
+        pq_sig,
+        cbor2.dumps(
+            ["Signature", body_protected, pq_protected, b"", payload], canonical=True
+        ),
+    )
+
+
+@require_pq
+def test_ml_dsa_key_sizes_are_fips_204_ml_dsa_65(pq_backend):
+    """Guards against a profile silently signing with the wrong parameter set."""
+    kp = generate_ml_dsa65()
+    signed = sign_cose_sign1(base_manifest(crypto_profile="post-quantum"), kp)
+    _, body = parts(signed)
+    assert len(kp.public_key_bytes) == 1952  # FIPS 204 ML-DSA-65 public key
+    assert len(body[3]) == 3309  # FIPS 204 ML-DSA-65 signature
+
+
+@require_pq
+def test_hybrid_rejects_a_tampered_pq_entry_rather_than_falling_back(pq_backend):
+    kp = generate_hybrid()
+    signed = sign_cose_sign_hybrid(
+        base_manifest(crypto_profile="post-quantum"), kp
+    )
+    tag, body = parts(signed)
+    entries = list(body[3])
+    entries[1] = [entries[1][0], {}, b"\x00" * len(entries[1][2])]
+    body[3] = entries
+    trusted = {
+        kp.ed25519.key_id: kp.ed25519.public_b64url(),
+        kp.ml_dsa65.key_id: kp.ml_dsa65.public_b64url(),
+    }
+    with pytest.raises(InvalidSignature):
+        verify_cose_manifest(rebuild(tag, body), trusted)
+
+
+# ---------------------------------------------------------------------------
+# Version-gated routing through the verification engine
+# ---------------------------------------------------------------------------
+
+
+def test_engine_verifies_a_cose_manifest():
+    result = verify_manifest(
+        sign_cose_sign1(base_manifest(), KP), base_context(), store()
+    )
+    assert result.result == OverallResult.VALID
+    assert result.signature_verified is True
+
+
+def test_engine_warns_when_no_receipt_is_attached():
+    result = verify_manifest(
+        sign_cose_sign1(base_manifest(), KP),
+        base_context(require_transparency=True),
+        store(),
+    )
+    assert any("transparency receipt" in w for w in result.warnings)
+
+
+def test_required_cose_receipt_missing_is_incomplete():
+    result = verify_manifest(
+        sign_cose_sign1(base_manifest(), KP),
+        base_context(require_transparency=True),
+        store(),
+    )
+    assert result.result == OverallResult.INCOMPLETE
+    assert result.transparency_verified is False
+
+
+def test_attacker_supplied_cose_receipt_is_not_treated_as_verified():
+    envelope = attach_receipt(
+        sign_cose_sign1(base_manifest(), KP), b"attacker-controlled-receipt"
+    )
+    result = verify_manifest(
+        envelope, base_context(require_transparency=True), store()
+    )
+    assert result.result == OverallResult.UNVERIFIABLE
+    assert result.transparency_verified is False
+
+
+def test_independently_verified_cose_receipt_satisfies_requirement():
+    receipt = b"trusted-transparency-service-receipt"
+    envelope = attach_receipt(sign_cose_sign1(base_manifest(), KP), receipt)
+    result = verify_manifest(
+        envelope,
+        base_context(
+            require_transparency=True,
+            verified_transparency_receipt_hashes={hashlib.sha256(receipt).hexdigest()},
+            transparency_evidence_manifest_id=base_manifest()["manifest_id"],
+        ),
+        store(),
+    )
+    assert result.result == OverallResult.VALID
+    assert result.transparency_verified is True
+
+
+def test_engine_reports_unverifiable_without_trusted_keys():
+    result = verify_manifest(
+        sign_cose_sign1(base_manifest(), KP),
+        base_context(trusted_keys={}),
+        store(),
+    )
+    assert result.result == OverallResult.UNVERIFIABLE
+    assert result.signature_verified is False
+
+
+def test_engine_reports_mismatch_on_a_tampered_payload():
+    tag, body = parts(sign_cose_sign1(base_manifest(), KP))
+    manifest = json.loads(body[2].decode())
+    manifest["expires_at"] = (NOW + timedelta(days=3650)).isoformat().replace(
+        "+00:00", "Z"
+    )
+    body[2] = json.dumps(manifest).encode()
+    result = verify_manifest(rebuild(tag, body), base_context(), store())
+    assert result.result == OverallResult.MISMATCH
+    assert result.mismatch_details[0].field == "signature"
+
+
+def test_engine_reports_incompatible_version_for_a_v01_payload():
+    tag, body = parts(sign_cose_sign1(base_manifest(), KP))
+    manifest = json.loads(body[2].decode())
+    manifest["version"] = "0.1"
+    body[2] = json.dumps(manifest).encode()
+    result = verify_manifest(rebuild(tag, body), base_context(), store())
+    assert result.result == OverallResult.INCOMPATIBLE_VERSION
+    assert result.manifest_id == base_manifest()["manifest_id"]
+
+
+def test_engine_still_verifies_a_v01_dict_unchanged():
+    """The version gate is the point: existing records keep verifying."""
+    from agent_manifest._signing import Ed25519Signer
+
+    manifest = base_manifest(version="0.1")
+    manifest["signature"] = Ed25519Signer(KP).sign(manifest)
+    result = verify_manifest(manifest, base_context(), store())
+    assert result.result == OverallResult.VALID
+
+
+def test_a_bare_v02_dict_has_no_signature():
+    """v0.2 has no signature field - the COSE structure is the signature."""
+    result = verify_manifest(base_manifest(), base_context(), store())
+    assert result.result == OverallResult.SIGNATURE_MISSING
+
+
+# ---------------------------------------------------------------------------
+# A signed v0.2 manifest missing the REQUIRED `issuer` claim must fail closed.
+#
+# `_strict_schema_violations` tolerates a missing `issuer` for legacy v0.1
+# records (CHANGELOG: "legacy v0.1 issuer omission remains compatible"),
+# because `issuer` did not exist on v0.1 manifests. That exception used to
+# apply unconditionally, with no check on which version was being verified,
+# so a v0.2 manifest - where the spec makes `issuer` REQUIRED - could omit it
+# entirely, carry a perfectly valid COSE signature, and still come back
+# VALID. `issuer` is not decorative: `_signature_key_issuer_mismatch` uses it
+# to authorize the signing key, so treating it as optional on v0.2 quietly
+# disables that authorization boundary whenever a manifest leaves it out.
+# ---------------------------------------------------------------------------
+
+
+def test_v02_manifest_missing_issuer_is_not_valid():
+    manifest = base_manifest()
+    del manifest["issuer"]
+    result = verify_manifest(sign_cose_sign1(manifest, KP), base_context(), store())
+    assert result.result != OverallResult.VALID
+    assert result.result == OverallResult.MISMATCH
+    assert any(d.field == "schema:issuer" for d in result.mismatch_details)
+
+
+def test_v02_manifest_missing_issuer_is_not_rescued_by_key_authorization():
+    """The bug is not neutralized just because trusted_key_issuers is unset.
+
+    An unconfigured `trusted_key_issuers` skips `_signature_key_issuer_mismatch`
+    entirely (see its early return), so that check alone never catches this.
+    The schema gate has to be the one that fails closed here.
+    """
+    manifest = base_manifest()
+    del manifest["issuer"]
+    ctx = base_context(trusted_key_issuers={})
+    result = verify_manifest(sign_cose_sign1(manifest, KP), ctx, store())
+    assert result.result == OverallResult.MISMATCH
+
+
+def test_v01_manifest_missing_issuer_still_verifies():
+    """The legacy compatibility this exception exists for is unchanged."""
+    from agent_manifest._signing import Ed25519Signer
+
+    manifest = base_manifest(version="0.1")
+    del manifest["issuer"]
+    manifest["signature"] = Ed25519Signer(KP).sign(manifest)
+    result = verify_manifest(manifest, base_context(), store())
+    assert result.result == OverallResult.VALID
+
+
+def test_engine_binds_attestation_to_the_payload_hash():
+    """The binding is checked, and it is still not hardware evidence.
+
+    GHSA-85fc-3g4g-fjjc. On the COSE path the attestation block lives in the
+    unprotected header, which the envelope spec makes explicitly malleable, so
+    a matching payload hash tells you the report names these bytes and nothing
+    more. Under enforcement that has to fail closed.
+    """
+    manifest = base_manifest()
+    signed = sign_cose_sign1(manifest, KP)
+    signed = attach_attestation(
+        signed,
+        {
+            "platform": "amd-sev-snp",
+            "manifest_hash_in_report": payload_hash(cose_payload(manifest)),
+            "audit_key_sealed": True,
+        },
+    )
+    result = verify_manifest(signed, base_context(enforce_attestation=True), store())
+    assert result.attestation_verified is False
+    assert result.result == OverallResult.ATTESTATION_UNAVAILABLE
+
+
+def test_engine_accepts_attestation_with_an_independent_appraisal():
+    manifest = base_manifest()
+    # enforce_attestation reads audit_key_sealed from the signed payload
+    # (GHSA-489r-r3g9-g24r); the unprotected-header copy alone is not enough.
+    manifest["artifacts"]["decision_trace"] = {
+        "trace_type": "hash-chained",
+        "audit_chain_root": "sha256:" + "d" * 64,
+        "audit_chain_uri": "https://audit.example/chains/kyc",
+        "signing_key_id": "tee-sealed-audit-key",
+        "audit_key_sealed": True,
+        "first_entry_at": NOW.isoformat().replace("+00:00", "Z"),
+        "last_entry_at": NOW.isoformat().replace("+00:00", "Z"),
+        "bound_at": NOW.isoformat().replace("+00:00", "Z"),
+    }
+    signed = sign_cose_sign1(manifest, KP)
+    bound_hash = payload_hash(cose_payload(manifest))
+    signed = attach_attestation(
+        signed,
+        {
+            "platform": "amd-sev-snp",
+            "manifest_hash_in_report": bound_hash,
+            "audit_key_sealed": True,
+        },
+    )
+    ctx = base_context(
+        enforce_attestation=True,
+        verified_attestation_manifest_hashes={bound_hash},
+        attestation_evidence_manifest_id=manifest["manifest_id"],
+        audit_chain_root="sha256:" + "d" * 64,
+    )
+
+    result = verify_manifest(signed, ctx, store())
+
+    assert result.attestation_verified is True
+    assert result.result == OverallResult.VALID
+
+
+def test_engine_rejects_an_attestation_bound_to_other_bytes():
+    signed = sign_cose_sign1(base_manifest(), KP)
+    signed = attach_attestation(
+        signed,
+        {"platform": "amd-sev-snp", "manifest_hash_in_report": "sha256:" + "c" * 64},
+    )
+    result = verify_manifest(signed, base_context(enforce_attestation=True), store())
+    assert result.attestation_verified is False
+    assert result.result == OverallResult.MISMATCH
+
+
+def test_engine_evaluates_approvals_from_the_unprotected_header():
+    """HITL-001: v0.2 approval checks do not establish present applicability."""
+    manifest = base_manifest(hitl_record={"required": True})
+    signed = sign_cose_sign1(manifest, KP)
+    signed = attach_approvals(signed, [approval()])
+    result = verify_manifest(signed, base_context(enforce_hitl=True), store())
+    assert result.fields_verified.hitl_record == HitlResult.APPROVED
+    assert result.hitl_admissibility.status == "UNDECIDABLE"
+    assert result.hitl_admissibility.reason == "current_state_evidence_unavailable"
+
+
+def test_engine_rejects_approval_bound_to_another_manifest():
+    manifest = base_manifest(hitl_record={"required": True})
+    other_manifest_id = "018f4a3b-2c1d-7e5f-a8b9-0d1e2f3a4b61"
+    signed = attach_approvals(
+        sign_cose_sign1(manifest, KP),
+        [approval(manifest_id=other_manifest_id)],
+    )
+
+    result = verify_manifest(signed, base_context(enforce_hitl=True), store())
+
+    assert result.fields_verified.hitl_record == HitlResult.INVALID
+    assert result.result == OverallResult.MISMATCH
+
+
+def test_engine_rejects_dummy_approval_signature():
+    manifest = base_manifest(hitl_record={"required": True})
+    signed = attach_approvals(
+        sign_cose_sign1(manifest, KP),
+        [approval(approval_signature="c2ln")],
+    )
+
+    result = verify_manifest(signed, base_context(enforce_hitl=True), store())
+
+    assert result.fields_verified.hitl_record == HitlResult.INVALID
+    assert result.result == OverallResult.MISMATCH
+
+
+def test_signed_hitl_requirement_cannot_be_satisfied_by_editing_the_header():
+    """Approvals are unsigned; the requirement they satisfy is not."""
+    manifest = base_manifest(hitl_record={"required": True})
+    signed = attach_approvals(sign_cose_sign1(manifest, KP), [])
+    result = verify_manifest(signed, base_context(enforce_hitl=True), store())
+    assert result.fields_verified.hitl_record == HitlResult.MISSING
+    assert result.result == OverallResult.MISMATCH
+
+
+def test_engine_approves_when_a_later_approval_in_the_unprotected_header_is_valid():
+    """A bad approval earlier in the array must not block a good one later
+    in it - same requirement as the v0.1 path (spec 5.3, HITL-004), now
+    exercised through the COSE unprotected-header attachment path."""
+    manifest = base_manifest(hitl_record={"required": True})
+    dummy_signature_approval = approval(approval_signature="c2ln")
+    good_approval = approval()
+    signed = attach_approvals(
+        sign_cose_sign1(manifest, KP),
+        [dummy_signature_approval, good_approval],
+    )
+    result = verify_manifest(signed, base_context(enforce_hitl=True), store())
+    assert result.fields_verified.hitl_record == HitlResult.APPROVED
+    assert result.result == OverallResult.VALID
+
+
+def test_engine_keeps_an_earlier_approvers_approval_when_a_later_one_attaches():
+    """Regression: Bob's attach used to drop Alice's approval.
+
+    A party trusting only Alice went from APPROVED to UNVERIFIABLE.
+    """
+    manifest = base_manifest(hitl_record={"required": True})
+    alice = approval(approval_id="018f4a3b-2c1d-7e5f-a8b9-0d1e2f3a4b61")
+    bob = approval_by(
+        BOB_ID, BOB_KP, approval_id="018f4a3b-2c1d-7e5f-a8b9-0d1e2f3a4b62"
+    )
+    # Trusts Alice only.
+    context = base_context(enforce_hitl=True)
+    signed = sign_cose_sign1(manifest, KP)
+
+    with_alice = attach_approvals(signed, [alice])
+    with_both = attach_approvals(with_alice, [bob])
+
+    alone = verify_manifest(with_alice, context, store())
+    assert alone.fields_verified.hitl_record == HitlResult.APPROVED
+
+    both = verify_manifest(with_both, context, store())
+    assert both.fields_verified.hitl_record == HitlResult.APPROVED
+    assert both.result == OverallResult.VALID
+
+
+def test_engine_accepts_two_approvers_attached_one_after_the_other():
+    """Both approvals are kept and both verify."""
+    manifest = base_manifest(hitl_record={"required": True})
+    alice = approval(approval_id="018f4a3b-2c1d-7e5f-a8b9-0d1e2f3a4b61")
+    bob = approval_by(
+        BOB_ID, BOB_KP, approval_id="018f4a3b-2c1d-7e5f-a8b9-0d1e2f3a4b62"
+    )
+    signed = sign_cose_sign1(manifest, KP)
+    signed = attach_approvals(signed, [alice])
+    signed = attach_approvals(signed, [bob])
+
+    carried = verify_cose_manifest(signed, TRUSTED_KEYS).approvals
+    assert [a["approver_id"] for a in carried] == [APPROVER_ID, BOB_ID]
+
+    # Trusting only Bob still gives APPROVED.
+    only_bob = base_context(
+        enforce_hitl=True, approver_public_keys={BOB_ID: BOB_KP.public_b64url()}
+    )
+    assert (
+        verify_manifest(signed, only_bob, store()).fields_verified.hitl_record
+        == HitlResult.APPROVED
+    )
+
+    both_trusted = base_context(
+        enforce_hitl=True,
+        approver_public_keys={
+            APPROVER_ID: APPROVER_KP.public_b64url(),
+            BOB_ID: BOB_KP.public_b64url(),
+        },
+    )
+    result = verify_manifest(signed, both_trusted, store())
+    assert result.fields_verified.hitl_record == HitlResult.APPROVED
+    assert result.result == OverallResult.VALID
+
+
+def test_engine_still_rejects_approvals_that_fail_authentication_when_accumulated():
+    """Approvals that all fail authentication are still not an approval."""
+    manifest = base_manifest(hitl_record={"required": True})
+    forged_alice = approval(approval_signature="c2ln")  # not a real signature
+    forged_bob = approval_by(BOB_ID, BOB_KP)
+    forged_bob["approval_signature"] = "c2ln"
+    signed = sign_cose_sign1(manifest, KP)
+    signed = attach_approvals(signed, [forged_alice])
+    signed = attach_approvals(signed, [forged_bob])
+    context = base_context(
+        enforce_hitl=True,
+        approver_public_keys={
+            APPROVER_ID: APPROVER_KP.public_b64url(),
+            BOB_ID: BOB_KP.public_b64url(),
+        },
+    )
+    result = verify_manifest(signed, context, store())
+    assert result.fields_verified.hitl_record == HitlResult.INVALID
+    assert result.result == OverallResult.MISMATCH
+
+
+# ---------------------------------------------------------------------------
+# Malformed input
+#
+# Every branch below is a rejection path in the parser. They are tested for
+# the same reason the parser has them: a verifier reads untrusted bytes, and
+# a reject path that is never exercised is a reject path nobody knows works.
+# ---------------------------------------------------------------------------
+
+
+def sign1_body(**over):
+    """A structurally valid COSE_Sign1 body, with fields replaceable."""
+    _, body = parts(sign_cose_sign1(base_manifest(), KP))
+    fields = {"protected": body[0], "unprotected": body[1], "payload": body[2],
+              "signature": body[3]}
+    fields.update(over)
+    return [fields["protected"], fields["unprotected"], fields["payload"],
+            fields["signature"]]
+
+
+def protected_with(**over):
+    """The protected header bytes, with parameters replaced or removed."""
+    _, body = parts(sign_cose_sign1(base_manifest(), KP))
+    header = cbor2.loads(body[0])
+    for k, v in over.items():
+        label = {"alg": HDR_ALG, "crit": HDR_CRIT, "cty": HDR_CONTENT_TYPE,
+                 "kid": HDR_KID, "typ": HDR_TYP}[k]
+        if v is None:
+            header.pop(label, None)
+        else:
+            header[label] = v
+    return cbor2.dumps(header, canonical=True)
+
+
+def test_a_non_bytes_object_is_rejected():
+    with pytest.raises(CoseStructureError, match="must be bytes"):
+        verify_cose_manifest("not bytes", TRUSTED_KEYS)
+
+
+def test_truncated_cbor_is_rejected():
+    # An array header promising two items, with one item present.
+    with pytest.raises(CoseStructureError, match="not valid CBOR"):
+        verify_cose_manifest(b"\x82\x01", TRUSTED_KEYS)
+
+
+def test_a_bare_break_byte_is_rejected():
+    """cbor2 decodes 0xff to a break sentinel rather than raising, so the
+    untagged-structure check is what has to catch it."""
+    with pytest.raises(CoseStructureError, match="untagged"):
+        verify_cose_manifest(b"\xff", TRUSTED_KEYS)
+
+
+def test_deeply_nested_cbor_is_rejected_not_crashed():
+    """DOS-006: nesting must produce a verdict, never a RecursionError."""
+    bomb = b"\xd2" + b"\x81" * 10_000 + b"\x00"
+    with pytest.raises(CoseStructureError):
+        verify_cose_manifest(bomb, TRUSTED_KEYS)
+
+
+def test_a_body_that_is_not_four_elements_is_rejected():
+    _, body = parts(sign_cose_sign1(base_manifest(), KP))
+    with pytest.raises(CoseStructureError, match="four-element array"):
+        verify_cose_manifest(rebuild(COSE_SIGN1_TAG, body[:3]), TRUSTED_KEYS)
+
+
+def test_a_non_bytes_protected_header_is_rejected():
+    body = sign1_body(protected=123)
+    with pytest.raises(CoseStructureError, match="protected header must be a byte string"):
+        verify_cose_manifest(rebuild(COSE_SIGN1_TAG, body), TRUSTED_KEYS)
+
+
+def test_a_non_map_unprotected_header_is_rejected():
+    body = sign1_body(unprotected=[1, 2])
+    with pytest.raises(CoseStructureError, match="unprotected header must be a map"):
+        verify_cose_manifest(rebuild(COSE_SIGN1_TAG, body), TRUSTED_KEYS)
+
+
+def test_a_protected_header_that_is_not_cbor_is_rejected():
+    body = sign1_body(protected=b"\x82\x01")
+    with pytest.raises(CoseStructureError, match="not valid CBOR"):
+        verify_cose_manifest(rebuild(COSE_SIGN1_TAG, body), TRUSTED_KEYS)
+
+
+def test_a_protected_header_that_is_not_a_map_is_rejected():
+    body = sign1_body(protected=cbor2.dumps(42))
+    with pytest.raises(CoseStructureError, match="must be a map"):
+        verify_cose_manifest(rebuild(COSE_SIGN1_TAG, body), TRUSTED_KEYS)
+
+
+def test_a_malformed_crit_is_rejected():
+    body = sign1_body(protected=protected_with(crit=[]))
+    with pytest.raises(CoseStructureError, match="crit must be a non-empty array"):
+        verify_cose_manifest(rebuild(COSE_SIGN1_TAG, body), TRUSTED_KEYS)
+
+
+def test_an_absent_alg_is_rejected():
+    body = sign1_body(protected=protected_with(alg=None))
+    with pytest.raises(CoseStructureError, match="no alg"):
+        verify_cose_manifest(rebuild(COSE_SIGN1_TAG, body), TRUSTED_KEYS)
+
+
+def test_a_non_integer_alg_is_rejected():
+    body = sign1_body(protected=protected_with(alg="EdDSA"))
+    with pytest.raises(CoseStructureError, match="alg must be an integer"):
+        verify_cose_manifest(rebuild(COSE_SIGN1_TAG, body), TRUSTED_KEYS)
+
+
+def test_a_boolean_alg_is_rejected():
+    """bool is an int in Python; the code point check must not accept True."""
+    body = sign1_body(protected=protected_with(alg=True))
+    with pytest.raises(CoseStructureError, match="alg must be an integer"):
+        verify_cose_manifest(rebuild(COSE_SIGN1_TAG, body), TRUSTED_KEYS)
+
+
+def test_an_absent_kid_is_rejected():
+    body = sign1_body(protected=protected_with(kid=None))
+    with pytest.raises(CoseStructureError, match="no kid"):
+        verify_cose_manifest(rebuild(COSE_SIGN1_TAG, body), TRUSTED_KEYS)
+
+
+def test_a_non_bytes_signature_is_rejected():
+    body = sign1_body(signature="not bytes")
+    with pytest.raises(CoseStructureError, match="signature must be a byte string"):
+        verify_cose_manifest(rebuild(COSE_SIGN1_TAG, body), TRUSTED_KEYS)
+
+
+def test_a_payload_that_is_not_a_json_object_is_rejected():
+    body = sign1_body(payload=json.dumps([1, 2, 3]).encode())
+    with pytest.raises(CoseStructureError, match="JSON object"):
+        verify_cose_manifest(rebuild(COSE_SIGN1_TAG, body), TRUSTED_KEYS)
+
+
+def test_an_unknown_future_version_is_incompatible_not_invalid():
+    manifest = base_manifest()
+    manifest["version"] = "9.9"
+    body = sign1_body(payload=json.dumps(manifest).encode())
+    with pytest.raises(CoseVersionError, match="9.9"):
+        verify_cose_manifest(rebuild(COSE_SIGN1_TAG, body), TRUSTED_KEYS)
+
+
+def test_a_cose_sign_entry_that_is_not_three_elements_is_rejected():
+    _, body = parts(sign_cose_sign1(base_manifest(), KP))
+    body_protected = cbor2.dumps(
+        {HDR_CONTENT_TYPE: MEDIA_TYPE_MANIFEST_JSON, HDR_TYP: MEDIA_TYPE_MANIFEST_COSE},
+        canonical=True,
+    )
+    forged = rebuild(COSE_SIGN_TAG, [body_protected, {}, body[2], [[b"", {}]]])
+    with pytest.raises(CoseStructureError, match="three-element array"):
+        verify_cose_manifest(forged, TRUSTED_KEYS)
+
+
+def test_a_cose_sign_entry_with_a_non_bytes_protected_header_is_rejected():
+    _, body = parts(sign_cose_sign1(base_manifest(), KP))
+    body_protected = cbor2.dumps(
+        {HDR_CONTENT_TYPE: MEDIA_TYPE_MANIFEST_JSON, HDR_TYP: MEDIA_TYPE_MANIFEST_COSE},
+        canonical=True,
+    )
+    forged = rebuild(COSE_SIGN_TAG, [body_protected, {}, body[2], [[7, {}, b""]]])
+    with pytest.raises(CoseStructureError, match="protected header must be a byte string"):
+        verify_cose_manifest(forged, TRUSTED_KEYS)
+
+
+def test_a_cose_sign_entry_with_a_non_map_unprotected_header_is_rejected():
+    _, body = parts(sign_cose_sign1(base_manifest(), KP))
+    body_protected = cbor2.dumps(
+        {HDR_CONTENT_TYPE: MEDIA_TYPE_MANIFEST_JSON, HDR_TYP: MEDIA_TYPE_MANIFEST_COSE},
+        canonical=True,
+    )
+    entry_protected = cbor2.dumps({HDR_ALG: ALG_EDDSA, HDR_KID: b"k"}, canonical=True)
+    forged = rebuild(
+        COSE_SIGN_TAG, [body_protected, {}, body[2], [[entry_protected, 9, b""]]]
+    )
+    with pytest.raises(CoseStructureError, match="unprotected header must be a map"):
+        verify_cose_manifest(forged, TRUSTED_KEYS)
+
+
+@require_pq
+def test_sign_manifest_cose_dispatches_hybrid_to_cose_sign(pq_backend):
+    tag, _ = parts(sign_manifest_cose(
+        base_manifest(crypto_profile="post-quantum"), generate_hybrid()
+    ))
+    assert tag == COSE_SIGN_TAG
+
+
+@require_pq
+def test_a_tampered_ml_dsa_signature_is_rejected(pq_backend):
+    """The ML-DSA verify-returns-false path, on a single-signer envelope."""
+    kp = generate_ml_dsa65()
+    signed = sign_cose_sign1(base_manifest(crypto_profile="post-quantum"), kp)
+    tag, body = parts(signed)
+    body[3] = bytes(len(body[3]))  # a correctly sized, wrong signature
+    with pytest.raises(InvalidSignature, match="ML-DSA-65"):
+        verify_cose_manifest(
+            rebuild(tag, body), {kp.key_id: kp.public_b64url()}
+        )
+
+
+def test_a_cose_sign_entry_with_a_non_bytes_signature_is_rejected():
+    _, body = parts(sign_cose_sign1(base_manifest(), KP))
+    body_protected = cbor2.dumps(
+        {HDR_CONTENT_TYPE: MEDIA_TYPE_MANIFEST_JSON, HDR_TYP: MEDIA_TYPE_MANIFEST_COSE},
+        canonical=True,
+    )
+    entry_protected = cbor2.dumps(
+        {HDR_ALG: ALG_EDDSA, HDR_KID: hashlib.sha256(KP.public_bytes).digest()},
+        canonical=True,
+    )
+    forged = rebuild(
+        COSE_SIGN_TAG,
+        [body_protected, {}, body[2], [[entry_protected, {}, "not bytes"]]],
+    )
+    with pytest.raises(CoseStructureError, match="signature must be a byte string"):
+        verify_cose_manifest(forged, TRUSTED_KEYS)
+
+
+def test_a_wrong_length_ed25519_signature_is_rejected_before_openssl():
+    """SIGN-001: fixed-length check before the bytes reach the primitive."""
+    tag, body = parts(sign_cose_sign1(base_manifest(), KP))
+    body[3] = body[3][:32]  # half an Ed25519 signature
+    with pytest.raises(InvalidSignature, match="must be 64 bytes"):
+        verify_cose_manifest(rebuild(tag, body), TRUSTED_KEYS)
+
+
+# ---------------------------------------------------------------------------
+# RFC 9864: EdDSA (-8) is deprecated in favour of the fully-specified
+# Ed25519 (-19). The SDK signs with -8, because that is what the envelope
+# specification requires, and accepts both, so a verifier shipped today
+# already works on the day the specification moves.
+# ---------------------------------------------------------------------------
+
+
+def ed25519_envelope_with_alg(alg, keypair=KP, manifest=None):
+    """Sign a COSE_Sign1 whose protected header declares *alg*."""
+    from agent_manifest._cose import _sig_structure_sign1
+
+    payload = cose_payload(manifest or base_manifest())
+    protected = cbor2.dumps(
+        {
+            HDR_ALG: alg,
+            HDR_CONTENT_TYPE: MEDIA_TYPE_MANIFEST_JSON,
+            HDR_KID: hashlib.sha256(keypair.public_bytes).digest(),
+            HDR_TYP: MEDIA_TYPE_MANIFEST_COSE,
+        },
+        canonical=True,
+    )
+    signature = keypair.private_key.sign(_sig_structure_sign1(protected, payload))
+    return rebuild(COSE_SIGN1_TAG, [protected, {}, payload, signature])
+
+
+def test_the_sdk_signs_with_the_fully_specified_identifier():
+    """ADR-0014: producers sign -19; -8 is verified but never emitted."""
+    _, body = parts(sign_cose_sign1(base_manifest(), KP))
+    assert cbor2.loads(body[0])[HDR_ALG] == ALG_ED25519
+
+
+def test_a_deprecated_eddsa_envelope_still_verifies():
+    """An existing manifest signed under -8 stays verifiable indefinitely:
+    audit records outlive the identifier they were signed under."""
+    result = verify_cose_manifest(ed25519_envelope_with_alg(ALG_EDDSA), TRUSTED_KEYS)
+    assert result.verified is True
+    assert result.algorithms == (ALG_EDDSA,)
+    assert result.signatures[0].algorithm_name == "EdDSA"
+
+
+def test_the_engine_accepts_a_deprecated_eddsa_manifest():
+    result = verify_manifest(
+        ed25519_envelope_with_alg(ALG_EDDSA), base_context(), store()
+    )
+    assert result.result == OverallResult.VALID
+
+
+def test_a_fully_specified_ed25519_alg_verifies():
+    result = verify_cose_manifest(
+        ed25519_envelope_with_alg(ALG_ED25519), TRUSTED_KEYS
+    )
+    assert result.verified is True
+    assert result.algorithms == (ALG_ED25519,)
+    assert result.signatures[0].algorithm_name == "Ed25519"
+
+
+def test_a_fully_specified_ed25519_envelope_is_still_tamper_evident():
+    envelope = ed25519_envelope_with_alg(ALG_ED25519)
+    tag, body = parts(envelope)
+    manifest = json.loads(body[2].decode())
+    manifest["agent_id"] = "spiffe://trust.example/agent/attacker"
+    body[2] = json.dumps(manifest).encode()
+    with pytest.raises(InvalidSignature):
+        verify_cose_manifest(rebuild(tag, body), TRUSTED_KEYS)
+
+
+def test_swapping_between_the_two_ed25519_identifiers_breaks_the_signature():
+    """Both are accepted, but neither is interchangeable after signing: alg is
+    inside the protected header the signature covers."""
+    envelope = ed25519_envelope_with_alg(ALG_ED25519)
+    tag, body = parts(envelope)
+    header = cbor2.loads(body[0])
+    header[HDR_ALG] = ALG_EDDSA
+    body[0] = cbor2.dumps(header, canonical=True)
+    with pytest.raises(InvalidSignature):
+        verify_cose_manifest(rebuild(tag, body), TRUSTED_KEYS)
+
+
+def test_a_post_quantum_profile_is_not_satisfied_by_ed25519_either_spelling():
+    envelope = ed25519_envelope_with_alg(
+        ALG_ED25519, manifest=base_manifest(crypto_profile="post-quantum")
+    )
+    with pytest.raises(CoseDowngradeError):
+        verify_cose_manifest(envelope, TRUSTED_KEYS)
+
+
+def test_the_engine_accepts_a_fully_specified_ed25519_manifest():
+    result = verify_manifest(
+        ed25519_envelope_with_alg(ALG_ED25519), base_context(), store()
+    )
+    assert result.result == OverallResult.VALID
+    assert result.signature_verified is True
+
+
+def test_two_spellings_of_ed25519_are_not_two_signers():
+    """A COSE_Sign carrying -8 and -19 entries is one algorithm twice, and
+    must not be able to pass as a hybrid signature."""
+    from agent_manifest._cose import _sig_structure_sign
+
+    payload = cose_payload(base_manifest())
+    body_protected = cbor2.dumps(
+        {HDR_CONTENT_TYPE: MEDIA_TYPE_MANIFEST_JSON, HDR_TYP: MEDIA_TYPE_MANIFEST_COSE},
+        canonical=True,
+    )
+    entries = []
+    for alg in (ALG_EDDSA, ALG_ED25519):
+        sign_protected = cbor2.dumps(
+            {HDR_ALG: alg, HDR_KID: hashlib.sha256(KP.public_bytes).digest()},
+            canonical=True,
+        )
+        sig = KP.private_key.sign(
+            _sig_structure_sign(body_protected, sign_protected, payload)
+        )
+        entries.append([sign_protected, {}, sig])
+    forged = rebuild(COSE_SIGN_TAG, [body_protected, {}, payload, entries])
+    with pytest.raises(CoseStructureError, match="more than one"):
+        verify_cose_manifest(forged, TRUSTED_KEYS)
+
+
+# ---------------------------------------------------------------------------
+# Policy and parsing hardening
+#
+# These three came out of an adversarial pass comparing the COSE path against
+# what the v0.1 path already enforces. The first was a genuine regression.
+# ---------------------------------------------------------------------------
+
+
+def test_a_trusted_key_may_not_sign_for_an_unauthorized_issuer():
+    """The v0.1 path rejects this; the COSE path must not be weaker.
+
+    trusted_key_issuers binds a key to the issuers it may sign for. Without
+    this check, any trusted key could sign a manifest claiming any issuer,
+    which is precisely the blast radius that binding exists to limit.
+    """
+    manifest = base_manifest(issuer="spiffe://trust.example/issuer/other")
+    ctx = base_context(
+        trusted_key_issuers={KP.key_id: ["spiffe://trust.example/issuer/payroll"]}
+    )
+    result = verify_manifest(sign_cose_sign1(manifest, KP), ctx, store())
+    assert result.result == OverallResult.MISMATCH
+    assert [d.field for d in result.mismatch_details] == ["signature.issuer"]
+
+
+def test_an_authorized_issuer_still_verifies():
+    manifest = base_manifest(issuer="spiffe://trust.example/issuer/payroll")
+    ctx = base_context(
+        trusted_key_issuers={KP.key_id: ["spiffe://trust.example/issuer/payroll"]}
+    )
+    result = verify_manifest(sign_cose_sign1(manifest, KP), ctx, store())
+    assert result.result == OverallResult.VALID
+
+
+@require_pq
+def test_every_hybrid_signer_must_be_authorized_for_the_issuer(pq_backend):
+    """One authorized component key must not carry an unauthorized one."""
+    kp = generate_hybrid()
+    manifest = base_manifest(
+        issuer="spiffe://trust.example/issuer/payroll", crypto_profile="post-quantum"
+    )
+    ctx = base_context(
+        trusted_keys={
+            kp.ed25519.key_id: kp.ed25519.public_b64url(),
+            kp.ml_dsa65.key_id: kp.ml_dsa65.public_b64url(),
+        },
+        trusted_key_issuers={
+            kp.ed25519.key_id: ["spiffe://trust.example/issuer/payroll"],
+            # the ML-DSA key is authorized for a different issuer
+            kp.ml_dsa65.key_id: ["spiffe://trust.example/issuer/other"],
+        },
+    )
+    result = verify_manifest(sign_cose_sign_hybrid(manifest, kp), ctx, store())
+    assert result.result == OverallResult.MISMATCH
+
+
+def test_a_payload_with_duplicate_member_names_is_rejected():
+    """Parsers disagree about which value wins, so two verifiers could read
+    different manifests out of the same signed bytes."""
+    tag, body = parts(sign_cose_sign1(base_manifest(), KP))
+    body[2] = b'{"manifest_id":"x","version":"0.2","version":"0.1"}'
+    with pytest.raises(CoseStructureError, match="duplicate member name"):
+        verify_cose_manifest(rebuild(tag, body), TRUSTED_KEYS)
+
+
+def test_a_payload_containing_nan_is_rejected():
+    tag, body = parts(sign_cose_sign1(base_manifest(), KP))
+    body[2] = b'{"manifest_id":"x","version":"0.2","drift":NaN}'
+    with pytest.raises(CoseStructureError, match="RFC 8785"):
+        verify_cose_manifest(rebuild(tag, body), TRUSTED_KEYS)
+
+
+def test_a_deeply_nested_payload_returns_a_verdict_rather_than_unwinding():
+    """DOS-006: untrusted input must never escape as an exception."""
+    tag, body = parts(sign_cose_sign1(base_manifest(), KP))
+    body[2] = (('{"a":' * 5000) + "1" + ("}" * 5000)).encode()
+    result = verify_manifest(rebuild(tag, body), base_context(), store())
+    assert result.result == OverallResult.MISMATCH
+
+
+def test_a_deeply_nested_payload_is_a_structure_error_not_a_crash():
+    tag, body = parts(sign_cose_sign1(base_manifest(), KP))
+    body[2] = (('{"a":' * 5000) + "1" + ("}" * 5000)).encode()
+    with pytest.raises(CoseStructureError):
+        verify_cose_manifest(rebuild(tag, body), TRUSTED_KEYS)
+
+
+def test_a_v02_manifest_may_not_use_the_v01_envelope():
+    """The version gate has to bind in both directions.
+
+    A manifest claiming 0.2 while carrying a detached signature block is using
+    the envelope with the unauthenticated algorithm identifier and the
+    canonicalize-before-verify step that ADR-0011 moved away from. Accepting it
+    would make the gate advisory and leave the phase 5 deprecation with nothing
+    to enforce.
+    """
+    from agent_manifest._signing import Ed25519Signer
+
+    manifest = base_manifest()  # version 0.2
+    manifest["signature"] = Ed25519Signer(KP).sign(manifest)
+    result = verify_manifest(manifest, base_context(), store())
+    assert result.result == OverallResult.MISMATCH
+    assert result.signature_verified is False
+    assert result.mismatch_details[0].field == "signature"
+    assert "0.2" in result.mismatch_details[0].expected_hash
+
+
+def test_a_v01_manifest_with_the_v01_envelope_is_unaffected():
+    """The check must not touch the path every existing record uses."""
+    from agent_manifest._signing import Ed25519Signer
+
+    manifest = base_manifest(version="0.1")
+    manifest["signature"] = Ed25519Signer(KP).sign(manifest)
+    assert verify_manifest(manifest, base_context(), store()).result == (
+        OverallResult.VALID
+    )
+
+
+def test_nesting_bound_is_explicit_not_a_recursion_accident():
+    """DOS-006 must behave identically on every platform.
+
+    Relying on RecursionError made this guard platform-dependent: CPython on
+    Linux parses thousands of levels without raising, so on that platform there
+    was no bound at all, while Windows tripped its own recursion limit and
+    looked protected. Main went red on ubuntu 3.12/3.13 for exactly this.
+    """
+    from agent_manifest._cose import _MAX_PAYLOAD_NESTING, _parse_payload
+
+    at_limit = ('{"a":' * (_MAX_PAYLOAD_NESTING - 1)) + '{"version":"0.2"}' + ("}" * (_MAX_PAYLOAD_NESTING - 1))
+    assert _parse_payload(at_limit.encode()) is not None
+
+    too_deep = ('{"a":' * (_MAX_PAYLOAD_NESTING + 1)) + "1" + ("}" * (_MAX_PAYLOAD_NESTING + 1))
+    with pytest.raises(CoseStructureError, match="levels deep"):
+        _parse_payload(too_deep.encode())
+
+
+def test_nesting_scan_ignores_braces_inside_strings():
+    """A brace in a member value must not be counted, or a legitimate manifest
+    with JSON-ish text in a field would be refused as an attack."""
+    from agent_manifest._cose import _payload_nesting_depth
+
+    assert _payload_nesting_depth('{"a": "{{{{{{"}') == 1
+    assert _payload_nesting_depth('{"a": "\\"} {{{"}') == 1
+    assert _payload_nesting_depth('{"a": {"b": [1, 2]}}') == 3
+    assert _payload_nesting_depth("{}") == 1
+
+
+def test_a_deeply_nested_payload_is_refused_before_it_is_parsed():
+    """The refusal must come from the bound, not from whatever json.loads does
+    with 5000 levels on this particular platform."""
+    from agent_manifest._cose import _parse_payload
+
+    with pytest.raises(CoseStructureError, match="levels deep"):
+        _parse_payload((('{"a":' * 5000) + "1" + ("}" * 5000)).encode())
+
+
+def test_signature_slot_type_is_checked_at_decode():
+    """A COSE body whose signature slot is not a byte string is rejected in step 1.
+
+    Found by fuzzing. cbor2 decodes a stray break byte into its internal break
+    marker, a bare ``object()``, and the signature slot was the one element
+    ``_decode_tagged`` never type-checked. So this envelope reached
+    ``attach_unprotected``, which re-encodes, and died there with
+    ``CBOREncodeError`` instead of the ``CoseError`` every caller is written
+    against.
+
+    The bytes below are the fuzzer's own reproducer, kept verbatim.
+    """
+    envelope = bytes.fromhex("d28440a04131ff")
+
+    for call in (
+        lambda: attach_receipt(envelope, b"\xa0"),
+        lambda: attach_unprotected(envelope, 1, b"x"),
+        lambda: decode_cose_manifest(envelope),
+    ):
+        with pytest.raises(CoseError, match="signature must be a byte string"):
+            call()
+
+
+def test_unprotected_header_sentinel_is_checked_at_decode():
+    """A value inside the unprotected header cannot be an undecodable sentinel.
+
+    Found by ``fuzz_cose`` (ClusterFuzzLite). Same underlying cbor2 quirk as
+    ``test_signature_slot_type_is_checked_at_decode`` above - a stray break
+    byte decodes into cbor2's internal break marker, a bare ``object()`` -
+    but this time the marker lands as a *value inside the unprotected header
+    map* rather than in the signature slot. ``_decode_tagged`` checked that
+    the unprotected header was a ``Mapping`` but never inspected what was
+    inside it, so this envelope reached ``attach_unprotected``, which copies
+    the map and re-encodes it, and died there with ``CBOREncodeError``
+    instead of the ``CoseError`` every caller is written against.
+
+    The bytes below are the fuzzer's own reproducer (with the trailing byte
+    atheris's ``FuzzedDataProvider`` consumed for its ``choice`` selector
+    already stripped off), kept verbatim.
+    """
+    envelope = bytes.fromhex(
+        "d28443cbffffa5a032d825500000cbffffa5a032d825500000ff407fff"
+        "0000000041a0a04040"
+    )
+
+    for call in (
+        lambda: attach_receipt(envelope, b"\xa0"),
+        lambda: attach_unprotected(envelope, 1, b"x"),
+        lambda: attach_attestation(envelope, {"platform": "x"}),
+        lambda: attach_approvals(envelope, [{"approver_id": "a"}]),
+    ):
+        with pytest.raises(CoseStructureError, match="undecodable CBOR value"):
+            call()
+
+    # decode_cose_manifest never re-encodes the unprotected header, so this
+    # same envelope is expected to fail for an unrelated, earlier reason
+    # (there is no valid JSON payload here) rather than leak anything.
+    with pytest.raises(CoseError):
+        decode_cose_manifest(envelope)
+
+
+def test_attach_unprotected_rejects_a_caller_supplied_unencodable_value():
+    """``attach_unprotected`` also guards against a *caller's own* bad value.
+
+    ``_decode_tagged`` only validates what came from *cose_bytes*; the value
+    a caller passes in to attach is never inspected before being merged into
+    the header and re-encoded. A plain, non-CBOR-encodable Python object
+    there hits the same ``cbor2.CBOREncodeError`` at re-encode time, so
+    ``attach_unprotected``'s belt-and-suspenders ``except`` clause is the
+    only thing standing between a caller mistake and a leaked library
+    exception. This is that mistake, made deliberately.
+    """
+
+    class NotCborEncodable:
+        pass
+
+    signed = sign_cose_sign1(base_manifest(), KP)
+    with pytest.raises(CoseStructureError, match="not re-encodable"):
+        attach_attestation(signed, NotCborEncodable())
+
+
+def test_reject_cbor_sentinels_recurses_into_cbortag_and_set():
+    """``_reject_cbor_sentinels`` must walk every CBOR container, not just
+    ``Mapping``/``list``/``tuple``.
+
+    Code review on the PR that introduced this check found that it stopped
+    at the boundary of ``cbor2.CBORTag`` and ``set``/``frozenset``: cbor2
+    hands back a ``CBORTag`` for any semantic tag it has no built-in decoder
+    for, and auto-decodes tag 258 to a plain ``set``. A sentinel tucked
+    inside either of those - ``CBORTag(9999, [sentinel])`` or ``{sentinel}``
+    - decoded without error and without being caught, so it would reach
+    ``attach_unprotected`` and die on re-encode, or (worse - see the next
+    test) sail straight through ``decode_cose_manifest`` with nothing raised
+    at all. This exercises the fixed recursion directly against every shape
+    it now covers.
+    """
+    from agent_manifest._cose import _reject_cbor_sentinels
+
+    sentinel = object()
+    rejected_cases = {
+        "sentinel inside an unsupported CBORTag": cbor2.CBORTag(9999, [sentinel]),
+        "sentinel inside a CBORTag(258) wrapping a set-shaped payload": cbor2.CBORTag(
+            258, [sentinel]
+        ),
+        "sentinel inside a bare set": {sentinel},
+        "sentinel inside a bare frozenset": frozenset([sentinel]),
+        "sentinel doubly nested: list -> CBORTag -> tuple": [
+            cbor2.CBORTag(5, (sentinel,))
+        ],
+        "sentinel as a dict key inside a CBORTag": cbor2.CBORTag(7, {sentinel: 1}),
+    }
+    for value in rejected_cases.values():
+        with pytest.raises(CoseStructureError, match="undecodable CBOR value"):
+            _reject_cbor_sentinels({1: value}, what="unprotected header")
+
+    # A legitimate header using the same container types, with no sentinel
+    # anywhere in it, must not be rejected.
+    legitimate = {
+        1: cbor2.CBORTag(9999, ["a", "b", {2: 3}]),
+        2: {1, 2, 3},
+        3: frozenset({"x", "y"}),
+        4: [1, 2, {"nested": True}],
+    }
+    _reject_cbor_sentinels(legitimate, what="unprotected header")  # must not raise
+
+
+def test_unprotected_header_sentinel_nested_in_tag_or_set_is_checked_at_decode():
+    """The sentinel check must catch a sentinel nested inside a tag or set
+    on a *real* envelope, not just when the recursive helper is called
+    directly - and, critically, before ``decode_cose_manifest`` /
+    ``verify_cose_manifest`` hand the header back to a caller.
+
+    Hand-crafting the exact malformed CBOR bytes that make cbor2 place its
+    internal sentinel several containers deep (rather than as a direct
+    header value, which is what the fuzzer's reproducer above already
+    covers) is not practical without re-running the fuzzer. What can be
+    reproduced deterministically is the resulting Python object graph: this
+    patches ``cbor2.CBORDecoder.decode`` to return that exact graph - a
+    signed, otherwise fully valid envelope whose unprotected header carries
+    a sentinel inside ``CBORTag(258, [sentinel])`` - while still consuming
+    the real byte stream first, so every other check downstream of decoding
+    runs against a genuine envelope.
+
+    Before the fix, ``decode_cose_manifest``/``verify_cose_manifest`` raised
+    nothing at all here: they never re-encode the unprotected header, so the
+    old check's blind spot let the sentinel travel all the way into the
+    returned ``CoseVerification.unprotected``, silently, as a raw
+    unserializable ``cbor2.CBORTag``/``object()`` a caller had no reason to
+    expect.
+    """
+    from unittest.mock import patch
+
+    signed = sign_cose_sign1(base_manifest(), KP)
+    signed = attach_attestation(signed, {"platform": "sim"})
+
+    decoded = cbor2.loads(signed)
+    tag, body = decoded.tag, list(decoded.value)
+    sentinel = object()
+    malicious_unprotected = dict(body[1])
+    malicious_unprotected[999] = cbor2.CBORTag(258, [sentinel])
+    body[1] = malicious_unprotected
+    fake_decoded = cbor2.CBORTag(tag, tuple(body))
+
+    real_decode = cbor2.CBORDecoder.decode
+
+    def smuggle_sentinel(self):
+        real_decode(self)  # fully consume the real stream first
+        return fake_decoded
+
+    with patch.object(cbor2.CBORDecoder, "decode", smuggle_sentinel):
+        with pytest.raises(CoseStructureError, match="undecodable CBOR value"):
+            decode_cose_manifest(signed)
+        with pytest.raises(CoseStructureError, match="undecodable CBOR value"):
+            verify_cose_manifest(signed, trusted_keys=TRUSTED_KEYS)
+        for call in (
+            lambda: attach_unprotected(signed, 1, b"x"),
+            lambda: attach_receipt(signed, b"\xa0"),
+            lambda: attach_attestation(signed, {"platform": "x"}),
+            lambda: attach_approvals(signed, [{"approver_id": "a"}]),
+        ):
+            with pytest.raises(CoseStructureError, match="undecodable CBOR value"):
+                call()

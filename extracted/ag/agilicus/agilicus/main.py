@@ -8517,7 +8517,23 @@ def list_point_of_presences(ctx, **kwargs):
 @cli.command(name="add-point-of-presence")
 @click.argument("name")
 @click.option("--tag", multiple=True, help="tags attracted to this point of presence")
-@click.option("--domain", multiple=True)
+@click.option(
+    "--domain",
+    multiple=True,
+    help="base domain used for redirects to this point of presence",
+)
+@click.option(
+    "--org-domain",
+    multiple=True,
+    help="organisation subdomain supported by this point of presence",
+)
+@click.option("--requests-enabled", type=bool, default=None)
+@click.option("--public", type=bool, default=None)
+@click.option("--restrict-by-user-id", type=bool, default=None)
+@click.option("--add-permitted-user-id", multiple=True)
+@click.option("--routing-ces", default=None)
+@click.option("--master-cluster-id", default=None)
+@click.option("--add-cluster-id", multiple=True)
 @click.pass_context
 def add_point_of_presence(ctx, **kwargs):
     result = regions.add_point_of_presence(ctx, **kwargs)
@@ -8528,11 +8544,25 @@ def add_point_of_presence(ctx, **kwargs):
 @click.argument("point-of-presence-id")
 @click.option("--name", default=None)
 @click.option("--tag", multiple=True, help="tags attracted to this point of presence")
-@click.option("--domain", multiple=True)
+@click.option(
+    "--domain",
+    multiple=True,
+    help=(
+        "base domain used for redirects to this point of presence; "
+        "adds to the existing domains unless --overwrite-domains"
+    ),
+)
 @click.option("--master-cluster-id", default=None)
 @click.option("--add-cluster-id", multiple=True)
 @click.option("--remove-cluster-id", multiple=True)
-@click.option("--org-domain", multiple=True)
+@click.option(
+    "--org-domain",
+    multiple=True,
+    help=(
+        "organisation subdomain supported by this point of presence; "
+        "adds to the existing org domains unless --overwrite-org-domains"
+    ),
+)
 @click.option("--public", type=bool, default=None)
 @click.option("--restrict-by-user-id", type=bool, default=None)
 @click.option("--add-permitted-user-id", multiple=True)
@@ -8661,7 +8691,23 @@ def list_regions(ctx, **kwargs):
 
 @cli.command(name="add-region")
 @click.argument("name")
-@click.option("--domain", multiple=True)
+@click.option(
+    "--domain",
+    multiple=True,
+    help="base domain used for redirects to this region",
+)
+@click.option(
+    "--org-domain",
+    multiple=True,
+    help="organisation subdomain supported by this region",
+)
+@click.option("--requests-enabled", type=bool, default=None)
+@click.option("--public", type=bool, default=None)
+@click.option("--restrict-by-user-id", type=bool, default=None)
+@click.option("--add-permitted-user-id", multiple=True)
+@click.option("--routing-ces", default=None)
+@click.option("--master-pop-id", default=None)
+@click.option("--add-pop-id", multiple=True)
 @click.pass_context
 def add_region(ctx, **kwargs):
     result = regions.add_region(ctx, **kwargs)
@@ -8671,8 +8717,22 @@ def add_region(ctx, **kwargs):
 @cli.command(name="update-region")
 @click.argument("region-id")
 @click.option("--name", default=None)
-@click.option("--domain", multiple=True)
-@click.option("--org-domain", multiple=True)
+@click.option(
+    "--domain",
+    multiple=True,
+    help=(
+        "base domain used for redirects to this region; "
+        "adds to the existing domains unless --overwrite-domains"
+    ),
+)
+@click.option(
+    "--org-domain",
+    multiple=True,
+    help=(
+        "organisation subdomain supported by this region; "
+        "adds to the existing org domains unless --overwrite-org-domains"
+    ),
+)
 @click.option("--master-pop-id", default=None)
 @click.option("--add-pop-id", multiple=True)
 @click.option("--remove-pop-id", multiple=True)
@@ -8686,6 +8746,11 @@ def add_region(ctx, **kwargs):
     "--overwrite-domains",
     is_flag=True,
     help="overwrites the domains rather than adding to them",
+)
+@click.option(
+    "--overwrite-org-domains",
+    is_flag=True,
+    help="overwrites the org domains rather than adding to them",
 )
 @click.pass_context
 def update_region(ctx, region_id, add_pop_id, remove_pop_id, **kwargs):

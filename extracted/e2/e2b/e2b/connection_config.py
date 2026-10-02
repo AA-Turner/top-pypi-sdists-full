@@ -2,11 +2,12 @@ import logging
 import os
 import re
 
-from typing import cast, Mapping, Optional, Dict, TypedDict, Union
+from typing import cast, Literal, Mapping, Optional, Dict, Tuple, TypedDict, Union
 
 import httpx
 from typing_extensions import Unpack
 
+from e2b.exceptions import InvalidArgumentException
 from e2b.retry import resolve_max_retries
 from e2b.api.metadata import package_version
 from e2b.sandbox_domains import is_supported_sandbox_domain
@@ -39,6 +40,24 @@ READ_TIMEOUT: float = 60.0  # 60 seconds
 KEEPALIVE_PING_INTERVAL_SEC = 50  # 50 seconds
 KEEPALIVE_PING_HEADER = "Keepalive-Ping-Interval"
 
+HttpVersion = Literal["1.1", "2"]
+DEFAULT_HTTP_VERSION: HttpVersion = "2"
+HTTP_VERSIONS: Tuple[HttpVersion, ...] = ("1.1", "2")
+
+
+def resolve_http_version(http_version: Optional[str] = None) -> HttpVersion:
+    """The HTTP version to use: the explicit value, else ``E2B_HTTP_VERSION``,
+    else ``DEFAULT_HTTP_VERSION``. Rejects anything but ``"1.1"`` or ``"2"``."""
+    source = "http_version"
+    if http_version is None:
+        source = "E2B_HTTP_VERSION"
+        http_version = os.getenv("E2B_HTTP_VERSION") or DEFAULT_HTTP_VERSION
+    if http_version not in HTTP_VERSIONS:
+        raise InvalidArgumentException(
+            f"{source} must be '1.1' or '2', got {http_version!r}"
+        )
+    return cast(HttpVersion, http_version)
+
 
 class ApiParams(TypedDict, total=False):
     """
@@ -51,9 +70,17 @@ class ApiParams(TypedDict, total=False):
     """Timeout for the request in **seconds**, defaults to 60 seconds."""
 
     retries: Optional[int]
-    """Number of control-plane HTTP retries after a 429 with a valid,
-    non-negative integer delta-seconds ``Retry-After`` header. HTTP-date and
-    malformed values are not retried.
+    """Number of control-plane HTTP retries after a 429, 502 or 503 response or
+    a network error once the request was written (dropped connection). The
+    latter is not retried for operations that create a resource (e.g. sandbox
+    creation), as the server may already have processed them; failures to
+    establish the connection are retried separately for every operation, see
+    ``E2B_CONNECTION_RETRIES``.
+    A 429 is retried only with a valid, non-negative integer delta-seconds
+    ``Retry-After`` header (HTTP-date and malformed values are not retried).
+    502 and 503 honor such a ``Retry-After`` when present; otherwise they and
+    network errors use exponential backoff with jitter starting at 0.1 seconds
+    (capped at 10 seconds).
     A retry is skipped when its wait would exhaust the request timeout.
     Retry waits use a 60-second total limit when request timeouts are disabled.
     Set to ``0`` to disable retries. Defaults to 3 retries.
@@ -87,6 +114,14 @@ class ApiParams(TypedDict, total=False):
 
     sandbox_url: Optional[str]
     """URL to connect to sandbox, defaults to `E2B_SANDBOX_URL` environment variable."""
+
+    http_version: Optional[HttpVersion]
+    """HTTP version for requests to the E2B API and to sandboxes (commands,
+    filesystem, PTY), defaults to `E2B_HTTP_VERSION` environment variable or
+    `"2"`. `"1.1"` pins them to HTTP/1.1, which
+    uses one connection per concurrent request instead of multiplexing streams
+    over shared connections — for example when an intermediary on the path
+    retires or mishandles long-lived HTTP/2 connections."""
 
 
 class ApiParamsWithLogger(ApiParams, total=False):
@@ -251,6 +286,7 @@ class ConnectionConfig:
         logger: Optional[logging.Logger] = None,
         *,
         retries: Optional[int] = None,
+        http_version: Optional[HttpVersion] = None,
     ):
         self.logger = logger
         self.domain = domain or ConnectionConfig._domain()
@@ -284,6 +320,7 @@ class ConnectionConfig:
         self._sandbox_url: Optional[str] = (
             sandbox_url or ConnectionConfig._sandbox_url()
         )
+        self.http_version: HttpVersion = resolve_http_version(http_version)
 
     @staticmethod
     def _get_request_timeout(
@@ -362,6 +399,7 @@ class ConnectionConfig:
         debug = opts.get("debug")
         proxy = opts.get("proxy")
         sandbox_url = opts.get("sandbox_url")
+        http_version = opts.get("http_version")
         retries = opts.get("retries")
 
         req_headers = self.headers.copy()
@@ -400,6 +438,9 @@ class ConnectionConfig:
                     sandbox_url
                     if sandbox_url is not None
                     else cast(Optional[str], self._sandbox_url)
+                ),
+                http_version=(
+                    http_version if http_version is not None else self.http_version
                 ),
                 logger=self.logger,
                 retries=retries if retries is not None else self.retries,

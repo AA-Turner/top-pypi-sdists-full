@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Generator, Mapping
+from functools import partial
 from typing import Any
 from urllib.parse import quote
 
-from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY, maybe_resolve_bundled
+from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY, maybe_resolve_bundled, schema_with_bundle
 from schemathesis.core.parameters import RAW_QUERY_STRING_KEY, DelimitedValue, RawQueryString
 from schemathesis.core.transforms import to_wire_string
 from schemathesis.specs.openapi.checks import _COLLECTION_FORMAT_DELIMITERS
@@ -22,20 +23,23 @@ def make_serializer(
     """A maker function to avoid code duplication."""
 
     def _wrapper(definitions: DefinitionList) -> Callable | None:
-        functions = list(func(definitions))
-        if not functions:
-            return None
-
-        def composed(x: Any) -> Any:
-            result = x
-            for func in reversed(functions):
-                if func is not None:
-                    result = func(result)
-            return result
-
-        return composed
+        return _compose(list(func(definitions)))
 
     return _wrapper
+
+
+def _compose(functions: list[Callable | None]) -> Callable | None:
+    if not functions:
+        return None
+
+    def composed(x: Any) -> Any:
+        result = x
+        for func in reversed(functions):
+            if func is not None:
+                result = func(result)
+        return result
+
+    return composed
 
 
 def _serialize_openapi3(definitions: DefinitionList) -> Generator[Callable | None, None, None]:
@@ -78,14 +82,78 @@ def _serialize_openapi3(definitions: DefinitionList) -> Generator[Callable | Non
                 style = "simple" if location in ("path", "header") else "form"
             if explode is None:
                 explode = style == "form"
-            if location == "path":
-                yield from _serialize_path_openapi3(name, type_, style, explode)
-            elif location == "query":
-                yield from _serialize_query_openapi3(name, type_, style, explode, schema, schema_was_top_ref)
-            elif location == "header":
-                yield from _serialize_header_openapi3(name, type_, explode)
-            elif location == "cookie":
-                yield from _serialize_cookie_openapi3(name, type_, explode)
+            serialize = partial(
+                _serialize_location_openapi3,
+                name,
+                location,
+                style=style,
+                explode=explode,
+                schema=schema,
+                schema_was_top_ref=schema_was_top_ref,
+            )
+            container_types = [] if isinstance(type_, str) else _container_types(schema)
+            if container_types:
+                # The schema allows a container and other values, so the generated value picks the style.
+                yield _by_value_shape(
+                    name,
+                    [(_PYTHON_TYPES[kind], _compose(list(serialize(kind)))) for kind in container_types],
+                    _compose(list(serialize(None))),
+                )
+            else:
+                yield from serialize(type_)
+
+
+_PYTHON_TYPES = {"object": dict, "array": list}
+
+
+def _container_types(schema: object) -> list[str]:
+    """Return container types a schema allows through a `type` list or, without `type`, through its keywords."""
+    if not isinstance(schema, dict):
+        return []
+    type_ = schema.get("type")
+    if isinstance(type_, list):
+        return [kind for kind in ("object", "array") if kind in type_]
+    if type_ is not None:
+        return []
+    kinds = []
+    if "properties" in schema or "additionalProperties" in schema:
+        kinds.append("object")
+    if "items" in schema or "prefixItems" in schema:
+        kinds.append("array")
+    return kinds
+
+
+def _by_value_shape(
+    name: str, serializers: list[tuple[type, Callable | None]], fallback: Callable | None
+) -> Callable[[Generated], Generated]:
+    def _map(item: Generated) -> Generated:
+        value = item.get(name)
+        for python_type, serializer in serializers:
+            if isinstance(value, python_type):
+                return serializer(item) if serializer is not None else item
+        return fallback(item) if fallback is not None else item
+
+    return _map
+
+
+def _serialize_location_openapi3(
+    name: str,
+    location: str,
+    type_: str | None,
+    *,
+    style: str | None,
+    explode: bool | None,
+    schema: dict[str, Any] | None,
+    schema_was_top_ref: bool,
+) -> Generator[Callable | None, None, None]:
+    if location == "path":
+        yield from _serialize_path_openapi3(name, type_, style, explode)
+    elif location == "query":
+        yield from _serialize_query_openapi3(name, type_, style, explode, schema, schema_was_top_ref)
+    elif location == "header":
+        yield from _serialize_header_openapi3(name, type_, explode)
+    elif location == "cookie":
+        yield from _serialize_cookie_openapi3(name, type_, explode)
 
 
 def _serialize_querystring_openapi3(
@@ -140,12 +208,16 @@ def _serialize_querystring_other_media_type(name: str, media_type: str) -> Calla
 
 def _build_urlencoded_serializer(media_type_object: Any) -> Callable[[Generated], Generated]:
     schema = media_type_object.get("schema", {}) if isinstance(media_type_object, Mapping) else {}
-    properties = schema.get("properties", {}) if isinstance(schema, Mapping) else {}
+    properties = maybe_resolve_bundled(schema).get("properties", {}) if isinstance(schema, dict) else {}
     encoding = media_type_object.get("encoding", {}) if isinstance(media_type_object, Mapping) else {}
     definitions = []
     if isinstance(properties, Mapping):
         for property_name, property_schema in properties.items():
-            definition: dict[str, Any] = {"name": property_name, "in": "query", "schema": property_schema}
+            definition: dict[str, Any] = {
+                "name": property_name,
+                "in": "query",
+                "schema": schema_with_bundle(property_schema, schema),
+            }
             property_encoding = encoding.get(property_name) if isinstance(encoding, Mapping) else None
             if isinstance(property_encoding, Mapping):
                 style = property_encoding.get("style", "form")
@@ -177,10 +249,7 @@ def _serialize_path_openapi3(
 ) -> Generator[Callable | None, None, None]:
     if style == "simple":
         if type_ == "object":
-            if explode is False:
-                yield comma_delimited_object(name)
-            if explode:
-                yield delimited_object(name)
+            yield simple_object(name, explode=explode)
         if type_ == "array":
             yield delimited_encoded(name, delimiter=",")
     if style == "label":
@@ -371,7 +440,7 @@ def conversion(func: Callable[..., None]) -> Callable:
 
 
 def make_delimited(data: dict[str, Any] | None, delimiter: str = ",") -> str:
-    return delimiter.join(f"{key}={value}" for key, value in force_dict(data or {}).items())
+    return delimiter.join(f"{key}={to_wire_string(value)}" for key, value in force_dict(data or {}).items())
 
 
 def force_iterable(value: object) -> list | tuple:
@@ -424,7 +493,7 @@ def delimited_encoded(item: Generated, name: str, delimiter: str) -> None:
 @conversion
 def delimited_nested(item: Generated, name: str, *, outer: str, inner: str) -> None:
     raw = item[name] if item[name] is not None else ()
-    encoded = (inner.join(map(str, force_iterable(elem))) for elem in force_iterable(raw))
+    encoded = (inner.join(map(to_wire_string, force_iterable(elem))) for elem in force_iterable(raw))
     item[name] = outer.join(encoded)
 
 
@@ -443,7 +512,7 @@ def deep_object(item: Generated, name: str) -> None:
 
 @conversion
 def comma_delimited_object(item: Generated, name: str) -> None:
-    item[name] = ",".join(map(str, sum((force_dict(item[name] or {})).items(), ())))
+    item[name] = ",".join(map(to_wire_string, sum((force_dict(item[name] or {})).items(), ())))
 
 
 @conversion
@@ -496,6 +565,61 @@ def _flatten_nested(value: Any, prefix: str, out: dict[str, Any]) -> None:
         out[prefix] = value
 
 
+def _styled(tokens: list[tuple[str, str]]) -> DelimitedValue:
+    """Render `(delimiter, value)` pairs, keeping each style delimiter literal and percent-encoding each value."""
+    logical = "".join(delimiter + value for delimiter, value in tokens)
+    encoded = "".join(delimiter + quote(value, safe="") for delimiter, value in tokens)
+    return DelimitedValue(logical, encoded)
+
+
+def _joined(prefix: str, delimiter: str, values: list[str]) -> DelimitedValue | str:
+    """Join values after `prefix`; an empty collection renders as nothing."""
+    if not values:
+        return ""
+    return _styled([(prefix if index == 0 else delimiter, value) for index, value in enumerate(values)])
+
+
+def _array_items(value: object) -> list[str]:
+    return [to_wire_string(item) for item in force_iterable(value if value is not None else ())]
+
+
+def _object_pairs(value: object) -> list[tuple[str, str]]:
+    return [(str(key), to_wire_string(item)) for key, item in force_dict(value if value is not None else {}).items()]
+
+
+def _object_flat(value: object) -> list[str]:
+    return [part for pair in _object_pairs(value) for part in pair]
+
+
+def _object_exploded(value: object, prefix: str, delimiter: str) -> DelimitedValue | str:
+    pairs = _object_pairs(value)
+    if not pairs:
+        return ""
+    tokens: list[tuple[str, str]] = []
+    for index, (key, item) in enumerate(pairs):
+        tokens.append((prefix if index == 0 else delimiter, key))
+        tokens.append(("=", item))
+    return _styled(tokens)
+
+
+@conversion
+def simple_object(item: Generated, name: str, explode: bool | None) -> None:
+    """Serialize a path object with the `simple` style.
+
+    Explode=True
+
+        id={"role": "admin", "firstName": "Alex"} => "role=admin,firstName=Alex"
+
+    Explode=False
+
+        id={"role": "admin", "firstName": "Alex"} => "role,admin,firstName,Alex"
+    """
+    if explode:
+        item[name] = _object_exploded(item[name], "", ",")
+    else:
+        item[name] = _joined("", ",", _object_flat(item[name]))
+
+
 @conversion
 def label_primitive(item: Generated, name: str) -> None:
     """Serialize a primitive value with the `label` style.
@@ -503,8 +627,8 @@ def label_primitive(item: Generated, name: str) -> None:
     5 => ".5"
     """
     new = item[name]
-    if new:
-        item[name] = f".{new}"
+    if new is not None:
+        item[name] = _styled([(".", to_wire_string(new))])
     else:
         item[name] = ""
 
@@ -521,15 +645,7 @@ def label_array(item: Generated, name: str, explode: bool | None) -> None:
 
         id=[3, 4, 5] => ".3,4,5"
     """
-    if explode:
-        delimiter = "."
-    else:
-        delimiter = ","
-    new = delimiter.join(map(str, force_iterable(item[name] or ())))
-    if new:
-        item[name] = f".{new}"
-    else:
-        item[name] = ""
+    item[name] = _joined(".", "." if explode else ",", _array_items(item[name]))
 
 
 @conversion
@@ -542,17 +658,12 @@ def label_object(item: Generated, name: str, explode: bool | None) -> None:
 
     Explode=False
 
-        id={"role": "admin", "firstName": "Alex"} => ".role=admin,firstName,Alex"
+        id={"role": "admin", "firstName": "Alex"} => ".role,admin,firstName,Alex"
     """
     if explode:
-        new = make_delimited(item[name], ".")
+        item[name] = _object_exploded(item[name], ".", ".")
     else:
-        object_items = map(str, sum(force_dict(item[name] or {}).items(), ()))
-        new = ",".join(object_items)
-    if new:
-        item[name] = f".{new}"
-    else:
-        item[name] = new
+        item[name] = _joined(".", ",", _object_flat(item[name]))
 
 
 @conversion
@@ -563,7 +674,7 @@ def matrix_primitive(item: Generated, name: str) -> None:
     """
     new = item[name]
     if new is not None:
-        item[name] = f";{name}={new}"
+        item[name] = _styled([(f";{name}=", to_wire_string(new))])
     else:
         item[name] = ""
 
@@ -580,14 +691,7 @@ def matrix_array(item: Generated, name: str, explode: bool | None) -> None:
 
         id=[3, 4, 5] => ";id=3,4,5"
     """
-    if explode:
-        new = ";".join(f"{name}={value}" for value in force_iterable(item[name] or ()))
-    else:
-        new = ",".join(map(str, force_iterable(item[name] or ())))
-    if new:
-        item[name] = f";{new}"
-    else:
-        item[name] = new
+    item[name] = _joined(f";{name}=", f";{name}=" if explode else ",", _array_items(item[name]))
 
 
 @conversion
@@ -600,17 +704,12 @@ def matrix_object(item: Generated, name: str, explode: bool | None) -> None:
 
     Explode=False
 
-        id={"role": "admin", "firstName": "Alex"} => ";role=admin,firstName,Alex"
+        id={"role": "admin", "firstName": "Alex"} => ";id=role,admin,firstName,Alex"
     """
     if explode:
-        new = make_delimited(item[name], ";")
+        item[name] = _object_exploded(item[name], ";", ";")
     else:
-        object_items = map(str, sum(force_dict(item[name] or {}).items(), ()))
-        new = ",".join(object_items)
-    if new:
-        item[name] = f";{new}"
-    else:
-        item[name] = ""
+        item[name] = _joined(f";{name}=", ",", _object_flat(item[name]))
 
 
 @conversion

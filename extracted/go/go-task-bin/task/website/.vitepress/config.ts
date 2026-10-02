@@ -1,6 +1,8 @@
 import { defineConfig, HeadConfig } from 'vitepress';
 import githubLinksPlugin from './plugins/github-links';
-import { readdirSync, readFileSync } from 'fs';
+import { renderSearchContent } from './plugins/local-search';
+import { searchKeywordsPlugin } from './plugins/search-keywords';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 import matter from 'gray-matter';
 import { tabsMarkdownPlugin } from 'vitepress-plugin-tabs';
@@ -11,11 +13,12 @@ import {
 } from 'vitepress-plugin-group-icons';
 import { team } from './team.ts';
 import { adopters } from './adopters.ts';
-import { taskDescription, taskName, ogUrl, ogImage } from './meta.ts';
+import { taskDescription, taskName, ogImage } from './meta.ts';
 import { fileURLToPath, URL } from 'node:url';
 import llmstxt from 'vitepress-plugin-llms';
 import { sidebar as nextSidebar } from './sidebar/next.ts';
 import { sidebar as latestSidebar } from './sidebar/latest.ts';
+import { createBlogDateResolver } from './blog-date';
 
 const version = readFileSync(
   resolve(__dirname, '../../internal/version/version.txt'),
@@ -30,12 +33,19 @@ const version = readFileSync(
 const isLatest = process.env.DOCS_CHANNEL === 'latest';
 const channel = isLatest ? 'latest' : 'next';
 const other = isLatest ? 'next' : 'latest';
+const isPublicDeploy =
+  process.env.DOCS_SITE === 'production' && process.env.DOCS_LOCAL !== '1';
+const isProduction = isLatest && isPublicDeploy;
 
 const docsSidebar = isLatest ? latestSidebar : nextSidebar;
 
 // Builds the "/blog/" sidebar from each blog post's frontmatter.
 function buildBlogSidebar() {
   const blogDir = resolve(__dirname, `../src/${channel}/blog`);
+  const blogDate = createBlogDateResolver(
+    channel,
+    resolve(__dirname, '../src/latest/blog')
+  );
   const posts = readdirSync(blogDir)
     .filter((file) => file.endsWith('.md') && file !== 'index.md')
     .map((file) => {
@@ -45,14 +55,14 @@ function buildBlogSidebar() {
       return {
         slug: file.replace(/\.md$/, ''),
         title: frontmatter.sidebarTitle ?? frontmatter.title,
-        date: new Date(frontmatter.date)
+        date: blogDate(file, frontmatter.date)
       };
     })
     .sort((a, b) => b.date.getTime() - a.date.getTime());
 
   const byYear = new Map<number, { text: string; link: string }[]>();
   for (const post of posts) {
-    const year = post.date.getFullYear();
+    const year = post.date.getUTCFullYear();
     if (!byYear.has(year)) byYear.set(year, []);
     byYear.get(year)!.push({ text: post.title, link: `/blog/${post.slug}` });
   }
@@ -81,6 +91,10 @@ const urlVersion =
         next: 'https://next.taskfile.dev/'
       };
 
+const hasDocsOverview = existsSync(
+  resolve(__dirname, `../src/${channel}/docs/index.md`)
+);
+
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   title: taskName,
@@ -98,65 +112,112 @@ export default defineConfig({
       { name: 'author', content: `${team.map((c) => c.name).join(', ')}` }
     ],
     // Open Graph
-    ['meta', { property: 'og:type', content: 'website' }],
     ['meta', { property: 'og:site_name', content: 'Task' }],
     ['meta', { property: 'og:image', content: ogImage }],
     // Twitter Card
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
     ['meta', { name: 'twitter:site', content: '@taskfiledev' }],
     ['meta', { name: 'twitter:image', content: ogImage }],
+    ...(isPublicDeploy
+      ? ([
+          [
+            'script',
+            {
+              defer: '',
+              src: 'https://u.taskfile.dev/script.js',
+              'data-website-id': '084030b0-0e3f-4891-8d2a-0c12c40f5933'
+            }
+          ]
+        ] satisfies HeadConfig[])
+      : []),
     [
-      'meta',
-      {
-        name: 'keywords',
-        content:
-          'task runner, build tool, taskfile, yaml build tool, go task runner, make alternative, cross-platform build tool, makefile alternative, automation tool, ci cd pipeline, developer productivity, build automation, command line tool, go binary, yaml configuration'
-      }
-    ],
-    [
-      "script",
-      {
-        defer: "",
-        src: "https://u.taskfile.dev/script.js",
-        "data-website-id": "084030b0-0e3f-4891-8d2a-0c12c40f5933"
-      }
-    ],
-    [
-      "script",
-      { type: "application/ld+json" },
+      'script',
+      { type: 'application/ld+json' },
       JSON.stringify({
-        "@context": "https://schema.org",
-        "@type": "WebSite",
-        "name": "Task",
-        "url": "https://taskfile.dev/"
+        '@context': 'https://schema.org',
+        '@type': 'WebSite',
+        name: 'Task',
+        url: 'https://taskfile.dev/'
       })
     ]
   ],
   transformHead({ pageData }) {
-    const head: HeadConfig[] = []
+    const head: HeadConfig[] = [];
 
-    // Canonical URL dynamique
-    const canonicalUrl = `https://taskfile.dev/${pageData.relativePath
+    const canonicalPath = pageData.relativePath
       .replace(/\.md$/, '')
-      .replace(/index$/, '')}`
-    head.push(['link', { rel: 'canonical', href: canonicalUrl }])
+      .replace(/index$/, '');
+    const canonicalUrl = new URL(
+      typeof pageData.frontmatter.canonical === 'string'
+        ? pageData.frontmatter.canonical
+        : canonicalPath,
+      'https://taskfile.dev/'
+    ).href;
+    head.push(['link', { rel: 'canonical', href: canonicalUrl }]);
+
+    // The DocSearch crawler otherwise has to infer a record's section from the
+    // active sidebar link in the DOM. Stating it on the page is steadier: it
+    // survives a theme upgrade, and it is what hierarchy.lvl0 - the breadcrumb
+    // on every search result - should be set from.
+    if (pageData.frontmatter.section) {
+      head.push([
+        'meta',
+        { name: 'docsearch:section', content: pageData.frontmatter.section }
+      ]);
+    }
+    if (pageData.frontmatter.docType) {
+      head.push([
+        'meta',
+        { name: 'docsearch:doc_type', content: pageData.frontmatter.docType }
+      ]);
+    }
+    if (
+      pageData.frontmatter.search === false ||
+      pageData.frontmatter.noindex === true
+    ) {
+      head.push(['meta', { name: 'docsearch:exclude', content: 'true' }]);
+    }
 
     // Dynamic Open Graph and Twitter meta tags
-    const isHome = pageData.relativePath === 'index.md';
-    var pageTitle = pageData.frontmatter.title || pageData.title || taskName;
+    const isHome = new URL(canonicalUrl).pathname === '/';
+    let pageTitle = pageData.frontmatter.title || pageData.title || taskName;
     if (!isHome) {
       pageTitle = `${pageTitle} | ${taskName}`;
     }
-    const pageDescription = pageData.frontmatter.description || pageData.description || taskDescription
-    head.push(['meta', { property: 'og:title', content: pageTitle }])
-    head.push(['meta', { property: 'og:description', content: pageDescription }])
-    head.push(['meta', { property: 'og:url', content: canonicalUrl }])
-    head.push(['meta', { name: 'twitter:title', content: pageTitle }])
-    head.push(['meta', { name: 'twitter:description', content: pageDescription }])
+    const pageDescription =
+      pageData.frontmatter.description ||
+      pageData.description ||
+      taskDescription;
+    head.push([
+      'meta',
+      {
+        property: 'og:type',
+        content:
+          canonicalUrl.includes('/blog/') && !canonicalUrl.endsWith('/blog/')
+            ? 'article'
+            : 'website'
+      }
+    ]);
+    head.push(['meta', { property: 'og:title', content: pageTitle }]);
+    head.push([
+      'meta',
+      { property: 'og:description', content: pageDescription }
+    ]);
+    head.push(['meta', { property: 'og:url', content: canonicalUrl }]);
+    head.push(['meta', { name: 'twitter:title', content: pageTitle }]);
+    head.push([
+      'meta',
+      { name: 'twitter:description', content: pageDescription }
+    ]);
 
-    // Noindex pour 404
-    if (pageData.relativePath === '404.md') {
-      head.push(['meta', { name: 'robots', content: 'noindex, nofollow' }])
+    // Only the released public site is indexable. The public next site and
+    // previews keep production canonicals but must never be indexed.
+    if (
+      !isProduction ||
+      pageData.relativePath === '404.md' ||
+      pageData.frontmatter.noindex === true
+    ) {
+      head.push(['meta', { name: 'robots', content: 'noindex, nofollow' }]);
     }
 
     // Structured data for the adopters carousel on the homepage: an ItemList
@@ -184,7 +245,7 @@ export default defineConfig({
             }
           }))
         })
-      ])
+      ]);
     }
 
     // On the /adopters page, emit CollectionPage + ItemList (richer than the
@@ -219,7 +280,7 @@ export default defineConfig({
             }))
           }
         })
-      ])
+      ]);
 
       head.push([
         'script',
@@ -262,15 +323,21 @@ export default defineConfig({
             }
           ]
         })
-      ])
+      ]);
     }
 
-    return head
+    return head;
   },
   srcDir: 'src',
   cleanUrls: true,
-  srcExclude: [`${other}/**`],
-  rewrites: { [`${channel}/:path*`]: ':path*' },
+  srcExclude: [`${other}/**`, `${channel}/docs/**/template.md`],
+  // A function rather than the equivalent `{ '<channel>/:path*': ':path*' }`.
+  // vitepress-plugin-llms reuses this config to name its Markdown output, and
+  // on the object form it compiles the `:path*` array parameter back without
+  // separators, producing dist/docsreferencecli.md instead of
+  // dist/docs/reference/cli.md and breaking every relative link in them.
+  rewrites: (id) =>
+    id.startsWith(`${channel}/`) ? id.slice(channel.length + 1) : id,
   markdown: {
     config: (md) => {
       md.use(githubLinksPlugin, {
@@ -279,22 +346,17 @@ export default defineConfig({
       });
       md.use(tabsMarkdownPlugin);
       md.use(groupIconMdPlugin);
+      md.use(searchKeywordsPlugin);
     }
   },
   vite: {
     plugins: [
       llmstxt({
-        ignoreFiles: [
-          'index.md',
-          'team.md',
-          'donate.md',
-          // Matched against source paths, which `rewrites` does not touch.
-          `${channel}/docs/styleguide.md`,
-          `${channel}/docs/contributing.md`,
-          `${channel}/docs/releasing.md`,
-          `${channel}/docs/changelog.md`,
-          `${channel}/blog/*`
-        ]
+        sidebar: [{ text: 'Documentation', items: docsSidebar }],
+        ignoreFiles: ['donate.md', 'adopters.md'],
+        ignoreFilesPerOutput: {
+          llmsFullTxt: ['docs/changelog.md']
+        }
       }),
       groupIconVitePlugin({
         customIcon: {
@@ -329,23 +391,46 @@ export default defineConfig({
 
   themeConfig: {
     logo: '/img/logo.svg',
+    sidebarMenuLabel: 'Documentation',
     carbonAds: {
       code: 'CESI65QJ',
       placement: 'taskfiledev'
     },
-    search: {
-      provider: 'algolia',
-      options: {
-        appId: '7IZIJ13AI7',
-        apiKey: '34b64ae4fc8d9da43d9a13d9710aaddc',
-        indexName: 'taskfile'
-      }
-    },
+    search: isPublicDeploy
+      ? {
+          provider: 'algolia',
+          options: {
+            appId: '7IZIJ13AI7',
+            apiKey: '34b64ae4fc8d9da43d9a13d9710aaddc',
+            indexName: isLatest ? 'taskfile' : 'taskfile-next'
+          }
+        }
+      : {
+          provider: 'local',
+          options: {
+            detailedView: true,
+            // Match the public DocSearch scope: current docs, without release
+            // notes or blog posts competing with feature documentation.
+            _render(src, env, md) {
+              const path = env.relativePath.replace(/^(next|latest)\//, '');
+              if (!path.startsWith('docs/') || path === 'docs/changelog.md')
+                return '';
+              return renderSearchContent(src, env, md);
+            },
+            miniSearch: {
+              searchOptions: {
+                fuzzy: 0.2,
+                prefix: true,
+                boost: { title: 4, titles: 2, text: 1 }
+              }
+            }
+          }
+        },
     nav: [
       { text: 'Home', link: '/' },
       {
         text: 'Docs',
-        link: '/docs/guide',
+        link: hasDocsOverview ? '/docs/' : '/docs/guide',
         activeMatch: '^/docs'
       },
       { text: 'Blog', link: '/blog', activeMatch: '^/blog' },
@@ -411,12 +496,32 @@ export default defineConfig({
     }
   },
   sitemap: {
-    hostname: 'https://taskfile.dev',
-    transformItems: (items) => {
-      return items.map((item) => ({
-        ...item,
-        lastmod: new Date().toISOString()
-      }));
-    }
+    hostname: isLatest ? 'https://taskfile.dev' : 'https://next.taskfile.dev'
+  },
+  buildEnd({ outDir }) {
+    const robots = isProduction
+      ? [
+          'User-agent: *',
+          'Allow: /',
+          '',
+          'Sitemap: https://taskfile.dev/sitemap.xml',
+          ''
+        ]
+      : isPublicDeploy
+        ? [
+            'User-agent: Algolia Crawler',
+            'Allow: /docs/',
+            'Allow: /sitemap.xml',
+            'Allow: /$',
+            'Disallow: /',
+            '',
+            'User-agent: *',
+            'Disallow: /',
+            '',
+            'Sitemap: https://next.taskfile.dev/sitemap.xml',
+            ''
+          ]
+        : ['User-agent: *', 'Disallow: /', ''];
+    writeFileSync(resolve(outDir, 'robots.txt'), robots.join('\n'));
   }
 });

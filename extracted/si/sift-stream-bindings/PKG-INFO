@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: sift-stream-bindings
+Version: 0.5.2
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+License-File: LICENSE
+Home-Page: https://github.com/sift-stack/sift
+Maintainer-email: Sift Software Engineers <engineering@siftstack.com>
+Requires-Python: >=3.8

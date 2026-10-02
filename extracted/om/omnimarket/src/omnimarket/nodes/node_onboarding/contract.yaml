@@ -1,0 +1,129 @@
+---
+name: node_onboarding
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: compute
+runtime_profiles: [main]
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  Contract-driven progressive onboarding for new users and employees.
+  Accepts a policy name (setup, standalone_quickstart, new_employee,
+  contributor_local, contributor_cloud, contributor_hybrid, omnimarket_quickstart,
+  full_platform, interactive_onboarding) or explicit target_capabilities.
+  DAG policies resolve to a step plan and execute verification per step;
+  the interactive policy drives a branching prompt flow and writes an
+  overlay/env configuration. Renders markdown progress output either way.
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: onboarding
+      handler:
+        name: HandlerOnboarding
+        module: omnimarket.nodes.node_onboarding.handlers.handler_onboarding
+
+handler:
+  module: omnimarket.nodes.node_onboarding.handlers.handler_onboarding
+  class: HandlerOnboarding
+  input_model: omnimarket.nodes.node_onboarding.models.model_onboarding_start_command.ModelOnboardingStartCommand
+
+descriptor:
+  node_archetype: compute
+  purity: impure
+  idempotent: false
+  timeout_ms: 300000
+
+inputs:
+  policy_name:
+    type: str
+    description: "Policy to apply; interactive_onboarding selects the interactive path"
+    required: false
+    default: "setup"
+  target_capabilities:
+    type: list
+    description: "Override target capabilities directly (bypasses policy lookup)"
+    required: false
+  skip_steps:
+    type: list
+    description: "Step keys to skip"
+    required: false
+  continue_on_failure:
+    type: bool
+    description: "Continue executing steps after a failure"
+    required: false
+    default: false
+  dry_run:
+    type: bool
+    description: "Print the resolved step plan without executing verifications"
+    required: false
+    default: false
+  env_output_path:
+    type: str
+    description: "Interactive path only: destination for the legacy .env write; required when dry_run is false"
+    required: false
+  overlay_output_path:
+    type: str
+    description: "Interactive path only: destination for the overlay YAML write; derived from env_output_path when omitted"
+    required: false
+
+outputs:
+  success:
+    type: bool
+    description: "Whether all steps passed"
+  total_steps:
+    type: int
+    description: "Total resolved steps"
+  completed_steps:
+    type: int
+    description: "Steps that passed"
+  rendered_output:
+    type: str
+    description: "Markdown-formatted onboarding progress"
+  dry_run:
+    type: bool
+    description: "True when invoked in dry-run mode (no verifications executed)"
+    required: false
+  resolved_steps:
+    type: list
+    description: "Step keys resolved by the policy resolver (present in dry-run response)"
+    required: false
+  policy_type:
+    type: str
+    description: "Resolved policy type; 'interactive' when the interactive path ran"
+    required: false
+  visited_steps:
+    type: list
+    description: "Interactive path only: step ids visited before the terminal step"
+    required: false
+  terminal_step:
+    type: str
+    description: "Interactive path only: the terminal step reached"
+    required: false
+  env_output_path_written:
+    type: str
+    description: "Interactive path only: path of the legacy .env file written, if any"
+    required: false
+  overlay_output_path_written:
+    type: str
+    description: "Interactive path only: path of the overlay YAML written, if any"
+    required: false
+
+terminal_event: onex.evt.omnimarket.onboarding-completed.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.onboarding-start.v1
+  publish_topics:
+    - onex.evt.omnimarket.onboarding-completed.v1
+
+metadata:
+  transport_type: kafka
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.onboarding-start.v1
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.onboarding-completed.v1

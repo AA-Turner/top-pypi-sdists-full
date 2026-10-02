@@ -1,0 +1,34 @@
+import os
+
+import pytest
+
+from mindee.input.path_input import PathInput
+from mindee.v2 import ClassificationParameters, ClassificationResponse
+from mindee.v2.client import Client
+from tests.utils import V2_PRODUCT_PATH
+
+
+@pytest.fixture(scope="session")
+def classification_model_id() -> str:
+    """Identifier of the Financial Document model, supplied through an env var."""
+    return os.getenv("MINDEE_V2_SE_TESTS_CLASSIFICATION_MODEL_ID")
+
+
+@pytest.fixture(scope="session")
+def v2_client() -> Client:
+    return Client()
+
+
+@pytest.mark.integration
+@pytest.mark.v2
+def test_classification_default_sample(v2_client: Client, classification_model_id: str):
+    input_source = PathInput(V2_PRODUCT_PATH / "classification" / "default_sample.jpg")
+    response = v2_client.enqueue_and_get_result(
+        ClassificationResponse,
+        input_source,
+        ClassificationParameters(classification_model_id),
+    )
+    assert response.inference is not None
+    assert response.inference.file.name == "default_sample.jpg"
+    assert response.inference.result.classification
+    assert response.inference.result.classification.document_type == "invoice"

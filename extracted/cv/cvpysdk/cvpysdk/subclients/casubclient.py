@@ -1,0 +1,138 @@
+# -*- coding: utf-8 -*-
+
+# --------------------------------------------------------------------------
+# Copyright Commvault Systems, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# --------------------------------------------------------------------------
+
+"""File for operating on a Cloud Apps Subclient.
+
+CloudAppsSubclient is the only class defined in this file.
+
+CloudAppsSubclient: Derived class from Subclient Base class, representing a
+cloud apps subclient, and to perform operations on that subclient.
+
+Note: GoogleSubclient class is used for OneDrive subclient too.
+
+CloudAppsSubclient:
+
+    __new__()   --  Method to create object based on specific cloud apps instance type
+
+"""
+
+from __future__ import unicode_literals
+from typing import Any, List, Optional
+
+from ..subclient import Subclient
+from ..exception import SDKException
+from ..job import Job
+
+
+class CloudAppsSubclient(Subclient):
+    """Class for representing a subclient of the Cloud Apps agent."""
+
+    def __new__(cls, backupset_object, subclient_name, subclient_id=None):
+        from .cloudapps.salesforce_subclient import SalesforceSubclient
+        from .cloudapps.google_subclient import GoogleSubclient
+        from .cloudapps.cloud_storage_subclient import CloudStorageSubclient
+        from .cloudapps.cloud_database_subclient import CloudDatabaseSubclient
+        from .cloudapps.dynamics365_subclient import MSDynamics365Subclient
+        from .cloudapps.teams_subclient import TeamsSubclient
+        from .cloudapps.spanner_subclient import GoogleSpannerSubclient
+        from .cloudapps.onedrive_subclient import OneDriveSubclient
+        from .cloudapps.azure_cosmosdb_subclient import AzureCosmosDBSubclient
+        from .cloudapps.powerbi_subclient import PowerBISubclient
+        from .cloudapps.pinecone_subclient import PineConeSubclient
+        from .cloudapps.snowflake_subclient import SnowflakeSubclient
+
+        instance_types = {
+            1: GoogleSubclient,
+            2: GoogleSubclient,
+            3: SalesforceSubclient,
+            4: CloudDatabaseSubclient,  # Amazon RDS Subclient
+            5: CloudStorageSubclient,  # AmazonS3 Subclient
+            6: CloudStorageSubclient,  # AzureBlob Subclient
+            7: OneDriveSubclient,  # OneDrive Subclient.
+            14: CloudStorageSubclient,  # OracleCloud Subclient
+            15: CloudStorageSubclient,  # Openstack Subclient
+            20: CloudStorageSubclient,  # Google Cloud Instance
+            21: CloudStorageSubclient,  # azure data lake gen2
+            26: CloudDatabaseSubclient,  # Amazon Redshift subclient
+            27: CloudDatabaseSubclient,  # Amazon Document DB subclient
+            25: CloudStorageSubclient,  # AliBaba
+            24: CloudStorageSubclient,  # IBM
+            22: CloudDatabaseSubclient,  # Amazon DynamoDB subclient
+            35: MSDynamics365Subclient,  # Office 365 Apps -> MS Dynamics 365 Subclient
+            36: TeamsSubclient,  # Office 365 Apps -> MS Teams
+            37: GoogleSpannerSubclient,  # Google Cloud Spanner Subclient
+            44: AzureCosmosDBSubclient, # Azure Cosmos DB Cloud Apps Instance
+            40: CloudDatabaseSubclient,  # MongoDB Atlas
+            51: AzureCosmosDBSubclient,  # Azure Cosmos DB MongoDBAPI Instance
+            56: CloudStorageSubclient,  # S3 Compatible Subclient
+            58: PineConeSubclient,  # PineCone Subclient
+            60: PowerBISubclient,    # Power Platform PowerBi Subclient
+            61: SnowflakeSubclient   # Snowflake Subclient
+        }
+
+        cloud_apps_instance_type = backupset_object._instance_object._properties[
+            'cloudAppsInstance']['instanceType']
+
+        if cloud_apps_instance_type in instance_types:
+            instance_type = instance_types[cloud_apps_instance_type]
+        else:
+            raise SDKException('Subclient', '112')
+
+        return object.__new__(instance_type)
+
+    def browse(self, *args: Any, **kwargs: Any) -> dict:
+        """Browse the content of this subclient's instance backups.
+
+        Delegates to the parent instance's browse method.
+
+        Args:
+            *args: Optional positional arguments passed to the instance browse method.
+            **kwargs: Optional keyword arguments passed to the instance browse method.
+
+        Returns:
+            dict: Browse results from the instance.
+        """
+        return self._backupset_object._instance_object.browse(*args, **kwargs)
+
+    def restore(
+            self,
+            paths: List[str],
+            overwrite: bool = True,
+            copy_precedence: int = 0,
+            **kwargs: Any
+    ) -> Job:
+        """Restore data from backup via in-place restore.
+
+        Args:
+            paths: List of paths or items to restore.
+            overwrite: Whether to overwrite existing data during restore. Defaults to True.
+            copy_precedence: The copy precedence to use. Defaults to 0 (latest backup).
+            **kwargs: Additional keyword arguments forwarded to restore_in_place.
+
+        Returns:
+            Job: A Job object representing the submitted restore job.
+
+        Raises:
+            SDKException: If the restore operation fails or parameters are invalid.
+        """
+        return self._backupset_object._instance_object.restore_in_place(
+            paths=paths,
+            overwrite=overwrite,
+            copy_precedence=copy_precedence,
+            **kwargs
+        )

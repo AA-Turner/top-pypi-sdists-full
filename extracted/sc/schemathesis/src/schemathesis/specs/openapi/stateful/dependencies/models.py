@@ -3,7 +3,7 @@ from __future__ import annotations
 import difflib
 import enum
 from collections import defaultdict
-from collections.abc import Iterator, Mapping
+from collections.abc import Collection, Iterator, Mapping
 from dataclasses import asdict, dataclass
 from functools import lru_cache
 from typing import Any, TypeAlias
@@ -14,7 +14,12 @@ from schemathesis.core.text import to_pascal_case
 from schemathesis.core.transforms import encode_pointer, get_template_fields
 from schemathesis.resources.descriptors import Cardinality
 from schemathesis.specs.openapi.adapter.references import maybe_resolve_with_resolver
-from schemathesis.specs.openapi.stateful.dependencies.naming import from_path, strip_version_prefix
+from schemathesis.specs.openapi.stateful.dependencies.naming import (
+    KeyKind,
+    from_path,
+    key_kind,
+    strip_version_prefix,
+)
 from schemathesis.specs.openapi.stateful.links import SCHEMATHESIS_LINK_EXTENSION
 
 
@@ -35,6 +40,7 @@ class DependencyGraph:
                 input["resource"] = input["resource"]["name"]
             for output in operation["outputs"]:
                 output["resource"] = output["resource"]["name"]
+                del output["response_fields"]
                 if output.get("path_parameter") is None:
                     output.pop("path_parameter", None)
                 if output.get("body_field") is None:
@@ -43,6 +49,7 @@ class DependencyGraph:
         for resource in serialized["resources"].values():
             del resource["name"]
             del resource["source"]
+            del resource["inherited_fields"]
             # Simplify FK fields for readability
             if not resource["fk_fields"]:
                 del resource["fk_fields"]
@@ -97,6 +104,7 @@ class DependencyGraph:
             for output_slot in producer.outputs:
                 # Only iterate over consumers that match this resource
                 relevant_consumers = consumers_by_resource.get(id(output_slot.resource), {})
+                confirmed = _confirmed_input(producer, output_slot)
 
                 for consumer_id, (consumer, input_slots) in relevant_consumers.items():
                     # Skip self-references
@@ -107,6 +115,8 @@ class DependencyGraph:
                     links: dict[str, LinkDefinition] = {}
 
                     for input_slot in input_slots:
+                        if confirmed is not None and not _takes_confirmed_value(input_slot, confirmed):
+                            continue
                         # Scope guard: skip bare {id} links where the producer is from a
                         # different namespace. Triggered only when the resource name matches the
                         # producer's path-derived name — i.e., the collision is path-based, not
@@ -144,6 +154,17 @@ class DependencyGraph:
                                 pointer = pointer.rstrip("/") + "/*"
                             value_expr = f"$response.body#{pointer}"
                         elif input_slot.resource_field is not None:
+                            # A pointer to an undeclared response field always resolves to nothing.
+                            declared: Collection[str] = (
+                                output_slot.resource.fields
+                                if output_slot.response_fields is None
+                                else output_slot.response_fields
+                            )
+                            if (
+                                output_slot.resource.source >= DefinitionSource.SCHEMA_WITH_PROPERTIES
+                                and input_slot.resource_field not in declared
+                            ):
+                                continue
                             body_pointer = extend_pointer(
                                 output_slot.pointer, input_slot.resource_field, output_slot.cardinality
                             )
@@ -531,6 +552,37 @@ def extract_nested_fk_fields(
     return result
 
 
+def _confirmed_input(producer: OperationNode, output_slot: OutputSlot) -> InputSlot | None:
+    """The request input whose value a path- or body-keyed output confirms."""
+    if output_slot.path_parameter is not None:
+        location, name = ParameterLocation.PATH, output_slot.path_parameter
+    elif output_slot.body_field is not None:
+        location, name = ParameterLocation.BODY, output_slot.body_field
+    else:
+        return None
+    return next(
+        (slot for slot in producer.inputs if slot.parameter_location == location and slot.parameter_name == name),
+        None,
+    )
+
+
+def _takes_confirmed_value(input_slot: InputSlot, confirmed: InputSlot) -> bool:
+    # The confirmed request value is a single scalar key, and a name never stands in for an identifier.
+    field = input_slot.resource_field
+    if field is not None and input_slot.resource.types.get(field) == {"array"}:
+        return False
+    return {_key_kind(input_slot.parameter_name), _key_kind(confirmed.parameter_name)} != {
+        KeyKind.NAME,
+        KeyKind.IDENTIFIER,
+    }
+
+
+def _key_kind(parameter_name: str | int) -> KeyKind | None:
+    if isinstance(parameter_name, int):
+        return None
+    return key_kind(parameter_name)
+
+
 def _build_nested_body(path: str, value: str) -> dict[str, Any]:
     """Build a nested dict structure from a path like 'shipping/warehouse_id'.
 
@@ -715,6 +767,9 @@ class OutputSlot:
     # True when the response body is a map keyed by identifier; capture every map key
     # as a resource instance (e.g. `{<teamKey>: {...}, ...}` from `GET /teams/statuses`).
     extract_object_keys: bool = False
+    # Fields the response declares at `pointer`; `None` when it declares none.
+    # Resources are shared by name, so this can differ from `resource.fields`.
+    response_fields: frozenset[str] | None = None
 
 
 @dataclass(slots=True)
@@ -762,6 +817,8 @@ class ResourceDefinition:
     fk_fields: list[FKField]
     # FK fields found at nested paths in the schema
     nested_fk_fields: list[NestedFKField]
+    # Fields inherited through `allOf` rather than declared by the schema itself
+    inherited_fields: frozenset[str] = frozenset()
 
     @classmethod
     def without_properties(cls, name: str) -> ResourceDefinition:

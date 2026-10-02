@@ -1027,27 +1027,43 @@ def _recurse_build_lineage(node: Node, toplevelcolumn: str) -> _DataLineageGraph
 
 
 def _get_data_lineage(sql: str) -> DataLineageResult:
+    """Build lineage from a fully qualified query, preserving aliases and positional references."""
     try:
         import sqlglot
         from sqlglot import exp
         from sqlglot.lineage import lineage
+        from sqlglot.optimizer.qualify import qualify
     except ImportError:
         raise missing_dependency_exception("chalkpy[runtime]")
 
     try:
         # Parse the SQL into an abstract syntax tree (AST)
         ast = sqlglot.parse_one(sql)
+        lineage_ast = qualify(sqlglot.parse_one(sql.lower()), validate_qualify_columns=False, identify=False)
 
         # get all top level columns from select statement
         select = ast.find(exp.Select)
         if select is None:
             return {}
-        output_expressions = [expr for expr in select.expressions]
+
         result_lineage: _DataLineageGraphIntermediate = {}
 
+        # Qualify the full query first so aliases and positional references are resolved.
+        # Then narrow SELECT roots before copying: lineage() still normalizes, builds
+        # scopes, and copies its input even with qualify_columns=False. Set operations
+        # keep every projection because their branches match columns by position.
+        lineage_projections = list(lineage_ast.expressions) if isinstance(lineage_ast, exp.Select) else []
+        projections_by_name: dict[str, exp.Expression] = {}
+        for projection in lineage_projections:
+            projections_by_name.setdefault(projection.alias_or_name, projection)
+
         # loop through each top level column
-        for expr in output_expressions:
-            node = lineage(expr.alias_or_name.lower(), sql.lower())
+        for expr in select.expressions:
+            column_name = expr.alias_or_name.lower()
+            if isinstance(lineage_ast, exp.Select):
+                projection = projections_by_name.get(column_name)
+                lineage_ast.set("expressions", [projection] if projection is not None else lineage_projections)
+            node = lineage(column_name, lineage_ast.copy(), qualify_columns=False)
             # recursively go get each
             sub_lineage: _DataLineageGraphIntermediate = _recurse_build_lineage(node, expr.alias_or_name)
             _merge_lineage(result_lineage, sub_lineage)

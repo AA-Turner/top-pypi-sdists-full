@@ -6,14 +6,14 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::{Format, format::write_trailing_comment_alignment_space, types::WithAlignmentHint};
 
-impl Format for tombi_ast_syntax::Array {
+impl<'t> Format for tombi_ast_syntax::Array<'t> {
     #[inline]
     fn format(&self, f: &mut crate::Formatter) -> Result<(), std::fmt::Error> {
         WithAlignmentHint::new(self).format(f)
     }
 }
 
-impl Format for WithAlignmentHint<&tombi_ast_syntax::Array> {
+impl<'t> Format for WithAlignmentHint<&tombi_ast_syntax::Array<'t>> {
     fn format(&self, f: &mut crate::Formatter) -> Result<(), std::fmt::Error> {
         if !f.single_line_mode()
             && (self.value.should_be_multiline(f.toml_version())
@@ -27,6 +27,19 @@ impl Format for WithAlignmentHint<&tombi_ast_syntax::Array> {
 }
 
 pub(crate) fn exceeds_line_width(
+    node: &tombi_ast_syntax::Array,
+    f: &mut crate::Formatter,
+) -> Result<bool, std::fmt::Error> {
+    let key = f.exceeds_line_width_key(true, node.syntax());
+    if let Some(cached) = f.cached_exceeds_line_width(&key) {
+        return Ok(cached);
+    }
+    let result = compute_exceeds_line_width(node, f)?;
+    f.cache_exceeds_line_width(key, result);
+    Ok(result)
+}
+
+fn compute_exceeds_line_width(
     node: &tombi_ast_syntax::Array,
     f: &mut crate::Formatter,
 ) -> Result<bool, std::fmt::Error> {
@@ -175,7 +188,7 @@ fn format_singleline_array(
     Ok(())
 }
 
-impl Format for WithAlignmentHint<&tombi_ast_syntax::ValueWithCommaGroup> {
+impl<'t> Format for WithAlignmentHint<&tombi_ast_syntax::ValueWithCommaGroup<'t>> {
     fn format(&self, f: &mut crate::Formatter) -> Result<(), std::fmt::Error> {
         let WithAlignmentHint {
             value: value_group,
@@ -223,7 +236,7 @@ impl Format for WithAlignmentHint<&tombi_ast_syntax::ValueWithCommaGroup> {
     }
 }
 
-impl Format for WithAlignmentHint<tombi_ast_syntax::ValueWithCommaGroup> {
+impl<'t> Format for WithAlignmentHint<tombi_ast_syntax::ValueWithCommaGroup<'t>> {
     fn format(&self, f: &mut crate::Formatter) -> Result<(), std::fmt::Error> {
         WithAlignmentHint {
             value: &self.value,
@@ -667,7 +680,8 @@ mod tests {
     #[case("[1, 2, 3,]", true)]
     #[case("[1, 2, 3]", false)]
     fn has_last_value_trailing_comma(#[case] source: &str, #[case] expected: bool) {
-        let p = tombi_parser::parse(&format!("value = {source}"));
+        let source = format!("value = {source}");
+        let p = tombi_parser::parse(&source);
         pretty_assertions::assert_eq!(p.errors, Vec::<tombi_parser::Error>::new());
 
         let ast = p
@@ -715,5 +729,19 @@ mod tests {
                 }),
             }
         ) -> Ok(r#"nested = [ [], [], [ 1, 2 ] ]"#)
+    }
+
+    test_format! {
+        #[tokio::test]
+        async fn deeply_nested_array_does_not_blow_up(
+            "a = [[[[[[[[[[[[[[[[[[[[[[[[1]]]]]]]]]]]]]]]]]]]]]]]]"
+        ) -> Ok(source)
+    }
+
+    test_format! {
+        #[tokio::test]
+        async fn deeply_nested_array_and_inline_table_does_not_blow_up(
+            "a = { k = [{ k = [{ k = [{ k = [{ k = [{ k = [{ k = [{ k = [{ k = [{ k = [{ k = [{ k = [1] }] }] }] }] }] }] }] }] }] }] }] }",TomlVersion::V1_1_0
+        ) -> Ok(source)
     }
 }

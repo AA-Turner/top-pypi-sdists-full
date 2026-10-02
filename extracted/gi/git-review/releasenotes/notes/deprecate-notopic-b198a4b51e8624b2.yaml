@@ -1,0 +1,15 @@
+---
+upgrade:
+  - |
+    Git-review no longer supplies a default topic when uploading a new
+    change.  The only way to set a topic on a newly uploaded change is
+    to use the ``-t <topic>`` option.
+  - |
+    When downloading changes using ``git-review -d``, the local branch
+    name is now based on the change number rather than the author and
+    topic.
+deprecations:
+  - |
+    The ``gitreview.notopic`` configuration setting and ``-T`` command line
+    option are deprecated and no longer have any effect.  The default behavior
+    is now as if ``notopic`` is set.

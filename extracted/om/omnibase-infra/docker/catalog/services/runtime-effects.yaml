@@ -1,0 +1,165 @@
+name: runtime-effects
+description: ONEX runtime effects handler for external interactions
+image: runtime:latest
+layer: runtime
+container_name: omninode-runtime-effects
+required_env:
+  - POSTGRES_PASSWORD
+  - VALKEY_PASSWORD
+  - KEYCLOAK_ADMIN_CLIENT_SECRET
+  - ONEX_SERVICE_CLIENT_SECRET
+  - ONEX_REGISTRATION_AUTO_ACK
+  - LLM_CODER_URL
+  - LLM_CODER_FAST_URL
+  - LLM_EMBEDDING_URL
+  - LLM_DEEPSEEK_R1_URL
+  - LLM_ENDPOINT_CIDR_ALLOWLIST
+  - LLM_CLOUD_ENDPOINT_HOST_ALLOWLIST
+  - LOCAL_LLM_SHARED_SECRET
+  - GITHUB_TOKEN
+  - DEPLOY_AGENT_HMAC_SECRET
+hardcoded_env:
+  OMNIBASE_INFRA_DB_URL: 'postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}@postgres:5432/omnibase_infra'
+  OMNIINTELLIGENCE_DB_URL: 'postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}@postgres:5432/omniintelligence'
+  KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+  # OMN-19558: 240s handler + 60s margin needs deadline >= 300s;
+  # the library's 300s poll default caps the deadline at 255s.
+  KAFKA_MAX_POLL_INTERVAL_MS: '1800000'
+  KAFKA_BROKER_ALLOWLIST: 'redpanda:'
+  BUS_ID: local
+  ONEX_CONTRACTS_DIR: /app/contracts
+  ONEX_STATE_ROOT: /app/data/.onex_state
+  ONEX_STATE_DIR: /app/data/.onex_state
+  ONEX_ACTIVE_RUNTIME_PACKAGES: ${ONEX_ACTIVE_RUNTIME_PACKAGES:?runtime policy contract must set ONEX_ACTIVE_RUNTIME_PACKAGES}
+  VALKEY_HOST: valkey
+  VALKEY_PORT: '6379'
+  ONEX_MARKETPLACE_SKILLS_ROOT: /app/skills
+  USE_EVENT_ROUTING: 'true'
+  KEYCLOAK_ADMIN_URL: http://keycloak:8080
+  OTEL_SERVICE_NAME: omninode-runtime-effects
+  RUNTIME_PROFILE: effects
+  # OMN-13247 (Phase B dev-verify fix): credential HOME for the spawned
+  # claude/codex subprocess (node_coding_agent_invoke_effect). The dev runtime
+  # container runs as root (HOME=/root) while the OAuth creds are bind-mounted at
+  # /home/omniinfra/.codex and /home/omniinfra/.claude (volumes below). claude and
+  # codex read AMBIENT auth from $HOME, so the effect overrides the child env with
+  # HOME=$CODING_AGENT_CRED_HOME (and CODEX_HOME=$CODING_AGENT_CRED_HOME/.codex)
+  # rather than letting them look in /root and fail auth. Container-internal path
+  # that must match the credential bind-mount target -> hardcoded_env, not a secret.
+  CODING_AGENT_CRED_HOME: /home/omniinfra
+  # OMN-13247 (epic OMN-13245): the coding-agent ORCHESTRATOR resolves its
+  # contract descriptor.allowed_workspace_roots from
+  # ${env.ONEX_CODING_AGENT_WORKSPACE_ROOT} and FAILS CLOSED if it resolves empty
+  # (no unscoped workspace is ever permitted). The agent EFFECT confines every
+  # workspace_path under this root. Container-internal path that must match the
+  # agent-workspaces dir the runtime writes into -> hardcoded_env, not a secret.
+  # Patched live on dev for the e2e proof; committed here so the lane is
+  # reproducible from the catalog.
+  ONEX_CODING_AGENT_WORKSPACE_ROOT: /home/omniinfra/agent-workspaces
+  ONEX_RUNTIME_CAPABILITIES: ${DEV_RUNTIME_EFFECTS_CAPABILITIES:?runtime policy contract must set DEV_RUNTIME_EFFECTS_CAPABILITIES}
+  OMNIBASE_INFRA_SAVINGS_KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+  POSTGRES_HOST: postgres
+  ENABLE_RUNTIME_LOG_BRIDGE: 'true'
+operational_defaults:
+  POSTGRES_USER: postgres
+  ONEX_LOG_LEVEL: INFO
+  ONEX_ENVIRONMENT: local
+  ONEX_DATABASE_TOPOLOGY_PROFILE: local
+  KEYCLOAK_REALM: omninode
+  KEYCLOAK_ADMIN_CLIENT_ID: onex-admin
+  KEYCLOAK_ISSUER: http://localhost:28080/realms/omninode
+  ONEX_SERVICE_CLIENT_ID: onex-service
+  ONEX_GROUP_ID: onex-runtime-effects
+ports:
+  external: 8086
+  internal: 8085
+healthcheck:
+  # OMN-17883: the SEMANTIC probe, not `curl -sf`. `curl -sf` asserts only
+  # "status code < 400", and /health returns 200 for a running-but-DEGRADED
+  # runtime by design (ServiceHealth._handle_health), so the shallow check
+  # cannot fail on the exact condition OMN-15217 was filed for. Worse, a
+  # compose-level healthcheck OVERRIDES the image-level HEALTHCHECK, so this
+  # entry was replacing the deep probe Dockerfile.runtime already bakes in.
+  # List form renders as ["CMD", ...] and needs no shell.
+  test:
+    - python
+    - /usr/local/bin/onex-container-healthcheck
+    - --url
+    - http://localhost:8085/health
+    - --degraded-policy
+    - fail
+  interval_s: 45
+  timeout_s: 10
+  retries: 5
+  start_period_s: 1800
+volumes:
+  - effects_logs:/app/logs
+  - effects_data:/app/data
+  # The runtime-owned sqlite secret store. Shared with omninode-runtime: the
+  # main runtime hosts the LLM call effect that resolves a tenant's minted
+  # credential reference, and this service is where `make secret-local` registers
+  # it (docker exec). All three run as the image's omniinfra user (HOME=/home/omniinfra);
+  # the entrypoint repairs the volume's ownership before it drops privileges. Measured on the lab
+  # (2026-09-30): with the volume on this service alone, the main runtime could
+  # not resolve the reference and the tenant route failed.
+  - delegation_credentials:/home/omniinfra/.omninode/delegation
+  - ../contracts:/app/contracts:ro
+  # OMN-13248 (epic OMN-13245): read-only OAuth credential bind-mounts for the
+  # coding-agent EFFECT (node_coding_agent_invoke_effect). codex / claude read
+  # AMBIENT OAuth from ~/.codex and ~/.claude — no ANTHROPIC_API_KEY / *_MODEL /
+  # endpoint env. The credential VALUES are NEVER baked into the image and NEVER
+  # committed; they are operator-supplied host directories bound read-only.
+  #
+  # DEV credential source (Phase 0, OMN-13246 / omni_home PR #182): a fresh
+  # Linux login inside the .201 container produced portable on-disk creds at
+  # /home/omniinfra/.codex (auth.json, ChatGPT OAuth + refresh token) and
+  # /home/omniinfra/.claude (.credentials.json, claude.ai OAuth + refresh token).
+  # Claude Code 2.x on macOS stores its credential in the Keychain, so there is
+  # NO ~/.claude/auth.json on the Mac to copy — the Linux container login is the
+  # source of truth. The operator copies those two dirs to a stable host path
+  # (e.g. /home/jonah/.onex-agent-creds/{.codex,.claude} on .201) and points
+  # CODING_AGENT_{CODEX,CLAUDE}_CREDS_HOST_DIR at them.
+  #
+  # codex: mount the credential FILE (auth.json) read-only, NOT the whole
+  # ~/.codex dir. codex 0.141.0 writes app-server / session state into CODEX_HOME
+  # (~/.codex) at runtime, so a fully read-only dir mount makes `codex exec` fail
+  # with "Read-only file system" even though the creds are valid (verified
+  # in-container 2026-06-18). Binding only auth.json :ro keeps the credential
+  # VALUE read-only while leaving the rest of ~/.codex on the writable layer.
+  - ${CODING_AGENT_CODEX_AUTH_HOST_FILE:-/dev/null}:/home/omniinfra/.codex/auth.json:ro
+  # claude: the whole ~/.claude dir read-only works (claude reads
+  # .credentials.json for ambient OAuth; `claude -p` needs no write to that dir;
+  # verified in-container 2026-06-18). Its optional directory bind mount is
+  # intentionally omitted when unset: a /dev/null fallback is a file and Docker
+  # rejects it at this directory target. The coding-agent handler fails closed
+  # when ambient Claude credentials are absent.
+optional_directory_bind_mounts:
+  - source_env: CODING_AGENT_CLAUDE_CREDS_HOST_DIR
+    container_path: /home/omniinfra/.claude
+    read_only: true
+# OMN-18843: service_started, NOT service_healthy. This container is a bus
+# consumer and never calls the main runtime at boot; waiting on the main
+# runtime's /health held it in State=created for 5 min 48 s of a measured
+# redeploy on the .201 dev lane (2026-09-21), during which the delegate-skill
+# command consumer group was Empty and every `onex delegate` refused
+# pre-publish. Compose starts omninode-runtime only once its own migration,
+# partition-cap and valkey conditions are met, so service_started still
+# inherits all of them transitively and still orders the main runtime first.
+# The full reasoning lives on runtime-effects in docker/docker-compose.infra.yml.
+depends_on:
+  - service: omninode-runtime
+    condition: service_started
+  - service: redpanda
+    condition: service_healthy
+restart: unless-stopped
+resources:
+  cpus: '1.0'
+  memory: 1536M
+  cpus_reservation: '0.25'
+  memory_reservation: 256M
+stop_grace_period: 90s
+labels:
+  com.omninode.service: runtime-effects
+  com.omninode.layer: runtime
+  com.omninode.version: ${RUNTIME_VERSION:-0.1.0}
+  autoheal: 'false'

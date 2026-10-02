@@ -85,7 +85,7 @@ def test_hooks_file_path_unloadable(ctx, cli, tmp_path):
     hooks_file = tmp_path / "my_hooks.xyz"
     hooks_file.write_text("# hooks")
     result = cli.main("run", api.schema_url, env={"SCHEMATHESIS_HOOKS": str(hooks_file)})
-    assert result.exit_code == 1, result.stdout
+    assert result.exit_code == 2, result.stdout
     assert "Unable to load Schemathesis extension hooks" in result.stdout
     assert "Cannot load hooks from:" in result.stdout
 
@@ -172,3 +172,39 @@ def filter_failure(context, failure, case, response):
     )
     result = cli.main("run", api.schema_url, "-c", "not_a_server_error", "--max-examples=1", hooks=module)
     assert result.exit_code == expected, result.stdout
+
+
+@pytest.mark.parametrize(
+    "filter_call",
+    ['apply_to(name="GET /api/success")', 'skip_for(name="GET /api/failure")'],
+    ids=["apply_to", "skip_for"],
+)
+def test_named_hook_respects_filters(ctx, cli, snapshot_cli, filter_call):
+    api = ctx.openapi.apps.success_and_failure()
+    module = ctx.write_pymodule(
+        f"""
+@schemathesis.hook("before_call").{filter_call}
+def reject_call(context, case, kwargs):
+    raise ValueError(f"Called for {{case.operation.label}}")
+"""
+    )
+    assert cli.main("run", api.schema_url, "--phases=fuzzing", "--max-examples=1", hooks=module) == snapshot_cli
+
+
+@pytest.mark.parametrize("command", ["run", "fuzz"])
+@pytest.mark.parametrize(
+    "hook",
+    ["before_load_schema(context, raw_schema)", "after_load_schema(context, schema)"],
+    ids=["before_load_schema", "after_load_schema"],
+)
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_load_schema_hook_error(ctx, cli, snapshot_cli, command, hook):
+    api = ctx.openapi.apps.success()
+    module = ctx.write_pymodule(
+        f"""
+@schemathesis.hook
+def {hook}:
+    raise ValueError("boom")
+"""
+    )
+    assert cli.main(command, api.schema_url, hooks=module) == snapshot_cli

@@ -82,6 +82,14 @@ from chalk.client.dataset import (
     load_schema,
 )
 from chalk.client.exc import CHALK_TRACE_ID_KEY, ChalkAuthException, ChalkBaseException, ChalkCustomException
+from chalk.client.model_deployment import (
+    DEPLOY_MODEL_VERSION_DEPRECATION,
+    ListModelDeploymentRevisionsResponse,
+    ListModelDeploymentsResponse,
+    ModelDeployment,
+    ModelDeploymentRevision,
+    ModelDeploymentSpec,
+)
 from chalk.client.models import (
     TIMEDELTA_PREFIX,
     AggregateBackfillResponse,
@@ -6564,8 +6572,13 @@ https://docs.chalk.ai/cli/apply
         name: str,
         version: Optional[int] = None,
         environment: Optional[EnvironmentId] = None,
+        *,
+        deployment_id: Optional[str] = None,
+        deployment_name: Optional[str] = None,
     ) -> ModelVersionResponse:
-        return self._get_grpc_client(environment=environment).get_model_version(name=name, version=version)
+        return self._get_grpc_client(environment=environment).get_model_version(
+            name=name, version=version, deployment_id=deployment_id, deployment_name=deployment_name
+        )
 
     def register_model_namespace(
         self,
@@ -6636,6 +6649,152 @@ https://docs.chalk.ai/cli/apply
     ) -> RegisteredModelVersion:
         return self._get_grpc_client(environment=environment).delete_model_version(name=name, version=version)
 
+    def create_model_deployment(
+        self,
+        name: str,
+        model_name: str,
+        model_version: int,
+        scaling: Optional[AutoScalingSpec] = None,
+        resources: Optional[ScalingGroupResourceRequest] = None,
+        handler: Optional[str] = None,
+        env_vars: Optional[Mapping[str, str]] = None,
+        secrets: Optional[Sequence[Any]] = None,
+        readiness_probe: Optional[GrpcReadinessProbe] = None,
+        startup_probe: Optional[GrpcStartupProbe] = None,
+        validate: bool = True,
+        wait_ready: bool = True,
+        wait_timeout: float = 300,
+        environment: Optional[EnvironmentId] = None,
+        chalk_workload_identity: bool = False,
+    ) -> ModelDeployment:
+        return self._get_grpc_client(environment=environment).create_model_deployment(
+            name=name,
+            model_name=model_name,
+            model_version=model_version,
+            scaling=scaling,
+            resources=resources,
+            handler=handler,
+            env_vars=env_vars,
+            secrets=secrets,
+            readiness_probe=readiness_probe,
+            startup_probe=startup_probe,
+            validate=validate,
+            wait_ready=wait_ready,
+            wait_timeout=wait_timeout,
+            chalk_workload_identity=chalk_workload_identity,
+        )
+
+    def get_model_deployment(
+        self,
+        *,
+        id: Optional[str] = None,
+        name: Optional[str] = None,
+        include_deleted: bool = False,
+        environment: Optional[EnvironmentId] = None,
+    ) -> ModelDeployment:
+        return self._get_grpc_client(environment=environment).get_model_deployment(
+            id=id, name=name, include_deleted=include_deleted
+        )
+
+    def list_model_deployments(
+        self,
+        *,
+        model_name: Optional[str] = None,
+        model_version: Optional[int] = None,
+        cursor: Optional[str] = None,
+        limit: Optional[int] = None,
+        include_deleted: bool = False,
+        environment: Optional[EnvironmentId] = None,
+    ) -> ListModelDeploymentsResponse:
+        return self._get_grpc_client(environment=environment).list_model_deployments(
+            model_name=model_name,
+            model_version=model_version,
+            cursor=cursor,
+            limit=limit,
+            include_deleted=include_deleted,
+        )
+
+    def update_model_deployment(
+        self,
+        *,
+        id: Optional[str] = None,
+        name: Optional[str] = None,
+        spec: ModelDeploymentSpec,
+        validate: bool = True,
+        wait_ready: bool = True,
+        wait_timeout: float = 300,
+        environment: Optional[EnvironmentId] = None,
+    ) -> ModelDeployment:
+        return self._get_grpc_client(environment=environment).update_model_deployment(
+            id=id,
+            name=name,
+            spec=spec,
+            validate=validate,
+            wait_ready=wait_ready,
+            wait_timeout=wait_timeout,
+        )
+
+    def rollback_model_deployment(
+        self,
+        *,
+        id: Optional[str] = None,
+        name: Optional[str] = None,
+        revision_id: str,
+        wait_ready: bool = True,
+        wait_timeout: float = 300,
+        environment: Optional[EnvironmentId] = None,
+    ) -> ModelDeployment:
+        return self._get_grpc_client(environment=environment).rollback_model_deployment(
+            id=id,
+            name=name,
+            revision_id=revision_id,
+            wait_ready=wait_ready,
+            wait_timeout=wait_timeout,
+        )
+
+    def delete_model_deployment(
+        self,
+        *,
+        id: Optional[str] = None,
+        name: Optional[str] = None,
+        environment: Optional[EnvironmentId] = None,
+    ) -> ModelDeployment:
+        return self._get_grpc_client(environment=environment).delete_model_deployment(id=id, name=name)
+
+    def get_model_deployment_revision(
+        self,
+        revision_id: str,
+        *,
+        deployment_id: Optional[str] = None,
+        deployment_name: Optional[str] = None,
+        include_deleted: bool = False,
+        environment: Optional[EnvironmentId] = None,
+    ) -> ModelDeploymentRevision:
+        return self._get_grpc_client(environment=environment).get_model_deployment_revision(
+            revision_id,
+            deployment_id=deployment_id,
+            deployment_name=deployment_name,
+            include_deleted=include_deleted,
+        )
+
+    def list_model_deployment_revisions(
+        self,
+        *,
+        deployment_id: Optional[str] = None,
+        deployment_name: Optional[str] = None,
+        cursor: Optional[str] = None,
+        limit: Optional[int] = None,
+        include_deleted: bool = False,
+        environment: Optional[EnvironmentId] = None,
+    ) -> ListModelDeploymentRevisionsResponse:
+        return self._get_grpc_client(environment=environment).list_model_deployment_revisions(
+            deployment_id=deployment_id,
+            deployment_name=deployment_name,
+            cursor=cursor,
+            limit=limit,
+            include_deleted=include_deleted,
+        )
+
     def deploy_model_version_to_scaling_group(
         self,
         name: str,
@@ -6649,41 +6808,16 @@ https://docs.chalk.ai/cli/apply
         readiness_probe: Optional["GrpcReadinessProbe"] = None,
         startup_probe: Optional["GrpcStartupProbe"] = None,
         environment: Optional[EnvironmentId] = None,
+        chalk_workload_identity: bool = False,
+        validate: bool = True,
     ) -> dict[str, Any]:
-        """Deploy a registered model version as a scaling group.
-
-        Parameters
-        ----------
-        name
-            Name for the scaling group.
-        model_name
-            Name of the registered model.
-        model_version
-            Version number of the model to deploy.
-        scaling
-            Autoscaling configuration (min/max replicas, CPU target).
-        resources
-            Resource requests (CPU, memory, GPU).
-        handler
-            Dotted path to handler function (default: "model.handler").
-        env_vars
-            Extra environment variables to inject into the container.
-        secrets
-            List of Secret Registry secrets to be injected into the Scaling Group.
-        readiness_probe
-            Optional gRPC readiness probe configuration. Model deployments only
-            support gRPC readiness checks.
-        startup_probe
-            Optional gRPC startup probe configuration. Model deployments only
-            support gRPC startup checks; if omitted, defaults to the standard
-            gRPC health check method.
-        environment
-            Environment to deploy to.
-        """
+        """Deprecated: use `create_model_deployment`. Deploys without waiting for readiness."""
+        warnings.warn(DEPLOY_MODEL_VERSION_DEPRECATION, DeprecationWarning, stacklevel=2)
         _scaling = scaling or AutoScalingSpec()
         _resources = resources or ScalingGroupResourceRequest()
 
-        return self._get_grpc_client(environment=environment).deploy_model_version_to_scaling_group(
+        grpc_client = self._get_grpc_client(environment=environment)
+        return grpc_client._deploy_model_version_to_scaling_group(  # pyright: ignore[reportPrivateUsage]
             name=name,
             model_name=model_name,
             model_version=model_version,
@@ -6695,9 +6829,11 @@ https://docs.chalk.ai/cli/apply
             gpu=_resources.gpu,
             handler=handler,
             env_vars=env_vars,
+            validate=validate,
             secrets=secrets,
             readiness_probe=readiness_probe,
             startup_probe=startup_probe,
+            chalk_workload_identity=chalk_workload_identity,
         )
 
     def list_scaling_groups(self, environment: Optional[EnvironmentId] = None) -> ListScalingGroupsResponse:

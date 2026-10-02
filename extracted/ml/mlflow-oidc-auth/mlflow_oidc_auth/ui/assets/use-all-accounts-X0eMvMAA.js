@@ -1,0 +1,1 @@
+import{t as e}from"./use-api-ClHxuBAi.js";import{a as t,r as n}from"./user-service-CQFDEBu7.js";function r(){let{data:n,isLoading:r,error:i,refetch:a}=e(t);return{allUsers:n,isLoading:r,error:i,refresh:a}}function i(){let{data:t,isLoading:r,error:i,refetch:a}=e(n);return{allServiceAccounts:t,isLoading:r,error:i,refresh:a}}export{r as n,i as t};

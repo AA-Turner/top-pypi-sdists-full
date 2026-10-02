@@ -6,12 +6,12 @@ pub enum CompletionHint {
         add_trailing_comma: Option<AddTrailingComma>,
     },
     DotTrigger {
-        range: tombi_text::Range,
-        cleanup_range: tombi_text::Range,
+        span: tombi_text::Span,
+        cleanup_span: tombi_text::Span,
     },
     EqualTrigger {
-        range: tombi_text::Range,
-        cleanup_range: tombi_text::Range,
+        span: tombi_text::Span,
+        cleanup_span: tombi_text::Span,
     },
     Comma {
         leading_comma: Option<CommaHint>,
@@ -21,12 +21,16 @@ pub enum CompletionHint {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CommaHint {
-    pub range: tombi_text::Range,
+    pub span: tombi_text::Span,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AddLeadingComma {
-    pub start_position: tombi_text::Position,
+    pub start_offset: tombi_text::Offset,
+    /// The number of line breaks between the start and the cursor, kept after the comma.
+    pub line_breaks: u32,
+    /// The column of the cursor, kept as the indent after the line breaks.
+    pub indent: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

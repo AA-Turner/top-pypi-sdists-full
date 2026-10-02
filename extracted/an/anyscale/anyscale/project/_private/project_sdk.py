@@ -61,11 +61,11 @@ class PrivateProjectSDK(BaseSDK):
             raise ValueError("'max_items' must be greater than 0.")
 
         if page_size is not None and (page_size <= 0 or page_size > MAX_PAGE_SIZE):
-            raise ValueError(
-                f"'page_size' must be between 1 and {MAX_PAGE_SIZE}, inclusive."
-            )
+            raise ValueError(f"'page_size' must be between 1 and {MAX_PAGE_SIZE}, inclusive.")
 
-        def _fetch_page(token: Optional[str],) -> ProjectListResponse:
+        def _fetch_page(
+            token: Optional[str],
+        ) -> ProjectListResponse:
             return self.client.list_projects(
                 name_contains=name_contains,
                 creator_id=creator_id,
@@ -106,10 +106,14 @@ class PrivateProjectSDK(BaseSDK):
         return project.id  # type: ignore
 
     def delete(
-        self, project_id: str,
+        self,
+        project_id: str,
     ):
         self.client.delete_project(project_id)
 
-    def get_default(self, parent_cloud_id: str,) -> Project:
+    def get_default(
+        self,
+        parent_cloud_id: str,
+    ) -> Project:
         project: OpenAPIProject = self.client.get_default_project(parent_cloud_id)
         return Project.from_dict(project.to_dict())

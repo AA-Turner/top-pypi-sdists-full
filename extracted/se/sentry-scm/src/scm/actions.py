@@ -1,0 +1,1225 @@
+from collections.abc import Iterator
+from datetime import date, datetime
+from typing import Literal
+
+import requests
+
+from scm.types import (
+    SHA,
+    ActionResult,
+    AppInstallation,
+    ArchiveFormat,
+    ArchiveLink,
+    Author,
+    BranchName,
+    BuildConclusion,
+    BuildStatus,
+    CheckRun,
+    CheckRunOutput,
+    ChmodCommitAction,
+    CollapsePullRequestCommentProtocol,
+    Comment,
+    Commit,
+    CommitAuthorParam,
+    CommitComparison,
+    CommitFile,
+    CommitWithChanges,
+    CompareCommitsProtocol,
+    CoPilotChatExtension,
+    CreateBranchProtocol,
+    CreateCheckRunProtocol,
+    CreateCommitProtocol,
+    CreateGitBlobProtocol,
+    CreateGitCommitProtocol,
+    CreateGitTreeProtocol,
+    CreateIssueCommentProtocol,
+    CreateIssueCommentReactionProtocol,
+    CreateIssueProtocol,
+    CreateIssueReactionProtocol,
+    CreatePullRequestCommentProtocol,
+    CreatePullRequestCommentReactionProtocol,
+    CreatePullRequestDraftProtocol,
+    CreatePullRequestProtocol,
+    CreatePullRequestReactionProtocol,
+    CreateReviewCommentFileProtocol,
+    CreateReviewCommentProtocol,
+    CreateReviewCommentReactionProtocol,
+    CreateReviewCommentReplyProtocol,
+    CreateReviewProtocol,
+    DeleteBranchProtocol,
+    DeleteCommitAction,
+    DeleteIssueCommentProtocol,
+    DeleteIssueCommentReactionProtocol,
+    DeleteIssueReactionProtocol,
+    DeletePullRequestCommentProtocol,
+    DeletePullRequestCommentReactionProtocol,
+    DeletePullRequestReactionProtocol,
+    DeleteReviewCommentReactionProtocol,
+    DiffLine,
+    DownloadArchiveProtocol,
+    DownloadWorkflowJobLogProtocol,
+    FileContent,
+    GetAppInstallationProtocol,
+    GetArchiveLinkProtocol,
+    GetAuthenticatedActorProtocol,
+    GetBranchProtocol,
+    GetCheckRunProtocol,
+    GetCommitChangesProtocol,
+    GetCommitProtocol,
+    GetCommitsByPathProtocol,
+    GetCommitsProtocol,
+    GetCommitsUrlProtocol,
+    GetCommitUrlProtocol,
+    GetDirectoryContentsProtocol,
+    GetFileContentProtocol,
+    GetFileUrlProtocol,
+    GetFullTreeProtocol,
+    GetGitCommitProtocol,
+    GetGitRefProtocol,
+    GetIssueCommentReactionsProtocol,
+    GetIssueCommentsProtocol,
+    GetIssueProtocol,
+    GetIssueReactionsProtocol,
+    GetPullRequestCommentReactionsProtocol,
+    GetPullRequestCommentsProtocol,
+    GetPullRequestCommitsProtocol,
+    GetPullRequestDiffProtocol,
+    GetPullRequestFilesProtocol,
+    GetPullRequestProtocol,
+    GetPullRequestReactionsProtocol,
+    GetPullRequestReviewProtocol,
+    GetPullRequestReviewThreadsProtocol,
+    GetPullRequestsProtocol,
+    GetPullRequestTemplateProtocol,
+    GetPullRequestUrlProtocol,
+    GetReadmeProtocol,
+    GetRepositoryAssigneesProtocol,
+    GetRepositoryLabelsProtocol,
+    GetRepositoryProtocol,
+    GetRepositoryTopicsProtocol,
+    GetRepositoryUserPermissionProtocol,
+    GetReviewCommentReactionsProtocol,
+    GetReviewCommentsProtocol,
+    GetTreeProtocol,
+    GitBlob,
+    GitCommitObject,
+    GitRef,
+    GitRepository,
+    GitTree,
+    InputTreeEntry,
+    Issue,
+    IssueState,
+    Label,
+    ListCheckRunsForRefProtocol,
+    ListCheckRunsInCheckSuiteProtocol,
+    ListPullRequestReviewsProtocol,
+    ListRepositoriesProtocol,
+    ListRepositoryUserPermissionsProtocol,
+    ListWorkflowJobsProtocol,
+    ListWorkflowRunsProtocol,
+    MarkPullRequestDraftStateProtocol,
+    MinimizeCommentProtocol,
+    MoveCommitAction,
+    PaginatedActionResult,
+    PaginationParams,
+    PullRequest,
+    PullRequestCommit,
+    PullRequestFile,
+    PullRequestState,
+    Reaction,
+    ReactionResult,
+    RequestOptions,
+    RequestReviewProtocol,
+    ResolveReviewThreadProtocol,
+    ResourceId,
+    Review,
+    ReviewComment,
+    ReviewCommentInput,
+    ReviewEvent,
+    ReviewSide,
+    ReviewThread,
+    UpdateAndCollapsePullRequestCommentProtocol,
+    UpdateBranchProtocol,
+    UpdateCheckRunProtocol,
+    UpdateIssueProtocol,
+    UpdatePullRequestProtocol,
+    UpdateReviewCommentProtocol,
+    UserPermissions,
+    WorkflowJob,
+    WorkflowRun,
+    WriteCommitAction,
+)
+
+
+def get_repository(scm: GetRepositoryProtocol) -> ActionResult[GitRepository]:
+    """Get the repository associated with this SourceCodeManager."""
+    return scm.get_repository()
+
+
+def get_app_installation(scm: GetAppInstallationProtocol) -> ActionResult[AppInstallation]:
+    """Get the SCM app installation associated with this SourceCodeManager."""
+    return scm.get_app_installation()
+
+
+def get_authenticated_actor(scm: GetAuthenticatedActorProtocol) -> ActionResult[Author]:
+    """Get the actor associated with the credentials used for requests."""
+    return scm.get_authenticated_actor()
+
+
+def get_repository_assignees(
+    scm: GetRepositoryAssigneesProtocol,
+    pagination: PaginationParams | None = None,
+    request_options: RequestOptions | None = None,
+) -> PaginatedActionResult[list[Author]]:
+    """Get users available as assignees for issues and pull requests in the repository."""
+    return scm.get_repository_assignees(pagination, request_options)
+
+
+def list_repository_user_permissions(
+    scm: ListRepositoryUserPermissionsProtocol,
+    pagination: PaginationParams | None = None,
+    request_options: RequestOptions | None = None,
+) -> PaginatedActionResult[list[UserPermissions]]:
+    """Get repository permissions for all collaborators."""
+    return scm.list_repository_user_permissions(pagination, request_options)
+
+
+def get_repository_user_permission(
+    scm: GetRepositoryUserPermissionProtocol,
+    username: str,
+    request_options: RequestOptions | None = None,
+) -> ActionResult[UserPermissions]:
+    """Get repository permissions for a single user."""
+    return scm.get_repository_user_permission(username, request_options)
+
+
+def get_repository_labels(
+    scm: GetRepositoryLabelsProtocol,
+    pagination: PaginationParams | None = None,
+    request_options: RequestOptions | None = None,
+) -> PaginatedActionResult[list[Label]]:
+    """Get labels defined in the repository."""
+    return scm.get_repository_labels(pagination, request_options)
+
+
+def get_repository_topics(
+    scm: GetRepositoryTopicsProtocol,
+    request_options: RequestOptions | None = None,
+) -> ActionResult[list[str]]:
+    """Get topics associated with the repository."""
+    return scm.get_repository_topics(request_options)
+
+
+def list_repositories(
+    scm: ListRepositoriesProtocol,
+    pagination: PaginationParams | None = None,
+    request_options: RequestOptions | None = None,
+) -> PaginatedActionResult[list[GitRepository]]:
+    """List all repositories accessible to the integration."""
+    return scm.list_repositories(pagination, request_options)
+
+
+def get_issue(
+    scm: GetIssueProtocol,
+    issue_id: str,
+    request_options: RequestOptions | None = None,
+) -> ActionResult[Issue]:
+    """Get an issue."""
+    return scm.get_issue(issue_id, request_options)
+
+
+def create_issue(
+    scm: CreateIssueProtocol,
+    title: str,
+    body: str,
+    assignees: list[str] | None = None,
+    labels: list[str] | None = None,
+) -> ActionResult[Issue]:
+    """Create an issue."""
+    return scm.create_issue(title, body, assignees, labels)
+
+
+def update_issue(
+    scm: UpdateIssueProtocol,
+    issue_id: str,
+    state: IssueState | None = None,
+    assignees: list[str] | None = None,
+    labels: list[str] | None = None,
+) -> ActionResult[Issue]:
+    return scm.update_issue(issue_id, state=state, assignees=assignees, labels=labels)
+
+
+def get_issue_comments(
+    scm: GetIssueCommentsProtocol,
+    issue_id: str,
+    pagination: PaginationParams | None = None,
+    request_options: RequestOptions | None = None,
+) -> PaginatedActionResult[list[Comment]]:
+    """Get comments on an issue."""
+    return scm.get_issue_comments(issue_id, pagination, request_options)
+
+
+def create_issue_comment(scm: CreateIssueCommentProtocol, issue_id: str, body: str) -> ActionResult[Comment]:
+    """Create a comment on an issue."""
+    return scm.create_issue_comment(issue_id, body)
+
+
+def delete_issue_comment(scm: DeleteIssueCommentProtocol, issue_id: str, comment_id: str) -> None:
+    """Delete a comment on an issue."""
+    return scm.delete_issue_comment(issue_id, comment_id)
+
+
+def get_pull_request(
+    scm: GetPullRequestProtocol,
+    pull_request_id: str,
+    request_options: RequestOptions | None = None,
+) -> ActionResult[PullRequest]:
+    """Get a pull request."""
+    return scm.get_pull_request(pull_request_id, request_options)
+
+
+def get_pull_request_comments(
+    scm: GetPullRequestCommentsProtocol,
+    pull_request_id: str,
+    pagination: PaginationParams | None = None,
+    request_options: RequestOptions | None = None,
+) -> PaginatedActionResult[list[Comment]]:
+    """Get comments on a pull request."""
+    return scm.get_pull_request_comments(pull_request_id, pagination, request_options)
+
+
+def create_pull_request_comment(
+    scm: CreatePullRequestCommentProtocol,
+    pull_request_id: str,
+    body: str,
+    extensions: list[CoPilotChatExtension] | None = None,
+) -> ActionResult[Comment]:
+    """Create a comment on a pull request."""
+    return scm.create_pull_request_comment(pull_request_id, body, extensions)
+
+
+def delete_pull_request_comment(scm: DeletePullRequestCommentProtocol, pull_request_id: str, comment_id: str) -> None:
+    """Delete a comment on a pull request."""
+    return scm.delete_pull_request_comment(pull_request_id, comment_id)
+
+
+def get_issue_comment_reactions(
+    scm: GetIssueCommentReactionsProtocol,
+    issue_id: str,
+    comment_id: str,
+    pagination: PaginationParams | None = None,
+    request_options: RequestOptions | None = None,
+) -> PaginatedActionResult[list[ReactionResult]]:
+    """Get reactions on an issue comment."""
+    return scm.get_issue_comment_reactions(issue_id, comment_id, pagination, request_options)
+
+
+def create_issue_comment_reaction(
+    scm: CreateIssueCommentReactionProtocol, issue_id: str, comment_id: str, reaction: Reaction
+) -> ActionResult[ReactionResult]:
+    """Create a reaction on an issue comment."""
+    return scm.create_issue_comment_reaction(issue_id, comment_id, reaction)
+
+
+def delete_issue_comment_reaction(
+    scm: DeleteIssueCommentReactionProtocol, issue_id: str, comment_id: str, reaction_id: str
+) -> None:
+    """Delete a reaction on an issue comment."""
+    return scm.delete_issue_comment_reaction(issue_id, comment_id, reaction_id)
+
+
+def get_pull_request_comment_reactions(
+    scm: GetPullRequestCommentReactionsProtocol,
+    pull_request_id: str,
+    comment_id: str,
+    pagination: PaginationParams | None = None,
+    request_options: RequestOptions | None = None,
+) -> PaginatedActionResult[list[ReactionResult]]:
+    """Get reactions on a pull request comment."""
+    return scm.get_pull_request_comment_reactions(pull_request_id, comment_id, pagination, request_options)
+
+
+def create_pull_request_comment_reaction(
+    scm: CreatePullRequestCommentReactionProtocol,
+    pull_request_id: str,
+    comment_id: str,
+    reaction: Reaction,
+) -> ActionResult[ReactionResult]:
+    """Create a reaction on a pull request comment."""
+    return scm.create_pull_request_comment_reaction(pull_request_id, comment_id, reaction)
+
+
+def delete_pull_request_comment_reaction(
+    scm: DeletePullRequestCommentReactionProtocol,
+    pull_request_id: str,
+    comment_id: str,
+    reaction_id: str,
+) -> None:
+    """Delete a reaction on a pull request comment."""
+    return scm.delete_pull_request_comment_reaction(pull_request_id, comment_id, reaction_id)
+
+
+def get_review_comment_reactions(
+    scm: GetReviewCommentReactionsProtocol,
+    pull_request_id: str,
+    comment_id: str,
+    pagination: PaginationParams | None = None,
+    request_options: RequestOptions | None = None,
+) -> PaginatedActionResult[list[ReactionResult]]:
+    """Get reactions on a pull request review comment."""
+    return scm.get_review_comment_reactions(pull_request_id, comment_id, pagination, request_options)
+
+
+def create_review_comment_reaction(
+    scm: CreateReviewCommentReactionProtocol,
+    pull_request_id: str,
+    comment_id: str,
+    reaction: Reaction,
+) -> ActionResult[ReactionResult]:
+    """Create a reaction on a pull request review comment."""
+    return scm.create_review_comment_reaction(pull_request_id, comment_id, reaction)
+
+
+def delete_review_comment_reaction(
+    scm: DeleteReviewCommentReactionProtocol,
+    pull_request_id: str,
+    comment_id: str,
+    reaction_id: str,
+) -> None:
+    """Delete a reaction on a pull request review comment."""
+    return scm.delete_review_comment_reaction(pull_request_id, comment_id, reaction_id)
+
+
+def get_issue_reactions(
+    scm: GetIssueReactionsProtocol,
+    issue_id: str,
+    pagination: PaginationParams | None = None,
+    request_options: RequestOptions | None = None,
+) -> PaginatedActionResult[list[ReactionResult]]:
+    """Get reactions on an issue."""
+    return scm.get_issue_reactions(issue_id, pagination, request_options)
+
+
+def create_issue_reaction(
+    scm: CreateIssueReactionProtocol, issue_id: str, reaction: Reaction
+) -> ActionResult[ReactionResult]:
+    """Create a reaction on an issue."""
+    return scm.create_issue_reaction(issue_id, reaction)
+
+
+def delete_issue_reaction(scm: DeleteIssueReactionProtocol, issue_id: str, reaction_id: str) -> None:
+    """Delete a reaction on an issue."""
+    return scm.delete_issue_reaction(issue_id, reaction_id)
+
+
+def get_pull_request_reactions(
+    scm: GetPullRequestReactionsProtocol,
+    pull_request_id: str,
+    pagination: PaginationParams | None = None,
+    request_options: RequestOptions | None = None,
+) -> PaginatedActionResult[list[ReactionResult]]:
+    """Get reactions on a pull request."""
+    return scm.get_pull_request_reactions(pull_request_id, pagination, request_options)
+
+
+def create_pull_request_reaction(
+    scm: CreatePullRequestReactionProtocol, pull_request_id: str, reaction: Reaction
+) -> ActionResult[ReactionResult]:
+    """Create a reaction on a pull request."""
+    return scm.create_pull_request_reaction(pull_request_id, reaction)
+
+
+def delete_pull_request_reaction(
+    scm: DeletePullRequestReactionProtocol, pull_request_id: str, reaction_id: str
+) -> None:
+    """Delete a reaction on a pull request."""
+    return scm.delete_pull_request_reaction(pull_request_id, reaction_id)
+
+
+def get_branch(
+    scm: GetBranchProtocol,
+    branch: BranchName,
+    request_options: RequestOptions | None = None,
+) -> ActionResult[GitRef]:
+    """Get a branch reference."""
+    return scm.get_branch(branch, request_options)
+
+
+def create_branch(scm: CreateBranchProtocol, branch: BranchName, sha: SHA) -> ActionResult[GitRef]:
+    """Create a new branch pointing at the given SHA."""
+    return scm.create_branch(branch, sha)
+
+
+def update_branch(scm: UpdateBranchProtocol, branch: BranchName, sha: SHA, force: bool = False) -> ActionResult[GitRef]:
+    """Update a branch to point at a new SHA."""
+    return scm.update_branch(branch, sha, force)
+
+
+def delete_branch(scm: DeleteBranchProtocol, branch: BranchName) -> None:
+    """Delete a branch."""
+    return scm.delete_branch(branch)
+
+
+def get_git_ref(
+    scm: GetGitRefProtocol,
+    ref: str,
+    request_options: RequestOptions | None = None,
+) -> ActionResult[GitRef]:
+    """Get a git ref (e.g. ``heads/main`` or ``tags/v1.0.0``)."""
+    return scm.get_git_ref(ref, request_options)
+
+
+def get_file_url(
+    scm: GetFileUrlProtocol,
+    file_path: str,
+    sha: SHA,
+    start_line: int | None = None,
+    end_line: int | None = None,
+) -> str:
+    """Build a web URL pointing at a file (optionally a line or range) at a given commit."""
+    return scm.get_file_url(file_path, sha, start_line, end_line)
+
+
+def get_commit_url(scm: GetCommitUrlProtocol, commit_sha: SHA) -> str:
+    """Build a web URL pointing at a commit."""
+    return scm.get_commit_url(commit_sha)
+
+
+def get_commits_url(
+    scm: GetCommitsUrlProtocol,
+    commit_sha: SHA,
+    *,
+    file_path: str | None = None,
+    since: date | None = None,
+    until: date | None = None,
+) -> str:
+    """Build a web URL pointing at the commits-list view for a ref.
+
+    Optionally scoped to a file path and/or a date range. Each provider maps
+    the arguments onto its own web-UI URL shape.
+    """
+    return scm.get_commits_url(commit_sha, file_path=file_path, since=since, until=until)
+
+
+def get_pull_request_url(scm: GetPullRequestUrlProtocol, pull_request_id: str) -> str:
+    """Returns the HTML URL of the pull-request."""
+    return scm.get_pull_request_url(pull_request_id)
+
+
+def create_git_blob(scm: CreateGitBlobProtocol, content: str, encoding: str) -> ActionResult[GitBlob]:
+    """Create a git blob object."""
+    return scm.create_git_blob(content, encoding)
+
+
+def get_file_content(
+    scm: GetFileContentProtocol,
+    path: str,
+    ref: str,
+    request_options: RequestOptions | None = None,
+) -> ActionResult[FileContent]:
+    return scm.get_file_content(path, ref, request_options)
+
+
+def get_directory_contents(
+    scm: GetDirectoryContentsProtocol,
+    path: str,
+    ref: str | None = None,
+    pagination: PaginationParams | None = None,
+    request_options: RequestOptions | None = None,
+) -> PaginatedActionResult[list[FileContent]]:
+    return scm.get_directory_contents(path, ref, pagination, request_options)
+
+
+def get_readme(
+    scm: GetReadmeProtocol,
+    ref: str,
+    pagination: PaginationParams | None = None,
+    request_options: RequestOptions | None = None,
+) -> ActionResult[FileContent]:
+    return scm.get_readme(ref, pagination, request_options)
+
+
+def get_pull_request_template(
+    scm: GetPullRequestTemplateProtocol,
+    ref: str,
+    pagination: PaginationParams | None = None,
+    request_options: RequestOptions | None = None,
+) -> Iterator[ActionResult[FileContent]]:
+    return scm.get_pull_request_template(ref, pagination, request_options)
+
+
+def get_commit(
+    scm: GetCommitProtocol,
+    sha: SHA,
+    request_options: RequestOptions | None = None,
+) -> ActionResult[CommitWithChanges]:
+    return scm.get_commit(sha, request_options)
+
+
+def get_commit_changes(
+    scm: GetCommitChangesProtocol,
+    sha: SHA,
+    pagination: PaginationParams | None = None,
+    request_options: RequestOptions | None = None,
+) -> PaginatedActionResult[list[CommitFile]]:
+    return scm.get_commit_changes(sha, pagination, request_options)
+
+
+def get_commits(
+    scm: GetCommitsProtocol,
+    ref: str | None = None,
+    pagination: PaginationParams | None = None,
+    since: datetime | None = None,
+    until: datetime | None = None,
+    request_options: RequestOptions | None = None,
+) -> PaginatedActionResult[list[Commit]]:
+    """
+    Get a paginated list of commits.
+
+    `ref` is either a branch name, a tag name, or a commit SHA.
+    Specifying a commit SHA retrieves commits up to the given commit SHA.
+
+    `since` and `until` restrict results to commits authored within the given
+    (inclusive) datetime range.
+
+    Commits are returned in descending order. Equivalent to `git log ref`.
+    """
+    return scm.get_commits(
+        ref=ref,
+        pagination=pagination,
+        since=since,
+        until=until,
+        request_options=request_options,
+    )
+
+
+def get_commits_by_path(
+    scm: GetCommitsByPathProtocol,
+    path: str,
+    ref: str | None = None,
+    pagination: PaginationParams | None = None,
+    since: datetime | None = None,
+    until: datetime | None = None,
+    request_options: RequestOptions | None = None,
+) -> PaginatedActionResult[list[Commit]]:
+    """
+    Get a paginated list of commits for a given filepath.
+
+    `ref` is either a branch name, a tag name, or a commit SHA.
+    Specifying a commit SHA retrieves commits up to the given commit SHA.
+
+    `since` and `until` restrict results to commits authored within the given
+    (inclusive) datetime range.
+
+    Commits are returned in descending order. Equivalent to `git log ref`.
+    """
+    return scm.get_commits_by_path(
+        path=path,
+        ref=ref,
+        pagination=pagination,
+        since=since,
+        until=until,
+        request_options=request_options,
+    )
+
+
+def compare_commits(
+    scm: CompareCommitsProtocol,
+    start_sha: SHA,
+    end_sha: SHA,
+    pagination: PaginationParams | None = None,
+    request_options: RequestOptions | None = None,
+    *,
+    include_behind: bool = False,
+) -> PaginatedActionResult[CommitComparison]:
+    """Compare two commits against their merge base.
+
+    `include_behind` guarantees `behind_by` is populated on every provider, at
+    the cost of a second request on providers that do not return it (GitLab).
+    Pass it when the count matters — telling "the end SHA is an ancestor" from
+    "the two are identical" is impossible without it.
+
+    Providers that derive the counts from the returned commit list rather than
+    reading them off the response (GitLab) cannot serve `include_behind` and
+    `pagination` together, and raise `resource_bad_request` for the pair; ask
+    for the counts or for a page, not both. GitHub reads both counts off the
+    response and is unaffected.
+    """
+    return scm.compare_commits(start_sha, end_sha, pagination, request_options, include_behind=include_behind)
+
+
+def create_commit(
+    scm: CreateCommitProtocol,
+    branch: str,
+    parent_sha: SHA,
+    message: str,
+    actions: list[ChmodCommitAction | DeleteCommitAction | MoveCommitAction | WriteCommitAction],
+    force: bool = False,
+    create_branch: bool = False,
+    author: CommitAuthorParam | None = None,
+    *,
+    expected_head_sha: SHA | None = None,
+) -> ActionResult[Commit]:
+    """Commit `actions` onto `branch`, parented on `parent_sha`.
+
+    `expected_head_sha` takes a lease on the branch: the write is rejected with
+    `stale_branch_head` unless the branch head is still that commit. It is a
+    guard on the *destination*, not a parent selector — pass `parent_sha` to
+    choose the parent. It cannot be combined with `create_branch` (no head to
+    lease) or `force` (a forced update overwrites the head unconditionally and
+    cannot honor the lease); either combination raises `resource_bad_request`.
+
+    Atomicity differs by provider, and callers must handle the weaker case:
+
+    - GitHub is atomic against a concurrent push that *adds* commits: the ref
+      update is fast-forward-only, so the new commit no longer descends from
+      the head and the update is rejected. Nothing lands on the branch, though
+      the blob, tree, and commit objects created beforehand are left orphaned.
+      It is *not* atomic against a branch *rewound* to an ancestor of
+      `expected_head_sha`: the new commit still descends from the rewound head,
+      so the ref update accepts it as a legitimate fast-forward and the rewind
+      is silently undone. The pre-write head check catches that case, but only
+      up to the moment it runs — a rewind landing between the check and the ref
+      update is accepted with no error. Closing that gap needs a real
+      compare-and-swap, which on GitHub means the GraphQL
+      `createCommitOnBranch` mutation and its `expectedHeadOid`.
+    - GitLab has no compare-and-swap primitive, so the check is a
+      check-then-act: the head is read before the write and the created
+      commit's parents are verified after it. A push that lands in between
+      still wins, and `stale_branch_head` is then raised *after* the commit
+      exists and the branch has already moved. Treat the error as "the commit
+      landed on an unexpected parent", not as "nothing happened".
+    """
+    return scm.create_commit(
+        branch,
+        parent_sha,
+        message,
+        actions,
+        force,
+        create_branch,
+        author=author,
+        expected_head_sha=expected_head_sha,
+    )
+
+
+def get_tree(
+    scm: GetTreeProtocol,
+    tree_sha: SHA,
+    recursive: bool = True,
+    pagination: PaginationParams | None = None,
+    request_options: RequestOptions | None = None,
+) -> PaginatedActionResult[GitTree]:
+    """Fetch a single page of the repository tree.
+
+    Providers that paginate the tree (e.g. GitLab) expose the next page via
+    ``meta["next_cursor"]``; callers paginate manually by passing it back in
+    ``pagination``.  Use :func:`get_full_tree` to fetch every page at once.
+    """
+    return scm.get_tree(tree_sha, recursive=recursive, pagination=pagination, request_options=request_options)
+
+
+def get_full_tree(
+    scm: GetFullTreeProtocol,
+    tree_sha: SHA,
+    recursive: bool = True,
+    request_options: RequestOptions | None = None,
+) -> ActionResult[GitTree]:
+    """Fetch the complete repository tree, walking every page.
+
+    This can be expensive on large repositories since it follows pagination to
+    exhaustion.  Prefer :func:`get_tree` when manual pagination is acceptable.
+    """
+    return scm.get_full_tree(tree_sha, recursive=recursive, request_options=request_options)
+
+
+def get_git_commit(
+    scm: GetGitCommitProtocol,
+    sha: SHA,
+    request_options: RequestOptions | None = None,
+) -> ActionResult[GitCommitObject]:
+    return scm.get_git_commit(sha, request_options)
+
+
+def create_git_tree(
+    scm: CreateGitTreeProtocol,
+    tree: list[InputTreeEntry],
+    base_tree: SHA | None = None,
+) -> ActionResult[GitTree]:
+    return scm.create_git_tree(tree, base_tree=base_tree)
+
+
+def create_git_commit(
+    scm: CreateGitCommitProtocol,
+    message: str,
+    tree_sha: SHA,
+    parent_shas: list[SHA],
+    author: CommitAuthorParam | None = None,
+) -> ActionResult[GitCommitObject]:
+    return scm.create_git_commit(message, tree_sha, parent_shas, author=author)
+
+
+def get_pull_request_files(
+    scm: GetPullRequestFilesProtocol,
+    pull_request_id: str,
+    pagination: PaginationParams | None = None,
+    request_options: RequestOptions | None = None,
+) -> PaginatedActionResult[list[PullRequestFile]]:
+    return scm.get_pull_request_files(pull_request_id, pagination, request_options)
+
+
+def get_pull_request_commits(
+    scm: GetPullRequestCommitsProtocol,
+    pull_request_id: str,
+    pagination: PaginationParams | None = None,
+    request_options: RequestOptions | None = None,
+) -> PaginatedActionResult[list[PullRequestCommit]]:
+    return scm.get_pull_request_commits(pull_request_id, pagination, request_options)
+
+
+def get_pull_request_diff(
+    scm: GetPullRequestDiffProtocol,
+    pull_request_id: str,
+    request_options: RequestOptions | None = None,
+) -> ActionResult[str]:
+    return scm.get_pull_request_diff(pull_request_id, request_options)
+
+
+def get_pull_request_review_threads(
+    scm: GetPullRequestReviewThreadsProtocol,
+    pull_request_id: str,
+    pagination: PaginationParams | None = None,
+    request_options: RequestOptions | None = None,
+    *,
+    include_reactions: bool = False,
+) -> PaginatedActionResult[list[ReviewThread]]:
+    """Get review threads on a pull request, with their comments.
+
+    A review thread is the unit of resolution for line-anchored reviews —
+    each thread has an id accepted by ``resolve_review_thread``. Returned
+    comments include author identity (with a ``is_bot`` flag) and timestamps
+    so callers can filter threads by app/bot author.
+
+    When ``include_reactions`` is True, comment ``reactions`` are populated
+    (GitHub via GraphQL, up to 10 reactions per comment; GitLab via per-note
+    award-emoji, capped per call).
+    """
+    return scm.get_pull_request_review_threads(
+        pull_request_id, pagination, request_options, include_reactions=include_reactions
+    )
+
+
+def get_review_comments(
+    scm: GetReviewCommentsProtocol,
+    pull_request_id: str,
+    review_id: str,
+    pagination: PaginationParams | None = None,
+    request_options: RequestOptions | None = None,
+) -> PaginatedActionResult[list[ReviewComment]]:
+    return scm.get_review_comments(pull_request_id, review_id, pagination, request_options)
+
+
+def get_pull_requests(
+    scm: GetPullRequestsProtocol,
+    state: PullRequestState | None = "open",
+    head: BranchName | None = None,
+    pagination: PaginationParams | None = None,
+    request_options: RequestOptions | None = None,
+) -> PaginatedActionResult[list[PullRequest]]:
+    return scm.get_pull_requests(state, head, pagination, request_options)
+
+
+def create_pull_request(
+    scm: CreatePullRequestProtocol,
+    title: str,
+    body: str,
+    head: BranchName,
+    base: BranchName,
+) -> ActionResult[PullRequest]:
+    return scm.create_pull_request(title, body, head, base)
+
+
+def create_pull_request_draft(
+    scm: CreatePullRequestDraftProtocol,
+    title: str,
+    body: str,
+    head: BranchName,
+    base: BranchName,
+) -> ActionResult[PullRequest]:
+    return scm.create_pull_request_draft(title, body, head, base)
+
+
+def mark_pull_request_ready_for_review(
+    scm: MarkPullRequestDraftStateProtocol,
+    pull_request_id: str,
+) -> None:
+    return scm.mark_pull_request_ready_for_review(pull_request_id)
+
+
+def mark_pull_request_as_draft(
+    scm: MarkPullRequestDraftStateProtocol,
+    pull_request_id: str,
+) -> None:
+    return scm.mark_pull_request_as_draft(pull_request_id)
+
+
+def update_pull_request(
+    scm: UpdatePullRequestProtocol,
+    pull_request_id: str,
+    title: str | None = None,
+    body: str | None = None,
+    state: PullRequestState | None = None,
+) -> ActionResult[PullRequest]:
+    return scm.update_pull_request(pull_request_id, title=title, body=body, state=state)
+
+
+def request_review(scm: RequestReviewProtocol, pull_request_id: str, reviewers: list[str]) -> None:
+    return scm.request_review(pull_request_id, reviewers)
+
+
+def create_review_comment_file(
+    scm: CreateReviewCommentFileProtocol,
+    pull_request_id: str,
+    commit_id: SHA,
+    body: str,
+    path: str,
+    side: ReviewSide,
+) -> ActionResult[ReviewComment]:
+    """Leave a review comment on a file."""
+    return scm.create_review_comment_file(pull_request_id, commit_id, body, path, side)
+
+
+def create_review_comment(
+    scm: CreateReviewCommentProtocol,
+    pull_request_id: str,
+    commit_id: SHA,
+    body: str,
+    path: str,
+    line: DiffLine,
+    start_line: DiffLine | None = None,
+) -> ActionResult[ReviewComment]:
+    """Leave an inline review comment on a diff line (or a span of lines).
+
+    Pass ``start_line`` to comment on a multiline range; omit it for a single
+    line. See :class:`~scm.types.DiffLine` for how a line's diff position is
+    described.
+    """
+    return scm.create_review_comment(pull_request_id, commit_id, body, path, line, start_line)
+
+
+def create_review_comment_reply(
+    scm: CreateReviewCommentReplyProtocol,
+    pull_request_id: str,
+    body: str,
+    comment_id: str,
+) -> ActionResult[ReviewComment]:
+    """Leave a review comment in reply to another review comment."""
+    return scm.create_review_comment_reply(pull_request_id, body, comment_id)
+
+
+def create_review(
+    scm: CreateReviewProtocol,
+    pull_request_id: str,
+    commit_sha: SHA,
+    event: ReviewEvent,
+    comments: list[ReviewCommentInput],
+    body: str | None = None,
+) -> ActionResult[Review]:
+    return scm.create_review(pull_request_id, commit_sha, event, comments, body=body)
+
+
+def update_review_comment(
+    scm: UpdateReviewCommentProtocol,
+    pull_request_id: str,
+    comment_id: str,
+    body: str,
+) -> ActionResult[ReviewComment]:
+    return scm.update_review_comment(pull_request_id, comment_id, body)
+
+
+def create_check_run(
+    scm: CreateCheckRunProtocol,
+    name: str,
+    head_sha: SHA,
+    status: BuildStatus | None = None,
+    conclusion: BuildConclusion | None = None,
+    external_id: str | None = None,
+    started_at: str | None = None,
+    completed_at: str | None = None,
+    output: CheckRunOutput | None = None,
+) -> ActionResult[CheckRun]:
+    return scm.create_check_run(
+        name,
+        head_sha,
+        status=status,
+        conclusion=conclusion,
+        external_id=external_id,
+        started_at=started_at,
+        completed_at=completed_at,
+        output=output,
+    )
+
+
+def get_check_run(
+    scm: GetCheckRunProtocol,
+    check_run_id: ResourceId,
+    request_options: RequestOptions | None = None,
+) -> ActionResult[CheckRun]:
+    return scm.get_check_run(check_run_id, request_options)
+
+
+def update_check_run(
+    scm: UpdateCheckRunProtocol,
+    check_run_id: ResourceId,
+    status: BuildStatus | None = None,
+    conclusion: BuildConclusion | None = None,
+    output: CheckRunOutput | None = None,
+) -> ActionResult[CheckRun]:
+    return scm.update_check_run(check_run_id, status=status, conclusion=conclusion, output=output)
+
+
+def list_check_runs_in_check_suite(
+    scm: ListCheckRunsInCheckSuiteProtocol,
+    check_suite_id: ResourceId,
+    check_name: str | None = None,
+    status: Literal["queued", "in_progress", "completed"] | None = None,
+    timestamp_filter: Literal["latest", "all"] = "latest",
+    pagination: PaginationParams | None = None,
+    request_options: RequestOptions | None = None,
+) -> PaginatedActionResult[list[CheckRun]]:
+    return scm.list_check_runs_in_check_suite(
+        check_suite_id,
+        check_name=check_name,
+        status=status,
+        timestamp_filter=timestamp_filter,
+        pagination=pagination,
+        request_options=request_options,
+    )
+
+
+def list_check_runs_for_ref(
+    scm: ListCheckRunsForRefProtocol,
+    ref: str,
+    check_name: str | None = None,
+    status: Literal["queued", "in_progress", "completed"] | None = None,
+    timestamp_filter: Literal["latest", "all"] = "latest",
+    pagination: PaginationParams | None = None,
+    request_options: RequestOptions | None = None,
+) -> PaginatedActionResult[list[CheckRun]]:
+    return scm.list_check_runs_for_ref(
+        ref,
+        check_name=check_name,
+        status=status,
+        timestamp_filter=timestamp_filter,
+        pagination=pagination,
+        request_options=request_options,
+    )
+
+
+def list_workflow_runs(
+    scm: ListWorkflowRunsProtocol,
+    head_sha: SHA | None = None,
+    pagination: PaginationParams | None = None,
+    request_options: RequestOptions | None = None,
+) -> PaginatedActionResult[list[WorkflowRun]]:
+    return scm.list_workflow_runs(
+        head_sha,
+        pagination=pagination,
+        request_options=request_options,
+    )
+
+
+def list_workflow_jobs(
+    scm: ListWorkflowJobsProtocol,
+    workflow_run_id: ResourceId,
+    pagination: PaginationParams | None = None,
+    request_options: RequestOptions | None = None,
+) -> PaginatedActionResult[list[WorkflowJob]]:
+    return scm.list_workflow_jobs(
+        workflow_run_id,
+        pagination=pagination,
+        request_options=request_options,
+    )
+
+
+def download_workflow_job_log(
+    scm: DownloadWorkflowJobLogProtocol,
+    job_id: ResourceId,
+    request_options: RequestOptions | None = None,
+) -> requests.Response:
+    """Download the plaintext log for a single workflow job."""
+    return scm.download_workflow_job_log(job_id, request_options=request_options)
+
+
+def list_pull_request_reviews(
+    scm: ListPullRequestReviewsProtocol,
+    pull_request_id: str,
+    pagination: PaginationParams | None = None,
+    request_options: RequestOptions | None = None,
+) -> PaginatedActionResult[list[Review]]:
+    return scm.list_pull_request_reviews(
+        pull_request_id,
+        pagination=pagination,
+        request_options=request_options,
+    )
+
+
+def get_pull_request_review(
+    scm: GetPullRequestReviewProtocol,
+    pull_request_id: str,
+    review_id: str,
+    request_options: RequestOptions | None = None,
+) -> ActionResult[Review]:
+    """Get a single submitted review on a pull request by its id."""
+    return scm.get_pull_request_review(pull_request_id, review_id, request_options)
+
+
+def minimize_comment(scm: MinimizeCommentProtocol, comment_node_id: str, reason: str) -> None:
+    return scm.minimize_comment(comment_node_id, reason)
+
+
+def resolve_review_thread(scm: ResolveReviewThreadProtocol, pull_request_id: str, thread_id: str) -> None:
+    return scm.resolve_review_thread(pull_request_id, thread_id)
+
+
+def collapse_pull_request_comment(
+    scm: CollapsePullRequestCommentProtocol,
+    pull_request_id: str,
+    thread_id: str,
+    comment_node_id: str,
+    reason: str = "OUTDATED",
+) -> None:
+    return scm.collapse_pull_request_comment(pull_request_id, thread_id, comment_node_id, reason)
+
+
+def update_and_collapse_pull_request_comment(
+    scm: UpdateAndCollapsePullRequestCommentProtocol,
+    pull_request_id: str,
+    thread_id: str,
+    comment_id: str,
+    comment_node_id: str,
+    body: str,
+    reason: str = "OUTDATED",
+) -> ActionResult[ReviewComment]:
+    """Update a review comment and collapse its thread in one provider-specific operation."""
+    return scm.update_and_collapse_pull_request_comment(
+        pull_request_id, thread_id, comment_id, comment_node_id, body, reason
+    )
+
+
+def get_thread_id_from_review_comment_unique_id(
+    scm: ResolveReviewThreadProtocol,
+    pull_request_id: str,
+    review_comment_unique_id: str,
+) -> str | None:
+    return scm.get_thread_id_from_review_comment_unique_id(pull_request_id, review_comment_unique_id)
+
+
+def get_archive_link(
+    scm: GetArchiveLinkProtocol,
+    ref: str,
+    archive_format: ArchiveFormat = "tarball",
+) -> ActionResult[ArchiveLink]:
+    """Get a URL to download a repository archive."""
+    return scm.get_archive_link(ref, archive_format)
+
+
+def download_archive(
+    scm: DownloadArchiveProtocol,
+    ref: str,
+    archive_format: ArchiveFormat = "tarball",
+    request_options: RequestOptions | None = None,
+) -> requests.Response:
+    """Download a repository archive."""
+    return scm.download_archive(ref, archive_format, request_options=request_options)
+
+
+__all__ = (
+    "collapse_pull_request_comment",
+    "compare_commits",
+    "create_branch",
+    "create_check_run",
+    "create_commit",
+    "create_git_blob",
+    "create_git_commit",
+    "create_git_tree",
+    "create_issue_comment_reaction",
+    "create_issue_comment",
+    "create_issue_reaction",
+    "create_issue",
+    "create_pull_request_comment_reaction",
+    "create_pull_request_comment",
+    "create_pull_request_draft",
+    "create_pull_request_reaction",
+    "create_pull_request",
+    "create_review_comment",
+    "create_review_comment_file",
+    "create_review_comment_reply",
+    "create_review",
+    "delete_branch",
+    "delete_issue_comment_reaction",
+    "delete_issue_comment",
+    "delete_issue_reaction",
+    "delete_pull_request_comment_reaction",
+    "delete_pull_request_comment",
+    "delete_pull_request_reaction",
+    "download_archive",
+    "get_archive_link",
+    "get_app_installation",
+    "get_authenticated_actor",
+    "get_branch",
+    "get_check_run",
+    "get_commit_url",
+    "get_commits_url",
+    "get_commit",
+    "get_commit_changes",
+    "get_commits_by_path",
+    "get_commits",
+    "get_file_content",
+    "get_file_url",
+    "get_git_commit",
+    "get_git_ref",
+    "get_issue_comment_reactions",
+    "get_issue_comments",
+    "get_issue_reactions",
+    "get_issue",
+    "get_pull_request_comment_reactions",
+    "get_pull_request_comments",
+    "get_pull_request_commits",
+    "get_pull_request_diff",
+    "get_pull_request_files",
+    "get_pull_request_reactions",
+    "get_pull_request_review",
+    "get_pull_request_review_threads",
+    "get_review_comments",
+    "get_pull_request_template",
+    "get_pull_request_url",
+    "get_pull_request",
+    "get_pull_requests",
+    "get_readme",
+    "get_repository",
+    "get_repository_assignees",
+    "get_repository_user_permission",
+    "get_repository_labels",
+    "get_repository_topics",
+    "get_thread_id_from_review_comment_unique_id",
+    "get_tree",
+    "get_full_tree",
+    "list_check_runs_for_ref",
+    "list_workflow_runs",
+    "list_workflow_jobs",
+    "download_workflow_job_log",
+    "list_pull_request_reviews",
+    "list_repository_user_permissions",
+    "list_repositories",
+    "mark_pull_request_as_draft",
+    "mark_pull_request_ready_for_review",
+    "minimize_comment",
+    "resolve_review_thread",
+    "request_review",
+    "update_and_collapse_pull_request_comment",
+    "update_branch",
+    "update_check_run",
+    "update_issue",
+    "update_pull_request",
+    "update_review_comment",
+)

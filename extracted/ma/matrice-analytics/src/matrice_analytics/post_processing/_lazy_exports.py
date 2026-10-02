@@ -187,6 +187,8 @@ LAZY_EXPORTS: dict[str, str] = {
     "PedestrianDetectionConfig": "matrice_analytics.post_processing.usecases.pedestrian_detection",
     "PedestrianDetectionUseCase": "matrice_analytics.post_processing.usecases.pedestrian_detection",
     "PeopleCountingConfig": "matrice_analytics.post_processing.core.config",
+    "PeopleCountingExtendedConfig": "matrice_analytics.post_processing.core.config",
+    "PeopleCountingExtendedUseCase": "matrice_analytics.post_processing.usecases.people_counting_extended",
     "PeopleCountingInZoneConfig": "matrice_analytics.post_processing.usecases.people_counting_in_zone",
     "PeopleCountingUseCase": "matrice_analytics.post_processing.usecases.people_counting",
     "PhoneScreenDefectDetectionConfig": "matrice_analytics.post_processing.usecases.phone_screen_defect_detection",

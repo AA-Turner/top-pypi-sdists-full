@@ -77,11 +77,8 @@ _ROTATE_API_KEYS_DOCSTRINGS = {
     doc_py_example=_CREATE_EXAMPLE,
     arg_docstrings=_CREATE_DOCSTRINGS,
 )
-def create(
-    name: str, *, _private_sdk: Optional[PrivateServiceAccountSDK] = None
-) -> str:
-    """Create a service account and return the API key.
-    """
+def create(name: str, *, _private_sdk: Optional[PrivateServiceAccountSDK] = None) -> str:
+    """Create a service account and return the API key."""
     return _private_sdk.create(name)  # type: ignore
 
 
@@ -95,10 +92,9 @@ def create_api_key(
     email: Optional[str] = None,
     name: Optional[str] = None,
     *,
-    _private_sdk: Optional[PrivateServiceAccountSDK] = None
+    _private_sdk: Optional[PrivateServiceAccountSDK] = None,
 ) -> str:
-    """Create an API key for the service account and return the API key.
-    """
+    """Create an API key for the service account and return the API key."""
     return _private_sdk.create_api_key(email, name)  # type: ignore
 
 
@@ -111,7 +107,7 @@ def create_api_key(
 def list(  # noqa: A001
     max_items: int = 20, *, _private_sdk: Optional[PrivateServiceAccountSDK] = None
 ) -> List[ServiceAccount]:
-    """List service accounts. """
+    """List service accounts."""
     return _private_sdk.list(max_items)  # type: ignore
 
 
@@ -125,10 +121,9 @@ def delete(
     email: Optional[str] = None,
     name: Optional[str] = None,
     *,
-    _private_sdk: Optional[PrivateServiceAccountSDK] = None
+    _private_sdk: Optional[PrivateServiceAccountSDK] = None,
 ):
-    """Delete a service account.
-    """
+    """Delete a service account."""
     return _private_sdk.delete(email, name)  # type: ignore
 
 
@@ -142,8 +137,7 @@ def rotate_api_keys(
     email: Optional[str] = None,
     name: Optional[str] = None,
     *,
-    _private_sdk: Optional[PrivateServiceAccountSDK] = None
+    _private_sdk: Optional[PrivateServiceAccountSDK] = None,
 ) -> str:
-    """Rotate all api keys of a service account and return the new API key.
-    """
+    """Rotate all api keys of a service account and return the new API key."""
     return _private_sdk.rotate_api_keys(email, name)  # type: ignore

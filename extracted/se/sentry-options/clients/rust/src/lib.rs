@@ -1,0 +1,835 @@
+//! Options client for reading validated configuration values.
+
+pub mod features;
+pub mod schema_fetch;
+
+pub use features::{FeatureChecker, FeatureContext, FeatureError, condition_operators, features};
+pub use schema_fetch::{
+    RepoSchemaConfig, RepoSchemaConfigs, SchemaFetchError, SchemaFetchResult, fetch_schemas,
+    fetch_schemas_from_file,
+};
+
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, OnceLock};
+use std::time::Duration;
+
+pub use sentry_options_validation::{
+    DEFAULT_REFRESH_THRESHOLD, PropagationCallback, SchemaRegistry, ValidationError,
+    feature_property,
+};
+use sentry_options_validation::{ValuesStore, resolve_options_dir};
+use serde_json::Value;
+use thiserror::Error;
+
+pub mod testing;
+
+static GLOBAL_OPTIONS: OnceLock<Options> = OnceLock::new();
+
+#[derive(Debug, Error)]
+pub enum OptionsError {
+    #[error("Options not initialized - call init() first")]
+    NotInitialized,
+
+    #[error("Options already initialized")]
+    AlreadyInitialized,
+
+    #[error("Unknown namespace: {0}")]
+    UnknownNamespace(String),
+
+    #[error("Unknown option '{key}' in namespace '{namespace}'")]
+    UnknownOption { namespace: String, key: String },
+
+    #[error("Schema error: {0}")]
+    Schema(#[from] ValidationError),
+}
+
+pub type Result<T> = std::result::Result<T, OptionsError>;
+
+/// Options store for reading configuration values.
+pub struct Options {
+    store: ValuesStore,
+}
+
+impl Options {
+    /// Returns a builder for constructing an [`Options`] instance or
+    /// initializing the global store.
+    ///
+    /// Configure optional parameters with the `with_*` methods, then finalize
+    /// with [`InitBuilder::build`] for a standalone instance or
+    /// [`InitBuilder::init`] for the global store.
+    pub fn builder<'a>() -> InitBuilder<'a> {
+        InitBuilder::new()
+    }
+
+    /// Load options using fallback chain: `SENTRY_OPTIONS_DIR` env var, then `/etc/sentry-options`
+    /// if it exists, otherwise `sentry-options/`.
+    /// Expects `{dir}/schemas/` and `{dir}/values/` subdirectories.
+    pub fn new() -> Result<Self> {
+        Self::from_directory(&resolve_options_dir())
+    }
+
+    /// Like [`new`], but with a propagation callback that fires `(namespace, delay_secs)`
+    /// whenever values are refreshed with a new `generated_at` timestamp.
+    pub fn new_with_propagation_callback(callback: PropagationCallback) -> Result<Self> {
+        let dir = resolve_options_dir();
+        let registry = SchemaRegistry::from_directory(&dir.join("schemas"))?;
+        Self::with_registry_and_values(
+            registry,
+            &dir.join("values"),
+            Some(DEFAULT_REFRESH_THRESHOLD),
+            Some(callback),
+        )
+    }
+
+    /// Load options from a specific directory (useful for testing).
+    /// Expects `{base_dir}/schemas/` and `{base_dir}/values/` subdirectories.
+    pub fn from_directory(base_dir: &Path) -> Result<Self> {
+        let registry = SchemaRegistry::from_directory(&base_dir.join("schemas"))?;
+        Self::with_registry_and_values(
+            registry,
+            &base_dir.join("values"),
+            Some(DEFAULT_REFRESH_THRESHOLD),
+            None,
+        )
+    }
+
+    /// Load options with schemas provided as in-memory JSON strings.
+    /// Values are loaded from disk using the standard fallback chain.
+    pub fn from_schemas(schemas: &[(&str, &str)]) -> Result<Self> {
+        let registry = SchemaRegistry::from_schemas(schemas)?;
+        Self::with_registry_and_values(
+            registry,
+            &resolve_options_dir().join("values"),
+            Some(DEFAULT_REFRESH_THRESHOLD),
+            None,
+        )
+    }
+
+    fn with_registry_and_values(
+        registry: SchemaRegistry,
+        values_dir: &Path,
+        refresh_threshold: Option<Duration>,
+        callback: Option<PropagationCallback>,
+    ) -> Result<Self> {
+        let mut builder = ValuesStore::builder(Arc::new(registry), values_dir)
+            .with_refresh_threshold(refresh_threshold);
+        if let Some(cb) = callback {
+            builder = builder.with_callback(cb);
+        }
+        Ok(Self {
+            store: builder.build()?,
+        })
+    }
+
+    /// Get an option value, returning the schema default if not set.
+    pub fn get(&self, namespace: &str, key: &str) -> Result<Value> {
+        self.get_inner(namespace, key, false)
+    }
+
+    /// Like [`get`](Self::get), but always refreshes. Refresh incurs a cost
+    /// so this should only be used in testing; use [`refresh`](Self::refresh)
+    /// to drive refreshes in production.
+    pub fn get_forced(&self, namespace: &str, key: &str) -> Result<Value> {
+        self.get_inner(namespace, key, true)
+    }
+
+    /// Refreshes values from disk, ignoring the staleness threshold.
+    ///
+    /// Returns whether a new snapshot was published, i.e. the files changed
+    /// on disk (by mtime) and reloaded successfully. On error the previous
+    /// snapshot is retained and served. Callbacks registered with
+    /// [`InitBuilder::with_callback`] fire on the calling thread before this
+    /// returns.
+    ///
+    /// Any call resets the refresh-on-read timer, so calling this more often
+    /// than the staleness threshold guarantees reads never refresh inline.
+    pub fn refresh(&self) -> Result<bool> {
+        Ok(self.store.refresh()?)
+    }
+
+    fn get_inner(&self, namespace: &str, key: &str, force_reload: bool) -> Result<Value> {
+        if let Some(value) = testing::get_override(namespace, key) {
+            return Ok(value);
+        }
+
+        let schema = self
+            .store
+            .registry()
+            .get(namespace)
+            .ok_or_else(|| OptionsError::UnknownNamespace(namespace.to_string()))?;
+
+        let values_guard = if force_reload {
+            self.store.force_load()
+        } else {
+            self.store.load()
+        };
+
+        if let Some(ns_values) = values_guard.get(namespace)
+            && let Some(value) = ns_values.get(key)
+        {
+            return Ok(value.clone());
+        }
+
+        let default = schema
+            .get_default(key)
+            .ok_or_else(|| OptionsError::UnknownOption {
+                namespace: namespace.to_string(),
+                key: key.to_string(),
+            })?;
+
+        Ok(default.clone())
+    }
+
+    /// Validate that a key exists in the schema and the value matches the expected type.
+    pub fn validate_override(&self, namespace: &str, key: &str, value: &Value) -> Result<()> {
+        let schema = self
+            .store
+            .registry()
+            .get(namespace)
+            .ok_or_else(|| OptionsError::UnknownNamespace(namespace.to_string()))?;
+
+        schema.validate_option(key, value)?;
+
+        Ok(())
+    }
+
+    /// Check if an option has a value.
+    ///
+    /// Returns true if the option is defined and has a value, will return
+    /// false if the option is defined and does not have a value.
+    ///
+    /// If the namespace or option are not defined, an Err will be returned.
+    pub fn isset(&self, namespace: &str, key: &str) -> Result<bool> {
+        let schema = self
+            .store
+            .registry()
+            .get(namespace)
+            .ok_or_else(|| OptionsError::UnknownNamespace(namespace.to_string()))?;
+
+        if !schema.is_known_key(key) {
+            return Err(OptionsError::UnknownOption {
+                namespace: namespace.into(),
+                key: key.into(),
+            });
+        }
+
+        let values_guard = self.store.load();
+        if let Some(ns_values) = values_guard.get(namespace) {
+            Ok(ns_values.contains_key(key))
+        } else {
+            Ok(false)
+        }
+    }
+}
+
+/// Builder for initializing the global options store.
+/// Define optional parameters with `with_*` methods, then finalize with `init()`
+///
+/// All settings are optional and independent:
+/// - `with_directory` overrides the base directory
+/// - `with_schemas` supplies schemas in memory instead of reading `{dir}/schemas/`
+/// - `with_additional_schemas` adds in-memory schemas alongside whichever base the above selects
+/// - `with_callback` registers a callback that fires on every value refresh.
+/// - `with_refresh_threshold` overrides or disables the staleness threshold
+///   for refresh-on-read.
+///
+#[derive(Default)]
+pub struct InitBuilder<'a> {
+    directory: Option<PathBuf>,
+    schemas: Option<&'a [(&'a str, &'a str)]>,
+    additional_schemas: Option<&'a [(&'a str, &'a str)]>,
+    callback: Option<PropagationCallback>,
+    refresh_threshold: Option<Option<Duration>>,
+}
+
+impl<'a> InitBuilder<'a> {
+    pub fn new() -> Self {
+        InitBuilder::default()
+    }
+
+    /// Override the base directory. Expects `{directory}/schemas/` and `{directory}/values/` subdirectories.
+    /// Otherwise, defaults to the fallback chain: `SENTRY_OPTIONS_DIR` env var, then `/etc/sentry-options`
+    pub fn with_directory(mut self, directory: impl Into<PathBuf>) -> Self {
+        self.directory = Some(directory.into());
+        self
+    }
+
+    /// Provide schemas as in-memory `(namespace, json)` pairs instead of reading
+    /// them from `{dir}/schemas/`, intended to be used with `include_str!`.
+    /// In other words, overrides schemas supplied locally.
+    pub fn with_schemas(mut self, schemas: &'a [(&'a str, &'a str)]) -> Self {
+        self.schemas = Some(schemas);
+        self
+    }
+
+    /// Add in-memory `(namespace, json)` schemas alongside the base regardless
+    /// if it came from `{dir}/schemas/` or [`with_schemas`](Self::with_schemas).
+    /// Errors on a namespace the base already has, rather than shadowing it.
+    pub fn with_additional_schemas(mut self, schemas: &'a [(&'a str, &'a str)]) -> Self {
+        self.additional_schemas = Some(schemas);
+        self
+    }
+
+    /// Register a callback that fires `(namespace, delay_secs)` whenever values
+    /// are refreshed with a new `generated_at` timestamp.
+    pub fn with_callback(mut self, callback: impl Fn(&str, f64) + Send + Sync + 'static) -> Self {
+        self.callback = Some(Box::new(callback));
+        self
+    }
+
+    /// Overrides the staleness threshold for refresh-on-read.
+    ///
+    /// Defaults to [`DEFAULT_REFRESH_THRESHOLD`] (5 seconds). Pass `None` to
+    /// disable refresh-on-read entirely; values then only change via
+    /// [`Options::refresh`].
+    pub fn with_refresh_threshold(mut self, threshold: impl Into<Option<Duration>>) -> Self {
+        self.refresh_threshold = Some(threshold.into());
+        self
+    }
+
+    /// Initialize the global options store from the inputs.
+    ///
+    /// Returns [`OptionsError::AlreadyInitialized`] if the store is already
+    /// initialized, leaving the existing configuration untouched. Callers that
+    /// want a no-op in that case can ignore the error with `.ok()`.
+    pub fn init(self) -> Result<()> {
+        if GLOBAL_OPTIONS.get().is_some() {
+            return Err(OptionsError::AlreadyInitialized);
+        }
+        GLOBAL_OPTIONS
+            .set(self.build()?)
+            .map_err(|_| OptionsError::AlreadyInitialized)
+    }
+
+    /// Builds an [`Options`] instance from the inputs, without initializing
+    /// the global store.
+    ///
+    /// Use this when you want to manage the lifetime of the options store yourself, or
+    /// when you want to have multiple independent options stores in the same process.
+    ///
+    /// Use [`init`] if you want to initialize the global store.
+    ///
+    /// Returns an error if the schemas are invalid or the values cannot be loaded.
+    pub fn build(self) -> Result<Options> {
+        let dir = self.directory.unwrap_or_else(resolve_options_dir);
+
+        // `with_schemas` picks the base, `with_additional_schemas` adds to it.
+        let mut registry = match self.schemas {
+            Some(s) => SchemaRegistry::from_schemas(s)?,
+            None => {
+                let schemas_dir = dir.join("schemas");
+                // A missing dir is only tolerable when in-memory schemas will fill
+                // the registry; otherwise the caller ends up with nothing.
+                if self.additional_schemas.is_some() && !schemas_dir.exists() {
+                    SchemaRegistry::new()
+                } else {
+                    SchemaRegistry::from_directory(&schemas_dir)?
+                }
+            }
+        };
+        if let Some(additional) = self.additional_schemas {
+            registry.add_schemas(additional)?;
+        }
+
+        let refresh_threshold = self
+            .refresh_threshold
+            .unwrap_or(Some(DEFAULT_REFRESH_THRESHOLD));
+        Options::with_registry_and_values(
+            registry,
+            &dir.join("values"),
+            refresh_threshold,
+            self.callback,
+        )
+    }
+}
+
+/// Initialize global options using the fallback chain: `SENTRY_OPTIONS_DIR` env
+/// var, then `/etc/sentry-options` if it exists, otherwise `sentry-options/`.
+///
+/// Shorthand for `Options::builder().init()`. Idempotent: if already
+/// initialized, returns `Ok(())` without re-loading. For directory, schema, or
+/// callback overrides, use [`Options::builder`].
+pub fn init() -> Result<()> {
+    ignore_already_initialized(InitBuilder::new().init())
+}
+
+/// Like [`init`], but with a callback that fires whenever values are refreshed
+/// from disk with a new `generated_at` timestamp. The callback receives
+/// `(namespace, delay_secs)`.
+#[deprecated(
+    since = "1.3.0",
+    note = "use `Options::builder().with_callback(cb).init()`"
+)]
+pub fn init_with_propagation_callback(callback: PropagationCallback) -> Result<()> {
+    ignore_already_initialized(InitBuilder::new().with_callback(callback).init())
+}
+
+/// Initialize global options with schemas provided as in-memory JSON strings.
+/// Values are loaded from disk using the standard fallback chain.
+///
+/// Idempotent: if already initialized (by `init()` or a prior `init_with_schemas()`),
+/// returns `Ok(())` without updating schemas.
+///
+/// Use this when schemas are embedded in the binary via `include_str!`:
+/// ```rust,ignore
+/// init_with_schemas(&[
+///     ("snuba", include_str!("sentry-options/schemas/snuba/schema.json")),
+/// ])?;
+/// ```
+#[deprecated(
+    since = "1.3.0",
+    note = "use `Options::builder().with_schemas(s).init()`"
+)]
+pub fn init_with_schemas(schemas: &[(&str, &str)]) -> Result<()> {
+    ignore_already_initialized(InitBuilder::new().with_schemas(schemas).init())
+}
+
+/// legacy, deprecated system was idempotent, this preserves the behaviour
+fn ignore_already_initialized(result: Result<()>) -> Result<()> {
+    match result {
+        Err(OptionsError::AlreadyInitialized) => Ok(()),
+        other => other,
+    }
+}
+
+/// Get a namespace handle for accessing options.
+///
+/// Returns an error if `init()` has not been called.
+pub fn options(namespace: &str) -> Result<NamespaceOptions> {
+    let opts = GLOBAL_OPTIONS.get().ok_or(OptionsError::NotInitialized)?;
+    Ok(NamespaceOptions {
+        namespace: namespace.to_string(),
+        options: opts,
+    })
+}
+
+/// Handle for accessing options within a specific namespace.
+pub struct NamespaceOptions {
+    namespace: String,
+    options: &'static Options,
+}
+
+impl NamespaceOptions {
+    /// Get an option value, returning the schema default if not set.
+    pub fn get(&self, key: &str) -> Result<Value> {
+        self.options.get(&self.namespace, key)
+    }
+
+    /// Like [`get`](Self::get), but always refreshes. Refresh incurs a cost
+    /// so this should only be used in testing.
+    pub fn get_forced(&self, key: &str) -> Result<Value> {
+        self.options.get_forced(&self.namespace, key)
+    }
+
+    /// Check if an option has a key defined, or if the default is being used.
+    pub fn isset(&self, key: &str) -> Result<bool> {
+        self.options.isset(&self.namespace, key)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use std::fs;
+    use tempfile::TempDir;
+
+    fn create_schema(dir: &Path, namespace: &str, schema: &str) {
+        let schema_dir = dir.join(namespace);
+        fs::create_dir_all(&schema_dir).unwrap();
+        fs::write(schema_dir.join("schema.json"), schema).unwrap();
+    }
+
+    fn create_values(dir: &Path, namespace: &str, values: &str) {
+        let ns_dir = dir.join(namespace);
+        fs::create_dir_all(&ns_dir).unwrap();
+        fs::write(ns_dir.join("values.json"), values).unwrap();
+    }
+
+    #[test]
+    fn test_get_value() {
+        let temp = TempDir::new().unwrap();
+        let schemas = temp.path().join("schemas");
+        let values = temp.path().join("values");
+        fs::create_dir_all(&schemas).unwrap();
+
+        create_schema(
+            &schemas,
+            "test",
+            r#"{
+                "version": "1.0",
+                "type": "object",
+                "properties": {
+                    "enabled": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Enable feature"
+                    }
+                }
+            }"#,
+        );
+        create_values(&values, "test", r#"{"options": {"enabled": true}}"#);
+
+        let options = Options::from_directory(temp.path()).unwrap();
+        assert_eq!(options.get("test", "enabled").unwrap(), json!(true));
+    }
+
+    #[test]
+    fn test_with_additional_schemas_overlays_directory_schemas() {
+        let temp = TempDir::new().unwrap();
+        let schemas = temp.path().join("schemas");
+        let values = temp.path().join("values");
+        fs::create_dir_all(&schemas).unwrap();
+
+        // On-disk namespace.
+        create_schema(&schemas, "disk", BOOL_SCHEMA);
+        create_values(&values, "disk", r#"{"options": {"enabled": true}}"#);
+        // In-memory namespace: schema via with_additional_schemas, values on disk.
+        create_values(&values, "mem", r#"{"options": {"enabled": true}}"#);
+
+        let options = Options::builder()
+            .with_directory(temp.path())
+            .with_additional_schemas(&[("mem", BOOL_SCHEMA)])
+            .build()
+            .unwrap();
+
+        // The on-disk namespace still resolves...
+        assert_eq!(options.get("disk", "enabled").unwrap(), json!(true));
+        // ...and the in-memory namespace was added alongside it.
+        assert_eq!(options.get("mem", "enabled").unwrap(), json!(true));
+    }
+
+    #[test]
+    fn test_with_schemas_and_additional_schemas_compose() {
+        let temp = TempDir::new().unwrap();
+        let schemas = temp.path().join("schemas");
+        let values = temp.path().join("values");
+        fs::create_dir_all(&schemas).unwrap();
+
+        // On disk but replaced by with_schemas, so it must NOT resolve.
+        create_schema(&schemas, "disk", BOOL_SCHEMA);
+        create_values(&values, "disk", r#"{"options": {"enabled": true}}"#);
+        create_values(&values, "base", r#"{"options": {"enabled": true}}"#);
+        create_values(&values, "extra", r#"{"options": {"enabled": true}}"#);
+
+        let options = Options::builder()
+            .with_directory(temp.path())
+            .with_schemas(&[("base", BOOL_SCHEMA)])
+            .with_additional_schemas(&[("extra", BOOL_SCHEMA)])
+            .build()
+            .unwrap();
+
+        assert_eq!(options.get("base", "enabled").unwrap(), json!(true));
+        assert_eq!(options.get("extra", "enabled").unwrap(), json!(true));
+        assert!(options.get("disk", "enabled").is_err());
+    }
+
+    #[test]
+    fn test_with_additional_schemas_conflicting_namespace_errors() {
+        let temp = TempDir::new().unwrap();
+        let schemas = temp.path().join("schemas");
+        fs::create_dir_all(&schemas).unwrap();
+        create_schema(&schemas, "dup", BOOL_SCHEMA);
+
+        // Overlaying a namespace that already exists on disk must error rather
+        // than silently shadow it.
+        let result = Options::builder()
+            .with_directory(temp.path())
+            .with_additional_schemas(&[("dup", BOOL_SCHEMA)])
+            .build();
+
+        assert!(
+            result.is_err(),
+            "expected an error for a namespace already on disk"
+        );
+    }
+
+    #[test]
+    fn test_get_default() {
+        let temp = TempDir::new().unwrap();
+        let schemas = temp.path().join("schemas");
+        let values = temp.path().join("values");
+        fs::create_dir_all(&schemas).unwrap();
+        fs::create_dir_all(&values).unwrap();
+
+        create_schema(
+            &schemas,
+            "test",
+            r#"{
+                "version": "1.0",
+                "type": "object",
+                "properties": {
+                    "timeout": {
+                        "type": "integer",
+                        "default": 30,
+                        "description": "Timeout"
+                    }
+                }
+            }"#,
+        );
+
+        let options = Options::from_directory(temp.path()).unwrap();
+        assert_eq!(options.get("test", "timeout").unwrap(), json!(30));
+    }
+
+    #[test]
+    fn test_unknown_namespace() {
+        let temp = TempDir::new().unwrap();
+        let schemas = temp.path().join("schemas");
+        let values = temp.path().join("values");
+        fs::create_dir_all(&schemas).unwrap();
+        fs::create_dir_all(&values).unwrap();
+
+        create_schema(
+            &schemas,
+            "test",
+            r#"{"version": "1.0", "type": "object", "properties": {}}"#,
+        );
+
+        let options = Options::from_directory(temp.path()).unwrap();
+        assert!(matches!(
+            options.get("unknown", "key"),
+            Err(OptionsError::UnknownNamespace(_))
+        ));
+    }
+
+    #[test]
+    fn test_unknown_option() {
+        let temp = TempDir::new().unwrap();
+        let schemas = temp.path().join("schemas");
+        let values = temp.path().join("values");
+        fs::create_dir_all(&schemas).unwrap();
+        fs::create_dir_all(&values).unwrap();
+
+        create_schema(
+            &schemas,
+            "test",
+            r#"{
+                "version": "1.0",
+                "type": "object",
+                "properties": {
+                    "known": {"type": "string", "default": "x", "description": "Known"}
+                }
+            }"#,
+        );
+
+        let options = Options::from_directory(temp.path()).unwrap();
+        assert!(matches!(
+            options.get("test", "unknown"),
+            Err(OptionsError::UnknownOption { .. })
+        ));
+    }
+
+    #[test]
+    fn test_missing_values_dir() {
+        let temp = TempDir::new().unwrap();
+        let schemas = temp.path().join("schemas");
+        fs::create_dir_all(&schemas).unwrap();
+
+        create_schema(
+            &schemas,
+            "test",
+            r#"{
+                "version": "1.0",
+                "type": "object",
+                "properties": {
+                    "opt": {"type": "string", "default": "default_val", "description": "Opt"}
+                }
+            }"#,
+        );
+
+        let options = Options::from_directory(temp.path()).unwrap();
+        assert_eq!(options.get("test", "opt").unwrap(), json!("default_val"));
+    }
+
+    #[test]
+    fn isset_with_defined_and_undefined_keys() {
+        let temp = TempDir::new().unwrap();
+        let schemas = temp.path().join("schemas");
+        fs::create_dir_all(&schemas).unwrap();
+
+        let values = temp.path().join("values");
+        create_values(&values, "test", r#"{"options": {"has-value": "yes"}}"#);
+
+        create_schema(
+            &schemas,
+            "test",
+            r##"{
+                "version": "1.0",
+                "type": "object",
+                "properties": {
+                    "has-value": {"type": "string", "default": "", "description": ""},
+                    "defined-with-default": {"type": "string", "default": "default_val", "description": "Opt"},
+                    "feature.organizations:my-flag": {"$ref": "#/definitions/Feature"}
+                }
+            }"##,
+        );
+
+        let options = Options::from_directory(temp.path()).unwrap();
+        assert!(options.isset("test", "not-defined").is_err());
+        assert!(!options.isset("test", "defined-with-default").unwrap());
+        assert!(options.isset("test", "has-value").unwrap());
+        // Feature keys are known (no UnknownOption error) but unset -> false.
+        assert!(
+            !options
+                .isset("test", "feature.organizations:my-flag")
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_from_schemas_get_default() {
+        let schema = r#"{
+            "version": "1.0",
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable feature"
+                }
+            }
+        }"#;
+
+        let registry = SchemaRegistry::from_schemas(&[("test", schema)]).unwrap();
+        let default = registry
+            .get("test")
+            .unwrap()
+            .get_default("enabled")
+            .unwrap();
+        assert_eq!(*default, json!(false));
+    }
+
+    #[test]
+    fn test_from_schemas_with_values() {
+        let temp = TempDir::new().unwrap();
+        let values_dir = temp.path().join("values");
+        create_values(&values_dir, "test", r#"{"options": {"enabled": true}}"#);
+
+        let schema = r#"{
+            "version": "1.0",
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable feature"
+                }
+            }
+        }"#;
+
+        let registry = Arc::new(SchemaRegistry::from_schemas(&[("test", schema)]).unwrap());
+        let (loaded_values, _) = registry.load_values_json(&values_dir).unwrap();
+        assert_eq!(loaded_values["test"]["enabled"], json!(true));
+    }
+
+    #[test]
+    fn test_from_schemas_invalid_json() {
+        let result = SchemaRegistry::from_schemas(&[("test", "not valid json")]);
+        assert!(result.is_err());
+    }
+
+    const BOOL_SCHEMA: &str = r#"{
+        "version": "1.0",
+        "type": "object",
+        "properties": {
+            "enabled": {"type": "boolean", "default": false, "description": "x"}
+        }
+    }"#;
+
+    #[test]
+    fn builder_with_directory() {
+        let temp = TempDir::new().unwrap();
+        let schemas = temp.path().join("schemas");
+        let values = temp.path().join("values");
+        fs::create_dir_all(&schemas).unwrap();
+        create_schema(&schemas, "test", BOOL_SCHEMA);
+        create_values(&values, "test", r#"{"options": {"enabled": true}}"#);
+
+        let options = Options::builder()
+            // without this, schemas wouldn't be found and this test would fail
+            .with_directory(temp.path())
+            .build()
+            .unwrap();
+        assert_eq!(options.get("test", "enabled").unwrap(), json!(true));
+    }
+
+    #[test]
+    fn builder_with_schemas() {
+        let options = Options::builder()
+            // without this, init would fail as schemas are never saved on disk
+            .with_schemas(&[("test", BOOL_SCHEMA)])
+            .build()
+            .unwrap();
+        assert_eq!(options.get("test", "enabled").unwrap(), json!(false));
+    }
+
+    #[test]
+    fn get_forced_sees_change() {
+        let temp = TempDir::new().unwrap();
+        let schemas = temp.path().join("schemas");
+        let values = temp.path().join("values");
+        fs::create_dir_all(&schemas).unwrap();
+        create_schema(&schemas, "test", BOOL_SCHEMA);
+        create_values(&values, "test", r#"{"options": {"enabled": true}}"#);
+
+        let options = Options::from_directory(temp.path()).unwrap();
+        assert_eq!(options.get("test", "enabled").unwrap(), json!(true));
+
+        create_values(&values, "test", r#"{"options": {"enabled": false}}"#);
+
+        // Cached read still returns the old value
+        assert_eq!(options.get("test", "enabled").unwrap(), json!(true));
+        // Forced read picks up the change
+        assert_eq!(options.get_forced("test", "enabled").unwrap(), json!(false));
+    }
+
+    #[test]
+    fn builder_refresh_threshold_none_with_manual_refresh() {
+        let temp = TempDir::new().unwrap();
+        let schemas = temp.path().join("schemas");
+        let values = temp.path().join("values");
+        fs::create_dir_all(&schemas).unwrap();
+        create_schema(&schemas, "test", BOOL_SCHEMA);
+        create_values(&values, "test", r#"{"options": {"enabled": true}}"#);
+
+        let options = Options::builder()
+            .with_directory(temp.path())
+            .with_refresh_threshold(None)
+            .build()
+            .unwrap();
+        assert_eq!(options.get("test", "enabled").unwrap(), json!(true));
+
+        create_values(&values, "test", r#"{"options": {"enabled": false}}"#);
+
+        // With refresh-on-read disabled, reads never pick up the change.
+        assert_eq!(options.get("test", "enabled").unwrap(), json!(true));
+        // A manual refresh does.
+        assert!(options.refresh().unwrap());
+        assert_eq!(options.get("test", "enabled").unwrap(), json!(false));
+        // Nothing changed since the last refresh.
+        assert!(!options.refresh().unwrap());
+    }
+
+    #[test]
+    fn builder_refresh_threshold_custom() {
+        let temp = TempDir::new().unwrap();
+        let schemas = temp.path().join("schemas");
+        let values = temp.path().join("values");
+        fs::create_dir_all(&schemas).unwrap();
+        create_schema(&schemas, "test", BOOL_SCHEMA);
+        create_values(&values, "test", r#"{"options": {"enabled": true}}"#);
+
+        let options = Options::builder()
+            .with_directory(temp.path())
+            .with_refresh_threshold(Duration::ZERO)
+            .build()
+            .unwrap();
+        assert_eq!(options.get("test", "enabled").unwrap(), json!(true));
+
+        create_values(&values, "test", r#"{"options": {"enabled": false}}"#);
+
+        // A zero threshold refreshes on every read.
+        assert_eq!(options.get("test", "enabled").unwrap(), json!(false));
+    }
+}

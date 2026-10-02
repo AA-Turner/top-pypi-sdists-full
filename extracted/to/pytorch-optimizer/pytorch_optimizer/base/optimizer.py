@@ -1,6 +1,6 @@
 import math
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Sequence, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 import torch
 from torch.optim import Optimizer
@@ -123,7 +123,7 @@ class BaseOptimizer(ABC, Optimizer):
 
         for i in range(num_samples):
             if distribution == 'rademacher':
-                zs = [torch.randint_like(p, 0, 1) * 2.0 - 1.0 for p in params]
+                zs = [torch.randint_like(p, 0, 2) * 2.0 - 1.0 for p in params]
             else:
                 zs = [torch.randn_like(p) for p in params]
 
@@ -304,9 +304,12 @@ class BaseOptimizer(ABC, Optimizer):
 
         grad_norm = torch.linalg.norm(grad)
 
-        exp_grad_norm.mul(r).add_(grad_norm, alpha=1.0 - r)
+        exp_grad_norm.mul_(r).add_(grad_norm, alpha=1.0 - r)
 
-        return grad.mul(exp_grad_norm).div_(grad_norm) if exp_grad_norm > grad_norm else grad
+        if grad_norm > 0 and exp_grad_norm > grad_norm:
+            return grad.mul(exp_grad_norm).div_(grad_norm)
+
+        return grad
 
     @staticmethod
     def get_rms(x: Union[List[torch.Tensor], torch.Tensor]) -> Union[List[torch.Tensor], torch.Tensor]:
@@ -358,6 +361,36 @@ class BaseOptimizer(ABC, Optimizer):
         mask = (update * grad > 0).to(grad.dtype)
         mask.mul_(mask.numel() / (mask.sum() + 1))
         update.mul_(mask)
+
+    @staticmethod
+    @torch.no_grad()
+    def apply_orthogonal_gradients(params: Iterable[torch.Tensor], eps: float = 1e-16) -> None:
+        """Project gradients orthogonally to parameters and restore their norms.
+
+        Args:
+            params: Parameters whose dense real gradients are modified in-place.
+            eps: Small value to prevent division by zero.
+
+        """
+        for p in params:
+            if p.grad is None or p.grad.is_sparse or torch.is_complex(p):
+                continue
+
+            dtype = torch.float64 if p.dtype == torch.float64 else torch.float32
+            w = p.view(-1).to(dtype=dtype)
+            g = p.grad.view(-1).to(dtype=dtype)
+
+            proj = torch.dot(w, g).div_(torch.dot(w, w).add_(eps))
+            g_ortho = g.sub(w * proj)
+
+            g_norm = g.norm(2)
+            g_ortho_norm = g_ortho.norm(2)
+            rounding_eps = 4.0 * torch.finfo(dtype).eps
+            # A parallel gradient has no orthogonal direction to normalize.
+            g_ortho.masked_fill_(g_ortho_norm <= rounding_eps * g_norm, 0.0)
+            g_ortho.mul_(g_norm / g_ortho_norm.add_(eps))
+
+            p.grad.copy_(g_ortho.view_as(p.grad))
 
     @staticmethod
     def can_use_foreach(group: ParamGroup, foreach: Optional[bool]) -> bool:

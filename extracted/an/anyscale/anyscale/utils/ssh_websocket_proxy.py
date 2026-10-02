@@ -51,9 +51,7 @@ async def pump(stream_reader: asyncio.StreamReader, send_func):
         while True:
             logger.debug("pump: trying to read from stream_reader")
             chunk = await stream_reader.read(DEFAULT_CHUNK_SIZE)
-            logger.debug(
-                f"pump: read {len(chunk) if chunk else 0} bytes from stream_reader"
-            )
+            logger.debug(f"pump: read {len(chunk) if chunk else 0} bytes from stream_reader")
             if not chunk:  # EOF
                 logger.debug("pump: EOF from stream_reader, closing send_func")
                 await send_func.close()
@@ -147,7 +145,8 @@ async def main():
             drain_task = asyncio.create_task(drain(ws))
 
             _done, pending = await asyncio.wait(
-                [pump_task, drain_task], return_when=asyncio.FIRST_COMPLETED,
+                [pump_task, drain_task],
+                return_when=asyncio.FIRST_COMPLETED,
             )
 
             # Convert pending set to a list to maintain order for results processing
@@ -171,9 +170,7 @@ async def main():
                         if pending_list[i].get_name()
                         else "unnamed task"
                     )
-                    logger.debug(
-                        f"Pending task '{task_name}' raised an exception: {result!r}"
-                    )
+                    logger.debug(f"Pending task '{task_name}' raised an exception: {result!r}")
             logger.debug("Pump and drain tasks finished or cancelled.")
 
     except asyncio.TimeoutError:
@@ -199,12 +196,8 @@ if __name__ == "__main__":
     except _INVALID_STATUS_EXCEPTIONS as e_is:
         # Status attr differs: legacy .status_code vs new-asyncio .response.status_code.
         response = getattr(e_is, "response", None)
-        status = getattr(e_is, "status_code", None) or getattr(
-            response, "status_code", None
-        )
-        logger.debug(
-            f"Unhandled WebSocket invalid-status error: {e_is!r}, Status code: {status}"
-        )
+        status = getattr(e_is, "status_code", None) or getattr(response, "status_code", None)
+        logger.debug(f"Unhandled WebSocket invalid-status error: {e_is!r}, Status code: {status}")
         sys.exit(1)
     except (websockets.exceptions.WebSocketException, OSError) as e_wso:
         # Handle other WebSocket and OS errors

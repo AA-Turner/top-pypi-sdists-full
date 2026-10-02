@@ -1,0 +1,567 @@
+#!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Golden-chain coverage gate for changed live-path market nodes.
+
+The gate is baseline-friendly: CI and pre-commit enforce only nodes touched by
+the current diff, so existing historical gaps do not block unrelated work.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+import sys
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Literal
+
+import yaml
+
+NODES_DIR = Path("src/omnimarket/nodes")
+TESTS_DIR = Path("tests")
+
+ErrorLegStatus = Literal[
+    "pass",
+    "fail",
+    "not_applicable_no_walker_report",
+    "not_applicable_no_error_paths",
+]
+
+
+@dataclass(frozen=True)
+class CoverageTarget:
+    node_name: str
+    node_dir: Path
+    handler_tokens: tuple[str, ...]
+
+
+@dataclass
+class CoverageResult:
+    node: str
+    status: str
+    error_leg: ErrorLegStatus
+    findings: list[str] = field(default_factory=list)
+    matched_tests: list[str] = field(default_factory=list)
+
+    @property
+    def passed(self) -> bool:
+        return self.status != "fail"
+
+
+@dataclass(frozen=True)
+class WalkerReport:
+    path: Path
+    workflow_owner: str
+    components: frozenset[str]
+    error_path_count: int
+
+
+class WalkerReportError(ValueError):
+    """Raised when a committed walker report cannot be parsed."""
+
+
+def _run_git_diff(args: list[str]) -> list[str]:
+    proc = subprocess.run(
+        ["git", *args],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        print(
+            "golden-chain-coverage-gate: git diff failed "
+            f"(exit {proc.returncode}): {proc.stderr.strip()}",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+    return [line.strip() for line in proc.stdout.splitlines() if line.strip()]
+
+
+def _changed_files_from_ref(ref: str) -> list[str]:
+    return _run_git_diff(["diff", "--name-only", f"{ref}...HEAD"])
+
+
+def _changed_files_from_staged() -> list[str]:
+    return _run_git_diff(["diff", "--cached", "--name-only"])
+
+
+def _node_names_from_changed_files(changed_files: list[str]) -> set[str]:
+    node_names: set[str] = set()
+    for raw_path in changed_files:
+        parts = Path(raw_path).parts
+        if (
+            len(parts) >= 4
+            and parts[0] == "src"
+            and parts[1] == "omnimarket"
+            and parts[2] == "nodes"
+            and parts[3].startswith("node_")
+            # OMN-15376: a vendored DDL file under <node>/migrations/ is not a
+            # live-path change. This gate is a PRESENCE check -- "does a
+            # golden-chain test exist for the node you touched" -- and whether
+            # such a test exists cannot be altered by editing SQL. The
+            # OMN-15376 shape-drift reconciliation touches migrations/*.sql
+            # under 46 node directories and nothing else, and its accompanying
+            # execution proof asserts the FRESH-create schema is byte-identical
+            # before and after, so no golden chain can have moved. Scoping
+            # matches scripts/validate_state_coverage.py's migrations carve-out.
+            and not (len(parts) >= 5 and parts[4] == "migrations")
+        ):
+            node_names.add(parts[3])
+    return node_names
+
+
+def _load_yaml(path: Path) -> dict[str, Any]:
+    try:
+        value = yaml.safe_load(path.read_text()) or {}
+    except yaml.YAMLError as exc:
+        print(
+            f"golden-chain-coverage-gate: {path} failed to parse: {exc}",
+            file=sys.stderr,
+        )
+        raise SystemExit(1) from exc
+    if not isinstance(value, dict):
+        return {}
+    return value
+
+
+def _is_live_path_node(node_dir: Path) -> bool:
+    metadata_path = node_dir / "metadata.yaml"
+    if not metadata_path.exists():
+        return True
+
+    metadata = _load_yaml(metadata_path)
+    if bool(metadata.get("deprecated", False)):
+        return False
+
+    capabilities = metadata.get("capabilities") or {}
+    if isinstance(capabilities, dict) and capabilities.get("full_runtime") is False:
+        return False
+
+    return True
+
+
+def _handler_tokens_from_contract(contract: dict[str, Any]) -> tuple[str, ...]:
+    tokens: set[str] = set()
+
+    def add_handler(raw_handler: Any) -> None:
+        if not isinstance(raw_handler, dict):
+            return
+        module = raw_handler.get("module") or raw_handler.get("handler_module")
+        if isinstance(module, str) and module:
+            tokens.add(module)
+            tokens.add(module.rsplit(".", maxsplit=1)[-1])
+        for key in ("class", "name", "handler_class"):
+            value = raw_handler.get(key)
+            if isinstance(value, str) and value:
+                tokens.add(value)
+
+    add_handler(contract.get("handler"))
+
+    routing = contract.get("handler_routing") or {}
+    if isinstance(routing, dict):
+        handlers = routing.get("handlers") or []
+        if isinstance(handlers, list):
+            for raw_route in handlers:
+                if not isinstance(raw_route, dict):
+                    continue
+                add_handler(raw_route)
+                add_handler(raw_route.get("handler"))
+
+    return tuple(sorted(tokens))
+
+
+def _coverage_target_for_node(node_dir: Path) -> CoverageTarget:
+    contract_path = node_dir / "contract.yaml"
+    if not contract_path.exists():
+        return CoverageTarget(
+            node_name=node_dir.name, node_dir=node_dir, handler_tokens=()
+        )
+    contract = _load_yaml(contract_path)
+    return CoverageTarget(
+        node_name=node_dir.name,
+        node_dir=node_dir,
+        handler_tokens=_handler_tokens_from_contract(contract),
+    )
+
+
+def _golden_chain_test_files(repo_root: Path) -> list[Path]:
+    # OMN-14338: only locations under TESTS_DIR are ever collected by a CI
+    # pytest invocation --
+    #   - the dedicated "Golden Chain Suite" job runs explicit globs that are
+    #     all rooted under tests/ (tests/test_golden_chain_*.py,
+    #     tests/unit/nodes/test_golden_chain_*.py,
+    #     tests/nodes/*/test_golden_chain_*.py), and
+    #   - the "Run pytest (full suite)" job runs `pytest tests/`, which
+    #     collects everything else nested under tests/ recursively.
+    # `[tool.pytest.ini_options] testpaths = ["tests"]` means src/ is never
+    # collected by *any* pytest invocation, in CI or locally. A golden-chain
+    # test placed at the node-local `src/omnimarket/nodes/<node>/tests/`
+    # path therefore satisfies this gate's path/content match while never
+    # actually running -- a silent no-op. Do NOT reintroduce a NODES_DIR glob
+    # here without also making the golden-chains CI job collect it (see
+    # .github/workflows/ci.yml job `golden-chains`) -- the accepted-location
+    # set here and the CI job's collected-location set must stay in sync.
+    candidates: set[Path] = set()
+    if (repo_root / TESTS_DIR).is_dir():
+        candidates.update((repo_root / TESTS_DIR).rglob("test_golden_chain*.py"))
+    return sorted(candidates)
+
+
+def _normalize_node_suffix(node_name: str) -> str:
+    return node_name.removeprefix("node_")
+
+
+def _test_path_matches_node(test_path: Path, target: CoverageTarget) -> bool:
+    parts = test_path.parts
+    if target.node_name in parts:
+        return True
+    expected_stem = f"test_golden_chain_{_normalize_node_suffix(target.node_name)}"
+    return test_path.stem == expected_stem
+
+
+def _test_content_matches_node(test_path: Path, target: CoverageTarget) -> bool:
+    try:
+        content = test_path.read_text(errors="replace")
+    except OSError:
+        return False
+
+    tokens = (target.node_name, *target.handler_tokens)
+    return any(token and token in content for token in tokens)
+
+
+def _find_matching_golden_chain_tests(
+    repo_root: Path,
+    target: CoverageTarget,
+) -> list[Path]:
+    matches: list[Path] = []
+    for test_path in _golden_chain_test_files(repo_root):
+        if _test_path_matches_node(test_path, target) or _test_content_matches_node(
+            test_path, target
+        ):
+            matches.append(test_path)
+    return matches
+
+
+def _walker_report_paths(repo_root: Path) -> list[Path]:
+    tests_dir = repo_root / TESTS_DIR
+    if not tests_dir.is_dir():
+        return []
+    return sorted(tests_dir.rglob("walker_report.json"))
+
+
+def _walker_report_error(path: Path, repo_root: Path, detail: str) -> WalkerReportError:
+    try:
+        display_path = path.relative_to(repo_root)
+    except ValueError:
+        display_path = path
+    return WalkerReportError(f"{display_path} failed to parse walker report: {detail}")
+
+
+def _load_walker_report(path: Path, repo_root: Path) -> WalkerReport:
+    try:
+        raw_report = json.loads(path.read_text())
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise _walker_report_error(path, repo_root, str(exc)) from exc
+
+    if not isinstance(raw_report, dict):
+        raise _walker_report_error(path, repo_root, "top-level value must be an object")
+
+    workflow_owner = raw_report.get("workflow_owner")
+    if not isinstance(workflow_owner, str) or not workflow_owner:
+        raise _walker_report_error(
+            path, repo_root, "workflow_owner must be a non-empty string"
+        )
+
+    raw_components = raw_report.get("components")
+    if not isinstance(raw_components, list) or not all(
+        isinstance(component, str) for component in raw_components
+    ):
+        raise _walker_report_error(
+            path, repo_root, "components must be a list of strings"
+        )
+
+    raw_paths = raw_report.get("paths")
+    if not isinstance(raw_paths, list) or not all(
+        isinstance(raw_path, dict) for raw_path in raw_paths
+    ):
+        raise _walker_report_error(path, repo_root, "paths must be a list of objects")
+
+    return WalkerReport(
+        path=path,
+        workflow_owner=workflow_owner,
+        components=frozenset(raw_components),
+        error_path_count=sum(raw_path.get("kind") == "error" for raw_path in raw_paths),
+    )
+
+
+def _load_walker_reports(repo_root: Path) -> list[WalkerReport]:
+    return [
+        _load_walker_report(report_path, repo_root)
+        for report_path in _walker_report_paths(repo_root)
+    ]
+
+
+def _error_chain_test_files(repo_root: Path) -> list[Path]:
+    tests_dir = repo_root / TESTS_DIR
+    if not tests_dir.is_dir():
+        return []
+    return sorted(tests_dir.rglob("test_*.py"))
+
+
+def _find_matching_error_chain_tests(
+    test_files: list[Path],
+    target: CoverageTarget,
+    workflow_owner: str,
+) -> list[Path]:
+    tokens = (target.node_name, *target.handler_tokens, workflow_owner)
+    matches: list[Path] = []
+    for test_path in test_files:
+        try:
+            content = test_path.read_text(errors="replace")
+        except OSError:
+            continue
+        if "assert_error_chain(" not in content:
+            continue
+        if any(token and token in content for token in tokens):
+            matches.append(test_path)
+    return matches
+
+
+def _evaluate_error_leg(
+    *,
+    repo_root: Path,
+    target: CoverageTarget,
+    reports: list[WalkerReport],
+    error_chain_test_files: list[Path],
+) -> tuple[ErrorLegStatus, list[str]]:
+    node_reports = [
+        report for report in reports if target.node_name in report.components
+    ]
+    if not node_reports:
+        return "not_applicable_no_walker_report", []
+
+    error_reports = [report for report in node_reports if report.error_path_count > 0]
+    if not error_reports:
+        return "not_applicable_no_error_paths", []
+
+    findings: list[str] = []
+    for report in error_reports:
+        matches = _find_matching_error_chain_tests(
+            error_chain_test_files,
+            target,
+            report.workflow_owner,
+        )
+        if matches:
+            continue
+        report_dir = report.path.parent.relative_to(repo_root)
+        findings.extend(
+            [
+                (
+                    f"error_leg: changed node {target.node_name} is in workflow "
+                    f"{report.workflow_owner} whose walker report has "
+                    f"{report.error_path_count} ERROR paths, but no chain case calls "
+                    "assert_error_chain for it"
+                ),
+                (
+                    "error_leg hint: add an assert_error_chain case under "
+                    f"{report_dir}/ for OMN-19714"
+                ),
+            ]
+        )
+
+    if findings:
+        return "fail", findings
+    return "pass", []
+
+
+def collect_targets(
+    *,
+    changed_ref: str | None,
+    staged: bool,
+    check_all: bool,
+) -> list[CoverageTarget]:
+    if check_all:
+        node_names = {
+            path.name
+            for path in NODES_DIR.iterdir()
+            if path.is_dir() and path.name.startswith("node_")
+        }
+    elif staged:
+        node_names = _node_names_from_changed_files(_changed_files_from_staged())
+    elif changed_ref is not None:
+        node_names = _node_names_from_changed_files(
+            _changed_files_from_ref(changed_ref)
+        )
+    else:
+        raise ValueError("one of changed_ref, staged, or check_all is required")
+
+    targets: list[CoverageTarget] = []
+    for node_name in sorted(node_names):
+        node_dir = NODES_DIR / node_name
+        if not node_dir.is_dir():
+            continue
+        if not _is_live_path_node(node_dir):
+            continue
+        targets.append(_coverage_target_for_node(node_dir))
+    return targets
+
+
+def run(
+    *, changed_ref: str | None, staged: bool, check_all: bool, output_json: bool
+) -> int:
+    repo_root = Path.cwd()
+    targets = collect_targets(
+        changed_ref=changed_ref, staged=staged, check_all=check_all
+    )
+
+    try:
+        walker_reports = _load_walker_reports(repo_root)
+    except WalkerReportError as exc:
+        message = f"golden-chain-coverage-gate: {exc}"
+        if output_json:
+            print(json.dumps({"status": "fail", "message": message, "results": []}))
+        else:
+            print(message, file=sys.stderr)
+        return 1
+
+    if not targets:
+        payload = {
+            "status": "ok",
+            "message": "no changed live-path node directories to validate",
+            "results": [],
+        }
+        if output_json:
+            print(json.dumps(payload))
+        else:
+            print(
+                "golden-chain-coverage-gate: no changed live-path node directories "
+                "to validate - PASS"
+            )
+        return 0
+
+    error_chain_test_files = _error_chain_test_files(repo_root)
+    results: list[CoverageResult] = []
+    for target in targets:
+        matches = _find_matching_golden_chain_tests(repo_root, target)
+        error_leg, error_leg_findings = _evaluate_error_leg(
+            repo_root=repo_root,
+            target=target,
+            reports=walker_reports,
+            error_chain_test_files=error_chain_test_files,
+        )
+        if matches:
+            results.append(
+                CoverageResult(
+                    node=target.node_name,
+                    status="fail" if error_leg == "fail" else "ok",
+                    error_leg=error_leg,
+                    findings=error_leg_findings,
+                    matched_tests=[str(path) for path in matches],
+                )
+            )
+        else:
+            results.append(
+                CoverageResult(
+                    node=target.node_name,
+                    status="fail",
+                    error_leg=error_leg,
+                    findings=[
+                        "changed live-path node has no matching golden-chain test",
+                        (
+                            "add tests/test_golden_chain_<node>.py or "
+                            "tests/unit/nodes/test_golden_chain_*.py or "
+                            "tests/nodes/<node>/test_golden_chain_*.py -- "
+                            "a node-local src/omnimarket/nodes/<node>/tests/ "
+                            "test is never collected by CI (OMN-14338) and "
+                            "does not satisfy this gate"
+                        ),
+                        *error_leg_findings,
+                    ],
+                )
+            )
+
+    failed = [result for result in results if not result.passed]
+    if output_json:
+        print(
+            json.dumps(
+                {
+                    "status": "fail" if failed else "ok",
+                    "summary": {
+                        "total": len(results),
+                        "failed": len(failed),
+                        "passed": len(results) - len(failed),
+                    },
+                    "results": [
+                        {
+                            "node": result.node,
+                            "status": result.status,
+                            "error_leg": result.error_leg,
+                            "findings": result.findings,
+                            "matched_tests": result.matched_tests,
+                        }
+                        for result in results
+                    ],
+                },
+                indent=2,
+            )
+        )
+    else:
+        print(f"golden-chain-coverage-gate: {len(results)} live-path node(s) checked")
+        for result in results:
+            if result.passed:
+                print(f"  [PASS] {result.node}: {', '.join(result.matched_tests)}")
+            else:
+                for finding in result.findings:
+                    print(f"  [FAIL] {result.node}: {finding}")
+            if result.error_leg == "not_applicable_no_walker_report":
+                print(
+                    f"  [SKIP error_leg] {result.node}: "
+                    "no walker report names this node"
+                )
+            elif result.error_leg == "not_applicable_no_error_paths":
+                print(
+                    f"  [SKIP error_leg] {result.node}: "
+                    "walker report has no ERROR paths"
+                )
+            elif result.error_leg == "pass":
+                print(
+                    f"  [PASS error_leg] {result.node}: "
+                    "assert_error_chain coverage found"
+                )
+        print(f"\ngolden-chain-coverage-gate: {'FAIL' if failed else 'PASS'}")
+
+    return 1 if failed else 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument(
+        "--changed-ref",
+        metavar="GIT_REF",
+        help="validate live-path nodes changed since GIT_REF",
+    )
+    mode.add_argument(
+        "--staged",
+        action="store_true",
+        help="validate live-path nodes staged for commit",
+    )
+    mode.add_argument(
+        "--check-all",
+        action="store_true",
+        help="validate every live-path node",
+    )
+    parser.add_argument("--json", action="store_true", dest="output_json")
+    args = parser.parse_args()
+    return run(
+        changed_ref=args.changed_ref,
+        staged=args.staged,
+        check_all=args.check_all,
+        output_json=args.output_json,
+    )
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

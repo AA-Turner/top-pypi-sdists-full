@@ -38,7 +38,7 @@ where
         ),
         Err(err) => {
             if let Some(diagnostic) =
-                crate::validate::schema_resolution_diagnostic(&err, value.range(), common_rules)
+                crate::validate::schema_resolution_diagnostic(&err, value.span(), common_rules)
             {
                 return Err(vec![diagnostic].into());
             }
@@ -52,7 +52,7 @@ where
         let mut diagnostics = Vec::with_capacity(1);
         crate::Diagnostic {
             kind: Box::new(crate::DiagnosticKind::NotSchemaMatch),
-            range: value.range(),
+            span: value.span(),
         }
         .push_diagnostic_with_level(
             common_rules

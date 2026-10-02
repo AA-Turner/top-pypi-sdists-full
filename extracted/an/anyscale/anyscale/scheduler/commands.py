@@ -36,6 +36,19 @@ _APPLY_CONFIG_DOCSTRINGS = {
 }
 
 
+_ROLLBACK_CONFIG_EXAMPLE = """
+import anyscale
+
+# Re-apply the contents of version 3 as a new version.
+new_version = anyscale.scheduler.rollback_config(version=3)
+print(f"Rolled back to version 3, applied as version {new_version}")
+"""
+
+_ROLLBACK_CONFIG_DOCSTRINGS = {
+    "version": "Existing config version whose contents are applied as a new version.",
+}
+
+
 _GET_CONFIG_EXAMPLE = """
 import anyscale
 
@@ -92,6 +105,25 @@ def apply_config(
 @sdk_command(
     _SCHEDULER_SDK_SINGLETON_KEY,
     PrivateSchedulerSDK,
+    doc_py_example=_ROLLBACK_CONFIG_EXAMPLE,
+    arg_docstrings=_ROLLBACK_CONFIG_DOCSTRINGS,
+)
+def rollback_config(
+    version: int,
+    *,
+    _private_sdk: Optional[PrivateSchedulerSDK] = None,
+) -> int:
+    """Roll back to an existing config version. Returns the new version number.
+
+    The config stored at `version` is applied as a new active version. `version`
+    itself stays in history unchanged, so a rollback is itself reversible.
+    """
+    return _private_sdk.rollback_config(version=version)  # type: ignore
+
+
+@sdk_command(
+    _SCHEDULER_SDK_SINGLETON_KEY,
+    PrivateSchedulerSDK,
     doc_py_example=_GET_CONFIG_EXAMPLE,
     arg_docstrings=_GET_CONFIG_DOCSTRINGS,
 )
@@ -115,7 +147,9 @@ def get_config(
     arg_docstrings=_LIST_CONFIG_VERSIONS_DOCSTRINGS,
 )
 def list_config_versions(
-    max_items: int = 10, *, _private_sdk: Optional[PrivateSchedulerSDK] = None,
+    max_items: int = 10,
+    *,
+    _private_sdk: Optional[PrivateSchedulerSDK] = None,
 ) -> List[SchedulerConfigVersionSummary]:
     """List scheduler config version history (newest first).
 

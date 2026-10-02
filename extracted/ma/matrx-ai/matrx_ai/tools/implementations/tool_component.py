@@ -1404,6 +1404,16 @@ async def toolcomp_create_component(args: dict[str, Any], ctx: ToolContext) -> T
                     ),
                 )
             tool_name = derived_name
+        else:
+            # A component is its tool's child: its access IS the tool's (tool.ui
+            # std_select reads only through tool_id). A row saved by name alone for
+            # a tool that exists has no parent pointer, so RLS hides it from every
+            # person outside the admin lane (14 of 17 matrx-default renderers, incl.
+            # `memory`, measured 2026-10-01). Link it; NULL stays only for a
+            # component with no backing tool (workflow emit components).
+            def_row = await ToolDefinition.get_or_none(name=tool_name)
+            if def_row and getattr(def_row, "deleted_at", None) is None:
+                tool_id = str(def_row.id)
 
         # Uniqueness is (tool_name, surface_name) in the DB — check that exact key
         # (works for both real-tool rows and tool_id=NULL workflow rows). The
@@ -1436,7 +1446,15 @@ async def toolcomp_create_component(args: dict[str, Any], ctx: ToolContext) -> T
         # fails at the DB. The writer receives an EXPLICIT org (the request's
         # active org); a fallback to personal/system here is forbidden by the
         # db-rules contract, so a request with no org is refused by name.
-        if not ctx.organization_id:
+        # A child lives in its parent's organization (the DB trigger
+        # _1_refuse_foreign_org refuses anything else): stamp it from the tool,
+        # never from the ambient request.
+        organization_id = (
+            str(def_row.organization_id)
+            if tool_id and def_row is not None and getattr(def_row, "organization_id", None)
+            else ctx.organization_id
+        )
+        if not organization_id:
             return ToolResult(
                 success=False,
                 error=ToolError(
@@ -1450,8 +1468,8 @@ async def toolcomp_create_component(args: dict[str, Any], ctx: ToolContext) -> T
             )
 
         payload: dict[str, Any] = {
-            "organization_id": ctx.organization_id,
-            "tool_id": tool_id,  # NULL for workflow components — column is nullable
+            "organization_id": organization_id,
+            "tool_id": tool_id,  # NULL only when no tool backs it (workflow components)
             "tool_name": tool_name,
             "display_name": display_name,
             "inline_code": inline_code,

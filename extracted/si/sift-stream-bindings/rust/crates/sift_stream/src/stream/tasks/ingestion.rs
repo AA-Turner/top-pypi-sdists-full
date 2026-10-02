@@ -1,0 +1,1185 @@
+use crate::{
+    RetryPolicy,
+    metrics::SiftStreamMetrics,
+    stream::{
+        mode::ingestion_config::DataStream,
+        tasks::{CHECKPOINT_TIMEOUT, ControlMessage, DataMessage},
+    },
+};
+use sift_connect::SiftChannel;
+use sift_error::prelude::*;
+use sift_rs::{
+    CompressionEncoding, GrpcCode, GrpcStatus,
+    ingest::v1::ingest_service_client::IngestServiceClient,
+};
+use std::{
+    future::Future,
+    pin::Pin,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
+    time::Duration,
+};
+use tokio::{sync::broadcast, time::Instant};
+use uuid::Uuid;
+
+enum CheckpointTimer {
+    Active(tokio::time::Interval),
+    Disabled,
+}
+
+impl CheckpointTimer {
+    async fn tick(&mut self) {
+        match self {
+            Self::Active(interval) => {
+                interval.tick().await;
+            }
+            Self::Disabled => std::future::pending::<()>().await,
+        }
+    }
+
+    fn reset_immediately(&mut self) {
+        if let Self::Active(interval) = self {
+            interval.reset_immediately();
+        }
+    }
+}
+
+/// Only the fields the IngestionTask itself reads during its run loop.
+pub(crate) struct IngestionTaskConfig {
+    #[allow(dead_code)]
+    pub(crate) session_name: String,
+    pub(crate) sift_stream_id: Uuid,
+    pub(crate) ingestion_channel: SiftChannel,
+    pub(crate) enable_compression_for_ingestion: bool,
+    pub(crate) metrics: Arc<SiftStreamMetrics>,
+    /// `None` disables stream retries: the task does not reconnect after a stream
+    /// failure and instead returns the failure to the caller. See
+    /// [`LiveOnlyBuilder::retry_policy`](crate::LiveOnlyBuilder::retry_policy).
+    pub(crate) retry_policy: Option<RetryPolicy>,
+    /// Present only in LiveStreamingWithBackups mode. When None, the task
+    /// never sets up a checkpoint timer and ignores all checkpoint control messages.
+    pub(crate) checkpoint_interval: Option<Duration>,
+}
+
+pub(crate) struct IngestionTask {
+    control_tx: broadcast::Sender<ControlMessage>,
+    control_rx: broadcast::Receiver<ControlMessage>,
+    data_rx: async_channel::Receiver<DataMessage>,
+    config: IngestionTaskConfig,
+}
+
+impl IngestionTask {
+    pub(crate) fn new(
+        control_tx: broadcast::Sender<ControlMessage>,
+        control_rx: broadcast::Receiver<ControlMessage>,
+        data_rx: async_channel::Receiver<DataMessage>,
+        config: IngestionTaskConfig,
+    ) -> Self {
+        Self {
+            control_tx,
+            control_rx,
+            data_rx,
+            config,
+        }
+    }
+
+    pub(crate) async fn run(&mut self) -> Result<()> {
+        let now = tokio::time::Instant::now();
+
+        // When checkpoint_config is None (live-only mode), there is no checkpoint timer.
+        let mut timer = match self.config.checkpoint_interval.as_ref() {
+            Some(c) => CheckpointTimer::Active(tokio::time::interval_at(now + *c, *c)),
+            None => CheckpointTimer::Disabled,
+        };
+
+        let mut stream_created_at = now;
+        let mut current_wait = Duration::ZERO;
+
+        // The stream needs to be kept alive independently from receiving control messages in the
+        // loop below, so an [`Option`] is used to store the stream future and updated as needed.
+        let mut stream = None;
+        let first_message_id = Arc::new(AtomicU64::new(0));
+        let last_message_id = Arc::new(AtomicU64::new(0));
+
+        loop {
+            // Create a new stream if one doesn't exist yet.
+            if stream.is_none() {
+                #[cfg(feature = "tracing")]
+                tracing::info!(
+                    sift_stream_id = %self.config.sift_stream_id,
+                    "creating new stream"
+                );
+
+                stream_created_at = tokio::time::Instant::now();
+
+                // Create the structs needed for the stream outside of the async task to avoid
+                // any race conditions in that task being polled for the first time and other
+                // events occurring in the system.
+                let mut client = IngestServiceClient::new(self.config.ingestion_channel.clone());
+
+                // If compression is enabled, add the compression codecs to the client.
+                if self.config.enable_compression_for_ingestion {
+                    client = client
+                        .send_compressed(CompressionEncoding::Gzip)
+                        .accept_compressed(CompressionEncoding::Gzip);
+                }
+
+                let data_stream = DataStream::new(
+                    self.data_rx.clone(),
+                    self.control_tx.clone(),
+                    self.config.sift_stream_id,
+                    first_message_id.clone(),
+                    last_message_id.clone(),
+                    self.config.metrics.clone(),
+                );
+
+                stream = Some(Box::pin(async move {
+                    // Wait for the retry exponential backoff to complete before performing the next gRPC stream operation.
+                    tokio::time::sleep(current_wait).await;
+
+                    // Perform the gRPC stream operation.
+                    let res = client.ingest_with_config_data_stream(data_stream).await;
+
+                    // Currently the stream result is not used, so to simplify we return a unit value.
+                    res.map(|_| ())
+                }));
+
+                #[cfg(feature = "tracing")]
+                tracing::info!(
+                    sift_stream_id = %self.config.sift_stream_id,
+                    "successfully initialized a new stream to Sift"
+                );
+            }
+
+            // Wait for the stream to complete or for a control message to be received.
+            tokio::select! {
+                res = stream.as_mut().unwrap() => {
+                    match res {
+                        Ok(_) => {
+                            self.config.metrics.grpc_status_counts[0].increment();
+                            self.config.metrics.cur_retry_count.set(0);
+                            current_wait = Duration::ZERO;
+                        }
+                        Err(e) => {
+                            current_wait = self.handle_failed_stream(&e, stream_created_at, current_wait, first_message_id.load(Ordering::Relaxed), last_message_id.load(Ordering::Relaxed))?;
+
+                            // Send CheckpointComplete to pair with the CheckpointNeedsReingestion
+                            // sent by handle_failed_stream. Without this, the reingest signal can
+                            // be consumed by a later non-overlapping CheckpointComplete, causing
+                            // backup files from the failed stream to be deleted without re-ingestion.
+                            self.control_tx.send(ControlMessage::CheckpointComplete { first_message_id: first_message_id.load(Ordering::Relaxed), last_message_id: last_message_id.load(Ordering::Relaxed) }).map_err(|e| Error::new(ErrorKind::StreamError, e))?;
+
+                            // A closed data channel means `finish` was called, so no further
+                            // stream will be created to carry what this one was holding. In
+                            // live-only mode there is no backup or reingestion path either, so
+                            // the data is unrecoverable. Surface it here rather than breaking
+                            // into a clean shutdown; otherwise whether the loss is reported
+                            // depends on which `select!` branch observes the shutdown first.
+                            if self.config.checkpoint_interval.is_none() && self.data_rx.is_closed() {
+                                #[cfg(feature = "tracing")]
+                                tracing::error!(
+                                    sift_stream_id = %self.config.sift_stream_id,
+                                    error = %e,
+                                    "stream failed after shutdown began; not retrying"
+                                );
+
+                                return Err(Error::new(ErrorKind::StreamError, e))
+                                    .context("stream to Sift failed during shutdown");
+                            }
+
+                            // Retries are disabled, so no new stream will be created to carry
+                            // what this one was holding. Report the failure rather than
+                            // reconnecting and letting the caller believe the data landed.
+                            if self.config.retry_policy.is_none() {
+                                #[cfg(feature = "tracing")]
+                                tracing::error!(
+                                    sift_stream_id = %self.config.sift_stream_id,
+                                    error = %e,
+                                    "stream failed and retries are disabled"
+                                );
+
+                                return Err(Error::new(ErrorKind::StreamError, e))
+                                    .context("stream to Sift failed and retries are disabled");
+                            }
+                        }
+                    }
+
+                    stream = None;
+
+                    if self.data_rx.is_closed() {
+                        break;
+                    }
+                }
+                _ = timer.tick() => {
+                    #[cfg(feature = "tracing")]
+                    tracing::info!(
+                        sift_stream_id = %self.config.sift_stream_id,
+                        "checkpoint expired"
+                    );
+
+                    // Signal the next checkpoint to the data stream.
+                    self.control_tx.send(ControlMessage::SignalNextCheckpoint).map_err(|e| Error::new(ErrorKind::StreamError, e))?;
+                    self.config.metrics.checkpoint.checkpoint_timer_reached_cnt.increment();
+
+                    // Timeout if Sift doesn't respond to the checkpoint signal quickly.
+                    let checkpoint_failure = match tokio::time::timeout(CHECKPOINT_TIMEOUT, stream.as_mut().unwrap()).await {
+                        Ok(Ok(_)) => {
+                            #[cfg(feature = "tracing")]
+                            tracing::info!(
+                                sift_stream_id = %self.config.sift_stream_id,
+                                "checkpoint succeeded - data streamed to Sift successfully"
+                            );
+                            self.config.metrics.grpc_status_counts[0].increment();
+                            self.config.metrics.cur_retry_count.set(0);
+                            None
+                        }
+                        Ok(Err(e)) => Some(e),
+                        Err(_elapsed) => Some(GrpcStatus::deadline_exceeded("checkpoint timed out waiting for Sift")),
+                    };
+
+                    if let Some(status) = checkpoint_failure {
+                        current_wait = self.handle_failed_stream(&status, stream_created_at, current_wait, first_message_id.load(Ordering::Relaxed), last_message_id.load(Ordering::Relaxed))?;
+
+                        // Retries are disabled, so the checkpoint will not be reattempted.
+                        if self.config.retry_policy.is_none() {
+                            #[cfg(feature = "tracing")]
+                            tracing::error!(
+                                sift_stream_id = %self.config.sift_stream_id,
+                                error = %status,
+                                "checkpoint failed and retries are disabled"
+                            );
+
+                            return Err(Error::new(ErrorKind::StreamError, status))
+                                .context("checkpoint to Sift failed and retries are disabled");
+                        }
+                    }
+
+                    self.config.metrics.checkpoint.next_checkpoint();
+                    self.control_tx.send(ControlMessage::CheckpointComplete { first_message_id: first_message_id.load(Ordering::Relaxed), last_message_id: last_message_id.load(Ordering::Relaxed) }).map_err(|e| Error::new(ErrorKind::StreamError, e))?;
+                    stream = None;
+                }
+                ctrl_msg = self.control_rx.recv() => {
+                    match ctrl_msg {
+                        Ok(ControlMessage::BackupFull) => {
+                            #[cfg(feature = "tracing")]
+                            tracing::trace!(
+                                sift_stream_id = %self.config.sift_stream_id,
+                                "backup full"
+                            );
+
+                            // Reset the timer to expire immediately to start a new checkpoint since backups are full.
+                            self.config.metrics.checkpoint.checkpoint_manually_reached_cnt.increment();
+                            timer.reset_immediately();
+                        }
+                        Ok(ControlMessage::Shutdown) => {
+                            break;
+                        }
+                        _ => continue,
+                    }
+                }
+            }
+        }
+
+        self.shutdown(stream, first_message_id, last_message_id)
+            .await?;
+
+        Ok(())
+    }
+
+    /// Handle a failed stream operation, sending the re-ingest signal and logging the error and incrementing metrics.
+    fn handle_failed_stream(
+        &mut self,
+        status: &GrpcStatus,
+        stream_created_at: Instant,
+        current_wait: Duration,
+        first_message_id: u64,
+        last_message_id: u64,
+    ) -> Result<Duration> {
+        let code = i32::from(status.code());
+        let code_idx = if (0..=16).contains(&code) {
+            code as usize
+        } else {
+            17
+        };
+        self.config.metrics.grpc_status_counts[code_idx].increment();
+
+        #[cfg(feature = "tracing")]
+        {
+            let msg = match status.code() {
+                GrpcCode::Cancelled => "stream connection went idle",
+                _ => "stream connection is being reset",
+            };
+            tracing::warn!(
+                sift_stream_id = %self.config.sift_stream_id,
+                retry_counter = self.config.metrics.cur_retry_count.get(),
+                grpc_status = ?status.code(),
+                msg
+            );
+        }
+
+        self.config
+            .metrics
+            .checkpoint
+            .failed_checkpoint_count
+            .increment();
+
+        if self.config.checkpoint_interval.is_some() {
+            self.control_tx
+                .send(ControlMessage::CheckpointNeedsReingestion {
+                    first_message_id,
+                    last_message_id,
+                })
+                .map_err(|e| Error::new(ErrorKind::StreamError, e))?;
+        }
+
+        // With retries disabled the caller reports the failure instead of reconnecting, so
+        // there is no backoff to compute and no retry to count.
+        let Some(retry_policy) = self.config.retry_policy.as_ref() else {
+            return Ok(Duration::ZERO);
+        };
+
+        // If the stream was healthy for sufficiently long, reset the wait time used for exponential backoff.
+        let backoff = if stream_created_at.elapsed() > retry_policy.max_backoff * 2 {
+            self.config.metrics.cur_retry_count.set(0);
+            Duration::ZERO
+        } else {
+            self.config.metrics.cur_retry_count.add(1);
+            retry_policy.backoff(current_wait)
+        };
+
+        Ok(backoff)
+    }
+
+    /// Shuts down the ingestion task by awaiting the stream one last time and sending the final checkpoint complete signal to the backup manager.
+    async fn shutdown<T: Future<Output = std::result::Result<(), GrpcStatus>> + Send + 'static>(
+        &mut self,
+        mut stream: Option<Pin<Box<T>>>,
+        first_message_id: Arc<AtomicU64>,
+        last_message_id: Arc<AtomicU64>,
+    ) -> Result<()> {
+        #[cfg(feature = "tracing")]
+        tracing::info!(
+            sift_stream_id = %self.config.sift_stream_id,
+            "ingestion task shutting down"
+        );
+
+        // During shutdown the data channel is closed, so to let the stream finish sending all data we need to await the stream
+        // one last time before exiting.
+        if let Some(stream) = stream.as_mut() {
+            match stream.await {
+                Ok(_) => {
+                    #[cfg(feature = "tracing")]
+                    tracing::info!(
+                        sift_stream_id = %self.config.sift_stream_id,
+                        "final stream completed successfully"
+                    );
+                }
+                Err(e) => {
+                    #[cfg(feature = "tracing")]
+                    tracing::error!(
+                        sift_stream_id = %self.config.sift_stream_id,
+                        error = %e,
+                        "final stream failed"
+                    );
+
+                    // In live-only mode there is no backup or reingestion path to recover
+                    // this data, so a failed final flush is unrecoverable loss. Surface it so
+                    // finish() does not falsely acknowledge delivery.
+                    if self.config.checkpoint_interval.is_none() {
+                        return Err(Error::new(ErrorKind::StreamError, e))
+                            .context("final stream flush to Sift failed during shutdown");
+                    }
+
+                    self.control_tx
+                        .send(ControlMessage::CheckpointNeedsReingestion {
+                            first_message_id: first_message_id.load(Ordering::Relaxed),
+                            last_message_id: last_message_id.load(Ordering::Relaxed),
+                        })
+                        .map_err(|e| Error::new(ErrorKind::StreamError, e))?;
+                }
+            }
+        }
+
+        // Send the final checkpoint complete signal to the backup manager.
+        self.control_tx
+            .send(ControlMessage::CheckpointComplete {
+                first_message_id: first_message_id.load(Ordering::Relaxed),
+                last_message_id: last_message_id.load(Ordering::Relaxed),
+            })
+            .map_err(|e| Error::new(ErrorKind::StreamError, e))?;
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use sift_rs::ingest::v1::{
+        IngestWithConfigDataChannelValue, ingest_with_config_data_channel_value::Type,
+    };
+
+    use crate::{TimeValue, stream::retry::RetryPolicy};
+
+    use super::*;
+
+    fn make_ingestion_task_config(
+        ingestion_channel: SiftChannel,
+        metrics: Arc<SiftStreamMetrics>,
+        checkpoint_interval: Duration,
+    ) -> IngestionTaskConfig {
+        IngestionTaskConfig {
+            session_name: "test-session".to_string(),
+            sift_stream_id: Uuid::new_v4(),
+            ingestion_channel,
+            enable_compression_for_ingestion: false,
+            metrics,
+            retry_policy: Some(RetryPolicy::default()),
+            checkpoint_interval: Some(checkpoint_interval),
+        }
+    }
+
+    async fn send_messages_for_ingestion(
+        data_tx: &async_channel::Sender<DataMessage>,
+        count: usize,
+    ) {
+        for i in 0..count {
+            let request = sift_rs::ingest::v1::IngestWithConfigDataStreamRequest {
+                ingestion_config_id: "test-0".to_string(),
+                flow: "some_flow".to_string(),
+                timestamp: Some(*TimeValue::now()),
+                channel_values: vec![IngestWithConfigDataChannelValue {
+                    r#type: Some(Type::Int32(i as i32)),
+                }],
+                run_id: "test-run-id".to_string(),
+                end_stream_on_validation_error: false,
+                organization_id: "test-organization-id".to_string(),
+            };
+            assert!(
+                data_tx
+                    .try_send(DataMessage {
+                        message_id: i as u64,
+                        request: Arc::new(request),
+                        dropped_for_ingestion: false
+                    })
+                    .is_ok(),
+                "failed to send data message to ingestion task"
+            );
+        }
+
+        for _ in 0..5 {
+            if data_tx.is_empty() {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+
+        println!("data tx len: {}", data_tx.len());
+    }
+
+    #[tokio::test]
+    async fn test_ingestion_task_shutdown() {
+        let (ingestion_channel, _mock_service) =
+            crate::test::create_mock_grpc_channel_with_service().await;
+        let (control_tx, mut control_rx) = broadcast::channel(1024);
+        let (data_tx, data_rx) = async_channel::bounded(1024);
+        let metrics = Arc::new(SiftStreamMetrics::default());
+        let checkpoint_interval = Duration::from_secs(60);
+        let config =
+            make_ingestion_task_config(ingestion_channel, metrics.clone(), checkpoint_interval);
+
+        let control_rx_task = control_tx.subscribe();
+        let mut ingestion_task =
+            IngestionTask::new(control_tx.clone(), control_rx_task, data_rx, config);
+
+        // Wait for the ingestion task to drain the data channel.
+        let handle = tokio::spawn(async move { ingestion_task.run().await });
+
+        // Send some messages for ingestion.
+        send_messages_for_ingestion(&data_tx, 100).await;
+
+        // Close the data channel and send the shutdown message.
+        data_tx.close();
+        assert!(
+            control_tx.send(ControlMessage::Shutdown).is_ok(),
+            "failed to send shutdown message to ingestion task"
+        );
+
+        // Wait for the ingestion task to complete.
+        assert!(
+            handle.await.is_ok(),
+            "ingestion task should complete successfully"
+        );
+
+        // Verify graceful shutdown drained the data channel and sent the final checkpoint complete message.
+        assert!(data_tx.is_empty(), "data channel should be empty");
+
+        // Each checkpoint expiration should generate a checkpoint complete control message.
+        let mut complete_count = 0;
+        while let Ok(msg) = control_rx.try_recv() {
+            if matches!(
+                msg,
+                ControlMessage::CheckpointComplete {
+                    first_message_id: _,
+                    last_message_id: _
+                }
+            ) {
+                complete_count += 1;
+            }
+        }
+        assert_eq!(complete_count, 1, "should have completed 1 checkpoint");
+    }
+
+    #[tokio::test]
+    async fn test_ingestion_task_shutdown_ungracefully() {
+        let (ingestion_channel, _mock_service) =
+            crate::test::create_mock_grpc_channel_with_service().await;
+        let (control_tx, mut control_rx) = broadcast::channel(1024);
+        let (data_tx, data_rx) = async_channel::bounded(1024);
+        let metrics = Arc::new(SiftStreamMetrics::default());
+        let checkpoint_interval = Duration::from_secs(60);
+        let config =
+            make_ingestion_task_config(ingestion_channel, metrics.clone(), checkpoint_interval);
+
+        let control_rx_task = control_tx.subscribe();
+        let mut ingestion_task =
+            IngestionTask::new(control_tx.clone(), control_rx_task, data_rx, config);
+
+        // Wait for the ingestion task to drain the data channel.
+        let handle = tokio::spawn(async move { ingestion_task.run().await });
+
+        // Send some messages for ingestion.
+        send_messages_for_ingestion(&data_tx, 100).await;
+
+        // Close the data channel to trigger the shutdown process.
+        data_tx.close();
+
+        // Wait for the ingestion task to complete.
+        let res = tokio::time::timeout(Duration::from_secs(10), handle).await;
+        assert!(res.is_ok(), "ingestion task should complete successfully");
+
+        // Verify graceful shutdown drained the data channel and sent the final checkpoint complete message.
+        assert!(data_tx.is_empty(), "data channel should be empty");
+
+        // Each checkpoint expiration should generate a checkpoint complete control message.
+        let mut complete_count = 0;
+        while let Ok(msg) = control_rx.try_recv() {
+            if matches!(
+                msg,
+                ControlMessage::CheckpointComplete {
+                    first_message_id: _,
+                    last_message_id: _
+                }
+            ) {
+                complete_count += 1;
+            }
+        }
+        assert_eq!(complete_count, 1, "should have completed 1 checkpoint");
+    }
+
+    #[tokio::test]
+    async fn test_ingestion_task_shutdown_errors() {
+        let (ingestion_channel, mock_service) =
+            crate::test::create_mock_grpc_channel_with_service().await;
+        let (control_tx, mut control_rx) = broadcast::channel(1024);
+        let (data_tx, data_rx) = async_channel::bounded(1024);
+        let metrics = Arc::new(SiftStreamMetrics::default());
+        let checkpoint_interval = Duration::from_secs(60);
+        let config =
+            make_ingestion_task_config(ingestion_channel, metrics.clone(), checkpoint_interval);
+
+        let control_rx_task = control_tx.subscribe();
+        let mut ingestion_task =
+            IngestionTask::new(control_tx.clone(), control_rx_task, data_rx, config);
+
+        // Set the mock service to return errors.
+        mock_service.set_num_errors_to_return(2);
+
+        // Wait for the ingestion task to drain the data channel.
+        let handle = tokio::spawn(async move { ingestion_task.run().await });
+
+        // Send some messages for ingestion.
+        let send = async {
+            send_messages_for_ingestion(&data_tx, 100).await;
+
+            // Close the data channel and send the shutdown message.
+            data_tx.close();
+            assert!(
+                control_tx.send(ControlMessage::Shutdown).is_ok(),
+                "failed to send shutdown message to ingestion task"
+            );
+        };
+
+        let (_, handle_result) = tokio::join!(send, handle);
+        assert!(
+            handle_result.is_ok(),
+            "ingestion task should complete successfully"
+        );
+
+        // Verify graceful shutdown drained the data channel and sent the final checkpoint complete message.
+        assert!(data_tx.is_empty(), "data channel should be empty");
+
+        // Each stream failure now also generates a CheckpointComplete (paired with
+        // CheckpointNeedsReingestion), plus 1 final from shutdown.
+        // With 2 errors configured: 2 failure checkpoints + 1 shutdown = 3.
+        let mut complete_count = 0;
+        while let Ok(msg) = control_rx.try_recv() {
+            if matches!(
+                msg,
+                ControlMessage::CheckpointComplete {
+                    first_message_id: _,
+                    last_message_id: _
+                }
+            ) {
+                complete_count += 1;
+            }
+        }
+        assert_eq!(
+            complete_count, 3,
+            "should have completed 3 checkpoints (2 from stream failures + 1 from shutdown)"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_ingestion_task_stream() {
+        let (ingestion_channel, mock_service) =
+            crate::test::create_mock_grpc_channel_with_service().await;
+        let (control_tx, _control_rx) = broadcast::channel(1024);
+        let (data_tx, data_rx) = async_channel::bounded(1024);
+        let metrics = Arc::new(SiftStreamMetrics::default());
+        let config =
+            make_ingestion_task_config(ingestion_channel, metrics.clone(), Duration::from_secs(60));
+
+        let control_rx_task = control_tx.subscribe();
+        let mut ingestion_task =
+            IngestionTask::new(control_tx.clone(), control_rx_task, data_rx, config);
+        let handle = tokio::spawn(async move { ingestion_task.run().await });
+
+        // Send some messages for ingestion.
+        send_messages_for_ingestion(&data_tx, 10).await;
+
+        // Close the data channel and send the shutdown message.
+        data_tx.close();
+        assert!(
+            control_tx.send(ControlMessage::Shutdown).is_ok(),
+            "failed to send shutdown message to ingestion task"
+        );
+
+        // Wait for the ingestion task to complete.
+        assert!(
+            handle.await.is_ok(),
+            "ingestion task should complete successfully"
+        );
+
+        // Verify the messages were captured.
+        let captured = mock_service.get_captured_data();
+        assert_eq!(captured.len(), 10, "should have captured 10 messages");
+        for (i, message) in captured.iter().enumerate() {
+            assert_eq!(
+                message.ingestion_config_id, "test-0",
+                "ingestion config id should be test-0"
+            );
+            assert_eq!(message.flow, "some_flow", "flow should be some_flow");
+            assert_eq!(
+                message.channel_values.len(),
+                1,
+                "should have one channel value"
+            );
+            assert_eq!(
+                message.channel_values[0].r#type,
+                Some(Type::Int32(i as i32)),
+                "channel value should be int32({i})"
+            );
+        }
+
+        // Verify the metrics.
+        assert_eq!(
+            metrics.messages_sent.get(),
+            10,
+            "should have sent 10 messages"
+        );
+        assert!(
+            metrics.bytes_sent.get() >= 10 * 70,
+            "should have sent at least 10 * 70 bytes"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_ingestion_task_stream_retries() {
+        let (ingestion_channel, mock_service) =
+            crate::test::create_mock_grpc_channel_with_service().await;
+        let (control_tx, mut control_rx) = broadcast::channel(1024);
+        let (data_tx, data_rx) = async_channel::bounded(1024);
+        let metrics = Arc::new(SiftStreamMetrics::default());
+        let checkpoint_interval = Duration::from_millis(100);
+        let retry_policy = RetryPolicy {
+            max_attempts: 3,
+            initial_backoff: Duration::from_millis(1),
+            max_backoff: Duration::from_millis(100),
+            backoff_multiplier: 5,
+        };
+        let max_attempts = retry_policy.max_attempts as usize;
+        let config = IngestionTaskConfig {
+            session_name: "test-session".to_string(),
+            sift_stream_id: Uuid::new_v4(),
+            ingestion_channel,
+            enable_compression_for_ingestion: false,
+            metrics: metrics.clone(),
+            retry_policy: Some(retry_policy),
+            checkpoint_interval: Some(checkpoint_interval),
+        };
+
+        // Ingestion is continuously retried, limited by the max retry duration only.
+        mock_service.set_num_errors_to_return(max_attempts + 1);
+
+        let control_rx_task = control_tx.subscribe();
+        let mut ingestion_task =
+            IngestionTask::new(control_tx.clone(), control_rx_task, data_rx, config);
+
+        // Wait for the ingestion task to drain the data channel.
+        let handle = tokio::spawn(async move { ingestion_task.run().await });
+
+        // Send some messages for ingestion.
+        send_messages_for_ingestion(&data_tx, 10).await;
+        tokio::time::sleep(checkpoint_interval).await;
+
+        // Close the data channel and send the shutdown message.
+        data_tx.close();
+        assert!(
+            control_tx.send(ControlMessage::Shutdown).is_ok(),
+            "failed to send shutdown message to ingestion task"
+        );
+
+        // Wait for the ingestion task to complete.
+        let res = tokio::time::timeout(Duration::from_secs(10), handle).await;
+        assert!(res.is_ok(), "ingestion task should complete successfully");
+
+        // Verify the metrics.
+        assert_eq!(
+            metrics.messages_sent.get(),
+            10,
+            "should have sent 10 messages"
+        );
+        assert!(
+            metrics.bytes_sent.get() >= 10 * 70,
+            "should have sent at least 10 * 70 bytes"
+        );
+        assert_eq!(
+            metrics.checkpoint.failed_checkpoint_count.get(),
+            4,
+            "should have failed the checkpoint 4 times"
+        );
+
+        // Each gRPC call failure should trigger a checkpoint reingestion control message.
+        let mut needs_reingestion_count = 0;
+        while let Ok(msg) = control_rx.try_recv() {
+            if matches!(
+                msg,
+                ControlMessage::CheckpointNeedsReingestion {
+                    first_message_id: _,
+                    last_message_id: _
+                }
+            ) {
+                needs_reingestion_count += 1;
+            }
+        }
+        assert_eq!(
+            needs_reingestion_count, 4,
+            "should have received 4 checkpoint needs reingestion messages"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_ingestion_task_checkpoints() {
+        let (ingestion_channel, _mock_service) =
+            crate::test::create_mock_grpc_channel_with_service().await;
+        let (control_tx, mut control_rx) = broadcast::channel(1024);
+        let (data_tx, data_rx) = async_channel::bounded(1024);
+        let metrics = Arc::new(SiftStreamMetrics::default());
+        let checkpoint_interval = Duration::from_millis(100);
+        let config =
+            make_ingestion_task_config(ingestion_channel, metrics.clone(), checkpoint_interval);
+
+        let control_rx_task = control_tx.subscribe();
+        let mut ingestion_task =
+            IngestionTask::new(control_tx.clone(), control_rx_task, data_rx, config);
+
+        // Wait for the ingestion task to drain the data channel.
+        let handle = tokio::spawn(async move { ingestion_task.run().await });
+
+        // Send some messages for ingestion.
+        send_messages_for_ingestion(&data_tx, 100).await;
+
+        // Ensure we have waited a few checkpoint durations.
+        tokio::time::sleep(checkpoint_interval * 3).await;
+
+        // Close the data channel and send the shutdown message.
+        data_tx.close();
+        assert!(
+            control_tx.send(ControlMessage::Shutdown).is_ok(),
+            "failed to send shutdown message to ingestion task"
+        );
+
+        // Wait for the ingestion task to complete.
+        assert!(
+            handle.await.is_ok(),
+            "ingestion task should complete successfully"
+        );
+
+        assert!(
+            metrics.checkpoint.checkpoint_timer_reached_cnt.get() >= 3,
+            "should have reached the checkpoint timer at least 3 times"
+        );
+        assert!(
+            metrics.checkpoint.checkpoint_count.get() >= 3,
+            "should have completed at least 3 checkpoints"
+        );
+
+        // Each checkpoint expiration should generate a checkpoint complete control message.
+        let mut complete_count = 0;
+        while let Ok(msg) = control_rx.try_recv() {
+            if matches!(
+                msg,
+                ControlMessage::CheckpointComplete {
+                    first_message_id: _,
+                    last_message_id: _
+                }
+            ) {
+                complete_count += 1;
+            }
+        }
+        assert!(
+            complete_count >= 3,
+            "should have completed at least 3 checkpoints"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_ingestion_task_backup_full() {
+        let (ingestion_channel, _mock_service) =
+            crate::test::create_mock_grpc_channel_with_service().await;
+        let (control_tx, mut control_rx) = broadcast::channel(1024);
+        let (data_tx, data_rx) = async_channel::bounded(1024);
+        let metrics = Arc::new(SiftStreamMetrics::default());
+        let checkpoint_interval = Duration::from_secs(60);
+        let config =
+            make_ingestion_task_config(ingestion_channel, metrics.clone(), checkpoint_interval);
+
+        let control_rx_task = control_tx.subscribe();
+        let mut ingestion_task =
+            IngestionTask::new(control_tx.clone(), control_rx_task, data_rx, config);
+
+        // Wait for the ingestion task to drain the data channel.
+        let handle = tokio::spawn(async move { ingestion_task.run().await });
+
+        // Send some messages for ingestion.
+        send_messages_for_ingestion(&data_tx, 100).await;
+
+        // Send the backup full message.
+        assert!(
+            control_tx.send(ControlMessage::BackupFull).is_ok(),
+            "failed to send backup full message to ingestion task"
+        );
+
+        // Send some messages for ingestion.
+        send_messages_for_ingestion(&data_tx, 100).await;
+
+        // Close the data channel and send the shutdown message.
+        data_tx.close();
+        assert!(
+            control_tx.send(ControlMessage::Shutdown).is_ok(),
+            "failed to send shutdown message to ingestion task"
+        );
+
+        // Wait for the ingestion task to complete.
+        assert!(
+            handle.await.is_ok(),
+            "ingestion task should complete successfully"
+        );
+
+        assert_eq!(
+            metrics.checkpoint.checkpoint_manually_reached_cnt.get(),
+            1,
+            "should have reached the checkpoint manually 1 time"
+        );
+        assert!(
+            metrics.checkpoint.checkpoint_count.get() >= 1,
+            "should have completed at least 1 checkpoint"
+        );
+
+        // Each checkpoint expiration should generate a checkpoint complete control message.
+        let mut complete_count = 0;
+        while let Ok(msg) = control_rx.try_recv() {
+            if matches!(
+                msg,
+                ControlMessage::CheckpointComplete {
+                    first_message_id: _,
+                    last_message_id: _
+                }
+            ) {
+                complete_count += 1;
+            }
+        }
+        assert!(
+            complete_count >= 2,
+            "should have completed at least 2 checkpoints (1 for the final checkpoint)"
+        );
+    }
+
+    fn make_live_only_ingestion_task_config(
+        ingestion_channel: SiftChannel,
+        metrics: Arc<SiftStreamMetrics>,
+    ) -> IngestionTaskConfig {
+        IngestionTaskConfig {
+            session_name: "test-session".to_string(),
+            sift_stream_id: Uuid::new_v4(),
+            ingestion_channel,
+            enable_compression_for_ingestion: false,
+            metrics,
+            retry_policy: Some(RetryPolicy::default()),
+            checkpoint_interval: None,
+        }
+    }
+
+    /// Regression test: prior to the fix, constructing the checkpoint timer in live-only mode
+    /// would overflow (`now + Duration::MAX / 2`) and panic immediately on task start.
+    #[tokio::test]
+    async fn test_ingestion_task_live_only_shutdown() {
+        let (ingestion_channel, _mock_service) =
+            crate::test::create_mock_grpc_channel_with_service().await;
+        let (control_tx, mut control_rx) = broadcast::channel(1024);
+        let (data_tx, data_rx) = async_channel::bounded(1024);
+        let metrics = Arc::new(SiftStreamMetrics::default());
+        let config = make_live_only_ingestion_task_config(ingestion_channel, metrics.clone());
+
+        let control_rx_task = control_tx.subscribe();
+        let mut ingestion_task =
+            IngestionTask::new(control_tx.clone(), control_rx_task, data_rx, config);
+
+        let handle = tokio::spawn(async move { ingestion_task.run().await });
+
+        send_messages_for_ingestion(&data_tx, 100).await;
+
+        data_tx.close();
+        assert!(
+            control_tx.send(ControlMessage::Shutdown).is_ok(),
+            "failed to send shutdown message to ingestion task"
+        );
+
+        let res = tokio::time::timeout(Duration::from_secs(10), handle).await;
+        assert!(
+            res.is_ok(),
+            "ingestion task should complete without panicking (no timer overflow)"
+        );
+
+        // The checkpoint timer must never fire in live-only mode, so SignalNextCheckpoint
+        // should never be emitted. (The final CheckpointComplete from shutdown is expected.)
+        while let Ok(msg) = control_rx.try_recv() {
+            assert!(
+                !matches!(msg, ControlMessage::SignalNextCheckpoint),
+                "live-only mode should not fire the checkpoint timer"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn test_ingestion_task_live_only_stream() {
+        let (ingestion_channel, mock_service) =
+            crate::test::create_mock_grpc_channel_with_service().await;
+        let (control_tx, _control_rx) = broadcast::channel(1024);
+        let (data_tx, data_rx) = async_channel::bounded(1024);
+        let metrics = Arc::new(SiftStreamMetrics::default());
+        let config = make_live_only_ingestion_task_config(ingestion_channel, metrics.clone());
+
+        let control_rx_task = control_tx.subscribe();
+        let mut ingestion_task =
+            IngestionTask::new(control_tx.clone(), control_rx_task, data_rx, config);
+
+        let handle = tokio::spawn(async move { ingestion_task.run().await });
+
+        send_messages_for_ingestion(&data_tx, 10).await;
+
+        data_tx.close();
+        assert!(
+            control_tx.send(ControlMessage::Shutdown).is_ok(),
+            "failed to send shutdown message to ingestion task"
+        );
+
+        assert!(
+            handle.await.is_ok(),
+            "ingestion task should complete successfully"
+        );
+
+        let captured = mock_service.get_captured_data();
+        assert_eq!(captured.len(), 10, "should have captured 10 messages");
+        assert_eq!(
+            metrics.messages_sent.get(),
+            10,
+            "should have sent 10 messages"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_shutdown_live_only_final_flush_failure_errors() {
+        let (ingestion_channel, _mock_service) =
+            crate::test::create_mock_grpc_channel_with_service().await;
+        let (control_tx, _control_rx) = broadcast::channel(1024);
+        let (_data_tx, data_rx) = async_channel::bounded::<DataMessage>(1024);
+        let metrics = Arc::new(SiftStreamMetrics::default());
+        let config = make_live_only_ingestion_task_config(ingestion_channel, metrics);
+
+        let control_rx_task = control_tx.subscribe();
+        let mut ingestion_task = IngestionTask::new(control_tx, control_rx_task, data_rx, config);
+
+        let failing_stream = Some(Box::pin(async {
+            Err::<(), GrpcStatus>(GrpcStatus::unavailable("sift unreachable"))
+        }));
+
+        let result = ingestion_task
+            .shutdown(
+                failing_stream,
+                Arc::new(AtomicU64::new(0)),
+                Arc::new(AtomicU64::new(0)),
+            )
+            .await;
+
+        assert!(
+            result.is_err(),
+            "live-only shutdown must surface a failed final flush as an error"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_shutdown_backups_final_flush_failure_reingests() {
+        let (ingestion_channel, _mock_service) =
+            crate::test::create_mock_grpc_channel_with_service().await;
+        let (control_tx, mut control_rx) = broadcast::channel(1024);
+        let (_data_tx, data_rx) = async_channel::bounded::<DataMessage>(1024);
+        let metrics = Arc::new(SiftStreamMetrics::default());
+        let config =
+            make_ingestion_task_config(ingestion_channel, metrics, Duration::from_secs(60));
+
+        let control_rx_task = control_tx.subscribe();
+        let mut ingestion_task = IngestionTask::new(control_tx, control_rx_task, data_rx, config);
+
+        let failing_stream = Some(Box::pin(async {
+            Err::<(), GrpcStatus>(GrpcStatus::unavailable("sift unreachable"))
+        }));
+
+        let result = ingestion_task
+            .shutdown(
+                failing_stream,
+                Arc::new(AtomicU64::new(0)),
+                Arc::new(AtomicU64::new(0)),
+            )
+            .await;
+
+        assert!(
+            result.is_ok(),
+            "backups mode routes a failed final flush to reingestion, not an error"
+        );
+
+        let mut saw_reingest = false;
+        while let Ok(msg) = control_rx.try_recv() {
+            if matches!(msg, ControlMessage::CheckpointNeedsReingestion { .. }) {
+                saw_reingest = true;
+            }
+        }
+        assert!(
+            saw_reingest,
+            "backups mode should emit CheckpointNeedsReingestion for the failed final flush"
+        );
+    }
+
+    /// Regression test for the shutdown race: the run loop can observe the closed data channel
+    /// from the failed-stream arm instead of the `Shutdown` control message, which used to break
+    /// into a clean shutdown and report `Ok` for data that never reached Sift. Closing the data
+    /// channel without sending `Shutdown` forces that arm deterministically.
+    #[tokio::test]
+    async fn test_live_only_stream_failure_after_close_errors() {
+        let (ingestion_channel, mock_service) =
+            crate::test::create_mock_grpc_channel_with_service().await;
+        let (control_tx, _control_rx) = broadcast::channel(1024);
+        let (data_tx, data_rx) = async_channel::bounded(1024);
+        let metrics = Arc::new(SiftStreamMetrics::default());
+        let mut config = make_live_only_ingestion_task_config(ingestion_channel, metrics);
+        config.retry_policy = Some(RetryPolicy {
+            max_attempts: 3,
+            initial_backoff: Duration::from_millis(1),
+            max_backoff: Duration::from_millis(10),
+            backoff_multiplier: 2,
+        });
+
+        // Every stream attempt fails, so nothing is ever acknowledged by Sift.
+        mock_service.set_num_errors_to_return(usize::MAX);
+
+        let control_rx_task = control_tx.subscribe();
+        let mut ingestion_task = IngestionTask::new(control_tx, control_rx_task, data_rx, config);
+
+        let handle = tokio::spawn(async move { ingestion_task.run().await });
+
+        send_messages_for_ingestion(&data_tx, 10).await;
+
+        // Close the channel without a Shutdown message.
+        data_tx.close();
+
+        let res = tokio::time::timeout(Duration::from_secs(10), handle)
+            .await
+            .expect("ingestion task should not hang")
+            .expect("ingestion task should not panic");
+
+        let err = res.expect_err("live-only mode must not report Ok for undelivered data");
+        assert_eq!(err.kind(), ErrorKind::StreamError);
+    }
+
+    /// With retries disabled the task must not open a replacement stream after a failure. The
+    /// mock fails only the first attempt, so a retrying task would reconnect and capture the
+    /// data; a non-retrying task must instead report the failure and capture nothing.
+    #[tokio::test]
+    async fn test_live_only_retries_disabled_reports_first_failure() {
+        let (ingestion_channel, mock_service) =
+            crate::test::create_mock_grpc_channel_with_service().await;
+        let (control_tx, _control_rx) = broadcast::channel(1024);
+        let (data_tx, data_rx) = async_channel::bounded(1024);
+        let metrics = Arc::new(SiftStreamMetrics::default());
+        let mut config = make_live_only_ingestion_task_config(ingestion_channel, metrics.clone());
+        config.retry_policy = None;
+
+        // Only the first stream attempt fails.
+        mock_service.set_num_errors_to_return(1);
+
+        let control_rx_task = control_tx.subscribe();
+        let mut ingestion_task = IngestionTask::new(control_tx, control_rx_task, data_rx, config);
+
+        // Queue the data before the task starts so the failure is observed while the channel
+        // is still open. That exercises the mid-stream path rather than the shutdown path.
+        send_messages_for_ingestion(&data_tx, 10).await;
+
+        let handle = tokio::spawn(async move { ingestion_task.run().await });
+
+        let res = tokio::time::timeout(Duration::from_secs(10), handle)
+            .await
+            .expect("ingestion task should not hang")
+            .expect("ingestion task should not panic");
+
+        let err = res.expect_err("a stream failure with retries disabled must be reported");
+        assert_eq!(err.kind(), ErrorKind::StreamError);
+
+        assert!(
+            mock_service.get_captured_data().is_empty(),
+            "the task must not open a replacement stream when retries are disabled"
+        );
+        assert_eq!(
+            metrics.cur_retry_count.get(),
+            0,
+            "a disabled retry policy should not count retries"
+        );
+
+        // Dropping the task drops every receiver, which closes the channel for the caller.
+        assert!(
+            data_tx.is_closed(),
+            "the ingestion channel should close once the task stops"
+        );
+    }
+}

@@ -55,6 +55,8 @@ __all__ = (
     "DescribeStandardsPaginatorName",
     "DiscoveryTypeType",
     "EnablementStatusType",
+    "ExposureImpactType",
+    "ExposureSeverityType",
     "FeatureNameType",
     "FeatureStatusType",
     "FindingHistoryUpdateSourceTypeType",
@@ -68,10 +70,12 @@ __all__ = (
     "GetFindingsV2PaginatorName",
     "GetInsightsPaginatorName",
     "GetRecommendedPolicyV2PaginatorName",
+    "GetRemediationsV2PaginatorName",
     "GetResourcesTrendsV2PaginatorName",
     "GetResourcesV2PaginatorName",
     "GranularityFieldType",
     "GroupByFieldType",
+    "GuidanceFormatType",
     "HealthIssueCodeType",
     "IntegrationTypeType",
     "IntegrationV2TypeType",
@@ -79,6 +83,7 @@ __all__ = (
     "ListConfigurationPoliciesPaginatorName",
     "ListConfigurationPolicyAssociationsPaginatorName",
     "ListEnabledProductsForImportPaginatorName",
+    "ListExposuresByRemediationV2PaginatorName",
     "ListFindingAggregatorsPaginatorName",
     "ListFreeTrialStatusesV2PaginatorName",
     "ListInvitationsPaginatorName",
@@ -106,6 +111,9 @@ __all__ = (
     "RecordStateType",
     "RegionAvailabilityStatusType",
     "RegionName",
+    "RemediationPriorityType",
+    "RemediationStatusType",
+    "RemediationStringFieldType",
     "ResourceCategoryType",
     "ResourceGroupByFieldType",
     "ResourceServiceName",
@@ -199,6 +207,8 @@ EnablementStatusType = Literal[
     "PENDING_ENABLEMENT",
     "PENDING_UPDATE",
 ]
+ExposureImpactType = Literal["Reduces", "Resolves", "Unchanged"]
+ExposureSeverityType = Literal["Critical", "High", "Informational", "Low", "Medium"]
 FeatureNameType = Literal["NETWORK_SCANNING"]
 FeatureStatusType = Literal["DISABLED", "ENABLED"]
 FindingHistoryUpdateSourceTypeType = Literal["BATCH_IMPORT_FINDINGS", "BATCH_UPDATE_FINDINGS"]
@@ -227,6 +237,7 @@ GetFindingsTrendsV2PaginatorName = Literal["get_findings_trends_v2"]
 GetFindingsV2PaginatorName = Literal["get_findings_v2"]
 GetInsightsPaginatorName = Literal["get_insights"]
 GetRecommendedPolicyV2PaginatorName = Literal["get_recommended_policy_v2"]
+GetRemediationsV2PaginatorName = Literal["get_remediations_v2"]
 GetResourcesTrendsV2PaginatorName = Literal["get_resources_trends_v2"]
 GetResourcesV2PaginatorName = Literal["get_resources_v2"]
 GranularityFieldType = Literal["Daily", "Monthly", "Weekly"]
@@ -263,6 +274,9 @@ GroupByFieldType = Literal[
     "vulnerabilities.affected_packages.name",
     "vulnerabilities.fix_coverage",
 ]
+GuidanceFormatType = Literal[
+    "All", "AwsCli", "Cdk", "Cli", "CloudFormation", "IaC", "Python", "Template", "Terraform"
+]
 HealthIssueCodeType = Literal[
     "AUTHENTICATION_FAILURE",
     "DISCOVERY_FAILURE",
@@ -287,6 +301,7 @@ ListAggregatorsV2PaginatorName = Literal["list_aggregators_v2"]
 ListConfigurationPoliciesPaginatorName = Literal["list_configuration_policies"]
 ListConfigurationPolicyAssociationsPaginatorName = Literal["list_configuration_policy_associations"]
 ListEnabledProductsForImportPaginatorName = Literal["list_enabled_products_for_import"]
+ListExposuresByRemediationV2PaginatorName = Literal["list_exposures_by_remediation_v2"]
 ListFindingAggregatorsPaginatorName = Literal["list_finding_aggregators"]
 ListFreeTrialStatusesV2PaginatorName = Literal["list_free_trial_statuses_v2"]
 ListInvitationsPaginatorName = Literal["list_invitations"]
@@ -434,6 +449,16 @@ RecommendationStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
 RecommendationTypeType = Literal["UNUSED_PERMISSION_RECOMMENDATION"]
 RecordStateType = Literal["ACTIVE", "ARCHIVED"]
 RegionAvailabilityStatusType = Literal["AVAILABLE", "UNAVAILABLE"]
+RemediationPriorityType = Literal["Critical", "High", "Low", "Medium"]
+RemediationStatusType = Literal["New", "Resolved", "Updated"]
+RemediationStringFieldType = Literal[
+    "Priority",
+    "Resource.CloudProvider",
+    "Resource.Id",
+    "Resource.ResourceOwnerAccountId",
+    "Resource.Type",
+    "Status",
+]
 ResourceCategoryType = Literal[
     "AI/ML", "Code", "Compute", "Database", "Identity", "Messaging", "Network", "Other", "Storage"
 ]
@@ -579,6 +604,7 @@ SecurityHubServiceName = Literal["securityhub"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",
@@ -655,6 +681,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -727,8 +754,10 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -757,6 +786,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -799,6 +829,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -851,6 +882,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -1022,12 +1054,14 @@ PaginatorName = Literal[
     "get_findings_v2",
     "get_insights",
     "get_recommended_policy_v2",
+    "get_remediations_v2",
     "get_resources_trends_v2",
     "get_resources_v2",
     "list_aggregators_v2",
     "list_configuration_policies",
     "list_configuration_policy_associations",
     "list_enabled_products_for_import",
+    "list_exposures_by_remediation_v2",
     "list_finding_aggregators",
     "list_free_trial_statuses_v2",
     "list_invitations",

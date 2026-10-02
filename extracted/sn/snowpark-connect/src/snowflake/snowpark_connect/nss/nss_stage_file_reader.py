@@ -17,6 +17,7 @@ from snowflake.snowpark_connect.nss.nss_scan_options import (
     NssColumn,
     build_locations_json,
     build_stage_file_reader_options,
+    needs_locations,
     normalize_locations,
     quote_options_literal,
     sql_quote_literal,
@@ -76,10 +77,10 @@ def nss_read_via_stage_file_reader(
     #
     # Costs the ENABLE_FIX_3993064_NSS_TVF_LOCATIONS gate for single-path glob reads: on a
     # gate-off deployment they now fail with the translated message instead of silently
-    # over-reading. Confined to globs -- a plain path or directory stays on scalar LOCATION.
-    use_locations = len(distinct_paths) > 1 or any(
-        p in (glob_patterns or {}) for p in distinct_paths
-    )
+    # over-reading. NOT confined to globs: a user-supplied pathGlobFilter also produces a
+    # pattern, so a plain directory read carrying that option takes this arm too and gains
+    # the same gate dependency. A path with no pattern at all stays on scalar LOCATION.
+    use_locations = needs_locations(distinct_paths, glob_patterns)
     if use_locations:
         location_clause = f"    LOCATIONS   => {quote_options_literal(build_locations_json(distinct_paths, glob_patterns))},\n"
     else:

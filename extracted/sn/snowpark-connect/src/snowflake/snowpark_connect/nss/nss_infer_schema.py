@@ -16,6 +16,7 @@ intermediate ``StructType``.
 """
 
 import json
+import re
 
 from pyspark.errors.exceptions.base import AnalysisException
 from pyspark.sql.types import StructType as PyStructType
@@ -30,6 +31,7 @@ from snowflake.snowpark_connect.nss.nss_scan_options import (
     _stringify_reader_option,
     build_locations_json,
     build_spark_conf,
+    needs_locations,
     normalize_locations,
     quote_options_literal,
     raise_if_locations_unsupported,
@@ -44,6 +46,7 @@ def empty_nss_file_read_result(
     stage_path: str,
     file_format: str,
     stage_paths: list[str] | None = None,
+    glob_patterns: dict[str, str] | None = None,
 ) -> DataFrameContainer:
     """Resolve an inferred empty schema using Spark's matched-file contract.
 
@@ -51,7 +54,11 @@ def empty_nss_file_read_result(
     inference ran over — see ``ensure_nss_empty_schema_has_visible_files``.
     """
     ensure_nss_empty_schema_has_visible_files(
-        session, stage_path, file_format, stage_paths=stage_paths
+        session,
+        stage_path,
+        file_format,
+        stage_paths=stage_paths,
+        glob_patterns=glob_patterns,
     )
 
     from snowflake.snowpark_connect.relation.map_local_relation import (
@@ -67,6 +74,7 @@ def ensure_nss_empty_schema_has_visible_files(
     stage_path: str,
     file_format: str,
     stage_paths: list[str] | None = None,
+    glob_patterns: dict[str, str] | None = None,
 ) -> None:
     """Raise Spark's inference error when an empty schema matched no input files.
 
@@ -78,7 +86,10 @@ def ensure_nss_empty_schema_has_visible_files(
     the read matched *any* input, so one visible file anywhere is enough.
     """
     candidates = stage_paths or [stage_path]
-    if not any(stage_location_has_spark_visible_files(session, p) for p in candidates):
+    if not any(
+        stage_location_has_spark_visible_files(session, p, (glob_patterns or {}).get(p))
+        for p in candidates
+    ):
         exception = AnalysisException(
             error_class="UNABLE_TO_INFER_SCHEMA",
             message_parameters={"format": file_format.upper()},
@@ -90,6 +101,7 @@ def ensure_nss_empty_schema_has_visible_files(
 def stage_location_has_spark_visible_files(
     session: snowpark.Session,
     stage_path: str,
+    glob_pattern: str | None = None,
 ) -> bool:
     """Return whether Spark file discovery would find an input at ``stage_path``.
 
@@ -112,10 +124,13 @@ def stage_location_has_spark_visible_files(
     The result distinguishes an existing input whose NSS schema inference is empty
     from a location with no matched files; it does not inspect contents or size.
 
-    This intentionally follows the current NSS stage scan's file set. NSS does not
-    yet enforce Spark's ``recursiveFileLookup`` or ``pathGlobFilter`` during the
-    stage scan; applying those filters only to this existence check would make schema
-    inference and row scanning disagree.
+    This intentionally follows the current NSS stage scan's file set, so this check and
+    row scanning agree. A ``pathGlobFilter`` IS applied here -- it arrives as the
+    ``glob_pattern`` argument, the same PATTERN the TVF receives, which is what makes a
+    filter matching nothing raise ``UNABLE_TO_INFER_SCHEMA`` as Spark does. The same holds
+    for ``recursiveFileLookup`` and Spark's own depth/metadata rules: they too reach this
+    predicate folded into ``glob_pattern`` (see ``nss_spark_file_rules_patterns``), so a
+    non-recursive read does not see files this check would have counted.
     """
     from snowflake.snowpark_connect.relation.read.source_resolution import (
         expand_dir_to_stage_files,
@@ -140,8 +155,14 @@ def stage_location_has_spark_visible_files(
 
     def is_visible(listed_path: str) -> bool:
         normalized = listed_path.strip("/")
+        # An exact match skips the HIDDEN-file rule only -- Spark permits a hidden file when the
+        # user named that file explicitly. It must NOT skip the PATTERN: measured on reference
+        # PySpark 3.5.3, naming ``keep.csv`` explicitly with ``pathGlobFilter="*.json"`` raises
+        # UNABLE_TO_INFER_SCHEMA, so the filter applies to explicitly-named files too. Returning
+        # True here unconditionally reported "the location has data" and yielded a zero-column
+        # DataFrame instead.
         if normalized == relative_location:
-            return True
+            return _matches_pattern(normalized)
 
         if relative_location:
             prefix = f"{relative_location}/"
@@ -151,9 +172,43 @@ def stage_location_has_spark_visible_files(
         else:
             descendant = normalized
 
-        return bool(descendant) and not any(
+        if not descendant or any(
             part.startswith(("_", ".")) for part in descendant.split("/") if part
-        )
+        ):
+            return False
+        # Apply the same PATTERN the TVF will get, or a filter that excludes every file looks
+        # like "the location has data" and a zero-column DataFrame is returned instead of
+        # Spark's UNABLE_TO_INFER_SCHEMA.
+        #
+        # Match against ``normalized`` (the STAGE-relative path), not ``descendant`` (relative to
+        # this element's location). ``_copy_aligned_pattern`` builds the pattern in COPY's shape,
+        # ``^(?:.*/)?<location path><suffix>$``, so it REQUIRES the location path to be present
+        # and can never match an element-relative name: for a LOCATION of ``@stg/dir/`` the
+        # pattern is ``^(?:.*/)?dir/(?:[^/]*[.]csv)$``, which matches ``dir/x.csv`` but not
+        # ``x.csv``. Matching the wrong frame made this predicate answer "no visible files" for
+        # every narrowed read, so it stopped discriminating and would raise
+        # UNABLE_TO_INFER_SCHEMA where a zero-column DataFrame was correct. The tolerant
+        # ``(?:.*/)?`` head also means the longer string some deployments match against still
+        # works, so this frame is right on both.
+        return _matches_pattern(normalized)
+
+    def _matches_pattern(normalized: str) -> bool:
+        if glob_pattern is not None:
+            try:
+                matched = re.match(glob_pattern, normalized)
+            except re.error:
+                # The pattern is a Snowflake PATTERN (a Java regex) and only became subject to
+                # Python's engine when this client-side pre-check was added, so a shape Java
+                # accepts can raise here. ``@stg/dir/[]].csv`` -- a plain source path glob, a
+                # feature that predates this code -- compiles to ``(?:[]\]\.csv)`` and raises
+                # "unterminated character set". Crashing with an uncoded re.error would turn a
+                # previously working read into an internal error, so fall through to the
+                # existence check unnarrowed: the backend still applies the PATTERN and reports
+                # its own diagnostic if it rejects it.
+                return True
+            if not matched:
+                return False
+        return True
 
     return bool(
         expand_dir_to_stage_files(
@@ -254,10 +309,10 @@ def infer_via_stage_file_schema(
     #
     # Costs the ENABLE_FIX_3993064_NSS_TVF_LOCATIONS gate for single-path glob reads: on a
     # gate-off deployment they now fail with the translated message instead of silently
-    # over-reading. Confined to globs -- a plain path or directory stays on scalar LOCATION.
-    use_locations = len(distinct_paths) > 1 or any(
-        p in (glob_patterns or {}) for p in distinct_paths
-    )
+    # over-reading. NOT confined to globs: a user-supplied pathGlobFilter also produces a
+    # pattern, so a plain directory read carrying that option takes this arm too and gains
+    # the same gate dependency. A path with no pattern at all stays on scalar LOCATION.
+    use_locations = needs_locations(distinct_paths, glob_patterns)
     if use_locations:
         location_clause = f"    LOCATIONS    => {quote_options_literal(build_locations_json(distinct_paths, glob_patterns))},\n"
     else:

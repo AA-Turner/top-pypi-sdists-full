@@ -1,0 +1,39 @@
+[package]
+name = "sift-stream-bindings"
+version = "0.5.2"
+# Released to PyPI as a wheel, never to crates.io.
+publish = false
+edition = { workspace = true }
+authors = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+keywords = { workspace = true }
+license = { workspace = true }
+categories = { workspace = true }
+readme = "README.md"
+
+# The stub_gen bin makes cargo-dist treat this package as a distributable
+# app; it's a dev tool released via PyPI tooling, not cargo-dist.
+[package.metadata.dist]
+dist = false
+
+[lib]
+name = "sift_stream_bindings"
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "stub_gen"
+path = "src/bin/stub_gen.rs"
+
+[dependencies]
+pbjson-types = { workspace = true }
+pyo3 = { workspace = true }
+pyo3-async-runtimes = { workspace = true }
+pyo3-stub-gen = { workspace = true }
+sift_rs = { workspace = true }
+sift_stream = { workspace = true, features = ["metrics-unstable"] }
+sift_error = { workspace = true }
+tokio = { workspace = true, features = ["rt", "sync", "time", "macros"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-appender = { workspace = true }

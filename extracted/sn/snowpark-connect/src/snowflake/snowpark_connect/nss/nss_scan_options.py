@@ -207,6 +207,9 @@ _SPARK_XML_READ_OPTIONS = {
     "nullvalue",
     "encoding",
     "charset",
+    "dateformat",
+    "timestampformat",
+    "timestampntzformat",
 }
 
 # Maps each lower-cased XML read option back to the exact-case key spark-xml looks up.
@@ -229,6 +232,9 @@ _XML_OPTION_KEY_CASING = {
     "nullvalue": "nullValue",
     "encoding": "charset",
     "charset": "charset",
+    "dateformat": "dateFormat",
+    "timestampformat": "timestampFormat",
+    "timestampntzformat": "timestampNTZFormat",
 }
 
 _ALLOWED_READ_OPTIONS = {
@@ -413,11 +419,28 @@ def raise_if_locations_unsupported(exc: SnowparkSQLException, path_count: int) -
     operator's, and a customer cannot set it.
     """
     if _is_locations_unsupported_error(exc):
-        exception = SnowparkConnectNotImplementedError(
-            f"NSS multi-path read not supported by this deployment "
-            f"({path_count} paths given): the backend rejected LOCATIONS. "
-            f"{_LOCATIONS_FALLBACK_HINT}"
-        )
+        if path_count <= 1:
+            # A single path still routes through LOCATIONS whenever the read carries a PATTERN,
+            # because GS applies PATTERN per element and INFER_STAGE_FILE_SCHEMA has no top-level
+            # PATTERN at all. Saying "multi-path read (1 paths given)" to someone who passed one
+            # path reads like an internal error rather than something they can act on.
+            #
+            # Do NOT name pathGlobFilter as the cause: a plain glob (``@stg/dir/*.csv``) and
+            # Spark's own depth/metadata rules each attach a PATTERN on their own, with no such
+            # option set. An earlier wording blamed pathGlobFilter unconditionally and would have
+            # sent a customer hunting for an option they never passed.
+            message = (
+                "NSS narrowed read not supported by this deployment: the backend rejected "
+                "LOCATIONS, which this read needs even for a single path because its file filter "
+                f"is applied per location. {_LOCATIONS_FALLBACK_HINT}"
+            )
+        else:
+            message = (
+                f"NSS multi-path read not supported by this deployment "
+                f"({path_count} paths given): the backend rejected LOCATIONS. "
+                f"{_LOCATIONS_FALLBACK_HINT}"
+            )
+        exception = SnowparkConnectNotImplementedError(message)
         attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
         raise exception from exc
     if _is_locations_cap_exceeded_error(exc):
@@ -601,6 +624,256 @@ def raise_if_named_stage_files_missing(
         raise exception
 
 
+def user_path_glob_filter_pattern(path_glob_filter: str | None) -> str | None:
+    """Translate a user-supplied ``pathGlobFilter`` into a Snowflake ``PATTERN``.
+
+    Customer-reported: ``.option("pathGlobFilter", "keep_*.csv")`` is **silently ignored** on
+    the NSS read path, so the read returns every file. Three things have to line up and none
+    do today:
+
+    * the option is not in :data:`_ALLOWED_READ_OPTIONS`, so it never reaches the sandbox;
+    * ``inject_anchor_pattern`` deliberately leaves a user-supplied value alone rather than
+      overwriting it with its anchor regex, so it stays a raw Spark glob;
+    * GS does not know the option either (no reference anywhere in GlobalServices), so simply
+      forwarding it as a reader option would be dropped on the floor rather than applied.
+
+    So it has to be translated here. ``pathGlobFilter`` is a **basename** glob -- Spark's
+    ``PathGlobFilter`` delegates to Hadoop's ``GlobFilter``, which matches the path's name
+    component -- while a Snowflake ``PATTERN`` is matched against the whole name relative to
+    ``LOCATION``. Hence the ``(?:.*/)?`` prefix: any leading directories are allowed and only
+    the final component is constrained, which is what the Spark option means. ``*`` becomes
+    ``[^/]*`` so it cannot cross a directory boundary.
+
+    **Glob-translation fixes in ``spark_glob_to_snowflake_regex``, which is shared with the COPY
+    path via ``inject_anchor_pattern``.** Two pre-existing divergences became reachable once user
+    input started flowing through that helper. Both are fixed here rather than pinned as known
+    gaps, because each returned the *wrong* file set rather than merely a differently-spelled one:
+
+    * ``[!x]`` is Hadoop's *negated* class (``GlobPattern`` maps ``[!`` to ``[^``). Copying the
+      class verbatim made ``[!_]*.csv`` yield exactly the **complement** of Spark's answer --
+      dropping ``a.csv`` and keeping ``_x.csv``.
+    * A backslash escape (``a\\.csv``) became a literal backslash, so it matched nothing where
+      Spark matches ``a.csv``.
+
+    Still divergent, and pinned by tests: an interior ``**`` expands to something that crosses
+    ``/``.
+
+    A filter that matches no file now raises ``UNABLE_TO_INFER_SCHEMA`` as Spark does --
+    ``stage_location_has_spark_visible_files`` applies the same PATTERN the TVF will receive, so a
+    filter excluding every file no longer looks like "the location has data".
+
+    **Short-term by design.** The intended end state is for GS to apply ``pathGlobFilter``
+    itself, at which point this translation should be deleted rather than extended. It exists
+    because the customer-visible behaviour is wrong now and that fix is not available yet.
+
+    **Known behavioural divergences from Spark, deliberately unfixed (measured against reference
+    PySpark 3.5.3, files ``5.csv d.csv x.csv ?.csv *.csv a[bc.csv`` in one directory):**
+
+    ==============  ==================  ================  =========================
+    filter          Spark returns       we return         verdict
+    ==============  ==================  ================  =========================
+    ``\\d.csv``      ``['5']``           ``['d.csv']``     diverges -- fix
+    ``a\\.csv``      raises              matches ``a.csv`` diverges -- fix
+    ``[?].csv``     raises (nothing)    ``['?.csv']``     diverges -- fix
+    ``a[bc.csv``    raises              ``['a[bc.csv']``  diverges -- fix
+    ``[*].csv``     ``['*']``           ``['*.csv']``     ALREADY matches -- leave
+    ==============  ==================  ================  =========================
+
+    Note ``[*]`` needs no work: we already produce Spark's answer. Making it "Hadoop-faithful"
+    (Hadoop compiles ``[*]`` to ``[.*]``) would make us WORSE, because that also matches
+    ``..csv`` while Spark drops dot-files before filtering. The target is Spark's observable
+    behaviour, not Hadoop's translation -- the two come apart exactly where Spark's other rules
+    (dot-file filtering, input validation) do the work.
+
+    **How to fix the four, when someone does:** add a ``strict`` flag to
+    ``spark_glob_to_snowflake_regex`` and pass it only from the two call sites that carry a
+    USER-written value -- this function, and ``modification_time_filter.py`` (which filters the
+    same option). The other three call sites receive machine-generated path globs, where a
+    malformed value is our bug rather than user error, and they are shared with COPY. Scoping it
+    that way changes no COPY behaviour. Under ``strict``: emit ``\\`` + the following character
+    verbatim (Hadoop's ``case BACKSLASH`` appends both), and raise for an unterminated ``[`` or a
+    dangling trailing ``\\`` -- with an error code via ``attach_custom_error_code``.
+
+    ``test_a_trailing_lone_backslash_is_a_known_divergence`` pins the CURRENT lenient behaviour of
+    the shared translator and should keep passing unchanged; the strict path wants its own test.
+    """
+    if path_glob_filter is None:
+        return None
+    if not path_glob_filter:
+        # Set but empty. Hadoop compiles "" to a pattern matching no name, so Spark selects
+        # nothing and raises UNABLE_TO_INFER_SCHEMA (measured against reference PySpark 3.5.3).
+        # Returning None here instead would leave the read UNFILTERED -- every file, the exact
+        # opposite of Spark, and the same over-read that the ``/`` case below rejects None for.
+        return "^$"
+    from snowflake.snowpark_connect.relation.read.path_anchoring import (
+        spark_glob_to_snowflake_regex,
+    )
+
+    if "/" in path_glob_filter:
+        # Spark's GlobFilter matches ``path.getName()``, a single component that never contains a
+        # separator, so a filter with one in it matches NOTHING. Match that exactly.
+        #
+        # Two wrong answers were considered first. Translating it verbatim matches real nested
+        # paths (``dir/keep_*.csv`` -> ``dir/keep_a.csv``), returning MORE files than Spark.
+        # Returning None leaves the read unfiltered, returning ALL files -- the opposite of
+        # Spark, and the reasoning behind it ("a read that returns nothing is a worse surprise")
+        # optimised for being unsurprising over matching Spark, which is not the standard this
+        # code is held to. ``^$`` cannot match any file name, so the read yields nothing, as
+        # reference PySpark does.
+        return "^$"
+    return f"^(?:.*/)?{spark_glob_to_snowflake_regex(path_glob_filter)}$"
+
+
+_MATCHES_NOTHING = "^$"
+
+
+def conjoin_patterns(
+    path_glob_pattern: str | None, user_filter_pattern: str | None
+) -> str | None:
+    """AND a path glob's PATTERN with a ``pathGlobFilter``'s PATTERN into one PATTERN.
+
+    Spark applies **both** filters, and GS allows one ``PATTERN`` per ``LOCATIONS`` element, so
+    the two have to be combined rather than one of them dropped. Keeping just one is wrong in
+    whichever direction the kept filter is the looser -- measured against reference PySpark 3.5.3
+    over ``{keep_a.csv, notes.txt, keep_b.json}``::
+
+        path glob ``dir/*``     + filter ``keep_*.csv``  Spark: keep_a.csv   keeping the glob:  all 3
+        path glob ``dir/*.csv`` + filter ``keep_*``      Spark: keep_a.csv   keeping the filter: +keep_b.json
+
+    So neither dominates, and a conjunction is the only form that matches Spark in both. It is
+    expressed with zero-width lookaheads, which ``java.util.regex`` supports -- GS compiles the
+    value with ``Pattern.compile`` (``FileSet.java:2289``), and the NSS element listing routes
+    through ``FileSet`` via ``xtInfo.getPattern()``.
+
+    ``^$`` short-circuits instead of being wrapped: it is what a ``/``-bearing ``pathGlobFilter``
+    translates to, and building ``(?=(?:$))`` around it would rely on a subtlety (a lookahead for
+    end-of-input succeeding only on an empty subject) where a direct "matches nothing" is plain.
+
+    NOTE the COPY path has the OPPOSITE precedence -- ``inject_anchor_pattern`` keeps the user's
+    value and skips the anchor -- so COPY over-reads in the second row above. That divergence is
+    pre-existing, unreported, and on a path NSS replaces, so it is documented here rather than
+    tracked as a defect.
+    """
+    if path_glob_pattern is None:
+        return user_filter_pattern
+    if user_filter_pattern is None:
+        return path_glob_pattern
+    if _MATCHES_NOTHING in (path_glob_pattern, user_filter_pattern):
+        return _MATCHES_NOTHING
+    first = path_glob_pattern.lstrip("^")
+    second = user_filter_pattern.lstrip("^")
+    return f"^(?=(?:{first}))(?=(?:{second})).*$"
+
+
+_NSS_METADATA_EXCLUSION = "(?:.*/)?[^_.][^/]*$"
+
+
+def needs_locations(
+    stage_paths: list[str], glob_patterns: dict[str, str] | None
+) -> bool:
+    """Whether this read must use the ``LOCATIONS`` argument rather than scalar ``LOCATION``.
+
+    True when there is more than one path, or when ANY path carries a ``PATTERN``: GS scopes a
+    ``PATTERN`` to its own ``LOCATIONS`` element, and ``INFER_STAGE_FILE_SCHEMA`` has no top-level
+    ``PATTERN`` at all, so a narrowed read has nowhere else to put it.
+
+    **NOT confined to globs.** A user-supplied ``pathGlobFilter``, a path glob, and Spark's own
+    depth/metadata rules each produce a pattern, so a plain directory read can take this arm with
+    no glob in sight. A path with no pattern stays on scalar ``LOCATION``.
+
+    This decision carries a deployment dependency -- ``LOCATIONS`` is gated by
+    ``ENABLE_FIX_3993064_NSS_TVF_LOCATIONS`` -- so it was previously spelled out at four call
+    sites (the two TVF builders and the two empty-schema guards) and had to stay in agreement
+    across all of them: a builder and its guard disagreeing would emit one shape and check the
+    other. Centralised so they cannot drift.
+    """
+    return len(stage_paths) > 1 or any(p in (glob_patterns or {}) for p in stage_paths)
+
+
+def nss_spark_file_rules_patterns(
+    clean_source_paths: list[str],
+    stage_paths: list[str],
+    *,
+    is_recursive: bool,
+) -> dict[str, str]:
+    """Per-element ``PATTERN`` carrying Spark's own file-selection rules.
+
+    Two rules that COPY applies and the NSS path drops entirely:
+
+    * **depth** -- Spark reads only a directory's immediate children unless
+      ``recursiveFileLookup=true``. A Snowflake ``LIST`` is always recursive, so an
+      un-narrowed NSS read returns every depth.
+    * **metadata exclusion** -- Spark never surfaces a basename starting with ``_`` or ``.``
+      (``_SUCCESS``, ``_common_metadata``, ``.crc``).
+
+    COPY gets both from ``inject_anchor_pattern``, which writes the combined regex into
+    ``options["pathGlobFilter"]``. That key is not in :data:`_ALLOWED_READ_OPTIONS`, so the NSS
+    reader strips it and neither rule ever reaches the sandbox. Measured before this function
+    existed: reading a directory holding ``a.csv``, ``b.csv``, ``.crc`` and ``sub/c.csv`` on NSS
+    returned **3** rows with schema ``crc, id, name`` -- the ``.crc`` sidecar was parsed AS DATA
+    and polluted the inferred schema -- where Spark and COPY return 2 rows of ``id, name``.
+
+    ``recursiveFileLookup`` therefore needs no backend support: the option's meaning is a
+    predicate over the file path, so it is compiled into the regex here. Note this can only
+    ever **narrow**; that is sufficient only because Snowflake's listing is already recursive.
+
+    Keyed by ``stage_paths``, not the source path, for the same reason as
+    :func:`nss_glob_patterns` -- the two differ for every non-``@`` source, and the builders
+    look the pattern up by the rewritten path.
+    """
+    from snowflake.snowpark_connect.relation.read.path_anchoring import (
+        alternation,
+        classify_source_path,
+        compute_anchor_pattern,
+        compute_non_recursive_pattern,
+    )
+
+    by_path: dict[str, str] = {}
+    for clean_path, stage_path in zip(clean_source_paths, stage_paths):
+        classification = classify_source_path(clean_path)
+        anchor = compute_anchor_pattern([clean_path], [classification])
+        depth0 = (
+            None
+            if is_recursive
+            else compute_non_recursive_pattern([clean_path], [classification])
+        )
+        # OR between the two, mirroring how inject_anchor_pattern composes them for COPY: a
+        # file may resolve to a directory, so "the named entry or its non-metadata descendants"
+        # and "a depth-0 non-metadata file" are alternatives, not conjuncts.
+        rules = alternation(anchor, depth0)
+        if rules is None:
+            # Directory read with recursiveFileLookup=true: nothing to narrow on depth, but Spark
+            # still never surfaces a metadata sidecar, and the depth-0 term (which embeds the
+            # ``[^_.]`` guard) is absent in this mode. COPY leans on Snowflake's own stage handling
+            # here; the NSS path has to say it explicitly or ``.crc`` is parsed AS DATA.
+            #
+            # Only the BASENAME is constrained, not every segment. Spark also skips files under a
+            # ``_``-prefixed directory, but the subject string gains extra leading segments on some
+            # deployments (measured: four on sfctest0), and those are internal DB/schema/stage
+            # names we must not judge. Wrongly EXCLUDING a user's data is worse than admitting a
+            # file inside an oddly-named directory.
+            rules = _NSS_METADATA_EXCLUSION
+        # Several sources can collapse to ONE stage location: two globs under the same
+        # directory (``@stg/dir/*.csv`` + ``@stg/dir/*.json``), or a plain directory beside
+        # a glob of it. Spark UNIONS such sources, and ``nss_glob_patterns`` already ORs
+        # their glob suffixes -- so these rules must be ORed too.
+        #
+        # Overwriting kept only the LAST source's anchor, which ``map_read`` then ANDed
+        # against that union, silently dropping the other source's files: the two-glob case
+        # admitted csv|json in the union but only json in the rule, so every ``.csv``
+        # disappeared. A plain directory beside a glob was worse -- the glob helper leaves a
+        # bare directory unfiltered, so the glob's anchor became the ONLY filter and narrowed
+        # a whole-directory read to that one suffix.
+        #
+        # ORing also makes a bare directory dominate correctly: its own rule is depth-0 plus
+        # metadata exclusion with no name anchor, which already admits every sibling the
+        # glob's anchor would have excluded.
+        prior = by_path.get(stage_path)
+        if prior != rules:
+            by_path[stage_path] = alternation(prior, rules)
+    return by_path
+
+
 def nss_glob_patterns(
     clean_source_paths: list[str], stage_paths: list[str]
 ) -> dict[str, str]:
@@ -742,25 +1015,33 @@ def build_locations_json(
 ) -> str:
     """Build the ``LOCATIONS`` payload for a multi-path read (SNOW-3993064).
 
-    A JSON array of ``{"LOCATION": <path>}`` elements, which GS resolves into a single
-    file set so schema inference observes every path at once rather than one at a time.
+    A JSON array of ``{"LOCATION": <path>}`` elements, each optionally carrying its own
+    ``PATTERN``, which GS resolves into a single file set so schema inference observes
+    every path at once rather than one at a time.
 
-    Only bare ``LOCATION`` elements are emitted. The per-element ``FILES`` and ``PATTERN``
-    keys are deliberately unused here: they carry *different* bases (``FILES`` is relative
-    to the element's ``LOCATION``, ``PATTERN`` is not), and an element ``PATTERN`` that is
-    not suffix-anchored silently matches nothing — the same quiet-empty-result failure the
-    glob-metacharacter rejection exists to prevent.
+    The file filter is always a **per-element** ``PATTERN``, never a top-level
+    ``OPTIONS.PATTERN``. GS rejects that combination outright (``StageFileReaderImpl``,
+    ``CONFLICTING_COPY_OPTIONS``) because the two filter on different bases, and
+    ``INFER_STAGE_FILE_SCHEMA`` has no top-level ``PATTERN`` at all -- its ``OPTIONS``
+    carries only ``DATA_SCHEMA`` / ``READER_OPTIONS`` / ``SPARK_CONF``. Both TVFs must
+    resolve the *same* file set, or the schema is inferred over files that are never read,
+    so an element ``PATTERN`` is the only filter expressible on both. An element's listing
+    is rooted at its own location (``ExternalScanInputMeta.getFileSet`` builds a
+    per-element ``FileSet``), so its pattern only ever filters its own files.
 
-    Note this means an NSS multi-path read does **not** narrow to a glob's pattern; it scans
-    each glob's whole scan-prefix directory. That is not a regression introduced here — it is
-    the pre-existing single-path behaviour (NSS does not enforce ``recursiveFileLookup`` /
-    ``pathGlobFilter`` during the stage scan, see ``nss_infer_schema`` /
-    ``stage_location_has_spark_visible_files``). There is no top-level ``OPTIONS.PATTERN`` to
-    fall back on: ``build_stage_file_reader_options`` emits only ``DATA_SCHEMA`` /
-    ``READER_OPTIONS`` / ``SPARK_CONF``, and GS rejects ``LOCATIONS`` combined with a
-    top-level ``OPTIONS.PATTERN`` anyway. Two known limitations follow from this, both
-    documentation-only for now (no measured repro justifying a third translation arm or a
-    client-side pre-check):
+    ``FILES`` is not emitted: it is relative to the element's ``LOCATION`` while
+    ``PATTERN`` is not, and the two are mutually exclusive within an element.
+
+    A ``LOCATION`` containing a glob metacharacter (``*?[{``) is narrowed like any other.
+    GS used to reject such an element unconditionally, so these paths were skipped and left
+    un-narrowed; SNOW-4151387 gated that scan behind
+    ``ENABLE_FIX_4151387_NSS_TVF_LOCATION_METACHARACTERS`` (``defaultValue(true)``), so a
+    literal ``{run}`` directory -- an escaped glob, SPARK-32810 / SNOW-3245120 -- now gets
+    the same depth and metadata rules as any other path. A GS build predating that fix still
+    rejects it with ``001435``; that is deployment skew, not a client-side condition.
+
+    Two known limitations remain, both documentation-only for now (no measured repro
+    justifying a third translation arm or a client-side pre-check):
 
     * A metacharacter in an element's *first* path segment (e.g. ``@stg/a[1].csv``) collapses
       that element to the **stage root**, since the scan-prefix collapse it inherits from the
@@ -837,6 +1118,18 @@ _CSV_DEFAULTS_CONTRADICTING_SPARK = (
     "comment",
 )
 
+# SCOS XML defaults (reader_config.XmlReaderConfig) whose value contradicts spark-xml
+# 0.17 / Spark 4.0 ``XmlOptions``. They exist for the Snowpark XML UDTF path; forwarding
+# them to the sandbox silently changes results, so they are dropped unless the caller
+# set them.
+_XML_DEFAULTS_CONTRADICTING_SPARK = (
+    # spark-xml / Spark 4.0 ``DEFAULT_NULL_VALUE`` is unset (``null``). SCOS seeds
+    # ``nullValue=""``, and ``StaxXmlParser.convertField`` treats empty elements
+    # (``<f></f>``) as null iff ``nullValue == ""``. Dropping the seed restores empty
+    # string vs missing-child null (Spark 4.0 ``XmlSuite`` "empty vs non-existent rows").
+    "nullvalue",
+)
+
 
 def _reconcile_leaked_csv_defaults(
     ro: dict, user_option_keys: frozenset[str] | None
@@ -855,6 +1148,20 @@ def _reconcile_leaked_csv_defaults(
     for key in _CSV_DEFAULTS_CONTRADICTING_SPARK:
         if key not in user_option_keys:
             ro.pop(key, None)
+
+
+def _reconcile_leaked_xml_defaults(
+    ro: dict, user_option_keys: frozenset[str] | None
+) -> None:
+    """Drop SCOS XML defaults that contradict spark-xml / Spark 4.0 ``XmlOptions``."""
+    if user_option_keys is None:
+        return
+    for key in _XML_DEFAULTS_CONTRADICTING_SPARK:
+        if key not in user_option_keys:
+            # Recasing has already produced spark-xml's exact-case keys;
+            # pop both spellings so a missing casing-map entry cannot leak.
+            ro.pop(key, None)
+            ro.pop(_XML_OPTION_KEY_CASING.get(key, key), None)
 
 
 # SCOS JSON charset defaults that must not reach the sandbox Spark reader unless the caller
@@ -908,9 +1215,10 @@ def filter_reader_options(
     For XML, keys are re-cased to what ``XmlOptions`` looks up — see
     :data:`_XML_OPTION_KEY_CASING`.
 
-    ``user_option_keys`` (lowercased, from ``ReaderWriterConfig``) tells SCOS's own defaults
-    apart from the caller's choices so leaked defaults can be dropped — see
-    :func:`_reconcile_leaked_csv_defaults` and :func:`_reconcile_leaked_json_defaults`.
+    ``user_option_keys`` (lowercased, from ``ReaderWriterConfig``) tells SCOS's own
+    CSV, JSON, and XML defaults apart from the caller's choices so leaked defaults
+    can be dropped — see :func:`_reconcile_leaked_csv_defaults`,
+    :func:`_reconcile_leaked_json_defaults`, and :func:`_reconcile_leaked_xml_defaults`.
     """
     allow = _ALLOWED_READ_OPTIONS.get(fmt.lower())
     ro = {
@@ -948,6 +1256,7 @@ def filter_reader_options(
         if user_option_keys and "charset" in user_option_keys:
             ro.pop("encoding", None)
         ro = {_XML_OPTION_KEY_CASING.get(k.lower(), k): v for k, v in ro.items()}
+        _reconcile_leaked_xml_defaults(ro, user_option_keys)
     return ro
 
 

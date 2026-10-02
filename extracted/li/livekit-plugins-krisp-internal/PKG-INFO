@@ -1,0 +1,53 @@
+Metadata-Version: 2.4
+Name: livekit-plugins-krisp-internal
+Version: 0.2.0
+Summary: LiveKit Krisp Viva noise filter (private wheel)
+License: SEE LICENSE IN https://livekit.io/legal/terms-of-service
+Keywords: webrtc,realtime,audio,livekit,krisp
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: NOTICE
+Requires-Dist: livekit<2,>=1.1.8
+Requires-Dist: numpy>=1.20
+Dynamic: license-file
+
+# LiveKit Krisp Viva Noise Filter — Internal Wheel
+
+Closed-source Python wheel that wraps the [Krisp Viva](https://krisp.ai) noise filter SDK and exposes it as a LiveKit `FrameProcessor`. Consumed by the public [`livekit-plugins-krisp`](https://pypi.org/project/livekit-plugins-krisp/) plugin; not intended for direct end-user installation.
+
+## Installation
+
+```bash
+pip install livekit-plugins-krisp-internal
+```
+
+Or using `uv`:
+
+```bash
+uv add livekit-plugins-krisp-internal
+```
+
+## Requirements
+
+- Python >= 3.10
+- livekit >= 1.0.23, < 2
+
+## Usage
+
+The wheel exposes a single class — `KrispVivaFilterFrameProcessor` — which is a `livekit.rtc.FrameProcessor[livekit.rtc.AudioFrame]`. Authorization happens via the LiveKit JWT pushed in through the framework's `_on_credentials_updated` callback; the Krisp license is bundled inside the wheel.
+
+```python
+from livekit.plugins.krisp_internal import KrispVivaFilterFrameProcessor
+
+processor = KrispVivaFilterFrameProcessor(
+    noise_suppression_level=100,  # 0..=100, runtime-adjustable via the property
+    frame_duration_ms=10,         # one of 10, 15, 20, 30, 32
+    sample_rate=16000,            # one of 8000, 16000, 24000, 32000, 44100, 48000
+)
+
+# noise_suppression_level can be changed on the live instance:
+processor.noise_suppression_level = 60
+```
+
+In normal use, you don't construct this class directly — the public `livekit-plugins-krisp` plugin instantiates it for you when `auth_provider=LiveKitCloudAuthProvider()` is selected.

@@ -1,0 +1,42 @@
+[tool.poetry]
+name = "aws-mfa-v2"
+version = "0.3.5"
+description = "Manage AWS MFA Security Credentials"
+authors = ["Ron Ellis <rkeiii@protonmail.com>"]
+license = "GPL-3.0-or-later"
+readme = "README.md"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Operating System :: POSIX",
+]
+repository = "https://github.com/rkeiii/aws-mfa-v2"
+packages = [
+    { include = "awsmfav2" },
+    { include = "tests" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+boto3 = "^1.28.57"
+python-dateutil = "^2.8.2"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^6.0.0"
+pytest-mock = "*"
+black = "^23.9.1"
+moto = "^4.2.0"
+coverage = "^7.3.1"
+
+[tool.poetry.scripts]
+aws-mfa = 'awsmfav2.cli:main'
+
+[tool.poetry.extras]
+yubikey = ["yubikey-manager"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+

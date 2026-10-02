@@ -20,9 +20,7 @@ def auth_cli() -> None:
 
 
 # Replaced by anyscale login
-@auth_cli.command(
-    name="set", help="Set up credentials and save it to a file", hidden=True
-)
+@auth_cli.command(name="set", help="Set up credentials and save it to a file", hidden=True)
 def auth_set() -> None:
     auth_controller = AuthController()
     auth_controller.set()
@@ -67,9 +65,7 @@ def auth_show() -> None:
         CommandExample(
             description="Restrict the credentials file permissions to the owner.",
             command="anyscale auth fix",
-            output_raw=(
-                "Successfully fixed the permissions of ~/.anyscale/credentials.json\n"
-            ),
+            output_raw=("Successfully fixed the permissions of ~/.anyscale/credentials.json\n"),
         ),
     ],
 )
@@ -84,9 +80,7 @@ def auth_fix() -> None:
 
 
 # Replaced by anyscale logout
-@auth_cli.command(
-    name="remove", help="Remove the current credentials file", hidden=True
-)
+@auth_cli.command(name="remove", help="Remove the current credentials file", hidden=True)
 def auth_remove() -> None:
     auth_controller = AuthController()
     auth_controller.remove()

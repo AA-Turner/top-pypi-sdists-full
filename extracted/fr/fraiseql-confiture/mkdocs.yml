@@ -1,0 +1,204 @@
+site_name: Confiture Documentation
+site_description: PostgreSQL migrations, sweetly done
+site_author: Lionel Hamayon
+site_url: https://fraiseql.github.io/confiture
+
+repo_name: fraiseql/confiture
+repo_url: https://github.com/fraiseql/confiture
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: deep purple
+      accent: pink
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: deep purple
+      accent: pink
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [python]
+          options:
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            members_order: source
+            docstring_style: google
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+nav:
+  - 'Getting Started':
+      - 'Home': index.md
+      - 'Getting Started with Confiture': getting-started.md
+      - 'Getting Started by Role': getting-started-by-role.md
+      - 'Confiture Quick Start Guide': quickstart.md
+      - 'Confiture vs Alembic: Detailed Comparison': comparison-with-alembic.md
+      - 'Contributing to Confiture': contributing.md
+      - 'Development Guide': development.md
+      - 'Error Reference Guide': error-reference.md
+      - 'Glossary': glossary.md
+      - 'Schema Linting Guide': linting.md
+      - 'Organizing SQL Files in Confiture': organizing-sql-files.md
+      - 'Performance & Benchmarks': performance.md
+      - 'Troubleshooting': troubleshooting.md
+  - 'Guides':
+      - 'Build from DDL': guides/01-build-from-ddl.md
+      - 'Incremental Migrations': guides/02-incremental-migrations.md
+      - 'Production Data Sync': guides/03-production-sync.md
+      - 'Schema-to-Schema Migration': guides/04-schema-to-schema.md
+      - 'ACL Coverage': guides/acl-coverage.md
+      - 'Advanced Patterns Guide': guides/advanced-patterns.md
+      - 'Anonymization': guides/anonymization.md
+      - 'Bootstrap': guides/bootstrap.md
+      - 'Build-Time Validation Guide': guides/build-validation.md
+      - 'Building on confiture': guides/building-on-confiture.md
+      - 'Compliance Guide': guides/compliance.md
+      - 'COPY Format Loading - Practical Examples': guides/copy-format-examples.md
+      - 'COPY Format Loading - Documentation Index': guides/copy-format-index.md
+      - 'COPY Format Loading Guide': guides/copy-format-loading.md
+      - 'Confiture Database Infrastructure Setup Guide': guides/database-setup.md
+      - 'Desired-state ingest: from a FraiseQL artifact to a migration': guides/desired-state.md
+      - 'Dry-Run Mode': guides/dry-run.md
+      - 'Error Context Development Guide': guides/error-context-development.md
+      - 'Function Uniqueness': guides/function-uniqueness.md
+      - 'Git-Aware Schema Validation': guides/git-aware-validation.md
+      - 'Migration Hooks': guides/hooks.md
+      - 'Integrations Guide': guides/integrations.md
+      - 'Adopting Confiture on a database that already has migrations applied': guides/legacy-bootstrap.md
+      - 'Squashing old migrations': guides/migrate-squash.md
+      - 'migrate validate': guides/migrate-validate.md
+      - 'Migration Decision Tree': guides/migration-decision-tree.md
+      - 'Migration Naming Best Practices': guides/migration-naming-best-practices.md
+      - 'Verifying migrations: what runs where, and where assertions belong': guides/migration-verification.md
+      - 'Migration Versioning Strategies: Confiture vs Industry Standards': guides/migration-versioning-strategies.md
+      - 'Multi-tenant schemas': guides/multi-tenant-schemas.md
+      - 'Named Schemas': guides/named-schemas.md
+      - 'Notification Hooks': guides/notifications.md
+      - 'Ownership Coverage': guides/ownership-coverage.md
+      - 'Parallel, cacheable CI provisioning': guides/parallel-ci-provisioning.md
+      - 'pgtviews TVIEWs': guides/pg-tviews.md
+      - 'Prep-Seed Validation Guide': guides/prep-seed-validation.md
+      - 'Replica-safe migrations': guides/replica-safe-migrations.md
+      - 'Restoring a backup with confiture restore': guides/restore.md
+      - 'Schema Linting': guides/schema-linting.md
+      - 'Security-Definer Search-Path Lint (sec002)': guides/security-definer-lint.md
+      - 'Seed Loading Strategy Decision Tree': guides/seed-loading-decision-tree.md
+      - 'Seed Data Validation Guide': guides/seed-validation.md
+      - 'Sequential Seed File Execution': guides/sequential-seed-execution.md
+      - 'Structured Output Guide': guides/structured-output.md
+      - 'Superuser Migrations': guides/superuser-migrations.md
+      - 'View Helpers': guides/view-helpers.md
+      - 'Zero-downtime migrations: expand, backfill, contract': guides/zero-downtime.md
+  - 'Reference':
+      - 'CLI Reference': reference/cli.md
+      - 'Configuration Reference': reference/configuration.md
+      - 'Dry-Run Mode API Reference': reference/dry-run-api.md
+      - 'Emitter Protocol Reference': reference/emitter-protocol.md
+      - 'Error-code codebook': reference/error-codes.md
+      - 'Exit-code convention': reference/exit-codes.md
+      - 'fraisier migration-adapter contract': reference/fraisier-adapter-contract.md
+      - 'JSON Output Schemas': reference/json-schemas.md
+      - 'Lint rules': reference/lint-rules.md
+      - 'Notification Architecture Reference': reference/notification-architecture.md
+      - 'Notification Context Reference': reference/notification-context.md
+      - 'Platform API reference': reference/platform-api.md
+      - 'Prerequisites': reference/prerequisites.md
+      - 'Tracking Table Reference': reference/tracking-table.md
+      - 'Transaction & SAVEPOINT Compatibility Contract': reference/transaction-contract.md
+  - 'API':
+      - 'API Reference': api/index.md
+      - 'Anonymization Strategy API Reference': api/anonymization.md
+      - 'SchemaBuilder API': api/builder.md
+      - 'Hook API Reference': api/hooks.md
+      - 'Migrator API': api/migrator.md
+      - 'SchemaToSchemaMigrator API': api/schema-to-schema.md
+      - 'ProductionSyncer API': api/syncer.md
+  - 'Features':
+      - 'Feature Overview': features/overview.md
+      - 'Dynamic Discovery': features/dynamic-discovery.md
+      - 'Hexadecimal Sorting': features/hexadecimal-sorting.md
+      - 'Recursive Directory Support': features/recursive-directories.md
+  - 'Architecture':
+      - 'The Rust port''s boundary': architecture/rust-port-boundary.md
+  - 'Operations':
+      - 'Confiture Disaster Recovery Procedures': operations/disaster-recovery.md
+      - 'Confiture Performance Tuning Guide': operations/performance-tuning.md
+      - 'Release Trains': operations/release-trains.md
+      - 'Confiture Operations Runbook': operations/runbook.md
+  - 'Security':
+      - 'Confiture Security Model': security/security-model.md
+      - 'GDPR Article 30 Processing Record': security/gdpr-article-30.md
+      - 'Seed Management Security Guide': security/seed-management.md
+      - 'Confiture Security Threat Model': security/threat-model.md
+  - 'Research':
+      - 'SQL Parsing Research - Document Index': research/index.md
+      - 'SQL Parser Code Examples': research/code-examples.md
+      - 'SQL Parser Quick Reference': research/quick-reference.md
+      - 'SQL Parsing Tools Research': research/readme.md
+      - 'SQL Parsing Libraries for Complex INSERT Statement Parsing in Python': research/sql-parsing-comparison.md
+      - 'Migration Guide: sqlparse → sqlglot for confiture': research/sqlparse-to-sqlglot-migration.md
+  - 'Release Notes':
+      - 'Release Notes': release-notes/index.md
+      - 'Confiture v0.3.0 Release Notes': release-notes/v0.3.0.md
+      - 'Confiture v0.3.2 Release Notes': release-notes/v0.3.2.md
+      - 'Confiture v0.3.9 Release Notes': release-notes/v0.3.9.md
+      - 'Confiture v0.4.0 Release Notes': release-notes/v0.4.0.md
+      - 'Confiture v0.5.0 Release Notes': release-notes/v0.5.0.md
+  - 'Examples':
+      - 'Basic Migration': 'https://github.com/fraiseql/confiture/tree/main/examples/01-basic-migration'
+      - 'FraiseQL Integration': 'https://github.com/fraiseql/confiture/tree/main/examples/02-fraiseql-integration'
+      - 'Zero-Downtime': 'https://github.com/fraiseql/confiture/tree/main/examples/03-zero-downtime-migration'
+      - 'Production Sync': 'https://github.com/fraiseql/confiture/tree/main/examples/04-production-sync-anonymization'
+      - 'Multi-Environment': 'https://github.com/fraiseql/confiture/tree/main/examples/05-multi-environment-workflow'
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/fraiseql/confiture
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/fraiseql-confiture/
+  version:
+    provider: mike

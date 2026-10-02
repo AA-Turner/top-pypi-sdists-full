@@ -1,0 +1,117 @@
+---
+name: data_verification
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: compute
+runtime_profiles: [main]
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  Post-pipeline data verification compute node. Queries sample rows from a
+  target table, runs deterministic data quality checks (garbage UUIDs, null
+  required fields, duplicates, row count, schema match), and emits a
+  structured pass/fail result. Replaces manual investigation with an
+  automated deterministic check.
+
+handler:
+  module: omnimarket.nodes.node_data_verification.handlers.handler_data_verification
+  class: HandlerDataVerification
+  input_model: omnimarket.nodes.node_data_verification.models.model_data_verification_start_command.ModelDataVerificationStartCommand
+
+handler_routing:
+  handlers:
+    - operation: data_verification
+      handler:
+        name: HandlerDataVerification
+        module: omnimarket.nodes.node_data_verification.handlers.handler_data_verification
+    - operation: postgres
+      handler:
+        name: PostgresDataSource
+        module: omnimarket.nodes.node_data_verification.handlers.datasource_postgres
+
+descriptor:
+  node_archetype: compute
+  purity: pure
+  idempotent: true
+  timeout_ms: 30000
+
+inputs:
+  table_name:
+    type: str
+    description: "Which DB table to check"
+    required: true
+  topic_name:
+    type: str
+    description: "Optional: publish a test event first"
+    required: false
+  test_event_payload:
+    type: dict
+    description: "The test event to publish"
+    required: false
+  expected_columns:
+    type: list[str]
+    description: "Columns that must not be null"
+    required: false
+    default: []
+  unique_columns:
+    type: list[str]
+    description: "Columns that must be unique (for duplicate check)"
+    required: false
+    default: []
+  uuid_columns:
+    type: list[str]
+    description: "Columns to check for garbage UUIDs"
+    required: false
+    default: []
+  min_rows:
+    type: int
+    description: "Minimum expected row count"
+    required: false
+    default: 1
+  sample_size:
+    type: int
+    description: "How many rows to sample"
+    required: false
+    default: 3
+  correlation_id:
+    type: str
+    description: "Verification run correlation ID"
+    required: true
+  dry_run:
+    type: bool
+    description: "Run without side effects"
+    required: false
+    default: false
+
+outputs:
+  status:
+    type: str
+    description: "Overall verification status (pass, fail, partial, timeout)"
+  total_rows:
+    type: int
+    description: "Total rows in the table"
+  issues:
+    type: list[str]
+    description: "All issues found"
+  event_landed:
+    type: bool
+    description: "Whether a published test event landed in the DB"
+
+terminal_event: onex.evt.omnimarket.data-verification-completed.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.data-verification-start.v1
+  publish_topics:
+    - onex.evt.omnimarket.data-verification-completed.v1
+
+metadata:
+  transport_type: kafka
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.data-verification-start.v1
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.data-verification-completed.v1

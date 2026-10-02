@@ -7,8 +7,8 @@ use super::{GetTypeDefinition, TypeDefinition, schema_type_definition};
 
 pub fn get_all_of_type_definition<'a: 'b, 'b, T>(
     value: &'a T,
-    position: tombi_text::Position,
-    keys: &'a [tombi_document_tree_syntax::Key],
+    cursor: crate::CursorPosition<'a>,
+    keys: &'a [tombi_document_tree_syntax::Key<'_>],
     accessors: &'a [tombi_schema_store::Accessor],
     all_of_schema: &'a tombi_schema_store::AllOfSchema,
     current_schema: &'a CurrentSchema<'a>,
@@ -50,7 +50,7 @@ where
 
             let type_definitions = value
                 .get_type_definition(
-                    position,
+                    cursor,
                     keys,
                     accessors,
                     Some(navigation_schema),
@@ -68,8 +68,8 @@ where
 impl GetTypeDefinition for tombi_schema_store::AllOfSchema {
     fn get_type_definition<'a: 'b, 'b>(
         &'a self,
-        _position: tombi_text::Position,
-        _keys: &'a [tombi_document_tree_syntax::Key],
+        _cursor: crate::CursorPosition<'a>,
+        _keys: &'a [tombi_document_tree_syntax::Key<'_>],
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         _schema_context: &'a tombi_schema_store::SchemaContext,
@@ -79,11 +79,7 @@ impl GetTypeDefinition for tombi_schema_store::AllOfSchema {
                 unreachable!("schema must be provided");
             };
 
-            vec![schema_type_definition(
-                current_schema.schema_base_uri.as_ref(),
-                accessors,
-                self.range,
-            )]
+            vec![schema_type_definition(current_schema, accessors, self.span)]
         }
         .boxed()
     }

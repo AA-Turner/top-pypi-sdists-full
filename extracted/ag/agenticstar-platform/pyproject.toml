@@ -1,0 +1,151 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agenticstar-platform"
+version = "3.0.8"
+description = "AGENTICSTAR Platform SDK - Enterprise AI Agent Infrastructure"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [
+    { name = "SoftBank Corp.", email = "agenticai@softbank.co.jp" }
+]
+keywords = [
+    "ai",
+    "agent",
+    "llm",
+    "rag",
+    "vector-database",
+    "enterprise",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    # Core (minimal - no cloud-specific SDKs)
+    "httpx>=0.26.0",
+    # auth モジュールのモデル定義で使用。cloud SDK 非依存なので core に置く
+    # (未宣言だと core / [db] インストールで auth が ModuleNotFoundError になる)
+    "pydantic>=2.0.0",
+    # workflow runner (1.0.1): 契約 files の YAML を安全な loader で読む (alias / anchor / 独自 tag / 重複 key を拒否)
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.1.0",
+    "mypy>=1.7.0",
+]
+# 個別モジュール用（軽量インストール対応）
+db = [
+    "asyncpg>=0.29.0",
+    "azure-identity>=1.15.0",
+]
+rag = [
+    # 1.13.0 未満は QdrantClient が check_compatibility 引数を受け付けない
+    # （QdrantManager は auth / 非 auth 両経路でこの引数を渡す）
+    "qdrant-client>=1.13.0",
+    "openai>=1.0.0",
+]
+# ストレージはプロバイダー別にインストール可能
+storage = [
+    "azure-storage-blob>=12.19.0",
+    "boto3>=1.34.0",
+    "google-cloud-storage>=2.14.0",
+]
+storage-azure = [
+    "azure-storage-blob>=12.19.0",
+]
+storage-aws = [
+    "boto3>=1.34.0",
+]
+storage-gcp = [
+    "google-cloud-storage>=2.14.0",
+]
+# Marketplace runner（run_marketplace_agent）: DB + Webhook の両方を使う
+runner = [
+    "asyncpg>=0.29.0",
+    "azure-identity>=1.15.0",
+    "aiohttp>=3.9.0",
+]
+# 全部入り（既存互換）: 他の全 extra を包含すること
+all = [
+    "asyncpg>=0.29.0",
+    "azure-identity>=1.15.0",
+    "qdrant-client>=1.13.0",
+    "openai>=1.0.0",
+    "azure-storage-blob>=12.19.0",
+    "boto3>=1.34.0",
+    "google-cloud-storage>=2.14.0",
+    "mem0ai>=2.0.0,<3.0.0",
+    "aiohttp>=3.9.0",
+    # security extra の依存（欠けていると [all] でも GCPSecurityClient が使えない）
+    "google-cloud-dlp>=3.12.0",
+    "google-cloud-aiplatform>=1.60.0",
+]
+security = [
+    "httpx>=0.26.0",
+    "google-cloud-dlp>=3.12.0",
+    # Vertex AI Safety Filters (マーケットプレイス全リージョン対応 Content Safety, Refs #1952)
+    "google-cloud-aiplatform>=1.60.0",
+]
+# AWSSecurityClient (Comprehend / Bedrock Guardrails) 用。
+# security 本体には入れない — desktop ビルドは boto3 を意図的に外して -30MB 削減しており
+# ([storage-azure,security] を pin)、security に含めると再び太るため
+security-aws = [
+    "boto3>=1.34.0",
+]
+memory = [
+    "mem0ai>=2.0.0,<3.0.0",
+]
+# WebhookEventHandler 用（events ハンドラの外部 webhook 配信に必須）
+webhook = [
+    "aiohttp>=3.9.0",
+]
+# Local integration lab（python -m agenticstar_platform.lab）: db + rag + storage-aws の union
+lab = [
+    "asyncpg>=0.29.0",
+    "azure-identity>=1.15.0",
+    "qdrant-client>=1.13.0",
+    "openai>=1.0.0",
+    "boto3>=1.34.0",
+]
+
+[project.urls]
+Homepage = "https://developers.fd.agenticstar.tm.softbank.jp/"
+Documentation = "https://developers.fd.agenticstar.tm.softbank.jp/"
+Repository = "https://github.com/softbank/agenticstar-platform"
+"Developer Portal" = "https://developers.fd.agenticstar.tm.softbank.jp/"
+
+[tool.hatch.build.targets.wheel]
+packages = ["agenticstar_platform"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "C4", "UP"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

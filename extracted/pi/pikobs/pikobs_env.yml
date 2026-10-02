@@ -1,0 +1,46 @@
+# pikobs_env.yml -- the environment pikobs runs in.
+#
+#   . r.load.dot crd/ccrp/ssm/mamba_2026.02.18_all     # mamba, on the ECCC clusters
+#   mamba env create -p /path/to/env -f pikobs_env.yml
+#
+# Only what pikobs imports: the rest (pyproj, dateutil, pytz, psutil ...)
+# comes with these. One channel, conda-forge: mixing it with defaults is
+# what makes the solver slow and the geospatial packages clash.
+#
+# pikobs itself comes from GitLab, so a user gets the version the
+# documentation describes. Developers install their clone instead:
+#   pip install -e /path/to/Pikobs
+name: pikobs_env
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+
+  # maps, shapes and the shapefiles of the EMET domains
+  - cartopy=0.23.*
+  - shapely>=2.0
+  - pyshp
+
+  # numbers and figures
+  - numpy>=1.24,<2
+  - scipy>=1.10
+  - pandas>=2.0
+  - matplotlib>=3.8
+  - pillow
+
+  # parallel runs (brings dask.distributed and psutil)
+  - dask>=2024.1
+
+  # the log output
+  - rich
+
+  # to build the documentation as well, add these two:
+  #   - sphinx
+  #   - sphinx_rtd_theme
+
+  - pip:
+      # land / ocean split (zone, histogram, timeserie) and the coastlines
+      # of the region maps
+      - global-land-mask
+      - pikobs

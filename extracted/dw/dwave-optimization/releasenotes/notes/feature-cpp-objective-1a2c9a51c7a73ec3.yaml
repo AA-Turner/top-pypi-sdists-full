@@ -1,3 +1,0 @@
----
-features:
-  - Add C++ ``Graph::objective()`` method for accessing the current objective.

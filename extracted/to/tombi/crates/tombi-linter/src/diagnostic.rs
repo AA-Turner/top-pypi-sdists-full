@@ -20,7 +20,7 @@ pub enum DiagnosticKind {
 pub struct Diagnostic {
     pub kind: DiagnosticKind,
     pub level: tombi_config::SeverityLevel,
-    pub range: tombi_text::Range,
+    pub span: tombi_text::Span,
 }
 
 impl Diagnostic {
@@ -44,14 +44,14 @@ impl tombi_diagnostic::SetDiagnostics for Diagnostic {
                 diagnostics.push(tombi_diagnostic::Diagnostic::new_error(
                     self.kind.to_string(),
                     self.code(),
-                    self.range,
+                    self.span,
                 ));
             }
             tombi_config::SeverityLevel::Warn => {
                 diagnostics.push(tombi_diagnostic::Diagnostic::new_warning(
                     self.kind.to_string(),
                     self.code(),
-                    self.range,
+                    self.span,
                 ));
             }
             tombi_config::SeverityLevel::Off => {}

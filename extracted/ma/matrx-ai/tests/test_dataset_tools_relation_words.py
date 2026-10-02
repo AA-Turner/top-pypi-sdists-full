@@ -1,10 +1,9 @@
 """A `relation` cell reaches the model as a NAME, or the seam says so out loud.
 
-``usertable_get_data`` / ``usertable_search_data`` read the older user-data tables, where a
-``relation`` column STORES a record's id and MEANS that record's name. Every other server
-reader was routed through the one resolver by lane OLD-TABLES-3; these two could not be,
-because the resolver lives in matrx-records and matrx-records depends on matrx-ai. So the
-host injects it (``matrx_ai.configure(relation_words_resolver=...)``).
+``usertable_get_data`` / ``usertable_search_data`` read a table's rows, where a ``relation``
+column STORES a record's id and MEANS that record's name. The resolver lives in matrx-records
+and matrx-records depends on matrx-ai, so the host injects it
+(``matrx_ai.configure(relation_words_resolver=...)``).
 
 Two halves, and the second is the one that matters: an unwired host must get its page back
 UNCHANGED **and hear about it**. A silent pass-through is indistinguishable from a working
@@ -36,20 +35,28 @@ def _ctx() -> _Ctx:
     return _Ctx(call_id="call-1", tool_name="usertable_get_data")
 
 
-@pytest.fixture(autouse=True)
-def _stub_query(monkeypatch):
+_PAGE = [
+    {
+        "row_id": "44444444-4444-4444-8444-444444444444",
+        "data": {"account": _CUSTOMER_ID, "amount": "1200"},
+        "created_at": "2026-09-22",
+    }
+]
+
+
+class _Arm:
     """One stored page: a `relation` cell holding an id, beside an ordinary cell."""
 
-    def _run_query(name: str, params: dict):
-        return [
-            {
-                "id": "44444444-4444-4444-8444-444444444444",
-                "data": {"account": _CUSTOMER_ID, "amount": "1200"},
-                "created_at": "2026-09-22",
-            }
-        ]
+    async def get(self, table_id, **_kwargs):
+        return {"dataset_id": table_id, "rows": [dict(r, data=dict(r["data"])) for r in _PAGE]}
 
-    monkeypatch.setattr(datasets_tools, "_run_query", _run_query)
+    async def search(self, table_id, **_kwargs):
+        return [dict(r, data=dict(r["data"])) for r in _PAGE]
+
+
+@pytest.fixture(autouse=True)
+def _stub_store(monkeypatch):
+    monkeypatch.setattr(datasets_tools, "_store_arm", lambda: _Arm())
 
 
 @pytest.fixture(autouse=True)

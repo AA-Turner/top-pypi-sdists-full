@@ -1,0 +1,3293 @@
+import copy
+import hashlib
+import importlib
+import inspect
+import json
+import logging
+import os  # Added os
+import re
+import shutil
+import tempfile
+import time
+import unicodedata
+import uuid
+import zipfile
+from contextlib import contextmanager
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from importlib.metadata import version
+from pathlib import Path, PurePosixPath
+from typing import (
+    Any,
+    Dict,
+    Iterator,
+    List,
+    Literal,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+)
+
+import yaml
+from pydantic import BaseModel, Field, ValidationError, field_validator
+
+from local_operator.agent_profiles import (
+    SEED_ORIGIN_PREFIX,
+    SEED_SHA256_PREFIX,
+    SEED_VERSION_PREFIX,
+    is_sha256_hex,
+    is_specialist,
+    marker_value,
+    profile_from_agent,
+)
+from local_operator.jsonl import read_jsonl, write_jsonl
+from local_operator.model.suggestion import ModelNotice, resolve_model_suggestion
+from local_operator.optional import missing_extra_error
+from local_operator.paths import default_agent_cwd
+from local_operator.types import Schedule  # Keep existing Schedule import
+from local_operator.types import (
+    AgentState,
+    CodeExecutionResult,
+    ConversationRecord,
+    ConversationRole,
+    ExecutionType,
+    ProcessResponseStatus,
+)
+
+
+def _dill() -> Any:
+    """Import ``dill`` on demand for the pickled-context APIs.
+
+    Only ``save_agent_context`` / ``load_agent_context`` and the one-time
+    migration of legacy ``*_context.pkl`` files need it, and those are reached
+    exclusively from the HTTP API. Keeping the import here means the default
+    install — and every core exec-mode run — never pays for it.
+
+    ``dill`` rather than :mod:`pickle` because the saved context may hold
+    user-defined functions from the execution namespace, which stdlib pickle
+    cannot serialize.
+    """
+    try:
+        import dill
+    except ImportError as exc:
+        raise ImportError(
+            missing_extra_error("server", "Saving and loading pickled agent context")
+        ) from exc
+    return dill
+
+
+#: Fallback stem for an agent whose name carries no usable filename characters
+#: (a name that is entirely separators or dots). Yields ``agent.zip``.
+_DEFAULT_EXPORT_STEM = "agent"
+
+
+def _write_text_atomically(target: Path, text: str) -> None:
+    """Replace ``target`` in one step, so no reader ever sees a half-written file.
+
+    WHY THIS EXISTS, and why it is not decoration: a definition's two content files
+    are read by OTHER THREADS AND OTHER PROCESSES while they are being rewritten —
+    the relay's worker pool serves a mirrored row while a second peer's row lands,
+    and a session booting reads ``system_prompt.md`` — and ``open("w")`` truncates
+    before it writes. A reader in that window gets a short file: an empty
+    ``agent.yml`` marks the whole definition unreadable (``_scan_agents_metadata``
+    counts that as incomplete, and the strict path then refuses to launch ANY
+    profile), and a half-written ``system_prompt.md`` is instructions the user never
+    wrote. Staged beside the target — same directory, so ``os.replace`` is a rename
+    on one filesystem and cannot be observed midway.
+    """
+    temporary = target.with_name(f".{target.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp")
+    try:
+        # ``open`` (builtins) rather than ``Path.open``: a test that simulates a write
+        # failure patches the builtin, and ``pathlib`` reaches the io module directly,
+        # so a Path.open here would quietly stop that seam from working.
+        with open(temporary, "w", encoding="utf-8") as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, target)
+    finally:
+        if temporary.exists():
+            temporary.unlink(missing_ok=True)
+
+
+def _export_archive_filename(agent_name: str) -> str:
+    """Build a safe, human-readable ZIP filename from an agent name.
+
+    The agent name is **not** trusted input: ``import_agent`` preserves it
+    verbatim from a downloaded agent's ``agent.yml``, so a published agent can
+    carry a name like ``../../evil`` or ``/etc/passwd``. The filename used to
+    be the raw name with spaces substituted, which meant the archive was
+    written outside its ``mkdtemp()`` directory and, worse, that
+    ``zip_path.parent`` pointed at an unrelated directory the cleanup then
+    deleted.
+
+    Reducing the name to its basename is what makes that impossible.
+    Backslashes are folded to ``/`` first because the name travels inside an
+    archive between machines: the OS that wrote ``..\\..\\evil`` is not
+    necessarily the OS that reads it, and POSIX treats a backslash as an
+    ordinary character. Names that reduce to nothing usable (``..``, ``/``,
+    ``.``) fall back to a fixed stem so the export still produces a real file
+    rather than a bare ``.zip`` or a directory reference.
+
+    The space-to-underscore substitution is preserved: ordinary names like
+    ``My Agent`` must keep yielding ``My_Agent.zip``.
+
+    Args:
+        agent_name (str): The agent's display name, untrusted.
+
+    Returns:
+        str: A basename-only ``<stem>.zip`` filename, never a path.
+    """
+    # Normalise Windows separators before taking the basename so that
+    # PurePosixPath sees them as separators rather than name characters.
+    normalized = agent_name.replace("\\", "/").replace(" ", "_")
+    stem = PurePosixPath(normalized).name
+
+    # ``PurePosixPath('..').name`` is '..' and ``'/'.name`` is '' — neither is
+    # a usable filename, so degenerate names take the fallback stem.
+    if not stem or set(stem) == {"."}:
+        stem = _DEFAULT_EXPORT_STEM
+
+    return f"{stem}.zip"
+
+
+#: An agent id is a DIRECTORY NAME under ``agents_dir``: ``save_agent`` does
+#: ``agents_dir / agent_metadata.id`` with ``mkdir(parents=True)``, and the twelve
+#: other reads/writes in this module join the same value onto the same root. So an
+#: id is not a label, it is a path — and it arrives from outside this process in
+#: two places the user never types: the mesh's definition sync (`network/
+#: definitions.py` installs a peer's row under the ORIGIN's id) and an imported
+#: export archive. ``"../../../../escaped-agent"`` is a complete agent directory
+#: four levels above ``agents/``, which is why this is a validator on the model
+#: rather than a convention at the call sites.
+#:
+#: The rule is ``teams.validate_team_id``'s, deliberately the same characters and
+#: the same bounds: both registries name a directory under the same config root,
+#: both are fed by the same wire, and a stricter or looser copy here would mean one
+#: of the two accepts a value the other refuses.
+_AGENT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+
+
+def validate_agent_id(agent_id: str) -> str:
+    """Return an id that is exactly one safe filesystem path segment.
+
+    Raises ``ValueError`` for anything a directory name must not be: a separator,
+    a relative step (``.``/``..``), an empty string, a leading hyphen/dot/
+    underscore, non-ASCII, or an over-long value.
+
+    THIS IS THE RULE FOR A VALUE ARRIVING FROM OUTSIDE (a create, an imported
+    archive, a row mirrored from a peer). The READ path uses
+    :func:`validate_agent_id_segment` instead -- see that function for why the two
+    must not be the same rule (review round 2: applying this one on the read path
+    made a pre-existing row unreadable, which took the whole registry down with it).
+    """
+    candidate = agent_id or ""
+    if not _AGENT_ID_RE.fullmatch(candidate) or candidate in {".", ".."}:
+        raise ValueError(
+            "agent id must be 1-128 characters of letters, digits, dot, "
+            "underscore or hyphen, start with a letter or digit, and contain no path "
+            "separators"
+        )
+    return candidate
+
+
+def validate_agent_id_segment(agent_id: str) -> str:
+    """Return an id that is exactly one path segment, with no charset rule.
+
+    WHY THIS IS NOT ``validate_agent_id``. A row that is already on disk cannot be
+    told to satisfy a rule invented after it was written, and refusing to READ one
+    is not a refusal -- it is a registry that cannot be read at all:
+    ``_scan_agents_metadata`` counts an unreadable definition as incomplete,
+    ``require_complete_metadata`` then raises ``ProfileRegistryUnavailable``, and
+    that is the first call ``resolve_create_identity`` makes, so a device holding
+    one pre-#643 row could not receive ANY session create (measured: 3 of 5 rows
+    dropped, every create refused).
+
+    The property the read path actually needs is the SAFETY one -- the value is one
+    segment, so nothing it is joined onto can leave ``agents_dir`` -- and every
+    directory that exists under ``agents_dir`` necessarily satisfies it, so this
+    rule cannot reject a row that is really there. The charset rule stays where a
+    value from OUTSIDE becomes a directory name (``save_agent``, the mirrored-row
+    apply, an import's fresh id); a legacy id that fails it is LISTED and reported
+    as a repair (see ``_scan_agents_metadata``'s warning) rather than dropped.
+
+    A backslash is NOT rejected here, deliberately: on this platform it is an
+    ordinary filename character, so a local directory may legitimately contain one,
+    and the strict rule (which excludes it) is what a mirrored row must pass.
+    """
+    candidate = agent_id or ""
+    if not candidate or candidate in {".", ".."} or "/" in candidate:
+        raise ValueError("agent id must be one path segment and cannot be '.' or '..'")
+    return candidate
+
+
+def is_conforming_agent_id(agent_id: str) -> bool:
+    """Does this id satisfy the CURRENT rule (the one a new write must satisfy)?"""
+    try:
+        validate_agent_id(agent_id)
+    except ValueError:
+        return False
+    return True
+
+
+class AgentData(BaseModel):
+    """
+    Pydantic model representing an agent's metadata.
+    """
+
+    id: str = Field(..., description="Unique identifier for the agent")
+
+    @field_validator("id")
+    @classmethod
+    def _validate_id(cls, value: str) -> str:
+        # THE LENIENT RULE, on purpose: this validator runs on the READ path too
+        # (``_scan_agents_metadata`` builds every row through this model), so the
+        # strict charset rule belongs at the write boundaries, not here. See
+        # ``validate_agent_id_segment`` for the measurement behind that split.
+        return validate_agent_id_segment(value)
+
+    name: str = Field(..., description="Agent's name")
+    created_date: datetime = Field(..., description="The date when the agent was created")
+    version: str = Field(..., description="The version of the agent")
+    security_prompt: str = Field(
+        "",
+        description="The security prompt for the agent.  Allows a user to explicitly "
+        "specify the security context for the agent's code security checks.",
+    )
+    hosting: str = Field(
+        "",
+        description="The hosting environment for the agent.  Defaults to ''.",
+    )
+    model: str = Field(
+        "",
+        description="The model to use for the agent.  Defaults to ''.",
+    )
+    description: str = Field(
+        "",
+        description="A description of the agent.  Defaults to ''.",
+    )
+    tags: List[str] = Field(
+        default_factory=list,
+        description="Tags for the agent.  Defaults to an empty list.",
+    )
+    categories: List[str] = Field(
+        default_factory=list,
+        description="Categories for the agent.  Defaults to an empty list.",
+    )
+    last_message: str = Field(
+        "",
+        description="The last message sent to the agent.  Defaults to ''.",
+    )
+    last_message_datetime: datetime = Field(
+        datetime.now(timezone.utc),
+        description="The date and time of the last message sent to the agent.  "
+        "Defaults to the current UTC time.",
+    )
+    temperature: Optional[float] = Field(
+        None, ge=0.0, le=1.0, description="Controls randomness in responses"
+    )
+    top_p: Optional[float] = Field(
+        None, ge=0.0, le=1.0, description="Controls cumulative probability of tokens to sample from"
+    )
+    top_k: Optional[int] = Field(None, description="Limits tokens to sample from at each step")
+    max_tokens: Optional[int] = Field(None, description="Maximum tokens to generate")
+
+    @field_validator("max_tokens", mode="before")
+    @classmethod
+    def _read_a_stored_max_tokens(cls, value: Any) -> Any:
+        """Read a persisted non-positive ``max_tokens`` as "no ask", not as a cap.
+
+        This field is STORED, and it was unbounded for the whole life of the
+        file, so a record written while ``0`` was accepted carries one. Every
+        read path hands it to ``ChatRequest`` -- ``server/utils/operator.py``
+        directly, ``server/routes/speech.py`` through ``configure_model`` -- and
+        that contract is ``ge=1``, so such a record raised ``ValidationError`` on
+        every call, where ``main`` asked the model's advertised capability (its
+        wire clamp used ``or``, for which ``0`` was falsy).
+
+        Normalising here keeps that legacy reading: ``0`` meant "no ask of my
+        own" then, and it means the same now -- the bound is the contract's.
+        Bounding the field instead would move the same record's failure to LOAD
+        time, because ``AgentRegistry._scan_agents_metadata`` validates every
+        stored agent, and that loses the agent rather than the ask. Nothing
+        re-creates a ``0``: new records are written through
+        :class:`AgentEditFields`, which rejects it (review R2-m2).
+        """
+        if isinstance(value, int) and not isinstance(value, bool) and value < 1:
+            return None
+        return value
+
+    stop: Optional[List[str]] = Field(
+        None, description="List of strings that will stop generation when encountered"
+    )
+    frequency_penalty: Optional[float] = Field(
+        None, description="Reduces repetition by lowering likelihood of repeated tokens"
+    )
+    presence_penalty: Optional[float] = Field(
+        None, description="Increases diversity by lowering likelihood of prompt tokens"
+    )
+    seed: Optional[int] = Field(None, description="Random number seed for deterministic generation")
+    current_working_directory: str = Field(
+        ".",
+        description="The current working directory for the agent.  Updated whenever the "
+        "agent changes its working directory through code execution.  Defaults to '.'",
+    )
+
+
+class AgentEditFields(BaseModel):
+    """
+    Pydantic model representing an agent's edit metadata.
+    """
+
+    name: str | None = Field(None, description="Agent's name")
+    security_prompt: str | None = Field(
+        None,
+        description="The security prompt for the agent.  Allows a user to explicitly "
+        "specify the security context for the agent's code security checks.",
+    )
+    hosting: str | None = Field(
+        None,
+        description="The hosting environment for the agent.  Defaults to 'openrouter'.",
+    )
+    model: str | None = Field(
+        None,
+        description="The model to use for the agent.  Leave it unset to start on the "
+        "hosting provider's SUGGESTED model, resolved from "
+        "local_operator.model.defaults when neither an agent nor the config names "
+        "one; a provider with no suggestion is an error rather than a guess.",
+    )
+    description: str | None = Field(
+        None,
+        description="A description of the agent.  Defaults to ''.",
+    )
+    tags: List[str] | None = Field(
+        None,
+        description="Tags for the agent.  Defaults to an empty list.",
+    )
+    categories: List[str] | None = Field(
+        None,
+        description="Categories for the agent.  Defaults to an empty list.",
+    )
+    last_message: str | None = Field(
+        None,
+        description="The last message sent to the agent.  Defaults to ''.",
+    )
+    temperature: Optional[float] = Field(
+        None, ge=0.0, le=1.0, description="Controls randomness in responses"
+    )
+    top_p: Optional[float] = Field(
+        None, ge=0.0, le=1.0, description="Controls cumulative probability of tokens to sample from"
+    )
+    top_k: Optional[int] = Field(None, description="Limits tokens to sample from at each step")
+    # ``ge=1`` is the ingress half of the wire contract's own bound. ``0`` is
+    # not a value any request can hold (``ChatRequest.max_tokens`` is ``ge=1``)
+    # and it never meant "unlimited": the wire clamp read it as "nobody asked"
+    # and fell through to the model's published capability, which is the defect
+    # this PR bounds. Reject it where records are WRITTEN, and let
+    # :class:`AgentData` keep reading a legacy ``0`` as "no ask" for records
+    # that were written before that (review R2-m2).
+    max_tokens: Optional[int] = Field(None, ge=1, description="Maximum tokens to generate")
+    stop: Optional[List[str]] = Field(
+        None, description="List of strings that will stop generation when encountered"
+    )
+    frequency_penalty: Optional[float] = Field(
+        None, description="Reduces repetition by lowering likelihood of repeated tokens"
+    )
+    presence_penalty: Optional[float] = Field(
+        None, description="Increases diversity by lowering likelihood of prompt tokens"
+    )
+    seed: Optional[int] = Field(None, description="Random number seed for deterministic generation")
+    current_working_directory: str | None = Field(
+        None,
+        description="The current working directory for the agent.  Updated whenever the "
+        "agent changes its working directory through code execution.",
+    )
+
+
+def agent_name_key(name: str) -> str:
+    """The case- and whitespace-insensitive key two agent names collide on.
+
+    The registry's namespace is flat and shared by every row — roles,
+    specialists, ordinary conversational agents and autosave rows alike — while
+    :meth:`AgentRegistry.get_agent_by_name` is an EXACT, case-sensitive match.
+    ``Coder`` and ``coder`` can therefore coexist, and the name resolver then
+    picks one of them silently. So every place that asks "does this name already
+    exist?" on behalf of something the user did NOT type (an import, a pull, a
+    restore) compares keys rather than strings.
+
+    This is the LOCAL half of the hub's duplicate rule (cross-repo contract
+    §3.1) and has to stay compatible with the Go ``name_key`` in agent-server:
+    if the two diverged, the hub would refuse a name this side happily stores
+    (or the reverse) exactly where case or whitespace differs, which is the
+    case an author would reach for. NFKC folds compatibility codepoints
+    (fullwidth ``Ｃｏｄｅｒ`` becomes ``Coder``) and does NOT fold cross-script
+    confusables — Cyrillic ``Сoder`` stays distinct, a known squatting vector
+    the contract leaves open rather than folding names that differ by script.
+
+    Returns ``""`` for a blank name, which no caller should treat as a match:
+    a name is required, so an empty key means the caller has nothing to compare
+    rather than a collision with every other blank one.
+    """
+
+    normalized = unicodedata.normalize("NFKC", str(name or "")).strip().lower()
+    return " ".join(normalized.split())
+
+
+#: The longest legal agent name, and the ONE bound two validators already
+#: agree on: the hub's instruction-set validator (cross-repo contract §1.4,
+#: enforced with 422 ``invalid_instruction_set``) and this repo's own profile
+#: routes (``server/routes/desktop_profiles.py`` — ``max_length=128`` on both
+#: the create and the mutation payloads). A name this side invents has to fit
+#: both, or a pull produces a row the user can never publish.
+MAX_AGENT_NAME_CHARS = 128
+
+
+def _collision_free_name(name: str, suffix: int) -> str:
+    """The ``<base>-<n>`` candidate, truncated to stay within the name cap.
+
+    A module-level function, not a closure, because the name it produces is
+    tested against the registry and then stored: one construction path is what
+    keeps the tested name and the stored name from drifting apart.
+
+    The suffix is never truncated. ``MAX_AGENT_NAME_CHARS - len(tail)`` is at
+    least 1 for any suffix a registry could reach (a 127-digit suffix would
+    need more rows than the collection can hold), so the result is a legal name
+    at the cap rather than one over it.
+    """
+
+    tail = f"-{suffix}"
+    return f"{name[: MAX_AGENT_NAME_CHARS - len(tail)]}{tail}"
+
+
+def agents_store_present(config_root: Path) -> bool:
+    """Whether an agents store exists for ``AgentRegistry`` to be built over.
+
+    The reader-side test for launch-path callers that must NOT create one:
+    ``AgentRegistry.__init__`` creates ``config_dir`` and ``config_dir/agents``
+    (and then runs both migrations), so a caller that only resolves a NAME
+    has to decide from what is already on disk. Both store shapes count —
+    the per-agent directory tree, and the legacy single ``agents.json`` the
+    registry reads and migrates — so a legacy root keeps resolving its
+    registered roles instead of being reported as "no declaration".
+    """
+    return (config_root / "agents").exists() or (config_root / "agents.json").exists()
+
+
+# -- hub provenance ----------------------------------------------------------
+#
+# A row pulled from the Radient Agent Hub used to be an orphan: ``import_agent``
+# deliberately mints a FRESH local uuid and stores no marketplace id, so "pull
+# the latest of what I have" had nothing to key on (design §9.1). These two
+# tags are that key, written by :meth:`AgentRegistry.download_agent_from_radient`
+# at pull time and read by :func:`sync_hub_agents`.
+
+#: Tag prefix recording the marketplace agent id a row was pulled FROM, e.g.
+#: ``hub:9f2c…``. Unlike the seed ``seed:`` marker, the value cannot be
+#: cross-checked against the row (a marketplace id is not the row's name), so
+#: it is validated for SHAPE only and always treated as a re-fetch SUGGESTION,
+#: never as authority to write: the tags array is writable through the desktop
+#: routes, agent import and the tool itself, and applying an update still goes
+#: through the same divergence policy as seeds.
+HUB_ORIGIN_PREFIX = "hub:"
+
+#: Tag prefix recording the sha256 fingerprint of the pulled instruction text
+#: and description as they were AT PULL TIME, e.g. ``hub_sha256:9f2c…`` (see
+#: :func:`hub_fingerprint`). This is what makes "locally edited since the pull"
+#: decidable — without it, a fetched text that differs from the row could be an
+#: upstream change or a local edit, and the two are the whole difference
+#: between an update and a refusal.
+HUB_SHA256_PREFIX = "hub_sha256:"
+
+#: The marketplace id grammar (design §9.2): conservative on purpose, because
+#: the value is echoed into a URL path by ``download_agent_from_marketplace``.
+_HUB_ID_RE = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
+
+#: Every tag prefix that records where a row came FROM rather than what it
+#: SAYS: the seed markers (installed from a packaged starter) and the hub
+#: markers (pulled from a marketplace listing). ONE list, shared by the import
+#: choke point that strips them and the publish filter that must not ship them
+#: — a second spelling is how one surface would keep a leak the other closed.
+PROVENANCE_TAG_PREFIXES: tuple[str, ...] = (
+    SEED_ORIGIN_PREFIX,
+    SEED_VERSION_PREFIX,
+    SEED_SHA256_PREFIX,
+    HUB_ORIGIN_PREFIX,
+    HUB_SHA256_PREFIX,
+)
+
+
+def strip_provenance_tags(tags: Any) -> Any:
+    """``tags`` with every provenance marker removed; anything else untouched.
+
+    THE import gate (agent review round 1, B1). An archive is untrusted input,
+    and these markers are the trust anchors ``sync``/``reset`` key on: ``hub:``
+    decides which listing a re-fetch reads, and ``*_sha256:`` is taken as proof
+    that the copy is unedited — so persisting an archive's copy of either let a
+    published file plant a baseline and have the next no-force sync overwrite
+    the row with text of its author's choosing. Provenance is EARNED at install
+    or pull, never imported: the trusted writers re-stamp their own markers
+    after import (``install_seed``, :meth:`AgentRegistry._stamp_hub_provenance`).
+
+    A non-list value is passed through to ``AgentData``'s own validation rather
+    than coerced here: a malformed ``tags:`` should be refused, not silently
+    emptied.
+    """
+
+    if not isinstance(tags, list):
+        return tags
+    return [
+        str(tag) for tag in tags if not str(tag).strip().lower().startswith(PROVENANCE_TAG_PREFIXES)
+    ]
+
+
+#: The one sentence every credential-less hub verdict carries. The sync run
+#: never fails for absence of a Radient credential — it reports this per row
+#: and keeps the seed arm working (design §9.2).
+NO_HUB_CREDENTIAL_REASON = (
+    "no Radient credential is available (set RADIENT_API_KEY or sign in with `lop login`)"
+)
+
+
+def hub_origin(agent: "AgentData") -> str | None:
+    """The marketplace agent id a row was pulled FROM, or None when unrecorded.
+
+    The FIRST tag carrying the prefix decides, like :func:`agent_profiles.seed_origin`:
+    a malformed marker is reported (the row still shows up as "not recorded",
+    which is the safe answer) rather than skipped so that a later tag could
+    claim the row. Marker resolution itself is shared with the seed side
+    (:func:`agent_profiles.marker_value`; review round 1, n2).
+    """
+
+    hub_id = marker_value(agent, HUB_ORIGIN_PREFIX)
+    if hub_id is None:
+        return None
+    if _HUB_ID_RE.match(hub_id):
+        return hub_id
+    logging.warning(
+        "ignoring hub provenance tag %r on agent %r: not a marketplace id",
+        f"{HUB_ORIGIN_PREFIX}{hub_id}",
+        getattr(agent, "name", None),
+    )
+    return None
+
+
+def hub_fingerprint(instructions: str, description: str) -> str:
+    """The sha256 of the pulled ``(instructions, description)`` — the sync baseline.
+
+    Deterministic by construction (``json.dumps`` of a fixed-order list of
+    strings, non-ASCII kept literal, separators pinned), and computed through
+    the SAME canonicalization :func:`sync_hub_agents` compares with, so the
+    baseline and the comparison cannot drift apart on whitespace.
+    """
+
+    payload = json.dumps(
+        [str(instructions or "").strip(), str(description or "").strip()],
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+#: Local registry tags that ENCODE a profile field rather than tag the agent.
+#: ``role`` marks the row as a delegation role, and ``tools:``/``effort:``/
+#: ``delegate:`` carry fields the document publishes in their own right (the keys
+#: ``profile_from_agent`` decodes). Publishing them as tags as well would put this
+#: machine's registry encoding on the hub.
+PROFILE_ENCODING_TAG_KEYS = frozenset({"role", "tools", "effort", "delegate"})
+
+
+def instruction_set_fields(
+    agent_registry: "AgentRegistry", agent: "AgentData", overrides: Mapping[str, Any]
+) -> Dict[str, Any]:
+    """The document fields a local registry row publishes, before overrides.
+
+    WHY THIS MODULE BUILDS THE DOCUMENT AND NOT THE CALLERS: the instruction
+    body lives here -- in the agent's ``system_prompt.md`` -- so a
+    caller-assembled document would be a second, drifting copy of the
+    local-to-hub mapping. A caller supplies through ``overrides`` only what it
+    actually edits (the desktop renderer's dialog fields); everything else comes
+    from the row the user is looking at. Both publication surfaces -- the local
+    server's publish route and the CLI's org push -- share this function so
+    "the same agent" cannot publish two different documents depending on which
+    one ran.
+
+    The body is read unbounded here on purpose: a publication must not be
+    truncated, because a body silently cut short is a document the author never
+    wrote, published under their name. The document builder's own cap refuses an
+    oversized body with the rule the hub would use.
+    """
+
+    profile = profile_from_agent(agent_registry, agent)
+    instructions = agent_registry.get_agent_system_prompt(agent.id) or ""
+
+    fields: Dict[str, Any] = {
+        "name": agent.name,
+        "description": str(agent.description or ""),
+        "instructions": instructions,
+        # Locally, role and specialist are a registry tag and a category; the hub
+        # has one explicit `kind`. A row that is neither is published as a role: a
+        # published agent IS a role to whoever pulls it, and refusing it would
+        # leave the user unable to publish an agent for a reason the dialog cannot
+        # explain or offer a fix for.
+        "kind": "specialist" if is_specialist(agent) else "role",
+        # The AUTHOR's content version. Deliberately not the row's `version`, which
+        # records the local-operator release that wrote agent.yml: reusing it would
+        # publish an application version as the author's own. (A new document
+        # starts at 1.0.0; a caller that means a different revision supplies it
+        # as an override, exactly as the desktop republish dialog does.)
+        "version": "1.0.0",
+        "tags": [
+            str(tag)
+            for tag in (agent.tags or [])
+            if str(tag).partition(":")[0].strip().lower() not in PROFILE_ENCODING_TAG_KEYS
+            and not str(tag).strip().lower().startswith(PROVENANCE_TAG_PREFIXES)
+        ],
+    }
+    # `when_to_use` and `categories` are NOT derived. Locally a role stores its
+    # routing text AS the description (``profile_from_agent``), so sending both
+    # would publish one sentence twice; and the local category vocabulary is not
+    # the hub's -- `specialist` is a local kind marker, not one of the hub's
+    # categories -- so translating between them silently is the one thing neither
+    # side is allowed to do. The caller supplies them when it means them.
+    if profile.tools is not None:
+        fields["tools"] = list(profile.tools)
+    if profile.effort:
+        fields["effort"] = profile.effort
+    fields["delegate"] = profile.may_delegate
+    # The model suggestion is DERIVED from the row, never stored as its own field
+    # (design §3.1, OQ4): what this profile runs on HERE is exactly the pair
+    # launch resolution already prefers, so a pull that honoured a suggestion
+    # re-echoes it from `hosting`/`model` on the next push. Only a WHOLE pair is
+    # emitted -- "hosting with no model" would resolve to a different model per
+    # reader, which is not a recommendation.
+    hosting = str(agent.hosting or "").strip()
+    model = str(agent.model or "").strip()
+    if hosting and model:
+        fields["model_suggestion"] = {"hosting": hosting, "model": model}
+
+    fields.update(overrides)
+    return fields
+
+
+@dataclass(frozen=True)
+class AgentImport:
+    """What an archive import stored, and what it could not apply.
+
+    ``agent`` is the stored row. ``renamed_from`` is the published name
+    whenever the registry already held it (cross-repo contract §3.6).
+    ``model_notice`` is the carried, NON-BLOCKING report for a hub
+    ``model_suggestion`` this machine could not honour -- ``None`` when nothing
+    was suggested, or when the suggestion applied and was consumed into the
+    row's own ``hosting``/``model``. Every consumer renders the notice its own
+    way, and an absent notice while everything else succeeded is the ordinary
+    case, not a failure.
+    """
+
+    agent: AgentData
+    renamed_from: Optional[str] = None
+    model_notice: Optional[ModelNotice] = None
+
+
+class AgentRegistry:
+    """
+    Registry for managing agents and their conversation histories.
+
+    This registry loads agent metadata from agent.yml files located in subdirectories
+    of the agents directory.
+    Each agent has its own directory with the agent ID as the directory name.
+    Agent data is stored in separate files within the agent directory:
+    - agent.yml: Agent configuration
+    - conversation.jsonl: Conversation history
+    - execution_history.jsonl: Execution history
+    - learnings.jsonl: Learnings from the conversation
+    - schedules.jsonl: Scheduled tasks for the agent
+    - context.pkl: Agent context
+    """
+
+    config_dir: Path
+    agents_dir: Path
+    agents_file: Path
+    _agents: Dict[str, AgentData]
+    _last_refresh_time: float
+    _refresh_interval: float
+    _incomplete_agent_dirs: List[Path]
+
+    def __init__(self, config_dir: Path, refresh_interval: float = 5.0) -> None:
+        """
+        Initialize the AgentRegistry, loading metadata from agent.yml files.
+
+        Args:
+            config_dir (Path): Directory containing the agents directory
+            refresh_interval (float): Time in seconds between refreshes of agent data from disk
+        """
+        self.config_dir = config_dir
+        if not self.config_dir.exists():
+            self.config_dir.mkdir(parents=True, exist_ok=True)
+
+        self.agents_dir = self.config_dir / "agents"
+        if not self.agents_dir.exists():
+            self.agents_dir.mkdir(parents=True, exist_ok=True)
+
+        # For backward compatibility
+        self.agents_file: Path = self.config_dir / "agents.json"
+
+        self._agents: Dict[str, AgentData] = {}
+        self._metadata_complete = True
+        # Concrete directories whose agent.yml could not be read/parsed/validated.
+        # Kept so the strict path can name what to repair: the user-facing error
+        # otherwise says "repair unreadable definitions" while naming none of them.
+        self._incomplete_agent_dirs: List[Path] = []
+        self._last_refresh_time = time.time()
+        self._refresh_interval = refresh_interval
+
+        # Migrate old agents if needed
+        self.migrate_agents_dir()
+        self.migrate_legacy_agents()
+
+        # Load agent metadata
+        self._load_agents_metadata()
+
+    #: Files ``save_agent`` creates alongside ``agent.yml``. Their presence is
+    #: what distinguishes "an agent whose definition vanished" from "a
+    #: directory that was never an agent" -- see :meth:`_claims_to_be_an_agent`.
+    _AGENT_DATA_NAMES = (
+        "conversation.jsonl",
+        "execution_history.jsonl",
+        "learnings.jsonl",
+        "schedules.jsonl",
+        "context.pkl",
+        "current_plan.txt",
+        "instruction_details.txt",
+        "system_prompt.md",
+    )
+
+    @classmethod
+    def _claims_to_be_an_agent(cls, agent_dir: Path) -> bool:
+        """Does this directory assert that an agent lives here?
+
+        The predicate behind the completeness rule, and it must answer
+        "cannot prove otherwise" as YES. Asking ``Path.exists()`` instead was a
+        silent-substitution hole: it follows symlinks and swallows ``OSError``,
+        so a directory that unambiguously holds an agent took the "not an agent
+        at all" branch whenever the target failed to resolve -- a dangling
+        ``agent.yml`` symlink, a symlink loop, or an unreadable parent. The
+        strict path then reported a clean registry, ``resolve_profile`` found no
+        row, and the operator silently ran the PACKAGED role of the same name
+        with none of their edits. ``os.path.lexists`` alone is not enough
+        either: it is ``False`` for both of the ``agent.yml``-genuinely-absent
+        cases below and, being ``lstat``-with-``except OSError``, it reports a
+        ``chmod 000`` parent as "no agent here".
+
+        Two independent signals, either of which means "agent":
+
+        1. **The ``agent.yml`` NAME is taken.** ``lstat`` does not follow the
+           link, so a dangling symlink and a loop both answer yes and land in
+           the unreadable bucket rather than the skip bucket. Only ``ENOENT``
+           proves the name free; any other ``OSError`` (``EACCES`` on the
+           parent, ``ENOTDIR``) means we cannot prove absence, and guessing
+           "absent" is the unsafe guess.
+        2. **Agent data files remain.** ``agent.yml`` can be genuinely gone
+           while the agent's history is still on disk -- an interrupted
+           ``migrate_agents_dir`` copy, or a user who deleted the wrong file.
+           That is a definition that failed to read, not an empty directory,
+           and it must keep raising exactly as it did before this rule existed.
+
+        A directory that answers no to both is not an agent: the drained legacy
+        ``agents/agents/``, a stray temp dir, a ``.DS_Store``.
+        """
+        try:
+            os.lstat(agent_dir / "agent.yml")
+            return True
+        except FileNotFoundError:
+            pass  # Name is genuinely free; fall through to the data-file probe.
+        except OSError:
+            return True
+
+        for name in cls._AGENT_DATA_NAMES:
+            try:
+                os.lstat(agent_dir / name)
+                return True
+            except FileNotFoundError:
+                continue
+            except OSError:
+                return True
+        return False
+
+    def _scan_agents_metadata(self) -> Tuple[Dict[str, AgentData], List[Path]]:
+        """Read every agent definition under ``agents_dir``.
+
+        Returns the agents read and the directories that hold an agent which
+        could not be read, parsed or validated.
+
+        Completeness means "every agent definition I could see, I read
+        successfully" -- NOT "every directory here looks like an agent". A
+        subdirectory that does not claim to be an agent at all (see
+        :meth:`_claims_to_be_an_agent`) is not a failed read, so it is skipped
+        without touching completeness. Counting it as incomplete permanently
+        bricked profile launch and team attach on any machine carrying the
+        empty legacy ``agents/agents/`` directory that ``migrate_agents_dir``
+        used to leave behind: the strict path raised forever, and the advice it
+        gave ("repair unreadable agent definitions") named nothing the user
+        could act on because every real definition was in fact fine.
+
+        A directory that DOES claim to be an agent and fails to load still
+        counts as incomplete. That is a genuine unreadable definition, and the
+        strict path must keep failing loudly for it -- silently skipping an
+        edited installed role would let ``resolve_profile`` fall through to the
+        packaged role of the same name and run something the user did not
+        choose (see :meth:`require_complete_metadata`).
+
+        Both this scan's callers go through here so the rule cannot drift
+        between the initial load and the periodic refresh; it previously
+        existed as two copies, and the bug above was present in both.
+        """
+        agents: Dict[str, AgentData] = {}
+        incomplete: List[Path] = []
+
+        # A vanished agents_dir yields an empty scan here rather than an error:
+        # this is also the TOLERANT path (``list_agents`` and friends), which
+        # has always answered "no agents" instead of raising. The strict path
+        # does not accept that answer and checks the directory itself -- see
+        # :meth:`require_complete_metadata`.
+        if not self.agents_dir.exists():
+            return agents, incomplete
+
+        for agent_dir in self.agents_dir.iterdir():
+            if not agent_dir.is_dir():
+                continue
+
+            agent_config_file = agent_dir / "agent.yml"
+            if not self._claims_to_be_an_agent(agent_dir):
+                # Not an agent directory: a stray temp dir, an editor artifact,
+                # or the drained legacy nested dir. Debug rather than warning --
+                # it is discoverable when someone goes looking, but it is not a
+                # fault and must not be reported to the user as one.
+                logging.debug(
+                    "Skipping non-agent directory in agents dir (no agent.yml): %s",
+                    agent_dir,
+                )
+                continue
+
+            try:
+                with agent_config_file.open("r", encoding="utf-8") as f:
+                    agent_data = yaml.safe_load(f)
+
+                agent = AgentData.model_validate(agent_data)
+                agents[agent.id] = agent
+                if not is_conforming_agent_id(agent.id):
+                    # A REPAIR SUGGESTION, NOT AN UNREADABLE DEFINITION (review round 2).
+                    # An id written before the current rule (``import_agent`` preserved
+                    # archive ids until 2026-09-05, #643) is still a directory under
+                    # ``agents_dir``, so it loads and it is listed here -- dropping it
+                    # took the whole registry down (incomplete -> ``ProfileRegistryUnavailable``
+                    # -> every create refused on a device whose definitions were fine).
+                    # What it does cost is mirroring: the strict rule at the receiving
+                    # boundary refuses it, so the row cannot cross to a peer until it is
+                    # repaired. Said here, by name, with the remedy.
+                    logging.warning(
+                        "Agent %r has an id that predates the current rule: it is listed "
+                        "and usable, but it cannot be mirrored to another device. Repair "
+                        "it by renaming %s and the 'id' in its agent.yml.",
+                        agent.id,
+                        agent_dir,
+                    )
+            except Exception as e:
+                incomplete.append(agent_dir)
+                logging.error(f"Invalid agent metadata in {agent_dir.name}: {str(e)}")
+
+        return agents, incomplete
+
+    def _load_agents_metadata(self) -> None:
+        """
+        Load agents' metadata from agent.yml files in the agents directory.
+        Each agent has its own directory with the agent ID as the directory name.
+
+        Raises:
+            Exception: If there is an error loading or parsing the agent metadata files
+        """
+        self._agents, self._incomplete_agent_dirs = self._scan_agents_metadata()
+        self._metadata_complete = not self._incomplete_agent_dirs
+
+    def create_agent(self, agent_edit_metadata: AgentEditFields) -> AgentData:
+        """
+        Create a new agent with the provided metadata and initialize its conversation history.
+
+        If no ID is provided, generates a random UUID. If no created_date is provided,
+        sets it to the current UTC time.
+
+        Args:
+            agent_edit_metadata (AgentEditFields): The metadata for the new agent, including name
+
+        Returns:
+            AgentData: The metadata of the newly created agent
+
+        Raises:
+            ValueError: If an agent with the provided name already exists
+            Exception: If there is an error saving the agent metadata or creating the
+                conversation history file
+        """
+        if not agent_edit_metadata.name:
+            raise ValueError("Agent name is required")
+
+        # Check if agent name already exists
+        for agent in self._agents.values():
+            if agent.name == agent_edit_metadata.name:
+                raise ValueError(f"Agent with name {agent_edit_metadata.name} already exists")
+
+        agent_metadata = AgentData(
+            id=str(uuid.uuid4()),
+            created_date=datetime.now(timezone.utc),
+            version=version("local-operator"),
+            name=agent_edit_metadata.name,
+            security_prompt=agent_edit_metadata.security_prompt or "",
+            hosting=agent_edit_metadata.hosting or "",
+            model=agent_edit_metadata.model or "",
+            description=agent_edit_metadata.description or "",
+            last_message=agent_edit_metadata.last_message or "",
+            tags=agent_edit_metadata.tags or [],
+            categories=agent_edit_metadata.categories or [],
+            last_message_datetime=datetime.now(timezone.utc),
+            temperature=agent_edit_metadata.temperature,
+            top_p=agent_edit_metadata.top_p,
+            top_k=agent_edit_metadata.top_k,
+            max_tokens=agent_edit_metadata.max_tokens,
+            stop=agent_edit_metadata.stop,
+            frequency_penalty=agent_edit_metadata.frequency_penalty,
+            presence_penalty=agent_edit_metadata.presence_penalty,
+            seed=agent_edit_metadata.seed,
+            current_working_directory=agent_edit_metadata.current_working_directory
+            or default_agent_cwd(),
+        )
+
+        return self.save_agent(agent_metadata)
+
+    def save_agent(self, agent_metadata: AgentData) -> AgentData:
+        """Save an agent's metadata to the registry.
+
+        THE ID RULE IS APPLIED HERE, AT THE WRITE BOUNDARY, and its strictness is
+        keyed on whether this row is NEW to this device:
+
+        * a fresh id (a create, an import's generated id, a row mirrored from a peer)
+          must satisfy the full charset rule -- this is the rule that stops a
+          sender-chosen id from becoming a path, and the one ``definitions._apply_agent``
+          also applies before it gets here;
+        * a row this device ALREADY holds is judged by the safety rule alone
+          (:func:`validate_agent_id_segment`). Otherwise a legacy row could be read but
+          never rewritten -- renaming it in the UI, or any metadata edit, would fail --
+          which is the same trap this split exists to avoid.
+
+        Args:
+            agent_metadata (AgentData): The metadata of the agent to save
+        """
+        # THE RULE, BEFORE ANYTHING REMEMBERS OR WRITES THIS ROW: a refusal must leave
+        # no trace, and the in-memory map is updated only once the id is accepted (a
+        # caller that catches the ValueError must not then find a phantom row).
+        agent_dir = self.agents_dir / agent_metadata.id
+        if agent_dir.exists():
+            validate_agent_id_segment(agent_metadata.id)
+        else:
+            validate_agent_id(agent_metadata.id)
+
+        # Add to in-memory agents
+        self._agents[agent_metadata.id] = agent_metadata
+
+        # Create agent directory if it doesn't exist
+        if not agent_dir.exists():
+            agent_dir.mkdir(parents=True, exist_ok=True)
+
+        # Save agent metadata to agent.yml
+        try:
+            _write_text_atomically(
+                agent_dir / "agent.yml",
+                yaml.dump(agent_metadata.model_dump(), default_flow_style=False),
+            )
+        except Exception as e:
+            # Remove from in-memory if file save fails
+            self._agents.pop(agent_metadata.id)
+            raise Exception(f"Failed to save agent metadata: {str(e)}")
+
+        # Create empty data files
+        try:
+            for filename in [
+                "conversation.jsonl",
+                "execution_history.jsonl",
+                "learnings.jsonl",
+                "schedules.jsonl",  # Added schedules.jsonl
+            ]:
+                file_path = agent_dir / filename
+                if not file_path.exists():
+                    file_path.touch()
+        except Exception as e:
+            # Clean up metadata if file creation fails
+            self._agents.pop(agent_metadata.id)
+            if agent_dir.exists():
+                shutil.rmtree(agent_dir)
+            raise Exception(f"Failed to create agent files: {str(e)}")
+
+        return agent_metadata
+
+    def update_agent(self, agent_id: str, updated_metadata: AgentEditFields) -> AgentData:
+        """
+        Edit an existing agent's metadata.
+
+        Args:
+            agent_id (str): The unique identifier of the agent to edit
+            updated_metadata (AgentEditFields): The updated metadata for the agent
+
+        Raises:
+            KeyError: If the agent_id does not exist
+            Exception: If there is an error saving the updated metadata
+        """
+        if agent_id not in self._agents:
+            raise KeyError(f"Agent with id {agent_id} not found")
+
+        current_metadata_obj = self._agents[agent_id]
+        original_cwd = current_metadata_obj.current_working_directory
+
+        # Determine if current_working_directory is being explicitly changed
+        prospective_changes = updated_metadata.model_dump(exclude_unset=True)
+        new_cwd_explicitly_set = prospective_changes.get("current_working_directory")
+
+        # Apply updates to current_metadata_obj
+        for field, value in prospective_changes.items():
+            if value is not None:  # Ensure we only process fields that were actually provided
+                setattr(current_metadata_obj, field, value)
+
+        if updated_metadata.last_message is not None:
+            current_metadata_obj.last_message_datetime = datetime.now(timezone.utc)
+
+        # Save agent metadata to agent.yml
+        agent_dir = self.agents_dir / agent_id
+        if not agent_dir.exists():
+            agent_dir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            with (agent_dir / "agent.yml").open("w", encoding="utf-8") as f:
+                yaml.dump(current_metadata_obj.model_dump(), f, default_flow_style=False)
+        except Exception as e:
+            logging.error(
+                f"Failed to save agent.yml for {agent_id}. In-memory state "
+                "might be inconsistent until next refresh."
+            )
+            raise Exception(f"Failed to save updated agent metadata: {str(e)}")
+
+        # After successful save of agent.yml, check if CWD was explicitly changed
+        final_cwd = current_metadata_obj.current_working_directory
+        if (
+            new_cwd_explicitly_set is not None
+            and Path(final_cwd).expanduser().resolve() != Path(original_cwd).expanduser().resolve()
+        ):
+            try:
+                agent_state = self.load_agent_state(agent_id)
+                now = datetime.now(timezone.utc)  # Use a single timestamp for both messages
+
+                # Add system message to conversation history
+                cwd_conversation_message = ConversationRecord(
+                    content=(
+                        "<system>Your working directory "
+                        f"has been changed to: {final_cwd}</system>"
+                    ),
+                    role=ConversationRole.USER,
+                    timestamp=now,
+                    should_summarize=False,
+                    ephemeral=False,
+                    summarized=False,
+                    is_system_prompt=False,
+                    files=None,
+                    should_cache=False,
+                )
+                if not isinstance(agent_state.conversation, list):
+                    logging.warning(
+                        f"agent_state.conversation for agent {agent_id} is "
+                        "not a list. Initializing."
+                    )
+                    agent_state.conversation = []
+                agent_state.conversation.append(cwd_conversation_message)
+
+                # Add info message to execution history
+                cwd_execution_message = CodeExecutionResult(
+                    message=f"The working directory was changed "
+                    f"from '{original_cwd}' to '{final_cwd}'.",
+                    status=ProcessResponseStatus.SUCCESS,
+                    execution_type=ExecutionType.INFO,
+                    role=ConversationRole.SYSTEM,
+                    timestamp=now,
+                    stdout="",
+                    stderr="",
+                    logging="",
+                    code="",
+                    formatted_print="",
+                    files=[],
+                    action=None,
+                )
+                if not isinstance(agent_state.execution_history, list):
+                    logging.warning(
+                        f"agent_state.execution_history for agent {agent_id} is "
+                        "not a list. Initializing."
+                    )
+                    agent_state.execution_history = []
+                agent_state.execution_history.append(cwd_execution_message)
+
+                self.save_agent_state(agent_id, agent_state)
+            except Exception as e:
+                logging.error(
+                    "Failed to update state (conversation/execution history) for CWD change "
+                    f"in agent {agent_id} (update_agent): {str(e)}"
+                )
+                # Log and continue, as the primary metadata update was successful.
+
+        return current_metadata_obj
+
+    def delete_agent(self, agent_id: str) -> None:
+        """
+        Delete an agent and its associated files.
+
+        Args:
+            agent_id (str): The unique identifier of the agent to delete.
+
+        Raises:
+            KeyError: If the agent_id does not exist
+            Exception: If there is an error deleting the agent files
+        """
+        if agent_id not in self._agents:
+            raise KeyError(f"Agent with id {agent_id} not found")
+
+        # Remove from in-memory dict
+        self._agents.pop(agent_id)
+
+        # Delete agent directory if it exists
+        agent_dir = self.agents_dir / agent_id
+        if agent_dir.exists():
+            try:
+                shutil.rmtree(agent_dir)
+            except Exception as e:
+                raise Exception(f"Failed to delete agent directory: {str(e)}")
+
+    def clone_agent(self, agent_id: str, new_name: str) -> AgentData:
+        """
+        Clone an existing agent with a new name, copying over all its files.
+
+        Args:
+            agent_id (str): The unique identifier of the agent to clone
+            new_name (str): The name for the new cloned agent
+
+        Returns:
+            AgentData: The metadata of the newly created agent clone
+
+        Raises:
+            KeyError: If the source agent_id does not exist
+            ValueError: If an agent with new_name already exists
+            Exception: If there is an error during the cloning process
+        """
+        # Check if source agent exists
+        if agent_id not in self._agents:
+            raise KeyError(f"Source agent with id {agent_id} not found")
+
+        original_agent = self._agents[agent_id]
+
+        # Create new agent with all fields from original agent
+        new_agent = self.create_agent(
+            AgentEditFields(
+                name=new_name,
+                security_prompt=original_agent.security_prompt,
+                hosting=original_agent.hosting,
+                model=original_agent.model,
+                description=original_agent.description,
+                tags=original_agent.tags,
+                categories=original_agent.categories,
+                last_message=original_agent.last_message,
+                temperature=original_agent.temperature,
+                top_p=original_agent.top_p,
+                top_k=original_agent.top_k,
+                max_tokens=original_agent.max_tokens,
+                stop=original_agent.stop,
+                frequency_penalty=original_agent.frequency_penalty,
+                presence_penalty=original_agent.presence_penalty,
+                seed=original_agent.seed,
+                current_working_directory=original_agent.current_working_directory,
+            )
+        )
+
+        # Copy all files from source agent directory to new agent directory
+        source_dir = self.agents_dir / agent_id
+        target_dir = self.agents_dir / new_agent.id
+
+        try:
+            # Copy all files from source directory to target directory
+            for source_file in source_dir.iterdir():
+                if source_file.is_file() and source_file.name != "agent.yml":
+                    # For JSONL files, only copy if they have content
+                    if source_file.suffix == ".jsonl" and source_file.stat().st_size == 0:
+                        continue
+
+                    target_file = target_dir / source_file.name
+                    shutil.copy2(source_file, target_file)
+
+            return new_agent
+        except Exception as e:
+            # Clean up if file copy fails
+            self.delete_agent(new_agent.id)
+            raise Exception(f"Failed to copy agent files: {str(e)}")
+
+    def _load_schedules(self, agent_dir: Path) -> List[Schedule]:
+        """Load schedules from schedules.jsonl."""
+        schedules_file = agent_dir / "schedules.jsonl"
+        schedules: List[Schedule] = []
+        if schedules_file.exists() and schedules_file.stat().st_size > 0:
+            try:
+                for record in read_jsonl(schedules_file):
+                    schedules.append(Schedule.model_validate(record))
+            except Exception as e:
+                logging.error(f"Failed to load schedules from {schedules_file}: {str(e)}")
+        return schedules
+
+    def _save_schedules(self, agent_dir: Path, schedules: List[Schedule]) -> None:
+        """Save schedules to schedules.jsonl."""
+        schedules_file = agent_dir / "schedules.jsonl"
+
+        try:
+            # Ensure the directory exists
+            schedules_file.parent.mkdir(parents=True, exist_ok=True)
+
+            # ``mode="json"`` first: schedules carry datetimes, which the JSON
+            # encoder rejects as-is.
+            write_jsonl(
+                schedules_file,
+                (schedule_item.model_dump(mode="json") for schedule_item in schedules),
+            )
+
+        except Exception as e:
+            logging.error(f"Failed to save schedules to {schedules_file}: {str(e)}")
+            # Optionally, re-raise or handle more gracefully
+            raise Exception(f"Failed to save schedules: {str(e)}") from e
+
+    def require_complete_metadata(self) -> None:
+        """Strict consumers must not mistake a skipped row for authoritative absence.
+
+        Legacy chat reads remain tolerant. Profile launch/catalogue reads opt in
+        because skipping an edited installed role could select a packaged role
+        of the same name. Recheck a failed snapshot so repair is immediately
+        retryable without replacing the session or waiting for cache expiry.
+
+        A snapshot that SUCCEEDS is still cached for ``refresh_interval``, so a
+        registry that breaks again is not noticed until the interval elapses.
+        That asymmetry is deliberate -- the recheck exists to make repair
+        retryable, not to re-stat the tree on every profile launch.
+        """
+        from local_operator.session.errors import ProfileRegistryUnavailable
+
+        try:
+            self._refresh_if_needed()
+            if not self._metadata_complete:
+                self._refresh_agents_metadata()
+        except OSError:
+            # Deliberately COUNTLESS: the scan died before it could attribute
+            # the failure to specific directories, so there is no number to
+            # report. ``errors.py`` allows the bare form for exactly this and
+            # for the far side of the transport.
+            raise ProfileRegistryUnavailable() from None
+
+        # "The agents directory is gone" is an unreadable registry, not an
+        # empty one. The tolerant scan answers zero agents for it (the callers
+        # there predate this rule and must keep working), but for the strict
+        # path zero-because-vanished is indistinguishable from zero-because-
+        # empty, and every role would then resolve to a packaged seed with no
+        # warning. ``__init__`` creates the directory, so this is only
+        # reachable when something removes it under a live registry.
+        if not self.agents_dir.exists():
+            logging.warning("Agent registry incomplete; agents dir is missing: %s", self.agents_dir)
+            raise ProfileRegistryUnavailable() from None
+
+        if not self._metadata_complete:
+            # The full paths go to the local log only. This error crosses the
+            # attach/HTTP transport boundary, where ``session/errors.py``
+            # admits an enumerated CATEGORY rather than owner-supplied prose --
+            # a filesystem path names the operator's home and their agents, so
+            # it must not ride along. Basenames are agent UUIDs (or a
+            # user-chosen directory name) and are equally not worth leaking, so
+            # only the COUNT is carried, which is enough for the user to know
+            # how many definitions to look for and for the log to name them.
+            logging.warning(
+                "Agent registry incomplete; unreadable agent definitions at: %s",
+                ", ".join(str(path) for path in self._incomplete_agent_dirs),
+            )
+            raise ProfileRegistryUnavailable(count=len(self._incomplete_agent_dirs))
+
+    def refresh_now(self) -> None:
+        """Force a metadata rescan NOW, bypassing ``_refresh_interval``.
+
+        ``Session._resolve_subagent_model`` calls this on the spawn/resume
+        path so a role pin written moments ago on ANY surface (the agent
+        editor, an import, another process) reaches the very next launch: the
+        ordinary reads refresh at most once per interval, and a launch is
+        exactly the moment where a stale view means the wrong model runs — or
+        the operator's pin is silently missed entirely. Repair of a failed
+        snapshot is the other caller-visible benefit: the next launch
+        re-stats the tree rather than answering from an aged cache.
+        """
+        self._refresh_agents_metadata()
+        self._last_refresh_time = time.time()
+
+    def _refresh_if_needed(self) -> None:
+        """
+        Refresh agent metadata from disk if the refresh interval has elapsed.
+        """
+        current_time = time.time()
+        if current_time - self._last_refresh_time > self._refresh_interval:
+            self._refresh_agents_metadata()
+            self._last_refresh_time = current_time
+
+    def _refresh_agents_metadata(self) -> None:
+        """
+        Reload agents' metadata from agent.yml files in the agents directory.
+        This is used to refresh the in-memory state with changes made by other processes.
+        """
+        refreshed_agents, incomplete = self._scan_agents_metadata()
+
+        # Update the in-memory agents dictionary
+        self._agents = refreshed_agents
+        self._incomplete_agent_dirs = incomplete
+        self._metadata_complete = not incomplete
+
+    def get_agent(self, agent_id: str) -> AgentData:
+        """
+        Get an agent's metadata by ID.
+
+        Args:
+            agent_id (str): The unique identifier of the agent.
+
+        Returns:
+            AgentData: The agent's metadata.
+
+        Raises:
+            KeyError: If the agent_id does not exist
+        """
+        # Refresh agent data from disk if needed
+        self._refresh_if_needed()
+
+        if agent_id not in self._agents:
+            raise KeyError(f"Agent with id {agent_id} not found")
+        return self._agents[agent_id]
+
+    def get_agent_by_name(self, name: str) -> AgentData | None:
+        """
+        Get an agent's metadata by name.
+
+        Args:
+            name (str): The name of the agent to find.
+
+        Returns:
+            AgentData | None: The agent's metadata if found, None otherwise.
+        """
+        # Refresh agent data from disk if needed
+        self._refresh_if_needed()
+
+        for agent in self._agents.values():
+            if agent.name == name:
+                return agent
+        return None
+
+    def resolve_import_name(self, name: str) -> Tuple[str, Optional[str]]:
+        """Pick the name an INCOMING profile lands under, and say if it changed.
+
+        Returns ``(destination_name, renamed_from)``, where ``renamed_from`` is
+        the incoming name only when the registry already held it.
+
+        An import, a pull and a restore are all cases where the user asked for
+        "that agent" and never typed its name locally, so the name is the part
+        they cannot negotiate: refusing the whole operation over it throws away
+        the thing they actually wanted, and storing a second row under a name
+        that is already there makes the resolver pick one of the two silently.
+        The suffix is visible, editable, and reversible, which is why the
+        contract chooses it (cross-repo contract §3.6).
+
+        The suffix is a HYPHEN (``Coder-2``), not the ``" (N)"`` spelling the
+        contract's prose used. That spelling is refused by BOTH validators in
+        the standard: the hub's name rule forbids whitespace (§1.4) and
+        ``write_profile`` refuses it too, so a ``"Coder (2)"`` row could
+        never be published — the pull would hand the user an agent the hub will
+        not take. Collisions are found with :func:`agent_name_key`, so ``coder``
+        blocks an incoming ``Coder``: the local namespace stays case-sensitive,
+        but two rows whose keys collide are exactly the pair the resolver cannot
+        tell apart. The candidate is built from the incoming name VERBATIM (not
+        from its key), so the stored and reported name keeps the published one.
+
+        The result always fits :data:`MAX_AGENT_NAME_CHARS`, because the cap is
+        the second half of the same defect: a hub-legal 128-character name plus
+        a suffix is 130 characters, which the hub refuses and the UI's §6.3
+        pre-validation would then reject with no explanation. The truncation
+        cuts the BASE and keeps the suffix — the suffix is what makes the name
+        free, so losing part of it would re-create the collision it exists to
+        avoid.
+
+        One implementation for both import paths: the legacy ZIP import and
+        the hub pull have to agree about what "already exists" means, or the
+        same archive lands under two different names depending on the route.
+        """
+
+        key = agent_name_key(name)
+        if not key:
+            # Nothing to compare against. ``AgentData.name`` is a bare
+            # required ``str``, so a blank or whitespace-only name really does
+            # import; what it must not do is "collide" with every other blank
+            # one, which is what returning a suffix here would mean.
+            return name, None
+
+        self._refresh_if_needed()
+        taken = {agent_name_key(agent.name) for agent in self._agents.values()}
+        if key not in taken:
+            return name, None
+
+        suffix = 2
+        candidate = _collision_free_name(name, suffix)
+        while agent_name_key(candidate) in taken:
+            suffix += 1
+            candidate = _collision_free_name(name, suffix)
+        return candidate, name
+
+    def list_agents(self) -> List[AgentData]:
+        """
+        Retrieve a list of all agents' metadata stored in the registry.
+
+        Returns:
+            List[AgentData]: A list of agent metadata objects.
+        """
+        # Refresh agent data from disk if needed
+        self._refresh_if_needed()
+
+        return list(self._agents.values())
+
+    def load_agent_state(self, agent_id: str) -> AgentState:
+        """
+        Load the conversation history for a specified agent.
+
+        The conversation history is stored in separate JSONL files in the agent's directory:
+        - conversation.jsonl: Conversation history
+        - execution_history.jsonl: Execution history
+        - learnings.jsonl: Learnings from the conversation
+        - schedules.jsonl: Scheduled tasks
+
+        Args:
+            agent_id (str): The unique identifier of the agent.
+
+        Returns:
+            AgentState: The agent's conversation data.
+                Returns an empty conversation if no conversation history exists or if
+                there's an error.
+        """
+        # Refresh agent data from disk if needed
+        self._refresh_if_needed()
+
+        if agent_id not in self._agents:
+            raise KeyError(f"Agent with id {agent_id} not found")
+
+        agent = self._agents[agent_id]
+        agent_dir = self.agents_dir / agent_id
+
+        # Initialize empty conversation data
+        conversation_records = []
+        execution_history_records = []
+        learnings_list = []
+        schedules_list: List[Schedule] = []  # Initialize schedules list
+        current_plan = None
+        instruction_details = None
+        agent_system_prompt = ""
+
+        if agent_dir.exists():
+            # Load conversation records
+            conversation_file = agent_dir / "conversation.jsonl"
+            if conversation_file.exists() and conversation_file.stat().st_size > 0:
+                try:
+                    for record in read_jsonl(conversation_file):
+                        conversation_records.append(ConversationRecord.model_validate(record))
+                except Exception as e:
+                    logging.error(f"Failed to load conversation records: {str(e)}")
+
+            # Load execution history records
+            execution_history_file = agent_dir / "execution_history.jsonl"
+            if execution_history_file.exists() and execution_history_file.stat().st_size > 0:
+                try:
+                    for record in read_jsonl(execution_history_file):
+                        execution_history_records.append(CodeExecutionResult.model_validate(record))
+                except Exception as e:
+                    logging.error(f"Failed to load execution history records: {str(e)}")
+
+            # Load learnings
+            learnings_file = agent_dir / "learnings.jsonl"
+            if learnings_file.exists() and learnings_file.stat().st_size > 0:
+                try:
+                    for record in read_jsonl(learnings_file):
+                        if isinstance(record, str):
+                            learnings_list.append(record)
+                        elif isinstance(record, dict) and "learning" in record:
+                            learnings_list.append(record["learning"])
+                except Exception as e:
+                    logging.error(f"Failed to load learnings: {str(e)}")
+
+            # Load schedules
+            schedules_list = self._load_schedules(agent_dir)
+
+            # Load plan and instruction details if they exist
+            plan_file = agent_dir / "current_plan.txt"
+            if plan_file.exists():
+                try:
+                    with plan_file.open("r", encoding="utf-8") as f:
+                        current_plan = f.read()
+                except Exception as e:
+                    logging.error(f"Failed to load current plan: {str(e)}")
+
+            instruction_file = agent_dir / "instruction_details.txt"
+            if instruction_file.exists():
+                try:
+                    with instruction_file.open("r", encoding="utf-8") as f:
+                        instruction_details = f.read()
+                except Exception as e:
+                    logging.error(f"Failed to load instruction details: {str(e)}")
+
+            try:
+                agent_system_prompt = self.get_agent_system_prompt(agent_id)
+            except Exception as e:
+                logging.error(f"Failed to load agent system prompt: {str(e)}")
+
+        # Create and return the conversation data
+        return AgentState(
+            version=agent.version,
+            conversation=conversation_records,
+            execution_history=execution_history_records,
+            learnings=learnings_list,
+            schedules=schedules_list,  # Pass loaded schedules
+            current_plan=current_plan,
+            instruction_details=instruction_details,
+            agent_system_prompt=agent_system_prompt,
+        )
+
+    def save_agent_state(
+        self,
+        agent_id: str,
+        agent_state: AgentState,
+    ) -> None:
+        """
+        Save the agent's state.
+
+        The agent's state is stored in separate files in the agent's directory:
+        - conversation.jsonl: Conversation history
+        - execution_history.jsonl: Execution history
+        - learnings.jsonl: Learnings from the conversation
+        - schedules.jsonl: Scheduled tasks
+        - current_plan.txt: Current plan text
+        - instruction_details.txt: Instruction details text
+
+        Args:
+            agent_id (str): The unique identifier of the agent.
+            agent_state (AgentState): The agent's state to save.
+        """
+        agent_dir = self.agents_dir / agent_id
+
+        # Create agent directory if it doesn't exist
+        if not agent_dir.exists():
+            agent_dir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            # Save conversation records
+            conversation_file = agent_dir / "conversation.jsonl"
+            write_jsonl(
+                conversation_file, (record.model_dump() for record in agent_state.conversation)
+            )
+
+            # Save execution history records
+            execution_history_file = agent_dir / "execution_history.jsonl"
+            write_jsonl(
+                execution_history_file,
+                (record.model_dump() for record in agent_state.execution_history),
+            )
+
+            # Save learnings
+            learnings_file = agent_dir / "learnings.jsonl"
+            write_jsonl(
+                learnings_file, ({"learning": learning} for learning in agent_state.learnings)
+            )
+
+            # Save schedules
+            self._save_schedules(agent_dir, agent_state.schedules)
+
+            # Save current plan if provided
+            if agent_state.current_plan is not None:
+                plan_file = agent_dir / "current_plan.txt"
+                with plan_file.open("w", encoding="utf-8") as f:
+                    f.write(agent_state.current_plan)
+
+            # Save instruction details if provided
+            if agent_state.instruction_details is not None:
+                instruction_file = agent_dir / "instruction_details.txt"
+                with instruction_file.open("w", encoding="utf-8") as f:
+                    f.write(agent_state.instruction_details)
+
+            if agent_state.agent_system_prompt is not None:
+                try:
+                    self.set_agent_system_prompt(agent_id, agent_state.agent_system_prompt)
+                except Exception as e:
+                    logging.error(f"Failed to save agent system prompt: {str(e)}")
+
+        except Exception as e:
+            raise Exception(f"Failed to save agent conversation: {str(e)}")
+
+    def create_autosave_agent(self) -> AgentData:
+        """
+        Create an autosave agent if it doesn't exist already.
+
+        Returns:
+            AgentData: The existing or newly created autosave agent
+
+        Raises:
+            Exception: If there is an error creating the agent
+        """
+        if "autosave" in self._agents:
+            return self._agents["autosave"]
+
+        agent_metadata = AgentData(
+            id="autosave",
+            name="autosave",
+            created_date=datetime.now(timezone.utc),
+            version=version("local-operator"),
+            security_prompt="",
+            hosting="",
+            model="",
+            description="Automatic capture of your last conversation with a Local Operator agent.",
+            last_message="",
+            last_message_datetime=datetime.now(timezone.utc),
+            tags=[],
+            categories=[],
+            temperature=None,
+            top_p=None,
+            top_k=None,
+            max_tokens=None,
+            stop=None,
+            frequency_penalty=None,
+            presence_penalty=None,
+            seed=None,
+            current_working_directory=".",
+        )
+
+        return self.save_agent(agent_metadata)
+
+    def get_autosave_agent(self) -> AgentData:
+        """
+        Get the autosave agent.
+
+        Returns:
+            AgentData: The autosave agent
+
+        Raises:
+            KeyError: If the autosave agent does not exist
+        """
+        return self.get_agent("autosave")
+
+    def update_autosave_conversation(
+        self, conversation: List[ConversationRecord], execution_history: List[CodeExecutionResult]
+    ) -> None:
+        """
+        Update the autosave agent's conversation.
+
+        Args:
+            conversation (List[ConversationRecord]): The conversation history to save
+            execution_history (List[CodeExecutionResult]): The execution history to save
+
+        Raises:
+            KeyError: If the autosave agent does not exist
+        """
+        return self.save_agent_state(
+            "autosave",
+            AgentState(
+                version=version("local-operator"),
+                conversation=conversation,
+                execution_history=execution_history,
+                learnings=[],
+                schedules=[],  # Add empty schedules for autosave
+                current_plan=None,
+                instruction_details=None,
+                agent_system_prompt="",
+            ),
+        )
+
+    def get_agent_conversation_history(self, agent_id: str) -> List[ConversationRecord]:
+        """
+        Get the conversation history for a specified agent.
+
+        Args:
+            agent_id (str): The unique identifier of the agent.
+
+        Returns:
+            List[ConversationRecord]: The conversation history as a list of ConversationRecord
+                objects.
+        """
+        return self.load_agent_state(agent_id).conversation
+
+    def get_agent_execution_history(self, agent_id: str) -> List[CodeExecutionResult]:
+        """
+        Get the execution history for a specified agent.
+
+        Args:
+            agent_id (str): The unique identifier of the agent.
+
+        Returns:
+            List[CodeExecutionResult]: The execution history as a list of CodeExecutionResult
+                objects.
+        """
+        return self.load_agent_state(agent_id).execution_history
+
+    def save_agent_context(self, agent_id: str, context: Any) -> None:
+        """Save the agent's context to a file.
+
+        This method serializes the agent's context using dill and saves it to a file
+        named "context.pkl" in the agent's directory. It handles unpicklable objects
+        by converting them to a serializable format, including Pydantic models and modules.
+
+        Args:
+            agent_id (str): The unique identifier of the agent.
+            context (Any): The context to save, which can be any object.
+
+        Raises:
+            KeyError: If the agent with the specified ID does not exist.
+            ImportError: If the ``server`` extra (which provides ``dill``) is
+                not installed.
+        """
+        # Bound once, up front: the per-value probes below swallow every
+        # exception, so a missing dill must fail here rather than silently
+        # reduce the whole context to nothing.
+        dill = _dill()
+
+        if agent_id not in self._agents:
+            raise KeyError(f"Agent with id {agent_id} not found")
+
+        # Create agent directory if it doesn't exist
+        agent_dir = self.agents_dir / agent_id
+        if not agent_dir.exists():
+            agent_dir.mkdir(parents=True, exist_ok=True)
+
+        context_file = agent_dir / "context.pkl"
+
+        def convert_unpicklable(obj: Any) -> Any:
+            if isinstance(obj, BaseModel):
+                # Convert Pydantic models to dictionaries
+                return {
+                    "__pydantic_model__": obj.__class__.__module__ + "." + obj.__class__.__name__,
+                    "data": convert_unpicklable(obj.model_dump()),
+                }
+            elif isinstance(obj, dict):
+                result = {}
+                for k, v in obj.items():
+                    # Always skip __builtins__ key to avoid serializing builtins
+                    if k == "__builtins__":
+                        continue
+                    # skip any built-in function or built-in class (always available in context)
+                    if (
+                        inspect.isbuiltin(v) or inspect.isroutine(v) or inspect.isclass(v)
+                    ) and getattr(v, "__module__", None) == "builtins":
+                        continue
+                    try:
+                        dill.dumps(k)
+                        converted = convert_unpicklable(v)
+                        if converted is not None:
+                            result[k] = converted
+                    except Exception:
+                        pass
+                return result
+            elif isinstance(obj, (list, tuple)):
+                return type(obj)(convert_unpicklable(x) for x in obj)
+            elif isinstance(obj, (int, float, str, bool, type(None))):
+                return obj
+            elif hasattr(obj, "__iter__") and hasattr(obj, "__next__"):
+                # Handle generator objects by converting to a list
+                try:
+                    return list(obj)
+                except Exception:
+                    return str(obj)
+            elif inspect.ismodule(obj):
+                # Handle modules by storing their name
+                return {"__module__": True, "name": obj.__name__}
+            elif callable(obj) and hasattr(obj, "__name__"):
+                # Preserve functions with a special marker
+                try:
+                    return {"__callable__": True, "function": dill.dumps(obj)}
+                except Exception as e:
+                    logging.warning(f"Failed to pickle function {obj.__name__}: {str(e)}")
+                    return str(obj)
+            else:
+                dill.dumps(obj)
+                return obj
+
+        try:
+            # Make a copy to avoid modifying the original
+            if hasattr(context, "copy"):
+                context_copy = context.copy()
+            else:
+                context_copy = copy.deepcopy(context)
+
+            # Remove tools if present as they often contain unpicklable objects
+            if isinstance(context_copy, dict):
+                context_copy.pop("tools", None)
+
+            serializable_context = convert_unpicklable(context_copy)
+
+            with context_file.open("wb") as f:
+                dill.dump(serializable_context, f)
+        except Exception as e:
+            logging.error(f"Failed to save agent context: {str(e)}")
+
+    def load_agent_context(self, agent_id: str) -> Any:
+        """Load the agent's context from a file.
+
+        This method deserializes the agent's context using dill from a file
+        named "context.pkl" in the agent's directory. It handles the reconstruction
+        of serialized Pydantic models, modules, and other transformed objects.
+
+        Args:
+            agent_id (str): The unique identifier of the agent.
+
+        Returns:
+            Any: The loaded context, or None if the context file doesn't exist.
+
+        Raises:
+            KeyError: If the agent with the specified ID does not exist.
+            ImportError: If the ``server`` extra (which provides ``dill``) is
+                not installed.
+        """
+        # Bound once, up front — see save_agent_context: the reconstruction
+        # probes below swallow exceptions, so a missing dill must surface here.
+        dill = _dill()
+
+        if agent_id not in self._agents:
+            raise KeyError(f"Agent with id {agent_id} not found")
+
+        agent_dir = self.agents_dir / agent_id
+        context_file = agent_dir / "context.pkl"
+
+        def reconstruct_objects(obj: Any) -> Any:
+            if isinstance(obj, dict) and "__pydantic_model__" in obj:
+                # Reconstruct Pydantic model
+                model_path = obj["__pydantic_model__"]
+                module_name, class_name = model_path.rsplit(".", 1)
+                try:
+                    module = importlib.import_module(module_name)
+                    model_class = getattr(module, class_name)
+                    return model_class.model_validate(reconstruct_objects(obj["data"]))
+                except (ImportError, AttributeError) as e:
+                    logging.error(f"Failed to reconstruct Pydantic model {model_path}: {str(e)}")
+                    return obj
+            elif isinstance(obj, dict) and "__module__" in obj and obj.get("__module__") is True:
+                # Reconstruct module
+                try:
+                    module_name = obj["name"]
+                    return importlib.import_module(module_name)
+                except ImportError as e:
+                    logging.error(f"Failed to import module {obj['name']}: {str(e)}")
+                    return None
+            elif (
+                isinstance(obj, dict) and "__callable__" in obj and obj.get("__callable__") is True
+            ):
+                # Reconstruct callable functions
+                try:
+                    return dill.loads(obj["function"])
+                except Exception as e:
+                    logging.error(f"Failed to reconstruct callable function: {str(e)}")
+                    return None
+            elif isinstance(obj, dict):
+                return {k: reconstruct_objects(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [reconstruct_objects(item) for item in obj]
+            elif isinstance(obj, tuple):
+                return tuple(reconstruct_objects(item) for item in obj)
+            else:
+                try:
+                    return dill.loads(obj)
+                except Exception:
+                    return obj
+
+        if context_file.exists():
+            try:
+                with context_file.open("rb") as f:
+                    loaded_context = dill.load(f)
+                    return reconstruct_objects(loaded_context)
+            except Exception as e:
+                logging.error(f"Failed to load agent context: {str(e)}")
+
+        # No context found
+        return None
+
+    def migrate_agents_dir(self) -> None:
+        """
+        Migrate nested agents into the right directory.
+
+        This method checks for agents in a nested 'agents/agents' directory structure
+        and moves them to the correct location in the agents directory.
+
+        The drained ``nested_dir`` is removed afterwards. Leaving it behind is
+        what created the litter this migration is now also responsible for
+        cleaning up: an empty ``agents/agents/`` survived indefinitely, and the
+        metadata scan used to count it as an unreadable agent (see
+        :meth:`_scan_agents_metadata`). Because ``__init__`` runs this
+        migration, an upgraded machine heals itself on the next start rather
+        than needing the user to find and delete the directory.
+        """
+        nested_dir = self.agents_dir / "agents"
+        if not nested_dir.exists():
+            return
+
+        for agent_dir in nested_dir.iterdir():
+            if agent_dir.is_dir():
+                agent_id = agent_dir.name
+                target_dir = self.agents_dir / agent_id
+
+                # Skip if the target directory already exists
+                if target_dir.exists():
+                    continue
+
+                created_target = False
+                try:
+                    # ``exist_ok`` is deliberately OFF: it is what makes the
+                    # rollback below provably safe. The check above already
+                    # skipped a pre-existing target, so reaching a
+                    # ``FileExistsError`` means another process created it in
+                    # the meantime -- and then it is not ours to remove.
+                    target_dir.mkdir(parents=True)
+                    created_target = True
+
+                    # ``agent.yml`` is copied LAST so a copy that dies partway
+                    # cannot leave a target that looks like a healthy agent
+                    # while its history is missing. Combined with the rollback
+                    # below, a torn migration is either fully undone or fully
+                    # visible -- never a definition-less directory that the
+                    # scan has to classify.
+                    sources = sorted(agent_dir.glob("*"), key=lambda path: path.name == "agent.yml")
+                    for file_path in sources:
+                        target_file = target_dir / file_path.name
+                        shutil.copy2(file_path, target_file)
+
+                    # Remove the original directory after successful migration
+                    shutil.rmtree(agent_dir)
+                    logging.info(f"Migrated agent {agent_id} from nested directory")
+                except Exception as e:
+                    logging.error(f"Failed to migrate agent {agent_id}: {str(e)}")
+                    # Roll the half-written target back so the next start
+                    # retries this agent from scratch. Without it the partial
+                    # directory is skipped forever by the ``target_dir.exists()``
+                    # check above, stranding the agent in the nested dir.
+                    #
+                    # This ``rmtree`` is safe where the one removing
+                    # ``nested_dir`` would not be, on two counts: every file
+                    # here is a COPY whose source is still intact (``agent_dir``
+                    # is only removed after the loop completes), and
+                    # ``created_target`` proves this directory was created by
+                    # this attempt, so no pre-existing agent data can be inside
+                    # it.
+                    if created_target:
+                        try:
+                            shutil.rmtree(target_dir)
+                        except OSError as cleanup_error:
+                            logging.error(
+                                "Failed to roll back partial migration of agent %s at %s: %s",
+                                agent_id,
+                                target_dir,
+                                cleanup_error,
+                            )
+
+        try:
+            # ``rmdir``, never ``rmtree``: it refuses a non-empty directory, so
+            # anything that did NOT migrate (a copy that raised, or a child
+            # whose target already existed) keeps its data AND keeps the
+            # directory visible for a human to resolve. Silently deleting
+            # unmigrated agent data would be far worse than the litter this
+            # removal exists to prevent, so the emptiness check is the
+            # filesystem's own and not a pre-flight listing that could race.
+            nested_dir.rmdir()
+            logging.info("Removed drained legacy nested agents directory")
+        except OSError:
+            # Non-empty (agents remain to migrate) or not removable. Both are
+            # states to leave alone: the next start retries the migration.
+            logging.debug(
+                "Legacy nested agents directory retained (not empty or not removable): %s",
+                nested_dir,
+            )
+
+    def migrate_legacy_agents(self) -> List[str]:
+        """
+        Migrate agents from the old format to the new format.
+
+        This method checks for the existence of agents.json and migrates any agents
+        that don't have the new file structure. It loads the agent-id_conversation.json
+        file and splits the contents into separate files.
+
+        Returns:
+            List[str]: List of agent IDs that were migrated
+        """
+        migrated_agents = []
+
+        # Check if agents.json exists
+        if not self.agents_file.exists():
+            return migrated_agents
+
+        try:
+            # Load agents from agents.json
+            with self.agents_file.open("r", encoding="utf-8") as f:
+                agents_data = json.load(f)
+
+            # Process each agent
+            for agent_data in agents_data:
+                try:
+                    agent_id = agent_data.get("id")
+                    if not agent_id:
+                        logging.warning(f"Skipping agent without ID: {agent_data}")
+                        continue
+
+                    # Check if agent directory already exists
+                    agent_dir = self.agents_dir / agent_id
+                    agent_yml_file = agent_dir / "agent.yml"
+
+                    # Skip if agent.yml already exists
+                    if agent_yml_file.exists():
+                        continue
+
+                    # Create agent directory if it doesn't exist
+                    if not agent_dir.exists():
+                        agent_dir.mkdir(parents=True, exist_ok=True)
+
+                    # Save agent metadata to agent.yml
+                    with agent_yml_file.open("w", encoding="utf-8") as f:
+                        yaml.dump(agent_data, f, default_flow_style=False)
+
+                    # Migrate conversation history
+                    self._migrate_agent_conversation(agent_id)
+
+                    # Migrate context
+                    self._migrate_agent_context(agent_id)
+
+                    migrated_agents.append(agent_id)
+                    logging.info(f"Migrated agent: {agent_id}")
+                except Exception as e:
+                    logging.error(
+                        f"Failed to migrate agent {agent_data.get('id', 'unknown')}: {str(e)}"
+                    )
+
+            return migrated_agents
+        except Exception as e:
+            logging.error(f"Failed to migrate agents: {str(e)}")
+            return migrated_agents
+
+    def _migrate_agent_conversation(self, agent_id: str) -> bool:
+        """
+        Migrate an agent's conversation history from the old format to the new format.
+
+        Args:
+            agent_id (str): The unique identifier of the agent.
+
+        Returns:
+            bool: True if migration was successful, False otherwise.
+        """
+        old_conversation_file = self.config_dir / f"{agent_id}_conversation.json"
+        if not old_conversation_file.exists():
+            return False
+
+        try:
+            # Load old conversation data
+            with old_conversation_file.open("r", encoding="utf-8") as f:
+                raw_data = json.load(f)
+
+            # Parse the data
+            try:
+                old_data = AgentState.model_validate(raw_data)
+
+                # Create agent directory if it doesn't exist
+                agent_dir = self.agents_dir / agent_id
+                if not agent_dir.exists():
+                    agent_dir.mkdir(parents=True, exist_ok=True)
+
+                # Save conversation records
+                conversation_file = agent_dir / "conversation.jsonl"
+                write_jsonl(
+                    conversation_file, (record.model_dump() for record in old_data.conversation)
+                )
+
+                # Save execution history records
+                execution_history_file = agent_dir / "execution_history.jsonl"
+                write_jsonl(
+                    execution_history_file,
+                    (record.model_dump() for record in old_data.execution_history),
+                )
+
+                # Save learnings
+                learnings_file = agent_dir / "learnings.jsonl"
+                write_jsonl(
+                    learnings_file, ({"learning": learning} for learning in old_data.learnings)
+                )
+
+                # Save current plan if provided
+                if old_data.current_plan is not None:
+                    plan_file = agent_dir / "current_plan.txt"
+                    with plan_file.open("w", encoding="utf-8") as f:
+                        f.write(old_data.current_plan)
+
+                # Save instruction details if provided
+                if old_data.instruction_details is not None:
+                    instruction_file = agent_dir / "instruction_details.txt"
+                    with instruction_file.open("w", encoding="utf-8") as f:
+                        f.write(old_data.instruction_details)
+
+                logging.info(f"Successfully migrated conversation for agent {agent_id}")
+                return True
+            except Exception as e:
+                logging.error(
+                    f"Failed to parse old conversation format for agent {agent_id}: {str(e)}"
+                )
+                return False
+        except Exception as e:
+            logging.error(f"Failed to load old conversation file for agent {agent_id}: {str(e)}")
+            return False
+
+    def _migrate_agent_context(self, agent_id: str) -> bool:
+        """
+        Migrate an agent's context from the old format to the new format.
+
+        Args:
+            agent_id (str): The unique identifier of the agent.
+
+        Returns:
+            bool: True if migration was successful, False otherwise.
+        """
+        old_context_file = self.config_dir / f"{agent_id}_context.pkl"
+        if not old_context_file.exists():
+            return False
+
+        try:
+            # Only legacy installs ever reach this point (the file check above
+            # short-circuits otherwise), so the dill requirement is scoped to
+            # exactly the users who already have pickled context on disk.
+            dill = _dill()
+
+            # Load old context
+            with old_context_file.open("rb") as f:
+                context = dill.load(f)
+
+            # Create agent directory if it doesn't exist
+            agent_dir = self.agents_dir / agent_id
+            if not agent_dir.exists():
+                agent_dir.mkdir(parents=True, exist_ok=True)
+
+            # Save context to new location
+            context_file = agent_dir / "context.pkl"
+            with context_file.open("wb") as f:
+                dill.dump(context, f)
+
+            logging.info(f"Successfully migrated context for agent {agent_id}")
+            return True
+        except Exception as e:
+            logging.error(f"Failed to migrate context for agent {agent_id}: {str(e)}")
+            return False
+
+    @staticmethod
+    def _zip_member_is_symlink(zip_info: zipfile.ZipInfo) -> bool:
+        """Check whether a ZIP member is a symlink entry."""
+        return ((zip_info.external_attr >> 16) & 0o170000) == 0o120000
+
+    def _safe_extract_zip(self, zip_ref: zipfile.ZipFile, destination: Path) -> None:
+        """Extract ZIP content while preventing path traversal and symlink extraction."""
+        destination_resolved = destination.resolve()
+
+        for member in zip_ref.infolist():
+            member_name = member.filename
+            if not member_name:
+                continue
+
+            normalized_name = member_name.replace("\\", "/")
+            member_path = Path(normalized_name)
+
+            if (
+                normalized_name.startswith("/")
+                or normalized_name.startswith("../")
+                or "/../" in normalized_name
+                or member_path.is_absolute()
+                or ".." in member_path.parts
+            ):
+                raise ValueError(f"Unsafe file path in ZIP: {member_name}")
+
+            if self._zip_member_is_symlink(member):
+                raise ValueError(f"ZIP contains unsupported symlink entry: {member_name}")
+
+            target_path = (destination / member_path).resolve()
+            if not (
+                target_path == destination_resolved or destination_resolved in target_path.parents
+            ):
+                raise ValueError(f"Unsafe file path in ZIP: {member_name}")
+
+            if member.is_dir():
+                target_path.mkdir(parents=True, exist_ok=True)
+                continue
+
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            with zip_ref.open(member, "r") as source, target_path.open("wb") as target:
+                shutil.copyfileobj(source, target)
+
+    def import_agent(self, zip_path: Path, *, auth_store: Any | None = None) -> "AgentImport":
+        """
+        Import an agent from a ZIP file.
+
+        The ZIP file should contain agent state files with an agent.yml file.
+        Every import receives a fresh local ID; archive IDs never select storage.
+        The current working directory will be reset to local-operator-home.
+        For security, serialized execution context (`context.pkl`) is not imported.
+
+        The published name is kept when the registry does not already hold it,
+        and suffixed (``Coder-2``) when it does — see
+        :meth:`resolve_import_name` for why a collision renames rather than
+        refuses (cross-repo contract §3.6).
+
+        Args:
+            zip_path (Path): Path to the ZIP file containing agent state files
+            auth_store: The credential store the model-suggestion availability
+                check reads. ``None`` (every existing caller) lets
+                ``model.suggestion`` open and close a short-lived store; the
+                desktop routes pass their injected one, and tests inject fakes.
+
+        Returns:
+            AgentImport: the imported agent's metadata; the name it was renamed
+                FROM when a local agent already held the published name (the
+                caller reports that; it is what lets the UI say "Imported as
+                \"Coder-2\" -- you already have an agent called \"Coder\""
+                instead of appearing to have imported something the user cannot
+                find under the name they asked for); and the non-blocking
+                ``model_notice`` for a hub suggestion this machine could not run.
+
+        Raises:
+            ValueError: If the ZIP file is invalid or missing required files
+            Exception: If there is an error importing the agent
+        """
+        # Create a temporary directory to extract the ZIP file
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_dir_path = Path(temp_dir)
+
+            try:
+                # Extract the ZIP file
+                with zipfile.ZipFile(zip_path, "r") as zip_ref:
+                    self._safe_extract_zip(zip_ref, temp_dir_path)
+
+                # Check if agent.yml exists in the extracted files
+                agent_yml_path = None
+                for root, _, files in os.walk(temp_dir_path):
+                    if "agent.yml" in files:
+                        agent_yml_path = Path(root) / "agent.yml"
+                        break
+
+                if not agent_yml_path:
+                    raise ValueError("Missing agent.yml in ZIP file")
+
+                # Load the agent.yml file
+                with open(agent_yml_path, "r", encoding="utf-8") as f:
+                    agent_data = yaml.safe_load(f)
+
+                if not isinstance(agent_data, dict):
+                    raise ValueError("Invalid agent metadata in agent.yml")
+
+                # Provenance is EARNED, never imported (see
+                # ``strip_provenance_tags``): dropped before validation, so no
+                # marker the archive controlled can reach the stored row. The
+                # pull path re-stamps its own afterwards. Only touched when the
+                # archive HAS tags — writing None here would turn an absent key
+                # into a validation error the archive did not deserve.
+                if agent_data.get("tags") is not None:
+                    agent_data["tags"] = strip_provenance_tags(agent_data["tags"])
+
+                # An archive describes a profile, not a destination on this host.
+                # Ignore its identity even when it looks like a valid local UUID:
+                # preserving one would allow a normal import to destroy an agent.
+                agent_id = str(uuid.uuid4())
+                agent_data["id"] = agent_id
+                agent_data["current_working_directory"] = default_agent_cwd()
+                # Older profile bundles duplicated the final conversation turn
+                # into agent.yml. History files are ignored below, but leaving
+                # this field intact would still import private conversation
+                # content through a metadata side channel.
+                agent_data["last_message"] = ""
+
+                # Remove hosting and model from the agent data to use
+                # the default values from user config
+                if "hosting" in agent_data:
+                    del agent_data["hosting"]
+                if "model" in agent_data:
+                    del agent_data["model"]
+
+                # A hub model suggestion is CONSUMED here, never stored as its
+                # own field (design §4.2): an available pair is promoted into
+                # the row's own hosting/model -- so the row behaves like any
+                # user-set choice on every surface -- and an unavailable one
+                # leaves both fields empty exactly as before (launch resolution
+                # then yields the user's default) while the CALLER carries the
+                # non-blocking notice. No suggestion means no new I/O at all:
+                # the byte-for-byte path this import always had.
+                suggestion = agent_data.pop("model_suggestion", None)
+                model_notice: ModelNotice | None = None
+                if suggestion is not None:
+                    verdict = resolve_model_suggestion(suggestion, auth_store=auth_store)
+                    if verdict.available:
+                        agent_data["hosting"] = verdict.hosting
+                        agent_data["model"] = verdict.model
+                    else:
+                        model_notice = verdict.notice()
+
+                # Validate before allocating anything in the registry. Malformed
+                # profiles must not leave partially imported metadata behind.
+                try:
+                    imported_agent = AgentData.model_validate(agent_data)
+                except ValidationError as exc:
+                    raise ValueError("Invalid agent metadata in agent.yml") from exc
+
+                # Land the profile under a name the registry does not already
+                # hold. This is the defect the contract records as D-4: import
+                # went straight to ``save_agent``, which performs no check at
+                # all, so a pulled agent could share a name with an agent the
+                # user already had — and an exact-match check would not have
+                # caught ``Coder`` arriving over a local ``coder`` either.
+                # Resolving BEFORE the destination directory is reserved keeps
+                # the failed-import guarantee intact: nothing is allocated until
+                # the name is settled.
+                destination, renamed_from = self.resolve_import_name(imported_agent.name)
+                if renamed_from is not None:
+                    logging.info(
+                        "Imported agent renamed from %r to %r: the registry already "
+                        "holds that name (agent: %s)",
+                        renamed_from,
+                        destination,
+                        agent_id,
+                    )
+                    imported_agent = imported_agent.model_copy(update={"name": destination})
+
+                with open(agent_yml_path, "w", encoding="utf-8") as f:
+                    yaml.dump(imported_agent.model_dump(), f, default_flow_style=False)
+
+                agent_dir = self.agents_dir / agent_id
+                # mkdir is an exclusive reservation, not an exists/check pair:
+                # even a UUID collision, dangling symlink or concurrent import
+                # must fail closed rather than replace an existing destination.
+                if agent_id in self._agents:
+                    raise ValueError("Import destination already exists; retry the import")
+                try:
+                    agent_dir.mkdir(mode=0o700)
+                except FileExistsError as exc:
+                    raise ValueError("Import destination already exists; retry the import") from exc
+
+                try:
+                    # Copy instruction files only. Conversation history, execution
+                    # traces, learnings, schedules and pickled context are private
+                    # to whoever authored the archive. ``context.pkl`` is also
+                    # untrusted serialized code.
+                    extracted_agent_dir = agent_yml_path.parent
+                    for item in extracted_agent_dir.iterdir():
+                        if item.is_file():
+                            if item.name in self._EXPORT_SKIP_NAMES:
+                                logging.info(
+                                    "Skipping imported %s (agent: %s)",
+                                    item.name,
+                                    agent_id,
+                                )
+                                continue
+                            shutil.copy2(item, agent_dir)
+
+                    # Imported profiles start with empty history; persistence stays
+                    # on the same path as a locally created profile.
+                    self.save_agent(imported_agent)
+                except Exception:
+                    # Only this invocation's exclusively reserved directory can
+                    # reach cleanup. A pre-existing directory or symlink fails
+                    # above, outside this block, and is never removed.
+                    self._agents.pop(agent_id, None)
+                    if agent_dir.exists():
+                        shutil.rmtree(agent_dir)
+                    raise
+
+                return AgentImport(
+                    agent=imported_agent,
+                    renamed_from=renamed_from,
+                    model_notice=model_notice,
+                )
+
+            except zipfile.BadZipFile:
+                raise ValueError("Invalid ZIP file")
+            except yaml.YAMLError:
+                raise ValueError("Invalid YAML in agent.yml")
+            except ValueError:
+                raise
+            except Exception as e:
+                raise Exception(f"Error importing agent: {str(e)}")
+
+    def upload_agent_to_radient(
+        self,
+        radient_client,
+        agent_id: Optional[str],
+        zip_path: Path,
+    ) -> Optional[str]:
+        """
+        Upload an agent to the Radient Agent Hub.
+
+        Args:
+            radient_client: An instance of RadientClient.
+            agent_id (Optional[str]): If provided, overwrite the agent with
+            this ID. If None, create a new agent.
+            zip_path (Path): Path to the ZIP file containing agent data.
+
+        Returns:
+            Optional[str]: The new agent ID if created, or None if overwritten.
+
+        Raises:
+            RuntimeError: If the existence probe or the upload fails. A probe
+                that could not answer is NOT an answer of "absent" — see below.
+        """
+        # A probe that FAILED is not a probe that answered "no". This used to
+        # wrap the existence check in ``except Exception`` and carry on "as if
+        # the agent doesn't exist", so a 500, a timeout or an auth failure on
+        # the check turned an intended overwrite into a SECOND listing under the
+        # same name. The caller reports what this returns, so resolving "I could
+        # not tell" into "create another one" is also what made the CLI claim an
+        # overwrite it had not performed. Only ``get_agent``'s own 404 (``None``)
+        # means the agent is absent; anything else propagates.
+        agent_exists = False
+        if agent_id:
+            existing_agent = radient_client.get_agent(agent_id)
+            if existing_agent:
+                agent_exists = True
+
+        # If agent_id was provided and the agent exists, overwrite it
+        if agent_id and agent_exists:
+            radient_client.overwrite_agent_in_marketplace(agent_id, zip_path)
+            return None  # Return None when overwriting
+        else:
+            # No agent_id, or one the hub answered 404 for: this is a create, and
+            # the id returned here is the only handle the user has on the new
+            # listing, so the caller has to print it.
+            return radient_client.upload_agent_to_marketplace(zip_path)
+
+    def download_agent_from_radient(
+        self,
+        radient_client,
+        agent_id: str,
+        *,
+        with_credential: bool = False,
+        auth_store: Any | None = None,
+        tenant_id: str | None = None,
+    ) -> "AgentImport":
+        """
+        Download an agent from the Radient Agent Hub and import it.
+
+        The returned row is stamped with the marketplace id and a fingerprint
+        of what was pulled (see :func:`hub_origin`), so the pull can later be
+        RE-FETCHED — without that provenance a pulled row carries a fresh
+        local uuid and nothing that names where it came from, which is why
+        "pull the latest" had nothing to key on (design §9.1).
+
+        Args:
+            radient_client: An instance of RadientClient.
+            agent_id (str): The agent ID to download.
+            with_credential (bool): Send the client's bearer with the download.
+                A public pull stays anonymous (unchanged); an organization
+                pull must prove the signed-in member, because the hub answers
+                an org row 404 to anyone else (§8.2/§8.3).
+
+        Returns:
+            AgentImport: the imported agent's metadata (with the hub provenance
+                stamped on it), the name it was renamed FROM when a local agent
+                already held the published name (see :meth:`import_agent`), and
+                any carried ``model_notice``.
+
+        Raises:
+            RuntimeError: If the download or import fails.
+            ValueError: If ``agent_id`` is not a marketplace id shape. The id
+                addresses BOTH a URL path segment and (below) the temp filename
+                the archive lands in; validating at ENTRY means a crafted value
+                (`../x`, an absolute path) writes nothing and reaches no
+                request (security round 1, S-2; the same shape the provenance
+                helpers enforce with ``_HUB_ID_RE``).
+        """
+        if not _HUB_ID_RE.match(agent_id):
+            raise ValueError(f"Refusing to download {agent_id!r}: not a valid marketplace agent id")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_dir_path = Path(temp_dir)
+            # A fixed filename: the id is validated above, and nothing about the
+            # local path should depend on caller-supplied text regardless.
+            zip_path = temp_dir_path / "agent.zip"
+            radient_client.download_agent_from_marketplace(
+                agent_id, zip_path, with_credential=with_credential
+            )
+            outcome = self.import_agent(zip_path, auth_store=auth_store)
+        stamped = self._stamp_hub_provenance(outcome.agent, agent_id)
+        self._record_hub_baseline(stamped, agent_id, tenant_id)
+        return AgentImport(
+            agent=stamped,
+            renamed_from=outcome.renamed_from,
+            model_notice=outcome.model_notice,
+        )
+
+    def _record_hub_baseline(self, agent: AgentData, hub_id: str, tenant_id: str | None) -> None:
+        """Write the TEXT baseline a later three-way merge diffs against.
+
+        Best-effort by contract: a pull must not fail over bookkeeping, and a row
+        without a record simply degrades to baseline-unknown (check-only). Lazy
+        import keeps ``hub_sync`` off the registry's import graph.
+        """
+
+        if hub_origin(agent) != hub_id:
+            return  # the stamp refused a non-conforming id; nothing truthful to record
+        from local_operator.hub_sync.provenance import record_agent_baseline
+
+        record_agent_baseline(
+            self.config_dir,
+            local_id=agent.id,
+            hub_id=hub_id,
+            instructions=self.get_agent_system_prompt(agent.id),
+            description=agent.description,
+            tenant_id=tenant_id,
+        )
+
+    def _stamp_hub_provenance(self, agent: AgentData, hub_id: str) -> AgentData:
+        """Record where a pulled row came from, on the row itself.
+
+        Written AFTER import, against the row as it was actually stored: the
+        fingerprint must describe the bytes a later re-fetch will be compared
+        against, not the ones the archive held before import renamed the row
+        or normalized its fields.
+
+        Any pre-existing ``hub:``/``hub_sha256:`` tags are dropped first.
+        Those can only have come from the archive (a publisher's own pull
+        provenance), and leaving them would let a published archive point this
+        row's future re-fetches at an agent its author chose rather than the
+        one the user pulled. Every other tag is preserved: they are the
+        profile (``role``, ``tools:``, the author's categories).
+
+        A non-conforming id is DROPPED with a warning rather than sanitized:
+        there is nothing truthful to record for it, and an unusable marker is
+        worse than none (a later sync would re-fetch the wrong listing).
+        """
+
+        hub_id = str(hub_id or "").strip()
+        if not _HUB_ID_RE.match(hub_id):
+            logging.warning(
+                "not stamping hub provenance for agent %r: %r is not a marketplace id",
+                agent.name,
+                hub_id,
+            )
+            return agent
+        tags = [
+            str(tag).strip()
+            for tag in (agent.tags or [])
+            if not str(tag).strip().lower().startswith(HUB_ORIGIN_PREFIX)
+            and not str(tag).strip().lower().startswith(HUB_SHA256_PREFIX)
+        ]
+        tags.append(f"{HUB_ORIGIN_PREFIX}{hub_id}")
+        fingerprint = hub_fingerprint(self.get_agent_system_prompt(agent.id), agent.description)
+        tags.append(f"{HUB_SHA256_PREFIX}{fingerprint}")
+        # Every other field is explicitly None (the module's own convention for
+        # a partial edit): ``update_agent`` skips None values, so this writes
+        # the tags and nothing else.
+        fields = AgentEditFields(
+            name=None,
+            description=None,
+            tags=tags,
+            categories=None,
+            security_prompt=None,
+            hosting=None,
+            model=None,
+            last_message=None,
+            temperature=None,
+            top_p=None,
+            top_k=None,
+            max_tokens=None,
+            stop=None,
+            frequency_penalty=None,
+            presence_penalty=None,
+            seed=None,
+            current_working_directory=None,
+        )
+        return self.update_agent(agent.id, fields)
+
+    #: Files that carry conversation, execution, or pickled runtime state.
+    #: They never belong in a published archive: a Radient hub listing is a
+    #: SHARE of the instruction set, not of the operator's private history,
+    #: and ``context.pkl`` is untrusted serialized code. Import already
+    #: skipped the pickle; export now refuses to ship any of these so a
+    #: desktop UI that zips the agent directory cannot leak them either.
+    _EXPORT_SKIP_NAMES = frozenset(
+        {
+            "conversation.jsonl",
+            "execution_history.jsonl",
+            "learnings.jsonl",
+            "schedules.jsonl",
+            "context.pkl",
+            "current_plan.txt",
+            "instruction_details.txt",
+        }
+    )
+
+    @contextmanager
+    def exported_agent_archive(self, agent_id: str) -> Iterator[Tuple[Path, str]]:
+        """Export an agent as a ZIP and remove the temporary directory afterwards.
+
+        This is the form to reach for whenever the archive is consumed inside
+        the calling scope (uploading it, copying it somewhere durable). It
+        wraps :meth:`export_agent` and guarantees the enclosing temporary
+        directory is removed on both the success and the failure path.
+
+        ``export_agent`` itself cannot do this: the server's download route
+        hands the path to ``FileResponse``, which streams the file *after* the
+        handler returns, so removing it in a ``finally`` there would delete the
+        archive out from under the response. That route owns cleanup through a
+        ``BackgroundTask`` instead. Every other caller should use this manager
+        — the bare method leaked a full agent zip per export otherwise.
+
+        Args:
+            agent_id (str): The unique identifier of the agent to export
+
+        Yields:
+            Tuple[Path, str]: The path to the ZIP file and its filename. Both
+                become invalid once the context exits.
+        """
+        temp_dir, zip_path, filename = self.export_agent_archive(agent_id)
+        try:
+            yield zip_path, filename
+        finally:
+            # Remove the directory the export CREATED, never one derived from
+            # zip_path.parent: the filename comes from the agent name, which is
+            # attacker-controllable (import_agent preserves it verbatim from a
+            # downloaded agent.yml), so a traversal-shaped name once made
+            # .parent resolve outside the temp dir and delete an unrelated
+            # tree. _export_archive_filename now prevents that, and removing
+            # the captured directory keeps cleanup correct even if it ever
+            # regressed.
+            # ignore_errors: cleanup must never mask the caller's own failure,
+            # and a partially removed temp dir is not worth raising over.
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
+    def export_agent(self, agent_id: str) -> Tuple[Path, str]:
+        """
+        Export an agent's instruction set as a ZIP file.
+
+        Thin wrapper over :meth:`export_agent_archive` that drops the temporary
+        directory handle. The filename is sanitised to a bare basename, so
+        ``zip_path.parent`` *is* that directory — but a caller that has to
+        reclaim it later should prefer :meth:`export_agent_archive` and hold
+        the directory explicitly rather than re-deriving it from the path.
+
+        Conversation history, execution traces, learnings, schedules, and
+        pickled runtime context are stripped. A published agent is the
+        profile (``agent.yml`` + ``system_prompt.md`` and any other
+        instruction files), not the operator's private sessions.
+
+        .. warning::
+            **The caller owns the returned path's parent directory and must
+            remove it.** The ZIP is written into a fresh ``mkdtemp()`` that
+            nothing else reclaims, so a caller that simply returns leaks the
+            directory and the full agent archive inside it, permanently.
+
+            Prefer :meth:`exported_agent_archive`, which does that cleanup for
+            you. Call this method directly only when the file must outlive the
+            calling scope (the server's streaming download route), and then
+            arrange removal explicitly — e.g. a FastAPI ``BackgroundTask``.
+
+        Args:
+            agent_id (str): The unique identifier of the agent to export
+
+        Returns:
+            Tuple[Path, str]: A tuple containing the path to the ZIP file and the filename
+
+        Raises:
+            KeyError: If the agent is not found
+            Exception: If there is an error exporting the agent
+        """
+        _temp_dir, zip_path, filename = self.export_agent_archive(agent_id)
+        return zip_path, filename
+
+    def export_agent_archive(self, agent_id: str) -> Tuple[Path, Path, str]:
+        """
+        Export an agent as a ZIP and return its temp directory alongside it.
+
+        This is the primitive behind :meth:`export_agent` and
+        :meth:`exported_agent_archive`. It exists so a caller that must reclaim
+        the temporary directory *later* — the server's streaming download
+        route, which cannot delete the file before ``FileResponse`` has sent it
+        — can hold the directory that was actually created instead of deriving
+        one from the archive path.
+
+        Args:
+            agent_id (str): The unique identifier of the agent to export
+
+        Returns:
+            Tuple[Path, Path, str]: The temporary directory the caller owns and
+                must remove, the path to the ZIP file inside it, and the
+                archive filename.
+
+        Raises:
+            KeyError: If the agent is not found
+            Exception: If there is an error exporting the agent
+        """
+        # Verify the agent exists
+        agent = self.get_agent(agent_id)
+
+        # Create a temporary directory to store the ZIP file
+        temp_dir = tempfile.mkdtemp()
+        temp_dir_path = Path(temp_dir)
+        filename = _export_archive_filename(agent.name)
+        zip_path = temp_dir_path / filename
+
+        try:
+            # Create the ZIP file
+            agent_dir = self.agents_dir / agent_id
+
+            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                for item in agent_dir.iterdir():
+                    if not item.is_file():
+                        continue
+                    if item.name in self._EXPORT_SKIP_NAMES:
+                        continue
+                    if item.name == "agent.yml":
+                        # last_message is a slice of the conversation and
+                        # must not ride in a published archive. Rewrite a
+                        # copy rather than mutating the live profile.
+                        payload = yaml.safe_load(item.read_text(encoding="utf-8")) or {}
+                        if isinstance(payload, dict):
+                            payload["last_message"] = ""
+                        zip_file.writestr(
+                            "agent.yml",
+                            yaml.safe_dump(payload, default_flow_style=False),
+                        )
+                        continue
+                    zip_file.write(item, arcname=item.name)
+
+            return temp_dir_path, zip_path, filename
+        except Exception as e:
+            # Clean up the temporary directory if there's an error
+            shutil.rmtree(temp_dir)
+            raise Exception(f"Error exporting agent: {str(e)}")
+
+    def update_agent_state(
+        self,
+        agent_id: str,
+        agent_state: AgentState,
+        current_working_directory: Optional[str] = None,
+        context: Any = None,
+    ) -> None:
+        """Save the current agent's state.
+
+        This method persists the agent's state by saving the current conversation
+        and code execution history to the agent registry. It also updates the agent's
+        last message and current working directory if provided.
+
+        Args:
+            agent_id: The unique identifier of the agent to update.
+            agent_state: The agent state to save.
+            current_working_directory: Optional new working directory for the agent.
+            context: Optional context to save for the agent. If None, the context is not updated.
+
+        Raises:
+            KeyError: If the agent with the specified ID does not exist.
+
+        Note:
+            This method refreshes agent metadata from disk before updating and
+            resets the refresh timer to ensure consistency across processes.
+        """
+        # Refresh agent data from disk first to ensure we have the latest state
+        self._refresh_agents_metadata()
+
+        if agent_id not in self._agents:
+            raise KeyError(f"Agent with id {agent_id} not found")
+
+        self.save_agent_state(
+            agent_id,
+            agent_state,
+        )
+
+        # Save the context if provided
+        if context is not None:
+            self.save_agent_context(agent_id, context)
+
+        # Extract the last assistant message from code history
+        assistant_messages = [
+            record.message
+            for record in agent_state.execution_history
+            if record.role == ConversationRole.ASSISTANT
+        ]
+
+        last_assistant_message = None
+
+        if assistant_messages:
+            last_assistant_message = assistant_messages[-1]
+
+        self.update_agent(
+            agent_id,
+            AgentEditFields(
+                name=None,
+                security_prompt=None,
+                hosting=None,
+                model=None,
+                description=None,
+                tags=None,
+                categories=None,
+                last_message=last_assistant_message,
+                temperature=None,
+                top_p=None,
+                top_k=None,
+                max_tokens=None,
+                stop=None,
+                frequency_penalty=None,
+                presence_penalty=None,
+                seed=None,
+                current_working_directory=current_working_directory,
+            ),
+        )
+
+        # Reset the refresh timer to force other processes to refresh soon
+        self._last_refresh_time = 0
+
+    def get_agent_system_prompt(self, agent_id: str) -> str:
+        """
+        Get the system prompt for an agent.
+
+        Args:
+            agent_id: The unique identifier of the agent
+
+        Returns:
+            str: The system prompt content
+
+        Raises:
+            KeyError: If the agent with the given ID does not exist
+            FileNotFoundError: If the system prompt file does not exist
+            IOError: If there is an error reading the system prompt file
+        """
+        if agent_id not in self._agents:
+            raise KeyError(f"Agent with id {agent_id} not found")
+
+        agent_dir = self.agents_dir / agent_id
+        system_prompt_path = agent_dir / "system_prompt.md"
+
+        try:
+            if not system_prompt_path.exists():
+                return ""
+
+            # ``utf-8-sig`` strips a BOM a Windows editor writes, which would
+            # otherwise survive into the system prompt ahead of the first
+            # rule; ``errors="replace"`` keeps a mis-encoded profile from
+            # raising ``UnicodeDecodeError`` into session startup. Matches how
+            # the global instructions file is read in ``session_factory``.
+            with open(system_prompt_path, "r", encoding="utf-8-sig", errors="replace") as f:
+                return f.read()
+        except IOError as e:
+            logging.error(f"Error reading system prompt for agent {agent_id}: {str(e)}")
+            raise IOError(f"Failed to read system prompt: {str(e)}")
+
+    def set_agent_system_prompt(self, agent_id: str, system_prompt: str) -> None:
+        """
+        Set the system prompt for an agent.
+
+        Args:
+            agent_id: The unique identifier of the agent
+            system_prompt: The system prompt content to save
+
+        Raises:
+            KeyError: If the agent with the given ID does not exist
+            IOError: If there is an error writing the system prompt file
+        """
+        if agent_id not in self._agents:
+            raise KeyError(f"Agent with id {agent_id} not found")
+
+        agent_dir = self.agents_dir / agent_id
+        system_prompt_path = agent_dir / "system_prompt.md"
+
+        try:
+            _write_text_atomically(system_prompt_path, system_prompt)
+
+            # Reset the refresh timer to force other processes to refresh soon
+            self._last_refresh_time = 0
+        except IOError as e:
+            logging.error(f"Error writing system prompt for agent {agent_id}: {str(e)}")
+            raise IOError(f"Failed to write system prompt: {str(e)}")
+
+    def get_context_variable(self, agent_id: str, variable_key: str) -> Any:
+        """
+        Get a specific execution variable for an agent.
+
+        Args:
+            agent_id (str): The unique identifier of the agent.
+            variable_key (str): The key of the variable to retrieve.
+
+        Returns:
+            Any: The value of the execution variable.
+
+        Raises:
+            KeyError: If the agent_id or variable_key does not exist.
+        """
+        context = self.load_agent_context(agent_id)
+        if context is None or variable_key not in context:
+            raise KeyError(f"Execution variable '{variable_key}' not found for agent {agent_id}")
+        return context[variable_key]
+
+    def create_context_variable(self, agent_id: str, key: str, value: Any) -> Dict[str, Any]:
+        """
+        Create a new execution variable for an agent.
+
+        Args:
+            agent_id (str): The unique identifier of the agent.
+            key (str): The key of the new variable.
+            value (Any): The value of the new variable.
+
+        Returns:
+            Dict[str, Any]: The updated dictionary of all execution variables.
+
+        Raises:
+            KeyError: If the agent_id does not exist.
+            ValueError: If the variable key already exists.
+        """
+        context = self.load_agent_context(agent_id)
+        if context is None:
+            context = {}
+        if key in context:
+            raise ValueError(
+                f"Execution variable '{key}' already exists for agent {agent_id}. "
+                "Use update operation instead."
+            )
+        context[key] = value
+        self.save_agent_context(
+            agent_id, context
+        )  # Persists the change to agent.yml and updates in-memory
+        return context
+
+    def update_context_variable(self, agent_id: str, key: str, value: Any) -> Dict[str, Any]:
+        """
+        Update an existing execution variable for an agent.
+
+        Args:
+            agent_id (str): The unique identifier of the agent.
+            key (str): The key of the variable to update.
+            value (Any): The new value for the variable.
+
+        Returns:
+            Dict[str, Any]: The updated dictionary of all execution variables.
+
+        Raises:
+            KeyError: If the agent_id or variable_key does not exist.
+        """
+        context = self.load_agent_context(agent_id)
+        if context is None or key not in context:
+            raise KeyError(f"Execution variable '{key}' not found for agent {agent_id}")
+        context[key] = value
+        self.save_agent_context(agent_id, context)
+        return context
+
+    def delete_context_variable(self, agent_id: str, key: str) -> Dict[str, Any]:
+        """
+        Delete an execution variable for an agent.
+
+        Args:
+            agent_id (str): The unique identifier of the agent.
+            key (str): The key of the variable to delete.
+
+        Returns:
+            Dict[str, Any]: The updated dictionary of all execution variables.
+
+        Raises:
+            KeyError: If the agent_id or variable_key does not exist.
+        """
+        context = self.load_agent_context(agent_id)
+        if context is None or key not in context:
+            raise KeyError(f"Execution variable '{key}' not found for agent {agent_id}")
+        del context[key]
+        self.save_agent_context(agent_id, context)
+        return context
+
+
+# -- hub update checks -------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class HubSyncVerdict:
+    """The outcome of checking ONE hub-pulled row against its marketplace listing.
+
+    ``applied`` is the field a renderer must not infer from ``verdict``: a
+    ``diverged`` row is written only when the caller passed ``force``, and a
+    receipt that said "updated" for a refused apply would be exactly the
+    over-claiming this repo has had to fix elsewhere.
+
+    ``unavailable`` covers BOTH degradations — no Radient credential on this
+    surface, and a listing that could not be re-fetched — because in both cases
+    the honest answer is "not checked, and here is why" rather than a failure
+    of the whole run: one bad listing must never stop the seed updates beside
+    it (design §9.2).
+    """
+
+    name: str
+    hub_id: str
+    verdict: Literal["up-to-date", "updated", "diverged", "unavailable"]
+    applied: bool = False
+    #: The texts REPLACED by an applied update, kept verbatim so the overwrite
+    #: stays recoverable by copy-paste — the same echo ``op='reset'`` makes.
+    replaced_instructions: str | None = None
+    replaced_description: str | None = None
+    reason: str = ""
+    detail: str = ""
+
+
+def _hub_installed_fingerprint(agent: "AgentData") -> str | None:
+    """The recorded pull fingerprint, or None when missing/malformed."""
+
+    value = marker_value(agent, HUB_SHA256_PREFIX)
+    if value is None or not is_sha256_hex(value):
+        return None
+    return value.lower()
+
+
+def _read_hub_profile_from_zip(zip_path: Path) -> Tuple[str, str]:
+    """Read ``(instructions, description)`` out of a downloaded agent archive.
+
+    Reads the two members straight out of the ZIP and writes NOTHING to disk,
+    so there is no extraction step to zip-slip: the archive is untrusted input
+    and the only thing a re-fetch needs is the published text. ``agent.yml`` is
+    required (import refuses an archive without one, and a comparison against a
+    metadata-less archive would be meaningless); the prompt file is optional —
+    an agent with no instructions compares as empty text, which is a real
+    answer rather than an error.
+    """
+
+    instructions = ""
+    description = ""
+    found_prompt = False
+    found_meta = False
+    with zipfile.ZipFile(zip_path) as archive:
+        for member in archive.infolist():
+            if member.is_dir():
+                continue
+            # Basename matching mirrors ``import_agent``'s ``os.walk``: the two
+            # files can sit at any depth in the archive.
+            base = member.filename.replace("\\", "/").rsplit("/", 1)[-1]
+            if base == "system_prompt.md" and not found_prompt:
+                instructions = archive.read(member).decode("utf-8", errors="replace")
+                found_prompt = True
+            elif base == "agent.yml" and not found_meta:
+                try:
+                    meta = yaml.safe_load(archive.read(member).decode("utf-8", errors="replace"))
+                except Exception:  # noqa: BLE001 - a malformed listing is refused below
+                    meta = None
+                if isinstance(meta, dict):
+                    description = str(meta.get("description") or "")
+                found_meta = True
+            if found_prompt and found_meta:
+                break
+    if not found_meta:
+        raise ValueError("Missing agent.yml in ZIP file")
+    return instructions, description
+
+
+def _fetch_hub_profile(
+    radient_client: Any, hub_id: str, *, with_credential: bool = False, timeout: float | None = None
+) -> Tuple[str, str]:
+    """Download a marketplace listing into a temp file and read its text.
+
+    ``hub_id`` is the validated marker value (``_HUB_ID_RE``), so it is safe as
+    a file name and as a URL path segment. The download itself is the public
+    endpoint the existing pull path uses; the caller decides whether a
+    credential is present at all (see :func:`sync_hub_agents`).
+    """
+
+    # Only forwarded when set: the background runner bounds each request (B3.3),
+    # every other caller keeps the client's historical behaviour.
+    extra: dict[str, Any] = {} if timeout is None else {"timeout": timeout}
+    with tempfile.TemporaryDirectory() as temp_dir:
+        zip_path = Path(temp_dir) / f"{hub_id}.zip"
+        if with_credential:
+            # An organization row answers 404 to anyone who cannot prove
+            # membership (design B0.6): its check must carry the person's bearer.
+            radient_client.download_agent_from_marketplace(
+                hub_id, zip_path, with_credential=True, **extra
+            )
+        else:
+            radient_client.download_agent_from_marketplace(hub_id, zip_path, **extra)
+        return _read_hub_profile_from_zip(zip_path)
+
+
+def _apply_hub_update(
+    registry: AgentRegistry,
+    agent: "AgentData",
+    hub_id: str,
+    instructions: str,
+    description: str,
+    *,
+    baseline: Tuple[str, str] | None = None,
+) -> "AgentData":
+    """Write a fetched listing over a row, refreshing its pull fingerprint.
+
+    ``baseline`` is the ``(instructions, description)`` the ``hub_sha256:`` tag
+    should describe when it differs from what is written: a three-way merge
+    writes the MERGED text but the tag (and the baseline record beside it) must
+    describe the REMOTE text that was integrated, or the next check would read
+    the surviving local edits as "unchanged since the pull".
+
+    The description is mirrored even when empty: the fingerprint covers it, so
+    a description the publisher cleared is a change like any other, and leaving
+    the stale local text in place would make the next sync report the same
+    change forever.
+    """
+
+    registry.set_agent_system_prompt(agent.id, instructions)
+    tags = [
+        str(tag).strip()
+        for tag in (agent.tags or [])
+        if not str(tag).strip().lower().startswith(HUB_ORIGIN_PREFIX)
+        and not str(tag).strip().lower().startswith(HUB_SHA256_PREFIX)
+    ]
+    tags.append(f"{HUB_ORIGIN_PREFIX}{hub_id}")
+    tagged = baseline if baseline is not None else (instructions, description)
+    tags.append(f"{HUB_SHA256_PREFIX}{hub_fingerprint(*tagged)}")
+    return registry.update_agent(
+        agent.id,
+        AgentEditFields(
+            name=None,
+            description=description,
+            tags=tags,
+            categories=None,
+            security_prompt=None,
+            hosting=None,
+            model=None,
+            last_message=None,
+            temperature=None,
+            top_p=None,
+            top_k=None,
+            max_tokens=None,
+            stop=None,
+            frequency_penalty=None,
+            presence_penalty=None,
+            seed=None,
+            current_working_directory=None,
+        ),
+    )
+
+
+def sync_hub_agents(
+    registry: AgentRegistry,
+    *,
+    radient_client: Any | None = None,
+    names: Sequence[str] | None = None,
+    force: bool = False,
+) -> List[HubSyncVerdict]:
+    """Check hub-pulled rows against their marketplace listings; update them.
+
+    The hub half of "built-in and hub-pulled agents have a way to pull the
+    latest". Rows are found by the ``hub:<id>`` marker stamped at pull time;
+    for each, the listing is re-downloaded and its published text compared
+    against the row, with the same policy as the seed arm
+    (:func:`agent_profiles.sync_installed_seeds`):
+
+    * identical text → ``up-to-date``;
+    * changed, and the row still holds exactly what was pulled (fingerprint
+      match) → ``updated``, applied immediately and echoing the replaced text;
+    * changed, and the row was edited since the pull → ``diverged``, applied
+      only with ``force=True`` (again echoing what it replaced);
+    * ``radient_client=None`` — the caller had no credential — and any failed
+      re-fetch degrade to ``unavailable`` with the reason, per row. The run
+      never raises for either: a hub listing is optional enrichment, and a
+      failure to reach it must not stop the seed updates beside it.
+
+    NOT called on boot. This function performs network I/O, so every caller
+    invokes it because a user or agent asked for a sync.
+    """
+
+    requested: list[str] | None = None
+    if names is not None:
+        requested = []
+        for raw in names:
+            key = str(raw).strip().lower()
+            if key and key not in requested:
+                requested.append(key)
+
+    targets: List[AgentData] = []
+    for agent in registry.list_agents():
+        if hub_origin(agent) is None:
+            continue
+        if requested is not None and str(agent.name or "").strip().lower() not in requested:
+            continue
+        targets.append(agent)
+    targets.sort(key=lambda row: str(row.name or "").lower())
+    if not targets:
+        return []
+
+    if radient_client is None:
+        return [
+            HubSyncVerdict(
+                name=str(agent.name or ""),
+                hub_id=hub_origin(agent) or "",
+                verdict="unavailable",
+                reason=NO_HUB_CREDENTIAL_REASON,
+            )
+            for agent in targets
+        ]
+
+    verdicts: List[HubSyncVerdict] = []
+    for agent in targets:
+        name = str(agent.name or "")
+        hub_id = hub_origin(agent) or ""
+        try:
+            fetched_text, fetched_description = _fetch_hub_profile(radient_client, hub_id)
+        except Exception as error:  # noqa: BLE001 - one row's failure never ends the run
+            verdicts.append(
+                HubSyncVerdict(
+                    name=name,
+                    hub_id=hub_id,
+                    verdict="unavailable",
+                    reason=f"could not re-fetch agent {hub_id!r}: {error}",
+                )
+            )
+            continue
+
+        current_text = registry.get_agent_system_prompt(agent.id)
+        current_description = str(agent.description or "")
+        if (
+            fetched_text.strip() == current_text.strip()
+            and fetched_description.strip() == current_description.strip()
+        ):
+            verdicts.append(
+                HubSyncVerdict(
+                    name=name,
+                    hub_id=hub_id,
+                    verdict="up-to-date",
+                    detail="matches the marketplace listing",
+                )
+            )
+            continue
+
+        baseline = _hub_installed_fingerprint(agent)
+        clean = baseline is not None and (
+            hub_fingerprint(current_text, current_description) == baseline
+        )
+        if not clean and not force:
+            verdicts.append(
+                HubSyncVerdict(
+                    name=name,
+                    hub_id=hub_id,
+                    verdict="diverged",
+                    detail=(
+                        "the marketplace listing changed and this copy has local "
+                        "edits; re-run with force to replace it"
+                    ),
+                )
+            )
+            continue
+
+        _apply_hub_update(registry, agent, hub_id, fetched_text, fetched_description)
+        verdicts.append(
+            HubSyncVerdict(
+                name=name,
+                hub_id=hub_id,
+                verdict="updated",
+                applied=True,
+                replaced_instructions=current_text,
+                replaced_description=current_description,
+                detail=(
+                    "updated from the marketplace listing"
+                    if clean
+                    else "updated from the marketplace listing (forced over local edits)"
+                ),
+            )
+        )
+    return verdicts

@@ -101,6 +101,7 @@ from matrice_analytics.engine.primitives.state_machine import StateMachine
 from matrice_analytics.engine.primitives.track import Track
 from matrice_analytics.engine.primitives.unique_count import UniqueCount
 from matrice_analytics.engine.primitives.velocity_state import VelocityState
+from matrice_analytics.engine.primitives.verification import Verification
 from matrice_analytics.engine.primitives.zone_occupancy import ZoneOccupancy
 
 __all__ += [
@@ -118,5 +119,6 @@ __all__ += [
     "Track",
     "UniqueCount",
     "VelocityState",
+    "Verification",
     "ZoneOccupancy",
 ]

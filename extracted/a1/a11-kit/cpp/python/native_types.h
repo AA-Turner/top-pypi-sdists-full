@@ -1,0 +1,126 @@
+/*
+ * Copyright 2026 The A11 Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#ifndef A11_PYTHON_NATIVE_TYPES_H_
+#define A11_PYTHON_NATIVE_TYPES_H_
+
+#include <utility>
+
+#include <absl/status/status.h>
+#include <absl/time/time.h>
+#include <pybind11/pybind11.h>
+
+#include "a11/actions/action.h"
+
+namespace a11::python {
+
+// These small wrappers give Python stable, natively-owned value types while
+// the C++ API continues to use Abseil directly.
+class NativeStatus {
+ public:
+  NativeStatus() = default;
+
+  explicit NativeStatus(absl::Status value) : value_(std::move(value)) {}
+
+  [[nodiscard]] const absl::Status& value() const { return value_; }
+
+  [[nodiscard]] absl::Status& value() { return value_; }
+
+ private:
+  absl::Status value_;
+};
+
+class NativeDuration {
+ public:
+  NativeDuration() = default;
+
+  explicit NativeDuration(absl::Duration value) : value_(value) {}
+
+  [[nodiscard]] absl::Duration value() const { return value_; }
+
+ private:
+  absl::Duration value_ = absl::ZeroDuration();
+};
+
+class NativeTime {
+ public:
+  NativeTime() = default;
+
+  explicit NativeTime(absl::Time value) : value_(value) {}
+
+  [[nodiscard]] absl::Time value() const { return value_; }
+
+ private:
+  absl::Time value_ = absl::UnixEpoch();
+};
+
+// An Action handler implemented in C++, held so Python can pass it back into
+// the API.
+class NativeActionHandler {
+ public:
+  NativeActionHandler() = default;
+
+  explicit NativeActionHandler(actions::ActionHandler value)
+      : value_(std::move(value)) {}
+
+  [[nodiscard]] const actions::ActionHandler& value() const { return value_; }
+
+  [[nodiscard]] explicit operator bool() const {
+    return static_cast<bool>(value_);
+  }
+
+ private:
+  actions::ActionHandler value_;
+};
+
+// Whatever an action handler may be, on the Python side: a coroutine function,
+// a native handler handed back opaquely, or nothing.
+class PyActionHandler : public pybind11::object {
+  PYBIND11_OBJECT_DEFAULT(PyActionHandler, object, PyObject_Type)
+  using object::object;
+};
+
+// The `(name, schema, handler)` triples a module of C++ Actions hands over, for
+// a caller that registers them itself.
+class PyActionTriples : public pybind11::object {
+  PYBIND11_OBJECT_DEFAULT(PyActionTriples, object, PyObject_Type)
+  using object::object;
+};
+
+}  // namespace a11::python
+
+PYBIND11_NAMESPACE_BEGIN(PYBIND11_NAMESPACE)
+PYBIND11_NAMESPACE_BEGIN(detail)
+
+// ActionHandler is spelled out by the stub generator; NativeActionHandler is
+// the bound class in this module.
+template <>
+struct handle_type_name<a11::python::PyActionHandler> {
+  static constexpr auto name =
+      const_name("ActionHandler | NativeActionHandler | None");
+};
+
+template <>
+struct handle_type_name<a11::python::PyActionTriples> {
+  static constexpr auto name = const_name(
+      "list[tuple[str, ActionSchema, ActionHandler | NativeActionHandler |"
+      " None]]");
+};
+
+PYBIND11_NAMESPACE_END(detail)
+PYBIND11_NAMESPACE_END(PYBIND11_NAMESPACE)
+
+#endif  // A11_PYTHON_NATIVE_TYPES_H_

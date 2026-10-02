@@ -1,0 +1,96 @@
+---
+name: golden_chain_sweep
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: compute
+runtime_profiles: [main]
+node_version: {major: 1, minor: 0, patch: 0}
+
+description: >
+  Validate end-to-end Kafka-to-DB-projection data flow for golden chains.
+  Accepts pre-collected projected_rows and validates field-level correctness
+  against chain definitions — pure compute, no Kafka publish or DB polling.
+
+handler:
+  module: omnimarket.nodes.node_golden_chain_sweep.handlers.handler_golden_chain_sweep
+  class: NodeGoldenChainSweep
+  input_model: omnimarket.nodes.node_golden_chain_sweep.handlers.handler_golden_chain_sweep.GoldenChainSweepRequest
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: sweep_golden_chains
+      handler:
+        name: NodeGoldenChainSweep
+        module: omnimarket.nodes.node_golden_chain_sweep.handlers.handler_golden_chain_sweep
+
+descriptor:
+  node_archetype: compute
+  purity: pure
+  idempotent: true
+  timeout_ms: 180000
+
+inputs:
+  chains:
+    type: list[ChainDefinition]
+    description: >
+      Chain definitions with head topic, tail table, and expected fields. Each
+      chain may optionally declare max_row_age_seconds + timestamp_field for a
+      per-chain recency assertion (OMN-13639).
+    required: true
+  timeout_ms:
+    type: int
+    description: "Timeout per chain validation in milliseconds"
+    required: false
+    default: 15000
+  now_iso:
+    type: string
+    description: >
+      ISO-8601 reference clock for the per-chain freshness check (OMN-13639).
+      Injected by the caller so the compute stays pure and deterministic; the
+      handler never reads the system clock. Required when any selected chain
+      declares max_row_age_seconds — a freshness-gated chain dispatched without
+      it surfaces as ERROR (fail-fast), never a silent pass.
+    required: false
+
+outputs:
+  chain_results:
+    type: list[ChainResult]
+    description: >
+      Per-chain validation results with timing, field assertions, and
+      row_age_seconds when a freshness threshold is configured. A field-complete
+      row older than max_row_age_seconds is reported as status STALE (a distinct
+      non-PASS tri-state), not PASS (OMN-13639).
+  summary:
+    type: object
+    description: >
+      Overall sweep status (pass/partial/fail/gated/warn) with chain counts. WARN
+      means all non-passing chains are stale-only (non-blocking recency warning);
+      green PASS requires recent flow, not merely a matching historical row.
+
+terminal_event: onex.evt.omnimarket.golden-chain-sweep-completed.v1
+
+event_bus:
+  # OMN-18013: the topic(s) removed here were declared subscriptions with NO handler
+  # branch anywhere in this node -- NodeGoldenChainSweep.handle() takes a GoldenChainSweepRequest and probes chain HEAD
+  # topics; it has no consume branch for either topic. A declared subscription with no
+  # dispatcher is consumed, DLQ'd and COMMITTED on every message while the consumer
+  # group reads Stable / LAG 0, so the declaration was worse than its absence.
+  subscribe_topics:
+    - onex.cmd.omnimarket.golden-chain-sweep-start.v1
+    # Monitored golden-chain head topics — swept for Kafka-to-DB-projection health
+  publish_topics:
+    - onex.evt.omnimarket.golden-chain-sweep-result.v1
+    - onex.evt.omnimarket.golden-chain-sweep-completed.v1
+
+metadata:
+  transport_type: kafka
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.golden-chain-sweep-start.v1
+
+# OMN-18013 -- explicit SINK declaration (contract topic graph closure).
+# No node contract subscribes to these; they leave the ONEX node graph here.
+externally_consumed_topics:
+  - onex.evt.omnimarket.golden-chain-sweep-completed.v1
+  - onex.evt.omnimarket.golden-chain-sweep-result.v1

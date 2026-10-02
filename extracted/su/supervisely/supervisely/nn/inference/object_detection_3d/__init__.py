@@ -1,1 +1,0 @@
-from supervisely.nn.inference.object_detection_3d.object_detection_3d import ObjectDetection3D

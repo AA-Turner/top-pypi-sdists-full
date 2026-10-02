@@ -1,0 +1,189 @@
+"""Cleaning the RequestDB from obsolete records and kicking assigned requests
+
+.. literalinclude:: ../ConfigTemplate.cfg
+  :start-after: ##BEGIN CleanReqDBAgent
+  :end-before: ##END
+  :dedent: 2
+  :caption: CleanReqDBAgent options
+
+"""
+
+# # imports
+import datetime
+
+# # from DIRAC
+from DIRAC import S_OK
+from DIRAC.Core.Base.AgentModule import AgentModule
+from DIRAC.Core.Utilities.TimeUtilities import DiracTime
+
+from DIRAC.RequestManagementSystem.DB.RequestDB import RequestDB
+
+AGENT_NAME = "RequestManagement/CleanReqDBAgent"
+
+########################################################################
+
+
+class CleanReqDBAgent(AgentModule):
+    """
+    .. class:: CleanReqDBAgent
+
+    """
+
+    # # DEL GRACE PERIOD in DAYS
+    DEL_GRACE_DAYS = 60
+    # number of days before a scheduled request is set to cancelled
+    # default: 0, i.e. do not cancel
+    CANCEL_GRACE_DAYS = 0
+    # # DEL LIMIT
+    DEL_LIMIT = 100
+    # # KICK PERIOD in HOURS
+    KICK_GRACE_HOURS = 1
+    # # KICK LIMIT
+    KICK_LIMIT = 10000
+    # # remove failed requests flag
+    DEL_FAILED = False
+
+    # # Number of Accounting requests to fetch to batch
+    # # 0 to disable
+    ACCOUNTING_BATCH_MAX_REQUESTS = 0
+    # # Number of operations to batch in a single requests.
+    ACCOUNTING_BATCH_SIZE = 100
+
+    # # request db
+    __requestDB = None
+
+    def initialize(self):
+        """initialization"""
+        self.DEL_GRACE_DAYS = self.am_getOption("DeleteGraceDays", self.DEL_GRACE_DAYS)
+        self.log.info(f"Delete grace period = {self.DEL_GRACE_DAYS} days")
+        self.DEL_LIMIT = self.am_getOption("DeleteLimit", self.DEL_LIMIT)
+        self.log.info(f"Delete limit = {self.DEL_LIMIT} request/cycle")
+        self.DEL_FAILED = self.am_getOption("DeleteFailed", self.DEL_FAILED)
+        self.log.info("Delete failed requests: %s" % {True: "yes", False: "no"}[self.DEL_FAILED])
+        self.cancelGraceDays = self.am_getOption("CancelGraceDays", self.CANCEL_GRACE_DAYS)
+        self.log.info(f"Cancel grace period = {self.cancelGraceDays} days")
+        self.KICK_GRACE_HOURS = self.am_getOption("KickGraceHours", self.KICK_GRACE_HOURS)
+        self.log.info(f"Kick assigned requests period = {self.KICK_GRACE_HOURS} hours")
+        self.KICK_LIMIT = self.am_getOption("KickLimit", self.KICK_LIMIT)
+        self.log.info(f"Kick limit = {self.KICK_LIMIT} request/cycle")
+
+        self.ACCOUNTING_BATCH_MAX_REQUESTS = self.am_getOption(
+            "AccountingBatchMaxRequests", self.ACCOUNTING_BATCH_MAX_REQUESTS
+        )
+
+        self.ACCOUNTING_BATCH_SIZE = self.am_getOption("AccountingBatchSize", self.ACCOUNTING_BATCH_SIZE)
+
+        if self.ACCOUNTING_BATCH_MAX_REQUESTS:
+            self.log.info(f"Accounting max requests = {self.ACCOUNTING_BATCH_MAX_REQUESTS} request/cycle")
+            self.log.info(f"Accounting batch size = {self.ACCOUNTING_BATCH_SIZE} requests")
+
+        if self.cancelGraceDays >= self.DEL_GRACE_DAYS:
+            self.cancelGraceDays = self.DEL_GRACE_DAYS - 1
+            self.log.warn("Cancelled jobs grace period > delete period, capping to %u days" % self.cancelGraceDays)
+
+        self.__requestDB = RequestDB()
+
+        return S_OK()
+
+    def execute(self):
+        """execution in one cycle"""
+
+        now = DiracTime.utcnow()
+        kickTime = now - datetime.timedelta(hours=self.KICK_GRACE_HOURS)
+        rmTime = now - datetime.timedelta(days=self.DEL_GRACE_DAYS)
+        batched = None
+
+        # # kick
+        statusList = ["Assigned"]
+        requestIDsList = self.__requestDB.getRequestIDsList(statusList, self.KICK_LIMIT)
+        if not requestIDsList["OK"]:
+            self.log.error(f"execute: {requestIDsList['Message']}")
+            return requestIDsList
+
+        requestIDsList = requestIDsList["Value"]
+
+        kicked = 0
+        for requestID, status, lastUpdate in requestIDsList:
+            reqStatus = self.__requestDB.getRequestStatus(requestID)
+            if not reqStatus["OK"]:
+                self.log.error(("execute: unable to get request status", reqStatus["Message"]))
+                continue
+            status = reqStatus["Value"]
+            if lastUpdate < kickTime and status == "Assigned":
+                getRequest = self.__requestDB.peekRequest(requestID)
+                if not getRequest["OK"]:
+                    self.log.error(f"execute: unable to read request '{requestID}': {getRequest['Message']}")
+                    continue
+                getRequest = getRequest["Value"]
+                if getRequest and getRequest.LastUpdate < kickTime:
+                    self.log.info(
+                        "execute: kick assigned request (%s/'%s') in status %s"
+                        % (requestID, getRequest.RequestName, getRequest.Status)
+                    )
+                    putRequest = self.__requestDB.putRequest(getRequest)
+                    if not putRequest["OK"]:
+                        self.log.error(
+                            "execute: unable to put request (%s/'%s'): %s"
+                            % (requestID, getRequest.RequestName, putRequest["Message"])
+                        )
+                        continue
+                    else:
+                        self.log.verbose("Kicked request %d" % putRequest["Value"])
+                    kicked += 1
+
+        # # delete
+        statusList = ["Done", "Failed", "Canceled"] if self.DEL_FAILED else ["Done"]
+        requestIDsList = self.__requestDB.getRequestIDsList(statusList, self.DEL_LIMIT)
+        if not requestIDsList["OK"]:
+            self.log.error(f"execute: {requestIDsList['Message']}")
+            return requestIDsList
+
+        requestIDsList = requestIDsList["Value"]
+        deleted = 0
+        for requestID, status, lastUpdate in requestIDsList:
+            if lastUpdate < rmTime:
+                self.log.info(f"execute: deleting request '{requestID}' with status {status}")
+                delRequest = self.__requestDB.deleteRequest(requestID)
+                if not delRequest["OK"]:
+                    self.log.error("execute: unable to delete request", f"'{requestID}': {delRequest['Message']}")
+                    continue
+                deleted += 1
+
+        # optional: Set Scheduled requests to Cancelled if older than threshold
+        if self.cancelGraceDays > 0:
+            cancelTime = DiracTime.utcnow() - datetime.timedelta(days=self.cancelGraceDays)
+            result = self.__requestDB.getRequestIDsList(["Scheduled"], self.DEL_LIMIT)
+            if not result["OK"]:
+                self.log.error("Failed to get list of Scheduled requests:", result["Message"])
+                return result
+            requestIDsList = result["Value"]
+            cancelled = 0
+            for requestID, status, lastUpdate in requestIDsList:
+                if lastUpdate < cancelTime:
+                    self.log.info("Cancelling overdue request", str(requestID))
+                    cancelReq = self.__requestDB.cancelRequest(requestID)
+                    if not cancelReq["OK"]:
+                        self.log.error("Unable to cancel request", f"'{requestID}': {cancelReq['Message']}")
+                        continue
+                    cancelled += 1
+
+        if self.ACCOUNTING_BATCH_MAX_REQUESTS:
+            res = self.__requestDB.aggregateAccountingDataStoreRequests(
+                batch_size=self.ACCOUNTING_BATCH_SIZE, max_requests=self.ACCOUNTING_BATCH_MAX_REQUESTS
+            )
+            if not res["OK"]:
+                self.log.error("Failed to batch accounting requests requests:", res["Message"])
+                return res
+            batched = res["Value"]
+
+        self.log.info("execute: kicked assigned requests", str(kicked))
+        self.log.info("execute: deleted finished requests", str(deleted))
+        if self.cancelGraceDays > 0:
+            self.log.info("execute: cancelled overdue requests", str(cancelled))
+
+        if batched:
+            self.log.info(
+                "Batched accounting requests",
+                f"created : {len(batched['created_requests'])}, canceled: {len(batched['canceled_requests'])}",
+            )
+        return S_OK()

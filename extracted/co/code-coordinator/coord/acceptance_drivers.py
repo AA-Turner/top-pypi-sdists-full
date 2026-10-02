@@ -78,7 +78,12 @@ in :mod:`coord.win_native_driver` — see that module's docstring for the spec
 format. This adapter (:func:`_run_win_native`) is the same thin seam
 :func:`_run_tui_pty` is: it resolves the native spec from the driver's
 ``entrypoint:`` and hands off to
-:func:`coord.win_native_driver.run_native_spec`.
+:func:`coord.win_native_driver.run_native_spec` — or, on a WSL-hosted agent
+(dell64, ``docs/WSL_WINDOWS_WORKER.md``), to
+:func:`coord.win_native_bridge.run_native_spec_via_bridge`, which runs the
+spec on a real Windows-side Python found through WSL's own interop instead
+(#3515 — see that module's docstring for why `comtypes` can never resolve
+in-process on a WSL-hosted agent no matter what gets pip-installed there).
 
 ``mac-native`` (#3485, the macOS-native tier alongside ``win-native``)
 launches the driven repo's real compiled ``.app``/binary and drives it with
@@ -143,6 +148,7 @@ import re
 import subprocess
 import tempfile
 import xml.etree.ElementTree as ET
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -153,6 +159,92 @@ SUPPORTED_KINDS = (
     "tui-tuidriver", "cli-pytest", "web-playwright", "terraform", "tui-pty",
     "win-native", "mac-native", "gtk-native",
 )
+
+# #3515: the one place a machine's `capabilities` (coordinator.yml) map to
+# the `pyproject.toml` optional-dependency extra its Tier-2 lane driver
+# actually needs installed. No fleet roll or agent update ever pulled these
+# in before this — a lane only worked if someone hand-installed into
+# `~/.coord-venv`, and the next `coord agent update`/`coord release
+# propagate` rebuilt that venv from scratch and silently wiped it (observed
+# live 2026-10-01: `gi` hand-installed on precision, `pyte` missing
+# everywhere a Tier-2 lane runs). Kept here, next to :data:`SUPPORTED_KINDS`
+# — the same "one question, one answer" reasoning (epic #2096): `coord.
+# agent_app`'s self-update, `coord.release_propagate`'s fleet roll and
+# `install-agent.sh`'s bootstrap must all resolve a machine's required
+# extras through this ONE mapping, never three independently-drifting
+# copies.
+LANE_CAPABILITY_EXTRAS: dict[str, str] = {
+    "windows": "win-native",
+    "macos": "mac-native",
+    "gtk": "gtk-native",
+}
+
+
+def repos_requiring_tui_pty(drivers: Mapping[str, object]) -> frozenset[str]:
+    """Repo names (keys of `coordinator.yml`'s `acceptance.drivers`) that
+    declare a ``tui-pty``-kind acceptance driver somewhere — the flat form,
+    or one of its ``routes`` (#1125 in-repo path routing).
+
+    Duck-typed (``getattr``, not an import of
+    ``coord.config.AcceptanceDriverConfig``) for the same reason
+    :mod:`coord.bugbash` duck-types its own config parameter rather than
+    importing :mod:`coord.config`: this module is foundational and widely
+    imported, so taking a dependency on the config module risks a cycle the
+    other direction never needs — the same posture :data:`TIER2_LANE_KINDS`'s
+    docstring (``coord.config``) describes from the other side.
+    """
+    out: set[str] = set()
+    for repo_name, entry in drivers.items():
+        kind = getattr(entry, "kind", "")
+        routes = getattr(entry, "routes", None) or ()
+        if kind == "tui-pty" or any(
+            getattr(route, "kind", "") == "tui-pty" for route in routes
+        ):
+            out.add(repo_name)
+    return frozenset(out)
+
+
+def lane_extras_for_machine(
+    capabilities: Iterable[str],
+    *,
+    repos: Iterable[str] = (),
+    tui_pty_repos: frozenset[str] | None = None,
+) -> list[str]:
+    """The `pyproject.toml` lane extras a machine with *capabilities* needs
+    installed alongside `server` (#3515).
+
+    ``windows``/``macos``/``gtk`` each map straight through
+    :data:`LANE_CAPABILITY_EXTRAS`. ``tui-pty`` is different: it isn't a
+    machine capability at all, it's a property of *which repos* a host
+    serves — "is this host in a repo's `tui-pty` route" — so it's derived
+    from *repos* (a machine's own `coordinator.yml` `repos:` list)
+    intersected against *tui_pty_repos* (every repo name
+    :func:`repos_requiring_tui_pty` found to declare one).
+
+    *tui_pty_repos* is ``None`` when the caller only has the machine's own
+    capabilities/repos in hand, never the fleet-wide, repo-keyed
+    `acceptance.drivers` map needed to compute it properly — the agent's own
+    in-process self-update fallback (`coord.agent_app._agent_pkg_spec`) is
+    exactly that caller. In that case this falls back to the conservative
+    default: any host that already needs a native lane extra needs
+    `tui-pty` too, because every native lane observed in #3515's own
+    incident table also needed `pyte`, and `tui-pty` is pure-Python (no
+    C-extension/version-skew cost — the same reasoning `pyproject.toml`'s
+    own comment on the extra gives), so installing it somewhere that turns
+    out not to need it costs nothing. A caller that DOES have the full
+    config (`coord.release_propagate`, which has `cfg.acceptance.drivers`)
+    passes the exact computed set instead, which may be empty even when
+    *extras* is non-empty (a win-native host that serves no `tui-pty`-kind
+    repo) — passing ``frozenset()`` explicitly opts OUT of the fallback.
+    """
+    caps = set(capabilities)
+    extras = [extra for cap, extra in LANE_CAPABILITY_EXTRAS.items() if cap in caps]
+    if tui_pty_repos is None:
+        if extras:
+            extras.append("tui-pty")
+    elif set(repos) & tui_pty_repos:
+        extras.append("tui-pty")
+    return extras
 
 # #2748 (IL-2): driver kinds whose `run` produces a real pass/fail verdict
 # but NOT yet a deterministic one, because an input they depend on hasn't
@@ -745,20 +837,30 @@ def _run_win_native(run_command: str, cwd: str, entrypoint: str, *, timeout: int
     ``capture_b64`` ``PrintWindow`` snapshot) into a :class:`DriverResult`
     the same way :func:`_run_tui_pty` does.
 
-    Raises :class:`DriverError` — never a bare exception — for a missing
-    ``entrypoint:``, a spec file that doesn't exist, or a malformed spec
-    (an invalid-YAML/unknown-step-type
-    :class:`coord.win_native_driver.WinNativeSpecError`). A process that
-    never launches, a window that never appears, or a failed probe do NOT
-    raise here — :func:`coord.win_native_driver.run_native_spec` folds those
-    into individual failing entries in ``tests`` instead.
-    """
-    from coord.win_native_driver import (  # noqa: PLC0415 — see module docstring on the deferred import
-        WinNativeRuntimeError,
-        WinNativeSpecError,
-        run_native_spec,
-    )
+    **The WSL case (#3515).** `ctypes.windll`/`comtypes` have no meaning
+    outside a genuine Win32 process, so a WSL-hosted ``windows``-capability
+    agent (dell64, ``docs/WSL_WINDOWS_WORKER.md``) can never run
+    :func:`coord.win_native_driver.run_native_spec` in-process no matter
+    what gets pip-installed into its own (Linux) venv. :func:`coord.
+    win_native_bridge.is_wsl_host` detects that case and routes through
+    :func:`coord.win_native_bridge.run_native_spec_via_bridge` instead,
+    which bootstraps a real Windows-side Python reachable through WSL's own
+    interop and runs the spec on THAT interpreter — see that module's
+    docstring for the full mechanism. A native-Windows agent (or any
+    non-WSL host, including every test in this suite) takes the in-process
+    path unchanged.
 
+    Raises :class:`DriverError` — never a bare exception — for a missing
+    ``entrypoint:``, a spec file that doesn't exist, a malformed spec (an
+    invalid-YAML/unknown-step-type
+    :class:`coord.win_native_driver.WinNativeSpecError`), or — WSL only — a
+    :class:`coord.win_native_bridge.WinNativeBridgeError` (the Windows-side
+    Python couldn't be found/bootstrapped, or the bridge subprocess itself
+    failed to run). A process that never launches, a window that never
+    appears, or a failed probe do NOT raise either way — both
+    :func:`coord.win_native_driver.run_native_spec` and the bridge fold
+    those into individual failing entries in ``tests`` instead.
+    """
     if not entrypoint:
         raise DriverError(
             "win-native driver requires an `entrypoint:` naming the native "
@@ -773,16 +875,43 @@ def _run_win_native(run_command: str, cwd: str, entrypoint: str, *, timeout: int
     except OSError as e:
         raise DriverError(f"win-native spec could not be read: {spec_path}: {e}") from e
 
-    try:
-        tests = run_native_spec(
-            spec_text, launch_command=run_command, cwd=cwd, timeout=timeout,
-        )
-    except WinNativeSpecError as e:
-        raise DriverError(f"win-native spec is invalid: {e}") from e
-    except WinNativeRuntimeError as e:
-        raise DriverError(f"win-native driver could not run: {e}") from e
+    from coord.win_native_bridge import (  # noqa: PLC0415 — see module docstring on the deferred import
+        WinNativeBridgeError,
+        is_wsl_host,
+        run_native_spec_via_bridge,
+    )
 
-    exit_code = 0 if tests and all(t.get("status") != "fail" for t in tests) else 1
+    if is_wsl_host():
+        try:
+            tests = run_native_spec_via_bridge(
+                spec_text, run_command=run_command, cwd=cwd, timeout=timeout,
+            )
+        except WinNativeBridgeError as e:
+            raise DriverError(f"win-native WSL bridge could not run: {e}") from e
+    else:
+        from coord.win_native_driver import (  # noqa: PLC0415 — see module docstring on the deferred import
+            WinNativeRuntimeError,
+            WinNativeSpecError,
+            run_native_spec,
+        )
+        try:
+            tests = run_native_spec(
+                spec_text, launch_command=run_command, cwd=cwd, timeout=timeout,
+            )
+        except WinNativeSpecError as e:
+            raise DriverError(f"win-native spec is invalid: {e}") from e
+        except WinNativeRuntimeError as e:
+            raise DriverError(f"win-native driver could not run: {e}") from e
+
+    # #3510: a locked/absent interactive session reports a distinct
+    # "unavailable" status (coord.win_native_driver's session precheck),
+    # not "fail" — it must still fail this exit code rather than read as a
+    # silent pass. An unconfirmed result is not a pass.
+    exit_code = (
+        0
+        if tests and all(t.get("status") not in ("fail", "unavailable") for t in tests)
+        else 1
+    )
     raw_output = "\n".join(
         f"{t.get('status')}: {t.get('id')} {t.get('message', '')}".rstrip()
         for t in tests
@@ -843,7 +972,14 @@ def _run_mac_native(run_command: str, cwd: str, entrypoint: str, *, timeout: int
     except MacNativeRuntimeError as e:
         raise DriverError(f"mac-native driver could not run: {e}") from e
 
-    exit_code = 0 if tests and all(t.get("status") != "fail" for t in tests) else 1
+    # #3510: a locked/absent GUI session reports a distinct "unavailable"
+    # status (coord.mac_native_driver's session precheck), not "fail" —
+    # it must still fail this exit code rather than read as a silent pass.
+    exit_code = (
+        0
+        if tests and all(t.get("status") not in ("fail", "unavailable") for t in tests)
+        else 1
+    )
     raw_output = "\n".join(
         f"{t.get('status')}: {t.get('id')} {t.get('message', '')}".rstrip()
         for t in tests
@@ -904,7 +1040,15 @@ def _run_gtk_native(run_command: str, cwd: str, entrypoint: str, *, timeout: int
     except GtkNativeRuntimeError as e:
         raise DriverError(f"gtk-native driver could not run: {e}") from e
 
-    exit_code = 0 if tests and all(t.get("status") != "fail" for t in tests) else 1
+    # #3510: a missing $DISPLAY/$WAYLAND_DISPLAY reports a distinct
+    # "unavailable" status (coord.gtk_native_driver's session precheck),
+    # not "fail" — it must still fail this exit code rather than read as a
+    # silent pass.
+    exit_code = (
+        0
+        if tests and all(t.get("status") not in ("fail", "unavailable") for t in tests)
+        else 1
+    )
     raw_output = "\n".join(
         f"{t.get('status')}: {t.get('id')} {t.get('message', '')}".rstrip()
         for t in tests

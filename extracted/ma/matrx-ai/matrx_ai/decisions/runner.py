@@ -1,8 +1,9 @@
 """Catalog-routed, non-chat decision runner.
 
-The provider adapter owns its retry policy.  This module owns admission,
-catalog routing, credential selection, and the common result/cost shape used by
-HTTP and direct consumers.
+The provider adapter owns its retry policy.  This module owns catalog routing,
+credential selection, and the common result/cost shape used by HTTP and direct
+consumers; admission and failure reporting belong to the shared dispatch seam
+(``UnifiedAIClient._dispatch_with_billing_net``).
 """
 
 from __future__ import annotations
@@ -14,12 +15,7 @@ from typing import Any
 from matrx_ai.catalog import CatalogRoutingError, ResolvedCallProfile, resolve_call_profile
 from matrx_ai.config import TokenUsage
 from matrx_ai.config.usage_config import ensure_pricing_lookup
-from matrx_ai.providers.admission import admit_provider_call
-from matrx_ai.providers.errors import (
-    attach_billed_usage,
-    get_billed_usage,
-    report_unbilled_provider_failure,
-)
+from matrx_ai.providers.errors import attach_billed_usage, get_billed_usage
 from matrx_ai.providers.keys import resolve_api_key
 from matrx_ai.providers.typesafe import (
     DEFAULT_BASE_URL,
@@ -138,16 +134,24 @@ async def execute_decision(
         raise DecisionAdmissionError(
             f"Offering {profile.offering_id!r} has no resolved catalog pricing."
         )
+    from matrx_ai.providers.unified_client import UnifiedAIClient
+
     raw: SystemOneResult | None = None
     try:
-        async with admit_provider_call(profile):
-            raw = await caller(
+        # The shared dispatch seam: admission, the out-of-credit alarm and
+        # LAYER 2 — the same pipe every chat and media call takes.
+        raw = await UnifiedAIClient._dispatch_with_billing_net(
+            lambda: caller(
                 dispatched,
                 api_key=api_key,
                 # The vendor host belongs to the provider adapter, never this engine.
                 base_url=profile.base_url or DEFAULT_BASE_URL,
-            )
+            ),
+            profile=profile,
+        )
     except Exception as exc:
+        # Name the catalog route on whatever usage the adapter attached, so the
+        # failed request records its real cost against the right offering.
         billed = get_billed_usage(exc)
         if billed is not None:
             billed.matrx_model_name = profile.model_name
@@ -155,10 +159,6 @@ async def execute_decision(
             billed.api = profile.vendor
             billed.offering_id = profile.offering_id
             billed.offering_route = profile.resolution_route
-        else:
-            report_unbilled_provider_failure(
-                exc, provider=profile.vendor, model=profile.provider_model_id
-            )
         raise
     if raw is None:
         raise DecisionAdmissionError("Decision transport ended without a provider response.")

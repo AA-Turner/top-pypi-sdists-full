@@ -1,0 +1,276 @@
+from __future__ import annotations
+
+import hashlib
+import os
+import pathlib
+import stat
+from collections.abc import Iterator, Mapping, Sequence
+from dataclasses import dataclass, field
+from typing import Any
+
+from mechbench_compute.contained import check_relative_path, resolve_inside
+
+KIND = "sandbox/snapshot"
+LEGACY_KIND = "fs_snapshot"
+
+INLINE_MAX = 64 * 1024
+
+MAX_FILES = 10_000
+MAX_BYTES = 256 * 1024 * 1024
+
+MODE_FILE = 0o644
+MODE_EXEC = 0o755
+
+
+class SnapshotLimit(RuntimeError):
+    pass
+
+
+@dataclass(frozen=True)
+class Entry:
+    path: str
+    size: int
+    blob_hash: str
+    executable: bool = False
+    data: bytes | None = None
+
+    def to_wire(self, *, inline: bool = True) -> dict[str, Any]:
+        out: dict[str, Any] = {
+            "path": self.path, "size": self.size,
+            "blob_hash": self.blob_hash,
+        }
+        if self.executable:
+            out["executable"] = True
+        if inline and self.data is not None:
+            out["data"] = self.data
+        return out
+
+    @staticmethod
+    def from_wire(value: Mapping[str, Any]) -> Entry:
+        data = value.get("data")
+        return Entry(
+            path=str(value["path"]), size=int(value["size"]),
+            blob_hash=str(value["blob_hash"]),
+            executable=bool(value.get("executable", False)),
+            data=bytes(data) if data is not None else None,
+        )
+
+
+@dataclass(frozen=True)
+class Mount:
+    at: str
+    object: str
+    digest: str = ""
+
+    def to_wire(self) -> dict[str, Any]:
+        out = {"at": self.at, "object": self.object}
+        if self.digest:
+            out["digest"] = self.digest
+        return out
+
+    @staticmethod
+    def from_wire(v: Mapping[str, Any]) -> Mount:
+        return Mount(at=str(v["at"]), object=str(v["object"]),
+                     digest=str(v.get("digest", "")))
+
+
+@dataclass(frozen=True)
+class Snapshot:
+    entries: tuple[Entry, ...] = ()
+    mounts: tuple[Mount, ...] = ()
+    blobs: Mapping[str, bytes] = field(default_factory=dict, compare=False,
+                                       hash=False, repr=False)
+
+    def __post_init__(self) -> None:
+        ordered = tuple(sorted(self.entries, key=lambda e: e.path))
+        if ordered != tuple(self.entries):
+            object.__setattr__(self, "entries", ordered)
+        mounts = tuple(sorted(self.mounts, key=lambda m: m.at))
+        if mounts != tuple(self.mounts):
+            object.__setattr__(self, "mounts", mounts)
+
+    @property
+    def n_files(self) -> int:
+        return len(self.entries)
+
+    @property
+    def n_bytes(self) -> int:
+        return sum(e.size for e in self.entries)
+
+    def paths(self) -> tuple[str, ...]:
+        return tuple(e.path for e in self.entries)
+
+    def get(self, path: str) -> Entry | None:
+        for e in self.entries:
+            if e.path == path:
+                return e
+        return None
+
+    def digest(self) -> str:
+        h = hashlib.sha256()
+        for e in self.entries:
+            h.update(e.path.encode("utf-8"))
+            h.update(b"\x00")
+            h.update(e.blob_hash.encode("ascii"))
+            h.update(b"\x01" if e.executable else b"\x00")
+        for m in self.mounts:
+            h.update(b"\x02")
+            h.update(m.at.encode("utf-8"))
+            h.update(b"\x00")
+            h.update((m.digest or m.object).encode("utf-8"))
+        return "sha256:" + h.hexdigest()
+
+    def to_wire(self, *, inline: bool = False) -> dict[str, Any]:
+        return {
+            "kind": KIND,
+            "version": 1,
+            "digest": self.digest(),
+            "n_files": self.n_files,
+            "n_bytes": self.n_bytes,
+            "entries": [(e.to_wire() if inline else e.to_wire(inline=False))
+                        for e in self.entries],
+            **({"mounts": [m.to_wire() for m in self.mounts]}
+               if self.mounts else {}),
+        }
+
+    @staticmethod
+    def from_wire(value: Mapping[str, Any]) -> Snapshot:
+        if value.get("kind") not in (KIND, LEGACY_KIND):
+            raise ValueError(
+                f"not a filesystem snapshot: kind={value.get('kind')!r}")
+        return Snapshot(
+            tuple(Entry.from_wire(e) for e in value.get("entries", [])),
+            tuple(Mount.from_wire(m) for m in value.get("mounts", [])))
+
+
+EMPTY = Snapshot()
+
+
+def blob_hash(data: bytes) -> str:
+    return "sha256:" + hashlib.sha256(data).hexdigest()
+
+
+def _walk(root: pathlib.Path) -> Iterator[pathlib.Path]:
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames.sort()
+        for name in sorted(filenames):
+            yield pathlib.Path(dirpath) / name
+
+
+def capture(root: str | os.PathLike[str], *, inline_max: int = INLINE_MAX,
+            max_files: int = MAX_FILES, max_bytes: int = MAX_BYTES,
+            blobs: dict[str, bytes] | None = None,
+            mounts: Sequence[Mount] = ()) -> Snapshot:
+    base = pathlib.Path(root).resolve()
+    if not base.is_dir():
+        raise NotADirectoryError(f"not a directory: {base}")
+    entries: list[Entry] = []
+    large: dict[str, bytes] = {}
+    total = 0
+    skip = tuple(m.at.rstrip("/") + "/" for m in mounts)
+    for path in _walk(base):
+        rel = path.relative_to(base).as_posix()
+        if any(rel == m.at.rstrip("/") or rel.startswith(p)
+               for m, p in zip(mounts, skip, strict=True)):
+            continue
+        real = path.resolve()
+        if not str(real).startswith(str(base) + os.sep) and real != base:
+            raise SnapshotLimit(
+                f"{path} leaves the snapshot root ({real}) — a snapshot "
+                f"must describe the sandbox and nothing outside it")
+        if not real.is_file():
+            continue
+        data = real.read_bytes()
+        total += len(data)
+        if len(entries) + 1 > max_files:
+            raise SnapshotLimit(
+                f"more than {max_files} files under {base}")
+        if total > max_bytes:
+            raise SnapshotLimit(
+                f"more than {max_bytes} bytes under {base} "
+                f"(reached {total} at {path.relative_to(base)})")
+        digest = blob_hash(data)
+        if blobs is not None:
+            blobs[digest] = data
+        if len(data) > inline_max:
+            large[digest] = data
+        entries.append(Entry(
+            path=rel,
+            size=len(data),
+            blob_hash=digest,
+            executable=bool(real.stat().st_mode & stat.S_IXUSR),
+            data=data if len(data) <= inline_max else None,
+        ))
+    return Snapshot(tuple(entries), tuple(mounts), dict(large))
+
+
+def materialize(snapshot: Snapshot, root: str | os.PathLike[str], *,
+                blobs: Mapping[str, bytes] | None = None) -> None:
+    base = pathlib.Path(root)
+    base.mkdir(parents=True, exist_ok=True)
+    try:
+        targets = [resolve_inside(base, check_relative_path(e.path, what="entry"),
+                                  what="entry") for e in snapshot.entries]
+    except ValueError as err:
+        raise SnapshotLimit(f"entry escapes the root: {err}") from None
+    for e, target in zip(snapshot.entries, targets, strict=True):
+        target.parent.mkdir(parents=True, exist_ok=True)
+        data = e.data
+        if data is None:
+            store = blobs if blobs is not None else snapshot.blobs
+            if e.blob_hash in store:
+                data = store[e.blob_hash]
+            if data is None:
+                raise KeyError(
+                    f"{e.path}: blob {e.blob_hash} is not inline and was "
+                    f"not supplied — pass the blob store that captured it")
+        if blob_hash(data) != e.blob_hash:
+            raise ValueError(
+                f"{e.path}: blob does not match its hash — the store is "
+                f"corrupt or the wrong one")
+        target.write_bytes(data)
+        target.chmod(MODE_EXEC if e.executable else MODE_FILE)
+
+
+@dataclass(frozen=True)
+class Diff:
+    added: tuple[str, ...] = ()
+    removed: tuple[str, ...] = ()
+    changed: tuple[str, ...] = ()
+
+    @property
+    def empty(self) -> bool:
+        return not (self.added or self.removed or self.changed)
+
+    def to_wire(self) -> dict[str, Any]:
+        return {"added": list(self.added), "removed": list(self.removed),
+                "changed": list(self.changed)}
+
+
+def diff(before: Snapshot, after: Snapshot) -> Diff:
+    a = {e.path: e for e in before.entries}
+    b = {e.path: e for e in after.entries}
+    changed = tuple(sorted(
+        p for p in a.keys() & b.keys()
+        if a[p].blob_hash != b[p].blob_hash
+        or a[p].executable != b[p].executable))
+    return Diff(added=tuple(sorted(b.keys() - a.keys())),
+                removed=tuple(sorted(a.keys() - b.keys())),
+                changed=changed)
+
+
+def seeded(files: Mapping[str, bytes | str], *,
+           executable: Sequence[str] = ()) -> Snapshot:
+    execs = set(executable)
+    entries = []
+    large: dict[str, bytes] = {}
+    for path in sorted(files):
+        raw = files[path]
+        data = raw.encode("utf-8") if isinstance(raw, str) else bytes(raw)
+        h = blob_hash(data)
+        if len(data) > INLINE_MAX:
+            large[h] = data
+        entries.append(Entry(path=path, size=len(data), blob_hash=h,
+                             executable=path in execs,
+                             data=data if len(data) <= INLINE_MAX else None))
+    return Snapshot(tuple(entries), (), large)

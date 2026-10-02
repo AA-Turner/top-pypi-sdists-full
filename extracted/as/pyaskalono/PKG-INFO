@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: pyaskalono
+Version: 0.2.0
+Requires-Dist: maturin>=1.0 ; extra == 'dev'
+Requires-Dist: pytest>=7.0 ; extra == 'dev'
+Provides-Extra: dev
+License-File: LICENSE
+Summary: Python bindings for askalono - rust library to detect license texts
+Requires-Python: >=3.11
+Project-URL: homepage, https://github.com/kumekay/pyaskalono

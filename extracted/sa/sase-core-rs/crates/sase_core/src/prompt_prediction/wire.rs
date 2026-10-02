@@ -168,6 +168,13 @@ pub struct PromptPredictionRequestWire {
     pub confidence: String,
     #[serde(default = "default_include_draft")]
     pub include_draft: bool,
+    /// Opt-in current-word completion: when the text ends in a partial
+    /// word, complete it through the prefix-restricted gate and report the
+    /// suffix in `word_completion`. Old readers ignore the field; texts
+    /// ending in whitespace or boundary punctuation stay ordinary
+    /// boundary requests.
+    #[serde(default)]
+    pub complete_current_word: bool,
 }
 
 fn default_predict_limit() -> usize {
@@ -215,6 +222,16 @@ pub struct PromptPredictionCandidateWire {
     pub continuation: Vec<String>,
 }
 
+/// Gated current-word completion: the typed prefix, the completed word
+/// with the typed casing kept, and the characters to insert (empty when
+/// the typed word is already the predicted word).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PromptPredictionWordCompletionWire {
+    pub prefix: String,
+    pub word: String,
+    pub suffix: String,
+}
+
 /// Next-word prediction result.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PromptPredictionResultWire {
@@ -229,6 +246,11 @@ pub struct PromptPredictionResultWire {
     pub ghost: Vec<String>,
     #[serde(default)]
     pub candidates: Vec<PromptPredictionCandidateWire>,
+    /// Present only on a gated current-word completion. `None` keeps the
+    /// serialized shape identical to the boundary result, so old readers
+    /// see no change.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub word_completion: Option<PromptPredictionWordCompletionWire>,
 }
 
 /// One prefix-rank request for current-word completion.
@@ -267,6 +289,12 @@ pub struct PromptPrefixRankResultWire {
 /// rows that seed the builder before scoring starts.
 pub const DEFAULT_REPLAY_WARM_FRACTION: f64 = 0.4;
 
+/// Default row-sampling stride for prequential replay scoring: every
+/// post-warm row is scored. Larger strides score every K-th post-warm
+/// row while every row still joins the corpus, so long archive
+/// comparisons stay affordable on a deterministic selection.
+pub const DEFAULT_REPLAY_SCORE_EVERY: u64 = 1;
+
 /// Options for [`crate::prompt_prediction::evaluate_prompt_prediction_replay`].
 ///
 /// The corpus fields mirror [`PromptPredictionCorpusOptionsWire`], the model
@@ -296,10 +324,16 @@ pub struct PromptPredictionReplayOptionsWire {
     pub reject_conflicts: bool,
     #[serde(default = "default_replay_warm_fraction")]
     pub warm_fraction: f64,
+    #[serde(default = "default_replay_score_every")]
+    pub score_every: u64,
 }
 
 fn default_replay_warm_fraction() -> f64 {
     DEFAULT_REPLAY_WARM_FRACTION
+}
+
+fn default_replay_score_every() -> u64 {
+    DEFAULT_REPLAY_SCORE_EVERY
 }
 
 impl Default for PromptPredictionReplayOptionsWire {
@@ -317,6 +351,7 @@ impl Default for PromptPredictionReplayOptionsWire {
             draft_weight: DEFAULT_DRAFT_WEIGHT,
             reject_conflicts: true,
             warm_fraction: DEFAULT_REPLAY_WARM_FRACTION,
+            score_every: DEFAULT_REPLAY_SCORE_EVERY,
         }
     }
 }
@@ -364,6 +399,37 @@ pub struct PromptPredictionReplaySweepPointWire {
     pub novel_precision: Option<f64>,
 }
 
+/// Mid-word metrics for one typed-prefix length: coverage (share of
+/// trials gated), precision (share of gated trials whose completed word
+/// equals the target; `None` when nothing gated), and the keystroke-savings
+/// rate (`target_chars - k` per gated-correct trial plus gated-correct
+/// continuation words, over scored-row chars).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PromptPredictionReplayMidwordMetricsWire {
+    pub k: u64,
+    pub positions: u64,
+    pub coverage: f64,
+    pub precision: Option<f64>,
+    pub savings: f64,
+}
+
+/// One cohort slice of the mid-word report: per-k metrics for one cohort.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PromptPredictionReplayMidwordCohortWire {
+    pub cohort: String,
+    pub by_k: Vec<PromptPredictionReplayMidwordMetricsWire>,
+}
+
+/// Mid-word completion metrics for one confidence preset: per-k metrics
+/// overall plus per cohort. Present only when the evaluator ran the
+/// mid-word pass; old readers ignore the field.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PromptPredictionReplayMidwordPresetWire {
+    pub preset: String,
+    pub by_k: Vec<PromptPredictionReplayMidwordMetricsWire>,
+    pub cohorts: Vec<PromptPredictionReplayMidwordCohortWire>,
+}
+
 /// Aggregate-only prequential replay report. It never carries prompt text:
 /// positions are counted, cohorts are named, and the sweep holds rates.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -386,6 +452,11 @@ pub struct PromptPredictionReplayReportWire {
     pub corpus_bytes: u64,
     pub corpus_rows_used: u64,
     pub corpus_contexts: u64,
+    /// Mid-word trials per preset and per typed-prefix length. `None`
+    /// keeps the serialized shape identical to the boundary-only report,
+    /// so old readers see no change.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub midword: Option<Vec<PromptPredictionReplayMidwordPresetWire>>,
 }
 
 /// Corpus compile statistics.
@@ -437,6 +508,60 @@ mod tests {
     }
 
     #[test]
+    fn completion_fields_default_for_old_readers() {
+        // Requests serialized without the opt-in field (old core, old
+        // Python) deserialize with completion off.
+        let json = serde_json::json!({
+            "schema_version": PROMPT_PREDICTION_WIRE_SCHEMA_VERSION,
+            "text_before_cursor": "help me impl",
+            "limit": 5,
+            "max_words": 4,
+            "confidence": "balanced",
+            "include_draft": true,
+        });
+        let request: PromptPredictionRequestWire =
+            serde_json::from_value(json).expect("deserialize");
+        assert!(!request.complete_current_word);
+        // Results without a completion carry no new key on the wire, so
+        // old Python readers see an unchanged shape.
+        let result = PromptPredictionResultWire {
+            schema_version: PROMPT_PREDICTION_WIRE_SCHEMA_VERSION,
+            blocked_reason: None,
+            context_words: Vec::new(),
+            confident: false,
+            ghost: Vec::new(),
+            candidates: Vec::new(),
+            word_completion: None,
+        };
+        let json = serde_json::to_string(&result).expect("serialize");
+        assert!(!json.contains("word_completion"), "json={json}");
+        let back: PromptPredictionResultWire =
+            serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(result, back);
+    }
+
+    #[test]
+    fn completion_wire_serde_round_trip() {
+        let result = PromptPredictionResultWire {
+            schema_version: PROMPT_PREDICTION_WIRE_SCHEMA_VERSION,
+            blocked_reason: None,
+            context_words: vec!["help".to_string(), "me".to_string()],
+            confident: true,
+            ghost: vec!["it".to_string()],
+            candidates: Vec::new(),
+            word_completion: Some(PromptPredictionWordCompletionWire {
+                prefix: "impl".to_string(),
+                word: "implement".to_string(),
+                suffix: "ement".to_string(),
+            }),
+        };
+        let json = serde_json::to_string(&result).expect("serialize");
+        let back: PromptPredictionResultWire =
+            serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(result, back);
+    }
+
+    #[test]
     fn result_wire_serde_round_trip() {
         let result = PromptPredictionResultWire {
             schema_version: PROMPT_PREDICTION_WIRE_SCHEMA_VERSION,
@@ -444,6 +569,7 @@ mod tests {
             context_words: vec!["help".to_string(), "me".to_string()],
             confident: true,
             ghost: vec!["implement".to_string()],
+            word_completion: None,
             candidates: vec![PromptPredictionCandidateWire {
                 word: "implement".to_string(),
                 key: "implement".to_string(),

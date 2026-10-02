@@ -1,0 +1,151 @@
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# === Project =====================================================================================
+
+[project]
+name = "mlOpus"
+version = "1.6.3"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+description = "MLOps tools for research and development."
+authors = [{name = "Lariel Fernandes", email = "lariel.c2.fernandes@gmail.com"}]
+classifiers = [
+    "Environment :: Console",
+    "Operating System :: Unix",
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Information Technology",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "License :: OSI Approved :: Apache Software License",
+]
+requires-python = ">=3.10,<4"
+dependencies = [
+    "pytz               >=2024",
+    "dacite             >=1.5",
+    "pyyaml             >=5",
+    "urllib3            >=1.25",
+    "pydantic           >=2.8,<3",
+    "packaging          >=22",
+    "rclone-python      >=0.1",
+    "importlib-metadata >=6.8",
+    "jinja2             >=3.1",
+    "toml               >=0.10",
+]
+
+[project.urls]
+Repository = "https://github.com/lariel-fernandes/mlopus"
+
+[project.optional-dependencies]
+kedro = ["kedro >=0.19,<2"]  # Supports Kedro v1 with backwards compatibility for v0
+search = ["mongomock >=4.1,<5"]
+mlflow = ["mlflow-skinny >=2.9,<3"]
+
+[project.entry-points."mlopus.mlflow_api_providers"]
+mlflow = "mlopus.mlflow.providers.mlflow:MlflowApi[mlflow]"
+generic = "mlopus.mlflow.providers.generic:GenericMlflowApi"
+
+# === UV ==========================================================================================
+
+[dependency-groups]
+dev = [
+    "annoy           ~=1.17",
+    "numpy           ~=2.1",
+    "pandas          ~=2.2",
+    "pytest          ~=7.2",
+    "jupyter         ~=1.0",
+    "tzlocal         ~=5.2",
+    "devtools        ~=0.12",
+    "pytest-mock     ~=3.14",
+    "pytest-coverage ~=0.0",
+    "sphinx                    <7",
+    "sphinx-toolbox            ~=3.8",
+    "autodoc-pydantic          ~=2.2",
+    "sphinx-rtd-theme          ~=2.0",
+    "sphinx-paramlinks         ~=0.6",
+    "enum-tools[sphinx]        ~=0.12",
+    "sphinx-code-include       ~=1.4",
+    "sphinx-autodoc-typehints  ~=1.23",
+]
+
+# === Commitizen ==================================================================================
+
+[tool.commitizen]
+version = "1.6.3"
+tag_format = "$version"
+version_scheme = "semver"
+version_files = [
+    "pyproject.toml:^version",
+    "docs/api/conf.py:^release",
+    "src/mlopus/__init__.py:^VERSION",
+]
+changelog_merge_prerelease = true
+allowed_prefixes = []
+
+# === Pytest ======================================================================================
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+log_cli_level = "DEBUG"  # to show logs and prints, run pytest with: -s
+addopts = "--cov mlopus --cov-report term --cov-report html"
+
+[tool.coverage.report]
+omit = ["src/mlopus/mlflow/providers/generic.py"]
+
+# === Ruff ========================================================================================
+
+[tool.ruff]
+line-length = 120
+indent-width = 4
+extend-include = []
+exclude = [
+    "examples/",
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "jupyter_lab_config.py",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.lint]
+exclude = ["src/tests/*"]
+fixable = ["ALL"]
+unfixable = []
+select = [
+    "F",   # Pyflakes
+#    "D",   # pydocstyle
+    "E",   # Errors
+    "W",   # Warning
+    "TCH", # Typecheck
+    "TID",
+    "SIM",
+]
+ignore = ["E501"]

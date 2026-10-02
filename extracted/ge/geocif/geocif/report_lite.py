@@ -34,7 +34,9 @@ import arrow as ar
 import pandas as pd
 
 from geocif import __version__
+from geocif.ml.stage_labels import latest_stage_rows
 from geocif.report import _DESC, _find_images
+from geocif.viz._outlook_db import dedup_upserts
 
 logger = logging.getLogger(__name__)
 
@@ -785,6 +787,17 @@ def _read_predicted_yield_table(outlook_db, country, crop, best, year):
         for extra in (_LAST_OBS_YIELD_COL, _LAST_OBS_YEAR_COL, _MEDIAN_YIELD_COL):
             if extra in table_cols:
                 select_cols.append(extra)
+        # Bookkeeping columns, dropped again below: under run_time_steps =
+        # all the table holds one row per STAGE per region (the table used
+        # to print every one of them), and a re-run into the same DB appends
+        # a second copy of each row (the upsert key includes the wall-clock
+        # Time). Stage picks the latest window; Date/Time pick the latest
+        # write.
+        helper_cols = [
+            c for c in ("Stage Name", "Stage Window Display", "Date", "Time")
+            if c in table_cols
+        ]
+        select_cols += helper_cols
         cols_sql = ",".join(f'"{c}"' for c in select_cols)
 
         where, params = [], []
@@ -814,6 +827,18 @@ def _read_predicted_yield_table(outlook_db, country, crop, best, year):
             f"skipping predicted-yield table"
         )
         return None, []
+
+    # One row per region(+season): the most recently WRITTEN copy of the
+    # chronologically latest stage. Then drop the bookkeeping columns so the
+    # table builder sees the same schema as before.
+    region_keys = [c for c in ("Region", "Season") if c in df.columns]
+    df = dedup_upserts(
+        df, region_keys + [c for c in ("Stage Name",) if c in df.columns],
+        f"{db_path.name}:{table}:{best}",
+    )
+    df = latest_stage_rows(df, by=region_keys, keep="last")
+    df = df.drop(columns=[c for c in helper_cols if c in df.columns])
+    df = df.reset_index(drop=True)
 
     seasons_present = []
     if "Season" in df.columns:

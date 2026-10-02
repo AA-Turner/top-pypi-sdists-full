@@ -55,9 +55,7 @@ class JobQueueSDK:
         logger: Optional[BlockLogger] = None,
         timer: Optional[Timer] = None,
     ):
-        self._private_sdk = PrivateJobQueueSDK(
-            client=client, logger=logger, timer=timer
-        )
+        self._private_sdk = PrivateJobQueueSDK(client=client, logger=logger, timer=timer)
 
     @sdk_docs(doc_py_example=_LIST_EXAMPLE, arg_docstrings=_LIST_ARG_DOCSTRINGS)
     def list(  # noqa: F811, PLR0913
@@ -139,13 +137,9 @@ class JobQueueSDK:
         tags: Dict[str, str],
     ) -> None:
         """Upsert (add/update) tag key/value pairs for a job queue."""
-        return self._private_sdk.add_tags(
-            job_queue_id=job_queue_id, name=name, tags=tags
-        )
+        return self._private_sdk.add_tags(job_queue_id=job_queue_id, name=name, tags=tags)
 
-    @sdk_docs(
-        doc_py_example=_TAGS_REMOVE_EXAMPLE, arg_docstrings=_TAGS_REMOVE_ARG_DOCSTRINGS
-    )
+    @sdk_docs(doc_py_example=_TAGS_REMOVE_EXAMPLE, arg_docstrings=_TAGS_REMOVE_ARG_DOCSTRINGS)
     def remove_tags(  # noqa: F811
         self,
         *,
@@ -154,15 +148,14 @@ class JobQueueSDK:
         keys: List[str],
     ) -> None:
         """Remove tags by key from a job queue."""
-        return self._private_sdk.remove_tags(
-            job_queue_id=job_queue_id, name=name, keys=keys
-        )
+        return self._private_sdk.remove_tags(job_queue_id=job_queue_id, name=name, keys=keys)
 
-    @sdk_docs(
-        doc_py_example=_TAGS_LIST_EXAMPLE, arg_docstrings=_TAGS_LIST_ARG_DOCSTRINGS
-    )
+    @sdk_docs(doc_py_example=_TAGS_LIST_EXAMPLE, arg_docstrings=_TAGS_LIST_ARG_DOCSTRINGS)
     def list_tags(  # noqa: F811
-        self, *, job_queue_id: Optional[str] = None, name: Optional[str] = None,
+        self,
+        *,
+        job_queue_id: Optional[str] = None,
+        name: Optional[str] = None,
     ) -> Dict[str, str]:
         """List tags for a job queue."""
         return self._private_sdk.list_tags(job_queue_id=job_queue_id, name=name)
@@ -181,9 +174,7 @@ class JobQueueSDK:
             job_queue_id=job_queue_id, name=name, project=project, cloud=cloud
         )
 
-    @sdk_docs(
-        doc_py_example=_TERMINATE_EXAMPLE, arg_docstrings=_TERMINATE_ARG_DOCSTRINGS
-    )
+    @sdk_docs(doc_py_example=_TERMINATE_EXAMPLE, arg_docstrings=_TERMINATE_ARG_DOCSTRINGS)
     def terminate(  # noqa: F811
         self,
         *,

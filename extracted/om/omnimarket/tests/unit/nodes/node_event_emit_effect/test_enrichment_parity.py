@@ -1,0 +1,644 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""Envelope-enrichment parity tests (OMN-16048 / OMN-16018 / OMN-16020).
+
+OMN-16048 ruled REPLICATE: ``node_event_emit_effect`` must reproduce the
+legacy ``node_emit_daemon``'s publish-time envelope enrichment byte-for-byte.
+The parity spec was NOT narrowed, so these tests assert the full bar.
+
+The load-bearing test here is ``test_shadow_parity_is_byte_identical_for_every_event_type``:
+it runs the SAME harness that measured the 1/62 failure
+(``scripts/shadow_mode_parity_proof.py``) in-process and asserts 62/62. It is
+the regression guard -- unit assertions below it exist to localise a failure,
+not to substitute for it.
+
+RED-first evidence (dev HEAD, pre-fix): 1/62 byte-identical, 61 event types
+mismatched on {causation_id, emitted_at, entity_id, schema_version,
+correlation_id} plus 63/65 partition keys null on the new side.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import importlib.util
+import shutil
+import sys
+import tempfile
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+
+import pytest
+import yaml
+
+from omnimarket.nodes.node_event_emit_effect.enrichment import (
+    TOPIC_SCOPED_TRANSFORM_REGISTRY,
+    UNCONDITIONAL_ENRICHMENT_FIELDS,
+    apply_transform,
+    default_clock,
+    default_correlation_id_factory,
+    derive_partition_key,
+    inject_metadata,
+)
+from omnimarket.nodes.node_event_emit_effect.errors import (
+    NonMappingPayloadError,
+    UnknownTransformError,
+)
+from omnimarket.nodes.node_event_emit_effect.handlers.handler_event_emit_effect import (
+    HandlerEventEmitEffect,
+)
+from omnimarket.nodes.node_event_emit_effect.models.model_emit_request import (
+    ModelEmitRequest,
+)
+from omnimarket.nodes.node_event_emit_effect.spool.spool_outbox import SpoolOutbox
+from omnimarket.nodes.node_event_emit_effect.spool.topic_resolver import (
+    default_registry_path,
+    resolve_event_type,
+    resolve_partition_key_field,
+)
+
+pytestmark = pytest.mark.unit
+
+REPO_ROOT = Path(__file__).resolve().parents[4]
+HARNESS_PATH = REPO_ROOT / "scripts" / "shadow_mode_parity_proof.py"
+
+FROZEN_AT = datetime(2026, 1, 1, 0, 0, 0, tzinfo=UTC)
+FROZEN_CORR = "00000000-0000-4000-8000-000000000000"
+
+
+def _frozen_clock() -> datetime:
+    return FROZEN_AT
+
+
+def _frozen_corr() -> str:
+    return FROZEN_CORR
+
+
+class FakePublishAdapter:
+    """Records publish calls; never touches the network."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, object, str | None]] = []
+
+    def publish(
+        self,
+        topic: str,
+        payload: object,
+        *,
+        key: str | None,
+        correlation_id: str | None,
+        content_event_id: str | None,
+        timeout_seconds: float | None = None,
+    ) -> None:
+        self.calls.append((topic, payload, key))
+
+
+def _handler(tmp_path: Path) -> tuple[HandlerEventEmitEffect, FakePublishAdapter]:
+    adapter = FakePublishAdapter()
+    handler = HandlerEventEmitEffect(
+        spool=SpoolOutbox(tmp_path / "spool"),
+        publish_adapter=adapter,
+        clock=_frozen_clock,
+        correlation_id_factory=_frozen_corr,
+    )
+    return handler, adapter
+
+
+# ---------------------------------------------------------------------------
+# The parity harness, run as a test (the actual bar)
+# ---------------------------------------------------------------------------
+
+
+def _load_harness() -> Any:
+    spec = importlib.util.spec_from_file_location(
+        "_omn16048_shadow_parity", HARNESS_PATH
+    )
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _work_ledger_producer_payloads() -> dict[str, dict[str, Any]]:
+    """Producer-shaped payloads for every work.ledger.* event type.
+
+    The new node refuses a work-ledger payload whose row does not parse or whose
+    identity is not canonical (OMN-20001), so the parity proof drives these event
+    types with what the work-ledger producer really hands the emit node.
+    """
+    from omnibase_core.models.events.work.model_work_ledger_render import (
+        render_ledger_row,
+    )
+
+    from omnimarket.nodes.node_work_ledger_emit_effect.handlers.handler_work_ledger_emit import (
+        HandlerWorkLedgerEmit,
+    )
+    from omnimarket.nodes.node_work_ledger_emit_effect.models.model_work_ledger_emit_request import (
+        ModelWorkLedgerEmitRequest,
+    )
+    from tests.nodes.work_ledger_fixtures import records_for_all_ledger_row_types
+
+    payloads: dict[str, dict[str, Any]] = {}
+
+    class _Capture:
+        def handle(self, request: ModelEmitRequest) -> Any:
+            assert isinstance(request.payload, dict)
+            payloads[request.event_type] = dict(request.payload)
+            raise ValueError("captured")
+
+    producer = HandlerWorkLedgerEmit(emitter=_Capture())
+    records = records_for_all_ledger_row_types()
+    index = {record.event.event_id: record.event for record in records}
+    for record in records:
+        row = render_ledger_row(record.event, index)
+        producer.handle(ModelWorkLedgerEmitRequest(row=row))
+        producer.handle(
+            ModelWorkLedgerEmitRequest(
+                row=row, event=record.event, provenance_kind="typed"
+            )
+        )
+    assert len(payloads) == 22
+    return payloads
+
+
+def test_shadow_parity_is_byte_identical_for_every_event_type(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Old daemon vs new node, every registered event type, byte-for-byte.
+
+    Drives both paths from one frozen clock + one ID source (the OMN-16048
+    determinism seam) so the two GENERATED fields are comparable rather than
+    trivially unequal. Nothing is excluded from the diff and no value is
+    rewritten after the fact -- see the harness module docstring.
+    """
+    # Both paths read the same env, so parity holds either way -- pinned only
+    # so the local and CI runs measure the identical surface.
+    monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
+    monkeypatch.delenv("KAFKA_BOOTSTRAP_SERVERS", raising=False)
+
+    harness = _load_harness()
+
+    registry_raw = yaml.safe_load(harness.REGISTRY_PATH.read_text(encoding="utf-8"))
+    events_raw = registry_raw["events"]
+
+    work_ledger_payloads = _work_ledger_producer_payloads()
+    event_types = [
+        (
+            event_type,
+            work_ledger_payloads.get(event_type)
+            or harness.build_synthetic_payload(
+                event_type, event_def.get("required_fields", [])
+            ),
+        )
+        for event_type, event_def in events_raw.items()
+    ]
+
+    async def run() -> tuple[dict[str, Any], dict[str, Any]]:
+        tmp_root = Path(tempfile.mkdtemp(prefix="omn-16048-parity-test-"))
+        try:
+            old_by_event, _ = await harness.run_old_path(event_types, tmp_root)
+            new_by_event, _ = await harness.run_new_path(event_types, tmp_root)
+        finally:
+            shutil.rmtree(tmp_root, ignore_errors=True)
+        return old_by_event, new_by_event
+
+    old_by_event, new_by_event = asyncio.run(run())
+
+    diffs = [
+        harness.diff_event_type(et, old_by_event.get(et, []), new_by_event.get(et, []))
+        for et, _ in event_types
+    ]
+    mismatched = [d for d in diffs if not d["byte_identical"]]
+
+    # 62 -> 67: OMN-17019 (C9) adds the five work-obligation lifecycle kinds
+    # (created / transferred / satisfied / superseded / abandoned) to the emit
+    # registry. Updated DELIBERATELY, which is what this assertion exists to
+    # force: the count is a ratchet on registry growth, and the five new kinds
+    # are asserted byte-identical across the old and new enrichment paths by
+    # the `mismatched` assertion immediately below -- so raising the number
+    # widens the parity proof rather than excusing anything from it.
+    # 67 -> 66 -> 67: OMN-19153 retires the duplicate dod-verify completed
+    # event type from the emit registry (the daemon stops fanning it out), and
+    # OMN-19550 adds content.captured, the full-content capture event (RULING
+    # 2026-09-25T11:23:30Z). The new kind is held byte-identical across both
+    # enrichment paths by the assertion below. 67 -> 68: OMN-19513 adds
+    # hook.event, the all-hooks capture metadata event, held byte-identical
+    # across both paths by the same assertion. 68 -> 79: the work-ledger stage 1
+    # adds the eleven work.ledger.<type> row events (one per canonical ledger row
+    # type), each held byte-identical across both paths by the same assertion.
+    # OMN-19999 adds one PR observation kind and one fan-out target (69 -> 80 with
+    # the eleven work.ledger.<type> events). OMN-20154 adds three kinds and three
+    # fan-out targets (provider.quota.observed, delegate_skill.completed and
+    # delegate_skill.failed): 80 -> 83. OMN-20012 adds
+    # delegation.disposition_recorded and its one fan-out target: 83 -> 84.
+    # OMN-20001 adds the eleven work.ledger.typed.<type> v2 envelopes, held
+    # byte-identical across both paths by the same assertion: 84 -> 95.
+    assert len(event_types) == 95, (
+        f"registry drifted to {len(event_types)} event types; update the "
+        "expected parity count deliberately, do not auto-follow it"
+    )
+    assert not mismatched, (
+        f"{len(mismatched)}/{len(diffs)} event types are NOT byte-identical: "
+        + "; ".join(
+            f"{d['event_type']}: "
+            + ", ".join(
+                f"{topic}(missing={info['fields_missing_in_new']}, "
+                f"extra={info['fields_extra_in_new']}, "
+                f"differing={info['fields_differing_values']}, "
+                f"key {info['old_partition_key']!r}->{info['new_partition_key']!r})"
+                for topic, info in d["per_topic"].items()
+                if not info["identical"] or not info["partition_key_identical"]
+            )
+            for d in mismatched[:5]
+        )
+    )
+
+    # Non-vacuity: a harness that published nothing on both sides would also
+    # report "no mismatches". Assert the compared surface is real.
+    total_new = sum(len(v) for v in new_by_event.values())
+    total_old = sum(len(v) for v in old_by_event.values())
+    # 65 -> 70: the same OMN-17019 (C9) registry growth as the event-type
+    # count above. Each of the five work-obligation kinds fans out to exactly
+    # ONE topic (asserted independently by
+    # tests/unit/nodes/node_emit_daemon/test_obligation_fanout_contract_parity_omn17019.py),
+    # so +5 event types is exactly +5 published records on each side.
+    # 70 -> 69 -> 70: the retired OMN-19153 kind fanned out to exactly one
+    # topic, and OMN-19550's content.captured fans out to exactly one topic.
+    # 70 -> 71: OMN-19513's hook.event fans out to exactly one topic.
+    # 71 -> 82: the eleven work.ledger.<type> events each fan out to exactly one topic.
+    # 72 -> 83: OMN-19999's PR observation kind plus the eleven work.ledger.<type> events;
+    # 83 -> 86: OMN-20154's three duty-critical fan-out targets.
+    # 86 -> 87: OMN-20012's disposition event fans out to exactly one topic.
+    # 87 -> 98: OMN-20001's eleven work.ledger.typed.<type> envelopes each fan
+    # out to exactly one topic.
+    assert total_old == total_new == 98
+    enriched = sum(
+        1
+        for msgs in new_by_event.values()
+        for m in msgs
+        if isinstance(m.payload, dict)
+        and all(f in m.payload for f in UNCONDITIONAL_ENRICHMENT_FIELDS)
+    )
+    keyed = sum(1 for msgs in new_by_event.values() for m in msgs if m.key is not None)
+    # 65 -> 70: every published record is unconditionally enriched, so this
+    # count tracks total_new exactly (OMN-17019 C9 registry growth).
+    assert enriched == 98, f"only {enriched}/98 new-path messages were enriched"
+    # 2 of the 67 registered events declare no partition_key_field; the daemon
+    # publishes those with a null key, so 68 is the correct non-null count.
+    # All five OMN-17019 obligation kinds declare partition_key_field:
+    # obligation_id -- deliberately, because the lifecycle fold is resolved by
+    # partition offset -- so each one adds to the keyed count, never to the
+    # null-key remainder, and that remainder stays frozen at 2.
+    # 68 -> 67 -> 68: the kind OMN-19153 retires declared a partition_key_field,
+    # and OMN-19550's content.captured declares partition_key_field session_id,
+    # so the keyed count nets to 68 and the null-key remainder stays at 2.
+    # 68 -> 69: OMN-19513's hook.event declares partition_key_field session_id.
+    # 69 -> 80: the eleven work.ledger.<type> events declare partition_key_field ledger_id.
+    # PR-state supplies its composite key explicitly at the producer boundary;
+    # the registry-only shadow harness therefore adds no single-field key.
+    # 83 -> 84: OMN-20012's delegation.disposition_recorded declares
+    # partition_key_field delegation_correlation_id.
+    # 84 -> 95: OMN-20001's eleven work.ledger.typed.<type> envelopes declare
+    # partition_key_field ledger_id.
+    assert keyed == 95, f"only {keyed}/95 new-path messages carried a partition key"
+
+
+# ---------------------------------------------------------------------------
+# Metadata injection (OMN-16018)
+# ---------------------------------------------------------------------------
+
+
+def test_handler_injects_all_enrichment_fields(tmp_path: Path) -> None:
+    handler, adapter = _handler(tmp_path)
+    handler.handle(
+        ModelEmitRequest(event_type="session.started", payload={"session_id": "sess-1"})
+    )
+
+    (_topic, payload, _key) = adapter.calls[0]
+    assert isinstance(payload, dict)
+    assert payload["correlation_id"] == FROZEN_CORR
+    assert payload["causation_id"] is None
+    assert payload["emitted_at"] == FROZEN_AT.isoformat()
+    assert payload["schema_version"] == "1.0.0"
+    assert payload["session_id"] == "sess-1"
+    # sess-1 is not a UUID -> sha256[:32] rendered as a UUID
+    assert payload["entity_id"] == "abe633f3-a47a-2758-174e-abe9160daf36"
+
+
+def test_payload_correlation_id_wins_over_generation(tmp_path: Path) -> None:
+    handler, adapter = _handler(tmp_path)
+    handler.handle(
+        ModelEmitRequest(
+            event_type="session.started",
+            payload={"session_id": "s", "correlation_id": "from-payload"},
+            correlation_id="from-request",
+        )
+    )
+    (_t, payload, _k) = adapter.calls[0]
+    assert isinstance(payload, dict)
+    assert payload["correlation_id"] == "from-payload"
+
+
+def test_request_correlation_id_seeds_when_payload_has_none(tmp_path: Path) -> None:
+    handler, adapter = _handler(tmp_path)
+    handler.handle(
+        ModelEmitRequest(
+            event_type="session.started",
+            payload={"session_id": "s"},
+            correlation_id="from-request",
+        )
+    )
+    (_t, payload, _k) = adapter.calls[0]
+    assert isinstance(payload, dict)
+    assert payload["correlation_id"] == "from-request"
+
+
+def test_uuid_session_id_passes_through_as_entity_id() -> None:
+    out = inject_metadata(
+        {"session_id": "3f2504e0-4f89-41d3-9a0c-0305e82c3301"},
+        clock=_frozen_clock,
+        correlation_id_factory=_frozen_corr,
+        env={},
+    )
+    assert out["entity_id"] == "3f2504e0-4f89-41d3-9a0c-0305e82c3301"
+
+
+def test_session_id_falls_back_to_env() -> None:
+    out = inject_metadata(
+        {},
+        clock=_frozen_clock,
+        correlation_id_factory=_frozen_corr,
+        env={"CLAUDE_CODE_SESSION_ID": "env-session"},
+    )
+    assert out["session_id"] == "env-session"
+    assert out["entity_id"] is not None
+
+
+def test_no_session_id_anywhere_means_no_entity_id() -> None:
+    out = inject_metadata(
+        {}, clock=_frozen_clock, correlation_id_factory=_frozen_corr, env={}
+    )
+    assert "session_id" not in out
+    assert "entity_id" not in out
+    # ...but the unconditional fields are still injected.
+    assert out["schema_version"] == "1.0.0"
+    assert out["causation_id"] is None
+
+
+def test_inject_metadata_does_not_mutate_input() -> None:
+    original = {"session_id": "s"}
+    inject_metadata(
+        original, clock=_frozen_clock, correlation_id_factory=_frozen_corr, env={}
+    )
+    assert original == {"session_id": "s"}
+
+
+def test_production_defaults_are_the_daemon_expressions() -> None:
+    """The seam must not change runtime behavior: defaults are now()/uuid4()."""
+    before = datetime.now(UTC)
+    stamped = default_clock()
+    after = datetime.now(UTC)
+    assert before <= stamped <= after
+    assert stamped.tzinfo is UTC
+
+    first = default_correlation_id_factory()
+    second = default_correlation_id_factory()
+    assert first != second
+    from uuid import UUID
+
+    assert UUID(first).version == 4
+
+
+# ---------------------------------------------------------------------------
+# Partition-key derivation (OMN-16020)
+# ---------------------------------------------------------------------------
+
+
+def test_partition_key_derived_from_registry_field(tmp_path: Path) -> None:
+    handler, adapter = _handler(tmp_path)
+    handler.handle(
+        ModelEmitRequest(event_type="session.started", payload={"session_id": "abc"})
+    )
+    (_topic, _payload, key) = adapter.calls[0]
+    assert key == "abc"
+
+
+def test_partition_key_null_when_declared_field_absent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # session.started keys on session_id; with no session_id in the payload
+    # AND no CLAUDE_CODE_SESSION_ID to fall back to, the daemon publishes a
+    # null key -- so must the node.
+    monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
+    handler, adapter = _handler(tmp_path)
+    handler.handle(ModelEmitRequest(event_type="session.started", payload={}))
+    (_topic, _payload, key) = adapter.calls[0]
+    assert key is None
+
+
+def test_env_session_id_fallback_also_supplies_the_partition_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The key is derived POST-enrichment, so the env fallback feeds it."""
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "env-session")
+    handler, adapter = _handler(tmp_path)
+    handler.handle(ModelEmitRequest(event_type="session.started", payload={}))
+    (_topic, _payload, key) = adapter.calls[0]
+    assert key == "env-session"
+
+
+def test_explicit_partition_key_overrides_derivation(tmp_path: Path) -> None:
+    handler, adapter = _handler(tmp_path)
+    handler.handle(
+        ModelEmitRequest(
+            event_type="session.started",
+            payload={"session_id": "abc"},
+            partition_key="explicit",
+        )
+    )
+    (_topic, _payload, key) = adapter.calls[0]
+    assert key == "explicit"
+
+
+def test_partition_key_stringifies_non_string_values() -> None:
+    """The daemon does str(value), so an int pr_number becomes '7', not 7."""
+    assert derive_partition_key("pr_number", {"pr_number": 7}) == "7"
+    assert derive_partition_key(None, {"pr_number": 7}) is None
+    assert derive_partition_key("pr_number", {"pr_number": None}) is None
+
+
+def test_every_registered_event_partition_key_field_resolves() -> None:
+    """resolve_partition_key_field must cover the whole registry, not a subset."""
+    registry = yaml.safe_load(default_registry_path().read_text(encoding="utf-8"))
+    for event_type, event_def in registry["events"].items():
+        assert resolve_partition_key_field(event_type) == event_def.get(
+            "partition_key_field"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Per-fan-out-rule transforms
+# ---------------------------------------------------------------------------
+
+
+def test_fan_out_topics_carry_different_payloads(tmp_path: Path) -> None:
+    """prompt.submitted's evt topic is strip_prompt'd; its cmd topic is not.
+
+    A single shared payload for both topics -- the pre-OMN-16048 shape --
+    cannot represent this.
+    """
+    handler, adapter = _handler(tmp_path)
+    handler.handle(
+        ModelEmitRequest(
+            event_type="prompt.submitted",
+            payload={
+                "session_id": "s",
+                "prompt_preview": "hello",
+                "prompt": "hello world",
+            },
+        )
+    )
+    by_topic = {topic: payload for topic, payload, _ in adapter.calls}
+    cmd = by_topic["onex.cmd.omniintelligence.claude-hook-event.v1"]
+    evt = by_topic["onex.evt.omniclaude.prompt-submitted.v1"]
+    assert isinstance(cmd, dict)
+    assert isinstance(evt, dict)
+
+    assert cmd["prompt"] == "hello world"  # untransformed rule
+    assert "prompt" not in evt  # dropped: never_capture
+    # OMN-17209 replaced strip_prompt here with the contract-resolved
+    # redact_capture. The two properties this test exists for are unchanged --
+    # the two fan-out topics of one event carry DIFFERENT payloads, and the
+    # prompt does not reach the observability topic. Two things did change,
+    # both declared in contracts/capture_redaction.yaml: prompt_preview is now
+    # reduced to its shape rather than truncated to 100 chars (OMN-16019 named
+    # the preview as the residual disclosure surface), and prompt_length is
+    # still derived from the dropped prompt, now via a declared derivation
+    # rather than a hardcoded branch inside the transform.
+    assert evt["prompt_length"] == len("hello world")
+    assert evt["prompt_preview"] == {"type": "str", "length": len("hello")}
+    assert evt["redaction_state"] == "redacted"
+
+
+def test_strip_body_transform_matches_daemon() -> None:
+    out = apply_transform("strip_body", {"body": "abc"})
+    assert out == {"body_length": 3, "body_preview": "abc"}
+
+
+def test_unknown_transform_refuses_rather_than_falling_back() -> None:
+    """OMN-17237 H1 inverted this: an unknown NAME used to resolve to
+    passthrough, publishing exactly what the named transform existed to
+    strip. A declared absence (``None``) and ``passthrough`` are unchanged --
+    they are postures the registry states, not lookup misses."""
+    payload = {"a": 1}
+    with pytest.raises(UnknownTransformError):
+        apply_transform("no-such-transform", payload)
+    assert apply_transform("passthrough", payload) == payload
+    assert apply_transform(None, payload) == payload
+
+
+def test_transform_registry_covers_every_declared_registry_transform() -> None:
+    """No registry fan-out rule may name a transform this node cannot apply.
+
+    OMN-17209 split the resolvable set in two. ``TRANSFORM_REGISTRY`` holds the
+    field-level rewrites, whose posture is correct for any topic declaring
+    them; ``TOPIC_SCOPED_TRANSFORM_REGISTRY`` holds ``redact_capture``, which
+    resolves a per-topic policy and is meaningless without a topic. A rule may
+    name a transform from EITHER, so the applicable set is their union --
+    asserting against ``TRANSFORM_REGISTRY`` alone would fail on a name this
+    node applies correctly. The property under test is unchanged: every
+    declared name must resolve to something this node can actually run.
+    """
+    from omnimarket.nodes.node_event_emit_effect.enrichment import TRANSFORM_REGISTRY
+
+    registry = yaml.safe_load(default_registry_path().read_text(encoding="utf-8"))
+    declared = {
+        rule.get("transform")
+        for event_def in registry["events"].values()
+        for rule in (event_def.get("fan_out") or [])
+        if rule.get("transform") is not None
+    }
+    applicable = set(TRANSFORM_REGISTRY) | set(TOPIC_SCOPED_TRANSFORM_REGISTRY)
+    assert declared <= applicable
+    # The two registries are disjoint: a name in both would make the
+    # dispatch order in ``apply_transform`` load-bearing and silent.
+    assert not (set(TRANSFORM_REGISTRY) & set(TOPIC_SCOPED_TRANSFORM_REGISTRY))
+
+
+def test_resolved_topics_carry_their_transform_name() -> None:
+    topics = {t.topic: t.transform_name for t in resolve_event_type("prompt.submitted")}
+    # OMN-17209: strip_prompt on this rule was superseded by the
+    # contract-resolved redact_capture (contracts/capture_redaction.yaml).
+    assert topics["onex.evt.omniclaude.prompt-submitted.v1"] == "redact_capture"
+
+
+# ---------------------------------------------------------------------------
+# Non-dict payloads
+# ---------------------------------------------------------------------------
+
+
+def test_non_dict_payload_is_refused_not_published(tmp_path: Path) -> None:
+    """OMN-17237 H3 inverted this: a list payload has no field surface for a
+    transform to act on, so it used to bypass enrichment, transform and
+    keying and go out verbatim. The daemon this node is at parity with
+    rejects non-object payloads outright, so refusing NARROWS the node back
+    to parity rather than adding a restriction."""
+    handler, adapter = _handler(tmp_path)
+    with pytest.raises(NonMappingPayloadError):
+        handler.handle(
+            ModelEmitRequest(event_type="session.started", payload=["a", "b"])
+        )
+    assert adapter.calls == []
+
+
+# ---------------------------------------------------------------------------
+# Spool records freeze the enriched bytes
+# ---------------------------------------------------------------------------
+
+
+def test_spooled_record_stores_enriched_payload_and_key(tmp_path: Path) -> None:
+    """A restart-replayed event must go out with the bytes it was enriched
+    with, not be re-enriched under a later clock."""
+    spool = SpoolOutbox(tmp_path / "spool")
+    handler = HandlerEventEmitEffect(
+        spool=spool,
+        publish_adapter=None,  # spool-only: nothing is acked
+        clock=_frozen_clock,
+        correlation_id_factory=_frozen_corr,
+    )
+    handler.handle(
+        ModelEmitRequest(event_type="session.started", payload={"session_id": "abc"})
+    )
+
+    pending = spool.list_pending()
+    assert len(pending) == 1
+    record = pending[0].record
+    assert record.topic == "onex.evt.omniclaude.session-started.v1"
+    assert record.partition_key == "abc"
+    assert isinstance(record.payload, dict)
+    assert record.payload["emitted_at"] == FROZEN_AT.isoformat()
+    assert record.payload["schema_version"] == "1.0.0"
+
+
+def test_fan_out_spools_one_record_per_topic(tmp_path: Path) -> None:
+    spool = SpoolOutbox(tmp_path / "spool")
+    handler = HandlerEventEmitEffect(
+        spool=spool,
+        publish_adapter=None,
+        clock=_frozen_clock,
+        correlation_id_factory=_frozen_corr,
+    )
+    handler.handle(
+        ModelEmitRequest(
+            event_type="prompt.submitted",
+            payload={"session_id": "s", "prompt_preview": "p"},
+        )
+    )
+    assert spool.pending_count() == 2
+    assert {f.record.topic for f in spool.list_pending()} == {
+        "onex.cmd.omniintelligence.claude-hook-event.v1",
+        "onex.evt.omniclaude.prompt-submitted.v1",
+    }

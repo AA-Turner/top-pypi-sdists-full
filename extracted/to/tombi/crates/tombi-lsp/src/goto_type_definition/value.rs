@@ -12,11 +12,11 @@ mod table;
 use super::{GetTypeDefinition, TypeDefinition, schema_type_definition};
 use tombi_future::Boxable;
 
-impl GetTypeDefinition for tombi_document_tree_syntax::Value {
+impl GetTypeDefinition for tombi_document_tree_syntax::Value<'_> {
     fn get_type_definition<'a: 'b, 'b>(
         &'a self,
-        position: tombi_text::Position,
-        keys: &'a [tombi_document_tree_syntax::Key],
+        cursor: crate::CursorPosition<'a>,
+        keys: &'a [tombi_document_tree_syntax::Key<'_>],
         accessors: &'a [tombi_schema_store::Accessor],
         current_schema: Option<&'a tombi_schema_store::CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext,
@@ -28,7 +28,7 @@ impl GetTypeDefinition for tombi_document_tree_syntax::Value {
             {
                 return self
                     .get_type_definition(
-                        position,
+                        cursor,
                         keys,
                         accessors,
                         Some(&current_schema),
@@ -63,7 +63,7 @@ impl GetTypeDefinition for tombi_document_tree_syntax::Value {
                 Self::Boolean(boolean) => {
                     boolean
                         .get_type_definition(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -74,7 +74,7 @@ impl GetTypeDefinition for tombi_document_tree_syntax::Value {
                 Self::Integer(integer) => {
                     integer
                         .get_type_definition(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -85,7 +85,7 @@ impl GetTypeDefinition for tombi_document_tree_syntax::Value {
                 Self::Float(float) => {
                     float
                         .get_type_definition(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -96,7 +96,7 @@ impl GetTypeDefinition for tombi_document_tree_syntax::Value {
                 Self::String(string) => {
                     string
                         .get_type_definition(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -107,7 +107,7 @@ impl GetTypeDefinition for tombi_document_tree_syntax::Value {
                 Self::OffsetDateTime(offset_date_time) => {
                     offset_date_time
                         .get_type_definition(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -118,7 +118,7 @@ impl GetTypeDefinition for tombi_document_tree_syntax::Value {
                 Self::LocalDateTime(local_date_time) => {
                     local_date_time
                         .get_type_definition(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -129,7 +129,7 @@ impl GetTypeDefinition for tombi_document_tree_syntax::Value {
                 Self::LocalDate(local_date) => {
                     local_date
                         .get_type_definition(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -140,7 +140,7 @@ impl GetTypeDefinition for tombi_document_tree_syntax::Value {
                 Self::LocalTime(local_time) => {
                     local_time
                         .get_type_definition(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -151,7 +151,7 @@ impl GetTypeDefinition for tombi_document_tree_syntax::Value {
                 Self::Array(array) => {
                     array
                         .get_type_definition(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -162,7 +162,7 @@ impl GetTypeDefinition for tombi_document_tree_syntax::Value {
                 Self::Table(table) => {
                     table
                         .get_type_definition(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -175,7 +175,7 @@ impl GetTypeDefinition for tombi_document_tree_syntax::Value {
                         current_schema
                             .schema_view
                             .get_type_definition(
-                                position,
+                                cursor,
                                 keys,
                                 accessors,
                                 Some(current_schema),
@@ -200,7 +200,7 @@ impl GetTypeDefinition for tombi_document_tree_syntax::Value {
                 return current_schema
                     .schema_view
                     .get_type_definition(
-                        position,
+                        cursor,
                         keys,
                         accessors,
                         Some(current_schema),
@@ -218,8 +218,8 @@ impl GetTypeDefinition for tombi_document_tree_syntax::Value {
 impl GetTypeDefinition for tombi_schema_store::SchemaView {
     fn get_type_definition<'a: 'b, 'b>(
         &'a self,
-        position: tombi_text::Position,
-        keys: &'a [tombi_document_tree_syntax::Key],
+        cursor: crate::CursorPosition<'a>,
+        keys: &'a [tombi_document_tree_syntax::Key<'_>],
         accessors: &'a [tombi_schema_store::Accessor],
         current_schema: Option<&'a tombi_schema_store::CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext,
@@ -229,7 +229,7 @@ impl GetTypeDefinition for tombi_schema_store::SchemaView {
                 Self::Boolean(boolean_schema) => {
                     boolean_schema
                         .get_type_definition(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -240,7 +240,7 @@ impl GetTypeDefinition for tombi_schema_store::SchemaView {
                 Self::Integer(integer_schema) => {
                     integer_schema
                         .get_type_definition(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -251,7 +251,7 @@ impl GetTypeDefinition for tombi_schema_store::SchemaView {
                 Self::Float(float_schema) => {
                     float_schema
                         .get_type_definition(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -262,7 +262,7 @@ impl GetTypeDefinition for tombi_schema_store::SchemaView {
                 Self::String(string_schema) => {
                     string_schema
                         .get_type_definition(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -273,7 +273,7 @@ impl GetTypeDefinition for tombi_schema_store::SchemaView {
                 Self::OffsetDateTime(offset_date_time_schema) => {
                     offset_date_time_schema
                         .get_type_definition(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -284,7 +284,7 @@ impl GetTypeDefinition for tombi_schema_store::SchemaView {
                 Self::LocalDateTime(local_date_time_schema) => {
                     local_date_time_schema
                         .get_type_definition(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -295,7 +295,7 @@ impl GetTypeDefinition for tombi_schema_store::SchemaView {
                 Self::LocalDate(local_date_schema) => {
                     local_date_schema
                         .get_type_definition(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -306,7 +306,7 @@ impl GetTypeDefinition for tombi_schema_store::SchemaView {
                 Self::LocalTime(local_time_schema) => {
                     local_time_schema
                         .get_type_definition(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -317,7 +317,7 @@ impl GetTypeDefinition for tombi_schema_store::SchemaView {
                 Self::Array(array_schema) => {
                     array_schema
                         .get_type_definition(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -328,7 +328,7 @@ impl GetTypeDefinition for tombi_schema_store::SchemaView {
                 Self::Table(table_schema) => {
                     table_schema
                         .get_type_definition(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -339,7 +339,7 @@ impl GetTypeDefinition for tombi_schema_store::SchemaView {
                 Self::OneOf(one_of_schema) => {
                     one_of_schema
                         .get_type_definition(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -350,7 +350,7 @@ impl GetTypeDefinition for tombi_schema_store::SchemaView {
                 Self::AnyOf(any_of_schema) => {
                     any_of_schema
                         .get_type_definition(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -361,7 +361,7 @@ impl GetTypeDefinition for tombi_schema_store::SchemaView {
                 Self::AllOf(all_of_schema) => {
                     all_of_schema
                         .get_type_definition(
-                            position,
+                            cursor,
                             keys,
                             accessors,
                             current_schema,
@@ -371,9 +371,9 @@ impl GetTypeDefinition for tombi_schema_store::SchemaView {
                 }
                 Self::Anything(schema) => current_schema.map_or_else(Vec::new, |current_schema| {
                     vec![schema_type_definition(
-                        current_schema.schema_base_uri.as_ref(),
+                        current_schema,
                         accessors,
-                        schema.range,
+                        schema.span,
                     )]
                 }),
                 Self::Nothing(_) | Self::Null => Vec::new(),

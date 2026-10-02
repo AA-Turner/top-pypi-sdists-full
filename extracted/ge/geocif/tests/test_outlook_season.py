@@ -29,8 +29,15 @@ _PRED = "Predicted Yield (tn per ha)"
 
 
 def _extract(*names):
-    """Exec just the named top-level functions with pandas/numpy in scope."""
-    ns = {"pd": pd, "np": np}
+    """Exec just the named top-level functions with pandas/numpy in scope
+    (plus the stage-order helper and a logger that
+    ``_compute_outlook_index`` now references)."""
+    import logging
+
+    from geocif.ml.stage_labels import latest_stage_rows
+
+    ns = {"pd": pd, "np": np, "_latest_stage_rows": latest_stage_rows,
+          "logger": logging.getLogger("tests.outlook_season")}
     for name in names:
         node = next(
             n for n in _TREE.body

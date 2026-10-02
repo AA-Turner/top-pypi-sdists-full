@@ -1,0 +1,68 @@
+---
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# ONEX Node Contract - Merge Sweep Triage Orchestrator (OMN-8959)
+#
+# Fan-out orchestrator: consumes classified PR list, emits per-PR command events
+# across 3 effect topics (auto-merge-arm, rebase, ci-rerun) per 14-row decision table.
+name: node_merge_sweep_triage_orchestrator
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: orchestrator
+node_version: {major: 1, minor: 0, patch: 0}
+# OMN-14151: legacy arm surface, superseded by the merge-queue governor's
+# single gated arm path (node_pr_arm_gate_compute + node_pr_lifecycle_merge_effect).
+# entry_points deregistered from pyproject.toml/metadata.yaml; Rule 2
+# auto-merge-arm-emit hard-gated fail-closed (OMNIMARKET_LEGACY_MERGE_ARM_ENABLED,
+# default False).
+lifecycle: deprecated
+
+description: >
+  Merge sweep triage orchestrator. Consumes a classified PR list (ModelMergeSweepResult)
+  and fans out N typed command events across 6 effect topics per the
+  exhaustive 14-row classification-to-action decision table. Phase 1 wires
+  AUTO_MERGE_ARM / REBASE / CI_RERUN; Phase 2 wires
+  THREAD_REPLY / CONFLICT_HUNK / CI_FIX (LLM-routed) [OMN-8988].
+
+handler:
+  module: omnimarket.nodes.node_merge_sweep_triage_orchestrator.handlers.handler_triage
+  class: HandlerTriageOrchestrator
+  input_model: omnimarket.nodes.node_merge_sweep_triage_orchestrator.models.model_triage_request.ModelTriageRequest
+
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: merge_sweep_triage
+      handler:
+        name: HandlerTriageOrchestrator
+        module: omnimarket.nodes.node_merge_sweep_triage_orchestrator.handlers.handler_triage
+
+descriptor:
+  node_archetype: orchestrator
+  purity: impure
+  idempotent: true
+  timeout_ms: 30000
+  runtime_profiles:
+    - effects
+
+terminal_event: onex.evt.omnimarket.merge-sweep-state-reduced.v1
+
+event_bus:
+  subscribe_topics:
+    - onex.cmd.omnimarket.merge-sweep-triage.v1
+  publish_topics:
+    - onex.cmd.omnimarket.pr-auto-merge-arm.v1
+    - onex.cmd.omnimarket.pr-rebase.v1
+    - onex.cmd.omnimarket.pr-ci-rerun.v1
+    - onex.cmd.omnimarket.pr-thread-reply.v1
+    - onex.cmd.omnimarket.pr-conflict-hunk.v1
+    - onex.cmd.omnimarket.pr-ci-fix.v1
+    - onex.cmd.omnimarket.pr-polish-start.v1
+  dlq_topics:
+    - onex.dlq.omnimarket.merge-sweep-triage.v1
+
+metadata:
+  transport_type: kafka
+
+runtime_dispatch:
+  # OMN-18013 -- the CLI/skill dispatcher is this node's producer. Declared so it is not inferred from subscribe_topics[0].
+  command_topic: onex.cmd.omnimarket.merge-sweep-triage.v1

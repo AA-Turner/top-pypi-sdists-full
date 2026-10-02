@@ -1,0 +1,366 @@
+"""One-time .env -> DB settings migration.
+
+On first boot (or after an upgrade from .env-only to DB-backed settings),
+this module reads ``~/.cowork/.env`` and seeds any missing settings into the
+SQLite database.  A sentinel row (``_env_migrated_v2``) is written to the
+``settings`` table so the migration never runs twice.
+
+The v2 sentinel replaced the original ``_env_migrated`` sentinel (which read
+from the now-legacy ``~/.anton/.env`` path).  Bumping to v2 lets users who
+had the old sentinel fire against the wrong path get a fresh migration run
+from the correct ``~/.cowork/.env`` location.
+
+After migration the DB is **authoritative** for all overlapping fields.
+The ``.env`` file continues to exist for:
+  - The standalone ``anton`` CLI (reads ``AntonSettings`` from ``.env``)
+  - Onboarding (writes ``.env`` first, then syncs to DB)
+  - Fields that only exist in ``AntonSettings`` (workspace paths, etc.)
+
+Cowork-server runtime code should read from ``get_user_settings()`` (DB),
+never from the ``.env`` directly.
+"""
+from __future__ import annotations
+
+import datetime as dt
+import logging
+from pathlib import Path
+
+from cowork.common.settings.app_settings import default_minds_api_host
+
+from sqlmodel import Session, select
+from pydantic import ValidationError
+
+from anton.core.tools.skill_format import normalize_name, DESC_MAX
+from cowork.common.paths import cowork_home
+from cowork.common.settings import invalidate_user_settings_cache
+from cowork.common.settings.user_settings import (
+    ENV_ALIAS_TO_SETTING,
+    UserSettings,
+    normalize_provider_value,
+)
+from cowork.models.setting import Setting
+from cowork.models.skill import META_CREATED_AT, META_DISPLAY_NAME, Skill, SkillLegacy
+from cowork.services.settings import SettingService
+from cowork.services.skills import BUILTIN_SKILLS_VERSION, SkillService
+
+logger = logging.getLogger(__name__)
+
+_ENV_PATH = cowork_home() / ".env"
+
+# v2: path corrected from ~/.anton/.env to ~/.cowork/.env; bumped so users
+# with the old sentinel (which may have found nothing) get a fresh run.
+_MIGRATION_SENTINEL = "_env_migrated_v2"
+
+# Map of .env keys -> DB setting keys for all fields that overlap between
+# AntonSettings (.env) and UserSettings (DB). Derived from the single canonical
+# alias map in user_settings (SETTING_ENV_ALIASES) so this table can no longer
+# drift from the client's copy — see the note there, incl. why the model keys
+# (ANTON_PLANNING_MODEL / ANTON_CODING_MODEL) are deliberately excluded
+# (ENG-739). Drives both the first-boot .env→DB seed (migrate_env_to_db) and the
+# POST /settings/raw merge sync.
+_ENV_TO_SETTING: dict[str, str] = ENV_ALIAS_TO_SETTING
+
+
+def _parse_env_file() -> dict[str, str]:
+    """Read ``~/.cowork/.env`` into a dict, or return empty if absent."""
+    if not _ENV_PATH.exists():
+        return {}
+    result: dict[str, str] = {}
+    try:
+        for line in _ENV_PATH.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, val = line.partition("=")
+            result[key.strip()] = val.strip().strip('"').strip("'")
+    except Exception:
+        logger.warning("Failed to read %s", _ENV_PATH, exc_info=True)
+    return result
+
+
+def _normalize_provider_value(val: str, dotenv: dict[str, str]) -> str:
+    """Translate .env provider strings to DB enum values.
+
+    Thin adapter over the canonical ``normalize_provider_value`` in
+    user_settings — kept so the .env-shaped call sites here don't each repeat
+    the "does this dotenv carry a Minds key" check.
+    """
+    return normalize_provider_value(
+        val, minds_key_present=bool(dotenv.get("ANTON_MINDS_API_KEY"))
+    )
+
+
+def sync_env_vars_to_db(session: Session, dotenv: dict[str, str]) -> list[str]:
+    """Upsert a dict of ANTON_* env vars into the settings DB.
+
+    Returns the list of DB setting keys that were written.  Skips env
+    keys that have no mapping in ``_ENV_TO_SETTING``.
+    """
+    svc = SettingService(session)
+    updates: dict[str, str] = {}
+    for env_key, setting_key in _ENV_TO_SETTING.items():
+        val = dotenv.get(env_key)
+        if not val:
+            continue
+        if setting_key.endswith("_provider"):
+            val = _normalize_provider_value(val, dotenv)
+        updates[setting_key] = val
+
+    for key, value in updates.items():
+        svc._validate_key(key)
+        try:
+            UserSettings.model_validate({key: value})
+        except ValidationError as e:
+            raise ValueError(str(e)) from e
+
+    return svc.bulk_upsert(updates)
+
+
+def migrate_env_to_db(session: Session) -> bool:
+    """Seed DB settings from .env if migration hasn't run yet.
+
+    Returns True if the migration ran, False if it was already done or
+    there was nothing to migrate.
+    """
+    svc = SettingService(session)
+
+    # Check the persistent sentinel — survives server restarts.
+    sentinel = svc._fetch_row(_MIGRATION_SENTINEL)
+    if sentinel is not None:
+        return False
+
+    dotenv = _parse_env_file()
+
+    if dotenv:
+        migrated_keys: list[str] = []
+        for env_key, setting_key in _ENV_TO_SETTING.items():
+            val = dotenv.get(env_key)
+            if not val:
+                continue
+            if setting_key.endswith("_provider"):
+                val = _normalize_provider_value(val, dotenv)
+            try:
+                svc.upsert_setting(setting_key, val)
+                migrated_keys.append(setting_key)
+            except Exception as e:
+                logger.debug("Skipping env migration for %s: %s", env_key, e)
+
+        if migrated_keys:
+            logger.info(
+                "Migrated %d settings from .env to database: %s",
+                len(migrated_keys),
+                ", ".join(migrated_keys),
+            )
+
+    # Write the sentinel so we never run again, even if we migrated
+    # zero keys (empty .env or already-populated DB).
+    session.add(Setting(key=_MIGRATION_SENTINEL, value="1"))
+    session.commit()
+    return True
+
+
+# Legacy MindsHub host. The default base URL changed from https://mdb.ai to
+# https://api.mindshub.ai (cowork "new urls", 2026-05-14) — but only for NEW
+# seeds. No migration ever rewrote existing rows, and mdb.ai's /api/v1 path
+# now 404s, so any user who configured MindsHub before that flip is stuck
+# with a failing provider ("Endpoint not found — check the base URL") and no
+# UI field to correct it. This backfill closes that gap.
+_LEGACY_MINDS_HOSTS = ("https://mdb.ai", "http://mdb.ai")
+
+
+def normalize_retired_harness_rows(session: Session) -> bool:
+    """Rewrite settings rows that name a harness no longer registered.
+
+    Covers every scope (global, org, user). Idempotent and sentinel-free, so a
+    stale row is repaired once at boot instead of being coerced on every read.
+    Returns True if any row was rewritten.
+    """
+    from cowork.harnesses.base import available_harness_ids
+
+    known = set(available_harness_ids())
+    rows = session.exec(
+        select(Setting).where(Setting.key.in_(("harness", "channels_harness")))
+    ).all()
+    changed = 0
+    for row in rows:
+        if row.value in known:
+            continue
+        logger.info(
+            "settings: %s=%r (scope=%s) names a retired harness; rewriting to 'anton'",
+            row.key, row.value, row.scope,
+        )
+        row.value = "anton"
+        session.add(row)
+        changed += 1
+    if changed:
+        session.commit()
+        invalidate_user_settings_cache()
+    return bool(changed)
+
+
+def backfill_minds_url(session: Session) -> bool:
+    """Rewrite the legacy MindsHub host (mdb.ai) to the env-appropriate host.
+
+    Touches both ``providers_json`` (the per-provider ``mindsUrl`` the
+    Test/ping uses) and the top-level ``minds_url``. Idempotent and
+    sentinel-free: it only modifies rows that still contain the legacy
+    host, so it is safe to run on every boot and self-heals rows that a
+    later stale "Save settings" might re-introduce.
+
+    Returns True if any row was rewritten.
+    """
+    canonical = default_minds_api_host()
+    svc = SettingService(session)
+    changed: list[str] = []
+    for key in ("providers_json", "minds_url"):
+        row = svc._fetch_row(key)
+        if row is None or "mdb.ai" not in row.value:
+            continue
+        new_val = row.value
+        for legacy in _LEGACY_MINDS_HOSTS:
+            new_val = new_val.replace(legacy, canonical)
+        if new_val != row.value:
+            row.value = new_val
+            session.add(row)
+            changed.append(key)
+    if changed:
+        session.commit()
+        invalidate_user_settings_cache()
+        logger.info(
+            "Backfilled legacy MindsHub host (mdb.ai -> %s) in: %s",
+            canonical, ", ".join(changed),
+        )
+    return bool(changed)
+
+
+
+#: Desktop-mode version marker: a DB sentinel row, since the store there is
+#: unkeyed (one shared install, not per-org). See
+#: ``SkillService.ensure_builtin_skills`` for the org-mode counterpart, which
+#: shares ``BUILTIN_SKILLS_VERSION`` but keys its marker per org.
+BUILTIN_SKILLS_SENTINEL = "_builtin_skills_set"
+
+
+def seed_builtin_skills(session: Session) -> bool:
+    """Copy packaged builtin skills into the canonical (unkeyed) skills store.
+
+    Desktop path. Runs only when the stored set version is below
+    ``BUILTIN_SKILLS_VERSION``. Org deployments use
+    ``SkillService.ensure_builtin_skills``, which keys the store per org.
+    Returns True if seeding ran (version advanced), False if skipped.
+    """
+    svc = SettingService(session)
+    row = svc._fetch_row(BUILTIN_SKILLS_SENTINEL)
+    current = int(row.value) if row is not None and row.value.isdigit() else 0
+    if current >= BUILTIN_SKILLS_VERSION:
+        return False
+
+    store = SkillService()
+    copied = store._copy_builtin_skills()
+
+    if copied:
+        logger.info("Seeded %d builtin skill(s) into %s", copied, store.root)
+
+    # Raw Setting row: the sentinel key isn't a UserSettings field, so it must
+    # bypass SettingService validation (same pattern as the other migrations).
+    if row is None:
+        row = Setting(key=BUILTIN_SKILLS_SENTINEL, value=str(BUILTIN_SKILLS_VERSION))
+    else:
+        row.value = str(BUILTIN_SKILLS_VERSION)
+    session.add(row)
+    session.commit()
+    return True
+
+
+def migrate_skills_to_files(session: Session) -> bool:
+    """Seed skill files from ``skills_legacy`` if not already done.
+
+    Returns True if the migration ran, False if it was skipped.
+    """
+
+    SKILL_MIGRATION_SENTINEL = "_skills_migrated"
+
+    svc = SettingService(session)
+    if svc._fetch_row(SKILL_MIGRATION_SENTINEL) is not None:
+        return False
+
+    store = SkillService()
+    rows = list(session.exec(select(SkillLegacy)).all())
+
+    def _unique_slug(svc: SkillService, base: str, taken: set[str]) -> str:
+        slug = base
+        n = 2
+        while slug in taken or svc._skill_dir(slug).exists():
+            suffix = f"-{n}"
+            slug = base[: 64 - len(suffix)].rstrip("-") + suffix
+            n += 1
+        return slug
+
+    # Skills already written by a previous (partial) run, keyed by cowork_id, so
+    # a retry skips them instead of re-creating them under a "-2" slug.
+    existing_ids = {
+        s.metadata.get("cowork_id")
+        for s in store.list_skills()
+        if s.metadata.get("cowork_id")
+    }
+
+    taken: set[str] = set()
+    migrated = 0
+    skipped = 0
+    for row in rows:
+        if str(row.id) in existing_ids:
+            skipped += 1
+            continue
+
+        base = normalize_name(row.label or row.name or "")
+        if not base:
+            # Symbol/whitespace-only label normalizes to "" — fall back to an
+            # id-derived slug so the skill is migrated rather than silently lost.
+            base = normalize_name(f"skill-{row.id}")
+            logger.warning("Legacy skill %s has no usable name; migrating as %r", row.id, base)
+        slug = _unique_slug(store, base, taken)
+        taken.add(slug)
+
+        # when_to_use is dropped as a field; fold it into the description.
+        description = (row.description or "").strip()
+        when_to_use = (row.when_to_use or "").strip()
+        if when_to_use:
+            description = f"{description}. {when_to_use}" if description else when_to_use
+        description = description[:DESC_MAX]
+
+        metadata: dict[str, str] = {"cowork_id": str(row.id)}
+        if row.name and row.name != slug:
+            metadata[META_DISPLAY_NAME] = row.name
+        if row.created_at:
+            metadata[META_CREATED_AT] = row.created_at.replace(tzinfo=dt.timezone.utc).isoformat()
+
+        try:
+            skill = Skill(
+                name=slug,
+                instructions=row.instructions or "",
+                description=description or row.name or slug,
+                metadata=metadata,
+            )
+            store._write(skill)
+            migrated += 1
+        except (OSError, ValueError):
+            logger.warning("Failed to migrate skill %r", slug, exc_info=True)
+
+    if migrated:
+        logger.info("Migrated %d skill(s) from skills_legacy to files at %s", migrated, store.root)
+
+    # Only mark the migration done when every legacy row is accounted for —
+    # written this run or already present from a prior run. If some _write
+    # failed (e.g. unwritable/unmounted skills dir), leave the sentinel unset so
+    # the next boot retries instead of silently dropping skills.
+    if migrated + skipped != len(rows):
+        logger.warning(
+            "Skill migration incomplete (%d written, %d already present, %d total); "
+            "will retry on next boot",
+            migrated, skipped, len(rows),
+        )
+        return False
+
+    session.add(Setting(key=SKILL_MIGRATION_SENTINEL, value="1"))
+    session.commit()
+    return True

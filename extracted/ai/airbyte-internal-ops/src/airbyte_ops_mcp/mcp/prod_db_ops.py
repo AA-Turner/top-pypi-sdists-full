@@ -923,7 +923,8 @@ def query_prod_failed_sync_attempts_for_connector(
         Field(
             description=(
                 "Source connector definition ID (UUID) to search for. "
-                "Exactly one of this or source_canonical_name is required. "
+                "Provide this OR source_canonical_name OR destination_definition_id "
+                "OR destination_canonical_name (exactly one required). "
                 "Example: 'afa734e4-3571-11ec-991a-1e0031268139' for YouTube Analytics."
             ),
             default=None,
@@ -934,8 +935,33 @@ def query_prod_failed_sync_attempts_for_connector(
         Field(
             description=(
                 "Canonical source connector name to search for. "
-                "Exactly one of this or source_definition_id is required. "
+                "Provide this OR source_definition_id OR destination_definition_id "
+                "OR destination_canonical_name (exactly one required). "
                 "Examples: 'source-youtube-analytics', 'YouTube Analytics'."
+            ),
+            default=None,
+        ),
+    ] = None,
+    destination_definition_id: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Destination connector definition ID (UUID) to search for. "
+                "Provide this OR destination_canonical_name OR source_definition_id "
+                "OR source_canonical_name (exactly one required). "
+                "Example: '94bd199c-2ff0-4aa2-b98e-17f0acb72610' for DuckDB."
+            ),
+            default=None,
+        ),
+    ] = None,
+    destination_canonical_name: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Canonical destination connector name to search for. "
+                "Provide this OR destination_definition_id OR source_definition_id "
+                "OR source_canonical_name (exactly one required). "
+                "Examples: 'destination-duckdb', 'DuckDB'."
             ),
             default=None,
         ),
@@ -970,7 +996,7 @@ def query_prod_failed_sync_attempts_for_connector(
         ),
     ] = "TIER_2",
 ) -> list[dict[str, Any]]:
-    """List failed sync attempts for ALL actors using a source connector type.
+    """List failed sync attempts for ALL actors using a connector type.
 
     This tool finds all actors with the given connector definition and returns their
     failed sync attempts, regardless of whether they have explicit version pins.
@@ -982,8 +1008,9 @@ def query_prod_failed_sync_attempts_for_connector(
     you want to find failures for a connector type regardless of which version users
     are on.
 
-    Note: This tool only supports SOURCE connectors. For destination connectors,
-    a separate tool would be needed.
+    Supports both SOURCE and DESTINATION connectors. Provide exactly one of:
+    source_definition_id, source_canonical_name, destination_definition_id,
+    or destination_canonical_name.
 
     Key fields in results:
     - failure_summary: JSON containing failure details including failureType and messages
@@ -992,23 +1019,33 @@ def query_prod_failed_sync_attempts_for_connector(
     - pin_origin_type, pin_origin, pinned_version_id: Version pin context (NULL if not pinned)
     - pin_scope_type: 'actor', 'workspace', or 'organization' (NULL if not pinned)
     """
-    # Validate that exactly one of the two parameters is provided
-    if (source_definition_id is None) == (source_canonical_name is None):
+    provided_params = [
+        source_definition_id,
+        source_canonical_name,
+        destination_definition_id,
+        destination_canonical_name,
+    ]
+    if sum(p is not None for p in provided_params) != 1:
         raise PyAirbyteInputError(
             message=(
-                "Exactly one of source_definition_id or source_canonical_name "
-                "must be provided, but not both."
+                "Exactly one of source_definition_id, source_canonical_name, "
+                "destination_definition_id, or destination_canonical_name must be provided."
             ),
         )
 
-    # Resolve canonical name to definition ID if needed
+    is_destination = (
+        destination_definition_id is not None or destination_canonical_name is not None
+    )
+    canonical_name = source_canonical_name or destination_canonical_name
     resolved_definition_id: str
-    if source_canonical_name:
+    if canonical_name:
         resolved_definition_id = resolve_canonical_name_to_definition_id(
-            canonical_name=source_canonical_name,
+            canonical_name=canonical_name,
         )
     else:
-        resolved_definition_id = source_definition_id  # ty: ignore[invalid-assignment]
+        definition_id = source_definition_id or destination_definition_id
+        assert definition_id is not None
+        resolved_definition_id = definition_id
 
     # Resolve organization ID alias
     resolved_organization_id = OrganizationAliasEnum.resolve(organization_id)
@@ -1018,6 +1055,7 @@ def query_prod_failed_sync_attempts_for_connector(
         organization_id=resolved_organization_id,
         days=lookback_days,
         limit=limit,
+        is_destination=is_destination,
     )
     enriched = enrich_rows_by_org(
         rows=rows,

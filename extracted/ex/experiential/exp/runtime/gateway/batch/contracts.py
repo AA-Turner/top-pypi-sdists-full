@@ -1,0 +1,377 @@
+"""Typed contracts for the asynchronous /v1/batches serving lane.
+
+The batch lane is an explicit-request product: every JSONL line names a
+batch-callable model, one provider serves one whole job, and results settle
+per line through the host's accounting seam. These models are the frozen
+boundary between the native routes, the batch engine, and the host's
+persistence: they carry no secrets and no provider client state.
+"""
+
+from __future__ import annotations
+
+import json
+from enum import StrEnum
+from typing import Literal
+
+from pydantic import AwareDatetime, Field, JsonValue, model_validator
+
+from exp.common.core.artifacts import ContractModel, JsonObject
+
+MAXIMUM_BATCH_LINES = 50_000
+MAXIMUM_INPUT_FILE_BYTES = 100 * 1024 * 1024
+COMPLETION_WINDOW = "24h"
+COMPLETION_WINDOW_SECONDS = 24 * 60 * 60
+
+BatchSurface = Literal["/v1/chat/completions", "/v1/responses", "/v1/messages"]
+
+BATCH_SURFACES: tuple[BatchSurface, ...] = (
+    "/v1/chat/completions",
+    "/v1/responses",
+    "/v1/messages",
+)
+
+
+PROVIDER_MESSAGE_LIMIT = 400
+
+
+def provider_error_message(
+    error: JsonValue | None, *, keys: tuple[str, ...] = ("message",)
+) -> str | None:
+    """Return the sanitized human-readable text of one provider error value.
+
+    The one message walker for every reader of provider error text (the
+    caller's batch object, the error file, the host ledger, the worker log).
+    Providers nest the actionable cause under an outer envelope (Anthropic's
+    ``{"type": "error", "error": {...}}``), so nested ``error`` objects are
+    descended to the innermost one first; a bare string error is its own
+    message. The first present string among ``keys`` is reduced to printable
+    characters, whitespace-normalized, and bounded to
+    ``PROVIDER_MESSAGE_LIMIT``, so a control character or a runaway body in a
+    malformed upstream response never passes through. Anything else yields
+    None.
+    """
+    innermost = error
+    while isinstance(innermost, dict) and isinstance(innermost.get("error"), dict):
+        innermost = innermost["error"]
+    if isinstance(innermost, dict):
+        raw = next(
+            (value for key in keys if isinstance(value := innermost.get(key), str) and value),
+            None,
+        )
+    elif isinstance(innermost, str):
+        raw = innermost
+    else:
+        raw = None
+    if raw is None:
+        return None
+    printable = "".join(char for char in raw if char.isprintable() or char.isspace())
+    detail = " ".join(printable.split())
+    return detail[:PROVIDER_MESSAGE_LIMIT] or None
+
+
+class BatchStatus(StrEnum):
+    """Lifecycle states of one batch job, OpenAI Batch API compatible."""
+
+    VALIDATING = "validating"
+    IN_PROGRESS = "in_progress"
+    FINALIZING = "finalizing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    EXPIRED = "expired"
+    CANCELLING = "cancelling"
+    CANCELLED = "cancelled"
+
+
+TERMINAL_STATUSES: frozenset[BatchStatus] = frozenset(
+    {
+        BatchStatus.COMPLETED,
+        BatchStatus.FAILED,
+        BatchStatus.EXPIRED,
+        BatchStatus.CANCELLED,
+    }
+)
+
+
+class BatchLine(ContractModel):
+    """One validated input line of a batch job.
+
+    ``custom_id`` is the caller's per-line correlation key, unique inside one
+    job. ``model`` is the catalog batch model the line explicitly requested,
+    and ``provider_model`` is the provider wire id the job's provider serves
+    it under. ``body`` is the caller's surface-shaped request body; the job's
+    provider client shapes it for its wire at dispatch, verbatim where the
+    provider serves the surface natively and translated where it does not.
+    ``maximum_output_tokens`` is the output ceiling the line was reserved
+    at: the caller's own value, else the deployment default.
+    """
+
+    custom_id: str = Field(min_length=1, max_length=256)
+    surface: BatchSurface
+    model: str = Field(min_length=1, max_length=256)
+    provider_model: str = Field(min_length=1, max_length=2_048)
+    body: JsonObject
+    estimated_input_tokens: int = Field(ge=0)
+    maximum_output_tokens: int = Field(ge=0)
+    reserved_nano_usd: int = Field(default=0, ge=0)
+
+
+class BatchLineError(ContractModel):
+    """One line rejected at submit validation, reported per line, never fatal."""
+
+    line_number: int = Field(ge=1)
+    custom_id: str | None = None
+    code: str = Field(min_length=1, max_length=128)
+    message: str = Field(min_length=1, max_length=2_048)
+
+
+class BatchLineResult(ContractModel):
+    """One settled output line, OpenAI batch output JSONL compatible.
+
+    Exactly one of ``response`` and ``error`` is populated. The token fields
+    carry the provider-reported usage the host settles against, named exactly
+    as the synchronous lane's usage contract names them: ``cached_input_tokens``
+    and ``cache_creation_input_tokens`` are subsets of ``input_tokens`` and
+    ``reasoning_tokens`` is a subset of ``output_tokens``; they price portions
+    of the totals and are never added a second time. A result carrying
+    ``error`` is a line the provider terminally failed, canceled, or expired
+    (zero usage), or one the provider served whose result the engine could
+    not render in the caller's surface (the provider's reported usage rides
+    the result and bills like a served line's); ``failure_reason`` names why.
+    """
+
+    custom_id: str
+    status_code: int = Field(ge=100, le=599)
+    response: JsonObject | None = None
+    error: JsonObject | None = None
+    input_tokens: int = Field(default=0, ge=0)
+    output_tokens: int = Field(default=0, ge=0)
+    cached_input_tokens: int | None = Field(default=None, ge=0)
+    cache_creation_input_tokens: int | None = Field(default=None, ge=0)
+    reasoning_tokens: int | None = Field(default=None, ge=0)
+    settled_nano_usd: int = Field(default=0, ge=0)
+
+    @model_validator(mode="after")
+    def _require_exactly_one_payload(self) -> BatchLineResult:
+        """Reject a result carrying both or neither of response and error."""
+        if (self.response is None) == (self.error is None):
+            raise ValueError("exactly one of response or error must be set")
+        return self
+
+    @property
+    def failure_reason(self) -> str | None:
+        """The provider's own reason for a failed line, or None for a served one.
+
+        Reads the innermost ``message`` when the provider wrote one (Anthropic
+        nests the actionable cause as ``error.error.message`` under an outer
+        ``type: "error"`` envelope), else the innermost ``type`` or ``code``,
+        through :func:`provider_error_message` (printable, whitespace-normalized,
+        bounded), so a host ledger can record a failed attempt with a safe
+        reason instead of a completed attempt with zero tokens.
+        """
+        if self.error is None:
+            return None
+        return (
+            provider_error_message(self.error, keys=("message", "type", "code"))
+            or "the provider reported an error for this line"
+        )
+
+    def output_jsonl_object(self, *, line_id: str) -> JsonObject:
+        """Render the OpenAI batch output line for this result."""
+        return {
+            "id": line_id,
+            "custom_id": self.custom_id,
+            "response": (
+                None
+                if self.response is None
+                else {"status_code": self.status_code, "body": self.response}
+            ),
+            "error": self.error,
+        }
+
+
+class BatchCounts(ContractModel):
+    """Line counts mirrored into the public batch object."""
+
+    total: int = Field(default=0, ge=0)
+    completed: int = Field(default=0, ge=0)
+    failed: int = Field(default=0, ge=0)
+
+
+class BatchJob(ContractModel):
+    """One batch job: identity, frozen submit-time facts, and live status.
+
+    The job is content-free beyond the input/output file references: line
+    bodies live in the host's file store, never in the job record.
+    """
+
+    batch_id: str = Field(min_length=1, max_length=128)
+    organization_id: str = Field(min_length=1, max_length=128)
+    identity_id: str = Field(min_length=1, max_length=128)
+    surface: BatchSurface
+    provider: str = Field(min_length=1, max_length=128)
+    credential_reference: str = Field(min_length=1, max_length=512)
+    dispatch_started: bool = False
+    provider_batch_id: str | None = Field(default=None, max_length=256)
+    input_file_id: str = Field(min_length=1, max_length=128)
+    output_file_id: str | None = Field(default=None, max_length=128)
+    error_file_id: str | None = Field(default=None, max_length=128)
+    status: BatchStatus = BatchStatus.VALIDATING
+    counts: BatchCounts = Field(default_factory=BatchCounts)
+    lines: tuple[BatchLine, ...] = ()
+    line_errors: tuple[BatchLineError, ...] = ()
+    reserved_nano_usd: int = Field(default=0, ge=0)
+    settled_nano_usd: int = Field(default=0, ge=0)
+    failure_message: str | None = Field(default=None, max_length=2_048)
+    metadata: dict[str, str] = Field(default_factory=dict)
+    created_at: AwareDatetime
+    expires_at: AwareDatetime
+    finalized_at: AwareDatetime | None = None
+    settled: bool = False
+
+    def public_object(self) -> JsonObject:
+        """Render the OpenAI Batch API object for this job.
+
+        ``errors`` carries every reason the caller can act on: the submit-time
+        per-line rejections, plus the job-level failure reason (a provider
+        rejection, an interrupted dispatch, an elapsed window) under the
+        terminal status as its code, the same code the error file stamps on
+        each line that never ran. A terminal job also stamps the matching
+        ``*_at`` timestamp, so a failed batch never reads as completed.
+        """
+        error_items: list[JsonObject] = [
+            {
+                "code": error.code,
+                "message": error.message,
+                "line": error.line_number,
+                "custom_id": error.custom_id,
+            }
+            for error in self.line_errors
+        ]
+        if self.failure_message is not None:
+            error_items.append(
+                {
+                    "code": self.status.value,
+                    "message": self.failure_message,
+                    "line": None,
+                    "custom_id": None,
+                }
+            )
+        errors: JsonObject | None = None
+        if error_items:
+            errors = {"object": "list", "data": error_items}
+        finalized = None if self.finalized_at is None else int(self.finalized_at.timestamp())
+        return {
+            "id": self.batch_id,
+            "object": "batch",
+            "endpoint": self.surface,
+            "errors": errors,
+            "input_file_id": self.input_file_id,
+            "completion_window": COMPLETION_WINDOW,
+            "status": self.status.value,
+            "output_file_id": self.output_file_id,
+            "error_file_id": self.error_file_id,
+            "created_at": int(self.created_at.timestamp()),
+            "expires_at": int(self.expires_at.timestamp()),
+            "completed_at": finalized if self.status is BatchStatus.COMPLETED else None,
+            "failed_at": finalized if self.status is BatchStatus.FAILED else None,
+            "expired_at": finalized if self.status is BatchStatus.EXPIRED else None,
+            "cancelled_at": finalized if self.status is BatchStatus.CANCELLED else None,
+            "request_counts": {
+                "total": self.counts.total,
+                "completed": self.counts.completed,
+                "failed": self.counts.failed,
+            },
+            "metadata": self.metadata or None,
+        }
+
+
+class BatchJobPage(ContractModel):
+    """One page of an organization's jobs plus whether a further page exists."""
+
+    jobs: tuple[BatchJob, ...]
+    has_more: bool
+
+
+class BatchFile(ContractModel):
+    """Metadata for one stored batch input or output file."""
+
+    file_id: str = Field(min_length=1, max_length=128)
+    organization_id: str = Field(min_length=1, max_length=128)
+    filename: str = Field(min_length=1, max_length=512)
+    purpose: Literal["batch", "batch_output"] = "batch"
+    size_bytes: int = Field(ge=0)
+    created_at: AwareDatetime
+
+    def public_object(self) -> JsonObject:
+        """Render the OpenAI files object for this file."""
+        return {
+            "id": self.file_id,
+            "object": "file",
+            "bytes": self.size_bytes,
+            "created_at": int(self.created_at.timestamp()),
+            "filename": self.filename,
+            "purpose": self.purpose,
+        }
+
+
+class BatchDeployment(ContractModel):
+    """One batch-callable catalog model resolved by the host catalog seam.
+
+    Prices are batch list prices in nano-USD per million tokens: the owner
+    policy passes the provider batch discount through to the caller, so the
+    host authors these rates on the batch catalog rows directly.
+    """
+
+    model: str = Field(min_length=1, max_length=256)
+    provider: str = Field(min_length=1, max_length=128)
+    provider_model: str = Field(min_length=1, max_length=2_048)
+    credential_reference: str = Field(min_length=1, max_length=512)
+    surfaces: tuple[BatchSurface, ...] = Field(min_length=1)
+    input_nano_usd_per_million_tokens: int = Field(ge=0)
+    output_nano_usd_per_million_tokens: int = Field(ge=0)
+    default_maximum_output_tokens: int = Field(default=4_096, gt=0)
+
+
+class BatchSubmitError(Exception):
+    """A whole-job submit rejection with an OpenAI-envelope error message."""
+
+    def __init__(self, message: str, *, code: str = "invalid_request_error") -> None:
+        """Bind the public message and stable error code."""
+        super().__init__(message)
+        self.code = code
+        self.message = message
+
+
+def parse_input_jsonl(payload: bytes) -> list[tuple[int, JsonObject]]:
+    """Parse batch input JSONL into numbered raw line objects.
+
+    Returns:
+        One ``(line_number, object)`` pair per non-empty line, 1-indexed.
+
+    Raises:
+        BatchSubmitError: When the payload is not valid JSONL of objects or
+            exceeds the size or line-count product limits.
+    """
+    if len(payload) > MAXIMUM_INPUT_FILE_BYTES:
+        raise BatchSubmitError(
+            f"batch input exceeds {MAXIMUM_INPUT_FILE_BYTES} bytes; split the job"
+        )
+    lines: list[tuple[int, JsonObject]] = []
+    for line_number, raw in enumerate(payload.decode("utf-8", errors="strict").splitlines(), 1):
+        text = raw.strip()
+        if not text:
+            continue
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise BatchSubmitError(f"line {line_number} is not valid JSON: {exc.msg}") from exc
+        if not isinstance(parsed, dict):
+            raise BatchSubmitError(f"line {line_number} must be a JSON object")
+        lines.append((line_number, parsed))
+    if not lines:
+        raise BatchSubmitError("batch input carries no request lines")
+    if len(lines) > MAXIMUM_BATCH_LINES:
+        raise BatchSubmitError(
+            f"batch input carries {len(lines)} lines; the limit is {MAXIMUM_BATCH_LINES}"
+        )
+    return lines

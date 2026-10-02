@@ -1,0 +1,1133 @@
+import ast
+import builtins
+import inspect
+import linecache
+from collections.abc import Callable
+from dataclasses import replace
+from types import FrameType
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    NamedTuple,
+    TypedDict,
+    TypeVar,
+    Unpack,
+    cast,
+    dataclass_transform,
+    overload,
+)
+
+from guppylang_internals.ast_util import annotate_location
+from guppylang_internals.checker.modifier import CustomModifierKind
+from guppylang_internals.checker.unitary_checker import (
+    check_modified_def_combinations,
+    check_unitary_method,
+)
+from guppylang_internals.definition.alias import RawTypeAliasDef
+from guppylang_internals.definition.common import DefId
+from guppylang_internals.definition.const import RawConstDef
+from guppylang_internals.definition.custom import RawCustomFunctionDef
+from guppylang_internals.definition.declaration import RawFunctionDecl
+from guppylang_internals.definition.enum import RawEnumDef
+from guppylang_internals.definition.extern import RawExternDef
+from guppylang_internals.definition.function import (
+    RawFunctionDef,
+    parse_py_func,
+)
+from guppylang_internals.definition.overloaded import (
+    OverloadedFunctionDef,
+    is_overload_static,
+)
+from guppylang_internals.definition.parameter import (
+    ConstVarDef,
+    ParamDef,
+    RawConstVarDef,
+    TypeVarDef,
+)
+from guppylang_internals.definition.protocol import RawProtocolDef
+from guppylang_internals.definition.pytket_circuits import (
+    RawLoadPytketDef,
+    RawPytketDef,
+)
+from guppylang_internals.definition.struct import RawStructDef
+from guppylang_internals.definition.traced import RawTracedFunctionDef
+from guppylang_internals.dummy_decorator import (
+    _dummy_custom_decorator,
+    _DummyGuppy,
+    sphinx_running,
+)
+from guppylang_internals.engine import DEF_STORE
+from guppylang_internals.error import pretty_errors
+from guppylang_internals.metadata.common import FunctionMetadata
+from guppylang_internals.metadata.expected_qubits import MetadataExpectedQubitsHint
+from guppylang_internals.span import Loc, SourceMap, Span, class_header_span
+from guppylang_internals.tracing.util import hide_trace
+from guppylang_internals.tys.ty import (
+    FunctionType,
+    NoneType,
+    NumericType,
+    UnitaryFlags,
+)
+from hugr import val as hv
+
+from guppylang.defs import (
+    GuppyDefinition,
+    GuppyEnumDefinition,
+    GuppyFunctionDefinition,
+    GuppyTypeVarDefinition,
+)
+from guppylang.library import _get_link_name
+
+if TYPE_CHECKING:
+    from tket.metadata import InlineAnnotationValue
+
+type Decorator[S, T] = Callable[[S], T]
+
+AnyRawFunctionDef = (
+    RawFunctionDef,
+    RawCustomFunctionDef,
+    RawFunctionDecl,
+    RawPytketDef,
+    RawLoadPytketDef,
+    OverloadedFunctionDef,
+)
+
+__all__ = (
+    "GuppyKwargs",
+    "custom_guppy_decorator",
+    "expected_qubits",
+    "guppy",
+    "inline",
+    "metadata",
+)
+
+
+class GuppyKwargs(TypedDict, total=False):
+    """Typed dictionary specifying the optional keyword arguments for the `@guppy`
+    decorator.
+    """
+
+    unitary: bool
+    controllable: bool
+    daggerable: bool
+
+
+class GuppyStructKwargs(TypedDict, total=False):
+    """Typed dictionary specifying the optional keyword arguments for the
+    `@guppy.struct` decorator.
+    """
+
+    frozen: bool
+    link_name: str
+
+
+class GuppyEnumKwargs(TypedDict, total=False):
+    """Typed dictionary specifying the optional keyword arguments for the
+    `@guppy.enum` decorator.
+    """
+
+    link_name: str
+
+
+class _Guppy:
+    """Class for the `@guppy` decorator."""
+
+    @overload
+    def __call__[**P, T](
+        self, /, **kwargs: Unpack[GuppyKwargs]
+    ) -> Decorator[Callable[P, T], GuppyFunctionDefinition[P, T]]: ...
+
+    @overload
+    def __call__[**P, T](
+        self, f: Callable[P, T], /
+    ) -> GuppyFunctionDefinition[P, T]: ...
+
+    def __call__[**P, T](
+        self, *args: Any, **kwargs: Unpack[GuppyKwargs]
+    ) -> (
+        GuppyFunctionDefinition[P, T]
+        | Decorator[Callable[P, T], GuppyFunctionDefinition[P, T]]
+    ):
+        def decorator(
+            f: Callable[P, T], kwargs: GuppyKwargs
+        ) -> GuppyFunctionDefinition[P, T]:
+            parsed = _parse_kwargs(kwargs)
+            _add_generic_metadata(f, parsed.metadata)
+            defn = RawFunctionDef(
+                DefId.fresh(),
+                f.__name__,
+                None,
+                f,
+                unitary_flags=parsed.flags,
+                metadata=parsed.metadata,
+                link_name=_get_link_name(f),
+            )
+            DEF_STORE.register_def(defn, get_calling_frame())
+            return GuppyFunctionDefinition(defn)
+
+        return _with_optional_kwargs(decorator, args, kwargs)
+
+    @overload
+    def comptime[**P, T](
+        self, /, **kwargs: Unpack[GuppyKwargs]
+    ) -> Decorator[Callable[P, T], GuppyFunctionDefinition[P, T]]: ...
+
+    @overload
+    def comptime[**P, T](
+        self, f: Callable[P, T], /
+    ) -> GuppyFunctionDefinition[P, T]: ...
+
+    def comptime[**P, T](
+        self, *args: Any, **kwargs: Unpack[GuppyKwargs]
+    ) -> (
+        GuppyFunctionDefinition[P, T]
+        | Decorator[Callable[P, T], GuppyFunctionDefinition[P, T]]
+    ):
+        """Registers a function to be executed at compile-time during Guppy compilation,
+        enabling the use of arbitrary Python features as long as they don't depend on
+        runtime values.
+
+        .. code-block:: python
+            from guppylang import guppy
+            from guppylang.std.builtins import array
+
+            @guppy.comptime
+            def print_arrays(arr1: array[str, 10], arr2: array[str, 10]) -> None:
+                for s1, s2 in zip(arr1, arr2):
+                    print(f"({s1}, {s2})")
+        """
+
+        def decorator(
+            f: Callable[P, T], kwargs: GuppyKwargs
+        ) -> GuppyFunctionDefinition[P, T]:
+            parsed = _parse_kwargs(kwargs)
+            _add_generic_metadata(f, parsed.metadata)
+            defn = RawTracedFunctionDef(
+                DefId.fresh(),
+                f.__name__,
+                None,
+                f,
+                unitary_flags=parsed.flags,
+                metadata=parsed.metadata,
+            )
+            DEF_STORE.register_def(defn, get_calling_frame())
+            return GuppyFunctionDefinition(defn)
+
+        return _with_optional_kwargs(decorator, args, kwargs)
+
+    @dataclass_transform()
+    def struct[T](
+        self, *args: Any, **kwargs: Unpack[GuppyStructKwargs]
+    ) -> builtins.type[T]:
+        """Registers a class as a Guppy struct.
+
+        .. code-block:: python
+            from guppylang import guppy
+
+            @guppy.struct
+            class MyStruct:
+                field1: int
+                field2: int
+
+                @guppy
+                def add_fields(self: "MyStruct") -> int:
+                    return self.field2 + self.field2
+
+            # Add optional parameters
+            @guppy.struct(link_name="my_struct")
+            class MyStruct2:
+                field1: int
+                field2: int
+        """
+
+        def decorator(
+            cls: builtins.type[T], kwargs: GuppyStructKwargs
+        ) -> GuppyDefinition:
+            defn = RawStructDef(
+                DefId.fresh(),
+                cls.__name__,
+                None,
+                cls,
+                frozen=kwargs.pop("frozen", False),  # Mutable by default
+                link_name=_get_link_name(cls),
+            )
+            frame = get_calling_frame()
+            DEF_STORE.register_def(defn, frame)
+            for val in cls.__dict__.values():
+                if isinstance(val, GuppyDefinition):
+                    DEF_STORE.register_type_member(defn.id, val.wrapped.name, val.id)
+            # Prior to Python 3.13, the `__firstlineno__` attribute on classes is not
+            # set. However, we need this information to precisely look up the source for
+            # the class later. If it's not there, we can set it from the calling frame:
+            if "__firstlineno__" not in cls.__dict__:
+                cls.__firstlineno__ = frame.f_lineno  # type: ignore[attr-defined]
+            # We're pretending to return the class unchanged, but in fact we return
+            # a `GuppyDefinition` that handles the comptime logic
+            return GuppyDefinition(defn)
+
+        return _with_optional_kwargs(decorator, args, kwargs)  # type: ignore[return-value]
+
+    @dataclass_transform()
+    def enum[T](
+        self, *args: Any, **kwargs: Unpack[GuppyEnumKwargs]
+    ) -> builtins.type[T]:
+        """Registers a class as a Guppy enum.
+
+        .. code-block:: python
+            from guppylang import guppy
+
+            @guppy.enum
+            class MyEnum:
+                Variant1 = {"a": int, "b": qubit}
+                Variant2 = {"a": int}
+
+                @guppy
+                def method_on_enum(self: MyEnum) -> int:
+                    return 1
+        ..
+        """
+
+        def decorator(
+            cls: builtins.type[T], kwargs: GuppyEnumKwargs
+        ) -> GuppyEnumDefinition:
+            defn = RawEnumDef(
+                DefId.fresh(),
+                cls.__name__,
+                None,
+                cls,
+                link_name=_get_link_name(cls),
+            )
+            frame = get_calling_frame()
+            DEF_STORE.register_def(defn, frame)
+            for val in cls.__dict__.values():
+                if isinstance(val, GuppyDefinition):
+                    DEF_STORE.register_type_member(defn.id, val.wrapped.name, val.id)
+            # Prior to Python 3.13, the `__firstlineno__` attribute on classes is not
+            # set. However, we need this information to precisely look up the source for
+            # the class later. If it's not there, we can set it from the calling frame:
+            if "__firstlineno__" not in cls.__dict__:
+                cls.__firstlineno__ = frame.f_lineno  # type: ignore[attr-defined]
+            # We're pretending to return the class unchanged, but in fact we return
+            # a `GuppyDefinition` that handles the comptime logic
+            return GuppyEnumDefinition(defn)
+
+        return _with_optional_kwargs(decorator, args, kwargs)  # type: ignore[return-value]
+
+    @dataclass_transform()
+    def protocol[T](self, cls: builtins.type[T]) -> builtins.type[T]:
+        """Registers a class as a Guppy protocol.
+
+        .. code-block:: python
+            from guppylang import guppy
+
+            @guppy.protocol
+            class MyProtocol:
+
+                @guppy.require
+                def describe(self: Self) -> str: ...
+        """
+        defn = RawProtocolDef(DefId.fresh(), cls.__name__, None, cls)
+        frame = get_calling_frame()
+        DEF_STORE.register_def(defn, frame)
+        for val in cls.__dict__.values():
+            if isinstance(val, GuppyDefinition):
+                DEF_STORE.register_type_member(defn.id, val.wrapped.name, val.id)
+        # We need the `__firstlineno__` attribute to look up the source later.
+        cls = _set_firstlineno(cls, frame)
+        # We're pretending to return the class unchanged, but in fact we return
+        # a `GuppyDefinition` that handles the comptime logic
+        return GuppyDefinition(defn)  # type: ignore[return-value]
+
+    def unitary[T](
+        self, cls: builtins.type[T] | None = None, **kwargs: Any
+    ) -> builtins.type[T]:
+        """Define a unitary custom function.
+
+        .. code-block:: python
+            from guppylang import guppy
+            from guppylang.std.builtins import array, dagger, nat
+            from guppylang.std.quantum import qubit
+
+            @guppy.unitary
+            class myGate:
+
+                @guppy
+                def __call__(q: qubit) -> None: ...
+
+                @guppy
+                def daggered(q: qubit) -> None: ...
+
+                @guppy
+                def controlled[n: nat](q: qubit,
+                                       controls: array[qubit, n]) -> None: ...
+
+                @guppy
+                def ctrl_daggered[n: nat](q: qubit,
+                                  controls: array[qubit, n]) -> None: ...
+
+            @guppy
+            def main(q: qubit) -> None:
+                # myGate can be used as a function
+                myGate(q)
+                # modified versions of myGate rely on the custom implementations
+                with dagger:
+                    myGate(q) # using the `myGate.daggered` implementation
+
+        """
+        _check_there_are_no_kwargs(kwargs)
+        call_guppy_def = _get_unitary_call_def(cls)
+        cls = cast("builtins.type[T]", cls)
+        frame = get_calling_frame()
+        cls = _set_firstlineno(cls, frame)
+        call_raw_func = cast("RawFunctionDef", call_guppy_def.wrapped)
+        # override "__call__" with the class name, mainly for better error messages
+        object.__setattr__(call_raw_func, "name", cls.__name__)
+
+        definition_span = call_raw_func.set_unitary_class(
+            cls,
+            frame,
+            DEF_STORE.sources,
+        )
+        # Update the unitary metadata according to the custom implementations
+        custom_modified_definitions = check_unitary_method(cls, definition_span)
+        for kind in CustomModifierKind:
+            custom_def = custom_modified_definitions.get(kind)
+            if custom_def is None:
+                continue
+            # We forward the type parameters of the unitary class to the custom method
+            object.__setattr__(
+                custom_def,
+                "unitary_class_params",
+                definition_span.type_params,
+            )
+            DEF_STORE.register_custom_modified_def(
+                call_raw_func.id, kind, custom_def.id
+            )
+        assert call_raw_func.metadata is not None
+        combined_flags = _set_unitary_metadata(
+            call_raw_func.metadata,
+            daggered=custom_modified_definitions.get(CustomModifierKind.DAGGERED),
+            controlled=custom_modified_definitions.get(CustomModifierKind.CONTROLLED),
+            ctrl_daggered=custom_modified_definitions.get(
+                CustomModifierKind.CTRL_DAGGERED
+            ),
+            definition_span=class_header_span(definition_span),
+        )
+        object.__setattr__(
+            call_raw_func, "decorator_unitary_flags", call_raw_func.unitary_flags
+        )
+        object.__setattr__(call_raw_func, "unitary_flags", combined_flags)
+        return call_guppy_def  # type: ignore[return-value]
+
+    def require[**P, T](
+        self, *args: Any, **kwargs: Unpack[GuppyKwargs]
+    ) -> (
+        GuppyFunctionDefinition[P, T]
+        | Decorator[Callable[P, T], GuppyFunctionDefinition[P, T]]
+    ):
+        """Declares a required method for a protocol."""
+
+        def decorator(
+            f: Callable[P, T], kwargs: GuppyKwargs
+        ) -> GuppyFunctionDefinition[P, T]:
+            parsed = _parse_kwargs(kwargs)
+            _add_generic_metadata(f, parsed.metadata)
+            defn = RawFunctionDecl(
+                DefId.fresh(),
+                f.__name__,
+                None,
+                f,
+                unitary_flags=parsed.flags,
+                link_name=_get_link_name(f),
+                metadata=parsed.metadata,
+            )
+            DEF_STORE.register_def(defn, get_calling_frame())
+            return GuppyFunctionDefinition(defn)
+
+        return _with_optional_kwargs(decorator, args, kwargs)
+
+    def type_var(
+        self,
+        name: str,
+        copyable: bool = True,
+        droppable: bool = True,
+    ) -> TypeVar:
+        """Creates a new type variable.
+
+        .. code-block:: python
+            from guppylang import guppy
+
+            T = guppy.type_var("T")
+
+            @guppy
+            def identity(x: T) -> T:
+                return x
+        """
+        defn = TypeVarDef(DefId.fresh(), name, None, copyable, droppable)
+        DEF_STORE.register_def(defn, get_calling_frame())
+        # We're pretending to return a `typing.TypeVar`, but in fact we return a special
+        # `GuppyDefinition` that pretends to be a TypeVar at runtime
+        return GuppyTypeVarDefinition(defn, TypeVar(name))  # type: ignore[return-value]
+
+    def nat_var(self, name: str) -> TypeVar:
+        """Creates a new nat variable."""
+        defn = ConstVarDef(DefId.fresh(), name, None, NumericType(NumericType.Kind.Nat))
+        DEF_STORE.register_def(defn, get_calling_frame())
+        # We're pretending to return a `typing.TypeVar`, but in fact we return a special
+        # `GuppyDefinition` that pretends to be a TypeVar at runtime
+        return GuppyTypeVarDefinition(defn, TypeVar(name))  # type: ignore[return-value]
+
+    def const_var(self, name: str, ty: str) -> TypeVar:
+        """Creates a new const type variable."""
+        type_ast = _parse_expr_string(
+            ty, f"Not a valid Guppy type: `{ty}`", DEF_STORE.sources
+        )
+        defn = RawConstVarDef(DefId.fresh(), name, None, type_ast)
+        DEF_STORE.register_def(defn, get_calling_frame())
+        # We're pretending to return a `typing.TypeVar`, but in fact we return a special
+        # `GuppyDefinition` that pretends to be a TypeVar at runtime
+        return GuppyTypeVarDefinition(defn, TypeVar(name))  # type: ignore[return-value]
+
+    def type_alias(self, name: str, ty: str, params: list[Any] | None = None) -> Any:
+        """Creates a new type alias.
+
+        .. code-block:: python
+
+            from guppylang import guppy, array
+
+            Row = guppy.type_alias("Row", "array[int, 4]")
+
+            @guppy
+            def sum_row(row: Row) -> int:
+                return row[0] + row[1] + row[2] + row[3]
+
+        Generic aliases are supported by passing a list of type variables as ``params``.
+        The order determines how the alias is instantiated (e.g. ``Alias[int, bool]``
+        binds the first param to ``int`` and the second to ``bool``):
+
+        .. code-block:: python
+
+            T = guppy.type_var("T")
+            U = guppy.type_var("U")
+            Pair = guppy.type_alias("Pair", "tuple[T, U]", params=[T, U])
+
+        When ``params`` is omitted, free type variables are collected from the body
+        in order of first appearance.
+        """
+        type_ast = _parse_expr_string(
+            ty, f"Not a valid Guppy type: `{ty}`", DEF_STORE.sources
+        )
+        explicit_params = _params_from_list(params) if params is not None else None
+        defn = RawTypeAliasDef(
+            DefId.fresh(),
+            name,
+            type_ast,
+            type_ast,
+            explicit_params,
+        )
+        DEF_STORE.register_def(defn, get_calling_frame())
+        return GuppyDefinition(defn)
+
+    @overload
+    def declare[**P, T](
+        self, /, **kwargs: Unpack[GuppyKwargs]
+    ) -> Decorator[Callable[P, T], GuppyFunctionDefinition[P, T]]: ...
+
+    @overload
+    def declare[**P, T](
+        self, f: Callable[P, T], /
+    ) -> GuppyFunctionDefinition[P, T]: ...
+
+    def declare[**P, T](
+        self, *args: Any, **kwargs: Unpack[GuppyKwargs]
+    ) -> (
+        GuppyFunctionDefinition[P, T]
+        | Decorator[Callable[P, T], GuppyFunctionDefinition[P, T]]
+    ):
+        """Declares a Guppy function without defining it."""
+
+        def decorator(
+            f: Callable[P, T], kwargs: GuppyKwargs
+        ) -> GuppyFunctionDefinition[P, T]:
+            parsed = _parse_kwargs(kwargs)
+            _add_generic_metadata(f, parsed.metadata)
+            defn = RawFunctionDecl(
+                DefId.fresh(),
+                f.__name__,
+                None,
+                f,
+                unitary_flags=parsed.flags,
+                link_name=_get_link_name(f),
+                metadata=parsed.metadata,
+            )
+            DEF_STORE.register_def(defn, get_calling_frame())
+            return GuppyFunctionDefinition(defn)
+
+        return _with_optional_kwargs(decorator, args, kwargs)
+
+    def overload[**P, T](
+        self, *funcs: Any
+    ) -> Callable[[Callable[P, T]], GuppyFunctionDefinition[P, T]]:
+        """Collects multiple function definitions into one overloaded function.
+
+        Consider the following example:
+
+        .. code-block:: python
+
+            @guppy.declare
+            def variant1(x: int, y: int) -> int: ...
+
+            @guppy.declare
+            def variant2(x: float) -> int: ...
+
+            @guppy.overload(variant1, variant2)
+            def combined(): ...
+
+
+        Now, `combined` may be called with either one `float` or two `int` arguments,
+        delegating to the implementation with the matching signature:
+
+        .. code-block:: python
+
+            combined(4.2)  # Calls `variant1`
+            combined(42, 43)  # Calls `variant2`
+
+
+        Note that the compiler will pick the *first* implementation with matching
+        signature and ignore all following ones, even if they would also match. For
+        example, if we added a third variant
+
+        .. code-block:: python
+
+            @guppy.declare
+            def variant3(x: int) -> int: ...
+
+            @guppy.overload(variant1, variant2, variant3)
+            def combined_new(): ...
+
+        then a call `combined_new(42)` will still select the `variant1` implementation
+        `42` is a valid argument for `variant1` and `variant1` comes before `variant3`
+        in the `@guppy.overload` annotation.
+        """
+        funcs = list(funcs)
+        if len(funcs) < 2:
+            raise ValueError("Overload requires at least two functions")
+        func_ids = []
+        for func in funcs:
+            if not isinstance(func, GuppyDefinition):
+                raise TypeError(f"Not a Guppy definition: {func}")
+            if not isinstance(func.wrapped, AnyRawFunctionDef):
+                raise TypeError(f"Not a Guppy function definition: {func.wrapped}")
+            func_ids.append(func.id)
+
+        def decorator(f: Callable[P, T]) -> GuppyFunctionDefinition[P, T]:
+            dummy_sig = FunctionType([], NoneType())
+            func_ast, _docstring = parse_py_func(f, DEF_STORE.sources)
+            defn = OverloadedFunctionDef(
+                DefId.fresh(),
+                f.__name__,
+                func_ast,
+                dummy_sig,
+                func_ids,
+                is_static=False,
+            )
+            defn = replace(defn, is_static=is_overload_static(defn))
+            DEF_STORE.register_def(defn, get_calling_frame())
+            return GuppyFunctionDefinition(defn)
+
+        return decorator
+
+    def constant[T](self, name: str, ty: str, value: hv.Value) -> T:  # type: ignore[type-var]  # Since we're returning a free type variable
+        """Adds a constant to a module, backed by a `hugr.val.Value`."""
+        type_ast = _parse_expr_string(
+            ty, f"Not a valid Guppy type: `{ty}`", DEF_STORE.sources
+        )
+        defn = RawConstDef(DefId.fresh(), name, None, type_ast, value)
+        DEF_STORE.register_def(defn, get_calling_frame())
+        # We're pretending to return a free type variable, but in fact we return
+        # a `GuppyDefinition` that handles the comptime logic
+        return GuppyDefinition(defn)  # type: ignore[return-value]
+
+    def _extern[T](
+        self,
+        name: str,
+        ty: str,
+        symbol: str | None = None,
+        constant: bool = True,
+    ) -> T:  # type: ignore[type-var]  # Since we're returning a free type variable
+        """Adds an extern symbol to a module."""
+        type_ast = _parse_expr_string(
+            ty, f"Not a valid Guppy type: `{ty}`", DEF_STORE.sources
+        )
+        defn = RawExternDef(
+            DefId.fresh(), name, None, symbol or name, constant, type_ast
+        )
+        DEF_STORE.register_def(defn, get_calling_frame())
+        # We're pretending to return a free type variable, but in fact we return
+        # a `GuppyDefinition` that handles the comptime logic
+        return GuppyDefinition(defn)  # type: ignore[return-value]
+
+    def pytket[**P, T](
+        self, input_circuit: Any
+    ) -> Callable[[Callable[P, T]], GuppyFunctionDefinition[P, T]]:
+        """Backs a function declaration by the given pytket circuit. The declaration
+        signature needs to match the circuit definition in terms of number of qubit
+        inputs and measurement outputs.
+
+        There is no linearity checking inside pytket circuit functions. Any measurements
+        inside the circuit get returned as bools, but the qubits do not get consumed and
+        the  pytket circuit function does not require ownership. You should either make
+        sure you discard all qubits you know are measured during the circuit, or avoid
+        measurements in the circuit and measure in Guppy afterwards.
+
+        Note this decorator doesn't support passing inputs as arrays (use `load_pytket`
+        instead).
+
+        .. code-block:: python
+            from pytket.circuit import Circuit
+            from guppylang import guppy
+
+            circ = Circuit(1)
+            circ.H(0)
+            circ.measure_all()
+
+            @guppy.pytket(circ)
+            def guppy_circ(q: qubit) -> bool: ...
+
+            @guppy
+            def foo(q: qubit) -> bool:
+                return guppy_circ(q)"""
+
+        from pytket.circuit import Circuit  # Decoupled import
+
+        if not isinstance(input_circuit, Circuit):
+            err_msg = "Only pytket circuits can be passed to guppy.pytket"
+            raise TypeError(err_msg) from None
+
+        def func(f: Callable[P, T]) -> GuppyFunctionDefinition[P, T]:
+            defn = RawPytketDef(DefId.fresh(), f.__name__, None, f, input_circuit)
+            DEF_STORE.register_def(defn, get_calling_frame())
+            return GuppyFunctionDefinition(defn)
+
+        return func
+
+    def load_pytket(
+        self,
+        name: str,
+        input_circuit: Any,
+        *,
+        use_arrays: bool = True,
+    ) -> GuppyFunctionDefinition[..., Any]:
+        """Load a pytket :py:class:`~pytket.circuit.Circuit` as a Guppy function. By
+        default, each qubit register is represented by an array input (and each bit
+        register as an array output), with the order being determined lexicographically.
+        The default registers are 'q' and 'c' respectively. You can disable array usage
+        and pass individual qubits by passing `use_arrays=False`.
+
+        .. code-block:: python
+
+            from pytket import Circuit
+            from guppylang import guppy
+
+            circ = Circuit(2)
+            reg = circ.add_q_register("extra_reg", 3)
+            circ.measure_register(reg, "extra_bits")
+
+            guppy_circ = guppy.load_pytket("guppy_circ", circ)
+
+            @guppy
+            def foo(default_reg: array[qubit, 2],
+                    extra_reg: array[qubit, 3]) -> array[bool, 3]:
+                # Note that the default_reg name is 'q' so it has to come after 'e...'
+                # lexicographically.
+                return guppy_circ(extra_reg, default_reg)
+
+        Any symbolic parameters in the circuit need to be passed as a lexicographically
+        sorted array (if arrays are enabled, else individually in that order) as values
+        of type `angle`.
+
+        The function name is determined by the function variable you bind the `
+        load_pytket`method call to, however the name string passed to the method should
+        match this variable for error reporting purposes.
+
+        There is no linearity checking inside pytket circuit functions. Any measurements
+        inside the circuit get returned as bools, but the qubits do not get consumed and
+        the  pytket circuit function does not require ownership. You should either make
+        sure you discard all qubits you know are measured during the circuit, or avoid
+        measurements in the circuit and measure in Guppy afterwards.
+        """
+        from pytket.circuit import Circuit  # Decoupled import
+
+        if not isinstance(input_circuit, Circuit):
+            err_msg = "Only pytket circuits can be passed to guppy.load_pytket"
+            raise TypeError(err_msg) from None
+
+        span = _find_load_call(DEF_STORE.sources)
+        defn = RawLoadPytketDef(
+            DefId.fresh(), name, None, span, input_circuit, use_arrays
+        )
+        DEF_STORE.register_def(defn, get_calling_frame())
+        return GuppyFunctionDefinition(defn)
+
+
+def metadata(key: str, value: Any) -> Any:
+    """Decorator to attach metadata to a Guppy function. It must be placed below
+    the @guppy decorator.
+
+    .. code-block:: python
+
+        from guppylang import guppy
+        from guppylang.decorator import metadata
+
+        @guppy.declare
+        @metadata("key1", "value1")
+        @metadata("key2", "value2")
+        def main() -> None:
+            pass
+
+        main.compile()
+
+    During compilation, the node corresponding to the `main` function will have the
+    following metadata attached: {key1: value1, key2: value2}.
+    """
+
+    def decorator(f: Any) -> Any:
+        if isinstance(f, GuppyDefinition):
+            raise TypeError(
+                "@metadata must be placed below the @guppy decorator, not above it"
+            )
+        f.__guppy_metadata__ = {
+            **getattr(f, "__guppy_metadata__", {}),
+            key: value,
+        }
+        return f
+
+    return decorator
+
+
+def expected_qubits(num: int) -> Any:
+    """Decorator to attach an expected number of qubits to a Guppy function. It must be
+    placed below the @guppy decorator.
+
+    .. code-block:: python
+
+        from guppylang import guppy
+        from guppylang.decorator import expected_qubits
+
+        @guppy.declare
+        @expected_qubits(2)
+        def main() -> None:
+            pass
+
+        main.compile()
+    """
+    return metadata(MetadataExpectedQubitsHint.KEY, num)
+
+
+def inline(value: "InlineAnnotationValue") -> Any:
+    """Decorator to attach inline metadata to a Guppy function. It must be
+    placed below the @guppy decorator.
+
+    .. code-block:: python
+
+        from guppylang import guppy
+        from guppylang.decorator import inline
+
+        @guppy
+        @inline("best_effort")
+        def main() -> None:
+            pass
+
+        main.compile()
+    """
+    from tket.metadata import InlineAnnotation
+
+    return metadata(InlineAnnotation.KEY, value)
+
+
+def _parse_expr_string(ty_str: str, parse_err: str, sources: SourceMap) -> ast.expr:
+    """Helper function to parse expressions that are provided as strings.
+
+    Tries to infer the source location were the given string was defined by inspecting
+    the call stack.
+    """
+    try:
+        expr_ast = ast.parse(ty_str, mode="eval").body
+    except SyntaxError:
+        raise SyntaxError(parse_err) from None
+
+    # Try to annotate the type AST with source information. This requires us to
+    # inspect the stack frame of the caller
+    if caller_frame := get_calling_frame():
+        info = inspect.getframeinfo(caller_frame)
+        if caller_module := inspect.getmodule(caller_frame):
+            source_lines, _ = inspect.getsourcelines(caller_module)
+        else:
+            # inspect.getmodule can fail, for example if we are running in IPython. Fall
+            # back to linecache in that case
+            source_lines = linecache.getlines(info.filename)
+        if source_lines:
+            sources.add_file(info.filename)
+            source = "".join(source_lines)
+            annotate_location(expr_ast, source, info.filename, 1)
+            # Modify the AST so that all sub-nodes span the entire line. We
+            # can't give a better location since we don't know the column
+            # offset of the `ty` argument
+            for node in [expr_ast, *ast.walk(expr_ast)]:
+                node.lineno = node.end_lineno = info.lineno  # type: ignore[attr-defined]
+                node.col_offset = 0  # type: ignore[attr-defined]
+                node.end_col_offset = len(source_lines[info.lineno - 1]) - 1  # type: ignore[attr-defined]
+    return expr_ast
+
+
+def _find_load_call(sources: SourceMap) -> Span | None:
+    """Helper function to find location where pytket circuit was loaded.
+
+    Tries to define a source code span by inspecting the call stack.
+    """
+    # Go back as first frame outside of compiler modules is 'pretty_errors_wrapped'.
+    if load_frame := get_calling_frame():
+        info = inspect.getframeinfo(load_frame)
+        filename = info.filename
+        lineno = info.lineno
+        sources.add_file(filename)
+        # If we don't support python <= 3.10, this can be done better with
+        # info.positions which gives you exact offsets.
+        # For now over approximate and make the span cover the entire line.
+        if load_module := inspect.getmodule(load_frame):
+            source_lines, _ = inspect.getsourcelines(load_module)
+            max_offset = len(source_lines[lineno - 1]) - 1
+
+            start = Loc(filename, lineno, 0)
+            end = Loc(filename, lineno, max_offset)
+            return Span(start, end)
+    return None
+
+
+def _set_firstlineno[T](cls: builtins.type[T], frame: FrameType) -> builtins.type[T]:
+    """Helper function to set the `__firstlineno__` attribute on a class if it is not
+    already there.
+
+    Prior to Python 3.13, the `__firstlineno__` attribute on classes is not set.
+    However, we need this information to precisely look up the source for the
+    class later. If it's not there, we can set it from the calling frame.
+    """
+    # Use the class dict directly: inherited `__firstlineno__` from a base class would
+    # point to the wrong source block for this class.
+    if "__firstlineno__" not in cls.__dict__:
+        cls.__firstlineno__ = frame.f_lineno  # type: ignore[attr-defined]
+    return cls
+
+
+@hide_trace
+def _get_unitary_call_def(cls: object) -> GuppyDefinition:
+    """Returns the `@guppy`-annotated `__call__` method from a unitary class.
+    Raises a `TypeError` if the input is not a class or the method is not present or
+    properly annotated.
+    """
+    if not isinstance(cls, builtins.type):
+        raise TypeError("`@guppy.unitary` must be applied directly to a class")
+
+    val = cls.__dict__.get("__call__")
+    if isinstance(val, GuppyDefinition) and isinstance(val.wrapped, RawFunctionDef):
+        return val
+
+    raise TypeError(
+        f"The `@guppy.unitary` class `{cls.__name__}` requires a `@guppy` "
+        f"annotated `__call__` method"
+    )
+
+
+@pretty_errors
+def _set_unitary_metadata(
+    metadata: FunctionMetadata,
+    *,
+    daggered: RawFunctionDef | None,
+    controlled: RawFunctionDef | None,
+    ctrl_daggered: RawFunctionDef | None,
+    definition_span: Span,
+) -> UnitaryFlags:
+    """Set unitary metadata based on the available custom implementations:
+    - `daggered`: The custom implementation of `daggered`, None if absent.
+    - `controlled`: The custom implementation of `controlled`, None if absent.
+    - `ctrl_daggered`: The custom implementation of `ctrl_daggered`, None if absent.
+
+    We also check that the combination of custom implementations is valid.
+    """
+    flags = UnitaryFlags(metadata.get_unitary_flags() or UnitaryFlags.NoFlags.value)
+    check_modified_def_combinations(
+        flags,
+        definition_span=definition_span,
+        has_daggered=daggered is not None,
+        has_controlled=controlled is not None,
+        has_ctrl_daggered=ctrl_daggered is not None,
+    )
+
+    if daggered is not None:
+        flags |= UnitaryFlags.Dagger
+    if controlled is not None:
+        flags |= UnitaryFlags.Control
+    if ctrl_daggered is not None:
+        flags = UnitaryFlags.Unitary
+
+    metadata.set_unitary_flags(flags.value)
+    return flags
+
+
+def custom_guppy_decorator[F: Callable[..., Any]](f: F) -> F:
+    """Decorator to mark user-defined decorators that wrap builtin `guppy` decorators.
+
+    Example:
+
+    .. code-block:: python
+
+        @custom_guppy_decorator
+        def my_guppy(f):
+            # Some custom logic here ...
+            return guppy(f)
+
+        @my_guppy
+        def main() -> int: ...
+
+    If the `custom_guppy_decorator` were missing, then the `@my_guppy` annotation would
+    not produce a valid guppy definition.
+    """
+    f.__code__ = f.__code__.replace(co_name="__custom_guppy_decorator__")
+    return f
+
+
+def get_calling_frame() -> FrameType:
+    """Finds the first frame that called this function outside the compiler modules."""
+    frame = inspect.currentframe()
+    while frame:
+        # Skip frame if we're inside a user-defined decorator that wraps the `guppy`
+        # decorator. Those are functions with a special `__code__.co_name` of
+        # "__custom_guppy_decorator__".
+        if frame.f_code.co_name == "__custom_guppy_decorator__":
+            frame = frame.f_back
+            continue
+        module = inspect.getmodule(frame)
+        if module is None:
+            return frame
+        if module.__file__ != __file__:
+            return frame
+        frame = frame.f_back
+    raise RuntimeError("Couldn't obtain stack frame for definition")
+
+
+def _with_optional_kwargs[S, K, T](
+    decorator: Callable[[S, K], T], args: tuple[Any, ...], kwargs: K
+) -> T | Callable[[S], T]:
+    """Helper function to define decorators that may be used directly (`@decorator`) but
+    also with optional keyword arguments (`@decorator(kwarg=value)`).
+    """
+    match args:
+        case ():
+            return lambda f: decorator(f, kwargs)
+        case (f,):
+            if kwargs:
+                err = "Unexpected keyword arguments"
+                raise TypeError(err)
+            return decorator(f, kwargs)
+        case _:
+            err = "Unexpected positional arguments"
+            raise TypeError(err)
+
+
+class ParsedGuppyKwargs(NamedTuple):
+    flags: UnitaryFlags
+    metadata: FunctionMetadata
+
+
+@hide_trace
+def _parse_kwargs(kwargs: GuppyKwargs) -> ParsedGuppyKwargs:
+    """Parses the kwargs dict specified in the `@guppy` decorator into `UnitaryFlags`
+    and other metadata that will be passed onto the compiled function as is.
+    """
+    metadata = FunctionMetadata()
+
+    flags = UnitaryFlags.NoFlags
+    if kwargs.pop("unitary", False):
+        flags |= UnitaryFlags.Unitary
+    if kwargs.pop("controllable", False):
+        flags |= UnitaryFlags.Control
+    if kwargs.pop("daggerable", False):
+        flags |= UnitaryFlags.Dagger
+
+    metadata.set_unitary_flags(flags.value)
+
+    if "link_name" in kwargs:
+        raise TypeError(
+            "`link_name` keyword argument has been removed from the `@guppy` decorator,"
+            " use the `@link_name` decorator from `guppylang.library` instead."
+        )
+
+    if remaining := next(iter(kwargs), None):
+        err = f"Unknown keyword argument: `{remaining}`"
+        raise TypeError(err)
+
+    return ParsedGuppyKwargs(
+        flags=flags,
+        metadata=metadata,
+    )
+
+
+@hide_trace
+def _check_there_are_no_kwargs(kwargs: dict[str, Any]) -> None:
+    if kwargs:
+        raise TypeError(
+            "`@guppy.unitary` does not accept keyword arguments. Put them on "
+            "the `@guppy` decorator of the `__call__` method instead."
+        )
+
+
+@hide_trace
+def _add_generic_metadata(f: Callable[..., Any], metadata: FunctionMetadata) -> None:
+    """Adds the given metadata to the function's `__guppy_metadata__` attribute, which
+    is used by the compiler to store metadata for Guppy functions.
+    """
+    try:
+        from tket.metadata import InlineAnnotation
+
+        inline_key = InlineAnnotation.KEY
+    except ImportError:
+        inline_key = None
+
+    custom_metadata = getattr(f, "__guppy_metadata__", {})
+    assert isinstance(custom_metadata, dict)
+    for key, value in custom_metadata.items():
+        match key:
+            case MetadataExpectedQubitsHint.KEY:
+                metadata.set_expected_qubits(value)
+            case k if k == inline_key and inline_key is not None:
+                metadata.set_inline(value)
+            case _:
+                metadata.set_generic_metadata(key, value)
+
+
+def _params_from_list(params: list[Any]) -> list[ParamDef]:
+    """Validate a list of Guppy type-variable definitions for use as alias params.
+
+    Each entry must be a type variable created with :func:`guppy.type_var`,
+    :func:`guppy.nat_var`, or :func:`guppy.const_var`. The underlying
+    :class:`~guppylang_internals.definition.parameter.ParamDef`\\ s are returned in
+    order; they are converted to :class:`~guppylang_internals.tys.param.Parameter`\\ s
+    later (in :meth:`ParsedTypeAliasDef.check`) where the globals needed to resolve
+    ``const_var`` types are available.
+    """
+    result: list[ParamDef] = []
+    for p in params:
+        defn = p.wrapped if isinstance(p, GuppyDefinition) else None
+        if not isinstance(defn, ParamDef):
+            raise TypeError(
+                "type_alias params must be type variables created with "
+                f"guppy.type_var(), guppy.nat_var(), or guppy.const_var(), got {p!r}"
+            )
+        result.append(defn)
+    return result
+
+
+guppy = cast("_Guppy", _DummyGuppy()) if sphinx_running() else _Guppy()
+
+if not TYPE_CHECKING and sphinx_running():
+    metadata = _dummy_custom_decorator()

@@ -1,0 +1,56 @@
+[tool.poetry]
+name = "atomic_physics"
+version = "2.0.5"
+description = "Lightweight python library for calculations based on atomic structure"
+authors = ["hartytp <thomas.peter.harty@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+numpy = ">=1.22.0,<3.0"
+scipy = "^1.7.3"
+
+[tool.poetry.dev-dependencies]
+pytest = "^8.3.5"
+poethepoet = "^0.12.1"
+sympy = "^1.9"
+ruff = "^0.7.3"
+matplotlib = "^3.5.1"
+pytype = {version = "^2024.10.11", markers = "os_name == 'posix'"}
+sphinx = "^6.0"
+sphinx-rtd-theme = "^1.2.0"
+sphinx-mdinclude = "^0.5.3"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poe.tasks]
+test = "pytest -Werror"
+fmt-test = "ruff format --check ."
+fmt = "ruff format"
+lint = "ruff check"
+types = { script = "run_pytype:main" }
+docs = { cwd = "./docs", cmd = "make html doctest" }
+docs-clean = { cwd = "./docs", cmd = "make clean" }
+
+[tool.ruff]
+exclude = [
+    ".git",
+    "__pycache__",
+    ".venv",
+]
+
+indent-width = 4
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint.per-file-ignores]
+# Allow unused imports in __init__ files for re-exporting
+"__init__.py" = ["F401"]
+
+[tool.ruff.lint]
+# Sort imports
+extend-select = ["I"]
+
+[tool.pytest.ini_options]
+testpaths = ["atomic_physics/tests"]

@@ -1,0 +1,537 @@
+/*
+ * resample_ext_cic.c — CIC type for the resample module.
+ *
+ * Included by resample_ext.c (the module aggregator).
+ * Hand-patches to this file are preserved across jm commands.
+ * Do NOT compile this file directly — only resample_ext.c is compiled.
+ */
+/* ======================================================== */
+/* CICObject — wraps dp_cic_state_t *       */
+/* ======================================================== */
+
+#include "doppler/cic/cic_core.h"
+
+typedef struct
+{
+  PyObject_HEAD dp_cic_state_t *handle;
+} CICObject;
+
+static void
+CICObj_dealloc (CICObject *self)
+{
+  if (self->handle)
+    dp_cic_destroy (self->handle);
+  Py_TYPE (self)->tp_free ((PyObject *)self);
+}
+
+static PyObject *
+CICObj_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+  CICObject *self = (CICObject *)type->tp_alloc (type, 0);
+  if (self)
+    self->handle = NULL;
+  return (PyObject *)self;
+}
+
+static int
+CICObj_init (CICObject *self, PyObject *args, PyObject *kwds)
+{
+  static char  *kwlist[] = { "R", NULL };
+  unsigned long R_raw    = 16;
+
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "|k", kwlist, &R_raw))
+    return -1;
+  uint32_t R   = (uint32_t)R_raw;
+  self->handle = dp_cic_create (R);
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_MemoryError, "dp_cic_create returned NULL");
+      return -1;
+    }
+  return 0;
+}
+
+static PyObject *
+CICObj_reset (CICObject *self, PyObject *Py_UNUSED (ignored))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  dp_cic_reset (self->handle);
+  Py_RETURN_NONE;
+}
+
+static PyObject *
+CICObj_reconfigure (CICObject *self, PyObject *args, PyObject *kwds)
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  static char  *_kwlist[] = { "R", NULL };
+  unsigned long R_raw     = 0UL;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "k", _kwlist, &R_raw))
+    return NULL;
+  uint32_t R = (uint32_t)R_raw;
+  dp_cic_reconfigure (self->handle, R);
+  Py_RETURN_NONE;
+}
+
+static PyObject *
+CICObj_decimate_max_out (CICObject *self, PyObject *Py_UNUSED (ignored))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  return PyLong_FromSize_t (dp_cic_decimate_max_out (self->handle));
+}
+
+static PyObject *
+CICObj_decimate (CICObject *self, PyObject *args, PyObject *kwds)
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  static char *_kwlist[] = { "x", "out", NULL };
+  PyObject    *in_obj    = NULL;
+  PyObject    *out_obj   = NULL;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "O|O", _kwlist, &in_obj,
+                                    &out_obj))
+    return NULL;
+  PyArrayObject *in_arr = (PyArrayObject *)PyArray_FROM_OTF (
+      in_obj, NPY_COMPLEX64, NPY_ARRAY_C_CONTIGUOUS);
+  if (!in_arr)
+    return NULL;
+  Py_ssize_t n = PyArray_SIZE (in_arr);
+  if (out_obj && out_obj != Py_None)
+    {
+      /* Require the exact dtype AND C-contiguity — either mismatch makes
+       * the marshal write into a temp copy, not the caller's buffer. */
+      if (!PyArray_Check (out_obj)
+          || PyArray_TYPE ((PyArrayObject *)out_obj) != NPY_COMPLEX64
+          || !PyArray_IS_C_CONTIGUOUS ((PyArrayObject *)out_obj)
+          || !PyArray_ISWRITEABLE ((PyArrayObject *)out_obj))
+        {
+          PyErr_SetString (PyExc_TypeError,
+                           "out must be a writable, C-contiguous"
+                           " ndarray of the output dtype");
+          Py_DECREF (in_arr);
+          return NULL;
+        }
+      PyArrayObject *out_arr = (PyArrayObject *)PyArray_FROM_OTF (
+          out_obj, NPY_COMPLEX64,
+          NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE);
+      if (!out_arr)
+        {
+          Py_DECREF (in_arr);
+          return NULL;
+        }
+      size_t _cap     = (size_t)PyArray_SIZE (out_arr);
+      size_t _omax    = dp_cic_decimate_max_out (self->handle);
+      size_t _min_cap = _omax > (size_t)n ? _omax : ((size_t)n);
+      if (_cap < _min_cap)
+        {
+          PyErr_Format (PyExc_ValueError, "out has %zu elements, need >= %zu",
+                        _cap, _min_cap);
+          Py_DECREF (out_arr);
+          Py_DECREF (in_arr);
+          return NULL;
+        }
+      size_t n_out = dp_cic_decimate (
+          self->handle, (const float _Complex *)PyArray_DATA (in_arr),
+          (size_t)n, (float _Complex *)PyArray_DATA (out_arr), _cap);
+      Py_DECREF (in_arr);
+      npy_intp  _odim  = (npy_intp)n_out;
+      PyObject *_oview = PyArray_SimpleNewFromData (1, &_odim, NPY_COMPLEX64,
+                                                    PyArray_DATA (out_arr));
+      if (!_oview)
+        {
+          Py_DECREF (out_arr);
+          return NULL;
+        }
+      PyArray_SetBaseObject ((PyArrayObject *)_oview, (PyObject *)out_arr);
+      return _oview;
+    }
+  size_t _need = (size_t)n;
+  size_t _cap  = dp_cic_decimate_max_out (self->handle);
+  if (!_cap || _cap < _need)
+    _cap = _need;
+  npy_intp  _adim = (npy_intp)_cap;
+  PyObject *arr0  = PyArray_SimpleNew (1, &_adim, NPY_COMPLEX64);
+  if (!arr0)
+    {
+      Py_DECREF (in_arr);
+      return NULL;
+    }
+  float _Complex *_d0 = (float _Complex *)PyArray_DATA ((PyArrayObject *)arr0);
+  size_t          n_out = dp_cic_decimate (
+      self->handle, (const float _Complex *)PyArray_DATA (in_arr), (size_t)n,
+      _d0, _cap);
+  Py_DECREF (in_arr);
+  if ((size_t)n_out == _cap)
+    {
+      return arr0;
+    }
+  npy_intp     _odim = (npy_intp)n_out;
+  PyArray_Dims _rs0  = { &_odim, 1 };
+  PyObject *v0 = PyArray_Resize ((PyArrayObject *)arr0, &_rs0, 0, NPY_CORDER);
+  if (!v0)
+    {
+      Py_DECREF (arr0);
+      return NULL;
+    }
+  Py_DECREF (v0);
+  return arr0;
+}
+
+static PyObject *
+CICObj_state_bytes (CICObject *self, PyObject *Py_UNUSED (ignored))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  return PyLong_FromSize_t (dp_cic_state_bytes (self->handle));
+}
+
+static PyObject *
+CICObj_get_state (CICObject *self, PyObject *Py_UNUSED (ignored))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  size_t    _n = dp_cic_state_bytes (self->handle);
+  PyObject *_b = PyBytes_FromStringAndSize (NULL, (Py_ssize_t)_n);
+  if (!_b)
+    return NULL;
+  dp_cic_get_state (self->handle, PyBytes_AS_STRING (_b));
+  return _b;
+}
+
+static PyObject *
+CICObj_set_state (CICObject *self, PyObject *arg)
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  if (!PyBytes_Check (arg))
+    {
+      PyErr_SetString (PyExc_TypeError, "set_state expects bytes");
+      return NULL;
+    }
+  if ((size_t)PyBytes_GET_SIZE (arg) != dp_cic_state_bytes (self->handle))
+    {
+      PyErr_SetString (PyExc_ValueError, "state blob size mismatch");
+      return NULL;
+    }
+  if (dp_cic_set_state (self->handle, PyBytes_AS_STRING (arg)) != 0)
+    {
+      PyErr_SetString (PyExc_ValueError, "set_state rejected the blob");
+      return NULL;
+    }
+  Py_RETURN_NONE;
+}
+static PyObject *
+CIC_getprop_R (CICObject *self, void *Py_UNUSED (closure))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  return PyLong_FromUnsignedLong ((unsigned long)self->handle->R);
+}
+static PyObject *
+CIC_getprop_shift (CICObject *self, void *Py_UNUSED (closure))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  return PyLong_FromUnsignedLong ((unsigned long)self->handle->shift);
+}
+static PyObject *
+CIC_getprop_clipped (CICObject *self, void *Py_UNUSED (closure))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  return PyBool_FromLong ((long)(self->handle->clipped));
+}
+
+static PyGetSetDef CIC_getset[] = {
+  { "R", (getter)CIC_getprop_R, NULL, "R.\n", NULL },
+  { "shift", (getter)CIC_getprop_shift, NULL, "Shift.\n", NULL },
+  { "clipped", (getter)CIC_getprop_clipped, NULL,
+    "True if any input component has exceeded the +-1.0 bound since the last "
+    "reset(). Sticky, and free to read: the CIC's boundary comparisons run on "
+    "every sample anyway, so it records something the sample stream cannot "
+    "tell you -- a clipped stream still looks entirely plausible (finite, no "
+    "NaN, merely distorted), so this flag is the only reliable check.\n",
+    NULL },
+  { NULL }
+};
+
+static PyObject *
+CICObj_destroy (CICObject *self, PyObject *Py_UNUSED (ignored))
+{
+  if (self->handle)
+    {
+      dp_cic_destroy (self->handle);
+      self->handle = NULL;
+    }
+  Py_RETURN_NONE;
+}
+
+static PyObject *
+CICObj_enter (CICObject *self, PyObject *Py_UNUSED (ignored))
+{
+  Py_INCREF (self);
+  return (PyObject *)self;
+}
+
+static PyObject *
+CICObj_exit (CICObject *self, PyObject *args)
+{
+  (void)args;
+  if (self->handle)
+    {
+      dp_cic_destroy (self->handle);
+      self->handle = NULL;
+    }
+  Py_RETURN_NONE;
+}
+
+static PyMethodDef CICObj_methods[] = {
+  { "reset", (PyCFunction)CICObj_reset, METH_NOARGS,
+    "Zero all integrator and comb accumulators; preserve R and shift. The\n"
+    "first output sample after reset arrives after R more input samples,\n"
+    "matching post-create behaviour. Use between signal bursts to eliminate\n"
+    "transient artefacts caused by residual pipeline state.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.resample import CIC\n"
+    ">>> cic = CIC(R=16)\n"
+    ">>> cic.reset()\n"
+    ">>> cic.R\n"
+    "16\n" },
+
+  { "reconfigure", (PyCFunction)(void *)CICObj_reconfigure,
+    METH_VARARGS | METH_KEYWORDS,
+    "reconfigure(R) -> None\n"
+    "\n"
+    "Change the decimation ratio in place and reset all filter state.\n"
+    "Recomputes the normalisation shift (CIC_N * log2(R)) and zeros all\n"
+    "accumulators so the filter behaves exactly like a freshly created one\n"
+    "with the new R. Silently ignores R values that are not a power-of-two\n"
+    "in `[2, 2048]` (`CIC_R_MAX`) — the state is left unchanged in that\n"
+    "case.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "R : int\n"
+    "    New decimation ratio. Same constraints as dp_cic_create().\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.resample import CIC\n"
+    ">>> cic = CIC(R=4)\n"
+    ">>> cic.reconfigure(8)\n"
+    ">>> cic.R, cic.shift\n"
+    "(8, 12)\n" },
+  { "decimate", (PyCFunction)(void *)CICObj_decimate,
+    METH_VARARGS | METH_KEYWORDS,
+    "decimate(x, out) -> ndarray\n"
+    "\n"
+    "Decimate a block of CF32 samples through the CIC pipeline. Each\n"
+    "sample is converted to offset-binary UQ16, pushed through CIC_N\n"
+    "integrators (unsigned wrapping), and when the phase counter reaches R\n"
+    "the integrated value is passed through CIC_N M=1 comb stages and\n"
+    "converted back to CF32. State persists between calls. Feeding blocks\n"
+    "that are multiples of R gives predictable output counts (exactly n_in/R\n"
+    "samples per block).\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "x : complex\n"
+    "    Input.\n"
+    "out : NDArray[np.complex64] | None\n"
+    "    Output buffer; must hold at least max_out elements.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "NDArray[np.complex64]\n"
+    "    CF32 output array; length is min(floor((phase + n_in) / R),\n"
+    "    max_out).\n"
+    "\n"
+    "Notes\n"
+    "-----\n"
+    "**Input amplitude is bounded: |Re| and |Im| <= 1.0.** A component\n"
+    "beyond +-1.0 is clipped at the boundary before filtering; the sample\n"
+    "stream gives no sign of it, so check the sticky clipped flag. Scale the\n"
+    "input into range first; see the file header.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.resample import CIC\n"
+    ">>> import numpy as np\n"
+    ">>> cic = CIC(R=16)\n"
+    ">>> for _ in range(4):\n"
+    "...     _ = cic.decimate(np.zeros(16, dtype=np.complex64))\n"
+    ">>> y = cic.decimate(np.zeros(16, dtype=np.complex64))\n"
+    ">>> y.tolist(), y.dtype\n"
+    "([0j], dtype('complex64'))\n" },
+  { "decimate_max_out", (PyCFunction)CICObj_decimate_max_out, METH_NOARGS,
+    "decimate_max_out() -> int\n"
+    "\n"
+    "Upper bound on decimate output — returns 0 (lazy-alloc signal).\n"
+    "\n"
+    "The Python extension allocates n_in elements on the first call. Since\n"
+    "n_in >= ceil(n_in/R) = n_out for all R >= 1, the buffer is always large\n"
+    "enough as long as block size stays consistent.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Output.\n" },
+  { "state_bytes", (PyCFunction)CICObj_state_bytes, METH_NOARGS,
+    "Size in bytes of this object's serialized state.\n"
+    "\n"
+    "The exact length `get_state` returns and `set_state` requires. It\n"
+    "depends on how the object was constructed (state arrays are sized at\n"
+    "construction), so read it from the instance rather than assuming a\n"
+    "constant.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the CIC has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Byte length of one serialized state blob.\n" },
+  { "get_state", (PyCFunction)CICObj_get_state, METH_NOARGS,
+    "Serialize this object's mutable state to bytes.\n"
+    "\n"
+    "Captures exactly the state that evolves as the object runs, so a blob\n"
+    "taken now and restored later resumes from this point. Construction\n"
+    "parameters are not included: restore into an object built the same way.\n"
+    "\n"
+    "The blob is opaque and always `state_bytes()` long. Its layout is an\n"
+    "implementation detail of the C core and is not a stable format across\n"
+    "builds.\n"
+    "\n"
+    "Raises ``RuntimeError`` if the CIC has already been destroyed.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "bytes\n"
+    "    Opaque snapshot, `state_bytes()` bytes long.\n" },
+  { "set_state", (PyCFunction)CICObj_set_state, METH_O,
+    "Restore mutable state from a `get_state()` blob.\n"
+    "\n"
+    "Overwrites the live state in place; the object keeps the parameters it\n"
+    "was constructed with. Length is validated against `state_bytes()`\n"
+    "before the blob is handed to the C core, and the core may reject it as\n"
+    "well.\n"
+    "\n"
+    "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
+    "length differs from `state_bytes()` or the core rejects it, and\n"
+    "``RuntimeError`` if the CIC has already been destroyed.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "blob : bytes\n"
+    "    A `get_state()` blob from this type, exactly `state_bytes()` "
+    "long.\n" },
+  { "destroy", (PyCFunction)CICObj_destroy, METH_NOARGS,
+    "Release the underlying C resources immediately.\n"
+    "\n"
+    "Ordinarily unnecessary: the resources are freed when the object is\n"
+    "garbage-collected. Call this to release them at a definite point\n"
+    "instead, or use the object as a context manager, which calls it on "
+    "exit.\n"
+    "\n"
+    "Idempotent: calling it again on an already-released object does "
+    "nothing.\n"
+    "Every other method raises ``RuntimeError`` once it has run.\n" },
+  { "__enter__", (PyCFunction)CICObj_enter, METH_NOARGS,
+    "Enter a context manager, returning this object.\n"
+    "\n"
+    "Lets a CIC be used in a `with` statement so its C resources are\n"
+    "released deterministically on exit rather than at collection time.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "CIC\n"
+    "    This same object, not a copy.\n" },
+  { "__exit__", (PyCFunction)CICObj_exit, METH_VARARGS,
+    "Exit a context manager, releasing the CIC.\n"
+    "\n"
+    "Equivalent to calling `destroy()`. Returns ``None``, so an exception\n"
+    "raised inside the `with` body propagates normally; this never\n"
+    "suppresses one.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "exc_type : object | None\n"
+    "    Exception class, or None. Ignored.\n"
+    "exc : object | None\n"
+    "    Exception instance, or None. Ignored.\n"
+    "tb : object | None\n"
+    "    Traceback object, or None. Ignored.\n" },
+  { NULL }
+};
+
+static PyTypeObject CICObjType = {
+  PyVarObject_HEAD_INIT (NULL, 0).tp_name = "resample.CIC",
+  .tp_basicsize                           = sizeof (CICObject),
+  .tp_dealloc                             = (destructor)CICObj_dealloc,
+  .tp_flags                               = Py_TPFLAGS_DEFAULT,
+  .tp_doc
+  = "Create a 4-stage, M=1 CIC decimation filter. Allocates the state struct\n"
+    "on the heap and pre-computes the normalisation right-shift (CIC_N * "
+    "log2(R)\n"
+    "bits). All integrator and comb accumulators are zeroed; the first "
+    "output\n"
+    "arrives after R input samples. Returns NULL for invalid R or OOM. Input\n"
+    "amplitude is bounded: |Re| and |Im| <= 1.0. A component beyond +-1.0 is\n"
+    "clipped at the boundary before any filtering; the sample stream gives "
+    "no\n"
+    "sign of it, so check the sticky clipped flag. Unlike doppler's\n"
+    "floating-point blocks this one is not scale-free -- scale the input "
+    "into\n"
+    "range first.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "R : int, default 16\n"
+    "    Decimation ratio. Must be a power of two in `[2, 2048]` "
+    "(`CIC_R_MAX`).\n"
+    "    Returns NULL for R=0, non-power-of-two, or a ratio above that cap.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.resample import CIC\n"
+    ">>> cic = CIC(R=16)\n"
+    ">>> cic.R, cic.shift\n"
+    "(16, 16)\n",
+  .tp_methods = CICObj_methods,
+  .tp_getset  = CIC_getset,
+  .tp_new     = CICObj_new,
+  .tp_init    = (initproc)CICObj_init,
+};

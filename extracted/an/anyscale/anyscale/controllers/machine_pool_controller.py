@@ -70,9 +70,7 @@ def compute_removed_machine_pool_resources(
     if current_resources is None:
         current_resources = {}
 
-    removed_types = sorted(
-        name for name in current_resources if name not in new_resources
-    )
+    removed_types = sorted(name for name in current_resources if name not in new_resources)
     removed_partitions: List[Tuple[str, str]] = []
     for machine_type_name, partition_names in current_resources.items():
         if machine_type_name not in new_resources:
@@ -87,9 +85,7 @@ def compute_removed_machine_pool_resources(
 
 
 class MachinePoolController(BaseController):
-    def __init__(
-        self, log: Optional[BlockLogger] = None, initialize_auth_api_client: bool = True
-    ):
+    def __init__(self, log: Optional[BlockLogger] = None, initialize_auth_api_client: bool = True):
         if log is None:
             log = BlockLogger()
 
@@ -97,14 +93,22 @@ class MachinePoolController(BaseController):
         self.log = log
         self.console = Console()
 
-    def create_machine_pool(self, machine_pool_name: str,) -> CreateMachinePoolResponse:
-        response: CreateMachinePoolResponse = self.api_client.create_machine_pool_api_v2_machine_pools_create_post(
-            CreateMachinePoolRequest(machine_pool_name=machine_pool_name,)
-        ).result
+    def create_machine_pool(
+        self,
+        machine_pool_name: str,
+    ) -> CreateMachinePoolResponse:
+        response: CreateMachinePoolResponse = (
+            self.api_client.create_machine_pool_api_v2_machine_pools_create_post(
+                CreateMachinePoolRequest(
+                    machine_pool_name=machine_pool_name,
+                )
+            ).result
+        )
         return response
 
     def delete_machine_pool(
-        self, machine_pool_name: str,
+        self,
+        machine_pool_name: str,
     ):
         self.api_client.delete_machine_pool_api_v2_machine_pools_delete_post(
             DeleteMachinePoolRequest(machine_pool_name=machine_pool_name)
@@ -123,12 +127,13 @@ class MachinePoolController(BaseController):
         self._warn_on_destructive_update(machine_pool_name, spec)
 
         self.api_client.update_machine_pool_api_v2_machine_pools_update_post(
-            UpdateMachinePoolRequest(machine_pool_name=machine_pool_name, spec=spec,)
+            UpdateMachinePoolRequest(
+                machine_pool_name=machine_pool_name,
+                spec=spec,
+            )
         )
 
-    def _warn_on_destructive_update(
-        self, machine_pool_name: str, new_spec: Any
-    ) -> None:
+    def _warn_on_destructive_update(self, machine_pool_name: str, new_spec: Any) -> None:
         if _machine_types_and_partitions(new_spec) is None:
             # The new spec has no machine_types list to diff against (e.g. a
             # CUSTOMER_MANAGED or malformed spec); leave validation to the backend.
@@ -143,13 +148,9 @@ class MachinePoolController(BaseController):
 
         lines = ["The following machine pool resources will be removed or renamed:"]
         for machine_type_name in removed_types:
-            lines.append(
-                f"  - machine type '{machine_type_name}' (and all of its partitions)"
-            )
+            lines.append(f"  - machine type '{machine_type_name}' (and all of its partitions)")
         for machine_type_name, partition_name in removed_partitions:
-            lines.append(
-                f"  - partition '{partition_name}' in machine type '{machine_type_name}'"
-            )
+            lines.append(f"  - partition '{partition_name}' in machine type '{machine_type_name}'")
         lines.append(
             "Renaming or removing a machine type or partition is applied as a delete and re-create, so the underlying instances will be terminated and any workloads running on them will be disrupted."
         )
@@ -173,7 +174,8 @@ class MachinePoolController(BaseController):
             return None
 
     def describe_machine_pool(
-        self, machine_pool_name: str,
+        self,
+        machine_pool_name: str,
     ) -> DescribeMachinePoolResponse:
         return self.api_client.describe_machine_pool_api_v2_machine_pools_describe_post(
             describe_machine_pool_request=DescribeMachinePoolRequest(

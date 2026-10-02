@@ -141,7 +141,7 @@ async fn validate_boolean(
     let mut match_evidence = Box::<crate::MatchEvidence>::default();
 
     let value = boolean_value.value();
-    let range = boolean_value.range();
+    let span = boolean_value.span();
 
     if let Some(const_value) = &boolean_schema.const_value {
         let matched = value == *const_value;
@@ -163,7 +163,7 @@ async fn validate_boolean(
                     expected: const_value.to_string(),
                     actual: value.to_string(),
                 }),
-                range,
+                span,
             }
             .push_diagnostic_with_level(level, &mut diagnostics);
         }
@@ -195,7 +195,7 @@ async fn validate_boolean(
                     expected: r#enum.iter().map(ToString::to_string).collect(),
                     actual: value.to_string(),
                 }),
-                range,
+                span,
             }
             .push_diagnostic_with_level(level, &mut diagnostics);
         }
